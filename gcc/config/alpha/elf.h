@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha w/ELF.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Richard Henderson (rth@tamu.edu).
 
@@ -23,6 +23,9 @@ Boston, MA 02111-1307, USA.    */
 #undef OBJECT_FORMAT_COFF
 #undef EXTENDED_COFF
 #define OBJECT_FORMAT_ELF
+
+/* ??? Move all SDB stuff from alpha.h to osf.h.  */
+#undef SDB_DEBUGGING_INFO
 
 #define DBX_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO
@@ -165,11 +168,15 @@ do {									\
   ASM_OUTPUT_SKIP((FILE), (SIZE));					\
 } while (0)
 
-/* This is the pseudo-op used to generate a 64-bit word of data with a
-   specific value in some section.  */
+/* This says how to output assembler code to declare an
+   uninitialized external linkage data object.  */
 
-#undef  INT_ASM_OP
-#define INT_ASM_OP		"\t.quad\t"
+#undef  ASM_OUTPUT_ALIGNED_BSS
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
+do {									\
+  ASM_GLOBALIZE_LABEL (FILE, NAME);					\
+  ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);			\
+} while (0)
 
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be
@@ -342,7 +349,6 @@ void FN ()					\
        else if (TREE_CODE (DECL) == CONSTRUCTOR)		\
 	 {							\
 	   if ((flag_pic && RELOC)				\
-	       || ! TREE_READONLY (DECL)			\
 	       || TREE_SIDE_EFFECTS (DECL)			\
 	       || ! TREE_CONSTANT (DECL))			\
 	     SECNUM = 2;					\
@@ -631,12 +637,6 @@ do {									\
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA
 
-/* Undo the auto-alignment stuff from alpha.h.  ELF has unaligned data
-   pseudos natively.  */
-#undef UNALIGNED_SHORT_ASM_OP
-#undef UNALIGNED_INT_ASM_OP
-#undef UNALIGNED_DOUBLE_INT_ASM_OP
-
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
    true if the symbol may be affected by dynamic relocations.
@@ -655,3 +655,25 @@ do {									\
   alpha_this_gpdisp_sequence_number = 0)
 extern int alpha_this_literal_sequence_number;
 extern int alpha_this_gpdisp_sequence_number;
+
+/* Since the bits of the _init and _fini function is spread across
+   many object files, each potentially with its own GP, we must assume
+   we need to load our GP.  Further, the .init/.fini section can
+   easily be more than 4MB away from the function to call so we can't
+   use bsr.  */
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
+   asm (SECTION_OP "\n"					\
+"	br $29,1f\n"					\
+"1:	ldgp $29,0($29)\n"				\
+"	unop\n"						\
+"	jsr $26," USER_LABEL_PREFIX #FUNC "\n"		\
+"	.align 3\n"					\
+"	.previous");
+
+/* If we have the capability create headers for efficient EH lookup.
+   As of Jan 2002, only glibc 2.2.4 can actually make use of this, but
+   I imagine that other systems will catch up.  In the meantime, it
+   doesn't harm to make sure that the data exists to be used later.  */
+#if defined(HAVE_LD_EH_FRAME_HDR)
+#define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
+#endif

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.7 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -1476,7 +1476,9 @@ package body Sem_Attr is
          E1 := First (Exprs);
          Analyze (E1);
 
-         if Etype (E1) = Any_Type then
+         --  Check for missing or bad expression (result of previous error)
+
+         if No (E1) or else Etype (E1) = Any_Type then
             raise Bad_Attribute;
          end if;
 
@@ -1543,33 +1545,47 @@ package body Sem_Attr is
          --  get the proper value, but if expansion is not active, then
          --  the check here allows proper semantic analysis of the reference.
 
-         if (Is_Entity_Name (P)
-           and then
-             (((Ekind (Entity (P)) = E_Task_Type
-                 or else Ekind (Entity (P)) = E_Protected_Type)
-                   and then Etype (Entity (P)) = Base_Type (Entity (P)))
-               or else Ekind (Entity (P)) = E_Package
-               or else Is_Generic_Unit (Entity (P))))
-           or else
-            (Nkind (P) = N_Attribute_Reference
-              and then
-             Attribute_Name (P) = Name_AST_Entry)
+         --  An Address attribute created by expansion is legal even when it
+         --  applies to other entity-denoting expressions.
+
+         if (Is_Entity_Name (P)) then
+            if Is_Subprogram (Entity (P))
+              or else Is_Object (Entity (P))
+              or else Ekind (Entity (P)) = E_Label
+            then
+               Set_Address_Taken (Entity (P));
+
+            elsif (Is_Concurrent_Type (Etype (Entity (P)))
+                    and then Etype (Entity (P)) = Base_Type (Entity (P)))
+              or else Ekind (Entity (P)) = E_Package
+              or else Is_Generic_Unit (Entity (P))
+            then
+               Rewrite (N,
+                 New_Occurrence_Of (RTE (RE_Null_Address), Sloc (N)));
+
+            else
+               Error_Attr ("invalid prefix for % attribute", P);
+            end if;
+
+         elsif Nkind (P) = N_Attribute_Reference
+          and then Attribute_Name (P) = Name_AST_Entry
          then
             Rewrite (N,
               New_Occurrence_Of (RTE (RE_Null_Address), Sloc (N)));
 
-         --  The following logic is obscure, needs explanation ???
+         elsif Is_Object_Reference (P) then
+            null;
 
-         elsif Nkind (P) = N_Attribute_Reference
-           or else (Is_Entity_Name (P)
-                      and then not Is_Subprogram (Entity (P))
-                      and then not Is_Object (Entity (P))
-                      and then Ekind (Entity (P)) /= E_Label)
+         elsif Nkind (P) = N_Selected_Component
+           and then Is_Subprogram (Entity (Selector_Name (P)))
          then
-            Error_Attr ("invalid prefix for % attribute", P);
+            null;
 
-         elsif Is_Entity_Name (P) then
-            Set_Address_Taken (Entity (P));
+         elsif not Comes_From_Source (N) then
+            null;
+
+         else
+            Error_Attr ("invalid prefix for % attribute", P);
          end if;
 
          Set_Etype (N, RTE (RE_Address));
@@ -3136,22 +3152,21 @@ package body Sem_Attr is
 
          if Is_Object_Reference (P)
            or else (Is_Entity_Name (P)
-                      and then
-                    Ekind (Entity (P)) = E_Function)
+                     and then Ekind (Entity (P)) = E_Function)
          then
             Check_Object_Reference (P);
 
-         elsif Nkind (P) = N_Attribute_Reference
-           or else
-             (Nkind (P) = N_Selected_Component
-               and then (Is_Entry (Entity (Selector_Name (P)))
-                           or else
-                         Is_Subprogram (Entity (Selector_Name (P)))))
-           or else
-             (Is_Entity_Name (P)
-               and then not Is_Type (Entity (P))
-               and then not Is_Object (Entity (P)))
+         elsif Is_Entity_Name (P)
+           and then Is_Type (Entity (P))
          then
+            null;
+
+         elsif Nkind (P) = N_Type_Conversion
+           and then not Comes_From_Source (P)
+         then
+            null;
+
+         else
             Error_Attr ("invalid prefix for % attribute", P);
          end if;
 
@@ -3682,6 +3697,11 @@ package body Sem_Attr is
       --  any, of the attribute, are in a non-static context. This procedure
       --  performs the required additional checks.
 
+      procedure Compile_Time_Known_Attribute (N : Node_Id; Val : Uint);
+      --  This procedure is called when the attribute N has a non-static
+      --  but compile time known value given by Val. It includes the
+      --  necessary checks for out of range values.
+
       procedure Float_Attribute_Universal_Integer
         (IEEES_Val : Int;
          IEEEL_Val : Int;
@@ -3719,7 +3739,8 @@ package body Sem_Attr is
       --  array subtype. Sets the variables Index_Lo and Index_Hi to the low
       --  and high bound expressions for the index referenced by the attribute
       --  designator (i.e. the first index if no expression is present, and
-      --  the N'th index if the value N is present as an expression).
+      --  the N'th index if the value N is present as an expression). Also
+      --  used for First and Last of scalar types.
 
       ---------------
       -- Aft_Value --
@@ -3754,6 +3775,34 @@ package body Sem_Attr is
             Next (E);
          end loop;
       end Check_Expressions;
+
+      ----------------------------------
+      -- Compile_Time_Known_Attribute --
+      ----------------------------------
+
+      procedure Compile_Time_Known_Attribute (N : Node_Id; Val : Uint) is
+         T : constant Entity_Id := Etype (N);
+
+      begin
+         Fold_Uint (N, Val);
+         Set_Is_Static_Expression (N, False);
+
+         --  Check that result is in bounds of the type if it is static
+
+         if Is_In_Range (N, T) then
+            null;
+
+         elsif Is_Out_Of_Range (N, T) then
+            Apply_Compile_Time_Constraint_Error
+              (N, "value not in range of}?");
+
+         elsif not Range_Checks_Suppressed (T) then
+            Enable_Range_Check (N);
+
+         else
+            Set_Do_Range_Check (N, False);
+         end if;
+      end Compile_Time_Known_Attribute;
 
       ---------------------------------------
       -- Float_Attribute_Universal_Integer --
@@ -3967,6 +4016,14 @@ package body Sem_Attr is
          elsif Is_Scalar_Type (P_Type) then
             Ityp := P_Type;
 
+            if Is_Fixed_Point_Type (P_Type)
+              and then not Is_Frozen (Base_Type (P_Type))
+              and then Compile_Time_Known_Value (Type_Low_Bound (P_Type))
+              and then Compile_Time_Known_Value (Type_High_Bound (P_Type))
+            then
+               Freeze_Fixed_Point_Type (Base_Type (P_Type));
+            end if;
+
          --  For array case, get type of proper index
 
          else
@@ -4065,8 +4122,7 @@ package body Sem_Attr is
             if Is_Entity_Name (P)
               and then Known_Esize (Entity (P))
             then
-               Fold_Uint (N, Esize (Entity (P)));
-               Set_Is_Static_Expression (N, False);
+               Compile_Time_Known_Attribute (N, Esize (Entity (P)));
                return;
 
             else
@@ -4178,8 +4234,7 @@ package body Sem_Attr is
         and then (not Is_Generic_Type (P_Entity))
         and then Known_Static_RM_Size (P_Entity)
       then
-         Fold_Uint (N, RM_Size (P_Entity));
-         Set_Is_Static_Expression (N, False);
+         Compile_Time_Known_Attribute (N, RM_Size (P_Entity));
          return;
 
       --  No other cases are foldable (they certainly aren't static, and at
@@ -5457,7 +5512,7 @@ package body Sem_Attr is
 
       when Attribute_Small =>
 
-         --  The floating-point case is present only for Ada 83 compatability.
+         --  The floating-point case is present only for Ada 83 compatibility.
          --  Note that strictly this is an illegal addition, since we are
          --  extending an Ada 95 defined attribute, but we anticipate an
          --  ARG ruling that will permit this.
@@ -6270,6 +6325,7 @@ package body Sem_Attr is
                end if;
 
                if Is_Tagged_Type (Designated_Type (Typ)) then
+
                   --  If the attribute is in the context of an access
                   --  parameter, then the prefix is allowed to be of
                   --  the class-wide type (by AI-127).
@@ -6278,18 +6334,28 @@ package body Sem_Attr is
                      if not Covers (Designated_Type (Typ), Nom_Subt)
                        and then not Covers (Nom_Subt, Designated_Type (Typ))
                      then
-                        if Is_Anonymous_Tagged_Base
-                             (Nom_Subt, Etype (Designated_Type (Typ)))
-                        then
-                           null;
+                        declare
+                           Desig : Entity_Id;
 
-                        else
-                           Error_Msg_NE
-                             ("type of prefix: & not compatible", P, Nom_Subt);
-                           Error_Msg_NE
-                             ("\with &, the expected designated type",
-                               P, Designated_Type (Typ));
-                        end if;
+                        begin
+                           Desig := Designated_Type (Typ);
+
+                           if Is_Class_Wide_Type (Desig) then
+                              Desig := Etype (Desig);
+                           end if;
+
+                           if Is_Anonymous_Tagged_Base (Nom_Subt, Desig) then
+                              null;
+
+                           else
+                              Error_Msg_NE
+                                ("type of prefix: & not compatible",
+                                  P, Nom_Subt);
+                              Error_Msg_NE
+                                ("\with &, the expected designated type",
+                                  P, Designated_Type (Typ));
+                           end if;
+                        end;
                      end if;
 
                   elsif not Covers (Designated_Type (Typ), Nom_Subt)
@@ -6465,24 +6531,6 @@ package body Sem_Attr is
                     ("prefix of % attribute cannot be overloaded", N);
                   return;
                end if;
-            end if;
-
-            --  Do not permit address to be applied to entry
-
-            if (Is_Entity_Name (P) and then Is_Entry (Entity (P)))
-              or else Nkind (P) = N_Entry_Call_Statement
-
-              or else (Nkind (P) = N_Selected_Component
-                and then Is_Entry (Entity (Selector_Name (P))))
-
-              or else (Nkind (P) = N_Indexed_Component
-                and then Nkind (Prefix (P)) = N_Selected_Component
-                and then Is_Entry (Entity (Selector_Name (Prefix (P)))))
-            then
-               Error_Msg_Name_1 := Aname;
-               Error_Msg_N
-                 ("prefix of % attribute cannot be entry", N);
-               return;
             end if;
 
             if not Is_Entity_Name (P)

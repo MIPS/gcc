@@ -1,5 +1,5 @@
 # Makefile for GNU F77 compiler runtime.
-#   Copyright (C) 1995-1998 Free Software Foundation, Inc.
+#   Copyright (C) 1995-1998, 2001, 2002 Free Software Foundation, Inc.
 #   Contributed by Dave Love (d.love@dl.ac.uk).
 #
 #This file is part of GNU Fortran.
@@ -20,16 +20,22 @@
 #02111-1307, USA.
 
 SHELL = /bin/sh
+MAKEOVERRIDES=
 
 #### Start of system configuration section. ####
 
-srcdir = @srcdir@
-VPATH = @srcdir@
+srcdir = @glibcpp_srcdir@
+VPATH = @glibcpp_srcdir@
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 target_alias = @target_alias@
 gcc_version = @gcc_version@
 gcc_version_trigger = @gcc_version_trigger@
+top_srcdir = @top_srcdir@
+toplevel_srcdir = @toplevel_srcdir@
+toolexecdir = @glibcpp_toolexecdir@
+glibcpp_toolexecdir = @glibcpp_toolexecdir@
+glibcpp_toolexeclibdir = @glibcpp_toolexeclibdir@
 
 top_builddir = .
 
@@ -60,6 +66,8 @@ INSTALL_DATA = @INSTALL_DATA@
 LIBTOOL = @LIBTOOL@
 CC = @CC@
 CFLAGS = @CFLAGS@
+AR = @AR@
+RANLIB = @RANLIB@
 
 # List of variables to pass to sub-makes.
 # Quote this way so that it can be used to set shell variables too.
@@ -117,9 +125,8 @@ all: all-unilib
 # meant to be invoked via multi-do for multilibs.
 
 # Its dependencies can be satisfied in parallel.  The [fiu]77 targets
-# update stamp files (see the subdir makefiles) which the $(LIBG2C)
-# target checks in the sub make to decide whether to run ar/ranlib.
-# (Probably only one stamp file is really needed.)  The stamp files
+# update stamp files (object file lists, actually, see the subdir
+# makefiles) on which the $(LIBG2C) depends.  The stamp files
 # s-lib[fiu]77 are intentionally not targets, since we're only meant
 # to come in at the level of this target.  The [fiu]77 targets always
 # invoke sub makes to check dependencies in the subdirs, else we'd
@@ -133,25 +140,19 @@ i77 f77 u77: g2c.h
 
 # This target should normally only get invoked via `all-unilib' --
 # after all's well in the subdirs -- actually to assemble the library.
-# The stamp file dependencies are just to check whether libg2c.a is
-# up-to-date (to avoid running ar regardless) -- the files should
-# always have been created by a successful `all-unilib'.
+# The stamp files contain the object lists of each component of the
+# library.  The point of breaking them up is to avoid command-line
+# length limitations.
 
 $(LIBG2C): s-libi77 s-libf77 s-libu77 s-libe77
-	rm -f $@ ;\
-	set -e; \
-	rm -f objlist ;\
-	touch objlist ;\
-	for i in $(SUBDIRS) ;\
-	do \
-	  (cd $$i && $(MAKE) $(FLAGS_TO_PASS) objlist) ;\
-	done ;\
-	objs="`cat objlist`" ;\
-	for i in $(F2CEXT); do objs="$$objs libE77/L$$i.lo"; done ;\
-	echo -n $$objs > objlist 
 	$(LIBTOOL) --mode=link $(CC) -o $@ \
 	  -version-info $(VERSION_MAJOR):$(VERSION_MINOR):$(VERSION_SUB) \
-	  -rpath $(prefix)/lib `cat objlist` -lc -lm
+	  -rpath $(libdir)$(MULTISUBDIR) \
+	  -objectlist s-libe77 \
+	  -objectlist s-libf77 \
+	  -objectlist s-libi77 \
+	  -objectlist s-libu77 \
+	  -lm
 
 i77:
 	cd libI77; $(MAKE) $(FLAGS_TO_PASS) all
@@ -164,15 +165,17 @@ u77:
 
 s-libe77: f2cext.c
 	if [ -d libE77 ]; then rm -f libE77/*.o libE77/*.lo; else mkdir libE77; fi
+	-rm -f $@.T $@
 	for name in $(F2CEXT); \
 	do \
 	  echo $${name}; \
 	  $(LIBTOOL) --mode=compile $(CC) -c -I. -I$(srcdir) -I../../include \
 	    $(CPPFLAGS) $(CFLAGS) -DL$${name} $(srcdir)/f2cext.c \
-	    -o libE77/L$${name}.o ; \
+	    -o libE77/L$${name}.lo ; \
 	  if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
+	  echo libE77/L$${name}.lo >> $@.T; \
 	done
-	echo timestamp >s-libe77
+	mv $@.T $@
 
 f2cext.c: g2c.h
 
@@ -206,29 +209,21 @@ check:
 	cd libU77; $(MAKE) G77DIR=../../../gcc/ check
 
 install: all
-	$(LIBTOOL) --mode=install $(INSTALL_DATA) $(LIBG2C) $(libsubdir)/$(MULTISUBDIR)
-	(cd $(libsubdir)/$(MULTISUBDIR) ; mv -f $(LIBG2C_BASE).* $(prefix)/lib)
-	$(INSTALL_DATA) libfrtbegin.a $(libsubdir)/$(MULTISUBDIR)
-	$(RANLIB) $(libsubdir)/$(MULTISUBDIR)/libfrtbegin.a
+	$(SHELL) $(toplevel_srcdir)/mkinstalldirs $(glibcpp_toolexeclibdir)
+	$(LIBTOOL) --mode=install $(INSTALL) $(LIBG2C) $(glibcpp_toolexeclibdir)
+	$(INSTALL_DATA) libfrtbegin.a $(glibcpp_toolexeclibdir)
+	$(RANLIB) $(glibcpp_toolexeclibdir)/libfrtbegin.a
 	$(INSTALL_DATA) g2c.h $(libsubdir)/include/g2c.h
-	@if [ -f f2c-install-ok -o -f $(srcdir)/f2c-install-ok ]; then \
-	  echo ''; \
-	  echo 'Warning: g77 no longer installs libf2c.a or f2c.h.'; \
-	  echo '         You must do so yourself.  For more information,'; \
-	  echo '         read "Distributing Binaries" in the g77 docs.'; \
-	  echo '         (To turn off this warning, delete the file'; \
-	  echo '         f2c-install-ok in the source or build directory.)'; \
-	  echo ''; \
-	else true; fi
 	$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="$@"
-	@-$(LIBTOOL) --mode=finish $(prefix)/lib
+	@-$(LIBTOOL) --mode=finish $(glibcpp_toolexeclibdir)
 
 install-strip:
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
 
 uninstall:
-	rm -f $(libsubdir)/$(MULTISUBDIR)/include/g2c.h $(libsubdir)/$(MULTISUBDIR)/$(LIBG2C_BASE).*
-	rm -f $(prefix)/lib/$(LIBG2C_BASE).so*
+	rm -f $(libsubdir)/include/g2c.h
+	rm -f $(glibcpp_toolexeclibdir)/libfrtbegin.a
+	$(LIBTOOL) --mode=uninstall rm -f $(glibcpp_toolexeclibdir)$(LIBG2C_BASE).la
 	$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="$@"
 
 mostlyclean:

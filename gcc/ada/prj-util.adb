@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $                              --
+--                            $Revision$
 --                                                                          --
 --             Copyright (C) 2001 Free Software Foundation, Inc.            --
 --                                                                          --
@@ -190,7 +190,8 @@ package body Prj.Util is
    function Value_Of
      (Variable : Variable_Value;
       Default  : String)
-      return     String is
+      return     String
+   is
    begin
       if Variable.Kind /= Single
         or else Variable.Default
@@ -254,7 +255,7 @@ package body Prj.Util is
      (Name                    : Name_Id;
       Attribute_Or_Array_Name : Name_Id;
       In_Package              : Package_Id)
-      return                   Variable_Value
+      return                    Variable_Value
    is
       The_Array     : Array_Element_Id;
       The_Attribute : Variable_Value := Nil_Variable_Value;
@@ -314,11 +315,12 @@ package body Prj.Util is
       return      Array_Element_Id
    is
       Current : Array_Id := In_Arrays;
-      The_Array : Array_Data;
+      The_Array          : Array_Data;
 
    begin
       while Current /= No_Array loop
          The_Array := Arrays.Table (Current);
+
          if The_Array.Name = Name then
             return The_Array.Value;
          else
@@ -340,8 +342,8 @@ package body Prj.Util is
    begin
       while Current /= No_Package loop
          The_Package := Packages.Table (Current);
-         exit when The_Package.Name /= No_Name and then
-           The_Package.Name = Name;
+         exit when The_Package.Name /= No_Name
+           and then The_Package.Name = Name;
          Current := The_Package.Next;
       end loop;
 
@@ -386,6 +388,7 @@ package body Prj.Util is
       --  Nothing to do for empty strings
 
       if S'Length > 0 then
+
          --  Start on a new line if current line is already longer than
          --  Max_Length.
 
@@ -397,6 +400,7 @@ package body Prj.Util is
          --  cut the remainder in several lines.
 
          while Positive (Column) + S'Last - First > Max_Length loop
+
             --  Try the maximum length possible
 
             Last := First + Max_Length - Positive (Column);
@@ -409,6 +413,7 @@ package body Prj.Util is
 
             --  If we do not find a separator, we output the maximum length
             --  possible.
+
             if Last < First then
                Last := First + Max_Length - Positive (Column);
             end if;
@@ -418,13 +423,11 @@ package body Prj.Util is
             --  Set the beginning of the new remainder
 
             First := Last + 1;
-
          end loop;
 
          --  What is left goes to the buffer, without EOL
 
          Write_Str (S (First .. S'Last));
-
       end if;
    end Write_Str;
 

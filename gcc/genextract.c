@@ -360,9 +360,9 @@ main (argc, argv)
   progname = "genextract";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   /* Assign sequential codes to all entries in the machine description
@@ -434,9 +434,11 @@ from the machine description file `md'.  */\n\n");
 
       /* The vector in the insn says how many operands it has.
 	 And all it contains are operands.  In fact, the vector was
-	 created just for the sake of this function.  */
+	 created just for the sake of this function.  We need to set the
+	 location of the operands for sake of simplifications after
+	 extraction, like eliminating subregs.  */
       printf ("      for (i = XVECLEN (pat, 0) - 1; i >= 0; i--)\n");
-      printf ("          ro[i] = XVECEXP (pat, 0, i);\n");
+      printf ("          ro[i] = *(ro_loc[i] = &XVECEXP (pat, 0, i));\n");
       printf ("      break;\n\n");
     }
 

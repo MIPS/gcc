@@ -185,8 +185,8 @@ LIB_AC_PROG_CXX
   # at least currently, we never actually build a program, so we never
   # need to use $(EXEEXT).  Moreover, the test for EXEEXT normally
   # fails, because we are probably configuring with a cross compiler
-  # which cant create executables.  So we include AC_EXEEXT to keep
-  # automake happy, but we dont execute it, since we dont care about
+  # which can't create executables.  So we include AC_EXEEXT to keep
+  # automake happy, but we don't execute it, since we don't care about
   # the result.
   if false; then
     # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
@@ -298,8 +298,8 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
   # If we're not using GNU ld, then there's no point in even trying these
   # tests.  Check for that first.  We should have already tested for gld
   # by now (in libtool), but require it now just to be safe...
-  SECTION_LDFLAGS=''
-  OPT_LDFLAGS=''
+  test -z "$SECTION_LDFLAGS" && SECTION_LDFLAGS=''
+  test -z "$OPT_LDFLAGS" && OPT_LDFLAGS=''
   AC_REQUIRE([AC_PROG_LD])
 
   # Set --gc-sections.
@@ -327,7 +327,7 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
        catch (...) { };
        return 0;
      }
-    ], [ac_sectionLDflags=yes],[ac_sectionLFflags=no], [ac_sectionLDflags=yes])
+    ], [ac_sectionLDflags=yes],[ac_sectionLDflags=no], [ac_sectionLDflags=yes])
     if test "$ac_test_CFLAGS" = set; then
       CFLAGS="$ac_save_CFLAGS"
     else
@@ -335,7 +335,7 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
       CFLAGS=''
     fi
     if test "$ac_sectionLDflags" = "yes"; then
-      SECTION_LDFLAGS='-Wl,--gc-sections'
+      SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
     fi
     AC_MSG_RESULT($ac_sectionLDflags)
   fi
@@ -343,7 +343,7 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
   # Set linker optimization flags.
   if test x"$ac_cv_prog_gnu_ld" = x"yes" &&
      test x"$enable_debug" = x"no"; then
-    OPT_LDFLAGS='-Wl,-O1'
+    OPT_LDFLAGS="-Wl,-O1 $OPT_LDFLAGS"
   fi
 
   AC_SUBST(SECTION_LDFLAGS)
@@ -599,7 +599,7 @@ dnl check for __builtin_fabl
 dnl check for __builtin_labs
 dnl check for __builtin_sqrtf
 dnl check for __builtin_sqrtl
-dnl check for __builtin_fsqrt
+dnl check for __builtin_sqrt
 dnl check for __builtin_sinf
 dnl check for __builtin_sin
 dnl check for __builtin_sinl
@@ -618,7 +618,7 @@ AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
   GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1(__builtin_labs)
 
   GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1(__builtin_sqrtf)
-  GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1(__builtin_fsqrt)
+  GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1(__builtin_sqrt)
   GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1(__builtin_sqrtl)
 
   GLIBCPP_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1(__builtin_sinf)
@@ -648,7 +648,7 @@ AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
     AC_DEFINE(HAVE___BUILTIN_SIN)
     AC_DEFINE(HAVE___BUILTIN_SINF)
     AC_DEFINE(HAVE___BUILTIN_SINL)
-    AC_DEFINE(HAVE___BUILTIN_FSQRT)
+    AC_DEFINE(HAVE___BUILTIN_SQRT)
     AC_DEFINE(HAVE___BUILTIN_SQRTF)
     AC_DEFINE(HAVE___BUILTIN_SQRTL)
   fi
@@ -673,6 +673,7 @@ AC_DEFUN(GLIBCPP_CHECK_STDLIB_SUPPORT, [
   CXXFLAGS='-fno-builtins -D_GNU_SOURCE'
 
   GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_2(strtold)
+  GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_2(strtof)
   AC_CHECK_FUNCS(drand48)
 
   CXXFLAGS="$ac_save_CXXFLAGS"
@@ -1053,13 +1054,57 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   --enable-clocale=MODEL  use MODEL target-speific locale package. [default=generic]
   ], 
   if test x$enable_clocale = xno; then
-     enable_clocale=generic
+     enable_clocale=no
   fi,
-     enable_clocale=generic)
+     enable_clocale=no)
 
   enable_clocale_flag=$enable_clocale
 
-  dnl Check if a valid locale package
+  dnl Probe for locale support if no specific model is specified.
+  dnl Default to "generic"
+  if test x$enable_clocale_flag = xno; then
+    case x${target_os} in
+      xlinux* | xgnu*)
+	AC_EGREP_CPP([_GLIBCPP_ok], [
+        #include <features.h>
+        #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2) 
+          _GLIBCPP_ok
+        #endif
+        ], enable_clocale_flag=gnu, enable_clocale_flag=generic)
+
+	# Test for bugs early in glibc-2.2.x series
+  	if test x$enable_clocale_flag = xgnu; then
+    	  AC_TRY_RUN([
+	  #define _GNU_SOURCE 1
+	  #include <locale.h>
+	  int main()
+	  {
+  	    const char __one[] = "Äuglein Augmen";
+  	    const char __two[] = "Äuglein";
+  	    int i;
+  	    int j;
+  	    __locale_t	loc;
+   	    __locale_t	loc_dup;
+  	    loc = __newlocale(1 << LC_ALL, "de_DE", 0);
+  	    loc_dup = __duplocale(loc);
+  	    i = __strcoll_l(__one, __two, loc);
+  	    j = __strcoll_l(__one, __two, loc_dup);
+  	    return 0;
+	  }
+	  ], 
+	  [enable_clocale_flag=gnu],[enable_clocale_flag=generic],
+	  [enable_clocale_flag=generic])
+  	fi
+
+	# ... at some point put __strxfrm_l tests in as well.
+        ;;
+      *)
+	enable_clocale_flag=generic
+	;;
+    esac
+  fi
+
+  dnl Set configure bits for specified locale package
   case x${enable_clocale_flag} in
     xgeneric)
       AC_MSG_RESULT(generic)
@@ -1071,6 +1116,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_CC=config/locale/c_locale_generic.cc
       CCODECVT_H=config/locale/codecvt_specializations_generic.h
       CCOLLATE_CC=config/locale/collate_members_generic.cc
+      CCTYPE_CC=config/locale/ctype_members_generic.cc
       CMESSAGES_H=config/locale/messages_members_generic.h
       CMESSAGES_CC=config/locale/messages_members_generic.cc
       CMONEY_CC=config/locale/moneypunct_members_generic.cc
@@ -1100,6 +1146,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_CC=config/locale/c_locale_gnu.cc
       CCODECVT_H=config/locale/codecvt_specializations_ieee_1003.1-200x.h
       CCOLLATE_CC=config/locale/collate_members_gnu.cc
+      CCTYPE_CC=config/locale/ctype_members_gnu.cc
       CMESSAGES_H=config/locale/messages_members_gnu.h
       CMESSAGES_CC=config/locale/messages_members_gnu.cc
       CMONEY_CC=config/locale/moneypunct_members_gnu.cc
@@ -1116,6 +1163,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_CC=config/locale/c_locale_ieee_1003.1-200x.cc
       CCODECVT_H=config/locale/codecvt_specializations_ieee_1003.1-200x.h
       CCOLLATE_CC=config/locale/collate_members_generic.cc
+      CCTYPE_CC=config/locale/ctype_members_generic.cc
       CMESSAGES_H=config/locale/messages_members_ieee_1003.1-200x.h
       CMESSAGES_CC=config/locale/messages_members_ieee_1003.1-200x.cc
       CMONEY_CC=config/locale/moneypunct_members_generic.cc
@@ -1139,6 +1187,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   AC_SUBST(CMESSAGES_H)
   AC_LINK_FILES($CLOCALE_CC, src/c++locale.cc)
   AC_LINK_FILES($CCOLLATE_CC, src/collate.cc)
+  AC_LINK_FILES($CCTYPE_CC, src/ctype.cc)
   AC_LINK_FILES($CMESSAGES_CC, src/messages.cc)
   AC_LINK_FILES($CMONEY_CC, src/moneypunct.cc)
   AC_LINK_FILES($CNUMERIC_CC, src/numpunct.cc)
@@ -1367,7 +1416,7 @@ AC_DEFUN(GLIBCPP_ENABLE_C99, [dnl
 
   AC_ARG_ENABLE(c99,
   changequote(<<, >>)dnl
-  <<--enable-c99      turns on 'ISO/IEC 9899:1999 support' [default=>>GLIBCPP_ENABLE_C99_DEFAULT],
+  <<--enable-c99            turns on 'ISO/IEC 9899:1999 support' [default=>>GLIBCPP_ENABLE_C99_DEFAULT],
   changequote([, ])dnl
   [case "$enableval" in
    yes) enable_c99=yes ;;
@@ -1445,10 +1494,6 @@ AC_DEFUN(GLIBCPP_ENABLE_C99, [dnl
 	         [char* tmp; strtof("gnu", &tmp);],, [ac_c99_stdlib=no])
   AC_TRY_COMPILE([#include <stdlib.h>],
 	         [char* tmp; strtold("gnu", &tmp);],, [ac_c99_stdlib=no])
-  AC_TRY_COMPILE([#include <stdlib.h>],
-	         [char* tmp; strtoll("gnu", &tmp, 10);],, [ac_c99_stdlib=no])
-  AC_TRY_COMPILE([#include <stdlib.h>],
-	         [char* tmp; strtoull("gnu", &tmp, 10);],, [ac_c99_stdlib=no])
   AC_TRY_COMPILE([#include <stdlib.h>], [llabs(10);],, [ac_c99_stdlib=no])
   AC_TRY_COMPILE([#include <stdlib.h>], [lldiv(10,1);],, [ac_c99_stdlib=no])
   AC_TRY_COMPILE([#include <stdlib.h>], [atoll("10");],, [ac_c99_stdlib=no])
@@ -1490,7 +1535,8 @@ AC_DEFUN(GLIBCPP_ENABLE_C99, [dnl
 
 dnl
 dnl Check for template specializations for the 'long long' type extension.
-dnl NB: Must check for C99 support before calling _GLIBCPP_ENABLE_LONG_LONG
+dnl The result determines only whether 'long long' I/O is enabled; things
+dnl like numeric_limits<> specializations are always available.
 dnl
 dnl GLIBCPP_ENABLE_LONG_LONG
 dnl --enable-long-long defines _GLIBCPP_USE_LONG_LONG
@@ -1515,19 +1561,23 @@ AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
    esac],
   enable_long_long=GLIBCPP_ENABLE_LONG_LONG_DEFAULT)dnl
 
-  # iostreams require strtoll, strtoull to compile. If the
-  # GLIBCPP_ENABLE_C99 tests found these, and if C99 support is enabled,
-  # go ahead and allow long long to be used.
-  if test x"$enable_c99" = x"no"; then
-    enable_long_long=no; 
-  fi
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+
+  AC_MSG_CHECKING([for enabled long long I/O support])
+  # iostreams require strtoll, strtoull to compile
+  AC_TRY_COMPILE([#include <stdlib.h>],
+                 [char* tmp; strtoll("gnu", &tmp, 10);],,[enable_long_long=no])
+  AC_TRY_COMPILE([#include <stdlib.h>],
+                 [char* tmp; strtoull("gnu", &tmp, 10);],,[enable_long_long=no])
 
   # Option parsed, now set things appropriately
-  AC_MSG_CHECKING([for enabled long long support])
   if test x"$enable_long_long" = xyes; then
     AC_DEFINE(_GLIBCPP_USE_LONG_LONG)
   fi
   AC_MSG_RESULT($enable_long_long)
+
+  AC_LANG_RESTORE
 ])
 
 
@@ -1899,6 +1949,9 @@ dnl
 dnl GLIBCPP_CONFIGURE_TESTSUITE  [no args]
 AC_DEFUN(GLIBCPP_CONFIGURE_TESTSUITE, [
   GLIBCPP_CHECK_SETRLIMIT
+
+  # Look for setenv, so that extended locale tests can be performed.
+  AC_CHECK_FUNCS(setenv)
 ])
 
 
@@ -1933,6 +1986,35 @@ AC_DEFUN(AC_LC_MESSAGES, [
     fi
   ])
 ])
+
+
+dnl
+dnl Check for whether the Boost-derived checks should be turned on.
+dnl
+dnl GLIBCPP_ENABLE_CONCEPT_CHECKS
+dnl --enable-concept-checks turns them on.
+dnl --disable-concept-checks leaves them off.
+dnl  +  Usage:  GLIBCPP_ENABLE_CONCEPT_CHECKS[(DEFAULT)]
+dnl       Where DEFAULT is either `yes' or `no'.  If ommitted, it
+dnl       defaults to `no'.
+AC_DEFUN(GLIBCPP_ENABLE_CONCEPT_CHECKS, [dnl
+define([GLIBCPP_ENABLE_CONCEPT_CHECKS_DEFAULT], ifelse($1, yes, yes, no))dnl
+AC_ARG_ENABLE(concept-checks,
+changequote(<<, >>)dnl
+<<  --enable-concept-checks use Boost-derived template checks [default=>>GLIBCPP_ENABLE_CONCEPT_CHECKS_DEFAULT],
+changequote([, ])dnl
+[case "$enableval" in
+ yes) enable_concept_checks=yes ;;
+ no)  enable_concept_checks=no ;;
+ *)   AC_MSG_ERROR([Unknown argument to enable/disable concept checks]) ;;
+ esac],
+enable_concept_checks=GLIBCPP_ENABLE_CONCEPT_CHECKS_DEFAULT)dnl
+dnl Option parsed, now set things appropriately
+if test x"$enable_concept_checks" = xyes; then
+  AC_DEFINE(_GLIBCPP_CONCEPT_CHECKS)
+fi
+])
+
 
 
 #serial 1

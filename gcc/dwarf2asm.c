@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "rtl.h"
 #include "output.h"
+#include "target.h"
 #include "dwarf2asm.h"
 #include "dwarf2.h"
 #include "splay-tree.h"
@@ -37,50 +38,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define ASM_COMMENT_START ";#"
 #endif
 
-/* We don't have unaligned support, let's hope the normal output works for
-   .debug_frame.  But we know it won't work for .debug_info.  */
-#if !defined(UNALIGNED_INT_ASM_OP) && defined(DWARF2_DEBUGGING_INFO)
- #error DWARF2_DEBUGGING_INFO requires UNALIGNED_INT_ASM_OP.
-#endif
-
 
-/* Despite the fact that assemble_integer handles unaligned data,
-   continue emitting things by hand when possible, since that makes
-   the assembler commentary come out prettier.  */
-#ifdef UNALIGNED_INT_ASM_OP
-static const char * unaligned_integer_asm_op  PARAMS ((int));
+/* Output an unaligned integer with the given value and size.  Prefer not
+   to print a newline, since the caller may want to add a comment.  */
 
-static inline const char *
-unaligned_integer_asm_op (size)
+void
+dw2_assemble_integer (size, x)
      int size;
+     rtx x;
 {
-  const char *op = NULL;
-  switch (size)
+  const char *op = integer_asm_op (size, FALSE);
+
+  if (op)
     {
-    case 1:
-      op = ASM_BYTE_OP;
-      break;
-    case 2:
-      op = UNALIGNED_SHORT_ASM_OP;
-      break;
-    case 4:
-      op = UNALIGNED_INT_ASM_OP;
-      break;
-    case 8:
-#ifdef UNALIGNED_DOUBLE_INT_ASM_OP
-      op = UNALIGNED_DOUBLE_INT_ASM_OP;
-      break;
-#endif
-    default:
-      abort ();
+      fputs (op, asm_out_file);
+      if (GET_CODE (x) == CONST_INT)
+	fprintf (asm_out_file, HOST_WIDE_INT_PRINT_HEX, INTVAL (x));
+      else
+	output_addr_const (asm_out_file, x);
     }
-
-  if (! op)
-    abort ();
-
-  return op;
+  else
+    assemble_integer (x, size, BITS_PER_UNIT, 1);
 }
-#endif /* UNALIGNED_INT_ASM_OP */
+     
 
 /* Output an immediate constant in a given size.  */
 
@@ -94,14 +74,9 @@ dw2_asm_output_data VPARAMS ((int size, unsigned HOST_WIDE_INT value,
   VA_FIXEDARG (ap, const char *, comment);
 
   if (size * 8 < HOST_BITS_PER_WIDE_INT)
-    value &= ~(~(unsigned HOST_WIDE_INT)0 << (size * 8));
+    value &= ~(~(unsigned HOST_WIDE_INT) 0 << (size * 8));
 
-#ifdef UNALIGNED_INT_ASM_OP
-  fputs (unaligned_integer_asm_op (size), asm_out_file);
-  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_HEX, value);
-#else
-  assemble_integer (GEN_INT (value), size, BITS_PER_UNIT, 1);
-#endif
+  dw2_assemble_integer (size, GEN_INT (value));
 
   if (flag_debug_asm && comment)
     {
@@ -129,16 +104,10 @@ dw2_asm_output_delta VPARAMS ((int size, const char *lab1, const char *lab2,
   VA_FIXEDARG (ap, const char *, lab2);
   VA_FIXEDARG (ap, const char *, comment);
 
-#ifdef UNALIGNED_INT_ASM_OP
-  fputs (unaligned_integer_asm_op (size), asm_out_file);
-  assemble_name (asm_out_file, lab1);
-  fputc ('-', asm_out_file);
-  assemble_name (asm_out_file, lab2);
-#else
-  assemble_integer (gen_rtx_MINUS (Pmode, gen_rtx_SYMBOL_REF (Pmode, lab1),
-				   gen_rtx_SYMBOL_REF (Pmode, lab2)),
-		    size, BITS_PER_UNIT, 1);
-#endif
+  dw2_assemble_integer (size,
+			gen_rtx_MINUS (Pmode,
+				       gen_rtx_SYMBOL_REF (Pmode, lab1),
+				       gen_rtx_SYMBOL_REF (Pmode, lab2)));
 
   if (flag_debug_asm && comment)
     {
@@ -168,12 +137,7 @@ dw2_asm_output_offset VPARAMS ((int size, const char *label,
 #ifdef ASM_OUTPUT_DWARF_OFFSET
   ASM_OUTPUT_DWARF_OFFSET (asm_out_file, size, label);
 #else
-#ifdef UNALIGNED_INT_ASM_OP
-  fputs (unaligned_integer_asm_op (size), asm_out_file);
-  assemble_name (asm_out_file, label);
-#else
-  assemble_integer (gen_rtx_SYMBOL_REF (Pmode, label), size, BITS_PER_UNIT, 1);
-#endif
+  dw2_assemble_integer (size, gen_rtx_SYMBOL_REF (Pmode, label));
 #endif
 
   if (flag_debug_asm && comment)
@@ -190,7 +154,8 @@ dw2_asm_output_offset VPARAMS ((int size, const char *label,
    different section or object file.  */
 
 void
-dw2_asm_output_pcrel VPARAMS ((int size, const char *label,
+dw2_asm_output_pcrel VPARAMS ((int size ATTRIBUTE_UNUSED,
+			       const char *label ATTRIBUTE_UNUSED,
 			       const char *comment, ...))
 {
   VA_OPEN (ap, comment);
@@ -201,14 +166,10 @@ dw2_asm_output_pcrel VPARAMS ((int size, const char *label,
 #ifdef ASM_OUTPUT_DWARF_PCREL
   ASM_OUTPUT_DWARF_PCREL (asm_out_file, size, label);
 #else
-#ifdef UNALIGNED_INT_ASM_OP
-  fputs (unaligned_integer_asm_op (size), asm_out_file);
-  assemble_name (asm_out_file, label);
-  fputc ('-', asm_out_file);
-  fputc ('.', asm_out_file);
-#else
-  abort ();
-#endif
+  dw2_assemble_integer (size,
+			gen_rtx_MINUS (Pmode,
+				       gen_rtx_SYMBOL_REF (Pmode, label),
+				       pc_rtx));
 #endif
 
   if (flag_debug_asm && comment)
@@ -232,12 +193,7 @@ dw2_asm_output_addr VPARAMS ((int size, const char *label,
   VA_FIXEDARG (ap, const char *, label);
   VA_FIXEDARG (ap, const char *, comment);
 
-#ifdef UNALIGNED_INT_ASM_OP
-  fputs (unaligned_integer_asm_op (size), asm_out_file);
-  assemble_name (asm_out_file, label);
-#else
-  assemble_integer (gen_rtx_SYMBOL_REF (Pmode, label), size, BITS_PER_UNIT, 1);
-#endif
+  dw2_assemble_integer (size, gen_rtx_SYMBOL_REF (Pmode, label));
 
   if (flag_debug_asm && comment)
     {
@@ -260,12 +216,7 @@ dw2_asm_output_addr_rtx VPARAMS ((int size, rtx addr,
   VA_FIXEDARG (ap, rtx, addr);
   VA_FIXEDARG (ap, const char *, comment);
 
-#ifdef UNALIGNED_INT_ASM_OP
-  fputs (unaligned_integer_asm_op (size), asm_out_file);
-  output_addr_const (asm_out_file, addr);
-#else
-  assemble_integer (addr, size, BITS_PER_UNIT, 1);
-#endif
+  dw2_assemble_integer (size, addr);
 
   if (flag_debug_asm && comment)
     {
@@ -318,7 +269,7 @@ dw2_asm_output_nstring VPARAMS ((const char *str, size_t orig_len,
 	len += 1;
       ASM_OUTPUT_ASCII (asm_out_file, str, len);
       if (orig_len != (size_t) -1)
-	fprintf (asm_out_file, "%s0\n", ASM_BYTE_OP);
+	assemble_integer (const0_rtx, 1, BITS_PER_UNIT, 1);
     }
 
   VA_CLOSE (ap);
@@ -570,8 +521,10 @@ dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
 #else
   {
     unsigned HOST_WIDE_INT work = value;
+    const char *byte_op = targetm.asm_out.byte_op;
 
-    fputs (ASM_BYTE_OP, asm_out_file);
+    if (byte_op)
+      fputs (byte_op, asm_out_file);
     do
       {
 	int byte = (work & 0x7f);
@@ -580,9 +533,14 @@ dw2_asm_output_data_uleb128 VPARAMS ((unsigned HOST_WIDE_INT value,
 	  /* More bytes to follow.  */
 	  byte |= 0x80;
 
-	fprintf (asm_out_file, "0x%x", byte);
-	if (work != 0)
-	  fputc (',', asm_out_file);
+	if (byte_op)
+	  {
+	    fprintf (asm_out_file, "0x%x", byte);
+	    if (work != 0)
+	      fputc (',', asm_out_file);
+	  }
+	else
+	  assemble_integer (GEN_INT (byte), 1, BITS_PER_UNIT, 1);
       }
     while (work != 0);
 
@@ -626,8 +584,10 @@ dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,
   {
     HOST_WIDE_INT work = value;
     int more, byte;
+    const char *byte_op = targetm.asm_out.byte_op;
 
-    fputs (ASM_BYTE_OP, asm_out_file);
+    if (byte_op)
+      fputs (byte_op, asm_out_file);
     do
       {
 	byte = (work & 0x7f);
@@ -638,9 +598,14 @@ dw2_asm_output_data_sleb128 VPARAMS ((HOST_WIDE_INT value,
 	if (more)
 	  byte |= 0x80;
 
-	fprintf (asm_out_file, "0x%x", byte);
-	if (more)
-	  fputc (',', asm_out_file);
+	if (byte_op)
+	  {
+	    fprintf (asm_out_file, "0x%x", byte);
+	    if (more)
+	      fputc (',', asm_out_file);
+	  }
+	else
+	  assemble_integer (GEN_INT (byte), 1, BITS_PER_UNIT, 1);
       }
     while (more);
 
@@ -719,10 +684,38 @@ dw2_asm_output_delta_sleb128 VPARAMS ((const char *lab1 ATTRIBUTE_UNUSED,
   VA_CLOSE (ap);
 }
 
+static int mark_indirect_pool_entry PARAMS ((splay_tree_node, void *));
+static void mark_indirect_pool PARAMS ((PTR arg));
 static rtx dw2_force_const_mem PARAMS ((rtx));
 static int dw2_output_indirect_constant_1 PARAMS ((splay_tree_node, void *));
 
 static splay_tree indirect_pool;
+
+#if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
+# define USE_LINKONCE_INDIRECT 1
+#else
+# define USE_LINKONCE_INDIRECT 0
+#endif
+
+/* Mark all indirect constants for GC.  */
+
+static int
+mark_indirect_pool_entry (node, data)
+     splay_tree_node node;
+     void* data ATTRIBUTE_UNUSED;
+{
+  ggc_mark_nonnull_tree ((tree) node->value);
+  return 0;
+}
+
+/* Mark all indirect constants for GC.  */
+
+static void
+mark_indirect_pool (arg)
+     PTR arg ATTRIBUTE_UNUSED;
+{
+  splay_tree_foreach (indirect_pool, mark_indirect_pool_entry, NULL);
+}
 
 /* Put X, a SYMBOL_REF, in memory.  Return a SYMBOL_REF to the allocated
    memory.  Differs from force_const_mem in that a single pool is used for
@@ -734,35 +727,61 @@ dw2_force_const_mem (x)
      rtx x;
 {
   splay_tree_node node;
-  const char *const_sym;
+  const char *str;
+  tree decl;
 
   if (! indirect_pool)
-    indirect_pool = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+    {
+      indirect_pool = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+      ggc_add_root (&indirect_pool, 1, sizeof indirect_pool, mark_indirect_pool);
+    }
 
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
-  node = splay_tree_lookup (indirect_pool, (splay_tree_key) XSTR (x, 0));
+
+  STRIP_NAME_ENCODING (str, XSTR (x, 0));
+  node = splay_tree_lookup (indirect_pool, (splay_tree_key) str);
   if (node)
-    const_sym = (const char *) node->value;
+    decl = (tree) node->value;
   else
     {
-      extern int const_labelno;
-      char label[32];
       tree id;
 
-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
-      ++const_labelno;
-      const_sym = ggc_strdup (label);
+      if (USE_LINKONCE_INDIRECT)
+	{
+	  char *ref_name = alloca (strlen (str) + sizeof "DW.ref.");
 
-      id = maybe_get_identifier (XSTR (x, 0));
+	  sprintf (ref_name, "DW.ref.%s", str);
+	  id = get_identifier (ref_name);
+	  decl = build_decl (VAR_DECL, id, ptr_type_node);
+	  DECL_ARTIFICIAL (decl) = 1;
+	  TREE_PUBLIC (decl) = 1;
+	  DECL_INITIAL (decl) = decl;
+	  make_decl_one_only (decl);
+	}
+      else
+	{
+	  extern int const_labelno;
+	  char label[32];
+
+	  ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
+	  ++const_labelno;
+	  id = get_identifier (label);
+	  decl = build_decl (VAR_DECL, id, ptr_type_node);
+	  DECL_ARTIFICIAL (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_INITIAL (decl) = decl;
+	}
+
+      id = maybe_get_identifier (str);
       if (id)
 	TREE_SYMBOL_REFERENCED (id) = 1;
 
-      splay_tree_insert (indirect_pool, (splay_tree_key) XSTR (x, 0),
-			 (splay_tree_value) const_sym);
+      splay_tree_insert (indirect_pool, (splay_tree_key) str,
+			 (splay_tree_value) decl);
     }
 
-  return gen_rtx_SYMBOL_REF (Pmode, const_sym);
+  return XEXP (DECL_RTL (decl), 0);
 }
 
 /* A helper function for dw2_output_indirect_constants called through
@@ -773,14 +792,14 @@ dw2_output_indirect_constant_1 (node, data)
      splay_tree_node node;
      void* data ATTRIBUTE_UNUSED;
 {
-  const char *label, *sym;
+  const char *sym;
   rtx sym_ref;
 
-  label = (const char *) node->value;
   sym = (const char *) node->key;
   sym_ref = gen_rtx_SYMBOL_REF (Pmode, sym);
-
-  ASM_OUTPUT_LABEL (asm_out_file, label);
+  if (USE_LINKONCE_INDIRECT)
+    fprintf (asm_out_file, "\t.hidden DW.ref.%s\n", sym);
+  assemble_variable ((tree) node->value, 1, 1, 1);
   assemble_integer (sym_ref, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 
   return 0;
@@ -791,19 +810,8 @@ dw2_output_indirect_constant_1 (node, data)
 void
 dw2_output_indirect_constants ()
 {
-  if (! indirect_pool)
-    return;
-
-  /* Assume that the whole reason we're emitting these symbol references
-     indirectly is that they contain dynamic relocations, and are thus
-     read-write.  If there was no possibility of a dynamic relocation, we
-     might as well have used a direct relocation.  */
-  data_section ();
-
-  /* Everything we're emitting is a pointer.  Align appropriately.  */
-  assemble_align (POINTER_SIZE);
-
-  splay_tree_foreach (indirect_pool, dw2_output_indirect_constant_1, NULL);
+  if (indirect_pool)
+    splay_tree_foreach (indirect_pool, dw2_output_indirect_constant_1, NULL);
 }
 
 /* Like dw2_asm_output_addr_rtx, but encode the pointer as directed.  */
@@ -829,8 +837,9 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
       return;
     }
 
-  /* NULL is _always_ represented as a plain zero.  */
-  if (addr == const0_rtx)
+  /* NULL is _always_ represented as a plain zero, as is 1 for Ada's
+     "all others".  */
+  if (addr == const0_rtx || addr == const1_rtx)
     assemble_integer (addr, size, BITS_PER_UNIT, 1);
   else
     {
@@ -860,12 +869,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
       switch (encoding & 0xF0)
 	{
 	case DW_EH_PE_absptr:
-#ifdef UNALIGNED_INT_ASM_OP
-	  fputs (unaligned_integer_asm_op (size), asm_out_file);
-	  output_addr_const (asm_out_file, addr);
-#else
-	  assemble_integer (addr, size, BITS_PER_UNIT, 1);
-#endif
+	  dw2_assemble_integer (size, addr);
 	  break;
 
 	case DW_EH_PE_pcrel:
@@ -874,14 +878,7 @@ dw2_asm_output_encoded_addr_rtx VPARAMS ((int encoding,
 #ifdef ASM_OUTPUT_DWARF_PCREL
 	  ASM_OUTPUT_DWARF_PCREL (asm_out_file, size, XSTR (addr, 0));
 #else
-#ifdef UNALIGNED_INT_ASM_OP
-	  fputs (unaligned_integer_asm_op (size), asm_out_file);
-	  assemble_name (asm_out_file, XSTR (addr, 0));
-	  fputc ('-', asm_out_file);
-	  fputc ('.', asm_out_file);
-#else
-	  abort ();
-#endif
+	  dw2_assemble_integer (size, gen_rtx_MINUS (Pmode, addr, pc_rtx));
 #endif
 	  break;
 

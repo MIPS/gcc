@@ -1,5 +1,5 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -19,15 +19,41 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  You are forbidden to forbid anyone else to use, share and improve
  what you give them.   Help stamp out software-hoarding!  */
 
-/* See target.h for a desciption of what this file contains and how to
+/* See target.h for a description of what this file contains and how to
    use it.
 
    We want to have non-NULL default definitions of all hook functions,
    even if they do nothing.  */
 
+/* Note that if one of these macros must be defined in an OS .h file
+   rather than the .c file, then we need to wrap the default
+   definition in a #ifndef, since files include tm.h before this one.  */
+
 /* Assembler output.  */
 #define TARGET_ASM_OPEN_PAREN "("
 #define TARGET_ASM_CLOSE_PAREN ")"
+#define TARGET_ASM_BYTE_OP "\t.byte\t"
+
+#define TARGET_ASM_ALIGNED_HI_OP "\t.short\t"
+#define TARGET_ASM_ALIGNED_SI_OP "\t.long\t"
+#define TARGET_ASM_ALIGNED_DI_OP NULL
+#define TARGET_ASM_ALIGNED_TI_OP NULL
+
+/* GAS and SYSV4 assemblers accept these.  */
+#if defined (OBJECT_FORMAT_ELF) || defined (OBJECT_FORMAT_ROSE)
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.2byte\t"
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.4byte\t"
+#define TARGET_ASM_UNALIGNED_DI_OP "\t.8byte\t"
+#define TARGET_ASM_UNALIGNED_TI_OP NULL
+#else
+#define TARGET_ASM_UNALIGNED_HI_OP NULL
+#define TARGET_ASM_UNALIGNED_SI_OP NULL
+#define TARGET_ASM_UNALIGNED_DI_OP NULL
+#define TARGET_ASM_UNALIGNED_TI_OP NULL
+#endif /* OBJECT_FORMAT_ELF || OBJECT_FORMAT_ROSE */
+
+#define TARGET_ASM_INTEGER default_assemble_integer
+
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_EPILOGUE default_function_pro_epilogue
 #define TARGET_ASM_FUNCTION_END_PROLOGUE no_asm_to_stream
@@ -72,13 +98,39 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_HAVE_NAMED_SECTIONS false
 #endif
 
+#ifndef TARGET_ASM_EXCEPTION_SECTION
+#define TARGET_ASM_EXCEPTION_SECTION default_exception_section
+#endif
+
+#ifndef TARGET_ASM_EH_FRAME_SECTION
+#define TARGET_ASM_EH_FRAME_SECTION default_eh_frame_section
+#endif
+
+#define TARGET_ASM_ALIGNED_INT_OP				\
+		       {TARGET_ASM_ALIGNED_HI_OP,		\
+			TARGET_ASM_ALIGNED_SI_OP,		\
+			TARGET_ASM_ALIGNED_DI_OP,		\
+			TARGET_ASM_ALIGNED_TI_OP}
+
+#define TARGET_ASM_UNALIGNED_INT_OP				\
+		       {TARGET_ASM_UNALIGNED_HI_OP,		\
+			TARGET_ASM_UNALIGNED_SI_OP,		\
+			TARGET_ASM_UNALIGNED_DI_OP,		\
+			TARGET_ASM_UNALIGNED_TI_OP}
+
 #define TARGET_ASM_OUT {TARGET_ASM_OPEN_PAREN,			\
 			TARGET_ASM_CLOSE_PAREN,			\
+			TARGET_ASM_BYTE_OP,			\
+			TARGET_ASM_ALIGNED_INT_OP,		\
+			TARGET_ASM_UNALIGNED_INT_OP,		\
+			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
 			TARGET_ASM_FUNCTION_EPILOGUE,		\
 			TARGET_ASM_NAMED_SECTION,		\
+			TARGET_ASM_EXCEPTION_SECTION,		\
+			TARGET_ASM_EH_FRAME_SECTION,		\
 			TARGET_ASM_CONSTRUCTOR,			\
 			TARGET_ASM_DESTRUCTOR}
 
@@ -129,6 +181,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES default_set_default_type_attributes
 #define TARGET_INSERT_ATTRIBUTES default_insert_attributes
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P default_function_attribute_inlinable_p
+#define TARGET_MS_BITFIELD_LAYOUT_P default_ms_bitfield_layout_p
 
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS default_init_builtins
@@ -138,6 +191,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS default_section_type_flags
 #endif
+
+/* In hook.c.  */
+#define TARGET_CANNOT_MODIFY_JUMPS_P hook_void_bool_false
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
@@ -151,9 +207,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_SET_DEFAULT_TYPE_ATTRIBUTES,		\
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
+  TARGET_MS_BITFIELD_LAYOUT_P,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
-  TARGET_HAVE_CTORS_DTORS			\
+  TARGET_HAVE_CTORS_DTORS,			\
+  TARGET_CANNOT_MODIFY_JUMPS_P			\
 }
+
+#include "hooks.h"

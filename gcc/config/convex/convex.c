@@ -42,16 +42,16 @@ char regno_ok_for_index_p_base[1 + LAST_VIRTUAL_REGISTER + 1];
 enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 enum reg_class reg_class_from_letter[256];
 
-/* Target cpu index. */
+/* Target cpu index.  */
 
 int target_cpu;
 
 /* Boolean to keep track of whether the current section is .text or not.
-   Used by .align handler in convex.h. */
+   Used by .align handler in convex.h.  */
 
 int current_section_is_text;
 
-/* Communication between output_compare and output_condjump. */
+/* Communication between output_compare and output_condjump.  */
 
 static rtx cmp_operand0, cmp_operand1;
 static char cmp_modech;
@@ -69,6 +69,13 @@ static void convex_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int convex_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tds.b\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\tds.h\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tds.w\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE convex_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -94,7 +101,11 @@ convex_output_function_prologue (file, size)
 {
   size = ((size) + 7) & -8;
   if (size)
-    fprintf (file, "\tsub.w #%d,sp\n", size);
+    {
+      fprintf (file, "\tsub.w #");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, size);
+      fprintf (file, ",sp\n");
+    }
 }
 
 /* This function generates the assembly code for function exit.
@@ -103,18 +114,18 @@ convex_output_function_prologue (file, size)
    The function epilogue should not depend on the current stack
    pointer!  It should use the frame pointer only.  This is mandatory
    because of alloca; we also take advantage of it to omit stack
-   adjustments before returning. */
+   adjustments before returning.  */
 
 static void
 convex_output_function_epilogue (file, size)
      FILE *file;
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
-  /* Follow function with a zero to stop c34 icache prefetching. */
+  /* Follow function with a zero to stop c34 icache prefetching.  */
   fprintf (file, "\tds.h 0\n");
 }
 
-/* Adjust the cost of dependences. */
+/* Adjust the cost of dependences.  */
 static int
 convex_adjust_cost (insn, link, dep, cost)
      rtx insn;
@@ -122,7 +133,7 @@ convex_adjust_cost (insn, link, dep, cost)
      rtx dep;
      int cost;
 {
-  /* Antidependencies don't block issue. */
+  /* Antidependencies don't block issue.  */
   if (REG_NOTE_KIND (link) != 0)
     cost = 0;
   /* C38 situations where delay depends on context */
@@ -151,14 +162,14 @@ convex_adjust_cost (insn, link, dep, cost)
 
 
 
-/* Here from OVERRIDE_OPTIONS at startup.  Initialize constant tables. */
+/* Here from OVERRIDE_OPTIONS at startup.  Initialize constant tables.  */
 
 void
 init_convex ()
 {
   int regno;
 
-  /* Set A and S reg classes. */
+  /* Set A and S reg classes.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (A_REGNO_P (regno))
       {
@@ -171,7 +182,7 @@ init_convex ()
 	regno_reg_class[regno] = S_REGS;
       }
 
-  /* Can't index off the stack pointer, register 0. */
+  /* Can't index off the stack pointer, register 0.  */
   regno_ok_for_index_p[STACK_POINTER_REGNUM] = 0;
   regno_reg_class[STACK_POINTER_REGNUM] = SP_REGS;
 
@@ -189,7 +200,7 @@ init_convex ()
   reg_class_from_letter['A'] = INDEX_REGS;
   reg_class_from_letter['d'] = S_REGS;
 
-  /* Turn off floating point exception enables in the psw. */
+  /* Turn off floating point exception enables in the psw.  */
   psw_disable_float ();
 }
 
@@ -208,7 +219,7 @@ psw_disable_float ()
 }
 
 /* Here to output code for a compare insn.  Output nothing, just
-   record the operands and their mode. */
+   record the operands and their mode.  */
 
 const char *
 output_cmp (operand0, operand1, modech)
@@ -246,7 +257,7 @@ output_condjump (label, cond, jbr_sense)
   /* [BL] mean the value is being compared against immediate 0.
      Use neg.x, which produces the same carry that eq.x #0 would if it
      existed.  In this case operands[1] is a scratch register, not a
-     compare operand. */
+     compare operand.  */
 
   if (cmp_modech == 'B' || cmp_modech == 'L')
     {
@@ -256,7 +267,7 @@ output_condjump (label, cond, jbr_sense)
 
   /* [WH] mean the value being compared resulted from "add.[wh] #-1,rk"
      when rk was nonnegative -- we can omit equality compares against -1
-     or inequality compares against 0. */
+     or inequality compares against 0.  */
 
   else if (cmp_modech == 'W' || cmp_modech == 'H')
     {
@@ -270,7 +281,7 @@ output_condjump (label, cond, jbr_sense)
 
   /* Constant must be first; swap operands if necessary.
      If lt, le, ltu, leu are swapped, change to le, lt, leu, ltu
-     and reverse the sense of the jump. */
+     and reverse the sense of the jump.  */
 
   if (! REG_P (cmp_operand1))
     {
@@ -309,7 +320,7 @@ output_condjump (label, cond, jbr_sense)
 /* Return 1 if OP is valid for cmpsf.
    In IEEE mode, +/- zero compares are not handled by 
      the immediate versions of eq.s and on some machines, lt.s, and le.s.  
-   So disallow 0.0 as the immediate operand of xx.s compares in IEEE mode. */
+   So disallow 0.0 as the immediate operand of xx.s compares in IEEE mode.  */
 
 int
 nonmemory_cmpsf_operand (op, mode)
@@ -325,7 +336,7 @@ nonmemory_cmpsf_operand (op, mode)
 }
 
 /* Convex /bin/as does not like unary minus in some contexts.
-   Simplify CONST addresses to remove it. */
+   Simplify CONST addresses to remove it.  */
 
 rtx
 simplify_for_convex (x)
@@ -351,7 +362,7 @@ simplify_for_convex (x)
   return x;
 }
 
-/* Routines to separate CONST_DOUBLEs into component parts. */
+/* Routines to separate CONST_DOUBLEs into component parts.  */
 
 int
 const_double_high_int (x)
@@ -373,7 +384,7 @@ const_double_low_int (x)
     return CONST_DOUBLE_LOW (x);
 }
 
-/* Inline block copy. */
+/* Inline block copy.  */
 
 void
 expand_movstr (operands)
@@ -390,16 +401,16 @@ expand_movstr (operands)
 
   /* Decide how many regs to use, depending on load latency, and what
      size pieces to move, depending on whether machine does unaligned
-     loads and stores efficiently. */
+     loads and stores efficiently.  */
 
   if (TARGET_C1)
     {
-      /* ld.l latency is 4, no alignment problems. */
+      /* ld.l latency is 4, no alignment problems.  */
       nregs = 3, maxsize = 8;
     }
   else if (TARGET_C2)
     {
-      /* loads are latency 2 if we avoid ld.l not at least word aligned. */
+      /* loads are latency 2 if we avoid ld.l not at least word aligned.  */
       if (align >= 4)
 	nregs = 2, maxsize = 8;
       else
@@ -407,12 +418,12 @@ expand_movstr (operands)
     }
   else if (TARGET_C34)
     {
-      /* latency is 4 if aligned, horrible if not. */
+      /* latency is 4 if aligned, horrible if not.  */
       nregs = 3, maxsize = align;
     }
   else if (TARGET_C38)
     {
-      /* latency is 2 if at least word aligned, 3 or 4 if unaligned. */
+      /* latency is 2 if at least word aligned, 3 or 4 if unaligned.  */
       if (align >= 4)
 	nregs = 2, maxsize = 8;
       else
@@ -422,7 +433,7 @@ expand_movstr (operands)
     abort ();
 
   /* Caller is not necessarily prepared for us to fail in this
-     expansion.  So fall back by generating memcpy call here. */
+     expansion.  So fall back by generating memcpy call here.  */
 
   if (GET_CODE (operands[2]) != CONST_INT
       || (len = INTVAL (operands[2])) > (unsigned) 32 * maxsize)
@@ -461,7 +472,7 @@ expand_movstr (operands)
       store = gen_rtx_SET (VOIDmode, dest, reg);
 
       /* Emit the load and the store from last time. 
-	 When we emit a store, we can reuse its temp reg. */
+	 When we emit a store, we can reuse its temp reg.  */
       emit_insn (load);
       if (prev_store)
 	{
@@ -471,20 +482,20 @@ expand_movstr (operands)
       else
 	reg = 0;
 
-      /* Queue up the store, for next time or the time after that. */
+      /* Queue up the store, for next time or the time after that.  */
       if (nregs == 2)
 	prev_store = store;
       else
 	prev_store = prev_store_2, prev_store_2 = store;
 
-      /* Advance to next piece. */
+      /* Advance to next piece.  */
       size = GET_MODE_SIZE (mode);
       src = adjust_address (src, mode, size);
       dest = adjust_address (dest, mode, size);
       len -= size;
     }
 
-  /* Finally, emit the last stores. */
+  /* Finally, emit the last stores.  */
   if (prev_store)
     emit_insn (prev_store);
   if (prev_store_2)
@@ -550,7 +561,7 @@ check_float_value (mode, dp, overflow)
 
 /* Output the label at the start of a function.
    Precede it with the number of formal args so debuggers will have
-   some idea of how many args to print. */
+   some idea of how many args to print.  */
 
 void
 asm_declare_function_name (file, name, decl)
@@ -568,7 +579,7 @@ asm_declare_function_name (file, name, decl)
   p = version_string;
   for (i = 0; i < 3; ) {
     c = *p;
-    if (c - '0' < (unsigned) 10)
+    if (ISDIGIT (c))
       vers[i++] = c;
     if (c == 0 || c == ' ')
       vers[i++] = '0';
@@ -587,7 +598,7 @@ asm_declare_function_name (file, name, decl)
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;
-   if `%z3' was used to print operand 3, then CODE is 'z'. */
+   if `%z3' was used to print operand 3, then CODE is 'z'.  */
 /* Convex codes:
     %u prints a CONST_DOUBLE's high word
     %v prints a CONST_DOUBLE's low word
@@ -639,9 +650,15 @@ print_operand (file, x, code)
 	break;
       default:
 	if (code == 'u')
-	  fprintf (file, "#%d", CONST_DOUBLE_HIGH (x));
+	  {
+	    fprintf (file, "#");
+	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, CONST_DOUBLE_HIGH (x));
+	  }
 	else
-	  fprintf (file, "#%d", CONST_DOUBLE_LOW (x));
+	  {
+	    fprintf (file, "#");
+	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, CONST_DOUBLE_LOW (x));
+	  }
       }
       break;
 
@@ -660,7 +677,7 @@ print_operand (file, x, code)
     }
 }
 
-/* Print a memory operand whose address is X, on file FILE. */
+/* Print a memory operand whose address is X, on file FILE.  */
 
 void
 print_operand_address (file, addr)
@@ -708,7 +725,7 @@ print_operand_address (file, addr)
 }
 
 /* Output a float to FILE, value VALUE, format FMT, preceded by PFX
-   and followed by SFX. */
+   and followed by SFX.  */
 
 void
 outfloat (file, value, fmt, pfx, sfx)
@@ -733,7 +750,7 @@ outfloat (file, value, fmt, pfx, sfx)
 void
 replace_arg_pushes ()
 {
-  /* Doesn't work yet. */
+  /* Doesn't work yet.  */
 }
 
 /* Output the insns needed to do a call.  operands[] are
@@ -767,11 +784,11 @@ output_call (insn, operands)
 }
 
 
-/* Here after reloading, before the second scheduling pass. */
+/* Here after reloading, before the second scheduling pass.  */
 
 void
 emit_ap_optimizations ()
 {
-  /* Removed for now. */
+  /* Removed for now.  */
 }
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -96,7 +96,7 @@ package body Sem_Ch3 is
    --  process an implicit derived full type for a type derived from a private
    --  type (in that case the subprograms must only be derived for the private
    --  view of the type).
-   --  ??? These flags need a bit of re-examination and re-documentaion:
+   --  ??? These flags need a bit of re-examination and re-documentation:
    --  ???  are they both necessary (both seem related to the recursion)?
 
    procedure Build_Derived_Access_Type
@@ -204,7 +204,7 @@ package body Sem_Ch3 is
    --  procedures for the type where Discrim is a discriminant. Discriminals
    --  are not used during semantic analysis, and are not fully defined
    --  entities until expansion. Thus they are not given a scope until
-   --  intialization procedures are built.
+   --  initialization procedures are built.
 
    function Build_Discriminant_Constraints
      (T           : Entity_Id;
@@ -657,8 +657,8 @@ package body Sem_Ch3 is
       return        Entity_Id
    is
       Anon_Type : constant Entity_Id :=
-        Create_Itype (E_Anonymous_Access_Type, Related_Nod,
-          Scope_Id => Scope (Current_Scope));
+                    Create_Itype (E_Anonymous_Access_Type, Related_Nod,
+                                  Scope_Id => Scope (Current_Scope));
       Desig_Type : Entity_Id;
 
    begin
@@ -1147,6 +1147,17 @@ package body Sem_Ch3 is
 
       Set_Is_Pure (Id, Is_Pure (Current_Scope));
 
+      --  Process expression, replacing error by integer zero, to avoid
+      --  cascaded errors or aborts further along in the processing
+
+      --  Replace Error by integer zero, which seems least likely to
+      --  cause cascaded errors.
+
+      if E = Error then
+         Rewrite (E, Make_Integer_Literal (Sloc (E), Uint_0));
+         Set_Error_Posted (E);
+      end if;
+
       Analyze (E);
 
       --  Verify that the expression is static and numeric. If
@@ -1592,6 +1603,13 @@ package body Sem_Ch3 is
 
          if not Is_Constrained (T) then
             null;
+
+         elsif Nkind (E) = N_Raise_Constraint_Error then
+
+            --  Aggregate is statically illegal. Place back in declaration
+
+            Set_Expression (N, E);
+            Set_No_Initialization (N, False);
 
          elsif T = Etype (E) then
             null;
@@ -2302,8 +2320,14 @@ package body Sem_Ch3 is
 
    begin
       Analyze (T);
-      Analyze (R);
-      Set_Etype (N, Etype (R));
+
+      if R /= Error then
+         Analyze (R);
+         Set_Etype (N, Etype (R));
+      else
+         Set_Error_Posted (R);
+         Set_Error_Posted (T);
+      end if;
    end Analyze_Subtype_Indication;
 
    ------------------------------
@@ -2584,6 +2608,13 @@ package body Sem_Ch3 is
       end if;
 
       Discr_Type := Etype (Entity (Discr_Name));
+
+      if not Is_Discrete_Type (Discr_Type) then
+         Error_Msg_N
+           ("discriminant in a variant part must be of a discrete type",
+             Name (N));
+         return;
+      end if;
 
       --  Call the instantiated Analyze_Choices which does the rest of the work
 
@@ -2957,9 +2988,10 @@ package body Sem_Ch3 is
       Disc_Spec    : Node_Id;
       Old_Disc     : Entity_Id;
       New_Disc     : Entity_Id;
+
       Constraint_Present : constant Boolean :=
-         Nkind (Subtype_Indication (Type_Definition (N))) =
-           N_Subtype_Indication;
+                             Nkind (Subtype_Indication (Type_Definition (N)))
+                                                     = N_Subtype_Indication;
 
    begin
       Set_Girder_Constraint (Derived_Type, No_Elist);
@@ -2973,6 +3005,32 @@ package body Sem_Ch3 is
          New_Scope (Derived_Type);
          Check_Or_Process_Discriminants (N, Derived_Type);
          End_Scope;
+
+      elsif Constraint_Present then
+
+         --  Build constrained subtype and derive from it
+
+         declare
+            Loc  : constant Source_Ptr := Sloc (N);
+            Anon : Entity_Id :=
+                     Make_Defining_Identifier (Loc,
+                       New_External_Name (Chars (Derived_Type), 'T'));
+            Decl : Node_Id;
+
+         begin
+            Decl :=
+              Make_Subtype_Declaration (Loc,
+                Defining_Identifier => Anon,
+                Subtype_Indication =>
+                  New_Copy_Tree (Subtype_Indication (Type_Definition (N))));
+            Insert_Before (N, Decl);
+            Rewrite (Subtype_Indication (Type_Definition (N)),
+              New_Occurrence_Of (Anon, Loc));
+            Analyze (Decl);
+            Set_Analyzed (Derived_Type, False);
+            Analyze (N);
+            return;
+         end;
       end if;
 
       --  All attributes are inherited from parent. In particular,
@@ -2980,10 +3038,9 @@ package body Sem_Ch3 is
       --  Discriminants may be renamed, and must be treated separately.
 
       Set_Has_Discriminants
-                       (Derived_Type, Has_Discriminants (Parent_Type));
+        (Derived_Type, Has_Discriminants         (Parent_Type));
       Set_Corresponding_Record_Type
-                       (Derived_Type, Corresponding_Record_Type
-                                                        (Parent_Type));
+        (Derived_Type, Corresponding_Record_Type (Parent_Type));
 
       if Constraint_Present then
 
@@ -2999,15 +3056,17 @@ package body Sem_Ch3 is
             New_Disc   := First_Discriminant (Derived_Type);
             Disc_Spec  := First (Discriminant_Specifications (N));
             D_Constraint :=
-              First (Constraints (
-                Constraint (Subtype_Indication (Type_Definition (N)))));
+              First
+                (Constraints
+                  (Constraint (Subtype_Indication (Type_Definition (N)))));
 
             while Present (Old_Disc) and then Present (Disc_Spec) loop
 
                if Nkind (Discriminant_Type (Disc_Spec)) /=
-                 N_Access_Definition
+                                              N_Access_Definition
                then
                   Analyze (Discriminant_Type (Disc_Spec));
+
                   if not Subtypes_Statically_Compatible (
                              Etype (Discriminant_Type (Disc_Spec)),
                                Etype (Old_Disc))
@@ -3064,6 +3123,10 @@ package body Sem_Ch3 is
 
       else
          Set_First_Entity (Derived_Type, First_Entity (Parent_Type));
+         if Has_Discriminants (Parent_Type) then
+            Set_Discriminant_Constraint (
+              Derived_Type, Discriminant_Constraint (Parent_Type));
+         end if;
       end if;
 
       Set_Last_Entity  (Derived_Type, Last_Entity  (Parent_Type));
@@ -3773,6 +3836,7 @@ package body Sem_Ch3 is
             Set_Freeze_Node          (Full_Der, Empty);
             Set_Depends_On_Private   (Full_Der,
                                         Has_Private_Component    (Full_Der));
+            Set_Public_Status        (Full_Der);
          end if;
       end if;
 
@@ -3792,6 +3856,7 @@ package body Sem_Ch3 is
          if Is_Child_Unit (Scope (Current_Scope))
            and then Is_Completion
            and then In_Private_Part (Current_Scope)
+           and then Scope (Parent_Type) /= Current_Scope
          then
             --  This is the unusual case where a type completed by a private
             --  derivation occurs within a package nested in a child unit,
@@ -3885,7 +3950,7 @@ package body Sem_Ch3 is
    --  o The discriminants specified by a new KNOWN_DISCRIMINANT_PART, if
    --    there is one;
 
-   --  o Otherwise, each discriminant of the parent type (implicitely
+   --  o Otherwise, each discriminant of the parent type (implicitly
    --    declared in the same order with the same specifications). In this
    --    case, the discriminants are said to be "inherited", or if unknown in
    --    the parent are also unknown in the derived type.
@@ -4073,7 +4138,7 @@ package body Sem_Ch3 is
    --  Then the above transformation turns this into
 
    --             type Der_Base is new Base with null record;
-   --             --  procedure P (X : Base) is implicitely inherited here
+   --             --  procedure P (X : Base) is implicitly inherited here
    --             --  as procedure P (X : Der_Base).
 
    --             subtype Der is Der_Base (2);
@@ -4977,6 +5042,7 @@ package body Sem_Ch3 is
       Set_Size_Info      (Derived_Type,                 Parent_Type);
       Set_RM_Size        (Derived_Type, RM_Size        (Parent_Type));
       Set_Convention     (Derived_Type, Convention     (Parent_Type));
+      Set_Is_Controlled  (Derived_Type, Is_Controlled  (Parent_Type));
       Set_First_Rep_Item (Derived_Type, First_Rep_Item (Parent_Type));
 
       case Ekind (Parent_Type) is
@@ -5242,7 +5308,7 @@ package body Sem_Ch3 is
 
                   --  The following is only useful for the benefit of generic
                   --  instances but it does not interfere with other
-                  --  processsing for the non-generic case so we do it in all
+                  --  processing for the non-generic case so we do it in all
                   --  cases (for generics this statement is executed when
                   --  processing the generic definition, see comment at the
                   --  begining of this if statement).
@@ -7250,7 +7316,7 @@ package body Sem_Ch3 is
       Suffix_Index : Nat)
    is
       Def_Id     : Entity_Id;
-      R          : Node_Id;
+      R          : Node_Id := Empty;
       Checks_Off : Boolean := False;
       T          : constant Entity_Id := Etype (Index);
 
@@ -7351,8 +7417,6 @@ package body Sem_Ch3 is
       Set_Size_Info      (Def_Id,                (T));
       Set_RM_Size        (Def_Id, RM_Size        (T));
       Set_First_Rep_Item (Def_Id, First_Rep_Item (T));
-
-      --  ??? ??? is R always initialized, not at all obvious why?
 
       Set_Scalar_Range   (Def_Id, R);
 
@@ -9283,6 +9347,10 @@ package body Sem_Ch3 is
 
       --  Otherwise we have a subtype mark without a constraint
 
+      elsif Error_Posted (S) then
+         Rewrite (S, New_Occurrence_Of (Any_Id, Sloc (S)));
+         return Any_Type;
+
       else
          Find_Type (S);
          Typ := Entity (S);
@@ -9790,7 +9858,7 @@ package body Sem_Ch3 is
             Set_Corresponding_Discriminant (New_C, Old_C);
             Build_Discriminal (New_C);
 
-         --  If we are explicitely inheriting a girder discriminant it will be
+         --  If we are explicitly inheriting a girder discriminant it will be
          --  completely hidden.
 
          elsif Girder_Discrim then
@@ -10273,12 +10341,8 @@ package body Sem_Ch3 is
 
          --  The parser guarantees that the attribute is a RANGE attribute
 
-         --  Is order critical here (setting T before Resolve). If so,
-         --  document why, if not use Analyze_And_Resolve and get T after???
-
-         Analyze (I);
+         Analyze_And_Resolve (I);
          T := Etype (I);
-         Resolve (I, T);
          R := I;
 
       --  If none of the above, must be a subtype. We convert this to a
@@ -12062,42 +12126,53 @@ package body Sem_Ch3 is
 
       Lo := Low_Bound (Def);
       Hi := High_Bound (Def);
-      Analyze_And_Resolve (Lo, Any_Integer);
-      Analyze_And_Resolve (Hi, Any_Integer);
 
-      Check_Bound (Lo);
-      Check_Bound (Hi);
+      --  Arbitrarily use Integer as the type if either bound had an error
 
-      if Errs then
-         Hi := Type_High_Bound (Standard_Long_Long_Integer);
-         Lo := Type_Low_Bound (Standard_Long_Long_Integer);
-      end if;
+      if Hi = Error or else Lo = Error then
+         Base_Typ := Any_Integer;
+         Set_Error_Posted (T, True);
 
-      --  Find type to derive from
-
-      Lo_Val := Expr_Value (Lo);
-      Hi_Val := Expr_Value (Hi);
-
-      if Can_Derive_From (Standard_Short_Short_Integer) then
-         Base_Typ := Base_Type (Standard_Short_Short_Integer);
-
-      elsif Can_Derive_From (Standard_Short_Integer) then
-         Base_Typ := Base_Type (Standard_Short_Integer);
-
-      elsif Can_Derive_From (Standard_Integer) then
-         Base_Typ := Base_Type (Standard_Integer);
-
-      elsif Can_Derive_From (Standard_Long_Integer) then
-         Base_Typ := Base_Type (Standard_Long_Integer);
-
-      elsif Can_Derive_From (Standard_Long_Long_Integer) then
-         Base_Typ := Base_Type (Standard_Long_Long_Integer);
+      --  Here both bounds are OK expressions
 
       else
-         Base_Typ := Base_Type (Standard_Long_Long_Integer);
-         Error_Msg_N ("integer type definition bounds out of range", Def);
-         Hi := Type_High_Bound (Standard_Long_Long_Integer);
-         Lo := Type_Low_Bound (Standard_Long_Long_Integer);
+         Analyze_And_Resolve (Lo, Any_Integer);
+         Analyze_And_Resolve (Hi, Any_Integer);
+
+         Check_Bound (Lo);
+         Check_Bound (Hi);
+
+         if Errs then
+            Hi := Type_High_Bound (Standard_Long_Long_Integer);
+            Lo := Type_Low_Bound (Standard_Long_Long_Integer);
+         end if;
+
+         --  Find type to derive from
+
+         Lo_Val := Expr_Value (Lo);
+         Hi_Val := Expr_Value (Hi);
+
+         if Can_Derive_From (Standard_Short_Short_Integer) then
+            Base_Typ := Base_Type (Standard_Short_Short_Integer);
+
+         elsif Can_Derive_From (Standard_Short_Integer) then
+            Base_Typ := Base_Type (Standard_Short_Integer);
+
+         elsif Can_Derive_From (Standard_Integer) then
+            Base_Typ := Base_Type (Standard_Integer);
+
+         elsif Can_Derive_From (Standard_Long_Integer) then
+            Base_Typ := Base_Type (Standard_Long_Integer);
+
+         elsif Can_Derive_From (Standard_Long_Long_Integer) then
+            Base_Typ := Base_Type (Standard_Long_Long_Integer);
+
+         else
+            Base_Typ := Base_Type (Standard_Long_Long_Integer);
+            Error_Msg_N ("integer type definition bounds out of range", Def);
+            Hi := Type_High_Bound (Standard_Long_Long_Integer);
+            Lo := Type_Low_Bound (Standard_Long_Long_Integer);
+         end if;
       end if;
 
       --  Complete both implicit base and declared first subtype entities

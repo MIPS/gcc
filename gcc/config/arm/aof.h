@@ -52,12 +52,10 @@ Boston, MA 02111-1307, USA.  */
    two areas with the same attributes will be linked adjacently in the
    resulting executable, so we have to be careful not to do pc-relative 
    addressing across such boundaries.  */
-char *aof_text_section ();
 #define TEXT_SECTION_ASM_OP aof_text_section ()
 
 #define SELECT_RTX_SECTION(MODE,RTX,ALIGN) text_section ();
 
-char *aof_data_section ();
 #define DATA_SECTION_ASM_OP aof_data_section ()
 
 #define EXTRA_SECTIONS in_zero_init, in_common
@@ -85,7 +83,6 @@ zero_init_section ()						\
 void								\
 common_section ()						\
 {								\
-  static int common_count = 1;					\
   if (in_section != in_common)					\
     {								\
       in_section = in_common;					\
@@ -186,56 +183,15 @@ do					\
 
 #define ASM_APP_OFF ""
 
-#define ASM_OUTPUT_LONG_DOUBLE(STREAM,VALUE) \
-  ASM_OUTPUT_DOUBLE((STREAM),(VALUE))
-
-#define ASM_OUTPUT_DOUBLE(STREAM,VALUE)				\
-do {								\
-  char dstr[30];						\
-  long l[2];							\
-  REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), l);			\
-  REAL_VALUE_TO_DECIMAL ((VALUE), "%.14g", dstr);		\
-  fprintf ((STREAM), "\tDCD &%lx, &%lx\t%s double %s\n",	\
-	   l[0], l[1], ASM_COMMENT_START, dstr);		\
-} while (0)
-
-#define ASM_OUTPUT_FLOAT(STREAM,VALUE)			\
-do {							\
-  char dstr[30];					\
-  long l;						\
-  REAL_VALUE_TO_TARGET_SINGLE ((VALUE), l);		\
-  REAL_VALUE_TO_DECIMAL ((VALUE), "%.7g", dstr);	\
-  fprintf ((STREAM), "\tDCD &%lx\t%s double %s\n",	\
-	   l, ASM_COMMENT_START, dstr);			\
-} while (0)
-
-#define ASM_OUTPUT_INT(STREAM,VALUE)		\
-  (fprintf ((STREAM), "\tDCD\t"),		\
-   output_addr_const ((STREAM), (VALUE)),	\
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_SHORT(STREAM,VALUE)		\
-  (fprintf ((STREAM), "\tDCW\t"),		\
-   output_addr_const ((STREAM), (VALUE)),	\
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_CHAR(STREAM,VALUE)		\
-  (fprintf ((STREAM), "\tDCB\t"),		\
-   output_addr_const ((STREAM), (VALUE)),	\
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_BYTE(STREAM,VALUE)		\
-  fprintf ((STREAM), "\tDCB\t%d\n", (VALUE))
-
 #define ASM_OUTPUT_ASCII(STREAM,PTR,LEN)		\
 {							\
   int i;						\
   const char *ptr = (PTR);				\
   fprintf ((STREAM), "\tDCB");				\
-  for (i = 0; i < (LEN); i++)				\
+  for (i = 0; i < (long)(LEN); i++)			\
     fprintf ((STREAM), " &%02x%s", 			\
 	     (unsigned ) *(ptr++),			\
-	     (i + 1 < (LEN)				\
+	     (i + 1 < (long)(LEN)				\
 	      ? ((i & 3) == 3 ? "\n\tDCB" : ",")	\
 	      : "\n"));					\
 }
@@ -313,7 +269,7 @@ do {					\
   fprintf ((STREAM), "|%s|", NAME)
 
 #define ASM_GENERATE_INTERNAL_LABEL(STRING,PREFIX,NUM)	\
-  sprintf ((STRING), "*|%s..%d|", (PREFIX), (NUM))
+  sprintf ((STRING), "*|%s..%ld|", (PREFIX), (long)(NUM))
 
 #define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
  ((OUTVAR) = (char *) alloca (strlen ((NAME)) + 10),	\
@@ -391,7 +347,5 @@ do {							\
   else							\
     fprintf ((STREAM), "\tALIGN %d\n", amount);		\
 } while (0)
-
-#include "arm/arm.h"
 
 #undef DBX_DEBUGGING_INFO

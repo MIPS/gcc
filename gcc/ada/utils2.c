@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.1 $
+ *                            $Revision: 1.3 $
  *                                                                          *
  *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -1164,11 +1164,9 @@ build_unary_op (op_code, result_type, operand)
 	      tree offset, inner;
 	      enum machine_mode mode;
 	      int unsignedp, volatilep;
-	      unsigned int alignment;
 
 	      inner = get_inner_reference (operand, &bitsize, &bitpos, &offset,
-					   &mode, &unsignedp, &volatilep,
-					   &alignment);
+					   &mode, &unsignedp, &volatilep);
 
 	      /* If INNER is a padding type whose field has a self-referential
 		 size, convert to that inner type.  We know the offset is zero
@@ -1279,8 +1277,7 @@ build_unary_op (op_code, result_type, operand)
       else
 	{
 	  result = fold (build1 (op_code, TREE_TYPE (type), operand));
-	  TREE_READONLY (result) = TREE_STATIC (result)
-	    = TREE_READONLY (TREE_TYPE (type));
+	  TREE_READONLY (result) = TREE_READONLY (TREE_TYPE (type));
 	}
 
       side_effects = flag_volatile 
@@ -1855,6 +1852,11 @@ build_allocator (type, init, result_type, gnat_proc, gnat_pool)
       if (TREE_CODE (size) != INTEGER_CST
 	  && contains_placeholder_p (size))
 	size = build (WITH_RECORD_EXPR, sizetype, size, init);
+
+      /* If the size overflows, pass -1 so the allocator will raise
+	 storage error.  */
+      if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
+	size = ssize_int (-1);
 
       storage = build_call_alloc_dealloc (NULL_TREE, size,
 					  TYPE_ALIGN (storage_type),

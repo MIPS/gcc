@@ -1,5 +1,5 @@
 /* CPP main program, using CPP Library.
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -76,8 +76,8 @@ main (argc, argv)
 {
   general_init (argv[0]);
 
-  /* Contruct a reader with default language GNU C89.  */
-  pfile = cpp_create_reader (NULL, CLK_GNUC89);
+  /* Construct a reader with default language GNU C89.  */
+  pfile = cpp_create_reader (CLK_GNUC89);
   options = cpp_get_options (pfile);
   
   do_preprocessing (argc, argv);
@@ -100,18 +100,8 @@ general_init (argv0)
 
   xmalloc_set_program_name (progname);
 
-/* LC_CTYPE determines the character set used by the terminal so it
-   has to be set to output messages correctly.  */
-
-#ifdef HAVE_LC_MESSAGES
-  setlocale (LC_CTYPE, "");
-  setlocale (LC_MESSAGES, "");
-#else
-  setlocale (LC_ALL, "");
-#endif
-
-  (void) bindtextdomain (PACKAGE, localedir);
-  (void) textdomain (PACKAGE);
+  hex_init ();
+  gcc_init_libintl ();
 }
 
 /* Handle switches, preprocess and output.  */
@@ -127,10 +117,12 @@ do_preprocessing (argc, argv)
     return;
 
   if (argi < argc)
-    cpp_fatal (pfile, "Invalid option %s", argv[argi]);
-  else
-    cpp_post_options (pfile);
+    {
+      cpp_fatal (pfile, "invalid option %s", argv[argi]);
+      return;
+    }
 
+  cpp_post_options (pfile);
   if (CPP_FATAL_ERRORS (pfile))
     return;
 
@@ -166,9 +158,11 @@ do_preprocessing (argc, argv)
 
   setup_callbacks ();
 
-  if (cpp_start_read (pfile, options->in_fname))
+  if (cpp_read_main_file (pfile, options->in_fname, NULL))
     {
-      /* A successful cpp_start_read guarantees that we can call
+      cpp_finish_options (pfile);
+
+      /* A successful cpp_read_main_file guarantees that we can call
 	 cpp_scan_nooutput or cpp_get_token next.  */
       if (options->no_output)
 	cpp_scan_nooutput (pfile);
@@ -281,7 +275,6 @@ check_multiline_token (str)
 /* If the token read on logical line LINE needs to be output on a
    different line to the current one, output the required newlines or
    a line marker, and return 1.  Otherwise return 0.  */
-
 static void
 maybe_print_line (map, line)
      const struct line_map *map;
@@ -336,8 +329,7 @@ print_line (map, line, special_flags)
 }
 
 /* Called when a line of output is started.  TOKEN is the first token
-   of the line, and may be CPP_EOF.  */
-
+   of the line, and at end of file will be CPP_EOF.  */
 static void
 cb_line_change (pfile, token, parsing_args)
      cpp_reader *pfile ATTRIBUTE_UNUSED;

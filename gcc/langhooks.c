@@ -23,12 +23,107 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "toplev.h"
 #include "tree.h"
+#include "c-tree.h"
 #include "tree-inline.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
 #include "langhooks.h"
+#include "langhooks-def.h"
 
+/* Do nothing; in many cases the default hook.  */
+
+void
+lhd_do_nothing ()
+{
+}
+
+/* Do nothing (return the tree node passed).  */
+
+tree
+lhd_return_tree (t)
+     tree t;
+{
+  return t;
+}
+
+/* Do nothing; the default hook to decode an option.  */
+
+int
+lhd_decode_option (argc, argv)
+     int argc ATTRIBUTE_UNUSED;
+     char **argv ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+/* Called from by print-tree.c.  */
+
+void
+lhd_print_tree_nothing (file, node, indent)
+     FILE *file ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
+{
+}
+
+/* Called from safe_from_p.  */
+
+int
+lhd_safe_from_p (x, exp)
+     rtx x ATTRIBUTE_UNUSED;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return 1;
+}
+
+/* Called from staticp.  */
+
+int
+lhd_staticp (exp)
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+/* Called when -dy is given on the command line.  */
+
+void
+lhd_set_yydebug (value)
+     int value;
+{
+  if (value)
+    fprintf (stderr, "warning: no yacc/bison-generated output to debug!\n");
+}
+
+/* Provide a default routine to clear the binding stack.  This is used
+   by languages that don't need to do anything special.  */
+void
+lhd_clear_binding_stack ()
+{
+  while (! global_bindings_p ())
+    poplevel (0, 0, 0);
+}
+
+/* Provide a default routine for alias sets that always returns -1.  This
+   is used by languages that don't need to do anything special.  */
+
+HOST_WIDE_INT
+lhd_get_alias_set (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return -1;
+}
+
+/* Provide a hook routine for alias sets that always returns 0.  This is
+   used by languages that haven't deal with alias sets yet.  */
+
+HOST_WIDE_INT
+hook_get_alias_set_0 (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
 
 /* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
    after handling common cases, but before walking code-specific
@@ -42,7 +137,7 @@ Boston, MA 02111-1307, USA.  */
    when the function is called.  */
 
 tree
-tree_inlining_default_hook_walk_subtrees (tp,subtrees,func,data,htab)
+lhd_tree_inlining_walk_subtrees (tp,subtrees,func,data,htab)
      tree *tp ATTRIBUTE_UNUSED;
      int *subtrees ATTRIBUTE_UNUSED;
      walk_tree_fn func ATTRIBUTE_UNUSED;
@@ -57,7 +152,7 @@ tree_inlining_default_hook_walk_subtrees (tp,subtrees,func,data,htab)
    inlining a given function.  */
 
 int
-tree_inlining_default_hook_cannot_inline_tree_fn (fnp)
+lhd_tree_inlining_cannot_inline_tree_fn (fnp)
      tree *fnp ATTRIBUTE_UNUSED;
 {
   return 0;
@@ -68,7 +163,7 @@ tree_inlining_default_hook_cannot_inline_tree_fn (fnp)
    if it would exceed inlining limits.  */
 
 int
-tree_inlining_default_hook_disregard_inline_limits (fn)
+lhd_tree_inlining_disregard_inline_limits (fn)
      tree fn ATTRIBUTE_UNUSED;
 {
   return 0;
@@ -82,7 +177,7 @@ tree_inlining_default_hook_disregard_inline_limits (fn)
    returned.  */
 
 tree
-tree_inlining_default_hook_add_pending_fn_decls (vafnp, pfn)
+lhd_tree_inlining_add_pending_fn_decls (vafnp, pfn)
      void *vafnp ATTRIBUTE_UNUSED;
      tree pfn;
 {
@@ -94,7 +189,7 @@ tree_inlining_default_hook_add_pending_fn_decls (vafnp, pfn)
    whether it should be walked, copied and preserved across copies.  */
 
 int
-tree_inlining_default_hook_tree_chain_matters_p (t)
+lhd_tree_inlining_tree_chain_matters_p (t)
      tree t ATTRIBUTE_UNUSED;
 {
   return 0;
@@ -104,7 +199,7 @@ tree_inlining_default_hook_tree_chain_matters_p (t)
    whether VT is an automatic variable defined in function FT.  */
 
 int
-tree_inlining_default_hook_auto_var_in_fn_p (var, fn)
+lhd_tree_inlining_auto_var_in_fn_p (var, fn)
      tree var, fn;
 {
   return (DECL_P (var) && DECL_CONTEXT (var) == fn
@@ -124,8 +219,8 @@ tree_inlining_default_hook_auto_var_in_fn_p (var, fn)
    match RES.  */
 
 tree
-tree_inlining_default_hook_copy_res_decl_for_inlining (res, fn, caller,
-						       dm, ndp, texps)
+lhd_tree_inlining_copy_res_decl_for_inlining (res, fn, caller,
+					      dm, ndp, texps)
      tree res, fn, caller;
      void *dm ATTRIBUTE_UNUSED;
      int *ndp ATTRIBUTE_UNUSED;
@@ -139,9 +234,52 @@ tree_inlining_default_hook_copy_res_decl_for_inlining (res, fn, caller,
    i.e., one whose members are in the same scope as the union itself.  */
 
 int
-tree_inlining_default_hook_anon_aggr_type_p (t)
+lhd_tree_inlining_anon_aggr_type_p (t)
      tree t ATTRIBUTE_UNUSED;
 {
   return 0;
+}
+
+/* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
+   language-specific bookkeeping necessary for processing
+   FN. start_inlining returns non-zero if inlining should proceed, zero if
+   not.
+
+   For instance, the C++ version keeps track of template instantiations to
+   avoid infinite recursion.  */
+
+int
+lhd_tree_inlining_start_inlining (fn)
+     tree fn ATTRIBUTE_UNUSED;
+{
+  return 1;
+}
+
+void
+lhd_tree_inlining_end_inlining (fn)
+     tree fn ATTRIBUTE_UNUSED;
+{
+}
+
+/* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree 
+   nodes.  Returns non-zero if it does not want the usual dumping of the 
+   second argument.  */
+
+int
+lhd_tree_dump_dump_tree (di, t)
+     void *di ATTRIBUTE_UNUSED;
+     tree t ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+/* lang_hooks.tree_dump.type_qual:  Determine type qualifiers in a 
+   language-specific way.  */
+
+int
+lhd_tree_dump_type_quals (t)
+     tree t;
+{
+  return TYPE_QUALS (t);
 }
 

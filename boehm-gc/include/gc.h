@@ -86,7 +86,7 @@
     typedef long ptrdiff_t;	/* ptrdiff_t is not defined */
 # endif
 
-#if defined(__MINGW32__) && defined(GC_WIN32_THREADS)
+#if defined(__MINGW32__) &&defined(_DLL) && !defined(GC_NOT_DLL)
 # ifdef GC_BUILD
 #   define GC_API __declspec(dllexport)
 # else
@@ -297,6 +297,28 @@ GC_API int GC_dont_precollect;  /* Don't collect as part of 		*/
 				/* Wizards only.			*/
 
 /* Public procedures */
+
+/* Initialize the collector.  This is only required when using thread-local
+ * allocation, since unlike the regular allocation routines, GC_local_malloc
+ * is not self-initializing.  If you use GC_local_malloc you should arrange
+ * to call this somehow (e.g. from a constructor) before doing any allocation.
+ */
+GC_API void GC_init GC_PROTO((void));
+
+GC_API unsigned long GC_time_limit;
+				/* If incremental collection is enabled, */
+				/* We try to terminate collections	 */
+				/* after this many milliseconds.  Not a	 */
+				/* hard time bound.  Setting this to 	 */
+				/* GC_TIME_UNLIMITED will essentially	 */
+				/* disable incremental collection while  */
+				/* leaving generational collection	 */
+				/* enabled.	 			 */
+#	define GC_TIME_UNLIMITED 999999
+				/* Setting GC_time_limit to this value	 */
+				/* will disable the "pause time exceeded */
+				/* tests.				 */
+
 /*
  * general purpose allocation routines, with roughly malloc calling conv.
  * The atomic versions promise that no relevant pointers are contained
@@ -454,6 +476,16 @@ GC_API size_t GC_get_total_bytes GC_PROTO((void));
 /* Only the generational piece of this is	*/
 /* functional if GC_parallel is TRUE.		*/
 GC_API void GC_enable_incremental GC_PROTO((void));
+
+/* Does incremental mode write-protect pages?  Returns zero or	*/
+/* more of the following, or'ed together:			*/
+#define GC_PROTECTS_POINTER_HEAP  1 /* May protect non-atomic objs.	*/
+#define GC_PROTECTS_PTRFREE_HEAP  2
+#define GC_PROTECTS_STATIC_DATA   4 /* Curently never.			*/
+#define GC_PROTECTS_STACK	  8 /* Probably impractical.		*/
+
+#define GC_PROTECTS_NONE 0
+GC_API int GC_incremental_protection_needs GC_PROTO((void));
 
 /* Perform some garbage collection work, if appropriate.	*/
 /* Return 0 if there is no more work to be done.		*/
@@ -841,9 +873,19 @@ extern void GC_thr_init();	/* Needed for Solaris/X86	*/
 
 #endif /* THREADS && !SRC_M3 */
 
-#if defined(GC_WIN32_THREADS) && defined(_WIN32_WCE)
+#if defined(GC_WIN32_THREADS)
 # include <windows.h>
 
+  /*
+   * All threads must be created using GC_CreateThread, so that they will be
+   * recorded in the thread table.
+   */
+  HANDLE WINAPI GC_CreateThread(
+      LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      DWORD dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress,
+      LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId );
+
+# if defined(_WIN32_WCE)
   /*
    * win32_threads.c implements the real WinMain, which will start a new thread
    * to call GC_WinMain after initializing the garbage collector.
@@ -854,21 +896,13 @@ extern void GC_thr_init();	/* Needed for Solaris/X86	*/
       LPWSTR lpCmdLine,
       int nCmdShow );
 
-  /*
-   * All threads must be created using GC_CreateThread, so that they will be
-   * recorded in the thread table.
-   */
-  HANDLE WINAPI GC_CreateThread(
-      LPSECURITY_ATTRIBUTES lpThreadAttributes, 
-      DWORD dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, 
-      LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId );
+#  ifndef GC_BUILD
+#    define WinMain GC_WinMain
+#    define CreateThread GC_CreateThread
+#  endif
+# endif /* defined(_WIN32_WCE) */
 
-# ifndef GC_BUILD
-#   define WinMain GC_WinMain
-#   define CreateThread GC_CreateThread
-# endif
-
-#endif
+#endif /* defined(GC_WIN32_THREADS) */
 
 /*
  * If you are planning on putting
@@ -880,7 +914,7 @@ extern void GC_thr_init();	/* Needed for Solaris/X86	*/
 #   define GC_INIT() { extern end, etext; \
 		       GC_noop(&end, &etext); }
 #else
-# if defined(__CYGWIN32__) && defined(GC_USE_DLL)
+# if (defined(__CYGWIN32__) && defined(GC_USE_DLL)) || defined (_AIX)
     /*
      * Similarly gnu-win32 DLLs need explicit initialization
      */

@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -30,20 +41,32 @@ package java.util;
 /* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
  * "The Java Language Specification", ISBN 0-201-63451-1
  * plus online API docs for JDK 1.2 beta from http://www.javasoft.com.
- * Status:  Believed complete and correct.
  */
 
 /**
  * Exception thrown when an attempt is made to access an element that does not
- * exist. This exception is thrown by the Enumeration, Iterator and ListIterator
- * classes if the nextElement, next or previous method goes beyond the end of
- * the list of elements that are being accessed.
+ * exist. This exception is thrown by the Enumeration, Iterator and
+ * ListIterator classes if the nextElement, next or previous method goes
+ * beyond the end of the list of elements that are being accessed. It is also
+ * thrown by Vector and Stack when attempting to access the first or last
+ * element of an empty collection.
  *
  * @author Warren Levy <warrenl@cygnus.com>
- * @date September 2, 1998.
+ * @author Eric Blake <ebb9@email.byu.edu>
+ * @see Enumeration
+ * @see Iterator
+ * @see ListIterator
+ * @see Enumeration#nextElement()
+ * @see Iterator#next()
+ * @see ListIterator#previous()
+ * @since 1.0
+ * @status updated to 1.4
  */
 public class NoSuchElementException extends RuntimeException
 {
+  /**
+   * Compatible with JDK 1.0.
+   */
   private static final long serialVersionUID = 6769829250639411880L;
 
   /**
@@ -51,7 +74,6 @@ public class NoSuchElementException extends RuntimeException
    */
   public NoSuchElementException()
   {
-    super();
   }
 
   /**

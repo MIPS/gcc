@@ -662,7 +662,7 @@ package body GNAT.AWK is
       Results : Boolean := False;
 
    begin
-      --  Iterate throught the filters table, if pattern match call action.
+      --  Iterate through the filters table, if pattern match call action.
 
       for F in 1 .. Pattern_Action_Table.Last (Filters) loop
          if Patterns.Match (Filters.Table (F).Pattern.all, Session) then

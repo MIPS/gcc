@@ -56,6 +56,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define REAL_TYPE       _C_DBL
 
+#define VECTOR_TYPE	_C_VECTOR
+
 #define TYPE_FIELDS(TYPE)     objc_skip_typespec (TYPE)
 
 #define DECL_MODE(TYPE) *(TYPE)
@@ -70,6 +72,11 @@ Boston, MA 02111-1307, USA.  */
    one that has a constant value for this compilation.  */
 #undef STRUCTURE_SIZE_BOUNDARY
 #define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (struct{char a;}))
+
+/* Some ROUND_TYPE_ALIGN macros use TARGET_foo, and consequently
+   target_flags.  Define a dummy entry here to so we don't die.  */
+
+static int target_flags = 0;
 
 static inline int
 atoi (const char* str)

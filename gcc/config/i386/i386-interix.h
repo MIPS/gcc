@@ -26,9 +26,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define YES_UNDERSCORES
 
-/* YES_UNDERSCORES must preceed gas.h */
+/* YES_UNDERSCORES must precede gas.h */
 #include <i386/gas.h>
-/* The rest must follow. */
+/* The rest must follow.  */
 
 #define DBX_DEBUGGING_INFO
 #define SDB_DEBUGGING_INFO
@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387 and needs stack probes
-   We also align doubles to 64-bits for MSVC default compatability */
+   We also align doubles to 64-bits for MSVC default compatibility */
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
    (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE | \
@@ -90,7 +90,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The global __fltused is necessary to cause the printf/scanf routines
    for outputting/inputting floating point numbers to be loaded.  Since this
-   is kind of hard to detect, we just do it all the time. */
+   is kind of hard to detect, we just do it all the time.  */
 
 #ifdef ASM_FILE_START
 #undef ASM_FILE_START
@@ -202,7 +202,7 @@ Boston, MA 02111-1307, USA.  */
 	    }								\
 	  for (p = _ascii_bytes; p < limit && *p != '\0'; p++)		\
 	    continue;							\
-	  if (p < limit && (p - _ascii_bytes) <= STRING_LIMIT)		\
+	  if (p < limit && (p - _ascii_bytes) <= (long) STRING_LIMIT)	\
 	    {								\
 	      if (bytes_in_chunk > 0)					\
 		{							\
@@ -228,7 +228,7 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 
 /* Emit code to check the stack when allocating more that 4000
-   bytes in one go. */
+   bytes in one go.  */
 
 #define CHECK_STACK_LIMIT 0x1000
 
@@ -287,7 +287,7 @@ const_section ()							\
   if ((LOG)!=0) fprintf ((FILE), "\t.balign %d\n", 1<<(LOG))
 
 /* The linker will take care of this, and having them causes problems with
-   ld -r (specifically -rU). */
+   ld -r (specifically -rU).  */
 #define CTOR_LISTS_DEFINED_EXTERNALLY 1
 
 #define SET_ASM_OP	"\t.set\t"
@@ -312,7 +312,7 @@ while (0)
 
 /* The following two flags are usually "off" for i386, because some non-gnu
    tools (for the i386) don't handle them.  However, we don't have that
-   problem, so.... */
+   problem, so....  */
 
 /* Forward references to tags are allowed.  */
 #define SDB_ALLOW_FORWARD_REFERENCES
@@ -348,9 +348,10 @@ while (0)
 
    Apply stddef, handle (as yet unimplemented) pic.
 
-   stddef renaming does NOT apply to Alpha. */
+   stddef renaming does NOT apply to Alpha.  */
 
-char *gen_stdcall_suffix ();
+union tree_node;
+const char *gen_stdcall_suffix PARAMS ((union tree_node *));
 
 #undef ENCODE_SECTION_INFO
 #define ENCODE_SECTION_INFO(DECL) 					\
@@ -397,7 +398,7 @@ do {									\
 #if 0	
 /* Turn this back on when the linker is updated to handle grouped
    .data$ sections correctly. See corresponding note in i386/interix.c. 
-   MK. */
+   MK.  */
 
 /* Define this macro if in some cases global symbols from one translation
    unit may not be bound to undefined symbols in another translation unit
@@ -414,9 +415,9 @@ extern void i386_pe_unique_section ();
 #define TARGET_ASM_NAMED_SECTION  default_pe_asm_named_section
 #endif /* 0 */
 
-/* DWARF2 Unwinding doesn't work with exception handling yet. */
+/* DWARF2 Unwinding doesn't work with exception handling yet.  */
 #define DWARF2_UNWIND_INFO 0
 
-/* Don't assume anything about the header files. */
+/* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 

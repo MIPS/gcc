@@ -25,6 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cppdefault.h"
 #include "tradcpp.h"
 #include "mkdeps.h"
+#include "intl.h"
 
 typedef unsigned char U_CHAR;
 
@@ -84,6 +85,13 @@ int inhibit_warnings = 0;
 
 /* Non-0 means don't output the preprocessed program.  */
 int inhibit_output = 0;
+
+/* Nonzero means chars are signed.  */
+#if DEFAULT_SIGNED_CHAR
+int flag_signed_char = 1;
+#else
+int flag_signed_char = 0;
+#endif
 
 /* Nonzero means warn if slash-star appears in a comment.  */
 
@@ -309,11 +317,11 @@ HASHNODE *hashtab[HASHSIZE];
 /* `struct directive' defines one #-directive, including how to handle it.  */
 
 struct directive {
-  int length;			/* Length of name */
-  void (*func) PARAMS ((U_CHAR *, U_CHAR *, FILE_BUF *));
+  const int length;		/* Length of name */
+  void (*const func) PARAMS ((U_CHAR *, U_CHAR *, FILE_BUF *));
   				/* Function to handle directive */
-  const char *name;		/* Name of directive */
-  enum node_type type;		/* Code which describes which directive. */
+  const char *const name;	/* Name of directive */
+  const enum node_type type;	/* Code which describes which directive. */
 };
 
 /* Last arg to output_line_command.  */
@@ -382,7 +390,7 @@ static int comp_def_part	 PARAMS ((int, const U_CHAR *, int,
 static void delete_macro	 PARAMS ((HASHNODE *));
 
 /* First arg to v_message.  */
-enum msgtype { WARNING = 0, ERROR, FATAL };
+enum msgtype { MT_WARNING = 0, MT_ERROR, MT_FATAL };
 static void v_message		 PARAMS ((enum msgtype mtype, int line,
 					  const char *msgid, va_list ap))
      ATTRIBUTE_PRINTF (3, 0);
@@ -445,7 +453,7 @@ int main		PARAMS ((int, char **));
 
 /* Here is the actual list of #-directives, most-often-used first.  */
 
-struct directive directive_table[] = {
+static const struct directive directive_table[] = {
   {  6, do_define,  "define",  T_DEFINE  },
   {  7, do_include, "include", T_INCLUDE },
   {  5, do_endif,   "endif",   T_ENDIF   },
@@ -514,6 +522,8 @@ main (argc, argv)
   pending_dir *pend = (pending_dir *) xcalloc (argc, sizeof (pending_dir));
   int no_standard_includes = 0;
 
+  hex_init ();
+
 #ifdef RLIMIT_STACK
   /* Get rid of any avoidable limit on stack size.  */
   {
@@ -538,6 +548,8 @@ main (argc, argv)
 
   max_include_len = cpp_GCC_INCLUDE_DIR_len + 7;  /* ??? */
 
+  gcc_init_libintl ();
+
   /* It's simplest to just create this struct whether or not it will
      be needed.  */
   deps = deps_init ();
@@ -547,7 +559,7 @@ main (argc, argv)
   for (i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
       if (out_fname != NULL)
-	fatal ("Usage: %s [switches] input output", argv[0]);
+	fatal ("usage: %s [switches] input output", argv[0]);
       else if (in_fname != NULL)
 	out_fname = argv[i];
       else
@@ -579,7 +591,7 @@ main (argc, argv)
 	if (!strcmp (argv[i], "-include"))
 	  {
 	    if (i + 1 == argc)
-	      fatal ("Filename missing after -i option");
+	      fatal ("filename missing after -i option");
 	    else
 	      pend[i].type = PD_FILE, pend[i].arg = argv[i + 1], i++;
 	  }
@@ -595,9 +607,9 @@ main (argc, argv)
 
       case 'o':
 	if (out_fname != NULL)
-	  fatal ("Output filename specified twice");
+	  fatal ("output filename specified twice");
 	if (i + 1 == argc)
-	  fatal ("Filename missing after -o option");
+	  fatal ("filename missing after -o option");
 	out_fname = argv[++i];
 	if (!strcmp (out_fname, "-"))
 	  out_fname = "";
@@ -622,6 +634,10 @@ main (argc, argv)
 	  user_label_prefix = "_";
 	else if (!strcmp (argv[i], "-fno-leading-underscore"))
 	  user_label_prefix = "";
+	else if (!strcmp (argv[i], "-fsigned-char"))
+	  flag_signed_char = 1;
+	else if (!strcmp (argv[i], "-funsigned-char"))
+	  flag_signed_char = 0;
 	break;
 
       case 'M':
@@ -656,7 +672,7 @@ main (argc, argv)
 	    int quoted = argv[i][2] == 'Q';
 
 	    if (*tgt == '\0' && i + 1 == argc)
-	      fatal ("Target missing after %s option", argv[i]);
+	      fatal ("target missing after %s option", argv[i]);
 	    else
 	      {
 		if (*tgt == '\0')
@@ -670,7 +686,7 @@ main (argc, argv)
 	    if (*p)
 	      deps_file = p;
 	    else if (i + 1 == argc)
-	      fatal ("Filename missing after %s option", argv[i]);
+	      fatal ("filename missing after %s option", argv[i]);
 	    else
 	      deps_file = argv[++i];
 	  }
@@ -695,7 +711,7 @@ main (argc, argv)
 	  if (argv[i][2] != 0)
 	    p = argv[i] + 2;
 	  else if (i + 1 == argc)
-	    fatal ("Macro name missing after -%c option", c);
+	    fatal ("macro name missing after -%c option", c);
 	  else
 	    p = argv[++i];
 
@@ -746,7 +762,7 @@ main (argc, argv)
 	    if (argv[i][1] == 'I' && argv[i][2] != 0)
 	      dirtmp->fname = argv[i] + 2;
 	    else if (i + 1 == argc)
-	      fatal ("Directory name missing after -I option");
+	      fatal ("directory name missing after -I option");
 	    else
 	      dirtmp->fname = argv[++i];
 	    if (strlen (dirtmp->fname) > max_include_len)
@@ -773,7 +789,7 @@ main (argc, argv)
 	}	/* else fall through into error */
 
       default:
-	fatal ("Invalid option `%s'", argv[i]);
+	fatal ("invalid option `%s'", argv[i]);
       }
     }
   }
@@ -1474,7 +1490,7 @@ do { ip = &instack[indepth];		\
 	    ibp += 2;
 	  }
 	  c = *ibp++;
-	  if (!ISALNUM (c) && c != '.' && c != '_') {
+	  if (! ISIDNUM (c) && c != '.') {
 	    --ibp;
 	    break;
 	  }
@@ -1899,7 +1915,7 @@ handle_directive (ip, op)
      FILE_BUF *ip, *op;
 {
   U_CHAR *bp, *cp;
-  struct directive *kt;
+  const struct directive *kt;
   int ident_length;
   U_CHAR *resume_p;
 
@@ -2524,7 +2540,7 @@ process_include (stackp, fbeg, flen, system_header_p, op)
     } else if (print_deps
 	       && print_deps <= (system_header_p
 				 || (system_include_depth > 0)))
-      warning ("No include path in which to find %.*s", flen, fbeg);
+      warning ("no include path in which to find %.*s", flen, fbeg);
     else
       error_from_errno (fname);
 
@@ -3679,7 +3695,7 @@ skip_if_group (ip, any)
 {
   U_CHAR *bp = ip->bufp, *cp;
   U_CHAR *endb = ip->buf + ip->length;
-  struct directive *kt;
+  const struct directive *kt;
   IF_STACK_FRAME *save_if_stack = if_stack; /* don't pop past here */
   U_CHAR *beg_of_line = bp;
 
@@ -4654,7 +4670,7 @@ v_message (mtype, line, msgid, ap)
   const char *fname = 0;
   int i;
 
-  if (mtype == WARNING && inhibit_warnings)
+  if (mtype == MT_WARNING && inhibit_warnings)
     return;
 
   for (i = indepth; i >= 0; i--)
@@ -4670,13 +4686,13 @@ v_message (mtype, line, msgid, ap)
   else
     fprintf (stderr, "%s: ", progname);
 
-  if (mtype == WARNING)
-    fputs ("warning: ", stderr);
+  if (mtype == MT_WARNING)
+    fputs (_("warning: "), stderr);
 
-  vfprintf (stderr, msgid, ap);
+  vfprintf (stderr, _(msgid), ap);
   putc ('\n', stderr);
 
-  if (mtype == ERROR)
+  if (mtype == MT_ERROR)
     errors++;
 }
 
@@ -4689,7 +4705,7 @@ error VPARAMS ((const char *msgid, ...))
   VA_OPEN(ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  v_message (ERROR, 0, msgid, ap);
+  v_message (MT_ERROR, 0, msgid, ap);
   VA_CLOSE (ap);
 }
 
@@ -4700,7 +4716,7 @@ error_with_line VPARAMS ((int line, const char *msgid, ...))
   VA_FIXEDARG (ap, int, line);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  v_message (ERROR, line, msgid, ap);
+  v_message (MT_ERROR, line, msgid, ap);
   VA_CLOSE (ap);
 }
 
@@ -4719,7 +4735,7 @@ warning VPARAMS ((const char *msgid, ...))
   VA_OPEN(ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  v_message (WARNING, 0, msgid, ap);
+  v_message (MT_WARNING, 0, msgid, ap);
   VA_CLOSE (ap);
 }
 
@@ -4729,7 +4745,7 @@ fatal VPARAMS ((const char *msgid, ...))
   VA_OPEN(ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
-  v_message (FATAL, 0, msgid, ap);
+  v_message (MT_FATAL, 0, msgid, ap);
   VA_CLOSE (ap);
   exit (FATAL_EXIT_CODE);
 }
@@ -4740,7 +4756,7 @@ fancy_abort (line, func)
      int line;
      const char *func;
 {
-  fatal ("Internal error in %s, at tradcpp.c:%d\n\
+  fatal ("internal error in %s, at tradcpp.c:%d\n\
 Please submit a full bug report.\n\
 See %s for instructions.", func, line, GCCBUGURL);
 }
@@ -5100,6 +5116,9 @@ initialize_builtins ()
 #endif
   install_value ("__REGISTER_PREFIX__",   REGISTER_PREFIX);
   install_value ("__USER_LABEL_PREFIX__", user_label_prefix);
+
+  if (flag_signed_char == 0)
+    install_value ("__CHAR_UNSIGNED__", "1");
 }
 #undef DSC
 #undef install_spec
@@ -5112,7 +5131,7 @@ run_directive (str, len, type)
      size_t len;
      enum node_type type;
 {
-  struct directive *kt;
+  const struct directive *kt;
   FILE_BUF *ip = &instack[++indepth];
   ip->fname = "*command line*";
 

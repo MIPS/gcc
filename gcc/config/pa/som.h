@@ -42,7 +42,7 @@ Boston, MA 02111-1307, USA.  */
     last_function_decl = current_function_decl;		\
     sym_lineno += 1; }
 
-/* gdb needs a null N_SO at the end of each file for scattered loading. */
+/* gdb needs a null N_SO at the end of each file for scattered loading.  */
 
 #undef	DBX_OUTPUT_MAIN_SOURCE_FILE_END
 #define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME) \
@@ -265,9 +265,9 @@ do {  \
    complain.
 
    So, we force exception information into the data section.  */
-#define EXCEPTION_SECTION data_section
+#define TARGET_ASM_EXCEPTION_SECTION data_section
 
-/* Define the .bss section for ASM_OUTPUT_LOCAL to use. */
+/* Define the .bss section for ASM_OUTPUT_LOCAL to use.  */
 
 #define EXTRA_SECTIONS in_readonly_data
 
@@ -285,6 +285,7 @@ do {  \
    works correctly).  */
 
 #define EXTRA_SECTION_FUNCTIONS						\
+extern void readonly_data PARAMS ((void));				\
 void									\
 readonly_data ()							\
 {									\

@@ -492,7 +492,7 @@ package body Scn is
 
       Scan;
 
-      --  Clear flags for reserved words used as indentifiers
+      --  Clear flags for reserved words used as identifiers
 
       for J in Token_Type loop
          Used_As_Identifier (J) := False;

@@ -98,7 +98,7 @@ package body Comperr is
 
       Abort_In_Progress := True;
 
-      --  If errors have already occured, then we guess that the abort may
+      --  If errors have already occurred, then we guess that the abort may
       --  well be caused by previous errors, and we don't make too much fuss
       --  about it, since we want to let the programmer fix the errors first.
 

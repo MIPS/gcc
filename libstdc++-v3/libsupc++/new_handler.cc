@@ -1,6 +1,7 @@
 // Implementation file for the -*- C++ -*- dynamic memory management header.
 
-// Copyright (C) 1996, 1997, 1998, 2000 Free Software Foundation
+// Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
+// Free Software Foundation
 //
 // This file is part of GNU CC.
 //

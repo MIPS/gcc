@@ -82,7 +82,7 @@ java_mangle_decl (obstack, decl)
       mangle_method_decl (decl);
       break;
     default:
-      internal_error ("Can't mangle %s", tree_code_name [TREE_CODE (decl)]);
+      internal_error ("can't mangle %s", tree_code_name [TREE_CODE (decl)]);
     }
   return finish_mangling ();
 }
@@ -142,20 +142,13 @@ mangle_method_decl (mdecl)
   /* Mangle the name of the type that contains mdecl */
   mangle_record_type (DECL_CONTEXT (mdecl), /* for_pointer = */ 0);
 
-  /* Mangle the function name. There three cases
-       - mdecl is java.lang.Object.Object(), use `C2' for its name
-         (denotes a base object constructor.)
+  /* Mangle the function name.  There are two cases:
        - mdecl is a constructor, use `C1' for its name, (denotes a
          complete object constructor.)
        - mdecl is not a constructor, standard mangling is performed.
      We terminate the mangled function name with a `E'. */
   if (ID_INIT_P (method_name))
-    {
-      if (DECL_CONTEXT (mdecl) == object_type_node)
-	obstack_grow (mangle_obstack, "C2", 2);
-      else
-	obstack_grow (mangle_obstack, "C1", 2);
-    }
+    obstack_grow (mangle_obstack, "C1", 2);
   else
     mangle_member_name (method_name);
   obstack_1grow (mangle_obstack, 'E');
@@ -187,19 +180,9 @@ mangle_member_name (name)
   append_gpp_mangled_name (IDENTIFIER_POINTER (name),
 			   IDENTIFIER_LENGTH (name));
 
-  /* If NAME happens to be a C++ keyword, add `$' or `.' or `_'. */
+  /* If NAME happens to be a C++ keyword, add `$'. */
   if (cxx_keyword_p (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name)))
-    {
-#ifndef NO_DOLLAR_IN_LABEL
-      obstack_1grow (mangle_obstack, '$');
-#else  /* NO_DOLLAR_IN_LABEL */
-#ifndef NO_DOT_IN_LABEL
-      obstack_1grow (mangle_obstack, '.');
-#else  /* NO_DOT_IN_LABEL */
-      obstack_1grow (mangle_obstack, '_');
-#endif /* NO_DOT_IN_LABEL */
-#endif /* NO_DOLLAR_IN_LABEL */
-    }
+    obstack_1grow (mangle_obstack, '$');
 }
 
 /* Append the mangled name of TYPE onto OBSTACK.  */
@@ -255,7 +238,7 @@ mangle_type (type)
 
 /* The compression table is a vector that keeps track of things we've
    already seen, so they can be reused. For example, java.lang.Object
-   Would generate three entries: two package names and a type. If
+   would generate three entries: two package names and a type. If
    java.lang.String is presented next, the java.lang will be matched
    against the first two entries (and kept for compression as S_0), and
    type String would be added to the table. See mangle_record_type.
@@ -327,7 +310,19 @@ find_compression_record_match (type, next_current)
 	  {
 	    match = i = j;
 	    saved_current = current;
+	    i++;
 	    break;
+	  }
+	else
+	  {
+	    /* We don't want to match an element that appears in the middle
+	    of a package name, so skip forward to the next complete type name.
+	    IDENTIFIER_NODEs are partial package names while RECORD_TYPEs
+	    represent complete type names. */
+	    while (j < compression_next 
+		   && TREE_CODE (TREE_VEC_ELT (compression_table, j)) == 
+		      IDENTIFIER_NODE)
+	      j++;
 	  }
     }
 

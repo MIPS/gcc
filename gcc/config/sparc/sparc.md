@@ -1,6 +1,6 @@
 ;- Machine description for SPARC chip for GNU C compiler
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -83,6 +83,7 @@
 
 ;; Insn type.
 
+;; If you add any new type here, please update ultrasparc_sched_reorder too.
 (define_attr "type"
   "ialu,compare,shift,load,sload,store,uncond_branch,branch,call,sibcall,call_no_delay_slot,return,imul,idiv,fpload,fpstore,fp,fpmove,fpcmove,fpcmp,fpmul,fpdivs,fpdivd,fpsqrts,fpsqrtd,cmove,multi,misc"
   (const_string "ialu"))
@@ -2198,7 +2199,7 @@
 	}
     }
 
-  /* This makes sure we will not get rematched due to splittage. */
+  /* This makes sure we will not get rematched due to splittage.  */
   if (! CONSTANT_P (operands[1]) || input_operand (operands[1], HImode))
     ;
   else if (CONSTANT_P (operands[1])
@@ -2296,7 +2297,7 @@
     operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
 						 operands[1]));
 
-  /* This makes sure we will not get rematched due to splittage. */
+  /* This makes sure we will not get rematched due to splittage.  */
   if (! CONSTANT_P (operands[1]) || input_operand (operands[1], SImode))
     ;
   else if (CONSTANT_P (operands[1])
@@ -2429,7 +2430,7 @@
 	 The const zero case is more complex, on v9
 	 we can always perform it.  */
       if (register_operand (operands[1], DImode)
-	  || (TARGET_ARCH64
+	  || (TARGET_V9
               && (operands[1] == const0_rtx)))
         goto movdi_is_ok;
 
@@ -2474,7 +2475,7 @@
     operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
 						 operands[1]));
 
-  /* This makes sure we will not get rematched due to splittage. */
+  /* This makes sure we will not get rematched due to splittage.  */
   if (! CONSTANT_P (operands[1]) || input_operand (operands[1], DImode))
     ;
   else if (TARGET_ARCH64
@@ -2501,12 +2502,38 @@
 ;;                       (const_int -5016)))
 ;;      (reg:DI 2 %g2))
 ;;
+
+(define_insn "*movdi_insn_sp32_v9"
+  [(set (match_operand:DI 0 "nonimmediate_operand"
+					"=m,T,U,o,r,r,r,?T,?f,?f,?o,?f")
+        (match_operand:DI 1 "input_operand"
+					" J,U,T,r,o,i,r, f, T, o, f, f"))]
+  "! TARGET_ARCH64 && TARGET_V9
+   && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
+  "@
+   stx\\t%%g0, %0
+   std\\t%1, %0
+   ldd\\t%1, %0
+   #
+   #
+   #
+   #
+   std\\t%1, %0
+   ldd\\t%1, %0
+   #
+   #
+   #"
+  [(set_attr "type" "store,store,load,*,*,*,*,fpstore,fpload,*,*,*")
+   (set_attr "length" "*,*,*,2,2,2,2,*,*,2,2,2")])
+
 (define_insn "*movdi_insn_sp32"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=T,U,o,r,r,r,?T,?f,?f,?o,?f")
-        (match_operand:DI 1 "input_operand"    "U,T,r,o,i,r,f,T,o,f,f"))]
-  "! TARGET_ARCH64 &&
-   (register_operand (operands[0], DImode)
-    || register_operand (operands[1], DImode))"
+  [(set (match_operand:DI 0 "nonimmediate_operand"
+				"=T,U,o,r,r,r,?T,?f,?f,?o,?f")
+        (match_operand:DI 1 "input_operand"
+				" U,T,r,o,i,r, f, T, o, f, f"))]
+  "! TARGET_ARCH64
+   && (register_operand (operands[0], DImode)
+       || register_operand (operands[1], DImode))"
   "@
    std\\t%1, %0
    ldd\\t%1, %0
@@ -2753,8 +2780,7 @@
    && ! flag_pic"
   "
 {
-  sparc_emit_set_symbolic_const64 (operands[0], operands[1],
-                                   gen_rtx_REG (DImode, REGNO (operands[2])));
+  sparc_emit_set_symbolic_const64 (operands[0], operands[1], operands[2]);
   DONE;
 }")
 
@@ -2767,8 +2793,7 @@
    && ! flag_pic"
   "
 {
-  sparc_emit_set_symbolic_const64 (operands[0], operands[1],
-                                   gen_rtx_REG (DImode, REGNO (operands[2])));
+  sparc_emit_set_symbolic_const64 (operands[0], operands[1], operands[2]);
   DONE;
 }")
 
@@ -2843,11 +2868,6 @@
   rtx set_src = operands[1];
   rtx dest1, dest2;
   rtx src1, src2;
-
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
-  if (GET_CODE (set_src) == SUBREG)
-    set_src = alter_subreg (set_src);
 
   dest1 = gen_highpart (SImode, set_dest);
   dest2 = gen_lowpart (SImode, set_dest);
@@ -3180,6 +3200,11 @@
 	  && fp_zero_operand (operands[1], DFmode))
 	goto movdf_is_ok;
 
+      /* We are able to build any DF constant in integer registers.  */
+      if (REGNO (operands[0]) < 32
+	  && (reload_completed || reload_in_progress))
+	goto movdf_is_ok;
+
       operands[1] = validize_mem (force_const_mem (GET_MODE (operands[0]),
                                                    operands[1]));
     }
@@ -3407,8 +3432,6 @@
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
   REAL_VALUE_TO_TARGET_DOUBLE (r, l);
-  if (GET_CODE (operands[0]) == SUBREG)
-    operands[0] = alter_subreg (operands[0]);
   operands[0] = gen_rtx_raw_REG (DImode, REGNO (operands[0]));
 
   if (TARGET_ARCH64)
@@ -3421,8 +3444,7 @@
       emit_insn (gen_movdi (operands[0], GEN_INT (val)));
 #else
       emit_insn (gen_movdi (operands[0],
-                            gen_rtx_CONST_DOUBLE (VOIDmode, const0_rtx,
-                                                  l[1], l[0])));
+                            gen_rtx_CONST_DOUBLE (VOIDmode, l[1], l[0])));
 #endif
     }
   else
@@ -3472,11 +3494,6 @@
   rtx dest1, dest2;
   rtx src1, src2;
 
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
-  if (GET_CODE (set_src) == SUBREG)
-    set_src = alter_subreg (set_src);
-
   dest1 = gen_highpart (SFmode, set_dest);
   dest2 = gen_lowpart (SFmode, set_dest);
   src1 = gen_highpart (SFmode, set_src);
@@ -3511,9 +3528,6 @@
   rtx word0 = adjust_address (operands[1], SFmode, 0);
   rtx word1 = adjust_address (operands[1], SFmode, 4);
 
-  if (GET_CODE (operands[0]) == SUBREG)
-    operands[0] = alter_subreg (operands[0]);
-
   if (reg_overlap_mentioned_p (gen_highpart (SFmode, operands[0]), word1))
     {
       emit_insn (gen_movsf (gen_lowpart (SFmode, operands[0]),
@@ -3545,8 +3559,6 @@
   rtx word0 = adjust_address (operands[0], SFmode, 0);
   rtx word1 = adjust_address (operands[0], SFmode, 4);
 
-  if (GET_CODE (operands[1]) == SUBREG)
-    operands[1] = alter_subreg (operands[1]);
   emit_insn (gen_movsf (word0,
 			gen_highpart (SFmode, operands[1])));
   emit_insn (gen_movsf (word1,
@@ -3591,8 +3603,6 @@
   rtx set_dest = operands[0];
   rtx dest1, dest2;
 
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
   dest1 = gen_highpart (SFmode, set_dest);
   dest2 = gen_lowpart (SFmode, set_dest);
   emit_insn (gen_movsf (dest1, CONST0_RTX (SFmode)));
@@ -3606,7 +3616,7 @@
   ""
   "
 {
-  /* Force TFmode constants into memory. */
+  /* Force TFmode constants into memory.  */
   if (GET_CODE (operands[0]) == REG
       && CONSTANT_P (operands[1]))
     {
@@ -3624,7 +3634,7 @@
     }
 
   /* Handle MEM cases first, note that only v9 guarentees
-     full 16-byte alignment for quads. */
+     full 16-byte alignment for quads.  */
   if (GET_CODE (operands[0]) == MEM)
     {
       if (register_operand (operands[1], TFmode)
@@ -3796,11 +3806,6 @@
   rtx dest1, dest2;
   rtx src1, src2;
 
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
-  if (GET_CODE (set_src) == SUBREG)
-    set_src = alter_subreg (set_src);
-
   dest1 = gen_df_reg (set_dest, 0);
   dest2 = gen_df_reg (set_dest, 1);
   src1 = gen_df_reg (set_src, 0);
@@ -3833,9 +3838,6 @@
 
   switch (GET_CODE (set_dest))
     {
-    case SUBREG:
-      set_dest = alter_subreg (set_dest);
-      /* FALLTHROUGH */
     case REG:
       dest1 = gen_df_reg (set_dest, 0);
       dest2 = gen_df_reg (set_dest, 1);
@@ -3866,8 +3868,6 @@
   rtx set_dest, dest1, dest2;
 
   set_dest = operands[0];
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
 
   dest1 = gen_df_reg (set_dest, 0);
   dest2 = gen_df_reg (set_dest, 1);
@@ -3897,8 +3897,6 @@
   "
 {
   rtx set_src = operands[1];
-  if (GET_CODE (set_src) == SUBREG)
-    set_src = alter_subreg (set_src);
 
   emit_insn (gen_movdf (adjust_address (operands[0], DFmode, 0),
 			gen_df_reg (set_src, 0)));
@@ -4256,13 +4254,6 @@
   rtx dest1, dest2;
   rtx srca1, srca2, srcb1, srcb2;
 
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
-  if (GET_CODE (set_srca) == SUBREG)
-    set_srca = alter_subreg (set_srca);
-  if (GET_CODE (set_srcb) == SUBREG)
-    set_srcb = alter_subreg (set_srcb);
-
   dest1 = gen_df_reg (set_dest, 0);
   dest2 = gen_df_reg (set_dest, 1);
   srca1 = gen_df_reg (set_srca, 0);
@@ -4420,13 +4411,6 @@
   int third = rtx_equal_p (set_dest, set_srca);
   rtx dest1, dest2;
   rtx srca1, srca2, srcb1, srcb2;
-
-  if (GET_CODE (set_dest) == SUBREG)
-    set_dest = alter_subreg (set_dest);
-  if (GET_CODE (set_srca) == SUBREG)
-    set_srca = alter_subreg (set_srca);
-  if (GET_CODE (set_srcb) == SUBREG)
-    set_srcb = alter_subreg (set_srcb);
 
   dest1 = gen_df_reg (set_dest, 0);
   dest2 = gen_df_reg (set_dest, 1);
@@ -4599,9 +4583,6 @@
   "
 {
   rtx dest1, dest2;
-
-  if (GET_CODE (operands[0]) == SUBREG)
-    operands[0] = alter_subreg (operands[0]);
 
   dest1 = gen_highpart (SImode, operands[0]);
   dest2 = gen_lowpart (SImode, operands[0]);
@@ -5379,7 +5360,7 @@
 
 (define_expand "fix_trunctfdi2"
   [(set (match_operand:DI 0 "register_operand" "=e")
-	(fix:SI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+	(fix:DI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
   "TARGET_V9 && TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
   "
 {
@@ -6659,8 +6640,6 @@
    (set (match_dup 5) (match_op_dup:SI 1 [(match_dup 7) (match_dup 9)]))]
   "
 {
-  if (GET_CODE (operands[0]) == SUBREG)
-    operands[0] = alter_subreg (operands[0]);
   operands[4] = gen_highpart (SImode, operands[0]);
   operands[5] = gen_lowpart (SImode, operands[0]);
   operands[6] = gen_highpart (SImode, operands[2]);
@@ -6704,9 +6683,7 @@
            && REGNO (SUBREG_REG (operands[0])) < 32))"
   [(set (match_dup 3) (and:SI (not:SI (match_dup 4)) (match_dup 5)))
    (set (match_dup 6) (and:SI (not:SI (match_dup 7)) (match_dup 8)))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   operands[3] = gen_highpart (SImode, operands[0]);
+  "operands[3] = gen_highpart (SImode, operands[0]);
    operands[4] = gen_highpart (SImode, operands[1]);
    operands[5] = gen_highpart (SImode, operands[2]);
    operands[6] = gen_lowpart (SImode, operands[0]);
@@ -6814,9 +6791,7 @@
            && REGNO (SUBREG_REG (operands[0])) < 32))"
   [(set (match_dup 3) (ior:SI (not:SI (match_dup 4)) (match_dup 5)))
    (set (match_dup 6) (ior:SI (not:SI (match_dup 7)) (match_dup 8)))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   operands[3] = gen_highpart (SImode, operands[0]);
+  "operands[3] = gen_highpart (SImode, operands[0]);
    operands[4] = gen_highpart (SImode, operands[1]);
    operands[5] = gen_highpart (SImode, operands[2]);
    operands[6] = gen_lowpart (SImode, operands[0]);
@@ -6949,9 +6924,7 @@
            && REGNO (SUBREG_REG (operands[0])) < 32))"
   [(set (match_dup 3) (not:SI (xor:SI (match_dup 4) (match_dup 5))))
    (set (match_dup 6) (not:SI (xor:SI (match_dup 7) (match_dup 8))))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   operands[3] = gen_highpart (SImode, operands[0]);
+  "operands[3] = gen_highpart (SImode, operands[0]);
    operands[4] = gen_highpart (SImode, operands[1]);
    operands[5] = gen_highpart (SImode, operands[2]);
    operands[6] = gen_lowpart (SImode, operands[0]);
@@ -7251,9 +7224,7 @@
            && REGNO (SUBREG_REG (operands[0])) < 32))"
   [(set (match_dup 2) (not:SI (xor:SI (match_dup 3) (const_int 0))))
    (set (match_dup 4) (not:SI (xor:SI (match_dup 5) (const_int 0))))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   operands[2] = gen_highpart (SImode, operands[0]);
+  "operands[2] = gen_highpart (SImode, operands[0]);
    operands[3] = gen_highpart (SImode, operands[1]);
    operands[4] = gen_lowpart (SImode, operands[0]);
    operands[5] = gen_lowpart (SImode, operands[1]);")
@@ -7312,6 +7283,26 @@
   "TARGET_ARCH64"
   "xnorcc\\t%%g0, %1, %0"
   [(set_attr "type" "compare")])
+
+(define_insn "*cmp_cc_set"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(match_operand:SI 1 "register_operand" "r"))
+   (set (reg:CC 100)
+	(compare:CC (match_dup 1)
+		    (const_int 0)))]
+  ""
+  "orcc\\t%1, 0, %0"
+  [(set_attr "type" "compare")])
+
+(define_insn "*cmp_ccx_set64"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(match_operand:DI 1 "register_operand" "r"))
+   (set (reg:CCX 100)
+	(compare:CCX (match_dup 1)
+		     (const_int 0)))]
+  "TARGET_ARCH64"
+  "orcc\\t%1, 0, %0"
+   [(set_attr "type" "compare")])
 
 ;; Floating point arithmetic instructions.
 
@@ -7629,11 +7620,7 @@
   [(set (match_dup 2) (neg:SF (match_dup 3)))
    (set (match_dup 4) (match_dup 5))
    (set (match_dup 6) (match_dup 7))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   if (GET_CODE (operands[1]) == SUBREG)
-     operands[1] = alter_subreg (operands[1]);
-   operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
+  "operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
    operands[3] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]));
    operands[4] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]) + 1);
    operands[5] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]) + 1);
@@ -7661,11 +7648,7 @@
    && sparc_absnegfloat_split_legitimate (operands[0], operands[1])"
   [(set (match_dup 2) (neg:DF (match_dup 3)))
    (set (match_dup 4) (match_dup 5))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   if (GET_CODE (operands[1]) == SUBREG)
-     operands[1] = alter_subreg (operands[1]);
-   operands[2] = gen_rtx_raw_REG (DFmode, REGNO (operands[0]));
+  "operands[2] = gen_rtx_raw_REG (DFmode, REGNO (operands[0]));
    operands[3] = gen_rtx_raw_REG (DFmode, REGNO (operands[1]));
    operands[4] = gen_rtx_raw_REG (DFmode, REGNO (operands[0]) + 2);
    operands[5] = gen_rtx_raw_REG (DFmode, REGNO (operands[1]) + 2);")
@@ -7695,11 +7678,7 @@
    && sparc_absnegfloat_split_legitimate (operands[0], operands[1])"
   [(set (match_dup 2) (neg:SF (match_dup 3)))
    (set (match_dup 4) (match_dup 5))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   if (GET_CODE (operands[1]) == SUBREG)
-     operands[1] = alter_subreg (operands[1]);
-   operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
+  "operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
    operands[3] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]));
    operands[4] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]) + 1);
    operands[5] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]) + 1);")
@@ -7746,11 +7725,7 @@
   [(set (match_dup 2) (abs:SF (match_dup 3)))
    (set (match_dup 4) (match_dup 5))
    (set (match_dup 6) (match_dup 7))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   if (GET_CODE (operands[1]) == SUBREG)
-     operands[1] = alter_subreg (operands[1]);
-   operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
+  "operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
    operands[3] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]));
    operands[4] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]) + 1);
    operands[5] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]) + 1);
@@ -7787,11 +7762,7 @@
    && sparc_absnegfloat_split_legitimate (operands[0], operands[1])"
   [(set (match_dup 2) (abs:DF (match_dup 3)))
    (set (match_dup 4) (match_dup 5))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   if (GET_CODE (operands[1]) == SUBREG)
-     operands[1] = alter_subreg (operands[1]);
-   operands[2] = gen_rtx_raw_REG (DFmode, REGNO (operands[0]));
+  "operands[2] = gen_rtx_raw_REG (DFmode, REGNO (operands[0]));
    operands[3] = gen_rtx_raw_REG (DFmode, REGNO (operands[1]));
    operands[4] = gen_rtx_raw_REG (DFmode, REGNO (operands[0]) + 2);
    operands[5] = gen_rtx_raw_REG (DFmode, REGNO (operands[1]) + 2);")
@@ -7821,11 +7792,7 @@
    && sparc_absnegfloat_split_legitimate (operands[0], operands[1])"
   [(set (match_dup 2) (abs:SF (match_dup 3)))
    (set (match_dup 4) (match_dup 5))]
-  "if (GET_CODE (operands[0]) == SUBREG)
-     operands[0] = alter_subreg (operands[0]);
-   if (GET_CODE (operands[1]) == SUBREG)
-     operands[1] = alter_subreg (operands[1]);
-   operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
+  "operands[2] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]));
    operands[3] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]));
    operands[4] = gen_rtx_raw_REG (SFmode, REGNO (operands[0]) + 1);
    operands[5] = gen_rtx_raw_REG (SFmode, REGNO (operands[1]) + 1);")
@@ -8479,7 +8446,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tunimp\\t%2"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 ;; This is a call that wants a structure value.
 ;; There is no such critter for v9 (??? we may need one anyway).
@@ -8491,7 +8459,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tunimp\\t%2"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 ;; This is a call that may want a structure value.  This is used for
 ;; untyped_calls.
@@ -8503,7 +8472,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tnop"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 ;; This is a call that wants a structure value.
 (define_insn "*call_symbolic_untyped_struct_value_sp32"
@@ -8514,7 +8484,8 @@
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tnop"
-  [(set_attr "type" "call_no_delay_slot")])
+  [(set_attr "type" "call_no_delay_slot")
+   (set_attr "length" "2")])
 
 (define_expand "call_value"
   ;; Note that this expression is not used for generating RTL.
@@ -8995,144 +8966,159 @@
 ;; The conditions in which we do this are very restricted and are 
 ;; explained in the code for {registers,memory}_ok_for_ldd functions.
 
-(define_peephole
+(define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
       (const_int 0))
    (set (match_operand:SI 1 "memory_operand" "")
       (const_int 0))]
   "TARGET_V9
-   && ! MEM_VOLATILE_P (operands[0])
-   && ! MEM_VOLATILE_P (operands[1])
-   && addrs_ok_for_ldd_peep (XEXP (operands[0], 0), XEXP (operands[1], 0))"
-  "stx\\t%%g0, %0")
+   && mems_ok_for_ldd_peep (operands[0], operands[1], NULL_RTX)"
+  [(set (match_dup 0)
+       (const_int 0))]
+  "operands[0] = change_address (operands[0], DImode, NULL);")
 
-(define_peephole
+(define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
       (const_int 0))
    (set (match_operand:SI 1 "memory_operand" "")
       (const_int 0))]
   "TARGET_V9
-   && ! MEM_VOLATILE_P (operands[0])
-   && ! MEM_VOLATILE_P (operands[1])
-   && addrs_ok_for_ldd_peep (XEXP (operands[1], 0), XEXP (operands[0], 0))"
-  "stx\\t%%g0, %1")
+   && mems_ok_for_ldd_peep (operands[1], operands[0], NULL_RTX)"
+  [(set (match_dup 1)
+       (const_int 0))]
+  "operands[1] = change_address (operands[1], DImode, NULL);")
 
-(define_peephole
-  [(set (match_operand:SI 0 "register_operand" "=rf")
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand" "")
         (match_operand:SI 1 "memory_operand" ""))
-   (set (match_operand:SI 2 "register_operand" "=rf")
+   (set (match_operand:SI 2 "register_operand" "")
         (match_operand:SI 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[0], operands[2]) 
-   && ! MEM_VOLATILE_P (operands[1])
-   && ! MEM_VOLATILE_P (operands[3])
-   && addrs_ok_for_ldd_peep (XEXP (operands[1], 0), XEXP (operands[3], 0))" 
-  "ldd\\t%1, %0")
+   && mems_ok_for_ldd_peep (operands[1], operands[3], operands[0])" 
+  [(set (match_dup 0)
+	(match_dup 1))]
+  "operands[1] = change_address (operands[1], DImode, NULL);
+   operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));")
 
-(define_peephole
+(define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
-        (match_operand:SI 1 "register_operand" "rf"))
+        (match_operand:SI 1 "register_operand" ""))
    (set (match_operand:SI 2 "memory_operand" "")
-        (match_operand:SI 3 "register_operand" "rf"))]
+        (match_operand:SI 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[1], operands[3]) 
-   && ! MEM_VOLATILE_P (operands[0])
-   && ! MEM_VOLATILE_P (operands[2])
-   && addrs_ok_for_ldd_peep (XEXP (operands[0], 0), XEXP (operands[2], 0))"
-  "std\\t%1, %0")
- 
-(define_peephole
-  [(set (match_operand:SF 0 "register_operand" "=fr")
+   && mems_ok_for_ldd_peep (operands[0], operands[2], NULL_RTX)"
+  [(set (match_dup 0)
+	(match_dup 1))]
+  "operands[0] = change_address (operands[0], DImode, NULL);
+   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));")
+
+(define_peephole2
+  [(set (match_operand:SF 0 "register_operand" "")
         (match_operand:SF 1 "memory_operand" ""))
-   (set (match_operand:SF 2 "register_operand" "=fr")
+   (set (match_operand:SF 2 "register_operand" "")
         (match_operand:SF 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[0], operands[2]) 
-   && ! MEM_VOLATILE_P (operands[1])
-   && ! MEM_VOLATILE_P (operands[3])
-   && addrs_ok_for_ldd_peep (XEXP (operands[1], 0), XEXP (operands[3], 0))"
-  "ldd\\t%1, %0")
+   && mems_ok_for_ldd_peep (operands[1], operands[3], operands[0])"
+  [(set (match_dup 0)
+	(match_dup 1))]
+  "operands[1] = change_address (operands[1], DFmode, NULL);
+   operands[0] = gen_rtx_REG (DFmode, REGNO (operands[0]));")
 
-(define_peephole
+(define_peephole2
   [(set (match_operand:SF 0 "memory_operand" "")
-        (match_operand:SF 1 "register_operand" "fr"))
+        (match_operand:SF 1 "register_operand" ""))
    (set (match_operand:SF 2 "memory_operand" "")
-        (match_operand:SF 3 "register_operand" "fr"))]
+        (match_operand:SF 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[1], operands[3]) 
-  && ! MEM_VOLATILE_P (operands[0])
-  && ! MEM_VOLATILE_P (operands[2])
-  && addrs_ok_for_ldd_peep (XEXP (operands[0], 0), XEXP (operands[2], 0))"
-  "std\\t%1, %0")
+  && mems_ok_for_ldd_peep (operands[0], operands[2], NULL_RTX)"
+  [(set (match_dup 0)
+	(match_dup 1))]
+  "operands[0] = change_address (operands[0], DFmode, NULL);
+   operands[1] = gen_rtx_REG (DFmode, REGNO (operands[1]));")
 
-(define_peephole
-  [(set (match_operand:SI 0 "register_operand" "=rf")
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand" "")
         (match_operand:SI 1 "memory_operand" ""))
-   (set (match_operand:SI 2 "register_operand" "=rf")
+   (set (match_operand:SI 2 "register_operand" "")
         (match_operand:SI 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[2], operands[0]) 
-  && ! MEM_VOLATILE_P (operands[3])
-  && ! MEM_VOLATILE_P (operands[1])
-  && addrs_ok_for_ldd_peep (XEXP (operands[3], 0), XEXP (operands[1], 0))"
-  "ldd\\t%3, %2")
+  && mems_ok_for_ldd_peep (operands[3], operands[1], operands[2])"
+  [(set (match_dup 2)
+	(match_dup 3))]
+   "operands[3] = change_address (operands[3], DImode, NULL);
+    operands[2] = gen_rtx_REG (DImode, REGNO (operands[2]));")
 
-(define_peephole
+(define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
-        (match_operand:SI 1 "register_operand" "rf"))
+        (match_operand:SI 1 "register_operand" ""))
    (set (match_operand:SI 2 "memory_operand" "")
-        (match_operand:SI 3 "register_operand" "rf"))]
+        (match_operand:SI 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[3], operands[1]) 
-  && ! MEM_VOLATILE_P (operands[2])
-  && ! MEM_VOLATILE_P (operands[0])
-  && addrs_ok_for_ldd_peep (XEXP (operands[2], 0), XEXP (operands[0], 0))" 
-  "std\\t%3, %2")
+  && mems_ok_for_ldd_peep (operands[2], operands[0], NULL_RTX)" 
+  [(set (match_dup 2)
+	(match_dup 3))]
+  "operands[2] = change_address (operands[2], DImode, NULL);
+   operands[3] = gen_rtx_REG (DImode, REGNO (operands[3]));
+   ")
  
-(define_peephole
-  [(set (match_operand:SF 0 "register_operand" "=fr")
+(define_peephole2
+  [(set (match_operand:SF 0 "register_operand" "")
         (match_operand:SF 1 "memory_operand" ""))
-   (set (match_operand:SF 2 "register_operand" "=fr")
+   (set (match_operand:SF 2 "register_operand" "")
         (match_operand:SF 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[2], operands[0]) 
-  && ! MEM_VOLATILE_P (operands[3])
-  && ! MEM_VOLATILE_P (operands[1])
-  && addrs_ok_for_ldd_peep (XEXP (operands[3], 0), XEXP (operands[1], 0))"
-  "ldd\\t%3, %2")
+  && mems_ok_for_ldd_peep (operands[3], operands[1], operands[2])"
+  [(set (match_dup 2)
+	(match_dup 3))]
+  "operands[3] = change_address (operands[3], DFmode, NULL);
+   operands[2] = gen_rtx_REG (DFmode, REGNO (operands[2]));")
 
-(define_peephole
+(define_peephole2
   [(set (match_operand:SF 0 "memory_operand" "")
-        (match_operand:SF 1 "register_operand" "fr"))
+        (match_operand:SF 1 "register_operand" ""))
    (set (match_operand:SF 2 "memory_operand" "")
-        (match_operand:SF 3 "register_operand" "fr"))]
+        (match_operand:SF 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[3], operands[1]) 
-  && ! MEM_VOLATILE_P (operands[2])
-  && ! MEM_VOLATILE_P (operands[0])
-  && addrs_ok_for_ldd_peep (XEXP (operands[2], 0), XEXP (operands[0], 0))"
-  "std\\t%3, %2")
+  && mems_ok_for_ldd_peep (operands[2], operands[0], NULL_RTX)"
+  [(set (match_dup 2)
+	(match_dup 3))]
+  "operands[2] = change_address (operands[2], DFmode, NULL);
+   operands[3] = gen_rtx_REG (DFmode, REGNO (operands[3]));")
  
 ;; Optimize the case of following a reg-reg move with a test
 ;; of reg just moved.  Don't allow floating point regs for operand 0 or 1.
 ;; This can result from a float to fix conversion.
 
-(define_peephole
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(match_operand:SI 1 "register_operand" "r"))
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 1 "register_operand" ""))
    (set (reg:CC 100)
-	(compare:CC (match_operand:SI 2 "register_operand" "r")
+	(compare:CC (match_operand:SI 2 "register_operand" "")
 		    (const_int 0)))]
   "(rtx_equal_p (operands[2], operands[0])
     || rtx_equal_p (operands[2], operands[1]))
-   && ! FP_REG_P (operands[0])
-   && ! FP_REG_P (operands[1])"
-  "orcc\\t%1, 0, %0")
+    && ! SPARC_FP_REG_P (REGNO (operands[0]))
+    && ! SPARC_FP_REG_P (REGNO (operands[1]))"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (reg:CC 100)
+		   (compare:CC (match_dup 1) (const_int 0)))])]
+  "")
 
-(define_peephole
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(match_operand:DI 1 "register_operand" "r"))
+(define_peephole2
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operand:DI 1 "register_operand" ""))
    (set (reg:CCX 100)
-	(compare:CCX (match_operand:DI 2 "register_operand" "r")
+	(compare:CCX (match_operand:DI 2 "register_operand" "")
 		    (const_int 0)))]
   "TARGET_ARCH64
    && (rtx_equal_p (operands[2], operands[0])
        || rtx_equal_p (operands[2], operands[1]))
-   && ! FP_REG_P (operands[0])
-   && ! FP_REG_P (operands[1])"
-  "orcc\\t%1, 0, %0")
+   && ! SPARC_FP_REG_P (REGNO (operands[0]))
+   && ! SPARC_FP_REG_P (REGNO (operands[1]))"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (reg:CCX 100)
+		   (compare:CC (match_dup 1) (const_int 0)))])]
+  "")
 
 ;; Return peepholes.  First the "normal" ones.
 ;; These are necessary to catch insns ending up in the epilogue delay list.
@@ -9316,7 +9302,7 @@
 	      (clobber (reg:SI 15))])
    (set (pc) (label_ref (match_operand 3 "" "")))]
   "short_branch (INSN_UID (insn), INSN_UID (operands[3]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a1, %2\\n\\tadd\\t%%o7, (%l3-.-4), %%o7")
 
 (define_peephole
@@ -9325,7 +9311,7 @@
 	      (clobber (reg:SI 15))])
    (set (pc) (label_ref (match_operand 2 "" "")))]
   "short_branch (INSN_UID (insn), INSN_UID (operands[2]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a0, %1\\n\\tadd\\t%%o7, (%l2-.-4), %%o7")
 
 (define_peephole
@@ -9336,7 +9322,7 @@
    (set (pc) (label_ref (match_operand 3 "" "")))]
   "TARGET_ARCH64
    && short_branch (INSN_UID (insn), INSN_UID (operands[3]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a1, %2\\n\\tadd\\t%%o7, (%l3-.-4), %%o7")
 
 (define_peephole
@@ -9346,8 +9332,39 @@
    (set (pc) (label_ref (match_operand 2 "" "")))]
   "TARGET_ARCH64
    && short_branch (INSN_UID (insn), INSN_UID (operands[2]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a0, %1\\n\\tadd\\t%%o7, (%l2-.-4), %%o7")
+
+(define_insn "prefetch"
+  [(prefetch (match_operand:DI 0 "address_operand" "p")
+	     (match_operand:DI 1 "const_int_operand" "n")
+	     (match_operand:DI 2 "const_int_operand" "n"))]
+  "TARGET_V9"
+{
+  static const char * const prefetch_instr[2][4] = {
+    {
+      "prefetch\\t[%a0], 1", /* no locality: prefetch for one read */
+      "prefetch\\t[%a0], 0", /* medium locality: prefetch for several reads */
+      "prefetch\\t[%a0], 0", /* medium locality: prefetch for several reads */
+      "prefetch\\t[%a0], 4", /* high locality: prefetch page */
+    },
+    {
+      "prefetch\\t[%a0], 3", /* no locality: prefetch for one write */
+      "prefetch\\t[%a0], 2", /* medium locality: prefetch for several writes */
+      "prefetch\\t[%a0], 2", /* medium locality: prefetch for several writes */
+      "prefetch\\t[%a0], 4", /* high locality: prefetch page */
+    }
+  };
+  int read_or_write = INTVAL (operands[1]);
+  int locality = INTVAL (operands[2]);
+
+  if (read_or_write != 0 && read_or_write != 1)
+    abort ();
+  if (locality < 0 || locality > 3)
+    abort ();
+  return prefetch_instr [read_or_write][locality];
+}
+  [(set_attr "type" "load")])
 
 (define_expand "prologue"
   [(const_int 1)]

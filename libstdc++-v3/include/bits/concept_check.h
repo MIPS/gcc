@@ -27,6 +27,11 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file concept_check.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _GLIBCPP_CONCEPT_CHECK
 #define _GLIBCPP_CONCEPT_CHECK 1
 
@@ -66,15 +71,15 @@
 // a valid instantiation pattern.  Thus, we steal a feature from C99.
 
 #define __glibcpp_function_requires(...)                                 \
-            __gnu_cxx::__function_requires< __gnu_cxx::__VA_ARGS__ >()
+            __gnu_cxx::__function_requires< __gnu_cxx::__VA_ARGS__ >();
 #define __glibcpp_class_requires(_a,_C)                                  \
-            _GLIBCPP_CLASS_REQUIRES(_a, __gnu_cxx, _C)
+            _GLIBCPP_CLASS_REQUIRES(_a, __gnu_cxx, _C);
 #define __glibcpp_class_requires2(_a,_b,_C)                              \
-            _GLIBCPP_CLASS_REQUIRES2(_a, _b, __gnu_cxx, _C)
+            _GLIBCPP_CLASS_REQUIRES2(_a, _b, __gnu_cxx, _C);
 #define __glibcpp_class_requires3(_a,_b,_c,_C)                           \
-            _GLIBCPP_CLASS_REQUIRES3(_a, _b, _c, __gnu_cxx, _C)
+            _GLIBCPP_CLASS_REQUIRES3(_a, _b, _c, __gnu_cxx, _C);
 #define __glibcpp_class_requires4(_a,_b,_c,_d,_C)                        \
-            _GLIBCPP_CLASS_REQUIRES4(_a, _b, _c, _d, __gnu_cxx, _C)
+            _GLIBCPP_CLASS_REQUIRES4(_a, _b, _c, _d, __gnu_cxx, _C);
 
 #endif // enable/disable
 

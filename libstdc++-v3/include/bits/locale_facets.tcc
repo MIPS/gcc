@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,26 +28,27 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Warning: this file is not meant for user inclusion.  Use <locale>.
+// Warning: this file is not meant for user inclusion. Use <locale>.
 
 #ifndef _CPP_BITS_LOCFACETS_TCC
 #define _CPP_BITS_LOCFACETS_TCC 1
 
-#include <bits/std_cerrno.h>
-#include <bits/std_clocale.h>   // For localeconv
-#include <bits/std_cstdlib.h>   // For strof, strtold
-#include <bits/std_limits.h>    // For numeric_limits
-#include <bits/std_memory.h>    // For auto_ptr
-#include <bits/streambuf_iterator.h>     // For streambuf_iterators
-#include <bits/std_cctype.h>    // For isspace
-#include <typeinfo> 		// For bad_cast
-#include <bits/std_vector.h>	
+#include <cerrno>
+#include <clocale>   // For localeconv
+#include <cstdlib>   // For strof, strtold
+#include <cmath>     // For ceil
+#include <cctype>    // For isspace
+#include <limits>    // For numeric_limits
+#include <memory>    // For auto_ptr
+#include <bits/streambuf_iterator.h>
+#include <vector>	
+#include <typeinfo>  // For bad_cast.
 
 namespace std
 {
   template<typename _Facet>
     locale
-    locale::combine(const locale& __other)
+    locale::combine(const locale& __other) const
     {
       _Impl* __tmp = new _Impl(*_M_impl, 1);
       __tmp->_M_replace_facet(__other._M_impl, &_Facet::id);
@@ -59,18 +61,17 @@ namespace std
                        const basic_string<_CharT, _Traits, _Alloc>& __s2) const
     {
       typedef std::collate<_CharT> __collate_type;
-      const __collate_type* __fcoll = &use_facet<__collate_type>(*this);
-      return (__fcoll->compare(__s1.data(), __s1.data() + __s1.length(),
-                               __s2.data(), __s2.data() + __s2.length()) < 0);
+      const __collate_type& __collate = use_facet<__collate_type>(*this);
+      return (__collate.compare(__s1.data(), __s1.data() + __s1.length(),
+				__s2.data(), __s2.data() + __s2.length()) < 0);
     }
 
   template<typename _Facet>
     const _Facet&
     use_facet(const locale& __loc)
     {
-      typedef locale::_Impl::__vec_facet        __vec_facet;
       size_t __i = _Facet::id._M_index;
-      __vec_facet* __facet = __loc._M_impl->_M_facets;
+      locale::_Impl::__vec_facet* __facet = __loc._M_impl->_M_facets;
       const locale::facet* __fp = (*__facet)[__i]; 
       if (__fp == 0 || __i >= __facet->size())
         __throw_bad_cast();
@@ -81,52 +82,288 @@ namespace std
     bool
     has_facet(const locale& __loc) throw()
     {
-      typedef locale::_Impl::__vec_facet        __vec_facet;
       size_t __i = _Facet::id._M_index;
-      __vec_facet* __facet = __loc._M_impl->_M_facets;
+      locale::_Impl::__vec_facet* __facet = __loc._M_impl->_M_facets;
       return (__i < __facet->size() && (*__facet)[__i] != 0);
     }
 
 
-  // This member function takes an (w)istreambuf_iterator object and
-  // parses it into a generic char array suitable for parsing with
-  // strto[l,ll,f,d]. The thought was to encapsulate the conversion
-  // into this one function, and thus the num_get::do_get member
-  // functions can just adjust for the type of the overloaded
-  // argument and process the char array returned from _M_extract.
-  // Other things were also considered, including a fused
-  // multiply-add loop that would obviate the need for any call to
-  // strto... at all: however, it would b e a bit of a pain, because
-  // you'd have to be able to return either floating or integral
-  // types, etc etc. The current approach seems to be smack dab in
-  // the middle between an unoptimized approach using sscanf, and
-  // some kind of hyper-optimized approach alluded to above.
-
-  // XXX
-  // Need to do partial specialization to account for differences
-  // between character sets. For char, this is pretty
-  // straightforward, but for wchar_t, the conversion to a plain-jane
-  // char type is a bit more involved.
+  // Stage 1: Determine a conversion specifier.
   template<typename _CharT, typename _InIter>
-    void
+    _InIter
     num_get<_CharT, _InIter>::
-    _M_extract(_InIter /*__beg*/, _InIter /*__end*/, ios_base& /*__io*/,
-               ios_base::iostate& /*__err*/, char* /*__xtrc*/,
-               int& /*__base*/, bool /*__fp*/) const
+    _M_extract_float(_InIter __beg, _InIter __end, ios_base& __io,
+		     ios_base::iostate& __err, string& __xtrc) const
     {
-      // XXX Not currently done: need to expand upon char version below.
+      const locale __loc = __io.getloc();
+      const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
+      const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
+
+      // First check for sign.
+      const char_type __plus = __ctype.widen('+');
+      const char_type __minus = __ctype.widen('-');
+      int __pos = 0;
+      char_type  __c = *__beg;
+      if ((__c == __plus || __c == __minus) && __beg != __end)
+	{
+	  __xtrc += __ctype.narrow(__c, char());
+	  ++__pos;
+	  __c = *(++__beg);
+	}
+
+      // Next, strip leading zeros.
+      const char_type __zero = __ctype.widen(_S_atoms[_M_zero]);
+      bool __found_zero = false;
+      while (__c == __zero && __beg != __end)
+	{
+	  __c = *(++__beg);
+	  __found_zero = true;
+	}
+      if (__found_zero)
+	{
+	  __xtrc += _S_atoms[_M_zero];
+	  ++__pos;
+	}
+
+      // Only need acceptable digits for floating point numbers.
+      const size_t __len = _M_E - _M_zero + 1;
+      char_type  __watoms[__len];
+      __ctype.widen(_S_atoms, _S_atoms + __len, __watoms);
+      bool __found_dec = false;
+      bool __found_sci = false;
+      const char_type __dec = __np.decimal_point();
+
+      string __found_grouping;
+      const string __grouping = __np.grouping();
+      bool __check_grouping = __grouping.size();
+      int __sep_pos = 0;
+      const char_type __sep = __np.thousands_sep();
+
+      while (__beg != __end)
+        {
+	  // Only look in digits.
+	  typedef char_traits<_CharT> 	__traits_type;
+          const char_type* __p = __traits_type::find(__watoms, 10,  __c);
+
+          // NB: strchr returns true for __c == 0x0
+          if (__p && __c)
+	    {
+	      // Try first for acceptable digit; record it if found.
+	      ++__pos;
+	      __xtrc += _S_atoms[__p - __watoms];
+	      ++__sep_pos;
+	      __c = *(++__beg);
+	    }
+          else if (__c == __sep && __check_grouping && !__found_dec)
+	    {
+              // NB: Thousands separator at the beginning of a string
+              // is a no-no, as is two consecutive thousands separators.
+              if (__sep_pos)
+                {
+                  __found_grouping += static_cast<char>(__sep_pos);
+                  __sep_pos = 0;
+		  __c = *(++__beg);
+                }
+              else
+		{
+		  __err |= ios_base::failbit;
+		  break;
+		}
+            }
+	  else if (__c == __dec && !__found_dec)
+	    {
+	      __found_grouping += static_cast<char>(__sep_pos);
+	      ++__pos;
+	      __xtrc += '.';
+	      __c = *(++__beg);
+	      __found_dec = true;
+	    }
+	  else if ((__c == __watoms[_M_e] || __c == __watoms[_M_E]) 
+		   && !__found_sci && __pos)
+	    {
+	      // Scientific notation.
+	      ++__pos;
+	      __xtrc += __ctype.narrow(__c, char());
+	      __c = *(++__beg);
+
+	      // Remove optional plus or minus sign, if they exist.
+	      if (__c == __plus || __c == __minus)
+		{
+		  ++__pos;
+		  __xtrc += __ctype.narrow(__c, char());
+		  __c = *(++__beg);
+		}
+	      __found_sci = true;
+	    }
+	  else
+	    // Not a valid input item.
+	    break;
+        }
+
+      // Digit grouping is checked. If grouping and found_grouping don't
+      // match, then get very very upset, and set failbit.
+      if (__check_grouping && __found_grouping.size())
+        {
+          // Add the ending grouping if a decimal wasn't found.
+	  if (!__found_dec)
+	    __found_grouping += static_cast<char>(__sep_pos);
+          if (!__verify_grouping(__grouping, __found_grouping))
+	    __err |= ios_base::failbit;
+        }
+
+      // Finish up
+      __xtrc += char();
+      if (__beg == __end)
+        __err |= ios_base::eofbit;
+      return __beg;
     }
 
-  template<>
-    void
-    num_get<char, istreambuf_iterator<char> >::
-    _M_extract(istreambuf_iterator<char> __beg, 
-	       istreambuf_iterator<char> __end, ios_base& __io, 
-	       ios_base::iostate& __err, char* __xtrc, int& __base, 
-	       bool __fp) const;
+  // Stage 1: Determine a conversion specifier.
+  template<typename _CharT, typename _InIter>
+    _InIter
+    num_get<_CharT, _InIter>::
+    _M_extract_int(_InIter __beg, _InIter __end, ios_base& __io,
+		   ios_base::iostate& __err, string& __xtrc, int& __base) const
+    {
+      const locale __loc = __io.getloc();
+      const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
+      const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
+ 
+      // NB: Iff __basefield == 0, this can change based on contents.
+      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
+      if (__basefield == ios_base::oct)
+        __base = 8;
+      else if (__basefield == ios_base::hex)
+        __base = 16;
+      else
+	__base = 10;
+
+     // First check for sign.
+      int __pos = 0;
+      char_type  __c = *__beg;
+      if ((__c == __ctype.widen('+') || __c == __ctype.widen('-'))
+	  && __beg != __end)
+	{
+	  __xtrc += __ctype.narrow(__c, char());
+	  ++__pos;
+	  __c = *(++__beg);
+	}
+
+      // Next, strip leading zeros and check required digits for base formats.
+      const char_type __zero = __ctype.widen(_S_atoms[_M_zero]);
+      const char_type __x = __ctype.widen('x');
+      const char_type __X = __ctype.widen('X');
+      if (__base == 10)
+	{
+	  bool __found_zero = false;
+	  while (__c == __zero && __beg != __end)
+	    {
+	      __c = *(++__beg);
+	      __found_zero = true;
+	    }
+	  if (__found_zero)
+	    {
+	      __xtrc += _S_atoms[_M_zero];
+	      ++__pos;
+	      if (__basefield == 0)
+		{	      
+		  if ((__c == __x || __c == __X) && __beg != __end)
+		    {
+		      __xtrc += __ctype.narrow(__c, char());
+		      ++__pos;
+		      __c = *(++__beg);
+		      __base = 16;
+		    }
+		  else 
+		    __base = 8;
+		}
+	    }
+	}
+      else if (__base == 16)
+	{
+	  if (__c == __zero && __beg != __end)
+	    {
+	      __xtrc += _S_atoms[_M_zero];
+	      ++__pos;
+	      __c = *(++__beg); 
+	      if  ((__c == __x || __c == __X) && __beg != __end)
+		{
+		  __xtrc += __ctype.narrow(__c, char());
+		  ++__pos;
+		  __c = *(++__beg);
+		}
+	    }
+	}
+
+      // At this point, base is determined. If not hex, only allow
+      // base digits as valid input.
+      size_t __len;
+      if (__base == 16)
+	__len = _M_size;
+      else
+	__len = __base;
+
+      // Extract.
+      char_type __watoms[_M_size];
+      __ctype.widen(_S_atoms, _S_atoms + __len, __watoms);
+      string __found_grouping;
+      const string __grouping = __np.grouping();
+      bool __check_grouping = __grouping.size() && __base == 10;
+      int __sep_pos = 0;
+      const char_type __sep = __np.thousands_sep();
+      while (__beg != __end)
+        {
+	  typedef char_traits<_CharT> 	__traits_type;
+          const char_type* __p = __traits_type::find(__watoms, __len,  __c);
+
+          // NB: strchr returns true for __c == 0x0
+          if (__p && __c)
+	    {
+	      // Try first for acceptable digit; record it if found.
+	      __xtrc += _S_atoms[__p - __watoms];
+	      ++__pos;
+	      ++__sep_pos;
+	      __c = *(++__beg);
+	    }
+          else if (__c == __sep && __check_grouping)
+	    {
+              // NB: Thousands separator at the beginning of a string
+              // is a no-no, as is two consecutive thousands separators.
+              if (__sep_pos)
+                {
+                  __found_grouping += static_cast<char>(__sep_pos);
+                  __sep_pos = 0;
+		  __c = *(++__beg);
+                }
+              else
+		{
+		  __err |= ios_base::failbit;
+		  break;
+		}
+            }
+	  else
+	    // Not a valid input item.
+	    break;
+        }
+
+      // Digit grouping is checked. If grouping and found_grouping don't
+      // match, then get very very upset, and set failbit.
+      if (__check_grouping && __found_grouping.size())
+        {
+          // Add the ending grouping.
+          __found_grouping += static_cast<char>(__sep_pos);
+          if (!__verify_grouping(__grouping, __found_grouping))
+	    __err |= ios_base::failbit;
+        }
+
+      // Finish up.
+      __xtrc += char();
+      if (__beg == __end)
+        __err |= ios_base::eofbit;
+      return __beg;
+    }
 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-  // NB: This is an unresolved library defect #17
   //17.  Bad bool parsing
   template<typename _CharT, typename _InIter>
     _InIter
@@ -134,57 +371,50 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, bool& __v) const
     {
-      // Parse bool values as long
+      // Parse bool values as unsigned long
       if (!(__io.flags() & ios_base::boolalpha))
         {
           // NB: We can't just call do_get(long) here, as it might
           // refer to a derived class.
-
-          // Stage 1: extract and determine the conversion specifier.
-          // Assuming leading zeros eliminated, thus the size of 32 for
-          // integral types.
-          char __xtrc[32] = {'\0'};
+          string __xtrc;
           int __base;
-          _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
+          __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
 
-          // Stage 2: convert and store results.
-          char* __sanity;
-          errno = 0;
-          long __l = strtol(__xtrc, &__sanity, __base);
-          if (!(__err & ios_base::failbit)
-              && __l <= 1
-              && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-            __v = __l;
-          else
+	  unsigned long __ul; 
+	  __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+	  if (!(__err & ios_base::failbit) && __ul <= 1)
+	    __v = __ul;
+	  else 
             __err |= ios_base::failbit;
         }
 
       // Parse bool values as alphanumeric
       else
         {
-          typedef _Format_cache<char_type> __fcache_type;
-          __fcache_type* __fmt = __fcache_type::_S_get(__io);
-          const char_type* __true = __fmt->_M_truename.c_str();
-          const char_type* __false = __fmt->_M_falsename.c_str();
-          const size_t __truelen =  __traits_type::length(__true) - 1;
-          const size_t __falselen =  __traits_type::length(__false) - 1;
+          locale __loc = __io.getloc();
+	  const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc); 
+          const char_type* __true = __np.truename().c_str();
+          const char_type* __false = __np.falsename().c_str();
 
-          for (size_t __pos = 0; __beg != __end; ++__pos)
+          const size_t __truen =  __np.truename().size() - 1;
+          const size_t __falsen =  __np.falsename().size() - 1;
+
+          for (size_t __n = 0; __beg != __end; ++__n)
             {
               char_type __c = *__beg++;
-              bool __testf = __c == __false[__pos];
-              bool __testt = __c == __true[__pos];
+              bool __testf = __n <= __falsen ? __c == __false[__n] : false;
+              bool __testt = __n <= __truen ? __c == __true[__n] : false;
               if (!(__testf || __testt))
                 {
                   __err |= ios_base::failbit;
                   break;
                 }
-              else if (__testf && __pos == __falselen)
+              else if (__testf && __n == __falsen)
                 {
                   __v = 0;
                   break;
                 }
-              else if (__testt && __pos == __truelen)
+              else if (__testt && __n == __truen)
                 {
                   __v = 1;
                   break;
@@ -193,64 +423,6 @@ namespace std
           if (__beg == __end)
             __err |= ios_base::eofbit;
         }
-
-      return __beg;
-    }
-#endif
-
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-  //XXX.  Which number?  Presumably same as in locale_facets.h...
-  template<typename _CharT, typename _InIter>
-    _InIter
-    num_get<_CharT, _InIter>::
-    do_get(iter_type __beg, iter_type __end, ios_base& __io,
-           ios_base::iostate& __err, short& __v) const
-    {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long __l = strtol(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0
-          && __l >= SHRT_MIN && __l <= SHRT_MAX)
-        __v = static_cast<short>(__l);
-      else
-        __err |= ios_base::failbit;
-
-      return __beg;
-    }
-
-  template<typename _CharT, typename _InIter>
-    _InIter
-    num_get<_CharT, _InIter>::
-    do_get(iter_type __beg, iter_type __end, ios_base& __io,
-           ios_base::iostate& __err, int& __v) const
-    {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32] = {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long __l = strtol(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0
-          && __l >= INT_MIN && __l <= INT_MAX)
-        __v = static_cast<int>(__l);
-      else
-        __err |= ios_base::failbit;
-
       return __beg;
     }
 #endif
@@ -261,23 +433,61 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
+      string __xtrc;
       int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
+      return __beg;
+    }
 
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long __l = strtol(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __l;
-      else
-        __err |= ios_base::failbit;
+  template<typename _CharT, typename _InIter>
+    _InIter
+    num_get<_CharT, _InIter>::
+    do_get(iter_type __beg, iter_type __end, ios_base& __io,
+           ios_base::iostate& __err, unsigned short& __v) const
+    {
+      string __xtrc;
+      int __base;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      unsigned long __ul;
+      __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      if (!(__err & ios_base::failbit) 
+	  && __ul <= numeric_limits<unsigned short>::max())
+	__v = static_cast<unsigned short>(__ul);
+      else 
+	__err |= ios_base::failbit;
+      return __beg;
+    }
 
+  template<typename _CharT, typename _InIter>
+    _InIter
+    num_get<_CharT, _InIter>::
+    do_get(iter_type __beg, iter_type __end, ios_base& __io,
+           ios_base::iostate& __err, unsigned int& __v) const
+    {
+      string __xtrc;
+      int __base;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      unsigned long __ul;
+      __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      if (!(__err & ios_base::failbit) 
+	  && __ul <= numeric_limits<unsigned int>::max())
+	__v = static_cast<unsigned int>(__ul);
+      else 
+	__err |= ios_base::failbit;
+      return __beg;
+    }
+
+  template<typename _CharT, typename _InIter>
+    _InIter
+    num_get<_CharT, _InIter>::
+    do_get(iter_type __beg, iter_type __end, ios_base& __io,
+           ios_base::iostate& __err, unsigned long& __v) const
+    {
+      string __xtrc;
+      int __base;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 
@@ -288,131 +498,23 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, long long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
+      string __xtrc;
       int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long long __ll = strtoll(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ll;
-      else
-        __err |= ios_base::failbit;
-
-      return __beg;
-    }
-#endif
-
-  template<typename _CharT, typename _InIter>
-    _InIter
-    num_get<_CharT, _InIter>::
-    do_get(iter_type __beg, iter_type __end, ios_base& __io,
-           ios_base::iostate& __err, unsigned short& __v) const
-    {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long __ul = strtoul(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0
-          && __ul <= USHRT_MAX)
-        __v = static_cast<unsigned short>(__ul);
-      else
-        __err |= ios_base::failbit;
-
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 
-  template<typename _CharT, typename _InIter>
-    _InIter
-    num_get<_CharT, _InIter>::
-    do_get(iter_type __beg, iter_type __end, ios_base& __io,
-           ios_base::iostate& __err, unsigned int& __v) const
-    {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long __ul = strtoul(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0
-          && __ul <= UINT_MAX)
-        __v = static_cast<unsigned int>(__ul);
-      else
-        __err |= ios_base::failbit;
-
-      return __beg;
-    }
-
-  template<typename _CharT, typename _InIter>
-    _InIter
-    num_get<_CharT, _InIter>::
-    do_get(iter_type __beg, iter_type __end, ios_base& __io,
-           ios_base::iostate& __err, unsigned long& __v) const
-    {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32] = {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long __ul = strtoul(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ul;
-      else
-        __err |= ios_base::failbit;
-
-      return __beg;
-    }
-
-#ifdef _GLIBCPP_USE_LONG_LONG
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, unsigned long long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
+      string __xtrc;
       int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long long __ull = strtoull(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ull;
-      else
-        __err |= ios_base::failbit;
-
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 #endif
@@ -420,30 +522,13 @@ namespace std
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
-    do_get(iter_type __beg, iter_type __end, ios_base& __io,
-           ios_base::iostate& __err, float& __v) const
+    do_get(iter_type __beg, iter_type __end, ios_base& __io, 
+	   ios_base::iostate& __err, float& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 256 for
-      // floating-point types.
-      char __xtrc[32]= {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, true);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-#ifdef _GLIBCPP_USE_C99
-      float __f = strtof(__xtrc, &__sanity);
-#else
-      float __f = static_cast<float>(strtod(__xtrc, &__sanity));
-#endif
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __f;
-      else
-        __err |= ios_base::failbit;
-
+      string __xtrc;
+      __xtrc.reserve(32);
+      __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
       return __beg;
     }
 
@@ -453,23 +538,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, double& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 256 for
-      // floating-point types.
-      char __xtrc[32]= {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, true);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      double __d = strtod(__xtrc, &__sanity);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __d;
-      else
-        __err |= ios_base::failbit;
-
+      string __xtrc;
+      __xtrc.reserve(32);
+      __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
       return __beg;
     }
 
@@ -479,45 +551,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, long double& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 256 for
-      // floating-point types.
-      char __xtrc[32]= {'\0'};
-      int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, true);
-
-#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long double __ld = strtold(__xtrc, &__sanity);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ld;
-#else
-      // Stage 2: determine a conversion specifier.
-      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
-      const char* __conv;
-      if (__basefield == ios_base::oct)
-        __conv = "%Lo";
-      else if (__basefield == ios_base::hex)
-        __conv = "%LX";
-      else if (__basefield == 0)
-        __conv = "%Li";
-      else
-        __conv = "%Lf";
-
-      // Stage 3: store results.
-      typedef typename __traits_type::int_type int_type;
-      long double __ld;
-      int __p = sscanf(__xtrc, __conv, &__ld);
-      if (!(__err & ios_base::failbit) && __p 
-	  && static_cast<int_type>(__p) != __traits_type::eof())
-        __v = __ld;
-#endif
-      else
-        __err |= ios_base::failbit;
-
+      string __xtrc;
+      __xtrc.reserve(32);
+      __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
       return __beg;
     }
 
@@ -534,105 +571,204 @@ namespace std
                              | ios_base::uppercase | ios_base::internal);
       __io.flags(__fmt & __fmtmask | (ios_base::hex | ios_base::showbase));
 
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32]= {'\0'};
+      string __xtrc;
       int __base;
-      _M_extract(__beg, __end, __io, __err, __xtrc, __base, false);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      void* __vp = reinterpret_cast<void*>(strtoul(__xtrc, &__sanity, __base));
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __vp;
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
 
       // Reset from hex formatted input
       __io.flags(__fmt);
+
+      unsigned long __ul;
+      __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      if (!(__err & ios_base::failbit))
+	__v = reinterpret_cast<void*>(__ul);
+      else 
+	__err |= ios_base::failbit;
       return __beg;
     }
 
-  // __pad is specialized for ostreambuf_iterator, random access iterator.
+
+  // The following code uses sprintf() to convert floating point
+  // values for insertion into a stream.  An optimization would be to
+  // replace sprintf() with code that works directly on a wide buffer
+  // and then use __pad to do the padding. It would be good
+  // to replace sprintf() anyway to avoid accidental buffer overruns
+  // and to gain back the efficiency that C++ provides by knowing up
+  // front the type of the values to insert. This implementation
+  // follows the C++ standard fairly directly as outlined in 22.2.2.2
+  // [lib.locale.num.put]
   template<typename _CharT, typename _OutIter>
-    inline _OutIter
-    __pad(_OutIter __s, _CharT __fill, int __padding);
+    template<typename _ValueT>
+      _OutIter
+      num_put<_CharT, _OutIter>::
+      _M_convert_float(_OutIter __s, ios_base& __io, _CharT __fill, char __mod,
+		       _ValueT __v) const
+      {
+	const int __max_digits = numeric_limits<_ValueT>::digits10;
+	streamsize __prec = __io.precision();
+	// Protect against sprintf() buffer overflows.
+	if (__prec > static_cast<streamsize>(__max_digits))
+	  __prec = static_cast<streamsize>(__max_digits);
 
-  template<typename _CharT, typename _RaIter>
-    _RaIter
-    __pad(_RaIter __s, _CharT __fill, int __padding, 
-	  random_access_iterator_tag)
-    {
-      fill_n(__s, __fill);
-      return __s + __padding;
-    }
+	// Long enough for the max format spec.
+	char __fbuf[16];
 
-  template<typename _CharT, typename _OutIter, typename _Tag>
+	// Consider the possibility of long ios_base::fixed outputs
+	const bool __fixed = __io.flags() & ios_base::fixed;
+	const int __max_exp = numeric_limits<_ValueT>::max_exponent10;
+	// ios_base::fixed outputs may need up to __max_exp+1 chars
+	// for the integer part + up to __max_digits chars for the
+	// fractional part + 3 chars for sign, decimal point, '\0'. On
+	// the other hand, for non-fixed outputs __max_digits*3 chars
+	// are largely sufficient.
+	const int __cs_size = __fixed ? __max_exp + __max_digits + 4 
+	                              : __max_digits * 3;
+	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
+
+	int __len;
+	// [22.2.2.2.2] Stage 1, numeric conversion to character.
+	if (_S_format_float(__io, __fbuf, __mod, __prec))
+	  __len = __convert_from_v(__cs, __fbuf, __v, _S_c_locale, __prec);
+	else
+	  __len = __convert_from_v(__cs, __fbuf, __v, _S_c_locale);
+	return _M_widen_float(__s, __io, __fill, __cs, __len);
+      }
+
+  template<typename _CharT, typename _OutIter>
+    template<typename _ValueT>
+      _OutIter
+      num_put<_CharT, _OutIter>::
+      _M_convert_int(_OutIter __s, ios_base& __io, _CharT __fill, char __mod,
+		     char __modl, _ValueT __v) const
+      {
+	// [22.2.2.2.2] Stage 1, numeric conversion to character.
+	// Leave room for "+/-," "0x," and commas. This size is
+	// arbitrary, but should work.
+	char __cs[64];
+	// Long enough for the max format spec.
+	char __fbuf[16];
+	_S_format_int(__io, __fbuf, __mod, __modl);
+	int __len = __convert_from_v(__cs, __fbuf, __v, _S_c_locale);
+	return _M_widen_int(__s, __io, __fill, __cs, __len);
+      }
+
+  template<typename _CharT, typename _OutIter>
     _OutIter
-    __pad(_OutIter __s, _CharT __fill, int __padding, _Tag)
+    num_put<_CharT, _OutIter>::
+    _M_widen_float(_OutIter __s, ios_base& __io, _CharT __fill, char* __cs, 
+		   int __len) const
     {
-      while (--__padding >= 0) { *__s = __fill; ++__s; }
-      return __s;
-    }
+      // [22.2.2.2.2] Stage 2, convert to char_type, using correct
+      // numpunct.decimal_point() values for '.' and adding grouping.
+      const locale __loc = __io.getloc();
+      const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
+      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							   * __len));
+      // Grouping can add (almost) as many separators as the number of
+      // digits, but no more.
+      _CharT* __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+			 				    * __len * 2));
+      __ctype.widen(__cs, __cs + __len, __ws);
+      
+      // Replace decimal point.
+      const _CharT* __p;
+      const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
+      if (__p = char_traits<_CharT>::find(__ws, __len, __ctype.widen('.')))
+	__ws[__p - __ws] = __np.decimal_point();
 
-  template<typename _CharT, typename _OutIter>
-    inline _OutIter
-    __pad(_OutIter __s, _CharT __fill, int __padding)
-    {
-      return __pad(__s, __fill, __padding, 
-		   typename iterator_traits<_OutIter>::iterator_category());
+#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+//282. What types does numpunct grouping refer to?
+      // Add grouping, if necessary. 
+      const string __grouping = __np.grouping();
+      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
+      if (__grouping.size())
+	{
+	  _CharT* __p2;
+	  int __declen = __p ? __p - __ws : __len;
+	  __p2 = __add_grouping(__ws2, __np.thousands_sep(), 
+				__grouping.c_str(),
+				__grouping.c_str() + __grouping.size(),
+				__ws, __ws + __declen);
+	  int __newlen = __p2 - __ws2;
+	
+	  // Tack on decimal part.
+	  if (__p)
+	    {
+	      char_traits<_CharT>::copy(__p2, __p, __len - __declen);
+	      __newlen += __len - __declen;
+	    }    
+
+	  // Switch strings, establish correct new length.
+	  __ws = __ws2;
+	  __len = __newlen;
+	}
+#endif
+      return _M_insert(__s, __io, __fill, __ws, __len);
     }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
-    __pad_numeric(_OutIter __s, ios_base::fmtflags /*__flags*/,
-		  _CharT /*__fill*/, int /*__width*/, 
-		  _CharT const* /*__first*/, _CharT const* /*__middle*/, 
-		  _CharT const* /*__last*/)
-  {
-      // XXX Not currently done: non streambuf_iterator
-      return __s;
+    num_put<_CharT, _OutIter>::
+    _M_widen_int(_OutIter __s, ios_base& __io, _CharT __fill, char* __cs, 
+		 int __len) const
+    {
+      // [22.2.2.2.2] Stage 2, convert to char_type, using correct
+      // numpunct.decimal_point() values for '.' and adding grouping.
+      const locale __loc = __io.getloc();
+      const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
+      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							   * __len));
+      // Grouping can add (almost) as many separators as the number of
+      // digits, but no more.
+      _CharT* __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							    * __len * 2));
+      __ctype.widen(__cs, __cs + __len, __ws);
+
+      // Add grouping, if necessary.
+      const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
+      const string __grouping = __np.grouping();
+      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
+      bool __dec = __basefield != ios_base::oct 
+	           && __basefield != ios_base::hex;
+      if (__grouping.size() && __dec)
+	{
+	  _CharT* __p;
+	  __p = __add_grouping(__ws2, __np.thousands_sep(), __grouping.c_str(),
+			       __grouping.c_str() + __grouping.size(),
+			       __ws, __ws + __len);
+	  __len = __p - __ws2;
+	  // Switch strings.
+	  __ws = __ws2;
+	}
+      return _M_insert(__s, __io, __fill, __ws, __len);
     }
 
-  // Partial specialization for ostreambuf_iterator.
-  template<typename _CharT>   
-    ostreambuf_iterator<_CharT>
-    __pad_numeric(ostreambuf_iterator<_CharT> __s, ios_base::fmtflags __flags,
-		  _CharT __fill, int __width, _CharT const* __first,
-		  _CharT const* __middle, _CharT const* __last)
+  // For use by integer and floating-point types after they have been
+  // converted into a char_type string.
+  template<typename _CharT, typename _OutIter>
+    _OutIter
+    num_put<_CharT, _OutIter>::
+    _M_insert(_OutIter __s, ios_base& __io, _CharT __fill, const _CharT* __ws, 
+	      int __len) const
     {
-      typedef ostreambuf_iterator<_CharT> 	__out_iter;
-      int __padding = __width - (__last - __first);
-      if (__padding < 0)
-        __padding = 0;
-      ios_base::fmtflags __aflags = __flags & ios_base::adjustfield;
-      bool __testfield = __padding == 0 || __aflags == ios_base::left
-                         || __aflags == ios_base::internal;
+      // [22.2.2.2.2] Stage 3.
+      streamsize __w = __io.width();
+      _CharT* __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							    * __w));
+      if (__w > static_cast<streamsize>(__len))
+	{
+	  __pad(__io, __fill, __ws2, __ws, __w, __len, true);
+	  __len = static_cast<int>(__w);
+	  // Switch strings.
+	  __ws = __ws2;
+	}
+      __io.width(0);
 
-      // This was needlessly complicated.
-      if (__first != __middle)
-        {
-          if (!__testfield)
-            {
-              __pad(__s, __fill, __padding);
-              __padding = 0;
-            }
-          copy(__first, __middle, __s);
-        }
-      __out_iter __s2 = __s;
-
-      if (__padding && __aflags != ios_base::left)
-        {
-          __pad(__s2, __fill, __padding);
-          __padding = 0;
-        }
-      __out_iter __s3 = copy(__middle, __last, __s2);
-      if (__padding)
-        __pad(__s3, __fill, __padding);
-      return __s3;
+      // [22.2.2.2.2] Stage 4.
+      // Write resulting, fully-formatted string to output iterator.
+      for (int __j = 0; __j < __len; ++__j, ++__s)
+	*__s = __ws[__j];
+      return __s;
     }
 
   template<typename _CharT, typename _OutIter>
@@ -640,262 +776,73 @@ namespace std
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill, bool __v) const
     {
-      const _Format_cache<_CharT>* __fmt = _Format_cache<_CharT>::_S_get(__io);
       ios_base::fmtflags __flags = __io.flags();
-
       if ((__flags & ios_base::boolalpha) == 0)
         {
           unsigned long __uv = __v;
-          return __output_integer(__s, __io, __fill, false, __uv);
+          __s = _M_convert_int(__s, __io, __fill, 'u', char_type(), __uv);
         }
       else
         {
-          const char_type* __first;
-          const char_type* __last;
+          locale __loc = __io.getloc();
+	  const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc); 
+          const char_type* __ws;
+          int __len;
           if (__v)
             {
-              __first = __fmt->_M_truename.data();
-              __last = __first + __fmt->_M_truename.size();
+              __ws = __np.truename().c_str();
+              __len = __np.truename().size();
             }
           else
             {
-              __first = __fmt->_M_falsename.data();
-              __last = __first + __fmt->_M_falsename.size();
+              __ws = __np.falsename().c_str();
+              __len = __np.falsename().size();
             }
-          copy(__first, __last, __s);
-        }
+	  __s = _M_insert(__s, __io, __fill, __ws, __len); 
+	}
       return __s;
-    }
-
-  template<typename _CharT, typename _OutIter, typename _ValueT>
-    _OutIter
-    __output_integer(_OutIter __s, ios_base& __io, _CharT __fill, bool __neg,
-		     _ValueT __v)
-    {
-      // Leave room for "+/-," "0x," and commas. This size is
-      // arbitrary, but should work.
-      const int __n = numeric_limits<_ValueT>::digits10 * 2 + 4;
-      _CharT* __digits = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
-      _CharT* __digits_end = __digits + __n;
-      ios_base::fmtflags __flags = __io.flags();
-      const _Format_cache<_CharT>* __fmt = _Format_cache<_CharT>::_S_get(__io);
-      char const* __table = __fmt->_S_literals + __fmt->_S_digits;
-
-      ios_base::fmtflags __basefield = (__flags & __io.basefield);
-      _CharT* __sign_end = __digits_end;
-      if (__basefield == ios_base::hex)
-        {
-          if (__flags & ios_base::uppercase)
-            __table += 16;  // use ABCDEF
-          do
-            *--__digits_end = __table[__v & 15];
-          while ((__v >>= 4) != 0);
-          __sign_end = __digits_end;
-          if (__flags & ios_base::showbase)
-            {
-              *--__digits_end = __fmt->_S_literals[__fmt->_S_x +
-                       ((__flags & ios_base::uppercase) ? 1 : 0)];
-              *--__digits_end = __table[0];
-            }
-        }
-      else if (__basefield == ios_base::oct)
-        {
-          do
-            *--__digits_end = __table[__v & 7];
-          while ((__v >>= 3) != 0);
-          if (__flags & ios_base::showbase
-              && static_cast<char>(*__digits_end) != __table[0])
-            *--__digits_end = __table[0];
-          __sign_end = __digits_end;
-        }
-      else
-        {
-          // NB: This is _lots_ faster than using ldiv.
-          do
-            *--__digits_end = __table[__v % 10];
-          while ((__v /= 10) != 0);
-          __sign_end = __digits_end;
-          // NB: ios_base:hex || ios_base::oct assumed to be unsigned.
-          if (__neg || (__flags & ios_base::showpos))
-            *--__digits_end = __fmt->_S_literals[__fmt->_S_plus - __neg];
-        }
-
-      // XXX should specialize!
-      if (!__fmt->_M_use_grouping && !__io.width())
-        return copy(__digits_end, __digits + __n, __s);
-
-      if (!__fmt->_M_use_grouping)
-        return __pad_numeric(__s, __flags, __fill, __io.width(0),
-			     __digits_end, __sign_end, __digits + __n);
-
-      _CharT* __p = __digits;
-      while (__digits_end < __sign_end)
-        *__p++ = *__digits_end++;
-      const char* __gbeg = __fmt->_M_grouping.data();
-      const char* __gend = __gbeg + __fmt->_M_grouping.size();
-      __digits_end = __group_digits(__p, __fmt->_M_thousands_sep, 
-				    __gbeg, __gend,
-				    __sign_end, __digits + __n);
-      return __pad_numeric(__s, __flags, __fill, __io.width(0),
-			   __digits, __p, __digits_end);
     }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill, long __v) const
-    {
-      unsigned long __uv = __v;
-      bool __neg = false;
-      if (__v < 0)
-        {
-          __neg = true;
-          __uv = -__uv;
-        }
-      return __output_integer(__s, __io, __fill, __neg, __uv);
-    }
+    { return _M_convert_int(__s, __io, __fill, 'd', char_type(), __v); }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill,
            unsigned long __v) const
-    { return __output_integer(__s, __io, __fill, false, __v); }
+    { return _M_convert_int(__s, __io, __fill, 'u', char_type(), __v); }
 
 #ifdef _GLIBCPP_USE_LONG_LONG
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __b, char_type __fill, long long __v) const
-    {
-      unsigned long long __uv = __v;
-      bool __neg = false;
-      if (__v < 0)
-        {
-          __neg = true;
-          __uv = -__uv;
-        }
-      return __output_integer(__s, __b, __fill, __neg, __uv);
-    }
+    { return _M_convert_int(__s, __b, __fill, 'd', 'l', __v); }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill,
            unsigned long long __v) const
-    { return __output_integer(__s, __io, __fill, false, __v); }
+    { return _M_convert_int(__s, __io, __fill, 'u', 'l', __v); }
 #endif
-
-  // Generic helper function
-  template<typename _CharT, typename _Traits, typename _OutIter>
-    _OutIter
-    __output_float(_OutIter __s, ios_base& __io, _CharT __fill,
-                    const char* __sptr, size_t __slen)
-    {
-      // XXX Not currently done: non-streambuf_iterator
-      return __s;
-    }
-
-  // Partial specialization for ostreambuf_iterator.
-  template<typename _CharT, typename _Traits>
-    ostreambuf_iterator<_CharT, _Traits>
-    __output_float(ostreambuf_iterator<_CharT, _Traits> __s, ios_base& __io, 
-		   _CharT __fill, const char* __sptr, size_t __slen)
-    {
-      size_t __padding = __io.width() > streamsize(__slen) ?
-                         __io.width() -__slen : 0;
-      locale __loc = __io.getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      ios_base::fmtflags __adjfield = __io.flags() & ios_base::adjustfield;
-      const char* const __eptr = __sptr + __slen;
-      // [22.2.2.2.2.19] Table 61
-      if (__adjfield == ios_base::internal)
-       {
-         // [22.2.2.2.2.14]; widen()
-         if (__sptr < __eptr && (*__sptr == '+' || *__sptr == '-'))
-           {
-             __s = __ctype.widen(*__sptr);
-             ++__s;
-             ++__sptr;
-           }
-         __s = __pad(__s, __fill, __padding);
-         __padding = 0;
-       }
-      else if (__adjfield != ios_base::left)
-        {
-          __s = __pad(__s, __fill, __padding);
-          __padding = 0;
-        }
-      // the "C" locale decimal character
-      char __decimal_point = *(localeconv()->decimal_point);
-      const _Format_cache<_CharT>* __fmt = _Format_cache<_CharT>::_S_get(__io);
-      for (; __sptr != __eptr; ++__s, ++__sptr)
-       {
-         // [22.2.2.2.2.17]; decimal point conversion
-         if (*__sptr == __decimal_point)
-           __s = __fmt->_M_decimal_point;
-         // [22.2.2.2.2.14]; widen()
-         else
-           __s = __ctype.widen(*__sptr);
-       }
-      // [22.2.2.2.2.19] Table 61
-      if (__padding)
-        __pad(__s, __fill, __padding);
-      __io.width(0);
-      return __s;
-    }
-
-  bool
-  __build_float_format(ios_base& __io, char* __fptr, char __modifier,
-		       streamsize __prec);
 
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill, double __v) const
-    {
-      const streamsize __max_prec = numeric_limits<double>::digits10 + 3;
-      streamsize __prec = __io.precision();
-      // Protect against sprintf() buffer overflows.
-      if (__prec > __max_prec)
-        __prec = __max_prec;
-      // The *2 provides for signs, exp, 'E', and pad.
-      char __sbuf[__max_prec * 2];
-      size_t __slen;
-      // Long enough for the max format spec.
-      char __fbuf[16];
-      if (__build_float_format(__io, __fbuf, 0, __prec))
-        __slen = sprintf(__sbuf, __fbuf, __prec, __v);
-      else
-        __slen = sprintf(__sbuf, __fbuf, __v);
-      // [22.2.2.2.2] Stages 2-4.
-      return __output_float(__s, __io, __fill, __sbuf, __slen);
-    }
+    { return _M_convert_float(__s, __io, __fill, char_type(), __v); }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
-    do_put(iter_type __s, ios_base& __io, char_type __fill,
-           long double __v) const
-    {
-      const streamsize __max_prec = numeric_limits<long double>::digits10 + 3;
-      streamsize __prec = __io.precision();
-      // Protect against sprintf() buffer overflows.
-      if (__prec > __max_prec)
-        __prec = __max_prec;
-      // The *2 provides for signs, exp, 'E', and pad.
-      char __sbuf[__max_prec * 2];
-      size_t __slen;
-      // Long enough for the max format spec.
-      char __fbuf[16];
-      // 'L' as per [22.2.2.2.2] Table 59
-      if (__build_float_format(__io, __fbuf, 'L', __prec))
-        __slen = sprintf(__sbuf, __fbuf, __prec, __v);
-      else
-        __slen = sprintf(__sbuf, __fbuf, __v);
-      // [22.2.2.2.2] Stages 2-4
-      return __output_float(__s, __io, __fill, __sbuf, __slen);
-    }
+    do_put(iter_type __s, ios_base& __io, char_type __fill, 
+	   long double __v) const
+    { return _M_convert_float(__s, __io, __fill, 'L', __v); }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
@@ -903,21 +850,22 @@ namespace std
     do_put(iter_type __s, ios_base& __io, char_type __fill,
            const void* __v) const
     {
-      typedef ios_base::fmtflags        fmtflags;
-      fmtflags __fmt = __io.flags();
-      fmtflags __fmtmask = ~(ios_base::showpos | ios_base::basefield
-                             | ios_base::uppercase | ios_base::internal);
-      __io.flags(__fmt & __fmtmask | (ios_base::hex | ios_base::showbase));
-      try {
-        _OutIter __s2 = __output_integer(__s, __io, __fill, false,
-                                  reinterpret_cast<unsigned long>(__v));
-        __io.flags(__fmt);
-        return __s2;
-      }
-      catch (...) {
-        __io.flags(__fmt);
-        __throw_exception_again;
-      }
+      ios_base::fmtflags __flags = __io.flags();
+      ios_base::fmtflags __fmt = ~(ios_base::showpos | ios_base::basefield
+				   | ios_base::uppercase | ios_base::internal);
+      __io.flags(__flags & __fmt | (ios_base::hex | ios_base::showbase));
+      try 
+	{
+	  __s = _M_convert_int(__s, __io, __fill, 'u', char_type(),
+			       reinterpret_cast<unsigned long>(__v));
+	  __io.flags(__flags);
+	}
+      catch (...) 
+	{
+	  __io.flags(__flags);
+	  __throw_exception_again;
+	}
+      return __s;
     }
 
 
@@ -928,7 +876,7 @@ namespace std
 	   ios_base::iostate& __err, long double& __units) const
     { 
       string_type __str;
-      this->do_get(__beg, __end, __intl, __io, __err, __str); 
+      __beg = this->do_get(__beg, __end, __intl, __io, __err, __str); 
 
       const int __n = numeric_limits<long double>::digits10;
       char* __cs = static_cast<char*>(__builtin_alloca(sizeof(char) * __n));
@@ -936,22 +884,7 @@ namespace std
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
       const _CharT* __wcs = __str.c_str();
       __ctype.narrow(__wcs, __wcs + __str.size() + 1, char(), __cs);      
-
-#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
-      char* __sanity;
-      errno = 0;
-      long double __ld = strtold(__cs, &__sanity);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __cs && *__sanity == '\0' && errno == 0)
-        __units = __ld;
-#else
-      typedef typename char_traits<_CharT>::int_type int_type;
-      long double __ld;
-      int __p = sscanf(__cs, "%Lf", &__ld);
-      if (!(__err & ios_base::failbit)
-	  && __p && static_cast<int_type>(__p) != char_traits<_CharT>::eof())
-        __units = __ld;
-#endif
+      __convert_to_v(__cs, __units, __err, _S_c_locale);
       return __beg;
     }
 
@@ -997,6 +930,9 @@ namespace std
       // Flag marking when a decimal point is found.
       bool __testdecfound = false; 
 
+      // The tentative returned string is stored here.
+      string_type __temp_units;
+
       char_type __c = *__beg;
       char_type __eof = static_cast<char_type>(char_traits<char_type>::eof());
       for (int __i = 0; __beg != __end && __i < 4 && __testvalid; ++__i)
@@ -1005,20 +941,27 @@ namespace std
 	  switch (__which)
 		{
 		case money_base::symbol:
-		  if (__io.flags() & ios_base::showbase)
+		  if (__io.flags() & ios_base::showbase
+		      || __i < 2
+		      || (__i == 2 && static_cast<part>(__p.field[3]) != money_base::none)
+		      || __sign.size() > 1)
 		    {
-		      // Symbol is required.
+		      // According to 22.2.6.1.2.2, symbol is required if
+		      // (__io.flags() & ios_base::showbase), otherwise is optional
+		      // and consumed only if other characters are needed to complete
+		      // the format.
 		      const string_type __symbol = __intl ? __mpt.curr_symbol()
 						    	 : __mpf.curr_symbol();
 		      size_type __len = __symbol.size();
-		      size_type __i = 0;
+		      size_type __j = 0;
 		      while (__beg != __end 
-			     && __i < __len && __symbol[__i] == __c)
+			     && __j < __len && __symbol[__j] == __c)
 			{
 			  __c = *(++__beg);
-			  ++__i;
+			  ++__j;
 			}
-		      if (__i != __len)
+		      // When (__io.flags() & ios_base::showbase) symbol is required.
+		      if (__j != __len && (__io.flags() & ios_base::showbase))
 			__testvalid = false;
 		    }
 		  break;
@@ -1081,7 +1024,7 @@ namespace std
 			}
 		      else
 			{
-			  __units += __c;
+			  __temp_units += __c;
 			  ++__sep_pos;
 			}
 		      __c = *(++__beg);
@@ -1112,11 +1055,11 @@ namespace std
 	}
 
       // Strip leading zeros.
-      while (__units[0] == __ctype.widen('0'))
-	__units.erase(__units.begin());
+      while (__temp_units[0] == __ctype.widen('0'))
+	__temp_units.erase(__temp_units.begin());
 
-      if (__sign == __neg_sign)
-	__units.insert(__units.begin(), __ctype.widen('-'));
+      if (__sign.size() && __sign == __neg_sign)
+	__temp_units.insert(__temp_units.begin(), __ctype.widen('-'));
 
       // Test for grouping fidelity.
       if (__grouping.size() && __grouping_tmp.size())
@@ -1130,8 +1073,11 @@ namespace std
 	__err |= ios_base::eofbit;
 
       // Iff valid sequence is not recognized.
-      if (!__testvalid || !__units.size())
+      if (!__testvalid || !__temp_units.size())
 	__err |= ios_base::failbit;
+      else
+	// Use the "swap trick" to copy __temp_units into __units.
+	__temp_units.swap(__units);
 
       return __beg; 
     }
@@ -1147,7 +1093,7 @@ namespace std
       const int __n = numeric_limits<long double>::digits10;
       char* __cs = static_cast<char*>(__builtin_alloca(sizeof(char) * __n));
       _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
-      int __len = sprintf(__cs, "%.01Lf", __units);
+      int __len = __convert_from_v(__cs, "%.01Lf", __units, _S_c_locale);
       __ctype.widen(__cs, __cs + __len, __ws);
       string_type __digits(__ws);
       return this->do_put(__s, __intl, __io, __fill, __digits); 
@@ -1237,13 +1183,13 @@ namespace std
 		{
 		  const char_type __sep = __intl ? __mpt.thousands_sep() 
 		    			         : __mpf.thousands_sep();
-		  const char* __gbeg = __grouping.data();
+		  const char* __gbeg = __grouping.c_str();
 		  const char* __gend = __gbeg + __grouping.size();
 		  const int __n = numeric_limits<long double>::digits10 * 2;
-		  _CharT* __s = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
-		  _CharT* __s_end = __group_digits(__s, __sep, __gbeg, 
-						   __gend, __beg, __end);
-		  __value.insert(0, __s, __s_end - __s);
+		  _CharT* __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
+		  _CharT* __ws_end = __add_grouping(__ws2, __sep, __gbeg, 
+						    __gend, __beg, __end);
+		  __value.insert(0, __ws2, __ws_end - __ws2);
 		}
 	      else
 		__value.insert(0, string_type(__beg, __end));
@@ -1309,8 +1255,8 @@ namespace std
 	    }
 
 	  // Write resulting, fully-formatted string to output iterator.
-	  for (size_type __j = 0; __j < __len; ++__j)
-	    __s = __res[__j];
+	  for (size_type __j = 0; __j < __len; ++__j, ++__s)
+	    *__s = __res[__j];
 	}
       __io.width(0);
       return __s; 
@@ -1410,13 +1356,13 @@ namespace std
 		  break;
 		case 'I':
 		  // Hour [01, 12]. [tm_hour]
-		  _M_extract_num(__beg, __end, __tm->tm_hour, 1, 12, 2,
+		  _M_extract_num(__beg, __end, __tm->tm_hour, 1, 12, 2, 
 				 __ctype, __err);
 		  break;
 		case 'm':
 		  // Month [01, 12]. [tm_mon]
-		  _M_extract_num(__beg, __end, __mem, 1, 12, 2,
-				 __ctype, __err);
+		  _M_extract_num(__beg, __end, __mem, 1, 12, 2, __ctype, 
+				 __err);
 		  if (!__err)
 		    __tm->tm_mon = __mem - 1;
 		  break;
@@ -1566,7 +1512,7 @@ namespace std
 		    ios_base::iostate& __err) const
     {
       typedef char_traits<char_type> __traits_type;
-      int __matches[__indexlen];
+      int* __matches = static_cast<int*>(__builtin_alloca(sizeof(int) * __indexlen));
       size_t __nmatches = 0;
       size_t __pos = 0;
       bool __testvalid = true;
@@ -1761,9 +1707,13 @@ namespace std
 	}
       if (__i == 2 || __i == 4)
 	{
-	  int __year = atoi(__digits.c_str());
-	  __year = __i == 2 ? __year : __year - 1900; 
-	  __tm->tm_year = __year;
+	  long __l;
+	  __convert_to_v(__digits.c_str(), __l, __err, _S_c_locale);
+	  if (!(__err & ios_base::failbit) && __l <= INT_MAX)
+	    {
+	      __l = __i == 2 ? __l : __l - 1900; 
+	      __tm->tm_year = static_cast<int>(__l);
+	    }
 	}
       else
 	__err |= ios_base::failbit;
@@ -1799,10 +1749,14 @@ namespace std
 		}
 	      else
 		__format = __c;
-	      this->do_put(__s, __io, char_type(), __tm, __format, __mod);
+	      __s = this->do_put(__s, __io, char_type(), __tm, __format, 
+				 __mod);
 	    }
 	  else
-	    __s = __c;
+	    {
+	      *__s = __c;
+	      ++__s;
+	    }
 	}
       return __s;
     }
@@ -1825,7 +1779,7 @@ namespace std
       // NB: In IEE 1003.1-200x, and perhaps other locale models, it
       // is possible that the format character will be longer than one
       // character. Possibilities include 'E' or 'O' followed by a
-      // format charcter: if __mod is not the default argument, assume
+      // format character: if __mod is not the default argument, assume
       // it's a valid modifier.
       char_type __fmt[4];
       __fmt[0] = __ctype.widen('%'); 
@@ -1845,8 +1799,8 @@ namespace std
 
       // Write resulting, fully-formatted string to output iterator.
       size_t __len = char_traits<char_type>::length(__res);
-      for (size_t __i = 0; __i < __len; ++__i)
-	__s = __res[__i];
+      for (size_t __i = 0; __i < __len; ++__i, ++__s)
+	*__s = __res[__i];
       return __s;
     }
 
@@ -1875,23 +1829,22 @@ namespace std
     }
 
  template<typename _CharT>
-    collate<_CharT>::string_type
+    typename collate<_CharT>::string_type
     collate<_CharT>::
     do_transform(const _CharT* __lo, const _CharT* __hi) const
     {
-      string_type __orig(__lo, __hi);
-      string_type __trans(__orig.size(), char_type());
-      size_t __res = _M_transform_helper(__trans.begin().base(), 
-					 __orig.c_str(), __trans.size());
-      while (__res >= __trans.size())
+      size_t __len = __hi - __lo;
+      _CharT* __c = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __len));
+      size_t __res = _M_transform_helper(__c, __lo, __len);
+      if (__res >= __len)
 	{
-	  // Increment size of translated string.
-	  typename string_type::size_type __newsize = __trans.size() * 2;
-	  __trans.resize(__newsize);
-	  __res = _M_transform_helper(__trans.begin().base(), __orig.c_str(), 
-				      __trans.size());
+	  // Try to increment size of translated string.
+	  size_t __len2 = __len * 2;
+	  _CharT* __c2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __len2));
+	  __res = _M_transform_helper(__c2, __lo, __len);
+	  // XXX Throw exception if still indeterminate?
 	}
-      return __trans;
+      return string_type(__c);
     }
 
  template<typename _CharT>
@@ -1902,8 +1855,131 @@ namespace std
       unsigned long __val = 0;
       for (; __lo < __hi; ++__lo)
 	__val = *__lo + ((__val << 7) | 
-		       (__val >> (numeric_limits<unsigned long>::digits - 1)));
+		       (__val >> (numeric_limits<unsigned long>::digits - 7)));
       return static_cast<long>(__val);
+    }
+
+  // Convert string to numeric value of type _Tv and store results.  
+  // NB: This is specialized for all required types, there is no
+  // generic definition.
+  template<typename _Tv>
+    void
+    __convert_to_v(const char* __in, _Tv& __out, ios_base::iostate& __err, 
+		   const __c_locale& __cloc, int __base = 10);
+
+  // Convert numeric value of type _Tv to string and return length of string.
+  template<typename _Tv>
+    int
+    __convert_from_v(char* __out, const char* __fmt, _Tv __v, 
+		     const __c_locale&, int __prec = -1)
+    {
+      int __ret;
+      const char* __old = setlocale(LC_ALL, "C");
+      if (__prec >= 0)
+	__ret = sprintf(__out, __fmt, __prec, __v);
+      else
+	__ret = sprintf(__out, __fmt, __v);
+      setlocale(LC_ALL, __old);
+      return __ret;
+    }
+
+  // Construct correctly padded string, as per 22.2.2.2.2
+  // Assumes 
+  // __newlen > __oldlen
+  // __news is allocated for __newlen size
+  // Used by both num_put and ostream inserters: if __num,
+  // internal-adjusted objects are padded according to the rules below
+  // concerning 0[xX] and +-, otherwise, exactly as right-adjusted
+  // ones are.
+  template<typename _CharT, typename _Traits>
+    void
+    __pad(ios_base& __io, _CharT __fill, _CharT* __news, const _CharT* __olds,
+	  const streamsize __newlen, const streamsize __oldlen, 
+	  const bool __num)
+    {
+      typedef _CharT	char_type;
+      typedef _Traits	traits_type;
+      typedef typename traits_type::int_type int_type;
+      
+      int_type __plen = static_cast<size_t>(__newlen - __oldlen); 
+      char_type* __pads = static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __plen));
+      traits_type::assign(__pads, __plen, __fill); 
+
+      char_type* __beg;
+      char_type* __end;
+      size_t __mod = 0;
+      size_t __beglen; //either __plen or __oldlen
+      ios_base::fmtflags __adjust = __io.flags() & ios_base::adjustfield;
+
+      if (__adjust == ios_base::left)
+	{
+	  // Padding last.
+	  __beg = const_cast<char_type*>(__olds);
+	  __beglen = __oldlen;
+	  __end = __pads;
+	}
+      else if (__adjust == ios_base::internal && __num)
+	{
+	  // Pad after the sign, if there is one.
+	  // Pad after 0[xX], if there is one.
+	  // Who came up with these rules, anyway? Jeeze.
+          locale __loc = __io.getloc();
+	  const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
+	  const char_type __minus = __ctype.widen('-');
+	  const char_type __plus = __ctype.widen('+');
+	  bool __testsign = __olds[0] == __minus || __olds[0] == __plus;
+	  bool __testhex = __ctype.widen('0') == __olds[0] 
+	                   && (__ctype.widen('x') == __olds[1] 
+			       || __ctype.widen('X') == __olds[1]);
+	  if (__testhex)
+	    {
+	      __news[0] = __olds[0]; 
+	      __news[1] = __olds[1];
+	      __mod += 2;
+	      __news += 2;
+	      __beg = __pads;
+	      __beglen = __plen;
+	      __end = const_cast<char_type*>(__olds + __mod);
+	    }
+	  else if (__testsign)
+	    {
+	      __news[0] = __olds[0] == __plus ? __plus : __minus;
+	      ++__mod;
+	      ++__news;
+	      __beg = __pads;
+	      __beglen = __plen;
+	      __end = const_cast<char_type*>(__olds + __mod);
+	    }
+	  else
+	    {
+	      // Padding first.
+	      __beg = __pads;
+	      __beglen = __plen;
+	      __end = const_cast<char_type*>(__olds);
+	    }
+	}
+      else
+	{
+	  // Padding first.
+	  __beg = __pads;
+	  __beglen = __plen;
+	  __end = const_cast<char_type*>(__olds);
+	}
+      traits_type::copy(__news, __beg, __beglen);
+      traits_type::copy(__news + __beglen, __end, __newlen - __beglen - __mod);
+    }
+
+  // NB: Can't have default argument on non-member template, and
+  // num_put doesn't have a _Traits template parameter, so this
+  // forwarding template adds in the default template argument.
+  template<typename _CharT>
+    void
+    __pad(ios_base& __io, _CharT __fill, _CharT* __news, const _CharT* __olds,
+	  const streamsize __newlen, const streamsize __oldlen, 
+	  const bool __num)
+    { 
+      return __pad<_CharT, char_traits<_CharT> >(__io, __fill, __news, __olds,
+						 __newlen, __oldlen, __num); 
     }
 
   // Used by both numeric and monetary facets.
@@ -1945,101 +2021,22 @@ namespace std
   // only with __gbeg != __gend.
   template<typename _CharT>
     _CharT*
-    __group_digits(_CharT* __s, _CharT __sep,  
+    __add_grouping(_CharT* __s, _CharT __sep,  
 		   const char* __gbeg, const char* __gend, 
 		   const _CharT* __first, const _CharT* __last)
     {
       if (__last - __first > *__gbeg)
         {
-          __s = __group_digits(__s,  __sep,
+          __s = __add_grouping(__s,  __sep, 
 			       (__gbeg + 1 == __gend ? __gbeg : __gbeg + 1),
 			       __gend, __first, __last - *__gbeg);
           __first = __last - *__gbeg;
           *__s++ = __sep;
         }
       do
-        {
-          *__s++ = *__first++;
-        }
+	*__s++ = *__first++;
       while (__first != __last);
       return __s;
-    }
-
-  // XXX This stuff needs to be re-examined, heavily modified, or ditched.
-  template<typename _CharT>
-    _Format_cache<_CharT>::_Format_cache()
-    : _M_valid(true), _M_use_grouping(false)
-    { }
-
-  template<>
-    _Format_cache<char>::_Format_cache();
-
-  template<>
-    _Format_cache<wchar_t>::_Format_cache();
-
-  template<typename _CharT>
-    void
-    _Format_cache<_CharT>::_M_populate(ios_base& __io)
-    {
-      locale __loc = __io.getloc();
-      numpunct<_CharT> const& __np = use_facet<numpunct<_CharT> >(__loc);
-      _M_truename = __np.truename();
-      _M_falsename = __np.falsename();
-      _M_thousands_sep = __np.thousands_sep();
-      _M_decimal_point = __np.decimal_point();
-      _M_grouping = __np.grouping();
-      _M_use_grouping = _M_grouping.size() != 0 && _M_grouping.data()[0] != 0;
-      _M_valid = true;
-    }
-
-  // This function is always called via a pointer installed in
-  // an ios_base by ios_base::register_callback.
-  template<typename _CharT>
-    void
-    _Format_cache<_CharT>::
-    _S_callback(ios_base::event __ev, ios_base& __ios, int __ix) throw()
-    {
-      void*& __p = __ios.pword(__ix);
-      switch (__ev)
-        {
-        case ios_base::erase_event:
-          delete static_cast<_Format_cache<_CharT>*>(__p);
-	  __p = 0;
-          break;
-        case ios_base::copyfmt_event:
-          // If just stored zero, the callback would get registered again.
-          try 
-	    { __p = new _Format_cache<_CharT>; }
-          catch(...) 
-	    { }
-          break;
-        case ios_base::imbue_event:
-          static_cast<_Format_cache<_CharT>*>(__p)->_M_valid = false;
-          break;
-        }
-    }
-
-  template<typename _CharT>
-    _Format_cache<_CharT>*
-    _Format_cache<_CharT>::_S_get(ios_base& __ios)
-    {
-      if (!_S_pword_ix)
-        _S_pword_ix = ios_base::xalloc();  // XXX MT
-      void*& __p = __ios.pword(_S_pword_ix);
-
-      // XXX What if pword fails? must check failbit, throw.
-      if (__p == 0)  // XXX MT?  maybe sentry takes care of it
-        {
-          auto_ptr<_Format_cache<_CharT> > __ap(new _Format_cache<_CharT>);
-          __ios.register_callback(&_Format_cache<_CharT>::_S_callback,
-                                  _S_pword_ix);
-          __p = __ap.release();
-        }
-      _Format_cache<_CharT>* __ncp = static_cast<_Format_cache<_CharT>*>(__p);
-      if (!__ncp->_M_valid)
-        __ncp->_M_populate(__ios);
-
-      return __ncp;
     }
 } // namespace std
 

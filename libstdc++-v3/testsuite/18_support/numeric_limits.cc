@@ -59,6 +59,31 @@ void test_extrema()
   VERIFY( extrema<T>::max == std::numeric_limits<T>::max() );
 }
 
+#ifdef __FreeBSD__
+// This specialization allows the extra precision unmentioned
+// in system headers yet supported by long double on FreeBSD to
+// not cause a gratuitous FAIL for the entire test.  Using this
+// technique to compare the residual against epsilon ensures that
+// any major breakage will still be detected (although obviously not
+// as tight as the exact equality check that would have been generated
+// by default).  This replacement test is allowable by the fact that
+// C++ limits should match the system provided limits for C even if
+// they were wrong verses the actual FP hardware.
+template<>
+void test_extrema<long double>()
+{
+  typedef long double T;
+  VERIFY( (extrema<T>::min - std::numeric_limits<T>::min())
+            < std::numeric_limits<T>::epsilon() );
+  VERIFY( (std::numeric_limits<T>::min() - extrema<T>::min)
+            < std::numeric_limits<T>::epsilon() );
+  VERIFY( (extrema<T>::max / std::numeric_limits<T>::max())
+            < (1 + std::numeric_limits<T>::epsilon()) );
+  VERIFY( (std::numeric_limits<T>::max() / extrema<T>::max)
+            < (1 + std::numeric_limits<T>::epsilon()) );
+}
+#endif
+
 #ifdef __CHAR_UNSIGNED__
 #define char_is_signed false
 #else
@@ -92,7 +117,10 @@ template<typename T>
     operator==(int i) { return i == key; }
   };
 
-struct B { };
+struct B 
+{
+  B(int i = 0) { }
+};
 
 
 bool test01()
@@ -139,6 +167,8 @@ bool test01()
 }
 
 // test linkage of the generic bits
+template struct std::numeric_limits<B>;
+
 void test02()
 {
   typedef std::numeric_limits<B> b_nl_type;
@@ -150,10 +180,34 @@ void test02()
   const bool* pb1 = &b_nl_type::traps;
 }
 
+// libstdc++/5045
+bool test03()
+{
+  bool test = true;
+
+  VERIFY( std::numeric_limits<bool>::digits10 == 0 );
+  VERIFY( __glibcpp_s8_digits10 == 2 );
+  VERIFY( __glibcpp_u8_digits10 == 2 );
+  VERIFY( __glibcpp_s16_digits10 == 4 );
+  VERIFY( __glibcpp_u16_digits10 == 4 );
+  VERIFY( __glibcpp_s32_digits10 == 9 );
+  VERIFY( __glibcpp_u32_digits10 == 9 );
+  VERIFY( __glibcpp_s64_digits10 == 18 );
+  VERIFY( __glibcpp_u64_digits10 == 19 );
+
+#ifdef DEBUG_ASSERT
+  assert(test);
+#endif
+
+  return test;
+}
+
+
 int main()
 {
   test01();
   test02();
+  test03();
 
   test_extrema<char>();
   test_extrema<signed char>();
@@ -176,3 +230,9 @@ int main()
 
     return 0;
 }
+
+
+
+
+
+

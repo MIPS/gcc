@@ -25,8 +25,6 @@ Boston, MA 02111-1307, USA.  */
    less duplicate all of svr4.h, sparc/sysv4.h, and sparc/sol2.h here
    (suitably cleaned up).  */
 
-#include "sparc/sol2.h"
-
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (sparc64-elf)")
 
@@ -112,13 +110,7 @@ crtbegin.o%s \
    GDB doesn't support 64 bit stabs yet and the desired debug format is DWARF
    anyway so it is the default.  */
 
-#define DWARF_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO
 #define DBX_DEBUGGING_INFO
 
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-/* Define the names of various pseudo-ops used by the Sparc/svr4 assembler.  */
-
-#define UNALIGNED_DOUBLE_INT_ASM_OP	"\t.uaxword\t"

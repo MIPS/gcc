@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.1 $
+ *                            $Revision: 1.7 $
  *                                                                          *
  *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -304,7 +304,7 @@ poplevel (keep, reverse, functionbody)
 
   /* Reverse the list of XXXX_DECL nodes if desired.  Note that the ..._DECL
      nodes chained through the `names' field of current_binding_level are in
-     reverse order except for PARM_DECL node, which are explicitely stored in
+     reverse order except for PARM_DECL node, which are explicitly stored in
      the right order.  */
   current_binding_level->names
     = decl_chain = (reverse) ? nreverse (current_binding_level->names)
@@ -478,14 +478,8 @@ pushdecl (decl)
    front end has been run.  */
 
 void
-init_decl_processing ()
+gnat_init_decl_processing ()
 {
-  /* The structure `tree_identifier' is the GCC tree data structure that holds
-     IDENTIFIER_NODE nodes. We need to call `set_identifier_size' to tell GCC
-     that we have not added any language specific fields to IDENTIFIER_NODE
-     nodes.  */
-  set_identifier_size (sizeof (struct tree_identifier));
-
   lineno = 0;
 
   /* incomplete_decl_finalize_hook is defined in toplev.c. It needs to be set
@@ -1320,9 +1314,11 @@ create_var_decl (var_name, asm_name, type, var_init, const_flag, public_flag,
      any variable elaborations for the elaboration routine.  Otherwise, if
      the initializing expression is not the same as TYPE, generate the
      initialization with an assignment statement, since it knows how
-     to do the required adjustents.  */
+     to do the required adjustents.  If we are just annotating types,
+     throw away the initialization if it isn't a constant.  */
 
-  if (extern_flag && TREE_CODE (var_decl) != CONST_DECL)
+  if ((extern_flag && TREE_CODE (var_decl) != CONST_DECL)
+      || (type_annotate_only && var_init != 0 && ! TREE_CONSTANT (var_init)))
     var_init = 0;
 
   if (global_bindings_p () && var_init != 0 && ! init_const)
@@ -1835,7 +1831,7 @@ begin_subprog_body (subprog_decl)
    to assembler language output.  */
 
 void
-end_subprog_body (void)
+end_subprog_body ()
 {
   tree decl;
   tree cico_list;
@@ -1848,7 +1844,17 @@ end_subprog_body (void)
   DECL_CONTEXT (DECL_RESULT (current_function_decl)) = current_function_decl;
 
   expand_function_end (input_filename, lineno, 0);
+
+  /* If this is a nested function, push a new GC context.  That will keep
+     local variables on the stack from being collected while we're doing
+     the compilation of this function.  */
+  if (function_nesting_depth > 1)
+    ggc_push_context ();
+
   rest_of_compilation (current_function_decl);
+
+  if (function_nesting_depth > 1)
+    ggc_pop_context ();
 
 #if 0
   /* If we're sure this function is defined in this file then mark it
@@ -2581,8 +2587,22 @@ update_pointer_to (old_type, new_type)
 {
   tree ptr = TYPE_POINTER_TO (old_type);
   tree ref = TYPE_REFERENCE_TO (old_type);
+  tree type;
 
-  if ((ptr == 0 && ref == 0) || old_type == new_type)
+  /* If this is the main variant, process all the other variants first.  */
+  if (TYPE_MAIN_VARIANT (old_type) == old_type)
+    for (type = TYPE_NEXT_VARIANT (old_type); type != 0;
+	 type = TYPE_NEXT_VARIANT (type))
+      update_pointer_to (type, new_type);
+
+  /* If no pointer or reference, we are done.  Otherwise, get the new type with
+     the same qualifiers as the old type and see if it is the same as the old
+     type.  */
+  if (ptr == 0 && ref == 0)
+    return;
+
+  new_type = build_qualified_type (new_type, TYPE_QUALS (old_type));
+  if (old_type == new_type)
     return;
 
   /* First handle the simple case.  */

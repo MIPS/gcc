@@ -21,17 +21,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
 
-#ifdef ANSI_PROTOTYPES
-union tree_node;
-struct rtx_def;
-#endif
-
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
 #define skip_leading_substring(whole,  part) \
    (strncmp (whole, part, strlen (part)) ? NULL : whole + strlen (part))
 
-extern int toplev_main			PARAMS ((int argc, char **argv));
+extern int toplev_main			PARAMS ((int, char **));
 extern int read_integral_parameter	PARAMS ((const char *, const char *,
 						const int));
 extern int count_error			PARAMS ((int));
@@ -92,6 +87,7 @@ extern void error_for_asm		PARAMS ((struct rtx_def *,
 						 const char *, ...));
 extern void warning_for_asm		PARAMS ((struct rtx_def *,
 						 const char *, ...));
+extern void warn_deprecated_use		PARAMS ((union tree_node *));
 extern int do_float_handler PARAMS ((void (*) (PTR), PTR));
 
 #ifdef BUFSIZ
@@ -114,66 +110,6 @@ extern void check_global_declarations   PARAMS ((union tree_node **, int));
 
 extern const char *progname;
 extern const char *dump_base_name;
-
-/* The following hooks are documented in langhooks.c.  Must not be
-   NULL.  */
-
-struct lang_hooks_for_tree_inlining
-{
-  union tree_node *(*walk_subtrees) PARAMS ((union tree_node **, int *,
-					     union tree_node *(*)
-					     (union tree_node **,
-					      int *, void *),
-					     void *, void *));
-  int (*cannot_inline_tree_fn) PARAMS ((union tree_node **));
-  int (*disregard_inline_limits) PARAMS ((union tree_node *));
-  union tree_node *(*add_pending_fn_decls) PARAMS ((void*, union tree_node *));
-  int (*tree_chain_matters_p) PARAMS ((union tree_node *));
-  int (*auto_var_in_fn_p) PARAMS ((union tree_node *, union tree_node *));
-  union tree_node *(*copy_res_decl_for_inlining) PARAMS ((union tree_node *,
-							  union tree_node *,
-							  union tree_node *,
-							  void *, int *,
-							  void *));
-  int (*anon_aggr_type_p) PARAMS ((union tree_node *));
-};
-
-/* Language-specific hooks.  Can be NULL unless otherwise specified.  */
-
-struct lang_hooks
-{
-  /* Called first, to initialize the front end.  */
-  void (*init) PARAMS ((void));
-
-  /* Called last, as a finalizer.  */
-  void (*finish) PARAMS ((void));
-
-  /* Called to initialize options, before any calls to decode_option.  */
-  void (*init_options) PARAMS ((void));
-
-  /* Function called with an option vector as argument, to decode a
-     single option (typically starting with -f or -W or +).  It should
-     return the number of command-line arguments it uses if it handles
-     the option, or 0 and not complain if it does not recognise the
-     option.  If this function returns a negative number, then its
-     absolute value is the number of command-line arguments used, but,
-     in addition, no language-independent option processing should be
-     done for this option.
-
-     This hook cannot be NULL.  */
-  int (*decode_option) PARAMS ((int, char **));
-
-  /* Called when all command line options have been processed.  */
-  void (*post_options) PARAMS ((void));
-
-  struct lang_hooks_for_tree_inlining tree_inlining;
-
-  /* Whenever you add entries here, make sure you adjust langhooks.h
-     and langhooks.c accordingly.  */
-};
-
-/* Each front end provides its own.  */
-extern struct lang_hooks lang_hooks;
 
 /* The hashtable, so that the C front ends can pass it to cpplib.  */
 extern struct ht *ident_hash;

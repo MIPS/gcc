@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $                              --
+--                            $Revision: 1.2 $                              --
 --                                                                          --
 --         Copyright (C) 1996-2000 Ada Core Technologies, Inc.              --
 --                                                                          --

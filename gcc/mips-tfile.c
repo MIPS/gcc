@@ -681,7 +681,7 @@ main ()
 #endif
 
 #define IS_ASM_IDENT(ch) \
-  (ISALNUM (ch) || (ch) == '_' || (ch) == '.' || (ch) == '$')
+  (ISIDNUM (ch) || (ch) == '.' || (ch) == '$')
 
 
 /* Redefinition of storage classes as an enumeration for better
@@ -902,7 +902,7 @@ enum alloc_type {
 #define PAGE_SIZE 4096		/* size of varray pages */
 #endif
 
-#define PAGE_USIZE ((Size_t)PAGE_SIZE)
+#define PAGE_USIZE ((Size_t) PAGE_SIZE)
 
 
 #ifndef MAX_CLUSTER_PAGES	/* # pages to get from system */
@@ -1273,7 +1273,7 @@ static EXTR	  *last_func_eptr;
    Maybe this will be fixed in 2.10 or 2.20 of the MIPS compiler
    suite, but for now go with what works.  */
 
-static bt_t map_coff_types[ (int)T_MAX ] = {
+static const bt_t map_coff_types[ (int) T_MAX ] = {
   bt_Nil,			/* T_NULL */
   bt_Nil,			/* T_ARG */
   bt_Char,			/* T_CHAR */
@@ -1293,7 +1293,7 @@ static bt_t map_coff_types[ (int)T_MAX ] = {
 };
 
 /* Convert COFF storage class to ECOFF storage class.  */
-static sc_t map_coff_storage[ (int)C_MAX ] = {
+static const sc_t map_coff_storage[ (int) C_MAX ] = {
   sc_Nil,			/*   0: C_NULL */
   sc_Abs,			/*   1: C_AUTO	  auto var */
   sc_Undefined,			/*   2: C_EXT	  external */
@@ -1404,7 +1404,7 @@ static sc_t map_coff_storage[ (int)C_MAX ] = {
 };
 
 /* Convert COFF storage class to ECOFF symbol type.  */
-static st_t map_coff_sym_type[ (int)C_MAX ] = {
+static const st_t map_coff_sym_type[ (int) C_MAX ] = {
   st_Nil,			/*   0: C_NULL */
   st_Local,			/*   1: C_AUTO	  auto var */
   st_Global,			/*   2: C_EXT	  external */
@@ -1515,7 +1515,7 @@ static st_t map_coff_sym_type[ (int)C_MAX ] = {
 };
 
 /* Map COFF derived types to ECOFF type qualifiers.  */
-static tq_t map_coff_derived_type[ (int)DT_MAX ] = {
+static const tq_t map_coff_derived_type[ (int) DT_MAX ] = {
   tq_Nil,			/* 0: DT_NON	no more qualifiers */
   tq_Ptr,			/* 1: DT_PTR	pointer */
   tq_Proc,			/* 2: DT_FCN	function */
@@ -1524,7 +1524,7 @@ static tq_t map_coff_derived_type[ (int)DT_MAX ] = {
 
 
 /* Keep track of different sized allocation requests.  */
-static alloc_info_t alloc_counts[ (int)alloc_type_last ];
+static alloc_info_t alloc_counts[ (int) alloc_type_last ];
 
 
 /* Pointers and such to the original symbol table that is read in.  */
@@ -1546,7 +1546,7 @@ static EXTR	*orig_ext_syms;			/* external symbols */
 /* Macros to convert an index into a given object within the original
    symbol table.  */
 #define CHECK(num,max,str) \
-  (((unsigned long)num > (unsigned long)max) ? out_of_bounds (num, max, str, __LINE__) : 0)
+  (((unsigned long) num > (unsigned long) max) ? out_of_bounds (num, max, str, __LINE__) : 0)
 
 #define ORIG_LINENUM(indx)	(CHECK ((indx), orig_sym_hdr.cbLine,    "line#"), (indx) + orig_linenum)
 #define ORIG_DENSE(indx)	(CHECK ((indx), orig_sym_hdr.idnMax,    "dense"), (indx) + orig_dense)
@@ -1594,7 +1594,7 @@ static int	stabs_seen	= 0;		/* != 0 if stabs have been seen */
 #define STABS_SYMBOL "@stabs"
 #endif
 
-static char stabs_symbol[] = STABS_SYMBOL;
+static const char stabs_symbol[] = STABS_SYMBOL;
 
 
 /* Forward reference for functions.  See the definition for more details.  */
@@ -1715,12 +1715,12 @@ extern int   opterr;
    do......  */
 
 typedef struct _pseudo_ops {
-  const char *name;			/* pseudo-op in ascii */
-  int len;				/* length of name to compare */
-  void (*func) PARAMS ((const char *));	/* function to handle line */
+  const char *const name;			/* pseudo-op in ascii */
+  const int len;				/* length of name to compare */
+  void (*const func) PARAMS ((const char *));	/* function to handle line */
 } pseudo_ops_t;
 
-static pseudo_ops_t pseudo_ops[] = {
+static const pseudo_ops_t pseudo_ops[] = {
   { "#.def",	sizeof("#.def")-1,	parse_def },
   { "#.begin",	sizeof("#.begin")-1,	parse_begin },
   { "#.bend",	sizeof("#.bend")-1,	parse_bend },
@@ -1750,8 +1750,8 @@ add_varray_page (vp)
 #endif
     new_links->datum = allocate_page ();
 
-  alloc_counts[ (int)alloc_type_varray ].total_alloc++;
-  alloc_counts[ (int)alloc_type_varray ].total_pages++;
+  alloc_counts[ (int) alloc_type_varray ].total_alloc++;
+  alloc_counts[ (int) alloc_type_varray ].total_pages++;
 
   new_links->start_index = vp->num_allocated;
   vp->objects_last_page = 0;
@@ -1820,7 +1820,7 @@ add_string (vp, hash_tbl, start, end_p1, ret_hash)
   symint_t hi;
 
   if (len >= (Ptrdiff_t) PAGE_USIZE)
-    fatal ("String too big (%ld bytes)", (long) len);
+    fatal ("string too big (%ld bytes)", (long) len);
 
   hash_ptr = hash_string (start, len, hash_tbl, &hi);
   if (hash_ptr == (shash_t *) 0)
@@ -1898,7 +1898,7 @@ add_local_symbol (str_start, str_end_p1, type, storage, value, indx)
 
   ret = vp->num_allocated++;
 
-  if (MIPS_IS_STAB(psym))
+  if (MIPS_IS_STAB (psym))
     return ret;
 
   /* Save the symbol within the hash table if this is a static
@@ -1942,7 +1942,7 @@ add_local_symbol (str_start, str_end_p1, type, storage, value, indx)
 
     case st_End:
       pscope = cur_file_ptr->cur_scope;
-      if (pscope == (scope_t *)0)
+      if (pscope == (scope_t *) 0)
 	error ("internal error, too many st_End's");
 
       else
@@ -2050,7 +2050,7 @@ add_ext_symbol (esym, ifd)
   shash_t *hash_ptr = (shash_t *) 0;
 
   str_start = ORIG_ESTRS (esym->asym.iss);
-  str_end_p1 = str_start + strlen(str_start);
+  str_end_p1 = str_start + strlen (str_start);
 
   if (debug > 1)
     {
@@ -2232,7 +2232,7 @@ add_aux_sym_tir (t, state, hash_tbl)
      for an enum bitfield.  */
 
   if (t->bitfield)
-    (void) add_aux_sym_symint ((symint_t)t->sizes[t->num_sizes-1]);
+    (void) add_aux_sym_symint ((symint_t) t->sizes[t->num_sizes-1]);
 
 
   /* Add tag information if needed.  Structure, union, and enum
@@ -2444,20 +2444,20 @@ add_procedure (func_start, func_end_p1)
 
       if (old_proc_ptr != (PDR *) 0
 	  && sym_ptr != (SYMR *) 0
-	  && ((st_t)sym_ptr->st == st_Proc || (st_t)sym_ptr->st == st_StaticProc))
+	  && ((st_t) sym_ptr->st == st_Proc || (st_t) sym_ptr->st == st_StaticProc))
 	{
 	  cur_oproc_begin = sym_ptr;
 	  cur_oproc_end = shash_ptr->end_ptr;
 	  value = sym_ptr->value;
 
 	  cur_oproc_ptr = old_proc_ptr;
-	  proc_type = (st_t)sym_ptr->st;
+	  proc_type = (st_t) sym_ptr->st;
 	  *new_proc_ptr = *old_proc_ptr;	/* initialize */
 	}
     }
 
   if (cur_oproc_ptr == (PDR *) 0)
-    error ("Did not find a PDR block for %.*s",
+    error ("did not find a PDR block for %.*s",
 	   (int) (func_end_p1 - func_start), func_start);
 
   /* Determine the start of symbols.  */
@@ -2526,7 +2526,7 @@ add_file (file_start, file_end_p1)
 		  (shash_t **) 0);
 
       if (file_end_p1 - file_start > (long) PAGE_USIZE-2)
-	fatal ("Filename goes over one page boundary.");
+	fatal ("filename goes over one page boundary");
 
       /* Push the start of the filename. We assume that the filename
          will be stored at string offset 1.  */
@@ -2595,10 +2595,10 @@ add_bytes (vp, input_ptr, nitems)
 /* Convert storage class to string.  */
 
 STATIC const char *
-sc_to_string(storage_class)
+sc_to_string (storage_class)
      sc_t storage_class;
 {
-  switch(storage_class)
+  switch (storage_class)
     {
     case sc_Nil:	 return "Nil,";
     case sc_Text:	 return "Text,";
@@ -2633,10 +2633,10 @@ sc_to_string(storage_class)
 /* Convert symbol type to string.  */
 
 STATIC const char *
-st_to_string(symbol_type)
+st_to_string (symbol_type)
      st_t symbol_type;
 {
-  switch(symbol_type)
+  switch (symbol_type)
     {
     case st_Nil:	return "Nil,";
     case st_Global:	return "Global,";
@@ -2713,7 +2713,7 @@ read_line ()
 	}
 
       else if (ch == '\0')
-	error ("Null character found in input");
+	error ("null character found in input");
 
       else if (!comment_p)
 	{
@@ -2775,14 +2775,14 @@ parse_begin (start)
 
   if (hash_ptr == (shash_t *) 0)
     {
-      error ("Label %.*s not found for #.begin",
+      error ("label %.*s not found for #.begin",
 	     (int) (end_p1 - start), start);
       return;
     }
 
   if (cur_oproc_begin == (SYMR *) 0)
     {
-      error ("Procedure table %.*s not found for #.begin",
+      error ("procedure table %.*s not found for #.begin",
 	     (int) (end_p1 - start), start);
       return;
     }
@@ -2827,20 +2827,20 @@ parse_bend (start)
 
   if (hash_ptr == (shash_t *) 0)
     {
-      error ("Label %.*s not found for #.bend", (int) (end_p1 - start), start);
+      error ("label %.*s not found for #.bend", (int) (end_p1 - start), start);
       return;
     }
 
   if (cur_oproc_begin == (SYMR *) 0)
     {
-      error ("Procedure table %.*s not found for #.bend",
+      error ("procedure table %.*s not found for #.bend",
 	     (int) (end_p1 - start), start);
       return;
     }
 
   (void) add_local_symbol ((const char *) 0, (const char *) 0,
 			   st_End, sc_Text,
-			   (symint_t)hash_ptr->sym_ptr->value - cur_oproc_begin->value,
+			   (symint_t) hash_ptr->sym_ptr->value - cur_oproc_begin->value,
 			   (symint_t) 0);
 }
 
@@ -3123,13 +3123,13 @@ parse_def (name_start)
 	      tq_t *tq_ptr = &t.type_qualifiers[0];
 
 	      t.orig_type = (coff_type_t) (arg_number & N_BTMASK);
-	      t.basic_type = map_coff_types [(int)t.orig_type];
+	      t.basic_type = map_coff_types [(int) t.orig_type];
 	      for (i = N_TQ-1; i >= 0; i--)
 		{
 		  int dt = (arg_number >> ((i * N_TQ_SHIFT) + N_BT_SHIFT)
 			    & N_TMASK);
 
-		  if (dt != (int)DT_NON)
+		  if (dt != (int) DT_NON)
 		    *tq_ptr++ = map_coff_derived_type [dt];
 		}
 
@@ -3289,13 +3289,13 @@ parse_def (name_start)
 	{
 	  if (tag_start == (char *) 0)
 	    {
-	      error ("No tag specified for %.*s",
+	      error ("no tag specified for %.*s",
 		     (int) (name_end_p1 - name_start),
 		     name_start);
 	      return;
 	    }
 
-	  t.tag_ptr = get_tag (tag_start, tag_end_p1,  (symint_t)indexNil,
+	  t.tag_ptr = get_tag (tag_start, tag_end_p1,  (symint_t) indexNil,
 			       t.basic_type);
 	}
 
@@ -3376,7 +3376,7 @@ parse_def (name_start)
      for which the external symbol table is fine enough.  */
 
   if (eptr == (EXTR *) 0
-      || eptr->asym.st == (int)st_Nil
+      || eptr->asym.st == (int) st_Nil
       || cur_proc_ptr != (PDR *) 0)
     {
       symint_t isym = add_local_symbol (name_start, name_end_p1,
@@ -3476,11 +3476,11 @@ parse_end (start)
 
   orig_fdr = cur_file_ptr->orig_fdr;
   value = 0;
-  if (orig_fdr != (FDR *)0 && cur_oproc_end != (SYMR *) 0)
+  if (orig_fdr != (FDR *) 0 && cur_oproc_end != (SYMR *) 0)
     value = cur_oproc_end->value;
 
   else
-    error ("Cannot find .end block for %.*s",
+    error ("cannot find .end block for %.*s",
 	   (int) (end_func_p1 - start_func), start_func);
 
   (void) add_local_symbol (start_func, end_func_p1,
@@ -3544,13 +3544,13 @@ parse_file (start)
       || (start_name = strchr (p, '"')) == (char *) 0
       || (end_name_p1 = strrchr (++start_name, '"')) == (char *) 0)
     {
-      error ("Invalid .file directive");
+      error ("invalid .file directive");
       return;
     }
 
   if (cur_proc_ptr != (PDR *) 0)
     {
-      error ("No way to handle .file within .ent/.end section");
+      error ("no way to handle .file within .ent/.end section");
       return;
     }
 
@@ -3570,7 +3570,7 @@ mark_stabs (start)
       stabs_seen = 1;
       (void) add_local_symbol (stabs_symbol,
 			       stabs_symbol + sizeof (stabs_symbol),
-			       stNil, scInfo, -1, MIPS_MARK_STAB(0));
+			       stNil, scInfo, -1, MIPS_MARK_STAB (0));
 
     }
 }
@@ -3625,7 +3625,7 @@ parse_stabs_common (string_start, string_end, rest)
   /* Read code from stabs.  */
   if (!ISDIGIT (*rest))
     {
-      error ("Invalid .stabs/.stabn directive, code is non-numeric");
+      error ("invalid .stabs/.stabn directive, code is non-numeric");
       return;
     }
 
@@ -3637,7 +3637,7 @@ parse_stabs_common (string_start, string_end, rest)
      address.  The symbol type is st_Label, which should be different from
      the other stabs, so that gdb can recognize it.  */
 
-  if (code == (int)N_SLINE)
+  if (code == (int) N_SLINE)
     {
       SYMR *sym_ptr, dummy_symr;
       shash_t *shash_ptr;
@@ -3645,7 +3645,7 @@ parse_stabs_common (string_start, string_end, rest)
       /* Skip ,0, */
       if (p[0] != ',' || p[1] != '0' || p[2] != ',' || !ISDIGIT (p[3]))
 	{
-	  error ("Invalid line number .stabs/.stabn directive");
+	  error ("invalid line number .stabs/.stabn directive");
 	  return;
 	}
 
@@ -3653,14 +3653,14 @@ parse_stabs_common (string_start, string_end, rest)
       ch = *++p;
       if (p[-1] != ',' || ISDIGIT (ch) || !IS_ASM_IDENT (ch))
 	{
-	  error ("Invalid line number .stabs/.stabn directive");
+	  error ("invalid line number .stabs/.stabn directive");
 	  return;
 	}
 
       dummy_symr.index = code;
       if (dummy_symr.index != code)
 	{
-	  error ("Line number (%lu) for .stabs/.stabn directive cannot fit in index field (20 bits)",
+	  error ("line number (%lu) for .stabs/.stabn directive cannot fit in index field (20 bits)",
 		 code);
 
 	  return;
@@ -3674,13 +3674,13 @@ parse_stabs_common (string_start, string_end, rest)
       if (shash_ptr == (shash_t *) 0
 	  || (sym_ptr = shash_ptr->sym_ptr) == (SYMR *) 0)
 	{
-	  error ("Invalid .stabs/.stabn directive, value not found");
+	  error ("invalid .stabs/.stabn directive, value not found");
 	  return;
 	}
 
       if ((st_t) sym_ptr->st != st_Label)
 	{
-	  error ("Invalid line number .stabs/.stabn directive");
+	  error ("invalid line number .stabs/.stabn directive");
 	  return;
 	}
 
@@ -3705,7 +3705,7 @@ parse_stabs_common (string_start, string_end, rest)
       if (!IS_ASM_IDENT (ch) && ch != '-')
 	{
 	failure:
-	  error ("Invalid .stabs/.stabn directive, bad character");
+	  error ("invalid .stabs/.stabn directive, bad character");
 	  return;
 	}
 
@@ -3716,13 +3716,13 @@ parse_stabs_common (string_start, string_end, rest)
 	  value = strtol (p, &p, 0);
 	  if (*p != '\n')
 	    {
-	      error ("Invalid .stabs/.stabn directive, stuff after numeric value");
+	      error ("invalid .stabs/.stabn directive, stuff after numeric value");
 	      return;
 	    }
 	}
       else if (!IS_ASM_IDENT (ch))
 	{
-	  error ("Invalid .stabs/.stabn directive, bad character");
+	  error ("invalid .stabs/.stabn directive, bad character");
 	  return;
 	}
       else
@@ -3735,7 +3735,7 @@ parse_stabs_common (string_start, string_end, rest)
 	  if ((end_p1 = strchr (start, '+')) == (char *) 0)
 	    {
 	      if ((end_p1 = strchr (start, '-')) == (char *) 0)
-		end_p1 = start + strlen(start) - 1;
+		end_p1 = start + strlen (start) - 1;
 	    }
 
 	  shash_ptr = hash_string (start,
@@ -3754,7 +3754,7 @@ parse_stabs_common (string_start, string_end, rest)
 	      if (shash_ptr == (shash_t *) 0
 		  || shash_ptr->esym_ptr == (EXTR *) 0)
 		{
-		  error ("Invalid .stabs/.stabn directive, value not found");
+		  error ("invalid .stabs/.stabn directive, value not found");
 		  return;
 		}
 	      else
@@ -3780,7 +3780,7 @@ parse_stabs_common (string_start, string_end, rest)
 	      if (((!ISDIGIT (*end_p1)) && (*end_p1 != '-'))
 		  || ((ch != '+') && (ch != '-')))
 		{
-		  error ("Invalid .stabs/.stabn directive, badly formed value");
+		  error ("invalid .stabs/.stabn directive, badly formed value");
 		  return;
 		}
 	      if (ch == '+')
@@ -3790,12 +3790,12 @@ parse_stabs_common (string_start, string_end, rest)
 
 	      if (*p != '\n')
 		{
-		  error ("Invalid .stabs/.stabn directive, stuff after numeric value");
+		  error ("invalid .stabs/.stabn directive, stuff after numeric value");
 		  return;
 		}
 	    }
 	}
-      code = MIPS_MARK_STAB(code);
+      code = MIPS_MARK_STAB (code);
     }
 
   (void) add_local_symbol (string_start, string_end, st, sc, value, code);
@@ -3812,7 +3812,7 @@ parse_stabs (start)
 
   if (*start != '"' || end == (const char *) 0 || end[1] != ',')
     {
-      error ("Invalid .stabs directive, no string");
+      error ("invalid .stabs directive, no string");
       return;
     }
 
@@ -3939,7 +3939,7 @@ update_headers ()
       sym_end_p1 = sym_start + fd_ptr->csym;
       for (sym = sym_start; sym < sym_end_p1; sym++)
 	{
-	  if ((st_t)sym->st == st_Static)
+	  if ((st_t) sym->st == st_Static)
 	    {
 	      char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
 	      Size_t len = strlen (str);
@@ -3949,15 +3949,15 @@ update_headers ()
 	      if (str[0] == '$' && str[1] == 'L')
 		continue;
 	      hash_ptr = hash_string (str,
-				      (Ptrdiff_t)len,
+				      (Ptrdiff_t) len,
 				      &file_ptr->shash_head[0],
 			  	      (symint_t *) 0);
 	      if (hash_ptr == (shash_t *) 0)
 		{
 		  (void) add_local_symbol (str, str + len,
-					   (st_t)sym->st, (sc_t)sym->sc,
-					   (symint_t)sym->value,
-					   (symint_t)indexNil);
+					   (st_t) sym->st, (sc_t) sym->sc,
+					   (symint_t) sym->value,
+					   (symint_t) indexNil);
 		}
 	    }
 	}
@@ -4101,7 +4101,7 @@ write_varray (vp, offset, str)
     }
   
   if (file_offset != offset
-      && fseek (object_stream, (long)offset, SEEK_SET) < 0)
+      && fseek (object_stream, (long) offset, SEEK_SET) < 0)
     pfatal_with_name (object_name);
 
   for (ptr = vp->first; ptr != (vlinks_t *) 0; ptr = ptr->next)
@@ -4115,7 +4115,7 @@ write_varray (vp, offset, str)
 	pfatal_with_name (object_name);
 
       else if (sys_write != num_write)
-	fatal ("Wrote %d bytes to %s, system returned %d",
+	fatal ("wrote %d bytes to %s, system returned %d",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4151,7 +4151,7 @@ write_object ()
     pfatal_with_name (object_name);
 
   else if (sys_write != sizeof (symbolic_header))
-    fatal ("Wrote %d bytes to %s, system returned %d",
+    fatal ("wrote %d bytes to %s, system returned %d",
 	   (int) sizeof (symbolic_header),
 	   object_name,
 	   sys_write);
@@ -4185,7 +4185,7 @@ write_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != symbolic_header.cbLine)
-	fatal ("Wrote %ld bytes to %s, system returned %ld",
+	fatal ("wrote %ld bytes to %s, system returned %ld",
 	       (long) symbolic_header.cbLine,
 	       object_name,
 	       sys_write);
@@ -4220,7 +4220,7 @@ write_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != num_write)
-	fatal ("Wrote %ld bytes to %s, system returned %ld",
+	fatal ("wrote %ld bytes to %s, system returned %ld",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4229,7 +4229,7 @@ write_object ()
     }
 
   if (symbolic_header.idnMax > 0)		/* dense numbers */
-    write_varray (&dense_num, (off_t)symbolic_header.cbDnOffset, "Dense numbers");
+    write_varray (&dense_num, (off_t) symbolic_header.cbDnOffset, "Dense numbers");
 
   if (symbolic_header.ipdMax > 0)		/* procedure tables */
     {
@@ -4286,7 +4286,7 @@ write_object ()
     {
       offset = symbolic_header.cbFdOffset;
       if (file_offset != offset
-	  && fseek (object_stream, (long)offset, SEEK_SET) < 0)
+	  && fseek (object_stream, (long) offset, SEEK_SET) < 0)
 	pfatal_with_name (object_name);
 
       file_offset = offset;
@@ -4312,7 +4312,7 @@ write_object ()
 	    pfatal_with_name (object_name);
 
 	  else if (sys_write != sizeof (FDR))
-	    fatal ("Wrote %d bytes to %s, system returned %d",
+	    fatal ("wrote %d bytes to %s, system returned %d",
 		   (int) sizeof (FDR),
 		   object_name,
 		   sys_write);
@@ -4347,8 +4347,8 @@ write_object ()
       if (sys_write <= 0)
 	pfatal_with_name (object_name);
 
-      else if (sys_write != (long)num_write)
-	fatal ("Wrote %lu bytes to %s, system returned %ld",
+      else if (sys_write != (long) num_write)
+	fatal ("wrote %lu bytes to %s, system returned %ld",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4357,7 +4357,7 @@ write_object ()
     }
 
   if (symbolic_header.issExtMax > 0)		/* external symbols */
-    write_varray (&ext_symbols, (off_t)symbolic_header.cbExtOffset, "External symbols");
+    write_varray (&ext_symbols, (off_t) symbolic_header.cbExtOffset, "External symbols");
 
   if (fclose (object_stream) != 0)
     pfatal_with_name (object_name);
@@ -4403,8 +4403,8 @@ read_seek (size, offset, str)
 	  if (sys_read <= 0)
 	    pfatal_with_name (obj_in_name);
 
-	  if ((symint_t)sys_read != difference)
-	    fatal ("Wanted to read %lu bytes from %s, system returned %ld",
+	  if ((symint_t) sys_read != difference)
+	    fatal ("wanted to read %lu bytes from %s, system returned %ld",
 		   (unsigned long) size,
 		   obj_in_name,
 		   sys_read);
@@ -4418,7 +4418,7 @@ read_seek (size, offset, str)
     pfatal_with_name (obj_in_name);
 
   if (sys_read != (long) size)
-    fatal ("Wanted to read %lu bytes from %s, system returned %ld",
+    fatal ("wanted to read %lu bytes from %s, system returned %ld",
 	   (unsigned long) size,
 	   obj_in_name,
 	   sys_read);
@@ -4468,7 +4468,7 @@ copy_object ()
     return;			/* create a .T file sans file header */
 
   else if (sys_read < (int) sizeof (struct filehdr))
-    fatal ("Wanted to read %d bytes from %s, system returned %d",
+    fatal ("wanted to read %d bytes from %s, system returned %d",
 	   (int) sizeof (struct filehdr),
 	   obj_in_name,
 	   sys_read);
@@ -4492,7 +4492,7 @@ copy_object ()
     pfatal_with_name (object_name);
 
   else if (sys_read < (int) sizeof (struct filehdr))
-    fatal ("Wanted to read %d bytes from %s, system returned %d",
+    fatal ("wanted to read %d bytes from %s, system returned %d",
 	   (int) sizeof (struct filehdr),
 	   obj_in_name,
 	   sys_read);
@@ -4508,61 +4508,61 @@ copy_object ()
   file_offset =  orig_file_header.f_symptr + sizeof (struct filehdr);
 
   if (orig_sym_hdr.cbLine > 0)			/* line numbers */
-    orig_linenum = (char *) read_seek ((Size_t)orig_sym_hdr.cbLine,
+    orig_linenum = (char *) read_seek ((Size_t) orig_sym_hdr.cbLine,
 				       orig_sym_hdr.cbLineOffset,
 				       "Line numbers");
 
   if (orig_sym_hdr.ipdMax > 0)			/* procedure tables */
-    orig_procs = (PDR *) read_seek ((Size_t)orig_sym_hdr.ipdMax * sizeof (PDR),
+    orig_procs = (PDR *) read_seek ((Size_t) orig_sym_hdr.ipdMax * sizeof (PDR),
 				    orig_sym_hdr.cbPdOffset,
 				    "Procedure tables");
 
   if (orig_sym_hdr.isymMax > 0)			/* local symbols */
-    orig_local_syms = (SYMR *) read_seek ((Size_t)orig_sym_hdr.isymMax * sizeof (SYMR),
+    orig_local_syms = (SYMR *) read_seek ((Size_t) orig_sym_hdr.isymMax * sizeof (SYMR),
 					  orig_sym_hdr.cbSymOffset,
 					  "Local symbols");
 
   if (orig_sym_hdr.iauxMax > 0)			/* aux symbols */
-    orig_aux_syms = (AUXU *) read_seek ((Size_t)orig_sym_hdr.iauxMax * sizeof (AUXU),
+    orig_aux_syms = (AUXU *) read_seek ((Size_t) orig_sym_hdr.iauxMax * sizeof (AUXU),
 					orig_sym_hdr.cbAuxOffset,
 					"Aux. symbols");
 
   if (orig_sym_hdr.issMax > 0)			/* local strings */
-    orig_local_strs = (char *) read_seek ((Size_t)orig_sym_hdr.issMax,
+    orig_local_strs = (char *) read_seek ((Size_t) orig_sym_hdr.issMax,
 					  orig_sym_hdr.cbSsOffset,
 					  "Local strings");
 
   if (orig_sym_hdr.issExtMax > 0)		/* external strings */
-    orig_ext_strs = (char *) read_seek ((Size_t)orig_sym_hdr.issExtMax,
+    orig_ext_strs = (char *) read_seek ((Size_t) orig_sym_hdr.issExtMax,
 					orig_sym_hdr.cbSsExtOffset,
 					"External strings");
 
   if (orig_sym_hdr.ifdMax > 0)			/* file tables */
-    orig_files = (FDR *) read_seek ((Size_t)orig_sym_hdr.ifdMax * sizeof (FDR),
+    orig_files = (FDR *) read_seek ((Size_t) orig_sym_hdr.ifdMax * sizeof (FDR),
 				    orig_sym_hdr.cbFdOffset,
 				    "File tables");
 
   if (orig_sym_hdr.crfd > 0)			/* relative file descriptors */
-    orig_rfds = (symint_t *) read_seek ((Size_t)orig_sym_hdr.crfd * sizeof (symint_t),
+    orig_rfds = (symint_t *) read_seek ((Size_t) orig_sym_hdr.crfd * sizeof (symint_t),
 					orig_sym_hdr.cbRfdOffset,
 					"Relative file descriptors");
 
   if (orig_sym_hdr.issExtMax > 0)		/* external symbols */
-    orig_ext_syms = (EXTR *) read_seek ((Size_t)orig_sym_hdr.iextMax * sizeof (EXTR),
+    orig_ext_syms = (EXTR *) read_seek ((Size_t) orig_sym_hdr.iextMax * sizeof (EXTR),
 					orig_sym_hdr.cbExtOffset,
 					"External symbols");
 
   if (orig_sym_hdr.idnMax > 0)			/* dense numbers */
     {
-      orig_dense = (DNR *) read_seek ((Size_t)orig_sym_hdr.idnMax * sizeof (DNR),
+      orig_dense = (DNR *) read_seek ((Size_t) orig_sym_hdr.idnMax * sizeof (DNR),
 				      orig_sym_hdr.cbDnOffset,
 				      "Dense numbers");
 
-      add_bytes (&dense_num, (char *) orig_dense, (Size_t)orig_sym_hdr.idnMax);
+      add_bytes (&dense_num, (char *) orig_dense, (Size_t) orig_sym_hdr.idnMax);
     }
 
   if (orig_sym_hdr.ioptMax > 0)			/* opt symbols */
-    orig_opt_syms = (OPTR *) read_seek ((Size_t)orig_sym_hdr.ioptMax * sizeof (OPTR),
+    orig_opt_syms = (OPTR *) read_seek ((Size_t) orig_sym_hdr.ioptMax * sizeof (OPTR),
 					orig_sym_hdr.cbOptOffset,
 					"Optimizer symbols");
 
@@ -4570,7 +4570,7 @@ copy_object ()
 
   /* Abort if the symbol table is not last.  */
   if (max_file_offset != stat_buf.st_size)
-    fatal ("Symbol table is not last (symbol table ends at %ld, .o ends at %ld",
+    fatal ("symbol table is not last (symbol table ends at %ld, .o ends at %ld",
 	   max_file_offset,
 	   (long) stat_buf.st_size);
 
@@ -4686,7 +4686,7 @@ copy_object ()
 		char *str = ORIG_LSTRS (fd_ptr->issBase + sym->iss);
 		Size_t len = strlen (str);
 		shash_t *shash_ptr = hash_string (str,
-						  (Ptrdiff_t)len,
+						  (Ptrdiff_t) len,
 						  &orig_str_hash[0],
 						  &hash_index);
 
@@ -4716,7 +4716,7 @@ copy_object ()
 		    {
 		      Size_t len = strlen (str);
 		      shash_t *shash_ptr = hash_string (str,
-							(Ptrdiff_t)len,
+							(Ptrdiff_t) len,
 							&orig_str_hash[0],
 							(symint_t *) 0);
 
@@ -4746,7 +4746,7 @@ copy_object ()
 	  char *str = ORIG_LSTRS (fd_ptr->issBase + proc_sym->iss);
 	  Size_t len = strlen (str);
 	  shash_t *shash_ptr = hash_string (str,
-					    (Ptrdiff_t)len,
+					    (Ptrdiff_t) len,
 					    &orig_str_hash[0],
 					    (symint_t *) 0);
 
@@ -4786,7 +4786,7 @@ copy_object ()
 	pfatal_with_name (obj_in_name);
 
       else if (sys_read != num_write)
-	fatal ("Wanted to read %d bytes from %s, system returned %d",
+	fatal ("wanted to read %d bytes from %s, system returned %d",
 	       num_write,
 	       obj_in_name,
 	       sys_read);
@@ -4796,7 +4796,7 @@ copy_object ()
 	pfatal_with_name (object_name);
 
       else if (sys_write != num_write)
-	fatal ("Wrote %d bytes to %s, system returned %d",
+	fatal ("wrote %d bytes to %s, system returned %d",
 	       num_write,
 	       object_name,
 	       sys_write);
@@ -4827,12 +4827,12 @@ main (argc, argv)
 
 #if !defined(__SABER__) && !defined(lint)
   if (sizeof (efdr_t) > PAGE_USIZE)
-    fatal ("Efdr_t has a sizeof %d bytes, when it should be less than %d",
+    fatal ("efdr_t has a sizeof %d bytes, when it should be less than %d",
 	   (int) sizeof (efdr_t),
 	   (int) PAGE_USIZE);
 
   if (sizeof (page_t) != PAGE_USIZE)
-    fatal ("Page_t has a sizeof %d bytes, when it should be %d",
+    fatal ("page_t has a sizeof %d bytes, when it should be %d",
 	   (int) sizeof (page_t),
 	   (int) PAGE_USIZE);
 
@@ -4863,7 +4863,7 @@ main (argc, argv)
 
       case 'd':
 	debug = strtol (optarg, &num_end, 0);
-	if ((unsigned)debug > 4 || num_end == optarg)
+	if ((unsigned) debug > 4 || num_end == optarg)
 	  had_errors++;
 
 	break;
@@ -4907,7 +4907,7 @@ main (argc, argv)
   /* If there is an output name, but no input name use
      the same file for both, deleting the name between
      opening it for input and opening it for output.  */
-  if (obj_in_name == (char *) 0 && object_name != (char *)0)
+  if (obj_in_name == (char *) 0 && object_name != (char *) 0)
     {
       obj_in_name = object_name;
       delete_input = 1;
@@ -4968,7 +4968,7 @@ main (argc, argv)
 	    fatal ("wrote %d bytes to %s, expected to write %d", len2, obj_in_name, len);
 	}
 
-      free_multiple_pages ((page_t *)buffer, 4);
+      free_multiple_pages ((page_t *) buffer, 4);
 
       if (len < 0)
 	pfatal_with_name (object_name);
@@ -5009,7 +5009,7 @@ main (argc, argv)
   if (debug)
     {
       fprintf (stderr, "\n\tAllocation summary:\n\n");
-      for (i = (int)alloc_type_none; i < (int)alloc_type_last; i++)
+      for (i = (int) alloc_type_none; i < (int) alloc_type_last; i++)
 	if (alloc_counts[i].total_alloc)
 	  {
 	    fprintf (stderr,
@@ -5032,7 +5032,7 @@ catch_signal (signum)
      int signum;
 {
   (void) signal (signum, SIG_DFL);	/* just in case...  */
-  fatal ("%s", strsignal(signum));
+  fatal ("%s", strsignal (signum));
 }
 
 /* Print a fatal error message.  NAME is the text.
@@ -5113,10 +5113,10 @@ allocate_cluster (npages)
       if (sbrk (PAGE_USIZE - offset) == (char *)-1)
 	pfatal_with_name ("allocate_cluster");
 
-      ptr = (page_t *) (((char *)ptr) + PAGE_SIZE - offset);
+      ptr = (page_t *) (((char *) ptr) + PAGE_SIZE - offset);
     }
 
-  if (sbrk (npages * PAGE_USIZE) == (char *)-1)
+  if (sbrk (npages * PAGE_USIZE) == (char *) -1)
     pfatal_with_name ("allocate_cluster");
 
   if (debug > 3)
@@ -5231,24 +5231,24 @@ allocate_scope ()
   static scope_t initial_scope;
 
 #ifndef MALLOC_CHECK
-  ptr = alloc_counts[ (int)alloc_type_scope ].free_list.f_scope;
+  ptr = alloc_counts[ (int) alloc_type_scope ].free_list.f_scope;
   if (ptr != (scope_t *) 0)
-    alloc_counts[ (int)alloc_type_scope ].free_list.f_scope = ptr->free;
+    alloc_counts[ (int) alloc_type_scope ].free_list.f_scope = ptr->free;
 
   else
     {
-      int unallocated	= alloc_counts[ (int)alloc_type_scope ].unallocated;
-      page_t *cur_page	= alloc_counts[ (int)alloc_type_scope ].cur_page;
+      int unallocated	= alloc_counts[ (int) alloc_type_scope ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int) alloc_type_scope ].cur_page;
 
       if (unallocated == 0)
 	{
 	  unallocated = PAGE_SIZE / sizeof (scope_t);
-	  alloc_counts[ (int)alloc_type_scope ].cur_page = cur_page = allocate_page ();
-	  alloc_counts[ (int)alloc_type_scope ].total_pages++;
+	  alloc_counts[ (int) alloc_type_scope ].cur_page = cur_page = allocate_page ();
+	  alloc_counts[ (int) alloc_type_scope ].total_pages++;
 	}
 
       ptr = &cur_page->scope[ --unallocated ];
-      alloc_counts[ (int)alloc_type_scope ].unallocated = unallocated;
+      alloc_counts[ (int) alloc_type_scope ].unallocated = unallocated;
     }
 
 #else
@@ -5256,7 +5256,7 @@ allocate_scope ()
 
 #endif
 
-  alloc_counts[ (int)alloc_type_scope ].total_alloc++;
+  alloc_counts[ (int) alloc_type_scope ].total_alloc++;
   *ptr = initial_scope;
   return ptr;
 }
@@ -5267,11 +5267,11 @@ STATIC void
 free_scope (ptr)
      scope_t *ptr;
 {
-  alloc_counts[ (int)alloc_type_scope ].total_free++;
+  alloc_counts[ (int) alloc_type_scope ].total_free++;
 
 #ifndef MALLOC_CHECK
-  ptr->free = alloc_counts[ (int)alloc_type_scope ].free_list.f_scope;
-  alloc_counts[ (int)alloc_type_scope ].free_list.f_scope = ptr;
+  ptr->free = alloc_counts[ (int) alloc_type_scope ].free_list.f_scope;
+  alloc_counts[ (int) alloc_type_scope ].free_list.f_scope = ptr;
 
 #else
   free ((PTR) ptr);
@@ -5289,25 +5289,25 @@ allocate_vlinks ()
   static vlinks_t initial_vlinks;
 
 #ifndef MALLOC_CHECK
-  int unallocated	= alloc_counts[ (int)alloc_type_vlinks ].unallocated;
-  page_t *cur_page	= alloc_counts[ (int)alloc_type_vlinks ].cur_page;
+  int unallocated	= alloc_counts[ (int) alloc_type_vlinks ].unallocated;
+  page_t *cur_page	= alloc_counts[ (int) alloc_type_vlinks ].cur_page;
 
   if (unallocated == 0)
     {
       unallocated = PAGE_SIZE / sizeof (vlinks_t);
-      alloc_counts[ (int)alloc_type_vlinks ].cur_page = cur_page = allocate_page ();
-      alloc_counts[ (int)alloc_type_vlinks ].total_pages++;
+      alloc_counts[ (int) alloc_type_vlinks ].cur_page = cur_page = allocate_page ();
+      alloc_counts[ (int) alloc_type_vlinks ].total_pages++;
     }
 
   ptr = &cur_page->vlinks[ --unallocated ];
-  alloc_counts[ (int)alloc_type_vlinks ].unallocated = unallocated;
+  alloc_counts[ (int) alloc_type_vlinks ].unallocated = unallocated;
 
 #else
   ptr = (vlinks_t *) xmalloc (sizeof (vlinks_t));
 
 #endif
 
-  alloc_counts[ (int)alloc_type_vlinks ].total_alloc++;
+  alloc_counts[ (int) alloc_type_vlinks ].total_alloc++;
   *ptr = initial_vlinks;
   return ptr;
 }
@@ -5322,25 +5322,25 @@ allocate_shash ()
   static shash_t initial_shash;
 
 #ifndef MALLOC_CHECK
-  int unallocated	= alloc_counts[ (int)alloc_type_shash ].unallocated;
-  page_t *cur_page	= alloc_counts[ (int)alloc_type_shash ].cur_page;
+  int unallocated	= alloc_counts[ (int) alloc_type_shash ].unallocated;
+  page_t *cur_page	= alloc_counts[ (int) alloc_type_shash ].cur_page;
 
   if (unallocated == 0)
     {
       unallocated = PAGE_SIZE / sizeof (shash_t);
-      alloc_counts[ (int)alloc_type_shash ].cur_page = cur_page = allocate_page ();
-      alloc_counts[ (int)alloc_type_shash ].total_pages++;
+      alloc_counts[ (int) alloc_type_shash ].cur_page = cur_page = allocate_page ();
+      alloc_counts[ (int) alloc_type_shash ].total_pages++;
     }
 
   ptr = &cur_page->shash[ --unallocated ];
-  alloc_counts[ (int)alloc_type_shash ].unallocated = unallocated;
+  alloc_counts[ (int) alloc_type_shash ].unallocated = unallocated;
 
 #else
   ptr = (shash_t *) xmalloc (sizeof (shash_t));
 
 #endif
 
-  alloc_counts[ (int)alloc_type_shash ].total_alloc++;
+  alloc_counts[ (int) alloc_type_shash ].total_alloc++;
   *ptr = initial_shash;
   return ptr;
 }
@@ -5355,25 +5355,25 @@ allocate_thash ()
   static thash_t initial_thash;
 
 #ifndef MALLOC_CHECK
-  int unallocated	= alloc_counts[ (int)alloc_type_thash ].unallocated;
-  page_t *cur_page	= alloc_counts[ (int)alloc_type_thash ].cur_page;
+  int unallocated	= alloc_counts[ (int) alloc_type_thash ].unallocated;
+  page_t *cur_page	= alloc_counts[ (int) alloc_type_thash ].cur_page;
 
   if (unallocated == 0)
     {
       unallocated = PAGE_SIZE / sizeof (thash_t);
-      alloc_counts[ (int)alloc_type_thash ].cur_page = cur_page = allocate_page ();
-      alloc_counts[ (int)alloc_type_thash ].total_pages++;
+      alloc_counts[ (int) alloc_type_thash ].cur_page = cur_page = allocate_page ();
+      alloc_counts[ (int) alloc_type_thash ].total_pages++;
     }
 
   ptr = &cur_page->thash[ --unallocated ];
-  alloc_counts[ (int)alloc_type_thash ].unallocated = unallocated;
+  alloc_counts[ (int) alloc_type_thash ].unallocated = unallocated;
 
 #else
   ptr = (thash_t *) xmalloc (sizeof (thash_t));
 
 #endif
 
-  alloc_counts[ (int)alloc_type_thash ].total_alloc++;
+  alloc_counts[ (int) alloc_type_thash ].total_alloc++;
   *ptr = initial_thash;
   return ptr;
 }
@@ -5388,24 +5388,24 @@ allocate_tag ()
   static tag_t initial_tag;
 
 #ifndef MALLOC_CHECK
-  ptr = alloc_counts[ (int)alloc_type_tag ].free_list.f_tag;
+  ptr = alloc_counts[ (int) alloc_type_tag ].free_list.f_tag;
   if (ptr != (tag_t *) 0)
-    alloc_counts[ (int)alloc_type_tag ].free_list.f_tag = ptr->free;
+    alloc_counts[ (int) alloc_type_tag ].free_list.f_tag = ptr->free;
 
   else
     {
-      int unallocated	= alloc_counts[ (int)alloc_type_tag ].unallocated;
-      page_t *cur_page	= alloc_counts[ (int)alloc_type_tag ].cur_page;
+      int unallocated	= alloc_counts[ (int) alloc_type_tag ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int) alloc_type_tag ].cur_page;
 
       if (unallocated == 0)
 	{
 	  unallocated = PAGE_SIZE / sizeof (tag_t);
-	  alloc_counts[ (int)alloc_type_tag ].cur_page = cur_page = allocate_page ();
-	  alloc_counts[ (int)alloc_type_tag ].total_pages++;
+	  alloc_counts[ (int) alloc_type_tag ].cur_page = cur_page = allocate_page ();
+	  alloc_counts[ (int) alloc_type_tag ].total_pages++;
 	}
 
       ptr = &cur_page->tag[ --unallocated ];
-      alloc_counts[ (int)alloc_type_tag ].unallocated = unallocated;
+      alloc_counts[ (int) alloc_type_tag ].unallocated = unallocated;
     }
 
 #else
@@ -5413,7 +5413,7 @@ allocate_tag ()
 
 #endif
 
-  alloc_counts[ (int)alloc_type_tag ].total_alloc++;
+  alloc_counts[ (int) alloc_type_tag ].total_alloc++;
   *ptr = initial_tag;
   return ptr;
 }
@@ -5424,11 +5424,11 @@ STATIC void
 free_tag (ptr)
      tag_t *ptr;
 {
-  alloc_counts[ (int)alloc_type_tag ].total_free++;
+  alloc_counts[ (int) alloc_type_tag ].total_free++;
 
 #ifndef MALLOC_CHECK
-  ptr->free = alloc_counts[ (int)alloc_type_tag ].free_list.f_tag;
-  alloc_counts[ (int)alloc_type_tag ].free_list.f_tag = ptr;
+  ptr->free = alloc_counts[ (int) alloc_type_tag ].free_list.f_tag;
+  alloc_counts[ (int) alloc_type_tag ].free_list.f_tag = ptr;
 
 #else
   free ((PTR) ptr);
@@ -5446,24 +5446,24 @@ allocate_forward ()
   static forward_t initial_forward;
 
 #ifndef MALLOC_CHECK
-  ptr = alloc_counts[ (int)alloc_type_forward ].free_list.f_forward;
+  ptr = alloc_counts[ (int) alloc_type_forward ].free_list.f_forward;
   if (ptr != (forward_t *) 0)
-    alloc_counts[ (int)alloc_type_forward ].free_list.f_forward = ptr->free;
+    alloc_counts[ (int) alloc_type_forward ].free_list.f_forward = ptr->free;
 
   else
     {
-      int unallocated	= alloc_counts[ (int)alloc_type_forward ].unallocated;
-      page_t *cur_page	= alloc_counts[ (int)alloc_type_forward ].cur_page;
+      int unallocated	= alloc_counts[ (int) alloc_type_forward ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int) alloc_type_forward ].cur_page;
 
       if (unallocated == 0)
 	{
 	  unallocated = PAGE_SIZE / sizeof (forward_t);
-	  alloc_counts[ (int)alloc_type_forward ].cur_page = cur_page = allocate_page ();
-	  alloc_counts[ (int)alloc_type_forward ].total_pages++;
+	  alloc_counts[ (int) alloc_type_forward ].cur_page = cur_page = allocate_page ();
+	  alloc_counts[ (int) alloc_type_forward ].total_pages++;
 	}
 
       ptr = &cur_page->forward[ --unallocated ];
-      alloc_counts[ (int)alloc_type_forward ].unallocated = unallocated;
+      alloc_counts[ (int) alloc_type_forward ].unallocated = unallocated;
     }
 
 #else
@@ -5471,7 +5471,7 @@ allocate_forward ()
 
 #endif
 
-  alloc_counts[ (int)alloc_type_forward ].total_alloc++;
+  alloc_counts[ (int) alloc_type_forward ].total_alloc++;
   *ptr = initial_forward;
   return ptr;
 }
@@ -5482,11 +5482,11 @@ STATIC void
 free_forward (ptr)
      forward_t *ptr;
 {
-  alloc_counts[ (int)alloc_type_forward ].total_free++;
+  alloc_counts[ (int) alloc_type_forward ].total_free++;
 
 #ifndef MALLOC_CHECK
-  ptr->free = alloc_counts[ (int)alloc_type_forward ].free_list.f_forward;
-  alloc_counts[ (int)alloc_type_forward ].free_list.f_forward = ptr;
+  ptr->free = alloc_counts[ (int) alloc_type_forward ].free_list.f_forward;
+  alloc_counts[ (int) alloc_type_forward ].free_list.f_forward = ptr;
 
 #else
   free ((PTR) ptr);
@@ -5504,24 +5504,24 @@ allocate_thead ()
   static thead_t initial_thead;
 
 #ifndef MALLOC_CHECK
-  ptr = alloc_counts[ (int)alloc_type_thead ].free_list.f_thead;
+  ptr = alloc_counts[ (int) alloc_type_thead ].free_list.f_thead;
   if (ptr != (thead_t *) 0)
-    alloc_counts[ (int)alloc_type_thead ].free_list.f_thead = ptr->free;
+    alloc_counts[ (int) alloc_type_thead ].free_list.f_thead = ptr->free;
 
   else
     {
-      int unallocated	= alloc_counts[ (int)alloc_type_thead ].unallocated;
-      page_t *cur_page	= alloc_counts[ (int)alloc_type_thead ].cur_page;
+      int unallocated	= alloc_counts[ (int) alloc_type_thead ].unallocated;
+      page_t *cur_page	= alloc_counts[ (int) alloc_type_thead ].cur_page;
 
       if (unallocated == 0)
 	{
 	  unallocated = PAGE_SIZE / sizeof (thead_t);
-	  alloc_counts[ (int)alloc_type_thead ].cur_page = cur_page = allocate_page ();
-	  alloc_counts[ (int)alloc_type_thead ].total_pages++;
+	  alloc_counts[ (int) alloc_type_thead ].cur_page = cur_page = allocate_page ();
+	  alloc_counts[ (int) alloc_type_thead ].total_pages++;
 	}
 
       ptr = &cur_page->thead[ --unallocated ];
-      alloc_counts[ (int)alloc_type_thead ].unallocated = unallocated;
+      alloc_counts[ (int) alloc_type_thead ].unallocated = unallocated;
     }
 
 #else
@@ -5529,7 +5529,7 @@ allocate_thead ()
 
 #endif
 
-  alloc_counts[ (int)alloc_type_thead ].total_alloc++;
+  alloc_counts[ (int) alloc_type_thead ].total_alloc++;
   *ptr = initial_thead;
   return ptr;
 }
@@ -5540,11 +5540,11 @@ STATIC void
 free_thead (ptr)
      thead_t *ptr;
 {
-  alloc_counts[ (int)alloc_type_thead ].total_free++;
+  alloc_counts[ (int) alloc_type_thead ].total_free++;
 
 #ifndef MALLOC_CHECK
-  ptr->free = (thead_t *) alloc_counts[ (int)alloc_type_thead ].free_list.f_thead;
-  alloc_counts[ (int)alloc_type_thead ].free_list.f_thead = ptr;
+  ptr->free = (thead_t *) alloc_counts[ (int) alloc_type_thead ].free_list.f_thead;
+  alloc_counts[ (int) alloc_type_thead ].free_list.f_thead = ptr;
 
 #else
   free ((PTR) ptr);
@@ -5608,7 +5608,7 @@ error VPARAMS ((const char *format, ...))
 void
 fancy_abort ()
 {
-  fatal ("Internal abort.");
+  fatal ("internal abort");
 }
 
 

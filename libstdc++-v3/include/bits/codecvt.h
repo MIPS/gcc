@@ -31,9 +31,12 @@
 // ISO C++ 14882: 22.2.1.5 Template class codecvt
 //
 
-// Warning: this file is not meant for user inclusion.  Use <locale>.
-
 // Written by Benjamin Kosnik <bkoz@cygnus.com>
+
+/** @file codecvt.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
 
 #ifndef _CPP_BITS_CODECVT_H
 #define _CPP_BITS_CODECVT_H	1
@@ -171,6 +174,35 @@
     protected:
       virtual 
       ~codecvt() { }
+
+      virtual result
+      do_out(state_type& __state, const intern_type* __from, 
+	     const intern_type* __from_end, const intern_type*& __from_next,
+	     extern_type* __to, extern_type* __to_end,
+	     extern_type*& __to_next) const;
+
+      virtual result
+      do_unshift(state_type& __state, extern_type* __to, 
+		 extern_type* __to_end, extern_type*& __to_next) const;
+      
+      virtual result
+      do_in(state_type& __state, const extern_type* __from, 
+	    const extern_type* __from_end, const extern_type*& __from_next, 
+	    intern_type* __to, intern_type* __to_end, 
+	    intern_type*& __to_next) const;
+      
+      virtual int 
+      do_encoding() const throw();
+
+      virtual bool 
+      do_always_noconv() const throw();
+
+      virtual int 
+      do_length(const state_type&, const extern_type* __from, 
+		const extern_type* __end, size_t __max) const;
+
+      virtual int 
+      do_max_length() const throw();
     };
 
   template<typename _InternT, typename _ExternT, typename _StateT>
@@ -302,7 +334,3 @@
 #endif
 
 #endif // _CPP_BITS_CODECVT_H
-
-
-
-

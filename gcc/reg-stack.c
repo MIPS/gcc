@@ -1,6 +1,6 @@
 /* Register to Stack convert for GNU compiler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -197,7 +197,7 @@ typedef struct block_info_def
   struct stack_def stack_out;	/* Output stack configuration.  */
   HARD_REG_SET out_reg_set;	/* Stack regs live on output.  */
   int done;			/* True if block already converted.  */
-  int predecesors;		/* Number of predecesors that needs
+  int predecessors;		/* Number of predecessors that needs
 				   to be visited.  */
 } *block_info;
 
@@ -226,7 +226,7 @@ static rtx
   FP_mode_reg[LAST_STACK_REG+1-FIRST_STACK_REG][(int) MAX_MACHINE_MODE];
 
 #define FP_MODE_REG(regno,mode)	\
-  (FP_mode_reg[(regno)-FIRST_STACK_REG][(int)(mode)])
+  (FP_mode_reg[(regno)-FIRST_STACK_REG][(int) (mode)])
 
 /* Used to initialize uninitialized registers.  */
 static rtx nan;
@@ -442,9 +442,11 @@ reg_to_stack (first, file)
   /* Ok, floating point instructions exist.  If not optimizing, 
      build the CFG and run life analysis.  */
   if (!optimize)
-    find_basic_blocks (first, max_reg_num (), file);
-  count_or_remove_death_notes (NULL, 1);
-  life_analysis (first, file, PROP_DEATH_NOTES);
+    {
+      find_basic_blocks (first, max_reg_num (), file);
+      count_or_remove_death_notes (NULL, 1);
+      life_analysis (first, file, PROP_DEATH_NOTES);
+    }
   mark_dfs_back_edges ();
 
   /* Set up block info for each basic block.  */
@@ -456,7 +458,7 @@ reg_to_stack (first, file)
       for (e = bb->pred; e; e=e->pred_next)
 	if (!(e->flags & EDGE_DFS_BACK)
 	    && e->src != ENTRY_BLOCK_PTR)
-	  BLOCK_INFO (bb)->predecesors++;
+	  BLOCK_INFO (bb)->predecessors++;
     }
 
   /* Create the replacement registers up front.  */
@@ -672,7 +674,7 @@ check_asm_stack_operands (insn)
       {
 	if (reg_class_size[(int) recog_op_alt[i][alt].class] != 1)
 	  {
-	    error_for_asm (insn, "Output constraint %d must specify a single register", i);
+	    error_for_asm (insn, "output constraint %d must specify a single register", i);
 	    malformed_asm = 1;
 	  }
         else
@@ -682,7 +684,7 @@ check_asm_stack_operands (insn)
 	    for (j = 0; j < n_clobbers; j++)
 	      if (REGNO (recog_data.operand[i]) == REGNO (clobber_reg[j]))
 		{
-		  error_for_asm (insn, "Output constraint %d cannot be specified together with \"%s\" clobber",
+		  error_for_asm (insn, "output constraint %d cannot be specified together with \"%s\" clobber",
 				 i, reg_names [REGNO (clobber_reg[j])]);
 		  malformed_asm = 1;
 		  break;
@@ -705,7 +707,7 @@ check_asm_stack_operands (insn)
 
   if (i != LAST_STACK_REG + 1)
     {
-      error_for_asm (insn, "Output regs must be grouped at top of stack");
+      error_for_asm (insn, "output regs must be grouped at top of stack");
       malformed_asm = 1;
     }
 
@@ -742,7 +744,7 @@ check_asm_stack_operands (insn)
   if (i != LAST_STACK_REG + 1)
     {
       error_for_asm (insn,
-		     "Implicitly popped regs must be grouped at top of stack");
+		     "implicitly popped regs must be grouped at top of stack");
       malformed_asm = 1;
     }
 
@@ -761,7 +763,7 @@ check_asm_stack_operands (insn)
 	  if (operands_match_p (recog_data.operand[j], recog_data.operand[i]))
 	    {
 	      error_for_asm (insn,
-			     "Output operand %d must use `&' constraint", j);
+			     "output operand %d must use `&' constraint", j);
 	      malformed_asm = 1;
 	    }
       }
@@ -869,7 +871,7 @@ remove_regno_note (insn, note, regno)
 {
   rtx *note_link, this;
 
-  note_link = &REG_NOTES(insn);
+  note_link = &REG_NOTES (insn);
   for (this = *note_link; this; this = XEXP (this, 1))
     if (REG_NOTE_KIND (this) == note
 	&& REG_P (XEXP (this, 0)) && REGNO (XEXP (this, 0)) == regno)
@@ -1436,7 +1438,7 @@ subst_stack_regs_pat (insn, regstack, pat)
         }
       /* ??? Uninitialized USE should not happen.  */
       else if (get_hard_regnum (regstack, *src) == -1)
-	abort();
+	abort ();
       break;
 
     case CLOBBER:
@@ -2213,7 +2215,7 @@ subst_stack_regs (insn, regstack)
   /* subst_stack_regs_pat may have deleted a no-op insn.  If so, any
      REG_UNUSED will already have been dealt with, so just return.  */
 
-  if (GET_CODE (insn) == NOTE)
+  if (GET_CODE (insn) == NOTE || INSN_DELETED_P (insn))
     return;
 
   /* If there is a REG_UNUSED note on a stack register on this insn,
@@ -2221,7 +2223,7 @@ subst_stack_regs (insn, regstack)
      since the form of the newly emitted pop insn references the reg,
      making it no longer `unset'.  */
 
-  note_link = &REG_NOTES(insn);
+  note_link = &REG_NOTES (insn);
   for (note = *note_link; note; note = XEXP (note, 1))
     if (REG_NOTE_KIND (note) == REG_UNUSED && STACK_REG_P (XEXP (note, 0)))
       {
@@ -2626,7 +2628,7 @@ convert_regs_1 (file, block)
 
   /* Find the edge we will copy stack from.  It should be the most frequent
      one as it will get cheapest after compensation code is generated,
-     if multiple such exists, take one with largest count, preffer critical
+     if multiple such exists, take one with largest count, prefer critical
      one (as splitting critical edges is more expensive), or one with lowest
      index, to avoid random changes with different orders of the edges.  */
   for (e = block->pred; e ; e = e->pred_next)
@@ -2795,8 +2797,8 @@ convert_regs_2 (file, block)
       for (e = block->succ; e ; e = e->succ_next)
 	if (! (e->flags & EDGE_DFS_BACK))
 	  {
-	    BLOCK_INFO (e->dest)->predecesors--;
-	    if (!BLOCK_INFO (e->dest)->predecesors)
+	    BLOCK_INFO (e->dest)->predecessors--;
+	    if (!BLOCK_INFO (e->dest)->predecessors)
 	       *sp++ = e->dest;
 	  }
     }

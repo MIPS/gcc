@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1999-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -643,6 +643,15 @@ package body Sem_Warn is
 
          if not In_Extended_Main_Source_Unit (Cnode) then
             return;
+
+         --  In No_Run_Time_Mode, we remove the bodies of non-
+         --  inlined subprograms, which may lead to spurious
+         --  warnings, clearly undesirable.
+
+         elsif No_Run_Time
+           and then Is_Predefined_File_Name (Unit_File_Name (Unit))
+         then
+            return;
          end if;
 
          --  Loop through context items in this unit
@@ -882,24 +891,6 @@ package body Sem_Warn is
       end if;
    end Check_Unused_Withs;
 
-   ---------------------
-   -- End_Conditional --
-   ---------------------
-
-   procedure End_Conditional is
-   begin
-      null;
-   end End_Conditional;
-
-   --------------
-   -- End_Unit --
-   --------------
-
-   procedure End_Unit is
-   begin
-      null;
-   end End_Unit;
-
    ----------------------------------
    -- Output_Unreferenced_Messages --
    ----------------------------------
@@ -926,7 +917,9 @@ package body Sem_Warn is
                   end if;
 
                when E_Constant =>
-                  if Present (Renamed_Object (E)) then
+                  if Present (Renamed_Object (E))
+                    and then Comes_From_Source (Renamed_Object (E))
+                  then
                      Error_Msg_N ("renamed constant & is not referenced?", E);
                   else
                      Error_Msg_N ("constant & is not referenced?", E);
@@ -969,33 +962,6 @@ package body Sem_Warn is
          end if;
       end loop;
    end Output_Unreferenced_Messages;
-
-   ------------------
-   -- Start_Branch --
-   ------------------
-
-   procedure Start_Branch (Loc : Source_Ptr) is
-   begin
-      null;
-   end Start_Branch;
-
-   -----------------------
-   -- Start_Conditional --
-   -----------------------
-
-   procedure Start_Conditional (If_Stmt : Boolean) is
-   begin
-      null;
-   end Start_Conditional;
-
-   ----------------
-   -- Start_Unit --
-   ----------------
-
-   procedure Start_Unit is
-   begin
-      null;
-   end Start_Unit;
 
    -----------------------------
    -- Warn_On_Known_Condition --

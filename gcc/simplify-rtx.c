@@ -95,6 +95,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HWI_SIGN_EXTEND(low) \
  ((((HOST_WIDE_INT) low) < 0) ? ((HOST_WIDE_INT) -1) : ((HOST_WIDE_INT) 0))
 
+static rtx neg_const_int PARAMS ((enum machine_mode, rtx));
 static int simplify_plus_minus_op_data_cmp PARAMS ((const void *,
 						    const void *));
 static rtx simplify_plus_minus		PARAMS ((enum rtx_code,
@@ -105,6 +106,17 @@ static void simplify_unary_real		PARAMS ((PTR));
 static void simplify_binary_real	PARAMS ((PTR));
 #endif
 static void simplify_binary_is2orm1	PARAMS ((PTR));
+
+
+/* Negate a CONST_INT rtx, truncating (because a conversion from a
+   maximally negative number can overflow).  */
+static rtx
+neg_const_int (mode, i)
+     enum machine_mode mode;
+     rtx i;
+{
+  return GEN_INT (trunc_int_for_mode (- INTVAL (i), mode));
+}
 
 
 /* Make a binary operation by properly ordering the operands and 
@@ -136,10 +148,9 @@ simplify_gen_binary (code, mode, op0, op1)
       && GET_MODE (op0) != VOIDmode
       && (code == PLUS || code == MINUS))
     {
-      HOST_WIDE_INT value = INTVAL (op1);
       if (code == MINUS)
-	value = -value;
-      return plus_constant (op0, value);
+	op1 = neg_const_int (mode, op1);
+      return plus_constant (op0, INTVAL (op1));
     }
   else
     return gen_rtx_fmt_ee (code, mode, op0, op1);
@@ -561,6 +572,8 @@ simplify_unary_operation (code, mode, op, op_mode)
 	case SQRT:
 	case FLOAT_EXTEND:
 	case FLOAT_TRUNCATE:
+	case SS_TRUNCATE:
+	case US_TRUNCATE:
 	  return 0;
 
 	default:
@@ -1276,7 +1289,9 @@ simplify_binary_operation (code, mode, op0, op1)
 
 	  /* Don't let a relocatable value get a negative coeff.  */
 	  if (GET_CODE (op1) == CONST_INT && GET_MODE (op0) != VOIDmode)
-	    return plus_constant (op0, - INTVAL (op1));
+	    return simplify_gen_binary (PLUS, mode,
+					op0,
+					neg_const_int (mode, op1));
 
 	  /* (x - (x & y)) -> (x & ~y) */
 	  if (GET_CODE (op1) == AND)
@@ -1399,7 +1414,17 @@ simplify_binary_operation (code, mode, op0, op1)
 
 	case DIV:
 	  if (trueop1 == CONST1_RTX (mode))
-	    return op0;
+	    {
+	      /* On some platforms DIV uses narrower mode than its
+		 operands.  */
+	      rtx x = gen_lowpart_common (mode, op0);
+	      if (x)
+		return x;
+	      else if (mode != GET_MODE (op0) && GET_MODE (op0) != VOIDmode)
+		return gen_lowpart_SUBREG (mode, op0);
+	      else
+		return op0;
+	    }
 
 	  /* In IEEE floating point, 0/x is not always 0.  */
 	  if ((TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
@@ -1500,6 +1525,13 @@ simplify_binary_operation (code, mode, op0, op1)
 	  else if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
 	  break;
+
+	case SS_PLUS:
+	case US_PLUS:
+	case SS_MINUS:
+	case US_MINUS:
+	  /* ??? There are simplifications that can be done.  */
+	  return 0;
 
 	default:
 	  abort ();
@@ -1777,7 +1809,7 @@ simplify_plus_minus (code, mode, op0, op1)
 	      if (n_ops != 7)
 		{
 		  ops[n_ops].op = constm1_rtx;
-		  ops[n_ops].neg = this_neg;
+		  ops[n_ops++].neg = this_neg;
 		  ops[i].op = XEXP (this_op, 0);
 		  ops[i].neg = !this_neg;
 		  changed = 1;
@@ -1787,7 +1819,7 @@ simplify_plus_minus (code, mode, op0, op1)
 	    case CONST_INT:
 	      if (this_neg)
 		{
-		  ops[i].op = GEN_INT (- INTVAL (this_op));
+		  ops[i].op = neg_const_int (mode, this_op);
 		  ops[i].neg = 0;
 		  changed = 1;
 		}
@@ -1842,13 +1874,19 @@ simplify_plus_minus (code, mode, op0, op1)
 		    && ! (GET_CODE (tem) == CONST
 			  && GET_CODE (XEXP (tem, 0)) == ncode
 			  && XEXP (XEXP (tem, 0), 0) == lhs
-			  && XEXP (XEXP (tem, 0), 1) == rhs))
+			  && XEXP (XEXP (tem, 0), 1) == rhs)
+		    /* Don't allow -x + -1 -> ~x simplifications in the
+		       first pass.  This allows us the chance to combine
+		       the -1 with other constants.  */
+		    && ! (first
+			  && GET_CODE (tem) == NOT
+			  && XEXP (tem, 0) == rhs))
 		  {
 		    lneg &= rneg;
 		    if (GET_CODE (tem) == NEG)
 		      tem = XEXP (tem, 0), lneg = !lneg;
 		    if (GET_CODE (tem) == CONST_INT && lneg)
-		      tem = GEN_INT (- INTVAL (tem)), lneg = 0;
+		      tem = neg_const_int (mode, tem), lneg = 0;
 
 		    ops[i].op = tem;
 		    ops[i].neg = lneg;
@@ -1881,10 +1919,10 @@ simplify_plus_minus (code, mode, op0, op1)
       && GET_CODE (ops[n_ops - 1].op) == CONST_INT
       && CONSTANT_P (ops[n_ops - 2].op))
     {
-      HOST_WIDE_INT value = INTVAL (ops[n_ops - 1].op);
-      if (ops[n_ops - 1].neg)
-	value = -value;
-      ops[n_ops - 2].op = plus_constant (ops[n_ops - 2].op, value);
+      rtx value = ops[n_ops - 1].op;
+      if (ops[n_ops - 1].neg ^ ops[n_ops - 2].neg)
+	value = neg_const_int (mode, value);
+      ops[n_ops - 2].op = plus_constant (ops[n_ops - 2].op, INTVAL (value));
       n_ops--;
     }
 
@@ -2587,7 +2625,18 @@ simplify_subreg (outermode, op, innermode, byte)
 	 arguments are passed on 32-bit Sparc and should be fixed.  */
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
 	  || ! HARD_REGNO_MODE_OK (REGNO (op), innermode))
-	return gen_rtx_REG (outermode, final_regno);
+	{
+	  rtx x = gen_rtx_REG (outermode, final_regno);
+
+	  /* Propagate original regno.  We don't have any way to specify
+	     the offset inside orignal regno, so do so only for lowpart.
+	     The information is used only by alias analysis that can not
+	     grog partial register anyway.  */
+
+	  if (subreg_lowpart_offset (outermode, innermode) == byte)
+	    ORIGINAL_REGNO (x) = ORIGINAL_REGNO (op);
+	  return x;
+	}
     }
 
   /* If we have a SUBREG of a register that we are replacing and we are
@@ -2617,7 +2666,7 @@ simplify_subreg (outermode, op, innermode, byte)
       res = simplify_subreg (outermode, part, GET_MODE (part), final_offset);
       if (res)
 	return res;
-      /* We can at least simplify it by referring directly to the relevent part.  */
+      /* We can at least simplify it by referring directly to the relevant part.  */
       return gen_rtx_SUBREG (outermode, part, final_offset);
     }
 

@@ -793,8 +793,6 @@ cselib_subst_to_values (x)
 	}
       return e->u.val_rtx;
 
-      /* CONST_DOUBLEs must be special-cased here so that we won't try to
-	 look up the CONST_DOUBLE_MEM inside.  */
     case CONST_DOUBLE:
     case CONST_INT:
       return x;
@@ -1240,7 +1238,7 @@ cselib_record_sets (insn)
 	  rtx src = sets[i].src;
 	  if (cond)
 	    src = gen_rtx_IF_THEN_ELSE (GET_MODE (src), cond, src, dest);
-	  sets[i].src_elt = cselib_lookup (sets[i].src, GET_MODE (dest), 1);
+	  sets[i].src_elt = cselib_lookup (src, GET_MODE (dest), 1);
 	  if (GET_CODE (dest) == MEM)
 	    sets[i].dest_addr_elt = cselib_lookup (XEXP (dest, 0), Pmode, 1);
 	  else

@@ -1,5 +1,6 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -97,7 +98,6 @@ static void parse_source_file_1 PARAMS ((tree, FILE *));
 static void parse_source_file_2 PARAMS ((void));
 static void parse_class_file PARAMS ((void));
 static void set_source_filename PARAMS ((JCF *, int));
-static int predefined_filename_p PARAMS ((tree));
 static void ggc_mark_jcf PARAMS ((void**));
 static void jcf_parse PARAMS ((struct JCF*));
 static void load_inner_classes PARAMS ((tree));
@@ -262,14 +262,7 @@ parse_signature (jcf, sig_index)
 }
 
 void
-init_lex ()
-{
-  /* Make identifier nodes long enough for the language-specific slots.  */
-  set_identifier_size (sizeof (struct lang_identifier));
-}
-
-void
-set_yydebug (value)
+java_set_yydebug (value)
      int value;
 {
   yydebug = value;
@@ -332,7 +325,15 @@ get_constant (jcf, index)
 	lshift_double (num[0], 0, 32, 64, &lo, &hi, 0);
 	num[0] = JPOOL_INT (jcf, index+1);
 	add_double (lo, hi, num[0], 0, &lo, &hi);
-	if (FLOAT_WORDS_BIG_ENDIAN)
+
+	/* Since ereal_from_double expects an array of HOST_WIDE_INT
+	   in the target's format, we swap the elements for big endian
+	   targets, unless HOST_WIDE_INT is sufficiently large to
+	   contain a target double, in which case the 2nd element
+	   is ignored.
+
+	   FIXME: Is this always right for cross targets? */
+	if (FLOAT_WORDS_BIG_ENDIAN && sizeof(num[0]) < 8)
 	  {
 	    num[0] = hi;
 	    num[1] = lo;
@@ -689,7 +690,7 @@ load_class (class_or_name, verbose)
     }
 
   if (!class_loaded && verbose)
-    error ("Cannot find file for class %s.", IDENTIFIER_POINTER (saved));
+    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
 }
 
 /* Parse the .class file JCF. */
@@ -757,7 +758,7 @@ jcf_parse (jcf)
 	 -fforce-classes-archive-check was specified. */
       if (!jcf->right_zip
 	  && (!flag_emit_class_files || flag_force_classes_archive_check))
-	fatal_error ("The `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute. This generally means that your classpath is incorrect set. Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath.", jcf->filename);
+	fatal_error ("the `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute.  This generally means that your classpath is incorrectly set.  Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath", jcf->filename);
     }
   else
     all_class_list = tree_cons (NULL_TREE,
@@ -792,7 +793,7 @@ init_outgoing_cpool ()
 static void
 parse_class_file ()
 {
-  tree method;
+  tree method, field;
   const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
@@ -807,8 +808,13 @@ parse_class_file ()
      compiling from class files.  */
   always_initialize_class_p = 1;
 
-  for ( method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
-	method != NULL_TREE; method = TREE_CHAIN (method))
+  for (field = TYPE_FIELDS (CLASS_TO_HANDLE_TYPE (current_class));
+       field != NULL_TREE; field = TREE_CHAIN (field))
+    if (FIELD_STATIC (field))
+      DECL_EXTERNAL (field) = 0;
+
+  for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+       method != NULL_TREE; method = TREE_CHAIN (method))
     {
       JCF *jcf = current_jcf;
 
@@ -910,13 +916,11 @@ parse_source_file_1 (file, finput)
   /* There's no point in trying to find the current encoding unless we
      are going to do something intelligent with it -- hence the test
      for iconv.  */
-#ifdef HAVE_ICONV
-#ifdef HAVE_NL_LANGINFO
+#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_NL_LANGINFO)
   setlocale (LC_CTYPE, "");
   if (current_encoding == NULL)
     current_encoding = nl_langinfo (CODESET);
-#endif /* HAVE_NL_LANGINFO */
-#endif /* HAVE_ICONV */
+#endif 
   if (current_encoding == NULL || *current_encoding == '\0')
     current_encoding = DEFAULT_ENCODING;
 
@@ -943,14 +947,24 @@ parse_source_file_2 ()
   java_reorder_fields ();	    /* Reorder the fields */
 }
 
-static int
+void
+add_predefined_file (name)
+     tree name;
+{
+  predef_filenames = tree_cons (NULL_TREE, name, predef_filenames);
+}
+
+int
 predefined_filename_p (node)
      tree node;
 {
-  int i;
-  for (i = 0; i < PREDEF_FILENAMES_SIZE; i++)
-    if (predef_filenames [i] == node)
-      return 1;
+  tree iter;
+
+  for (iter = predef_filenames; iter != NULL_TREE; iter = TREE_CHAIN (iter))
+    {
+      if (TREE_VALUE (iter) == node)
+	return 1;
+    }
   return 0;
 }
 
@@ -1067,7 +1081,7 @@ yyparse ()
 	    {
 	      const char *saved_input_filename = input_filename;
 	      input_filename = value;
-	      warning ("source file seen twice on command line and will be compiled only once.");
+	      warning ("source file seen twice on command line and will be compiled only once");
 	      input_filename = saved_input_filename;
 	    }
 	  else
@@ -1087,7 +1101,7 @@ yyparse ()
 
   if (resource_name)
     {
-      char *resource_filename;
+      const char *resource_filename;
       
       /* Only one resource file may be compiled at a time.  */
       assert (TREE_CHAIN (current_file_list) == NULL);
@@ -1195,7 +1209,11 @@ yyparse ()
 
   java_expand_classes ();
   if (!java_report_errors () && !flag_syntax_only)
-    emit_register_classes ();
+    {
+      emit_register_classes ();
+      if (flag_indirect_dispatch)
+	emit_offset_symbol_table ();
+    }
   return 0;
 }
 
@@ -1263,7 +1281,7 @@ process_zip_dir (FILE *finput)
       class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
 
       /* We choose to not to process entries with a zero size or entries
-	 not bearing the .class extention.  */
+	 not bearing the .class extension.  */
       if (!zdir->size || !zdir->filename_offset ||
 	  strncmp (&class_name_in_zip_dir[zdir->filename_length-6], 
 		   ".class", 6))

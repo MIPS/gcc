@@ -35,9 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #undef ASCII_DATA_ASM_OP
 #define ASCII_DATA_ASM_OP		"\t.ascii\t"
 
-#undef ASM_BYTE_OP
-#define ASM_BYTE_OP			"\t.byte\t"
-
 #undef IDENT_ASM_OP
 #define IDENT_ASM_OP			"\t.ident\t"
 
@@ -50,9 +47,6 @@ Boston, MA 02111-1307, USA.  */
 #undef LOCAL_ASM_OP
 #define LOCAL_ASM_OP			"\t.local\t"
 
-#undef INT_ASM_OP
-#define INT_ASM_OP			"\t.long\t"
-
 #undef ASM_SHORT
 #define ASM_SHORT			"\t.value\t"
 
@@ -60,7 +54,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_LONG			"\t.long\t"
 
 #undef ASM_QUAD
-#define ASM_QUAD "\t.quad\t"  /* Should not be used for 32bit compilation.  */
 
 #undef TYPE_ASM_OP
 #define TYPE_ASM_OP			"\t.type\t"
@@ -102,7 +95,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP_ELF		"\t.section\t.init"
-/* Rename these for COFF becuase crt1.o will try to run them. */
+/* Rename these for COFF because crt1.o will try to run them.  */
 #define INIT_SECTION_ASM_OP_COFF	"\t.section\t.ctor ,\"x\""
 #define INIT_SECTION_ASM_OP	\
   ((TARGET_ELF) ? INIT_SECTION_ASM_OP_ELF : INIT_SECTION_ASM_OP_COFF)
@@ -232,9 +225,9 @@ do {									 \
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)			\
 do {									\
   if (TARGET_ELF)							\
-    sprintf (LABEL, "*.%s%d", (PREFIX), (NUM));				\
+    sprintf (LABEL, "*.%s%ld", (PREFIX), (long)(NUM));			\
   else									\
-    sprintf (LABEL, ".%s%d", (PREFIX), (NUM));				\
+    sprintf (LABEL, ".%s%ld", (PREFIX), (long)(NUM));			\
 } while (0)
 
 #undef ASM_OUTPUT_ALIGNED_COMMON
@@ -339,7 +332,7 @@ do {									\
 	    }								\
 	  for (p = _ascii_bytes; p < limit && *p != '\0'; p++)		\
 	    continue;							\
-	  if (p < limit && (p - _ascii_bytes) <= STRING_LIMIT)		\
+	  if (p < limit && (p - _ascii_bytes) <= (long) STRING_LIMIT)	\
 	    {								\
 	      if (bytes_in_chunk > 0)					\
 		{							\
@@ -352,7 +345,7 @@ do {									\
 	  else								\
 	    {								\
 	      if (bytes_in_chunk == 0)					\
-		fprintf ((FILE), "%s", ASM_BYTE_OP);			\
+		fputs ("\t.byte\t", (FILE));				\
 	      else							\
 		fputc (',', (FILE));					\
 	      fprintf ((FILE), "0x%02x", *_ascii_bytes);		\
@@ -384,9 +377,6 @@ do {									\
   ASM_OUTPUT_INTERNAL_LABEL((FILE),(PREFIX),(NUM));			\
 } while (0)
 
-#undef TARGET_ASM_CONSTRUCTOR
-#define TARGET_ASM_CONSTRUCTOR sco_asm_out_constructor
-
 #undef ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
@@ -403,7 +393,7 @@ do {									\
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
   fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #undef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
@@ -412,11 +402,10 @@ do {									\
  * We rename 'gcc_except_table' to the shorter name in preparation
  * for the day when we're ready to do DWARF2 eh unwinding under COFF.
  */
-#define EXCEPTION_SECTION()		named_section (NULL, ".gccexc", 1)
+/* #define EXCEPTION_SECTION()		named_section (NULL, ".gccexc", 1) */
 
 /* Switch into a generic section.  */
-#undef TARGET_ASM_NAMED_SECTION
-#define TARGET_ASM_NAMED_SECTION  sco_asm_named_section
+#define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section 
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
@@ -662,7 +651,7 @@ init_section ()								\
 
 #if USE_GAS
   /* Leave ASM_SPEC undefined so we pick up the master copy from gcc.c 
-   * Undef MD_EXEC_PREFIX becuase we don't know where GAS is, but it's not
+   * Undef MD_EXEC_PREFIX because we don't know where GAS is, but it's not
    * likely in /usr/ccs/bin/ 
    */
 #undef MD_EXEC_PREFIX 
@@ -759,7 +748,7 @@ init_section ()								\
   %{G:-G} %{!mcoff:%{Qn:} %{!Qy:-Qn}}"
 
 /* The SCO COFF linker gets confused on the difference between "-ofoo"
-   and "-o foo".   So we just always force a single space. */
+   and "-o foo".   So we just always force a single space.  */
 
 #define SWITCHES_NEED_SPACES "o"
 
@@ -775,7 +764,6 @@ init_section ()								\
  "%{!shared:-lgcc}"
 
 #define MASK_COFF     		010000000000	/* Mask for elf generation */
-#define TARGET_COFF             (target_flags & MASK_COFF)
 #define TARGET_ELF              (1) /* (!(target_flags & MASK_COFF)) */
 
 #undef SUBTARGET_SWITCHES
@@ -785,7 +773,7 @@ init_section ()								\
 #define NO_DOLLAR_IN_LABEL
 
 /* Implicit library calls should use memcpy, not bcopy, etc.  They are 
-   faster on OpenServer libraries. */
+   faster on OpenServer libraries.  */
 
 #define TARGET_MEM_FUNCTIONS
 
@@ -854,7 +842,7 @@ do {									\
   do {									\
     if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_datarel)		\
       {									\
-        fputs (UNALIGNED_INT_ASM_OP, FILE);				\
+        fputs (ASM_LONG, FILE);						\
         assemble_name (FILE, XSTR (ADDR, 0));				\
 	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), FILE); \
         goto DONE;							\

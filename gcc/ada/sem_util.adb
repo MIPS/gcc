@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -720,8 +720,7 @@ package body Sem_Util is
          if Is_Protected_Type (S) then
             if Restricted_Profile then
                Insert_Before (N,
-                  Make_Raise_Statement (Loc,
-                   Name => New_Occurrence_Of (Standard_Program_Error, Loc)));
+                  Make_Raise_Program_Error (Loc));
                Error_Msg_N ("potentially blocking operation, " &
                  " Program Error will be raised at run time?", N);
 
@@ -1103,7 +1102,8 @@ package body Sem_Util is
    ---------------------
 
    function Defining_Entity (N : Node_Id) return Entity_Id is
-      K : constant Node_Kind := Nkind (N);
+      K   : constant Node_Kind := Nkind (N);
+      Err : Entity_Id := Empty;
 
    begin
       case K is
@@ -1177,6 +1177,19 @@ package body Sem_Util is
             begin
                if Nkind (Nam) in N_Entity then
                   return Nam;
+
+               --  For Error, make up a name and attach to declaration
+               --  so we can continue semantic analysis
+
+               elsif Nam = Error then
+                  Err :=
+                    Make_Defining_Identifier (Sloc (N),
+                      Chars => New_Internal_Name ('T'));
+                  Set_Defining_Unit_Name (N, Err);
+
+                  return Err;
+               --  If not an entity, get defining identifier
+
                else
                   return Defining_Identifier (Nam);
                end if;
@@ -1586,6 +1599,18 @@ package body Sem_Util is
 
                Error_Msg_Sloc := Sloc (Def_Id);
                Error_Msg_N ("& conflicts with declaration#", E);
+               return;
+
+            --  If the name of the unit appears in its own context clause,
+            --  a dummy package with the name has already been created, and
+            --  the error emitted. Try to continue quietly.
+
+            elsif Error_Posted (E)
+              and then Sloc (E) = No_Location
+              and then Nkind (Parent (E)) = N_Package_Specification
+              and then Current_Scope = Standard_Standard
+            then
+               Set_Scope (Def_Id, Current_Scope);
                return;
 
             else
@@ -2169,6 +2194,7 @@ package body Sem_Util is
 
    procedure Get_Index_Bounds (N : Node_Id; L, H : out Node_Id) is
       Kind : constant Node_Kind := Nkind (N);
+      R    : Node_Id;
 
    begin
       if Kind = N_Range then
@@ -2176,8 +2202,17 @@ package body Sem_Util is
          H := High_Bound (N);
 
       elsif Kind = N_Subtype_Indication then
-         L := Low_Bound  (Range_Expression (Constraint (N)));
-         H := High_Bound (Range_Expression (Constraint (N)));
+         R := Range_Expression (Constraint (N));
+
+         if R = Error then
+            L := Error;
+            H := Error;
+            return;
+
+         else
+            L := Low_Bound  (Range_Expression (Constraint (N)));
+            H := High_Bound (Range_Expression (Constraint (N)));
+         end if;
 
       elsif Is_Entity_Name (N) and then Is_Type (Entity (N)) then
          if Error_Posted (Scalar_Range (Entity (N))) then
@@ -2198,7 +2233,6 @@ package body Sem_Util is
          L := N;
          H := N;
       end if;
-
    end Get_Index_Bounds;
 
    ------------------------
@@ -3019,7 +3053,7 @@ package body Sem_Util is
       else
          case Nkind (N) is
             when N_Indexed_Component | N_Slice =>
-               return True;
+               return Is_Object_Reference (Prefix (N));
 
             --  In Ada95, a function call is a constant object.
 
@@ -4261,10 +4295,12 @@ package body Sem_Util is
 
       --  Nothing to do if no End_Label, happens for internally generated
       --  constructs where we don't want an end label reference anyway.
+      --  Also nothing to do if Endl is a string literal, which means
+      --  there was some prior error (bad operator symbol)
 
       Endl := End_Label (N);
 
-      if No (Endl) then
+      if No (Endl) or else Nkind (Endl) = N_String_Literal then
          return;
       end if;
 

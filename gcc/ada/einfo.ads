@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision: 1.6 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -302,6 +302,7 @@ package Einfo is
 --       only if the actual subtype differs from the nominal subtype. If the
 --       actual and nominal subtypes are the same, then the Actual_Subtype
 --       field is Empty, and Etype indicates both types.
+--
 --       For objects, the Actual_Subtype is set only if this is a discriminated
 --       type. For arrays, the bounds of the expression are obtained and the
 --       Etype of the object is directly the constrained subtype. This is
@@ -394,7 +395,14 @@ package Einfo is
 --       returns the entity unchanged.
 
 --    Block_Node (Node11)
---       Present in block entities. Points to the Block_Statement itself.
+--       Present in block entities. Points to the identifier in the
+--       Block_Statement itself. Used when retrieving the block construct
+--       for finalization purposes, The block entity has an implicit label
+--       declaration in the enclosing declarative part, and has otherwise
+--       no direct connection in the tree with the block statement. The
+--       link is to the identifier (which is an occurrence of the entity)
+--       and not to the block_statement itself, because the statement may
+--       be rewritten, e.g. in the process of removing dead code.
 
 --    Body_Entity (Node19)
 --       Present in package and generic package entities, points to the
@@ -1346,6 +1354,11 @@ package Einfo is
 --       Present in all entities. It indicates that a valid pragma Pack was
 --       was given for the type. Note that this flag is not inherited by a
 --       derived type. See also the Is_Packed flag.
+
+--    Has_Pragma_Pure_Function (Flag179)
+--       Present in subprogram entities. It indicates that a valid pragma
+--       Pure_Function was given for the entity. In some cases, we need to
+--       know that Is_Pure was explicitly set using this pragma.
 
 --    Has_Primitive_Operations (Flag120) [base type only]
 --       Present in all type entities. Set if at least one primitive operation
@@ -2453,7 +2466,7 @@ package Einfo is
 --    Parameter_Mode (synthesized)
 --       Applies to formal parameter entities. This is a synonym for Ekind,
 --       used when obtaining the formal kind of a formal parameter (the result
---       is one of E_[In/Out/In_Out]_Paramter)
+--       is one of E_[In/Out/In_Out]_Parameter)
 
 --    Parent_Subtype (Node19)
 --       Present in E_Record_Type. Points to the subtype to use for a
@@ -4048,6 +4061,7 @@ package Einfo is
    --    Has_Master_Entity             (Flag21)
    --    Has_Missing_Return            (Flag142)
    --    Has_Nested_Block_With_Handler (Flag101)
+   --    Has_Pragma_Pure_Function      (Flag179)  (non-generic case only)
    --    Has_Recursive_Call            (Flag143)
    --    Has_Subprogram_Descriptor     (Flag93)
    --    Is_Abstract                   (Flag19)
@@ -4170,6 +4184,7 @@ package Einfo is
    --    Is_Pure                       (Flag44)
    --    Is_Intrinsic_Subprogram       (Flag64)
    --    Default_Expressions_Processed (Flag108)
+   --    Has_Pragma_Pure_Function      (Flag179)
 
    --  E_Ordinary_Fixed_Point_Type
    --  E_Ordinary_Fixed_Point_Subtype
@@ -4277,6 +4292,7 @@ package Einfo is
    --    Has_Completion                (Flag26)
    --    Has_Master_Entity             (Flag21)
    --    Has_Nested_Block_With_Handler (Flag101)
+   --    Has_Pragma_Pure_Function      (Flag179)  (non-generic case only)
    --    Has_Subprogram_Descriptor     (Flag93)
    --    Is_Visible_Child_Unit         (Flag116)
    --    Is_Abstract                   (Flag19)
@@ -4828,6 +4844,7 @@ package Einfo is
    function Has_Pragma_Elaborate_Body          (Id : E) return B;
    function Has_Pragma_Inline                  (Id : E) return B;
    function Has_Pragma_Pack                    (Id : E) return B;
+   function Has_Pragma_Pure_Function           (Id : E) return B;
    function Has_Primitive_Operations           (Id : E) return B;
    function Has_Qualified_Name                 (Id : E) return B;
    function Has_Record_Rep_Clause              (Id : E) return B;
@@ -5283,6 +5300,7 @@ package Einfo is
    procedure Set_Has_Pragma_Elaborate_Body     (Id : E; V : B := True);
    procedure Set_Has_Pragma_Inline             (Id : E; V : B := True);
    procedure Set_Has_Pragma_Pack               (Id : E; V : B := True);
+   procedure Set_Has_Pragma_Pure_Function      (Id : E; V : B := True);
    procedure Set_Has_Primitive_Operations      (Id : E; V : B := True);
    procedure Set_Has_Private_Declaration       (Id : E; V : B := True);
    procedure Set_Has_Qualified_Name            (Id : E; V : B := True);
@@ -5750,6 +5768,7 @@ package Einfo is
    pragma Inline (Has_Pragma_Elaborate_Body);
    pragma Inline (Has_Pragma_Inline);
    pragma Inline (Has_Pragma_Pack);
+   pragma Inline (Has_Pragma_Pure_Function);
    pragma Inline (Has_Primitive_Operations);
    pragma Inline (Has_Private_Declaration);
    pragma Inline (Has_Qualified_Name);
@@ -6095,6 +6114,7 @@ package Einfo is
    pragma Inline (Set_Has_Pragma_Elaborate_Body);
    pragma Inline (Set_Has_Pragma_Inline);
    pragma Inline (Set_Has_Pragma_Pack);
+   pragma Inline (Set_Has_Pragma_Pure_Function);
    pragma Inline (Set_Has_Primitive_Operations);
    pragma Inline (Set_Has_Private_Declaration);
    pragma Inline (Set_Has_Qualified_Name);

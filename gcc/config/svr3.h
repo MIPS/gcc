@@ -119,6 +119,7 @@ Boston, MA 02111-1307, USA.
 
 /* Output #ident as a .ident.  */
 
+#undef  ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "\t.ident \"%s\"\n", NAME);
 
@@ -153,12 +154,6 @@ Boston, MA 02111-1307, USA.
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
 
-/* Assembler pseudos to introduce constants of various size.  These
-   definitions should work for most svr3 systems.  */
-
-#undef ASM_BYTE_OP
-#define ASM_BYTE_OP "\t.byte\t"
-
 /* The prefix to add to user-visible assembler symbols.
 
    For System V Release 3 the convention is to prepend a leading
@@ -187,7 +182,7 @@ Boston, MA 02111-1307, USA.
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s%s%d", LOCAL_LABEL_PREFIX, PREFIX, NUM)
+  sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))
 
 /* We want local labels to start with period if made with asm_fprintf.  */
 #undef LOCAL_LABEL_PREFIX
@@ -301,6 +296,7 @@ const_section ()							\
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
+#undef  SELECT_SECTION
 #define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
@@ -331,4 +327,5 @@ const_section ()							\
    in the case of a `const_int' rtx.  Currently, these always
    go into the const section.  */
 
+#undef  SELECT_RTX_SECTION
 #define SELECT_RTX_SECTION(MODE,RTX,ALIGN) const_section()

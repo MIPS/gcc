@@ -7,9 +7,9 @@
 --                                 B o d y                                  --
 --                        (Machine Version for x86)                         --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
---          Copyright (C) 1998-2000 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2001 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -49,7 +49,7 @@ package body Ada.Numerics.Aux is
    for FPU_Stack_Pointer'Size use 3;
 
    type FPU_Status_Word is record
-      B   : Boolean; -- FPU Busy (for 8087 compatability only)
+      B   : Boolean; -- FPU Busy (for 8087 compatibility only)
       ES  : Boolean; -- Error Summary Status
       SF  : Boolean; -- Stack Fault
 
@@ -117,7 +117,6 @@ package body Ada.Numerics.Aux is
    --  Note that for the Sin, Cos and Tan functions completely accurate
    --  reduction of the argument is done for arguments in the range of
    --  -2.0**63 .. 2.0**63, using a 66-bit approximation of Pi.
-
 
    pragma Inline (Is_Nan);
    pragma Inline (Reduce);

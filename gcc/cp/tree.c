@@ -127,7 +127,7 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
 
       /* A currently unresolved scope ref.  */
     case SCOPE_REF:
-      my_friendly_abort (103);
+      abort ();
     case OFFSET_REF:
       if (TREE_CODE (TREE_OPERAND (ref, 1)) == FUNCTION_DECL)
 	return clk_ordinary;
@@ -490,7 +490,7 @@ build_cplus_array_type (elt_type, index_type)
      tree index_type;
 {
   tree t;
-  int type_quals = CP_TYPE_QUALS (elt_type);
+  int type_quals = cp_type_quals (elt_type);
 
   if (type_quals != TYPE_UNQUALIFIED)
     elt_type = cp_build_qualified_type (elt_type, TYPE_UNQUALIFIED);
@@ -505,23 +505,22 @@ build_cplus_array_type (elt_type, index_type)
 
 /* Make a variant of TYPE, qualified with the TYPE_QUALS.  Handles
    arrays correctly.  In particular, if TYPE is an array of T's, and
-   TYPE_QUALS is non-empty, returns an array of qualified T's.  If
-   at attempt is made to qualify a type illegally, and COMPLAIN is
-   non-zero, an error is issued.  If COMPLAIN is zero, error_mark_node
-   is returned.  */
+   TYPE_QUALS is non-empty, returns an array of qualified T's.
+   Errors are emitted under control of COMPLAIN. If COMPLAIN is zero,
+   error_mark_node is returned for bad qualifiers.  */
 
 tree
 cp_build_qualified_type_real (type, type_quals, complain)
      tree type;
      int type_quals;
-     int complain;
+     tsubst_flags_t complain;
 {
   tree result;
 
   if (type == error_mark_node)
     return type;
 
-  if (type_quals == CP_TYPE_QUALS (type))
+  if (type_quals == cp_type_quals (type))
     return type;
 
   /* A restrict-qualified pointer type must be a pointer (or reference)
@@ -532,8 +531,8 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	  || TYPE_PTRMEM_P (type)
 	  || TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE))
     {
-      if (complain)
-	cp_error ("`%T' cannot be `restrict'-qualified", type);
+      if (complain & tf_error)
+	error ("`%T' cannot be `restrict'-qualified", type);
       else
 	return error_mark_node;
 
@@ -543,8 +542,8 @@ cp_build_qualified_type_real (type, type_quals, complain)
   if (type_quals != TYPE_UNQUALIFIED
       && TREE_CODE (type) == FUNCTION_TYPE)
     {
-      if (complain)
-	cp_error ("`%T' cannot be `const'-, `volatile'-, or `restrict'-qualified", type);
+      if (complain & tf_error)
+	error ("`%T' cannot be `const'-, `volatile'-, or `restrict'-qualified", type);
       else
 	return error_mark_node;
       type_quals = TYPE_UNQUALIFIED;
@@ -624,7 +623,7 @@ tree
 canonical_type_variant (t)
      tree t;
 {
-  return cp_build_qualified_type (TYPE_MAIN_VARIANT (t), CP_TYPE_QUALS (t));
+  return cp_build_qualified_type (TYPE_MAIN_VARIANT (t), cp_type_quals (t));
 }
 
 /* Makes new binfos for the indirect bases under BINFO, and updates
@@ -827,23 +826,6 @@ make_binfo (offset, binfo, vtable, virtuals)
   return new_binfo;
 }
 
-/* Return the binfo value for ELEM in TYPE.  */
-
-tree
-binfo_value (elem, type)
-     tree elem;
-     tree type;
-{
-  if (get_base_distance (elem, type, 0, (tree *)0) == -2)
-    compiler_error ("base class `%s' ambiguous in binfo_value",
-		    TYPE_NAME_STRING (elem));
-  if (elem == type)
-    return TYPE_BINFO (type);
-  if (TREE_CODE (elem) == RECORD_TYPE && TYPE_BINFO (elem) == type)
-    return type;
-  return get_binfo (elem, type, 0);
-}
-
 /* Return a TREE_LIST whose TREE_VALUE nodes along the
    BINFO_INHERITANCE_CHAIN for BINFO, but in the opposite order.  In
    other words, while the BINFO_INHERITANCE_CHAIN goes from base
@@ -913,7 +895,7 @@ count_functions (t)
       return i;
     }
 
-  my_friendly_abort (359);
+  abort ();
   return 0;
 }
 
@@ -998,23 +980,6 @@ build_overload (decl, chain)
   return ovl_cons (decl, chain);
 }
 
-/* True if fn is in ovl. */
-
-int
-ovl_member (fn, ovl)
-     tree fn;
-     tree ovl;
-{
-  if (ovl == NULL_TREE)
-    return 0;
-  if (TREE_CODE (ovl) != OVERLOAD)
-    return ovl == fn;
-  for (; ovl; ovl = OVL_CHAIN (ovl))
-    if (OVL_FUNCTION (ovl) == fn)
-      return 1;
-  return 0;
-}
-
 int
 is_aggr_type_2 (t1, t2)
      tree t1, t2;
@@ -1083,7 +1048,7 @@ lang_printable_name (decl, v)
       if (ring_counter == PRINT_RING_SIZE)
 	ring_counter = 0;
       if (decl_ring[ring_counter] == current_function_decl)
-	my_friendly_abort (106);
+	abort ();
     }
 
   if (print_ring[ring_counter])
@@ -1189,7 +1154,7 @@ verify_stmt_tree_r (tp, walk_subtrees, data)
   /* If this statement is already present in the hash table, then
      there is a circularity in the statement tree.  */
   if (htab_find (*statements, t))
-    my_friendly_abort (20000727);
+    abort ();
   
   slot = htab_find_slot (*statements, t, INSERT);
   *slot = t;
@@ -1276,7 +1241,7 @@ extern int depth_reached;
 #endif
 
 void
-print_lang_statistics ()
+cxx_print_statistics ()
 {
   print_search_statistics ();
   print_class_statistics ();
@@ -1514,7 +1479,7 @@ get_type_decl (t)
   if (t == error_mark_node)
     return t;
   
-  my_friendly_abort (42);
+  abort ();
 
   /* Stop compiler from complaining control reaches end of non-void function.  */
   return 0;
@@ -1833,18 +1798,22 @@ maybe_dummy_object (type, binfop)
      tree *binfop;
 {
   tree decl, context;
-
+  tree binfo;
+  
   if (current_class_type
-      && get_base_distance (type, current_class_type, 0, binfop) != -1)
+      && (binfo = lookup_base (current_class_type, type,
+			       ba_ignore | ba_quiet, NULL)))
     context = current_class_type;
   else
     {
       /* Reference from a nested class member function.  */
       context = type;
-      if (binfop)
-	*binfop = TYPE_BINFO (type);
+      binfo = TYPE_BINFO (type);
     }
 
+  if (binfop)
+    *binfop = binfo;
+  
   if (current_class_ref && context == current_class_type)
     decl = current_class_ref;
   else
@@ -2079,6 +2048,7 @@ cp_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
     case DEFAULT_ARG:
     case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
+    case UNBOUND_CLASS_TEMPLATE:
     case TEMPLATE_PARM_INDEX:
     case TEMPLATE_TYPE_PARM:
     case TYPENAME_TYPE:
@@ -2249,6 +2219,7 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
 	  DECL_NAME (var) = DECL_NAME (nrv);
 	  DECL_SOURCE_FILE (var) = DECL_SOURCE_FILE (nrv);
 	  DECL_SOURCE_LINE (var) = DECL_SOURCE_LINE (nrv);
+	  DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
 	  splay_tree_insert (decl_map,
 			     (splay_tree_key) nrv,
 			     (splay_tree_value) var);
@@ -2256,6 +2227,30 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
     }
 
   return var;
+}
+
+/* Record that we're about to start inlining FN, and return non-zero if
+   that's OK.  Used for lang_hooks.tree_inlining.start_inlining.  */
+
+int
+cp_start_inlining (fn)
+     tree fn;
+{
+  if (DECL_TEMPLATE_INSTANTIATION (fn))
+    return push_tinst_level (fn);
+  else
+    return 1;
+}
+
+/* Record that we're done inlining FN.  Used for
+   lang_hooks.tree_inlining.end_inlining.  */
+
+void
+cp_end_inlining (fn)
+     tree fn ATTRIBUTE_UNUSED;
+{
+  if (DECL_TEMPLATE_INSTANTIATION (fn))
+    pop_tinst_level ();
 }
 
 /* Initialize tree.c.  */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.19 $
 --                                                                          --
 --          Copyright (C) 1992-2000 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -120,7 +120,7 @@ procedure XSinfo is
 begin
    Set_Exit_Status (1);
    Anchored_Mode := True;
-   Match ("$Revision: 1.1 $", "$Rev" & "ision: "  & Break (' ') * XSinforev);
+   Match ("$Revision: 1.19 $", "$Rev" & "ision: "  & Break (' ') * XSinforev);
 
    if Argument_Count > 0 then
       Create (Ofile, Out_File, Argument (1));

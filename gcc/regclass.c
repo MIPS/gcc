@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -155,7 +155,7 @@ HARD_REG_SET reg_class_contents[N_REG_CLASSES];
 #define N_REG_INTS  \
   ((FIRST_PSEUDO_REGISTER + (32 - 1)) / 32)
 
-static unsigned int_reg_class_contents[N_REG_CLASSES][N_REG_INTS] 
+static const unsigned int_reg_class_contents[N_REG_CLASSES][N_REG_INTS] 
   = REG_CLASS_CONTENTS;
 
 /* For each reg class, number of regs it contains.  */
@@ -470,7 +470,7 @@ init_reg_sets_1 ()
 	;
 #endif
 #ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
-      else if (i == PIC_OFFSET_TABLE_REGNUM && flag_pic)
+      else if (i == PIC_OFFSET_TABLE_REGNUM && fixed_regs[i])
 	;
 #endif
       else if (0
@@ -704,6 +704,26 @@ choose_hard_reg_mode (regno, nregs)
     return found_mode;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    if (HARD_REGNO_NREGS (regno, mode) == nregs
+	&& HARD_REGNO_MODE_OK (regno, mode))
+      found_mode = mode;
+
+  if (found_mode != VOIDmode)
+    return found_mode;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    if (HARD_REGNO_NREGS (regno, mode) == nregs
+	&& HARD_REGNO_MODE_OK (regno, mode))
+      found_mode = mode;
+
+  if (found_mode != VOIDmode)
+    return found_mode;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if (HARD_REGNO_NREGS (regno, mode) == nregs
@@ -985,10 +1005,10 @@ record_operand_costs (insn, op_costs, reg_pref)
 
       if (GET_CODE (recog_data.operand[i]) == MEM)
 	record_address_regs (XEXP (recog_data.operand[i], 0),
-			     BASE_REG_CLASS, frequency * 2);
+			     MODE_BASE_REG_CLASS (modes[i]), frequency * 2);
       else if (constraints[i][0] == 'p')
 	record_address_regs (recog_data.operand[i],
-			     BASE_REG_CLASS, frequency * 2);
+			     MODE_BASE_REG_CLASS (modes[i]), frequency * 2);
     }
 
   /* Check for commutative in a separate loop so everything will
@@ -1066,7 +1086,7 @@ scan_one_insn (insn, pass)
 			      GENERAL_REGS, 1)
 	    * frequency);
       record_address_regs (XEXP (SET_SRC (set), 0),
-			   BASE_REG_CLASS, frequency * 2);
+			   MODE_BASE_REG_CLASS (VOIDmode), frequency * 2);
       return insn;
     }
 
@@ -1172,7 +1192,7 @@ regclass (f, nregs, dump)
   costs = (struct costs *) xmalloc (nregs * sizeof (struct costs));
 
 #ifdef CLASS_CANNOT_CHANGE_MODE
-  reg_changes_mode = BITMAP_XMALLOC();
+  reg_changes_mode = BITMAP_XMALLOC ();
 #endif  
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
@@ -1208,15 +1228,15 @@ regclass (f, nregs, dump)
 
 		  if ((0
 #ifdef SECONDARY_RELOAD_CLASS
-		       || (SECONDARY_RELOAD_CLASS (BASE_REG_CLASS, m, r)
+		       || (SECONDARY_RELOAD_CLASS (MODE_BASE_REG_CLASS (VOIDmode), m, r)
 			   != NO_REGS)
 #else
 #ifdef SECONDARY_INPUT_RELOAD_CLASS
-		       || (SECONDARY_INPUT_RELOAD_CLASS (BASE_REG_CLASS, m, r)
+		       || (SECONDARY_INPUT_RELOAD_CLASS (MODE_BASE_REG_CLASS (VOIDmode), m, r)
 			   != NO_REGS)
 #endif
 #ifdef SECONDARY_OUTPUT_RELOAD_CLASS
-		       || (SECONDARY_OUTPUT_RELOAD_CLASS (BASE_REG_CLASS, m, r)
+		       || (SECONDARY_OUTPUT_RELOAD_CLASS (MODE_BASE_REG_CLASS (VOIDmode), m, r)
 			   != NO_REGS)
 #endif
 #endif
@@ -1321,7 +1341,7 @@ regclass (f, nregs, dump)
 		  best = (enum reg_class) class;
 		}
 	      else if (p->cost[class] == best_cost)
-		best = reg_class_subunion[(int)best][class];
+		best = reg_class_subunion[(int) best][class];
 	    }
 
 	  /* Record the alternate register class; i.e., a class for which
@@ -1589,7 +1609,7 @@ record_reg_classes (n_alts, n_ops, ops, modes,
 		   address, ie BASE_REG_CLASS.  */
 		classes[i]
 		  = reg_class_subunion[(int) classes[i]]
-		    [(int) BASE_REG_CLASS];
+		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
 		break;
 
 	      case 'm':  case 'o':  case 'V':
@@ -1996,7 +2016,7 @@ record_address_regs (x, class, scale)
 	   as well as in the tests below, that all addresses are in 
 	   canonical form.  */
 
-	else if (INDEX_REG_CLASS == BASE_REG_CLASS)
+	else if (INDEX_REG_CLASS == MODE_BASE_REG_CLASS (VOIDmode))
 	  {
 	    record_address_regs (arg0, class, scale);
 	    if (! CONSTANT_P (arg1))
@@ -2025,14 +2045,14 @@ record_address_regs (x, class, scale)
 		 && (REG_OK_FOR_BASE_P (arg0) || REG_OK_FOR_INDEX_P (arg0)))
 	  record_address_regs (arg1,
 			       REG_OK_FOR_BASE_P (arg0)
-			       ? INDEX_REG_CLASS : BASE_REG_CLASS,
+			       ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (VOIDmode),
 			       scale);
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg1) < FIRST_PSEUDO_REGISTER
 		 && (REG_OK_FOR_BASE_P (arg1) || REG_OK_FOR_INDEX_P (arg1)))
 	  record_address_regs (arg0,
 			       REG_OK_FOR_BASE_P (arg1)
-			       ? INDEX_REG_CLASS : BASE_REG_CLASS,
+			       ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (VOIDmode),
 			       scale);
 #endif
 
@@ -2043,14 +2063,14 @@ record_address_regs (x, class, scale)
 	else if ((code0 == REG && REG_POINTER (arg0))
 		 || code1 == MULT)
 	  {
-	    record_address_regs (arg0, BASE_REG_CLASS, scale);
+	    record_address_regs (arg0, MODE_BASE_REG_CLASS (VOIDmode), scale);
 	    record_address_regs (arg1, INDEX_REG_CLASS, scale);
 	  }
 	else if ((code1 == REG && REG_POINTER (arg1))
 		 || code0 == MULT)
 	  {
 	    record_address_regs (arg0, INDEX_REG_CLASS, scale);
-	    record_address_regs (arg1, BASE_REG_CLASS, scale);
+	    record_address_regs (arg1, MODE_BASE_REG_CLASS (VOIDmode), scale);
 	  }
 
 	/* Otherwise, count equal chances that each might be a base
@@ -2058,9 +2078,11 @@ record_address_regs (x, class, scale)
 
 	else
 	  {
-	    record_address_regs (arg0, BASE_REG_CLASS, scale / 2);
+	    record_address_regs (arg0, MODE_BASE_REG_CLASS (VOIDmode),
+				 scale / 2);
 	    record_address_regs (arg0, INDEX_REG_CLASS, scale / 2);
-	    record_address_regs (arg1, BASE_REG_CLASS, scale / 2);
+	    record_address_regs (arg1, MODE_BASE_REG_CLASS (VOIDmode),
+				 scale / 2);
 	    record_address_regs (arg1, INDEX_REG_CLASS, scale / 2);
 	  }
       }
@@ -2071,7 +2093,8 @@ record_address_regs (x, class, scale)
 	 if it ends up in the wrong place.  */
     case POST_MODIFY:
     case PRE_MODIFY:
-      record_address_regs (XEXP (x, 0), BASE_REG_CLASS, 2 * scale);
+      record_address_regs (XEXP (x, 0), MODE_BASE_REG_CLASS (VOIDmode),
+			   2 * scale);
       if (REG_P (XEXP (XEXP (x, 1), 1)))
 	record_address_regs (XEXP (XEXP (x, 1), 1),
 			     INDEX_REG_CLASS, 2 * scale);
@@ -2191,8 +2214,8 @@ allocate_reg_info (num_regs, new_p, renumber_p)
 
 	  if (new_p)		/* if we're zapping everything, no need to realloc */
 	    {
-	      free ((char *)renumber);
-	      free ((char *)reg_pref);
+	      free ((char *) renumber);
+	      free ((char *) reg_pref);
 	      renumber = (short *) xmalloc (size_renumber);
 	      reg_pref_buffer = (struct reg_pref *) xmalloc (regno_allocated 
 						  * sizeof (struct reg_pref));
@@ -2200,8 +2223,8 @@ allocate_reg_info (num_regs, new_p, renumber_p)
 
 	  else
 	    {
-	      renumber = (short *) xrealloc ((char *)renumber, size_renumber);
-	      reg_pref_buffer = (struct reg_pref *) xrealloc ((char *)reg_pref_buffer,
+	      renumber = (short *) xrealloc ((char *) renumber, size_renumber);
+	      reg_pref_buffer = (struct reg_pref *) xrealloc ((char *) reg_pref_buffer,
 						   regno_allocated 
 						   * sizeof (struct reg_pref));
 	    }
@@ -2278,13 +2301,13 @@ free_reg_info ()
       for (reg_data = reg_info_head; reg_data; reg_data = reg_next)
 	{
 	  reg_next = reg_data->next;
-	  free ((char *)reg_data);
+	  free ((char *) reg_data);
 	}
 
       free (reg_pref_buffer);
-      reg_pref_buffer = (struct reg_pref *)0;
-      reg_info_head = (struct reg_info_data *)0;
-      renumber = (short *)0;
+      reg_pref_buffer = (struct reg_pref *) 0;
+      reg_info_head = (struct reg_info_data *) 0;
+      renumber = (short *) 0;
     }
   regno_allocated = 0;
   reg_n_max = 0;
@@ -2496,6 +2519,24 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
 		      || GET_CODE (XEXP (note, 0)) == LABEL_REF))))
 	REG_POINTER (SET_DEST (x)) = 1;
 
+      /* If this is setting a register from a register or from a simple
+	 conversion of a register, propagate REG_DECL.  */
+      if (GET_CODE (dest) == REG)
+	{
+	  rtx src = SET_SRC (x);
+
+	  while (GET_CODE (src) == SIGN_EXTEND
+		 || GET_CODE (src) == ZERO_EXTEND
+		 || GET_CODE (src) == TRUNCATE
+		 || (GET_CODE (src) == SUBREG && subreg_lowpart_p (src)))
+	    src = XEXP (src, 0);
+
+	  if (GET_CODE (src) == REG && REGNO_DECL (REGNO (src)) == 0)
+	    REGNO_DECL (REGNO (src)) = REGNO_DECL (REGNO (dest));
+	  else if (GET_CODE (src) == REG && REGNO_DECL (REGNO (dest)) == 0)
+	    REGNO_DECL (REGNO (dest)) = REGNO_DECL (REGNO (src));
+	}
+
       /* ... fall through ...  */
 
     default:
@@ -2530,8 +2571,8 @@ reg_class_subset_p (c1, c2)
   if (c2 == ALL_REGS)
   win:
     return 1;
-  GO_IF_HARD_REG_SUBSET (reg_class_contents[(int)c1],
-			 reg_class_contents[(int)c2],
+  GO_IF_HARD_REG_SUBSET (reg_class_contents[(int) c1],
+			 reg_class_contents[(int) c2],
 			 win);
   return 0;
 }

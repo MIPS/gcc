@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. */
+Boston, MA 02111-1307, USA.  */
 
 /* Variables defined in ia64.c.  */
 
@@ -134,3 +134,8 @@ extern void sdata_section PARAMS ((void));
 #ifdef SBSS_SECTION_ASM_OP
 extern void sbss_section PARAMS ((void));
 #endif
+
+#ifdef ARGS_SIZE_RTX
+/* expr.h defines ARGS_SIZE_RTX and `enum direction'.  */
+extern enum direction ia64_hpux_function_arg_padding PARAMS ((enum machine_mode, tree));
+#endif /* ARGS_SIZE_RTX */

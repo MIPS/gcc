@@ -1,6 +1,6 @@
 // Functor implementations -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -54,12 +54,12 @@
  */
 
 /** @file stl_function.h
- *  This is an internal header file, included by other STL headers.  You
- *  should not attempt to use it directly.
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_FUNCTION_H
-#define __SGI_STL_INTERNAL_FUNCTION_H
+#ifndef __GLIBCPP_INTERNAL_FUNCTION_H
+#define __GLIBCPP_INTERNAL_FUNCTION_H
 
 namespace std
 {
@@ -96,7 +96,7 @@ namespace std
  *  @{
 */
 /**
- *  This is one of the @link s20_3_1_base functor base classes @endlink.
+ *  This is one of the @link s20_3_1_base functor base classes@endlink.
 */
 template <class _Arg, class _Result>
 struct unary_function {
@@ -105,7 +105,7 @@ struct unary_function {
 };
 
 /**
- *  This is one of the @link s20_3_1_base functor base classes @endlink.
+ *  This is one of the @link s20_3_1_base functor base classes@endlink.
 */
 template <class _Arg1, class _Arg2, class _Result>
 struct binary_function {
@@ -119,66 +119,47 @@ struct binary_function {
 /** @defgroup s20_3_2_arithmetic Arithmetic Classes
  *  Because basic math often needs to be done during an algorithm, the library
  *  provides functors for those operations.  See the documentation for
- *  @link s20_3_1_base the base classes @endlink for examples of their use.
+ *  @link s20_3_1_base the base classes@endlink for examples of their use.
  *
  *  @{
 */
-/// One of the @link s20_3_2_arithmetic math functors @endlink.
+/// One of the @link s20_3_2_arithmetic math functors@endlink.
 template <class _Tp>
 struct plus : public binary_function<_Tp,_Tp,_Tp> {
   _Tp operator()(const _Tp& __x, const _Tp& __y) const { return __x + __y; }
 };
 
-/// One of the @link s20_3_2_arithmetic math functors @endlink.
+/// One of the @link s20_3_2_arithmetic math functors@endlink.
 template <class _Tp>
 struct minus : public binary_function<_Tp,_Tp,_Tp> {
   _Tp operator()(const _Tp& __x, const _Tp& __y) const { return __x - __y; }
 };
 
-/// One of the @link s20_3_2_arithmetic math functors @endlink.
+/// One of the @link s20_3_2_arithmetic math functors@endlink.
 template <class _Tp>
 struct multiplies : public binary_function<_Tp,_Tp,_Tp> {
   _Tp operator()(const _Tp& __x, const _Tp& __y) const { return __x * __y; }
 };
 
-/// One of the @link s20_3_2_arithmetic math functors @endlink.
+/// One of the @link s20_3_2_arithmetic math functors@endlink.
 template <class _Tp>
 struct divides : public binary_function<_Tp,_Tp,_Tp> {
   _Tp operator()(const _Tp& __x, const _Tp& __y) const { return __x / __y; }
 };
 
-/// One of the @link s20_3_2_arithmetic math functors @endlink.
+/// One of the @link s20_3_2_arithmetic math functors@endlink.
 template <class _Tp>
 struct modulus : public binary_function<_Tp,_Tp,_Tp> 
 {
   _Tp operator()(const _Tp& __x, const _Tp& __y) const { return __x % __y; }
 };
 
-/// One of the @link s20_3_2_arithmetic math functors @endlink.
+/// One of the @link s20_3_2_arithmetic math functors@endlink.
 template <class _Tp>
 struct negate : public unary_function<_Tp,_Tp> 
 {
   _Tp operator()(const _Tp& __x) const { return -__x; }
 };
-/** @}  */
-
-/** The @c identity_element functions are not part of the C++ standard; SGI
- *  provided them as an extension.  Its argument is an operation, and its
- *  return value is the identity element for that operation.  It is overloaded
- *  for addition and multiplication, and you can overload it for your own
- *  nefarious operations.
- *
- *  @addtogroup SGIextensions
- *  @{
-*/
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Tp> inline _Tp identity_element(plus<_Tp>) {
-  return _Tp(0);
-}
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Tp> inline _Tp identity_element(multiplies<_Tp>) {
-  return _Tp(1);
-}
 /** @}  */
 
 // 20.3.3 comparisons
@@ -188,42 +169,42 @@ template <class _Tp> inline _Tp identity_element(multiplies<_Tp>) {
  *
  *  @{
 */
-/// One of the @link s20_3_3_comparisons comparison functors @endlink.
+/// One of the @link s20_3_3_comparisons comparison functors@endlink.
 template <class _Tp>
 struct equal_to : public binary_function<_Tp,_Tp,bool> 
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x == __y; }
 };
 
-/// One of the @link s20_3_3_comparisons comparison functors @endlink.
+/// One of the @link s20_3_3_comparisons comparison functors@endlink.
 template <class _Tp>
 struct not_equal_to : public binary_function<_Tp,_Tp,bool> 
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x != __y; }
 };
 
-/// One of the @link s20_3_3_comparisons comparison functors @endlink.
+/// One of the @link s20_3_3_comparisons comparison functors@endlink.
 template <class _Tp>
 struct greater : public binary_function<_Tp,_Tp,bool> 
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x > __y; }
 };
 
-/// One of the @link s20_3_3_comparisons comparison functors @endlink.
+/// One of the @link s20_3_3_comparisons comparison functors@endlink.
 template <class _Tp>
 struct less : public binary_function<_Tp,_Tp,bool> 
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x < __y; }
 };
 
-/// One of the @link s20_3_3_comparisons comparison functors @endlink.
+/// One of the @link s20_3_3_comparisons comparison functors@endlink.
 template <class _Tp>
 struct greater_equal : public binary_function<_Tp,_Tp,bool>
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x >= __y; }
 };
 
-/// One of the @link s20_3_3_comparisons comparison functors @endlink.
+/// One of the @link s20_3_3_comparisons comparison functors@endlink.
 template <class _Tp>
 struct less_equal : public binary_function<_Tp,_Tp,bool> 
 {
@@ -237,21 +218,21 @@ struct less_equal : public binary_function<_Tp,_Tp,bool>
  *
  *  @{
 */
-/// One of the @link s20_3_4_logical Boolean operations functors @endlink.
+/// One of the @link s20_3_4_logical Boolean operations functors@endlink.
 template <class _Tp>
 struct logical_and : public binary_function<_Tp,_Tp,bool>
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x && __y; }
 };
 
-/// One of the @link s20_3_4_logical Boolean operations functors @endlink.
+/// One of the @link s20_3_4_logical Boolean operations functors@endlink.
 template <class _Tp>
 struct logical_or : public binary_function<_Tp,_Tp,bool>
 {
   bool operator()(const _Tp& __x, const _Tp& __y) const { return __x || __y; }
 };
 
-/// One of the @link s20_3_4_logical Boolean operations functors @endlink.
+/// One of the @link s20_3_4_logical Boolean operations functors@endlink.
 template <class _Tp>
 struct logical_not : public unary_function<_Tp,bool>
 {
@@ -286,7 +267,7 @@ struct logical_not : public unary_function<_Tp,bool>
  *
  *  @{
 */
-/// One of the @link s20_3_5_negators negation functors @endlink.
+/// One of the @link s20_3_5_negators negation functors@endlink.
 template <class _Predicate>
 class unary_negate
   : public unary_function<typename _Predicate::argument_type, bool> {
@@ -299,7 +280,7 @@ public:
   }
 };
 
-/// One of the @link s20_3_5_negators negation functors @endlink.
+/// One of the @link s20_3_5_negators negation functors@endlink.
 template <class _Predicate>
 inline unary_negate<_Predicate> 
 not1(const _Predicate& __pred)
@@ -307,7 +288,7 @@ not1(const _Predicate& __pred)
   return unary_negate<_Predicate>(__pred);
 }
 
-/// One of the @link s20_3_5_negators negation functors @endlink.
+/// One of the @link s20_3_5_negators negation functors@endlink.
 template <class _Predicate> 
 class binary_negate 
   : public binary_function<typename _Predicate::first_argument_type,
@@ -324,7 +305,7 @@ public:
   }
 };
 
-/// One of the @link s20_3_5_negators negation functors @endlink.
+/// One of the @link s20_3_5_negators negation functors@endlink.
 template <class _Predicate>
 inline binary_negate<_Predicate> 
 not2(const _Predicate& __pred)
@@ -364,7 +345,7 @@ not2(const _Predicate& __pred)
  *
  *  @{
 */
-/// One of the @link s20_3_6_binder binder functors @endlink.
+/// One of the @link s20_3_6_binder binder functors@endlink.
 template <class _Operation> 
 class binder1st
   : public unary_function<typename _Operation::second_argument_type,
@@ -389,7 +370,7 @@ public:
 #endif
 };
 
-/// One of the @link s20_3_6_binder binder functors @endlink.
+/// One of the @link s20_3_6_binder binder functors@endlink.
 template <class _Operation, class _Tp>
 inline binder1st<_Operation> 
 bind1st(const _Operation& __fn, const _Tp& __x) 
@@ -398,7 +379,7 @@ bind1st(const _Operation& __fn, const _Tp& __x)
   return binder1st<_Operation>(__fn, _Arg1_type(__x));
 }
 
-/// One of the @link s20_3_6_binder binder functors @endlink.
+/// One of the @link s20_3_6_binder binder functors@endlink.
 template <class _Operation> 
 class binder2nd
   : public unary_function<typename _Operation::first_argument_type,
@@ -423,95 +404,13 @@ public:
 #endif
 };
 
-/// One of the @link s20_3_6_binder binder functors @endlink.
+/// One of the @link s20_3_6_binder binder functors@endlink.
 template <class _Operation, class _Tp>
 inline binder2nd<_Operation> 
 bind2nd(const _Operation& __fn, const _Tp& __x) 
 {
   typedef typename _Operation::second_argument_type _Arg2_type;
   return binder2nd<_Operation>(__fn, _Arg2_type(__x));
-}
-/** @}  */
-
-/** As an extension to the binders, SGI provided composition functors and
- *  wrapper functions to aid in their creation.  The @c unary_compose
- *  functor is constructed from two functions/functors, @c f and @c g.
- *  Calling @c operator() with a single argument @c x returns @c f(g(x)).
- *  The function @c compose1 takes the two functions and constructs a
- *  @c unary_compose variable for you.
- *  
- *  @c binary_compose is constructed from three functors, @c f, @c g1,
- *  and @c g2.  Its @c operator() returns @c f(g1(x),g2(x)).  The function
- *  @compose2 takes f, g1, and g2, and constructs the @c binary_compose
- *  instance for you.  For example, if @c f returns an int, then
- *  \code
- *  int answer = (compose2(f,g1,g2))(x);
- *  \endcode
- *  is equivalent to
- *  \code
- *  int temp1 = g1(x);
- *  int temp2 = g2(x);
- *  int answer = f(temp1,temp2);
- *  \endcode
- *  But the first form is more compact, and can be passed around as a
- *  functor to other algorithms.
- *
- *  @addtogroup SGIextensions
- *  @{
-*/
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Operation1, class _Operation2>
-class unary_compose
-  : public unary_function<typename _Operation2::argument_type,
-                          typename _Operation1::result_type> 
-{
-protected:
-  _Operation1 _M_fn1;
-  _Operation2 _M_fn2;
-public:
-  unary_compose(const _Operation1& __x, const _Operation2& __y) 
-    : _M_fn1(__x), _M_fn2(__y) {}
-  typename _Operation1::result_type
-  operator()(const typename _Operation2::argument_type& __x) const {
-    return _M_fn1(_M_fn2(__x));
-  }
-};
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Operation1, class _Operation2>
-inline unary_compose<_Operation1,_Operation2> 
-compose1(const _Operation1& __fn1, const _Operation2& __fn2)
-{
-  return unary_compose<_Operation1,_Operation2>(__fn1, __fn2);
-}
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Operation1, class _Operation2, class _Operation3>
-class binary_compose
-  : public unary_function<typename _Operation2::argument_type,
-                          typename _Operation1::result_type> {
-protected:
-  _Operation1 _M_fn1;
-  _Operation2 _M_fn2;
-  _Operation3 _M_fn3;
-public:
-  binary_compose(const _Operation1& __x, const _Operation2& __y, 
-                 const _Operation3& __z) 
-    : _M_fn1(__x), _M_fn2(__y), _M_fn3(__z) { }
-  typename _Operation1::result_type
-  operator()(const typename _Operation2::argument_type& __x) const {
-    return _M_fn1(_M_fn2(__x), _M_fn3(__x));
-  }
-};
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Operation1, class _Operation2, class _Operation3>
-inline binary_compose<_Operation1, _Operation2, _Operation3> 
-compose2(const _Operation1& __fn1, const _Operation2& __fn2, 
-         const _Operation3& __fn3)
-{
-  return binary_compose<_Operation1,_Operation2,_Operation3>
-    (__fn1, __fn2, __fn3);
 }
 /** @}  */
 
@@ -535,7 +434,7 @@ compose2(const _Operation1& __fn1, const _Operation2& __fn2,
  *
  *  @{
 */
-/// One of the @link s20_3_7_adaptors adaptors for function pointers @endlink.
+/// One of the @link s20_3_7_adaptors adaptors for function pointers@endlink.
 template <class _Arg, class _Result>
 class pointer_to_unary_function : public unary_function<_Arg, _Result> {
 protected:
@@ -546,14 +445,14 @@ public:
   _Result operator()(_Arg __x) const { return _M_ptr(__x); }
 };
 
-/// One of the @link s20_3_7_adaptors adaptors for function pointers @endlink.
+/// One of the @link s20_3_7_adaptors adaptors for function pointers@endlink.
 template <class _Arg, class _Result>
 inline pointer_to_unary_function<_Arg, _Result> ptr_fun(_Result (*__x)(_Arg))
 {
   return pointer_to_unary_function<_Arg, _Result>(__x);
 }
 
-/// One of the @link s20_3_7_adaptors adaptors for function pointers @endlink.
+/// One of the @link s20_3_7_adaptors adaptors for function pointers@endlink.
 template <class _Arg1, class _Arg2, class _Result>
 class pointer_to_binary_function : 
   public binary_function<_Arg1,_Arg2,_Result> {
@@ -568,7 +467,7 @@ public:
     }
 };
 
-/// One of the @link s20_3_7_adaptors adaptors for function pointers @endlink.
+/// One of the @link s20_3_7_adaptors adaptors for function pointers@endlink.
 template <class _Arg1, class _Arg2, class _Result>
 inline pointer_to_binary_function<_Arg1,_Arg2,_Result> 
 ptr_fun(_Result (*__x)(_Arg1, _Arg2)) {
@@ -576,23 +475,12 @@ ptr_fun(_Result (*__x)(_Arg1, _Arg2)) {
 }
 /** @}  */
 
-
-// extension documented next
 template <class _Tp>
 struct _Identity : public unary_function<_Tp,_Tp> {
   _Tp& operator()(_Tp& __x) const { return __x; }
   const _Tp& operator()(const _Tp& __x) const { return __x; }
 };
 
-/** As an extension, SGI provided a functor called @c identity.  When a
- *  functor is required but no operations are desired, this can be used as a
- *  pass-through.  Its @c operator() returns its argument unchanged.
- *
- *  @addtogroup SGIextensions
-*/
-template <class _Tp> struct identity : public _Identity<_Tp> {};
-
-// extension documented next
 template <class _Pair>
 struct _Select1st : public unary_function<_Pair, typename _Pair::first_type> {
   typename _Pair::first_type& operator()(_Pair& __x) const {
@@ -614,191 +502,6 @@ struct _Select2nd : public unary_function<_Pair, typename _Pair::second_type>
   }
 };
 
-/** @c select1st and @c select2nd are extensions provided by SGI.  Their
- *  @c operator()s
- *  take a @c std::pair as an argument, and return either the first member
- *  or the second member, respectively.  They can be used (especially with
- *  the composition functors) to "strip" data from a sequence before
- *  performing the remainder of an algorithm.
- *
- *  @addtogroup SGIextensions
- *  @{
-*/
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Pair> struct select1st : public _Select1st<_Pair> {};
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Pair> struct select2nd : public _Select2nd<_Pair> {};
-/** @}  */
-
-// extension documented next
-template <class _Arg1, class _Arg2>
-struct _Project1st : public binary_function<_Arg1, _Arg2, _Arg1> {
-  _Arg1 operator()(const _Arg1& __x, const _Arg2&) const { return __x; }
-};
-
-template <class _Arg1, class _Arg2>
-struct _Project2nd : public binary_function<_Arg1, _Arg2, _Arg2> {
-  _Arg2 operator()(const _Arg1&, const _Arg2& __y) const { return __y; }
-};
-
-/** The @c operator() of the @c project1st functor takes two arbitrary
- *  arguments and returns the first one, while @c project2nd returns the
- *  second one.  They are extensions provided by SGI.
- *
- *  @addtogroup SGIextensions
- *  @{
-*/
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Arg1, class _Arg2> 
-struct project1st : public _Project1st<_Arg1, _Arg2> {};
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Arg1, class _Arg2>
-struct project2nd : public _Project2nd<_Arg1, _Arg2> {};
-/** @}  */
-
-// extension documented next
-template <class _Result>
-struct _Constant_void_fun {
-  typedef _Result result_type;
-  result_type _M_val;
-
-  _Constant_void_fun(const result_type& __v) : _M_val(__v) {}
-  const result_type& operator()() const { return _M_val; }
-};  
-
-template <class _Result, class _Argument>
-struct _Constant_unary_fun {
-  typedef _Argument argument_type;
-  typedef  _Result  result_type;
-  result_type _M_val;
-
-  _Constant_unary_fun(const result_type& __v) : _M_val(__v) {}
-  const result_type& operator()(const _Argument&) const { return _M_val; }
-};
-
-template <class _Result, class _Arg1, class _Arg2>
-struct _Constant_binary_fun {
-  typedef  _Arg1   first_argument_type;
-  typedef  _Arg2   second_argument_type;
-  typedef  _Result result_type;
-  _Result _M_val;
-
-  _Constant_binary_fun(const _Result& __v) : _M_val(__v) {}
-  const result_type& operator()(const _Arg1&, const _Arg2&) const {
-    return _M_val;
-  }
-};
-
-/** These three functors are each constructed from a single arbitrary
- *  variable/value.  Later, their @c operator()s completely ignore any
- *  arguments passed, and return the stored value.
- *  - @c constant_void_fun's @c operator() takes no arguments
- *  - @c constant_unary_fun's @c operator() takes one argument (ignored)
- *  - @c constant_binary_fun's @c operator() takes two arguments (ignored)
- *
- *  The helper creator functions @c constant0, @c constant1, and
- *  @c constant2 each take a "result" argument and construct variables of
- *  the appropriate functor type.
- *
- *  @addtogroup SGIextensions
- *  @{
-*/
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Result>
-struct constant_void_fun : public _Constant_void_fun<_Result> {
-  constant_void_fun(const _Result& __v) : _Constant_void_fun<_Result>(__v) {}
-};  
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Result,
-          class _Argument = _Result>
-struct constant_unary_fun : public _Constant_unary_fun<_Result, _Argument>
-{
-  constant_unary_fun(const _Result& __v)
-    : _Constant_unary_fun<_Result, _Argument>(__v) {}
-};
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Result,
-          class _Arg1 = _Result,
-          class _Arg2 = _Arg1>
-struct constant_binary_fun
-  : public _Constant_binary_fun<_Result, _Arg1, _Arg2>
-{
-  constant_binary_fun(const _Result& __v)
-    : _Constant_binary_fun<_Result, _Arg1, _Arg2>(__v) {}
-};
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Result>
-inline constant_void_fun<_Result> constant0(const _Result& __val)
-{
-  return constant_void_fun<_Result>(__val);
-}
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Result>
-inline constant_unary_fun<_Result,_Result> constant1(const _Result& __val)
-{
-  return constant_unary_fun<_Result,_Result>(__val);
-}
-
-/// An \link SGIextensions SGI extension \endlink.
-template <class _Result>
-inline constant_binary_fun<_Result,_Result,_Result> 
-constant2(const _Result& __val)
-{
-  return constant_binary_fun<_Result,_Result,_Result>(__val);
-}
-/** @}  */
-
-/** The @c subtractive_rng class is documented on
- *  <a href="http://www.sgi.com/tech/stl/">SGI's site</a>.
- *  Note that this code assumes that @c int is 32 bits.
- *
- *  @ingroup SGIextensions
-*/
-class subtractive_rng : public unary_function<unsigned int, unsigned int> {
-private:
-  unsigned int _M_table[55];
-  size_t _M_index1;
-  size_t _M_index2;
-public:
-  /// Returns a number less than the argument.
-  unsigned int operator()(unsigned int __limit) {
-    _M_index1 = (_M_index1 + 1) % 55;
-    _M_index2 = (_M_index2 + 1) % 55;
-    _M_table[_M_index1] = _M_table[_M_index1] - _M_table[_M_index2];
-    return _M_table[_M_index1] % __limit;
-  }
-
-  void _M_initialize(unsigned int __seed)
-  {
-    unsigned int __k = 1;
-    _M_table[54] = __seed;
-    size_t __i;
-    for (__i = 0; __i < 54; __i++) {
-        size_t __ii = (21 * (__i + 1) % 55) - 1;
-        _M_table[__ii] = __k;
-        __k = __seed - __k;
-        __seed = _M_table[__ii];
-    }
-    for (int __loop = 0; __loop < 4; __loop++) {
-        for (__i = 0; __i < 55; __i++)
-            _M_table[__i] = _M_table[__i] - _M_table[(1 + __i + 30) % 55];
-    }
-    _M_index1 = 0;
-    _M_index2 = 31;
-  }
-
-  /// Ctor allowing you to initialize the seed.
-  subtractive_rng(unsigned int __seed) { _M_initialize(__seed); }
-  /// Default ctor; initializes its state with some number you don't see.
-  subtractive_rng() { _M_initialize(161803398u); }
-};
-
-
 // 20.3.8 adaptors pointers members
 /** @defgroup s20_3_8_memadaptors Adaptors for pointers to members
  *  There are a total of 16 = 2^4 function objects in this family.
@@ -818,12 +521,10 @@ public:
  *  All of this complexity is in the function objects themselves.  You can
  *   ignore it by using the helper function mem_fun and mem_fun_ref,
  *   which create whichever type of adaptor is appropriate.
- *   (mem_fun1 and mem_fun1_ref are no longer part of the C++ standard,
- *   but they are provided for backward compatibility.)
  *
  *  @{
 */
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp>
 class mem_fun_t : public unary_function<_Tp*,_Ret> {
 public:
@@ -833,7 +534,7 @@ private:
   _Ret (_Tp::*_M_f)();
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp>
 class const_mem_fun_t : public unary_function<const _Tp*,_Ret> {
 public:
@@ -843,7 +544,7 @@ private:
   _Ret (_Tp::*_M_f)() const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp>
 class mem_fun_ref_t : public unary_function<_Tp,_Ret> {
 public:
@@ -853,7 +554,7 @@ private:
   _Ret (_Tp::*_M_f)();
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp>
 class const_mem_fun_ref_t : public unary_function<_Tp,_Ret> {
 public:
@@ -863,7 +564,7 @@ private:
   _Ret (_Tp::*_M_f)() const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp, class _Arg>
 class mem_fun1_t : public binary_function<_Tp*,_Arg,_Ret> {
 public:
@@ -873,7 +574,7 @@ private:
   _Ret (_Tp::*_M_f)(_Arg);
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp, class _Arg>
 class const_mem_fun1_t : public binary_function<const _Tp*,_Arg,_Ret> {
 public:
@@ -884,7 +585,7 @@ private:
   _Ret (_Tp::*_M_f)(_Arg) const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp, class _Arg>
 class mem_fun1_ref_t : public binary_function<_Tp,_Arg,_Ret> {
 public:
@@ -894,7 +595,7 @@ private:
   _Ret (_Tp::*_M_f)(_Arg);
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Ret, class _Tp, class _Arg>
 class const_mem_fun1_ref_t : public binary_function<_Tp,_Arg,_Ret> {
 public:
@@ -904,7 +605,7 @@ private:
   _Ret (_Tp::*_M_f)(_Arg) const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp>
 class mem_fun_t<void, _Tp> : public unary_function<_Tp*,void> {
 public:
@@ -914,7 +615,7 @@ private:
   void (_Tp::*_M_f)();
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp>
 class const_mem_fun_t<void, _Tp> : public unary_function<const _Tp*,void> {
 public:
@@ -924,7 +625,7 @@ private:
   void (_Tp::*_M_f)() const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp>
 class mem_fun_ref_t<void, _Tp> : public unary_function<_Tp,void> {
 public:
@@ -934,7 +635,7 @@ private:
   void (_Tp::*_M_f)();
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp>
 class const_mem_fun_ref_t<void, _Tp> : public unary_function<_Tp,void> {
 public:
@@ -944,7 +645,7 @@ private:
   void (_Tp::*_M_f)() const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp, class _Arg>
 class mem_fun1_t<void, _Tp, _Arg> : public binary_function<_Tp*,_Arg,void> {
 public:
@@ -954,7 +655,7 @@ private:
   void (_Tp::*_M_f)(_Arg);
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp, class _Arg>
 class const_mem_fun1_t<void, _Tp, _Arg> 
   : public binary_function<const _Tp*,_Arg,void> {
@@ -965,7 +666,7 @@ private:
   void (_Tp::*_M_f)(_Arg) const;
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp, class _Arg>
 class mem_fun1_ref_t<void, _Tp, _Arg>
   : public binary_function<_Tp,_Arg,void> {
@@ -976,7 +677,7 @@ private:
   void (_Tp::*_M_f)(_Arg);
 };
 
-/// One of the @link s20_3_8_memadaptors adaptors for member pointers @endlink.
+/// One of the @link s20_3_8_memadaptors adaptors for member pointers@endlink.
 template <class _Tp, class _Arg>
 class const_mem_fun1_ref_t<void, _Tp, _Arg>
   : public binary_function<_Tp,_Arg,void> {
@@ -989,9 +690,7 @@ private:
 
 
 // Mem_fun adaptor helper functions.  There are only two:
-//  mem_fun and mem_fun_ref.  (mem_fun1 and mem_fun1_ref 
-//  are provided for backward compatibility, but they are no longer
-//  part of the C++ standard.)
+// mem_fun and mem_fun_ref.
 
 template <class _Ret, class _Tp>
 inline mem_fun_t<_Ret,_Tp> mem_fun(_Ret (_Tp::*__f)())
@@ -1026,27 +725,11 @@ inline const_mem_fun1_ref_t<_Ret,_Tp,_Arg>
 mem_fun_ref(_Ret (_Tp::*__f)(_Arg) const)
   { return const_mem_fun1_ref_t<_Ret,_Tp,_Arg>(__f); }
 
-template <class _Ret, class _Tp, class _Arg>
-inline mem_fun1_t<_Ret,_Tp,_Arg> mem_fun1(_Ret (_Tp::*__f)(_Arg))
-  { return mem_fun1_t<_Ret,_Tp,_Arg>(__f); }
-
-template <class _Ret, class _Tp, class _Arg>
-inline const_mem_fun1_t<_Ret,_Tp,_Arg> mem_fun1(_Ret (_Tp::*__f)(_Arg) const)
-  { return const_mem_fun1_t<_Ret,_Tp,_Arg>(__f); }
-
-template <class _Ret, class _Tp, class _Arg>
-inline mem_fun1_ref_t<_Ret,_Tp,_Arg> mem_fun1_ref(_Ret (_Tp::*__f)(_Arg))
-  { return mem_fun1_ref_t<_Ret,_Tp,_Arg>(__f); }
-
-template <class _Ret, class _Tp, class _Arg>
-inline const_mem_fun1_ref_t<_Ret,_Tp,_Arg>
-mem_fun1_ref(_Ret (_Tp::*__f)(_Arg) const)
-  { return const_mem_fun1_ref_t<_Ret,_Tp,_Arg>(__f); }
 /** @}  */
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_FUNCTION_H */
+#endif /* __GLIBCPP_INTERNAL_FUNCTION_H */
 
 // Local Variables:
 // mode:C++

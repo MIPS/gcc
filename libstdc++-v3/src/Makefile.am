@@ -60,14 +60,16 @@ INCLUDES = \
 	$(TOPLEVEL_INCLUDES)
 
 sources = \
-	basic_file.cc bitset.cc c++locale.cc cmath.cc codecvt.cc \
-	complex_io.cc functexcept.cc globals.cc ios.cc limits.cc \
-	locale.cc locale-inst.cc localename.cc \
-	collate.cc messages.cc moneypunct.cc numpunct.cc time.cc \
-	misc-inst.cc stdexcept.cc stl-inst.cc string-inst.cc strstream.cc \
-	valarray-inst.cc wstring-inst.cc
+	globals.cc limits.cc \
+	basic_file.cc complex_io.cc ios.cc strstream.cc \
+	cmath.cc bitset.cc \
+	functexcept.cc stdexcept.cc vterminate.cc \
+	c++locale.cc locale.cc localename.cc codecvt.cc \
+	collate.cc ctype.cc messages.cc moneypunct.cc numpunct.cc time.cc \
+	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
+	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
 
-VPATH = $(top_srcdir):$(top_srcdir)/src
+VPATH = $(top_srcdir)/src:$(top_srcdir)
 
 libstdc___la_SOURCES = $(sources)
 
@@ -84,9 +86,17 @@ libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
 # deprecated include files.
 GLIBCPP_INCLUDE_DIR=@glibcpp_builddir@/include
 strstream.lo: strstream.cc
-	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
 strstream.o: strstream.cc
-	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
+
+# Use special rules for the concept-checking instantiations so that all
+# the generated template functions are also instantiated.  Force the checks
+# to be on so that the instantiations are actually seen.
+concept-inst.lo: concept-inst.cc
+	$(LTCXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
+concept-inst.o: concept-inst.cc
+	$(CXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
 
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
@@ -94,10 +104,6 @@ strstream.o: strstream.cc
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion call for it. (ie, --enable-debug)
-#
-# The no-implicit-templates flag will generate unresolved references to
-# the concept-checking symbols.  So we must disable the checks while
-# actually building the library.
 AM_CXXFLAGS = \
 	-fno-implicit-templates \
 	$(LIBSUPCXX_CXXFLAGS) \

@@ -75,6 +75,7 @@ CCODECVT_H = @CCODECVT_H@
 CLOCALE_H = @CLOCALE_H@
 CMESSAGES_H = @CMESSAGES_H@
 CPP = @CPP@
+CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
 CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CSTDIO_H = @CSTDIO_H@
 CXXCPP = @CXXCPP@
@@ -100,7 +101,6 @@ LIBICONV = @LIBICONV@
 LIBMATHOBJS = @LIBMATHOBJS@
 LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
 LIBTOOL = @LIBTOOL@
-LIMITS_INC_SRCDIR = @LIMITS_INC_SRCDIR@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
@@ -185,15 +185,17 @@ INCLUDES = \
 
 
 sources = \
-	basic_file.cc bitset.cc c++locale.cc cmath.cc codecvt.cc \
-	complex_io.cc functexcept.cc globals.cc ios.cc limits.cc \
-	locale.cc locale-inst.cc localename.cc \
-	collate.cc messages.cc moneypunct.cc numpunct.cc time.cc \
-	misc-inst.cc stdexcept.cc stl-inst.cc string-inst.cc strstream.cc \
-	valarray-inst.cc wstring-inst.cc
+	globals.cc limits.cc \
+	basic_file.cc complex_io.cc ios.cc strstream.cc \
+	cmath.cc bitset.cc \
+	functexcept.cc stdexcept.cc vterminate.cc \
+	c++locale.cc locale.cc localename.cc codecvt.cc \
+	collate.cc ctype.cc messages.cc moneypunct.cc numpunct.cc time.cc \
+	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
+	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
 
 
-VPATH = $(top_srcdir):$(top_srcdir)/src
+VPATH = $(top_srcdir)/src:$(top_srcdir)
 
 libstdc___la_SOURCES = $(sources)
 
@@ -215,10 +217,6 @@ GLIBCPP_INCLUDE_DIR = @glibcpp_builddir@/include
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion call for it. (ie, --enable-debug)
-#
-# The no-implicit-templates flag will generate unresolved references to
-# the concept-checking symbols.  So we must disable the checks while
-# actually building the library.
 AM_CXXFLAGS = \
 	-fno-implicit-templates \
 	$(LIBSUPCXX_CXXFLAGS) \
@@ -267,11 +265,12 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I..
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libstdc___la_OBJECTS =  basic_file.lo bitset.lo c++locale.lo cmath.lo \
-codecvt.lo complex_io.lo functexcept.lo globals.lo ios.lo limits.lo \
-locale.lo locale-inst.lo localename.lo collate.lo messages.lo \
-moneypunct.lo numpunct.lo time.lo misc-inst.lo stdexcept.lo stl-inst.lo \
-string-inst.lo strstream.lo valarray-inst.lo wstring-inst.lo
+libstdc___la_OBJECTS =  globals.lo limits.lo basic_file.lo complex_io.lo \
+ios.lo strstream.lo cmath.lo bitset.lo functexcept.lo stdexcept.lo \
+vterminate.lo c++locale.lo locale.lo localename.lo codecvt.lo \
+collate.lo ctype.lo messages.lo moneypunct.lo numpunct.lo time.lo \
+concept-inst.lo locale-inst.lo misc-inst.lo stl-inst.lo string-inst.lo \
+wstring-inst.lo valarray-inst.lo ext-inst.lo
 CXXFLAGS = @CXXFLAGS@
 CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
@@ -498,9 +497,17 @@ installdirs mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 strstream.lo: strstream.cc
-	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
 strstream.o: strstream.cc
-	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
+
+# Use special rules for the concept-checking instantiations so that all
+# the generated template functions are also instantiated.  Force the checks
+# to be on so that the instantiations are actually seen.
+concept-inst.lo: concept-inst.cc
+	$(LTCXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
+concept-inst.o: concept-inst.cc
+	$(CXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -109,9 +109,6 @@ Boston, MA 02111-1307, USA.  */
 #define NO_DOLLAR_IN_LABEL 1
 #endif
 
-/* DBX register number for a given compiler register number */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
-
 /* Generate DBX debugging information.  riscix.h will undefine this because
    the native assembler does not support stabs. */
 #ifndef DBX_DEBUGGING_INFO
@@ -187,78 +184,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL)  \
   asm_fprintf (STREAM, "\tb\t%LL%d\n", VALUE)
 
-/* Output various types of constants.  For real numbers we output hex, with
-   a comment containing the "human" value, this allows us to pass NaN's which
-   the riscix assembler doesn't understand (it also makes cross-assembling
-   less likely to fail). */
-
-#define ASM_OUTPUT_LONG_DOUBLE(STREAM, VALUE)				\
-  do									\
-    {									\
-      char dstr[30];							\
-      long l[3];							\
-      REAL_VALUE_TO_TARGET_LONG_DOUBLE (VALUE, l);			\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.20g", dstr);			\
-      asm_fprintf (STREAM,						\
-		   "\t.long 0x%lx,0x%lx,0x%lx\t%@ long double %s\n",	\
-		   l[0], l[1], l[2], dstr);				\
-    }									\
-  while (0)
-
-#define ASM_OUTPUT_DOUBLE(STREAM, VALUE)				\
-  do									\
-    {									\
-      char dstr[30];							\
-      long l[2];							\
-      REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);				\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.14g", dstr);			\
-      asm_fprintf (STREAM, "\t.long 0x%lx, 0x%lx\t%@ double %s\n", l[0],\
-	           l[1], dstr);						\
-    }									\
-  while (0)
-
-#define ASM_OUTPUT_FLOAT(STREAM, VALUE)				\
-  do								\
-    {								\
-      char dstr[30];						\
-      long l;							\
-      REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);			\
-      REAL_VALUE_TO_DECIMAL (VALUE, "%.7g", dstr);		\
-      asm_fprintf (STREAM, "\t.word 0x%lx\t%@ float %s\n", l,	\
-	           dstr);					\
-    }								\
-  while (0)
-
-#define ASM_OUTPUT_INT(STREAM, EXP)		\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.word\t");		\
-      OUTPUT_INT_ADDR_CONST (STREAM, EXP);	\
-      fputc ('\n', STREAM);			\
-    }						\
-  while (0)
-
-#define ASM_OUTPUT_SHORT(STREAM, EXP)		\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.short\t");		\
-      output_addr_const (STREAM, EXP);		\
-      fputc ('\n', STREAM);			\
-    }						\
-  while (0)
-
-#define ASM_OUTPUT_CHAR(STREAM, EXP)		\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.byte\t");		\
-      output_addr_const (STREAM, EXP);		\
-      fputc ('\n', STREAM);			\
-    }						\
-  while (0)
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE)  	\
-  fprintf (STREAM, "\t.byte\t%d\n", VALUE)
-
 #undef  ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(STREAM, PTR, LEN)  \
   output_ascii_pseudo_op (STREAM, (const unsigned char *)(PTR), LEN)
@@ -333,5 +258,3 @@ Boston, MA 02111-1307, USA.  */
 
 /* This works for GAS and some other assemblers.  */
 #define SET_ASM_OP		"\t.set\t"
-
-#include "arm.h"

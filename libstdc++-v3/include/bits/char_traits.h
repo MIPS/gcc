@@ -31,12 +31,17 @@
 // ISO C++ 14882: 21  Strings library
 //
 
+/** @file char_traits.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_CHAR_TRAITS_H
 #define _CPP_BITS_CHAR_TRAITS_H 1
 
 #pragma GCC system_header
 
-#include <bits/std_cstring.h> 	// For memmove, memset, memchr
+#include <cstring> 	// For memmove, memset, memchr
 #include <bits/fpos.h> 		// For streampos
 
 namespace std 

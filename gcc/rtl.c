@@ -1,5 +1,5 @@
 /* RTL utility routines.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -30,7 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Calculate the format for CONST_DOUBLE.  This depends on the relative
    widths of HOST_WIDE_INT and REAL_VALUE_TYPE.
 
-   We need to go out to e0wwwww, since REAL_ARITHMETIC assumes 16-bits
+   We need to go out to 0wwwww, since REAL_ARITHMETIC assumes 16-bits
    per element in REAL_VALUE_TYPE.
 
    This is duplicated in gengenrtl.c.
@@ -70,19 +70,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif /* REAL_WIDTH */
 
 #if REAL_WIDTH == 1
-# define CONST_DOUBLE_FORMAT	"e0ww"
+# define CONST_DOUBLE_FORMAT	"0ww"
 #else
 # if REAL_WIDTH == 2
-#  define CONST_DOUBLE_FORMAT	"e0ww"
+#  define CONST_DOUBLE_FORMAT	"0ww"
 # else
 #  if REAL_WIDTH == 3
-#   define CONST_DOUBLE_FORMAT	"e0www"
+#   define CONST_DOUBLE_FORMAT	"0www"
 #  else
 #   if REAL_WIDTH == 4
-#    define CONST_DOUBLE_FORMAT	"e0wwww"
+#    define CONST_DOUBLE_FORMAT	"0wwww"
 #   else
 #    if REAL_WIDTH == 5
-#     define CONST_DOUBLE_FORMAT	"e0wwwww"
+#     define CONST_DOUBLE_FORMAT	"0wwwww"
 #    else
 #     define CONST_DOUBLE_FORMAT	/* nothing - will cause syntax error */
 #    endif
@@ -96,7 +96,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   sizeof FORMAT - 1 ,
 
-const int rtx_length[NUM_RTX_CODE + 1] = {
+const unsigned char rtx_length[NUM_RTX_CODE] = {
 #include "rtl.def"
 };
 
@@ -106,7 +106,7 @@ const int rtx_length[NUM_RTX_CODE + 1] = {
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
 
-const char * const rtx_name[] = {
+const char * const rtx_name[NUM_RTX_CODE] = {
 #include "rtl.def"		/* rtl expressions are documented here */
 };
 
@@ -117,7 +117,7 @@ const char * const rtx_name[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  NAME,
 
-const char * const mode_name[] = {
+const char * const mode_name[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -127,7 +127,7 @@ const char * const mode_name[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  CLASS,
 
-const enum mode_class mode_class[] = {
+const enum mode_class mode_class[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -138,7 +138,7 @@ const enum mode_class mode_class[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  BITSIZE,
 
-const unsigned int mode_bitsize[] = {
+const unsigned short mode_bitsize[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -149,7 +149,7 @@ const unsigned int mode_bitsize[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  SIZE,
 
-const unsigned int mode_size[] = {
+const unsigned char mode_size[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -160,7 +160,7 @@ const unsigned int mode_size[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  UNIT,
 
-const unsigned int mode_unit_size[] = {
+const unsigned char mode_unit_size[NUM_MACHINE_MODES] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
@@ -173,18 +173,18 @@ const unsigned int mode_unit_size[] = {
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
   (unsigned char) WIDER,
 
-const unsigned char mode_wider_mode[] = {
+const unsigned char mode_wider_mode[NUM_MACHINE_MODES] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
 #undef DEF_MACHMODE
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
-  ((BITSIZE) >= HOST_BITS_PER_WIDE_INT) ? ~(unsigned HOST_WIDE_INT)0 : ((unsigned HOST_WIDE_INT) 1 << (BITSIZE)) - 1,
+  ((BITSIZE) >= HOST_BITS_PER_WIDE_INT) ? ~(unsigned HOST_WIDE_INT) 0 : ((unsigned HOST_WIDE_INT) 1 << (BITSIZE)) - 1,
 
 /* Indexed by machine mode, gives mask of significant bits in mode.  */
 
-const unsigned HOST_WIDE_INT mode_mask_array[] = {
+const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -214,7 +214,7 @@ const enum machine_mode class_narrowest_mode[(int) MAX_MODE_CLASS] = {
    rtx's of that code.  The sequence is a C string in which
    each character describes one operand.  */
 
-const char * const rtx_format[] = {
+const char * const rtx_format[NUM_RTX_CODE] = {
   /* "*" undefined.
          can cause a warning message
      "0" field is unused (or used in a phase-dependent manner)
@@ -249,7 +249,7 @@ const char * const rtx_format[] = {
 /* Indexed by rtx code, gives a character representing the "class" of
    that rtx code.  See rtl.def for documentation on the defined classes.  */
 
-const char rtx_class[] = {
+const char rtx_class[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   CLASS,
 #include "rtl.def"		/* rtl expressions are defined here */
 #undef DEF_RTL_EXPR
@@ -263,7 +263,7 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
   "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
   "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
   "NOTE_INSN_LOOP_CONT", "NOTE_INSN_LOOP_VTOP",
-  "NOTE_INSN_FUNCTION_END",
+  "NOTE_INSN_LOOP_END_TOP_COND", "NOTE_INSN_FUNCTION_END",
   "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
   "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
@@ -531,6 +531,7 @@ copy_most_rtx (orig, may_share)
 }
 
 /* Create a new copy of an rtx.  Only copy just one level.  */
+
 rtx
 shallow_copy_rtx (orig)
      rtx orig;
@@ -550,6 +551,23 @@ shallow_copy_rtx (orig)
     copy->fld[i] = orig->fld[i];
 
   return copy;
+}
+
+/* Return the alignment of MODE. This will be bounded by 1 and
+   BIGGEST_ALIGNMENT.  */
+
+unsigned int
+get_mode_alignment (mode)
+     enum machine_mode mode;
+{
+  unsigned int alignment = GET_MODE_UNIT_SIZE (mode);
+  
+  /* Extract the LSB of the size.  */
+  alignment = alignment & -alignment;
+  alignment *= BITS_PER_UNIT;
+
+  alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
+  return alignment;
 }
 
 /* This is 1 until after the rtl generation pass.  */
@@ -652,7 +670,9 @@ rtx_equal_p (x, y)
 
 	case 'S':
 	case 's':
-	  if (strcmp (XSTR (x, i), XSTR (y, i)))
+	  if ((XSTR (x, i) || XSTR (y, i))
+	      && (! XSTR (x, i) || ! XSTR (y, i)
+		  || strcmp (XSTR (x, i), XSTR (y, i))))
 	    return 0;
 	  break;
 

@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                           (DEC Unix Version)                             --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.20 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --

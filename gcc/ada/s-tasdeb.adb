@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1 $
+--                             $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -91,7 +91,7 @@ package body System.Tasking.Debug is
       Width  : Integer;
       Buffer : Buffer_Ptr);
    --  Put TCB pointer T, (coded in hexadecimal) into Buffer
-   --  right-justififed in Width characters.
+   --  right-justified in Width characters.
 
    procedure Put
      (N      : Integer_Address;
@@ -499,12 +499,15 @@ package body System.Tasking.Debug is
       R : Boolean;
 
    begin
+      STPO.Lock_All_Tasks_List;
       C := All_Tasks_List;
 
       while C /= null loop
          R := STPO.Resume_Task (C, Thread_Self);
          C := C.Common.All_Tasks_Link;
       end loop;
+
+      STPO.Unlock_All_Tasks_List;
    end Resume_All_Tasks;
 
    ----------
@@ -577,12 +580,15 @@ package body System.Tasking.Debug is
       R : Boolean;
 
    begin
+      STPO.Lock_All_Tasks_List;
       C := All_Tasks_List;
 
       while C /= null loop
          R := STPO.Suspend_Task (C, Thread_Self);
          C := C.Common.All_Tasks_Link;
       end loop;
+
+      STPO.Unlock_All_Tasks_List;
    end Suspend_All_Tasks;
 
    ------------------------

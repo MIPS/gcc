@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GNU CC.
@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "varray.h"
 #include "hashtab.h"
 #include "splay-tree.h"
+#include "langhooks.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -147,8 +148,6 @@ remap_decl (decl, id)
       /* The decl T could be a dynamic array or other variable size type,
 	 in which case some fields need to be remapped because they may
 	 contain SAVE_EXPRs.  */
-      walk_tree (&DECL_SIZE (t), copy_body_r, id, NULL);
-      walk_tree (&DECL_SIZE_UNIT (t), copy_body_r, id, NULL);
       if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
 	  && TYPE_DOMAIN (TREE_TYPE (t)))
 	{
@@ -351,6 +350,7 @@ copy_body_r (tp, walk_subtrees, data)
       /* Build the GOTO_STMT.  */
       goto_stmt = build_stmt (GOTO_STMT, id->ret_label);
       TREE_CHAIN (goto_stmt) = TREE_CHAIN (return_stmt);
+      GOTO_FAKE_P (goto_stmt) = 1;
 
       /* If we're returning something, just turn that into an
 	 assignment into the equivalent of the original
@@ -624,7 +624,9 @@ declare_return_variable (id, use_stmt)
     *use_stmt = build_stmt (EXPR_STMT,
 			    build1 (NOP_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 				    var));
-      
+
+  TREE_ADDRESSABLE (*use_stmt) = 1;
+
   /* Build the declaration statement if FN does not return an
      aggregate.  */
   if (need_return_decl)
@@ -807,9 +809,24 @@ expand_call_inline (tp, walk_subtrees, data)
   if (!fn)
     return NULL_TREE;
 
+  /* If fn is a declaration of a function in a nested scope that was
+     globally declared inline, we don't set its DECL_INITIAL.
+     However, we can't blindly follow DECL_ABSTRACT_ORIGIN because the
+     C++ front-end uses it for cdtors to refer to their internal
+     declarations, that are not real functions.  Fortunately those
+     don't have trees to be saved, so we can tell by checking their
+     DECL_SAVED_TREE.  */
+  if (! DECL_INITIAL (fn)
+      && DECL_ABSTRACT_ORIGIN (fn)
+      && DECL_SAVED_TREE (DECL_ABSTRACT_ORIGIN (fn)))
+    fn = DECL_ABSTRACT_ORIGIN (fn);
+
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
   if (!inlinable_function_p (fn, id))
+    return NULL_TREE;
+
+  if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     return NULL_TREE;
 
   /* Set the current filename and line number to the function we are
@@ -864,6 +881,10 @@ expand_call_inline (tp, walk_subtrees, data)
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
 
+  if (! DECL_INITIAL (fn)
+      || TREE_CODE (DECL_INITIAL (fn)) != BLOCK)
+    abort ();
+
   /* Create a block to put the parameters in.  We have to do this
      after the parameters have been remapped because remapping
      parameters is different from remapping ordinary variables.  */
@@ -894,9 +915,6 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Close the block for the parameters.  */
   scope_stmt = build_stmt (SCOPE_STMT, DECL_INITIAL (fn));
   SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
-  if (! DECL_INITIAL (fn)
-      || TREE_CODE (DECL_INITIAL (fn)) != BLOCK)
-    abort ();
   remap_block (scope_stmt, NULL_TREE, id);
   STMT_EXPR_STMT (expr)
     = chainon (STMT_EXPR_STMT (expr), scope_stmt);
@@ -949,6 +967,8 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Don't walk into subtrees.  We've already handled them above.  */
   *walk_subtrees = 0;
+
+  (*lang_hooks.tree_inlining.end_inlining) (fn);
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -1088,6 +1108,15 @@ walk_tree (tp, func, data, htab_)
     }							\
   while (0)
 
+#define WALK_SUBTREE_TAIL(NODE)				\
+  do							\
+    {							\
+       tp = & (NODE);					\
+       goto tail_recurse;				\
+    }							\
+  while (0)
+
+ tail_recurse:
   /* Skip empty subtrees.  */
   if (!*tp)
     return NULL_TREE;
@@ -1122,7 +1151,7 @@ walk_tree (tp, func, data, htab_)
       if (statement_code_p (code) || code == TREE_LIST
 	  || (*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
 	/* But we still need to check our siblings.  */
-	return walk_tree (&TREE_CHAIN (*tp), func, data, htab);
+	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
       else
 	return NULL_TREE;
     }
@@ -1170,7 +1199,7 @@ walk_tree (tp, func, data, htab_)
 	    }
 
 	  /* This can be tail-recursion optimized if we write it this way.  */
-	  return walk_tree (&TREE_CHAIN (*tp), func, data, htab);
+	  WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
 	}
 
       /* We didn't find what we were looking for.  */
@@ -1178,10 +1207,7 @@ walk_tree (tp, func, data, htab_)
     }
   else if (TREE_CODE_CLASS (code) == 'd')
     {
-      WALK_SUBTREE (TREE_TYPE (*tp));
-
-      /* We didn't find what we were looking for.  */
-      return NULL_TREE;
+      WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
     }
 
   result = (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
@@ -1213,30 +1239,35 @@ walk_tree (tp, func, data, htab_)
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      WALK_SUBTREE (TREE_TYPE (*tp));
+      WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
       break;
 
     case TREE_LIST:
       WALK_SUBTREE (TREE_VALUE (*tp));
-      WALK_SUBTREE (TREE_CHAIN (*tp));
+      WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
       break;
 
     case TREE_VEC:
       {
 	int len = TREE_VEC_LENGTH (*tp);
-	while (len--)
+
+	if (len == 0)
+	  break;
+
+	/* Walk all elements but the first.  */
+	while (--len)
 	  WALK_SUBTREE (TREE_VEC_ELT (*tp, len));
+
+	/* Now walk the first one as a tail call.  */
+	WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
       }
-      break;
 
     case COMPLEX_CST:
       WALK_SUBTREE (TREE_REALPART (*tp));
-      WALK_SUBTREE (TREE_IMAGPART (*tp));
-      break;
+      WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
 
     case CONSTRUCTOR:
-      WALK_SUBTREE (CONSTRUCTOR_ELTS (*tp));
-      break;
+      WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
 
     case METHOD_TYPE:
       WALK_SUBTREE (TYPE_METHOD_BASETYPE (*tp));
@@ -1255,18 +1286,15 @@ walk_tree (tp, func, data, htab_)
 
     case ARRAY_TYPE:
       WALK_SUBTREE (TREE_TYPE (*tp));
-      WALK_SUBTREE (TYPE_DOMAIN (*tp));
-      break;
+      WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
 
     case INTEGER_TYPE:
       WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
-      WALK_SUBTREE (TYPE_MAX_VALUE (*tp));
-      break;
+      WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
 
     case OFFSET_TYPE:
       WALK_SUBTREE (TREE_TYPE (*tp));
-      WALK_SUBTREE (TYPE_OFFSET_BASETYPE (*tp));
-      break;
+      WALK_SUBTREE_TAIL (TYPE_OFFSET_BASETYPE (*tp));
 
     default:
       abort ();
@@ -1373,6 +1401,9 @@ remap_save_expr (tp, st_, fn, walk_subtrees)
       n = splay_tree_insert (st,
 			     (splay_tree_key) *tp,
 			     (splay_tree_value) t);
+      /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
+      splay_tree_insert (st, (splay_tree_key) t,
+			 (splay_tree_value) error_mark_node);
     }
   else
     /* We've already walked into this SAVE_EXPR, so we needn't do it

@@ -1,7 +1,7 @@
 # Makefile for GNU F77 compiler runtime.
 # Copyright 1990 - 1994 by AT&T Bell Laboratories and Bellcore (see the
 # file `Notice').
-# Portions of this file Copyright (C) 1995-1998 Free Software Foundation, Inc.
+# Portions of this file Copyright (C) 1995-1998, 2001 Free Software Foundation, Inc.
 #   Contributed by Dave Love (d.love@dl.ac.uk).
 #
 #This file is part of GNU Fortran.
@@ -38,6 +38,7 @@ CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 AR = @AR@
 ARFLAGS = rc
+RANLIB = @RANLIB@
 @SET_MAKE@
 
 SHELL = /bin/sh
@@ -81,14 +82,10 @@ OBJS = $(MISC) $(POW) $(CX) $(DCX) $(REAL) $(DBL) $(INT) \
 all: ../s-libf77 ../libfrtbegin.a
 
 ../s-libf77: $(OBJS)
-	echo timestamp > ../s-libf77
-
-objlist:
-	objs="`cat ../objlist`" ; for i in $(OBJS) ; do \
-	   x=`echo $$i` ;\
-	   objs="$$objs libF77/$$x" ;\
-	done ; \
-	echo -n $$objs > ../objlist
+	-rm -f $@.T $@
+	objs='$(OBJS)'; for name in $$objs; do \
+	  echo libF77/$${name} >> $@.T; done
+	mv $@.T $@
 
 Makefile: Makefile.in config.status
 	$(SHELL) config.status
@@ -109,7 +106,8 @@ frtbegin.o : main.c
 	$(CC) -c $(ALL_CFLAGS) $(srcdir)/main.c -o $@
 
 ../libfrtbegin.a: frtbegin.o
-	$(AR) $(ARFLAGS) $@ $<
+	-rm -f $@
+	$(AR) $(ARFLAGS) $@ frtbegin.o
 	$(RANLIB) $@
 
 F77_aloc.lo: F77_aloc.c
@@ -152,6 +150,7 @@ z_cos.lo: z_cos.c
 z_div.lo: z_div.c
 z_exp.lo: z_exp.c
 z_log.lo: z_log.c
+	@LIBTOOL@ --mode=compile $(CC) -c -DSkip_f2c_Undefs $(ALL_CFLAGS) -ffloat-store $(srcdir)/z_log.c
 z_sin.lo: z_sin.c
 z_sqrt.lo: z_sqrt.c
 r_abs.lo: r_abs.c

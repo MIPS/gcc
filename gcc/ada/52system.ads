@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                         (LynxOS PPC/x86 Version)
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.4 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --

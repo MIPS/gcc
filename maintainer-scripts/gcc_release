@@ -267,6 +267,8 @@ build_tarfiles() {
   build_tarfile gcc-${RELEASE} `basename ${SOURCE_DIRECTORY}`
 
   # Now, build one for each of the languages.
+  build_tarfile gcc-ada-${RELEASE} ${ADA_DIRS}
+  build_tarfile gcc-chill-${RELEASE} ${CHILL_DIRS}
   build_tarfile gcc-g++-${RELEASE} ${CPLUSPLUS_DIRS}
   build_tarfile gcc-g77-${RELEASE} ${FORTRAN_DIRS}
   build_tarfile gcc-java-${RELEASE} ${JAVA_DIRS}
@@ -275,8 +277,8 @@ build_tarfiles() {
    
   # The core is everything else.
   EXCLUDES=""
-  for x in ${CPLUSPLUS_DIRS} ${FORTRAN_DIRS} ${JAVA_DIRS} \
-           ${OBJECTIVEC_DIRS} ${TESTSUITE_DIRS}; do
+  for x in ${ADA_DIRS} ${CHILL_DIRS} ${CPLUSPLUS_DIRS} ${FORTRAN_DIRS} \
+	   ${JAVA_DIRS} ${OBJECTIVEC_DIRS} ${TESTSUITE_DIRS}; do
     EXCLUDES="${EXCLUDES} --exclude $x"
   done
   build_tarfile gcc-core-${RELEASE} ${EXCLUDES} \
@@ -292,7 +294,7 @@ build_tarfiles() {
   # Build .bz2 files.
   for f in ${FILE_LIST}; do
     bzfile=${f%.gz}.bz2
-    zcat $f | ${BZIP2} > ${bzfile}
+    (zcat $f | ${BZIP2} > ${bzfile}) || error "Could not create ${bzfile}"
     FILE_LIST="${FILE_LIST} ${bzfile}"
   done
 }
@@ -322,10 +324,11 @@ build_diff() {
   changedir $tmpdir
   tar xfz $1 || error "Could not unpack $1 for diffs"
   tar xfz $3 || error "Could not unpack $3 for diffs"
-  ${DIFF} $2 $4 | ${GZIP} > ../$5
+  ${DIFF} $2 $4 > ../${5%.gz}
   if [ $? -eq 2 ]; then
     error "Trouble making diffs from $1 to $3"
   fi
+  ${GZIP} ../${5%.gz} || error "Could not gzip ../${5%.gz}"
   changedir ..
   rm -rf $tmpdir
   FILE_LIST="${FILE_LIST} $5"
@@ -406,6 +409,8 @@ SOURCE_DIRECTORY=""
 
 # The directories that should be part of the various language-specific
 # tar files.  These are all relative to the top of the source tree.
+ADA_DIRS="gcc/ada"
+CHILL_DIRS="gcc/ch libchill"
 CPLUSPLUS_DIRS="gcc/cp libstdc++-v3"
 FORTRAN_DIRS="gcc/f libf2c"
 JAVA_DIRS="gcc/java libjava libffi fastjar zlib boehm-gc"
@@ -457,7 +462,7 @@ while getopts "d:fr:u:t:p:sl" ARG; do
     l)    LOCAL=1
 	  SCP=cp
 	  FTP_PATH=~ftp/pub/gcc
-	  PATH=~:$PATH;;
+	  PATH=~:/usr/local/bin:$PATH;;
     p)    OLD_TARS="${OLD_TARS} ${OPTARG}";;
     \?)   usage;;
     esac
@@ -465,7 +470,7 @@ done
 shift `expr ${OPTIND} - 1`
 
 # Perform consistency checking.
-if [ -z ${CVS_USERNAME} ]; then
+if [ ${LOCAL} -eq 0 ] && [ -z ${CVS_USERNAME} ]; then
   error "No username specified"
 fi
 
@@ -507,8 +512,8 @@ if [ $SNAPSHOT -eq 0 ]; then
   fi
 else
   RELEASE=$DATE
-  # For now snapshots come from the 3.0 branch.
-  BRANCH=gcc-3_0-branch
+  # For now snapshots come from the mainline.
+  BRANCH=HEAD
   FTP_PATH="${FTP_PATH}/snapshots/${LONG_DATE}"
   TAG=gcc_ss_${DATE}
 
@@ -516,7 +521,6 @@ else
   # was.
   if [ $LOCAL -ne 0 ]; then
     LAST_DATE=`cat ~/.snapshot_date`
-    PREV_LAST_DATE=`cat ~/.prev_snapshot_date`
     LAST_LONG_DATE=`date --date=$LAST_DATE +%Y-%m-%d`
     LAST_DIR=~ftp/pub/gcc/snapshots/${LAST_LONG_DATE}
     OLD_TARS=${LAST_DIR}/gcc-${LAST_DATE}.tar.gz
@@ -529,6 +533,8 @@ SOURCE_DIRECTORY="${WORKING_DIRECTORY}/gcc-${RELEASE}"
 
 # Recompute the names of all the language-specific directories,
 # relative to the WORKING_DIRECTORY.
+ADA_DIRS=`adjust_dirs ${ADA_DIRS}`
+CHILL_DIRS=`adjust_dirs ${CHILL_DIRS}`
 CPLUSPLUS_DIRS=`adjust_dirs ${CPLUSPLUS_DIRS}`
 FORTRAN_DIRS=`adjust_dirs ${FORTRAN_DIRS}`
 JAVA_DIRS=`adjust_dirs ${JAVA_DIRS}`
@@ -581,15 +587,14 @@ if [ $MODE_UPLOAD -ne 0 ]; then
   if [ $SNAPSHOT -ne 0 ] && [ $LOCAL -ne 0 ]; then
     # Update links on the FTP server.
     TEXT_DATE=`date --date=$DATE +%B\ %d,\ %Y`
-    LAST_TEXT_DATE=`date --date=$LAST_DATE +%B\ %d,\ %Y`
     cd ~ftp/pub/gcc/snapshots
-    sed -e "s%$LAST_DATE%$DATE%g" -e "s%$PREV_LAST_DATE%$LAST_DATE%g" \
-      -e "s%$LAST_LONG_DATE%$LONG_DATE%g" \
-      -e "s%$LAST_TEXT_DATE%$TEXT_DATE%g" < README > $$
+    sed -e "s%@DATE@%$DATE%g" -e "s%@LAST_DATE@%$LAST_DATE%g" \
+      -e "s%@LONG_DATE@%$LONG_DATE%g" \
+      -e "s%@TEXT_DATE@%$TEXT_DATE%g" < ~/scripts/snapshot-README > $$
     mv $$ README
-    sed -e "s%$LAST_DATE%$DATE%g" -e "s%$PREV_LAST_DATE%$LAST_DATE%g" \
-      -e "s%$LAST_LONG_DATE%$LONG_DATE%g" \
-      -e "s%$LAST_TEXT_DATE%$TEXT_DATE%g" < index.html > $$
+    sed -e "s%@DATE@%$DATE%g" -e "s%@LAST_DATE@%$LAST_DATE%g" \
+      -e "s%@LONG_DATE@%$LONG_DATE%g" \
+      -e "s%@TEXT_DATE@%$TEXT_DATE%g" < ~/scripts/snapshot-index.html > $$
     mv $$ index.html
 
     touch LATEST-IS-$LONG_DATE
@@ -597,7 +602,6 @@ if [ $MODE_UPLOAD -ne 0 ]; then
 
     # Update snapshot date file.
     changedir ~
-    mv .snapshot_date .prev_snapshot_date
     echo $DATE >.snapshot_date
 
     # Update gcc_latest_snapshot tag.
@@ -605,6 +609,7 @@ if [ $MODE_UPLOAD -ne 0 ]; then
     ${CVS} rtag -rgcc_ss_${DATE} gcc_latest_snapshot gcc
 
     # Announce the snapshot.
+    export QMAILHOST=gcc.gnu.org
     mail -s "gcc-ss-$DATE is now available" gcc@gcc.gnu.org < ~ftp/pub/gcc/snapshots/README
 
     # Remove working directory

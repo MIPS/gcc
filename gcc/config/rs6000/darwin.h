@@ -19,6 +19,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#undef  TARGET_VERSION
+#define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
+
 /* The "Darwin ABI" is mostly like AIX, but with some key differences.  */
 
 #define DEFAULT_ABI ABI_DARWIN
@@ -32,7 +35,13 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_TOC 0
 #define TARGET_NO_TOC 1
 
-#define CPP_PREDEFINES "-D__ppc__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__BIG_ENDIAN__ -D__APPLE__"
+/* The Darwin ABI always includes AltiVec, can't be (validly) turned
+   off.  */
+
+#define SUBTARGET_OVERRIDE_OPTIONS  \
+  rs6000_altivec_abi = 1;
+
+#define CPP_PREDEFINES "-D__ppc__ -D__POWERPC__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__BIG_ENDIAN__ -D__APPLE__"
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
@@ -50,9 +59,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  PIC_OFFSET_TABLE_REGNUM
 #define PIC_OFFSET_TABLE_REGNUM 31
-
-#undef STACK_BOUNDARY
-#define STACK_BOUNDARY 128
 
 /* Pad the outgoing args area to 16 bytes instead of the usual 8.  */
 
@@ -211,8 +217,13 @@ Boston, MA 02111-1307, USA.  */
     || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
    && TYPE_FIELDS (STRUCT) != 0				\
    && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
-   support 64 bit powerpc either, so this just keeps things happy. */
+   support 64 bit powerpc either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
+
+/* Get HOST_WIDE_INT and CONST_INT to be 32 bits, for compile time
+   space/speed.  */
+#undef MAX_LONG_TYPE_SIZE
+#define MAX_LONG_TYPE_SIZE 32

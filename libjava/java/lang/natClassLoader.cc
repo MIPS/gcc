@@ -34,6 +34,7 @@ details.  */
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/VirtualMachineError.h>
+#include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/Runtime.h>
 #include <java/lang/StringBuffer.h>
@@ -60,6 +61,7 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 #ifdef INTERPRETER
   jclass klass;
   klass = (jclass) JvAllocObject (&ClassClass, sizeof (_Jv_InterpClass));
+  _Jv_InitNewClassFields (klass);
 
   // synchronize on the class, so that it is not
   // attempted initialized until we're done loading.
@@ -175,6 +177,15 @@ java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
   klass->notifyAll ();
 }
 
+jclass
+java::lang::VMClassLoader::getPrimitiveClass (jchar type)
+{
+  char sig[2];
+  sig[0] = (char) type;
+  sig[1] = '\0';
+  return _Jv_FindClassFromSignature (sig, NULL);
+}
+
 // This is the findClass() implementation for the System classloader. It is 
 // the only native method in VMClassLoader, so we define it here.
 jclass
@@ -223,7 +234,6 @@ java::lang::ClassLoader::findLoadedClass (jstring name)
 {
   return _Jv_FindClassInCache (_Jv_makeUtf8Const (name), this);
 }
-
 
 /** This function does class-preparation for compiled classes.  
     NOTE: It contains replicated functionality from
@@ -282,12 +292,10 @@ _Jv_PrepareCompiledClass (jclass klass)
       for (int n = JvNumStaticFields (klass); n > 0; --n)
 	{
 	  int mod = f->getModifiers ();
-	  // Maybe the compiler should mark these with
-	  // _Jv_FIELD_CONSTANT_VALUE?  For now we just know that this
-	  // only happens for constant strings.
+	  // If we have a static String field with a non-null initial
+	  // value, we know it points to a Utf8Const.
 	  if (f->getClass () == &StringClass
-	      && java::lang::reflect::Modifier::isStatic (mod)
-	      && java::lang::reflect::Modifier::isFinal (mod))
+	      && java::lang::reflect::Modifier::isStatic (mod))
 	    {
 	      jstring *strp = (jstring *) f->u.addr;
 	      if (*strp)
@@ -298,6 +306,12 @@ _Jv_PrepareCompiledClass (jclass klass)
 #ifdef INTERPRETER
     }
 #endif /* INTERPRETER */
+
+  if (klass->vtable == NULL)
+    _Jv_MakeVTable(klass);
+
+  if (klass->otable != NULL && klass->otable->state == 0)
+    _Jv_LinkOffsetTable(klass);
 
   klass->notifyAll ();
 }
@@ -452,7 +466,20 @@ _Jv_RegisterClassHookDefault (jclass klass)
 	{
 	  // If you get this, it means you have the same class in two
 	  // different libraries.
-	  throw new java::lang::VirtualMachineError (JvNewStringLatin1 ("class registered twice"));
+#define TEXT "Duplicate class registration: "
+	  // We size-limit MESSAGE so that you can't trash the stack.
+	  char message[200];
+	  strcpy (message, TEXT);
+	  strncpy (message + sizeof (TEXT) - 1, klass->name->data,
+		   sizeof (message) - sizeof (TEXT));
+	  message[sizeof (message) - 1] = '\0';
+	  if (! gcj::runtimeInitialized)
+	    JvFail (message);
+	  else
+	    {
+	      java::lang::String *str = JvNewStringLatin1 (message);
+	      throw new java::lang::VirtualMachineError (str);
+	    }
 	}
 
       check_class = check_class->next;
@@ -521,16 +548,13 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
   return klass;
 }
 
-jclass
-_Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
-	      java::lang::ClassLoader *loader)
+void
+_Jv_InitNewClassFields (jclass ret)
 {
-  jclass ret = (jclass) JvAllocObject (&ClassClass);
-
   ret->next = NULL;
-  ret->name = name;
+  ret->name = NULL;
   ret->accflags = 0;
-  ret->superclass = superclass;
+  ret->superclass = NULL;
   ret->constants.size = 0;
   ret->constants.tags = NULL;
   ret->constants.data = NULL;
@@ -543,7 +567,7 @@ _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
   ret->static_field_count = 0;
   ret->vtable = NULL;
   ret->interfaces = NULL;
-  ret->loader = loader;
+  ret->loader = NULL;
   ret->interface_count = 0;
   ret->state = JV_STATE_NOTHING;
   ret->thread = NULL;
@@ -551,6 +575,17 @@ _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
   ret->ancestors = NULL;
   ret->idt = NULL;
   ret->arrayclass = NULL;
+}
+
+jclass
+_Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
+	      java::lang::ClassLoader *loader)
+{
+  jclass ret = (jclass) JvAllocObject (&ClassClass);
+  _Jv_InitNewClassFields (ret);
+  ret->name = name;
+  ret->superclass = superclass;
+  ret->loader = loader;
 
   _Jv_RegisterClass (ret);
 
@@ -578,7 +613,11 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     return;
 
   if (element->isPrimitive())
-    len = 3;
+    {
+      if (element == JvPrimClass (void))
+	throw new java::lang::ClassNotFoundException ();
+      len = 3;
+    }
   else
     len = element->name->length + 5;
 
@@ -637,7 +676,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   array_class->interface_count = sizeof interfaces / sizeof interfaces[0];
 
   // Since all array classes have the same interface dispatch table, we can 
-  // cache one and reuse it. It is not neccessary to synchronize this.
+  // cache one and reuse it. It is not necessary to synchronize this.
   if (!array_idt)
     {
       _Jv_PrepareConstantTimeTables (array_class);

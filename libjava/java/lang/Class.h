@@ -70,6 +70,8 @@ struct _Jv_Method
   _Jv_Utf8Const *signature;
   // Access flags.
   _Jv_ushort accflags;
+  // Method's index in the vtable.
+  _Jv_ushort index;
   // Pointer to underlying function.
   void *ncode;
   // NULL-terminated list of exception class names; can be NULL if
@@ -107,11 +109,17 @@ struct _Jv_ifaces
   jshort count;
 };
 
-// Used for vtable pointer manipulation.
-union _Jv_Self
+struct _Jv_MethodSymbol
 {
-  char *vtable_ptr;
-  jclass self;
+  _Jv_Utf8Const *class_name;
+  _Jv_Utf8Const *name;
+  _Jv_Utf8Const *signature;
+};
+
+struct _Jv_OffsetTable
+{
+  jint state;
+  jint offsets[];
 };
 
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
@@ -126,10 +134,7 @@ public:
   static jclass forName (jstring className);
   JArray<jclass> *getClasses (void);
 
-  java::lang::ClassLoader *getClassLoader (void)
-    {
-      return loader;
-    }
+  java::lang::ClassLoader *getClassLoader (void);
 
   java::lang::reflect::Constructor *getConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getConstructors (void);
@@ -217,12 +222,7 @@ public:
 
   // This constructor is used to create Class object for the primitive
   // types. See prims.cc.
-  Class ()
-  {
-    // C++ ctors set the vtbl pointer to point at an offset inside the vtable
-    // object. That doesn't work for Java, so this hack adjusts it back.
-    ((_Jv_Self *)this)->vtable_ptr -= 2 * sizeof (void *);
-  }
+  Class ();
 
   static java::lang::Class class$;
 
@@ -292,6 +292,7 @@ private:
 				 _Jv_VTable *array_vtable = 0);
   friend jclass _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
 			      java::lang::ClassLoader *loader);
+  friend void _Jv_InitNewClassFields (jclass klass);
 
   // in prims.cc
   friend void _Jv_InitPrimClass (jclass, char *, char, int, _Jv_ArrayVTable *);
@@ -303,9 +304,13 @@ private:
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
+  friend void _Jv_LinkOffsetTable (jclass);
+  friend void _Jv_LayoutVTableMethods (jclass klass);
+  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *);
+  friend void _Jv_MakeVTable (jclass);
 
   // Return array class corresponding to element type KLASS, creating it if
-  // neccessary.
+  // necessary.
   inline friend jclass
   _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
   {
@@ -337,6 +342,8 @@ private:
   friend JV_MARKOBJ_DECL;
 #endif
 
+  friend class _Jv_BytecodeVerifier;
+
   // Chain for class pool.
   jclass next;
   // Name of class.
@@ -365,6 +372,10 @@ private:
   jshort static_field_count;
   // The vtbl for all objects of this class.
   _Jv_VTable *vtable;
+  // Virtual method offset table.
+  _Jv_OffsetTable *otable;
+  // Offset table symbols.
+  _Jv_MethodSymbol *otable_syms;
   // Interfaces implemented by this class.
   jclass *interfaces;
   // The class loader for this class.

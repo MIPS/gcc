@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.lang;
@@ -58,7 +69,7 @@ public final class Integer extends Number implements Comparable
    * The primitive type <code>int</code> is represented by this 
    * <code>Class</code> object.
    */
-  public static final Class TYPE = VMClassLoader.getPrimitiveClass ("int");
+  public static final Class TYPE = VMClassLoader.getPrimitiveClass ('I');
 
   /**
    * The immutable value of this Integer.
@@ -176,7 +187,7 @@ public final class Integer extends Number implements Comparable
     if (val == null) return def;
     try
       {
-      return decode(nm);
+      return decode(val);
       }
     catch (NumberFormatException e)
       {
@@ -363,6 +374,9 @@ public final class Integer extends Number implements Comparable
     throws NumberFormatException
   {
     final int len;
+
+    if (str == null)
+      throw new NumberFormatException ();
 
     if ((len = str.length()) == 0 ||
         radix < Character.MIN_RADIX || radix > Character.MAX_RADIX)

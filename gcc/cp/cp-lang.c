@@ -23,19 +23,45 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "cp-tree.h"
+#include "c-common.h"
 #include "toplev.h"
 #include "langhooks.h"
+#include "langhooks-def.h"
 
+static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
+
+#undef LANG_HOOKS_NAME
+#define LANG_HOOKS_NAME "GNU C++"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT cxx_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH cxx_finish
+#undef LANG_HOOKS_CLEAR_BINDING_STACK
+#define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS cxx_init_options
 #undef LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION cxx_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS cxx_post_options
+#undef LANG_HOOKS_GET_ALIAS_SET
+#define LANG_HOOKS_GET_ALIAS_SET cxx_get_alias_set
+#undef LANG_HOOKS_EXPAND_CONSTANT
+#define LANG_HOOKS_EXPAND_CONSTANT cplus_expand_constant
+#undef LANG_HOOKS_SAFE_FROM_P
+#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#undef LANG_HOOKS_PRINT_STATISTICS
+#define LANG_HOOKS_PRINT_STATISTICS cxx_print_statistics
+#undef LANG_HOOKS_PRINT_XNODE
+#define LANG_HOOKS_PRINT_XNODE cxx_print_xnode
+#undef LANG_HOOKS_PRINT_DECL
+#define LANG_HOOKS_PRINT_DECL cxx_print_decl
+#undef LANG_HOOKS_PRINT_TYPE
+#define LANG_HOOKS_PRINT_TYPE cxx_print_type
+#undef LANG_HOOKS_PRINT_IDENTIFIER
+#define LANG_HOOKS_PRINT_IDENTIFIER cxx_print_identifier
+#undef LANG_HOOKS_SET_YYDEBUG
+#define LANG_HOOKS_SET_YYDEBUG cxx_set_yydebug
 
 #undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
 #define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
@@ -57,6 +83,28 @@ Boston, MA 02111-1307, USA.  */
   cp_copy_res_decl_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
+#undef LANG_HOOKS_TREE_INLINING_START_INLINING
+#define LANG_HOOKS_TREE_INLINING_START_INLINING cp_start_inlining
+#undef LANG_HOOKS_TREE_INLINING_END_INLINING
+#define LANG_HOOKS_TREE_INLINING_END_INLINING cp_end_inlining
+#undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
+#define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
+#undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
+#define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN cp_type_quals
 
 /* Each front end provides its own hooks, for toplev.c.  */
-struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+
+/* Special routine to get the alias set for C++.  */
+
+static HOST_WIDE_INT
+cxx_get_alias_set (t)
+     tree t;
+{
+  /* It's not yet safe to use alias sets for classes in C++ because
+     the TYPE_FIELDs list for a class doesn't mention base classes.  */
+  if (AGGREGATE_TYPE_P (t))
+    return 0;
+
+  return c_common_get_alias_set (t);
+}

@@ -26,6 +26,7 @@
    <li><a href="#3">Containers and multithreading</a>
    <li><a href="#4">&quot;Hinting&quot; during insertion</a>
    <li><a href="#5">Bitmasks and string arguments</a>
+   <li><a href="#6"><code>std::list::size()</code> is O(n)!</a>
 </ul>
 
 <hr>
@@ -165,7 +166,7 @@
       <code>bitset</code>
       for the required number of bits, inside some wrapper functions with
       unchanging signatures.  Have your program then call the
-      compiler on that file using Position Independant Code, then open the
+      compiler on that file using Position Independent Code, then open the
       newly-created object file and load those wrapper functions.  You'll have
       an instantiation of <code>bitset&lt;N&gt;</code> for the exact
       <code>N</code>
@@ -242,6 +243,48 @@
       mechanism.  Trying to provide a catch-all general template
       solution would probably be more trouble than it's worth.
    </p>
+   <p>The STL implementation is currently configured to use the
+      high-speed caching memory allocator.  If you absolutely think
+      you must change this on a global basis for your platform to better
+      support multi-threading, then please consult all commentary in
+      include/bits/stl_alloc.h and the allocators link below.
+      <blockquote>
+      <p>(Explicit warning since so many people get confused while
+      attempting this:)
+      </p>
+      <p><strong>Adding -D__USE_MALLOC on the command
+      line is almost certainly a bad idea.</strong>  Memory efficiency is
+      almost guaranteed to suffer as a result; this is
+      <a href="http://gcc.gnu.org/ml/libstdc++/2001-05/msg00136.html">why
+      we disabled it for 3.0 in the first place</a>.
+      </p>
+      <p>Related to threading or otherwise, the current recommendation is
+      that users not add any macro defines on the command line to remove or
+      otherwise disable features of libstdc++-v3.  There is
+      no condition under which it will help you without causing other
+      issues to perhaps raise up (possible linkage/ABI problems).  In
+      particular, __USE_MALLOC should only be added to a libstdc++-v3
+      configuration file, include/bits/c++config (where such user
+      action is cautioned against), and the entire library should be
+      rebuilt.  If you do not, then you might be violating the
+      one-definition rule of C/C++ and you might cause yourself untold
+      problems.
+      </p>
+      </blockquote>
+      If you find any platform where gcc reports a
+      threading model other than single, and where libstdc++-v3 builds
+      a buggy container allocator when used with threads unless you
+      define __USE_MALLOC, we want to hear about it ASAP.  In the
+      past, correctness was the main reason people were led to believe
+      that they should define __USE_MALLOC when using threads.
+   </p>
+   <p>There is a better way (not standardized yet):  It is possible to
+      force the malloc-based allocator on a per-case-basis for some
+      application code.  The library team generally believes that this
+      is a better way to tune an application for high-speed using this
+      implementation of the STL.  There is
+      <a href="../ext/howto.html#3">more information on allocators here</a>.
+   </p>
    <p>Return <a href="#top">to top of page</a> or
       <a href="../faq/index.html">to the FAQ</a>.
    </p>
@@ -290,7 +333,7 @@
           be the entry in the container pointed to by <code>hint</code>, that
           is, <code>h = *hint</code>.  Then the item being inserted should have
           a key less than that of <code>h</code>, and greater than that of the
-          item preceeding <code>h</code>.  The new item will be inserted
+          item preceding <code>h</code>.  The new item will be inserted
           between <code>h</code> and <code>h</code>'s predecessor.
      </ul>
    </p>
@@ -350,7 +393,45 @@
    <p>Return <a href="#top">to top of page</a> or
       <a href="../faq/index.html">to the FAQ</a>.
    </p>
- 
+
+<hr>
+<h2><a name="6"><code>std::list::size()</code> is O(n)!</a></h2>
+   <p>Yes it is, and that's okay.  This is a decision that we preserved when
+      we imported SGI's STL implementation.  The following is quoted from
+      <a href="http://www.sgi.com/tech/stl/FAQ.html">their FAQ</a>:
+      <blockquote>
+      <p>The size() member function, for list and slist, takes time
+      proportional to the number of elements in the list.  This was a
+      deliberate tradeoff.  The only way to get a constant-time size() for
+      linked lists would be to maintain an extra member variable containing
+      the list's size.  This would require taking extra time to update that
+      variable (it would make splice() a linear time operation, for example),
+      and it would also make the list larger.  Many list algorithms don't
+      require that extra word (algorithms that do require it might do better
+      with vectors than with lists), and, when it is necessary to maintain
+      an explicit size count, it's something that users can do themselves.
+      </p>
+      <p>This choice is permitted by the C++ standard. The standard says that
+      size() &quot;should&quot; be constant time, and &quot;should&quot;
+      does not mean the same thing as &quot;shall&quot;.  This is the
+      officially recommended ISO wording for saying that an implementation
+      is supposed to do something unless there is a good reason not to.
+      </p>
+      <p>One implication of linear time size(): you should never write
+         <pre>
+         if (L.size() == 0)
+             ...</pre>
+         Instead, you should write
+         <pre>
+         if (L.empty())
+             ...</pre>
+      </p>
+      </blockquote>
+   </p>
+   <p>Return <a href="#top">to top of page</a> or
+      <a href="../faq/index.html">to the FAQ</a>.
+   </p>
+
 
 <!-- ####################################################### -->
 

@@ -1,6 +1,6 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
    Free Software Foundation, Inc.
    This file is part of GNU CC.
 
@@ -35,24 +35,24 @@ enum pad { none, before, after };
    sorry ("`%s' not supported by %s", tree_code_name[(int) TREE_CODE (T)], \
              __FUNCTION__)
 
-#define print_scope_operator(BUFFER)  output_add_string (BUFFER, "::")
-#define print_left_paren(BUFFER)      output_add_character (BUFFER, '(')
-#define print_right_paren(BUFFER)     output_add_character (BUFFER, ')')
-#define print_left_bracket(BUFFER)    output_add_character (BUFFER, '[')
-#define print_right_bracket(BUFFER)   output_add_character (BUFFER, ']')
+#define print_scope_operator(BUFFER)  output_add_string ((BUFFER), "::")
+#define print_left_paren(BUFFER)      output_add_character ((BUFFER), '(')
+#define print_right_paren(BUFFER)     output_add_character ((BUFFER), ')')
+#define print_left_bracket(BUFFER)    output_add_character ((BUFFER), '[')
+#define print_right_bracket(BUFFER)   output_add_character ((BUFFER), ']')
 #define print_template_argument_list_start(BUFFER) \
-   print_non_consecutive_character (BUFFER, '<')
+   print_non_consecutive_character ((BUFFER), '<')
 #define print_template_argument_list_end(BUFFER)  \
-   print_non_consecutive_character (BUFFER, '>')
+   print_non_consecutive_character ((BUFFER), '>')
 #define print_whitespace(BUFFER, TFI)        \
    do {                                      \
      output_add_space (BUFFER);              \
      put_whitespace (TFI) = none;            \
    } while (0)
 #define print_tree_identifier(BUFFER, TID) \
-   output_add_string (BUFFER, IDENTIFIER_POINTER (TID))
-#define print_identifier(BUFFER, ID) output_add_string (BUFFER, ID)
-#define separate_with_comma(BUFFER) output_add_string (BUFFER, ", ")
+   output_add_string ((BUFFER), IDENTIFIER_POINTER (TID))
+#define print_identifier(BUFFER, ID) output_add_string ((BUFFER), (ID))
+#define separate_with_comma(BUFFER) output_add_string ((BUFFER), ", ")
 
 /* The global buffer where we dump everything.  It is there only for
    transitional purpose.  It is expected, in the near future, to be
@@ -60,7 +60,7 @@ enum pad { none, before, after };
 static output_buffer scratch_buffer_rec;
 static output_buffer *scratch_buffer = &scratch_buffer_rec;
 
-# define NEXT_CODE(t) (TREE_CODE (TREE_TYPE (t)))
+# define NEXT_CODE(T) (TREE_CODE (TREE_TYPE (T)))
 
 #define reinit_global_formatting_buffer() \
    output_clear_message_text (scratch_buffer)
@@ -96,7 +96,6 @@ static void dump_char PARAMS ((int));
 static void dump_parameters PARAMS ((tree, int));
 static void dump_exception_spec PARAMS ((tree, int));
 static const char *class_key_or_enum PARAMS ((tree));
-static tree ident_fndecl PARAMS ((tree));
 static void dump_template_argument PARAMS ((tree, int));
 static void dump_template_argument_list PARAMS ((tree, int));
 static void dump_template_parameter PARAMS ((tree, int));
@@ -141,8 +140,7 @@ dump_scope (scope, flags)
      tree scope;
      int flags;
 {
-  int f = ~TFF_RETURN_TYPE & (TFF_DECL_SPECIFIERS
-                              | (flags & (TFF_SCOPE | TFF_CHASE_TYPEDEF)));
+  int f = ~TFF_RETURN_TYPE & (flags & (TFF_SCOPE | TFF_CHASE_TYPEDEF));
 
   if (scope == NULL_TREE)
     return;
@@ -384,7 +382,14 @@ dump_type (t, flags)
 
     case VECTOR_TYPE:
       output_add_string (scratch_buffer, "vector ");
-      dump_type (TREE_TYPE (t), flags);
+      {
+	/* The subtype of a VECTOR_TYPE is something like intQI_type_node,
+	   which has no name and is not very useful for diagnostics.  So
+	   look up the equivalent C type and print its name.  */
+	tree elt = TREE_TYPE (t);
+	elt = type_for_mode (TYPE_MODE (elt), TREE_UNSIGNED (elt));
+	dump_type (elt, flags);
+      }
       break;
 
     case INTEGER_TYPE:
@@ -456,6 +461,13 @@ dump_type (t, flags)
     case TYPENAME_TYPE:
       output_add_string (scratch_buffer, "typename ");
       dump_typename (t, flags);
+      break;
+
+    case UNBOUND_CLASS_TEMPLATE:
+      dump_type (TYPE_CONTEXT (t), flags);
+      print_scope_operator (scratch_buffer);
+      print_identifier (scratch_buffer, "template ");
+      dump_type (DECL_NAME (TYPE_NAME (t)), flags);
       break;
 
     case TYPEOF_TYPE:
@@ -731,8 +743,8 @@ dump_type_suffix (t, flags)
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  dump_qualifiers
 	    (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))), before);
-	dump_type_suffix (TREE_TYPE (t), flags);
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (t), flags);
+	dump_type_suffix (TREE_TYPE (t), flags);
 	break;
       }
 
@@ -786,30 +798,6 @@ dump_type_suffix (t, flags)
     }
 }
 
-/* Return a function declaration which corresponds to the IDENTIFIER_NODE
-   argument.  */
-
-static tree
-ident_fndecl (t)
-     tree t;
-{
-  tree n = lookup_name (t, 0);
-
-  if (n == NULL_TREE)
-    return NULL_TREE;
-
-  if (TREE_CODE (n) == FUNCTION_DECL)
-    return n;
-  else if (TREE_CODE (n) == TREE_LIST
-	   && TREE_CODE (TREE_VALUE (n)) == FUNCTION_DECL)
-    return TREE_VALUE (n);
-
-  my_friendly_abort (66);
-  return NULL_TREE;
-}
-
-#define GLOBAL_THING "_GLOBAL__"
-
 static void
 dump_global_iord (t)
      tree t;
@@ -821,7 +809,7 @@ dump_global_iord (t)
   else if (DECL_GLOBAL_DTOR_P (t))
     p = "destructors";
   else
-    my_friendly_abort (352);
+    abort ();
 
   output_printf (scratch_buffer, "(static %s for %s)", p, input_filename);
 }
@@ -928,30 +916,21 @@ dump_decl (t, flags)
       break;
 
     case TYPE_EXPR:
-      my_friendly_abort (69);
+      abort ();
       break;
 
       /* These special cases are duplicated here so that other functions
-	 can feed identifiers to cp_error and get them demangled properly.  */
+	 can feed identifiers to error and get them demangled properly.  */
     case IDENTIFIER_NODE:
-      { tree f;
-	if (DESTRUCTOR_NAME_P (t)
-	    && (f = ident_fndecl (t))
-	    && DECL_LANGUAGE (f) == lang_cplusplus)
-	  {
-	    output_add_character (scratch_buffer, '~');
-	    dump_decl (DECL_NAME (f), flags);
-	  }
-	else if (IDENTIFIER_TYPENAME_P (t))
-	  {
-	    output_add_string (scratch_buffer, "operator ");
-	    /* Not exactly IDENTIFIER_TYPE_VALUE.  */
-	    dump_type (TREE_TYPE (t), flags);
-	    break;
-	  }
-	else
-	  print_tree_identifier (scratch_buffer, t);
-      }
+      if (IDENTIFIER_TYPENAME_P (t))
+	{
+	  output_add_string (scratch_buffer, "operator ");
+	  /* Not exactly IDENTIFIER_TYPE_VALUE.  */
+	  dump_type (TREE_TYPE (t), flags);
+	  break;
+	}
+      else
+	print_tree_identifier (scratch_buffer, t);
       break;
 
     case OVERLOAD:
@@ -1077,7 +1056,7 @@ dump_template_decl (t, flags)
   else if (TREE_CODE (DECL_TEMPLATE_RESULT (t)) == VAR_DECL)
     dump_decl (DECL_TEMPLATE_RESULT (t), flags | TFF_TEMPLATE_NAME);
   else if (TREE_TYPE (t) == NULL_TREE)
-    my_friendly_abort (353);
+    abort ();
   else
     switch (NEXT_CODE (t))
     {
@@ -1095,7 +1074,7 @@ dump_template_decl (t, flags)
 
 /* Pretty print a function decl. There are several ways we want to print a
    function declaration. The TFF_ bits in FLAGS tells us how to behave.
-   As cp_error can only apply the '#' flag once to give 0 and 1 for V, there
+   As error can only apply the '#' flag once to give 0 and 1 for V, there
    is %D which doesn't print the throw specs, and %F which does. */
 
 static void
@@ -1164,12 +1143,9 @@ dump_function_decl (t, flags)
 
   dump_function_name (t, flags);
 
-  if (flags & TFF_DECL_SPECIFIERS) 
+  if (1)
     {
       dump_parameters (parmtypes, flags);
-
-      if (show_return)
-	dump_type_suffix (TREE_TYPE (fntype), flags);
 
       if (TREE_CODE (fntype) == METHOD_TYPE)
 	dump_qualifiers (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))),
@@ -1177,6 +1153,9 @@ dump_function_decl (t, flags)
 
       if (flags & TFF_EXCEPTION_SPECIFICATION)
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (fntype), flags);
+
+      if (show_return)
+	dump_type_suffix (TREE_TYPE (fntype), flags);
     }
 
   /* If T is a template instantiation, dump the parameter binding.  */
@@ -2217,7 +2196,7 @@ cp_line_of (t)
   return line;
 }
 
-/* Now the interfaces from cp_error et al to dump_type et al. Each takes an
+/* Now the interfaces from error et al to dump_type et al. Each takes an
    on/off VERBOSE flag and supply the appropriate TFF_ flags to a dump_
    function.  */
 
@@ -2299,7 +2278,7 @@ language_to_string (c, v)
       return "Java";
 
     default:
-      my_friendly_abort (355);
+      abort ();
       return 0;
     }
 }
@@ -2390,11 +2369,11 @@ args_to_string (p, verbose)
 static const char *
 cv_to_string (p, v)
      tree p;
-     int v ATTRIBUTE_UNUSED;
+     int v;
 {
   reinit_global_formatting_buffer ();
 
-  dump_qualifiers (p, before);
+  dump_qualifiers (p, v ? before : none);
 
   return output_finalize_message (scratch_buffer);
 }

@@ -54,6 +54,9 @@ extern int frame_pointer_needed;
 static int frame_size;
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE clipper_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -223,7 +226,7 @@ void
 clipper_movstr (operands)
      rtx *operands;
 {
-  rtx dst,src,cnt,tmp,top,bottom,xops[3];
+  rtx dst,src,cnt,tmp,top,bottom=NULL_RTX,xops[3];
   int align;
   int fixed;
 
@@ -423,34 +426,6 @@ clipper_builtin_saveregs ()
   set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (DFmode, 17));
 
-  if (current_function_check_memory_usage)
-    {
-      emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			 f0_addr, ptr_mode,
-			 GEN_INT (GET_MODE_SIZE (DFmode)),
-			 TYPE_MODE (sizetype),
-			 GEN_INT (MEMORY_USE_RW),
-			 TYPE_MODE (integer_type_node));
-      emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			 f1_addr, ptr_mode,
-			 GEN_INT (GET_MODE_SIZE (DFmode)),
-			 TYPE_MODE (sizetype),
-			 GEN_INT (MEMORY_USE_RW), 
-			 TYPE_MODE (integer_type_node));
-      emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			 r0_addr, ptr_mode,
-			 GEN_INT (GET_MODE_SIZE (SImode)),
-			 TYPE_MODE (sizetype),
-			 GEN_INT (MEMORY_USE_RW),
-			 TYPE_MODE (integer_type_node));
-      emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			 r1_addr, ptr_mode,
-			 GEN_INT (GET_MODE_SIZE (SImode)),
-			 TYPE_MODE (sizetype),
-			 GEN_INT (MEMORY_USE_RW),
-			 TYPE_MODE (integer_type_node));
-    }
-
   return addr;
 }
 
@@ -616,7 +591,7 @@ clipper_va_arg (valist, type)
 					    OPTAB_LIB_WIDEN),
 			       GEN_INT (2), GE, const0_rtx,
 			       TYPE_MODE (TREE_TYPE (num_field)),
-			       TREE_UNSIGNED (num_field), 0, false_label);
+			       TREE_UNSIGNED (num_field), false_label);
 
       inreg = fold (build (MULT_EXPR, integer_type_node, num_field,
 			   build_int_2 (2, 0)));

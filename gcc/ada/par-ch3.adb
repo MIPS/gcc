@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -796,7 +796,7 @@ package body Ch3 is
       if Token = Tok_Array then
          Error_Msg_SC ("anonymous array definition not allowed here");
          Discard_Junk_Node (P_Array_Type_Definition);
-         return Empty;
+         return Error;
 
       else
          Type_Node := P_Qualified_Simple_Name_Resync;
@@ -3420,7 +3420,7 @@ package body Ch3 is
          --  are considered to end a declarative part (i.e. we have a missing
          --  BEGIN situation). We are fairly conservative in making this
          --  judgment, because it is a real mess to go into statement mode
-         --  prematurely in reponse to a junk declaration.
+         --  prematurely in response to a junk declaration.
 
          when Tok_Abort     |
               Tok_Accept    |

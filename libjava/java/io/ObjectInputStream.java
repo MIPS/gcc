@@ -1,5 +1,5 @@
 /* ObjectInputStream.java -- Class used to read serialized objects
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.io;
@@ -225,13 +236,13 @@ public class ObjectInputStream extends InputStream
       {
 	dumpElementln ("ARRAY");
 	ObjectStreamClass osc = (ObjectStreamClass)readObject ();
-	Class componenetType = osc.forClass ().getComponentType ();
+	Class componentType = osc.forClass ().getComponentType ();
 	dumpElement ("ARRAY LENGTH=");
 	int length = this.realInputStream.readInt ();
-	dumpElementln (length + "; COMPONENT TYPE=" + componenetType);
-	Object array = Array.newInstance (componenetType, length);
+	dumpElementln (length + "; COMPONENT TYPE=" + componentType);
+	Object array = Array.newInstance (componentType, length);
 	int handle = assignNewHandle (array);
-	readArrayElements (array, componenetType);
+	readArrayElements (array, componentType);
 	for (int i=0, len=Array.getLength(array); i < len; i++)
 	  dumpElementln ("  ELEMENT[" + i + "]=" + Array.get(array, i).toString());
 	ret_val = processResolution (array, handle);
@@ -528,8 +539,11 @@ public class ObjectInputStream extends InputStream
     throws SecurityException
   {
     if (enable)
-      if (getClass ().getClassLoader () != null)
-	throw new SecurityException ("Untrusted ObjectInputStream subclass attempted to enable object resolution");
+      {
+	SecurityManager sm = System.getSecurityManager ();
+	if (sm != null)
+	  sm.checkPermission (new SerializablePermission ("enableSubtitution"));
+      }
 
     boolean old_val = this.resolveEnabled;
     this.resolveEnabled = enable;
@@ -1295,7 +1309,7 @@ public class ObjectInputStream extends InputStream
 
 
   // returns a new instance of REAL_CLASS that has been constructed
-  // only to th level of CONSTRUCTOR_CLASS (a super class of REAL_CLASS)
+  // only to the level of CONSTRUCTOR_CLASS (a super class of REAL_CLASS)
   private Object newObject (Class real_class, Class constructor_class)
   {
     try

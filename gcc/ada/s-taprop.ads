@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                             $Revision: 1.1 $
+--                             $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -449,20 +449,20 @@ package System.Task_Primitives.Operations is
 
    function Suspend_Task
      (T           : ST.Task_ID;
-      Thread_Self : OSI.Thread_Id) return Boolean;
+      Thread_Self : OSI.Thread_Id)
+      return        Boolean;
    --  Suspend a specific task when the underlying thread library provides
-   --  such functionality, unless the thread associated with T is
-   --  Thread_Self.
-   --  Such functionnality is needed by gdb on some targets (e.g VxWorks)
+   --  such functionality, unless the thread associated with T is Thread_Self.
+   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
    --  Return True is the operation is successful
 
    function Resume_Task
      (T           : ST.Task_ID;
-      Thread_Self : OSI.Thread_Id) return Boolean;
+      Thread_Self : OSI.Thread_Id)
+      return        Boolean;
    --  Resume a specific task when the underlying thread library provides
-   --  such functionality, unless the thread associated with T is
-   --  Thread_Self.
-   --  Such functionnality is needed by gdb on some targets (e.g VxWorks)
+   --  such functionality, unless the thread associated with T is Thread_Self.
+   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
    --  Return True is the operation is successful
 
    procedure Lock_All_Tasks_List;

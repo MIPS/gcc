@@ -417,7 +417,7 @@ begin
 
    while Match (Line, Get_FN) loop
 
-      --  Non-inlined funcion
+      --  Non-inlined function
 
       if not Present (Inlined, FN) then
          Put_Line (Ofile, "");

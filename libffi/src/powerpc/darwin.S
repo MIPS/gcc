@@ -147,7 +147,13 @@ L(float_return_value):
 	b	L(done_return_value)
 //END(_ffi_call_DARWIN)
 
-
-
-
+/* Provide a null definition of _ffi_call_AIX.  */
+.text
+	.align 2
+.globl _ffi_call_AIX
+.text
+	.align 2
+_ffi_call_AIX:
+	blr
+//END(_ffi_call_AIX)
 

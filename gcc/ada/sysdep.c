@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.2 $
+ *                            $Revision: 1.4 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -295,9 +295,11 @@ __gnat_ttyname (filedes)
   || defined (__MACHTEN__)
 #include <termios.h>
 
-#elif defined (VMS)
+#else
+#if defined (VMS)
 extern char *decc$ga_stdscr;
 static int initted = 0;
+#endif
 #endif
 
 /* Implements the common processing for getc_immediate and
@@ -422,7 +424,8 @@ getc_immediate_common (stream, ch, end_of_file, avail, waiting)
     }
 
   else
-#elif defined (VMS)
+#else
+#if defined (VMS)
   int fd = fileno (stream);
 
   if (isatty (fd))
@@ -444,7 +447,8 @@ getc_immediate_common (stream, ch, end_of_file, avail, waiting)
       decc$bsd_nocbreak ();
     }
   else
-#elif defined (__MINGW32__)
+#else
+#if defined (__MINGW32__)
   int fd = fileno (stream);
   int char_waiting;
   int eot_ch = 4; /* Ctrl-D */
@@ -487,6 +491,8 @@ getc_immediate_common (stream, ch, end_of_file, avail, waiting)
     }
   else
 #endif
+#endif
+#endif
     {
       /* If we're not on a terminal, then we don't need any fancy processing.
 	 Also this is the only thing that's left if we're not on one of the
@@ -515,10 +521,34 @@ getc_immediate_common (stream, ch, end_of_file, avail, waiting)
    will want to import these).  We use the same names as the routines used
    by AdaMagic for compatibility.  */
 
-char *rts_get_hInstance     (void) { return (GetModuleHandleA (0)); }
-char *rts_get_hPrevInstance (void) { return (0); }
-char *rts_get_lpCommandLine (void) { return (GetCommandLineA ()); }
-int   rts_get_nShowCmd      (void) { return (1); }
+char *rts_get_hInstance     PARAMS ((void));
+char *rts_get_hPrevInstance PARAMS ((void));
+char *rts_get_lpCommandLine PARAMS ((void));
+int   rts_get_nShowCmd      PARAMS ((void));
+
+char *
+rts_get_hInstance () 
+{ 
+  return GetModuleHandleA (0); 
+}
+
+char *
+rts_get_hPrevInstance () 
+{ 
+  return 0; 
+}
+
+char *
+rts_get_lpCommandLine () 
+{ 
+  return GetCommandLineA (); 
+}
+
+int   
+rts_get_nShowCmd () 
+{ 
+  return 1; 
+}
 
 #endif /* WINNT */
 #ifdef VMS
@@ -545,10 +575,10 @@ get_gmtoff ()
 
 #if defined (_AIX) || defined (__EMX__)
 #define Lock_Task system__soft_links__lock_task
-extern void (*Lock_Task) (void);
+extern void (*Lock_Task) PARAMS ((void));
 
 #define Unlock_Task system__soft_links__unlock_task
-extern void (*Unlock_Task) (void);
+extern void (*Unlock_Task) PARAMS ((void));
 
 /* Provide reentrant version of localtime on Aix and OS/2. Note that AiX does
    provide localtime_r, but in the library libc_r which doesn't get included
@@ -571,9 +601,14 @@ __gnat_localtime_r (timer, tp)
   return tp;
 }
 
-#elif defined (__Lynx__)
+#else
+#if defined (__Lynx__) && defined (___THREADS_POSIX4ad4__)
 
-/* LynxOS provides a non standard localtime_r */
+/* As of LynxOS 3.1.0a patch level 040, LynuxWorks changes the
+   prototype to the C library function localtime_r from the POSIX.4
+   Draft 9 to the POSIX 1.c version. Before this change the following
+   spec is required. Only use when ___THREADS_POSIX4ad4__ is defined,
+   the Lynx convention when building against the legacy API. */
 
 extern struct tm *__gnat_localtime_r PARAMS ((const time_t *, struct tm *));
 
@@ -582,10 +617,12 @@ __gnat_localtime_r (timer, tp)
      const time_t *timer;
      struct tm *tp;
 {
-  return localtime_r (tp, timer);
+  localtime_r (tp, timer);
+  return NULL;
 }
 
-#elif defined (VMS) || defined (__MINGW32__)
+#else
+#if defined (VMS) || defined (__MINGW32__)
 
 /* __gnat_localtime_r is not needed on NT and VMS */
 
@@ -602,4 +639,6 @@ __gnat_localtime_r (timer, tp)
 {
   return (struct tm *) localtime_r (timer, tp);
 }
+#endif
+#endif
 #endif

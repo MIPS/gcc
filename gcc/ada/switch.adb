@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -221,14 +221,17 @@ package body Switch is
 
          when 'g' =>
             Ptr := Ptr + 1;
+
             if Ptr <= Max then
                C := Switch_Chars (Ptr);
+
                if C in '0' .. '3' then
                   Debugger_Level :=
                     Character'Pos
                       (Switch_Chars (Ptr)) - Character'Pos ('0');
                   Ptr := Ptr + 1;
                end if;
+
             else
                Debugger_Level := 2;
             end if;
@@ -255,15 +258,12 @@ package body Switch is
             Ptr := Ptr + 1;
             C := Switch_Chars (Ptr);
 
-            if C = '1' or else
-               C = '2' or else
-               C = '3' or else
-               C = '4' or else
-               C = '8' or else
-               C = 'p' or else
-               C = 'f' or else
-               C = 'n' or else
-               C = 'w'
+            if C in  '1' .. '5'
+              or else C = '8'
+              or else C = 'p'
+              or else C = 'f'
+              or else C = 'n'
+              or else C = 'w'
             then
                Identifier_Character_Set := C;
                Ptr := Ptr + 1;
@@ -606,10 +606,13 @@ package body Switch is
 
                case Switch_Chars (Ptr) is
 
+                  --  Configuration pragmas
+
                   when 'c' =>
                      Ptr := Ptr + 1;
+
                      if Ptr > Max then
-                        Osint.Fail ("Invalid switch: ", "ec");
+                        raise Bad_Switch;
                      end if;
 
                      Config_File_Name :=
@@ -617,9 +620,21 @@ package body Switch is
 
                      return;
 
+                  --  Mapping file
+
+                  when 'm' =>
+                     Ptr := Ptr + 1;
+
+                     if Ptr > Max then
+                        raise Bad_Switch;
+                     end if;
+
+                     Mapping_File_Name :=
+                       new String'(Switch_Chars (Ptr .. Max));
+                     return;
+
                   when others =>
-                     Osint.Fail ("Invalid switch: ",
-                                   (1 => 'e', 2 => Switch_Chars (Ptr)));
+                     raise Bad_Switch;
                end case;
 
             --  Processing for E switch
@@ -681,15 +696,12 @@ package body Switch is
                Ptr := Ptr + 1;
                C := Switch_Chars (Ptr);
 
-               if C = '1' or else
-                  C = '2' or else
-                  C = '3' or else
-                  C = '4' or else
-                  C = '8' or else
-                  C = 'p' or else
-                  C = 'f' or else
-                  C = 'n' or else
-                  C = 'w'
+               if C in '1' .. '5'
+                 or else C = '8'
+                 or else C = 'p'
+                 or else C = 'f'
+                 or else C = 'n'
+                 or else C = 'w'
                then
                   Identifier_Character_Set := C;
                   Ptr := Ptr + 1;
@@ -1164,6 +1176,12 @@ package body Switch is
             Ptr := Ptr + 1;
             Check_Readonly_Files := True;
 
+         --  Processing for b switch
+
+         when 'b' =>
+            Ptr := Ptr + 1;
+            Bind_Only := True;
+
          --  Processing for c switch
 
          when 'c' =>
@@ -1244,6 +1262,12 @@ package body Switch is
          when 'k' =>
             Ptr := Ptr + 1;
             Keep_Going := True;
+
+         --  Processing for l switch
+
+         when 'l' =>
+            Ptr := Ptr + 1;
+            Link_Only := True;
 
          when 'M' =>
             Ptr := Ptr + 1;

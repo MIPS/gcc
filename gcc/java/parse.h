@@ -235,7 +235,7 @@ extern tree stabilize_reference PARAMS ((tree));
   }
 
 /* Build the string parm$<O> and store in into the identifier N. This
-   is used to contruct the name of hidden parameters used to
+   is used to construct the name of hidden parameters used to
    initialize outer scope aliases.  */
 #define MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_ID(N, O)		\
   {									\
@@ -752,8 +752,6 @@ struct parser_ctxt {
   /* Indicates that a context already contains saved data and that the
      next save operation will require a new context to be created. */
   unsigned saved_data:1;
-  /* Integral literal overflow */
-  unsigned minus_seen:1;
   /* Report error when true */
   unsigned java_error_flag:1;
   /* @deprecated tag seen */
@@ -785,7 +783,7 @@ struct parser_ctxt {
 
   tree non_static_initialized;	    /* List of non static initialized fields */
   tree static_initialized;	    /* List of static non final initialized */
-  tree instance_initializers;	    /* List of instancei initializers stmts */
+  tree instance_initializers;	    /* List of instance initializers stmts */
 
   tree import_list;		    /* List of import */
   tree import_demand_list;	    /* List of import on demand */
@@ -914,6 +912,11 @@ struct parser_ctxt {
   if (CPC_INSTANCE_INITIALIZER_LIST(C))				\
     TREE_PURPOSE (CPC_INSTANCE_INITIALIZER_LIST (C)) = (S);
 
+/* This is used by the lexer to communicate with the parser.  It is
+   set on an integer constant if the radix is 10, so that the parser
+   can correctly diagnose a numeric overflow.  */
+#define JAVA_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
+
 #ifndef JC1_LITE
 void java_complete_class PARAMS ((void));
 void java_check_circular_reference PARAMS ((void));
@@ -921,7 +924,6 @@ void java_fix_constructors PARAMS ((void));
 void java_layout_classes PARAMS ((void));
 void java_reorder_fields PARAMS ((void));
 tree java_method_add_stmt PARAMS ((tree, tree));
-void java_expand_switch PARAMS ((tree));
 int java_report_errors PARAMS ((void));
 extern tree do_resolve_class PARAMS ((tree, tree, tree, tree));
 #endif

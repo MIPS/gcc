@@ -52,8 +52,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_heap.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
 #ifndef _CPP_BITS_STL_HEAP_H
@@ -89,8 +90,8 @@ namespace std
 
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
+	    _RandomAccessIterator>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
 
       __push_heap(__first, _DistanceType((__last - __first) - 1), _DistanceType(0), 
 		  _ValueType(*(__last - 1)));
@@ -123,7 +124,7 @@ namespace std
 
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
+	    _RandomAccessIterator>)
 
       __push_heap(__first, _DistanceType((__last - __first) - 1), _DistanceType(0), 
 		  _ValueType(*(__last - 1)), __comp);
@@ -168,8 +169,8 @@ namespace std
 
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
+	    _RandomAccessIterator>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
 
       __pop_heap(__first, __last - 1, __last - 1, _ValueType(*(__last - 1)));
     }
@@ -214,7 +215,7 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
+	    _RandomAccessIterator>)
 
       typedef typename iterator_traits<_RandomAccessIterator>::value_type _ValueType;
       __pop_heap(__first, __last - 1, __last - 1, _ValueType(*(__last - 1)), __comp);
@@ -231,8 +232,8 @@ namespace std
 
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
+	    _RandomAccessIterator>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
 
       if (__last - __first < 2) return;
       _DistanceType __len = __last - __first;
@@ -257,7 +258,7 @@ namespace std
 
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
+	    _RandomAccessIterator>)
 
       if (__last - __first < 2) return;
       _DistanceType __len = __last - __first;
@@ -277,9 +278,9 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
+	    _RandomAccessIterator>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_RandomAccessIterator>::value_type>);
+	    typename iterator_traits<_RandomAccessIterator>::value_type>)
 
       while (__last - __first > 1)
 	pop_heap(__first, __last--);
@@ -292,7 +293,7 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIterator>);
+	    _RandomAccessIterator>)
 
       while (__last - __first > 1)
 	pop_heap(__first, __last--, __comp);

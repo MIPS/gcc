@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -157,7 +157,7 @@ check_asm_operands (x)
       const char *c = constraints[i];
       if (c[0] == '%')
 	c++;
-      if (ISDIGIT ((unsigned char)c[0]) && c[1] == '\0')
+      if (ISDIGIT ((unsigned char) c[0]) && c[1] == '\0')
 	c = constraints[c[0] - '0'];
 
       if (! asm_operand_ok (operands[i], c))
@@ -512,7 +512,8 @@ validate_replace_rtx_1 (loc, from, to, object)
          separated from this function.  */
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	validate_change (object, loc,
-			 plus_constant (XEXP (x, 0), INTVAL (XEXP (x, 1))), 1);
+			 simplify_gen_binary
+			 (PLUS, GET_MODE (x), XEXP (x, 0), XEXP (x, 1)), 1);
       break;
     case MINUS:
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
@@ -1554,7 +1555,8 @@ decode_asm_operands (body, operands, operand_locs, constraints, modes)
       template = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == PARALLEL
-	   && GET_CODE (XVECEXP (body, 0, 0)) == SET)
+	   && GET_CODE (XVECEXP (body, 0, 0)) == SET
+	   && GET_CODE (SET_SRC (XVECEXP (body, 0, 0))) == ASM_OPERANDS)
     {
       rtx asmop = SET_SRC (XVECEXP (body, 0, 0));
       int nparallel = XVECLEN (body, 0); /* Includes CLOBBERs.  */
@@ -1657,7 +1659,7 @@ asm_operand_ok (op, constraint)
 	     proper matching constraint, but we can't actually fail
 	     the check if they didn't.  Indicate that results are
 	     inconclusive.  */
-	  while (*constraint >= '0' && *constraint <= '9')
+	  while (ISDIGIT (*constraint))
 	    constraint++;
 	  result = -1;
 	  break;
@@ -2242,7 +2244,8 @@ preprocess_constraints ()
 
 		case 'p':
 		  op_alt[j].is_address = 1;
-		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class][(int) BASE_REG_CLASS];
+		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class]
+		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
 		  break;
 
 		case 'g': case 'r':
@@ -2250,7 +2253,7 @@ preprocess_constraints ()
 		  break;
 
 		default:
-		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class][(int) REG_CLASS_FROM_LETTER ((unsigned char)c)];
+		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class][(int) REG_CLASS_FROM_LETTER ((unsigned char) c)];
 		  break;
 		}
 	    }
@@ -2778,8 +2781,7 @@ split_all_insns (upd_life)
 
   if (changed)
     {
-      for (i = 0; i < n_basic_blocks; i++)
-	find_sub_basic_blocks (BASIC_BLOCK (i));
+      find_many_sub_basic_blocks (blocks);
     }
 
   if (changed && upd_life)
@@ -3121,6 +3123,8 @@ peephole2_optimize (dump_file)
 			      = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 						   XEXP (note, 0),
 						   REG_NOTES (new_insn));
+			  default:
+			    /* Discard all other reg notes.  */
 			    break;
 			  }
 

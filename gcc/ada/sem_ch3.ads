@@ -175,7 +175,7 @@ package Sem_Ch3  is
    procedure Process_Full_View (N : Node_Id; Full_T, Priv_T : Entity_Id);
    --  Process some semantic actions when the full view of a private type is
    --  encountered and analyzed. The first action is to create the full views
-   --  of the dependant private subtypes. The second action is to recopy the
+   --  of the dependent private subtypes. The second action is to recopy the
    --  primitive operations of the private view (in the tagged case).
    --  N is the N_Full_Type_Declaration node.
 

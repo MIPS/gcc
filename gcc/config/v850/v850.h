@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler. NEC V850 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -21,8 +22,6 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_V850_H
 #define GCC_V850_H
-
-#include "svr4.h"	/* Automatically does #undef CPP_PREDEFINES */
 
 /* These are defiend in svr4.h but we want to override them.  */
 #undef ASM_FINAL_SPEC
@@ -158,24 +157,6 @@ enum small_memory_type {
 };
 
 extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-          extern char *m88k_short_data;
-          #define TARGET_OPTIONS \
-           { { "short-data-", &m88k_short_data } } */
 
 #define TARGET_OPTIONS							\
 {									\
@@ -1032,9 +1013,6 @@ do {									\
    than accessing full words.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define this if zero-extension is slow (more than one real instruction).  */
-#define SLOW_ZERO_EXTEND 
-
 /* According expr.c, a value of around 6 should minimize code size, and
    for the V850 series, that's our primary concern.  */
 #define MOVE_RATIO 6
@@ -1248,7 +1226,7 @@ do {									\
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
 
-/* When ASM_OUTPUT_SHORT is used to emit the offsets for a switch
+/* When assemble_integer is used to emit the offsets for a switch
    table it can encounter (TRUNCATE:HI (MINUS:SI (LABEL_REF:SI) (LABEL_REF:SI))).
    output_addr_const will normally barf at this, but it is OK to omit
    the truncate and just emit the difference of the two labels.  The
@@ -1256,49 +1234,9 @@ do {									\
 
 #define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
   if (GET_CODE (x) == TRUNCATE)				\
-    return output_addr_const (FILE, XEXP (X, 0));	\
+    output_addr_const (FILE, XEXP (X, 0));		\
   else							\
     goto FAIL;
-
-/* This is how to output an assembler line defining a `double' constant.
-   It is .double or .float, depending.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.double %s\n", dstr);		\
-   } while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.float %s\n", dstr);		\
-   } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.hword "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.  */
@@ -1348,7 +1286,7 @@ do { char dstr[30];					\
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)           \
   do {                                            \
-  char* real_name;                                \
+  const char* real_name;                          \
   STRIP_NAME_ENCODING (real_name, (NAME));        \
   asm_fprintf (FILE, "%U%s", real_name);          \
   } while (0)
@@ -1431,8 +1369,6 @@ do { char dstr[30];					\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#define DBX_REGISTER_NUMBER(REGNO) REGNO
-
 /* Define to use software floating point emulator for REAL_ARITHMETIC and
    decimal <-> binary conversion. */
 #define REAL_ARITHMETIC
@@ -1466,15 +1402,9 @@ do { char dstr[30];					\
 /* Byte and short loads sign extend the value to a word.  */
 #define LOAD_EXTEND_OP(MODE) SIGN_EXTEND
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
 /* This flag, if defined, says the same insns that convert to a signed fixnum
    also convert validly to an unsigned one.  */
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

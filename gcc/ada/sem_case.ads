@@ -6,9 +6,9 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $                              --
+--                            $Revision: 1.3 $
 --                                                                          --
---            Copyright (C) 1996 Free Software Foundation, Inc.             --
+--         Copyright (C) 1996-2001 Free Software Foundation, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,7 +28,7 @@
 
 with Types; use Types;
 
---  Package containing all the routines to proces a list of discrete choices.
+--  Package containing all the routines to process a list of discrete choices.
 --  Such lists can occur in 3 different constructs: case statements, array
 --  aggregates and record variants. We have factorized what used to be 3 very
 --  similar sets of routines here. If you didn't figure it out already Choi
@@ -48,7 +48,7 @@ package Sem_Case is
 
    procedure No_OP (C : Node_Id);
    --  The no-operation routine. Does absolutely nothing. Can be used
-   --  in the following generic for the parameter Proces_Empty_Choice.
+   --  in the following generic for the parameter Process_Empty_Choice.
 
    generic
       with function Get_Alternatives (N : Node_Id) return List_Id;

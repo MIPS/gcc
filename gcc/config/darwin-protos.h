@@ -33,6 +33,11 @@ extern void machopic_symbol_stub_section PARAMS ((void));
 extern void machopic_lazy_symbol_ptr_section PARAMS ((void));
 extern void machopic_nl_symbol_ptr_section PARAMS ((void));
 
+extern void constructor_section PARAMS ((void));
+extern void destructor_section PARAMS ((void));
+extern void mod_init_section PARAMS ((void));
+extern void mod_term_section PARAMS ((void));
+
 #ifdef RTX_CODE
 
 extern int machopic_operand_p PARAMS ((rtx));
@@ -58,6 +63,11 @@ extern void darwin_encode_section_info PARAMS ((tree));
 #endif /* TREE_CODE */
 
 extern void machopic_finish PARAMS ((FILE *));
+
+extern void machopic_output_possible_stub_label PARAMS ((FILE *, const char*));
+
+extern void darwin_exception_section PARAMS ((void));
+extern void darwin_eh_frame_section PARAMS ((void));
 
 #ifdef GCC_C_PRAGMA_H
 extern void darwin_pragma_ignore PARAMS ((cpp_reader *));

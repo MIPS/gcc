@@ -36,8 +36,11 @@
 
 --  This is the no tasking version
 
+with Interfaces.C;
 package System.OS_Interface is
    pragma Preelaborate;
+
+   subtype int            is Interfaces.C.int;
 
    -------------
    -- Signals --

@@ -58,7 +58,7 @@ with Unchecked_Conversion;
 package System.Standard_Library is
 
    pragma Suppress (All_Checks);
-   --  Suppress explicitely all the checks to work around the Solaris linker
+   --  Suppress explicitly all the checks to work around the Solaris linker
    --  bug when using gnatmake -f -a (but without -gnatp). This is not needed
    --  with Solaris 2.6, so eventually can be removed ???
 

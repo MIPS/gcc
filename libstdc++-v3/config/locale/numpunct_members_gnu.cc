@@ -1,6 +1,6 @@
 // std::numpunct implementation details, GNU version -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,7 +53,11 @@ namespace std
 	  // Named locale.
 	  _M_decimal_point = *(__nl_langinfo_l(RADIXCHAR, __cloc));
 	  _M_thousands_sep = *(__nl_langinfo_l(THOUSEP, __cloc));
-	  _M_grouping = __nl_langinfo_l(GROUPING, __cloc);
+	  // Check for NUL, which implies no grouping.
+	  if (_M_thousands_sep == '\0')
+	    _M_grouping = "";
+	  else
+	    _M_grouping = __nl_langinfo_l(GROUPING, __cloc);
 	}
       // NB: There is no way to extact this info from posix locales.
       // _M_truename = __nl_langinfo_l(YESSTR, __cloc);
@@ -77,9 +81,12 @@ namespace std
       else
 	{
 	  // Named locale.
-	  _M_decimal_point = reinterpret_cast<wchar_t>(__nl_langinfo_l(_NL_NUMERIC_DECIMAL_POINT_WC, __cloc));
-	  _M_thousands_sep = reinterpret_cast<wchar_t>(__nl_langinfo_l(_NL_NUMERIC_THOUSANDS_SEP_WC,__cloc));
-	  _M_grouping = __nl_langinfo_l(GROUPING, __cloc);
+	  _M_decimal_point = static_cast<wchar_t>(((union { const char *__s; unsigned int __w; }){ __s: __nl_langinfo_l(_NL_NUMERIC_DECIMAL_POINT_WC, __cloc)}).__w);
+	  _M_thousands_sep = static_cast<wchar_t>(((union { const char *__s; unsigned int __w; }){ __s: __nl_langinfo_l(_NL_NUMERIC_THOUSANDS_SEP_WC, __cloc)}).__w);
+	  if (_M_thousands_sep == L'\0')
+	    _M_grouping = "";
+	  else
+	    _M_grouping = __nl_langinfo_l(GROUPING, __cloc);
 	}
       // NB: There is no way to extact this info from posix locales.
       // _M_truename = __nl_langinfo_l(YESSTR, __cloc);

@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Array helper class.
 
-// Copyright (C) 1997-2000 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,6 +29,11 @@
 
 // Written by Gabriel Dos Reis <Gabriel.Dos-Reis@DPTMaths.ENS-Cachan.Fr>
 
+/** @file valarray_array.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_ARRAY_H
 #define _CPP_BITS_ARRAY_H 1
 
@@ -36,8 +41,8 @@
 
 #include <bits/c++config.h>
 #include <bits/cpp_type_traits.h>
-#include <bits/std_cstdlib.h>
-#include <bits/std_cstring.h>
+#include <cstdlib>
+#include <cstring>
 #include <new>
 
 namespace std

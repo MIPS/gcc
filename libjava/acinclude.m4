@@ -1,3 +1,29 @@
+AC_DEFUN([AC_COMPILE_CHECK_SIZEOF],
+[changequote(<<, >>)dnl
+dnl The name to #define.
+define(<<AC_TYPE_NAME>>, translit(sizeof_$1, [a-z *], [A-Z_P]))dnl
+dnl The cache variable name.
+define(<<AC_CV_NAME>>, translit(ac_cv_sizeof_$1, [ *], [_p]))dnl
+changequote([, ])dnl
+AC_MSG_CHECKING(size of $1)
+AC_CACHE_VAL(AC_CV_NAME,
+[for ac_size in 4 8 1 2 16 12 $2 ; do # List sizes in rough order of prevalence.
+  AC_TRY_COMPILE([#include "confdefs.h"
+#include <sys/types.h>
+$2
+], [switch (0) case 0: case (sizeof ($1) == $ac_size):;], AC_CV_NAME=$ac_size)
+  if test x$AC_CV_NAME != x ; then break; fi
+done
+])
+if test x$AC_CV_NAME = x ; then
+  AC_MSG_ERROR([cannot determine a size for $1])
+fi
+AC_MSG_RESULT($AC_CV_NAME)
+AC_DEFINE_UNQUOTED(AC_TYPE_NAME, $AC_CV_NAME, [The number of bytes in type $1])
+undefine([AC_TYPE_NAME])dnl
+undefine([AC_CV_NAME])dnl
+])
+
 AC_DEFUN(LIBGCJ_CONFIGURE,
 [
 dnl Default to --enable-multilib
@@ -9,7 +35,7 @@ AC_ARG_ENABLE(multilib,
   *)   AC_MSG_ERROR(bad value ${enableval} for multilib option) ;;
  esac], [multilib=yes])dnl
 
-dnl We may get other options which we dont document:
+dnl We may get other options which we don't document:
 dnl --with-target-subdir, --with-multisrctop, --with-multisubdir
 
 # When building with srcdir == objdir, links to the source files will
@@ -61,7 +87,7 @@ version=0.0.7
 dnl Still use "libjava" here to placate dejagnu.
 AM_INIT_AUTOMAKE(libjava, $version)
 
-# AC_CHECK_TOOL does AC_REQUIRE (AC_CANONICAL_BUILD).  If we dont
+# AC_CHECK_TOOL does AC_REQUIRE (AC_CANONICAL_BUILD).  If we don't
 # run it explicitly here, it will be run implicitly before
 # LIBGCJ_CONFIGURE, which doesn't work because that means that it will
 # be run before AC_CANONICAL_HOST.
@@ -80,7 +106,7 @@ AM_MAINTAINER_MODE
 # need to use $(EXEEXT).  Moreover, the test for EXEEXT normally
 # fails, because we are probably configuring with a cross compiler
 # which cant create executables.  So we include AC_EXEEXT to keep
-# automake happy, but we dont execute it, since we dont care about
+# automake happy, but we don't execute it, since we don't care about
 # the result.
 if false; then
   # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
@@ -131,11 +157,12 @@ AC_DEFUN([AM_ICONV],
   dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
   dnl those with the standalone portable GNU libiconv installed).
 
+  am_cv_lib_iconv_ldpath=
   AC_ARG_WITH([libiconv-prefix],
 [  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [
     for dir in `echo "$withval" | tr : ' '`; do
       if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
-      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
+      if test -d $dir/lib; then am_cv_lib_iconv_ldpath="-L$dir/lib"; fi
     done
    ])
 
@@ -150,7 +177,7 @@ AC_DEFUN([AM_ICONV],
       am_cv_func_iconv=yes)
     if test "$am_cv_func_iconv" != yes; then
       am_save_LIBS="$LIBS"
-      LIBS="$LIBS -liconv"
+      LIBS="$LIBS $am_cv_libiconv_ldpath -liconv"
       AC_TRY_LINK([#include <stdlib.h>
 #include <iconv.h>],
         [iconv_t cd = iconv_open("","");
@@ -187,7 +214,32 @@ size_t iconv();
   fi
   LIBICONV=
   if test "$am_cv_lib_iconv" = yes; then
-    LIBICONV="-liconv"
+    LIBICONV="$am_cv_lib_iconv_ldpath -liconv"
   fi
   AC_SUBST(LIBICONV)
 ])
+
+# Check whether LC_MESSAGES is available in <locale.h>.
+# Ulrich Drepper <drepper@cygnus.com>, 1995.
+#
+# This file can be copied and used freely without restrictions.  It can
+# be used in projects which are not available under the GNU General Public
+# License or the GNU Library General Public License but which still want
+# to provide support for the GNU gettext functionality.
+# Please note that the actual code of the GNU gettext library is covered
+# by the GNU Library General Public License, and the rest of the GNU
+# gettext package package is covered by the GNU General Public License.
+# They are *not* in the public domain.
+
+# serial 2
+
+AC_DEFUN([AM_LC_MESSAGES],
+  [if test $ac_cv_header_locale_h = yes; then
+    AC_CACHE_CHECK([for LC_MESSAGES], am_cv_val_LC_MESSAGES,
+      [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],
+       am_cv_val_LC_MESSAGES=yes, am_cv_val_LC_MESSAGES=no)])
+    if test $am_cv_val_LC_MESSAGES = yes; then
+      AC_DEFINE(HAVE_LC_MESSAGES, 1,
+        [Define if your <locale.h> file defines LC_MESSAGES.])
+    fi
+  fi])

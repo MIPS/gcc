@@ -580,8 +580,7 @@ noce_emit_move_insn (x, y)
   outmode = GET_MODE (outer);
   inmode = GET_MODE (inner);
   bitpos = SUBREG_BYTE (outer) * BITS_PER_UNIT;
-  store_bit_field (inner, GET_MODE_BITSIZE (outmode),
-		   bitpos, outmode, y, GET_MODE_BITSIZE (inmode),
+  store_bit_field (inner, GET_MODE_BITSIZE (outmode), bitpos, outmode, y,
 		   GET_MODE_BITSIZE (inmode));
 }
 
@@ -651,6 +650,12 @@ noce_try_store_flag_constants (if_info)
       mode = GET_MODE (if_info->x);
       ifalse = INTVAL (if_info->a);
       itrue = INTVAL (if_info->b);
+
+      /* Make sure we can represent the difference between the two values.  */
+      if ((itrue - ifalse > 0)
+	  != ((ifalse < 0) != (itrue < 0) ? ifalse < 0 : ifalse < itrue))
+	return FALSE;
+
       diff = trunc_int_for_mode (itrue - ifalse, mode);
 
       can_reverse = (reversed_comparison_code (if_info->cond, if_info->jump)
@@ -1109,6 +1114,8 @@ noce_try_cmove_arith (if_info)
 	MEM_SCALAR_P (tmp) = 1;
       if (MEM_ALIAS_SET (if_info->a) == MEM_ALIAS_SET (if_info->b))
 	set_mem_alias_set (tmp, MEM_ALIAS_SET (if_info->a));
+      set_mem_align (tmp,
+		     MIN (MEM_ALIGN (if_info->a), MEM_ALIGN (if_info->b)));
 
       noce_emit_move_insn (if_info->x, tmp);
     }
@@ -1785,7 +1792,7 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
   if (orig_x != x)
     {
       start_sequence ();
-      noce_emit_move_insn (orig_x, x);
+      noce_emit_move_insn (copy_rtx (orig_x), x);
       insn_b = gen_sequence ();
       end_sequence ();
 
@@ -2530,7 +2537,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 	      /* ??? Even non-trapping memories such as stack frame
 		 references must be avoided.  For stores, we collect
 		 no lifetime info; for reads, we'd have to assert
-		 true_dependance false against every store in the
+		 true_dependence false against every store in the
 		 TEST range.  */
 	      if (for_each_rtx (&PATTERN (insn), find_memory, NULL))
 		return FALSE;
@@ -2622,34 +2629,41 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
      change group management.  */
 
   old_dest = JUMP_LABEL (jump);
-  new_label = block_label (new_dest);
-  if (reversep
-      ? ! invert_jump_1 (jump, new_label)
-      : ! redirect_jump_1 (jump, new_label))
-    goto cancel;
+  if (other_bb != new_dest)
+    {
+      new_label = block_label (new_dest);
+      if (reversep
+	  ? ! invert_jump_1 (jump, new_label)
+	  : ! redirect_jump_1 (jump, new_label))
+	goto cancel;
+    }
 
   if (! apply_change_group ())
     return FALSE;
 
-  if (old_dest)
-    LABEL_NUSES (old_dest) -= 1;
-  if (new_label)
-    LABEL_NUSES (new_label) += 1;
-  JUMP_LABEL (jump) = new_label;
-
-  if (reversep)
-    invert_br_probabilities (jump);
-
-  redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
-  if (reversep)
+  if (other_bb != new_dest)
     {
-      gcov_type count, probability;
-      count = BRANCH_EDGE (test_bb)->count;
-      BRANCH_EDGE (test_bb)->count = FALLTHRU_EDGE (test_bb)->count;
-      FALLTHRU_EDGE (test_bb)->count = count;
-      probability = BRANCH_EDGE (test_bb)->probability;
-      BRANCH_EDGE (test_bb)->probability = FALLTHRU_EDGE (test_bb)->probability;
-      FALLTHRU_EDGE (test_bb)->probability = probability;
+      if (old_dest)
+	LABEL_NUSES (old_dest) -= 1;
+      if (new_label)
+	LABEL_NUSES (new_label) += 1;
+      JUMP_LABEL (jump) = new_label;
+      if (reversep)
+	invert_br_probabilities (jump);
+
+      redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
+      if (reversep)
+	{
+	  gcov_type count, probability;
+	  count = BRANCH_EDGE (test_bb)->count;
+	  BRANCH_EDGE (test_bb)->count = FALLTHRU_EDGE (test_bb)->count;
+	  FALLTHRU_EDGE (test_bb)->count = count;
+	  probability = BRANCH_EDGE (test_bb)->probability;
+	  BRANCH_EDGE (test_bb)->probability
+	    = FALLTHRU_EDGE (test_bb)->probability;
+	  FALLTHRU_EDGE (test_bb)->probability = probability;
+	  update_br_prob_note (test_bb);
+	}
     }
 
   /* Move the insns out of MERGE_BB to before the branch.  */
@@ -2658,10 +2672,21 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
       if (end == merge_bb->end)
 	merge_bb->end = PREV_INSN (head);
 
-      squeeze_notes (&head, &end);
+      if (squeeze_notes (&head, &end))
+	return TRUE;
 
       reorder_insns (head, end, PREV_INSN (earliest));
     }
+
+  /* Remove the jump and edge if we can.  */
+  if (other_bb == new_dest)
+    {
+      delete_insn (jump);
+      remove_edge (BRANCH_EDGE (test_bb));
+      /* ??? Can't merge blocks here, as then_bb is still in use.
+	 At minimum, the merge will get done just before bb-reorder.  */
+    }
+
   return TRUE;
 
  cancel:
@@ -2740,6 +2765,7 @@ if_convert (x_life_data_ok)
 
       sbitmap_free (update_life_blocks);
     }
+  clear_aux_for_blocks ();
 
   /* Write the final stats.  */
   if (rtl_dump_file && num_possible_if_blocks > 0)

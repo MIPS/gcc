@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,18 +32,21 @@
 // ISO C++ 14882: 22.1  Locales
 //
 
-// Warning: this file is not meant for user inclusion.  Use <locale>.
+/** @file locale_facets.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
 
 #ifndef _CPP_BITS_LOCFACETS_H
 #define _CPP_BITS_LOCFACETS_H	1
 
 #pragma GCC system_header
 
-#include <bits/std_ctime.h>	// For struct tm
-#include <bits/std_ios.h>	// For ios_base
+#include <ctime>	// For struct tm
 #ifdef _GLIBCPP_USE_WCHAR_T
-# include <bits/std_cwctype.h>	// For wctype_t
+# include <cwctype>	// For wctype_t
 #endif 
+#include <ios>		// For ios_base
 
 namespace std
 {
@@ -50,7 +54,7 @@ namespace std
   // Include host and configuration specific ctype enums for ctype_base.
   #include <bits/ctype_base.h>
 
-  // __ctype_abstract_base is the common base for ctype<_CharT>.  
+  // Common base for ctype<_CharT>.  
   template<typename _CharT>
     class __ctype_abstract_base : public locale::facet, public ctype_base
     {
@@ -168,81 +172,69 @@ namespace std
       explicit 
       ctype(size_t __refs = 0) : __ctype_abstract_base<_CharT>(__refs) { }
 
-      static locale::id 		id;
+      static locale::id 	       	id;
 
    protected:
       virtual 
-      ~ctype() { }
+      ~ctype();
 
       virtual bool 
-      do_is(mask __m, char_type __c) const
-      { return false; }
+      do_is(mask __m, char_type __c) const;
 
       virtual const char_type*
-      do_is(const char_type* __lo, const char_type* __hi, mask* __vec) const
-      { return __hi; }
+      do_is(const char_type* __lo, const char_type* __hi, mask* __vec) const;
 
       virtual const char_type*
-      do_scan_is(mask __m, const char_type* __lo, const char_type* __hi) const
-      { return __hi; }
+      do_scan_is(mask __m, const char_type* __lo, const char_type* __hi) const;
 
       virtual const char_type*
       do_scan_not(mask __m, const char_type* __lo,
-		  const char_type* __hi) const
-      { return __hi; }
+		  const char_type* __hi) const;
 
       virtual char_type 
-      do_toupper(char_type __c) const
-      { return __c; }
+      do_toupper(char_type __c) const;
 
       virtual const char_type*
-      do_toupper(char_type* __lo, const char_type* __hi) const
-      { return __hi; }
+      do_toupper(char_type* __lo, const char_type* __hi) const;
 
       virtual char_type 
-      do_tolower(char_type __c) const
-      { return __c; }
+      do_tolower(char_type __c) const;
 
       virtual const char_type*
-      do_tolower(char_type* __lo, const char_type* __hi) const
-      { return __hi; }
-      
+      do_tolower(char_type* __lo, const char_type* __hi) const;
+
       virtual char_type 
-      do_widen(char __c) const
-      { return char_type(); }
+      do_widen(char __c) const;
 
       virtual const char*
-      do_widen(const char* __lo, const char* __hi, char_type* __dest) const
-      { return __hi; }
+      do_widen(const char* __lo, const char* __hi, char_type* __dest) const;
 
       virtual char 
-      do_narrow(char_type, char __dfault) const
-      { return __dfault; }
+      do_narrow(char_type, char __dfault) const;
 
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
-		char __dfault, char* __dest) const
-      { return __hi; }
+		char __dfault, char* __dest) const;
     };
 
   template<typename _CharT>
     locale::id ctype<_CharT>::id;
 
-  // 22.2.1.3  ctype specializations
+  // 22.2.1.3  ctype<char> specialization.
   template<>
     class ctype<char> : public __ctype_abstract_base<char>
     {
     public:
       // Types:
-      typedef char 	       char_type;
+      typedef char 	       	char_type;
 
-    private:
+    protected:
       // Data Members:
-      bool 		       _M_del;
-      __to_type const& 	       _M_toupper;
-      __to_type const& 	       _M_tolower;
-      const mask* const&       _M_ctable;
-      const mask*              _M_table;
+      __c_locale		_M_c_locale_ctype;
+      bool 		       	_M_del;
+      __to_type 	       	_M_toupper;
+      __to_type  	       	_M_tolower;
+      const mask*              	_M_table;
       
     public:
       static locale::id        id;
@@ -250,6 +242,10 @@ namespace std
 
       explicit 
       ctype(const mask* __table = 0, bool __del = false, size_t __refs = 0);
+
+      explicit 
+      ctype(__c_locale __cloc, const mask* __table = 0, bool __del = false, 
+	    size_t __refs = 0);
 
       inline bool 
       is(mask __m, char __c) const;
@@ -264,16 +260,15 @@ namespace std
       scan_not(mask __m, const char* __lo, const char* __hi) const;
      
     protected:
-      virtual 
-      ~ctype();
-
       const mask* 
       table() const throw()
       { return _M_table; }
 
-      const mask* 
-      classic_table() throw()
-      { return _M_ctable; }
+      static const mask* 
+      classic_table() throw();
+
+      virtual 
+      ~ctype();
 
       virtual bool 
       do_is(mask __m, char_type __c) const;
@@ -311,7 +306,7 @@ namespace std
 
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
-		 char __dfault, char* __dest) const;
+		char __dfault, char* __dest) const;
     };
  
   template<>
@@ -319,20 +314,27 @@ namespace std
     use_facet<ctype<char> >(const locale& __loc);
 
 #ifdef _GLIBCPP_USE_WCHAR_T
-  // ctype<wchar_t> specialization
+  // 22.2.1.3  ctype<wchar_t> specialization
   template<>
     class ctype<wchar_t> : public __ctype_abstract_base<wchar_t>
     {
     public:
       // Types:
-      typedef wchar_t 	       char_type;
-      typedef wctype_t	       __wmask_type;
+      typedef wchar_t 	       	char_type;
+      typedef wctype_t	       	__wmask_type;
 
+    protected:
+      __c_locale		_M_c_locale_ctype;
+
+    public:
       // Data Members:
-      static locale::id        id;
+      static locale::id        	id;
 
       explicit 
       ctype(size_t __refs = 0);
+
+      explicit 
+      ctype(__c_locale __cloc, size_t __refs = 0);
 
     protected:
       __wmask_type
@@ -377,7 +379,7 @@ namespace std
 
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
-		 char __dfault, char* __dest) const;
+		char __dfault, char* __dest) const;
 
     };
 
@@ -397,429 +399,56 @@ namespace std
       typedef _CharT 		char_type;
 
       explicit 
-      ctype_byname(const char*, size_t __refs = 0);
+      ctype_byname(const char* __s, size_t __refs = 0);
 
     protected:
       virtual 
-      ~ctype_byname() { }
+      ~ctype_byname() { };
     };
 
-  // 22.2.1.4  Class ctype_byname specialization
+  // 22.2.1.4  Class ctype_byname specializations.
   template<>
     ctype_byname<char>::ctype_byname(const char*, size_t refs);
 
+  template<>
+    ctype_byname<wchar_t>::ctype_byname(const char*, size_t refs);
 
   // 22.2.1.5  Template class codecvt
   #include <bits/codecvt.h>
 
-  template<typename _CharT, typename _InIter>
-    class _Numeric_get;  // forward
 
-  // _Format_cache holds the information extracted from the numpunct<>
-  // and moneypunct<> facets in a form optimized for parsing and
-  // formatting.  It is stored via a void* pointer in the pword()
-  // array of an iosbase object passed to the _get and _put facets.
-  // NB: contains no user-serviceable parts.
-  template<typename _CharT>
-    class _Format_cache
-    {
-    public: 
-      // Types:
-      typedef _CharT 				char_type;
-      typedef char_traits<_CharT> 		traits_type;
-      typedef basic_string<_CharT>		string_type;
-      typedef typename string_type::size_type	size_type;
+  // 22.2.2  The numeric category.
+  class __num_base 
+  {
+  protected:
+    // Used to establish gating factor for base 16 input.
+    static const double _S_scale_hex;
+    
+    // Used to establish gating factor for base 8 input.
+    static const double _S_scale_oct;
 
-      // Forward decls and Friends:
-      friend class locale;
-      template<typename _Char, typename _InIter>
-        friend class _Numeric_get;
-      friend class num_get<_CharT>;
-      friend class num_put<_CharT>;
-      friend class time_get<_CharT>;
-      friend class money_get<_CharT>;
-      friend class time_put<_CharT>;
-      friend class money_put<_CharT>;
+    // String literal of acceptable (narrow) input, for num_get.
+    // "0123456789eEabcdfABCDF"
+    static const char _S_atoms[];
 
-      // Data Members:
-
-      // ios_base::pword() reserved cell
-      static int 		_S_pword_ix; 
-
-      // True iff data members are consistent with the current locale,
-      // ie imbue sets this to false.
-      bool 			_M_valid;
-
-      // A list of valid numeric literals: for the standard "C" locale,
-      // this would usually be: "-+xX0123456789abcdef0123456789ABCDEF"
-      static const char 	_S_literals[];
-
-      // NB: Code depends on the order of definitions of the names
-      // these are indices into _S_literals, above.
-      // This string is formatted for putting, not getting. (output, not input)
-      enum 
-      {  
-	_S_minus, 
-	_S_plus, 
-	_S_x, 
-	_S_X, 
-	_S_digits,
-	_S_digits_end = _S_digits + 16,
-	_S_udigits = _S_digits_end,  
-	_S_udigits_end = _S_udigits + 16,
-	_S_ee = _S_digits + 14, // For scientific notation, 'E'
-	_S_Ee = _S_udigits + 14 // For scientific notation, 'e'
-      };
-
-      // The sign used to separate decimal values: for standard US
-      // locales, this would usually be: "."
-      // Abstracted from numpunct::decimal_point().
-      char_type 		_M_decimal_point;
-
-      // The sign used to separate groups of digits into smaller
-      // strings that the eye can parse with less difficulty: for
-      // standard US locales, this would usually be: ","
-      // Abstracted from numpunct::thousands_sep().
-      char_type			_M_thousands_sep;
-
-      // However the US's "false" and "true" are translated.
-      // From numpunct::truename() and numpunct::falsename(), respectively.
-      string_type 		_M_truename;
-      string_type 		_M_falsename;
-
-      // If we are checking groupings. This should be equivalent to 
-      // numpunct::groupings().size() != 0
-      bool 			_M_use_grouping;
-
-      // If we are using numpunct's groupings, this is the current
-      // grouping string in effect (from numpunct::grouping()).
-      string 			_M_grouping;
-
-      _Format_cache();
-
-      ~_Format_cache() throw() { }
-
-      // Given a member of the ios heirarchy as an argument, extract
-      // out all the current formatting information into a
-      // _Format_cache object and return a pointer to it.
-      static _Format_cache<_CharT>* 
-      _S_get(ios_base& __ios);
-
-      void 
-      _M_populate(ios_base&);
-
-      static void 
-      _S_callback(ios_base::event __event, ios_base& __ios, int __ix) throw();
+    enum 
+    {  
+      _M_zero,
+      _M_e = _M_zero + 10,
+      _M_E = _M_zero + 11,
+      _M_size = 21 + 1
     };
 
-  template<typename _CharT>
-    int _Format_cache<_CharT>::_S_pword_ix;
-
-  template<typename _CharT>
-    const char _Format_cache<_CharT>::
-    _S_literals[] = "-+xX0123456789abcdef0123456789ABCDEF";
-
-   template<> _Format_cache<char>::_Format_cache();
-
-#ifdef _GLIBCPP_USE_WCHAR_T
-   template<> _Format_cache<wchar_t>::_Format_cache();
-#endif
-
-  // _Numeric_get is used by num_get, money_get, and time_get to help
-  // in parsing out numbers.
-  template<typename _CharT, typename _InIter>
-    class _Numeric_get
-    {
-    public:
-      // Types:
-      typedef _CharT     char_type;
-      typedef _InIter    iter_type;
-
-      // Forward decls and Friends:
-      template<typename _Char, typename _InIterT>
-      friend class num_get;
-      template<typename _Char, typename _InIterT>
-      friend class time_get;
-      template<typename _Char, typename _InIterT>
-      friend class money_get;
-      template<typename _Char, typename _InIterT>
-      friend class num_put;
-      template<typename _Char, typename _InIterT>
-      friend class time_put;
-      template<typename _Char, typename _InIterT>
-      friend class money_put;
-
-    private:
-      explicit 
-      _Numeric_get() { }
-
-      virtual 
-      ~_Numeric_get() { }
-
-      iter_type 
-      _M_get_digits(iter_type __in, iter_type __end) const;
-    };
-
-  template<typename _CharT, typename _InIter>
-    class num_get : public locale::facet
-    {
-    public:
-      // Types:
-      typedef _CharT   			char_type;
-      typedef _InIter  			iter_type;
-      typedef char_traits<_CharT> 	__traits_type;
-
-      static locale::id 		id;
-
-      explicit 
-      num_get(size_t __refs = 0) : locale::facet(__refs) { }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, bool& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-      //XXX.  What number?
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, short& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, int& __v)   const
-      { return do_get(__in, __end, __io, __err, __v); }
-#endif
-
-      iter_type
-      get(iter_type __in, iter_type __end, ios_base& __io, 
-	  ios_base::iostate& __err, long& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-#ifdef _GLIBCPP_USE_LONG_LONG
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, long long& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-#endif
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, unsigned short& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, unsigned int& __v)   const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, unsigned long& __v)  const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-#ifdef _GLIBCPP_USE_LONG_LONG
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, unsigned long long& __v)  const
-      { return do_get(__in, __end, __io, __err, __v); }
-#endif
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, float& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, double& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, long double& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }
-
-      iter_type 
-      get(iter_type __in, iter_type __end, ios_base& __io,
-	  ios_base::iostate& __err, void*& __v) const
-      { return do_get(__in, __end, __io, __err, __v); }      
-
-    protected:
-      virtual ~num_get() { }
-
-      // This consolidates the extraction, storage and
-      // error-processing parts of the do_get(...) overloaded member
-      // functions. 
-      // NB: This is specialized for char.
-      void 
-      _M_extract(iter_type __beg, iter_type __end, ios_base& __io, 
-		 ios_base::iostate& __err, char* __xtrc, 
-		 int& __base, bool __fp = true) const;
-
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
-
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-      //XXX.  What number?
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, short&) const;
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, int&) const;
-#endif
-      virtual iter_type 
-      do_get (iter_type, iter_type, ios_base&, ios_base::iostate&, long&) const;
-#ifdef _GLIBCPP_USE_LONG_LONG 
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
-	     long long&) const;
-#endif
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
-	      unsigned short&) const;
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&,
-	      ios_base::iostate& __err, unsigned int&) const;
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&,
-	      ios_base::iostate& __err, unsigned long&) const;
-#ifdef _GLIBCPP_USE_LONG_LONG 
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&,
-	     ios_base::iostate& __err, unsigned long long&) const;
-#endif
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
-	     float&) const;
-
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
-	     double&) const;
-
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, 
-	     ios_base::iostate& __err, long double&) const;
-
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
-	     void*&) const;
-    };
-
-  template<typename _CharT, typename _InIter>
-    locale::id num_get<_CharT, _InIter>::id;
-
-  // Declare specialized extraction member function.
-  template<>
-    void
-    num_get<char, istreambuf_iterator<char> >::    
-    _M_extract(istreambuf_iterator<char> __beg, 
-	       istreambuf_iterator<char> __end, ios_base& __io, 
-	       ios_base::iostate& __err, char* __xtrc, 
-	       int& __base, bool __fp) const;
-
-  // _Numeric_put is used by num_put, money_put, and time_put
-  //   to help in formatting out numbers.
-  template<typename _CharT, typename _OutIter>
-    class _Numeric_put
-    {
-    public:
-      typedef _CharT      char_type;
-      typedef _OutIter    iter_type;
-    protected:
-      explicit 
-      _Numeric_put() { }
-
-      virtual 
-      ~_Numeric_put() { }
-    };
-
-  template<typename _CharT, typename _OutIter>
-    class num_put : public locale::facet
-    {
-    public:
-      // Types:
-      typedef _CharT       char_type;
-      typedef _OutIter     iter_type;
-
-      static locale::id		id;
-
-      explicit 
-      num_put(size_t __refs = 0) : locale::facet(__refs) { }
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, bool __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, long __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, 
-	  unsigned long __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-#ifdef _GLIBCPP_USE_LONG_LONG 
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, long long __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, 
-	  unsigned long long __v) const
-      { return do_put(__s, __f, __fill, __v); }
-#endif
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, double __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, 
-	  long double __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-      iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill, 
-	  const void* __v) const
-      { return do_put(__s, __f, __fill, __v); }
-
-    protected:
-      virtual 
-      ~num_put() { };
-
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, bool __v) const;
-
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, long __v) const;
-
-#ifdef _GLIBCPP_USE_LONG_LONG 
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, long long __v) const;
-#endif
-
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, unsigned long) const;
-
-#ifdef _GLIBCPP_USE_LONG_LONG
-      virtual iter_type
-      do_put(iter_type, ios_base&, char_type __fill, unsigned long long) const;
-#endif
-
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, double __v) const;
-
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, long double __v) const;
-
-      virtual iter_type 
-      do_put(iter_type, ios_base&, char_type __fill, const void* __v) const;
-    };
-
-  template <typename _CharT, typename _OutIter>
-    locale::id num_put<_CharT, _OutIter>::id;
+    // num_put
+    // Construct and return valid scanf format for floating point types.
+    static bool
+    _S_format_float(const ios_base& __io, char* __fptr, char __mod, 
+		    streamsize __prec);
+    
+    // Construct and return valid scanf format for integer types.
+    static void
+    _S_format_int(const ios_base& __io, char* __fptr, char __mod, char __modl);
+  };
 
 
   template<typename _CharT>
@@ -900,12 +529,6 @@ namespace std
   template<typename _CharT>
     locale::id numpunct<_CharT>::id;
 
-  // NB: Cannot be made generic. 
-  template<typename _CharT>
-    void
-    numpunct<_CharT>::_M_initialize_numpunct(__c_locale)
-    { }
-
   template<> 
     void
     numpunct<char>::_M_initialize_numpunct(__c_locale __cloc);
@@ -915,7 +538,6 @@ namespace std
     void
     numpunct<wchar_t>::_M_initialize_numpunct(__c_locale __cloc);
 #endif
-
 
   template<typename _CharT>
     class numpunct_byname : public numpunct<_CharT>
@@ -941,6 +563,242 @@ namespace std
       { _S_destroy_c_locale(_M_c_locale_numpunct); }
     };
 
+  template<typename _CharT, typename _InIter>
+    class num_get : public locale::facet, public __num_base
+    {
+    public:
+      // Types:
+      typedef _CharT   			char_type;
+      typedef _InIter  			iter_type;
+
+      static locale::id 		id;
+
+      explicit 
+      num_get(size_t __refs = 0) : locale::facet(__refs) { }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, bool& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type
+      get(iter_type __in, iter_type __end, ios_base& __io, 
+	  ios_base::iostate& __err, long& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, unsigned short& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, unsigned int& __v)   const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, unsigned long& __v)  const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+#ifdef _GLIBCPP_USE_LONG_LONG
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, long long& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, unsigned long long& __v)  const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+#endif
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, float& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, double& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, long double& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }
+
+      iter_type 
+      get(iter_type __in, iter_type __end, ios_base& __io,
+	  ios_base::iostate& __err, void*& __v) const
+      { return this->do_get(__in, __end, __io, __err, __v); }      
+
+    protected:
+      virtual ~num_get() { }
+
+      iter_type 
+      _M_extract_float(iter_type, iter_type, ios_base&, ios_base::iostate&, 
+		       string& __xtrc) const;
+
+      iter_type 
+      _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&, 
+		     string& __xtrc, int& __base) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, long&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	      unsigned short&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     unsigned int&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     unsigned long&) const;
+
+#ifdef _GLIBCPP_USE_LONG_LONG 
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     long long&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     unsigned long long&) const;
+#endif
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     float&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     double&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     long double&) const;
+
+      virtual iter_type 
+      do_get(iter_type, iter_type, ios_base&, ios_base::iostate& __err, 
+	     void*&) const;
+    };
+
+  template<typename _CharT, typename _InIter>
+    locale::id num_get<_CharT, _InIter>::id;
+
+  template<typename _CharT, typename _OutIter>
+    class num_put : public locale::facet, public __num_base
+    {
+    public:
+      // Types:
+      typedef _CharT       	char_type;
+      typedef _OutIter     	iter_type;
+
+      static locale::id		id;
+
+      explicit 
+      num_put(size_t __refs = 0) : locale::facet(__refs) { }
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, bool __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, long __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, 
+	  unsigned long __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+#ifdef _GLIBCPP_USE_LONG_LONG 
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, long long __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, 
+	  unsigned long long __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+#endif
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, double __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, 
+	  long double __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+      iter_type 
+      put(iter_type __s, ios_base& __f, char_type __fill, 
+	  const void* __v) const
+      { return this->do_put(__s, __f, __fill, __v); }
+
+    protected:
+      template<typename _ValueT>
+        iter_type
+        _M_convert_float(iter_type, ios_base& __io, char_type __fill, 
+			 char __mod, _ValueT __v) const;
+
+      template<typename _ValueT>
+        iter_type
+        _M_convert_int(iter_type, ios_base& __io, char_type __fill, 
+		       char __mod, char __modl, _ValueT __v) const;
+
+      iter_type
+      _M_widen_float(iter_type, ios_base& __io, char_type __fill, char* __cs, 
+		     int __len) const;
+
+      iter_type
+      _M_widen_int(iter_type, ios_base& __io, char_type __fill, char* __cs, 
+		   int __len) const;
+
+      iter_type
+      _M_insert(iter_type, ios_base& __io, char_type __fill, 
+		const char_type* __ws, int __len) const;
+
+      virtual 
+      ~num_put() { };
+
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, bool __v) const;
+
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, long __v) const;
+
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, unsigned long) const;
+
+#ifdef _GLIBCPP_USE_LONG_LONG 
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, long long __v) const;
+
+      virtual iter_type
+      do_put(iter_type, ios_base&, char_type __fill, unsigned long long) const;
+#endif
+
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, double __v) const;
+
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, long double __v) const;
+
+      virtual iter_type 
+      do_put(iter_type, ios_base&, char_type __fill, const void* __v) const;
+    };
+
+  template <typename _CharT, typename _OutIter>
+    locale::id num_put<_CharT, _OutIter>::id;
+
 
   template<typename _CharT>
     class collate : public locale::facet
@@ -960,17 +818,14 @@ namespace std
 
       explicit 
       collate(size_t __refs = 0)
-      : locale::facet(__refs), _M_c_locale_collate(NULL)
-      { } 
+      : locale::facet(__refs)
+      { _M_c_locale_collate = _S_clone_c_locale(_S_c_locale); }
 
       // Non-standard.
       explicit 
       collate(__c_locale __cloc, size_t __refs = 0) 
       : locale::facet(__refs)
-      { 
-	if (__cloc)
-	  _M_c_locale_collate = _S_clone_c_locale(__cloc); 
-      }
+      { _M_c_locale_collate = _S_clone_c_locale(__cloc); }
 
       int 
       compare(const _CharT* __lo1, const _CharT* __hi1,
@@ -990,15 +845,12 @@ namespace std
       _M_compare_helper(const _CharT*, const _CharT*) const;
 
       size_t
-      _M_transform_helper(_CharT*, const _CharT*, size_t) const;;
+      _M_transform_helper(_CharT*, const _CharT*, size_t) const;
 
   protected:
       virtual
       ~collate() 
-      {
-	if (_M_c_locale_collate)
-	  _S_destroy_c_locale(_M_c_locale_collate); 
-      }
+      { _S_destroy_c_locale(_M_c_locale_collate); }
 
       virtual int  
       do_compare(const _CharT* __lo1, const _CharT* __hi1,
@@ -1030,7 +882,7 @@ namespace std
 
   template<>
     size_t
-    collate<wchar_t>::_M_transform_helper(wchar_t*, const wchar_t*, 
+    collate<wchar_t>::_M_transform_helper(wchar_t*, const wchar_t*,
 					  size_t) const;
 #endif
 
@@ -1044,10 +896,13 @@ namespace std
       explicit 
       collate_byname(const char* __s, size_t __refs = 0)
       : collate<_CharT>(__refs) 
-      { _S_create_c_locale(_M_c_locale_collate, __s); }
+      { 
+	_S_destroy_c_locale(_M_c_locale_collate);
+	_S_create_c_locale(_M_c_locale_collate, __s); 
+      }
 
     protected:
-      virtual 
+      virtual   
       ~collate_byname() { }
     };
 
@@ -1250,30 +1105,19 @@ namespace std
   template<typename _CharT>
     locale::id __timepunct<_CharT>::id;
 
+  // Specializations.
   template<> 
     const char*
     __timepunct<char>::_S_timezones[14];
 
-  // Generic.
-  template<typename _CharT>
-    const _CharT* __timepunct<_CharT>::_S_timezones[14];
-
-  // NB: Cannot be made generic. 
-  template<typename _CharT>
-    void
-    __timepunct<_CharT>::_M_initialize_timepunct(__c_locale)
-    { }
-
-  // NB: Cannot be made generic.
-  template<typename _CharT>
-    void
-    __timepunct<_CharT>::_M_put_helper(_CharT*, size_t, const _CharT*, 
-				       const tm*) const
-    { }
-
   template<> 
     void
     __timepunct<char>::_M_initialize_timepunct(__c_locale __cloc);
+
+  template<>
+    void
+    __timepunct<char>::_M_put_helper(char*, size_t, const char*, 
+				     const tm*) const;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<> 
@@ -1283,7 +1127,17 @@ namespace std
   template<> 
     void
     __timepunct<wchar_t>::_M_initialize_timepunct(__c_locale __cloc);
+
+  template<>
+    void
+    __timepunct<wchar_t>::_M_put_helper(wchar_t*, size_t, const wchar_t*, 
+					const tm*) const;
 #endif
+
+  // Generic.
+  template<typename _CharT>
+    const _CharT* __timepunct<_CharT>::_S_timezones[14];
+
 
   template<typename _CharT, typename _InIter>
     class time_get : public locale::facet, public time_base
@@ -1452,8 +1306,9 @@ namespace std
     };
 
 
-  struct money_base
+  class money_base
   {
+  public:
     enum part { none, space, symbol, sign, value };
     struct pattern { char field[4]; };
 
@@ -1462,7 +1317,7 @@ namespace std
     // Construct and return valid pattern consisting of some combination of:
     // space none symbol sign value
     static pattern 
-    _S_construct_pattern(char __preceeds, char __space, char __posn);
+    _S_construct_pattern(char __precedes, char __space, char __posn);
   };
 
   template<typename _CharT, bool _Intl>
@@ -1582,12 +1437,6 @@ namespace std
 
   template<typename _CharT, bool _Intl>
     const bool moneypunct<_CharT, _Intl>::intl;
-
-  // NB: Cannot be made generic. 
-  template<typename _CharT, bool _Intl>
-    void
-    moneypunct<_CharT, _Intl>::_M_initialize_moneypunct(__c_locale)
-    { }
 
   template<> 
     void
@@ -1742,9 +1591,8 @@ namespace std
 
       explicit 
       messages(size_t __refs = 0) 
-      : locale::facet(__refs), _M_c_locale_messages(NULL), 
-      _M_name_messages("C")
-      { }
+      : locale::facet(__refs), _M_name_messages("C")
+      { _M_c_locale_messages = _S_clone_c_locale(_S_c_locale); }
 
       // Non-standard.
       explicit 
@@ -1752,8 +1600,7 @@ namespace std
       : locale::facet(__refs)
       { 
 	_M_name_messages = __name;
-	if (__cloc)
-	  _M_c_locale_messages = _S_clone_c_locale(__cloc); 
+	_M_c_locale_messages = _S_clone_c_locale(__cloc); 
       }
 
       catalog 
@@ -1774,7 +1621,8 @@ namespace std
 
     protected:
       virtual 
-      ~messages();
+      ~messages()
+       { _S_destroy_c_locale(_M_c_locale_messages); }
 
       virtual catalog 
       do_open(const basic_string<char>&, const locale&) const;
@@ -1856,8 +1704,9 @@ namespace std
       messages_byname(const char* __s, size_t __refs = 0)
       : messages<_CharT>(__refs) 
       { 
-	_S_create_c_locale(_M_c_locale_messages, __s); 
 	_M_name_messages = __s;
+	_S_destroy_c_locale(_M_c_locale_messages);
+	_S_create_c_locale(_M_c_locale_messages, __s); 
       }
 
     protected:

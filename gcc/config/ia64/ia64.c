@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -139,6 +139,7 @@ static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
 						  tree, rtx));
 static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
 const struct attribute_spec ia64_attribute_table[];
+static bool ia64_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void ia64_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ia64_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ia64_output_function_end_prologue PARAMS ((FILE *));
@@ -164,6 +165,23 @@ static rtx ia64_cycle_display PARAMS ((int, rtx));
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ia64_expand_builtin
+
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tdata1\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\tdata2\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tdata4\t"
+#undef TARGET_ASM_ALIGNED_DI_OP
+#define TARGET_ASM_ALIGNED_DI_OP "\tdata8\t"
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\tdata2.ua\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\tdata4.ua\t"
+#undef TARGET_ASM_UNALIGNED_DI_OP
+#define TARGET_ASM_UNALIGNED_DI_OP "\tdata8.ua\t"
+#undef TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER ia64_assemble_integer
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE ia64_output_function_prologue
@@ -645,7 +663,7 @@ shladd_operand (op, mode)
 	      || INTVAL (op) == 8 || INTVAL (op) == 16));
 }
 
-/* Return 1 if OP is a -16, -8, -4, -1, 1, 4, 8, or 16 immediate operand. */
+/* Return 1 if OP is a -16, -8, -4, -1, 1, 4, 8, or 16 immediate operand.  */
 
 int
 fetchadd_operand (op, mode)
@@ -1052,7 +1070,7 @@ ia64_split_timode (out, in, scratch)
 
    We got into problems in the first place by allowing a construct like
    (subreg:TF (reg:TI)), which we got from a union containing a long double.  
-   This solution attempts to prevent this situation from ocurring.  When
+   This solution attempts to prevent this situation from occurring.  When
    we see something like the above, we spill the inner register to memory.  */
 
 rtx
@@ -1359,7 +1377,11 @@ mark_reg_gr_used_mask (reg, data)
 {
   unsigned int regno = REGNO (reg);
   if (regno < 32)
-    current_frame_info.gr_used_mask |= 1 << regno;
+    {
+      unsigned int i, n = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      for (i = 0; i < n; ++i)
+	current_frame_info.gr_used_mask |= 1 << (regno + i);
+    }
 }
 
 /* Returns the number of bytes offset between the frame pointer and the stack
@@ -1433,10 +1455,8 @@ ia64_compute_frame_size (size)
      Likwise for -a profiling for the bb_init_func argument.  For -ax
      profiling, we need two output registers for the two bb_init_trace_func
      arguments.  */
-  if (profile_flag || profile_block_flag == 1)
+  if (current_function_profile)
     i = MAX (i, 1);
-  else if (profile_block_flag == 2)
-    i = MAX (i, 2);
   current_frame_info.n_output_regs = i;
 
   /* ??? No rotating register support yet.  */
@@ -1675,7 +1695,7 @@ ia64_initial_elimination_offset (from, to)
 
 struct spill_fill_data
 {
-  rtx init_after;		/* point at which to emit intializations */
+  rtx init_after;		/* point at which to emit initializations */
   rtx init_reg[2];		/* initial base register */
   rtx iter_reg[2];		/* the iterator registers */
   rtx *prev_addr[2];		/* address of last memory use */
@@ -1773,7 +1793,7 @@ spill_restore_mem (reg, cfa_off)
     }
   else
     {
-      rtx seq;
+      rtx seq, insn;
 
       if (disp == 0)
 	seq = gen_movdi (spill_fill_data.iter_reg[iter],
@@ -1799,17 +1819,26 @@ spill_restore_mem (reg, cfa_off)
 
       /* Careful for being the first insn in a sequence.  */
       if (spill_fill_data.init_after)
-	spill_fill_data.init_after
-	  = emit_insn_after (seq, spill_fill_data.init_after);
+	insn = emit_insn_after (seq, spill_fill_data.init_after);
       else
 	{
 	  rtx first = get_insns ();
 	  if (first)
-	    spill_fill_data.init_after
-	      = emit_insn_before (seq, first);
+	    insn = emit_insn_before (seq, first);
 	  else
-	    spill_fill_data.init_after = emit_insn (seq);
+	    insn = emit_insn (seq);
 	}
+      spill_fill_data.init_after = insn;
+
+      /* If DISP is 0, we may or may not have a further adjustment
+	 afterward.  If we do, then the load/store insn may be modified
+	 to be a post-modify.  If we don't, then this copy may be
+	 eliminated by copyprop_hardreg_forward, which makes this
+	 insn garbage, which runs afoul of the sanity check in
+	 propagate_one_insn.  So mark this insn as legal to delete.  */
+      if (disp == 0)
+	REG_NOTES(insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx,
+					     REG_NOTES (insn));
     }
 
   mem = gen_rtx_MEM (GET_MODE (reg), spill_fill_data.iter_reg[iter]);
@@ -2108,7 +2137,7 @@ ia64_expand_prologue ()
       /* Even if we're not going to generate an epilogue, we still
 	 need to save the register so that EH works.  */
       if (! epilogue_p && current_frame_info.reg_save_ar_unat)
-	emit_insn (gen_rtx_USE (VOIDmode, ar_unat_save_reg));
+	emit_insn (gen_prologue_use (ar_unat_save_reg));
     }
   else
     ar_unat_save_reg = NULL_RTX;
@@ -2149,7 +2178,7 @@ ia64_expand_prologue ()
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
 	  if (! epilogue_p)
-	    emit_insn (gen_rtx_USE (VOIDmode, alt_reg));
+	    emit_insn (gen_prologue_use (alt_reg));
 	}
       else
 	{
@@ -2193,7 +2222,7 @@ ia64_expand_prologue ()
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
 	  if (! epilogue_p)
-	    emit_insn (gen_rtx_USE (VOIDmode, alt_reg));
+	    emit_insn (gen_prologue_use (alt_reg));
 	}
       else
 	{
@@ -2233,7 +2262,7 @@ ia64_expand_prologue ()
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
 	  if (! epilogue_p)
-	    emit_insn (gen_rtx_USE (VOIDmode, alt_reg));
+	    emit_insn (gen_prologue_use (alt_reg));
 	}
       else
 	{
@@ -2275,7 +2304,7 @@ ia64_expand_prologue ()
 }
 
 /* Called after register allocation to add any instructions needed for the
-   epilogue.  Using a epilogue insn is favored compared to putting all of the
+   epilogue.  Using an epilogue insn is favored compared to putting all of the
    instructions in output_function_prologue(), since it allows the scheduler
    to intermix instructions with the saves of the caller saved registers.  In
    some cases, it might be necessary to emit a barrier instruction as the last
@@ -2580,6 +2609,28 @@ ia64_hard_regno_rename_ok (from, to)
     return 0;
 
   return 1;
+}
+
+/* Target hook for assembling integer objects.  Handle word-sized
+   aligned objects and detect the cases when @fptr is needed.  */
+
+static bool
+ia64_assemble_integer (x, size, aligned_p)
+     rtx x;
+     unsigned int size;
+     int aligned_p;
+{
+  if (size == UNITS_PER_WORD && aligned_p
+      && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
+      && GET_CODE (x) == SYMBOL_REF
+      && SYMBOL_REF_FLAG (x))
+    {
+      fputs ("\tdata8\t@fptr(", asm_out_file);
+      output_addr_const (asm_out_file, x);
+      fputs (")\n", asm_out_file);
+      return true;
+    }
+  return default_assemble_integer (x, size, aligned_p);
 }
 
 /* Emit the function prologue.  */
@@ -3292,7 +3343,7 @@ ia64_print_operand_address (stream, address)
 {
 }
 
-/* Print an operand to a assembler instruction.
+/* Print an operand to an assembler instruction.
    C	Swap and print a comparison operator.
    D	Print an FP comparison operator.
    E    Print 32 - constant, for SImode shifts as extract.
@@ -3527,7 +3578,7 @@ ia64_print_operand (file, x, code)
     case POST_DEC:
     case POST_MODIFY:
       x = XEXP (x, 0);
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case REG:
       fputs (reg_names [REGNO (x)], file);
@@ -3965,7 +4016,7 @@ ia64_safe_type (insn)
    WRITE_COUNT gets set to 2.
 
    The result of this is that whenever an insn attempts to write a register
-   whose WRITE_COUNT is two, we need to issue a insn group barrier first.
+   whose WRITE_COUNT is two, we need to issue an insn group barrier first.
 
    If a predicate register is written by a floating-point insn, we set
    WRITTEN_BY_FP to true.
@@ -4124,7 +4175,7 @@ rws_access_regno (regno, flags, pred)
 	      && ! rws_sum[regno].written_by_fp)
 	    /* The predicates of a branch are available within the
 	       same insn group as long as the predicate was written by
-	       something other than a floating-point instruction.   */
+	       something other than a floating-point instruction.  */
 	    return 0;
 	}
 
@@ -4241,7 +4292,7 @@ update_set_flags (x, pflags, ppred, pcond)
 	     type compares.  We do not generate such instructions
 	     currently.  */
 	}
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     default:
       if (GET_RTX_CLASS (GET_CODE (src)) == '<'
@@ -4725,6 +4776,7 @@ group_barrier_needed_p (insn)
 
 	  /* Doesn't generate code.  */
 	case CODE_FOR_pred_rel_mutex:
+	case CODE_FOR_prologue_use:
 	  return 0;
 
 	default:
@@ -5179,12 +5231,27 @@ static rtx
 ia64_single_set (insn)
      rtx insn;
 {
-  rtx x = PATTERN (insn);
+  rtx x = PATTERN (insn), ret;
   if (GET_CODE (x) == COND_EXEC)
     x = COND_EXEC_CODE (x);
   if (GET_CODE (x) == SET)
     return x;
-  return single_set_2 (insn, x);
+  ret = single_set_2 (insn, x);
+  if (ret == NULL && GET_CODE (x) == PARALLEL)
+    {
+      /* Special case here prologue_allocate_stack and
+	 epilogue_deallocate_stack.  Although it is not a classical
+	 single set, the second set is there just to protect it
+	 from moving past FP-relative stack accesses.  */
+      if (XVECLEN (x, 0) == 2
+	  && GET_CODE (XVECEXP (x, 0, 0)) == SET
+	  && GET_CODE (XVECEXP (x, 0, 1)) == SET
+	  && GET_CODE (SET_DEST (XVECEXP (x, 0, 1))) == REG
+	  && SET_DEST (XVECEXP (x, 0, 1)) == SET_SRC (XVECEXP (x, 0, 1))
+	  && ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IALU)
+	ret = XVECEXP (x, 0, 0);
+    }
+  return ret;
 }
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
@@ -5241,17 +5308,27 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
 
   src = set ? SET_SRC (set) : 0;
   addr = 0;
-  if (set && GET_CODE (SET_DEST (set)) == MEM)
-    addr = XEXP (SET_DEST (set), 0);
-  else if (set && GET_CODE (src) == MEM)
-    addr = XEXP (src, 0);
-  else if (set && GET_CODE (src) == ZERO_EXTEND
-	   && GET_CODE (XEXP (src, 0)) == MEM)
-    addr = XEXP (XEXP (src, 0), 0);
-  else if (set && GET_CODE (src) == UNSPEC
-	   && XVECLEN (XEXP (src, 0), 0) > 0
-	   && GET_CODE (XVECEXP (src, 0, 0)) == MEM)
-    addr = XEXP (XVECEXP (src, 0, 0), 0);
+  if (set)
+    {
+      if (GET_CODE (SET_DEST (set)) == MEM)
+	addr = XEXP (SET_DEST (set), 0);
+      else if (GET_CODE (SET_DEST (set)) == SUBREG
+	       && GET_CODE (SUBREG_REG (SET_DEST (set))) == MEM)
+	addr = XEXP (SUBREG_REG (SET_DEST (set)), 0);
+      else
+	{
+	  addr = src;
+	  if (GET_CODE (addr) == UNSPEC && XVECLEN (addr, 0) > 0)
+	    addr = XVECEXP (addr, 0, 0);
+	  while (GET_CODE (addr) == SUBREG || GET_CODE (addr) == ZERO_EXTEND)
+	    addr = XEXP (addr, 0);
+	  if (GET_CODE (addr) == MEM)
+	    addr = XEXP (addr, 0);
+	  else
+	    addr = 0;
+	}
+    }
+
   if (addr && GET_CODE (addr) == POST_MODIFY)
     addr = XEXP (addr, 0);
 
@@ -6317,7 +6394,8 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
 
 	  /* Ignore cycle displays and .pred.rel.mutex.  */
 	  if (insn_code == CODE_FOR_cycle_display
-	      || insn_code == CODE_FOR_pred_rel_mutex)
+	      || insn_code == CODE_FOR_pred_rel_mutex
+	      || insn_code == CODE_FOR_prologue_use)
 	    continue;
 
 	  if (insn_code == CODE_FOR_insn_group_barrier)
@@ -6864,7 +6942,7 @@ ia64_encode_section_info (decl)
   /* This decl is marked as being in small data/bss but it shouldn't
      be; one likely explanation for this is that the decl has been
      moved into a different section from the one it was in when
-     ENCODE_SECTION_INFO was first called.  Remove the '@'.*/
+     ENCODE_SECTION_INFO was first called.  Remove the '@'.  */
   else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
     {
       XSTR (XEXP (DECL_RTL (decl), 0), 0)
@@ -6928,7 +7006,7 @@ process_set (asm_out_file, pat)
       return 1;
     }
 
-  /* Look for SP = .... */
+  /* Look for SP = ....  */
   if (GET_CODE (dest) == REG && REGNO (dest) == STACK_POINTER_REGNUM)
     {
       if (GET_CODE (src) == PLUS)
@@ -7388,7 +7466,7 @@ ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
     insn = gen_cmpxchg_acq_di (tmp, mem, tmp, ccv);
   emit_insn (insn);
 
-  emit_cmp_and_jump_insns (tmp, ret, NE, 0, mode, 1, 0, label);
+  emit_cmp_and_jump_insns (tmp, ret, NE, 0, mode, 1, label);
 
   return ret;
 }
@@ -7453,7 +7531,7 @@ ia64_expand_op_and_fetch (binoptab, mode, arglist, target)
     insn = gen_cmpxchg_acq_di (tmp, mem, ret, ccv);
   emit_insn (insn);
 
-  emit_cmp_and_jump_insns (tmp, old, NE, 0, mode, 1, 0, label);
+  emit_cmp_and_jump_insns (tmp, old, NE, 0, mode, 1, label);
 
   return ret;
 }
@@ -7715,4 +7793,28 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
     }
 
   return NULL_RTX;
+}
+
+/* For the HP-UX IA64 aggregate parameters are passed stored in the
+   most significant bits of the stack slot.  */
+
+enum direction
+ia64_hpux_function_arg_padding (mode, type)
+     enum machine_mode mode;
+     tree type;
+{
+   /* Exception to normal case for structures/unions/etc.  */
+
+   if (type && AGGREGATE_TYPE_P (type)
+       && int_size_in_bytes (type) < UNITS_PER_WORD)
+     return upward;
+
+   /* This is the standard FUNCTION_ARG_PADDING with !BYTES_BIG_ENDIAN
+      hardwired to be true.  */
+
+   return((mode == BLKmode
+       ? (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+          && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
+       : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
+      ? downward : upward);
 }

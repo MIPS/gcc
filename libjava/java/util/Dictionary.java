@@ -1,6 +1,6 @@
 /* Dictionary.java -- an abstract (and essentially worthless) 
    class which is Hashtable's superclass
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -19,11 +19,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -35,49 +46,88 @@ package java.util;
  * This is an abstract class which has really gone by the wayside.
  * People at Javasoft are probably embarrassed by it.  At this point,
  * it might as well be an interface rather than a class, but it remains
- * this poor, laugable skeleton for the sake of backwards compatibility.
+ * this poor, laughable skeleton for the sake of backwards compatibility.
  * At any rate, this was what came before the <pre>Map</pre> interface 
  * in the Collections framework.
  *
- * @author      Jon Zeppieri
+ * @author Jon Zeppieri
+ * @author Eric Blake <ebb9@email.byu.edu>
+ * @see Map
+ * @see Hashtable
+ * @since 1.0
+ * @status updated to 1.4
  */
 public abstract class Dictionary extends Object
 {
-  /** returns an Enumeration of the values in this Dictionary */
+  /**
+   * Sole constructor (often called implicitly).
+   */
+  public Dictionary()
+  {
+  }
+
+  /**
+   * Returns an Enumeration of the values in this Dictionary.
+   *
+   * @return an Enumeration of the values
+   * @see #keys()
+   */
   public abstract Enumeration elements();
 
   /** 
-   * returns the value associated with the supplied key, or null
-   * if no such value exists
+   * Returns the value associated with the supplied key, or null
+   * if no such value exists. Since Dictionaries are not allowed null keys
+   * or elements, a null result always means the key is not present.
    *
-   * @param    key      the key to use to fetch the value
+   * @param key the key to use to fetch the value
+   * @return the mapped value
+   * @throws NullPointerException if key is null
+   * @see #put(Object, Object)
    */
   public abstract Object get(Object key);
 
-  /** returns true IFF there are no elements in this Dictionary (size() == 0) */
+  /**
+   * Returns true when there are no elements in this Dictionary.
+   *
+   * @return <code>size() == 0</code>
+   */
   public abstract boolean isEmpty();
 
-  /** returns an Enumeration of the keys in this Dictionary */
+  /**
+   * Returns an Enumeration of the keys in this Dictionary
+   *
+   * @return an Enumeration of the keys
+   * @see #elements()
+   */
   public abstract Enumeration keys();
 
   /**
-   * inserts a new value into this Dictionary, located by the
-   * supllied key; note: Dictionary's subclasses (all 1 of them)
-   * do not support null keys or values (I can only assume this
-   * would have been more general) 
+   * Inserts a new value into this Dictionary, located by the
+   * supplied key. Dictionary does not support null keys or values, so
+   * a null return can safely be interpreted as adding a new key.
    *
-   * @param      key      the key which locates the value
-   * @param      value    the value to put into the Dictionary
+   * @param key the key which locates the value
+   * @param value the value to put into the Dictionary
+   * @return the previous value of the key, or null if there was none
+   * @throws NullPointerException if key or value is null
+   * @see #get(Object)
    */
   public abstract Object put(Object key, Object value);
 
   /**
-   * removes fro the Dictionary the value located by the given key
+   * Removes from the Dictionary the value located by the given key. A null
+   * return safely means that the key was not mapped in the Dictionary.
    *
-   * @param       key      the key used to locate the value to be removed
+   * @param key the key used to locate the value to be removed
+   * @return the value associated with the removed key
+   * @throws NullPointerException if key is null
    */
   public abstract Object remove(Object key);
 
-  /** returns the number of values currently in this Dictionary */
+  /**
+   * Returns the number of values currently in this Dictionary.
+   *
+   * @return the number of keys in the Dictionary
+   */
   public abstract int size();
 }

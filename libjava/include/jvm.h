@@ -11,6 +11,12 @@ details.  */
 #ifndef __JAVA_JVM_H__
 #define __JAVA_JVM_H__
 
+// Define this before including jni.h.
+// jni.h is included by jvmpi.h, which might be included.  We define
+// this unconditionally because it is convenient and it lets other
+// files include jni.h without difficulty.
+#define __GCJ_JNI_IMPL__
+
 #include <gcj/javaprims.h>
 
 #include <java-assert.h>
@@ -28,18 +34,12 @@ details.  */
 struct _Jv_VTable
 {
 #ifdef __ia64__
-  jclass clas;
-  unsigned long : 64;
-  void *gc_descr;
-  unsigned long : 64;
-
   typedef struct { void *pc, *gp; } vtable_elt;
 #else
-  jclass clas;
-  void *gc_descr;
-
   typedef void *vtable_elt;
 #endif
+  jclass clas;
+  void *gc_descr;
 
   // This must be last, as derived classes "extend" this by
   // adding new data members.
@@ -48,13 +48,27 @@ struct _Jv_VTable
 #ifdef __ia64__
   void *get_method(int i) { return &method[i]; }
   void set_method(int i, void *fptr) { method[i] = *(vtable_elt *)fptr; }
+  void *get_finalizer()
+  {
+    // We know that get_finalizer is only used for checking whether
+    // this object needs to have a finalizer registered.  So it is
+    // safe to simply return just the PC component of the vtable
+    // slot.
+    return ((vtable_elt *)(get_method(0)))->pc;
+  }
 #else
   void *get_method(int i) { return method[i]; }
   void set_method(int i, void *fptr) { method[i] = fptr; }
+  void *get_finalizer() { return get_method(0); }
 #endif
 
-  void *get_finalizer() { return get_method(0); }
   static size_t vtable_elt_size() { return sizeof(vtable_elt); }
+
+  // Given a method index, return byte offset from the vtable pointer.
+  static jint idx_to_offset (int index)
+  {
+    return (2 * sizeof (void *)) + (index * vtable_elt_size ());
+  }
   static _Jv_VTable *new_vtable (int count);
 };
 
@@ -131,6 +145,9 @@ namespace gcj
   extern _Jv_Utf8Const *clinit_name;    /* "<clinit>" */
   extern _Jv_Utf8Const *init_name;      /* "<init>" */
   extern _Jv_Utf8Const *finit_name;     /* "finit$", */
+  
+  /* Set to true by _Jv_CreateJavaVM. */
+  extern bool runtimeInitialized;
 };
 
 /* Type of pointer used as finalizer.  */
@@ -160,9 +177,7 @@ void _Jv_InitGC (void);
 /* Register a finalizer.  */
 void _Jv_RegisterFinalizer (void *object, _Jv_FinalizerFunc *method);
 /* Compute the GC descriptor for a class */
-#ifdef INTERPRETER
 void * _Jv_BuildGCDescr(jclass);
-#endif
 
 /* Allocate some unscanned, unmoveable memory.  Return NULL if out of
    memory.  */
@@ -338,7 +353,16 @@ void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *);
 struct _Jv_JavaVM;
 _Jv_JavaVM *_Jv_GetJavaVM (); 
 
+// Some verification functions from defineclass.cc.
+bool _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig);
+bool _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig);
+bool _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length);
+bool _Jv_VerifyClassName (_Jv_Utf8Const *name);
+bool _Jv_VerifyIdentifier (_Jv_Utf8Const *);
+bool _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2);
+
 #ifdef ENABLE_JVMPI
+
 #include "jvmpi.h"
 
 extern void (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (JVMPI_Event *event);

@@ -53,14 +53,15 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_uninitialized.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
 #ifndef _CPP_BITS_STL_UNINITIALIZED_H
 #define _CPP_BITS_STL_UNINITIALIZED_H 1
 
-#include <bits/std_cstring.h>
+#include <cstring>
 
 namespace std
 {
@@ -81,14 +82,27 @@ namespace std
 			     __false_type)
     {
       _ForwardIter __cur = __result;
-      __STL_TRY {
+      try {
 	for ( ; __first != __last; ++__first, ++__cur)
 	  _Construct(&*__cur, *__first);
 	return __cur;
       }
-      __STL_UNWIND(_Destroy(__result, __cur));
+      catch(...)
+	{
+	  _Destroy(__result, __cur);
+	  __throw_exception_again; 
+	}
     }
 
+  /**
+   *  @brief Copies the range [first,last) into result.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  result An output iterator.
+   *  @return   result + (first - last)
+   *
+   *  Like copy(), but does not require an initialized output range.
+  */
   template<typename _InputIter, typename _ForwardIter>
     inline _ForwardIter
     uninitialized_copy(_InputIter __first, _InputIter __last, _ForwardIter __result)
@@ -113,51 +127,6 @@ namespace std
     return __result + (__last - __first);
   }
 
-  // uninitialized_copy_n (not part of the C++ standard)
-
-  template<typename _InputIter, typename _Size, typename _ForwardIter>
-    pair<_InputIter, _ForwardIter>
-    __uninitialized_copy_n(_InputIter __first, _Size __count,
-			   _ForwardIter __result,
-			   input_iterator_tag)
-    {
-      _ForwardIter __cur = __result;
-      __STL_TRY {
-	for ( ; __count > 0 ; --__count, ++__first, ++__cur) 
-	  _Construct(&*__cur, *__first);
-	return pair<_InputIter, _ForwardIter>(__first, __cur);
-      }
-      __STL_UNWIND(_Destroy(__result, __cur));
-    }
-
-  template<typename _RandomAccessIter, typename _Size, typename _ForwardIter>
-    inline pair<_RandomAccessIter, _ForwardIter>
-    __uninitialized_copy_n(_RandomAccessIter __first, _Size __count,
-			   _ForwardIter __result,
-			   random_access_iterator_tag)
-    {
-      _RandomAccessIter __last = __first + __count;
-      return pair<_RandomAccessIter, _ForwardIter>(
-		     __last,
-		     uninitialized_copy(__first, __last, __result));
-    }
-
-  template<typename _InputIter, typename _Size, typename _ForwardIter>
-    inline pair<_InputIter, _ForwardIter>
-    __uninitialized_copy_n(_InputIter __first, _Size __count,
-			 _ForwardIter __result) {
-      return __uninitialized_copy_n(__first, __count, __result,
-				    __iterator_category(__first));
-    }
-
-  template<typename _InputIter, typename _Size, typename _ForwardIter>
-    inline pair<_InputIter, _ForwardIter>
-    uninitialized_copy_n(_InputIter __first, _Size __count,
-			 _ForwardIter __result) {
-      return __uninitialized_copy_n(__first, __count, __result,
-				    __iterator_category(__first));
-    }
-
   // Valid if copy construction is equivalent to assignment, and if the
   // destructor is trivial.
   template<typename _ForwardIter, typename _Tp>
@@ -172,13 +141,26 @@ namespace std
 			     const _Tp& __x, __false_type)
     {
       _ForwardIter __cur = __first;
-      __STL_TRY {
+      try {
 	for ( ; __cur != __last; ++__cur)
 	  _Construct(&*__cur, __x);
       }
-      __STL_UNWIND(_Destroy(__first, __cur));
+      catch(...)
+	{
+	  _Destroy(__first, __cur);
+	  __throw_exception_again; 
+	}
     }
 
+  /**
+   *  @brief Copies the value x into the range [first,last).
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  x      The source value.
+   *  @return   Nothing.
+   *
+   *  Like fill(), but does not require an initialized output range.
+  */
   template<typename _ForwardIter, typename _Tp>
     inline void
     uninitialized_fill(_ForwardIter __first, _ForwardIter __last, const _Tp& __x)
@@ -204,14 +186,27 @@ namespace std
 			       const _Tp& __x, __false_type)
     {
       _ForwardIter __cur = __first;
-      __STL_TRY {
+      try {
 	for ( ; __n > 0; --__n, ++__cur)
 	  _Construct(&*__cur, __x);
 	return __cur;
       }
-      __STL_UNWIND(_Destroy(__first, __cur));
+      catch(...)
+	{ 
+	  _Destroy(__first, __cur);
+	  __throw_exception_again; 
+	}
     }
 
+  /**
+   *  @brief Copies the value x into the range [first,first+n).
+   *  @param  first  An input iterator.
+   *  @param  n      The number of copies to make.
+   *  @param  x      The source value.
+   *  @return   first+n
+   *
+   *  Like fill_n(), but does not require an initialized output range.
+  */
   template<typename _ForwardIter, typename _Size, typename _Tp>
     inline _ForwardIter 
     uninitialized_fill_n(_ForwardIter __first, _Size __n, const _Tp& __x)
@@ -236,10 +231,14 @@ namespace std
 			      _ForwardIter __result)
     {
       _ForwardIter __mid = uninitialized_copy(__first1, __last1, __result);
-      __STL_TRY {
+      try {
 	return uninitialized_copy(__first2, __last2, __mid);
       }
-      __STL_UNWIND(_Destroy(__result, __mid));
+      catch(...)
+	{ 
+	  _Destroy(__result, __mid);
+	  __throw_exception_again; 
+	}
     }
 
   // __uninitialized_fill_copy
@@ -252,10 +251,14 @@ namespace std
 			      _InputIter __first, _InputIter __last)
     {
       uninitialized_fill(__result, __mid, __x);
-      __STL_TRY {
+      try {
 	return uninitialized_copy(__first, __last, __mid);
       }
-      __STL_UNWIND(_Destroy(__result, __mid));
+      catch(...)
+	{
+	  _Destroy(__result, __mid);
+	  __throw_exception_again; 
+	}
     }
 
   // __uninitialized_copy_fill
@@ -268,10 +271,14 @@ namespace std
 			      const _Tp& __x)
     {
       _ForwardIter __mid2 = uninitialized_copy(__first1, __last1, __first2);
-      __STL_TRY {
+      try {
 	uninitialized_fill(__mid2, __last2, __x);
       }
-      __STL_UNWIND(_Destroy(__first2, __mid2));
+      catch(...)
+	{
+	  _Destroy(__first2, __mid2);
+	  __throw_exception_again; 
+	}
     }
 
 } // namespace std

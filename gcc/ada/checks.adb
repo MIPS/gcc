@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -37,6 +37,7 @@ with Freeze;   use Freeze;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
+with Restrict; use Restrict;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Eval; use Sem_Eval;
@@ -276,6 +277,79 @@ package body Checks is
          Analyze_And_Resolve (N);
       end if;
    end Apply_Accessibility_Check;
+
+   ---------------------------
+   -- Apply_Alignment_Check --
+   ---------------------------
+
+   procedure Apply_Alignment_Check (E : Entity_Id; N : Node_Id) is
+      AC   : constant Node_Id := Address_Clause (E);
+      Expr : Node_Id;
+      Loc  : Source_Ptr;
+
+   begin
+      if No (AC) or else Range_Checks_Suppressed (E) then
+         return;
+      end if;
+
+      Loc  := Sloc (AC);
+      Expr := Expression (AC);
+
+      if Nkind (Expr) = N_Unchecked_Type_Conversion then
+         Expr := Expression (Expr);
+
+      elsif Nkind (Expr) = N_Function_Call
+        and then Is_RTE (Entity (Name (Expr)), RE_To_Address)
+      then
+         Expr := First (Parameter_Associations (Expr));
+
+         if Nkind (Expr) = N_Parameter_Association then
+            Expr := Explicit_Actual_Parameter (Expr);
+         end if;
+      end if;
+
+      --  Here Expr is the address value. See if we know that the
+      --  value is unacceptable at compile time.
+
+      if Compile_Time_Known_Value (Expr)
+        and then Known_Alignment (E)
+      then
+         if Expr_Value (Expr) mod Alignment (E) /= 0 then
+               Insert_Action (N,
+                  Make_Raise_Program_Error (Loc));
+               Error_Msg_NE
+                 ("?specified address for& not " &
+                  "consistent with alignment", Expr, E);
+         end if;
+
+      --  Here we do not know if the value is acceptable, generate
+      --  code to raise PE if alignment is inappropriate.
+
+      else
+         --  Skip generation of this code if we don't want elab code
+
+         if not Restrictions (No_Elaboration_Code) then
+            Insert_After_And_Analyze (N,
+              Make_Raise_Program_Error (Loc,
+                Condition =>
+                  Make_Op_Ne (Loc,
+                    Left_Opnd =>
+                      Make_Op_Mod (Loc,
+                        Left_Opnd =>
+                          Unchecked_Convert_To
+                           (RTE (RE_Integer_Address),
+                            Duplicate_Subexpr (Expr)),
+                        Right_Opnd =>
+                          Make_Attribute_Reference (Loc,
+                            Prefix => New_Occurrence_Of (E, Loc),
+                            Attribute_Name => Name_Alignment)),
+                    Right_Opnd => Make_Integer_Literal (Loc, Uint_0))),
+              Suppress => All_Checks);
+         end if;
+      end if;
+
+      return;
+   end Apply_Alignment_Check;
 
    -------------------------------------
    -- Apply_Arithmetic_Overflow_Check --
@@ -1863,7 +1937,7 @@ package body Checks is
    -- Determine_Range --
    ---------------------
 
-   Cache_Size : constant := 2 ** 6;
+   Cache_Size : constant := 2 ** 10;
    type Cache_Index is range 0 .. Cache_Size - 1;
    --  Determine size of below cache (power of 2 is more efficient!)
 
@@ -1884,18 +1958,31 @@ package body Checks is
       Lo : out Uint;
       Hi : out Uint)
    is
-      Typ  : constant Entity_Id := Etype (N);
+      Typ : constant Entity_Id := Etype (N);
 
-      Lo_Left  : Uint;
+      Lo_Left : Uint;
+      Hi_Left : Uint;
+      --  Lo and Hi bounds of left operand
+
       Lo_Right : Uint;
-      Hi_Left  : Uint;
       Hi_Right : Uint;
-      Bound    : Node_Id;
-      Hbound   : Uint;
-      Lor      : Uint;
-      Hir      : Uint;
-      OK1      : Boolean;
-      Cindex   : Cache_Index;
+      --  Lo and Hi bounds of right (or only) operand
+
+      Bound : Node_Id;
+      --  Temp variable used to hold a bound node
+
+      Hbound : Uint;
+      --  High bound of base type of expression
+
+      Lor : Uint;
+      Hir : Uint;
+      --  Refined values for low and high bounds, after tightening
+
+      OK1 : Boolean;
+      --  Used in lower level calls to indicate if call succeeded
+
+      Cindex : Cache_Index;
+      --  Used to search cache
 
       function OK_Operands return Boolean;
       --  Used for binary operators. Determines the ranges of the left and
@@ -1968,7 +2055,11 @@ package body Checks is
 
       --  We use the actual bound unless it is dynamic, in which case
       --  use the corresponding base type bound if possible. If we can't
-      --  get a bound then
+      --  get a bound then we figure we can't determine the range (a
+      --  peculiar case, that perhaps cannot happen, but there is no
+      --  point in bombing in this optimization circuit.
+
+      --  First the low bound
 
       Bound := Type_Low_Bound (Typ);
 
@@ -1983,18 +2074,28 @@ package body Checks is
          return;
       end if;
 
+      --  Now the high bound
+
       Bound := Type_High_Bound (Typ);
 
-      if Compile_Time_Known_Value (Bound) then
-         Hi := Expr_Value (Bound);
+      --  We need the high bound of the base type later on, and this should
+      --  always be compile time known. Again, it is not clear that this
+      --  can ever be false, but no point in bombing.
 
-      elsif Compile_Time_Known_Value (Type_High_Bound (Base_Type (Typ))) then
+      if Compile_Time_Known_Value (Type_High_Bound (Base_Type (Typ))) then
          Hbound := Expr_Value (Type_High_Bound (Base_Type (Typ)));
          Hi := Hbound;
 
       else
          OK := False;
          return;
+      end if;
+
+      --  If we have a static subtype, then that may have a tighter bound
+      --  so use the upper bound of the subtype instead in this case.
+
+      if Compile_Time_Known_Value (Bound) then
+         Hi := Expr_Value (Bound);
       end if;
 
       --  We may be able to refine this value in certain situations. If
@@ -2691,6 +2792,7 @@ package body Checks is
 
    procedure Insert_Valid_Check (Expr : Node_Id) is
       Loc : constant Source_Ptr := Sloc (Expr);
+      Exp : Node_Id;
 
    begin
       --  Do not insert if checks off, or if not checking validity
@@ -2698,27 +2800,35 @@ package body Checks is
       if Range_Checks_Suppressed (Etype (Expr))
         or else (not Validity_Checks_On)
       then
-         null;
-
-      --  Otherwise insert the validity check. Note that we do this with
-      --  validity checks turned off, to avoid recursion, we do not want
-      --  validity checks on the validity checking code itself!
-
-      else
-         Validity_Checks_On  := False;
-         Insert_Action
-           (Expr,
-            Make_Raise_Constraint_Error (Loc,
-              Condition =>
-                Make_Op_Not (Loc,
-                  Right_Opnd =>
-                    Make_Attribute_Reference (Loc,
-                      Prefix =>
-                        Duplicate_Subexpr (Expr, Name_Req => True),
-                      Attribute_Name => Name_Valid))),
-            Suppress => All_Checks);
-         Validity_Checks_On := True;
+         return;
       end if;
+
+      --  If we have a checked conversion, then validity check applies to
+      --  the expression inside the conversion, not the result, since if
+      --  the expression inside is valid, then so is the conversion result.
+
+      Exp := Expr;
+      while Nkind (Exp) = N_Type_Conversion loop
+         Exp := Expression (Exp);
+      end loop;
+
+      --  insert the validity check. Note that we do this with validity
+      --  checks turned off, to avoid recursion, we do not want validity
+      --  checks on the validity checking code itself!
+
+      Validity_Checks_On := False;
+      Insert_Action
+        (Expr,
+         Make_Raise_Constraint_Error (Loc,
+           Condition =>
+             Make_Op_Not (Loc,
+               Right_Opnd =>
+                 Make_Attribute_Reference (Loc,
+                   Prefix =>
+                     Duplicate_Subexpr (Exp, Name_Req => True),
+                   Attribute_Name => Name_Valid))),
+         Suppress => All_Checks);
+      Validity_Checks_On := True;
    end Insert_Valid_Check;
 
    --------------------------

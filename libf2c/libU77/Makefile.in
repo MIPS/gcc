@@ -1,5 +1,5 @@
 # Makefile for GNU F77 compiler runtime, libc interface.
-# Copyright (C) 1995-1998 Free Software Foundation, Inc.
+# Copyright (C) 1995-1998, 2001 Free Software Foundation, Inc.
 #   Contributed by Dave Love (d.love@dl.ac.uk).
 #
 #This file is part of the GNU Fortran libU77 library.
@@ -79,14 +79,10 @@ SRCS =  Version.c gerror_.c perror_.c ierrno_.c itime_.c time_.c \
 all: ../s-libu77
 
 ../s-libu77: $(OBJS)
-	echo timestamp > ../s-libu77
-
-objlist:
-	objs="`cat ../objlist`" ; for i in $(OBJS) ; do \
-	   x=`echo $$i` ;\
-	   objs="$$objs libU77/$$x" ;\
-	done ; \
-	echo -n $$objs > ../objlist
+	-rm -f $@.T $@
+	objs='$(OBJS)'; for name in $$objs; do \
+	  echo libU77/$${name} >> $@.T; done
+	mv $@.T $@
 
 Makefile: Makefile.in config.status
 	$(SHELL) config.status

@@ -29,7 +29,3 @@ Boston, MA 02111-1307, USA.  */
 #ifndef TARGET_MEM_FUNCTIONS
 #define TARGET_MEM_FUNCTIONS
 #endif
-
-/* Get machine-independent configuration parameters for RTEMS.  */
-#include <rtems.h>
-

@@ -1,5 +1,5 @@
 /* Double.java -- object wrapper for double primitive
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.lang;
@@ -80,7 +91,7 @@ public final class Double extends Number implements Comparable
    * The primitive type <code>double</code> is represented by this
    * <code>Class</code> object.
    */
-  public static final Class TYPE = VMClassLoader.getPrimitiveClass ("double");
+  public static final Class TYPE = VMClassLoader.getPrimitiveClass('D');
 
   /**
    * The immutable value of this Double.
@@ -146,6 +157,14 @@ public final class Double extends Number implements Comparable
    * <code>instanceof</code> <code>Double</code>, and represents
    * the same primitive <code>double</code> value return 
    * <code>true</code>.  Otherwise <code>false</code> is returned.
+   * <p>
+   * Note that there are two differences between <code>==</code> and
+   * <code>equals()</code>. <code>0.0d == -0.0d</code> returns <code>true</code>
+   * but <code>new Double(0.0d).equals(new Double(-0.0d))</code> returns
+   * <code>false</code>. And <code>Double.NaN == Double.NaN</code> returns
+   * <code>false</code>, but
+   * <code>new Double(Double.NaN).equals(new Double(Double.NaN))</code> returns
+   * <code>true</code>.
    *
    * @param obj the object to compare to
    * @return whether the objects are semantically equal.
@@ -155,9 +174,12 @@ public final class Double extends Number implements Comparable
     if (!(obj instanceof Double))
       return false;
 
-    Double d = (Double) obj;
+    double d = ((Double) obj).value;
 
-    return doubleToLongBits (value) == doubleToLongBits (d.doubleValue ());
+    // GCJ LOCAL: this implementation is probably faster than
+    // Classpath's, especially once we inline doubleToLongBits.
+    return doubleToLongBits (value) == doubleToLongBits (d);
+    // END GCJ LOCAL
   }
 
   /**
@@ -248,11 +270,9 @@ public final class Double extends Number implements Comparable
    */
   public static boolean isNaN (double v)
   {
-    long bits = doubleToLongBits (v);
-    long e = bits & 0x7ff0000000000000L;
-    long f = bits & 0x000fffffffffffffL;
-
-    return e == 0x7ff0000000000000L && f != 0L;
+    // This works since NaN != NaN is the only reflexive inequality
+    // comparison which returns true.
+    return v != v;
   }
 
   /**
@@ -277,10 +297,7 @@ public final class Double extends Number implements Comparable
    */
   public static boolean isInfinite (double v)
   {
-    long bits = doubleToLongBits (v);
-    long f = bits & 0x7fffffffffffffffL;
-
-    return f == 0x7ff0000000000000L;
+    return (v == POSITIVE_INFINITY || v == NEGATIVE_INFINITY);
   }
 
   /**
@@ -331,10 +348,9 @@ public final class Double extends Number implements Comparable
       return isNaN (y) ? 0 : 1;
     if (isNaN (y))
       return -1;
-    if (x == 0.0d && y == -0.0d)
-      return 1;
-    if (x == -0.0d && y == 0.0d)
-      return -1;
+    // recall that 0.0 == -0.0, so we convert to infinites and try again
+    if (x == 0 && y == 0)
+      return (int) (1 / x - 1 / y);
     if (x == y)
       return 0;
 
@@ -501,12 +517,12 @@ public final class Double extends Number implements Comparable
    * @see #NEGATIVE_INFINITY
    * @since 1.2
    */
-  public native static double parseDouble (String s) 
+  public static native double parseDouble (String s)
     throws NumberFormatException;
 
   /**
    * Initialize JNI cache.  This method is called only by the 
    * static initializer when using JNI.
    */
-  private static void initIDs () { /* Not used in libgcj */ };
+  private static native void initIDs ();
 }

@@ -194,4 +194,4 @@ Boston, MA 02111-1307, USA.  */
     }							\
   while (0)
 
-#include "aout.h"
+#define SUPPORTS_INIT_PRIORITY 1

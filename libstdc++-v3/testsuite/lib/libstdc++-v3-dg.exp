@@ -1,4 +1,4 @@
-#   Copyright (C) 2001 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 load_lib dg.exp
 load_lib libgloss.exp
+load_lib prune.exp
 
 proc libstdc++-v3-copy-files {srcfiles dstdir} {
     foreach f $srcfiles {
@@ -78,7 +79,7 @@ proc libstdc++-v3-init { args } {
         }
       set cxx [transform "g++"]
       set cxxflags "-ggdb3 -DDEBUG_ASSERT"
-        set includes "-I./"
+      set includes "-I./"
     } else {
         # If we find a testsuite_flags file, we're testing in the build dir.
         set flags_file "${blddir}/testsuite_flags"
@@ -123,14 +124,14 @@ proc libstdc++-v3-dg-test { prog do_what extra_tool_flags } {
 	}
 	"link" {
 	    set compile_type "executable"
-	    set output_file "./[file rootname [file tail $prog]]"
+	    set output_file "./[file rootname [file tail $prog]].exe"
 	}
 	"run" {
 	    set compile_type "executable"
 	    # FIXME: "./" is to cope with "." not being in $PATH.
 	    # Should this be handled elsewhere?
 	    # YES.
-	    set output_file "./[file rootname [file tail $prog]]"
+	    set output_file "./[file rootname [file tail $prog]].exe"
 	    # This is the only place where we care if an executable was
 	    # created or not.  If it was, dg.exp will try to run it.
 	    remote_file build delete $output_file;
@@ -146,6 +147,7 @@ proc libstdc++-v3-dg-test { prog do_what extra_tool_flags } {
     }
 
     set comp_output [libstdc++-v3_target_compile "$prog" "$output_file" "$compile_type" $options];
+    set comp_output [ prune_g++_output $comp_output ];
 
     return [list $comp_output $output_file]
 }

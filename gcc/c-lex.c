@@ -23,8 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 
 #include "rtl.h"
-#include "expr.h"
 #include "tree.h"
+#include "expr.h"
 #include "input.h"
 #include "output.h"
 #include "c-lex.h"
@@ -53,9 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GET_ENVIRONMENT
 #define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
 #endif
-
-/* The input filename as understood by CPP, where "" represents stdin.  */
-static const char *cpp_filename;
 
 /* The current line map.  */
 static const struct line_map *map;
@@ -109,7 +106,7 @@ init_c_lex (filename)
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
 
-  /* Set up filename timing.  Must happen before cpp_start_read.  */
+  /* Set up filename timing.  Must happen before cpp_read_main_file.  */
   file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
 				   0,
 				   (splay_tree_delete_value_fn)free);
@@ -136,32 +133,32 @@ init_c_lex (filename)
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG))
+      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG
+          || write_symbols == VMS_AND_DWARF2_DEBUG))
     {
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
 
-
-  if (filename == 0 || !strcmp (filename, "-"))
-    filename = "stdin", cpp_filename = "";
-  else
-    cpp_filename = filename;
-
   /* Start it at 0.  */
   lineno = 0;
 
-  return filename;
+  if (filename == NULL || !strcmp (filename, "-"))
+    filename = "";
+
+  return cpp_read_main_file (parse_in, filename, ident_hash);
 }
 
 /* A thin wrapper around the real parser that initializes the 
-   integrated preprocessor after debug output has been initialized.  */
+   integrated preprocessor after debug output has been initialized.
+   Also, make sure the start_source_file debug hook gets called for
+   the primary source file.  */
 
 int
 yyparse()
 {
-  if (! cpp_start_read (parse_in, cpp_filename))
-    return 1;			/* cpplib has emitted an error.  */
+  (*debug_hooks->start_source_file) (lineno, input_filename);
+  cpp_finish_options (parse_in);
 
   return yyparse_1();
 }
@@ -304,7 +301,7 @@ cb_file_change (pfile, new_map)
 	{
 	  warning_with_file_and_line
 	    (input_filename, lineno,
-	     "This file contains more '%c's than '%c's.",
+	     "this file contains more '%c's than '%c's",
 	     indent_level > input_file_stack->indent_level ? '{' : '}',
 	     indent_level > input_file_stack->indent_level ? '}' : '{');
 	}
@@ -910,9 +907,10 @@ lex_number (str, len)
 	  /* It is not a decimal point.
 	     It should be a digit (perhaps a hex digit).  */
 
-	  if (ISDIGIT (c))
+	  if (ISDIGIT (c)
+	      || (base == 16 && ISXDIGIT (c)))
 	    {
-	      n = c - '0';
+	      n = hex_value (c);
 	    }
 	  else if (base <= 10 && (c == 'e' || c == 'E'))
 	    {
@@ -924,14 +922,6 @@ lex_number (str, len)
 	    {
 	      floatflag = AFTER_EXPON;
 	      break;   /* start of exponent */
-	    }
-	  else if (base == 16 && c >= 'a' && c <= 'f')
-	    {
-	      n = c - 'a' + 10;
-	    }
-	  else if (base == 16 && c >= 'A' && c <= 'F')
-	    {
-	      n = c - 'A' + 10;
 	    }
 	  else
 	    {
@@ -1258,9 +1248,9 @@ lex_number (str, len)
 	  pedwarn ("integer constant larger than the maximum value of %s",
 		   (flag_isoc99
 		    ? (TREE_UNSIGNED (type)
-		       ? "an unsigned long long int"
-		       : "a long long int")
-		    : "an unsigned long int"));
+		       ? _("an unsigned long long int")
+		       : _("a long long int"))
+		    : _("an unsigned long int")));
 	}
 
       if (base == 10 && ! spec_unsigned && TREE_UNSIGNED (type))
@@ -1333,7 +1323,7 @@ lex_string (str, len, wide)
       char_len = local_mbtowc (&wc, p, limit - p);
       if (char_len == -1)
 	{
-	  warning ("Ignoring invalid multibyte character");
+	  warning ("ignoring invalid multibyte character");
 	  char_len = 1;
 	  c = *p++;
 	}

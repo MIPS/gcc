@@ -1,6 +1,6 @@
 /* Analyze RTL for C-Compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "tm_p.h"
 
 /* Forward declarations */
 static void set_of_1		PARAMS ((rtx, rtx, void *));
@@ -300,7 +301,7 @@ rtx_addr_varies_p (x, for_alias)
 /* Return the value of the integer term in X, if one is apparent;
    otherwise return 0.
    Only obvious integer terms are detected.
-   This is used in cse.c with the `related_value' field.*/
+   This is used in cse.c with the `related_value' field.  */
 
 HOST_WIDE_INT
 get_integer_term (x)
@@ -336,6 +337,146 @@ get_related_value (x)
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return XEXP (x, 0);
   return 0;
+}
+
+/* Given a tablejump insn INSN, return the RTL expression for the offset
+   into the jump table.  If the offset cannot be determined, then return
+   NULL_RTX.
+
+   If EARLIEST is non-zero, it is a pointer to a place where the earliest
+   insn used in locating the offset was found.  */
+
+rtx
+get_jump_table_offset (insn, earliest)
+     rtx insn;
+     rtx *earliest;
+{
+  rtx label;
+  rtx table;
+  rtx set;
+  rtx old_insn;
+  rtx x;
+  rtx old_x;
+  rtx y;
+  rtx old_y;
+  int i;
+
+  if (GET_CODE (insn) != JUMP_INSN
+      || ! (label = JUMP_LABEL (insn))
+      || ! (table = NEXT_INSN (label))
+      || GET_CODE (table) != JUMP_INSN
+      || (GET_CODE (PATTERN (table)) != ADDR_VEC
+	  && GET_CODE (PATTERN (table)) != ADDR_DIFF_VEC)
+      || ! (set = single_set (insn)))
+    return NULL_RTX;
+
+  x = SET_SRC (set);
+
+  /* Some targets (eg, ARM) emit a tablejump that also
+     contains the out-of-range target.  */
+  if (GET_CODE (x) == IF_THEN_ELSE
+      && GET_CODE (XEXP (x, 2)) == LABEL_REF)
+    x = XEXP (x, 1);
+
+  /* Search backwards and locate the expression stored in X.  */
+  for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+       old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+    ;
+
+  /* If X is an expression using a relative address then strip
+     off the addition / subtraction of PC, PIC_OFFSET_TABLE_REGNUM,
+     or the jump table label.  */
+  if (GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC
+      && (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS))
+    {
+      for (i = 0; i < 2; i++)
+	{
+	  old_insn = insn;
+	  y = XEXP (x, i);
+
+	  if (y == pc_rtx || y == pic_offset_table_rtx)
+	    break;
+
+	  for (old_y = NULL_RTX; GET_CODE (y) == REG && y != old_y;
+	       old_y = y, y = find_last_value (y, &old_insn, NULL_RTX, 0))
+	    ;
+
+	  if ((GET_CODE (y) == LABEL_REF && XEXP (y, 0) == label))
+	    break;
+	}
+
+      if (i >= 2)
+	return NULL_RTX;
+
+      x = XEXP (x, 1 - i);
+
+      for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+	   old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+	;
+    }
+
+  /* Strip off any sign or zero extension.  */
+  if (GET_CODE (x) == SIGN_EXTEND || GET_CODE (x) == ZERO_EXTEND)
+    {
+      x = XEXP (x, 0);
+
+      for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+	   old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+	;
+    }
+
+  /* If X isn't a MEM then this isn't a tablejump we understand.  */
+  if (GET_CODE (x) != MEM)
+    return NULL_RTX;
+
+  /* Strip off the MEM.  */
+  x = XEXP (x, 0);
+
+  for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+       old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+    ;
+
+  /* If X isn't a PLUS than this isn't a tablejump we understand.  */
+  if (GET_CODE (x) != PLUS)
+    return NULL_RTX;
+
+  /* At this point we should have an expression representing the jump table
+     plus an offset.  Examine each operand in order to determine which one
+     represents the jump table.  Knowing that tells us that the other operand
+     must represent the offset.  */
+  for (i = 0; i < 2; i++)
+    {
+      old_insn = insn;
+      y = XEXP (x, i);
+
+      for (old_y = NULL_RTX; GET_CODE (y) == REG && y != old_y;
+	   old_y = y, y = find_last_value (y, &old_insn, NULL_RTX, 0))
+	;
+
+      if ((GET_CODE (y) == CONST || GET_CODE (y) == LABEL_REF)
+	  && reg_mentioned_p (label, y))
+	break;
+    }
+
+  if (i >= 2)
+    return NULL_RTX;
+
+  x = XEXP (x, 1 - i);
+
+  /* Strip off the addition / subtraction of PIC_OFFSET_TABLE_REGNUM.  */
+  if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS)
+    for (i = 0; i < 2; i++)
+      if (XEXP (x, i) == pic_offset_table_rtx)
+	{
+	  x = XEXP (x, 1 - i);
+	  break;
+	}
+
+  if (earliest)
+    *earliest = insn;
+
+  /* Return the RTL expression representing the offset.  */
+  return x;
 }
 
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
@@ -567,6 +708,9 @@ reg_referenced_p (x, body)
 
     case TRAP_IF:
       return reg_overlap_mentioned_p (x, TRAP_CONDITION (body));
+
+    case PREFETCH:
+      return reg_overlap_mentioned_p (x, XEXP (body, 0));
 
     case UNSPEC:
     case UNSPEC_VOLATILE:
@@ -883,7 +1027,7 @@ set_of_1 (x, pat, data1)
 }
 
 /* Give an INSN, return a SET or CLOBBER expression that does modify PAT
-   (eighter directly or via STRICT_LOW_PART and similar modifiers).  */
+   (either directly or via STRICT_LOW_PART and similar modifiers).  */
 rtx
 set_of (pat, insn)
      rtx pat, insn;
@@ -922,7 +1066,7 @@ single_set_2 (insn, pat)
 	      /* We can consider insns having multiple sets, where all
 		 but one are dead as single set insns.  In common case
 		 only single set is present in the pattern so we want
-		 to avoid checking for REG_UNUSED notes unless neccesary.
+		 to avoid checking for REG_UNUSED notes unless necessary.
 
 		 When we reach set first time, we just expect this is
 		 the single set we are looking for and only when more
@@ -1266,7 +1410,7 @@ reg_overlap_mentioned_p (x, in)
     do_reg:
       endregno = regno + (regno < FIRST_PSEUDO_REGISTER
 			  ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
-      return refers_to_regno_p (regno, endregno, in, (rtx*)0);
+      return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
     case MEM:
       {
@@ -1453,6 +1597,10 @@ note_uses (pbody, fun, data)
 
     case TRAP_IF:
       (*fun) (&TRAP_CONDITION (body), data);
+      return;
+
+    case PREFETCH:
+      (*fun) (&XEXP (body, 0), data);
       return;
 
     case UNSPEC:
@@ -1709,7 +1857,7 @@ find_reg_fusage (insn, code, datum)
     return 0;
 
   if (! datum)
-    abort();
+    abort ();
 
   if (GET_CODE (datum) != REG)
     {
@@ -1719,7 +1867,7 @@ find_reg_fusage (insn, code, datum)
            link;
 	   link = XEXP (link, 1))
         if (GET_CODE (XEXP (link, 0)) == code
-	    && rtx_equal_p (datum, SET_DEST (XEXP (link, 0))))
+	    && rtx_equal_p (datum, XEXP (XEXP (link, 0), 0)))
           return 1;
     }
   else
@@ -1803,6 +1951,24 @@ remove_note (insn, note)
       }
 
   abort ();
+}
+
+/* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
+   return 1 if it is found.  A simple equality test is used to determine if
+   NODE matches.  */
+
+int
+in_expr_list_p (listp, node)
+     rtx listp;
+     rtx node;
+{
+  rtx x;
+
+  for (x = listp; x; x = XEXP (x, 1))
+    if (node == XEXP (x, 0))
+      return 1;
+
+  return 0;
 }
 
 /* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
@@ -2594,7 +2760,7 @@ commutative_operand_precedence (op)
   return 0;
 }
 
-/* Return 1 iff it is neccesary to swap operands of commutative operation
+/* Return 1 iff it is necessary to swap operands of commutative operation
    in order to canonicalize expression.  */
 
 int
@@ -2733,14 +2899,55 @@ loc_mentioned_in_p (loc, in)
   return 0;
 }
 
+/* Given a subreg X, return the bit offset where the subreg begins
+   (counting from the least significant bit of the reg).  */
+
+unsigned int
+subreg_lsb (x)
+     rtx x;
+{
+  enum machine_mode inner_mode = GET_MODE (SUBREG_REG (x));
+  enum machine_mode mode = GET_MODE (x);
+  unsigned int bitpos;
+  unsigned int byte;
+  unsigned int word;
+
+  /* A paradoxical subreg begins at bit position 0.  */
+  if (GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (inner_mode))
+    return 0;
+
+  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+    /* If the subreg crosses a word boundary ensure that
+       it also begins and ends on a word boundary.  */
+    if ((SUBREG_BYTE (x) % UNITS_PER_WORD
+	 + GET_MODE_SIZE (mode)) > UNITS_PER_WORD
+	&& (SUBREG_BYTE (x) % UNITS_PER_WORD
+	    || GET_MODE_SIZE (mode) % UNITS_PER_WORD))
+	abort ();
+
+  if (WORDS_BIG_ENDIAN)
+    word = (GET_MODE_SIZE (inner_mode)
+	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) / UNITS_PER_WORD;
+  else
+    word = SUBREG_BYTE (x) / UNITS_PER_WORD;
+  bitpos = word * BITS_PER_WORD;
+
+  if (BYTES_BIG_ENDIAN)
+    byte = (GET_MODE_SIZE (inner_mode)
+	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) % UNITS_PER_WORD;
+  else
+    byte = SUBREG_BYTE (x) % UNITS_PER_WORD;
+  bitpos += byte * BITS_PER_UNIT;
+
+  return bitpos;
+}
+
 /* This function returns the regno offset of a subreg expression.
    xregno - A regno of an inner hard subreg_reg (or what will become one).
    xmode  - The mode of xregno.
    offset - The byte offset.
    ymode  - The mode of a top level SUBREG (or what may become one).
-   RETURN - The regno offset which would be used.  
-   This function can be overridden by defining SUBREG_REGNO_OFFSET,
-   taking the same parameters.  */
+   RETURN - The regno offset which would be used.  */
 unsigned int
 subreg_regno_offset (xregno, xmode, offset, ymode)
      unsigned int xregno;
@@ -2748,15 +2955,10 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
      unsigned int offset;
      enum machine_mode ymode;
 {
-  unsigned ret;
   int nregs_xmode, nregs_ymode;
   int mode_multiple, nregs_multiple;
   int y_offset;
 
-/* Check for an override, and use it instead.  */
-#ifdef SUBREG_REGNO_OFFSET
-  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode);
-#else
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
@@ -2772,10 +2974,7 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
 
   y_offset = offset / GET_MODE_SIZE (ymode);
   nregs_multiple =  nregs_xmode / nregs_ymode;
-  ret = (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
-#endif
-
-  return ret;
+  return (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
 }
 
 /* Return the final regno that a subreg expression refers to.  */
@@ -2858,7 +3057,7 @@ find_first_parameter_load (call_insn, boundary)
 
       /* Our caller needs either ensure that we will find all sets
          (in case code has not been optimized yet), or take care
-         for possible labels in a way by setting boundary to preceeding
+         for possible labels in a way by setting boundary to preceding
          CODE_LABEL.  */
       if (GET_CODE (before) == CODE_LABEL)
 	{

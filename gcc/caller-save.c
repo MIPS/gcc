@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
    Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -151,7 +151,9 @@ init_caller_save ()
      that register in every mode we will use to save registers.  */
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (TEST_HARD_REG_BIT (reg_class_contents[(int) BASE_REG_CLASS], i))
+    if (TEST_HARD_REG_BIT
+	(reg_class_contents
+	 [(int) MODE_BASE_REG_CLASS (regno_save_mode [i][1])], i))
       break;
 
   if (i == FIRST_PSEUDO_REGISTER)
@@ -399,14 +401,14 @@ save_call_clobbered_regs ()
 		 regs are live during the call.  */
 	      REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 				       &chain->live_throughout);
-	      /* Save hard registers always in the widest mode availble.  */
+	      /* Save hard registers always in the widest mode available.  */
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 		if (TEST_HARD_REG_BIT (hard_regs_to_save, regno))
 		  save_mode [regno] = regno_save_mode [regno][1];
 		else
 		  save_mode [regno] = VOIDmode;
 
-	      /* Look trought all live pseudos, mark their hard registers
+	      /* Look through all live pseudos, mark their hard registers
 		 and choose proper mode for saving.  */
 	      EXECUTE_IF_SET_IN_REG_SET
 		(&chain->live_throughout, FIRST_PSEUDO_REGISTER, regno,
@@ -673,7 +675,7 @@ insert_restore (chain, before_p, regno, maxrestore, save_mode)
   mem = regno_save_mem [regno][numregs];
   if (save_mode [regno] != VOIDmode
       && save_mode [regno] != GET_MODE (mem)
-      && numregs == HARD_REGNO_NREGS (regno, save_mode [regno]))
+      && numregs == (unsigned int) HARD_REGNO_NREGS (regno, save_mode [regno]))
     mem = adjust_address (mem, save_mode[regno], 0);
   pat = gen_rtx_SET (VOIDmode,
 		     gen_rtx_REG (GET_MODE (mem), 
@@ -689,13 +691,12 @@ insert_restore (chain, before_p, regno, maxrestore, save_mode)
       n_regs_saved--;
     }
 
-
-
   /* Tell our callers how many extra registers we saved/restored */
   return numregs - 1;
 }
 
 /* Like insert_restore above, but save registers instead.  */
+
 static int
 insert_save (chain, before_p, regno, to_save, save_mode)
      struct insn_chain *chain;
@@ -750,7 +751,7 @@ insert_save (chain, before_p, regno, to_save, save_mode)
   mem = regno_save_mem [regno][numregs];
   if (save_mode [regno] != VOIDmode
       && save_mode [regno] != GET_MODE (mem)
-      && numregs == HARD_REGNO_NREGS (regno, save_mode [regno]))
+      && numregs == (unsigned int) HARD_REGNO_NREGS (regno, save_mode [regno]))
     mem = adjust_address (mem, save_mode[regno], 0);
   pat = gen_rtx_SET (VOIDmode, mem,
 		     gen_rtx_REG (GET_MODE (mem),

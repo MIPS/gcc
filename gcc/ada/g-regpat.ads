@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.27 $
 --                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
 --           Copyright (C) 1996-2001 Ada Core Technologies, Inc.            --

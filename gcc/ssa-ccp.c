@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000,2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Original framework by Daniel Berlin <dan@cgsoftware.com>
    Fleshed out and major cleanups by Jeff Law <law@redhat.com>
    
@@ -237,7 +237,7 @@ defs_to_varying (insn)
     }
 }
 
-/* Go through the expression, call the approriate evaluation routines
+/* Go through the expression, call the appropriate evaluation routines
    to attempt cprop */
 static void
 visit_expression (insn, block)
@@ -624,7 +624,7 @@ visit_expression (insn, block)
 /* Iterate over the FLOW_EDGES work list.  Simulate the target block
    for each edge.  */
 static void
-examine_flow_edges (void)
+examine_flow_edges ()
 {
   while (flow_edges != NULL)
     {
@@ -866,8 +866,13 @@ ssa_ccp_substitute_constants ()
 	  /* Do not try to simplify PHI nodes down to a constant load.
 	     That will be done later as we translate out of SSA.  Also,
 	     doing that here could violate the rule that all PHI nodes
-	     are consecutive at the start of the basic block.  */
-	  if (! PHI_NODE_P (def))
+	     are consecutive at the start of the basic block.
+
+	     Don't do anything to nodes that were already sets to
+	     constants.	 */
+	  if (! PHI_NODE_P (def)
+	      && ! ((GET_CODE (def) == INSN
+		     && GET_CODE (SET_SRC (set)) == CONST_INT)))
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
@@ -976,7 +981,7 @@ ssa_ccp_df_delete_unreachable_insns ()
    operate on so that it can be called for sub-graphs.  */
 
 void
-ssa_const_prop (void)
+ssa_const_prop ()
 {
   unsigned int i;
   edge curredge;
@@ -1097,7 +1102,7 @@ mark_references (current_rtx, data)
      void *data;
 {
   rtx x = *current_rtx;
-  sbitmap worklist = (sbitmap)data;
+  sbitmap worklist = (sbitmap) data;
 
   if (x == NULL_RTX)
     return 0;

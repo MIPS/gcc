@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "c-lex.h"
 #include "ggc.h"
+#include "integrate.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -86,6 +87,9 @@ static int v850_interrupt_cache_p = FALSE;
 static int v850_interrupt_p = FALSE;
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
+
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE v850_attribute_table
 
@@ -115,14 +119,14 @@ override_options ()
       if (small_memory[i].value)
 	{
 	  if (!ISDIGIT (*small_memory[i].value))
-	    error ("%s=%s is not numeric.",
+	    error ("%s=%s is not numeric",
 		   small_memory[i].name,
 		   small_memory[i].value);
 	  else
 	    {
 	      small_memory[i].max = atoi (small_memory[i].value);
 	      if (small_memory[i].max > small_memory[i].physical_max)
-		error ("%s=%s is too large.",
+		error ("%s=%s is too large",
 		   small_memory[i].name,
 		   small_memory[i].value);
 	    }
@@ -1046,7 +1050,7 @@ not_power_of_two_operand (op, mode)
   else if (mode == HImode)
     mask = 0xffff;
   else if (mode == SImode)
-    mask = 0xffffffffU;
+    mask = 0xffffffff;
   else
     return 0;
 
@@ -1388,7 +1392,7 @@ compute_register_save_size (p_reg_saved)
   long reg_saved = 0;
 
   /* Count the return pointer if we need to save it.  */
-  if (profile_flag && !call_p)
+  if (current_function_profile && !call_p)
     regs_ever_live [LINK_POINTER_REGNUM] = call_p = 1;
  
   /* Count space for the register saves.  */
@@ -2288,7 +2292,7 @@ construct_restore_jr (op)
   
   if (count <= 2)
     {
-      error ("Bogus JR construction: %d\n", count);
+      error ("bogus JR construction: %d\n", count);
       return NULL;
     }
 
@@ -2309,7 +2313,7 @@ construct_restore_jr (op)
   /* Make sure that the amount we are popping either 0 or 16 bytes.  */
   if (stack_bytes != 0 && stack_bytes != 16)
     {
-      error ("Bad amount of stack space removal: %d", stack_bytes);
+      error ("bad amount of stack space removal: %d", stack_bytes);
       return NULL;
     }
 
@@ -2487,7 +2491,7 @@ construct_save_jarl (op)
   
   if (count <= 2)
     {
-      error ("Bogus JARL construction: %d\n", count);
+      error ("bogus JARL construction: %d\n", count);
       return NULL;
     }
 
@@ -2511,7 +2515,7 @@ construct_save_jarl (op)
   /* Make sure that the amount we are popping either 0 or 16 bytes.  */
   if (stack_bytes != 0 && stack_bytes != -16)
     {
-      error ("Bad amount of stack space removal: %d", stack_bytes);
+      error ("bad amount of stack space removal: %d", stack_bytes);
       return NULL;
     }
 

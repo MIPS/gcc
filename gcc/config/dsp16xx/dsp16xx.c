@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "toplev.h"
 #include "recog.h"
-#include "dsp16xx-protos.h"
+#include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -151,6 +151,13 @@ static void dsp16xx_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void dsp16xx_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tint\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP NULL
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP NULL
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE dsp16xx_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -494,7 +501,7 @@ preferred_reload_class (x, class)
     }
 
   /* If x is not an accumulator or a ybase register, restrict the class of registers
-     we can copy the register into.   */
+     we can copy the register into.  */
 
   if (REG_P (x) && !IS_ACCUM_REG (REGNO (x)) && !IS_YBASE_REGISTER_WINDOW (REGNO (x)))
     {
@@ -1362,21 +1369,6 @@ compute_frame_size (size)
   return total_size;
 }
 
-int 
-frame_size ()
-{
-  return (int) compute_frame_size(get_frame_size());
-}
-
-int 
-frame_pointer_offset ()
-{
-  if (!leaf_function_p())
-    return (-(current_function_outgoing_args_size + 1));
-  else
-    return 1;
-}
-
 int
 dsp16xx_call_saved_register (regno)
      int regno;
@@ -1405,7 +1397,7 @@ ybase_regs_ever_used ()
   return live;
 }
 
-void 
+static void 
 dsp16xx_output_function_prologue (file, size)
      FILE *file;
      HOST_WIDE_INT size;
@@ -1420,14 +1412,14 @@ dsp16xx_output_function_prologue (file, size)
   total_size = compute_frame_size (size);
   
   fprintf (file, "\t/* FUNCTION PROLOGUE: */\n");
-  fprintf (file, "\t/* total=%d, vars= %d, regs= %d, args=%d, extra= %d */\n",
+  fprintf (file, "\t/* total=%ld, vars= %ld, regs= %d, args=%d, extra= %ld */\n",
 	   current_frame_info.total_size,
 	   current_frame_info.var_size,
 	   current_frame_info.reg_size,
 	   current_function_outgoing_args_size,
 	   current_frame_info.extra_size);
   
-  fprintf (file, "\t/* fp save offset= %d, sp save_offset= %d */\n\n",
+  fprintf (file, "\t/* fp save offset= %ld, sp save_offset= %ld */\n\n",
 	   current_frame_info.fp_save_offset,
 	   current_frame_info.sp_save_offset);
   /* Set up the 'ybase' register window.  */
@@ -1449,9 +1441,9 @@ dsp16xx_output_function_prologue (file, size)
       else
         {
 	  if (SMALL_INTVAL(current_frame_info.var_size) && ((current_frame_info.var_size & 0x8000) == 0))
-	    fprintf (file, "\t%s=%d\n\t*%s++%s\n", reg_names[REG_J], current_frame_info.var_size, sp, reg_names[REG_J]);
+	    fprintf (file, "\t%s=%ld\n\t*%s++%s\n", reg_names[REG_J], current_frame_info.var_size, sp, reg_names[REG_J]);
 	  else
-	    fatal_error ("Stack size > 32k");
+	    fatal_error ("stack size > 32k");
 	}
     }
   
@@ -1474,14 +1466,14 @@ dsp16xx_output_function_prologue (file, size)
       if (current_frame_info.args_size == 1)
 	fprintf (file, "\t*%s++\n", sp);
       else
-	error ("Stack size > 32k");
+	error ("stack size > 32k");
     }
    
   if (frame_pointer_needed)
     {
       fprintf (file, "\t%s=%s\n", a1h, sp);
       fprintf (file, "\t%s=%s\n", fp, a1h);  /* Establish new base frame */
-      fprintf (file, "\t%s=%d\n", reg_names[REG_J], -total_size);
+      fprintf (file, "\t%s=%ld\n", reg_names[REG_J], -total_size);
       fprintf (file, "\t*%s++%s\n", fp, reg_names[REG_J]);
     }
   
@@ -1515,7 +1507,7 @@ init_emulation_routines ()
  dsp16xx_lshrhi3_libcall = (rtx) 0;
 
 }
-void
+static void
 dsp16xx_output_function_epilogue (file, size)
      FILE *file;
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
@@ -1535,7 +1527,7 @@ dsp16xx_output_function_epilogue (file, size)
 	fprintf (file, "\t*%s--\n", sp);
       else
 	{
-	  fprintf (file, "\t%s=%d\n\t*%s++%s\n", 
+	  fprintf (file, "\t%s=%ld\n\t*%s++%s\n", 
 		   reg_names[REG_J], -current_frame_info.args_size, sp, reg_names[REG_J]);
 	}
     }
@@ -1565,7 +1557,7 @@ dsp16xx_output_function_epilogue (file, size)
 	fprintf (file, "\t*%s--\n", sp);
       else
 	{
-	  fprintf (file, "\t%s=%d\n\t*%s++%s\n", 
+	  fprintf (file, "\t%s=%ld\n\t*%s++%s\n", 
 		   reg_names[REG_J], -current_frame_info.var_size, sp, reg_names[REG_J]);
 	}
     }
@@ -1683,7 +1675,7 @@ double_reg_to_memory (operands)
       else if (GET_CODE (XEXP(addr,1)) == CONST_INT)
 	offset = INTVAL(XEXP(addr,1)) + 1;
       else
-	fatal_error ("Invalid addressing mode");
+	fatal_error ("invalid addressing mode");
 
       fprintf (asm_out_file, "\t*(%d)=%s\n", offset + 31, reg_names[REGNO(operands[1]) + 1]);
     }
@@ -1862,7 +1854,7 @@ print_operand(file, op, letter)
 	else if (letter == 'm')
 	  fprintf (file, "%s", himode_reg_name[REGNO (op)]);
         else
-	  output_operand_lossage ("Bad register extension code");
+	  output_operand_lossage ("bad register extension code");
     }
     else if (code == MEM)
       output_address (XEXP(op,0));
@@ -1956,15 +1948,17 @@ print_operand_address(file, addr)
 	offset = INTVAL(XEXP(addr,0)), base = XEXP(addr,1);
       else if (GET_CODE (XEXP(addr,1)) == CONST_INT)
 	offset = INTVAL(XEXP(addr,1)), base = XEXP(addr,0);
+      else
+	abort();
       if (GET_CODE (base) == REG && REGNO(base) == STACK_POINTER_REGNUM)
 	{
 	  if (offset >= -31 && offset <= 0)
 	    offset = 31 + offset;
 	  else
-	    fatal_error ("Invalid offset in ybase addressing");
+	    fatal_error ("invalid offset in ybase addressing");
 	}
       else
-	fatal_error ("Invalid register in ybase addressing");
+	fatal_error ("invalid register in ybase addressing");
       
       fprintf (file, "*(%d)", offset);
       break;
@@ -2143,7 +2137,7 @@ emit_1600_core_shift (shift_op, operands, shift_amount)
       shift_asm_ptr_first = lshift_right_asm_first;
     }
   else
-    fatal_error ("Invalid shift operator in emit_1600_core_shift");
+    fatal_error ("invalid shift operator in emit_1600_core_shift");
 
   while (shift_amount != 0)
     {
@@ -2270,44 +2264,6 @@ asm_output_local(file, name, size, rounded)
 	fprintf (file, "int\n");
 }
 
-void
-asm_output_float (file, fp_const)
-     FILE *file;
-     double fp_const;
-{
-#if HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-  REAL_VALUE_TYPE d = fp_const;
-  long value;
-
-  REAL_VALUE_TO_TARGET_SINGLE (d, value);
-  fputs ("\tint ", file);
-#ifdef WORDS_BIG_ENDIAN
-  fprintf (file, "0x%-4.4lx, 0x%-4.4lx", (value >> 16) & 0xffff,
-	   value & 0xffff);
-#else
-  fprintf (file, "0x%-4.4lx, 0x%-4.4lx", value & 0xffff,
-	   (value >> 16) & 0xffff);
-#endif
-  fputs ("\n", file);
-#else
-  fatal_error ("inline float constants not supported on this host");
-#endif
-}
-
-void
-asm_output_long (file, value)
-     FILE *file;
-     long value;
-{
-      fputs ("\tint ", file);
-#ifdef WORDS_BIG_ENDIAN
-      fprintf (file, "0x%-4.4lx, 0x%-4.4lx", (value >> 16) & 0xffff, (value & 0xffff));
-#else
-      fprintf (file, "0x%-4.4lx, 0x%-4.4lx", (value & 0xffff), (value >> 16) & 0xffff);
-#endif
-      fputs ("\n", file);
-}
-
 int
 dsp16xx_address_cost (addr)
      rtx addr;
@@ -2392,7 +2348,7 @@ dsp16xx_address_cost (addr)
 
    On the dsp1610 the first four words of args are normally in registers
    and the rest are pushed. If we a long or on float mode, the argument
-   must begin on a even register boundary
+   must begin on an even register boundary
 
    Note that FUNCTION_ARG and FUNCTION_INCOMING_ARG were different.
    For structures that are passed in memory, but could have been
@@ -2478,7 +2434,6 @@ luxworks_dsp16xx_file_start (file)
          }
 #endif
     fprintf (file, "\"%s\"\n", temp_filename);
-    fprintf (file, "");
 
   fprintf (file, "#include <%s.h>\n", save_chip_name);
 
@@ -2511,7 +2466,7 @@ gen_tst_reg (x)
   else if (mode == HImode)
     emit_insn (gen_rtx_SET (VOIDmode, cc0_rtx, x));
   else
-    fatal_error ("Invalid mode for gen_tst_reg");
+    fatal_error ("invalid mode for gen_tst_reg");
 
   return cc0_rtx;
 }
@@ -2583,7 +2538,7 @@ gen_compare_reg (code, x, y)
 						 force_reg (HImode,y))));
     }
   else
-    fatal_error ("Invalid mode for integer comparison in gen_compare_reg");
+    fatal_error ("invalid mode for integer comparison in gen_compare_reg");
 
   return cc0_rtx;
 }

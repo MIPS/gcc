@@ -21,21 +21,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 
-#ifndef TREE_CODE
-union tree_node;
-#define tree union tree_node *
-#endif
-
-#ifndef RTX_CODE
-struct rtx_def;
-#define rtx struct rtx_def *
-#endif
-
 #ifndef GCC_VARRAY_H
 struct varray_head_tag;
 #define varray_type struct varray_head_tag *
 #endif
 
+struct function;
+
+struct inline_remap;
 
 /* Per-function EH data.  Used only in except.c, but GC and others
    manipulate pointers to the opaque type.  */
@@ -61,7 +54,8 @@ extern void expand_eh_region_end_cleanup	PARAMS ((tree));
 extern void expand_start_all_catch		PARAMS ((void));
 
 /* Begin a catch clause.  TYPE is an object to be matched by the
-   runtime, or null if this is a catch-all clause.  */
+   runtime, or a list of such objects, or null if this is a catch-all
+   clause.  */
 extern void expand_start_catch			PARAMS ((tree));
 
 /* End a catch clause.  Control will resume after the try/catch block.  */
@@ -72,7 +66,7 @@ extern void expand_end_all_catch		PARAMS ((void));
 
 /* End an exception region for an exception type filter.  ALLOWED is a
    TREE_LIST of TREE_VALUE objects to be matched by the runtime.
-   FAILURE is a function to invoke if a mismatch ocurrs.  */
+   FAILURE is a function to invoke if a mismatch occurs.  */
 extern void expand_eh_region_end_allowed	PARAMS ((tree, tree));
 
 /* End an exception region for a must-not-throw filter.  FAILURE is a
@@ -136,19 +130,15 @@ extern rtx expand_builtin_frob_return_addr	PARAMS ((tree));
 extern rtx expand_builtin_dwarf_fp_regnum	PARAMS ((void));
 extern void expand_builtin_eh_return		PARAMS ((tree, tree));
 extern void expand_eh_return			PARAMS ((void));
-
 extern rtx get_exception_pointer		PARAMS ((struct function *));
-
-struct function;
-struct inline_remap;
-extern int duplicate_eh_regions		PARAMS ((struct function *,
+extern int duplicate_eh_regions			PARAMS ((struct function *,
 						 struct inline_remap *));
 
 extern void sjlj_emit_function_exit_after	PARAMS ((rtx));
 
 
 /* If non-NULL, this is a function that returns an expression to be
-   executed if an unhandled exception is propogated out of a cleanup
+   executed if an unhandled exception is propagated out of a cleanup
    region.  For example, in C++, an exception thrown by a destructor
    during stack unwinding is required to result in a call to
    `std::terminate', so the C++ version of this function returns a
@@ -160,14 +150,6 @@ extern int (*lang_eh_type_covers) PARAMS ((tree a, tree b));
 
 /* Map a type to a runtime object to match type.  */
 extern tree (*lang_eh_runtime_type) PARAMS ((tree));
-
-#ifndef TREE_CODE
-#undef tree
-#endif
-
-#ifndef RTX_CODE
-#undef rtx
-#endif
 
 #ifndef GCC_VARRAY_H
 #undef varray_type

@@ -42,15 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #define MAX_OFILE_ALIGNMENT (32768 * 8)
 #endif
 
-#undef  ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s"
-
-#undef	STARTFILE_SPEC
-#define STARTFILE_SPEC "%{!shared: \
-			 %{!symbolic: \
-			  %{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
-			crtbegin.o%s"
-
 /* Use periods rather than dollar signs in special g++ assembler names.  */
 
 #define NO_DOLLAR_IN_LABEL
@@ -79,15 +70,12 @@ Boston, MA 02111-1307, USA.  */
 #define DWARF2_DEBUGGING_INFO 1
 #endif
 
-/* Also allow them to support STABS debugging.  */
-
-#include "dbxelf.h"
-
-/* The GNU tools operate better with stabs.  Since we don't have
-   any native tools to be compatible with, default to stabs.  */
+/* The GNU tools operate better with dwarf2, and it is required by some
+   psABI's.  Since we don't have any native tools to be compatible with,
+   default to dwarf2.  */
 
 #ifndef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #endif
 
 /* All SVR4 targets use the ELF object file format.  */
@@ -100,9 +88,6 @@ Boston, MA 02111-1307, USA.  */
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
 #define IDENT_ASM_OP "\t.ident\t"
-
-#undef  ASM_BYTE_OP
-#define ASM_BYTE_OP	"\t.byte\t"
 
 #undef  SET_ASM_OP
 #define SET_ASM_OP	"\t.set\t"
@@ -134,11 +119,11 @@ Boston, MA 02111-1307, USA.  */
    with a period is not put into the linker symbol table by the assembler.  */
 
 #undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  do							\
-    {							\
-      fprintf (FILE, ".%s%d:\n", PREFIX, NUM);		\
-    }							\
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)		\
+  do								\
+    {								\
+      fprintf (FILE, ".%s%u:\n", PREFIX, (unsigned) (NUM));	\
+    }								\
   while (0)
 
 /* This is how to store into the string LABEL
@@ -165,6 +150,7 @@ Boston, MA 02111-1307, USA.  */
    make sure that the location counter for the .rodata section gets pro-
    perly re-aligned prior to the actual beginning of the jump table.  */
 
+#undef ALIGN_ASM_OP
 #define ALIGN_ASM_OP "\t.align\t"
 
 #ifndef ASM_OUTPUT_BEFORE_CASE_LABEL
@@ -222,17 +208,6 @@ Boston, MA 02111-1307, USA.  */
       ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
     }								\
   while (0)
-
-/* This is the pseudo-op used to generate a reference to a specific
-   symbol in some section.  It is only used in machine-specific
-   configuration files.  This is the same for all known svr4
-   assemblers, except those in targets that don't use 32-bit pointers.
-   Those should override INT_ASM_OP.  Yes, the name of the macro is
-   misleading.  */
-
-#ifndef INT_ASM_OP
-#define INT_ASM_OP		"\t.long\t"
-#endif
 
 /* This is the pseudo-op used to generate a contiguous sequence of byte
    values from a double-quoted string WITHOUT HAVING A TERMINATING NUL
@@ -362,7 +337,23 @@ const_section ()						\
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
    or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
+   the initial value of DECL requires link-time relocations.  
+ 
+   To optimize loading of shared programs, define following subsections
+   of data section by attaching:
+
+   .rel
+     Section with this string in name contains data that do have
+     relocations, so they get grouped together and dynamic linker
+     will visit fewer pages in memory.
+   .ro
+     Marks data read only otherwise.  This is useful with prelinking
+     as most of relocations won't be dynamically linked and thus
+     stay read only.
+   .local
+     Marks data containing relocations only to local objects.  These
+     relocation will get fully resolved by prelinking.
+ */
 
 #undef SELECT_SECTION
 #define SELECT_SECTION(DECL, RELOC, ALIGN)			\
@@ -376,12 +367,22 @@ const_section ()						\
     }								\
   else if (TREE_CODE (DECL) == VAR_DECL)			\
     {								\
-      if ((flag_pic && RELOC)					\
-	  || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
+      if (!TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
 	  || !DECL_INITIAL (DECL)				\
 	  || (DECL_INITIAL (DECL) != error_mark_node		\
 	      && !TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-	data_section ();					\
+	{							\
+	  if (flag_pic && ((RELOC) & 2))			\
+	    named_section (NULL_TREE, ".data.rel", RELOC);	\
+	  else if (flag_pic && (RELOC))				\
+	    named_section (NULL_TREE, ".data.rel.local", RELOC);\
+	  else							\
+	    data_section ();					\
+	}							\
+      else if (flag_pic && ((RELOC) & 2))			\
+	named_section (NULL_TREE, ".data.rel.ro", RELOC);	\
+      else if (flag_pic && (RELOC))				\
+	named_section (NULL_TREE, ".data.rel.ro.local", RELOC);	\
       else if (flag_merge_constants < 2)			\
 	/* C and C++ don't allow different variables to share	\
 	   the same location.  -fmerge-all-constants allows	\
@@ -397,7 +398,7 @@ const_section ()						\
   else if (TREE_CODE (DECL) == CONSTRUCTOR)			\
     {								\
       if ((flag_pic && RELOC)					\
-	  || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
+	  || TREE_SIDE_EFFECTS (DECL)				\
 	  || ! TREE_CONSTANT (DECL))				\
 	data_section ();					\
       else							\

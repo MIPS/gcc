@@ -1,6 +1,6 @@
 // 2000-09-01 Benjamin Kosnik <bkoz@redhat.com>
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -92,16 +92,36 @@ void test01()
   gctype.tolower(c_array, c_array + len);
   VERIFY( !std::char_traits<char_type>::compare(c_array, strlit02, len - 1) );
 
-
 #ifdef DEBUG_ASSERT
   assert(test);
 #endif
 }
+
+// libstdc++/5280
+void test03()
+{
+#ifdef _GLIBCPP_HAVE_SETENV 
+  // Set the global locale to non-"C".
+  std::locale loc_de("de_DE");
+  std::locale::global(loc_de);
+
+  // Set LANG environment variable to de_DE.
+  const char* oldLANG = getenv("LANG");
+  if (!setenv("LANG", "de_DE", 1))
+    {
+      test01();
+      setenv("LANG", oldLANG ? oldLANG : "", 1);
+    }
+#endif
+}
 #endif /* !defined(_GLIBCPP_USE_WCHAR_T) */
 
-int main() {
+int main() 
+{
 #if _GLIBCPP_USE_WCHAR_T
   test01();
-#endif /* !defined(_GLIBCPP_USE_WCHAR_T) */
+  test03();
+#endif 
+
   return 0;
 }

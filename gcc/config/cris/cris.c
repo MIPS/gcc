@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -27,7 +27,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
@@ -38,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "tm_p.h"
 #include "debug.h"
+#include "output.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -55,14 +55,18 @@ Boston, MA 02111-1307, USA.  */
 	abort ();						\
     } while (0)
 
+#define LOSE_AND_RETURN(msg, x)			\
+  do						\
+    {						\
+      cris_operand_lossage (msg, x);		\
+      return;					\
+    } while (0)
+
 /* Per-function machine data.  */
 struct machine_function
  {
    int needs_return_address_on_stack;
  };
-
-/* Fix for reg_overlap_mentioned_p.  */
-static int cris_reg_overlap_mentioned_p PARAMS ((rtx, rtx));
 
 /* This little fix suppresses the 'u' or 's' when '%e' in assembly
    pattern.  */
@@ -74,28 +78,30 @@ static char cris_output_insn_is_bound = 0;
    just the "sym:GOTOFF" part.  */
 static int cris_pic_sympart_only = 0;
 
-static void
-cris_print_base PARAMS ((rtx, FILE *));
+/* Fix for reg_overlap_mentioned_p.  */
+static int cris_reg_overlap_mentioned_p PARAMS ((rtx, rtx));
 
-static void
-cris_print_index PARAMS ((rtx, FILE *));
+static void cris_print_base PARAMS ((rtx, FILE *));
 
-static void
-cris_init_machine_status PARAMS ((struct function *));
+static void cris_print_index PARAMS ((rtx, FILE *));
 
-static int
-cris_initial_frame_pointer_offset PARAMS ((void));
+static void cris_init_machine_status PARAMS ((struct function *));
 
-static int
-saved_regs_mentioned PARAMS ((rtx));
+static int cris_initial_frame_pointer_offset PARAMS ((void));
+
+static int saved_regs_mentioned PARAMS ((rtx));
 
 static void cris_target_asm_function_prologue
   PARAMS ((FILE *, HOST_WIDE_INT));
+
 static void cris_target_asm_function_epilogue
   PARAMS ((FILE *, HOST_WIDE_INT));
 
+static void cris_operand_lossage PARAMS ((const char *, rtx));
+
 /* The function cris_target_asm_function_epilogue puts the last insn to
-   output here.  Used in delay_slots_for_epilogue and function_epilogue.  */
+   output here.  It always fits; there won't be a symbol operand.  Used in
+   delay_slots_for_epilogue and function_epilogue.  */
 static char save_last[80];
 
 /* This is the argument from the "-max-stack-stackframe=" option.  */
@@ -116,6 +122,25 @@ int cris_max_stackframe = 0;
 
 /* This is the parsed result of the "-march=" option, if given.  */
 int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
+
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.dword\t"
+#undef TARGET_ASM_ALIGNED_DI_OP
+#define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
+
+/* We need to define these, since the 2byte, 4byte, 8byte op:s are only
+   available in ELF.  These "normal" pseudos do not have any alignment
+   constraints or side-effects.  */
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP TARGET_ASM_ALIGNED_HI_OP
+
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP TARGET_ASM_ALIGNED_SI_OP
+
+#undef TARGET_ASM_UNALIGNED_DI_OP
+#define TARGET_ASM_UNALIGNED_DI_OP TARGET_ASM_ALIGNED_DI_OP
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE cris_target_asm_function_prologue
@@ -476,6 +501,20 @@ cris_op_str (x)
   }
 }
 
+/* Emit an error message when we're in an asm, and a fatal error for
+   "normal" insns.  Formatted output isn't easily implemented, since we
+   use output_operand_lossage to output the actual message and handle the
+   categorization of the error.  */
+
+static void
+cris_operand_lossage (msg, op)
+     const char *msg;
+     rtx op;
+{
+  debug_rtx (op);
+  output_operand_lossage (msg);
+}
+
 /* Print an index part of an address to file.  */
 
 static void
@@ -527,7 +566,8 @@ cris_print_index (index, file)
 	fprintf (file, "[$%s].d", reg_names[REGNO (inner)]);
     }
   else
-    fatal_insn ("Unexpected index-type in cris_print_index", index);
+    cris_operand_lossage ("unexpected index-type in cris_print_index",
+			  index);
 }
 
 /* Print a base rtx of an address to file.  */
@@ -542,7 +582,8 @@ cris_print_base (base, file)
   else if (GET_CODE (base) == POST_INC)
     fprintf (file, "$%s+", reg_names[REGNO (XEXP (base, 0))]);
   else
-    fatal_insn ("Unexpected base-type in cris_print_base", base);
+    cris_operand_lossage ("unexpected base-type in cris_print_base",
+			  base);
 }
 
 /* Usable as a guard in expressions.  */
@@ -665,7 +706,7 @@ cris_target_asm_function_prologue (file, size)
   cfa_write_offset -= size;
 
   /* Get a contiguous sequence of registers, starting with r0, that need
-     to be saved. */
+     to be saved.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     {
       if ((((regs_ever_live[regno]
@@ -774,7 +815,7 @@ cris_target_asm_function_prologue (file, size)
       else
 	{
 	  /* Avoid printing multiple subsequent sub:s for sp.  FIXME:
-	     Clean up the conditional expression. */
+	     Clean up the conditional expression.  */
 	  fprintf (file, "\tsub%s %d,$sp\n",
 		   ADDITIVE_SIZE_MODIFIER ((last_movem_reg + 1) * 4 + size),
 		   (last_movem_reg + 1) * 4 + size);
@@ -834,7 +875,7 @@ cris_target_asm_function_prologue (file, size)
 	     cfoa_size, current_function_args_size);
 
   if (cris_max_stackframe && framesize > cris_max_stackframe)
-    warning ("Stackframe too big: %d bytes", framesize);
+    warning ("stackframe too big: %d bytes", framesize);
 }
 
 /* Return nonzero if there are regs mentioned in the insn that are not all
@@ -849,7 +890,7 @@ saved_regs_mentioned (x)
   const char *fmt;
   RTX_CODE code;
 
-  /* Mainly stolen from refers_to_regno_p in rtlanal.c. */
+  /* Mainly stolen from refers_to_regno_p in rtlanal.c.  */
 
   code = GET_CODE (x);
 
@@ -1072,7 +1113,7 @@ cris_target_asm_function_epilogue (file, size)
 	      fprintf (file, save_last);
 	      *save_last = 0;
 	    }
-	
+
 	  if (file)
 	    fprintf (file, "\tAdd%s %d,$sp\n",
 		     ADDITIVE_SIZE_MODIFIER (argspace_offset),
@@ -1149,7 +1190,7 @@ cris_target_asm_function_epilogue (file, size)
 
 	  /* Do a sanity check to avoid generating invalid code.  */
 	  if (current_function_epilogue_delay_list)
-	    internal_error ("Allocated but unused delay list in epilogue");
+	    internal_error ("allocated but unused delay list in epilogue");
 	}
       return;
     }
@@ -1159,14 +1200,14 @@ cris_target_asm_function_epilogue (file, size)
      thoroughly), assert the assumption that all usage of
      __builtin_eh_return are handled above.  */
   if (current_function_calls_eh_return)
-    internal_error ("Unexpected function type needing stack adjustment for\
+    internal_error ("unexpected function type needing stack adjustment for\
  __builtin_eh_return");
 
   /* If we pushed some register parameters, then adjust the stack for
      them.  */
   if (pretend)
     {
-      /* Since srp is stored on the way, we need to restore it first. */
+      /* Since srp is stored on the way, we need to restore it first.  */
       if (return_address_on_stack)
 	{
 	  if (*save_last && file)
@@ -1184,7 +1225,7 @@ cris_target_asm_function_epilogue (file, size)
 	       ADDITIVE_SIZE_MODIFIER (pretend), pretend);
     }
 
-  /* Here's where we have a delay-slot we need to fill. */
+  /* Here's where we have a delay-slot we need to fill.  */
   if (file && current_function_epilogue_delay_list)
     {
       /* If gcc has allocated an insn for the epilogue delay slot, but
@@ -1238,7 +1279,7 @@ cris_print_operand (file, x, code)
 	 and < 0, i.e print 255 or 65535 as -1, 254, 65534 as -2, etc.  */
       if (GET_CODE (x) != CONST_INT
 	  || ! CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
-	fatal_insn ("Internal: Invalid operand with 'b'", x);
+	LOSE_AND_RETURN ("invalid operand for 'b' modifier", x);
       fprintf (file, "%d", INTVAL (x)| (INTVAL (x) <= 255 ? ~255 : ~65535));
       return;
 
@@ -1249,8 +1290,8 @@ cris_print_operand (file, x, code)
 
     case 'v':
       /* Print the operand without the PIC register.  */
-      if (! flag_pic || ! cris_gotless_symbol (x))
-	fatal_insn ("Internal: Invalid operand with 'v'", x);
+      if (! flag_pic || ! CONSTANT_P (x) || ! cris_gotless_symbol (x))
+	LOSE_AND_RETURN ("invalid operand for 'v' modifier", x);
       cris_pic_sympart_only++;
       cris_output_addr_const (file, x);
       cris_pic_sympart_only--;
@@ -1259,15 +1300,15 @@ cris_print_operand (file, x, code)
     case 'P':
       /* Print the PIC register.  Applied to a GOT-less PIC symbol for
          sanity.  */
-      if (! flag_pic || ! cris_gotless_symbol (x))
-	fatal_insn ("Internal: Invalid operand with 'P'", x);
+      if (! flag_pic || ! CONSTANT_P (x) || ! cris_gotless_symbol (x))
+	LOSE_AND_RETURN ("invalid operand for 'P' modifier", x);
       fprintf (file, "$%s", reg_names [PIC_OFFSET_TABLE_REGNUM]);
       return;
 
     case 'p':
       /* Adjust a power of two to its log2.  */
       if (GET_CODE (x) != CONST_INT || exact_log2 (INTVAL (x)) < 0 )
-	fatal_insn ("Internal: Invalid operand with 'p'", x);
+	LOSE_AND_RETURN ("invalid operand for 'p' modifier", x);
       fprintf (file, "%d", exact_log2 (INTVAL (x)));
       return;
 
@@ -1306,7 +1347,7 @@ cris_print_operand (file, x, code)
 	 w for -32768 <= x <= 65535, else abort.  */
       if (GET_CODE (x) != CONST_INT
 	  || INTVAL (x) < -32768 || INTVAL (x) > 65535)
-	fatal_insn ("Internal: Invalid operand with 'z'", x);
+	LOSE_AND_RETURN ("invalid operand for 'z' modifier", x);
       putc (INTVAL (x) >= -128 && INTVAL (x) <= 255 ? 'b' : 'w', file);
       return;
 
@@ -1322,8 +1363,11 @@ cris_print_operand (file, x, code)
       switch (GET_CODE (operand))
 	{
 	case CONST_INT:
-	  /* Sign-extension from a normal int to a long long.  */
-	  fprintf (file, INTVAL (operand) < 0 ? "-1" : "0");
+	  if (HOST_BITS_PER_WIDE_INT == 32)
+	    /* Sign-extension from a normal int to a long long.  */
+	    fprintf (file, INTVAL (operand) < 0 ? "-1" : "0");
+	  else
+	    fprintf (file, "0x%x", (unsigned int)(INTVAL (x) >> 31 >> 1));
 	  return;
 
 	case CONST_DOUBLE:
@@ -1334,13 +1378,13 @@ cris_print_operand (file, x, code)
 	      return;
 	    }
 	  else
-	    fatal_insn ("Internal: Invalid operand with 'H'", x);
+	    LOSE_AND_RETURN ("invalid operand for 'H' modifier", x);
 
 	case REG:
 	  /* Print reg + 1.  Check that there's not an attempt to print
 	     high-parts of registers like stack-pointer or higher.  */
 	  if (REGNO (operand) > STACK_POINTER_REGNUM - 2)
-	    internal_error ("Internal: Bad register: %d", REGNO (operand));
+	    LOSE_AND_RETURN ("bad register", operand);
 	  fprintf (file, "$%s", reg_names[REGNO (operand) + 1]);
 	  return;
 
@@ -1364,7 +1408,7 @@ cris_print_operand (file, x, code)
 	  }
 
 	default:
-	  fatal_insn ("Internal: Invalid operand for 'H'", x);
+	  LOSE_AND_RETURN ("invalid operand for 'H' modifier", x);
 	}
 
     case 'L':
@@ -1378,7 +1422,7 @@ cris_print_operand (file, x, code)
       if (GET_CODE (operand) != SIGN_EXTEND
 	  && GET_CODE (operand) != ZERO_EXTEND
 	  && GET_CODE (operand) != CONST_INT)
-	fatal_insn ("Internal: Invalid operand with 'e'", x);
+	LOSE_AND_RETURN ("invalid operand for 'e' modifier", x);
 
       if (cris_output_insn_is_bound)
 	{
@@ -1395,7 +1439,7 @@ cris_print_operand (file, x, code)
       /* Print the size letter of the inner element.  We can do it by
 	 calling ourselves with the 's' modifier.  */
       if (GET_CODE (operand) != SIGN_EXTEND && GET_CODE (operand) != ZERO_EXTEND)
-	fatal_insn ("Internal: Invalid operand with 'm'", x);
+	LOSE_AND_RETURN ("invalid operand for 'm' modifier", x);
       cris_print_operand (file, XEXP (operand, 0), 's');
       return;
 
@@ -1406,15 +1450,20 @@ cris_print_operand (file, x, code)
 	  fprintf (file, "0x%x", CONST_DOUBLE_LOW (x));
 	  return;
 	}
-      /* If not a CONST_DOUBLE, the least significant part equals the
-	 normal part, so handle it normally.  */
+      else if (HOST_BITS_PER_WIDE_INT > 32 && GET_CODE (operand) == CONST_INT)
+	{
+	  fprintf (file, "0x%x", (unsigned int)(INTVAL (x) & 0xffffffff));
+	  return;
+	}
+      /* Otherwise the least significant part equals the normal part,
+	 so handle it normally.  */
       break;
 
     case 'A':
       /* When emitting an add for the high part of a DImode constant, we
 	 want to use addq for 0 and adds.w for -1.  */
       if (GET_CODE (operand) != CONST_INT)
-	fatal_insn ("Internal: Invalid operand with 'A' output modifier", x);
+	LOSE_AND_RETURN ("invalid operand for 'A' modifier", x);
       fprintf (file, INTVAL (operand) < 0 ? "adds.w" : "addq");
       return;
 
@@ -1422,7 +1471,7 @@ cris_print_operand (file, x, code)
       /* When emitting an sub for the high part of a DImode constant, we
 	 want to use subq for 0 and subs.w for -1.  */
       if (GET_CODE (operand) != CONST_INT)
-	fatal_insn ("Internal: Invalid operand with 'D' output modifier", x);
+	LOSE_AND_RETURN ("invalid operand for 'D' modifier", x);
       fprintf (file, INTVAL (operand) < 0 ? "subs.w" : "subq");
       return;
 
@@ -1436,30 +1485,24 @@ cris_print_operand (file, x, code)
       /* Print the size letter for an operand to a MULT, which must be a
 	 const_int with a suitable value.  */
       if (GET_CODE (operand) != CONST_INT || INTVAL (operand) > 4)
-	fatal_insn ("Internal: Invalid operand with 'T'", x);
-
+	LOSE_AND_RETURN ("invalid operand for 'T' modifier", x);
       fprintf (file, "%s", mults[INTVAL (operand)]);
       return;
 
     case 0:
-      /* No code, print as usual. */
+      /* No code, print as usual.  */
       break;
 
     default:
-      {
-#define BADFORMAT "Internal: Invalid operand for '%c'"
-	char s[sizeof BADFORMAT];
-	sprintf (s, BADFORMAT, code);
-	fatal_insn (s, x);
-      }
+      LOSE_AND_RETURN ("invalid operand modifier letter", x);
     }
 
-  /* Print an operand as without a modifier letter. */
+  /* Print an operand as without a modifier letter.  */
   switch (GET_CODE (operand))
     {
     case REG:
       if (REGNO (operand) > 15)
-	internal_error ("Internal: Bad register: %d", REGNO (operand));
+	internal_error ("internal error: bad register: %d", REGNO (operand));
       fprintf (file, "$%s", reg_names[REGNO (operand)]);
       return;
 
@@ -1507,7 +1550,7 @@ cris_print_operand (file, x, code)
 	if (GET_CODE (reg) != REG
 	    || (GET_CODE (XEXP (operand, 0)) != CONST_INT
 		&& GET_CODE (XEXP (operand, 1)) != CONST_INT))
-	  fatal_insn ("Can't print operand", x);
+	  LOSE_AND_RETURN ("unexpected multiplicative operand", x);
 
 	cris_print_base (reg, file);
 	fprintf (file, ".%c",
@@ -1527,7 +1570,7 @@ cris_print_operand (file, x, code)
 	  return;
 	}
 
-      fatal_insn ("Internal: Cannot decode operand", x);
+      LOSE_AND_RETURN ("unexpected operand", x);
     }
 }
 
@@ -1562,7 +1605,7 @@ cris_print_operand_address (file, x)
 	  cris_print_index (x1, file);
 	}
       else
-	fatal_insn ("Internal: This is not a recognized address", x);
+	LOSE_AND_RETURN ("unrecognized address", x);
     }
   else if (GET_CODE (x) == MEM)
     {
@@ -1572,7 +1615,7 @@ cris_print_operand_address (file, x)
       putc (']', file);
     }
   else
-    fatal_insn ("Internal: This is not a recognized address", x);
+    LOSE_AND_RETURN ("unrecognized address", x);
 
   putc (']', file);
 }
@@ -1608,7 +1651,7 @@ cris_initial_frame_pointer_offset ()
 {
   int regno;
 
-  /* Initial offset is 0 if we dont have a frame pointer.  */
+  /* Initial offset is 0 if we don't have a frame pointer.  */
   int offs = 0;
 
   /* And 4 for each register pushed.  */
@@ -1675,7 +1718,7 @@ cris_initial_elimination_offset (fromreg, toreg)
       && toreg == STACK_POINTER_REGNUM)
     return fp_sp_offset;
 
-  /* We need to balance out the frame pointer here. */
+  /* We need to balance out the frame pointer here.  */
   if (fromreg == ARG_POINTER_REGNUM
       && toreg == STACK_POINTER_REGNUM)
     return ap_fp_offset + fp_sp_offset - 4;
@@ -1779,13 +1822,13 @@ cris_notice_update_cc (exp, insn)
 	    return;
 
 	  /* Record CC0 changes, so we do not have to output multiple
-	     test insns. */
+	     test insns.  */
 	  if (SET_DEST (exp) == cc0_rtx)
 	    {
 	      cc_status.value1 = SET_SRC (exp);
 	      cc_status.value2 = 0;
 
-	      /* Handle flags for the special btstq on one bit. */
+	      /* Handle flags for the special btstq on one bit.  */
 	      if (GET_CODE (SET_SRC (exp)) == ZERO_EXTRACT
 		  && XEXP (SET_SRC (exp), 1) == const1_rtx)
 		{
@@ -1805,7 +1848,7 @@ cris_notice_update_cc (exp, insn)
 		      && XEXP (SET_SRC (exp), 1) != const0_rtx)
 		    /* For some reason gcc will not canonicalize compare
 		       operations, reversing the sign by itself if
-		       operands are in wrong order. */
+		       operands are in wrong order.  */
 		    /* (But NOT inverted; eq is still eq.) */
 		    cc_status.flags = CC_REVERSED;
 
@@ -1823,14 +1866,14 @@ cris_notice_update_cc (exp, insn)
 		       && REG_P (XEXP (SET_DEST (exp), 0))))
 	    {
 	      /* A register is set; normally CC is set to show that no
-		 test insn is needed.  Catch the exceptions. */
+		 test insn is needed.  Catch the exceptions.  */
 
 	      /* If not to cc0, then no "set"s in non-natural mode give
 		 ok cc0...  */
 	      if (GET_MODE_SIZE (GET_MODE (SET_DEST (exp))) > UNITS_PER_WORD
 		  || GET_MODE_CLASS (GET_MODE (SET_DEST (exp))) == MODE_FLOAT)
 		{
-		  /* ... except add:s and sub:s in DImode. */
+		  /* ... except add:s and sub:s in DImode.  */
 		  if (GET_MODE (SET_DEST (exp)) == DImode
 		      && (GET_CODE (SET_SRC (exp)) == PLUS
 			  || GET_CODE (SET_SRC (exp)) == MINUS))
@@ -1928,7 +1971,7 @@ cris_notice_update_cc (exp, insn)
 		     register.  */
 		  if (cris_reg_overlap_mentioned_p (cc_status.value1,
 						    cc_status.value2))
-		    internal_error ("Internal: sideeffect-insn affecting main effect");
+		    internal_error ("internal error: sideeffect-insn affecting main effect");
 		  return;
 		}
 	      else if ((REG_P (XEXP (XVECEXP (exp, 0, 0), 1))
@@ -1937,17 +1980,34 @@ cris_notice_update_cc (exp, insn)
 		{
 		  /* For "move.S rz,[rx=ry+o]" and "clear.S [rx=ry+o]",
 		     say flags are not changed, except for overlap.  */
-		  if ((cc_status.value1
-		       && cris_reg_overlap_mentioned_p (XEXP
-							(XVECEXP
-							 (exp, 0, 0), 0),
-							cc_status.value1))
-		      || (cc_status.value2
-			  && cris_reg_overlap_mentioned_p (XEXP
-							   (XVECEXP
-							    (exp, 0, 1), 0),
-							   cc_status.value2)))
-		    CC_STATUS_INIT;
+		  if (cc_status.value1
+		      && cris_reg_overlap_mentioned_p (XEXP
+						       (XVECEXP
+							(exp, 0, 0), 0),
+						       cc_status.value1))
+		    cc_status.value1 = 0;
+
+		  if (cc_status.value1
+		      && cris_reg_overlap_mentioned_p (XEXP
+						       (XVECEXP
+							(exp, 0, 1), 0),
+						       cc_status.value1))
+		    cc_status.value1 = 0;
+
+		  if (cc_status.value2
+		      && cris_reg_overlap_mentioned_p (XEXP
+						       (XVECEXP
+							(exp, 0, 0), 0),
+						       cc_status.value2))
+		    cc_status.value2 = 0;
+
+		  if (cc_status.value2
+		      && cris_reg_overlap_mentioned_p (XEXP
+						       (XVECEXP
+							(exp, 0, 1), 0),
+						       cc_status.value2))
+		    cc_status.value2 = 0;
+
 		  return;
 		}
 	    }
@@ -2198,7 +2258,7 @@ cris_side_effect_mode_ok (code, ops, lreg, rreg, rval, multop, other_op)
     }
 
   /* If we get here, the caller got its initial tests wrong.  */
-  internal_error ("Internal: cris_side_effect_mode_ok with bad operands");
+  internal_error ("internal error: cris_side_effect_mode_ok with bad operands");
 }
 
 /* The function reg_overlap_mentioned_p in CVS (still as of 2001-05-16)
@@ -2239,12 +2299,6 @@ int
 cris_legitimate_pic_operand (x)
      rtx x;
 {
-  /* This test is due to a bug in the core of GCC.  See
-     <URL:http://gcc.gnu.org/ml/gcc-patches/2001-09/msg01038.html> for the
-     real fix; we shouldn't need to test CONSTANT_P here.  */
-  if (! CONSTANT_P (x))
-    return 0;
-
   /* The PIC representation of a symbol with a GOT entry will be (for
      example; relocations differ):
       sym => [rPIC+sym:GOT]
@@ -2286,7 +2340,7 @@ cris_symbol (x)
       return 0;
 
     default:
-      fatal_insn ("Unrecognized supposed constant", x);
+      fatal_insn ("unrecognized supposed constant", x);
     }
 
   return 1;
@@ -2344,7 +2398,7 @@ cris_gotless_symbol (x)
       return 0;
 
     default:
-      fatal_insn ("Unrecognized supposed constant", x);
+      fatal_insn ("unrecognized supposed constant", x);
     }
 
   return 1;
@@ -2385,7 +2439,7 @@ cris_got_symbol (x)
       return 0;
 
     default:
-      fatal_insn ("Unrecognized supposed constant in cris_global_pic_symbol",
+      fatal_insn ("unrecognized supposed constant in cris_global_pic_symbol",
 		  x);
     }
 
@@ -2432,7 +2486,7 @@ cris_override_options ()
 	cris_cpu_version = 10;
 
       if (cris_cpu_version < 0 || cris_cpu_version > 10)
-	error ("Unknown CRIS version specification in -march= or -mcpu= : %s",
+	error ("unknown CRIS version specification in -march= or -mcpu= : %s",
 	       cris_cpu_str);
 
       /* Set the target flags.  */
@@ -2468,7 +2522,7 @@ cris_override_options ()
 	cris_tune = 10;
 
       if (cris_tune < 0 || cris_tune > 10)
-	error ("Unknown CRIS cpu version specification in -mtune= : %s",
+	error ("unknown CRIS cpu version specification in -mtune= : %s",
 	       cris_tune_str);
 
       if (cris_tune >= CRIS_CPU_SVINTO)
@@ -2502,7 +2556,7 @@ cris_override_options ()
   if ((write_symbols == DWARF_DEBUG
        || write_symbols == DWARF2_DEBUG) && ! TARGET_ELF)
     {
-      warning ("Specified -g option is invalid with -maout and -melinux");
+      warning ("that particular -g option is invalid with -maout and -melinux");
       write_symbols = DBX_DEBUG;
     }
 
@@ -2618,13 +2672,11 @@ cris_split_movdx (operands)
   rtx src  = operands[1];
   rtx val;
 
-  /* We might have (SUBREG (MEM)) here, so just get rid of the
-     subregs to make this code simpler.  It is safe to call
-     alter_subreg any time after reload.  */
-  if (GET_CODE (dest) == SUBREG)
-    dest = alter_subreg (dest);
-  if (GET_CODE (src) == SUBREG)
-    src = alter_subreg (src);
+  /* We used to have to handle (SUBREG (MEM)) here, but that should no
+     longer happen; after reload there are no SUBREGs any more, and we're
+     only called after reload.  */
+  if (GET_CODE (dest) == SUBREG || GET_CODE (src) == SUBREG)
+    abort ();
 
   start_sequence ();
   if (GET_CODE (dest) == REG)
@@ -2681,11 +2733,11 @@ cris_split_movdx (operands)
 
           if (GET_CODE (addr) == POST_INC)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, 
+	      emit_insn (gen_rtx_SET (VOIDmode,
 				      operand_subword (dest, 0, TRUE, mode),
 				      change_address (src, SImode, addr)));
 	      emit_insn (gen_rtx_SET (VOIDmode,
-				      operand_subword (dest, 1, TRUE, mode), 
+				      operand_subword (dest, 1, TRUE, mode),
 				      change_address (src, SImode, addr)));
 	    }
 	  else
@@ -2695,7 +2747,7 @@ cris_split_movdx (operands)
 		 GO_IF_LEGITIMATE_ADDRESS, but we're here for your
 		 safety.  */
 	      if (side_effects_p (addr))
-		fatal_insn ("Unexpected side-effects in address", addr);
+		fatal_insn ("unexpected side-effects in address", addr);
 
 	      emit_insn (gen_rtx_SET
 			 (VOIDmode,
@@ -2740,7 +2792,7 @@ cris_split_movdx (operands)
 	     postincrements.  They should be stopped in
 	     GO_IF_LEGITIMATE_ADDRESS, but we're here for your safety.  */
 	  if (side_effects_p (addr))
-	    fatal_insn ("Unexpected side-effects in address", addr);
+	    fatal_insn ("unexpected side-effects in address", addr);
 
 	  emit_insn (gen_rtx_SET
 		     (VOIDmode,
@@ -2837,11 +2889,11 @@ restart:
 		fprintf (file, ":GOT]");
 	    }
 	  else
-	    fatal_insn ("Unexpected PIC symbol", x);
+	    LOSE_AND_RETURN ("unexpected PIC symbol", x);
 
 	  /* Sanity check.  */
 	  if (! current_function_uses_pic_offset_table)
-	    internal_error ("Emitting PIC operand, but PIC register isn't set up");
+	    output_operand_lossage ("PIC register isn't set up");
 	}
       else
 	assemble_name (file, XSTR (x, 0));
@@ -2854,7 +2906,7 @@ restart:
       if (GET_CODE (XEXP (x, 0)) != CODE_LABEL
 	  && (GET_CODE (XEXP (x, 0)) != NOTE
 	      || NOTE_LINE_NUMBER (XEXP (x, 0)) != NOTE_INSN_DELETED_LABEL))
-	fatal_insn ("Unexpected address expression", x);
+	fatal_insn ("unexpected address expression", x);
 
       if (flag_pic)
 	{
@@ -2868,11 +2920,11 @@ restart:
 	    }
 	  else
 	    /* Labels are never marked as global symbols.  */
-	    fatal_insn ("Unexpected PIC symbol", x);
+	    fatal_insn ("unexpected PIC symbol", x);
 
 	  /* Sanity check.  */
 	  if (! current_function_uses_pic_offset_table)
-	    internal_error ("Emitting PIC operand, but PIC register isn't set up");
+	    internal_error ("emitting PIC operand, but PIC register isn't set up");
 	  break;
 	}
 
@@ -2881,7 +2933,7 @@ restart:
 
     case NOTE:
       if (NOTE_LINE_NUMBER (x) != NOTE_INSN_DELETED_LABEL)
-	fatal_insn ("Unexpected NOTE as addr_const:", x);
+	fatal_insn ("unexpected NOTE as addr_const:", x);
     case CODE_LABEL:
     case CONST_INT:
     case CONST_DOUBLE:
@@ -2937,7 +2989,7 @@ restart:
       break;
 
     default:
-      fatal_insn ("Unexpected address expression", x);
+      LOSE_AND_RETURN ("unexpected address expression", x);
     }
 }
 
@@ -3006,7 +3058,7 @@ rtx
 Xvecexp (x, n, m)
      rtx x;
      int n;
-{ 
+{
   return XVECEXP (x, n, m);
 }
 

@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,6 +26,11 @@
 // the GNU General Public License.  This exception does not however
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
+
+/** @file basic_ios.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
 
 #ifndef _CPP_BITS_BASICIOS_H
 #define _CPP_BITS_BASICIOS_H 1
@@ -57,12 +62,11 @@ namespace std
       typedef num_get<_CharT, __istreambuf_iter>        __numget_type;
       
       // Data members:
-    private:
+    protected:
       basic_ostream<_CharT, _Traits>* 	_M_tie;
       char_type 			_M_fill;
       iostate 				_M_exception;
 
-    protected:
       basic_streambuf<_CharT, _Traits>* _M_streambuf;
       iostate 				_M_streambuf_state;
 
@@ -169,7 +173,7 @@ namespace std
       inline char_type 
       fill(char_type __ch)
       {
-	char_type __old = _M_fill;
+	char_type __old = this->fill();
 	_M_fill = __ch;
 	return __old;
       }
@@ -193,14 +197,11 @@ namespace std
       init(basic_streambuf<_CharT, _Traits>* __sb);
 
       bool
-      _M_check_facet(const locale::facet* __f)
+      _M_check_facet(const locale::facet* __f) const
       {
-	bool __ret = false;
-	if (__f)
-	  __ret = true;
-	else
+	if (!__f)
 	  __throw_bad_cast();
-	return __ret;
+	return true;
       }
 
       void

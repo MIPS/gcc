@@ -104,7 +104,7 @@ package body Repinfo is
    -----------------------
 
    Unit_Casing : Casing_Type;
-   --  Indentifier casing for current unit
+   --  Identifier casing for current unit
 
    procedure Spaces (N : Natural);
    --  Output given number of spaces

@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "output.h"
 #include "target.h"
+#include "langhooks.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -110,7 +111,6 @@ typedef enum
 
 int tree_node_counts[(int) all_kinds];
 int tree_node_sizes[(int) all_kinds];
-int id_string_size = 0;
 
 static const char * const tree_node_kind_names[] = {
   "decls",
@@ -162,6 +162,7 @@ static int type_hash_eq PARAMS ((const void*, const void*));
 static unsigned int type_hash_hash PARAMS ((const void*));
 static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
+static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
 static void type_hash_mark PARAMS ((const void *));
 static int mark_tree_hashtable_entry PARAMS((void **, void *));
@@ -1518,7 +1519,11 @@ staticp (arg)
 	return staticp (TREE_OPERAND (arg, 0));
 
     default:
-      return 0;
+      if ((unsigned int) TREE_CODE (arg)
+	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
+	return (*lang_hooks.staticp) (arg);
+      else
+	return 0;
     }
 }
 
@@ -1549,20 +1554,32 @@ save_expr (expr)
      tree expr;
 {
   tree t = fold (expr);
+  tree inner;
 
   /* We don't care about whether this can be used as an lvalue in this
      context.  */
   while (TREE_CODE (t) == NON_LVALUE_EXPR)
     t = TREE_OPERAND (t, 0);
 
+  /* If we have simple operations applied to a SAVE_EXPR or to a SAVE_EXPR and
+     a constant, it will be more efficient to not make another SAVE_EXPR since
+     it will allow better simplification and GCSE will be able to merge the
+     computations if they actualy occur.  */
+  for (inner = t;
+       (TREE_CODE_CLASS (TREE_CODE (inner)) == '1'
+	|| (TREE_CODE_CLASS (TREE_CODE (inner)) == '2'
+	    && TREE_CONSTANT (TREE_OPERAND (inner, 1))));
+       inner = TREE_OPERAND (inner, 0))
+    ;
+
   /* If the tree evaluates to a constant, then we don't want to hide that
      fact (i.e. this allows further folding, and direct checks for constants).
      However, a read-only object that has side effects cannot be bypassed.
      Since it is no problem to reevaluate literals, we just return the
      literal node.  */
-
-  if (TREE_CONSTANT (t) || (TREE_READONLY (t) && ! TREE_SIDE_EFFECTS (t))
-      || TREE_CODE (t) == SAVE_EXPR || TREE_CODE (t) == ERROR_MARK)
+  if (TREE_CONSTANT (inner)
+      || (TREE_READONLY (inner) && ! TREE_SIDE_EFFECTS (inner))
+      || TREE_CODE (inner) == SAVE_EXPR || TREE_CODE (inner) == ERROR_MARK)
     return t;
 
   /* If T contains a PLACEHOLDER_EXPR, we must evaluate it each time, since
@@ -2490,6 +2507,12 @@ build1 (code, type, node)
       TREE_READONLY (t) = 0;
       break;
 
+    case INDIRECT_REF:
+      /* Whether a dereference is readonly has nothing to do with whether
+	 its operand is readonly.  */
+      TREE_READONLY (t) = 0;
+      break;
+
     default:
       if (TREE_CODE_CLASS (code) == '1' && node && TREE_CONSTANT (node))
 	TREE_CONSTANT (t) = 1;
@@ -2713,6 +2736,16 @@ default_function_attribute_inlinable_p (fndecl)
   return false;
 }
 
+/* Default value of targetm.ms_bitfield_layout_p that always returns
+   false.  */
+bool
+default_ms_bitfield_layout_p (record)
+     tree record ATTRIBUTE_UNUSED;
+{
+  /* By default, GCC does not use the MS VC++ bitfield layout rules.  */
+  return false;
+}
+
 /* Return non-zero if IDENT is a valid name for attribute ATTR,
    or zero if not.
 
@@ -2765,8 +2798,8 @@ is_attribute_p (attr, ident)
 /* Given an attribute name and a list of attributes, return a pointer to the
    attribute's list element if the attribute is part of the list, or NULL_TREE
    if not found.  If the attribute appears more than once, this only
-   returns the first occurance; the TREE_CHAIN of the return value should
-   be passed back in if further occurances are wanted.  */
+   returns the first occurrence; the TREE_CHAIN of the return value should
+   be passed back in if further occurrences are wanted.  */
 
 tree
 lookup_attribute (attr_name, list)
@@ -2894,7 +2927,7 @@ merge_dllimport_decl_attributes (old, new)
 
   if (delete_dllimport_p)
     {
-      tree prev,t;
+      tree prev, t;
 
       /* Scan the list for dllimport and delete it.  */
       for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
@@ -3253,7 +3286,7 @@ attribute_list_contained (l1, l2)
 
   /* Maybe the lists are equal.  */
   if (t1 == 0 && t2 == 0)
-     return 1;
+    return 1;
 
   for (; t2 != 0; t2 = TREE_CHAIN (t2))
     {
@@ -3610,7 +3643,7 @@ simple_cst_equal (t1, t2)
 int
 compare_tree_int (t, u)
      tree t;
-     unsigned int u;
+     unsigned HOST_WIDE_INT u;
 {
   if (tree_int_cst_sgn (t) < 0)
     return -1;
@@ -3691,7 +3724,7 @@ build_reference_type (to_type)
 
 tree
 build_type_no_quals (t)
-  tree t;
+     tree t;
 {
   switch (TREE_CODE (t))
     {
@@ -3772,7 +3805,7 @@ build_range_type (type, lowval, highval)
    of just highval (maxval).  */
 
 tree
-build_index_2_type (lowval,highval)
+build_index_2_type (lowval, highval)
      tree lowval, highval;
 {
   return build_range_type (sizetype, lowval, highval);
@@ -3852,7 +3885,7 @@ build_array_type (elt_type, index_type)
 
 tree
 get_inner_array_type (array)
-    tree array;
+     tree array;
 {
   tree type = TREE_TYPE (array);
 
@@ -3985,7 +4018,8 @@ build_complex_type (component_type)
 
   /* If we are writing Dwarf2 output we need to create a name,
      since complex is a fundamental type.  */
-  if (write_symbols == DWARF2_DEBUG && ! TYPE_NAME (t))
+  if ((write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+      && ! TYPE_NAME (t))
     {
       const char *name;
       if (component_type == char_type_node)
@@ -4227,7 +4261,8 @@ int_fits_type_p (c, type)
      tree c, type;
 {
   /* If the bounds of the type are integers, we can check ourselves.
-     Otherwise,. use force_fit_type, which checks against the precision.  */
+     If not, but this type is a subtype, try checking against that.
+     Otherwise, use force_fit_type, which checks against the precision.  */
   if (TYPE_MAX_VALUE (type) != NULL_TREE
       && TYPE_MIN_VALUE (type) != NULL_TREE
       && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST
@@ -4246,6 +4281,8 @@ int_fits_type_p (c, type)
 		&& ! (TREE_INT_CST_HIGH (c) < 0
 		      && TREE_UNSIGNED (TREE_TYPE (c))));
     }
+  else if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+    return int_fits_type_p (c, TREE_TYPE (type));
   else
     {
       c = copy_node (c);
@@ -4417,7 +4454,6 @@ dump_tree_statistics ()
       total_nodes += tree_node_counts[i];
       total_bytes += tree_node_sizes[i];
     }
-  fprintf (stderr, "%-20s        %9d\n", "identifier names", id_string_size);
   fprintf (stderr, "-------------------------------------\n");
   fprintf (stderr, "%-20s %6d %9d\n", "Total", total_nodes, total_bytes);
   fprintf (stderr, "-------------------------------------\n");
@@ -4426,7 +4462,7 @@ dump_tree_statistics ()
 #endif
   print_obstack_statistics ("permanent_obstack", &permanent_obstack);
   print_type_hash_statistics ();
-  print_lang_statistics ();
+  (*lang_hooks.print_statistics) ();
 }
 
 #define FILE_FUNCTION_PREFIX_LEN 9
@@ -4451,14 +4487,27 @@ append_random_chars (template)
     {
       struct stat st;
 
-      /* VALUE should be unique for each file and must
-	 not change between compiles since this can cause
-	 bootstrap comparison errors.  */
+      /* VALUE should be unique for each file and must not change between
+	 compiles since this can cause bootstrap comparison errors.  */
 
       if (stat (main_input_filename, &st) < 0)
-	abort ();
-
-      value = st.st_dev ^ st.st_ino ^ st.st_mtime;
+	{
+	  /* This can happen when preprocessed text is shipped between
+	     machines, e.g. with bug reports.  Assume that uniqueness
+	     isn't actually an issue.  */
+	  value = 1;
+	}
+      else
+	{
+	  /* In VMS, ino is an array, so we have to use both values.  We
+	     conditionalize that.  */
+#ifdef VMS
+#define INO_TO_INT(INO) ((int) (INO)[1] << 16 ^ (int) (INO)[2])
+#else
+#define INO_TO_INT(INO) INO
+#endif
+	  value = st.st_dev ^ INO_TO_INT (st.st_ino) ^ st.st_mtime;
+	}
     }
 
   template += strlen (template);
@@ -4489,15 +4538,14 @@ clean_symbol_name (p)
      char *p;
 {
   for (; *p; p++)
-    if (! (ISDIGIT(*p)
+    if (! (ISALNUM (*p)
 #ifndef NO_DOLLAR_IN_LABEL	/* this for `$'; unlikely, but... -- kr */
 	    || *p == '$'
 #endif
 #ifndef NO_DOT_IN_LABEL		/* this for `.'; unlikely, but...  */
 	    || *p == '.'
 #endif
-	    || ISUPPER (*p)
-	    || ISLOWER (*p)))
+	   ))
       *p = '_';
 }
   
@@ -4676,7 +4724,7 @@ tree_check_failed (node, code, file, line, function)
      int line;
      const char *function;
 {
-  internal_error ("Tree check: expected %s, have %s in %s, at %s:%d",
+  internal_error ("tree check: expected %s, have %s in %s, at %s:%d",
 		  tree_code_name[code], tree_code_name[TREE_CODE (node)],
 		  function, trim_filename (file), line);
 }
@@ -4693,7 +4741,7 @@ tree_class_check_failed (node, cl, file, line, function)
      const char *function;
 {
   internal_error
-    ("Tree check: expected class '%c', have '%c' (%s) in %s, at %s:%d",
+    ("tree check: expected class '%c', have '%c' (%s) in %s, at %s:%d",
      cl, TREE_CODE_CLASS (TREE_CODE (node)),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
@@ -4853,33 +4901,46 @@ build_common_tree_nodes_2 (short_double)
     va_list_type_node = t;
   }
 
-  V4SF_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V4SF_type_node) = float_type_node;
-  TYPE_MODE (V4SF_type_node) = V4SFmode;
-  finish_vector_type (V4SF_type_node);
+  unsigned_V4SI_type_node
+    = make_vector (V4SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2SI_type_node
+    = make_vector (V2SImode, unsigned_intSI_type_node, 1);
+  unsigned_V4HI_type_node
+    = make_vector (V4HImode, unsigned_intHI_type_node, 1);
+  unsigned_V8QI_type_node
+    = make_vector (V8QImode, unsigned_intQI_type_node, 1);
+  unsigned_V8HI_type_node
+    = make_vector (V8HImode, unsigned_intHI_type_node, 1);
+  unsigned_V16QI_type_node
+    = make_vector (V16QImode, unsigned_intQI_type_node, 1);
 
-  V4SI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V4SI_type_node) = intSI_type_node;
-  TYPE_MODE (V4SI_type_node) = V4SImode;
-  finish_vector_type (V4SI_type_node);
+  V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
+  V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
+  V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
+  V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
+  V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);
+  V8QI_type_node = make_vector (V8QImode, intQI_type_node, 0);
+  V8HI_type_node = make_vector (V8HImode, intHI_type_node, 0);
+  V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
+  V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
+}
 
-  V2SI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V2SI_type_node) = intSI_type_node;
-  TYPE_MODE (V2SI_type_node) = V2SImode;
-  finish_vector_type (V2SI_type_node);
+/* Returns a vector tree node given a vector mode, the inner type, and
+   the signness.  */
 
-  V4HI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V4HI_type_node) = intHI_type_node;
-  TYPE_MODE (V4HI_type_node) = V4HImode;
-  finish_vector_type (V4HI_type_node);
+static tree
+make_vector (mode, innertype, unsignedp)
+     enum machine_mode mode;
+     tree innertype;
+     int unsignedp;
+{
+  tree t;
 
-  V8QI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V8QI_type_node) = intQI_type_node;
-  TYPE_MODE (V8QI_type_node) = V8QImode;
-  finish_vector_type (V8QI_type_node);
+  t = make_node (VECTOR_TYPE);
+  TREE_TYPE (t) = innertype;
+  TYPE_MODE (t) = mode;
+  TREE_UNSIGNED (TREE_TYPE (t)) = unsignedp;
+  finish_vector_type (t);
 
-  V2SF_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V2SF_type_node) = float_type_node;
-  TYPE_MODE (V2SF_type_node) = V2SFmode;
-  finish_vector_type (V2SF_type_node);
+  return t;
 }

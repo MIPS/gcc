@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -113,7 +113,7 @@ package Osint is
    --
    --  Initialize may terminate execution if the parameters are invalid or some
    --  other fatal error is encountered. The interface is set up to
-   --  accomodate scanning a series of files (e.g. as the result of
+   --  accommodate scanning a series of files (e.g. as the result of
    --  wild card references in DOS, or an expanded list of source files
    --  in Unix). Of course it is perfectly possible to ignore this in
    --  the implementation and provide for opening only one file.
@@ -136,7 +136,7 @@ package Osint is
    --  Writes name of program as invoked to standard output
 
    procedure Fail (S1 : String; S2 : String := ""; S3 : String := "");
-   --  Outputs error messages S1 & S2 & S3 preceeded by the name of the
+   --  Outputs error messages S1 & S2 & S3 preceded by the name of the
    --  executing program and exits with E_Fatal.
 
    function Is_Directory_Separator (C : Character) return Boolean;
@@ -264,7 +264,7 @@ package Osint is
    --  These subprograms are used to parse out the directory names in a
    --  search path specified by a Search_Path argument. The procedure
    --  initializes an internal pointer to point to the initial directory
-   --  name, and calls to the function return sucessive directory names,
+   --  name, and calls to the function return successive directory names,
    --  with a null pointer marking the end of the list.
 
    function Get_Primary_Src_Search_Directory return String_Ptr;
@@ -425,7 +425,7 @@ package Osint is
    --    3. The information could be written to a separate file, whose name is
    --       related to the name of the source file by a fixed convention.
 
-   --  Which of these three methods is chosen depends on the contraints of the
+   --  Which of these three methods is chosen depends on the constraints of the
    --  host operating system. The interface described here is independent of
    --  which of these approaches is used.
 

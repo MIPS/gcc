@@ -3,6 +3,10 @@
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
+@node Contributors
+@unnumbered Contributors to GCC
+@cindex contributors
+
 The GCC project would like to thank its many contributors.  Without them the
 project would not have been nearly as successful as it has been.  Any omissions
 in this list are accidental.  Feel free to contact
@@ -385,8 +389,8 @@ NeXT, Inc.@: donated the front end that supports the Objective-C
 language.
 
 @item
-Hans-Peter Nilsson for the CRIS port, improvements to the search engine
-setup, various documentation fixes and other small fixes.
+Hans-Peter Nilsson for the CRIS and MMIX ports, improvements to the search
+engine setup, various documentation fixes and other small fixes.
 
 @item
 Geoff Noer for this work on getting cygwin native builds working.
@@ -570,6 +574,9 @@ Zack Weinberg for major work on cpplib and various other bugfixes.
 
 @item
 Dale Wiles helped port GCC to the Tahoe.
+
+@item
+Bob Wilson from Tensilica, Inc.@: for the Xtensa port.
 
 @item
 Jim Wilson for his direction via the steering committee, tackling hard

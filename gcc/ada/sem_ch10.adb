@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -703,7 +703,7 @@ package body Sem_Ch10 is
          if Nkind (Item) = N_With_Clause then
 
             --  Skip analyzing with clause if no unit, nothing to do (this
-            --  happens for a with that references a non-existant unit)
+            --  happens for a with that references a non-existent unit)
 
             if Present (Library_Unit (Item)) then
                Analyze (Item);
@@ -998,7 +998,7 @@ package body Sem_Ch10 is
    begin
       Check_Stub_Level (N);
 
-      --  First occurence of name may have been as an incomplete type.
+      --  First occurrence of name may have been as an incomplete type.
 
       if Present (Nam) and then Ekind (Nam) = E_Incomplete_Type then
          Nam := Full_View (Nam);
@@ -1364,7 +1364,7 @@ package body Sem_Ch10 is
    begin
       Check_Stub_Level (N);
 
-      --  First occurence of name may have been as an incomplete type.
+      --  First occurrence of name may have been as an incomplete type.
 
       if Present (Nam) and then Ekind (Nam) = E_Incomplete_Type then
          Nam := Full_View (Nam);
@@ -1486,15 +1486,16 @@ package body Sem_Ch10 is
          E_Name := Defining_Entity (U);
 
       --  Note: in the following test, Unit_Kind is the original Nkind, but
-      --  in the case of an instantiation, the call to Semantics above will
-      --  have replaced the unit by its instantiated version.
+      --  in the case of an instantiation, semantic analysis above will
+      --  have replaced the unit by its instantiated version. If the instance
+      --  body has been generated, the instance now denotes the body entity.
+      --  For visibility purposes we need the entity of its spec.
 
-      elsif Unit_Kind = N_Package_Instantiation
+      elsif (Unit_Kind = N_Package_Instantiation
+              or else Nkind (Original_Node (Unit (Library_Unit (N)))) =
+                N_Package_Instantiation)
         and then Nkind (U) = N_Package_Body
       then
-         --  Instantiation node is replaced with body of instance.
-         --  Unit name is defining unit name in corresponding spec.
-
          E_Name := Corresponding_Spec (U);
 
       elsif Unit_Kind = N_Package_Instantiation
@@ -2708,7 +2709,7 @@ package body Sem_Ch10 is
    -------------------------
 
    procedure Install_Withed_Unit (With_Clause : Node_Id) is
-      Uname : constant Entity_Id := Entity (Name (With_Clause));
+      Uname : Entity_Id := Entity (Name (With_Clause));
       P     : constant Entity_Id := Scope (Uname);
 
    begin

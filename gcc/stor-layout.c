@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "target.h"
 
 /* Set to one when set_sizetype has been called.  */
 static int sizetype_set;
@@ -114,6 +115,13 @@ void
 put_pending_size (expr)
      tree expr;
 {
+  /* Strip any simple arithmetic from EXPR to see if it has an underlying
+     SAVE_EXPR.  */
+  while (TREE_CODE_CLASS (TREE_CODE (expr)) == '1'
+	 || (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
+	    && TREE_CONSTANT (TREE_OPERAND (expr, 1))))
+    expr = TREE_OPERAND (expr, 0);
+
   if (TREE_CODE (expr) == SAVE_EXPR)
     pending_sizes = tree_cons (NULL_TREE, expr, pending_sizes);
 }
@@ -140,7 +148,8 @@ variable_size (size)
 {
   /* If the language-processor is to take responsibility for variable-sized
      items (e.g., languages which have elaboration procedures like Ada),
-     just return SIZE unchanged.  Likewise for self-referential sizes.  */
+     just return SIZE unchanged.  Likewise for self-referential sizes and
+     constant sizes.  */
   if (TREE_CONSTANT (size)
       || global_bindings_p () < 0 || contains_placeholder_p (size))
     return size;
@@ -381,7 +390,15 @@ layout_decl (decl, known_align)
       DECL_BIT_FIELD_TYPE (decl) = DECL_BIT_FIELD (decl) ? type : 0;
       if (maximum_field_alignment != 0)
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
-      else if (DECL_PACKED (decl))
+
+      /* If the field is of variable size, we can't misalign it since we
+	 have no way to make a temporary to align the result.  But this
+	 isn't an issue if the decl is not addressable.  Likewise if it
+	 is of unknown size.  */
+      else if (DECL_PACKED (decl)
+	       && (DECL_NONADDRESSABLE_P (decl)
+		   || DECL_SIZE_UNIT (decl) == 0
+		   || TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST))
 	{
 	  DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
 	  DECL_USER_ALIGN (decl) = 0;
@@ -487,6 +504,7 @@ start_record_layout (t)
 
   rli->offset = size_zero_node;
   rli->bitpos = bitsize_zero_node;
+  rli->prev_field = 0;
   rli->pending_statics = 0;
   rli->packed_maybe_necessary = 0;
 
@@ -650,6 +668,12 @@ place_union_field (rli, field)
       MIN (desired_align, (unsigned) BIGGEST_FIELD_ALIGNMENT);
 #endif
 
+#ifdef ADJUST_FIELD_ALIGN
+  desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
+#endif
+
+  TYPE_USER_ALIGN (rli->t) |= DECL_USER_ALIGN (field);
+
   /* Union must be at least as aligned as any field requires.  */
   rli->record_align = MAX (rli->record_align, desired_align);
   rli->unpadded_align = MAX (rli->unpadded_align, desired_align);
@@ -765,8 +789,26 @@ place_field (rli, field)
   /* Record must have at least as much alignment as any field.
      Otherwise, the alignment of the field within the record is
      meaningless.  */
+  if ((* targetm.ms_bitfield_layout_p) (rli->t)
+      && type != error_mark_node
+      && DECL_BIT_FIELD_TYPE (field)
+      && ! integer_zerop (TYPE_SIZE (type))
+      && integer_zerop (DECL_SIZE (field)))
+    {
+      if (rli->prev_field
+	  && DECL_BIT_FIELD_TYPE (rli->prev_field)
+	  && ! integer_zerop (DECL_SIZE (rli->prev_field)))
+	{
+	  rli->record_align = MAX (rli->record_align, desired_align);
+	  rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
+	}
+      else
+	desired_align = 1;
+    }	
+  else
 #ifdef PCC_BITFIELD_TYPE_MATTERS
   if (PCC_BITFIELD_TYPE_MATTERS && type != error_mark_node
+      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
       && DECL_BIT_FIELD_TYPE (field)
       && ! integer_zerop (TYPE_SIZE (type)))
     {
@@ -856,6 +898,7 @@ place_field (rli, field)
      variable-sized fields, we need not worry about compatibility.  */
 #ifdef PCC_BITFIELD_TYPE_MATTERS
   if (PCC_BITFIELD_TYPE_MATTERS
+      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
       && TREE_CODE (field) == FIELD_DECL
       && type != error_mark_node
       && DECL_BIT_FIELD (field)
@@ -885,6 +928,7 @@ place_field (rli, field)
 
 #ifdef BITFIELD_NBYTES_LIMITED
   if (BITFIELD_NBYTES_LIMITED
+      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
       && TREE_CODE (field) == FIELD_DECL
       && type != error_mark_node
       && DECL_BIT_FIELD_TYPE (field)
@@ -918,11 +962,57 @@ place_field (rli, field)
     }
 #endif
 
+  /* See the docs for TARGET_MS_BITFIELD_LAYOUT_P for details.  */
+  if ((* targetm.ms_bitfield_layout_p) (rli->t)
+      && TREE_CODE (field) == FIELD_DECL
+      && type != error_mark_node
+      && ! DECL_PACKED (field)
+      && rli->prev_field
+      && DECL_SIZE (field)
+      && host_integerp (DECL_SIZE (field), 1)
+      && DECL_SIZE (rli->prev_field)
+      && host_integerp (DECL_SIZE (rli->prev_field), 1)
+      && host_integerp (rli->offset, 1)
+      && host_integerp (TYPE_SIZE (type), 1)
+      && host_integerp (TYPE_SIZE (TREE_TYPE (rli->prev_field)), 1)
+      && ((DECL_BIT_FIELD_TYPE (rli->prev_field)
+	   && ! integer_zerop (DECL_SIZE (rli->prev_field)))
+	  || (DECL_BIT_FIELD_TYPE (field)
+	      && ! integer_zerop (DECL_SIZE (field))))
+      && (! simple_cst_equal (TYPE_SIZE (type),
+			      TYPE_SIZE (TREE_TYPE (rli->prev_field)))
+	  /* If the previous field was a zero-sized bit-field, either
+	     it was ignored, in which case we must ensure the proper
+	     alignment of this field here, or it already forced the
+	     alignment of this field, in which case forcing the
+	     alignment again is harmless.  So, do it in both cases.  */
+	  || (DECL_BIT_FIELD_TYPE (rli->prev_field)
+	      && integer_zerop (DECL_SIZE (rli->prev_field)))))
+    {
+      unsigned int type_align = TYPE_ALIGN (type);
+
+      if (rli->prev_field
+	  && DECL_BIT_FIELD_TYPE (rli->prev_field)
+	  /* If the previous bit-field is zero-sized, we've already
+	     accounted for its alignment needs (or ignored it, if
+	     appropriate) while placing it.  */
+	  && ! integer_zerop (DECL_SIZE (rli->prev_field)))
+	type_align = MAX (type_align,
+			  TYPE_ALIGN (TREE_TYPE (rli->prev_field)));
+
+      if (maximum_field_alignment != 0)
+	type_align = MIN (type_align, maximum_field_alignment);
+
+      rli->bitpos = round_up (rli->bitpos, type_align);
+    }
+
   /* Offset so far becomes the position of this field after normalizing.  */
   normalize_rli (rli);
   DECL_FIELD_OFFSET (field) = rli->offset;
   DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
   SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
+
+  TYPE_USER_ALIGN (rli->t) |= user_align;
 
   /* If this field ended up more aligned than we thought it would be (we
      approximate this by seeing if its position changed), lay out the field
@@ -941,6 +1031,8 @@ place_field (rli, field)
 
   if (known_align != actual_align)
     layout_decl (field, actual_align);
+
+  rli->prev_field = field;
 
   /* Now add size of this field to the size of the record.  If the size is
      not constant, treat the field as being a multiple of bytes and just
@@ -993,7 +1085,6 @@ finalize_record_size (rli)
 #else
   TYPE_ALIGN (rli->t) = MAX (TYPE_ALIGN (rli->t), rli->record_align);
 #endif
-  TYPE_USER_ALIGN (rli->t) = 0;
 
   /* Compute the size so far.  Be sure to allow for extra bits in the
      size in bytes.  We have guaranteed above that it will be no more
@@ -1134,7 +1225,17 @@ compute_record_mode (type)
 #ifdef MEMBER_TYPE_FORCES_BLK
       /* With some targets, eg. c4x, it is sub-optimal
 	 to access an aligned BLKmode structure as a scalar.  */
-      if (mode == VOIDmode && MEMBER_TYPE_FORCES_BLK (field))
+
+      /* On ia64-*-hpux we need to ensure that we don't change the
+	 mode of a structure containing a single field or else we
+	 will pass it incorrectly.  Since a structure with a single
+	 field causes mode to get set above we can't allow the
+	 check for mode == VOIDmode in this case.  Perhaps
+	 MEMBER_TYPE_FORCES_BLK should be extended to include mode
+	 as an argument and the check could be put in there for c4x.  */
+
+      if ((mode == VOIDmode || FUNCTION_ARG_REG_LITTLE_ENDIAN)
+	  && MEMBER_TYPE_FORCES_BLK (field))
 	return;
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
@@ -1454,6 +1555,7 @@ layout_type (type)
 #else
 	TYPE_ALIGN (type) = MAX (TYPE_ALIGN (element), BITS_PER_UNIT);
 #endif
+	TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (element);
 
 #ifdef ROUND_TYPE_SIZE
 	if (TYPE_SIZE (type) != 0)
@@ -1529,7 +1631,7 @@ layout_type (type)
     case SET_TYPE:  /* Used by Chill and Pascal.  */
       if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST
 	  || TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST)
-	abort();
+	abort ();
       else
 	{
 #ifndef SET_WORD_SIZE
@@ -1743,6 +1845,12 @@ fixup_signed_type (type)
 {
   int precision = TYPE_PRECISION (type);
 
+  /* We can not represent properly constants greater then
+     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     as they are used by i386 vector extensions and friends.  */
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
+
   TYPE_MIN_VALUE (type)
     = build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
 		    ? 0 : (HOST_WIDE_INT) (-1) << (precision - 1)),
@@ -1774,6 +1882,12 @@ fixup_unsigned_type (type)
      tree type;
 {
   int precision = TYPE_PRECISION (type);
+
+  /* We can not represent properly constants greater then
+     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     as they are used by i386 vector extensions and friends.  */
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
 
   TYPE_MIN_VALUE (type) = build_int_2 (0, 0);
   TYPE_MAX_VALUE (type)
@@ -1858,23 +1972,6 @@ get_best_mode (bitsize, bitpos, align, largest_mode, volatilep)
     }
 
   return mode;
-}
-
-/* Return the alignment of MODE. This will be bounded by 1 and
-   BIGGEST_ALIGNMENT.  */
-
-unsigned int
-get_mode_alignment (mode)
-     enum machine_mode mode;
-{
-  unsigned int alignment = GET_MODE_UNIT_SIZE (mode);
-  
-  /* Extract the LSB of the size.  */
-  alignment = alignment & -alignment;
-  alignment *= BITS_PER_UNIT;
-
-  alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
-  return alignment;
 }
 
 /* This function is run once to initialize stor-layout.c.  */

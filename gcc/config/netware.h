@@ -1,6 +1,6 @@
 /* netware.h -- operating system specific defines to be used when 
    targeting GCC for some generic NetWare 4 system.
-   Copyright (C) 1993, 1994, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2000, 2001 Free Software Foundation, Inc.
 
    Written by David V. Henkel-Wallace (gumby@cygnus.com)
 
@@ -100,5 +100,3 @@ const_section ()                                                        \
       in_section = in_const;                                            \
     }                                                                   \
 }
-
-#define INT_ASM_OP ".long"

@@ -1,5 +1,6 @@
 ;;- Machine description for the AT&T DSP1600 for GNU C compiler
-;;  Copyright (C) 1994, 1995, 1997, 1998, 2001 Free Software Foundation, Inc.
+;;  Copyright (C) 1994, 1995, 1997, 1998, 2001, 2002
+;;  Free Software Foundation, Inc.
 ;;  Contributed by Michael Collison (collison@isisinc.net).
 
 ;; This file is part of GNU CC.
@@ -146,6 +147,8 @@
 	   case 0:
 	   case 1:
    	      return \"%0&%1\";
+           default:
+             abort();
          }
 }"
   [(set_attr "type" "f3_alu,f3_alu")])
@@ -551,6 +554,8 @@
 
 	case 2:
 	  return \"*%0++\;*%0++\";
+        default:
+          abort();
 	}
 
     case 2:
@@ -571,6 +576,8 @@
     case 10:
     case 11:
       return \"%0=%b1+%H2\";
+    default:
+      abort();
     }
 }"
 [(set_attr "type" "data_move_memory,data_move_multiple,f3_alu_i,f3_alu_i,f3_alu,f3_alu,f3_alu,f3_alu,f3_alu_i,f3_alu_i,f3_alu_i,f3_alu_i")])
@@ -684,6 +691,8 @@
     case 7: case 8:
     case 9: case 10:
       return \"%0=%b1-%H2\";
+    default:
+      abort();
     }
 }"
 [(set_attr "type" "data_move_multiple,f3_alu_i,f3_alu_i,f3_alu,f3_alu,f3_alu,f3_alu,f3_alu_i,f3_alu_i,f3_alu_i,f3_alu_i")])
@@ -1408,6 +1417,8 @@
 		case 8:
 		case 9:
 		   return \"\";
+                default:
+                  abort();
         }
 }"
 [(set_attr "type" "special,data_move_multiple,f3_alu,data_move_multiple,data_move_multiple,data_move_multiple,data_move_multiple,data_move_multiple,nothing,nothing")])
@@ -1426,7 +1437,7 @@
 }")
 
 ;; The movqi pattern with the parallel is used for addqi insns (which have a parallel)
-;; that are turned into moveqi insns by the flow phase. This happens when a auto-increment
+;; that are turned into moveqi insns by the flow phase. This happens when an auto-increment
 ;; is detected.
 
 (define_insn "match_movqi1"
@@ -1473,6 +1484,8 @@
 
                 case 9: case 10:
 		   return \"%0=%1\";
+                default:
+                  abort();
 	}
 }"
 [(set_attr "type" "data_move,data_move,data_move_short_i,data_move_i,data_move_memory,data_move_memory,data_move_memory,data_move_memory,nothing,malu,malu")])
@@ -1520,6 +1533,8 @@
 
                 case 9: case 10:
 		   return \"%0=%1\";
+                default:
+                  abort();
 	}
 }"
 [(set_attr "type" "data_move,data_move,data_move_short_i,data_move_i,data_move_memory,data_move_memory,data_move_memory,data_move_memory,nothing,malu,malu")])
@@ -1557,7 +1572,7 @@
 {
   /* Check for an overlap of operand 2 (an accumulator) with
      the msw of operand 0. If we have an overlap we must reverse
-     the order of the moves. */
+     the order of the moves.  */
 
   if (REGNO(operands[2]) == REGNO(operands[0]))
     {
@@ -1676,6 +1691,8 @@
 		case 5:
 		case 6:
 		   return \"%u0=%u1\;%w0=%w1\";
+                default:
+                  abort();
         }
 }"
 [(set_attr "type" "move,move,load_i,load,store,load,store")])
@@ -1691,7 +1708,7 @@
 {
   /* Check for an overlap of operand 2 (an accumulator) with
      the msw of operand 0. If we have an overlap we must reverse
-     the order of the moves. */
+     the order of the moves.  */
 
   if (REGNO(operands[2]) == REGNO(operands[0]))
     {
@@ -1784,6 +1801,8 @@
 ;;	return \"move %w0=%1\;%0=0\";
 ;;      else
 ;;	return \"%w0=%1\;%0=0\";
+;;    default:
+;;      abort();
 ;;    }
 ;; }")
 
@@ -1836,6 +1855,8 @@
 
 	case 3:
 	  return \"%0 = extractz(%m1, 0x1000)\";
+        default:
+          abort();
       }
   }"
   [(set_attr "type" "data_move_2,data_move_2,data_move_2,shift_i")])
@@ -1864,6 +1885,8 @@
           }
           else
             return \"%w0=%1\;%0=0\";
+          default:
+            abort();
       }
   }"
   [(set_attr "type" "data_move_2,data_move_2,data_move_2")])
@@ -1993,7 +2016,7 @@
   {
       /* If we are shifting by a constant we can do it in 1 or more
 	 1600 core shift instructions. The core instructions can
-	 shift by 1, 4, 8, or 16. */
+	 shift by 1, 4, 8, or 16.  */
       
       if (GET_CODE(operands[2]) == CONST_INT)
 	;
@@ -2119,7 +2142,7 @@
     {
       /* If we are shifting by a constant we can do it in 1 or more
 	 1600 core shift instructions. The core instructions can
-	 shift by 1, 4, 8, or 16. */
+	 shift by 1, 4, 8, or 16.  */
       
       if (GET_CODE(operands[2]) == CONST_INT)
 	emit_insn (gen_match_lshrhi3_nobmu (operands[0], operands[1], operands[2]));	
@@ -2254,7 +2277,7 @@
   {
       /* If we are shifting by a constant we can do it in 1 or more
 	 1600 core shift instructions. The core instructions can
-	 shift by 1, 4, 8, or 16. */
+	 shift by 1, 4, 8, or 16.  */
       
       if (GET_CODE(operands[2]) == CONST_INT)
 	;

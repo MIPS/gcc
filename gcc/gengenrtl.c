@@ -71,19 +71,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif /* REAL_WIDTH */
 
 #if REAL_WIDTH == 1
-# define CONST_DOUBLE_FORMAT	"e0ww"
+# define CONST_DOUBLE_FORMAT	"0ww"
 #else
 # if REAL_WIDTH == 2
-#  define CONST_DOUBLE_FORMAT	"e0ww"
+#  define CONST_DOUBLE_FORMAT	"0ww"
 # else
 #  if REAL_WIDTH == 3
-#   define CONST_DOUBLE_FORMAT	"e0www"
+#   define CONST_DOUBLE_FORMAT	"0www"
 #  else
 #   if REAL_WIDTH == 4
-#    define CONST_DOUBLE_FORMAT	"e0wwww"
+#    define CONST_DOUBLE_FORMAT	"0wwww"
 #   else
 #    if REAL_WIDTH == 5
-#     define CONST_DOUBLE_FORMAT	"e0wwwww"
+#     define CONST_DOUBLE_FORMAT	"0wwwww"
 #    else
 #     define CONST_DOUBLE_FORMAT /* nothing - will cause syntax error */
 #    endif
@@ -100,12 +100,12 @@ struct rtx_definition
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { STRINGX(ENUM), NAME, FORMAT },
 
-const struct rtx_definition defs[] = 
+static const struct rtx_definition defs[] = 
 {  
 #include "rtl.def"		/* rtl expressions are documented here */
 };
 
-const char *formats[NUM_RTX_CODE];
+static const char *formats[NUM_RTX_CODE];
 
 static const char *type_from_format	PARAMS ((int));
 static const char *accessor_from_format	PARAMS ((int));
@@ -389,24 +389,6 @@ gencode ()
   for (fmt = formats; *fmt != 0; fmt++)
     gendef (*fmt);
 }
-
-#if defined(USE_C_ALLOCA)
-PTR
-xmalloc (nbytes)
-  size_t nbytes;
-{
-  PTR tmp = (PTR) really_call_malloc (nbytes);
-
-  if (!tmp)
-    {
-      fprintf (stderr, "can't allocate %d bytes (out of virtual memory)\n",
-	       nbytes);
-      exit (FATAL_EXIT_CODE);
-    }
-
-  return tmp;
-}
-#endif /* USE_C_ALLOCA */
 
 /* This is the main program.  We accept only one argument, "-h", which
    says we are writing the genrtl.h file.  Otherwise we are writing the

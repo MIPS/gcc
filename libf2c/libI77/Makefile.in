@@ -60,14 +60,10 @@ OBJS =	VersionI.lo backspace.lo close.lo dfe.lo dolio.lo due.lo endfile.lo err.l
 all: ../s-libi77
 
 ../s-libi77: $(OBJS)
-	echo timestamp > ../s-libi77
-
-objlist:
-	objs="`cat ../objlist`" ; for i in $(OBJS) ; do \
-	   x=`echo $$i` ;\
-	   objs="$$objs libI77/$$x" ;\
-	done ; \
-	echo -n $$objs > ../objlist
+	-rm -f $@.T $@
+	objs='$(OBJS)'; for name in $$objs; do \
+	  echo libI77/$${name} >> $@.T; done
+	mv $@.T $@
 
 Makefile: Makefile.in config.status
 	$(SHELL) config.status
@@ -102,8 +98,8 @@ dfe.lo:		fio.h config.h
 dfe.lo:		dfe.c fmt.h
 dolio.lo:	dolio.c config.h
 due.lo:		due.c fio.h config.h
-endfile.lo:	endfile.c fio.h rawio.h config.h
-err.lo:		err.c fio.h rawio.h config.h
+endfile.lo:	endfile.c fio.h config.h
+err.lo:		err.c fio.h config.h
 fmt.lo:		fio.h config.h
 fmt.lo:		fmt.c fmt.h
 fmtlib.lo:	fmtlib.c config.h
@@ -120,7 +116,7 @@ lread.lo:	lread.c fp.h
 lwrite.lo:	fio.h
 lwrite.lo:	fmt.h
 lwrite.lo:	lwrite.c lio.h
-open.lo:		open.c fio.h rawio.h config.h
+open.lo:		open.c fio.h config.h
 rdfmt.lo:	fio.h config.h
 rdfmt.lo:	fmt.h
 rdfmt.lo:	rdfmt.c fp.h

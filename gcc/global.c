@@ -1,6 +1,6 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
    Copyright (C) 1987, 1988, 1991, 1994, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -168,12 +168,12 @@ static int allocno_row_words;
 /* Two macros to test or store 1 in an element of `conflicts'.  */
 
 #define CONFLICTP(I, J) \
- (conflicts[(I) * allocno_row_words + (unsigned)(J) / INT_BITS]	\
-  & ((INT_TYPE) 1 << ((unsigned)(J) % INT_BITS)))
+ (conflicts[(I) * allocno_row_words + (unsigned) (J) / INT_BITS]	\
+  & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
 #define SET_CONFLICT(I, J) \
- (conflicts[(I) * allocno_row_words + (unsigned)(J) / INT_BITS]	\
-  |= ((INT_TYPE) 1 << ((unsigned)(J) % INT_BITS)))
+ (conflicts[(I) * allocno_row_words + (unsigned) (J) / INT_BITS]	\
+  |= ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
 /* For any allocno set in ALLOCNO_SET, set ALLOCNO to that allocno,
    and execute CODE.  */
@@ -248,16 +248,16 @@ static INT_TYPE *allocnos_live;
    a bit vector indexed by allocno.  */
 
 #define ALLOCNO_LIVE_P(I)				\
-  (allocnos_live[(unsigned)(I) / INT_BITS]		\
-   & ((INT_TYPE) 1 << ((unsigned)(I) % INT_BITS)))
+  (allocnos_live[(unsigned) (I) / INT_BITS]		\
+   & ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 #define SET_ALLOCNO_LIVE(I)				\
-  (allocnos_live[(unsigned)(I) / INT_BITS]		\
-     |= ((INT_TYPE) 1 << ((unsigned)(I) % INT_BITS)))
+  (allocnos_live[(unsigned) (I) / INT_BITS]		\
+     |= ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 #define CLEAR_ALLOCNO_LIVE(I)				\
-  (allocnos_live[(unsigned)(I) / INT_BITS]		\
-     &= ~((INT_TYPE) 1 << ((unsigned)(I) % INT_BITS)))
+  (allocnos_live[(unsigned) (I) / INT_BITS]		\
+     &= ~((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 /* This is turned off because it doesn't work right for DImode.
    (And it is only used for DImode, so the other cases are worthless.)
@@ -1086,6 +1086,9 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (TEST_HARD_REG_BIT (allocno[num].hard_reg_copy_preferences, i)
 	    && HARD_REGNO_MODE_OK (i, mode)
+	    && (allocno[num].calls_crossed == 0
+		|| accept_call_clobbered
+		|| ! HARD_REGNO_CALL_PART_CLOBBERED (i, mode))
 	    && (REGNO_REG_CLASS (i) == REGNO_REG_CLASS (best_reg)
 		|| reg_class_subset_p (REGNO_REG_CLASS (i),
 				       REGNO_REG_CLASS (best_reg))
@@ -1122,6 +1125,9 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (TEST_HARD_REG_BIT (allocno[num].hard_reg_preferences, i)
 	    && HARD_REGNO_MODE_OK (i, mode)
+	    && (allocno[num].calls_crossed == 0
+		|| accept_call_clobbered
+		|| ! HARD_REGNO_CALL_PART_CLOBBERED (i, mode))
 	    && (REGNO_REG_CLASS (i) == REGNO_REG_CLASS (best_reg)
 		|| reg_class_subset_p (REGNO_REG_CLASS (i),
 				       REGNO_REG_CLASS (best_reg))
@@ -1202,6 +1208,9 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
 	      /* Don't use a reg no good for this pseudo.  */
 	      && ! TEST_HARD_REG_BIT (used2, regno)
 	      && HARD_REGNO_MODE_OK (regno, mode)
+	      && (allocno[num].calls_crossed == 0
+		  || accept_call_clobbered
+		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 #ifdef CLASS_CANNOT_CHANGE_MODE
 	      && ! (REG_CHANGES_MODE (allocno[num].reg)
 		    && (TEST_HARD_REG_BIT

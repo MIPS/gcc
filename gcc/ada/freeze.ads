@@ -6,9 +6,9 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
---          Copyright (C) 1992-2000, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -102,7 +102,7 @@ package Freeze is
    --      These have a delayed freeze. Gigi will generate code to evaluate
    --      the initialization expression if present and store it in a temp.
    --      The actual object is created at the point of the freeze, and if
-   --      neccessary initialized by copying the value of this temporary.
+   --      necessary initialized by copying the value of this temporary.
 
    --    Formal Parameters
    --
@@ -204,6 +204,11 @@ package Freeze is
    --  not really expressions, but they can appear within expressions and
    --  so need to be similarly treated. Freeze_Expression takes care of
    --  determining the proper insertion point for generated freeze actions.
+
+   procedure Freeze_Fixed_Point_Type (Typ : Entity_Id);
+   --  Freeze fixed point type. For fixed-point types, we have to defer
+   --  setting the size and bounds till the freeze point, since they are
+   --  potentially affected by the presence of size and small clauses.
 
    procedure Freeze_Itype (T : Entity_Id; N : Node_Id);
    --  This routine is called when an Itype is created and must be frozen

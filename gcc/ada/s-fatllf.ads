@@ -41,7 +41,7 @@ with System.Fat_Gen;
 package System.Fat_LLF is
 pragma Pure (Fat_LLF);
 
-   --  Note the only entity from this package that is acccessed by Rtsfind
+   --  Note the only entity from this package that is accessed by Rtsfind
    --  is the name of the package instantiation. Entities within this package
    --  (i.e. the individual floating-point attribute routines) are accessed
    --  by name using selected notation.

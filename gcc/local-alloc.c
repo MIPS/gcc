@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -74,12 +74,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "toplev.h"
 #include "except.h"
+#include "integrate.h"
 
 /* Next quantity number available for allocation.  */
 
 static int next_qty;
 
-/* Information we maitain about each quantity.  */
+/* Information we maintain about each quantity.  */
 struct qty
 {
   /* The number of refs to quantity Q.  */
@@ -778,6 +779,12 @@ memref_used_between_p (memref, start, end)
 }
 
 /* Return nonzero if the rtx X is invariant over the current function.  */
+/* ??? Actually, the places this is used in reload expect exactly what
+   is tested here, and not everything that is function invariant.  In
+   particular, the frame pointer and arg pointer are special cased;
+   pic_offset_table_rtx is not, and this will cause aborts when we
+   go to spill these things to memory.  */
+
 int
 function_invariant_p (x)
      rtx x;
@@ -929,8 +936,7 @@ update_equiv_regs ()
 	     REG_EQUAL note on the insn.  Since this note would be redundant,
 	     there's no point creating it earlier than here.  */
 	  if (! note && ! rtx_varies_p (src, 0))
-	    REG_NOTES (insn)
-	      = note = gen_rtx_EXPR_LIST (REG_EQUAL, src, REG_NOTES (insn));
+	    note = set_unique_reg_note (insn, REG_EQUAL, src);
 
 	  /* Don't bother considering a REG_EQUAL note containing an EXPR_LIST
 	     since it represents a function call */
@@ -1217,7 +1223,7 @@ block_alloc (b)
 {
   int i, q;
   rtx insn;
-  rtx note;
+  rtx note, hard_reg;
   int insn_number = 0;
   int insn_count = 0;
   int max_uid = get_max_uid ();
@@ -1340,6 +1346,18 @@ block_alloc (b)
 		  if (recog_data.constraints[i][0] == 'p')
 		    while (GET_CODE (r1) == PLUS || GET_CODE (r1) == MULT)
 		      r1 = XEXP (r1, 0);
+
+		  /* Avoid making a call-saved register unnecessarily
+                     clobbered.  */
+		  hard_reg = get_hard_reg_initial_reg (cfun, r1);
+		  if (hard_reg != NULL_RTX)
+		    {
+		      if (GET_CODE (hard_reg) == REG
+			  && IN_RANGE (REGNO (hard_reg),
+				       0, FIRST_PSEUDO_REGISTER - 1)
+			  && ! call_used_regs[REGNO (hard_reg)])
+			continue;
+		    }
 
 		  if (GET_CODE (r0) == REG || GET_CODE (r0) == SUBREG)
 		    {
@@ -1583,7 +1601,7 @@ block_alloc (b)
 	     discourage the register allocator from creating false
 	     dependencies.
 
-	     The adjustment value is choosen to indicate that this qty
+	     The adjustment value is chosen to indicate that this qty
 	     conflicts with all the qtys in the instructions immediately
 	     before and after the lifetime of this qty.
 
@@ -1789,20 +1807,29 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
 
   while (GET_CODE (usedreg) == SUBREG)
     {
-      if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (usedreg))) > UNITS_PER_WORD)
-	may_save_copy = 0;
-      if (REGNO (SUBREG_REG (usedreg)) < FIRST_PSEUDO_REGISTER)
-	offset += subreg_regno_offset (REGNO (SUBREG_REG (usedreg)),
-				       GET_MODE (SUBREG_REG (usedreg)),
-				       SUBREG_BYTE (usedreg),
-				       GET_MODE (usedreg));
-      else
-	offset += (SUBREG_BYTE (usedreg)
-		   / REGMODE_NATURAL_SIZE (GET_MODE (usedreg)));
-      usedreg = SUBREG_REG (usedreg);
+      rtx subreg = SUBREG_REG (usedreg);
+
+      if (GET_CODE (subreg) == REG)
+	{
+	  if (GET_MODE_SIZE (GET_MODE (subreg)) > UNITS_PER_WORD)
+	    may_save_copy = 0;
+
+	  if (REGNO (subreg) < FIRST_PSEUDO_REGISTER)
+	    offset += subreg_regno_offset (REGNO (subreg),
+					   GET_MODE (subreg),
+					   SUBREG_BYTE (usedreg),
+					   GET_MODE (usedreg));
+	  else
+	    offset += (SUBREG_BYTE (usedreg)
+		      / REGMODE_NATURAL_SIZE (GET_MODE (usedreg)));
+	}
+
+      usedreg = subreg;
     }
+
   if (GET_CODE (usedreg) != REG)
     return 0;
+
   ureg = REGNO (usedreg);
   if (ureg < FIRST_PSEUDO_REGISTER)
     usize = HARD_REGNO_NREGS (ureg, GET_MODE (usedreg));
@@ -1813,20 +1840,29 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
 
   while (GET_CODE (setreg) == SUBREG)
     {
-      if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (setreg))) > UNITS_PER_WORD)
-	may_save_copy = 0;
-      if (REGNO (SUBREG_REG (setreg)) < FIRST_PSEUDO_REGISTER)
-	offset -= subreg_regno_offset (REGNO (SUBREG_REG (setreg)),
-				       GET_MODE (SUBREG_REG (setreg)),
-				       SUBREG_BYTE (setreg),
-				       GET_MODE (setreg));
-      else
-	offset -= (SUBREG_BYTE (setreg)
-		   / REGMODE_NATURAL_SIZE (GET_MODE (setreg)));
-      setreg = SUBREG_REG (setreg);
+      rtx subreg = SUBREG_REG (setreg);
+
+      if (GET_CODE (subreg) == REG)
+	{
+	  if (GET_MODE_SIZE (GET_MODE (subreg)) > UNITS_PER_WORD)
+	    may_save_copy = 0;
+
+	  if (REGNO (subreg) < FIRST_PSEUDO_REGISTER)
+	    offset -= subreg_regno_offset (REGNO (subreg),
+					   GET_MODE (subreg),
+					   SUBREG_BYTE (setreg),
+					   GET_MODE (setreg));
+	  else
+	    offset -= (SUBREG_BYTE (setreg)
+		      / REGMODE_NATURAL_SIZE (GET_MODE (setreg)));
+	}
+
+      setreg = subreg;
     }
+
   if (GET_CODE (setreg) != REG)
     return 0;
+
   sreg = REGNO (setreg);
   if (sreg < FIRST_PSEUDO_REGISTER)
     ssize = HARD_REGNO_NREGS (sreg, GET_MODE (setreg));
@@ -2432,7 +2468,7 @@ requires_inout (p)
       case '1':  case '2':  case '3':  case '4': case '5':
       case '6':  case '7':  case '8':  case '9':
 	/* Skip the balance of the matching constraint.  */
-	while (*p >= '0' && *p <= '9')
+	while (ISDIGIT (*p))
 	  p++;
 	break;
 

@@ -1,5 +1,5 @@
 /* Definitions for PA_RISC with ELF format
-   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -26,9 +26,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-D__ELF__ -Dunix -D__hppa__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=hppa -Amachine=hppa -Amachine=bigendian"
-
-#undef	LIB_SPEC
-#define LIB_SPEC "%{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
 
 #undef ASM_SPEC
 #define ASM_SPEC \
@@ -81,7 +78,7 @@ Boston, MA 02111-1307, USA.  */
 #define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
 /* Output at beginning of assembler file.  We override the definition
-   from <linux.h> so that we can get the proper .LEVEL directive. */
+   from <linux.h> so that we can get the proper .LEVEL directive.  */
 #undef ASM_FILE_START
 #define ASM_FILE_START(FILE) \
   do								\

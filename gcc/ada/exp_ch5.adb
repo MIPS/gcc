@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.3 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -1895,7 +1895,15 @@ package body Exp_Ch5 is
          --  the Then statements
 
          else
-            Kill_Dead_Code (Condition (N));
+            --  We do not delete the condition if constant condition
+            --  warnings are enabled, since otherwise we end up deleting
+            --  the desired warning. Of course the backend will get rid
+            --  of this True/False test anyway, so nothing is lost here.
+
+            if not Constant_Condition_Warnings then
+               Kill_Dead_Code (Condition (N));
+            end if;
+
             Kill_Dead_Code (Then_Statements (N));
 
             --  If there are no elsif statements, then we simply replace
@@ -2580,7 +2588,7 @@ package body Exp_Ch5 is
          --  already being returned with the stack pointer depressed and no
          --  further processing is required except to set the By_Ref flag to
          --  ensure that gigi does not attempt an extra unnecessary copy.
-         --  (actually not just unncessary but harmfully wrong in the case
+         --  (actually not just unnecessary but harmfully wrong in the case
          --  of a controlled type, where gigi does not know how to do a copy).
 
          if Requires_Transient_Scope (T)

@@ -1,6 +1,6 @@
-// Algorithm implimentation -*- C++ -*-
+// Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,28 +53,40 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_algo.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_ALGO_H
-#define __SGI_STL_INTERNAL_ALGO_H
+#ifndef __GLIBCPP_INTERNAL_ALGO_H
+#define __GLIBCPP_INTERNAL_ALGO_H
 
 #include <bits/stl_heap.h>
+#include <bits/stl_tempbuf.h>     // for _Temporary_buffer
 
 // See concept_check.h for the __glibcpp_*_requires macros.
 
 namespace std
 {
 
-  // __median (an extension, not present in the C++ standard).
-
+  /**
+   *  @brief Find the median of three values.
+   *  @param  a  A value.
+   *  @param  b  A value.
+   *  @param  c  A value.
+   *  @return One of @p a, @p b or @p c.
+   *
+   *  If @c {l,m,n} is some convolution of @p {a,b,c} such that @c l<=m<=n
+   *  then the value returned will be @c m.
+   *  This is an SGI extension.
+   *  @ingroup SGIextensions
+  */
   template<typename _Tp>
   inline const _Tp&
     __median(const _Tp& __a, const _Tp& __b, const _Tp& __c)
     {
       // concept requirements
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
       if (__a < __b)
 	if (__b < __c)
 	  return __b;
@@ -90,12 +102,25 @@ namespace std
 	return __b;
     }
 
+  /**
+   *  @brief Find the median of three values using a predicate for comparison.
+   *  @param  a     A value.
+   *  @param  b     A value.
+   *  @param  c     A value.
+   *  @param  comp  A binary predicate.
+   *  @return One of @p a, @p b or @p c.
+   *
+   *  If @c {l,m,n} is some convolution of @p {a,b,c} such that @p comp(l,m)
+   *  and @p comp(m,n) are both true then the value returned will be @c m.
+   *  This is an SGI extension.
+   *  @ingroup SGIextensions
+  */
   template<typename _Tp, typename _Compare>
     inline const _Tp&
     __median(const _Tp& __a, const _Tp& __b, const _Tp& __c, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_BinaryFunctionConcept<_Compare, bool, _Tp, _Tp>);
+      __glibcpp_function_requires(_BinaryFunctionConcept<_Compare, bool, _Tp, _Tp>)
       if (__comp(__a, __b))
 	if (__comp(__b, __c))
 	  return __b;
@@ -111,20 +136,34 @@ namespace std
 	return __b;
     }
 
-  // for_each.  Apply a function to every element of a range.
+  /**
+   *  @brief Apply a function to every element of a sequence.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  f      A unary function object.
+   *  @return   @p f.
+   *
+   *  Applies the function object @p f to each element in the range
+   *  @p [first,last).
+   *  @p f must not modify its argument.
+   *  If @p f has a return value it is ignored.
+  */
   template<typename _InputIter, typename _Function>
     _Function
     for_each(_InputIter __first, _InputIter __last, _Function __f)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       for ( ; __first != __last; ++__first)
 	__f(*__first);
       return __f;
     }
 
-  // find and find_if.
-
+  /**
+   *  @maint
+   *  This is an overload used by find() for the Input Iterator case.
+   *  @endmaint
+  */
   template<typename _InputIter, typename _Tp>
     inline _InputIter
     find(_InputIter __first, _InputIter __last,
@@ -136,6 +175,11 @@ namespace std
       return __first;
     }
 
+  /**
+   *  @maint
+   *  This is an overload used by find_if() for the Input Iterator case.
+   *  @endmaint
+  */
   template<typename _InputIter, typename _Predicate>
     inline _InputIter
     find_if(_InputIter __first, _InputIter __last,
@@ -147,6 +191,11 @@ namespace std
       return __first;
     }
 
+  /**
+   *  @maint
+   *  This is an overload used by find() for the RAI case.
+   *  @endmaint
+  */
   template<typename _RandomAccessIter, typename _Tp>
     _RandomAccessIter
     find(_RandomAccessIter __first, _RandomAccessIter __last,
@@ -186,6 +235,11 @@ namespace std
       }
     }
 
+  /**
+   *  @maint
+   *  This is an overload used by find_if() for the RAI case.
+   *  @endmaint
+  */
   template<typename _RandomAccessIter, typename _Predicate>
     _RandomAccessIter
     find_if(_RandomAccessIter __first, _RandomAccessIter __last,
@@ -225,40 +279,62 @@ namespace std
       }
     }
 
+  /**
+   *  @brief Find the first occurrence of a value in a sequence.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  val    The value to find.
+   *  @return   The first iterator @c i in the range @p [first,last)
+   *  such that @c *i == @p val, or @p last if no such iterator exists.
+  */
   template<typename _InputIter, typename _Tp>
     inline _InputIter
     find(_InputIter __first, _InputIter __last,
 	 const _Tp& __val)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_EqualOpConcept<
-		typename iterator_traits<_InputIter>::value_type, _Tp>);
+		typename iterator_traits<_InputIter>::value_type, _Tp>)
       return find(__first, __last, __val, __iterator_category(__first));
     }
 
+  /**
+   *  @brief Find the first element in a sequence for which a predicate is true.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  pred   A predicate.
+   *  @return   The first iterator @c i in the range @p [first,last)
+   *  such that @p pred(*i) is true, or @p last if no such iterator exists.
+  */
   template<typename _InputIter, typename _Predicate>
     inline _InputIter
     find_if(_InputIter __first, _InputIter __last,
 	    _Predicate __pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	      typename iterator_traits<_InputIter>::value_type>);
+	      typename iterator_traits<_InputIter>::value_type>)
       return find_if(__first, __last, __pred, __iterator_category(__first));
     }
 
-  // adjacent_find.
-
+  /**
+   *  @brief Find two adjacent values in a sequence that are equal.
+   *  @param  first  A forward iterator.
+   *  @param  last   A forward iterator.
+   *  @return   The first iterator @c i such that @c i and @c i+1 are both
+   *  valid iterators in @p [first,last) and such that @c *i == @c *(i+1),
+   *  or @p last if no such iterator exists.
+  */
   template<typename _ForwardIter>
     _ForwardIter
     adjacent_find(_ForwardIter __first, _ForwardIter __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
       if (__first == __last)
 	return __last;
       _ForwardIter __next = __first;
@@ -270,16 +346,26 @@ namespace std
       return __last;
     }
 
+  /**
+   *  @brief Find two adjacent values in a sequence using a predicate.
+   *  @param  first         A forward iterator.
+   *  @param  last          A forward iterator.
+   *  @param  binary_pred   A binary predicate.
+   *  @return   The first iterator @c i such that @c i and @c i+1 are both
+   *  valid iterators in @p [first,last) and such that
+   *  @p binary_pred(*i,*(i+1)) is true, or @p last if no such iterator
+   *  exists.
+  */
   template<typename _ForwardIter, typename _BinaryPredicate>
     _ForwardIter
     adjacent_find(_ForwardIter __first, _ForwardIter __last,
 		  _BinaryPredicate __binary_pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
       if (__first == __last)
 	return __last;
       _ForwardIter __next = __first;
@@ -291,52 +377,23 @@ namespace std
       return __last;
     }
 
-  // count and count_if.  There are two version of each, one whose return type
-  // type is void and one (present only if we have partial specialization)
-  // whose return type is iterator_traits<_InputIter>::difference_type.  The
-  // C++ standard only has the latter version, but the former, which was present
-  // in the HP STL, is retained for backward compatibility.
-
-  template<typename _InputIter, typename _Tp, typename _Size>
-    void
-    count(_InputIter __first, _InputIter __last,
-	  const _Tp& __value,
-	  _Size& __n)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIter>::value_type >);
-      __glibcpp_function_requires(_EqualityComparableConcept<_Tp>);
-      for ( ; __first != __last; ++__first)
-	if (*__first == __value)
-	  ++__n;
-    }
-
-  template<typename _InputIter, typename _Predicate, typename _Size>
-    void
-    count_if(_InputIter __first, _InputIter __last,
-	     _Predicate __pred,
-	     _Size& __n)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_InputIter>::value_type>);
-      for ( ; __first != __last; ++__first)
-	if (__pred(*__first))
-	  ++__n;
-    }
-
+  /**
+   *  @brief Count the number of copies of a value in a sequence.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  value  The value to be counted.
+   *  @return   The number of iterators @c i in the range @p [first,last)
+   *  for which @c *i == @p value
+  */
   template<typename _InputIter, typename _Tp>
     typename iterator_traits<_InputIter>::difference_type
     count(_InputIter __first, _InputIter __last, const _Tp& __value)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIter>::value_type >);
-      __glibcpp_function_requires(_EqualityComparableConcept<_Tp>);
+	    typename iterator_traits<_InputIter>::value_type >)
+      __glibcpp_function_requires(_EqualityComparableConcept<_Tp>)
       typename iterator_traits<_InputIter>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
 	if (*__first == __value)
@@ -344,14 +401,22 @@ namespace std
       return __n;
     }
 
+  /**
+   *  @brief Count the elements of a sequence for which a predicate is true.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  pred   A predicate.
+   *  @return   The number of iterators @c i in the range @p [first,last)
+   *  for which @p pred(*i) is true.
+  */
   template<typename _InputIter, typename _Predicate>
     typename iterator_traits<_InputIter>::difference_type
     count_if(_InputIter __first, _InputIter __last, _Predicate __pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
       typename iterator_traits<_InputIter>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
 	if (__pred(*__first))
@@ -360,19 +425,40 @@ namespace std
     }
 
 
-  // search.
-
+  /**
+   *  @brief Search a sequence for a matching sub-sequence.
+   *  @param  first1  A forward iterator.
+   *  @param  last1   A forward iterator.
+   *  @param  first2  A forward iterator.
+   *  @param  last2   A forward iterator.
+   *  @return   The first iterator @c i in the range
+   *  @p [first1,last1-(last2-first2)) such that @c *(i+N) == @p *(first2+N)
+   *  for each @c N in the range @p [0,last2-first2), or @p last1 if no
+   *  such iterator exists.
+   *
+   *  Searches the range @p [first1,last1) for a sub-sequence that compares
+   *  equal value-by-value with the sequence given by @p [first2,last2) and
+   *  returns an iterator to the first element of the sub-sequence, or
+   *  @p last1 if the sub-sequence is not found.
+   *
+   *  Because the sub-sequence must lie completely within the range
+   *  @p [first1,last1) it must start at a position less than
+   *  @p last1-(last2-first2) where @p last2-first2 is the length of the
+   *  sub-sequence.
+   *  This means that the returned iterator @c i will be in the range
+   *  @p [first1,last1-(last2-first2))
+  */
   template<typename _ForwardIter1, typename _ForwardIter2>
     _ForwardIter1
     search(_ForwardIter1 __first1, _ForwardIter1 __last1,
-	   _ForwardIter2 __first2, _ForwardIter2 __last2) 
+	   _ForwardIter2 __first2, _ForwardIter2 __last2)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>);
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>)
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIter1>::value_type,
-	    typename iterator_traits<_ForwardIter2>::value_type>);
+	    typename iterator_traits<_ForwardIter2>::value_type>)
 
       // Test for empty ranges
       if (__first1 == __last1 || __first2 == __last2)
@@ -398,7 +484,7 @@ namespace std
 	  return __last1;
 
 	__p = __p1;
-	__current = __first1; 
+	__current = __first1;
 	if (++__current == __last1)
 	  return __last1;
 
@@ -414,18 +500,38 @@ namespace std
       return __first1;
     }
 
+  /**
+   *  @brief Search a sequence for a matching sub-sequence using a predicate.
+   *  @param  first1     A forward iterator.
+   *  @param  last1      A forward iterator.
+   *  @param  first2     A forward iterator.
+   *  @param  last2      A forward iterator.
+   *  @param  predicate  A binary predicate.
+   *  @return   The first iterator @c i in the range
+   *  @p [first1,last1-(last2-first2)) such that
+   *  @p predicate(*(i+N),*(first2+N)) is true for each @c N in the range
+   *  @p [0,last2-first2), or @p last1 if no such iterator exists.
+   *
+   *  Searches the range @p [first1,last1) for a sub-sequence that compares
+   *  equal value-by-value with the sequence given by @p [first2,last2),
+   *  using @p predicate to determine equality, and returns an iterator
+   *  to the first element of the sub-sequence, or @p last1 if no such
+   *  iterator exists.
+   *
+   *  @see search(_ForwardIter1, _ForwardIter1, _ForwardIter2, _ForwardIter2)
+  */
   template<typename _ForwardIter1, typename _ForwardIter2, typename _BinaryPred>
     _ForwardIter1
     search(_ForwardIter1 __first1, _ForwardIter1 __last1,
 	   _ForwardIter2 __first2, _ForwardIter2 __last2,
-	   _BinaryPred  __predicate) 
+	   _BinaryPred  __predicate)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>);
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>)
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPred,
 	    typename iterator_traits<_ForwardIter1>::value_type,
-	    typename iterator_traits<_ForwardIter2>::value_type>);
+	    typename iterator_traits<_ForwardIter2>::value_type>)
 
       // Test for empty ranges
       if (__first1 == __last1 || __first2 == __last2)
@@ -437,7 +543,7 @@ namespace std
       if (__tmp == __last2) {
 	while (__first1 != __last1 && !__predicate(*__first1, *__first2))
 	  ++__first1;
-	return __first1;    
+	return __first1;
       }
 
       // General case.
@@ -460,7 +566,7 @@ namespace std
 	  return __last1;
 
 	__p = __p1;
-	__current = __first1; 
+	__current = __first1;
 	if (++__current == __last1) return __last1;
 
 	while (__predicate(*__current, *__p)) {
@@ -475,18 +581,29 @@ namespace std
       return __first1;
     }
 
-  // search_n.  Search for __count consecutive copies of __val.
-
+  /**
+   *  @brief Search a sequence for a number of consecutive values.
+   *  @param  first  A forward iterator.
+   *  @param  last   A forward iterator.
+   *  @param  count  The number of consecutive values.
+   *  @param  val    The value to find.
+   *  @return   The first iterator @c i in the range @p [first,last-count)
+   *  such that @c *(i+N) == @p val for each @c N in the range @p [0,count),
+   *  or @p last if no such iterator exists.
+   *
+   *  Searches the range @p [first,last) for @p count consecutive elements
+   *  equal to @p val.
+  */
   template<typename _ForwardIter, typename _Integer, typename _Tp>
     _ForwardIter
     search_n(_ForwardIter __first, _ForwardIter __last,
 	     _Integer __count, const _Tp& __val)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_ForwardIter>::value_type>);
-      __glibcpp_function_requires(_EqualityComparableConcept<_Tp>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
+      __glibcpp_function_requires(_EqualityComparableConcept<_Tp>)
 
       if (__count <= 0)
 	return __first;
@@ -509,6 +626,21 @@ namespace std
       }
     }
 
+  /**
+   *  @brief Search a sequence for a number of consecutive values using a
+   *         predicate.
+   *  @param  first        A forward iterator.
+   *  @param  last         A forward iterator.
+   *  @param  count        The number of consecutive values.
+   *  @param  val          The value to find.
+   *  @param  binary_pred  A binary predicate.
+   *  @return   The first iterator @c i in the range @p [first,last-count)
+   *  such that @p binary_pred(*(i+N),val) is true for each @c N in the
+   *  range @p [0,count), or @p last if no such iterator exists.
+   *
+   *  Searches the range @p [first,last) for @p count consecutive elements
+   *  for which the predicate returns true.
+  */
   template<typename _ForwardIter, typename _Integer, typename _Tp,
            typename _BinaryPred>
     _ForwardIter
@@ -517,9 +649,9 @@ namespace std
 	     _BinaryPred __binary_pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPred,
-	    typename iterator_traits<_ForwardIter>::value_type, _Tp>);
+	    typename iterator_traits<_ForwardIter>::value_type, _Tp>)
 
       if (__count <= 0)
 	return __first;
@@ -550,50 +682,87 @@ namespace std
 	}
 	return __last;
       }
-    } 
+    }
 
-  // swap_ranges
-
+  /**
+   *  @brief Swap the elements of two sequences.
+   *  @param  first1  A forward iterator.
+   *  @param  last1   A forward iterator.
+   *  @param  first2  A forward iterator.
+   *  @return   An iterator equal to @p first2+(last1-first1).
+   *
+   *  Swaps each element in the range @p [first1,last1) with the
+   *  corresponding element in the range @p [first2,(last1-first1)).
+   *  The ranges must not overlap.
+  */
   template<typename _ForwardIter1, typename _ForwardIter2>
     _ForwardIter2
     swap_ranges(_ForwardIter1 __first1, _ForwardIter1 __last1,
 		_ForwardIter2 __first2)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter1>);
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter2>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter1>)
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter2>)
       __glibcpp_function_requires(_ConvertibleConcept<
 	    typename iterator_traits<_ForwardIter1>::value_type,
-	    typename iterator_traits<_ForwardIter2>::value_type>);
+	    typename iterator_traits<_ForwardIter2>::value_type>)
       __glibcpp_function_requires(_ConvertibleConcept<
 	    typename iterator_traits<_ForwardIter2>::value_type,
-	    typename iterator_traits<_ForwardIter1>::value_type>);
+	    typename iterator_traits<_ForwardIter1>::value_type>)
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	iter_swap(__first1, __first2);
       return __first2;
     }
 
-  // transform
-
+  /**
+   *  @brief Perform an operation on a sequence.
+   *  @param  first     An input iterator.
+   *  @param  last      An input iterator.
+   *  @param  result    An output iterator.
+   *  @param  unary_op  A unary operator.
+   *  @return   An output iterator equal to @p result+(last-first).
+   *
+   *  Applies the operator to each element in the input range and assigns
+   *  the results to successive elements of the output sequence.
+   *  Evaluates @p *(result+N)=unary_op(*(first+N)) for each @c N in the
+   *  range @p [0,last-first).
+   *
+   *  @p unary_op must not alter its argument.
+  */
   template<typename _InputIter, typename _OutputIter, typename _UnaryOperation>
     _OutputIter
     transform(_InputIter __first, _InputIter __last,
 	      _OutputIter __result, _UnaryOperation __unary_op)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-    /* XXX
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    // should be "the type returned by _UnaryOperation"
-	    typename iterator_traits<_InputIter>::value_type>);
-    */
+            // "the type returned by a _UnaryOperation"
+            __typeof__(__unary_op(*__first))>)
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = __unary_op(*__first);
       return __result;
     }
 
+  /**
+   *  @brief Perform an operation on corresponding elements of two sequences.
+   *  @param  first1     An input iterator.
+   *  @param  last1      An input iterator.
+   *  @param  first2     An input iterator.
+   *  @param  result     An output iterator.
+   *  @param  binary_op  A binary operator.
+   *  @return   An output iterator equal to @p result+(last-first).
+   *
+   *  Applies the operator to the corresponding elements in the two
+   *  input ranges and assigns the results to successive elements of the
+   *  output sequence.
+   *  Evaluates @p *(result+N)=binary_op(*(first1+N),*(first2+N)) for each
+   *  @c N in the range @p [0,last1-first1).
+   *
+   *  @p binary_op must not alter either of its arguments.
+  */
   template<typename _InputIter1, typename _InputIter2, typename _OutputIter,
 	   typename _BinaryOperation>
     _OutputIter
@@ -602,55 +771,89 @@ namespace std
 	      _BinaryOperation __binary_op)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
-    /* XXX
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    // should be "the type returned by _BinaryOperation"
-	    typename iterator_traits<_InputIter1>::value_type>);
-    */
+            // "the type returned by a _BinaryOperation"
+            __typeof__(__binary_op(*__first1,*__first2))>)
 
       for ( ; __first1 != __last1; ++__first1, ++__first2, ++__result)
 	*__result = __binary_op(*__first1, *__first2);
       return __result;
     }
 
-  // replace, replace_if, replace_copy, replace_copy_if
-
+  /**
+   *  @brief Replace each occurrence of one value in a sequence with another
+   *         value.
+   *  @param  first      A forward iterator.
+   *  @param  last       A forward iterator.
+   *  @param  old_value  The value to be replaced.
+   *  @param  new_value  The replacement value.
+   *  @return   replace() returns no value.
+   *
+   *  For each iterator @c i in the range @p [first,last) if @c *i ==
+   *  @p old_value then the assignment @c *i = @p new_value is performed.
+  */
   template<typename _ForwardIter, typename _Tp>
     void
     replace(_ForwardIter __first, _ForwardIter __last,
 	    const _Tp& __old_value, const _Tp& __new_value)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_ForwardIter>::value_type, _Tp>);
+	    typename iterator_traits<_ForwardIter>::value_type, _Tp>)
       __glibcpp_function_requires(_ConvertibleConcept<_Tp,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       for ( ; __first != __last; ++__first)
 	if (*__first == __old_value)
 	  *__first = __new_value;
     }
 
+  /**
+   *  @brief Replace each value in a sequence for which a predicate returns
+   *         true with another value.
+   *  @param  first      A forward iterator.
+   *  @param  last       A forward iterator.
+   *  @param  pred       A predicate.
+   *  @param  new_value  The replacement value.
+   *  @return   replace_if() returns no value.
+   *
+   *  For each iterator @c i in the range @p [first,last) if @p pred(*i)
+   *  is true then the assignment @c *i = @p new_value is performed.
+  */
   template<typename _ForwardIter, typename _Predicate, typename _Tp>
     void
     replace_if(_ForwardIter __first, _ForwardIter __last,
 	       _Predicate __pred, const _Tp& __new_value)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_ConvertibleConcept<_Tp,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       for ( ; __first != __last; ++__first)
 	if (__pred(*__first))
 	  *__first = __new_value;
     }
 
+  /**
+   *  @brief Copy a sequence, replacing each element of one value with another
+   *         value.
+   *  @param  first      An input iterator.
+   *  @param  last       An input iterator.
+   *  @param  result     An output iterator.
+   *  @param  old_value  The value to be replaced.
+   *  @param  new_value  The replacement value.
+   *  @return   The end of the output sequence, @p result+(last-first).
+   *
+   *  Copies each element in the input range @p [first,last) to the
+   *  output range @p [result,result+(last-first)) replacing elements
+   *  equal to @p old_value with @p new_value.
+  */
   template<typename _InputIter, typename _OutputIter, typename _Tp>
     _OutputIter
     replace_copy(_InputIter __first, _InputIter __last,
@@ -658,17 +861,31 @@ namespace std
 		 const _Tp& __old_value, const _Tp& __new_value)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIter>::value_type, _Tp>);
+	    typename iterator_traits<_InputIter>::value_type, _Tp>)
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = *__first == __old_value ? __new_value : *__first;
       return __result;
     }
 
+  /**
+   *  @brief Copy a sequence, replacing each value for which a predicate
+   *         returns true with another value.
+   *  @param  first      An input iterator.
+   *  @param  last       An input iterator.
+   *  @param  result     An output iterator.
+   *  @param  pred       A predicate.
+   *  @param  new_value  The replacement value.
+   *  @return   The end of the output sequence, @p result+(last-first).
+   *
+   *  Copies each element in the range @p [first,last) to the range
+   *  @p [result,result+(last-first)) replacing elements for which
+   *  @p pred returns true with @p new_value.
+  */
   template<typename _InputIter, typename _OutputIter, typename _Predicate,
            typename _Tp>
     _OutputIter
@@ -677,60 +894,90 @@ namespace std
 		    _Predicate __pred, const _Tp& __new_value)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = __pred(*__first) ? __new_value : *__first;
       return __result;
     }
 
-  // generate and generate_n
-
+  /**
+   *  @brief Assign the result of a function object to each value in a
+   *         sequence.
+   *  @param  first  A forward iterator.
+   *  @param  last   A forward iterator.
+   *  @param  gen    A function object taking no arguments.
+   *  @return   generate() returns no value.
+   *
+   *  Performs the assignment @c *i = @p gen() for each @c i in the range
+   *  @p [first,last).
+  */
   template<typename _ForwardIter, typename _Generator>
     void
     generate(_ForwardIter __first, _ForwardIter __last, _Generator __gen)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_GeneratorConcept<_Generator,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       for ( ; __first != __last; ++__first)
 	*__first = __gen();
     }
 
+  /**
+   *  @brief Assign the result of a function object to each value in a
+   *         sequence.
+   *  @param  first  A forward iterator.
+   *  @param  n      The length of the sequence.
+   *  @param  gen    A function object taking no arguments.
+   *  @return   The end of the sequence, @p first+n
+   *
+   *  Performs the assignment @c *i = @p gen() for each @c i in the range
+   *  @p [first,first+n).
+  */
   template<typename _OutputIter, typename _Size, typename _Generator>
     _OutputIter
     generate_n(_OutputIter __first, _Size __n, _Generator __gen)
     {
-    /*
-      // XXX concept requirements
+      // concept requirements
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    "the return type of _Generator" ??   >);
-    */
+            // "the type returned by a _Generator"
+            __typeof__(gen())>)
 
       for ( ; __n > 0; --__n, ++__first)
 	*__first = __gen();
       return __first;
     }
 
-  // remove, remove_if, remove_copy, remove_copy_if
-
+  /**
+   *  @brief Copy a sequence, removing elements of a given value.
+   *  @param  first   An input iterator.
+   *  @param  last    An input iterator.
+   *  @param  result  An output iterator.
+   *  @param  value   The value to be removed.
+   *  @return   An iterator designating the end of the resulting sequence.
+   *
+   *  Copies each element in the range @p [first,last) not equal to @p value
+   *  to the range beginning at @p result.
+   *  remove_copy() is stable, so the relative order of elements that are
+   *  copied is unchanged.
+  */
   template<typename _InputIter, typename _OutputIter, typename _Tp>
     _OutputIter
     remove_copy(_InputIter __first, _InputIter __last,
 		_OutputIter __result, const _Tp& __value)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIter>::value_type, _Tp>);
+	    typename iterator_traits<_InputIter>::value_type, _Tp>)
 
       for ( ; __first != __last; ++__first)
 	if (!(*__first == __value)) {
@@ -740,17 +987,31 @@ namespace std
       return __result;
     }
 
+  /**
+   *  @brief Copy a sequence, removing elements for which a predicate is true.
+   *  @param  first   An input iterator.
+   *  @param  last    An input iterator.
+   *  @param  result  An output iterator.
+   *  @param  pred    A predicate.
+   *  @return   An iterator designating the end of the resulting sequence.
+   *
+   *  Copies each element in the range @p [first,last) for which
+   *  @p pred returns true to the range beginning at @p result.
+   *
+   *  remove_copy_if() is stable, so the relative order of elements that are
+   *  copied is unchanged.
+  */
   template<typename _InputIter, typename _OutputIter, typename _Predicate>
     _OutputIter
     remove_copy_if(_InputIter __first, _InputIter __last,
 		   _OutputIter __result, _Predicate __pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
 
       for ( ; __first != __last; ++__first)
 	if (!__pred(*__first)) {
@@ -760,44 +1021,82 @@ namespace std
       return __result;
     }
 
+  /**
+   *  @brief Remove elements from a sequence.
+   *  @param  first  An input iterator.
+   *  @param  last   An input iterator.
+   *  @param  value  The value to be removed.
+   *  @return   An iterator designating the end of the resulting sequence.
+   *
+   *  All elements equal to @p value are removed from the range
+   *  @p [first,last).
+   *
+   *  remove() is stable, so the relative order of elements that are
+   *  not removed is unchanged.
+   *
+   *  Elements between the end of the resulting sequence and @p last
+   *  are still present, but their value is unspecified.
+  */
   template<typename _ForwardIter, typename _Tp>
     _ForwardIter
     remove(_ForwardIter __first, _ForwardIter __last,
 	   const _Tp& __value)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_ConvertibleConcept<_Tp,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_ForwardIter>::value_type, _Tp>);
+	    typename iterator_traits<_ForwardIter>::value_type, _Tp>)
 
       __first = find(__first, __last, __value);
       _ForwardIter __i = __first;
-      return __first == __last ? __first 
+      return __first == __last ? __first
 			       : remove_copy(++__i, __last, __first, __value);
     }
 
+  /**
+   *  @brief Remove elements from a sequence using a predicate.
+   *  @param  first  A forward iterator.
+   *  @param  last   A forward iterator.
+   *  @param  pred   A predicate.
+   *  @return   An iterator designating the end of the resulting sequence.
+   *
+   *  All elements for which @p pred returns true are removed from the range
+   *  @p [first,last).
+   *
+   *  remove_if() is stable, so the relative order of elements that are
+   *  not removed is unchanged.
+   *
+   *  Elements between the end of the resulting sequence and @p last
+   *  are still present, but their value is unspecified.
+  */
   template<typename _ForwardIter, typename _Predicate>
     _ForwardIter
     remove_if(_ForwardIter __first, _ForwardIter __last,
 	      _Predicate __pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       __first = find_if(__first, __last, __pred);
       _ForwardIter __i = __first;
-      return __first == __last ? __first 
+      return __first == __last ? __first
 			       : remove_copy_if(++__i, __last, __first, __pred);
     }
 
+  /**
+   *  @maint
+   *  This is an uglified unique_copy(_InputIter, _InputIter, _OutputIter)
+   *  overloaded for output iterators.
+   *  @endmaint
+  */
   template<typename _InputIter, typename _OutputIter>
     _OutputIter
     __unique_copy(_InputIter __first, _InputIter __last,
-		  _OutputIter __result, 
+		  _OutputIter __result,
 		  output_iterator_tag)
     {
       // concept requirements -- taken care of in dispatching function
@@ -811,6 +1110,12 @@ namespace std
       return ++__result;
     }
 
+  /**
+   *  @maint
+   *  This is an uglified unique_copy(_InputIter, _InputIter, _OutputIter)
+   *  overloaded for forward iterators.
+   *  @endmaint
+  */
   template<typename _InputIter, typename _ForwardIter>
     _ForwardIter
     __unique_copy(_InputIter __first, _InputIter __last,
@@ -825,24 +1130,42 @@ namespace std
       return ++__result;
     }
 
+  /**
+   *  @brief Copy a sequence, removing consecutive duplicate values.
+   *  @param  first   An input iterator.
+   *  @param  last    An input iterator.
+   *  @param  result  An output iterator.
+   *  @return   An iterator designating the end of the resulting sequence.
+   *
+   *  Copies each element in the range @p [first,last) to the range
+   *  beginning at @p result, except that only the first element is copied
+   *  from groups of consecutive elements that compare equal.
+  */
   template<typename _InputIter, typename _OutputIter>
     inline _OutputIter
     unique_copy(_InputIter __first, _InputIter __last,
 		_OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
+	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIter>::value_type>);
-    
+	    typename iterator_traits<_InputIter>::value_type>)
+
       typedef typename iterator_traits<_OutputIter>::iterator_category _IterType;
 
       if (__first == __last) return __result;
       return __unique_copy(__first, __last, __result, _IterType());
     }
 
+  /**
+   *  @maint
+   *  This is an uglified
+   *  unique_copy(_InputIter, _InputIter, _OutputIter, _BinaryPredicate)
+   *  overloaded for output iterators.
+   *  @endmaint
+  */
   template<typename _InputIter, typename _OutputIter, typename _BinaryPredicate>
     _OutputIter
     __unique_copy(_InputIter __first, _InputIter __last,
@@ -853,8 +1176,8 @@ namespace std
       // concept requirements -- iterators already checked
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	  typename iterator_traits<_InputIter>::value_type,
-	  typename iterator_traits<_InputIter>::value_type>);
-    
+	  typename iterator_traits<_InputIter>::value_type>)
+
       typename iterator_traits<_InputIter>::value_type __value = *__first;
       *__result = __value;
       while (++__first != __last)
@@ -865,24 +1188,46 @@ namespace std
       return ++__result;
     }
 
+  /**
+   *  @maint
+   *  This is an uglified
+   *  unique_copy(_InputIter, _InputIter, _OutputIter, _BinaryPredicate)
+   *  overloaded for forward iterators.
+   *  @endmaint
+  */
   template<typename _InputIter, typename _ForwardIter, typename _BinaryPredicate>
     _ForwardIter
     __unique_copy(_InputIter __first, _InputIter __last,
-		  _ForwardIter __result, 
+		  _ForwardIter __result,
 		  _BinaryPredicate __binary_pred,
 		  forward_iterator_tag)
     {
       // concept requirements -- iterators already checked
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIter>::value_type,
-	    typename iterator_traits<_InputIter>::value_type>);
-    
+	    typename iterator_traits<_InputIter>::value_type>)
+
       *__result = *__first;
       while (++__first != __last)
 	if (!__binary_pred(*__result, *__first)) *++__result = *__first;
       return ++__result;
     }
 
+  /**
+   *  @brief Copy a sequence, removing consecutive values using a predicate.
+   *  @param  first        An input iterator.
+   *  @param  last         An input iterator.
+   *  @param  result       An output iterator.
+   *  @param  binary_pred  A binary predicate.
+   *  @return   An iterator designating the end of the resulting sequence.
+   *
+   *  Copies each element in the range @p [first,last) to the range
+   *  beginning at @p result, except that only the first element is copied
+   *  from groups of consecutive elements for which @p binary_pred returns
+   *  true.
+   *  unique_copy() is stable, so the relative order of elements that are
+   *  copied is unchanged.
+  */
   template<typename _InputIter, typename _OutputIter, typename _BinaryPredicate>
     inline _OutputIter
     unique_copy(_InputIter __first, _InputIter __last,
@@ -890,48 +1235,81 @@ namespace std
 		_BinaryPredicate __binary_pred)
     {
       // concept requirements -- predicates checked later
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter>::value_type>);
-    
+	    typename iterator_traits<_InputIter>::value_type>)
+
       typedef typename iterator_traits<_OutputIter>::iterator_category _IterType;
 
       if (__first == __last) return __result;
-      return __unique_copy(__first, __last, 
+      return __unique_copy(__first, __last,
 __result, __binary_pred, _IterType());
     }
 
+  /**
+   *  @brief Remove consecutive duplicate values from a sequence.
+   *  @param  first  A forward iterator.
+   *  @param  last   A forward iterator.
+   *  @return  An iterator designating the end of the resulting sequence.
+   *
+   *  Removes all but the first element from each group of consecutive
+   *  values that compare equal.
+   *  unique() is stable, so the relative order of elements that are
+   *  not removed is unchanged.
+   *  Elements between the end of the resulting sequence and @p last
+   *  are still present, but their value is unspecified.
+  */
   template<typename _ForwardIter>
     _ForwardIter
     unique(_ForwardIter __first, _ForwardIter __last)
     {
 	  // concept requirements
-	  __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+	  __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
 	  __glibcpp_function_requires(_EqualityComparableConcept<
-		    typename iterator_traits<_ForwardIter>::value_type>);
+		    typename iterator_traits<_ForwardIter>::value_type>)
 
 	  __first = adjacent_find(__first, __last);
 	  return unique_copy(__first, __last, __first);
     }
 
+  /**
+   *  @brief Remove consecutive values from a sequence using a predicate.
+   *  @param  first        A forward iterator.
+   *  @param  last         A forward iterator.
+   *  @param  binary_pred  A binary predicate.
+   *  @return  An iterator designating the end of the resulting sequence.
+   *
+   *  Removes all but the first element from each group of consecutive
+   *  values for which @p binary_pred returns true.
+   *  unique() is stable, so the relative order of elements that are
+   *  not removed is unchanged.
+   *  Elements between the end of the resulting sequence and @p last
+   *  are still present, but their value is unspecified.
+  */
   template<typename _ForwardIter, typename _BinaryPredicate>
     _ForwardIter
     unique(_ForwardIter __first, _ForwardIter __last,
            _BinaryPredicate __binary_pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 		typename iterator_traits<_ForwardIter>::value_type,
-		typename iterator_traits<_ForwardIter>::value_type>);
+		typename iterator_traits<_ForwardIter>::value_type>)
 
       __first = adjacent_find(__first, __last, __binary_pred);
       return unique_copy(__first, __last, __first, __binary_pred);
     }
 
+  /**
+   *  @maint
+   *  This is an uglified reverse(_BidirectionalIter, _BidirectionalIter)
+   *  overloaded for bidirectional iterators.
+   *  @endmaint
+  */
   template<typename _BidirectionalIter>
     void
-    __reverse(_BidirectionalIter __first, _BidirectionalIter __last, 
+    __reverse(_BidirectionalIter __first, _BidirectionalIter __last,
 			  bidirectional_iterator_tag)
     {
 	  while (true)
@@ -941,6 +1319,12 @@ __result, __binary_pred, _IterType());
 		  iter_swap(__first++, __last);
     }
 
+  /**
+   *  @maint
+   *  This is an uglified reverse(_BidirectionalIter, _BidirectionalIter)
+   *  overloaded for bidirectional iterators.
+   *  @endmaint
+  */
   template<typename _RandomAccessIter>
     void
     __reverse(_RandomAccessIter __first, _RandomAccessIter __last,
@@ -950,25 +1334,51 @@ __result, __binary_pred, _IterType());
 	    iter_swap(__first++, --__last);
     }
 
+  /**
+   *  @brief Reverse a sequence.
+   *  @param  first  A bidirectional iterator.
+   *  @param  last   A bidirectional iterator.
+   *  @return   reverse() returns no value.
+   *
+   *  Reverses the order of the elements in the range @p [first,last),
+   *  so that the first element becomes the last etc.
+   *  For every @c i such that @p 0<=i<=(last-first)/2), @p reverse()
+   *  swaps @p *(first+i) and @p *(last-(i+1))
+  */
   template<typename _BidirectionalIter>
     inline void
     reverse(_BidirectionalIter __first, _BidirectionalIter __last)
     {
 	  // concept requirements
 	  __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<
-		    _BidirectionalIter>);
+		    _BidirectionalIter>)
 	  __reverse(__first, __last, __iterator_category(__first));
     }
 
+  /**
+   *  @brief Copy a sequence, reversing its elements.
+   *  @param  first   A bidirectional iterator.
+   *  @param  last    A bidirectional iterator.
+   *  @param  result  An output iterator.
+   *  @return  An iterator designating the end of the resulting sequence.
+   *
+   *  Copies the elements in the range @p [first,last) to the range
+   *  @p [result,result+(last-first)) such that the order of the
+   *  elements is reversed.
+   *  For every @c i such that @p 0<=i<=(last-first), @p reverse_copy()
+   *  performs the assignment @p *(result+(last-first)-i) = *(first+i).
+   *  The ranges @p [first,last) and @p [result,result+(last-first))
+   *  must not overlap.
+  */
   template<typename _BidirectionalIter, typename _OutputIter>
     _OutputIter
     reverse_copy(_BidirectionalIter __first, _BidirectionalIter __last,
 			     _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-		typename iterator_traits<_BidirectionalIter>::value_type>);
+		typename iterator_traits<_BidirectionalIter>::value_type>)
 
       while (__first != __last) {
 	--__last;
@@ -1001,16 +1411,16 @@ __result, __binary_pred, _IterType());
     {
       if ((__first == __middle) || (__last  == __middle))
 	return;
-    
+
       _ForwardIter __first2 = __middle;
       do {
 	swap(*__first++, *__first2++);
 	if (__first == __middle)
 	  __middle = __first2;
       } while (__first2 != __last);
-    
+
       __first2 = __middle;
-    
+
       while (__first2 != __last) {
 	swap(*__first++, *__first2++);
 	if (__first == __middle)
@@ -1019,7 +1429,7 @@ __result, __binary_pred, _IterType());
 	  __first2 = __middle;
       }
     }
-    
+
   template<typename _BidirectionalIter>
     void
     __rotate(_BidirectionalIter __first,
@@ -1029,17 +1439,17 @@ __result, __binary_pred, _IterType());
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<
-	    _BidirectionalIter>);
-    
+	    _BidirectionalIter>)
+
       if ((__first == __middle) || (__last  == __middle))
 	return;
-    
+
       __reverse(__first,  __middle, bidirectional_iterator_tag());
       __reverse(__middle, __last,   bidirectional_iterator_tag());
-    
+
       while (__first != __middle && __middle != __last)
 	swap (*__first++, *--__last);
-    
+
       if (__first == __middle) {
 	__reverse(__middle, __last,   bidirectional_iterator_tag());
       }
@@ -1047,7 +1457,7 @@ __result, __binary_pred, _IterType());
 	__reverse(__first,  __middle, bidirectional_iterator_tag());
       }
     }
-    
+
   template<typename _RandomAccessIter>
     void
     __rotate(_RandomAccessIter __first,
@@ -1057,65 +1467,65 @@ __result, __binary_pred, _IterType());
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-    
+	    _RandomAccessIter>)
+
       if ((__first == __middle) || (__last  == __middle))
 	return;
-    
+
       typedef typename iterator_traits<_RandomAccessIter>::difference_type _Distance;
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-    
+
       _Distance __n = __last   - __first;
       _Distance __k = __middle - __first;
       _Distance __l = __n - __k;
-    
+
       if (__k == __l) {
 	swap_ranges(__first, __middle, __middle);
 	return;
       }
-    
+
       _Distance __d = __gcd(__n, __k);
-    
+
       for (_Distance __i = 0; __i < __d; __i++) {
 	_ValueType __tmp = *__first;
 	_RandomAccessIter __p = __first;
-    
+
 	if (__k < __l) {
 	  for (_Distance __j = 0; __j < __l/__d; __j++) {
 	    if (__p > __first + __l) {
 	      *__p = *(__p - __l);
 	      __p -= __l;
 	    }
-    
+
 	    *__p = *(__p + __k);
 	    __p += __k;
 	  }
 	}
-    
+
 	else {
 	  for (_Distance __j = 0; __j < __k/__d - 1; __j ++) {
 	    if (__p < __last - __k) {
 	      *__p = *(__p + __k);
 	      __p += __k;
 	    }
-    
+
 	    *__p = * (__p - __l);
 	    __p -= __l;
 	  }
 	}
-    
+
 	*__p = __tmp;
 	++__first;
       }
     }
-    
+
   template<typename _ForwardIter>
     inline void
     rotate(_ForwardIter __first, _ForwardIter __middle, _ForwardIter __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
-    
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
+
       typedef typename iterator_traits<_ForwardIter>::iterator_category _IterType;
       __rotate(__first, __middle, __last, _IterType());
     }
@@ -1126,9 +1536,9 @@ __result, __binary_pred, _IterType());
                 _ForwardIter __last, _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-		typename iterator_traits<_ForwardIter>::value_type>);
+		typename iterator_traits<_ForwardIter>::value_type>)
 
       return copy(__first, __middle, copy(__middle, __last, __result));
     }
@@ -1155,7 +1565,7 @@ __result, __binary_pred, _IterType());
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
+	    _RandomAccessIter>)
 
       if (__first == __last) return;
       for (_RandomAccessIter __i = __first + 1; __i != __last; ++__i)
@@ -1169,151 +1579,11 @@ __result, __binary_pred, _IterType());
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
+	    _RandomAccessIter>)
 
       if (__first == __last) return;
       for (_RandomAccessIter __i = __first + 1; __i != __last; ++__i)
 	iter_swap(__i, __first + __rand((__i - __first) + 1));
-    }
-
-  // random_sample and random_sample_n (extensions, not part of the standard).
-
-  template<typename _ForwardIter, typename _OutputIter, typename _Distance>
-    _OutputIter
-    random_sample_n(_ForwardIter __first, _ForwardIter __last,
-                    _OutputIter __out, const _Distance __n)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-		typename iterator_traits<_ForwardIter>::value_type>);
-
-      _Distance __remaining = distance(__first, __last);
-      _Distance __m = min(__n, __remaining);
-
-      while (__m > 0) {
-	if (__random_number(__remaining) < __m) {
-	      *__out = *__first;
-	      ++__out;
-	      --__m;
-	}
-
-	--__remaining;
-	++__first;
-      }
-      return __out;
-    }
-
-  template<typename _ForwardIter, typename _OutputIter, typename _Distance,
-	   typename _RandomNumberGenerator>
-    _OutputIter
-    random_sample_n(_ForwardIter __first, _ForwardIter __last,
-                   _OutputIter __out, const _Distance __n, 
-		   _RandomNumberGenerator& __rand)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-		typename iterator_traits<_ForwardIter>::value_type>);
-      __glibcpp_function_requires(_UnaryFunctionConcept<
-		_RandomNumberGenerator, _Distance, _Distance>);
-
-      _Distance __remaining = distance(__first, __last);
-      _Distance __m = min(__n, __remaining);
-
-      while (__m > 0) {
-	if (__rand(__remaining) < __m) {
-	      *__out = *__first;
-	      ++__out;
-	      --__m;
-	}
-
-	--__remaining;
-	++__first;
-      }
-      return __out;
-    }
-
-  template<typename _InputIter, typename _RandomAccessIter, typename _Distance>
-    _RandomAccessIter
-    __random_sample(_InputIter __first, _InputIter __last,
-		    _RandomAccessIter __out,
-		    const _Distance __n)
-    {
-      _Distance __m = 0;
-      _Distance __t = __n;
-      for ( ; __first != __last && __m < __n; ++__m, ++__first) 
-	__out[__m] = *__first;
-
-      while (__first != __last) {
-	++__t;
-	_Distance __M = __random_number(__t);
-	if (__M < __n)
-	  __out[__M] = *__first;
-	++__first;
-      }
-
-      return __out + __m;
-    }
-
-  template<typename _InputIter, typename _RandomAccessIter,
-	   typename _RandomNumberGenerator, typename _Distance>
-    _RandomAccessIter
-    __random_sample(_InputIter __first, _InputIter __last,
-		    _RandomAccessIter __out,
-		    _RandomNumberGenerator& __rand,
-		    const _Distance __n)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_UnaryFunctionConcept<
-	    _RandomNumberGenerator, _Distance, _Distance>);
-
-      _Distance __m = 0;
-      _Distance __t = __n;
-      for ( ; __first != __last && __m < __n; ++__m, ++__first)
-	__out[__m] = *__first;
-
-      while (__first != __last) {
-	++__t;
-	_Distance __M = __rand(__t);
-	if (__M < __n)
-	  __out[__M] = *__first;
-	++__first;
-      }
-
-      return __out + __m;
-    }
-
-  template<typename _InputIter, typename _RandomAccessIter>
-    inline _RandomAccessIter
-    random_sample(_InputIter __first, _InputIter __last,
-		  _RandomAccessIter __out_first, _RandomAccessIter __out_last) 
-    {
-      // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-
-      return __random_sample(__first, __last,
-			     __out_first, __out_last - __out_first);
-    }
-
-
-  template<typename _InputIter, typename _RandomAccessIter, 
-	   typename _RandomNumberGenerator>
-    inline _RandomAccessIter
-    random_sample(_InputIter __first, _InputIter __last,
-		  _RandomAccessIter __out_first, _RandomAccessIter __out_last,
-		  _RandomNumberGenerator& __rand) 
-    {
-      // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-
-      return __random_sample(__first, __last,
-			     __out_first, __rand,
-			     __out_last - __out_first);
     }
 
   // partition, stable_partition, and their auxiliary functions
@@ -1373,9 +1643,9 @@ __result, __binary_pred, _IterType());
 	      _Predicate   __pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       return __partition(__first, __last, __pred, __iterator_category(__first));
     }
@@ -1401,13 +1671,13 @@ __result, __binary_pred, _IterType());
       return __begin;
     }
 
-  template<typename _ForwardIter, typename _Pointer, typename _Predicate, 
+  template<typename _ForwardIter, typename _Pointer, typename _Predicate,
 	   typename _Distance>
     _ForwardIter
     __stable_partition_adaptive(_ForwardIter __first, _ForwardIter __last,
 				_Predicate __pred, _Distance __len,
 				_Pointer __buffer,
-				_Distance __buffer_size) 
+				_Distance __buffer_size)
     {
       if (__len <= __buffer_size) {
 	_ForwardIter __result1 = __first;
@@ -1443,14 +1713,14 @@ __result, __binary_pred, _IterType());
 
   template<typename _ForwardIter, typename _Predicate>
     _ForwardIter
-    stable_partition(_ForwardIter __first, _ForwardIter __last, 
+    stable_partition(_ForwardIter __first, _ForwardIter __last,
 		     _Predicate __pred)
     {
       // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
-	    typename iterator_traits<_ForwardIter>::value_type>);
-    
+	    typename iterator_traits<_ForwardIter>::value_type>)
+
       if (__first == __last)
 	return __first;
       else
@@ -1464,15 +1734,15 @@ __result, __binary_pred, _IterType());
 					     _DistanceType(__buf.requested_size()),
 					     __buf.begin(), __buf.size());
 	else
-	  return __inplace_stable_partition(__first, __last, __pred, 
+	  return __inplace_stable_partition(__first, __last, __pred,
 					    _DistanceType(__buf.requested_size()));
       }
     }
 
   template<typename _RandomAccessIter, typename _Tp>
     _RandomAccessIter
-    __unguarded_partition(_RandomAccessIter __first, _RandomAccessIter __last, 
-			  _Tp __pivot) 
+    __unguarded_partition(_RandomAccessIter __first, _RandomAccessIter __last,
+			  _Tp __pivot)
     {
       while (true) {
 	while (*__first < __pivot)
@@ -1485,12 +1755,12 @@ __result, __binary_pred, _IterType());
 	iter_swap(__first, __last);
 	++__first;
       }
-    }    
+    }
 
   template<typename _RandomAccessIter, typename _Tp, typename _Compare>
     _RandomAccessIter
-    __unguarded_partition(_RandomAccessIter __first, _RandomAccessIter __last, 
-			  _Tp __pivot, _Compare __comp) 
+    __unguarded_partition(_RandomAccessIter __first, _RandomAccessIter __last,
+			  _Tp __pivot, _Compare __comp)
     {
       while (true) {
 	while (__comp(*__first, __pivot))
@@ -1505,9 +1775,9 @@ __result, __binary_pred, _IterType());
       }
     }
 
-  const int __stl_threshold = 16;
+  extern const int __stl_threshold;
 
-  // sort() and its auxiliary functions. 
+  // sort() and its auxiliary functions.
 
   template<typename _RandomAccessIter, typename _Tp>
     void
@@ -1522,13 +1792,13 @@ __result, __binary_pred, _IterType());
       }
       *__last = __val;
     }
-    
+
   template<typename _RandomAccessIter, typename _Tp, typename _Compare>
     void
     __unguarded_linear_insert(_RandomAccessIter __last, _Tp __val, _Compare __comp)
     {
       _RandomAccessIter __next = __last;
-      --__next;  
+      --__next;
       while (__comp(__val, *__next)) {
 	*__last = *__next;
 	__last = __next;
@@ -1541,7 +1811,7 @@ __result, __binary_pred, _IterType());
     void
     __insertion_sort(_RandomAccessIter __first, _RandomAccessIter __last)
     {
-      if (__first == __last) return; 
+      if (__first == __last) return;
 
       for (_RandomAccessIter __i = __first + 1; __i != __last; ++__i)
       {
@@ -1579,7 +1849,7 @@ __result, __binary_pred, _IterType());
     __unguarded_insertion_sort(_RandomAccessIter __first, _RandomAccessIter __last)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-    
+
       for (_RandomAccessIter __i = __first; __i != __last; ++__i)
 	__unguarded_linear_insert(__i, _ValueType(*__i));
     }
@@ -1590,7 +1860,7 @@ __result, __binary_pred, _IterType());
 			       _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-      
+
       for (_RandomAccessIter __i = __first; __i != __last; ++__i)
 	__unguarded_linear_insert(__i, _ValueType(*__i), __comp);
     }
@@ -1635,7 +1905,7 @@ __result, __binary_pred, _IterType());
 		     _Size __depth_limit)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-    
+
       while (__last - __first > __stl_threshold) {
 	if (__depth_limit == 0) {
 	  partial_sort(__first, __last, __last);
@@ -1658,7 +1928,7 @@ __result, __binary_pred, _IterType());
 		     _Size __depth_limit, _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-    
+
       while (__last - __first > __stl_threshold) {
 	if (__depth_limit == 0) {
 	  partial_sort(__first, __last, __last, __comp);
@@ -1681,29 +1951,29 @@ __result, __binary_pred, _IterType());
     sort(_RandomAccessIter __first, _RandomAccessIter __last)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-      
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
-    
+	    _RandomAccessIter>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+
       if (__first != __last) {
 	__introsort_loop(__first, __last, __lg(__last - __first) * 2);
 	__final_insertion_sort(__first, __last);
       }
     }
-    
+
   template<typename _RandomAccessIter, typename _Compare>
     inline void
     sort(_RandomAccessIter __first, _RandomAccessIter __last, _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-      
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _ValueType>);
-    
+	    _RandomAccessIter>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _ValueType>)
+
       if (__first != __last) {
 	__introsort_loop(__first, __last, __lg(__last - __first) * 2, __comp);
 	__final_insertion_sort(__first, __last, __comp);
@@ -1749,7 +2019,7 @@ __result, __binary_pred, _IterType());
   template<typename _RandomAccessIter1, typename _RandomAccessIter2,
 	   typename _Distance>
     void
-    __merge_sort_loop(_RandomAccessIter1 __first, _RandomAccessIter1 __last, 
+    __merge_sort_loop(_RandomAccessIter1 __first, _RandomAccessIter1 __last,
 		      _RandomAccessIter2 __result, _Distance __step_size)
     {
       _Distance __two_step = 2 * __step_size;
@@ -1769,7 +2039,7 @@ __result, __binary_pred, _IterType());
   template<typename _RandomAccessIter1, typename _RandomAccessIter2,
 	   typename _Distance, typename _Compare>
     void
-    __merge_sort_loop(_RandomAccessIter1 __first, _RandomAccessIter1 __last, 
+    __merge_sort_loop(_RandomAccessIter1 __first, _RandomAccessIter1 __last,
 		      _RandomAccessIter2 __result, _Distance __step_size,
 		      _Compare __comp)
     {
@@ -1790,8 +2060,8 @@ __result, __binary_pred, _IterType());
 	    __comp);
     }
 
-  const int __stl_chunk_size = 7;
-	  
+  extern const int __stl_chunk_size;
+
   template<typename _RandomAccessIter, typename _Distance>
     void
     __chunk_insertion_sort(_RandomAccessIter __first, _RandomAccessIter __last,
@@ -1873,7 +2143,7 @@ __result, __binary_pred, _IterType());
 	__merge_sort_with_buffer(__first, __middle, __buffer);
 	__merge_sort_with_buffer(__middle, __last, __buffer);
       }
-      __merge_adaptive(__first, __middle, __last, _Distance(__middle - __first), 
+      __merge_adaptive(__first, __middle, __last, _Distance(__middle - __first),
                        _Distance(__last - __middle), __buffer, __buffer_size);
     }
 
@@ -1887,16 +2157,16 @@ __result, __binary_pred, _IterType());
       _Distance __len = (__last - __first + 1) / 2;
       _RandomAccessIter __middle = __first + __len;
       if (__len > __buffer_size) {
-	__stable_sort_adaptive(__first, __middle, __buffer, __buffer_size, 
+	__stable_sort_adaptive(__first, __middle, __buffer, __buffer_size,
                                __comp);
-	__stable_sort_adaptive(__middle, __last, __buffer, __buffer_size, 
+	__stable_sort_adaptive(__middle, __last, __buffer, __buffer_size,
                                __comp);
       }
       else {
 	__merge_sort_with_buffer(__first, __middle, __buffer, __comp);
 	__merge_sort_with_buffer(__middle, __last, __buffer, __comp);
       }
-      __merge_adaptive(__first, __middle, __last, _Distance(__middle - __first), 
+      __merge_adaptive(__first, __middle, __last, _Distance(__middle - __first),
                        _Distance(__last - __middle), __buffer, __buffer_size,
                        __comp);
     }
@@ -1907,36 +2177,36 @@ __result, __binary_pred, _IterType());
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
       typedef typename iterator_traits<_RandomAccessIter>::difference_type _DistanceType;
-    
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
-    
+	    _RandomAccessIter>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+
       _Temporary_buffer<_RandomAccessIter, _ValueType> buf(__first, __last);
       if (buf.begin() == 0)
 	__inplace_stable_sort(__first, __last);
-      else 
+      else
 	__stable_sort_adaptive(__first, __last, buf.begin(), _DistanceType(buf.size()));
     }
-    
+
   template<typename _RandomAccessIter, typename _Compare>
     inline void
     stable_sort(_RandomAccessIter __first, _RandomAccessIter __last, _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
       typedef typename iterator_traits<_RandomAccessIter>::difference_type _DistanceType;
-    
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
+	    _RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
-							  _ValueType, _ValueType>);
-    
+							  _ValueType, _ValueType>)
+
       _Temporary_buffer<_RandomAccessIter, _ValueType> buf(__first, __last);
       if (buf.begin() == 0)
 	__inplace_stable_sort(__first, __last, __comp);
-      else 
+      else
 	__stable_sort_adaptive(__first, __last, buf.begin(), _DistanceType(buf.size()),
 			       __comp);
     }
@@ -1948,19 +2218,19 @@ __result, __binary_pred, _IterType());
 		 _RandomAccessIter __last)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-    
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType);
-    
+	    _RandomAccessIter>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+
       make_heap(__first, __middle);
       for (_RandomAccessIter __i = __middle; __i < __last; ++__i)
-	if (*__i < *__first) 
+	if (*__i < *__first)
 	  __pop_heap(__first, __middle, __i, _ValueType(*__i));
       sort_heap(__first, __middle);
     }
-    
+
   template<typename _RandomAccessIter, typename _Compare>
     void
     partial_sort(_RandomAccessIter __first,
@@ -1969,13 +2239,13 @@ __result, __binary_pred, _IterType());
 		 _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-    
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
-	    _RandomAccessIter>);
+	    _RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
-							  _ValueType, _ValueType>);
-    
+							  _ValueType, _ValueType>)
+
       make_heap(__first, __middle, __comp);
       for (_RandomAccessIter __i = __middle; __i < __last; ++__i)
 	if (__comp(*__i, *__first))
@@ -1992,13 +2262,13 @@ __result, __binary_pred, _IterType());
       typedef typename iterator_traits<_InputIter>::value_type _InputValueType;
       typedef typename iterator_traits<_RandomAccessIter>::value_type _OutputValueType;
       typedef typename iterator_traits<_RandomAccessIter>::difference_type _DistanceType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_OutputValueType>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_InputValueType>);
-    
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
+      __glibcpp_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_OutputValueType>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_InputValueType>)
+
       if (__result_first == __result_last) return __result_last;
       _RandomAccessIter __result_real_last = __result_first;
       while(__first != __last && __result_real_last != __result_last) {
@@ -2008,7 +2278,7 @@ __result, __binary_pred, _IterType());
       }
       make_heap(__result_first, __result_real_last);
       while (__first != __last) {
-	if (*__first < *__result_first) 
+	if (*__first < *__result_first)
 	  __adjust_heap(__result_first, _DistanceType(0),
 			_DistanceType(__result_real_last - __result_first),
 			_InputValueType(*__first));
@@ -2028,14 +2298,14 @@ __result, __binary_pred, _IterType());
       typedef typename iterator_traits<_InputIter>::value_type _InputValueType;
       typedef typename iterator_traits<_RandomAccessIter>::value_type _OutputValueType;
       typedef typename iterator_traits<_RandomAccessIter>::difference_type _DistanceType;
-	
+
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>);
-      __glibcpp_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
+      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>)
+      __glibcpp_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
-				  _OutputValueType, _OutputValueType>);
-    
+				  _OutputValueType, _OutputValueType>)
+
       if (__result_first == __result_last) return __result_last;
       _RandomAccessIter __result_real_last = __result_first;
       while(__first != __last && __result_real_last != __result_last) {
@@ -2063,11 +2333,11 @@ __result, __binary_pred, _IterType());
 		_RandomAccessIter __last)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
-    
+      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+
       while (__last - __first > 3) {
 	_RandomAccessIter __cut =
 	  __unguarded_partition(__first, __last,
@@ -2076,7 +2346,7 @@ __result, __binary_pred, _IterType());
 						    *(__last - 1))));
 	if (__cut <= __nth)
 	  __first = __cut;
-	else 
+	else
 	  __last = __cut;
       }
       __insertion_sort(__first, __last);
@@ -2090,23 +2360,23 @@ __result, __binary_pred, _IterType());
 			    _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIter>::value_type _ValueType;
-	
+
       // concept requirements
-      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>);
+      __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
-				  _ValueType, _ValueType>);
-    
+				  _ValueType, _ValueType>)
+
       while (__last - __first > 3) {
 	_RandomAccessIter __cut =
 	  __unguarded_partition(__first, __last,
 				_ValueType(__median(*__first,
-						    *(__first + (__last - __first)/2), 
+						    *(__first + (__last - __first)/2),
 						    *(__last - 1),
 						    __comp)),
 				__comp);
 	if (__cut <= __nth)
 	  __first = __cut;
-	else 
+	else
 	  __last = __cut;
       }
       __insertion_sort(__first, __last, __comp);
@@ -2121,16 +2391,20 @@ __result, __binary_pred, _IterType());
     {
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename iterator_traits<_ForwardIter>::difference_type _DistanceType;
-    
+
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
-    
+      // Note that these are slightly stricter than those of the 4-argument
+      // version, defined next.  The difference is in the strictness of the
+      // comparison operations... so for looser checking, define your own
+      // comparison function, as was intended.
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
       _ForwardIter __middle;
-    
+
       while (__len > 0) {
 	__half = __len >> 1;
 	__middle = __first;
@@ -2153,16 +2427,15 @@ __result, __binary_pred, _IterType());
     {
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename iterator_traits<_ForwardIter>::difference_type _DistanceType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _Tp>);
-    
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _Tp>)
+
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
       _ForwardIter __middle;
-    
+
       while (__len > 0) {
 	__half = __len >> 1;
 	__middle = __first;
@@ -2184,16 +2457,17 @@ __result, __binary_pred, _IterType());
     {
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename iterator_traits<_ForwardIter>::difference_type _DistanceType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
-    
+      // See comments on lower_bound.
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
       _ForwardIter __middle;
-    
+
       while (__len > 0) {
 	__half = __len >> 1;
 	__middle = __first;
@@ -2208,7 +2482,7 @@ __result, __binary_pred, _IterType());
       }
       return __first;
     }
-    
+
   template<typename _ForwardIter, typename _Tp, typename _Compare>
     _ForwardIter
     upper_bound(_ForwardIter __first, _ForwardIter __last,
@@ -2216,16 +2490,15 @@ __result, __binary_pred, _IterType());
     {
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename iterator_traits<_ForwardIter>::difference_type _DistanceType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _Tp>);
-    
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _ValueType>)
+
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
       _ForwardIter __middle;
-    
+
       while (__len > 0) {
 	__half = __len >> 1;
 	__middle = __first;
@@ -2240,23 +2513,24 @@ __result, __binary_pred, _IterType());
       }
       return __first;
     }
-    
+
   template<typename _ForwardIter, typename _Tp>
     pair<_ForwardIter, _ForwardIter>
     equal_range(_ForwardIter __first, _ForwardIter __last, const _Tp& __val)
     {
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename iterator_traits<_ForwardIter>::difference_type _DistanceType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
-    
+      // See comments on lower_bound.
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
       _ForwardIter __middle, __left, __right;
-    
+
       while (__len > 0) {
 	__half = __len >> 1;
 	__middle = __first;
@@ -2277,7 +2551,7 @@ __result, __binary_pred, _IterType());
       }
       return pair<_ForwardIter, _ForwardIter>(__first, __first);
     }
-    
+
   template<typename _ForwardIter, typename _Tp, typename _Compare>
     pair<_ForwardIter, _ForwardIter>
     equal_range(_ForwardIter __first, _ForwardIter __last, const _Tp& __val,
@@ -2285,16 +2559,16 @@ __result, __binary_pred, _IterType());
     {
       typedef typename iterator_traits<_ForwardIter>::value_type _ValueType;
       typedef typename iterator_traits<_ForwardIter>::difference_type _DistanceType;
-      
+
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _Tp>);
-    
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _Tp>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _ValueType>)
+
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
       _ForwardIter __middle, __left, __right;
-    
+
       while (__len > 0) {
 	__half = __len >> 1;
 	__middle = __first;
@@ -2314,7 +2588,7 @@ __result, __binary_pred, _IterType());
 	}
       }
       return pair<_ForwardIter, _ForwardIter>(__first, __first);
-    } 
+    }
 
   template<typename _ForwardIter, typename _Tp>
     bool
@@ -2322,10 +2596,11 @@ __result, __binary_pred, _IterType());
                   const _Tp& __val)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      // See comments on lower_bound.
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_SameTypeConcept<_Tp,
-		typename iterator_traits<_ForwardIter>::value_type>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>);
+		typename iterator_traits<_ForwardIter>::value_type>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
 
       _ForwardIter __i = lower_bound(__first, __last, __val);
       return __i != __last && !(__val < *__i);
@@ -2337,10 +2612,11 @@ __result, __binary_pred, _IterType());
                   const _Tp& __val, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_SameTypeConcept<_Tp,
-		typename iterator_traits<_ForwardIter>::value_type>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _Tp>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
+		typename iterator_traits<_ForwardIter>::value_type, _Tp>)
+      __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp,
+		typename iterator_traits<_ForwardIter>::value_type>)
 
       _ForwardIter __i = lower_bound(__first, __last, __val, __comp);
       return __i != __last && !__comp(__val, *__i);
@@ -2355,15 +2631,15 @@ __result, __binary_pred, _IterType());
 	  _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (*__first2 < *__first1) {
@@ -2387,16 +2663,16 @@ __result, __binary_pred, _IterType());
 	  _OutputIter __result, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (__comp(*__first2, *__first1)) {
@@ -2412,7 +2688,7 @@ __result, __binary_pred, _IterType());
       return copy(__first2, __last2, copy(__first1, __last1, __result));
     }
 
-  // inplace_merge and its auxiliary functions. 
+  // inplace_merge and its auxiliary functions.
 
   template<typename _BidirectionalIter, typename _Distance>
     void
@@ -2455,10 +2731,10 @@ __result, __binary_pred, _IterType());
 
   template<typename _BidirectionalIter, typename _Distance, typename _Compare>
     void
-    __merge_without_buffer(_BidirectionalIter __first, 
-                           _BidirectionalIter __middle, 
-			   _BidirectionalIter __last, 
-			   _Distance __len1, _Distance __len2, 
+    __merge_without_buffer(_BidirectionalIter __first,
+                           _BidirectionalIter __middle,
+			   _BidirectionalIter __last,
+			   _Distance __len1, _Distance __len2,
 			   _Compare __comp)
     {
       if (__len1 == 0 || __len2 == 0)
@@ -2582,10 +2858,10 @@ __result, __binary_pred, _IterType());
 
   template<typename _BidirectionalIter, typename _Distance, typename _Pointer>
     void
-    __merge_adaptive(_BidirectionalIter __first, 
-                     _BidirectionalIter __middle, 
-		     _BidirectionalIter __last, 
-		     _Distance __len1, _Distance __len2, 
+    __merge_adaptive(_BidirectionalIter __first,
+                     _BidirectionalIter __middle,
+		     _BidirectionalIter __last,
+		     _Distance __len1, _Distance __len2,
 		     _Pointer __buffer, _Distance __buffer_size)
     {
 	  if (__len1 <= __len2 && __len1 <= __buffer_size) {
@@ -2605,7 +2881,7 @@ __result, __binary_pred, _IterType());
 		  __len11 = __len1 / 2;
 		  advance(__first_cut, __len11);
 		  __second_cut = lower_bound(__middle, __last, *__first_cut);
-		  __len22 = distance(__middle, __second_cut); 
+		  __len22 = distance(__middle, __second_cut);
 	    }
 	    else {
 		  __len22 = __len2 / 2;
@@ -2627,11 +2903,11 @@ __result, __binary_pred, _IterType());
   template<typename _BidirectionalIter, typename _Distance, typename _Pointer,
 	   typename _Compare>
     void
-    __merge_adaptive(_BidirectionalIter __first, 
-                     _BidirectionalIter __middle, 
-		     _BidirectionalIter __last, 
-		     _Distance __len1, _Distance __len2, 
-		     _Pointer __buffer, _Distance __buffer_size, 
+    __merge_adaptive(_BidirectionalIter __first,
+                     _BidirectionalIter __middle,
+		     _BidirectionalIter __last,
+		     _Distance __len1, _Distance __len2,
+		     _Pointer __buffer, _Distance __buffer_size,
 		     _Compare __comp)
     {
 	  if (__len1 <= __len2 && __len1 <= __buffer_size) {
@@ -2652,7 +2928,7 @@ __result, __binary_pred, _IterType());
 		  __len11 = __len1 / 2;
 		  advance(__first_cut, __len11);
 		  __second_cut = lower_bound(__middle, __last, *__first_cut, __comp);
-		  __len22 = distance(__middle, __second_cut);   
+		  __len22 = distance(__middle, __second_cut);
 	    }
 	    else {
 		  __len22 = __len2 / 2;
@@ -2681,18 +2957,18 @@ __result, __binary_pred, _IterType());
           _ValueType;
       typedef typename iterator_traits<_BidirectionalIter>::difference_type
           _DistanceType;
-    
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<
-	    _BidirectionalIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>);
-    
+	    _BidirectionalIter>)
+      __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+
       if (__first == __middle || __middle == __last)
 	return;
-    
+
       _DistanceType __len1 = distance(__first, __middle);
       _DistanceType __len2 = distance(__middle, __last);
-    
+
       _Temporary_buffer<_BidirectionalIter, _ValueType> __buf(__first, __last);
       if (__buf.begin() == 0)
 	__merge_without_buffer(__first, __middle, __last, __len1, __len2);
@@ -2712,19 +2988,19 @@ __result, __binary_pred, _IterType());
           _ValueType;
       typedef typename iterator_traits<_BidirectionalIter>::difference_type
           _DistanceType;
-      
+
       // concept requirements
       __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<
-	    _BidirectionalIter>);
+	    _BidirectionalIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
-	    _ValueType, _ValueType>);
-    
+	    _ValueType, _ValueType>)
+
       if (__first == __middle || __middle == __last)
 	return;
-    
+
       _DistanceType __len1 = distance(__first, __middle);
       _DistanceType __len2 = distance(__middle, __last);
-    
+
       _Temporary_buffer<_BidirectionalIter, _ValueType> __buf(__first, __last);
       if (__buf.begin() == 0)
 	__merge_without_buffer(__first, __middle, __last, __len1, __len2, __comp);
@@ -2745,18 +3021,18 @@ __result, __binary_pred, _IterType());
 	     _InputIter2 __first2, _InputIter2 __last2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first2 < *__first1)
 	  return false;
-	else if(*__first1 < *__first2) 
+	else if(*__first1 < *__first2)
 	  ++__first1;
 	else
 	  ++__first1, ++__first2;
@@ -2770,19 +3046,19 @@ __result, __binary_pred, _IterType());
 	     _InputIter2 __first2, _InputIter2 __last2, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first2, *__first1))
 	  return false;
-	else if(__comp(*__first1, *__first2)) 
+	else if(__comp(*__first1, *__first2))
 	  ++__first1;
 	else
 	  ++__first1, ++__first2;
@@ -2797,15 +3073,15 @@ __result, __binary_pred, _IterType());
 	      _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (*__first1 < *__first2) {
@@ -2834,16 +3110,16 @@ __result, __binary_pred, _IterType());
 	      _OutputIter __result, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (__comp(*__first1, *__first2)) {
@@ -2871,20 +3147,20 @@ __result, __binary_pred, _IterType());
 		     _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
 
-      while (__first1 != __last1 && __first2 != __last2) 
-	if (*__first1 < *__first2) 
+      while (__first1 != __last1 && __first2 != __last2)
+	if (*__first1 < *__first2)
 	  ++__first1;
-	else if (*__first2 < *__first1) 
+	else if (*__first2 < *__first1)
 	  ++__first2;
 	else {
 	  *__result = *__first1;
@@ -2903,16 +3179,16 @@ __result, __binary_pred, _IterType());
 		     _OutputIter __result, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2))
@@ -2935,15 +3211,15 @@ __result, __binary_pred, _IterType());
 		   _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2) {
@@ -2960,24 +3236,24 @@ __result, __binary_pred, _IterType());
       return copy(__first1, __last1, __result);
     }
 
-  template<typename _InputIter1, typename _InputIter2, typename _OutputIter, 
+  template<typename _InputIter1, typename _InputIter2, typename _OutputIter,
 	   typename _Compare>
     _OutputIter
     set_difference(_InputIter1 __first1, _InputIter1 __last1,
-		   _InputIter2 __first2, _InputIter2 __last2, 
+		   _InputIter2 __first2, _InputIter2 __last2,
 		   _OutputIter __result, _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2)) {
@@ -2995,21 +3271,21 @@ __result, __binary_pred, _IterType());
     }
 
   template<typename _InputIter1, typename _InputIter2, typename _OutputIter>
-    _OutputIter 
+    _OutputIter
     set_symmetric_difference(_InputIter1 __first1, _InputIter1 __last1,
 			     _InputIter2 __first2, _InputIter2 __last2,
 			     _OutputIter __result)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2) {
@@ -3031,23 +3307,23 @@ __result, __binary_pred, _IterType());
 
   template<typename _InputIter1, typename _InputIter2, typename _OutputIter,
 	   typename _Compare>
-    _OutputIter 
+    _OutputIter
     set_symmetric_difference(_InputIter1 __first1, _InputIter1 __last1,
 			     _InputIter2 __first2, _InputIter2 __last2,
 			     _OutputIter __result,
 			     _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
       __glibcpp_function_requires(_SameTypeConcept<
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
-	    typename iterator_traits<_InputIter1>::value_type>);
+	    typename iterator_traits<_InputIter1>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
-	    typename iterator_traits<_InputIter2>::value_type>);
+	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2)) {
@@ -3075,13 +3351,13 @@ __result, __binary_pred, _IterType());
     max_element(_ForwardIter __first, _ForwardIter __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
-      while (++__first != __last) 
+      while (++__first != __last)
 	if (*__result < *__first)
 	  __result = __first;
       return __result;
@@ -3093,14 +3369,14 @@ __result, __binary_pred, _IterType());
 		_Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_ForwardIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
-      while (++__first != __last) 
+      while (++__first != __last)
 	if (__comp(*__result, *__first)) __result = __first;
       return __result;
     }
@@ -3110,13 +3386,13 @@ __result, __binary_pred, _IterType());
     min_element(_ForwardIter __first, _ForwardIter __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
-      while (++__first != __last) 
+      while (++__first != __last)
 	if (*__first < *__result)
 	  __result = __first;
       return __result;
@@ -3128,20 +3404,20 @@ __result, __binary_pred, _IterType());
 		_Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_ForwardIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
-      while (++__first != __last) 
+      while (++__first != __last)
 	if (__comp(*__first, *__result))
 	  __result = __first;
       return __result;
     }
 
-  // next_permutation and prev_permutation, with and without an explicitly 
+  // next_permutation and prev_permutation, with and without an explicitly
   // supplied comparison function.
 
   template<typename _BidirectionalIter>
@@ -3149,9 +3425,9 @@ __result, __binary_pred, _IterType());
     next_permutation(_BidirectionalIter __first, _BidirectionalIter __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_BidirectionalIter>::value_type>);
+	    typename iterator_traits<_BidirectionalIter>::value_type>)
 
       if (__first == __last)
 	return false;
@@ -3186,10 +3462,10 @@ __result, __binary_pred, _IterType());
 		     _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_BidirectionalIter>::value_type,
-	    typename iterator_traits<_BidirectionalIter>::value_type>);
+	    typename iterator_traits<_BidirectionalIter>::value_type>)
 
       if (__first == __last)
 	return false;
@@ -3223,9 +3499,9 @@ __result, __binary_pred, _IterType());
     prev_permutation(_BidirectionalIter __first, _BidirectionalIter __last)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_BidirectionalIter>::value_type>);
+	    typename iterator_traits<_BidirectionalIter>::value_type>)
 
       if (__first == __last)
 	return false;
@@ -3260,10 +3536,10 @@ __result, __binary_pred, _IterType());
 		     _Compare __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_BidirectionalIter>::value_type,
-	    typename iterator_traits<_BidirectionalIter>::value_type>);
+	    typename iterator_traits<_BidirectionalIter>::value_type>)
 
       if (__first == __last)
 	return false;
@@ -3300,13 +3576,13 @@ __result, __binary_pred, _IterType());
 		  _ForwardIter __first2, _ForwardIter __last2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
-      for ( ; __first1 != __last1; ++__first1) 
+      for ( ; __first1 != __last1; ++__first1)
 	for (_ForwardIter __iter = __first2; __iter != __last2; ++__iter)
 	  if (*__first1 == *__iter)
 	    return __first1;
@@ -3320,16 +3596,16 @@ __result, __binary_pred, _IterType());
 		  _BinaryPredicate __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>);
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_InputIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>);
+	    typename iterator_traits<_ForwardIter>::value_type>)
 
-      for ( ; __first1 != __last1; ++__first1) 
+      for ( ; __first1 != __last1; ++__first1)
 	for (_ForwardIter __iter = __first2; __iter != __last2; ++__iter)
 	  if (__comp(*__first1, *__iter))
 	    return __first1;
@@ -3342,7 +3618,7 @@ __result, __binary_pred, _IterType());
   // the *last* possible match.  Note that find_end for bidirectional iterators
   // is much faster than for forward iterators.
 
-  // find_end for forward iterators. 
+  // find_end for forward iterators.
   template<typename _ForwardIter1, typename _ForwardIter2>
     _ForwardIter1
     __find_end(_ForwardIter1 __first1, _ForwardIter1 __last1,
@@ -3401,8 +3677,8 @@ __result, __binary_pred, _IterType());
 	       bidirectional_iterator_tag, bidirectional_iterator_tag)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter1>);
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter2>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter1>)
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter2>)
 
       typedef reverse_iterator<_BidirectionalIter1> _RevIter1;
       typedef reverse_iterator<_BidirectionalIter2> _RevIter2;
@@ -3426,12 +3702,12 @@ __result, __binary_pred, _IterType());
     _BidirectionalIter1
     __find_end(_BidirectionalIter1 __first1, _BidirectionalIter1 __last1,
 	       _BidirectionalIter2 __first2, _BidirectionalIter2 __last2,
-	       bidirectional_iterator_tag, bidirectional_iterator_tag, 
+	       bidirectional_iterator_tag, bidirectional_iterator_tag,
 	       _BinaryPredicate __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter1>);
-      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter2>);
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter1>)
+      __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter2>)
 
       typedef reverse_iterator<_BidirectionalIter1> _RevIter1;
       typedef reverse_iterator<_BidirectionalIter2> _RevIter2;
@@ -3454,35 +3730,35 @@ __result, __binary_pred, _IterType());
   // Dispatching functions for find_end.
 
   template<typename _ForwardIter1, typename _ForwardIter2>
-    inline _ForwardIter1 
-    find_end(_ForwardIter1 __first1, _ForwardIter1 __last1, 
+    inline _ForwardIter1
+    find_end(_ForwardIter1 __first1, _ForwardIter1 __last1,
 	     _ForwardIter2 __first2, _ForwardIter2 __last2)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>);
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>)
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIter1>::value_type,
-	    typename iterator_traits<_ForwardIter2>::value_type>);
+	    typename iterator_traits<_ForwardIter2>::value_type>)
 
       return __find_end(__first1, __last1, __first2, __last2,
 			__iterator_category(__first1),
 			__iterator_category(__first2));
     }
 
-  template<typename _ForwardIter1, typename _ForwardIter2, 
+  template<typename _ForwardIter1, typename _ForwardIter2,
 	   typename _BinaryPredicate>
-    inline _ForwardIter1 
-    find_end(_ForwardIter1 __first1, _ForwardIter1 __last1, 
+    inline _ForwardIter1
+    find_end(_ForwardIter1 __first1, _ForwardIter1 __last1,
 	     _ForwardIter2 __first2, _ForwardIter2 __last2,
 	     _BinaryPredicate __comp)
     {
       // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>);
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>);
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter1>)
+      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter2>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIter1>::value_type,
-	    typename iterator_traits<_ForwardIter2>::value_type>);
+	    typename iterator_traits<_ForwardIter2>::value_type>)
 
       return __find_end(__first1, __last1, __first2, __last2,
 			__iterator_category(__first1),
@@ -3490,118 +3766,7 @@ __result, __binary_pred, _IterType());
 			__comp);
     }
 
-  // is_heap, a predicate testing whether or not a range is
-  // a heap.  This function is an extension, not part of the C++
-  // standard.
-
-  template<typename _RandomAccessIter, typename _Distance>
-    bool
-    __is_heap(_RandomAccessIter __first, _Distance __n)
-    {
-      _Distance __parent = 0;
-      for (_Distance __child = 1; __child < __n; ++__child) {
-	if (__first[__parent] < __first[__child]) 
-	  return false;
-	if ((__child & 1) == 0)
-	  ++__parent;
-      }
-      return true;
-    }
-
-  template<typename _RandomAccessIter, typename _Distance,
-           typename _StrictWeakOrdering>
-    bool
-    __is_heap(_RandomAccessIter __first, _StrictWeakOrdering __comp,
-	      _Distance __n)
-    {
-      _Distance __parent = 0;
-      for (_Distance __child = 1; __child < __n; ++__child) {
-	if (__comp(__first[__parent], __first[__child]))
-	  return false;
-	if ((__child & 1) == 0)
-	  ++__parent;
-      }
-      return true;
-    }
-
-  template<typename _RandomAccessIter>
-    inline bool
-    is_heap(_RandomAccessIter __first, _RandomAccessIter __last)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_RandomAccessIter>::value_type>);
-
-      return __is_heap(__first, __last - __first);
-    }
-
-
-  template<typename _RandomAccessIter, typename _StrictWeakOrdering>
-    inline bool
-    is_heap(_RandomAccessIter __first, _RandomAccessIter __last,
-	    _StrictWeakOrdering __comp)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIter>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_StrictWeakOrdering,
-	    typename iterator_traits<_RandomAccessIter>::value_type, 
-	    typename iterator_traits<_RandomAccessIter>::value_type>);
-
-      return __is_heap(__first, __comp, __last - __first);
-    }
-
-  // is_sorted, a predicated testing whether a range is sorted in
-  // nondescending order.  This is an extension, not part of the C++
-  // standard.
-
-  template<typename _ForwardIter>
-    bool
-    is_sorted(_ForwardIter __first, _ForwardIter __last)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_ForwardIter>::value_type>);
-
-      if (__first == __last)
-	return true;
-
-      _ForwardIter __next = __first;
-      for (++__next; __next != __last; __first = __next, ++__next) {
-	if (*__next < *__first)
-	  return false;
-      }
-
-      return true;
-    }
-
-  template<typename _ForwardIter, typename _StrictWeakOrdering>
-    bool
-    is_sorted(_ForwardIter __first, _ForwardIter __last, _StrictWeakOrdering __comp)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_BinaryPredicateConcept<_StrictWeakOrdering,
-	    typename iterator_traits<_ForwardIter>::value_type, 
-	    typename iterator_traits<_ForwardIter>::value_type>);
-
-      if (__first == __last)
-	return true;
-
-      _ForwardIter __next = __first;
-      for (++__next; __next != __last; __first = __next, ++__next) {
-	if (__comp(*__next, *__first))
-	  return false;
-      }
-
-      return true;
-    }
-
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_ALGO_H */
+#endif /* __GLIBCPP_INTERNAL_ALGO_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---                           $Revision: 1.2 $
+--                           $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -155,6 +155,11 @@ begin
    Write_Switch_Char ("ec?");
    Write_Line ("Specify configuration pragmas file, e.g. -gnatec/x/f.adc");
 
+   --  Line for -gnatem switch
+
+   Write_Switch_Char ("em?");
+   Write_Line ("Specify mapping file, e.g. -gnatemmapping");
+
    --  Line for -gnatE switch
 
    Write_Switch_Char ("E");
@@ -188,7 +193,7 @@ begin
    --  Line for -gnati switch
 
    Write_Switch_Char ("i?");
-   Write_Line ("Identifier char set (?=1/2/3/4/8/p/f/n/w)");
+   Write_Line ("Identifier char set (?=1/2/3/4/5/8/p/f/n/w)");
 
    --  Line for -gnatk switch
 
@@ -365,7 +370,7 @@ begin
    --  Lines for -gnaty switch
 
    Write_Switch_Char ("y");
-   Write_Line ("Enable all style checks");
+   Write_Line ("Enable all style checks except 'o', indent=3");
 
    Write_Switch_Char ("yxx");
    Write_Line ("Enable selected style checks xx = list of parameters:");

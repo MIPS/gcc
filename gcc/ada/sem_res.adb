@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -787,7 +787,7 @@ package body Sem_Res is
       type Kind_Test is access function (E : Entity_Id) return Boolean;
 
       function Is_Definite_Access_Type (E : Entity_Id) return Boolean;
-      --  Determine whether E is an acess type declared by an access decla-
+      --  Determine whether E is an access type declared by an access decla-
       --  ration, and  not an (anonymous) allocator type.
 
       function Operand_Type_In_Scope (S : Entity_Id) return Boolean;
@@ -1669,6 +1669,18 @@ package body Sem_Res is
             then
                Wrong_Type (Expression (N), Designated_Type (Typ));
                Found := True;
+
+            --  Check for view mismatch on Null in instances, for
+            --  which the view-swapping mechanism has no identifier.
+
+            elsif (In_Instance or else In_Inlined_Body)
+              and then (Nkind (N) = N_Null)
+              and then Is_Private_Type (Typ)
+              and then Is_Access_Type (Full_View (Typ))
+            then
+               Resolve (N, Full_View (Typ));
+               Set_Etype (N, Typ);
+               return;
 
             --  Check for an aggregate. Sometimes we can get bogus
             --  aggregates from misuse of parentheses, and we are
@@ -3118,7 +3130,6 @@ package body Sem_Res is
             Index_Node : Node_Id;
 
          begin
-            Check_Elab_Call (N);
 
             if Component_Type (Etype (Nam)) /= Any_Type then
                Index_Node :=
@@ -3135,6 +3146,7 @@ package body Sem_Res is
                Set_Etype (Prefix (N), Etype (Nam));
                Set_Etype (N, Typ);
                Resolve_Indexed_Component (N, Typ);
+               Check_Elab_Call (Prefix (N));
             end if;
 
             return;
@@ -4522,7 +4534,7 @@ package body Sem_Res is
    begin
       --  For now allow circumvention of the restriction against
       --  anonymous null access values via a debug switch to allow
-      --  for easier trasition.
+      --  for easier transition.
 
       if not Debug_Flag_J
         and then Ekind (Typ) = E_Anonymous_Access_Type
@@ -4996,7 +5008,7 @@ package body Sem_Res is
 
       --  If we are taking the reference of a volatile entity, then treat
       --  it as a potential modification of this entity. This is much too
-      --  conservative, but is neccessary because remove side effects can
+      --  conservative, but is necessary because remove side effects can
       --  result in transformations of normal assignments into reference
       --  sequences that otherwise fail to notice the modification.
 
@@ -5020,6 +5032,25 @@ package body Sem_Res is
       It    : Interp;
       It1   : Interp;
       Found : Boolean;
+
+      function Init_Component return Boolean;
+      --  Check whether this is the initialization of a component within an
+      --  init_proc (by assignment or call to another init_proc). If true,
+      --  there is no need for a discriminant check.
+
+      --------------------
+      -- Init_Component --
+      --------------------
+
+      function Init_Component return Boolean is
+      begin
+         return Inside_Init_Proc
+           and then Nkind (Prefix (N)) = N_Identifier
+           and then Chars (Prefix (N)) = Name_uInit
+           and then Nkind (Parent (Parent (N))) = N_Case_Statement_Alternative;
+      end Init_Component;
+
+   --  Start of processing for Resolve_Selected_Component
 
    begin
       if Is_Overloaded (P) then
@@ -5116,6 +5147,7 @@ package body Sem_Res is
         and then Present (Discriminant_Checking_Func
                            (Original_Record_Component (Entity (S))))
         and then not Discriminant_Checks_Suppressed (T)
+        and then not Init_Component
       then
          Set_Do_Discriminant_Check (N);
       end if;

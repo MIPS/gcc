@@ -1,5 +1,5 @@
 /* RTL reader for GNU C Compiler.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -25,6 +25,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "hashtab.h"
 
+#ifndef ISDIGIT
+#include <ctype.h>
+#define ISDIGIT isdigit
+#define ISSPACE isspace
+#endif
+
 #define	obstack_chunk_alloc	xmalloc
 #define	obstack_chunk_free	free
 
@@ -41,6 +47,7 @@ static void read_escape		PARAMS ((struct obstack *, FILE *));
 static unsigned def_hash PARAMS ((const void *));
 static int def_name_eq_p PARAMS ((const void *, const void *));
 static void read_constants PARAMS ((FILE *infile, char *tmp_char));
+static void validate_const_int PARAMS ((FILE *, const char *));
 
 /* Subroutines of read_rtx.  */
 
@@ -66,7 +73,7 @@ fatal_with_file_and_line VPARAMS ((FILE *infile, const char *msg, ...))
   putc ('\n', stderr);
 
   /* Gather some following context.  */
-  for (i = 0; i < sizeof(context)-1; ++i)
+  for (i = 0; i < sizeof (context)-1; ++i)
     {
       c = getc (infile);
       if (c == EOF)
@@ -369,13 +376,13 @@ read_string (ob, infile, star_if_braced)
    not provide one.  */
 #if HOST_BITS_PER_WIDE_INT > HOST_BITS_PER_LONG && !defined(HAVE_ATOLL) && !defined(HAVE_ATOQ)
 HOST_WIDE_INT
-atoll(p)
+atoll (p)
     const char *p;
 {
   int neg = 0;
   HOST_WIDE_INT tmp_wide;
 
-  while (ISSPACE(*p))
+  while (ISSPACE (*p))
     p++;
   if (*p == '-')
     neg = 1, p++;
@@ -383,13 +390,13 @@ atoll(p)
     p++;
 
   tmp_wide = 0;
-  while (ISDIGIT(*p))
+  while (ISDIGIT (*p))
     {
       HOST_WIDE_INT new_wide = tmp_wide*10 + (*p - '0');
       if (new_wide < tmp_wide)
 	{
 	  /* Return INT_MAX equiv on overflow.  */
-	  tmp_wide = (~(unsigned HOST_WIDE_INT)0) >> 1;
+	  tmp_wide = (~(unsigned HOST_WIDE_INT) 0) >> 1;
 	  break;
 	}
       tmp_wide = new_wide;
@@ -408,7 +415,7 @@ def_hash (def)
      const void *def;
 {
   unsigned result, i;
-  const char *string = ((const struct md_constant *)def)->name;
+  const char *string = ((const struct md_constant *) def)->name;
 
   for (result = i = 0;*string++ != '\0'; i++)
     result += ((unsigned char) *string << (i % CHAR_BIT));
@@ -420,8 +427,8 @@ static int
 def_name_eq_p (def1, def2)
      const void *def1, *def2;
 {
-  return ! strcmp (((const struct md_constant *)def1)->name,
-		   ((const struct md_constant *)def2)->name);
+  return ! strcmp (((const struct md_constant *) def1)->name,
+		   ((const struct md_constant *) def2)->name);
 }
 
 /* INFILE is a FILE pointer to read text from.  TMP_CHAR is a buffer suitable
@@ -492,6 +499,28 @@ traverse_md_constants (callback, info)
 {
   if (md_constants)
     htab_traverse (md_constants, callback, info);
+}
+
+static void
+validate_const_int (infile, string)
+     FILE *infile;
+     const char *string;
+{
+  const char *cp;
+  int valid = 1;
+
+  cp = string;
+  while (*cp && ISSPACE (*cp))
+    cp++;
+  if (*cp == '-' || *cp == '+')
+    cp++;
+  if (*cp == 0)
+    valid = 0;
+  for (; *cp; cp++)
+    if (! ISDIGIT (*cp))
+      valid = 0;
+  if (!valid)
+    fatal_with_file_and_line (infile, "invalid decimal constant \"%s\"\n", string);
 }
 
 /* Read an rtx in printed representation from INFILE
@@ -699,6 +728,7 @@ again:
 
       case 'w':
 	read_name (tmp_char, infile);
+	validate_const_int (infile, tmp_char);
 #if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
 	tmp_wide = atoi (tmp_char);
 #else
@@ -720,6 +750,7 @@ again:
       case 'i':
       case 'n':
 	read_name (tmp_char, infile);
+	validate_const_int (infile, tmp_char);
 	tmp_int = atoi (tmp_char);
 	XINT (return_rtx, i) = tmp_int;
 	break;

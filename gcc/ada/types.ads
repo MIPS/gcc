@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -199,7 +199,7 @@ pragma Preelaborate (Types);
    --  character in the source buffer. As noted above, diffferent source
    --  buffers have different ranges, so it is possible to tell from a
    --  Source_Ptr value which source it refers to. Note that negative numbers
-   --  are allowed to accomodate the following special values.
+   --  are allowed to accommodate the following special values.
 
    No_Location : constant Source_Ptr := -1;
    --  Value used to indicate no source position set in a node
@@ -445,7 +445,7 @@ pragma Preelaborate (Types);
 
    No_List : constant List_Id := List_High_Bound;
    --  Used to indicate absence of a list. Note that the value is zero, which
-   --  is the same as Empty, which is helpful in intializing nodes where a
+   --  is the same as Empty, which is helpful in initializing nodes where a
    --  value of zero can represent either an empty node or an empty list.
 
    Error_List : constant List_Id := List_Low_Bound;
@@ -621,6 +621,10 @@ pragma Preelaborate (Types);
    --  although this is not a private type, clients should not rely on the
    --  exact way in which this string is represented, and instead should
    --  use the subprograms below.
+
+   Dummy_Time_Stamp : constant Time_Stamp_Type := (others => '0');
+   --  This is used for dummy time stamp values used in the D lines for
+   --  non-existant files, and is intended to be an impossible value.
 
    function "="  (Left, Right : Time_Stamp_Type) return Boolean;
    function "<=" (Left, Right : Time_Stamp_Type) return Boolean;

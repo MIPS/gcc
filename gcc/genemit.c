@@ -464,7 +464,7 @@ gen_expand (expand)
   for (i = operands; i <= max_dup_opno; i++)
     printf ("  rtx operand%d;\n", i);
   for (; i <= max_scratch_opno; i++)
-    printf ("  rtx operand%d;\n", i);
+    printf ("  rtx operand%d ATTRIBUTE_UNUSED;\n", i);
   printf ("  rtx _val = 0;\n");
   printf ("  start_sequence ();\n");
 
@@ -672,7 +672,7 @@ output_add_clobbers ()
   int i;
 
   printf ("\n\nvoid\nadd_clobbers (pattern, insn_code_number)\n");
-  printf ("     rtx pattern;\n     int insn_code_number;\n");
+  printf ("     rtx pattern ATTRIBUTE_UNUSED;\n     int insn_code_number;\n");
   printf ("{\n");
   printf ("  switch (insn_code_number)\n");
   printf ("    {\n");
@@ -787,9 +787,9 @@ main (argc, argv)
   progname = "genemit";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   /* Assign sequential codes to all entries in the machine description

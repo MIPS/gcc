@@ -1,6 +1,6 @@
 /* Parse C expressions for cpplib.
-   Copyright (C) 1987, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation.
+   Copyright (C) 1987, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation.
    Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
@@ -85,10 +85,9 @@ static const struct suffix vsuf_3[] = {
 };
 #define Nsuff(tab) (sizeof tab / sizeof (struct suffix))
 
-/* Parse and convert an integer for #if.  Accepts decimal, hex, or
-   octal with or without size suffixes.  Returned op is CPP_ERROR on
-   error, otherwise it is a CPP_NUMBER.  */
-
+/* Parse and convert what is presumably an integer in TOK.  Accepts
+   decimal, hex, or octal with or without size suffixes.  Returned op
+   is CPP_ERROR on error, otherwise it is a CPP_NUMBER.  */
 static struct op
 parse_number (pfile, tok)
      cpp_reader *pfile;
@@ -129,14 +128,9 @@ parse_number (pfile, tok)
     {
       c = *p;
 
-      if (c >= '0' && c <= '9')
-	digit = c - '0';
-      /* We believe that in all live character sets, a-f are
-	 consecutive, and so are A-F.  */
-      else if (base == 16 && c >= 'a' && c <= 'f')
-	digit = c - 'a' + 10;
-      else if (base == 16 && c >= 'A' && c <= 'F')
-	digit = c - 'A' + 10;
+      if (ISDIGIT (c)
+	  || (base == 16 && ISXDIGIT (c)))
+	digit = hex_value (c);
       else
 	break;
 
@@ -211,6 +205,7 @@ parse_number (pfile, tok)
   return op;
 }
 
+/* Handle meeting "defined" in a preprocessor expression.  */
 static struct op
 parse_defined (pfile)
      cpp_reader *pfile;
@@ -219,6 +214,7 @@ parse_defined (pfile)
   cpp_hashnode *node = 0;
   const cpp_token *token;
   struct op op;
+  cpp_context *initial_context = pfile->context;
 
   /* Don't expand macros.  */
   pfile->state.prevent_expansion++;
@@ -259,6 +255,9 @@ parse_defined (pfile)
     op.op = CPP_ERROR;
   else
     {
+      if (pfile->context != initial_context)
+	cpp_warning (pfile, "this use of \"defined\" may not be portable");
+
       op.value = node->type == NT_MACRO;
       op.unsignedp = 0;
       op.op = CPP_NUMBER;
@@ -276,7 +275,6 @@ parse_defined (pfile)
    (an interpreted preprocessing number or character constant, or the
    result of the "defined" or "#" operators), CPP_ERROR on error,
    CPP_EOF, or the type of an operator token.  */
-
 static struct op
 lex (pfile, skip_evaluation)
      cpp_reader *pfile;
@@ -314,12 +312,7 @@ lex (pfile, skip_evaluation)
 
     case CPP_NAME:
       if (token->val.node == pfile->spec_nodes.n_defined)
-	{
-	  if (pfile->context->prev && CPP_PEDANTIC (pfile))
-	    cpp_pedwarn (pfile, "\"defined\" operator appears during macro expansion");
-
-	  return parse_defined (pfile);
-	}
+	return parse_defined (pfile);
       else if (CPP_OPTION (pfile, cplusplus)
 	       && (token->val.node == pfile->spec_nodes.n_true
 		   || token->val.node == pfile->spec_nodes.n_false))
@@ -378,6 +371,7 @@ lex (pfile, skip_evaluation)
   return op;
 }
 
+/* Warn if appropriate on overflow.  */
 static void
 integer_overflow (pfile)
      cpp_reader *pfile;
@@ -386,6 +380,8 @@ integer_overflow (pfile)
     cpp_pedwarn (pfile, "integer overflow in preprocessor expression");
 }
 
+/* Handle shifting A left by B bits.  UNSIGNEDP is non-zero if A is
+   unsigned.  */
 static HOST_WIDEST_INT
 left_shift (pfile, a, unsignedp, b)
      cpp_reader *pfile;
@@ -410,6 +406,8 @@ left_shift (pfile, a, unsignedp, b)
     }
 }
 
+/* Handle shifting A right by B bits.  UNSIGNEDP is non-zero if A is
+   unsigned.  */
 static HOST_WIDEST_INT
 right_shift (pfile, a, unsignedp, b)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
@@ -553,7 +551,6 @@ op_to_prio[] =
 
 /* Parse and evaluate a C expression, reading from PFILE.
    Returns the truth value of the expression.  */
-
 int
 _cpp_parse_expr (pfile)
      cpp_reader *pfile;
@@ -876,6 +873,7 @@ _cpp_parse_expr (pfile)
   return result;
 }
 
+/* Output OP as text for diagnostics.  */
 static const unsigned char *
 op_as_text (pfile, op)
      cpp_reader *pfile;

@@ -1,5 +1,5 @@
 /* Generic sibling call optimization support
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -429,7 +429,7 @@ uses_addressof (x)
 }
 
 /* Scan the sequence of insns in SEQ to see if any have an ADDRESSOF
-   rtl expression or current_function_internal_arg_pointer occurences
+   rtl expression or current_function_internal_arg_pointer occurrences
    not enclosed within a MEM.  If an ADDRESSOF expression or
    current_function_internal_arg_pointer is found, return nonzero, otherwise
    return zero.
@@ -546,7 +546,7 @@ replace_call_placeholder (insn, use)
   else if (use == sibcall_use_normal)
     emit_insns_before (XEXP (PATTERN (insn), 0), insn);
   else
-    abort();
+    abort ();
 
   /* Turn off LABEL_PRESERVE_P for the tail recursion label if it
      exists.  We only had to set it long enough to keep the jump

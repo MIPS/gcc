@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -405,7 +405,7 @@ ggc_allocated_p (p)
   base = &table->table[0];
 #endif
 
-  /* Extract the level 1 and 2 indicies.  */
+  /* Extract the level 1 and 2 indices.  */
   L1 = LOOKUP_L1 (p);
   L2 = LOOKUP_L2 (p);
 
@@ -432,7 +432,7 @@ lookup_page_table_entry(p)
   base = &table->table[0];
 #endif
 
-  /* Extract the level 1 and 2 indicies.  */
+  /* Extract the level 1 and 2 indices.  */
   L1 = LOOKUP_L1 (p);
   L2 = LOOKUP_L2 (p);
 
@@ -467,7 +467,7 @@ found:
   base = &table->table[0];
 #endif
 
-  /* Extract the level 1 and 2 indicies.  */
+  /* Extract the level 1 and 2 indices.  */
   L1 = LOOKUP_L1 (p);
   L2 = LOOKUP_L2 (p);
 
@@ -518,7 +518,7 @@ alloc_anon (pref, size)
 
   if (page == (char *) MAP_FAILED)
     {
-      perror ("Virtual memory exhausted");
+      perror ("virtual memory exhausted");
       exit (FATAL_EXIT_CODE);
     }
 
@@ -535,7 +535,7 @@ static inline size_t
 page_group_index (allocation, page)
      char *allocation, *page;
 {
-  return (size_t)(page - allocation) >> G.lg_pagesize;
+  return (size_t) (page - allocation) >> G.lg_pagesize;
 }
 
 /* Set and clear the in_use bit for this page in the page group.  */
@@ -654,7 +654,7 @@ alloc_page (order)
 	alloc_size = entry_size + G.pagesize - 1;
       allocation = xmalloc (alloc_size);
 
-      page = (char *)(((size_t) allocation + G.pagesize - 1) & -G.pagesize);
+      page = (char *) (((size_t) allocation + G.pagesize - 1) & -G.pagesize);
       head_slop = page - allocation;
       if (multiple_pages)
 	tail_slop = ((size_t) allocation + alloc_size) & (G.pagesize - 1);

@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. */
+Boston, MA 02111-1307, USA.  */
 
 #define YES_UNDERSCORES
 
@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA. */
 #include "i386/gas.h"
 #include "dbxcoff.h"
 
-/* Augment TARGET_SWITCHES with the cygwin/no-cygwin options. */
+/* Augment TARGET_SWITCHES with the cygwin/no-cygwin options.  */
 #define MASK_WIN32 0x40000000 /* Use -lming32 interface */
 #define MASK_CYGWIN  0x20000000 /* Use -lcygwin interface */
 #define MASK_WINDOWS 0x10000000 /* Use windows interface */
@@ -75,14 +75,19 @@ Boston, MA 02111-1307, USA. */
 		       "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++ "\
 		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw}"
 #else
-#define CYGWIN_INCLUDES "%{!nostdinc:-isystem /usr/local/include -idirafter /usr/include}"
-#define W32API_INC "%{!nostdinc:-idirafter /usr/include/w32api}"
-#define W32API_LIB "-L/usr/lib/w32api/"
+#define CYGWIN_INCLUDES "%{!nostdinc:-isystem /usr/local/include "\
+		           "-idirafter " CYGWIN_CROSS_DIR "/include "\
+		           "-idirafter /usr/include}"
+#define W32API_INC "%{!nostdinc:"\
+		      "-idirafter " CYGWIN_CROSS_DIR "/include/w32api "\
+		      "-idirafter /usr/include/w32api}"
+#define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/ -L/usr/lib/w32api/"
 #define CYGWIN_LIB "/usr/lib"
 #define MINGW_LIBS "-L/usr/local/lib/mingw -L/usr/lib/mingw"
 #define MINGW_INCLUDES "%{!nostdinc:-isystem /usr/include/mingw/g++-3 "\
 		       "-isystem /usr/include/mingw/g++ "\
-		       "-isystem /usr/local/include/mingw " \
+		       "-isystem /usr/local/include/mingw "\
+		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw "\
 		       "-idirafter /usr/include/mingw}"
 #endif
 
@@ -117,15 +122,15 @@ Boston, MA 02111-1307, USA. */
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "\
-  %{shared|mdll: %{mno-cygwin:" MINGW_LIBS " mingw/dllcrt2%O%s}}\
-  %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " mingw/crt2%O%s}\
+  %{shared|mdll: %{mno-cygwin:" MINGW_LIBS " dllcrt2%O%s}}\
+  %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " crt2%O%s}\
   %{pg:gcrt0%O%s}}}\
 "
 
 /* Normally, -lgcc is not needed since everything in it is in the DLL, but we
    want to allow things to be added to it when installing new versions of
    GCC without making a new CYGWIN.DLL, so we leave it.  Profiling is handled
-   by calling the init function from the prologue. */
+   by calling the init function from the prologue.  */
 
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC "%{mno-cygwin: %{mthreads:-lmingwthrd} -lmingw32} -lgcc %{mno-cygwin:-lmoldname -lmsvcrt}"
@@ -242,7 +247,7 @@ switch_to_section (section, decl) 				\
 }
 
 /* Don't allow flag_pic to propagate since gas may produce invalid code
-   otherwise. */
+   otherwise.  */
 
 #undef  SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS					\
@@ -281,7 +286,9 @@ extern void i386_pe_encode_section_info PARAMS ((TREE));
 
 /* Utility used only in this file.  */
 #define I386_PE_STRIP_ENCODING(SYM_NAME) \
-  ((SYM_NAME) + ((SYM_NAME)[0] == '@' ? 3 : 0))
+  ((SYM_NAME) + ((SYM_NAME)[0] == '@' \
+		  ? ((SYM_NAME)[3] == '*' ? 4 : 3) : 0) \
+	      + ((SYM_NAME)[0] == '*' ? 1 : 0))
 
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
@@ -338,7 +345,7 @@ do {							\
 
 
 /* Emit code to check the stack when allocating more that 4000
-   bytes in one go. */
+   bytes in one go.  */
 
 #define CHECK_STACK_LIMIT 4000
 
@@ -403,7 +410,7 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
   i386_pe_declare_function_type (FILE, XSTR (FUN, 0), 1)
 
-/* This says out to put a global symbol in the BSS section. */
+/* This says out to put a global symbol in the BSS section.  */
 #undef ASM_OUTPUT_ALIGNED_BSS
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
@@ -416,11 +423,11 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 
-/* Don't assume anything about the header files. */
+/* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #define SUBTARGET_PROLOGUE						\
-  if (profile_flag 							\
+  if (current_function_profile						\
       && MAIN_NAME_P (DECL_NAME (current_function_decl)))		\
      {									\
       emit_call_insn (gen_rtx (CALL, VOIDmode, 				\
@@ -451,8 +458,8 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #define BIGGEST_FIELD_ALIGNMENT 64
 
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
-#undef PCC_BITFIELDS_TYPE_MATTERS
-#define PCC_BITFIELDS_TYPE_MATTERS 1
+#undef PCC_BITFIELD_TYPE_MATTERS
+#define PCC_BITFIELD_TYPE_MATTERS 1
 #define GROUP_BITFIELDS_BY_ALIGN TYPE_NATIVE(rec)
 
 

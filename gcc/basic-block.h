@@ -1,5 +1,6 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,11 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "varray.h"
 #include "partition.h"
-
-#ifndef TREE_CODE
-union tree_node;
-#define tree union tree_node *
-#endif
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -321,6 +317,7 @@ extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 extern void tidy_fallthru_edges		PARAMS ((void));
 extern void flow_reverse_top_sort_order_compute	PARAMS ((int *));
 extern int flow_depth_first_order_compute	PARAMS ((int *, int *));
+extern void flow_preorder_transversal_compute	PARAMS ((int *));
 extern void dump_edge_info		PARAMS ((FILE *, edge, int));
 extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));
@@ -563,6 +560,7 @@ enum update_life_extent
 #define PROP_ALLOW_CFG_CHANGES	32	/* Allow the CFG to be changed
 					   by dead code removal.  */
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
+#define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
 #define PROP_FINAL		127	/* All of the above.  */
 
 #define CLEANUP_EXPENSIVE	1	/* Do relativly expensive optimizations
@@ -574,6 +572,8 @@ enum update_life_extent
 					   inside call_placeholders..  */
 #define CLEANUP_PRE_LOOP	16	/* Take care to preserve syntactic loop
 					   notes.  */
+#define CLEANUP_UPDATE_LIFE	32	/* Keep life information up to date.  */
+#define CLEANUP_THREADING	64	/* Do jump threading.  */
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */
@@ -637,9 +637,10 @@ extern basic_block force_nonfallthru	PARAMS ((edge));
 extern bool redirect_edge_and_branch	PARAMS ((edge, basic_block));
 extern rtx block_label			PARAMS ((basic_block));
 extern bool forwarder_block_p		PARAMS ((basic_block));
-extern bool purge_all_dead_edges	PARAMS ((void));
+extern bool purge_all_dead_edges	PARAMS ((int));
 extern bool purge_dead_edges		PARAMS ((basic_block));
 extern void find_sub_basic_blocks	PARAMS ((basic_block));
+extern void find_many_sub_basic_blocks	PARAMS ((sbitmap));
 extern bool can_fallthru		PARAMS ((basic_block, basic_block));
 extern void flow_nodes_print		PARAMS ((const char *, const sbitmap,
 						 FILE *));
@@ -647,9 +648,11 @@ extern void flow_edge_list_print	PARAMS ((const char *, const edge *,
 						 int, FILE *));
 extern void alloc_aux_for_block		PARAMS ((basic_block, int));
 extern void alloc_aux_for_blocks	PARAMS ((int));
+extern void clear_aux_for_blocks	PARAMS ((void));
 extern void free_aux_for_blocks		PARAMS ((void));
 extern void alloc_aux_for_edge		PARAMS ((edge, int));
 extern void alloc_aux_for_edges		PARAMS ((int));
+extern void clear_aux_for_edges		PARAMS ((void));
 extern void free_aux_for_edges		PARAMS ((void));
 
 /* This function is always defined so it can be called from the
@@ -685,6 +688,7 @@ extern conflict_graph conflict_graph_compute
                                         PARAMS ((regset,
 						 partition));
 extern bool mark_dfs_back_edges		PARAMS ((void));
+extern void update_br_prob_note		PARAMS ((basic_block));
 
 /* In dominance.c */
 

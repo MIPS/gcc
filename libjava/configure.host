@@ -72,8 +72,11 @@ case "${host}" in
 	libgcj_interpreter=yes
 	enable_hash_synchronization_default=yes
 	;;
-  powerpc*-*)
+  powerpc*-linux*)
 	libgcj_interpreter=yes
+	;;
+  powerpc-apple-*)
+        libgcj_interpreter=no
 	;;
   sparc-*)
         ;;
@@ -81,6 +84,13 @@ case "${host}" in
         libgcj_flags="${libgcj_flags} -funwind-tables"
 	libgcj_interpreter=yes
 	enable_hash_synchronization_default=yes
+	;;
+  xscale*-elf)
+	with_libffi_default=no
+	PROCESS=Ecos
+	enable_java_net_default=no
+	enable_getenv_properties_default=no
+	enable_main_args_default=no
 	;;
 esac
 

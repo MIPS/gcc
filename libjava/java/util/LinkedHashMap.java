@@ -19,19 +19,25 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 
 /**
  * This class provides a hashtable-backed implementation of the
@@ -89,6 +95,7 @@ import java.io.ObjectOutputStream;
  * @see TreeMap
  * @see Hashtable
  * @since 1.4
+ * @status updated to 1.4
  */
 public class LinkedHashMap extends HashMap
 {
@@ -218,8 +225,8 @@ public class LinkedHashMap extends HashMap
    * Construct a new insertion-ordered LinkedHashMap with a specific
    * inital capacity and default load factor of 0.75.
    *
-   * @param initialCapacity the initial capacity of this HashMap (>=0)
-   * @throws IllegalArgumentException if (initialCapacity < 0)
+   * @param initialCapacity the initial capacity of this HashMap (&gt;= 0)
+   * @throws IllegalArgumentException if (initialCapacity &lt; 0)
    */
   public LinkedHashMap(int initialCapacity)
   {
@@ -231,10 +238,10 @@ public class LinkedHashMap extends HashMap
    * Construct a new insertion-orderd LinkedHashMap with a specific
    * inital capacity and load factor.
    *
-   * @param initialCapacity the initial capacity (>=0)
-   * @param loadFactor the load factor (>0, not NaN)
-   * @throws IllegalArgumentException if (initialCapacity < 0) ||
-   *                                     ! (loadFactor > 0.0)
+   * @param initialCapacity the initial capacity (&gt;= 0)
+   * @param loadFactor the load factor (&gt; 0, not NaN)
+   * @throws IllegalArgumentException if (initialCapacity &lt; 0) ||
+   *                                     ! (loadFactor &gt; 0.0)
    */
   public LinkedHashMap(int initialCapacity, float loadFactor)
   {
@@ -281,7 +288,7 @@ public class LinkedHashMap extends HashMap
     LinkedHashEntry e = head;
     while (e != null)
       {
-        if (value == null ? e.value == null : value.equals(e.value))
+        if (equals(value, e.value))
           return true;
         e = e.succ;
       }
@@ -307,7 +314,7 @@ public class LinkedHashMap extends HashMap
     HashEntry e = buckets[idx];
     while (e != null)
       {
-        if (key == null ? e.key == null : key.equals(e.key))
+        if (equals(key, e.key))
           {
             if (accessOrder)
               {
@@ -376,13 +383,14 @@ public class LinkedHashMap extends HashMap
     return false;
   }
 
-  /** Helper method called by <code>put</code>, which creates and adds a
+  /**
+   * Helper method called by <code>put</code>, which creates and adds a
    * new Entry, followed by performing bookkeeping (like removeEldestEntry).
    *
    * @param key the key of the new Entry
    * @param value the value
    * @param idx the index in buckets where the new Entry belongs
-   * @param callRemove Whether to call the removeEldestEntry method.
+   * @param callRemove whether to call the removeEldestEntry method
    * @see #put(Object, Object)
    * @see #removeEldestEntry(Map.Entry)
    */
@@ -397,6 +405,11 @@ public class LinkedHashMap extends HashMap
       remove(head);
   }
 
+  /**
+   * Helper method, called by clone() to reset the doubly-linked list.
+   * @param m the map to add entries from
+   * @see #clone()
+   */
   void putAllInternal(Map m)
   {
     head = null;
@@ -466,8 +479,8 @@ public class LinkedHashMap extends HashMap
           throw new IllegalStateException();
 
         LinkedHashMap.this.remove(last.key);
-        knownMod++;
         last = null;
+        knownMod++;
       }
     };
   }

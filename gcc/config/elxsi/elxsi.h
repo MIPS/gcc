@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Elxsi version.
-   Copyright (C) 1987, 1988, 1992, 1995, 1996, 1998, 1999, 2000
+   Copyright (C) 1987, 1988, 1992, 1995, 1996, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com> in 1988.  This is the first
    64 bit port of GNU CC.
@@ -566,12 +566,6 @@ enum reg_class { NO_REGS, GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES };
    Do not define this if the table should contain absolute addresses. */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -582,9 +576,6 @@ enum reg_class { NO_REGS, GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX 8
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
@@ -688,11 +679,6 @@ enum reg_class { NO_REGS, GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 /* #define DBX_DEBUGGING_INFO */
 
-/* How to renumber registers for dbx and gdb.
-   VAX needs no change in the numeration.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* Do not break .stabs pseudos into continuations.  */
 
 #define DBX_CONTIN_LENGTH 0
@@ -736,65 +722,6 @@ enum reg_class { NO_REGS, GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, ".%s%d", PREFIX, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.
-   It is .dfloat or .gfloat, depending.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-{ union {double d; int i[2]; } tem;				\
-  tem.d = (VALUE);						\
-  fprintf (FILE, "\t.data\t%d{32}, %d{32}\n", tem.i[0], tem.i[1]); }
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-{ union {float f; int i; } tem;					\
-  tem.f = (VALUE);						\
-  fprintf (FILE, "\t.data %d{32}\n", tem.i); }
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( \
-	fprintf (FILE, "\t.data\t"),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "{32}\n"))
-
-#define ASM_OUTPUT_DOUBLE_INT(FILE,VALUE)			\
-{								\
-	fprintf (FILE, "\t.data\t");				\
-	if (GET_CODE (VALUE) == CONST_DOUBLE)			\
-	{							\
-		fprintf (FILE, "%d", CONST_DOUBLE_HIGH (VALUE)); \
-		fprintf (FILE, "{32}, ");			\
-		fprintf (FILE, "%d", CONST_DOUBLE_LOW (VALUE)); \
-		fprintf (FILE, "{32}\n");			\
-	} else if (GET_CODE (VALUE) == CONST_INT)		\
-	{							\
-		int val = INTVAL (VALUE);			\
-		fprintf (FILE, "%d", val < 0 ? -1 : 0);		\
-		fprintf (FILE, "{32}, ");			\
-		fprintf (FILE, "%d", val);			\
-		fprintf (FILE, "{32}\n");			\
-	} else abort ();					\
-}
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.data\t"),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "{16}\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.data\t"),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "{8}\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.data\t%d{8}\n", (VALUE))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */

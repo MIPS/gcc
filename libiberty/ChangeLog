@@ -1,3 +1,186 @@
+2002-02-05  Jason Merrill  <jason@redhat.com>
+
+	* cplus-dem.c (flags): Add DMGL_VERBOSE
+	(cplus_demangle_v3_p): Remove.
+	(demangle_it): Add DMGL_TYPES to passed flags.
+	* cp-demangle.c (cplus_demangle_v3_all): Remove.
+	(cplus_demangle_v3_type): Remove.
+	(cplus_demangle_v3): Add options parm.
+
+2002-02-02  H.J. Lu  (hjl@gnu.org)
+
+	* cp-demangle.c (cp_demangle_type): Do not protect with
+	IN_LIBGCC2.
+	(cplus_demangle_v3_all): New.
+	(cplus_demangle_v3): Call cplus_demangle_v3_all.
+	(cplus_demangle_v3_type): Call cplus_demangle_v3_all.
+
+	* cplus-dem.c (cplus_demangle_v3_p): New function pointer.
+	Initialized to cplus_demangle_v3.
+	(cplus_demangle_with_style): Call cplus_demangle_v3_p instead
+	of cplus_demangle_v3.
+	(main): Set cplus_demangle_v3_p to cplus_demangle_v3_type for
+	command line symbol.
+
+	* testsuite/regress-demangle: Pass the mangled name at the
+	command line.
+
+2002-02-01  H.J. Lu  <hjl@gnu.org>
+
+	* cp-demangle.c (cp_demangle_type): Call demangling_new with
+	DMGL_GNU_V3.
+
+2002-01-31  Phil Edwards  <pme@gcc.gnu.org>
+
+	* cp-demangle.c:  Revert yesterday's change.
+
+2002-01-31  Adam Megacz  <adam@xwt.org>
+
+	* gcc/libiberty/configure.in: Treat mingw the same as cywin
+	wrt HAVE_SYS_ERRLIST.
+
+2002-01-30  Phil Edwards  <pme@gcc.gnu.org>
+
+	* cp-demangle.c (cp_demangle_type):  Do not protect with IN_LIBGCC2.
+	(cplus_demangle_v3):  Mimic __cxa_demangle and fall back on
+	cp_demangle_type.
+	* testsuite/demangle-expected:  New gnu-v3 test.
+
+2002-01-22  Momchil Velikov  <velco@fadata.bg>
+
+	* configure.in (variable detection): Use arrays of unspecified
+	size instead of plain integers.
+
+2002-01-18  DJ Delorie  <dj@redhat.com>
+
+	* Makefile.in (TESTLIB): New.  This library is for future
+	testsuites.
+	(CFILES, REQUIRED_OFILES, CONFIGURED_OFILES): Re-alphabetize,
+	break down by letter.
+	(REQUIRED_OFILES): List long-to-compile files first.
+	(maint-deps): New, target for updating dependencies.
+	(dependencies): Update.
+	* maint-tool: Add dependency-generating option.
+	* configure.in: Check for _doprnt even if we're not providing it.
+	* configure: Regenerate.
+
+	* _doprnt.c: Modifications to allow compiling on any platform.
+	* copysign.c: Likewise.
+	* putenv.c: Likewise.
+	* setenv.c: Likewise.
+	* vsprintf.c: Likewise.
+
+2002-01-15  Douglas B Rupp  <rupp@gnat.com>
+
+	* mkstemps.c (mkstemps): On VMS, open temp file with option
+	that causes it to be deleted when closed.
+
+2002-01-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-demangle.c (long_options): Const-ify.
+	* cplus-dem.c (long_options): Likewise.
+
+	* cplus-dem.c (mystrstr): Delete.  All callers changed to use
+	strstr instead.
+
+2001-12-31  Ira Ruben	<ira@apple.com>
+
+	* aclocal.m4 (libiberty_AC_FUNC_STRNCMP): Use anon mmap as 2nd try.
+	* configure: Regenerated.
+
+2001-12-24  Douglas B. Rupp  <rupp@gnat.com>
+
+	* configure.in (uintptr_t): Use AC_CHECK_TYPE.
+	* configure: Regenerated.
+
+2001-12-12  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/2719
+	* cplus-dem.c (consume_count): Treat negative count as an error.
+	* testsuite/demangle-expected: Added testcase.
+
+Tue Dec 11 07:08:57 2001  Douglas B. Rupp  <rupp@gnat.com>
+
+	* configure.in: Hardcode that vfork works on VMS host.
+	* configure: Regenerated.
+
+2001-12-06  Richard Henderson  <rth@redhat.com>
+
+	* cplus-dem.c (libiberty_demanglers): Add no_demangling case.
+	(cplus_demangle): Support no_demangling.
+
+2001-11-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* _doprnt.c: Moved here from gcc/doprint.c.  Adjust to build
+	in libiberty context.  Fix typo in leading comment.
+	* configure.in: Fix various AC_DEFINEs so autoheader works.
+	If any of vprintf, vsprintf, vfprintf is missing from libc,
+	then AC_REPLACE_FUNCS(_doprnt).
+
+2001-11-26  DJ Delorie  <dj@redhat.com>
+	    Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.in (stamp-h): Depend on Makefile for proper
+	serialization.
+	(*-subdir): Depend on config.h for proper serialization.
+
+2001-11-26  DJ Delorie  <dj@redhat.com>
+
+	* configure.in: Check for alloca.h (for regex.c and putenv.c).
+	* configure: Regenerate.
+	* config.h: Add HAVE_ALLOCA_H.
+
+2001-11-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* regex.c: Check defined(__STDC__) || defined(ALMOST_STDC) ||
+	defined(HAVE_STRINGIZE) to determine whether ISO CPP token pasting
+	is available.
+
+Thu Nov 15 11:06:25 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* config.in (HAVE_UINTPTR_T): Provide autoconf stub.
+	* configure.in (HAVE_UINTPTR_T): Test for system defining
+	uintptr_t and define HAVE_UINTPTR_T appropriately.
+	* regex.c (uintptr_t): Do not provide a definition if the
+	system provided one.
+
+	* regex.c (PREFIX): Provide an alternate definition for
+	non-ANSI/ISO compilers.
+	(ARG_PREFIX): Likewise.
+
+2001-11-12  Jim Meyering  <meyering@lucent.com>
+
+	* obstack.c (_): Honor the setting of ENABLE_NLS.  Otherwise,
+	this code would end up calling gettext even in packages built
+	with --disable-nls.
+	* getopt.c (_): Likewise.
+	* regex.c (_): Likewise.
+
+2001-11-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.in: Cope with missing makeinfo.
+	* configure: Regenerate.
+
+2001-10-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* hex.c (hex_init): Provide empty stub.
+
+	* hex.c (hex_init): Delete.
+	(_hex_value): Const-ify and initialize at compile-time.
+
+2001-10-19  H.J. Lu <hjl@gnu.org>
+
+	* Makefile.in ($(TARGETLIB)): Also generate pic/$(TARGETLIB) if
+	necessary.
+
+2001-10-17  DJ Delorie  <dj@redhat.com>
+
+	* argv.c, asprintf.c, choose-temp.c, concat.c, cplus-dem.c,
+	ffs.c, fnmatch.txh, getruntime.c, make-temp-file.c,
+	mkstemps.c, pexecute.c, random.c, strsignal.c, vasprintf.c:
+	Improve manual formatting.
+	* functions.texi: Regenerate.
+
 2001-10-15  DJ Delorie  <dj@redhat.com>
 
 	* Makefile.in (TEXIFILES): Add fnmatch.txh.
@@ -10,7 +193,7 @@
 	documentation.
 	* fnmatch.txh: New.
 	* functions.texi: Regenerate.
-	
+
 2001-10-10  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* bcmp.c, setenv.c: Use "nonzero" instead of "non-zero".
@@ -71,10 +254,10 @@
 	* configure.in: Don't use in-tree texinfo, because libiberty must
 	be built before it.  Check for makeinfo version 4 or higher.
 	* functions.texi: Regenerate.
-	
+
 2001-09-20  DJ Delorie  <dj@redhat.com>
 	    Phil Edwards  <pedwards@disaster.jaj.com>
-	
+
 	* configure.in (MAKEINFO, PERL): Detect these.
 	(--enable-maintainer-mode): Add.
 	* configure: Regenerate.
@@ -96,7 +279,7 @@
 	tmpnam.c, vfork.c, vprintf.c, waitpid.c, xatexit.c, xexit.c,
 	xmalloc.c, xmemdup.c, xstrdup.c, xstrerror.c: Add or update
 	documentation.
-	
+
 2001-09-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* concat.c (reconcat): Fix for traditional C.
@@ -118,7 +301,7 @@
 
 	* asprintf.c: Don't define USE_STDARG.  Use VPARAMS, VA_OPEN,
 	VA_FIXEDARG & VA_CLOSE.
-	
+
 	* vasprintf.c: Check HAVE_STRING_H when including string.h.
 	(checkit): Delete redundant prototype.  Add ATTRIBUTE_PRINTF_1.
 	Use VA_OPEN, VA_FIXEDARG & VA_CLOSE.  Free allocated string.

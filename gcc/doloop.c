@@ -1,5 +1,5 @@
 /* Perform doloop optimizations
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -197,7 +197,7 @@ doloop_iterations_max (loop_info, mode, nonneg)
 	if (GET_CODE (max_value) == CONST_INT)
 	  umax = INTVAL (max_value);
 	else
-	  umax = ((unsigned)2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
+	  umax = ((unsigned) 2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
 
 	n_iterations_max = umax - umin;
 	break;
@@ -212,12 +212,12 @@ doloop_iterations_max (loop_info, mode, nonneg)
 	if (GET_CODE (min_value) == CONST_INT)
 	  smin = INTVAL (min_value);
 	else
-	  smin = -((unsigned)1 << (GET_MODE_BITSIZE (mode) - 1));
+	  smin = -((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1));
 
 	if (GET_CODE (max_value) == CONST_INT)
 	  smax = INTVAL (max_value);
 	else
-	  smax = ((unsigned)1 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
+	  smax = ((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
 
 	n_iterations_max = smax - smin;
 	break;
@@ -230,7 +230,7 @@ doloop_iterations_max (loop_info, mode, nonneg)
       else
 	/* We need to conservatively assume that we might have the maximum
 	   number of iterations without any additional knowledge.  */
-	n_iterations_max = ((unsigned)2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
+	n_iterations_max = ((unsigned) 2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
       break;
 
     default:
@@ -242,8 +242,8 @@ doloop_iterations_max (loop_info, mode, nonneg)
   /* If we know that the iteration count is non-negative then adjust
      n_iterations_max if it is so large that it appears negative.  */
   if (nonneg
-      && n_iterations_max > ((unsigned)1 << (GET_MODE_BITSIZE (mode) - 1)))
-    n_iterations_max = ((unsigned)1 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
+      && n_iterations_max > ((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1)))
+    n_iterations_max = ((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
 
   return n_iterations_max;
 }
@@ -308,8 +308,8 @@ doloop_valid_p (loop, jump_insn)
       return 0;
     }
 
- /* Some targets (eg, PPC) use the count register for branch on table
-    instructions.  ??? This should be a target specific check.  */
+  /* Some targets (eg, PPC) use the count register for branch on table
+     instructions.  ??? This should be a target specific check.  */
   if (loop_info->has_tablejump)
     {
       if (loop_dump_stream)
@@ -353,23 +353,38 @@ doloop_valid_p (loop, jump_insn)
       && ((loop_info->comparison_code == LEU
 	   && INTVAL (loop_info->increment) > 0)
 	  || (loop_info->comparison_code == GEU
-	      && INTVAL (loop_info->increment) < 0)))
+	      && INTVAL (loop_info->increment) < 0)
+	  || (loop_info->comparison_code == LTU
+	      && INTVAL (loop_info->increment) > 1)
+	  || (loop_info->comparison_code == GTU
+	      && INTVAL (loop_info->increment) < -1)))
     {
       /* If the comparison is LEU and the comparison value is UINT_MAX
 	 then the loop will not terminate.  Similarly, if the
 	 comparison code is GEU and the initial value is 0, the loop
 	 will not terminate.
 
-	 Note that with LE and GE, the loop behaviour can be
-	 implementation dependent if an overflow occurs, say between
-	 INT_MAX and INT_MAX + 1.  We thus don't have to worry about
-	 these two cases.
+	 If the absolute increment is not 1, the loop can be infinite
+	 even with LTU/GTU, e.g. for (i = 3; i > 0; i -= 2)
+
+	 Note that with LE and GE, the loop behaviour is undefined
+	 (C++ standard section 5 clause 5) if an overflow occurs, say
+	 between INT_MAX and INT_MAX + 1.  We thus don't have to worry
+	 about these two cases.
 
 	 ??? We could compute these conditions at run-time and have a
 	 additional jump around the loop to ensure an infinite loop.
 	 However, it is very unlikely that this is the intended
 	 behaviour of the loop and checking for these rare boundary
-	 conditions would pessimize all other code.  */
+	 conditions would pessimize all other code.
+
+	 If the loop is executed only a few times an extra check to
+	 restart the loop could use up most of the benefits of using a
+	 count register loop.  Note however, that normally, this
+	 restart branch would never execute, so it could be predicted
+	 well by the CPU.  We should generate the pessimistic code by
+	 default, and have an option, e.g. -funsafe-loops that would
+	 enable count-register loops in this case.  */
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,
 		 "Doloop: Possible infinite iteration case ignored.\n");
@@ -454,13 +469,13 @@ doloop_modify (loop, iterations, iterations_max,
       /* Determine if the iteration counter will be non-negative.
 	 Note that the maximum value loaded is iterations_max - 1.  */
       if ((unsigned HOST_WIDE_INT) INTVAL (iterations_max)
-	  <= ((unsigned)1 << (GET_MODE_BITSIZE (GET_MODE (counter_reg)) - 1)))
+	  <= ((unsigned) 1 << (GET_MODE_BITSIZE (GET_MODE (counter_reg)) - 1)))
 	nonneg = 1;
       break;
 
       /* Abort if an invalid doloop pattern has been generated.  */
     default:
-      abort();
+      abort ();
     }
 
   if (decrement_count)
@@ -596,6 +611,58 @@ doloop_modify_runtime (loop, iterations_max,
 			      copy_rtx (neg_inc ? final_value : initial_value),
 			      NULL_RTX, unsigned_p, OPTAB_LIB_WIDEN);
 
+  /* Some code transformations can result in code akin to
+
+	  tmp = i + 1;
+	  ...
+	  goto scan_start;
+	top:
+	  tmp = tmp + 1;
+	scan_start:
+	  i = tmp;
+	  if (i < n) goto top;
+
+     We'll have already detected this form of loop in scan_loop,
+     and set loop->top and loop->scan_start appropriately.
+
+     In this situation, we skip the increment the first time through
+     the loop, which results in an incorrect estimate of the number
+     of iterations.  Adjust the difference to compensate.  */
+  /* ??? Logically, it would seem this belongs in loop_iterations.
+     However, this causes regressions e.g. on x86 execute/20011008-3.c,
+     so I do not believe we've properly characterized the exact nature
+     of the problem.  In the meantime, this fixes execute/20011126-2.c
+     on ia64 and some Ada front end miscompilation on ppc.  */
+
+  if (loop->scan_start)
+    {
+      rtx iteration_var = loop_info->iteration_var;
+      struct loop_ivs *ivs = LOOP_IVS (loop);
+      struct iv_class *bl;
+
+      if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
+	bl = REG_IV_CLASS (ivs, REGNO (iteration_var));
+      else if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == GENERAL_INDUCT)
+	{
+	  struct induction *v = REG_IV_INFO (ivs, REGNO (iteration_var));
+	  bl = REG_IV_CLASS (ivs, REGNO (v->src_reg));
+	}
+      else
+	/* Iteration var must be an induction variable to get here.  */
+	abort ();
+
+      if (INSN_UID (bl->biv->insn) < max_uid_for_loop
+	  && INSN_LUID (bl->biv->insn) < INSN_LUID (loop->scan_start))
+	{
+	  if (loop_dump_stream)
+	    fprintf (loop_dump_stream,
+	         "Doloop: Basic induction var skips initial incr.\n");
+
+	  diff = expand_simple_binop (mode, PLUS, diff, increment, diff,
+				      unsigned_p, OPTAB_LIB_WIDEN);
+	}
+    }
+
   if (abs_inc * loop_info->unroll_number != 1)
     {
       int shift_count;
@@ -624,11 +691,11 @@ doloop_modify_runtime (loop, iterations_max,
 	  /* If (abs (final - initial) % (abs_inc * unroll_number)
 	       <= abs_inc * (unroll - 1)),
 	     jump past following increment instruction.  */
-	  label = gen_label_rtx();
+	  label = gen_label_rtx ();
 	  limit = abs_inc * (loop_info->unroll_number - 1);
 	  emit_cmp_and_jump_insns (extra, GEN_INT (limit),
 				   limit == 0 ? EQ : LEU, NULL_RTX,
-				   GET_MODE (extra), 0, 0, label);
+				   GET_MODE (extra), 0, label);
 	  JUMP_LABEL (get_last_insn ()) = label;
 	  LABEL_NUSES (label)++;
 
@@ -671,7 +738,7 @@ doloop_modify_runtime (loop, iterations_max,
 	  label = gen_label_rtx();
 	  emit_cmp_and_jump_insns (copy_rtx (initial_value),
 				   copy_rtx (loop_info->comparison_value),
-				   comparison_code, NULL_RTX, mode, 0, 0,
+				   comparison_code, NULL_RTX, mode, 0,
 				   label);
 	  JUMP_LABEL (get_last_insn ()) = label;
 	  LABEL_NUSES (label)++;

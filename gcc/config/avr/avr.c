@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
    This file is part of GNU CC.
@@ -61,6 +61,7 @@ void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
 static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 const struct attribute_spec avr_attribute_table[];
+static bool   avr_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -150,15 +151,23 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "avr3",      AVR3 },
   { "atmega103", AVR3 },
   { "atmega603", AVR3 },
+  { "at43usb320", AVR3 },
+  { "at76c711",  AVR3 },
     /* Enhanced, <= 8K.  */
   { "avr4",      AVR4 },
+  { "atmega8",   AVR4 },
   { "atmega83",  AVR4 },
   { "atmega85",  AVR4 },
     /* Enhanced, > 8K.  */
   { "avr5",      AVR5 },
+  { "atmega16",  AVR5 },
   { "atmega161", AVR5 },
   { "atmega163", AVR5 },
   { "atmega32",  AVR5 },
+  { "atmega323", AVR5 },
+  { "atmega64",  AVR5 },
+  { "atmega128", AVR5 },
+  { "at43usb355", AVR5 },
   { "at94k",     AVR5 },
     /* Assembler only.  */
   { "avr1",      AVR1 },
@@ -174,6 +183,11 @@ static const struct mcu_type_s avr_mcu_types[] = {
 int avr_case_values_threshold = 30000;
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER avr_assemble_integer
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE avr_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -194,7 +208,7 @@ avr_override_options ()
 
   if (!t->name)
     {
-      fprintf (stderr, "Unknown MCU `%s' specified\nKnown MCU names:\n",
+      fprintf (stderr, "unknown MCU `%s' specified\nKnown MCU names:\n",
 	       avr_mcu_name);
       for (t = avr_mcu_types; t->name; t++)
 	fprintf (stderr,"   %s\n", t->name);
@@ -1039,7 +1053,7 @@ print_operand (file, x, code)
       else if (code == 'o')
 	{
 	  if (GET_CODE (addr) != PLUS)
-	    fatal_insn ("Bad address, not (reg+disp):", addr);
+	    fatal_insn ("bad address, not (reg+disp):", addr);
 
 	  print_operand (file, XEXP (addr, 1), 0);
 	}
@@ -1047,7 +1061,7 @@ print_operand (file, x, code)
 	{
 	  print_operand_address (file, XEXP (addr,0));
 	  if (REGNO (XEXP (addr, 0)) == REG_X)
-	    fatal_insn ("Internal compiler bug.\nBad address:"
+	    fatal_insn ("internal compiler error.  Bad address:"
 			,addr);
 	  fputc ('+', file);
 	  print_operand (file, XEXP (addr,1), code);
@@ -1060,7 +1074,7 @@ print_operand (file, x, code)
       long val;
       REAL_VALUE_TYPE rv;
       if (GET_MODE (x) != SFmode)
-	fatal_insn ("Internal compiler bug. Unknown mode:", x);
+	fatal_insn ("internal compiler error.  Unknown mode:", x);
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       REAL_VALUE_TO_TARGET_SINGLE (rv, val);
       asm_fprintf (file, "0x%lx", val);
@@ -1358,7 +1372,7 @@ avr_simplify_comparision_p (mode, operator, x)
 {
   unsigned int max = (mode == QImode ? 0xff :
                       mode == HImode ? 0xffff :
-                      mode == SImode ? 0xffffffffU : 0);
+                      mode == SImode ? 0xffffffff : 0);
   if (max && operator && GET_CODE (x) == CONST_INT)
     {
       if (unsigned_condition (operator) != operator)
@@ -1768,7 +1782,7 @@ output_movhi (insn, operands, l)
       operands[1] = src;
       return "";
     }
-  fatal_insn ("Invalid insn:", insn);
+  fatal_insn ("invalid insn:", insn);
   return "";
 }
 
@@ -1805,7 +1819,7 @@ out_movqi_r_mr (insn, op, l)
 	{
 	  int disp = INTVAL (XEXP (x,1));
 	  if (REGNO (XEXP (x,0)) != REG_Y)
-	    fatal_insn ("Incorrect insn:",insn);
+	    fatal_insn ("incorrect insn:",insn);
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (src)))
 	    return *l = 3, (AS2 (adiw,r28,%o1-63) CR_TAB
@@ -1891,7 +1905,7 @@ out_movhi_r_mr (insn, op, l)
       if (disp > MAX_LD_OFFSET (GET_MODE (src)))
 	{
 	  if (REGNO (XEXP (base, 0)) != REG_Y)
-	    fatal_insn ("Incorrect insn:",insn);
+	    fatal_insn ("incorrect insn:",insn);
 	  
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (src)))
 	    return *l = 4, (AS2 (adiw,r28,%o1-62) CR_TAB
@@ -1940,7 +1954,7 @@ out_movhi_r_mr (insn, op, l)
   else if (GET_CODE (base) == PRE_DEC) /* (--R) */
     {
       if (reg_overlap_mentioned_p (dest, XEXP (base, 0)))
-	fatal_insn ("Incorrect insn:", insn);
+	fatal_insn ("incorrect insn:", insn);
 
       *l = 2;
       return (AS2 (ld,%B0,%1) CR_TAB
@@ -1949,7 +1963,7 @@ out_movhi_r_mr (insn, op, l)
   else if (GET_CODE (base) == POST_INC) /* (R++) */
     {
       if (reg_overlap_mentioned_p (dest, XEXP (base, 0)))
-	fatal_insn ("Incorrect insn:", insn);
+	fatal_insn ("incorrect insn:", insn);
 
       *l = 2;
       return (AS2 (ld,%A0,%1)  CR_TAB
@@ -1968,7 +1982,7 @@ out_movhi_r_mr (insn, op, l)
 	      AS2 (lds,%B0,%B1));
     }
   
-  fatal_insn ("Unknown move insn:",insn);
+  fatal_insn ("unknown move insn:",insn);
   return "";
 }
 
@@ -2047,7 +2061,7 @@ out_movsi_r_mr (insn, op, l)
       if (disp > MAX_LD_OFFSET (GET_MODE (src)))
 	{
 	  if (REGNO (XEXP (base, 0)) != REG_Y)
-	    fatal_insn ("Incorrect insn:",insn);
+	    fatal_insn ("incorrect insn:",insn);
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (src)))
 	    return *l = 6, (AS2 (adiw,r28,%o1-60) CR_TAB
@@ -2132,7 +2146,7 @@ out_movsi_r_mr (insn, op, l)
 		    AS2 (lds,%C0,%C1) CR_TAB
 		    AS2 (lds,%D0,%D1));
     
-  fatal_insn ("Unknown move insn:",insn);
+  fatal_insn ("unknown move insn:",insn);
   return "";
 }
 
@@ -2219,7 +2233,7 @@ out_movsi_mr_r (insn, op, l)
       if (disp > MAX_LD_OFFSET (GET_MODE (dest)))
 	{
 	  if (reg_base != REG_Y)
-	    fatal_insn ("Incorrect insn:",insn);
+	    fatal_insn ("incorrect insn:",insn);
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (dest)))
 	    return *l = 6, (AS2 (adiw,r28,%o0-60) CR_TAB
@@ -2290,7 +2304,7 @@ out_movsi_mr_r (insn, op, l)
 		  AS2 (st,%0,%B1) CR_TAB
 		  AS2 (st,%0,%C1) CR_TAB
 		  AS2 (st,%0,%D1));
-  fatal_insn ("Unknown move insn:",insn);
+  fatal_insn ("unknown move insn:",insn);
   return "";
 }
 
@@ -2480,7 +2494,7 @@ output_movsisf(insn, operands, l)
       operands[1] = src;
       return "";
     }
-  fatal_insn ("Invalid insn:", insn);
+  fatal_insn ("invalid insn:", insn);
   return "";
 }
 
@@ -2517,7 +2531,7 @@ out_movqi_mr_r (insn, op, l)
 	{
 	  int disp = INTVAL (XEXP (x,1));
 	  if (REGNO (XEXP (x,0)) != REG_Y)
-	    fatal_insn ("Incorrect insn:",insn);
+	    fatal_insn ("incorrect insn:",insn);
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (dest)))
 	    return *l = 3, (AS2 (adiw,r28,%o0-63) CR_TAB
@@ -2628,7 +2642,7 @@ out_movhi_mr_r (insn, op, l)
       if (disp > MAX_LD_OFFSET (GET_MODE (dest)))
 	{
 	  if (reg_base != REG_Y)
-	    fatal_insn ("Incorrect insn:",insn);
+	    fatal_insn ("incorrect insn:",insn);
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (dest)))
 	    return *l = 4, (AS2 (adiw,r28,%o0-62) CR_TAB
@@ -2672,7 +2686,7 @@ out_movhi_mr_r (insn, op, l)
   else if (GET_CODE (base) == POST_INC) /* (R++) */
     return *l=2, (AS2 (st,%0,%A1)  CR_TAB
 		  AS2 (st,%0,%B1));
-  fatal_insn ("Unknown move insn:",insn);
+  fatal_insn ("unknown move insn:",insn);
   return "";
 }
 
@@ -2908,7 +2922,7 @@ out_shift_with_cnt (template, insn, operands, len, t_len)
 	}
     }
   else
-    fatal_insn ("Bad shift insn:", insn);
+    fatal_insn ("bad shift insn:", insn);
 
   if (second_label)
     {
@@ -3024,7 +3038,7 @@ ashlqi3_out (insn, operands, len)
 	}
     }
   else if (CONSTANT_P (operands[2]))
-    fatal_insn ("Internal compiler bug.\nIncorrect shift:", insn);
+    fatal_insn ("internal compiler error.  Incorrect shift:", insn);
 
   out_shift_with_cnt (AS1 (lsl,%0),
 		      insn, operands, len, 1);
@@ -3454,7 +3468,7 @@ ashrqi3_out (insn, operands, len)
 	}
     }
   else if (CONSTANT_P (operands[2]))
-    fatal_insn ("Internal compiler bug.\nIncorrect shift:", insn);
+    fatal_insn ("internal compiler error.  Incorrect shift:", insn);
 
   out_shift_with_cnt (AS1 (asr,%0),
 		      insn, operands, len, 1);
@@ -3834,7 +3848,7 @@ lshrqi3_out (insn, operands, len)
 	}
     }
   else if (CONSTANT_P (operands[2]))
-    fatal_insn ("Internal compiler bug.\nIncorrect shift:", insn);
+    fatal_insn ("internal compiler error.  Incorrect shift:", insn);
   
   out_shift_with_cnt (AS1 (lsr,%0),
 		      insn, operands, len, 1);
@@ -4242,8 +4256,8 @@ adjust_insn_length (insn, len)
 	      if (GET_MODE (op[1]) == SImode)
 		len = (((mask & 0xff) != 0xff)
 		       + ((mask & 0xff00) != 0xff00)
-		       + ((mask & 0xff0000UL) != 0xff0000UL)
-		       + ((mask & 0xff000000UL) != 0xff000000UL));
+		       + ((mask & 0xff0000L) != 0xff0000L)
+		       + ((mask & 0xff000000L) != 0xff000000L));
 	      else if (GET_MODE (op[1]) == HImode)
 		len = (((mask & 0xff) != 0xff)
 		       + ((mask & 0xff00) != 0xff00));
@@ -4257,8 +4271,8 @@ adjust_insn_length (insn, len)
 	      if (GET_MODE (op[1]) == SImode)
 		len = (((mask & 0xff) != 0)
 		       + ((mask & 0xff00) != 0)
-		       + ((mask & 0xff0000UL) != 0)
-		       + ((mask & 0xff000000UL) != 0));
+		       + ((mask & 0xff0000L) != 0)
+		       + ((mask & 0xff000000L) != 0));
 	      else if (GET_MODE (op[1]) == HImode)
 		len = (((mask & 0xff) != 0)
 		       + ((mask & 0xff00) != 0));
@@ -4391,7 +4405,7 @@ _reg_unused_after (insn, reg)
 
       /* If this is a sequence, we must handle them all at once.
 	 We could have for instance a call that sets the target register,
-	 and a insn in a delay slot that uses the register.  In this case,
+	 and an insn in a delay slot that uses the register.  In this case,
 	 we must return 0.  */
       else if (code == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	{
@@ -4458,65 +4472,25 @@ _reg_unused_after (insn, reg)
   return 1;
 }
 
-/* Output rtx VALUE as .byte to file FILE */
+/* Target hook for assembling integer objects.  The AVR version needs
+   special handling for references to certain labels.  */
 
-void
-asm_output_char (file, value)
-     FILE *file;
-     rtx value;
+static bool
+avr_assemble_integer (x, size, aligned_p)
+     rtx x;
+     unsigned int size;
+     int aligned_p;
 {
-  fprintf (file, "\t.byte ");
-  output_addr_const (file, value);
-  fprintf (file, "\n");
-}
-
-
-/* Output VALUE as .byte to file FILE */
-
-void
-asm_output_byte (file, value)
-     FILE *file;
-     int value;
-{
-  fprintf (file, "\t.byte 0x%x\n", value & 0xff);
-}
-
-
-/* Output rtx VALUE as .word to file FILE */
-
-void
-asm_output_short (file, value)
-     FILE *file;
-     rtx value;
-{
-  if (SYMBOL_REF_FLAG (value) || GET_CODE (value) == LABEL_REF)
+  if (size == POINTER_SIZE / BITS_PER_UNIT && aligned_p
+      && ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
+	  || GET_CODE (x) == LABEL_REF))
     {
-      fprintf (file, "\t.word pm(");
-      output_addr_const (file, (value));
-      fprintf (file, ")\n");
+      fputs ("\t.word\tpm(", asm_out_file);
+      output_addr_const (asm_out_file, x);
+      fputs (")\n", asm_out_file);
+      return true;
     }
-  else
-    {
-      fprintf (file, "\t.word ");
-      output_addr_const (file, (value));
-      fprintf (file, "\n");
-    }
-}
-
-
-/* Output real N to file FILE */
-
-void
-asm_output_float (file, n)
-     FILE *file;
-     REAL_VALUE_TYPE n;
-{
-  long val;
-  char dstr[100];
-  
-  REAL_VALUE_TO_TARGET_SINGLE (n, val);
-  REAL_VALUE_TO_DECIMAL (n, "%g", dstr);
-  fprintf (file, "\t.long 0x%08lx\t/* %s */\n", val, dstr);
+  return default_assemble_integer (x, size, aligned_p);
 }
 
 /* Sets section name for declaration DECL */
@@ -4699,8 +4673,8 @@ avr_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
 	{
 	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
 	    {
-	      warning ("Only initialized variables can be placed into "
-		       "program memory area.");
+	      warning ("only initialized variables can be placed into "
+		       "program memory area");
 	      *no_add_attrs = true;
 	    }
 	}
@@ -5162,9 +5136,9 @@ mask_one_bit_p (mask)
   unsigned HOST_WIDE_INT n=mask;
   for (i = 0; i < 32; ++i)
     {
-      if (n & 0x80000000UL)
+      if (n & 0x80000000L)
 	{
-	  if (n & 0x7fffffffUL)
+	  if (n & 0x7fffffffL)
 	    return 0;
 	  else
 	    return 32-i;
@@ -5347,7 +5321,7 @@ output_reload_insisf (insn, operands, len)
 	*len = 4 + ((INTVAL (src) & 0xff) != 0)
 		+ ((INTVAL (src) & 0xff00) != 0)
 		+ ((INTVAL (src) & 0xff0000) != 0)
-		+ ((INTVAL (src) & 0xff000000U) != 0);
+		+ ((INTVAL (src) & 0xff000000) != 0);
       else
 	*len = 8;
 
@@ -5375,7 +5349,7 @@ output_reload_insisf (insn, operands, len)
       output_asm_insn (AS2 (ldi, %2, hlo8(%1)), operands);
       output_asm_insn (AS2 (mov, %C0, %2), operands);
     }
-  if (cnst && ((INTVAL (src) & 0xff000000U) == 0))
+  if (cnst && ((INTVAL (src) & 0xff000000) == 0))
     output_asm_insn (AS2 (mov, %D0, __zero_reg__), operands);
   else
     {

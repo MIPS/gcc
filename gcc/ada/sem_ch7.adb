@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.3 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -69,19 +69,19 @@ package body Sem_Ch7 is
    --  with the presence of two separate definitions for private types: the
    --  first is the private type declaration, and the second is the full type
    --  declaration. It is important that all references to the type point to
-   --  the same defining occurence, namely the first one. To enforce the two
+   --  the same defining occurrence, namely the first one. To enforce the two
    --  separate views of the entity, the corresponding information is swapped
    --  between the two declarations. Outside of the package, the defining
-   --  occurence only contains the private declaration information, while in
+   --  occurrence only contains the private declaration information, while in
    --  the private part and the body of the package the defining occurrence
    --  contains the full declaration. To simplify the swap, the defining
    --  occurrence that currently holds the private declaration points to the
-   --  full declaration. During semantic processing the defining occurence also
-   --  points to a list of private dependents, that is to say access types or
-   --  composite types whose designated types or component types are subtypes
-   --  or derived types of the private type in question. After the full decla-
-   --  ration has been seen, the private dependents are updated to indicate
-   --  that they have full definitions.
+   --  full declaration. During semantic processing the defining occurrence
+   --  also points to a list of private dependents, that is to say access types
+   --  or composite types whose designated types or component types are
+   --  subtypes or derived types of the private type in question. After the
+   --  full declaration has been seen, the private dependents are updated to
+   --  indicate that they have full definitions.
 
    -----------------------
    -- Local Subprograms --
@@ -151,7 +151,7 @@ package body Sem_Ch7 is
          Write_Eol;
       end if;
 
-      --  Set Body_Id. Note that this wil be reset to point to the
+      --  Set Body_Id. Note that this will be reset to point to the
       --  generic copy later on in the generic case.
 
       Body_Id := Defining_Entity (N);
@@ -1308,6 +1308,11 @@ package body Sem_Ch7 is
         No (Discriminant_Specifications (N))
           and then not Unknown_Discriminants_Present (N));
 
+      --  Set tagged flag before processing discriminants, to catch
+      --  illegal usage.
+
+      Set_Is_Tagged_Type (Id, Tagged_Present (Def));
+
       Set_Discriminant_Constraint (Id, No_Elist);
       Set_Girder_Constraint (Id, No_Elist);
 
@@ -1323,7 +1328,6 @@ package body Sem_Ch7 is
       Set_Private_Dependents (Id, New_Elmt_List);
 
       if Tagged_Present (Def) then
-         Set_Is_Tagged_Type       (Id, True);
          Set_Ekind                (Id, E_Record_Type_With_Private);
          Make_Class_Wide_Type     (Id);
          Set_Primitive_Operations (Id, New_Elmt_List);

@@ -23,7 +23,7 @@ Boston, MA 02111-1307, USA.  */
 /* Support generation of DWARF2 debugging info.  */
 #define DWARF2_DEBUGGING_INFO
 
-/* Don't assume anything about the header files. */
+/* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #define HANDLE_SYSV_PRAGMA
@@ -53,10 +53,6 @@ Boston, MA 02111-1307, USA.  */
 #undef IDENT_ASM_OP
 #define IDENT_ASM_OP "\t.ident\t"
 
-/* Define the name of the .int op.  */
-#undef INT_ASM_OP
-#define INT_ASM_OP "\t.long\t"
-
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP
 #define SET_ASM_OP "\t.set\t"
@@ -66,18 +62,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TEXT_SECTION_ASM_OP
 #define TEXT_SECTION_ASM_OP "\t.section .text"
 
-/* How to output an unaligned integer.  */
-#undef UNALIGNED_INT_ASM_OP
-#define UNALIGNED_INT_ASM_OP "\t.long\t"
-
-/* How to output an unaligned double length integer.  */
-#undef UNALIGNED_DOUBLE_INT_ASM_OP
-#define UNALIGNED_DOUBLE_INT_ASM_OP "\t.quad\t"
-
-/* How to output an unaligned half length intenger.  */
-#undef UNALIGNED_SHORT_ASM_OP
-#define UNALIGNED_SHORT_ASM_OP "\t.short\t"
-
 /* Define standard DJGPP installation paths.                             */
 /* We override default /usr or /usr/local part with /dev/env/DJDIR which */
 /* points to actual DJGPP instalation directory.                         */
@@ -86,7 +70,7 @@ Boston, MA 02111-1307, USA.  */
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR "/dev/env/DJDIR/include/"
 
-/* Search for as.exe and ld.exe in DJGPP's binary directory. */ 
+/* Search for as.exe and ld.exe in DJGPP's binary directory.  */ 
 #undef MD_EXEC_PREFIX
 #define MD_EXEC_PREFIX "/dev/env/DJDIR/bin/"
 
@@ -204,8 +188,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES \
-  { "no-bnu210", -MASK_BNU210, "Ignored (obsolete)." }, \
-  { "bnu210", MASK_BNU210, "Ignored (obsolete)." },
+  { "no-bnu210", -MASK_BNU210, "Ignored (obsolete)" }, \
+  { "bnu210", MASK_BNU210, "Ignored (obsolete)" },
 
 /* Warn that -mbnu210 is now obsolete.  */
 #undef  SUBTARGET_OVERRIDE_OPTIONS
@@ -214,7 +198,7 @@ do \
   { \
     if (target_flags & MASK_BNU210) \
       {	\
-        warning ("-mbnu210 is ignored (option is obsolete)."); \
+        warning ("-mbnu210 is ignored (option is obsolete)"); \
       }	\
   } \
 while (0)
@@ -231,6 +215,8 @@ do {								\
   char *string;							\
 								\
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
+  /* Strip off any encoding in fnname.  */                      \
+  STRIP_NAME_ENCODING (name, name);                             \
 								\
   if (! DECL_ONE_ONLY (DECL))					\
     {								\

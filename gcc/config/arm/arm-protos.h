@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_ARM_PROTOS_H
 #define GCC_ARM_PROTOS_H
 
+extern void   rdata_section		PARAMS ((void));
 extern void   arm_override_options	PARAMS ((void));
 extern int    use_return_insn		PARAMS ((int));
 extern int    arm_regno_class 		PARAMS ((int));
@@ -42,6 +43,7 @@ extern void   arm_encode_call_attribute	PARAMS ((tree, int));
 extern int    arm_function_ok_for_sibcall PARAMS ((tree));
 #endif
 #ifdef RTX_CODE
+extern int    arm_hard_regno_mode_ok	PARAMS ((unsigned int, enum machine_mode));
 extern int    const_ok_for_arm		PARAMS ((HOST_WIDE_INT));
 extern int    arm_split_constant	PARAMS ((RTX_CODE, enum machine_mode,
 						HOST_WIDE_INT, rtx, rtx, int));
@@ -121,7 +123,7 @@ extern const char * output_add_immediate PARAMS ((rtx *));
 extern const char * arithmetic_instr	PARAMS ((rtx, int));
 extern void   output_ascii_pseudo_op	PARAMS ((FILE *, const unsigned char *, int));
 extern const char * output_return_instruction PARAMS ((rtx, int, int));
-extern void   arm_poke_function_name	PARAMS ((FILE *, char *));
+extern void   arm_poke_function_name	PARAMS ((FILE *, const char *));
 extern void   arm_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   arm_print_operand_address	PARAMS ((FILE *, rtx));
 extern void   arm_final_prescan_insn	PARAMS ((rtx));
@@ -141,9 +143,11 @@ extern rtx    aof_pic_entry		PARAMS ((rtx));
 extern void   aof_dump_pic_table	PARAMS ((FILE *));
 extern char * aof_text_section		PARAMS ((void));
 extern char * aof_data_section		PARAMS ((void));
-extern void   aof_add_import		PARAMS ((char *));
-extern void   aof_delete_import		PARAMS ((char *));
+extern void   aof_add_import		PARAMS ((const char *));
+extern void   aof_delete_import		PARAMS ((const char *));
 extern void   aof_dump_imports		PARAMS ((FILE *));
+extern void   zero_init_section		PARAMS ((void));
+extern void   common_section		PARAMS ((void));
 #endif /* AOF_ASSEMBLER */
 
 #endif /* RTX_CODE */

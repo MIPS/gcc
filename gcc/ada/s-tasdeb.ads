@@ -6,9 +6,9 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                             $Revision: 1.1 $
+--                             $Revision$
 --                                                                          --
---          Copyright (C) 1997-1998, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2001, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -117,14 +117,14 @@ package System.Tasking.Debug is
    --  Suspend all the tasks except the one whose associated thread is
    --  Thread_Self by traversing All_Tasks_Lists and calling
    --  System.Task_Primitives.Operations.Suspend_Task
-   --  Such functionnality is needed by gdb on some targets (e.g VxWorks)
+   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
    --  Warning: for efficiency purposes, there is no locking.
 
    procedure Resume_All_Tasks (Thread_Self : OS_Interface.Thread_Id);
    --  Resume all the tasks except the one whose associated thread is
    --  Thread_Self by traversing All_Tasks_Lists and calling
    --  System.Task_Primitives.Operations.Continue_Task
-   --  Such functionnality is needed by gdb on some targets (e.g VxWorks)
+   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
    --  Warning: for efficiency purposes, there is no locking.
 
 end System.Tasking.Debug;

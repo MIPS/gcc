@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -143,6 +143,11 @@ package Opt is
    --  Set to True if the binder needs to generate a file designed for
    --  building a library. May be set to True by Gnatbind.Scan_Bind_Arg.
 
+   Bind_Only : Boolean := False;
+   --  GNATMAKE
+   --  Set to True to skip compile and link steps
+   --  (except when Compile_Only and/or Link_Only are True).
+
    Brief_Output : Boolean := False;
    --  GNAT, GNATBIND
    --  Force brief error messages to standard error, even if verbose mode is
@@ -188,7 +193,7 @@ package Opt is
 
    Compile_Only : Boolean := False;
    --  GNATMAKE
-   --  Set to True to skip bind and link step.
+   --  Set to True to skip bind and link steps (except when Bind_Only is True)
 
    Compress_Debug_Names : Boolean := False;
    --  GNATMAKE
@@ -331,6 +336,9 @@ package Opt is
    Force_RM_Elaboration_Order : Boolean := False;
    --  GNATBIND
    --  True if binding with forced RM elaboration order (-f switch set)
+   --  Note: this is considered an obsolescent option, to be removed in
+   --  some future release. it is no longer documented. The proper way
+   --  to get this effect is to use -gnatE and suppress elab checks.
 
    Full_List : Boolean := False;
    --  GNAT
@@ -425,6 +433,11 @@ package Opt is
    --  When True signals gnatmake to ignore compilation errors and keep
    --  processing sources until there is no more work.
 
+   Link_Only : Boolean := False;
+   --  GNATMAKE
+   --  Set to True to skip compile and bind steps
+   --  (except when Bind_Only is set to True).
+
    List_Units : Boolean := False;
    --  GNAT
    --  List units in the active library
@@ -456,6 +469,11 @@ package Opt is
    --  Set to False if a -I- was present on the command line.
    --  When True we are allowed to look in the primary directory to locate
    --  other source or library files.
+
+   Mapping_File_Name : String_Ptr := null;
+   --  GNAT
+   --  File name of mapping between unit names, file names and path names.
+   --  (given by switch -gnatem)
 
    Maximum_Errors : Int := 9999;
    --  GNAT, GNATBIND

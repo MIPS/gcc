@@ -74,6 +74,14 @@ static void ns32k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ns32k_attribute_table
 
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+
+#ifdef ENCORE_ASM
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.double\t"
+#endif
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE ns32k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -137,7 +145,6 @@ ns32k_output_function_prologue (file, size)
   register int regno, g_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[17], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   for (regno = R0_REGNUM; regno < F0_REGNUM; regno++)
     if (regs_ever_live[regno]
@@ -225,7 +232,6 @@ ns32k_output_function_prologue (file, size)
   register int regno, g_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[8], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   for (regno = 0; regno < 8; regno++)
     if (regs_ever_live[regno]
@@ -319,7 +325,6 @@ ns32k_output_function_epilogue (file, size)
   register int regno, g_regs_used = 0, f_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[17], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   if (flag_pic && current_function_uses_pic_offset_table)
     fprintf (file, "\tlprd sb,tos\n");
@@ -396,7 +401,6 @@ ns32k_output_function_epilogue (file, size)
   register int regno, g_regs_used = 0, f_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[8], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   *fbufp++ = -2;
   for (regno = 8; regno < 16; regno++)
@@ -1145,7 +1149,7 @@ print_operand (file, x, code)
 	  {
 	    union { float f; long l; } uu;
 	    uu.f = u.d;
-	    fprintf (file, "0Fx%08x", uu.l);
+	    fprintf (file, "0Fx%08lx", uu.l);
 	  }
 #else
 	  fprintf (file, "0f%.20e", u.d); 

@@ -1,3 +1,34 @@
+2002-02-05  Jason Merrill  <jason@redhat.com>
+
+	* demangle.h (cplus_demangle_v3): Add "options" parm.
+	(cplus_demangle_v3_type): Remove prototype.
+	(DMGL_VERBOSE): New macro.
+	(DMGL_TYPES): New macro.
+
+2002-02-02  H.J. Lu  (hjl@gnu.org)
+
+	* demangle.h (cplus_demangle_v3_type): New prototype.
+
+2002-01-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (C_alloca): Add ATTRIBUTE_MALLOC.
+
+2001-12-06  Richard Henderson  <rth@redhat.com>
+
+	* demangle.h (no_demangling): New.
+	(NO_DEMANGLING_STYLE_STRING): New.
+
+2001-10-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* safe-ctype.h (_sch_isbasic, IS_ISOBASIC): New.
+
+2001-10-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (hex_init): Revert delete.
+
+	* libiberty.h (_hex_value): Const-ify.
+	(hex_init): Delete.
+
 2001-10-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* demangle.h (demangler_engine): Const-ify.

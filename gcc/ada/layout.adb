@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --            Copyright (C) 2001 Free Software Foundation, Inc.             --
 --                                                                          --
@@ -39,7 +39,6 @@ with Repinfo;  use Repinfo;
 with Sem;      use Sem;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
-with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Snames;   use Snames;
@@ -525,13 +524,12 @@ package body Layout is
       end if;
 
       return
-        Convert_To (Standard_Unsigned,
-          Assoc_Add (Loc,
-            Left_Opnd =>
-              Assoc_Subtract (Loc,
-                Left_Opnd  => Hi_Op,
-                Right_Opnd => Lo_Op),
-            Right_Opnd => Make_Integer_Literal (Loc, 1)));
+        Assoc_Add (Loc,
+          Left_Opnd =>
+            Assoc_Subtract (Loc,
+              Left_Opnd  => Hi_Op,
+              Right_Opnd => Lo_Op),
+          Right_Opnd => Make_Integer_Literal (Loc, 1));
    end Compute_Length;
 
    ----------------------
@@ -579,20 +577,22 @@ package body Layout is
       Len  : Node_Id;
 
       type Val_Status_Type is (Const, Dynamic);
+
+      type Val_Type (Status : Val_Status_Type := Const) is
+         record
+            case Status is
+               when Const   => Val : Uint;
+               when Dynamic => Nod : Node_Id;
+            end case;
+         end record;
       --  Shows the status of the value so far. Const means that the value
-      --  is constant, and Sval is the current constant value. Dynamic means
-      --  that the value is dynamic, and in this case Snod is the Node_Id of
+      --  is constant, and Val is the current constant value. Dynamic means
+      --  that the value is dynamic, and in this case Nod is the Node_Id of
       --  the expression to compute the value.
 
-      Val_Status : Val_Status_Type;
-      --  Indicate status of value so far
-
-      Sval : Uint := Uint_0;
-      --  Calculated value so far if Val_Status = Const
-      --  (initialized to prevent junk warning)
-
-      Snod : Node_Id;
-      --  Expression value so far if Val_Status = Dynamic
+      Size : Val_Type;
+      --  Calculated value so far if Size.Status = Const,
+      --  or expression value so far if Size.Status = Dynamic.
 
       SU_Convert_Required : Boolean := False;
       --  This is set to True if the final result must be converted from
@@ -636,7 +636,7 @@ package body Layout is
          end if;
       end Min_Discrim;
 
-   --  Start of processing for Layout_Array_Type
+   --  Start of processing for Get_Max_Size
 
    begin
       pragma Assert (Size_Depends_On_Discriminant (E));
@@ -644,12 +644,10 @@ package body Layout is
       --  Initialize status from component size
 
       if Known_Static_Component_Size (E) then
-         Val_Status := Const;
-         Sval := Component_Size (E);
+         Size := (Const, Component_Size (E));
 
       else
-         Val_Status := Dynamic;
-         Snod := Expr_From_SO_Ref (Loc, Component_Size (E));
+         Size := (Dynamic, Expr_From_SO_Ref (Loc, Component_Size (E)));
       end if;
 
       --  Loop through indices
@@ -678,8 +676,8 @@ package body Layout is
 
             --  Current value is constant, evolve value
 
-            if Val_Status = Const then
-               Sval := Sval * S;
+            if Size.Status = Const then
+               Size.Val := Size.Val * S;
 
             --  Current value is dynamic
 
@@ -695,9 +693,9 @@ package body Layout is
                   SU_Convert_Required := False;
                end if;
 
-               Snod :=
+               Size.Nod :=
                  Assoc_Multiply (Loc,
-                   Left_Opnd  => Snod,
+                   Left_Opnd  => Size.Nod,
                    Right_Opnd =>
                      Make_Integer_Literal (Loc, Intval => S));
             end if;
@@ -712,16 +710,17 @@ package body Layout is
             --  we want to do the SU conversion after computing the size in
             --  this case.
 
-            if Val_Status = Const then
-               Val_Status := Dynamic;
+            if Size.Status = Const then
 
                --  If the current value is a multiple of the storage unit,
                --  then most certainly we can do the conversion now, simply
                --  by dividing the current value by the storage unit value.
                --  If this works, we set SU_Convert_Required to False.
 
-               if Sval mod SSU = 0 then
-                  Snod := Make_Integer_Literal (Loc, Sval / SSU);
+               if Size.Val mod SSU = 0 then
+
+                  Size :=
+                    (Dynamic, Make_Integer_Literal (Loc, Size.Val / SSU));
                   SU_Convert_Required := False;
 
                --  Otherwise, we go ahead and convert the value in bits,
@@ -729,7 +728,7 @@ package body Layout is
                --  final value is indeed properly converted.
 
                else
-                  Snod := Make_Integer_Literal (Loc, Sval);
+                  Size := (Dynamic, Make_Integer_Literal (Loc, Size.Val));
                   SU_Convert_Required := True;
                end if;
             end if;
@@ -748,6 +747,8 @@ package body Layout is
             begin
                Set_Parent (Len, E);
                Determine_Range (Len, OK, LLo, LHi);
+
+               Len := Convert_To (Standard_Unsigned, Len);
 
                --  If we cannot verify that range cannot be super-flat,
                --  we need a max with zero, since length must be non-neg.
@@ -771,8 +772,8 @@ package body Layout is
       --  Here after processing all bounds to set sizes. If the value is
       --  a constant, then it is bits, and we just return the value.
 
-      if Val_Status = Const then
-         return Make_Integer_Literal (Loc, Sval);
+      if Size.Status = Const then
+         return Make_Integer_Literal (Loc, Size.Val);
 
       --  Case where the value is dynamic
 
@@ -781,18 +782,18 @@ package body Layout is
 
          if SU_Convert_Required then
 
-            --  The expression required is (Snod + SU - 1) / SU
+            --  The expression required is (Size.Nod + SU - 1) / SU
 
-            Snod :=
+            Size.Nod :=
               Make_Op_Divide (Loc,
                 Left_Opnd =>
                   Make_Op_Add (Loc,
-                    Left_Opnd  => Snod,
+                    Left_Opnd  => Size.Nod,
                     Right_Opnd => Make_Integer_Literal (Loc, SSU - 1)),
                 Right_Opnd => Make_Integer_Literal (Loc, SSU));
          end if;
 
-         return Snod;
+         return Size.Nod;
       end if;
    end Get_Max_Size;
 
@@ -838,33 +839,40 @@ package body Layout is
       --  question, and whose body is the expression.
 
       type Val_Status_Type is (Const, Dynamic, Discrim);
-      --  Shows the status of the value so far. Const means that the value
-      --  is constant, and Sval is the current constant value. Dynamic means
-      --  that the value is dynamic, and in this case Snod is the Node_Id of
-      --  the expression to compute the value, and Discrim means that at least
-      --  one bound is a discriminant, in which case Snod is the expression so
-      --  far (which will be the body of the function).
 
-      Val_Status : Val_Status_Type;
-      --  Indicate status of value so far
+      type Val_Type (Status : Val_Status_Type := Const) is
+         record
+            case Status is
+               when Const =>
+                  Val : Uint;
+                  --  Calculated value so far if Val_Status = Const
 
-      Sval : Uint := Uint_0;
-      --  Calculated value so far if Val_Status = Const
-      --  Initialized to prevent junk warning
+               when Dynamic | Discrim =>
+                  Nod : Node_Id;
+                  --  Expression value so far if Val_Status /= Const
 
-      Snod : Node_Id;
-      --  Expression value so far if Val_Status /= Const
+            end case;
+         end record;
+      --  Records the value or expression computed so far. Const means that
+      --  the value is constant, and Val is the current constant value.
+      --  Dynamic means that the value is dynamic, and in this case Nod is
+      --  the Node_Id of the expression to compute the value, and Discrim
+      --  means that at least one bound is a discriminant, in which case Nod
+      --  is the expression so far (which will be the body of the function).
 
-      Vtyp : Entity_Id;
-      --  Variant record type for the formal parameter of the discriminant
-      --  function V if Val_Status = Discrim.
+      Size : Val_Type;
+      --  Value of size computed so far. See comments above.
+
+      Vtyp : Entity_Id := Empty;
+      --  Variant record type for the formal parameter of the
+      --  discriminant function V if Status = Discrim.
 
       SU_Convert_Required : Boolean := False;
       --  This is set to True if the final result must be converted from
       --  bits to storage units (rounding up to a storage unit boundary).
 
       procedure Discrimify (N : in out Node_Id);
-      --  If N represents a discriminant, then the Val_Status is set to
+      --  If N represents a discriminant, then the Size.Status is set to
       --  Discrim, and Vtyp is set. The parameter N is replaced with the
       --  proper expression to extract the discriminant value from V.
 
@@ -882,9 +890,9 @@ package body Layout is
          then
             Set_Size_Depends_On_Discriminant (E);
 
-            if Val_Status /= Discrim then
-               Val_Status := Discrim;
+            if Size.Status /= Discrim then
                Decl := Parent (Parent (Entity (N)));
+               Size := (Discrim, Size.Nod);
                Vtyp := Defining_Identifier (Decl);
             end if;
 
@@ -895,7 +903,13 @@ package body Layout is
                 Prefix        => Make_Identifier (Loc, Chars => Vname),
                 Selector_Name => New_Occurrence_Of (Entity (N), Loc));
 
-            Analyze_And_Resolve (N, Typ);
+            --  Set the Etype attributes of the selected name and its prefix.
+            --  Analyze_And_Resolve can't be called here because the Vname
+            --  entity denoted by the prefix will not yet exist (it's created
+            --  by SO_Ref_From_Expr, called at the end of Layout_Array_Type).
+
+            Set_Etype (Prefix (N), Vtyp);
+            Set_Etype (N, Typ);
          end if;
       end Discrimify;
 
@@ -939,12 +953,10 @@ package body Layout is
       --  Initialize status from component size
 
       if Known_Static_Component_Size (E) then
-         Val_Status := Const;
-         Sval := Component_Size (E);
+         Size := (Const, Component_Size (E));
 
       else
-         Val_Status := Dynamic;
-         Snod := Expr_From_SO_Ref (Loc, Component_Size (E));
+         Size := (Dynamic, Expr_From_SO_Ref (Loc, Component_Size (E)));
       end if;
 
       --  Loop to process array indices
@@ -972,8 +984,8 @@ package body Layout is
 
             --  If constant, evolve value
 
-            if Val_Status = Const then
-               Sval := Sval * S;
+            if Size.Status = Const then
+               Size.Val := Size.Val * S;
 
             --  Current value is dynamic
 
@@ -991,9 +1003,9 @@ package body Layout is
 
                --  Now go ahead and evolve the expression
 
-               Snod :=
+               Size.Nod :=
                  Assoc_Multiply (Loc,
-                   Left_Opnd  => Snod,
+                   Left_Opnd  => Size.Nod,
                    Right_Opnd =>
                      Make_Integer_Literal (Loc, Intval => S));
             end if;
@@ -1008,16 +1020,16 @@ package body Layout is
             --  we want to do the SU conversion after computing the size in
             --  this case.
 
-            if Val_Status = Const then
-               Val_Status := Dynamic;
+            if Size.Status = Const then
 
                --  If the current value is a multiple of the storage unit,
                --  then most certainly we can do the conversion now, simply
                --  by dividing the current value by the storage unit value.
                --  If this works, we set SU_Convert_Required to False.
 
-               if Sval mod SSU = 0 then
-                  Snod := Make_Integer_Literal (Loc, Sval / SSU);
+               if Size.Val mod SSU = 0 then
+                  Size :=
+                    (Dynamic, Make_Integer_Literal (Loc, Size.Val / SSU));
                   SU_Convert_Required := False;
 
                --  Otherwise, we go ahead and convert the value in bits,
@@ -1025,7 +1037,7 @@ package body Layout is
                --  final value is indeed properly converted.
 
                else
-                  Snod := Make_Integer_Literal (Loc, Sval);
+                  Size := (Dynamic, Make_Integer_Literal (Loc, Size.Val));
                   SU_Convert_Required := True;
                end if;
             end if;
@@ -1047,6 +1059,8 @@ package body Layout is
             begin
                Set_Parent (Len, E);
                Determine_Range (Len, OK, LLo, LHi);
+
+               Len := Convert_To (Standard_Unsigned, Len);
 
                --  If range definitely flat or superflat, result size is zero
 
@@ -1073,9 +1087,9 @@ package body Layout is
 
             --  At this stage, Len has the expression for the length
 
-            Snod :=
+            Size.Nod :=
               Assoc_Multiply (Loc,
-                Left_Opnd  => Snod,
+                Left_Opnd  => Size.Nod,
                 Right_Opnd => Len);
          end if;
 
@@ -1086,8 +1100,8 @@ package body Layout is
       --  a constant, then it is bits, and the only thing we need to do
       --  is to check against explicit given size and do alignment adjust.
 
-      if Val_Status = Const then
-         Set_And_Check_Static_Size (E, Sval, Sval);
+      if Size.Status = Const then
+         Set_And_Check_Static_Size (E, Size.Val, Size.Val);
          Adjust_Esize_Alignment (E);
 
       --  Case where the value is dynamic
@@ -1097,13 +1111,13 @@ package body Layout is
 
          if SU_Convert_Required then
 
-            --  The expression required is (Snod + SU - 1) / SU
+            --  The expression required is (Size.Nod + SU - 1) / SU
 
-            Snod :=
+            Size.Nod :=
               Make_Op_Divide (Loc,
                 Left_Opnd =>
                   Make_Op_Add (Loc,
-                    Left_Opnd  => Snod,
+                    Left_Opnd  => Size.Nod,
                     Right_Opnd => Make_Integer_Literal (Loc, SSU - 1)),
                 Right_Opnd => Make_Integer_Literal (Loc, SSU));
          end if;
@@ -1111,7 +1125,11 @@ package body Layout is
          --  Now set the dynamic size (the Value_Size is always the same
          --  as the Object_Size for arrays whose length is dynamic).
 
-         Set_Esize (E, SO_Ref_From_Expr (Snod, Insert_Typ, Vtyp));
+         --  ??? If Size.Status = Dynamic, Vtyp will not have been set.
+         --  The added initialization sets it to Empty now, but is this
+         --  correct?
+
+         Set_Esize (E, SO_Ref_From_Expr (Size.Nod, Insert_Typ, Vtyp));
          Set_RM_Size (E, Esize (E));
       end if;
    end Layout_Array_Type;
@@ -2042,7 +2060,7 @@ package body Layout is
 
       --  For access types, set size/alignment. This is system address
       --  size, except for fat pointers (unconstrained array access types),
-      --  where the size is two times the address size, to accomodate the
+      --  where the size is two times the address size, to accommodate the
       --  two pointers that are required for a fat pointer (data and
       --  template). Note that E_Access_Protected_Subprogram_Type is not
       --  an access type for this purpose since it is not a pointer but is
@@ -2072,7 +2090,7 @@ package body Layout is
 
          --  For other access types, we use either address size, or, if
          --  a fat pointer is used (pointer-to-unconstrained array case),
-         --  twice the address size to accomodate a fat pointer.
+         --  twice the address size to accommodate a fat pointer.
 
          else
             declare

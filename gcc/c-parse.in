@@ -50,7 +50,6 @@ end ifc
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "diagnostic.h"  
   
 #ifdef MULTIBYTE_CHARS
 #include <locale.h>
@@ -59,15 +58,6 @@ end ifc
 ifobjc
 #include "objc-act.h"
 end ifobjc
-
-/* Since parsers are distinct for each language, put the language string
-   definition here.  */
-ifobjc
-const char * const language_string = "GNU Objective-C";
-end ifobjc
-ifc
-const char * const language_string = "GNU C";
-end ifc
 
 /* Like YYERROR but do call yyerror.  */
 #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
@@ -121,7 +111,7 @@ end ifc
 %token SIZEOF ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
 %token BREAK CONTINUE RETURN GOTO ASM_KEYWORD TYPEOF ALIGNOF
 %token ATTRIBUTE EXTENSION LABEL
-%token REALPART IMAGPART VA_ARG
+%token REALPART IMAGPART VA_ARG CHOOSE_EXPR TYPES_COMPATIBLE_P
 %token PTR_VALUE PTR_BASE PTR_EXTENT
 
 /* function name can be a string const or a var decl. */
@@ -271,13 +261,17 @@ static tree declspec_stack;
 
 /* For __extension__, save/restore the warning flags which are
    controlled by __extension__.  */
-#define SAVE_WARN_FLAGS()	\
-	size_int (pedantic | (warn_pointer_arith << 1))
-#define RESTORE_WARN_FLAGS(tval) \
-  do {                                     \
-    int val = tree_low_cst (tval, 0);      \
-    pedantic = val & 1;                    \
-    warn_pointer_arith = (val >> 1) & 1;   \
+#define SAVE_WARN_FLAGS()			\
+	size_int (pedantic			\
+		  | (warn_pointer_arith << 1)	\
+		  | (warn_traditional << 2))
+
+#define RESTORE_WARN_FLAGS(tval)		\
+  do {						\
+    int val = tree_low_cst (tval, 0);		\
+    pedantic = val & 1;				\
+    warn_pointer_arith = (val >> 1) & 1;	\
+    warn_traditional = (val >> 2) & 1;		\
   } while (0)
 
 ifobjc
@@ -313,6 +307,8 @@ static void init_reswords PARAMS ((void));
 void
 c_parse_init ()
 {
+  init_reswords ();
+
   ggc_add_tree_root (&declspec_stack, 1);
   ggc_add_tree_root (&current_declspecs, 1);
   ggc_add_tree_root (&prefix_attributes, 1);
@@ -605,8 +601,7 @@ expr_no_commas:
 		{ char class;
 		  $$ = build_modify_expr ($1, NOP_EXPR, $3);
 		  class = TREE_CODE_CLASS (TREE_CODE ($$));
-		  if (class == 'e' || class == '1'
-		      || class == '2' || class == '<')
+		  if (IS_EXPR_CODE_CLASS (class))
 		    C_SET_EXP_ORIGINAL_CODE ($$, MODIFY_EXPR);
 		}
 	| expr_no_commas ASSIGN expr_no_commas
@@ -614,8 +609,7 @@ expr_no_commas:
 		  $$ = build_modify_expr ($1, $2, $3);
 		  /* This inhibits warnings in truthvalue_conversion.  */
 		  class = TREE_CODE_CLASS (TREE_CODE ($$));
-		  if (class == 'e' || class == '1'
-		      || class == '2' || class == '<')
+		  if (IS_EXPR_CODE_CLASS (class))
 		    C_SET_EXP_ORIGINAL_CODE ($$, ERROR_MARK);
 		}
 	;
@@ -637,34 +631,17 @@ primary:
 		  $2 = groktypename ($2);
 		  really_start_incremental_init ($2); }
 	  initlist_maybe_comma '}'  %prec UNARY
-		{ const char *name;
-		  tree result = pop_init_level (0);
+		{ tree constructor = pop_init_level (0);
 		  tree type = $2;
 		  finish_init ();
 
 		  if (pedantic && ! flag_isoc99)
 		    pedwarn ("ISO C89 forbids compound literals");
-		  if (TYPE_NAME (type) != 0)
-		    {
-		      if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-			name = IDENTIFIER_POINTER (TYPE_NAME (type));
-		      else
-			name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
-		    }
-		  else
-		    name = "";
-		  $$ = result;
-		  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-		    {
-		      int failure = complete_array_type (type, $$, 1);
-		      if (failure)
-			abort ();
-		    }
+		  $$ = build_compound_literal (type, constructor);
 		}
 	| '(' expr ')'
 		{ char class = TREE_CODE_CLASS (TREE_CODE ($2));
-		  if (class == 'e' || class == '1'
-		      || class == '2' || class == '<')
+		  if (IS_EXPR_CODE_CLASS (class))
 		    C_SET_EXP_ORIGINAL_CODE ($2, ERROR_MARK);
 		  $$ = $2; }
 	| '(' error ')'
@@ -696,6 +673,27 @@ primary:
 		{ $$ = build_function_call ($1, $3); }
 	| VA_ARG '(' expr_no_commas ',' typename ')'
 		{ $$ = build_va_arg ($3, groktypename ($5)); }
+
+      | CHOOSE_EXPR '(' expr_no_commas ',' expr_no_commas ',' expr_no_commas ')'
+		{
+                  tree c;
+
+                  c = fold ($3);
+                  STRIP_NOPS (c);
+                  if (TREE_CODE (c) != INTEGER_CST)
+                    error ("first argument to __builtin_choose_expr not a constant");
+                  $$ = integer_zerop (c) ? $7 : $5;
+		}
+      | TYPES_COMPATIBLE_P '(' typename ',' typename ')'
+		{
+		  tree e1, e2;
+
+		  e1 = TYPE_MAIN_VARIANT (groktypename ($3));
+		  e2 = TYPE_MAIN_VARIANT (groktypename ($5));
+
+		  $$ = comptypes (e1, e2)
+		    ? build_int_2 (1, 0) : build_int_2 (0, 0);
+		}
 	| primary '[' expr ']'   %prec '.'
 		{ $$ = build_array_ref ($1, $3); }
 	| primary '.' identifier
@@ -1812,7 +1810,7 @@ ifobjc
 		    $$ = get_class_ivars (interface);
 		  else
 		    {
-		      error ("Cannot find interface declaration for `%s'",
+		      error ("cannot find interface declaration for `%s'",
 			     IDENTIFIER_POINTER ($3));
 		      $$ = NULL_TREE;
 		    }
@@ -1913,13 +1911,8 @@ enumerator:
 
 typename:
 	  declspecs_nosc
-		{ tree specs, attrs;
-		  pending_xref_error ();
-		  split_specs_attrs ($1, &specs, &attrs);
-		  /* We don't yet support attributes here.  */
-		  if (attrs != NULL_TREE)
-		    warning ("attributes on type name ignored");
-		  $<ttype>$ = specs; }
+		{ pending_xref_error ();
+		  $<ttype>$ = $1; }
 	  absdcl
 		{ $$ = build_tree_list ($<ttype>2, $3); }
 	;
@@ -2179,6 +2172,7 @@ compstmt_primary_start:
 
 compstmt: compstmt_start compstmt_nostart
 		{ RECHAIN_STMTS ($1, COMPOUND_BODY ($1)); 
+		  last_expr_type = NULL_TREE;
                   $$ = $1; }
 	;
 
@@ -2193,13 +2187,23 @@ simple_if:
 	;
 
 if_prefix:
-	  IF '(' expr ')'
-		{ c_expand_start_cond (truthvalue_conversion ($3), 
-				       compstmt_count);
+	  /* We must build the IF_STMT node before parsing its
+	     condition so that STMT_LINENO refers to the line
+	     containing the "if", and not the line containing
+	     the close-parenthesis.
+
+	     c_begin_if_stmt returns the IF_STMT node, which
+	     we later pass to c_expand_start_cond to fill
+	     in the condition and other tidbits.  */
+          IF
+                { $<ttype>$ = c_begin_if_stmt (); }
+            '(' expr ')'
+		{ c_expand_start_cond (truthvalue_conversion ($4), 
+				       compstmt_count,$<ttype>2);
 		  $<itype>$ = stmt_count;
 		  if_stmt_file = $<filename>-2;
 		  if_stmt_line = $<lineno>-1; }
-	;
+        ;
 
 /* This is a subroutine of stmt.
    It is used twice, once for valid DO statements
@@ -2256,7 +2260,7 @@ lineno_stmt:
 		      /* ??? We currently have no way of recording
 			 the filename for a statement.  This probably
 			 matters little in practice at the moment,
-			 but I suspect that problems will ocurr when
+			 but I suspect that problems will occur when
 			 doing inlining at the tree level.  */
 		    }
 		}
@@ -2294,12 +2298,22 @@ select_or_iter_stmt:
    Otherwise a crash is likely.  */
 	| simple_if ELSE error
 		{ c_expand_end_cond (); }
+       /* We must build the WHILE_STMT node before parsing its
+	  condition so that STMT_LINENO refers to the line
+	  containing the "while", and not the line containing
+	  the close-parenthesis.
+
+	  c_begin_while_stmt returns the WHILE_STMT node, which
+	  we later pass to c_finish_while_stmt_cond to fill
+	  in the condition and other tidbits.  */
 	| WHILE
-                { stmt_count++; }
+                { stmt_count++; 
+		  $<ttype>$ = c_begin_while_stmt (); }
 	  '(' expr ')'
                 { $4 = truthvalue_conversion ($4);
-		  $<ttype>$ 
-		    = add_stmt (build_stmt (WHILE_STMT, $4, NULL_TREE)); }
+		  c_finish_while_stmt_cond (truthvalue_conversion ($4),
+					    $<ttype>2);
+		  $<ttype>$ = add_stmt ($<ttype>2); }
 	  c99_block_lineno_labeled_stmt
 		{ RECHAIN_STMTS ($<ttype>6, WHILE_BODY ($<ttype>6)); }
 	| do_stmt_start
@@ -2592,11 +2606,12 @@ setspecs_fp:
    where either a parmlist or an identifier list is ok.
    Its value is a list of ..._TYPE nodes or a list of identifiers.  */
 parmlist_or_identifiers:
+	  maybe_attribute
 		{ pushlevel (0);
 		  clear_parm_order ();
 		  declare_parm_level (1); }
 	  parmlist_or_identifiers_1
-		{ $$ = $2;
+		{ $$ = $3;
 		  parmlist_tags_warning ();
 		  poplevel (0, 0, 0); }
 	;
@@ -2608,7 +2623,15 @@ parmlist_or_identifiers_1:
 		  for (t = $1; t; t = TREE_CHAIN (t))
 		    if (TREE_VALUE (t) == NULL_TREE)
 		      error ("`...' in old-style identifier list");
-		  $$ = tree_cons (NULL_TREE, NULL_TREE, $1); }
+		  $$ = tree_cons (NULL_TREE, NULL_TREE, $1);
+
+		  /* Make sure we have a parmlist after attributes.  */
+		  if ($<ttype>-1 != 0
+		      && (TREE_CODE ($$) != TREE_LIST
+			  || TREE_PURPOSE ($$) == 0
+			  || TREE_CODE (TREE_PURPOSE ($$)) != PARM_DECL))
+		    YYERROR1;
+		}
 	;
 
 /* A nonempty list of identifiers.  */
@@ -2631,7 +2654,8 @@ extension:
 	EXTENSION
 		{ $$ = SAVE_WARN_FLAGS();
 		  pedantic = 0;
-		  warn_pointer_arith = 0; }
+		  warn_pointer_arith = 0;
+		  warn_traditional = 0; }
 	;
 
 ifobjc
@@ -3276,6 +3300,8 @@ static const struct resword reswords[] =
   { "__attribute__",	RID_ATTRIBUTE,	0 },
   { "__bounded",	RID_BOUNDED,	0 },
   { "__bounded__",	RID_BOUNDED,	0 },
+  { "__builtin_choose_expr", RID_CHOOSE_EXPR, 0 },
+  { "__builtin_types_compatible_p", RID_TYPES_COMPATIBLE_P, 0 },
   { "__builtin_va_arg",	RID_VA_ARG,	0 },
   { "__complex",	RID_COMPLEX,	0 },
   { "__complex__",	RID_COMPLEX,	0 },
@@ -3448,6 +3474,9 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_PTREXTENT */	PTR_EXTENT,
   /* RID_PTRVALUE */	PTR_VALUE,
 
+  /* RID_CHOOSE_EXPR */			CHOOSE_EXPR,
+  /* RID_TYPES_COMPATIBLE_P */		TYPES_COMPATIBLE_P,
+
   /* RID_FUNCTION_NAME */		STRING_FUNC_NAME,
   /* RID_PRETTY_FUNCTION_NAME */	STRING_FUNC_NAME,
   /* RID_C99_FUNCTION_NAME */		VAR_FUNC_NAME,
@@ -3540,29 +3569,6 @@ init_reswords ()
     }
 }
 
-const char *
-init_parse (filename)
-     const char *filename;
-{
-  add_c_tree_codes ();
-
-  /* Make identifier nodes long enough for the language-specific slots.  */
-  set_identifier_size (sizeof (struct lang_identifier));
-
-  init_reswords ();
-  init_pragma ();
-
-  return init_c_lex (filename);
-}
-
-void
-finish_parse ()
-{
-  cpp_finish (parse_in);
-  /* Call to cpp_destroy () omitted for performance reasons.  */
-  errorcount += cpp_errors (parse_in);
-}
-
 #define NAME(type) cpp_type2name (type)
 
 static void
@@ -3629,6 +3635,7 @@ end ifobjc
 	    const char *name = fname_string (rid_code);
 	  
 	    yylval.ttype = build_string (strlen (name) + 1, name);
+	    C_ARTIFICIAL_STRING_P (yylval.ttype) = 1;
 	    last_token = CPP_STRING;  /* so yyerror won't choke */
 	    return STRING;
 	  }
@@ -3800,13 +3807,13 @@ yylex()
    in order to build the compiler.  */
 
 void
-set_yydebug (value)
+c_set_yydebug (value)
      int value;
 {
 #if YYDEBUG != 0
   yydebug = value;
 #else
-  warning ("YYDEBUG not defined.");
+  warning ("YYDEBUG not defined");
 #endif
 }
 

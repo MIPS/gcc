@@ -57,12 +57,12 @@ Generate a unique temporary file name from @var{template}.
 @var{template} has the form:
 
 @example
-   <path>/ccXXXXXX<suffix>
+   @var{path}/ccXXXXXX@var{suffix}
 @end example
 
-@var{suffix_len} tells us how long <suffix> is (it can be zero
-length).  The last six characters of @var{template} before <suffix>
-must be @code{XXXXXX}; they are replaced with a string that makes the
+@var{suffix_len} tells us how long @var{suffix} is (it can be zero
+length).  The last six characters of @var{template} before @var{suffix}
+must be @samp{XXXXXX}; they are replaced with a string that makes the
 filename unique.  Returns a file descriptor open on the file for
 reading and writing.
 
@@ -121,7 +121,11 @@ mkstemps (template, suffix_len)
       v /= 62;
       XXXXXX[5] = letters[v % 62];
 
+#ifdef VMS
+      fd = open (template, O_RDWR|O_CREAT|O_EXCL, 0600, "fop=tmd");
+#else
       fd = open (template, O_RDWR|O_CREAT|O_EXCL, 0600);
+#endif
       if (fd >= 0)
 	/* The file does not exist.  */
 	return fd;

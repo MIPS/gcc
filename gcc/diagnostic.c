@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU C compiler
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -175,7 +175,7 @@ diagnostic_initialize (context)
   diagnostic_finalizer (context) = default_diagnostic_finalizer;
 }
 
-/* Returns true if BUFFER is in line-wrappind mode.  */
+/* Returns true if BUFFER is in line-wrapping mode.  */
 
 int
 output_is_line_wrapping (buffer)
@@ -202,7 +202,7 @@ set_real_maximum_length (buffer)
 {
   /* If we're told not to wrap lines then do the obvious thing.  In case
    we'll emit prefix only once per diagnostic message, it is appropriate
-  not to increase unncessarily the line-length cut-off.  */
+  not to increase unnecessarily the line-length cut-off.  */
   if (! output_is_line_wrapping (buffer)
       || diagnostic_prefixing_rule (buffer) == DIAGNOSTICS_SHOW_PREFIX_ONCE
       || diagnostic_prefixing_rule (buffer) == DIAGNOSTICS_SHOW_PREFIX_NEVER)
@@ -547,7 +547,7 @@ wrap_text (buffer, start, end)
   
   while (start != end)
     {
-      /* Dump anything bodered by whitespaces.  */ 
+      /* Dump anything bordered by whitespaces.  */ 
       {
         const char *p = start;
         while (p != end && *p != ' ' && *p != '\n')
@@ -722,7 +722,7 @@ output_format (buffer)
             if (*++output_buffer_text_cursor (buffer) != '*')
               abort ();
             else if (*++output_buffer_text_cursor (buffer) != 's')
-              abort();
+              abort ();
             n = va_arg (output_buffer_format_args (buffer), int);
             s = va_arg (output_buffer_format_args (buffer), const char *);
             output_append (buffer, s, s + n);
@@ -752,7 +752,7 @@ vbuild_message_string (msg, ap)
 }
 
 /*  Return a malloc'd string containing MSG formatted a la
-    printf.  The caller is reponsible for freeing the memory.  */
+    printf.  The caller is responsible for freeing the memory.  */
 
 static char *
 build_message_string VPARAMS ((const char *msg, ...))
@@ -867,8 +867,8 @@ format_with_decl (buffer, decl)
   if (*p == '%')		/* Print the name.  */
     {
       const char *const n = (DECL_NAME (decl)
-		 ? (*decl_printable_name) (decl, 2)
-		 : _("((anonymous))"));
+			     ? (*decl_printable_name) (decl, 2)
+			     : _("((anonymous))"));
       output_add_string (buffer, n);
       while (*p)
 	{
@@ -912,7 +912,7 @@ diagnostic_for_decl (decl, msgid, args_ptr, warn)
       output_buffer_ptr_to_format_args (diagnostic_buffer) = args_ptr;
       output_buffer_text_cursor (diagnostic_buffer) = _(msgid);
       format_with_decl (diagnostic_buffer, decl);
-      diagnostic_finish ((output_buffer *)global_dc);
+      diagnostic_finish ((output_buffer *) global_dc);
       output_destroy_prefix (diagnostic_buffer);
   
       output_buffer_state (diagnostic_buffer) = os;
@@ -979,7 +979,7 @@ fatal_io_error VPARAMS ((const char *msgid, ...))
   output_buffer_ptr_to_format_args (diagnostic_buffer) = &ap;
   output_buffer_text_cursor (diagnostic_buffer) = _(msgid);
   output_format (diagnostic_buffer);
-  diagnostic_finish ((output_buffer *)global_dc);
+  diagnostic_finish ((output_buffer *) global_dc);
   output_buffer_state (diagnostic_buffer) = os;
   VA_CLOSE (ap);
   exit (FATAL_EXIT_CODE);
@@ -1049,16 +1049,16 @@ sorry VPARAMS ((const char *msgid, ...))
   VA_OPEN (ap, msgid);
   VA_FIXEDARG (ap, const char *, msgid);
 
+  ++sorrycount;
   os = output_buffer_state (diagnostic_buffer);
 
-  ++sorrycount;
   output_set_prefix
     (diagnostic_buffer, context_as_prefix (input_filename, lineno, 0));
   output_printf (diagnostic_buffer, "sorry, not implemented: ");
   output_buffer_ptr_to_format_args (diagnostic_buffer) = &ap;
   output_buffer_text_cursor (diagnostic_buffer) = _(msgid);
   output_format (diagnostic_buffer);
-  diagnostic_finish ((output_buffer *)global_dc);
+  diagnostic_finish ((output_buffer *) global_dc);
   output_buffer_state (diagnostic_buffer) = os;
   VA_CLOSE (ap);
 }
@@ -1096,25 +1096,25 @@ default_print_error_function (context, file)
       output_state os;
 
       os = output_buffer_state (context);
-      output_set_prefix ((output_buffer *)context, prefix);
+      output_set_prefix ((output_buffer *) context, prefix);
       
       if (current_function_decl == NULL)
-          output_add_string ((output_buffer *)context, _("At top level:"));
+          output_add_string ((output_buffer *) context, _("At top level:"));
       else
 	{
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
             output_printf
-              ((output_buffer *)context, "In member function `%s':",
+              ((output_buffer *) context, "In member function `%s':",
                (*decl_printable_name) (current_function_decl, 2));
 	  else
             output_printf
-              ((output_buffer *)context, "In function `%s':",
+              ((output_buffer *) context, "In function `%s':",
                (*decl_printable_name) (current_function_decl, 2));
 	}
-      output_add_newline ((output_buffer *)context);
+      output_add_newline ((output_buffer *) context);
 
       record_last_error_function ();
-      output_buffer_to_stream ((output_buffer *)context);
+      output_buffer_to_stream ((output_buffer *) context);
       output_buffer_state (context) = os;
       free ((char*) prefix);
     }
@@ -1128,7 +1128,7 @@ void
 report_error_function (file)
   const char *file ATTRIBUTE_UNUSED;
 {
-  report_problematic_module ((output_buffer *)global_dc);
+  report_problematic_module ((output_buffer *) global_dc);
   (*print_error_function) (global_dc, input_filename);
 }
 
@@ -1221,12 +1221,14 @@ internal_error VPARAMS ((const char *msgid, ...))
   if (diagnostic_lock)
     error_recursion ();
 
+#ifndef ENABLE_CHECKING
   if (errorcount > 0 || sorrycount > 0)
     {
       fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
 	       input_filename, lineno);
       exit (FATAL_EXIT_CODE);
     }
+#endif
 
   if (internal_error_function != 0)
     (*internal_error_function) (_(msgid), &ap);
@@ -1296,7 +1298,7 @@ diagnostic_finish (buffer)
   fflush (output_buffer_attached_stream (buffer));
 }
 
-/* Helper subroutine of output_verbatim and verbatim. Do the approriate
+/* Helper subroutine of output_verbatim and verbatim. Do the appropriate
    settings needed by BUFFER for a verbatim formatting.  */
 
 static void
@@ -1366,7 +1368,7 @@ report_diagnostic (dc)
       (*diagnostic_starter (dc)) (diagnostic_buffer, dc);
       output_format (diagnostic_buffer);
       (*diagnostic_finalizer (dc)) (diagnostic_buffer, dc);
-      diagnostic_finish ((output_buffer *)global_dc);
+      diagnostic_finish ((output_buffer *) global_dc);
       output_buffer_state (diagnostic_buffer) = os;
     }
 
@@ -1382,7 +1384,7 @@ static void
 error_recursion ()
 {
   if (diagnostic_lock < 3)
-    diagnostic_finish ((output_buffer *)global_dc);
+    diagnostic_finish ((output_buffer *) global_dc);
 
   fnotice (stderr,
 	   "Internal compiler error: Error reporting routines re-entered.\n");
@@ -1519,4 +1521,42 @@ default_diagnostic_finalizer (buffer, dc)
      diagnostic_context *dc __attribute__((__unused__));
 {
   output_destroy_prefix (buffer);
+}
+
+void 
+warn_deprecated_use (node)
+     tree node;
+{
+  if (node == 0 || !warn_deprecated_decl)
+    return;
+
+  if (DECL_P (node))
+    warning ("`%s' is deprecated (declared at %s:%d)",
+	     IDENTIFIER_POINTER (DECL_NAME (node)),
+	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+  else if (TYPE_P (node))
+    {
+      const char *what = NULL;
+      tree decl = TYPE_STUB_DECL (node);
+
+      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	what = IDENTIFIER_POINTER (TYPE_NAME (node));
+      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+	       && DECL_NAME (TYPE_NAME (node)))
+	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+	
+      if (what)
+	{
+	  if (decl)
+	    warning ("`%s' is deprecated (declared at %s:%d)", what,
+		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	  else
+	    warning ("`%s' is deprecated", what);
+	}
+      else if (decl)
+	warning ("type is deprecated (declared at %s:%d)",
+		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+      else
+	warning ("type is deprecated");
+    }
 }

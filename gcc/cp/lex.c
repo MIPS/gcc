@@ -53,7 +53,6 @@ extern void yyprint PARAMS ((FILE *, int, YYSTYPE));
 
 static int interface_strcmp PARAMS ((const char *));
 static int *init_cpp_parse PARAMS ((void));
-static void init_reswords PARAMS ((void));
 static void init_cp_pragma PARAMS ((void));
 
 static tree parse_strconst_pragma PARAMS ((const char *, int));
@@ -71,6 +70,7 @@ static int token_cmp PARAMS ((int *, int *));
 #endif
 static int is_global PARAMS ((tree));
 static void init_operators PARAMS ((void));
+static void copy_lang_type PARAMS ((tree));
 
 /* A constraint that can be tested at compile time.  */
 #ifdef __STDC__
@@ -241,21 +241,17 @@ static const char *const cplus_tree_code_name[] = {
 void
 cxx_post_options ()
 {
-  cpp_post_options (parse_in);
+  c_common_post_options ();
 }
 
+/* Initialization before switch parsing.  */
 void
 cxx_init_options ()
 {
-  /* Make identifier nodes long enough for the language-specific slots.  */
-  set_identifier_size (sizeof (struct lang_identifier));
-
-  parse_in = cpp_create_reader (ident_hash, CLK_GNUCXX);
+  c_common_init_options (clk_cplusplus);
 
   /* Default exceptions on.  */
   flag_exceptions = 1;
-  /* Mark as "unspecified".  */
-  flag_bounds_check = -1;
   /* By default wrap lines at 80 characters.  Is getenv ("COLUMNS")
      preferable?  */
   diagnostic_line_cutoff (global_dc) = 80;
@@ -265,25 +261,9 @@ cxx_init_options ()
 }
 
 void
-cxx_init ()
-{
-  c_common_lang_init ();
-
-  if (flag_gnu_xref) GNU_xref_begin (input_filename);
-  init_repo (input_filename);
-}
-
-void
 cxx_finish ()
 {
-  if (flag_gnu_xref)
-    GNU_xref_end (errorcount+sorrycount);
-}
-
-const char *
-lang_identify ()
-{
-  return "cplusplus";
+  c_common_finish ();
 }
 
 static int *
@@ -581,6 +561,8 @@ const short rid_to_yy[RID_MAX] =
   /* RID_PTRBASE */	0,
   /* RID_PTREXTENT */	0,
   /* RID_PTRVALUE */	0,
+  /* RID_CHOOSE_EXPR */	0,
+  /* RID_TYPES_COMPATIBLE_P */ 0,
 
   /* RID_FUNCTION_NAME */	VAR_FUNC_NAME,
   /* RID_PRETTY_FUNCTION_NAME */ VAR_FUNC_NAME,
@@ -644,7 +626,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_AT_IMPLEMENTATION */	0
 };
 
-static void
+void
 init_reswords ()
 {
   unsigned int i;
@@ -684,17 +666,18 @@ init_cp_pragma ()
 		       handle_pragma_java_exceptions);
 }
 
+/* Initialize the C++ front end.  This function is very sensitive to
+   the exact order that things are done here.  It would be nice if the
+   initialization done by this routine were moved to its subroutines,
+   and the ordering dependencies clarified and reduced.  */
 const char *
-init_parse (filename)
+cxx_init (filename)
      const char *filename;
 {
   decl_printable_name = lang_printable_name;
-
   input_filename = "<internal>";
 
   init_reswords ();
-  init_pragma ();
-  init_cp_pragma ();
   init_spew ();
   init_tree ();
   init_cplus_expand ();
@@ -734,25 +717,23 @@ init_parse (filename)
   TREE_TYPE (enum_type_node) = enum_type_node;
   ridpointers[(int) RID_ENUM] = enum_type_node;
 
-  /* Create the built-in __null node.  Note that we can't yet call for
-     type_for_size here because integer_type_node and so forth are not
-     set up.  Therefore, we don't set the type of these nodes until
-     init_decl_processing.  */
+  cxx_init_decl_processing ();
+
+  /* Create the built-in __null node.  */
   null_node = build_int_2 (0, 0);
+  TREE_TYPE (null_node) = type_for_size (POINTER_SIZE, 0);
   ridpointers[RID_NULL] = null_node;
 
   token_count = init_cpp_parse ();
   interface_unknown = 1;
 
-  return init_c_lex (filename);
-}
+  filename = c_common_init (filename);
 
-void
-finish_parse ()
-{
-  cpp_finish (parse_in);
-  /* Call to cpp_destroy () omitted for performance reasons.  */
-  errorcount += cpp_errors (parse_in);
+  init_cp_pragma ();
+
+  init_repo (filename);
+
+  return filename;
 }
 
 inline void
@@ -795,7 +776,7 @@ yyprint (file, yychar, yylval)
       else if (yylval.ttype == enum_type_node)
 	fprintf (file, " `enum'");
       else
-	my_friendly_abort (80);
+	abort ();
       break;
 
     case CONSTANT:
@@ -915,14 +896,14 @@ print_parse_statistics ()
    in order to build the compiler.  */
 
 void
-set_yydebug (value)
+cxx_set_yydebug (value)
      int value;
 {
 #if YYDEBUG != 0
   extern int yydebug;
   yydebug = value;
 #else
-  warning ("YYDEBUG not defined.");
+  warning ("YYDEBUG not defined");
 #endif
 }
 
@@ -946,9 +927,6 @@ extract_interface_info ()
 
   interface_only = finfo->interface_only;
   interface_unknown = finfo->interface_unknown;
-
-  /* This happens to be a convenient place to put this.  */
-  if (flag_gnu_xref) GNU_xref_file (input_filename);
 }
 
 /* Return nonzero if S is not considered part of an
@@ -1015,7 +993,7 @@ check_for_missing_semicolon (type)
 	error ("semicolon missing after %s declaration",
 	       TREE_CODE (type) == ENUMERAL_TYPE ? "enum" : "struct");
       else
-	cp_error ("semicolon missing after declaration of `%T'", type);
+	error ("semicolon missing after declaration of `%T'", type);
       shadow_tag (build_tree_list (0, type));
     }
   /* Could probably also hack cases where class { ... } f (); appears.  */
@@ -1027,7 +1005,7 @@ note_got_semicolon (type)
      tree type;
 {
   if (!TYPE_P (type))
-    my_friendly_abort (60);
+    abort ();
   if (CLASS_TYPE_P (type))
     CLASSTYPE_GOT_SEMICOLON (type) = 1;
 }
@@ -1041,7 +1019,7 @@ note_list_got_semicolon (declspecs)
   for (link = declspecs; link; link = TREE_CHAIN (link))
     {
       tree type = TREE_VALUE (link);
-      if (TYPE_P (type))
+      if (type && TYPE_P (type))
 	note_got_semicolon (type);
     }
   clear_anon_tags ();
@@ -1230,6 +1208,9 @@ do_identifier (token, parsing, args)
   else
     id = lastiddecl;
 
+  if (lexing && id && TREE_DEPRECATED (id))
+    warn_deprecated_use (id);
+
   /* Do Koenig lookup if appropriate (inside templates we build lookup
      expressions instead).
 
@@ -1263,12 +1244,12 @@ do_identifier (token, parsing, args)
       else if (IDENTIFIER_OPNAME_P (token))
 	{
 	  if (token != ansi_opname (ERROR_MARK))
-	    cp_error ("`%D' not defined", token);
+	    error ("`%D' not defined", token);
 	  id = error_mark_node;
 	}
       else if (current_function_decl == 0)
 	{
-	  cp_error ("`%D' was not declared in this scope", token);
+	  error ("`%D' was not declared in this scope", token);
 	  id = error_mark_node;
 	}
       else
@@ -1278,7 +1259,7 @@ do_identifier (token, parsing, args)
 	    {
 	      static int undeclared_variable_notice;
 
-	      cp_error ("`%D' undeclared (first use this function)", token);
+	      error ("`%D' undeclared (first use this function)", token);
 
 	      if (! undeclared_variable_notice)
 		{
@@ -1393,7 +1374,7 @@ do_scoped_id (token, parsing)
 	  return id;
 	}
       if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node)
-        cp_error ("`::%D' undeclared (first use here)", token);
+        error ("`::%D' undeclared (first use here)", token);
       id = error_mark_node;
       /* Prevent repeated error messages.  */
       SET_IDENTIFIER_NAMESPACE_VALUE (token, error_mark_node);
@@ -1526,7 +1507,7 @@ retrofit_lang_decl (t)
     SET_DECL_LANGUAGE (t, lang_c);
   else if (current_lang_name == lang_name_java)
     SET_DECL_LANGUAGE (t, lang_java);
-  else my_friendly_abort (64);
+  else abort ();
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)lang_decl] += 1;
@@ -1573,7 +1554,7 @@ copy_decl (decl)
 
 /* Replace the shared language-specific parts of NODE with a new copy.  */
 
-void
+static void
 copy_lang_type (node)
      tree node;
 {
@@ -1699,6 +1680,6 @@ cp_type_qual_from_rid (rid)
   else if (rid == ridpointers[(int) RID_RESTRICT])
     return TYPE_QUAL_RESTRICT;
 
-  my_friendly_abort (0);
+  abort ();
   return TYPE_UNQUALIFIED;
 }

@@ -1,6 +1,6 @@
 /* Functions dealing with attribute handling, used by most front ends.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,6 +49,10 @@ static tree handle_common_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_noreturn_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_noinline_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
+static tree handle_used_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
 static tree handle_unused_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_const_attribute	PARAMS ((tree *, tree, tree, int,
@@ -72,14 +76,17 @@ static tree handle_alias_attribute	PARAMS ((tree *, tree, tree, int,
 static tree handle_no_instrument_function_attribute PARAMS ((tree *, tree,
 							     tree, int,
 							     bool *));
-static tree handle_no_check_memory_usage_attribute PARAMS ((tree *, tree, tree,
-							    int, bool *));
 static tree handle_malloc_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_no_limit_stack_attribute PARAMS ((tree *, tree, tree, int,
 						     bool *));
 static tree handle_pure_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_deprecated_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
+static tree handle_vector_size_attribute PARAMS ((tree *, tree, tree, int,
+						  bool *));
+static tree vector_size_helper PARAMS ((tree, tree));
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 static const struct attribute_spec c_common_attribute_table[] =
@@ -100,6 +107,10 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_noreturn_attribute },
   { "volatile",               0, 0, true,  false, false,
 			      handle_noreturn_attribute },
+  { "noinline",               0, 0, true,  false, false,
+			      handle_noinline_attribute },
+  { "used",                   0, 0, true,  false, false,
+			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
 			      handle_unused_attribute },
   /* The same comments as for noreturn attributes apply to const ones.  */
@@ -111,7 +122,7 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_constructor_attribute },
   { "destructor",             0, 0, true,  false, false,
 			      handle_destructor_attribute },
-  { "mode",                   1, 1, true,  false, false,
+  { "mode",                   1, 1, false,  true, false,
 			      handle_mode_attribute },
   { "section",                1, 1, true,  false, false,
 			      handle_section_attribute },
@@ -123,14 +134,16 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_alias_attribute },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute },
-  { "no_check_memory_usage",  0, 0, true,  false, false,
-			      handle_no_check_memory_usage_attribute },
   { "malloc",                 0, 0, true,  false, false,
 			      handle_malloc_attribute },
   { "no_stack_limit",         0, 0, true,  false, false,
 			      handle_no_limit_stack_attribute },
   { "pure",                   0, 0, true,  false, false,
 			      handle_pure_attribute },
+  { "deprecated",             0, 0, false, false, false,
+			      handle_deprecated_attribute },
+  { "vector_size",	      1, 1, false, true, false,
+			      handle_vector_size_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -244,7 +257,7 @@ init_attributes ()
    a decl attribute to the declaration rather than to its type).  If
    ATTR_FLAG_BUILT_IN is not set and *NODE is a DECL, then also consider
    whether there might be some default attributes to apply to this DECL;
-   if so, decl_attributes will be called recusrively with those attributes
+   if so, decl_attributes will be called recursively with those attributes
    and ATTR_FLAG_BUILT_IN set.  */
 
 tree
@@ -325,8 +338,15 @@ decl_attributes (node, attributes, flags)
 	    }
 	}
 
+      /* If we require a type, but were passed a decl, set up to make a
+	 new type and update the one in the decl.  ATTR_FLAG_TYPE_IN_PLACE
+	 would have applied if we'd been passed a type, but we cannot modify
+	 the decl's type in place here.  */
       if (spec->type_required && DECL_P (*anode))
-	anode = &TREE_TYPE (*anode);
+	{
+	  anode = &TREE_TYPE (*anode);
+	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
+	}
 
       if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
 	  && TREE_CODE (*anode) != METHOD_TYPE)
@@ -359,6 +379,18 @@ decl_attributes (node, attributes, flags)
 	returned_attrs = chainon ((*spec->handler) (anode, name, args,
 						    flags, &no_add_attrs),
 				  returned_attrs);
+
+      /* Layout the decl in case anything changed.  */
+      if (spec->type_required && DECL_P (*node)
+	  && TREE_CODE (*node) == VAR_DECL)
+	{
+	  /* Force a recalculation of mode and size.  */
+	  DECL_MODE (*node) = VOIDmode;
+	  DECL_SIZE (*node) = 0;
+
+	  layout_decl (*node, 0);
+	}
+
       if (!no_add_attrs)
 	{
 	  tree old_attrs;
@@ -500,6 +532,51 @@ handle_noreturn_attribute (node, name, args, flags, no_add_attrs)
       = build_pointer_type
 	(build_type_variant (TREE_TYPE (type),
 			     TREE_READONLY (TREE_TYPE (type)), 1));
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "noinline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noinline_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    DECL_UNINLINABLE (*node) = 1;
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "used" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_used_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (*node))
+      = TREE_USED (*node) = 1;
   else
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
@@ -695,8 +772,7 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
      int flags ATTRIBUTE_UNUSED;
      bool *no_add_attrs;
 {
-  tree decl = *node;
-  tree type = TREE_TYPE (decl);
+  tree type = *node;
 
   *no_add_attrs = true;
 
@@ -720,7 +796,7 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 	  p = newp;
 	}
 
-      /* Give this decl a type with the specified mode.
+      /* Change this type to have a type with the specified mode.
 	 First check for the special modes.  */
       if (! strcmp (p, "byte"))
 	mode = byte_mode;
@@ -739,12 +815,8 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 					     TREE_UNSIGNED (type))))
 	error ("no data type for mode `%s'", p);
       else
-	{
-	  TREE_TYPE (decl) = type = typefm;
-	  DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = 0;
-	  if (TREE_CODE (decl) != FIELD_DECL)
-	    layout_decl (decl, 0);
-	}
+	*node = typefm;
+        /* No need to layout the type here.  The caller should do this.  */
     }
 
   return NULL_TREE;
@@ -991,39 +1063,6 @@ handle_no_instrument_function_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
-/* Handle a "no_check_memory_usage" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-handle_no_check_memory_usage_attribute (node, name, args, flags, no_add_attrs)
-     tree *node;
-     tree name;
-     tree args ATTRIBUTE_UNUSED;
-     int flags ATTRIBUTE_UNUSED;
-     bool *no_add_attrs;
-{
-  tree decl = *node;
-
-  if (TREE_CODE (decl) != FUNCTION_DECL)
-    {
-      error_with_decl (decl,
-		       "`%s' attribute applies only to functions",
-		       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-  else if (DECL_INITIAL (decl))
-    {
-      error_with_decl (decl,
-		       "can't set `%s' attribute after definition",
-		       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-  else
-    DECL_NO_CHECK_MEMORY_USAGE (decl) = 1;
-
-  return NULL_TREE;
-}
-
 /* Handle a "malloc" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -1101,6 +1140,191 @@ handle_pure_attribute (node, name, args, flags, no_add_attrs)
     }
 
   return NULL_TREE;
+}
+
+/* Handle a "deprecated" attribute; arguments as in
+   struct attribute_spec.handler.  */
+   
+static tree
+handle_deprecated_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags;
+     bool *no_add_attrs;
+{
+  tree type = NULL_TREE;
+  int warn = 0;
+  const char *what = NULL;
+  
+  if (DECL_P (*node))
+    {
+      tree decl = *node;
+      type = TREE_TYPE (decl);
+      
+      if (TREE_CODE (decl) == TYPE_DECL
+	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == FIELD_DECL)
+	TREE_DEPRECATED (decl) = 1;
+      else
+	warn = 1;
+    }
+  else if (TYPE_P (*node))
+    {
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	*node = build_type_copy (*node);
+      TREE_DEPRECATED (*node) = 1;
+      type = *node;
+    }
+  else
+    warn = 1;
+  
+  if (warn)
+    {
+      *no_add_attrs = true;
+      if (type && TYPE_NAME (type))
+	{
+	  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+	    what = IDENTIFIER_POINTER (TYPE_NAME (*node));
+	  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+		   && DECL_NAME (TYPE_NAME (type)))
+	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+	}
+      if (what)
+	warning ("`%s' attribute ignored for `%s'",
+		  IDENTIFIER_POINTER (name), what);
+      else
+	warning ("`%s' attribute ignored", 
+		      IDENTIFIER_POINTER (name));
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "vector_size" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  unsigned HOST_WIDE_INT vecsize, nunits;
+  enum machine_mode mode, orig_mode, new_mode;
+  tree type = *node, new_type;
+
+  *no_add_attrs = true;
+
+  if (! host_integerp (TREE_VALUE (args), 1))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      return NULL_TREE;
+    }
+
+  /* Get the vector size (in bytes).  */
+  vecsize = tree_low_cst (TREE_VALUE (args), 1);
+
+  /* We need to provide for vector pointers, vector arrays, and
+     functions returning vectors.  For example:
+
+       __attribute__((vector_size(16))) short *foo;
+
+     In this case, the mode is SI, but the type being modified is
+     HI, so we need to look further.  */
+
+  while (POINTER_TYPE_P (type)
+	 || TREE_CODE (type) == FUNCTION_TYPE
+	 || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  /* Get the mode of the type being modified.  */
+  orig_mode = TYPE_MODE (type);
+
+  if (TREE_CODE (type) == RECORD_TYPE
+      || (GET_MODE_CLASS (orig_mode) != MODE_FLOAT
+	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
+      || ! host_integerp (TYPE_SIZE_UNIT (type), 1))
+    {
+      error ("invalid vector type for attribute `%s'",
+	     IDENTIFIER_POINTER (name));
+      return NULL_TREE;
+    }
+
+  /* Calculate how many units fit in the vector.  */
+  nunits = vecsize / tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+
+  /* Find a suitably sized vector.  */
+  new_mode = VOIDmode;
+  for (mode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_mode) == MODE_INT
+					? MODE_VECTOR_INT
+					: MODE_VECTOR_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    if (vecsize == GET_MODE_SIZE (mode)
+	&& nunits == (unsigned HOST_WIDE_INT) GET_MODE_NUNITS (mode))
+      {
+	new_mode = mode;
+	break;
+      }
+
+  if (new_mode == VOIDmode)
+    error ("no vector mode with the size and type specified could be found");
+  else
+    {
+      new_type = type_for_mode (new_mode, TREE_UNSIGNED (type));
+      if (!new_type)
+	error ("no vector mode with the size and type specified could be found");
+      else
+	/* Build back pointers if needed.  */
+	*node = vector_size_helper (*node, new_type);
+    }
+    
+  return NULL_TREE;
+}
+
+/* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
+   better way.
+
+   If we requested a pointer to a vector, build up the pointers that
+   we stripped off while looking for the inner type.  Similarly for
+   return values from functions.
+
+   The argument "type" is the top of the chain, and "bottom" is the
+   new type which we will point to.  */
+
+static tree
+vector_size_helper (type, bottom)
+     tree type, bottom;
+{
+  tree inner, outer;
+
+  if (POINTER_TYPE_P (type))
+    {
+      inner = vector_size_helper (TREE_TYPE (type), bottom);
+      outer = build_pointer_type (inner);
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      inner = vector_size_helper (TREE_TYPE (type), bottom);
+      outer = build_array_type (inner, TYPE_VALUES (type));
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      inner = vector_size_helper (TREE_TYPE (type), bottom);
+      outer = build_function_type (inner, TYPE_VALUES (type));
+    }
+  else
+    return bottom;
+  
+  TREE_READONLY (outer) = TREE_READONLY (type);
+  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
+
+  return outer;
 }
 
 /* Split SPECS_ATTRS, a list of declspecs and prefix attributes, into two

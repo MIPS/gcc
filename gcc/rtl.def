@@ -73,6 +73,11 @@ DEF_RTL_EXPR(UNKNOWN, "UnKnown", "*", 'x')
 
 DEF_RTL_EXPR(NIL, "nil", "*", 'x')
 
+
+/* include a file */
+
+DEF_RTL_EXPR(INCLUDE, "include", "s", 'x')
+
 /* ---------------------------------------------------------------------
    Expressions used in constructing lists.
    --------------------------------------------------------------------- */
@@ -200,8 +205,9 @@ DEF_RTL_EXPR(DEFINE_PEEPHOLE, "define_peephole", "EsTV", 'x')
    3rd operand: vector of insn patterns to place into a SEQUENCE
    4th operand: optionally, some C code to execute before generating the
 	insns.  This might, for example, create some RTX's and store them in
-	elements of `recog_operand' for use by the vector of insn-patterns.
-	(`operands' is an alias here for `recog_operand').   */
+	elements of `recog_data.operand' for use by the vector of
+	insn-patterns.
+	(`operands' is an alias here for `recog_data.operand').   */
 DEF_RTL_EXPR(DEFINE_SPLIT, "define_split", "EsES", 'x')
 
 /* Definition of an insn and associated split.
@@ -226,8 +232,9 @@ DEF_RTL_EXPR(DEFINE_SPLIT, "define_split", "EsES", 'x')
    5: vector of insn patterns to place into a SEQUENCE
    6: optionally, some C code to execute before generating the
 	insns.  This might, for example, create some RTX's and store them in
-	elements of `recog_operand' for use by the vector of insn-patterns.
-	(`operands' is an alias here for `recog_operand').  
+	elements of `recog_data.operand' for use by the vector of
+	insn-patterns.
+	(`operands' is an alias here for `recog_data.operand').  
    7: optionally, a vector of attributes for this insn.  */
 DEF_RTL_EXPR(DEFINE_INSN_AND_SPLIT, "define_insn_and_split", "sEsTsESV", 'x')
 
@@ -242,13 +249,14 @@ DEF_RTL_EXPR(DEFINE_COMBINE, "define_combine", "Ess", 'x')
 /* Define how to generate multiple insns for a standard insn name.
    1st operand: the insn name.
    2nd operand: vector of insn-patterns.
-	Use match_operand to substitute an element of `recog_operand'.
+	Use match_operand to substitute an element of `recog_data.operand'.
    3rd operand: C expression that must be true for this to be available.
 	This may not test any operands.
    4th operand: Extra C code to execute before generating the insns.
 	This might, for example, create some RTX's and store them in
-	elements of `recog_operand' for use by the vector of insn-patterns.
-	(`operands' is an alias here for `recog_operand').  */
+	elements of `recog_data.operand' for use by the vector of
+	insn-patterns.
+	(`operands' is an alias here for `recog_data.operand').  */
 DEF_RTL_EXPR(DEFINE_EXPAND, "define_expand", "sEss", 'x')
    
 /* Define a requirement for delay slots.
@@ -647,6 +655,17 @@ DEF_RTL_EXPR(ADDR_VEC, "addr_vec", "E", 'x')
      
 DEF_RTL_EXPR(ADDR_DIFF_VEC, "addr_diff_vec", "eEee0", 'x')
 
+/* Memory prefetch, with attributes supported on some targets.
+   Operand 1 is the address of the memory to fetch.
+   Operand 2 is 1 for a write access, 0 otherwise.
+   Operand 3 is the level of temporal locality; 0 means there is no
+   temporal locality and 1, 2, and 3 are for increasing levels of temporal
+   locality.
+
+   The attributes specified by operands 2 and 3 are ignored for targets
+   whose prefetch instructions do not support them.  */
+DEF_RTL_EXPR(PREFETCH, "prefetch", "eee", 'x')
+
 /* ----------------------------------------------------------------------
    At the top level of an instruction (perhaps under PARALLEL).
    ---------------------------------------------------------------------- */
@@ -698,10 +717,7 @@ DEF_RTL_EXPR(RESX, "resx", "i", 'x')
 DEF_RTL_EXPR(CONST_INT, "const_int", "w", 'o')
 
 /* numeric floating point constant.
-   Operand 0 ('e') is the MEM that stores this constant in memory, or
-   various other things (see comments at immed_double_const in
-   varasm.c).
-   Operand 1 ('0') is a chain of all CONST_DOUBLEs in use in the
+   Operand 0 ('0') is a chain of all CONST_DOUBLEs in use in the
    current function.
    Remaining operands hold the actual value.  They are all 'w' and
    there may be from 1 to 4; see rtl.c.  */

@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler for
    Motorola m88100 in an 88open OCS/BCS environment.
-   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
-   Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    Currently maintained by (gcc@dg-rtp.dg.com)
 
@@ -292,11 +292,11 @@ extern int flag_pic;				/* -fpic */
       {									     \
 	const char *p = m88k_short_data;				     \
 	while (*p)							     \
-	  if (*p >= '0' && *p <= '9')					     \
+	  if (ISDIGIT (*p))						     \
 	    p++;							     \
 	  else								     \
 	    {								     \
-	      error ("Invalid option `-mshort-data-%s'", m88k_short_data);   \
+	      error ("invalid option `-mshort-data-%s'", m88k_short_data);   \
 	      break;							     \
 	    }								     \
 	m88k_gp_threshold = atoi (m88k_short_data);			     \
@@ -1154,9 +1154,9 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   /* Restore r10 and load the static chain register.  */		\
   fprintf (FILE, "\tld.d\t %s,%s,24\n", reg_names[10], reg_names[10]);	\
   /* Storage: r10 save area, static chain, function address.  */	\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
 }
 
 /* Length in units of the trampoline for entering a nested function.
@@ -1473,12 +1473,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    win very much though.  */
 #define CASE_VALUES_THRESHOLD (TARGET_88100 ? 4 : 7)
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -1555,19 +1549,10 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   else if (GET_CODE (RTX) == NOTE					\
 	   && NOTE_LINE_NUMBER (RTX) == NOTE_INSN_PROLOGUE_END)		\
     {									\
-      if (profile_block_flag)						\
-	LENGTH += FUNCTION_BLOCK_PROFILER_LENGTH;			\
-      if (profile_flag)							\
+      if (current_function_profile)					\
 	LENGTH += (FUNCTION_PROFILER_LENGTH + REG_PUSH_LENGTH		\
 		   + REG_POP_LENGTH);					\
     }									\
-  else if (profile_block_flag						\
-	   && (GET_CODE (RTX) == CODE_LABEL				\
-	       || GET_CODE (RTX) == JUMP_INSN				\
-	       || (GET_CODE (RTX) == INSN				\
-		   && GET_CODE (PATTERN (RTX)) == SEQUENCE		\
-		   && GET_CODE (XVECEXP (PATTERN (RTX), 0, 0)) == JUMP_INSN)))\
-    LENGTH += BLOCK_PROFILER_LENGTH;
 
 /* Track the state of the last volatile memory reference.  Clear the
    state with CC_STATUS_INIT for now.  */
@@ -1651,7 +1636,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define ASM_COMMENT_START ";"
 
 /* Allow pseudo-ops to be overridden.  Override these in svr[34].h.  */
-#undef	INT_ASM_OP
 #undef	ASCII_DATA_ASM_OP
 #undef	CONST_SECTION_ASM_OP
 #undef	CTORS_SECTION_ASM_OP
@@ -1697,10 +1681,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define BSS_ASM_OP		"\tbss\t"
 #define FLOAT_ASM_OP		"\tfloat\t"
 #define DOUBLE_ASM_OP		"\tdouble\t"
-#define INT_ASM_OP		"\tword\t"
-#define ASM_LONG		INT_ASM_OP
-#define SHORT_ASM_OP		"\thalf\t"
-#define CHAR_ASM_OP		"\tbyte\t"
 #define ASCII_DATA_ASM_OP	"\tstring\t"
 
 /* These are particular to the global pool optimization.  */
@@ -1726,8 +1706,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* These are specific to version 03.00 assembler syntax.  */
 #define INTERNAL_ASM_OP		"\tlocal\t"
 #define VERSION_ASM_OP		"\tversion\t"
-#define UNALIGNED_SHORT_ASM_OP	"\tuahalf\t"
-#define UNALIGNED_INT_ASM_OP	"\tuaword\t"
 #define PUSHSECTION_ASM_OP	"\tsection\t"
 #define POPSECTION_ASM_OP	"\tprevious"
 
@@ -1862,9 +1840,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    be clobbered by an asm.  The carry bit in the PSR is now used.  */
 
 #define ADDITIONAL_REGISTER_NAMES	{{"psr", 0}, {"cc", 0}}
-
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* Tell when to declare ASM names.  Override svr4.h to provide this hook.  */
 #undef	DECLARE_ASM_NAME
@@ -2005,85 +1980,9 @@ do {									 \
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)			\
-  sprintf (LABEL, TARGET_SVR4 ? "*.%s%d" : "*@%s%d", PREFIX, NUM)
-
-/* Internal macro to get a single precision floating point value into
-   an int, so we can print its value in hex.  */
-#define FLOAT_TO_INT_INTERNAL( FVALUE, IVALUE )				\
-  { union {								\
-      REAL_VALUE_TYPE d;						\
-      struct {								\
-	unsigned sign      :  1;					\
-	unsigned exponent1 :  1;					\
-	unsigned exponent2 :  3;					\
-	unsigned exponent3 :  7;					\
-	unsigned mantissa1 : 20;					\
-	unsigned mantissa2 :  3;					\
-	unsigned mantissa3 : 29;					\
-      } s;								\
-    } _u;								\
-									\
-    union {								\
-      int i;								\
-      struct {								\
-        unsigned sign      :  1;					\
-	unsigned exponent1 :  1;					\
-	unsigned exponent3 :  7;					\
-        unsigned mantissa1 : 20;					\
-        unsigned mantissa2 :  3;					\
-      } s;								\
-    } _u2;								\
-									\
-    _u.d = REAL_VALUE_TRUNCATE (SFmode, FVALUE);			\
-    _u2.s.sign = _u.s.sign;						\
-    _u2.s.exponent1 = _u.s.exponent1;					\
-    _u2.s.exponent3 = _u.s.exponent3;					\
-    _u2.s.mantissa1 = _u.s.mantissa1;					\
-    _u2.s.mantissa2 = _u.s.mantissa2;					\
-    IVALUE = _u2.i;							\
-  }
-
-/* This is how to output an assembler line defining a `double' constant.
-   Use "word" pseudos to avoid printing NaNs, infinity, etc.  */
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)					\
-  do {									\
-    union { REAL_VALUE_TYPE d; long l[2]; } x;				\
-    x.d = (VALUE);							\
-    fprintf (FILE, "%s0x%.8lx, 0x%.8lx\n", INT_ASM_OP,			\
-	     (long) x.l[0], (long) x.l[1]);				\
-  } while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)					\
-  do {									\
-    int i;								\
-    FLOAT_TO_INT_INTERNAL (VALUE, i);					\
-    fprintf (FILE, "%s0x%.8x\n", INT_ASM_OP, i);			\
-  } while (0)
-
-/* Likewise for `int', `short', and `char' constants.  */
-#define ASM_OUTPUT_INT(FILE,VALUE)					\
-( fprintf (FILE, "%s", INT_ASM_OP),					\
-  output_addr_const (FILE, (VALUE)),					\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)					\
-( fprintf (FILE, "%s", SHORT_ASM_OP),					\
-  output_addr_const (FILE, (VALUE)),					\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)					\
-( fprintf (FILE, "%s", CHAR_ASM_OP),					\
-  output_addr_const (FILE, (VALUE)),					\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "%s0x%x\n", CHAR_ASM_OP, (VALUE))
+  sprintf (LABEL, TARGET_SVR4 ? "*.%s%ld" : "*@%s%ld", PREFIX, (long)(NUM))
 
 /* The single-byte pseudo-op is the default.  Override svr[34].h.  */
-#undef	ASM_BYTE_OP
-#define ASM_BYTE_OP "\tbyte\t"
 #undef	ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii (FILE, ASCII_DATA_ASM_OP, 48, P, SIZE)

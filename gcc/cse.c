@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -728,7 +728,7 @@ approx_reg_cost_1 (xp, data)
 
 /* Return an estimate of the cost of the registers used in an rtx.
    This is mostly the number of different REG expressions in the rtx;
-   however for some excecptions like fixed registers we use a cost of
+   however for some exceptions like fixed registers we use a cost of
    0.  If any other hard register reference occurs, return MAX_COST.  */
 
 static int
@@ -905,7 +905,7 @@ rtx_cost (x, outer_code)
 }
 
 /* Return cost of address expression X.
-   Expect that X is propertly formed address reference.  */
+   Expect that X is properly formed address reference.  */
 
 int
 address_cost (x, mode)
@@ -1989,7 +1989,7 @@ remove_invalid_refs (regno)
       {
 	next = p->next_same_hash;
 	if (GET_CODE (p->exp) != REG
-	    && refers_to_regno_p (regno, regno + 1, p->exp, (rtx*)0))
+	    && refers_to_regno_p (regno, regno + 1, p->exp, (rtx*) 0))
 	  remove_from_table (p, i);
       }
 }
@@ -2019,7 +2019,7 @@ remove_invalid_subreg_refs (regno, offset, mode)
 		|| (((SUBREG_BYTE (exp)
 		      + (GET_MODE_SIZE (GET_MODE (exp)) - 1)) >= offset)
 		    && SUBREG_BYTE (exp) <= end))
-	    && refers_to_regno_p (regno, regno + 1, p->exp, (rtx*)0))
+	    && refers_to_regno_p (regno, regno + 1, p->exp, (rtx*) 0))
 	  remove_from_table (p, i);
       }
 }
@@ -2272,10 +2272,10 @@ canon_hash (x, mode)
 		|| CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (regno))
 		|| (SMALL_REGISTER_CLASSES
 		    && ! fixed_regs[regno]
-		    && regno != FRAME_POINTER_REGNUM
-		    && regno != HARD_FRAME_POINTER_REGNUM
-		    && regno != ARG_POINTER_REGNUM
-		    && regno != STACK_POINTER_REGNUM
+		    && x != frame_pointer_rtx
+		    && x != hard_frame_pointer_rtx
+		    && x != arg_pointer_rtx
+		    && x != stack_pointer_rtx
 		    && GET_MODE_CLASS (GET_MODE (x)) != MODE_CC)))
 	  {
 	    do_not_record = 1;
@@ -4132,7 +4132,7 @@ fold_rtx (x, insn)
 	     CONST_INT, see if we can find a register equivalent to the
 	     positive constant.  Make a MINUS if so.  Don't do this for
 	     a non-negative constant since we might then alternate between
-	     chosing positive and negative constants.  Having the positive
+	     choosing positive and negative constants.  Having the positive
 	     constant previously-used is the more common case.  Be sure
 	     the resulting constant is non-negative; if const_arg1 were
 	     the smallest negative number this would overflow: depending
@@ -5648,18 +5648,12 @@ cse_insn (insn, libcall_insn)
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF))
 	{
-	  tem = find_reg_note (insn, REG_EQUAL, NULL_RTX);
-
 	  /* Make sure that the rtx is not shared with any other insn.  */
 	  src_const = copy_rtx (src_const);
 
 	  /* Record the actual constant value in a REG_EQUAL note, making
 	     a new one if one does not already exist.  */
-	  if (tem)
-	    XEXP (tem, 0) = src_const;
-	  else
-	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL,
-						  src_const, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUAL, src_const);
 
           /* If storing a constant value in a register that
 	     previously held the constant value 0,
@@ -5773,6 +5767,11 @@ cse_insn (insn, libcall_insn)
 	 be a conditional or computed branch.  */
       else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF)
 	{
+	  /* Now emit a BARRIER after the unconditional jump.  */
+	  if (NEXT_INSN (insn) == 0
+	      || GET_CODE (NEXT_INSN (insn)) != BARRIER)
+	    emit_barrier_after (insn);
+
 	  /* We reemit the jump in as many cases as possible just in
 	     case the form of an unconditional jump is significantly
 	     different than a computed jump or conditional jump.
@@ -5783,20 +5782,23 @@ cse_insn (insn, libcall_insn)
 	  if (n_sets == 1)
 	    {
 	      rtx new = emit_jump_insn_before (gen_jump (XEXP (src, 0)), insn);
+
 	      JUMP_LABEL (new) = XEXP (src, 0);
 	      LABEL_NUSES (XEXP (src, 0))++;
 	      insn = new;
+
+	      /* Now emit a BARRIER after the unconditional jump.  */
+	      if (NEXT_INSN (insn) == 0
+		  || GET_CODE (NEXT_INSN (insn)) != BARRIER)
+		emit_barrier_after (insn);
 	    }
 	  else
 	    INSN_CODE (insn) = -1;
 
-	  never_reached_warning (insn);
+	  never_reached_warning (insn, NULL);
 
-	  /* Now emit a BARRIER after the unconditional jump.  Do not bother
-	     deleting any unreachable code, let jump/flow do that.  */
-	  if (NEXT_INSN (insn) != 0
-	      && GET_CODE (NEXT_INSN (insn)) != BARRIER)
-	    emit_barrier_after (insn);
+	  /* Do not bother deleting any unreachable code,
+	     let jump/flow do that.  */
 
 	  cse_jumps_altered = 1;
 	  sets[i].rtl = 0;
@@ -5910,9 +5912,7 @@ cse_insn (insn, libcall_insn)
 		/* Don't put a hard register source into the table if this is
 		   the last insn of a libcall.  In this case, we only need
 		   to put src_eqv_elt in src_elt.  */
-		if (GET_CODE (src) != REG
-		    || REGNO (src) >= FIRST_PSEUDO_REGISTER
-		    || ! find_reg_note (insn, REG_RETVAL, NULL_RTX))
+		if (! find_reg_note (insn, REG_RETVAL, NULL_RTX))
 		  {
 		    struct table_elt *elt;
 
@@ -7362,7 +7362,7 @@ cse_basic_block (from, to, next_branch, around_loop)
 }
 
 /* Called via for_each_rtx to see if an insn is using a LABEL_REF for which
-   there isn't a REG_DEAD note.  Return one if so.  DATA is the insn.  */
+   there isn't a REG_LABEL note.  Return one if so.  DATA is the insn.  */
 
 static int
 check_for_label_ref (rtl, data)
@@ -7376,6 +7376,7 @@ check_for_label_ref (rtl, data)
      LABEL_REF for a CODE_LABEL that isn't in the insn chain, don't do this
      since no REG_LABEL will be added.  */
   return (GET_CODE (*rtl) == LABEL_REF
+	  && ! LABEL_REF_NONLOCAL_P (*rtl)
 	  && LABEL_P (XEXP (*rtl, 0))
 	  && INSN_UID (XEXP (*rtl, 0)) != 0
 	  && ! find_reg_note (insn, REG_LABEL, XEXP (*rtl, 0)));

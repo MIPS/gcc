@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                          (VxWorks version M68K)                          --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.11 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --

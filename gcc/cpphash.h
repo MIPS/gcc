@@ -1,5 +1,6 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -43,7 +44,6 @@ struct directive;		/* Deliberately incomplete.  */
 #define CPP_STACK_MAX 200
 
 /* A generic memory buffer, and operations on it.  */
-
 typedef struct _cpp_buff _cpp_buff;
 struct _cpp_buff
 {
@@ -93,6 +93,7 @@ union utoken
   const cpp_token **ptoken;
 };
 
+/* A "run" of tokens; part of a chain of runs.  */
 typedef struct tokenrun tokenrun;
 struct tokenrun
 {
@@ -159,22 +160,20 @@ struct lexer_state
 /* Special nodes - identifiers with predefined significance.  */
 struct spec_nodes
 {
-  cpp_hashnode *n_L;			/* L"str" */
   cpp_hashnode *n_defined;		/* defined operator */
   cpp_hashnode *n_true;			/* C++ keyword true */
   cpp_hashnode *n_false;		/* C++ keyword false */
   cpp_hashnode *n__STRICT_ANSI__;	/* STDC_0_IN_SYSTEM_HEADERS */
-  cpp_hashnode *n__CHAR_UNSIGNED__;	/* plain char is unsigned */
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
+/* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
   const unsigned char *cur;	 /* current position */
+  const unsigned char *backup_to; /* if peeked character is not wanted */
   const unsigned char *rlimit; /* end of valid data */
   const unsigned char *line_base; /* start of current line */
-  cppchar_t read_ahead;		/* read ahead character */
-  cppchar_t extra_char;		/* extra read-ahead for long tokens.  */
 
   struct cpp_buffer *prev;
 
@@ -226,7 +225,6 @@ struct cpp_buffer
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
    Applying cpp_get_token repeatedly yields a stream of pre-processor
    tokens.  Usually, there is only one cpp_reader object active.  */
-
 struct cpp_reader
 {
   /* Top of buffer stack.  */
@@ -392,7 +390,7 @@ extern int _cpp_compare_file_date       PARAMS ((cpp_reader *,
 extern void _cpp_report_missing_guards	PARAMS ((cpp_reader *));
 extern void _cpp_init_includes		PARAMS ((cpp_reader *));
 extern void _cpp_cleanup_includes	PARAMS ((cpp_reader *));
-extern void _cpp_pop_file_buffer	PARAMS ((cpp_reader *,
+extern bool _cpp_pop_file_buffer	PARAMS ((cpp_reader *,
 						 struct include_file *));
 
 /* In cppexp.c */

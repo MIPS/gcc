@@ -735,7 +735,7 @@ package body System.Tasking.Stages is
 
       Abort_Dependents (Self_ID);
 
-      --  We need to explicitely wait for the task to be
+      --  We need to explicitly wait for the task to be
       --  terminated here because on true concurrent system, we
       --  may end this procedure before the tasks are really
       --  terminated.

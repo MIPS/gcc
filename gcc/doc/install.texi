@@ -32,8 +32,15 @@
 @ifset binarieshtml
 @settitle Installing GCC: Binaries
 @end ifset
+@ifset oldhtml
+@settitle Installing GCC: Old documentation
+@end ifset
+@ifset gfdlhtml
+@settitle Installing GCC: GNU Free Documentation License
+@end ifset
 
-@c Copyright (C) 2001 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+@c 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c Include everything if we're not making html
@@ -46,12 +53,35 @@
 @set testhtml
 @set finalinstallhtml
 @set binarieshtml
+@set oldhtml
+@set gfdlhtml
 @end ifnothtml
 
 @c Part 2 Summary Description and Copyright
-@ifinfo
+@macro copyrightnotice
+Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+@sp 1
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, the Front-Cover texts being (a) (see below), and
+with the Back-Cover Texts being (b) (see below).  A copy of the
+license is included in the section entitled ``@uref{./gfdl.html,,GNU
+Free Documentation License}''.
 
-Copyright @copyright{} 2001 Free Software Foundation, Inc.
+(a) The FSF's Front-Cover Text is:
+
+     A GNU Manual
+
+(b) The FSF's Back-Cover Text is:
+
+     You have freedom to copy and modify this GNU Manual, like GNU
+     software.  Copies published by the Free Software Foundation raise
+     funds for GNU development.
+@end macro
+@ifinfo
+@copyrightnotice{}
 @end ifinfo
 
 @c Part 3 Titlepage and Copyright
@@ -63,7 +93,7 @@ Copyright @copyright{} 2001 Free Software Foundation, Inc.
 @c The following two commands start the copyright page.
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 2001 Free Software Foundation, Inc.
+@copyrightnotice{}
 @end titlepage
 
 @c Part 4 Top node and Master Menu
@@ -79,6 +109,9 @@ Copyright @copyright{} 2001 Free Software Foundation, Inc.
 * Specific::        Host/target specific installation notes for GCC.
 * Binaries::        Where to get pre-compiled binaries.
 
+* Old::             Old installation documentation.
+
+* GNU Free Documentation License:: How you can copy and share this manual.
 * Concept Index::   This index has two entries.
 @end menu
 @end ifinfo
@@ -157,12 +190,20 @@ remove that directory when you do not need that specific version of GCC
 any longer, and, if shared libraries are installed there as well, no
 more binaries exist that use them.
 
+@ifhtml
+There are also some @uref{old.html,,old installation instructions},
+which are mostly obsolete but still contain some information which has
+not yet been merged into the main part of this manual.
+@end ifhtml
+
 @html
 <hr>
 <p>
 @end html
 @ifhtml
 @uref{./index.html,,Return to the GCC Installation page}
+
+@copyrightnotice{}
 @end ifhtml
 @end ifset
 
@@ -309,7 +350,9 @@ implies that the host defaults to @var{target}.
 @heading Options specification
 
 Use @var{options} to override several configure time options for
-GCC@.  A partial list of supported @var{options}:
+GCC@.  A list of supported @var{options} follows; @command{configure
+--help} may list other options, but those not listed below may not
+work and should not normally be used.
 
 @table @code
 @item --prefix=@var{dirname}
@@ -360,6 +403,51 @@ the installation directory for G++ header files.  The default is
 @file{@var{prefix}/include/g++-v3}.
 
 @end table
+
+@item --program-prefix=@var{prefix}
+GCC supports some transformations of the names of its programs when
+installing them. This option prepends @var{prefix} to the names of
+programs to install in @var{bindir} (see above). For example, specifying
+@option{--program-prefix=foo-} would result in @samp{gcc}
+being installed as @file{/usr/local/bin/foo-gcc}.
+
+@item --program-suffix=@var{suffix}
+Appends @var{suffix} to the names of programs to install in @var{bindir}
+(see above). For example, specifying @option{--program-suffix=-3.1}
+would result in @samp{gcc} being installed as
+@file{/usr/local/bin/gcc-3.1}.
+
+@item --program-transform-name=@var{pattern}
+Applies the @samp{sed} script @var{pattern} to be applied to the names
+of programs to install in @var{bindir} (see above). @var{pattern} has to
+consist of one or more basic @samp{sed} editing commands, separated by
+semicolons. For example, if you want the @samp{gcc} program name to be
+transformed to the installed program @file{/usr/local/bin/myowngcc} and
+the @samp{g++} program name to be transformed to
+@file{/usr/local/bin/gspecial++} without changing other program names,
+you could use the pattern
+@option{--program-transform-name='s/^gcc$/myowngcc/; s/^g++$/gspecial++/'}
+to achieve this effect.
+
+All three options can be combined and used together, resulting in more
+complex conversion patterns. As a basic rule, @var{prefix} (and
+@var{suffix}) are prepended (appended) before further transformations
+can happen with a special transformation script @var{pattern}.
+
+As currently implemented, this options only take effect for native
+builds; cross compiler binaries' names are not transformed even when a
+transformation is explicitly asked for by one of this options.
+
+For native builds, some of the installed programs are also installed
+with the target alias in front of their name, as in
+@samp{i686-pc-linux-gnu-gcc}. All of the above transformations happen
+before the target alias is prepended to the name - so, specifying
+@option{--program-prefix=foo-} and @option{program-suffix=-3.1}, the
+resulting binary would be installed as
+@file{/usr/local/bin/i686-pc-linux-gnu-foo-gcc-3.1}.
+
+As a last shortcoming, none of the installed CHILL and Ada programs are
+transformed yet, which will be fixed in some time.
 
 @item --with-local-prefix=@var{dirname}
 Specify the
@@ -590,6 +678,12 @@ SPARC@.  If configure does not recognize the model name (e.g.@: arm700,
 603e, or ultrasparc) you provide, please check the configure script
 for a complete list of supported models.
 
+@item --enable-altivec
+Specify that the target supports AltiVec vector enhancements.  This
+option will adjust the ABI for AltiVec enhancements, as well as generate
+AltiVec code when appropriate.  This option is only available for
+PowerPC systems.
+
 @item --enable-target-optspace
 Specify that target
 libraries should be optimized for code space instead of code speed.
@@ -632,9 +726,10 @@ their runtime libraries should be built.  For a list of valid values for
 grep language= */config-lang.in
 @end example
 Currently, you can use any of the following:
-@code{c}, @code{c++}, @code{f77}, @code{java} and @code{objc}.
+@code{ada}, @code{c}, @code{c++}, @code{f77}, @code{java}, @code{objc}.
 @code{CHILL} is not currently maintained, and will almost
-certainly fail to compile.@*
+certainly fail to compile.  Building the Ada compiler has special
+requirements, see below.@*
 If you do not pass this flag, all languages available in the @file{gcc}
 sub-tree will be configured.  Re-defining @code{LANGUAGES} when calling
 @samp{make bootstrap} @strong{does not} work anymore, as those
@@ -710,6 +805,10 @@ inferior @code{catgets} interface, the GCC build procedure normally
 ignores @code{catgets} and instead uses GCC's copy of the GNU
 @code{gettext} library.  The @option{--with-catgets} option causes the
 build procedure to use the host's @code{catgets} in this situation.
+
+@item --with-system-zlib
+Use installed zlib rather than that included with GCC@.  This option
+only applies if the Java front end is being built.
 @end table
 
 Some options which only apply to building cross compilers:
@@ -764,7 +863,8 @@ Now that GCC is configured, you are ready to build the compiler and
 runtime libraries.
 
 We @strong{highly} recommend that GCC be built using GNU make;
-other versions may work, then again they might not.
+other versions may work, then again they might not.  
+GNU make is required for compiling GNAT, the Ada compiler.
 
 (For example, many broken versions of make will fail if you use the
 recommended setup where @var{objdir} is different from @var{srcdir}.
@@ -886,7 +986,8 @@ as parts of GCC can only be built with GCC@.
 
 To build a cross compiler, we first recommend building and installing a
 native compiler.  You can then use the native GCC compiler to build the
-cross compiler.
+cross compiler.  The installed native compiler needs to be GCC version
+2.95 or later.
 
 Assuming you have already installed a native copy of GCC and configured
 your cross compiler, issue the command @command{make}, which performs the
@@ -920,6 +1021,56 @@ for GNU Make 3.79 and above instead of just @samp{make bootstrap}
 when building GCC@.  You can use a bigger number instead of two if
 you like.  In most cases, it won't help to use a number bigger than
 the number of processors in your machine.
+
+@section Building the Ada compiler
+
+In order to build GNAT, the Ada compiler, you need a working GNAT
+compiler, since the Ada front end is written in Ada (with some
+GNAT-specific extensions), and GNU make.
+
+However, you do not need a full installation of GNAT, just the GNAT
+binary @file{gnat1}, a copy of @file{gnatbind}, and a compiler driver
+which can deal with Ada input (by invoking the @file{gnat1} binary).
+You can specify this compiler driver by setting the @env{ADAC}
+environment variable at the configure step.  @command{configure} can
+detect the driver automatically if it has got a common name such as
+@command{gcc} or @command{gnatgcc}.  Of course, you still need a working
+C compiler (the compiler driver can be different or not).
+
+Additional build tools (such as @command{gnatmake}) or a working GNAT
+run-time library installation are usually @emph{not} required.  However,
+if you want to boostrap the compiler using a minimal version of GNAT,
+you have to issue the following commands before invoking @samp{make
+boostrap} (this assumes that you start with an unmodified and consistent
+source distribution):
+
+@example
+    cd @var{srcdir}/gcc/ada
+    touch treeprs.ads [es]info.h nmake.ad[bs]
+@end example
+
+At the moment, the GNAT library and several tools for GNAT are not built
+by @samp{make bootstrap}.  You have to invoke 
+@samp{make gnatlib_and_tools} in the @file{@var{objdir}/gcc}
+subdirectory before proceeding with the next steps.
+
+For example, you can build a native Ada compiler by issuing the
+following commands (assuming @command{make} is GNU make):
+
+@example
+    cd @var{objdir}
+    @var{srcdir}/configure --enable-languages=c,ada 
+    cd @var{srcdir}/gcc/ada
+    touch treeprs.ads [es]info.h nmake.ad[bs]
+    cd @var{objdir}    
+    make bootstrap
+    cd gcc
+    make gnatlib_and_tools
+    cd ..
+@end example
+
+Currently, when compiling the Ada front end, you cannot use the parallel
+build feature described in the previous section.
 
 @html
 <hr>
@@ -1069,6 +1220,13 @@ behave on different platforms and compare them with your results.  A
 few failing testcases are possible even on released versions and you
 should look here first if you think your results are unreasonable.
 
+@html
+<hr>
+<p>
+@end html
+@ifhtml
+@uref{./index.html,,Return to the GCC Installation page}
+@end ifhtml
 @end ifset
 
 @c ***Final install***********************************************************
@@ -1104,18 +1262,46 @@ If you built a released version of GCC then if you don't mind, please
 quickly review the build status page for
 @uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0} or
 @uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
-If your system is not listed, send a note to
+If your system is not listed for the version of GCC that you built,
+send a note to
 @email{gcc@@gcc.gnu.org} indicating
 that you successfully built and installed GCC.
+Include the following information:
 
-Include the output from running @file{@var{srcdir}/config.guess}.  (Do
-not send us the @file{config.guess} file itself, just the one-line output from
-running it!)  Also specify which version you built.
-If the build was for GNU/Linux, also include the distribution name and version
-(e.g., Red Hat 7.1 or Debian 2.2.3, available from @file{/etc/issue})
-and the version of glibc you used; for RPM-based systems like Red Hat,
+@itemize @bullet
+@item
+Output from running @file{@var{srcdir}/config.guess}.  Do not send us
+that file itself, just the one-line output from running it.
+
+@item
+The output of @samp{gcc -v} for your newly installed gcc.
+This tells us which version of GCC you built and the options you passed to
+configure.
+
+@item
+If the build was for GNU/Linux, also include:
+@itemize @bullet
+@item
+The distribution name and version (e.g., Red Hat 7.1 or Debian 2.2.3);
+this information should be available from @file{/etc/issue}.
+
+@item
+The version of the Linux kernel, available from @samp{uname --version}
+or @samp{uname -a}.
+
+@item
+The version of glibc you used; for RPM-based systems like Red Hat,
 Mandrake, and SuSE type @samp{rpm -q glibc} to get the glibc version,
 and on systems like Debian and Progeny use @samp{dpkg -l libc6}.
+@end itemize
+For other systems, you can include similar information if you think it is
+relevant.
+
+@item
+Any other information that you think would be useful to people building
+GCC on the same configuration.  The new entry in the build status list
+will include a link to the archived copy of your message.
+@end itemize
 
 We'd also like to know if the
 @ifnothtml
@@ -1218,7 +1404,7 @@ related projects by Mumit Khan.
 @end itemize
 
 @item
-@uref{ftp://ftp.thewrittenword.com/packages/free/by-name/gcc-2.95.2/,,The
+@uref{ftp://ftp.thewrittenword.com/packages/free/by-name/,,The
 Written Word} offers binaries for Solaris 2.5.1, 2.6, 2.7/SPARC, 2.7/Intel,
 IRIX 6.2, 6.5, Digital UNIX 4.0D, HP-UX 10.20, and HP-UX 11.00.
 
@@ -1249,7 +1435,7 @@ works.
 @c ***Specific****************************************************************
 @ifnothtml
 @comment node-name,     next,          previous, up
-@node    Specific, Concept Index, Binaries, Top
+@node    Specific, Old, Binaries, Top
 @end ifnothtml
 @ifset specifichtml
 @html
@@ -1459,13 +1645,21 @@ These lists are updated as new information becomes available.
 @item
 @uref{#sparc-unknown-linux-gnulibc1,,sparc-unknown-linux-gnulibc1}
 @item
+@uref{#sparc-*-linux*,,sparc-*-linux*}
+@item
 @uref{#sparc64-*-*,,sparc64-*-*}
+@item
+@uref{#sparcv9-*-solaris2*,,sparcv9-*-solaris2*}
 @item
 @uref{#*-*-sysv*,,*-*-sysv*}
 @item
 @uref{#vax-dec-ultrix,,vax-dec-ultrix}
 @item
 @uref{#we32k-*-*,,we32k-*-*}
+@item
+@uref{#xtensa-*-elf,,xtensa-*-elf}
+@item
+@uref{#xtensa-*-linux*,,xtensa-*-linux*}
 @item
 @uref{#windows,,Microsoft Windows}
 @item
@@ -1740,7 +1934,7 @@ can also be obtained from:
 @item
 @uref{http://home.overta.ru/users/denisc,,http://home.overta.ru/users/denisc}
 @item
-@uref{http://www.itnet.pl/amelektr/avr,,http://www.itnet.pl/amelektr/avr}
+@uref{http://www.amelek.gda.pl/avr,,http://www.amelek.gda.pl/avr}
 @end itemize
 
 We @emph{strongly} recommend using binutils 2.11 or newer.
@@ -1973,7 +2167,13 @@ bootstrap}.
 @heading @anchor{hppa*-hp-hpux11}hppa*-hp-hpux11
 
 GCC 3.0 supports HP-UX 11.  You must use GNU binutils 2.11 or above on
-this platform.
+this platform.  Thread support is not currently implemented for this 
+platform, so @option{--enable-threads} does not work.
+See @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
+and @uref{http://gcc.gnu.org/ml/gcc-bugs/2002-01/msg00663.html}.
+GCC 2.95.x is not supported under HP-UX 11 and cannot be used to
+compile GCC 3.0.  Refer to @uref{binaries.html,,binaries} for information
+about obtaining precompiled GCC binaries for HP-UX.
 
 @html
 </p>
@@ -2319,13 +2519,14 @@ does not provide a definition that will confuse @command{configure}.
 If this error occurs during stage2 or later, then the problem most likely
 is the version of Make (see above).
 
-Binutils 2.10 does not support AIX 4.3.  Binutils available from the
-@uref{http://www-1.ibm.com/servers/aix/products/aixos/linux/,,AIX
-Toolbox for Linux: GNU and Open Source tools for AIX};
-website does work.  Binutils 2.11 is expected to include AIX 4.3
-support.  The GNU Assembler is necessary for @samp{libstdc++} to build.  The
-AIX native @command{ld} still is recommended.  The native AIX tools do
+The GNU Assembler incorrectly reports that it supports WEAK symbols on
+AIX which causes GCC to try to utilize weak symbol functionality which
+is not really supported on the platform.  The native @command{as} and
+@command{ld} still are recommended.  The native AIX tools do
 interoperate with GCC@.
+
+Building @file{libstdc++.a} requires a fix for a AIX Assembler bug
+APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).
 
 Linking executables and shared libraries may produce warnings of
 duplicate symbols.  The assembly files generated by GCC for AIX always
@@ -2333,17 +2534,6 @@ have included multiple symbol definitions for certain global variable
 and function declarations in the original program.  The warnings should
 not prevent the linker from producing a correct library or runnable
 executable.
-
-GCC's exception handling implementation stores process-specific data in
-the shared library which prevents exception handling from working
-correctly on AIX in a default installation.  To work around this, the
-shared objects need to be loaded in the process private segment to
-prevent them from being shared and marked read-only.  This is
-accomplished on AIX by installing the shared libraries
-(@file{libgcc_s.a} and @file{libstdc++.a}) with file permissions
-disallowing read-other (@samp{chmod a+x,o-r}).  If the shared libraries
-have been used, the shared library segment can be cleaned using the
-@samp{/usr/sbin/slibclean} command.
 
 AIX 4.3 utilizes a ``large format'' archive to support both 32-bit and
 64-bit object modules.  The routines provided in AIX 4.3.0 and AIX 4.3.1
@@ -3226,7 +3416,7 @@ newer: @command{g++} will complain that types are missing.  These headers assume
 that omitting the type means @code{int}; this assumption worked for C89 but
 is wrong for C++, and is now wrong for C99 also.
 
-@command{g++} accepts such (illegal) constructs with the option
+@command{g++} accepts such (invalid) constructs with the option
 @option{-fpermissive}; it
 will assume that any missing type is @code{int} (as defined by C89).
 
@@ -3250,6 +3440,15 @@ error: can't compute value of an expression involving an external symbol.}
 This is Sun bug 4237974.  This is fixed with patch 108908-02 for Solaris
 2.6 and has been fixed in later (5.x) versions of the assembler,
 starting with Solaris 7.
+
+Starting with Solaris 7, the operating system is capable of executing
+64-bit SPARC V9 binaries.  GCC 3.1 and later should properly support
+this.  GCC 3.0 lacks the infrastructure necessary to support this
+configuration properly.  However, if all you want is code tuned for
+the UltraSPARC CPU, you should try the @option{-mtune=ultrasparc}
+option instead, which should be safe from those bugs and produce code
+that, unlike full 64-bit code, can still run on non-UltraSPARC
+machines.
 
 @html
 </p>
@@ -3341,6 +3540,17 @@ for this platform, too.
 </p>
 <hr>
 @end html
+@heading @anchor{sparc-*-linux*}sparc-*-linux*
+
+GCC versions 3.0 and higher require binutils 2.11.2 and glibc 2.2.4
+or newer on this platform.  All earlier binutils and glibc
+releases mishandled unaligned relocations on @code{sparc-*-*} targets.
+
+
+@html
+</p>
+<hr>
+@end html
 @heading @anchor{sparc64-*-*}sparc64-*-*
 
 GCC version 2.95 is not able to compile code correctly for
@@ -3349,6 +3559,21 @@ can use the @code{sparc32} program to start up a new shell
 invocation with an environment that causes @command{configure} to
 recognize (via @samp{uname -a}) the system as @samp{sparc-*-*} instead.
 
+@html
+</p>
+<hr>
+@end html
+@heading @anchor{sparcv9-*-solaris2*}sparcv9-*-solaris2*
+
+The following compiler flags must be specified in the configure
+step in order to bootstrap this target with the Sun compiler:
+
+@example
+   % CC="cc -xildoff -xarch=v9" @var{srcdir}/configure [@var{options}] [@var{target}]
+@end example
+
+@option{-xildoff} turns off the incremental linker, and @option{-xarch=v9}
+specifies the v9 architecture to the Sun linker and assembler.
 
 @html
 </p>
@@ -3435,6 +3660,38 @@ as the file @file{cc1plus} is larger than one megabyte.
 </p>
 <hr>
 @end html
+@heading @anchor{xtensa-*-elf}xtensa-*-elf
+
+This target is intended for embedded Xtensa systems using the
+@samp{newlib} C library.  It uses ELF but does not support shared
+objects.  Designed-defined instructions specified via the
+Tensilica Instruction Extension (TIE) language are only supported
+through inline assembly.
+
+The Xtensa configuration information must be specified prior to
+building GCC@.  The @file{gcc/config/xtensa/xtensa-config.h} header
+file contains the configuration information.  If you created your
+own Xtensa configuration with the Xtensa Processor Generator, the
+downloaded files include a customized copy of this header file,
+which you can use to replace the default header file.
+
+@html
+</p>
+<hr>
+@end html
+@heading @anchor{xtensa-*-linux*}xtensa-*-linux*
+
+This target is for Xtensa systems running GNU/Linux.  It supports ELF
+shared objects and the GNU C library (glibc).  It also generates
+position-independent code (PIC) regardless of whether the
+@option{-fpic} or @option{-fPIC} options are used.  In other
+respects, this target is the same as the 
+@uref{#xtensa-*-elf,,@samp{xtensa-*-elf}} target.
+
+@html
+</p>
+<hr>
+@end html
 @heading @anchor{windows}Microsoft Windows (32 bit)
 
 A port of GCC 2.95.x is included with the
@@ -3450,7 +3707,7 @@ without modification.
 @heading @anchor{os2}OS/2
 
 GCC does not currently support OS/2.  However, Andrew Zabolotny has been
-working on a generic OS/2 port with pgcc.  The current code code can be found
+working on a generic OS/2 port with pgcc.  The current code can be found
 at @uref{http://www.goof.com/pcg/os2/,,http://www.goof.com/pcg/os2/}.
 
 An older copy of GCC 2.8.1 is included with the EMX tools available at
@@ -3523,11 +3780,37 @@ automatically.
 @end ifhtml
 @end ifset
 
+@c ***Old documentation******************************************************
+@ifset oldhtml
+@include install-old.texi
+@html
+</p>
+<hr>
+<p>
+@end html
+@ifhtml
+@uref{./index.html,,Return to the GCC Installation page}
+@end ifhtml
+@end ifset
+
+@c ***GFDL********************************************************************
+@ifset gfdlhtml
+@include fdl.texi
+@html
+</p>
+<hr>
+<p>
+@end html
+@ifhtml
+@uref{./index.html,,Return to the GCC Installation page}
+@end ifhtml
+@end ifset
+
 @c ***************************************************************************
 @c Part 6 The End of the Document
 @ifinfo
 @comment node-name,     next,          previous, up
-@node    Concept Index, , Specific, Top
+@node    Concept Index, , GNU Free Documentation License, Top
 @end ifinfo
 
 @ifinfo

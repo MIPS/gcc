@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -175,7 +186,7 @@ public class GregorianCalendar extends Calendar
    * Gets the date of the switch from Julian dates to Gregorian dates.
    * @return the date of the change.
    */
-  public final Date getGregorianChange(Date date)
+  public final Date getGregorianChange()
   {
     return new Date(gregorianCutover);
   }
@@ -216,7 +227,7 @@ public class GregorianCalendar extends Calendar
    * Get the linear time in milliseconds since the epoch.  If you
    * specify a nonpositive year it is interpreted as BC as
    * following: 0 is 1 BC, -1 is 2 BC and so on.  The date is
-   * interpreted as gregorian if the change occured before that date.
+   * interpreted as gregorian if the change occurred before that date.
    *
    * @param year the year of the date.
    * @param dayOfYear the day of year of the date; 1 based.
@@ -627,7 +638,7 @@ public class GregorianCalendar extends Calendar
    * Compares the given calender with this.  
    * @param o the object to that we should compare.
    * @return true, if the given object is a calendar, that represents
-   * the same time (but doesn't neccessary have the same fields).
+   * the same time (but doesn't necessary have the same fields).
    * @XXX Should we check if time zones, locale, cutover etc. are equal?
    */
   public boolean equals(Object o)
@@ -973,7 +984,7 @@ public class GregorianCalendar extends Calendar
 
   /**
    * Gets the actual minimum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.  Note that
+   * This value is dependent on the values of the other fields.  Note that
    * this calls <code>complete()</code> if not enough fields are set.  This
    * can have ugly side effects.
    * @param field the time field. One of the time field constants.
@@ -1001,7 +1012,7 @@ public class GregorianCalendar extends Calendar
 
   /**
    * Gets the actual maximum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.  Note that
+   * This value is dependent on the values of the other fields.  Note that
    * this calls <code>complete()</code> if not enough fields are set.  This
    * can have ugly side effects.
    * @param field the time field. One of the time field constants.

@@ -46,11 +46,12 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "debug.h"
 
 /* External data.  */
 extern int rtx_equal_function_value_matters;
 
-/* Specify which cpu to schedule for. */
+/* Specify which cpu to schedule for.  */
 
 enum processor_type alpha_cpu;
 static const char * const alpha_cpu_name[] = 
@@ -114,6 +115,12 @@ int alpha_this_literal_sequence_number;
 int alpha_this_gpdisp_sequence_number;
 
 /* Declarations of static functions.  */
+static bool decl_in_text_section
+  PARAMS ((tree));
+static int some_small_symbolic_mem_operand_1
+  PARAMS ((rtx *, void *));
+static int split_small_symbolic_mem_operand_1
+  PARAMS ((rtx *, void *));
 static bool local_symbol_p
   PARAMS ((rtx));
 static void alpha_set_memflags_1
@@ -203,6 +210,22 @@ static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *,
 # define TARGET_SECTION_TYPE_FLAGS unicosmk_section_type_flags
 #endif
 
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_ALIGNED_DI_OP
+#define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
+
+/* Default unaligned ops are provided for ELF systems.  To get unaligned
+   data for non-ELF systems, we have to turn off auto alignment.  */
+#ifndef OBJECT_FORMAT_ELF
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.align 0\n\t.word\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.align 0\n\t.long\t"
+#undef TARGET_ASM_UNALIGNED_DI_OP
+#define TARGET_ASM_UNALIGNED_DI_OP "\t.align 0\n\t.quad\t"
+#endif
+
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
 #define TARGET_ASM_FUNCTION_END_PROLOGUE alpha_output_function_end_prologue
 
@@ -215,7 +238,7 @@ static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *,
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Parse target option strings. */
+/* Parse target option strings.  */
 
 void
 override_options ()
@@ -363,7 +386,7 @@ override_options ()
 	error ("bad value `%s' for -mcpu switch", alpha_tune_string);
     }
 
-  /* Do some sanity checks on the above options. */
+  /* Do some sanity checks on the above options.  */
 
   if (TARGET_ABI_UNICOSMK && alpha_fptm != ALPHA_FPTM_N)
     {
@@ -418,7 +441,7 @@ override_options ()
 	{
 	  { 3, 30, -1 },	/* ev4 -- Bcache is a guess */
 	  { 2, 12, 38 },	/* ev5 -- Bcache from PC164 LMbench numbers */
-	  { 3, 12, 30 },	/* ev6 -- Bcache from DS20 LMbench. */
+	  { 3, 12, 30 },	/* ev6 -- Bcache from DS20 LMbench.  */
 	};
 
 	lat = alpha_mlat_string[1] - '0';
@@ -458,7 +481,7 @@ override_options ()
 
   /* Align labels and loops for optimal branching.  */
   /* ??? Kludge these by not doing anything if we don't optimize and also if
-     we are writing ECOFF symbols to work around a bug in DEC's assembler. */
+     we are writing ECOFF symbols to work around a bug in DEC's assembler.  */
   if (optimize > 0 && write_symbols != SDB_DEBUG)
     {
       if (align_loops <= 0)
@@ -750,7 +773,7 @@ some_operand (op, mode)
   switch (GET_CODE (op))
     {
     case REG:  case MEM:  case CONST_DOUBLE:  case CONST_INT:  case LABEL_REF:
-    case SYMBOL_REF:  case CONST:
+    case SYMBOL_REF:  case CONST:  case HIGH:
       return 1;
 
     case SUBREG:
@@ -798,10 +821,21 @@ input_operand (op, mode)
     case SYMBOL_REF:
     case CONST:
       if (TARGET_EXPLICIT_RELOCS)
-	return 0;
+	{
+	  /* We don't split symbolic operands into something unintelligable
+	     until after reload, but we do not wish non-small, non-global
+	     symbolic operands to be reconstructed from their high/lo_sum
+	     form.  */
+	  return (small_symbolic_operand (op, mode)
+		  || global_symbolic_operand (op, mode));
+	}
 
       /* This handles both the Windows/NT and OSF cases.  */
       return mode == ptr_mode || mode == DImode;
+
+    case HIGH:
+      return (TARGET_EXPLICIT_RELOCS
+	      && local_symbolic_operand (XEXP (op, 0), mode));
 
     case REG:
     case ADDRESSOF:
@@ -810,7 +844,7 @@ input_operand (op, mode)
     case SUBREG:
       if (register_operand (op, mode))
 	return 1;
-      /* ... fall through ... */
+      /* ... fall through ...  */
     case MEM:
       return ((TARGET_BWX || (mode != HImode && mode != QImode))
 	      && general_operand (op, mode));
@@ -832,7 +866,7 @@ input_operand (op, mode)
 }
 
 /* Return 1 if OP is a SYMBOL_REF for a function known to be in this
-   file.  */
+   file, and in the same section as the current function.  */
 
 int
 current_file_function_operand (op, mode)
@@ -842,11 +876,18 @@ current_file_function_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  if (! SYMBOL_REF_FLAG (op)
-      && op != XEXP (DECL_RTL (current_function_decl), 0))
-    return 0;
+  /* Easy test for recursion.  */
+  if (op == XEXP (DECL_RTL (current_function_decl), 0))
+    return 1;
 
-  return 1;
+  /* Otherwise, we need the DECL for the SYMBOL_REF, which we can't get.
+     So SYMBOL_REF_FLAG has been declared to imply that the function is
+     in the default text section.  So we must also check that the current
+     function is also in the text section.  */
+  if (SYMBOL_REF_FLAG (op) && decl_in_text_section (current_function_decl))
+    return 1;
+
+  return 0;
 }
 
 /* Return 1 if OP is a SYMBOL_REF for which we can make a call via bsr.  */
@@ -866,8 +907,10 @@ direct_call_operand (op, mode)
      but is approximately correct for the OSF ABIs.  Don't know
      what to do for VMS, NT, or UMK.  */
   if (! TARGET_PROFILING_NEEDS_GP
-      && ! profile_flag && ! profile_block_flag)
+      && ! current_function_profile)
     return 0;
+
+  return 1;
 }
 
 /* Return true if OP is a LABEL_REF, or SYMBOL_REF or CONST referencing
@@ -981,7 +1024,12 @@ call_operand (op, mode)
   if (GET_CODE (op) == REG)
     {
       if (TARGET_ABI_OSF)
-	return REGNO (op) == 27;
+	{
+	  /* Disallow virtual registers to cope with pathalogical test cases
+	     such as compile/930117-1.c in which the virtual reg decomposes
+	     to the frame pointer.  Which is a hard reg that is not $27.  */
+	  return (REGNO (op) == 27 || REGNO (op) > LAST_VIRTUAL_REGISTER);
+	}
       else
 	return 1;
     }
@@ -1298,12 +1346,12 @@ reg_no_subreg_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  if (GET_CODE (op) == SUBREG)
+  if (GET_CODE (op) != REG)
     return 0;
   return register_operand (op, mode);
 }
 
-/* Recognize a addition operation that includes a constant.  Used to
+/* Recognize an addition operation that includes a constant.  Used to
    convince reload to canonize (plus (plus reg c1) c2) during register
    elimination.  */
 
@@ -1320,6 +1368,100 @@ addition_operation (op, mode)
       && CONST_OK_FOR_LETTER_P (INTVAL (XEXP (op, 1)), 'K'))
     return 1;
   return 0;
+}
+
+/* Implements CONST_OK_FOR_LETTER_P.  Return true if the value matches
+   the range defined for C in [I-P].  */
+
+bool
+alpha_const_ok_for_letter_p (value, c)
+     HOST_WIDE_INT value;
+     int c;
+{
+  switch (c)
+    {
+    case 'I':
+      /* An unsigned 8 bit constant.  */
+      return (unsigned HOST_WIDE_INT) value < 0x100;
+    case 'J':
+      /* The constant zero.  */
+      return value == 0;
+    case 'K':
+      /* A signed 16 bit constant.  */
+      return (unsigned HOST_WIDE_INT) (value + 0x8000) < 0x10000;
+    case 'L':
+      /* A shifted signed 16 bit constant appropriate for LDAH.  */
+      return ((value & 0xffff) == 0
+              && ((value) >> 31 == -1 || value >> 31 == 0));
+    case 'M':
+      /* A constant that can be AND'ed with using a ZAP insn.  */
+      return zap_mask (value);
+    case 'N':
+      /* A complemented unsigned 8 bit constant.  */
+      return (unsigned HOST_WIDE_INT) (~ value) < 0x100;
+    case 'O':
+      /* A negated unsigned 8 bit constant.  */
+      return (unsigned HOST_WIDE_INT) (- value) < 0x100;
+    case 'P':
+      /* The constant 1, 2 or 3.  */
+      return value == 1 || value == 2 || value == 3;
+
+    default:
+      return false;
+    }
+}
+
+/* Implements CONST_DOUBLE_OK_FOR_LETTER_P.  Return true if VALUE
+   matches for C in [GH].  */
+
+bool
+alpha_const_double_ok_for_letter_p (value, c)
+     rtx value;
+     int c;
+{
+  switch (c)
+    {
+    case 'G':
+      /* The floating point zero constant.  */
+      return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
+	      && value == CONST0_RTX (GET_MODE (value)));
+
+    case 'H':
+      /* A valid operand of a ZAP insn.  */
+      return (GET_MODE (value) == VOIDmode
+	      && zap_mask (CONST_DOUBLE_LOW (value))
+	      && zap_mask (CONST_DOUBLE_HIGH (value)));
+
+    default:
+      return false;
+    }
+}
+
+/* Implements CONST_DOUBLE_OK_FOR_LETTER_P.  Return true if VALUE
+   matches for C.  */
+
+bool
+alpha_extra_constraint (value, c)
+     rtx value;
+     int c;
+{
+  switch (c)
+    {
+    case 'Q':
+      return normal_memory_operand (value, VOIDmode);
+    case 'R':
+      return direct_call_operand (value, Pmode);
+    case 'S':
+      return (GET_CODE (value) == CONST_INT
+	      && (unsigned HOST_WIDE_INT) INTVAL (value) < 64);
+    case 'T':
+      return GET_CODE (value) == HIGH;
+    case 'U':
+      return TARGET_ABI_UNICOSMK && symbolic_operand (value, VOIDmode);
+
+    default:
+      return false;
+    }
 }
 
 /* Return 1 if this function can directly return via $26.  */
@@ -1390,6 +1532,22 @@ alpha_tablejump_best_label (insn)
   return best_label ? best_label : const0_rtx;
 }
 
+/* Return true if the function DECL will be placed in the default text
+   section.  */
+/* ??? Ideally we'd be able to always move from a SYMBOL_REF back to the
+   decl, as that would allow us to determine if two functions are in the
+   same section, which is what we really want to know.  */
+
+static bool
+decl_in_text_section (decl)
+     tree decl;
+{
+  return (DECL_SECTION_NAME (decl) == NULL_TREE
+	  && ! (flag_function_sections
+	        || (targetm.have_named_sections
+		    && DECL_ONE_ONLY (decl))));
+}
+
 /* If we are referencing a function that is static, make the SYMBOL_REF
    special.  We use this to see indicate we can branch to this function
    without setting PV or restoring GP. 
@@ -1407,8 +1565,16 @@ alpha_encode_section_info (decl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      if (! TREE_PUBLIC (decl))
-	SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+      /* We mark public functions once they are emitted; otherwise we
+	 don't know that they exist in this unit of translation.  */
+      if (TREE_PUBLIC (decl))
+	return;
+      /* Do not mark functions that are not in .text; otherwise we
+	 don't know that they are near enough for a direct branch.  */
+      if (! decl_in_text_section (decl))
+	return;
+
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
       return;
     }
 
@@ -1572,28 +1738,35 @@ alpha_legitimate_address_p (mode, x, strict)
 	return true;
     }
 
-  /* If we're managing explicit relocations, LO_SUM is valid.  */
-  else if (TARGET_EXPLICIT_RELOCS && GET_CODE (x) == LO_SUM)
+  /* If we're managing explicit relocations, LO_SUM is valid, as
+     are small data symbols.  */
+  else if (TARGET_EXPLICIT_RELOCS)
     {
-      rtx ofs = XEXP (x, 1);
-      x = XEXP (x, 0);
-
-      /* Discard non-paradoxical subregs.  */
-      if (GET_CODE (x) == SUBREG
-          && (GET_MODE_SIZE (GET_MODE (x))
-	      < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
-	x = SUBREG_REG (x);
-
-      /* Must have a valid base register.  */
-      if (! (REG_P (x)
-	     && (strict
-		 ? STRICT_REG_OK_FOR_BASE_P (x)
-		 : NONSTRICT_REG_OK_FOR_BASE_P (x))))
-	return false;
-
-      /* The symbol must be local.  */
-      if (local_symbolic_operand (ofs, Pmode))
+      if (small_symbolic_operand (x, Pmode))
 	return true;
+
+      if (GET_CODE (x) == LO_SUM)
+	{
+	  rtx ofs = XEXP (x, 1);
+	  x = XEXP (x, 0);
+
+	  /* Discard non-paradoxical subregs.  */
+	  if (GET_CODE (x) == SUBREG
+	      && (GET_MODE_SIZE (GET_MODE (x))
+		  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
+	    x = SUBREG_REG (x);
+
+	  /* Must have a valid base register.  */
+	  if (! (REG_P (x)
+		 && (strict
+		     ? STRICT_REG_OK_FOR_BASE_P (x)
+		     : NONSTRICT_REG_OK_FOR_BASE_P (x))))
+	    return false;
+
+	  /* The symbol must be local.  */
+	  if (local_symbolic_operand (ofs, Pmode))
+	    return true;
+	}
     }
 
   return false;
@@ -1603,9 +1776,9 @@ alpha_legitimate_address_p (mode, x, strict)
    to be legitimate.  If we find one, return the new, valid address.  */
 
 rtx
-alpha_legitimize_address (x, oldx, mode)
+alpha_legitimize_address (x, scratch, mode)
      rtx x;
-     rtx oldx ATTRIBUTE_UNUSED;
+     rtx scratch;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   HOST_WIDE_INT addend;
@@ -1627,7 +1800,8 @@ alpha_legitimize_address (x, oldx, mode)
      part of the CONST_INT.  Then load FOO plus any high-order part of the
      CONST_INT into a register.  Our address is (plus reg low-part-const).
      This is done to reduce the number of GOT entries.  */
-  if (GET_CODE (x) == CONST
+  if (!no_new_pseudos
+      && GET_CODE (x) == CONST
       && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
     {
@@ -1639,7 +1813,8 @@ alpha_legitimize_address (x, oldx, mode)
   /* If we have a (plus reg const), emit the load as in (2), then add
      the two registers, and finally generate (plus reg low-part-const) as
      our address.  */
-  if (GET_CODE (x) == PLUS
+  if (!no_new_pseudos
+      && GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == CONST
       && GET_CODE (XEXP (XEXP (x, 1), 0)) == PLUS
@@ -1655,33 +1830,18 @@ alpha_legitimize_address (x, oldx, mode)
   /* If this is a local symbol, split the address into HIGH/LO_SUM parts.  */
   if (TARGET_EXPLICIT_RELOCS && symbolic_operand (x, Pmode))
     {
-      rtx scratch;
       if (local_symbolic_operand (x, Pmode))
 	{
 	  if (small_symbolic_operand (x, Pmode))
-	    scratch = pic_offset_table_rtx;
+	    return x;
 	  else
 	    {
-	      rtx insn, tmp;
-
-	      scratch = gen_reg_rtx (Pmode);
-
-	      tmp = gen_rtx_HIGH (Pmode, x);
-	      tmp = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmp);
-              insn = emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, tmp,
-						    REG_NOTES (insn));
+	      if (!no_new_pseudos)
+	        scratch = gen_reg_rtx (Pmode);
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch,
+				      gen_rtx_HIGH (Pmode, x)));
+	      return gen_rtx_LO_SUM (Pmode, scratch, x);
 	    }
-
-	  return gen_rtx_LO_SUM (Pmode, scratch, x);
-	}
-      else
-	{
-	  scratch = gen_reg_rtx (Pmode);
-	  emit_insn (gen_movdi_er_high_g (scratch, pic_offset_table_rtx,
-					  x, const0_rtx));
-	  /* ??? FIXME: Tag the use of scratch with a lituse.  */
-	  return scratch;
 	}
     }
 
@@ -1689,12 +1849,87 @@ alpha_legitimize_address (x, oldx, mode)
 
  split_addend:
   {
-    HOST_WIDE_INT lowpart = (addend & 0xffff) - 2 * (addend & 0x8000);
-    HOST_WIDE_INT highpart = addend - lowpart;
-    x = expand_simple_binop (Pmode, PLUS, x, GEN_INT (highpart),
-			     NULL_RTX, 1, OPTAB_LIB_WIDEN);
-    return plus_constant (x, lowpart);
+    HOST_WIDE_INT low, high;
+
+    low = ((addend & 0xffff) ^ 0x8000) - 0x8000;
+    addend -= low;
+    high = ((addend & 0xffffffff) ^ 0x80000000) - 0x80000000;
+    addend -= high;
+
+    if (addend)
+      x = expand_simple_binop (Pmode, PLUS, x, GEN_INT (addend),
+			       (no_new_pseudos ? scratch : NULL_RTX),
+			       1, OPTAB_LIB_WIDEN);
+    if (high)
+      x = expand_simple_binop (Pmode, PLUS, x, GEN_INT (high),
+			       (no_new_pseudos ? scratch : NULL_RTX),
+			       1, OPTAB_LIB_WIDEN);
+
+    return plus_constant (x, low);
   }
+}
+
+/* For TARGET_EXPLICIT_RELOCS, we don't obfuscate a SYMBOL_REF to a
+   small symbolic operand until after reload.  At which point we need
+   to replace (mem (symbol_ref)) with (mem (lo_sum $29 symbol_ref))
+   so that sched2 has the proper dependency information.  */
+
+int
+some_small_symbolic_mem_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return for_each_rtx (&x, some_small_symbolic_mem_operand_1, NULL);
+}
+
+static int
+some_small_symbolic_mem_operand_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) != MEM)
+    return 0;
+  x = XEXP (x, 0);
+
+  /* If this is an ldq_u type address, discard the outer AND.  */
+  if (GET_CODE (x) == AND)
+    x = XEXP (x, 0);
+
+  return small_symbolic_operand (x, Pmode) ? 1 : -1;
+}
+
+rtx
+split_small_symbolic_mem_operand (x)
+     rtx x;
+{
+  x = copy_insn (x);
+  for_each_rtx (&x, split_small_symbolic_mem_operand_1, NULL);
+  return x;
+}
+
+static int
+split_small_symbolic_mem_operand_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) != MEM)
+    return 0;
+
+  px = &XEXP (x, 0), x = *px;
+  if (GET_CODE (x) == AND)
+    px = &XEXP (x, 0), x = *px;
+
+  if (small_symbolic_operand (x, Pmode))
+    {
+      x = gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, x);
+      *px = x;
+    }
+
+  return -1;
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -1787,12 +2022,8 @@ get_aligned_mem (ref, paligned_mem, pbitnum)
   if (GET_CODE (base) == PLUS)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
-  *paligned_mem = gen_rtx_MEM (SImode, plus_constant (base, offset & ~3));
-  MEM_COPY_ATTRIBUTES (*paligned_mem, ref);
-
-  /* Sadly, we cannot use alias sets here because we may overlap other
-     data in a different alias set.  */
-  set_mem_alias_set (*paligned_mem, 0);
+  *paligned_mem
+    = widen_memory_access (ref, SImode, (offset & ~3) - offset);
 
   if (WORDS_BIG_ENDIAN)
     *pbitnum = GEN_INT (32 - (GET_MODE_BITSIZE (GET_MODE (ref))
@@ -1832,6 +2063,39 @@ get_unaligned_address (ref, extra_offset)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
   return plus_constant (base, offset + extra_offset);
+}
+
+/* On the Alpha, all (non-symbolic) constants except zero go into
+   a floating-point register via memory.  Note that we cannot 
+   return anything that is not a subset of CLASS, and that some
+   symbolic constants cannot be dropped to memory.  */
+
+enum reg_class
+alpha_preferred_reload_class(x, class)
+     rtx x;
+     enum reg_class class;
+{
+  /* Zero is present in any register class.  */
+  if (x == CONST0_RTX (GET_MODE (x)))
+    return class;
+
+  /* These sorts of constants we can easily drop to memory.  */
+  if (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
+    {
+      if (class == FLOAT_REGS)
+	return NO_REGS;
+      if (class == ALL_REGS)
+	return GENERAL_REGS;
+      return class;
+    }
+
+  /* All other kinds of constants should not (and in the case of HIGH
+     cannot) be dropped to memory -- instead we use a GENERAL_REGS
+     secondary reload.  */
+  if (CONSTANT_P (x))
+    return (class == ALL_REGS ? GENERAL_REGS : class);
+
+  return class;
 }
 
 /* Loading and storing HImode or QImode values to and from memory
@@ -1976,7 +2240,7 @@ alpha_emit_set_const (target, mode, c, n)
   rtx pat;
   int i;
 
-  /* Try 1 insn, then 2, then up to N. */
+  /* Try 1 insn, then 2, then up to N.  */
   for (i = 1; i <= n; i++)
     if ((pat = alpha_emit_set_const_1 (target, mode, c, i)) != 0)
       return pat;
@@ -2012,7 +2276,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
 
   /* If this is a sign-extended 32-bit constant, we can do this in at most
      three insns, so do it if we have enough insns left.  We always have
-     a sign-extended 32-bit constant when compiling on a narrow machine.   */
+     a sign-extended 32-bit constant when compiling on a narrow machine.  */
 
   if (HOST_BITS_PER_WIDE_INT != 64
       || c >> 31 == -1 || c >> 31 == 0)
@@ -2127,7 +2391,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
 
       /* Now try high-order 1 bits.  We get that with a sign-extension.
 	 But one bit isn't enough here.  Be careful to avoid shifting outside
-	 the mode and to avoid shifting outside the host wide int size. */
+	 the mode and to avoid shifting outside the host wide int size.  */
 
       if ((bits = (MIN (HOST_BITS_PER_WIDE_INT, GET_MODE_SIZE (mode) * 8)
 		   - floor_log2 (~ c) - 2)) > 0)
@@ -2242,35 +2506,14 @@ alpha_expand_mov (mode, operands)
       && ! reg_or_0_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
 
-  if (TARGET_EXPLICIT_RELOCS && symbolic_operand (operands[1], mode))
+  /* Allow legitimize_address to perform some simplifications.  */
+  if (mode == Pmode && symbolic_operand (operands[1], mode))
     {
-      if (local_symbolic_operand (operands[1], mode))
+      rtx tmp = alpha_legitimize_address (operands[1], operands[0], mode);
+      if (tmp)
 	{
-	  rtx scratch;
-
-	  if (small_symbolic_operand (operands[1], Pmode))
-	    scratch = pic_offset_table_rtx;
-	  else
-	    {
-	      rtx insn, tmp;
-
-	      scratch = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
-
-	      tmp = gen_rtx_HIGH (Pmode, operands[1]);
-	      tmp = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmp);
-              insn = emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, tmp,
-						    REG_NOTES (insn));
-	    }
-
-          operands[1] = gen_rtx_LO_SUM (Pmode, scratch, operands[1]);
+	  operands[1] = tmp;
 	  return false;
-	}
-      else
-	{
-	  emit_insn (gen_movdi_er_high_g (operands[0], pic_offset_table_rtx,
-					  operands[1], const0_rtx));
-	  return true;
 	}
     }
 
@@ -2503,8 +2746,7 @@ alpha_emit_floatuns (operands)
   i1 = gen_reg_rtx (DImode);
   f0 = gen_reg_rtx (mode);
 
-  emit_cmp_and_jump_insns (in, const0_rtx, LT, const0_rtx, DImode, 0,
-			   8, neglab);
+  emit_cmp_and_jump_insns (in, const0_rtx, LT, const0_rtx, DImode, 0, neglab);
 
   emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_FLOAT (mode, in)));
   emit_jump_insn (gen_jump (donelab));
@@ -2572,7 +2814,7 @@ alpha_emit_conditional_branch (code)
 
     case NE:
     case ORDERED:
-      /* These must be reversed. */
+      /* These must be reversed.  */
       cmp_code = reverse_condition (code), branch_code = EQ;
       break;
 
@@ -2784,7 +3026,7 @@ alpha_emit_setcc (code)
    a conditional move (if_then_else CMP ...).
    If both of the operands that set cc0 are non-zero we must emit
    an insn to perform the compare (it can't be done within
-   the conditional move). */
+   the conditional move).  */
 rtx
 alpha_emit_conditional_move (cmp, mode)
      rtx cmp;
@@ -2859,7 +3101,7 @@ alpha_emit_conditional_move (cmp, mode)
     }
 
   /* We may be able to use a conditional move directly.
-     This avoids emitting spurious compares. */
+     This avoids emitting spurious compares.  */
   if (signed_comparison_operator (cmp, VOIDmode)
       && (!fp_p || local_fast_math)
       && (op0 == CONST0_RTX (cmp_mode) || op1 == CONST0_RTX (cmp_mode)))
@@ -2880,7 +3122,7 @@ alpha_emit_conditional_move (cmp, mode)
       break;
 
     case NE:
-      /* This must be reversed. */
+      /* This must be reversed.  */
       code = reverse_condition (code);
       cmov_code = EQ;
       break;
@@ -2953,41 +3195,46 @@ alpha_split_conditional_move (code, dest, cond, t_rtx, f_rtx)
       else
 	subtarget = target;
     }
+  /* Below, we must be careful to use copy_rtx on target and subtarget
+     in intermediate insns, as they may be a subreg rtx, which may not
+     be shared.  */
 
   if (f == 0 && exact_log2 (diff) > 0
       /* On EV6, we've got enough shifters to make non-arithmatic shifts
 	 viable over a longer latency cmove.  On EV5, the E0 slot is a
-	 scarce resource, and on EV4 shift has the same latency as a cmove. */
+	 scarce resource, and on EV4 shift has the same latency as a cmove.  */
       && (diff <= 8 || alpha_cpu == PROCESSOR_EV6))
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
 
-      tmp = gen_rtx_ASHIFT (DImode, subtarget, GEN_INT (exact_log2 (t)));
+      tmp = gen_rtx_ASHIFT (DImode, copy_rtx (subtarget),
+			    GEN_INT (exact_log2 (t)));
       emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
     }
   else if (f == 0 && t == -1)
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
 
-      emit_insn (gen_negdi2 (target, subtarget));
+      emit_insn (gen_negdi2 (target, copy_rtx (subtarget)));
     }
   else if (diff == 1 || diff == 4 || diff == 8)
     {
       rtx add_op;
 
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
 
       if (diff == 1)
-	emit_insn (gen_adddi3 (target, subtarget, GEN_INT (f)));
+	emit_insn (gen_adddi3 (target, copy_rtx (subtarget), GEN_INT (f)));
       else
 	{
 	  add_op = GEN_INT (f);
 	  if (sext_add_operand (add_op, mode))
 	    {
-	      tmp = gen_rtx_MULT (DImode, subtarget, GEN_INT (diff));
+	      tmp = gen_rtx_MULT (DImode, copy_rtx (subtarget),
+				  GEN_INT (diff));
 	      tmp = gen_rtx_PLUS (DImode, tmp, add_op);
 	      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
 	    }
@@ -3594,7 +3841,7 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
 #if HOST_BITS_PER_WIDE_INT == 32
 	    rtx msk = immed_double_const (0xffffffff, 0xffffffff, DImode);
 #else
-	    rtx msk = immed_double_const (0xffffffffffffffff, 0, DImode);
+	    rtx msk = constm1_rtx;
 #endif
 	    emit_insn (gen_mskxl_be (dsth, dsth, msk, addr));
 	  }
@@ -3641,7 +3888,7 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
 #if HOST_BITS_PER_WIDE_INT == 32
 	    rtx msk = immed_double_const (0xffffffff, 0xffffffff, DImode);
 #else
-	    rtx msk = immed_double_const (0xffffffffffffffff, 0, DImode);
+	    rtx msk = constm1_rtx;
 #endif
 	    emit_insn (gen_mskxl_le (dstl, dstl, msk, addr));
 	  }
@@ -3773,7 +4020,7 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
 #if HOST_BITS_PER_WIDE_INT == 32
   rtx const im1 = immed_double_const (0xffffffff, 0xffffffff, DImode);
 #else
-  rtx const im1 = immed_double_const (0xffffffffffffffff, 0, DImode);
+  rtx const im1 = constm1_rtx;
 #endif
   rtx ins_tmps[MAX_MOVE_WORDS];
   rtx st_tmp_1, st_tmp_2, dreg;
@@ -4654,7 +4901,7 @@ alpha_adjust_cost (insn, link, dep_insn, cost)
       break;
     }
 
-  /* Otherwise, return the default cost. */
+  /* Otherwise, return the default cost.  */
   return cost;
 }
 
@@ -4747,10 +4994,6 @@ alpha_ra_ever_killed ()
 {
   rtx top;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
-    return 0;
-#endif
   if (!has_hard_reg_initial_val (Pmode, REG_RA))
     return regs_ever_live[REG_RA];
 
@@ -4763,7 +5006,7 @@ alpha_ra_ever_killed ()
 
 
 /* Return the trap mode suffix applicable to the current
-   instruction, or NULL.   */
+   instruction, or NULL.  */
 
 static const char *
 get_trap_mode_suffix ()
@@ -4830,7 +5073,7 @@ get_trap_mode_suffix ()
 }
 
 /* Return the rounding mode suffix applicable to the current
-   instruction, or NULL.   */
+   instruction, or NULL.  */
 
 static const char *
 get_round_mode_suffix ()
@@ -4916,6 +5159,16 @@ print_operand (file, x, code)
 	output_addr_const (file, XEXP (x, 0));
       else
 	output_operand_lossage ("invalid %%H value");
+      break;
+
+    case 'J':
+      if (GET_CODE (x) == CONST_INT)
+	{
+	  if (INTVAL (x) != 0)
+	    fprintf (file, "\t\t!lituse_jsr!%d", (int) INTVAL (x));
+	}
+      else
+	output_operand_lossage ("invalid %%J value");
       break;
 
     case 'r':
@@ -5247,7 +5500,7 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
   emit_move_insn (gen_rtx_MEM (mode, addr), cxt);
 
   /* This has been disabled since the hint only has a 32k range, and in
-     no existing OS is the stack within 32k of the text segment. */
+     no existing OS is the stack within 32k of the text segment.  */
   if (0 && jmpofs >= 0)
     {
       /* Compute hint value.  */
@@ -5351,7 +5604,8 @@ function_arg (cum, mode, type, named)
 #if HOST_BITS_PER_WIDE_INT == 32
 	  hi = (cum.num_args << 20) | cum.num_arg_words;
 #else
-	  lo = lo | (cum.num_args << 52) | (cum.num_arg_words << 32);
+	  lo = lo | ((HOST_WIDE_INT) cum.num_args << 52)
+	    | ((HOST_WIDE_INT) cum.num_arg_words << 32);
 	  hi = 0;
 #endif
 	  ciw = immed_double_const (lo, hi, DImode);
@@ -5448,7 +5702,7 @@ alpha_va_start (stdarg_p, valist, nextarg)
   if (TREE_CODE (TREE_TYPE (valist)) == ERROR_MARK)
     return;
 
-  if (TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK)
+  if (TARGET_ABI_UNICOSMK)
     std_expand_builtin_va_start (stdarg_p, valist, nextarg);
 
   /* For Unix, SETUP_INCOMING_VARARGS moves the starting address base
@@ -5461,28 +5715,41 @@ alpha_va_start (stdarg_p, valist, nextarg)
      in argsize above, but which are not actually stored on the stack.  */
 
   if (NUM_ARGS <= 5 + stdarg_p)
-    offset = 6 * UNITS_PER_WORD;
+    offset = TARGET_ABI_OPEN_VMS ? UNITS_PER_WORD : 6 * UNITS_PER_WORD;
   else
     offset = -6 * UNITS_PER_WORD;
 
-  base_field = TYPE_FIELDS (TREE_TYPE (valist));
-  offset_field = TREE_CHAIN (base_field);
+  if (TARGET_ABI_OPEN_VMS)
+    {
+      nextarg = plus_constant (nextarg, offset);
+      nextarg = plus_constant (nextarg, NUM_ARGS * UNITS_PER_WORD);
+      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		 make_tree (ptr_type_node, nextarg));
+      TREE_SIDE_EFFECTS (t) = 1;
 
-  base_field = build (COMPONENT_REF, TREE_TYPE (base_field),
-		      valist, base_field);
-  offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
-			valist, offset_field);
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
+  else
+    {
+      base_field = TYPE_FIELDS (TREE_TYPE (valist));
+      offset_field = TREE_CHAIN (base_field);
 
-  t = make_tree (ptr_type_node, virtual_incoming_args_rtx);
-  t = build (PLUS_EXPR, ptr_type_node, t, build_int_2 (offset, 0));
-  t = build (MODIFY_EXPR, TREE_TYPE (base_field), base_field, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+      base_field = build (COMPONENT_REF, TREE_TYPE (base_field),
+			  valist, base_field);
+      offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
+			    valist, offset_field);
 
-  t = build_int_2 (NUM_ARGS*UNITS_PER_WORD, 0);
-  t = build (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+      t = make_tree (ptr_type_node, virtual_incoming_args_rtx);
+      t = build (PLUS_EXPR, ptr_type_node, t, build_int_2 (offset, 0));
+      t = build (MODIFY_EXPR, TREE_TYPE (base_field), base_field, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+      t = build_int_2 (NUM_ARGS * UNITS_PER_WORD, 0);
+      t = build (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 }
 
 rtx
@@ -5562,7 +5829,7 @@ alpha_va_arg (valist, type)
 /* These variables are used for communication between the following functions.
    They indicate various things about the current function being compiled
    that are used to tell what kind of prologue, epilogue and procedure
-   descriptior to generate. */
+   descriptior to generate.  */
 
 /* Nonzero if we need a stack procedure.  */
 static int alpha_is_stack_procedure;
@@ -5589,46 +5856,48 @@ alpha_sa_mask (imaskP, fmaskP)
   unsigned long fmask = 0;
   unsigned int i;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (!current_function_is_thunk)
-#endif
+  /* Irritatingly, there are two kinds of thunks -- those created with
+     ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go through
+     the regular part of the compiler.  In the ASM_OUTPUT_MI_THUNK case
+     we don't have valid register life info, but assemble_start_function
+     wants to output .frame and .mask directives.  */
+  if (current_function_is_thunk && rtx_equal_function_value_matters)
     {
-      if (TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
-	imask |= (1L << HARD_FRAME_POINTER_REGNUM);
-
-      /* One for every register we have to save.  */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (! fixed_regs[i] && ! call_used_regs[i]
-	    && regs_ever_live[i] && i != REG_RA
-	    && (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
-	  {
-	    if (i < 32)
-	      imask |= (1L << i);
-	    else
-	      fmask |= (1L << (i - 32));
-	  }
-
-      /* We need to restore these for the handler.  */
-      if (current_function_calls_eh_return)
-	{
-	  for (i = 0; ; ++i)
-	    {
-	      unsigned regno = EH_RETURN_DATA_REGNO (i);
-	      if (regno == INVALID_REGNUM)
-		break;
-	      imask |= 1L << regno;
-	    }
-	}
-     
-      if (!TARGET_ABI_UNICOSMK)
-	{
-	  /* If any register spilled, then spill the return address also.  */
-	  /* ??? This is required by the Digital stack unwind specification
-	     and isn't needed if we're doing Dwarf2 unwinding.  */
-	  if (imask || fmask || alpha_ra_ever_killed ())
-	    imask |= (1L << REG_RA);
-	}
+      *imaskP = 0;
+      *fmaskP = 0;
+      return;
     }
+
+  if (TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
+    imask |= (1L << HARD_FRAME_POINTER_REGNUM);
+
+  /* One for every register we have to save.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (! fixed_regs[i] && ! call_used_regs[i]
+	&& regs_ever_live[i] && i != REG_RA
+	&& (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
+      {
+	if (i < 32)
+	  imask |= (1L << i);
+	else
+	  fmask |= (1L << (i - 32));
+      }
+
+  /* We need to restore these for the handler.  */
+  if (current_function_calls_eh_return)
+    for (i = 0; ; ++i)
+      {
+	unsigned regno = EH_RETURN_DATA_REGNO (i);
+	if (regno == INVALID_REGNUM)
+	  break;
+	imask |= 1L << regno;
+      }
+     
+  /* If any register spilled, then spill the return address also.  */
+  /* ??? This is required by the Digital stack unwind specification
+     and isn't needed if we're doing Dwarf2 unwinding.  */
+  if (imask || fmask || alpha_ra_ever_killed ())
+    imask |= (1L << REG_RA);
 
   *imaskP = imask;
   *fmaskP = fmask;
@@ -5637,34 +5906,23 @@ alpha_sa_mask (imaskP, fmaskP)
 int
 alpha_sa_size ()
 {
+  unsigned long mask[2];
   int sa_size = 0;
-  int i;
+  int i, j;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
-    sa_size = 0;
-  else
-#endif
+  alpha_sa_mask (&mask[0], &mask[1]);
+
+  if (TARGET_ABI_UNICOSMK)
     {
-      if (TARGET_ABI_UNICOSMK)
-	{
-	  for (i = 9; i < 15 && sa_size == 0; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-		&& regs_ever_live[i])
-	      sa_size = 14;
-	  for (i = 32 + 2; i < 32 + 10 && sa_size == 0; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-		&& regs_ever_live[i])
-	      sa_size = 14;
-	}
-      else
-	{
-	  /* One for every register we have to save.  */
-	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-	        && regs_ever_live[i] && i != REG_RA)
-	      sa_size++;
-	}
+      if (mask[0] || mask[1])
+	sa_size = 14;
+    }
+  else
+    {
+      for (j = 0; j < 2; ++j)
+	for (i = 0; i < 32; ++i)
+	  if ((mask[j] >> i) & 1)
+	    sa_size++;
     }
 
   if (TARGET_ABI_UNICOSMK)
@@ -5675,14 +5933,13 @@ alpha_sa_size ()
 	 use alloca and have not determined that we need a frame for other
 	 reasons.  */
 
-      alpha_is_stack_procedure = sa_size != 0
-				|| alpha_ra_ever_killed ()
-				|| get_frame_size() != 0
-				|| current_function_outgoing_args_size
-				|| current_function_varargs
-				|| current_function_stdarg
-				|| current_function_calls_alloca
-				|| frame_pointer_needed;
+      alpha_is_stack_procedure = (sa_size
+				  || get_frame_size() != 0
+				  || current_function_outgoing_args_size
+				  || current_function_varargs
+				  || current_function_stdarg
+				  || current_function_calls_alloca
+				  || frame_pointer_needed);
 
       /* Always reserve space for saving callee-saved registers if we
 	 need a frame as required by the calling convention.  */
@@ -5694,7 +5951,12 @@ alpha_sa_size ()
       /* Start by assuming we can use a register procedure if we don't
 	 make any calls (REG_RA not used) or need to save any
 	 registers and a stack procedure if we do.  */
-      alpha_is_stack_procedure = sa_size != 0 || alpha_ra_ever_killed ();
+      alpha_is_stack_procedure = ((mask[0] >> REG_RA) & 1);
+
+      /* Don't reserve space for saving RA yet.  Do that later after we've
+	 made the final decision on stack procedure vs register procedure.  */
+      if (alpha_is_stack_procedure)
+	sa_size--;
 
       /* Decide whether to refer to objects off our PV via FP or PV.
 	 If we need FP for something else or if we receive a nonlocal
@@ -5728,11 +5990,6 @@ alpha_sa_size ()
     }
   else
     {
-      /* If some registers were saved but not RA, RA must also be saved,
-	 so leave space for it.  */
-      if (!TARGET_ABI_UNICOSMK && (sa_size != 0 || alpha_ra_ever_killed ()))
-	sa_size++;
-
       /* Our size must be even (multiple of 16 bytes).  */
       if (sa_size & 1)
 	sa_size++;
@@ -5760,8 +6017,10 @@ alpha_using_fp ()
 const struct attribute_spec vms_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "overlaid", 0, 0, true,  false, false, NULL },
-  { NULL,       0, 0, false, false, false, NULL }
+  { "overlaid",   0, 0, true,  false, false, NULL },
+  { "global",     0, 0, true,  false, false, NULL },
+  { "initialize", 0, 0, true,  false, false, NULL },
+  { NULL,         0, 0, false, false, false, NULL }
 };
 
 #endif
@@ -5783,13 +6042,11 @@ alpha_does_function_need_gp ()
   if (! TARGET_ABI_OSF)
     return 0;
 
-  if (TARGET_PROFILING_NEEDS_GP && profile_flag)
+  if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     return 1;
 
-#ifdef ASM_OUTPUT_MI_THUNK
   if (current_function_is_thunk)
     return 1;
-#endif
 
   /* If we need a GP (we have a LDSYM insn or a CALL_INSN), load it first. 
      Even if we are a static function, we still need to do this in case
@@ -5928,7 +6185,7 @@ alpha_expand_prologue ()
      the call to mcount ourselves, rather than having the linker do it
      magically in response to -pg.  Since _mcount has special linkage,
      don't represent the call as a call.  */
-  if (TARGET_PROFILING_NEEDS_GP && profile_flag)
+  if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     emit_insn (gen_prologue_mcount ());
 
   if (TARGET_ABI_UNICOSMK)
@@ -6255,7 +6512,9 @@ alpha_start_function (file, fnname, decl)
 
       /* If the function needs GP, we'll write the "..ng" label there.
 	 Otherwise, do it here.  */
-      if (TARGET_ABI_OSF && ! alpha_function_needs_gp)
+      if (TARGET_ABI_OSF
+          && ! alpha_function_needs_gp
+	  && ! current_function_is_thunk)
 	{
 	  putc ('$', file);
 	  assemble_name (file, fnname);
@@ -6283,7 +6542,7 @@ alpha_start_function (file, fnname, decl)
     {
       /* Set flags in procedure descriptor to request IEEE-conformant
 	 math-library routines.  The value we set it to is PDSC_EXC_IEEE
-	 (/usr/include/pdsc.h). */
+	 (/usr/include/pdsc.h).  */
       fputs ("\t.eflag 48\n", file);
     }
 
@@ -6300,7 +6559,7 @@ alpha_start_function (file, fnname, decl)
     {
       fprintf (file, "\t.frame $%d,", vms_unwind_regno);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-	       frame_size >= (1l << 31) ? 0 : frame_size);
+	       frame_size >= ((HOST_WIDE_INT) 1 << 31) ? 0 : frame_size);
       fputs (",$26,", file);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, reg_offset);
       fputs ("\n", file);
@@ -6389,7 +6648,8 @@ alpha_output_function_end_prologue (file)
   else if (TARGET_ABI_WINDOWS_NT)
     fputs ("\t.prologue 0\n", file);
   else if (!flag_inhibit_size_directive)
-    fprintf (file, "\t.prologue %d\n", alpha_function_needs_gp);
+    fprintf (file, "\t.prologue %d\n",
+	     alpha_function_needs_gp || current_function_is_thunk);
 }
 
 /* Write function epilogue.  */
@@ -6479,7 +6739,7 @@ alpha_expand_epilogue ()
 	  FRP (emit_move_insn (sa_reg, sa_reg_exp));
 	}
 	  
-      /* Restore registers in order, excepting a true frame pointer. */
+      /* Restore registers in order, excepting a true frame pointer.  */
 
       mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
       if (! eh_ofs)
@@ -6671,10 +6931,15 @@ alpha_end_function (file, fnname, decl)
 
      Don't do this for global functions in object files destined for a
      shared library because the function may be overridden by the application
-     or other libraries.  Similarly, don't do this for weak functions.  */
+     or other libraries.  Similarly, don't do this for weak functions.
+
+     Don't do this for functions not defined in the .text section, as
+     otherwise it's not unlikely that the destination is out of range
+     for a direct branch.  */
 
   if (!DECL_WEAK (current_function_decl)
-      && (!flag_pic || !TREE_PUBLIC (current_function_decl)))
+      && (!flag_pic || !TREE_PUBLIC (current_function_decl))
+      && decl_in_text_section (current_function_decl))
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (current_function_decl), 0)) = 1;
 
   /* Output jump tables and the static subroutine information block.  */
@@ -6683,6 +6948,76 @@ alpha_end_function (file, fnname, decl)
       unicosmk_output_ssib (file, fnname);
       unicosmk_output_deferred_case_vectors (file);
     }
+}
+
+/* Emit a tail call to FUNCTION after adjusting THIS by DELTA. 
+
+   In order to avoid the hordes of differences between generated code
+   with and without TARGET_EXPLICIT_RELOCS, and to avoid duplicating
+   lots of code loading up large constants, generate rtl and emit it
+   instead of going straight to text.
+
+   Not sure why this idea hasn't been explored before...  */
+
+void
+alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  HOST_WIDE_INT hi, lo;
+  rtx this, insn, funexp;
+
+  /* We always require a valid GP.  */
+  emit_insn (gen_prologue_ldgp ());
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  If the function returns a structure,
+     the structure return pointer is in $16.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, 17);
+  else
+    this = gen_rtx_REG (Pmode, 16);
+
+  /* Add DELTA.  When possible we use ldah+lda.  Otherwise load the
+     entire constant for the add.  */
+  lo = ((delta & 0xffff) ^ 0x8000) - 0x8000;
+  hi = (((delta - lo) & 0xffffffff) ^ 0x80000000) - 0x80000000;
+  if (hi + lo == delta)
+    {
+      if (hi)
+	emit_insn (gen_adddi3 (this, this, GEN_INT (hi)));
+      if (lo)
+	emit_insn (gen_adddi3 (this, this, GEN_INT (lo)));
+    }
+  else
+    {
+      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0),
+					   delta, -(delta < 0));
+      emit_insn (gen_adddi3 (this, this, tmp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  insn = emit_call_insn (gen_sibcall (funexp, const0_rtx));
+  SIBLING_CALL_P (insn) = 1;
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
 }
 
 /* Debugging support.  */
@@ -6874,7 +7209,7 @@ summarize_insn (x, sum, set)
 
     case CONST_INT:   case CONST_DOUBLE:
     case SYMBOL_REF:  case LABEL_REF:     case CONST:
-    case SCRATCH:
+    case SCRATCH:     case ASM_INPUT:
       break;
 
       /* Handle common unary and binary ops for efficiency.  */
@@ -7517,8 +7852,12 @@ alpha_align_insns (insns, max_align, next_group, next_nop)
   /* Let shorten branches care for assigning alignments to code labels.  */
   shorten_branches (insns);
 
-  align = (FUNCTION_BOUNDARY / BITS_PER_UNIT < max_align
-	   ? FUNCTION_BOUNDARY / BITS_PER_UNIT : max_align);
+  if (align_functions < 4)
+    align = 4;
+  else if ((unsigned int) align_functions < max_align)
+    align = align_functions;
+  else
+    align = max_align;
 
   ofs = prev_in_use = 0;
   i = insns;
@@ -7565,15 +7904,20 @@ alpha_align_insns (insns, max_align, next_group, next_nop)
       else if ((int) align < len)
 	{
 	  unsigned int new_log_align = len > 8 ? 4 : 3;
-	  rtx where;
+	  rtx prev, where;
 
-	  where = prev_nonnote_insn (i);
+	  where = prev = prev_nonnote_insn (i);
 	  if (!where || GET_CODE (where) != CODE_LABEL)
 	    where = i;
 
-	  emit_insn_before (gen_realign (GEN_INT (new_log_align)), where);
-	  align = 1 << new_log_align;
-	  ofs = 0;
+	  /* Can't realign between a call and its gp reload.  */
+	  if (! (TARGET_EXPLICIT_RELOCS
+		 && prev && GET_CODE (prev) == CALL_INSN))
+	    {
+	      emit_insn_before (gen_realign (GEN_INT (new_log_align)), where);
+	      align = 1 << new_log_align;
+	      ofs = 0;
+	    }
 	}
 
       /* If the group won't fit in the same INT16 as the previous,
@@ -7587,8 +7931,8 @@ alpha_align_insns (insns, max_align, next_group, next_nop)
 	  int nop_count = (align - ofs) / 4;
 	  rtx where;
 
-	  /* Insert nops before labels and branches to truely merge the
-	     execution of the nops with the previous instruction group.  */
+	  /* Insert nops before labels, branches, and calls to truely merge
+	     the execution of the nops with the previous instruction group.  */
 	  where = prev_nonnote_insn (i);
 	  if (where)
 	    {
@@ -7598,7 +7942,7 @@ alpha_align_insns (insns, max_align, next_group, next_nop)
 		  if (where2 && GET_CODE (where2) == JUMP_INSN)
 		    where = where2;
 		}
-	      else if (GET_CODE (where) != JUMP_INSN)
+	      else if (GET_CODE (where) == INSN)
 		where = i;
 	    }
 	  else
@@ -7616,7 +7960,7 @@ alpha_align_insns (insns, max_align, next_group, next_nop)
     }
 }
 
-/* Machine dependant reorg pass.  */
+/* Machine dependent reorg pass.  */
 
 void
 alpha_reorg (insns)
@@ -7897,15 +8241,20 @@ void
 alpha_write_linkage (stream)
     FILE *stream;
 {
-  readonly_section ();
-  fprintf (stream, "\t.align 3\n");
-  splay_tree_foreach (alpha_links, alpha_write_one_linkage, stream);
+  if (alpha_links)
+    {
+      readonly_section ();
+      fprintf (stream, "\t.align 3\n");
+      splay_tree_foreach (alpha_links, alpha_write_one_linkage, stream);
+    }
 }
 
 /* Given a decl, a section name, and whether the decl initializer
    has relocs, choose attributes for the section.  */
 
 #define SECTION_VMS_OVERLAY	SECTION_FORGET
+#define SECTION_VMS_GLOBAL SECTION_MACH_DEP
+#define SECTION_VMS_INITIALIZE (SECTION_VMS_GLOBAL << 1)
 
 static unsigned int
 vms_section_type_flags (decl, name, reloc)
@@ -7918,6 +8267,12 @@ vms_section_type_flags (decl, name, reloc)
   if (decl && DECL_ATTRIBUTES (decl)
       && lookup_attribute ("overlaid", DECL_ATTRIBUTES (decl)))
     flags |= SECTION_VMS_OVERLAY;
+  if (decl && DECL_ATTRIBUTES (decl)
+      && lookup_attribute ("global", DECL_ATTRIBUTES (decl)))
+    flags |= SECTION_VMS_GLOBAL;
+  if (decl && DECL_ATTRIBUTES (decl)
+      && lookup_attribute ("initialize", DECL_ATTRIBUTES (decl)))
+    flags |= SECTION_VMS_INITIALIZE;
 
   return flags;
 }
@@ -7931,14 +8286,19 @@ vms_asm_named_section (name, flags)
      const char *name;
      unsigned int flags;
 {
-  const char *flag_str = "";
+  fputc ('\n', asm_out_file);
+  fprintf (asm_out_file, ".section\t%s", name);
 
   if (flags & SECTION_VMS_OVERLAY)
-    flag_str = ",OVR";
-  else if (flags & SECTION_DEBUG)
-    flag_str = ",NOWRT";
+    fprintf (asm_out_file, ",OVR");
+  if (flags & SECTION_VMS_GLOBAL)
+    fprintf (asm_out_file, ",GBL");
+  if (flags & SECTION_VMS_INITIALIZE)
+    fprintf (asm_out_file, ",NOMOD");
+  if (flags & SECTION_DEBUG)
+    fprintf (asm_out_file, ",NOWRT");
 
-  fprintf (asm_out_file, ".section\t%s%s\n", name, flag_str);
+  fputc ('\n', asm_out_file);
 }
 
 /* Record an element in the table of global constructors.  SYMBOL is
@@ -7988,7 +8348,7 @@ static void unicosmk_output_dex PARAMS ((FILE *));
 static void unicosmk_output_externs PARAMS ((FILE *));
 static void unicosmk_output_addr_vec PARAMS ((FILE *, rtx));
 static const char *unicosmk_ssib_name PARAMS ((void));
-
+static int unicosmk_special_name PARAMS ((const char *));
 
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
@@ -8417,7 +8777,6 @@ unicosmk_ssib_name ()
 
   rtx x;
   const char *fnname;
-  char *ssib_name;
   int len;
 
   x = DECL_RTL (cfun->decl);

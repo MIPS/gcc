@@ -92,16 +92,16 @@ mark_current_function_as_interrupt ()
   
   if (current_function_decl ==  NULL_TREE)
     {
-      warning ("Cannot set interrupt attribute: no current function");
-      return 0;
+      warning ("cannot set interrupt attribute: no current function");
+      return;
     }
 
   name = get_identifier ("interrupt");
 
   if (name == NULL_TREE || TREE_CODE (name) != IDENTIFIER_NODE)
     {
-      warning ("Cannot set interrupt attribute: no such identifier");
-      return 0;
+      warning ("cannot set interrupt attribute: no such identifier");
+      return;
     }
   
   decl_attributes (&current_function_decl,
@@ -163,7 +163,7 @@ ghs_pragma_section (pfile)
       else if (streq (sect, "zbss"))    kind = GHS_SECTION_KIND_ZDATA;
       else
 	{
-	  warning ("unrecognised section name \"%s\"", sect);
+	  warning ("unrecognized section name \"%s\"", sect);
 	  return;
 	}
       

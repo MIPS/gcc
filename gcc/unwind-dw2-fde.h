@@ -1,5 +1,6 @@
 /* Subroutines needed for unwinding stack frames for exception handling.  */
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
 This file is part of GCC.
@@ -54,7 +55,7 @@ struct object
       unsigned long mixed_encoding : 1;
       unsigned long encoding : 8;
       /* ??? Wish there was an easy way to detect a 64-bit host here;
-	 we've got 32 bits left to play with... */
+	 we've got 32 bits left to play with...  */
       unsigned long count : 21;
     } b;
     size_t i;
@@ -112,7 +113,7 @@ typedef unsigned char ubyte;
    is located, and what the register lifetimes and stack layout are
    within the function.
 
-   The data structures are defined in the DWARF specfication, although
+   The data structures are defined in the DWARF specification, although
    not in a very readable way (see LITERATURE).
 
    Every time an exception is thrown, the code needs to locate the FDE
@@ -155,7 +156,7 @@ get_cie (struct dwarf_fde *f)
 static inline fde *
 next_fde (fde *f)
 {
-  return (fde *)((char *)f + f->length + sizeof (f->length));
+  return (fde *) ((char *) f + f->length + sizeof (f->length));
 }
 
 extern fde * _Unwind_Find_FDE (void *, struct dwarf_eh_bases *);

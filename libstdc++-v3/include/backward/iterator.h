@@ -31,10 +31,12 @@
 #include "function.h"
 #include <stddef.h>
 #include "iostream.h"
-#include <bits/std_iterator.h>
+#include <iterator>
 
 #include <bits/stl_construct.h>
 #include <bits/stl_raw_storage_iter.h>
+
+#include <ext/iterator> // For 3-parameter distance extension
 
 // Names from stl_iterator.h
 using std::input_iterator_tag;
@@ -46,11 +48,54 @@ using std::random_access_iterator_tag;
 #if 0
 using std::iterator;
 #endif
-using std::input_iterator;
-using std::output_iterator;
-using std::forward_iterator;
-using std::bidirectional_iterator;
-using std::random_access_iterator;
+
+// The base classes input_iterator, output_iterator, forward_iterator,
+// bidirectional_iterator, and random_access_iterator are not part of
+// the C++ standard.  (They have been replaced by struct iterator.)
+// They are included for backward compatibility with the HP STL.
+template<typename _Tp, typename _Distance>
+  struct input_iterator {
+    typedef input_iterator_tag iterator_category;
+    typedef _Tp                value_type;
+    typedef _Distance          difference_type;
+    typedef _Tp*               pointer;
+    typedef _Tp&               reference;
+  };
+
+struct output_iterator {
+  typedef output_iterator_tag iterator_category;
+  typedef void                value_type;
+  typedef void                difference_type;
+  typedef void                pointer;
+  typedef void                reference;
+};
+
+template<typename _Tp, typename _Distance>
+  struct forward_iterator {
+    typedef forward_iterator_tag iterator_category;
+    typedef _Tp                  value_type;
+    typedef _Distance            difference_type;
+    typedef _Tp*                 pointer;
+    typedef _Tp&                 reference;
+  };
+
+template<typename _Tp, typename _Distance>
+  struct bidirectional_iterator {
+    typedef bidirectional_iterator_tag iterator_category;
+    typedef _Tp                        value_type;
+    typedef _Distance                  difference_type;
+    typedef _Tp*                       pointer;
+    typedef _Tp&                       reference;
+  };
+
+template<typename _Tp, typename _Distance>
+  struct random_access_iterator {
+    typedef random_access_iterator_tag iterator_category;
+    typedef _Tp                        value_type;
+    typedef _Distance                  difference_type;
+    typedef _Tp*                       pointer;
+    typedef _Tp&                       reference;
+  };
 
 using std::iterator_traits;
 
@@ -69,7 +114,8 @@ template<class _Iter>
   value_type(const _Iter& __i)
   { return static_cast<typename iterator_traits<_Iter>::value_type*>(0); }
 
-using std::distance; 
+using std::distance;
+using __gnu_cxx::distance; // 3-parameter extension
 using std::advance; 
 
 using std::insert_iterator;

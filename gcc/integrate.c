@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -663,9 +663,6 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   rtx stack_save = 0;
   rtx temp;
   struct inline_remap *map = 0;
-#ifdef HAVE_cc0
-  rtx cc0_insn = 0;
-#endif
   rtvec arg_vector = (rtvec) inl_f->original_arg_vector;
   rtx static_chain_value = 0;
   int inl_max_uid;
@@ -701,7 +698,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
       enum machine_mode mode;
 
       if (actual == 0)
-	return (rtx) (HOST_WIDE_INT) -1;
+	return (rtx) (size_t) -1;
 
       arg = TREE_VALUE (actual);
       mode = TYPE_MODE (DECL_ARG_TYPE (formal));
@@ -714,7 +711,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	  || (mode == BLKmode
 	      && (TYPE_MAIN_VARIANT (TREE_TYPE (arg))
 		  != TYPE_MAIN_VARIANT (TREE_TYPE (formal)))))
-	return (rtx) (HOST_WIDE_INT) -1;
+	return (rtx) (size_t) -1;
     }
 
   /* Extra arguments are valid, but will be ignored below, so we must
@@ -1321,6 +1318,7 @@ copy_insn_list (insns, map, static_chain_value)
 #ifdef HAVE_cc0
   rtx cc0_insn = 0;
 #endif
+  rtx static_chain_mem = 0;
 
   /* Copy the insns one by one.  Do this in two passes, first the insns and
      then their REG_NOTES.  */
@@ -1384,25 +1382,62 @@ copy_insn_list (insns, map, static_chain_value)
 		   && REG_FUNCTION_VALUE_P (XEXP (pattern, 0)))
 	    break;
 
+	  /* Look for the address of the static chain slot. The
+             rtx_equal_p comparisons against the
+             static_chain_incoming_rtx below may fail if the static
+             chain is in memory and the address specified is not
+             "legitimate".  This happens on Xtensa where the static
+             chain is at a negative offset from argp and where only
+             positive offsets are legitimate.  When the RTL is
+             generated, the address is "legitimized" by copying it
+             into a register, causing the rtx_equal_p comparisons to
+             fail.  This workaround looks for code that sets a
+             register to the address of the static chain.  Subsequent
+             memory references via that register can then be
+             identified as static chain references.  We assume that
+             the register is only assigned once, and that the static
+             chain address is only live in one register at a time. */
+
+	  else if (static_chain_value != 0
+		   && set != 0
+		   && GET_CODE (static_chain_incoming_rtx) == MEM
+		   && GET_CODE (SET_DEST (set)) == REG
+		   && rtx_equal_p (SET_SRC (set),
+				   XEXP (static_chain_incoming_rtx, 0)))
+	    {
+	      static_chain_mem =
+		  gen_rtx_MEM (GET_MODE (static_chain_incoming_rtx),
+			       SET_DEST (set));
+
+	      /* emit the instruction in case it is used for something
+		 other than setting the static chain; if it's not used,
+		 it can always be removed as dead code */
+	      copy = emit_insn (copy_rtx_and_substitute (pattern, map, 0));
+	    }
+
 	  /* If this is setting the static chain rtx, omit it.  */
 	  else if (static_chain_value != 0
 		   && set != 0
-		   && GET_CODE (SET_DEST (set)) == REG
-		   && rtx_equal_p (SET_DEST (set),
-				   static_chain_incoming_rtx))
+		   && (rtx_equal_p (SET_DEST (set),
+				    static_chain_incoming_rtx)
+		       || (static_chain_mem
+			   && rtx_equal_p (SET_DEST (set), static_chain_mem))))
 	    break;
 
 	  /* If this is setting the static chain pseudo, set it from
 	     the value we want to give it instead.  */
 	  else if (static_chain_value != 0
 		   && set != 0
-		   && rtx_equal_p (SET_SRC (set),
-				   static_chain_incoming_rtx))
+		   && (rtx_equal_p (SET_SRC (set),
+				    static_chain_incoming_rtx)
+		       || (static_chain_mem
+			   && rtx_equal_p (SET_SRC (set), static_chain_mem))))
 	    {
 	      rtx newdest = copy_rtx_and_substitute (SET_DEST (set), map, 1);
 
 	      copy = emit_move_insn (newdest, static_chain_value);
-	      static_chain_value = 0;
+	      if (GET_CODE (static_chain_incoming_rtx) != MEM)
+		static_chain_value = 0;
 	    }
 
 	  /* If this is setting the virtual stack vars register, this must
@@ -1688,7 +1723,8 @@ copy_insn_notes (insns, map, eh_region_offset)
 	      next = XEXP (note, 1);
 	      if (REG_NOTE_KIND (note) == REG_LABEL)
 	        remove_note (new_insn, note);
-	      else if (REG_NOTE_KIND (note) == REG_EH_REGION)
+	      else if (REG_NOTE_KIND (note) == REG_EH_REGION
+		       && INTVAL (XEXP (note, 0)) > 0)
 	        XEXP (note, 0) = GEN_INT (INTVAL (XEXP (note, 0))
 					  + eh_region_offset);
 	    }
@@ -1779,6 +1815,15 @@ integrate_decl_tree (let, map)
 	  r = DECL_RTL (d);
 	  subst_constants (&r, NULL_RTX, map, 1);
 	  SET_DECL_RTL (d, r);
+
+	  if (GET_CODE (r) == REG)
+	    REGNO_DECL (REGNO (r)) = d;
+	  else if (GET_CODE (r) == CONCAT)
+	    {
+	      REGNO_DECL (REGNO (XEXP (r, 0))) = d;
+	      REGNO_DECL (REGNO (XEXP (r, 1))) = d;
+	    }
+
 	  apply_change_group ();
 	}
 
@@ -2178,13 +2223,18 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 #ifndef NO_FUNCTION_CSE
       if (! (optimize && ! flag_no_function_cse))
 #endif
-	return
-	  gen_rtx_CALL
-	    (GET_MODE (orig),
-	     gen_rtx_MEM (GET_MODE (XEXP (orig, 0)),
-			  copy_rtx_and_substitute (XEXP (XEXP (orig, 0), 0),
-						   map, 0)),
-	     copy_rtx_and_substitute (XEXP (orig, 1), map, 0));
+	{
+	  rtx copy
+	    = gen_rtx_MEM (GET_MODE (XEXP (orig, 0)),
+			   copy_rtx_and_substitute (XEXP (XEXP (orig, 0), 0),
+						    map, 0));
+
+	  MEM_COPY_ATTRIBUTES (copy, XEXP (orig, 0));
+
+	  return
+	    gen_rtx_CALL (GET_MODE (orig), copy, 
+			  copy_rtx_and_substitute (XEXP (orig, 1), map, 0));
+	}
       break;
 
 #if 0
@@ -2251,10 +2301,16 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 	  return validize_mem (force_const_mem (const_mode, constant));
 	}
 
-      copy = rtx_alloc (MEM);
-      PUT_MODE (copy, mode);
-      XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (orig, 0), map, 0);
+      copy = gen_rtx_MEM (mode, copy_rtx_and_substitute (XEXP (orig, 0),
+							 map, 0));
       MEM_COPY_ATTRIBUTES (copy, orig);
+
+      /* If inlining and this is not for the LHS, turn off RTX_UNCHANGING_P
+	 since this may be an indirect reference to a parameter and the
+	 actual may not be readonly.  */
+      if (inlining && !for_lhs)
+	RTX_UNCHANGING_P (copy) = 0;
+
       return copy;
 
     default:
@@ -2682,7 +2738,10 @@ subst_constants (loc, insn, map, memonly)
 		new = CONST0_RTX (mode);
 	      else
 		{
-		  REAL_VALUE_TYPE val = FLOAT_STORE_FLAG_VALUE (mode);
+		  REAL_VALUE_TYPE val;
+
+		  /* Avoid automatic aggregate initialization.  */
+		  val = FLOAT_STORE_FLAG_VALUE (mode);
 		  new = CONST_DOUBLE_FROM_REAL_VALUE (val, mode);
 		}
 	    }
@@ -2929,10 +2988,6 @@ output_inline_function (fndecl)
       debug_hooks = &do_nothing_debug_hooks;
     }
 
-  /* Do any preparation, such as emitting abstract debug info for the inline
-     before it gets mangled by optimization.  */
-  (*debug_hooks->outlining_inline_function) (fndecl);
-
   /* Compile this function all the way down to assembly code.  As a
      side effect this destroys the saved RTL representation, but
      that's okay, because we don't need to inline this anymore.  */
@@ -2948,6 +3003,24 @@ output_inline_function (fndecl)
 
 /* Functions to keep track of the values hard regs had at the start of
    the function.  */
+
+rtx
+get_hard_reg_initial_reg (fun, reg)
+     struct function *fun;
+     rtx reg;
+{
+  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return NULL_RTX;
+
+  for (i = 0; i < ivs->num_entries; i++)
+    if (rtx_equal_p (ivs->entries[i].pseudo, reg))
+      return ivs->entries[i].hard_reg;
+
+  return NULL_RTX;
+}
 
 rtx
 has_func_hard_reg_initial_val (fun, reg)

@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -208,15 +208,11 @@ extern REAL_VALUE_TYPE ereal_from_double PARAMS ((HOST_WIDE_INT *));
   ereal_from_uint (&d, lo, hi, mode)
 
 /* IN is a REAL_VALUE_TYPE.  OUT is an array of longs.  */
-#if (INTEL_EXTENDED_IEEE_FORMAT != 0) && (MAX_LONG_DOUBLE_TYPE_SIZE == 128)
-#define REAL_VALUE_TO_TARGET_LONG_DOUBLE(IN, OUT) (etarldouble ((IN), (OUT)))
-#else
 #define REAL_VALUE_TO_TARGET_LONG_DOUBLE(IN, OUT) 		\
    (LONG_DOUBLE_TYPE_SIZE == 64 ? etardouble ((IN), (OUT))	\
     : LONG_DOUBLE_TYPE_SIZE == 96 ? etarldouble ((IN), (OUT))	\
     : LONG_DOUBLE_TYPE_SIZE == 128 ? etartdouble ((IN), (OUT))  \
-    : abort())
-#endif
+    : abort ())
 #define REAL_VALUE_TO_TARGET_DOUBLE(IN, OUT) (etardouble ((IN), (OUT)))
 
 /* IN is a REAL_VALUE_TYPE.  OUT is a long.  */
@@ -289,7 +285,7 @@ do {							\
     HOST_WIDE_INT l;					\
   } u;							\
   if (sizeof(HOST_WIDE_INT) < sizeof(float))		\
-    abort();						\
+    abort ();						\
   u.l = 0;						\
   u.f = (IN);						\
   (OUT) = u.l;						\
@@ -307,7 +303,7 @@ do {									\
     HOST_WIDE_INT l[2];							\
   } u;									\
   if (sizeof(HOST_WIDE_INT) * 2 < sizeof(REAL_VALUE_TYPE))		\
-    abort();								\
+    abort ();								\
   u.l[0] = u.l[1] = 0;							\
   u.f = (IN);								\
   if (HOST_FLOAT_WORDS_BIG_ENDIAN == FLOAT_WORDS_BIG_ENDIAN)		\

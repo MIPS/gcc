@@ -1,6 +1,6 @@
 // bit_vector and vector<bool> specialization -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,17 +53,17 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_bvector.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_BVECTOR_H
-#define __SGI_STL_INTERNAL_BVECTOR_H
+#ifndef __GLIBCPP_INTERNAL_BVECTOR_H
+#define __GLIBCPP_INTERNAL_BVECTOR_H
 
 namespace std
 { 
-
-static const int __WORD_BIT = int(CHAR_BIT*sizeof(unsigned int));
+  extern const int __WORD_BIT;
 
 struct _Bit_reference {
   unsigned int* _M_p;
@@ -97,7 +97,7 @@ inline void swap(_Bit_reference __x, _Bit_reference __y)
   __y = __tmp;
 }
 
-struct _Bit_iterator_base : public random_access_iterator<bool, ptrdiff_t> 
+struct _Bit_iterator_base : public iterator<random_access_iterator_tag, bool>
 {
   unsigned int* _M_p;
   unsigned int _M_offset;
@@ -415,8 +415,7 @@ template <typename _Alloc>
     template <class _ForwardIterator>
     void _M_initialize_range(_ForwardIterator __first, _ForwardIterator __last,
                              forward_iterator_tag) {
-      size_type __n = 0;
-      distance(__first, __last, __n);
+      size_type __n = distance(__first, __last);
       _M_initialize(__n);
       copy(__first, __last, _M_start);
     }
@@ -436,8 +435,7 @@ template <typename _Alloc>
                          _ForwardIterator __first, _ForwardIterator __last,
                          forward_iterator_tag) {
       if (__first != __last) {
-        size_type __n = 0;
-        distance(__first, __last, __n);
+        size_type __n = distance(__first, __last);
         if (capacity() - size() >= __n) {
           copy_backward(__position, end(), _M_finish + difference_type(__n));
           copy(__first, __last, __position);
@@ -485,7 +483,7 @@ template <typename _Alloc>
   
     void _M_range_check(size_type __n) const {
       if (__n >= this->size())
-        __throw_range_error("vector<bool>");
+        __throw_out_of_range("vector<bool>");
     }
   
     reference at(size_type __n)
@@ -599,8 +597,7 @@ template <typename _Alloc>
     template <class _ForwardIterator>
     void _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
                        forward_iterator_tag) {
-      size_type __len = 0;
-      distance(__first, __last, __len);
+      size_type __len = distance(__first, __last);
       if (__len < size())
         erase(copy(__first, __last, begin()), end());
       else {
@@ -716,11 +713,11 @@ template <typename _Alloc>
   };
 
 // This typedef is non-standard.  It is provided for backward compatibility.
-typedef vector<bool, alloc> bit_vector;
+typedef vector<bool, __alloc> bit_vector;
 
 } // namespace std 
 
-#endif /* __SGI_STL_INTERNAL_BVECTOR_H */
+#endif /* __GLIBCPP_INTERNAL_BVECTOR_H */
 
 // Local Variables:
 // mode:C++

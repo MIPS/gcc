@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for VAX.
-   Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000
+   Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
+static int follows_p PARAMS ((rtx, rtx));
 static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 #if VMS_TARGET
 static void vms_asm_out_constructor PARAMS ((rtx, int));
@@ -44,6 +45,9 @@ static void vms_asm_out_destructor PARAMS ((rtx, int));
 #endif
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE vax_output_function_prologue
 
@@ -65,7 +69,6 @@ vax_output_function_prologue (file, size)
 {
   register int regno;
   register int mask = 0;
-  extern char call_used_regs[];
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (regs_ever_live[regno] && !call_used_regs[regno])
@@ -473,7 +476,7 @@ vax_address_cost (addr)
       goto restart;
     }
   /* Indexing and register+offset can both be used (except on a VAX 2)
-     without increasing execution time over either one alone. */
+     without increasing execution time over either one alone.  */
   if (reg && indexed && offset)
     return reg + indir + offset + predec;
   return reg + indexed + indir + offset + predec;
@@ -518,10 +521,12 @@ vax_rtx_cost (x)
 	  c = 10;		/* 3-4 on VAX 9000, 20-28 on VAX 2 */
 	  break;
 	default:
-	  break;
+	  return MAX_COST;	/* Mode is not supported.  */
 	}
       break;
     case UDIV:
+      if (mode != SImode)
+	return MAX_COST;	/* Mode is not supported.  */
       c = 17;
       break;
     case DIV:
@@ -537,6 +542,8 @@ vax_rtx_cost (x)
       c = 23;
       break;
     case UMOD:
+      if (mode != SImode)
+	return MAX_COST;	/* Mode is not supported.  */
       c = 29;
       break;
     case FLOAT:
@@ -573,7 +580,7 @@ vax_rtx_cost (x)
       c = 3;
       break;
     case AND:
-      /* AND is special because the first operand is complemented. */
+      /* AND is special because the first operand is complemented.  */
       c = 3;
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
@@ -742,7 +749,7 @@ check_float_value (mode, d, overflow)
 }
 
 #if VMS_TARGET
-/* Additional support code for VMS target. */
+/* Additional support code for VMS target.  */
 
 /* Linked list of all externals that are to be emitted when optimizing
    for the global pointer if they haven't been declared by the end of
@@ -863,7 +870,7 @@ vms_asm_out_destructor (symbol, priority)
 }
 #endif /* VMS_TARGET */
 
-/* Additional support code for VMS host. */
+/* Additional support code for VMS host.  */
 /* ??? This should really be in libiberty; vax.c is a target file.  */
 #ifdef QSORT_WORKAROUND
   /*
@@ -946,3 +953,38 @@ not_qsort (array, count, size, compare)
   return;
 }
 #endif /* QSORT_WORKAROUND */
+
+/* Return 1 if insn A follows B.  */
+
+static int
+follows_p (a, b)
+     rtx a, b;
+{
+  register rtx p;
+
+  for (p = a; p != b; p = NEXT_INSN (p))
+    if (! p)
+      return 1;
+
+  return 0;
+}
+
+/* Returns 1 if we know operand OP was 0 before INSN.  */
+
+int
+reg_was_0_p (insn, op)
+     rtx insn, op;
+{
+  rtx link;
+
+  return ((link = find_reg_note (insn, REG_WAS_0, 0))
+	  /* Make sure the insn that stored the 0 is still present
+	     and doesn't follow INSN in the insn sequence.  */
+	  && ! INSN_DELETED_P (XEXP (link, 0))
+	  && GET_CODE (XEXP (link, 0)) != NOTE
+	  && ! follows_p (XEXP (link, 0), insn)
+	  /* Make sure cross jumping didn't happen here.  */
+	  && no_labels_between_p (XEXP (link, 0), insn)
+	  /* Make sure the reg hasn't been clobbered.  */
+	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
+}

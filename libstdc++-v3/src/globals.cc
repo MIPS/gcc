@@ -91,10 +91,10 @@ namespace std
   // Globals for once-only runtime initialization of mutex objects.  This
   // allows static initialization of these objects on systems that need a
   // function call to initialize a mutex.  For example, see stl_threads.h.
-#if __GTHREADS
 #ifdef __GTHREAD_MUTEX_INIT
-  // This path is not needed since static initialization of mutexs works
-  // on this platform.
+  // Need to provide explicit instantiations of static data for
+  // systems with broken weak linkage support.
+  template __gthread_mutex_t _Swap_lock_struct<0>::_S_swap_lock;
 #elif defined(__GTHREAD_MUTEX_INIT_FUNCTION)
   __gthread_once_t _GLIBCPP_once = __GTHREAD_ONCE_INIT;
   __gthread_mutex_t _GLIBCPP_mutex;
@@ -110,5 +110,4 @@ namespace std
   _GLIBCPP_mutex_address_init ()
   { __GTHREAD_MUTEX_INIT_FUNCTION (_GLIBCPP_mutex_address); }
 #endif
-#endif // __GTHREADS
 }

@@ -24,6 +24,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 %{
 #include "config.h"
 #include "system.h"
+#include "intl.h"
 #include "tradcpp.h"
 #include <setjmp.h>
 
@@ -246,14 +247,12 @@ parse_number (olen)
   while (len > 0) {
     c = *p++;
     len--;
-    if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+    if (ISUPPER (c))
+      c = TOLOWER (c);
 
-    if (c >= '0' && c <= '9') {
-      n *= base;
-      n += c - '0';
-    } else if (base == 16 && c >= 'a' && c <= 'f') {
-      n *= base;
-      n += c - 'a' + 10;
+    if (ISDIGIT (c)
+	|| (base == 16 && ISXDIGIT (c))) {
+      n = (n * base) + hex_value (c);
     } else {
       /* `l' means long, and `u' means unsigned.  */
       while (1) {
@@ -275,7 +274,7 @@ parse_number (olen)
   }
 
   if (len != 0) {
-    yyerror ("Invalid number in #if expression");
+    yyerror ("invalid number in #if expression");
     return ERROR;
   }
 
@@ -345,8 +344,7 @@ yylex ()
 
     /* Sign-extend the constant if chars are signed on target machine.  */
     {
-      if (lookup ((const unsigned char *)"__CHAR_UNSIGNED__",
-		   sizeof ("__CHAR_UNSIGNED__")-1, -1)
+      if (flag_signed_char == 0
 	  || ((c >> (CHAR_TYPE_SIZE - 1)) & 1) == 0)
 	yylval.integer.value = c & ((1 << CHAR_TYPE_SIZE) - 1);
       else
@@ -356,7 +354,7 @@ yylex ()
     yylval.integer.unsignedp = 0;
     c = *lexptr++;
     if (c != '\'') {
-      yyerror ("Invalid character constant in #if");
+      yyerror ("invalid character constant in #if");
       return ERROR;
     }
     
@@ -396,7 +394,7 @@ yylex ()
     yyerror ("double quoted strings not allowed in #if expressions");
     return ERROR;
   }
-  if (c >= '0' && c <= '9') {
+  if (ISDIGIT (c)) {
     /* It's a number */
     for (namelen = 0;
 	 c = tokstart[namelen], is_idchar (c) || c == '.'; 
@@ -406,7 +404,7 @@ yylex ()
   }
   
   if (!is_idstart (c)) {
-    yyerror ("Invalid token in expression");
+    yyerror ("invalid token in expression");
     return ERROR;
   }
   
@@ -507,12 +505,8 @@ parse_escape (string_ptr)
 	for (;;)
 	  {
 	    c = *(*string_ptr)++;
-	    if (c >= '0' && c <= '9')
-	      i = (i << 4) + c - '0';
-	    else if (c >= 'a' && c <= 'f')
-	      i = (i << 4) + c - 'a' + 10;
-	    else if (c >= 'A' && c <= 'F')
-	      i = (i << 4) + c - 'A' + 10;
+	    if (hex_p (c))
+	      i = (i << 4) + hex_value (c);
 	    else
 	      {
 		(*string_ptr)--;
@@ -532,10 +526,10 @@ parse_escape (string_ptr)
 }
 
 static void
-yyerror (s)
-     const char *s;
+yyerror (msgid)
+     const char *msgid;
 {
-  error ("%s", s);
+  error ("%s", _(msgid));
   longjmp (parse_return_error, 1);
 }
 

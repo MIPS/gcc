@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001 Free Software Foundation, Inc.
+   2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -154,7 +154,7 @@ extern int target_flags;
 #define TARGET_64BIT 0
 #endif
 
-/* Generate code for ELF32 ABI. */
+/* Generate code for ELF32 ABI.  */
 #ifndef TARGET_ELF32
 #define TARGET_ELF32 0
 #endif
@@ -309,11 +309,11 @@ extern int target_flags;
 %{!mpa-risc-1-0:%{!mpa-risc-1-1:%{!mpa-risc-2-0:%{!msnake:%(cpp_cpu_default)}}}} \
 %{m64bit:%(cpp_64bit)} \
 %{!m64bit:%(cpp_64bit_default)} \
-%{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__} \
+%{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ -D_INCLUDE_LONGLONG} \
 %{threads: -D_REENTRANT -D_DCE_THREADS}"
 
 #define CPLUSPLUS_CPP_SPEC "\
--D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ \
+-D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ -D_INCLUDE_LONGLONG \
 %{mpa-risc-1-0:%(cpp_pa10)} \
 %{mpa-risc-1-1:%(cpp_pa11)} \
 %{msnake:%(cpp_pa11)} \
@@ -340,7 +340,7 @@ extern int target_flags;
    The definition is be an initializer for an array of structures.  Each
    array element has have three elements: the switch name, one of the
    enumeration codes ADD or DELETE to indicate whether the string should be
-   inserted or deleted, and the string to be inserted or deleted. */
+   inserted or deleted, and the string to be inserted or deleted.  */
 #define MODIFY_TARGET_NAME {{"-32", DELETE, "64"}, {"-64", ADD, "64"}}
 
 /* Make gcc agree with <machine/ansi.h> */
@@ -423,6 +423,8 @@ extern int target_flags;
    but that happens late in the compilation process.  */
 #define STACK_BOUNDARY (TARGET_64BIT ? 128 : 64)
 
+#define PREFERRED_STACK_BOUNDARY 512
+
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY (TARGET_64BIT ? 64 : 32)
 
@@ -435,10 +437,11 @@ extern int target_flags;
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-/* No data type wants to be aligned rounder than this.  */
-#define BIGGEST_ALIGNMENT 64
+/* No data type wants to be aligned rounder than this.  This is set
+   to 128 bits to allow for lock semaphores in the stack frame.*/
+#define BIGGEST_ALIGNMENT 128
 
-/* Get around hp-ux assembler bug, and make strcpy of constants fast. */
+/* Get around hp-ux assembler bug, and make strcpy of constants fast.  */
 #define CONSTANT_ALIGNMENT(CODE, TYPEALIGN) \
   ((TYPEALIGN) < 32 ? 32 : (TYPEALIGN))
 
@@ -653,7 +656,7 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* The weird HPPA calling conventions require a minimum of 48 bytes on
    the stack: 16 bytes for register saves, and 32 bytes for magic.
    This is the difference between the logical top of stack and the
-   actual sp. */
+   actual sp.  */
 #define STACK_POINTER_OFFSET \
   (TARGET_64BIT ? -(current_function_outgoing_args_size + 16): -32)
 
@@ -740,7 +743,7 @@ struct hppa_args {int words, nargs_prototype, indirect; };
   (CUM).indirect = 0,				\
   (CUM).nargs_prototype = 1000
 
-/* Figure out the size in words of the function argument. */
+/* Figure out the size in words of the function argument.  */
 
 #define FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((((MODE) != BLKmode \
@@ -820,7 +823,7 @@ struct hppa_args {int words, nargs_prototype, indirect; };
    For args passed entirely in registers or entirely in memory, zero.  */
 
 /* For PA32 there are never split arguments. PA64, on the other hand, can
-   pass arguments partially in registers and partially in memory. */
+   pass arguments partially in registers and partially in memory.  */
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   (TARGET_64BIT ? function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED) : 0)
 
@@ -840,7 +843,7 @@ struct hppa_args {int words, nargs_prototype, indirect; };
 
 /* Arguments larger than eight bytes are passed by invisible reference */
 
-/* PA64 does not pass anything by invisible reference. */
+/* PA64 does not pass anything by invisible reference.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
   (TARGET_64BIT								\
    ? 0									\
@@ -849,7 +852,7 @@ struct hppa_args {int words, nargs_prototype, indirect; };
  
 /* PA64 does not pass anything by invisible reference.
    This should be undef'ed for 64bit, but we'll see if this works. The
-   problem is that we can't test TARGET_64BIT from the preprocessor. */
+   problem is that we can't test TARGET_64BIT from the preprocessor.  */
 #define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
   (TARGET_64BIT							\
    ? 0								\
@@ -865,10 +868,19 @@ extern enum cmp_type hppa_branch_type;
   STRIP_NAME_ENCODING (target_name, target_name); \
   pa_output_function_prologue (FILE, 0); \
   if (VAL_14_BITS_P (DELTA)) \
-    fprintf (FILE, "\tb %s\n\tldo %d(%%r26),%%r26\n", target_name, DELTA); \
+    { \
+      fprintf (FILE, "\tb %s\n\tldo ", target_name); \
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA); \
+      fprintf (FILE, "(%%r26),%%r26\n"); \
+    } \
   else \
-    fprintf (FILE, "\taddil L%%%d,%%r26\n\tb %s\n\tldo R%%%d(%%r1),%%r26\n", \
-	     DELTA, target_name, DELTA); \
+    { \
+      fprintf (FILE, "\taddil L%%"); \
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA); \
+      fprintf (FILE, ",%%r26\n\tb %s\n\tldo R%%", target_name); \
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA); \
+      fprintf (FILE, "(%%r1),%%r26\n"); \
+    } \
   fprintf (FILE, "\n\t.EXIT\n\t.PROCEND\n"); \
 }
 
@@ -879,6 +891,9 @@ extern enum cmp_type hppa_branch_type;
 
 #define PROFILE_HOOK(label_no) hppa_profile_hook (label_no)
 void hppa_profile_hook PARAMS ((int label_no));
+
+/* The profile counter if emitted must come before the prologue.  */
+#define PROFILE_BEFORE_PROLOGUE 1
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -995,7 +1010,7 @@ extern int may_call_alloca;
       emit_move_insn (gen_rtx_MEM (Pmode, start_addr), (FNADDR));	\
       start_addr = memory_address (Pmode, plus_constant ((TRAMP), 64));	\
       emit_move_insn (gen_rtx_MEM (Pmode, start_addr), (CXT));		\
-      /* Create a fat pointer for the trampoline. */			\
+      /* Create a fat pointer for the trampoline.  */			\
       end_addr = force_reg (Pmode, plus_constant ((TRAMP), 32));	\
       start_addr = memory_address (Pmode, plus_constant ((TRAMP), 16));	\
       emit_move_insn (gen_rtx_MEM (Pmode, start_addr), end_addr);	\
@@ -1106,8 +1121,8 @@ extern int may_call_alloca;
    && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE)		\
    && !(TARGET_64BIT && GET_CODE (X) == CONST_INT		\
 	&& !(HOST_BITS_PER_WIDE_INT <= 32			\
-	     || (INTVAL (X) >= (HOST_WIDE_INT) -1 << 31		\
-		 && INTVAL (X) < (HOST_WIDE_INT) 1 << 32)	\
+	     || (INTVAL (X) >= (HOST_WIDE_INT) -32 << 31	\
+		 && INTVAL (X) < (HOST_WIDE_INT) 32 << 31)	\
 	     || cint_ok_for_move (INTVAL (X))))			\
    && !function_label_operand (X, VOIDmode))
 
@@ -1271,12 +1286,12 @@ extern int may_call_alloca;
       if (! TARGET_SOFT_FLOAT				\
 	  && ! TARGET_DISABLE_INDEXING			\
 	  && base					\
-	  && (mode == SFmode || mode == DFmode)		\
+	  && ((MODE) == SFmode || (MODE) == DFmode)	\
 	  && GET_CODE (index) == MULT			\
 	  && GET_CODE (XEXP (index, 0)) == REG		\
 	  && REG_OK_FOR_BASE_P (XEXP (index, 0))	\
 	  && GET_CODE (XEXP (index, 1)) == CONST_INT	\
-	  && INTVAL (XEXP (index, 1)) == (mode == SFmode ? 4 : 8))\
+	  && INTVAL (XEXP (index, 1)) == ((MODE) == SFmode ? 4 : 8))\
 	goto ADDR;					\
     }							\
   else if (GET_CODE (X) == LO_SUM			\
@@ -1461,7 +1476,7 @@ do { 									\
    information).
 
    On the HP-PA we use this to indicate if a symbol is in text or
-   data space.  Also, function labels need special treatment. */
+   data space.  Also, function labels need special treatment.  */
 
 #define TEXT_SPACE_P(DECL)\
   (TREE_CODE (DECL) == FUNCTION_DECL					\
@@ -1503,12 +1518,6 @@ while (0)
 
 /* Jump tables must be 32 bit aligned, no matter the size of the element.  */
 #define ADDR_VEC_ALIGN(ADDR_VEC) 2
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
@@ -1560,7 +1569,7 @@ while (0)
 
 /* Add any extra modes needed to represent the condition code.
 
-   HPPA floating comparisons produce condition codes. */
+   HPPA floating comparisons produce condition codes.  */
 #define EXTRA_CC_MODES CC(CCFPmode, "CCFP")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
@@ -1583,7 +1592,7 @@ while (0)
 #define NO_FUNCTION_CSE
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
-   few bits. */
+   few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
 /* Compute the cost of computing a constant rtl expression RTX
@@ -1724,60 +1733,7 @@ while (0)
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%c$%s%04d", (PREFIX)[0], (PREFIX) + 1, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  do { long l[2];							\
-       REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);				\
-       fprintf (FILE, "\t.word 0x%lx\n\t.word 0x%lx\n", l[0], l[1]);	\
-     } while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  do { long l;								\
-       REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);				\
-       fprintf (FILE, "\t.word 0x%lx\n", l);				\
-     } while (0)
-
-/* This is how to output an assembler line defining an `int' constant. 
-
-   This is made more complicated by the fact that functions must be
-   prefixed by a P% as well as code label references for the exception
-   table -- otherwise the linker chokes.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-{ fputs ("\t.word ", FILE);			\
-  if (function_label_operand (VALUE, VOIDmode))	\
-    fputs ("P%", FILE);				\
-  output_addr_const (FILE, (VALUE));		\
-  fputs ("\n", FILE);}
-
-/* Likewise for `short' and `char' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fputs ("\t.half ", FILE),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fputs ("\n", FILE))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fputs ("\t.byte ", FILE),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fputs ("\n", FILE))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
-/* C string constants giving the pseudo-op to use for a sequence of
-   2, 4, and 8 byte unaligned constants.  dwarf2out.c needs these.  */
-
-#define UNALIGNED_SHORT_ASM_OP		(TARGET_GAS ? "\t.half " : NULL)
-#define UNALIGNED_INT_ASM_OP		(TARGET_GAS ? "\t.word " : NULL)
-#define UNALIGNED_DOUBLE_INT_ASM_OP	(TARGET_GAS ? "\t.dword " : NULL)
+  sprintf (LABEL, "*%c$%s%04ld", (PREFIX)[0], (PREFIX) + 1, (long)(NUM))
 
 #define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
   do {									\
@@ -1912,7 +1868,8 @@ while (0)
       fputs (")", FILE);						\
       break;								\
     case CONST_INT:							\
-      fprintf (FILE, "%d(%%r0)", INTVAL (addr));			\
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));		\
+      fprintf (FILE, "(%%r0)");						\
       break;								\
     default:								\
       output_addr_const (FILE, addr);					\
@@ -1968,6 +1925,7 @@ while (0)
 			    CONST_DOUBLE, CONST, HIGH, CONSTANT_P_RTX}}, \
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"symbolic_memory_operand", {SUBREG, MEM}},				\
+  {"reg_before_reload_operand", {REG, MEM}},				\
   {"reg_or_nonsymb_mem_operand", {SUBREG, REG, MEM}},			\
   {"reg_or_0_or_nonsymb_mem_operand", {SUBREG, REG, MEM, CONST_INT,	\
 				       CONST_DOUBLE}},			\

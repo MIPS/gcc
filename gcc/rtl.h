@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GNU C-Compiler
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,19 +48,19 @@ enum rtx_code  {
 				   NUM_RTX_CODE.
 				   Assumes default enum value assignment.  */
 
-#define NUM_RTX_CODE ((int)LAST_AND_UNUSED_RTX_CODE)
+#define NUM_RTX_CODE ((int) LAST_AND_UNUSED_RTX_CODE)
 				/* The cast here, saves many elsewhere.  */
 
-extern const int rtx_length[];
+extern const unsigned char rtx_length[NUM_RTX_CODE];
 #define GET_RTX_LENGTH(CODE)		(rtx_length[(int) (CODE)])
 
-extern const char * const rtx_name[];
+extern const char * const rtx_name[NUM_RTX_CODE];
 #define GET_RTX_NAME(CODE)		(rtx_name[(int) (CODE)])
 
-extern const char * const rtx_format[];
+extern const char * const rtx_format[NUM_RTX_CODE];
 #define GET_RTX_FORMAT(CODE)		(rtx_format[(int) (CODE)])
 
-extern const char rtx_class[];
+extern const char rtx_class[NUM_RTX_CODE];
 #define GET_RTX_CLASS(CODE)		(rtx_class[(int) (CODE)])
 
 /* The flags and bitfields of an ADDR_DIFF_VEC.  BASE is the base label
@@ -92,10 +92,10 @@ typedef struct
 typedef struct
 {
   HOST_WIDE_INT alias;		/* Memory alias set.  */
-  tree decl;			/* decl corresponding to MEM.  */
+  tree expr;			/* expr corresponding to MEM.  */
   rtx offset;			/* Offset from start of DECL, as CONST_INT.  */
   rtx size;			/* Size in bytes, as a CONST_INT.  */
-  unsigned int align;		/* Alignment of MEM in bytes.  */
+  unsigned int align;		/* Alignment of MEM in bits.  */
 } mem_attrs;
 
 /* Common union for an element of an rtx.  */
@@ -128,7 +128,9 @@ struct rtx_def
   ENUM_BITFIELD(machine_mode) mode : 8;
 
   /* 1 in an INSN if it can alter flow of control
-     within this function.  */
+     within this function.
+     MEM_KEEP_ALIAS_SET_P in a MEM.
+     SET_IS_RETURN_P in a SET.  */
   unsigned int jump : 1;
   /* 1 in an INSN if it can call another function.  */
   unsigned int call : 1;
@@ -262,16 +264,19 @@ struct rtvec_def {
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      enum rtx_code _code = GET_CODE (_rtx);				\
      if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
-       rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__, __FUNCTION__); \
+       rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__,		\
+				__FUNCTION__);				\
      if (GET_RTX_FORMAT(_code)[_n] != C1)				\
-       rtl_check_failed_type1(_rtx, _n, C1, __FILE__, __LINE__, __FUNCTION__); \
+       rtl_check_failed_type1 (_rtx, _n, C1, __FILE__, __LINE__,	\
+			       __FUNCTION__);				\
      &_rtx->fld[_n]; }))
 
 #define RTL_CHECK2(RTX, N, C1, C2) __extension__			\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      enum rtx_code _code = GET_CODE (_rtx);				\
      if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
-       rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__, __FUNCTION__); \
+       rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__,		\
+				__FUNCTION__);				\
      if (GET_RTX_FORMAT(_code)[_n] != C1				\
 	 && GET_RTX_FORMAT(_code)[_n] != C2)				\
        rtl_check_failed_type2 (_rtx, _n, C1, C2, __FILE__, __LINE__,	\
@@ -280,15 +285,17 @@ struct rtvec_def {
 
 #define RTL_CHECKC1(RTX, N, C) __extension__				\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
-     if (GET_CODE (_rtx) != C)						\
-       rtl_check_failed_code1 (_rtx, C, __FILE__, __LINE__, __FUNCTION__); \
+     if (GET_CODE (_rtx) != (C))					\
+       rtl_check_failed_code1 (_rtx, (C), __FILE__, __LINE__,		\
+			       __FUNCTION__);				\
      &_rtx->fld[_n]; }))
 
 #define RTL_CHECKC2(RTX, N, C1, C2) __extension__			\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      enum rtx_code _code = GET_CODE (_rtx);				\
-     if (_code != C1 && _code != C2)					\
-       rtl_check_failed_code2(_rtx, C1, C2, __FILE__, __LINE__, __FUNCTION__); \
+     if (_code != (C1) && _code != (C2))				\
+       rtl_check_failed_code2 (_rtx, (C1), (C2), __FILE__, __LINE__,	\
+			       __FUNCTION__); \
      &_rtx->fld[_n]; }))
 
 #define RTVEC_ELT(RTVEC, I) __extension__				\
@@ -327,16 +334,16 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 
 #endif
 
-#define XWINT(RTX, N)	(RTL_CHECK1(RTX, N, 'w').rtwint)
-#define XINT(RTX, N)	(RTL_CHECK2(RTX, N, 'i', 'n').rtint)
-#define XSTR(RTX, N)	(RTL_CHECK2(RTX, N, 's', 'S').rtstr)
-#define XEXP(RTX, N)	(RTL_CHECK2(RTX, N, 'e', 'u').rtx)
-#define XVEC(RTX, N)	(RTL_CHECK2(RTX, N, 'E', 'V').rtvec)
-#define XMODE(RTX, N)	(RTL_CHECK1(RTX, N, 'M').rttype)
-#define XBITMAP(RTX, N) (RTL_CHECK1(RTX, N, 'b').rtbit)
-#define XTREE(RTX, N)   (RTL_CHECK1(RTX, N, 't').rttree)
-#define XBBDEF(RTX, N)	(RTL_CHECK1(RTX, N, 'B').bb)
-#define XTMPL(RTX, N)	(RTL_CHECK1(RTX, N, 'T').rtstr)
+#define XWINT(RTX, N)	(RTL_CHECK1 (RTX, N, 'w').rtwint)
+#define XINT(RTX, N)	(RTL_CHECK2 (RTX, N, 'i', 'n').rtint)
+#define XSTR(RTX, N)	(RTL_CHECK2 (RTX, N, 's', 'S').rtstr)
+#define XEXP(RTX, N)	(RTL_CHECK2 (RTX, N, 'e', 'u').rtx)
+#define XVEC(RTX, N)	(RTL_CHECK2 (RTX, N, 'E', 'V').rtvec)
+#define XMODE(RTX, N)	(RTL_CHECK1 (RTX, N, 'M').rttype)
+#define XBITMAP(RTX, N) (RTL_CHECK1 (RTX, N, 'b').rtbit)
+#define XTREE(RTX, N)   (RTL_CHECK1 (RTX, N, 't').rttree)
+#define XBBDEF(RTX, N)	(RTL_CHECK1 (RTX, N, 'B').bb)
+#define XTMPL(RTX, N)	(RTL_CHECK1 (RTX, N, 'T').rtstr)
 
 #define XVECEXP(RTX, N, M)	RTVEC_ELT (XVEC (RTX, N), M)
 #define XVECLEN(RTX, N)		GET_NUM_ELEM (XVEC (RTX, N))
@@ -344,37 +351,37 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 /* These are like XWINT, etc. except that they expect a '0' field instead
    of the normal type code.  */
 
-#define X0WINT(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rtwint)
-#define X0INT(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rtint)
-#define X0UINT(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rtuint)
-#define X0STR(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rtstr)
-#define X0EXP(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rtx)
-#define X0VEC(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rtvec)
-#define X0MODE(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rttype)
-#define X0BITMAP(RTX, N)   (RTL_CHECK1(RTX, N, '0').rtbit)
-#define X0TREE(RTX, N)	   (RTL_CHECK1(RTX, N, '0').rttree)
-#define X0BBDEF(RTX, N)	   (RTL_CHECK1(RTX, N, '0').bb)
-#define X0ADVFLAGS(RTX, N) (RTL_CHECK1(RTX, N, '0').rt_addr_diff_vec_flags)
-#define X0CSELIB(RTX, N)   (RTL_CHECK1(RTX, N, '0').rt_cselib)
-#define X0MEMATTR(RTX, N)  (RTL_CHECK1(RTX, N, '0').rtmem)
+#define X0WINT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtwint)
+#define X0INT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtint)
+#define X0UINT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtuint)
+#define X0STR(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtstr)
+#define X0EXP(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtx)
+#define X0VEC(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtvec)
+#define X0MODE(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rttype)
+#define X0BITMAP(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rtbit)
+#define X0TREE(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rttree)
+#define X0BBDEF(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').bb)
+#define X0ADVFLAGS(RTX, N) (RTL_CHECK1 (RTX, N, '0').rt_addr_diff_vec_flags)
+#define X0CSELIB(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rt_cselib)
+#define X0MEMATTR(RTX, N)  (RTL_CHECK1 (RTX, N, '0').rtmem)
 
-#define XCWINT(RTX, N, C)     (RTL_CHECKC1(RTX, N, C).rtwint)
-#define XCINT(RTX, N, C)      (RTL_CHECKC1(RTX, N, C).rtint)
-#define XCUINT(RTX, N, C)     (RTL_CHECKC1(RTX, N, C).rtuint)
-#define XCSTR(RTX, N, C)      (RTL_CHECKC1(RTX, N, C).rtstr)
-#define XCEXP(RTX, N, C)      (RTL_CHECKC1(RTX, N, C).rtx)
-#define XCVEC(RTX, N, C)      (RTL_CHECKC1(RTX, N, C).rtvec)
-#define XCMODE(RTX, N, C)     (RTL_CHECKC1(RTX, N, C).rttype)
-#define XCBITMAP(RTX, N, C)   (RTL_CHECKC1(RTX, N, C).rtbit)
-#define XCTREE(RTX, N, C)     (RTL_CHECKC1(RTX, N, C).rttree)
-#define XCBBDEF(RTX, N, C)    (RTL_CHECKC1(RTX, N, C).bb)
-#define XCADVFLAGS(RTX, N, C) (RTL_CHECKC1(RTX, N, C).rt_addr_diff_vec_flags)
-#define XCCSELIB(RTX, N, C)   (RTL_CHECKC1(RTX, N, C).rt_cselib)
+#define XCWINT(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rtwint)
+#define XCINT(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtint)
+#define XCUINT(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rtuint)
+#define XCSTR(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtstr)
+#define XCEXP(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtx)
+#define XCVEC(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtvec)
+#define XCMODE(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rttype)
+#define XCBITMAP(RTX, N, C)   (RTL_CHECKC1 (RTX, N, C).rtbit)
+#define XCTREE(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rttree)
+#define XCBBDEF(RTX, N, C)    (RTL_CHECKC1 (RTX, N, C).bb)
+#define XCADVFLAGS(RTX, N, C) (RTL_CHECKC1 (RTX, N, C).rt_addr_diff_vec_flags)
+#define XCCSELIB(RTX, N, C)   (RTL_CHECKC1 (RTX, N, C).rt_cselib)
 
 #define XCVECEXP(RTX, N, M, C)	RTVEC_ELT (XCVEC (RTX, N, C), M)
 #define XCVECLEN(RTX, N, C)	GET_NUM_ELEM (XCVEC (RTX, N, C))
 
-#define XC2EXP(RTX, N, C1, C2)      (RTL_CHECKC2(RTX, N, C1, C2).rtx)
+#define XC2EXP(RTX, N, C1, C2)      (RTL_CHECKC2 (RTX, N, C1, C2).rtx)
 
 /* ACCESS MACROS for particular fields of insns.  */
 
@@ -383,18 +390,18 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 
 /* Holds a unique number for each insn.
    These are not necessarily sequentially increasing.  */
-#define INSN_UID(INSN)  XINT(INSN, 0)
+#define INSN_UID(INSN)  XINT (INSN, 0)
 
 /* Chain insns together in sequence.  */
-#define PREV_INSN(INSN)	XEXP(INSN, 1)
-#define NEXT_INSN(INSN)	XEXP(INSN, 2)
+#define PREV_INSN(INSN)	XEXP (INSN, 1)
+#define NEXT_INSN(INSN)	XEXP (INSN, 2)
 
 /* The body of an insn.  */
-#define PATTERN(INSN)	XEXP(INSN, 3)
+#define PATTERN(INSN)	XEXP (INSN, 3)
 
 /* Code number of instruction, from when it was recognized.
    -1 means this instruction has not been recognized yet.  */
-#define INSN_CODE(INSN) XINT(INSN, 4)
+#define INSN_CODE(INSN) XINT (INSN, 4)
 
 /* Set up in flow.c; empty before then.
    Holds a chain of INSN_LIST rtx's whose first operands point at
@@ -589,7 +596,8 @@ enum reg_note
 
 /* Define macros to extract and insert the reg-note kind in an EXPR_LIST.  */
 #define REG_NOTE_KIND(LINK) ((enum reg_note) GET_MODE (LINK))
-#define PUT_REG_NOTE_KIND(LINK,KIND) PUT_MODE(LINK, (enum machine_mode) (KIND))
+#define PUT_REG_NOTE_KIND(LINK, KIND) \
+  PUT_MODE (LINK, (enum machine_mode) (KIND))
 
 /* Names for REG_NOTE's in EXPR_LIST insn's.  */
 
@@ -608,7 +616,7 @@ extern const char * const reg_note_name[];
 /* The label-number of a code-label.  The assembler label
    is made from `L' and the label-number printed in decimal.
    Label numbers are unique in a compilation.  */
-#define CODE_LABEL_NUMBER(INSN)	XINT(INSN, 5)
+#define CODE_LABEL_NUMBER(INSN)	XINT (INSN, 5)
 
 #define LINE_NUMBER NOTE
 
@@ -619,17 +627,17 @@ extern const char * const reg_note_name[];
    The NOTE_INSN_RANGE_{START,END} and NOTE_INSN_LIVE notes record their
    information as an rtx in the field.  */
 
-#define NOTE_SOURCE_FILE(INSN) 	XCSTR(INSN, 3, NOTE)
-#define NOTE_BLOCK(INSN)	XCTREE(INSN, 3, NOTE)
-#define NOTE_EH_HANDLER(INSN)	XCINT(INSN, 3, NOTE)
-#define NOTE_RANGE_INFO(INSN)  	XCEXP(INSN, 3, NOTE)
-#define NOTE_LIVE_INFO(INSN)   	XCEXP(INSN, 3, NOTE)
-#define NOTE_BASIC_BLOCK(INSN)	XCBBDEF(INSN, 3, NOTE)
-#define NOTE_EXPECTED_VALUE(INSN) XCEXP(INSN, 3, NOTE)
+#define NOTE_SOURCE_FILE(INSN) 	XCSTR (INSN, 3, NOTE)
+#define NOTE_BLOCK(INSN)	XCTREE (INSN, 3, NOTE)
+#define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 3, NOTE)
+#define NOTE_RANGE_INFO(INSN)  	XCEXP (INSN, 3, NOTE)
+#define NOTE_LIVE_INFO(INSN)   	XCEXP (INSN, 3, NOTE)
+#define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 3, NOTE)
+#define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 3, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
-#define NOTE_LINE_NUMBER(INSN) XCINT(INSN, 4, NOTE)
+#define NOTE_LINE_NUMBER(INSN) XCINT (INSN, 4, NOTE)
 
 /* Nonzero if INSN is a note marking the beginning of a basic block.  */
 #define NOTE_INSN_BASIC_BLOCK_P(INSN) 			\
@@ -671,6 +679,12 @@ enum insn_note
   NOTE_INSN_LOOP_CONT,
   /* Generated at the start of a duplicated exit test.  */
   NOTE_INSN_LOOP_VTOP,
+
+  /* Generated at the end of a conditional at the top of the loop.
+     This is used to perform a lame form of loop rotation in lieu
+     of actually understanding the loop structure.  The note is
+     discarded after rotation is complete.  */
+  NOTE_INSN_LOOP_END_TOP_COND,
 
   /* This kind of note is generated at the end of the function body,
      just before the return insn or return label.  In an optimizing
@@ -729,49 +743,49 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 
 /* The name of a label, in case it corresponds to an explicit label
    in the input source code.  */
-#define LABEL_NAME(RTX) XCSTR(RTX, 6, CODE_LABEL)
+#define LABEL_NAME(RTX) XCSTR (RTX, 6, CODE_LABEL)
 
 /* In jump.c, each label contains a count of the number
    of LABEL_REFs that point at it, so unused labels can be deleted.  */
-#define LABEL_NUSES(RTX) XCINT(RTX, 3, CODE_LABEL)
+#define LABEL_NUSES(RTX) XCINT (RTX, 3, CODE_LABEL)
 
 /* Associate a name with a CODE_LABEL.  */
-#define LABEL_ALTERNATE_NAME(RTX) XCSTR(RTX, 7, CODE_LABEL)
+#define LABEL_ALTERNATE_NAME(RTX) XCSTR (RTX, 7, CODE_LABEL)
 
 /* The original regno this ADDRESSOF was built for.  */
-#define ADDRESSOF_REGNO(RTX) XCUINT(RTX, 1, ADDRESSOF)
+#define ADDRESSOF_REGNO(RTX) XCUINT (RTX, 1, ADDRESSOF)
 
 /* The variable in the register we took the address of.  */
-#define ADDRESSOF_DECL(RTX) XCTREE(RTX, 2, ADDRESSOF)
+#define ADDRESSOF_DECL(RTX) XCTREE (RTX, 2, ADDRESSOF)
 
 /* In jump.c, each JUMP_INSN can point to a label that it can jump to,
    so that if the JUMP_INSN is deleted, the label's LABEL_NUSES can
    be decremented and possibly the label can be deleted.  */
-#define JUMP_LABEL(INSN)   XCEXP(INSN, 7, JUMP_INSN)
+#define JUMP_LABEL(INSN)   XCEXP (INSN, 7, JUMP_INSN)
 
 /* Once basic blocks are found in flow.c,
    each CODE_LABEL starts a chain that goes through
    all the LABEL_REFs that jump to that label.
    The chain eventually winds up at the CODE_LABEL: it is circular.  */
-#define LABEL_REFS(LABEL) XCEXP(LABEL, 4, CODE_LABEL)
+#define LABEL_REFS(LABEL) XCEXP (LABEL, 4, CODE_LABEL)
 
 /* This is the field in the LABEL_REF through which the circular chain
    of references to a particular label is linked.
    This chain is set up in flow.c.  */
 
-#define LABEL_NEXTREF(REF) XCEXP(REF, 1, LABEL_REF)
+#define LABEL_NEXTREF(REF) XCEXP (REF, 1, LABEL_REF)
 
 /* Once basic blocks are found in flow.c,
    Each LABEL_REF points to its containing instruction with this field.  */
 
-#define CONTAINING_INSN(RTX) XCEXP(RTX, 2, LABEL_REF)
+#define CONTAINING_INSN(RTX) XCEXP (RTX, 2, LABEL_REF)
 
 /* For a REG rtx, REGNO extracts the register number.  ORIGINAL_REGNO holds
    the number the register originally had; for a pseudo register turned into
    a hard reg this will hold the old pseudo register number.  */
 
-#define REGNO(RTX) XCUINT(RTX, 0, REG)
-#define ORIGINAL_REGNO(RTX) X0UINT(RTX, 1)
+#define REGNO(RTX) XCUINT (RTX, 0, REG)
+#define ORIGINAL_REGNO(RTX) X0UINT (RTX, 1)
 
 /* For a REG rtx, REG_FUNCTION_VALUE_P is nonzero if the reg
    is the current function's return value.  */
@@ -788,7 +802,7 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 #define HARD_REGISTER_P(REG) (HARD_REGISTER_NUM_P (REGNO (REG)))
 
 /* 1 if the given register number REG_NO corresponds to a hard register.  */
-#define HARD_REGISTER_NUM_P(REG_NO) (REG_NO < FIRST_PSEUDO_REGISTER)
+#define HARD_REGISTER_NUM_P(REG_NO) ((REG_NO) < FIRST_PSEUDO_REGISTER)
 
 /* For a CONST_INT rtx, INTVAL extracts the integer.  */
 
@@ -801,23 +815,20 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
    For a float, the number of ints varies,
     and CONST_DOUBLE_LOW is the one that should come first *in memory*.
     So use &CONST_DOUBLE_LOW(r) as the address of an array of ints.  */
-#define CONST_DOUBLE_LOW(r) XCWINT (r, 2, CONST_DOUBLE)
-#define CONST_DOUBLE_HIGH(r) XCWINT (r, 3, CONST_DOUBLE)
+#define CONST_DOUBLE_LOW(r) XCWINT (r, 1, CONST_DOUBLE)
+#define CONST_DOUBLE_HIGH(r) XCWINT (r, 2, CONST_DOUBLE)
 
 /* Link for chain of all CONST_DOUBLEs in use in current function.  */
-#define CONST_DOUBLE_CHAIN(r) XCEXP (r, 1, CONST_DOUBLE)
-/* The MEM which represents this CONST_DOUBLE's value in memory,
-   or const0_rtx if no MEM has been made for it yet,
-   or cc0_rtx if it is not on the chain.  */
-#define CONST_DOUBLE_MEM(r) XCEXP (r, 0, CONST_DOUBLE)
+#define CONST_DOUBLE_CHAIN(r) XCEXP (r, 0, CONST_DOUBLE)
 
 /* For a SUBREG rtx, SUBREG_REG extracts the value we want a subreg of.
    SUBREG_BYTE extracts the byte-number.  */
 
-#define SUBREG_REG(RTX) XCEXP(RTX, 0, SUBREG)
-#define SUBREG_BYTE(RTX) XCUINT(RTX, 1, SUBREG)
+#define SUBREG_REG(RTX) XCEXP (RTX, 0, SUBREG)
+#define SUBREG_BYTE(RTX) XCUINT (RTX, 1, SUBREG)
 
 /* in rtlanal.c */
+extern unsigned int subreg_lsb		PARAMS ((rtx));
 extern unsigned int subreg_regno_offset 	PARAMS ((unsigned int, 
 							 enum machine_mode, 
 							 unsigned int, 
@@ -837,21 +848,26 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 /* Access various components of an ASM_OPERANDS rtx.  */
 
-#define ASM_OPERANDS_TEMPLATE(RTX) XCSTR ((RTX), 0, ASM_OPERANDS)
-#define ASM_OPERANDS_OUTPUT_CONSTRAINT(RTX) XCSTR ((RTX), 1, ASM_OPERANDS)
-#define ASM_OPERANDS_OUTPUT_IDX(RTX) XCINT ((RTX), 2, ASM_OPERANDS)
-#define ASM_OPERANDS_INPUT_VEC(RTX) XCVEC ((RTX), 3, ASM_OPERANDS)
-#define ASM_OPERANDS_INPUT_CONSTRAINT_VEC(RTX) XCVEC ((RTX), 4, ASM_OPERANDS)
-#define ASM_OPERANDS_INPUT(RTX, N) XCVECEXP ((RTX), 3, (N), ASM_OPERANDS)
-#define ASM_OPERANDS_INPUT_LENGTH(RTX) XCVECLEN ((RTX), 3, ASM_OPERANDS)
+#define ASM_OPERANDS_TEMPLATE(RTX) XCSTR (RTX, 0, ASM_OPERANDS)
+#define ASM_OPERANDS_OUTPUT_CONSTRAINT(RTX) XCSTR (RTX, 1, ASM_OPERANDS)
+#define ASM_OPERANDS_OUTPUT_IDX(RTX) XCINT (RTX, 2, ASM_OPERANDS)
+#define ASM_OPERANDS_INPUT_VEC(RTX) XCVEC (RTX, 3, ASM_OPERANDS)
+#define ASM_OPERANDS_INPUT_CONSTRAINT_VEC(RTX) XCVEC (RTX, 4, ASM_OPERANDS)
+#define ASM_OPERANDS_INPUT(RTX, N) XCVECEXP (RTX, 3, N, ASM_OPERANDS)
+#define ASM_OPERANDS_INPUT_LENGTH(RTX) XCVECLEN (RTX, 3, ASM_OPERANDS)
 #define ASM_OPERANDS_INPUT_CONSTRAINT_EXP(RTX, N) \
-			XCVECEXP ((RTX), 4, (N), ASM_OPERANDS)
+  XCVECEXP (RTX, 4, N, ASM_OPERANDS)
 #define ASM_OPERANDS_INPUT_CONSTRAINT(RTX, N) \
-			XSTR (XCVECEXP ((RTX), 4, (N), ASM_OPERANDS), 0)
+  XSTR (XCVECEXP (RTX, 4, N, ASM_OPERANDS), 0)
 #define ASM_OPERANDS_INPUT_MODE(RTX, N)  \
-			GET_MODE (XCVECEXP ((RTX), 4, (N), ASM_OPERANDS))
-#define ASM_OPERANDS_SOURCE_FILE(RTX) XCSTR ((RTX), 5, ASM_OPERANDS)
-#define ASM_OPERANDS_SOURCE_LINE(RTX) XCINT ((RTX), 6, ASM_OPERANDS)
+  GET_MODE (XCVECEXP (RTX, 4, N, ASM_OPERANDS))
+#define ASM_OPERANDS_SOURCE_FILE(RTX) XCSTR (RTX, 5, ASM_OPERANDS)
+#define ASM_OPERANDS_SOURCE_LINE(RTX) XCINT (RTX, 6, ASM_OPERANDS)
+
+/* For a MEM RTX, 1 if we should keep the alias set for this mem
+   unchanged when we access a component.  Set to 1, or example, when we
+   are already in a non-addressable component of an aggregate.  */
+#define MEM_KEEP_ALIAS_SET_P(RTX) ((RTX)->jump)
 
 /* For a MEM rtx, 1 if it's a volatile reference.
    Also in an ASM_OPERANDS rtx.  */
@@ -863,14 +879,15 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 #define MEM_IN_STRUCT_P(RTX) ((RTX)->in_struct)
 
 /* For a MEM rtx, 1 if it refers to a scalar.  If zero, RTX may or may
-   not refer to a scalar.*/
+   not refer to a scalar.  */
 #define MEM_SCALAR_P(RTX) ((RTX)->frame_related)
 
 /* If VAL is non-zero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
    RTX.  Otherwise, vice versa.  Use this macro only when you are
    *sure* that you know that the MEM is in a structure, or is a
    scalar.  VAL is evaluated only once.  */
-#define MEM_SET_IN_STRUCT_P(RTX, VAL) do {	\
+#define MEM_SET_IN_STRUCT_P(RTX, VAL)		\
+do {						\
   if (VAL)					\
     {						\
       MEM_IN_STRUCT_P (RTX) = 1;		\
@@ -899,26 +916,34 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 #define MEM_ALIAS_SET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->alias)
 
 /* For a MEM rtx, the decl it is known to refer to, if it is known to
-   refer to part of a DECL.  */
-#define MEM_DECL(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->decl)
+   refer to part of a DECL.  It may also be a COMPONENT_REF.  */
+#define MEM_EXPR(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->expr)
 
-/* For a MEM rtx, the offset from the start of MEM_DECL, if known, as a
+/* For a MEM rtx, the offset from the start of MEM_EXPR, if known, as a
    RTX that is always a CONST_INT.  */
 #define MEM_OFFSET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->offset)
 
 /* For a MEM rtx, the size in bytes of the MEM, if known, as an RTX that
    is always a CONST_INT.  */
-#define MEM_SIZE(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->size)
+#define MEM_SIZE(RTX)							\
+(MEM_ATTRS (RTX) != 0 ? MEM_ATTRS (RTX)->size				\
+ : GET_MODE (RTX) != BLKmode ? GEN_INT (GET_MODE_SIZE (GET_MODE (RTX)))	\
+ : 0)
 
-/* For a MEM rtx, the alignment in bytes.  */
-#define MEM_ALIGN(RTX) (MEM_ATTRS (RTX) == 0 ? 1 : MEM_ATTRS (RTX)->align)
+/* For a MEM rtx, the alignment in bits.  We can use the alignment of the
+   mode as a default when STRICT_ALIGNMENT, but not if not.  */
+#define MEM_ALIGN(RTX)							\
+(MEM_ATTRS (RTX) != 0 ? MEM_ATTRS (RTX)->align				\
+ : (STRICT_ALIGNMENT && GET_MODE (RTX) != BLKmode			\
+    ? GET_MODE_ALIGNMENT (GET_MODE (RTX)) : BITS_PER_UNIT))
 
 /* Copy the attributes that apply to memory locations from RHS to LHS.  */
-#define MEM_COPY_ATTRIBUTES(LHS, RHS)			\
-  (MEM_VOLATILE_P (LHS) = MEM_VOLATILE_P (RHS),		\
-   MEM_IN_STRUCT_P (LHS) = MEM_IN_STRUCT_P (RHS),	\
-   MEM_SCALAR_P (LHS) = MEM_SCALAR_P (RHS),		\
-   RTX_UNCHANGING_P (LHS) = RTX_UNCHANGING_P (RHS),	\
+#define MEM_COPY_ATTRIBUTES(LHS, RHS)				\
+  (MEM_VOLATILE_P (LHS) = MEM_VOLATILE_P (RHS),			\
+   MEM_IN_STRUCT_P (LHS) = MEM_IN_STRUCT_P (RHS),		\
+   MEM_SCALAR_P (LHS) = MEM_SCALAR_P (RHS),			\
+   RTX_UNCHANGING_P (LHS) = RTX_UNCHANGING_P (RHS),		\
+   MEM_KEEP_ALIAS_SET_P (LHS) = MEM_KEEP_ALIAS_SET_P (RHS),	\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
 /* For a LABEL_REF, 1 means that this reference is to a label outside the
@@ -943,16 +968,17 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
    and SET_SRC is the value it is set to.  */
 #define SET_DEST(RTX) XC2EXP(RTX, 0, SET, CLOBBER)
 #define SET_SRC(RTX) XCEXP(RTX, 1, SET)
+#define SET_IS_RETURN_P(RTX) ((RTX)->jump)
 
 /* For a TRAP_IF rtx, TRAP_CONDITION is an expression.  */
-#define TRAP_CONDITION(RTX) XCEXP(RTX, 0, TRAP_IF)
-#define TRAP_CODE(RTX) XCEXP(RTX, 1, TRAP_IF)
+#define TRAP_CONDITION(RTX) XCEXP (RTX, 0, TRAP_IF)
+#define TRAP_CODE(RTX) XCEXP (RTX, 1, TRAP_IF)
 
 /* For a COND_EXEC rtx, COND_EXEC_TEST is the condition to base
    conditionally executing the code on, COND_EXEC_CODE is the code
    to execute if the condition is true.  */
-#define COND_EXEC_TEST(RTX) XCEXP(RTX, 0, COND_EXEC)
-#define COND_EXEC_CODE(RTX) XCEXP(RTX, 1, COND_EXEC)
+#define COND_EXEC_TEST(RTX) XCEXP (RTX, 0, COND_EXEC)
+#define COND_EXEC_CODE(RTX) XCEXP (RTX, 1, COND_EXEC)
 
 /* 1 in a SYMBOL_REF if it addresses this function's constants pool.  */
 #define CONSTANT_POOL_ADDRESS_P(RTX) ((RTX)->unchanging)
@@ -974,12 +1000,12 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 /* Don't continue this line--convex cc version 4.1 would lose.  */
 #if (defined (HAVE_PRE_INCREMENT) || defined (HAVE_PRE_DECREMENT) || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT))
-#define FIND_REG_INC_NOTE(insn, reg)				\
-  (reg != NULL_RTX && REG_P ((rtx) (reg))			\
-   ? find_regno_note ((insn), REG_INC, REGNO ((rtx) (reg)))	\
-   : find_reg_note ((insn), REG_INC, (reg)))
+#define FIND_REG_INC_NOTE(INSN, REG)			\
+  ((REG) != NULL_RTX && REG_P ((REG))			\
+   ? find_regno_note ((INSN), REG_INC, REGNO (REG))	\
+   : find_reg_note ((INSN), REG_INC, (REG)))
 #else
-#define FIND_REG_INC_NOTE(insn, reg) 0
+#define FIND_REG_INC_NOTE(INSN, REG) 0
 #endif
 
 /* Indicate whether the machine has any sort of auto increment addressing.
@@ -1155,7 +1181,7 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 /* Determine if the insn is a PHI node.  */
 #define PHI_NODE_P(X)				\
-  (X && GET_CODE (X) == INSN			\
+  ((X) && GET_CODE (X) == INSN			\
    && GET_CODE (PATTERN (X)) == SET		\
    && GET_CODE (SET_SRC (PATTERN (X))) == PHI)
 
@@ -1173,7 +1199,7 @@ extern int generating_concat_p;
 /* In expmed.c */
 extern int ceil_log2			PARAMS ((unsigned HOST_WIDE_INT));
 
-#define plus_constant(X,C) plus_constant_wide (X, (HOST_WIDE_INT) (C))
+#define plus_constant(X, C) plus_constant_wide ((X), (HOST_WIDE_INT) (C))
 
 /* In builtins.c */
 extern rtx expand_builtin_expect_jump	PARAMS ((tree, rtx, rtx));
@@ -1251,6 +1277,7 @@ extern rtx gen_sequence			PARAMS ((void));
 
 /* In varasm.c  */
 extern rtx immed_double_const		PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT, enum machine_mode));
+extern rtx mem_for_const_double		PARAMS ((rtx));
 extern rtx force_const_mem		PARAMS ((enum machine_mode, rtx));
 
 /* In varasm.c  */
@@ -1266,6 +1293,8 @@ extern rtx assign_stack_local		PARAMS ((enum machine_mode,
 					       HOST_WIDE_INT, int));
 extern rtx assign_stack_temp		PARAMS ((enum machine_mode,
 					       HOST_WIDE_INT, int));
+extern rtx assign_stack_temp_for_type	PARAMS ((enum machine_mode,
+						 HOST_WIDE_INT, int, tree));
 extern rtx assign_temp			PARAMS ((tree, int, int, int));
 /* In emit-rtl.c */
 extern rtx emit_insn_before		PARAMS ((rtx, rtx));
@@ -1317,7 +1346,7 @@ extern void mark_jump_label		PARAMS ((rtx, rtx, int));
 extern void cleanup_barriers		PARAMS ((void));
 
 /* In jump.c */
-extern void squeeze_notes		PARAMS ((rtx *, rtx *));
+extern bool squeeze_notes		PARAMS ((rtx *, rtx *));
 extern rtx delete_related_insns			PARAMS ((rtx));
 extern void delete_jump			PARAMS ((rtx));
 extern void delete_barrier		PARAMS ((rtx));
@@ -1383,7 +1412,7 @@ extern enum machine_mode choose_hard_reg_mode PARAMS ((unsigned int,
 						       unsigned int));
 
 /* In emit-rtl.c  */
-extern void set_unique_reg_note         PARAMS ((rtx, enum reg_note, rtx));
+extern rtx set_unique_reg_note		PARAMS ((rtx, enum reg_note, rtx));
 
 /* Functions in rtlanal.c */
 
@@ -1400,6 +1429,7 @@ extern int rtx_varies_p			PARAMS ((rtx, int));
 extern int rtx_addr_varies_p		PARAMS ((rtx, int));
 extern HOST_WIDE_INT get_integer_term	PARAMS ((rtx));
 extern rtx get_related_value		PARAMS ((rtx));
+extern rtx get_jump_table_offset	PARAMS ((rtx, rtx *));
 extern int reg_mentioned_p		PARAMS ((rtx, rtx));
 extern int count_occurrences		PARAMS ((rtx, rtx, int));
 extern int reg_referenced_p		PARAMS ((rtx, rtx));
@@ -1454,6 +1484,7 @@ typedef int (*rtx_function)             PARAMS ((rtx *, void *));
 extern int for_each_rtx                 PARAMS ((rtx *, rtx_function, void *));
 extern rtx regno_use_in			PARAMS ((unsigned int, rtx));
 extern int auto_inc_p			PARAMS ((rtx));
+extern int in_expr_list_p		PARAMS ((rtx, rtx));
 extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
 extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));
@@ -1469,7 +1500,6 @@ void free_EXPR_LIST_node 		PARAMS ((rtx));
 void free_INSN_LIST_node 		PARAMS ((rtx));
 rtx alloc_INSN_LIST			PARAMS ((rtx, rtx));
 rtx alloc_EXPR_LIST			PARAMS ((int, rtx, rtx));
-void clear_log_links                    PARAMS ((rtx));
 
 /* regclass.c */
 
@@ -1594,7 +1624,7 @@ extern rtx return_address_pointer_rtx;
    add to this list, modify special_rtx in gengenrtl.c as well.  You
    should also modify gen_rtx to use the special function.  */
 
-extern rtx gen_rtx_CONST_DOUBLE PARAMS ((enum machine_mode, rtx,
+extern rtx gen_rtx_CONST_DOUBLE PARAMS ((enum machine_mode,
 				       HOST_WIDE_INT, HOST_WIDE_INT));
 extern rtx gen_rtx_CONST_INT PARAMS ((enum machine_mode, HOST_WIDE_INT));
 extern rtx gen_raw_REG PARAMS ((enum machine_mode, int));
@@ -1660,8 +1690,17 @@ extern rtx gen_lowpart_SUBREG PARAMS ((enum machine_mode, rtx));
 
 #define LAST_VIRTUAL_REGISTER		((FIRST_VIRTUAL_REGISTER) + 4)
 
+/* Nonzero if REGNUM is a pointer into the stack frame.  */
+#define REGNO_PTR_FRAME_P(REGNUM) 		\
+  ((REGNUM) == STACK_POINTER_REGNUM		\
+   || (REGNUM) == FRAME_POINTER_REGNUM		\
+   || (REGNUM) == HARD_FRAME_POINTER_REGNUM	\
+   || (REGNUM) == ARG_POINTER_REGNUM		\
+   || ((REGNUM) >= FIRST_VIRTUAL_REGISTER	\
+       && (REGNUM) <= LAST_VIRTUAL_REGISTER))
+
 /* REGNUM never really appearing in the INSN stream.  */
-#define INVALID_REGNUM			(~(unsigned int)0)
+#define INVALID_REGNUM			(~(unsigned int) 0)
 
 extern rtx find_next_ref		PARAMS ((rtx, rtx));
 
@@ -1752,14 +1791,12 @@ extern int true_regnum			PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void rebuild_jump_labels		PARAMS ((rtx));
-extern void thread_jumps		PARAMS ((rtx, int, int));
-extern int rtx_equal_for_thread_p	PARAMS ((rtx, rtx, rtx));
 extern enum rtx_code reversed_comparison_code PARAMS ((rtx, rtx));
 extern enum rtx_code reversed_comparison_code_parts PARAMS ((enum rtx_code,
 							     rtx, rtx, rtx));
 extern void delete_for_peephole		PARAMS ((rtx, rtx));
 extern int condjump_in_parallel_p	PARAMS ((rtx));
-extern void never_reached_warning	PARAMS ((rtx));
+extern void never_reached_warning	PARAMS ((rtx, rtx));
 extern void purge_line_number_notes	PARAMS ((rtx));
 extern void copy_loop_headers		PARAMS ((rtx));
 
@@ -1830,6 +1867,7 @@ extern void debug_rtx_list		PARAMS ((rtx, int));
 extern void debug_rtx_range		PARAMS ((rtx, rtx));
 extern rtx debug_rtx_find		PARAMS ((rtx, int));
 #ifdef BUFSIZ
+extern void print_mem_expr		PARAMS ((FILE *, tree));
 extern void print_rtl			PARAMS ((FILE *, rtx));
 extern void print_simple_rtl		PARAMS ((FILE *, rtx));
 extern int print_rtl_single		PARAMS ((FILE *, rtx));
@@ -1867,10 +1905,11 @@ extern void move_by_pieces		PARAMS ((rtx, rtx,
 						 unsigned int));
 
 /* In flow.c */
-extern void recompute_reg_usage		PARAMS ((rtx, int));
+extern void recompute_reg_usage			PARAMS ((rtx, int));
+extern int initialize_uninitialized_subregs	PARAMS ((void));
 #ifdef BUFSIZ
-extern void print_rtl_with_bb		PARAMS ((FILE *, rtx));
-extern void dump_flow_info		PARAMS ((FILE *));
+extern void print_rtl_with_bb			PARAMS ((FILE *, rtx));
+extern void dump_flow_info			PARAMS ((FILE *));
 #endif
 
 /* In expmed.c */
@@ -2059,6 +2098,7 @@ extern rtx stack_limit_rtx;
 
 /* In regrename.c */
 extern void regrename_optimize		PARAMS ((void));
+extern void copyprop_hardreg_forward	PARAMS ((void));
 
 /* In ifcvt.c */
 extern void if_convert			PARAMS ((int));

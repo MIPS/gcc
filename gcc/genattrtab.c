@@ -1,6 +1,6 @@
 /* Generate code from machine description to compute values of attributes.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -233,7 +233,7 @@ struct function_unit
   struct function_unit_op *ops;	/* Pointer to first operation type.  */
   int needs_conflict_function;	/* Nonzero if a conflict function required.  */
   int needs_blockage_function;	/* Nonzero if a blockage function required.  */
-  int needs_range_function;	/* Nonzero if blockage range function needed.*/
+  int needs_range_function;	/* Nonzero if blockage range function needed.  */
   rtx default_cost;		/* Conflict cost, if constant.  */
   struct range issue_delay;	/* Range of issue delay values.  */
   int max_blockage;		/* Maximum time an insn blocks the unit.  */
@@ -369,6 +369,7 @@ rtx pic_offset_table_rtx;
 static void attr_hash_add_rtx	PARAMS ((int, rtx));
 static void attr_hash_add_string PARAMS ((int, char *));
 static rtx attr_rtx		PARAMS ((enum rtx_code, ...));
+static rtx attr_rtx_1		PARAMS ((enum rtx_code, va_list));
 static char *attr_string        PARAMS ((const char *, int));
 static rtx check_attr_value	PARAMS ((rtx, struct attr_desc *));
 static rtx convert_set_attr_alternative PARAMS ((rtx, struct insn_def *));
@@ -540,24 +541,14 @@ attr_hash_add_string (hashcode, str)
    rtx attr_rtx (code, [element1, ..., elementn])  */
 
 static rtx
-attr_rtx VPARAMS ((enum rtx_code code, ...))
+attr_rtx_1 (code, p)
+     enum rtx_code code;
+     va_list p;
 {
-#ifndef ANSI_PROTOTYPES
-  enum rtx_code code;
-#endif
-  va_list p;
-  int i;		/* Array indices...			*/
-  const char *fmt;	/* Current rtx's format...		*/
   rtx rt_val = NULL_RTX;/* RTX to return to caller...		*/
   int hashcode;
   struct attr_hash *h;
   struct obstack *old_obstack = rtl_obstack;
-
-  VA_START (p, code);
-
-#ifndef ANSI_PROTOTYPES
-  code = va_arg (p, enum rtx_code);
-#endif
 
   /* For each of several cases, search the hash table for an existing entry.
      Use that entry if one is found; otherwise create a new RTL and add it
@@ -572,7 +563,6 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	{
 	  rt_val = rtx_alloc (code);
 	  XEXP (rt_val, 0) = arg0;
-	  va_end (p);
 	  return rt_val;
 	}
 
@@ -581,7 +571,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	if (h->hashcode == hashcode
 	    && GET_CODE (h->u.rtl) == code
 	    && XEXP (h->u.rtl, 0) == arg0)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -603,7 +593,6 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	  rt_val = rtx_alloc (code);
 	  XEXP (rt_val, 0) = arg0;
 	  XEXP (rt_val, 1) = arg1;
-	  va_end (p);
 	  return rt_val;
 	}
 
@@ -613,7 +602,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	    && GET_CODE (h->u.rtl) == code
 	    && XEXP (h->u.rtl, 0) == arg0
 	    && XEXP (h->u.rtl, 1) == arg1)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -636,7 +625,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	if (h->hashcode == hashcode
 	    && GET_CODE (h->u.rtl) == code
 	    && XSTR (h->u.rtl, 0) == arg0)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -658,7 +647,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	    && GET_CODE (h->u.rtl) == code
 	    && XSTR (h->u.rtl, 0) == arg0
 	    && XSTR (h->u.rtl, 1) == arg1)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -672,19 +661,16 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
     {
       HOST_WIDE_INT arg0 = va_arg (p, HOST_WIDE_INT);
       if (arg0 == 0)
-	{
-	  va_end (p);
-	  return false_rtx;
-	}
-      if (arg0 == 1)
-	{
-	  va_end (p);
-	  return true_rtx;
-	}
-      goto nohash;
+	return false_rtx;
+      else if (arg0 == 1)
+	return true_rtx;
+      else
+	goto nohash;
     }
   else
     {
+      int i;		/* Array indices...			*/
+      const char *fmt;	/* Current rtx's format...		*/
     nohash:
       rt_val = rtx_alloc (code);	/* Allocate the storage space.  */
 
@@ -721,19 +707,25 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	      abort ();
 	    }
 	}
-      va_end (p);
       return rt_val;
     }
 
   rtl_obstack = old_obstack;
-  va_end (p);
   attr_hash_add_rtx (hashcode, rt_val);
   RTX_INTEGRATED_P (rt_val) = 1;
   return rt_val;
+}
 
- found:
-  va_end (p);
-  return h->u.rtl;
+static rtx
+attr_rtx VPARAMS ((enum rtx_code code, ...))
+{
+  rtx result;
+  
+  VA_OPEN (p, code);
+  VA_FIXEDARG (p, enum rtx_code, code);
+  result = attr_rtx_1 (code, p);
+  VA_CLOSE (p);
+  return result;
 }
 
 /* Create a new string printed with the printf line arguments into a space
@@ -955,11 +947,11 @@ check_attr_test (exp, is_const, lineno)
 		  return exp;
 		}
 	      else
-		fatal ("Unknown attribute `%s' in EQ_ATTR", XSTR (exp, 0));
+		fatal ("unknown attribute `%s' in EQ_ATTR", XSTR (exp, 0));
 	    }
 
 	  if (is_const && ! attr->is_const)
-	    fatal ("Constant expression uses insn attribute `%s' in EQ_ATTR",
+	    fatal ("constant expression uses insn attribute `%s' in EQ_ATTR",
 		   XSTR (exp, 0));
 
 	  /* Copy this just to make it permanent,
@@ -975,8 +967,8 @@ check_attr_test (exp, is_const, lineno)
 	  if (attr->is_numeric)
 	    {
 	      for (p = XSTR (exp, 1); *p; p++)
-		if (*p < '0' || *p > '9')
-		  fatal ("Attribute `%s' takes only numeric values",
+		if (! ISDIGIT (*p))
+		  fatal ("attribute `%s' takes only numeric values",
 			 XSTR (exp, 0));
 	    }
 	  else
@@ -987,7 +979,7 @@ check_attr_test (exp, is_const, lineno)
 		  break;
 
 	      if (av == NULL)
-		fatal ("Unknown value `%s' for `%s' attribute",
+		fatal ("unknown value `%s' for `%s' attribute",
 		       XSTR (exp, 1), XSTR (exp, 0));
 	    }
 	}
@@ -1111,7 +1103,7 @@ check_attr_value (exp, attr)
 	  if (attr && attr->negative_ok && *p == '-')
 	    p++;
 	  for (; *p; p++)
-	    if (*p > '9' || *p < '0')
+	    if (! ISDIGIT (*p))
 	      {
 		message_with_line (attr ? attr->lineno : 0,
 				   "non-numeric value for numeric attribute %s",
@@ -1445,7 +1437,7 @@ make_canonical (attr, exp)
       if (! strcmp (XSTR (exp, 0), "*"))
 	{
 	  if (attr == 0 || attr->default_val == 0)
-	    fatal ("(attr_value \"*\") used in invalid context.");
+	    fatal ("(attr_value \"*\") used in invalid context");
 	  exp = attr->default_val->value;
 	}
 
@@ -1782,7 +1774,7 @@ operate_exp (op, left, right)
 	  return newexp;
 	}
       else
-	fatal ("Badly formed attribute value");
+	fatal ("badly formed attribute value");
     }
 
   /* A hack to prevent expand_units from completely blowing up: ORX_OP does
@@ -1834,7 +1826,7 @@ operate_exp (op, left, right)
     }
 
   else
-    fatal ("Badly formed attribute value.");
+    fatal ("badly formed attribute value");
   /* NOTREACHED */
   return NULL;
 }
@@ -2461,7 +2453,7 @@ make_length_attrs ()
     return;
 
   if (! length_attr->is_numeric)
-    fatal ("length attribute must be numeric.");
+    fatal ("length attribute must be numeric");
 
   length_attr->is_const = 0;
   length_attr->is_special = 1;
@@ -3154,7 +3146,7 @@ simplify_or_tree (exp, pterm, insn_code, insn_index)
   return exp;
 }
 /* Compute approximate cost of the expression.  Used to decide whether
-   expression is cheap enought for inline.  */
+   expression is cheap enough for inline.  */
 static int
 attr_rtx_cost (x)
      rtx x;
@@ -3312,7 +3304,7 @@ simplify_test_exp (exp, insn_code, insn_index)
 	{
 	  i = compute_alternative_mask (exp, AND);
 	  if (i & ~insn_alternatives[insn_code])
-	    fatal ("Invalid alternative specified for pattern number %d",
+	    fatal ("invalid alternative specified for pattern number %d",
 		   insn_index);
 
 	  /* If all alternatives are excluded, this is false.  */
@@ -3396,7 +3388,7 @@ simplify_test_exp (exp, insn_code, insn_index)
 	{
 	  i = compute_alternative_mask (exp, IOR);
 	  if (i & ~insn_alternatives[insn_code])
-	    fatal ("Invalid alternative specified for pattern number %d",
+	    fatal ("invalid alternative specified for pattern number %d",
 		   insn_index);
 
 	  /* If all alternatives are included, this is true.  */
@@ -4752,7 +4744,7 @@ write_test_expr (exp, flags)
       if (XSTR (exp, 1) == NULL || *XSTR (exp, 1) == '\0')
 	{
 	  if (GET_MODE (exp) == VOIDmode)
-	    fatal ("Null MATCH_OPERAND specified as test");
+	    fatal ("null MATCH_OPERAND specified as test");
 	  else
 	    printf ("GET_MODE (operands[%d]) == %smode",
 		    XINT (exp, 0), GET_MODE_NAME (GET_MODE (exp)));
@@ -5527,7 +5519,7 @@ write_eligible_delay (kind)
   printf ("int\n");
   printf ("eligible_for_%s (delay_insn, slot, candidate_insn, flags)\n",
 	  kind);
-  printf ("     rtx delay_insn;\n");
+  printf ("     rtx delay_insn ATTRIBUTE_UNUSED;\n");
   printf ("     int slot;\n");
   printf ("     rtx candidate_insn;\n");
   printf ("     int flags ATTRIBUTE_UNUSED;\n");
@@ -6072,9 +6064,9 @@ main (argc, argv)
   progname = "genattrtab";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   obstack_init (hash_obstack);

@@ -1,6 +1,6 @@
 // RB tree implementation -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -55,12 +55,13 @@
  *
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_tree.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_TREE_H
-#define __SGI_STL_INTERNAL_TREE_H
+#ifndef __GLIBCPP_INTERNAL_TREE_H
+#define __GLIBCPP_INTERNAL_TREE_H
 
 /*
 
@@ -89,10 +90,9 @@ iterators invalidated are those referring to the deleted node.
 
 namespace std
 { 
-
-typedef bool _Rb_tree_Color_type;
-const _Rb_tree_Color_type _S_rb_tree_red = false;
-const _Rb_tree_Color_type _S_rb_tree_black = true;
+  typedef bool _Rb_tree_Color_type;
+  extern const _Rb_tree_Color_type _S_rb_tree_red; // false
+  extern const _Rb_tree_Color_type _S_rb_tree_black; // true
 
 struct _Rb_tree_node_base
 {
@@ -556,10 +556,14 @@ protected:
   _M_create_node(const value_type& __x)
   {
     _Link_type __tmp = _M_get_node();
-    __STL_TRY {
+    try {
       _Construct(&__tmp->_M_value_field, __x);
     }
-    __STL_UNWIND(_M_put_node(__tmp));
+    catch(...)
+      {
+	_M_put_node(__tmp);
+	__throw_exception_again; 
+      }
     return __tmp;
   }
 
@@ -1017,8 +1021,7 @@ typename _Rb_tree<_Key,_Value,_KeyOfValue,_Compare,_Alloc>::size_type
 _Rb_tree<_Key,_Value,_KeyOfValue,_Compare,_Alloc>::erase(const _Key& __x)
 {
   pair<iterator,iterator> __p = equal_range(__x);
-  size_type __n = 0;
-  distance(__p.first, __p.second, __n);
+  size_type __n = distance(__p.first, __p.second);
   erase(__p.first, __p.second);
   return __n;
 }
@@ -1032,7 +1035,7 @@ _Rb_tree<_Key,_Val,_KoV,_Compare,_Alloc>
   _Link_type __top = _M_clone_node(__x);
   __top->_M_parent = __p;
  
-  __STL_TRY {
+  try {
     if (__x->_M_right)
       __top->_M_right = _M_copy(_S_right(__x), __top);
     __p = __top;
@@ -1048,8 +1051,11 @@ _Rb_tree<_Key,_Val,_KoV,_Compare,_Alloc>
       __x = _S_left(__x);
     }
   }
-  __STL_UNWIND(_M_erase(__top));
-
+  catch(...)
+    {
+      _M_erase(__top);
+      __throw_exception_again; 
+    }
   return __top;
 }
 
@@ -1131,8 +1137,7 @@ _Rb_tree<_Key,_Value,_KeyOfValue,_Compare,_Alloc>
   ::count(const _Key& __k) const
 {
   pair<const_iterator, const_iterator> __p = equal_range(__k);
-  size_type __n = 0;
-  distance(__p.first, __p.second, __n);
+  size_type __n = distance(__p.first, __p.second);
   return __n;
 }
 
@@ -1282,26 +1287,9 @@ bool _Rb_tree<_Key,_Value,_KeyOfValue,_Compare,_Alloc>::__rb_verify() const
   return true;
 }
 
-// Class rb_tree is not part of the C++ standard.  It is provided for
-// compatibility with the HP STL.
-
-template <class _Key, class _Value, class _KeyOfValue, class _Compare,
-          class _Alloc = allocator<_Value> >
-struct rb_tree : public _Rb_tree<_Key, _Value, _KeyOfValue, _Compare, _Alloc>
-{
-  typedef _Rb_tree<_Key, _Value, _KeyOfValue, _Compare, _Alloc> _Base;
-  typedef typename _Base::allocator_type allocator_type;
-
-  rb_tree(const _Compare& __comp = _Compare(),
-          const allocator_type& __a = allocator_type())
-    : _Base(__comp, __a) {}
-  
-  ~rb_tree() {}
-};
-
 } // namespace std 
 
-#endif /* __SGI_STL_INTERNAL_TREE_H */
+#endif /* __GLIBCPP_INTERNAL_TREE_H */
 
 // Local Variables:
 // mode:C++

@@ -19,11 +19,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -32,24 +43,30 @@ package java.util;
  * "The Java Language Specification", ISBN 0-201-63451-1
  * plus online API docs for JDK 1.2 beta from http://www.javasoft.com.
  * Status:  Believed complete and correct
- */
 
 /**
  * Stack provides a Last In First Out (LIFO) data type, commonly known
- * as a Stack.  
- *
- * Stack itself extends Vector and provides the additional methods
- * for stack manipulation (push, pop, peek). 
+ * as a Stack.  Stack itself extends Vector and provides the additional
+ * methods for stack manipulation (push, pop, peek). You can also seek for
+ * the 1-based position of an element on the stack.
  *
  * @author Warren Levy <warrenl@cygnus.com>
- * @date August 20, 1998.
+ * @author Eric Blake <ebb9@email.byu.edu>
+ * @see List
+ * @see AbstractList
+ * @see LinkedList
+ * @since 1.0
+ * @status updated to 1.4
  */
 public class Stack extends Vector
 {
-  // Could use Vector methods internally for the following methods
+  // We could use Vector methods internally for the following methods,
   // but have used Vector fields directly for efficiency (i.e. this
   // often reduces out duplicate bounds checking).
 
+  /**
+   * Compatible with JDK 1.0+.
+   */
   private static final long serialVersionUID = 1224463164541339165L;
 
   /**
@@ -57,16 +74,15 @@ public class Stack extends Vector
    */
   public Stack()
   {
-    super();
   }
 
   /**
    * Pushes an Object onto the top of the stack.  This method is effectively
-   * the same as addElement(item)
+   * the same as addElement(item).
    *
    * @param item the Object to push onto the stack
-   * @returns the Object pushed onto the stack
-   * @see java.util.Vector#addElement(java.util.Object)
+   * @return the Object pushed onto the stack
+   * @see Vector#addElement(Object)
    */
   public Object push(Object item)
   {
@@ -80,26 +96,29 @@ public class Stack extends Vector
 
   /**
    * Pops an item from the stack and returns it.  The item popped is
-   * removed from the Stack
+   * removed from the Stack.
    *
-   * @returns the Object popped from the stack
+   * @return the Object popped from the stack
+   * @throws EmptyStackException if the stack is empty
    */
   public synchronized Object pop()
   {
     if (elementCount == 0)
       throw new EmptyStackException();
 
+    modCount++;
     Object obj = elementData[--elementCount];
 
-    // Set topmost element to null to assist the gc in cleanup
+    // Set topmost element to null to assist the gc in cleanup.
     elementData[elementCount] = null;
     return obj;
   }
 
   /**
-   * Returns the top Object on the stack without removing it
+   * Returns the top Object on the stack without removing it.
    *
-   * @returns the top Object on the stack
+   * @return the top Object on the stack
+   * @throws EmptyStackException if the stack is empty
    */
   public synchronized Object peek()
   {
@@ -110,11 +129,11 @@ public class Stack extends Vector
   }
 
   /**
-   * Tests if the stack is empty
+   * Tests if the stack is empty.
    *
-   * @returns true if the stack contains no items, false otherwise
+   * @return true if the stack contains no items, false otherwise
    */
-  public boolean empty()
+  public synchronized boolean empty()
   {
     return elementCount == 0;
   }
@@ -122,18 +141,18 @@ public class Stack extends Vector
   /**
    * Returns the position of an Object on the stack, with the top
    * most Object being at position 1, and each Object deeper in the
-   * stack at depth + 1
+   * stack at depth + 1.
    *
    * @param o The object to search for
-   * @returns The 1 based depth of the Object, or -1 if the Object 
-   * is not on the stack.
+   * @return The 1 based depth of the Object, or -1 if the Object
+   *         is not on the stack
    */
   public synchronized int search(Object o)
   {
-    for (int i = elementCount-1; i >=0; --i)
-      if (elementData[i].equals(o))
+    int i = elementCount;
+    while (--i >= 0)
+      if (equals(o, elementData[i]))
         return elementCount - i;
-
     return -1;
   }
 }

@@ -24,6 +24,7 @@
 PACKAGE = @PACKAGE@
 
 # Location of installation directories.
+mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 locale_installdir = $(DESTDIR)$(datadir)/locale
 locale_builddir = @glibcpp_localedir@
 
@@ -41,7 +42,7 @@ DISTFILES = \
 	$(LOCALE_IN) 
 
 .po.mo:
-	$(MSGFMT) $< -o $@
+	$(MSGFMT) -o $@ $<
 
 all-local: all-local-@USE_NLS@
 all-local-no: 

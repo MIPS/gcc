@@ -47,60 +47,12 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "%(cpp_cpu)"
 
-/* This is how to output assembly code to define a `float' constant.
-   We always have to use a .long pseudo-op to do this because the native
-   SVR4 ELF assembler is buggy and it generates incorrect values when we
-   try to use the .float pseudo-op instead.  */
+#define ENDFILE_SPEC "crtend.o%s"
 
-#undef ASM_OUTPUT_FLOAT
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)					\
-do { long value;							\
-     REAL_VALUE_TO_TARGET_SINGLE ((VALUE), value);			\
-     if (sizeof (int) == sizeof (long))					\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value);			\
-     else								\
-         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value);			\
-   } while (0)
-
-/* This is how to output assembly code to define a `double' constant.
-   We always have to use a pair of .long pseudo-ops to do this because
-   the native SVR4 ELF assembler is buggy and it generates incorrect
-   values when we try to use the the .double pseudo-op instead.  */
-
-#undef ASM_OUTPUT_DOUBLE
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)					\
-do { long value[2];							\
-     REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), value);			\
-     if (sizeof (int) == sizeof (long))					\
-       {								\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[1]);		\
-       }								\
-     else								\
-       {								\
-         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[1]);		\
-       }								\
-   } while (0)
-
-
-#undef ASM_OUTPUT_LONG_DOUBLE
-#define ASM_OUTPUT_LONG_DOUBLE(FILE,VALUE)				\
-do { long value[3];							\
-     REAL_VALUE_TO_TARGET_LONG_DOUBLE ((VALUE), value);			\
-     if (sizeof (int) == sizeof (long))					\
-       {								\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[1]);		\
-         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[2]);		\
-       }								\
-     else								\
-       {								\
-         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[1]);		\
-         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[2]);		\
-       }								\
-   } while (0)
+#define STARTFILE_SPEC "%{!shared: \
+			 %{!symbolic: \
+			  %{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
+			crtbegin.o%s"
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n) \
@@ -131,7 +83,7 @@ do { long value[3];							\
 	    }								\
 	  for (p = _ascii_bytes; p < limit && *p != '\0'; p++)		\
 	    continue;							\
-	  if (p < limit && (p - _ascii_bytes) <= STRING_LIMIT)		\
+	  if (p < limit && (p - _ascii_bytes) <= (long) STRING_LIMIT)	\
 	    {								\
 	      if (bytes_in_chunk > 0)					\
 		{							\
@@ -178,7 +130,7 @@ do { long value[3];							\
    specified as the number of bits.
 
    Try to use function `asm_output_aligned_bss' defined in file
-   `varasm.c' when defining this macro. */
+   `varasm.c' when defining this macro.  */
 #undef ASM_OUTPUT_ALIGNED_BSS
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)

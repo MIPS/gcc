@@ -1,3 +1,1280 @@
+2002-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/Wunreachable-1.c: New test.
+	* gcc.dg/Wunreachable-2.c: New test.
+
+2002-02-12  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-const-expr-3.c, gcc.dg/c99-const-expr-3.c: New tests.
+
+2002-02-12  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/decl-1.c: New test.
+
+2002-02-12  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/c99-flex-array-2.c: Add -std=iso9899:1999 
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.c-torture/compile/961203-1.x: Disable on h8300 port.
+	* gcc.c-torture/compile/980506-1.x: Likewise.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.dg/20020210-1.c: New.
+
+2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.f-torture/execute/947.f: New regression test
+	for PR fortran/947.
+
+2002-02-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.old-deja/g++.abi/ptrmem.C: Lowest bit is significant on SH5.
+	* g++.old-deja/g++.jason/thunk3.C: XFAIL on sh64-*-*.
+
+2002-02-08  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/compile/labels-3.c: New.
+
+2002-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020206-1.c: Test whether nesting 2
+	expression statements work instead.
+	* gcc.dg/noncompile/20020207-1.c: New test.
+
+2002-02-07  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/debug/dwarf2-1.c (foo): Return a value.
+
+2002-02-07  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* lib/prune.exp: Remove "In (program|subroutine"block-data)"
+	message from g77
+	* lib/g77-dg.exp: Trim g77 error messages so that they are
+	recognised by dg.exp.
+
+2002-02-07  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/5473
+	* g77.dg/pr5473.f: Now dg-error.  Add additional cases.  
+
+2002-02-07  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.brendan/new2.C: Arrange for allocated memory
+	to be sufficiently aligned for integers.
+
+2002-02-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/friend4.C: New test.
+
+2002-02-07  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/5743
+	* g77.f-torture/execute/intrinsic-unix-bessel.f: Remove
+	unsupported cases.
+
+2002-02-07  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/debug/dwarf2-1.c: Update for return warnings.
+	* gcc.dg/noncompile/920507-1.c, gcc.dg/noncompile/920721-2.c,
+	gcc.dg/noncompile/label-lineno-1.c, objc.dg/const-str-1.m,
+	objc.dg/const-str-2.m, objc.dg/method-1.m: Likewise.
+
+2002-02-06  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/asm-4.c: Add case with an unnamed operand in the middle.
+
+2002-02-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/20020206-1.c: New test.
+
+2002-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020206-1.c: New test.
+
+	* gcc.c-torture/execute/20020206-2.c: New test.
+
+	PR optimization/5429:
+	* gcc.c-torture/compile/20020206-1.c: New test.
+
+2002-02-06  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* g++.dg/ext/align1.C: Do not use an explicit alignment value
+        as certain file formats cannot support particularly large
+        alignments.
+
+	* g++.dg/warn/weak1.C: Expect a warning from COFF toolchains,
+	and do not expect to be able to link the executable.
+
+        * g++.old-deja/g++.ext/attrib5.C: Expect the compilation to
+	fail because the COFF format does not support the weak attribute.
+
+2002-02-05  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g77.dg/pr5473.f:  New test
+
+2002-02-05  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-4.c: AltiVec builtin predicates changed format.
+        Fix testcase accordingly.
+
+2002-02-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/built-in-setjmp.c: Prototype stuff.
+	(buf): Change to be an array of pointers, not ints.
+
+2002-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/Wswitch.c: Fix typos.  Don't return unconditionally
+	before all tests.  Move warning one line above to match where it
+	C frontend emits.
+	* gcc.dg/Wswitch-2.c: New test.
+	* g++.dg/warn/Wswitch-1.C: New test.
+	* g++.dg/warn/Wswitch-2.C: New test.
+
+2002-02-04  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/abi/offsetof.C: Fix size comparison.
+
+2002-02-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/cast-qual-2.c: New test.
+
+2002-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020201-4.c: New test.
+
+2002-02-04  Ben Elliston  <bje@redhat.com>
+
+	* lib/gcc.exp (gcc_init): Check that the need_status_wrapper
+	target_info attribute != 0, in addition to the empty string.
+	(gcc_target_compile): Likewise.
+
+2002-02-03  Andrew Cagney  <ac131313@redhat.com>
+
+	* gcc.dg/Wswitch.c: New test.
+	PR gcc/4475. PR gcc/3780.
+
+2002-02-03  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.f-torture/execute/5122.f: New test for regressions
+	against PR fortran/5122.
+
+2002-02-03  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g77.f-torture/compile/pr3743.f: Delete
+	* g77.dg/pr3743-1.f: New test.
+	* g77.dg/pr3743-2.f: New test.
+	* g77.dg/pr3743-3.f: New test.
+	* g77.dg/pr3743-4.f: New test.
+
+2002-02-02  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/uchar-1.c, uchar-2.c, uchar-3.c: New tests.
+
+2002-02-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/991118-1.c: Revert 2002-01-29 change.
+	* gcc.c-torture/execute/bf64-1.c: Likewise.
+
+2002-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020201-2.c: New test.
+
+	* gcc.dg/20020201-3.c: New test.
+
+	* gcc.c-torture/execute/bitfld-2.c: New test.
+
+2002-02-02  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/bitfld-1.c: Update.
+	* gcc.dg/bitfld-2.c: Update.
+	* gcc.c-torture/execute/bitfld-1.x: New.
+
+2002-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020201-1.c: New test.
+
+2002-02-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/5469
+	* gcc.dg/20020201-1.c: New test.
+
+2002-02-01  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/3743
+	* g77.f-torture/execute/f90-intrinsic-bit.x: Remove
+	* g77.f-torture/compile/pr3743.x: Remove
+
+2002-01-31  Tom Rix  <trix@redhat.com>
+
+	* gcc.dg/special/ecos.exp: Make gcsec-1.c unsupported for AIX.
+
+2002-01-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/noncompile/20020130-1.c: New test.
+
+2002-01-30  David Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* g77.dg/f77-edit-i-out.f:  Escape \. Allow \r\n and \r.
+
+2002-01-29  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/991118-1.c: Cast various constants back
+	to long long.
+	* gcc.c-torture/execute/bf64-1.c: Likewise.
+
+2002-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020129-1.c: New test.
+
+2002-01-29  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.c-torture/compile/20000224-1.c: Update.
+	* gcc.c-torture/execute/bitfld-1.c: New tests.
+	* gcc.dg/bitfld-1.c, bitfld-2.c: Diagnostic tests.
+	* gcc.dg/uninit-A.c: Update.
+
+2002-01-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/ctor1.C: Add instantiation.
+
+2002-01-28  Paul Koning  <pkoning@equallogic.com>
+
+	* gcc.c-torture/execute/builtin-prefetch-1.c: Changed first
+	argument to __builtin_prefetch to be const ptr.
+
+2002-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020120-1.c: New test.
+
+2002-01-27  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.c-torture/execute/20020127-1.c: New test.
+
+2002-01-27  David Billinghurst  <David.Billinghurst@riotinto.com>
+ 
+	* g77.dg/f77-edit-i-in.f: New test
+	* g77.dg/f77-edit-i-out.f: New test
+
+2002-01-25  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.dg/debug/debug.exp: New file.
+	* gcc.dg/debug/trivial.c: New file.
+	* gcc.dg/debug/20000503-1.c: Moved from gcc.dg/.
+	* gcc.dg/debug/20010207-1.c: Moved from gcc.dg/.
+	* gcc.dg/debug/20011223-1.c: Moved from gcc.dg/.
+	* gcc.dg/debug/20020104-2.c: Moved from gcc.dg/.
+	* gcc.dg/debug/debug-1.c: Moved from gcc.dg/.
+	* gcc.dg/debug/debug-2.c: Moved from gcc.dg/.
+	* gcc.dg/debug/debug-3.c: Moved from gcc.dg/.
+	* gcc.dg/debug/debug-4.c: Moved from gcc.dg/.
+	* gcc.dg/debug/debug-5.c: Moved from gcc.dg/.
+	* gcc.dg/debug/debug-6.c: Moved from gcc.dg/.
+	* gcc.dg/debug/dwarf2-1.c: Moved from gcc.dg/.
+	* gcc.dg/debug/dwarf2-2.c: Moved from gcc.dg/.
+	* gcc.dg/20000503-1.c: Removed.
+	* gcc.dg/20010207-1.c: Removed.
+	* gcc.dg/20011223-1.c: Removed.
+	* gcc.dg/20020104-2.c: Removed.
+	* gcc.dg/debug-1.c: Removed.
+	* gcc.dg/debug-2.c: Removed.
+	* gcc.dg/debug-3.c: Removed.
+	* gcc.dg/debug-4.c: Removed.
+	* gcc.dg/debug-5.c: Removed.
+	* gcc.dg/debug-6.c: Removed.
+	* gcc.dg/dwarf2-1.c: Removed.
+	* gcc.dg/dwarf2-2.c: Removed.
+
+2002-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.old-deja/g++.other/eh5.C: New test.
+	* g++.old-deja/g++.other/sibcall2.C: New test.
+	* g++.old-deja/g++.other/array9.C: New test.
+	* g++.old-deja/g++.other/typename2.C: New test.
+	* g++.old-deja/g++.other/crash60.C: New test.
+	* g++.old-deja/g++.other/conv9.C: New test.
+	* g++.old-deja/g++.other/mangle10.C: New test.
+	* g++.old-deja/g++.other/unchanging1.C: New test.
+	* g++.old-deja/g++.other/exprstmt1.C: New test.
+	* g++.old-deja/g++.other/inline23.C: New test.
+	* g++.old-deja/g++.eh/ia64-1.C: New test.
+	* g++.old-deja/g++.other/dwarf2-1.C: New test.
+	* g++.old-deja/g++.other/mangle11.C: New test.
+	* g++.old-deja/g++.other/reload1.C: New test.
+	* g++.old-deja/g++.other/static20.C: New test.
+	* g++.old-deja/g++.other/local-alloc1.C: New test.
+	* g++.old-deja/g++.other/conv8.C: New test.
+	* g++.old-deja/g++.other/stmtexpr2.C: New test.
+	* g++.old-deja/g++.other/storeexpr1.C: New test.
+	* g++.old-deja/g++.other/storeexpr2.C: New test.
+	* g++.dg/eh/template2.C: New test.
+	* g++.dg/warn/weak1.C: New test.
+
+2002-01-25  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/scanasm.exp (scan-assembler-dem, scan-assembler-dem-not):
+	Remove first, non-varying, argument.
+
+2002-01-23  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/inline-2.c: New.
+
+	* lib/scanasm.exp (scan-assembler): Remove optional vmessage arg.
+	Add optional target arg.  Check number of arguments.
+	(scan-assembler-not, scan-assembler-dem): Likewise.
+	(scan-assembler-dem-not): Likewise.
+
+2002-01-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.old-deja/g++.brendan/crash8.C: Don't expect an error on
+	line 12.
+	* g++.old-deja/g++.brendan/parse3.C,
+	g++.old-deja/g++.other/crash26.C,
+	g++.old-deja/g++.other/crash28.C,
+	g++.old-deja/g++.other/crash29.C,
+	g++.old-deja/g++.other/crash30.C,
+	g++.old-deja/g++.other/crash35.C: Remove XFAILs where appropriate.
+
+2002-01-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/20020115-1.c: New.
+
+2002-01-23  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.c-torture/compile/20001226-1.x: xfail for Xtensa.
+
+2002-01-23  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/20020122-3.c: New.
+
+2002-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/gc1.C: New test.
+
+2002-01-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/c99-intconst-1.c: Mark XFAIL.
+
+2002-01-22  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020122-4.c: Use multiple outputs on the asm.
+
+2002-01-22  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020122-4.c: New.
+
+2002-01-22  H.J. Lu <hjl@gnu.org>
+
+	* g++.dg/special/ecos.exp: Append .exe instead of a.out as the
+	link output.
+	* gcc.dg/special/ecos.exp: Likewise.
+	* lib/g++-dg.exp: Likewise.
+	* lib/g77-dg.exp: Likewise.
+	* lib/gcc-dg.exp : Likewise.
+	* lib/mike-g++.exp: Likewise.
+	* lib/mike-g77.exp: Likewise.
+	* lib/mike-gcc.exp: Likewise.
+	* lib/objc-dg.exp: Likewise.
+
+2002-01-22  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/5379
+	* gcc.dg/20020122-2.c: New test.
+
+2002-01-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20020122-1.c: New test.
+
+2001-01-22  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g++.old-deja/g++.ext/attrib5.C: XFAIL cygwin too
+
+2002-01-22  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/20010207-1.c: Restrict to i?86-*-[eflno]*
+
+2002-01-21  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.c-torture/compile/20020121-1.c: New test.
+
+2002-01-21  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* lib/g77.exp (g77_link_flags): Remove check for libg2c.so in setting
+	ld_library_path.
+
+2002-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020218-1.c: New test.
+
+2002-01-21  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* lib/prune.exp (prune_gcc_output): Prune "At global scope"
+	messages
+	* g++.dg/other/deprecated.C: Remove dg-bogus comment for
+	"At global scope" warning
+	* g++.dg/ext/align1.C: Change cygwin test for alignment
+	from db-bogus to dg-warning
+
+2002-01-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* g77.f-torture/compile/cpp2.F: New test.
+
+2002-01-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/access1.C: New test.
+
+2002-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/20020118-1.c: New.
+
+2002-01-18  Kazu Hirata  <kazu@hxi.com>
+
+	* testsuite/gcc.c-torture/execute/20020118-1.c: New test.
+
+2001-01-18  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g++.dg/other/deprecated.C: Fix FAIL from "At global scope" message.
+	* g++.dg/ext/align1.C: Fix fail on cygwin from maximum
+	alignment warnings.
+
+2001-01-18  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.misc-tests/i386-prefetch.exp: Save and restore
+	torture_with_loops and torture_without_loops
+
+2002-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020116-1.c: New test.
+
+2002-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020116-2.c: New test.
+
+	* gcc.dg/ultrasp4.c: New test.
+
+	* gcc.dg/20020116-1.c: New test.
+
+2002-01-15  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.dg/20020103-1.c: Also test for __PPC__, since that's used
+	by EABI.
+
+2002-01-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.misc-tests/i386-prefetch.exp: New.
+	* gcc.misc-tests/i386-pf-3dnow-1.c: New test.
+	* gcc.misc-tests/i386-pf-athlon-1.c: New test.
+	* gcc.misc-tests/i386-pf-none-1.c: New test.
+	* gcc.misc-tests/i386-pf-sse-1.c: New test.
+
+2002-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gnu89-init-1.c: Add new tests.
+
+2002-01-15  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/i386-mmx-1.c: Also run on x86-64.
+	* gcc.dg/i386-mmx-2.c: Likewise.
+	* gcc.dg/i386-sse-1.c: Likewise.
+	* gcc.dg/i386-sse-2.c: Likewise.
+	* gcc.dg/i386-sse-3.c: Likewise.
+
+2001-01-14  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g77.f-torture/execute/intrinsic-unix-bessel.f:
+	Uncomment additional cases that now pass.
+
+2002-01-11  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/i386-mmx-1.c, gcc.dg/i386-mmx-2.c: New.
+	* gcc.dg/i386-sse-1.c, gcc.dg/i386-sse-2.c, gcc.dg/i386-sse-1.c: New.
+
+Fri Jan 11 12:13:30 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc.dg/special/unclaimed-category-1.m: Include objc/objc-api.h.
+
+2002-01-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-4.c: Add tests for lvebx, lvehx, lvewx, lvxl,
+	lvx, stvx, stvebx, stvehx, stvewx, stvxl.
+
+2002-01-10  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/loop-11.c: New.
+
+2002-01-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-4.c: Add test for mtvscr, dssall, mfvscr,
+	dss, lvsl, lvsr, dstt, dstst, dststt, dst.
+
+2002-01-09  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20020108-1.c: Rewrite to choose the proper
+	type in which to perform the operation for each size.
+
+Wed Jan  9 16:48:33 2002  Alan Matsuoka  (alanm@redhat.com)
+
+	* gcc.c-torture/compile/20020109-2.c: New test.
+
+2002-01-09  Gwenole Beauchesne  <bgeauchesne@mandrakesoft.com>
+
+	* gcc.c-torture/execute/loop-10.c: New test.
+
+2002-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20010226-1.c: New test.
+	* gcc.c-torture/compile/20010227-1.c: New test.
+	* gcc.c-torture/compile/20010426-1.c: New test.
+	* gcc.c-torture/compile/20010510-1.c: New test.
+	* gcc.c-torture/compile/20010605-3.c: New test.
+	* gcc.c-torture/compile/20010824-1.c: New test.
+	* gcc.c-torture/execute/20010409-1.c: New test.
+	* gcc.dg/noncompile/20000901-1.c: New test.
+	* gcc.dg/20001023-1.c: New test.
+	* gcc.dg/20001101-1.c: New test.
+	* gcc.dg/20001102-1.c: New test.
+	* gcc.dg/20010207-1.c: New test.
+	* gcc.dg/20010405-1.c: New test.
+	* gcc.dg/20010822-1.c: New test.
+	* gcc.dg/20011107-1.c: New test.
+
+Wed Jan  9 14:03:20 2002  Jeffrey A Law  (law@redhat.com)
+
+	* gcc.dg/asm-fs-1.c: Disable warnings when compiling.
+
+	* gcc.c-torture/execute/strct-stdarg-1.x: New file.  Expect
+	execution failure on PA targets.
+
+2002-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020109-1.c: New test.
+
+2002-01-08  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.c-torture/execute/20020108-1.c: New test.
+
+2002-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020108-1.c: New test.
+
+2002-01-08  H.J. Lu <hjl@gnu.org>
+
+	* objc.dg/special/special.exp: Add -I${srcdir}/../../libobjc
+	for header files.
+
+2002-01-08  Geoff Keating  <geoffk@redhat.com>
+
+	* gcc.dg/altivec-4.c: Make the 'char' entries signed also for
+	consistency.
+
+002-01-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-4.c: Test altivec predicates.
+
+2002-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020107-1.c: New test.
+
+2002-01-06  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR c/5279
+	* gcc.c-torture/compile/20020106-1.c: New test.
+
+2002-01-05  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/nestfunc-4.c: New test.
+
+2002-01-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* g++.old-deja/g++.abi/aggregates.C: Corrected last patch: removed
+	extra triple that slipped in.
+	* g++.old-deja/g++.abi/align.C: Likewise.
+	* g++.old-deja/g++.abi/bitfields.C: Likewise.
+
+2002-01-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* g++.old-deja/g++.abi/aggregates.C: Do not skip i?86-*-freebsd*.
+	* g++.old-deja/g++.abi/align.C: Likewise.
+	* g++.old-deja/g++.abi/bitfields.C: Likewise.
+
+	* gcc.c-torture/execute/ieee/rbug.c: Force FP to extended-precision
+	on FreeBSD/i386.
+	* gcc.c-torture/execute/ieee/rbug.x: Remove all XFAIL markers for
+	FreeBSD.
+
+2002-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020104-1.c: New test.
+
+	* gcc.dg/20020104-2.c: New test.
+
+2002-01-04  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/20020103-1.c: Fix typo in target selector.
+
+2002-01-03  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020103-1.c: New.
+
+2002-01-03  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.c-torture/execute/20020103-1.c: New test.
+
+2002-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/debug2.C: New test.
+
+	* gcc.c-torture/compile/20020103-1.c: New test.
+
+2002-01-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gnu89-init-1.c: Added new tests.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/friend2.C: Remove as patch is reverted.
+
+	* g++.dg/warn/oldcast1.C: New test.
+
+	* g++.dg/template/ptrmem1.C: New test.
+	* g++.dg/template/ptrmem2.C: New test.
+
+	* g++.dg/template/ntp.C: New test.
+
+	* g++.dg/other/component1.C: New test.
+
+	* g++.dg/template/ttp3.C: New test.
+
+	* g++.dg/template/friend2.C: New test.
+	* g++.old-deja/g++/brendan/crash8.C: Adjust location of error.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/ptrmem1.C: New test.
+	* g++.dg/other/ptrmem2.C: New test.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/ctor1.C: New test.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/friend2.C: New test.
+
+2002-01-01  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/mmix-1.c: New test.
+
+2001-12-31  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/asm-5.c: New.
+
+2001-12-31  Paolo Carlini  <pcarlini@unitus.it>
+
+	* g++.old-deja/g++.robertl/eb130.C: hash_set is now
+	in namespace __gnu_cxx
+
+2001-12-30  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/debug-6.c: New.
+
+2001-12-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011229-2.c: New test.
+
+2001-12-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/debug-3.c: New test.
+	* gcc.dg/debug-4.c: New test.
+	* gcc.dg/debug-5.c: New test.
+
+2001-12-29  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/eh/loop1.C: New.
+
+2001-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/crash1.C: New test.
+
+2001-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/const1.C: New test.
+
+2001-12-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/compile/20011229-1.c: New test.
+
+2001-12-28  Stan Shebs  <shebs@apple.com>
+
+	* lib/objc-torture.exp: Resync with c-torture.exp.
+	* lib/objc.exp: Load standard libraries.
+
+2001-12-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gnu89-init-1.c: Adjust for the new behaviour, add some
+	additional tests.
+
+2001-12-27  Roger Sayle <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/string-opt-16.c: New testcase.
+
+2001-12-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/debug-1.c, gcc.dg/debug-2.c: New.
+
+2001-12-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/eh/ctor1.C: New test.
+	* g++.dg/other/error2.C: New test.
+
+2001-12-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/init2.C: New test.
+
+2001-12-24  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20011223-1.c: New.
+	* gcc.dg/inline-1.c: New.
+
+2001-12-23  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/asm-4.c: Test operand modifiers.
+
+2001-12-23  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20011219-1.c (main): Make "i" a long.
+
+2001-12-23  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/execute/20011223-1.c: New test.
+
+2001-12-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/wtr-aggr-init-1.c: Test that __extension__ disables then
+	re-enables the warning.
+
+2001-12-21  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C (malloc): Fix typo.
+
+2001-12-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011218-1.c: New test.
+
+2001-12-20  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* gcc.misc-test/arm-isr.exp: New file.  Control running of the
+	arm-isr.c test.
+	* gcc.misc-tests/arm-isr.c: New file.  Test prologue and
+	epilogue generation for ARM ISR routines.
+
+2001-12-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/builtin-1.c: Test unlocked stdio.
+	* gcc.dg/format/c90-printf-3.c: Likewise.
+	* gcc.dg/format/c99-printf-3.c: Likewise.
+	* gcc.dg/format/ext-1.c: Likewise.
+	* gcc.dg/format/ext-6.c: Likewise.
+	* gcc.dg/format/format.h: Prototype unlocked stdio.
+
+2001-12-20  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C (arena_size): New.
+	(arena): Use it.
+	(malloc): Correct allocation logic.  Abort if we fill up the
+	arena before initialization complete.
+	(realloc): Correct allocation logic.
+
+2001-12-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011219-2.c: New test.
+
+	* gcc.c-torture/execute/20011219-1.c: New test.
+
+2001-12-19  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/special/ecos.exp:  wkali-1.c unsupported if
+	target does not support weak symbols.
+
+2001-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011219-1.c: New test.
+
+2001-12-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/error1.C: New test.
+
+Mon Dec 17 14:31:42 2001  Jeffrey A Law  (law@redhat.com)
+
+	* gcc.c-torture/execute/20011217-1.c: New test.
+
+Mon Dec 17 16:54:56 2001  Nicola Pero  <nicola@brainstorm.co.uk>
+
+	* objc.dg/special/: New directory.
+	* objc.dg/special/special.exp: New file.
+	* objc.dg/special/unclaimed-category-1.h: New file.
+	* objc.dg/special/unclaimed-category-1a.m: New file.
+	* objc.dg/special/unclaimed-category-1.m: New file.
+
+2001-12-17  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/compile/20011217-2.c: New test.
+
+2001-12-17  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/compile/20011217-1.c: New test.
+
+2001-12-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.dg/20011214-1.c: New.
+
+2001-12-13  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-4.c: New.
+
+2001-12-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20011113-1.c: New test.
+
+2001-12-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* g++.old-deja/g++.jason/template31.C: Remove templates for classes
+	std::__malloc_alloc_template<0> and
+	std::__default_alloc_template<false, 0>.
+
+Thu Dec 13 10:35:33 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/bf-21.m: New test.
+	* objc/execute/enumeration-1.m: New test.
+	* objc/execute/enumeration-2.m: New test.
+
+2001-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gnu89-init-1.c: New test.
+
+2001-12-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.brendan/crash56.C: Adjust implicit typename.
+	* g++.old-deja/g++.jason/2371.C: Likewise.
+	* g++.old-deja/g++.jason/template33.C: Likewise.
+	* g++.old-deja/g++.jason/template34.C: Likewise.
+	* g++.old-deja/g++.jason/template36.C: Likewise.
+	* g++.old-deja/g++.oliva/typename1.C: Likewise.
+	* g++.old-deja/g++.oliva/typename2.C: Likewise.
+	* g++.old-deja/g++.other/typename1.C: Likewise.
+	* g++.old-deja/g++.pt/inherit2.C: Likewise.
+	* g++.old-deja/g++.pt/nontype5.C: Likewise.
+	* g++.old-deja/g++.pt/typename11.C: Likewise.
+	* g++.old-deja/g++.pt/typename14.C: Likewise.
+	* g++.old-deja/g++.pt/typename16.C: Likewise.
+	* g++.old-deja/g++.pt/typename3.C: Likewise.
+	* g++.old-deja/g++.pt/typename4.C: Likewise.
+	* g++.old-deja/g++.pt/typename5.C: Likewise.
+	* g++.old-deja/g++.pt/typename7.C: Likewise.
+	* g++.old-deja/g++.robertl/eb9.C: Likewise.
+
+2001-12-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/linkage1.C: New test.
+	* g++.old-deja/g++.brendan/err-msg2.C: Alter to avoid two
+	specifiers.
+
+2001-12-11  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/concat.c: New test.
+
+2001-12-11  Stan Shebs  <shebs@apple.com>
+
+	* objc/compile: New test directory.
+	* objc/compile/compile.exp: New expect script.
+	* objc/compile/20011211-1.m: New compile test.
+
+2001-12-11  Jason Merrill  <jason@redhat.com>
+
+	* lib/prune.exp (prune_gcc_output): Also handle "In member
+	function".  So many permutations...
+
+2001-12-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/typedef1.C: New test.
+
+2001-12-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/copy1.C: New test.
+
+2001-10-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.c-torture/execute/builtin-types-compatible-p.c: New.
+
+	* gcc.dg/builtin-choose-expr.c: New.
+
+2001-12-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-2.c: New.
+
+2001-12-07  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cpp/ucs.c: Adjust expected warning for 64-bit hosts.
+
+2001-12-07  Stephane Carrez  <Stephane.Carrez@sun.com>
+
+	* gcc.dg/sparc-ret.c: New file, test return corruption bug for
+	ultrasparc.
+
+Fri Dec  7 06:29:03 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* g++-old.deja/g++.robertl/eb101.C: Deleted.
+
+2001-12-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.c-torture/execute/builtin-prefetch-1.c: Add checks for
+	variable argument list.
+
+2001-12-06  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/memcheck: Delete entire directory.
+	(files: blkarg.c blkarg.x driver.c driver.h t1.c t2.c t3.c
+	t4.c t5.c t6.c t7.c t8.c t9.c template memcheck.exp)
+
+2001-12-05  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/Wshadow-1.c: New test.
+
+2001-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011130-1.c: New test.
+
+	* gcc.dg/noncompile/20011025-1.c: New test.
+
+	* g++.dg/other/anon-union.C: New test.
+
+	* gcc.c-torture/execute/20011024-1.c: New test.
+
+2001-12-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/execute/20000722-1.x,
+	gcc.c-torture/execute/20010123-1.x: Remove.
+	* gcc.c-torture/compile/init-3.c: Don't use a compound literal.
+	* gcc.dg/c90-complit-1.c, gcc.dg/c99-complit-1.c,
+	gcc.dg/c99-complit-2.c: New tests.
+
+2001-12-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/inherit/base1.C: New test.
+
+2001-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/stdarg1.C: New test.
+
+	* gcc.c-torture/compile/20011130-2.c: New test.
+
+2001-12-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.c-torture/execute/builtin-prefetch-1.c: New test.
+	* gcc.c-torture/execute/builtin-prefetch-2.c: New test.
+	* gcc.c-torture/execute/builtin-prefetch-3.c: New test.
+	* gcc.c-torture/execute/builtin-prefetch-4.c: New test.
+	* gcc.c-torture/execute/builtin-prefetch-5.c: New test.
+	* gcc.dg/builtin-prefetch-1.c: New test.
+
+2001-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20011130-1.c: New test.
+
+2001-12-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/scope1.C: New test.
+	* g++.dg/template/explicit-instantiation.C: Remove XFAIL
+
+2001-12-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/vla-init-1.c: New test.
+
+2001-12-01  Geoff Keating  <geoffk@redhat.com>
+
+	* gcc.c-torture/compile/structs.c: New testcase from GDB.
+
+2001-12-02  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* objc.dg/alias.m: Update.
+	* objc.dg/class-1.m: Update.
+	* objc.dg/const-str-1.m: Update.
+	* objc.dg/fwd-proto-1.m: Update.
+	* objc.dg/id-1.m: Update.
+	* objc.dg/super-class-1.m: Update.
+
+2001-11-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.pt/memtemp100.C: Remove non-standard
+	constructs.
+
+Wed Nov 28 15:05:54 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20011128-1.c: New test.
+
+2001-11-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20011127-1.c: New test.
+
+2001-11-25  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format/strfmon-1.c: Update comments.  Adjust examples
+	from Austin Group draft 7.
+	* gcc.dg/format/xopen-1.c: Update comments.  Add tests for gaps in
+	scanf format arguments.
+	* gcc.dg/format/no-exargs-2.c: New test.
+
+2001-11-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/vbase8-4.C: New test.
+
+2001-11-24  Ian Lance Taylor  <ian@airs.com>
+
+	* gcc.c-torture/execute/20011121-1.c: New test.
+
+Fri Nov 23 15:55:44 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/ieee/20011123-1.c: New test.
+
+2001-11-23  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/cpp/charconst-2.c: New test.
+
+2001-11-22  Geoffrey Keating  <geoffk@redhat.com>
+
+	* lib/old-dejagnu.exp (old-dejagnu): Copy extra source files
+	to the host if it is remote.  Let tests specify extra headers
+	they use.
+	* g++.old-deja/g++.abi/vtable3a.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3b.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3c.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3d.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3e.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3f.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3g.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3h.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3i.C: This uses 'vtable3.h'.
+	* g++.old-deja/g++.abi/vtable3j.C: This uses 'vtable3.h'.
+
+2001-11-22  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* gcc.c-torture/execute/ieee/20000320-1.c: Fix patterns to work
+	for little endian ARMs.
+
+2001-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011119-1.c: New test.
+	* gcc.c-torture/compile/20011119-2.c: New test.
+
+2001-11-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-1.c: Fix typo.
+
+2001-11-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-intconst-1.c, gcc.dg/c99-intconst-1.c: New tests.
+
+2001-11-20  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* gcc.c-torture/compile/981006-1.x: Treat XScale like ARM.
+
+2001-11-19  Geoffrey Keating  <geoffk@redhat.com>
+
+	* lib/g77.exp: Don't specify --rpath-link.
+
+	* gcc.dg/cpp/cpp.exp: For testing on a remote host, copy
+	across all the headers.
+	* gcc.dg/format/format.exp: For testing on a remote host,
+	copy format.h.
+
+	* gcc.c-torture/execute/20011008-3.c: Allow for small STACK_SIZE.
+	* gcc.c-torture/execute/930406-1.c: Likewise.
+	* gcc.c-torture/execute/comp-goto-1.c: Likewise.
+
+2001-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-1.c: New.
+
+2001-11-19  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/fpreprocessed.c: New test case.
+
+2001-11-18  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/cpp/assert_trad1.c, gcc.dg/cpp/tr-paste.c,
+	gcc.dg/cpp/tr-str.c: Use -traditional-cpp instead of -traditional.
+	* gcc.dg/ext-glob.c: Expect -traditional deprecation warning.
+
+2001-11-18  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/no-builtin-1.c: New test.
+
+2001-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20011115-1.c: New test.
+
+2001-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011114-2.c: New test.
+	* gcc.c-torture/compile/20011114-3.c: New test.
+	* gcc.c-torture/compile/20011114-4.c: New test.
+
+2001-11-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/init1.C: New test.
+
+2001-11-14  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.dg/noncompile/920923-1.c: xstormy16 produces an extra error
+	message.
+
+	* gcc.c-torture/execute/20011114-1.c: New testcase.
+
+	* gcc.c-torture/compile/20010327-1.c: Revert last change.
+	* gcc.c-torture/compile/20011114-1.c: New test, exactly
+	like the (before this change) version of 20010327-1.c.
+
+2001-11-14  Roger Sayle <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/string-opt-13.c: New testcase.
+
+2001-11-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/init/array2.C: New test.
+
+2001-11-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/execute/20010122-1.c: Prevent unwanted inlining.
+
+2001-11-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/forscope1.C: New test.
+	* g++.dg/ext/forscope1.C: New test.
+	* g++.dg/ext/forscope2.C: New test.
+
+2001-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20011113-1.c: New test.
+
+2001-11-09  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.c-torture/execute/20011109-2.c: New test.
+
+	* gcc.c-torture/execute/20011109-1.c: New test.
+
+2001-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011109-1.c: New test.
+
+2001-11-08  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.old-deja/g++.bugs/900227_01.C: Change stormy16 to xstormy16.
+	* g++.old-deja/g++.eh/badalloc1.C: Change stormy16 to xstormy16.
+	* g++.old-deja/g++.mike/ns15.C: Change stormy16 to xstormy16.
+	* g++.old-deja/g++.pt/crash16.C: Change stormy16 to xstormy16.
+	* gcc.c-torture/compile/961203-1.x: Change stormy16 to xstormy16.
+	* gcc.c-torture/compile/980506-1.x: Change stormy16 to xstormy16.
+	* gcc.c-torture/compile/990617-1.x: Change stormy16 to xstormy16.
+
+2001-11-08  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* g++.dg/warn/Wshadow-1.C: New tests.
+	* g++.old-deja/g++.mike/for3.C: Update.
+
+2001-11-06  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-array-lval-1.c, gcc.dg/c90-array-lval-2.c,
+	gcc.dg/c99-array-lval-1.c, gcc.dg/c99-array-lval-2.c: Remove
+	XFAILs.  Adjust expected error texts.
+	* gcc.c-torture/compile/20011106-1.c,
+	gcc.c-torture/compile/20011106-2.c, gcc.dg/c90-array-lval-3.c,
+	gcc.dg/c90-array-lval-4.c, gcc.dg/c90-array-lval-5.c,
+	gcc.dg/c99-array-lval-3.c, gcc.dg/c99-array-lval-4.c,
+	gcc.dg/c99-array-lval-5.c: New tests.
+
+2001-11-05  Neil Booth  <neil@cat.daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/defined.c: Update.
+
+2001-11-04  Neil Booth  <neil@cat.daikokuya.demon.co.uk>
+
+	* gcc.c-torture/execute/anon-1.c: New test.
+
+2001-11-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.old-deja/g++.bugs/900227_01.C: short and pointer are the
+	same size, so no warning should be produced on stormy16.
+
+	* g++.old-deja/g++.eh/badalloc1.C: Will always fail on stormy16
+	due to oversized array.
+	* g++.old-deja/g++.mike/ns15.C: Likewise.
+	* g++.old-deja/g++.pt/crash16.C: Likewise.
+
+2001-11-02  Graham Stott  <grahams@redhat.com>
+
+	* g++.dgother/debug1.C: Fix typos.
+
+2001-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/debug1.C: New test.
+
+2001-11-01  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* gcc.c-torture/compile/20010327-1.c: Use __SIZE_TYPE__ instead
+	of unsigned long.
+
+2001-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20011029-2.c: New test.
+
+	* gcc.c-torture/compile/20011029-1.c: New test.
+
+Mon Oct 29 21:19:53 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/class_self-1.m: New test.
+	* objc/execute/class_self-2.m: New test.
+
+2001-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.misc-tests/msgs.exp: Delete.
+	* gcc.misc-tests/m-un-1.c: Move to gcc.dg.
+	* gcc.misc-tests/m-un-2.c: Move to gcc.dg.  Update expected
+	error set to match recent changes.
+
+2001-10-24  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/20011021-1.c: New test.
+
+2001-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20011023-1.c: New test.
+
+2001-10-23  Geoffrey Keating  <geoffk@redhat.com>
+
+	* lib/g77.exp: Rewrite based on lib/g++.exp.
+
+2001-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20011019-1.c: New test.
+
+	* gcc.dg/20011018-1.c: New test.
+
+2001-10-19  NIIBE Yutaka  <gniibe@m17n.org>
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Change sh-*-* to sh*-*-*.
+
+2001-10-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/attr-noinline.c, gcc.dg/attr-used.c: New tests.
+	* gcc.dg/attr-invalid.c: Likewise.
+
+2001-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/gcc.dg/20011015-1.c: New test.
+
 2001-10-14  Richard Sandiford  <rsandifo@redhat.com>
 
 	* g++.dg/template/unify2.C: New test.
@@ -108,7 +1385,7 @@
 2001-09-27  Geoffrey Keating  <geoffk@redhat.com>
 
 	* gcc.c-torture/execute/loop-2e.x: This is a manifestation of a
-	long-standing bug on i686, apparently.  
+	long-standing bug on i686, apparently.
 	* gcc.c-torture/execute/loop-2c.x: New file.
 	* gcc.c-torture/execute/loop-2d.x: New file.
 	* gcc.c-torture/execute/loop-3c.x: New file.
@@ -128,7 +1405,7 @@
 2001-09-24  DJ Delorie  <dj@redhat.com>
 
 	* gcc.c-torture/execute/20010924-1.c: New test.
-	
+
 2001-09-24  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* testsuite/objc/execute/paste.m: Remove.
@@ -176,7 +1453,7 @@
 
 2001-09-15  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.c-torture/execute/980223.c: Change type of addr from long 
+	* gcc.c-torture/execute/980223.c: Change type of addr from long
 	to char *.
 
 2001-09-15  Hans-Peter Nilsson  <hp@axis.com>
@@ -242,7 +1519,7 @@
 2001-09-05  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc.dg/method-2.m: New.
-	
+
 2001-09-04  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/4203
@@ -282,7 +1559,7 @@
 
 2001-08-25  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/asm-names.c (ymain): New.
+	* gcc.dg/asm-names.c (ymain): New.
 
 2001-08-22  Geoffrey Keating  <geoffk@redhat.com>
 
@@ -301,7 +1578,7 @@
 
 2001-08-21  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.c-torture/execute/divmod-1.c: Convert to ANSI.
+	* gcc.c-torture/execute/divmod-1.c: Convert to ANSI.
 
 2001-08-20  Janis Johnson  <janis187@us.ibm.com>
 
@@ -334,8 +1611,8 @@
 2001-08-14  David Billinghurst  <David.Billinghurst@riotinto.com>
 
 	* lib/g77-dg.exp:  Use prune.exp for common procedures
-	(g77-dg-prune): Replace prune_g77_output with prune_gcc_output 
-	* lib/g77.exp: (g77-dg-prune) Remove 
+	(g77-dg-prune): Replace prune_g77_output with prune_gcc_output
+	* lib/g77.exp: (g77-dg-prune) Remove
 
 2001-08-13  Jason Merrill  <jason_merrill@redhat.com>
 
@@ -409,7 +1686,7 @@
 	* g77.dg/ffixed-line-length-7.f
 	* g77.dg/ffixed-line-length-72.f
 	* g77.dg/ffixed-line-length-none.f
-        * g77.dg/ffree-form-1.f
+	* g77.dg/ffree-form-1.f
 	* g77.dg/fno-backslash.f
 	* g77.dg/fno-f90-1.f
 	* g77.dg/fno-fixed-form-1.f

@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GNU C-compiler
-   Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "tree.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -293,6 +294,8 @@ print_node (file, prefix, node, indent)
     fputs (" protected", file);
   if (TREE_STATIC (node))
     fputs (" static", file);
+  if (TREE_DEPRECATED (node))
+    fputs (" deprecated", file);
   if (TREE_LANG_FLAG_0 (node))
     fputs (" tree_0", file);
   if (TREE_LANG_FLAG_1 (node))
@@ -384,7 +387,7 @@ print_node (file, prefix, node, indent)
       if (DECL_LANG_FLAG_7 (node))
 	fputs (" decl_7", file);
 
-      fprintf (file, " %s", GET_MODE_NAME(mode));
+      fprintf (file, " %s", GET_MODE_NAME (mode));
       fprintf (file, " file %s line %d",
 	       DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
 
@@ -442,7 +445,7 @@ print_node (file, prefix, node, indent)
       print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
       print_node_brief (file, "initial", DECL_INITIAL (node), indent + 4);
 
-      print_lang_decl (file, node, indent);
+      (*lang_hooks.print_decl) (file, node, indent);
 
       if (DECL_RTL_SET_P (node))
 	{
@@ -528,7 +531,7 @@ print_node (file, prefix, node, indent)
 	fputs (" type_6", file);
 
       mode = TYPE_MODE (node);
-      fprintf (file, " %s", GET_MODE_NAME(mode));
+      fprintf (file, " %s", GET_MODE_NAME (mode));
 
       print_node (file, "size", TYPE_SIZE (node), indent + 4);
       print_node (file, "unit size", TYPE_SIZE_UNIT (node), indent + 4);
@@ -574,7 +577,7 @@ print_node (file, prefix, node, indent)
       if (TYPE_CONTEXT (node))
 	print_node_brief (file, "context", TYPE_CONTEXT (node), indent + 4);
 
-      print_lang_type (file, node, indent);
+      (*lang_hooks.print_type) (file, node, indent);
 
       if (TYPE_POINTER_TO (node) || TREE_CHAIN (node))
 	indent_to (file, indent + 3);
@@ -719,7 +722,7 @@ print_node (file, prefix, node, indent)
 	  break;
 
 	case IDENTIFIER_NODE:
-	  print_lang_identifier (file, node, indent);
+	  (*lang_hooks.print_identifier) (file, node, indent);
 	  break;
 
 	case TREE_LIST:
@@ -742,7 +745,7 @@ print_node (file, prefix, node, indent)
 
 	default:
 	  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'x')
-	    lang_print_xnode (file, node, indent);
+	    (*lang_hooks.print_xnode) (file, node, indent);
 	  break;
 	}
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Intel 80386
    running FreeBSD.
-   Copyright (C) 1988, 1992, 1994, 1996, 1997, 1999, 2000 Free Software
+   Copyright (C) 1988, 1992, 1994, 1996, 1997, 1999, 2000, 2002 Free Software
    Foundation, Inc.
    Contributed by Poul-Henning Kamp <phk@login.dkuug.dk>
 
@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
 /* This is tested by i386gas.h.  */
 #define YES_UNDERSCORES
 
-/* Don't assume anything about the header files. */
+/* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #include "i386/gstabs.h"
@@ -81,7 +81,7 @@ Boston, MA 02111-1307, USA.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
 /* Ensure we the configuration knows our system correctly so we can link with
-   libraries compiled with the native cc. */
+   libraries compiled with the native cc.  */
 #undef NO_DOLLAR_IN_LABEL
 
 /* i386 freebsd still uses old binutils that don't insert nops by default
@@ -236,3 +236,7 @@ do {                                                                    \
 
 /* Define this so we can compile MS code for use with WINE.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
+
+/* FreeBSD 2.2.7's assembler does not support .quad properly.  Do not
+   use it.  */
+#undef ASM_QUAD

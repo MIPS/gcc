@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -1313,7 +1313,7 @@ package body Sem_Aggr is
       is
          Nxt_Ind        : Node_Id := Next_Index (Index);
          Nxt_Ind_Constr : Node_Id := Next_Index (Index_Constr);
-         --  Index is the current index corresponding to the expresion.
+         --  Index is the current index corresponding to the expression.
 
          Resolution_OK : Boolean := True;
          --  Set to False if resolution of the expression failed.
@@ -2011,7 +2011,7 @@ package body Sem_Aggr is
 
       procedure Resolve_Aggr_Expr (Expr : Node_Id; Component : Node_Id);
       --  Analyzes and resolves expression Expr against the Etype of the
-      --  Component. This routine also applies all appropiate checks to Expr.
+      --  Component. This routine also applies all appropriate checks to Expr.
       --  It finally saves a Expr in the newly created association list that
       --  will be attached to the final record aggregate. Note that if the
       --  Parent pointer of Expr is not set then Expr was produced with a

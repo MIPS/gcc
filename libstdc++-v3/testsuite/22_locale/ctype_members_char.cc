@@ -1,6 +1,6 @@
 // 2000-02-16 bkoz
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,8 +30,11 @@
 // 22.2.1.3.2 ctype<char> members
 
 #include <locale>
-// NB: Don't include any other headers in this file.
+#include <vector>
 #include <testsuite_hooks.h>
+
+// XXX This test (test02) is not working for non-glibc locale models.
+// { dg-do run { xfail *-*-* } }
 
 class gnu_ctype: public std::ctype<char> { };
 
@@ -168,7 +171,101 @@ void test01()
 #endif
 }
 
-int main() {
+// libstdc++/4456, libstdc++/4457, libstdc++/4458
+void test02()
+{
+  using namespace std;
+  typedef ctype_base::mask 	mask;
+  typedef vector<mask> 		vector_type;
+
+  bool test = true;
+
+  //  const int max = numeric_limits<char>::max();
+  const int max = 255;
+  const int ctype_mask_max = 10;
+  vector_type v_c(max);
+  vector_type v_de(max);
+
+  // "C"
+  locale loc_c = locale::classic();
+  const ctype<char>& ctype_c = use_facet<ctype<char> >(loc_c); 
+  for (int i = 0; i < max; ++i)
+    {
+      char c = static_cast<char>(i);
+      mask mask_test = static_cast<mask>(0);
+      mask mask_is = static_cast<mask>(0);
+      for (int j = 0; j <= ctype_mask_max; ++j)
+	{
+	  mask_test = static_cast<mask>(1 << j);
+	  if (ctype_c.is(mask_test, c))
+	    mask_is |= mask_test;
+	}
+      v_c[i] = mask_is;
+    }   
+
+  // "de_DE"
+  locale loc_de("de_DE");
+  const ctype<char>& ctype_de = use_facet<ctype<char> >(loc_de); 
+  for (int i = 0; i < max; ++i)
+    {
+      char c = static_cast<char>(i);
+      mask mask_test = static_cast<mask>(0);
+      mask mask_is = static_cast<mask>(0);
+      for (int j = 0; j <= ctype_mask_max; ++j)
+	{
+	  mask_test = static_cast<mask>(1 << j);
+	  if (ctype_de.is(mask_test, c))
+	    mask_is |= mask_test;
+	}
+      v_de[i] = mask_is;
+    }   
+
+#if QUANNUM_VERBOSE_LYRICALLY_ADEPT_BAY_AREA_MCS_MODE
+    for (int i = 0; i < max; ++i)
+    {
+      char mark = v_c[i] == v_de[i] ? ' ' : '-';
+      cout << i << ' ' << mark << ' ' << static_cast<char>(i) << '\t' ;
+      cout << "v_c: " << setw(4) << v_c[i] << '\t';
+      cout << "v_de: " << setw(4) << v_de[i] << endl;
+    }
+    cout << (v_c == v_de) << endl;
+#endif
+
+  VERIFY( v_c != v_de );
+}
+
+// Dietmar Kühl via Peter Schmid 
+class comma_ctype: public std::ctype<char>
+{
+public:
+  comma_ctype(): std::ctype<char>() { }
+  static void get_table()
+  { classic_table(); }
+};
+
+// libstdc++/5280
+void test03()
+{
+#ifdef _GLIBCPP_HAVE_SETENV 
+  // Set the global locale to non-"C".
+  std::locale loc_de("de_DE");
+  std::locale::global(loc_de);
+
+  // Set LANG environment variable to de_DE.
+  const char* oldLANG = getenv("LANG");
+  if (!setenv("LANG", "de_DE", 1))
+    {
+      test01();
+      test02();
+      setenv("LANG", oldLANG ? oldLANG : "", 1);
+    }
+#endif
+}
+
+int main() 
+{
   test01();
+  test02();
+  test03();
   return 0;
 }

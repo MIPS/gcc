@@ -1,5 +1,5 @@
 /* Definitions for Intel x86 running BeOS
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,9 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include <i386/i386.h>	/* Base i386 target machine definitions */
-#include <i386/att.h>	/* Use the i386 AT&T assembler syntax */
-#include <svr4.h>	/* some common stuff */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 BeOS/ELF)");
@@ -87,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* BeOS uses lots of multichars, so don't warn about them unless the
    user explicitly asks for the warnings with -Wmultichar.  Note that
-   CC1_SPEC is used for both cc1 and cc1plus. */
+   CC1_SPEC is used for both cc1 and cc1plus.  */
 
 #undef CC1_SPEC
 #define CC1_SPEC "%{!no-fpic:%{!fPIC:-fpic}} %{!Wmultichar: -Wno-multichar} %(cc1_cpu) %{profile:-p}"
@@ -98,9 +95,9 @@ Boston, MA 02111-1307, USA.  */
 /* Provide a LINK_SPEC appropriate for BeOS.  Here we provide support
    for the special GCC options -static and -shared, which allow us to
    link things in one of these three modes by applying the appropriate
-   combinations of options at link-time. */
+   combinations of options at link-time.  */
 
-/* If ELF is the default format, we should not use /lib/elf. */
+/* If ELF is the default format, we should not use /lib/elf.  */
 
 #undef	LINK_SPEC
 #define LINK_SPEC "%{!o*:-o %b} -m elf_i386_be -shared -Bsymbolic %{nostart:-e 0}"
@@ -191,7 +188,7 @@ Boston, MA 02111-1307, USA.  */
     { "/boot/develop/headers/posix", 0, 0, 0 },\
     { "/boot/develop/headers", 0, 0, 0 }, \
     { 0, 0, 0, 0 } \
-    };
+    }
 #else /* CROSS_COMPILE */
 #undef	INCLUDE_DEFAULTS
 #define INCLUDE_DEFAULTS				\
@@ -233,7 +230,7 @@ Boston, MA 02111-1307, USA.  */
     { CROSS_INCLUDE_DIR "/posix", 0, 0, 0 },\
     { CROSS_INCLUDE_DIR , 0, 0, 0 }, \
     { 0, 0, 0, 0 } \
-    };
+    }
 #endif
 
 /* Whee.  LIBRARY_PATH is Be's LD_LIBRARY_PATH, which of course will

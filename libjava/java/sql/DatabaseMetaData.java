@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.sql;
@@ -47,7 +58,7 @@ public static final int bestRowUnknown = 0;
 public static final int bestRowNotPseudo = 1;
 
 /**
-  * The best row identifer is a pseudo-column.
+  * The best row identifier is a pseudo-column.
   */
 public static final int bestRowPseudo = 2;
 
@@ -58,12 +69,12 @@ public static final int bestRowPseudo = 2;
 public static final int bestRowTemporary = 0;
 
 /**
-  * The best row identifer is valid to the end of the transaction.
+  * The best row identifier is valid to the end of the transaction.
   */
 public static final int bestRowTransaction = 1;
 
 /**
-  * The best row identifer is valid to the end of the session.
+  * The best row identifier is valid to the end of the session.
   */
 public static final int bestRowSession = 2;
 
@@ -2696,7 +2707,7 @@ supportsBatchUpdates() throws SQLException;
   * <li>TYPE_SCEHM - The schema name, which may be <code>null</code>.
   * <li>TYPE_NAME - The user defined data type name.
   * <li>CLASS_NAME - The Java class name this type maps to.
-  * <li>DATA_TYPE - A type identifer from <code>Types</code> for this type.
+  * <li>DATA_TYPE - A type identifier from <code>Types</code> for this type.
   * This will be one of <code>JAVA_OBJECT</code>, <code>STRUCT</code>, or
   * <code>DISTINCT</code>.
   * <li>REMARKS - Comments about this data type.
@@ -2708,7 +2719,7 @@ supportsBatchUpdates() throws SQLException;
   * @param schema The schema to retrieve information from, or the empty string
   * to return entities not associated with a schema.
   * @param typePattern The type name pattern to match.
-  * @param types The type identifer patterns (from <code>Types</code>) to
+  * @param types The type identifier patterns (from <code>Types</code>) to
   * match.
   *
   * @return A <code>ResultSet</code> with the requested type information

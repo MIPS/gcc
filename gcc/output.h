@@ -77,7 +77,7 @@ extern rtx final_scan_insn	PARAMS ((rtx, FILE *, int, int, int));
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
-extern rtx alter_subreg PARAMS ((rtx));
+extern rtx alter_subreg PARAMS ((rtx *));
 
 /* Report inconsistency between the assembler template and the operands.
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
@@ -141,7 +141,7 @@ extern int add_weak PARAMS ((const char *, const char *));
 
 /* Functions in flow.c */
 extern void allocate_for_life_analysis	PARAMS ((void));
-extern int regno_uninitialized		PARAMS ((int));
+extern int regno_uninitialized		PARAMS ((unsigned int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
 extern bool cleanup_cfg			PARAMS ((int));
@@ -190,8 +190,24 @@ extern void init_section PARAMS ((void));
 extern void fini_section PARAMS ((void));
 #endif
 
+#ifdef EXPORTS_SECTION_ASM_OP
+extern void exports_section PARAMS ((void));
+#endif
+
 #ifdef TDESC_SECTION_ASM_OP
 extern void tdesc_section PARAMS ((void));
+#endif
+
+#ifdef DRECTVE_SECTION_ASM_OP
+extern void drectve_section PARAMS ((void));
+#endif
+
+#ifdef SDATA_SECTION_ASM_OP
+extern void sdata_section PARAMS ((void));
+#endif
+
+#ifdef RDATA_SECTION_ASM_OP
+extern void rdata_section PARAMS ((void));
 #endif
 
 #ifdef TREE_CODE
@@ -203,9 +219,6 @@ extern void named_section		PARAMS ((tree, const char *, int));
 
 /* Tell assembler to switch to the section for function DECL.  */
 extern void function_section		PARAMS ((tree));
-
-/* Tell assembler to switch to the section for the exception table.  */
-extern void exception_section		PARAMS ((void));
 
 /* Tell assembler to switch to the section for string merging.  */
 extern void mergeable_string_section	PARAMS ((tree, unsigned HOST_WIDE_INT,
@@ -302,12 +315,34 @@ extern void assemble_eh_label		PARAMS ((const char *));
    Many macros in the tm file are defined to call this function.  */
 extern void assemble_name		PARAMS ((FILE *, const char *));
 
+/* Return the assembler directive for creating a given kind of integer
+   object.  SIZE is the number of bytes in the object and ALIGNED_P
+   indicates whether it is known to be aligned.  Return NULL if the
+   assembly dialect has no such directive.
+
+   The returned string should be printed at the start of a new line and
+   be followed immediately by the object's initial value.  */
+extern const char *integer_asm_op	PARAMS ((int, int));
+
 #ifdef RTX_CODE
+/* Use directive OP to assemble an integer object X.  Print OP at the
+   start of the line, followed immediately by the value of X.  */
+extern void assemble_integer_with_op	PARAMS ((const char *, rtx));
+
+/* The default implementation of the asm_out.integer target hook.  */
+extern bool default_assemble_integer	PARAMS ((rtx, unsigned int, int));
+
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
    the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
    the constant.  */
-extern int assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
+extern bool assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
+
+/* An interface to assemble_integer for the common case in which a value is
+   fully aligned and must be printed.  VALUE is the value of the integer
+   object and SIZE is the number of bytes it contains.  */
+#define assemble_aligned_integer(SIZE, VALUE) \
+  assemble_integer (VALUE, SIZE, (SIZE) * BITS_PER_UNIT, 1)
 
 #ifdef REAL_VALUE_TYPE
 /* Assemble the floating-point constant D into an object of size MODE.  */
@@ -359,7 +394,8 @@ extern tree initializer_constant_valid_p	PARAMS ((tree, tree));
    with zeros if necessary.  SIZE must always be specified.
 
    ALIGN is the alignment in bits that may be assumed for the data.  */
-extern void output_constant		PARAMS ((tree, int, unsigned));
+extern void output_constant		PARAMS ((tree, HOST_WIDE_INT,
+						 unsigned int));
 #endif
 
 #ifdef RTX_CODE
@@ -455,6 +491,12 @@ extern int profile_label_no;
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
+/* Tell assembler to switch to the section for the exception table.  */
+extern void default_exception_section	PARAMS ((void));
+
+/* Tell assembler to switch to the section for the EH frames.  */
+extern void default_eh_frame_section	PARAMS ((void));
+
 /* Default target hook that outputs nothing to a stream.  */
 extern void no_asm_to_stream PARAMS ((FILE *));
 
@@ -470,7 +512,8 @@ extern void no_asm_to_stream PARAMS ((FILE *));
 #define SECTION_MERGE	 0x08000	/* contains mergeable data */
 #define SECTION_STRINGS  0x10000	/* contains zero terminated strings without
 					   embedded zeros */
-#define SECTION_MACH_DEP 0x20000	/* subsequent bits reserved for target */
+#define SECTION_OVERRIDE 0x20000	/* allow override of default flags */
+#define SECTION_MACH_DEP 0x40000	/* subsequent bits reserved for target */
 
 extern unsigned int get_named_section_flags PARAMS ((const char *));
 extern bool set_named_section_flags	PARAMS ((const char *, unsigned int));

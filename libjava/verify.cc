@@ -259,25 +259,10 @@ private:
 	    if (source == NULL)
 	      return false;
 	  }
-	// We must do this check before we check to see if SOURCE is
-	// an interface.  This way we know that any interface is
-	// assignable to an Object.
 	else if (target == &java::lang::Object::class$)
 	  return true;
-	else if (source->isInterface ())
-	  {
-	    for (int i = 0; i < target->interface_count; ++i)
-	      {
-		// We use a recursive call because we also need to
-		// check superinterfaces.
-		if (is_assignable_from_slow (target->interfaces[i], source))
-		  return true;
-	      }
-	    target = target->getSuperclass ();
-	    if (target == NULL)
-	      return false;
-	  }
-	else if (source == &java::lang::Object::class$)
+	else if (source->isInterface ()
+		 || source == &java::lang::Object::class$)
 	  return false;
 	else
 	  source = source->getSuperclass ();
@@ -690,19 +675,14 @@ private:
 		      oldk = oldk->getComponentType ();
 		    }
 
-		  // Ordinarily this terminates when we hit Object...
-		  while (k != NULL)
+		  // This loop will end when we hit Object.
+		  while (true)
 		    {
 		      if (is_assignable_from_slow (k, oldk))
 			break;
 		      k = k->getSuperclass ();
 		      changed = true;
 		    }
-		  // ... but K could have been an interface, in which
-		  // case we'll end up here.  We just convert this
-		  // into Object.
-		  if (k == NULL)
-		    k = &java::lang::Object::class$;
 
 		  if (changed)
 		    {
@@ -2789,28 +2769,9 @@ private:
 		      // In this case the PC doesn't matter.
 		      t.set_uninitialized (type::UNINIT, this);
 		    }
-		  type raw = pop_raw ();
-		  bool ok = false;
-		  if (t.compatible (raw, this))
-		    {
-		      ok = true;
-		    }
-		  else if (opcode == op_invokeinterface)
-		    {
-		      // This is a hack.  We might have merged two
-		      // items and gotten `Object'.  This can happen
-		      // because we don't keep track of where merges
-		      // come from.  This is safe as long as the
-		      // interpreter checks interfaces at runtime.
-		      type obj (&java::lang::Object::class$);
-		      ok = raw.compatible (obj, this);
-		    }
-
-		  if (! ok)
-		    verify_fail ("incompatible type on stack");
-
+		  t = pop_type (t);
 		  if (is_init)
-		    current_state->set_initialized (raw.get_pc (),
+		    current_state->set_initialized (t.get_pc (),
 						    current_method->max_locals);
 		}
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision$
 --                                                                          --
 --             Copyright (C) 2001 Free Software Foundation, Inc.            --
 --                                                                          --
@@ -27,7 +27,6 @@
 ------------------------------------------------------------------------------
 
 with Errout;   use Errout;
-with GNAT.Case_Util;
 with Namet;    use Namet;
 with Opt;
 with Output;   use Output;
@@ -37,6 +36,7 @@ with Prj.Ext;  use Prj.Ext;
 with Prj.Nmsc; use Prj.Nmsc;
 with Stringt;  use Stringt;
 
+with GNAT.Case_Util;
 with GNAT.HTable;
 
 package body Prj.Proc is
@@ -75,7 +75,7 @@ package body Prj.Proc is
    function Imported_Or_Modified_Project_From
      (Project   : Project_Id;
       With_Name : Name_Id)
-     return Project_Id;
+      return      Project_Id;
    --  Find an imported or modified project of Project whose name is With_Name.
 
    function Package_From
@@ -246,7 +246,7 @@ package body Prj.Proc is
       --  Reference to the last string elements in Result, when Kind is List.
 
    begin
-      Result.Location := Location_Of (From_Project_Node);
+      Result.Location := Location_Of (First_Term);
 
       --  Process each term of the expression, starting with First_Term
 
@@ -639,8 +639,8 @@ package body Prj.Proc is
          end case;
 
          The_Term := Next_Term (The_Term);
-
       end loop;
+
       return Result;
    end Expression;
 
@@ -682,7 +682,6 @@ package body Prj.Proc is
 
          return Project_Lists.Table (List).Project;
       end if;
-
    end Imported_Or_Modified_Project_From;
 
    ------------------
@@ -1267,7 +1266,6 @@ package body Prj.Proc is
 
          Prj.Nmsc.Ada_Check (Project, Error_Report);
       end if;
-
    end Recursive_Check;
 
    -----------------------

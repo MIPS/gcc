@@ -69,7 +69,7 @@ static void  m32r_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 static int    m32r_adjust_cost 	   PARAMS ((rtx, rtx, rtx, int));
 static int    m32r_adjust_priority PARAMS ((rtx, int));
-static void   m32r_sched_init	   PARAMS ((FILE *, int));
+static void   m32r_sched_init	   PARAMS ((FILE *, int, int));
 static int    m32r_sched_reorder   PARAMS ((FILE *, int, rtx *, int *, int));
 static int    m32r_variable_issue  PARAMS ((FILE *, int, rtx, int));
 static int    m32r_issue_rate	   PARAMS ((void));
@@ -78,6 +78,11 @@ static int    m32r_issue_rate	   PARAMS ((void));
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE m32r_attribute_table
+
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE m32r_output_function_prologue
@@ -171,7 +176,7 @@ unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER] =
 {
   T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, T_MODES,
   T_MODES, T_MODES, T_MODES, T_MODES, T_MODES, S_MODES, S_MODES, S_MODES,
-  S_MODES, C_MODES, A_MODES
+  S_MODES, C_MODES, A_MODES, A_MODES
 };
 
 unsigned int m32r_mode_class [NUM_MACHINE_MODES];
@@ -462,6 +467,10 @@ m32r_encode_section_info (decl)
 
       strcpy (newstr + 1, str);
       *newstr = prefix;
+      /* Note - we cannot leave the string in the ggc_alloc'ed space.
+         It must reside in the stringtable's domain.  */
+      newstr = (char *) ggc_alloc_string (newstr, len + 2);
+
       XSTR (XEXP (rtl, 0), 0) = newstr;
     }
 }
@@ -734,6 +743,22 @@ reg_or_cmp_int16_operand (op, mode)
   return CMP_INT16_P (INTVAL (op));
 }
 
+/* Return true if OP is a register or the constant 0.  */
+
+int
+reg_or_zero_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_CODE (op) == REG || GET_CODE (op) == SUBREG)
+    return register_operand (op, mode);
+
+  if (GET_CODE (op) != CONST_INT)
+    return 0;
+
+  return INTVAL (op) == 0;
+}
+
 /* Return true if OP is a const_int requiring two instructions to load.  */
 
 int
@@ -768,7 +793,13 @@ move_src_operand (op, mode)
 	 loadable with one insn, and split the rest into two.  The instances
 	 where this would help should be rare and the current way is
 	 simpler.  */
-      return UINT32_P (INTVAL (op));
+      if (HOST_BITS_PER_WIDE_INT > 32)
+	{
+	  HOST_WIDE_INT rest = INTVAL (op) >> 31;
+	  return (rest == 0 || rest == -1);
+	}
+      else
+	return 1;
     case LABEL_REF :
       return TARGET_ADDR24;
     case CONST_DOUBLE :
@@ -1535,9 +1566,10 @@ m32r_adjust_priority (insn, priority)
 /* Initialize for scheduling a group of instructions.  */
 
 static void
-m32r_sched_init (stream, verbose)
+m32r_sched_init (stream, verbose, max_ready)
      FILE * stream ATTRIBUTE_UNUSED;
      int verbose ATTRIBUTE_UNUSED;
+     int max_ready ATTRIBUTE_UNUSED;
 {
   m32r_sched_odd_word_p = FALSE;
 }
@@ -1838,7 +1870,7 @@ static struct m32r_frame_info zero_frame_info;
  && (regs_ever_live[regno] && (!call_used_regs[regno] || interrupt_p)))
 
 #define MUST_SAVE_FRAME_POINTER (regs_ever_live[FRAME_POINTER_REGNUM])
-#define MUST_SAVE_RETURN_ADDR (regs_ever_live[RETURN_ADDR_REGNUM] || profile_flag)
+#define MUST_SAVE_RETURN_ADDR (regs_ever_live[RETURN_ADDR_REGNUM] || current_function_profile)
 
 #define SHORT_INSN_SIZE 2	/* size of small instructions */
 #define LONG_INSN_SIZE 4	/* size of long instructions */
@@ -1992,7 +2024,7 @@ m32r_expand_prologue ()
   if (frame_pointer_needed)
     emit_insn (gen_movsi (frame_pointer_rtx, stack_pointer_rtx));
 
-  if (profile_flag || profile_block_flag)
+  if (current_function_profile)
     emit_insn (gen_blockage ());
 }
 
@@ -2276,7 +2308,7 @@ m32r_print_operand (file, x, code)
 
 	if (GET_CODE (x) != CONST_DOUBLE
 	    || GET_MODE_CLASS (GET_MODE (x)) != MODE_FLOAT)
-	  fatal_insn ("Bad insn for 'A'", x);
+	  fatal_insn ("bad insn for 'A'", x);
 	REAL_VALUE_FROM_CONST_DOUBLE (d, x);
 	REAL_VALUE_TO_DECIMAL (d, "%.20e", str);
 	fprintf (file, "%s", str);
@@ -2396,21 +2428,21 @@ m32r_print_operand (file, x, code)
       if (GET_CODE (addr) == PRE_INC)
 	{
 	  if (GET_CODE (XEXP (addr, 0)) != REG)
-	    fatal_insn ("Pre-increment address is not a register", x);
+	    fatal_insn ("pre-increment address is not a register", x);
 
 	  fprintf (file, "@+%s", reg_names[REGNO (XEXP (addr, 0))]);
 	}
       else if (GET_CODE (addr) == PRE_DEC)
 	{
 	  if (GET_CODE (XEXP (addr, 0)) != REG)
-	    fatal_insn ("Pre-decrement address is not a register", x);
+	    fatal_insn ("pre-decrement address is not a register", x);
 
 	  fprintf (file, "@-%s", reg_names[REGNO (XEXP (addr, 0))]);
 	}
       else if (GET_CODE (addr) == POST_INC)
 	{
 	  if (GET_CODE (XEXP (addr, 0)) != REG)
-	    fatal_insn ("Post-increment address is not a register", x);
+	    fatal_insn ("post-increment address is not a register", x);
 
 	  fprintf (file, "@%s+", reg_names[REGNO (XEXP (addr, 0))]);
 	}
@@ -2488,7 +2520,7 @@ m32r_print_operand_address (file, addr)
 	      fputs (reg_names[REGNO (base)], file);
 	    }
 	  else
-	    fatal_insn ("Bad address", addr);
+	    fatal_insn ("bad address", addr);
 	}
       else if (GET_CODE (base) == LO_SUM)
 	{
@@ -2504,12 +2536,12 @@ m32r_print_operand_address (file, addr)
 	  fputs (reg_names[REGNO (XEXP (base, 0))], file);
 	}
       else
-	fatal_insn ("Bad address", addr);
+	fatal_insn ("bad address", addr);
       break;
 
     case LO_SUM :
       if (GET_CODE (XEXP (addr, 0)) != REG)
-	fatal_insn ("Lo_sum not of register", addr);
+	fatal_insn ("lo_sum not of register", addr);
       if (small_data_operand (XEXP (addr, 1), VOIDmode))
 	fputs ("sda(", file);
       else
@@ -2754,8 +2786,8 @@ m32r_expand_block_move (operands)
   /* If necessary, generate a loop to handle the bulk of the copy.  */
   if (bytes)
     {
-      rtx label;
-      rtx final_src;
+      rtx label = NULL_RTX;
+      rtx final_src = NULL_RTX;
       rtx at_a_time = GEN_INT (MAX_MOVE_BYTES);
       rtx rounded_total = GEN_INT (bytes);
 

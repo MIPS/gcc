@@ -1,6 +1,6 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1200,7 +1200,7 @@ maybe_both_true_1 (d1, d2)
   struct decision_test *t1, *t2;
 
   /* A match_operand with no predicate can match anything.  Recognize
-     this by the existance of a lone DT_accept_op test.  */
+     this by the existence of a lone DT_accept_op test.  */
   if (d1->type == DT_accept_op || d2->type == DT_accept_op)
     return 1;
 
@@ -1258,7 +1258,7 @@ maybe_both_true (d1, d2, toplevel)
   if (cmp != 0)
     {
       if (toplevel)
-	abort();
+	abort ();
 
       /* If the d2->position was lexically lower, swap.  */
       if (cmp > 0)
@@ -1665,7 +1665,7 @@ find_afterward (head, real_afterward)
 {
   struct decision *p, *q, *afterward;
 
-  /* We can't propogate alternatives across subroutine boundaries.
+  /* We can't propagate alternatives across subroutine boundaries.
      This is not incorrect, merely a minor optimization loss.  */
 
   p = head->first;
@@ -1725,17 +1725,17 @@ change_state (oldpos, newpos, afterward, indent)
 
   /* Hunt for the last [A-Z] in both strings.  */
   for (old_has_insn = odepth - 1; old_has_insn >= 0; --old_has_insn)
-    if (oldpos[old_has_insn] >= 'A' && oldpos[old_has_insn] <= 'Z')
+    if (ISUPPER (oldpos[old_has_insn]))
       break;
   for (new_has_insn = ndepth - 1; new_has_insn >= 0; --new_has_insn)
-    if (newpos[new_has_insn] >= 'A' && newpos[new_has_insn] <= 'Z')
+    if (ISUPPER (newpos[new_has_insn]))
       break;
 
   /* Go down to desired level.  */
   while (depth < ndepth)
     {
       /* It's a different insn from the first one.  */
-      if (newpos[depth] >= 'A' && newpos[depth] <= 'Z')
+      if (ISUPPER (newpos[depth]))
 	{
 	  /* We can only fail if we're moving down the tree.  */
 	  if (old_has_insn >= 0 && oldpos[old_has_insn] >= newpos[depth])
@@ -1755,7 +1755,7 @@ change_state (oldpos, newpos, afterward, indent)
 	    }
 	  printf ("%sx%d = PATTERN (tem);\n", indent, depth + 1);
 	}
-      else if (newpos[depth] >= 'a' && newpos[depth] <= 'z')
+      else if (ISLOWER (newpos[depth]))
 	printf ("%sx%d = XVECEXP (x%d, 0, %d);\n",
 		indent, depth + 1, depth, newpos[depth] - 'a');
       else
@@ -1909,11 +1909,19 @@ write_switch (start, depth)
 	   || type == DT_elt_one_int
 	   || type == DT_elt_zero_wide_safe)
     {
+      const char *indent = "";
       /* Pmode may not be a compile-time constant.  */
       if (type == DT_mode && p->tests->u.mode == Pmode)
 	return p;
 
-      printf ("  switch (");
+      /* We cast switch parameter to integer, so we must ensure that the value
+	 fits.  */
+      if (type == DT_elt_zero_wide_safe)
+	{
+	  indent = "  ";
+	  printf("  if ((int) XWINT (x%d, 0) == XWINT (x%d, 0))\n", depth, depth);
+	}
+      printf ("%s  switch (", indent);
       switch (type)
 	{
 	case DT_mode:
@@ -1936,7 +1944,7 @@ write_switch (start, depth)
 	default:
 	  abort ();
 	}
-      printf (")\n    {\n");
+      printf (")\n%s    {\n", indent);
 
       do
 	{
@@ -1955,7 +1963,7 @@ write_switch (start, depth)
 	  if (p != start && p->need_label && needs_label == NULL)
 	    needs_label = p;
 
-	  printf ("    case ");
+	  printf ("%s    case ", indent);
 	  switch (type)
 	    {
 	    case DT_mode:
@@ -1973,7 +1981,7 @@ write_switch (start, depth)
 	    default:
 	      abort ();
 	    }
-	  printf (":\n      goto L%d;\n", p->success.first->number);
+	  printf (":\n%s      goto L%d;\n", indent, p->success.first->number);
 	  p->success.first->need_label = 1;
 
 	  p = p->next;
@@ -1981,7 +1989,8 @@ write_switch (start, depth)
       while (p && p->tests->type == type && !p->tests->next);
 
     case_done:
-      printf ("    default:\n      break;\n    }\n");
+      printf ("%s    default:\n%s      break;\n%s    }\n",
+	      indent, indent, indent);
 
       return needs_label != NULL ? needs_label : p;
     }
@@ -2129,7 +2138,7 @@ write_action (p, test, depth, uncond, success, subroutine_type)
 	    int match_len = 0, i;
 
 	    for (i = strlen (p->position) - 1; i >= 0; --i)
-	      if (p->position[i] >= 'A' && p->position[i] <= 'Z')
+	      if (ISUPPER (p->position[i]))
 		{
 		  match_len = p->position[i] - 'A';
 		  break;
@@ -2349,7 +2358,7 @@ write_subroutine (head, type)
       printf ("%sint recog%s PARAMS ((rtx, rtx, int *));\n", s_or_e, extension);
       printf ("%sint\n\
 recog%s (x0, insn, pnum_clobbers)\n\
-     rtx x0;\n\
+     rtx x0 ATTRIBUTE_UNUSED;\n\
      rtx insn ATTRIBUTE_UNUSED;\n\
      int *pnum_clobbers ATTRIBUTE_UNUSED;\n", s_or_e, extension);
       break;
@@ -2357,7 +2366,7 @@ recog%s (x0, insn, pnum_clobbers)\n\
       printf ("%srtx split%s PARAMS ((rtx, rtx));\n", s_or_e, extension);
       printf ("%srtx\n\
 split%s (x0, insn)\n\
-     rtx x0;\n\
+     rtx x0 ATTRIBUTE_UNUSED;\n\
      rtx insn ATTRIBUTE_UNUSED;\n", s_or_e, extension);
       break;
     case PEEPHOLE2:
@@ -2365,7 +2374,7 @@ split%s (x0, insn)\n\
 	      s_or_e, extension);
       printf ("%srtx\n\
 peephole2%s (x0, insn, _pmatch_len)\n\
-     rtx x0;\n\
+     rtx x0 ATTRIBUTE_UNUSED;\n\
      rtx insn ATTRIBUTE_UNUSED;\n\
      int *_pmatch_len ATTRIBUTE_UNUSED;\n", s_or_e, extension);
       break;
@@ -2678,9 +2687,9 @@ main (argc, argv)
   memset (&peephole2_tree, 0, sizeof peephole2_tree);
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   next_insn_code = 0;

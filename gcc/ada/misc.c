@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *                             $Revision: 1.4 $
+ *                             $Revision$
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -45,13 +45,17 @@
 #include "expr.h"
 #include "ggc.h"
 #include "flags.h"
+#include "insn-codes.h"
 #include "insn-flags.h"
 #include "insn-config.h"
+#include "optabs.h"
 #include "recog.h"
 #include "toplev.h"
 #include "output.h"
 #include "except.h"
 #include "tm_p.h"
+#include "langhooks.h"
+#include "langhooks-def.h"
 
 #include "ada.h"
 #include "types.h"
@@ -79,7 +83,7 @@ extern char **save_argv;
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-char gnat_tree_code_type[] = {
+static char const gnat_tree_code_type[] = {
   'x',
 #include "ada-tree.def"
 };
@@ -91,7 +95,7 @@ char gnat_tree_code_type[] = {
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
 
-int gnat_tree_code_length[] = {
+static int const gnat_tree_code_length[] = {
   0,
 #include "ada-tree.def"
 };
@@ -101,16 +105,45 @@ int gnat_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
 
-const char *gnat_tree_code_name[] = {
+static const char *gnat_tree_code_name[] = {
   "@@dummy",
 #include "ada-tree.def"
 };
 #undef DEFTREECODE
 
+static const char *gnat_init		PARAMS ((const char *));
+static void gnat_init_options		PARAMS ((void));
+static int gnat_decode_option		PARAMS ((int, char **));
+static HOST_WIDE_INT gnat_get_alias_set	PARAMS ((tree));
+static void gnat_print_decl		PARAMS ((FILE *, tree, int));
+static void gnat_print_type		PARAMS ((FILE *, tree, int));
+extern void gnat_init_decl_processing	PARAMS ((void));
+static tree gnat_expand_constant	PARAMS ((tree));
+
 /* Structure giving our language-specific hooks.  */
-struct lang_hooks lang_hooks = {gnat_init, 0, gnat_init_options,
-				gnat_decode_option, 0,
-			        {0, 0, 0, 0, 0, 0, 0, 0}};
+
+#undef  LANG_HOOKS_NAME
+#define LANG_HOOKS_NAME			"GNU Ada"
+#undef  LANG_HOOKS_IDENTIFIER_SIZE
+#define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct tree_identifier)
+#undef  LANG_HOOKS_INIT
+#define LANG_HOOKS_INIT			gnat_init
+#undef  LANG_HOOKS_INIT_OPTIONS
+#define LANG_HOOKS_INIT_OPTIONS		gnat_init_options
+#undef  LANG_HOOKS_DECODE_OPTION
+#define LANG_HOOKS_DECODE_OPTION	gnat_decode_option
+#undef LANG_HOOKS_HONOR_READONLY
+#define LANG_HOOKS_HONOR_READONLY	1
+#undef LANG_HOOKS_GET_ALIAS_SET
+#define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
+#undef LANG_HOOKS_PRINT_DECL
+#define LANG_HOOKS_PRINT_DECL		gnat_print_decl
+#undef LANG_HOOKS_PRINT_TYPE
+#define LANG_HOOKS_PRINT_TYPE		gnat_print_type
+#undef LANG_HOOKS_EXPAND_CONSTANT
+#define LANG_HOOKS_EXPAND_CONSTANT	gnat_expand_constant
+
+const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* gnat standard argc argv */
 
@@ -119,14 +152,12 @@ extern char **gnat_argv;
 
 /* Global Variables Expected by gcc: */
 
-const char * const language_string = "GNU Ada";
 int flag_traditional;		/* Used by dwarfout.c.  */
 int ggc_p = 1;
 
 static void internal_error_function	PARAMS ((const char *, va_list *));
 static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 						 enum expand_modifier));
-static tree gnat_expand_constant	PARAMS ((tree));
 static void gnat_adjust_rli		PARAMS ((record_layout_info));
 
 #if defined(MIPS_DEBUGGING_INFO) && defined(DWARF2_DEBUGGING_INFO)
@@ -138,9 +169,6 @@ static char *convert_ada_name_to_qualified_name PARAMS ((char *));
 /* For most front-ends, this is the parser for the language.  For us, we
    process the GNAT tree.  */
 
-#define Set_Jmpbuf_Address system__soft_links__set_jmpbuf_address_soft
-extern void Set_Jmpbuf_Address (void *);
-
 /* Declare functions we use as part of startup.  */
 extern void __gnat_initialize	PARAMS((void));
 extern void adainit		PARAMS((void));
@@ -149,34 +177,17 @@ extern void _ada_gnat1drv	PARAMS((void));
 int
 yyparse ()
 {
-  /* Make up what Gigi uses as a jmpbuf.  */
-  size_t jmpbuf[10];
-
   /* call the target specific initializations */
   __gnat_initialize();
 
   /* Call the front-end elaboration procedures */
   adainit ();
 
-  /* Set up to catch unhandled exceptions.  */
-  if (__builtin_setjmp (jmpbuf))
-    {
-      Set_Jmpbuf_Address (0);
-      abort ();
-    }
-
-  /* This is only really needed in longjmp/setjmp mode exceptions
-     but we don't know any easy way to tell what mode the host is
-     compiled in, and it is harmless to do it unconditionally */
-
-  Set_Jmpbuf_Address (jmpbuf);
-
   immediate_size_expand = 1;
 
   /* Call the front end */
   _ada_gnat1drv ();
 
-  Set_Jmpbuf_Address (0);
   return 0;
 }
 
@@ -185,7 +196,7 @@ yyparse ()
    it cannot decode. This routine returns 1 if it is successful, otherwise
    it returns 0. */
 
-int
+static int
 gnat_decode_option (argc, argv)
      int argc ATTRIBUTE_UNUSED;
      char **argv;
@@ -244,7 +255,7 @@ gnat_decode_option (argc, argv)
 
 /* Initialize for option processing.  */
 
-void
+static void
 gnat_init_options ()
 {
   /* Initialize gnat_argv with save_argv size */
@@ -300,11 +311,7 @@ lang_mark_tree (t)
     }
 }
 
-/* Here we have the function to handle the compiler error processing in GCC.
-   Do this only if VPRINTF is available.  */
-
-#if defined(HAVE_VPRINTF)
-#define DO_INTERNAL_ERROR_FUNCTION
+/* Here we have the function to handle the compiler error processing in GCC.  */
 
 static void
 internal_error_function (msgid, ap)
@@ -332,21 +339,44 @@ internal_error_function (msgid, ap)
   Current_Error_Node = error_gnat_node;
   Compiler_Abort (fp, -1);
 }
-#endif
 
 /* Perform all the initialization steps that are language-specific.  */
 
-void
-gnat_init ()
+static const char *
+gnat_init (filename)
+     const char *filename;
 {
+/* Performs whatever initialization steps needed by the language-dependent
+   lexical analyzer.
+
+   Define the additional tree codes here.  This isn't the best place to put
+   it, but it's where g++ does it.  */
+
+  lang_expand_expr = gnat_expand_expr;
+
+  memcpy ((char *) (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE),
+	  (char *) gnat_tree_code_type,
+	  ((LAST_GNAT_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
+	   * sizeof (char *)));
+
+  memcpy ((char *) (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE),
+	  (char *) gnat_tree_code_length,
+	  ((LAST_GNAT_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
+	   * sizeof (int)));
+
+  memcpy ((char *) (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE),
+	  (char *) gnat_tree_code_name,
+	  ((LAST_GNAT_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
+	   * sizeof (char *)));
+
+  gnat_init_decl_processing ();
+
   /* Add the input filename as the last argument.  */
-  gnat_argv [gnat_argc] = (char *) input_filename;
+  gnat_argv [gnat_argc] = (char *) filename;
   gnat_argc++;
   gnat_argv [gnat_argc] = 0;
 
-#ifdef DO_INTERNAL_ERROR_FUNCTION
   set_internal_error_function (internal_error_function);
-#endif
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
@@ -359,14 +389,11 @@ gnat_init ()
 #if defined(MIPS_DEBUGGING_INFO) && defined(DWARF2_DEBUGGING_INFO)
   dwarf2out_set_demangle_name_func (convert_ada_name_to_qualified_name);
 #endif
-}
 
-/* Return a short string identifying this language to the debugger.  */
+  if (filename == 0)
+    filename = "";
 
-const char *
-lang_identify ()
-{
-  return "ada";
+  return filename;
 }
 
 /* If DECL has a cleanup, build and return that cleanup here.
@@ -380,20 +407,6 @@ maybe_build_cleanup (decl)
   return NULL_TREE;
 }
 
-/* Print any language-specific compilation statistics.  */
-
-void
-print_lang_statistics ()
-{}
-
-void
-lang_print_xnode (file, node, indent)
-     FILE *file ATTRIBUTE_UNUSED;
-     tree node ATTRIBUTE_UNUSED;
-     int indent ATTRIBUTE_UNUSED;
-{
-}
-
 /* integrate_decl_tree calls this function, but since we don't use the
    DECL_LANG_SPECIFIC field, this is a no-op.  */
 
@@ -405,8 +418,8 @@ copy_lang_decl (node)
 
 /* Hooks for print-tree.c:  */
 
-void
-print_lang_decl (file, node, indent)
+static void
+gnat_print_decl (file, node, indent)
      FILE *file;
      tree node;
      int indent;
@@ -428,8 +441,8 @@ print_lang_decl (file, node, indent)
     }
 }
 
-void
-print_lang_type (file, node, indent)
+static void
+gnat_print_type (file, node, indent)
      FILE *file;
      tree node;
      int indent;
@@ -479,13 +492,6 @@ print_lang_type (file, node, indent)
       break;
     }
 }
-
-void
-print_lang_identifier (file, node, indent)
-     FILE *file ATTRIBUTE_UNUSED;
-     tree node ATTRIBUTE_UNUSED;
-     int indent ATTRIBUTE_UNUSED;
-{}
 
 /* Expands GNAT-specific GCC tree nodes.  The only ones we support
    here are TRANSFORM_EXPR, UNCHECKED_CONVERT_EXPR, ALLOCATE_EXPR,
@@ -634,9 +640,11 @@ gnat_expand_expr (exp, target, tmode, modifier)
       /* We aren't going to be doing anything with this memory, but allocate
 	 it anyway.  If it's variable size, make a bogus address.  */
       if (! host_integerp (TYPE_SIZE_UNIT (type), 1))
-	return gen_rtx_MEM (BLKmode, virtual_stack_vars_rtx);
+	result = gen_rtx_MEM (BLKmode, virtual_stack_vars_rtx);
       else
-	return assign_temp (type, 0, TREE_ADDRESSABLE (exp), 1);
+	result = assign_temp (type, 0, TREE_ADDRESSABLE (exp), 1);
+
+      return result;
 
     case ALLOCATE_EXPR:
       return
@@ -689,12 +697,13 @@ gnat_expand_constant (exp)
      tree exp;
 {
   /* If this is an unchecked conversion that does not change the size of the
-     object, return the operand since the underlying constant is still
-     the same.  Otherwise, return our operand.  */
+     object and the object is not a CONSTRUCTOR return the operand since the
+     underlying constant is still the same.  Otherwise, return our operand.  */
   if (TREE_CODE (exp) == UNCHECKED_CONVERT_EXPR
       && operand_equal_p (TYPE_SIZE_UNIT (TREE_TYPE (exp)),
 			  TYPE_SIZE_UNIT (TREE_TYPE (TREE_OPERAND (exp, 0))),
-			  1))
+			  1)
+      && TREE_CODE (TREE_OPERAND (exp, 0)) != CONSTRUCTOR)
     return TREE_OPERAND (exp, 0);
 
   return exp;
@@ -737,8 +746,9 @@ update_setjmp_buf (buf)
 
 #ifdef HAVE_save_stack_nonlocal
   if (HAVE_save_stack_nonlocal)
-    sa_mode = insn_operand_mode[(int) CODE_FOR_save_stack_nonlocal][0];
+    sa_mode = insn_data [(int) CODE_FOR_save_stack_nonlocal].operand[0].mode;
 #endif
+
 #ifdef STACK_SAVEAREA_MODE
   sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
 #endif
@@ -870,50 +880,6 @@ insert_code_for (gnat_node)
     }
 }
 
-/* Performs whatever initialization steps needed by the language-dependent
-   lexical analyzer.
-
-   Define the additional tree codes here.  This isn't the best place to put
-   it, but it's where g++ does it.  */
-
-const char *
-init_parse (filename)
-     const char *filename;
-{
-  lang_expand_expr = gnat_expand_expr;
-  lang_expand_constant = gnat_expand_constant;
-
-  memcpy ((char *) (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE),
-	  (char *) gnat_tree_code_type,
-	  ((LAST_GNAT_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
-	   * sizeof (char *)));
-
-  memcpy ((char *) (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE),
-	  (char *) gnat_tree_code_length,
-	  ((LAST_GNAT_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
-	   * sizeof (int)));
-
-  memcpy ((char *) (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE),
-	  (char *) gnat_tree_code_name,
-	  ((LAST_GNAT_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
-	   * sizeof (char *)));
-
-  return filename;
-}
-
-void
-finish_parse ()
-{
-}
-
-/* Sets some debug flags for the parsed. It does nothing here.  */
-
-void
-set_yydebug (value)
-     int value ATTRIBUTE_UNUSED;
-{
-}
-
 #if 0
 
 /* Return the alignment for GNAT_TYPE.  */
@@ -928,8 +894,8 @@ get_type_alignment (gnat_type)
 
 /* Get the alias set corresponding to a type or expression.  */
 
-HOST_WIDE_INT
-lang_get_alias_set (type)
+static HOST_WIDE_INT
+gnat_get_alias_set (type)
      tree type;
 {
   /* If this is a padding type, use the type of the first field.  */

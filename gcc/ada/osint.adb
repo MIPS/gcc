@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -26,6 +26,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Fmap;     use Fmap;
 with Hostparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
@@ -725,12 +726,38 @@ package body Osint is
 
    begin
       Get_Name_String (Src);
+
       if Hostparm.OpenVMS then
          Name_Buffer (Name_Len + 1 .. Name_Len + 3) := "_dg";
       else
          Name_Buffer (Name_Len + 1 .. Name_Len + 3) := ".dg";
       end if;
+
       Name_Len := Name_Len + 3;
+
+      if Output_Object_File_Name /= null then
+
+         for Index in reverse Output_Object_File_Name'Range loop
+
+            if Output_Object_File_Name (Index) = Directory_Separator then
+               declare
+                  File_Name : constant String := Name_Buffer (1 .. Name_Len);
+
+               begin
+                  Name_Len := Index - Output_Object_File_Name'First + 1;
+                  Name_Buffer (1 .. Name_Len) :=
+                    Output_Object_File_Name
+                      (Output_Object_File_Name'First .. Index);
+                  Name_Buffer (Name_Len + 1 .. Name_Len + File_Name'Length) :=
+                    File_Name;
+                  Name_Len := Name_Len + File_Name'Length;
+               end;
+
+               exit;
+            end if;
+         end loop;
+      end if;
+
       Result := Name_Find;
       Name_Buffer (Name_Len + 1) := ASCII.NUL;
       Create_File_And_Check (Output_FD, Text);
@@ -969,12 +996,24 @@ package body Osint is
          --  directory where the user said it was.
 
          elsif Look_In_Primary_Directory_For_Current_Main
-           and then Current_Main = N then
+           and then Current_Main = N
+         then
             return Locate_File (N, T, Primary_Directory, File_Name);
 
          --  Otherwise do standard search for source file
 
          else
+            --  Check the mapping of this file name
+
+            File := Mapped_Path_Name (N);
+
+            --  If the file name is mapped to a path name, return the
+            --  corresponding path name
+
+            if File /= No_File then
+               return File;
+            end if;
+
             --  First place to look is in the primary directory (i.e. the same
             --  directory as the source) unless this has been disabled with -I-
 
@@ -1676,10 +1715,10 @@ package body Osint is
    ------------------------------
 
    function Read_Default_Search_Dirs
-     (Search_Dir_Prefix : String_Access;
-      Search_File : String_Access;
+     (Search_Dir_Prefix       : String_Access;
+      Search_File             : String_Access;
       Search_Dir_Default_Name : String_Access)
-     return String_Access
+      return                  String_Access
    is
       Prefix_Len : constant Integer := Search_Dir_Prefix.all'Length;
       Buffer     : String (1 .. Prefix_Len + Search_File.all'Length + 1);
@@ -1693,8 +1732,23 @@ package body Osint is
       Prev_Was_Separator : Boolean;
       Nb_Relative_Dir    : Integer;
 
-   begin
+      function Is_Relative (S : String; K : Positive) return Boolean;
+      pragma Inline (Is_Relative);
+      --  Returns True if a relative directory specification is found
+      --  in S at position K, False otherwise.
 
+      -----------------
+      -- Is_Relative --
+      -----------------
+
+      function Is_Relative (S : String; K : Positive) return Boolean is
+      begin
+         return not Is_Absolute_Path (S (K .. S'Last));
+      end Is_Relative;
+
+   --  Start of processing for Read_Default_Search_Dirs
+
+   begin
       --  Construct a C compatible character string buffer.
 
       Buffer (1 .. Search_Dir_Prefix.all'Length)
@@ -1737,12 +1791,13 @@ package body Osint is
             S (J) := Path_Separator;
          end if;
 
-         if  S (J) = Path_Separator then
+         if S (J) = Path_Separator then
             Prev_Was_Separator := True;
          else
-            if Prev_Was_Separator and S (J) /= Directory_Separator then
+            if Prev_Was_Separator and then Is_Relative (S.all, J) then
                Nb_Relative_Dir := Nb_Relative_Dir + 1;
             end if;
+
             Prev_Was_Separator := False;
          end if;
       end loop;
@@ -1757,11 +1812,11 @@ package body Osint is
       J1 := 1;
       Prev_Was_Separator := True;
       for J in 1 .. Len + 1 loop
-         if  S (J) = Path_Separator then
+         if S (J) = Path_Separator then
             Prev_Was_Separator := True;
 
          else
-            if Prev_Was_Separator and S (J) /= Directory_Separator then
+            if Prev_Was_Separator and then Is_Relative (S.all, J) then
                S1 (J1 .. J1 + Prefix_Len) := Search_Dir_Prefix.all;
                J1 := J1 + Prefix_Len;
             end if;

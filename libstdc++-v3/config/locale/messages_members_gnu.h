@@ -1,6 +1,6 @@
 // std::messages implementation details, GNU version -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,7 +35,7 @@
 
   // Non-virtual member functions.
   template<typename _CharT>
-    messages<_CharT>::catalog 
+    typename messages<_CharT>::catalog 
     messages<_CharT>::open(const basic_string<char>& __s, const locale& __loc, 
 			   const char* __dir) const
     { 
@@ -43,16 +43,8 @@
       return this->do_open(__s, __loc); 
     }
 
-  // Virtual member functions.
   template<typename _CharT>
-    messages<_CharT>::~messages()
-    { 
-      if (_M_c_locale_messages)
-	_S_destroy_c_locale(_M_c_locale_messages); 
-    }
-
-  template<typename _CharT>
-    messages<_CharT>::catalog 
+    typename messages<_CharT>::catalog 
     messages<_CharT>::do_open(const basic_string<char>& __s, 
 			      const locale&) const
     { 
@@ -63,7 +55,7 @@
     }
 
   template<typename _CharT>
-    messages<_CharT>::string_type  
+    typename messages<_CharT>::string_type  
     messages<_CharT>::do_get(catalog, int, int, 
 			     const string_type& __dfault) const
     { 
@@ -74,8 +66,9 @@
       uselocale(__old);
       return _M_convert_from_char(__msg);
 #else
-      setlocale(LC_ALL, _M_name_messages);
+      const char* __old = setlocale(LC_ALL, _M_name_messages);
       char* __msg = gettext(_M_convert_to_char(__dfault));
+      setlocale(LC_ALL, __old);
       return _M_convert_from_char(__msg);
 #endif
     }

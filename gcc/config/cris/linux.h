@@ -87,14 +87,6 @@ Boston, MA 02111-1307, USA.  */
 #undef CRIS_SUBTARGET_VERSION
 #define CRIS_SUBTARGET_VERSION " - cris-axis-linux-gnu"
 
-
-/* Redefine what was in svr4.h.  Include order madness makes it less
-   useful to include (config/)linux.h after cris.h.  (config/)linux.h
-   includes svr4.h which undef:s lots of supposedly arch-specific macros
-   carefully defined by cris.h.  */
-#undef LIB_SPEC
-#define LIB_SPEC "%{!shared:%{!symbolic:-lc}}"
-
 /* We need an -rpath-link to ld.so.1, and presumably to each directory
    specified with -B.  */
 #undef CRIS_LINK_SUBTARGET_SPEC
@@ -106,25 +98,12 @@ Boston, MA 02111-1307, USA.  */
   %{!shared:%{!static:%{rdynamic:-export-dynamic}}}\
   %{O2|O3: --gc-sections}"
 
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC \
- "%{!shared:\
-   %{pg:gcrt1.o%s}\
-   %{!pg:\
-    %{p:gcrt1.o%s}\
-    %{!p:\
-     %{profile:gcrt1.o%s}\
-     %{!profile:crt1.o%s}}}}\
-  crti.o%s\
-  %{!shared:crtbegin.o%s}\
-  %{shared:crtbeginS.o%s}"
-
 
 /* Node: Sections */
 
 /* GNU/Linux has crti and crtn and does not need the
-   FORCE_INIT_SECTION_ALIGN trick in cris.h.  */
-#undef FORCE_INIT_SECTION_ALIGN
+   CRT_CALL_STATIC_FUNCTION trick in cris.h.  */
+#undef CRT_CALL_STATIC_FUNCTION
 
 /*
  * Local variables:

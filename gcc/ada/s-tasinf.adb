@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                           (Compiler Interface)                           --
 --                                                                          --
---                            $Revision: 1.1 $                              --
+--                            $Revision: 1.4 $                              --
 --                                                                          --
 --            Copyright (C) 1998 Free Software Foundation, Inc.             --
 --                                                                          --

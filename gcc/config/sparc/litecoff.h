@@ -19,15 +19,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "sparc/lite.h"
-
-#undef ASM_OUTPUT_IDENT
-
-#undef SELECT_SECTION
-#undef SELECT_RTX_SECTION
 #define BSS_SECTION_ASM_OP	"\t.section\t\".bss\""
-
-#include "svr3.h"
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-Dsparc -Dsparclite -Acpu=sparc -Amachine=sparc"
@@ -35,8 +27,6 @@ Boston, MA 02111-1307, USA.  */
 /* Default to stabs in COFF.  */
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
-
-#include "dbxcoff.h"
 
 /* Support the ctors and dtors sections for g++.  */
 
@@ -54,7 +44,33 @@ Boston, MA 02111-1307, USA.  */
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION
 
-#define INT_ASM_OP "\t.long\t"
-
 #undef DO_GLOBAL_CTORS_BODY
 #undef DO_GLOBAL_DTORS_BODY
+
+/* These compiler options take an argument.  We ignore -target for now.  */
+
+#define WORD_SWITCH_TAKES_ARG(STR)				\
+ (DEFAULT_WORD_SWITCH_TAKES_ARG (STR)				\
+  || !strcmp (STR, "target") || !strcmp (STR, "assert"))
+
+/* Output the label for a function definition.  */
+
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
+do {									\
+  ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
+  ASM_OUTPUT_LABEL (FILE, NAME);					\
+} while (0)
+
+/* Output before read-only data.  */
+
+#define TEXT_SECTION_ASM_OP "\t.text"
+
+/* Output before writable data.  */
+
+#define DATA_SECTION_ASM_OP "\t.data"
+
+/* How to renumber registers for dbx and gdb.  In the flat model, the frame
+   pointer is really %i7.  */
+
+#define DBX_REGISTER_NUMBER(REGNO) \
+  (TARGET_FLAT && (REGNO) == HARD_FRAME_POINTER_REGNUM ? 31 : REGNO)

@@ -259,7 +259,7 @@ i386_pe_mark_dllimport (decl)
     abort ();
   if (i386_pe_dllexport_name_p (oldname))
     {
-      error ("`%s' declared as both exported to and imported from a DLL.",
+      error ("`%s' declared as both exported to and imported from a DLL",
              IDENTIFIER_POINTER (DECL_NAME (decl)));
       return;
     }
@@ -611,7 +611,7 @@ struct export_list
 {
   struct export_list *next;
   const char *name;
-  int is_data;		/* used to type tag exported symbols. */
+  int is_data;		/* used to type tag exported symbols.  */
 };
 
 static struct export_list *export_head;

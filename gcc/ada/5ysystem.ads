@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                      (VXWORKS Version PPC, Sparc64)                      --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.6 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --

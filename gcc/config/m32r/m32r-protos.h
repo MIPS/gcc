@@ -19,7 +19,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
-   compilcations.  */
+   complications.  */
 #define Mmode enum machine_mode
 
 extern void   sbss_section			PARAMS ((void));
@@ -90,6 +90,8 @@ extern int    m32r_block_immediate_operand 	PARAMS ((rtx, Mmode));
 extern int    extend_operand			PARAMS ((rtx, Mmode));
 extern int    reg_or_eq_int16_operand		PARAMS ((rtx, Mmode));
 extern int    int8_operand			PARAMS ((rtx, Mmode));
+extern int    reg_or_zero_operand               PARAMS ((rtx, Mmode));
+
 #endif /* HAVE_MACHINE_MODES */
 
 #ifdef TREE_CODE

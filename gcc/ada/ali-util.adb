@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -50,7 +50,7 @@ package body ALI.Util is
    --  generate code, so it is not necessary to worry about making the right
    --  sequence of calls in any error situation.
 
-   procedure Initialize_Checksum (Csum : in out Word);
+   procedure Initialize_Checksum (Csum : out Word);
    --  Sets initial value of Csum before any calls to Accumulate_Checksum
 
    -------------------------
@@ -286,7 +286,7 @@ package body ALI.Util is
    -- Initialize_Checksum --
    -------------------------
 
-   procedure Initialize_Checksum (Csum : in out Word) is
+   procedure Initialize_Checksum (Csum : out Word) is
    begin
       System.CRC32.Initialize (System.CRC32.CRC32 (Csum));
    end Initialize_Checksum;

@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --            (Version for IBM Mainframe Packed Decimal Format)             --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.6 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --

@@ -35,6 +35,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "toplev.h"
 #include "langhooks.h"
+#include "langhooks-def.h"
 #include "flags.h"
 #include "xref.h"
 #include "ggc.h"
@@ -42,20 +43,21 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 struct string_option
 {
-  const char *string;
-  int *variable;
-  int on_value;
+  const char *const string;
+  int *const variable;
+  const int on_value;
 };
 
-static void java_init PARAMS ((void));
+static const char *java_init PARAMS ((const char *));
+static void java_finish PARAMS ((void));
 static void java_init_options PARAMS ((void));
 static int java_decode_option PARAMS ((int, char **));
 static void put_decl_string PARAMS ((const char *, int));
 static void put_decl_node PARAMS ((tree));
 static void java_dummy_print PARAMS ((diagnostic_context *, const char *));
 static void lang_print_error PARAMS ((diagnostic_context *, const char *));
-static int process_option_with_no PARAMS ((char *,
-					   struct string_option *,
+static int process_option_with_no PARAMS ((const char *,
+					   const struct string_option *,
 					   int));
 
 #ifndef TARGET_OBJECT_SUFFIX
@@ -97,8 +99,6 @@ static const char *const java_tree_code_name[] = {
 #undef DEFTREECODE
 
 int compiling_from_source;
-
-const char * const language_string = "GNU Java";
 
 char * resource_name;
 
@@ -153,6 +153,10 @@ int flag_force_classes_archive_check;
    be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
 int flag_optimize_sci = 1;
 
+/* When non zero, use offset tables for virtual method calls
+   in order to improve binary compatibility. */
+int flag_indirect_dispatch = 0;
+
 /* When non zero, print extra version information.  */
 static int version_flag = 0;
 
@@ -162,7 +166,7 @@ static int version_flag = 0;
     if `-fSTRING' is seen as an option.
    (If `-fno-STRING' is seen as an option, the opposite value is stored.)  */
 
-static struct string_option
+static const struct string_option
 lang_f_options[] =
 {
   {"emit-class-file", &flag_emit_class_files, 1},
@@ -173,10 +177,12 @@ lang_f_options[] =
   {"hash-synchronization", &flag_hash_synchronization, 1},
   {"jni", &flag_jni, 1},
   {"check-references", &flag_check_references, 1},
-  {"force-classes-archive-check", &flag_force_classes_archive_check, 1}
+  {"force-classes-archive-check", &flag_force_classes_archive_check, 1},
+  {"optimize-static-class-initialization", &flag_optimize_sci, 1 },
+  {"indirect-dispatch", &flag_indirect_dispatch, 1}
 };
 
-static struct string_option
+static const struct string_option
 lang_W_options[] =
 {
   { "redundant-modifiers", &flag_redundant, 1 },
@@ -187,7 +193,7 @@ lang_W_options[] =
 JCF *current_jcf;
 
 /* Variable controlling how dependency tracking is enabled in
-   init_parse.  */
+   java_init.  */
 static int dependency_tracking = 0;
 
 /* Flag values for DEPENDENCY_TRACKING.  */
@@ -196,22 +202,28 @@ static int dependency_tracking = 0;
 #define DEPEND_TARGET_SET 4
 #define DEPEND_FILE_ALREADY_SET 8
 
+#undef LANG_HOOKS_NAME
+#define LANG_HOOKS_NAME "GNU Java"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT java_init
+#undef LANG_HOOKS_FINISH
+#define LANG_HOOKS_FINISH java_finish
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS java_init_options
 #undef LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION java_decode_option
+#undef LANG_HOOKS_SET_YYDEBUG
+#define LANG_HOOKS_SET_YYDEBUG java_set_yydebug
 
 /* Each front end provides its own.  */
-struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* Process an option that can accept a `no-' form.
    Return 1 if option found, 0 otherwise.  */
 static int
 process_option_with_no (p, table, table_size)
-     char *p;
-     struct string_option *table;
+     const char *p;
+     const struct string_option *table;
      int table_size;
 {
   int j;
@@ -322,23 +334,16 @@ java_decode_option (argc, argv)
     }
 #undef ARG
 
-#undef ARG
-#define ARG "-fno-optimize-static-class-initialization"
-  if (strncmp (p, ARG, sizeof (ARG) - 1) == 0)
-    {
-      flag_optimize_sci = 0;
-      return 1;
-    }
-#undef ARG
-
   if (p[0] == '-' && p[1] == 'f')
     {
       /* Some kind of -f option.
 	 P's value is the option sans `-f'.
 	 Search for it in the table of options.  */
       p += 2;
-      return process_option_with_no (p, lang_f_options,
-				     ARRAY_SIZE (lang_f_options));
+      if (process_option_with_no (p, lang_f_options,
+				  ARRAY_SIZE (lang_f_options)))
+	return 1;
+      return dump_switch_p (p);
     }
 
   if (strcmp (p, "-Wall") == 0)
@@ -408,10 +413,15 @@ java_decode_option (argc, argv)
 /* Global open file.  */
 FILE *finput;
 
-const char *
-init_parse (filename)
+static const char *
+java_init (filename)
      const char *filename;
 {
+#if 0
+  extern int flag_minimal_debug;
+  flag_minimal_debug = 0;
+#endif
+
   /* Open input file.  */
 
   if (filename == 0 || !strcmp (filename, "-"))
@@ -473,13 +483,35 @@ init_parse (filename)
 	}
     }
 
-  init_lex ();
+  jcf_path_init ();
+  jcf_path_seal (version_flag);
+
+  decl_printable_name = lang_printable_name;
+  print_error_function = lang_print_error;
+  lang_expand_expr = java_lang_expand_expr;
+
+  /* Append to Gcc tree node definition arrays */
+
+  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
+	  java_tree_code_type,
+	  (int)LAST_JAVA_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
+  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
+	  java_tree_code_length,
+	  (LAST_JAVA_TREE_CODE - 
+	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
+  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
+	  java_tree_code_name,
+	  (LAST_JAVA_TREE_CODE - 
+	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
+  java_init_decl_processing ();
+
+  using_eh_for_cleanups ();
 
   return filename;
 }
 
-void
-finish_parse ()
+static void
+java_finish ()
 {
   jcf_dependency_write ();
 }
@@ -676,38 +708,6 @@ lang_print_error (context, file)
 
 }
 
-static void
-java_init ()
-{
-#if 0
-  extern int flag_minimal_debug;
-  flag_minimal_debug = 0;
-#endif
-
-  jcf_path_init ();
-  jcf_path_seal (version_flag);
-
-  decl_printable_name = lang_printable_name;
-  print_error_function = lang_print_error;
-  lang_expand_expr = java_lang_expand_expr;
-
-  /* Append to Gcc tree node definition arrays */
-
-  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
-	  java_tree_code_type,
-	  (int)LAST_JAVA_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
-  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
-	  java_tree_code_length,
-	  (LAST_JAVA_TREE_CODE - 
-	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
-	  java_tree_code_name,
-	  (LAST_JAVA_TREE_CODE - 
-	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
-
-  using_eh_for_cleanups ();
-}
-
 /* This doesn't do anything on purpose. It's used to satisfy the
    print_error_function hook we don't print error messages with bogus
    function prototypes.  */
@@ -741,61 +741,4 @@ java_init_options ()
   flag_bounds_check = 1;
   flag_exceptions = 1;
   flag_non_call_exceptions = 1;
-}
-
-const char *
-lang_identify ()
-{
-  return "Java";
-}
-
-/* Hooks for print_node.  */
-
-void
-print_lang_decl (file, node, indent)
-     FILE *file __attribute ((__unused__));
-     tree node __attribute ((__unused__));
-     int indent __attribute ((__unused__));
-{
-}
-
-void
-print_lang_type (file, node, indent)
-     FILE *file __attribute ((__unused__));
-     tree node __attribute ((__unused__));
-     int indent __attribute ((__unused__));
-{
-}
-
-void
-print_lang_identifier (file, node, indent)
-     FILE *file __attribute ((__unused__));
-     tree node __attribute ((__unused__));
-     int indent __attribute ((__unused__));
-{
-}
-
-void
-print_lang_statistics ()
-{
-}
-
-/* used by print-tree.c */
-
-void
-lang_print_xnode (file, node, indent)
-     FILE *file __attribute ((__unused__));
-     tree node __attribute ((__unused__));
-     int indent __attribute ((__unused__));
-{
-}
-
-/* Return the typed-based alias set for T, which may be an expression
-   or a type.  Return -1 if we don't do anything special.  */
-
-HOST_WIDE_INT
-lang_get_alias_set (t)
-     tree t ATTRIBUTE_UNUSED;
-{
-  return -1;
 }

@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -92,7 +92,7 @@ int n_vis_no_unit;
 #define MAX_VISUAL_NO_UNIT 20
 rtx vis_no_unit[MAX_VISUAL_NO_UNIT];
 
-/* Finds units that are in use in this fuction.  Required only
+/* Finds units that are in use in this function.  Required only
    for visualization.  */
 
 void
@@ -484,6 +484,12 @@ print_exp (buf, x, verbose)
       fun = "trap_if";
       op[0] = TRAP_CONDITION (x);
       break;
+    case PREFETCH:
+      fun = "prefetch";
+      op[0] = XEXP (x, 0);
+      op[1] = XEXP (x, 1);
+      op[2] = XEXP (x, 2);
+      break;
     case UNSPEC:
     case UNSPEC_VOLATILE:
       {
@@ -588,7 +594,7 @@ print_value (buf, x, verbose)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	{
 	  int c = reg_names[REGNO (x)][0];
-	  if (c >= '0' && c <= '9')
+	  if (ISDIGIT (c))
 	    cur = safe_concat (buf, cur, "%");
 
 	  cur = safe_concat (buf, cur, reg_names[REGNO (x)]);
@@ -933,7 +939,7 @@ visualize_stall_cycles (stalls)
   strcpy (p, prefix);
   p += strlen (prefix);
 
-  if ((unsigned)stalls >
+  if ((unsigned) stalls >
       visual_tbl_line_length - strlen (prefix) - strlen (suffix))
     {
       suffix = "[...]\n";

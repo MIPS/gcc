@@ -53,10 +53,10 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_numeric.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
-
 
 #ifndef _CPP_BITS_STL_NUMERIC_H
 #define _CPP_BITS_STL_NUMERIC_H 1
@@ -69,7 +69,7 @@ namespace std
     accumulate(_InputIterator __first, _InputIterator __last, _Tp __init)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
 
       for ( ; __first != __last; ++__first)
 	__init = __init + *__first;
@@ -82,7 +82,7 @@ namespace std
 	       _BinaryOperation __binary_op)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
 
       for ( ; __first != __last; ++__first)
 	__init = __binary_op(__init, *__first);
@@ -95,8 +95,8 @@ namespace std
 		  _InputIterator2 __first2, _Tp __init)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator2>)
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	__init = __init + (*__first1 * *__first2);
@@ -112,8 +112,8 @@ namespace std
 		  _BinaryOperation2 __binary_op2)
     {
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator1>);
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator2>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator1>)
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator2>)
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	__init = __binary_op1(__init, __binary_op2(*__first1, *__first2));
@@ -128,8 +128,8 @@ namespace std
       typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
 
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
+      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -149,8 +149,8 @@ namespace std
       typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
 
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
+      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -170,8 +170,8 @@ namespace std
       typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
 
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
+      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -192,8 +192,8 @@ namespace std
       typedef typename iterator_traits<_InputIterator>::value_type _ValueType;
 
       // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>);
-      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>);
+      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
+      __glibcpp_function_requires(_OutputIteratorConcept<_OutputIterator, _ValueType>)
 
       if (__first == __last) return __result;
       *__result = *__first;
@@ -204,67 +204,6 @@ namespace std
 	__value = __tmp;
       }
       return ++__result;
-    }
-
-  // Returns __x ** __n, where __n >= 0.  _Note that "multiplication"
-  // is required to be associative, but not necessarily commutative.
-
-   
-  template<typename _Tp, typename _Integer, typename _MonoidOperation>
-    _Tp
-    __power(_Tp __x, _Integer __n, _MonoidOperation __monoid_op)
-    {
-      if (__n == 0)
-	return identity_element(__monoid_op);
-      else {
-	while ((__n & 1) == 0) {
-	  __n >>= 1;
-	  __x = __monoid_op(__x, __x);
-	}
-
-	_Tp __result = __x;
-	__n >>= 1;
-	while (__n != 0) {
-	  __x = __monoid_op(__x, __x);
-	  if ((__n & 1) != 0)
-	    __result = __monoid_op(__result, __x);
-	  __n >>= 1;
-	}
-	return __result;
-      }
-    }
-
-  template<typename _Tp, typename _Integer>
-    inline _Tp
-    __power(_Tp __x, _Integer __n)
-    { return __power(__x, __n, multiplies<_Tp>()); }
-
-  // Alias for the internal name __power.  Note that power is an extension,
-  // not part of the C++ standard.
-
-  template<typename _Tp, typename _Integer, typename _MonoidOperation>
-    inline _Tp
-    power(_Tp __x, _Integer __n, _MonoidOperation __monoid_op)
-    { return __power(__x, __n, __monoid_op); }
-
-  template<typename _Tp, typename _Integer>
-    inline _Tp
-    power(_Tp __x, _Integer __n)
-    { return __power(__x, __n); }
-
-  // iota is not part of the C++ standard.  It is an extension.
-
-  template<typename _ForwardIter, typename _Tp>
-    void 
-    iota(_ForwardIter __first, _ForwardIter __last, _Tp __value)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>);
-      __glibcpp_function_requires(_ConvertibleConcept<_Tp,
-	    typename iterator_traits<_ForwardIter>::value_type>);
-
-      while (__first != __last)
-	*__first++ = __value++;
     }
 
 } // namespace std

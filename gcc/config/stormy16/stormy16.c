@@ -1,5 +1,6 @@
-/* Stormy16 target functions.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+/* Xstormy16 target functions.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GNU CC.
@@ -45,18 +46,18 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 
 static rtx emit_addhi3_postreload PARAMS ((rtx, rtx, rtx));
-static void stormy16_asm_out_constructor PARAMS ((rtx, int));
-static void stormy16_asm_out_destructor PARAMS ((rtx, int));
+static void xstormy16_asm_out_constructor PARAMS ((rtx, int));
+static void xstormy16_asm_out_destructor PARAMS ((rtx, int));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
-struct rtx_def * stormy16_compare_op0;
-struct rtx_def * stormy16_compare_op1;
+struct rtx_def * xstormy16_compare_op0;
+struct rtx_def * xstormy16_compare_op1;
 
 /* Return 1 if this is a LT, GE, LTU, or GEU operator.  */
 
 int
-stormy16_ineqsi_operator (op, mode)
+xstormy16_ineqsi_operator (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
@@ -113,12 +114,12 @@ inequality_operator (op, mode)
 /* Emit a branch of kind CODE to location LOC.  */
 
 void
-stormy16_emit_cbranch (code, loc)
+xstormy16_emit_cbranch (code, loc)
      enum rtx_code code;
      rtx loc;
 {
-  rtx op0 = stormy16_compare_op0;
-  rtx op1 = stormy16_compare_op1;
+  rtx op0 = xstormy16_compare_op0;
+  rtx op1 = xstormy16_compare_op1;
   rtx condition_rtx, loc_ref, branch, cy_clobber;
   rtvec vec;
   enum machine_mode mode;
@@ -132,14 +133,14 @@ stormy16_emit_cbranch (code, loc)
     {
       int unsigned_p = (code == GTU || code == LEU);
       int gt_p = (code == GT || code == GTU);
-      rtx lab;
+      rtx lab = NULL_RTX;
       
       if (gt_p)
 	lab = gen_label_rtx ();
-      stormy16_emit_cbranch (unsigned_p ? LTU : LT, gt_p ? lab : loc);
+      xstormy16_emit_cbranch (unsigned_p ? LTU : LT, gt_p ? lab : loc);
       /* This should be generated as a comparison against the temporary
 	 created by the previous insn, but reload can't handle that.  */
-      stormy16_emit_cbranch (gt_p ? NE : EQ, loc);
+      xstormy16_emit_cbranch (gt_p ? NE : EQ, loc);
       if (gt_p)
 	emit_label (lab);
       return;
@@ -148,7 +149,7 @@ stormy16_emit_cbranch (code, loc)
 	   && (code == NE || code == EQ)
 	   && op1 != const0_rtx)
     {
-      rtx lab;
+      rtx lab = NULL_RTX;
       int num_words = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
       int i;
       
@@ -157,17 +158,17 @@ stormy16_emit_cbranch (code, loc)
       
       for (i = 0; i < num_words - 1; i++)
 	{
-	  stormy16_compare_op0 = simplify_gen_subreg (word_mode, op0, mode, 
+	  xstormy16_compare_op0 = simplify_gen_subreg (word_mode, op0, mode, 
 						      i * UNITS_PER_WORD);
-	  stormy16_compare_op1 = simplify_gen_subreg (word_mode, op1, mode, 
+	  xstormy16_compare_op1 = simplify_gen_subreg (word_mode, op1, mode, 
 						      i * UNITS_PER_WORD);
-	  stormy16_emit_cbranch (NE, code == EQ ? lab : loc);
+	  xstormy16_emit_cbranch (NE, code == EQ ? lab : loc);
 	}
-      stormy16_compare_op0 = simplify_gen_subreg (word_mode, op0, mode, 
+      xstormy16_compare_op0 = simplify_gen_subreg (word_mode, op0, mode, 
 						  i * UNITS_PER_WORD);
-      stormy16_compare_op1 = simplify_gen_subreg (word_mode, op1, mode, 
+      xstormy16_compare_op1 = simplify_gen_subreg (word_mode, op1, mode, 
 						  i * UNITS_PER_WORD);
-      stormy16_emit_cbranch (code, loc);
+      xstormy16_emit_cbranch (code, loc);
 
       if (code == EQ)
 	emit_label (lab);
@@ -212,10 +213,10 @@ stormy16_emit_cbranch (code, loc)
 
 /* Take a SImode conditional branch, one of GT/LE/GTU/LEU, and split
    the arithmetic operation.  Most of the work is done by
-   stormy16_expand_arith.  */
+   xstormy16_expand_arith.  */
 
 void
-stormy16_split_cbranch (mode, label, comparison, dest, carry)
+xstormy16_split_cbranch (mode, label, comparison, dest, carry)
      enum machine_mode mode;
      rtx label;
      rtx comparison;
@@ -228,7 +229,7 @@ stormy16_split_cbranch (mode, label, comparison, dest, carry)
   rtx compare;
   
   start_sequence ();
-  stormy16_expand_arith (mode, COMPARE, dest, op0, op1, carry);
+  xstormy16_expand_arith (mode, COMPARE, dest, op0, op1, carry);
   seq = gen_sequence ();
   end_sequence ();
   compare = SET_SRC (XVECEXP (PATTERN (XVECEXP (seq, 0, XVECLEN (seq, 0) - 1)),
@@ -249,7 +250,7 @@ stormy16_split_cbranch (mode, label, comparison, dest, carry)
    INSN is the insn.  */
 
 char *
-stormy16_output_cbranch_hi (op, label, reversed, insn)
+xstormy16_output_cbranch_hi (op, label, reversed, insn)
      rtx op;
      const char * label;
      int reversed;
@@ -326,7 +327,7 @@ stormy16_output_cbranch_hi (op, label, reversed, insn)
    INSN is the insn.  */
 
 char *
-stormy16_output_cbranch_si (op, label, reversed, insn)
+xstormy16_output_cbranch_si (op, label, reversed, insn)
      rtx op;
      const char * label;
      int reversed;
@@ -440,11 +441,11 @@ stormy16_output_cbranch_si (op, label, reversed, insn)
    registers can only be copied to memory and not to another class of
    registers.  In that case, secondary reload registers are not needed and
    would not be helpful.  Instead, a stack location must be used to perform the
-   copy and the `movM' pattern should use memory as a intermediate storage.
+   copy and the `movM' pattern should use memory as an intermediate storage.
    This case often occurs between floating-point and general registers.  */
 
 enum reg_class
-stormy16_secondary_reload_class (class, mode, x)
+xstormy16_secondary_reload_class (class, mode, x)
      enum reg_class class;
      enum machine_mode mode;
      rtx x;
@@ -460,7 +461,7 @@ stormy16_secondary_reload_class (class, mode, x)
 
   /* When reloading a PLUS, the carry register will be required
      unless the inc or dec instructions can be used.  */
-  if (stormy16_carry_plus_operand (x, mode))
+  if (xstormy16_carry_plus_operand (x, mode))
     return CARRY_REGS;
 
   return NO_REGS;
@@ -468,7 +469,7 @@ stormy16_secondary_reload_class (class, mode, x)
 
 /* Recognise a PLUS that needs the carry register.  */
 int
-stormy16_carry_plus_operand (x, mode)
+xstormy16_carry_plus_operand (x, mode)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
@@ -479,7 +480,7 @@ stormy16_carry_plus_operand (x, mode)
 
 
 enum reg_class
-stormy16_preferred_reload_class (x, class)
+xstormy16_preferred_reload_class (x, class)
      enum reg_class class;
      rtx x;
 {
@@ -501,7 +502,7 @@ stormy16_preferred_reload_class (x, class)
   && (INTVAL (X) + (OFFSET) < 0x100 || INTVAL (X) + (OFFSET) >= 0x7F00))
 
 int
-stormy16_legitimate_address_p (mode, x, strict)
+xstormy16_legitimate_address_p (mode, x, strict)
      enum machine_mode mode ATTRIBUTE_UNUSED;
      rtx x;
      int strict;
@@ -541,7 +542,7 @@ stormy16_legitimate_address_p (mode, x, strict)
    address for DImode or DFmode, or if the address is a post-increment
    or pre-decrement address.  */
 int
-stormy16_mode_dependent_address_p (x)
+xstormy16_mode_dependent_address_p (x)
      rtx x;
 {
   if (LEGITIMATE_ADDRESS_CONST_INT_P (x, 0)
@@ -571,7 +572,7 @@ stormy16_mode_dependent_address_p (x)
    represented by the constraint letter C.  If C is not defined as an extra
    constraint, the value returned should be 0 regardless of VALUE.  */
 int
-stormy16_extra_constraint_p (x, c)
+xstormy16_extra_constraint_p (x, c)
      rtx x;
      int c;
 {
@@ -593,7 +594,7 @@ stormy16_extra_constraint_p (x, c)
     case 'S':
       return (GET_CODE (x) == MEM
 	      && GET_CODE (XEXP (x, 0)) == CONST_INT
-	      && stormy16_legitimate_address_p (VOIDmode, XEXP (x, 0), 0));
+	      && xstormy16_legitimate_address_p (VOIDmode, XEXP (x, 0), 0));
 
       /* 'T' is for Rx.  */
     case 'T':
@@ -621,6 +622,17 @@ short_memory_operand (x, mode)
   return (GET_CODE (XEXP (x, 0)) != PLUS);
 }
 
+int
+nonimmediate_nonstack_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  /* 'Q' is for pushes, 'R' for pops.  */
+  return (nonimmediate_operand (op, mode) 
+	  && ! xstormy16_extra_constraint_p (op, 'Q')
+	  && ! xstormy16_extra_constraint_p (op, 'R'));
+}
+
 /* Splitter for the 'move' patterns, for modes not directly implemeted
    by hardware.  Emit insns to copy a value of mode MODE from SRC to
    DEST.
@@ -629,7 +641,7 @@ short_memory_operand (x, mode)
    */
 
 void 
-stormy16_split_move (mode, dest, src)
+xstormy16_split_move (mode, dest, src)
      enum machine_mode mode;
      rtx dest;
      rtx src;
@@ -641,6 +653,7 @@ stormy16_split_move (mode, dest, src)
   int src_volatile = 0;
   int dest_volatile = 0;
   rtx mem_operand;
+  rtx auto_inc_reg_rtx = NULL_RTX;
   
   /* Check initial conditions.  */
   if (! reload_completed
@@ -673,6 +686,8 @@ stormy16_split_move (mode, dest, src)
     {
       mem_operand = XEXP (dest, 0);
       dest_modifies = side_effects_p (mem_operand);
+      if (auto_inc_p (mem_operand))
+        auto_inc_reg_rtx = XEXP (mem_operand, 0);
       dest_volatile = MEM_VOLATILE_P (dest);
       if (dest_volatile)
 	{
@@ -684,6 +699,8 @@ stormy16_split_move (mode, dest, src)
     {
       mem_operand = XEXP (src, 0);
       src_modifies = side_effects_p (mem_operand);
+      if (auto_inc_p (mem_operand))
+        auto_inc_reg_rtx = XEXP (mem_operand, 0);
       src_volatile = MEM_VOLATILE_P (src);
       if (src_volatile)
 	{
@@ -733,7 +750,8 @@ stormy16_split_move (mode, dest, src)
   end = direction < 0 ? -1 : num_words;
   for (i = direction < 0 ? num_words - 1 : 0; i != end; i += direction)
     {
-      rtx w_src, w_dest;
+      rtx w_src, w_dest, insn;
+
       if (src_modifies)
 	w_src = gen_rtx_MEM (word_mode, mem_operand);
       else
@@ -753,7 +771,11 @@ stormy16_split_move (mode, dest, src)
 	  || GET_CODE (w_dest) == SUBREG)
 	abort ();
       
-      emit_insn (gen_rtx_SET (VOIDmode, w_dest, w_src));
+      insn = emit_insn (gen_rtx_SET (VOIDmode, w_dest, w_src));
+      if (auto_inc_reg_rtx)
+        REG_NOTES (insn) = alloc_EXPR_LIST (REG_INC,
+                                            auto_inc_reg_rtx,
+					    REG_NOTES (insn));
     }
 }
 
@@ -761,7 +783,7 @@ stormy16_split_move (mode, dest, src)
    mode MODE from SRC to DEST.  */
 
 void 
-stormy16_expand_move (mode, dest, src)
+xstormy16_expand_move (mode, dest, src)
      enum machine_mode mode;
      rtx dest;
      rtx src;
@@ -771,7 +793,7 @@ stormy16_expand_move (mode, dest, src)
       && ! reload_completed
       && GET_CODE (dest) == MEM
       && (GET_CODE (XEXP (dest, 0)) != CONST_INT
-	  || ! stormy16_legitimate_address_p (mode, XEXP (dest, 0), 0))
+	  || ! xstormy16_legitimate_address_p (mode, XEXP (dest, 0), 0))
       && GET_CODE (src) != REG
       && GET_CODE (src) != SUBREG)
     src = copy_to_mode_reg (mode, src);
@@ -780,7 +802,7 @@ stormy16_expand_move (mode, dest, src)
   if (reload_completed
       && mode != HImode && mode != QImode)
     {
-      stormy16_split_move (mode, dest, src);
+      xstormy16_split_move (mode, dest, src);
       return;
     }
   
@@ -808,7 +830,7 @@ AP->	Return address (two words)
   instruction.  */
 
 /* A structure to describe the layout.  */
-struct stormy16_stack_layout
+struct xstormy16_stack_layout
 {
   /* Size of the topmost three items on the stack.  */
   int locals_size;
@@ -829,12 +851,12 @@ struct stormy16_stack_layout
        && (regs_ever_live[REGNUM] || ! current_function_is_leaf)))
 
 /* Compute the stack layout.  */
-struct stormy16_stack_layout 
-stormy16_compute_stack_layout ()
+struct xstormy16_stack_layout 
+xstormy16_compute_stack_layout ()
 {
-  struct stormy16_stack_layout layout;
+  struct xstormy16_stack_layout layout;
   int regno;
-  const int ifun = stormy16_interrupt_function_p ();
+  const int ifun = xstormy16_interrupt_function_p ();
 
   layout.locals_size = get_frame_size ();
   
@@ -872,13 +894,13 @@ stormy16_compute_stack_layout ()
 
 /* Determine how all the special registers get eliminated.  */
 int
-stormy16_initial_elimination_offset (from, to)
+xstormy16_initial_elimination_offset (from, to)
      int from, to;
 {
-  struct stormy16_stack_layout layout;
+  struct xstormy16_stack_layout layout;
   int result;
   
-  layout = stormy16_compute_stack_layout ();
+  layout = xstormy16_compute_stack_layout ();
 
   if (from == FRAME_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     result = layout.sp_minus_fp - layout.locals_size;
@@ -919,21 +941,21 @@ emit_addhi3_postreload (dest, src0, src1)
    Also any insns generated here should have RTX_FRAME_RELATED_P(insn) = 1
    so that the debug info generation code can handle them properly.  */
 void
-stormy16_expand_prologue ()
+xstormy16_expand_prologue ()
 {
-  struct stormy16_stack_layout layout;
+  struct xstormy16_stack_layout layout;
   int regno;
   rtx insn;
   rtx mem_push_rtx;
   rtx mem_fake_push_rtx;
-  const int ifun = stormy16_interrupt_function_p ();
+  const int ifun = xstormy16_interrupt_function_p ();
   
   mem_push_rtx = gen_rtx_POST_INC (Pmode, stack_pointer_rtx);
   mem_push_rtx = gen_rtx_MEM (HImode, mem_push_rtx);
   mem_fake_push_rtx = gen_rtx_PRE_INC (Pmode, stack_pointer_rtx);
   mem_fake_push_rtx = gen_rtx_MEM (HImode, mem_fake_push_rtx);
     
-  layout = stormy16_compute_stack_layout ();
+  layout = xstormy16_compute_stack_layout ();
 
   /* Save the argument registers if necessary.  */
   if (layout.stdarg_save_size)
@@ -966,7 +988,7 @@ stormy16_expand_prologue ()
       }
 
   /* It's just possible that the SP here might be what we need for
-     the new FP... */
+     the new FP...  */
   if (frame_pointer_needed && layout.sp_minus_fp == layout.locals_size)
     {
       insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
@@ -1001,11 +1023,11 @@ int
 direct_return ()
 {
   return (reload_completed 
-	  && stormy16_compute_stack_layout ().frame_size == 0);
+	  && xstormy16_compute_stack_layout ().frame_size == 0);
 }
 
 /* Called after register allocation to add any instructions needed for
-   the epilogue.  Using a epilogue insn is favored compared to putting
+   the epilogue.  Using an epilogue insn is favored compared to putting
    all of the instructions in the TARGET_ASM_FUNCTION_PROLOGUE macro,
    since it allows the scheduler to intermix instructions with the
    saves of the caller saved registers.  In some cases, it might be
@@ -1013,17 +1035,17 @@ direct_return ()
    such scheduling.  */
 
 void
-stormy16_expand_epilogue ()
+xstormy16_expand_epilogue ()
 {
-  struct stormy16_stack_layout layout;
+  struct xstormy16_stack_layout layout;
   rtx mem_pop_rtx;
   int regno;
-  const int ifun = stormy16_interrupt_function_p ();
+  const int ifun = xstormy16_interrupt_function_p ();
   
   mem_pop_rtx = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
   mem_pop_rtx = gen_rtx_MEM (HImode, mem_pop_rtx);
   
-  layout = stormy16_compute_stack_layout ();
+  layout = xstormy16_compute_stack_layout ();
 
   /* Pop the stack for the locals.  */
   if (layout.locals_size)
@@ -1053,12 +1075,12 @@ stormy16_expand_epilogue ()
 }
 
 int
-stormy16_epilogue_uses (regno)
+xstormy16_epilogue_uses (regno)
      int regno;
 {
   if (reload_completed && call_used_regs[regno])
     {
-      const int ifun = stormy16_interrupt_function_p ();
+      const int ifun = xstormy16_interrupt_function_p ();
       return REG_NEEDS_SAVE (regno, ifun);
     }
   return 0;
@@ -1073,10 +1095,10 @@ stormy16_epilogue_uses (regno)
    This function need not do anything if the argument in question was
    passed on the stack.  The compiler knows how to track the amount of
    stack space used for arguments without any special help.  However,
-   it makes life easier for stormy16_build_va_list if it does update
+   it makes life easier for xstormy16_build_va_list if it does update
    the word count.  */
 CUMULATIVE_ARGS
-stormy16_function_arg_advance (cum, mode, type, named)
+xstormy16_function_arg_advance (cum, mode, type, named)
      CUMULATIVE_ARGS cum;
      enum machine_mode mode;
      tree type;
@@ -1086,10 +1108,10 @@ stormy16_function_arg_advance (cum, mode, type, named)
      and partially on the stack, the whole of it is passed on the
      stack.  */
   if (cum < NUM_ARGUMENT_REGISTERS
-      && cum + STORMY16_WORD_SIZE (type, mode) > NUM_ARGUMENT_REGISTERS)
+      && cum + XSTORMY16_WORD_SIZE (type, mode) > NUM_ARGUMENT_REGISTERS)
     cum = NUM_ARGUMENT_REGISTERS;
   
-  cum += STORMY16_WORD_SIZE (type, mode);
+  cum += XSTORMY16_WORD_SIZE (type, mode);
   
   return cum;
 }
@@ -1097,7 +1119,7 @@ stormy16_function_arg_advance (cum, mode, type, named)
 /* Do any needed setup for a variadic function.  CUM has not been updated
    for the last named argument which has type TYPE and mode MODE.  */
 void
-stormy16_setup_incoming_varargs (cum, int_mode, type, pretend_size)
+xstormy16_setup_incoming_varargs (cum, int_mode, type, pretend_size)
      CUMULATIVE_ARGS cum ATTRIBUTE_UNUSED;
      int             int_mode ATTRIBUTE_UNUSED;
      tree            type ATTRIBUTE_UNUSED;
@@ -1114,16 +1136,16 @@ stormy16_setup_incoming_varargs (cum, int_mode, type, pretend_size)
    To keep the layout nice, the pointer is first in the structure.  */
 
 tree
-stormy16_build_va_list ()
+xstormy16_build_va_list ()
 {
   tree f_1, f_2, record, type_decl;
 
   record = make_lang_type (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
-  f_2 = build_decl (FIELD_DECL, get_identifier ("base"),
+  f_1 = build_decl (FIELD_DECL, get_identifier ("base"),
 		      ptr_type_node);
-  f_1 = build_decl (FIELD_DECL, get_identifier ("count"), 
+  f_2 = build_decl (FIELD_DECL, get_identifier ("count"), 
 		      unsigned_type_node);
 
   DECL_FIELD_CONTEXT (f_1) = record;
@@ -1144,7 +1166,7 @@ stormy16_build_va_list ()
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  */
 void
-stormy16_expand_builtin_va_start (stdarg_p, valist, nextarg)
+xstormy16_expand_builtin_va_start (stdarg_p, valist, nextarg)
      int stdarg_p ATTRIBUTE_UNUSED;
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
@@ -1153,7 +1175,7 @@ stormy16_expand_builtin_va_start (stdarg_p, valist, nextarg)
   tree base, count;
   tree t;
 
-  if (stormy16_interrupt_function_p ())
+  if (xstormy16_interrupt_function_p ())
     error ("cannot use va_start in interrupt function");
   
   f_base = TYPE_FIELDS (va_list_type_node);
@@ -1176,9 +1198,11 @@ stormy16_expand_builtin_va_start (stdarg_p, valist, nextarg)
 }
 
 /* Implement the stdarg/varargs va_arg macro.  VALIST is the variable
-   of type va_list as a tree, TYPE is the type passed to va_arg.  */
+   of type va_list as a tree, TYPE is the type passed to va_arg.
+   Note:  This algorithm is documented in stormy-abi.  */
+   
 rtx
-stormy16_expand_builtin_va_arg (valist, type)
+xstormy16_expand_builtin_va_arg (valist, type)
      tree valist;
      tree type;
 {
@@ -1187,8 +1211,9 @@ stormy16_expand_builtin_va_arg (valist, type)
   rtx count_rtx, addr_rtx, r;
   rtx lab_gotaddr, lab_fromstack;
   tree t;
-  int size, last_reg_count;
+  int size, size_of_reg_args;
   tree size_tree, count_plus_size;
+  rtx count_plus_size_rtx;
   
   f_base = TYPE_FIELDS (va_list_type_node);
   f_count = TREE_CHAIN (f_base);
@@ -1199,14 +1224,17 @@ stormy16_expand_builtin_va_arg (valist, type)
   size = PUSH_ROUNDING (int_size_in_bytes (type));
   size_tree = round_up (size_in_bytes (type), UNITS_PER_WORD);
   
-  last_reg_count = NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD - size;
+  size_of_reg_args = NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD;
 
   count_rtx = expand_expr (count, NULL_RTX, HImode, EXPAND_NORMAL);
   lab_gotaddr = gen_label_rtx ();
   lab_fromstack = gen_label_rtx ();
   addr_rtx = gen_reg_rtx (Pmode);
-  emit_cmp_and_jump_insns (count_rtx, GEN_INT (last_reg_count),
-			  GTU, const1_rtx, HImode, 1, 1, lab_fromstack);
+
+  count_plus_size = build (PLUS_EXPR, TREE_TYPE (count), count, size_tree);
+  count_plus_size_rtx = expand_expr (count_plus_size, NULL_RTX, HImode, EXPAND_NORMAL);
+  emit_cmp_and_jump_insns (count_plus_size_rtx, GEN_INT (size_of_reg_args),
+			   GTU, const1_rtx, HImode, 1, lab_fromstack);
   
   t = build (PLUS_EXPR, ptr_type_node, base, count);
   r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
@@ -1225,8 +1253,7 @@ stormy16_expand_builtin_va_arg (valist, type)
       rtx lab_notransition = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_rtx, GEN_INT (NUM_ARGUMENT_REGISTERS 
 						   * UNITS_PER_WORD),
-			       GEU, const1_rtx, HImode, 1, 1, 
-			       lab_notransition);
+			       GEU, const1_rtx, HImode, 1, lab_notransition);
       
       t = build (MODIFY_EXPR, TREE_TYPE (count), count, 
 		 build_int_2 (NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD, 0));
@@ -1261,7 +1288,7 @@ stormy16_expand_builtin_va_arg (valist, type)
    the nested function; STATIC_CHAIN is an RTX for the static chain
    value that should be passed to the function when it is called.  */
 void
-stormy16_initialize_trampoline (addr, fnaddr, static_chain)
+xstormy16_initialize_trampoline (addr, fnaddr, static_chain)
      rtx addr;
      rtx fnaddr;
      rtx static_chain;
@@ -1309,7 +1336,7 @@ stormy16_initialize_trampoline (addr, fnaddr, static_chain)
    because these are returned in another way.  See `STRUCT_VALUE_REGNUM' and
    related macros.  */
 rtx
-stormy16_function_value (valtype, func)
+xstormy16_function_value (valtype, func)
      tree valtype;
      tree func ATTRIBUTE_UNUSED;
 {
@@ -1319,10 +1346,55 @@ stormy16_function_value (valtype, func)
   return gen_rtx_REG (mode, RETURN_VALUE_REGNUM);
 }
 
+/* A C compound statement that outputs the assembler code for a thunk function,
+   used to implement C++ virtual function calls with multiple inheritance.  The
+   thunk acts as a wrapper around a virtual function, adjusting the implicit
+   object parameter before handing control off to the real function.
+
+   First, emit code to add the integer DELTA to the location that contains the
+   incoming first argument.  Assume that this argument contains a pointer, and
+   is the one used to pass the `this' pointer in C++.  This is the incoming
+   argument *before* the function prologue, e.g. `%o0' on a sparc.  The
+   addition must preserve the values of all other incoming arguments.
+
+   After the addition, emit code to jump to FUNCTION, which is a
+   `FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
+   the return address.  Hence returning from FUNCTION will return to whoever
+   called the current `thunk'.
+
+   The effect must be as if @var{function} had been called directly
+   with the adjusted first argument.  This macro is responsible for
+   emitting all of the code for a thunk function;
+   TARGET_ASM_FUNCTION_PROLOGUE and TARGET_ASM_FUNCTION_EPILOGUE are
+   not invoked.
+
+   The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
+   extracted from it.)  It might possibly be useful on some targets, but
+   probably not.  */
+
+void
+xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     int delta;
+     tree function;
+{
+  int regnum = FIRST_ARGUMENT_REGISTER;
+  
+  /* There might be a hidden first argument for a returned structure.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    regnum += 1;
+  
+  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (delta) & 0xFFFF);
+  fputs ("\tjmpf ", file);
+  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
+  putc ('\n', file);
+}
+
 /* Mark functions with SYMBOL_REF_FLAG.  */
 
 void
-stormy16_encode_section_info (decl)
+xstormy16_encode_section_info (decl)
      tree decl;
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -1332,12 +1404,12 @@ stormy16_encode_section_info (decl)
 /* Output constructors and destructors.  Just like 
    default_named_section_asm_out_* but don't set the sections writable.  */
 #undef TARGET_ASM_CONSTRUCTOR
-#define TARGET_ASM_CONSTRUCTOR stormy16_asm_out_constructor
+#define TARGET_ASM_CONSTRUCTOR xstormy16_asm_out_constructor
 #undef TARGET_ASM_DESTRUCTOR
-#define TARGET_ASM_DESTRUCTOR stormy16_asm_out_destructor
+#define TARGET_ASM_DESTRUCTOR xstormy16_asm_out_destructor
 
 static void
-stormy16_asm_out_destructor (symbol, priority)
+xstormy16_asm_out_destructor (symbol, priority)
      rtx symbol;
      int priority;
 {
@@ -1361,7 +1433,7 @@ stormy16_asm_out_destructor (symbol, priority)
 }
 
 static void
-stormy16_asm_out_constructor (symbol, priority)
+xstormy16_asm_out_constructor (symbol, priority)
      rtx symbol;
      int priority;
 {
@@ -1386,7 +1458,7 @@ stormy16_asm_out_constructor (symbol, priority)
 
 /* Print a memory address as an operand to reference that memory location.  */
 void
-stormy16_print_operand_address (file, address)
+xstormy16_print_operand_address (file, address)
      FILE * file;
      rtx    address;
 {
@@ -1442,9 +1514,9 @@ stormy16_print_operand_address (file, address)
   fputc (')', file);
 }
 
-/* Print an operand to a assembler instruction.  */
+/* Print an operand to an assembler instruction.  */
 void
-stormy16_print_operand (file, x, code)
+xstormy16_print_operand (file, x, code)
      FILE * file;
      rtx    x;
      int    code;
@@ -1455,7 +1527,8 @@ stormy16_print_operand (file, x, code)
 	/* There is either one bit set, or one bit clear, in X.
 	   Print it preceded by '#'.  */
       {
-	HOST_WIDE_INT xx, l;
+	HOST_WIDE_INT xx = 1;
+	HOST_WIDE_INT l;
 
 	if (GET_CODE (x) == CONST_INT)
 	  xx = INTVAL (x);
@@ -1477,8 +1550,10 @@ stormy16_print_operand (file, x, code)
       /* Print the symbol without a surrounding @fptr().  */
       if (GET_CODE (x) == SYMBOL_REF)
 	assemble_name (file, XSTR (x, 0));
+      else if (GET_CODE (x) == LABEL_REF)
+	output_asm_label (x);
       else
-	stormy16_print_operand_address (file, x);
+	xstormy16_print_operand_address (file, x);
       return;
 
     case 'o':
@@ -1486,7 +1561,7 @@ stormy16_print_operand (file, x, code)
       /* Print the immediate operand less one, preceded by '#'.  
          For 'O', negate it first.  */
       {
-	HOST_WIDE_INT xx;
+	HOST_WIDE_INT xx = 0;
 	
 	if (GET_CODE (x) == CONST_INT)
 	  xx = INTVAL (x);
@@ -1506,7 +1581,7 @@ stormy16_print_operand (file, x, code)
       break;
       
     default:
-      output_operand_lossage ("stormy16_print_operand: unknown code");
+      output_operand_lossage ("xstormy16_print_operand: unknown code");
       return;
     }
 
@@ -1517,7 +1592,7 @@ stormy16_print_operand (file, x, code)
       break;
 
     case MEM:
-      stormy16_print_operand_address (file, XEXP (x, 0));
+      xstormy16_print_operand_address (file, XEXP (x, 0));
       break;
 
     default:
@@ -1543,7 +1618,7 @@ stormy16_print_operand (file, x, code)
 */
 
 void 
-stormy16_expand_casesi (index, lower_bound, range, table, default_label)
+xstormy16_expand_casesi (index, lower_bound, range, table, default_label)
      rtx index;
      rtx lower_bound;
      rtx range;
@@ -1559,10 +1634,10 @@ stormy16_expand_casesi (index, lower_bound, range, table, default_label)
     sorry ("switch statement of size %lu entries too large", 
 	   (unsigned long) range_i);
 
-  index = expand_binop (SImode, sub_optab, index, lower_bound, index, 0,
+  index = expand_binop (SImode, sub_optab, index, lower_bound, NULL_RTX, 0,
 			OPTAB_LIB_WIDEN);
   emit_cmp_and_jump_insns (index, range, GTU, NULL_RTX, SImode, 1,
-			   0, default_label);
+			   default_label);
   int_index = gen_lowpart_common (HImode, index);
   emit_insn (gen_ashlhi3 (int_index, int_index, GEN_INT (2)));
   emit_jump_insn (gen_tablejump_pcrel (int_index, table));
@@ -1577,7 +1652,7 @@ stormy16_expand_casesi (index, lower_bound, range, table, default_label)
    all reach.  */
 
 void
-stormy16_output_addr_vec (file, label, table)
+xstormy16_output_addr_vec (file, label, table)
      FILE *file;
      rtx label ATTRIBUTE_UNUSED;
      rtx table;
@@ -1590,8 +1665,7 @@ stormy16_output_addr_vec (file, label, table)
   for (idx = 0; idx < vlen; idx++)
     {
       fputs ("\tjmpf ", file);
-      stormy16_print_operand_address (file, 
-				      XEXP (XVECEXP (table, 0, idx), 0));
+      output_asm_label (XEXP (XVECEXP (table, 0, idx), 0));
       fputc ('\n', file);
     }
 }
@@ -1608,7 +1682,7 @@ stormy16_output_addr_vec (file, label, table)
 */
 
 void 
-stormy16_expand_call (retval, dest, counter)
+xstormy16_expand_call (retval, dest, counter)
      rtx retval;
      rtx dest;
      rtx counter;
@@ -1655,10 +1729,10 @@ stormy16_expand_call (retval, dest, counter)
    
    using CARRY as a temporary.  When CODE is COMPARE, a branch
    template is generated (this saves duplicating code in
-   stormy16_split_cbranch).  */
+   xstormy16_split_cbranch).  */
 
 void 
-stormy16_expand_arith (mode, code, dest, src0, src1, carry)
+xstormy16_expand_arith (mode, code, dest, src0, src1, carry)
      enum machine_mode mode;
      enum rtx_code code;
      rtx dest;
@@ -1780,7 +1854,7 @@ shift_operator (op, mode)
    SIZE_R will be a CONST_INT, X will be a hard register.  */
 
 const char * 
-stormy16_output_shift (mode, code, x, size_r, temp)
+xstormy16_output_shift (mode, code, x, size_r, temp)
      enum machine_mode mode;
      enum rtx_code code;
      rtx x;
@@ -1802,7 +1876,6 @@ stormy16_output_shift (mode, code, x, size_r, temp)
 
   r0 = reg_names [REGNO (x)];
   r1 = reg_names [REGNO (x) + 1];
-  rt = reg_names [REGNO (temp)];
 
   /* For shifts of size 1, we can use the rotate instructions.  */
   if (size == 1)
@@ -1867,6 +1940,7 @@ stormy16_output_shift (mode, code, x, size_r, temp)
 
   /* For the rest, we have to do more work.  In particular, we
      need a temporary.  */
+  rt = reg_names [REGNO (temp)];
   switch (code)
     {
     case ASHIFT:
@@ -1897,7 +1971,7 @@ stormy16_output_shift (mode, code, x, size_r, temp)
 
 /* Return nonzero if the function is an interrupt function.  */
 int
-stormy16_interrupt_function_p ()
+xstormy16_interrupt_function_p ()
 {
   tree attributes;
   
@@ -1912,19 +1986,19 @@ stormy16_interrupt_function_p ()
 }
 
 #undef TARGET_ATTRIBUTE_TABLE
-#define TARGET_ATTRIBUTE_TABLE stormy16_attribute_table
-static tree stormy16_handle_interrupt_attribute PARAMS ((tree *, tree, tree, int, bool *));
-static const struct attribute_spec stormy16_attribute_table[] =
+#define TARGET_ATTRIBUTE_TABLE xstormy16_attribute_table
+static tree xstormy16_handle_interrupt_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static const struct attribute_spec xstormy16_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "interrupt", 0, 0, false, true,  true,  stormy16_handle_interrupt_attribute },
+  { "interrupt", 0, 0, false, true,  true,  xstormy16_handle_interrupt_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
 /* Handle an "interrupt" attribute;
    arguments as in struct attribute_spec.handler.  */
 static tree
-stormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
+xstormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
      tree *node;
      tree name;
      tree args ATTRIBUTE_UNUSED;
@@ -1941,4 +2015,9 @@ stormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+
 struct gcc_target targetm = TARGET_INITIALIZER;

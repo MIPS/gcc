@@ -1,6 +1,6 @@
 // 'struct hash' from SGI -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,17 +53,20 @@
  *
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file ext/stl_hash_fun.h
+ *  This file is a GNU extension to the Standard C++ Library (possibly
+ *  containing extensions from the HP/SGI STL subset).  You should only
+ *  include this header if you are using GCC 3 or later.
  */
 
 #ifndef _CPP_BITS_STL_HASH_FUN_H
 #define _CPP_BITS_STL_HASH_FUN_H 1
 
-#include <bits/std_cstddef.h>
+#include <cstddef>
 
-namespace std
+namespace __gnu_cxx
 {
+using std::size_t;
 
 template <class _Key> struct hash { };
 
@@ -114,7 +117,7 @@ template<> struct hash<unsigned long> {
   size_t operator()(unsigned long __x) const { return __x; }
 };
 
-} // namespace std
+} // namespace __gnu_cxx
 
 #endif /* _CPP_BITS_STL_HASH_FUN_H */
 

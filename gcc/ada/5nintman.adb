@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1 $                             --
+--                             $Revision: 1.4 $                             --
 --                                                                          --
 --       Copyright (C) 1991-1996, 1998 Free Software Foundation, Inc.       --
 --                                                                          --

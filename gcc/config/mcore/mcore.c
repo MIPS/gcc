@@ -73,7 +73,7 @@ int regno_reg_class[FIRST_PSEUDO_REGISTER] =
 
 /* Provide reg_class from a letter such as appears in the machine
    description.  */
-enum reg_class reg_class_from_letter[] =
+const enum reg_class reg_class_from_letter[] =
 {
   /* a */ LRW_REGS, /* b */ ONLYR1_REGS, /* c */ C_REGS,  /* d */ NO_REGS,
   /* e */ NO_REGS, /* f */ NO_REGS, /* g */ NO_REGS, /* h */ NO_REGS,
@@ -133,13 +133,22 @@ static int        mcore_dllexport_p            PARAMS ((tree));
 static int        mcore_dllimport_p            PARAMS ((tree));
 const struct attribute_spec mcore_attribute_table[];
 static tree       mcore_handle_naked_attribute PARAMS ((tree *, tree, tree, int, bool *));
+#ifdef OBJECT_FORMAT_ELF
 static void	  mcore_asm_named_section      PARAMS ((const char *,
 							unsigned int));
+#endif
 
 /* Initialize the GCC target structure.  */
 #ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #undef TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
+#endif
+
+#ifdef OBJECT_FORMAT_ELF
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.short\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.long\t"
 #endif
 
 #undef TARGET_ATTRIBUTE_TABLE
@@ -717,7 +726,7 @@ try_constant_tricks (value, x, y)
 	    }
 	}
       
-      bit = 0x80000000UL;
+      bit = 0x80000000L;
       
       for (i = 0; i <= 31; i++)
 	{
@@ -884,13 +893,13 @@ int
 mcore_byte_offset (mask)
      unsigned int mask;
 {
-  if (mask == 0x00ffffffUL)
+  if (mask == 0x00ffffffL)
     return 0;
-  else if (mask == 0xff00ffffUL)
+  else if (mask == 0xff00ffffL)
     return 1;
-  else if (mask == 0xffff00ffUL)
+  else if (mask == 0xffff00ffL)
     return 2;
-  else if (mask == 0xffffff00UL)
+  else if (mask == 0xffffff00L)
     return 3;
 
   return -1;
@@ -904,7 +913,7 @@ mcore_halfword_offset (mask)
 {
   if (mask == 0x0000ffffL)
     return 0;
-  else if (mask == 0xffff0000UL)
+  else if (mask == 0xffff0000L)
     return 1;
 
   return -1;
@@ -971,7 +980,7 @@ const char *
 mcore_output_cmov (operands, cmp_t, test)
      rtx operands[];
      int cmp_t;
-     char * test;
+     const char * test;
 {
   int load_value;
   int adjust_value;
@@ -2708,7 +2717,10 @@ emit_new_cond_insn (insn, cond)
       src = SET_SRC (pat);
     }
   else
-    dst = JUMP_LABEL (insn);
+    {
+      dst = JUMP_LABEL (insn);
+      src = NULL_RTX;
+    }
 
   switch (num)
     {
@@ -3068,7 +3080,7 @@ mcore_override_options ()
 	  || (mcore_stack_increment == 0
 	      && (mcore_stack_increment_string[0] != '0'
 		  || mcore_stack_increment_string[1] != 0)))
-	error ("Invalid option `-mstack-increment=%s'",
+	error ("invalid option `-mstack-increment=%s'",
 	       mcore_stack_increment_string);	
     }
   
@@ -3520,7 +3532,7 @@ mcore_unique_section (decl, reloc)
      (everything from the $ on is stripped).  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     prefix = ".text$";
-  /* For compatability with EPOC, we ignore the fact that the
+  /* For compatibility with EPOC, we ignore the fact that the
      section might have relocs against it.  */
   else if (DECL_READONLY_SECTION (decl, 0))
     prefix = ".rdata$";
@@ -3541,6 +3553,7 @@ mcore_naked_function_p ()
   return lookup_attribute ("naked", DECL_ATTRIBUTES (current_function_decl)) != NULL_TREE;
 }
 
+#ifdef OBJECT_FORMAT_ELF
 static void
 mcore_asm_named_section (name, flags)
      const char *name;
@@ -3548,3 +3561,4 @@ mcore_asm_named_section (name, flags)
 {
   fprintf (asm_out_file, "\t.section %s\n", name);
 }
+#endif /* OBJECT_FORMAT_ELF */

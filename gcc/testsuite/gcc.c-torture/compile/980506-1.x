@@ -1,5 +1,9 @@
-# The arrays are too large for the stormy16 - won't fit in 16 bits.
-if { [istarget "stormy16-*-*"] } {
+# The arrays are too large for the xstormy16 - won't fit in 16 bits.
+if { [istarget "xstormy16-*-*"] } {
+        return 1;
+}
+
+if { [istarget "h8300-*-*"] } {
         return 1;
 }
 

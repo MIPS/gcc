@@ -1,3 +1,48 @@
+2002-02-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2002-02-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2002-01-31  Philipp Thomas  <pthomas@suse.de>
+
+	* el.po: New file.
+
+2002-01-29  Philipp Thomas  <pthomas@suse.de>
+
+	* es.po, fr.po, ja.po: Updated to current versions.
+
+2002-01-23  Philipp Thomas  <pthomas@suse.de>
+
+	* tr.po: New file.
+
+2002-01-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.pot: Regenerate - now includes Fortran error messages.
+
+	* exgettext: Merge changes from diffutils.  Scan .def files in
+	addition to .c and .h.  Add --language=c to xgettext command line.
+
+2001-12-05  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* es.po: Update to 3.0 template.
+
+2001-12-05  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* da.po, es.po, fr.po, ja.po: New files.
+
+2001-11-08  Zack Weinberg  <zack@codesourcery.com>
+
+	* exgettext: Deposit new potfile in po subdir.
+
+2001-10-31  Zack Weinberg  <zack@codesourcery.com>
+
+	* EXCLUDES: New file.
+	* exgettext: New helper script; completely rewritten.
+	* Makefile.in.in, POTFILES.in: Delete.
+
 2001-10-12  Zack Weinberg  <zack@codesourcery.com>
 
 	* Makefile.in.in: Upgrade to gettext-0.10.40.

@@ -12,7 +12,7 @@
 @cindex Trees
 @cindex C/C++ Internal Representation
 
-This chapter documents the internal representation used by GCC and C++ to
+This chapter documents the internal representation used by GCC to
 represent C and C++ source programs.  When presented with a C or C++
 source program, GCC parses the program, performs semantic analysis
 (including the generation of error messages), and then produces the
@@ -523,13 +523,32 @@ in the array.
 
 @item RECORD_TYPE
 Used to represent @code{struct} and @code{class} types, as well as
-pointers to member functions.  If @code{TYPE_PTRMEMFUNC_P} holds, then
-this type is a pointer-to-member type.  In that case, the
-@code{TYPE_PTRMEMFUNC_FN_TYPE} is a @code{POINTER_TYPE} pointing to a
-@code{METHOD_TYPE}.  The @code{METHOD_TYPE} is the type of a function
-pointed to by the pointer-to-member function.  If
-@code{TYPE_PTRMEMFUNC_P} does not hold, this type is a class type.  For
-more information, see @pxref{Classes}.
+pointers to member functions and similar constructs in other languages.
+@code{TYPE_FIELDS} contains the items contained in this type, each of
+which can be a @code{FIELD_DECL}, @code{VAR_DECL}, @code{CONST_DECL}, or
+@code{TYPE_DECL}.  You may not make any assumptions about the ordering
+of the fields in the type or whether one or more of them overlap.  If
+@code{TYPE_PTRMEMFUNC_P} holds, then this type is a pointer-to-member
+type.  In that case, the @code{TYPE_PTRMEMFUNC_FN_TYPE} is a
+@code{POINTER_TYPE} pointing to a @code{METHOD_TYPE}.  The
+@code{METHOD_TYPE} is the type of a function pointed to by the
+pointer-to-member function.  If @code{TYPE_PTRMEMFUNC_P} does not hold,
+this type is a class type.  For more information, see @pxref{Classes}.
+
+@item UNION_TYPE
+Used to represent @code{union} types.  Similar to @code{RECORD_TYPE}
+except that all @code{FIELD_DECL} nodes in @code{TYPE_FIELD} start at
+bit position zero.
+
+@item QUAL_UNION_TYPE
+Used to represent part of a variant record in Ada.  Similar to
+@code{UNION_TYPE} except that each @code{FIELD_DECL} has a
+@code{DECL_QUALIFIER} field, which contains a boolean expression that
+indicates whether the field is present in the object.  The type will only
+have one field, so each field's @code{DECL_QUALIFIER} is only evaluated
+if none of the expressions in the previous fields in @code{TYPE_FIELDS}
+are nonzero.  Normally these expressions will reference a field in the
+outer object using a @code{PLACEHOLDER_EXPR}.
 
 @item UNKNOWN_TYPE
 This node is used to represent a type the knowledge of which is
@@ -556,9 +575,6 @@ base-class.
 Used to represent the @code{__typeof__} extension.  The
 @code{TYPE_FIELDS} is the expression the type of which is being
 represented.
-
-@item UNION_TYPE
-Used to represent @code{union} types.  For more information, @pxref{Classes}.
 @end table
 
 There are variables whose values represent some of the basic types.
@@ -1276,8 +1292,11 @@ This predicate holds if the function an overloaded
 @findex FOR_COND
 @findex FOR_EXPR
 @findex FOR_BODY
+@tindex FILE_STMT
+@findex FILE_STMT_FILENAME
 @tindex GOTO_STMT
 @findex GOTO_DESTINATION
+@findex GOTO_FAKE_P
 @tindex HANDLER
 @tindex IF_STMT
 @findex IF_COND
@@ -1498,6 +1517,11 @@ address is never taken.  (All such objects are interchangeable.)  The
 Used to represent an expression statement.  Use @code{EXPR_STMT_EXPR} to
 obtain the expression.
 
+@item FILE_STMT
+
+Used to record a change in filename within the body of a function.
+Use @code{FILE_STMT_FILENAME} to obtain the new filename.
+
 @item FOR_STMT
 
 Used to represent a @code{for} statement.  The @code{FOR_INIT_STMT} is
@@ -1511,11 +1535,13 @@ expressions.
 
 @item GOTO_STMT
 
-Used to represent a @code{goto} statement.  The @code{GOTO_DESTINATION}
-will usually be a @code{LABEL_DECL}.  However, if the ``computed
-goto'' extension has been used, the @code{GOTO_DESTINATION} will be an
-arbitrary expression indicating the destination.  This expression will
-always have pointer type.
+Used to represent a @code{goto} statement.  The @code{GOTO_DESTINATION} will
+usually be a @code{LABEL_DECL}.  However, if the ``computed goto'' extension
+has been used, the @code{GOTO_DESTINATION} will be an arbitrary expression
+indicating the destination.  This expression will always have pointer type.
+Additionally the @code{GOTO_FAKE_P} flag is set whenever the goto statement
+does not come from source code, but it is generated implicitly by the compiler.
+This is used for branch prediction.
 
 @item HANDLER
 
@@ -1605,7 +1631,8 @@ Used to represent a @code{switch} statement.  The @code{SWITCH_COND} is
 the expression on which the switch is occurring.  See the documentation
 for an @code{IF_STMT} for more information on the representation used
 for the condition.  The @code{SWITCH_BODY} is the body of the switch
-statement.
+statement.   The @code{SWITCH_TYPE} is the original type of switch
+expression as given in the source, before any compiler conversions.
 
 @item TRY_BLOCK
 Used to represent a @code{try} block.  The body of the try block is
@@ -1735,6 +1762,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex COND_EXPR
 @tindex CALL_EXPR
 @tindex CONSTRUCTOR
+@tindex COMPOUND_LITERAL_EXPR
 @tindex STMT_EXPR
 @tindex BIND_EXPR
 @tindex LOOP_EXPR
@@ -1855,7 +1883,7 @@ These nodes are used to represent pointer-to-member constants.  The
 or @code{UNION_TYPE} within which the pointer points), and the
 @code{PTRMEM_CST_MEMBER} is the declaration for the pointed to object.
 Note that the @code{DECL_CONTEXT} for the @code{PTRMEM_CST_MEMBER} is in
-general different from from the @code{PTRMEM_CST_CLASS}.  For example,
+general different from the @code{PTRMEM_CST_CLASS}.  For example,
 given:
 @example
 struct B @{ int i; @};
@@ -2197,6 +2225,18 @@ next available array element.
 
 Conceptually, before any initialization is done, the entire area of
 storage is initialized to zero.
+
+@item COMPOUND_LITERAL_EXPR
+@findex COMPOUND_LITERAL_EXPR_DECL_STMT
+@findex COMPOUND_LITERAL_EXPR_DECL
+These nodes represent ISO C99 compound literals.  The
+@code{COMPOUND_LITERAL_EXPR_DECL_STMT} is a @code{DECL_STMT}
+containing an anonymous @code{VAR_DECL} for
+the unnamed object represented by the compound literal; the
+@code{DECL_INITIAL} of that @code{VAR_DECL} is a @code{CONSTRUCTOR}
+representing the brace-enclosed list of initializers in the compound
+literal.  That anonymous @code{VAR_DECL} can also be accessed directly
+by the @code{COMPOUND_LITERAL_EXPR_DECL} macro.
 
 @item SAVE_EXPR
 

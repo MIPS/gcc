@@ -327,8 +327,6 @@ int flag_traditional;
 
 tree java_global_trees[JTI_MAX];
   
-tree predef_filenames[PREDEF_FILENAMES_SIZE];
-
 /* Build (and pushdecl) a "promoted type" for all standard
    types shorter than int.  */
 
@@ -398,7 +396,7 @@ create_primitive_vtable (name)
 }
 
 void
-init_decl_processing ()
+java_init_decl_processing ()
 {
   register tree endlink;
   tree field = NULL_TREE;
@@ -554,20 +552,17 @@ init_decl_processing ()
   rawdata_ptr_type_node
     = promote_type (lookup_class (get_identifier ("gnu.gcj.RawData")));
 
-  /* If you add to this section, don't forget to increase
-     PREDEF_FILENAMES_SIZE.  */
-  predef_filenames [0] = get_identifier ("java/lang/Class.java");
-  predef_filenames [1] = get_identifier ("java/lang/Error.java");
-  predef_filenames [2] = get_identifier ("java/lang/Object.java");
-  predef_filenames [3] = get_identifier ("java/lang/RuntimeException.java");
-  predef_filenames [4] = get_identifier ("java/lang/String.java");
-  predef_filenames [5] = get_identifier ("java/lang/Throwable.java");
-  predef_filenames [6] = get_identifier ("gnu/gcj/RawData.java");
-  predef_filenames [7] = get_identifier ("java/lang/Exception.java");
-  predef_filenames [8] =
-    get_identifier ("java/lang/ClassNotFoundException.java");
-  predef_filenames [9] =
-    get_identifier ("java/lang/NoClassDefFoundError.java");
+  add_predefined_file (get_identifier ("java/lang/Class.java"));
+  add_predefined_file (get_identifier ("java/lang/Error.java"));
+  add_predefined_file (get_identifier ("java/lang/Object.java"));
+  add_predefined_file (get_identifier ("java/lang/RuntimeException.java"));
+  add_predefined_file (get_identifier ("java/lang/String.java"));
+  add_predefined_file (get_identifier ("java/lang/Throwable.java"));
+  add_predefined_file (get_identifier ("gnu/gcj/RawData.java"));
+  add_predefined_file (get_identifier ("java/lang/Exception.java"));
+  add_predefined_file (get_identifier ("java/lang/ClassNotFoundException.java"));
+  add_predefined_file (get_identifier ("java/lang/NoClassDefFoundError.java"));
+  add_predefined_file (get_identifier ("gnu/gcj/RawData.java"));
 
   methodtable_type = make_node (RECORD_TYPE);
   layout_type (methodtable_type);
@@ -577,15 +572,11 @@ init_decl_processing ()
   TYPE_identifier_node = get_identifier ("TYPE");
   init_identifier_node = get_identifier ("<init>");
   clinit_identifier_node = get_identifier ("<clinit>");
-  /* Legacy `$finit$' special method identifier. This needs to be
-     recognized as equivalent to `finit$' but isn't generated anymore.  */
-  finit_leg_identifier_node = get_identifier ("$finit$");
-  /* The new `finit$' special method identifier. This one is now
-     generated in place of `$finit$'.  */
   finit_identifier_node = get_identifier ("finit$");
   instinit_identifier_node = get_identifier ("instinit$");
   void_signature_node = get_identifier ("()V");
   length_identifier_node = get_identifier ("length");
+  finalize_identifier_node = get_identifier ("finalize");
   this_identifier_node = get_identifier ("this");
   super_identifier_node = get_identifier ("super");
   continue_identifier_node = get_identifier ("continue");
@@ -613,6 +604,34 @@ init_decl_processing ()
   dtable_type = make_node (RECORD_TYPE);
   dtable_ptr_type = build_pointer_type (dtable_type);
 
+  one_elt_array_domain_type = build_index_type (integer_one_node);
+  otable_type = build_array_type (integer_type_node, 
+				  one_elt_array_domain_type);
+  otable_ptr_type = build_pointer_type (otable_type);
+
+  method_symbol_type = make_node (RECORD_TYPE);
+  PUSH_FIELD (method_symbol_type, field, "clname", utf8const_ptr_type);
+  PUSH_FIELD (method_symbol_type, field, "name", utf8const_ptr_type);
+  PUSH_FIELD (method_symbol_type, field, "signature", utf8const_ptr_type);
+  FINISH_RECORD (method_symbol_type);
+
+  method_symbols_array_type = build_array_type (method_symbol_type, 
+						one_elt_array_domain_type);
+  method_symbols_array_ptr_type = build_pointer_type 
+				  (method_symbols_array_type);
+
+  otable_decl = build_decl (VAR_DECL, get_identifier ("otable"), otable_type);
+  DECL_EXTERNAL (otable_decl) = 1;
+  TREE_STATIC (otable_decl) = 1;
+  TREE_READONLY (otable_decl) = 1;
+  pushdecl (otable_decl);
+  
+  otable_syms_decl = build_decl (VAR_DECL, get_identifier ("otable_syms"), 
+    method_symbols_array_type);
+  TREE_STATIC (otable_syms_decl) = 1;
+  TREE_CONSTANT (otable_syms_decl) = 1;
+  pushdecl (otable_syms_decl);
+  
   PUSH_FIELD (object_type_node, field, "vtable", dtable_ptr_type);
   /* This isn't exactly true, but it is what we have in the source.
      There is an unresolved issue here, which is whether the vtable
@@ -646,6 +665,9 @@ init_decl_processing ()
   PUSH_FIELD (class_type_node, field, "field_count", short_type_node);
   PUSH_FIELD (class_type_node, field, "static_field_count", short_type_node);
   PUSH_FIELD (class_type_node, field, "vtable", dtable_ptr_type);
+  PUSH_FIELD (class_type_node, field, "otable", otable_ptr_type);
+  PUSH_FIELD (class_type_node, field, "otable_syms", 
+  	      method_symbols_array_ptr_type);
   PUSH_FIELD (class_type_node, field, "interfaces",
 	      build_pointer_type (class_ptr_type));
   PUSH_FIELD (class_type_node, field, "loader", ptr_type_node);
@@ -660,6 +682,7 @@ init_decl_processing ()
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
+
   FINISH_RECORD (class_type_node);
   build_decl (TYPE_DECL, get_identifier ("Class"), class_type_node);
 
@@ -679,7 +702,6 @@ init_decl_processing ()
   FINISH_RECORD (field_type_node);
   build_decl (TYPE_DECL, get_identifier ("Field"), field_type_node);
 
-  one_elt_array_domain_type = build_index_type (integer_one_node);
   nativecode_ptr_array_type_node
     = build_array_type (nativecode_ptr_type_node, one_elt_array_domain_type);
 
@@ -716,6 +738,7 @@ init_decl_processing ()
   PUSH_FIELD (method_type_node, field, "name", utf8const_ptr_type);
   PUSH_FIELD (method_type_node, field, "signature", utf8const_ptr_type);
   PUSH_FIELD (method_type_node, field, "accflags", access_flags_type_node);
+  PUSH_FIELD (method_type_node, field, "index", unsigned_short_type_node);
   PUSH_FIELD (method_type_node, field, "ncode", nativecode_ptr_type_node);
   PUSH_FIELD (method_type_node, field, "throws", ptr_type_node);
   FINISH_RECORD (method_type_node);
@@ -729,6 +752,11 @@ init_decl_processing ()
 					build_function_type (ptr_type_node, t),
 					0, NOT_BUILT_IN, NULL);
   DECL_IS_MALLOC (alloc_object_node) = 1;
+  alloc_no_finalizer_node = 
+    builtin_function ("_Jv_AllocObjectNoFinalizer",
+		      build_function_type (ptr_type_node, t),
+		      0, NOT_BUILT_IN, NULL);
+  DECL_IS_MALLOC (alloc_no_finalizer_node) = 1;
 
   t = tree_cons (NULL_TREE, ptr_type_node, endlink);
   soft_initclass_node = builtin_function ("_Jv_InitClass",
@@ -883,10 +911,10 @@ init_decl_processing ()
   /* Register nodes with the garbage collector.  */
   ggc_add_tree_root (java_global_trees, 
 		     sizeof (java_global_trees) / sizeof (tree));
-  ggc_add_tree_root (predef_filenames,
-		     sizeof (predef_filenames) / sizeof (tree));
   ggc_add_tree_root (&decl_map, 1);
   ggc_add_tree_root (&pending_local_decls, 1);
+
+  initialize_builtins ();
 }
 
 
@@ -1714,12 +1742,9 @@ complete_start_java_method (fndecl)
 	{
 	  tree function_body = DECL_FUNCTION_BODY (fndecl);
 	  tree body = BLOCK_EXPR_BODY (function_body);
-	  lock = build (WITH_CLEANUP_EXPR, void_type_node,
-			enter, exit, NULL_TREE);
-	  TREE_SIDE_EFFECTS (lock) = 1;
-	  lock = build (COMPOUND_EXPR, TREE_TYPE (body), lock, body);
-	  TREE_SIDE_EFFECTS (lock) = 1;
-	  lock = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (body), lock);
+	  lock = build (COMPOUND_EXPR, void_type_node,
+			enter,
+			build (TRY_FINALLY_EXPR, void_type_node, body, exit));
 	  TREE_SIDE_EFFECTS (lock) = 1;
 	  BLOCK_EXPR_BODY (function_body) = lock;
 	}
@@ -1850,7 +1875,7 @@ lang_mark_tree (t)
 	  ggc_mark_tree (ld->inner_access);
 	  ggc_mark_tree_hash_table (&ld->init_test_table);
 	  ggc_mark_tree_hash_table (&ld->ict);
-	  ggc_mark_tree_hash_table (&ld->smic);
+	  ggc_mark_tree (ld->smic);
 	}
     }
   else if (TYPE_P (t))

@@ -1,5 +1,5 @@
-;; STORMY16 Machine description template
-;; Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
+;; XSTORMY16 Machine description template
+;; Copyright (C) 1997, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
 ;; Contributed by Red Hat, Inc.
 
 ;; This file is part of GNU CC.
@@ -72,21 +72,46 @@
 ;; :: Moves
 ;; ::
 ;; ::::::::::::::::::::
+;; push/pop qi and hi are here as separate insns rather than part of
+;; the movqi/hi patterns because we need to ensure that reload isn't
+;; passed anything it can't cope with.  Without these patterns, we
+;; might end up with
+
+;; (set (mem (post_inc (sp))) mem (post_inc (reg)))
+
+;; If, in this example, reg needs reloading, reload will read reg from
+;; the stack , adjust sp, and store reg back at what is now the wrong
+;; offset.  By using separate patterns for push and pop we ensure that
+;; insns like this one are never generated.
+
+(define_insn "pushqi"
+  [(set (mem:QI (post_inc (reg:HI 15)))
+	(match_operand:QI 0 "register_operand" "r"))]
+  ""
+  "push %0"
+  [(set_attr "psw_operand" "nop")
+   (set_attr "length" "2")])
+
+(define_insn "popqi"
+  [(set (match_operand:QI 0 "register_operand" "=r")
+	(mem:QI (pre_dec (reg:HI 15))))]
+  ""
+  "pop %0"
+  [(set_attr "psw_operand" "nop")
+   (set_attr "length" "2")])
 
 (define_expand "movqi"
-  [(set (match_operand:QI 0 "nonimmediate_operand" "")
+  [(set (match_operand:QI 0 "nonimmediate_nonstack_operand" "")
 	(match_operand:QI 1 "general_operand" ""))]
   ""
-  "{ stormy16_expand_move (QImode, operands[0], operands[1]); DONE; }")
+  "{ xstormy16_expand_move (QImode, operands[0], operands[1]); DONE; }")
 
 (define_insn "*movqi_internal"
-  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,Q,r,m,e,e,T,r,S")
-	(match_operand:QI 1 "general_operand"       "r,r,R,e,m,i,i,i,i"))]
+  [(set (match_operand:QI 0 "nonimmediate_nonstack_operand" "=r,m,e,e,T,r,S")
+	(match_operand:QI 1 "general_operand"       "r,e,m,i,i,i,i"))]
   ""
   "@
    mov %0,%1
-   push %1
-   pop %0
    mov.b %0,%1
    mov.b %0,%1
    mov %0,%1
@@ -95,8 +120,6 @@
    mov.b %0,%1"
   [(set_attr_alternative "length" 
 	     [(const_int 2)
-	      (const_int 2)
-	      (const_int 2)
 	      (if_then_else (match_operand:QI 0 "short_memory_operand" "")
 			    (const_int 2)
 			    (const_int 4))
@@ -107,22 +130,36 @@
 	      (const_int 2)
 	      (const_int 4)
 	      (const_int 4)])
-   (set_attr "psw_operand" "0,nop,nop,0,0,0,nop,0,nop")])
+   (set_attr "psw_operand" "0,0,0,0,nop,0,nop")])
+
+(define_insn "pushhi"
+  [(set (mem:HI (post_inc (reg:HI 15)))
+	(match_operand:HI 0 "register_operand" "r"))]
+  ""
+  "push %0"
+  [(set_attr "psw_operand" "nop")
+   (set_attr "length" "2")])
+
+(define_insn "pophi"
+  [(set (match_operand:HI 0 "register_operand" "=r")
+	(mem:HI (pre_dec (reg:HI 15))))]
+  ""
+  "pop %0"
+  [(set_attr "psw_operand" "nop")
+   (set_attr "length" "2")])
 
 (define_expand "movhi"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "")
+  [(set (match_operand:HI 0 "nonimmediate_nonstack_operand" "")
 	(match_operand:HI 1 "general_operand" ""))]
   ""
-  "{ stormy16_expand_move (HImode, operands[0], operands[1]); DONE; }")
+  "{ xstormy16_expand_move (HImode, operands[0], operands[1]); DONE; }")
 
 (define_insn "*movhi_internal"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,Q,r,m,e,e,T,r,S")
-	(match_operand:HI 1 "general_operand"       "r,r,R,e,m,L,L,i,i"))]
+  [(set (match_operand:HI 0 "nonimmediate_nonstack_operand" "=r,m,e,e,T,r,S")
+	(match_operand:HI 1 "general_operand"       "r,e,m,L,L,i,i"))]
   ""
   "@
    mov %0,%1
-   push %1
-   pop %0
    mov.w %0,%1
    mov.w %0,%1
    mov.w %0,%1
@@ -131,8 +168,6 @@
    mov.w %0,%1"
   [(set_attr_alternative "length" 
 	     [(const_int 2)
-	      (const_int 2)
-	      (const_int 2)
 	      (if_then_else (match_operand:QI 0 "short_memory_operand" "")
 			    (const_int 2)
 			    (const_int 4))
@@ -143,13 +178,13 @@
 	      (const_int 2)
 	      (const_int 4)
 	      (const_int 4)])
-   (set_attr "psw_operand" "0,nop,nop,0,0,0,nop,0,nop")])
+   (set_attr "psw_operand" "0,0,0,0,nop,0,nop")])
 
 (define_expand "movsi"
   [(set (match_operand:SI 0 "nonimmediate_operand" "")
 	(match_operand:SI 1 "general_operand" ""))]
   ""
-  "{ stormy16_expand_move (SImode, operands[0], operands[1]); DONE; }")
+  "{ xstormy16_expand_move (SImode, operands[0], operands[1]); DONE; }")
 
 (define_insn_and_split "*movsi_internal"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=r,Q,r,m,e,&e,e,r,S")
@@ -158,7 +193,7 @@
   "#"
   "reload_completed"
   [(pc)]
-  "{ stormy16_split_move (SImode, operands[0], operands[1]); DONE; }"
+  "{ xstormy16_split_move (SImode, operands[0], operands[1]); DONE; }"
   [(set_attr_alternative "length" 
 	     [(const_int 4)
 	      (const_int 4)
@@ -188,6 +223,18 @@
 	(sign_extend:HI (match_operand:QI 1 "register_operand" "0")))]
   ""
   "cbw %0")
+
+(define_insn "zero_extendqihi2"
+  [(set (match_operand:HI                 0 "register_operand" 	   "=e,r")
+	(zero_extend:HI (match_operand:QI 1 "nonimmediate_operand" "m,0")))]
+  ""
+  "@
+   mov.b %0, %1
+   shl %0,#8\n\tshr %0,#8"
+  [(set_attr "psw_operand" "nop,0")
+   (set_attr_alternative "length" 
+	     [(const_int 2)
+	      (const_int 4)])])
 
 
 ;; ::::::::::::::::::::
@@ -250,7 +297,7 @@
 ; shows it how to place the register in RTL to make the addition work.
 (define_expand "reload_inhi"
   [(parallel [(set (match_operand:HI 0 "register_operand" "=r")
-		   (match_operand:HI 1 "stormy16_carry_plus_operand" ""))
+		   (match_operand:HI 1 "xstormy16_carry_plus_operand" ""))
 	      (clobber (match_operand:BI 2 "" "=&y"))])]
   ""
   "if (! rtx_equal_p (operands[0], XEXP (operands[1], 0)))
@@ -501,7 +548,7 @@
   "#"
   "reload_completed"
   [(pc)]
-  "{ stormy16_expand_arith (SImode, PLUS, operands[0], operands[1],
+  "{ xstormy16_expand_arith (SImode, PLUS, operands[0], operands[1],
 			    operands[2], operands[3]); DONE; } "
   [(set_attr "length" "4")])
 
@@ -515,7 +562,7 @@
   "#"
   "reload_completed"
   [(pc)]
-  "{ stormy16_expand_arith (SImode, MINUS, operands[0], operands[1],
+  "{ xstormy16_expand_arith (SImode, MINUS, operands[0], operands[1],
 			    operands[2], operands[3]); DONE; } "
   [(set_attr "length" "4")])
 
@@ -523,7 +570,7 @@
   [(set (match_operand:SI 0 "register_operand" "")
 	(neg:SI (match_operand:SI 1 "register_operand" "")))]
   ""
-  "{ stormy16_expand_arith (SImode, NEG, operands[0], const0_rtx,
+  "{ xstormy16_expand_arith (SImode, NEG, operands[0], const0_rtx,
 			    operands[1], gen_reg_rtx (BImode)); DONE; }")
 
 ;; ::::::::::::::::::::
@@ -573,7 +620,7 @@
    (clobber (match_operand:BI 3 "register_operand" "=y,y"))
    (clobber (match_operand:HI 4 "" "=X,r"))]
   ""
-  "* return stormy16_output_shift (SImode, GET_CODE (operands[5]), 
+  "* return xstormy16_output_shift (SImode, GET_CODE (operands[5]), 
 				   operands[0], operands[2], operands[4]);"
   [(set_attr "length" "6,10")
    (set_attr "psw_operand" "clobber,clobber")])
@@ -596,8 +643,8 @@
   ""
   "
 {
-  stormy16_compare_op0 = operands[0];
-  stormy16_compare_op1 = operands[1];
+  xstormy16_compare_op0 = operands[0];
+  xstormy16_compare_op1 = operands[1];
   DONE;
 }")
 
@@ -610,8 +657,8 @@
   ""
   "
 {
-  stormy16_compare_op0 = operands[0];
-  stormy16_compare_op1 = operands[1];
+  xstormy16_compare_op0 = operands[0];
+  xstormy16_compare_op1 = operands[1];
   DONE;
 }")
 
@@ -625,52 +672,52 @@
 (define_expand "beq"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (EQ, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (EQ, operands[0]); DONE; }")
 
 (define_expand "bne"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (NE, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (NE, operands[0]); DONE; }")
 
 (define_expand "bge"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (GE, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (GE, operands[0]); DONE; }")
 
 (define_expand "bgt"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (GT, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (GT, operands[0]); DONE; }")
 
 (define_expand "ble"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (LE, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (LE, operands[0]); DONE; }")
 
 (define_expand "blt"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (LT, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (LT, operands[0]); DONE; }")
 
 (define_expand "bgeu"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (GEU, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (GEU, operands[0]); DONE; }")
 
 (define_expand "bgtu"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (GTU, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (GTU, operands[0]); DONE; }")
 
 (define_expand "bleu"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (LEU, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (LEU, operands[0]); DONE; }")
 
 (define_expand "bltu"
   [(use (match_operand 0 "" ""))]
   ""
-  "{ stormy16_emit_cbranch (LTU, operands[0]); DONE; }")
+  "{ xstormy16_emit_cbranch (LTU, operands[0]); DONE; }")
 
 
 (define_insn "*cbranchhi"
@@ -686,7 +733,7 @@
   ""
   "*
 {
-  return stormy16_output_cbranch_hi (operands[1], \"%l0\", 0, insn);
+  return xstormy16_output_cbranch_hi (operands[1], \"%l0\", 0, insn);
 }"
   [(set_attr "branch_class" "bcc12")
    (set_attr "psw_operand" "0,0,1")])
@@ -704,7 +751,7 @@
   ""
   "*
 {
-  return stormy16_output_cbranch_hi (operands[1], \"%l0\", 1, insn);
+  return xstormy16_output_cbranch_hi (operands[1], \"%l0\", 1, insn);
 }"
   [(set_attr "branch_class" "bcc12")
    (set_attr "psw_operand" "0,0,1")])
@@ -725,14 +772,14 @@
   ""
   "*
 {
-  return stormy16_output_cbranch_si (operands[1], \"%l0\", 0, insn);
+  return xstormy16_output_cbranch_si (operands[1], \"%l0\", 0, insn);
 }"
   [(set_attr "branch_class" "bcc8p2")
    (set_attr "psw_operand" "clobber")])
 
 (define_insn_and_split "*ineqbranchsi"
   [(set (pc)
-	(if_then_else (match_operator:SI 1 "stormy16_ineqsi_operator"
+	(if_then_else (match_operator:SI 1 "xstormy16_ineqsi_operator"
 				      [(match_operand:SI 2 "register_operand" 
 							 "+r")
 				       (match_operand:SI 3 "nonmemory_operand" 
@@ -753,13 +800,13 @@
   "#"
   "reload_completed"
   [(pc)]
-  "{ stormy16_split_cbranch (SImode, operands[0], operands[1], operands[2],
+  "{ xstormy16_split_cbranch (SImode, operands[0], operands[1], operands[2],
 			     operands[4]); DONE; }"
   [(set_attr "length" "8")])
 
 (define_insn "*ineqbranch_1"
   [(set (pc)
-	(if_then_else (match_operator:HI 5 "stormy16_ineqsi_operator"
+	(if_then_else (match_operator:HI 5 "xstormy16_ineqsi_operator"
 		       [(minus:HI (match_operand:HI 1 "register_operand" 
 						    "T,r,r")
 			   (zero_extend:HI (match_operand:BI 4
@@ -775,7 +822,7 @@
   ""
   "*
 {
-  return stormy16_output_cbranch_si (operands[5], \"%l0\", 0, insn);
+  return xstormy16_output_cbranch_si (operands[5], \"%l0\", 0, insn);
 }"
   [(set_attr "branch_class" "bcc8p2,bcc8p2,bcc8p4")
    (set_attr "psw_operand" "2,2,2")])
@@ -802,7 +849,7 @@
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "immediate_operand" ""))]
   ""
-  "stormy16_expand_call (NULL_RTX, operands[0], operands[1]); DONE;")
+  "xstormy16_expand_call (NULL_RTX, operands[0], operands[1]); DONE;")
 
 ;; Subroutine call instruction returning a value.  Operand 0 is the hard
 ;; register in which the value is returned.  There are three more operands, the
@@ -817,7 +864,7 @@
 	      (match_operand:SI 2 "" "")))
 	(use (match_operand 3 "immediate_operand" ""))]
   ""
-  "stormy16_expand_call (operands[0], operands[1], operands[2]); DONE;")
+  "xstormy16_expand_call (operands[0], operands[1], operands[2]); DONE;")
 
 (define_insn "*call_internal"
   [(call (mem:HI (match_operand:HI 0 "nonmemory_operand" "i,r"))
@@ -867,7 +914,7 @@
   ""
   "*
 {
-  return stormy16_output_cbranch_hi (NULL_RTX, \"%l0\", 0, insn);
+  return xstormy16_output_cbranch_hi (NULL_RTX, \"%l0\", 0, insn);
 }"
   [(set_attr "branch_class" "br12")
    (set_attr "psw_operand" "nop")])
@@ -898,13 +945,14 @@
   ""
   "
 {
-  stormy16_expand_casesi (operands[0], operands[1], operands[2],
+  xstormy16_expand_casesi (operands[0], operands[1], operands[2],
 			  operands[3], operands[4]);
   DONE;
 }")
 
 (define_insn "tablejump_pcrel"
-  [(set (pc) (plus:HI (pc) (match_operand:HI 0 "register_operand" "r")))
+  [(set (pc) (mem:HI (plus:HI (pc) 
+			      (match_operand:HI 0 "register_operand" "r"))))
    (use (label_ref:SI (match_operand 1 "" "")))]
   ""
   "br %0"
@@ -929,12 +977,12 @@
   ""
   "
 {
-  stormy16_expand_prologue ();
+  xstormy16_expand_prologue ();
   DONE;
 }")
 
 ;; Called after register allocation to add any instructions needed for
-;; the epilogue.  Using a epilogue insn is favored compared to putting
+;; the epilogue.  Using an epilogue insn is favored compared to putting
 ;; all of the instructions in the TARGET_ASM_FUNCTION_EPILOGUE macro,
 ;; since it allows the scheduler to intermix instructions with the
 ;; restires of the caller saved registers.  In some cases, it might be
@@ -945,7 +993,7 @@
   ""
   "
 {
-  stormy16_expand_epilogue ();
+  xstormy16_expand_epilogue ();
   DONE;
 }")
 

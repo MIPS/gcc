@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision: 1.33 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.
 --                                                                          --
@@ -149,7 +149,7 @@ procedure XTreeprs is
 begin
    Anchored_Mode := True;
 
-   Match ("$Revision: 1.1 $", "$Rev" & "ision: " & Break (' ') * Treeprsrev);
+   Match ("$Revision: 1.33 $", "$Rev" & "ision: " & Break (' ') * Treeprsrev);
 
    if Argument_Count > 0 then
       Create (OutS, Out_File, Argument (1));

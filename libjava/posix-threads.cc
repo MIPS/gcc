@@ -55,8 +55,9 @@ static pthread_cond_t daemon_cond;
 static int non_daemon_count;
 
 // The signal to use when interrupting a thread.
-#ifdef LINUX_THREADS
+#if defined(LINUX_THREADS) || defined(FREEBSD_THREADS)
   // LinuxThreads (prior to glibc 2.1) usurps both SIGUSR1 and SIGUSR2.
+  // GC on FreeBSD uses both SIGUSR1 and SIGUSR2.
 #  define INTR SIGHUP
 #else /* LINUX_THREADS */
 #  define INTR SIGUSR2
@@ -160,7 +161,7 @@ _Jv_CondWait (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu,
   mu->owner = self;
   mu->count = count;
 
-  // If we were interrupted, or if a timeout occured, remove ourself from
+  // If we were interrupted, or if a timeout occurred, remove ourself from
   // the cv wait list now. (If we were notified normally, notify() will have
   // already taken care of this)
   if (r == ETIMEDOUT || interrupted)

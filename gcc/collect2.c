@@ -1,7 +1,7 @@
 /* Collect static initialization info into data structures that can be
    traversed by C++ initialization and finalization routines.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Chris Smith (csmith@convex.com).
    Heavily modified by Michael Meissner (meissner@cygnus.com),
    Per Bothner (bothner@cygnus.com), and John Gilmore (gnu@cygnus.com).
@@ -154,6 +154,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* This must match tree.h.  */
 #define DEFAULT_INIT_PRIORITY 65535
 
+#ifndef COLLECT_SHARED_INIT_FUNC
+#define COLLECT_SHARED_INIT_FUNC(STREAM, FUNC) \
+  fprintf ((STREAM), "void _GLOBAL__DI() {\n\t%s();\n}\n", (FUNC))
+#endif
+#ifndef COLLECT_SHARED_FINI_FUNC
+#define COLLECT_SHARED_FINI_FUNC(STREAM, FUNC) \
+  fprintf ((STREAM), "void _GLOBAL__DD() {\n\t%s();\n}\n", (FUNC))
+#endif
+
 #if defined (LDD_SUFFIX) || SUNOS4_SHARED_LIBRARIES
 #define SCAN_LIBRARIES
 #endif
@@ -264,7 +273,7 @@ static struct path_prefix cmdline_lib_dirs; /* directories specified with -L */
 static struct path_prefix libpath_lib_dirs; /* directories in LIBPATH */
 static struct path_prefix *libpaths[3] = {&cmdline_lib_dirs,
 					  &libpath_lib_dirs, NULL};
-static const char *const libexts[3] = {"a", "so", NULL};  /* possible library extentions */
+static const char *const libexts[3] = {"a", "so", NULL};  /* possible library extensions */
 #endif
 
 static void handler		PARAMS ((int));
@@ -300,15 +309,18 @@ static void scan_libraries	PARAMS ((const char *));
 static int is_in_args		PARAMS ((const char *, const char **, const char **));
 #endif
 #ifdef COLLECT_EXPORT_LIST
+#if 0
 static int is_in_list		PARAMS ((const char *, struct id *));
+#endif
 static void write_aix_file	PARAMS ((FILE *, struct id *));
 static char *resolve_lib_name	PARAMS ((const char *));
 static int ignore_library	PARAMS ((const char *));
 #endif
 static char *extract_string	PARAMS ((const char **));
 
-#ifdef NO_DUP2
-int
+#ifndef HAVE_DUP2
+static int dup2 PARAMS ((int, int));
+static int
 dup2 (oldfd, newfd)
      int oldfd;
      int newfd;
@@ -327,7 +339,7 @@ dup2 (oldfd, newfd)
 
   return fd;
 }
-#endif
+#endif /* ! HAVE_DUP2 */
 
 /* Delete tempfiles and exit function.  */
 
@@ -502,7 +514,7 @@ dump_file (name)
     {
       int c;
       while (c = getc (stream),
-	     c != EOF && (ISALNUM (c) || c == '_' || c == '$' || c == '.'))
+	     c != EOF && (ISIDNUM (c) || c == '$' || c == '.'))
 	obstack_1grow (&temporary_obstack, c);
       if (obstack_object_size (&temporary_obstack) > 0)
 	{
@@ -520,7 +532,7 @@ dump_file (name)
 	  if (no_demangle)
 	    result = 0;
 	  else
-	    result = cplus_demangle (p, DMGL_PARAMS | DMGL_ANSI);
+	    result = cplus_demangle (p, DMGL_PARAMS | DMGL_ANSI | DMGL_VERBOSE);
 
 	  if (result)
 	    {
@@ -560,11 +572,11 @@ is_ctor_dtor (s)
   struct names { const char *const name; const int len; const int ret;
     const int two_underscores; };
 
-  struct names *p;
+  const struct names *p;
   int ch;
   const char *orig_s = s;
 
-  static struct names special[] = {
+  static const struct names special[] = {
     { "GLOBAL__I_", sizeof ("GLOBAL__I_")-1, 1, 0 },
     { "GLOBAL__D_", sizeof ("GLOBAL__D_")-1, 2, 0 },
     { "GLOBAL__F_", sizeof ("GLOBAL__F_")-1, 5, 0 },
@@ -863,7 +875,7 @@ main (argc, argv)
   putenv (xstrdup ("COLLECT_NO_DEMANGLE="));
 
 #if defined (COLLECT2_HOST_INITIALIZATION)
-  /* Perform system dependent initialization, if neccessary.  */
+  /* Perform system dependent initialization, if necessary.  */
   COLLECT2_HOST_INITIALIZATION;
 #endif
 
@@ -873,18 +885,7 @@ main (argc, argv)
   signal (SIGCHLD, SIG_DFL);
 #endif
 
-/* LC_CTYPE determines the character set used by the terminal so it has be set
-   to output messages correctly.  */
-
-#ifdef HAVE_LC_MESSAGES
-  setlocale (LC_CTYPE, "");
-  setlocale (LC_MESSAGES, "");
-#else
-  setlocale (LC_ALL, "");
-#endif
-
-  (void) bindtextdomain (PACKAGE, localedir);
-  (void) textdomain (PACKAGE);
+  gcc_init_libintl ();
 
   /* Do not invoke xcalloc before this point, since locale needs to be
      set first, in case a diagnostic is issued.  */
@@ -1079,7 +1080,7 @@ main (argc, argv)
 	*c_ptr++ = obstack_copy0 (&permanent_obstack, q, strlen (q));
       if (strcmp (q, "-EL") == 0 || strcmp (q, "-EB") == 0)
 	*c_ptr++ = obstack_copy0 (&permanent_obstack, q, strlen (q));
-      if (strncmp (q, "-shared", sizeof ("-shared") - 1) == 0)
+      if (strcmp (q, "-shared") == 0)
 	shared_obj = 1;
       if (*q == '-' && q[1] == 'B')
 	{
@@ -1603,7 +1604,7 @@ collect_execute (prog, argv, redir)
       dup2 (stdout_save, STDOUT_FILENO);
       dup2 (stderr_save, STDERR_FILENO);
 
-      /* Close reponse file.  */
+      /* Close response file.  */
       close (redir_handle);
     }
 
@@ -1765,6 +1766,7 @@ is_in_args (string, args_begin, args_end)
 
 #ifdef COLLECT_EXPORT_LIST
 /* This function is really used only on AIX, but may be useful.  */
+#if 0
 static int
 is_in_list (prefix, list)
      const char *prefix;
@@ -1778,6 +1780,7 @@ is_in_list (prefix, list)
     return 0;
 }
 #endif
+#endif /* COLLECT_EXPORT_LIST */
 
 /* Added for debugging purpose.  */
 #ifdef COLLECT_EXPORT_LIST
@@ -1950,8 +1953,8 @@ write_c_file_stat (stream, name)
 
   if (shared_obj)
     {
-      fprintf (stream, "void _GLOBAL__DI() {\n\t%s();\n}\n", initname);
-      fprintf (stream, "void _GLOBAL__DD() {\n\t%s();\n}\n", fininame);
+      COLLECT_SHARED_INIT_FUNC(stream, initname);
+      COLLECT_SHARED_FINI_FUNC(stream, fininame);
     }
 }
 
@@ -2903,7 +2906,7 @@ if (debug) fprintf (stderr, "found: %s\n", lib_buf);
   if (debug)
     fprintf (stderr, "not found\n");
   else
-    fatal ("Library lib%s not found", name);
+    fatal ("library lib%s not found", name);
   return (NULL);
 }
 

@@ -209,9 +209,9 @@ main (argc, argv)
   progname = "genattr";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   puts ("/* Generated automatically by the program `genattr'");
@@ -298,7 +298,7 @@ main (argc, argv)
 	    }
 	  else if (unit->multiplicity != multiplicity
 		   || unit->simultaneity != simultaneity)
-	    fatal ("Differing specifications given for `%s' function unit.",
+	    fatal ("Differing specifications given for `%s' function unit",
 		   unit->name);
 
 	  extend_range (&unit->ready_cost, ready_cost, ready_cost);

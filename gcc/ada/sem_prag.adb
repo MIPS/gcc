@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.3 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -7267,6 +7267,7 @@ package body Sem_Prag is
                end if;
 
                Set_Is_Pure (Def_Id);
+               Set_Has_Pragma_Pure_Function (Def_Id);
                E := Homonym (E);
             end loop;
          end Pure_Function;
@@ -8388,7 +8389,6 @@ package body Sem_Prag is
          begin
             GNAT_Pragma;
             Check_Arg_Count (1);
-            Check_Valid_Configuration_Pragma;
             Check_No_Identifiers;
 
             if Nkind (A) = N_String_Literal then

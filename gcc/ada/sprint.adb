@@ -134,7 +134,7 @@ package body Sprint is
    --  called to ensure that the current node has a proper Sloc set.
 
    procedure Write_Discr_Specs (N : Node_Id);
-   --  Ouput discriminant specification for node, which is any of the type
+   --  Output discriminant specification for node, which is any of the type
    --  declarations that can have discriminants.
 
    procedure Write_Ekind (E : Entity_Id);

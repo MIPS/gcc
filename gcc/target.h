@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -52,6 +52,23 @@ struct gcc_target
     /* Opening and closing parentheses for asm expression grouping.  */
     const char *open_paren, *close_paren;
 
+    /* Assembler instructions for creating various kinds of integer object.  */
+    const char *byte_op;
+    struct asm_int_op
+    {
+      const char *hi;
+      const char *si;
+      const char *di;
+      const char *ti;
+    } aligned_op, unaligned_op;
+
+    /* Try to output the assembler code for an integer object whose
+       value is given by X.  SIZE is the size of the object in bytes and
+       ALIGNED_P indicates whether it is aligned.  Return true if
+       successful.  Only handles cases for which BYTE_OP, ALIGNED_OP
+       and UNALIGNED_OP are NULL.  */
+    bool (* integer) PARAMS ((rtx x, unsigned int size, int aligned_p));
+
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -67,6 +84,12 @@ struct gcc_target
     /* Switch to an arbitrary section NAME with attributes as
        specified by FLAGS.  */
     void (* named_section) PARAMS ((const char *, unsigned int));
+
+    /* Switch to the section that holds the exception table.  */
+    void (* exception_section) PARAMS ((void));
+
+    /* Switch to the section that holds the exception frames.  */
+    void (* eh_frame_section) PARAMS ((void));
 
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) PARAMS ((rtx, int));
@@ -180,6 +203,10 @@ struct gcc_target
      can be inlined despite its machine attributes, false otherwise.  */
   bool (* function_attribute_inlinable_p) PARAMS ((tree fndecl));
 
+  /* Return true if bitfields in RECORD_TYPE should follow the
+     Microsoft Visual C++ bitfield layout rules.  */
+  bool (* ms_bitfield_layout_p) PARAMS ((tree record_type));
+
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) PARAMS ((void));
 
@@ -198,6 +225,10 @@ struct gcc_target
   /* True if "native" constructors and destructors are supported,
      false if we're using collect2 for the job.  */
   bool have_ctors_dtors;
+
+  /* True if new jumps cannot be created, to replace existing ones or
+     not, at the current point in the compilation.  */
+  bool (* cannot_modify_jumps_p) PARAMS ((void));
 };
 
 extern struct gcc_target targetm;

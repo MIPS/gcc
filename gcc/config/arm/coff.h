@@ -21,8 +21,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "semi.h"
-#include "aout.h"
 
 /* Note - it is important that this definition matches the one in tcoff.h */
 #undef  USER_LABEL_PREFIX
@@ -115,8 +113,6 @@ rdata_section ()						\
 
 /* Support the ctors/dtors sections for g++.  */
 
-#define INT_ASM_OP "\t.word\t"
-
 /* __CTOR_LIST__ and __DTOR_LIST__ must be defined by the linker script.  */
 #define CTOR_LISTS_DEFINED_EXTERNALLY
 
@@ -126,3 +122,5 @@ rdata_section ()						\
 /* The ARM development system defines __main.  */
 #define NAME__MAIN  "__gccmain"
 #define SYMBOL__MAIN __gccmain
+
+#define SUPPORTS_INIT_PRIORITY 0

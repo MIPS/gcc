@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -33,6 +33,7 @@ with Debug;    use Debug;
 with Elists;
 with Exp_Ch11;
 with Exp_Dbug;
+with Fmap;
 with Fname.UF;
 with Hostparm; use Hostparm;
 with Inline;   use Inline;
@@ -184,6 +185,13 @@ begin
 
    end if;
 
+   --  If there was a -gnatem switch, initialize the mappings of unit names to
+   --  file names and of file names to path names from the mapping file.
+
+   if Mapping_File_Name /= null then
+      Fmap.Initialize (Mapping_File_Name.all);
+   end if;
+
    --  We have now processed the command line switches, and the gnat.adc
    --  file, so this is the point at which we want to capture the values
    --  of the configuration switches (see Opt for further details).
@@ -302,6 +310,7 @@ begin
       --  Output any messages for unreferenced entities
 
       Output_Unreferenced_Messages;
+      Sem_Warn.Check_Unused_Withs;
    end if;
 
    --  Qualify all entity names in inner packages, package bodies, etc.,

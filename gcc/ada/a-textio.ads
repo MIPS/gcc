@@ -344,7 +344,7 @@ private
 
       Self : aliased File_Type;
       --  Set to point to the containing Text_AFCB block. This is used to
-      --  implement the Current_{Error,Input,Ouput} functions which return
+      --  implement the Current_{Error,Input,Output} functions which return
       --  a File_Access, the file access value returned is a pointer to
       --  the Self field of the corresponding file.
 

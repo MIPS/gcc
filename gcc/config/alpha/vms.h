@@ -1,5 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -40,28 +41,6 @@ Boston, MA 02111-1307, USA.  */
 %{mfloat-vax:-D__G_FLOAT} \
 %{!mfloat-vax:-D__IEEE_FLOAT}"
 
-/* Under OSF4, -p and -pg require -lprof1, and -lprof1 requires -lpdf.  */
-
-#define LIB_SPEC "%{p:-lprof1 -lpdf} %{pg:-lprof1 -lpdf} %{a:-lprof2} -lc"
-
-/* Pass "-G 8" to ld because Alpha's CC does.  Pass -O3 if we are
-   optimizing, -O1 if we are not.  Pass -shared, -non_shared or
-   -call_shared as appropriate.  Also pass -pg.  */
-#define LINK_SPEC  \
-  "-G 8 %{O*:-O3} %{!O*:-O1} %{static:-non_shared} \
-   %{!static:%{shared:-shared} %{!shared:-call_shared}} %{pg} %{taso} \
-   %{rpath*}"
-
-/* We allow $'s in identifiers unless -ansi is used .. */
-
-#define DOLLARS_IN_IDENTIFIERS 2
-
-/* These match the definitions used in DECCRTL, the VMS C run-time library
-
-#define SIZE_TYPE	"unsigned int"
-#define PTRDIFF_TYPE	"int"
-*/
-
 /* By default, allow $ to be part of an identifier.  */
 #define DOLLARS_IN_IDENTIFIERS 2
 
@@ -80,14 +59,12 @@ Boston, MA 02111-1307, USA.  */
 #define STRUCT_VALUE 0
 #undef PCC_STATIC_STRUCT_RETURN
 
-/* no floating emulation.  */
-#undef REAL_ARITHMETIC
-
-/* "long" is 32 bits.  */
+/* "long" is 32 bits, but 64 bits for Ada.  */
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 32
+#define ADA_LONG_TYPE_SIZE 64
 
-/* Pointer is 32 bits but the hardware has 64-bit addresses, sign extended. */
+/* Pointer is 32 bits but the hardware has 64-bit addresses, sign extended.  */
 #undef POINTER_SIZE
 #define POINTER_SIZE 32
 #define POINTERS_EXTEND_UNSIGNED 0
@@ -107,6 +84,50 @@ Boston, MA 02111-1307, USA.  */
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
   1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, \
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+
+/* List the order in which to allocate registers.  Each register must be
+   listed once, even those in FIXED_REGISTERS.
+
+   We allocate in the following order:
+   $f1			(nonsaved floating-point register)
+   $f10-$f15		(likewise)
+   $f22-$f30		(likewise)
+   $f21-$f16		(likewise, but input args)
+   $f0			(nonsaved, but return value)
+   $f2-$f9		(saved floating-point registers)
+   $1			(nonsaved integer registers)
+   $22-$25		(likewise)
+   $28			(likewise)
+   $0			(likewise, but return value)
+   $21-$16		(likewise, but input args)
+   $27			(procedure value in OSF, nonsaved in NT)
+   $2-$8		(saved integer registers)
+   $9-$14		(saved integer registers)
+   $26			(return PC)
+   $15			(frame pointer)
+   $29			(global pointer)
+   $30, $31, $f31	(stack pointer and always zero/ap & fp)  */
+
+#undef REG_ALLOC_ORDER
+#define REG_ALLOC_ORDER		\
+  {33,					\
+   42, 43, 44, 45, 46, 47,		\
+   54, 55, 56, 57, 58, 59, 60, 61, 62,	\
+   53, 52, 51, 50, 49, 48,		\
+   32,					\
+   34, 35, 36, 37, 38, 39, 40, 41,	\
+   1,					\
+   22, 23, 24, 25,			\
+   28,					\
+   0,					\
+   21, 20, 19, 18, 17, 16,		\
+   27,					\
+   2, 3, 4, 5, 6, 7, 8,			\
+   9, 10, 11, 12, 13, 14,		\
+   26,					\
+   15,					\
+   29,					\
+   30, 31, 63 }
 
 #undef HARD_FRAME_POINTER_REGNUM
 #define HARD_FRAME_POINTER_REGNUM 29
@@ -128,6 +149,8 @@ Boston, MA 02111-1307, USA.  */
 			     + get_frame_size ()			\
 			     + current_function_pretend_args_size)	\
 		- current_function_pretend_args_size);			\
+  else									\
+    abort();								\
   if ((TO) == STACK_POINTER_REGNUM)					\
     (OFFSET) += ALPHA_ROUND (current_function_outgoing_args_size);	\
 }
@@ -201,7 +224,7 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
    However, if NO registers need to be saved, don't allocate any space.
    This is not only because we won't need the space, but because AP includes
    the current_pretend_args_size and we don't want to mess up any
-   ap-relative addresses already made.   */
+   ap-relative addresses already made.  */
 
 #undef SETUP_INCOMING_VARARGS
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
@@ -218,6 +241,10 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
     }							\
 }
 
+/* ABI has stack checking, but it's broken.  */
+#undef STACK_CHECK_BUILTIN
+#define STACK_CHECK_BUILTIN 0
+
 #undef ASM_FILE_START
 #define ASM_FILE_START(FILE)					\
 {								\
@@ -226,25 +253,6 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
   fprintf (FILE, "\t.set volatile\n");				\
   ASM_OUTPUT_SOURCE_FILENAME (FILE, main_input_filename);	\
 }
-
-#undef ASM_OUTPUT_FLOAT
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t;								\
-	REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
-	fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);		\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);			\
-	fprintf (FILE, "\t.%c_floating %s\n", (TARGET_FLOAT_VAX)?'f':'s', str);	\
-      }									\
-  }
 
 #define LINK_SECTION_ASM_OP "\t.link"
 #define READONLY_SECTION_ASM_OP "\t.rdata"
@@ -329,8 +337,7 @@ do {									\
    The trampoline should set the static chain pointer to value placed
    into the trampoline and should branch to the specified routine.  
    Note that $27 has been set to the address of the trampoline, so we can
-   use it for addressability of the two data items.  Trampolines are always
-   aligned to FUNCTION_BOUNDARY, which is 64 bits.  */
+   use it for addressability of the two data items.  */
 
 #undef TRAMPOLINE_TEMPLATE
 #define TRAMPOLINE_TEMPLATE(FILE)		\
@@ -344,6 +351,11 @@ do {									\
 
 #undef TRAMPOLINE_SIZE
 #define TRAMPOLINE_SIZE    32
+
+/* The alignment of a trampoline, in bits.  */
+
+#undef TRAMPOLINE_ALIGNMENT
+#define TRAMPOLINE_ALIGNMENT  64
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -362,6 +374,60 @@ do {									\
 #undef DBX_DEBUGGING_INFO
 
 #define DWARF2_DEBUGGING_INFO
+#define VMS_DEBUGGING_INFO
+
+#define DWARF2_UNWIND_INFO 1
+
+#undef EH_RETURN_HANDLER_RTX
+#define EH_RETURN_HANDLER_RTX \
+  gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, 8))
+
+#define LINK_EH_SPEC "vms-dwarf2eh.o%s "
+
+#ifdef IN_LIBGCC2
+#include <libicb.h>
+#include <pdscdef.h>
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+ do {									\
+  unsigned long handle;							\
+  PDSCDEF *pv;								\
+  INVO_CONTEXT_BLK invo;						\
+									\
+  memset (&invo, 0, sizeof (INVO_CONTEXT_BLK));				\
+									\
+  invo.libicb$q_ireg [29] = *((long long *) (CONTEXT)->reg [29]);	\
+  invo.libicb$q_ireg [30] = (long long) (CONTEXT)->cfa;			\
+  handle = LIB$GET_INVO_HANDLE (&invo);					\
+  LIB$GET_INVO_CONTEXT (handle, &invo);					\
+  pv = (PDSCDEF *) invo.libicb$ph_procedure_descriptor;			\
+									\
+  if (pv && ((pv->pdsc$w_flags & 0xf) == PDSC$K_KIND_FP_STACK))		\
+    {									\
+      int i, j;								\
+									\
+      (FS)->cfa_offset = pv->pdsc$l_size;				\
+      (FS)->cfa_reg = pv->pdsc$w_flags & PDSC$M_BASE_REG_IS_FP ? 29 : 30; \
+      (FS)->retaddr_column = 26;					\
+      (FS)->cfa_how = CFA_REG_OFFSET;					\
+      (FS)->regs.reg[27].loc.offset = -pv->pdsc$l_size;			\
+      (FS)->regs.reg[27].how = REG_SAVED_OFFSET;			\
+      (FS)->regs.reg[26].loc.offset					\
+	 = -(pv->pdsc$l_size - pv->pdsc$w_rsa_offset);			\
+      (FS)->regs.reg[26].how = REG_SAVED_OFFSET;			\
+									\
+      for (i = 0, j = 0; i < 32; i++)					\
+	if (1<<i & pv->pdsc$l_ireg_mask)				\
+	  {								\
+	    (FS)->regs.reg[i].loc.offset				\
+	      = -(pv->pdsc$l_size - pv->pdsc$w_rsa_offset - 8 * ++j);	\
+	    (FS)->regs.reg[i].how = REG_SAVED_OFFSET;			\
+	  }								\
+									\
+      goto SUCCESS;							\
+    }									\
+} while (0)
+#endif
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -384,7 +450,7 @@ do {									\
   } while (0)
 
 #undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+#define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
 
 #undef ASM_FORMAT_PRIVATE_NAME
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
@@ -396,10 +462,38 @@ do {									\
 
 #undef ASM_SPEC
 #undef ASM_FINAL_SPEC
+
+/* The VMS convention is to always provide minimal debug info
+   for a traceback unless specifically overridden.  Defaulting this here
+   is a kludge.  */
+
+#define OPTIMIZATION_OPTIONS(OPTIMIZE, OPTIMIZE_SIZE) \
+{                                                  \
+   write_symbols = VMS_DEBUG;                      \
+   debug_info_level = (enum debug_info_level) 1;   \
+}
+
+/* Override traceback debug info on -g0.  */
+#undef OVERRIDE_OPTIONS
+#define OVERRIDE_OPTIONS                           \
+{                                                  \
+   if (write_symbols == NO_DEBUG)                  \
+     debug_info_level = (enum debug_info_level) 0; \
+   override_options ();                            \
+}
+
+/* Link with vms-dwarf2.o if -g (except -g0). This causes the
+   VMS link to pull all the dwarf2 debug sections together. */
 #undef LINK_SPEC
+#define LINK_SPEC "%{g:-g vms-dwarf2.o%s} %{g0} %{g1:-g1 vms-dwarf2.o%s} \
+%{g2:-g2 vms-dwarf2.o%s} %{g3:-g3 vms-dwarf2.o%s} %{shared} %{v} %{map}"
+
 #undef STARTFILE_SPEC
-#define ASM_SPEC "-nocpp %{pg}"
-#define LINK_SPEC "%{g3:-g3} %{g0:-g0} %{shared:-shared} %{v:-v}"
+#define STARTFILE_SPEC "%{!shared:%{mvms-return-codes:vcrt0.o%s} \
+%{!mvms-return-codes:pcrt0.o%s}}"
+
+#undef LIB_SPEC
+#define LIB_SPEC "-lc"
 
 /* Define the names of the division and modulus functions.  */
 #define DIVSI3_LIBCALL "OTS$DIV_I"
@@ -411,9 +505,14 @@ do {									\
 #define UMODSI3_LIBCALL "OTS$REM_UI"
 #define UMODDI3_LIBCALL "OTS$REM_UL"
 
-#define DIR_SEPARATOR ']'
+#define NAME__MAIN "__gccmain"
+#define SYMBOL__MAIN __gccmain
 
-#define PREFIX "GNU_ROOT:"
-
-/* XXX Really? Even with modern CRTL? */
-#define NEED_ATEXIT
+/* Specify the list of include file directories.  */
+#define INCLUDE_DEFAULTS		\
+{					\
+  { "/gnu_gxx_include", 0, 1, 1 },	\
+  { "/gnu_cc_include", 0, 0, 0 },	\
+  { "/gnu/include", 0, 0, 0 },	        \
+  { 0, 0, 0, 0 }			\
+}

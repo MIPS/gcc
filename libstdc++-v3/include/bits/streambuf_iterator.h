@@ -1,6 +1,6 @@
 // Streambuf iterators
 
-// Copyright (C) 1997-2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,6 +28,11 @@
 // the GNU General Public License.
 
 // XXX Should specialize copy, find algorithms for streambuf iterators.
+
+/** @file streambuf_iterator.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
 
 #ifndef _CPP_BITS_STREAMBUF_ITERATOR_H
 #define _CPP_BITS_STREAMBUF_ITERATOR_H 1
@@ -166,8 +171,7 @@ namespace std
       { 
 	int_type __eof = traits_type::eof();
 	bool __thiseof = !_M_sbuf || _M_sbuf->sgetc() == __eof;
-	bool __beof = !__b._M_sbuf 
-	  	      || __b._M_sbuf->sgetc() == __eof;
+	bool __beof = !__b._M_sbuf || __b._M_sbuf->sgetc() == __eof;
 	return (__thiseof && __beof || (!__thiseof && !__beof));
       }
 
@@ -179,8 +183,7 @@ namespace std
       {
 	int_type __eof = traits_type::eof();
 	bool __thiseof = !_M_sbuf || _M_sbuf->sgetc() == __eof;
-	bool __beof = !__b._M_sbuf 
-	  	      || __b._M_sbuf->sgetc() == __eof;
+	bool __beof = !__b._M_sbuf || __b._M_sbuf->sgetc() == __eof;
 	return (__thiseof && __beof || (!__thiseof && !__beof));
       }
 #endif

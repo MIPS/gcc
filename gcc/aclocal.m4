@@ -75,27 +75,6 @@ if test x = y ; then
 fi
 ])
 
-dnl Check if we have vprintf and possibly _doprnt.
-dnl Note autoconf checks for vprintf even though we care about vfprintf.
-AC_DEFUN(gcc_AC_FUNC_VFPRINTF_DOPRNT,
-[AC_FUNC_VPRINTF
-vfprintf=
-doprint=
-if test $ac_cv_func_vprintf != yes ; then
-  vfprintf=vfprintf.o
-  if test $ac_cv_func__doprnt != yes ; then
-    doprint=doprint.o
-  fi
-fi
-AC_SUBST(vfprintf)
-AC_SUBST(doprint)
-])    
-
-dnl Check if we have strstr.
-AC_DEFUN([gcc_AC_FUNC_STRSTR],
-  [AC_CHECK_FUNCS([strstr], [strstr=], [strstr=strstr.o])
-   AC_SUBST([strstr])])
-
 dnl See if the printf functions in libc support %p in format strings.
 AC_DEFUN(gcc_AC_FUNC_PRINTF_PTR,
 [AC_CACHE_CHECK(whether the printf functions support %p,
@@ -342,7 +321,7 @@ for cand in ${ac_tool_prefix}$user_adac	$user_adac	\
   # has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
   # Therefore we must check for the error message as well as an
   # unsuccessful exit.
-  errors=`$cand -c conftest.adb 2>&1 || echo failure`
+  errors=`($cand -c conftest.adb) 2>&1 || echo failure`
   if test x"$errors" = x; then
     gcc_cv_prog_adac=$cand
     break
@@ -1122,11 +1101,12 @@ AC_DEFUN([AM_ICONV],
   dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
   dnl those with the standalone portable GNU libiconv installed).
 
+  am_cv_lib_iconv_ldpath=
   AC_ARG_WITH([libiconv-prefix],
 [  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [
     for dir in `echo "$withval" | tr : ' '`; do
       if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
-      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
+      if test -d $dir/lib; then am_cv_lib_iconv_ldpath="-L$dir/lib"; fi
     done
    ])
 
@@ -1141,7 +1121,7 @@ AC_DEFUN([AM_ICONV],
       am_cv_func_iconv=yes)
     if test "$am_cv_func_iconv" != yes; then
       am_save_LIBS="$LIBS"
-      LIBS="$LIBS -liconv"
+      LIBS="$LIBS $am_cv_libiconv_ldpath -liconv"
       AC_TRY_LINK([#include <stdlib.h>
 #include <iconv.h>],
         [iconv_t cd = iconv_open("","");
@@ -1178,7 +1158,7 @@ size_t iconv();
   fi
   LIBICONV=
   if test "$am_cv_lib_iconv" = yes; then
-    LIBICONV="-liconv"
+    LIBICONV="$am_cv_lib_iconv_ldpath -liconv"
   fi
   AC_SUBST(LIBICONV)
 ])
@@ -1381,7 +1361,9 @@ AC_DEFUN([AM_WITH_NLS],
 
     BUILD_INCLUDED_LIBINTL=no
     USE_INCLUDED_LIBINTL=no
+dnl GCC LOCAL: Separate concept of link command line from dependencies.
     INTLLIBS=
+    INTLDEPS=
 
     dnl If we use NLS figure out what method
     if test "$USE_NLS" = "yes"; then
@@ -1406,8 +1388,11 @@ AC_DEFUN([AM_WITH_NLS],
         define(gt_cv_func_gnugettext_libc, [gt_cv_func_gnugettext]ifelse([$2], need-ngettext, 2, 1)[_libc])
         define(gt_cv_func_gnugettext_libintl, [gt_cv_func_gnugettext]ifelse([$2], need-ngettext, 2, 1)[_libintl])
 
+dnl GCC LOCAL: Expose presence of libintl.h to C code.
 	AC_CHECK_HEADER(libintl.h,
-	  [AC_CACHE_CHECK([for GNU gettext in libc], gt_cv_func_gnugettext_libc,
+	  [AC_DEFINE([HAVE_LIBINTL_H], 1,
+		[Define if you have the <libintl.h> header file.])
+           AC_CACHE_CHECK([for GNU gettext in libc], gt_cv_func_gnugettext_libc,
 	    [AC_TRY_LINK([#include <libintl.h>
 extern int _nl_msg_cat_cntr;],
 	       [bindtextdomain ("", "");
@@ -1484,6 +1469,7 @@ return (int) gettext ("")]ifelse([$2], need-ngettext, [ + (int) ngettext ("", ""
 	USE_INCLUDED_LIBINTL=yes
         CATOBJEXT=.gmo
 	INTLLIBS="ifelse([$3],[],\$(top_builddir)/intl,[$3])/libintl.ifelse([$1], use-libtool, [l], [])a $LIBICONV"
+	INTLDEPS="ifelse([$3],[],\$(top_builddir)/intl,[$3])/libintl.ifelse([$1], use-libtool, [l], [])a"
 	LIBS=`echo " $LIBS " | sed -e 's/ -lintl / /' -e 's/^ //' -e 's/ $//'`
       fi
 
@@ -1587,24 +1573,23 @@ changequote([,])dnl
       INTLBISON=:
     fi
 
-    dnl These rules are solely for the distribution goal.  While doing this
-    dnl we only have to keep exactly one list of the available catalogs
-    dnl in configure.in.
-    for lang in $ALL_LINGUAS; do
-      GMOFILES="$GMOFILES $lang.gmo"
-      POFILES="$POFILES $lang.po"
-    done
+    dnl GCC LOCAL: GMOFILES/POFILES removed as unnecessary.
 
     dnl Make all variables we use known to autoconf.
     AC_SUBST(BUILD_INCLUDED_LIBINTL)
     AC_SUBST(USE_INCLUDED_LIBINTL)
     AC_SUBST(CATALOGS)
     AC_SUBST(CATOBJEXT)
-    AC_SUBST(GMOFILES)
     AC_SUBST(INTLLIBS)
+    AC_SUBST(INTLDEPS)
     AC_SUBST(INTLOBJS)
-    AC_SUBST(POFILES)
     AC_SUBST(POSUB)
+dnl GCC LOCAL: Make USE_INCLUDED_LIBINTL visible to C code.
+    if test $USE_INCLUDED_LIBINTL = yes; then
+      AC_DEFINE([USE_INCLUDED_LIBINTL], 1,
+  [Define to use the libintl included with this package instead of any
+   version in the system libraries.])
+    fi
 
     dnl For backward compatibility. Some configure.ins may be using this.
     nls_cv_header_intl=
@@ -1651,36 +1636,42 @@ strdup strtoul tsearch __argz_count __argz_stringify __argz_next])
    AM_LC_MESSAGES
    AM_WITH_NLS([$1],[$2],[$3])
 
-   if test "x$CATOBJEXT" != "x"; then
-     if test "x$ALL_LINGUAS" = "x"; then
-       LINGUAS=
-     else
-       AC_MSG_CHECKING(for catalogs to be installed)
-       NEW_LINGUAS=
-       for presentlang in $ALL_LINGUAS; do
-         useit=no
-         for desiredlang in ${LINGUAS-$ALL_LINGUAS}; do
-           # Use the presentlang catalog if desiredlang is
-           #   a. equal to presentlang, or
-           #   b. a variant of presentlang (because in this case,
-           #      presentlang can be used as a fallback for messages
-           #      which are not translated in the desiredlang catalog).
-           case "$desiredlang" in
-             "$presentlang"*) useit=yes;;
-           esac
-         done
-         if test $useit = yes; then
-           NEW_LINGUAS="$NEW_LINGUAS $presentlang"
-         fi
-       done
-       LINGUAS=$NEW_LINGUAS
-       AC_MSG_RESULT($LINGUAS)
-     fi
-
-     dnl Construct list of names of catalog files to be constructed.
-     if test -n "$LINGUAS"; then
-       for lang in $LINGUAS; do CATALOGS="$CATALOGS $lang$CATOBJEXT"; done
-     fi
+   dnl GCC LOCAL: The LINGUAS/ALL_LINGUAS/CATALOGS mess that was here
+   dnl has been torn out and replaced with this more sensible scheme.
+   if test "x$CATOBJEXT" != x; then
+     AC_MSG_CHECKING(for catalogs to be installed)
+     # Look for .po and .gmo files in the source directory.
+     CATALOGS=
+     XLINGUAS=
+     for cat in $srcdir/po/*$CATOBJEXT $srcdir/po/*.po; do
+	# If there aren't any .gmo files the shell will give us the
+	# literal string "../path/to/srcdir/po/*.gmo" which has to be
+	# weeded out.
+	case "$cat" in *\**)
+	    continue;;
+	esac
+	# The quadruple backslash is collapsed to a double backslash
+	# by the backticks, then collapsed again by the double quotes,
+	# leaving us with one backslash in the sed expression (right
+	# before the dot that mustn't act as a wildcard).  The dot to
+	# be escaped in the second expression is hiding inside CATOBJEXT.
+	cat=`echo $cat | sed -e "s!$srcdir/!!" -e "s!\\\\.po!$CATOBJEXT!"`
+	lang=`echo $cat | sed -e 's!po/!!' -e "s!\\\\$CATOBJEXT!!"`
+	# The user is allowed to set LINGUAS to a list of languages to
+	# install catalogs for.  If it's empty that means "all of them."
+	if test "x$LINGUAS" = x; then
+	    CATALOGS="$CATALOGS $cat"
+	    XLINGUAS="$XLINGUAS $lang"
+	else
+	  case "$LINGUAS" in *$lang*)
+	    CATALOGS="$CATALOGS $cat"
+	    XLINGUAS="$XLINGUAS $lang"
+	    ;;
+	  esac
+	fi
+     done
+     LINGUAS="$XLINGUAS"
+     AC_MSG_RESULT($LINGUAS)
    fi
 
    dnl If the AC_CONFIG_AUX_DIR macro for autoconf is used we possibly

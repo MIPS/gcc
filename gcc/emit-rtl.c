@@ -1,6 +1,6 @@
 /* Emit RTL for the GNU C-Compiler expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "ggc.h"
 #include "debug.h"
+#include "langhooks.h"
 
 /* Commonly used modes.  */
 
@@ -178,6 +179,8 @@ static rtx make_jump_insn_raw		PARAMS ((rtx));
 static rtx make_call_insn_raw		PARAMS ((rtx));
 static rtx find_line_note		PARAMS ((rtx));
 static void mark_sequence_stack         PARAMS ((struct sequence_stack *));
+static rtx change_address_1		PARAMS ((rtx, enum machine_mode, rtx,
+						 int));
 static void unshare_all_rtl_1		PARAMS ((rtx));
 static void unshare_all_decls		PARAMS ((tree));
 static void reset_used_decls		PARAMS ((tree));
@@ -190,7 +193,9 @@ static int mem_attrs_htab_eq            PARAMS ((const void *,
 						 const void *));
 static void mem_attrs_mark		PARAMS ((const void *));
 static mem_attrs *get_mem_attrs		PARAMS ((HOST_WIDE_INT, tree, rtx,
-						 rtx, unsigned int));
+						 rtx, unsigned int,
+						 enum machine_mode));
+static tree component_ref_for_mem_expr	PARAMS ((tree));
 
 /* Probability of the conditional branch currently proceeded by try_split.
    Set to -1 otherwise.  */
@@ -228,7 +233,7 @@ mem_attrs_htab_hash (x)
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
 	  ^ ((p->size ? INTVAL (p->size) : 0) * 2500000)
-	  ^ (long) p->decl);
+	  ^ (size_t) p->expr);
 }
 
 /* Returns non-zero if the value represented by X (which is really a
@@ -243,7 +248,7 @@ mem_attrs_htab_eq (x, y)
   mem_attrs *p = (mem_attrs *) x;
   mem_attrs *q = (mem_attrs *) y;
 
-  return (p->alias == q->alias && p->decl == q->decl && p->offset == q->offset
+  return (p->alias == q->alias && p->expr == q->expr && p->offset == q->offset
 	  && p->size == q->size && p->align == q->align);
 }
 
@@ -256,8 +261,8 @@ mem_attrs_mark (x)
 {
   mem_attrs *p = (mem_attrs *) x;
 
-  if (p->decl)
-    ggc_mark_tree (p->decl);
+  if (p->expr)
+    ggc_mark_tree (p->expr);
 
   if (p->offset)
     ggc_mark_rtx (p->offset);
@@ -267,21 +272,32 @@ mem_attrs_mark (x)
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
-   one identical to it is not already in the table.  */
+   one identical to it is not already in the table.  We are doing this for
+   MEM of mode MODE.  */
 
 static mem_attrs *
-get_mem_attrs (alias, decl, offset, size, align)
+get_mem_attrs (alias, expr, offset, size, align, mode)
      HOST_WIDE_INT alias;
-     tree decl;
+     tree expr;
      rtx offset;
      rtx size;
      unsigned int align;
+     enum machine_mode mode;
 {
   mem_attrs attrs;
   void **slot;
 
+  /* If everything is the default, we can just return zero.  */
+  if (alias == 0 && expr == 0 && offset == 0
+      && (size == 0
+	  || (mode != BLKmode && GET_MODE_SIZE (mode) == INTVAL (size)))
+      && (align == BITS_PER_UNIT
+	  || (STRICT_ALIGNMENT
+	      && mode != BLKmode && align == GET_MODE_ALIGNMENT (mode))))
+    return 0;
+
   attrs.alias = alias;
-  attrs.decl = decl;
+  attrs.expr = expr;
   attrs.offset = offset;
   attrs.size = size;
   attrs.align = align;
@@ -342,21 +358,19 @@ gen_rtx_CONST_INT (mode, arg)
    only at run-time.  */
 
 rtx
-gen_rtx_CONST_DOUBLE (mode, arg0, arg1, arg2)
+gen_rtx_CONST_DOUBLE (mode, arg0, arg1)
      enum machine_mode mode;
-     rtx arg0;
-     HOST_WIDE_INT arg1, arg2;
+     HOST_WIDE_INT arg0, arg1;
 {
   rtx r = rtx_alloc (CONST_DOUBLE);
   int i;
 
   PUT_MODE (r, mode);
-  XEXP (r, 0) = arg0;
-  X0EXP (r, 1) = NULL_RTX;
+  X0EXP (r, 0) = NULL_RTX;
+  XWINT (r, 1) = arg0;
   XWINT (r, 2) = arg1;
-  XWINT (r, 3) = arg2;
 
-  for (i = GET_RTX_LENGTH (CONST_DOUBLE) - 1; i > 3; --i)
+  for (i = GET_RTX_LENGTH (CONST_DOUBLE) - 1; i > 2; --i)
     XWINT (r, i) = 0;
 
   return r;
@@ -397,6 +411,9 @@ gen_rtx_REG (mode, regno)
       if (regno == RETURN_ADDRESS_POINTER_REGNUM)
 	return return_address_pointer_rtx;
 #endif
+      if (regno == PIC_OFFSET_TABLE_REGNUM
+	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+        return pic_offset_table_rtx;
       if (regno == STACK_POINTER_REGNUM)
 	return stack_pointer_rtx;
     }
@@ -503,10 +520,10 @@ gen_rtx VPARAMS ((enum rtx_code code, enum machine_mode mode, ...))
 
     case CONST_DOUBLE:
       {
-	rtx arg0 = va_arg (p, rtx);
+	HOST_WIDE_INT arg0 = va_arg (p, HOST_WIDE_INT);
 	HOST_WIDE_INT arg1 = va_arg (p, HOST_WIDE_INT);
-	HOST_WIDE_INT arg2 = va_arg (p, HOST_WIDE_INT);
-        rt_val = gen_rtx_CONST_DOUBLE (mode, arg0, arg1, arg2);
+
+        rt_val = gen_rtx_CONST_DOUBLE (mode, arg0, arg1);
       }
       break;
 
@@ -657,14 +674,16 @@ gen_reg_rtx (mode)
       return gen_rtx_CONCAT (mode, realpart, imagpart);
     }
 
-  /* Make sure regno_pointer_align and regno_reg_rtx are large enough
-     to have an element for this pseudo reg number.  */
+  /* Make sure regno_pointer_align, regno_decl, and regno_reg_rtx are large
+     enough to have an element for this pseudo reg number.  */
 
   if (reg_rtx_no == f->emit->regno_pointer_align_length)
     {
       int old_size = f->emit->regno_pointer_align_length;
-      rtx *new1;
       char *new;
+      rtx *new1;
+      tree *new2;
+
       new = xrealloc (f->emit->regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
       f->emit->regno_pointer_align = (unsigned char *) new;
@@ -673,6 +692,11 @@ gen_reg_rtx (mode)
 			       old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
+
+      new2 = (tree *) xrealloc (f->emit->regno_decl,
+				old_size * 2 * sizeof (tree));
+      memset (new2 + old_size, 0, old_size * sizeof (tree));
+      f->emit->regno_decl = new2;
 
       f->emit->regno_pointer_align_length = old_size * 2;
     }
@@ -899,13 +923,11 @@ gen_lowpart_common (mode, x)
 	low = INTVAL (x), high = low >> (HOST_BITS_PER_WIDE_INT -1);
       else
 	low = CONST_DOUBLE_LOW (x), high = CONST_DOUBLE_HIGH (x);
-
 #ifdef HOST_WORDS_BIG_ENDIAN
       u.i[0] = high, u.i[1] = low;
 #else
       u.i[0] = low, u.i[1] = high;
 #endif
-
       return CONST_DOUBLE_FROM_REAL_VALUE (u.d, mode);
     }
 
@@ -989,12 +1011,16 @@ gen_lowpart_common (mode, x)
 	  high = CONST_DOUBLE_HIGH (x);
 	}
 
+#if HOST_BITS_PER_WIDE_INT == 32
       /* REAL_VALUE_TARGET_DOUBLE takes the addressing order of the
 	 target machine.  */
       if (WORDS_BIG_ENDIAN)
 	i[0] = high, i[1] = low;
       else
 	i[0] = low, i[1] = high;
+#else
+      i[0] = low;
+#endif
 
       r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
@@ -1008,19 +1034,25 @@ gen_lowpart_common (mode, x)
       long i[4];  /* Only the low 32 bits of each 'long' are used.  */
       int endian = WORDS_BIG_ENDIAN ? 1 : 0;
 
+      /* Convert 'r' into an array of four 32-bit words in target word
+         order.  */
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
       switch (GET_MODE_BITSIZE (GET_MODE (x)))
 	{
 	case 32:
-	  REAL_VALUE_TO_TARGET_SINGLE (r, i[endian]);
-	  i[1 - endian] = 0;
-	  break;
+          REAL_VALUE_TO_TARGET_SINGLE (r, i[3 * endian]);
+	  i[1] = 0;
+	  i[2] = 0;
+          i[3 - 3 * endian] = 0;
+          break;
 	case 64:
-	  REAL_VALUE_TO_TARGET_DOUBLE (r, i);
-	  break;
+          REAL_VALUE_TO_TARGET_DOUBLE (r, i + 2 * endian);
+	  i[2 - 2 * endian] = 0;
+	  i[3 - 2 * endian] = 0;
+          break;
 	case 96:
 	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i + endian);
-	  i[3-3*endian] = 0;
+	  i[3 - 3 * endian] = 0;
 	  break;
 	case 128:
 	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i);
@@ -1028,39 +1060,19 @@ gen_lowpart_common (mode, x)
 	default:
 	  abort ();
 	}
-
       /* Now, pack the 32-bit elements of the array into a CONST_DOUBLE
 	 and return it.  */
 #if HOST_BITS_PER_WIDE_INT == 32
-      return immed_double_const (i[endian], i[1 - endian], mode);
+      return immed_double_const (i[3 * endian], i[1 + endian], mode);
 #else
-      {
-	int c;
+      if (HOST_BITS_PER_WIDE_INT != 64)
+	abort ();
 
-	if (HOST_BITS_PER_WIDE_INT != 64)
-	  abort ();
-
-	for (c = 0; c < 4; c++)
-	  i[c] &= ~ (0L);
-
-	switch (GET_MODE_BITSIZE (GET_MODE (x)))
-	  {
-	  case 32:
-	  case 64:
-	    return immed_double_const (((unsigned long) i[endian]) |
-				       (((HOST_WIDE_INT) i[1-endian]) << 32),
-				       0, mode);
-	  case 96:
-	  case 128:
-	    return immed_double_const (((unsigned long) i[endian*3]) |
-				       (((HOST_WIDE_INT) i[1+endian]) << 32),
-				       ((unsigned long) i[2-endian]) |
-				       (((HOST_WIDE_INT) i[3-endian*3]) << 32),
-				       mode);
-	  default:
-	    abort ();
-	  }
-      }
+      return immed_double_const ((((unsigned long) i[3 * endian])
+				  | ((HOST_WIDE_INT) i[1 + endian] << 32)),
+				 (((unsigned long) i[2 - endian])
+				  | ((HOST_WIDE_INT) i[3 - 3 * endian] << 32)),
+				 mode);
 #endif
     }
 #endif /* ifndef REAL_ARITHMETIC */
@@ -1082,7 +1094,7 @@ gen_realpart (mode, x)
       && REG_P (x)
       && REGNO (x) < FIRST_PSEUDO_REGISTER)
     internal_error
-      ("Can't access real part of complex value in hard register");
+      ("can't access real part of complex value in hard register");
   else if (WORDS_BIG_ENDIAN)
     return gen_highpart (mode, x);
   else
@@ -1194,7 +1206,7 @@ gen_highpart (mode, x)
   /* simplify_gen_subreg is not guaranteed to return a valid operand for
      the target if we have a MEM.  gen_highpart must return a valid operand,
      emitting code if necessary to do so.  */
-  if (GET_CODE (result) == MEM)
+  if (result != NULL_RTX && GET_CODE (result) == MEM)
     result = validize_mem (result);
 
   if (!result)
@@ -1317,7 +1329,7 @@ constant_subword (op, offset, mode)
 	 ??? This is a potential portability problem and should
 	 be fixed at some point.
 
-	 We must excercise caution with the sign bit.  By definition there
+	 We must exercise caution with the sign bit.  By definition there
 	 are 32 significant bits in K; there may be more in a HOST_WIDE_INT.
 	 Consider a host with a 32-bit long and a 64-bit HOST_WIDE_INT.
 	 So we explicitly mask and sign-extend as necessary.  */
@@ -1631,6 +1643,44 @@ reverse_comparison (insn)
     }
 }
 
+/* Within a MEM_EXPR, we care about either (1) a component ref of a decl,
+   or (2) a component ref of something variable.  Represent the later with
+   a NULL expression.  */
+
+static tree
+component_ref_for_mem_expr (ref)
+     tree ref;
+{
+  tree inner = TREE_OPERAND (ref, 0);
+
+  if (TREE_CODE (inner) == COMPONENT_REF)
+    inner = component_ref_for_mem_expr (inner);
+  else
+    {
+      tree placeholder_ptr = 0;
+
+      /* Now remove any conversions: they don't change what the underlying
+	 object is.  Likewise for SAVE_EXPR.  Also handle PLACEHOLDER_EXPR.  */
+      while (TREE_CODE (inner) == NOP_EXPR || TREE_CODE (inner) == CONVERT_EXPR
+	     || TREE_CODE (inner) == NON_LVALUE_EXPR
+	     || TREE_CODE (inner) == VIEW_CONVERT_EXPR
+	     || TREE_CODE (inner) == SAVE_EXPR
+	     || TREE_CODE (inner) == PLACEHOLDER_EXPR)
+	  if (TREE_CODE (inner) == PLACEHOLDER_EXPR)
+	    inner = find_placeholder (inner, &placeholder_ptr);
+	  else
+	    inner = TREE_OPERAND (inner, 0);
+
+      if (! DECL_P (inner))
+	inner = NULL_TREE;
+    }
+
+  if (inner == TREE_OPERAND (ref, 0))
+    return ref;
+  else
+    return build (COMPONENT_REF, TREE_TYPE (ref), inner,
+		  TREE_OPERAND (ref, 1));
+}
 
 /* Given REF, a MEM, and T, either the type of X or the expression
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
@@ -1642,6 +1692,11 @@ set_mem_attributes (ref, t, objectp)
      tree t;
      int objectp;
 {
+  HOST_WIDE_INT alias = MEM_ALIAS_SET (ref);
+  tree expr = MEM_EXPR (ref);
+  rtx offset = MEM_OFFSET (ref);
+  rtx size = MEM_SIZE (ref);
+  unsigned int align = MEM_ALIGN (ref);
   tree type;
 
   /* It can happen that type_for_mode was given a mode for which there
@@ -1652,14 +1707,6 @@ set_mem_attributes (ref, t, objectp)
 
   type = TYPE_P (t) ? t : TREE_TYPE (t);
 
-  /* Get the alias set from the expression or type (perhaps using a
-     front-end routine) and then copy bits from the type.  */
-
-  /* It is incorrect to set RTX_UNCHANGING_P from TREE_READONLY (type)
-     here, because, in C and C++, the fact that a location is accessed
-     through a const expression does not mean that the value there can
-     never change.  */
-
   /* If we have already set DECL_RTL = ref, get_alias_set will get the
      wrong answer, as it assumes that DECL_RTL already has the right alias
      info.  Callers should not set DECL_RTL until after the call to
@@ -1667,41 +1714,123 @@ set_mem_attributes (ref, t, objectp)
   if (DECL_P (t) && ref == DECL_RTL_IF_SET (t))
     abort ();
 
-  set_mem_alias_set (ref, get_alias_set (t));
+  /* Get the alias set from the expression or type (perhaps using a
+     front-end routine) and use it.  */
+  alias = get_alias_set (t);
 
   MEM_VOLATILE_P (ref) = TYPE_VOLATILE (type);
   MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
+  RTX_UNCHANGING_P (ref)
+    |= ((lang_hooks.honor_readonly
+	 && (TYPE_READONLY (type) || TREE_READONLY (t)))
+	|| (! TYPE_P (t) && TREE_CONSTANT (t)));
 
-  /* If we are making an object of this type, we know that it is a scalar if
-     the type is not an aggregate.  */
-  if (objectp && ! AGGREGATE_TYPE_P (type))
+  /* If we are making an object of this type, or if this is a DECL, we know
+     that it is a scalar if the type is not an aggregate.  */
+  if ((objectp || DECL_P (t)) && ! AGGREGATE_TYPE_P (type))
     MEM_SCALAR_P (ref) = 1;
 
-  /* If T is a type, this is all we can do.  Otherwise, we may be able
-     to deduce some more information about the expression.  */
-  if (TYPE_P (t))
+  /* We can set the alignment from the type if we are making an object,
+     this is an INDIRECT_REF, or if TYPE_ALIGN_OK.  */
+  if (objectp || TREE_CODE (t) == INDIRECT_REF || TYPE_ALIGN_OK (type))
+    align = MAX (align, TYPE_ALIGN (type));
+
+  /* If the size is known, we can set that.  */
+  if (TYPE_SIZE_UNIT (type) && host_integerp (TYPE_SIZE_UNIT (type), 1))
+    size = GEN_INT (tree_low_cst (TYPE_SIZE_UNIT (type), 1));
+
+  /* If T is not a type, we may be able to deduce some more information about
+     the expression.  */
+  if (! TYPE_P (t))
+    {
+      maybe_set_unchanging (ref, t);
+      if (TREE_THIS_VOLATILE (t))
+	MEM_VOLATILE_P (ref) = 1;
+
+      /* Now remove any conversions: they don't change what the underlying
+	 object is.  Likewise for SAVE_EXPR.  */
+      while (TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR
+	     || TREE_CODE (t) == NON_LVALUE_EXPR
+	     || TREE_CODE (t) == VIEW_CONVERT_EXPR
+	     || TREE_CODE (t) == SAVE_EXPR)
+	t = TREE_OPERAND (t, 0);
+
+      /* If this expression can't be addressed (e.g., it contains a reference
+	 to a non-addressable field), show we don't change its alias set.  */
+      if (! can_address_p (t))
+	MEM_KEEP_ALIAS_SET_P (ref) = 1;
+
+      /* If this is a decl, set the attributes of the MEM from it.  */
+      if (DECL_P (t))
+	{
+	  expr = t;
+	  offset = const0_rtx;
+	  size = (DECL_SIZE_UNIT (t)
+		  && host_integerp (DECL_SIZE_UNIT (t), 1)
+		  ? GEN_INT (tree_low_cst (DECL_SIZE_UNIT (t), 1)) : 0);
+	  align =  DECL_ALIGN (t);
+	}
+
+      /* If this is a constant, we know the alignment.  */
+      else if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
+	{
+	  align = TYPE_ALIGN (type);
+#ifdef CONSTANT_ALIGNMENT
+	  align = CONSTANT_ALIGNMENT (t, align);
+#endif
+	}
+
+      /* If this is a field reference and not a bit-field, record it.  */
+      /* ??? There is some information that can be gleened from bit-fields,
+	 such as the word offset in the structure that might be modified.
+	 But skip it for now.  */
+      else if (TREE_CODE (t) == COMPONENT_REF
+	       && ! DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+	{
+	  expr = component_ref_for_mem_expr (t);
+	  offset = const0_rtx;
+	  /* ??? Any reason the field size would be different than
+	     the size we got from the type?  */
+	}
+
+      /* If this is an array reference, look for an outer field reference.  */
+      else if (TREE_CODE (t) == ARRAY_REF)
+	{
+	  tree off_tree = size_zero_node;
+
+	  do
+	    {
+	      off_tree
+		= fold (build (PLUS_EXPR, sizetype,
+			       fold (build (MULT_EXPR, sizetype,
+					    TREE_OPERAND (t, 1),
+					    TYPE_SIZE_UNIT (TREE_TYPE (t)))),
+			       off_tree));
+	      t = TREE_OPERAND (t, 0);
+	    }
+	  while (TREE_CODE (t) == ARRAY_REF);
+
+	  if (TREE_CODE (t) == COMPONENT_REF)
+	    {
+	      expr = component_ref_for_mem_expr (t);
+	      if (host_integerp (off_tree, 1))
+		offset = GEN_INT (tree_low_cst (off_tree, 1));
+	      /* ??? Any reason the field size would be different than
+		 the size we got from the type?  */
+	    }
+	}
+    }
+
+  /* Now set the attributes we computed above.  */
+  MEM_ATTRS (ref)
+    = get_mem_attrs (alias, expr, offset, size, align, GET_MODE (ref));
+
+  /* If this is already known to be a scalar or aggregate, we are done.  */
+  if (MEM_IN_STRUCT_P (ref) || MEM_SCALAR_P (ref))
     return;
 
-  maybe_set_unchanging (ref, t);
-  if (TREE_THIS_VOLATILE (t))
-    MEM_VOLATILE_P (ref) = 1;
-
-  /* Now see if we can say more about whether it's an aggregate or
-     scalar.  If we already know it's an aggregate, don't bother.  */
-  if (MEM_IN_STRUCT_P (ref))
-    return;
-
-  /* Now remove any NOPs: they don't change what the underlying object is.
-     Likewise for SAVE_EXPR.  */
-  while (TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR
-	 || TREE_CODE (t) == NON_LVALUE_EXPR || TREE_CODE (t) == SAVE_EXPR)
-    t = TREE_OPERAND (t, 0);
-
-  /* Since we already know the type isn't an aggregate, if this is a decl,
-     it must be a scalar.  Or if it is a reference into an aggregate,
-     this is part of an aggregate.   Otherwise we don't know.  */
-  if (DECL_P (t))
-    MEM_SCALAR_P (ref) = 1;
+  /* If it is a reference into an aggregate, this is part of an aggregate.
+     Otherwise we don't know.  */
   else if (TREE_CODE (t) == COMPONENT_REF || TREE_CODE (t) == ARRAY_REF
 	   || TREE_CODE (t) == ARRAY_RANGE_REF
 	   || TREE_CODE (t) == BIT_FIELD_REF)
@@ -1715,25 +1844,59 @@ set_mem_alias_set (mem, set)
      rtx mem;
      HOST_WIDE_INT set;
 {
-  /* It would be nice to enable this check, but we can't quite yet.  */
 #ifdef ENABLE_CHECKING	
   /* If the new and old alias sets don't conflict, something is wrong.  */
   if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
     abort ();
 #endif
 
-  MEM_ATTRS (mem) = get_mem_attrs (set, MEM_DECL (mem), MEM_OFFSET (mem),
-				   MEM_SIZE (mem), MEM_ALIGN (mem));
+  MEM_ATTRS (mem) = get_mem_attrs (set, MEM_EXPR (mem), MEM_OFFSET (mem),
+				   MEM_SIZE (mem), MEM_ALIGN (mem),
+				   GET_MODE (mem));
+}
+
+/* Set the alignment of MEM to ALIGN bits.  */
+
+void
+set_mem_align (mem, align)
+     rtx mem;
+     unsigned int align;
+{
+  MEM_ATTRS (mem) = get_mem_attrs (MEM_ALIAS_SET (mem), MEM_EXPR (mem),
+				   MEM_OFFSET (mem), MEM_SIZE (mem), align,
+				   GET_MODE (mem));
+}
+
+/* Set the expr for MEM to EXPR.  */
+
+void
+set_mem_expr (mem, expr)
+     rtx mem;
+     tree expr;
+{
+  MEM_ATTRS (mem)
+    = get_mem_attrs (MEM_ALIAS_SET (mem), expr, MEM_OFFSET (mem),
+		     MEM_SIZE (mem), MEM_ALIGN (mem), GET_MODE (mem));
+}
+
+/* Set the offset of MEM to OFFSET.  */
+
+void
+set_mem_offset (mem, offset)
+     rtx mem, offset;
+{
+  MEM_ATTRS (mem) = get_mem_attrs (MEM_ALIAS_SET (mem), MEM_EXPR (mem),
+				   offset, MEM_SIZE (mem), MEM_ALIGN (mem),
+				   GET_MODE (mem));
 }
 
-/* Return a memory reference like MEMREF, but with its mode changed
-   to MODE and its address changed to ADDR.
-   (VOIDmode means don't change the mode.
-   NULL for ADDR means don't change the address.)
-   VALIDATE is nonzero if the returned memory location is required to be
-   valid.  */
+/* Return a memory reference like MEMREF, but with its mode changed to MODE
+   and its address changed to ADDR.  (VOIDmode means don't change the mode.
+   NULL for ADDR means don't change the address.)  VALIDATE is nonzero if the
+   returned memory location is required to be valid.  The memory
+   attributes are not changed.  */
 
-rtx
+static rtx
 change_address_1 (memref, mode, addr, validate)
      rtx memref;
      enum machine_mode mode;
@@ -1768,62 +1931,135 @@ change_address_1 (memref, mode, addr, validate)
   return new;
 }
 
-/* Return a memory reference like MEMREF, but with its mode changed
-   to MODE and its address offset by OFFSET bytes.  */
+/* Like change_address_1 with VALIDATE nonzero, but we are not saying in what
+   way we are changing MEMREF, so we only preserve the alias set.  */
 
 rtx
-adjust_address (memref, mode, offset)
+change_address (memref, mode, addr)
+     rtx memref;
+     enum machine_mode mode;
+     rtx addr;
+{
+  rtx new = change_address_1 (memref, mode, addr, 1);
+  enum machine_mode mmode = GET_MODE (new);
+
+  MEM_ATTRS (new)
+    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0,
+		     mmode == BLKmode ? 0 : GEN_INT (GET_MODE_SIZE (mmode)),
+		     (mmode == BLKmode ? BITS_PER_UNIT
+		      : GET_MODE_ALIGNMENT (mmode)),
+		     mmode);
+
+  return new;
+}
+
+/* Return a memory reference like MEMREF, but with its mode changed
+   to MODE and its address offset by OFFSET bytes.  If VALIDATE is
+   nonzero, the memory address is forced to be valid.
+   If ADJUST is zero, OFFSET is only used to update MEM_ATTRS
+   and caller is responsible for adjusting MEMREF base register.  */
+
+rtx
+adjust_address_1 (memref, mode, offset, validate, adjust)
      rtx memref;
      enum machine_mode mode;
      HOST_WIDE_INT offset;
+     int validate, adjust;
 {
-  /* For now, this is just a wrapper for change_address, but eventually
-     will do memref tracking.  */
   rtx addr = XEXP (memref, 0);
+  rtx new;
+  rtx memoffset = MEM_OFFSET (memref);
+  rtx size = 0;
+  unsigned int memalign = MEM_ALIGN (memref);
 
-  /* ??? Prefer to create garbage instead of creating shared rtl.  */
+  /* ??? Prefer to create garbage instead of creating shared rtl.
+     This may happen even if offset is non-zero -- consider
+     (plus (plus reg reg) const_int) -- so do this always.  */
   addr = copy_rtx (addr);
 
-  /* If MEMREF is a LO_SUM and the offset is within the alignment of the
-     object, we can merge it into the LO_SUM.  */
-  if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
-      && offset >= 0
-      && (unsigned HOST_WIDE_INT) offset
-         < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
-    addr = gen_rtx_LO_SUM (Pmode, XEXP (addr, 0),
-			   plus_constant (XEXP (addr, 1), offset));
-  else
-    addr = plus_constant (addr, offset);
+  if (adjust)
+    {
+      /* If MEMREF is a LO_SUM and the offset is within the alignment of the
+	 object, we can merge it into the LO_SUM.  */
+      if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
+	  && offset >= 0
+	  && (unsigned HOST_WIDE_INT) offset
+	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
+	addr = gen_rtx_LO_SUM (Pmode, XEXP (addr, 0),
+			       plus_constant (XEXP (addr, 1), offset));
+      else
+	addr = plus_constant (addr, offset);
+    }
 
-  return change_address (memref, mode, addr);
+  new = change_address_1 (memref, mode, addr, validate);
+
+  /* Compute the new values of the memory attributes due to this adjustment.
+     We add the offsets and update the alignment.  */
+  if (memoffset)
+    memoffset = GEN_INT (offset + INTVAL (memoffset));
+
+  /* Compute the new alignment by taking the MIN of the alignment and the
+     lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
+     if zero.  */
+  if (offset != 0)
+    memalign = MIN (memalign,
+		    (unsigned int) (offset & -offset) * BITS_PER_UNIT);
+
+  /* We can compute the size in a number of ways.  */
+  if (GET_MODE (new) != BLKmode)
+    size = GEN_INT (GET_MODE_SIZE (GET_MODE (new)));
+  else if (MEM_SIZE (memref))
+    size = plus_constant (MEM_SIZE (memref), -offset);
+
+  MEM_ATTRS (new) = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref),
+				   memoffset, size, memalign, GET_MODE (new));
+
+  /* At some point, we should validate that this offset is within the object,
+     if all the appropriate values are known.  */
+  return new;
 }
 
-/* Likewise, but the reference is not required to be valid.  */
+/* Return a memory reference like MEMREF, but with its mode changed
+   to MODE and its address changed to ADDR, which is assumed to be
+   MEMREF offseted by OFFSET bytes.  If VALIDATE is
+   nonzero, the memory address is forced to be valid.  */
 
 rtx
-adjust_address_nv (memref, mode, offset)
+adjust_automodify_address_1 (memref, mode, addr, offset, validate)
      rtx memref;
      enum machine_mode mode;
+     rtx addr;
      HOST_WIDE_INT offset;
+     int validate;
 {
-  /* For now, this is just a wrapper for change_address, but eventually
-     will do memref tracking.  */
-  rtx addr = XEXP (memref, 0);
-
-  /* If MEMREF is a LO_SUM and the offset is within the size of the
-     object, we can merge it into the LO_SUM.  */
-  if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
-      && offset >= 0
-      && (unsigned HOST_WIDE_INT) offset
-         < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
-    addr = gen_rtx_LO_SUM (mode, XEXP (addr, 0),
-			   plus_constant (XEXP (addr, 1), offset));
-  else
-    addr = plus_constant (addr, offset);
-
-  return change_address_1 (memref, mode, addr, 0);
+  memref = change_address_1 (memref, VOIDmode, addr, validate);
+  return adjust_address_1 (memref, mode, offset, validate, 0);
 }
 
+/* Return a memory reference like MEMREF, but whose address is changed by
+   adding OFFSET, an RTX, to it.  POW2 is the highest power of two factor
+   known to be in OFFSET (possibly 1).  */
+
+rtx
+offset_address (memref, offset, pow2)
+     rtx memref;
+     rtx offset;
+     HOST_WIDE_INT pow2;
+{
+  rtx new = change_address_1 (memref, VOIDmode,
+			      gen_rtx_PLUS (Pmode, XEXP (memref, 0),
+					    force_reg (Pmode, offset)), 1);
+
+  /* Update the alignment to reflect the offset.  Reset the offset, which
+     we don't know.  */
+  MEM_ATTRS (new)
+    = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
+		     MIN (MEM_ALIGN (memref),
+			  (unsigned int) pow2 * BITS_PER_UNIT),
+		     GET_MODE (new));
+  return new;
+}
+  
 /* Return a memory reference like MEMREF, but with its address changed to
    ADDR.  The caller is asserting that the actual piece of memory pointed
    to is the same, just the form of the address is being changed, such as
@@ -1834,10 +2070,12 @@ replace_equiv_address (memref, addr)
      rtx memref;
      rtx addr;
 {
-  /* For now, this is just a wrapper for change_address, but eventually
-     will do memref tracking.  */
-  return change_address (memref, VOIDmode, addr);
+  /* change_address_1 copies the memory attribute structure without change
+     and that's exactly what we want here.  */
+  update_temp_slot_address (XEXP (memref, 0), addr);
+  return change_address_1 (memref, VOIDmode, addr, 1);
 }
+
 /* Likewise, but the reference is not required to be valid.  */
 
 rtx
@@ -1845,9 +2083,86 @@ replace_equiv_address_nv (memref, addr)
      rtx memref;
      rtx addr;
 {
-  /* For now, this is just a wrapper for change_address, but eventually
-     will do memref tracking.  */
   return change_address_1 (memref, VOIDmode, addr, 0);
+}
+
+/* Return a memory reference like MEMREF, but with its mode widened to
+   MODE and offset by OFFSET.  This would be used by targets that e.g.
+   cannot issue QImode memory operations and have to use SImode memory
+   operations plus masking logic.  */
+
+rtx
+widen_memory_access (memref, mode, offset)
+     rtx memref;
+     enum machine_mode mode;
+     HOST_WIDE_INT offset;
+{
+  rtx new = adjust_address_1 (memref, mode, offset, 1, 1);
+  tree expr = MEM_EXPR (new);
+  rtx memoffset = MEM_OFFSET (new);
+  unsigned int size = GET_MODE_SIZE (mode);
+
+  /* If we don't know what offset we were at within the expression, then
+     we can't know if we've overstepped the bounds.  */
+  if (! memoffset && offset != 0)
+    expr = NULL_TREE;
+
+  while (expr)
+    {
+      if (TREE_CODE (expr) == COMPONENT_REF)
+	{
+	  tree field = TREE_OPERAND (expr, 1);
+
+	  if (! DECL_SIZE_UNIT (field))
+	    {
+	      expr = NULL_TREE;
+	      break;
+	    }
+
+	  /* Is the field at least as large as the access?  If so, ok,
+	     otherwise strip back to the containing structure.  */
+	  if (TREE_CODE (DECL_SIZE_UNIT (field)) == INTEGER_CST
+	      && compare_tree_int (DECL_SIZE_UNIT (field), size) >= 0
+	      && INTVAL (memoffset) >= 0)
+	    break;
+
+	  if (! host_integerp (DECL_FIELD_OFFSET (field), 1))
+	    {
+	      expr = NULL_TREE;
+	      break;
+	    }
+
+	  expr = TREE_OPERAND (expr, 0);
+	  memoffset = (GEN_INT (INTVAL (memoffset)
+		       + tree_low_cst (DECL_FIELD_OFFSET (field), 1)
+		       + (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+		          / BITS_PER_UNIT)));
+	}
+      /* Similarly for the decl.  */
+      else if (DECL_P (expr)
+	       && DECL_SIZE_UNIT (expr)
+	       && compare_tree_int (DECL_SIZE_UNIT (expr), size) >= 0
+	       && (! memoffset || INTVAL (memoffset) >= 0))
+	break;
+      else
+	{
+	  /* The widened memory access overflows the expression, which means
+	     that it could alias another expression.  Zap it.  */
+	  expr = NULL_TREE;
+	  break;
+	}
+    }
+
+  if (! expr)
+    memoffset = NULL_RTX;
+
+  /* The widened memory may alias other stuff, so zap the alias set.  */
+  /* ??? Maybe use get_alias_set on any remaining expression.  */
+
+  MEM_ATTRS (new) = get_mem_attrs (0, expr, memoffset, GEN_INT (size),
+				   MEM_ALIGN (new), mode);
+
+  return new;
 }
 
 /* Return a newly created CODE_LABEL rtx with a unique label number.  */
@@ -1931,6 +2246,7 @@ free_emit_status (f)
 {
   free (f->emit->x_regno_reg_rtx);
   free (f->emit->regno_pointer_align);
+  free (f->emit->regno_decl);
   free (f->emit);
   f->emit = NULL;
 }
@@ -2691,7 +3007,7 @@ try_split (pat, trial, last)
 		    && !find_reg_note (insn, REG_BR_PROB, 0))
 		  {
 		    /* We can preserve the REG_BR_PROB notes only if exactly
-		       one jump is created, otherwise the machinde description
+		       one jump is created, otherwise the machine description
 		       is responsible for this step using
 		       split_branch_probability variable.  */
 		    if (njumps != 1)
@@ -2941,7 +3257,7 @@ add_insn_after (insn, after)
     {
       set_block_for_insn (insn, bb);
       /* Should not happen as first in the BB is always
-	 eigther NOTE or LABEL.  */
+	 either NOTE or LABEL.  */
       if (bb->end == after
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && GET_CODE (insn) != BARRIER
@@ -3008,7 +3324,7 @@ add_insn_before (insn, before)
     {
       set_block_for_insn (insn, bb);
       /* Should not happen as first in the BB is always
-	 eigther NOTE or LABEl.  */
+	 either NOTE or LABEl.  */
       if (bb->head == insn
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && GET_CODE (insn) != BARRIER
@@ -3246,6 +3562,7 @@ remove_unnecessary_notes ()
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
+	case NOTE_INSN_LOOP_END_TOP_COND:
 	  remove_insn (insn);
 	  break;
 
@@ -3856,7 +4173,7 @@ force_next_line_note ()
 /* Place a note of KIND on insn INSN with DATUM as the datum. If a
    note of this type already exists, remove it first.  */
 
-void
+rtx
 set_unique_reg_note (insn, kind, datum)
      rtx insn;
      enum reg_note kind;
@@ -3864,11 +4181,39 @@ set_unique_reg_note (insn, kind, datum)
 {
   rtx note = find_reg_note (insn, kind, NULL_RTX);
 
-  /* First remove the note if there already is one.  */
+  switch (kind)
+    {
+    case REG_EQUAL:
+    case REG_EQUIV:
+      /* Don't add REG_EQUAL/REG_EQUIV notes if the insn
+	 has multiple sets (some callers assume single_set
+	 means the insn only has one set, when in fact it
+	 means the insn only has one * useful * set).  */
+      if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
+	{
+	  if (note)
+	    abort ();
+	  return NULL_RTX;
+	}
+
+      /* Don't add ASM_OPERAND REG_EQUAL/REG_EQUIV notes.
+	 It serves no useful purpose and breaks eliminate_regs.  */
+      if (GET_CODE (datum) == ASM_OPERANDS)
+	return NULL_RTX;
+      break;
+
+    default:
+      break;
+    }
+
   if (note)
-    remove_note (insn, note);
+    {
+      XEXP (note, 0) = datum;
+      return note;
+    }
 
   REG_NOTES (insn) = gen_rtx_EXPR_LIST (kind, datum, REG_NOTES (insn));
+  return REG_NOTES (insn);
 }
 
 /* Return an indication of which type of insn should have X as a body.
@@ -4355,8 +4700,10 @@ init_emit ()
 				 sizeof (unsigned char));
 
   regno_reg_rtx
-    = (rtx *) xcalloc (f->emit->regno_pointer_align_length * sizeof (rtx),
-		       sizeof (rtx));
+    = (rtx *) xcalloc (f->emit->regno_pointer_align_length, sizeof (rtx));
+
+  f->emit->regno_decl
+    = (tree *) xcalloc (f->emit->regno_pointer_align_length, sizeof (tree));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
   init_virtual_regs (f->emit);
@@ -4413,14 +4760,19 @@ mark_emit_status (es)
      struct emit_status *es;
 {
   rtx *r;
+  tree *t;
   int i;
 
   if (es == 0)
     return;
 
-  for (i = es->regno_pointer_align_length, r = es->x_regno_reg_rtx;
-       i > 0; --i, ++r)
-    ggc_mark_rtx (*r);
+  for (i = es->regno_pointer_align_length, r = es->x_regno_reg_rtx,
+       t = es->regno_decl;
+       i > 0; --i, ++r, ++t)
+    {
+      ggc_mark_rtx (*r);
+      ggc_mark_tree (*t);
+    }
 
   mark_sequence_stack (es->sequence_stack);
   ggc_mark_tree (es->sequence_rtl_expr);
@@ -4506,7 +4858,7 @@ init_emit_once (line_numbers)
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
      call to push_function_context_to.  This is needed by the Chill front
-     end which calls push_function_context_to before the first cal to
+     end which calls push_function_context_to before the first call to
      init_function_start.  */
   INIT_EXPANDERS;
 #endif
@@ -4550,7 +4902,6 @@ init_emit_once (line_numbers)
 	    CONST_DOUBLE_HIGH (tem) = 0;
 
 	  memcpy (&CONST_DOUBLE_LOW (tem), &u, sizeof u);
-	  CONST_DOUBLE_MEM (tem) = cc0_rtx;
 	  CONST_DOUBLE_CHAIN (tem) = NULL_RTX;
 	  PUT_MODE (tem, mode);
 
@@ -4628,7 +4979,7 @@ init_emit_once (line_numbers)
 #endif
 
   if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
-    pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
+    pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 
   ggc_add_rtx_root (&pic_offset_table_rtx, 1);
   ggc_add_rtx_root (&struct_value_rtx, 1);

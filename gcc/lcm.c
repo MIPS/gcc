@@ -177,6 +177,8 @@ compute_antinout_edge (antloc, transp, antin, antout)
 	    }
     }
 
+  clear_aux_for_edges ();
+  clear_aux_for_blocks ();
   free (worklist);
 }
 
@@ -222,8 +224,8 @@ compute_earliest (edge_list, n_exprs, antin, antout, avout, kill, earliest)
 	}
     }
 
-  free (temp_bitmap);
-  free (difference);
+  sbitmap_free (temp_bitmap);
+  sbitmap_free (difference);
 }
 
 /* later(p,s) is dependent on the calculation of laterin(p).
@@ -354,6 +356,7 @@ compute_laterin (edge_list, earliest, antloc, later, laterin)
 		     laterin[n_basic_blocks],
 		     later[(size_t) e->aux]);
 
+  clear_aux_for_edges ();
   free (worklist);
 }
 
@@ -565,6 +568,8 @@ compute_available (avloc, kill, avout, avin)
 	    }
     }
 
+  clear_aux_for_edges ();
+  clear_aux_for_blocks ();
   free (worklist);
 }
 
@@ -607,8 +612,8 @@ compute_farthest (edge_list, n_exprs, st_avout, st_avin, st_antin,
 	}
     }
 
-  free (temp_bitmap);
-  free (difference);
+  sbitmap_free (temp_bitmap);
+  sbitmap_free (difference);
 }
 
 /* Compute nearer and nearerout vectors for edge based lcm.
@@ -695,6 +700,7 @@ compute_nearerout (edge_list, farthest, st_avloc, nearer, nearerout)
 		     nearerout[n_basic_blocks],
 		     nearer[(size_t) e->aux]);
 
+  clear_aux_for_edges ();
   free (tos);
 }
 
@@ -1023,6 +1029,7 @@ optimize_mode_switching (file)
   int i, j;
   int n_entities;
   int max_num_modes = 0;
+  bool emited = false;
 
 #ifdef NORMAL_MODE
   /* Increment n_basic_blocks before allocating bb_info.  */
@@ -1233,10 +1240,16 @@ optimize_mode_switching (file)
 	      mode_set = gen_sequence ();
 	      end_sequence ();
 
+	      /* Do not bother to insert empty sequence.  */
+	      if (GET_CODE (mode_set) == SEQUENCE
+		  && !XVECLEN (mode_set, 0))
+		continue;
+
 	      /* If this is an abnormal edge, we'll insert at the end
 		 of the previous block.  */
 	      if (eg->flags & EDGE_ABNORMAL)
 		{
+		  emited = true;
 		  if (GET_CODE (src_bb->end) == JUMP_INSN)
 		    emit_insn_before (mode_set, src_bb->end);
 		  /* It doesn't make sense to switch to normal mode
@@ -1273,6 +1286,7 @@ optimize_mode_switching (file)
 	      }
 	}
 
+      clear_aux_for_edges ();
       free_edge_list (edge_list);
     }
 
@@ -1306,10 +1320,16 @@ optimize_mode_switching (file)
 	      mode_set = gen_sequence ();
 	      end_sequence ();
 
+	      /* Do not bother to insert empty sequence.  */
+	      if (GET_CODE (mode_set) == SEQUENCE
+		  && !XVECLEN (mode_set, 0))
+		continue;
+
 	      /* If this is an abnormal edge, we'll insert at the end of the
 		 previous block.  */
 	      if (eg->flags & EDGE_ABNORMAL)
 		{
+		  emited = true;
 		  if (GET_CODE (eg->src->end) == JUMP_INSN)
 		    emit_insn_before (mode_set, eg->src->end);
 		  else if (GET_CODE (eg->src->end) == INSN)
@@ -1342,6 +1362,12 @@ optimize_mode_switching (file)
 		  mode_set = gen_sequence ();
 		  end_sequence ();
 
+		  /* Do not bother to insert empty sequence.  */
+		  if (GET_CODE (mode_set) == SEQUENCE
+		      && !XVECLEN (mode_set, 0))
+		    continue;
+
+		  emited = true;
 		  if (GET_CODE (ptr->insn_ptr) == NOTE
 		      && (NOTE_LINE_NUMBER (ptr->insn_ptr)
 			  == NOTE_INSN_BASIC_BLOCK))
@@ -1369,9 +1395,12 @@ optimize_mode_switching (file)
   if (need_commit)
     commit_edge_insertions ();
 
+  if (!need_commit && !emited)
+    return 0;
+
   /* Ideally we'd figure out what blocks were affected and start from
      there, but this is enormously complicated by commit_edge_insertions,
-     which would screw up any indicies we'd collected, and also need to
+     which would screw up any indices we'd collected, and also need to
      be involved in the update.  Bail and recompute global life info for
      everything.  */
 

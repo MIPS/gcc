@@ -96,9 +96,6 @@ struct _ffeintrin_spec_
 struct _ffeintrin_imp_
   {
     const char *const name;		/* Name of implementation. */
-#if 0	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
-    const ffecomGfrt gfrt;		/* gfrt index in library. */
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
     const char *const control;
   };
 
@@ -136,19 +133,10 @@ static const struct _ffeintrin_imp_ imps[] = {
 #define DEFNAME(UPPER,LOWER,MIXED,GEN,SPEC)
 #define DEFGEN(CODE,NAME,SPEC1,SPEC2)
 #define DEFSPEC(CODE,NAME,CALLABLE,FAMILY,IMP)
-#if 0	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
-#define DEFIMP(CODE,NAME,GFRTDIRECT,GFRTF2C,GFRTGNU,CONTROL) \
-  { NAME, FFECOM_gfrt ## GFRT, CONTROL },
-#define DEFIMPY(CODE,NAME,GFRTDIRECT,GFRTF2C,GFRTGNU,CONTROL,Y2KBAD) \
-  { NAME, FFECOM_gfrt ## GFRT, CONTROL },
-#elif 1	/* FFECOM_targetCURRENT == FFECOM_targetFFE */
 #define DEFIMP(CODE,NAME,GFRTDIRECT,GFRTF2C,GFRTGNU,CONTROL) \
   { NAME, CONTROL },
 #define DEFIMPY(CODE,NAME,GFRTDIRECT,GFRTF2C,GFRTGNU,CONTROL,Y2KBAD) \
   { NAME, CONTROL },
-#else
-#error
-#endif
 #include "intrin.def"
 #undef DEFNAME
 #undef DEFGEN
@@ -411,15 +399,12 @@ dumpimp (int menu, const char *name, const char *name_uc, size_t genno,
 
 	  for (c = summaries[imp]; c[0] != '\0'; ++c)
 	    {
-	      if ((c[0] == '@')
-		  && (c[1] >= '0')
-	      && (c[1] <= '9'))
+	      if (c[0] == '@' && ISDIGIT (c[1]))
 		{
 		  int argno = c[1] - '0';
 
 		  c += 2;
-		  while ((c[0] >= '0')
-			 && (c[0] <= '9'))
+		  while (ISDIGIT (c[0]))
 		    {
 		      argno = 10 * argno + (c[0] - '0');
 		      ++c;
@@ -507,8 +492,7 @@ external procedure.\n\
       const char *arg_string;
       const char *arg_info;
 
-      if ((c[colon + 1] >= '0')
-	  && (c[colon + 1] <= '9'))
+      if (ISDIGIT (c[colon + 1]))
 	{
 	  other_arg = c[colon + 1] - '0';
 	  arg_string = argument_name_string (imp, other_arg);
@@ -560,9 +544,7 @@ this intrinsic is valid only when used as the argument to\n\
 	printf (", the exact type being wide enough to hold a pointer\n\
 on the target system (typically @code{INTEGER(KIND=1)} or @code{INTEGER(KIND=4)}).\n\n");
 #endif
-      else if ((c[1] == '=')
-	       && (c[colon + 1] >= '0')
-	       && (c[colon + 1] <= '9'))
+      else if (c[1] == '=' && ISDIGIT (c[colon + 1]))
 	{
 	  assert (other_arg >= 0);
 
@@ -727,6 +709,10 @@ types of all the arguments.\n\n");
 		      argument_name_string (imp, 0));
 	      break;
 
+	    case 'N':
+	      printf ("@code{INTEGER} not wider than the default kind");
+	      break;
+
 	    default:
 	      assert ("Ia" == NULL);
 	      break;
@@ -748,6 +734,10 @@ types of all the arguments.\n\n");
 	    case 'A':
 	      printf ("@code{LOGICAL} with same @samp{KIND=} value as for @var{%s}",
 		      argument_name_string (imp, 0));
+	      break;
+
+	    case 'N':
+	      printf ("@code{LOGICAL} not wider than the default kind");
 	      break;
 
 	    default:
@@ -795,6 +785,10 @@ types of all the arguments.\n\n");
 	    case 'A':
 	      printf ("Same type and @samp{KIND=} value as for @var{%s}",
 		      argument_name_string (imp, 0));
+	      break;
+
+	    case 'N':
+	      printf ("@code{INTEGER} or @code{LOGICAL} not wider than the default kind");
 	      break;
 
 	    default:
@@ -1023,15 +1017,12 @@ Description:\n\
 
       while (c[0] != '\0')
 	{
-	  if ((c[0] == '@')
-	      && (c[1] >= '0')
-	  && (c[1] <= '9'))
+	  if (c[0] == '@' && ISDIGIT (c[1]))
 	    {
 	      int argno = c[1] - '0';
 
 	      c += 2;
-	      while ((c[0] >= '0')
-		     && (c[0] <= '9'))
+	      while (ISDIGIT (c[0]))
 		{
 		  argno = 10 * argno + (c[0] - '0');
 		  ++c;

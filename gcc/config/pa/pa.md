@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GNU C compiler
-;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-;;   Free Software Foundation, Inc.
+;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+;;   2002 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -2604,19 +2604,12 @@
 
 (define_insn ""
   [(set (match_operand:HI 0 "register_operand" "=r")
-	(high:HI (match_operand 1 "const_int_operand" "")))]
+	(plus:HI (match_operand:HI 1 "register_operand" "r")
+		 (match_operand 2 "const_int_operand" "J")))]
   ""
-  "ldil L'%G1,%0"
-  [(set_attr "type" "move")
-   (set_attr "length" "4")])
-
-(define_insn ""
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(lo_sum:HI (match_operand:HI 1 "register_operand" "r")
-		   (match_operand 2 "const_int_operand" "")))]
-  ""
-  "ldo R'%G2(%1),%0"
-  [(set_attr "type" "move")
+  "ldo %2(%1),%0"
+  [(set_attr "type" "binary")
+   (set_attr "pa_combine_type" "addmove")
    (set_attr "length" "4")])
 
 (define_expand "movqi"
@@ -3507,7 +3500,7 @@
 (define_expand "floatunssisf2"
   [(set (subreg:SI (match_dup 2) 4)
 	(match_operand:SI 1 "register_operand" ""))
-   (set (subreg:SI (match_dup 2) 4)
+   (set (subreg:SI (match_dup 2) 0)
 	(const_int 0))
    (set (match_operand:SF 0 "register_operand" "")
 	(float:SF (match_dup 2)))]
@@ -3881,16 +3874,6 @@
       operands[1] = force_reg (SImode, operands[1]);
       operands[2] = force_reg (SImode, operands[2]);
       emit_insn (gen_umulsidi3 (scratch, operands[1], operands[2]));
-      /* We do not want (subreg:SI (XX:DI) 1)) for TARGET_64BIT since
-	 that has no real meaning.  */
-      if (TARGET_64BIT)
-	{
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  operands[0],
-				  gen_rtx_SUBREG (SImode, scratch, 0)));
-	  DONE;
-	  
-	}
       emit_insn (gen_rtx_SET (VOIDmode, operands[0],
 			      gen_rtx_SUBREG (SImode, scratch, GET_MODE_SIZE (SImode))));
       DONE;
@@ -3993,10 +3976,10 @@
 						GEN_INT (32)));
   emit_move_insn (op2shifted, gen_rtx_LSHIFTRT (DImode, operands[2],
 						GEN_INT (32)));
-  op1r = gen_rtx_SUBREG (SImode, operands[1], 0);
-  op2r = gen_rtx_SUBREG (SImode, operands[2], 0);
-  op1l = gen_rtx_SUBREG (SImode, op1shifted, 0);
-  op2l = gen_rtx_SUBREG (SImode, op2shifted, 0);
+  op1r = gen_rtx_SUBREG (SImode, operands[1], 4);
+  op2r = gen_rtx_SUBREG (SImode, operands[2], 4);
+  op1l = gen_rtx_SUBREG (SImode, op1shifted, 4);
+  op2l = gen_rtx_SUBREG (SImode, op2shifted, 4);
 
   /* Emit multiplies for the cross products.  */
   emit_insn (gen_umulsidi3 (cross_product1, op2r, op1l));
@@ -4640,10 +4623,29 @@
   [(set_attr "type" "fpdivsgl")
    (set_attr "length" "4")])
 
-(define_insn "negdf2"
+;; Processors prior to PA 2.0 don't have a fneg instruction.  Fast
+;; negation can be done by subtracting from plus zero.  However, this
+;; violates the IEEE standard when negating plus and minus zero.
+(define_expand "negdf2"
+  [(parallel [(set (match_operand:DF 0 "register_operand" "")
+		   (neg:DF (match_operand:DF 1 "register_operand" "")))
+	      (use (match_dup 2))])]
+  "! TARGET_SOFT_FLOAT"
+{
+  if (TARGET_PA_20 || flag_unsafe_math_optimizations)
+    emit_insn (gen_negdf2_fast (operands[0], operands[1]));
+  else
+    {
+      operands[2] = force_reg (DFmode, immed_real_const_1 (dconstm1, DFmode));
+      emit_insn (gen_muldf3 (operands[0], operands[1], operands[2]));
+    }
+  DONE;
+})
+
+(define_insn "negdf2_fast"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(neg:DF (match_operand:DF 1 "register_operand" "f")))]
-  "! TARGET_SOFT_FLOAT"
+  "! TARGET_SOFT_FLOAT && (TARGET_PA_20 || flag_unsafe_math_optimizations)"
   "*
 {
   if (TARGET_PA_20)
@@ -4654,10 +4656,26 @@
   [(set_attr "type" "fpalu")
    (set_attr "length" "4")])
 
-(define_insn "negsf2"
+(define_expand "negsf2"
+  [(parallel [(set (match_operand:SF 0 "register_operand" "")
+		   (neg:SF (match_operand:SF 1 "register_operand" "")))
+	      (use (match_dup 2))])]
+  "! TARGET_SOFT_FLOAT"
+{
+  if (TARGET_PA_20 || flag_unsafe_math_optimizations)
+    emit_insn (gen_negsf2_fast (operands[0], operands[1]));
+  else
+    {
+      operands[2] = force_reg (SFmode, immed_real_const_1 (dconstm1, SFmode));
+      emit_insn (gen_mulsf3 (operands[0], operands[1], operands[2]));
+    }
+  DONE;
+})
+
+(define_insn "negsf2_fast"
   [(set (match_operand:SF 0 "register_operand" "=f")
 	(neg:SF (match_operand:SF 1 "register_operand" "f")))]
-  "! TARGET_SOFT_FLOAT"
+  "! TARGET_SOFT_FLOAT && (TARGET_PA_20 || flag_unsafe_math_optimizations)"
   "*
 {
   if (TARGET_PA_20)
@@ -5739,7 +5757,7 @@
     {
       rtx reg = gen_reg_rtx (DImode);
       emit_insn (gen_extendsidi2 (reg, operands[0]));
-      operands[0] = gen_rtx_SUBREG (SImode, reg, 0);
+      operands[0] = gen_rtx_SUBREG (SImode, reg, 4);
     }
 
   if (!INT_5_BITS (operands[2]))
@@ -5859,8 +5877,6 @@
   "TARGET_64BIT"
   "*
 {
-  rtx xoperands[2];
-
   /* ??? Needs more work.  Length computation, split into multiple insns,
      do not use %r22 directly, expose delay slot.  */
   return \"ldd 16(%0),%%r2\;ldd 24(%0),%%r27\;bve,l (%%r2),%%r2\;nop\";
@@ -6570,8 +6586,9 @@
   [(set (pc)
 	(if_then_else
 	  (match_operator 2 "comparison_operator"
-	   [(plus:SI (match_operand:SI 0 "register_operand" "+!r,!*f,!*m")
-		     (match_operand:SI 1 "int5_operand" "L,L,L"))
+	   [(plus:SI
+	      (match_operand:SI 0 "reg_before_reload_operand" "+!r,!*f,*m")
+	      (match_operand:SI 1 "int5_operand" "L,L,L"))
 	    (const_int 0)])
 	  (label_ref (match_operand 3 "" ""))
 	  (pc)))
@@ -6627,7 +6644,7 @@
 	   [(match_operand:SI 1 "register_operand" "r,r,r,r") (const_int 0)])
 	  (label_ref (match_operand 3 "" ""))
 	  (pc)))
-   (set (match_operand:SI 0 "register_operand" "=!r,!*f,!*m,!*q")
+   (set (match_operand:SI 0 "reg_before_reload_operand" "=!r,!*f,*m,!*q")
 	(match_dup 1))]
   ""
 "* return output_movb (operands, insn, which_alternative, 0); "
@@ -6673,7 +6690,7 @@
 	   [(match_operand:SI 1 "register_operand" "r,r,r,r") (const_int 0)])
 	  (pc)
 	  (label_ref (match_operand 3 "" ""))))
-   (set (match_operand:SI 0 "register_operand" "=!r,!*f,!*m,!*q")
+   (set (match_operand:SI 0 "reg_before_reload_operand" "=!r,!*f,*m,!*q")
 	(match_dup 1))]
   ""
 "* return output_movb (operands, insn, which_alternative, 1); "

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision: 1.8 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -125,11 +125,11 @@ package body Exp_Util is
 
    function Make_Literal_Range
      (Loc         : Source_Ptr;
-      Literal_Typ : Entity_Id;
-      Index_Typ   : Entity_Id)
+      Literal_Typ : Entity_Id)
       return        Node_Id;
    --  Produce a Range node whose bounds are:
-   --    Index_Typ'first .. Index_Typ'First + Length (Literal_Typ)
+   --    Low_Bound (Literal_Type) ..
+   --        Low_Bound (Literal_Type) + Length (Literal_Typ) - 1
    --  this is used for expanding declarations like X : String := "sdfgdfg";
 
    function New_Class_Wide_Subtype
@@ -1072,12 +1072,12 @@ package body Exp_Util is
    --    Val : T := Expr;
    --
    --  <elsif Expr is an entity_name>
-   --    Val : T (contraints taken from Expr) := Expr;
+   --    Val : T (constraints taken from Expr) := Expr;
    --
    --  <else>
    --    type Axxx is access all T;
    --    Rval : Axxx := Expr'ref;
-   --    Val  : T (contraints taken from Rval) := Rval.all;
+   --    Val  : T (constraints taken from Rval) := Rval.all;
 
    --    ??? note: when the Expression is allocated in the secondary stack
    --              we could use it directly instead of copying it by declaring
@@ -1137,8 +1137,7 @@ package body Exp_Util is
                Make_Index_Or_Discriminant_Constraint (Loc,
                  Constraints => New_List (
                    Make_Literal_Range (Loc,
-                     Literal_Typ => Exp_Typ,
-                     Index_Typ   => Etype (First_Index (Unc_Type)))))));
+                     Literal_Typ => Exp_Typ)))));
 
       elsif Is_Constrained (Exp_Typ)
         and then not Is_Class_Wide_Type (Unc_Type)
@@ -2305,28 +2304,27 @@ package body Exp_Util is
 
    function Make_Literal_Range
      (Loc         : Source_Ptr;
-      Literal_Typ : Entity_Id;
-      Index_Typ   : Entity_Id)
+      Literal_Typ : Entity_Id)
       return        Node_Id
    is
+      Lo : Node_Id :=
+             New_Copy_Tree (String_Literal_Low_Bound (Literal_Typ));
+
    begin
+      Set_Analyzed (Lo, False);
+
          return
            Make_Range (Loc,
-             Low_Bound =>
-               Make_Attribute_Reference (Loc,
-                 Prefix => New_Occurrence_Of (Index_Typ, Loc),
-                 Attribute_Name => Name_First),
+             Low_Bound => Lo,
 
              High_Bound =>
                Make_Op_Subtract (Loc,
                   Left_Opnd =>
                     Make_Op_Add (Loc,
-                      Left_Opnd =>
-                        Make_Attribute_Reference (Loc,
-                          Prefix => New_Occurrence_Of (Index_Typ, Loc),
-                          Attribute_Name => Name_First),
-                      Right_Opnd => Make_Integer_Literal (Loc,
-                        String_Literal_Length (Literal_Typ))),
+                      Left_Opnd  => New_Copy_Tree (Lo),
+                      Right_Opnd =>
+                        Make_Integer_Literal (Loc,
+                          String_Literal_Length (Literal_Typ))),
                   Right_Opnd => Make_Integer_Literal (Loc, 1)));
    end Make_Literal_Range;
 
@@ -2423,7 +2421,7 @@ package body Exp_Util is
          begin
             --  A class-wide equivalent type is not needed when Java_VM
             --  because the JVM back end handles the class-wide object
-            --  intialization itself (and doesn't need or want the
+            --  initialization itself (and doesn't need or want the
             --  additional intermediate type to handle the assignment).
 
             if Expander_Active and then not Java_VM then
@@ -2489,66 +2487,6 @@ package body Exp_Util is
          return True;
       end if;
    end May_Generate_Large_Temp;
-
-   ---------------------
-   -- Must_Be_Aligned --
-   ---------------------
-
-   function Must_Be_Aligned (Obj : Node_Id) return Boolean is
-      Typ : constant Entity_Id := Etype (Obj);
-
-   begin
-      --  If object is strictly aligned, we can quit now
-
-      if Strict_Alignment (Typ) then
-         return True;
-
-      --  Case of subscripted array reference
-
-      elsif Nkind (Obj) = N_Indexed_Component then
-
-         --  If we have a pointer to an array, then this is definitely
-         --  aligned, because pointers always point to aligned versions.
-
-         if Is_Access_Type (Etype (Prefix (Obj))) then
-            return True;
-
-         --  Otherwise, go look at the prefix
-
-         else
-            return Must_Be_Aligned (Prefix (Obj));
-         end if;
-
-      --  Case of record field
-
-      elsif Nkind (Obj) = N_Selected_Component then
-
-         --  What is significant here is whether the record type is packed
-
-         if Is_Record_Type (Etype (Prefix (Obj)))
-           and then Is_Packed (Etype (Prefix (Obj)))
-         then
-            return False;
-
-         --  Or the component has a component clause which might cause
-         --  the component to become unaligned (we can't tell if the
-         --  backend is doing alignment computations).
-
-         elsif Present (Component_Clause (Entity (Selector_Name (Obj)))) then
-            return False;
-
-         --  In all other cases, go look at prefix
-
-         else
-            return Must_Be_Aligned (Prefix (Obj));
-         end if;
-
-      --  If not selected or indexed component, must be aligned
-
-      else
-         return True;
-      end if;
-   end Must_Be_Aligned;
 
    ----------------------------
    -- New_Class_Wide_Subtype --
@@ -2826,6 +2764,7 @@ package body Exp_Util is
       --  circumstances: for change of representations, and also when this
       --  is a view conversion to a smaller object, where gigi can end up
       --  its own temporary of the wrong size.
+
       --  ??? this transformation is inhibited for elementary types that are
       --  not involved in a change of representation because it causes
       --  regressions that are not fully understood yet.

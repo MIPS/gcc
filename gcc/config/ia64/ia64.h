@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -31,11 +31,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Run-time target specifications */
 
-/* Define this to be a string constant containing `-D' options to define the
-   predefined macros that identify this machine and system.  These macros will
-   be predefined unless the `-ansi' option is specified.  */
-/* ??? This is undefed in svr4.h.  */
-#define CPP_PREDEFINES "-Dia64 -Amachine=ia64"
+#define CPP_CPU_SPEC "\
+  -Acpu=ia64 -Amachine=ia64 \
+  %{!ansi:%{!std=c*:%{!std=i*:-Dia64}}} -D__ia64 -D__ia64__"
+
+#define CC1_SPEC "%(cc1_cpu) "
 
 /* This declaration should be present.  */
 extern int target_flags;
@@ -53,7 +53,7 @@ extern int target_flags;
 
 #define MASK_VOL_ASM_STOP 0x00000010	/* Emit stop bits for vol ext asm.  */
 
-#define MASK_ILP32      0x00000020      /* Generate ILP32 code. */
+#define MASK_ILP32      0x00000020      /* Generate ILP32 code.  */
 
 #define MASK_B_STEP	0x00000040	/* Emit code for Itanium B step.  */
 
@@ -173,13 +173,8 @@ extern const char *ia64_fixed_range_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
-      N_("Specify range of registers to make fixed.")},			\
+      N_("Specify range of registers to make fixed")},			\
 }
-
-/* This macro is a C statement to print on `stderr' a string describing the
-   particular machine description choice.  */
-
-#define TARGET_VERSION fprintf (stderr, " (IA-64)");
 
 /* Sometimes certain combinations of command options do not make sense on a
    particular target machine.  You can define a macro `OVERRIDE_OPTIONS' to
@@ -210,23 +205,9 @@ extern const char *ia64_fixed_range_string;
   "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__}	\
    -D__LONG_MAX__=9223372036854775807L"
 
-/* If this macro is defined, the preprocessor will not define the builtin macro
-   `__SIZE_TYPE__'.  The macro `__SIZE_TYPE__' must then be defined by
-   `CPP_SPEC' instead.
-
-   This should be defined if `SIZE_TYPE' depends on target dependent flags
-   which are not accessible to the preprocessor.  Otherwise, it should not be
-   defined.  */
 /* This is always "long" so it doesn't "change" in ILP32 vs. LP64.  */
 /* #define NO_BUILTIN_SIZE_TYPE */
 
-/* If this macro is defined, the preprocessor will not define the builtin macro
-   `__PTRDIFF_TYPE__'.  The macro `__PTRDIFF_TYPE__' must then be defined by
-   `CPP_SPEC' instead.
-
-   This should be defined if `PTRDIFF_TYPE' depends on target dependent flags
-   which are not accessible to the preprocessor.  Otherwise, it should not be
-   defined.  */
 /* This is always "long" so it doesn't "change" in ILP32 vs. LP64.  */
 /* #define NO_BUILTIN_PTRDIFF_TYPE */
 
@@ -242,36 +223,6 @@ extern const char *ia64_fixed_range_string;
    into options for GNU CC to pass to the `cc1plus'.  */
 
 /* #define CC1PLUS_SPEC "" */
-
-/* A C string constant that tells the GNU CC driver program options to pass to
-   the assembler.  It can also specify how to translate options you give to GNU
-   CC into options for GNU CC to pass to the assembler.  */
-
-#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GNU_AS) != 0
-/* GNU AS.  */
-#define ASM_SPEC \
-  "%{mno-gnu-as:-N so} %{!mno-gnu-as:-x} %{mconstant-gp} %{mauto-pic}"
-#else
-/* Intel ias.  */
-#define ASM_SPEC \
-  "%{!mgnu-as:-N so} %{mgnu-as:-x} %{mconstant-gp:-M const_gp}\
-   %{mauto-pic:-M no_plabel}"
-#endif
-
-/* A C string constant that tells the GNU CC driver program options to pass to
-   the linker.  It can also specify how to translate options you give to GNU CC
-   into options for GNU CC to pass to the linker.  */
-
-/* The Intel linker does not support dynamic linking, so we need -dn.
-   The Intel linker gives annoying messages unless -N so is used.  */
-#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GNU_LD) != 0
-/* GNU LD.  */
-#define LINK_SPEC "%{mno-gnu-ld:-dn -N so}"
-#else
-/* Intel ild.  */
-#define LINK_SPEC "%{!mgnu-ld:-dn -N so}"
-#endif
-
 
 /* Storage Layout */
 
@@ -280,9 +231,6 @@ extern const char *ia64_fixed_range_string;
 
 #define BITS_BIG_ENDIAN 0
 
-/* Define this macro to have the value 1 if the most significant byte in a word
-   has the lowest number.  This macro need not be a constant.  */
-
 #define BYTES_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
 /* Define this macro to have the value 1 if, in a multiword object, the most
@@ -290,29 +238,18 @@ extern const char *ia64_fixed_range_string;
 
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
-/* Define this macro if WORDS_BIG_ENDIAN is not constant.  This must be a
-   constant value with the same meaning as WORDS_BIG_ENDIAN, which will be used
-   only when compiling libgcc2.c.  Typically the value will be set based on
-   preprocessor defines.  */
 #if defined(__BIG_ENDIAN__)
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #else
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
 
-/* Define this macro to be the number of bits in an addressable storage unit
-   (byte); normally 8.  */
 #define BITS_PER_UNIT 8
 
-/* Number of bits in a word; normally 32.  */
 #define BITS_PER_WORD 64
 
-/* Number of storage units in a word; normally 4.  */
 #define UNITS_PER_WORD 8
 
-/* Width of a pointer, in bits.  You must specify a value no wider than the
-   width of `Pmode'.  If it is not equal to the width of `Pmode', you must
-   define `POINTERS_EXTEND_UNSIGNED'.  */
 #define POINTER_SIZE (TARGET_ILP32 ? 32 : 64)
 
 /* A C expression whose value is zero if pointers that need to be extended
@@ -336,22 +273,12 @@ do									\
   }									\
 while (0)
 
-/* Define this macro if the promotion described by `PROMOTE_MODE' should also
-   be done for outgoing function arguments.  */
 /* ??? ABI doesn't allow us to define this.  */
 /* #define PROMOTE_FUNCTION_ARGS */
 
-/* Define this macro if the promotion described by `PROMOTE_MODE' should also
-   be done for the return value of functions.
-
-   If this macro is defined, `FUNCTION_VALUE' must perform the same promotions
-   done by `PROMOTE_MODE'.  */
 /* ??? ABI doesn't allow us to define this.  */
 /* #define PROMOTE_FUNCTION_RETURN */
 
-/* Normal alignment required for function parameters on the stack, in bits.
-   All stack parameters receive at least this much alignment regardless of data
-   type.  On most machines, this is the same as the size of an integer.  */
 #define PARM_BOUNDARY 64
 
 /* Define this macro if you wish to preserve a certain alignment for the stack
@@ -365,11 +292,8 @@ while (0)
 #define IA64_STACK_ALIGN(LOC) (((LOC) + 15) & ~15)
 #endif
 
-/* Alignment required for a function entry point, in bits.  */
 #define FUNCTION_BOUNDARY 128
 
-/* Biggest alignment that any data type can require on this machine,
-   in bits.  */
 /* Optional x86 80-bit float, quad-precision 128-bit float, and quad-word
    128 bit integers all require 128 bit alignment.  */
 #define BIGGEST_ALIGNMENT 128
@@ -393,9 +317,6 @@ while (0)
   (TREE_CODE (EXP) == STRING_CST	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
 
-/* Define this macro to be the value 1 if instructions will fail to work if
-   given data not on the nominal alignment.  If instructions will merely go
-   slower in that case, define this macro as 0.  */
 #define STRICT_ALIGNMENT 1
 
 /* Define this if you wish to imitate the way many other C compilers handle
@@ -426,45 +347,22 @@ while (0)
 
 /* Layout of Source Language Data Types */
 
-/* A C expression for the size in bits of the type `int' on the target machine.
-   If you don't define this, the default is one word.  */
 #define INT_TYPE_SIZE 32
 
-/* A C expression for the size in bits of the type `short' on the target
-   machine.  If you don't define this, the default is half a word.  (If this
-   would be less than one storage unit, it is rounded up to one unit.)  */
 #define SHORT_TYPE_SIZE 16
 
-/* A C expression for the size in bits of the type `long' on the target
-   machine.  If you don't define this, the default is one word.  */
 #define LONG_TYPE_SIZE (TARGET_ILP32 ? 32 : 64)
 
-/* Maximum number for the size in bits of the type `long' on the target
-   machine.  If this is undefined, the default is `LONG_TYPE_SIZE'.  Otherwise,
-   it is the constant value that is the largest value that `LONG_TYPE_SIZE' can
-   have at run-time.  This is used in `cpp'.  */
 #define MAX_LONG_TYPE_SIZE 64
 
-/* A C expression for the size in bits of the type `long long' on the target
-   machine.  If you don't define this, the default is two words.  If you want
-   to support GNU Ada on your machine, the value of macro must be at least 64.  */
 #define LONG_LONG_TYPE_SIZE 64
 
-/* A C expression for the size in bits of the type `char' on the target
-   machine.  If you don't define this, the default is one quarter of a word.
-   (If this would be less than one storage unit, it is rounded up to one unit.)  */
 #define CHAR_TYPE_SIZE 8
 
-/* A C expression for the size in bits of the type `float' on the target
-   machine.  If you don't define this, the default is one word.  */
 #define FLOAT_TYPE_SIZE 32
 
-/* A C expression for the size in bits of the type `double' on the target
-   machine.  If you don't define this, the default is two words.  */
 #define DOUBLE_TYPE_SIZE 64
 
-/* A C expression for the size in bits of the type `long double' on the target
-   machine.  If you don't define this, the default is two words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 
 /* Tell real.c that this is the 80-bit Intel extended float format
@@ -472,9 +370,6 @@ while (0)
 
 #define INTEL_EXTENDED_IEEE_FORMAT 1
 
-/* An expression whose value is 1 or 0, according to whether the type `char'
-   should be signed or unsigned by default.  The user can always override this
-   default with the options `-fsigned-char' and `-funsigned-char'.  */
 #define DEFAULT_SIGNED_CHAR 1
 
 /* A C expression for a string describing the name of the data type to use for
@@ -498,12 +393,6 @@ while (0)
 /* A C expression for the size in bits of the data type for wide characters.
    This is used in `cpp', which cannot make use of `WCHAR_TYPE'.  */
 /* #define WCHAR_TYPE_SIZE */
-
-/* Maximum number for the size in bits of the data type for wide characters.
-   If this is undefined, the default is `WCHAR_TYPE_SIZE'.  Otherwise, it is
-   the constant value that is the largest value that `WCHAR_TYPE_SIZE' can have
-   at run-time.  This is used in `cpp'.  */
-/* #define MAX_WCHAR_TYPE_SIZE */
 
 
 /* Register Basics */
@@ -1526,13 +1415,25 @@ do {									\
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
 do {									\
   if (CONST_OK_FOR_I (DELTA))						\
-    fprintf (FILE, "\tadds r32 = %d, r32\n", (DELTA));			\
+    {									\
+      fprintf (FILE, "\tadds r32 = ");					\
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));			\
+      fprintf (FILE, ", r32\n");					\
+    }									\
   else									\
     {									\
       if (CONST_OK_FOR_J (DELTA))					\
-        fprintf (FILE, "\taddl r2 = %d, r0\n", (DELTA));		\
+        {								\
+          fprintf (FILE, "\taddl r2 = ");				\
+          fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));		\
+          fprintf (FILE, ", r0\n");					\
+        }								\
       else								\
-	fprintf (FILE, "\tmovl r2 = %d\n", (DELTA));			\
+        {								\
+	  fprintf (FILE, "\tmovl r2 = ");				\
+	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (DELTA));		\
+	  fprintf (FILE, "\n");						\
+        }								\
       fprintf (FILE, "\t;;\n");						\
       fprintf (FILE, "\tadd r32 = r2, r32\n");				\
     }									\
@@ -1558,122 +1459,25 @@ do {									\
 /* A C statement or compound statement to output to FILE some assembler code to
    call the profiling subroutine `mcount'.  */
 
-/* ??? Unclear if this will actually work.  No way to test this currently.  */
-
-#define FUNCTION_PROFILER(FILE, LABELNO) \
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(FILE, LABELNO)				\
 do {									\
   char buf[20];								\
   ASM_GENERATE_INTERNAL_LABEL (buf, "LP", LABELNO);			\
-  fputs ("\taddl r16 = @ltoff(", FILE);					\
+  fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", FILE);			\
+  if (TARGET_AUTO_PIC)							\
+    fputs ("\tmovl out3 = @gprel(", FILE);				\
+  else									\
+    fputs ("\taddl out3 = @ltoff(", FILE);				\
   assemble_name (FILE, buf);						\
-  fputs ("), gp\n", FILE);						\
-  fputs ("\tmov r17 = r1;;\n", FILE);					\
-  fputs ("\tld8 out0 = [r16]\n", FILE);					\
-  fputs ("\tmov r18 = b0\n", FILE);					\
-  fputs ("\tbr.call.sptk.many rp = mcount;;\n", FILE);			\
-  fputs ("\tmov b0 = r18\n", FILE);					\
-  fputs ("\tmov r1 = r17;;\n", FILE);					\
+  if (TARGET_AUTO_PIC)							\
+    fputs (");;\n", FILE);						\
+  else									\
+    fputs ("), r1;;\n", FILE);						\
+  fputs ("\tmov out1 = r1\n", FILE);					\
+  fputs ("\tmov out2 = b0\n", FILE);					\
+  fputs ("\tbr.call.sptk.many b0 = _mcount;;\n", FILE);			\
 } while (0)
-
-/* A C statement or compound statement to output to FILE some assembler code to
-   initialize basic-block profiling for the current object module.  */
-
-/* ??? Unclear if this will actually work.  No way to test this currently.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO) \
-do {									\
-  int labelno = LABELNO;						\
-  switch (profile_block_flag)						\
-    {									\
-    case 2:								\
-      fputs ("\taddl r16 = @ltoff(LPBX0), gp\n", FILE);			\
-      fprintf (FILE, "\tmov out1 = %d;;\n", labelno);			\
-      fputs ("\tld8 out0 = [r16]\n", FILE);				\
-      fputs ("\tmov r17 = r1\n", FILE);					\
-      fputs ("\tmov r18 = b0\n", FILE);					\
-      fputs ("\tbr.call.sptk.many rp = __bb_init_trace_func;;\n", FILE);\
-      fputs ("\tmov r1 = r17\n", FILE);					\
-      fputs ("\tmov b0 = r18;;\n", FILE);				\
-      break;								\
-    default:								\
-      fputs ("\taddl r16 = @ltoff(LPBX0), gp;;\n", FILE);		\
-      fputs ("\tld8 out0 = [r16];;\n", FILE);				\
-      fputs ("\tld8 r17 = [out0];;\n", FILE);				\
-      fputs ("\tcmp.eq p6, p0 = r0, r17;;\n", FILE);			\
-      fputs ("(p6)\tmov r16 = r1\n", FILE);				\
-      fputs ("(p6)\tmov r17 = b0\n", FILE);				\
-      fputs ("(p6)\tbr.call.sptk.many rp = __bb_init_func;;\n", FILE);	\
-      fputs ("(p6)\tmov r1 = r16\n", FILE);				\
-      fputs ("(p6)\tmov b0 = r17;;\n", FILE);				\
-      break;								\
-    }									\
-} while (0)
-
-/* A C statement or compound statement to output to FILE some assembler code to
-   increment the count associated with the basic block number BLOCKNO.  */
-
-/* ??? This can't work unless we mark some registers as fixed, so that we
-   can use them as temporaries in this macro.  We need two registers for -a
-   profiling and 4 registers for -ax profiling.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO) \
-do {									\
-  int blockn = BLOCKNO;							\
-  switch (profile_block_flag)						\
-    {									\
-    case 2:								\
-      fputs ("\taddl r2 = @ltoff(__bb), gp\n", FILE);			\
-      fputs ("\taddl r3 = @ltoff(LPBX0), gp;;\n", FILE);		\
-      fprintf (FILE, "\tmov r9 = %d\n", blockn);			\
-      fputs ("\tld8 r2 = [r2]\n", FILE);				\
-      fputs ("\tld8 r3 = [r3];;\n", FILE);				\
-      fputs ("\tadd r8 = 8, r2\n", FILE);				\
-      fputs ("\tst8 [r2] = r9;;\n", FILE);				\
-      fputs ("\tst8 [r8] = r3\n", FILE);				\
-      fputs ("\tbr.call.sptk.many rp = __bb_trace_func\n", FILE);	\
-      break;								\
-									\
-    default:								\
-      fputs ("\taddl r2 = @ltoff(LPBX2), gp;;\n", FILE);		\
-      fputs ("\tld8 r2 = [r2];;\n", FILE);				\
-      fprintf (FILE, "\taddl r2 = %d, r2;;\n", 8 * blockn);		\
-      fputs ("\tld8 r3 = [r2];;\n", FILE);				\
-      fputs ("\tadd r3 = 1, r3;;\n", FILE);				\
-      fputs ("\tst8 [r2] = r3;;\n", FILE);				\
-      break;								\
-    }									\
-} while(0)
-
-/* A C statement or compound statement to output to FILE assembler
-   code to call function `__bb_trace_ret'.  */
-
-/* ??? Unclear if this will actually work.  No way to test this currently.  */
-
-/* ??? This needs to be emitted into the epilogue.  Perhaps rewrite to emit
-   rtl and call from ia64_expand_epilogue?  */
-
-#define FUNCTION_BLOCK_PROFILER_EXIT(FILE) \
-  fputs ("\tbr.call.sptk.many rp = __bb_trace_ret\n", FILE);
-#undef FUNCTION_BLOCK_PROFILER_EXIT
-
-/* A C statement or compound statement to save all registers, which may be
-   clobbered by a function call, including condition codes.  */
-
-/* ??? We would have to save 20 GRs, 106 FRs, 10 PRs, 2 BRs, and possibly
-   other things.  This is not practical.  Perhaps leave this feature (-ax)
-   unsupported by undefining above macros?  */
-
-/* #define MACHINE_STATE_SAVE(ID) */
-
-/* A C statement or compound statement to restore all registers, including
-   condition codes, saved by `MACHINE_STATE_SAVE'.  */
-
-/* ??? We would have to restore 20 GRs, 106 FRs, 10 PRs, 2 BRs, and possibly
-   other things.  This is not practical.  Perhaps leave this feature (-ax)
-   unsupported by undefining above macros?  */
-
-/* #define MACHINE_STATE_RESTORE(ID) */
-
 
 /* Implementing the Varargs Macros.  */
 
@@ -1966,7 +1770,7 @@ do {									\
 
 /* If a variable is weakened, made one only or moved into a different
    section, it may be necessary to redo the section info to move the
-   variable out of sdata. */
+   variable out of sdata.  */
 
 #define REDO_SECTION_INFO_P(DECL)					\
    ((TREE_CODE (DECL) == VAR_DECL)					\
@@ -2033,85 +1837,6 @@ do {						\
 
 /* Output of Data.  */
 
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble a floating-point constant of `TFmode', `DFmode', `SFmode',
-   respectively, whose value is VALUE.  */
-
-/* ??? Must reverse the word order for big-endian code?  */
-
-#define ASM_OUTPUT_LONG_DOUBLE(FILE, VALUE) \
-do {									\
-  long t[3];								\
-  REAL_VALUE_TO_TARGET_LONG_DOUBLE (VALUE, t);				\
-  fprintf (FILE, "\tdata4 0x%08lx, 0x%08lx, 0x%08lx, 0x%08lx\n",	\
-	   t[0] & 0xffffffff, t[1] & 0xffffffff, t[2] & 0xffffffff, 0L);\
-} while (0)
-
-/* ??? Must reverse the word order for big-endian code?  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)				\
-do {								\
-  long t[2];							\
-  REAL_VALUE_TO_TARGET_DOUBLE (VALUE, t);			\
-  fprintf (FILE, "\tdata8 0x%08lx%08lx\n",			\
-	   t[1] & 0xffffffff, t[0] & 0xffffffff);		\
-} while (0)
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)				\
-  do {								\
-    long t;							\
-    REAL_VALUE_TO_TARGET_SINGLE (VALUE, t);			\
-    fprintf (FILE, "\tdata4 0x%lx\n", t & 0xffffffff);		\
-} while (0)
-  
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble an integer of 1, 2, 4, or 8 bytes, respectively, whose value
-   is VALUE.  */
-
-/* This is how to output an assembler line defining a `char' constant.  */
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)					\
-do {									\
-  fprintf (FILE, "%s", ASM_BYTE_OP);					\
-  output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
-/* This is how to output an assembler line defining a `short' constant.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)					\
-do {									\
-  fprintf (FILE, "\tdata2\t");						\
-  output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
-/* This is how to output an assembler line defining an `int' constant.
-   We also handle symbol output here.  */
-
-/* ??? For ILP32, also need to handle function addresses here.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)					\
-do {									\
-  fprintf (FILE, "\tdata4\t");						\
-  output_addr_const (FILE, (VALUE));					\
-  fprintf (FILE, "\n");							\
-} while (0)
-
-/* This is how to output an assembler line defining a `long' constant.
-   We also handle symbol output here.  */
-
-#define ASM_OUTPUT_DOUBLE_INT(FILE, VALUE)				\
-do {									\
-  fprintf (FILE, "\tdata8\t");						\
-  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC) && SYMBOL_REF_FLAG (VALUE))	\
-    fprintf (FILE, "@fptr(");						\
-  output_addr_const (FILE, (VALUE));					\
-  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC) && SYMBOL_REF_FLAG (VALUE))	\
-    fprintf (FILE, ")");						\
-  fprintf (FILE, "\n");							\
-} while (0)
-
 /* This is how to output an assembler line defining a `char' constant
    to an xdata segment.  */
 
@@ -2163,12 +1888,6 @@ do {									\
   fprintf (FILE, "\n");							\
 } while (0)
 
-
-/* A C statement to output to the stdio stream STREAM an assembler instruction
-   to assemble a single byte containing the number VALUE.  */
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (int)(VALUE) & 0xff)
 
 
 /* Output of Uninitialized Variables.  */
@@ -2481,9 +2200,7 @@ do {									\
       reltag = "@gprel(";						\
     if (reltag)								\
       {									\
-	fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP			\
-	        : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP		\
-		: (abort (), "")), FILE);				\
+	fputs (integer_asm_op (SIZE, FALSE), FILE);			\
 	fputs (reltag, FILE);						\
 	assemble_name (FILE, XSTR (ADDR, 0));				\
 	fputc (')', FILE);						\
@@ -2545,13 +2262,6 @@ do {									\
 
 #define DWARF2_DEBUGGING_INFO
 
-/* C string constants giving the pseudo-op to use for a sequence of
-   2, 4, and 8 byte unaligned constants.  dwarf2out.c needs these.  */
-
-#define UNALIGNED_SHORT_ASM_OP		"\tdata2.ua\t"
-#define UNALIGNED_INT_ASM_OP		"\tdata4.ua\t"
-#define UNALIGNED_DOUBLE_INT_ASM_OP	"\tdata8.ua\t"
-
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DWARF2_ASM)
 
 /* Use tags for debug info labels, so that they don't break instruction
@@ -2567,9 +2277,7 @@ do {									\
    proper relocations for them.  */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL)	\
   do {							\
-    fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP		\
-	    : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP	\
-	    : (abort (), "")), FILE);			\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
     fputs ("@secrel(", FILE);				\
     assemble_name (FILE, LABEL);			\
     fputc (')', FILE);					\
@@ -2578,9 +2286,7 @@ do {									\
 /* Emit a PC-relative relocation.  */
 #define ASM_OUTPUT_DWARF_PCREL(FILE, SIZE, LABEL)	\
   do {							\
-    fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP		\
-	    : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP	\
-	    : (abort (), "")), FILE);			\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
     fputs ("@pcrel(", FILE);				\
     assemble_name (FILE, LABEL);			\
     fputc (')', FILE);					\
@@ -2588,7 +2294,7 @@ do {									\
 
 /* Cross Compilation and Floating Point.  */
 
-/* Define to enable software floating point emulation. */
+/* Define to enable software floating point emulation.  */
 #define REAL_ARITHMETIC
 
 
@@ -2599,12 +2305,6 @@ do {									\
 
 #define HARD_REGNO_RENAME_OK(REGNO1,REGNO2) \
   ia64_hard_regno_rename_ok((REGNO1), (REGNO2))
-
-/* Define this macro if the compiler should use extended basic blocks
-   when renaming registers.  Define this macro if the target has predicate
-   registers.  */
-
-#define RENAME_EXTENDED_BLOCKS
 
 
 /* Miscellaneous Parameters.  */
@@ -2682,18 +2382,6 @@ do {									\
 
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
-/* An alias for a tree code that should be used by default for conversion of
-   floating point values to fixed point.  */
-
-/* ??? Looks like this macro is obsolete and should be deleted everywhere.  */
-
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* An alias for a tree code that is the easiest kind of division to compile
-   code for in the general case.  */
-
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* The maximum number of bytes that a single instruction can move quickly from
    memory to memory.  */
 #define MOVE_MAX 8
@@ -2727,6 +2415,19 @@ do {									\
    #pragma weak.  Note, #pragma weak will only be supported if SUPPORT_WEAK is
    defined.  */
 
+/* If this architecture supports prefetch, define this to be the number of
+   prefetch commands that can be executed in parallel.
+
+   ??? This number is bogus and needs to be replaced before the value is
+   actually used in optimizations.  */
+
+#define SIMULTANEOUS_PREFETCHES 6
+
+/* If this architecture supports prefetch, define this to be the size of
+   the cache line that is prefetched.  */
+
+#define PREFETCH_BLOCK 32
+
 #define HANDLE_SYSV_PRAGMA
 
 /* In rare cases, correct code generation requires extra machine dependent
@@ -2756,7 +2457,7 @@ struct machine_function
   /* The new stack pointer when unwinding from EH.  */
   struct rtx_def* ia64_eh_epilogue_sp;
 
-  /* The new bsp value when unwinding from EH. */
+  /* The new bsp value when unwinding from EH.  */
   struct rtx_def* ia64_eh_epilogue_bsp;
 
   /* The GP value save register.  */
@@ -2821,7 +2522,7 @@ enum ia64_builtins
   IA64_BUILTIN_FLUSHRS
 };
 
-/* Codes for expand_compare_and_swap and expand_swap_and_compare. */
+/* Codes for expand_compare_and_swap and expand_swap_and_compare.  */
 enum fetchop_code {
   IA64_ADD_OP, IA64_SUB_OP, IA64_OR_OP, IA64_AND_OP, IA64_XOR_OP, IA64_NAND_OP
 };

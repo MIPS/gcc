@@ -55,14 +55,12 @@ Boston, MA 02111-1307, USA.  */
   {							\
     { GPLUSPLUS_INCLUDE_DIR, "G++", 1, 1 },		\
     { GPLUSPLUS_INCLUDE_DIR, 0, 1, 1 },			\
-    { LOCAL_INCLUDE_DIR, 0, 0, 1 },			\
     { GCC_INCLUDE_DIR, "GCC", 0, 0 },			\
     { GCC_INCLUDE_DIR "/ansi", 0, 0, 0 },		\
     { GCC_INCLUDE_DIR "/bsd", 0, 0, 0 },		\
     { TOOL_INCLUDE_DIR, "BINUTILS", 0, 1 },		\
     { TOOL_INCLUDE_DIR "/ansi", 0, 0, 0 },		\
     { TOOL_INCLUDE_DIR "/bsd", 0, 0, 0 },		\
-    { STANDARD_INCLUDE_DIR, 0, 0, 0 },			\
     { "/usr/include/bsd", 0, 0, 0 },			\
     { 0, 0, 0, 0 }					\
   }
@@ -160,10 +158,10 @@ Boston, MA 02111-1307, USA.  */
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC  \
     "%{!posix*:%{pg:-lgcrt0.o}%{!pg: \
-     %{p:%e-p profiling is no longer supported.  Use -pg instead.} \
+     %{p:%e-p profiling is no longer supported.  Use -pg instead} \
      %{!p:-lcrt0.o}}}\
      %{posix*:%{pg:-lgposixcrt0.o}%{!pg: \
-     %{p:%e-p profiling is no longer supported.  Use -pg instead.} \
+     %{p:%e-p profiling is no longer supported.  Use -pg instead} \
      %{!p:-lposixcrt0.o}}} \
      -lcrtbegin.o"
 
@@ -214,16 +212,11 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_ASM_CONSTRUCTOR  nextstep_asm_out_constructor
 #define TARGET_ASM_DESTRUCTOR   nextstep_asm_out_destructor
-extern void nextstep_asm_out_constructor  PARAMS ((struct rtx_def *, int));
-extern void nextstep_asm_out_destructor  PARAMS ((struct rtx_def *, int));
 
-/* ??? Should be changed to EH_FRAME_SECTION_NAME, but that requires
-   named section support.  Based on this definition, it seems clear
-   that the object file format supports named sections, but it has
-   not been implemented in gcc.  */
-#error "Implement named section support"
-#define EH_FRAME_SECTION_ASM_OP "\t.section __TEXT,__eh_frame,regular"
+#define TARGET_ASM_EXCEPTION_SECTION nextstep_exception_section
 
+#define TARGET_ASM_EH_FRAME_SECTION nextstep_eh_frame_section
+  
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
 #undef	ASM_FILE_START
@@ -232,7 +225,7 @@ extern void nextstep_asm_out_destructor  PARAMS ((struct rtx_def *, int));
 #undef	ASM_FILE_END
 #define ASM_FILE_END(FILE)					\
   do {								\
-    if (strcmp (language_string, "GNU C++") == 0)		\
+    if (strcmp (lang_hooks.name, "GNU C++") == 0)		\
       {								\
 	constructor_section ();					\
 	destructor_section ();					\
@@ -244,7 +237,6 @@ extern void nextstep_asm_out_destructor  PARAMS ((struct rtx_def *, int));
 
 #undef	HANDLE_PRAGMA
 #define HANDLE_PRAGMA(GETC, UNGETC, NAME) handle_pragma (GETC, UNGETC, NAME)
-extern int handle_pragma PARAMS ((int(*)(void), void (*)(int), const char *));
 
 /* Give methods pretty symbol names on NeXT. */
 
@@ -326,6 +318,7 @@ FUNCTION ()								\
 #define EXTRA_SECTIONS					\
   in_const, in_cstring, in_literal4, in_literal8,	\
   in_constructor, in_destructor,			\
+  in_nextstep_exception, in_nextstep_eh_frame,		\
   in_objc_class, in_objc_meta_class, in_objc_category,	\
   in_objc_class_vars, in_objc_instance_vars,		\
   in_objc_cls_meth, in_objc_inst_meth,			\
@@ -357,6 +350,12 @@ SECTION_FUNCTION (constructor_section,		\
 SECTION_FUNCTION (destructor_section,		\
 		  in_destructor,		\
 		  ".destructor", 0, 0)		\
+SECTION_FUNCTION (nextstep_exception_section,	\
+		  in_nextstep_exception,	\
+		  ".section __TEXT,__gcc_except_tab,regular", 0, 0)	\
+SECTION_FUNCTION (nextstep_eh_frame_section,	\
+		  in_nextstep_eh_frame,		\
+		  ".section __TEXT,__eh_frame,regular", 0, 0)		\
 SECTION_FUNCTION (objc_class_section,		\
 		  in_objc_class,		\
 		  ".objc_class", 0, 1)		\

@@ -2,11 +2,11 @@
  *                                                                          *
  *                         GNAT COMPILER COMPONENTS                         *
  *                                                                          *
- *                                 D E C L                                   *
+ *                                 D E C L                                  *
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.3 $
+ *                            $Revision$
  *                                                                          *
  *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -720,7 +720,6 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 							  "UNC"));
 	}
 
-
 	/* Convert the expression to the type of the object except in the
 	   case where the object's type is unconstrained or the object's type
 	   is a padded record whose field is of self-referential size.  In
@@ -1061,12 +1060,15 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	  }
 
 	/* Back-annotate the Alignment of the object if not already in the
-	   tree.  Likewise for Esize if the object is of a constant size.  */
-	if (Unknown_Alignment (gnat_entity))
+	   tree.  Likewise for Esize if the object is of a constant size.
+	   But if the "object" is actually a pointer to an object, the
+	   alignment and size are the same as teh type, so don't back-annotate
+	   the values for the pointer.  */
+	if (! used_by_ref && Unknown_Alignment (gnat_entity))
 	  Set_Alignment (gnat_entity,
 			 UI_From_Int (DECL_ALIGN (gnu_decl) / BITS_PER_UNIT));
 
-	if (Unknown_Esize (gnat_entity)
+	if (! used_by_ref && Unknown_Esize (gnat_entity)
 	    && DECL_SIZE (gnu_decl) != 0)
 	  {
 	    tree gnu_back_size = DECL_SIZE (gnu_decl);
@@ -1524,7 +1526,6 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 					size_binop (MINUS_EXPR, gnu_base_max,
 						    gnu_base_min)));
 
-
 	    TYPE_NAME (gnu_index_types[index])
 	      = create_concat_name (gnat_entity, field_name);
 	  }
@@ -1635,7 +1636,6 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 			  tem, 0, ! Comes_From_Source (gnat_entity),
 			  debug_info_p);
 	rest_of_type_compilation (gnu_fat_type, global_bindings_p ());
-
 
 	/* Create a record type for the object and its template and
 	   set the template at a negative offset.  */
@@ -2730,6 +2730,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	     : In_Extended_Main_Code_Unit (gnat_desig_type));
 	int got_fat_p = 0;
 	int made_dummy = 0;
+	tree gnu_desig_type = 0;
 
 	if (No (gnat_desig_full)
 	    && (Ekind (gnat_desig_type) == E_Class_Wide_Type
@@ -2838,8 +2839,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	/* If we already know what the full type is, use it.  */
 	else if (Present (gnat_desig_full)
 		 && present_gnu_tree (gnat_desig_full))
-	  gnu_type
-	    = build_pointer_type (TREE_TYPE (get_gnu_tree (gnat_desig_full)));
+	  gnu_desig_type = TREE_TYPE (get_gnu_tree (gnat_desig_full));
 
 	/* Get the type of the thing we are to point to and build a pointer
 	   to it.  If it is a reference to an incomplete or private type with a
@@ -2851,7 +2851,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 		 && ! present_gnu_tree (gnat_desig_full)
 		 && Is_Record_Type (gnat_desig_full))
 	  {
-	    gnu_type = build_pointer_type (make_dummy_type (gnat_desig_type));
+	    gnu_desig_type = make_dummy_type (gnat_desig_type);
 	    made_dummy = 1;
 	  }
 
@@ -2867,7 +2867,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 			 && (Is_Record_Type (gnat_desig_full)
 			     || Is_Array_Type (gnat_desig_full)))))
 	  {
-	    gnu_type = build_pointer_type (make_dummy_type (gnat_desig_type));
+	    gnu_desig_type = make_dummy_type (gnat_desig_type);
 	    made_dummy = 1;
 	  }
 	else if (gnat_desig_type == gnat_entity)
@@ -2876,7 +2876,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	    TREE_TYPE (gnu_type) = TYPE_POINTER_TO (gnu_type) = gnu_type;
 	  }
 	else
-	  gnu_type = build_pointer_type (gnat_to_gnu_type (gnat_desig_type));
+	  gnu_desig_type = gnat_to_gnu_type (gnat_desig_type);
 
 	/* It is possible that the above call to gnat_to_gnu_type resolved our
 	   type.  If so, just return it.  */
@@ -2884,6 +2884,21 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	  {
 	    maybe_present = 1;
 	    break;
+	  }
+
+	/* If we have a GCC type for the designated type, possibly
+	   modify it if we are pointing only to constant objects and then
+	   make a pointer to it.  Don't do this for unconstrained arrays.  */
+	if (gnu_type == 0 && gnu_desig_type != 0)
+	  {
+	    if (Is_Access_Constant (gnat_entity)
+		&& TREE_CODE (gnu_desig_type) != UNCONSTRAINED_ARRAY_TYPE)
+	      gnu_desig_type
+		= build_qualified_type (gnu_desig_type,
+					(TYPE_QUALS (gnu_desig_type)
+					 | TYPE_QUAL_CONST));
+
+	    gnu_type = build_pointer_type (gnu_desig_type);
 	  }
 
 	/* If we are not defining this object and we made a dummy pointer,
@@ -2912,8 +2927,8 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	    this_made_decl = saved = 1;
 
 	    if (defer_incomplete_level == 0)
-	      update_pointer_to
-		(gnu_old_type, gnat_to_gnu_type (gnat_desig_type));
+	      update_pointer_to (TYPE_MAIN_VARIANT (gnu_old_type),
+				 gnat_to_gnu_type (gnat_desig_type));
 	    else
 	      {
 		struct incomplete *p
@@ -3380,7 +3395,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 				 returns_by_ref,
 				 Function_Returns_With_DSP (gnat_entity));
 
-	/* ??? For now, don't consider nested fuctions pure.  */
+	/* ??? For now, don't consider nested functions pure.  */
 	if (! global_bindings_p ())
 	  pure_flag = 0;
 
@@ -3808,7 +3823,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	  next = incp->next;
 
 	  if (incp->old_type != 0)
-	    update_pointer_to (incp->old_type,
+	    update_pointer_to (TYPE_MAIN_VARIANT (incp->old_type),
 			       gnat_to_gnu_type (incp->full_type));
 	  free (incp);
 	}
@@ -3823,7 +3838,8 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
       for (incp = defer_incomplete_list; incp; incp = incp->next)
 	if (incp->old_type != 0 && incp->full_type == gnat_entity)
 	  {
-	    update_pointer_to (incp->old_type, TREE_TYPE (gnu_decl));
+	    update_pointer_to (TYPE_MAIN_VARIANT (incp->old_type),
+			       TREE_TYPE (gnu_decl));
 	    incp->old_type = 0;
 	  }
     }
@@ -4272,7 +4288,6 @@ elaborate_expression_1 (gnat_expr, gnat_entity, gnu_expr, gnu_name, definition,
     gnu_expr = build (COMPONENT_REF, TREE_TYPE (gnu_expr),
 		      build (PLACEHOLDER_EXPR, DECL_CONTEXT (gnu_expr)),
 		      gnu_expr);
-
 
   /* If GNU_EXPR is neither a placeholder nor a constant, nor a variable
      that is a constant, make a variable that is initialized to contain the
@@ -5235,7 +5250,7 @@ annotate_value (gnu_size)
   TCode tcode;
   Node_Ref_Or_Val ops[3];
   int i;
-  unsigned int size;
+  int size;
 
   /* If we do not return inside this switch, TCODE will be set to the
      code to use for a Create_Node operand and LEN (set above) will be
@@ -5544,7 +5559,7 @@ validate_size (uint_size, gnu_type, gnat_object, kind, component_p, zero_ok)
 	  && TREE_CODE (rm_size (gnu_type)) == INTEGER_CST
 	  && ! tree_int_cst_lt (size, rm_size (gnu_type)))
 	post_error_ne_tree_2
-	  ("\\size of ^ rounded up to multiple of alignment (^ bits)",
+	  ("\\size of ^ is not a multiple of alignment (^ bits)",
 	   gnat_error_node, gnat_object, rm_size (gnu_type),
 	   TYPE_ALIGN (gnu_type));
 

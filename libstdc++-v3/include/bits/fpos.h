@@ -31,13 +31,18 @@
 // ISO C++ 14882: 27 Input/output library
 //
 
+/** @file fpos.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_FPOS_H
 #define _CPP_BITS_FPOS_H 1
 
 #pragma GCC system_header
 
 #include <bits/c++io.h>
-#include <bits/std_cwchar.h> 	// For mbstate_t.
+#include <cwchar> 	// For mbstate_t.
 
 namespace std
 {
@@ -116,6 +121,3 @@ namespace std
 }  // namespace std
 
 #endif 
-
-
-

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision$
 --                                                                          --
 --             Copyright (C) 2001 Free Software Foundation, Inc.            --
 --                                                                          --
@@ -42,9 +42,6 @@ with Snames;      use Snames;
 package body Prj is
 
    The_Empty_String        : String_Id;
-
-   Default_Ada_Spec_Suffix : Name_Id := No_Name;
-   Default_Ada_Impl_Suffix : Name_Id := No_Name;
 
    subtype Known_Casing is Casing_Type range All_Upper_Case .. Mixed_Case;
 
@@ -92,6 +89,7 @@ package body Prj is
       Sources                      => Nil_String,
       Source_Dirs                  => Nil_String,
       Object_Directory             => No_Name,
+      Exec_Directory               => No_Name,
       Modifies                     => No_Project,
       Modified_By                  => No_Project,
       Naming                       => Std_Naming_Data,
@@ -107,24 +105,6 @@ package body Prj is
       Seen                         => False,
       Flag1                        => False,
       Flag2                        => False);
-
-   -----------------------------
-   -- Ada_Default_Spec_Suffix --
-   -----------------------------
-
-   function Ada_Default_Spec_Suffix return Name_Id is
-   begin
-      return Default_Ada_Spec_Suffix;
-   end Ada_Default_Spec_Suffix;
-
-   -----------------------------
-   -- Ada_Default_Impl_Suffix --
-   -----------------------------
-
-   function Ada_Default_Impl_Suffix return Name_Id is
-   begin
-      return Default_Ada_Impl_Suffix;
-   end Ada_Default_Impl_Suffix;
 
    -------------------
    -- Empty_Project --
@@ -225,9 +205,9 @@ package body Prj is
          Std_Naming_Data.Separate_Suffix     := Default_Ada_Impl_Suffix;
          Prj.Env.Initialize;
          Prj.Attr.Initialize;
-         Set_Name_Table_Byte (Name_Project,   Token_Type'Pos (Tok_Project));
-         Set_Name_Table_Byte (Name_Modifying, Token_Type'Pos (Tok_Modifying));
-         Set_Name_Table_Byte (Name_External,  Token_Type'Pos (Tok_External));
+         Set_Name_Table_Byte (Name_Project,  Token_Type'Pos (Tok_Project));
+         Set_Name_Table_Byte (Name_Extends,  Token_Type'Pos (Tok_Extends));
+         Set_Name_Table_Byte (Name_External, Token_Type'Pos (Tok_External));
       end if;
    end Initialize;
 

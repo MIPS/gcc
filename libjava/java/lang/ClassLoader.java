@@ -196,6 +196,7 @@ public abstract class ClassLoader
   }
 
   protected final Class defineClass(String name, byte[] data, int off, int len)
+    throws ClassFormatError
   {
     return defineClass (name, data, off, len, defaultProtectionDomain);
   }
@@ -253,7 +254,7 @@ public abstract class ClassLoader
 
       return defineClass0 (name, data, off, len, protectionDomain);
 
-    } catch (ClassFormatError x) {
+    } catch (LinkageError x) {
       throw x;		// rethrow
 
     } catch (java.lang.VirtualMachineError x) {

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
 --           Copyright (C) 1996-2001 Ada Core Technologies, Inc.            --
@@ -245,9 +245,9 @@ package body GNAT.Regpat is
    procedure Reset_Class (Bitmap : in out Character_Class);
    --  Clear all the entries in the class Bitmap.
 
-   pragma Inline_Always (Set_In_Class);
-   pragma Inline_Always (Get_From_Class);
-   pragma Inline_Always (Reset_Class);
+   pragma Inline (Set_In_Class);
+   pragma Inline (Get_From_Class);
+   pragma Inline (Reset_Class);
 
    -----------------------
    -- Local Subprograms --
@@ -512,9 +512,9 @@ package body GNAT.Regpat is
       --  Parse a posic character class, like [:alpha:] or [:^alpha:].
       --  The called is suppoed to absorbe the opening [.
 
-      pragma Inline_Always (Is_Mult);
-      pragma Inline_Always (Emit_Natural);
-      pragma Inline_Always (Parse_Character_Class); --  since used only once
+      pragma Inline (Is_Mult);
+      pragma Inline (Emit_Natural);
+      pragma Inline (Parse_Character_Class); --  since used only once
 
       ---------------
       -- Case_Emit --
@@ -1563,6 +1563,7 @@ package body GNAT.Regpat is
          Start_Pos  : Natural := 0;
          C          : Character;
          Length_Ptr : Pointer;
+         Has_Special_Operator : Boolean := False;
 
       begin
          Parse_Pos := Parse_Pos - 1;      --  Look at current character
@@ -1585,6 +1586,7 @@ package body GNAT.Regpat is
                when '.' | '[' | '(' | ')' | '|' | ASCII.LF | '$' | '^' =>
 
                   if Start_Pos = 0 then
+                     Start_Pos := Parse_Pos;
                      Emit (C);         --  First character is always emitted
                   else
                      exit Parse_Loop;  --  Else we are done
@@ -1593,12 +1595,14 @@ package body GNAT.Regpat is
                when '?' | '+' | '*' | '{' =>
 
                   if Start_Pos = 0 then
+                     Start_Pos := Parse_Pos;
                      Emit (C);         --  First character is always emitted
 
                   --  Are we looking at an operator, or is this
                   --  simply a normal character ?
                   elsif not Is_Mult (Parse_Pos) then
-                        Case_Emit (C);
+                     Start_Pos := Parse_Pos;
+                     Case_Emit (C);
                   else
                      --  We've got something like "abc?d".  Mark this as a
                      --  special case. What we want to emit is a first
@@ -1606,11 +1610,12 @@ package body GNAT.Regpat is
                      --  ultimately be transformed with a CURLY operator, A
                      --  special case has to be handled for "a?", since there
                      --  is no initial string to emit.
-                     Start_Pos := Natural'Last;
+                     Has_Special_Operator := True;
                      exit Parse_Loop;
                   end if;
 
                when '\' =>
+                  Start_Pos := Parse_Pos;
                   if Parse_Pos = Parse_End then
                      Fail ("Trailing \");
                   else
@@ -1629,12 +1634,13 @@ package body GNAT.Regpat is
                      Parse_Pos := Parse_Pos + 1;
                   end if;
 
-               when others => Case_Emit (C);
+               when others =>
+                  Start_Pos := Parse_Pos;
+                  Case_Emit (C);
             end case;
 
             exit Parse_Loop when Emit_Ptr - Length_Ptr = 254;
 
-            Start_Pos := Parse_Pos;
             Parse_Pos := Parse_Pos + 1;
 
             exit Parse_Loop when Parse_Pos > Parse_End;
@@ -1643,11 +1649,11 @@ package body GNAT.Regpat is
          --  Is the string followed by a '*+?{' operator ? If yes, and if there
          --  is an initial string to emit, do it now.
 
-         if Start_Pos = Natural'Last
+         if Has_Special_Operator
            and then Emit_Ptr >= Length_Ptr + 3
          then
             Emit_Ptr := Emit_Ptr - 1;
-            Parse_Pos := Parse_Pos - 1;
+            Parse_Pos := Start_Pos;
          end if;
 
          if Emit_Code then
@@ -2395,12 +2401,13 @@ package body GNAT.Regpat is
          return   Boolean;
       --  Return True it the simple operator (possibly non-greedy) matches
 
-      pragma Inline_Always (Index);
-      pragma Inline_Always (Repeat);
+      pragma Inline (Index);
+      pragma Inline (Repeat);
 
       --  These are two complex functions, but used only once.
-      pragma Inline_Always (Match_Whilem);
-      pragma Inline_Always (Match_Simple_Operator);
+
+      pragma Inline (Match_Whilem);
+      pragma Inline (Match_Simple_Operator);
 
       -----------
       -- Index --

@@ -52,6 +52,7 @@ Note:
 #include "basic-block.h"
 #include "function.h"
 #include "ggc.h"
+#include "reload.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -79,7 +80,7 @@ static void m68hc11_asm_out_destructor PARAMS ((rtx, int));
 
 rtx m68hc11_soft_tmp_reg;
 
-/* Must be set to 1 to produce debug messages. */
+/* Must be set to 1 to produce debug messages.  */
 int debug_m6811 = 0;
 
 extern FILE *asm_out_file;
@@ -212,6 +213,9 @@ static int nb_soft_regs;
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE m68hc11_attribute_table
 
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68hc11_output_function_epilogue
 
@@ -299,7 +303,7 @@ m68hc11_conditional_register_usage ()
 }
 
 
-/* Reload and register operations. */
+/* Reload and register operations.  */
 
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
@@ -689,7 +693,7 @@ m68hc11_reload_operands (operands)
 
   mode = GET_MODE (operands[1]);
 
-  /* Input reload of indirect addressing (MEM (PLUS (REG) (CONST))). */
+  /* Input reload of indirect addressing (MEM (PLUS (REG) (CONST))).  */
   if (A_REG_P (operands[0]) && memory_reload_operand (operands[1], mode))
     {
       rtx big_offset = XEXP (XEXP (operands[1], 0), 1);
@@ -771,7 +775,7 @@ m68hc11_reload_operands (operands)
 	}
     }
 
-  /* Use the normal gen_movhi pattern. */
+  /* Use the normal gen_movhi pattern.  */
   return 0;
 }
 
@@ -927,7 +931,8 @@ d_register_operand (operand, mode)
 
   return GET_CODE (operand) == REG
     && (REGNO (operand) >= FIRST_PSEUDO_REGISTER
-	|| REGNO (operand) == HARD_D_REGNUM);
+	|| REGNO (operand) == HARD_D_REGNUM
+        || (mode == QImode && REGNO (operand) == HARD_B_REGNUM));
 }
 
 int
@@ -1095,7 +1100,7 @@ m68hc11_initialize_trampoline (tramp, fnaddr, cxt)
      rtx fnaddr;
      rtx cxt;
 {
-  char *static_chain_reg = reg_names[STATIC_CHAIN_REGNUM];
+  const char *static_chain_reg = reg_names[STATIC_CHAIN_REGNUM];
 
   /* Skip the '*'.  */
   if (*static_chain_reg == '*')
@@ -1201,7 +1206,7 @@ m68hc11_function_arg_pass_by_reference (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   return ((type && TREE_CODE (type) == ARRAY_TYPE)
-	  /* Consider complex values as aggregates, so care for TCmode. */
+	  /* Consider complex values as aggregates, so care for TCmode.  */
 	  /*|| GET_MODE_SIZE (mode) > 4 SCz, temporary */
 	  /*|| (type && AGGREGATE_TYPE_P (type))) */ );
 }
@@ -2005,7 +2010,7 @@ dead_register_here (x, reg)
       }
 
   /* Scan forward to see if the register is set in some insns and never
-     used since then. */
+     used since then.  */
   for (p = x /*NEXT_INSN (x) */ ; p; p = NEXT_INSN (p))
     {
       rtx body;
@@ -2029,7 +2034,7 @@ dead_register_here (x, reg)
 	    return 1;
 	}
 
-      /* Register is used (may be in source or in dest). */
+      /* Register is used (may be in source or in dest).  */
       if (reg_mentioned_p (reg, p)
 	  || (x_reg != 0 && GET_MODE (p) == SImode
 	      && reg_mentioned_p (x_reg, p)))
@@ -2085,7 +2090,7 @@ asm_print_register (file, regno)
    't' generate the temporary scratch register.  The operand is
        ignored.
    'T' generate the low-part temporary scratch register.  The operand is
-       ignored.   */
+       ignored.  */
 
 void
 print_operand (file, op, letter)
@@ -2204,20 +2209,21 @@ print_operand (file, op, letter)
   else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == SFmode)
     {
       REAL_VALUE_TYPE r;
+      long l;
+
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      ASM_OUTPUT_FLOAT_OPERAND (letter, file, r);
+      REAL_VALUE_TO_TARGET_SINGLE (r, l);
+      asm_fprintf (file, "%I0x%lx", l);
     }
-  else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == XFmode)
+  else if (GET_CODE (op) == CONST_DOUBLE
+	   && (GET_MODE (op) == DFmode || GET_MODE (op) == XFmode))
     {
       REAL_VALUE_TYPE r;
+      char dstr[30];
+
       REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      ASM_OUTPUT_LONG_DOUBLE_OPERAND (file, r);
-    }
-  else if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == DFmode)
-    {
-      REAL_VALUE_TYPE r;
-      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      ASM_OUTPUT_DOUBLE_OPERAND (file, r);
+      REAL_VALUE_TO_DECIMAL (r, "%.20g", dstr);
+      asm_fprintf (file, "%I0r%s", dstr);
     }
   else
     {
@@ -2781,7 +2787,7 @@ m68hc11_emit_logical (mode, code, operands)
 	}
     }
 
-  /* The logical operation is similar to a copy. */
+  /* The logical operation is similar to a copy.  */
   else if (need_copy)
     {
       rtx src;
@@ -3023,7 +3029,7 @@ m68hc11_gen_movhi (insn, operands)
 	      else
 		{
 		  /* !!!! SCz wrong here.  */
-                  fatal_insn ("Move insn not handled", insn);
+                  fatal_insn ("move insn not handled", insn);
 		}
 	    }
 	  else
@@ -3063,7 +3069,7 @@ m68hc11_gen_movhi (insn, operands)
     }
   /* Some moves to a hard register are special. Not all of them
      are really supported and we have to use a temporary
-     location to provide them (either the stack of a temp var). */
+     location to provide them (either the stack of a temp var).  */
   if (H_REG_P (operands[0]))
     {
       switch (REGNO (operands[0]))
@@ -3093,7 +3099,7 @@ m68hc11_gen_movhi (insn, operands)
 		}
 	      else
 		{
-		  /* %t means *ZTMP scratch register. */
+		  /* %t means *ZTMP scratch register.  */
 		  output_asm_insn ("sty\t%t1", operands);
 		  output_asm_insn ("ldd\t%t1", operands);
 		}
@@ -3243,7 +3249,7 @@ m68hc11_gen_movhi (insn, operands)
 	  break;
 
 	default:
-	  fatal_insn ("Invalid register in the move instruction", insn);
+	  fatal_insn ("invalid register in the move instruction", insn);
 	  break;
 	}
       return;
@@ -3277,7 +3283,7 @@ m68hc11_gen_movhi (insn, operands)
   /* Operand 1 must be a hard register.  */
   if (!H_REG_P (operands[1]))
     {
-      fatal_insn ("Invalid operand in the instruction", insn);
+      fatal_insn ("invalid operand in the instruction", insn);
     }
 
   reg = REGNO (operands[1]);
@@ -3327,7 +3333,7 @@ m68hc11_gen_movhi (insn, operands)
       break;
 
     default:
-      fatal_insn ("Invalid register in the move instruction", insn);
+      fatal_insn ("invalid register in the move instruction", insn);
       break;
     }
 }
@@ -3339,7 +3345,7 @@ m68hc11_gen_movqi (insn, operands)
 {
   /* Move a register or memory to the same location.
      This is possible because such insn can appear
-     in a non-optimizing mode. */
+     in a non-optimizing mode.  */
   if (operands[0] == operands[1] || rtx_equal_p (operands[0], operands[1]))
     {
       cc_status = cc_prev_status;
@@ -3397,7 +3403,7 @@ m68hc11_gen_movqi (insn, operands)
 	      else
 		{
 		  /* !!!! SCz wrong here.  */
-                  fatal_insn ("Move insn not handled", insn);
+                  fatal_insn ("move insn not handled", insn);
 		}
 	    }
 	  else
@@ -3574,7 +3580,7 @@ m68hc11_gen_movqi (insn, operands)
 	  break;
 
 	default:
-	  fatal_insn ("Invalid register in the instruction", insn);
+	  fatal_insn ("invalid register in the instruction", insn);
 	  break;
 	}
     }
@@ -3600,14 +3606,14 @@ m68hc11_gen_movqi (insn, operands)
 	  break;
 
 	default:
-	  fatal_insn ("Invalid register in the move instruction", insn);
+	  fatal_insn ("invalid register in the move instruction", insn);
 	  break;
 	}
       return;
     }
   else
     {
-      fatal_insn ("Operand 1 must be a hard register", insn);
+      fatal_insn ("operand 1 must be a hard register", insn);
     }
 }
 
@@ -3624,7 +3630,7 @@ m68hc11_gen_rotate (code, insn, operands)
   
   if (GET_CODE (operands[2]) != CONST_INT
       || (!D_REG_P (operands[0]) && !DA_REG_P (operands[0])))
-    fatal_insn ("Invalid rotate insn", insn);
+    fatal_insn ("invalid rotate insn", insn);
 
   val = INTVAL (operands[2]);
   if (code == ROTATERT)
@@ -3811,7 +3817,7 @@ m68hc11_notice_keep_cc (reg)
 
 
 
-/* Machine Specific Reorg. */
+/* Machine Specific Reorg.  */
 
 /* Z register replacement:
 
@@ -3884,7 +3890,7 @@ int z_replacement_completed = 0;
 /* Analyze the insn to find out which replacement register to use and
    the boundaries of the replacement.
    Returns 0 if we reached the last insn to be replaced, 1 if we can
-   continue replacement in next insns. */
+   continue replacement in next insns.  */
 
 static int
 m68hc11_check_z_replacement (insn, info)
@@ -4044,7 +4050,7 @@ m68hc11_check_z_replacement (insn, info)
 
       if (this_insn_uses_z && this_insn_uses_ix && this_insn_uses_iy)
 	{
-	  fatal_insn ("Registers IX, IY and Z used in the same INSN", insn);
+	  fatal_insn ("registers IX, IY and Z used in the same INSN", insn);
 	}
 
       if (this_insn_uses_d)
@@ -4364,7 +4370,7 @@ m68hc11_check_z_replacement (insn, info)
 	{
           if (this_insn_uses_z)
             {
-              fatal_insn ("Cannot do z-register replacement", insn);
+              fatal_insn ("cannot do z-register replacement", insn);
             }
 	  return 0;
 	}
@@ -4619,7 +4625,7 @@ m68hc11_z_replacement (insn)
     }
 
 
-  /* Replace all occurence of Z by replace_reg.
+  /* Replace all occurrence of Z by replace_reg.
      Stop when the last instruction to replace is reached.
      Also stop when we detect a change in the flow (but it's not
      necessary; just safeguard).  */
@@ -4669,10 +4675,10 @@ m68hc11_z_replacement (insn)
 	    {
 	      INSN_CODE (insn) = -1;
 	      if (!validate_replace_rtx (z_reg, replace_reg, insn))
-		fatal_insn ("Cannot do z-register replacement", insn);
+		fatal_insn ("cannot do z-register replacement", insn);
 	    }
 
-	  /* Likewise for (REG:QI Z). */
+	  /* Likewise for (REG:QI Z).  */
 	  if (reg_mentioned_p (z_reg, insn))
 	    {
 	      if (replace_reg_qi == NULL_RTX)
@@ -4718,7 +4724,7 @@ m68hc11_z_replacement (insn)
 
       if (!validate_replace_rtx (z_reg, replace_reg, info.last))
 	{
-	  fatal_insn ("Invalid Z register replacement for insn", insn);
+	  fatal_insn ("invalid Z register replacement for insn", insn);
 	}
       insn = NEXT_INSN (info.last);
     }
@@ -4795,7 +4801,7 @@ m68hc11_reassign_regs (first)
 	}
       else
 	{
-	  printf ("Insn not handled by Z replacement:\n");
+	  printf ("insn not handled by Z replacement:\n");
 	  fflush (stdout);
 	  debug_rtx (insn);
 	}
@@ -4905,7 +4911,7 @@ m68hc11_reorg (first)
 
 /* Cost functions.  */
 
-/* Cost of moving memory. */
+/* Cost of moving memory.  */
 int
 m68hc11_memory_move_cost (mode, class, in)
      enum machine_mode mode;
@@ -4962,7 +4968,7 @@ m68hc11_address_cost (addr)
   switch (GET_CODE (addr))
     {
     case REG:
-      /* Make the cost of hard registers and specially SP, FP small. */
+      /* Make the cost of hard registers and specially SP, FP small.  */
       if (REGNO (addr) < FIRST_PSEUDO_REGISTER)
 	cost = 0;
       else
@@ -5060,7 +5066,7 @@ m68hc11_shift_cost (mode, x, shift)
     total *= GET_MODE_SIZE (mode) / 2;
 
   /* When optimizing for size, make shift more costly so that
-     multiplications are prefered.  */
+     multiplications are preferred.  */
   if (optimize_size && (shift % 8) != 0)
     total *= 2;
   
@@ -5205,7 +5211,7 @@ m68hc11_rtx_costs (x, code, outer_code)
 
 
 /* print_options - called at the start of the code generation for a
-   module. */
+   module.  */
 
 extern char *asm_file_name;
 
@@ -5216,7 +5222,7 @@ static void
 print_options (out)
      FILE *out;
 {
-  char *a_time;
+  const char *a_time;
   long c_time;
   int i;
   extern int save_argc;
@@ -5246,7 +5252,7 @@ print_options (out)
 void
 m68hc11_asm_file_start (out, main_file)
      FILE *out;
-     char *main_file;
+     const char *main_file;
 {
   fprintf (out, ";;;-----------------------------------------\n");
   fprintf (out, ";;; Start MC68HC11 gcc assembly output\n");

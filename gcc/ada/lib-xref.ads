@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1 $
+--                            $Revision$
 --                                                                          --
 --          Copyright (C) 1998-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -56,7 +56,7 @@ package Lib.Xref is
    --
    --  The lines following the header look like
    --
-   --     line type col level  entity ptype  ref  ref  ref
+   --     line type col level entity renameref typeref ref  ref  ref
    --
    --        line is the line number of the referenced entity. It starts
    --        in column one.
@@ -73,22 +73,50 @@ package Lib.Xref is
    --
    --        entity is the name of the referenced entity, with casing in
    --        the canical casing for the source file where it is defined.
+
+   --        renameref provides information on renaming. If the entity is
+   --        a package, object or overloadable entity which is declared by
+   --        a renaming declaration, and the renaming refers to an entity
+   --        with a simple identifier or expanded name, then renameref has
+   --        the form:
    --
-   --        ptype is the parent's entity reference. This part is optional (it
-   --        is only set for derived types) and has the following format:
+   --            =line:col
    --
-   --        < file | line type col >
+   --        Here line:col give the reference to the identifier that
+   --        appears in the renaming declaration. Note that we never need
+   --        a file entry, since this identifier is always in the current
+   --        file in which the entity is declared. Currently, renameref
+   --        appears only for the simple renaming case. If the renaming
+   --        reference is a complex expressions, then renameref is omitted.
    --
-   --        file is the dependency number of the file containing the
-   --        declaration of the parent type. This number and the following
-   --        vertical bar are omitted if the parent type is defined in the
-   --        same file as the derived type. The line, type, col are defined
-   --        as previously described, and give the location of the parent
-   --        type declaration in the referenced file.
+   --        typeref is the reference for a related type. This part is
+   --        optional. It is present for the following cases:
+   --
+   --          derived types (points to the parent type)   LR=<>
+   --          access types (points to designated type)    LR=()
+   --          subtypes (points to ancestor type)          LR={}
+   --          functions (points to result type)           LR={}
+   --          enumeration literals (points to enum type)  LR={}
+   --          objects and components (points to type)     LR={}
+   --
+   --          In the above list LR shows the brackets used in the output,
+   --          which has one of the two following forms:
+   --
+   --            L file | line type col R      user entity
+   --            L name-in-lower-case   R      standard entity
+   --
+   --          For the form for a user entity, file is the dependency number
+   --          of the file containing the declaration of the related type.
+   --          This number and the following vertical bar are omitted if the
+   --          relevant type is defined in the same file as the current entity.
+   --          The line, type, col are defined as previously described, and
+   --          specify the location of the relevant type declaration in the
+   --          referenced file. For the standard entity form, the name between
+   --          the brackets is the normal name of the entity in lower case.
    --
    --     There may be zero or more ref entries on each line
    --
-   --        file | line type col
+   --        file | line type col [...]
    --
    --           file is the dependency number of the file with the reference.
    --           It and the following vertical bar are omitted if the file is
@@ -160,9 +188,21 @@ package Lib.Xref is
    --           Note that in the case of accept statements, there can
    --           be multiple b and T/t entries for the same entity.
    --
+   --           [..] is used for generic instantiation references. These
+   --           references are present only if the entity in question is
+   --           a generic entity, and in that case the [..] contains the
+   --           reference for the instantiation. In the case of nested
+   --           instantiations, this can be nested [...[...[...]]] etc.
+   --           The reference is of the form [file|line] no column is
+   --           present since it is assumed that only one instantiation
+   --           appears on a single source line. Note that the appearence
+   --           of file numbers in such references follows the normal
+   --           rules (present only if needed, and resets the current
+   --           file for subsequent references).
+   --
    --     Examples:
    --
-   --        44B5*Flag_Type 5r23 6m45 3|9r35 11r56
+   --        44B5*Flag_Type{boolean} 5r23 6m45 3|9r35 11r56
    --
    --           This line gives references for the publicly visible Boolean
    --           type Flag_Type declared on line 44, column 5. There are four
@@ -176,11 +216,12 @@ package Lib.Xref is
    --
    --              a reference on line 11, column 56 of unit number 3
    --
-   --        2U13 p3 5b13 8r4 12r13 12t15
+   --        2U13 p3=2:35 5b13 8r4 12r13 12t15
    --
    --           This line gives references for the non-publicly visible
-   --           procedure p3 declared on line 2, column 13. There are
-   --           four references:
+   --           procedure p3 declared on line 2, column 13. This procedure
+   --           renames the procedure whose identifier reference is at
+   --           line 2 column 35. There are four references:
    --
    --              the corresponding body entity at line 5, column 13,
    --              of the current file.
@@ -202,6 +243,13 @@ package Lib.Xref is
    --
    --              a reference (e.g. a variable declaration) at line 18 column
    --              4 of the current file.
+   --
+   --        10I3*Genv{integer} 3|4I10[6|12]
+   --
+   --           This line gives a reference for the entity Genv in a generic
+   --           package. The reference in file 3, line 4, col 10, refers to
+   --           an instance of the generic where the instantiation can be
+   --           found in file 6 at line 12.
    --
    --  Continuation lines are used if the reference list gets too long,
    --  a continuation line starts with a period, and then has references

@@ -1,3 +1,87 @@
+2002-02-12  Richard Henderson  <rth@redhat.com>
+
+	* configure.in: Re-apply 2001-06-26 configure change.
+	* configure: Rebuild.
+
+2002-02-12  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Imported GC 6.1 Alpha 3.
+
+	* sparc_mach_dep.S: Delete incorrectly named file.
+
+2001-02-11  Adam Megacz <adam@xwt.org
+
+	* configure.in: support for win32, saner
+	cross-compile options
+
+2001-02-08  Anthony Green  <green@redhat.com>
+
+	* include/private/gcconfig.h: Add XSCALE NOSYS support for bare
+	  board embedded targets.
+	* os_dep.c: Avoid signal handling code for NOSYS/ECOS targets.
+	  Use GC_get_stack_base for NOSYS/ECOS targets.  Clean up some
+	  redundant uses of ECOS.
+	* misc.c: Use NOSYS where ECOS is being used.
+	  Don't define GC_write twice for ECOS systems.
+	  (GC_write): New function for NOSYS targets.
+
+2002-02-06  Adam Megacz <adam@xwt.org>
+
+	* boehm-gc/include/gc.h: (GC_CreateThread) This function is
+	now exposed on all Win32 platforms.
+	* boehm-gc/win32_threads.c: (GC_CreateThread) This now
+	compiles on Win32; it invokes CreateThread() if GC is built
+	as a DLL; otherwise it registers the thread.
+	* boehm-gc/misc.c (GC_init): Initialize GC_allocate_ml in case
+	libgcjgc was not built as a DLL.
+
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* boehm-gc on win32 now automatically detects if it is being built
+	as a DLL; see http://gcc.gnu.org/ml/java/2001-12/msg00240.html
+	
+2002-01-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* include/gc.h (GC_INIT): Add DATASTART and DATAEND roots on AIX.
+	* include/private/gcconfig.h (RS6000): Add 64-bit AIX support.
+	Define USE_GENERIC_PUSH_REGS.  Use AIX _data and _end symbols for
+	DATASTART and DATAEND roots.
+	* rs6000_mach_dep.s: Add function descriptor and traceback table.
+
+2001-12-16  Jeff Sturm  <jsturm@one-point.com>
+
+	* dyn_load.c: Define ElfW (if needed) for all targets,
+	not just GNU/Linux.
+	(GC_FirstDLOpenedLinkMap): Use it.
+	(GC_register_dynamic_libraries_dl): Use it.
+	* include/private/gcconfig.h: Define CPP_WORDSZ, ELF_CLASS
+	for sparcv9.
+
+2001-12-16  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/3725
+	* configure.in: Add AC_SUBST(target_alias). 
+	* configure: Regenerated.
+
+2001-11-26  Loren J. Rittle  <ljrittle@acm.org>
+
+	* linux_threads.c (WRAP_FUNC(pthread_join)): Remove special
+	case for GC_FREEBSD_THREADS.
+	* configure.in (*-*-freebsd*): Clarify warning.
+	* configure: Rebuilt.
+
+2001-10-23  Loren J. Rittle  <ljrittle@acm.org>
+	    Andreas Tobler <toa@pop.agri.ch>
+
+	* include/private/solaris_threads.h: Update to use GC_SOLARIS_THREADS.
+
+2001-10-22  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* linux_threads.c (GC_init_parallel): Do not declare as a static
+	constructor.
+	* include/gc.h (GC_init): Declare here. Add description.
+	* include/private/gc_priv.h (GC_init): Remove declaration.
+
 2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
 
 	* include/gc_pthread_redirects.h: Generalize test to use GC_PTHREADS.

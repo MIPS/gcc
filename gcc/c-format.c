@@ -374,7 +374,10 @@ enum
   /* Zero width is bad in this type of format (scanf).  */
   FMT_FLAG_ZERO_WIDTH_BAD = 32,
   /* Empty precision specification is OK in this type of format (printf).  */
-  FMT_FLAG_EMPTY_PREC_OK = 64
+  FMT_FLAG_EMPTY_PREC_OK = 64,
+  /* Gaps are allowed in the arguments with $ operand numbers if all
+     arguments are pointers (scanf).  */
+  FMT_FLAG_DOLLAR_GAP_POINTER_OK = 128
   /* Not included here: details of whether width or precision may occur
      (controlled by width_char and precision_char); details of whether
      '*' can be used for these (width_type and precision_type); details
@@ -399,7 +402,7 @@ typedef struct
 } format_length_info;
 
 
-/* Structure desribing the combination of a conversion specifier
+/* Structure describing the combination of a conversion specifier
    (or a set of specifiers which act identically) and a length modifier.  */
 typedef struct
 {
@@ -420,7 +423,7 @@ typedef struct
 #define NOLENGTHS	{ BADLEN, BADLEN, BADLEN, BADLEN, BADLEN, BADLEN, BADLEN, BADLEN, BADLEN }
 
 
-/* Structure desribing a format conversion specifier (or a set of specifiers
+/* Structure describing a format conversion specifier (or a set of specifiers
    which act identically), and the length modifiers used with it.  */
 typedef struct
 {
@@ -639,12 +642,12 @@ static const format_flag_pair printf_flag_pairs[] =
 
 static const format_flag_spec scanf_flag_specs[] =
 {
-  { '*',  0, 0, N_("assignment suppression"), N_("assignment suppression"),          STD_C89 },
-  { 'a',  0, 0, N_("`a' flag"),               N_("the `a' scanf flag"),              STD_EXT },
-  { 'w',  0, 0, N_("field width"),            N_("field width in scanf format"),     STD_C89 },
-  { 'L',  0, 0, N_("length modifier"),        N_("length modifier in scanf format"), STD_C89 },
-  { '\'', 0, 0, N_("`'' flag"),               N_("the `'' scanf flag"),              STD_EXT },
-  { 'I',  0, 0, N_("`I' flag"),               N_("the `I' scanf flag"),              STD_EXT },
+  { '*',  0, 0, N_("assignment suppression"), N_("the assignment suppression scanf feature"), STD_C89 },
+  { 'a',  0, 0, N_("`a' flag"),               N_("the `a' scanf flag"),                       STD_EXT },
+  { 'w',  0, 0, N_("field width"),            N_("field width in scanf format"),              STD_C89 },
+  { 'L',  0, 0, N_("length modifier"),        N_("length modifier in scanf format"),          STD_C89 },
+  { '\'', 0, 0, N_("`'' flag"),               N_("the `'' scanf flag"),                       STD_EXT },
+  { 'I',  0, 0, N_("`I' flag"),               N_("the `I' scanf flag"),                       STD_EXT },
   { 0, 0, 0, NULL, NULL, 0 }
 };
 
@@ -848,7 +851,7 @@ static const format_kind_info format_types[] =
   },
   { "scanf",    scanf_length_specs,   scan_char_table,  "*'I", NULL, 
     scanf_flag_specs, scanf_flag_pairs,
-    FMT_FLAG_ARG_CONVERT|FMT_FLAG_SCANF_A_KLUDGE|FMT_FLAG_USE_DOLLAR|FMT_FLAG_ZERO_WIDTH_BAD,
+    FMT_FLAG_ARG_CONVERT|FMT_FLAG_SCANF_A_KLUDGE|FMT_FLAG_USE_DOLLAR|FMT_FLAG_ZERO_WIDTH_BAD|FMT_FLAG_DOLLAR_GAP_POINTER_OK,
     'w', 0, 0, '*', 'L',
     NULL, NULL
   },
@@ -907,7 +910,7 @@ static void init_dollar_format_checking		PARAMS ((int, tree));
 static int maybe_read_dollar_number		PARAMS ((int *, const char **, int,
 							 tree, tree *,
 							 const format_kind_info *));
-static void finish_dollar_format_checking	PARAMS ((int *, format_check_results *));
+static void finish_dollar_format_checking	PARAMS ((int *, format_check_results *, int));
 
 static const format_flag_spec *get_flag_spec	PARAMS ((const format_flag_spec *,
 							 int, const char *));
@@ -1029,6 +1032,7 @@ status_warning VPARAMS ((int *status, const char *msgid, ...))
 
 /* Variables used by the checking of $ operand number formats.  */
 static char *dollar_arguments_used = NULL;
+static char *dollar_arguments_pointer_p = NULL;
 static int dollar_arguments_alloc = 0;
 static int dollar_arguments_count;
 static int dollar_first_arg_num;
@@ -1046,6 +1050,8 @@ init_dollar_format_checking (first_arg_num, params)
      int first_arg_num;
      tree params;
 {
+  tree oparams = params;
+
   dollar_first_arg_num = first_arg_num;
   dollar_arguments_count = 0;
   dollar_max_arg_used = 0;
@@ -1062,11 +1068,28 @@ init_dollar_format_checking (first_arg_num, params)
     {
       if (dollar_arguments_used)
 	free (dollar_arguments_used);
+      if (dollar_arguments_pointer_p)
+	free (dollar_arguments_pointer_p);
       dollar_arguments_alloc = dollar_arguments_count;
       dollar_arguments_used = xmalloc (dollar_arguments_alloc);
+      dollar_arguments_pointer_p = xmalloc (dollar_arguments_alloc);
     }
   if (dollar_arguments_alloc)
-    memset (dollar_arguments_used, 0, dollar_arguments_alloc);
+    {
+      memset (dollar_arguments_used, 0, dollar_arguments_alloc);
+      if (first_arg_num > 0)
+	{
+	  int i = 0;
+	  params = oparams;
+	  while (params)
+	    {
+	      dollar_arguments_pointer_p[i] = (TREE_CODE (TREE_TYPE (TREE_VALUE (params)))
+					       == POINTER_TYPE);
+	      params = TREE_CHAIN (params);
+	      i++;
+	    }
+	}
+    }
 }
 
 
@@ -1092,7 +1115,7 @@ maybe_read_dollar_number (status, format, dollar_needed, params, param_ptr,
   int argnum;
   int overflow_flag;
   const char *fcp = *format;
-  if (*fcp < '0' || *fcp > '9')
+  if (! ISDIGIT (*fcp))
     {
       if (dollar_needed)
 	{
@@ -1104,7 +1127,7 @@ maybe_read_dollar_number (status, format, dollar_needed, params, param_ptr,
     }
   argnum = 0;
   overflow_flag = 0;
-  while (*fcp >= '0' && *fcp <= '9')
+  while (ISDIGIT (*fcp))
     {
       int nargnum;
       nargnum = 10 * argnum + (*fcp - '0');
@@ -1146,6 +1169,8 @@ maybe_read_dollar_number (status, format, dollar_needed, params, param_ptr,
       int nalloc;
       nalloc = 2 * dollar_arguments_alloc + 16;
       dollar_arguments_used = xrealloc (dollar_arguments_used, nalloc);
+      dollar_arguments_pointer_p = xrealloc (dollar_arguments_pointer_p,
+					     nalloc);
       memset (dollar_arguments_used + dollar_arguments_alloc, 0,
 	      nalloc - dollar_arguments_alloc);
       dollar_arguments_alloc = nalloc;
@@ -1186,21 +1211,32 @@ maybe_read_dollar_number (status, format, dollar_needed, params, param_ptr,
    and for unused operands at the end of the format (if we know how many
    arguments the format had, so not for vprintf).  If there were operand
    numbers out of range on a non-vprintf-style format, we won't have reached
-   here.  */
+   here.  If POINTER_GAP_OK, unused arguments are OK if all arguments are
+   pointers.  */
 
 static void
-finish_dollar_format_checking (status, res)
+finish_dollar_format_checking (status, res, pointer_gap_ok)
      int *status;
      format_check_results *res;
+     int pointer_gap_ok;
 {
   int i;
+  bool found_pointer_gap = false;
   for (i = 0; i < dollar_max_arg_used; i++)
     {
       if (!dollar_arguments_used[i])
-	status_warning (status, "format argument %d unused before used argument %d in $-style format",
-		 i + 1, dollar_max_arg_used);
+	{
+	  if (pointer_gap_ok && (dollar_first_arg_num == 0
+				 || dollar_arguments_pointer_p[i]))
+	    found_pointer_gap = true;
+	  else
+	    status_warning (status, "format argument %d unused before used argument %d in $-style format",
+			    i + 1, dollar_max_arg_used);
+	}
     }
-  if (dollar_first_arg_num && dollar_max_arg_used < dollar_arguments_count)
+  if (found_pointer_gap
+      || (dollar_first_arg_num
+	  && dollar_max_arg_used < dollar_arguments_count))
     {
       res->number_other--;
       res->number_dollar_extra_args++;
@@ -1639,7 +1675,7 @@ check_format_info_main (status, res, info, format_chars, format_length,
 	      res->number_extra_args++;
 	    }
 	  if (has_operand_number > 0)
-	    finish_dollar_format_checking (status, res);
+	    finish_dollar_format_checking (status, res, fki->flags & (int) FMT_FLAG_DOLLAR_GAP_POINTER_OK);
 	  return;
 	}
       if (*format_chars++ != '%')
@@ -2385,9 +2421,9 @@ check_format_types (status, types)
 	if (that == 0)
 	  {
 	    if (TREE_CODE (orig_cur_type) == POINTER_TYPE)
-	      that = "pointer";
+	      that = _("pointer");
 	    else
-	      that = "different type";
+	      that = _("different type");
 	  }
 
 	/* Make the warning better in case of mismatch of int vs long.  */

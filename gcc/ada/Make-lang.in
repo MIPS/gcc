@@ -48,7 +48,7 @@ shext  =
 # Extra flags to pass to recursive makes.
 BOOT_ADAFLAGS= $(ADAFLAGS)
 ADAFLAGS= -W -Wall -gnatpg -gnata
-GNATLIBFLAGS= -gnatpg
+GNATLIBFLAGS= -W -Wall -gnatpg
 GNATLIBCFLAGS= -g -O2
 ADA_INCLUDE_DIR = $(libsubdir)/adainclude
 ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
@@ -76,65 +76,65 @@ gnat1$(exeext): prefix.o attribs.o $(LIBDEPS) $(BACKEND) force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnat1$(exeext)
 
-gnatbind$(exeext): force
+gnatbind$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatbind$(exeext)
 
-gnatmake$(exeext): force
+gnatmake$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatmake$(exeext)
 
-gnatbl$(exeext): force
+gnatbl$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatbl$(exeext)
 
-gnatchop$(exeext): force
+gnatchop$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatchop$(exeext)
 
-gnatcmd$(exeext): force
+gnatcmd$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatcmd$(exeext)
 
-gnatlink$(exeext): force
+gnatlink$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatlink$(exeext)
 
-gnatkr$(exeext): force
+gnatkr$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatkr$(exeext)
 
-gnatls$(exeext): force
+gnatls$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatls$(exeext)
 
-gnatmem$(exeext): force
+gnatmem$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatmem$(exeext)
 
-gnatprep$(exeext): force
+gnatprep$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatprep$(exeext)
 
-gnatpsta$(exeext): force
+gnatpsta$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatpsta$(exeext)
 
-gnatpsys$(exeext): force
+gnatpsys$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatpsys$(exeext)
 
-gnatxref$(exeext): force
+gnatxref$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatxref$(exeext)
 
-gnatfind$(exeext): force
+gnatfind$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatfind$(exeext)
 
 # Gnatlbr is extra tool only used on VMS
 
-gnatlbr$(exeext): force
+gnatlbr$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatlbr$(exeext)
 
@@ -144,7 +144,7 @@ gnattools: $(GCC_PARTS) force
 	   CC="../xgcc -B../" STAGE_PREFIX=../ \
 	   gnatbl$(exeext) gnatchop$(exeext) gnatcmd$(exeext) \
 	   gnatkr$(exeext) gnatlink$(exeext) \
-	   gnatls$(exeext) gnatmake$(exeext) gnatmem$(exeext) \
+	   gnatls$(exeext) gnatmake$(exeext) \
 	   gnatprep$(exeext) gnatpsta$(exeext) gnatpsys$(exeext) \
        gnatxref$(exeext) gnatfind$(exeext) $(EXTRA_GNATTOOLS)
 
@@ -153,7 +153,7 @@ cross-gnattools: force
 	$(MAKE) $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 	   gnatbl$(exeext) gnatchop$(exeext) gnatcmd$(exeext) \
 	   gnatkr$(exeext) gnatlink$(exeext) \
-	   gnatls$(exeext) gnatmake$(exeext) gnatmem$(exeext) \
+	   gnatls$(exeext) gnatmake$(exeext) \
 	   gnatprep$(exeext) gnatpsta$(exeext) gnatpsys$(exeext) \
 	   gnatxref$(exeext) gnatfind$(exeext) $(EXTRA_GNATTOOLS)
 
@@ -250,6 +250,7 @@ ada.start.encap:
 ada.rest.encap: 
 ada.info:
 ada.dvi:
+ada.generated-manpages:
 
 # Install hooks:
 # gnat1 is installed elsewhere as part of $(COMPILERS).

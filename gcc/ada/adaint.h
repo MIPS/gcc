@@ -4,7 +4,7 @@
  *                                                                          *
  *                               A D A I N T                                *
  *                                                                          *
- *                            $Revision: 1.3 $
+ *                            $Revision: 1.4 $
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
@@ -34,7 +34,7 @@
 
 #include <dirent.h>
 
-extern void   __gnat_to_gm_time			   PARAMS ((time_t *, int *,
+extern void   __gnat_to_gm_time			   PARAMS ((int *, int *,
 							    int *, int *,
 							    int *, int *,
 							    int *));
@@ -69,6 +69,7 @@ extern char  *__gnat_readdir                       PARAMS ((DIR *, char *));
 extern int    __gnat_readdir_is_thread_safe        PARAMS ((void));
 extern time_t __gnat_file_time_name                PARAMS ((char *));
 extern time_t __gnat_file_time_fd                  PARAMS ((int));
+extern void   __gnat_set_file_time_name		   PARAMS ((char *, time_t));
 extern void   __gnat_get_env_value_ptr             PARAMS ((char *, int *,
 							    char **));
 extern int    __gnat_file_exists		   PARAMS ((char *));

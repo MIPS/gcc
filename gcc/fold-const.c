@@ -1,6 +1,6 @@
 /* Fold a constant sub-tree into a single node for C-compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -383,6 +383,8 @@ lshift_double (l1, h1, count, prec, lv, hv, arith)
      HOST_WIDE_INT *hv;
      int arith;
 {
+  unsigned HOST_WIDE_INT signmask;
+
   if (count < 0)
     {
       rshift_double (l1, h1, -count, prec, lv, hv, arith);
@@ -412,6 +414,26 @@ lshift_double (l1, h1, count, prec, lv, hv, arith)
 	     | (l1 >> (HOST_BITS_PER_WIDE_INT - count - 1) >> 1));
       *lv = l1 << count;
     }
+
+  /* Sign extend all bits that are beyond the precision.  */
+
+  signmask = -((prec > HOST_BITS_PER_WIDE_INT
+		? (*hv >> (prec - HOST_BITS_PER_WIDE_INT - 1))
+		: (*lv >> (prec - 1))) & 1);
+
+  if (prec >= 2 * HOST_BITS_PER_WIDE_INT)
+    ;
+  else if (prec >= HOST_BITS_PER_WIDE_INT)
+    {
+      *hv &= ~((HOST_WIDE_INT) (-1) << (prec - HOST_BITS_PER_WIDE_INT));
+      *hv |= signmask << (prec - HOST_BITS_PER_WIDE_INT);
+    }
+  else
+    {
+      *hv = signmask;
+      *lv &= ~((unsigned HOST_WIDE_INT) (-1) << prec);
+      *lv |= signmask << prec;
+    }
 }
 
 /* Shift the doubleword integer in L1, H1 right by COUNT places
@@ -423,7 +445,7 @@ void
 rshift_double (l1, h1, count, prec, lv, hv, arith)
      unsigned HOST_WIDE_INT l1;
      HOST_WIDE_INT h1, count;
-     unsigned int prec ATTRIBUTE_UNUSED;
+     unsigned int prec;
      unsigned HOST_WIDE_INT *lv;
      HOST_WIDE_INT *hv;
      int arith;
@@ -443,21 +465,40 @@ rshift_double (l1, h1, count, prec, lv, hv, arith)
     {
       /* Shifting by the host word size is undefined according to the
 	 ANSI standard, so we must handle this as a special case.  */
-      *hv = signmask;
-      *lv = signmask;
+      *hv = 0;
+      *lv = 0;
     }
   else if (count >= HOST_BITS_PER_WIDE_INT)
     {
-      *hv = signmask;
-      *lv = ((signmask << (2 * HOST_BITS_PER_WIDE_INT - count - 1) << 1)
-	     | ((unsigned HOST_WIDE_INT) h1 >> (count - HOST_BITS_PER_WIDE_INT)));
+      *hv = 0;
+      *lv = (unsigned HOST_WIDE_INT) h1 >> (count - HOST_BITS_PER_WIDE_INT);
     }
   else
     {
+      *hv = (unsigned HOST_WIDE_INT) h1 >> count;
       *lv = ((l1 >> count)
 	     | ((unsigned HOST_WIDE_INT) h1 << (HOST_BITS_PER_WIDE_INT - count - 1) << 1));
-      *hv = ((signmask << (HOST_BITS_PER_WIDE_INT - count))
-	     | ((unsigned HOST_WIDE_INT) h1 >> count));
+    }
+
+  /* Zero / sign extend all bits that are beyond the precision.  */
+
+  if (count >= (HOST_WIDE_INT)prec)
+    {
+      *hv = signmask;
+      *lv = signmask;
+    }
+  else if ((prec - count) >= 2 * HOST_BITS_PER_WIDE_INT)
+    ;
+  else if ((prec - count) >= HOST_BITS_PER_WIDE_INT)
+    {
+      *hv &= ~((HOST_WIDE_INT) (-1) << (prec - count - HOST_BITS_PER_WIDE_INT));
+      *hv |= signmask << (prec - count - HOST_BITS_PER_WIDE_INT);
+    }
+  else
+    {
+      *hv = signmask;
+      *lv &= ~((unsigned HOST_WIDE_INT) (-1) << (prec - count));
+      *lv |= signmask << (prec - count);
     }
 }
 
@@ -1127,16 +1168,9 @@ real_hex_to_f (s, mode)
   shcount = 0;
   while ((c = *p) != '\0')
     {
-      if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')
-	  || (c >= 'a' && c <= 'f'))
+      if (ISXDIGIT (c))
 	{
-	  k = c & CHARMASK;
-	  if (k >= 'a' && k <= 'f')
-	    k = k - 'a' + 10;
-	  else if (k >= 'A')
-	    k = k - 'A' + 10;
-	  else
-	    k = k - '0';
+	  k = hex_value (c & CHARMASK);
 
 	  if ((high & 0xf0000000) == 0)
 	    {
@@ -1348,7 +1382,7 @@ negate_expr (t)
       break;
     }
 
-  return convert (type, build1 (NEGATE_EXPR, TREE_TYPE (t), t));
+  return convert (type, fold (build1 (NEGATE_EXPR, TREE_TYPE (t), t)));
 }
 
 /* Split a tree IN into a constant, literal and variable parts that could be
@@ -2047,7 +2081,7 @@ struct fc_args
 {
   tree arg1;			/* Input: value to convert.  */
   tree type;			/* Input: type to convert value to.  */
-  tree t;			/* Ouput: result of conversion.  */
+  tree t;			/* Output: result of conversion.  */
 };
 
 /* Function to convert floating-point constants, protected by floating
@@ -2985,7 +3019,6 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
   enum machine_mode lmode, rmode, nmode;
   int lunsignedp, runsignedp;
   int lvolatilep = 0, rvolatilep = 0;
-  unsigned int alignment;
   tree linner, rinner = NULL_TREE;
   tree mask;
   tree offset;
@@ -2996,7 +3029,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
      do anything if the inner expression is a PLACEHOLDER_EXPR since we
      then will no longer be able to replace it.  */
   linner = get_inner_reference (lhs, &lbitsize, &lbitpos, &offset, &lmode,
-				&lunsignedp, &lvolatilep, &alignment);
+				&lunsignedp, &lvolatilep);
   if (linner == lhs || lbitsize == GET_MODE_BITSIZE (lmode) || lbitsize < 0
       || offset != 0 || TREE_CODE (linner) == PLACEHOLDER_EXPR)
     return 0;
@@ -3006,7 +3039,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
      /* If this is not a constant, we can only do something if bit positions,
 	sizes, and signedness are the same.  */
      rinner = get_inner_reference (rhs, &rbitsize, &rbitpos, &offset, &rmode,
-				   &runsignedp, &rvolatilep, &alignment);
+				   &runsignedp, &rvolatilep);
 
      if (rinner == rhs || lbitpos != rbitpos || lbitsize != rbitsize
 	 || lunsignedp != runsignedp || offset != 0
@@ -3078,7 +3111,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 					convert (unsigned_type, rhs),
 					size_int (lbitsize), 0)))
 	{
-	  warning ("comparison is always %d due to width of bitfield",
+	  warning ("comparison is always %d due to width of bit-field",
 		   code == NE_EXPR);
 	  return convert (compare_type,
 			  (code == NE_EXPR
@@ -3091,7 +3124,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 			      size_int (lbitsize - 1), 0);
       if (! integer_zerop (tem) && ! integer_all_onesp (tem))
 	{
-	  warning ("comparison is always %d due to width of bitfield",
+	  warning ("comparison is always %d due to width of bit-field",
 		   code == NE_EXPR);
 	  return convert (compare_type,
 			  (code == NE_EXPR
@@ -3164,7 +3197,6 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
   tree mask, inner, offset;
   tree unsigned_type;
   unsigned int precision;
-  unsigned int alignment;
 
   /* All the optimizations using this function assume integer fields.
      There are problems with FP fields since the type_for_size call
@@ -3184,7 +3216,7 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
     }
 
   inner = get_inner_reference (exp, pbitsize, pbitpos, &offset, pmode,
-			       punsignedp, pvolatilep, &alignment);
+			       punsignedp, pvolatilep);
   if ((inner == exp && and_mask == 0)
       || *pbitsize < 0 || offset != 0
       || TREE_CODE (inner) == PLACEHOLDER_EXPR)
@@ -4663,7 +4695,7 @@ extract_muldiv (t, c, code, wide_type)
 	 multiple of the other, in which case we replace this with either an
 	 operation or CODE or TCODE.
 
-	 If we have an unsigned type that is not a sizetype, we canot do
+	 If we have an unsigned type that is not a sizetype, we cannot do
 	 this since it will change the result if the original computation
 	 overflowed.  */
       if ((! TREE_UNSIGNED (ctype)
@@ -4796,7 +4828,7 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
      side of the expression to be executed if the condition is true
      will be pointed to by TRUE_LHS.  Similarly, the right-hand side
      of the expression to be executed if the condition is true will be
-     pointed to by TRUE_RHS.  FALSE_LHS and FALSE_RHS are analagous --
+     pointed to by TRUE_RHS.  FALSE_LHS and FALSE_RHS are analogous --
      but apply to the expression to be executed if the conditional is
      false.  */
   tree *true_lhs;
@@ -5269,6 +5301,12 @@ fold (expr)
 	  return t;
 	}
       return fold_convert (t, arg0);
+
+    case VIEW_CONVERT_EXPR:
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == VIEW_CONVERT_EXPR)
+	return build1 (VIEW_CONVERT_EXPR, type,
+		       TREE_OPERAND (TREE_OPERAND (t, 0), 0));
+      return t;
 
 #if 0  /* This loses on &"foo"[0].  */
     case ARRAY_REF:
@@ -6665,7 +6703,7 @@ fold (expr)
 		}
 
 	    else if (TREE_INT_CST_HIGH (arg1) == -1
-		     && (- TREE_INT_CST_LOW (arg1)
+		     && (TREE_INT_CST_LOW (arg1)
 			 == ((unsigned HOST_WIDE_INT) 1 << (width - 1)))
 		     && ! TREE_UNSIGNED (TREE_TYPE (arg1)))
 	      switch (TREE_CODE (t))
@@ -6691,12 +6729,11 @@ fold (expr)
 		}
 
 	    else if (TREE_INT_CST_HIGH (arg1) == 0
-		      && (TREE_INT_CST_LOW (arg1)
-			  == ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1)
-		      && TREE_UNSIGNED (TREE_TYPE (arg1))
-			 /* signed_type does not work on pointer types.  */
-		      && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
-
+		     && (TREE_INT_CST_LOW (arg1)
+			 == ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1)
+		     && TREE_UNSIGNED (TREE_TYPE (arg1))
+		     /* signed_type does not work on pointer types.  */
+		     && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
 	      switch (TREE_CODE (t))
 		{
 		case LE_EXPR:
@@ -6715,6 +6752,32 @@ fold (expr)
 		default:
 		  break;
 		}
+
+            else if (TREE_INT_CST_HIGH (arg1) == 0
+		     && (TREE_INT_CST_LOW (arg1)
+			 == ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1)
+		     && TREE_UNSIGNED (TREE_TYPE (arg1)))
+              switch (TREE_CODE (t))
+                {
+                case GT_EXPR:
+                  return omit_one_operand (type,
+                                           convert (type, integer_zero_node),
+                                           arg0);
+                case GE_EXPR:
+                  TREE_SET_CODE (t, EQ_EXPR);
+                  break;
+
+                case LE_EXPR:
+                  return omit_one_operand (type,
+                                           convert (type, integer_one_node),
+                                           arg0);
+                case LT_EXPR:
+                  TREE_SET_CODE (t, NE_EXPR);
+                  break;
+
+                default:
+                  break;
+                }
 	  }
       }
 
@@ -6857,6 +6920,33 @@ fold (expr)
 			      type,
 			      fold (build (code, type, real0, real1)),
 			      fold (build (code, type, imag0, imag1))));
+	}
+
+      /* Optimize comparisons of strlen vs zero to a compare of the
+	 first character of the string vs zero.  To wit, 
+	 	strlen(ptr) == 0   =>  *ptr == 0
+		strlen(ptr) != 0   =>  *ptr != 0
+	 Other cases should reduce to one of these two (or a constant)
+	 due to the return value of strlen being unsigned.  */
+      if ((code == EQ_EXPR || code == NE_EXPR)
+	  && integer_zerop (arg1)
+	  && TREE_CODE (arg0) == CALL_EXPR
+	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == ADDR_EXPR)
+	{
+	  tree fndecl = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+	  tree arglist;
+
+	  if (TREE_CODE (fndecl) == FUNCTION_DECL
+	      && DECL_BUILT_IN (fndecl)
+	      && DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_MD
+	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STRLEN
+	      && (arglist = TREE_OPERAND (arg0, 1))
+	      && TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) == POINTER_TYPE
+	      && ! TREE_CHAIN (arglist))
+	    return fold (build (code, type,
+				build1 (INDIRECT_REF, char_type_node,
+					TREE_VALUE(arglist)),
+				integer_zero_node));
 	}
 
       /* From here on, the only cases we handle are when the result is

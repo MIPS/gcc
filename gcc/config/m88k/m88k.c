@@ -68,7 +68,7 @@ static void m88k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m88k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m88k_output_function_end_prologue PARAMS ((FILE *));
 static void m88k_output_function_begin_epilogue PARAMS ((FILE *));
-#ifdef INIT_SECTION_ASM_OP
+#if defined (CTOR_LIST_BEGIN) && !defined (OBJECT_FORMAT_ELF)
 static void m88k_svr3_asm_out_constructor PARAMS ((rtx, int));
 static void m88k_svr3_asm_out_destructor PARAMS ((rtx, int));
 #endif
@@ -76,6 +76,17 @@ static void m88k_svr3_asm_out_destructor PARAMS ((rtx, int));
 static int m88k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tbyte\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\thalf\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tword\t"
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\tuahalf\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\tuaword\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE m88k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
@@ -886,7 +897,7 @@ output_call (operands, addr)
 			   - 2);
 #if (MONITOR_GCC & 0x2) /* How often do long branches happen?  */
 	  if ((unsigned) (delta + 0x8000) >= 0x10000)
-	    warning ("Internal gcc monitor: short-branch(%x)", delta);
+	    warning ("internal gcc monitor: short-branch(%x)", delta);
 #endif
 
 	  /* Delete the jump.  */
@@ -1503,16 +1514,16 @@ pc_or_label_ref (op, mode)
 /* This definition must match lang_independent_options from toplev.c.  */
 struct m88k_lang_independent_options
 {
-  const char *string;
-  int *variable;
-  int on_value;
-  const char *description;
+  const char *const string;
+  int *const variable;
+  const int on_value;
+  const char *const description;
 };
 
 static void output_options PARAMS ((FILE *,
-				    struct m88k_lang_independent_options *,
+				    const struct m88k_lang_independent_options *,
 				    int,
-				    struct m88k_lang_independent_options *,
+				    const struct m88k_lang_independent_options *,
 				    int, int, int, const char *, const char *,
 				    const char *));
 
@@ -1541,8 +1552,8 @@ static void
 output_options (file, f_options, f_len, W_options, W_len,
 		pos, max, sep, indent, term)
      FILE *file;
-     struct m88k_lang_independent_options *f_options;
-     struct m88k_lang_independent_options *W_options;
+     const struct m88k_lang_independent_options *f_options;
+     const struct m88k_lang_independent_options *W_options;
      int f_len, W_len;
      int pos;
      int max;
@@ -1560,9 +1571,6 @@ output_options (file, f_options, f_len, W_options, W_len,
     pos = output_option (file, sep, "-traditional", "", indent, pos, max);
   if (profile_flag)
     pos = output_option (file, sep, "-p", "", indent, pos, max);
-  if (profile_block_flag)
-    pos = output_option (file, sep, "-a", "", indent, pos, max);
-
   for (j = 0; j < f_len; j++)
     if (*f_options[j].variable == f_options[j].on_value)
       pos = output_option (file, sep, "-f", f_options[j].string,
@@ -1591,8 +1599,8 @@ output_options (file, f_options, f_len, W_options, W_len,
 void
 output_file_start (file, f_options, f_len, W_options, W_len)
      FILE *file;
-     struct m88k_lang_independent_options *f_options;
-     struct m88k_lang_independent_options *W_options;
+     const struct m88k_lang_independent_options *f_options;
+     const struct m88k_lang_independent_options *W_options;
      int f_len, W_len;
 {
   register int pos;
@@ -1662,7 +1670,7 @@ output_ascii (file, opcode, max, p, size)
 	  num += 2;
 	  in_escape = 0;
 	}
-      else if (in_escape && c >= '0' && c <= '9')
+      else if (in_escape && ISDIGIT (c))
 	{
 	  /* If a digit follows an octal-escape, the VAX assembler fails
 	     to stop reading the escape after three digits.  Continue to
@@ -1820,7 +1828,7 @@ m88k_layout_frame ()
   frame_size = get_frame_size ();
 
   /* Since profiling requires a call, make sure r1 is saved.  */
-  if (profile_flag || profile_block_flag)
+  if (current_function_profile)
     save_regs[1] = 1;
 
   /* If we are producing debug information, store r1 and r30 where the
@@ -2017,7 +2025,7 @@ m88k_expand_prologue ()
     {
       rtx return_reg = gen_rtx_REG (SImode, 1);
       rtx label = gen_label_rtx ();
-      rtx temp_reg;
+      rtx temp_reg = NULL_RTX;
 
       if (! save_regs[1])
 	{
@@ -2031,7 +2039,7 @@ m88k_expand_prologue ()
       if (! save_regs[1])
 	emit_move_insn (return_reg, temp_reg);
     }
-  if (profile_flag || profile_block_flag)
+  if (current_function_profile)
     emit_insn (gen_blockage ());
 }
 
@@ -2289,7 +2297,7 @@ m88k_debugger_offset (reg, offset)
 #if (MONITOR_GCC & 0x10) /* Watch for suspicious symbolic locations.  */
       if (! (GET_CODE (reg) == REG
 	     && REGNO (reg) >= FIRST_PSEUDO_REGISTER))
-	warning ("Internal gcc error: Can't express symbolic location");
+	warning ("internal gcc error: Can't express symbolic location");
 #endif
       return 0;
     }
@@ -2367,7 +2375,8 @@ output_tdesc (file, offset)
 
   tdesc_section ();
 
-  fprintf (file, "%s%d,%d", INT_ASM_OP, /* 8:0,22:(20 or 16),2:2 */
+  /* 8:0,22:(20 or 16),2:2 */
+  fprintf (file, "%s%d,%d", integer_asm_op (4, TRUE),
 	   (((xmask != 0) ? 20 : 16) << 2) | 2,
 	   flag_pic ? 2 : 1);
 
@@ -2607,7 +2616,7 @@ m88k_function_arg (args_so_far, mode, type, named)
 struct rtx_def *
 m88k_builtin_saveregs ()
 {
-  rtx addr, dest;
+  rtx addr;
   tree fntype = TREE_TYPE (current_function_decl);
   int argadj = ((!(TYPE_ARG_TYPES (fntype) != 0
 		   && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
@@ -2630,21 +2639,10 @@ m88k_builtin_saveregs ()
 
   /* Now store the incoming registers.  */
   if (fixed < 8)
-    {
-      dest = adjust_address (addr, Pmode, fixed * UNITS_PER_WORD);
-      move_block_from_reg (2 + fixed, dest, 8 - fixed,
-			   UNITS_PER_WORD * (8 - fixed));
-
-      if (current_function_check_memory_usage)
-	{
-	  emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			     dest, ptr_mode,
-			     GEN_INT (UNITS_PER_WORD * (8 - fixed)),
-			     TYPE_MODE (sizetype),
-			     GEN_INT (MEMORY_USE_RW),
-			     TYPE_MODE (integer_type_node));
-	}
-    }
+    move_block_from_reg (2 + fixed,
+			 adjust_address (addr, Pmode, fixed * UNITS_PER_WORD),
+			 8 - fixed,
+			 UNITS_PER_WORD * (8 - fixed));
 
   /* Return the address of the save area, but don't put it in a
      register.  This fails when not optimizing and produces worse code
@@ -3292,7 +3290,7 @@ symbolic_operand (op, mode)
     }
 }
 
-#ifdef INIT_SECTION_ASM_OP
+#if defined (CTOR_LIST_BEGIN) && !defined (OBJECT_FORMAT_ELF)
 static void
 m88k_svr3_asm_out_constructor (symbol, priority)
      rtx symbol;
@@ -3321,7 +3319,7 @@ m88k_svr3_asm_out_destructor (symbol, priority)
   for (i = 1; i < 4; i++)
     assemble_integer (constm1_rtx, UNITS_PER_WORD, BITS_PER_WORD, 1);
 }
-#endif
+#endif /* INIT_SECTION_ASM_OP && ! OBJECT_FORMAT_ELF */
 
 /* Adjust the cost of INSN based on the relationship between INSN that
    is dependent on DEP_INSN through the dependence LINK.  The default

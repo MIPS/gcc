@@ -1,3 +1,74 @@
+2002-02-10  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/5641:
+	* libjava.compile/PR5641.xfail: New file.
+	* libjava.compile/PR5641.java: New file.
+
+2002-02-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* lib/libjava.exp (libjava_find_lib): Remove duplicate .la files.
+
+2002-01-05  H.J. Lu <hjl@gnu.org>
+
+	* libjava.jni/jni.exp: Add -I.. for generated header.
+
+2001-12-20  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/4766:
+	* libjava.compile/PR4766.java: New file.
+
+2001-12-20  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/FileHandleGcTest.out:  New file.
+	* libjava.lang/FileHandleGcTest.java: New file.
+	* libjava.lang/Array_3.out: New file.
+	* libjava.lang/Array_3.java: New file.
+
+2001-12-18  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/3417:
+	* libjava.compile/PR3417.xfail: New file.
+	* libjava.compile/PR3417.java: New file.
+
+2001-12-17  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/PR3731.xfail: Removed.
+
+	Inspired by PR java/5057:
+	* libjava.lang/PR5057_2.java: New file.
+	* libjava.lang/PR5057_2.out: New file.
+
+	For PR java/5057:
+	* libjava.lang/PR5057.out: New file.
+	* libjava.lang/PR5057.java: New file.
+
+2001-12-13  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/5103:
+	* libjava.jni/cxxtest.out: New file.
+	* libjava.jni/cxxtest.cc: New file.
+	* libjava.jni/cxxtest.java: New file.
+	* libjava.jni/jni.exp (gcj_jni_test_one): If there is no .c file,
+	assume there is a .cc file.
+
+2001-12-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/PR3731.out: Adjust output to reflect that "instanceof"
+	shouldn't trigger class initialization.
+
+2001-12-06  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/BlankFinal.java: Removed; incorrect test.
+
+2001-11-02  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/TLtest.xfail: New file. Needs threads.
+
+2001-10-04  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* libjava.lang/PR3096.java: New file.
+	* libjava.lang/PR3096.out: Likewise.
+
 2001-09-27  Alexandre Petit-Bianco  <apbianco@redhat.com>
 
 	* libjava.compile/final_initialization_in_ctor.java: New file

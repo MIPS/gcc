@@ -52,15 +52,20 @@ AC_SUBST(NOTMAINT)dnl
 # Do we have a single-tree copy of texinfo?  Even if we do, we can't
 # rely on it - libiberty is built before texinfo.
 AC_CHECK_PROG(MAKEINFO, makeinfo, makeinfo, )
-BUILD_INFO=info
-case x"`$MAKEINFO --version | grep 'GNU texinfo'`" in
-  x*\ [[1-3]].* )
-    MAKEINFO="@echo $MAKEINFO is too old, 4.0 or newer required ;true"
+if test "x$MAKEINFO" = "x"; then
+    MAKEINFO="@echo makeinfo missing; true"
     BUILD_INFO=
-    AC_MSG_WARN([
+else
+    BUILD_INFO=info
+    case x"`$MAKEINFO --version | grep 'GNU texinfo'`" in
+      x*\ [[1-3]].* )
+	MAKEINFO="@echo $MAKEINFO is too old, 4.0 or newer required; true"
+	BUILD_INFO=
+	AC_MSG_WARN([
 *** Makeinfo is too old. Info documentation will not be built.])
-    ;;
-esac
+	;;
+    esac
+fi
 AC_SUBST(MAKEINFO)
 AC_SUBST(BUILD_INFO)
 
@@ -115,11 +120,18 @@ AC_SUBST_FILE(host_makefile_frag)
 # It's OK to check for header files.  Although the compiler may not be
 # able to link anything, it had better be able to at least compile
 # something.
-AC_CHECK_HEADERS(sys/file.h sys/param.h limits.h stdlib.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h)
+AC_CHECK_HEADERS(sys/file.h sys/param.h limits.h stdlib.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h)
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
 
 libiberty_AC_DECLARE_ERRNO
+
+AC_CHECK_TYPE(uintptr_t, unsigned long)
+
+if test $ac_cv_type_uintptr_t = yes
+then
+  AC_DEFINE(HAVE_UINTPTR_T, 1, [Define if you have the \`uintptr_t' type.])
+fi
 
 # This is the list of functions which libiberty will provide if they
 # are not available on the host.
@@ -237,9 +249,9 @@ fi
 AC_SUBST(CHECK)
 
 case "${host}" in
-  *-*-cygwin*) 
-    AC_DEFINE(HAVE_SYS_ERRLIST)
-    AC_DEFINE(HAVE_SYS_NERR)
+  *-*-cygwin* | *-*-mingw*)
+    AC_DEFINE_NOAUTOHEADER(HAVE_SYS_ERRLIST)
+    AC_DEFINE_NOAUTOHEADER(HAVE_SYS_NERR)
     ;;
 esac
 
@@ -323,6 +335,13 @@ if test -z "${setobjs}"; then
     libiberty_cv_var_sys_errlist=yes
     ;;
 
+  *-*-*vms*)
+    # Under VMS, vfork works very different than on Unix. The standard test 
+    # won't work, and it isn't easily adaptable. It makes more sense to
+    # just force it.
+    ac_cv_func_vfork_works=yes
+    ;;
+
   esac
 
   # We haven't set the list of objects yet.  Use the standard autoconf
@@ -334,10 +353,19 @@ if test -z "${setobjs}"; then
   if test $ac_cv_func_vfork_works = no; then
     LIBOBJS="$LIBOBJS vfork.o"
   fi
+  # We only need _doprnt if we might use it to implement v*printf.
+  if test $ac_cv_func_vprintf != yes \
+     || test $ac_cv_func_vfprintf != yes \
+     || test $ac_cv_func_vsprintf != yes; then
+    AC_REPLACE_FUNCS(_doprnt)
+  else
+    AC_CHECK_FUNCS(_doprnt)
+  fi
+
   for v in $vars; do
     AC_MSG_CHECKING([for $v])
     AC_CACHE_VAL(libiberty_cv_var_$v,
-      [AC_TRY_LINK([int *p;], [extern int $v; p = &$v;],
+      [AC_TRY_LINK([int *p;], [extern int $v []; p = &$v;],
 		   [eval "libiberty_cv_var_$v=yes"],
 		   [eval "libiberty_cv_var_$v=no"])])
     if eval "test \"`echo '$libiberty_cv_var_'$v`\" = yes"; then

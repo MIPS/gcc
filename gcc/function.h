@@ -19,16 +19,6 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-
-#if !defined(NULL_TREE) && !defined(tree)
-typedef union union_node *_function_tree;
-#define tree _function_tree
-#endif
-#if !defined(NULL_RTX) && !defined(rtx)
-typedef struct rtx_def *_function_rtx;
-#define rtx _function_rtx
-#endif
-
 struct var_refs_queue
 {
   rtx modified;
@@ -97,16 +87,20 @@ struct emit_status
   int x_last_linenum;
   const char *x_last_filename;
 
-  /* The length of the regno_pointer_align and x_regno_reg_rtx vectors.
-     Since these vectors are needed during the expansion phase when
-     the total number of registers in the function is not yet known,
-     the vectors are copied and made bigger when necessary.  */
+  /* The length of the regno_pointer_align, regno_decl, and x_regno_reg_rtx
+     vectors.  Since these vectors are needed during the expansion phase when
+     the total number of registers in the function is not yet known, the
+     vectors are copied and made bigger when necessary.  */
   int regno_pointer_align_length;
 
   /* Indexed by pseudo register number, if nonzero gives the known alignment
      for that pseudo (if REG_POINTER is set in x_regno_reg_rtx).
      Allocated in parallel with x_regno_reg_rtx.  */
   unsigned char *regno_pointer_align;
+
+  /* Indexed by pseudo register number, if nonzero gives the decl
+     corresponding to that register.  */
+  tree *regno_decl;
 
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
      Allocated in parallel with regno_pointer_align.  */
@@ -120,6 +114,7 @@ struct emit_status
 #define seq_stack (cfun->emit->sequence_stack)
 
 #define REGNO_POINTER_ALIGN(REGNO) (cfun->emit->regno_pointer_align[REGNO])
+#define REGNO_DECL(REGNO) (cfun->emit->regno_decl[REGNO])
 
 struct expr_status
 {
@@ -439,8 +434,8 @@ struct function
      generated.  */
   unsigned int instrument_entry_exit : 1;
 
-  /* Nonzero if memory access checking be enabled in the current function.  */
-  unsigned int check_memory_usage : 1;
+  /* Nonzero if profiling code should be generated.  */
+  unsigned int profile : 1;
 
   /* Nonzero if stack limit checking should be enabled in the current
      function.  */
@@ -512,7 +507,7 @@ extern int virtuals_instantiated;
 #define current_function_internal_arg_pointer (cfun->internal_arg_pointer)
 #define current_function_return_rtx (cfun->return_rtx)
 #define current_function_instrument_entry_exit (cfun->instrument_entry_exit)
-#define current_function_check_memory_usage (cfun->check_memory_usage)
+#define current_function_profile (cfun->profile)
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)
@@ -592,7 +587,6 @@ extern void free_after_parsing		PARAMS ((struct function *));
 extern void free_after_compilation	PARAMS ((struct function *));
 
 extern void init_varasm_status		PARAMS ((struct function *));
-extern void restore_varasm_status	PARAMS ((struct function *));
 extern void free_varasm_status		PARAMS ((struct function *));
 extern void free_emit_status		PARAMS ((struct function *));
 extern void free_stmt_status            PARAMS ((struct function *));
@@ -613,11 +607,3 @@ extern void init_virtual_regs		PARAMS ((struct emit_status *));
 
 /* Called once, at initialization, to initialize function.c.  */
 extern void init_function_once          PARAMS ((void));
-
-#ifdef rtx
-#undef rtx
-#endif
-
-#ifdef tree
-#undef tree
-#endif

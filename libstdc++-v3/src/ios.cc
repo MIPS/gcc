@@ -1,6 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,10 +32,12 @@
 // ISO C++ 14882: 27.4  Iostreams base classes
 //
 
-#include <bits/std_ios.h>
-#include <bits/std_ostream.h>
-#include <bits/std_istream.h>
-#include <bits/std_fstream.h>
+#include <ios>
+#include <ostream>
+#include <istream>
+#include <fstream>
+
+#include <bits/atomicity.h>
 
 namespace std 
 {
@@ -224,10 +227,11 @@ namespace std
   int 
   ios_base::xalloc() throw()
   {
-    // XXX MT
     // XXX should be a symbol. (Reserve 0..3 for builtins.)
-    static int top = 4; 
-    return top++;
+    static _Atomic_word top = 0; 
+    return __exchange_and_add(&top, 1) + 4;
+    // Implementation note: Initialize top to zero to ensure that
+    // initialization occurs before main() is started.
   }
 
   // 27.4.2.5  iword/pword storage
@@ -284,12 +288,6 @@ namespace std
   {
     locale __old = _M_ios_locale;
     _M_ios_locale = __loc;
-    // Make sure there's a callback for the format caches so they will be
-    // marked dirty.
-    _Format_cache<char>::_S_get(*this);
-#ifdef _GLIBCPP_USE_WCHAR_T
-    _Format_cache<wchar_t>::_S_get(*this);
-#endif
     _M_call_callbacks(imbue_event);
     return __old;
   }

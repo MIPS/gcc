@@ -20,19 +20,28 @@
    using the Doxygen tool.  These are useful for examining the signatures
    of public member functions for the library classes, etc.
 </p>
-<p>
-   The latest collection is for the GCC 3.0 release,
-   <code>libstdc++-doxygen-3.0.tar.gz</code> (3.8MB),
-   <a href="libstdc++-doxygen-3.0/index.html">viewable online</a>.
-   The collection is also available in the libstdc++ snapshots directory at
-   <code>&lt;URL:ftp://gcc.gnu.org/pub/gcc/libstdc++/&gt;</code>.  You will
-   almost certainly need to use one of the
+<p>The collections are available in the libstdc++ snapshots directory at
+   <code>&lt;URL:ftp://gcc.gnu.org/pub/gcc/libstdc++/doxygen/&gt;</code>.
+   You will almost certainly need to use one of the
    <a href="http://gcc.gnu.org/mirrors.html">mirror sites</a> to download
-   the tarball.  After unpacking, simply load
-   libstdc++-doxygen-3.0/index.html <!-- also update this date -->
-   in a browser.  Feedback (and additional documentation!) is welcome.
+   the tarball.  After unpacking, simply load libstdc++-html-*/index.html
+   into a browser.  Feedback (and additional documentation!) is welcome.
 </p>
-<!-- another paragraph here for post-release collections -->
+<p>The available user-level collections are also viewable online:
+   <ul>
+   <li><a href="libstdc++-doxygen-3.0/index.html">docs for the 3.0 release</a>
+   <li><a href="libstdc++-html-USERS-3.0.96/index.html">docs for the most
+       recent libstdc++ snapshot (3.0.96)</a>
+   <li><a href="latest-doxygen/index.html">&quot;the latest collection&quot;</a>
+       (snapshot collection or later; see the date on the first page)
+   </ul>
+   Other collections (man pages, maintainer docs) are only available on the
+   FTP sites.
+</p>
+
+<p>Beginning with 3.0.95, an initial set of man pages are also available in
+   the same place as the HTML collections.  Start with <code>Intro(3)</code>.
+</p>
 
 <hr>
 <h2><a name="2">Configuring, Building, Installing</a></h2>
@@ -60,7 +69,7 @@
          - GPL v2 license terms
          <li><a href="17_intro/DESIGN">DESIGN</a>
          - overview of the implementation plan
-         <li><a href="17_intro/headER_POLICY">headER_POLICY</a>
+         <li><a href="17_intro/HEADER_POLICY">HEADER_POLICY</a>
          - header naming and sub-include structure
          <li><a href="17_intro/PROBLEMS">PROBLEMS</a>
          <!-- Linking to "../README" doesn't work; we are at the top level

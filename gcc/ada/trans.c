@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.2 $
+ *                            $Revision: 1.10 $
  *                                                                          *
  *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -155,6 +155,9 @@ gigi (gnat_root, max_gnat_node, number_name,
 
      Int gigi_operating_mode;
 {
+  tree gnu_standard_long_long_float;
+  tree gnu_standard_exception_type;
+
   max_gnat_nodes = max_gnat_node;
   number_names = number_name;
   Nodes_Ptr = nodes_ptr - First_Node_Id;
@@ -199,10 +202,12 @@ gigi (gnat_root, max_gnat_node, number_name,
   dconstp5 = REAL_VALUE_ATOF ("0.5", DFmode);
   dconstmp5 = REAL_VALUE_ATOF ("-0.5", DFmode);
 
-  init_gigi_decls (gnat_to_gnu_entity (Base_Type (standard_long_long_float),
-				       NULL_TREE, 0),
-		   gnat_to_gnu_entity (Base_Type (standard_exception_type),
-				       NULL_TREE, 0));
+  gnu_standard_long_long_float
+    = gnat_to_gnu_entity (Base_Type (standard_long_long_float), NULL_TREE, 0);
+  gnu_standard_exception_type
+    = gnat_to_gnu_entity (Base_Type (standard_exception_type),  NULL_TREE, 0);
+
+  init_gigi_decls (gnu_standard_long_long_float, gnu_standard_exception_type);
 
   /* Emit global symbols containing context list info for the SGI Workshop
      debugger */
@@ -580,9 +585,9 @@ tree_transform (gnat_node)
 	  else
 	    {
 	      if (! Is_Machine_Number (gnat_node))
-		ur_realval =
-                   Machine (Base_Type (Underlying_Type (Etype (gnat_node))),
-				      ur_realval);
+		ur_realval
+		  = Machine (Base_Type (Underlying_Type (Etype (gnat_node))),
+			     ur_realval, Round_Even);
 
 	      gnu_result
 		= UI_To_gnu (Numerator (ur_realval), gnu_result_type);
@@ -1416,7 +1421,6 @@ tree_transform (gnat_node)
 	      tree gnu_inner;
 	      enum machine_mode mode;
 	      int unsignedp, volatilep;
-	      unsigned int alignment;
 
 	      gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	      gnu_prefix = remove_conversions (gnu_prefix);
@@ -1439,7 +1443,7 @@ tree_transform (gnat_node)
 		gigi_abort (310);
 
 	      get_inner_reference (gnu_prefix, &bitsize, &bitpos, &gnu_offset,
-				   &mode, &unsignedp, &volatilep, &alignment);
+				   &mode, &unsignedp, &volatilep);
 
 
 	      if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
@@ -1854,6 +1858,13 @@ tree_transform (gnat_node)
 	    gnu_rhs = maybe_unconstrained_array (gnu_rhs);
 	  }
 
+	/* If the result type is a private type, its full view may be a
+	   numeric subtype. The representation we need is that of its base
+	   type, given that it is the result of an arithmetic operation.  */
+        else if (Is_Private_Type (Etype (gnat_node))) 
+	  gnu_type = gnu_result_type
+	    = get_unpadded_type (Base_Type (Full_View (Etype (gnat_node))));
+
 	/* If this is a shift whose count is not guaranteed to be correct,
 	   we need to adjust the shift count.  */
 	if (IN (Nkind (gnat_node), N_Op_Shift)
@@ -2047,11 +2058,11 @@ tree_transform (gnat_node)
       gnu_rhs
 	= maybe_unconstrained_array (gnat_to_gnu (Expression (gnat_node)));
 
+      set_lineno (gnat_node, 1);
+
       /* If range check is needed, emit code to generate it */
       if (Do_Range_Check (Expression (gnat_node)))
 	gnu_rhs = emit_range_check (gnu_rhs, Etype (Name (gnat_node)));
-
-      set_lineno (gnat_node, 1);
 
       /* If either side's type has a size that overflows, convert this
 	 into raise of Storage_Error: execution shouldn't have gotten
@@ -2339,7 +2350,7 @@ tree_transform (gnat_node)
 	if (Present (gnat_top_condition))
 	  gnu_top_condition = gnat_to_gnu (gnat_top_condition);
 
-	expand_exit_loop_if_false (0, gnu_top_condition);
+	expand_exit_loop_top_cond (0, gnu_top_condition);
 
         /* Make the loop body into its own block, so any allocated
            storage will be released every iteration.  This is needed
@@ -3989,6 +4000,15 @@ process_freeze_entity (gnat_node)
 	  && Present (Equivalent_Type (gnat_entity))))
     return;
 
+  /* Don't do anything for subprograms that may have been elaborated before
+     their freeze nodes.  This can happen, for example because of an inner call
+     in an instance body.  */
+  if (gnu_old != 0
+       && TREE_CODE (gnu_old) == FUNCTION_DECL
+       && (Ekind (gnat_entity) == E_Function
+          || Ekind (gnat_entity) == E_Procedure))
+    return;
+
   /* If we have a non-dummy type old tree, we have nothing to do.   Unless
      this is the public view of a private type whose full view was not
      delayed, this node was never delayed as it should have been.
@@ -4048,7 +4068,8 @@ process_freeze_entity (gnat_node)
   if (gnu_old != 0)
     {
       DECL_NAME (gnu_new) = DECL_NAME (gnu_old);
-      update_pointer_to (TREE_TYPE (gnu_old), TREE_TYPE (gnu_new));
+      update_pointer_to (TYPE_MAIN_VARIANT (TREE_TYPE (gnu_old)),
+			 TREE_TYPE (gnu_new));
     }
 }
 
@@ -4725,7 +4746,8 @@ process_type (gnat_entity)
   /* If we have an old type and we've made pointers to this type,
      update those pointers.  */
   if (gnu_old != 0)
-    update_pointer_to (TREE_TYPE (gnu_old), TREE_TYPE (gnu_new));
+    update_pointer_to (TYPE_MAIN_VARIANT (TREE_TYPE (gnu_old)),
+		       TREE_TYPE (gnu_new));
 
   /* If this is a record type corresponding to a task or protected type 
      that is a completion of an incomplete type, perform a similar update
@@ -4744,7 +4766,8 @@ process_type (gnat_entity)
       save_gnu_tree (Corresponding_Concurrent_Type (gnat_entity),
 		     gnu_new, 0);
 
-      update_pointer_to (TREE_TYPE (gnu_task_old), TREE_TYPE (gnu_new));
+      update_pointer_to (TYPE_MAIN_VARIANT (TREE_TYPE (gnu_task_old)),
+			 TREE_TYPE (gnu_new));
     }
 }
 
