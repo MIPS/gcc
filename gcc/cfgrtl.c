@@ -352,7 +352,7 @@ cfg_layout_create_basic_block (void *head, void *end, basic_block after)
 {
   basic_block newbb = rtl_create_basic_block (head, end, after);
 
-  cfg_layout_initialize_rbi (newbb);
+  initialize_bb_rbi (newbb);
   return newbb;
 }
 
@@ -2847,6 +2847,8 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_merge_blocks,
   rtl_predict_edge,
   rtl_predicted_by_p,
+  NULL, /* can_duplicate_block_p */
+  NULL, /* duplicate_block */
   rtl_split_edge,
   rtl_make_forwarder_block,
   rtl_tidy_fallthru_edge,
@@ -2859,6 +2861,14 @@ struct cfg_hooks rtl_cfg_hooks = {
    basic block connected via fallthru edges does not have to be adjacent.
    This representation will hopefully become the default one in future
    version of the compiler.  */
+
+/* We do not want to declare these functions in a header file, since they
+   should only be used through the cfghooks interface, and we do not want to
+   move them here since it would require also moving quite a lot of related
+   code.  */
+extern bool cfg_layout_can_duplicate_bb_p (basic_block);
+extern basic_block cfg_layout_duplicate_bb (basic_block);
+
 struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   "cfglayout mode",
   rtl_verify_flow_info_1,
@@ -2873,6 +2883,8 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   cfg_layout_merge_blocks,
   rtl_predict_edge,
   rtl_predicted_by_p,
+  cfg_layout_can_duplicate_bb_p,
+  cfg_layout_duplicate_bb,
   cfg_layout_split_edge,
   rtl_make_forwarder_block,
   NULL,

@@ -733,6 +733,9 @@ extern int flag_tree_ter;
 /* Enable dominator optimizations.  */
 extern int flag_tree_dom;
 
+/* Enable loop header copying on tree-ssa.  */
+extern int flag_tree_ch;
+
 /* Enable dead store and redundant load elimination */
 extern int flag_tree_dse;
 

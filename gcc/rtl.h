@@ -2042,7 +2042,6 @@ extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 extern void delete_for_peephole (rtx, rtx);
 extern int condjump_in_parallel_p (rtx);
 extern void purge_line_number_notes (rtx);
-extern void copy_loop_headers (rtx);
 
 /* In emit-rtl.c.  */
 extern int max_reg_num (void);

@@ -132,6 +132,9 @@ build_tree_cfg (tree *tp)
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
 
+  /* Initialize rbi_pool.  */
+  alloc_rbi_pool ();
+
   /* Initialize the basic block array.  */
   init_flow ();
   n_basic_blocks = 0;
@@ -395,6 +398,7 @@ create_bb (void *h, void *e, basic_block after)
   n_basic_blocks++;
   last_basic_block++;
 
+  initialize_bb_rbi (bb);
   return bb;
 }
 
@@ -2483,6 +2487,7 @@ delete_tree_cfg (void)
   free_basic_block_vars (0);
   basic_block_info = NULL;
   label_to_block_map = NULL;
+  free_rbi_pool ();
 }
 
 /* Return the first statement in basic block BB, stripped of any NOP
@@ -3796,20 +3801,22 @@ tree_move_block_after (basic_block bb, basic_block after)
   return true;
 }
 
-/* Create a duplicate of the basic block BB and redirect edge E into it.  Does
-   not work over ssa.  */
-
-basic_block
-tree_duplicate_bb (basic_block bb, edge e)
+/* Return true if basic_block can be duplicated.  */
+static bool
+tree_can_duplicate_bb_p (basic_block bb ATTRIBUTE_UNUSED)
 {
-  edge s, n;
+  return true;
+}
+
+/* Create a duplicate of the basic block BB.  Does not work over ssa.  */
+
+static basic_block
+tree_duplicate_bb (basic_block bb)
+{
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
 
-  if (e->dest != bb)
-    abort ();
-
-  new_bb = create_empty_bb (e->src);
+  new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -3820,18 +3827,6 @@ tree_duplicate_bb (basic_block bb, edge e)
 
       bsi_insert_after (&bsi_tgt, unshare_expr (stmt), BSI_NEW_STMT);
     }
-
-  new_bb->loop_depth = bb->loop_depth;
-  new_bb->flags = bb->flags;
-  for (s = bb->succ; s; s = s->succ_next)
-    {
-      /* Since we are creating edges from a new block to successors
-	 of another block (which therefore are known to be disjoint), there
-	 is no need to actually check for duplicated edges.  */
-      n = unchecked_make_edge (new_bb, s->dest, s->flags);
-    }
-
-  redirect_edge_and_branch_force (e, new_bb);
 
   return new_bb;
 }
@@ -4230,6 +4225,8 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_merge_blocks,		/* merge_blocks  */
   tree_predict_edge,		/* predict_edge  */
   tree_predicted_by_p,		/* predicted_by_p  */
+  tree_can_duplicate_bb_p,	/* can_duplicate_block_p  */
+  tree_duplicate_bb,		/* duplicate_block  */
   tree_split_edge,		/* split_edge  */
   tree_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */

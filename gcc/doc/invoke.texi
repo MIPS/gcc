@@ -250,6 +250,7 @@ in the following sections.
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -fdump-tree-cfg -fdump-tree-dot -fdump-tree-alias @gol
+-fdump-tree-ch @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
@@ -309,7 +310,7 @@ in the following sections.
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -ftree-dominator-opts -ftree-dse @gol
--ftree-loop-optimize -ftree-sra @gol
+-ftree-ch -ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3477,6 +3478,11 @@ made by appending @file{.cfg} to the source file name.
 Dump a dot language representation of the control flow graph to a file.  The
 file name is made by appending @file{.dot} to the source file name.
 
+@item ch
+@opindex fdump-tree-ch
+Dump each function after copying loop headers.  The file name is made by
+appending @file{.ch} to the source file name.
+
 @item ssa
 @opindex fdump-tree-ssa
 Dump SSA related information to a file.  The file name is made by appending
@@ -4307,6 +4313,12 @@ default at -O and higher.
 @item -ftree-dominator-opts
 Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at -O and higher.
+
+@item -ftree-ch
+Perform loop header copying on trees.  This is beneficial since it increases
+effectivity of code motion optimizations.  It also saves one jump.  This flag
+is enabled by default at -O and higher.  It is not enabled for -Os, since it
+usually increases code size.
 
 @item -ftree-loop-optimize
 Perform loop optimization on trees.  This flag is enabled by

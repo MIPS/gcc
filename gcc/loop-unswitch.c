@@ -346,7 +346,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on)
   /* Will we be able to perform redirection?  */
   if (!any_condjump_p (BB_END (unswitch_on)))
     return NULL;
-  if (!cfg_layout_can_duplicate_bb_p (unswitch_on))
+  if (!can_duplicate_block_p (unswitch_on))
     return NULL;
 
   entry = loop_preheader_edge (loop);
@@ -368,7 +368,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on)
 
   /* Make a copy of the block containing the condition; we will use
      it as switch to decide which loop we want to use.  */
-  switch_bb = cfg_layout_duplicate_bb (unswitch_on, NULL);
+  switch_bb = duplicate_block (unswitch_on, NULL);
   if (irred_flag)
     {
       switch_bb->flags |= BB_IRREDUCIBLE_LOOP;

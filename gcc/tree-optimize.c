@@ -287,6 +287,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (DUP_PASS (pass_dce));
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
+  NEXT_PASS (pass_ch);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_profile);

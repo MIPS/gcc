@@ -268,7 +268,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* Various flags.  See BB_* below.  */
   int flags;
 
-  /* Additional data maintained by cfg_layout routines.  */
+  /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * GTY ((skip (""))) rbi;
 
   /* Annotations used at the tree level.  */
@@ -276,6 +276,23 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
 };
 
 typedef struct basic_block_def *basic_block;
+
+/* Structure to hold information about the blocks during reordering and
+   copying.  */
+
+typedef struct reorder_block_def
+{
+  rtx header;
+  rtx footer;
+  basic_block next;
+  basic_block original;
+  /* Used by loop copying.  */
+  basic_block copy;
+  int duplicated;
+
+  /* These fields are used by bb-reorder pass.  */
+  int visited;
+} *reorder_block_def;
 
 #define BB_FREQ_MAX 10000
 
@@ -635,6 +652,11 @@ extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (void);
+
+/* In cfg.c */
+extern void alloc_rbi_pool (void);
+extern void initialize_bb_rbi (basic_block bb);
+extern void free_rbi_pool (void);
 
 /* In dominance.c */
 

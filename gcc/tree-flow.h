@@ -482,9 +482,7 @@ extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern bool verify_stmt (tree);
 extern void verify_stmts (void);
-extern basic_block tree_duplicate_bb (basic_block, edge);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
-
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);

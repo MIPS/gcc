@@ -635,6 +635,101 @@ tidy_fallthru_edges (void)
     }
 }
 
+/* Returns true if we can duplicate basic block BB.  */
+
+bool
+can_duplicate_block_p (basic_block bb)
+{
+  edge e;
+
+  if (!cfg_hooks->can_duplicate_block_p)
+    internal_error ("%s does not support can_duplicate_block_p.",
+		    cfg_hooks->name);
+
+  if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
+    return false;
+
+  /* Duplicating fallthru block to exit would require adding a jump
+     and splitting the real last BB.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
+       return false;
+
+  return cfg_hooks->can_duplicate_block_p (bb);
+}
+
+/* Duplicates basic block BB and redirects edge E to it.  Returns the
+   new basic block.  */
+
+basic_block
+duplicate_block (basic_block bb, edge e)
+{
+  edge s, n;
+  basic_block new_bb;
+  gcov_type new_count = e ? e->count : 0;
+
+  if (!cfg_hooks->duplicate_block)
+    internal_error ("%s does not support duplicate_block.",
+		    cfg_hooks->name);
+
+  if (bb->count < new_count)
+    new_count = bb->count;
+  if (!bb->pred)
+    abort ();
+#ifdef ENABLE_CHECKING
+  if (!can_duplicate_block_p (bb))
+    abort ();
+#endif
+
+  new_bb = cfg_hooks->duplicate_block (bb);
+
+  new_bb->loop_depth = bb->loop_depth;
+  new_bb->flags = bb->flags;
+  for (s = bb->succ; s; s = s->succ_next)
+    {
+      /* Since we are creating edges from a new block to successors
+	 of another block (which therefore are known to be disjoint), there
+	 is no need to actually check for duplicated edges.  */
+      n = unchecked_make_edge (new_bb, s->dest, s->flags);
+      n->probability = s->probability;
+      if (e && bb->count)
+	{
+	  /* Take care for overflows!  */
+	  n->count = s->count * (new_count * 10000 / bb->count) / 10000;
+	  s->count -= n->count;
+	}
+      else
+	n->count = s->count;
+      n->aux = s->aux;
+    }
+
+  if (e)
+    {
+      new_bb->count = new_count;
+      bb->count -= new_count;
+
+      new_bb->frequency = EDGE_FREQUENCY (e);
+      bb->frequency -= EDGE_FREQUENCY (e);
+
+      redirect_edge_and_branch_force (e, new_bb);
+
+      if (bb->count < 0)
+	bb->count = 0;
+      if (bb->frequency < 0)
+	bb->frequency = 0;
+    }
+  else
+    {
+      new_bb->count = bb->count;
+      new_bb->frequency = bb->frequency;
+    }
+
+  new_bb->rbi->original = bb;
+  bb->rbi->copy = new_bb;
+
+  return new_bb;
+}
+
 /* Return 1 if BB ends with a call, possibly followed by some
    instructions that must stay with the call, 0 otherwise.  */
 

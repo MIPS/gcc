@@ -1,3 +1,55 @@
+2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop.o): Add tree-inline.h dependency.
+	* basic-block.h (struct reorder_block_def): Moved from cfglayout.h.
+	(alloc_rbi_pool, initialize_bb_rbi, free_rbi_pool): New.
+	* bb-reorder.c (copy_bb): Use cfghooks for bb duplication.
+	* cfg.c (rbi_pool): New variable.
+	(alloc_rbi_pool, free_rbi_pool, initialize_bb_rbi): New functions.
+	* cfghooks.c (can_duplicate_block_p, duplicate_block): New functions.
+	* cfghooks.h (struct cfg_hooks): Add can_duplicate_block_p and
+	duplicate_block hooks.
+	(can_duplicate_block_p, duplicate_block): Declare.
+	* cfglayout.c (cfg_layout_pool, cfg_layout_initialize_rbi): Removed.
+	(fixup_reorder_chain): Use initialize_bb_rbi.
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_duplicate_bb): Hookized.
+	(cfg_layout_initialize): Use cfg.c rbi pool manipulation functions.
+	(can_copy_bbs_p, copy_bbs): Use cfghooks for bb duplication.
+	* cfglayout.h (typedef struct reorder_block_def): Moved to
+	basic_block.h.
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_duplicate_bb): Declaration
+	removed.
+	* cfgrtl.c (cfg_layout_create_basic_block): Use initialize_bb_rbi.
+	(rtl_cfg_hooks, cfg_layout_rtl_cfg_hook): Fill in can_duplicate_block_p
+	and duplicate_block fields.
+	* common.opt (ftree-ch): Add.
+	* flags.h (flag_tree_ch): Declare.
+	* jump.c (next_nonnote_insn_in_loop, duplicate_loop_exit_test,
+	copy_loop_headers): Removed.
+	* loop-unswitch.c (unswitch_loop): Use cfghooks for bb duplication.
+	* opts.c (decode_options): Enable flag_tree_ch at -O1.
+	(common_handle_option): Handle -ftree_ch.
+	* rtl.h (copy_loop_headers): Declaration removed.
+	* timevar.def (TV_TREE_CH): New.
+	* toplev.c (flag_tree_ch): New.
+	(rest_of_compilation): Do not call copy_loop_headers.
+	* tracer.c (tail_duplicate): Use cfghooks for bb duplication.
+	* tree-cfg.c (build_tree_cfg): Call alloc_rbi_pool.
+	(create_bb): Call initialize_bb_rbi.
+	(delete_tree_cfg): Call free_rbi_pool.
+	(tree_duplicate_bb): Hookize.
+	(tree_can_duplicate_bb_p): New.
+	(tree_cfg_hooks): Fill in can_duplicate_block_p and duplicate_block
+	fields.
+	* tree-flow.h (tree_duplicate_bb): Declaration removed.
+	* tree-optimize.c (init_tree_optimization_passes): Add pass_ch.
+	* tree-pass.h (pass_ch): Declare.
+	* tree-ssa-loop.c: Include tree-inline.h.
+	(call_expr_p, should_duplicate_loop_header_p, mark_defs_for_rewrite,
+	duplicate_blocks, copy_loop_headers, gate_ch): New functions.
+	(pass_ch): New.
+	* doc/invoke.texi (-fdump-tree-ch, -ftree-ch): Document.
+
 2004-02-19  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/aix.h (MFWRAP_SPEC): Define.

@@ -982,6 +982,9 @@ int flag_tree_ccp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
+/* Enable loop header copying on tree-ssa.  */
+int flag_tree_ch = 0;
+
 /* Enable loop optimization on tree-ssa.  */
 int flag_tree_loop = 0;
 
@@ -1205,6 +1208,7 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
+  { "tree-ch", &flag_tree_ch, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 }
 };
 
@@ -3180,12 +3184,6 @@ rest_of_compilation (tree decl)
 
   create_loop_notes ();
 
-  if (optimize)
-    {
-      free_bb_for_insn ();
-      copy_loop_headers (insns);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-    }
   purge_line_number_notes (insns);
 
   timevar_pop (TV_JUMP);

@@ -21,7 +21,7 @@ cpp_parse_escape (pstr, limit, wide)
      foo();
 }
 
-/* There should be precisely two IF statements.  If there is
+/* There should be precisely three IF statements.  If there is
    more than two, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "if " 3 "dom3"} } */
 
