@@ -1,5 +1,10 @@
 2005-02-04  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/signature.cc (parse_ref_type): End inner loop when ';'
+	seen.
+
+2005-02-04  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/locals.cc (request): Minor rearrangement.
 	(remove): Pop 'scope'.
 	* bytecode/generate.cc (visit_variable_stmt): Removed old
