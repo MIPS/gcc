@@ -1703,7 +1703,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
               This had been verified by analyze_data_refs.
 	      This restriction will be relaxed in the future.  */
 
-  if (! vec_array_base_name_differ_p (dra, drb))
+  if (! array_base_name_differ_p (dra, drb))
     {
       DBG_VECT (fprintf (stderr, 
 		"vect_analyze_data_ref_dependence: same base\n"));
@@ -1972,7 +1972,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
               return false;
             }
 
-          dr = vec_analyze_array (loop, stmt, ref);
+          dr = analyze_array (loop, stmt, ref);
 
           /* FORNOW: make sure that the array is one dimentional.
 	             This restriction will be relaxed in the future.
@@ -2593,9 +2593,6 @@ vectorize_loops (tree fndecl,
 
    vars_to_rename = vars;
 
-   /*  ----------- Initializations.  -----------  */
-   initialize_scalar_evolutions_analyzer ();
-
    /*  ----------- Analyze loops. -----------  */
    /* CHECKME */
   for (i = 1; i < loops->num; i++)
@@ -2647,8 +2644,6 @@ vectorize_loops (tree fndecl,
       loop_vec_info loop_vinfo = loop->aux;
       destroy_loop_vec_info (loop_vinfo);
     }
-
-   finalize_scalar_evolutions_analyzer ();
 
    timevar_pop (TV_TREE_VECTORIZATION);
 

@@ -152,8 +152,33 @@ extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
 
-/* API for vectorizer  */
-extern bool vec_array_base_name_differ_p (struct data_reference *, struct data_reference *);
-extern struct data_reference *vec_analyze_array (struct loop *, tree, tree);
+extern struct data_reference *analyze_array (struct loop *, tree, tree);
+
+
+
+/* Inline functions.  */
+
+static inline bool array_base_name_differ_p (struct data_reference *, struct data_reference *);
+
+
+/* This is the simplest data dependence test: determines whether the
+   data references A and B access the same array.  */
+
+static inline bool
+array_base_name_differ_p (struct data_reference *a, 
+			  struct data_reference *b)
+{
+  if (DR_BASE_NAME (a) == DR_BASE_NAME (b))
+    return false;
+  
+  if (TREE_CODE (DR_BASE_NAME (a)) == INDIRECT_REF
+      && TREE_CODE (DR_BASE_NAME (b)) == INDIRECT_REF
+      && TREE_OPERAND (DR_BASE_NAME (a), 0) 
+      == TREE_OPERAND (DR_BASE_NAME (b), 0))
+    return false;
+  
+  return true;
+}
+
 
 #endif  /* GCC_TREE_DATA_REF_H  */

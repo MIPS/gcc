@@ -89,7 +89,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 
-static void analyze_array (struct loop *, varray_type, tree, tree);
 static tree analyze_array_indexes (struct loop *, varray_type, tree);
 static bool access_functions_are_affine_or_constant_p (struct data_reference *);
 
@@ -97,8 +96,6 @@ static struct data_dependence_relation *
 initialize_data_dependence_relation (struct data_reference *, 
 				     struct data_reference *);
 static void compute_all_dependences (varray_type, varray_type);
-
-static inline bool array_base_name_differ_p (struct data_reference *, struct data_reference *);
 
 static void subscript_dependence_tester (struct data_dependence_relation *);
 static void subscript_coupling_tester (struct data_dependence_relation *);
@@ -394,9 +391,8 @@ analyze_array_indexes (struct loop *loop_nest,
    initialize a DATA_REFERENCE structure, and push it in the DATAREFS
    array.  */
 
-static void
+struct data_reference *
 analyze_array (struct loop *loop_nest, 
-	       varray_type datarefs, 
 	       tree expr, 
 	       tree ref)
 {
@@ -810,11 +806,15 @@ find_data_references (struct loop *loop_nest, varray_type datarefs)
 		   a modify expression is either an ARRAY_REF or
 		   otherwise it does not contain other ARRAY_REFs.  */
 		if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF)
-		  analyze_array (loop_nest, datarefs, expr, 
-				 TREE_OPERAND (expr, 0));
+		  VARRAY_PUSH_GENERIC_PTR 
+		    (datarefs, analyze_array (loop_nest, expr, 
+					      TREE_OPERAND (expr, 0)));
+		
 		if (TREE_CODE (TREE_OPERAND (expr, 1)) == ARRAY_REF)
-		  analyze_array (loop_nest, datarefs, expr, 
-				 TREE_OPERAND (expr, 1));
+		  VARRAY_PUSH_GENERIC_PTR 
+		    (datarefs, analyze_array (loop_nest, expr, 
+					      TREE_OPERAND (expr, 1)));
+		
 		break;
 		
 	      case COND_EXPR:

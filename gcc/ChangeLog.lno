@@ -1,4 +1,20 @@
-2003-01-01  Dorit Naishlos <dorit@il.ibm.com>
+2004-01-02  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-data-ref.c (vec_analyze_array): Renamed to analyze_array.
+	(analyze_array): Removed.
+	(find_data_references): Adapted to use the new analyze_array  
+	function.
+	(array_base_name_differ_p): Moved to tree-data-ref.h.
+	(vec_array_base_name_differ_p): Removed.
+	* tree-data-ref.h (array_base_name_differ_p): Moved here.
+	* tree-vectorizer.c (vect_analyze_data_ref_dependence): Use
+	array_base_name_differ_p instead of vec_array_base_name_differ_p.
+	(vect_analyze_data_refs): Use analyze_array instead of
+	vec_analyze_array.
+	(vectorize_loops): Remove the initializers and finalizers of the
+	scalar evolution analyzer.
+
+2004-01-01  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.c: New file. Implements loop vectorization 
         pass.
