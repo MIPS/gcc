@@ -1,3 +1,17 @@
+2003-01-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (unit_decl): Remove members
+	`the_same_automaton_unit' and
+	`the_same_automaton_message_reported_p'.
+	(process_unit_to_form_the_same_automaton_unit_lists,
+	form_the_same_automaton_unit_lists_from_regexp,
+	form_the_same_automaton_unit_lists, the_same_automaton_lists):
+	Remove them.
+	(annotation_message_reported_p): New global variable.
+	(check_unit_distribution_in_reserv,
+	check_regexp_units_distribution): New functions.
+	(check_unit_distributions_to_automata): Rewrite it.
+
 2003-01-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (form_the_same_automaton_unit_lists_from_regexp):
