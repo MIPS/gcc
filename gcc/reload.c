@@ -684,22 +684,30 @@ find_valid_class (m1, n, dest_regno)
   for (class = 1; class < N_REG_CLASSES; class++)
     {
       int bad = 0;
+      int size = 0;
+
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER && ! bad; regno++)
 	if (TEST_HARD_REG_BIT (reg_class_contents[class], regno)
 	    && TEST_HARD_REG_BIT (reg_class_contents[class], regno + n)
-	    && ! HARD_REGNO_MODE_OK (regno + n, m1))
-	  bad = 1;
+	    /* Ignore the presence of fixed registers;  these will never be
+	       used anyway.  */
+	    && ! fixed_regs[regno])
+	  {
+	    if (! HARD_REGNO_MODE_OK (regno + n, m1))
+	      bad = 1;
+	    size ++;
+	  }
 
       if (bad)
 	continue;
       cost = REGISTER_MOVE_COST (m1, class, dest_class);
 
-      if ((reg_class_size[class] > best_size
+      if ((size > best_size
 	   && (best_cost < 0 || best_cost >= cost))
 	  || best_cost > cost)
 	{
 	  best_class = class;
-	  best_size = reg_class_size[class];
+	  best_size = size;
 	  best_cost = REGISTER_MOVE_COST (m1, class, dest_class);
 	}
     }
@@ -4459,13 +4467,6 @@ find_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
       int regno = REGNO (SUBREG_REG (x));
       rtx tem;
 
-      if (subreg_lowpart_p (x)
-	  && regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
-	  && reg_equiv_constant[regno] != 0
-	  && (tem = gen_lowpart_common (GET_MODE (x),
-					reg_equiv_constant[regno])) != 0)
-	return tem;
-
       if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
 	  && reg_equiv_constant[regno] != 0)
 	{
@@ -5659,6 +5660,66 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
     case SUBREG:
       if (GET_CODE (SUBREG_REG (x)) == REG)
 	{
+	  /* Check for SUBREG containing a REG that's equivalent to a constant.
+	     If the constant has a known value, truncate it right now.
+	     Similarly if we are extracting a single-word of a multi-word
+	     constant.  If the constant is symbolic, allow it to be substituted
+	     normally.  push_reload will strip the subreg later.  If the
+	     constant is VOIDmode, abort because we will lose the mode of
+	     the register (this should never happen because one of the cases
+	     above should handle it).  */
+
+	  int regno = REGNO (SUBREG_REG (x));
+	  rtx tem;
+	  if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
+	      && reg_equiv_constant[regno] != 0)
+	    {
+	      tem =
+		simplify_gen_subreg (GET_MODE (x), reg_equiv_constant[regno],
+				     GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+	      if (!tem)
+		abort ();
+	      find_reloads_address_part (tem, loc,
+					 (context ? INDEX_REG_CLASS :
+					  MODE_BASE_REG_CLASS (mode)),
+					 GET_MODE (x), opnum, type, ind_levels);
+	      return 1;
+	    }
+
+	  /* If the subreg contains a reg that will be converted to a mem,
+	     convert the subreg to a narrower memref now.
+	     Otherwise, we would get (subreg (mem ...) ...),
+	     which would force reload of the mem.
+
+	     We also need to do this if there is an equivalent MEM that is
+	     not offsettable.  In that case, alter_subreg would produce an
+	     invalid address on big-endian machines.
+
+	     For machines that extend byte loads, we must not reload using
+	     a wider mode if we have a paradoxical SUBREG.  find_reloads will
+	     force a reload in that case.  So we should not do anything here.  */
+
+	  else if (regno >= FIRST_PSEUDO_REGISTER
+#ifdef LOAD_EXTEND_OP
+		   && (GET_MODE_SIZE (GET_MODE (x))
+		       <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+#endif
+		   && (reg_equiv_address[regno] != 0
+		       || (reg_equiv_mem[regno] != 0
+			   && (! strict_memory_address_p (GET_MODE (x),
+							  XEXP (reg_equiv_mem[regno], 0))
+			       || ! offsettable_memref_p (reg_equiv_mem[regno])
+			       || num_not_at_initial_offset))))
+	  {
+	    enum reg_class class = (context ? INDEX_REG_CLASS
+				    : MODE_BASE_REG_CLASS (mode));
+	    x = find_reloads_subreg_address (x, 1, opnum, type, ind_levels,
+					     insn);
+	    push_reload (x, NULL_RTX, loc, (rtx*) 0, class,
+			 GET_MODE (x), VOIDmode, 0, 0, opnum, type);
+	    return 1;
+	  }
+
 	  /* If this is a SUBREG of a hard register and the resulting register
 	     is of the wrong class, reload the whole SUBREG.  This avoids
 	     needless copies if SUBREG_REG is multi-word.  */
@@ -5677,13 +5738,14 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
 		}
 	    }
 	  /* If this is a SUBREG of a pseudo-register, and the pseudo-register
-	     is larger than the class size, then reload the whole SUBREG.  */
+	     requires more register than the subregged value,
+	     then reload the whole SUBREG.  */
 	  else
 	    {
 	      enum reg_class class = (context ? INDEX_REG_CLASS
 				      : MODE_BASE_REG_CLASS (mode));
 	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
-		  > reg_class_size[class])
+		  > (unsigned) CLASS_MAX_NREGS (class, GET_MODE (x)))
 		{
 		  x = find_reloads_subreg_address (x, 0, opnum, type,
 						   ind_levels, insn);

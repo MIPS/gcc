@@ -28,7 +28,7 @@ VERSION=3.113
 SUBMITTER=net
 
 # The default mail address for PR submissions. 
-GNATS_ADDR=gcc-gnats@gcc.gnu.org
+GNATS_ADDR=feedback@suse.de
 
 # The default release for this host.
 DEFAULT_RELEASE="@gcc_version_full@"
@@ -305,6 +305,7 @@ Subject:
 From: $FROM
 Reply-To: $REPLYTO
 Cc: $CC
+X-Feedback-Type: GCC-Bug 
 X-send-pr-version: $VERSION
 X-GNATS-Notify: 
 

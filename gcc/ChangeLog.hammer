@@ -1,3 +1,35 @@
+Wed Aug 27 18:27:55 CEST 2003  Jan Hubicka  <jh@suse.cz>
+	Backport from SuSE local:
+	Tue Mar 18 19:06:18 CET 2003  Jan Hubicka  <jh@suse.cz>
+		* i386.c (use_fast_prologue_epilogue): Remove.
+		(machine_function): New fields use_fast_prologue_epilogue;
+		use_fast_prologue_epilogue_initialized.
+		(ix86_frame): New field save_regs-using_mov;
+		(ix86_compute_frame_layout):  Decide on fast prologues;
+		allocate saved registers in red zone.
+		(ix86_expand_epilogue, ix86_expand_prolgoues): Obey new parameters.
+	Mon Mar  3 12:01:16 CET 2003  Jan Hubicka  <jh@suse.cz>
+		* i386.c (classify_argument): Obey MUST_PASS_IN_STACK.
+		* i386.h (MUST_PASS_IN_STACK): Use default_must_pass_in_stack
+		for x86-64.
+
+	Mon Apr 21 15:13:51 CEST 2003  Jan Hubicka  <jh@suse.cz>
+		* reload.c (find_valid_class):  Allow fixed registers to refuse
+		the mode; compute real amount of choices to allocate given register.
+
+	Sun Apr  6 17:43:49 CEST 2003  Jan Hubicka  <jh@suse.cz>
+		PR target/9929
+		* reload.c (find_reloads_toplev):  Remove now redundant alternative
+		(find_reloads_address_1): Synchronize handling of subregs with
+		find_reloads_toplev;  Always reload whole subreg when the inner
+		value requires more registers.
+
+	Zdenek Dvorak
+		   * flow.c (MAX_LIVENESS_ROUNDS): New.
+		   (calculate_global_regs_live): Guarantee that liveness updating will
+		   terminate.
+		   (update_life_info_in_dirty_blocks): Remove hack that masked the bug.
+
 2003-08-27  Josef Zlomek  <zlomekj@suse.cz>
 
         * cfgcleanup.c (merge_blocks_move_successor_nojumps): Use tablejump_p.
