@@ -1,3 +1,629 @@
+2003-02-14  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natServerSocketChannelImpl.cc: Removed.
+	* gnu/java/nio/ServerSocketChannelImpl.java
+	(SocketAccept): Removed.
+	(accept): Commented out use of SocketAccept.
+
+2003-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* java/math/BigDecimal.java (BigDecimal(String)): Always set scale to
+	zero when there is an exponent and the significant is zero.
+	(divide): Always set scale to newScale even in special ZERO case.
+
+2003-02-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/System.java (properties): Use Properties.clone.
+	(setProperties): Likewise.
+
+2003-02-13  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (state::seen_subrs): New field.
+	(state::state): Initialize it.
+	(state::clean_subrs): New method.
+	(state::~state): Call it.
+	(state::copy): Copy subroutine list.
+	(state::add_subr): New method.
+	(state::merge): Only register a change if the current subroutine
+	hasn't yet been noted.
+
+2003-02-13  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/InputStreamReader.java (getEncoding): Return null when
+	closed.
+	* java/io/OutputStreamWriter.java (getEncoding): Likewise.
+
+2003-02-13  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/InflaterInputStream.java (read): Return zero when len
+	is zero.
+
+2003-02-13  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/BufferedOutputStream.java (write(int)): Only flush when
+	next byte cannot be buffered.
+
+2003-02-13  Casey Marshall  <rsdio@metastatic.org>
+
+	PR libgcj/9271:
+	* java/security/SecureRandom.java (next): Avoid bias in results.
+
+2003-02-13  Michael  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(lengthInternal): Must be native.
+	(size): Check if channel is already closed.
+	(implCloseChannel): Reformated.
+	(read): w was unused, removed it.
+	(read): Removed.
+	(read): New method.
+	(write): New method.
+	(map): Check arguments.
+	(force): Throws IOException, check if channel is closed.
+	(transferTo): New method.
+	(transferFrom): New method.
+	(lock): New method.
+	(tryLock): New method.
+	(position): New method.
+	(truncate): New method.
+	(nio_mmap_file): Uncommented.
+	(nio_munmap_file): Uncommented.
+	(nio_msync): Uncommented.
+	* gnu/java/nio/natFileChannelImpl.cc: New file.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(endian): New member variable.
+	(get): New methods.
+	(equals): New method.
+	(compareTo): New method.
+	(order): New methods.
+	(compact): New method.
+	(isDirect): New method.
+	(slice): New method.
+	(duplicate): New method.
+	(asReadOnlyBuffer): New method.
+	(asCharBuffer): New method.
+	(asDoubleBuffer): New method.
+	(asFloatBuffer): New method.
+	(asIntBuffer): New method.
+	(asLongBuffer): New method.
+	(asShortBuffer): New method.
+	(get*): New methods.
+	(put*): New methods.
+	(toString): New method.
+	* java/nio/CharBuffer.java
+	(CharBuffer): Implement Comparable instead of Cloneable.
+	(get): May not be final.
+	(put): May not be final.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natSocketChannelImpl.cc
+	(SocketConnect): This is not implemented yet.
+	(SocketBind): This is not implemented yet.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natByteBufferImpl.cc,
+	gnu/java/nio/natCharBufferImpl.cc,
+	gnu/java/nio/natDoubleBufferImpl.cc,
+	gnu/java/nio/natFloatBufferImpl.cc,
+	gnu/java/nio/natIntBufferImpl.cc,
+	gnu/java/nio/natLongBufferImpl.cc,
+	gnu/java/nio/natShortBufferImpl.cc:
+	Added copyright and license.
+	* java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java
+	(array): Throw exceptions.
+	(arrayOffset): Throw exceptions.
+
+2002-02-13  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* gnu/gcj/runtime/NameFinder.java (createStackTraceElement): Use
+	lastIndexOf( ) instead of indexOf( ) to find the colon before
+	the line number, because Win32 file names might contain a
+	drive letter and a colon at the start of an absolute path.
+
+2003-02-12  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.host (alpha*-*): Default to -mieee.
+	* configure.in (IEEESPEC): New.
+	* libgcj.spec.in (jc1): Add IEEESPEC.
+	* configure: Rebuild.
+
+2003-02-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* include/win32.h: Include ws2tcpip.h instead of
+	winsock.h to obtain definition of the socklen_t type.
+	Remove IP_TOS definition - not needed with ws2tcpip.h
+	(_Jv_connect): Correct slight formatting error.
+
+2003-02-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* jni.cc (_Jv_LookupJNIMethod): Modify to accept the
+	size of the arguments for a JNI function. For Win32,
+	modify to search for all forms of possible exported
+	names of an stdcall JNI function.
+	(_Jv_JNIMethod::call): Modify to calculate the size
+	of the arguments passed to a JNI function and pass
+	it to _Jv_LookupJNIMethod.
+
+2003-02-12  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetPermission.java
+	(NetPermission): Make doucmentation match the method declaration.
+	* java/net/NetworkInterface.java
+	(equals): Reformated for GNU coding style.
+	* java/net/ServerSocket.java: Merged with classpath.
+	* java/net/Socket.java: Partly merged with classpath (Added some
+	@since).
+	* java/net/SocketImpl.java
+	(localPort): Merged with classpath (initialize with -1).
+	* java/net/SocketPermission.java: Merged with classpath (reindented).
+	* java/net/URLDecoder.java: Merged with classpath (reindented).
+
+2003-02-12  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/Channels.java: New file.
+	* Makefile.am
+	(ordinary_java_source_files): Added java/nio/channels/Channels.java.
+	* Makefile.in: Regenerated.
+
+2003-02-12  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(allocate): Implemented.
+	(wrap): Implemented.
+	* java/nio/CharBuffer.java:
+	Some documentation added and reworked.
+	(endian): Removed.
+	(allocate): Implemented.
+	(wrap): Implemented.
+	(array): Throw exceptions.
+	(arrayOffset): Throw exceptions.
+	(toString): Implemented.
+	(length): Implemented.
+	(put): Implemented.
+	(charAt): Implemented.
+
+2003-02-11  John Leuner  <jewel@debian.org>
+
+	* java/util/zip/ZipInputStream.java: Fix problem with 0-length 
+	reads from end of file.
+
+2003-02-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java:
+	Reformated and removed some code.
+	(backing_buffer): Removed.	
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(ByteBufferImpl): Use parent constructor, initialize readOnly.
+	* gnu/java/nio/CharBufferImpl.java:
+	Reformated and removed some code.
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(CharBufferImpl): Use parent constructor, initialize readOnly.
+	(inc_pos): Removed.
+	(order): New method.
+	* gnu/java/nio/DoubleBufferImpl.java:
+	Reformated and removed some code.
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(DoubleBufferImpl): Use parent constructor, initialize readOnly.
+	(inc_pos): Removed.
+	(order): New method.
+	* gnu/java/nio/FloatBufferImpl.java:
+	Reformated and removed some code.
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(FloatBufferImpl): Use parent constructor, initialize readOnly.
+	(inc_pos): Removed.
+	(order): New method.
+	* gnu/java/nio/IntBufferImpl.java:
+	Reformated and removed some code.
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(IntBufferImpl): Use parent constructor, initialize readOnly.
+	(inc_pos): Removed.
+	(order): New method.
+	* gnu/java/nio/LongBufferImpl.java:
+	Reformated and removed some code.
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(LongBufferImpl): Use parent constructor, initialize readOnly.
+	(inc_pos): Removed.
+	(order): New method.
+	* gnu/java/nio/ShortBufferImpl.java:
+	Reformated and removed some code.
+	(array_offset): Removed.
+	(ro): Renamed to readOnly.
+	(ShortBufferImpl): Use parent constructor, initialize readOnly.
+	(inc_pos): Removed.
+	(order): New method.
+	* Makefile.am
+	(ordinary_java_source_files): Added the following files:
+	gnu/java/nio/ByteBufferImpl.java
+	gnu/java/nio/CharBufferImpl.java
+	gnu/java/nio/DoubleBufferImpl.java
+	gnu/java/nio/FloatBufferImpl.java
+	gnu/java/nio/IntBufferImpl.java
+	gnu/java/nio/LongBufferImpl.java
+	gnu/java/nio/ShortBufferImpl.java
+	java/nio/DoubleBuffer.java
+	java/nio/FloatBuffer.java
+	java/nio/IntBuffer.java
+	java/nio/LongBuffer.java
+	java/nio/ShortBuffer.java
+	(nat_source_files): Added the following files:
+	gnu/java/nio/natByteBufferImpl.cc
+	gnu/java/nio/natCharBufferImpl.cc
+	gnu/java/nio/natDoubleBufferImpl.cc
+	gnu/java/nio/natFloatBufferImpl.cc
+	gnu/java/nio/natIntBufferImpl.cc
+	gnu/java/nio/natLongBufferImpl.cc
+	gnu/java/nio/natShortBufferImpl.cc
+	* Makefile.in: Regenerated.
+
+2003-02-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natCharBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_put_*): Removed.
+	(nio_get_*): Removed.
+	* gnu/java/nio/natDoubleBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_put_*): Removed.
+	(nio_get_*): Removed.
+	* gnu/java/nio/natFloatBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_put_*): Removed.
+	(nio_get_*): Removed.
+	* gnu/java/nio/natIntBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_put_*): Removed.
+	(nio_get_*): Removed.
+	* gnu/java/nio/natLongBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_put_*): Removed.
+	(nio_get_*): Removed.
+	* gnu/java/nio/natShortBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_put_*): Removed.
+	(nio_get_*): Removed.
+	* gnu/java/nio/SelectorProviderImpl.java
+	(openDatagramChannel): Throws IOException.
+	(openPipe): Throws IOException.
+	(openSelector): Throws IOException.
+	(openServerSocketChannel): Throws IOException.
+	(openSocketChannel): Throws IOException.
+	* gnu/java/nio/ServerSocketChannelImpl.java
+	(ServerSocketChannelImpl): Throws IOException.
+	(implCloseSelectableChannel): Throws IOException.
+	(implConfigureBlocking): Throws IOException.
+	* java/nio/ByteBuffer.java
+	(readOnly): Removed.
+	(hasArray): Use isReadOnly() instead of readOnly.
+	(array): Use isReadOnly() instead of readOnly.
+	(arrayOffset): Use isReadOnly() instead of readOnly.
+	* java/nio/CharBuffer.java
+	(CharBuffer): Implements Cloneable and CharSequence.
+
+2003-02-11  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/Buffer.java
+	(cap, lim, pos, mark): Made private
+	(Buffer): Added package private constructor.
+	* java/nio/ByteBuffer.java
+	(ByteBuffer): Implements Cloneable.
+	(offset): New member variable.
+	(readOnly): New member variable.
+	(backing_buffer): New member variable.
+	(allocateDirect): Throw exception and tell that direct buffers are
+	not supported yet, documentation added.
+	(allocate): Documentation added.
+	(wrap): Documentation added.
+	(ByteBuffer): New constructor.
+	(hasArray): New method.
+	(array): New method.
+	(arrayOffset): New method.
+	(get): Documentation added.
+	(put): Documentation added.
+	* java/nio/CharBuffer.java
+	(CharBuffer): New constructor.
+	(compareTo): Don't access member variables of Buffer directly.
+	* java/nio/DoubleBuffer.java
+	(allocateDirect): Throw exception and tell that direct buffers are
+	not supported yet.
+	* java/nio/FloatBuffer.java
+	(allocateDirect): Throw exception and tell that direct buffers are
+	not supported yet.
+	* java/nio/IntBuffer.java
+	(allocateDirect): Throw exception and tell that direct buffers are
+	not supported yet.
+	* java/nio/LongBuffer.java
+	(allocateDirect): Throw exception and tell that direct buffers are
+	not supported yet.
+	* java/nio/MappedByteBuffer.java
+	(MappedByteBuffer): New method.
+	(force): New method.
+	(isLoaded): New method.
+	(load): New method.
+	* java/nio/ShortBuffer.java
+	(allocateDirect): Throw exception and tell that direct buffers are
+	not supported yet.
+
+2003-02-11  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/io/natFileDescriptorWin32.cc 
+	(java::io::FileDescriptor::read): Return -1 (EOF) if ReadFile( )
+	returns with Win32 error code ERROR_BROKEN_PIPE.
+
+2003-02-10  Tom Tromey  <tromey@redhat.com>
+
+	* javax/sql/ConnectionEvent.java (serialVersionUID): New field.
+	(ex): Renamed from sqlException.
+
+2003-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/DoubleBuffer.java
+	(DoubleBuffer): Implements Comparable.
+	(endian): Removed.
+	(array_offset): New member variable.
+	(DoubleBuffer): New constuctor.
+	(get): May not be final.
+	(put): May not be final.
+	(arrayOffset): Implemented.
+	(order): Made abstract.
+	(order): Removed.
+	(as*Buffer): Removed.
+	(get*): Removed.
+	(put*): Removed.
+	* java/nio/FloatBuffer.java
+	(FloatBuffer): Implements Comparable.
+	(endian): Removed.
+	(array_offset): New member variable.
+	(FloatBuffer): New constuctor.
+	(get): May not be final.
+	(put): May not be final.
+	(arrayOffset): Implemented.
+	(order): Made abstract.
+	(order): Removed.
+	(as*Buffer): Removed.
+	(get*): Removed.
+	(put*): Removed.
+	* java/nio/IntBuffer.java
+	(IntBuffer): Implements Comparable.
+	(endian): Removed.
+	(array_offset): New member variable.
+	(IntBuffer): New constuctor.
+	(get): May not be final.
+	(put): May not be final.
+	(arrayOffset): Implemented.
+	(order): Made abstract.
+	(order): Removed.
+	(as*Buffer): Removed.
+	(get*): Removed.
+	(put*): Removed.
+	* java/nio/LongBuffer.java
+	(LongBuffer): Implements Comparable.
+	(endian): Removed.
+	(array_offset): New member variable.
+	(LongBuffer): New constuctor.
+	(get): May not be final.
+	(put): May not be final.
+	(arrayOffset): Implemented.
+	(order): Made abstract.
+	(order): Removed.
+	(as*Buffer): Removed.
+	(get*): Removed.
+	(put*): Removed.
+	* java/nio/ShortBuffer.java
+	(ShortBuffer): Implements Comparable.
+	(endian): Removed.
+	(array_offset): New member variable.
+	(ShortBuffer): New constuctor.
+	(get): May not be final.
+	(put): May not be final.
+	(arrayOffset): Implemented.
+	(order): Made abstract.
+	(order): Removed.
+	(as*Buffer): Removed.
+	(get*): Removed.
+	(put*): Removed.
+
+2003-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileLockImpl.java,
+	java/nio/channels/FileLock.java: New files.
+
+2003-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/charset/IllegalCharsetNameException.java
+	(serialVersionUID): New member variable.
+	(charsetName): New member variable.
+	(IllegalCharsetException): New implementation.
+	(getCharsetName): New implementation.
+	* java/nio/charset/UnsupportedCharsetException.java
+	(serialVersionUID): New member variable.
+	(charsetName): New member variable.
+	(UnsupportedCharsetException): New implementation.
+	(getCharsetName): New implementation.
+
+2003-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/DatagramChannel.java
+	(write): Throws IOException.
+	(connect): Throws IOException.
+	(disconnect): Throws IOException.
+	(read): Throws IOException.
+	(receive): Throws IOException.
+	(send): Throws IOException.
+	* java/nio/channels/Pipe.java
+	(open): Throws IOException.
+	* java/nio/channels/SelectableChannel.java
+	(configureBlocking): Throws IOException.
+	* java/nio/channels/ServerSocketChannel.java
+	(accept): Throws IOException.
+	* java/nio/channels/SocketChannel.java
+	(SocketChannel): Implements ByteChannel, ScatteringByteChannel,
+	GatheringByteChannel.
+	(read): Throws IOException.
+	(write): Throws IOException.
+	(finishConnect): Throws IOException.
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java
+	(end): Throws AsynchronousCloseException.
+	* java/nio/channels/spi/AbstractSelectableChannel.java
+	(configureBlocking): Throws IOException.
+	(implCloseChannel): Throws IOException.
+	(implCloseSelectableChannel): Throws IOException.
+	(implConfigureBlocking): Throws IOException.
+	* java/nio/channels/spi/SelectorProvider.java
+	(openDatagramChannel): Throws IOException.
+	(openPipe): Throws IOException.
+	(openSelector): Throws IOException.
+	(openServerSocketChannel): Throws IOException.
+	(openSocketChannel): Throws IOException.
+
+2003-02-10  Raif S. Naffah  <raif@fl.net.au>
+
+	* gnu/java/security/provider/SHA1PRNG.java (ensureIsSeeded): new 
+	method used to ensure seeding has occurred and that a specific 
+	seed can be set and used.
+
+2003-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/SelectionKey.java
+	(OP_ACCEPT, OP_CONNECT, OP_READ, OP_WRITE): Initialize with correct
+	values.
+
+2003-02-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/lang/Win32Process.java (destroy): Declare as native.
+	(hasExited): New native method.
+	(exitValue): Define.
+	(getErrorStream): Likewise.
+	(getInputStream): Likewise.
+	(getOutputStream): Likewise.
+	(waitFor): Declare as native.
+	(startProcess): New native method.
+	(cleanup): Likewise.
+	(ConcreteProcess): Define.
+	(outputStream, inputStream, errorStream): New members.
+	(procHandle, exitCode): Likewise.
+
+	* java/lang/natWin32Process.cc
+	(java::lang::ConcreteProcess::cleanup): Define.
+	(java::lang::ConcreteProcess::destroy): Likewise.
+	(java::lang::ConcreteProcess::hasExited): Likewise.
+	(java::lang::ConcreteProcess::waitFor): Likewise.
+	(new_string): Likewise.
+	(java::lang::ConcreteProcess::startProcess): Likewise.
+
+2003-02-10  Raif S. Naffah <raif@fl.net.au>
+
+	* java/math/BigInteger.java:
+	Updated notice to include years 2002 and 3.
+	Added 2 private (int) arrays with values from the HAC (Handbook of
+	Applied Cryptography -A. Menezes & al): k[] that contains bit lengths
+	and t[] that contains nbr. of tests --used in isProbablePrime().
+
+	* java/math/BigInteger.java (make(long)): Merged into valueOf(long).
+
+	* java/math/BigInteger.java (make(int[],int), add(int,int),
+	add(BI,BI,int), times(BI,int), divide(long,long,BI,BI,int), gcd(BI),
+	isProbablePrime(int), shift(BI,int), valueOf(String,int), neg(BI),
+	bitOp(int,BI,BI), and(BI,int)): Use valueOf(long) instead of
+	make(long).
+
+	* java/math/BigInteger.java (euclidInv): Reduce number of work vars
+	(euclidInv(int,int,int)): Now returns an array of 2 ints instead of 3.
+	(euclidInv(BI,BI,BI)): Used to return an array of 2 BIs; now accepts 6
+	BIs and returns void.
+	(modInverse(BI)): Use new signatures of euclidInv().
+
+	* java/math/BigInteger.java (isProbablePrime(int)): Use divide() with
+	static small primes instead of remainder().
+	Use pre-computed max nbr of trials based on bitlength of BI to test.
+	Use pre-computed small primes for the trial tests instead of random
+	numbers.
+
+	* java/math/BigInteger.java (isOdd, isMinusOne, pow): Removed.
+	not used.
+
+	* java/math/BigInteger.java (format(int,StringBuffer)): Removed
+	invoacation of MPN.chars_per_word().  not used.
+
+	* java/math/BigInteger.java (gcd(int,int)): Declared 'tmp' once as
+	local var and used where needed.
+
+	* java/math/BigInteger.java (modPow(BI,BI)): Fixed spelling.
+	Combined declaration with initialisation of locals.
+	Removed unused var.
+
+	* java/math/BigInteger.java: Style changes
+	(pow(int)): Removed 'else' keyword.
+	(toString(int)): idem.
+	(doubleValue()): idem.
+	(bitLength()): idem.
+	(equals(Object)): Use static methods name in same class w/o prepending
+	class name.
+	(doubleValue()): idem.
+	(setNegative(BI)): idem.
+	(negate()): idem.
+	(and(BI,int)): idem.
+	(and(BI)): idem.
+	(gcd(BI)): idem.
+	(byteArrayToIntArray()): Removed casting to (int). this is
+	std. behaviour.
+	(canonicalize()): idem.
+	(alloc(int)): Always instantiate a new BI.
+
+2003-02-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/sql/Timestamp.java (compareTo(Object)): New method.
+	(compareTo(Timestamp)): Likewise.
+	(serialVersionUID): Updated.
+
+2003-02-07  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/jar/JarFile.java (JarFile(String, boolean)): Read manifest
+	when verify is true.
+	(JarFile(File, boolean)): Likewise.
+	(manifestRead): Set manifestRead field correctly.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/math/BigDecimal(valueOf): fix DiagBigDecimal val008, val013
+	tests; see patch #1016 on Savannah.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/math/BigDecimal.java (BigDecimal): enhance parsing of exponents
+	(toString): do not return Strings starting with . and - erroneously.
+	Improves Mauve results to 12 of 600 instead of 16 of 338 on
+	DiagBigDecimal.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/beans/PropertyDescriptor.java
+	(PropertyDescriptor(String, Class)): Sanity check getter and setter
+	methods.
+	(PropertyDescriptor(String, Class, String, String)): Likewise.
+	(PropertyDescriptor(String, Method, Method): Factor out getter and
+	setter method sanity checks into new method.
+	(findMethods): Don't do parameter sanity checking of get method here.
+	(checkMethods): New method.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/beans/PropertyDescriptor.java: Reformat.
+
 2003-02-04  Tom Tromey  <tromey@redhat.com>
 
 	* java/io/PipedOutputStream.java (flush): Declare as throwing

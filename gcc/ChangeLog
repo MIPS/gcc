@@ -1,3 +1,234 @@
+2003-02-16 Arend Bayer <arend.bayer@web.de>
+           Richard Henderson  <rth@redhat.com>
+
+	PR c/8068
+        * fold-const.c (extract_muldiv_1): Rename from extract_muldiv;
+        rearrange mult arguments for less recursion.
+        (extract_muldiv): New.  Prevent runaway recursion.
+
+2003-02-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygwin.h (TARGET_SUBTARGET_DEFAULT): Set
+	MASK_ALIGN_DOUBLE.
+
+2003-02-15  Adam Nemet  <anemet@lnxw.com>
+
+        PR opt/2391 
+        * combine.c: Fix spelling in comment.
+        (cached_nonzero_bits): New function.
+        (cached_num_sign_bit_copies): New function.
+	(nonzero_bits_with_known): New macro.
+	(num_sign_bit_copies_with_known): New macro.
+        (nonzero_bits1): Rename from nonzero_bits.  Add three new
+	arguments.  Change calls from nonzero_bits to
+	nonzero_bits_with_known.
+        (num_sign_bit_copies1): Rename from num_sign_bit_copies.  Add
+	three new arguments.  Change calls from num_sign_bit_copies to
+	num_sign_bit_copies_with_known.
+        (nonzero_bits): New macro.
+        (num_sign_bit_copies): New macro.
+        (update_table_tick): Don't traverse identical subexpression more
+	than once.
+        (get_last_value_validate): Likewise.
+
+2003-02-15  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+        PR optimization/7702
+        * reload1.c (reload_cse_simplify_set): Honor
+        CANNOT_CHANGE_MODE_CLASS.
+
+2003-02-15  Jan Hubicka  <jh@suse.cz>
+
+	PR optimization/9258, PR fortran/7681
+	* global.c (struct allocno): Add no_stack_reg.
+	(global_conflicts): Set it.
+	(find_reg): Use it.
+
+2003-02-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mn10300/mn10300.c (mn10300_wide_const_load_uses_clr): New
+	function.
+	* config/mn10300/mn10300-protos.h: Declare it.
+	* config/mn10300/mn10300.md (movdi, movdf): Use it to compute
+	attribute cc of instructions that may use clr.
+
+2003-02-13  John David Anglin  <dave.anglin@nrc-crnc.gc.ca>
+
+	* inclhack.def (hpux_long_double): Tighten select and add bypass
+	regexp.
+	* fixincl.x: Rebuilt.
+
+2003-01-30  Richard Henderson  <rth@redhat.com>
+
+	* ggc-page.c (G.context_depth_allocations): New.
+	(G.context_depth_collections): New.
+	(alloc_page): Set G.context_depth_allocations.
+	(ggc_collect): Set G.context_depth_collections.
+	(ggc_push_context): Limit to HOST_BITS_PER_LONG contexts.
+	(ggc_pop_context): Early exit for no allocations or collections.
+
+2003-01-25  Segher Boessenkool  <segher@koffie.nl>
+
+	* bitmap.h (BITMAP_WORD): New typedef: fundamental storage
+	type for bitmaps.  Use unsigned long.
+	(nBITMAP_WORD_BITS): New macro.
+	(BITMAP_WORD_BITS): New macro.
+	(rest of file): Use it.
+	* bitmap.c: Use it.
+
+2003-02-13  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cfgcleanup.c (outgoing_edges_match): When there is single outgoing
+	edge and block ends with a jump insn it must be simple jump.
+
+2003-02-13  Robert Lipe <robertlipe@usa.net>
+            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Specific): Update three SCO-related URLs.
+
+2003-02-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* doc/tm.texi (MODIFY_JNI_METHOD_CALL): Document.
+	* config/i386/cygwin.h (MODIFY_JNI_METHOD_CALL): New macro.
+
+2003-02-11  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Specific): Update AVR- and Darwin-related URLs.
+
+2003-02-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/9100
+	Backport patch from mainline:
+
+	2003-01-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9264
+	* c-lex.c (c_lex): Set the token value to error_mark_node for
+	invalid numeric constants.
+
+Tue Feb 11 23:33:40 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (ahi?v*3): Set third operand type to TImode.
+	* i386.c (ix86_expand_binop_builtin): Extend operand when needed.
+
+	* i386.c (contains_128bit_aligned_vector_p): New function
+	(ix86_function_arg_boundary): Properly align vector modes.
+
+2003-02-11  Bob Wilson  <bob.wilson@acm.org>
+
+	Backport following patch:
+
+	2003-02-11  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.md (set_frame_ptr): Change rtl to set reg a7.
+	* config/xtensa/xtensa.c (xtensa_reorg): Search for UNSPECV_SET_FP
+	as a SET pattern.
+
+Tue Feb 11 23:25:34 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* simplify-rtx.c (simplify_subreg): Fix conversion from vector into
+	integer mode.
+
+	* rtl.def (VEC_MERGE, VEC_SELECT, VEC_CONCAT, VEC_DUPLICATE):
+	Change code so they are arithmetic expressions now.
+	* simplify-rtx.c (simplify_unary_operation, simplify_binary_operation,
+	simplify_ternary_operation): Deal with VEC_* expressions.
+
+2003-02-11  Richard Henderson  <rth@redhat.com>
+
+	2003-01-15  Richard Henderson  <rth@redhat.com>
+        * config/alpha/alpha.c (find_lo_sum_using_gp): Rename from find_lo_sum;
+        also check that GP is being used.
+        (alpha_find_lo_sum_using_gp): New.
+        (alpha_does_function_need_gp): Use get_attr_usegp.
+        * config/alpha/alpha-protos.h: Update.
+        * config/alpha/alpha.md (attr usegp): New.  Annotate patterns
+        as needed.
+
+2003-02-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* inclhack.def (hpux_long_double, hpux10_ctype_declarations1,
+	hpux10_ctype_declarations2, hpux_ctype_macros): New hacks.
+	* fixincl.x: Rebuilt.
+	* tests/base/stdlib.h: Update.
+	* tests/base/ctype.h: New file.
+
+2003-02-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/rs6000/ppc64-fp.c: New file.
+	* config/rs6000/t-linux64 (LIB2FUNCS_EXTRA): Add ppc64-fp.c.
+
+2003-02-11  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+        PR optimization/9651
+        * rtlanal.c (may_trap_p): Handle FIX.
+
+Tue Feb 11 19:06:24 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (choose_function_section): Choose sections correctly.
+
+2003-02-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* reload1.c (first_label_num): New.
+	(reload): Index offsets_known_at and offsets_at using difference of
+	label number and first label number.  Don't use offset pointers.
+	(set_label_offsets, set_initial_label_offsets): Likewise.
+
+2003-02-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	PR c/7741
+	* c-decl.c (duplicate_decls): Discard the initializer of the
+	new decl when the types are conflicting.
+
+2003-02-09  Wolfgang Bangerth  <bangerth@ticam.utexas.edu>
+
+	* doc/install.texi: Squeeze and streamline section on
+	testing and regression checking.
+
+2003-02-07  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/t-netbsd (USER_H): Revert previous change.
+
+2003-02-07  Richard Henderson  <rth@redhat.com>
+
+        PR 9226
+        * gcse.c (local_cprop_find_used_regs): New.
+        (local_cprop_pass): Use it.
+
+Fri Feb  7 22:26:51 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse2_nandv2di3):  Fix.
+
+	* i386.md (movdi_rex64_1): Fix mmx<->int move opcode.
+
+2003-02-07  Andrey Petrov <petrov@netbsd.org>
+
+        * optabs.c (expand_float): Search wider integer modes first.
+
+2003-02-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa*-*-linux*): Set MASK_NO_SPACE_REGS in
+	target_cpu_default.
+	* pa.c (attr_length_call): Add 8 to call length (long indirect PA 1.X)
+	if not MASK_NO_SPACE_REGS.
+	(output_call): Adjust return pointer, don't load new space register
+	into %sr0, and use %sr4 for call if TARGET_NO_SPACE_REGS is true.
+	(pa_asm_output_mi_thunk): Don't load new space register into %sr0 if
+	TARGET_NO_SPACE_REGS is true.
+	* pa.md (return_external_pic): Add TARGET_NO_SPACE_REGS to insn
+	conditions.
+	(epilogue): Always use return_internal if TARGET_NO_SPACE_REGS is true.
+	(interspace_jump): Add new pattern for when TARGET_NO_SPACE_REGS is
+	true.  Use bve when TARGET_64BIT is true.
+
+2003-02-06  Eric Botcazou <ebotcazou@libertysurf.fr>
+            Richard Henderson <rth@redhat.com>
+    
+	PR c/9530
+	* config/i386/i386.h (FUNCTION_OK_FOR_SIBCALL): Forbid sibcalls
+	from functions that return a float to functions that don't.
+
 2003-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* reload.c (find_reloads): Do not use the mode specified in the insn

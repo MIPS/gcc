@@ -868,6 +868,7 @@ static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
 static int extended_reg_mentioned_1 PARAMS ((rtx *, void *));
+static bool contains_128bit_aligned_vector_p PARAMS ((tree));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -2388,6 +2389,64 @@ function_arg_pass_by_reference (cum, mode, type, named)
   return 0;
 }
 
+/* Return true when TYPE should be 128bit aligned for 32bit argument passing
+   ABI  */
+static bool
+contains_128bit_aligned_vector_p (type)
+     tree type;
+{
+  enum machine_mode mode = TYPE_MODE (type);
+  if (SSE_REG_MODE_P (mode)
+      && (!TYPE_USER_ALIGN (type) || TYPE_ALIGN (type) > 128))
+    return true;
+  if (TYPE_ALIGN (type) < 128)
+    return false;
+
+  if (AGGREGATE_TYPE_P (type))
+    {
+      /* Walk the agregates recursivly.  */
+      if (TREE_CODE (type) == RECORD_TYPE
+	  || TREE_CODE (type) == UNION_TYPE
+	  || TREE_CODE (type) == QUAL_UNION_TYPE)
+	{
+	  tree field;
+
+	  if (TYPE_BINFO (type) != NULL
+	      && TYPE_BINFO_BASETYPES (type) != NULL)
+	    {
+	      tree bases = TYPE_BINFO_BASETYPES (type);
+	      int n_bases = TREE_VEC_LENGTH (bases);
+	      int i;
+
+	      for (i = 0; i < n_bases; ++i)
+		{
+		  tree binfo = TREE_VEC_ELT (bases, i);
+		  tree type = BINFO_TYPE (binfo);
+
+		  if (contains_128bit_aligned_vector_p (type))
+		    return true;
+		}
+	    }
+	  /* And now merge the fields of structure.   */
+	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	    {
+	      if (TREE_CODE (field) == FIELD_DECL
+		  && contains_128bit_aligned_vector_p (TREE_TYPE (field)))
+		return true;
+	    }
+	}
+      /* Just for use if some languages passes arrays by value.  */
+      else if (TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  if (contains_128bit_aligned_vector_p (TREE_TYPE (type)))
+	    return true;
+	}
+      else
+	abort ();
+    }
+  return false;
+}
+
 /* Gives the alignment boundary, in bits, of an argument with the specified mode
    and type.   */
 
@@ -2397,14 +2456,34 @@ ix86_function_arg_boundary (mode, type)
      tree type;
 {
   int align;
-  if (!TARGET_64BIT)
-    return PARM_BOUNDARY;
   if (type)
     align = TYPE_ALIGN (type);
   else
     align = GET_MODE_ALIGNMENT (mode);
   if (align < PARM_BOUNDARY)
     align = PARM_BOUNDARY;
+  if (!TARGET_64BIT)
+    {
+      /* i386 ABI defines all arguments to be 4 byte aligned.  We have to
+	 make an exception for SSE modes since these require 128bit
+	 alignment.  
+
+	 The handling here differs from field_alignment.  ICC aligns MMX
+	 arguments to 4 byte boundaries, while structure fields are aligned
+	 to 8 byte boundaries.  */
+      if (!type)
+	{
+	  if (!SSE_REG_MODE_P (mode))
+	    align = PARM_BOUNDARY;
+	}
+      else
+	{
+	  if (!contains_128bit_aligned_vector_p (type))
+	    align = PARM_BOUNDARY;
+	}
+      if (align != PARM_BOUNDARY && !TARGET_SSE)
+	abort();
+    }
   if (align > 128)
     align = 128;
   return align;
@@ -3557,6 +3636,19 @@ zero_extended_scalar_load_operand (op, mode)
 	return 0;
     }
   return 1;
+}
+
+/*  Return 1 when OP is operand acceptable for standard SSE move.  */
+int
+vector_move_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (nonimmediate_operand (op, mode))
+    return 1;
+  if (GET_MODE (op) != mode && mode != VOIDmode)
+    return 0;
+  return (op == CONST0_RTX (GET_MODE (op)));
 }
 
 /* Return 1 if OP is a comparison that can be used in the CMPSS/CMPPS
@@ -8015,8 +8107,8 @@ ix86_expand_vector_move (mode, operands)
      to handle some of them more efficiently.  */
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (operands[0], mode)
-      && CONSTANT_P (operands[1]))
-    operands[1] = validize_mem (force_const_mem (mode, operands[1]));
+      && CONSTANT_P (operands[1]) && operands[1] != CONST0_RTX (mode))
+    operands[1] = force_const_mem (mode, operands[1]);
 
   /* Make operand1 a register if it isn't already.  */
   if (!no_new_pseudos

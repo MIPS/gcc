@@ -1,3 +1,120 @@
+2003-02-13  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/ostream.tcc (sentry::sentry): Improve
+	performance-wise the fix for libstdc++/9563.
+
+2003-02-13  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9320
+	* include/ext/stdio_filebuf.h
+	(stdio_filebuf(int, std::ios_base::openmode, bool, int_type),
+	stdio_filebuf(std::__c_file*, std::ios_base::openmode, int_type)):
+	Change to take a __size parameter of type size_t, not
+	of type (template parameter dependent) int_type.
+	* src/ios.cc (ios_base::Init::_S_ios_create): Change type of
+	size vars to size_t.
+	* testsuite/ext/stdio_filebuf.cc: Add.
+
+2003-02-12  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9563
+	* include/bits/ostream.tcc (sentry::sentry): Check
+	the state of the stream after the preparation.
+	* testsuite/27_io/ostream_sentry.cc: Add.
+
+2003-02-11  Scott Snyder  <snyder@fnal.gov>
+
+	PR libstdc++/9659
+	* include/bits/fstream.tcc (seekoff): Avoid operator+
+	for pos_type.
+
+2003-02-11  Paolo Carlini  <pcarlini@unitus.it>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9318
+	* include/bits/streambuf.tcc (__copy_streambufs):
+	Don't conditionalize the copy to __testput.
+	* testsuite/27_io/streambuf_members.cc (test09, test10): Add.
+
+2003-02-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* hppa/atomicity.h (__Atomicity_lock<__inst>::_S_atomicity_lock):
+	Correct alignment.
+	(__exchange_and_add, __atomic_add): Use PA 2.0 ordered store to reset
+	lock.
+
+2003-02-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9548
+	Implement resolution of DR 231 (Ready)
+	* include/bits/locale_facets.h (__num_base::_S_format_float):
+	Return void.
+	* src/locale.cc (__num_base::_S_format_float): Implement
+	resolution of DR 231.
+	* include/bits/locale_facets.tcc (num_put::_M_convert_float):
+	Tweak uses. Check for negative precision.
+	* testsuite/22_locale/num_put_members_char.cc (test06): Add
+	* testsuite/22_locale/num_put_members_wchar_t.cc (test06): Ditto.
+
+2003-02-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/filebuf_virtuals.cc (test08): Fix for
+	unsigned char platforms.
+
+2003-02-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc (time_put::do_put): Use __write.
+	(money_put::do_put): Same.
+
+2003-02-05  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/ios_base.h (ios_base): Document reserved storage.
+
+	* include/bits/locale_facets.h:	(struct __pad): Comment on
+	implementation.
+	(__verify_grouping): Same.
+	(__add_grouping): Same.		
+	* include/bits/locale_facets.tcc (__verify_grouping): Move
+	comments to declaration.
+	(__add_grouping): Same.
+	
+	* include/bits/locale_facets.tcc: 
+	(__write<_CharT, _OutIter>): New function.
+	(__write<_CharT>): New function specialization.
+	(num_put::_M_insert): Remove explicit loop over iterator.  Use
+	__write.
+	(num_put::_M_widen_float): Remove __basefield. 
+	(num_put::_M_widen_int): Move __basefield to within grouping block.
+	
+	* include/bits/streambuf_iterator.h: Include <streambuf>.
+	(ostreambuf_iterator::_M_put): Add.
+
+2003-02-05  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/26_numerics/valarray_name_lookup.cc: Fix typo.
+
+2003-02-05  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9439, PR libstdc++/9425
+	* config/io/basic_file_stdio.cc
+	(__basic_file<char>::seekoff, seekpos): Return -1L if
+	fseek fails.
+	* include/bits/fstream.tcc (basic_filebuf::seekoff):
+	Check _M_file.seekoff return value; always return
+	pos_type(off_type(-1)) in case of failure.
+	(basic_filebuf::pbackfail): Check this->seekoff return
+	value and return traits_type::eof() in case of failure.
+	* testsuite/27_io/filebuf_virtuals.cc (test09): Add.
+
+2003-02-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * testsuite/26_numerics/valarray_name_lookup.cc: Fix.
+
+2003-02-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (libtool_VERSION): To 5:3:0.
+	* configure: Regenerated.
+
 2003-02-04  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/9538

@@ -1214,34 +1214,33 @@ Finally, you can run the testsuite (which may take a long time):
      cd @var{objdir}; make -k check
 @end example
 
-The testing process will try to test as many components in the GCC
-distribution as possible, including the C, C++, Objective-C and Fortran
-compilers as well as the C++ and Java runtime libraries.
-
-While running the testsuite, DejaGnu might emit messages resembling
+This will test various components of GCC, such as compiler
+front ends and runtime libraries.  While running the testsuite, DejaGnu
+might emit some harmless messages resembling
 @samp{WARNING: Couldn't find the global config file.} or 
-@samp{WARNING: Couldn't find tool init file}.
-These messages are harmless and do not affect the validity of the tests.
+@samp{WARNING: Couldn't find tool init file} that can be ignored.
 
 @section How can I run the test suite on selected tests?
 
-As a first possibility to cut down the number of tests that are run it is
-possible to use @samp{make check-gcc} or @samp{make check-g++}
-in the @file{gcc} subdirectory of the object directory.  To further cut down the
-tests the following is possible:
+In order to run sets of tests selectively, there are targets
+@samp{make check-gcc} and @samp{make check-g++}
+in the @file{gcc} subdirectory of the object directory.  You can also
+just run @samp{make check} in a subdirectory of the object directory.
+
+
+A more selective way to just run all @command{gcc} execute tests in the
+testsuite is to use
 
 @example
     make check-gcc RUNTESTFLAGS="execute.exp @var{other-options}"
 @end example
 
-This will run all @command{gcc} execute tests in the testsuite.
+Likewise, in order to run only the @command{g++} ``old-deja'' tests in
+the testsuite with filenames matching @samp{9805*}, you would use
 
 @example
     make check-g++ RUNTESTFLAGS="old-deja.exp=9805* @var{other-options}"
 @end example
-
-This will run the @command{g++} ``old-deja'' tests in the testsuite where the filename
-matches @samp{9805*}.
 
 The @file{*.exp} files are located in the testsuite directories of the GCC
 source, the most important ones being @file{compile.exp},
@@ -1250,9 +1249,6 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
-To run only the tests for a library, run @samp{make check} from the
-the library's testsuite in a subdirectory of the object directory:
-@file{libstdc++-v3/testsuite} or @file{libcgj/testsuite}.
 
 @section Additional testing for Java Class Libraries
 
@@ -1270,11 +1266,11 @@ the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
 
 @section How to interpret test results
 
-After the testsuite has run you'll find various @file{*.sum} and @file{*.log}
+The result of running the testsuite are various @file{*.sum} and @file{*.log}
 files in the testsuite subdirectories.  The @file{*.log} files contain a
 detailed log of the compiler invocations and the corresponding
-results, the @file{*.sum} files summarize the results.  These summaries list
-all the tests that have been run with a corresponding status code:
+results, the @file{*.sum} files summarize the results.  These summaries 
+contain status codes for all tests: 
 
 @itemize @bullet
 @item
@@ -1918,9 +1914,9 @@ can also be obtained from:
 @item
 @uref{http://www.openavr.org,,http://www.openavr.org}
 @item
-@uref{http://home.overta.ru/users/denisc,,http://home.overta.ru/users/denisc}
+@uref{http://home.overta.ru/users/denisc/,,http://home.overta.ru/users/denisc/}
 @item
-@uref{http://www.amelek.gda.pl/avr,,http://www.amelek.gda.pl/avr}
+@uref{http://www.amelek.gda.pl/avr/,,http://www.amelek.gda.pl/avr/}
 @end itemize
 
 We @emph{strongly} recommend using binutils 2.13 or newer.
@@ -2338,7 +2334,7 @@ additional OpenServer-specific flags.
 
 Systems based on OpenServer before 5.0.4 (@samp{uname -X}
 will tell you what you're running) require TLS597 from
-@uref{ftp://ftp.sco.com/TLS/,,ftp://ftp.sco.com/TLS/}
+@uref{ftp://stage.caldera.com/TLS/,,ftp://stage.caldera.com/TLS/}
 for C++ constructors and destructors to work right.
 
 The system linker in (at least) 5.0.4 and 5.0.5 will sometimes
@@ -2347,8 +2343,8 @@ code.  This can be seen as execution testsuite failures when using
 @option{-fPIC} on @file{921215-1.c}, @file{931002-1.c}, @file{nestfunc-1.c}, and @file{gcov-1.c}.
 For 5.0.5, an updated linker that will cure this problem is
 available.  You must install both
-@uref{ftp://ftp.sco.com/Supplements/rs505a/,,ftp://ftp.sco.com/Supplements/rs505a/}
-and @uref{ftp://ftp.sco.com/SLS/,,OSS499A}.
+@uref{ftp://ftp.sco.com/pub/openserver5/rs505a,,ftp://ftp.sco.com/pub/openserver5/rs505a}
+and @uref{ftp://ftp.sco.com/pub/openserver5,,OSS499A}.
 
 The dynamic linker in OpenServer 5.0.5 (earlier versions may show
 the same problem) aborts on certain G77-compiled programs.  It's particularly
@@ -2896,7 +2892,7 @@ GCC 3.0 does not support Darwin, but 3.1 and later releases will work.
 Pre-installed versions of Mac OS X may not include any developer tools,
 meaning that you will not be able to build GCC from source.  Tool
 binaries are available at
-@uref{http://www.opensource.apple.com/projects/darwin} (free
+@uref{http://www.opensource.apple.com/projects/darwin/} (free
 registration required).
 
 Versions of the assembler prior to ``cctools-364'' cannot handle the

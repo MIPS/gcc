@@ -1,3 +1,35 @@
+2003-02-16  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Add Class.reflect2 and String.getBytes FAILs.
+
+2003-02-15  Mark Wielaard  <mark@klomp.org>
+
+       * lib/libjava.exp (test_libjava_from_javac): Use regsub not string map.
+       * libjava.mauve/mauve.exp (mauve_compute_uses): Likewise.
+       (test_mauve): Likewise.
+
+2003-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* lib/libjava.exp (test_libjava_from_javac): Don't create .o files
+	containing $ characters and always quote class files with "'"s.
+
+2003-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/mauve.exp (mauve_compute_uses): Add inner class
+	object files by changing all occurances of $ to ^.
+	(test_mauve): Replace ^ with $ for class file names and quote
+	them with "'"s.
+
+2003-02-13  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.mauve/xfails: Added entries for an unimplemented Class
+	method.
+
+2003-02-07  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Add new entries for
+	gnu.testlet.java.text.CollationElementIterator.jdk11
+
 2003-02-03  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* libjava.jacks/jacks.exp (gcj_jacks_write): Set LD_LIBRARY_PATH
