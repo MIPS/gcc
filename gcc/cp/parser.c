@@ -16276,7 +16276,7 @@ cp_parser_cw_identifier (cp_parser* parser)
 
   /* We have to accept certain keywords.  */
   token = cp_lexer_peek_token (parser->lexer);
-  if (token->flags | NAMED_OP)
+  if (token->flags & NAMED_OP)
     {
       const char *s = 0;
       switch (token->type) {
