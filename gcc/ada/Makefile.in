@@ -1936,7 +1936,7 @@ gnatlib-shared-default:
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
 	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
-	cd rts; ../../xgcc -B../../ -shared -shared-libgcc $(TARGET_LIBGCC2_CFLAGS) \
+	cd rts; ../../xgcc -B../../ -shared -shared-libgcc -Wl,-z,nodlopen $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnat-$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
 		$(SO_OPTS)libgnat-$(LIBRARY_VERSION)$(soext) $(MISCLIB) -lm
