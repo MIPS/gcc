@@ -1,3 +1,13 @@
+2003-11-22  Phil Edwards  <phil@codesourcery.com>
+
+	PR target/12476
+	* config/arm/arm.c (arm_output_mi_thunk):  In Thumb mode, use
+	'bx' instead of 'b' to avoid branch range restrictions.  Output
+	the thunk immediately before the thunked-to function.
+	* config/arm/arm.h (ARM_DECLARE_FUNCTION_NAME):  Do not emit
+	.thumb_func if a thunk is being generated.  Emit .code 16 along
+	with .thumb_func if a thunk is not being generated.
+
 2003-11-15  Nicolas Pitre <nico@cam.org>
 
 	* config/arm/arm.md (ashldi3, arm_ashldi3_1bit, ashrdi3,
