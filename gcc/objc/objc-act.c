@@ -76,6 +76,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJC_VOID_AT_END	void_list_node
 
+/* APPLE LOCAL ObjC super dealloc */
+static unsigned int should_call_super_dealloc = 0;
+
 /* When building Objective-C++, we are not linking against the C front-end
    and so need to replicate the C tree-construction functions in some way.  */
 #ifdef OBJCPLUS
@@ -5826,6 +5829,12 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	       || (TREE_CODE (receiver) == COMPOUND_EXPR
 		   && !IS_SUPER (rtype)));
 
+  /* APPLE LOCAL begin ObjC super dealloc */
+  /* If we are calling [super dealloc], reset our warning flag.  */
+  if (super && !strcmp ("dealloc", IDENTIFIER_POINTER (sel_name)))
+    should_call_super_dealloc = 0;
+  /* APPLE LOCAL end ObjC super dealloc */
+
   /* If the receiver is a class object, retrieve the corresponding
      @interface, if one exists. */
   class_tree = receiver_is_class_object (receiver, self, super);
@@ -7829,6 +7838,16 @@ start_method_def (tree method)
 #endif
   int have_ellipsis = 0;
 
+  /* APPLE LOCAL begin ObjC super dealloc */
+  /* If we are defining a "dealloc" method in a non-root class, we will need
+     to check if a [super dealloc] is missing, and warn if it is.  */
+  if(CLASS_SUPER_NAME (objc_implementation_context)
+     && !strcmp ("dealloc", IDENTIFIER_POINTER (METHOD_SEL_NAME (method))))
+    should_call_super_dealloc = 1;
+  else
+    should_call_super_dealloc = 0;
+  /* APPLE LOCAL end ObjC super dealloc */
+    
   /* Required to implement _msgSuper.  */
   objc_method_context = method;
   UOBJC_SUPER_decl = NULL_TREE;
@@ -8271,6 +8290,11 @@ objc_finish_method_definition (tree fndecl)
   /* Required to implement _msgSuper. This must be done AFTER finish_function,
      since the optimizer may find "may be used before set" errors.  */
   objc_method_context = NULL_TREE;
+
+  /* APPLE LOCAL begin ObjC super dealloc */
+  if (should_call_super_dealloc)
+    warning ("method possibly missing a [super dealloc] call");
+  /* APPLE LOCAL end ObjC super dealloc */
 }
 
 #if 0

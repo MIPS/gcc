@@ -1,3 +1,14 @@
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3978619
+	* objc-act.c (should_call_super_dealloc): New variable.
+	(objc_finish_message_expr): If calling [super dealloc],
+	clear the should_call_super_dealloc variable.
+	(start_method_def): If defining a 'dealloc' method in a
+	non-root class, set the should_call_super_dealloc variable.
+	(objc_finish_method_definition): Print a warning if
+	the should_call_super_dealloc is set.
+
 2005-02-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3982256
