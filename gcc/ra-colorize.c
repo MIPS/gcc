@@ -264,7 +264,6 @@ reset_lists ()
     {
       struct web *web = DLIST_WEB (d);
       BITMAP_XFREE (web->useless_conflicts);
-      web->useless_conflicts = NULL;
     }
 
   /* Sanity check, that we only have free, initial or precolored webs.  */
@@ -2649,7 +2648,7 @@ sort_and_combine_web_pairs (for_move)
 	  && !TEST_BIT (sup_igraph, w1->id * num_webs + w2->id)
 	  && !TEST_BIT (sup_igraph, w2->id * num_webs + w1->id)
 	  && w2->type != PRECOLORED
-	  && hard_regs_intersect_p (&w1->usable_regs, &w2->usable_regs))
+	  && hard_regs_combinable_p (w1, w2))
 	  {
 	    if (w1->type != PRECOLORED
 		|| (w1->type == PRECOLORED && ok (w2, w1)))
@@ -2801,8 +2800,7 @@ extended_coalesce (void)
 	        {
 		  struct web *source = id2web[j];
 		  if (GET_MODE (source->orig_x) == GET_MODE (dest->orig_x)
-		      && hard_regs_intersect_p (&source->usable_regs,
-						&dest->usable_regs))
+		      && hard_regs_combinable_p (dest, source))
 		    {
 		      combine (dest, source);
 		      goto out;
@@ -2837,8 +2835,7 @@ out:
 				    dest->id * num_webs + source->id)
 		      && !TEST_BIT (sup_igraph,
 				    source->id * num_webs + dest->id)
-		      && hard_regs_intersect_p (&source->usable_regs,
-						&dest->usable_regs))
+		      && hard_regs_combinable_p (dest, source))
 		    {
 		      combine (dest, source);
 		    }
@@ -2895,8 +2892,7 @@ extended_coalesce_2 ()
 				    dest->id * num_webs + source->id)
 		      && !TEST_BIT (sup_igraph,
 				    source->id * num_webs + dest->id)
-		      && hard_regs_intersect_p (&source->usable_regs,
-						&dest->usable_regs))
+		      && hard_regs_combinable_p (dest, source))
 		    add_web_pair_cost (dest, source,
 				       BLOCK_FOR_INSN (insn)->frequency,
 				       dest->num_conflicts
@@ -3016,8 +3012,7 @@ ra_colorize_free_all ()
 	free (web->defs);
       if (web->uses)
 	free (web->uses);
-      if (web->useless_conflicts)
-	free (web->useless_conflicts);
+      BITMAP_XFREE (web->useless_conflicts);
       for (web = web->subreg_next; web; web = wnext)
 	{
 	  wnext = web->subreg_next;

@@ -778,11 +778,15 @@ insert_stores (new_deaths)
 	  info = insn_df[uid];
 	  for (n = 0; n < info.num_defs; n++)
 	    {
+	      rtx slot, source;
 	      struct web *web = def2web[DF_REF_ID (info.defs[n])];
 	      struct web *aweb = alias (find_web_for_subweb (web));
-	      rtx slot, source;
+	      
 	      if (aweb->type != SPILLED || !aweb->stack_slot)
 		continue;
+	      if (web->pattern || aweb->pattern)
+		if (web != aweb)
+		  abort ();
 	      slot = aweb->stack_slot;
 	      source = DF_REF_REG (info.defs[n]);
 	      /* adjust_address() might generate code.  */
@@ -805,7 +809,7 @@ insert_stores (new_deaths)
 		  int has_use;
 		  last_slot = slot;
 		  remember_slot (&slots, slot);
-		  if ((GET_CODE (slot) == MEM)
+		  if ((web->pattern || copy_insn_p (insn, NULL, NULL)) 
 		      && ra_validate_change (insn, DF_REF_LOC (info.defs[n]),
 					     slot, 0))
 		    {
@@ -890,7 +894,7 @@ insert_stores (new_deaths)
 	    slots = NULL;
 	  else
 	    {
-	      rtx d = SET_DEST (set);
+	      /* rtx d = SET_DEST (set); */
 	      note_uses (&set, delete_overlapping_uses, (void *)&slots);
 	      /*if (1 || GET_CODE (SET_SRC (set)) == MEM)
 		delete_overlapping_slots (&slots, SET_SRC (set));*/
@@ -1078,24 +1082,9 @@ emit_loads (ri, nl_first_reload, last_block_insn)
       aweb = alias (supweb);
       aweb->changed = 1;
       start_sequence ();
-      if (supweb->pattern)
-	{
-	  /* XXX If we later allow non-constant sources for rematerialization
-	     we must also disallow coalescing _to_ rematerialized webs
-	     (at least then disallow spilling them, which we already ensure
-	     when flag_ra_break_aliases), or not take the pattern but a
-	     stackslot.  */
-	  if (aweb != supweb)
-	    abort ();
-	  slot = copy_rtx (supweb->pattern);
-	  innermode = GET_MODE (supweb->orig_x);
-	}
-      else
-	{
-	  allocate_spill_web (aweb);
-	  slot = aweb->stack_slot;
-	  innermode = GET_MODE (slot);
-	}
+      allocate_spill_web (aweb);
+      slot = aweb->stack_slot;
+      innermode = GET_MODE (slot);
       /* If we don't copy the RTL there might be some SUBREG
 	 rtx shared in the next iteration although being in
 	 different webs, which leads to wrong code.  */
@@ -1104,7 +1093,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	slot = simplify_gen_subreg (GET_MODE (reg), slot, innermode,
 				    SUBREG_BYTE (reg));
       if (web->one_load && web->last_use_insn
-	  && (GET_CODE (slot) == MEM || supweb->pattern)
+ 	  && copy_insn_p (web->last_use_insn, NULL,NULL)
 	  && ra_validate_change (web->last_use_insn,
 				 DF_REF_LOC (web->last_use), slot, 0))
 	{
@@ -1159,16 +1148,8 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 		}
 	    }
 	}
-      if (supweb->pattern)
-	{
-	  emitted_remat++;
-	  spill_remat_cost += bb->frequency + 1;
-	}
-      else
-	{
-	  emitted_spill_loads++;
-	  spill_load_cost += bb->frequency + 1;
-	}
+      emitted_spill_loads++;
+      spill_load_cost += bb->frequency + 1;
       reset_web_live (ri->live, web);
       /* In the special case documented above only emit the reloads and
 	 one load.  */
@@ -2216,13 +2197,12 @@ coalesce_spill_slot (web, ref, place)
   else
     return 0;
 
-  if (TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-      || TEST_BIT (sup_igraph, t->id * num_webs + s->id)
-      || s->pattern || t->pattern)
-    return 0;
-
   if (dweb->type != COLORED || !dweb->spill_temp || dweb->crosses_bb
       || dweb->is_coalesced || dweb->color == an_unusable_color)
+    return 0;
+
+  if (TEST_BIT (sup_igraph, s->id * num_webs + t->id)
+      || TEST_BIT (sup_igraph, t->id * num_webs + s->id))
     return 0;
 
   move_insn = m->insn;
@@ -2327,6 +2307,7 @@ assign_stack_slots_1 ()
       unsigned int inherent_size;
       unsigned int total_size;
       rtx place;
+      enum machine_mode innermode;
       struct web *web = id2web[n];
       
       if (web->type != COLORED || web->color != an_unusable_color)
@@ -2343,21 +2324,28 @@ assign_stack_slots_1 ()
 	      && GET_CODE (dead) == INSN)
 	    continue;
 	}
-      
-      inherent_size = PSEUDO_REGNO_BYTES (web->regno);
-      total_size = MAX (inherent_size, 0);
-      place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
-				  total_size,
-				  inherent_size == total_size ? 0: -1);
-      RTX_UNCHANGING_P (place) =
-	RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
-      set_mem_alias_set (place, new_alias_set ());
 
+      if (web->pattern)
+	{
+	  place = web->pattern;
+	  innermode = GET_MODE (web->orig_x);
+	}
+      else
+	{
+	  innermode = PSEUDO_REGNO_MODE (web->regno);
+	  inherent_size = PSEUDO_REGNO_BYTES (web->regno);
+	  total_size = MAX (inherent_size, 0);
+	  place = assign_stack_local (innermode,
+				      total_size,
+				      inherent_size == total_size ? 0: -1);
+	  RTX_UNCHANGING_P (place) =
+	    RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
+	  set_mem_alias_set (place, new_alias_set ());
+	}
       ra_debug_msg (DUMP_COLORIZE, "\t%3d(%d) insns: ",
 		    web->id, web->regno);
 	  
       web->stack_slot = place;
-      web->changed = 1;
 
       /* Replace all web refs to stack spill slot.  */
 	  
@@ -2380,6 +2368,21 @@ assign_stack_slots_1 ()
 			  i == 0 ? 'u': 'd',
 			  DF_REF_ID (refs[j]));
 
+	    if (i == 1 && web->pattern &&
+		insn_df[INSN_UID (insn)].num_defs == 1) /* This is a def.  */
+	      {
+		/* Remove the def of the rematerialized web.  */
+		PUT_CODE (insn, NOTE);
+		NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+		RESET_BIT (insns_with_deaths, INSN_UID (insn));
+		deleted_move_insns++;
+		deleted_move_cost += BLOCK_FOR_INSN (insn)->frequency + 1;
+		df_insn_modify (df, bb, insn);
+		bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+		bitmap_set_bit (last_changed_insns, INSN_UID (insn));
+		continue;
+	      }
+	    
 	    /* Trying to substitute this use to corresponding web.  */
 	    if (coalesce_spill_slot (web, refs[j], place))
 	      continue;
@@ -2390,7 +2393,7 @@ assign_stack_slots_1 ()
 	    start_sequence ();
 	    if (GET_CODE (target) == SUBREG)
 	      source = simplify_gen_subreg (GET_MODE (target), source,
-					    GET_MODE (source),
+					    innermode,
 					    SUBREG_BYTE (target));
 	    if (ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 0))
 	      {
@@ -2792,8 +2795,9 @@ web_class_spill_ref (web, ref)
       int i, j;
       rtx source, target;
       struct ref **refs;
+      rtx def_dst;
+      rtx def_src = NULL;
       rtx reg = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
-      rtx def_rtx = NULL;
       basic_block bb = BLOCK_FOR_INSN (insn);
 
       for (i = 0, refs = web->uses, num_refs = web->num_uses;
@@ -2814,9 +2818,10 @@ web_class_spill_ref (web, ref)
 	    ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 1);
 	    if (i == 1) /* This is a def.  */
 	      {
-		if (def_rtx)
+		if (def_src)
 		  abort ();
-		def_rtx = source;
+		def_src = source;
+		def_dst = DF_REF_REG (refs[j]);
 	      }
 	  }
       if (!ra_apply_change_group ())
@@ -2826,7 +2831,7 @@ web_class_spill_ref (web, ref)
       bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
 
       start_sequence ();
-      ra_emit_move_insn (reg, DF_REF_REG (ref));
+      ra_emit_move_insn (reg, web->orig_x);
       insns = get_insns ();
       end_sequence ();
       if (insns)
@@ -2845,10 +2850,10 @@ web_class_spill_ref (web, ref)
 	    }
 	}
 
-      if (def_rtx)
+      if (def_src)
 	{
 	  start_sequence ();
-	  ra_emit_move_insn (DF_REF_REG (ref), copy_rtx (def_rtx));
+	  ra_emit_move_insn (def_dst, copy_rtx (def_src));
 	  insns = get_insns ();
 	  end_sequence ();
 	  if (insns)

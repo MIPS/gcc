@@ -378,6 +378,21 @@ lose:
   return 0;
 }
 
+/* Two webs can be combined only if usable_regs of webs are intersects and
+   hardregs required for web W1 must fits to intersected usable_regs.
+   Return nonzero if they do.   */
+
+int
+hard_regs_combinable_p (w1, w2)
+     struct web *w1;
+     struct web *w2;
+{
+  HARD_REG_SET c;
+  COPY_HARD_REG_SET (c, w1->usable_regs);
+  AND_HARD_REG_SET (c, w2->usable_regs);
+  return count_long_blocks (c, 1 + w1->add_hardregs);
+}
+
 /* Returns 1 of hard register set A and B are equal.  */
 
 int

@@ -81,7 +81,6 @@ static int live_out_1 PARAMS ((struct df *, struct curr_use *, rtx));
 static int live_out PARAMS ((struct df *, struct curr_use *, rtx));
 static rtx live_in_edge PARAMS (( struct df *, struct curr_use *, edge));
 static void live_in PARAMS ((struct df *, struct curr_use *, rtx));
-static int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
 static void remember_move PARAMS ((rtx));
 static void handle_asm_insn PARAMS ((struct df *, rtx));
 static void prune_hardregs_for_mode PARAMS ((HARD_REG_SET *,
@@ -122,6 +121,7 @@ static void select_regclass PARAMS ((void));
 static void detect_spanned_deaths PARAMS ((unsigned int *spanned_deaths));
 static void conflicts_early_clobbered PARAMS ((void));
 static void web_class PARAMS ((struct web*));
+static int rematerializable_stack_arg_p PARAMS ((rtx, rtx));
 
 /* A sbitmap of DF_REF_IDs of uses, which are live over an abnormal
    edge.  */
@@ -223,7 +223,7 @@ int *number_seen;
    later, and place the operands in *SOURCE and *TARGET, if they are
    not NULL.  */
 
-static int
+int
 copy_insn_p (insn, source, target)
      rtx insn;
      rtx *source;
@@ -526,7 +526,6 @@ union_web_part_roots (r1, r2)
 		  bitmap_operation (cl1->conflicts, cl1->conflicts,
 				    cl2->conflicts, BITMAP_IOR);
 		  BITMAP_XFREE (cl2->conflicts);
-		  cl2->conflicts = NULL;
 		}
 	  /* Now the conflict lists from R2 which weren't in R1.
 	     We simply copy the entries from R2 into R1' list.  */
@@ -2534,6 +2533,7 @@ contains_pseudo (x)
    clobber anything.  */
 
 static GTY(()) rtx remat_test_insn;
+
 static int
 want_to_remat (x)
      rtx x;
@@ -2567,6 +2567,36 @@ want_to_remat (x)
 			  &num_clobbers)) >= 0
 	  && (num_clobbers == 0
 	      /*|| ! added_clobbers_hard_reg_p (icode)*/));
+}
+
+/* Test the single set INSN for equivalence to argument passed in
+   stack. SRC is a SET_SRC (single_set (INSN)).  */
+
+static int
+rematerializable_stack_arg_p (insn, src)
+     rtx insn;
+     rtx src;
+{
+  rtx mem;
+  rtx note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
+  if (!note)
+    return 0;
+  mem = XEXP (note, 0);
+  if (rtx_equal_p (mem, src) && GET_CODE (mem) == MEM)
+    {
+      if (memory_operand (mem, VOIDmode))
+	{
+	  rtx ad = XEXP (mem, 0);
+	  rtx x;
+	  if (GET_CODE (ad) == PLUS && GET_CODE (XEXP (ad, 1)) == CONST_INT)
+	    x = XEXP (ad, 0);
+	  else
+	    x = ad;
+	  if (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
+	    return 1;
+	}
+    }
+  return 0;
 }
 
 /* Look at all webs, if they perhaps are rematerializable.
@@ -2625,7 +2655,8 @@ detect_remat_webs ()
 		  the livetime in question.  */
 	       || (GET_CODE (src) == MEM
 		   && bitmap_bit_p (emitted_by_spill, INSN_UID (insn))
-		   && memref_is_stack_slot (src)))
+		   && memref_is_stack_slot (src))
+	       || rematerializable_stack_arg_p (insn, src))
 	      /* And we must be able to construct an insn without
 		 side-effects to actually load that value into a reg.  */
 	      && want_to_remat (src))
@@ -2932,8 +2963,7 @@ moves_to_webs (df)
 	  /* If the usable_regs don't intersect we can't coalesce the two
 	     webs anyway, as this is no simple copy insn (it might even
 	     need an intermediate stack temp to execute this "copy" insn). */
-	  && hard_regs_intersect_p (&m->source_web->usable_regs,
-				    &m->target_web->usable_regs))
+	  && hard_regs_combinable_p (m->target_web, m->source_web))
 	{
 	  if (!flag_ra_optimistic_coalescing)
 	    {
@@ -3698,6 +3728,10 @@ web_class (web)
 	      {
 		blocks = 0;
 		c = class;
+		/* FIXME denisc@overta.ru
+		   I have disabled the `web_class_spill_ref'.  */
+		class = ALL_REGS;
+		break;
 	      }
 	    if (!blocks)
 	      {

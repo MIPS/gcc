@@ -1,7 +1,7 @@
 2003-01-24  Dale Johannesen  <dalej@apple.com>
 
-        * ra-build.c (compare_and_free_webs):  Loosen checking for hard regs.
-        pre-reload.c (scan_alternative):  Win on non-reg in 'g' case.
+	* ra-build.c (compare_and_free_webs):  Loosen checking for hard regs.
+	* pre-reload.c (scan_alternative):  Win on non-reg in 'g' case.
 
 2003-01-08  Denis Chertykov  <denisc@overta.ru>
 

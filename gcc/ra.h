@@ -648,5 +648,8 @@ extern int count_long_blocks PARAMS ((HARD_REG_SET, int));
 extern void detect_web_parts_to_rebuild PARAMS ((void));
 extern void web_class_spill_ref PARAMS ((struct web *, struct ref *));
 extern int subst_to_stack_p PARAMS ((void));
+extern int copy_insn_p PARAMS ((rtx ,rtx *,rtx *));
+extern int hard_regs_combinable_p PARAMS ((struct web *,struct web *));
+
 
 #define SPILL_SLOT_P(REGNO) bitmap_bit_p (spill_slot_regs, (REGNO))

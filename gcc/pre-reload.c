@@ -1932,7 +1932,6 @@ struct scan_addr_state
   rtx insn;			/* insn which contain register */
   int opno;			/* operand number in insn */
   int alt;			/* selected constraints alternative  */
-  int regs_per_addr;		/* count of registers used in address */
   ra_ref **defs;		/* defs ra_ref's for insn */
   ra_ref **uses;		/* uses ra_ref's for insn */
   char *constraints;
@@ -1962,8 +1961,6 @@ scan_addr_func (loc, scan_state)
 	ra_ref *ref;
 	enum ra_ref_type t;
 	t = RA_REF_ADDRESS | RA_REF_READ;
-	if (scan_state->regs_per_addr == 1)
-	  t |= RA_REF_WRITE;
 	ref = scan_addr_create_ref (scan_state->ra_info, loc, scan_state, t);
 	scan_state->class = INDEX_REG_CLASS;
       }
@@ -3391,7 +3388,6 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	    scan_state.insn = insn;
 	    scan_state.defs = def_refs;
 	    scan_state.uses = use_refs;
-	    scan_state.regs_per_addr = 0;
 	    scan_state.alt = goal_alternative_number;
 	    scan_state.constraints = goal_alt[i].constraints;
 	    scan_state.modified = 0;
@@ -4089,10 +4085,10 @@ df_link2ra_link (df2ra, insn, dlink, rlink)
   for (; dlink; dlink = dlink->next)
     /* This condition shows which df ref's can't be reached by
        ra_ref's.  */
-    if (dlink->ref
+    if (dlink->ref/*
 	&& GET_MODE_CLASS (GET_MODE (DF_REF_REG (dlink->ref))) != MODE_CC
 	&& GET_CODE (PATTERN (insn)) != ASM_INPUT
-	&& GET_CODE (insn) != CALL_INSN
+	&& GET_CODE (insn) != CALL_INSN*/
 	&& (DF_REF_REGNO (dlink->ref) < FIRST_PSEUDO_REGISTER
 	    ? !fixed_regs[DF_REF_REGNO (dlink->ref)]
 	    : 1))

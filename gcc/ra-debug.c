@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -688,21 +688,24 @@ dump_igraph (df)
 	      {
 	        if (SUBWEB_P (ID2WEB (def1)))
 		  ra_debug_msg (DUMP_IGRAPH, "%d (SUBREG %d, %d) with ", def1,
-			     ID2WEB (def1)->regno,
-			     SUBREG_BYTE (ID2WEB (def1)->orig_x));
+				ID2WEB (def1)->regno,
+				SUBREG_BYTE (ID2WEB (def1)->orig_x));
 	        else
-	          ra_debug_msg (DUMP_IGRAPH, "%d (REG %d) with ", def1,
-			     ID2WEB (def1)->regno);
+	          ra_debug_msg (DUMP_IGRAPH, "%d%c(REG %d) with ", def1,
+				SPILL_SLOT_P (ID2WEB (def1)->regno) ? '\'':' ',
+				ID2WEB (def1)->regno);
 	      }
 	    if ((num2 % 9) == 8)
-	      ra_debug_msg (DUMP_IGRAPH, "\n              ");
+	      ra_debug_msg (DUMP_IGRAPH, "\n             ");
 	    num++;
 	    num2++;
 	    if (SUBWEB_P (ID2WEB (def2)))
 	      ra_debug_msg (DUMP_IGRAPH, "%d(%d,%d) ", def2, ID2WEB (def2)->regno,
 			 SUBREG_BYTE (ID2WEB (def2)->orig_x));
 	    else
-	      ra_debug_msg (DUMP_IGRAPH, "%d(%d) ", def2, ID2WEB (def2)->regno);
+		ra_debug_msg (DUMP_IGRAPH, "%d%s(%d) ", def2,
+			      SPILL_SLOT_P (ID2WEB (def2)->regno) ? "'": "",
+			      ID2WEB (def2)->regno);
 	  }
       if (num1 != num)
 	ra_debug_msg (DUMP_IGRAPH, "\n  ");
