@@ -1,3 +1,11 @@
+2001-07-25  Daniel Berlin  <dan@cgsoftware.com>
+
+	* gcse.c: Store motion stuff from patch submitted to mainline.l
+
+	* ra.c: Call store motion when we are done.
+
+	* rtl.h: Add store_motion prototype.
+	
 2001-07-20  Daniel Berlin  <dan@cgsoftware.com>
 
 	* params.def: Turn the C++ inlining default down like it is on the

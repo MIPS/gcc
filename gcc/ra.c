@@ -4079,8 +4079,11 @@ reg_alloc (void)
   /*if (rtl_dump_file)
     print_rtl_with_bb (rtl_dump_file, get_insns ());*/
 
-  no_new_pseudos = 1;
+  no_new_pseudos = 0;
   compute_bb_for_insn (get_max_uid ());
+  store_motion();
+  allocate_reg_info (max_reg_num (), 0, 1);
+  no_new_pseudos = 1;
   /*recompute_reg_usage (get_insns (), TRUE);
   regclass (get_insns (), max_reg_num (), rtl_dump_file);*/
   /*count_or_remove_death_notes (NULL, 1);

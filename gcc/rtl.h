@@ -1851,6 +1851,7 @@ extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 /* In gcse.c */
 #ifdef BUFSIZ
 extern int gcse_main			PARAMS ((rtx, FILE *));
+extern int store_motion			PARAMS ((void));
 #endif
 
 /* In global.c */
