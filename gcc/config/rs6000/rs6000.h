@@ -2398,6 +2398,10 @@ do {									     \
 		? COSTS_N_INSNS (5)					\
 		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
 		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
+      case PROCESSOR_PPC440:						\
+        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
+		? COSTS_N_INSNS (3)					\
+		: COSTS_N_INSNS (2));			    		\
       case PROCESSOR_RS64A:						\
         return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
 		? GET_MODE (XEXP (X, 1)) != DImode			\
@@ -2462,6 +2466,8 @@ do {									     \
 	return COSTS_N_INSNS (33);					\
       case PROCESSOR_PPC405:						\
 	return COSTS_N_INSNS (35);					\
+      case PROCESSOR_PPC440:						\
+	return COSTS_N_INSNS (34);					\
       case PROCESSOR_PPC601:						\
 	return COSTS_N_INSNS (36);					\
       case PROCESSOR_PPC603:						\

@@ -1,3 +1,12 @@
+2003-08-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (processor_target_table): Add 405fp,
+	440, 440fp.
+	* config/rs6000/rs6000.h (RTX_COSTS: Add 440 costs.
+	* config/rs6000/rs6000.md: Include 440.md.
+	* config/rs6000/40x.md: Update and add FPU scheduling information.
+	* config/rs6000/440.md: New file.
+
 2003-07-25  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000.c (is_ev64_opaque_type): Only check pointer
