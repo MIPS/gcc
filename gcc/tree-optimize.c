@@ -61,23 +61,6 @@ optimize_function_tree (tree fndecl)
   /* Build the flowgraph.  */
   init_flow ();
 
-  /* Run a pass over the statements deleting any obviously useless
-     statements before we build the CFG.  */
-  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
-  {
-    int flags;
-    FILE *file = dump_begin (TDI_useless, &flags);
-    if (file)
-      {
-	dump_function_to_file (fndecl, file, flags);
-	dump_end (TDI_useless, file);
-      }
-  }
-
-  /* Run a pass to lower magic exception handling constructs into,
-     well, less magic though not completely mundane constructs.  */
-  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
-
   build_tree_cfg (DECL_SAVED_TREE (fndecl));
 
   /* Begin analysis and optimization passes.  After the function is
@@ -298,6 +281,23 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     {
       /* Debugging dump after gimplification.  */
       dump_function (TDI_gimple, fndecl);
+
+      /* Run a pass over the statements deleting any obviously useless
+	 statements before we build the CFG.  */
+      remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
+      {
+	int flags;
+	FILE *file = dump_begin (TDI_useless, &flags);
+	if (file)
+	  {
+	    dump_function_to_file (fndecl, file, flags);
+	    dump_end (TDI_useless, file);
+	  }
+      }
+
+      /* Run a pass to lower magic exception handling constructs into,
+	 well, less magic though not completely mundane constructs.  */
+      lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)
