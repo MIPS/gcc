@@ -1,3 +1,15 @@
+2002-09-09  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (index_register_operand): New.
+	* i386.h (predicate_codes): Add new predicate.
+	* i386.md (lea_general_*): Use index_register_operand
+	(ashift to lea splitter): Do not produce invalid leas
+	(ashift to mov+ashift split): New.
+
+Tue Aug 27 19:18:16 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc): Fix RTL sharing problem
+
 Tue Oct 29 23:41:46 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386-protos.h (x86_64_sign_extended_value): Fix prototype.
@@ -138,7 +150,7 @@ Thu Oct 31 18:31:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* i386.c (optimization_options): Set flag_omit_frame_pointer,
 	flag_asynchronous_unwind_tables, flag_pcc_struct_return to 2.
 	Do not clear -momit-leaf-frame-pointer when profiling.
-	(ix86_frame_pointer_required): Frame pointer is allways required when
+	(ix86_frame_pointer_required): Frame pointer is always required when
 	profiling.
 
 2002-10-30  Mark Mitchell  <mark@codesourcery.com>

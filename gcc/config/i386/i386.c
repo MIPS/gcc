@@ -1702,8 +1702,8 @@ classify_argument (mode, type, classes, bit_offset)
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
   int words = (bytes + (bit_offset % 64) / 8 + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
-  /* Variable sized structures are always passed on the stack.  */
-  if (mode == BLKmode && type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  /* Variable sized entities are always passed/returned in memory.  */
+  if (bytes < 0)
     return 0;
 
   if (type && AGGREGATE_TYPE_P (type))
@@ -1839,7 +1839,7 @@ classify_argument (mode, type, classes, bit_offset)
 		     return 0;
 		   for (i = 0; i < num; i++)
 		     {
-		       int pos = (offset + bit_offset) / 8 / 8;
+		       int pos = (offset + (bit_offset % 64)) / 8 / 8;
 		       classes[i + pos] =
 			 merge_classes (subclasses[i], classes[i + pos]);
 		     }
@@ -3314,6 +3314,30 @@ nonmemory_no_elim_operand (op, mode)
   return GET_CODE (op) == CONST_INT || register_operand (op, mode);
 }
 
+/* Return false if this is any eliminable register or stack register,
+   otherwise work like register_operand.  */
+
+int
+index_register_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  rtx t = op;
+  if (GET_CODE (t) == SUBREG)
+    t = SUBREG_REG (t);
+  if (!REG_P (t))
+    return 0;
+  if (t == arg_pointer_rtx
+      || t == frame_pointer_rtx
+      || t == virtual_incoming_args_rtx
+      || t == virtual_stack_vars_rtx
+      || t == virtual_stack_dynamic_rtx
+      || REGNO (t) == STACK_POINTER_REGNUM)
+    return 0;
+
+  return general_operand (op, mode);
+}
+
 /* Return true if op is a Q_REGS class register.  */
 
 int
@@ -3978,8 +4002,10 @@ ix86_frame_pointer_required ()
   /* In override_options, TARGET_OMIT_LEAF_FRAME_POINTER turns off
      the frame pointer by default.  Turn it back on now if we've not
      got a leaf function.  */
-  if (TARGET_OMIT_LEAF_FRAME_POINTER
-      && (!current_function_is_leaf || current_function_profile))
+  if (TARGET_OMIT_LEAF_FRAME_POINTER && !current_function_is_leaf)
+    return 1;
+
+  if (current_function_profile)
     return 1;
 
   return 0;
@@ -9017,7 +9043,7 @@ ix86_expand_int_movcc (operands)
 		emit_insn (gen_rtx_SET (VOIDmode, out, tmp));
 	    }
 	  if (out != operands[0])
-	    emit_move_insn (operands[0], out);
+	    emit_move_insn (operands[0], copy_rtx (out));
 
 	  return 1; /* DONE */
 	}
