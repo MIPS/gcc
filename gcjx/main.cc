@@ -104,7 +104,8 @@ class argument_parser
 {
 public:
   argument_parser (char *argv[])
-    : comp (global->get_compiler ())
+    : comp (global->get_compiler ()),
+      cni_generator (NULL)
   {
     for (; *argv; ++argv)
       {
@@ -229,7 +230,7 @@ public:
   help_options ()
   {
     std::ostream &os = std::cout;
-    os << "usage: gcjx [OPTIONS] FILE..." << std::endl
+    os << "Usage: gcjx [OPTIONS] FILE..." << std::endl
        << "  A file whose name starts with '@' holds arguments (which can be\n"
        << "  any mix of options and files), separated by either spaces or\n"
        << "  newlines."
@@ -259,6 +260,14 @@ public:
     print ("-o cni", "generate CNI headers", 3);
     print ("-o jnistub", "generate JNI stubs", 3);
     print ("-o none", "check syntax but do not generate code", 3);
+
+    os << std::endl;
+
+    print ("-cniclass CLASS", "set class for CNI text generators", 3);
+    print ("-add TEXT", "print text in class body", 3);
+    print ("-prepend TEXT", "print text before class declaration", 3);
+    print ("-append CLASS", "print text after class declaration", 3);
+    print ("-friend CLASS", "print text in class as friend declaration", 3);
 
     os << std::endl;
 
@@ -363,6 +372,22 @@ public:
     return first.substr (name.length () + (use_equals ? 1 : 0));
   }
 
+  void
+  need_cni_generator (const std::string &name)
+  {
+    if (cni_generator == NULL)
+      throw make_error ("no CNI header generator specified for option %1")
+	% name;
+  }
+
+  void
+  need_cni_class (const std::string &name)
+  {
+    if (action_class.empty ())
+      throw make_error ("no %<-cniclass%> specified for option %1")
+	% name;
+  }
+
   std::deque<std::string>
   parse_args ()
   {
@@ -441,8 +466,11 @@ public:
 	      comp->add_code_generator (new jni_code_generator (comp,
 							        comp->get_directory_cache ()));
 	    else if (otype == "cni")
-	      comp->add_code_generator (new cni_code_generator (comp,
-							        comp->get_directory_cache ()));
+	      {
+		cni_generator = new cni_code_generator (comp,
+							comp->get_directory_cache ());
+		comp->add_code_generator (cni_generator);
+	      }
 	    else if (otype == "jnistub")
 	      comp->add_code_generator (new jni_stub_generator (comp,
 							        comp->get_directory_cache ()));
@@ -475,6 +503,39 @@ public:
 	  help_warnings ();
         else if (arg == "-version" || arg == "--version")
 	  version ();
+	else if (arg == "-cniclass")
+	  {
+	    need_cni_generator ("-cniclass");
+	    action_class = get_arg_for (it, "-cniclass");
+	  }
+	else if (arg == "-add")
+	  {
+	    need_cni_generator ("-add");
+	    cni_generator->add_action (cni_code_generator::CNI_ADD,
+				       action_class,
+				       get_arg_for (it, "-add"));
+	  }
+	else if (arg == "-append")
+	  {
+	    need_cni_generator ("-append");
+	    cni_generator->add_action (cni_code_generator::CNI_APPEND,
+				       action_class,
+				       get_arg_for (it, "-append"));
+	  }
+	else if (arg == "-friend")
+	  {
+	    need_cni_generator ("-friend");
+	    cni_generator->add_action (cni_code_generator::CNI_FRIEND,
+				       action_class,
+				       get_arg_for (it, "-friend"));
+	  }
+	else if (arg == "-prepend")
+	  {
+	    need_cni_generator ("-prepend");
+	    cni_generator->add_action (cni_code_generator::CNI_PREPEND,
+				       action_class,
+				       get_arg_for (it, "-prepend"));
+	  }
         else
 	  die_unrecognized ("option", arg);
       }
@@ -541,6 +602,11 @@ private:
 
   compiler *comp;
   std::deque<std::string> args;
+
+  // The CNI code generator and the current class for which we're
+  // collecting actions.
+  std::string action_class;
+  cni_code_generator *cni_generator;
 };
 
 int

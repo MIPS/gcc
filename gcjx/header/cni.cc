@@ -30,6 +30,29 @@ cni_code_generator::cni_code_generator (compiler *c, directory_cache &dirs)
 {
 }
 
+void
+cni_code_generator::emit_actions (std::ostream &out,
+				  cni_code_generator::action what,
+				  const action_item_list &items)
+{
+  bool any = false;
+  for (action_item_list::const_iterator i = items.begin ();
+       i != items.end ();
+       ++i)
+    {
+      if ((*i).first != what)
+	continue;
+
+      out << "  ";
+      if (what == CNI_FRIEND)
+	out << "friend ";
+      out << (*i).second << std::endl;
+      any = true;
+    }
+  if (any)
+    out << std::endl;
+}
+
 std::string
 cni_code_generator::cxxname (model_type *type, bool leading)
 {
@@ -359,7 +382,8 @@ cni_code_generator::write_method (std::ostream &out,
 void
 cni_code_generator::write_field (std::ostream &out,
 				 model_field *field,
-				 modifier_t &current_flags)
+				 modifier_t &current_flags,
+				 bool &is_first)
 {
   modifier_t new_flags = field->get_modifiers () & ACC_ACCESS;
   update_modifiers (out, new_flags, current_flags);
@@ -370,7 +394,32 @@ cni_code_generator::write_field (std::ostream &out,
   out << cxxname (field->type ());
   if (! field->type ()->reference_p ())
     out << " ";
+
+  if (is_first && ! field->static_p ())
+    {
+      is_first = false;
+      out << "__attribute__ ((__aligned__ (__alignof ("
+	  << cxxname (field->get_declaring_class ())
+	  << ")))) ";
+    }
+
   out << field->get_name () << ";" << std::endl;
+}
+
+void
+cni_code_generator::add_action (cni_code_generator::action what,
+				const std::string &name,
+				const std::string &text)
+{
+  action_map_type::iterator it = action_map.find (name);
+  if (it == action_map.end ())
+    {
+      action_item_list elt;
+      elt.push_back (std::make_pair (what, text));
+      action_map[name] = elt;
+    }
+  else
+    (*it).second.push_back (std::make_pair (what, text));
 }
 
 void
@@ -383,6 +432,11 @@ cni_code_generator::generate (model_class *klass)
     std::cout << " [writing " << filename << "]" << std::endl;
 
   std::string cname = klass->get_fully_qualified_name ();
+
+  action_map_type::const_iterator it = action_map.find (cname);
+  bool found = it != action_map.end ();
+  const action_item_list &actions (found ? (*it).second : empty_list);
+
   // Ugly...
   for (unsigned int i = 0; i < cname.length (); ++i)
     {
@@ -403,6 +457,8 @@ cni_code_generator::generate (model_class *klass)
   std::list<model_method *> methods = klass->get_sorted_methods ();
   write_includes (out, klass, methods.begin (), methods.end (), fields);
   out << std::endl;
+
+  emit_actions (out, CNI_PREPEND, actions);
 
   out << "class " << cxxname (klass, false);
   if (klass->get_superclass ())
@@ -429,17 +485,24 @@ cni_code_generator::generate (model_class *klass)
       write_method (out, (*i).get (), current_flags);
     }
 
+  bool first = true;
   for (std::list<ref_field>::const_iterator i = fields.begin ();
        i != fields.end ();
        ++i)
-    write_field (out, (*i).get (), current_flags);
+    write_field (out, (*i).get (), current_flags, first);
 
   // One final phony field.
   update_modifiers (out, modifier_t (ACC_PUBLIC), current_flags);
+
+  emit_actions (out, CNI_FRIEND, actions);
+  emit_actions (out, CNI_ADD, actions);
+
   out << "  static ::java::lang::Class class$;" << std::endl;
 
   out << "};" << std::endl
       << std::endl;
+
+  emit_actions (out, CNI_APPEND, actions);
 
   out << "#endif // " << cname << std::endl;
 }

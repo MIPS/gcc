@@ -287,10 +287,12 @@ header generation
 X must handle Miranda methods properly
 - must implement gcjh hacks for C++ keywords and method/field name
   clash
-- must implement gcjh hack for field alignment
+X must implement gcjh hack for field alignment
 X implement the write-to-temp file thing that bytecode uses?
   gcjh doesn't, perhaps we don't need this
   [ we don't because we build all the headers before any .cc files ]
+X gcjh has options to add text to the header in different places;
+  we need this
 
 ================================================================
 

@@ -1,3 +1,26 @@
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* main.cc (argument_parser::action_class): New field.
+	(argument_parser::cni_generator): Likewise.
+	(argument_parser): Initialize new field.
+	(argument_parser::need_cni_generator): New method.
+	(argument_parser::need_cni_class): Likewise.
+	(argument_parser::parse_args): Set cni_generator.  Recognize new
+	arguments.
+	(argument_parser::help_options): Document new options.
+	* header/cni.hh (cni_code_generator::write_field): Updated.
+	(cni_code_generator::action): New enum.
+	(cni_code_generator::add_action): Declare.
+	(cni_code_generator::action_item_list): New typedef.
+	(cni_code_generator::action_map): New field.
+	(cni_code_generator::empty_list): Likewise.
+	(cni_code_generator:emit_actions): Declare.
+	(cni_code_generator::action_map_type): New typedef.
+	* header/cni.cc (write_field): Added 'is_first' argument.
+	(generate): Updated.  Call emit_actions.
+	(emit_actions): New method.
+	(add_action): Likewise.
+
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/cpool.cc (get_methodref): New method.
