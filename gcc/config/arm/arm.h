@@ -2126,12 +2126,17 @@ typedef struct
   "\t.section\t.fini_array,\"aw\",%fini_array"
 #define ARM_CTORS_SECTION_OP \
   "\t.section\t.ctors,\"aw\",%progbits"
+#define ARM_DTORS_SECTION_OP \
+  "\t.section\t.dtors,\"aw\",%progbits"
 
 /* Define CTORS_SECTION_ASM_OP.  */
 #undef CTORS_SECTION_ASM_OP
+#undef DTORS_SECTION_ASM_OP
 #ifndef IN_LIBGCC2
 # define CTORS_SECTION_ASM_OP \
    (TARGET_AAPCS_BASED ? ARM_EABI_CTORS_SECTION_OP : ARM_CTORS_SECTION_OP)
+# define DTORS_SECTION_ASM_OP \
+   (TARGET_AAPCS_BASED ? ARM_EABI_DTORS_SECTION_OP : ARM_DTORS_SECTION_OP)
 #else /* !defined (IN_LIBGCC2) */
   /* In libgcc, CTORS_SECTION_ASM_OP must be a compile-time constant,
      so we cannot use the definition above.  */ 
@@ -2151,6 +2156,7 @@ typedef struct
 #   define DTOR_LIST_END /* empty */
 # else /* !defined (__ARM_EABI__) */
 #   define CTORS_SECTION_ASM_OP ARM_CTORS_SECTION_OP
+#   define DTORS_SECTION_ASM_OP ARM_DTORS_SECTION_OP
 # endif /* !defined (__ARM_EABI__) */
 #endif /* !defined (IN_LIBCC2) */
 

@@ -1,3 +1,8 @@
+2005-01-21  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define. 
+	(DTORS_SECION_ASM_OP): Conditionalize on TARGET_AAPCS_BASED.
+
 2005-01-20  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.md (insv): Use gen_int_mode.
