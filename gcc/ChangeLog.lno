@@ -1,3 +1,7 @@
+2004-07-09  Steven Bosscher  <stevenb@suse.de>
+
+	* varray.h (varray_data_enum): Remove VARRAY_DATA_DG.
+
 2004-07-08  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* varray.c (element): Don't include dependence_node_def.
