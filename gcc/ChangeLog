@@ -1,3 +1,26 @@
+2004-09-10  Geoffrey Keating  <geoffk@apple.com>
+
+	* dbxout.c (dbxout_block): Update for
+	current_function_func_begin_label a string.
+	* dwarf2out.c (dwarf2out_begin_prologue): Likewise.
+	* except.c (dw2_output_call_site_table): Likewise.
+	* toplev.c (current_function_func_begin_label): Likewise.
+	* tree.h (current_function_func_begin_label): Likewise.
+	* config/rs6000/linux64.h (DBX_OUTPUT_BRAC): Likewise.
+
+	* final.c (output_asm_insn): Use strtoul instead of atoi, save a
+	loop.
+
+	* gcc/config/rs6000/rs6000.c (print_operand): Use fputs instead
+	of fprintf for register names.
+	
+	* output.h (unlikely_section_label): Delete declaration.
+	(unlikely_text_section_name): Likewise.
+	* varasm.c (unlikely_section_label_printed): Make static.
+	(unlikely_section_label): Likewise.
+	(unlikely_text_section_name): Likewise.
+	(assemble_start_function): Use reconcat.
+
 2004-09-10  Andrew Pinski  <apinski@apple.com>
 
 	Radar 3795656, 3795131, 3795248
