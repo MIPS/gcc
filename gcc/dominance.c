@@ -546,7 +546,7 @@ calculate_dominance_info (enum cdi_direction reverse)
   dominance_info info;
   basic_block b;
 
-  /* allocate structure for dominance information.  */
+  /* Allocate structure for dominance information.  */
   info = xmalloc (sizeof (struct dominance_info));
   info->forest = et_forest_create ();
   info->idom = xcalloc (last_basic_block, sizeof (basic_block));

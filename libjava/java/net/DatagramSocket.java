@@ -35,8 +35,10 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
 
+import gnu.java.net.PlainDatagramSocketImpl;
 import java.io.IOException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.IllegalBlockingModeException;
@@ -71,12 +73,6 @@ public class DatagramSocket
    * This is the implementation object used by this socket.
    */
   DatagramSocketImpl impl;
-
-  /**
-   * The unique DatagramChannel object associated with this datagram socket,
-   * or null.
-   */
-  DatagramChannel ch;
 
   /**
    * This is the address we are "connected" to
@@ -266,38 +262,30 @@ public class DatagramSocket
    */
   public InetAddress getLocalAddress()
   {
-    // FIXME: JCL p. 510 says this should call checkConnect.  But what
-    // string should be used as the hostname?  Maybe this is just a side
-    // effect of calling InetAddress.getLocalHost.
-    //
-    // And is getOption with SO_BINDADDR the right way to get the address?
-    // Doesn't seem to be since this method doesn't throw a SocketException
-    // and SO_BINADDR can throw one.
-    //
-    // Also see RETURNS section in JCL p. 510 about returning any local
-    // addr "if the current execution context is not allowed to connect to
-    // the network interface that is actually bound to this datagram socket."
-    // How is that done?  via InetAddress.getLocalHost?  But that throws
-    // an UnknownHostException and this method doesn't.
-    //
-    // if (s != null)
-    //   s.checkConnect("localhost", -1);
+    if (impl == null
+	|| closed)
+      return null;
+    
+    InetAddress localAddr;
+    
     try
       {
-        return (InetAddress)impl.getOption(SocketOptions.SO_BINDADDR);
-      }
-    catch (SocketException ex)
-      {
-      }
+	localAddr = (InetAddress) impl.getOption (SocketOptions.SO_BINDADDR);
 
-    try
-      {
-        return InetAddress.getLocalHost();
+	SecurityManager s = System.getSecurityManager();
+	if (s != null)
+	  s.checkConnect (localAddr.getHostName(), -1);
       }
-    catch (UnknownHostException ex)
+    catch (SecurityException e)
+      {
+	localAddr = InetAddress.ANY_IF;
+      }
+    catch (SocketException e)
       {
         return null;
       }
+
+    return localAddr;
   }
 
   /**
@@ -525,7 +513,8 @@ public class DatagramSocket
       throw new IOException (
         "Socket connected to a multicast address my not receive");
 
-    if (ch != null && !ch.isBlocking ())
+    if (getChannel() != null
+        && !getChannel().isBlocking ())
       throw new IllegalBlockingModeException ();
 
     impl.receive(p);
@@ -574,7 +563,8 @@ public class DatagramSocket
     // FIXME: if this is a subclass of MulticastSocket,
     // use getTimeToLive for TTL val.
 
-    if (ch != null && !ch.isBlocking ())
+    if (getChannel() != null
+        && !getChannel().isBlocking ())
       throw new IllegalBlockingModeException ();
 
     impl.send(p);
@@ -624,7 +614,7 @@ public class DatagramSocket
    */
   public DatagramChannel getChannel()
   {
-    return ch;
+    return null;
   }
 
   /**

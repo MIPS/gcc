@@ -470,7 +470,7 @@ count_strange_loop_iterations (rtx init, rtx lim, enum rtx_code cond,
 
   /* If we are able to prove that we don't pass the first test, we are
      done.  */
-  rqmt = simplify_gen_relational (cond, SImode, mode, init, lim);
+  rqmt = simplify_relational_operation (cond, mode, init, lim);
   if (rqmt == const0_rtx)
     return const0_rtx;
 
@@ -557,10 +557,10 @@ count_strange_loop_iterations (rtx init, rtx lim, enum rtx_code cond,
       abort ();
     }
 
-  /* If this is const_true_rtx and we did not take a conservative aproximation
+  /* If this is const_true_rtx and we did not take a conservative approximation
      of after_wrap above, we might iterate the calculation (but of course we
      would have to take care about infinite cases).  Ignore this for now.  */
-  rqmt = simplify_gen_relational (cond, SImode, mode, after_wrap, lim);
+  rqmt = simplify_relational_operation (cond, mode, after_wrap, lim);
   if (rqmt != const0_rtx)
     return NULL_RTX;
 
@@ -775,7 +775,7 @@ simple_loop_exit_p (struct loops *loops, struct loop *loop, edge exit_edge,
 
   /* Condition must be a simple comparison in that one of operands
      is register and the other one is invariant.  */
-  if (!(condition = get_condition (exit_bb->end, NULL)))
+  if (!(condition = get_condition (exit_bb->end, NULL, false)))
     return false;
 
   if (!simple_condition_p (loop, condition, invariant_regs, desc))

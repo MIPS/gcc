@@ -345,7 +345,8 @@ do_type_align (tree type, tree decl)
   if (TYPE_ALIGN (type) > DECL_ALIGN (decl))
     {
       DECL_ALIGN (decl) = TYPE_ALIGN (type);
-      DECL_USER_ALIGN (decl) = TYPE_USER_ALIGN (type);
+      if (TREE_CODE (decl) == FIELD_DECL)
+	DECL_USER_ALIGN (decl) = TYPE_USER_ALIGN (type);
     }
 }
 
@@ -516,8 +517,7 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning ("%Jsize of '%D' is %d bytes",
-		     decl, decl, size_as_int);
+	    warning ("%Jsize of '%D' is %d bytes", decl, decl, size_as_int);
 	  else
 	    warning ("%Jsize of '%D' is larger than %d bytes",
                      decl, decl, larger_than_size);
@@ -889,7 +889,7 @@ place_field (record_layout_info rli, tree field)
                          "for '%D'", field, field);
 	      else
 		warning ("%Jpacked attribute is unnecessary for '%D'",
-                         field, field);
+			 field, field);
 	    }
 	}
       else
@@ -1092,6 +1092,7 @@ place_field (record_layout_info rli, tree field)
 		rli->prev_field = NULL;
 	    }
 
+	  rli->offset_align = tree_low_cst (TYPE_SIZE (type), 0);
 	  normalize_rli (rli);
         }
 

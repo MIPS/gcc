@@ -62,6 +62,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "integrate.h"
 #include "langhooks.h"
+#include "target.h"
 
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
@@ -74,6 +75,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef STACK_ALIGNMENT_NEEDED
 #define STACK_ALIGNMENT_NEEDED 1
 #endif
+
+#define STACK_BYTES (STACK_BOUNDARY / BITS_PER_UNIT)
 
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
@@ -4176,16 +4179,37 @@ get_first_nonparm_insn (void)
    EXP may be a type node or an expression (whose type is tested).  */
 
 int
-aggregate_value_p (tree exp)
+aggregate_value_p (tree exp, tree fntype)
 {
   int i, regno, nregs;
   rtx reg;
 
   tree type = (TYPE_P (exp)) ? exp : TREE_TYPE (exp);
 
+  if (fntype)
+    switch (TREE_CODE (fntype))
+      {
+      case CALL_EXPR:
+	fntype = get_callee_fndecl (fntype);
+	fntype = fntype ? TREE_TYPE (fntype) : 0;
+	break;
+      case FUNCTION_DECL:
+	fntype = TREE_TYPE (fntype);
+	break;
+      case FUNCTION_TYPE:
+      case METHOD_TYPE:
+        break;
+      case IDENTIFIER_NODE:
+	fntype = 0;
+	break;
+      default:
+	/* We don't expect other rtl types here.  */
+	abort();
+      }
+
   if (TREE_CODE (type) == VOID_TYPE)
     return 0;
-  if (RETURN_IN_MEMORY (type))
+  if (targetm.calls.return_in_memory (type, fntype))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
      and thus can't be returned in registers.  */
@@ -4229,9 +4253,7 @@ assign_parms (tree fndecl)
   /* This is a dummy PARM_DECL that we used for the function result if
      the function returns a structure.  */
   tree function_result_decl = 0;
-#ifdef SETUP_INCOMING_VARARGS
   int varargs_setup = 0;
-#endif
   int reg_parm_stack_space = 0;
   rtx conversion_insns = 0;
 
@@ -4264,9 +4286,9 @@ assign_parms (tree fndecl)
   stack_args_size.var = 0;
 
   /* If struct value address is treated as the first argument, make it so.  */
-  if (aggregate_value_p (DECL_RESULT (fndecl))
+  if (aggregate_value_p (DECL_RESULT (fndecl), fndecl)
       && ! current_function_returns_pcc_struct
-      && struct_value_incoming_rtx == 0)
+      && targetm.calls.struct_value_rtx (TREE_TYPE (fndecl), 1) == 0)
     {
       tree type = build_pointer_type (TREE_TYPE (fntype));
 
@@ -4318,6 +4340,7 @@ assign_parms (tree fndecl)
       int last_named = 0, named_arg;
       int in_regs;
       int partial = 0;
+      int pretend_bytes = 0;
 
       /* Set LAST_NAMED if this is last named arg before last
 	 anonymous args.  */
@@ -4335,7 +4358,7 @@ assign_parms (tree fndecl)
       /* Set NAMED_ARG if this arg should be treated as a named arg.  For
 	 most machines, if this is a varargs/stdarg function, then we treat
 	 the last named arg as if it were anonymous too.  */
-      named_arg = STRICT_ARGUMENT_NAMING ? 1 : ! last_named;
+      named_arg = targetm.calls.strict_argument_naming (&args_so_far) ? 1 : ! last_named;
 
       if (TREE_TYPE (parm) == error_mark_node
 	  /* This can happen after weird syntax errors
@@ -4400,11 +4423,12 @@ assign_parms (tree fndecl)
 
       promoted_mode = passed_mode;
 
-#ifdef PROMOTE_FUNCTION_ARGS
-      /* Compute the mode in which the arg is actually extended to.  */
-      unsignedp = TREE_UNSIGNED (passed_type);
-      promoted_mode = promote_mode (passed_type, promoted_mode, &unsignedp, 1);
-#endif
+      if (targetm.calls.promote_function_args (TREE_TYPE (fndecl)))
+	{
+	  /* Compute the mode in which the arg is actually extended to.  */
+	  unsignedp = TREE_UNSIGNED (passed_type);
+	  promoted_mode = promote_mode (passed_type, promoted_mode, &unsignedp, 1);
+	}
 
       /* Let machine desc say which reg (if any) the parm arrives in.
 	 0 means it arrives on the stack.  */
@@ -4419,7 +4443,6 @@ assign_parms (tree fndecl)
       if (entry_parm == 0)
 	promoted_mode = passed_mode;
 
-#ifdef SETUP_INCOMING_VARARGS
       /* If this is the last named parameter, do any required setup for
 	 varargs or stdargs.  We need to know about the case of this being an
 	 addressable type, in which case we skip the registers it
@@ -4432,11 +4455,18 @@ assign_parms (tree fndecl)
 	 Also, indicate when RTL generation is to be suppressed.  */
       if (last_named && !varargs_setup)
 	{
-	  SETUP_INCOMING_VARARGS (args_so_far, promoted_mode, passed_type,
-				  current_function_pretend_args_size, 0);
+	  int varargs_pretend_bytes = 0;
+	  targetm.calls.setup_incoming_varargs (&args_so_far, promoted_mode,
+						passed_type,
+						&varargs_pretend_bytes, 0);
 	  varargs_setup = 1;
+
+	  /* If the back-end has requested extra stack space, record how
+	     much is needed.  Do not change pretend_args_size otherwise
+	     since it may be nonzero from an earlier partial argument.  */
+	  if (varargs_pretend_bytes > 0)
+	    current_function_pretend_args_size = varargs_pretend_bytes;
 	}
-#endif
 
       /* Determine parm's home in the stack,
 	 in case it arrives in the stack or we should pretend it did.
@@ -4456,7 +4486,8 @@ assign_parms (tree fndecl)
 #endif
       if (!in_regs && !named_arg)
 	{
-	  int pretend_named = PRETEND_OUTGOING_VARARGS_NAMED;
+	  int pretend_named =
+	    targetm.calls.pretend_outgoing_varargs_named (&args_so_far);
 	  if (pretend_named)
 	    {
 #ifdef FUNCTION_INCOMING_ARG
@@ -4478,8 +4509,43 @@ assign_parms (tree fndecl)
 
 #ifdef FUNCTION_ARG_PARTIAL_NREGS
       if (entry_parm)
-	partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, promoted_mode,
-					      passed_type, named_arg);
+	{
+	  partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, promoted_mode,
+						passed_type, named_arg);
+	  if (partial
+#ifndef MAYBE_REG_PARM_STACK_SPACE
+	      /* The caller might already have allocated stack space
+		 for the register parameters.  */
+	      && reg_parm_stack_space == 0
+#endif
+	      )
+	    {
+	      /* Part of this argument is passed in registers and part
+		 is passed on the stack.  Ask the prologue code to extend
+		 the stack part so that we can recreate the full value.
+
+		 PRETEND_BYTES is the size of the registers we need to store.
+		 CURRENT_FUNCTION_PRETEND_ARGS_SIZE is the amount of extra
+		 stack space that the prologue should allocate.
+
+		 Internally, gcc assumes that the argument pointer is
+		 aligned to STACK_BOUNDARY bits.  This is used both for
+		 alignment optimisations (see init_emit) and to locate
+		 arguments that are aligned to more than PARM_BOUNDARY
+		 bits.  We must preserve this invariant by rounding
+		 CURRENT_FUNCTION_PRETEND_ARGS_SIZE up to a stack
+		 boundary.  */
+	      pretend_bytes = partial * UNITS_PER_WORD;
+	      current_function_pretend_args_size
+		= CEIL_ROUND (pretend_bytes, STACK_BYTES);
+
+	      /* If PRETEND_BYTES != CURRENT_FUNCTION_PRETEND_ARGS_SIZE,
+		 insert the padding before the start of the first pretend
+		 argument.  */
+	      stack_args_size.constant
+		= (current_function_pretend_args_size - pretend_bytes);
+	    }
+	}
 #endif
 
       memset (&locate, 0, sizeof (locate));
@@ -4524,17 +4590,6 @@ assign_parms (tree fndecl)
 
       if (partial)
 	{
-#ifndef MAYBE_REG_PARM_STACK_SPACE
-	  /* When REG_PARM_STACK_SPACE is nonzero, stack space for
-	     split parameters was allocated by our caller, so we
-	     won't be pushing it in the prolog.  */
-	  if (reg_parm_stack_space == 0)
-#endif
-	  current_function_pretend_args_size
-	    = (((partial * UNITS_PER_WORD) + (PARM_BOUNDARY / BITS_PER_UNIT) - 1)
-	       / (PARM_BOUNDARY / BITS_PER_UNIT)
-	       * (PARM_BOUNDARY / BITS_PER_UNIT));
-
 	  /* Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
 	  if (GET_CODE (entry_parm) == PARALLEL)
@@ -4578,10 +4633,7 @@ assign_parms (tree fndecl)
 #endif
 	  )
 	{
-	  stack_args_size.constant += locate.size.constant;
-	  /* locate.size doesn't include the part in regs.  */
-	  if (partial)
-	    stack_args_size.constant += current_function_pretend_args_size;
+	  stack_args_size.constant += pretend_bytes + locate.size.constant;
 	  if (locate.size.var)
 	    ADD_PARM_SIZE (stack_args_size, locate.size.var);
 	}
@@ -4673,9 +4725,8 @@ assign_parms (tree fndecl)
 
 	      if (stack_parm == 0)
 		{
-		  stack_parm
-		    = assign_stack_local (GET_MODE (entry_parm),
-					  size_stored, 0);
+		  stack_parm = assign_stack_local (BLKmode, size_stored, 0);
+		  PUT_MODE (stack_parm, GET_MODE (entry_parm));
 		  set_mem_attributes (stack_parm, parm, 1);
 		}
 
@@ -5130,11 +5181,7 @@ assign_parms (tree fndecl)
       rtx addr = DECL_RTL (function_result_decl);
       rtx x;
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-      if (GET_MODE (addr) != Pmode)
-	addr = convert_memory_address (Pmode, addr);
-#endif
-
+      addr = convert_memory_address (Pmode, addr);
       x = gen_rtx_MEM (DECL_MODE (result), addr);
       set_mem_attributes (x, result, 1);
       SET_DECL_RTL (result, x);
@@ -5153,8 +5200,6 @@ assign_parms (tree fndecl)
 				    REG_PARM_STACK_SPACE (fndecl));
 #endif
 #endif
-
-#define STACK_BYTES (STACK_BOUNDARY / BITS_PER_UNIT)
 
   current_function_args_size
     = ((current_function_args_size + STACK_BYTES - 1)
@@ -5275,8 +5320,6 @@ split_complex_args (tree args)
    that REGNO is promoted from and whether the promotion was signed or
    unsigned.  */
 
-#ifdef PROMOTE_FUNCTION_ARGS
-
 rtx
 promoted_input_arg (unsigned int regno, enum machine_mode *pmode, int *punsignedp)
 {
@@ -5304,7 +5347,6 @@ promoted_input_arg (unsigned int regno, enum machine_mode *pmode, int *punsigned
   return 0;
 }
 
-#endif
 
 /* Compute the size and offset from the start of the stacked arguments for a
    parm passed in mode PASSED_MODE and with type TYPE.
@@ -5563,9 +5605,9 @@ uninitialized_vars_warning (tree block)
 	     with a nonzero DECL_INITIAL had an initializer, so do not
 	     claim it is potentially uninitialized.
 
-	     We do not care about the actual value in DECL_INITIAL, so we do
-	     not worry that it may be a dangling pointer.  */
-	  && DECL_INITIAL (decl) == NULL_TREE
+	     When the DECL_INITIAL is NULL call the language hook to tell us
+	     if we want to warn.  */
+	  && (DECL_INITIAL (decl) == NULL_TREE || lang_hooks.decl_uninit (decl))
 	  && regno_uninitialized (REGNO (DECL_RTL (decl))))
 	warning ("%J'%D' might be used uninitialized in this function",
 		 decl, decl);
@@ -6284,7 +6326,7 @@ allocate_struct_function (tree fndecl)
   current_function_name = (*lang_hooks.decl_printable_name) (fndecl, 2);
 
   result = DECL_RESULT (fndecl);
-  if (aggregate_value_p (result))
+  if (aggregate_value_p (result, fndecl))
     {
 #ifdef PCC_STATIC_STRUCT_RETURN
       current_function_returns_pcc_struct = 1;
@@ -6515,7 +6557,7 @@ expand_function_start (tree subr, int parms_have_cleanups)
      before any library calls that assign parms might generate.  */
 
   /* Decide whether to return the value in memory or in a register.  */
-  if (aggregate_value_p (DECL_RESULT (subr)))
+  if (aggregate_value_p (DECL_RESULT (subr), subr))
     {
       /* Returning something that won't go in a register.  */
       rtx value_address = 0;
@@ -6529,13 +6571,14 @@ expand_function_start (tree subr, int parms_have_cleanups)
       else
 #endif
 	{
+	  rtx sv = targetm.calls.struct_value_rtx (TREE_TYPE (subr), 1);
 	  /* Expect to be passed the address of a place to store the value.
 	     If it is passed as an argument, assign_parms will take care of
 	     it.  */
-	  if (struct_value_incoming_rtx)
+	  if (sv)
 	    {
 	      value_address = gen_reg_rtx (Pmode);
-	      emit_move_insn (value_address, struct_value_incoming_rtx);
+	      emit_move_insn (value_address, sv);
 	    }
 	}
       if (value_address)
@@ -6972,10 +7015,9 @@ expand_function_end (void)
 	    {
 	      int unsignedp = TREE_UNSIGNED (TREE_TYPE (decl_result));
 
-#ifdef PROMOTE_FUNCTION_RETURN
-	      promote_mode (TREE_TYPE (decl_result), GET_MODE (decl_rtl),
-			    &unsignedp, 1);
-#endif
+	      if (targetm.calls.promote_function_return (TREE_TYPE (current_function_decl)))
+		promote_mode (TREE_TYPE (decl_result), GET_MODE (decl_rtl),
+			      &unsignedp, 1);
 
 	      convert_move (real_decl_rtl, decl_rtl, unsignedp);
 	    }
@@ -7021,12 +7063,9 @@ expand_function_end (void)
 	 assignment and USE below when inlining this function.  */
       REG_FUNCTION_VALUE_P (outgoing) = 1;
 
-#ifdef POINTERS_EXTEND_UNSIGNED
       /* The address may be ptr_mode and OUTGOING may be Pmode.  */
-      if (GET_MODE (outgoing) != GET_MODE (value_address))
-	value_address = convert_memory_address (GET_MODE (outgoing),
-						value_address);
-#endif
+      value_address = convert_memory_address (GET_MODE (outgoing),
+					      value_address);
 
       emit_move_insn (outgoing, value_address);
 

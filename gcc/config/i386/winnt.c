@@ -101,8 +101,7 @@ ix86_handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
           && !DECL_INLINE (node))
 	{
-	  error ("%Jfunction `%D' definition is marked dllimport.",
-		 node, node);
+	  error ("%Jfunction `%D' definition is marked dllimport.", node, node);
 	  *no_add_attrs = true;
 	}
 
@@ -329,7 +328,7 @@ i386_pe_mark_dllexport (tree decl)
     {
       warning ("%Jinconsistent dll linkage for '%D', dllexport assumed.",
 	       decl, decl);
-      /* Remove DLL_IMPORT_PREFIX.  */
+     /* Remove DLL_IMPORT_PREFIX.  */
       oldname += strlen (DLL_IMPORT_PREFIX);
       DECL_NON_ADDR_CONST_P (decl) = 0;
     }
@@ -421,7 +420,10 @@ gen_fastcall_suffix (tree decl)
       {
 	tree formal_type = TYPE_ARG_TYPES (TREE_TYPE (decl));
 
-	while (TREE_VALUE (formal_type) != void_type_node)
+	/* Quit if we hit an incomplete type.  Error is reported
+	   by convert_arguments in c-typeck.c or cp/typeck.c.  */
+	while (TREE_VALUE (formal_type) != void_type_node
+	       && COMPLETE_TYPE_P (TREE_VALUE (formal_type)))	
 	  {
 	    int parm_size
 	      = TREE_INT_CST_LOW (TYPE_SIZE (TREE_VALUE (formal_type)));
@@ -459,7 +461,10 @@ gen_stdcall_suffix (tree decl)
       {
 	tree formal_type = TYPE_ARG_TYPES (TREE_TYPE (decl));
 
-	while (TREE_VALUE (formal_type) != void_type_node)
+	/* Quit if we hit an incomplete type.  Error is reported
+	   by convert_arguments in c-typeck.c or cp/typeck.c.  */
+	while (TREE_VALUE (formal_type) != void_type_node
+	       && COMPLETE_TYPE_P (TREE_VALUE (formal_type)))	
 	  {
 	    int parm_size
 	      = TREE_INT_CST_LOW (TYPE_SIZE (TREE_VALUE (formal_type)));
@@ -516,14 +521,17 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 	   && i386_pe_dllimport_name_p (XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0)))
     {
       const char *oldname = XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0);
+
       /* Remove DLL_IMPORT_PREFIX.  */
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
       rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
 
-      warning ("%J%s '%D' %s after being referenced with dllimport linkage.",
-	       decl, TREE_CODE (decl) == VAR_DECL ? "variable" : "function",
-	       decl, (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
-	       ? "defined locally" : "redeclared without dllimport attribute");
+      if (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
+	warning ("%J'%D' defined locally after being "
+		 "referenced with dllimport linkage", decl, decl);
+      else
+	warning ("%J'%D' redeclared without dllimport attribute "
+		 "after being referenced with dllimport linkage", decl, decl);
 
       XEXP (DECL_RTL (decl), 0) = newrtl;
 

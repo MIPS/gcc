@@ -189,7 +189,7 @@ static int current_extern_inline;
    the end of the list on each insertion, or reverse the lists later,
    we maintain a pointer to the last list entry for each of the lists.
 
-   The order of the tags, shadowed, shadowed_tags, and incomplete
+   The order of the tags, shadowed, and shadowed_tags
    lists does not matter, so we just prepend to these lists.  */
 
 struct c_scope GTY(())
@@ -228,9 +228,6 @@ struct c_scope GTY(())
      for all the scopes that were entered and exited one level down.  */
   tree blocks;
   tree blocks_last;
-
-  /* Variable declarations with incomplete type in this scope.  */
-  tree incomplete;
 
   /* True if we are currently filling this scope with parameter
      declarations.  */
@@ -464,7 +461,7 @@ pushlevel (int dummy ATTRIBUTE_UNUSED)
 
 	 The outermost block of a function always gets a BLOCK node,
 	 because the debugging output routines expect that each
-	 function has at least one BLOCK. */
+	 function has at least one BLOCK.  */
       current_scope->parm_flag         = false;
       current_scope->function_body     = true;
       current_scope->keep              = true;
@@ -511,7 +508,8 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
   tree decl;
   tree p;
 
-  scope->function_body |= functionbody;
+  /* The following line does not use |= due to a bug in HP's C compiler */
+  scope->function_body = scope->function_body | functionbody;
 
   if (keep == KEEP_MAYBE)
     keep = (scope->names || scope->tags);
@@ -573,7 +571,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
 	  goto normal;
 
 	case VAR_DECL:
-	  /* keep this in sync with stmt.c:warn_about_unused_variables.
+	  /* Keep this in sync with stmt.c:warn_about_unused_variables.
 	     No warnings when the global scope is popped because the
 	     global scope isn't popped for the last translation unit,
 	     so the warnings are done in c_write_global_declaration.  */
@@ -779,10 +777,8 @@ static int
 duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 		 int different_tu)
 {
-  int comptype_flags = (different_tu ? COMPARE_DIFFERENT_TU
-			: COMPARE_STRICT);
   int types_match = comptypes (TREE_TYPE (newdecl), TREE_TYPE (olddecl),
-			       comptype_flags);
+			       COMPARE_STRICT);
   int new_is_definition = (TREE_CODE (newdecl) == FUNCTION_DECL
 			   && DECL_INITIAL (newdecl) != 0);
   tree oldtype = TREE_TYPE (olddecl);
@@ -811,8 +807,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	      warning ("%Jfunction '%D' redeclared as inline",
 		       newdecl, newdecl);
 	      warning ("%Jprevious declaration of function '%D' "
-                       "with attribute noinline",
-                       olddecl, olddecl);
+                       "with attribute noinline", olddecl, olddecl);
 	    }
 	  else if (DECL_DECLARED_INLINE_P (olddecl)
 		   && DECL_UNINLINABLE (newdecl)
@@ -848,7 +843,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	    {
 	      if (warn_shadow)
 		warning ("%Jshadowing built-in function '%D'",
-                         newdecl, newdecl);
+			 newdecl, newdecl);
 	    }
 	  else
 	    warning ("%Jbuilt-in function '%D' declared as non-function",
@@ -857,7 +852,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
       else
 	{
 	  error ("%J'%D' redeclared as different kind of symbol",
-                 newdecl, newdecl);
+		 newdecl, newdecl);
 	  error ("%Jprevious declaration of '%D'", olddecl, olddecl);
 	}
 
@@ -899,7 +894,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 
 	  if (trytype)
 	    {
-	      types_match = comptypes (newtype, trytype, comptype_flags);
+	      types_match = comptypes (newtype, trytype, COMPARE_STRICT);
 	      if (types_match)
 		oldtype = trytype;
 	      if (! different_binding_level)
@@ -910,7 +905,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	{
 	  /* If types don't match for a built-in, throw away the built-in.  */
 	  warning ("%Jconflicting types for built-in function '%D'",
-                   newdecl, newdecl);
+		   newdecl, newdecl);
 	  return 0;
 	}
     }
@@ -983,7 +978,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 		 && ! pedantic
 		 /* Return types must still match.  */
 		 && comptypes (TREE_TYPE (oldtype),
-			       TREE_TYPE (newtype), comptype_flags)
+			       TREE_TYPE (newtype), COMPARE_STRICT)
 		 && TYPE_ARG_TYPES (newtype) == 0))
     {
       error ("%Jconflicting types for '%D'", newdecl, newdecl);
@@ -991,7 +986,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	 involving an empty arglist vs a nonempty one.  */
       if (TREE_CODE (olddecl) == FUNCTION_DECL
 	  && comptypes (TREE_TYPE (oldtype),
-			TREE_TYPE (newtype), comptype_flags)
+			TREE_TYPE (newtype), COMPARE_STRICT)
 	  && ((TYPE_ARG_TYPES (oldtype) == 0
 	       && DECL_INITIAL (olddecl) == 0)
 	      ||
@@ -1080,8 +1075,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
                    || DECL_IN_SYSTEM_HEADER (newdecl)))
 	{
 	  warning ("%Jredefinition of '%D'", newdecl, newdecl);
-          if (DECL_INITIAL (olddecl)
-              && current_scope == global_scope)
+          if (DECL_INITIAL (olddecl) && current_scope == global_scope)
             warning ("%J'%D' previously defined here", olddecl, olddecl);
           else
             warning ("%J'%D' previously declared here", olddecl, olddecl);
@@ -1121,7 +1115,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	      /* Type for passing arg must be consistent
 		 with that declared for the arg.  */
 	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type),
-			       comptype_flags))
+			       COMPARE_STRICT))
 		{
 		  error ("%Jprototype for '%D' follows and argument %d "
                          "doesn't match", newdecl, newdecl, nargs);
@@ -1194,7 +1188,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
       && !(DECL_EXTERNAL (olddecl) && ! DECL_EXTERNAL (newdecl)))
     {
       warning ("%Jredundant redeclaration of '%D' in same scope",
-               newdecl, newdecl);
+	       newdecl, newdecl);
       warning ("%Jprevious declaration of '%D'", olddecl, olddecl);
     }
 
@@ -1598,7 +1592,7 @@ warn_if_shadowing (tree x, tree old)
 
     Since all standard types are effectively declared at line zero
     in the source file, we can easily check to see if we are working
-    on a standard type by checking the current value of input_line.  */
+    on a standard type by checking the current value of lineno.  */
 
 static void
 clone_underlying_type (tree x)
@@ -1723,14 +1717,15 @@ pushdecl (tree x)
       IDENTIFIER_SYMBOL_VALUE (name) = x;
       C_DECL_INVISIBLE (x) = 0;
 
-      /* Keep list of variables in this scope with incomplete type.
+      /* If x's type is incomplete because it's based on a
+	 structure or union which has not yet been fully declared,
+	 attach it to that structure or union type, so we can go
+	 back and complete the variable declaration later, if the
+	 structure or union gets fully declared.
+
 	 If the input is erroneous, we can have error_mark in the type
 	 slot (e.g. "f(void a, ...)") - that doesn't count as an
-	 incomplete type.
-
-	 FIXME: Chain these off the TYPE_DECL for the incomplete type,
-	 then we don't have to do (potentially quite costly) searches
-	 in finish_struct.  */
+	 incomplete type.  */
       if (TREE_TYPE (x) != error_mark_node
 	  && !COMPLETE_TYPE_P (TREE_TYPE (x)))
 	{
@@ -1738,9 +1733,15 @@ pushdecl (tree x)
 
 	  while (TREE_CODE (element) == ARRAY_TYPE)
 	    element = TREE_TYPE (element);
-	  if (TREE_CODE (element) == RECORD_TYPE
-	      || TREE_CODE (element) == UNION_TYPE)
-	    scope->incomplete = tree_cons (NULL_TREE, x, scope->incomplete);
+	  element = TYPE_MAIN_VARIANT (element);
+
+	  if ((TREE_CODE (element) == RECORD_TYPE
+	       || TREE_CODE (element) == UNION_TYPE)
+	      && (TREE_CODE (x) != TYPE_DECL
+		  || TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE)
+	      && !COMPLETE_TYPE_P (element))
+	    C_TYPE_INCOMPLETE_VARS (element)
+	      = tree_cons (NULL_TREE, x, C_TYPE_INCOMPLETE_VARS (element));
 	}
     }
 
@@ -2643,6 +2644,26 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   decl_attributes (&decl, attributes, 0);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && targetm.calls.promote_prototypes (TREE_TYPE (decl)))
+    {
+      tree ce = declarator;
+
+      if (TREE_CODE (ce) == INDIRECT_REF)
+	ce = TREE_OPERAND (declarator, 0);
+      if (TREE_CODE (ce) == CALL_EXPR)
+	{
+	  tree args = TREE_PURPOSE (TREE_OPERAND (ce, 1));
+	  for (; args; args = TREE_CHAIN (args))
+	    {
+	      tree type = TREE_TYPE (args);
+	      if (INTEGRAL_TYPE_P (type)
+		  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
+		DECL_ARG_TYPE (args) = integer_type_node;
+	    }
+	}
+    }
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
@@ -4540,10 +4561,6 @@ get_parm_info (int void_at_end)
 	 declared types.  The back end may override this.  */
       type = TREE_TYPE (decl);
       DECL_ARG_TYPE (decl) = type;
-      if (PROMOTE_PROTOTYPES
-	  && INTEGRAL_TYPE_P (type)
-	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
-	DECL_ARG_TYPE (decl) = integer_type_node;
 
       /* Check for (..., void, ...) and issue an error.  */
       if (VOID_TYPE_P (type) && !DECL_NAME (decl) && !gave_void_only_once_err)
@@ -5096,58 +5113,24 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   /* If this structure or union completes the type of any previous
      variable declaration, lay it out and output its rtl.  */
-
-  if (current_scope->incomplete != NULL_TREE)
+  for (x = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
+       x;
+       x = TREE_CHAIN (x))
     {
-      tree prev = NULL_TREE;
-
-      for (x = current_scope->incomplete; x; x = TREE_CHAIN (x))
-        {
-	  tree decl = TREE_VALUE (x);
-
-	  if (TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TYPE_MAIN_VARIANT (t)
-	      && TREE_CODE (decl) != TYPE_DECL)
-	    {
-	      layout_decl (decl, 0);
-	      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
-	      if (c_dialect_objc ())
-		objc_check_decl (decl);
-	      rest_of_decl_compilation (decl, NULL, toplevel, 0);
-	      if (! toplevel)
-		expand_decl (decl);
-	      /* Unlink X from the incomplete list.  */
-	      if (prev)
-		TREE_CHAIN (prev) = TREE_CHAIN (x);
-	      else
-	        current_scope->incomplete = TREE_CHAIN (x);
-	    }
-	  else if (!COMPLETE_TYPE_P (TREE_TYPE (decl))
-		   && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-	    {
-	      tree element = TREE_TYPE (decl);
-	      while (TREE_CODE (element) == ARRAY_TYPE)
-		element = TREE_TYPE (element);
-	      if (element == t)
-		{
-		  layout_array_type (TREE_TYPE (decl));
-		  if (TREE_CODE (decl) != TYPE_DECL)
-		    {
-		      layout_decl (decl, 0);
-		      if (c_dialect_objc ())
-			objc_check_decl (decl);
-		      rest_of_decl_compilation (decl, NULL, toplevel, 0);
-		      if (! toplevel)
-			expand_decl (decl);
-		    }
-		  /* Unlink X from the incomplete list.  */
-		  if (prev)
-		    TREE_CHAIN (prev) = TREE_CHAIN (x);
-		  else
-		    current_scope->incomplete = TREE_CHAIN (x);
-		}
-	    }
+      tree decl = TREE_VALUE (x);
+      if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+	layout_array_type (TREE_TYPE (decl));
+      if (TREE_CODE (decl) != TYPE_DECL)
+	{
+	  layout_decl (decl, 0);
+	  if (c_dialect_objc ())
+	    objc_check_decl (decl);
+	  rest_of_decl_compilation (decl, NULL, toplevel, 0);
+	  if (! toplevel)
+	    expand_decl (decl);
 	}
     }
+  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (t, toplevel);
@@ -5504,7 +5487,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
 	   && old_decl != 0 && TREE_USED (old_decl)
 	   && TYPE_ARG_TYPES (TREE_TYPE (old_decl)) == 0)
     warning ("%J'%D' was used with no prototype before its definition",
-             decl1, decl1);
+	     decl1, decl1);
   /* Optionally warn of any global def with no previous declaration.  */
   else if (warn_missing_declarations
 	   && TREE_PUBLIC (decl1)
@@ -5568,7 +5551,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
 	    case 1:
 	      if (TYPE_MAIN_VARIANT (type) != integer_type_node)
 		pedwarn ("%Jfirst argument of '%D' should be `int'",
-                         decl1, decl1);
+			 decl1, decl1);
 	      break;
 
 	    case 2:
@@ -5577,7 +5560,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
 		      != char_type_node))
 		pedwarn ("%Jsecond argument of '%D' should be 'char **'",
-			 decl1, decl1);
+                         decl1, decl1);
 	      break;
 
 	    case 3:
@@ -5877,7 +5860,7 @@ store_parm_decls_oldstyle (void)
 		     useful for argument types like uid_t.  */
 		  DECL_ARG_TYPE (parm) = TREE_TYPE (parm);
 
-		  if (PROMOTE_PROTOTYPES
+		  if (targetm.calls.promote_prototypes (TREE_TYPE (current_function_decl))
 		      && INTEGRAL_TYPE_P (TREE_TYPE (parm))
 		      && TYPE_PRECISION (TREE_TYPE (parm))
 		      < TYPE_PRECISION (integer_type_node))
@@ -6020,13 +6003,10 @@ store_parm_decls (void)
    all the way to assembler language output.  The free the storage
    for the function definition.
 
-   This is called after parsing the body of the function definition.
-
-   NESTED is nonzero if the function being finished is nested in another.
-   CAN_DEFER_P is nonzero if the function may be deferred.  */
+   This is called after parsing the body of the function definition.  */
 
 void
-finish_function (int nested, int can_defer_p)
+finish_function ()
 {
   tree fndecl = current_function_decl;
 
@@ -6044,6 +6024,19 @@ finish_function (int nested, int can_defer_p)
     {
       pushlevel (0);
       poplevel (0, 0, 0);
+    }
+
+  if (TREE_CODE (fndecl) == FUNCTION_DECL
+      && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
+    {
+      tree args = DECL_ARGUMENTS (fndecl);
+      for (; args; args = TREE_CHAIN (args))
+ 	{
+ 	  tree type = TREE_TYPE (args);
+ 	  if (INTEGRAL_TYPE_P (type)
+ 	      && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
+ 	    DECL_ARG_TYPE (args) = integer_type_node;
+ 	}
     }
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
@@ -6094,6 +6087,13 @@ finish_function (int nested, int can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
+  /* With just -Wextra, complain only if function returns both with
+     and without a value.  */
+  if (extra_warnings
+      && current_function_returns_value
+      && current_function_returns_null)
+    warning ("this function may return with or without a value");
+
   /* Genericize before inlining.  */
   if (!flag_disable_gimple)
     c_genericize (fndecl);
@@ -6102,85 +6102,13 @@ finish_function (int nested, int can_defer_p)
      DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
 
-  if (flag_unit_at_a_time && can_defer_p)
-    {
-      cgraph_finalize_function (fndecl, DECL_SAVED_TREE (fndecl));
-      current_function_decl = NULL;
-      return;
-    }
-
-  if (! nested)
-    {
-      /* Function is parsed.
-	 Generate RTL for the body of this function or defer
-	 it for later expansion.  */
-      bool uninlinable = true;
-
-      /* There's no reason to do any of the work here if we're only doing
-	 semantic analysis; this code just generates RTL.  */
-      if (flag_syntax_only)
-	{
-	  current_function_decl = NULL;
-	  DECL_SAVED_TREE (fndecl) = NULL_TREE;
-	  return;
-	}
-
-      if (flag_inline_trees)
-	{
-	  /* Inlining can change the current line number and filename.
-	     We need to save/restore so that we can emit the proper line
-	     note for the end of the function later.  */
-	  int saved_lineno = input_line;
-	  const char *saved_filename = input_filename;
-
-	  /* First, cache whether the current function is inlinable.  Some
-	     predicates depend on cfun and current_function_decl to
-	     function completely.  */
-	  timevar_push (TV_INTEGRATION);
-	  uninlinable = !tree_inlinable_function_p (fndecl);
-
-	  if (can_defer_p
-	      /* We defer functions marked inline *even if* the function
-		 itself is not inlinable.  This is because we don't yet
-		 know if the function will actually be used; we may be
-		 able to avoid emitting it entirely.  */
-	      && (!uninlinable || DECL_DECLARED_INLINE_P (fndecl))
-	      /* Save function tree for inlining.  Should return 0 if the
-		 language does not support function deferring or the
-		 function could not be deferred.  */
-	      && defer_fn (fndecl))
-	    {
-	      /* Let the back-end know that this function exists.  */
-	      (*debug_hooks->deferred_inline_function) (fndecl);
-	      timevar_pop (TV_INTEGRATION);
-	      current_function_decl = NULL;
-	      return;
-	    }
-
-	  /* Then, inline any functions called in it.  */
-	  optimize_inline_calls (fndecl);
-
-	  input_line = saved_lineno;
-	  saved_filename = input_filename;
-	  timevar_pop (TV_INTEGRATION);
-
-	  dump_function (TDI_inlined, fndecl);
-	}
-
-      c_expand_body (fndecl);
-
-      /* Keep the function body if it's needed for inlining or dumping.  */
-      if (uninlinable && !dump_enabled_p (TDI_all))
-	{
-	  /* Allow the body of the function to be garbage collected.  */
-	  DECL_SAVED_TREE (fndecl) = NULL_TREE;
-	}
-
-      /* Let the error reporting routines know that we're outside a
-	 function.  For a nested function, this value is used in
-	 c_pop_function_context and then reset via pop_function_context.  */
-      current_function_decl = NULL;
-    }
+  /* ??? Objc emits functions after finalizing the compilation unit.
+     This should be cleaned up later and this conditional removed.  */
+  if (!cgraph_global_info_ready)
+    cgraph_finalize_function (fndecl, false);
+  else
+    c_expand_body (fndecl);
+  current_function_decl = NULL;
 }
 
 /* Generate the RTL for a deferred function FNDECL.  */
@@ -6206,8 +6134,7 @@ c_expand_deferred_function (tree fndecl)
 
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
-   function.  If can_defer_p is zero, we won't attempt to defer the
-   generation of RTL.  */
+   function.  */
 
 static void
 c_expand_body_1 (tree fndecl, int nested_p)
@@ -6217,16 +6144,16 @@ c_expand_body_1 (tree fndecl, int nested_p)
       /* Make sure that we will evaluate variable-sized types involved
 	 in our function's type.  */
       expand_pending_sizes (DECL_LANG_SPECIFIC (fndecl)->pending_sizes);
+
+      /* Squirrel away our current state.  */
+      push_function_context ();
     }
 
-  tree_rest_of_compilation (fndecl);
+  tree_rest_of_compilation (fndecl, nested_p);
 
-  /* With just -Wextra, complain only if function returns both with
-     and without a value.  */
-  if (extra_warnings
-      && current_function_returns_value
-      && current_function_returns_null)
-    warning ("this function may return with or without a value");
+  if (nested_p)
+    /* Return to the enclosing function.  */
+    pop_function_context ();
 
   if (DECL_STATIC_CONSTRUCTOR (fndecl))
     {
@@ -6549,7 +6476,7 @@ make_pointer_declarator (tree type_quals_attrs, tree target)
 /* A wrapper around lhd_set_decl_assembler_name that gives static
    variables their C names if they are at file scope and only one
    translation unit is being compiled, for backwards compatibility
-   with certain bizzare assembler hacks (like crtstuff.c).  */
+   with certain bizarre assembler hacks (like crtstuff.c).  */
 
 void
 c_static_assembler_name (tree decl)
@@ -6623,7 +6550,7 @@ merge_translation_unit_decls (void)
 	      tree old_decl = (tree) *slot;
 
 	      /* If this is weak or common or whatever, suppress it
-		 in favour of the other definition.  */
+		 in favor of the other definition.  */
 	      if (DECL_WEAK (decl))
 		DECL_EXTERNAL (decl) = 1;
 	      else if (DECL_WEAK (old_decl) && ! DECL_WEAK (decl))
@@ -6720,6 +6647,7 @@ c_reset_state (void)
       current_scope = global_scope;
   file_scope_decl = current_file_decl;
   DECL_INITIAL (file_scope_decl) = poplevel (1, 0, 0);
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (file_scope_decl)) = file_scope_decl;
   truly_local_externals = NULL_TREE;
 
   /* Start a new global binding level.  */

@@ -2388,9 +2388,7 @@ may_trap_p (rtx x)
 	  || (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
 	      && flag_trapping_math))
 	return 1;
-      /* This was const0_rtx, but by not using that,
-	 we can link this file into other programs.  */
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT && INTVAL (XEXP (x, 1)) == 0)
+      if (XEXP (x, 1) == const0_rtx)
 	return 1;
       break;
 
@@ -3311,7 +3309,7 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
 #endif
 
   /* The XMODE value can be seen as a vector of NREGS_XMODE
-     values.  The subreg must represent an lowpart of given field.
+     values.  The subreg must represent a lowpart of given field.
      Compute what field it is.  */
   offset -= subreg_lowpart_offset (ymode,
 				   mode_for_size (GET_MODE_BITSIZE (xmode)

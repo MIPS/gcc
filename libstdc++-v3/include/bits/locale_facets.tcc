@@ -105,7 +105,7 @@ namespace std
 	const locale::facet** __caches = __loc._M_impl->_M_caches;
 	if (!__caches[__i])
 	  {
-	    __numpunct_cache<_CharT>* __tmp;
+	    __numpunct_cache<_CharT>* __tmp = NULL;
 	    try
 	      {
 		__tmp = new __numpunct_cache<_CharT>;
@@ -2238,7 +2238,7 @@ namespace std
 	    }
 	  else if (__testsign)
 	    {
-	      _Traits::eq((__news[0] = __olds[0]), __plus) ? __plus : __minus;
+	      __news[0] = __olds[0];
 	      ++__mod;
 	      ++__news;
 	      __beg = __pads;

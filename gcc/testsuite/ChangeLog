@@ -1,6 +1,542 @@
-2003-09-07  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+2003-09-23  Geoffrey Keating  <geoffk@apple.com>
 
-	* gfortran.fortran-torture/execute/intrinsic_aint_anint.f90: New test.
+	* gcc.dg/darwin-abi-1.c: New file.
+
+2003-09-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/12281
+	* gcc.c-torture/compile/20030921-1.c: New test.
+
+2003-09-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/reg-stack2.C: New test.
+
+2003-09-21  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* g++.dg/eh/delayslot1.C: New test.
+
+2003-09-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/format/gcc_diag-1.c: Add tests for %J.
+
+2003-09-20  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20030920-1.c: New test case.
+
+2003-09-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/rtti/typeid3.C: Correct expected error message.
+
+2003-09-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/157
+	* g++.dg/parse/crash12.C: New test.
+
+2003-09-19  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/mixed-struct-check.h: New.
+	* gcc.dg/compat/mixed-struct-defs.h: New.
+	* gcc.dg/compat/mixed-struct-init.h: New.
+	* gcc.dg/compat/struct-by-value-19_main.c: New.
+	* gcc.dg/compat/struct-by-value-19_x.c: New.
+	* gcc.dg/compat/struct-by-value-19_y.c: New.
+	* gcc.dg/compat/struct-by-value-20_main.c: New.
+	* gcc.dg/compat/struct-by-value-20_x.c: New.
+	* gcc.dg/compat/struct-by-value-20_y.c: New.
+	* gcc.dg/compat/struct-return-19_main.c: New.
+	* gcc.dg/compat/struct-return-19_x.c: New.
+	* gcc.dg/compat/struct-return-19_y.c: New.
+	* gcc.dg/compat/struct-return-20_main.c: New.
+	* gcc.dg/compat/struct-return-20_x.c: New.
+	* gcc.dg/compat/struct-return-20_y.c: New.
+
+2003-09-19  Andrew Pinski  <pinskia@physics.uc.edu>
+	* g++.dg/init/array11.C: Change unsigned to __SIZE_TYPE__
+	so that it will not complain on LP64 targets.
+
+2003-09-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/495
+	* g++.dg/template/friend24.C: New test.
+
+2003-09-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12332
+	* g++.dg/template/memtmpl2.C: New test.
+
+2003-09-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/11184
+	* gcc.dg/builtin-apply1.c: New test.
+
+2003-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9848
+	* g++.dg/warn/Wunused-4.C: New test.
+
+2003-09-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/12316
+	* g++.dg/other/gc2.C: New test.
+
+2003-09-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11991
+	* g++.dg/rtti/typeid3.C: New test.
+
+	PR c++/12266
+	* g++.dg/overload/template1.C: New test.
+
+2003-09-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/cfg3.C: New test.
+
+2003-09-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7939
+	* g++.dg/template/crash11.C: New test.
+
+2003-09-16  Jason Merrill  <jason@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/attr-warn-unused-result.c: New test.
+
+2003-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12184
+	* g++.dg/expr/call2.C: New test.
+
+2003-09-15  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/Wold-style-definition-1.c: New test.
+
+2003-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/3907
+	* g++.dg/parse/template12.C: New test.
+
+	* g++.dg/abi/bitfield11.C: New test.
+	* g++.dg/abi/bitfield12.C: Likewise.
+
+2003-09-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/cpp/separate-1.c: Adjust line of error.  Test for correct
+	non-expansion of functional macro name without arguments at EOL.
+	* gcc.dg/cpp/spacing1.c: Revert 2003-08-04's change.  Likewise.
+
+2003-09-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20030914-[12].c: New tests.
+
+2003-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11788
+	* g++.dg/overload/addr1.C: New test.
+
+2003-09-10  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gcc.dg/20030909-1.c: New test.
+
+2003-09-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp10.c: New test.
+
+2003-09-09  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-ld-6.c: New test.
+	
+2003-09-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c: New testcase.
+
+2003-09-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/ia64-types1.c: New test.
+	* gcc.dg/ia64-types2.c: Likewise.
+
+2003-09-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-1.c: Add more _Complex tests.
+	* gcc.dg/torture/builtin-attr-1.c: Likewise.
+
+	* gcc.dg/builtins-1.c: Test existing _Complex functions.
+	* gcc.dg/torture/builtin-attr-1.c: Likewise.
+
+2003-09-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11786
+	* g++.dg/lookup/koenig2.C: New test.
+
+	PR c++/5296
+	* g++.dg/rtti/typeid2.C: New test.
+
+2003-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20030904-1.c: New test.
+
+2003-09-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/longbranch2.C: New test.
+
+2003-09-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/template/crash10.C: Only compile it.
+
+2003-09-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/11665
+	* gcc.c-torture/compile/20030907-1.c: New test.
+	* g++.dg/init/array11.C: New test.
+
+2003-09-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11852
+	* g++.dg/init/struct1.C: New test.
+
+2003-09-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12181
+	* g++.dg/expr/comma1.C: New test.
+
+2003-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11867
+	* g++.dg/expr/static_cast5.C: New test.
+
+2003-09-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/11507
+	* g++.dg/lookup/scoped7.C: New test.
+ 
+	PR c++/9574
+	* g++.dg/other/static1.C: New test.
+
+	PR c++/11490
+	* g++.dg/warn/template-1.C: New test.
+
+	PR c++/11432
+	* g++.dg/template/crash10.C: New test.
+ 
+	PR c++/2478
+	* g++.dg/overload/VLA.C: New test.
+ 
+	PR c++/10804
+	* g++.dg/template/call1.C: New test.
+
+2003-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11794
+	* g++.dg/parse/using3.C: New test.
+
+2003-09-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/11409
+	* g++.dg/overload/builtin3.C: New test case.
+
+2003-09-06  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR c/9862
+	* gcc.dg/20030906-1.c: New test.
+	* gcc.dg/20030906-2.c: Likewise.
+
+2003-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12167
+	* g++.dg/parse/defarg5.C: New test.
+
+	* g++.dg/template/non-type-template-argument-1.C: Tweak expected error.
+
+2003-09-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12163
+	* g++.dg/expr/static_cast4.C: New test.
+
+	PR c++/12146
+	* g++.dg/template/crash9.C: New test.
+
+2003-09-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.old-deja/g++.ext/pretty2.C: Update for change 
+	in __FUNCTION__.
+	* g++.old-deja/g++.ext/pretty3.C: Likewise.
+
+2003-09-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11922
+	* g++/dg/template/qualified-id1.C: New test.
+	
+	PR c++/12037
+	* g++.dg/warn/noeffect4.C: New test.
+
+2003-09-04  Matt Austern  <austern@apple.com>
+
+	* g++.dg/ext/fnname1.C: New test. (__func__ for C++.)
+	* g++.dg/ext/fnname2.C: Likewise.
+	* g++.dg/ext/fnname3.C: Likewise.
+	
+2003-09-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/expr/lval1.C: New test.
+	* g++.dg/ext/lvcast.C: Remove.
+
+2003-09-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/11700.
+	* gcc.c-torture/compile/20030903-1.c: New test case.
+
+2003-09-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12053
+	* g++.dg/abi/layout4.C: New test.
+
+2003-09-02  Scott Brumbaugh  <scottb.lists@verizon.net>
+
+	PR c++/11553
+	* g++.dg/parse/friend3.C: New test.
+	
+2003-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11847
+	* g++.dg/template/class1.C: New test.
+
+	PR c++/11808
+	* g++.dg/expr/call1.C: New test.
+
+2003-09-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12114
+	* g++.dg/init/ref9.C: New test.
+
+	PR c++/11972
+	* g++.dg/template/nested4.C: New test.
+
+2003-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12093
+	* g++.dg/template/non-dependent4.C: New test.
+
+	PR c++/11928
+	* g++.dg/inherit/conv1.C: New test.
+
+2003-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6196
+	* g++.dg/ext/label1.C: New test.
+	* g++.dg/ext/label2.C: Likewise.
+
+2003-08-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/expr/cond3.C: New test.
+
+2003-08-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-1.c: Add new builtin cases.
+
+2003-08-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-1.c: Add new cases.
+	* gcc.dg/torture/builtin-attr-1.c: Likewise.
+
+2003-08-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-1.c: Add more math builtin tests.
+	* gcc.dg/torture/builtin-attr-1.c: New test.
+
+2003-08-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/5079
+	* g++.dg/opt/static3.C: New test.
+
+2003-08-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.misc-tests/gcov-10b.c: New test.
+
+2003-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/ptrmem3.C: New test.
+
+	* g++.old-deja/g++.pt/overload8.C: Remove XFAIL.
+
+2003-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030826-2.c: New test.
+
+2003-08-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/12002
+	* g77.f-torture/compile/12002.f: New test case.
+
+2003-08-26  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/20030826-1.c: New test case.
+
+2003-08-26  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gcc.dg/noncompile/20030818-1.c: Expect second line of error.
+
+2003-08-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11871
+	* c++.dg/lookup/crash1.C: New test.
+
+	* c++.dg/warn/noeffect3.C: New test.
+
+2003-08-25  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/vector-1_x.c: Compile with -w.
+	* gcc.dg/compat/vector-1_y.c: Ditto.
+	* gcc.dg/compat/vector-2_x.c: Ditto.
+	* gcc.dg/compat/vector-2_y.c: Ditto.
+
+2003-08-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030702-1.c: New test.
+
+2003-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8795
+	* g++.dg/ext/altivec-1.C: New test.
+
+2003-08-24  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/eh/simd-2.C: Add -w for x86.
+
+2003-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030815-1.c: New test.
+
+2003-08-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3765
+	* g++.dg/parse/access6.C: New test.
+
+2003-08-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/641, c++/11876
+	* g++.dg/template/friend22.C: New test.
+	* g++.dg/template/friend23.C: Likewise.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.misc-tests/linkage.exp: Treat all HP-UX platforms
+	identically.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.ext/attrib5.C: XFAIL on hppa2*-hp-hpux11*.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/20020313-1.c: Add "-w" to dg-options.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.misc-tests/linkage.exp: Add logic for ia64-hp-hpux*.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/other/packed1.C: Add XFAIL marker for ia64-hp-hpux*.
+
+2003-08-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11919
+	* g++.dg/overload/prom1.C: New test.
+
+	PR c++/11551
+	* g++.dg/parse/dtor2.C: New test.
+
+	PR c++/10762
+	* g++.dg/parse/using2.C: New test.
+
+2003-08-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/11805
+	* gcc.c-torture/compile/20030821-1.c: New.
+
+2003-08-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11834
+	* g++.dg/template/deduce2.C: New test.
+
+2003-08-21  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/execute/20030821-1.c: New test.
+
+2003-08-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/11984
+	* gcc.dg/20030820-1.c: New test case.
+
+2003-08-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11945
+	* g++.dg/warn/noeffect2.C: New test.
+
+2003-08-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10926
+	* g++.dg/template/dtor2.C: New test.
+
+	PR c++/11684
+	* g++.dg/template/operator1.C: New test.
+	* g++.dg/parse/operator4.C: New test.
+
+	PR c++/11946.C
+	* g++.dg/expr/enum1.C: New test.
+	* gcc.dg/c99-bool-1.c: Remove bogus warning.
+
+	PR c++/11036.C
+	* g++.dg/parse/elab2.C: New test.
+	* g++.dg/parse/typedef4.C: Change error message.
+	* g++.old-deja/g++.robertl/eb133.C: Remove bogus error markers.
+	* g++.old-deja/g++.robertl/eb133a.C: Remove bogus error markers.
+	* g++.old-deja/g++.robertl/eb133b.C: Remove bogus error markers.
+
+2003-08-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/warn-1.c: New.
+	* gcc.dg/pch/warn-1.hs: New.
+
+	* lib/dg-pch.exp (dg-pch): Use 'return' not 'continue' to skip
+	not-tested file.
+
+2003-08-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/uninit-E.c: Add forgotten dg-warning marker.
+
+2003-08-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/uninit-D.c: New Test.
+	* gcc.dg/uninit-E.c: New Test.
+	* gcc.dg/uninit-F.c: New Test.
+	* gcc.dg/uninit-G.c: New Test.
+
+2003-08-19  Michael Ritzert  <ritzert@t-online.de>
+
+	* g++.dg/README: Describe the pch directory.
+
+2003-08-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11174
+	* g++.dg/parse/access4.C: New test.
+	* g++.dg/parse/access5.C: Likewise.
+	* g++.old-deja/g++.jason/access17.C: Adjust error message.
+
+2003-08-18  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gcc.dg/noncompile/20030818-1.c: New.
+
+2003-08-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11957
+	* g++.dg/warn/noeffect1.C: New test.
+
+	* g++.dg/template/scope2.C: New test.
+	* g++.dg/template/error2.C: Correct dg-error
+
+2003-08-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/mipscop*.c: Turn into compile-only tests.
 
 2003-08-16  Nathan Sidwell  <nathan@codesourcery.com>
 
@@ -214,7 +750,7 @@
 	* gcc.dg/i386-387-1.c (dg-options): Add -march=i386.
 	* gcc.dg/i386-387-5.c (dg-options): Likewise.
 
-Wed Jul 30 19:13:34 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-07-30  Jan Hubicka  <jh@suse.cz>
 
 	* vtgc1.c: Kill.
 
@@ -1395,7 +1931,7 @@ Wed Jul 30 19:13:34 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* lib/gcc-dg.exp (dg-require-alias): Fix typo.
 	(dg-require-gc-sections): Likewise.
 
-Sun Jun  8 16:46:04 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-06-08  Jan Hubicka  <jh@suse.cz>
 
 	* i386-cmov1.c: Fix regular expression.
 	* i386-cvt-1.c: Likewise.
@@ -5998,11 +6534,6 @@ Sun Jun  8 16:46:04 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2002-06-30  Devang Patel  <dpatel@apple.com>
 
 	* objc.dg/fsyntax-only.m: New test.
-
-2002-06-27  Aldy Hernandez  <aldyh@redhat.com>
-
-        * gcc.c-torture/execute/string-opt-8.c (strncmp): Fix typo in
-        return type.
 
 2002-06-27  Mark Mitchell  <mark@codesourcery.com>
 

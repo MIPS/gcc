@@ -165,7 +165,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "params.h"
 #include "cselib.h"
-
+#include "intl.h"
 #include "obstack.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
@@ -559,6 +559,7 @@ static void alloc_reg_set_mem (int);
 static void free_reg_set_mem (void);
 static int get_bitmap_width (int, int, int);
 static void record_one_set (int, rtx);
+static void replace_one_set (int, rtx, rtx);
 static void record_set_info (rtx, rtx, void *);
 static void compute_sets (rtx);
 static void hash_scan_insn (rtx, struct hash_table *, int);
@@ -704,7 +705,9 @@ static void local_cprop_find_used_regs (rtx *, void *);
 static bool do_local_cprop (rtx, rtx, int, rtx*);
 static bool adjust_libcall_notes (rtx, rtx, rtx, rtx*);
 static void local_cprop_pass (int);
+static bool is_too_expensive (const char *);
 
+
 /* Entry point for global common subexpression elimination.
    F is the first instruction in the function.  */
 
@@ -738,39 +741,10 @@ gcse_main (rtx f, FILE *file)
   if (file)
     dump_flow_info (file);
 
-  /* Return if there's nothing to do.  */
-  if (n_basic_blocks <= 1)
+  /* Return if there's nothing to do, or it is too expensive.  */
+  if (n_basic_blocks <= 1 || is_too_expensive (_("GCSE disabled")))
     return 0;
-
-  /* Trying to perform global optimizations on flow graphs which have
-     a high connectivity will take a long time and is unlikely to be
-     particularly useful.
-
-     In normal circumstances a cfg should have about twice as many edges
-     as blocks.  But we do not want to punish small functions which have
-     a couple switch statements.  So we require a relatively large number
-     of basic blocks and the ratio of edges to blocks to be high.  */
-  if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    {
-      if (warn_disabled_optimization)
-	warning ("GCSE disabled: %d > 1000 basic blocks and %d >= 20 edges/basic block",
-		 n_basic_blocks, n_edges / n_basic_blocks);
-      return 0;
-    }
-
-  /* If allocating memory for the cprop bitmap would take up too much
-     storage it's better just to disable the optimization.  */
-  if ((n_basic_blocks
-       * SBITMAP_SET_SIZE (max_gcse_regno)
-       * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
-    {
-      if (warn_disabled_optimization)
-	warning ("GCSE disabled: %d basic blocks and %d registers",
-		 n_basic_blocks, max_gcse_regno);
-
-      return 0;
-    }
-
+  
   gcc_obstack_init (&gcse_obstack);
   bytes_used = 0;
 
@@ -1202,6 +1176,24 @@ free_reg_set_mem (void)
 {
   free (reg_set_table);
   obstack_free (&reg_set_obstack, NULL);
+}
+
+/* An OLD_INSN that used to set REGNO was replaced by NEW_INSN.
+   Update the corresponding `reg_set_table' entry accordingly.
+   We assume that NEW_INSN is not already recorded in reg_set_table[regno].  */
+
+static void
+replace_one_set (int regno, rtx old_insn, rtx new_insn)
+{
+  struct reg_set *reg_info;
+  if (regno >= reg_set_table_size)
+    return;
+  for (reg_info = reg_set_table[regno]; reg_info; reg_info = reg_info->next)
+    if (reg_info->insn == old_insn)
+      {
+        reg_info->insn = new_insn;
+        break;
+      }
 }
 
 /* Record REGNO in the reg_set table.  */
@@ -1795,6 +1787,10 @@ expr_equiv_p (rtx x, rtx y)
 	 decide that the expression is transparent in a block when it isn't,
 	 due to it being set with the different alias set.  */
       if (MEM_ALIAS_SET (x) != MEM_ALIAS_SET (y))
+	return 0;
+
+      /* A volatile mem should not be considered equivalent to any other.  */
+      if (MEM_VOLATILE_P (x) || MEM_VOLATILE_P (y))
 	return 0;
       break;
 
@@ -4485,7 +4481,8 @@ fis_get_condition (rtx jump)
 
   /* Use canonicalize_condition to do the dirty work of manipulating
      MODE_CC values and COMPARE rtx codes.  */
-  tmp = canonicalize_condition (jump, cond, reverse, &earliest, NULL_RTX);
+  tmp = canonicalize_condition (jump, cond, reverse, &earliest, NULL_RTX,
+				false);
   if (!tmp)
     return NULL_RTX;
 
@@ -4503,7 +4500,8 @@ fis_get_condition (rtx jump)
   tmp = XEXP (tmp, 0);
   if (!REG_P (tmp) || GET_MODE_CLASS (GET_MODE (tmp)) != MODE_INT)
     return NULL_RTX;
-  tmp = canonicalize_condition (jump, cond, reverse, &earliest, tmp);
+  tmp = canonicalize_condition (jump, cond, reverse, &earliest, tmp,
+				false);
   if (!tmp)
     return NULL_RTX;
 
@@ -4531,7 +4529,7 @@ find_implicit_sets (void)
 
   count = 0;
   FOR_EACH_BB (bb)
-    /* Check for more than one sucessor.  */
+    /* Check for more than one successor.  */
     if (bb->succ && bb->succ->succ_next)
       {
 	cond = fis_get_condition (bb->end);
@@ -5355,7 +5353,14 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
   return did_insert;
 }
 
-/* Copy the result of INSN to REG.  INDX is the expression number.  */
+/* Copy the result of INSN to REG.  INDX is the expression number.
+   Given "old_reg <- expr" (INSN), instead of adding after it
+     reaching_reg <- old_reg
+   it's better to do the following:
+     reaching_reg <- expr
+     old_reg      <- reaching_reg
+   because this way copy propagation can discover additional PRE
+   opportunuties.  */
 
 static void
 pre_insert_copy_insn (struct expr *expr, rtx insn)
@@ -5365,14 +5370,25 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
   int indx = expr->bitmap_index;
   rtx set = single_set (insn);
   rtx new_insn;
+  rtx new_set;
+  rtx old_reg;
 
   if (!set)
     abort ();
 
-  new_insn = emit_insn_after (gen_move_insn (reg, copy_rtx (SET_DEST (set))), insn);
+  old_reg = SET_DEST (set);
+  new_insn = emit_insn_after (gen_move_insn (old_reg,
+                                             reg),
+                              insn);
+  new_set = single_set (new_insn);
+
+  if (!new_set)
+    abort();
+  SET_DEST (set) = reg;
 
   /* Keep register set table up to date.  */
-  record_one_set (regno, new_insn);
+  replace_one_set (REGNO (old_reg), insn, new_insn);
+  record_one_set (regno, insn);
 
   gcse_create_count++;
 
@@ -5867,7 +5883,7 @@ delete_null_pointer_checks_1 (unsigned int *block_reg, sbitmap *nonnull_avin,
 	continue;
 
       /* LAST_INSN is a conditional jump.  Get its condition.  */
-      condition = get_condition (last_insn, &earliest);
+      condition = get_condition (last_insn, &earliest, false);
 
       /* If we can't determine the condition then skip.  */
       if (! condition)
@@ -5946,28 +5962,17 @@ delete_null_pointer_checks (rtx f ATTRIBUTE_UNUSED)
   basic_block bb;
   int reg;
   int regs_per_pass;
-  int max_reg;
+  int max_reg = max_reg_num ();
   struct null_pointer_info npi;
   int something_changed = 0;
 
-  /* If we have only a single block, then there's nothing to do.  */
-  if (n_basic_blocks <= 1)
-    return 0;
-
-  /* Trying to perform global optimizations on flow graphs which have
-     a high connectivity will take a long time and is unlikely to be
-     particularly useful.
-
-     In normal circumstances a cfg should have about twice as many edges
-     as blocks.  But we do not want to punish small functions which have
-     a couple switch statements.  So we require a relatively large number
-     of basic blocks and the ratio of edges to blocks to be high.  */
-  if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
+  /* If we have only a single block, or it is too expensive, give up.  */
+  if (n_basic_blocks <= 1
+      || is_too_expensive (_ ("NULL pointer checks disabled")))
     return 0;
 
   /* We need four bitmaps, each with a bit for each register in each
      basic block.  */
-  max_reg = max_reg_num ();
   regs_per_pass = get_bitmap_width (4, last_basic_block, max_reg);
 
   /* Allocate bitmaps to hold local and global properties.  */
@@ -5992,7 +5997,7 @@ delete_null_pointer_checks (rtx f ATTRIBUTE_UNUSED)
 	continue;
 
       /* LAST_INSN is a conditional jump.  Get its condition.  */
-      condition = get_condition (last_insn, &earliest);
+      condition = get_condition (last_insn, &earliest, false);
 
       /* If we were unable to get the condition, or it is not an equality
 	 comparison against zero then there's nothing we can do.  */
@@ -6757,7 +6762,7 @@ trim_ld_motion_mems (void)
 /* This routine will take an expression which we are replacing with
    a reaching register, and update any stores that are needed if
    that expression is in the ld_motion list.  Stores are updated by
-   copying their SRC to the reaching register, and then storeing
+   copying their SRC to the reaching register, and then storing
    the reaching register into the store location. These keeps the
    correct value in the reaching register for the loads.  */
 
@@ -7823,38 +7828,9 @@ bypass_jumps (FILE *file)
   if (file)
     dump_flow_info (file);
 
-  /* Return if there's nothing to do.  */
-  if (n_basic_blocks <= 1)
+  /* Return if there's nothing to do, or it is too expensive  */
+  if (n_basic_blocks <= 1 || is_too_expensive (_ ("jump bypassing disabled")))
     return 0;
-
-  /* Trying to perform global optimizations on flow graphs which have
-     a high connectivity will take a long time and is unlikely to be
-     particularly useful.
-
-     In normal circumstances a cfg should have about twice as many edges
-     as blocks.  But we do not want to punish small functions which have
-     a couple switch statements.  So we require a relatively large number
-     of basic blocks and the ratio of edges to blocks to be high.  */
-  if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    {
-      if (warn_disabled_optimization)
-        warning ("BYPASS disabled: %d > 1000 basic blocks and %d >= 20 edges/basic block",
-                 n_basic_blocks, n_edges / n_basic_blocks);
-      return 0;
-    }
-
-  /* If allocating memory for the cprop bitmap would take up too much
-     storage it's better just to disable the optimization.  */
-  if ((n_basic_blocks
-       * SBITMAP_SET_SIZE (max_gcse_regno)
-       * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
-    {
-      if (warn_disabled_optimization)
-        warning ("GCSE disabled: %d basic blocks and %d registers",
-                 n_basic_blocks, max_gcse_regno);
-
-      return 0;
-    }
 
   gcc_obstack_init (&gcse_obstack);
   bytes_used = 0;
@@ -7894,6 +7870,46 @@ bypass_jumps (FILE *file)
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   return changed;
+}
+
+/* Return true if the graph is too expensive to optimize. PASS is the
+   optimization about to be performed.  */
+
+static bool
+is_too_expensive (const char *pass)
+{
+  /* Trying to perform global optimizations on flow graphs which have
+     a high connectivity will take a long time and is unlikely to be
+     particularly useful.
+     
+     In normal circumstances a cfg should have about twice as many
+     edges as blocks.  But we do not want to punish small functions
+     which have a couple switch statements.  Rather than simply
+     threshold the number of blocks, uses something with a more
+     graceful degradation.  */
+  if (n_edges > 20000 + n_basic_blocks * 4)
+    {
+      if (warn_disabled_optimization)
+	warning ("%s: %d basic blocks and %d edges/basic block",
+		 pass, n_basic_blocks, n_edges / n_basic_blocks);
+      
+      return true;
+    }
+
+  /* If allocating memory for the cprop bitmap would take up too much
+     storage it's better just to disable the optimization.  */
+  if ((n_basic_blocks
+       * SBITMAP_SET_SIZE (max_reg_num ())
+       * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
+    {
+      if (warn_disabled_optimization)
+	warning ("%s: %d basic blocks and %d registers",
+		 pass, n_basic_blocks, max_reg_num ());
+
+      return true;
+    }
+
+  return false;
 }
 
 #include "gt-gcse.h"

@@ -12042,8 +12042,9 @@ java_complete_lhs (tree node)
 	    arguments = TREE_VALUE (TREE_OPERAND (node, 1));
 	  else
 	    arguments = NULL_TREE;
-	  check_thrown_exceptions (EXPR_WFL_LINECOL (node), decl,
-				   arguments);
+	  if (IS_EXPR_CODE_CLASS (node))
+	    check_thrown_exceptions (EXPR_WFL_LINECOL (node), decl,
+				     arguments);
 	  /* If we call this(...), register signature and positions */
 	  if (in_this)
 	    DECL_CONSTRUCTOR_CALLS (current_function_decl) =

@@ -118,6 +118,8 @@ try_simplify_condjump (basic_block cbranch_block)
   basic_block jump_block, jump_dest_block, cbranch_dest_block;
   edge cbranch_jump_edge, cbranch_fallthru_edge;
   rtx cbranch_insn;
+  rtx insn, next;
+  rtx end;
 
   /* Verify that there are exactly two successors.  */
   if (!cbranch_block->succ
@@ -170,6 +172,26 @@ try_simplify_condjump (basic_block cbranch_block)
   cbranch_fallthru_edge->flags &= ~EDGE_FALLTHRU;
   update_br_prob_note (cbranch_block);
 
+  end = jump_block->end;
+  /* Deleting a block may produce unreachable code warning even when we are
+     not deleting anything live.  Supress it by moving all the line number
+     notes out of the block.  */
+  for (insn = jump_block->head; insn != NEXT_INSN (jump_block->end);
+       insn = next)
+    {
+      next = NEXT_INSN (insn);
+      if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	{
+	  if (insn == jump_block->end)
+	    {
+	      jump_block->end = PREV_INSN (insn);
+	      if (insn == end)
+	        break;
+	    }
+	  reorder_insns_nobb (insn, insn, end);
+	  end = insn;
+	}
+    }
   /* Delete the block with the unconditional jump, and clean up the mess.  */
   delete_basic_block (jump_block);
   tidy_fallthru_edge (cbranch_jump_edge, cbranch_block, cbranch_dest_block);
@@ -227,7 +249,7 @@ mark_effect (rtx exp, regset nonequal)
     }
 }
 
-/* Return nonzero if X is an register set in regset DATA.
+/* Return nonzero if X is a register set in regset DATA.
    Called via for_each_rtx.  */
 static int
 mentions_nonequal_regs (rtx *x, void *data)
@@ -639,7 +661,8 @@ label_is_jump_target_p (rtx label, rtx jump_insn)
 
   if (tablejump_p (jump_insn, NULL, &tmp))
     {
-      rtvec vec = XVEC (tmp, GET_CODE (tmp) == ADDR_DIFF_VEC);
+      rtvec vec = XVEC (PATTERN (tmp),
+			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
       int i, veclen = GET_NUM_ELEM (vec);
 
       for (i = 0; i < veclen; ++i)

@@ -1489,7 +1489,7 @@ static void
 add_line_counts (coverage_t *coverage, function_t *fn)
 {
   unsigned ix;
-  line_t *line = NULL; /* this is propagated from one iteration to the
+  line_t *line = NULL; /* This is propagated from one iteration to the
 			  next.  */
 
   /* Scan each basic block.  */

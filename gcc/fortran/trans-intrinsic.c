@@ -2248,6 +2248,27 @@ void prepare_arg_info (gfc_se * se, gfc_expr * expr,
   }
 }
 
+/* Build a call to __builtin_clz.  */
+
+static tree
+call_builtin_clz (tree result_type, tree op0)
+{
+  tree fn, parms, call;
+
+  if (TYPE_MODE (TREE_TYPE (op0)) == TYPE_MODE (integer_type_node))
+    fn = built_in_decls[BUILT_IN_CLZ];
+  else if (TYPE_MODE (TREE_TYPE (op0)) == TYPE_MODE (long_integer_type_node))
+    fn = built_in_decls[BUILT_IN_CLZL];
+  else
+    abort ();
+
+  parms = tree_cons (NULL, op0, NULL);
+  call = gfc_build_function_call (fn, parms);
+
+  return convert (result_type, call);
+}
+
+
 /*  Generate code for the SET_EXPONENT intrinsic.
     SET_EXPONENT (s, i) = s * 2^(i-e).
     We generate:
@@ -2373,7 +2394,7 @@ gfc_conv_intrinsic_set_exponent (gfc_se * se, gfc_expr * expr)
      
    t2 = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
    t1 = build (LSHIFT_EXPR, masktype, fraction, t2);
-   tmp = build1 (CLZ_EXPR, masktype, t1);
+   tmp = call_builtin_clz (masktype, t1);
    gfc_add_modify_expr (&block, leadzero, tmp); 
 
    /* expn > 0  */
@@ -2544,7 +2565,7 @@ gfc_conv_intrinsic_scale (gfc_se * se, gfc_expr * expr)
 
    t2 = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
    t1 = build (LSHIFT_EXPR, masktype, fraction, t2);
-   tmp = build1 (CLZ_EXPR, masktype, t1);
+   tmp = call_builtin_clz (masktype, t1);
    gfc_add_modify_expr (&block, leadzero, tmp); 
    t1 = build (MINUS_EXPR, masktype, arg2, leadzero);
    gfc_add_modify_expr(&block, diff, t1);
@@ -2744,7 +2765,7 @@ gfc_conv_intrinsic_fraction (gfc_se * se, gfc_expr * expr)
    /* Caculate denormalized fraction.  */
    t2 = build_int_2 (2, 0);
    t2 = convert (masktype, t2);
-   t1 = build1 (CLZ_EXPR, masktype, fraction);
+   t1 = call_builtin_clz (masktype, fraction);
    t1 = build (PLUS_EXPR, masktype, t1, one);
    tmp = build (LSHIFT_EXPR, masktype, fraction, t1);
    tmp = build (RSHIFT_EXPR, masktype, tmp, sedigits);
@@ -2805,7 +2826,7 @@ gfc_conv_intrinsic_exponent (gfc_se * se, gfc_expr * expr)
    t2 = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
    t2 = fold (build (MINUS_EXPR, masktype, t2, rcs.bias));
    t2 = fold (build (PLUS_EXPR, masktype, t2, one));
-   t1 = build1 (CLZ_EXPR, masktype, rcs.frac);
+   t1 = call_builtin_clz (masktype, rcs.frac);
    t1 = build (MINUS_EXPR, masktype, t2, t1);
    /* exponent != 0  */
    t2 = fold (build (MINUS_EXPR, masktype, rcs.bias, one));
@@ -2885,7 +2906,7 @@ gfc_conv_intrinsic_rrspacing (gfc_se * se, gfc_expr * expr)
    zero = gfc_build_const (masktype, integer_zero_node);
    t2 = build (PLUS_EXPR, masktype, rcs.edigits, one);
 
-   t1 = build1 (CLZ_EXPR, masktype, fraction);
+   t1 = call_builtin_clz (masktype, fraction);
    tmp = build (PLUS_EXPR, masktype, t1, one);
    tmp = build (LSHIFT_EXPR, masktype, fraction, tmp);
    tmp = build (RSHIFT_EXPR, masktype, tmp, t2);

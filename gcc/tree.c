@@ -2370,6 +2370,17 @@ build (enum tree_code code, tree tt, ...)
   va_end (p);
 
   TREE_CONSTANT (t) = constant;
+  
+  if (code == CALL_EXPR && !TREE_SIDE_EFFECTS (t))
+    {
+      /* Calls have side-effects, except those to const or
+	 pure functions.  */
+      tree fn = get_callee_fndecl (t);
+
+      if (!fn || (!DECL_IS_PURE (fn) && !TREE_READONLY (fn)))
+	TREE_SIDE_EFFECTS (t) = 1;
+    }
+
   return t;
 }
 
@@ -3868,7 +3879,7 @@ build_function_type (tree value_type, tree arg_types)
   return t;
 }
 
-/* Build a function type.  The RETURN_TYPE is the type retured by the
+/* Build a function type.  The RETURN_TYPE is the type returned by the
    function.  If additional arguments are provided, they are
    additional argument types.  The list of argument types must always
    be terminated by NULL_TREE.  */
@@ -3894,6 +3905,45 @@ build_function_type_list (tree return_type, ...)
   return args;
 }
 
+/* Build a METHOD_TYPE for a member of BASETYPE.  The RETTYPE (a TYPE)
+   and ARGTYPES (a TREE_LIST) are the return type and arguments types
+   for the method.  An implicit additional parameter (of type
+   pointer-to-BASETYPE) is added to the ARGTYPES.  */
+
+tree
+build_method_type_directly (tree basetype,
+			    tree rettype,
+			    tree argtypes)
+{
+  tree t;
+  tree ptype;
+  int hashcode;
+
+  /* Make a node of the sort we want.  */
+  t = make_node (METHOD_TYPE);
+
+  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
+  TREE_TYPE (t) = rettype;
+  ptype = build_pointer_type (basetype);
+
+  /* The actual arglist for this function includes a "hidden" argument
+     which is "this".  Put it into the list of argument types.  */
+  argtypes = tree_cons (NULL_TREE, ptype, argtypes);
+  TYPE_ARG_TYPES (t) = argtypes;
+
+  /* If we already have such a type, use the old one and free this one.
+     Note that it also frees up the above cons cell if found.  */
+  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
+    type_hash_list (argtypes);
+
+  t = type_hash_canon (hashcode, t);
+
+  if (!COMPLETE_TYPE_P (t))
+    layout_type (t);
+
+  return t;
+}
+
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments and values are described by TYPE.
    If that type exists already, reuse it.
@@ -3902,33 +3952,12 @@ build_function_type_list (tree return_type, ...)
 tree
 build_method_type (tree basetype, tree type)
 {
-  tree t;
-  unsigned int hashcode;
-
-  /* Make a node of the sort we want.  */
-  t = make_node (METHOD_TYPE);
-
   if (TREE_CODE (type) != FUNCTION_TYPE)
     abort ();
 
-  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = TREE_TYPE (type);
-
-  /* The actual arglist for this function includes a "hidden" argument
-     which is "this".  Put it into the list of argument types.  */
-
-  TYPE_ARG_TYPES (t)
-    = tree_cons (NULL_TREE,
-		 build_pointer_type (basetype), TYPE_ARG_TYPES (type));
-
-  /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (type);
-  t = type_hash_canon (hashcode, t);
-
-  if (!COMPLETE_TYPE_P (t))
-    layout_type (t);
-
-  return t;
+  return build_method_type_directly (basetype, 
+				     TREE_TYPE (type),
+				     TYPE_ARG_TYPES (type));
 }
 
 /* Construct, lay out and return the type of offsets to a value
@@ -4896,6 +4925,11 @@ build_common_tree_nodes_2 (int short_double)
   long_double_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (long_double_type_node) = LONG_DOUBLE_TYPE_SIZE;
   layout_type (long_double_type_node);
+
+  float_ptr_type_node = build_pointer_type (float_type_node);
+  double_ptr_type_node = build_pointer_type (double_type_node);
+  long_double_ptr_type_node = build_pointer_type (long_double_type_node);
+  integer_ptr_type_node = build_pointer_type (integer_type_node);
 
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;

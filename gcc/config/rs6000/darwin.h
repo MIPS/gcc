@@ -97,6 +97,14 @@ do {									\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
+#define ASM_SPEC "-arch ppc \
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS			\
+  { "darwin_arch", "ppc" },
+
 /* Make both r2 and r3 available for allocation.  */
 #define FIXED_R2 0
 #define FIXED_R13 0
@@ -237,16 +245,17 @@ do {									\
    a SYMBOL_REF.  */
 
 #undef PREFERRED_RELOAD_CLASS
-#define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  (((GET_CODE (X) == CONST_DOUBLE			\
-    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)	\
-   ? NO_REGS						\
-   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-      && (CLASS) == NON_SPECIAL_REGS)			\
-   ? GENERAL_REGS					\
-   : (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
-   ? BASE_REGS						\
-   : (CLASS)))
+#define PREFERRED_RELOAD_CLASS(X,CLASS)				\
+  ((GET_CODE (X) == CONST_DOUBLE				\
+    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)		\
+   ? NO_REGS							\
+   : ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
+      && reg_class_subset_p (BASE_REGS, (CLASS)))		\
+   ? BASE_REGS							\
+   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT			\
+      && (CLASS) == NON_SPECIAL_REGS)				\
+   ? GENERAL_REGS						\
+   : (CLASS))
 
 /* Fix for emit_group_load (): force large constants to be pushed via regs.  */
 #define ALWAYS_PUSH_CONSTS_USING_REGS_P		1

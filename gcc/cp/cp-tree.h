@@ -39,6 +39,7 @@ struct diagnostic_context;
       IDENTIFIER_MARKED (IDENTIFIER_NODEs)
       NEW_EXPR_USE_GLOBAL (in NEW_EXPR).
       DELETE_EXPR_USE_GLOBAL (in DELETE_EXPR).
+      COMPOUND_EXPR_OVERLOADED (in COMPOUND_EXPR).
       TREE_INDIRECT_USING (in NAMESPACE_DECL).
       ICS_USER_FLAG (in _CONV)
       CLEANUP_P (in TRY_BLOCK)
@@ -46,6 +47,7 @@ struct diagnostic_context;
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF)
       PARMLIST_ELLIPSIS_P (in PARMLIST)
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
+      KOENIG_LOOKUP_P (in CALL_EXPR)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -796,7 +798,6 @@ struct language_function GTY(())
   int returns_abnormally;
   int in_function_try_handler;
   int in_base_initializer;
-  int x_expanding_p;
 
   /* True if this function can throw an exception.  */
   bool can_throw : 1;
@@ -857,17 +858,6 @@ struct language_function GTY(())
 
 #define current_function_returns_abnormally \
   cp_function_chain->returns_abnormally
-
-/* Nonzero if we should generate RTL for functions that we process.
-   When this is zero, we just accumulate tree structure, without
-   interacting with the back end.  */
-
-#define expanding_p cp_function_chain->x_expanding_p
-
-/* Nonzero if we are in the semantic analysis phase for the current
-   function.  */
-
-#define doing_semantic_analysis_p() (!expanding_p)
 
 /* Nonzero if we are processing a base initializer.  Zero elsewhere.  */
 #define in_base_initializer cp_function_chain->in_base_initializer
@@ -2293,6 +2283,14 @@ struct lang_decl GTY(())
 #define DELETE_EXPR_USE_GLOBAL(NODE)	TREE_LANG_FLAG_0 (NODE)
 #define DELETE_EXPR_USE_VEC(NODE)	TREE_LANG_FLAG_1 (NODE)
 
+/* Indicates that this is a non-dependent COMPOUND_EXPR which will
+   resolve to a function call.  */
+#define COMPOUND_EXPR_OVERLOADED(NODE)	TREE_LANG_FLAG_0 (NODE)
+
+/* In a CALL_EXPR appearing in a template, true if Koenig lookup
+   should be performed at instantiation time.  */
+#define KOENIG_LOOKUP_P(NODE) TREE_LANG_FLAG_0(NODE)
+
 /* Nonzero if this AGGR_INIT_EXPR provides for initialization via a
    constructor call, rather than an ordinary function call.  */
 #define AGGR_INIT_VIA_CTOR_P(NODE) \
@@ -2932,15 +2930,27 @@ typedef enum cp_lvalue_kind {
 
 /* The kinds of scopes we recognize.  */
 typedef enum scope_kind {
-  sk_block,          /* An ordinary block scope.  */
+  sk_block = 0,      /* An ordinary block scope.  This enumerator must
+			have the value zero because "cp_binding_level"
+			is initialized by using "memset" to set the
+			contents to zero, and the default scope kind
+			is "sk_block".  */
+  sk_cleanup,        /* A scope for (pseudo-)scope for cleanup.  It is
+                        peusdo in that it is transparent to name lookup
+                        activities.  */
   sk_try,	     /* A try-block.  */
   sk_catch,          /* A catch-block.  */
   sk_for,            /* The scope of the variable declared in a
 			for-init-statement.  */
+  sk_function_parms, /* The scope containing function parameters.  */
+  sk_class,          /* The scope containing the members of a class.  */
+  sk_namespace,      /* The scope containing the members of a
+			namespace, including the global scope.  */
   sk_template_parms, /* A scope for template parameters.  */
-  sk_template_spec   /* A scope corresponding to a template
-			specialization.  There is never anything in
-			this scope.  */
+  sk_template_spec   /* Like sk_template_parms, but for an explicit
+			specialization.  Since, by definition, an
+			explicit specialization is introduced by
+			"template <>", this scope is always empty.  */
 } scope_kind;
 
 /* Various kinds of template specialization, instantiation, etc.  */
@@ -3027,9 +3037,13 @@ typedef enum tsubst_flags_t {
 				   (lookup_template_class use) */
   tf_stmt_expr_cmpd = 1 << 6,   /* tsubsting the compound statement of
 				   a statement expr.  */
-  tf_stmt_expr_body = 1 << 7    /* tsubsting the statements in the
+  tf_stmt_expr_body = 1 << 7,   /* tsubsting the statements in the
 			       	   body of the compound statement of a
 			       	   statement expr.  */
+  tf_conv = 1 << 8              /* We are determining what kind of
+				   conversion might be permissible,
+				   not actually performing the
+				   conversion.  */
 } tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
@@ -3521,7 +3535,7 @@ extern tree type_passed_as (tree);
 extern tree convert_for_arg_passing (tree, tree);
 extern tree cp_convert_parm_for_inlining        (tree, tree, tree);
 extern bool is_properly_derived_from (tree, tree);
-extern tree initialize_reference (tree, tree, tree);
+extern tree initialize_reference (tree, tree, tree, tree *);
 extern tree make_temporary_var_for_ref_to_temp (tree, tree);
 extern tree strip_top_quals (tree);
 extern tree perform_implicit_conversion (tree, tree);
@@ -3595,7 +3609,6 @@ extern void adjust_clone_args			(tree);
 extern int global_bindings_p			(void);
 extern int kept_level_p				(void);
 extern tree getdecls				(void);
-extern void pushlevel				(int);
 extern void insert_block			(tree);
 extern void set_block				(tree);
 extern tree pushdecl				(tree);
@@ -3608,11 +3621,12 @@ extern void cxx_pop_function_context		(struct function *);
 extern void cxx_mark_function_context		(struct function *);
 extern int toplevel_bindings_p			(void);
 extern int namespace_bindings_p			(void);
-extern void keep_next_level			(int);
+extern void keep_next_level (bool);
+extern scope_kind innermost_scope_kind          (void);
 extern int template_parm_scope_p		(void);
 extern void set_class_shadows			(tree);
 extern void maybe_push_cleanup_level		(tree);
-extern void begin_scope                         (scope_kind);
+extern cxx_scope *begin_scope (scope_kind, tree);
 extern void finish_scope                        (void);
 extern void resume_level			(struct cp_binding_level *);
 extern void delete_block			(tree);
@@ -3692,7 +3706,7 @@ extern int copy_fn_p				(tree);
 extern tree get_scope_of_declarator             (tree);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
-extern void grok_op_properties			(tree, int);
+extern bool grok_op_properties			(tree, int, bool);
 extern tree xref_tag				(enum tag_types, tree, tree, bool, bool);
 extern tree xref_tag_from_type			(tree, tree, int);
 extern void xref_basetypes			(tree, tree);
@@ -3741,6 +3755,8 @@ extern void register_dtor_fn                    (tree);
 extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
+extern tree cxx_builtin_type_decls              (void);
+
 extern bool have_extern_spec;
 
 /* in decl2.c */
@@ -3793,7 +3809,7 @@ extern tree build_artificial_parm (tree, tree);
 extern tree get_guard (tree);
 extern tree get_guard_cond (tree);
 extern tree set_guard (tree);
-extern void lower_function (tree);
+extern tree cxx_callgraph_analyze_expr (tree *, int *, tree);
 
 /* XXX Not i18n clean.  */
 #define cp_deprecated(STR)						\
@@ -3836,8 +3852,8 @@ extern tree cplus_expand_constant               (tree);
 
 /* friend.c */
 extern int is_friend				(tree, tree);
-extern void make_friend_class			(tree, tree);
-extern void add_friend                          (tree, tree);
+extern void make_friend_class			(tree, tree, bool);
+extern void add_friend                          (tree, tree, bool);
 extern tree do_friend				(tree, tree, tree, tree, tree, enum overload_flags, tree, int);
 
 /* in init.c */
@@ -4099,9 +4115,9 @@ extern tree finish_parenthesized_expr           (tree);
 extern tree finish_non_static_data_member       (tree, tree, tree);
 extern tree begin_stmt_expr                     (void);
 extern tree finish_stmt_expr_expr 		(tree);
-extern tree finish_stmt_expr                    (tree);
+extern tree finish_stmt_expr                    (tree, bool);
 extern tree perform_koenig_lookup               (tree, tree);
-extern tree finish_call_expr                    (tree, tree, bool);
+extern tree finish_call_expr                    (tree, tree, bool, bool);
 extern tree finish_increment_expr               (tree, enum tree_code);
 extern tree finish_this_expr                    (void);
 extern tree finish_object_call_expr             (tree, tree, tree);
@@ -4128,8 +4144,6 @@ extern tree finish_id_expression                (tree, tree, tree,
 						 bool, bool, bool *, 
 						 const char **);
 extern tree finish_typeof			(tree);
-extern tree finish_sizeof			(tree);
-extern tree finish_alignof			(tree);
 extern void finish_decl_cleanup                 (tree, tree);
 extern void finish_eh_cleanup                   (tree);
 extern void expand_body                         (tree);
@@ -4158,16 +4172,12 @@ extern int zero_init_p				(tree);
 extern tree canonical_type_variant              (tree);
 extern tree copy_base_binfos			(tree, tree, tree);
 extern int member_p				(tree);
-extern cp_lvalue_kind real_lvalue_p		(tree);
-extern int non_cast_lvalue_p			(tree);
-extern cp_lvalue_kind real_non_cast_lvalue_p    (tree);
-extern int non_cast_lvalue_or_else		(tree, const char *);
-extern tree build_min				(enum tree_code, tree,
-							 ...);
+extern cp_lvalue_kind real_lvalue_p             (tree);
+extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
+extern tree build_min_non_dep			(enum tree_code, tree, ...);
 extern tree build_cplus_new			(tree, tree);
 extern tree get_target_expr			(tree);
-extern tree build_cplus_method_type		(tree, tree, tree);
 extern tree build_cplus_staticfn_type		(tree, tree, tree);
 extern tree build_cplus_array_type		(tree, tree);
 extern tree hash_tree_cons			(tree, tree, tree);
@@ -4244,8 +4254,8 @@ extern bool comptypes				(tree, tree, int);
 extern bool compparms				(tree, tree);
 extern int comp_cv_qualification                (tree, tree);
 extern int comp_cv_qual_signature               (tree, tree);
-extern tree expr_sizeof				(tree);
-extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, int);
+extern tree cxx_sizeof_or_alignof_expr    (tree, enum tree_code);
+extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, bool);
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			(tree);
 extern tree decay_conversion			(tree);

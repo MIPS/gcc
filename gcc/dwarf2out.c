@@ -3812,14 +3812,10 @@ static int maybe_emit_file (int);
 #endif
 
 /* Section flags for .debug_str section.  */
-#ifdef HAVE_GAS_SHF_MERGE
 #define DEBUG_STR_SECTION_FLAGS \
-  (flag_merge_constants						\
+  (HAVE_GAS_SHF_MERGE && flag_merge_constants			\
    ? SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | 1	\
    : SECTION_DEBUG)
-#else
-#define DEBUG_STR_SECTION_FLAGS	SECTION_DEBUG
-#endif
 
 /* Labels we insert at beginning sections we can reference instead of
    the section names themselves.  */
@@ -9688,7 +9684,7 @@ add_subscript_info (dw_die_ref type_die, tree type)
 	  lower = TYPE_MIN_VALUE (domain);
 	  upper = TYPE_MAX_VALUE (domain);
 
-	  /* define the index type.  */
+	  /* Define the index type.  */
 	  if (TREE_TYPE (domain))
 	    {
 	      /* ??? This is probably an Ada unnamed subrange type.  Ignore the
@@ -10786,7 +10782,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       fn_arg_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
       if (fn_arg_types != NULL)
 	{
-	  /* this is the prototyped case, check for ...  */
+	  /* This is the prototyped case, check for....  */
 	  if (TREE_VALUE (tree_last (fn_arg_types)) != void_type_node)
 	    gen_unspecified_parameters_die (decl, subr_die);
 	}
@@ -10992,15 +10988,19 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
 static void
 gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
 {
+  tree decl = block_ultimate_origin (stmt);
+
+  /* Emit info for the abstract instance first, if we haven't yet.  We
+     must emit this even if the block is abstract, otherwise when we
+     emit the block below (or elsewhere), we may end up trying to emit
+     a die whose origin die hasn't been emitted, and crashing.  */
+  dwarf2out_abstract_function (decl);
+
   if (! BLOCK_ABSTRACT (stmt))
     {
       dw_die_ref subr_die
 	= new_die (DW_TAG_inlined_subroutine, context_die, stmt);
-      tree decl = block_ultimate_origin (stmt);
       char label[MAX_ARTIFICIAL_LABEL_BYTES];
-
-      /* Emit info for the abstract instance first, if we haven't yet.  */
-      dwarf2out_abstract_function (decl);
 
       add_abstract_origin_attribute (subr_die, decl);
       ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,

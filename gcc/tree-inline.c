@@ -38,6 +38,8 @@ Boston, MA 02111-1307, USA.  */
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "cgraph.h"
+#include "intl.h"
+
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -129,11 +131,6 @@ static tree remap_decl (tree, inline_data *);
 static tree initialize_inlined_parameters (inline_data *, tree, tree, tree);
 static void remap_block (tree *, inline_data *);
 static tree add_stmt_to_compound (tree, tree, tree);
-static tree find_alloca_call_1 (tree *, int *, void *);
-static tree find_alloca_call (tree);
-static tree find_builtin_longjmp_call_1 (tree *, int *, void *);
-static tree find_builtin_longjmp_call (tree);
-
 static tree remap_decls (tree, inline_data *);
 static tree add_stmt_to_compound (tree, tree, tree);
 static void copy_bind_expr (tree *, int *, inline_data *);
@@ -757,50 +754,154 @@ tree_inlinable_function_p (tree fn)
   return inlinable_function_p (fn);
 }
 
-/* If *TP is possibly call to alloca, return nonzero.  */
+static const char *inline_forbidden_reason;
+
 static tree
-find_alloca_call_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		    void *data ATTRIBUTE_UNUSED)
+inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
+		      void *fnp)
 {
-  if (alloca_call_p (*tp))
-    return *tp;
-  return NULL;
+  tree node = *nodep;
+  tree fn = (tree) fnp;
+  tree t;
+
+  switch (TREE_CODE (node))
+    {
+    case CALL_EXPR:
+      /* Refuse to inline alloca call unless user explicitly forced so as this
+	 may change program's memory overhead drastically when the function
+	 using alloca is called in loop.  In GCC present in SPEC2000 inlining
+	 into schedule_block cause it to require 2GB of ram instead of 256MB.  */
+      if (alloca_call_p (node)
+	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	{
+	  inline_forbidden_reason
+	    = N_("%Jfunction '%F' can never be inlined because it uses "
+		 "alloca (override using the always_inline attribute)");
+	  return node;
+	}
+      t = get_callee_fndecl (node);
+      if (! t)
+	break;
+
+
+      /* We cannot inline functions that call setjmp.  */
+      if (setjmp_call_p (t))
+	{
+	  inline_forbidden_reason
+	    = N_("%Jfunction '%F' can never be inlined because it uses setjmp");
+	  return node;
+	}
+
+      switch (DECL_FUNCTION_CODE (t))
+	{
+	  /* We cannot inline functions that take a variable number of
+	     arguments.  */
+	case BUILT_IN_VA_START:
+	case BUILT_IN_STDARG_START:
+	  {
+	    inline_forbidden_reason
+	      = N_("%Jfunction '%F' can never be inlined because it "
+		   "uses variable argument lists");
+	    return node;
+	  }
+	case BUILT_IN_LONGJMP:
+	  {
+	    /* We can't inline functions that call __builtin_longjmp at all.
+	       The non-local goto machinery really requires the destination
+	       be in a different function.  If we allow the function calling
+	       __builtin_longjmp to be inlined into the function calling
+	       __builtin_setjmp, Things will Go Awry.  */
+	    /* ??? Need front end help to identify "regular" non-local goto.  */
+            if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
+	      {
+		inline_forbidden_reason
+		  = N_("%Jfunction '%F' can never be inlined "
+		       "because it uses setjmp-longjmp exception handling");
+	        return node;
+	      }
+	  }
+
+	default:
+	  break;
+	}
+      break;
+
+    case BIND_EXPR:
+      for (t = BIND_EXPR_VARS (node); t ; t = TREE_CHAIN (t))
+	{
+          /* We cannot inline functions that contain other functions.  */
+	  if (TREE_CODE (t) == FUNCTION_DECL && DECL_INITIAL (t))
+	    {
+	      inline_forbidden_reason
+		= N_("%Jfunction '%F' can never be inlined "
+		     "because it contains a nested function");
+	      return node;
+	    }
+	}
+      break;
+
+    case GOTO_EXPR:
+      t = TREE_OPERAND (node, 0);
+
+      /* We will not inline a function which uses computed goto.  The
+	 addresses of its local labels, which may be tucked into
+	 global storage, are of course not constant across
+	 instantiations, which causes unexpected behavior.  */
+      if (TREE_CODE (t) != LABEL_DECL)
+	{
+	  inline_forbidden_reason
+	    = N_("%Jfunction '%F' can never be inlined "
+		 "because it contains a computed goto");
+	  return node;
+	}
+
+      /* We cannot inline a nested function that jumps to a nonlocal
+         label.  */
+      if (TREE_CODE (t) == LABEL_DECL && DECL_CONTEXT (t) != fn)
+	{
+	  inline_forbidden_reason
+	    = N_("%Jfunction '%F' can never be inlined "
+		 "because it contains a nonlocal goto");
+	  return node;
+	}
+
+      break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+      /* We cannot inline a function of the form
+
+	   void F (int i) { struct S { int ar[i]; } s; }
+
+	 Attempting to do so produces a catch-22.
+	 If walk_tree examines the TYPE_FIELDS chain of RECORD_TYPE/
+	 UNION_TYPE nodes, then it goes into infinite recursion on a
+	 structure containing a pointer to its own type.  If it doesn't,
+	 then the type node for S doesn't get adjusted properly when
+	 F is inlined, and we abort in find_function_data.  */
+      for (t = TYPE_FIELDS (node); t; t = TREE_CHAIN (t))
+	if (variably_modified_type_p (TREE_TYPE (t)))
+	  {
+	    inline_forbidden_reason
+	      = N_("%Jfunction '%F' can never be inlined "
+		   "because it uses variable sized variables");
+	    return node;
+	  }
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
 }
 
 /* Return subexpression representing possible alloca call, if any.  */
 static tree
-find_alloca_call (tree exp)
+inline_forbidden_p (tree fndecl)
 {
   location_t saved_loc = input_location;
   tree ret = walk_tree_without_duplicates
-		(&exp, find_alloca_call_1, NULL);
-  input_location = saved_loc;
-  return ret;
-}
-
-static tree
-find_builtin_longjmp_call_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-			     void *data ATTRIBUTE_UNUSED)
-{
-  tree exp = *tp, decl;
-
-  if (TREE_CODE (exp) == CALL_EXPR
-      && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
-      && (decl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
-	  TREE_CODE (decl) == FUNCTION_DECL)
-      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (decl) == BUILT_IN_LONGJMP)
-    return decl;
-
-  return NULL;
-}
-
-static tree
-find_builtin_longjmp_call (tree exp)
-{
-  location_t saved_loc = input_location;
-  tree ret = walk_tree_without_duplicates
-		(&exp, find_builtin_longjmp_call_1, NULL);
+		(&DECL_SAVED_TREE (fndecl), inline_forbidden_p_1, fndecl);
   input_location = saved_loc;
   return ret;
 }
@@ -812,8 +913,6 @@ static bool
 inlinable_function_p (tree fn)
 {
   bool inlinable = true;
-  bool calls_builtin_longjmp = false;
-  bool calls_alloca = false;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
@@ -857,24 +956,7 @@ inlinable_function_p (tree fn)
     inlinable = false;
 #endif /* INLINER_FOR_JAVA */
 
-  /* We can't inline functions that call __builtin_longjmp at all.
-     The non-local goto machinery really requires the destination
-     be in a different function.  If we allow the function calling
-     __builtin_longjmp to be inlined into the function calling
-     __builtin_setjmp, Things will Go Awry.  */
-  /* ??? Need front end help to identify "regular" non-local goto.  */
-  else if (find_builtin_longjmp_call (DECL_SAVED_TREE (fn)))
-    calls_builtin_longjmp = true;
-
-  /* Refuse to inline alloca call unless user explicitly forced so as this
-     may change program's memory overhead drastically when the function
-     using alloca is called in loop.  In GCC present in SPEC2000 inlining
-     into schedule_block cause it to require 2GB of ram instead of 256MB.  */
-  else if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL
-	   && find_alloca_call (DECL_SAVED_TREE (fn)))
-    calls_alloca = true;
-
-  if (calls_builtin_longjmp || calls_alloca)
+  else if (inline_forbidden_p (fn))
     {
       /* See if we should warn about uninlinable functions.  Previously,
 	 some of these warnings would be issued while trying to expand
@@ -889,12 +971,8 @@ inlinable_function_p (tree fn)
 			 && DECL_DECLARED_INLINE_P (fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
-      if (do_warning && calls_builtin_longjmp)
-	warning ("%Jfunction '%F' can never be inlined because it uses "
-		 "setjmp-longjmp exception handling", fn, fn);
-      if (do_warning && calls_alloca)
-	warning ("%Jfunction '%F' can never be inlined because it uses "
-		 "setjmp-longjmp exception handling", fn, fn);
+      if (do_warning)
+	warning (inline_forbidden_reason, fn, fn);
 
       inlinable = false;
     }

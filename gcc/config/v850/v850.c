@@ -2257,7 +2257,7 @@ v850_handle_data_area_attribute (node, name, args, flags, no_add_attrs)
     case VAR_DECL:
       if (current_function_decl != NULL_TREE)
 	{
-          error ("%Ja data area attribute cannot be specified for "
+          error ("%Jdata area attributes cannot be specified for "
                  "local variables", decl, decl);
 	  *no_add_attrs = true;
 	}

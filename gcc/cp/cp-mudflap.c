@@ -42,11 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 
 
-
-/* ------------------------------------------------------------------------ */
-
-
-
 /* Initialize the global tree nodes that correspond to mf-runtime.h
    declarations.  */
 tree
@@ -62,21 +57,18 @@ mflang_lookup_decl (const char* name)
 
 
 
-/* Build and return EXPR_STMT for calling __mf_register on the object
+/* Build and return an EXPR for calling __mf_register on the object
    given by the parameters.  One odd thing: the object's address is
    given by the given assembler label string (since that's all we may
    know about a string literal, or the static data thingie may be out
    of the future scope).  To turn that into a validish C tree, we
-   create a weird synthetic VAR_DECL node.
-*/
+   create a weird synthetic VAR_DECL node.  */
 
 tree
 mflang_register_call (const char* label, tree regsize, tree regtype,
 		      tree regname)
 {
-  tree decltype, decl;
-  tree call_params;
-  tree call_stmt;
+  tree decltype, decl, params, call, t;
 
   /* XXX: would be nicer not to duplicate these. */
   tree mf_register_fndecl = mflang_lookup_decl ("__mf_register");
@@ -94,101 +86,61 @@ mflang_register_call (const char* label, tree regsize, tree regtype,
   TREE_USED (decl) = 1;
   SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
   DECL_DEFER_OUTPUT (decl) = 1;
-  /* XXX: what else? */
-  /* rest_of_decl_compilation (decl, build_string (strlen (label) + 1, label), 1, 0); */
-  /* make_decl_rtl (decl,  build_string (strlen (label) + 1, label)); */
 
-  call_params = tree_cons (NULL_TREE,
-			   convert (ptr_type_node,
-				    mf_mark (build1 (ADDR_EXPR,
-						     build_pointer_type (TREE_TYPE (decl)),
-						     decl))),
-			   tree_cons (NULL_TREE,
-				      convert (size_type_node, regsize),
-				      tree_cons (NULL_TREE,
-						 regtype,
-						 tree_cons (NULL_TREE,
-							    regname,
-							    NULL_TREE))));
+  params = tree_cons (NULL_TREE, regname, NULL_TREE);
+  params = tree_cons (NULL_TREE, regtype, params);
 
-  call_stmt = build1 (EXPR_STMT, void_type_node,
-		      build_function_call (mf_register_fndecl,
-					   call_params));
+  t = convert (size_type_node, regsize);
+  params = tree_cons (NULL_TREE, t, params);
 
-  return call_stmt;
+  t = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (decl)), decl);
+  t = mf_mark (t);
+  t = convert (ptr_type_node, t);
+  params = tree_cons (NULL_TREE, t, params);
+
+  call = build_function_call (mf_register_fndecl, params);
+
+  return call;
 }
 
 
 
-/* Emit a synthetic CTOR function for the current file.  Populate it
-   from the enqueued __mf_register calls.  Call the RTL expanders
-   inline.  */
+/* Emit a synthetic CTOR function for the current file.  Populate it from
+   the enqueued __mf_register calls.  Register it with the constructors.  */
 
 void
 mflang_flush_calls (tree enqueued_call_stmt_chain)
 {
-  /* See profile.c (output_func_start_profiler) */
-  tree fnname;
-  char *nmplus;
-  tree fndecl;
-  tree body;
+  tree fnname, fndecl, body;
 
   /* Short-circuit!  */
   if (enqueued_call_stmt_chain == NULL_TREE)
     return;
 
-  /* Create the COMPOUND_STMT that becomes the new function's body.  */
-  body = make_node (COMPOUND_STMT);
-  COMPOUND_BODY (body) = enqueued_call_stmt_chain;
-  enqueued_call_stmt_chain = NULL_TREE;
-
   /* Create a ctor function declaration.  */
-  nmplus = concat (IDENTIFIER_POINTER (get_file_function_name ('I')), "_mudflap", NULL);
-  fnname = get_identifier (nmplus);
-  free (nmplus);
-  fndecl = build_decl (FUNCTION_DECL, fnname,
-		       build_function_type (void_type_node, NULL_TREE));
-  DECL_EXTERNAL (fndecl) = 0;
-  TREE_PUBLIC (fndecl) = ! targetm.have_ctors_dtors;
-  TREE_USED (fndecl) = 1;
-  DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+  fnname = get_identifier ("__static_initialization_and_destruction_mudflap");
 
-  /* Now compile the sucker as we go.  This is a weird semi-inlined
-  form of the guts of the c-parse.y `fndef' production, and a hybrid
-  with c_expand_body. */
+  start_function (void_list_node,
+		  make_call_declarator (fnname, void_list_node, NULL_TREE,
+					NULL_TREE),
+		  NULL_TREE, SF_DEFAULT);
 
-  /* start_function */
-  fndecl = pushdecl (fndecl);
-  pushlevel (0);
-  rest_of_decl_compilation (fndecl, 0, 1, 0);
-  announce_function (fndecl);
-  current_function_decl = fndecl;
-  DECL_INITIAL (fndecl) = error_mark_node;
-  DECL_SAVED_TREE (fndecl) = body;
-  make_decl_rtl (fndecl, NULL);
+  TREE_PUBLIC (current_function_decl) = 0;
+  DECL_ARTIFICIAL (current_function_decl) = 1;
 
-  /* store_parm_decls */
-  init_function_start (fndecl);
-  cfun->x_whole_function_mode_p = 1;
+  /* Generate the body, one statement at a time.  */
+  body = begin_compound_stmt (/*has_no_scope=*/false);
 
-  /* finish_function */
-  poplevel (1, 0, 1);
-  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+  while (enqueued_call_stmt_chain)
+    {
+      tree next = TREE_CHAIN (enqueued_call_stmt_chain);
+      finish_expr_stmt (enqueued_call_stmt_chain);
+      enqueued_call_stmt_chain = next;
+    }
 
-  /* c_expand_body */
-  expand_function_start (fndecl, 0);
-  expand_stmt (DECL_SAVED_TREE (fndecl));
-  if (lang_expand_function_end)
-    (*lang_expand_function_end) ();
-  expand_function_end ();
-  rest_of_compilation (fndecl);
-  if (! quiet_flag)
-    fflush (asm_out_file);
-  current_function_decl = NULL_TREE;
+  finish_compound_stmt (body);
+  fndecl = finish_function (0);
+  expand_or_defer_fn (fndecl);
 
-  if (targetm.have_ctors_dtors)
-    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
-                                     DEFAULT_INIT_PRIORITY);
-  else
-    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+  static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
 }

@@ -1037,14 +1037,14 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
       area = ia64_get_addr_area (decl);
       if (area != ADDR_AREA_NORMAL && addr_area != area)
 	{
-	  error ("%Ja address area of '%s' conflicts with previous "
+	  error ("%Jaddress area of '%s' conflicts with previous "
 		 "declaration", decl, decl);
 	  *no_add_attrs = true;
 	}
       break;
 
     case FUNCTION_DECL:
-      error ("%Ja address area attribute cannot be specified for functions",
+      error ("%Jaddress area attribute cannot be specified for functions",
 	     decl, decl);
       *no_add_attrs = true;
       break;
@@ -1106,16 +1106,9 @@ ia64_move_ok (rtx dst, rtx src)
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
 }
 
-/* Return 0 if we are doing C++ code.  This optimization fails with
-   C++ because of GNAT c++/6685.  */
-
 int
 addp4_optimize_ok (rtx op1, rtx op2)
 {
-
-  if (!strcmp (lang_hooks.name, "GNU C++"))
-    return 0;
-
   return (basereg_operand (op1, GET_MODE(op1)) !=
 	  basereg_operand (op2, GET_MODE(op2)));
 }
@@ -1229,6 +1222,7 @@ static rtx
 ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
 {
   rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
+  rtx orig_op0 = op0;
 
   switch (tls_kind)
     {
@@ -1252,8 +1246,10 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
       insns = get_insns ();
       end_sequence ();
 
+      if (GET_MODE (op0) != Pmode)
+	op0 = tga_ret;
       emit_libcall_block (insns, op0, tga_ret, op1);
-      return NULL_RTX;
+      break;
 
     case TLS_MODEL_LOCAL_DYNAMIC:
       /* ??? This isn't the completely proper way to do local-dynamic
@@ -1281,19 +1277,16 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
       tmp = gen_reg_rtx (Pmode);
       emit_libcall_block (insns, tmp, tga_ret, tga_eqv);
 
-      if (register_operand (op0, Pmode))
-	tga_ret = op0;
-      else
-	tga_ret = gen_reg_rtx (Pmode);
+      if (!register_operand (op0, Pmode))
+	op0 = gen_reg_rtx (Pmode);
       if (TARGET_TLS64)
 	{
-	  emit_insn (gen_load_dtprel (tga_ret, op1));
-	  emit_insn (gen_adddi3 (tga_ret, tmp, tga_ret));
+	  emit_insn (gen_load_dtprel (op0, op1));
+	  emit_insn (gen_adddi3 (op0, tmp, op0));
 	}
       else
-	emit_insn (gen_add_dtprel (tga_ret, tmp, op1));
-
-      return (tga_ret == op0 ? NULL_RTX : tga_ret);
+	emit_insn (gen_add_dtprel (op0, tmp, op1));
+      break;
 
     case TLS_MODEL_INITIAL_EXEC:
       tmp = gen_reg_rtx (Pmode);
@@ -1302,32 +1295,32 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
       RTX_UNCHANGING_P (tmp) = 1;
       tmp = force_reg (Pmode, tmp);
 
-      if (register_operand (op0, Pmode))
-	op1 = op0;
-      else
-	op1 = gen_reg_rtx (Pmode);
-      emit_insn (gen_adddi3 (op1, tmp, gen_thread_pointer ()));
-
-      return (op1 == op0 ? NULL_RTX : op1);
+      if (!register_operand (op0, Pmode))
+	op0 = gen_reg_rtx (Pmode);
+      emit_insn (gen_adddi3 (op0, tmp, gen_thread_pointer ()));
+      break;
 
     case TLS_MODEL_LOCAL_EXEC:
-      if (register_operand (op0, Pmode))
-	tmp = op0;
-      else
-	tmp = gen_reg_rtx (Pmode);
+      if (!register_operand (op0, Pmode))
+	op0 = gen_reg_rtx (Pmode);
       if (TARGET_TLS64)
 	{
-	  emit_insn (gen_load_tprel (tmp, op1));
-	  emit_insn (gen_adddi3 (tmp, gen_thread_pointer (), tmp));
+	  emit_insn (gen_load_tprel (op0, op1));
+	  emit_insn (gen_adddi3 (op0, gen_thread_pointer (), op0));
 	}
       else
-	emit_insn (gen_add_tprel (tmp, gen_thread_pointer (), op1));
-
-      return (tmp == op0 ? NULL_RTX : tmp);
+	emit_insn (gen_add_tprel (op0, gen_thread_pointer (), op1));
+      break;
 
     default:
       abort ();
     }
+
+  if (orig_op0 == op0)
+    return NULL_RTX;
+  if (GET_MODE (orig_op0) == Pmode)
+    return op0;
+  return gen_lowpart (GET_MODE (orig_op0), op0);
 }
 
 rtx
@@ -7701,6 +7694,42 @@ ia64_init_builtins (void)
   tree void_ftype_pdi
     = build_function_type_list (void_type_node, pdi_type_node, NULL_TREE);
 
+  tree fpreg_type;
+  tree float80_type;
+
+  /* The __fpreg type.  */
+  fpreg_type = make_node (REAL_TYPE);
+  /* ??? Once the IA64 back end supports both 80-bit and 128-bit
+     floating types, this type should have XFmode, not TFmode.
+     TYPE_PRECISION should be 80 bits, not 128.  And, the back end
+     should know to load/save __fpreg variables using the ldf.fill and
+     stf.spill instructions.  */
+  TYPE_PRECISION (fpreg_type) = 128;
+  layout_type (fpreg_type);
+  (*lang_hooks.types.register_builtin_type) (fpreg_type, "__fpreg");
+
+  /* The __float80 type.  */
+  float80_type = make_node (REAL_TYPE);
+  /* ??? Once the IA64 back end supports both 80-bit and 128-bit
+     floating types, this type should have XFmode, not TFmode.
+     TYPE_PRECISION should be 80 bits, not 128.  */
+  TYPE_PRECISION (float80_type) = 128;
+  layout_type (float80_type);
+  (*lang_hooks.types.register_builtin_type) (float80_type, "__float80");
+
+  /* The __float128 type.  */
+  if (INTEL_EXTENDED_IEEE_FORMAT)
+    {
+      tree float128_type = make_node (REAL_TYPE);
+      TYPE_PRECISION (float128_type) = 128;
+      layout_type (float128_type);
+      (*lang_hooks.types.register_builtin_type) (float128_type, "__float128");
+    }
+  else
+    /* This is a synonym for "long double".  */
+    (*lang_hooks.types.register_builtin_type) (long_double_type_node,
+					       "__float128");
+
 #define def_builtin(name, type, code) \
   builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL_TREE)
 
@@ -8219,14 +8248,8 @@ ia64_hpux_function_arg_padding (enum machine_mode mode, tree type)
        && int_size_in_bytes (type) < UNITS_PER_WORD)
      return upward;
 
-   /* This is the standard FUNCTION_ARG_PADDING with !BYTES_BIG_ENDIAN
-      hardwired to be true.  */
-
-   return((mode == BLKmode
-       ? (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-          && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
-       : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
-      ? downward : upward);
+   /* Fall back to the default.  */
+   return DEFAULT_FUNCTION_ARG_PADDING (mode, type);
 }
 
 /* Linked list of all external functions that are to be emitted by GCC.
@@ -8360,6 +8383,18 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   emit_note (NOTE_INSN_PROLOGUE_END);
 
   this = gen_rtx_REG (Pmode, IN_REG (0));
+  if (TARGET_ILP32)
+    {
+      rtx tmp = gen_rtx_REG (ptr_mode, IN_REG (0));
+      REG_POINTER (tmp) = 1;
+      if (delta && CONST_OK_FOR_I (delta))
+	{
+	  emit_insn (gen_ptr_extend_plus_imm (this, tmp, GEN_INT (delta)));
+	  delta = 0;
+	}
+      else
+	emit_insn (gen_ptr_extend (this, tmp));
+    }
 
   /* Apply the constant offset, if required.  */
   if (delta)
@@ -8381,17 +8416,39 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       rtx vcall_offset_rtx = GEN_INT (vcall_offset);
       rtx tmp = gen_rtx_REG (Pmode, 2);
 
-      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
-
-      if (!CONST_OK_FOR_J (vcall_offset))
+      if (TARGET_ILP32)
 	{
-	  rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
-	  emit_move_insn (tmp2, vcall_offset_rtx);
-	  vcall_offset_rtx = tmp2;
+	  rtx t = gen_rtx_REG (ptr_mode, 2);
+	  REG_POINTER (t) = 1;
+	  emit_move_insn (t, gen_rtx_MEM (ptr_mode, this));
+	  if (CONST_OK_FOR_I (vcall_offset))
+	    {
+	      emit_insn (gen_ptr_extend_plus_imm (tmp, t, 
+						  vcall_offset_rtx));
+	      vcall_offset = 0;
+	    }
+	  else
+	    emit_insn (gen_ptr_extend (tmp, t));
 	}
-      emit_insn (gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+      else
+	emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
 
-      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
+      if (vcall_offset)
+	{
+	  if (!CONST_OK_FOR_J (vcall_offset))
+	    {
+	      rtx tmp2 = gen_rtx_REG (Pmode, next_scratch_gr_reg ());
+	      emit_move_insn (tmp2, vcall_offset_rtx);
+	      vcall_offset_rtx = tmp2;
+	    }
+	  emit_insn (gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+	}
+
+      if (TARGET_ILP32)
+	emit_move_insn (gen_rtx_REG (ptr_mode, 2), 
+			gen_rtx_MEM (ptr_mode, tmp));
+      else
+	emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
 
       emit_insn (gen_adddi3 (this, this, tmp));
     }

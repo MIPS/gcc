@@ -31,8 +31,6 @@ Boston, MA 02111-1307, USA.  */
       builtin_define ("__m68k__");		\
       builtin_define ("__SVR4_ABI__");		\
       builtin_define ("__motorola__");		\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
     }						\
   while (0)
 
@@ -204,7 +202,7 @@ while (0)
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_5200)					\
+    if (TARGET_COLDFIRE)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\

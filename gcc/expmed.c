@@ -2628,7 +2628,7 @@ choose_multiplier (unsigned HOST_WIDE_INT d, int n, int precision,
     abort ();
   if (mhigh_hi > 1 || mlow_hi > 1)
     abort ();
-  /* assert that mlow < mhigh.  */
+  /* Assert that mlow < mhigh.  */
   if (! (mlow_hi < mhigh_hi || (mlow_hi == mhigh_hi && mlow_lo < mhigh_lo)))
     abort ();
 
@@ -3824,7 +3824,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			       build_int_2 (pre_shift, 0), NULL_RTX, unsignedp);
 	    quotient = expand_mult (compute_mode, t1,
 				    gen_int_mode (ml, compute_mode),
-				    NULL_RTX, 0);
+				    NULL_RTX, 1);
 
 	    insn = get_last_insn ();
 	    set_unique_reg_note (insn,
@@ -4115,12 +4115,10 @@ make_tree (tree type, rtx x)
       t = make_node (RTL_EXPR);
       TREE_TYPE (t) = type;
 
-#ifdef POINTERS_EXTEND_UNSIGNED
       /* If TYPE is a POINTER_TYPE, X might be Pmode with TYPE_MODE being
 	 ptr_mode.  So convert.  */
-      if (POINTER_TYPE_P (type) && GET_MODE (x) != TYPE_MODE (type))
+      if (POINTER_TYPE_P (type))
 	x = convert_memory_address (TYPE_MODE (type), x);
-#endif
 
       RTL_EXPR_RTL (t) = x;
       /* There are no insns to be output

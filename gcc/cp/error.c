@@ -227,7 +227,7 @@ dump_template_parameter (tree parm, int flags)
       else if (DECL_NAME (p))
         pp_tree_identifier (cxx_pp, DECL_NAME (p));
       else
-        pp_identifier (cxx_pp, "<template default argument error>");
+        pp_cxx_canonical_template_parameter (cxx_pp, TREE_TYPE (p));
     }
   else
     dump_decl (p, flags | TFF_DECL_SPECIFIERS);
@@ -338,45 +338,14 @@ dump_type (tree t, int flags)
       dump_decl (t, flags & ~TFF_DECL_SPECIFIERS);
       break;
 
-    case COMPLEX_TYPE:
-      pp_string (cxx_pp, "__complex__ ");
-      dump_type (TREE_TYPE (t), flags);
-      break;
-
-    case VECTOR_TYPE:
-      pp_string (cxx_pp, "__vector__ ");
-      {
-	/* The subtype of a VECTOR_TYPE is something like intQI_type_node,
-	   which has no name and is not very useful for diagnostics.  So
-	   look up the equivalent C type and print its name.  */
-	tree elt = TREE_TYPE (t);
-	elt = c_common_type_for_mode (TYPE_MODE (elt), TREE_UNSIGNED (elt));
-	dump_type (elt, flags);
-      }
-      break;
-
     case INTEGER_TYPE:
-      if (!TREE_UNSIGNED (TYPE_MAIN_VARIANT (t)) && TREE_UNSIGNED (t))
-	pp_string (cxx_pp, "unsigned ");
-      else if (TREE_UNSIGNED (TYPE_MAIN_VARIANT (t)) && !TREE_UNSIGNED (t))
-	pp_string (cxx_pp, "signed ");
-
-      /* fall through.  */
     case REAL_TYPE:
     case VOID_TYPE:
     case BOOLEAN_TYPE:
-      {
-	tree type;
-	dump_qualifiers (t, after);
-	type = flags & TFF_CHASE_TYPEDEF ? TYPE_MAIN_VARIANT (t) : t;
-	if (TYPE_NAME (type) && TYPE_IDENTIFIER (type))
-	  pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (type));
-	else
-	  /* Types like intQI_type_node and friends have no names.
-	     These don't come up in user error messages, but it's nice
-	     to be able to print them from the debugger.  */
-	  pp_identifier (cxx_pp, "<anonymous>");
-      }
+    case COMPLEX_TYPE:
+    case VECTOR_TYPE:
+      pp_base (cxx_pp)->padding = pp_none;
+      pp_type_specifier_seq (cxx_pp, t);
       break;
 
     case TEMPLATE_TEMPLATE_PARM:
@@ -384,7 +353,7 @@ dump_type (tree t, int flags)
       if (TYPE_IDENTIFIER (t))
 	pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
       else
-	pp_identifier (cxx_pp, "<anonymous template template parameter>");
+        pp_cxx_canonical_template_parameter (cxx_pp, t);
       break;
 
     case BOUND_TEMPLATE_TEMPLATE_PARM:
@@ -402,7 +371,8 @@ dump_type (tree t, int flags)
       if (TYPE_IDENTIFIER (t))
 	pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
       else
-	pp_identifier (cxx_pp, "<anonymous template type parameter>");
+        pp_cxx_canonical_template_parameter
+          (cxx_pp, TEMPLATE_TYPE_PARM_INDEX (t));
       break;
 
       /* This is not always necessary for pointers and such, but doing this
@@ -830,11 +800,16 @@ dump_decl (tree t, int flags)
       break;
 
     case NAMESPACE_DECL:
-      dump_scope (CP_DECL_CONTEXT (t), flags);
-      if (DECL_NAME (t) == anonymous_namespace_name)
-	pp_identifier (cxx_pp, "<unnamed>");
+      if (flags & TFF_DECL_SPECIFIERS)
+        pp_cxx_declaration (cxx_pp, t);
       else
-	pp_tree_identifier (cxx_pp, DECL_NAME (t));
+        {
+          dump_scope (CP_DECL_CONTEXT (t), flags);
+          if (DECL_NAME (t) == anonymous_namespace_name)
+            pp_identifier (cxx_pp, "<unnamed>");
+          else
+            pp_tree_identifier (cxx_pp, DECL_NAME (t));
+        }
       break;
 
     case SCOPE_REF:
@@ -1485,7 +1460,6 @@ dump_expr (tree t, int flags)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
     case LT_EXPR:

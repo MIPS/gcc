@@ -494,7 +494,7 @@ toc_section ()								\
     }									\
 }									\
 									\
-extern int in_toc_section PARAMS ((void));				\
+extern int in_toc_section (void);					\
 int in_toc_section ()							\
 {									\
   return in_section == in_toc;						\
@@ -1065,8 +1065,8 @@ extern int fixuplabelno;
 
 /* GNU/Linux support.  */
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
-%{!mnewlib: %{shared:-lc} %{!shared: %{pthread:-lpthread } \
-%{profile:-lc_p} %{!profile:-lc}}}"
+%{!mnewlib: %{pthread:-lpthread} %{shared:-lc} \
+%{!shared: %{profile:-lc_p} %{!profile:-lc}}}"
 
 #ifdef HAVE_LD_PIE
 #define	STARTFILE_LINUX_SPEC "\

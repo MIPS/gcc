@@ -39,7 +39,7 @@ static void print_callee (pretty_printer *, tree, int);
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
 #define NIY do { \
-  debug_output_buffer (buffer); debug_tree (node); abort (); } while (0)
+  pp_flush (buffer); debug_tree (node); abort (); } while (0)
 
 
 /* Print the call graph associated to the tree T, in the file FILE.  */
@@ -248,7 +248,6 @@ construct_call_graph (pretty_printer *buffer, tree t, HOST_WIDE_INT spc)
 	case BIT_IOR_EXPR:
 	case BIT_XOR_EXPR:
 	case BIT_AND_EXPR:
-	case BIT_ANDTC_EXPR:
 	case TRUTH_ANDIF_EXPR:
 	case TRUTH_ORIF_EXPR:
 	case TRUTH_AND_EXPR:

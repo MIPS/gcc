@@ -166,6 +166,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE false
 #endif
 
+#ifndef TARGET_ASM_EXTERNAL_LIBCALL
+#define TARGET_ASM_EXTERNAL_LIBCALL default_external_libcall
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -202,7 +206,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_OUTPUT_MI_THUNK,             \
                         TARGET_ASM_CAN_OUTPUT_MI_THUNK,         \
                         TARGET_ASM_FILE_START,                  \
-                        TARGET_ASM_FILE_END}
+                        TARGET_ASM_FILE_END,			\
+			TARGET_ASM_EXTERNAL_LIBCALL}
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -305,6 +310,30 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_MACHINE_DEPENDENT_REORG 0
 
+#define TARGET_PROMOTE_FUNCTION_ARGS default_promote_function_args
+#define TARGET_PROMOTE_FUNCTION_RETURN default_promote_function_return
+#define TARGET_PROMOTE_PROTOTYPES default_promote_prototypes
+
+#define TARGET_STRUCT_VALUE_RTX default_struct_value_rtx
+#define TARGET_RETURN_IN_MEMORY default_return_in_memory
+
+#define TARGET_EXPAND_BUILTIN_SAVEREGS default_expand_builtin_saveregs
+#define TARGET_SETUP_INCOMING_VARARGS default_setup_incoming_varargs
+#define TARGET_STRICT_ARGUMENT_NAMING default_strict_argument_naming
+#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED default_pretend_outgoing_varargs_named
+
+#define TARGET_CALLS {						\
+   TARGET_PROMOTE_FUNCTION_ARGS,				\
+   TARGET_PROMOTE_FUNCTION_RETURN,				\
+   TARGET_PROMOTE_PROTOTYPES,					\
+   TARGET_STRUCT_VALUE_RTX,					\
+   TARGET_RETURN_IN_MEMORY,					\
+   TARGET_EXPAND_BUILTIN_SAVEREGS,				\
+   TARGET_SETUP_INCOMING_VARARGS,				\
+   TARGET_STRICT_ARGUMENT_NAMING,				\
+   TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
+   }
+
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
@@ -345,6 +374,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
+  TARGET_CALLS,					\
 }
 
 #include "hooks.h"
+#include "targhooks.h"

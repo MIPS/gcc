@@ -50,7 +50,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    expanding statements.  */
 void (*lang_expand_stmt) (tree);
 
-
 /* If non-NULL, the address of a language-specific function for
    expanding a DECL_STMT.  After the language-independent cases are
    handled, this function will be called.  If this function is not

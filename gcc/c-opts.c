@@ -475,6 +475,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_format_zero_length = value;
       break;
 
+    case OPT_Winit_self:
+      warn_init_self = value;
+      break;
+
     case OPT_Wimplicit:
       set_Wimplicit (value);
       break;
@@ -544,6 +548,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wnonnull:
       warn_nonnull = value;
+      break;
+
+    case OPT_Wold_style_definition:
+      warn_old_style_definition = value;
       break;
 
     case OPT_Wold_style_cast:

@@ -142,8 +142,7 @@ do {							\
    usually pad upward, but pad short args downward on
    big-endian machines.  */
 
-#ifndef FUNCTION_ARG_PADDING
-#define FUNCTION_ARG_PADDING(MODE, TYPE)				\
+#define DEFAULT_FUNCTION_ARG_PADDING(MODE, TYPE)			\
   (! BYTES_BIG_ENDIAN							\
    ? upward								\
    : (((MODE) == BLKmode						\
@@ -151,6 +150,10 @@ do {							\
 	  && int_size_in_bytes (TYPE) < (PARM_BOUNDARY / BITS_PER_UNIT)) \
        : GET_MODE_BITSIZE (MODE) < PARM_BOUNDARY)			\
       ? downward : upward))
+
+#ifndef FUNCTION_ARG_PADDING
+#define FUNCTION_ARG_PADDING(MODE, TYPE)	\
+  DEFAULT_FUNCTION_ARG_PADDING ((MODE), (TYPE))
 #endif
 
 /* Supply a default definition for FUNCTION_ARG_BOUNDARY.  Normally, we let
@@ -169,33 +172,10 @@ do {							\
 tree split_complex_types (tree);
 tree split_complex_values (tree);
 
-/* Provide a default value for STRICT_ARGUMENT_NAMING.  */
-#ifndef STRICT_ARGUMENT_NAMING
-#define STRICT_ARGUMENT_NAMING 0
-#endif
-
-/* Provide a default value for PRETEND_OUTGOING_VARARGS_NAMED.  */
-#ifdef SETUP_INCOMING_VARARGS
-#ifndef PRETEND_OUTGOING_VARARGS_NAMED
-#define PRETEND_OUTGOING_VARARGS_NAMED 1
-#endif
-#else
-/* It is an error to define PRETEND_OUTGOING_VARARGS_NAMED without
-   defining SETUP_INCOMING_VARARGS.  */
-#define PRETEND_OUTGOING_VARARGS_NAMED 0
-#endif
-
 /* Nonzero if we do not know how to pass TYPE solely in registers.  */
 extern bool default_must_pass_in_stack (enum machine_mode, tree);
 #ifndef MUST_PASS_IN_STACK
 #define MUST_PASS_IN_STACK(MODE,TYPE) default_must_pass_in_stack(MODE, TYPE)
-#endif
-
-/* Nonzero if type TYPE should be returned in memory.
-   Most machines can use the following default definition.  */
-
-#ifndef RETURN_IN_MEMORY
-#define RETURN_IN_MEMORY(TYPE) (TYPE_MODE (TYPE) == BLKmode)
 #endif
 
 /* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.
@@ -340,11 +320,11 @@ extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 
 /* Given an insn and condition, return a canonical description of
    the test being made.  */
-extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx);
+extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int);
 
 /* Given a JUMP_INSN, return a canonical description of the test
    being made.  */
-extern rtx get_condition (rtx, rtx *);
+extern rtx get_condition (rtx, rtx *, int);
 
 /* Generate a conditional trap instruction.  */
 extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);

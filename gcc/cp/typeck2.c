@@ -1023,9 +1023,12 @@ build_x_arrow (tree expr)
   if (TREE_CODE (TREE_TYPE (last_rval)) == POINTER_TYPE)
     {
       if (processing_template_decl)
-	return build_min (ARROW_EXPR, 
-			  TREE_TYPE (TREE_TYPE (last_rval)), 
-			  orig_expr);
+	{
+	  expr = build_min_non_dep (ARROW_EXPR, last_rval, orig_expr);
+	  /* It will be dereferenced. */
+	  TREE_TYPE (expr) = TREE_TYPE (TREE_TYPE (last_rval));
+	  return expr;
+	}
 
       return build_indirect_ref (last_rval, NULL);
     }
@@ -1114,29 +1117,18 @@ build_functional_cast (tree exp, tree parms)
   if (exp == error_mark_node || parms == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (exp) == IDENTIFIER_NODE)
-    {
-      if (IDENTIFIER_HAS_TYPE_VALUE (exp))
-	/* Either an enum or an aggregate type.  */
-	type = IDENTIFIER_TYPE_VALUE (exp);
-      else
-	{
-	  type = lookup_name (exp, 1);
-	  if (!type || TREE_CODE (type) != TYPE_DECL)
-	    {
-	      error ("`%T' fails to be a typedef or built-in type", exp);
-	      return error_mark_node;
-	    }
-	  type = TREE_TYPE (type);
-	}
-    }
-  else if (TREE_CODE (exp) == TYPE_DECL)
+  if (TREE_CODE (exp) == TYPE_DECL)
     type = TREE_TYPE (exp);
   else
     type = exp;
 
   if (processing_template_decl)
-    return build_min (CAST_EXPR, type, parms);
+    {
+      tree t = build_min (CAST_EXPR, type, parms);
+      /* We don't know if it will or will not have side effects.  */
+      TREE_SIDE_EFFECTS (t) = 1;
+      return t;
+    }
 
   if (! IS_AGGR_TYPE (type))
     {

@@ -22,13 +22,13 @@ Boston, MA 02111-1307, USA.  */
 /* This file is included after m68k.h by CPU COFF specific files.  It
    is not a complete target itself.  */
 
+/* Used in m68k.c to include required support code.  */
+
+#define M68K_TARGET_COFF 1
+
 /* Generate sdb debugging information.  */
 
 #define SDB_DEBUGGING_INFO 1
-
-/* Output DBX (stabs) debugging information if using -gstabs.  */
-
-#include "dbxcoff.h"
 
 /* COFF symbols don't start with an underscore.  */
 
@@ -57,7 +57,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_5200)					\
+    if (TARGET_COLDFIRE)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\
@@ -74,7 +74,7 @@ Boston, MA 02111-1307, USA.  */
 #define REGISTER_NAMES \
 {"%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7",	\
  "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%a6", "%sp",	\
- "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7" }
+ "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7", "argptr" }
 
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 

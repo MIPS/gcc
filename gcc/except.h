@@ -32,17 +32,6 @@ struct eh_status;
 /* Internal structure describing a region.  */
 struct eh_region;
 
-enum eh_region_type {
-  ERT_UNKNOWN = 0,
-  ERT_CLEANUP,
-  ERT_TRY,
-  ERT_CATCH,
-  ERT_ALLOWED_EXCEPTIONS,
-  ERT_MUST_NOT_THROW,
-  ERT_THROW,
-  ERT_FIXUP
-};
-
 /* Test: is exception handling turned on?  */
 extern int doing_eh (int);
 
@@ -186,9 +175,13 @@ extern tree (*lang_eh_runtime_type) (tree);
 	   || (DWARF2_UNWIND_INFO			\
 	       && (defined (EH_RETURN_HANDLER_RTX)	\
 		   || defined (HAVE_eh_return)))))
-#define MUST_USE_SJLJ_EXCEPTIONS	1
+# define MUST_USE_SJLJ_EXCEPTIONS	1
 #else
-#define MUST_USE_SJLJ_EXCEPTIONS	0
+# ifdef IA64_UNWIND_INFO
+#  define MUST_USE_SJLJ_EXCEPTIONS	0
+# else
+#  define MUST_USE_SJLJ_EXCEPTIONS	(DWARF2_UNWIND_INFO == 0)
+# endif
 #endif
 
 #ifdef CONFIG_SJLJ_EXCEPTIONS

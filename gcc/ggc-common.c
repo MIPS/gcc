@@ -739,7 +739,7 @@ ggc_min_heapsize_heuristic (void)
   /* Adjust for rlimits.  */
   min_heap_kbytes = ggc_rlimit_bound (min_heap_kbytes);
 
-  min_heap_kbytes /= 1024; /* convert to Kbytes.  */
+  min_heap_kbytes /= 1024; /* Convert to Kbytes.  */
 
   /* The heuristic is RAM/8, with a lower bound of 4M and an upper
      bound of 128M (when RAM >= 1GB).  */
@@ -753,7 +753,7 @@ ggc_min_heapsize_heuristic (void)
 void
 init_ggc_heuristics (void)
 {
-#ifndef ENABLE_GC_ALWAYS_COLLECT
+#if !defined ENABLE_GC_CHECKING && !defined ENABLE_GC_ALWAYS_COLLECT
   set_param_value ("ggc-min-expand", ggc_min_expand_heuristic());
   set_param_value ("ggc-min-heapsize", ggc_min_heapsize_heuristic());
 #endif

@@ -19,11 +19,6 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
-/* Set up System V.4 (aka ELF) defaults.  */
-#include "svr4.h"
-#include "elfos.h"
-
-
 /* Driver configuration.  */
 
 #undef SWITCH_TAKES_ARG
@@ -1158,9 +1153,9 @@ extern struct rtx_def *iq2000_load_reg3;	/* 3rd reg to check for load delay */
 extern struct rtx_def *iq2000_load_reg4;	/* 4th reg to check for load delay */
 
 /* Functions to change what output section we are using.  */
-extern void		rdata_section PARAMS ((void));
-extern void		sdata_section PARAMS ((void));
-extern void		sbss_section PARAMS ((void));
+extern void		rdata_section (void);
+extern void		sdata_section (void);
+extern void		sbss_section (void);
 
 #define BITMASK_UPPER16	((unsigned long)0xffff << 16)	/* 0xffff0000 */
 #define BITMASK_LOWER16	((unsigned long)0xffff)		/* 0x0000ffff */
@@ -1255,7 +1250,7 @@ extern void		sbss_section PARAMS ((void));
 
 /* Certain machines have the property that some registers cannot be
    copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is non-zero if
+   macro on those machines to be a C expression that is nonzero if
    objects of mode MODE in registers of CLASS1 can only be copied to
    registers of class CLASS2 by storing a register of CLASS1 into
    memory and loading that memory location into a register of CLASS2.

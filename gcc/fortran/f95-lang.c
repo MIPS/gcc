@@ -198,12 +198,12 @@ tree *ridpointers = NULL;
 
 /* language-specific flags.  */
 void
-expand_function_body (tree fndecl, int nested ATTRIBUTE_UNUSED)
+expand_function_body (tree fndecl, int nested)
 {
   if (!flag_disable_gimple)
     gimplify_function_tree (fndecl);
 
-  tree_rest_of_compilation (fndecl);
+  tree_rest_of_compilation (fndecl, nested);
 }
 
 
@@ -801,8 +801,7 @@ gfc_init_builtin_functions (void)
 {
   tree mfunc_float[2];
   tree mfunc_double[2];
-  tree ftype_expect;
-  tree ftype_memcpy;
+  tree ftype;
   tree tmp;
   tree voidchain;
 
@@ -818,15 +817,6 @@ gfc_init_builtin_functions (void)
   tmp = tree_cons (NULL_TREE, double_type_node, tmp);
   mfunc_double[1] = build_function_type (double_type_node, tmp);
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
-  ftype_expect = build_function_type (long_integer_type_node, tmp);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
-  ftype_memcpy = build_function_type (pvoid_type_node, tmp);
-
 #include "mathbuiltins.def"
 
   /* We define there seperately as the fortran versions have different
@@ -841,10 +831,25 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_ROUNDF, "roundf");
 
   /* Other builtin functions we use.  */
-  gfc_define_builtin ("__builtin_expect", ftype_expect,
-		      BUILT_IN_EXPECT, "expect");
-  gfc_define_builtin ("__builtin_memcpy", ftype_memcpy,
-		      BUILT_IN_MEMCPY, "memcpy");
+
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
+  ftype = build_function_type (long_integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT, "expect");
+
+  tmp = tree_cons (NULL_TREE, size_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY, "memcpy");
+
+  tmp = tree_cons (NULL_TREE, integer_type_node, voidchain);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ, "clz");
+
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl");
 }
 
 #undef DEFINE_MATH_BUILTIN

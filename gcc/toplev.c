@@ -634,6 +634,11 @@ int flag_finite_math_only = 0;
 
 int flag_trapping_math = 1;
 
+/* Nonzero means disable transformations that assume default floating
+   point rounding behavior.  */
+
+int flag_rounding_math = 0;
+
 /* Nonzero means disable transformations observable by signaling NaNs.
    This option implies that any operation on an IEEE signaling NaN can
    generate a (user-visible) trap.  */
@@ -1146,6 +1151,7 @@ static const lang_independent_options f_options[] =
   { "guess-branch-probability", &flag_guess_branch_prob, 1 },
   {"math-errno", &flag_errno_math, 1 },
   {"trapping-math", &flag_trapping_math, 1 },
+  {"rounding-math", &flag_rounding_math, 1 },
   {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1 },
   {"signaling-nans", &flag_signaling_nans, 1 },
   {"bounds-check", &flag_bounds_check, 1 },
@@ -1241,6 +1247,23 @@ get_src_pwd (void)
     src_pwd = getpwd ();
 
    return src_pwd;
+}
+
+/* Called when the start of a function definition is parsed,
+   this function prints on stderr the name of the function.  */
+void
+announce_function (tree decl)
+{
+  if (!quiet_flag)
+    {
+      if (rtl_dump_and_exit)
+	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
+      else
+	verbatim (" %s", (*lang_hooks.decl_printable_name) (decl, 2));
+      fflush (stderr);
+      pp_needs_newline (global_dc->printer) = true;
+      diagnostic_set_last_function (global_dc);
+    }
 }
 
 /* Set up a default flag_random_seed and local_tick, unless the user
@@ -1609,7 +1632,7 @@ wrapup_global_declarations (tree *vec, int len)
 	      if (flag_unit_at_a_time
 		  && cgraph_varpool_node (decl)->finalized)
 		needed = 0;
-	      else if (flag_unit_at_a_time
+	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 		/* needed */;
@@ -1717,6 +1740,44 @@ check_global_declarations (tree *vec, int len)
 	  (*debug_hooks->global_decl) (decl);
 	  timevar_pop (TV_SYMOUT);
 	}
+    }
+}
+
+/* Warn about a use of an identifier which was marked deprecated.  */
+void
+warn_deprecated_use (tree node)
+{
+  if (node == 0 || !warn_deprecated_decl)
+    return;
+
+  if (DECL_P (node))
+    warning ("`%s' is deprecated (declared at %s:%d)",
+	     IDENTIFIER_POINTER (DECL_NAME (node)),
+	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+  else if (TYPE_P (node))
+    {
+      const char *what = NULL;
+      tree decl = TYPE_STUB_DECL (node);
+
+      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	what = IDENTIFIER_POINTER (TYPE_NAME (node));
+      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+	       && DECL_NAME (TYPE_NAME (node)))
+	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+
+      if (what)
+	{
+	  if (decl)
+	    warning ("`%s' is deprecated (declared at %s:%d)", what,
+		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	  else
+	    warning ("`%s' is deprecated", what);
+	}
+      else if (decl)
+	warning ("type is deprecated (declared at %s:%d)",
+		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+      else
+	warning ("type is deprecated");
     }
 }
 
@@ -1885,7 +1946,7 @@ rest_of_decl_compilation (tree decl,
 
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.  */
-      if (at_end || !DECL_DEFER_OUTPUT (decl))
+      if ((at_end || !DECL_DEFER_OUTPUT (decl)) && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
 	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
@@ -2069,6 +2130,23 @@ rest_of_handle_delay_slots (tree decl, rtx insns)
 static void
 rest_of_handle_stack_regs (tree decl, rtx insns)
 {
+#if defined (HAVE_ATTR_length)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     splitten until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+#ifdef INSN_SCHEDULING
+  if (optimize && !flag_schedule_insns_after_reload)
+#else
+  if (optimize)
+#endif
+    {
+      timevar_push (TV_SHORTEN_BRANCH);
+      split_all_insns (1);
+      timevar_pop (TV_SHORTEN_BRANCH);
+    }
+#endif
+
   timevar_push (TV_REG_STACK);
   open_dump_file (DFI_stack, decl);
 
@@ -2813,7 +2891,8 @@ rest_of_handle_cse (tree decl, rtx insns)
   tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
   if (tem)
     rebuild_jump_labels (insns);
-  purge_all_dead_edges (0);
+  if (purge_all_dead_edges (0))
+    delete_unreachable_blocks ();
 
   delete_trivially_dead_insns (insns, max_reg_num ());
 

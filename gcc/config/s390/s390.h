@@ -26,7 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Override the __fixdfdi etc. routines when building libgcc2.
    ??? This should be done in a cleaner way ...  */
 #if defined (IN_LIBGCC2) && !defined (__s390x__)
-#include <s390/fixdfdi.h>
+#include <config/s390/fixdfdi.h>
 #endif
 
 /* Which processor to generate code or schedule for. The cpu attribute
@@ -1012,65 +1012,6 @@ do {									\
 } while (0)
 
 
-/* Constant Pool for all symbols operands which are changed with
-   force_const_mem during insn generation (expand_insn).  */
-
-extern int s390_pool_count;
-extern int s390_nr_constants;
-
-#define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, fndecl, size)  	        \
-{								       	\
-  struct pool_constant *pool;					       	\
-								        \
-    if (s390_pool_count == -1)                                        	\
-     {							                \
-       s390_nr_constants = 0;				                \
-       for (pool = first_pool; pool; pool = pool->next)	                \
-	 if (pool->mark) s390_nr_constants++;		                \
-       return;                                      	                \
-     }                                                                  \
-}
-
-#define ASM_OUTPUT_SPECIAL_POOL_ENTRY(FILE, EXP, MODE, ALIGN, LABELNO, WIN) \
-{									    \
-  fprintf (FILE, ".LC%d:\n", LABELNO);					    \
-									    \
-  /* Output the value of the constant itself.  */			    \
-  switch (GET_MODE_CLASS (MODE))					    \
-    {									    \
-    case MODE_FLOAT:							    \
-      if (GET_CODE (EXP) != CONST_DOUBLE)				    \
-	abort ();							    \
-									    \
-      REAL_VALUE_FROM_CONST_DOUBLE (r, EXP);				    \
-      assemble_real (r, MODE, ALIGN);					    \
-      break;								    \
-									    \
-    case MODE_INT:							    \
-    case MODE_PARTIAL_INT:						    \
-      if (GET_CODE (EXP) == CONST					    \
-	  || GET_CODE (EXP) == SYMBOL_REF				    \
-	  || GET_CODE (EXP) == LABEL_REF)				    \
-        {								    \
-	  fputs (integer_asm_op (UNITS_PER_WORD, TRUE), FILE);		    \
-          s390_output_symbolic_const (FILE, EXP);			    \
-          fputc ('\n', (FILE));						    \
-	}								    \
-      else								    \
-	{								    \
-	  assemble_integer (EXP, GET_MODE_SIZE (MODE), ALIGN, 1);	    \
-	  if (GET_MODE_SIZE (MODE) == 1)				    \
-	    ASM_OUTPUT_SKIP ((FILE), (unsigned HOST_WIDE_INT)1);	    \
-	}								    \
-      break;								    \
-									    \
-    default:								    \
-      abort ();								    \
-    }									    \
-  goto WIN;								    \
-}
-
-
 /* Miscellaneous parameters.  */
 
 /* Define the codes that are matched by predicates in aux-output.c.  */
@@ -1089,14 +1030,6 @@ extern int s390_nr_constants;
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_64BIT ? DImode : SImode)
-
-/* Load from integral MODE < SI from memory into register makes sign_extend
-   or zero_extend
-   In our case sign_extension happens for Halfwords, other no extension.  */
-#define LOAD_EXTEND_OP(MODE) 					\
-(TARGET_64BIT ? ((MODE) == QImode ? ZERO_EXTEND :               \
-                 (MODE) == HImode ? SIGN_EXTEND : NIL)          \
-              : ((MODE) == HImode ? SIGN_EXTEND : NIL))
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */

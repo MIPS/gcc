@@ -1,5 +1,22 @@
 
 dnl
+dnl GLIBCXX_CONDITIONAL (NAME, SHELL-TEST)
+dnl
+dnl Exactly like AM_CONDITIONAL, but delays evaluation of the test until the
+dnl end of configure.  This lets tested variables be reassigned, and the
+dnl conditional will depend on the final state of the variable.  For a simple
+dnl example of why this is needed, see GLIBCXX_ENABLE_HOSTED.
+dnl
+m4_define([_m4_divert(glibcxx_diversion)], 8000)dnl
+AC_DEFUN(GLIBCXX_CONDITIONAL, [dnl
+  m4_divert_text([glibcxx_diversion],dnl
+   AM_CONDITIONAL([$1],[$2])
+  )dnl
+])dnl
+AC_DEFUN(GLIBCXX_EVALUATE_CONDITIONALS, [m4_undivert([glibcxx_diversion])])dnl
+
+
+dnl
 dnl Check to see what architecture and operating system we are compiling
 dnl for.  Also, if architecture- or OS-specific flags are required for
 dnl compilation, pick them up here.
@@ -48,6 +65,7 @@ dnl variables like $host.
 dnl
 dnl Sets:
 dnl  gcc_version          (x.y.z format)
+dnl  SUBDIRS
 dnl Substs:
 dnl  glibcxx_builddir     (absolute path)
 dnl  glibcxx_srcdir       (absolute path)
@@ -61,6 +79,12 @@ dnl  - default settings for all AM_CONFITIONAL test variables
 dnl  - lots of tools, like CC and CXX
 dnl
 AC_DEFUN(GLIBCXX_CONFIGURE, [
+  # Keep these sync'd with the list in Makefile.am.  The first provides an
+  # expandable list at autoconf time; the second provides an expandable list
+  # (i.e., shell variable) at configure time.
+  m4_define([glibcxx_SUBDIRS],[include libmath libsupc++ src po testsuite])
+  SUBDIRS='glibcxx_SUBDIRS'
+
   # These need to be absolute paths, yet at the same time need to
   # canonicalize only relative paths, because then amd will not unmount
   # drives. Thus the use of PWDCMD: set it to 'pawd' or 'amq -w' if using amd.
@@ -122,9 +146,6 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
   gcc_version=`$CXX -dumpversion`
   AC_MSG_RESULT($gcc_version)
 
-  # For some reason, gettext needs this.
-  AC_ISC_POSIX
-
   # Will set LN_S to either 'ln -s', 'ln', or 'cp -p' (if linking isn't
   # available).  Uncomment the next line to force a particular method.
   AC_PROG_LN_S
@@ -136,7 +157,10 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
 
   AM_MAINTAINER_MODE
 
-  # Set up safe default values for all subsequent AM_CONDITIONAL tests.
+  # Set up safe default values for all subsequent AM_CONDITIONAL tests
+  # which are themselves conditionally expanded.
+  ## (Right now, this only matters for enable_wchar_t, but nothing prevents
+  ## other macros from doing the same.  This should be automated.)  -pme
   need_libmath=no
   enable_wchar_t=no
   #enable_libstdcxx_debug=no
@@ -145,6 +169,7 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
   #c_compatibility=no
   #enable_abi_check=no
   #enable_symvers=no
+  #enable_hosted_libstdcxx=yes
 
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
@@ -153,6 +178,7 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
 
 
 m4_include([linkage.m4])
+m4_include([../config/no-executables.m4])
 
 
 dnl
@@ -553,32 +579,35 @@ dnl Substs:
 dnl  baseline_dir
 dnl
 AC_DEFUN(GLIBCXX_CONFIGURE_TESTSUITE, [
-  if $GLIBCXX_IS_NATIVE; then
+  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
     # Do checks for memory limit functions.
     GLIBCXX_CHECK_SETRLIMIT
 
     # Look for setenv, so that extended locale tests can be performed.
     GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+
+    if test $enable_symvers = no; then
+      enable_abi_check=no
+    else
+      case "$host" in
+        *-*-cygwin*)
+          enable_abi_check=no ;;
+        *)
+          enable_abi_check=yes ;;
+      esac
+    fi
+  else
+    # Only build this as native, since automake does not understand
+    # CXX_FOR_BUILD.
+    enable_abi_check=no
   fi
 
   # Export file names for ABI checking.
   baseline_dir="$glibcxx_srcdir/config/abi/${abi_baseline_pair}\$(MULTISUBDIR)"
   AC_SUBST(baseline_dir)
 
-  # Determine if checking the ABI is desirable.
-  if test $enable_symvers = no; then
-    enable_abi_check=no
-  else
-    case "$host" in
-      *-*-cygwin*)
-        enable_abi_check=no ;;
-      *)
-        enable_abi_check=yes ;;
-    esac
-  fi
-
-  AM_CONDITIONAL(GLIBCXX_TEST_WCHAR_T, test $enable_wchar_t = yes)
-  AM_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_WCHAR_T, test $enable_wchar_t = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
 ])
 
 
@@ -598,7 +627,7 @@ AC_DEFUN(GLIBCXX_EXPORT_INCLUDES, [
 
   # For Canadian crosses, pick this up too.
   if test $CANADIAN = yes; then
-    GLIBCXX_INCLUDES="$GLIBCXX_INCLUDES '-I${includedir}'"
+    GLIBCXX_INCLUDES="$GLIBCXX_INCLUDES -I\${includedir}"
   fi
 
   # Stuff in the actual top level.  Currently only used by libsupc++ to
@@ -627,7 +656,7 @@ AC_DEFUN(GLIBCXX_EXPORT_FLAGS, [
   OPTIMIZE_CXXFLAGS=
   AC_SUBST(OPTIMIZE_CXXFLAGS)
 
-  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings'
+  WARN_FLAGS='-Wall -W -Wwrite-strings -Wcast-qual'
   AC_SUBST(WARN_FLAGS)
 ])
 
@@ -890,9 +919,9 @@ AC_DEFUN(GLIBCXX_ENABLE_CHEADERS, [
   C_INCLUDE_DIR='${glibcxx_srcdir}/include/'$enable_cheaders
 
   AC_SUBST(C_INCLUDE_DIR)
-  AM_CONDITIONAL(GLIBCXX_C_HEADERS_C, test $enable_cheaders = c)
-  AM_CONDITIONAL(GLIBCXX_C_HEADERS_C_STD, test $enable_cheaders = c_std)
-  AM_CONDITIONAL(GLIBCXX_C_HEADERS_COMPATIBILITY, test $c_compatibility = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C, test $enable_cheaders = c)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C_STD, test $enable_cheaders = c_std)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_COMPATIBILITY, test $c_compatibility = yes)
 ])
 
 
@@ -1206,7 +1235,7 @@ AC_DEFUN(GLIBCXX_ENABLE_DEBUG, [
   AC_MSG_CHECKING([for additional debug build])
   GLIBCXX_ENABLE(libstdcxx-debug,$1,,[build extra debug library])
   AC_MSG_RESULT($enable_libstdcxx_debug)
-  AM_CONDITIONAL(GLIBCXX_BUILD_DEBUG, test $enable_libstdcxx_debug = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_DEBUG, test $enable_libstdcxx_debug = yes)
 ])
 
 
@@ -1236,6 +1265,41 @@ AC_DEFUN(GLIBCXX_ENABLE_DEBUG_FLAGS, [
   AC_SUBST(DEBUG_FLAGS)
 
   AC_MSG_NOTICE([Debug build flags set to $DEBUG_FLAGS])
+])
+
+
+dnl
+dnl Check if the user only wants a freestanding library implementation.
+dnl
+dnl --disable-hosted-libstdcxx will turn off most of the library build,
+dnl installing only the headers required by [17.4.1.3] and the language
+dnl support library.  More than that will be built (to keep the Makefiles
+dnl conveniently clean), but not installed.
+dnl
+dnl Sets:
+dnl  is_hosted  (yes/no)
+dnl
+dnl Defines:
+dnl  _GLIBCXX_HOSTED   (always defined, either to 1 or 0)
+dnl
+AC_DEFUN(GLIBCXX_ENABLE_HOSTED, [
+  AC_ARG_ENABLE([hosted-libstdcxx],
+    AC_HELP_STRING([--disable-hosted-libstdcxx],
+                   [only build freestanding C++ runtime support]),,
+    [enable_hosted_libstdcxx=yes])
+  if test "$enable_hosted_libstdcxx" = no; then
+    AC_MSG_NOTICE([Only freestanding libraries will be built])
+    is_hosted=no
+    hosted_define=0
+    enable_abi_check=no
+    enable_libstdcxx_pch=no
+  else
+    is_hosted=yes
+    hosted_define=1
+  fi
+  GLIBCXX_CONDITIONAL(GLIBCXX_HOSTED, test $is_hosted = yes)
+  AC_DEFINE_UNQUOTED(_GLIBCXX_HOSTED, $hosted_define,
+    [Define to 1 if a full hosted library is built, or 0 if freestanding.])
 ])
 
 
@@ -1344,7 +1408,7 @@ AC_DEFUN(GLIBCXX_ENABLE_PCH, [
     enable_libstdcxx_pch=$glibcxx_cv_prog_CXX_pch
   fi
 
-  AM_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
   if test $enable_libstdcxx_pch = yes; then
     glibcxx_PCHFLAGS="-include bits/stdc++.h"
   else
@@ -1516,7 +1580,7 @@ esac
 
 AC_SUBST(SYMVER_MAP)
 AC_SUBST(port_specific_symbol_files)
-AM_CONDITIONAL(GLIBCXX_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
+GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
 AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
 ])
 

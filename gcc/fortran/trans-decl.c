@@ -30,8 +30,8 @@ Boston, MA 02111-1307, USA.  */
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
-#include "target.h"
 #include "tm.h"
+#include "target.h"
 #include "function.h"
 #include "errors.h"
 #include "flags.h"

@@ -806,7 +806,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
     case TRUTH_AND_EXPR:
@@ -915,11 +914,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       pp_string (buffer, "ABS_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
       pp_character (buffer, '>');
-      break;
-
-
-    case FFS_EXPR:
-      NIY;
       break;
 
     case UNORDERED_EXPR:

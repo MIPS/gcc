@@ -41,12 +41,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define INSNS_PER_CALL 10
 
-static void cgraph_expand_functions (void);
+static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_call_1 (tree *, int *, void *);
 static void cgraph_mark_local_functions (void);
 static void cgraph_optimize_function (struct cgraph_node *);
+static bool cgraph_default_inline_p (struct cgraph_node *n);
+static void cgraph_analyze_function (struct cgraph_node *node);
 
 /* Statistics we collect about inlining algorithm.  */
 static int ncalls_inlined;
@@ -54,82 +56,235 @@ static int nfunctions_inlined;
 static int initial_insns;
 static int overall_insns;
 
-/* Analyze function once it is parsed.  Set up the local information
-   available - create cgraph edges for function calls via BODY.  */
+/* Records tree nodes seen in cgraph_create_edges.  Simply using
+   walk_tree_without_duplicates doesn't guarantee each node is visited
+   once because it gets a new htab upon each recursive call from
+   record_calls_1.  */
+static htab_t visited_nodes;
+
+/* Determine if function DECL is needed.  That is, visible to something
+   either outside this translation unit, something magic in the system
+   configury, or (if not doing unit-at-a-time) to something we havn't
+   seen yet.  */
+
+static bool
+decide_is_function_needed (struct cgraph_node *node, tree decl)
+{
+  /* If we decided it was needed before, but at the time we didn't have
+     the body of the function available, then it's still needed.  We have
+     to go back and re-check its dependencies now.  */
+  if (node->needed)
+    return true;
+
+  /* Externally visible functions must be output.  The exception is
+     COMDAT functions that must be output only when they are needed.  */
+  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+    return true;
+
+  /* Constructors and destructors are reachable from the runtime by
+     some mechanism.  */
+  if (DECL_STATIC_CONSTRUCTOR (decl) || DECL_STATIC_DESTRUCTOR (decl))
+    return true;
+
+  /* If the user told us it is used, then it must be so.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    return true;
+
+  /* ??? If the assembler name is set by hand, it is possible to assemble
+     the name later after finalizing the function and the fact is noticed
+     in assemble_name then.  This is arguably a bug.  */
+  if (DECL_ASSEMBLER_NAME_SET_P (decl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    return true;
+
+  if (flag_unit_at_a_time)
+    return false;
+
+  /* If not doing unit at a time, then we'll only defer this function
+     if its marked for inlining.  Otherwise we want to emit it now.  */
+
+  /* "extern inline" functions are never output locally.  */
+  if (DECL_EXTERNAL (decl))
+    return false;
+  /* We want to emit COMDAT functions only when absolutely neccesary.  */
+  if (DECL_COMDAT (decl))
+    return false;
+  if (!DECL_INLINE (decl)
+      || (!node->local.disregard_inline_limits
+	  /* When declared inline, defer even the uninlinable functions.
+	     This allows them to be elliminated when unused.  */
+	  && !DECL_DECLARED_INLINE_P (decl) 
+	  && (node->local.inlinable || !cgraph_default_inline_p (node))))
+    return true;
+
+  return false;
+}
+
+/* When not doing unit-at-a-time, output all functions enqueued.
+   Return true when such a functions were found.  */
+
+bool
+cgraph_assemble_pending_functions (void)
+{
+  bool output = false;
+
+  if (flag_unit_at_a_time)
+    return false;
+
+  while (cgraph_nodes_queue)
+    {
+      struct cgraph_node *n = cgraph_nodes_queue;
+
+      cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
+      if (!n->origin && !DECL_EXTERNAL (n->decl))
+	{
+	  cgraph_expand_function (n);
+	  output = true;
+	}
+    }
+
+  return output;
+}
+
+/* DECL has been parsed.  Take it, queue it, compile it at the whim of the
+   logic in effect.  If NESTED is true, then our caller cannot stand to have
+   the garbage collector run at the moment.  We would need to either create
+   a new GC context, or just not compile right now.  */
 
 void
-cgraph_finalize_function (tree decl, tree body ATTRIBUTE_UNUSED)
+cgraph_finalize_function (tree decl, bool nested)
 {
   struct cgraph_node *node = cgraph_node (decl);
 
+  if (node->local.finalized)
+    {
+      /* As an GCC extension we allow redefinition of the function.  The
+	 semantics when both copies of bodies differ is not well defined.
+	 We replace the old body with new body so in unit at a time mode
+	 we always use new body, while in normal mode we may end up with
+	 old body inlined into some functions and new body expanded and
+	 inlined in others.
+	 
+	 ??? It may make more sense to use one body for inlining and other
+	 body for expanding the function but this is dificult to do.  */
+
+      /* If node->output is set, then this is a unit-at-a-time compilation
+	 and we have already begun whole-unit analysis.  This is *not*
+	 testing for whether we've already emitted the function.  That
+	 case can be sort-of legitimately seen with real function 
+	 redefinition errors.  I would argue that the front end should
+	 never present us with such a case, but don't enforce that for now.  */
+      if (node->output)
+	abort ();
+
+      /* Reset our datastructures so we can analyze the function again.  */
+      memset (&node->local, 0, sizeof (node->local));
+      memset (&node->global, 0, sizeof (node->global));
+      memset (&node->rtl, 0, sizeof (node->rtl));
+      node->analyzed = false;
+      while (node->callees)
+	cgraph_remove_call (node->decl, node->callees->callee->decl);
+
+      /* We may need to re-queue the node for assembling in case
+         we already proceeded it and ignored as not needed.  */
+      if (node->reachable && !flag_unit_at_a_time)
+	{
+	  struct cgraph_node *n;
+
+	  for (n = cgraph_nodes_queue; n; n = n->next_needed)
+	    if (n == node)
+	      break;
+	  if (!n)
+	    node->reachable = 0;
+	}
+    }
+
+  notice_global_symbol (decl);
   node->decl = decl;
   node->local.finalized = true;
 
-  /* Function now has DECL_SAVED_TREE set.  Enqueue it into cgraph_nodes_queue
-     if needed.  */
-  if (node->needed)
-    cgraph_mark_needed_node (node, 0);
-  if (/* Externally visible functions must be output.  The exception are
-	 COMDAT functions that must be output only when they are needed.
-	 Similarly are handled deferred functions and
-	 external functions (GCC extension "extern inline") */
-      (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
-      /* ??? Constructors and destructors not called otherwise can be inlined
-	 into single construction/destruction function per section to save some
-	 resources.  For now just mark it as reachable.  */
-      || DECL_STATIC_CONSTRUCTOR (decl)
-      || DECL_STATIC_DESTRUCTOR (decl)
-      /* Function whose name is output to the assembler file must be produced.
-	 It is possible to assemble the name later after finalizing the function
-	 and the fact is noticed in assemble_name then.  */
-      || (DECL_ASSEMBLER_NAME_SET_P (decl)
-	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-      || lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
-    {
-      cgraph_mark_needed_node (node, 1);
-    }
+  /* If not unit at a time, then we need to create the call graph
+     now, so that called functions can be queued and emitted now.  */
+  if (!flag_unit_at_a_time)
+    cgraph_analyze_function (node);
 
-  (*debug_hooks->deferred_inline_function) (decl);
+  if (decide_is_function_needed (node, decl))
+    cgraph_mark_needed_node (node);
+
+  /* If not unit at a time, go ahead and emit everything we've found
+     to be reachable at this time.  */
+  if (!nested)
+    cgraph_assemble_pending_functions ();
+
+  /* If we've not yet emitted decl, tell the debug info about it.  */
+  if (!TREE_ASM_WRITTEN (decl))
+    (*debug_hooks->deferred_inline_function) (decl);
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
 static tree
 record_call_1 (tree *tp, int *walk_subtrees, void *data)
 {
-  if (TREE_CODE (*tp) == VAR_DECL && TREE_STATIC (*tp))
-    cgraph_varpool_mark_needed_node (cgraph_varpool_node (*tp));
-  /* Record dereferences to the functions.  This makes the functions
-     reachable unconditionally.  */
-  else if (TREE_CODE (*tp) == ADDR_EXPR)
+  tree t = *tp;
+
+  switch (TREE_CODE (t))
     {
-      tree decl = TREE_OPERAND (*tp, 0);
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-        cgraph_mark_needed_node (cgraph_node (decl), 1);
-    }
-  else if (TREE_CODE (*tp) == CALL_EXPR)
-    {
-      tree decl = get_callee_fndecl (*tp);
-      if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+    case VAR_DECL:
+      /* ??? Really, we should mark this decl as *potentially* referenced
+	 by this function and re-examine whether the decl is actually used
+	 after rtl has been generated.  */
+      if (TREE_STATIC (t))
+        cgraph_varpool_mark_needed_node (cgraph_varpool_node (t));
+      break;
+
+    case ADDR_EXPR:
+      if (flag_unit_at_a_time)
 	{
-	  if (DECL_BUILT_IN (decl))
-	    return NULL;
-	  cgraph_record_call (data, decl);
-
-	  /* When we see a function call, we don't want to look at the
-	     function reference in the ADDR_EXPR that is hanging from
-	     the CALL_EXPR we're examining here, because we would
-	     conclude incorrectly that the function's address could be
-	     taken by something that is not a function call.  So only
-	     walk the function parameter list, skip the other subtrees.  */
-
-	  walk_tree (&TREE_OPERAND (*tp, 1), record_call_1, data, NULL);
-	  *walk_subtrees = 0;
+	  /* Record dereferences to the functions.  This makes the
+	     functions reachable unconditionally.  */
+	  tree decl = TREE_OPERAND (*tp, 0);
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    cgraph_mark_needed_node (cgraph_node (decl));
 	}
+      break;
+
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (*tp);
+	if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+	  {
+	    if (DECL_BUILT_IN (decl))
+	      return NULL;
+	    cgraph_record_call (data, decl);
+
+	    /* When we see a function call, we don't want to look at the
+	       function reference in the ADDR_EXPR that is hanging from
+	       the CALL_EXPR we're examining here, because we would
+	       conclude incorrectly that the function's address could be
+	       taken by something that is not a function call.  So only
+	       walk the function parameter list, skip the other subtrees.  */
+
+	    walk_tree (&TREE_OPERAND (*tp, 1), record_call_1, data,
+		       visited_nodes);
+	    *walk_subtrees = 0;
+	  }
+	break;
+      }
+
+    default:
+      /* Save some cycles by not walking types and declaration as we
+	 won't find anything useful there anyway.  */
+      if (DECL_P (*tp) || TYPE_P (*tp))
+	{
+	  *walk_subtrees = 0;
+	  break;
+	}
+
+      if ((unsigned int) TREE_CODE (t) >= LAST_AND_UNUSED_TREE_CODE)
+	return (*lang_hooks.callgraph.analyze_expr) (tp, walk_subtrees, data);
+      break;
     }
-  /* Save some cycles by not walking types and declaration as we won't find anything
-     usefull there anyway.  */
-  if (DECL_P (*tp) || TYPE_P (*tp))
-    *walk_subtrees = 0;
+
   return NULL;
 }
 
@@ -140,7 +295,11 @@ cgraph_create_edges (tree decl, tree body)
 {
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
-  walk_tree_without_duplicates (&body, record_call_1, decl);
+  visited_nodes = htab_create (37, htab_hash_pointer,
+				    htab_eq_pointer, NULL);
+  walk_tree (&body, record_call_1, decl, visited_nodes);
+  htab_delete (visited_nodes);
+  visited_nodes = NULL;
 }
 
 /* Analyze the function scheduled to be output.  */
@@ -149,10 +308,7 @@ cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
 
-  if (lang_hooks.callgraph.lower_function)
-    (*lang_hooks.callgraph.lower_function) (decl);
-
-  current_function_decl = node->decl;
+  current_function_decl = decl;
 
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (decl, DECL_SAVED_TREE (decl));
@@ -168,13 +324,14 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
   node->global.insns = node->local.self_insns;
-  if (!DECL_EXTERNAL (node->decl))
+  if (!DECL_EXTERNAL (decl))
     {
       node->global.cloned_times = 1;
       node->global.will_be_output = true;
     }
 
-  node->lowered = true;
+  node->analyzed = true;
+  current_function_decl = NULL;
 }
 
 /* Analyze the whole compilation unit once it is parsed completely.  */
@@ -183,6 +340,12 @@ void
 cgraph_finalize_compilation_unit (void)
 {
   struct cgraph_node *node;
+
+  if (!flag_unit_at_a_time)
+    {
+      cgraph_assemble_pending_functions ();
+      return;
+    }
 
   cgraph_varpool_assemble_pending_decls ();
   if (!quiet_flag)
@@ -210,17 +373,24 @@ cgraph_finalize_compilation_unit (void)
       node = cgraph_nodes_queue;
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
 
-      if (node->lowered || !node->reachable || !DECL_SAVED_TREE (decl))
+      /* ??? It is possible to create extern inline function and later using
+	 weak alas attribute to kill it's body. See
+	 gcc.c-torture/compile/20011119-1.c  */
+      if (!DECL_SAVED_TREE (decl))
+	continue;
+
+      if (node->analyzed || !node->reachable || !DECL_SAVED_TREE (decl))
 	abort ();
 
       cgraph_analyze_function (node);
+
       for (edge = node->callees; edge; edge = edge->next_callee)
-      {
 	if (!edge->callee->reachable)
-	    cgraph_mark_needed_node (edge->callee, 0);
-      }
+	  cgraph_mark_reachable_node (edge->callee);
+
       cgraph_varpool_assemble_pending_decls ();
     }
+
   /* Collect entry points to the unit.  */
 
   if (cgraph_dump_file)
@@ -292,7 +462,7 @@ cgraph_optimize_function (struct cgraph_node *node)
 
   timevar_push (TV_INTEGRATION);
   /* optimize_inline_calls avoids inlining of current_function_decl.  */
-  current_function_decl = 0;
+  current_function_decl = decl;
   if (flag_inline_trees)
     optimize_inline_calls (decl);
   if (node->nested)
@@ -311,7 +481,8 @@ cgraph_expand_function (struct cgraph_node *node)
   tree decl = node->decl;
   struct cgraph_edge *e;
 
-  announce_function (decl);
+  if (flag_unit_at_a_time)
+    announce_function (decl);
 
   cgraph_optimize_function (node);
 
@@ -319,11 +490,21 @@ cgraph_expand_function (struct cgraph_node *node)
      via lang_expand_decl_stmt.  */
   (*lang_hooks.callgraph.expand_function) (decl);
 
-  for (e = node->callers; e; e = e->next_caller)
-    if (e->inline_call)
-      break;
-  if (!e)
-    DECL_SAVED_TREE (decl) = NULL;
+  if (!flag_unit_at_a_time)
+    {
+       if (!node->local.inlinable
+	   || (!node->local.disregard_inline_limits
+	       && !cgraph_default_inline_p (node)))
+	 DECL_SAVED_TREE (node->decl) = NULL;
+    }
+  else
+    {
+      for (e = node->callers; e; e = e->next_caller)
+	if (e->inline_call)
+	  break;
+      if (!e)
+	DECL_SAVED_TREE (decl) = NULL;
+    }
   current_function_decl = NULL;
 }
 
@@ -781,7 +962,7 @@ cgraph_decide_inlining_of_small_functions (struct cgraph_node **inlined,
 	  || !cgraph_default_inline_p (node))
 	continue;
 
-      /* Rule out always_inline functions we dealt with earler.  */
+      /* Rule out always_inline functions we dealt with earlier.  */
       for (e = node->callers; e; e = e->next_caller)
 	if (e->inline_call)
 	  break;
@@ -1015,7 +1196,7 @@ cgraph_inline_p (tree caller_decl, tree callee_decl)
     if (e->callee == callee)
       return e->inline_call;
   /* We do not record builtins in the callgraph.  Perhaps it would make more
-     sense to do so and then prune out those not overwriten by explicit
+     sense to do so and then prune out those not overwritten by explicit
      function body.  */
   return false;
 }
@@ -1023,14 +1204,14 @@ cgraph_inline_p (tree caller_decl, tree callee_decl)
 
    Attempt to topologically sort the nodes so function is output when
    all called functions are already assembled to allow data to be
-   propagated accross the callgraph.  Use a stack to get smaller distance
+   propagated across the callgraph.  Use a stack to get smaller distance
    between a function and it's callees (later we may choose to use a more
    sophisticated algorithm for function reordering; we will likely want
    to use subsections to make the output functions appear in top-down
    order).  */
 
 static void
-cgraph_expand_functions (void)
+cgraph_expand_all_functions (void)
 {
   struct cgraph_node *node;
   struct cgraph_node **order =
@@ -1058,8 +1239,8 @@ cgraph_expand_functions (void)
 
 /* Mark all local functions.
 
-   Local function is function whose calls can occur only in the
-   current compilation unit so we change it's calling convetion.
+   A local function is one whose calls can occur only in the
+   current compilation unit, so we change its calling convention.
    We simply mark all static functions whose address is not taken
    as local.  */
 
@@ -1089,6 +1270,8 @@ cgraph_mark_local_functions (void)
 void
 cgraph_optimize (void)
 {
+  if (!flag_unit_at_a_time)
+    return;
   timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
     fprintf (stderr, "Performing intraprocedural optimizations\n");
@@ -1112,7 +1295,7 @@ cgraph_optimize (void)
     fprintf (stderr, "Assembling functions:");
 
   /* Output everything.  */
-  cgraph_expand_functions ();
+  cgraph_expand_all_functions ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Final callgraph:");

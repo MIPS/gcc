@@ -58,32 +58,8 @@ optimize_function (tree fn)
          and (d) TARGET_ASM_OUTPUT_MI_THUNK is there to DTRT anyway.  */
       && !DECL_THUNK_P (fn))
     {
-      /* ??? Work around GC problem.  Call stack is
-
-	 -> instantiate_decl
-	 -> expand_or_defer_fn
-	 -> maybe_clone_body
-	 -> expand_body
-	 -> tree_rest_of_compilation
-
-	 which of course collects.  This used to be protected by the
-	 "regular" nested call ggc_push_context that now lives in 
-	 tree_rest_of_compilation.
-
-	 Two good fixes:
-	 (1) Do inlining in tree_rest_of_compilation.  This is good
-	     in that this common optimization happens in common code.
-	 (2) Don't nest compilation of functions.  Instead queue the
-	     new function to cgraph, and let it get picked up in the
-	     next round of "emit everything that needs emitting".
-
-	 For the nonce, just protect things here.  */
-
-      ggc_push_context ();
       optimize_inline_calls (fn);
-      ggc_pop_context ();
 
-      dump_function (TDI_inlined, fn);
       /* FIXME: The inliner is creating shared nodes.  This was causing a
 	 compile failure in g++.dg/opt/cleanup1.C because COMPONENT_REF
 	 nodes were being shared.  This is probably a bit heavy handed.  */
@@ -148,7 +124,6 @@ bool
 maybe_clone_body (tree fn)
 {
   tree clone;
-  bool first = true;
 
   /* We only clone constructors and destructors.  */
   if (!DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn)
@@ -158,11 +133,16 @@ maybe_clone_body (tree fn)
   /* Emit the DWARF1 abstract instance.  */
   (*debug_hooks->deferred_inline_function) (fn);
 
+  /* Our caller does not expect collection to happen, which it might if
+     we decide to compile the function to rtl now.  Arrange for a new
+     gc context to be created if so.  */
+  function_depth++;
+
   /* We know that any clones immediately follow FN in the TYPE_METHODS
      list.  */
   for (clone = TREE_CHAIN (fn);
        clone && DECL_CLONED_FUNCTION_P (clone);
-       clone = TREE_CHAIN (clone), first = false)
+       clone = TREE_CHAIN (clone))
     {
       tree parm;
       tree clone_parm;
@@ -198,13 +178,8 @@ maybe_clone_body (tree fn)
 	clone_parm = TREE_CHAIN (clone_parm);
       for (; parm;
 	   parm = TREE_CHAIN (parm), clone_parm = TREE_CHAIN (clone_parm))
-	{
-	  /* Update this parameter.  */
-	  update_cloned_parm (parm, clone_parm);
-	  /* We should only give unused information for one clone.  */
-	  if (!first)
-	    TREE_USED (clone_parm) = 1;
-	}
+	/* Update this parameter.  */
+	update_cloned_parm (parm, clone_parm);
 
       /* Start processing the function.  */
       push_to_top_level ();
@@ -280,6 +255,8 @@ maybe_clone_body (tree fn)
       expand_or_defer_fn (clone);
       pop_from_top_level ();
     }
+
+  function_depth--;
 
   /* We don't need to process the original function any further.  */
   return 1;

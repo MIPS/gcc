@@ -46,7 +46,9 @@ extern void lhd_do_nothing_f (struct function *);
 extern bool lhd_post_options (const char **);
 extern HOST_WIDE_INT lhd_get_alias_set (tree);
 extern tree lhd_return_tree (tree);
+extern tree lhd_return_null_tree_v (void);
 extern tree lhd_return_null_tree (tree);
+extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
 extern int lhd_safe_from_p (rtx, tree);
 extern int lhd_staticp (tree);
 extern int lhd_unsafe_for_reeval (tree);
@@ -62,8 +64,10 @@ extern bool lhd_can_use_bit_fields_p (void);
 extern bool lhd_warn_unused_global_decl (tree);
 extern void lhd_incomplete_type_error (tree, tree);
 extern tree lhd_type_promotes_to (tree);
+extern void lhd_register_builtin_type (tree, const char *);
 extern bool lhd_decl_ok_for_sibcall (tree);
 extern tree lhd_expr_size (tree);
+extern bool lhd_decl_uninit (tree);
 extern size_t lhd_tree_size (enum tree_code);
 
 /* Declarations of default tree inlining hooks.  */
@@ -81,6 +85,8 @@ extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
 extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
+extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
+
 
 /* Declarations for tree gimplification hooks.  */
 int lhd_gimplify_expr (tree *, tree *, tree *);
@@ -92,7 +98,7 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
-#define LANG_HOOKS_INITIALIZE_DIAGNOSTITCS lhd_initialize_diagnostics
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS lhd_initialize_diagnostics
 #define LANG_HOOKS_HANDLE_OPTION	hook_int_size_t_constcharptr_int_0
 #define LANG_HOOKS_MISSING_ARGUMENT	hook_bool_constcharptr_size_t_false
 #define LANG_HOOKS_POST_OPTIONS		lhd_post_options
@@ -119,6 +125,7 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
+#define LANG_HOOKS_DECL_UNINIT		lhd_decl_uninit
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
@@ -127,7 +134,7 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED lhd_do_nothing_f
 
 #define LANG_HOOKS_RTL_EXPAND_START	lhd_do_nothing
-#define LANG_HOOKS_RTL_EXPAND_STMT	(void *) abort
+#define LANG_HOOKS_RTL_EXPAND_STMT	(void (*) (tree)) abort
 #define LANG_HOOKS_RTL_EXPAND_END	lhd_do_nothing
 
 /* Attribute hooks.  */
@@ -176,15 +183,15 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_TREE_INLINING_END_INLINING, \
   LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING, \
   LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
-} \
+}
 
-#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION NULL
+#define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR lhd_callgraph_analyze_expr
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION NULL
 
 #define LANG_HOOKS_CALLGRAPH_INITIALIZER { \
-  LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION, \
+  LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR, \
   LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION, \
-} \
+}
 
 #define LANG_HOOKS_FUNCTION_INITIALIZER {	\
   LANG_HOOKS_FUNCTION_INIT,			\
@@ -193,14 +200,14 @@ int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_FUNCTION_LEAVE_NESTED		\
 }
 
-/* Hooks for tree gimplification.  */
-#define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
-
 #define LANG_HOOKS_RTL_EXPAND_INITIALIZER {	\
   LANG_HOOKS_RTL_EXPAND_START,			\
   LANG_HOOKS_RTL_EXPAND_STMT,			\
   LANG_HOOKS_RTL_EXPAND_END			\
 }
+
+/* Hooks for tree gimplification.  */
+#define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
 
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
@@ -219,6 +226,7 @@ extern int lhd_tree_dump_type_quals (tree);
 #define LANG_HOOKS_MAKE_TYPE make_node
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
+#define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
@@ -228,6 +236,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_SIGNED_TYPE, \
   LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
   LANG_HOOKS_TYPE_PROMOTES_TO, \
+  LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR \
 }
 
@@ -239,6 +248,7 @@ extern int lhd_tree_dump_type_quals (tree);
 #define LANG_HOOKS_SET_BLOCK	set_block
 #define LANG_HOOKS_PUSHDECL	pushdecl
 #define LANG_HOOKS_GETDECLS	getdecls
+#define LANG_HOOKS_BUILTIN_TYPE_DECLS lhd_return_null_tree_v
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
 #define LANG_HOOKS_WRITE_GLOBALS write_global_declarations
 #define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
@@ -252,6 +262,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_SET_BLOCK, \
   LANG_HOOKS_PUSHDECL, \
   LANG_HOOKS_GETDECLS, \
+  LANG_HOOKS_BUILTIN_TYPE_DECLS, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
   LANG_HOOKS_WRITE_GLOBALS, \
   LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \
@@ -264,7 +275,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_IDENTIFIER_SIZE, \
   LANG_HOOKS_TREE_SIZE, \
   LANG_HOOKS_INIT_OPTIONS, \
-  LANG_HOOKS_INITIALIZE_DIAGNOSTITCS, \
+  LANG_HOOKS_INITIALIZE_DIAGNOSTICS, \
   LANG_HOOKS_HANDLE_OPTION, \
   LANG_HOOKS_MISSING_ARGUMENT, \
   LANG_HOOKS_POST_OPTIONS, \
@@ -297,6 +308,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_DECL_PRINTABLE_NAME, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
+  LANG_HOOKS_DECL_UNINIT, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \

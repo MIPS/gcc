@@ -398,12 +398,12 @@ machopic_validate_stub_or_non_lazy_ptr (const char *name, int validate_stub)
 	     original symbol as being referenced.  */
           TREE_USED (temp) = 1;
 	  if (TREE_CODE (TREE_VALUE (temp)) == IDENTIFIER_NODE)
-	    TREE_SYMBOL_REFERENCED (TREE_VALUE (temp)) = 1;
+	    mark_referenced (TREE_VALUE (temp));
 	  real_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
 	  real_name = darwin_strip_name_encoding (real_name);
 	  id2 = maybe_get_identifier (real_name);
 	  if (id2)
-	    TREE_SYMBOL_REFERENCED (id2) = 1;
+	    mark_referenced (id2);
 	}
 }
 
@@ -1242,6 +1242,11 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE))
     literal4_section ();
+  else if (MACHOPIC_INDIRECT
+	   && (GET_CODE (x) == SYMBOL_REF
+	       || GET_CODE (x) == CONST
+	       || GET_CODE (x) == LABEL_REF))
+    const_data_section ();
   else
     const_section ();
 }

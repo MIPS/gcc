@@ -303,10 +303,8 @@ build_call (tree function, tree parms)
 				    TREE_VALUE (tmp), t);
 	}
 
-  function = build_nt (CALL_EXPR, function, parms, NULL_TREE);
+  function = build (CALL_EXPR, result_type, function, parms);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
-  TREE_TYPE (function) = result_type;
-  TREE_SIDE_EFFECTS (function) = 1;
   TREE_NOTHROW (function) = nothrow;
   
   return function;
@@ -595,7 +593,7 @@ standard_conversion (tree to, tree from, tree expr)
   if ((TYPE_PTRFN_P (to) || TYPE_PTRMEMFUNC_P (to))
       && expr && type_unknown_p (expr))
     {
-      expr = instantiate_type (to, expr, tf_none);
+      expr = instantiate_type (to, expr, tf_conv);
       if (expr == error_mark_node)
 	return NULL_TREE;
       from = TREE_TYPE (expr);
@@ -703,16 +701,25 @@ standard_conversion (tree to, tree from, tree expr)
 	    }
 	}
       else if (IS_AGGR_TYPE (TREE_TYPE (from))
-	       && IS_AGGR_TYPE (TREE_TYPE (to)))
+	       && IS_AGGR_TYPE (TREE_TYPE (to))
+	       /* [conv.ptr]
+		  
+	          An rvalue of type "pointer to cv D," where D is a
+		  class type, can be converted to an rvalue of type
+		  "pointer to cv B," where B is a base class (clause
+		  _class.derived_) of D.  If B is an inaccessible
+		  (clause _class.access_) or ambiguous
+		  (_class.member.lookup_) base class of D, a program
+		  that necessitates this conversion is ill-formed.  */
+	       /* Therefore, we use DERIVED_FROM_P, and not
+		  ACESSIBLY_UNIQUELY_DERIVED_FROM_P, in this test.  */
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
-	  if (DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
-	    {
-	      from = 
-		cp_build_qualified_type (TREE_TYPE (to),
-					 cp_type_quals (TREE_TYPE (from)));
-	      from = build_pointer_type (from);
-	      conv = build_conv (PTR_CONV, from, conv);
-	    }
+	  from = 
+	    cp_build_qualified_type (TREE_TYPE (to),
+				     cp_type_quals (TREE_TYPE (from)));
+	  from = build_pointer_type (from);
+	  conv = build_conv (PTR_CONV, from, conv);
 	}
 
       if (tcode == POINTER_TYPE)
@@ -758,8 +765,9 @@ standard_conversion (tree to, tree from, tree expr)
 	return 0;
 
       from = cp_build_qualified_type (tbase, cp_type_quals (fbase));
-      from = build_cplus_method_type (from, TREE_TYPE (fromfn),
-				      TREE_CHAIN (TYPE_ARG_TYPES (fromfn)));
+      from = build_method_type_directly (from, 
+					 TREE_TYPE (fromfn),
+					 TREE_CHAIN (TYPE_ARG_TYPES (fromfn)));
       from = build_ptrmemfunc_type (build_pointer_type (from));
       conv = build_conv (PMEM_CONV, from, conv);
     }
@@ -795,7 +803,7 @@ standard_conversion (tree to, tree from, tree expr)
       conv = build_conv (STD_CONV, to, conv);
 
       /* Give this a better rank if it's a promotion.  */
-      if (to == type_promotes_to (from)
+      if (same_type_p (to, type_promotes_to (from))
 	  && ICS_STD_RANK (TREE_OPERAND (conv, 0)) <= PROMO_RANK)
 	ICS_STD_RANK (conv) = PROMO_RANK;
     }
@@ -3069,6 +3077,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
     {
       if (pedantic)
 	pedwarn ("ISO C++ forbids omitting the middle term of a ?: expression");
+
       /* Make sure that lvalues remain lvalues.  See g++.oliva/ext1.C.  */
       if (real_lvalue_p (arg1))
 	arg2 = arg1 = stabilize_reference (arg1);
@@ -3168,7 +3177,11 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	{
 	  arg2 = convert_like (conv2, arg2);
 	  arg2 = convert_from_reference (arg2);
-	  if (!same_type_p (TREE_TYPE (arg2), arg3_type))
+	  if (!same_type_p (TREE_TYPE (arg2), arg3_type)
+	      && CLASS_TYPE_P (arg3_type))
+	    /* The types need to match if we're converting to a class type.
+	       If not, we don't care about cv-qual mismatches, since
+	       non-class rvalues are not cv-qualified.  */
 	    abort ();
 	  arg2_type = TREE_TYPE (arg2);
 	}
@@ -3176,7 +3189,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	{
 	  arg3 = convert_like (conv3, arg3);
 	  arg3 = convert_from_reference (arg3);
-	  if (!same_type_p (TREE_TYPE (arg3), arg2_type))
+	  if (!same_type_p (TREE_TYPE (arg3), arg2_type)
+	      && CLASS_TYPE_P (arg2_type))
 	    abort ();
 	  arg3_type = TREE_TYPE (arg3);
 	}
@@ -3186,8 +3200,9 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
      If the second and third operands are lvalues and have the same
      type, the result is of that type and is an lvalue.  */
-  if (real_lvalue_p (arg2) && real_lvalue_p (arg3) && 
-      same_type_p (arg2_type, arg3_type))
+  if (real_lvalue_p (arg2) 
+      && real_lvalue_p (arg3) 
+      && same_type_p (arg2_type, arg3_type))
     {
       result_type = arg2_type;
       goto valid_operands;
@@ -4119,7 +4134,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
 	tree ref_type = totype;
 
 	/* If necessary, create a temporary.  */
-	if (NEED_TEMPORARY_P (convs) || !non_cast_lvalue_p (expr))
+	if (NEED_TEMPORARY_P (convs) || !lvalue_p (expr))
 	  {
 	    tree type = TREE_TYPE (TREE_OPERAND (convs, 0));
 
@@ -4261,11 +4276,9 @@ cxx_type_promotes_to (tree type)
 {
   tree promote;
 
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    return build_pointer_type (TREE_TYPE (type));
-
-  if (TREE_CODE (type) == FUNCTION_TYPE)
-    return build_pointer_type (type);
+  /* Perform the array-to-pointer and function-to-pointer
+     conversions.  */
+  type = type_decays_to (type);
 
   promote = type_promotes_to (type);
   if (same_type_p (type, promote))
@@ -4327,6 +4340,7 @@ type_passed_as (tree type)
     type = build_reference_type (type);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
+	   && COMPLETE_TYPE_P (type)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
 				   TYPE_SIZE (integer_type_node)))
     type = integer_type_node;
@@ -4346,6 +4360,7 @@ convert_for_arg_passing (tree type, tree val)
     val = build1 (ADDR_EXPR, build_reference_type (type), val);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
+	   && COMPLETE_TYPE_P (type)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
 				   TYPE_SIZE (integer_type_node)))
     val = perform_integral_promotions (val);
@@ -4909,7 +4924,7 @@ build_new_method_call (tree instance, tree fns, tree args,
     {
       call = build_field_call (instance_ptr, fns, args);
       if (call)
-	return call;
+	goto finish;
       error ("call to non-function `%D'", fns);
       return error_mark_node;
     }
@@ -5070,14 +5085,13 @@ build_new_method_call (tree instance, tree fns, tree args,
       if (!is_dummy_object (instance_ptr) && TREE_SIDE_EFFECTS (instance))
 	call = build (COMPOUND_EXPR, TREE_TYPE (call), instance, call);
     }
-
+ finish:;
+  
   if (processing_template_decl && call != error_mark_node)
-    return build_min (CALL_EXPR,
-		      TREE_TYPE (call),
-		      build_min_nt (COMPONENT_REF,
-				    orig_instance, 
-				    orig_fns),
-		      orig_args);
+    return build_min_non_dep
+      (CALL_EXPR, call,
+       build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
+       orig_args);
   return call;
 }
 
@@ -5944,7 +5958,8 @@ perform_implicit_conversion (tree type, tree expr)
 
 /* Convert EXPR to TYPE (as a direct-initialization) if that is
    permitted.  If the conversion is valid, the converted expression is
-   returned.  Otherwise, NULL_TREE is returned.  */
+   returned.  Otherwise, NULL_TREE is returned, except in the case
+   that TYPE is a class type; in that case, an error is issued.  */
 
 tree
 perform_direct_initialization_if_possible (tree type, tree expr)
@@ -5953,6 +5968,22 @@ perform_direct_initialization_if_possible (tree type, tree expr)
   
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;
+  /* [dcl.init]
+
+     If the destination type is a (possibly cv-qualified) class type:
+
+     -- If the initialization is direct-initialization ...,
+     constructors are considered. ... If no constructor applies, or
+     the overload resolution is ambiguous, the initialization is
+     ill-formed.  */
+  if (CLASS_TYPE_P (type))
+    {
+      expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					build_tree_list (NULL_TREE, expr),
+					TYPE_BINFO (type),
+					LOOKUP_NORMAL);
+      return build_cplus_new (type, expr);
+    }
   conv = implicit_conversion (type, TREE_TYPE (expr), expr,
 			      LOOKUP_NORMAL);
   if (!conv || ICS_BAD_FLAG (conv))
@@ -6000,14 +6031,18 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
 }
 
 /* Convert EXPR to the indicated reference TYPE, in a way suitable for
-   initializing a variable of that TYPE.   If DECL is non-NULL, it is
+   initializing a variable of that TYPE.  If DECL is non-NULL, it is
    the VAR_DECL being initialized with the EXPR.  (In that case, the
-   type of DECL will be TYPE.)
+   type of DECL will be TYPE.)  If DECL is non-NULL, then CLEANUP must
+   also be non-NULL, and with *CLEANUP initialized to NULL.  Upon
+   return, if *CLEANUP is no longer NULL, it will be a CLEANUP_STMT
+   that should be inserted after the returned expression is used to
+   initialize DECL.
 
    Return the converted expression.  */
 
 tree
-initialize_reference (tree type, tree expr, tree decl)
+initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 {
   tree conv;
 
@@ -6080,7 +6115,7 @@ initialize_reference (tree type, tree expr, tree decl)
 	base_conv_type = NULL_TREE;
       /* Perform the remainder of the conversion.  */
       expr = convert_like (conv, expr);
-      if (!real_non_cast_lvalue_p (expr))
+      if (!real_lvalue_p (expr))
 	{
 	  tree init;
 	  tree type;
@@ -6089,14 +6124,33 @@ initialize_reference (tree type, tree expr, tree decl)
 	  type = TREE_TYPE (expr);
 	  var = make_temporary_var_for_ref_to_temp (decl, type);
 	  layout_decl (var, 0);
+	  /* Create the INIT_EXPR that will initialize the temporary
+	     variable.  */
+	  init = build (INIT_EXPR, type, var, expr);
 	  if (at_function_scope_p ())
 	    {
-	      tree cleanup;
-
 	      add_decl_stmt (var);
-	      cleanup = cxx_maybe_build_cleanup (var);
-	      if (cleanup)
-		finish_decl_cleanup (var, cleanup);
+	      *cleanup = cxx_maybe_build_cleanup (var);
+	      if (*cleanup)
+		/* We must be careful to destroy the temporary only
+		   after its initialization has taken place.  If the
+		   initialization throws an exception, then the
+		   destructor should not be run.  We cannot simply
+		   transform INIT into something like:
+	     
+		     (INIT, ({ CLEANUP_STMT; }))
+
+		   because emit_local_var always treats the
+		   initializer as a full-expression.  Thus, the
+		   destructor would run too early; it would run at the
+		   end of initializing the reference variable, rather
+		   than at the end of the block enclosing the
+		   reference variable.
+
+		   The solution is to pass back a CLEANUP_STMT which
+		   the caller is responsible for attaching to the
+		   statement tree.  */
+		*cleanup = build_stmt (CLEANUP_STMT, var, *cleanup);
 	    }
 	  else
 	    {
@@ -6105,7 +6159,6 @@ initialize_reference (tree type, tree expr, tree decl)
 		static_aggregates = tree_cons (NULL_TREE, var,
 					       static_aggregates);
 	    }
-	  init = build (INIT_EXPR, type, var, expr);
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
 	  expr = build (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);

@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    2: STMT_LINENO_FOR_FN_P (in _STMT)
    3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
       COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
+      STMT_EXPR_WARN_UNUSED_RESULT (in STMT_EXPR)
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
 */
 
@@ -575,6 +576,12 @@ extern int warn_main;
 
 extern int warn_sequence_point;
 
+/* Nonzero means warn about uninitialized variable when it is initialized with itself. 
+   For example: int i = i;, GCC will not warn about this when warn_init_self is nonzero.  */
+
+extern int warn_init_self;
+
+
 /* Nonzero means to warn about compile-time division by zero.  */
 extern int warn_div_by_zero;
 
@@ -586,6 +593,10 @@ extern int warn_implicit_int;
    non-NULL.  */ 
       
 extern int warn_nonnull;
+
+/* Warn about old-style parameter declaration.  */
+
+extern int warn_old_style_definition;
 
 
 /* ObjC language option variables.  */
@@ -944,9 +955,11 @@ extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (int);
 extern HOST_WIDE_INT c_common_get_alias_set (tree);
+extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
+extern tree strip_pointer_operator (tree);
 
 /* This function resets the parsers' state in preparation for parsing
    a new file.  */
@@ -1020,6 +1033,11 @@ extern void finish_file	(void);
 /* Nonzero if this statement-expression does not have an associated scope.  */
 #define STMT_EXPR_NO_SCOPE(NODE) \
    TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
+
+/* Nonzero if this statement-expression should cause warning if its result
+   is not used.  */
+#define STMT_EXPR_WARN_UNUSED_RESULT(NODE) \
+   TREE_LANG_FLAG_3 (STMT_EXPR_CHECK (NODE))
 
 /* LABEL_STMT accessor. This gives access to the label associated with
    the given label statement.  */
@@ -1264,6 +1282,7 @@ extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
+extern bool c_decl_uninit (tree t);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

@@ -1,7 +1,43 @@
+2003-09-21  Ralph Loader  <suckfish@ihug.co.nz>
+
+	PR java/12350
+	* libjava.lang/PR12350.java: New file.
+	* libjava.lang/PR12350.out: New file.
+
+2003-09-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/9577
+	* libjava.cni/PR9577.java: New file.
+	* libjava.cni/natPR9577.cc: New file.
+	* libjava.cni/PR9577.out: New file.
+
+2003-09-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.compile/compile.exp: Test with -O3 rather than -O.
+	* libjava.lang/lang.exp: Likewise.
+
+2003-09-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Remove unneeded variables.
+	(test_libjava_from_source): Likewise.
+	(test_libjava_from_javac): Likewise.
+
+2003-08-23  Andreas Tobler <a.tobler@schweiz.ch> 
+
+	PR libgcj/8823
+        * libjava.lang/pr8823.xfail: Removed.
+
 2003-08-19  Jeff Sturm  <jsturm@one-point.com>
 
 	* lib/libjava.exp (libjava_arguments): Add $libjava to the list of
 	libraries.
+
+2003-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/11951:
+	* libjava.jni/pr11951.c: New file.
+	* libjava.jni/pr11951.out: New file.
+	* libjava.jni/pr11951.java: New file.
 
 2003-08-12  Tom Tromey  <tromey@redhat.com>
 

@@ -53,9 +53,10 @@ struct lang_hooks_for_tree_inlining
 
 struct lang_hooks_for_callgraph
 {
-  /* Function passed as argument is needed and will be compiled.
-     Lower the representation so the calls are explicit.  */
-  void (*lower_function) (tree);
+  /* The node passed is a language-specific tree node.  If its contents
+     are relevant to use of other declarations, mark them.  */
+  tree (*analyze_expr) (tree *, int *, tree);
+
   /* Produce RTL for function passed as argument.  */
   void (*expand_function) (tree);
 };
@@ -136,6 +137,15 @@ struct lang_hooks_for_types
      arguments.  The default hook aborts.  */
   tree (*type_promotes_to) (tree);
 
+  /* Register TYPE as a builtin type with the indicated NAME.  The
+     TYPE is placed in the outermost lexical scope.  The semantics
+     should be analogous to:
+
+       typedef TYPE NAME;
+
+     in C.  The default hook ignores the declaration.  */
+  void (*register_builtin_type) (tree, const char *);
+
   /* This routine is called in tree.c to print an error message for
      invalid use of an incomplete type.  VALUE is the expression that
      was used (or 0 if that isn't known) and TYPE is the type that was
@@ -178,6 +188,9 @@ struct lang_hooks_for_decls
 
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
+
+  /* Returns a chain of TYPE_DECLs for built-in types.  */
+  tree (*builtin_type_decls) (void);
 
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
@@ -377,6 +390,10 @@ struct lang_hooks
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
+
+  /* Called from uninitialized_vars_warning to find out if a variable is
+     uninitialized based on DECL_INITIAL.  */
+  bool (*decl_uninit) (tree);
 
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a

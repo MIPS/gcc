@@ -112,21 +112,6 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
   {
   }
 
-  protected void finalize() throws Throwable
-  {
-    synchronized (this)
-      {
-	if (fnum != -1)
-	  close();
-      }
-    super.finalize();
-  }
-
-  public int getNativeFD()
-  {
-    return fnum;
-  }
-
   /**
    * Binds this socket to a particular port and interface
    *
@@ -281,5 +266,15 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
 	  throws IOException
   {
     mcastGrp(((InetSocketAddress)mcastaddr).getAddress(), netIf, false);
+  }
+
+  protected void finalize() throws Throwable
+  {
+    synchronized (this)
+      {
+	if (fnum != -1)
+	  close();
+      }
+    super.finalize();
   }
 }
