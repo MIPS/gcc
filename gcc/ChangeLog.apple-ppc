@@ -1,3 +1,8 @@
+2004-05-11  Caroline Tice  <ctice@apple.com>
+
+	* rtl.c (NOTE_INSN_UNLIKELY_EXECUTED_CODE):  Add this note back
+	in; it seems to have vanished during a merge.
+
 2004-05-10  Ziemowit Laski  <zlaski@apple.com>
 
 	* config/rs6000/altivec.h: Bring over from mainline.
