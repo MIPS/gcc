@@ -359,8 +359,8 @@ gcd (int a, int b)
   
   int x, y, z;
   
-  x = (a > 0) ? a : -1 * a;
-  y = (b > 0) ? b : -1 * b;
+  x = abs (a);
+  y = abs (b);
 
   while (x>0)
     {

@@ -75,7 +75,8 @@ struct tree_opt_pass
 #define PROP_pta		(1 << 5)
 #define PROP_ssa		(1 << 6)
 #define PROP_no_crit_edges      (1 << 7)
-#define PROP_rtl		(1 << 8)
+#define PROP_alignment          (1 << 8)
+#define PROP_rtl		(1 << 9)
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
@@ -115,6 +116,7 @@ extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_mark_maybe_inf_loops;
 extern struct tree_opt_pass pass_elim_checks;
+extern struct tree_opt_pass pass_align_analysis;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
 extern struct tree_opt_pass pass_linear_transform;

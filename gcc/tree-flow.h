@@ -70,6 +70,14 @@ struct ptr_info_def GTY(())
      pointer will be represented by this memory tag, instead of the type
      tag computed by TBAA.  */
   tree name_mem_tag;
+  
+  /*  the alignment of a pointer p is n if "(p - offset) mod n == 0". */
+  struct alignment_d
+  {
+    unsigned int n;
+    unsigned int offset;
+  } alignment;
+
 };
 
 
@@ -544,7 +552,12 @@ extern void expand_used_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 
+/* In tree-ssa-align.c  */
+extern void dump_align_info (FILE *);
+extern void debug_align_info (void);
+
 /* In tree-ssa-alias.c  */
+struct ptr_info_def * get_ptr_info (tree);
 extern void dump_may_aliases_for (FILE *, tree);
 extern void debug_may_aliases_for (tree);
 extern void dump_alias_info (FILE *);

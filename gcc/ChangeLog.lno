@@ -1,3 +1,16 @@
+2004-07-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-align.c: New file.
+	* Makefile.in: Add tree-ssa-align.o
+	* tree-flow (struct ptr_info_def): Add members for alignment.
+	(dump_align_info): New prototype.
+	(debug_align_info): Ditto.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	alignment analysis pass.
+	* tree-pass.h (PROP_alignment): New.
+	(pass_align_analysis): New.
+	* tree-ssa-alias.c (get_ptr_info): Make non-static.
+
 2004-07-25  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* Makefile.in (LAMBDA_H, TREE_DATA_REF_H): New.
