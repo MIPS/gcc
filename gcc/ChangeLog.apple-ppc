@@ -1,3 +1,9 @@
+2004-05-24  Devang Patel  <dpatel@apple.com>
+
+	Radar 3665390
+	* config/darwin-driver.h (main): While reinserting output filename
+	do not forget -o.
+
 2004-05-24  Mike Stump  <mrs@apple.com>
 
 	* config/darwin.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Change default

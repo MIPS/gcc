@@ -914,7 +914,10 @@ main (int argc, const char **argv)
 
       /* Re insert output file name.  */
       if (output_filename)
-	new_argv[new_argc++] = output_filename;
+	{
+	  new_argv[new_argc++] = "-o";
+	  new_argv[new_argc++] = output_filename;
+	}
 
 #ifdef DEBUG
       debug_command_line (new_argv, new_argc);
