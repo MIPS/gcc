@@ -706,7 +706,8 @@ output_add_clobbers ()
    scratch registers used by the peephole2 pattern in INSN. */
 
 static void
-output_peephole2_scratch (rtx insn)
+output_peephole2_scratch (insn)
+     rtx insn;
 {
   RTX_CODE code = GET_CODE (insn);
 

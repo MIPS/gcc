@@ -1,3 +1,8 @@
+1999-08-27  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* genemit.c (output_peephole2_scratch): Use old-style function
+	definition.
+
 1999-08-27  Richard Henderson  <rth@cygnus.com>
 
 	* genrecog.c (add_to_sequence): Cast XVECLEN to size_t.
