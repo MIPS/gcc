@@ -91,6 +91,7 @@ public class GdkGraphics2D extends Graphics2D
   native private void initState (int width, int height);
   native private void copyState (GdkGraphics2D g);
   native public void dispose ();
+  native private void cairoSurfaceSetFilter(int filter);
 
   public void finalize ()
   {
@@ -1061,6 +1062,28 @@ public class GdkGraphics2D extends Graphics2D
                                Object hintValue)
   {
     hints.put (hintKey, hintValue);    
+    
+    if (hintKey.equals(RenderingHints.KEY_INTERPOLATION)
+        || hintKey.equals(RenderingHints.KEY_ALPHA_INTERPOLATION)) 
+      {
+			
+        if (hintValue.equals(RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR))
+           cairoSurfaceSetFilter(0);
+	   
+        else if (hintValue.equals(RenderingHints.VALUE_INTERPOLATION_BILINEAR))
+           cairoSurfaceSetFilter(1); 
+	   
+        else if (hintValue.equals(RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED))
+           cairoSurfaceSetFilter(2);
+	   
+        else if (hintValue.equals(RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY))
+           cairoSurfaceSetFilter(3);
+	   
+        else if (hintValue.equals(RenderingHints.VALUE_ALPHA_INTERPOLATION_DEFAULT))
+           cairoSurfaceSetFilter(4);
+      
+      } 
+
   }
 
   public Object getRenderingHint(RenderingHints.Key hintKey)
@@ -1072,6 +1095,27 @@ public class GdkGraphics2D extends Graphics2D
   {
     this.hints = new RenderingHints (getDefaultHints ());
     this.hints.add (new RenderingHints (hints));
+        
+    if (hints.containsKey(RenderingHints.KEY_INTERPOLATION)) 
+      {
+         if(hints.containsValue(RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR)) 
+            cairoSurfaceSetFilter(0);
+	    
+         else if(hints.containsValue(RenderingHints.VALUE_INTERPOLATION_BILINEAR)) 
+            cairoSurfaceSetFilter(1);  
+      }
+          
+    if (hints.containsKey(RenderingHints.KEY_ALPHA_INTERPOLATION)) 
+      { 
+         if (hints.containsValue(RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED)) 
+            cairoSurfaceSetFilter(2);
+	    
+         else if (hints.containsValue(RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY)) 
+            cairoSurfaceSetFilter(3);
+	    
+         else if(hints.containsValue(RenderingHints.VALUE_ALPHA_INTERPOLATION_DEFAULT)) 
+            cairoSurfaceSetFilter(4);
+      }      
   }
 
   public void addRenderingHints(Map hints)

@@ -114,6 +114,15 @@ enum java_awt_geom_path_iterator_winding_rule
     java_awt_geom_path_iterator_WIND_NON_ZERO = 1
   };
 
+enum java_awt_rendering_hints_filter
+  {
+    java_awt_rendering_hints_VALUE_INTERPOLATION_NEAREST_NEIGHBOR = 0,    
+    java_awt_rendering_hints_VALUE_INTERPOLATION_BILINEAR = 1,
+    java_awt_rendering_hints_VALUE_ALPHA_INTERPOLATION_SPEED = 2,
+    java_awt_rendering_hints_VALUE_ALPHA_INTERPOLATION_QUALITY = 3,
+    java_awt_rendering_hints_VALUE_ALPHA_INTERPOLATION_DEFAULT = 4
+ 
+  };
 
 static void 
 grab_current_drawable (GtkWidget *widget, GdkDrawable **draw, GdkWindow **win)
@@ -683,21 +692,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics2D_drawPixels
 			    native_matrix[2], native_matrix[3],
 			    native_matrix[4], native_matrix[5]);
    cairo_surface_set_matrix (surf, mat);
-   if (native_matrix[0] != 1.
-       || native_matrix[1] != 0.
-       || native_matrix[2] != 0.
-       || native_matrix[3] != 1.)
-     {
-       cairo_surface_set_filter (surf, CAIRO_FILTER_BILINEAR);
-       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_BILINEAR);
-     }
-   else
-     {
-       cairo_surface_set_filter (surf, CAIRO_FILTER_FAST);
-       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_FAST);
-     }
+   cairo_surface_set_filter (surf, cairo_surface_get_filter(gr->surface));
    cairo_show_surface (gr->cr, surf, w, h);
-   cairo_surface_set_filter (gr->surface, CAIRO_FILTER_FAST);
    cairo_matrix_destroy (mat);
    cairo_surface_destroy (surf);
  }
@@ -1157,3 +1153,30 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics2D_cairoClip
   cairo_clip (gr->cr);
 }
 
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics2D_cairoSurfaceSetFilter
+   (JNIEnv *env, jobject obj, jint filter)
+{
+
+   struct graphics2d *gr = NULL;   
+   gr = (struct graphics2d *) NSA_GET_G2D_PTR (env, obj);
+   g_assert (gr != NULL);
+   if (gr->debug) printf ("cairo_surface_set_filter %d\n", filter);   
+   switch ((enum java_awt_rendering_hints_filter) filter)
+     {
+     case java_awt_rendering_hints_VALUE_INTERPOLATION_NEAREST_NEIGHBOR:
+       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_NEAREST);
+       break;
+     case java_awt_rendering_hints_VALUE_INTERPOLATION_BILINEAR:
+       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_BILINEAR);
+       break; 
+     case java_awt_rendering_hints_VALUE_ALPHA_INTERPOLATION_SPEED:
+       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_FAST);
+       break;
+     case java_awt_rendering_hints_VALUE_ALPHA_INTERPOLATION_DEFAULT:
+       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_NEAREST);
+       break;
+     case java_awt_rendering_hints_VALUE_ALPHA_INTERPOLATION_QUALITY:
+       cairo_surface_set_filter (gr->surface, CAIRO_FILTER_BEST);
+       break;
+     }
+}

@@ -1,3 +1,15 @@
+2004-02-16  Olga Rodimina  <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java:
+	(setRenderingHint): Added implementation of 
+	Interpolation rendering hints.
+	(setRenderingHints): Ditto.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
+	(drawPixels): fixed to allow user to choose type 
+	of filtering that should be used when displaying images.
+	(cairoSurfaceSetFilter): New method. Sets filter type for 
+	interpolation of pixel values.
+
 2004-02-16  David Jee  <djee@redhat.com>
 
 	* java/awt/GridBagLayout.java
