@@ -564,6 +564,8 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define TARGET_E500 0
 #define TARGET_ISEL 0
 #define TARGET_FPRS 1
+#define TARGET_E500_SINGLE 0
+#define TARGET_E500_DOUBLE 0
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -1020,6 +1022,7 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
   (FP_REGNO_P (REGNO)							\
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
+   : (TARGET_E500_DOUBLE && SPE_SIMD_REGNO_P (REGNO) && (MODE) == DFmode) ? 1 \
    : (SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE))   \
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD) \
    : ALTIVEC_REGNO_P (REGNO)						\
