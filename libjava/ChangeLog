@@ -6706,9 +6706,6 @@
 	URL)): New constructor.
 	(SoURLLoader): Likewise.
 	(JarURLLoader): Create SoURLLoader with override URL.
-=======
-2004-05-15  Mark Wielaard  <mark@klomp.org>
->>>>>>> 1.3111
 
 2004-08-10  Mark Wielaard  <mark@klomp.org>
 
