@@ -1,3 +1,8 @@
+2003-06-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (bsi_commit_edge_inserts): Fix computation of
+	new_blocks.
+
 2003-06-08  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (handle_switch_split): Don't allocate basic block

@@ -4098,7 +4098,7 @@ bsi_commit_edge_inserts (update_annotations, new_blocks)
     }
 
   if (new_blocks)
-    *new_blocks = blocks - n_basic_blocks;
+    *new_blocks = n_basic_blocks - blocks;
 
   /* Expand arrays if we created new blocks and need to update them.  */
   if (update_annotations && blocks != n_basic_blocks)
