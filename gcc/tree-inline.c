@@ -160,6 +160,9 @@ remap_decl (decl, id)
       t = copy_decl_for_inlining (decl, fn,
 				  VARRAY_TREE (id->fns, 0));
 
+      if (TREE_CODE (t) == LABEL_DECL)
+	DECL_TOO_LATE (t) = 0;
+
       /* The decl T could be a dynamic array or other variable size type,
 	 in which case some fields need to be remapped because they may
 	 contain SAVE_EXPRs.  */

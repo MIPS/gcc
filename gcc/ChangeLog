@@ -1,3 +1,8 @@
+2002-08-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-inline.c (remap_decl): Make sure DECL_TOO_LATE is clear for
+	remapped labels.
+
 2003-05-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* builtins.c (readonly_data_expr): New function.
