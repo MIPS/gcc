@@ -77,6 +77,8 @@ static tree handle_alias_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_visibility_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_tls_model_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
 static tree handle_no_instrument_function_attribute PARAMS ((tree *, tree,
 							     tree, int,
 							     bool *));
@@ -152,6 +154,8 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, true,  false, false,
 			      handle_visibility_attribute },
+  { "tls_model",	      1, 1, true,  false, false,
+			      handle_tls_model_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -1098,6 +1102,49 @@ handle_visibility_attribute (node, name, args, flags, no_add_attrs)
 	  && strcmp (TREE_STRING_POINTER (id), "internal"))
 	{
 	  error ("visibility arg must be one of \"hidden\", \"protected\" or \"internal\"");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "tls_model" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_tls_model_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (! DECL_THREAD_LOCAL (decl))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
+      tree id;
+
+      id = TREE_VALUE (args);
+      if (TREE_CODE (id) != STRING_CST)
+	{
+	  error ("tls_model arg not a string");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+      if (strcmp (TREE_STRING_POINTER (id), "local-exec")
+	  && strcmp (TREE_STRING_POINTER (id), "initial-exec")
+	  && strcmp (TREE_STRING_POINTER (id), "local-dynamic")
+	  && strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
+	{
+	  error ("tls_model arg must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
