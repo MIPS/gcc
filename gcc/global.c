@@ -1419,17 +1419,8 @@ mark_reg_store (reg, setter, data)
 {
   register int regno;
 
-  /* WORD is which word of a multi-register group is being stored.
-     For the case where the store is actually into a SUBREG of REG.
-     Except we don't use it; I believe the entire REG needs to be
-     made live.  */
-  int word = 0;
-
   if (GET_CODE (reg) == SUBREG)
-    {
-      word = SUBREG_WORD (reg);
-      reg = SUBREG_REG (reg);
-    }
+    reg = SUBREG_REG (reg);
 
   if (GET_CODE (reg) != REG)
     return;
@@ -1453,7 +1444,7 @@ mark_reg_store (reg, setter, data)
     }
 
   if (reg_renumber[regno] >= 0)
-    regno = reg_renumber[regno] /* + word */;
+    regno = reg_renumber[regno];
 
   /* Handle hardware regs (and pseudos allocated to hard regs).  */
   if (regno < FIRST_PSEUDO_REGISTER && ! fixed_regs[regno])
@@ -1603,7 +1594,15 @@ set_preference (dest, src)
   else if (GET_CODE (src) == SUBREG && GET_CODE (SUBREG_REG (src)) == REG)
     {
       src_regno = REGNO (SUBREG_REG (src));
-      offset += SUBREG_WORD (src);
+
+      if (REGNO (SUBREG_REG (src)) < FIRST_PSEUDO_REGISTER)
+	offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (src)),
+				       GET_MODE (SUBREG_REG (src)),
+				       SUBREG_BYTE (src),
+				       GET_MODE (src));
+      else
+	offset += (SUBREG_BYTE (src)
+		   / REGMODE_NATURAL_SIZE (GET_MODE (src)));
     }
   else
     return;
@@ -1613,7 +1612,15 @@ set_preference (dest, src)
   else if (GET_CODE (dest) == SUBREG && GET_CODE (SUBREG_REG (dest)) == REG)
     {
       dest_regno = REGNO (SUBREG_REG (dest));
-      offset -= SUBREG_WORD (dest);
+
+      if (REGNO (SUBREG_REG (dest)) < FIRST_PSEUDO_REGISTER)
+	offset -= SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dest)),
+				       GET_MODE (SUBREG_REG (dest)),
+				       SUBREG_BYTE (dest),
+				       GET_MODE (dest));
+      else
+	offset -= (SUBREG_BYTE (dest)
+		   / REGMODE_NATURAL_SIZE (GET_MODE (dest)));
     }
   else
     return;

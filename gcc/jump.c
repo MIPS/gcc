@@ -3515,7 +3515,7 @@ rtx_renumbered_equal_p (x, y)
 				  && GET_CODE (SUBREG_REG (y)) == REG)))
     {
       int reg_x = -1, reg_y = -1;
-      int word_x = 0, word_y = 0;
+      int byte_x = 0, byte_y = 0;
 
       if (GET_MODE (x) != GET_MODE (y))
 	return 0;
@@ -3528,15 +3528,17 @@ rtx_renumbered_equal_p (x, y)
       if (code == SUBREG)
 	{
 	  reg_x = REGNO (SUBREG_REG (x));
-	  word_x = SUBREG_WORD (x);
+	  byte_x = SUBREG_BYTE (x);
 
 	  if (reg_renumber[reg_x] >= 0)
 	    {
-	      reg_x = reg_renumber[reg_x] + word_x;
-	      word_x = 0;
+	      reg_x = SUBREG_REGNO_OFFSET (reg_renumber[reg_x],
+					   GET_MODE (SUBREG_REG (x)),
+					   byte_x,
+					   GET_MODE (x));
+	      byte_x = 0;
 	    }
 	}
-
       else
 	{
 	  reg_x = REGNO (x);
@@ -3547,15 +3549,17 @@ rtx_renumbered_equal_p (x, y)
       if (GET_CODE (y) == SUBREG)
 	{
 	  reg_y = REGNO (SUBREG_REG (y));
-	  word_y = SUBREG_WORD (y);
+	  byte_y = SUBREG_BYTE (y);
 
 	  if (reg_renumber[reg_y] >= 0)
 	    {
-	      reg_y = reg_renumber[reg_y];
-	      word_y = 0;
+	      reg_y = SUBREG_REGNO_OFFSET (reg_renumber[reg_y],
+					   GET_MODE (SUBREG_REG (y)),
+					   byte_y,
+					   GET_MODE (y));
+	      byte_y = 0;
 	    }
 	}
-
       else
 	{
 	  reg_y = REGNO (y);
@@ -3563,7 +3567,7 @@ rtx_renumbered_equal_p (x, y)
 	    reg_y = reg_renumber[reg_y];
 	}
 
-      return reg_x >= 0 && reg_x == reg_y && word_x == word_y;
+      return reg_x >= 0 && reg_x == reg_y && byte_x == byte_y;
     }
 
   /* Now we have disposed of all the cases
@@ -3694,7 +3698,9 @@ true_regnum (x)
     {
       int base = true_regnum (SUBREG_REG (x));
       if (base >= 0 && base < FIRST_PSEUDO_REGISTER)
-	return SUBREG_WORD (x) + base;
+	return base + SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+					   GET_MODE (SUBREG_REG (x)),
+					   SUBREG_BYTE (x), GET_MODE (x));
     }
   return -1;
 }

@@ -495,26 +495,18 @@ validate_replace_rtx_1 (loc, from, to, object)
       break;
 	
     case SUBREG:
-      /* In case we are replacing by constant, attempt to simplify it to non-SUBREG
-         expression.  We can't do this later, since the information about inner mode
-         may be lost.  */
+      /* In case we are replacing by constant, attempt to simplify it to
+	 non-SUBREG expression.  We can't do this later, since the information
+	 about inner mode may be lost.  */
       if (CONSTANT_P (to) && rtx_equal_p (SUBREG_REG (x), from))
         {
-	  if (GET_MODE_SIZE (GET_MODE (x)) == UNITS_PER_WORD
-	      && GET_MODE_SIZE (GET_MODE (from)) > UNITS_PER_WORD
-	      && GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
+	  /* A paradoxical SUBREG of a VOIDmode constant is the same constant,
+	     since we are saying that the high bits don't matter.  */
+	  if (GET_MODE (to) == VOIDmode
+	      && (GET_MODE_SIZE (GET_MODE (x))
+		  >= GET_MODE_SIZE (GET_MODE (from))))
 	    {
-	      rtx temp = operand_subword (to, SUBREG_WORD (x),
-					  0, GET_MODE (from));
-	      if (temp)
-		{
-		  validate_change (object, loc, temp, 1);
-		  return;
-		}
-	    }
-	  if (subreg_lowpart_p (x))
-	    {
-	      rtx new =  gen_lowpart_if_possible (GET_MODE (x), to);
+	      rtx new = gen_lowpart_if_possible (GET_MODE (x), to);
 	      if (new)
 		{
 		  validate_change (object, loc, new, 1);
@@ -522,11 +514,42 @@ validate_replace_rtx_1 (loc, from, to, object)
 		}
 	    }
 
-	  /* A paradoxical SUBREG of a VOIDmode constant is the same constant,
-	     since we are saying that the high bits don't matter.  */
-	  if (GET_MODE (to) == VOIDmode
-	      && GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (GET_MODE (from)))
+	  if (GET_CODE (to) == CONST_INT)
 	    {
+	      /* Avoid creating bogus SUBREGs */
+	      enum machine_mode mode = GET_MODE (x);
+	      enum machine_mode inner_mode = GET_MODE (from);
+	      int offset;
+	      unsigned HOST_WIDE_INT i;
+
+	      if (GET_MODE_CLASS (mode) != MODE_INT)
+		abort ();
+
+	      offset = SUBREG_BYTE (x);
+	      if (BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
+		{
+		  if (WORDS_BIG_ENDIAN)
+		    offset = GET_MODE_SIZE (inner_mode)
+			     - GET_MODE_SIZE (mode) - offset;
+		  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
+		      && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+		    offset = (offset + UNITS_PER_WORD - GET_MODE_SIZE (mode)
+			      - 2 * (offset % UNITS_PER_WORD));
+		}
+
+	      offset *= BITS_PER_UNIT;
+	      i = INTVAL (to);
+
+	      if (offset >= HOST_BITS_PER_WIDE_INT)
+		to = ((HOST_WIDE_INT) i < 0) ? constm1_rtx : const0_rtx;
+	      else
+		{
+		  i >>= offset;
+		  if (GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
+		    i = trunc_int_for_mode (i, mode);
+		  to = GEN_INT (i);
+		}
+
 	      validate_change (object, loc, to, 1);
 	      return;
 	    }
@@ -562,14 +585,9 @@ validate_replace_rtx_1 (loc, from, to, object)
 	  && ! MEM_VOLATILE_P (to)
 	  && GET_MODE_SIZE (GET_MODE (x)) <= GET_MODE_SIZE (GET_MODE (to)))
 	{
-	  int offset = SUBREG_WORD (x) * UNITS_PER_WORD;
+	  int offset = SUBREG_BYTE (x);
 	  enum machine_mode mode = GET_MODE (x);
 	  rtx new;
-
-	  if (BYTES_BIG_ENDIAN)
-	    offset += (MIN (UNITS_PER_WORD,
-			    GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-		       - MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode)));
 
 	  new = gen_rtx_MEM (mode, plus_constant (XEXP (to, 0), offset));
 	  MEM_COPY_ATTRIBUTES (new, to);
@@ -620,8 +638,8 @@ validate_replace_rtx_1 (loc, from, to, object)
 	      int offset = pos / BITS_PER_UNIT;
 	      rtx newmem;
 
-		  /* If the bytes and bits are counted differently, we
-		     must adjust the offset.  */
+	      /* If the bytes and bits are counted differently, we
+		 must adjust the offset.  */
 	      if (BYTES_BIG_ENDIAN != BITS_BIG_ENDIAN)
 		offset = (GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (wanted_mode)
 			  - offset);
@@ -950,7 +968,6 @@ general_operand (op, mode)
      enum machine_mode mode;
 {
   register enum rtx_code code = GET_CODE (op);
-  int mode_altering_drug = 0;
 
   if (mode == VOIDmode)
     mode = GET_MODE (op);
@@ -988,11 +1005,6 @@ general_operand (op, mode)
 
       op = SUBREG_REG (op);
       code = GET_CODE (op);
-#if 0
-      /* No longer needed, since (SUBREG (MEM...))
-	 will load the MEM into a reload reg in the MEM's own mode.  */
-      mode_altering_drug = 1;
-#endif
     }
 
   if (code == REG)
@@ -1023,8 +1035,6 @@ general_operand (op, mode)
   return 0;
 
  win:
-  if (mode_altering_drug)
-    return ! mode_dependent_address_p (XEXP (op, 0));
   return 1;
 }
 
@@ -1354,12 +1364,8 @@ indirect_operand (op, mode)
   if (! reload_completed
       && GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == MEM)
     {
-      register int offset = SUBREG_WORD (op) * UNITS_PER_WORD;
+      register int offset = SUBREG_BYTE (op);
       rtx inner = SUBREG_REG (op);
-
-      if (BYTES_BIG_ENDIAN)
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (op)))
-		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (inner))));
 
       if (mode != VOIDmode && GET_MODE (op) != mode)
 	return 0;
@@ -2341,7 +2347,10 @@ constrain_operands (strict)
 	    {
 	      if (GET_CODE (SUBREG_REG (op)) == REG
 		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
-		offset = SUBREG_WORD (op);
+		offset = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op)),
+					      GET_MODE (SUBREG_REG (op)),
+					      SUBREG_BYTE (op),
+					      GET_MODE (op));
 	      op = SUBREG_REG (op);
 	    }
 

@@ -163,8 +163,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)]);
+	    fprintf (file, "%s", reg_names[SUBREG_REGNO (x)]);
 	    break;
 
 	  case CONST_DOUBLE:
@@ -223,8 +222,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)] + 1);
+	    fprintf (file, "%s", reg_names[SUBREG_REGNO (x) + 1]);
 	    break;
 
 	  case CONST_DOUBLE:
@@ -323,8 +321,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)]);
+	    fprintf (file, "%s", reg_names[SUBREG_REGNO (x)]);
 	    break;
 
 	  case CONST_INT:

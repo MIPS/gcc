@@ -291,7 +291,7 @@
       emit_move_insn (tem, gen_rtx_MEM (SImode, addr));
       if (GET_CODE (operands[0]) == SUBREG)
 	subreg = gen_rtx_SUBREG (SImode, SUBREG_REG (operands[0]),
-				 SUBREG_WORD (operands[0]));
+				 SUBREG_BYTE (operands[0]));
       else
 	subreg = gen_rtx_SUBREG (SImode, operands[0], 0);
 
@@ -311,7 +311,7 @@
 	{
 	  if (GET_CODE (operands[1]) == SUBREG)
 	    subreg = gen_rtx_SUBREG (SImode, SUBREG_REG (operands[1]),
-				     SUBREG_WORD (operands[1]));
+				     SUBREG_BYTE (operands[1]));
 	  else
 	    subreg = gen_rtx_SUBREG (SImode, operands[1], 0);
 	}
@@ -444,7 +444,7 @@
 {
   if (GET_CODE (operands[1]) == SUBREG)
     operands[5] = gen_rtx_SUBREG (SImode, SUBREG_REG (operands[1]),
-				  SUBREG_WORD (operands[1]));
+				  SUBREG_BYTE (operands[1]));
   else
     operands[5] = gen_rtx_SUBREG (SImode, operands[1], 0);
 }")
@@ -700,7 +700,7 @@
 {
   if (GET_CODE (operands[1]) == SUBREG)
     operands[1] = gen_rtx_SUBREG (SImode, SUBREG_REG (operands[1]),
-				  SUBREG_WORD (operands[1]));
+				  SUBREG_BYTE (operands[1]));
   else
     operands[1] = gen_rtx_SUBREG (SImode, operands[1], 0);
 
@@ -737,7 +737,7 @@
 {
   if (GET_CODE (operands[1]) == SUBREG)
     operands[1] = gen_rtx_SUBREG (SImode, SUBREG_REG (operands[1]),
-				  SUBREG_WORD (operands[1]));
+				  SUBREG_BYTE (operands[1]));
   else
     operands[1] = gen_rtx_SUBREG (SImode, operands[1], 0);
 
@@ -760,7 +760,7 @@
 {
   if (GET_CODE (operands[1]) == SUBREG)
     operands[1] = gen_rtx_SUBREG (HImode, SUBREG_REG (operands[1]),
-				  SUBREG_WORD (operands[1]));
+				  SUBREG_BYTE (operands[1]));
   else
     operands[1] = gen_rtx_SUBREG (HImode, operands[1], 0);
 
@@ -780,7 +780,7 @@
 {
   if (GET_CODE (operands[1]) == SUBREG)
     operands[1] = gen_rtx_SUBREG (SImode, SUBREG_REG (operands[1]),
-				  SUBREG_WORD (operands[1]));
+				  SUBREG_BYTE (operands[1]));
   else
     operands[1] = gen_rtx_SUBREG (SImode, operands[1], 0);
 

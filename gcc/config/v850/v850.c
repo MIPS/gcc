@@ -535,7 +535,7 @@ print_operand (file, x, code)
 	  fputs (reg_names[REGNO (x)], file);
 	  break;
 	case SUBREG:
-	  fputs (reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)], file);
+	  fputs (reg_names[SUBREG_REGNO (x)], file);
 	  break;
 	case CONST_INT:
 	case SYMBOL_REF:
@@ -817,7 +817,7 @@ output_move_double (operands)
       if (GET_CODE (inside) == REG)
  	ptrreg = REGNO (inside);
       else if (GET_CODE (inside) == SUBREG)
-	ptrreg = REGNO (SUBREG_REG (inside)) + SUBREG_WORD (inside);
+	ptrreg = SUBREG_REGNO (inside);
       else if (GET_CODE (inside) == PLUS)
 	ptrreg = REGNO (XEXP (inside, 0));
       else if (GET_CODE (inside) == LO_SUM)

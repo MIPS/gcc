@@ -1238,10 +1238,10 @@
 ;______________________________________________________________________
 
 (define_expand "extendsidi2"
-  [(set (subreg:SI (match_operand:DI 0 "register_operand" "=r") 1)
+  [(set (subreg:SI (match_operand:DI 0 "register_operand" "=r") 4)
 	(match_operand:SI 1 "general_operand" "g"))
    (set (subreg:SI (match_dup 0) 0)
-	(subreg:SI (match_dup 0) 1))
+	(subreg:SI (match_dup 0) 4))
    (set (subreg:SI (match_dup 0) 0)
 	(ashiftrt:SI (subreg:SI (match_dup 0) 0)
 		     (const_int 31)))]

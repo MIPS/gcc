@@ -1267,7 +1267,7 @@
   "
 {
 	operands[2] = gen_reg_rtx (HImode);
-	operands[3] = gen_rtx_SUBREG (QImode, operands[2], 1);
+	operands[3] = gen_rtx_SUBREG (QImode, operands[2], GET_MODE_SIZE (QImode));
 }")
 
 ;;(define_insn "extendqihi2"
@@ -1317,7 +1317,7 @@
   "
 {
 	operands[2] = gen_reg_rtx (HImode);
-	operands[3] = gen_rtx_SUBREG (QImode, operands[2], 1);
+	operands[3] = gen_rtx_SUBREG (QImode, operands[2], GET_MODE_SIZE (QImode));
 }")
 
 

@@ -263,7 +263,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 	 meaningful at a much higher level; when structures are copied
 	 between memory and regs, the higher-numbered regs
 	 always get higher addresses.  */
-      offset += SUBREG_WORD (op0);
+      offset += (SUBREG_BYTE (op0) / UNITS_PER_WORD);
       /* We used to adjust BITPOS here, but now we do the whole adjustment
 	 right after the loop.  */
       op0 = SUBREG_REG (op0);
@@ -328,7 +328,8 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 		abort ();
 	    }
 	  if (GET_CODE (op0) == REG)
-	    op0 = gen_rtx_SUBREG (fieldmode, op0, offset);
+	    op0 = gen_rtx_SUBREG (fieldmode, op0,
+				  (offset * UNITS_PER_WORD));
 	  else
 	    op0 = change_address (op0, fieldmode,
 				  plus_constant (XEXP (op0, 0), offset));
@@ -373,7 +374,8 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 	}
 
       emit_insn (GEN_FCN (icode)
-		 (gen_rtx_SUBREG (fieldmode, op0, offset), value));
+		 (gen_rtx_SUBREG (fieldmode, op0, (offset * UNITS_PER_WORD)),
+				  value));
 
       return value;
     }
@@ -447,7 +449,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
 		abort ();
 	    }
 	  op0 = gen_rtx_SUBREG (mode_for_size (BITS_PER_WORD, MODE_INT, 0),
-		                op0, offset);
+		                op0, (offset * UNITS_PER_WORD));
 	}
       offset = 0;
     }
@@ -550,7 +552,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
       if (GET_CODE (xop0) == SUBREG)
 	/* We can't just change the mode, because this might clobber op0,
 	   and we will need the original value of op0 if insv fails.  */
-	xop0 = gen_rtx_SUBREG (maxmode, SUBREG_REG (xop0), SUBREG_WORD (xop0));
+	xop0 = gen_rtx_SUBREG (maxmode, SUBREG_REG (xop0), SUBREG_BYTE (xop0));
       if (GET_CODE (xop0) == REG && GET_MODE (xop0) != maxmode)
 	xop0 = gen_rtx_SUBREG (maxmode, xop0, 0);
 
@@ -910,8 +912,8 @@ store_split_bit_field (op0, bitsize, bitpos, value, align)
 	 the current word starting from the base register.  */
       if (GET_CODE (op0) == SUBREG)
 	{
-	  word = operand_subword_force (SUBREG_REG (op0),
-					SUBREG_WORD (op0) + offset,
+	  int word_offset = (SUBREG_BYTE (op0) / UNITS_PER_WORD) + offset;
+	  word = operand_subword_force (SUBREG_REG (op0), word_offset,
 					GET_MODE (SUBREG_REG (op0)));
 	  offset = 0;
 	}
@@ -1008,7 +1010,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
       int outer_size = GET_MODE_BITSIZE (GET_MODE (op0));
       int inner_size = GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)));
 
-      offset += SUBREG_WORD (op0);
+      offset += SUBREG_BYTE (op0) / UNITS_PER_WORD;
 
       inner_size = MIN (inner_size, BITS_PER_WORD);
 
@@ -1095,7 +1097,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 		abort ();
 	    }
 	  if (GET_CODE (op0) == REG)
-	    op0 = gen_rtx_SUBREG (mode1, op0, offset);
+	    op0 = gen_rtx_SUBREG (mode1, op0, (offset * UNITS_PER_WORD));
 	  else
 	    op0 = change_address (op0, mode1,
 				  plus_constant (XEXP (op0, 0), offset));
@@ -1204,7 +1206,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  if (GET_CODE (op0) != REG)
 	    op0 = copy_to_reg (op0);
 	  op0 = gen_rtx_SUBREG (mode_for_size (BITS_PER_WORD, MODE_INT, 0),
-		                op0, offset);
+		                op0, (offset * UNITS_PER_WORD));
 	}
       offset = 0;
     }
@@ -1799,8 +1801,8 @@ extract_split_bit_field (op0, bitsize, bitpos, unsignedp, align)
 	 the current word starting from the base register.  */
       if (GET_CODE (op0) == SUBREG)
 	{
-	  word = operand_subword_force (SUBREG_REG (op0),
-					SUBREG_WORD (op0) + offset,
+	  int word_offset = (SUBREG_BYTE (op0) / UNITS_PER_WORD) + offset;
+	  word = operand_subword_force (SUBREG_REG (op0), word_offset,
 					GET_MODE (SUBREG_REG (op0)));
 	  offset = 0;
 	}
@@ -1919,7 +1921,7 @@ expand_shift (code, mode, shifted, amount, target, unsignedp)
         op1 = GEN_INT ((unsigned HOST_WIDE_INT) INTVAL (op1)
 		       % GET_MODE_BITSIZE (mode));
       else if (GET_CODE (op1) == SUBREG
-	       && SUBREG_WORD (op1) == 0)
+	       && SUBREG_BYTE (op1) == 0)
 	op1 = SUBREG_REG (op1);
     }
 #endif

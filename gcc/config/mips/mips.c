@@ -1836,20 +1836,26 @@ mips_move_1word (operands, insn, unsignedp)
   enum rtx_code code0 = GET_CODE (op0);
   enum rtx_code code1 = GET_CODE (op1);
   enum machine_mode mode = GET_MODE (op0);
-  int subreg_word0 = 0;
-  int subreg_word1 = 0;
+  int subreg_offset0 = 0;
+  int subreg_offset1 = 0;
   enum delay_type delay = DELAY_NONE;
 
   while (code0 == SUBREG)
     {
-      subreg_word0 += SUBREG_WORD (op0);
+      subreg_offset0 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op0)),
+					     GET_MODE (SUBREG_REG (op0)),
+					     SUBREG_BYTE (op0),
+					     GET_MODE (op0));
       op0 = SUBREG_REG (op0);
       code0 = GET_CODE (op0);
     }
 
   while (code1 == SUBREG)
     {
-      subreg_word1 += SUBREG_WORD (op1);
+      subreg_offset1 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op1)),
+					     GET_MODE (SUBREG_REG (op1)),
+					     SUBREG_BYTE (op1),
+					     GET_MODE (op1));
       op1 = SUBREG_REG (op1);
       code1 = GET_CODE (op1);
     }
@@ -1860,11 +1866,11 @@ mips_move_1word (operands, insn, unsignedp)
 
   if (code0 == REG)
     {
-      int regno0 = REGNO (op0) + subreg_word0;
+      int regno0 = REGNO (op0) + subreg_offset0;
 
       if (code1 == REG)
 	{
-	  int regno1 = REGNO (op1) + subreg_word1;
+	  int regno1 = REGNO (op1) + subreg_offset1;
 
 	  /* Just in case, don't do anything for assigning a register
 	     to itself, unless we are filling a delay slot.  */
@@ -2149,7 +2155,7 @@ mips_move_1word (operands, insn, unsignedp)
 
       if (code1 == REG)
 	{
-	  int regno1 = REGNO (op1) + subreg_word1;
+	  int regno1 = REGNO (op1) + subreg_offset1;
 
 	  if (GP_REG_P (regno1))
 	    {
@@ -2228,13 +2234,16 @@ mips_move_2words (operands, insn)
   rtx op1 = operands[1];
   enum rtx_code code0 = GET_CODE (operands[0]);
   enum rtx_code code1 = GET_CODE (operands[1]);
-  int subreg_word0 = 0;
-  int subreg_word1 = 0;
+  int subreg_offset0 = 0;
+  int subreg_offset1 = 0;
   enum delay_type delay = DELAY_NONE;
 
   while (code0 == SUBREG)
     {
-      subreg_word0 += SUBREG_WORD (op0);
+      subreg_offset0 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op0)),
+					     GET_MODE (SUBREG_REG (op0)),
+					     SUBREG_BYTE (op0),
+					     GET_MODE (op0));
       op0 = SUBREG_REG (op0);
       code0 = GET_CODE (op0);
     }
@@ -2247,7 +2256,10 @@ mips_move_2words (operands, insn)
 
   while (code1 == SUBREG)
     {
-      subreg_word1 += SUBREG_WORD (op1);
+      subreg_offset1 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op1)),
+					     GET_MODE (SUBREG_REG (op1)),
+					     SUBREG_BYTE (op1),
+					     GET_MODE (op1));
       op1 = SUBREG_REG (op1);
       code1 = GET_CODE (op1);
     }
@@ -2265,11 +2277,11 @@ mips_move_2words (operands, insn)
 
   if (code0 == REG)
     {
-      int regno0 = REGNO (op0) + subreg_word0;
+      int regno0 = REGNO (op0) + subreg_offset0;
 
       if (code1 == REG)
 	{
-	  int regno1 = REGNO (op1) + subreg_word1;
+	  int regno1 = REGNO (op1) + subreg_offset1;
 
 	  /* Just in case, don't do anything for assigning a register
 	     to itself, unless we are filling a delay slot.  */
@@ -2606,7 +2618,7 @@ mips_move_2words (operands, insn)
     {
       if (code1 == REG)
 	{
-	  int regno1 = REGNO (op1) + subreg_word1;
+	  int regno1 = REGNO (op1) + subreg_offset1;
 
 	  if (FP_REG_P (regno1))
 	    ret = "s.d\t%1,%0";
@@ -7912,7 +7924,10 @@ mips_secondary_reload_class (class, mode, x, in_p)
 	{
 	  while (GET_CODE (x) == SUBREG)
 	    {
-	      off += SUBREG_WORD (x);
+	      off += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+					  GET_MODE (SUBREG_REG (x)),
+					  SUBREG_BYTE (x),
+					  GET_MODE (x));
 	      x = SUBREG_REG (x);
 	    }
 

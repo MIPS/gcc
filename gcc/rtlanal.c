@@ -1022,7 +1022,7 @@ refers_to_regno_p (regno, endregno, x, loc)
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int inner_regno = REGNO (SUBREG_REG (x)) + SUBREG_WORD (x);
+	  unsigned int inner_regno = SUBREG_REGNO (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
 			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
@@ -1109,7 +1109,7 @@ reg_overlap_mentioned_p (x, in)
     case SUBREG:
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno += SUBREG_WORD (x);
+	regno = SUBREG_REGNO (x);
       goto do_reg;
 
     case REG:
@@ -2111,18 +2111,32 @@ replace_regs (x, reg_map, nregs, replace_dest)
 	    return map_inner;
 	  else
 	    {
+	      int final_offset = SUBREG_BYTE (x) + SUBREG_BYTE (map_val);
+
+	      /* When working with REG SUBREGs the rule is that the byte
+		 offset must be a multiple of the SUBREG's mode.  */
+	      final_offset = (final_offset / GET_MODE_SIZE (GET_MODE (x)));
+	      final_offset = (final_offset * GET_MODE_SIZE (GET_MODE (x)));
+
 	      /* We cannot call gen_rtx here since we may be linked with
 		 genattrtab.c.  */
 	      /* Let's try clobbering the incoming SUBREG and see
 		 if this is really safe.  */
 	      SUBREG_REG (x) = map_inner;
-	      SUBREG_WORD (x) += SUBREG_WORD (map_val);
+	      SUBREG_BYTE (x) = final_offset;
 	      return x;
 #if 0
 	      rtx new = rtx_alloc (SUBREG);
+	      int final_offset = SUBREG_BYTE (x) + SUBREG_BYTE (map_val);
+
+	      /* When working with REG SUBREGs the rule is that the byte
+		 offset must be a multiple of the SUBREG's mode.  */
+	      final_offset = (final_offset / GET_MODE_SIZE (GET_MODE (x)));
+	      final_offset = (final_offset * GET_MODE_SIZE (GET_MODE (x)));
+
 	      PUT_MODE (new, GET_MODE (x));
 	      SUBREG_REG (new) = map_inner;
-	      SUBREG_WORD (new) = SUBREG_WORD (x) + SUBREG_WORD (map_val);
+	      SUBREG_BYTE (new) = final_offset;
 #endif
 	    }
 	}

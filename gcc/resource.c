@@ -99,7 +99,7 @@ update_live_status (dest, x, data)
     return;
 
   if (GET_CODE (dest) == SUBREG)
-    first_regno = REGNO (SUBREG_REG (dest)) + SUBREG_WORD (dest);
+    first_regno = SUBREG_REGNO (dest);
   else
     first_regno = REGNO (dest);
 
@@ -208,7 +208,7 @@ mark_referenced_resources (x, res, include_delayed_effects)
 	mark_referenced_resources (SUBREG_REG (x), res, 0);
       else
 	{
-	  unsigned int regno = REGNO (SUBREG_REG (x)) + SUBREG_WORD (x);
+	  unsigned int regno = SUBREG_REGNO (x);
 	  unsigned int last_regno
 	    = regno + HARD_REGNO_NREGS (regno, GET_MODE (x));
 
@@ -756,7 +756,7 @@ mark_set_resources (x, res, in_dest, mark_type)
 	    mark_set_resources (SUBREG_REG (x), res, in_dest, mark_type);
 	  else
 	    {
-	      unsigned int regno = REGNO (SUBREG_REG (x)) + SUBREG_WORD (x);
+	      unsigned int regno = SUBREG_REGNO (x);
 	      unsigned int last_regno
 		= regno + HARD_REGNO_NREGS (regno, GET_MODE (x));
 

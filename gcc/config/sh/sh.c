@@ -664,7 +664,7 @@ output_movedouble (insn, operands, mode)
       if (GET_CODE (inside) == REG)
 	ptrreg = REGNO (inside);
       else if (GET_CODE (inside) == SUBREG)
-	ptrreg = REGNO (SUBREG_REG (inside)) + SUBREG_WORD (inside);
+	ptrreg = SUBREG_REGNO (inside);
       else if (GET_CODE (inside) == PLUS)
 	{
 	  ptrreg = REGNO (XEXP (inside, 0));
@@ -1120,13 +1120,13 @@ gen_ashift_hi (type, n, reg)
 	 gen_ashift_hi is only called in contexts where we know that the
 	 sign extension works out correctly.  */
       {
-	int word = 0;
+	int offset = 0;
 	if (GET_CODE (reg) == SUBREG)
 	  {
-	    word = SUBREG_WORD (reg);
+	    offset = SUBREG_BYTE (reg);
 	    reg = SUBREG_REG (reg);
 	  }
-	gen_ashift (type, n, gen_rtx_SUBREG (SImode, reg, word));
+	gen_ashift (type, n, gen_rtx_SUBREG (SImode, reg, offset));
 	break;
       }
     case ASHIFT:
@@ -2491,7 +2491,11 @@ regs_used (x, is_dest)
 	  break;
 	if (REGNO (y) < 16)
 	  return (((1 << HARD_REGNO_NREGS (0, GET_MODE (x))) - 1)
-		  << (REGNO (y) + SUBREG_WORD (x) + is_dest));
+		  << (REGNO (y) +
+		      SUBREG_REGNO_OFFSET (REGNO (y),
+					   GET_MODE (y),
+					   SUBREG_BYTE (x),
+					   GET_MOD (x)) + is_dest));
 	return 0;
       }
     case SET:
@@ -3225,7 +3229,10 @@ machine_dependent_reorg (first)
 		      mode = HImode;
 		      while (GET_CODE (dst) == SUBREG)
 			{
-			  offset += SUBREG_WORD (dst);
+			  offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dst)),
+							 GET_MODE (SUBREG_REG (dst)),
+							 SUBREG_BYTE (dst),
+							 GET_MODE (dst));
 			  dst = SUBREG_REG (dst);
 			}
 		      dst = gen_rtx_REG (HImode, REGNO (dst) + offset);

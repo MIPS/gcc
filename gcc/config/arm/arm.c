@@ -4356,11 +4356,7 @@ arm_reload_in_hi (operands)
 
   if (GET_CODE (ref) == SUBREG)
     {
-      offset = SUBREG_WORD (ref) * UNITS_PER_WORD;
-      if (BYTES_BIG_ENDIAN)
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (ref)))
-		   - MIN (UNITS_PER_WORD,
-			  GET_MODE_SIZE (GET_MODE (SUBREG_REG (ref)))));
+      offset = SUBREG_BYTE (ref);
       ref = SUBREG_REG (ref);
     }
 
@@ -4473,11 +4469,7 @@ arm_reload_out_hi (operands)
 
   if (GET_CODE (ref) == SUBREG)
     {
-      offset = SUBREG_WORD (ref) * UNITS_PER_WORD;
-      if (BYTES_BIG_ENDIAN)
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (ref)))
-		   - MIN (UNITS_PER_WORD,
-			  GET_MODE_SIZE (GET_MODE (SUBREG_REG (ref)))));
+      offset = SUBREG_BYTE (ref);
       ref = SUBREG_REG (ref);
     }
 

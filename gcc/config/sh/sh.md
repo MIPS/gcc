@@ -2472,7 +2472,7 @@
   if (GET_CODE (operands[0]) == REG)
     regno = REGNO (operands[0]);
   else if (GET_CODE (operands[0]) == SUBREG)
-    regno = REGNO (SUBREG_REG (operands[0])) + SUBREG_WORD (operands[0]);
+    regno = SUBREG_REGNO (operands[0]);
   else if (GET_CODE (operands[0]) == MEM)
     regno = -1;
 
@@ -2610,7 +2610,7 @@
       mem = operands[1];
       store_p = 0;
     }
-  if (GET_CODE (mem) == SUBREG && SUBREG_WORD (mem) == 0)
+  if (GET_CODE (mem) == SUBREG && SUBREG_BYTE (mem) == 0)
     mem = SUBREG_REG (mem);
   if (GET_CODE (mem) == MEM)
     {
@@ -2857,7 +2857,7 @@
   if (GET_CODE (operands[0]) == REG)
     regno = REGNO (operands[0]);
   else if (GET_CODE (operands[0]) == SUBREG)
-    regno = REGNO (SUBREG_REG (operands[0])) + SUBREG_WORD (operands[0]);
+    regno = SUBREG_REGNO (operands[0]);
   else if (GET_CODE (operands[0]) == MEM)
     regno = -1;
 

@@ -33,7 +33,7 @@ typedef	unsigned char	uint8;
 typedef unsigned int16	uint16;
 
 #ifndef int32
-#define int32 long
+#define int32 int
 #endif
 typedef unsigned int32	uint32;
 
@@ -62,7 +62,7 @@ typedef void*                   jref;
 #define jfloat float
 #endif
 
-/* A 32-bit IEEE double-precision float. */
+/* A 64-bit IEEE double-precision float. */
 #ifndef jdouble
 #define jdouble double
 #endif
