@@ -1,20 +1,23 @@
 /* Program to write C++-suitable header files from a Java(TM) .class
    file.  This is similar to SUN's javah.
 
-Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003
+Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -26,6 +29,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <math.h>
 
 #include "jcf.h"
@@ -120,7 +125,7 @@ static struct method_name *method_name_list;
 
 static void print_field_info PARAMS ((FILE*, JCF*, int, int, JCF_u2));
 static void print_mangled_classname PARAMS ((FILE*, JCF*, const char*, int));
-static int  print_cxx_classname PARAMS ((FILE*, const char*, JCF*, int));
+static int  print_cxx_classname PARAMS ((FILE*, const char*, JCF*, int, int));
 static void print_method_info PARAMS ((FILE*, JCF*, int, int, JCF_u2));
 static void print_c_decl PARAMS ((FILE*, JCF*, int, int, int, const char *,
 				  int));
@@ -834,13 +839,13 @@ DEFUN(print_method_info, (stream, jcf, name_index, sig_index, flags),
     {
       struct method_name *nn;
 
-      nn = (struct method_name *) xmalloc (sizeof (struct method_name));
-      nn->name = (char *) xmalloc (length);
+      nn = xmalloc (sizeof (struct method_name));
+      nn->name = xmalloc (length);
       memcpy (nn->name, str, length);
       nn->length = length;
       nn->next = method_name_list;
       nn->sig_length = JPOOL_UTF_LENGTH (jcf, sig_index);
-      nn->signature = (char *) xmalloc (nn->sig_length);
+      nn->signature = xmalloc (nn->sig_length);
       memcpy (nn->signature, JPOOL_UTF_DATA (jcf, sig_index),
 	      nn->sig_length);
       method_name_list = nn;
@@ -1151,7 +1156,7 @@ throwable_p (clname)
 
   for (length = 0; clname[length] != ';' && clname[length] != '\0'; ++length)
     ;
-  current = (unsigned char *) ALLOC (length);
+  current = ALLOC (length);
   for (i = 0; i < length; ++i)
     current[i] = clname[i] == '/' ? '.' : clname[i];
   current[length] = '\0';
@@ -1189,7 +1194,7 @@ throwable_p (clname)
       jcf_parse_class (&jcf);
 
       tmp = (unsigned char *) super_class_name (&jcf, &super_length);
-      super = (unsigned char *) ALLOC (super_length + 1);
+      super = ALLOC (super_length + 1);
       memcpy (super, tmp, super_length);      
       super[super_length] = '\0';
 
@@ -1531,7 +1536,7 @@ DEFUN (print_name_for_stub_or_jni, (stream, jcf, name_index, signature_index,
        AND int is_init AND const char *name_override AND int flags)
 {
   const char *const prefix = flag_jni ? "Java_" : "";
-  print_cxx_classname (stream, prefix, jcf, jcf->this_class);
+  print_cxx_classname (stream, prefix, jcf, jcf->this_class, 1);
   fputs (flag_jni ? "_" : "::", stream);
   print_full_cxx_name (stream, jcf, name_index, 
 		       signature_index, is_init, name_override,
@@ -1565,7 +1570,7 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
 	return;
 
       if (flag_jni && ! stubs)
-	fputs ("extern ", stream);
+	fputs ("extern JNIEXPORT ", stream);
 
       /* If printing a method, skip to the return signature and print
 	 that first.  However, there is no return value if this is a
@@ -1597,6 +1602,9 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
       /* When printing a JNI header we need to respect the space.  In
 	 other cases we're just going to insert a newline anyway.  */
       fputs (need_space && ! stubs ? " " : "\n", stream);
+
+      if (flag_jni && ! stubs)
+	fputs ("JNICALL ", stream);
       
       /* Now print the name of the thing.  */
       print_name_for_stub_or_jni (stream, jcf, name_index,
@@ -1636,11 +1644,12 @@ DEFUN(print_mangled_classname, (stream, jcf, prefix, index),
    to an array, ignore it and don't print PREFIX.  Returns 1 if
    something was printed, 0 otherwise.  */
 static int
-print_cxx_classname (stream, prefix, jcf, index)
+print_cxx_classname (stream, prefix, jcf, index, add_scope)
      FILE *stream;
      const char *prefix;
      JCF *jcf;
      int index;
+     int add_scope;
 {
   int name_index = JPOOL_USHORT1 (jcf, index);
   int len, c;
@@ -1659,7 +1668,7 @@ print_cxx_classname (stream, prefix, jcf, index)
   fputs (prefix, stream);
 
   /* Print a leading "::" so we look in the right namespace.  */
-  if (! flag_jni && ! stubs)
+  if (! flag_jni && ! stubs && add_scope)
     fputs ("::", stream);
 
   while (s < limit)
@@ -1730,7 +1739,7 @@ print_include (out, utf8, len)
 	return;
     }
 
-  incl = (struct include *) xmalloc (sizeof (struct include));
+  incl = xmalloc (sizeof (struct include));
   incl->name = xmalloc (len + 1);
   strncpy (incl->name, utf8, len);
   incl->name[len] = '\0';
@@ -1817,7 +1826,7 @@ add_namelet (name, name_limit, parent)
 
   if (n == NULL)
     {
-      n = (struct namelet *) xmalloc (sizeof (struct namelet));
+      n = xmalloc (sizeof (struct namelet));
       n->name = xmalloc (p - name + 1);
       strncpy (n->name, name, p - name);
       n->name[p - name] = '\0';
@@ -1949,7 +1958,7 @@ print_class_decls (out, jcf, self)
       /* We use an initial offset of 0 because the root namelet
 	 doesn't cause anything to print.  */
       print_namelet (out, &root, 0);
-      fputs ("};\n\n", out);
+      fputs ("}\n\n", out);
     }
 }
 
@@ -2125,7 +2134,8 @@ DEFUN(process_file, (jcf, out),
 
       if (! stubs)
 	{
-	  if (! print_cxx_classname (out, "class ", jcf, jcf->this_class))
+	  if (! print_cxx_classname (out, "class ", jcf,
+				     jcf->this_class, 0))
 	    {
 	      fprintf (stderr, "class is of array type\n");
 	      found_error = 1;
@@ -2134,7 +2144,7 @@ DEFUN(process_file, (jcf, out),
 	  if (jcf->super_class)
 	    {
 	      if (! print_cxx_classname (out, " : public ", 
-					 jcf, jcf->super_class))
+					 jcf, jcf->super_class, 1))
 		{
 		  fprintf (stderr, "base class is of array type\n");
 		  found_error = 1;
@@ -2373,25 +2383,25 @@ DEFUN(main, (argc, argv),
 
 	case OPT_PREPEND:
 	  if (prepend_count == 0)
-	    prepend_specs = (char**) ALLOC (argc * sizeof (char*));
+	    prepend_specs = ALLOC (argc * sizeof (char*));
 	  prepend_specs[prepend_count++] = optarg;
 	  break;
 
 	case OPT_FRIEND:
 	  if (friend_count == 0)
-	    friend_specs = (char**) ALLOC (argc * sizeof (char*));
+	    friend_specs = ALLOC (argc * sizeof (char*));
 	  friend_specs[friend_count++] = optarg;
 	  break;
 
 	case OPT_ADD:
 	  if (add_count == 0)
-	    add_specs = (char**) ALLOC (argc * sizeof (char*));
+	    add_specs = ALLOC (argc * sizeof (char*));
 	  add_specs[add_count++] = optarg;
 	  break;
 
 	case OPT_APPEND:
 	  if (append_count == 0)
-	    append_specs = (char**) ALLOC (argc * sizeof (char*));
+	    append_specs = ALLOC (argc * sizeof (char*));
 	  append_specs[append_count++] = optarg;
 	  break;
 
@@ -2478,7 +2488,7 @@ DEFUN(main, (argc, argv),
 	{
 	  int dir_len = strlen (output_directory);
 	  int i, classname_length = strlen (classname);
-	  current_output_file = (char*) ALLOC (dir_len + classname_length + 5);
+	  current_output_file = ALLOC (dir_len + classname_length + 5);
 	  strcpy (current_output_file, output_directory);
 	  if (dir_len > 0 && output_directory[dir_len-1] != '/')
 	    current_output_file[dir_len++] = '/';

@@ -21,6 +21,8 @@
 
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "dwarf2.h"
 #include "unwind.h"
 #include "unwind-pe.h"
@@ -200,6 +202,17 @@ _Unwind_Ptr
 _Unwind_GetRegionStart (struct _Unwind_Context *context)
 {
   return (_Unwind_Ptr) context->bases.func;
+}
+
+void *
+_Unwind_FindEnclosingFunction (void *pc)
+{
+  struct dwarf_eh_bases bases;
+  struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
+  if (fde)
+    return bases.func;
+  else
+    return NULL;
 }
 
 #ifndef __ia64__

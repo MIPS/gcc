@@ -1,5 +1,5 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
+@c 2002, 2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1181,17 +1181,19 @@ go slower in that case, define this macro as 0.
 Define this if you wish to imitate the way many other C compilers handle
 alignment of bit-fields and the structures that contain them.
 
-The behavior is that the type written for a bit-field (@code{int},
-@code{short}, or other integer type) imposes an alignment for the
-entire structure, as if the structure really did contain an ordinary
-field of that type.  In addition, the bit-field is placed within the
-structure so that it would fit within such a field, not crossing a
-boundary for it.
+The behavior is that the type written for a named bit-field (@code{int},
+@code{short}, or other integer type) imposes an alignment for the entire
+structure, as if the structure really did contain an ordinary field of
+that type.  In addition, the bit-field is placed within the structure so
+that it would fit within such a field, not crossing a boundary for it.
 
-Thus, on most machines, a bit-field whose type is written as @code{int}
-would not cross a four-byte boundary, and would force four-byte
-alignment for the whole structure.  (The alignment used may not be four
-bytes; it is controlled by the other alignment parameters.)
+Thus, on most machines, a named bit-field whose type is written as
+@code{int} would not cross a four-byte boundary, and would force
+four-byte alignment for the whole structure.  (The alignment used may
+not be four bytes; it is controlled by the other alignment parameters.)
+
+An unnamed bit-field will not affect the alignment of the containing
+structure.
 
 If the macro is defined, its definition should be a C expression;
 a nonzero value for the expression enables this behavior.
@@ -2317,7 +2319,7 @@ which is the register value plus a displacement.
 @findex MODE_BASE_REG_CLASS
 @item MODE_BASE_REG_CLASS (@var{mode})
 This is a variation of the @code{BASE_REG_CLASS} macro which allows
-the selection of a base register in a mode depenedent manner.  If
+the selection of a base register in a mode dependent manner.  If
 @var{mode} is VOIDmode then it should return the same value as
 @code{BASE_REG_CLASS}.
 
@@ -3307,7 +3309,6 @@ If the target machine does not have a push instruction, set it to zero.
 That directs GCC to use an alternate strategy: to
 allocate the entire argument block and then store the arguments into
 it.  When @code{PUSH_ARGS} is nonzero, @code{PUSH_ROUNDING} must be defined too.
-On some machines, the definition
 
 @findex PUSH_ROUNDING
 @item PUSH_ROUNDING (@var{npushed})
@@ -3596,14 +3597,6 @@ nonzero, the caller does not make a copy.  Instead, it passes a pointer to the
 ``live'' value.  The called function must not modify this value.  If it can be
 determined that the value won't be modified, it need not make a copy;
 otherwise a copy must be made.
-
-@findex FUNCTION_ARG_REG_LITTLE_ENDIAN
-@item FUNCTION_ARG_REG_LITTLE_ENDIAN
-If defined TRUE on a big-endian system then structure arguments passed
-(and returned) in registers are passed in a little-endian manner instead of
-the big-endian manner.  On the HP-UX IA64 and PA64 platforms structures are
-aligned differently then integral values and setting this value to true will
-allow for the special handling of structure arguments and return values.
 
 @findex CUMULATIVE_ARGS
 @item CUMULATIVE_ARGS
@@ -4201,7 +4194,7 @@ not support varargs.
 @findex TARGET_ASM_OUTPUT_MI_VCALL_THUNK
 @deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
 A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
-@var{vcall_offset} is non-zero, an additional adjustment should be made
+@var{vcall_offset} is nonzero, an additional adjustment should be made
 after adding @code{delta}.  In particular, if @var{p} is the
 adjusted pointer, the following adjustment should be made:
 
@@ -8792,11 +8785,10 @@ This macro is no longer supported.  You must use
 @findex REGISTER_TARGET_PRAGMAS
 @findex #pragma
 @findex pragma
-@item REGISTER_TARGET_PRAGMAS (@var{pfile})
+@item REGISTER_TARGET_PRAGMAS ()
 Define this macro if you want to implement any target-specific pragmas.
 If defined, it is a C expression which makes a series of calls to
-@code{cpp_register_pragma} for each pragma, with @var{pfile} passed as
-the first argument to to these functions.  The macro may also do any
+@code{c_register_pragma} for each pragma.  The macro may also do any
 setup required for the pragmas.
 
 The primary reason to define this macro is to provide compatibility with
@@ -8810,9 +8802,9 @@ Preprocessor macros that appear on pragma lines are not expanded.  All
 @samp{#pragma} directives that do not match any registered pragma are
 silently ignored, unless the user specifies @option{-Wunknown-pragmas}.
 
-@deftypefun void cpp_register_pragma (cpp_reader *@var{pfile}, const char *@var{space}, const char *@var{name}, void (*@var{callback}) (cpp_reader *))
+@deftypefun void c_register_pragma (const char *@var{space}, const char *@var{name}, void (*@var{callback}) (struct cpp_reader *))
 
-Each call to @code{cpp_register_pragma} establishes one pragma.  The
+Each call to @code{c_register_pragma} establishes one pragma.  The
 @var{callback} routine will be called when the preprocessor encounters a
 pragma of the form
 
@@ -9077,7 +9069,7 @@ structure, which are defined by the @code{IFCVT_EXTRA_FIELDS} macro.
 @findex IFCVT_EXTRA_FIELDS
 @item IFCVT_EXTRA_FIELDS
 If defined, it should expand to a set of field declarations that will be
-added to the @code{struct ce_if_block} structure.  These should be intialized
+added to the @code{struct ce_if_block} structure.  These should be initialized
 by the @code{IFCVT_INIT_EXTRA_FIELDS} macro.
 
 @end table

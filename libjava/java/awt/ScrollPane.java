@@ -1,5 +1,5 @@
 /* ScrollPane.java -- Scrolling window
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -113,6 +113,8 @@ private Point scrollPosition = new Point(0, 0);
 /**
   * Initializes a new instance of <code>ScrollPane</code> with a default
   * scrollbar policy of <code>SCROLLBARS_AS_NEEDED</code>.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 ScrollPane()
@@ -128,15 +130,20 @@ ScrollPane()
   *
   * @param scrollbarDisplayPolicy When to display scrollbars, which must
   * be one of the constants defined in this class.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 ScrollPane(int scrollbarDisplayPolicy)
 {
+  if (GraphicsEnvironment.isHeadless ())
+    throw new HeadlessException ();
+
   this.scrollbarDisplayPolicy = scrollbarDisplayPolicy;
 
-  if ((scrollbarDisplayPolicy != SCROLLBARS_ALWAYS) ||
-      (scrollbarDisplayPolicy != SCROLLBARS_AS_NEEDED) ||
-      (scrollbarDisplayPolicy != SCROLLBARS_NEVER))
+  if (scrollbarDisplayPolicy != SCROLLBARS_ALWAYS
+      && scrollbarDisplayPolicy != SCROLLBARS_AS_NEEDED
+      && scrollbarDisplayPolicy != SCROLLBARS_NEVER)
     throw new IllegalArgumentException("Bad scrollbarDisplayPolicy: " +
                                        scrollbarDisplayPolicy);
 

@@ -23,6 +23,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "toplev.h"
 #include "real.h"
@@ -410,7 +412,7 @@ cmp_significands (a, b)
   return 0;
 }
 
-/* Return true if A is non-zero.  */
+/* Return true if A is nonzero.  */
 
 static inline int 
 cmp_significand_0 (a)
@@ -1485,6 +1487,11 @@ real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
       abort ();
     }
 
+  /* Bound the number of digits printed by the size of the representation.  */
+  max_digits = SIGNIFICAND_BITS * M_LOG10_2;
+  if (digits == 0 || digits > max_digits)
+    digits = max_digits;
+
   /* Estimate the decimal exponent, and compute the length of the string it
      will print as.  Be conservative and add one to account for possible
      overflow or rounding error.  */
@@ -1497,11 +1504,6 @@ real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
   if (max_digits > buf_size)
     abort ();
   if (digits > max_digits)
-    digits = max_digits;
-
-  /* Bound the number of digits printed by the size of the representation.  */
-  max_digits = SIGNIFICAND_BITS * M_LOG10_2;
-  if (digits == 0 || digits > max_digits)
     digits = max_digits;
 
   one = real_digit (1);
@@ -1675,8 +1677,8 @@ real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
   /* Round the result.  */
   if (digit == 5)
     {
-      /* Round to nearest.  If R is non-zero there are additional
-	 non-zero digits to be extracted.  */
+      /* Round to nearest.  If R is nonzero there are additional
+	 nonzero digits to be extracted.  */
       if (cmp_significand_0 (&r))
 	digit++;
       /* Round to even.  */
@@ -2721,6 +2723,7 @@ const struct real_format ieee_single_format =
     24,
     -125,
     128,
+    31,
     true,
     true,
     true,
@@ -2914,6 +2917,7 @@ const struct real_format ieee_double_format =
     53,
     -1021,
     1024,
+    63,
     true,
     true,
     true,
@@ -3012,7 +3016,7 @@ encode_ieee_extended (fmt, buf, r)
 
 	   Except for Motorola, which consider exp=0 and explicit
 	   integer bit set to continue to be normalized.  In theory
-	   this descrepency has been taken care of by the difference
+	   this discrepancy has been taken care of by the difference
 	   in fmt->emin in round_for_format.  */
 
 	if (denormal)
@@ -3169,6 +3173,7 @@ const struct real_format ieee_extended_motorola_format =
     64,
     -16382,
     16384,
+    95,
     true,
     true,
     true,
@@ -3185,6 +3190,7 @@ const struct real_format ieee_extended_intel_96_format =
     64,
     -16381,
     16384,
+    79,
     true,
     true,
     true,
@@ -3201,6 +3207,7 @@ const struct real_format ieee_extended_intel_128_format =
     64,
     -16381,
     16384,
+    79,
     true,
     true,
     true,
@@ -3294,6 +3301,7 @@ const struct real_format ibm_extended_format =
     53 + 53,
     -1021,
     1024,
+    -1,
     true,
     true,
     true,
@@ -3547,6 +3555,7 @@ const struct real_format ieee_quad_format =
     113,
     -16381,
     16384,
+    127,
     true,
     true,
     true,
@@ -3854,6 +3863,7 @@ const struct real_format vax_f_format =
     24,
     -127,
     127,
+    15,
     false,
     false,
     false,
@@ -3870,6 +3880,7 @@ const struct real_format vax_d_format =
     56,
     -127,
     127,
+    15,
     false,
     false,
     false,
@@ -3886,6 +3897,7 @@ const struct real_format vax_g_format =
     53,
     -1023,
     1023,
+    15,
     false,
     false,
     false,
@@ -4067,6 +4079,7 @@ const struct real_format i370_single_format =
     6,
     -64,
     63,
+    31,
     false,
     false,
     false, /* ??? The encoding does allow for "unnormals".  */
@@ -4082,6 +4095,7 @@ const struct real_format i370_double_format =
     4,
     14,
     -64,
+    63,
     63,
     false,
     false,
@@ -4297,6 +4311,7 @@ const struct real_format c4x_single_format =
     24,
     -126,
     128,
+    -1,
     false,
     false,
     false,
@@ -4313,6 +4328,7 @@ const struct real_format c4x_extended_format =
     32,
     -126,
     128,
+    -1,
     false,
     false,
     false,
@@ -4358,6 +4374,7 @@ const struct real_format real_internal_format =
     SIGNIFICAND_BITS - 2,
     -MAX_EXP,
     MAX_EXP,
+    -1,
     true,
     true,
     false,
@@ -4384,7 +4401,9 @@ const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
 
 
 /* Calculate the square root of X in mode MODE, and store the result
-   in R.  */
+   in R.  For details see "High Precision Division and Square Root",
+   Alan H. Karp and Peter Markstein, HP Lab Report 93-93-42, June
+   1993.  http://www.hpl.hp.com/techreports/93/HPL-93-42.pdf.  */
 
 void
 real_sqrt (r, mode, x)

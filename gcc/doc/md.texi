@@ -898,7 +898,7 @@ digit is used together with letters within the same alternative, the
 digit should come last.
 
 This number is allowed to be more than a single digit.  If multiple
-digits are encountered consecutavely, they are interpreted as a single
+digits are encountered consecutively, they are interpreted as a single
 decimal integer.  There is scant chance for ambiguity, since to-date
 it has never been desirable that @samp{10} be interpreted as matching
 either operand 1 @emph{or} operand 0.  Should this be desired, one
@@ -965,7 +965,7 @@ The machine description macro @code{REG_CLASS_FROM_LETTER} has first
 cut at the otherwise unused letters.  If it evaluates to @code{NO_REGS},
 then @code{EXTRA_CONSTRAINT} is evaluated.
 
-A typical use for @code{EXTRA_CONSTRANT} would be to distinguish certain
+A typical use for @code{EXTRA_CONSTRAINT} would be to distinguish certain
 types of memory references that affect other insn operands.
 @end ifset
 @end table
@@ -1376,60 +1376,6 @@ An item in the constant pool
 A symbol in the text segment of the current file
 @end table
 
-@item AMD 29000 family---@file{a29k.h}
-@table @code
-@item l
-Local register 0
-
-@item b
-Byte Pointer (@samp{BP}) register
-
-@item q
-@samp{Q} register
-
-@item h
-Special purpose register
-
-@item A
-First accumulator register
-
-@item a
-Other accumulator register
-
-@item f
-Floating point register
-
-@item I
-Constant greater than 0, less than 0x100
-
-@item J
-Constant greater than 0, less than 0x10000
-
-@item K
-Constant whose high 24 bits are on (1)
-
-@item L
-16-bit constant whose high 8 bits are on (1)
-
-@item M
-32-bit constant whose high 16 bits are on (1)
-
-@item N
-32-bit negative constant that fits in 8 bits
-
-@item O
-The constant 0x80000000 or, on the 29050, any 32-bit constant
-whose low 16 bits are 0.
-
-@item P
-16-bit negative constant that fits in 8 bits
-
-@item G
-@itemx H
-A floating point constant (in @code{asm} statements, use the machine
-independent @samp{E} or @samp{F} instead)
-@end table
-
 @item AVR family---@file{avr.h}
 @table @code
 @item l
@@ -1609,7 +1555,7 @@ Second floating point register
 @samp{c} register
 
 @item C
-Specifies constant that can be easilly constructed in SSE register without
+Specifies constant that can be easily constructed in SSE register without
 loading it from memory.
 
 @item d
@@ -1748,6 +1694,99 @@ Integer constant in the range 1 to 4 for @code{shladd} instruction
 
 @item S
 Memory operand except postincrement and postdecrement
+@end table
+
+@item FRV---@file{frv.h}
+@table @code
+@item a
+Register in the class @code{ACC_REGS} (@code{acc0} to @code{acc7}).
+
+@item b
+Register in the class @code{EVEN_ACC_REGS} (@code{acc0} to @code{acc7}).
+
+@item c
+Register in the class @code{CC_REGS} (@code{fcc0} to @code{fcc3} and
+@code{icc0} to @code{icc3}).
+
+@item d
+Register in the class @code{GPR_REGS} (@code{gr0} to @code{gr63}).
+
+@item e
+Register in the class @code{EVEN_REGS} (@code{gr0} to @code{gr63}).
+Odd registers are excluded not in the class but through the use of a machine
+mode larger than 4 bytes.
+
+@item f
+Register in the class @code{FPR_REGS} (@code{fr0} to @code{fr63}).
+
+@item h
+Register in the class @code{FEVEN_REGS} (@code{fr0} to @code{fr63}).
+Odd registers are excluded not in the class but through the use of a machine
+mode larger than 4 bytes.
+
+@item l
+Register in the class @code{LR_REG} (the @code{lr} register).
+
+@item q
+Register in the class @code{QUAD_REGS} (@code{gr2} to @code{gr63}).
+Register numbers not divisible by 4 are excluded not in the class but through
+the use of a machine mode larger than 8 bytes.
+
+@item t
+Register in the class @code{ICC_REGS} (@code{icc0} to @code{icc3}).
+
+@item u
+Register in the class @code{FCC_REGS} (@code{fcc0} to @code{fcc3}).
+
+@item v
+Register in the class @code{ICR_REGS} (@code{cc4} to @code{cc7}).
+
+@item w
+Register in the class @code{FCR_REGS} (@code{cc0} to @code{cc3}).
+
+@item x
+Register in the class @code{QUAD_FPR_REGS} (@code{fr0} to @code{fr63}).
+Register numbers not divisible by 4 are excluded not in the class but through
+the use of a machine mode larger than 8 bytes.
+
+@item z
+Register in the class @code{SPR_REGS} (@code{lcr} and @code{lr}).
+
+@item A
+Register in the class @code{QUAD_ACC_REGS} (@code{acc0} to @code{acc7}).
+
+@item B
+Register in the class @code{ACCG_REGS} (@code{accg0} to @code{accg7}).
+
+@item C
+Register in the class @code{CR_REGS} (@code{cc0} to @code{cc7}).
+
+@item G
+Floating point constant zero
+
+@item I
+6-bit signed integer constant
+
+@item J
+10-bit signed integer constant
+
+@item L
+16-bit signed integer constant
+
+@item M
+16-bit unsigned integer constant
+
+@item N
+12-bit signed integer constant that is negative---i.e.@: in the
+range of @minus{}2048 to @minus{}1
+
+@item O
+Constant zero
+
+@item P
+12-bit signed integer constant that is greater than zero---i.e.@: in the
+range of 1 to 2047.
+
 @end table
 
 @item IP2K---@file{ip2k.h}
@@ -2401,8 +2440,7 @@ Write the generated insn as a @code{parallel} with elements being a
 @code{set} of one register from the appropriate memory location (you may
 also need @code{use} or @code{clobber} elements).  Use a
 @code{match_parallel} (@pxref{RTL Template}) to recognize the insn.  See
-@file{a29k.md} and @file{rs6000.md} for examples of the use of this insn
-pattern.
+@file{rs6000.md} for examples of the use of this insn pattern.
 
 @cindex @samp{store_multiple} instruction pattern
 @item @samp{store_multiple}
@@ -2413,7 +2451,7 @@ operand 2 is a constant: the number of consecutive registers.
 
 @cindex @code{push@var{m}} instruction pattern
 @item @samp{push@var{m}}
-Output an push instruction.  Operand 0 is value to push.  Used only when
+Output a push instruction.  Operand 0 is value to push.  Used only when
 @code{PUSH_ROUNDING} is defined.  For historical reason, this pattern may be
 missing and in such case an @code{mov} expander is used instead, with a
 @code{MEM} expression forming the push operation.  The @code{mov} expander
@@ -2566,6 +2604,51 @@ Store the natural logarithm of operand 1 into operand 0.
 
 The @code{log} built-in function of C always uses the mode which
 corresponds to the C data type @code{double} and the @code{logf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{floor@var{m}2} instruction pattern
+@item @samp{floor@var{m}2}
+Store the largest integral value not greater than argument.
+
+The @code{floor} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{floorf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{trunc@var{m}2} instruction pattern
+@item @samp{trunc@var{m}2}
+Store the argument rounded to integer towards zero.
+
+The @code{trunc} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{truncf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{round@var{m}2} instruction pattern
+@item @samp{round@var{m}2}
+Store the argument rounded to integer away from zero.
+
+The @code{round} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{roundf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{ceil@var{m}2} instruction pattern
+@item @samp{ceil@var{m}2}
+Store the argument rounded to integer away from zero.
+
+The @code{ceil} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{ceilf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{nearbyint@var{m}2} instruction pattern
+@item @samp{nearbyint@var{m}2}
+Store the argument rounded according to the default rounding mode
+
+The @code{nearbyint} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{nearbyintf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
@@ -3669,6 +3752,14 @@ be supplied.
 For these operators, if only one operand is a @code{neg}, @code{not},
 @code{mult}, @code{plus}, or @code{minus} expression, it will be the
 first operand.
+
+@item
+In combinations of @code{neg}, @code{mult}, @code{plus}, and
+@code{minus}, the @code{neg} operations (if any) will be moved inside
+the operations as far as possible.  For instance, 
+@code{(neg (mult A B))} is canonicalized as @code{(mult (neg A) B)}, but
+@code{(plus (mult (neg A) B) C)} is canonicalized as
+@code{(minus A (mult B C))}.
 
 @cindex @code{compare}, canonicalization of
 @item
@@ -5267,7 +5358,7 @@ The first one is a data dependence delay determining @dfn{instruction
 latency time}.  The instruction execution is not started until all
 source data have been evaluated by prior instructions (there are more
 complex cases when the instruction execution starts even when the data
-are not availaible but will be ready in given time after the
+are not available but will be ready in given time after the
 instruction execution start).  Taking the data dependence delays into
 account is simple.  The data dependence (true, output, and
 anti-dependence) delay between two instructions is given by a

@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -31,10 +31,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 extern "C" {
 #endif
 
-/* For complex reasons, cpp_reader is also typedefed in c-pragma.h.  */
-#ifndef GCC_C_PRAGMA_H
 typedef struct cpp_reader cpp_reader;
-#endif
 typedef struct cpp_buffer cpp_buffer;
 typedef struct cpp_options cpp_options;
 typedef struct cpp_token cpp_token;
@@ -443,6 +440,7 @@ extern const char *progname;
 #define NODE_DIAGNOSTIC (1 << 3)	/* Possible diagnostic when lexed.  */
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
+#define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing. */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -477,18 +475,20 @@ enum builtin_type
 struct cpp_hashnode
 {
   struct ht_identifier ident;
-  unsigned short arg_index;		/* Macro argument index.  */
-  unsigned char directive_index;	/* Index into directive table.  */
+  unsigned int is_directive : 1;
+  unsigned int directive_index : 7;	/* If is_directive, 
+					   then index into directive table.
+					   Otherwise, a NODE_OPERATOR. */
   unsigned char rid_code;		/* Rid code - for front ends.  */
   ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
   unsigned char flags;			/* CPP flags.  */
 
-  union
+  union _cpp_hashnode_value
   {
     cpp_macro *macro;			/* If a macro.  */
     struct answer *answers;		/* Answers to an assertion.  */
-    enum cpp_ttype operator;		/* Code for a named operator.  */
     enum builtin_type builtin;		/* Code for a builtin macro.  */
+    unsigned short arg_index;		/* Macro argument index.  */
   } value;
 };
 

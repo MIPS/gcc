@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -184,12 +184,35 @@ DEFPARAM(TRACER_MIN_BRANCH_PROBABILITY_FEEDBACK,
 	 "tracer-min-branch-probability-feedback",
 	 "Stop forward growth if the probability of best edge is less than \
 this threshold (in percents). Used when profile feedback is available",
-	 30)
+	 80)
 DEFPARAM(TRACER_MIN_BRANCH_PROBABILITY,
 	 "tracer-min-branch-probability",
 	 "Stop forward growth if the probability of best edge is less than \
 this threshold (in percents). Used when profile feedback is not available",
 	 50)
+
+#ifdef ENABLE_GC_ALWAYS_COLLECT
+# define GGC_MIN_EXPAND_DEFAULT 0
+# define GGC_MIN_HEAPSIZE_DEFAULT 0
+#else
+# define GGC_MIN_EXPAND_DEFAULT 30
+# define GGC_MIN_HEAPSIZE_DEFAULT 4096
+#endif
+
+DEFPARAM(GGC_MIN_EXPAND,
+	 "ggc-min-expand",
+	 "Minimum heap expansion to trigger garbage collection, as \
+a percentage of the total size of the heap.",
+	 GGC_MIN_EXPAND_DEFAULT)
+
+DEFPARAM(GGC_MIN_HEAPSIZE,
+	 "ggc-min-heapsize",
+	 "Minimum heap size before we start collecting garbage, in kilobytes.",
+	 GGC_MIN_HEAPSIZE_DEFAULT)
+
+#undef GGC_MIN_EXPAND_DEFAULT
+#undef GGC_MIN_HEAPSIZE_DEFAULT
+
 /*
 Local variables:
 mode:c

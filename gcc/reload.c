@@ -88,6 +88,8 @@ a register with any other reload.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -2143,13 +2145,13 @@ operands_match_p (x, y)
   /* If two operands must match, because they are really a single
      operand of an assembler insn, then two postincrements are invalid
      because the assembler insn would increment only once.
-     On the other hand, an postincrement matches ordinary indexing
+     On the other hand, a postincrement matches ordinary indexing
      if the postincrement is the output operand.  */
   if (code == POST_DEC || code == POST_INC || code == POST_MODIFY)
     return operands_match_p (XEXP (x, 0), y);
   /* Two preincrements are invalid
      because the assembler insn would increment only once.
-     On the other hand, an preincrement matches ordinary indexing
+     On the other hand, a preincrement matches ordinary indexing
      if the preincrement is the input operand.
      In this case, return 2, since some callers need to do special
      things when this happens.  */
@@ -2896,7 +2898,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 		     by forcing the reload.
 
 		     ??? When is it right at this stage to have a subreg
-		     of a mem that is _not_ to be handled specialy?  IMO
+		     of a mem that is _not_ to be handled specially?  IMO
 		     those should have been reduced to just a mem.  */
 		  || ((GET_CODE (operand) == MEM
 		       || (GET_CODE (operand)== REG
@@ -3283,6 +3285,10 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 			   the address into a base register.  */
 			this_alternative[i] = (int) MODE_BASE_REG_CLASS (VOIDmode);
 			badop = 0;
+
+			/* Address constraints are reloaded in Pmode, no matter
+			   what mode is given in the machine description.  */
+			operand_mode[i] = Pmode;
 			break;
 		      }
 

@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 #define EH_FRAME_SECTION_NAME	\
   ((TARGET_ELF) ? EH_FRAME_SECTION_NAME_ELF : EH_FRAME_SECTION_NAME_COFF)
 
-/* Avoid problems (long sectino names, forward assembler refs) with DWARF
+/* Avoid problems (long section names, forward assembler refs) with DWARF
    exception unwinding when we're generating COFF */
 #define DWARF2_UNWIND_INFO	\
   ((TARGET_ELF) ? 1 : 0 )  
@@ -507,7 +507,6 @@ init_section ()								\
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
 
-#undef HANDLE_SYSV_PRAGMA
 #define HANDLE_SYSV_PRAGMA 1
 
 /* Though OpenServer supports .weak in COFF, we don't use it.

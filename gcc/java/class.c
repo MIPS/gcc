@@ -1,21 +1,21 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -27,6 +27,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "flags.h"
@@ -150,7 +152,7 @@ add_assume_compiled (ident, excludep)
 {
   assume_compiled_node *parent;
   assume_compiled_node *node = 
-    (assume_compiled_node *) xmalloc (sizeof (assume_compiled_node));
+    xmalloc (sizeof (assume_compiled_node));
 
   node->ident = xstrdup (ident);
   node->excludep = excludep;
@@ -160,8 +162,7 @@ add_assume_compiled (ident, excludep)
 
   if (NULL == assume_compiled_tree)
     {
-      assume_compiled_tree = 
-	(assume_compiled_node *) xmalloc (sizeof (assume_compiled_node));
+      assume_compiled_tree = xmalloc (sizeof (assume_compiled_node));
       assume_compiled_tree->ident = "";
       assume_compiled_tree->excludep = 0;
       assume_compiled_tree->sibling = NULL;
@@ -232,7 +233,7 @@ ident_subst (old_name, old_length, prefix, old_char, new_char, suffix)
 #ifdef __GNUC__
   char buffer[i];
 #else
-  char *buffer = (char *)alloca  (i);
+  char *buffer = alloca (i);
 #endif
   strcpy (buffer, prefix);
   for (i = 0; i < old_length; i++)
@@ -613,7 +614,7 @@ add_method_1 (this_class, access_flags, name, function_type)
   DECL_CONTEXT (fndecl) = this_class;
 
   DECL_LANG_SPECIFIC (fndecl)
-    = (struct lang_decl *) ggc_alloc_cleared (sizeof (struct lang_decl));
+    = ggc_alloc_cleared (sizeof (struct lang_decl));
   DECL_LANG_SPECIFIC (fndecl)->desc = LANG_DECL_FUNC;
 
   /* Initialize the static initializer test table.  */
@@ -1075,7 +1076,9 @@ build_static_field_ref (fdecl)
 {
   tree fclass = DECL_CONTEXT (fdecl);
   int is_compiled = is_compiled_class (fclass);
-  if (is_compiled)
+
+  /* Allow static final fields to fold to a constant.  */
+  if (is_compiled || FIELD_FINAL (fdecl))
     {
       if (!DECL_RTL_SET_P (fdecl))
 	{
@@ -1666,6 +1669,7 @@ make_class_data (type)
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
 

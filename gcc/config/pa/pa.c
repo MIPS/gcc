@@ -22,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -1456,7 +1458,7 @@ emit_move_sequence (operands, mode, scratch_reg)
      use scratch_reg to hold the address of the memory location.
 
      The proper fix is to change PREFERRED_RELOAD_CLASS to return
-     NO_REGS when presented with a const_int and an register class
+     NO_REGS when presented with a const_int and a register class
      containing only FP registers.  Doing so unfortunately creates
      more problems than it solves.   Fix this for 2.5.  */
   else if (fp_reg_operand (operand0, mode)
@@ -4298,7 +4300,7 @@ print_operand (file, x, code)
 	fputs ("\n\tnop", file);
       return;
     case '*':
-      /* Output an nullification completer if there's nothing for the */
+      /* Output a nullification completer if there's nothing for the */
       /* delay slot or nullification is requested.  */
       if (dbr_sequence_length () == 0 ||
 	  (final_sequence &&
@@ -5426,7 +5428,7 @@ output_cbranch (operands, nullify, length, negated, insn)
 	  strcat (buf, " %2,%r1,%0");
 	break;
 
-     /* All long conditionals.  Note an short backward branch with an
+     /* All long conditionals.  Note a short backward branch with an
 	unfilled delay slot is treated just like a long backward branch
 	with an unfilled delay slot.  */
       case 8:
@@ -5648,7 +5650,7 @@ output_bb (operands, nullify, length, negated, insn, which)
 	  strcat (buf, " %0,%1,%2");
 	break;
 
-     /* All long conditionals.  Note an short backward branch with an
+     /* All long conditionals.  Note a short backward branch with an
 	unfilled delay slot is treated just like a long backward branch
 	with an unfilled delay slot.  */
       case 8:
@@ -5796,7 +5798,7 @@ output_bvb (operands, nullify, length, negated, insn, which)
 	  strcat (buf, "{ %0,%2| %0,%%sar,%2}");
 	break;
 
-     /* All long conditionals.  Note an short backward branch with an
+     /* All long conditionals.  Note a short backward branch with an
 	unfilled delay slot is treated just like a long backward branch
 	with an unfilled delay slot.  */
       case 8:
@@ -6221,7 +6223,7 @@ output_millicode_call (insn, call_dest)
   /* Handle the common case where we are sure that the branch will
      reach the beginning of the $CODE$ subspace.  The within reach
      form of the $$sh_func_adrs call has a length of 28.  Because
-     it has an attribute type of multi, it never has a non-zero
+     it has an attribute type of multi, it never has a nonzero
      sequence length.  The length of the $$sh_func_adrs is the same
      as certain out of reach PIC calls to other routines.  */
   if (!TARGET_LONG_CALLS
@@ -6242,8 +6244,21 @@ output_millicode_call (insn, call_dest)
 	     loaded objects.  Using a pc-relative sequence also avoids
 	     problems related to the implicit use of the gp register.  */
 	  output_asm_insn ("b,l .+8,%%r1", xoperands);
-	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
-	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+
+	  if (TARGET_GAS)
+	    {
+	      output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      xoperands[1] = gen_label_rtx ();
+	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
+	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[1]));
+	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
+	    }
+
 	  output_asm_insn ("bve,l (%%r1),%%r2", xoperands);
 	}
       else if (TARGET_PORTABLE_RUNTIME)
@@ -6273,6 +6288,9 @@ output_millicode_call (insn, call_dest)
 	}
       else
 	{
+	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+	  output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
+
 	  if (TARGET_SOM || !TARGET_GAS)
 	    {
 	      /* The HP assembler can generate relocations for the
@@ -6280,8 +6298,6 @@ output_millicode_call (insn, call_dest)
 		 millicode symbol but not an arbitrary external
 		 symbol when generating SOM output.  */
 	      xoperands[1] = gen_label_rtx ();
-	      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
-	      output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
 	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[1]));
 	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
@@ -6289,8 +6305,6 @@ output_millicode_call (insn, call_dest)
 	    }
 	  else
 	    {
-	      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
-	      output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
 	      output_asm_insn ("addil L'%0-$PIC_pcrel$0+8,%%r1", xoperands);
 	      output_asm_insn ("ldo R'%0-$PIC_pcrel$0+12(%%r1),%%r1",
 			       xoperands);
@@ -6322,7 +6336,7 @@ output_millicode_call (insn, call_dest)
       xoperands[1] = gen_label_rtx ();
       output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
       (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				 CODE_LABEL_NUMBER (xoperands[3]));
+				 CODE_LABEL_NUMBER (xoperands[1]));
     }
   else
     /* ??? This branch may not reach its target.  */
@@ -6660,7 +6674,7 @@ output_call (insn, call_dest, sibcall)
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("ldo %0-%1(%%r2),%%r2", xoperands);
 	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					     CODE_LABEL_NUMBER (xoperands[3]));
+					     CODE_LABEL_NUMBER (xoperands[1]));
 	}
       else
 	/* ??? This branch may not reach its target.  */
@@ -6864,14 +6878,26 @@ pa_function_ok_for_sibcall (decl, exp)
      tree decl;
      tree exp ATTRIBUTE_UNUSED;
 {
-#ifdef TARGET_HAS_STUBS_AND_ELF_SECTIONS
-  /* Sibcalls, stubs, and elf sections don't play well.  */
-  return false;
-#endif
+  /* Sibcalls are ok for TARGET_ELF32 as along as the linker is used in
+     single subspace mode and the call is not indirect.  As far as I know,
+     there is no operating system support for the multiple subspace mode.
+     It might be possible to support indirect calls if we didn't use
+     $$dyncall (see the indirect sequence generated in output_call).  */
+  if (TARGET_ELF32)
+    return (decl != NULL_TREE);
+
+  /* Sibcalls are not ok because the arg pointer register is not a fixed
+     register.  This prevents the sibcall optimization from occuring.  In
+     addition, there are problems with stub placement using GNU ld.  This
+     is because a normal sibcall branch uses a 17-bit relocation while
+     a regular call branch uses a 22-bit relocation.  As a result, more
+     care needs to be taken in the placement of long-branch stubs.  */
+  if (TARGET_64BIT)
+    return false;
+
   return (decl
-	  && ! TARGET_PORTABLE_RUNTIME
-	  && ! TARGET_64BIT
-	  && ! TREE_PUBLIC (decl));
+	  && !TARGET_PORTABLE_RUNTIME
+	  && !TREE_PUBLIC (decl));
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -7707,6 +7733,57 @@ insn_refs_are_delayed (insn)
 	   && get_attr_type (insn) == TYPE_MILLI));
 }
 
+/* On the HP-PA the value is found in register(s) 28(-29), unless
+   the mode is SF or DF. Then the value is returned in fr4 (32).
+
+   This must perform the same promotions as PROMOTE_MODE, else
+   PROMOTE_FUNCTION_RETURN will not work correctly.
+
+   Small structures must be returned in a PARALLEL on PA64 in order
+   to match the HP Compiler ABI.  */
+
+rtx
+function_value (valtype, func)
+    tree valtype;
+    tree func ATTRIBUTE_UNUSED;
+{
+  enum machine_mode valmode;
+
+  /* Aggregates with a size less than or equal to 128 bits are returned
+     in GR 28(-29).  They are left justified.  The pad bits are undefined.
+     Larger aggregates are returned in memory.  */
+  if (TARGET_64BIT && AGGREGATE_TYPE_P (valtype))
+    {
+      rtx loc[2];
+      int i, offset = 0;
+      int ub = int_size_in_bytes (valtype) <= UNITS_PER_WORD ? 1 : 2;
+
+      for (i = 0; i < ub; i++)
+	{
+	  loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
+				      gen_rtx_REG (DImode, 28 + i),
+				      GEN_INT (offset));
+	  offset += 8;
+	}
+
+      return gen_rtx_PARALLEL (BLKmode, gen_rtvec_v (ub, loc));
+    }
+
+  if ((INTEGRAL_TYPE_P (valtype)
+       && TYPE_PRECISION (valtype) < BITS_PER_WORD)
+      || POINTER_TYPE_P (valtype))
+    valmode = word_mode;
+  else
+    valmode = TYPE_MODE (valtype);
+
+  if (TREE_CODE (valtype) == REAL_TYPE
+      && TYPE_MODE (valtype) != TFmode
+      && !TARGET_SOFT_FLOAT)
+    return gen_rtx_REG (valmode, 32);
+
+  return gen_rtx_REG (valmode, 28);
+}
+
 /* Return the location of a parameter that is passed in a register or NULL
    if the parameter has any component that is passed in memory.
 
@@ -7843,12 +7920,10 @@ function_arg (cum, mode, type, named, incoming)
 	     or returning a DImode REG results in left justified data.  */
 	  if (mode == BLKmode)
 	    {
-	      rtx loc[1];
-
-	      loc[0] = gen_rtx_EXPR_LIST (VOIDmode,
-					  gen_rtx_REG (DImode, gpr_reg_base),
-					  const0_rtx);
-	      return gen_rtx_PARALLEL (mode, gen_rtvec_v (1, loc));
+	      rtx loc = gen_rtx_EXPR_LIST (VOIDmode,
+					   gen_rtx_REG (DImode, gpr_reg_base),
+					   const0_rtx);
+	      return gen_rtx_PARALLEL (mode, gen_rtvec (1, loc));
 	    }
 	}
       else

@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -3334,7 +3336,7 @@ find_first_parameter_load (call_insn, boundary)
   return before;
 }
 
-/* Return true if we should avoid inserting code between INSN and preceeding
+/* Return true if we should avoid inserting code between INSN and preceding
    call instruction.  */
 
 bool
@@ -3477,7 +3479,7 @@ can_hoist_insn_p (insn, val, live)
 	    case USE:
 	      /* We need to fix callers to really ensure availability
 	         of all values inisn uses, but for now it is safe to prohibit
-		 hoisting of any insn having such a hiden uses.  */
+		 hoisting of any insn having such a hidden uses.  */
 	      return false;
 	      break;
 	    case CLOBBER:

@@ -29,6 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -570,20 +572,6 @@ variable_section (decl, reloc)
     named_section (decl, NULL, reloc);
   else
     (*targetm.asm_out.select_section) (decl, reloc, DECL_ALIGN (decl));
-}
-
-/* Tell assembler to switch to the section for the exception handling
-   table.  */
-
-void
-default_exception_section ()
-{
-  if (targetm.have_named_sections)
-    named_section (NULL_TREE, ".gcc_except_table", 0);
-  else if (flag_pic)
-    data_section ();
-  else
-    readonly_data_section ();
 }
 
 /* Tell assembler to switch to the section for string merging.  */
@@ -3193,6 +3181,10 @@ force_const_mem (mode, x)
   struct pool_constant *pool;
   unsigned int align;
 
+  /* If we're not allowed to drop X into the constant pool, don't.  */
+  if ((*targetm.cannot_force_const_mem) (x))
+    return NULL_RTX;
+
   /* Compute hash code of X.  Search the descriptors for that hash code
      to see if any of them describes X.  If yes, we have an rtx to use.  */
   hash = const_hash_rtx (mode, x);
@@ -3483,6 +3475,13 @@ output_constant_pool (fnname, fndecl)
 	  abort ();
 	}
 
+      /* Make sure all constants in SECTION_MERGE and not SECTION_STRINGS
+	 sections have proper size.  */
+      if (pool->align > GET_MODE_BITSIZE (pool->mode)
+	  && in_section == in_named
+	  && get_named_section_flags (in_named_name) & SECTION_MERGE)
+	assemble_align (pool->align);
+
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
     done: ;
 #endif
@@ -3649,7 +3648,7 @@ static int
 output_addressed_constants (exp)
      tree exp;
 {
-  int reloc = 0;
+  int reloc = 0, reloc2;
   tree tem;
 
   /* Give the front-end a chance to convert VALUE to something that
@@ -3678,9 +3677,18 @@ output_addressed_constants (exp)
       break;
 
     case PLUS_EXPR:
-    case MINUS_EXPR:
       reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
       reloc |= output_addressed_constants (TREE_OPERAND (exp, 1));
+      break;
+
+    case MINUS_EXPR:
+      reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
+      reloc2 = output_addressed_constants (TREE_OPERAND (exp, 1));
+      /* The difference of two local labels is computable at link time.  */
+      if (reloc == 1 && reloc2 == 1)
+	reloc = 0;
+      else
+	reloc |= reloc2;
       break;
 
     case NOP_EXPR:
@@ -3856,7 +3864,7 @@ initializer_constant_valid_p (value, endtype)
 	  op1 = TREE_OPERAND (value, 1);
 
 	  /* Like STRIP_NOPS except allow the operand mode to widen.
-	     This works around a feature of fold that simplfies
+	     This works around a feature of fold that simplifies
 	     (int)(p1 - p2) to ((int)p1 - (int)p2) under the theory
 	     that the narrower operation is cheaper.  */
 
@@ -3930,7 +3938,7 @@ output_constant (exp, size, align)
   enum tree_code code;
   HOST_WIDE_INT thissize;
 
-  /* Some front-ends use constants other than the standard language-indepdent
+  /* Some front-ends use constants other than the standard language-independent
      varieties, but which may still be output directly.  Give the front-end a
      chance to convert EXP to a language-independent representation.  */
   exp = (*lang_hooks.expand_constant) (exp);
@@ -4109,7 +4117,7 @@ output_constructor (exp, size, align)
   /* Number of bytes output or skipped so far.
      In other words, current position within the constructor.  */
   HOST_WIDE_INT total_bytes = 0;
-  /* Non-zero means BYTE contains part of a byte, to be output.  */
+  /* Nonzero means BYTE contains part of a byte, to be output.  */
   int byte_buffer_in_use = 0;
   int byte = 0;
 
@@ -4613,20 +4621,25 @@ assemble_alias (decl, target)
 }
 
 /* Emit an assembler directive to set symbol for DECL visibility to
-   VISIBILITY_TYPE.  */
+   the visibility type VIS, which must not be VISIBILITY_DEFAULT.  */
 
 void
-default_assemble_visibility (decl, visibility_type)
+default_assemble_visibility (decl, vis)
      tree decl;
-     const char *visibility_type ATTRIBUTE_UNUSED;
+     int vis;
 {
-  const char *name;
+  static const char * const visibility_types[] = {
+    NULL, "internal", "hidden", "protected"
+  };
+
+  const char *name, *type;
 
   name = (* targetm.strip_name_encoding)
 	 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  type = visibility_types[vis];
 
 #ifdef HAVE_GAS_HIDDEN
-  fprintf (asm_out_file, "\t.%s\t%s\n", visibility_type, name);
+  fprintf (asm_out_file, "\t.%s\t%s\n", type, name);
 #else
   warning ("visibility attribute not supported in this configuration; ignored");
 #endif
@@ -4638,13 +4651,10 @@ static void
 maybe_assemble_visibility (decl)
      tree decl;
 {
-  tree visibility = lookup_attribute ("visibility", DECL_ATTRIBUTES (decl));
-  if (visibility)
-    {
-      const char *type
-	= TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (visibility)));
-      (* targetm.asm_out.visibility) (decl, type);
-    }
+  enum symbol_visibility vis = decl_visibility (decl);
+
+  if (vis != VISIBILITY_DEFAULT)
+    (* targetm.asm_out.visibility) (decl, vis);
 }
 
 /* Returns 1 if the target configuration supports defining public symbols
@@ -4743,6 +4753,31 @@ decl_tls_model (decl)
     kind = flag_tls_default;
 
   return kind;
+}
+
+enum symbol_visibility
+decl_visibility (decl)
+     tree decl;
+{
+  tree attr = lookup_attribute ("visibility", DECL_ATTRIBUTES (decl));
+
+  if (attr)
+    {
+      const char *which = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+
+      if (strcmp (which, "default") == 0)
+	return VISIBILITY_DEFAULT;
+      if (strcmp (which, "internal") == 0)
+	return VISIBILITY_INTERNAL;
+      if (strcmp (which, "hidden") == 0)
+	return VISIBILITY_HIDDEN;
+      if (strcmp (which, "protected") == 0)
+	return VISIBILITY_PROTECTED;
+
+      abort ();
+    }
+
+  return VISIBILITY_DEFAULT;
 }
 
 /* Select a set of attributes for section NAME based on the properties
@@ -5048,7 +5083,7 @@ categorize_decl_for_section (decl, reloc, shlib)
 	ret = SECCAT_DATA_REL_RO;
       else if (shlib && reloc)
 	ret = SECCAT_DATA_REL_RO_LOCAL;
-      else if (flag_merge_constants < 2)
+      else if (reloc || flag_merge_constants < 2)
 	/* C and C++ don't allow different variables to share the same
 	   location.  -fmerge-all-constants allows even that (at the
 	   expense of not conforming).  */
@@ -5356,7 +5391,7 @@ default_binds_local_p_1 (exp, shlib)
   else if (! TREE_PUBLIC (exp))
     local_p = true;
   /* A variable is local if the user tells us so.  */
-  else if (MODULE_LOCAL_P (exp))
+  else if (decl_visibility (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))
@@ -5383,7 +5418,7 @@ default_binds_local_p_1 (exp, shlib)
 }
 
 /* Determine whether or not a pointer mode is valid. Assume defaults
-   of ptr_mode or Pmode - can be overriden.  */
+   of ptr_mode or Pmode - can be overridden.  */
 bool
 default_valid_pointer_mode (mode)
      enum machine_mode mode;

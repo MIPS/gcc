@@ -30,6 +30,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -111,7 +113,7 @@ static const struct predictor_info predictor_info[]= {
 #undef DEF_PREDICTOR
 
 /* Return true in case BB can be CPU intensive and should be optimized
-   for maximal perofmrance.  */
+   for maximal performance.  */
 
 bool
 maybe_hot_bb_p (bb)
@@ -468,7 +470,7 @@ estimate_probability (loops_info)
 	      }
 
 	  /* Loop exit heuristics - predict an edge exiting the loop if the
-	     conditinal has no loop header successors as not taken.  */
+	     conditional has no loop header successors as not taken.  */
 	  if (!header_found)
 	    for (e = bb->succ; e; e = e->succ_next)
 	      if (e->dest->index < 0
@@ -563,7 +565,7 @@ estimate_probability (loops_info)
 	  case EQ:
 	  case UNEQ:
 	    /* Floating point comparisons appears to behave in a very
-	       inpredictable way because of special role of = tests in
+	       unpredictable way because of special role of = tests in
 	       FP code.  */
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
 	      ;
@@ -579,7 +581,7 @@ estimate_probability (loops_info)
 	  case NE:
 	  case LTGT:
 	    /* Floating point comparisons appears to behave in a very
-	       inpredictable way because of special role of = tests in
+	       unpredictable way because of special role of = tests in
 	       FP code.  */
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
 	      ;
@@ -799,7 +801,7 @@ process_note_predictions (bb, heads, dominators, post_dominators)
   rtx insn;
   edge e;
 
-  /* Additionaly, we check here for blocks with no successors.  */
+  /* Additionally, we check here for blocks with no successors.  */
   int contained_noreturn_call = 0;
   int was_bb_head = 0;
   int noreturn_block = 1;
@@ -1089,7 +1091,7 @@ counts_to_freqs ()
 
 /* Return true if function is likely to be expensive, so there is no point to
    optimize performance of prologue, epilogue or do inlining at the expense
-   of code size growth.  THRESHOLD is the limit of number of isntructions
+   of code size growth.  THRESHOLD is the limit of number of instructions
    function can execute at average to be still considered not expensive.  */
 
 bool

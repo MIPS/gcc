@@ -70,6 +70,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "tree.h"
 #include "rtl.h"
@@ -294,6 +296,7 @@ static void dbxout_finish		PARAMS ((const char *));
 static void dbxout_start_source_file	PARAMS ((unsigned, const char *));
 static void dbxout_end_source_file	PARAMS ((unsigned));
 static void dbxout_typedefs		PARAMS ((tree));
+static void dbxout_fptype_value		PARAMS ((tree));
 static void dbxout_type_index		PARAMS ((tree));
 #if DBX_CONTIN_LENGTH > 0
 static void dbxout_continue		PARAMS ((void));
@@ -689,6 +692,61 @@ dbxout_finish (filename)
 #endif /* DBX_OUTPUT_MAIN_SOURCE_FILE_END */
 }
 
+/* Output floating point type values used by the 'R' stab letter.
+   These numbers come from include/aout/stab_gnu.h in binutils/gdb.
+
+   There are only 3 real/complex types defined, and we need 7/6.
+   We use NF_SINGLE as a generic float type, and NF_COMPLEX as a generic
+   complex type.  Since we have the type size anyways, we don't really need
+   to distinguish between different FP types, we only need to distinguish
+   between float and complex.  This works fine with gdb.
+
+   We only use this for complex types, to avoid breaking backwards
+   compatibility for real types.  complex types aren't in ISO C90, so it is
+   OK if old debuggers don't understand the debug info we emit for them.  */
+
+/* ??? These are supposed to be IEEE types, but we don't check for that.
+   We could perhaps add additional numbers for non-IEEE types if we need
+   them.  */
+
+static void
+dbxout_fptype_value (type)
+     tree type;
+{
+  char value = '0';
+  enum machine_mode mode = TYPE_MODE (type);
+
+  if (TREE_CODE (type) == REAL_TYPE)
+    {
+      if (mode == SFmode)
+	value = '1';
+      else if (mode == DFmode)
+	value = '2';
+      else if (mode == TFmode || mode == XFmode)
+	value = '6';
+      else
+	/* Use NF_SINGLE as a generic real type for other sizes.  */
+	value = '1';
+    }
+  else if (TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      if (mode == SCmode)
+	value = '3';
+      else if (mode == DCmode)
+	value = '4';
+      else if (mode == TCmode || mode == XCmode)
+	value = '5';
+      else
+	/* Use NF_COMPLEX as a generic complex type for other sizes.  */
+	value = '3';
+    }
+  else
+    abort ();
+
+  putc (value, asmfile);
+  CHARS (1);
+}
+
 /* Output the index of a type.  */
 
 static void
@@ -1052,7 +1110,9 @@ dbxout_type (type, full)
   static int anonymous_type_number = 0;
 
   if (TREE_CODE (type) == VECTOR_TYPE)
-    type = TYPE_DEBUG_REPRESENTATION_TYPE (type);
+    /* The frontend feeds us a representation for the vector as a struct
+       containing an array.  Pull out the array type.  */
+    type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
 
   /* If there was an input error and we don't really have a type,
      avoid crashing and write something that is at least valid
@@ -1360,9 +1420,9 @@ dbxout_type (type, full)
 
       if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
 	{
-	  fprintf (asmfile, "r");
+	  putc ('R', asmfile);
 	  CHARS (1);
-	  dbxout_type_index (type);
+	  dbxout_fptype_value (type);
 	  putc (';', asmfile);
 	  CHARS (1);
 	  print_wide_int (2 * int_size_in_bytes (TREE_TYPE (type)));

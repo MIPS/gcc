@@ -840,7 +840,7 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
     }
   }
 
-  if(!strcmp(file, jarfile)){
+  if(jarfile && !strcmp(file, jarfile)){
     if(verbose)
       printf("skipping: %s\n", file);
     return 0;  /* we don't want to add ourselves.. */
@@ -921,7 +921,8 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
     while(!use_explicit_list_only && (de = readdir(dir)) != NULL){
       if(de->d_name[0] == '.')
         continue;
-      if(!strcmp(de->d_name, jarfile)){ /* we don't want to add ourselves.  Believe me */
+      if(jarfile && !strcmp(de->d_name, jarfile)){
+	/* we don't want to add ourselves.  Believe me */
         if(verbose)
           printf("skipping: %s\n", de->d_name);
         continue;
@@ -1448,7 +1449,8 @@ int extract_jar(int fd, char **files, int file_num){
     }
 
     if(f_fd != -1 && handle){
-      f_fd = creat((const char *)filename, 00644);
+      f_fd = open((const char *)filename,
+                  O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
 
       if(f_fd < 0){
         fprintf(stderr, "Error extracting JAR archive!\n");

@@ -47,6 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -274,7 +276,7 @@ static void compute_dom_prob_ps PARAMS ((int));
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
 /* Parameters affecting the decision of rank_for_schedule().
-   ??? Nope.  But MIN_PROBABILITY is used in copmute_trg_info.  */
+   ??? Nope.  But MIN_PROBABILITY is used in compute_trg_info.  */
 #define MIN_PROBABILITY 40
 
 /* Speculative scheduling functions.  */
@@ -636,7 +638,7 @@ find_rgns (edge_list, dom)
   /* Note if a block is a natural loop header.  */
   sbitmap header;
 
-  /* Note if a block is an natural inner loop header.  */
+  /* Note if a block is a natural inner loop header.  */
   sbitmap inner;
 
   /* Note if a block is in the block queue.  */
@@ -800,7 +802,7 @@ find_rgns (edge_list, dom)
       if (no_loops)
 	SET_BIT (header, 0);
 
-      /* Second travsersal:find reducible inner loops and topologically sort
+      /* Second traversal:find reducible inner loops and topologically sort
 	 block of each region.  */
 
       queue = (int *) xmalloc (n_basic_blocks * sizeof (int));
@@ -1289,7 +1291,7 @@ debug_candidates (trg)
     debug_candidate (i);
 }
 
-/* Functions for speculative scheduing.  */
+/* Functions for speculative scheduling.  */
 
 /* Return 0 if x is a set of a register alive in the beginning of one
    of the split-blocks of src, otherwise return 1.  */
@@ -1558,14 +1560,14 @@ enum INSN_TRAP_CLASS
 #define WORST_CLASS(class1, class2) \
 ((class1 > class2) ? class1 : class2)
 
-/* Non-zero if block bb_to is equal to, or reachable from block bb_from.  */
+/* Nonzero if block bb_to is equal to, or reachable from block bb_from.  */
 #define IS_REACHABLE(bb_from, bb_to)					\
   (bb_from == bb_to							\
    || IS_RGN_ENTRY (bb_from)						\
    || (TEST_BIT (ancestor_edges[bb_to],					\
 		 EDGE_TO_BIT (IN_EDGES (BB_TO_BLOCK (bb_from))))))
 
-/* Non-zero iff the address is comprised from at most 1 register.  */
+/* Nonzero iff the address is comprised from at most 1 register.  */
 #define CONST_BASED_ADDRESS_P(x)			\
   (GET_CODE (x) == REG					\
    || ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS	\
@@ -2529,7 +2531,7 @@ propagate_deps (bb, pred_deps)
 /* Compute backward dependences inside bb.  In a multiple blocks region:
    (1) a bb is analyzed after its predecessors, and (2) the lists in
    effect at the end of bb (after analyzing for bb) are inherited by
-   bb's successrs.
+   bb's successors.
 
    Specifically for reg-reg data dependences, the block insns are
    scanned by sched_analyze () top-to-bottom.  Two lists are
@@ -2710,7 +2712,7 @@ schedule_region (rgn)
 
   init_deps_global ();
 
-  /* Initializations for region data dependence analyisis.  */
+  /* Initializations for region data dependence analysis.  */
   bb_deps = (struct deps *) xmalloc (sizeof (struct deps) * current_nr_blocks);
   for (bb = 0; bb < current_nr_blocks; bb++)
     init_deps (bb_deps + bb);
@@ -2907,17 +2909,10 @@ init_regions ()
 	  dominance_info dom;
 	  struct edge_list *edge_list;
 
-	  /* The scheduler runs after flow; therefore, we can't blindly call
-	     back into find_basic_blocks since doing so could invalidate the
-	     info in global_live_at_start.
-
-	     Consider a block consisting entirely of dead stores; after life
-	     analysis it would be a block of NOTE_INSN_DELETED notes.  If
-	     we call find_basic_blocks again, then the block would be removed
-	     entirely and invalidate our the register live information.
-
-	     We could (should?) recompute register live information.  Doing
-	     so may even be beneficial.  */
+	  /* The scheduler runs after estimate_probabilities; therefore, we
+	     can't blindly call back into find_basic_blocks since doing so
+	     could invalidate the branch probability info.  We could,
+	     however, call cleanup_cfg.  */
 	  edge_list = create_edge_list ();
 
 	  /* Compute the dominators and post dominators.  */

@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "machmode.h"
 #include "real.h"
 #include "rtl.h"
@@ -54,8 +56,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef PUSH_ROUNDING
 
+#ifndef PUSH_ARGS_REVERSED
 #if defined (STACK_GROWS_DOWNWARD) != defined (ARGS_GROW_DOWNWARD)
 #define PUSH_ARGS_REVERSED	/* If it's last to first.  */
+#endif
 #endif
 
 #endif
@@ -2152,8 +2156,7 @@ move_block_from_reg (regno, x, nregs, size)
   /* If SIZE is that of a mode no bigger than a word, just use that
      mode's store operation.  */
   if (size <= UNITS_PER_WORD
-      && (mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0)) != BLKmode
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN)
+      && (mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0)) != BLKmode)
     {
       emit_move_insn (adjust_address (x, mode, 0), gen_rtx_REG (mode, regno));
       return;
@@ -2162,9 +2165,7 @@ move_block_from_reg (regno, x, nregs, size)
   /* Blocks smaller than a word on a BYTES_BIG_ENDIAN machine must be aligned
      to the left before storing to memory.  Note that the previous test
      doesn't handle all cases (e.g. SIZE == 3).  */
-  if (size < UNITS_PER_WORD
-      && BYTES_BIG_ENDIAN
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN)
+  if (size < UNITS_PER_WORD && BYTES_BIG_ENDIAN)
     {
       rtx tem = operand_subword (x, 0, 1, BLKmode);
       rtx shift;
@@ -2206,6 +2207,42 @@ move_block_from_reg (regno, x, nregs, size)
 
       emit_move_insn (tem, gen_rtx_REG (word_mode, regno + i));
     }
+}
+
+/* Generate a PARALLEL rtx for a new non-consecutive group of registers from
+   ORIG, where ORIG is a non-consecutive group of registers represented by
+   a PARALLEL.  The clone is identical to the original except in that the
+   original set of registers is replaced by a new set of pseudo registers.
+   The new set has the same modes as the original set.  */
+
+rtx
+gen_group_rtx (orig)
+     rtx orig;
+{
+  int i, length;
+  rtx *tmps;
+
+  if (GET_CODE (orig) != PARALLEL)
+    abort ();
+
+  length = XVECLEN (orig, 0);
+  tmps = (rtx *) alloca (sizeof (rtx) * length);
+
+  /* Skip a NULL entry in first slot.  */
+  i = XEXP (XVECEXP (orig, 0, 0), 0) ? 0 : 1;
+
+  if (i)
+    tmps[0] = 0;
+
+  for (; i < length; i++)
+    {
+      enum machine_mode mode = GET_MODE (XEXP (XVECEXP (orig, 0, i), 0));
+      rtx offset = XEXP (XVECEXP (orig, 0, i), 1);
+
+      tmps[i] = gen_rtx_EXPR_LIST (VOIDmode, gen_reg_rtx (mode), offset);
+    }
+
+  return gen_rtx_PARALLEL (GET_MODE (orig), gen_rtvec_v (length, tmps));
 }
 
 /* Emit code to move a block SRC to a block DST, where DST is non-consecutive
@@ -2327,6 +2364,26 @@ emit_group_load (dst, orig_src, ssize)
   /* Copy the extracted pieces into the proper (probable) hard regs.  */
   for (i = start; i < XVECLEN (dst, 0); i++)
     emit_move_insn (XEXP (XVECEXP (dst, 0, i), 0), tmps[i]);
+}
+
+/* Emit code to move a block SRC to block DST, where SRC and DST are
+   non-consecutive groups of registers, each represented by a PARALLEL.  */
+
+void
+emit_group_move (dst, src)
+     rtx dst, src;
+{
+  int i;
+
+  if (GET_CODE (src) != PARALLEL
+      || GET_CODE (dst) != PARALLEL
+      || XVECLEN (src, 0) != XVECLEN (dst, 0))
+    abort ();
+
+  /* Skip first entry if NULL.  */
+  for (i = XEXP (XVECEXP (src, 0, 0), 0) ? 0 : 1; i < XVECLEN (src, 0); i++)
+    emit_move_insn (XEXP (XVECEXP (dst, 0, i), 0),
+		    XEXP (XVECEXP (src, 0, i), 0));
 }
 
 /* Emit code to move a block SRC to a block DST, where SRC is non-consecutive
@@ -2472,26 +2529,17 @@ copy_blkmode_from_reg (tgtblk, srcreg, type)
     }
 
   /* This code assumes srcreg is at least a full word.  If it isn't, copy it
-     into a new pseudo which is a full word.
+     into a new pseudo which is a full word.  */
 
-     If FUNCTION_ARG_REG_LITTLE_ENDIAN is set and convert_to_mode does a copy,
-     the wrong part of the register gets copied so we fake a type conversion
-     in place.  */
   if (GET_MODE (srcreg) != BLKmode
       && GET_MODE_SIZE (GET_MODE (srcreg)) < UNITS_PER_WORD)
-    {
-      if (FUNCTION_ARG_REG_LITTLE_ENDIAN)
-	srcreg = simplify_gen_subreg (word_mode, srcreg, GET_MODE (srcreg), 0);
-      else
-	srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
-    }
+    srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
 
   /* Structures whose size is not a multiple of a word are aligned
      to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
      machine, this means we must skip the empty high order bytes when
      calculating the bit offset.  */
   if (BYTES_BIG_ENDIAN
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN
       && bytes % UNITS_PER_WORD)
     big_endian_correction
       = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD) * BITS_PER_UNIT));
@@ -3107,6 +3155,12 @@ emit_move_insn (x, y)
 	{
 	  y_cst = y;
 	  y = force_const_mem (mode, y);
+
+	  /* If the target's cannot_force_const_mem prevented the spill,
+	     assume that the target's move expanders will also take care
+	     of the non-legitimate constant.  */
+	  if (!y)
+	    y = y_cst;
 	}
     }
 
@@ -3157,11 +3211,7 @@ emit_move_insn_1 (x, y)
 
   /* Expand complex moves by moving real part and imag part, if possible.  */
   else if ((class == MODE_COMPLEX_FLOAT || class == MODE_COMPLEX_INT)
-	   && BLKmode != (submode = mode_for_size ((GET_MODE_UNIT_SIZE (mode)
-						    * BITS_PER_UNIT),
-						   (class == MODE_COMPLEX_INT
-						    ? MODE_INT : MODE_FLOAT),
-						   0))
+	   && BLKmode != (submode = GET_MODE_INNER (mode))
 	   && (mov_optab->handlers[(int) submode].insn_code
 	       != CODE_FOR_nothing))
     {
@@ -3977,7 +4027,8 @@ expand_assignment (to, from, want_value, suggest_reg)
      problem.  */
 
   if (TREE_CODE (to) == COMPONENT_REF || TREE_CODE (to) == BIT_FIELD_REF
-      || TREE_CODE (to) == ARRAY_REF || TREE_CODE (to) == ARRAY_RANGE_REF)
+      || TREE_CODE (to) == ARRAY_REF || TREE_CODE (to) == ARRAY_RANGE_REF
+      || TREE_CODE (TREE_TYPE (to)) == ARRAY_TYPE)
     {
       enum machine_mode mode1;
       HOST_WIDE_INT bitsize, bitpos;
@@ -4315,7 +4366,7 @@ store_expr (exp, target, want_value)
       dont_return_target = 1;
     }
   else if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
-    /* If this is an scalar in a register that is stored in a wider mode
+    /* If this is a scalar in a register that is stored in a wider mode
        than the declared mode, compute the result into its declared mode
        and then convert to the wider mode.  Our value is the computed
        expression.  */
@@ -6496,12 +6547,14 @@ expand_expr (exp, target, tmode, modifier)
   /* If will do cse, generate all results into pseudo registers
      since 1) that allows cse to find more things
      and 2) otherwise cse could produce an insn the machine
-     cannot support.  And exception is a CONSTRUCTOR into a multi-word
-     MEM: that's much more likely to be most efficient into the MEM.  */
+     cannot support.  An exception is a CONSTRUCTOR into a multi-word
+     MEM: that's much more likely to be most efficient into the MEM.
+     Another is a CALL_EXPR which must return in memory.  */
 
   if (! cse_not_expected && mode != BLKmode && target
       && (GET_CODE (target) != REG || REGNO (target) < FIRST_PSEUDO_REGISTER)
-      && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD))
+      && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+      && ! (code == CALL_EXPR && aggregate_value_p (exp)))
     target = subtarget;
 
   switch (code)
@@ -8562,6 +8615,7 @@ expand_expr (exp, target, tmode, modifier)
 	    && TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (exp, 0))) == '<')
 	  {
 	    rtx result;
+	    tree cond;
 	    optab boptab = (TREE_CODE (binary_op) == PLUS_EXPR
 			    ? (TYPE_TRAP_SIGNED (TREE_TYPE (binary_op))
 			       ? addv_optab : add_optab)
@@ -8571,20 +8625,14 @@ expand_expr (exp, target, tmode, modifier)
 			    : TREE_CODE (binary_op) == BIT_IOR_EXPR ? ior_optab
 			    : xor_optab);
 
-	    /* If we had X ? A : A + 1, do this as A + (X == 0).
-
-	       We have to invert the truth value here and then put it
-	       back later if do_store_flag fails.  We cannot simply copy
-	       TREE_OPERAND (exp, 0) to another variable and modify that
-	       because invert_truthvalue can modify the tree pointed to
-	       by its argument.  */
+	    /* If we had X ? A : A + 1, do this as A + (X == 0).  */
 	    if (singleton == TREE_OPERAND (exp, 1))
-	      TREE_OPERAND (exp, 0)
-		= invert_truthvalue (TREE_OPERAND (exp, 0));
+	      cond = invert_truthvalue (TREE_OPERAND (exp, 0));
+	    else
+	      cond = TREE_OPERAND (exp, 0);
 
-	    result = do_store_flag (TREE_OPERAND (exp, 0),
-				    (safe_from_p (temp, singleton, 1)
-				     ? temp : NULL_RTX),
+	    result = do_store_flag (cond, (safe_from_p (temp, singleton, 1)
+					   ? temp : NULL_RTX),
 				    mode, BRANCH_COST <= 1);
 
 	    if (result != 0 && ! integer_onep (TREE_OPERAND (binary_op, 1)))
@@ -8602,9 +8650,6 @@ expand_expr (exp, target, tmode, modifier)
 		return expand_binop (mode, boptab, op1, result, temp,
 				     unsignedp, OPTAB_LIB_WIDEN);
 	      }
-	    else if (singleton == TREE_OPERAND (exp, 1))
-	      TREE_OPERAND (exp, 0)
-		= invert_truthvalue (TREE_OPERAND (exp, 0));
 	  }
 
 	do_pending_stack_adjust ();

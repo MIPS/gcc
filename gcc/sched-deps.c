@@ -24,6 +24,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -1287,8 +1289,12 @@ sched_analyze (deps, head, tail)
 		    SET_REGNO_REG_SET (reg_pending_sets, i);
 		    SET_REGNO_REG_SET (reg_pending_uses, i);
 		  }
-		/* Other call-clobbered hard regs may be clobbered.  */
-		else if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+		/* Other call-clobbered hard regs may be clobbered.
+		   Since we only have a choice between 'might be clobbered'
+		   and 'definitely not clobbered', we must include all
+		   partly call-clobbered registers here.  */
+		else if (HARD_REGNO_CALL_PART_CLOBBERED (i, reg_raw_mode[i])
+			 || TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 		  SET_REGNO_REG_SET (reg_pending_clobbers, i);
 		/* We don't know what set of fixed registers might be used
 		   by the function, but it is certain that the stack pointer
@@ -1527,7 +1533,7 @@ free_deps (deps)
 }
 
 /* If it is profitable to use them, initialize caches for tracking
-   dependency informatino.  LUID is the number of insns to be scheduled,
+   dependency information.  LUID is the number of insns to be scheduled,
    it is used in the estimate of profitability.  */
 
 void

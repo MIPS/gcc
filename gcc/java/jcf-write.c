@@ -1,19 +1,20 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -23,6 +24,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "jcf.h"
 #include "tree.h"
 #include "real.h"
@@ -1744,6 +1747,7 @@ generate_bytecode_insns (exp, target, state)
 	else
 	  {
 	    HOST_WIDE_INT i;
+	    unsigned HOST_WIDE_INT delta;
 	    /* Copy the chain of relocs into a sorted array. */
 	    struct jcf_relocation **relocs = (struct jcf_relocation **)
 	      xmalloc (sw_state.num_cases * sizeof (struct jcf_relocation *));
@@ -1776,8 +1780,11 @@ generate_bytecode_insns (exp, target, state)
 		   handled by the parser.  */
 	      }
 
-	    if (2 * sw_state.num_cases
-		>= sw_state.max_case - sw_state.min_case)
+	    /* We could have DELTA < 0 if sw_state.min_case is
+	       something like Integer.MIN_VALUE.  That is why delta is
+	       unsigned.  */
+	    delta = sw_state.max_case - sw_state.min_case;
+	    if (2 * sw_state.num_cases >= delta)
 	      { /* Use tableswitch. */
 		int index = 0;
 		RESERVE (13 + 4 * (sw_state.max_case - sw_state.min_case + 1));
@@ -3422,6 +3429,15 @@ write_classfile (clas)
       write_chunks (stream, chunks);
       if (fclose (stream))
 	fatal_io_error ("error closing %s", temporary_file_name);
+
+      /* If a file named by the string pointed to by `new' exists
+         prior to the call to the `rename' function, the bahaviour
+         is implementation-defined.  ISO 9899-1990 7.9.4.2.
+
+         For example, on Win32 with MSVCRT, it is an error. */
+
+      unlink (class_file_name);
+
       if (rename (temporary_file_name, class_file_name) == -1)
 	{
 	  remove (temporary_file_name);

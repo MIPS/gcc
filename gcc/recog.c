@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -522,10 +524,10 @@ validate_replace_rtx_1 (loc, from, to, object)
     {
     case PLUS:
       /* If we have a PLUS whose second operand is now a CONST_INT, use
-         plus_constant to try to simplify it.
+         simplify_gen_binary to try to simplify it.
          ??? We may want later to remove this, once simplification is
          separated from this function.  */
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT && XEXP (x, 1) == to)
 	validate_change (object, loc,
 			 simplify_gen_binary
 			 (PLUS, GET_MODE (x), XEXP (x, 0), XEXP (x, 1)), 1);
@@ -692,7 +694,7 @@ validate_replace_src_group (from, to, insn)
   note_uses (&PATTERN (insn), validate_replace_src_1, &d);
 }
 
-/* Same as validate_repalace_src_group, but validate by seeing if
+/* Same as validate_replace_src_group, but validate by seeing if
    INSN is still valid.  */
 int
 validate_replace_src (from, to, insn)
@@ -2628,23 +2630,23 @@ constrain_operands (strict)
 
 		  if (EXTRA_MEMORY_CONSTRAINT (c))
 		    {
-		      /* Every memory operand can be reloaded to fit,
-			 so copy the condition from the 'm' case.  */
-		      if (GET_CODE (op) == MEM
-		          /* Before reload, accept what reload can turn into mem.  */
-		          || (strict < 0 && CONSTANT_P (op))
-		          /* During reload, accept a pseudo  */
-		          || (reload_in_progress && GET_CODE (op) == REG
-			      && REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		      /* Every memory operand can be reloaded to fit.  */
+		      if (strict < 0 && GET_CODE (op) == MEM)
+			win = 1;
+	
+		      /* Before reload, accept what reload can turn into mem.  */
+		      if (strict < 0 && CONSTANT_P (op))
+			win = 1;
+
+		      /* During reload, accept a pseudo  */
+		      if (reload_in_progress && GET_CODE (op) == REG
+			  && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 			win = 1;
 		    }
 		  if (EXTRA_ADDRESS_CONSTRAINT (c))
 		    {
-		      /* Every address operand can be reloaded to fit,
-			 so copy the condition from the 'p' case.  */
-		      if (strict <= 0
-		          || (strict_memory_address_p (recog_data.operand_mode[opno],
-						       op)))
+		      /* Every address operand can be reloaded to fit.  */
+		      if (strict < 0)
 		        win = 1;
 		    }
 #endif
@@ -2859,7 +2861,7 @@ split_all_insns (upd_life)
 }
 
 /* Same as split_all_insns, but do not expect CFG to be available.
-   Used by machine depedent reorg passes.  */
+   Used by machine dependent reorg passes.  */
 
 void
 split_all_insns_noflow ()

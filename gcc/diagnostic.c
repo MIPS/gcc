@@ -27,6 +27,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef FLOAT /* This is for hpux. They should change hpux.  */
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -1023,7 +1025,6 @@ sorry VPARAMS ((const char *msgid, ...))
 
   output_set_prefix
     (&global_dc->buffer, diagnostic_build_prefix (&diagnostic));
-  output_printf (&global_dc->buffer, "sorry, not implemented: ");
   output_format (&global_dc->buffer, &diagnostic.message);
   output_flush (&global_dc->buffer);
   VA_CLOSE (ap);

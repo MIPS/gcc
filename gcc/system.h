@@ -470,7 +470,7 @@ extern void abort PARAMS ((void));
 
 /* Say how to test for an absolute pathname.  On Unix systems, this is if
    it starts with a leading slash or a '$', the latter meaning the value of
-   an environment variable is to be used.  On machien with DOS-based
+   an environment variable is to be used.  On machine with DOS-based
    file systems, it is also absolute if it starts with a drive identifier.  */
 #ifdef HAVE_DOS_BASED_FILE_SYSTEM
 #define IS_ABSOLUTE_PATHNAME(STR) \
@@ -567,6 +567,13 @@ typedef char _Bool;
 #define really_call_calloc calloc
 #define really_call_realloc realloc
 
+#if defined(FLEX_SCANNER) || defined(YYBISON)
+/* Flex and bison use malloc and realloc.  Yuk.  Note that this means
+   really_call_* cannot be used in a .l or .y file. */
+#define malloc xmalloc
+#define realloc xrealloc
+#endif
+
 #if (GCC_VERSION >= 3000)
 
 /* Note autoconf checks for prototype declarations and includes
@@ -578,11 +585,7 @@ typedef char _Bool;
 #undef strdup
  #pragma GCC poison calloc strdup
 
-#if defined(FLEX_SCANNER) || defined (YYBISON)
-/* Flex and bison use malloc and realloc.  Yuk.  */
-#define malloc xmalloc
-#define realloc xrealloc
-#else
+#if !defined(FLEX_SCANNER) && !defined(YYBISON)
 #undef malloc
 #undef realloc
  #pragma GCC poison malloc realloc

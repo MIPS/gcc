@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -105,9 +105,12 @@
    (cond [(eq_attr "type" "branch")
           (cond [(lt (abs (minus (match_dup 1) (plus (pc) (const_int 4))))
                      (const_int 131072))
-                 (const_int 4)]
-	         (const_int 12))]
-          (const_int 4)))
+                 (const_int 4)
+		 (ne (symbol_ref "flag_pic && ! TARGET_EMBEDDED_PIC")
+		     (const_int 0))
+		 (const_int 24)
+		 ] (const_int 12))
+	  ] (const_int 4)))
 
 ;; Attribute describing the processor.  This attribute must match exactly
 ;; with the processor_type enumeration in mips.h.
@@ -1279,7 +1282,7 @@
 			       (const_int 8))
 		 (const_int 4)])])
 
-;; On the mips16, we can sometimes split an subtract of a constant
+;; On the mips16, we can sometimes split a subtract of a constant
 ;; which is a 4 byte instruction into two adds which are both 2 byte
 ;; instructions.  There are two cases: one where we are setting a
 ;; register to a register minus a constant, and one where we are
@@ -9604,18 +9607,31 @@ move\\t%0,%z4\\n\\
   "!TARGET_MIPS16"
   "*
 {
-  if (GET_CODE (operands[0]) == REG)
-    return \"%*j\\t%0\";
-  /* ??? I don't know why this is necessary.  This works around an
-     assembler problem that appears when a label is defined, then referenced
-     in a switch table, then used in a `j' instruction.  */
-  else if (mips_abi != ABI_32 && mips_abi != ABI_O64)
-    return \"%*b\\t%l0\";
+  if (flag_pic && ! TARGET_EMBEDDED_PIC)
+    {
+      if (get_attr_length (insn) <= 8)
+	return \"%*b\\t%l0\";
+      else if (Pmode == DImode)
+	return \"%[dla\\t%@,%l0\;%*jr\\t%@%]\";
+      else
+	return \"%[la\\t%@,%l0\;%*jr\\t%@%]\";
+    }
   else
     return \"%*j\\t%l0\";
 }"
   [(set_attr "type"	"jump")
-   (set_attr "mode"	"none")])
+   (set_attr "mode"	"none")
+   (set (attr "length")
+	;; we can't use `j' when emitting non-embedded PIC, so we emit
+	;; branch, if it's in range, or load the address of the branch
+	;; target into $at in a PIC-compatible way and then jump to it.
+	(if_then_else 
+	 (ior (eq (symbol_ref "flag_pic && ! TARGET_EMBEDDED_PIC")
+		  (const_int 0))
+	      (lt (abs (minus (match_dup 0)
+			      (plus (pc) (const_int 4))))
+		  (const_int 131072)))
+	 (const_int 4) (const_int 16)))])
 
 ;; We need a different insn for the mips16, because a mips16 branch
 ;; does not have a delay slot.
@@ -9623,7 +9639,7 @@ move\\t%0,%z4\\n\\
 (define_insn ""
   [(set (pc)
 	(label_ref (match_operand 0 "" "")))]
-  "TARGET_MIPS16 && GET_CODE (operands[0]) != REG"
+  "TARGET_MIPS16"
   "b\\t%l0"
   [(set_attr "type"	"branch")
    (set_attr "mode"	"none")
@@ -9795,7 +9811,8 @@ move\\t%0,%z4\\n\\
   "*
 {
   /* .cpadd expands to add REG,REG,$gp when pic, and nothing when not pic.  */
-  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+  if (mips_abi == ABI_32 || mips_abi == ABI_O64
+      || (mips_abi == ABI_N32 && TARGET_GAS))
     output_asm_insn (\".cpadd\\t%0\", operands);
   return \"%*j\\t%0\";
 }"
@@ -9823,9 +9840,16 @@ move\\t%0,%z4\\n\\
   "Pmode == DImode && next_active_insn (insn) != 0
    && GET_CODE (PATTERN (next_active_insn (insn))) == ADDR_DIFF_VEC
    && PREV_INSN (next_active_insn (insn)) == operands[1]"
-  "%*j\\t%0"
+  "*
+{
+  /* .cpadd expands to add REG,REG,$gp when pic, and nothing when not pic.  */
+  if (TARGET_GAS && mips_abi == ABI_64)
+    output_asm_insn (\".cpadd\\t%0\", operands);
+  return \"%*j\\t%0\";
+}"
   [(set_attr "type"	"jump")
-   (set_attr "mode"	"none")])
+   (set_attr "mode"	"none")
+   (set_attr "length"	"8")])
 
 ;; Implement a switch statement when generating embedded PIC code.
 ;; Switches are implemented by `tablejump' when not using -membedded-pic.
@@ -10052,10 +10076,10 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
    (clobber (reg:SI 31))]
   "TARGET_EMBEDDED_PIC
    && GET_CODE (operands[1]) == SYMBOL_REF"
-  "%($LF%= = . + 8\;bal\\t$LF%=\;la\\t%0,%1-$LF%=%)\;addu\\t%0,%0,$31"
+  "%($LF%= = . + 8\;bal\\t$LF%=\;nop;la\\t%0,%1-$LF%=%)\;addu\\t%0,%0,$31"
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")
-   (set_attr "length"	"16")])
+   (set_attr "length"	"20")])
 
 ;; This is used in compiling the unwind routines.
 (define_expand "eh_return"

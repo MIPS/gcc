@@ -22,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -46,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 
 static tree associated_type PARAMS ((tree));
 const char * gen_stdcall_suffix PARAMS ((tree));
+const char * gen_fastcall_suffix PARAMS ((tree));
 int i386_pe_dllexport_p PARAMS ((tree));
 int i386_pe_dllimport_p PARAMS ((tree));
 void i386_pe_mark_dllexport PARAMS ((tree));
@@ -199,7 +202,8 @@ int
 i386_pe_dllexport_name_p (symbol)
      const char *symbol;
 {
-  return symbol[0] == '@' && symbol[1] == 'e' && symbol[2] == '.';
+  return symbol[0] == DLL_IMPORT_EXPORT_PREFIX
+         && symbol[1] == 'e' && symbol[2] == '.';
 }
 
 /* Return nonzero if SYMBOL is marked as being dllimport'd.  */
@@ -208,7 +212,8 @@ int
 i386_pe_dllimport_name_p (symbol)
      const char *symbol;
 {
-  return symbol[0] == '@' && symbol[1] == 'i' && symbol[2] == '.';
+  return symbol[0] == DLL_IMPORT_EXPORT_PREFIX
+         && symbol[1] == 'i' && symbol[2] == '.';
 }
 
 /* Mark a DECL as being dllexport'd.
@@ -237,7 +242,7 @@ i386_pe_mark_dllexport (decl)
     return; /* already done */
 
   newname = alloca (strlen (oldname) + 4);
-  sprintf (newname, "@e.%s", oldname);
+  sprintf (newname, "%ce.%s", DLL_IMPORT_EXPORT_PREFIX, oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
      address.  RTL processing can sometimes peek inside the symbol ref
@@ -311,8 +316,8 @@ i386_pe_mark_dllimport (decl)
       return;
     }
 
-  newname = alloca (strlen (oldname) + 11);
-  sprintf (newname, "@i._imp__%s", oldname);
+  newname = alloca (strlen (oldname) + 4);
+  sprintf (newname, "%ci.%s", DLL_IMPORT_EXPORT_PREFIX, oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
      address.  RTL processing can sometimes peek inside the symbol ref
@@ -327,6 +332,43 @@ i386_pe_mark_dllimport (decl)
 
   /* Can't treat a pointer to this as a constant address */
   DECL_NON_ADDR_CONST_P (decl) = 1;
+}
+
+/* Return string which is the former assembler name modified with a 
+   prefix consisting of FASTCALL_PREFIX and a suffix consisting of an
+   atsign (@) followed by the number of bytes of arguments.  */
+
+const char *
+gen_fastcall_suffix (decl)
+  tree decl;
+{
+  int total = 0;
+
+  const char *asmname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  char *newsym;
+
+  if (TYPE_ARG_TYPES (TREE_TYPE (decl)))
+    if (TREE_VALUE (tree_last (TYPE_ARG_TYPES (TREE_TYPE (decl))))
+        == void_type_node)
+      {
+	tree formal_type = TYPE_ARG_TYPES (TREE_TYPE (decl));
+
+	while (TREE_VALUE (formal_type) != void_type_node)
+	  {
+	    int parm_size
+	      = TREE_INT_CST_LOW (TYPE_SIZE (TREE_VALUE (formal_type)));
+	    /* Must round up to include padding.  This is done the same
+	       way as in store_one_arg.  */
+	    parm_size = ((parm_size + PARM_BOUNDARY - 1)
+			 / PARM_BOUNDARY * PARM_BOUNDARY);
+	    total += parm_size;
+	    formal_type = TREE_CHAIN (formal_type);
+	  }
+      }
+
+  newsym = xmalloc (strlen (asmname) + 11);
+  sprintf (newsym, "%c%s@%d", FASTCALL_PREFIX, asmname, total/BITS_PER_UNIT);
+  return IDENTIFIER_POINTER (get_identifier (newsym));
 }
 
 /* Return string which is the former assembler name modified with a 
@@ -385,10 +427,16 @@ i386_pe_encode_section_info (decl, first)
     }
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
-    if (lookup_attribute ("stdcall",
-			  TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-      XEXP (DECL_RTL (decl), 0) = 
-	gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (decl));
+    {
+      if (lookup_attribute ("stdcall",
+			    TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+        XEXP (DECL_RTL (decl), 0) = 
+	  gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (decl));
+      else if (lookup_attribute ("fastcall",
+				 TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+        XEXP (DECL_RTL (decl), 0) =
+	  gen_rtx (SYMBOL_REF, Pmode, gen_fastcall_suffix (decl));
+    }
 
   /* Mark the decl so we can tell from the rtl whether the object is
      dllexport'd or dllimport'd.  */
@@ -399,8 +447,8 @@ i386_pe_encode_section_info (decl, first)
     i386_pe_mark_dllimport (decl);
   /* It might be that DECL has already been marked as dllimport, but a
      subsequent definition nullified that.  The attribute is gone but
-     DECL_RTL still has @i._imp__foo.  We need to remove that. Ditto
-     for the DECL_NON_ADDR_CONST_P flag.  */
+     DECL_RTL still has (DLL_IMPORT_EXPORT_PREFIX)i._imp__foo.  We need
+     to remove that. Ditto for the DECL_NON_ADDR_CONST_P flag.  */
   else if ((TREE_CODE (decl) == FUNCTION_DECL
 	    || TREE_CODE (decl) == VAR_DECL)
 	   && DECL_RTL (decl) != NULL_RTX
@@ -422,13 +470,14 @@ i386_pe_encode_section_info (decl, first)
     }
 }
 
-/* Strip only the leading encoding, leaving the stdcall suffix.  */
+/* Strip only the leading encoding, leaving the stdcall suffix and fastcall
+   prefix if it exists.  */
 
 const char *
 i386_pe_strip_name_encoding (str)
      const char *str;
 {
-  if (*str == '@')
+  if (*str == DLL_IMPORT_EXPORT_PREFIX)
     str += 3;
   if (*str == '*')
     str += 1;
@@ -449,6 +498,44 @@ i386_pe_strip_name_encoding_full (str)
     return ggc_alloc_string (name, p - name);
 
   return name;
+}
+
+/* Output a reference to a label. Fastcall symbols are prefixed with @,
+   whereas symbols for functions using other calling conventions don't
+   have a prefix (unless they are marked dllimport or dllexport).  */
+
+void i386_pe_output_labelref (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  char prefix[4];
+
+  sprintf (prefix, "%ci.", DLL_IMPORT_EXPORT_PREFIX);
+  if (strncmp (name, prefix, strlen (prefix)) == 0)
+    {
+      if (name[3] == FASTCALL_PREFIX)
+        {
+          fprintf (stream, "__imp_%s",
+                   i386_pe_strip_name_encoding (name));
+        }
+      else
+        {
+          fprintf (stream, "__imp__%s",
+                   i386_pe_strip_name_encoding (name));
+        }
+    }
+  else if ((name[0] == FASTCALL_PREFIX)
+           || ((name[0] == DLL_IMPORT_EXPORT_PREFIX)
+               && (name[3] == FASTCALL_PREFIX)))
+    {
+      fprintf (stream, "%s",
+               i386_pe_strip_name_encoding (name));
+    }
+  else
+    {
+      fprintf (stream, "%s%s", USER_LABEL_PREFIX,
+               i386_pe_strip_name_encoding (name));
+    }
 }
 
 void
@@ -492,7 +579,7 @@ i386_pe_unique_section (decl, reloc)
    If the section has already been defined, to not allow it to have
    different attributes, as (1) this is ambiguous since we're not seeing
    all the declarations up front and (2) some assemblers (e.g. SVR4)
-   do not recoginize section redefinitions.  */
+   do not recognize section redefinitions.  */
 /* ??? This differs from the "standard" PE implementation in that we
    handle the SHARED variable attribute.  Should this be done for all
    PE targets?  */

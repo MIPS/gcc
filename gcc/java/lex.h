@@ -1,21 +1,22 @@
 /* Language lexer definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -185,7 +186,7 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 #define SET_LVAL_NODE_TYPE(NODE, TYPE)
 #define BUILD_ID_WFL(EXP) (EXP)
 #define JAVA_FLOAT_RANGE_ERROR(S) {}
-#define JAVA_INTEGRAL_RANGE_ERROR(S) {}
+#define JAVA_INTEGRAL_RANGE_ERROR(S) do { } while (0)
 
 #else
 
@@ -237,12 +238,12 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
     ctxp->c_line->current = i;						  \
   }
 #define JAVA_INTEGRAL_RANGE_ERROR(m)		\
-  {						\
+  do {						\
     int i = ctxp->c_line->current;		\
     ctxp->c_line->current = number_beginning;	\
     java_lex_error (m, 0);			\
     ctxp->c_line->current = i;			\
-  }
+  } while (0)
 
 #endif /* Definitions for jc1 compilation only */
 

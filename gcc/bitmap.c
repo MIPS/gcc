@@ -20,6 +20,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "flags.h"
 #include "obstack.h"
@@ -725,6 +727,7 @@ bitmap_ior_and_compl (to, from1, from2)
   bitmap_head tmp;
 
   tmp.first = tmp.current = 0;
+  tmp.using_obstack = 0;
 
   bitmap_operation (&tmp, from1, from2, BITMAP_AND_COMPL);
   bitmap_operation (to, to, &tmp, BITMAP_IOR);
@@ -742,6 +745,7 @@ bitmap_union_of_diff (dst, a, b, c)
   int changed;
 
   tmp.first = tmp.current = 0;
+  tmp.using_obstack = 0;
 
   bitmap_operation (&tmp, b, c, BITMAP_AND_COMPL);
   changed = bitmap_operation (dst, &tmp, a, BITMAP_IOR);

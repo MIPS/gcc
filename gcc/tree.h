@@ -202,6 +202,8 @@ struct tree_common GTY(())
            TREE_LIST or TREE_VEC
        TREE_PRIVATE in
            ..._DECL
+       CALL_EXPR_HAS_RETURN_SLOT_ADDR in
+           CALL_EXPR
 
    protected_flag:
 
@@ -317,11 +319,25 @@ struct tree_common GTY(())
 			       __FUNCTION__);				\
     __t; })
 
+#define TREE_VEC_ELT_CHECK(t, i) __extension__				\
+(*({const tree __t = t;							\
+    const int __i = (i);						\
+    if (TREE_CODE (__t) != TREE_VEC)					\
+      tree_check_failed (__t, TREE_VEC,					\
+			 __FILE__, __LINE__, __FUNCTION__);		\
+    if (__i < 0 || __i >= __t->vec.length)				\
+      tree_vec_elt_check_failed (__i, __t->vec.length,			\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->vec.a[__i]; }))
+
 extern void tree_check_failed PARAMS ((const tree, enum tree_code,
 				       const char *, int, const char *))
     ATTRIBUTE_NORETURN;
 extern void tree_class_check_failed PARAMS ((const tree, int,
 					     const char *, int, const char *))
+    ATTRIBUTE_NORETURN;
+extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
+					       int, const char *))
     ATTRIBUTE_NORETURN;
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
@@ -330,6 +346,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 #define TREE_CLASS_CHECK(t, code)	(t)
 #define CST_OR_CONSTRUCTOR_CHECK(t)	(t)
 #define EXPR_CHECK(t)			(t)
+#define TREE_VEC_ELT_CHECK(t, i)	((t)->vec.a[i])
 
 #endif
 
@@ -442,7 +459,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    is sufficient to check bounds at the time the reference is seated,
    and assume that all future uses of the reference are safe, since
    the address of references cannot change.  (2) When a reference
-   supertype is seated to an subtype object.  The bounds "remember"
+   supertype is seated to a subtype object.  The bounds "remember"
    the true size of the complete object, so that subsequent upcasts of
    the address of the reference will be checked properly (is such a
    thing valid C++?).  */
@@ -587,7 +604,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
 
-/* Non-zero if NODE is a _DECL with TREE_READONLY set.  */
+/* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE) (TREE_READONLY (NODE) && DECL_P (NODE))
 
 /* Value of expression is constant.
@@ -622,6 +639,10 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
 #define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
+
+/* In a CALL_EXPR, means that the address of the return slot is part of the
+   argument list.  */
+#define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -810,9 +831,10 @@ struct tree_list GTY(())
 
 /* In a TREE_VEC node.  */
 #define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->vec.length)
-#define TREE_VEC_ELT(NODE,I) (TREE_VEC_CHECK (NODE)->vec.a[I])
 #define TREE_VEC_END(NODE) \
   ((void) TREE_VEC_CHECK (NODE), &((NODE)->vec.a[(NODE)->vec.length]))
+
+#define TREE_VEC_ELT(NODE,I) TREE_VEC_ELT_CHECK (NODE, I)
 
 struct tree_vec GTY(())
 {
@@ -1586,7 +1608,7 @@ struct tree_type GTY(())
 #define DECL_EXTERNAL(NODE) (DECL_CHECK (NODE)->decl.external_flag)
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
-   initializatons.  */
+   initializations.  */
 #define DEFAULT_INIT_PRIORITY 65535
 #define MAX_INIT_PRIORITY 65535
 #define MAX_RESERVED_INIT_PRIORITY 100
@@ -1955,6 +1977,7 @@ enum tree_index
   TI_VOID_TYPE,
   TI_PTR_TYPE,
   TI_CONST_PTR_TYPE,
+  TI_SIZE_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
 
@@ -2032,6 +2055,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
 /* The C type `const void *'.  */
 #define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
+/* The C type `size_t'.  */
+#define size_type_node                  global_trees[TI_SIZE_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
 
@@ -2117,6 +2142,16 @@ enum tls_model {
 };
 
 extern enum tls_model flag_tls_default;
+
+/* Enumerate visibility settings.  */
+
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
 
 /* A pointer-to-function member type looks like:
 
@@ -2338,11 +2373,6 @@ enum attribute_flags
 
 extern tree merge_decl_attributes PARAMS ((tree, tree));
 extern tree merge_type_attributes PARAMS ((tree, tree));
-extern int default_comp_type_attributes PARAMS ((tree, tree));
-extern void default_set_default_type_attributes PARAMS ((tree));
-extern void default_insert_attributes PARAMS ((tree, tree *));
-extern bool default_function_attribute_inlinable_p PARAMS ((tree));
-extern bool default_ms_bitfield_layout_p PARAMS ((tree));
 struct cpp_reader;
 extern void default_register_cpp_builtins PARAMS ((struct cpp_reader *));
 
@@ -2378,11 +2408,6 @@ extern tree merge_attributes		PARAMS ((tree, tree));
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
 
-/* Return true if DECL will be always resolved to a symbol defined in the
-   same module (shared library or program).  */
-#define MODULE_LOCAL_P(DECL) \
-  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
-
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2396,7 +2421,7 @@ extern tree build_qualified_type        PARAMS ((tree, int));
 
 /* Like build_qualified_type, but only deals with the `const' and
    `volatile' qualifiers.  This interface is retained for backwards
-   compatiblity with the various front-ends; new code should use
+   compatibility with the various front-ends; new code should use
    build_qualified_type instead.  */
 
 #define build_type_variant(TYPE, CONST_P, VOLATILE_P)			\
@@ -2650,7 +2675,7 @@ enum tree_node_structure_enum tree_node_structure PARAMS ((tree));
 
 extern tree unsave_expr			PARAMS ((tree));
 
-/* Reset EXP in place so that it can be expaned again.  Does not
+/* Reset EXP in place so that it can be expanded again.  Does not
    recurse into subtrees.  */
 
 extern void unsave_expr_1               PARAMS ((tree));
@@ -3007,6 +3032,7 @@ extern rtx emit_line_note		PARAMS ((const char *, int));
 /* In calls.c */
 
 extern int setjmp_call_p		PARAMS ((tree));
+extern bool alloca_call_p		PARAMS ((tree));
 
 /* In attribs.c.  */
 
@@ -3036,6 +3062,7 @@ extern void make_decl_one_only		PARAMS ((tree));
 extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
 enum tls_model decl_tls_model		PARAMS ((tree));
+enum symbol_visibility decl_visibility	PARAMS ((tree));
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,

@@ -34,7 +34,7 @@
 ;; while MMX Pentium can slot it on either U or V.  Model non-MMX Pentium
 ;; rules, because it results in noticeably better code on non-MMX Pentium
 ;; and doesn't hurt much on MMX.  (Prefixed instructions are not very
-;; common, so the scheduler usualy has a non-prefixed insn to pair).
+;; common, so the scheduler usually has a non-prefixed insn to pair).
 
 (define_attr "pent_pair" "uv,pu,pv,np"
   (cond [(eq_attr "imm_disp" "true")
@@ -53,6 +53,12 @@
 	 (and (eq_attr "type" "rotate")
 	      (match_operand 2 "const_int_1_operand" ""))
 	   (const_string "pu")
+	 (and (eq_attr "type" "ishift1")
+	      (match_operand 1 "const_int_operand" ""))
+	   (const_string "pu")
+	 (and (eq_attr "type" "rotate1")
+	      (match_operand 1 "const_int_1_operand" ""))
+	   (const_string "pu")
 	 (and (eq_attr "type" "call")
 	      (match_operand 0 "constant_call_address_operand" ""))
 	   (const_string "pv")
@@ -65,7 +71,7 @@
 (define_automaton "pentium,pentium_fpu")
 
 ;; Pentium do have U and V pipes.  Instruction to both pipes
-;; are alwyas issued together, much like on VLIW.
+;; are always issued together, much like on VLIW.
 ;;
 ;;                    predecode
 ;;                   /         \
@@ -188,7 +194,7 @@
 
 (define_insn_reservation "pent_pop" 1
   (and (eq_attr "cpu" "pentium")
-       (eq_attr "type" "pop"))
+       (eq_attr "type" "pop,leave"))
   "pentium-firstuv")
 
 ;; Call and branch instruction can execute in either pipe, but

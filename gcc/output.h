@@ -114,7 +114,7 @@ extern void split_double	PARAMS ((rtx, rtx *, rtx *));
 /* Return nonzero if this function has no function calls.  */
 extern int leaf_function_p	PARAMS ((void));
 
-/* Return 1 if branch is an forward branch.
+/* Return 1 if branch is a forward branch.
    Uses insn_shuid array, so it works only in the final pass.  May be used by
    output templates to add branch prediction hints, for example.  */
 extern int final_forward_branch_p PARAMS ((rtx));
@@ -243,7 +243,7 @@ extern void make_var_volatile		PARAMS ((tree));
 
 extern void assemble_alias		PARAMS ((tree, tree));
 
-extern void default_assemble_visibility	PARAMS ((tree, const char *));
+extern void default_assemble_visibility	PARAMS ((tree, int));
 
 /* Output a string of literal assembler code
    for an `asm' keyword used between functions.  */
@@ -461,7 +461,7 @@ extern void default_eh_frame_section	PARAMS ((void));
 /* Default target hook that outputs nothing to a stream.  */
 extern void no_asm_to_stream PARAMS ((FILE *));
 
-/* Flags controling properties of a section.  */
+/* Flags controlling properties of a section.  */
 #define SECTION_ENTSIZE	 0x000ff	/* entity size in section */
 #define SECTION_CODE	 0x00100	/* contains code */
 #define SECTION_WRITE	 0x00200	/* data is writable */

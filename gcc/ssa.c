@@ -31,6 +31,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "rtl.h"
 #include "expr.h"
@@ -1826,7 +1828,7 @@ struct phi_coalesce_context
 
 /* Callback function for for_each_successor_phi.  If the set
    destination and the phi alternative regs do not conflict, place
-   them in the same paritition class.  DATA is a pointer to a
+   them in the same partition class.  DATA is a pointer to a
    phi_coalesce_context struct.  */
 
 static int

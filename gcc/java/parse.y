@@ -1,22 +1,23 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -48,6 +49,8 @@ definitions and other extensions.  */
 %{
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <dirent.h>
 #include "tree.h"
 #include "rtl.h"
@@ -390,12 +393,6 @@ static GTY(()) tree java_lang_id;
 /* The generated `inst$' identifier used for generated enclosing
    instance/field access functions.  */
 static GTY(()) tree inst_id;
-
-/* The "java.lang.Cloneable" qualified name.  */
-static GTY(()) tree java_lang_cloneable;
-
-/* The "java.io.Serializable" qualified name.  */
-static GTY(()) tree java_io_serializable;
 
 /* Context and flag for static blocks */
 static GTY(()) tree current_static_block;
@@ -5589,7 +5586,7 @@ java_complete_class ()
   /* Process imports */
   process_imports ();
 
-  /* Rever things so we have the right order */
+  /* Reverse things so we have the right order */
   ctxp->class_list = nreverse (ctxp->class_list);
   ctxp->classd_list = reverse_jdep_list (ctxp);
 
@@ -5760,7 +5757,7 @@ resolve_class (enclosing, class_type, decl, cl)
     return NULL_TREE;
   resolved_type = TREE_TYPE (resolved_type_decl);
 
-  /* 3- If we have and array, reconstruct the array down to its nesting */
+  /* 3- If we have an array, reconstruct the array down to its nesting */
   if (array_dims)
     {
       for (; array_dims; array_dims--)
@@ -5786,37 +5783,58 @@ do_resolve_class (enclosing, class_type, decl, cl)
   tree decl_result;
   htab_t circularity_hash;
 
-  /* This hash table is used to register the classes we're going
-     through when searching the current class as an inner class, in
-     order to detect circular references. Remember to free it before
-     returning the section 0- of this function. */
-  circularity_hash = htab_create (20, htab_hash_pointer, htab_eq_pointer,
-				  NULL);
-
-  /* 0- Search in the current class as an inner class.
-     Maybe some code here should be added to load the class or
-     something, at least if the class isn't an inner class and ended
-     being loaded from class file. FIXME. */
-  while (enclosing)
+  if (QUALIFIED_P (TYPE_NAME (class_type)))
     {
-      new_class_decl = resolve_inner_class (circularity_hash, cl, &enclosing,
-					    &super, class_type);
-      if (new_class_decl)
-	break;
-
-      /* If we haven't found anything because SUPER reached Object and
-	 ENCLOSING happens to be an innerclass, try the enclosing context. */
-      if ((!super || super == object_type_node) &&
-	  enclosing && INNER_CLASS_DECL_P (enclosing))
-	enclosing = DECL_CONTEXT (enclosing);
-      else
-	enclosing = NULL_TREE;
+      /* If the type name is of the form `Q . Id', then Q is either a
+	 package name or a class name.  First we try to find Q as a
+	 class and then treat Id as a member type.  If we can't find Q
+	 as a class then we fall through.  */
+      tree q, left, left_type, right;
+      breakdown_qualified (&left, &right, TYPE_NAME (class_type));
+      BUILD_PTR_FROM_NAME (left_type, left);
+      q = do_resolve_class (enclosing, left_type, decl, cl);
+      if (q)
+	{
+	  enclosing = q;
+	  saved_enclosing_type = TREE_TYPE (q);
+	  BUILD_PTR_FROM_NAME (class_type, right);
+	}
     }
 
-  htab_delete (circularity_hash);
+  if (enclosing)
+    {
+      /* This hash table is used to register the classes we're going
+	 through when searching the current class as an inner class, in
+	 order to detect circular references. Remember to free it before
+	 returning the section 0- of this function. */
+      circularity_hash = htab_create (20, htab_hash_pointer, htab_eq_pointer,
+				      NULL);
 
-  if (new_class_decl)
-    return new_class_decl;
+      /* 0- Search in the current class as an inner class.
+	 Maybe some code here should be added to load the class or
+	 something, at least if the class isn't an inner class and ended
+	 being loaded from class file. FIXME. */
+      while (enclosing)
+	{
+	  new_class_decl = resolve_inner_class (circularity_hash, cl, &enclosing,
+						&super, class_type);
+	  if (new_class_decl)
+	    break;
+
+	  /* If we haven't found anything because SUPER reached Object and
+	     ENCLOSING happens to be an innerclass, try the enclosing context. */
+	  if ((!super || super == object_type_node) &&
+	      enclosing && INNER_CLASS_DECL_P (enclosing))
+	    enclosing = DECL_CONTEXT (enclosing);
+	  else
+	    enclosing = NULL_TREE;
+	}
+
+      htab_delete (circularity_hash);
+
+      if (new_class_decl)
+	return new_class_decl;
+    }
 
   /* 1- Check for the type in single imports. This will change
      TYPE_NAME() if something relevant is found */
@@ -5845,7 +5863,7 @@ do_resolve_class (enclosing, class_type, decl, cl)
     if (find_in_imports_on_demand (saved_enclosing_type, class_type))
       return NULL_TREE;
 
-  /* If found in find_in_imports_on_demant, the type has already been
+  /* If found in find_in_imports_on_demand, the type has already been
      loaded. */
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
     return new_class_decl;
@@ -5866,7 +5884,7 @@ do_resolve_class (enclosing, class_type, decl, cl)
 	  return new_class_decl;
     }
 
-  /* 5- Check an other compilation unit that bears the name of type */
+  /* 5- Check another compilation unit that bears the name of type */
   load_class (TYPE_NAME (class_type), 0);
 
   if (!cl)
@@ -7037,7 +7055,7 @@ find_in_imports_on_demand (enclosing_type, class_type)
     return (seen_once < 0 ? 0 : seen_once); /* It's ok not to have found */
 }
 
-/* Add package NAME to the list of package encountered so far. To
+/* Add package NAME to the list of packages encountered so far. To
    speed up class lookup in do_resolve_class, we make sure a
    particular package is added only once.  */
 
@@ -7490,6 +7508,8 @@ source_end_java_method ()
     {
       lineno = DECL_SOURCE_LINE_LAST (fndecl);
       expand_function_end (input_filename, lineno, 0);
+
+      DECL_SOURCE_LINE (fndecl) = DECL_SOURCE_LINE_FIRST (fndecl);
 
       /* Run the optimizers and output assembler code for this function. */
       rest_of_compilation (fndecl);
@@ -10774,7 +10794,11 @@ patch_invoke (patch, method, args)
      is NULL.  */
   if (check != NULL_TREE)
     {
-      patch = build (COMPOUND_EXPR, TREE_TYPE (patch), check, patch);
+      /* We have to call force_evaluation_order now because creating a
+ 	 COMPOUND_EXPR wraps the arg list in a way that makes it
+ 	 unrecognizable by force_evaluation_order later.  Yuk.  */
+      patch = build (COMPOUND_EXPR, TREE_TYPE (patch), check, 
+ 		     force_evaluation_order (patch));
       TREE_SIDE_EFFECTS (patch) = 1;
     }
 
@@ -11448,17 +11472,17 @@ breakdown_qualified (left, right, source)
     tree *left, *right, source;
 {
   char *p, *base;
-  int   l = IDENTIFIER_LENGTH (source);
+  int l = IDENTIFIER_LENGTH (source);
 
   base = alloca (l + 1);
   memcpy (base, IDENTIFIER_POINTER (source), l + 1);
 
-  /* Breakdown NAME into REMAINDER . IDENTIFIER */
+  /* Breakdown NAME into REMAINDER . IDENTIFIER.  */
   p = base + l - 1;
   while (*p != '.' && p != base)
     p--;
 
-  /* We didn't find a '.'. Return an error */
+  /* We didn't find a '.'. Return an error.  */
   if (p == base)
     return 1;
 
@@ -13073,9 +13097,10 @@ valid_ref_assignconv_cast_p (source, dest, cast)
 	{
 	  /* Array */
 	  return (cast
-		  && (DECL_NAME (TYPE_NAME (source)) == java_lang_cloneable
+		  && (DECL_NAME (TYPE_NAME (source))
+		      == java_lang_cloneable_identifier_node
 		      || (DECL_NAME (TYPE_NAME (source))
-			  == java_io_serializable)));
+			  == java_io_serializable_identifier_node)));
 	}
     }
   if (TYPE_ARRAY_P (source))
@@ -13085,8 +13110,10 @@ valid_ref_assignconv_cast_p (source, dest, cast)
       /* Can't cast an array to an interface unless the interface is
 	 java.lang.Cloneable or java.io.Serializable.  */
       if (TYPE_INTERFACE_P (dest))
-	return (DECL_NAME (TYPE_NAME (dest)) == java_lang_cloneable
-		|| DECL_NAME (TYPE_NAME (dest)) == java_io_serializable);
+	return (DECL_NAME (TYPE_NAME (dest))
+		== java_lang_cloneable_identifier_node
+		|| (DECL_NAME (TYPE_NAME (dest))
+		    == java_io_serializable_identifier_node));
       else			/* Arrays */
 	{
 	  tree source_element_type = TYPE_ARRAY_ELEMENT (source);
@@ -13469,6 +13496,11 @@ patch_binop (node, wfl_op1, wfl_op2)
          separately */
       op1 = do_unary_numeric_promotion (op1);
       op2 = do_unary_numeric_promotion (op2);
+
+      /* If the right hand side is of type `long', first cast it to
+	 `int'.  */
+      if (TREE_TYPE (op2) == long_type_node)
+	op2 = build1 (CONVERT_EXPR, int_type_node, op2);
 
       /* The type of the shift expression is the type of the promoted
          type of the left-hand operand */
@@ -14042,7 +14074,16 @@ patch_incomplete_class_ref (node)
   if (!(ref_type = resolve_type_during_patch (type)))
     return error_mark_node;
 
-  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type)
+  /* Generate the synthetic static method `class$'.  (Previously we
+     deferred this, causing different method tables to be emitted
+     for native code and bytecode.)  */
+  if (!TYPE_DOT_CLASS (current_class))
+      build_dot_class_method (current_class);
+
+  /* If we're not emitting class files and we know ref_type is a
+     compiled class, build a direct reference.  */
+  if ((! flag_emit_class_files && is_compiled_class (ref_type))
+      || JPRIMITIVE_TYPE_P (ref_type)
       || TREE_CODE (ref_type) == VOID_TYPE)
     {
       tree dot = build_class_ref (ref_type);
@@ -14053,10 +14094,7 @@ patch_incomplete_class_ref (node)
     }
 
   /* If we're emitting class files and we have to deal with non
-     primitive types, we invoke (and consider generating) the
-     synthetic static method `class$'. */
-  if (!TYPE_DOT_CLASS (current_class))
-      build_dot_class_method (current_class);
+     primitive types, we invoke the synthetic static method `class$'.  */
   ref_type = build_dot_class_method_invocation (ref_type);
   return java_complete_tree (ref_type);
 }

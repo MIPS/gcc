@@ -2,20 +2,20 @@
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Alex Samuel <sameul@codesourcery.com>
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it
+   GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful, but
+   GCC is distributed in the hope that it will be useful, but
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to the Free
+   along with GCC; see the file COPYING.  If not, write to the Free
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
@@ -49,6 +49,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "real.h"
@@ -154,6 +156,7 @@ static void add_substitution PARAMS ((tree));
 static inline int is_std_substitution PARAMS ((tree, substitution_identifier_index_t));
 static inline int is_std_substitution_char PARAMS ((tree, substitution_identifier_index_t));
 static int find_substitution PARAMS ((tree));
+static void mangle_call_offset PARAMS ((tree, tree));
 
 /* Functions for emitting mangled representations of things.  */
 
@@ -656,7 +659,7 @@ write_encoding (decl)
       tree fn_type;
 
       if (decl_is_template_id (decl, NULL))
-	fn_type = get_mostly_instantiated_function_type (decl, NULL, NULL);
+	fn_type = get_mostly_instantiated_function_type (decl);
       else
 	fn_type = TREE_TYPE (decl);
 
@@ -1011,8 +1014,7 @@ write_unqualified_name (decl)
       tree type;
       if (decl_is_template_id (decl, NULL))
 	{
-	  tree fn_type = get_mostly_instantiated_function_type (decl, NULL,
-								NULL);
+	  tree fn_type = get_mostly_instantiated_function_type (decl);
 	  type = TREE_TYPE (fn_type);
 	}
       else
@@ -2533,45 +2535,79 @@ mangle_ctor_vtbl_for_type (type, binfo)
   return get_identifier (result);
 }
 
-/* Return an identifier for the mangled name of a thunk to FN_DECL.
-   OFFSET is the initial adjustment to this used to find the vptr.  If
-   VCALL_OFFSET is non-NULL, this is a virtual thunk, and it is the
-   vtbl offset in bytes.  
+/* Mangle a this pointer or result pointer adjustment.
+   
+   <call-offset> ::= h <fixed offset number> _
+		 ::= v <fixed offset number> _ <virtual offset number> _ */
+   
+static void
+mangle_call_offset (fixed_offset, virtual_offset)
+     tree fixed_offset;
+     tree virtual_offset;
+{
+  write_char (virtual_offset ? 'v' : 'h');
 
-    <special-name> ::= Th <offset number> _ <base encoding>
-                   ::= Tv <offset number> _ <vcall offset number> _
-		                                            <base encoding>
+  /* For either flavor, write the fixed offset.  */
+  write_integer_cst (fixed_offset);
+  write_char ('_');
+
+  /* For a virtual thunk, add the virtual offset.  */
+  if (virtual_offset)
+    {
+      write_integer_cst (virtual_offset);
+      write_char ('_');
+    }
+}
+
+/* Return an identifier for the mangled name of a this-adjusting or
+   covariant thunk to FN_DECL.  FIXED_OFFSET is the initial adjustment
+   to this used to find the vptr.  If VIRTUAL_OFFSET is non-NULL, this
+   is a virtual thunk, and it is the vtbl offset in
+   bytes. THIS_ADJUSTING is non-zero for a this adjusting thunk and
+   zero for a covariant thunk. Note, that FN_DECL might be a covariant
+   thunk itself. A covariant thunk name always includes the adjustment
+   for the this pointer, even if there is none.
+
+   <special-name> ::= T <call-offset> <base encoding>
+                  ::= Tc <this_adjust call-offset> <result_adjust call-offset>
+		  			<base encoding>
 */
 
 tree
-mangle_thunk (fn_decl, offset, vcall_offset)
+mangle_thunk (fn_decl, this_adjusting, fixed_offset, virtual_offset)
      tree fn_decl;
-     tree offset;
-     tree vcall_offset;
+     int this_adjusting;
+     tree fixed_offset;
+     tree virtual_offset;
 {
   const char *result;
   
   start_mangling (fn_decl);
 
   write_string ("_Z");
-  /* The <special-name> for virtual thunks is Tv, for non-virtual
-     thunks Th.  */
   write_char ('T');
-  if (vcall_offset != 0)
-    write_char ('v');
-  else
-    write_char ('h');
-
-  /* For either flavor, write the offset to this.  */
-  write_integer_cst (offset);
-  write_char ('_');
-
-  /* For a virtual thunk, add the vcall offset.  */
-  if (vcall_offset)
+  
+  if (!this_adjusting)
     {
-      /* Virtual thunk.  Write the vcall offset and base type name.  */
-      write_integer_cst (vcall_offset);
-      write_char ('_');
+      /* Covariant thunk with no this adjustment */
+      write_char ('c');
+      mangle_call_offset (integer_zero_node, NULL_TREE);
+      mangle_call_offset (fixed_offset, virtual_offset);
+    }
+  else if (!DECL_THUNK_P (fn_decl))
+    /* Plain this adjusting thunk.  */
+    mangle_call_offset (fixed_offset, virtual_offset);
+  else
+    {
+      /* This adjusting thunk to covariant thunk.  */
+      write_char ('c');
+      mangle_call_offset (fixed_offset, virtual_offset);
+      fixed_offset = ssize_int (THUNK_FIXED_OFFSET (fn_decl));
+      virtual_offset = THUNK_VIRTUAL_OFFSET (fn_decl);
+      if (virtual_offset)
+	virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
+      mangle_call_offset (fixed_offset, virtual_offset);
+      fn_decl = THUNK_TARGET (fn_decl);
     }
 
   /* Scoped name.  */

@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef FLOAT /* This is for hpux. They should change hpux.  */
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <signal.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
@@ -279,9 +281,9 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "addressof", 'F', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
-  { "ce1",	'C', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
@@ -421,7 +423,7 @@ int time_report = 0;
 
 int mem_report = 0;
 
-/* Non-zero means to collect statistics which might be expensive
+/* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
 int flag_detailed_statistics = 0;
 
@@ -748,7 +750,7 @@ int flag_schedule_insns_after_reload = 0;
 /* The following flags have effect only for scheduling before register
    allocation:
 
-   flag_schedule_interblock means schedule insns accross basic blocks.
+   flag_schedule_interblock means schedule insns across basic blocks.
    flag_schedule_speculative means allow speculative motion of non-load insns.
    flag_schedule_speculative_load means allow speculative motion of some
    load insns.
@@ -2474,10 +2476,11 @@ rest_of_compilation (decl)
       convert_from_eh_region_ranges ();
 
       /* If function is inline, and we don't yet know whether to
-	 compile it by itself, defer decision till end of compilation.
-	 finish_compilation will call rest_of_compilation again
-	 for those functions that need to be output.  Also defer those
-	 functions that we are supposed to defer.  */
+         compile it by itself, defer decision till end of compilation.
+         wrapup_global_declarations will (indirectly) call
+         rest_of_compilation again for those functions that need to
+         be output.  Also defer those functions that we are supposed
+         to defer.  */
 
       if (inlinable
 	  || (DECL_INLINE (decl)
@@ -2970,11 +2973,11 @@ rest_of_compilation (decl)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
-     eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
+     eliminated by life_analysis, but we need to do it early, as -fprofile-arcs
      may insert code making function non-constant, but we still must consider
      it as constant, otherwise -fbranch-probabilities will not read data back.
 
-     life_analyzis rarely eliminates modification of external memory.
+     life_analysis rarely eliminates modification of external memory.
    */
   if (optimize)
     mark_constant_function ();
@@ -3475,7 +3478,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_bbro, decl);
 
       /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-	 splitting possibly introduced more crossjumping oppurtuntities.
+	 splitting possibly introduced more crossjumping opportunities.
 	 Except that we can't actually run crossjumping without running
 	 another DCE pass, which we can't do after reg-stack.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
@@ -3602,9 +3605,10 @@ rest_of_compilation (decl)
      know for certain that we will be generating an out-of-line copy,
      the first invocation of this routine (rest_of_compilation) will
      skip over this code by doing a `goto exit_rest_of_compilation;'.
-     Later on, finish_compilation will call rest_of_compilation again
-     for those inline functions that need to have out-of-line copies
-     generated.  During that call, we *will* be routed past here.  */
+     Later on, wrapup_global_declarations will (indirectly) call
+     rest_of_compilation again for those inline functions that need
+     to have out-of-line copies generated.  During that call, we
+     *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (decl);
@@ -4101,7 +4105,7 @@ decode_g_option (arg)
      selected type.  It is an error to specify more than one
      debugging type.  */
   static enum debug_info_type selected_debug_type = NO_DEBUG;
-  /* Non-zero if debugging format has been explicitly set.
+  /* Nonzero if debugging format has been explicitly set.
      -g and -ggdb don't explicitly set the debugging format so
      -gdwarf -g3 is equivalent to -gdwarf3.  */
   static int type_explicitly_set_p = 0;

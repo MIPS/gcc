@@ -124,6 +124,9 @@ struct real_format
   /* The maximum integer, x, such that b**(x-1) is representable.  */
   int emax;
 
+  /* The bit position of the sign bit, or -1 for a complex encoding.  */
+  int signbit;
+
   /* Properties of the format.  */
   bool has_nans;
   bool has_inf;

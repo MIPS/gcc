@@ -3,25 +3,27 @@
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -299,6 +301,7 @@ build_cplus_new (type, init)
   tree fn;
   tree slot;
   tree rval;
+  int is_ctor;
 
   /* Make sure that we're not trying to create an instance of an
      abstract class.  */
@@ -306,6 +309,11 @@ build_cplus_new (type, init)
 
   if (TREE_CODE (init) != CALL_EXPR && TREE_CODE (init) != AGGR_INIT_EXPR)
     return convert (type, init);
+
+  fn = TREE_OPERAND (init, 0);
+  is_ctor = (TREE_CODE (fn) == ADDR_EXPR
+	     && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
+	     && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0)));
 
   slot = build (VAR_DECL, type);
   DECL_ARTIFICIAL (slot) = 1;
@@ -320,13 +328,18 @@ build_cplus_new (type, init)
      replaces every AGGR_INIT_EXPR with a copy that uses a fresh
      temporary slot.  Then, expand_expr builds up a call-expression
      using the new slot.  */
-  fn = TREE_OPERAND (init, 0);
-  rval = build (AGGR_INIT_EXPR, type, fn, TREE_OPERAND (init, 1), slot);
-  TREE_SIDE_EFFECTS (rval) = 1;
-  AGGR_INIT_VIA_CTOR_P (rval) 
-    = (TREE_CODE (fn) == ADDR_EXPR
-       && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
-       && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0)));
+
+  /* If we don't need to use a constructor to create an object of this
+     type, don't mess with AGGR_INIT_EXPR.  */
+  if (is_ctor || TREE_ADDRESSABLE (type))
+    {
+      rval = build (AGGR_INIT_EXPR, type, fn, TREE_OPERAND (init, 1), slot);
+      TREE_SIDE_EFFECTS (rval) = 1;
+      AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
+    }
+  else
+    rval = init;
+
   rval = build_target_expr (slot, rval);
 
   return rval;
@@ -651,9 +664,12 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	return error_mark_node;
 
       /* See if we already have an identically qualified type.  */
-      t = get_qualified_type (type, type_quals);
-
-      /* If we didn't already have it, create it now.  */
+      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	if (cp_type_quals (t) == type_quals 
+	    && TYPE_NAME (t) == TYPE_NAME (type)
+	    && TYPE_CONTEXT (t) == TYPE_CONTEXT (type))
+	  break;
+	  
       if (!t)
 	{
 	  /* Make a new array type, just like the old one, but with the
@@ -1018,20 +1034,6 @@ really_overloaded_fn (x)
 	  || TREE_CODE (x) == TEMPLATE_ID_EXPR);
 }
 
-/* Return the OVERLOAD or FUNCTION_DECL inside FNS.  FNS can be an
-   OVERLOAD, FUNCTION_DECL, TEMPLATE_ID_EXPR, or baselink.  */
-
-tree
-get_overloaded_fn (fns)
-     tree fns;
-{
-  if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
-    fns = TREE_OPERAND (fns, 0);
-  if (BASELINK_P (fns))
-    fns = BASELINK_FUNCTIONS (fns);
-  return fns;
-}
-
 tree
 get_first_fn (from)
      tree from;
@@ -1102,7 +1104,6 @@ cp_statement_code_p (code)
   switch (code)
     {
     case CTOR_INITIALIZER:
-    case RETURN_INIT:
     case TRY_BLOCK:
     case HANDLER:
     case EH_SPEC_BLOCK:
@@ -2308,33 +2309,32 @@ cp_auto_var_in_fn_p (var, fn)
 
 tree
 cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
-			       need_decl, target_exprs)
+			       need_decl, return_slot_addr)
      tree result, fn, caller;
      void *decl_map_;
      int *need_decl;
-     void *target_exprs;
+     tree return_slot_addr;
 {
   splay_tree decl_map = (splay_tree)decl_map_;
-  varray_type *texps = (varray_type *)target_exprs;
   tree var;
-  int aggregate_return_p;
 
-  /* Figure out whether or not FN returns an aggregate.  */
-  aggregate_return_p = IS_AGGR_TYPE (TREE_TYPE (result));
-  *need_decl = ! aggregate_return_p;
-
-  /* If FN returns an aggregate then the caller will always create the
-     temporary (using a TARGET_EXPR) and the call will be the
-     initializing expression for the TARGET_EXPR.  If we were just to
+  /* If FN returns an aggregate then the caller will always pass the
+     address of the return slot explicitly.  If we were just to
      create a new VAR_DECL here, then the result of this function
      would be copied (bitwise) into the variable initialized by the
      TARGET_EXPR.  That's incorrect, so we must transform any
      references to the RESULT into references to the target.  */
-  if (aggregate_return_p)
+
+  /* We should have an explicit return slot iff the return type is
+     TREE_ADDRESSABLE.  See simplify_aggr_init_expr.  */
+  if (TREE_ADDRESSABLE (TREE_TYPE (result))
+      != (return_slot_addr != NULL_TREE))
+    abort ();
+
+  *need_decl = !return_slot_addr;
+  if (return_slot_addr)
     {
-      if (VARRAY_ACTIVE_SIZE (*texps) == 0)
-	abort ();
-      var = TREE_OPERAND (VARRAY_TOP_TREE (*texps), 0);
+      var = build_indirect_ref (return_slot_addr, "");
       if (! same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (var),
 						       TREE_TYPE (result)))
 	abort ();

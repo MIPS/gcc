@@ -1,20 +1,21 @@
 /* Handle exceptions for GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -24,6 +25,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
@@ -153,8 +156,7 @@ link_handler (range, outer)
   /* Handle overlapping ranges by splitting the new range.  */
   if (range->start_pc < outer->start_pc || range->end_pc > outer->end_pc)
     {
-      struct eh_range *h
-	= (struct eh_range *) xmalloc (sizeof (struct eh_range));
+      struct eh_range *h = xmalloc (sizeof (struct eh_range));
       if (range->start_pc < outer->start_pc)
 	{
 	  h->start_pc = range->start_pc;
@@ -286,7 +288,7 @@ add_handler (start_pc, end_pc, handler, type)
       prev = ptr;
     }
 
-  h = (struct eh_range *) xmalloc (sizeof (struct eh_range));
+  h = xmalloc (sizeof (struct eh_range));
   h->start_pc = start_pc;
   h->end_pc = end_pc;
   h->first_child = NULL;
@@ -335,7 +337,7 @@ prepare_eh_table_type (type)
   else
     exp = fold (build 
 		(PLUS_EXPR, ptr_type_node,
-		 build_utf8_ref (build_internal_class_name (type)),
+		 build_utf8_ref (DECL_NAME (TYPE_NAME (type))),
 		 size_one_node));
   return exp;
 }

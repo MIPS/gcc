@@ -35,6 +35,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -285,7 +287,7 @@ tail_duplicate ()
 	      bb2 = cfg_layout_duplicate_bb (bb2, e);
 
 	      /* Reconsider the original copy of block we've duplicated.
-	         Removing the most common predecesor may make it to be
+	         Removing the most common predecessor may make it to be
 	         head.  */
 	      blocks[old->index] =
 		fibheap_insert (heap, -old->frequency, old);

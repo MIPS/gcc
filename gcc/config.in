@@ -1,4 +1,4 @@
-/* config.in.  Generated automatically from configure.in by autoheader.  */
+/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* Define if using alloca.c.  */
 #undef C_ALLOCA
@@ -279,44 +279,6 @@
 /* Define to enable the use of a default assembler. */
 #undef DEFAULT_ASSEMBLER
 
-/* Define if you want more run-time sanity checks.  This one gets a grab
-   bag of miscellaneous but relatively cheap checks. */
-#undef ENABLE_CHECKING
-
-/* Define if you want all operations on trees (the basic data
-   structure of the front ends) to be checked for dynamic type safety
-   at runtime.  This is moderately expensive. */
-#undef ENABLE_TREE_CHECKING
-
-/* Define if you want all operations on RTL (the basic data structure
-   of the optimizer and back end) to be checked for dynamic type safety
-   at runtime.  This is quite expensive. */
-#undef ENABLE_RTL_CHECKING
-
-/* Define if you want RTL flag accesses to be checked against the RTL
-   codes that are supported for each access macro.  This is relatively
-   cheap. */
-#undef ENABLE_RTL_FLAG_CHECKING
-
-/* Define if you want the garbage collector to do object poisoning and
-   other memory allocation checks.  This is quite expensive. */
-#undef ENABLE_GC_CHECKING
-
-/* Define if you want the garbage collector to operate in maximally
-   paranoid mode, validating the entire heap and collecting garbage at
-   every opportunity.  This is extremely expensive. */
-#undef ENABLE_GC_ALWAYS_COLLECT
-
-/* Define if you want to use __cxa_atexit, rather than atexit, to
-   register C++ destructors for local statics and global objects.
-   This is essential for fully standards-compliant handling of
-   destructors, but requires __cxa_atexit in libc. */
-#undef DEFAULT_USE_CXA_ATEXIT
-
-/* Define if you want the C and C++ compilers to support multibyte
-   character sets for source code. */
-#undef MULTIBYTE_CHARS
-
 /* Define if your compiler understands volatile. */
 #undef HAVE_VOLATILE
 
@@ -350,6 +312,48 @@
 /* Define if the host execution character set is EBCDIC. */
 #undef HOST_EBCDIC
 
+/* Define if you want more run-time sanity checks.  This one gets a grab
+   bag of miscellaneous but relatively cheap checks. */
+#undef ENABLE_CHECKING
+
+/* Define if you want all operations on trees (the basic data
+   structure of the front ends) to be checked for dynamic type safety
+   at runtime.  This is moderately expensive. */
+#undef ENABLE_TREE_CHECKING
+
+/* Define if you want all operations on RTL (the basic data structure
+   of the optimizer and back end) to be checked for dynamic type safety
+   at runtime.  This is quite expensive. */
+#undef ENABLE_RTL_CHECKING
+
+/* Define if you want RTL flag accesses to be checked against the RTL
+   codes that are supported for each access macro.  This is relatively
+   cheap. */
+#undef ENABLE_RTL_FLAG_CHECKING
+
+/* Define if you want the garbage collector to do object poisoning and
+   other memory allocation checks.  This is quite expensive. */
+#undef ENABLE_GC_CHECKING
+
+/* Define if you want the garbage collector to operate in maximally
+   paranoid mode, validating the entire heap and collecting garbage at
+   every opportunity.  This is extremely expensive. */
+#undef ENABLE_GC_ALWAYS_COLLECT
+
+/* Define if you want to run subprograms and generated programs
+   through valgrind (a memory checker).  This is extremely expensive. */
+#undef ENABLE_VALGRIND_CHECKING
+
+/* Define if you want to use __cxa_atexit, rather than atexit, to
+   register C++ destructors for local statics and global objects.
+   This is essential for fully standards-compliant handling of
+   destructors, but requires __cxa_atexit in libc. */
+#undef DEFAULT_USE_CXA_ATEXIT
+
+/* Define if you want the C and C++ compilers to support multibyte
+   character sets for source code. */
+#undef MULTIBYTE_CHARS
+
 /* Always define this when using the GNU C Library */
 #undef _GNU_SOURCE
 
@@ -362,9 +366,15 @@
 /* Define as the number of bits in a byte, if `limits.h' doesn't. */
 #undef CHAR_BIT
 
+/* whether byteorder is bigendian */
+#undef WORDS_BIGENDIAN
+
 /* Define if the host machine stores words of multi-word integers in
    big-endian order. */
 #undef HOST_WORDS_BIG_ENDIAN
+
+/* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
+#undef BYTEORDER
 
 /* Define to the floating point format of the host machine, if not IEEE. */
 #undef HOST_FLOAT_FORMAT
@@ -482,8 +492,20 @@
 /* Define if <time.h> defines clock_t. */
 #undef HAVE_CLOCK_T
 
+/* Define .init_array/.fini_array sections are available and working. */
+#undef HAVE_INITFINI_ARRAY
+
 /* Define if host mkdir takes a single argument. */
 #undef MKDIR_TAKES_ONE_ARG
+
+/* Define 0/1 to force the choice for exception handling model. */
+#undef CONFIG_SJLJ_EXCEPTIONS
+
+/* Define if gcc should use -lunwind. */
+#undef USE_LIBUNWIND_EXCEPTIONS
+
+/* Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h). */
+#undef NEED_64BIT_HOST_WIDE_INT
 
 /* Define to the name of a file containing a list of extra machine modes
    for this architecture. */
@@ -579,17 +601,15 @@
 /* Define if your assembler supports the --gstabs option. */
 #undef HAVE_AS_GSTABS_DEBUG_FLAG
 
+/* Define if your linker links a mix of read-only
+   and read-write sections into a read-write section. */
+#undef HAVE_LD_RO_RW_SECTION_MIXING
+
 /* Define if your linker supports --eh-frame-hdr option. */
 #undef HAVE_LD_EH_FRAME_HDR
 
 /* Define if your MIPS libgloss linker scripts consistently include STARTUP directives. */
 #undef HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES
-
-/* Define 0/1 to force the choice for exception handling model. */
-#undef CONFIG_SJLJ_EXCEPTIONS
-
-/* Define if gcc should use -lunwind. */
-#undef USE_LIBUNWIND_EXCEPTIONS
 
 
 /* Bison unconditionally undefines `const' if neither `__STDC__' nor

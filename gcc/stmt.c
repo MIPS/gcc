@@ -35,6 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "rtl.h"
 #include "tree.h"
@@ -388,7 +390,7 @@ struct stmt_status GTY(())
 #define emit_lineno (cfun->stmt->x_emit_lineno)
 #define goto_fixup_chain (cfun->stmt->x_goto_fixup_chain)
 
-/* Non-zero if we are using EH to handle cleanups.  */
+/* Nonzero if we are using EH to handle cleanups.  */
 static int using_eh_for_cleanups_p = 0;
 
 static int n_occurrences		PARAMS ((int, const char *));
@@ -1120,7 +1122,7 @@ expand_asm (body)
    will be true if the operand is read-write, i.e., if it is used as
    an input as well as an output.  If *CONSTRAINT_P is not in
    canonical form, it will be made canonical.  (Note that `+' will be
-   rpelaced with `=' as part of this process.)
+   replaced with `=' as part of this process.)
 
    Returns TRUE if all went well; FALSE if an error occurred.  */
 
@@ -1507,7 +1509,16 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
       /* Mark clobbered registers.  */
       if (i >= 0)
-	SET_HARD_REG_BIT (clobbered_regs, i);
+        {
+	  /* Clobbering the PIC register is an error */
+	  if ((unsigned) i == PIC_OFFSET_TABLE_REGNUM)
+	    {
+	      error ("PIC register `%s' clobbered in `asm'", regname);
+	      return;
+	    }
+
+	  SET_HARD_REG_BIT (clobbered_regs, i);
+	}
     }
 
   clear_last_expr ();
@@ -2586,7 +2597,7 @@ expand_end_loop ()
 	end_label:
 
      We rely on the presence of NOTE_INSN_LOOP_END_TOP_COND to mark
-     the end of the entry condtional.  Without this, our lexical scan
+     the end of the entry conditional.  Without this, our lexical scan
      can't tell the difference between an entry conditional and a
      body conditional that exits the loop.  Mistaking the two means
      that we can misplace the NOTE_INSN_LOOP_CONT note, which can
@@ -3095,7 +3106,6 @@ expand_return (retval)
 	 machine, this means we must skip the empty high order bytes when
 	 calculating the bit offset.  */
       if (BYTES_BIG_ENDIAN
-	  && !FUNCTION_ARG_REG_LITTLE_ENDIAN
 	  && bytes % UNITS_PER_WORD)
 	big_endian_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
 						  * BITS_PER_UNIT));
@@ -3288,8 +3298,18 @@ tail_recursion_args (actuals, formals)
       if (GET_MODE (DECL_RTL (f)) == GET_MODE (argvec[i]))
 	emit_move_insn (DECL_RTL (f), argvec[i]);
       else
-	convert_move (DECL_RTL (f), argvec[i],
-		      TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	{
+	  rtx tmp = argvec[i];
+
+	  if (DECL_MODE (f) != GET_MODE (DECL_RTL (f)))
+	    {
+	      tmp = gen_reg_rtx (DECL_MODE (f));
+	      convert_move (tmp, argvec[i],
+			    TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	    }
+	  convert_move (DECL_RTL (f), tmp,
+			TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	}
     }
 
   free_temp_slots ();
@@ -5171,7 +5191,7 @@ expand_end_case_type (orig_index, orig_type)
 
   do_pending_stack_adjust ();
 
-  /* This might get an spurious warning in the presence of a syntax error;
+  /* This might get a spurious warning in the presence of a syntax error;
      it could be fixed by moving the call to check_seenlabel after the
      check for error_mark_node, and copying the code of check_seenlabel that
      deals with case_stack->data.case_stmt.line_number_status /

@@ -20,6 +20,7 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/Package.h>
+#include <gnu/gcj/runtime/StackTrace.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -138,6 +139,13 @@ public:
 
   java::lang::ClassLoader *getClassLoader (void);
 
+  // This is an internal method that circumvents the usual security
+  // checks when getting the class loader.
+  java::lang::ClassLoader *getClassLoaderInternal (void)
+  {
+    return loader;
+  }
+
   java::lang::reflect::Constructor *getConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getConstructors (void);
   java::lang::reflect::Constructor *getDeclaredConstructor (JArray<jclass> *);
@@ -174,9 +182,9 @@ public:
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
-    {
-      return accflags;
-    }
+  {
+    return accflags & java::lang::reflect::Modifier::ALL_FLAGS;
+  }
 
   jstring getName (void);
 
@@ -296,6 +304,8 @@ private:
 			       java::lang::ClassLoader *loader);
   friend jclass _Jv_FindClassInCache (_Jv_Utf8Const *name,
 				      java::lang::ClassLoader *loader);
+  friend jclass _Jv_PopClass (void);
+  friend void _Jv_PushClass (jclass k);
   friend void _Jv_NewArrayClass (jclass element,
 				 java::lang::ClassLoader *loader,
 				 _Jv_VTable *array_vtable = 0);
@@ -315,7 +325,7 @@ private:
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
   friend void _Jv_LinkOffsetTable (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
-  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *);
+  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
 
   // Return array class corresponding to element type KLASS, creating it if
@@ -323,6 +333,9 @@ private:
   inline friend jclass
   _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
   {
+    extern void _Jv_NewArrayClass (jclass element,
+				   java::lang::ClassLoader *loader,
+				   _Jv_VTable *array_vtable = 0);
     if (__builtin_expect (!klass->arrayclass, false))
       _Jv_NewArrayClass (klass, loader);
     return klass->arrayclass;
@@ -338,6 +351,7 @@ private:
 					      _Jv_Utf8Const *method_signature);
 
   friend void _Jv_PrepareClass (jclass);
+  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
@@ -349,6 +363,7 @@ private:
 #endif
 
   friend class _Jv_BytecodeVerifier;
+  friend class gnu::gcj::runtime::StackTrace;
 
   // Chain for class pool.
   jclass next;
@@ -403,6 +418,8 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+  // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
+  jclass chain;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

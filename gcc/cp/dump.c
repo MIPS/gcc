@@ -2,25 +2,27 @@
    Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "tree-dump.h"
@@ -263,6 +265,14 @@ cp_dump_tree (dump_info, t)
 	  return 1;
 	}
 
+      /* Is it a type used as a base? */
+      if (TYPE_CONTEXT (t) && TREE_CODE (TYPE_CONTEXT (t)) == TREE_CODE (t)
+	  && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)
+	{
+	  dump_child ("bfld", TYPE_CONTEXT (t));
+	  return 1;
+	}
+      
       dump_child ("vfld", TYPE_VFIELD (t));
       if (CLASSTYPE_TEMPLATE_SPECIALIZATION(t))
         dump_string(di, "spec");
@@ -317,21 +327,29 @@ cp_dump_tree (dump_info, t)
 	    dump_string (di, "destructor");
 	  if (DECL_CONV_FN_P (t))
 	    dump_string (di, "conversion");
-	  if (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t))
-	    {
-	      if (DECL_GLOBAL_CTOR_P (t))
-		dump_string (di, "global init");
-	      if (DECL_GLOBAL_DTOR_P (t))
-		dump_string (di, "global fini");
-	    }
+	  if (DECL_GLOBAL_CTOR_P (t))
+	    dump_string (di, "global init");
+	  if (DECL_GLOBAL_DTOR_P (t))
+	    dump_string (di, "global fini");
 	  if (DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (t))
 	    dump_string (di, "pseudo tmpl");
 	}
       else
 	{
+	  tree virt = THUNK_VIRTUAL_OFFSET (t);
+	  
 	  dump_string (di, "thunk");
-	  dump_int (di, "dlta", THUNK_DELTA (t));
-	  dump_child ("vcll", THUNK_VCALL_OFFSET (t));
+	  if (DECL_THIS_THUNK_P (t))
+	    dump_string (di, "this adjusting");
+	  else
+	    {
+	      dump_string (di, "result adjusting");
+	      if (virt)
+		virt = BINFO_VPTR_FIELD (virt);
+	    }
+	  dump_int (di, "fixd", THUNK_FIXED_OFFSET (t));
+	  if (virt)
+	    dump_int (di, "virt", tree_low_cst (virt, 0));
 	  dump_child ("fn", DECL_INITIAL (t));
 	}
       break;

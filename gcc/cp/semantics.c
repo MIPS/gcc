@@ -7,25 +7,27 @@
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it
+   GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
    
-   GNU CC is distributed in the hope that it will be useful, but
+   GCC is distributed in the hope that it will be useful, but
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
    
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to the Free
+   along with GCC; see the file COPYING.  If not, write to the Free
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "tree-inline.h"
@@ -56,7 +58,6 @@ static void emit_associated_thunks PARAMS ((tree));
 static void genrtl_try_block PARAMS ((tree));
 static void genrtl_eh_spec_block PARAMS ((tree));
 static void genrtl_handler PARAMS ((tree));
-static void genrtl_named_return_value PARAMS ((void));
 static void cp_expand_stmt PARAMS ((tree));
 static void genrtl_start_function PARAMS ((tree));
 static void genrtl_finish_function PARAMS ((tree));
@@ -123,14 +124,17 @@ do_poplevel ()
     {
       tree scope_stmts = NULL_TREE;
 
-      if (!processing_template_decl)
-	scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-
       block = poplevel (kept_level_p (), 1, 0);
-      if (block && !processing_template_decl)
+      if (!processing_template_decl)
 	{
-	  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
-	  SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
+	  /* This needs to come after the poplevel so that partial scopes
+	     are properly nested.  */
+	  scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
+	  if (block)
+	    {
+	      SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
+	      SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
+	    }
 	}
     }
 
@@ -140,13 +144,13 @@ do_poplevel ()
 /* Begin a new scope.  */ 
 
 void
-do_pushlevel ()
+do_pushlevel (scope_kind sk)
 {
   if (stmts_are_full_exprs_p ())
     {
-      pushlevel (0);
       if (!processing_template_decl)
 	add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
+      begin_scope (sk);
     }
 }
 
@@ -240,7 +244,7 @@ tree
 begin_if_stmt ()
 {
   tree r;
-  do_pushlevel ();
+  do_pushlevel (sk_block);
   r = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   add_stmt (r);
   return r;
@@ -304,7 +308,7 @@ begin_while_stmt ()
   tree r;
   r = build_stmt (WHILE_STMT, NULL_TREE, NULL_TREE);
   add_stmt (r);
-  do_pushlevel ();
+  do_pushlevel (sk_block);
   return r;
 }
 
@@ -395,8 +399,7 @@ finish_return_stmt (expr)
 {
   tree r;
 
-  if (!processing_template_decl)
-    expr = check_return_expr (expr);
+  expr = check_return_expr (expr);
   if (!processing_template_decl)
     {
       if (DECL_DESTRUCTOR_P (current_function_decl))
@@ -425,10 +428,7 @@ begin_for_stmt ()
 		  NULL_TREE, NULL_TREE);
   NEW_FOR_SCOPE_P (r) = flag_new_for_scope > 0;
   if (NEW_FOR_SCOPE_P (r))
-    {
-      do_pushlevel ();
-      note_level_for_for ();
-    }
+    do_pushlevel (sk_for);
   add_stmt (r);
 
   return r;
@@ -443,7 +443,7 @@ finish_for_init_stmt (for_stmt)
 {
   if (last_tree != for_stmt)
     RECHAIN_STMTS (for_stmt, FOR_INIT_STMT (for_stmt));
-  do_pushlevel ();
+  do_pushlevel (sk_block);
 }
 
 /* Finish the COND of a for-statement, which may be given by
@@ -530,7 +530,7 @@ tree
 begin_switch_stmt ()
 {
   tree r;
-  do_pushlevel ();
+  do_pushlevel (sk_block);
   r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   add_stmt (r);
   return r;
@@ -549,7 +549,7 @@ finish_switch_cond (cond, switch_stmt)
       tree index;
 
       /* Convert the condition to an integer or enumeration type.  */
-      cond = build_expr_type_conversion (WANT_INT | WANT_ENUM, cond, 1);
+      cond = build_expr_type_conversion (WANT_INT | WANT_ENUM, cond, true);
       if (cond == NULL_TREE)
 	{
 	  error ("switch quantity not an integer");
@@ -762,8 +762,7 @@ begin_handler ()
   add_stmt (r);
   /* Create a binding level for the eh_info and the exception object
      cleanup.  */
-  do_pushlevel ();
-  note_level_for_catch ();
+  do_pushlevel (sk_catch);
   return r;
 }
 
@@ -830,11 +829,7 @@ begin_compound_stmt (has_no_scope)
   last_expr_type = NULL_TREE;
 
   if (!has_no_scope)
-    {
-      do_pushlevel ();
-      if (is_try)
-      	note_level_for_try ();
-    }
+    do_pushlevel (is_try ? sk_try : sk_block);
   else
     /* Normally, we try hard to keep the BLOCK for a
        statement-expression.  But, if it's a statement-expression with
@@ -943,9 +938,9 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 					&allows_reg,
 					&is_inout))
 	    {
-	      /* By marking the type as erroneous, we will not try to
-		 process this operand again in expand_asm_operands.  */
-	      TREE_TYPE (operand) = error_mark_node;
+	      /* By marking this operand as erroneous, we will not try
+		 to process this operand again in expand_asm_operands.  */
+	      TREE_VALUE (t) = error_mark_node;
 	      continue;
 	    }
 
@@ -968,12 +963,12 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 
 /* Finish a label with the indicated NAME.  */
 
-void
+tree
 finish_label_stmt (name)
      tree name;
 {
   tree decl = define_label (input_filename, lineno, name);
-  add_stmt (build_stmt (LABEL_STMT, decl));
+  return add_stmt (build_stmt (LABEL_STMT, decl));
 }
 
 /* Finish a series of declarations for local labels.  G++ allows users
@@ -1007,88 +1002,6 @@ finish_eh_cleanup (cleanup)
   tree r = build_stmt (CLEANUP_STMT, NULL_TREE, cleanup);
   CLEANUP_EH_ONLY (r) = 1;
   add_stmt (r);
-}
-
-/* Generate the RTL for a RETURN_INIT.  */
-
-static void
-genrtl_named_return_value ()
-{
-  tree decl = DECL_RESULT (current_function_decl);
-
-  /* If this named return value comes in a register, put it in a
-     pseudo-register.  */
-  if (DECL_REGISTER (decl))
-    {
-      /* Note that the mode of the old DECL_RTL may be wider than the
-	 mode of DECL_RESULT, depending on the calling conventions for
-	 the processor.  For example, on the Alpha, a 32-bit integer
-	 is returned in a DImode register -- the DECL_RESULT has
-	 SImode but the DECL_RTL for the DECL_RESULT has DImode.  So,
-	 here, we use the mode the back-end has already assigned for
-	 the return value.  */
-      SET_DECL_RTL (decl, gen_reg_rtx (GET_MODE (DECL_RTL (decl))));
-      if (TREE_ADDRESSABLE (decl))
-	put_var_into_stack (decl);
-    }
-
-  emit_local_var (decl);
-}
-
-/* Bind a name and initialization to the return value of
-   the current function.  */
-
-void
-finish_named_return_value (return_id, init)
-     tree return_id, init;
-{
-  tree decl = DECL_RESULT (current_function_decl);
-
-  /* Give this error as many times as there are occurrences, so that
-     users can use Emacs compilation buffers to find and fix all such
-     places.  */
-  if (pedantic)
-    pedwarn ("ISO C++ does not permit named return values");
-  cp_deprecated ("the named return value extension");
-
-  if (return_id != NULL_TREE)
-    {
-      if (DECL_NAME (decl) == NULL_TREE)
-	DECL_NAME (decl) = return_id;
-      else
-	{
-	  error ("return identifier `%D' already in place", return_id);
-	  return;
-	}
-    }
-
-  /* Can't let this happen for constructors.  */
-  if (DECL_CONSTRUCTOR_P (current_function_decl))
-    {
-      error ("can't redefine default return value for constructors");
-      return;
-    }
-
-  /* If we have a named return value, put that in our scope as well.  */
-  if (DECL_NAME (decl) != NULL_TREE)
-    {
-      /* Let `cp_finish_decl' know that this initializer is ok.  */
-      DECL_INITIAL (decl) = init;
-      if (doing_semantic_analysis_p ())
-	pushdecl (decl);
-      if (!processing_template_decl) 
-	{
-	  cp_finish_decl (decl, init, NULL_TREE, 0);
-	  add_stmt (build_stmt (RETURN_INIT, NULL_TREE, NULL_TREE));
-	}
-      else
-	add_stmt (build_stmt (RETURN_INIT, return_id, init));
-    }
-
-  /* Don't use tree-inlining for functions with named return values.
-     That doesn't work properly because we don't do any translation of
-     the RETURN_INITs when they are copied.  */
-  DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
 /* Begin processing a mem-initializer-list.  */
@@ -1140,6 +1053,58 @@ finish_parenthesized_expr (expr)
        enclosed in parentheses.  */
     PTRMEM_OK_P (expr) = 0;
   return expr;
+}
+
+/* Finish a reference to a non-static data member (DECL) that is not
+   preceded by `.' or `->'.  */
+
+tree
+finish_non_static_data_member (tree decl, tree qualifying_scope)
+{
+  my_friendly_assert (TREE_CODE (decl) == FIELD_DECL, 20020909);
+
+  if (current_class_ptr == NULL_TREE)
+    {
+      if (current_function_decl 
+	  && DECL_STATIC_FUNCTION_P (current_function_decl))
+	cp_error_at ("invalid use of member `%D' in static member function",
+		     decl);
+      else
+	cp_error_at ("invalid use of non-static data member `%D'", decl);
+      error ("from this location");
+
+      return error_mark_node;
+    }
+  TREE_USED (current_class_ptr) = 1;
+  if (processing_template_decl)
+    return build_min_nt (COMPONENT_REF, current_class_ref, DECL_NAME (decl));
+  else
+    {
+      tree access_type = current_class_type;
+      tree object = current_class_ref;
+
+      while (!DERIVED_FROM_P (context_for_name_lookup (decl), access_type))
+	{
+	  access_type = TYPE_CONTEXT (access_type);
+	  while (DECL_P (access_type))
+	    access_type = DECL_CONTEXT (access_type);
+	}
+
+      enforce_access (access_type, decl);
+
+      /* If the data member was named `C::M', convert `*this' to `C'
+	 first.  */
+      if (qualifying_scope)
+	{
+	  tree binfo = NULL_TREE;
+	  object = build_scoped_ref (object, qualifying_scope,
+				     &binfo);
+	}
+
+      return build_class_member_access_expr (object, decl,
+					     /*access_path=*/NULL_TREE,
+					     /*preserve_reference=*/false);
+    }
 }
 
 /* Begin a statement-expression.  The value returned must be passed to
@@ -1247,6 +1212,26 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
   my_friendly_assert (!args || TREE_CODE (args) == TREE_LIST,
 		      20020712);
 
+  /* A reference to a member function will appear as an overloaded
+     function (rather than a BASELINK) if an unqualified name was used
+     to refer to it.  */
+  if (!BASELINK_P (fn) && is_overloaded_fn (fn))
+    {
+      tree f;
+
+      if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+	f = get_first_fn (TREE_OPERAND (fn, 0));
+      else
+	f = get_first_fn (fn);
+      if (DECL_FUNCTION_MEMBER_P (f))
+	{
+	  tree type = currently_open_derived_class (DECL_CONTEXT (f));
+	  fn = build_baselink (TYPE_BINFO (type),
+			       TYPE_BINFO (type),
+			       fn, /*optype=*/NULL_TREE);
+	}
+    }
+
   if (BASELINK_P (fn))
     {
       tree object;
@@ -1292,6 +1277,20 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
   else if (is_overloaded_fn (fn))
     /* A call to a namespace-scope function.  */
     return build_new_function_call (fn, args);
+  else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
+    {
+      tree result;
+
+      if (args)
+	error ("arguments to destructor are not allowed");
+      /* Mark the pseudo-destructor call as having side-effects so
+	 that we do not issue warnings about its use.  */
+      result = build1 (NOP_EXPR,
+		       void_type_node,
+		       TREE_OPERAND (fn, 0));
+      TREE_SIDE_EFFECTS (result) = 1;
+      return result;
+    }
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
     {
       /* If the "function" is really an object of class type, it might
@@ -1382,6 +1381,11 @@ finish_object_call_expr (fn, object, args)
 	}
     }
   
+  if (processing_template_decl)
+    return build_nt (CALL_EXPR,
+		     build_nt (COMPONENT_REF, object, fn),
+		     args);
+
   if (name_p (fn))
     return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
   else
@@ -1401,29 +1405,38 @@ finish_qualified_object_call_expr (fn, object, args)
 				   TREE_OPERAND (fn, 1), args);
 }
 
-/* Finish a pseudo-destructor call expression of OBJECT, with SCOPE
-   being the scope, if any, of DESTRUCTOR.  Returns an expression for
-   the call.  */
+/* Finish a pseudo-destructor expression.  If SCOPE is NULL, the
+   expression was of the form `OBJECT.~DESTRUCTOR' where DESTRUCTOR is
+   the TYPE for the type given.  If SCOPE is non-NULL, the expression
+   was of the form `OBJECT.SCOPE::~DESTRUCTOR'.  */
 
 tree 
-finish_pseudo_destructor_call_expr (object, scope, destructor)
+finish_pseudo_destructor_expr (object, scope, destructor)
      tree object;
      tree scope;
      tree destructor;
 {
-  if (processing_template_decl)
-    return build_min_nt (PSEUDO_DTOR_EXPR, object, scope, destructor);
+  if (destructor == error_mark_node)
+    return error_mark_node;
 
-  if (scope && scope != destructor)
-    error ("destructor specifier `%T::~%T()' must have matching names", 
-	      scope, destructor);
+  my_friendly_assert (TYPE_P (destructor), 20010905);
 
-  if ((scope == NULL_TREE || IDENTIFIER_GLOBAL_VALUE (destructor))
-      && (TREE_CODE (TREE_TYPE (object)) !=
-	  TREE_CODE (TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (destructor)))))
-    error ("`%E' is not of type `%T'", object, destructor);
+  if (!processing_template_decl)
+    {
+      if (scope == error_mark_node)
+	{
+	  error ("invalid qualifying scope in pseudo-destructor name");
+	  return error_mark_node;
+	}
+      
+      if (!same_type_p (TREE_TYPE (object), destructor))
+	{
+	  error ("`%E' is not of type `%T'", object, destructor);
+	  return error_mark_node;
+	}
+    }
 
-  return cp_convert (void_type_node, object);
+  return build (PSEUDO_DTOR_EXPR, void_type_node, object, scope, destructor);
 }
 
 /* Finish an expression of the form CODE EXPR.  */
@@ -1446,18 +1459,38 @@ finish_unary_op_expr (code, expr)
   return result;
 }
 
-/* Finish an id-expression.  */
+/* Finish a compound-literal expression.  TYPE is the type to which
+   the INITIALIZER_LIST is being cast.  */
 
 tree
-finish_id_expr (expr)
-     tree expr;
+finish_compound_literal (type, initializer_list)
+     tree type;
+     tree initializer_list;
 {
-  if (TREE_CODE (expr) == IDENTIFIER_NODE)
-    expr = do_identifier (expr, 1, NULL_TREE);
+  tree compound_literal;
 
-  if (TREE_TYPE (expr) == error_mark_node)
-    expr = error_mark_node;
-  return expr;
+  /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
+  compound_literal = build_nt (CONSTRUCTOR, NULL_TREE,
+			       initializer_list);
+  /* Mark it as a compound-literal.  */
+  TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+  if (processing_template_decl)
+    TREE_TYPE (compound_literal) = type;
+  else
+    {
+      /* Check the initialization.  */
+      compound_literal = digest_init (type, compound_literal, NULL);
+      /* If the TYPE was an array type with an unknown bound, then we can
+	 figure out the dimension now.  For example, something like:
+
+	   `(int []) { 2, 3 }'
+
+	 implies that the array has two elements.  */
+      if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+	complete_array_type (type, compound_literal, 1);
+    }
+
+  return compound_literal;
 }
 
 /* Return the declaration for the function-name variable indicated by
@@ -1918,24 +1951,10 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 	note_got_semicolon (t);
     }
 
-  if (! semi)
-    check_for_missing_semicolon (t); 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-  if (current_scope () == current_function_decl)
-    do_pending_defargs ();
 
   return t;
-}
-
-/* Finish processing the default argument expressions cached during
-   the processing of a class definition.  */
-
-void
-begin_inline_definitions ()
-{
-  if (current_scope () == current_function_decl)
-    do_pending_inlines ();
 }
 
 /* Finish processing the declaration of a member class template
@@ -2120,9 +2139,6 @@ tree
 finish_sizeof (t)
      tree t;
 {
-  if (processing_template_decl)
-    return build_min_nt (SIZEOF_EXPR, t);
-
   return TYPE_P (t) ? cxx_sizeof (t) : expr_sizeof (t);
 }
 
@@ -2134,7 +2150,7 @@ finish_alignof (t)
      tree t;
 {
   if (processing_template_decl)
-    return build_min_nt (ALIGNOF_EXPR, t);
+    return build_min (ALIGNOF_EXPR, size_type_node, t);
 
   return TYPE_P (t) ? cxx_alignof (t) : c_alignof_expr (t);
 }
@@ -2158,10 +2174,6 @@ cp_expand_stmt (t)
 
     case HANDLER:
       genrtl_handler (t);
-      break;
-
-    case RETURN_INIT:
-      genrtl_named_return_value ();
       break;
 
     case USING_STMT:
@@ -2188,7 +2200,7 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
   tree args;
   tree slot;
   tree type;
-  int copy_from_buffer_p;
+  enum style_t { ctor, arg, pcc } style;
 
   aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
@@ -2210,48 +2222,61 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
   args = TREE_OPERAND (aggr_init_expr, 1);
   slot = TREE_OPERAND (aggr_init_expr, 2);
   type = TREE_TYPE (aggr_init_expr);
+
   if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
+    style = ctor;
+#ifdef PCC_STATIC_STRUCT_RETURN
+  else if (1)
+    style = pcc;
+#endif
+  else if (TREE_ADDRESSABLE (type))
+    style = arg;
+  else
+    /* We shouldn't build an AGGR_INIT_EXPR if we don't need any special
+       handling.  See build_cplus_new.  */
+    abort ();
+
+  if (style == ctor || style == arg)
     {
-      /* Replace the first argument with the address of the third
-	 argument to the AGGR_INIT_EXPR.  */
+      /* Pass the address of the slot.  If this is a constructor, we
+	 replace the first argument; otherwise, we tack on a new one.  */
+      if (style == ctor)
+	args = TREE_CHAIN (args);
+
       cxx_mark_addressable (slot);
       args = tree_cons (NULL_TREE, 
 			build1 (ADDR_EXPR, 
 				build_pointer_type (TREE_TYPE (slot)),
 				slot),
-			TREE_CHAIN (args));
+			args);
     }
+
   call_expr = build (CALL_EXPR, 
 		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
 		     fn, args, NULL_TREE);
   TREE_SIDE_EFFECTS (call_expr) = 1;
 
-  /* If we're using the non-reentrant PCC calling convention, then we
-     need to copy the returned value out of the static buffer into the
-     SLOT.  */
-  copy_from_buffer_p = 0;
-#ifdef PCC_STATIC_STRUCT_RETURN  
-  if (!AGGR_INIT_VIA_CTOR_P (aggr_init_expr) && aggregate_value_p (type))
+  if (style == arg)
+    /* Tell the backend that we've added our return slot to the argument
+       list.  */
+    CALL_EXPR_HAS_RETURN_SLOT_ADDR (call_expr) = 1;
+  else if (style == pcc)
     {
+      /* If we're using the non-reentrant PCC calling convention, then we
+	 need to copy the returned value out of the static buffer into the
+	 SLOT.  */
       int old_ac = flag_access_control;
 
       flag_access_control = 0;
       call_expr = build_aggr_init (slot, call_expr,
 				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
       flag_access_control = old_ac;
-      copy_from_buffer_p = 1;
     }
-#endif
 
-  /* If this AGGR_INIT_EXPR indicates the value returned by a
-     function, then we want to use the value of the initialized
-     location as the result.  */
-  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr) || copy_from_buffer_p)
-    {
-      call_expr = build (COMPOUND_EXPR, type,
-			 call_expr, slot);
-      TREE_SIDE_EFFECTS (call_expr) = 1;
-    }
+  /* We want to use the value of the initialized location as the
+     result.  */
+  call_expr = build (COMPOUND_EXPR, type,
+		     call_expr, slot);
 
   /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
   TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
@@ -2275,8 +2300,19 @@ emit_associated_thunks (fn)
   if (DECL_VIRTUAL_P (fn))
     {
       tree thunk;
+      
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
-	use_thunk (thunk, /*emit_p=*/1);
+	{
+	  use_thunk (thunk, /*emit_p=*/1);
+	  if (DECL_RESULT_THUNK_P (thunk))
+	    {
+	      tree probe;
+
+	      for (probe = DECL_THUNKS (thunk);
+		   probe; probe = TREE_CHAIN (probe))
+		use_thunk (probe, /*emit_p=*/1);
+	    }
+	}
     }
 }
 

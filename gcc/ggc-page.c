@@ -20,6 +20,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -28,6 +30,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "params.h"
+#ifdef ENABLE_VALGRIND_CHECKING
+#include <valgrind.h>
+#else
+/* Avoid #ifdef:s when we can help it.  */
+#define VALGRIND_DISCARD(x)
+#endif
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -87,23 +96,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    and are considered first when new pages are required; they are
    deallocated at the start of the next collection if they haven't
    been recycled by then.  */
-
-
-/* Define GGC_POISON to poison memory marked unused by the collector.  */
-#undef GGC_POISON
-
-/* Define GGC_ALWAYS_COLLECT to perform collection every time
-   ggc_collect is invoked.  Otherwise, collection is performed only
-   when a significant amount of memory has been allocated since the
-   last collection.  */
-#undef GGC_ALWAYS_COLLECT
-
-#ifdef ENABLE_GC_CHECKING
-#define GGC_POISON
-#endif
-#ifdef ENABLE_GC_ALWAYS_COLLECT
-#define GGC_ALWAYS_COLLECT
-#endif
 
 /* Define GGC_DEBUG_LEVEL to print debugging information.
      0: No debugging output.
@@ -364,16 +356,6 @@ static struct globals
 #define BITMAP_SIZE(Num_objects) \
   (CEIL ((Num_objects), HOST_BITS_PER_LONG) * sizeof(long))
 
-/* Skip garbage collection if the current allocation is not at least
-   this factor times the allocation at the end of the last collection.
-   In other words, total allocation must expand by (this factor minus
-   one) before collection is performed.  */
-#define GGC_MIN_EXPAND_FOR_GC (1.3)
-
-/* Bound `allocated_last_gc' to 4MB, to prevent the memory expansion
-   test from triggering too often when the heap is small.  */
-#define GGC_MIN_LAST_ALLOCATED (4 * 1024 * 1024)
-
 /* Allocate pages in chunks of this size, to throttle calls to memory
    allocation routines.  The first page is used, the rest go onto the
    free list.  This cannot be larger than HOST_BITS_PER_INT for the
@@ -399,7 +381,7 @@ static void sweep_pages PARAMS ((void));
 static void ggc_recalculate_in_use_p PARAMS ((page_entry *));
 static void compute_inverse PARAMS ((unsigned));
 
-#ifdef GGC_POISON
+#ifdef ENABLE_GC_CHECKING
 static void poison_pages PARAMS ((void));
 #endif
 
@@ -549,6 +531,11 @@ alloc_anon (pref, size)
 
   /* Remember that we allocated this memory.  */
   G.bytes_mapped += size;
+
+  /* Pretend we don't have access to the allocated pages.  We'll enable
+     access to smaller pieces of the area in ggc_alloc.  Discard the
+     handle to avoid handle leak.  */
+  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (page, size));
 
   return page;
 }
@@ -776,6 +763,10 @@ free_page (entry)
 	     "Deallocating page at %p, data %p-%p\n", (PTR) entry,
 	     entry->page, entry->page + entry->bytes - 1);
 
+  /* Mark the page as inaccessible.  Discard the handle to avoid handle
+     leak.  */
+  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (entry->page, entry->bytes));
+
   set_page_table_entry (entry->page, NULL);
 
 #ifdef USING_MALLOC_PAGE_GROUPS
@@ -968,11 +959,27 @@ ggc_alloc (size)
   /* Calculate the object's address.  */
   result = entry->page + object_offset;
 
-#ifdef GGC_POISON
+#ifdef ENABLE_GC_CHECKING
+  /* Keep poisoning-by-writing-0xaf the object, in an attempt to keep the
+     exact same semantics in presence of memory bugs, regardless of
+     ENABLE_VALGRIND_CHECKING.  We override this request below.  Drop the
+     handle to avoid handle leak.  */
+  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (result, OBJECT_SIZE (order)));
+
   /* `Poison' the entire allocated object, including any padding at
      the end.  */
   memset (result, 0xaf, OBJECT_SIZE (order));
+
+  /* Make the bytes after the end of the object unaccessible.  Discard the
+     handle to avoid handle leak.  */
+  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS ((char *) result + size,
+					    OBJECT_SIZE (order) - size));
 #endif
+
+  /* Tell Valgrind that the memory is there, but its content isn't
+     defined.  The bytes at the end of the object are still marked
+     unaccessible.  */
+  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (result, size));
 
   /* Keep track of how many bytes are being allocated.  This
      information is used in deciding when to collect.  */
@@ -1128,8 +1135,6 @@ init_ggc ()
 #else
   G.debug_file = stdout;
 #endif
-
-  G.allocated_last_gc = GGC_MIN_LAST_ALLOCATED;
 
 #ifdef USING_MMAP
   /* StunOS has an amazing off-by-one error for the first mmap allocation
@@ -1430,7 +1435,7 @@ sweep_pages ()
     }
 }
 
-#ifdef GGC_POISON
+#ifdef ENABLE_GC_CHECKING
 /* Clobber all free objects.  */
 
 static inline void
@@ -1461,7 +1466,19 @@ poison_pages ()
 	      word = i / HOST_BITS_PER_LONG;
 	      bit = i % HOST_BITS_PER_LONG;
 	      if (((p->in_use_p[word] >> bit) & 1) == 0)
-		memset (p->page + i * size, 0xa5, size);
+		{
+		  char *object = p->page + i * size;
+
+		  /* Keep poison-by-write when we expect to use Valgrind,
+		     so the exact same memory semantics is kept, in case
+		     there are memory errors.  We override this request
+		     below.  */
+		  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (object, size));
+		  memset (object, 0xa5, size);
+
+		  /* Drop the handle to avoid handle leak.  */
+		  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (object, size));
+		}
 	    }
 	}
     }
@@ -1476,10 +1493,13 @@ ggc_collect ()
   /* Avoid frequent unnecessary work by skipping collection if the
      total allocations haven't expanded much since the last
      collection.  */
-#ifndef GGC_ALWAYS_COLLECT
-  if (G.allocated < GGC_MIN_EXPAND_FOR_GC * G.allocated_last_gc)
+  size_t allocated_last_gc =
+    MAX (G.allocated_last_gc, (size_t)PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
+
+  size_t min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
+
+  if (G.allocated < allocated_last_gc + min_expand)
     return;
-#endif
 
   timevar_push (TV_GC);
   if (!quiet_flag)
@@ -1496,15 +1516,13 @@ ggc_collect ()
   clear_marks ();
   ggc_mark_roots ();
 
-#ifdef GGC_POISON
+#ifdef ENABLE_GC_CHECKING
   poison_pages ();
 #endif
 
   sweep_pages ();
 
   G.allocated_last_gc = G.allocated;
-  if (G.allocated_last_gc < GGC_MIN_LAST_ALLOCATED)
-    G.allocated_last_gc = GGC_MIN_LAST_ALLOCATED;
 
   timevar_pop (TV_GC);
 

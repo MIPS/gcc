@@ -1,30 +1,32 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -503,7 +505,7 @@ do_allocate_exception (type)
   else
     {
       /* Declare void *__cxa_allocate_exception(size_t).  */
-      tree tmp = tree_cons (NULL_TREE, c_size_type_node, void_list_node);
+      tree tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
     }
   
@@ -601,28 +603,12 @@ stabilize_throw_expr (exp, initp)
 	{
 	  tree arg = TREE_VALUE (args);
 	  tree arg_init_expr;
-	  if (TREE_CODE (arg) == ADDR_EXPR
-	      && ADDR_IS_INVISIREF (arg))
-	    {
-	      /* A sub-TARGET_EXPR.  Recurse; we can't wrap the actual call
-		 without introducing an extra copy.  */
-	      tree sub = TREE_OPERAND (arg, 0);
-	      if (TREE_CODE (sub) != TARGET_EXPR)
-		abort ();
-	      sub = stabilize_throw_expr (sub, &arg_init_expr);
-	      TREE_OPERAND (arg, 0) = sub;
-	      if (TREE_SIDE_EFFECTS (arg_init_expr))
-		init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-				   arg_init_expr);
-	    }
-	  else
-	    {
-	      arg = stabilize_expr (arg, &arg_init_expr);
 
-	      if (TREE_SIDE_EFFECTS (arg_init_expr))
-		init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-				   arg_init_expr);
-	    }
+	  arg = stabilize_expr (arg, &arg_init_expr);
+
+	  if (TREE_SIDE_EFFECTS (arg_init_expr))
+	    init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
+			       arg_init_expr);
 	  *p = tree_cons (NULL_TREE, arg, NULL_TREE);
 	  p = &TREE_CHAIN (*p);
 	}

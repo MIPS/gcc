@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -1334,7 +1334,7 @@ CUMULATIVE_ARGS;
 
 #ifndef REG_OK_STRICT
 
-/* Nonzero if X is a hard or pseudo reg that can be used as an base.  */
+/* Nonzero if X is a hard or pseudo reg that can be used as a base.  */
 
 #define REG_OK_FOR_BASE_P(X) IS_ADDR_OR_PSEUDO_REG(X)
 
@@ -1651,17 +1651,11 @@ fini_section ()							\
 /* The TI assembler wants to have hex numbers this way.  */
 
 #undef HOST_WIDE_INT_PRINT_HEX
-#ifndef HOST_WIDE_INT_PRINT_HEX
-# if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-#  define HOST_WIDE_INT_PRINT_HEX "0%xh"
-# else
-#  if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-#   define HOST_WIDE_INT_PRINT_HEX "0%lxh"
-#  else
-#   define HOST_WIDE_INT_PRINT_HEX "0%llxh"
-#  endif
-# endif
-#endif /* ! HOST_WIDE_INT_PRINT_HEX */
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+# define HOST_WIDE_INT_PRINT_HEX "0%lxh"
+#else
+# define HOST_WIDE_INT_PRINT_HEX "0%llxh"
+#endif
 
 /* Overall Framework of an Assembler File.  */
 /* We need to have a data section we can identify so that we can set
@@ -1843,18 +1837,17 @@ do {						\
 #define PRINT_OPERAND_ADDRESS(FILE, X) c4x_print_operand_address(FILE, X)
 
 /* C4x specific pragmas.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE) do {				\
-  cpp_register_pragma (PFILE, 0, "CODE_SECTION", c4x_pr_CODE_SECTION);	\
-  cpp_register_pragma (PFILE, 0, "DATA_SECTION", c4x_pr_DATA_SECTION);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_CANNOT_INLINE", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_EXT_CALLED", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_IS_PURE", c4x_pr_FUNC_IS_PURE);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_IS_SYSTEM", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_NEVER_RETURNS",			\
-		       c4x_pr_FUNC_NEVER_RETURNS);			\
-  cpp_register_pragma (PFILE, 0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_NO_IND_ASG", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "INTERRUPT", c4x_pr_INTERRUPT);	\
+#define REGISTER_TARGET_PRAGMAS() do {					  \
+  c_register_pragma (0, "CODE_SECTION", c4x_pr_CODE_SECTION);		  \
+  c_register_pragma (0, "DATA_SECTION", c4x_pr_DATA_SECTION);		  \
+  c_register_pragma (0, "FUNC_CANNOT_INLINE", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_EXT_CALLED", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_IS_PURE", c4x_pr_FUNC_IS_PURE);		  \
+  c_register_pragma (0, "FUNC_IS_SYSTEM", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_NEVER_RETURNS", c4x_pr_FUNC_NEVER_RETURNS); \
+  c_register_pragma (0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_NO_IND_ASG", c4x_pr_ignored);		  \
+  c_register_pragma (0, "INTERRUPT", c4x_pr_INTERRUPT);			  \
 } while (0)
 
 /* Assembler Commands for Alignment.  */

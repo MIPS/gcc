@@ -42,9 +42,13 @@ import java.awt.Component;
 import java.awt.datatransfer.FlavorMap;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.Serializable;
+import java.util.EventListener;
 import java.util.TooManyListenersException;
 
+/** STUB CLASS ONLY */
 public class DropTarget
+  implements DropTargetListener, EventListener, Serializable
 {
   protected static class DropTargetAutoScroller
     implements ActionListener
@@ -66,6 +70,9 @@ public class DropTarget
     }
   }
   
+  // FIXME: check the correctness of default value.
+  private boolean isActive = false;
+    
   /**
    * FIXME
    *
@@ -132,11 +139,12 @@ public class DropTarget
 
   public void setActive(boolean isActive)
   {
+    this.isActive = isActive;
   }
 
   public boolean isActive()
   {
-    return false;
+    return this.isActive;
   }
 
   /**

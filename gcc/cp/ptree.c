@@ -1,36 +1,35 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 
 void
-cxx_print_decl (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+cxx_print_decl (FILE *file, tree node, int indent)
 {
   if (TREE_CODE (node) == FIELD_DECL)
     {
@@ -66,10 +65,7 @@ cxx_print_decl (file, node, indent)
 }
 
 void
-cxx_print_type (file, node, indent)
-     FILE *file;
-     register tree node;
-     int indent;
+cxx_print_type (FILE *file, tree node, int indent)
 {
   switch (TREE_CODE (node))
     {
@@ -158,10 +154,7 @@ cxx_print_type (file, node, indent)
 }
 
 void
-cxx_print_identifier (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+cxx_print_identifier (FILE *file, tree node, int indent)
 {
   print_node (file, "bindings", IDENTIFIER_NAMESPACE_BINDINGS (node), indent + 4);
   print_node (file, "class", IDENTIFIER_CLASS_VALUE (node), indent + 4);
@@ -173,10 +166,7 @@ cxx_print_identifier (file, node, indent)
 }
 
 void
-cxx_print_xnode (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+cxx_print_xnode (FILE *file, tree node, int indent)
 {
   switch (TREE_CODE (node))
     {

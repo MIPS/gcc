@@ -4567,7 +4567,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    jsr $26,(%0),0\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*
-   bsr $26,$%0..ng
+   bsr $26,%0\t\t!samegp
    ldq $27,%0($29)\t\t!literal!%#\;jsr $26,($27),%0\t\t!lituse_jsr!%#\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*"
   [(set_attr "type" "jsr")
    (set_attr "length" "12,*,16")])
@@ -4580,7 +4580,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+   && ! samegp_function_operand (operands[0], Pmode)
    && peep2_regno_dead_p (1, 29)"
   [(parallel [(call (mem:DI (match_dup 2))
 		    (match_dup 1))
@@ -4610,7 +4610,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+   && ! samegp_function_operand (operands[0], Pmode)
    && ! peep2_regno_dead_p (1, 29)"
   [(parallel [(call (mem:DI (match_dup 2))
 		    (match_dup 1))
@@ -4688,7 +4688,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
-   br $31,$%0..ng
+   br $31,%0\t\t!samegp
    ldq $27,%0($29)\t\t!literal!%#\;jmp $31,($27),%0\t\t!lituse_jsr!%#"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,8")])
@@ -4727,20 +4727,19 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (reg:DI 26))
    (clobber (reg:DI 27))]
   "TARGET_ABI_OPEN_VMS"
-  "*
 {
   switch (which_alternative)
     {
     case 0:
-   	return \"mov %2,$27\;jsr $26,0\;ldq $27,0($29)\";
+   	return "mov %2,$27\;jsr $26,0\;ldq $27,0($29)";
     case 1:
 	operands [2] = alpha_use_linkage (operands [0], cfun->decl, 1, 0);
 	operands [3] = alpha_use_linkage (operands [0], cfun->decl, 0, 0);
-   	return \"ldq $26,%3\;ldq $27,%2\;jsr $26,%0\;ldq $27,0($29)\";
+   	return "ldq $26,%3\;ldq $27,%2\;jsr $26,%0\;ldq $27,0($29)";
     default:
       abort();
     }
-}"
+}
   [(set_attr "type" "jsr")
    (set_attr "length" "12,16")])
 
@@ -6460,6 +6459,56 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     FAIL;
 })
 
+(define_expand "movstrdi"
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
+	      (use (match_operand:DI 2 "immediate_operand" ""))
+	      (use (match_operand:DI 3 "immediate_operand" ""))
+	      (use (match_dup 4))
+	      (clobber (reg:DI 25))
+	      (clobber (reg:DI 16))
+	      (clobber (reg:DI 17))
+	      (clobber (reg:DI 18))
+	      (clobber (reg:DI 19))
+	      (clobber (reg:DI 20))
+	      (clobber (reg:DI 26))
+	      (clobber (reg:DI 27))])]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands[4] = gen_rtx_SYMBOL_REF (Pmode, "OTS$MOVE");
+  alpha_need_linkage (XSTR (operands[4], 0), 0);
+})
+
+(define_insn "*movstrdi_1"
+  [(set (match_operand:BLK 0 "memory_operand" "=m,=m")
+	(match_operand:BLK 1 "memory_operand" "m,m"))
+   (use (match_operand:DI 2 "nonmemory_operand" "r,i"))
+   (use (match_operand:DI 3 "immediate_operand" ""))
+   (use (match_operand:DI 4 "call_operand" "i,i"))
+   (clobber (reg:DI 25))
+   (clobber (reg:DI 16))
+   (clobber (reg:DI 17))
+   (clobber (reg:DI 18))
+   (clobber (reg:DI 19))
+   (clobber (reg:DI 20))
+   (clobber (reg:DI 26))
+   (clobber (reg:DI 27))]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands [5] = alpha_use_linkage (operands [4], cfun->decl, 0, 1);
+  switch (which_alternative)
+    {
+    case 0:
+	return "lda $16,%0\;bis $31,%2,$17\;lda $18,%1\;ldq $26,%5\;lda $25,3($31)\;jsr $26,%4\;ldq $27,0($29)";
+    case 1:
+	return "lda $16,%0\;lda $17,%2($31)\;lda $18,%1\;ldq $26,%5\;lda $25,3($31)\;jsr $26,%4\;ldq $27,0($29)";
+    default:
+      abort();
+    }
+}
+  [(set_attr "type" "multi")
+   (set_attr "length" "28")])
+
 (define_expand "clrstrqi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
@@ -6472,6 +6521,51 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   else
     FAIL;
 })
+
+(define_expand "clrstrdi"
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (const_int 0))
+	      (use (match_operand:DI 1 "immediate_operand" ""))
+	      (use (match_operand:DI 2 "immediate_operand" ""))
+	      (use (match_dup 3))
+	      (clobber (reg:DI 25))
+	      (clobber (reg:DI 16))
+	      (clobber (reg:DI 17))
+	      (clobber (reg:DI 26))
+	      (clobber (reg:DI 27))])]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands[3] = gen_rtx_SYMBOL_REF (Pmode, "OTS$ZERO");
+  alpha_need_linkage (XSTR (operands[3], 0), 0);
+})
+
+(define_insn "*clrstrdi_1"
+  [(set (match_operand:BLK 0 "memory_operand" "=m,=m")
+		   (const_int 0))
+   (use (match_operand:DI 1 "nonmemory_operand" "r,i"))
+   (use (match_operand:DI 2 "immediate_operand" ""))
+   (use (match_operand:DI 3 "call_operand" "i,i"))
+   (clobber (reg:DI 25))
+   (clobber (reg:DI 16))
+   (clobber (reg:DI 17))
+   (clobber (reg:DI 26))
+   (clobber (reg:DI 27))]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands [4] = alpha_use_linkage (operands [3], cfun->decl, 0, 1);
+  switch (which_alternative)
+    {
+    case 0:
+	return "lda $16,%0\;bis $31,%1,$17\;ldq $26,%4\;lda $25,2($31)\;jsr $26,%3\;ldq $27,0($29)";
+    case 1:
+	return "lda $16,%0\;lda $17,%1($31)\;ldq $26,%4\;lda $25,2($31)\;jsr $26,%3\;ldq $27,0($29)";
+    default:
+      abort();
+    }
+}
+  [(set_attr "type" "multi")
+   (set_attr "length" "24")])
+
 
 ;; Subroutine of stack space allocation.  Perform a stack probe.
 (define_expand "probe_stack"
@@ -7685,7 +7779,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    jsr $26,(%1),0\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*
-   bsr $26,$%1..ng
+   bsr $26,%1\t\t!samegp
    ldq $27,%1($29)\t\t!literal!%#\;jsr $26,($27),0\t\t!lituse_jsr!%#\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*"
   [(set_attr "type" "jsr")
    (set_attr "length" "12,*,16")])
@@ -7699,7 +7793,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[1], Pmode)
+   && ! samegp_function_operand (operands[1], Pmode)
    && peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
@@ -7731,7 +7825,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[1], Pmode)
+   && ! samegp_function_operand (operands[1], Pmode)
    && ! peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
@@ -7876,7 +7970,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
-   br $31,$%1..ng
+   br $31,%1\t\t!samegp
    ldq $27,%1($29)\t\t!literal!%#\;jmp $31,($27),%1\t\t!lituse_jsr!%#"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,8")])
@@ -7918,20 +8012,19 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (reg:DI 26))
    (clobber (reg:DI 27))]
   "TARGET_ABI_OPEN_VMS"
-  "*
 {
   switch (which_alternative)
     {
     case 0:
-   	return \"mov %3,$27\;jsr $26,0\;ldq $27,0($29)\";
+   	return "mov %3,$27\;jsr $26,0\;ldq $27,0($29)";
     case 1:
 	operands [3] = alpha_use_linkage (operands [1], cfun->decl, 1, 0);
 	operands [4] = alpha_use_linkage (operands [1], cfun->decl, 0, 0);
-   	return \"ldq $26,%4\;ldq $27,%3\;jsr $26,%1\;ldq $27,0($29)\";
+   	return "ldq $26,%4\;ldq $27,%3\;jsr $26,%1\;ldq $27,0($29)";
     default:
       abort();
     }
-}"
+}
   [(set_attr "type" "jsr")
    (set_attr "length" "12,16")])
 

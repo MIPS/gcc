@@ -1,21 +1,21 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -27,6 +27,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "input.h"
 #include "rtl.h"
@@ -559,8 +561,8 @@ java_init (filename)
 		error ("couldn't determine target name for dependency tracking");
 	      else
 		{
-		  char *buf = (char *) xmalloc (dot - filename +
-						3 + sizeof (TARGET_OBJECT_SUFFIX));
+		  char *buf = xmalloc (dot - filename +
+				       3 + sizeof (TARGET_OBJECT_SUFFIX));
 		  strncpy (buf, filename, dot - filename);
 
 		  /* If emitting class files, we might have multiple
@@ -633,12 +635,12 @@ put_decl_string (str, len)
       if (decl_buf == NULL)
 	{
 	  decl_buflen = len + 100;
-	  decl_buf = (char *) xmalloc (decl_buflen);
+	  decl_buf = xmalloc (decl_buflen);
 	}
       else
 	{
 	  decl_buflen *= 2;
-	  decl_buf = (char *) xrealloc (decl_buf, decl_buflen);
+	  decl_buf = xrealloc (decl_buf, decl_buflen);
 	}
     }
   strcpy (decl_buf + decl_bufpos, str);

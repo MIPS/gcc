@@ -2,25 +2,27 @@
    Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "c-common.h"
@@ -28,11 +30,11 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
-static bool ok_to_generate_alias_set_for_type PARAMS ((tree));
-static bool cxx_warn_unused_global_decl PARAMS ((tree));
-static tree cp_expr_size PARAMS ((tree));
-static bool cp_var_mod_type_p PARAMS ((tree));
+static HOST_WIDE_INT cxx_get_alias_set (tree);
+static bool ok_to_generate_alias_set_for_type (tree);
+static bool cxx_warn_unused_global_decl (tree);
+static tree cp_expr_size (tree);
+static bool cp_var_mod_type_p (tree);
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -122,9 +124,6 @@ static bool cp_var_mod_type_p PARAMS ((tree));
 #undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
   cp_copy_res_decl_for_inlining
-#undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
-#define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
-  cp_convert_parm_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
@@ -205,8 +204,7 @@ const char *const tree_code_name[] = {
    Return TRUE if T safe for aliasing FALSE otherwise.  */
 
 static bool
-ok_to_generate_alias_set_for_type (t)
-     tree t;
+ok_to_generate_alias_set_for_type (tree t)
 {
   if (TYPE_PTRMEMFUNC_P (t))
     return true;
@@ -259,8 +257,7 @@ ok_to_generate_alias_set_for_type (t)
 /* Special routine to get the alias set for C++.  */
 
 static HOST_WIDE_INT
-cxx_get_alias_set (t)
-     tree t;
+cxx_get_alias_set (tree t)
 {
   /* It's not yet safe to use alias sets for classes in C++.  */
   if (!ok_to_generate_alias_set_for_type(t))
@@ -272,8 +269,7 @@ cxx_get_alias_set (t)
 /* Called from check_global_declarations.  */
 
 static bool
-cxx_warn_unused_global_decl (decl)
-     tree decl;
+cxx_warn_unused_global_decl (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
@@ -292,8 +288,7 @@ cxx_warn_unused_global_decl (decl)
    might have allocated something there.  */
 
 static tree
-cp_expr_size (exp)
-     tree exp;
+cp_expr_size (tree exp)
 {
   if (CLASS_TYPE_P (TREE_TYPE (exp)))
     {

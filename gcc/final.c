@@ -46,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "tree.h"
 #include "rtl.h"
@@ -675,7 +677,8 @@ compute_alignments ()
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
 
-      if (GET_CODE (label) != CODE_LABEL)
+      if (GET_CODE (label) != CODE_LABEL
+	  || probably_never_executed_bb_p (bb))
 	continue;
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
@@ -712,8 +715,9 @@ compute_alignments ()
 	    }
 	}
       /* In case block is frequent and reached mostly by non-fallthru edge,
-	 align it.  It is most likely an first block of loop.  */
+	 align it.  It is most likely a first block of loop.  */
       if (has_fallthru
+	  && maybe_hot_bb_p (bb)
 	  && branch_frequency + fallthru_frequency > BB_FREQ_MAX / 10
 	  && branch_frequency > fallthru_frequency * 2)
 	{
@@ -3708,7 +3712,7 @@ leaf_function_p ()
   return 1;
 }
 
-/* Return 1 if branch is an forward branch.
+/* Return 1 if branch is a forward branch.
    Uses insn_shuid array, so it works only in the final pass.  May be used by
    output templates to customary add branch prediction hints.
  */

@@ -20,6 +20,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "cpplib.h"
 #include "cpphash.h"
 
@@ -631,7 +633,7 @@ already on the stack.
 The remaining cases are '(' and ')'.  We handle '(' by skipping the
 reduction phase completely.  ')' is given lower priority than
 everything else, including '(', effectively forcing a reduction of the
-parenthesised expression.  If there is a matching '(', the routine
+parenthesized expression.  If there is a matching '(', the routine
 reduce() exits immediately.  If the normal exit route sees a ')', then
 there cannot have been a matching '(' and an error message is output.
 
@@ -1446,6 +1448,7 @@ num_part_mul (lhs, rhs)
 
   result.high += HIGH_PART (middle[0]);
   result.high += HIGH_PART (middle[1]);
+  result.unsignedp = 1;
 
   return result;
 }

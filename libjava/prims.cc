@@ -397,7 +397,7 @@ _Jv_AllocObject (jclass klass, jint size)
   // if there really is an interesting finalizer.
   // Unfortunately, we still have to the dynamic test, since there may
   // be cni calls to this routine.
-  // Nore that on IA64 get_finalizer() returns the starting address of the
+  // Note that on IA64 get_finalizer() returns the starting address of the
   // function, not a function pointer.  Thus this still works.
   if (klass->vtable->get_finalizer ()
       != java::lang::Object::class$.vtable->get_finalizer ())
@@ -458,8 +458,8 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
   size_t size = (size_t) elements (obj);
   size += count * sizeof (jobject);
 
-  // FIXME: second argument should be "current loader"
-  jclass klass = _Jv_GetArrayClass (elementClass, 0);
+  jclass klass = _Jv_GetArrayClass (elementClass,
+				    elementClass->getClassLoaderInternal());
 
   obj = (jobjectArray) _Jv_AllocArray (size, klass);
   // Cast away const.
@@ -592,15 +592,15 @@ _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
   _Jv_ArrayVTable _Jv_##NAME##VTable;		\
   java::lang::Class _Jv_##NAME##Class __attribute__ ((aligned (8)));
 
-DECLARE_PRIM_TYPE(byte);
-DECLARE_PRIM_TYPE(short);
-DECLARE_PRIM_TYPE(int);
-DECLARE_PRIM_TYPE(long);
-DECLARE_PRIM_TYPE(boolean);
-DECLARE_PRIM_TYPE(char);
-DECLARE_PRIM_TYPE(float);
-DECLARE_PRIM_TYPE(double);
-DECLARE_PRIM_TYPE(void);
+DECLARE_PRIM_TYPE(byte)
+DECLARE_PRIM_TYPE(short)
+DECLARE_PRIM_TYPE(int)
+DECLARE_PRIM_TYPE(long)
+DECLARE_PRIM_TYPE(boolean)
+DECLARE_PRIM_TYPE(char)
+DECLARE_PRIM_TYPE(float)
+DECLARE_PRIM_TYPE(double)
+DECLARE_PRIM_TYPE(void)
 
 void
 _Jv_InitPrimClass (jclass cl, char *cname, char sig, int len, 
@@ -920,11 +920,11 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   arithexception = new java::lang::ArithmeticException
     (JvNewStringLatin1 ("/ by zero"));
 #endif
-
+  
   no_memory = new java::lang::OutOfMemoryError;
-
+  
   java::lang::VMThrowable::trace_enabled = 1;
-
+  
 #ifdef USE_LTDL
   LTDL_SET_PRELOADED_SYMBOLS ();
 #endif

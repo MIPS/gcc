@@ -1,3 +1,24 @@
+2002-12-04  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* make-relative-prefix.c (HAVE_HOST_EXECUTABLE_SUFFIX):
+	Define for hosts with HOST_EXECUTABLE_SUFFIX.
+
+2002-11-24  Nick Clifton  <nickc@redhat.com>
+
+	* make-relative-prefix.c (make_relative_prefix): Ensure return
+	string is empty before using strcat to construct it.
+
+2002-11-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.in: Add make-relative-prefix.c.
+	* make-relative-prefix.c: New file.
+	* functions.texi: Rebuilt.
+
+2002-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* md5.c (md5_process_block): Avoid `function-like macro "F{G,H,I}" must be
+	used with arguments in traditional C' warnings.
+
 2002-10-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* config.table: Use mh-s390pic for s390x too.

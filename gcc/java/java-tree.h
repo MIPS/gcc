@@ -1,22 +1,22 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -258,6 +258,9 @@ typedef struct CPool constant_pool;
 #define COMPONENT_REF_SIGNATURE(CPOOL, IDX) \
   NAME_AND_TYPE_SIGNATURE (CPOOL, COMPONENT_REF_NAME_AND_TYPE(CPOOL, IDX))
 
+extern GTY(()) tree java_lang_cloneable_identifier_node;
+extern GTY(()) tree java_io_serializable_identifier_node;
+
 enum java_tree_index
 {
   JTI_PROMOTED_BYTE_TYPE_NODE,
@@ -275,6 +278,9 @@ enum java_tree_index
   JTI_UNSIGNED_INT_TYPE_NODE,
   JTI_UNSIGNED_LONG_TYPE_NODE,
   
+  JTI_DECIMAL_INT_MAX_NODE,
+  JTI_DECIMAL_LONG_MAX_NODE,
+
   JTI_BOOLEAN_TYPE_NODE,
 
   JTI_OBJECT_TYPE_NODE,
@@ -393,7 +399,6 @@ enum java_tree_index
   JTI_NATIVECODE_PTR_ARRAY_TYPE_NODE,
 
   JTI_WFL_OPERATOR,
-  JTI_CURRENT_CONSTANT_POOL_DATA_REF,
 
   JTI_MAIN_CLASS,
   JTI_CURRENT_CLASS,
@@ -440,6 +445,11 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_UNSIGNED_INT_TYPE_NODE]
 #define unsigned_long_type_node \
   java_global_trees[JTI_UNSIGNED_LONG_TYPE_NODE]
+
+#define decimal_int_max \
+  java_global_trees[JTI_DECIMAL_INT_MAX_NODE]
+#define decimal_long_max \
+  java_global_trees[JTI_DECIMAL_LONG_MAX_NODE]
 
 #define boolean_type_node \
   java_global_trees[JTI_BOOLEAN_TYPE_NODE]
@@ -674,10 +684,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 
 /* They need to be reset before processing each class */
 extern struct CPool *outgoing_cpool; 
-/* If non-NULL, an ADDR_EXPR referencing a VAR_DECL containing
-   the constant data array for the current class. */
-#define current_constant_pool_data_ref \
-  java_global_trees[JTI_CURRENT_CONSTANT_POOL_DATA_REF]
 
 #define wfl_operator \
   java_global_trees[JTI_WFL_OPERATOR]

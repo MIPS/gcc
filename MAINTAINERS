@@ -86,6 +86,7 @@ xtensa port		Bob Wilson		bob.wilson@acm.org
 darwin port		Stan Shebs		shebs@apple.com
 netbsd			Jason Thorpe		thorpej@wasabisystems.com
 sco5, unixware, sco udk	Robert Lipe		robertlipe@usa.net
+sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
 
 			Various Maintainers
 
@@ -136,7 +137,7 @@ web pages		Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
-diagnostic messages	Gabriel Dos Reis	gdr@codesourcery.com
+diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
 windows, cygwin, mingw	Christopher Faylor	cgf@redhat.com
 windows, cygwin, mingw	DJ Delorie		dj@redhat.com
 DJGPP			DJ Delorie		dj@delorie.com
@@ -169,22 +170,23 @@ Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
+Eric Botcazou					ebotcazou@libertysurf.fr
 Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Chris Demetriou					cgd@broadcom.com
-Gabriel Dos Reis                                gdr@integrable-solutions.net
 *Paul Eggert					eggert@twinsun.com
 Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@redhat.com
 Marc Espie					espie@cvs.openbsd.org
-Doug Evans					devans@transmeta.com
+Doug Evans					dje@transmeta.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
 Stu Grossman					grossman@redhat.com
 Laurent Guerby					guerby@acm.org
 Andrew Haley					aph@redhat.com
+Stuart Hastings					stuart@apple.com
 Aldy Hernandez					aldyh@redhat.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mhollstein@redhat.com
@@ -196,7 +198,6 @@ Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
-Kaz Kojima					kkojima@gcc.gnu.org
 Paul Koning					ni1d@arrl.net
 Matt Kraai					kraai@alumni.cmu.edu
 Ziemowit Laski					zlaski@apple.com
@@ -240,8 +241,9 @@ Richard Sandiford				rsandifo@redhat.com
 Roger Sayle					roger@eyesopen.com
 Bernd Schmidt					bernds@redhat.com
 Andreas Schwab					schwab@suse.de
+Svein Seldal                                    svein.seldal@solidas.com
 Stan Shebs					shebs@apple.com
-Nathan Sidwell					nathan@acm.org
+Nathan Sidwell					nathan@codesourcery.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Danny Smith					dannysmith@users.sourceforge.net
 Michael Sokolov					msokolov@ivan.Harhan.ORG
@@ -253,6 +255,7 @@ Ian Taylor					ian@zembu.com
 Michael Tiemann					tiemann@redhat.com
 Philipp Thomas					pthomas@suse.de
 Kresten Krab Thorup				krab@gcc.gnu.org
+Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
@@ -261,9 +264,10 @@ Mark Wielaard					mark@gcc.gnu.org
 GNATS only accounts
 
 Wolfgang Bangerth	bangerth		bangerth@ticam.utexas.edu
+James Dennett		jdennett		jdennett@acm.org
+Christian Ehrhardt	cae			ehrhardt@mathematik.uni-ulm.de
 Volker Reichelt		reichelt		reichelt@igpm.rwth-aachen.de
 
 Peter Bienstman(?)
 Benjamin Chelf(?)
-James Dennett(?)
 Mark Galassi(?)

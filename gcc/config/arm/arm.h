@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -688,6 +688,8 @@ extern int arm_is_6_or_7;
 #define PARM_BOUNDARY  	32
 
 #define STACK_BOUNDARY  32
+
+#define PREFERRED_STACK_BOUNDARY (TARGET_ATPCS ? 64 : 32)
 
 #define FUNCTION_BOUNDARY  32
 
@@ -1436,6 +1438,8 @@ typedef struct machine_function GTY(())
   int arg_pointer_live;
   /* Records if the save of LR has been eliminated.  */
   int lr_save_eliminated;
+  /* The size of the stack frame.  Only valid after reload.  */
+  int frame_size;
   /* Records the type of the current function.  */
   unsigned long func_type;
   /* Record if the function has a variable argument list.  */
@@ -1483,6 +1487,14 @@ typedef struct
    && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE)))	\
    ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
+/* A C expression that indicates when an argument must be passed by
+   reference.  If nonzero for an argument, a copy of that argument is
+   made in memory and a pointer to the argument is passed instead of
+   the argument itself.  The pointer is passed in whatever way is
+   appropriate for passing a pointer to that type.  */
+#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
+  arm_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
+
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
@@ -1499,6 +1511,10 @@ typedef struct
 /* 1 if N is a possible register number for function argument passing.
    On the ARM, r0-r3 are used to pass args.  */
 #define FUNCTION_ARG_REGNO_P(REGNO)	(IN_RANGE ((REGNO), 0, 3))
+
+/* Implement `va_arg'.  */
+#define EXPAND_BUILTIN_VA_ARG(valist, type) \
+  arm_va_arg (valist, type)
 
 
 /* Perform any actions needed for a function that is receiving a variable
@@ -1673,7 +1689,7 @@ typedef struct
   if ((TO) == STACK_POINTER_REGNUM)					\
     {									\
       (OFFSET) += current_function_outgoing_args_size;			\
-      (OFFSET) += ROUND_UP (get_frame_size ());				\
+      (OFFSET) += thumb_get_frame_size ();				\
      }									\
 }
 
@@ -2422,10 +2438,10 @@ extern const char * arm_pic_register_string;
 extern int making_const_table;
 
 /* Handle pragmas for compatibility with Intel's compilers.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE) do { \
-  cpp_register_pragma (PFILE, 0, "long_calls", arm_pr_long_calls); \
-  cpp_register_pragma (PFILE, 0, "no_long_calls", arm_pr_no_long_calls); \
-  cpp_register_pragma (PFILE, 0, "long_calls_off", arm_pr_long_calls_off); \
+#define REGISTER_TARGET_PRAGMAS() do {					\
+  c_register_pragma (0, "long_calls", arm_pr_long_calls);		\
+  c_register_pragma (0, "no_long_calls", arm_pr_no_long_calls);		\
+  c_register_pragma (0, "long_calls_off", arm_pr_long_calls_off);	\
 } while (0)
 
 /* Condition code information. */

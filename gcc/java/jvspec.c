@@ -1,21 +1,22 @@
 /* Specific flags and argument handling of the front-end of the 
    GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -25,6 +26,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "gcc.h"
 
 /* Name of spec file.  */
@@ -88,8 +91,8 @@ find_spec_file (dir)
   int x;
   struct stat sb;
 
-  spec = (char *) xmalloc (strlen (dir) + sizeof (SPEC_FILE)
-			   + sizeof ("-specs=") + 4);
+  spec = xmalloc (strlen (dir) + sizeof (SPEC_FILE)
+		  + sizeof ("-specs=") + 4);
   strcpy (spec, "-specs=");
   x = strlen (spec);
   strcat (spec, dir);
@@ -248,7 +251,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   argv = *in_argv;
   added_libraries = *in_added_libraries;
 
-  args = (int *) xcalloc (argc, sizeof (int));
+  args = xcalloc (argc, sizeof (int));
 
   for (i = 1; i < argc; i++)
     {
@@ -489,7 +492,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   
   num_args += shared_libgcc;
 
-  arglist = (const char **) xmalloc ((num_args + 1) * sizeof (char *));
+  arglist = xmalloc ((num_args + 1) * sizeof (char *));
   j = 0;
 
   for (i = 0; i < argc; i++, j++)
@@ -625,3 +628,9 @@ lang_specific_pre_link ()
     }
   return err;
 }
+
+/* Table of language-specific spec functions.  */ 
+const struct spec_function lang_specific_spec_functions[] =
+{
+  { 0, 0 }
+};

@@ -1,0 +1,3 @@
+2002-10-16  Richard Sandiford  <rsandifo@redhat.com>
+
+        * gcc.dg/vr-mult[1-7].c: New tests.

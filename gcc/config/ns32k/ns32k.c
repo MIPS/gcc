@@ -21,6 +21,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -55,8 +57,8 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
   FLOAT_REG0, LONG_FLOAT_REG0, FLOAT_REGS, FLOAT_REGS,
   FLOAT_REGS, FLOAT_REGS, FLOAT_REGS, FLOAT_REGS,
-  FP_REGS, FP_REGS, FP_REGS, FP_REGS,
-  FP_REGS, FP_REGS, FP_REGS, FP_REGS,
+  LONG_REGS, LONG_REGS, LONG_REGS, LONG_REGS,
+  LONG_REGS, LONG_REGS, LONG_REGS, LONG_REGS,
   FRAME_POINTER_REG, STACK_POINTER_REG
 };
 

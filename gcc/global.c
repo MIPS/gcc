@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "machmode.h"
 #include "hard-reg-set.h"
@@ -1192,6 +1194,11 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
 	      /* Don't use a reg no good for this pseudo.  */
 	      && ! TEST_HARD_REG_BIT (used2, regno)
 	      && HARD_REGNO_MODE_OK (regno, mode)
+	      /* The code below assumes that we need only a single
+		 register, but the check of allocno[num].size above
+		 was not enough.  Sometimes we need more than one
+		 register for a single-word value.  */
+	      && HARD_REGNO_NREGS (regno, mode) == 1
 	      && (allocno[num].calls_crossed == 0
 		  || accept_call_clobbered
 		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))

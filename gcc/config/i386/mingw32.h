@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
-/* See i386/crtdll.h for an altervative definition.  */
+/* See i386/crtdll.h for an alternative definition.  */
 #define EXTRA_OS_CPP_BUILTINS()					\
   do								\
     {								\
@@ -50,11 +50,13 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("WINNT");					\
 	builtin_define ("_X86_=1");					\
 	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
+	builtin_define ("__fastcall=__attribute__((__fastcall__))");	\
 	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
 	builtin_define ("__declspec(x)=__attribute__((x))");		\
 	if (!flag_iso)							\
 	  {								\
 	    builtin_define ("_stdcall=__attribute__((__stdcall__))");	\
+	    builtin_define ("_fastcall=__attribute__((__fastcall__))");	\
 	    builtin_define ("_cdecl=__attribute__((__cdecl__))");	\
 	  }								\
 	EXTRA_OS_CPP_BUILTINS ();					\
@@ -100,7 +102,7 @@ Boston, MA 02111-1307, USA.  */
 #define MATH_LIBRARY ""
 
 /* Output STRING, a string representing a filename, to FILE.
-   We canonicalize it to be in Unix format (backslashe are replaced
+   We canonicalize it to be in Unix format (backslashes are replaced
    forward slashes.  */
 #undef OUTPUT_QUOTED_STRING
 #define OUTPUT_QUOTED_STRING(FILE, STRING)               \
@@ -127,10 +129,6 @@ do {						         \
   putc ('\"', asm_file);			         \
 } while (0)
 
-/* Override Cygwin's definition. This is necessary now due to the way
-   Cygwin profiling code is written. Once "fixed", we can remove this.  */
-#undef SUBTARGET_PROLOGUE
-
-/* Define as short unsigned for compatability with MS runtime.  */
+/* Define as short unsigned for compatibility with MS runtime.  */
 #undef WINT_TYPE
 #define WINT_TYPE "short unsigned int"

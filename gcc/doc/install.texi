@@ -58,7 +58,7 @@
 @end ifnothtml
 
 @c Part 2 Summary Description and Copyright
-@macro copyrightnotice
+@copying
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 @sp 1
@@ -79,9 +79,9 @@ Free Documentation License}''.
      You have freedom to copy and modify this GNU Manual, like GNU
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development.
-@end macro
+@end copying
 @ifinfo
-@copyrightnotice{}
+@insertcopying
 @end ifinfo
 
 @c Part 3 Titlepage and Copyright
@@ -93,7 +93,7 @@ Free Documentation License}''.
 @c The following two commands start the copyright page.
 @page
 @vskip 0pt plus 1filll
-@copyrightnotice{}
+@insertcopying
 @end titlepage
 
 @c Part 4 Top node and Master Menu
@@ -197,7 +197,7 @@ not yet been merged into the main part of this manual.
 @ifhtml
 @uref{./index.html,,Return to the GCC Installation page}
 
-@copyrightnotice{}
+@insertcopying
 @end ifhtml
 @end ifset
 
@@ -293,12 +293,12 @@ of @var{srcdir} is unsupported.
 
 If you have previously built GCC in the same directory for a
 different target machine, do @samp{make distclean} to delete all files
-that might be invalid.  One of the files this deletes is
-@file{Makefile}; if @samp{make distclean} complains that @file{Makefile}
-does not exist, it probably means that the directory is already suitably
-clean.  However, with the recommended method of building in a separate
-@var{objdir}, you should simply use a different @var{objdir} for each
-target.
+that might be invalid.  One of the files this deletes is @file{Makefile};
+if @samp{make distclean} complains that @file{Makefile} does not exist
+or issues a message like ``don't know how to make distclean'' it probably
+means that the directory is already suitably clean.  However, with the
+recommended method of building in a separate @var{objdir}, you should
+simply use a different @var{objdir} for each target.
 
 Second, when configuring a native system, either @command{cc} or
 @command{gcc} must be in your path or you must set @env{CC} in
@@ -544,8 +544,8 @@ argument, only @option{--enable-shared} does.
 @item @anchor{with-gnu-as}--with-gnu-as
 Specify that the compiler should assume that the
 assembler it finds is the GNU assembler.  However, this does not modify
-the rules to find an assembler and will result in confusion if found
-assembler is not actually the GNU assembler.  (Confusion will also
+the rules to find an assembler and will result in confusion if the
+assembler found is not actually the GNU assembler.  (Confusion may also
 result if the compiler finds the GNU assembler but has not been
 configured with @option{--with-gnu-as}.)  If you have more than one
 assembler installed on your system, you may want to use this option in
@@ -559,12 +559,8 @@ whether you use the GNU assembler.  On any other system,
 @item @samp{hppa1.0-@var{any}-@var{any}}
 @item @samp{hppa1.1-@var{any}-@var{any}}
 @item @samp{i386-@var{any}-sysv}
-@item @samp{i386-@var{any}-isc}
-@item @samp{i860-@var{any}-bsd}
 @item @samp{m68k-bull-sysv}
 @item @samp{m68k-hp-hpux}
-@item @samp{m68k-sony-bsd}
-@item @samp{m68k-altos-sysv}
 @item @samp{m68000-hp-hpux}
 @item @samp{m68000-att-sysv}
 @item @samp{@var{any}-lynx-lynxos}
@@ -718,10 +714,10 @@ Microsoft Win32 API thread support.
 @item --with-cpu=@var{cpu}
 Specify which cpu variant the
 compiler should generate code for by default.  This is currently
-only supported on the some ports, specifically arm, powerpc, and
+only supported on some ports, specifically arm, powerpc, and
 SPARC@.  If configure does not recognize the model name (e.g.@: arm700,
-603e, or ultrasparc) you provide, please check the configure script
-for a complete list of supported models.
+603e, or ultrasparc) you provide, please check the
+@command{gcc/config.gcc} script for a complete list of supported models.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -740,6 +736,14 @@ Specify that a user visible @command{cpp} program should not be installed.
 @item --with-cpp-install-dir=@var{dirname}
 Specify that the user visible @command{cpp} program should be installed
 in @file{@var{prefix}/@var{dirname}/cpp}, in addition to @var{bindir}.
+
+@item --enable-initfini-array
+Force the use of sections @code{.init_array} and @code{.fini_array}
+(instead of @code{.init} and @code{.fini}) for constructors and
+destructors.  Option @option{--disable-initfini-array} has the
+opposite effect.  If neither option is specified, the configure script
+will try to guess whether the @code{.init_array} and
+@code{.fini_array} sections are supported and, if they are, use them.
 
 @item --enable-maintainer-mode
 The build rules that
@@ -814,8 +818,8 @@ option.  This option has no effect on the other hosts.
 
 @item --nfp
 Specify that the machine does not have a floating point unit.  This
-option only applies to @samp{m68k-sun-sunos@var{n}} and
-@samp{m68k-isi-bsd}.  On any other system, @option{--nfp} has no effect.
+option only applies to @samp{m68k-sun-sunos@var{n}}.  On any other
+system, @option{--nfp} has no effect.
 
 @item --enable-checking
 @itemx --enable-checking=@var{list}
@@ -997,7 +1001,7 @@ parser sources, releases contain the Bison-generated files and you do
 not need Bison installed to build them.
 
 When building from CVS or snapshots, or if you modify Texinfo
-documentation, you need version 4.1 or later of Texinfo installed if you
+documentation, you need version 4.2 or later of Texinfo installed if you
 want Info documentation to be regenerated.  Releases contain Info
 documentation pre-built for the unmodified documentation in the release.
 
@@ -1278,6 +1282,24 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
+To run only the tests for a library, run @samp{make check} from the
+the library's testsuite in a subdirectory of the object directory:
+@file{libstdc++-v3/testsuite} or @file{libcgj/testsuite}.
+
+@section Additional testing for Java Class Libraries
+
+The @uref{http://sources.redhat.com/mauve/,,Mauve Project} provides
+a suite of tests for the Java Class Libraries.  This suite can be run
+as part of libgcj testing by placing the Mauve tree within the libjava
+testsuite at @file{libjava/testsuite/libjava.mauve/mauve}, or by
+specifying the location of that tree when invoking @samp{make}, as in
+@samp{make MAUVEDIR=~/mauve check}.
+
+@uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
+is a free test suite that tests Java compiler front ends.  This suite
+can be run as part of libgcj testing by placing the Jacks tree within
+the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
+
 @section How to interpret test results
 
 After the testsuite has run you'll find various @file{*.sum} and @file{*.log}
@@ -1435,7 +1457,7 @@ If you find a bug, please report it following our
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
-dvi}.  You will need to have @command{texi2dvi} (version at least 4.1)
+dvi}.  You will need to have @command{texi2dvi} (version at least 4.2)
 and @TeX{} installed.  This creates a number of @file{.dvi} files in
 subdirectories of @file{@var{objdir}}; these may be converted for
 printing with programs such as @command{dvips}.  You can also
@@ -1702,6 +1724,8 @@ GNU Compiler Collection on your machine.
 @uref{#*-*-sysv*,,*-*-sysv*}
 @item
 @uref{#vax-dec-ultrix,,vax-dec-ultrix}
+@item
+@uref{#*-*-vxworks*,,*-*-vxworks*}
 @item
 @uref{#xtensa-*-elf,,xtensa-*-elf}
 @item
@@ -2040,7 +2064,7 @@ and tested on @samp{i386-*-freebsd4.5} and @samp{alpha-*-freebsd5.0}.
 The static
 library may be incorrectly built (symbols are missing at link time).
 There is a rare timing-based startup hang (probably involves an
-assupmtion about the thread library).  Multi-threaded boehm-gc (required for
+assumption about the thread library).  Multi-threaded boehm-gc (required for
 libjava) exposes severe threaded signal-handling bugs on FreeBSD before
 4.5-RELEASE.  The alpha port may not fully bootstrap without some manual
 intervention: @command{gcjh} will crash with a floating-point exception while
@@ -2073,8 +2097,7 @@ longer a multiple of 2 bytes.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
-assembler.  The HP assembler does not work with the @samp{hppa64-hp-hpux11*}
-port.
+assembler.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
 uses a peculiar debugging format which GCC does not know about), unless you
@@ -2176,16 +2199,27 @@ compile GCC 3.0 and up.  Refer to @uref{binaries.html,,binaries} for
 information about obtaining precompiled GCC binaries for HP-UX.
 
 GNU binutils 2.13 or later is recommended with the 64-bit port.
-The HP assembler is not supported.  It is @emph{highly} recommended
-that the GNU linker be used as well.  Either binutils must be built
-prior to gcc, or a binary distribution of gcc or binutils must be
-obtained for the initial builds.  When starting with a HP compiler,
-it is preferable to use the ANSI compiler as the bundled compiler
-only supports traditional C.  Bootstrapping with the bundled compiler
-is tested infrequently and problems often arise because of the subtle
-differences in semantics between traditional and ISO C.  There also
-have been problems reported with various binary distributions.  This
-port still is undergoing significant development.
+The HP assembler has many limitations and is not recommended.  For
+example, it does not support weak symbols or alias definitions.
+As a result, explicit template instantiations are required when
+using C++.  Either the HP or GNU linker can be used but it may be
+necessary to use the GNU linker when dwarf2 exception support is
+implemented.
+
+There are several possible approaches to building the distribution.
+Binutils can be built first using the HP tools.  Then, the GCC
+distribution can be built.  The second approach is to build GCC
+first using the HP tools, then build binutils, then rebuild GCC.
+There have been problems with various binary distributions, so
+it is best not to start from a binary distribution.
+
+When starting with a HP compiler, it is preferable to use the ANSI
+compiler as the bundled compiler only supports traditional C.
+Bootstrapping with the bundled compiler is tested infrequently and
+problems often arise because of the subtle differences in semantics
+between traditional and ISO C.
+
+This port still is undergoing significant development.
 
 @html
 <hr />
@@ -2892,7 +2926,7 @@ PowerPC system in big endian mode, running System V.4.
 @heading @anchor{powerpc-*-linux-gnu*}powerpc-*-linux-gnu*
 
 You will need
-@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.12.90.0.7}
+@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.13.90.0.10}
 or newer for a working GCC@.
 
 @html
@@ -2900,7 +2934,7 @@ or newer for a working GCC@.
 @end html
 @heading @anchor{powerpc-*-netbsd*}powerpc-*-netbsd*
 PowerPC system in big endian mode running NetBSD@.  To build the
-documentation you will need Texinfo version 4.1 (NetBSD 1.5.1 included
+documentation you will need Texinfo version 4.2 (NetBSD 1.5.1 included
 Texinfo version 3.12).
 
 @html
@@ -3195,6 +3229,41 @@ On a System V release 4 system, make sure @file{/usr/bin} precedes
 @heading @anchor{vax-dec-ultrix}vax-dec-ultrix
 Don't try compiling with VAX C (@code{vcc}).  It produces incorrect code
 in some cases (for example, when @code{alloca} is used).
+
+@html
+<hr />
+@end html
+@heading @anchor{*-*-vxworks*}*-*-vxworks*
+Support for VxWorks is in flux.  At present GCC supports @emph{only} the
+very recent VxWorks 5.5 (aka Tornado 2.2) release, and only on PowerPC.
+We welcome patches for other architectures supported by VxWorks 5.5.
+Support for VxWorks AE would also be welcome; we believe this is merely
+a matter of writing an appropriate ``configlette'' (see below).  We are
+not interested in supporting older, a.out or COFF-based, versions of
+VxWorks in GCC 3.
+
+VxWorks comes with an older version of GCC installed in
+@file{@var{$WIND_BASE}/host}; we recommend you do not overwrite it.
+Choose an installation @var{prefix} entirely outside @var{$WIND_BASE}.
+Before running @command{configure}, create the directories @file{@var{prefix}}
+and @file{@var{prefix}/bin}.  Link or copy the appropriate assembler,
+linker, etc. into @file{@var{prefix}/bin}, and set your @var{PATH} to
+include that directory while running both @command{configure} and
+@command{make}.
+
+You must give @command{configure} the
+@option{--with-headers=@var{$WIND_BASE}/target/h} switch so that it can
+find the VxWorks system headers.  Since VxWorks is a cross compilation
+target only, you must also specify @option{--target=@var{target}}.
+@command{configure} will attempt to create the directory
+@file{@var{prefix}/@var{target}/sys-include} and copy files into it;
+make sure the user running @command{configure} has sufficient privilege
+to do so.
+
+GCC's exception handling runtime requires a special ``configlette''
+module, @file{contrib/gthr_supp_vxw_5x.c}.  Follow the instructions in
+that file to add the module to your kernel build.  (Future versions of
+VxWorks will incorporate this module.)  
 
 @html
 <hr />

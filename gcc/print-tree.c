@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "real.h"
 #include "ggc.h"
@@ -193,7 +195,7 @@ print_node (file, prefix, node, indent)
       return;
     }
 
-  /* It is unsafe to look at any other filds of an ERROR_MARK node.  */
+  /* It is unsafe to look at any other fields of an ERROR_MARK node.  */
   if (TREE_CODE (node) == ERROR_MARK)
     {
       print_node_brief (file, prefix, node, indent);

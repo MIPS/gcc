@@ -41,9 +41,11 @@ struct processor_costs {
   const int lea;		/* cost of a lea instruction */
   const int shift_var;		/* variable shift costs */
   const int shift_const;	/* constant shift costs */
-  const int mult_init;		/* cost of starting a multiply */
+  const int mult_init[5];	/* cost of starting a multiply 
+				   in QImode, HImode, SImode, DImode, TImode*/
   const int mult_bit;		/* cost of multiply per each bit set */
-  const int divide;		/* cost of a divide/mod */
+  const int divide[5];		/* cost of a divide/mod 
+				   in QImode, HImode, SImode, DImode, TImode*/
   int movsx;			/* The cost of movsx operation.  */
   int movzx;			/* The cost of movzx operation.  */
   const int large_insn;		/* insns larger than this cost more */
@@ -119,8 +121,9 @@ extern int target_flags;
 #define MASK_3DNOW_A		0x00020000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00040000	/* long double size is 128bit */
 #define MASK_64BIT		0x00080000	/* Produce 64bit code */
+#define MASK_MS_BITFIELD_LAYOUT 0x00100000	/* Use native (MS) bitfield layout */
 
-/* Unused:			0x03f0000	*/
+/* Unused:			0x03e0000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -205,6 +208,8 @@ extern int target_flags;
 #define TARGET_K6 (ix86_cpu == PROCESSOR_K6)
 #define TARGET_ATHLON (ix86_cpu == PROCESSOR_ATHLON)
 #define TARGET_PENTIUM4 (ix86_cpu == PROCESSOR_PENTIUM4)
+#define TARGET_K8 (ix86_cpu == PROCESSOR_K8)
+#define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 
 #define CPUMASK (1 << ix86_cpu)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -224,6 +229,7 @@ extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
 extern const int x86_sse_partial_reg_dependency, x86_sse_partial_regs;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
+extern const int x86_use_ffreep, x86_sse_partial_regs_for_cvtsd2ss;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
@@ -263,6 +269,8 @@ extern int x86_prefetch_sse;
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
 				      (x86_sse_partial_reg_dependency & CPUMASK)
 #define TARGET_SSE_PARTIAL_REGS (x86_sse_partial_regs & CPUMASK)
+#define TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS \
+				(x86_sse_partial_regs_for_cvtsd2ss & CPUMASK)
 #define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & CPUMASK)
 #define TARGET_SSE_TYPELESS_LOAD0 (x86_sse_typeless_load0 & CPUMASK)
 #define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & CPUMASK)
@@ -272,6 +280,8 @@ extern int x86_prefetch_sse;
 #define TARGET_DECOMPOSE_LEA (x86_decompose_lea & CPUMASK)
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & CPUMASK)
+#define TARGET_USE_FFREEP (x86_use_ffreep & CPUMASK)
+#define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -290,6 +300,8 @@ extern int x86_prefetch_sse;
 #define TARGET_3DNOW_A ((target_flags & MASK_3DNOW_A) != 0)
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
+
+#define TARGET_USE_MS_BITFIELD_LAYOUT  (target_flags & MASK_MS_BITFIELD_LAYOUT)
 
 #define TARGET_GNU_TLS (ix86_tls_dialect == TLS_DIALECT_GNU)
 #define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
@@ -383,6 +395,10 @@ extern int x86_prefetch_sse;
     N_("Generate 64bit x86-64 code") },					      \
   { "32",			-MASK_64BIT,				      \
     N_("Generate 32bit i386 code") },					      \
+  { "ms-bitfields",		MASK_MS_BITFIELD_LAYOUT,		      \
+    N_("Use native (MS) bitfield layout") },				      \
+  { "no-ms-bitfields",		-MASK_MS_BITFIELD_LAYOUT,		      \
+    N_("Use gcc default bitfield layout") },				      \
   { "red-zone",			-MASK_NO_RED_ZONE,			      \
     N_("Use red-zone in the x86-64 code") },				      \
   { "no-red-zone",		MASK_NO_RED_ZONE,			      \
@@ -524,6 +540,15 @@ extern int x86_prefetch_sse;
 	{							\
 	  builtin_define ("__tune_i686__");			\
 	  builtin_define ("__tune_pentiumpro__");		\
+	  switch (last_cpu_char)				\
+	    {							\
+	    case '3':						\
+	      builtin_define ("__tune_pentium3__");		\
+	      /* FALLTHRU */					\
+	    case '2':						\
+	      builtin_define ("__tune_pentium2__");		\
+	      break;						\
+	    }							\
 	}							\
       else if (TARGET_K6)					\
 	{							\
@@ -540,6 +565,8 @@ extern int x86_prefetch_sse;
 	  if (last_cpu_char != 'n')				\
 	    builtin_define ("__tune_athlon_sse__");		\
 	}							\
+      else if (TARGET_K8)					\
+	builtin_define ("__tune_k8__");				\
       else if (TARGET_PENTIUM4)					\
 	builtin_define ("__tune_pentium4__");			\
 								\
@@ -598,6 +625,11 @@ extern int x86_prefetch_sse;
 	  if (last_arch_char != 'n')				\
 	    builtin_define ("__athlon_sse__");			\
 	}							\
+      else if (ix86_arch == PROCESSOR_K8)			\
+	{							\
+	  builtin_define ("__k8");				\
+	  builtin_define ("__k8__");				\
+	}							\
       else if (ix86_arch == PROCESSOR_PENTIUM4)			\
 	{							\
 	  builtin_define ("__pentium4");			\
@@ -619,11 +651,12 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_k6_3 10
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
+#define TARGET_CPU_DEFAULT_k8 13
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4"}
+				  "athlon", "athlon-4", "k8"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -700,7 +733,11 @@ extern int x86_prefetch_sse;
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
-#define MIN_UNITS_PER_WORD 4
+#ifdef IN_LIBGCC2
+#define MIN_UNITS_PER_WORD	(TARGET_64BIT ? 8 : 4)
+#else
+#define MIN_UNITS_PER_WORD	4
+#endif
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY BITS_PER_WORD
@@ -708,12 +745,12 @@ extern int x86_prefetch_sse;
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
 #define STACK_BOUNDARY BITS_PER_WORD
 
-/* Boundary (in *bits*) on which the stack pointer preferrs to be
+/* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
 #define PREFERRED_STACK_BOUNDARY ix86_preferred_stack_boundary
 
 /* As of July 2001, many runtimes to not align the stack properly when
-   entering main.  This causes expand_main_function to forcably align
+   entering main.  This causes expand_main_function to forcibly align
    the stack, which results in aligned frames for functions called from
    main, though it does nothing for the alignment of main itself.  */
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
@@ -734,7 +771,7 @@ extern int x86_prefetch_sse;
    might need to be aligned. No data type wants to be aligned
    rounder than this.
 
-   Pentium+ preferrs DFmode values to be aligned to 64 bit boundary
+   Pentium+ prefers DFmode values to be aligned to 64 bit boundary
    and Pentium Pro XFmode values at 128 bit boundaries.  */
 
 #define BIGGEST_ALIGNMENT 128
@@ -744,7 +781,7 @@ extern int x86_prefetch_sse;
  ((MODE) == XFmode || (MODE) == TFmode || SSE_REG_MODE_P (MODE))
 
 /* The published ABIs say that doubles should be aligned on word
-   boundaries, so lower the aligment for structure fields unless
+   boundaries, so lower the alignment for structure fields unless
    -malign-double is set.  */
 
 /* ??? Blah -- this macro is used directly by libobjc.  Since it
@@ -854,7 +891,7 @@ extern int x86_prefetch_sse;
    and are not available for the register allocator.
    On the 80386, the stack pointer is such, as is the arg pointer.
 
-   The value is an mask - bit 1 is set for fixed registers
+   The value is a mask - bit 1 is set for fixed registers
    for 32bit target, while 2 is set for fixed registers for 64bit.
    Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
  */
@@ -880,7 +917,7 @@ extern int x86_prefetch_sse;
    and the register where structure-value addresses are passed.
    Aside from that, you can include as many other registers as you like.
 
-   The value is an mask - bit 1 is set for call used
+   The value is a mask - bit 1 is set for call used
    for 32bit target, while 2 is set for call used for 64bit.
    Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
 */
@@ -915,7 +952,7 @@ extern int x86_prefetch_sse;
 
 /* ORDER_REGS_FOR_LOCAL_ALLOC is a macro which permits reg_alloc_order
    to be rearranged based on a particular function.  When using sse math,
-   we want to allocase SSE before x87 registers and vice vera.  */
+   we want to allocate SSE before x87 registers and vice vera.  */
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC x86_order_regs_for_local_alloc ()
 
@@ -1331,6 +1368,9 @@ enum reg_class
   (((N) >= FIRST_SSE_REG && (N) <= LAST_SSE_REG) \
    || ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG))
 
+#define REX_SSE_REGNO_P(N) \
+   ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG)
+
 #define SSE_REGNO(N) \
   ((N) < 8 ? FIRST_SSE_REG + (N) : FIRST_REX_SSE_REG + (N) - 8)
 #define SSE_REG_P(N) (REG_P (N) && SSE_REGNO_P (REGNO (N)))
@@ -1401,7 +1441,7 @@ enum reg_class
    K is for signed imm8 operands.
    L is for andsi as zero-extending move.
    M is for shifts that can be executed by the "lea" opcode.
-   N is for immedaite operands for out/in instructions (0-255)
+   N is for immediate operands for out/in instructions (0-255)
    */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)				\
@@ -1435,7 +1475,7 @@ enum reg_class
    constraint, the value returned should be 0 regardless of VALUE.  */
 
 #define EXTRA_CONSTRAINT(VALUE, D)				\
-  ((D) == 'e' ? x86_64_sign_extended_value (VALUE, 0)		\
+  ((D) == 'e' ? x86_64_sign_extended_value (VALUE)		\
    : (D) == 'Z' ? x86_64_zero_extended_value (VALUE)		\
    : (D) == 'C' ? standard_sse_constant_p (VALUE)		\
    : 0)
@@ -1579,6 +1619,10 @@ enum reg_class
 
 #define PUSH_ARGS (TARGET_PUSH_ARGS && !ACCUMULATE_OUTGOING_ARGS)
 
+/* We want the stack and args grow in opposite directions, even if
+   PUSH_ARGS is 0.  */
+#define PUSH_ARGS_REVERSED 1
+
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL) 0
 
@@ -1666,6 +1710,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
+  int fastcall;		/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int sse_regno;		/* next available sse register number */
@@ -1747,20 +1792,11 @@ typedef struct ix86_args {
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-do {									\
-  if (flag_pic)								\
-    {									\
-      fprintf ((FILE), "\tleal\t%sP%d@GOTOFF(%%ebx),%%edx\n",		\
-	       LPREFIX, (LABELNO));					\
-      fprintf ((FILE), "\tcall\t*_mcount@GOT(%%ebx)\n");		\
-    }									\
-  else									\
-    {									\
-      fprintf ((FILE), "\tmovl\t$%sP%d,%%edx\n", LPREFIX, (LABELNO));	\
-      fprintf ((FILE), "\tcall\t_mcount\n");				\
-    }									\
-} while (0)
+#define FUNCTION_PROFILER(FILE, LABELNO) x86_function_profiler (FILE, LABELNO)
+
+#define MCOUNT_NAME "_mcount"
+
+#define PROFILE_COUNT_REGISTER "edx"
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -2558,7 +2594,7 @@ do {							\
   case CONST:							\
   case LABEL_REF:						\
   case SYMBOL_REF:						\
-    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX, 0))	\
+    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX))	\
       return 3;							\
     if (TARGET_64BIT && !x86_64_zero_extended_value (RTX))	\
       return 2;							\
@@ -2584,6 +2620,14 @@ do {							\
 /* Delete the definition here when TOPLEVEL_COSTS_N_INSNS gets added to cse.c */
 #define TOPLEVEL_COSTS_N_INSNS(N) \
   do { total = COSTS_N_INSNS (N); goto egress_rtx_costs; } while (0)
+
+/* Return index of given mode in mult and division cost tables.  */
+#define MODE_INDEX(mode)					\
+  ((mode) == QImode ? 0						\
+   : (mode) == HImode ? 1					\
+   : (mode) == SImode ? 2					\
+   : (mode) == DImode ? 3					\
+   : 4)
 
 /* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
    This can be used, for example, to indicate how costly a multiply
@@ -2670,10 +2714,12 @@ do {							\
 	  } 								\
 									\
 	TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
+				[MODE_INDEX (GET_MODE (X))]		\
 			        + nbits * ix86_cost->mult_bit);		\
       }									\
     else			/* This is arbitrary */			\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
+			      [MODE_INDEX (GET_MODE (X))]		\
 			      + 7 * ix86_cost->mult_bit);		\
 									\
   case DIV:								\
@@ -2683,7 +2729,8 @@ do {							\
     if (FLOAT_MODE_P (GET_MODE (X)))					\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->fdiv);				\
     else								\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide);			\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide				\
+			      [MODE_INDEX (GET_MODE (X))]);		\
     break;								\
 									\
   case PLUS:								\
@@ -3228,6 +3275,7 @@ do {						\
 			SYMBOL_REF, LABEL_REF, SUBREG, REG, MEM}},	\
   {"nonmemory_no_elim_operand", {CONST_INT, REG, SUBREG}},		\
   {"index_register_operand", {SUBREG, REG}},				\
+  {"flags_reg_operand", {REG}},						\
   {"q_regs_operand", {SUBREG, REG}},					\
   {"non_q_regs_operand", {SUBREG, REG}},				\
   {"fcmov_comparison_operator", {EQ, NE, LTU, GTU, LEU, GEU, UNORDERED, \
@@ -3282,6 +3330,7 @@ enum processor_type
   PROCESSOR_K6,
   PROCESSOR_ATHLON,
   PROCESSOR_PENTIUM4,
+  PROCESSOR_K8,
   PROCESSOR_max
 };
 
@@ -3430,6 +3479,11 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
 
 
 #define MACHINE_DEPENDENT_REORG(X) x86_machine_dependent_reorg(X)
+
+#define DLL_IMPORT_EXPORT_PREFIX '#'
+
+#define FASTCALL_PREFIX '@'
+
 /*
 Local variables:
 version-control: t

@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -44,8 +46,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef PUSH_ROUNDING
 
+#ifndef PUSH_ARGS_REVERSED
 #if defined (STACK_GROWS_DOWNWARD) != defined (ARGS_GROW_DOWNWARD)
 #define PUSH_ARGS_REVERSED  PUSH_ARGS
+#endif
 #endif
 
 #endif
@@ -765,6 +769,21 @@ setjmp_call_p (fndecl)
   return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
 }
 
+/* Return true when exp contains alloca call.  */
+bool
+alloca_call_p (exp)
+     tree exp;
+{
+  if (TREE_CODE (exp) == CALL_EXPR
+      && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
+      && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
+	  == FUNCTION_DECL)
+      && (special_function_p (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
+			      0) & ECF_MAY_BE_ALLOCA))
+    return true;
+  return false;
+}
+
 /* Detect flags (function attributes) from the function decl or type node.  */
 
 int
@@ -1020,7 +1039,6 @@ store_unaligned_arguments_into_pseudos (args, num_actuals)
 	   this means we must skip the empty high order bytes when
 	   calculating the bit offset.  */
 	if (BYTES_BIG_ENDIAN
-	    && !FUNCTION_ARG_REG_LITTLE_ENDIAN
 	    && bytes < UNITS_PER_WORD)
 	  big_endian_correction = (BITS_PER_WORD  - (bytes * BITS_PER_UNIT));
 
@@ -2229,7 +2247,17 @@ expand_call (exp, target, ignore)
       {
 	struct_value_size = int_size_in_bytes (TREE_TYPE (exp));
 
-	if (target && GET_CODE (target) == MEM)
+	if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (exp))
+	  {
+	    /* The structure value address arg is already in actparms.
+	       Pull it out.  It might be nice to just leave it there, but
+	       we need to set structure_value_addr.  */
+	    tree return_arg = TREE_VALUE (actparms);
+	    actparms = TREE_CHAIN (actparms);
+	    structure_value_addr = expand_expr (return_arg, NULL_RTX,
+						VOIDmode, EXPAND_NORMAL);
+	  }
+	else if (target && GET_CODE (target) == MEM)
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {

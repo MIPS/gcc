@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "intl.h"
 #include "tree.h"
 #include "tree-inline.h"
@@ -1474,9 +1476,10 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 inline, make sure we emit debug info for the inline before we
 	 throw it away, in case it was inlined into a function that hasn't
 	 been written out yet.  */
-      if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
+      if (new_is_definition && DECL_INITIAL (olddecl))
 	{
-	  (*debug_hooks->outlining_inline_function) (olddecl);
+	  if (TREE_USED (olddecl))
+	    (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
 	  DECL_INLINE (newdecl) = 0;
@@ -1725,7 +1728,7 @@ pushdecl (x)
 	}
 
       /* If we are processing a typedef statement, generate a whole new
-	 ..._TYPE node (which will be just an variant of the existing
+	 ..._TYPE node (which will be just a variant of the existing
 	 ..._TYPE node with identical properties) and then install the
 	 TYPE_DECL node generated to represent the typedef name as the
 	 TYPE_NAME of this brand new (duplicate) ..._TYPE node.
@@ -3541,7 +3544,15 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    }
 		}
 	      else if (specbits & (1 << (int) i))
-		error ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		{
+		  if (i == RID_CONST || i == RID_VOLATILE || i == RID_RESTRICT)
+		    {
+		      if (!flag_isoc99)
+			pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		    }
+		  else
+		    error ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		}
 
 	      /* Diagnose "__thread extern".  Recall that this list
 		 is in the reverse order seen in the text.  */
@@ -4945,25 +4956,22 @@ start_struct (code, name)
     ref = lookup_tag (code, name, current_binding_level, 1);
   if (ref && TREE_CODE (ref) == code)
     {
-      C_TYPE_BEING_DEFINED (ref) = 1;
-      TYPE_PACKED (ref) = flag_pack_struct;
       if (TYPE_FIELDS (ref))
         {
 	  if (code == UNION_TYPE)
-	    error ("redefinition of `union %s'",
-		   IDENTIFIER_POINTER (name));
+	    error ("redefinition of `union %s'", IDENTIFIER_POINTER (name));
           else
-	    error ("redefinition of `struct %s'",
-		   IDENTIFIER_POINTER (name));
+	    error ("redefinition of `struct %s'", IDENTIFIER_POINTER (name));
 	}  
-
-      return ref;
     }
+  else
+    {
+      /* Otherwise create a forward-reference just so the tag is in scope.  */
 
-  /* Otherwise create a forward-reference just so the tag is in scope.  */
-
-  ref = make_node (code);
-  pushtag (name, ref);
+      ref = make_node (code);
+      pushtag (name, ref);
+    }
+  
   C_TYPE_BEING_DEFINED (ref) = 1;
   TYPE_PACKED (ref) = flag_pack_struct;
   return ref;

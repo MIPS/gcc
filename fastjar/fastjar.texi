@@ -24,9 +24,9 @@
 
 @dircategory Individual utilities
 @direntry
-* jar: Invoking jar.
+* jar: (fastjar)Invoking jar.
                             An archive tool for Java archives
-* grepjar: Invoking grepjar.
+* grepjar: (fastjar)Invoking grepjar.
                             Search files in a jar file for a pattern
 @end direntry
 @end format
@@ -49,6 +49,8 @@ man page gfdl(7).
 @c man end
 @end ignore
 
+@c man begin COPYRIGHT
+
 (a) The FSF's Front-Cover Text is:
 
      A GNU Manual
@@ -58,6 +60,7 @@ man page gfdl(7).
      You have freedom to copy and modify this GNU Manual, like GNU
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development.
+@c man end
 @end ifinfo
 
 @titlepage

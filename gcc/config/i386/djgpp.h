@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define standard DJGPP installation paths.                             */
 /* We override default /usr or /usr/local part with /dev/env/DJDIR which */
-/* points to actual DJGPP instalation directory.                         */
+/* points to actual DJGPP installation directory.                        */
 
 /* Standard include directory */
 #undef STANDARD_INCLUDE_DIR

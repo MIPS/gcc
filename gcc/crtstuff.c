@@ -60,6 +60,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "auto-host.h"
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind-dw2-fde.h"
 
 #ifndef FORCE_CODE_SECTION_ALIGN
@@ -89,6 +91,11 @@ call_ ## FUNC (void)					\
 #endif
 #if defined(EH_FRAME_SECTION_NAME) && !defined(USE_PT_GNU_EH_FRAME)
 # define USE_EH_FRAME_REGISTRY
+#endif
+#if defined(EH_FRAME_SECTION_NAME) && defined(HAVE_LD_RO_RW_SECTION_MIXING)
+# define EH_FRAME_SECTION_CONST const
+#else
+# define EH_FRAME_SECTION_CONST
 #endif
 
 /* We do not want to add the weak attribute to the declarations of these
@@ -125,8 +132,6 @@ extern void *__deregister_frame_info_bases (void *)
 
 /* Likewise for _Jv_RegisterClasses.  */
 extern void _Jv_RegisterClasses (void *) TARGET_ATTRIBUTE_WEAK;
-
-#ifndef OBJECT_FORMAT_MACHO
 
 #ifdef OBJECT_FORMAT_ELF
 
@@ -190,7 +195,7 @@ STATIC func_ptr __DTOR_LIST__[1]
 #ifdef USE_EH_FRAME_REGISTRY
 /* Stick a label at the beginning of the frame unwind info so we can register
    and deregister it with the exception handling library code.  */
-STATIC char __EH_FRAME_BEGIN__[]
+STATIC EH_FRAME_SECTION_CONST char __EH_FRAME_BEGIN__[]
      __attribute__((section(EH_FRAME_SECTION_NAME), aligned(4)))
      = { };
 #endif /* USE_EH_FRAME_REGISTRY */
@@ -455,7 +460,7 @@ STATIC func_ptr __DTOR_END__[1]
 #ifdef EH_FRAME_SECTION_NAME
 /* Terminate the frame unwind info section with a 4byte 0 as a sentinel;
    this would be the 'length' field in a real FDE.  */
-STATIC int __FRAME_END__[]
+STATIC EH_FRAME_SECTION_CONST int __FRAME_END__[]
      __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
 		     aligned(4)))
      = { 0 };
@@ -542,83 +547,3 @@ __do_global_ctors (void)
 #else /* ! CRT_BEGIN && ! CRT_END */
 #error "One of CRT_BEGIN or CRT_END must be defined."
 #endif
-
-#else  /* OBJECT_FORMAT_MACHO */
-
-/* Crt stuff for Mach-O (NeXT and Darwin).
-
-   The theory of this is that each dynamically-loadable module,
-   including the main program itself, must have been positioned by
-   dyld before any frame info can be registered.  So we set up the
-   registration functions as dyld hooks, using a "preregistration"
-   function that is called directly from the system crt1.o.  */
-
-#ifdef CRT_BEGIN
-
-/* Homemade decls substituting for getsect.h and dyld.h, so cross
-   compilation works.  */
-struct mach_header;
-extern char *getsectdatafromheader (struct mach_header *, const char *,
-				    const char *, unsigned long *);
-extern void _dyld_register_func_for_add_image
-  (void (*) (struct mach_header *, unsigned long));
-extern void _dyld_register_func_for_remove_image
-  (void (*) (struct mach_header *, unsigned long));
-
-extern void __darwin_gcc3_preregister_frame_info (void);
-
-static void
-unwind_dyld_add_image_hook (struct mach_header *mh,
-			    unsigned long vm_slide)
-{
-  unsigned long sz;
-  char *fde;
-
-  fde = getsectdatafromheader (mh, "__TEXT", "__eh_frame", &sz);
-  if (fde)
-    {
-      struct object *ob = (struct object *) malloc (sizeof (struct object));
-
-      __register_frame_info (fde + vm_slide, ob);
-    }
-}
-
-static void
-unwind_dyld_remove_image_hook (struct mach_header *mh,
-			       unsigned long vm_slide)
-{
-  unsigned long sz;
-  char *fde;
-
-  fde = getsectdatafromheader (mh, "__TEXT", "__eh_frame", &sz);
-
-  if (fde)
-    __deregister_frame_info (fde + vm_slide);
-}
-
-/* Call this routine from the system crt1.o.  The call is standard in
-   Darwin 6.x (Mac OS X 10.2) and later; for earlier systems, you
-   would need to modify crt.c in the Csu project.  (This isn't great,
-   but other alternatives run afoul of linker semantics.  This
-   function is declared as common and tested before being called, so
-   that programs compiled by older GCCs still link and run.)  */
-
-void
-__darwin_gcc3_preregister_frame_info ()
-{
-  _dyld_register_func_for_add_image (unwind_dyld_add_image_hook);
-  _dyld_register_func_for_remove_image (unwind_dyld_remove_image_hook);
-}
-
-#elif defined(CRT_END) /* ! CRT_BEGIN */
-
-/* Install a single zero word at the end of the __eh_frame section.  */
-
-asm (".section __TEXT,__eh_frame");
-asm (".long 0");
-
-#else /* ! CRT_BEGIN && ! CRT_END */
-#error "One of CRT_BEGIN or CRT_END must be defined."
-#endif
-
-#endif  /* OBJECT_FORMAT_MACHO  */

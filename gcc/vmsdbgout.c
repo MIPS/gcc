@@ -21,9 +21,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #ifdef VMS_DEBUGGING_INFO
-#include "system.h"
 #include "tree.h"
 #include "flags.h"
 #include "rtl.h"
@@ -85,7 +87,7 @@ dst_file_info_entry;
 #define PTR_SIZE 4 /* Must be 32 bits for VMS debug info */
 #endif
 
-/* Pointer to an structure of filenames referenced by this compilation unit.  */
+/* Pointer to a structure of filenames referenced by this compilation unit.  */
 static dst_file_info_ref file_info_table;
 
 /* Total number of entries in the table (i.e. array) pointed to by

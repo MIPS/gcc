@@ -162,7 +162,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  is required by the current DWARF draft specification.
 
  Specifically, the current DWARF draft specification seems to require that
- the type of an non-unsigned integral bit-field member of a struct or union
+ the type of a non-unsigned integral bit-field member of a struct or union
  type be represented as either a "signed" type or as a "plain" type,
  depending upon the exact set of keywords that were used in the
  type specification for the given bit-field member.  It was felt (by the
@@ -563,9 +563,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 #include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #ifdef DWARF_DEBUGGING_INFO
-#include "system.h"
 #include "dwarf.h"
 #include "tree.h"
 #include "flags.h"

@@ -31,6 +31,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "flags.h"
 #include "tree.h"
 #include "real.h"
@@ -295,7 +297,6 @@ make_node (code)
     {
     case 's':
       TREE_SIDE_EFFECTS (t) = 1;
-      TREE_TYPE (t) = void_type_node;
       break;
 
     case 'd':
@@ -1361,13 +1362,24 @@ save_expr (expr)
   /* If we have simple operations applied to a SAVE_EXPR or to a SAVE_EXPR and
      a constant, it will be more efficient to not make another SAVE_EXPR since
      it will allow better simplification and GCSE will be able to merge the
-     computations if they actualy occur.  */
-  for (inner = t;
-       (TREE_CODE_CLASS (TREE_CODE (inner)) == '1'
-	|| (TREE_CODE_CLASS (TREE_CODE (inner)) == '2'
-	    && TREE_CONSTANT (TREE_OPERAND (inner, 1))));
-       inner = TREE_OPERAND (inner, 0))
-    ;
+     computations if they actually occur.  */
+  inner = t;
+  while (1)
+    {
+      if (TREE_CODE_CLASS (TREE_CODE (inner)) == '1')
+	inner = TREE_OPERAND (inner, 0);
+      else if (TREE_CODE_CLASS (TREE_CODE (inner)) == '2')
+	{
+	  if (TREE_CONSTANT (TREE_OPERAND (inner, 1)))
+	    inner = TREE_OPERAND (inner, 0);
+	  else if (TREE_CONSTANT (TREE_OPERAND (inner, 0)))
+	    inner = TREE_OPERAND (inner, 1);
+	  else
+	    break;
+	}
+      else
+	break;
+    }
 
   /* If the tree evaluates to a constant, then we don't want to hide that
      fact (i.e. this allows further folding, and direct checks for constants).
@@ -1376,7 +1388,8 @@ save_expr (expr)
      literal node.  */
   if (TREE_CONSTANT (inner)
       || (TREE_READONLY (inner) && ! TREE_SIDE_EFFECTS (inner))
-      || TREE_CODE (inner) == SAVE_EXPR || TREE_CODE (inner) == ERROR_MARK)
+      || TREE_CODE (inner) == SAVE_EXPR
+      || TREE_CODE (inner) == ERROR_MARK)
     return t;
 
   /* If T contains a PLACEHOLDER_EXPR, we must evaluate it each time, since
@@ -1592,7 +1605,7 @@ unsafe_for_reeval (expr)
 {
   int unsafeness = 0;
   enum tree_code code;
-  int i, tmp;
+  int i, tmp, tmp2;
   tree exp;
   int first_rtl;
 
@@ -1618,8 +1631,9 @@ unsafe_for_reeval (expr)
       return unsafeness;
 
     case CALL_EXPR:
+      tmp2 = unsafe_for_reeval (TREE_OPERAND (expr, 0));
       tmp = unsafe_for_reeval (TREE_OPERAND (expr, 1));
-      return MAX (tmp, 1);
+      return MAX (MAX (tmp, 1), tmp2);
 
     case TARGET_EXPR:
       unsafeness = 1;
@@ -2266,17 +2280,28 @@ build1 (code, type, node)
      tree type;
      tree node;
 {
-  int length;
+  int length = sizeof (struct tree_exp);
 #ifdef GATHER_STATISTICS
   tree_node_kind kind;
 #endif
   tree t;
 
 #ifdef GATHER_STATISTICS
-  if (TREE_CODE_CLASS (code) == 'r')
-    kind = r_kind;
-  else
-    kind = e_kind;
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 's':  /* an expression with side effects */
+      kind = s_kind;
+      break;
+    case 'r':  /* a reference */
+      kind = r_kind;
+      break;
+    default:
+      kind = e_kind;
+      break;
+    }
+
+  tree_node_counts[(int) kind]++;
+  tree_node_sizes[(int) kind] += length;
 #endif
 
 #ifdef ENABLE_CHECKING
@@ -2286,16 +2311,9 @@ build1 (code, type, node)
     abort ();
 #endif /* ENABLE_CHECKING */
 
-  length = sizeof (struct tree_exp);
-
   t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, sizeof (struct tree_common));
-
-#ifdef GATHER_STATISTICS
-  tree_node_counts[(int) kind]++;
-  tree_node_sizes[(int) kind] += length;
-#endif
 
   TREE_SET_CODE (t, code);
 
@@ -2308,7 +2326,9 @@ build1 (code, type, node)
       TREE_READONLY (t) = TREE_READONLY (node);
     }
 
-  switch (code)
+  if (TREE_CODE_CLASS (code) == 's')
+    TREE_SIDE_EFFECTS (t) = 1;
+  else switch (code)
     {
     case INIT_EXPR:
     case MODIFY_EXPR:
@@ -2508,53 +2528,6 @@ build_type_attribute_variant (ttype, attribute)
     }
 
   return ttype;
-}
-
-/* Default value of targetm.comp_type_attributes that always returns 1.  */
-
-int
-default_comp_type_attributes (type1, type2)
-     tree type1 ATTRIBUTE_UNUSED;
-     tree type2 ATTRIBUTE_UNUSED;
-{
-  return 1;
-}
-
-/* Default version of targetm.set_default_type_attributes that always does
-   nothing.  */
-
-void
-default_set_default_type_attributes (type)
-     tree type ATTRIBUTE_UNUSED;
-{
-}
-
-/* Default version of targetm.insert_attributes that always does nothing.  */
-void
-default_insert_attributes (decl, attr_ptr)
-     tree decl ATTRIBUTE_UNUSED;
-     tree *attr_ptr ATTRIBUTE_UNUSED;
-{
-}
-
-/* Default value of targetm.function_attribute_inlinable_p that always
-   returns false.  */
-bool
-default_function_attribute_inlinable_p (fndecl)
-     tree fndecl ATTRIBUTE_UNUSED;
-{
-  /* By default, functions with machine attributes cannot be inlined.  */
-  return false;
-}
-
-/* Default value of targetm.ms_bitfield_layout_p that always returns
-   false.  */
-bool
-default_ms_bitfield_layout_p (record)
-     tree record ATTRIBUTE_UNUSED;
-{
-  /* By default, GCC does not use the MS VC++ bitfield layout rules.  */
-  return false;
 }
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,
@@ -4100,6 +4073,9 @@ bool
 variably_modified_type_p (type)
      tree type;
 {
+  if (type == error_mark_node)
+    return false;
+
   /* If TYPE itself has variable size, it is variably modified.  
 
      We do not yet have a representation of the C99 '[*]' syntax.
@@ -4598,6 +4574,22 @@ tree_class_check_failed (node, cl, file, line, function)
     ("tree check: expected class '%c', have '%c' (%s) in %s, at %s:%d",
      cl, TREE_CODE_CLASS (TREE_CODE (node)),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
+}
+
+/* Similar to above, except that the check is for the bounds of a TREE_VEC's
+   (dynamically sized) vector.  */
+
+void
+tree_vec_elt_check_failed (idx, len, file, line, function)
+     int idx;
+     int len;
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error
+    ("tree check: accessed elt %d of tree_vec with %d elts in %s, at %s:%d",
+     idx + 1, len, function, trim_filename (file), line);
 }
 
 #endif /* ENABLE_TREE_CHECKING */

@@ -1,22 +1,22 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -28,6 +28,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "real.h"
@@ -56,6 +58,12 @@ static tree create_primitive_vtable PARAMS ((const char *));
 static tree check_local_named_variable PARAMS ((tree, tree, int, int *));
 static tree check_local_unnamed_variable PARAMS ((tree, tree, tree));
 static void dump_function PARAMS ((enum tree_dump_index, tree));
+
+/* Name of the Cloneable class.  */
+tree java_lang_cloneable_identifier_node;
+
+/* Name of the Serializable class.  */
+tree java_io_serializable_identifier_node;
 
 /* Set to nonzero value in order to emit class initilization code
    before static field references.  */
@@ -454,6 +462,20 @@ java_init_decl_processing ()
   integer_four_node = build_int_2 (4, 0);
   integer_minus_one_node = build_int_2 (-1, -1);
 
+  /* A few values used for range checking in the lexer.  */
+  decimal_int_max = build_int_2 (0x80000000, 0);
+  TREE_TYPE (decimal_int_max) = unsigned_int_type_node;
+#if HOST_BITS_PER_WIDE_INT == 64
+  decimal_long_max = build_int_2 (0x8000000000000000LL, 0);
+#else
+#if HOST_BITS_PER_WIDE_INT == 32
+  decimal_long_max = build_int_2 (0, 0x80000000);
+#else
+ #error "unsupported size"
+#endif
+#endif
+  TREE_TYPE (decimal_long_max) = unsigned_long_type_node;
+
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
   bitsize_zero_node = bitsize_int (0);
@@ -587,6 +609,10 @@ java_init_decl_processing ()
   access0_identifier_node = get_identifier ("access$0");
   classdollar_identifier_node = get_identifier ("class$");
 
+  java_lang_cloneable_identifier_node = get_identifier ("java.lang.Cloneable");
+  java_io_serializable_identifier_node =
+    get_identifier ("java.io.Serializable");
+
   /* for lack of a better place to put this stub call */
   init_expr_processing();
 
@@ -684,6 +710,7 @@ java_init_decl_processing ()
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
@@ -1169,7 +1196,7 @@ static struct binding_level *
 make_binding_level ()
 {
   /* NOSTRICT */
-  return (struct binding_level *) xmalloc (sizeof (struct binding_level));
+  return xmalloc (sizeof (struct binding_level));
 }
 
 void
@@ -1764,7 +1791,7 @@ start_java_method (fndecl)
 
   i = DECL_MAX_LOCALS(fndecl) + DECL_MAX_STACK(fndecl);
   decl_map = make_tree_vec (i);
-  type_map = (tree *) xrealloc (type_map, i * sizeof (tree));
+  type_map = xrealloc (type_map, i * sizeof (tree));
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   fprintf (stderr, "%s:\n", lang_printable_name (fndecl, 2));

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for Hitachi / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003
    Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
@@ -120,6 +120,7 @@ extern int sh_media_register_for_return PARAMS ((void));
 extern void sh_expand_prologue PARAMS ((void));
 extern void sh_expand_epilogue PARAMS ((void));
 extern int sh_need_epilogue PARAMS ((void));
+extern void sh_set_return_address PARAMS ((rtx, rtx));
 extern int initial_elimination_offset PARAMS ((int, int));
 extern int fldi_ok PARAMS ((void));
 extern int sh_pr_n_sets PARAMS ((void));
@@ -128,15 +129,16 @@ extern int sh_cfun_interrupt_handler_p PARAMS ((void));
 extern void sh_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern enum reg_class sh_cannot_change_mode_class
 	      PARAMS ((enum machine_mode, enum machine_mode));
+extern void sh_mark_label PARAMS ((rtx, int));
+extern int sh_register_move_cost
+  PARAMS ((enum machine_mode mode, enum reg_class, enum reg_class));
 
 #ifdef HARD_CONST
 extern void fpscr_set_from_mem PARAMS ((int, HARD_REG_SET));
 #endif
 
-#ifdef GCC_C_PRAGMA_H
-extern void sh_pr_interrupt PARAMS ((cpp_reader *));
-extern void sh_pr_trapa PARAMS ((cpp_reader *));
-extern void sh_pr_nosave_low_regs PARAMS ((cpp_reader *));
-#endif
+extern void sh_pr_interrupt PARAMS ((struct cpp_reader *));
+extern void sh_pr_trapa PARAMS ((struct cpp_reader *));
+extern void sh_pr_nosave_low_regs PARAMS ((struct cpp_reader *));
 
 #endif /* ! GCC_SH_PROTOS_H */

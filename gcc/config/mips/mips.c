@@ -29,6 +29,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <signal.h>
 #include "rtl.h"
 #include "regs.h"
@@ -5560,7 +5562,7 @@ mips_debugger_offset (addr, offset)
    '^'	Print the name of the pic call-through register (t9 or $25).
    '$'	Print the name of the stack pointer register (sp or $29).
    '+'	Print the name of the gp register (gp or $28).
-   '~'	Output an branch alignment to LABEL_ALIGN(NULL).  */
+   '~'	Output a branch alignment to LABEL_ALIGN(NULL).  */
 
 void
 print_operand (file, op, letter)
@@ -8279,7 +8281,22 @@ function_arg_pass_by_reference (cum, mode, type, named)
 }
 
 /* Return the class of registers for which a mode change from FROM to TO
-   is invalid.  */
+   is invalid.
+
+   In little-endian mode, the hi-lo registers are numbered backwards,
+   so (subreg:SI (reg:DI hi) 0) gets the high word instead of the low
+   word as intended.
+
+   Similarly, when using paired floating-point registers, the first
+   register holds the low word, regardless of endianness.  So in big
+   endian mode, (subreg:SI (reg:DF $f0) 0) does not get the high word
+   as intended.
+
+   Also, loading a 32-bit value into a 64-bit floating-point register
+   will not sign-extend the value, despite what LOAD_EXTEND_OP says.
+   We can't allow 64-bit float registers to change from a 32-bit
+   mode to a 64-bit mode.  */
+
 enum reg_class
 mips_cannot_change_mode_class (from, to)
      enum machine_mode from, to;
@@ -10023,6 +10040,8 @@ mips_output_conditional_branch (insn,
 
     case 12:
     case 16:
+    case 24:
+    case 28:
       {
 	/* Generate a reversed conditional branch around ` j'
 	   instruction:
@@ -10030,18 +10049,41 @@ mips_output_conditional_branch (insn,
 		.set noreorder
 		.set nomacro
 		bc    l
-		nop
+		delay_slot or #nop
 		j     target
+		#nop
+	     l:
 		.set macro
 		.set reorder
-	     l:
 
+	   If the original branch was a likely branch, the delay slot
+	   must be executed only if the branch is taken, so generate:
+
+		.set noreorder
+		.set nomacro
+		bc    l
+		#nop
+		j     target
+		delay slot or #nop
+	     l:
+		.set macro
+		.set reorder
+	   
+	   When generating non-embedded PIC, instead of:
+
+	        j     target
+
+	   we emit:
+
+	        .set noat
+	        la    $at, target
+		jr    $at
+		.set at
 	*/
 
         rtx orig_target;
 	rtx target = gen_label_rtx ();
 
-        output_asm_insn ("%(%<", 0);
         orig_target = operands[1];
         operands[1] = target;
 	/* Generate the reversed comparison.  This takes four
@@ -10056,13 +10098,8 @@ mips_output_conditional_branch (insn,
 		   op1,
 		   op2);
         output_asm_insn (buffer, operands);
-        operands[1] = orig_target;
 
-	output_asm_insn ("nop\n\tj\t%1", operands);
-
-        if (length == 16)
-	  output_asm_insn ("nop", 0);
-        else
+        if (length != 16 && length != 28 && ! mips_branch_likely)
           {
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
@@ -10070,9 +10107,33 @@ mips_output_conditional_branch (insn,
                              optimize, 0, 1);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
-	output_asm_insn ("%>%)", 0);
+	else
+	  output_asm_insn ("%#", 0);
+
+	if (length <= 16)
+	  output_asm_insn ("j\t%0", &orig_target);
+	else
+	  {
+	    if (Pmode == DImode)
+	      output_asm_insn ("%[dla\t%@,%0\n\tjr\t%@%]", &orig_target);
+	    else
+	      output_asm_insn ("%[la\t%@,%0\n\tjr\t%@%]", &orig_target);
+	  }
+
+        if (length != 16 && length != 28 && mips_branch_likely)
+          {
+            /* Output delay slot instruction.  */
+            rtx insn = final_sequence;
+            final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
+                             optimize, 0, 1);
+            INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
+          }
+	else
+	  output_asm_insn ("%#", 0);
+
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
                                    CODE_LABEL_NUMBER (target));
+
         return "";
       }
 

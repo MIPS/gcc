@@ -1,5 +1,5 @@
 /* Subroutines needed for unwinding stack frames for exception handling.  */
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
 This file is part of GCC.
@@ -31,6 +31,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef _Unwind_Find_FDE
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "dwarf2.h"
 #include "unwind.h"
 #define NO_BASE_OF_ENCODED_VALUE
@@ -85,6 +87,9 @@ __register_frame_info_bases (void *begin, struct object *ob,
   ob->u.single = begin;
   ob->s.i = 0;
   ob->s.b.encoding = DW_EH_PE_omit;
+#ifdef DWARF2_OBJECT_END_PTR_EXTENSION
+  ob->fde_end = NULL;
+#endif
 
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
@@ -462,6 +467,34 @@ fde_split (struct object *ob, fde_compare_t fde_compare,
   erratic->count = k;
 }
 
+#define SWAP(x,y) do { fde * tmp = x; x = y; y = tmp; } while (0)
+
+/* Convert a semi-heap to a heap.  A semi-heap is a heap except possibly
+   for the first (root) node; push it down to its rightful place.  */
+
+static void
+frame_downheap (struct object *ob, fde_compare_t fde_compare, fde **a,
+		int lo, int hi)
+{
+  int i, j;
+
+  for (i = lo, j = 2*i+1;
+       j < hi;
+       j = 2*i+1)
+    {
+      if (j+1 < hi && fde_compare (ob, a[j], a[j+1]) < 0)
+	++j;
+
+      if (fde_compare (ob, a[i], a[j]) < 0)
+	{
+	  SWAP (a[i], a[j]);
+	  i = j;
+	}
+      else
+	break;
+    }
+}
+
 /* This is O(n log(n)).  BSD/OS defines heapsort in stdlib.h, so we must
    use a name that does not conflict.  */
 
@@ -476,55 +509,22 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
   /* A portion of the array is called a "heap" if for all i>=0:
      If i and 2i+1 are valid indices, then a[i] >= a[2i+1].
      If i and 2i+2 are valid indices, then a[i] >= a[2i+2].  */
-#define SWAP(x,y) do { fde * tmp = x; x = y; y = tmp; } while (0)
   size_t n = erratic->count;
-  size_t m = n;
-  size_t i;
+  int m;
 
-  while (m > 0)
+  /* Expand our heap incrementally from the end of the array, heapifying
+     each resulting semi-heap as we go.  After each step, a[m] is the top
+     of a heap.  */
+  for (m = n/2-1; m >= 0; --m)
+    frame_downheap (ob, fde_compare, a, m, n);
+
+  /* Shrink our heap incrementally from the end of the array, first
+     swapping out the largest element a[0] and then re-heapifying the
+     resulting semi-heap.  After each step, a[0..m) is a heap.  */
+  for (m = n-1; m >= 1; --m)
     {
-      /* Invariant: a[m..n-1] is a heap.  */
-      m--;
-      for (i = m; 2*i+1 < n; )
-	{
-	  if (2*i+2 < n
-	      && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
-	      && fde_compare (ob, a[2*i+2], a[i]) > 0)
-	    {
-	      SWAP (a[i], a[2*i+2]);
-	      i = 2*i+2;
-	    }
-	  else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
-	    {
-	      SWAP (a[i], a[2*i+1]);
-	      i = 2*i+1;
-	    }
-	  else
-	    break;
-	}
-    }
-  while (n > 1)
-    {
-      /* Invariant: a[0..n-1] is a heap.  */
-      n--;
-      SWAP (a[0], a[n]);
-      for (i = 0; 2*i+1 < n; )
-	{
-	  if (2*i+2 < n
-	      && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
-	      && fde_compare (ob, a[2*i+2], a[i]) > 0)
-	    {
-	      SWAP (a[i], a[2*i+2]);
-	      i = 2*i+2;
-	    }
-	  else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
-	    {
-	      SWAP (a[i], a[2*i+1]);
-	      i = 2*i+1;
-	    }
-	  else
-	    break;
-	}
+      SWAP (a[0], a[m]);
+      frame_downheap (ob, fde_compare, a, 0, m);
     }
 #undef SWAP
 }
@@ -602,7 +602,7 @@ classify_object_over_fdes (struct object *ob, fde *this_fde)
   int encoding = DW_EH_PE_absptr;
   _Unwind_Ptr base = 0;
 
-  for (; this_fde->length != 0; this_fde = next_fde (this_fde))
+  for (; ! last_fde (ob, this_fde); this_fde = next_fde (this_fde))
     {
       struct dwarf_cie *this_cie;
       _Unwind_Ptr mask, pc_begin;
@@ -656,7 +656,7 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, fde *this_fde)
   int encoding = ob->s.b.encoding;
   _Unwind_Ptr base = base_from_object (ob->s.b.encoding, ob);
 
-  for (; this_fde->length != 0; this_fde = next_fde (this_fde))
+  for (; ! last_fde (ob, this_fde); this_fde = next_fde (this_fde))
     {
       struct dwarf_cie *this_cie;
 
@@ -773,7 +773,7 @@ linear_search_fdes (struct object *ob, fde *this_fde, void *pc)
   int encoding = ob->s.b.encoding;
   _Unwind_Ptr base = base_from_object (ob->s.b.encoding, ob);
 
-  for (; this_fde->length != 0; this_fde = next_fde (this_fde))
+  for (; ! last_fde (ob, this_fde); this_fde = next_fde (this_fde))
     {
       struct dwarf_cie *this_cie;
       _Unwind_Ptr pc_begin, pc_range;

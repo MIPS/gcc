@@ -1,19 +1,21 @@
 /* Handle CLASSPATH, -classpath, and path searching.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation, Inc.
+This file is part of GCC.
 
-This program is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -25,6 +27,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include <dirent.h>
 
@@ -143,7 +147,7 @@ add_entry (entp, filename, is_system)
   int len;
   struct entry *n;
 
-  n = (struct entry *) ALLOC (sizeof (struct entry));
+  n = ALLOC (sizeof (struct entry));
   n->flags = is_system ? FLAG_SYSTEM : 0;
   n->next = NULL;
 
@@ -165,7 +169,7 @@ add_entry (entp, filename, is_system)
      work more easily.  Eww.  */
   if (filename[len - 1] != '/' && filename[len - 1] != DIR_SEPARATOR)
     {
-      char *f2 = (char *) alloca (len + 2);
+      char *f2 = alloca (len + 2);
       strcpy (f2, filename);
       f2[len] = DIR_SEPARATOR;
       f2[len + 1] = '\0';
@@ -191,7 +195,7 @@ add_path (entp, cp, is_system)
 
   if (cp)
     {
-      char *buf = (char *) alloca (strlen (cp) + 3);
+      char *buf = alloca (strlen (cp) + 3);
       startp = endp = cp;
       while (1)
 	{
@@ -299,7 +303,7 @@ jcf_path_init ()
       /* Desperation: use the installed one.  */
       char *extdirs;
       add_entry (&sys_dirs, LIBGCJ_ZIP_FILE, 1);
-      extdirs = (char *) alloca (strlen (LIBGCJ_ZIP_FILE) + 1);
+      extdirs = alloca (strlen (LIBGCJ_ZIP_FILE) + 1);
       strcpy (extdirs, LIBGCJ_ZIP_FILE);
       strcpy (&extdirs[strlen (LIBGCJ_ZIP_FILE)
 		      - strlen ("libgcj-" DEFAULT_TARGET_VERSION ".jar")],
@@ -346,7 +350,7 @@ jcf_path_extdirs_arg (cp)
 
   if (cp)
     {
-      char *buf = (char *) alloca (strlen (cp) + 3);
+      char *buf = alloca (strlen (cp) + 3);
       startp = endp = cp;
       while (1)
 	{
@@ -375,9 +379,8 @@ jcf_path_extdirs_arg (cp)
 		    
 		    if (direntp->d_name[0] != '.')
 		      {
-			char *name = 
-			  (char *) alloca (dirname_length
-					   + strlen (direntp->d_name) + 2);
+			char *name = alloca (dirname_length
+					     + strlen (direntp->d_name) + 2);
 			strcpy (name, buf);
 			if (name[dirname_length-1] != DIR_SEPARATOR)
 			  {

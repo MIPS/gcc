@@ -77,7 +77,7 @@ struct gcc_target
 
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
-    void (* visibility) PARAMS ((tree, const char *));
+    void (* visibility) PARAMS ((tree, int));
 
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
@@ -126,7 +126,7 @@ struct gcc_target
     /* Output the assembler code for a thunk function.  THUNK_DECL is the
        declaration for the thunk function itself, FUNCTION is the decl for
        the target function.  DELTA is an immediate constant offset to be
-       added to THIS.  If VCALL_OFFSET is non-zero, the word at
+       added to THIS.  If VCALL_OFFSET is nonzero, the word at
        *(*this + vcall_offset) should be added to THIS.  */
     void (* output_mi_thunk) PARAMS ((FILE *file, tree thunk_decl,
 				      HOST_WIDE_INT delta,
@@ -264,6 +264,9 @@ struct gcc_target
   /* True if new jumps cannot be created, to replace existing ones or
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
+
+  /* True if the constant X cannot be placed in the constant pool.  */
+  bool (* cannot_force_const_mem) PARAMS ((rtx));
 
   /* True if it is OK to do sibling call optimization for the specified
      call expression EXP.  DECL will be the called function, or NULL if

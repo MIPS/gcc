@@ -90,22 +90,20 @@ tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/lex.o treelang/par
 
 # object file makes
 
-treelang/tree1.o: $(srcdir)/treelang/tree1.c $(srcdir)/treelang/treelang.h \
-	$(srcdir)/treelang/parse.h $(CONFIG_H) \
-	gt-treelang-tree1.h gtype-treelang.h
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/tree1.o: treelang/tree1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+  flags.h toplev.h $(GGC_H) $(TREE_H) diagnostic.h treelang/treelang.h \
+  treelang/treetree.h gt-treelang-tree1.h gtype-treelang.h
 
-treelang/treetree.o: $(srcdir)/treelang/treetree.c $(srcdir)/treelang/treetree.h \
-	$(CONFIG_H)
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/treetree.o: treelang/treetree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) $(TREE_H) flags.h output.h $(C_TREE_H) $(RTL_H) $(GGC_H) toplev.h \
+  varray.h $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h \
+  treelang/treetree.h
 
-treelang/parse.o: $(srcdir)/treelang/parse.c $(srcdir)/treelang/treelang.h \
-	$(srcdir)/treelang/treetree.h $(CONFIG_H)
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/parse.o: treelang/parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) diagnostic.h treelang/treelang.h treelang/treetree.h
 
-treelang/lex.o: $(srcdir)/treelang/lex.c $(srcdir)/treelang/parse.h \
-	$(srcdir)/treelang/treelang.h $(CONFIG_H)
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/lex.o: treelang/lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) diagnostic.h $(TREE_H) treelang/treelang.h treelang/parse.h
 
 # generated files the files from lex and yacc are put into the source
 # directory in case someone wants to build but does not have
@@ -134,15 +132,21 @@ treelang.rest.encap:
 .phony:treelang.info
 treelang.info: $(srcdir)/treelang/treelang.info
 
-$(srcdir)/treelang/treelang.info: $(srcdir)/treelang/treelang.texi
+$(srcdir)/treelang/treelang.info: $(srcdir)/treelang/treelang.texi \
+	 $(srcdir)/doc/include/gcc-common.texi \
+	 $(srcdir)/doc/include/gpl.texi \
+	 $(srcdir)/doc/include/fdl.texi \
+	 $(srcdir)/doc/include/funding.texi
 	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -Idoc/include \
 	-o treelang/treelang.info treelang/treelang.texi
 
-treelang.dvi: $(srcdir)/treelang/treelang.texi
-	TEXINPUTS=$(srcdir)/treelang:$(srcdir):$$TEXINPUTS $(TEXI2DVI) $(srcdir)/treelang/treelang.texi; \
-	  texindex treelang.??; \
-	  TEXINPUTS=$(srcdir)/treelang:$(srcdir):$$TEXINPUTS $(TEXI2DVI) $(srcdir)/treelang/treelang.texi; \
-	  mv treelang.dvi treelang;
+treelang.dvi: $(srcdir)/treelang/treelang.texi \
+	 $(srcdir)/doc/include/gcc-common.texi \
+	 $(srcdir)/doc/include/gpl.texi \
+	 $(srcdir)/doc/include/fdl.texi \
+	 $(srcdir)/doc/include/funding.texi
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	cd treelang && $(TEXI2DVI) -I $$s/doc/include $$s/treelang/treelang.texi
 
 treelang.generated-manpages:
 

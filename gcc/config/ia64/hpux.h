@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com> and
                   Reva Cuthbertson <reva@cup.hp.com>
 
@@ -108,9 +108,9 @@ do {							\
    field to be treated as structures and not as the type of their
    field.  Without this a structure with a single char will be
    returned just like a char variable and that is wrong on HP-UX
-   IA64.  TARGET_STRUCT_ARG_REG_LITTLE_ENDIAN triggers the special
-   structure handling, this macro simply ensures that single field
-   structures are always treated like structures.  */
+   IA64.  */
+
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
 
 /* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
    but that doesn't put out the @function type information which causes
@@ -123,18 +123,6 @@ do {								\
   ASM_OUTPUT_TYPE_DIRECTIVE (FILE, XSTR (FUN, 0), "function");	\
 } while (0)
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
-
-/* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
-   defaults.h.  Setting this to true means that we are not passing
-   structures in registers in the "normal" big-endian way.  See
-   See section 8.5 of the "Itanium Software Conventions and Runtime
-   Architecture", specifically Table 8-1 and the explanation of Byte 0
-   alignment and LSB alignment and a description of how structures
-   are passed.  */
-
-#define FUNCTION_ARG_REG_LITTLE_ENDIAN 1
-
 #undef FUNCTION_ARG_PADDING
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
 	ia64_hpux_function_arg_padding ((MODE), (TYPE))
@@ -142,8 +130,8 @@ do {								\
 #undef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN (!AGGREGATE_TYPE_P (type))
 
-#define REGISTER_TARGET_PRAGMAS(PFILE) \
-  cpp_register_pragma (PFILE, 0, "builtin", ia64_hpux_handle_builtin_pragma)
+#define REGISTER_TARGET_PRAGMAS() \
+  c_register_pragma (0, "builtin", ia64_hpux_handle_builtin_pragma)
 
 /* Tell ia64.c that we are using the HP linker and we should delay output of
    function extern declarations so that we don't output them for functions

@@ -23,6 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tree.h"
@@ -404,7 +406,6 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
      But as we have it, it counts within whatever size OP0 now has.
      On a bigendian machine, these are not the same, so convert.  */
   if (BYTES_BIG_ENDIAN
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN
       && GET_CODE (op0) != MEM
       && unit > GET_MODE_BITSIZE (GET_MODE (op0)))
     bitpos += unit - GET_MODE_BITSIZE (GET_MODE (op0));
@@ -535,7 +536,9 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
      structure fields.  */
   if (GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
       && GET_MODE_CLASS (GET_MODE (value)) != MODE_PARTIAL_INT)
-    value = gen_lowpart (word_mode, value);
+    value = gen_lowpart ((GET_MODE (value) == VOIDmode
+			  ? word_mode : int_mode_for_mode (GET_MODE (value))),
+			 value);
 
   /* Now OFFSET is nonzero only if OP0 is memory
      and is therefore always measured in bytes.  */
@@ -2921,7 +2924,7 @@ expand_mult_highpart (mode, op0, cnst1, target, unsignedp, max_cost)
    the result is exact for inputs up to 0x1fffffff.
    The input range can be reduced by using cross-sum rules.
    For odd divisors >= 3, the following table gives right shift counts
-   so that if an number is shifted by an integer multiple of the given
+   so that if a number is shifted by an integer multiple of the given
    amount, the remainder stays the same:
    2, 4, 3, 6, 10, 12, 4, 8, 18, 6, 11, 20, 18, 0, 5, 10, 12, 0, 12, 20,
    14, 12, 23, 21, 8, 0, 20, 18, 0, 0, 6, 12, 0, 22, 0, 18, 20, 30, 0, 0,

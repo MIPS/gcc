@@ -18,8 +18,10 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "gengtype.h"
 #include "gtyp-gen.h"
 
@@ -252,8 +254,8 @@ find_structure (name, isunion)
   return s;
 }
 
-/* Return the previously-defined parameterised structure for structure
-   T and parameters PARAM, or a new parameterised empty structure or
+/* Return the previously-defined parameterized structure for structure
+   T and parameters PARAM, or a new parameterized empty structure or
    union if none was defined previously.  */
 
 static type_p
@@ -1115,11 +1117,11 @@ open_base_files ()
   {
     /* The order of files here matters very much.  */
     static const char *const ifiles [] = {
-      "config.h", "system.h", "varray.h", "hashtab.h", "splay-tree.h",
-      "bitmap.h", "tree.h", "rtl.h", "function.h", "insn-config.h",
-      "expr.h", "hard-reg-set.h", "basic-block.h", "cselib.h",
-      "insn-addr.h", "ssa.h", "optabs.h", "libfuncs.h",
-      "debug.h", "ggc.h",
+      "config.h", "system.h", "coretypes.h", "tm.h", "varray.h",
+      "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
+      "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
+      "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
+      "libfuncs.h", "debug.h", "ggc.h",
       NULL
     };
     const char *const *ifp;

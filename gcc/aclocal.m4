@@ -1,3 +1,5 @@
+sinclude(../config/accross.m4)
+
 dnl See if stdbool.h properly defines bool and true/false.
 AC_DEFUN(gcc_AC_HEADER_STDBOOL,
 [AC_CACHE_CHECK([for working stdbool.h],
@@ -660,14 +662,13 @@ AC_CACHE_CHECK(for working mmap from /dev/zero,
  then ac_cv_func_mmap_dev_zero=no
  else ac_cv_func_mmap_dev_zero=buggy
  fi],
- # If this is not cygwin, and /dev/zero is a character device, it's probably
- # safe to assume it works.
+ # When cross-building, assume that this works, unless we know it
+ # doesn't.  Of course, we have no way of knowing if there even is a /dev/zero
+ # on the host, let alone whether mmap will work on it.
  [case "$host_os" in
    cygwin* | win32 | pe | mingw* ) ac_cv_func_mmap_dev_zero=buggy ;;
-   * ) if test -c /dev/zero
-       then ac_cv_func_mmap_dev_zero=yes
-       else ac_cv_func_mmap_dev_zero=no
-       fi ;;
+   darwin* ) ac_cv_func_mmap_dev_zero=no ;;
+   * ) ac_cv_func_mmap_dev_zero=yes ;;
   esac])
 ])
 if test $ac_cv_func_mmap_dev_zero = yes; then
@@ -687,7 +688,10 @@ AC_CACHE_CHECK([for working mmap with MAP_ANON(YMOUS)],
  fi],
  # Unlike /dev/zero, it is not safe to assume MAP_ANON(YMOUS) works
  # just because it's there. Some SCO Un*xen define it but don't implement it.
- ac_cv_func_mmap_anon=no)
+ [case "$host_os" in
+   darwin* ) ac_cv_func_mmap_anon=yes ;;
+   * ) ac_cv_func_mmap_anon=no ;;
+  esac])
 ])
 if test $ac_cv_func_mmap_anon = yes; then
   AC_DEFINE(HAVE_MMAP_ANON, 1,
@@ -740,7 +744,10 @@ int main()
 
   exit(0);
 }], ac_cv_func_mmap_file=yes, ac_cv_func_mmap_file=no,
-ac_cv_func_mmap_file=no)])
+ [case "$host_os" in
+   darwin* ) ac_cv_func_mmap_file=yes ;;
+   * ) ac_cv_func_mmap_file=no ;;
+  esac])])
 if test $ac_cv_func_mmap_file = yes; then
   AC_DEFINE(HAVE_MMAP_FILE, 1,
 	    [Define if read-only mmap of a plain file works.])
@@ -793,35 +800,6 @@ if test $gcc_cv_enum_bf_unsigned = yes; then
   AC_DEFINE(ENUM_BITFIELDS_ARE_UNSIGNED, 1,
     [Define if enumerated bitfields are treated as unsigned values.])
 fi])
-
-dnl Host type sizes probe.
-dnl By Kaveh R. Ghazi.  One typo fixed since.
-dnl
-AC_DEFUN([gcc_AC_COMPILE_CHECK_SIZEOF],
-[changequote(<<, >>)dnl
-dnl The name to #define.
-define(<<AC_TYPE_NAME>>, translit(sizeof_$1, [a-z *], [A-Z_P]))dnl
-dnl The cache variable name.
-define(<<AC_CV_NAME>>, translit(ac_cv_sizeof_$1, [ *], [_p]))dnl
-changequote([, ])dnl
-AC_MSG_CHECKING(size of $1)
-AC_CACHE_VAL(AC_CV_NAME,
-[for ac_size in 4 8 1 2 16 $3 ; do # List sizes in rough order of prevalence.
-  AC_TRY_COMPILE([#include "confdefs.h"
-#include <sys/types.h>
-$2
-], [switch (0) case 0: case (sizeof ($1) == $ac_size):;], AC_CV_NAME=$ac_size)
-  if test x$AC_CV_NAME != x ; then break; fi
-done
-])
-if test x$AC_CV_NAME = x ; then
-  AC_MSG_ERROR([cannot determine a size for $1])
-fi
-AC_MSG_RESULT($AC_CV_NAME)
-AC_DEFINE_UNQUOTED(AC_TYPE_NAME, $AC_CV_NAME, [The number of bytes in type $1])
-undefine([AC_TYPE_NAME])dnl
-undefine([AC_CV_NAME])dnl
-])
 
 dnl Probe number of bits in a byte.
 dnl Note C89 requires CHAR_BIT >= 8.
@@ -953,49 +931,6 @@ fi
 rm -rf conftest*
 AC_LANG_RESTORE])
 
-dnl Host endianness probe.
-dnl This tests byte-within-word endianness.  GCC actually needs
-dnl to know word-within-larger-object endianness.  They are the
-dnl same on all presently supported hosts.
-dnl Differs from AC_C_BIGENDIAN in that it does not require
-dnl running a program on the host, and it defines the macro we
-dnl want to see.
-dnl
-AC_DEFUN([gcc_AC_C_COMPILE_ENDIAN],
-[AC_CACHE_CHECK(byte ordering, ac_cv_c_compile_endian,
-[ac_cv_c_compile_endian=unknown
-gcc_AC_EXAMINE_OBJECT([
-#ifdef HAVE_LIMITS_H
-# include <limits.h>
-#endif
-/* This structure must have no internal padding.  */
-  struct {
-    char prefix[sizeof "\nendian:" - 1];
-    short word;
-    char postfix[2];
- } tester = {
-    "\nendian:",
-#if SIZEOF_SHORT == 4
-    ('A' << (CHAR_BIT * 3)) | ('B' << (CHAR_BIT * 2)) |
-#endif
-    ('A' << CHAR_BIT) | 'B',
-    'X', '\n'
-};],
- [if   grep 'endian:AB' conftest.dmp >/dev/null 2>&1; then
-    ac_cv_c_compile_endian=big-endian
-  elif grep 'endian:BA' conftest.dmp >/dev/null 2>&1; then
-    ac_cv_c_compile_endian=little-endian
-  fi])
-])
-if test $ac_cv_c_compile_endian = unknown; then
-  AC_MSG_ERROR([*** unable to determine endianness])
-elif test $ac_cv_c_compile_endian = big-endian; then
-  AC_DEFINE(HOST_WORDS_BIG_ENDIAN, 1,
-  [Define if the host machine stores words of multi-word integers in
-   big-endian order.])
-fi
-])
-
 dnl Floating point format probe.
 dnl The basic concept is the same as the above: grep the object
 dnl file for an interesting string.  We have to watch out for
@@ -1058,12 +993,12 @@ format=
 fbigend=
 case $ac_cv_c_float_format in
     'IEEE (big-endian)' )
-	if test $ac_cv_c_compile_endian = little-endian; then
+	if test $ac_cv_c_bigendian = no; then
 	    fbigend=1
 	fi
 	;;
     'IEEE (little-endian)' )
-	if test $ac_cv_c_compile_endian = big-endian; then
+	if test $ac_cv_c_bigendian = yes; then
 	    fbigend=0
 	fi
 	;;
@@ -1690,3 +1625,29 @@ strdup strtoul tsearch __argz_count __argz_stringify __argz_next])
    INTL_LIBTOOL_SUFFIX_PREFIX=ifelse([$1], use-libtool, [l], [])
    AC_SUBST(INTL_LIBTOOL_SUFFIX_PREFIX)
   ])
+
+AC_DEFUN(gcc_AC_INITFINI_ARRAY,
+[AC_CACHE_CHECK(for .preinit_array/.init_array/.fini_array support,
+		 gcc_cv_initfinit_array, [dnl
+  cat > conftest.c <<EOF
+static int x = -1;
+int main (void) { return x; }
+int foo (void) { x = 0; }
+int (*fp) (void) __attribute__ ((section (".init_array"))) = foo;
+EOF
+  if AC_TRY_COMMAND([${CC-cc} -o conftest conftest.c 1>&AS_MESSAGE_LOG_FD])
+  then
+    if ./conftest; then
+      gcc_cv_initfinit_array=yes
+    else
+      gcc_cv_initfinit_array=no
+    fi
+  else
+    gcc_cv_initfinit_array=no
+  fi
+  rm -f conftest*])
+  AC_SUBST(gcc_cv_initfinit_array)
+  if test $gcc_cv_initfinit_array = yes; then
+    AC_DEFINE(HAVE_INITFINI_ARRAY, 1,
+      [Define .init_array/.fini_array sections are available and working.])
+  fi])

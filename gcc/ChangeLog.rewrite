@@ -1,0 +1,151 @@
+2002-11-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	Fix merge fallout.
+	* config/mips/mips.md (mul_acc_si): Reapply 2002-10-16 change.
+	(muldi3_internal): Remove outdated comment.
+	(*muls_di, *umuls_di): Fix comment and 64-bitness.
+	(*smsac_di, *umsac_di): Likewise.  Reformat.
+	(umulsi3_highpart): Minor formatting tweaks.
+	(umulsi3_highpart_internal): Use only if !ISA_HAS_MULHI.  Remove
+	redundant scratch operand.  Minor formatting tweak.
+	(umulsi3_highpart_mulhi_internal): Use for !TARGET_64BIT as well.
+	(umulsi3_highpart_neg_mulhi_internal): Likewise.  Fix asm template.
+	(smulsi3_highpart): As for the unsigned version.
+	(smulsi3_highpart_internal): Likewise.
+	(smulsi3_highpart_mulhi_internal): Likewise.
+	(smulsi3_highpart_neg_mulhi_internal): Likewise.
+	(smuldi3_highpart, umuldi3_highpart): Minor formatting tweaks.
+	(*smul_acc_di): Remove duplicated pattern.
+	(*umul_acc_di, *smul_acc_di): Reapply 2002-10-16 change.
+	(anddi3) [unnamed mips16 pattern]: Remove reintroduced length.
+	(zero_extendsidi2_internal2): Remove new, but commented-out pattern.
+
+2002-10-22  Eric Christopher  <echristo@redhat.com>
+
+        * config/mips/mips-protos.h (mips_return_addr): New.
+        * config/mips/mips.c (mips_return_addr): New.
+        (movdi_operand): Remove.
+        (se_register_operand): Ditto.
+        (se_reg_or_0_operand): Ditto.
+        (se_uns_arith_operand): Ditto.
+        (se_arith_operand): Ditto.
+        (se_nonmemory_operand): Ditto.
+        (extend_operator): Ditto.
+        (highpart_shift_operator): Ditto.
+        (mips_initial_elimination_offset): Remove return address pointer
+        elimination.
+        (mips_reg_names): Remove $ra.
+        (mips_regno_to_class): Ditto.
+        * config/mips/mips.h (POINTER_SIZE): Define based on TARGET_LONG64
+        and TARGET_64BIT.
+        (POINTER_BOUNDARY): Remove.
+        (POINTERS_EXTEND_UNSIGNED): Define to 0.
+        (PROMOTE_MODE): Promote to Pmode.
+        (SHORT_IMMEDIATES_SIGN_EXTEND): Define.
+        (Pmode): Define to TARGET_64BIT.
+        (FUNCTION_MODE): Define as Pmode.
+        (mips_args): Remove deleted functions.
+        (SIZE_TYPE): Depend on POINTER_SIZE.
+        (PTRDIFF_TYPE): Ditto.
+        (FIXED_REGISTERS): Fix extra registers.
+        (CALL_USED_REGISTERS): Ditto.
+        (CALL_REALLY_USED_REGISTERS): Ditto.
+        (RAP_REG_NUM): Remove.
+        (RETURN_ADDRESS_POINTER_REGNUM): Ditto.
+        (RETURN_ADDR_RTX): Define to mips_return_addr.
+        (ELIMINABLE_REGS): Remove RETURN_ADDRESS_POINTER_REGNUM.
+        (CAN_ELIMINATE): Ditto.
+        * config/mips/mips.md: For DImode patterns, take into account
+        deletions above. Split mulsidi patterns into sign_extend and
+	zero_extend.
+
+2002-10-16  Richard Sandiford  <rsandifo@redhat.com>
+	    Michael Meissner  <meissner@redhat.com>
+
+	* config/mips/mips.h (ISA_HAS_MACC): True for normal-mode vr4120 code.
+	* config/mips/mips.md (mulsi3_mult3): Add a define_peephole2 to
+	mop up unnecessarly moves through LO.
+	(*mul_acc_si): Remove vr5400 and vr5500 handling from here.
+	(*macc): New pattern for ISA_HAS_MACC.  Add define_peephole2s to
+	change mtlo/macc sequences into mul/add sequences when a three-
+	address mul is available.
+	(*macc2): New pattern.  Add a define_peephole2 to generate it.
+	(*mul_sub_si): Fix contraint for operand 5.
+	(*muls): Use in 32-bit code as well.
+	(*msac): Likewise.  Use msub instead of msac in vr5500 code
+	if the destination is LO.  Remove duplicate define_split.
+	(*muls_di): Use only in 32-bit code.  Adjust rtl accordingly.
+	(*msac_di): Likewise.  Fix formatting.
+	(smulsi3_highpart, umulsi3_highpart): Use mulhi in 32-bit code too.
+	(*xmulsi3_highpart_internal): Use only if !ISA_HAS_MULHI.
+	(*xmulsi3_highpart_mulhi): Use even if !TARGET_64BIT.
+	(*xmulsi3_neg_highpart_mulhi): Likewise.
+	(*mul_acc_64bit_di): Remove.
+	(*mul_acc_di): Use only in 32-bit code.  Handle ISA_HAS_MACC as well.
+
+2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/vr.h (DRIVER_SELF_SPECS): Define.
+	* config/mips/t-vr (MULTILIB_OPTIONS): Remove mlong32.
+	(MULTILIB_DIRNAMES): Remove long32.
+	(MULTILIB_EXCEPTIONS): Don't build -mabi=32 -mgp32 multilibs.
+	(MULTILIB_REDUNDANT_DIRS): Remove.
+
+2002-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* doc/tm.texi (DRIVER_SELF_SPECS): Document.
+	* gcc.c (driver_self_specs): New variable.
+	(do_self_spec): New function.
+	(main): Use it to process driver_self_specs.
+
+2002-10-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (one_cmpldi2): Use only if TARGET_64BIT.
+	Remove DImode define_split for !TARGET_64BIT.
+	(anddi3): Remove !TARGET_64BIT support from here as well.
+	Change operand 2's predicate to se_uns_arith_operand.
+	Add constant alternatives to define_insn.
+	(iordi3, xordi3, *nordi3): Likewise.
+	(anddi3_internal1, xordi3_immed): Remove.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h (PROCESSOR_R4121): Rename to PROCESSOR_R4120.
+	(TARGET_MIPS4121): Rename to TARGET_MIPS4120.
+	* config/mips/mips.c (mips_cpu_info): Rename vr4121 to vr4120.
+	* config/mips/mips.md: Apply same renaming here.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (PROCESSOR_R4320, TARGET_MIPS4320): Remove.
+	(GENERATE_MULT3_SI): Remove use of TARGET_MIPS4320.
+	* config/mips/mips.c (mips_cpu_info): Remove vr4320 entry.
+	* config/mips/mips.md (define_attr cpu): Remove r4320.
+	Remove vr4320 scheduler and uses of TARGET_MIPS4320.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips16_strings): New variable.
+	(mips_output_function_epilogue): Clear the SYMBOL_REF_FLAG of every
+	symbol in mips16_strings.  Free the list.
+	(mips_encode_section_info): Keep track of local strings.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (bunge, bltgt, bungt): New define_expands.
+	(sordered_df, sordered_sf): Remove.
+	* config/mips/mips.c (get_float_compare_codes): New fn.
+	(gen_int_relational, gen_conditional_move): Use it.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_emit_fcc_reload): Declare.
+	* config/mips/mips.h (PREDICATE_CODES): Add fcc_register_operand.
+	* config/mips/mips.c (fcc_register_operand): New function.
+	(mips_emit_fcc_reload): New function, extracted from reload_incc.
+	(override_options): Allow TFmode values in float registers
+	if ISA_HAS_8CC.
+	* cnfig/mips/mips.md (reload_incc): Change destination prediate
+	to fcc_register_operand.  Remove misleading source constraint.
+	Use mips_emit_fcc_reload.
+	(reload_outcc): Duplicate reload_incc.

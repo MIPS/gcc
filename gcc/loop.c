@@ -36,6 +36,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "function.h"
@@ -2874,7 +2876,7 @@ find_and_verify_loops (f, loops)
 
 			/* If no suitable BARRIER was found, create a suitable
 			   one before TARGET.  Since TARGET is a fall through
-			   path, we'll need to insert an jump around our block
+			   path, we'll need to insert a jump around our block
 			   and add a BARRIER before TARGET.
 
 			   This creates an extra unconditional jump outside
@@ -5825,7 +5827,10 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, ext_val,
     abort ();
 
   if (type == DEST_ADDR)
-    v->replaceable = 1;
+    {
+      v->replaceable = 1;
+      v->not_replaceable = 0;
+    }
   else
     {
       /* The giv can be replaced outright by the reduced register only if all
@@ -5860,6 +5865,7 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, ext_val,
 	     using this biv anyways.  */
 
 	  v->replaceable = 1;
+	  v->not_replaceable = 0;
 	  for (b = bl->biv; b; b = b->next_iv)
 	    {
 	      if (INSN_UID (b->insn) >= max_uid_for_loop
@@ -5967,6 +5973,7 @@ check_final_value (loop, v)
       rtx last_giv_use;
 
       v->replaceable = 1;
+      v->not_replaceable = 0;
 
       /* When trying to determine whether or not a biv increment occurs
 	 during the lifetime of the giv, we can ignore uses of the variable
@@ -8605,11 +8612,12 @@ maybe_eliminate_biv (loop, bl, eliminate_p, threshold, insn_count)
       enum rtx_code code = GET_CODE (p);
       basic_block where_bb = 0;
       rtx where_insn = threshold >= insn_count ? 0 : p;
+      rtx note;
 
       /* If this is a libcall that sets a giv, skip ahead to its end.  */
       if (GET_RTX_CLASS (code) == 'i')
 	{
-	  rtx note = find_reg_note (p, REG_LIBCALL, NULL_RTX);
+	  note = find_reg_note (p, REG_LIBCALL, NULL_RTX);
 
 	  if (note)
 	    {
@@ -8627,6 +8635,8 @@ maybe_eliminate_biv (loop, bl, eliminate_p, threshold, insn_count)
 		}
 	    }
 	}
+
+      /* Closely examine the insn if the biv is mentioned.  */
       if ((code == INSN || code == JUMP_INSN || code == CALL_INSN)
 	  && reg_mentioned_p (reg, PATTERN (p))
 	  && ! maybe_eliminate_biv_1 (loop, PATTERN (p), p, bl,
@@ -8638,6 +8648,12 @@ maybe_eliminate_biv (loop, bl, eliminate_p, threshold, insn_count)
 		     bl->regno, INSN_UID (p));
 	  break;
 	}
+
+      /* If we are eliminating, kill REG_EQUAL notes mentioning the biv.  */
+      if (eliminate_p
+	  && (note = find_reg_note (p, REG_EQUAL, NULL_RTX)) != NULL_RTX
+	  && reg_mentioned_p (reg, XEXP (note, 0)))
+	remove_note (p, note);
     }
 
   if (p == loop->end)

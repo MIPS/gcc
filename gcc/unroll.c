@@ -69,7 +69,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* ??? Improve control of which loops get unrolled.  Could use profiling
    info to only unroll the most commonly executed loops.  Perhaps have
-   a user specifyable option to control the amount of code expansion,
+   a user specifiable option to control the amount of code expansion,
    or the percent of loops to consider for unrolling.  Etc.  */
 
 /* ??? Look at the register copies inside the loop to see if they form a
@@ -133,6 +133,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -2214,6 +2216,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
 	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (copy) = CONST_OR_PURE_CALL_P (insn);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
@@ -3789,7 +3792,7 @@ loop_iterations (loop)
       if (inc_once == final_value)
 	{
 	  /* The iterator value once through the loop is equal to the
-	     comparision value.  Either we have an infinite loop, or
+	     comparison value.  Either we have an infinite loop, or
 	     we'll loop twice.  */
 	  if (increment == const0_rtx)
 	    return 0;

@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "function.h"
@@ -1884,7 +1886,7 @@ delete_moves ()
       }
 }
 
-/* Due to resons documented elsewhere we create different pseudos
+/* Due to reasons documented elsewhere we create different pseudos
    for all webs coalesced to hardregs.  For these parts life_analysis()
    might have added REG_DEAD notes without considering, that only this part
    but not the whole coalesced web dies.  The RTL is correct, there is no

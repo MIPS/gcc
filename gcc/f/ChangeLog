@@ -1,3 +1,70 @@
+2003-01-01  Andreas Jaeger  <aj@suse.de>
+
+	* f/Make-lang.in ($(srcdir)/f/BUGS): Add include path for
+	gcc-common.texi.
+	($(srcdir)/f/NEWS): Likewise.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g77.texi: Use @copying.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* root.texi: Include gcc-common.texi.
+	* bugs.texi, news.texi: Don't include root.texi as part of full
+	manual.
+	* g77.texi: Update for use of gcc-common.texi.
+	* Make-lang.in ($(srcdir)/f/g77.info, f/g77.dvi): Depend on
+	$(srcdir)/doc/include/gcc-common.texi.
+
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* intdoc.in: Fix typos.
+
+2002-12-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* g77.texi: Fix typos.
+	* intdoc.texi: Likewise.
+	* news.texi: Follow spelling conventions.
+
+Mon Dec 16 13:53:18 2002  Mark Mitchell  <mark@codesourcery.com>
+
+	* root.texi: Change version number to 3.4.
+
+2002-12-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* target.h: Don't define HOST_WIDE_INT.
+
+2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in, ansify.c, intdoc.c, proj.h: Replace hconfig.h with
+	bconfig.h.
+	* fini.c, proj.h: Replace USE_HCONFIG with USE_BCONFIG
+
+2002-11-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* proj.h, ansify.c, g77spec.c, intdoc.c:
+	Include coretypes.h and tm.h.
+	* Make-lang.in: Update dependencies.
+
+2002-11-20  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Explain the purpose of -fmove-all-movables,
+	-freduce-all-givs and -frerun-loop-opts better.
+
+2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Correct BUILD/HOST confusion.
+
+2002-11-19  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/8587
+	* news.texi: Show PR fortran/8587 fixed.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* g77spec.c (lang_specific_spec_functions): New.
+
 2002-11-02  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* g77.texi: Correct documentation on generating C++ prototypes
@@ -17,7 +84,7 @@
 
 2002-10-15  Richard Henderson  <rth@redhat.com>
 
-	* target.h (ffetarget_print_real1, ffetarget_print_real2): Use 
+	* target.h (ffetarget_print_real1, ffetarget_print_real2): Use
 	real_to_decimal directly, and with the new arguments.
 
 2002-09-23  Zack Weinberg  <zack@codesourcery.com>

@@ -50,6 +50,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -67,6 +69,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "profile.h"
 #include "libfuncs.h"
 #include "langhooks.h"
+#include "hashtab.h"
 
 /* Additional information about the edges we need.  */
 struct edge_info {
@@ -144,6 +147,11 @@ static void find_spanning_tree PARAMS ((struct edge_list *));
 static rtx gen_edge_profiler PARAMS ((int));
 static void instrument_edges PARAMS ((struct edge_list *));
 static void compute_branch_probabilities PARAMS ((void));
+static hashval_t htab_counts_index_hash PARAMS ((const void *));
+static int htab_counts_index_eq PARAMS ((const void *, const void *));
+static void htab_counts_index_del PARAMS ((void *));
+static void cleanup_counts_index PARAMS ((int));
+static int index_counts_file PARAMS ((void));
 static gcov_type * get_exec_counts PARAMS ((void));
 static unsigned compute_checksum PARAMS ((void));
 static basic_block find_group PARAMS ((basic_block));
@@ -197,63 +205,108 @@ instrument_edges (el)
   commit_edge_insertions_watch_calls ();
 }
 
-
-/* Computes hybrid profile for all matching entries in da_file.
-   Sets max_counter_in_program as a side effect.
-   FIXME: This is O(nfuncs^2). It should be reorganised to read the da
-   file once. */
-
-static gcov_type *
-get_exec_counts ()
+struct section_reference
 {
-  unsigned num_edges = 0;
-  basic_block bb;
-  gcov_type *profile;
+  long offset;
+  int owns_summary;
+  long *summary;
+};
+
+struct da_index_entry
+{
+  /* We hash by  */
+  char *function_name;
+  unsigned section;
+  /* and store  */
+  unsigned checksum;
+  unsigned n_offsets;
+  struct section_reference *offsets;
+};
+
+static hashval_t
+htab_counts_index_hash (of)
+     const void *of;
+{
+  const struct da_index_entry *entry = of;
+
+  return htab_hash_string (entry->function_name) ^ entry->section;
+}
+
+static int
+htab_counts_index_eq (of1, of2)
+     const void *of1;
+     const void *of2;
+{
+  const struct da_index_entry *entry1 = of1;
+  const struct da_index_entry *entry2 = of2;
+
+  return !strcmp (entry1->function_name, entry2->function_name)
+	  && entry1->section == entry2->section;
+}
+
+static void
+htab_counts_index_del (what)
+     void *what;
+{
+  struct da_index_entry *entry = what;
+  unsigned i;
+
+  for (i = 0; i < entry->n_offsets; i++)
+    {
+      struct section_reference *act = entry->offsets + i;
+      if (act->owns_summary)
+	free (act->summary);
+    }
+  free (entry->function_name);
+  free (entry->offsets);
+  free (entry);
+}
+
+static char *counts_file_name;
+static htab_t counts_file_index = NULL;
+
+static void
+cleanup_counts_index (close_file)
+     int close_file;
+{
+  if (da_file && close_file)
+    {
+      fclose (da_file);
+      da_file = NULL;
+    }
+  if (counts_file_name)
+    free (counts_file_name);
+  counts_file_name = NULL;
+  if (counts_file_index)
+    htab_delete (counts_file_index);
+  counts_file_index = NULL;
+}
+
+static int
+index_counts_file ()
+{
   char *function_name_buffer = NULL;
-  gcov_type max_count = 0;
-  gcov_type prog_sum_max = 0;
-  gcov_type prog_runs = 0;
-  unsigned seen_fn = 0; /* 0 = not seen fn, 1 = function now,
-			   2 = seen fn, 3 = seen prog summaries */
-  unsigned magic, version;
-  unsigned ix;
-  const char *name = IDENTIFIER_POINTER
-		      (DECL_ASSEMBLER_NAME (current_function_decl));
+  unsigned magic, version, ix, checksum;
+  long *summary;
 
-  profile_info.max_counter_in_program = 0;
-  profile_info.count_profiles_merged = 0;
+  if (!da_file)
+    return 0;
+  counts_file_index = htab_create (10, htab_counts_index_hash, htab_counts_index_eq, htab_counts_index_del);
 
-  /* No .da file, no execution counts.  */
+  /* No .da file, no data.  */
   if (!da_file)
     return 0;
 
-  /* Count the edges to be (possibly) instrumented.  */
+  /* Now index all profile sections.  */
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    {
-      edge e;
-      for (e = bb->succ; e; e = e->succ_next)
-	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
-	  num_edges++;
-    }
-
-  /* now read and combine all matching profiles.  */
-
-  profile = xmalloc (sizeof (gcov_type) * num_edges);
   rewind (da_file);
 
-  for (ix = 0; ix < num_edges; ix++)
-    profile[ix] = 0;
+  summary = NULL;
 
   if (gcov_read_unsigned (da_file, &magic) || magic != GCOV_DATA_MAGIC)
     {
       warning ("`%s' is not a gcov data file", da_file_name);
-    cleanup:;
-      fclose (da_file);
-      da_file = NULL;
-      free (profile);
-      free (function_name_buffer);
-      return 0;
+      goto cleanup;
     }
   if (gcov_read_unsigned (da_file, &version) || version != GCOV_VERSION)
     {
@@ -273,8 +326,9 @@ get_exec_counts ()
   while (1)
     {
       unsigned tag, length;
-      long base;
+      long offset;
       
+      offset = gcov_save_position (da_file);
       if (gcov_read_unsigned (da_file, &tag)
 	  || gcov_read_unsigned (da_file, &length))
 	{
@@ -284,91 +338,190 @@ get_exec_counts ()
 	  warning ("`%s' is corrupted", da_file_name);
 	  goto cleanup;
 	}
-      base = gcov_save_position (da_file);
       if (tag == GCOV_TAG_FUNCTION)
 	{
-	  unsigned checksum;
-
-	  if (seen_fn == 3)
-	    {
-	      profile_info.count_profiles_merged += prog_runs;
-	      profile_info.max_counter_in_program += prog_sum_max;
-	      if (!prog_runs)
-		{
-		  profile_info.count_profiles_merged++;
-		  profile_info.max_counter_in_program += max_count;
-		}
-	      seen_fn = 0;
-	    }
-	  else if (seen_fn == 1)
-	    seen_fn = 2;
-	  
 	  if (gcov_read_string (da_file, &function_name_buffer, NULL)
 	      || gcov_read_unsigned (da_file, &checksum))
 	    goto corrupt;
-	  
-	  if (strcmp (name, function_name_buffer))
-	    ;
-	  else if (checksum != profile_info.current_function_cfg_checksum)
-	    {
-	    mismatch:;
-	      warning ("profile mismatch for `%s'", current_function_name);
-	      goto cleanup;
-	    }
-	  else
-	    seen_fn = 1;
+	  continue;
 	}
-      else if (tag == GCOV_TAG_PROGRAM_SUMMARY)
+      if (tag == GCOV_TAG_PROGRAM_SUMMARY)
 	{
-	  struct gcov_summary summary;
-
-	  if (gcov_read_summary (da_file, &summary))
+	  if (length != GCOV_SUMMARY_LENGTH)
 	    goto corrupt;
 
-	  if (seen_fn == 1)
-	    seen_fn = 2;
-	  if (seen_fn == 2)
-	    seen_fn = 3;
-	  if (seen_fn == 3)
-	    {
-	      prog_runs += summary.runs;
-	      prog_sum_max += summary.arc_sum_max;
-	    }
+	  if (summary)
+	    *summary = offset;
+	  summary = NULL;
 	}
-      else if (tag == GCOV_TAG_ARC_COUNTS)
+      else
 	{
-	  unsigned num = length / 8;
-
-	  if (seen_fn == 1 && num != num_edges)
-	    goto mismatch;
-	  
-	  for (ix = 0; ix != num; ix++)
+	  if (function_name_buffer)
 	    {
-	      gcov_type count;
+	      struct da_index_entry **slot, elt;
+	      elt.function_name = function_name_buffer;
+	      elt.section = tag;
 
-	      if (gcov_read_counter (da_file, &count))
-		goto corrupt;
-	      if (count > max_count)
-		max_count = count;
-	      if (seen_fn == 1)
-		profile[ix] = count;
+	      slot = (struct da_index_entry **)
+		htab_find_slot (counts_file_index, &elt, INSERT);
+	      if (*slot)
+		{
+		  if ((*slot)->checksum != checksum)
+		    {
+		      warning ("profile mismatch for `%s'", function_name_buffer);
+		      goto cleanup;
+		    }
+		  (*slot)->n_offsets++;
+		  (*slot)->offsets = xrealloc ((*slot)->offsets,
+					       sizeof (struct section_reference) * (*slot)->n_offsets);
+		}
+	      else
+		{
+		  *slot = xmalloc (sizeof (struct da_index_entry));
+		  (*slot)->function_name = xstrdup (function_name_buffer);
+		  (*slot)->section = tag;
+		  (*slot)->checksum = checksum;
+		  (*slot)->n_offsets = 1;
+		  (*slot)->offsets = xmalloc (sizeof (struct section_reference));
+		}
+	      (*slot)->offsets[(*slot)->n_offsets - 1].offset = offset;
+	      if (summary)
+		(*slot)->offsets[(*slot)->n_offsets - 1].owns_summary = 0;
+	      else
+		{
+		  summary = xmalloc (sizeof (long));
+		  *summary = -1;
+		  (*slot)->offsets[(*slot)->n_offsets - 1].owns_summary = 1;
+		}
+	      (*slot)->offsets[(*slot)->n_offsets - 1].summary = summary;
 	    }
 	}
-      gcov_resync (da_file, base, length);
+      if (gcov_skip (da_file, length))
+	goto corrupt;
     }
 
-  if (seen_fn == 3)
+  free (function_name_buffer);
+
+  return 1;
+
+cleanup:
+  cleanup_counts_index (1);
+  if (function_name_buffer)
+    free (function_name_buffer);
+  return 0;
+}
+
+/* Computes hybrid profile for all matching entries in da_file.
+   Sets max_counter_in_program as a side effect.  */
+
+static gcov_type *
+get_exec_counts ()
+{
+  unsigned num_edges = 0;
+  basic_block bb;
+  gcov_type *profile;
+  gcov_type max_count;
+  unsigned ix, i, tag, length, num;
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
+  struct da_index_entry *entry, what;
+  struct section_reference *act;
+  gcov_type count;
+  struct gcov_summary summ;
+
+  profile_info.max_counter_in_program = 0;
+  profile_info.count_profiles_merged = 0;
+
+  /* No .da file, no execution counts.  */
+  if (!da_file)
+    return NULL;
+  if (!counts_file_index)
+    abort ();
+
+  /* Count the edges to be (possibly) instrumented.  */
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      profile_info.count_profiles_merged += prog_runs;
-      profile_info.max_counter_in_program += prog_sum_max;
-      if (!prog_runs)
+      edge e;
+      for (e = bb->succ; e; e = e->succ_next)
+	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
+	  num_edges++;
+    }
+
+  /* now read and combine all matching profiles.  */
+
+  profile = xmalloc (sizeof (gcov_type) * num_edges);
+
+  for (ix = 0; ix < num_edges; ix++)
+    profile[ix] = 0;
+
+  what.function_name = (char *) name;
+  what.section = GCOV_TAG_ARC_COUNTS;
+  entry = htab_find (counts_file_index, &what);
+  if (!entry)
+    {
+      warning ("No profile for function '%s' found.", name);
+      goto cleanup;
+    }
+  
+  if (entry->checksum != profile_info.current_function_cfg_checksum)
+    {
+      warning ("profile mismatch for `%s'", current_function_name);
+      goto cleanup;
+    }
+
+  for (i = 0; i < entry->n_offsets; i++)
+    {
+      act = entry->offsets + i;
+
+      /* Read arc counters.  */
+      max_count = 0;
+      gcov_resync (da_file, act->offset, 0);
+
+      if (gcov_read_unsigned (da_file, &tag)
+	  || gcov_read_unsigned (da_file, &length)
+	  || tag != GCOV_TAG_ARC_COUNTS)
+	{
+	  /* We have already passed through file, so any error means
+	     something is rotten.  */
+	  abort ();
+	}
+      num = length / 8;
+
+      if (num != num_edges)
+	{
+	  warning ("profile mismatch for `%s'", current_function_name);
+	  goto cleanup;
+	}
+	  
+      for (ix = 0; ix != num; ix++)
+	{
+	  if (gcov_read_counter (da_file, &count))
+	    abort ();
+	  if (count > max_count)
+	    max_count = count;
+	  profile[ix] += count;
+	}
+
+      /* Read program summary.  */
+      if (*act->summary != -1)
+	{
+	  gcov_resync (da_file, *act->summary, 0);
+	  if (gcov_read_unsigned (da_file, &tag)
+	      || gcov_read_unsigned (da_file, &length)
+	      || tag != GCOV_TAG_PROGRAM_SUMMARY
+	      || gcov_read_summary (da_file, &summ))
+	    abort ();
+	  profile_info.count_profiles_merged += summ.runs;
+	  profile_info.max_counter_in_program += summ.arc_sum_max;
+	}
+      else
+	summ.runs = 0;
+      if (!summ.runs)
 	{
 	  profile_info.count_profiles_merged++;
 	  profile_info.max_counter_in_program += max_count;
 	}
     }
-  
-  free (function_name_buffer);
 
   if (rtl_dump_file)
     {
@@ -378,6 +531,11 @@ get_exec_counts ()
     }
 
   return profile;
+
+cleanup:;
+  free (profile);
+  cleanup_counts_index (1);
+  return NULL;
 }
 
 
@@ -790,7 +948,7 @@ branch_prob ()
       /* Add fake edges from entry block to the call insns that may return
 	 twice.  The CFG is not quite correct then, as call insn plays more
 	 role of CODE_LABEL, but for our purposes, everything should be OK,
-	 as we never insert code to the beggining of basic block.  */
+	 as we never insert code to the beginning of basic block.  */
       for (insn = bb->head; insn != NEXT_INSN (bb->end);
 	   insn = NEXT_INSN (insn))
 	{
@@ -1121,7 +1279,7 @@ union_groups (bb1, bb2)
 /* This function searches all of the edges in the program flow graph, and puts
    as many bad edges as possible onto the spanning tree.  Bad edges include
    abnormals edges, which can't be instrumented at the moment.  Since it is
-   possible for fake edges to form an cycle, we will have to develop some
+   possible for fake edges to form a cycle, we will have to develop some
    better way in the future.  Also put critical edges to the tree, since they
    are more expensive to instrument.  */
 
@@ -1140,7 +1298,7 @@ find_spanning_tree (el)
   /* Add fake edge exit to entry we can't instrument.  */
   union_groups (EXIT_BLOCK_PTR, ENTRY_BLOCK_PTR);
 
-  /* First add all abnormal edges to the tree unless they form an cycle. Also
+  /* First add all abnormal edges to the tree unless they form a cycle. Also
      add all edges to EXIT_BLOCK_PTR to avoid inserting profiling code behind
      setting return value from function.  */
   for (i = 0; i < num_edges; i++)
@@ -1160,7 +1318,7 @@ find_spanning_tree (el)
 	}
     }
 
-  /* Now insert all critical edges to the tree unless they form an cycle.  */
+  /* Now insert all critical edges to the tree unless they form a cycle.  */
   for (i = 0; i < num_edges; i++)
     {
       edge e = INDEX_EDGE (el, i);
@@ -1232,6 +1390,10 @@ init_branch_prob (filename)
       if (!da_file)
 	warning ("file %s not found, execution counts assumed to be zero",
 		 da_file_name);
+      if (counts_file_index && strcmp (da_file_name, counts_file_name))
+       	cleanup_counts_index (0);
+      if (index_counts_file ())
+	counts_file_name = xstrdup (da_file_name);
     }
 
   if (profile_arc_flag)
@@ -1266,18 +1428,11 @@ end_branch_prob ()
     {
       if (bbg_file)
 	{
-#if __GNUC__ && !CROSS_COMPILE && SUPPORTS_WEAK
-	  /* If __gcov_init has a value in the compiler, it means we
-	     are instrumenting ourselves. We should not remove the
-	     counts file, because we might be recompiling
-	     ourselves. The .da files are all removed during copying
-	     the stage1 files.  */
-	  extern void __gcov_init (void *)
-	    __attribute__ ((weak));
-	  
-	  if (!__gcov_init)
-	    unlink (da_file_name);
-#else
+#if !SELF_COVERAGE
+	  /* If the compiler is instrumented, we should not remove the
+             counts file, because we might be recompiling
+             ourselves. The .da files are all removed during copying
+             the stage1 files.  */
 	  unlink (da_file_name);
 #endif
 	  fclose (bbg_file);

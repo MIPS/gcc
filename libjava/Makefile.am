@@ -29,7 +29,7 @@ else
 cond_x_ltlibrary =
 endif
 
-toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
+toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
 
 jardir = $(datadir)/java
@@ -147,6 +147,63 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LINK = $(LIBLINK)
 
+lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
+org/w3c/dom/CDATASection.java \
+org/w3c/dom/CharacterData.java \
+org/w3c/dom/Comment.java \
+org/w3c/dom/DOMException.java \
+org/w3c/dom/DOMImplementation.java \
+org/w3c/dom/Document.java \
+org/w3c/dom/DocumentFragment.java \
+org/w3c/dom/DocumentType.java \
+org/w3c/dom/Element.java \
+org/w3c/dom/Entity.java \
+org/w3c/dom/EntityReference.java \
+org/w3c/dom/NamedNodeMap.java \
+org/w3c/dom/Node.java \
+org/w3c/dom/NodeList.java \
+org/w3c/dom/Notation.java \
+org/w3c/dom/ProcessingInstruction.java \
+org/w3c/dom/Text.java \
+org/w3c/dom/ranges/DocumentRange.java \
+org/w3c/dom/ranges/Range.java \
+org/w3c/dom/ranges/RangeException.java \
+org/w3c/dom/traversal/DocumentTraversal.java \
+org/w3c/dom/traversal/NodeFilter.java \
+org/w3c/dom/traversal/NodeIterator.java \
+org/w3c/dom/traversal/TreeWalker.java
+
+lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
+org/xml/sax/ext/LexicalHandler.java \
+org/xml/sax/helpers/AttributeListImpl.java \
+org/xml/sax/helpers/AttributesImpl.java \
+org/xml/sax/helpers/DefaultHandler.java \
+org/xml/sax/helpers/LocatorImpl.java \
+org/xml/sax/helpers/NamespaceSupport.java \
+org/xml/sax/helpers/NewInstance.java \
+org/xml/sax/helpers/ParserAdapter.java \
+org/xml/sax/helpers/ParserFactory.java \
+org/xml/sax/helpers/XMLFilterImpl.java \
+org/xml/sax/helpers/XMLReaderAdapter.java \
+org/xml/sax/helpers/XMLReaderFactory.java \
+org/xml/sax/AttributeList.java \
+org/xml/sax/Attributes.java \
+org/xml/sax/ContentHandler.java \
+org/xml/sax/DTDHandler.java \
+org/xml/sax/DocumentHandler.java \
+org/xml/sax/EntityResolver.java \
+org/xml/sax/ErrorHandler.java \
+org/xml/sax/HandlerBase.java \
+org/xml/sax/InputSource.java \
+org/xml/sax/Locator.java \
+org/xml/sax/Parser.java \
+org/xml/sax/SAXException.java \
+org/xml/sax/SAXNotRecognizedException.java \
+org/xml/sax/SAXNotSupportedException.java \
+org/xml/sax/SAXParseException.java \
+org/xml/sax/XMLFilter.java \
+org/xml/sax/XMLReader.java
+
 libgcjx_la_SOURCES = $(x_nat_source_files)
 EXTRA_libgcjx_la_SOURCES = $(x_java_source_files)
 libgcjx_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
@@ -168,6 +225,8 @@ install-exec-hook:
 all_java_source_files = \
     $(java_source_files) \
     $(built_java_source_files) \
+    $(lib_org_xml_sax_la_SOURCES) \
+    $(lib_org_w3c_dom_la_SOURCES) \
     $(x_java_source_files)
 
 all_java_class_files = $(all_java_source_files:.java=.class)
@@ -218,7 +277,7 @@ $(c_files): %.lo: %.c
 $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 ## FIXME: GNU make.
-$(javao_files) $(x_javao_files): %.lo: %.java
+$(javao_files) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 ## Pass the list of object files to libtool in a temporary file to 
@@ -678,6 +737,8 @@ java/awt/Window.java \
 java/awt/color/ColorSpace.java \
 java/awt/color/ICC_ColorSpace.java \
 java/awt/color/ICC_Profile.java \
+java/awt/color/ICC_ProfileGray.java \
+java/awt/color/ICC_ProfileRGB.java \
 java/awt/color/CMMException.java \
 java/awt/color/ProfileDataException.java \
 java/awt/datatransfer/Clipboard.java \
@@ -1275,6 +1336,7 @@ java/rmi/server/LogStream.java \
 java/rmi/server/ObjID.java \
 java/rmi/server/Operation.java \
 java/rmi/server/RMIClassLoader.java \
+java/rmi/server/RMIClassLoaderSpi.java \
 java/rmi/server/RMIClientSocketFactory.java \
 java/rmi/server/RMIFailureHandler.java \
 java/rmi/server/RMIServerSocketFactory.java \
@@ -1718,8 +1780,10 @@ gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/FirstThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
+gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
 gnu/gcj/runtime/SharedLibLoader.java \
+gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
@@ -1869,6 +1933,15 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/nio/charset/ISO_8859_1.java \
+gnu/java/nio/charset/Provider.java \
+gnu/java/nio/charset/US_ASCII.java \
+gnu/java/nio/charset/UTF_16.java \
+gnu/java/nio/charset/UTF_16BE.java \
+gnu/java/nio/charset/UTF_16Decoder.java \
+gnu/java/nio/charset/UTF_16Encoder.java \
+gnu/java/nio/charset/UTF_16LE.java \
+gnu/java/nio/charset/UTF_8.java \
 gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/provider/DERReader.java \
 gnu/java/security/provider/DERWriter.java \
@@ -1957,17 +2030,36 @@ java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
 java/nio/Buffer.java \
+java/nio/BufferOverflowException.java \
+java/nio/BufferUnderflowException.java \
 java/nio/ByteBuffer.java \
 java/nio/ByteOrder.java \
+java/nio/CharBuffer.java \
+java/nio/InvalidMarkException.java \
 java/nio/MappedByteBuffer.java \
+java/nio/ReadOnlyBufferException.java \
 java/nio/channels/AlreadyConnectedException.java \
+java/nio/channels/AsynchronousCloseException.java \
 java/nio/channels/ByteChannel.java \
+java/nio/channels/CancelledKeyException.java \
 java/nio/channels/Channel.java \
+java/nio/channels/ClosedByInterruptException.java \
 java/nio/channels/ClosedChannelException.java \
+java/nio/channels/ClosedSelectorException.java \
+java/nio/channels/ConnectionPendingException.java \
 java/nio/channels/DatagramChannel.java \
+java/nio/channels/FileChannel.java \
+java/nio/channels/FileLockInterruptionException.java \
 java/nio/channels/GatheringByteChannel.java \
 java/nio/channels/IllegalBlockingModeException.java \
+java/nio/channels/IllegalSelectorException.java \
 java/nio/channels/InterruptibleChannel.java \
+java/nio/channels/NoConnectionPendingException.java \
+java/nio/channels/NonReadableChannelException.java \
+java/nio/channels/NonWritableChannelException.java \
+java/nio/channels/NotYetBoundException.java \
+java/nio/channels/NotYetConnectedException.java \
+java/nio/channels/OverlappingFileLockException.java \
 java/nio/channels/Pipe.java \
 java/nio/channels/ReadableByteChannel.java \
 java/nio/channels/ScatteringByteChannel.java \
@@ -1976,16 +2068,20 @@ java/nio/channels/SelectionKey.java \
 java/nio/channels/Selector.java \
 java/nio/channels/ServerSocketChannel.java \
 java/nio/channels/SocketChannel.java \
+java/nio/channels/UnresolvedAddressException.java \
+java/nio/channels/UnsupportedAddressTypeException.java \
 java/nio/channels/WritableByteChannel.java \
 java/nio/channels/spi/AbstractSelectableChannel.java \
-java/nio/channels/spi/AbstractChannel.java \
 java/nio/channels/spi/AbstractInterruptibleChannel.java \
 java/nio/channels/spi/AbstractSelectionKey.java \
 java/nio/channels/spi/AbstractSelector.java \
 java/nio/channels/spi/SelectorProvider.java \
 java/nio/charset/Charset.java \
 java/nio/charset/CharacterCodingException.java \
+java/nio/charset/CharsetDecoder.java \
+java/nio/charset/CharsetEncoder.java \
 java/nio/charset/CoderMalfunctionError.java \
+java/nio/charset/CoderResult.java \
 java/nio/charset/CodingErrorAction.java \
 java/nio/charset/IllegalCharsetNameException.java \
 java/nio/charset/MalformedInputException.java \
@@ -2184,60 +2280,6 @@ java/util/zip/ZipException.java	\
 java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
-org/w3c/dom/Attr.java \
-org/w3c/dom/CDATASection.java \
-org/w3c/dom/CharacterData.java \
-org/w3c/dom/Comment.java \
-org/w3c/dom/DOMException.java \
-org/w3c/dom/DOMImplementation.java \
-org/w3c/dom/Document.java \
-org/w3c/dom/DocumentFragment.java \
-org/w3c/dom/DocumentType.java \
-org/w3c/dom/Element.java \
-org/w3c/dom/Entity.java \
-org/w3c/dom/EntityReference.java \
-org/w3c/dom/NamedNodeMap.java \
-org/w3c/dom/Node.java \
-org/w3c/dom/NodeList.java \
-org/w3c/dom/Notation.java \
-org/w3c/dom/ProcessingInstruction.java \
-org/w3c/dom/Text.java \
-org/w3c/dom/ranges/DocumentRange.java \
-org/w3c/dom/ranges/Range.java \
-org/w3c/dom/ranges/RangeException.java \
-org/w3c/dom/traversal/DocumentTraversal.java \
-org/w3c/dom/traversal/NodeFilter.java \
-org/w3c/dom/traversal/NodeIterator.java \
-org/w3c/dom/traversal/TreeWalker.java \
-org/xml/sax/ext/DeclHandler.java \
-org/xml/sax/ext/LexicalHandler.java \
-org/xml/sax/helpers/AttributeListImpl.java \
-org/xml/sax/helpers/AttributesImpl.java \
-org/xml/sax/helpers/DefaultHandler.java \
-org/xml/sax/helpers/LocatorImpl.java \
-org/xml/sax/helpers/NamespaceSupport.java \
-org/xml/sax/helpers/ParserAdapter.java \
-org/xml/sax/helpers/ParserFactory.java \
-org/xml/sax/helpers/XMLFilterImpl.java \
-org/xml/sax/helpers/XMLReaderAdapter.java \
-org/xml/sax/helpers/XMLReaderFactory.java \
-org/xml/sax/AttributeList.java \
-org/xml/sax/Attributes.java \
-org/xml/sax/ContentHandler.java \
-org/xml/sax/DTDHandler.java \
-org/xml/sax/DocumentHandler.java \
-org/xml/sax/EntityResolver.java \
-org/xml/sax/ErrorHandler.java \
-org/xml/sax/HandlerBase.java \
-org/xml/sax/InputSource.java \
-org/xml/sax/Locator.java \
-org/xml/sax/Parser.java \
-org/xml/sax/SAXException.java \
-org/xml/sax/SAXNotRecognizedException.java \
-org/xml/sax/SAXNotSupportedException.java \
-org/xml/sax/SAXParseException.java \
-org/xml/sax/XMLFilter.java \
-org/xml/sax/XMLReader.java \
 $(rmi_java_source_files) \
 $(awt_java_source_files) \
 $(convert_source_files) \
@@ -2282,7 +2324,9 @@ gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natFirstThread.cc \
 gnu/gcj/runtime/natNameFinder.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
+gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
+gnu/gcj/runtime/natVMClassLoader.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
@@ -2300,7 +2344,7 @@ java/lang/natString.cc \
 java/lang/natStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
-java/lang/natVMThrowable.cc \
+java/lang/natVMSecurityManager.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
@@ -2312,6 +2356,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/text/natCollator.cc \
+java/util/natResourceBundle.cc \
 java/util/natTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc

@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "machmode.h"
 #include "hard-reg-set.h"
@@ -303,7 +305,7 @@ struct elim_table
   int from;			/* Register number to be eliminated.  */
   int to;			/* Register number used as replacement.  */
   int initial_offset;		/* Initial difference between values.  */
-  int can_eliminate;		/* Non-zero if this elimination can be done.  */
+  int can_eliminate;		/* Nonzero if this elimination can be done.  */
   int can_eliminate_previous;	/* Value of CAN_ELIMINATE in previous scan over
 				   insns made by reload.  */
   int offset;			/* Current offset between the two regs.  */
@@ -817,8 +819,12 @@ reload (first, global)
 		      else if (LEGITIMATE_CONSTANT_P (x))
 			reg_equiv_constant[i] = x;
 		      else
-			reg_equiv_memory_loc[i]
-			  = force_const_mem (GET_MODE (SET_DEST (set)), x);
+			{
+			  reg_equiv_memory_loc[i]
+			    = force_const_mem (GET_MODE (SET_DEST (set)), x);
+			  if (!reg_equiv_memory_loc[i])
+			    continue;
+			}
 		    }
 		  else
 		    continue;
@@ -5929,7 +5935,7 @@ choose_reload_regs (chain)
     if (reload_override_in[j])
       rld[j].in = reload_override_in[j];
 
-  /* If this reload won't be done because it has been cancelled or is
+  /* If this reload won't be done because it has been canceled or is
      optional and not inherited, clear reload_reg_rtx so other
      routines (such as subst_reloads) don't get confused.  */
   for (j = 0; j < n_reloads; j++)
@@ -7683,7 +7689,7 @@ delete_output_reload (insn, j, last_reload_reg)
 
   /* The caller has already checked that REG dies or is set in INSN.
      It has also checked that we are optimizing, and thus some
-     inaccurancies in the debugging information are acceptable.
+     inaccuracies in the debugging information are acceptable.
      So we could just delete output_reload_insn.  But in some cases
      we can improve the debugging information without sacrificing
      optimization - maybe even improving the code: See if the pseudo
@@ -7885,7 +7891,7 @@ delete_address_reloads_1 (dead_insn, x, current_insn)
 		  return;
 	      /* ??? We can't finish the loop here, because dst might be
 		 allocated to a pseudo in this block if no reload in this
-		 block needs any of the clsses containing DST - see
+		 block needs any of the classes containing DST - see
 		 spill_hard_reg.  There is no easy way to tell this, so we
 		 have to scan till the end of the basic block.  */
 	    }
@@ -8524,7 +8530,7 @@ reload_cse_simplify_operands (insn, testreg)
 
 /* If reload couldn't use reg+reg+offset addressing, try to use reg+reg
    addressing now.
-   This code might also be useful when reload gave up on reg+reg addresssing
+   This code might also be useful when reload gave up on reg+reg addressing
    because of clashes between the return register and INDEX_REG_CLASS.  */
 
 /* The maximum number of uses of a register we can keep track of to
@@ -8545,7 +8551,7 @@ struct reg_use { rtx insn, *usep; };
    last, of these uses.
    STORE_RUID is always meaningful if we only want to use a value in a
    register in a different place: it denotes the next insn in the insn
-   stream (i.e. the last ecountered) that sets or clobbers the register.  */
+   stream (i.e. the last encountered) that sets or clobbers the register.  */
 static struct
   {
     struct reg_use reg_use[RELOAD_COMBINE_MAX_USES];
@@ -9048,7 +9054,7 @@ static HOST_WIDE_INT reg_offset[FIRST_PSEUDO_REGISTER];
 static int reg_base_reg[FIRST_PSEUDO_REGISTER];
 static enum machine_mode reg_mode[FIRST_PSEUDO_REGISTER];
 
-/* move2add_luid is linearily increased while scanning the instructions
+/* move2add_luid is linearly increased while scanning the instructions
    from first to last.  It is used to set reg_set_luid in
    reload_cse_move2add and move2add_note_store.  */
 static int move2add_luid;
@@ -9454,7 +9460,7 @@ fixup_abnormal_edges ()
     {
       edge e;
 
-      /* Look for cases we are interested in - an calls or instructions causing
+      /* Look for cases we are interested in - calls or instructions causing
          exceptions.  */
       for (e = bb->succ; e; e = e->succ_next)
 	{
@@ -9493,7 +9499,7 @@ fixup_abnormal_edges ()
 		     If it's placed after a trapping call (i.e. that
 		     call is the last insn anyway), we have no fallthru
 		     edge.  Simply delete this use and don't try to insert
-		     on the non-existant edge.  */
+		     on the non-existent edge.  */
 		  if (GET_CODE (PATTERN (insn)) != USE)
 		    {
 		      /* We're not deleting it, we're moving it.  */

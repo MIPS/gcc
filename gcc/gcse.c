@@ -145,6 +145,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 
 #include "rtl.h"
@@ -5288,7 +5290,7 @@ gcse_emit_move_after (src, dest, insn)
   else
     eqv = SET_SRC (set);
 
-  set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (src));
+  set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (eqv));
 
   return new;
 }

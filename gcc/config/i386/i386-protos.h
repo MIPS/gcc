@@ -41,6 +41,9 @@ extern int ix86_aligned_p PARAMS ((rtx));
 extern int standard_80387_constant_p PARAMS ((rtx));
 extern int standard_sse_constant_p PARAMS ((rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
+extern bool extended_reg_mentioned_p PARAMS ((rtx));
+extern bool x86_extended_QIreg_mentioned_p PARAMS ((rtx));
+extern bool x86_extended_reg_mentioned_p PARAMS ((rtx));
 
 extern int any_fp_register_operand PARAMS ((rtx, enum machine_mode));
 extern int register_and_not_any_fp_reg_operand PARAMS ((rtx, enum machine_mode));
@@ -154,7 +157,7 @@ extern int ix86_attr_length_address_default PARAMS ((rtx));
 
 extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 
-extern int x86_64_sign_extended_value PARAMS ((rtx, int));
+extern int x86_64_sign_extended_value PARAMS ((rtx));
 extern int x86_64_zero_extended_value PARAMS ((rtx));
 extern rtx ix86_libcall_value PARAMS ((enum machine_mode));
 extern bool ix86_function_value_regno_p PARAMS ((int));
@@ -185,6 +188,7 @@ extern void ix86_set_move_mem_attrs PARAMS ((rtx, rtx, rtx, rtx, rtx));
 extern void emit_i387_cw_initialization PARAMS ((rtx, rtx));
 extern bool ix86_fp_jump_nontrivial_p PARAMS ((enum rtx_code));
 extern void x86_order_regs_for_local_alloc PARAMS ((void));
+extern void x86_function_profiler PARAMS ((FILE *, int));
 
 
 #ifdef TREE_CODE
@@ -229,3 +233,4 @@ extern void i386_pe_asm_file_end PARAMS ((FILE *));
 extern void i386_pe_encode_section_info PARAMS ((tree, int));
 extern const char *i386_pe_strip_name_encoding PARAMS ((const char *));
 extern const char *i386_pe_strip_name_encoding_full PARAMS ((const char *));
+extern void i386_pe_output_labelref PARAMS ((FILE *, const char *));
