@@ -91,18 +91,17 @@ typedef struct emit_note_data_def
   enum where_emit_note where;
 } emit_note_data;
 
-/* The variables that are stored in a register are remembered in a link-list
-   because there should not be many variables in one register so
-   the link-list would be the fastest solution.  */
-/* The variables stored in memory are remembered in a hash table, locations for
-   each variable are remembered in a link-list.  */
-/* TODO: Replace the link-lists by splay-trees?  */
-
-/* The node of the link-list for describing the attributes of a variable.  */
-typedef struct attrs_list_def
+/* The following structure contains needed information from REG_ATTRS and
+   MEM_ATTRS and is common for REGs and MEMs.
+   There is a separate link list of these structures for each (physical)
+   register for attributes of variables which are stored in register
+   and separate link list for each DECL_RTL (MEM_EXPR (mem)) for MEMs, 
+   so the link lists are pretty short (usually 1 or 2 elements) and thus
+   link list is the best data structure.  */
+typedef struct attrs_def
 {
   /* Pointer to next member of the list.  */
-  struct attrs_list_def *next;
+  struct attrs_def *next;
 
   /* The rtx of register/memory.  */
   rtx loc;
@@ -112,7 +111,7 @@ typedef struct attrs_list_def
 
   /* Offset from start of DECL.  */
   HOST_WIDE_INT offset;
-} *attrs_list;
+} *attrs;
 
 /* The structure (one for each basic block) containing the information
    needed for dataflow analysis (variable tracking).  */
@@ -125,13 +124,13 @@ typedef struct var_tracking_info_def
   location *locs;
 
   /* Input attributes for registers (lists of attrs).  */
-  attrs_list in[FIRST_PSEUDO_REGISTER];
+  attrs in[FIRST_PSEUDO_REGISTER];
 
   /* Input attributes for memory.  */
   htab_t mem_in;
 
   /* Output attributes for registers.  */
-  attrs_list out[FIRST_PSEUDO_REGISTER];
+  attrs out[FIRST_PSEUDO_REGISTER];
 
   /* Output attributes for memory.  */
   htab_t mem_out;
@@ -187,17 +186,16 @@ static int mem_htab_eq			PARAMS ((const void *, const void *));
 static hashval_t variable_htab_hash	PARAMS ((const void *));
 static int variable_htab_eq		PARAMS ((const void *, const void *));
 
-static void init_attrs_list_set		PARAMS ((attrs_list *));
-static void attrs_list_clear		PARAMS ((attrs_list *));
-static attrs_list attrs_list_member	PARAMS ((attrs_list, tree,
-						 HOST_WIDE_INT));
-static void attrs_list_insert		PARAMS ((attrs_list *, tree,
+static void init_attrs_list_set		PARAMS ((attrs *));
+static void attrs_list_clear		PARAMS ((attrs *));
+static attrs attrs_list_member		PARAMS ((attrs, tree, HOST_WIDE_INT));
+static void attrs_list_insert		PARAMS ((attrs *, tree,
 						 HOST_WIDE_INT, rtx));
-static void attrs_list_delete		PARAMS ((attrs_list *, tree,
+static void attrs_list_delete		PARAMS ((attrs *, tree,
 						 HOST_WIDE_INT));
-static void attrs_list_copy		PARAMS ((attrs_list *, attrs_list));
-static void attrs_list_union		PARAMS ((attrs_list *,attrs_list));
-static bool attrs_list_different	PARAMS ((attrs_list, attrs_list));
+static void attrs_list_copy		PARAMS ((attrs *, attrs));
+static void attrs_list_union		PARAMS ((attrs *, attrs));
+static bool attrs_list_different	PARAMS ((attrs, attrs));
 
 static void attrs_htab_insert		PARAMS ((htab_t, rtx));
 static void attrs_htab_delete		PARAMS ((htab_t, rtx));
@@ -216,9 +214,9 @@ static bool compute_bb_dataflow		PARAMS ((basic_block));
 static void hybrid_search		PARAMS ((basic_block, sbitmap,
 						 sbitmap));
 static void iterative_dataflow		PARAMS ((int *));
-static inline void dump_attrs_list	PARAMS ((attrs_list));
+static inline void dump_attrs_list	PARAMS ((attrs));
 static int dump_mem_attrs_list		PARAMS ((void **, void *));
-static void dump_attrs_list_sets	PARAMS ((void));
+static void dump_attrs			PARAMS ((void));
 
 static void note_insn_var_location_emit	PARAMS ((rtx, enum where_emit_note,
 						 variable));
@@ -228,7 +226,7 @@ static void delete_location_part	PARAMS ((tree, HOST_WIDE_INT, rtx,
 						 enum where_emit_note));
 static int process_location_parts	PARAMS ((void **, void *));
 static void emit_note_if_var_changed	PARAMS ((void **, void *));
-static inline void process_bb_delete	PARAMS ((attrs_list *, htab_t, int,
+static inline void process_bb_delete	PARAMS ((attrs *, htab_t, int,
 						 rtx, rtx,
 						 enum where_emit_note));
 static void process_bb			PARAMS ((basic_block));
@@ -245,7 +243,7 @@ static hashval_t
 mem_htab_hash (x)
      const void *x;
 {
-  const attrs_list list = (const attrs_list) x;
+  const attrs list = (const attrs) x;
 
   return (MEM_HASH_VAL (list->loc));
 }
@@ -257,7 +255,7 @@ mem_htab_eq (x, y)
      const void *x;
      const void *y;
 {
-  const attrs_list list = (const attrs_list) x;
+  const attrs list = (const attrs) x;
   const rtx mem = (const rtx) y;
 
   return (MEM_HASH_VAL (list->loc) == MEM_HASH_VAL (mem));
@@ -288,11 +286,11 @@ variable_htab_eq (x, y)
   return (VARIABLE_HASH_VAL (v->decl) == VARIABLE_HASH_VAL (decl));
 }
 
-/* Initialize the set (array) SET of the attrs_lists to empty lists.  */
+/* Initialize the set (array) SET of attrs to empty lists.  */
 
 static void
 init_attrs_list_set (set)
-     attrs_list *set;
+     attrs *set;
 {
   int i;
 
@@ -304,13 +302,13 @@ init_attrs_list_set (set)
 
 static void
 attrs_list_clear (listp)
-     attrs_list *listp;
+     attrs *listp;
 {
-  attrs_list list, next_list;
+  attrs list, next;
 
-  for (list = *listp; list; list = next_list)
+  for (list = *listp; list; list = next)
     {
-      next_list = list->next;
+      next = list->next;
       free (list);
     }
   *listp = NULL;
@@ -318,9 +316,9 @@ attrs_list_clear (listp)
 
 /* Return true if the pair of DECL and OFFSET is the member of the LIST.  */
 
-static attrs_list
+static attrs
 attrs_list_member (list, decl, offset)
-     attrs_list list;
+     attrs list;
      tree decl;
      HOST_WIDE_INT offset;
 {
@@ -334,12 +332,12 @@ attrs_list_member (list, decl, offset)
 
 static void
 attrs_list_insert (listp, decl, offset, loc)
-     attrs_list *listp;
+     attrs *listp;
      tree decl;
      HOST_WIDE_INT offset;
      rtx loc;
 {
-  attrs_list list;
+  attrs list;
 
   list = xmalloc (sizeof (*list));
   list->loc = loc;
@@ -353,25 +351,25 @@ attrs_list_insert (listp, decl, offset, loc)
 
 static void
 attrs_list_delete (listp, decl, offset)
-     attrs_list *listp;
+     attrs *listp;
      tree decl;
      HOST_WIDE_INT offset;
 {
-  attrs_list list, next_list, prev_list = NULL;
+  attrs list, next, prev = NULL;
 
-  for (list = *listp; list; list = next_list)
+  for (list = *listp; list; list = next)
     {
-      next_list = list->next;
+      next = list->next;
       if (list->decl == decl && list->offset == offset)
 	{
-	  if (prev_list)
-	    prev_list->next = next_list;
+	  if (prev)
+	    prev->next = next;
 	  else
-	    *listp = next_list;
+	    *listp = next;
 	  free (list);
 	}
       else
-	prev_list = list;
+	prev = list;
     }
 }
 
@@ -379,10 +377,10 @@ attrs_list_delete (listp, decl, offset)
 
 static void
 attrs_list_copy (dstp, src)
-     attrs_list *dstp;
-     attrs_list src;
+     attrs *dstp;
+     attrs src;
 {
-  attrs_list n;
+  attrs n;
 
   attrs_list_clear (dstp);
   for (; src; src = src->next)
@@ -400,8 +398,8 @@ attrs_list_copy (dstp, src)
 
 static void
 attrs_list_union (dstp, src)
-     attrs_list *dstp;
-     attrs_list src;
+     attrs *dstp;
+     attrs src;
 {
   for (; src; src = src->next)
     {
@@ -415,10 +413,10 @@ attrs_list_union (dstp, src)
 
 static bool
 attrs_list_different (a, b)
-     attrs_list a;
-     attrs_list b;
+     attrs a;
+     attrs b;
 {
-  attrs_list i;
+  attrs i;
 
   for (i = a; i; i = i->next)
     if (!attrs_list_member (b, i->decl, i->offset))
@@ -438,16 +436,14 @@ attrs_htab_insert (htab, mem)
      htab_t htab;
      rtx mem;
 {
-  attrs_list list, *listp;
+  attrs list, *listp;
 
-  listp = (attrs_list *) htab_find_slot_with_hash (htab, mem,
-						   MEM_HASH_VAL (mem),
-						   NO_INSERT);
+  listp = (attrs *) htab_find_slot_with_hash (htab, mem, MEM_HASH_VAL (mem),
+					      NO_INSERT);
   if (!listp)
     {
-      listp = (attrs_list *) htab_find_slot_with_hash (htab, mem,
-						       MEM_HASH_VAL (mem),
-						       INSERT);
+      listp = (attrs *) htab_find_slot_with_hash (htab, mem,
+						  MEM_HASH_VAL (mem), INSERT);
     }
 
   list = xmalloc (sizeof (*list));
@@ -465,14 +461,13 @@ attrs_htab_delete (htab, mem)
      htab_t htab;
      rtx mem;
 {
-  attrs_list list, next_list, prev_list;
-  attrs_list *listp;
+  attrs list, next, prev;
+  attrs *listp;
   HOST_WIDE_INT offset;
   tree decl;
 
-  listp = (attrs_list *) htab_find_slot_with_hash (htab, mem,
-						   MEM_HASH_VAL (mem),
-						   NO_INSERT);
+  listp = (attrs *) htab_find_slot_with_hash (htab, mem, MEM_HASH_VAL (mem),
+					      NO_INSERT);
   if (!listp)
     return;
 
@@ -485,20 +480,20 @@ attrs_htab_delete (htab, mem)
 
   if (list)	/* There is at least 1 node that will not be deleted.  */
     {
-      prev_list = NULL;
-      for (list = *listp; list; list = next_list)
+      prev = NULL;
+      for (list = *listp; list; list = next)
 	{
-	  next_list = list->next;
+	  next = list->next;
 	  if (list->decl == decl && list->offset == offset)
 	    {
-	      if (prev_list)
-		prev_list->next = next_list;
+	      if (prev)
+		prev->next = next;
 	      else
-		*listp = next_list;
+		*listp = next;
 	      free (list);
 	    }
 	  else
-	    prev_list = list;
+	    prev = list;
 	}
     }
   else
@@ -519,10 +514,10 @@ attrs_htab_different_1 (slot, data)
      void *data;
 {
   htab_t htab = (htab_t) data;
-  attrs_list list1, list2, list;
+  attrs list1, list2, list;
 
-  list1 = *(attrs_list *) slot;
-  list2 = (attrs_list) htab_find_with_hash (htab, list1->loc,
+  list1 = *(attrs *) slot;
+  list2 = (attrs) htab_find_with_hash (htab, list1->loc,
 					    MEM_HASH_VAL (list1->loc));
 
   if (!list1)
@@ -564,12 +559,11 @@ attrs_htab_copy_1 (slot, data)
      void *data;
 {
   htab_t dst = (htab_t) data;
-  attrs_list src, *dstp, list;
+  attrs src, *dstp, list;
 
-  src = *(attrs_list *) slot;
-  dstp = (attrs_list *) htab_find_slot_with_hash (dst, src->loc,
-						  MEM_HASH_VAL (src->loc),
-						  INSERT);
+  src = *(attrs *) slot;
+  dstp = (attrs *) htab_find_slot_with_hash (dst, src->loc,
+					     MEM_HASH_VAL (src->loc), INSERT);
   for (; src; src = src->next)
     {
       list = xmalloc (sizeof (*list));
@@ -601,17 +595,17 @@ attrs_htab_union_1 (slot, data)
      void *data;
 {
   htab_t htab = (htab_t) data;
-  attrs_list src, *dstp, list;
+  attrs src, *dstp, list;
 
-  src = *(attrs_list *) slot;
-  dstp = (attrs_list *) htab_find_slot_with_hash (htab, src->loc,
-						  MEM_HASH_VAL (src->loc),
-						  NO_INSERT);
+  src = *(attrs *) slot;
+  dstp = (attrs *) htab_find_slot_with_hash (htab, src->loc,
+					     MEM_HASH_VAL (src->loc),
+					     NO_INSERT);
   if (!dstp)
     {
-      dstp = (attrs_list *) htab_find_slot_with_hash (htab, src->loc,
-						      MEM_HASH_VAL (src->loc),
-						      INSERT);
+      dstp = (attrs *) htab_find_slot_with_hash (htab, src->loc,
+						 MEM_HASH_VAL (src->loc),
+						 INSERT);
     }
   for (; src; src = src->next)
     {
@@ -656,11 +650,11 @@ static void
 attrs_htab_cleanup (slot)
      void *slot;
 {
-  attrs_list list, next_list;
+  attrs list, next;
 
-  for (list = (attrs_list) slot; list; list = next_list)
+  for (list = (attrs) slot; list; list = next)
     {
-      next_list = list->next;
+      next = list->next;
       free (list);
     }
 }
@@ -811,10 +805,10 @@ compute_bb_dataflow (bb)
   int i, n;
   bool changed;
 
-  attrs_list old_out[FIRST_PSEUDO_REGISTER];
+  attrs old_out[FIRST_PSEUDO_REGISTER];
   htab_t old_mem_out;
-  attrs_list *in = VTI (bb)->in;
-  attrs_list *out = VTI (bb)->out;
+  attrs *in = VTI (bb)->in;
+  attrs *out = VTI (bb)->out;
 
   init_attrs_list_set (old_out);
   old_mem_out = htab_create (htab_elements (VTI (bb)->mem_out) + 3,
@@ -857,7 +851,8 @@ compute_bb_dataflow (bb)
 	  if (VTI (bb)->locs[i].type == LT_PARAM
 	      || VTI (bb)->locs[i].type == LT_SET_DEST)
 	    {
-	      /* The variable is no longer in any register.  */
+	      /* We are storing a part of variable to memory so remove its
+	         occurrences from registers.  */
 	      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 		attrs_list_delete (&out[j], decl, offset);
 	      attrs_htab_insert (VTI (bb)->mem_out, loc);
@@ -907,8 +902,8 @@ hybrid_search (bb, visited, pending)
       /* Calculate the union of predecessor outs.  */
       for (e = bb->pred; e; e = e->pred_next)
 	{
-	  attrs_list *bb_in = VTI (bb)->in;
-	  attrs_list *pred_out = VTI (e->src)->out;
+	  attrs *bb_in = VTI (bb)->in;
+	  attrs *pred_out = VTI (e->src)->out;
 
 	  if (e->src == ENTRY_BLOCK_PTR)
 	    continue;
@@ -995,7 +990,7 @@ iterative_dataflow (bb_order)
 
 static inline void
 dump_attrs_list (list)
-     attrs_list list;
+     attrs list;
 {
   for (; list; list = list->next)
     {
@@ -1013,14 +1008,14 @@ dump_mem_attrs_list (slot, data)
      void **slot;
      void *data ATTRIBUTE_UNUSED;
 {
-  dump_attrs_list (*(attrs_list *) slot);
+  dump_attrs_list (*(attrs *) slot);
   return 1;
 }
 
 /* Print the IN and OUT sets for each basic block to dump file.  */
 
 static void
-dump_attrs_list_sets ()
+dump_attrs ()
 {
   int i;
   basic_block bb;
@@ -1274,14 +1269,14 @@ emit_note_if_var_changed (slot, aux)
 
 static inline void
 process_bb_delete (lists, htab, delete_loc_from_htab, loc, insn, where)
-     attrs_list *lists;
+     attrs *lists;
      htab_t htab;
      int delete_loc_from_htab;
      rtx loc;
      rtx insn;
      enum where_emit_note where;
 {
-  attrs_list list;
+  attrs list;
   int i;
 
   tree decl = MEM_EXPR (loc);
@@ -1297,7 +1292,7 @@ process_bb_delete (lists, htab, delete_loc_from_htab, loc, insn, where)
 
   if (delete_loc_from_htab)
     {
-      list = (attrs_list) htab_find_with_hash (htab, loc, MEM_HASH_VAL (loc));
+      list = (attrs) htab_find_with_hash (htab, loc, MEM_HASH_VAL (loc));
       for (; list; list = list->next)
 	if (list->offset == offset && list->decl == decl)
 	  delete_location_part (list->decl, list->offset, insn, where);
@@ -1313,7 +1308,7 @@ process_bb (bb)
      basic_block bb;
 {
   int i, n;
-  attrs_list reg[FIRST_PSEUDO_REGISTER];
+  attrs reg[FIRST_PSEUDO_REGISTER];
   htab_t mem;
 
   init_attrs_list_set (reg);
@@ -1331,7 +1326,7 @@ process_bb (bb)
 
       if (GET_CODE (loc) == REG)
 	{
-	  attrs_list l;
+	  attrs l;
 	  tree decl = REG_EXPR (loc);
 	  HOST_WIDE_INT offset = REG_OFFSET (loc);
 	  enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
@@ -1398,17 +1393,17 @@ mark_variables_for_deletion (slot, data)
      void **slot;
      void *data ATTRIBUTE_UNUSED;
 {
-  attrs_list l;
+  attrs list;
 
-  for (l = *(attrs_list *) slot; l; l = l->next)
+  for (list = *(attrs *) slot; list; list = list->next)
     {
-      variable var = htab_find_with_hash (variable_htab, l->decl,
-					  VARIABLE_HASH_VAL (l->decl));
+      variable var = htab_find_with_hash (variable_htab, list->decl,
+					  VARIABLE_HASH_VAL (list->decl));
       if (var)
 	{
 	  int k;
 	  for (k = 0; k < var->n_location_parts; k++)
-	    if (var->location_part[k].offset == l->offset)
+	    if (var->location_part[k].offset == list->offset)
 	      {
 		var->location_part[k].delete_p = true;
 		break;
@@ -1426,12 +1421,12 @@ add_and_unmark_variables (slot, data)
      void **slot;
      void *data;
 {
-  attrs_list l;
+  attrs list;
   rtx insn = (rtx) data;
 
-  for (l = *(attrs_list *) slot; l; l = l->next)
+  for (list = *(attrs *) slot; list; list = list->next)
     {
-      set_location_part (l->decl, l->offset, l->loc, insn,
+      set_location_part (list->decl, list->offset, list->loc, insn,
 			 EMIT_NOTE_BEFORE_INSN);
     }
   return 1;
@@ -1444,8 +1439,8 @@ var_tracking_emit_notes ()
 {
   basic_block bb;
   int i;
-  attrs_list *last_out, *in;
-  attrs_list empty[FIRST_PSEUDO_REGISTER];
+  attrs *last_out, *in;
+  attrs empty[FIRST_PSEUDO_REGISTER];
   htab_t last_htab;
 
   init_attrs_list_set (empty);
@@ -1612,8 +1607,8 @@ variable_tracking_main ()
 
   var_tracking_initialize ();
 
-  /* Compute depth first search order of the CFG so that
-     the dataflow run possibly faster.  */
+  /* Compute reverse completion order of depth first search of the CFG
+     so that the dataflow could possibly run faster.  */
   rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
   bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
   flow_depth_first_order_compute (NULL, rc_order);
@@ -1633,7 +1628,7 @@ variable_tracking_main ()
 
   if (rtl_dump_file)
     {
-      dump_attrs_list_sets ();
+      dump_attrs ();
       dump_flow_info (rtl_dump_file);
     }
 

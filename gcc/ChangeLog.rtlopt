@@ -1,3 +1,7 @@
+2003-02-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking: Updated some comments and names.
+
 2003-02-01  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c: Fix comment typos.
