@@ -101,7 +101,7 @@
 @settitle @value{EDITION} User's Guide @value{PLATFORM}
 @dircategory GNU Ada tools
 @direntry
-* @value{EDITION} User's Guide: (@value{FILE}). @value{PLATFORM}
+* @value{EDITION} User's Guide: (@value{FILE}). User's Guide for GNU Ada Tools.
 @end direntry
 
 @include gcc-common.texi
