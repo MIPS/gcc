@@ -1314,8 +1314,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	ADAC="\$$(CC)" \
 	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
 	STRICT_WARN="\$$(STRICT2_WARN)" \
-	OUTPUT_OPTION="-o \$$@" \
-	WERROR="@WERROR@"
+	OUTPUT_OPTION="-o \$$@"
 
 stage2_build: stage1_copy
 	r=`${PWD}`; export r; \
@@ -1325,10 +1324,10 @@ stage2_build: stage1_copy
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	cd gcc && \
 	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-		CC="$(STAGE_CC_WRAPPER) ../stage1-gcc/xgcc$(exeext) -B../stage1-gcc/ -B$(build_tooldir)/bin/" \
-		BUILD_CC="$(STAGE_CC_WRAPPER) ../stage1-gcc/xgcc$(exeext) -B../stage1-gcc/ -B$(build_tooldir)/bin/" \
-		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) ../stage1-gcc/xgcc$(exeext) -B../stage1-gcc/ -B$(build_tooldir)/bin/" \
-		STAGE_PREFIX=../stage1-gcc/ \
+		CC="$(STAGE_CC_WRAPPER) $$r/stage1-gcc/xgcc$(exeext) -B$$r/stage1-gcc/ -B$(build_tooldir)/bin/" \
+		BUILD_CC="$(STAGE_CC_WRAPPER) $$r/stage1-gcc/xgcc$(exeext) -B$$r/stage1-gcc/ -B$(build_tooldir)/bin/" \
+		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/stage1-gcc/xgcc$(exeext) -B$$r/stage1-gcc/ -B$(build_tooldir)/bin/" \
+		STAGE_PREFIX=$$r/stage1-gcc/ \
 		$(POSTSTAGE1_FLAGS_TO_PASS)
 	$(STAMP) stage2_build
 	echo stage2_build > stage_last
@@ -1346,10 +1345,10 @@ stage3_build: stage2_copy
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	cd gcc && \
 	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-		CC="$(STAGE_CC_WRAPPER) ../stage2-gcc/xgcc$(exeext) -B../stage2-gcc/ -B$(build_tooldir)/bin/" \
-		BUILD_CC="$(STAGE_CC_WRAPPER) ../stage2-gcc/xgcc$(exeext) -B../stage2-gcc/ -B$(build_tooldir)/bin/" \
-		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) ../stage2-gcc/xgcc$(exeext) -B../stage2-gcc/ -B$(build_tooldir)/bin/" \
-		STAGE_PREFIX=../stage2-gcc/ \
+		CC="$(STAGE_CC_WRAPPER) $$r/stage2-gcc/xgcc$(exeext) -B$$r/stage2-gcc/ -B$(build_tooldir)/bin/" \
+		BUILD_CC="$(STAGE_CC_WRAPPER) $$r/stage2-gcc/xgcc$(exeext) -B$$r/stage2-gcc/ -B$(build_tooldir)/bin/" \
+		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/stage2-gcc/xgcc$(exeext) -B$$r/stage2-gcc/ -B$(build_tooldir)/bin/" \
+		STAGE_PREFIX=$$r/stage2-gcc/ \
 		$(POSTSTAGE1_FLAGS_TO_PASS)
 	$(STAMP) stage3_build
 	echo stage3_build > stage_last
@@ -1358,7 +1357,7 @@ compare: stage3_build
 	-rm -f .bad_compare
 	cd gcc ; \
 	for file in *$(objext); do \
-	  cmp --ignore-initial=16 $$file ../stage2-gcc/$$file > /dev/null 2>&1; \
+	  cmp --ignore-initial=16 $$file $$r/stage2-gcc/$$file > /dev/null 2>&1; \
 	  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
 	done
 	if [ -f .bad_compare ]; then \

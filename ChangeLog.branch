@@ -1,5 +1,9 @@
 2003-06-15  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.tpl: Use absolute spec for $(CC) in bootstrap targets.
+	* Makefile.in: Regenerate.
+	It bootstraps now!
+
 	* configure.in: Copy in -Werror support from gcc/configure.in.
 	* configure: Regenerate.
 
