@@ -1,3 +1,48 @@
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (glibcpp_toolexeclibdir): Instead of
+	$(MULTISUBDIR), use `$CC -print-multi-os-directory`, unless
+	version_specific_libs is enabled.
+	* aclocal.m4, configure: Rebuilt.
+
+2003-01-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	Bulk documentation merge (copy) from trunk.
+	* docs/doxygen/TODO, docs/doxygen/run_doxygen,
+	docs/doxygen/stdheader.cc, docs/doxygen/style.css,
+	docs/doxygen/tables.html, docs/doxygen/user.cfg.in,
+	docs/html/configopts.html, docs/html/debug.html,
+	docs/html/documentation.html, docs/html/explanations.html,
+	docs/html/install.html, docs/html/17_intro/contribute.html,
+	docs/html/17_intro/howto.html, docs/html/17_intro/license.html,
+	docs/html/17_intro/porting.html, docs/html/17_intro/porting.texi,
+	docs/html/18_support/howto.html, docs/html/19_diagnostics/howto.html,
+	docs/html/20_util/howto.html, docs/html/21_strings/howto.html,
+	docs/html/22_locale/codecvt.html, docs/html/22_locale/ctype.html,
+	docs/html/22_locale/howto.html, docs/html/22_locale/locale.html,
+	docs/html/22_locale/messages.html, docs/html/24_iterators/howto.html,
+	docs/html/25_algorithms/howto.html, docs/html/26_numerics/howto.html,
+	docs/html/27_io/howto.html, docs/html/ext/lwg-active.html,
+	docs/html/ext/lwg-defects.html, docs/html/ext/sgiexts.html,
+	docs/html/faq/index.html, docs/html/faq/index.txt:  Merge from trunk.
+
+2003-01-23  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9322
+	* include/std/std_streambuf.h
+	(basic_streambuf::basic_streambuf,
+	basic_streambuf::~basic_streambuf,
+	basic_streambuf::getloc, basic_streambuf::imbue):
+	Remove _M_buf_locale_init use.
+	* include/bits/fstream.tcc (basic_filebuf::imbue):  Likewise
+	* testsuite/27_io/filebuf_virtuals.cc (test08):  Add.
+	* testsuite/27_io/streambuf_members.cc (test08):  Add.
+	* testsuite/27_io/stringbuf_virtuals.cc (test08):  Add.
+
+2003-01-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Synch with 3_3-branch.
+
 2003-01-10  Benjamin Kosnik  <bkoz@redhat.com>
 	    Sysoltsev Slawa  <Vyatcheslav.Sysoltsev@intel.com>
 
