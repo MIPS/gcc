@@ -1,3 +1,7 @@
+2004-01-17  Paul Brook  <paul@codesourcery.com>
+
+	* lang-specs.h: Remove %<fixed-form.
+
 2004-01-15  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* lang-specs.h: Enable preprocessing of source files
