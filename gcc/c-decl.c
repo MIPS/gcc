@@ -6944,6 +6944,19 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 {
   int uninlinable = 1;
 
+  /* Dump the function call graph.  */
+  {  
+    FILE *dumpfile;
+    int dump_flags;
+    dumpfile = dump_begin (TDI_xml, &dump_flags);
+    if (dumpfile)
+      {
+	/* Dump the function call graph.  */
+	print_call_graph (dumpfile, fndecl);
+	dump_end (TDI_xml, dumpfile);
+      }
+  }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)

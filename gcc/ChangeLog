@@ -1,3 +1,39 @@
+2002-02-28  Sebastian Pop  <s.pop@laposte.net>
+
+	* Makefile.in: Add c-call-graph.o dependence.
+	* c-call-graph.c: New file.
+	* c-decl.c (c_expand_body): Add an entry point for call-graph.
+	* tree-dump.c (dump_files): Add the flag dump-call-graph.
+	* tree.h (tree_dump_index): Add TDI_xml.
+
+2002-02-28  Sebastian Pop  <s.pop@laposte.net>
+
+	* c-pretty-print.c (dump_c_tree): Declare it extern.
+	(dump_c_node): Declare it extern.
+	(dump_c_scope_vars): Deleted, some code moved in print_declaration ().
+	(print_declaration): New function.
+	(print_function_decl): New function.
+	(print_struct_decl): New function.
+	(INDENT_PRINT_C_NODE): Deleted.
+	(INDENT): New macro.
+	(NIY): Define the macro body in a block.
+	(dump_c_node): Add dumping for TREE_PURPOSE operand in TREE_LIST.
+	[VOID|INTEGER|REAL|COMPLEX|VECTOR|ENUMERAL|BOOLEAN|CHAR]_TYPE nodes: 
+	insert some code from print-tree.c:print_node_brief () in order to 
+	stabilise the type printing.
+	[RECORD|UNION]_TYPE nodes: Don't print their contents by default, 
+	move the existing code in print_struct_decl ().
+	[POSTDECREMENT|POSTINCREMENT]_EXPR: Print the operand in post postion.
+	[MIN|MAX|ABS]_EXPR: New code for printing these nodes.
+	FOR_STMT: Don't print the FOR_BODY if it is not present.
+	RETURN_STMT: Don't print the return expression for a void function.
+	ASM_STMT: New code for printing this node.
+	SCOPE_STMT: Use print_declaration instead of dump_c_scope_vars.
+	COMPOUND_LITERAL_EXPR: Add the node as not implemented yet.
+	(op_prio): Fix switch indent.
+	Add node EXPR_WITH_FILE_LOCATION with priority 16.
+	(op_symbol): Fix switch indent.
+
 2002-01-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (c-pretty-print.o): Add dependency on errors.h.
@@ -30,7 +66,7 @@
 
 2002-01-23  Sebastian Pop  <s.pop@laposte.net>
 
-        * c-pretty-print.c : Clean C++ comments.
+        * c-pretty-print.c: Clean C++ comments.
 	(debug_output_buffer): Remove declaration and definition.
         * diagnostic.h (debug_output_buffer): Add declaration.
 	* diagnostic.c (debug_output_buffer): Add definition.

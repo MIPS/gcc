@@ -3127,6 +3127,7 @@ enum tree_dump_index
   TDI_ssa,			/* dump SSA information for each function.  */
   TDI_simple,			/* dump each function before and after 
 				   simplifying it.  */
+  TDI_xml,                      /* dump function call graph.  */
   TDI_end
 };
 
