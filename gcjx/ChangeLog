@@ -1,5 +1,8 @@
 2005-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* model/class.cc (get_class_signature): Superclass for interface
+	will be NULL.
+
 	* model/typevar.hh (model_type_variable::compute_descriptor): New
 	method.
 

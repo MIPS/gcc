@@ -1,6 +1,6 @@
 // Class representation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -390,12 +390,8 @@ model_class::get_class_signature ()
 {
   std::string result;
   result = type_parameters.get_signature ();
-  model_type *sup = superclass->type ();
-  if (interface)
-    {
-      assert (! sup);
-      sup = global->get_compiler ()->java_lang_Object ();
-    }
+  model_type *sup = (interface ? global->get_compiler ()->java_lang_Object ()
+		     : superclass->type ());
   result += sup->get_signature ();
   for (std::list<ref_forwarding_type>::const_iterator i = interfaces.begin ();
        i != interfaces.end ();
