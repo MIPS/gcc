@@ -187,7 +187,10 @@ tree_rest_of_compilation (tree fndecl)
 
   /* Don't bother doing anything if there are errors.  */
   if (errorcount || sorrycount)
-    return;
+    {
+      TREE_ASM_WRITTEN (fndecl) = 1;
+      return;
+    }
 
   timevar_push (TV_EXPAND);
 
