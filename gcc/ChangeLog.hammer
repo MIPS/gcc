@@ -1,3 +1,8 @@
+2003-10-16  Josef Zlomek  <zlomekj@suse.cz>
+
+	* config/s390/s390.c (s390_machine_dependent_reorg): Get rid of UNSPEC
+	in notes of type NOTE_INSN_VAR_LOCATION.
+
 Sat Oct 11 21:33:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	Merge from 3.3 branch (hammer-merge-20031011)

@@ -5170,6 +5170,23 @@ s390_machine_dependent_reorg (first)
       break;
     }
  
+  if (flag_pic)
+    {
+      rtx insn;
+
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	{
+	  if (GET_CODE (insn) == NOTE
+	      && NOTE_LINE_NUMBER (insn) == NOTE_INSN_VAR_LOCATION
+	      && NOTE_VAR_LOCATION_LOC (insn)
+	      && find_base_register_ref (NOTE_VAR_LOCATION_LOC (insn)))
+	    {
+	      replace_base_register_ref (&NOTE_VAR_LOCATION_LOC (insn),
+					 temp_reg);
+	    }
+	}
+    }
+
   s390_optimize_prolog (temp_used? RETURN_REGNUM : -1);
 }
 
