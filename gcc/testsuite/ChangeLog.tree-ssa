@@ -1,3 +1,8 @@
+2004-01-16  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20030709-2.c, gcc.dg/tree-ssa/20030808-1.c:
+	Update for extra DCE pass.
+
 2004-01-15  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030807-1.c: Update due to improvements in
