@@ -76,6 +76,16 @@ case $host in
 esac
 AC_SUBST([x_ada_cflags])
 
+# Determine what to build for 'gnatlib'
+if test $build = $target \
+   && test ${enable_shared} = yes ; then
+  # Note that build=target is almost certainly the wrong test; FIXME
+  default_gnatlib_target="gnatlib-shared"
+else
+  default_gnatlib_target="gnatlib-simple"
+fi
+AC_SUBST([default_gnatlib_target])
+
 # Output: create a Makefile.
 AC_CONFIG_FILES([Makefile])
 

@@ -1,0 +1,4 @@
+2004-04-04  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Remove all gnatlib and gnattools targets,
+	moved to libada.  Remove unused Make variables.

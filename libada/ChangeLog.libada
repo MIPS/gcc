@@ -1,3 +1,11 @@
+2004-04-04  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Add extra gnatlib/gnattools targets from
+	gcc/ada/Make-lang.in.  Reorganize gnatlib rule to move more work
+	into configure.
+	* configure.ac: Decide what gnatlib variant to build here.
+	* configure: Regnerate.
+
 2004-03-31  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Don't set exeext; it's set in gcc/libada-mk.
