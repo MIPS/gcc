@@ -954,6 +954,7 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
      single mem merely requires a scratch memory to use as one of the
      destination addresses; often the memory immediately below the
      stack pointer is available for this.  */
+  set_b = NULL_RTX;
   if (else_bb)
     {
       insn_b = first_active_insn (else_bb);
@@ -969,7 +970,8 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
       if (! insn_b
 	  || GET_CODE (insn_b) != INSN
 	  || (set_b = single_set (insn_b)) == NULL_RTX
-	  || ! rtx_equal_p (x, SET_DEST (set_b)))
+	  || ! rtx_equal_p (x, SET_DEST (set_b))
+	  || reg_mentioned_p (x, cond))
 	insn_b = set_b = NULL_RTX;
     }
   b = (set_b ? SET_SRC (set_b) : x);
@@ -1823,7 +1825,10 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
   if (end == merge_bb->end)
     merge_bb->end = merge_bb->head;
   if (head != NULL)
-    reorder_insns (head, end, PREV_INSN (earliest));
+    {
+      head = squeeze_notes (head, end);
+      reorder_insns (head, end, PREV_INSN (earliest));
+    }
   return TRUE;
 
  cancel:

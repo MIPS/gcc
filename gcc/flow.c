@@ -2438,7 +2438,7 @@ tidy_fallthru_edge (e, b, c)
      note.  */
   q = b->end;
   if (GET_CODE (q) == JUMP_INSN
-      && (! condjump_p (q)
+      && (simplejump_p (q)
 	  || (b->succ == e && e->succ_next == NULL)))
     {
 #ifdef HAVE_cc0
