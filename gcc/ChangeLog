@@ -1,5 +1,7 @@
 2002-11-15  Geoffrey Keating  <geoffk@apple.com>
 
+	* ggc-page.c (ggc_pch_read): Remove unused 'bmap_size'.
+
 	* cpppch.c (cpp_read_state): Correct size reallocated for 'defn'.
 
 2002-11-14  Geoffrey Keating  <geoffk@apple.com>
@@ -413,6 +415,22 @@
 	(dwarf2out_init): Don't call ggc_add_root.
 
 *** End of unmerged pch-branch ChangeLog ***
+2002-11-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* params.def (ggc-min-expand, ggc-min-heapsize): New parameters.
+	* doc/invoke.texi: Document them.
+
+	* ggc-page.c: Include params.h.  Remove definitions of
+	GGC_MIN_EXPAND_FOR_GC, GGC_MIN_LAST_ALLOCATED.  Replace
+	GGC_POISON with ENABLE_GC_CHECKING in ifdefs, delete #define.
+	(init_gcc): Don't set G.allocated_last_gc here.
+	(ggc_collect): Use PARAM_VALUE (GGC_MIN_HEAPSIZE) and
+	PARAM_VALUE (GGC_MIN_EXPAND) to decide whether or not to
+	perform collection.
+	* ggc-simple.c: Similarly.
+	* Makefile.in (ggc-common.o, ggc-simple.o): Add $(PARAMS_H) to
+	dependencies.
+
 2002-11-08  Dale Johannesen  <dalej@apple.com>
 
         * dbxout.c (dbxout_type):  Fix stabs info for vector types.
