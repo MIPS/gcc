@@ -1,3 +1,8 @@
+2004-04-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree-ssa-forwprop.c: Add a comment about forward propagation
+	of TRUTH_NOT_EXPR.
+
 2004-04-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-optimize.c (tree_rest_of_compilation): Fix typo in 
@@ -10,7 +15,7 @@
 	* tree-optimize.c (tree_rest_of_compilation): Note when we are in
 	gimple form.
 	* tree-ssa-ccp.c (ccp_fold): Tighten tests on return value from
-	nondestructive_fold_{unary,binary}to_constant.
+	nondestructive_fold_{unary,binary}_to_constant.
 	* tree.h (in_gimple_form): Declare.
  
 	* tree-ssa.c (ssa_remove_edge): Correct looping structure.

@@ -65,6 +65,21 @@ Boston, MA 02111-1307, USA.  */
 
    Similarly for x = a - c1.
     
+   Or
+
+     bb0:
+       x = !a
+       if (x) goto ... else goto ...
+
+   Will be transformed into:
+
+     bb0:
+        if (a == 0) goto ... else goto ...
+
+   Similarly for the tests (x == 0), (x != 0), (x == 1) and (x != 1).
+   For these cases, we propagate A into all, possibly more than one,
+   COND_EXPRs that use X.
+
    In addition to eliminating the variable and the statement which assigns
    a value to the variable, we may be able to later thread the jump without
    adding insane complexity in the dominator optimizer. 
