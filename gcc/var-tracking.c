@@ -898,6 +898,8 @@ set_location_part (decl, offset, loc, insn, where)
   if (k == var->n_location_parts)
     {
       /* Did not find the part, create new one.  */
+      if (var->n_location_parts >= MAX_LOC)
+	return;
       var->n_location_parts++;
       var->location_part[k].offset = offset;
       var->location_part[k].loc = NULL;
