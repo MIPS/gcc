@@ -594,6 +594,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 			 is_simple_val, fb_rvalue);
 	  simplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p,
 			 is_simple_val, fb_rvalue);
+	  recalculate_side_effects (*expr_p);
 	  break;
 
 	case NON_LVALUE_EXPR:
