@@ -1,3 +1,8 @@
+2004-06-21  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Soft-float need
+	not imply FPA.
+
 2004-06-15  Paul Brook  <paul@codesourcery.com>
 
 	* dwarf2out.c (output_call_frame_info): Support dwarf3 cie entries.
