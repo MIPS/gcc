@@ -859,6 +859,7 @@ cfg_layout_redirect_edge (e, dest)
   if (simplejump_p (src->end))
     {
       delete_insn (src->end);
+      delete_barrier (NEXT_INSN (src->end));
       src->succ->flags |= EDGE_FALLTHRU;
     }
   dest->index = old_index;

@@ -413,7 +413,11 @@ flow_delete_block (b)
     end = tmp;
 
   /* Include any barrier that may follow the basic block.  */
-  tmp = next_nonnote_insn (end);
+  for (tmp = insn;
+       tmp && GET_CODE (tmp) == NOTE
+       && NOTE_LINE_NUMBER (tmp) != NOTE_INSN_BASIC_BLOCK;
+       tmp = NEXT_INSN (tmp))
+     ;
   if (tmp && GET_CODE (tmp) == BARRIER)
     end = tmp;
 
