@@ -376,6 +376,8 @@ find $DEST_DIR -perm -0111 \! -name \*.dylib -type f -print \
   | xargs strip || exit 1
 find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
   | xargs strip -SX || exit 1
+find $DEST_DIR -name \*.a -type f -print \
+  | xargs ranlib || exit 1
 
 # Done!
 exit 0
