@@ -416,8 +416,6 @@ static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
-/* APPLE LOCAL lno */
-extern block_stmt_iterator stmt_bsi (tree);
 
 extern void bsi_remove (block_stmt_iterator *);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
@@ -484,12 +482,10 @@ extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
-/* APPLE LOCAL lno */
-extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);
-extern tree tree_block_label (basic_block bb);
+extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
@@ -535,7 +531,7 @@ extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
 extern void free_df_for_stmt (tree);
 extern tree get_virtual_var (tree);
-extern void add_referenced_tmp_var (tree var);
+extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void find_new_referenced_vars (tree *);
 
@@ -543,8 +539,8 @@ extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
 
 /* Flags used when computing reaching definitions and reached uses.  */
-#define TDFA_USE_OPS		1 << 0
-#define TDFA_USE_VOPS		1 << 1
+#define TDFA_USE_OPS		(1 << 0)
+#define TDFA_USE_VOPS		(1 << 1)
 
 /* In gimple-low.c  */
 struct lower_data;
@@ -578,6 +574,7 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
+extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
@@ -705,9 +702,6 @@ void tree_ssa_dce_no_cfg_changes (void);
 struct loops *tree_loop_optimizer_init (FILE *, bool);
 void tree_ssa_prefetch_arrays (struct loops *);
 void mark_maybe_infinite_loops (struct loops *);
-bool tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops);
-void update_lv_condition (basic_block *, tree);
-unsigned estimate_loop_size (struct loop *loop);
 /* APPLE LOCAL end lno */
 
 /* In tree-flow-inline.h  */
@@ -745,7 +739,7 @@ void vn_delete (void);
 
 
 /* In tree-sra.c  */
-void insert_edge_copies (tree stmt, basic_block bb);
+void insert_edge_copies (tree, basic_block);
 
 /* In tree-ssa-operands.c  */
 extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
@@ -755,7 +749,8 @@ extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p,
 extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
-extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
+extern bool expr_invariant_in_loop_p (struct loop *, tree);
+
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);
