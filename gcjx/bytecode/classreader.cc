@@ -574,14 +574,14 @@ class_reader::parse_signature ()
       // Signature for class.
       std::list<ref_type_variable> type_parameters;
       ref_forwarding_type super;
-      std::list<ref_forwarding_type> ifaces;
-      parser.parse_class_signature (type_parameters, super, ifaces);
+      // Interfaces are set later.
+      interfaces.clear ();
+      parser.parse_class_signature (type_parameters, super, interfaces);
       // Internally we represent interfaces as not having a
       // superclass.
       if (! result->interface_p ())
 	result->set_superclass (super);
       result->set_type_parameters (type_parameters);
-      result->set_implements (ifaces);
     }
 }
 

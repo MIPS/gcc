@@ -1,5 +1,8 @@
 2005-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/classreader.cc (parse_signature): Don't set interfaces
+	for class.
+
 	* model/class.cc (do_resolve_classes): Don't emit 'extends Object'
 	warning for wildcards, type variables, or parameterized classes.
 
