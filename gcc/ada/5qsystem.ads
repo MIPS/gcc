@@ -62,8 +62,16 @@ pragma Pure (System);
 
    --  Storage-related Declarations
 
-   type Address is private;
+   type Address is new Long_Integer;
    Null_Address : constant Address;
+   --  Although this is declared as an integer type, no arithmetic operations
+   --  are available (see abstract declarations below), and furthermore there
+   --  is special processing in the compiler that prevents the use of integer
+   --  literals with this type (use To_Address to convert integer literals).
+   --
+   --  Conversion to and from Short_Address is however freely permitted, and
+   --  is indeed the reason that Address is declared as an integer type. See
+   --
 
    Storage_Unit : constant := 8;
    Word_Size    : constant := 64;
@@ -83,6 +91,18 @@ pragma Pure (System);
    pragma Import (Intrinsic, ">=");
    pragma Import (Intrinsic, "=");
 
+   --  Abstract declarations for arithmetic operations on type address.
+   --  These declarations are needed when Address is non-private. They
+   --  avoid excessive visibility of arithmetic operations on address
+   --  which are typically available elsewhere (e.g. Storage_Elements)
+   --  and which would cause excessive ambiguities in application code.
+
+   function "+"   (Left, Right : Address) return Address is abstract;
+   function "-"   (Left, Right : Address) return Address is abstract;
+   function "/"   (Left, Right : Address) return Address is abstract;
+   function "*"   (Left, Right : Address) return Address is abstract;
+   function "mod" (Left, Right : Address) return Address is abstract;
+
    --  Other System-Dependent Declarations
 
    type Bit_Order is (High_Order_First, Low_Order_First);
@@ -101,7 +121,6 @@ pragma Pure (System);
 
 private
 
-   type Address is mod Memory_Size;
    Null_Address : constant Address := 0;
 
    --------------------------------------

@@ -68,7 +68,6 @@ package body Lib.Writ is
          Cunit           => Empty,
          Cunit_Entity    => Empty,
          Dependency_Num  => 0,
-         Dependent_Unit  => True,
          Dynamic_Elab    => False,
          Fatal_Error     => False,
          Generate_Code   => False,
@@ -122,7 +121,6 @@ package body Lib.Writ is
         Cunit           => Empty,
         Cunit_Entity    => Empty,
         Dependency_Num  => 0,
-        Dependent_Unit  => True,
         Dynamic_Elab    => False,
         Fatal_Error     => False,
         Generate_Code   => False,
@@ -600,6 +598,7 @@ package body Lib.Writ is
          Pname      : constant Unit_Name_Type :=
                         Get_Parent_Spec_Name (Unit_Name (Main_Unit));
          Body_Fname : File_Name_Type;
+         Body_Index : Nat;
 
       begin
          --  Loop to build the with table. A with on the main unit itself
@@ -618,7 +617,6 @@ package body Lib.Writ is
 
             if Unit_Name (J) /= No_Name
               and then (With_Flags (J) or else Unit_Name (J) = Pname)
-              and then Units.Table (J).Dependent_Unit
             then
                Num_Withs := Num_Withs + 1;
                With_Table (Num_Withs) := J;
@@ -657,12 +655,18 @@ package body Lib.Writ is
                       (Get_Body_Name (Uname),
                        Subunit => False, May_Fail => True);
 
+                  Body_Index :=
+                    Get_Unit_Index
+                      (Get_Body_Name (Uname));
+
                   if Body_Fname = No_File then
                      Body_Fname := Get_File_Name (Uname, Subunit => False);
+                     Body_Index := Get_Unit_Index (Uname);
                   end if;
 
                else
                   Body_Fname := Get_File_Name (Uname, Subunit => False);
+                  Body_Index := Get_Unit_Index (Uname);
                end if;
 
                --  A package is considered to have a body if it requires
@@ -675,7 +679,7 @@ package body Lib.Writ is
                   Write_Info_Name (Body_Fname);
                   Write_Info_Tab (49);
                   Write_Info_Name
-                    (Lib_File_Name (Body_Fname, Munit_Index (Unum)));
+                    (Lib_File_Name (Body_Fname, Body_Index));
                else
                   Write_Info_Name (Fname);
                   Write_Info_Tab (49);
@@ -940,7 +944,9 @@ package body Lib.Writ is
       --  First the information for the boolean restrictions
 
       for R in All_Boolean_Restrictions loop
-         if Main_Restrictions.Set (R) then
+         if Main_Restrictions.Set (R)
+           and then not Restriction_Warnings (R)
+         then
             Write_Info_Char ('r');
          elsif Main_Restrictions.Violated (R) then
             Write_Info_Char ('v');
@@ -1035,11 +1041,9 @@ package body Lib.Writ is
             Write_Info_Initiate ('D');
             Write_Info_Char (' ');
 
-            --  Normal case of a dependent unit entry with a source index
+            --  Normal case of a unit entry with a source index
 
-            if Sind /= No_Source_File
-              and then Units.Table (Unum).Dependent_Unit
-            then
+            if Sind /= No_Source_File then
                Write_Info_Name (File_Name (Sind));
                Write_Info_Tab (25);
                Write_Info_Str (String (Time_Stamp (Sind)));
@@ -1071,8 +1075,8 @@ package body Lib.Writ is
                   Write_Info_Name (Reference_Name (Sind));
                end if;
 
-            --  Case where there is no source index (happens for missing files)
-            --  Also come here for non-dependent units.
+               --  Case where there is no source index (happens for missing
+               --  files). In this case we write a dummy time stamp.
 
             else
                Write_Info_Name (Unit_File_Name (Unum));

@@ -154,6 +154,7 @@ enum dump_file_index
   DFI_combine,
   DFI_ce2,
   DFI_regmove,
+  DFI_sms,
   DFI_sched,
   DFI_lreg,
   DFI_greg,
@@ -178,7 +179,7 @@ enum dump_file_index
 
    Remaining -d letters:
 
-	"   e        m   q         "
+	"   e            q         "
 	"          K   O Q     WXY "
 */
 
@@ -207,6 +208,7 @@ static struct dump_file_info dump_file_tbl[DFI_MAX] =
   { "combine",	'c', 1, 0, 0 },
   { "ce2",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
+  { "sms",      'm', 0, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
   { "lreg",	'l', 1, 0, 0 },
   { "greg",	'g', 1, 0, 0 },
@@ -466,7 +468,7 @@ rest_of_handle_final (tree decl, rtx insns)
       fflush (asm_out_file);
 
     /* Release all memory allocated by flow.  */
-    free_basic_block_vars (0);
+    free_basic_block_vars ();
 
     /* Release all memory held by regsets now.  */
     regset_release_memory ();
@@ -519,7 +521,7 @@ rest_of_handle_stack_regs (tree decl, rtx insns)
   timevar_push (TV_REG_STACK);
   open_dump_file (DFI_stack, decl);
 
-  if (reg_to_stack (insns, dump_file) && optimize)
+  if (reg_to_stack (dump_file) && optimize)
     {
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
@@ -624,7 +626,8 @@ rest_of_handle_old_regalloc (tree decl, rtx insns)
   allocate_reg_info (max_regno, FALSE, TRUE);
 
   /* And the reg_equiv_memory_loc array.  */
-  reg_equiv_memory_loc = xcalloc (max_regno, sizeof (rtx));
+  VARRAY_GROW (reg_equiv_memory_loc_varray, max_regno);
+  reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
 
   allocate_initial_values (reg_equiv_memory_loc);
 
@@ -741,6 +744,29 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
 static void
 rest_of_handle_sched (tree decl, rtx insns)
 {
+  timevar_push (TV_SMS);
+  if (optimize > 0 && flag_modulo_sched)
+    {
+
+      /* Perform SMS module scheduling.  */
+      open_dump_file (DFI_sms, decl);
+
+      /* We want to be able to create new pseudos.  */
+      no_new_pseudos = 0;
+      sms_schedule (dump_file);
+      close_dump_file (DFI_sms, print_rtl, get_insns ());
+
+
+      /* Update the life information, becuase we add pseudos.  */
+      max_regno = max_reg_num ();
+      allocate_reg_info (max_regno, FALSE, FALSE);
+      update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+					(PROP_DEATH_NOTES
+					 | PROP_KILL_DEAD_CODE
+					 | PROP_SCAN_DEAD_CODE));
+      no_new_pseudos = 1;
+    }
+  timevar_pop (TV_SMS);
   timevar_push (TV_SCHED);
 
   /* Print function header into sched dump now
@@ -1004,20 +1030,6 @@ rest_of_handle_jump_bypass (tree decl, rtx insns)
 #endif
 }
 
-/* Try to identify useless null pointer tests and delete them.  */
-static void
-rest_of_handle_null_pointer (tree decl, rtx insns)
-{
-  open_dump_file (DFI_null, decl);
-  if (dump_file)
-    dump_flow_info (dump_file);
-
-  if (delete_null_pointer_checks (insns))
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-
-  close_dump_file (DFI_null, print_rtl_with_bb, insns);
-}
-
 /* Try combining insns through substitution.  */
 static void
 rest_of_handle_combine (tree decl, rtx insns)
@@ -1058,7 +1070,7 @@ rest_of_handle_life (tree decl, rtx insns)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-  life_analysis (insns, dump_file, PROP_FINAL);
+  life_analysis (dump_file, PROP_FINAL);
   if (optimize)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
 		 | CLEANUP_LOG_LINKS
@@ -1120,19 +1132,6 @@ rest_of_handle_cse (tree decl, rtx insns)
 
   if (tem || optimize > 1)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-  /* Try to identify useless null pointer tests and delete them.  */
-  if (flag_delete_null_pointer_checks)
-    {
-      timevar_push (TV_JUMP);
-
-      if (delete_null_pointer_checks (insns))
-	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-      timevar_pop (TV_JUMP);
-    }
-
-  /* The second pass of jump optimization is likely to have
-     removed a bunch more instructions.  */
-  renumber_insns (dump_file);
 
   timevar_pop (TV_CSE);
   close_dump_file (DFI_cse, print_rtl_with_bb, insns);
@@ -1547,9 +1546,6 @@ rest_of_compilation (tree decl)
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-  if (flag_delete_null_pointer_checks)
-    rest_of_handle_null_pointer (decl, insns);
-
   /* Jump optimization, and the removal of NULL pointer checks, may
      have reduced the number of instructions substantially.  CSE, and
      future passes, allocate arrays whose dimensions involve the
@@ -1727,7 +1723,7 @@ rest_of_compilation (tree decl)
       {
 	open_dump_file (DFI_branch_target_load, decl);
 
-	branch_target_load_optimize (insns, false);
+	branch_target_load_optimize (/*after_prologue_epilogue_gen=*/false);
 
 	close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
 
@@ -1746,7 +1742,7 @@ rest_of_compilation (tree decl)
 
   if (optimize)
     {
-      life_analysis (insns, dump_file, PROP_POSTRELOAD);
+      life_analysis (dump_file, PROP_POSTRELOAD);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -1816,7 +1812,7 @@ rest_of_compilation (tree decl)
 
       open_dump_file (DFI_branch_target_load, decl);
 
-      branch_target_load_optimize (insns, true);
+      branch_target_load_optimize (/*after_prologue_epilogue_gen=*/true);
 
       close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
 
@@ -1918,7 +1914,7 @@ rest_of_compilation (tree decl)
   /* Show no temporary slots allocated.  */
   init_temp_slots ();
 
-  free_basic_block_vars (0);
+  free_basic_block_vars ();
   free_bb_for_insn ();
 
   timevar_pop (TV_FINAL);

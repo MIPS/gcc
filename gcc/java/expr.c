@@ -43,7 +43,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "except.h"
 #include "ggc.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "target.h"
 
 static void flush_quick_stack (void);
@@ -1159,9 +1159,7 @@ expand_java_NEW (tree type)
   safe_layout_class (type);
   push_value (build (CALL_EXPR, promote_type (type),
 		     build_address_of (alloc_node),
-		     tree_cons (NULL_TREE, build_class_ref (type),
-				build_tree_list (NULL_TREE,
-						 size_in_bytes (type))),
+		     build_tree_list (NULL_TREE, build_class_ref (type)),
 		     NULL_TREE));
 }
 
@@ -1957,18 +1955,13 @@ build_invokevirtual (tree dtable, tree method)
     }
   else
     {
-      method_index = convert (sizetype, DECL_VINDEX (method));
-
-      if (TARGET_VTABLE_USES_DESCRIPTORS)
-	/* Add one to skip bogus descriptor for class and GC descriptor. */
-	method_index = size_binop (PLUS_EXPR, method_index, size_int (1));
-      else
-	/* Add 1 to skip "class" field of dtable, and 1 to skip GC descriptor.  */
-	method_index = size_binop (PLUS_EXPR, method_index, size_int (2));
-
+      /* We fetch the DECL_VINDEX field directly here, rather than
+	 using get_method_index().  DECL_VINDEX is the true offset
+	 from the vtable base to a method, regrdless of any extra
+	 words inserted at the start of the vtable.  */
+      method_index = DECL_VINDEX (method);
       method_index = size_binop (MULT_EXPR, method_index,
 				 TYPE_SIZE_UNIT (nativecode_ptr_ptr_type_node));
-
       if (TARGET_VTABLE_USES_DESCRIPTORS)
 	method_index = size_binop (MULT_EXPR, method_index,
 				   size_int (TARGET_VTABLE_USES_DESCRIPTORS));

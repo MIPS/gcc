@@ -1,11 +1,633 @@
-2004-04-24  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+2004-05-25  Janis Johnson  <janis187@us.ibm.com>
 
-	* execute/intrinsic_count.f90: Fix typo.
-	* execute/intrinsic_mmloc.f90: Fix typo.
+	* lib/compat.exp (compat-get-options-main): New.
+	(compat-get-options): Remove unneeded code, warn for ignored
+	command.
+	(compat-execute): Check flag set by dg-require-* commands.
+
+	* lib/compat.exp (compat-execute): Break up long lines.
+
+2004-05-24  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-7.c: Don't use 'vector long'.
+	* gcc.dg/altivec-14.c: New test.
+	* g++.dg/ext/altivec-7.C: Don't use 'vector long'.
+
+	* gcc.dg/altivec-6.c: Use -maltivec, don't limit to darwin.
+	* gcc.dg/altivec-12.c: Ditto.
+
+	* gcc.dg/altivec-3.c: Move call to altivec_check.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15044
+	* g++.dg/template/error12.C: New test.
+
+	PR c++/15317
+	* g++.dg/ext/attrib15.C: New test.
+
+	PR c++/15329
+	* g++.dg/template/ptrmem9.C: New test.
+
+2004-05-25  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/compile/inquiry_1.f90: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15165
+	* g++.dg/template/crash19.C: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15025
+	* g++.dg/template/redecl1.C: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14821
+	* g++.dg/other/ns1.C: New test.
+
+	PR c++/14883
+	* g++.dg/template/invalid1.C: New test.
+
+2004-05-23  Paul Brook  <paul@codesourcery.com>
+	Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.fortran-torture/execute/common_init_1.f90: New test.
+	* gfortran.fortran-torture/execute/equiv_init.f90: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15285
+	PR c++/15299
+	* g++.dg/template/non-dependent5.C: New test.
+	* g++.dg/template/non-dependent6.C: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15507
+	* g++.dg/inherit/union1.C: New test.
+
+	PR c++/15542
+	* g++.dg/template/addr1.C: New test.
+
+	PR c++/15427
+	* g++.dg/template/array5.C: New test.
+
+	PR c++/15287
+	* g++.dg/template/array6.C: New test.
+
+2004-05-22  Wolfgang Bangerth  <bangerth@dealii.org>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* g++.dg/lookup/forscope2.C: New test case.
+
+2004-05-22  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/cpp/Wmissingdirs.c: New.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15301
+	* gcc.dg/compat/union-m128-1.h: New file.
+	* gcc.dg/compat/union-m128-1_main.c: Likewise.
+	* gcc.dg/compat/union-m128-1_x.c: Likewise.
+	* gcc.dg/compat/union-m128-1_y.c: Likewise.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15302
+	* gcc.dg/compat/struct-complex-1.h: New file.
+	* gcc.dg/compat/struct-complex-1_main.c: Likewise.
+	* gcc.dg/compat/struct-complex-1_x.c: Likewise.
+	* gcc.dg/compat/struct-complex-1_y.c: Likewise.
+
+2004-05-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/3074
+	* gcc.dg/pr3074-1.c: New test case.
+	* gcc.dg/sequence-pt-1.c: Remove an XFAIL.
+
+2004-05-20  Falk Hueffner  <falk@debian.org>
+
+	PR other/15526
+	* gcc.dg/ftrapv-1.c: New test case.
+
+2004-05-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/power.f90: Test constant integers.
+
+2004-05-18  Andrew Pinski  <pinskia@physics.uc.edu>
+            Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040514-2.c: Update expected output.
+	* gcc.dg/tree-ssa/20040518-2.c: New test.
+
+	* gcc.dg/tree-ssa/20040518-1.c: New test.
+
+2004-05-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/991216-3.c: Delete, duplicate of 991216-2.c.
+
+2004-05-18  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13930
+	* gfortran.fortran-torture/execute/der_init_4.f90: New test.
+
+2004-05-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/cmplx.f90: Add test for bug in
+	constant folding.
+
+2004-05-17  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20040517-1.c: New test.
+
+2004-05-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.dg/loop-4.c: New test.
+
+2004-05-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20040514-1.c: Add '}' that was forgotten.
+
+2004-05-15  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15311
+	* gfortran.fortran-torture/execute/write_a_1.f90: New test.
+
+2004-05-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13826
+	PR fortran/13940
+	* gfortran.fortran-torture/compile/data_1.f90: New test.
+
+2004-05-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/const-elim-1.c: Remove XFAIL for s390*-*-*.
+	* gcc.dg/uninit-H.c: Define ASM for __s390__.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/execute/20000603-1.c: Update WG14 URL.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15444
+	* gcc.dg/format/xopen-1.c: Adjust expected message.
+	* gcc.dg/format/xopen-3.c: New test.
+
+2004-05-14  Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.fortran-torture/execute/def_init_3.f90: New test.
+
+2004-05-14  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040514-2.c: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/noncontinuation_1.f90: Rename
+	this ...
+	* gfortran.fortran-torture/compile/noncontinuation_1.f: ... to
+	this.
+
+2004-05-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20040514-1.c: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/noncontinuation_1.f90: New
+	test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14066
+	* gfortran.fortran-torture/compile/do_1.f90: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15051
+	* gfortran.fortran-torture/compile/empty_interface_1.f90: New
+	test.
+
+2004-05-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15149
+	* gfortran.fortran-torture/execute/random_init.f90: New test.
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15314
+	* gfortran.fortran-torture/execute/der_init_s.f90: New test.
+
+2004-05-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/uninit-H.c: Test for __PPC__ and __ppc__
+	for the powerpc case.
+
+2004-05-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040513-1.c: New test.
+	* gcc.dg/tree-ssa/20040513-2.c: New test.
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/tree-ssa/20030808-1.c: Force enum size.
+	* gcc.dg/tree-ssa/20030714-1.c: Ditto.
+	* gcc.dg/tree-ssa/20030708-1.c: Ditto.
+
+2004-05-13  Andreas Schwab  <schwab@suse.de>
+
+	PR other/10819
+	* lib/gfortran.exp (gfortran_version): Do not match NL/CR
+	characters.
+
+2004-05-13  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15294
+	* gfortran.fortran-torture/execute/adjustr.f90: New file.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.  See
+	ChangeLog.tree-ssa for details.
+
+2004-05-11  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-8.C: Use '-maltivec' instead of '-faltivec';
+	include <altivec.h> explicitly.
+	* gcc.dg/altivec-13.c: Likewise.
+
+2004-05-11  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.c-torture/compile/20010518-1.c: Force enum size.
+
+2004-05-10  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/sibcall-3.c: Remove xfail for mips*-*-elf.
+	* gcc.dg/sibcall-4.c: Ditto.
+
+2004-05-10  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-8.C: New test case.
+	* gcc.dg/altivec-13.c: New test case.
+
+2004-05-08  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/divcmp-1.c: New test case.
+	* gcc.c-torture/execute/divcmp-2.c: New test case.
+	* gcc.c-torture/execute/divcmp-3.c: New test case.
+
+2004-05-07  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* g++.dg/other/pragma-re-2.C: New test.
+
+2004-05-07  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/i386-387-1.c: Add new test for __builtin_fmod.
+	* gcc.dg/i386-387-2.c: Likewise.
+
+	* gcc.dg/i386-387-5.c: Add new tests for __builtin_log1p and
+	__builtin_drem.
+	* gcc.dg/i386-387-6.c: Likewise.
+
+2004-05-07  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-33.c:  Also check log1p*.
+
+2004-05-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR optimization/15296
+	* gcc.c-torture/execute/pr15296.c: New test.
+
+2004-05-05  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-40.c: New test.
+
+2004-05-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-2.c: Provide dummy __mips16 version.
+
+2004-05-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* g++.dg/ext/spe1.C: New testcase.
+
+2004-05-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/image-info.m: Allow additional attributes
+	for __image_info section.
+
+2004-05-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-2.c: New test.
+
+2004-05-03  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14389
+	* g++.dg/template/member5.C: New test.
+
+2004-05-03  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-34.c: Also check expm1*.
+
+2004-05-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-integral-1.c: Reorg and add more cases.
+	* gcc.dg/torture/builtin-convert-3.c: New test.
+
+2004-05-01  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/15054
+	* g++.dg/opt/pr15054.C: New test.
+
+2004-04-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-rounding-1.c: New test.
+	* gcc.dg/builtins-25.c: Delete.
+	* gcc.dg/builtins-29.c: Delete.
+
+2004-04-29  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/sibcall-3.c: Delete s390 from expected fail list.
+	* gcc.dg/sibcall-4.c: Likewise.
+	* gcc.dg/sibcall-6.c: Enable s390 as test platform.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20040331-1.c: Don't use too wide a
+	bit-field on 16-bit targets.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20040409-2.c: Fix constants used on
+	16-bit targets.
+
+2004-04-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: Change to compile only.
+	* gcc.dg/rs6000-power2-2.c: Likewise.
+
+2004-04-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: Change the options to be more correct.
+	* gcc.dg/rs6000-power2-2.c: Change the options to be more correct.
+	Change the asm registers to be in form of frN instead of fN.
+
+2004-04-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-convert-2.c: New test.
+
+2004-04-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: New test.
+	* gcc.dg/rs6000-power2-2.c: New test.
+
+2004-04-28  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/unused-6.c: New test.
+
+2004-04-24  Laurent GUERBY  <laurent@guerby.net>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* ada/acats/run_all.sh: Define $target variable.
+
+2004-04-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/15119
+	* g++.dg/other/vararg-1.C: New test.
+
+	PR c++/4794
+	* g++.dg/eh/cleanup3.C: New test.
+
+2004-04-24  Laurent GUERBY <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: Handle cd2a83c, cd2a91c (target_bit)
+	and ad8011a (target_insn).
+	* ada/acats/support/macro.dfs: Likewise.
+	* ada/acats/support/impbit.adb: New file.
+
+2004-04-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/const-elim-1.c: XFAIL on s390*-*-*.
+
+2004-04-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/loop-3.c: New test.
+
+2004-04-23  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gcc.c-torture/execute/simd-5.c: New test.
+
+2004-04-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15064
+	* g++.dg/template/crash18.C: New test.
+
+2004-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/complit3.C: New test.
+
+2004-04-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-1.c: XFAIL for powerpc-eabispe.
+	* gcc.dg/altivec-3.c: Same.
+	* gcc.dg/altivec-varargs-1.c: Same.
+
+2004-04-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/target-supports.exp (check_profiling_available): Assume
+	profiling is not available on powerpc-eabi targets.
+
+2004-04-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vmx/1c-01.c: Use ptrdiff_t for casts of pointers.
+	* gcc.dg/vmx/bug-1.c: Ditto.
+
+2004-04-20  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/charset/extern.c: New test.
+	* g++.dg/charset/extern3.cc: Ditto.
+
+2004-04-20  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-39.c: New test.
+
+2004-04-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/vmx.exp: Change DEFAULT_CFLAGS to DEFAULT_VMXCFLAGS.
+
+2004-04-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-1.c: New test.
 
 2004-04-19  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc.c-torture/compile/20040419-1.c: New test.
+
+2004-04-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/varargs-1.c: Handle when printf outputs \r\n.
+
+2004-04-18  Zack Weinberg  <zack@codesourcery.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.c-torture/execute/va-arg-24.c: New.
+
+2004-04-17  Zack Weinberg  <zack@codesourcery.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/1b-01.c: New.
+	* gcc.dg/vmx/1b-02.c: New.
+	* gcc.dg/vmx/1b-03.c: New.
+	* gcc.dg/vmx/1b-04.c: New.
+	* gcc.dg/vmx/1b-05.c: New.
+	* gcc.dg/vmx/1b-06.c: New.
+	* gcc.dg/vmx/1b-07.c: New.
+	* gcc.dg/vmx/1c-01.c: New.
+	* gcc.dg/vmx/1c-02.c: New.
+	* gcc.dg/vmx/3a-01a.c: New.
+	* gcc.dg/vmx/3a-01.c: New.
+	* gcc.dg/vmx/3a-01m.c: New.
+	* gcc.dg/vmx/3a-03.c: New.
+	* gcc.dg/vmx/3a-03m.c: New.
+	* gcc.dg/vmx/3a-04.c: New.
+	* gcc.dg/vmx/3a-04m.c: New.
+	* gcc.dg/vmx/3a-05.c: New.
+	* gcc.dg/vmx/3a-06.c: New.
+	* gcc.dg/vmx/3a-06m.c: New.
+	* gcc.dg/vmx/3a-07.c: New.
+	* gcc.dg/vmx/3b-01.c: New.
+	* gcc.dg/vmx/3b-02.c: New.
+	* gcc.dg/vmx/3b-10.c: New.
+	* gcc.dg/vmx/3b-13.c: New.
+	* gcc.dg/vmx/3b-14.c: New.
+	* gcc.dg/vmx/3b-15.c: New.
+	* gcc.dg/vmx/3c-01a.c: New.
+	* gcc.dg/vmx/3c-01.c: New.
+	* gcc.dg/vmx/3c-02.c: New.
+	* gcc.dg/vmx/3c-03.c: New.
+	* gcc.dg/vmx/3d-01.c: New.
+	* gcc.dg/vmx/4-01.c: New.
+	* gcc.dg/vmx/4-03.c: New.
+	* gcc.dg/vmx/5-01.c: New.
+	* gcc.dg/vmx/5-02.c: New.
+	* gcc.dg/vmx/5-03.c: New.
+	* gcc.dg/vmx/5-04.c: New.
+	* gcc.dg/vmx/5-05.c: New.
+	* gcc.dg/vmx/5-06.c: New.
+	* gcc.dg/vmx/5-07.c: New.
+	* gcc.dg/vmx/5-07t.c: New.
+	* gcc.dg/vmx/5-08.c: New.
+	* gcc.dg/vmx/5-10.c: New.
+	* gcc.dg/vmx/5-11.c: New.
+	* gcc.dg/vmx/7-01a.c: New.
+	* gcc.dg/vmx/7-01.c: New.
+	* gcc.dg/vmx/7c-01.c: New.
+	* gcc.dg/vmx/7d-01.c: New.
+	* gcc.dg/vmx/7d-02.c: New.
+	* gcc.dg/vmx/8-01.c: New.
+	* gcc.dg/vmx/8-02a.c: New.
+	* gcc.dg/vmx/8-02.c: New.
+	* gcc.dg/vmx/brode-1.c: New.
+	* gcc.dg/vmx/bug-1.c: New.
+	* gcc.dg/vmx/bug-2.c: New.
+	* gcc.dg/vmx/bug-3.c: New.
+	* gcc.dg/vmx/cw-bug-1.c: New.
+	* gcc.dg/vmx/cw-bug-2.c: New.
+	* gcc.dg/vmx/cw-bug-3.c: New.
+	* gcc.dg/vmx/dct.c: New.
+	* gcc.dg/vmx/debug-1.c: New.
+	* gcc.dg/vmx/debug-2.c: New.
+	* gcc.dg/vmx/debug-3.c: New.
+	* gcc.dg/vmx/debug-4.c: New.
+	* gcc.dg/vmx/dos-bug-1-gdb.c: New.
+	* gcc.dg/vmx/dos-bug-2-gdb.c: New.
+	* gcc.dg/vmx/eg-5.c: New.
+	* gcc.dg/vmx/fft.c: New.
+	* gcc.dg/vmx/gcc-bug-1.c: New.
+	* gcc.dg/vmx/gcc-bug-2.c: New.
+	* gcc.dg/vmx/gcc-bug-3.c: New.
+	* gcc.dg/vmx/gcc-bug-4.c: New.
+	* gcc.dg/vmx/gcc-bug-5.c: New.
+	* gcc.dg/vmx/gcc-bug-6.c: New.
+	* gcc.dg/vmx/gcc-bug-7.c: New.
+	* gcc.dg/vmx/gcc-bug-8.c: New.
+	* gcc.dg/vmx/gcc-bug-9.c: New.
+	* gcc.dg/vmx/gcc-bug-b.c: New.
+	* gcc.dg/vmx/gcc-bug-c.c: New.
+	* gcc.dg/vmx/gcc-bug-d.c: New.
+	* gcc.dg/vmx/gcc-bug-e.c: New.
+	* gcc.dg/vmx/gcc-bug-f.c: New.
+	* gcc.dg/vmx/gcc-bug-g.c: New.
+	* gcc.dg/vmx/gcc-bug-i.c: New.
+	* gcc.dg/vmx/harness.h: New.
+	* gcc.dg/vmx/ira1.c: New.
+	* gcc.dg/vmx/ira2a.c: New.
+	* gcc.dg/vmx/ira2b.c: New.
+	* gcc.dg/vmx/ira2.c: New.
+	* gcc.dg/vmx/ira2c.c: New.
+	* gcc.dg/vmx/mem.c: New.
+	* gcc.dg/vmx/newton-1.c: New.
+	* gcc.dg/vmx/ops.c: New.
+	* gcc.dg/vmx/sn7153.c: New.
+	* gcc.dg/vmx/spill2.c: New.
+	* gcc.dg/vmx/spill3.c: New.
+	* gcc.dg/vmx/spill.c: New.
+	* gcc.dg/vmx/t.c: New.
+	* gcc.dg/vmx/varargs-1.c: New.
+	* gcc.dg/vmx/varargs-2.c: New.
+	* gcc.dg/vmx/varargs-3.c: New.
+	* gcc.dg/vmx/varargs-4.c: New.
+	* gcc.dg/vmx/varargs-5.c: New.
+	* gcc.dg/vmx/varargs-6.c: New.
+	* gcc.dg/vmx/varargs-7.c: New.
+	* gcc.dg/vmx/vmx.exp: New.
+	* gcc.dg/vmx/vprint-1.c: New.
+	* gcc.dg/vmx/vscan-1.c: New.
+	* gcc.dg/vmx/x-01.c: New.
+	* gcc.dg/vmx/x-02.c: New.
+	* gcc.dg/vmx/x-03.c: New.
+	* gcc.dg/vmx/x-04.c: New.
+	* gcc.dg/vmx/x-05.c: New.
+	* gcc.dg/vmx/yousufi-1.c: New.
+	* gcc.dg/vmx/zero-1.c: New.
+	* gcc.dg/vmx/zero.c: New.
+
+2004-04-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/lookup/java1.C: Update for chage of
+	_Jv_AllocObject.
+	* g++.dg/lookup/java2.C: Likewise.
+
+2004-04-17  Laurent GUERBY <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: use -O2 by default.
+
+2004-04-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/vr-mult-[12].c: New tests.
+
+2004-04-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/funcorder.c: XFAIL hppa*64*-*-*.
+
+	* gcc.dg/const-elim-1.c: XFAIL hppa-*-*.
+
+2004-04-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lib/target-supports.exp (check_profiling_available): Assume profiling
+	isn't available for mips*-*-elf targets.
+
+2004-04-14  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-38.c: New test.
+
+2004-04-14  Eric Christopher  <echristo@redhat.com>
+
+	* g++.dg/charset/charset.exp: Run .cc extension tests.
 
 2004-04-14  Zack Weinberg  <zack@codesourcery.com>
 
@@ -4676,10 +5298,6 @@
 
 	PR c++/9559
 	* g++.dg/init/static1.C: New test.
-
-2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
-
-	* Changelog: Remove ">>>>>>>" from previous change.
 
 2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
@@ -21841,4 +22459,3 @@ rlsruhe.de>
 	correspond to c-torture	1.11.
 
 	* New file.
-

@@ -1,23 +1,24 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -76,7 +77,7 @@ gfc_match_space (void)
   locus old_loc;
   int c;
 
-  if (gfc_current_file->form == FORM_FIXED)
+  if (gfc_current_form == FORM_FIXED)
     return MATCH_YES;
 
   old_loc = *gfc_current_locus ();
@@ -336,7 +337,7 @@ gfc_match_strings (mstring * a)
 	  if (*p->mp == ' ')
 	    {
 	      /* Space matches 1+ whitespace(s).  */
-	      if ((gfc_current_file->form == FORM_FREE)
+	      if ((gfc_current_form == FORM_FREE)
 		  && gfc_is_whitespace (c))
 		continue;
 
@@ -456,9 +457,9 @@ gfc_match_symbol (gfc_symbol ** matched_symbol, int host_assoc)
   return m;
 }
 
-/* Match an intrinsic operator.  Returns an INTRINSIC enum. While matching
-   matching, we always find INTRINSIC_PLUS before INTRINSIC_UPLUS. We work
-   around this in matchexp.c.  */
+/* Match an intrinsic operator.  Returns an INTRINSIC enum. While matching, 
+   we always find INTRINSIC_PLUS before INTRINSIC_UPLUS. We work around this 
+   in matchexp.c.  */
 
 match
 gfc_match_intrinsic_op (gfc_intrinsic_op * result)
@@ -763,13 +764,6 @@ not_yes:
 	      matches++;
 	      break;		/* Skip */
 
-	    case 'I':
-	    case 'L':
-	    case 'C':
-	      if (*p++ == 'e')
-		goto undo_expr;
-	      break;
-
 	    /* Matches that don't have to be undone */
 	    case 'o':
 	    case 'l':
@@ -779,9 +773,7 @@ not_yes:
 	      break;
 
 	    case 'e':
-	    case 'E':
 	    case 'v':
-	    undo_expr:
 	      vp = va_arg (argp, void **);
 	      gfc_free_expr (*vp);
 	      *vp = NULL;
@@ -1202,6 +1194,10 @@ gfc_match_do (void)
   if (gfc_match (" do") != MATCH_YES)
     return MATCH_NO;
 
+  m = gfc_match_st_label (&label, 0);
+  if (m == MATCH_ERROR)
+    goto cleanup;
+
 /* Match an infinite DO, make it like a DO WHILE(.TRUE.) */
 
   if (gfc_match_eos () == MATCH_YES)
@@ -1211,13 +1207,9 @@ gfc_match_do (void)
       goto done;
     }
 
-  m = gfc_match_st_label (&label, 0);
-  if (m == MATCH_ERROR)
-    goto cleanup;
-
-  gfc_match_char (',');
-
-  if (gfc_match ("% ") != MATCH_YES)
+  /* match an optional comma, if no comma is found a space is obligatory.  */
+  if (gfc_match_char(',') != MATCH_YES
+      && gfc_match ("% ") != MATCH_YES)
     return MATCH_NO;
 
   /* See if we have a DO WHILE.  */
@@ -2346,6 +2338,19 @@ gfc_match_common (void)
 	      goto cleanup;
 	    }
 
+	  if (sym->value != NULL
+	      && (common_name == NULL || !sym->attr.data))
+	    {
+	      if (common_name == NULL)
+		gfc_error ("Previously initialized symbol '%s' in "
+			   "blank COMMON block at %C", sym->name);
+	      else
+		gfc_error ("Previously initialized symbol '%s' in "
+			   "COMMON block '%s' at %C", sym->name,
+			   common_name->name);
+	      goto cleanup;
+	    }
+
 	  if (gfc_add_in_common (&sym->attr, NULL) == FAILURE)
 	    goto cleanup;
 
@@ -2822,6 +2827,7 @@ static match
 var_element (gfc_data_variable * new)
 {
   match m;
+  gfc_symbol *sym, *t;
 
   memset (new, '\0', sizeof (gfc_data_variable));
 
@@ -2832,14 +2838,27 @@ var_element (gfc_data_variable * new)
   if (m != MATCH_YES)
     return m;
 
-  if (new->expr->symtree->n.sym->value != NULL)
+  sym = new->expr->symtree->n.sym;
+
+  if(sym->value != NULL)
     {
       gfc_error ("Variable '%s' at %C already has an initialization",
-		 new->expr->symtree->n.sym->name);
+		 sym->name);
       return MATCH_ERROR;
     }
 
-  new->expr->symtree->n.sym->attr.data = 1;
+  if (sym->attr.in_common)
+    /* See if sym is in the blank common block.  */
+    for (t = sym->ns->blank_common; t; t = t->common_next)
+      if (sym == t)
+	{
+	  gfc_error ("DATA statement at %C may not initialize variable "
+		     "'%s' from blank COMMON", sym->name);
+	  return MATCH_ERROR;
+	}
+
+  sym->attr.data = 1;
+
   return MATCH_YES;
 }
 
@@ -2915,12 +2934,15 @@ match_data_constant (gfc_expr ** result)
   if (gfc_find_symbol (name, NULL, 1, &sym))
     return MATCH_ERROR;
 
-  if (sym->attr.flavor != FL_PARAMETER)
+  if (sym == NULL
+      || (sym->attr.flavor != FL_PARAMETER && sym->attr.flavor != FL_DERIVED))
     {
       gfc_error ("Symbol '%s' must be a PARAMETER in DATA statement at %C",
-		 sym->name);
+		 name);
       return MATCH_ERROR;
     }
+  else if (sym->attr.flavor == FL_DERIVED)
+    return gfc_match_structure_constructor (sym, result);
 
   *result = gfc_copy_expr (sym->value);
   return MATCH_YES;

@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "hashtab.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-ssa-operands.h"
 #include "tree-dg.h"
 
@@ -483,7 +483,6 @@ extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
-extern void tree_cfg2dot (FILE *);
 extern void tree_debug_loop (struct loop *);
 extern void tree_debug_loops (void);
 extern void print_loop_ir (FILE *);
@@ -537,6 +536,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void redirect_immediate_uses (tree, tree);
+extern tree make_rename_temp (tree, const char *);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -606,7 +606,7 @@ extern void debug_dominator_optimization_stats (void);
 extern void propagate_value (tree *, tree);
 extern void replace_exp (tree *, tree);
 extern bool cprop_into_stmt (tree, varray_type);
-extern void cprop_into_successor_phis (basic_block, varray_type);
+extern void cprop_into_successor_phis (basic_block, varray_type, bitmap);
 
 /* In tree-ssa-dce.c.  */
 void tree_ssa_dce_no_cfg_changes (void);

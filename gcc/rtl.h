@@ -1195,6 +1195,9 @@ extern unsigned int subreg_regno_offset	(unsigned int, enum machine_mode,
 extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
 					   unsigned int, enum machine_mode);
 extern unsigned int subreg_regno (rtx);
+extern unsigned HOST_WIDE_INT nonzero_bits (rtx, enum machine_mode);
+extern unsigned int num_sign_bit_copies (rtx, enum machine_mode);
+
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
    sign- or zero-extended from the mode of the subreg to the mode of
@@ -1533,12 +1536,6 @@ do {						\
 #ifndef USE_STORE_PRE_DECREMENT
 #define USE_STORE_PRE_DECREMENT(MODE)   HAVE_PRE_DECREMENT
 #endif
-
-/* Determine if the insn is a PHI node.  */
-#define PHI_NODE_P(X)				\
-  ((X) && GET_CODE (X) == INSN			\
-   && GET_CODE (PATTERN (X)) == SET		\
-   && GET_CODE (SET_SRC (PATTERN (X))) == PHI)
 
 /* Nonzero if we need to distinguish between the return value of this function
    and the return value of a function called by this function.  This helps
@@ -1604,9 +1601,6 @@ extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
 extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
-extern rtx gen_lowpart_general (enum machine_mode, rtx);
-extern rtx (*gen_lowpart) (enum machine_mode mode, rtx x);
-
 
 /* In cse.c */
 extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
@@ -1840,7 +1834,6 @@ extern int reg_overlap_mentioned_p (rtx, rtx);
 extern rtx set_of (rtx, rtx);
 extern void note_stores (rtx, void (*) (rtx, rtx, void *), void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
-extern rtx reg_set_last (rtx, rtx);
 extern int dead_or_set_p (rtx, rtx);
 extern int dead_or_set_regno_p (rtx, unsigned int);
 extern rtx find_reg_note (rtx, enum reg_note, rtx);
@@ -2245,7 +2238,7 @@ extern void init_loop (void);
 #ifdef BUFSIZ
 extern void loop_optimize (rtx, FILE *, int);
 #endif
-extern void branch_target_load_optimize (rtx, bool);
+extern void branch_target_load_optimize (bool);
 
 /* In function.c */
 extern void reposition_prologue_and_epilogue_notes (rtx);
@@ -2327,8 +2320,6 @@ extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
-extern int delete_null_pointer_checks (rtx);
-
 /* In regmove.c */
 #ifdef BUFSIZ
 extern void regmove_optimize (rtx, int, FILE *);
@@ -2348,7 +2339,7 @@ extern int local_alloc (void);
 
 /* In reg-stack.c */
 #ifdef BUFSIZ
-extern bool reg_to_stack (rtx, FILE *);
+extern bool reg_to_stack (FILE *);
 #endif
 
 /* In calls.c */
@@ -2452,6 +2443,17 @@ extern bool expensive_function_p (int);
 /* In tracer.c */
 extern void tracer (void);
 
+/* In loop-unswitch.c  */
+extern rtx reversed_condition (rtx);
+extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
+
+/* In loop-iv.c  */
+extern rtx canon_condition (rtx);
+extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+
+/* In var-tracking.c */
+extern void variable_tracking_main (void);
+
 /* In stor-layout.c.  */
 extern void get_mode_bounds (enum machine_mode, int, enum machine_mode,
 			     rtx *, rtx *);
@@ -2464,18 +2466,32 @@ extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
 extern rtx canon_condition (rtx);
 extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
-/* In var-tracking.c */
-extern void variable_tracking_main (void);
-
-/* In loop-unswitch.c  */
-extern rtx reversed_condition (rtx);
-extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
-
-/* In loop-iv.c  */
-extern rtx canon_condition (rtx);
-extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
-
 /* In ra.c.  */
 extern void reg_alloc (void);
+
+/* In modulo-sched.c.  */
+#ifdef BUFSIZ
+extern void sms_schedule (FILE *);
+#endif
+
+struct rtl_hooks
+{
+  rtx (*gen_lowpart) (enum machine_mode, rtx);
+  rtx (*reg_nonzero_bits) (rtx, enum machine_mode, rtx, enum machine_mode,
+			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
+  rtx (*reg_num_sign_bit_copies) (rtx, enum machine_mode, rtx, enum machine_mode,
+				  unsigned int, unsigned int *);
+
+  /* Whenever you add entries here, make sure you adjust hosthooks-def.h.  */
+};
+
+/* Each pass can provide its own.  */
+extern struct rtl_hooks rtl_hooks;
+
+/* ... but then it has to restore these.  */
+extern const struct rtl_hooks general_rtl_hooks;
+
+/* Keep this for the nonce.  */
+#define gen_lowpart rtl_hooks.gen_lowpart
 
 #endif /* ! GCC_RTL_H */

@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
 #include "tree-iterator.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
@@ -394,7 +394,7 @@ remap_block (tree *block, inline_data *id)
     /* We're building a clone; DECL_INITIAL is still
        error_mark_node, and current_binding_level is the parm
        binding level.  */
-    (*lang_hooks.decls.insert_block) (new_block);
+    lang_hooks.decls.insert_block (new_block);
   else
     {
       /* Attach this new block after the DECL_INITIAL block for the
@@ -1419,8 +1419,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
   saved_location = input_location;
-  if (EXPR_LOCUS (t))
-    input_location = *EXPR_LOCUS (t);
+  if (EXPR_HAS_LOCATION (t))
+    input_location = EXPR_LOCATION (t);
 
   /* Recurse, but letting recursive invocations know that we are
      inside the body of a TARGET_EXPR.  */
@@ -1930,7 +1930,7 @@ save_body (tree fn, tree *arg_copy)
   for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
     {
       tree new = copy_node (*parg);
-      (*lang_hooks.dup_lang_specific_decl) (new);
+      lang_hooks.dup_lang_specific_decl (new);
       DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (*parg);
       insert_decl_map (&id, *parg, new);
       TREE_CHAIN (new) = TREE_CHAIN (*parg);
@@ -2017,8 +2017,8 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	return NULL_TREE;
     }
 
-  result = (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
-						      data, htab);
+  result = lang_hooks.tree_inlining.walk_subtrees (tp, &walk_subtrees, func,
+						   data, htab);
   if (result || ! walk_subtrees)
     return result;
 
@@ -2056,7 +2056,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	}
 #endif
 
-      if ((*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
+      if (lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
 	/* Check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
     }

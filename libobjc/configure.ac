@@ -154,6 +154,20 @@ esac
 AC_SUBST(toolexecdir)
 AC_SUBST(toolexeclibdir)
 
+# Figure out if we want to name the include directory and the
+#  library name changes differently.
+includedirname=include
+libext=
+case "${host}" in
+  *-darwin*)
+    # Darwin is the only target so far that needs a different include directory.
+    includedirname=include-gnu-runtime
+    libext=-gnu
+    ;;
+esac
+AC_SUBST(includedirname)
+AC_SUBST(libext)
+
 # --------
 # Programs
 # --------

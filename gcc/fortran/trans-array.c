@@ -1,24 +1,24 @@
 /* Array translation routines
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* trans-array.c-- Various array related code, including scalarization,
                    allocation, initialization and other support routines.  */
@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
    gfc_conv_ss_startstride.  During this process the expressions for the array
    descriptors and data pointers are also translated.
 
-   If the expression is an assignment, we must then resolve and dependencies.
+   If the expression is an assignment, we must then resolve any dependencies.
    In fortran all the rhs values of an assignment must be evaluated before
    any assignments take place.  This can require a temporary array to store the
    values.  We also require a temporary when we are passing array expressions
@@ -65,11 +65,11 @@ Boston, MA 02111-1307, USA.  */
 
    For assignment expressions requiring a temporary two sub loops are
    generated.  The first stores the result of the expression in the temporary,
-   the second copies it to the result.  A Call to
+   the second copies it to the result.  A call to
    gfc_trans_scalarized_loop_boundary marks the end of the main loop code and
    the start of the copying loop.  The temporary may be less than full rank.
 
-   Finally gfc_trans_scalarizing_loops is called to generate the impicit do
+   Finally gfc_trans_scalarizing_loops is called to generate the implicit do
    loops.  The loops are added to the pre chain of the loopinfo.  The post
    chain may still contain cleanup code.
 
@@ -80,7 +80,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"

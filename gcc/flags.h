@@ -244,7 +244,8 @@ extern int flag_print_asm_name;
 
 extern int flag_signed_char;
 
-/* Nonzero means give an enum type only as many bytes as it needs.  */
+/* Nonzero means give an enum type only as many bytes as it needs.  A value
+   of 2 means it has not yet been initialized.  */
 
 extern int flag_short_enums;
 
@@ -315,6 +316,10 @@ extern int flag_cse_skip_blocks;
 /* Nonzero for -fexpensive-optimizations:
    perform miscellaneous relatively-expensive optimizations.  */
 extern int flag_expensive_optimizations;
+
+/* Nonzero means to use global dataflow analysis to eliminate
+   useless null pointer tests.  */
+extern int flag_delete_null_pointer_checks;
 
 /* Nonzero means don't put addresses of constant functions in registers.
    Used for compiling the Unix kernel, where strange substitutions are
@@ -401,6 +406,10 @@ extern int flag_really_no_inline;
 extern int flag_syntax_only;
 extern int rtl_dump_and_exit;
 
+/* Nonzero if we are exiting on the first error occurred.  */
+
+extern int flag_fatal_errors;
+
 /* Nonzero means we should save auxiliary info into a .X file.  */
 
 extern int flag_gen_aux_info;
@@ -408,6 +417,9 @@ extern int flag_gen_aux_info;
 /* Nonzero means make the text shared if supported.  */
 
 extern int flag_shared_data;
+
+/* Controls the activiation of SMS modulo scheduling. */
+extern int flag_modulo_sched;
 
 /* flag_schedule_insns means schedule insns within basic blocks (before
    local_alloc).

@@ -511,10 +511,7 @@ layout_decl (tree decl, unsigned int known_align)
 	      || TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST))
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
 
-      /* Should this be controlled by DECL_USER_ALIGN, too?  */
-      if (maximum_field_alignment != 0)
-	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
-      if (! DECL_USER_ALIGN (decl))
+      if (! DECL_USER_ALIGN (decl) && ! DECL_PACKED (decl))
 	{
 	  /* Some targets (i.e. i386, VMS) limit struct field alignment
 	     to a lower boundary than alignment of variables unless
@@ -527,6 +524,10 @@ layout_decl (tree decl, unsigned int known_align)
 	  DECL_ALIGN (decl) = ADJUST_FIELD_ALIGN (decl, DECL_ALIGN (decl));
 #endif
 	}
+
+      /* Should this be controlled by DECL_USER_ALIGN, too?  */
+      if (maximum_field_alignment != 0)
+	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
     }
 
   /* Evaluate nonconstant size only once, either now or as soon as safe.  */
@@ -770,8 +771,10 @@ update_alignment_for_field (record_layout_info rli, tree field,
   else if (is_bitfield && PCC_BITFIELD_TYPE_MATTERS)
     {
       /* Named bit-fields cause the entire structure to have the
-	 alignment implied by their type.  */
-      if (DECL_NAME (field) != 0)
+	 alignment implied by their type.  Some targets also apply the same
+	 rules to unnamed bitfields.  */
+      if (DECL_NAME (field) != 0
+	  || targetm.align_anon_bitfield ())
 	{
 	  unsigned int type_align = TYPE_ALIGN (type);
 

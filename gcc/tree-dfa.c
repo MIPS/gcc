@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
@@ -486,6 +486,18 @@ create_ssa_name_ann (tree t)
 }
 
 
+/* Build a temporary.  Make sure and register it to be renamed.  */
+
+tree
+make_rename_temp (tree type, const char *prefix)
+{
+  tree t = create_tmp_var (type, prefix);
+  add_referenced_tmp_var (t);
+  bitmap_set_bit (vars_to_rename, var_ann (t)->uid);
+  return t;
+}
+
+
 
 /*---------------------------------------------------------------------------
 			      Debugging functions
@@ -593,7 +605,7 @@ dump_immediate_uses (FILE *file)
   basic_block bb;
   block_stmt_iterator si;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "\nDef-use edges for function %s\n", funcname);
 
@@ -670,7 +682,7 @@ dump_dfa_stats (FILE *file)
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   collect_dfa_stats (&dfa_stats);
 

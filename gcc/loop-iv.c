@@ -254,7 +254,9 @@ mark_single_set (rtx insn, rtx set)
   unsigned regno, uid;
 
   src = find_reg_equal_equiv_note (insn);
-  if (!src)
+  if (src)
+    src = XEXP (src, 0);
+  else
     src = SET_SRC (set);
 
   if (!simple_set_p (SET_DEST (set), src))
@@ -603,7 +605,9 @@ get_biv_step_1 (rtx insn, rtx reg,
 
   set = single_set (insn);
   rhs = find_reg_equal_equiv_note (insn);
-  if (!rhs)
+  if (rhs)
+    rhs = XEXP (rhs, 0);
+  else
     rhs = SET_SRC (set);
   lhs = SET_DEST (set);
 
@@ -979,7 +983,9 @@ iv_analyze (rtx insn, rtx def, struct rtx_iv *iv)
 
   set = single_set (insn);
   rhs = find_reg_equal_equiv_note (insn);
-  if (!rhs)
+  if (rhs)
+    rhs = XEXP (rhs, 0);
+  else
     rhs = SET_SRC (set);
   code = GET_CODE (rhs);
 
@@ -1337,7 +1343,9 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
     return;
 
   rhs = find_reg_equal_equiv_note (insn);
-  if (!rhs)
+  if (rhs)
+    rhs = XEXP (rhs, 0);
+  else
     rhs = SET_SRC (set);
 
   if (!simple_rhs_p (rhs))
@@ -1354,7 +1362,8 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
 static bool
 implies_p (rtx a, rtx b)
 {
-  rtx op0, op1, r;
+  rtx op0, op1, opb0, opb1, r;
+  enum machine_mode mode;
 
   if (GET_CODE (a) == EQ)
     {
@@ -1374,6 +1383,45 @@ implies_p (rtx a, rtx b)
 	  if (r == const_true_rtx)
 	    return true;
 	}
+    }
+
+  /* A < B implies A + 1 <= B.  */
+  if ((GET_CODE (a) == GT || GET_CODE (a) == LT)
+      && (GET_CODE (b) == GE || GET_CODE (b) == LE))
+    {
+      op0 = XEXP (a, 0);
+      op1 = XEXP (a, 1);
+      opb0 = XEXP (b, 0);
+      opb1 = XEXP (b, 1);
+
+      if (GET_CODE (a) == GT)
+	{
+	  r = op0;
+	  op0 = op1;
+	  op1 = r;
+	}
+
+      if (GET_CODE (b) == GE)
+	{
+	  r = opb0;
+	  opb0 = opb1;
+	  opb1 = r;
+	}
+
+      mode = GET_MODE (op0);
+      if (mode != GET_MODE (opb0))
+	mode = VOIDmode;
+      else if (mode == VOIDmode)
+	{
+	  mode = GET_MODE (op1);
+	  if (mode != GET_MODE (opb1))
+	    mode = VOIDmode;
+	}
+
+      if (mode != VOIDmode
+	  && rtx_equal_p (op1, opb1)
+	  && simplify_gen_binary (MINUS, mode, opb0, op0) == const1_rtx)
+	return true;
     }
 
   return false;
@@ -1870,7 +1918,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 {
   rtx op0, op1, delta, step, bound, may_xform, def_insn, tmp, tmp0, tmp1;
   struct rtx_iv iv0, iv1, tmp_iv;
-  rtx assumption;
+  rtx assumption, may_not_xform;
   enum rtx_code cond;
   enum machine_mode mode, comp_mode;
   rtx mmin, mmax, mode_mmin, mode_mmax;
@@ -2074,6 +2122,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       delta = lowpart_subreg (mode, delta, comp_mode);
       delta = simplify_gen_binary (UMOD, mode, delta, step);
       may_xform = const0_rtx;
+      may_not_xform = const_true_rtx;
 
       if (GET_CODE (delta) == CONST_INT)
 	{
@@ -2098,6 +2147,9 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	      tmp = lowpart_subreg (mode, iv0.base, comp_mode);
 	      may_xform = simplify_gen_relational (cond, SImode, mode,
 						   bound, tmp);
+	      may_not_xform = simplify_gen_relational (reverse_condition (cond),
+						       SImode, mode,
+						       bound, tmp);
 	    }
 	  else
 	    {
@@ -2107,6 +2159,9 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	      tmp = lowpart_subreg (mode, iv1.base, comp_mode);
 	      may_xform = simplify_gen_relational (cond, SImode, mode,
 						   tmp, bound);
+	      may_not_xform = simplify_gen_relational (reverse_condition (cond),
+						       SImode, mode,
+						       tmp, bound);
 	    }
 	}
 
@@ -2116,8 +2171,18 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	     completely senseless.  This is OK, as we would need this assumption
 	     to determine the number of iterations anyway.  */
 	  if (may_xform != const_true_rtx)
-	    desc->assumptions = alloc_EXPR_LIST (0, may_xform,
-						 desc->assumptions);
+	    {
+	      /* If the step is a power of two and the final value we have
+		 computed overflows, the cycle is infinite.  Otherwise it
+		 is nontrivial to compute the number of iterations.  */
+	      s = INTVAL (step);
+	      if ((s & (s - 1)) == 0)
+		desc->infinite = alloc_EXPR_LIST (0, may_not_xform,
+						  desc->infinite);
+	      else
+		desc->assumptions = alloc_EXPR_LIST (0, may_xform,
+						     desc->assumptions);
+	    }
 
 	  /* We are going to lose some information about upper bound on
 	     number of iterations in this step, so record the information

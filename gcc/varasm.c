@@ -233,7 +233,7 @@ unlikely_text_section (void)
 		   current_function_name ());
 	  unlikely_section_label_printed = true;
 
-	  /* Make sure that we have approprate alignment for instructions
+	  /* Make sure that we have appropriate alignment for instructions
 	     in this section.  */
 	  assemble_align (FUNCTION_BOUNDARY);
 	}
@@ -1685,27 +1685,23 @@ assemble_label (const char *name)
   ASM_OUTPUT_LABEL (asm_out_file, name);
 }
 
-/* Set the symbol_referenced flag for ID and notify callgraph code.  */
+/* Set the symbol_referenced flag for ID.  */
 void
 mark_referenced (tree id)
 {
-  if (!TREE_SYMBOL_REFERENCED (id))
-    {
-      struct cgraph_node *node;
-      struct cgraph_varpool_node *vnode;
-
-      if (!cgraph_global_info_ready)
-	{
-	  node = cgraph_node_for_identifier (id);
-	  if (node)
-	    cgraph_mark_needed_node (node);
-	}
-
-      vnode = cgraph_varpool_node_for_identifier (id);
-      if (vnode)
-	cgraph_varpool_mark_needed_node (vnode);
-    }
   TREE_SYMBOL_REFERENCED (id) = 1;
+}
+
+/* Set the symbol_referenced flag for DECL and notify callgraph.  */
+void
+mark_decl_referenced (tree decl)
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    cgraph_mark_needed_node (cgraph_node (decl));
+  else if (TREE_CODE (decl) == VAR_DECL)
+    cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
+  /* else do nothing - we can get various sorts of CST nodes here,
+     which do not need to be marked.  */
 }
 
 /* Output to FILE a reference to the assembler name of a C-level name NAME.
@@ -2316,6 +2312,7 @@ compare_constant (const tree t1, const tree t2)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     default:
@@ -3568,7 +3565,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     }
 
   /* Now output the underlying data.  If we've handling the padding, return.
-     Otherwise, break and ensure THISSIZE is the size written.  */
+     Otherwise, break and ensure SIZE is the size written.  */
   switch (code)
     {
     case CHAR_TYPE:
@@ -3580,7 +3577,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case OFFSET_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
-			      size, align, 0))
+			      MIN (size, thissize), align, 0))
 	error ("initializer for integer value is too complicated");
       break;
 
@@ -5004,6 +5001,7 @@ default_globalize_label (FILE * stream, const char *name)
 void
 default_emit_unwind_label (FILE * stream ATTRIBUTE_UNUSED,
 			   tree decl ATTRIBUTE_UNUSED,
+			   int for_eh ATTRIBUTE_UNUSED,
 			   int empty ATTRIBUTE_UNUSED)
 { 
 }

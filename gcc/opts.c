@@ -595,9 +595,7 @@ decode_options (unsigned int argc, const char **argv)
   if (optimize >= 3)
     {
       flag_inline_functions = 1;
-      flag_rename_registers = 1;
       flag_unswitch_loops = 1;
-      flag_web = 1;
       flag_gcse_after_reload = 1;
     }
 
@@ -630,8 +628,9 @@ decode_options (unsigned int argc, const char **argv)
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
-  /* Initialize how much space enums occupy, by default.  */
-  flag_short_enums = targetm.default_short_enums ();
+  /* Set this to a special "uninitialized" value.  The actual default is set
+     after target options have been processed.  */
+  flag_short_enums = 2;
 
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
@@ -766,6 +765,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_Wextra:
       set_Wextra (value);
+      break;
+
+    case OPT_Wfatal_errors:
+      flag_fatal_errors = value;
       break;
 
     case OPT_Winline:
@@ -1397,7 +1400,9 @@ common_handle_option (size_t scode, const char *arg,
     case OPT_fsched_stalled_insns_dep_:
       flag_sched_stalled_insns_dep = value;
       break;
-
+    case OPT_fmodulo_sched:
+      flag_modulo_sched = 1;
+      break;
     case OPT_fshared_data:
       flag_shared_data = value;
       break;

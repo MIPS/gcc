@@ -1302,6 +1302,13 @@ struct lang_type GTY(())
 
 #define CLASSTYPE_AS_BASE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->as_base)
 
+/* True iff NODE is the CLASSTYPE_AS_BASE version of some type.  */
+
+#define IS_FAKE_BASE_TYPE(NODE)					\
+  (TREE_CODE (NODE) == RECORD_TYPE				\
+   && TYPE_CONTEXT (NODE) && CLASS_TYPE_P (TYPE_CONTEXT (NODE))	\
+   && CLASSTYPE_AS_BASE (TYPE_CONTEXT (NODE)) == (NODE))
+
 /* These are the size and alignment of the type without its virtual
    base classes, for when we use this type as a base itself.  */
 #define CLASSTYPE_SIZE(NODE) TYPE_SIZE (CLASSTYPE_AS_BASE (NODE))
@@ -1394,7 +1401,7 @@ struct lang_type GTY(())
    way or the other.  */
 #define CLASSTYPE_INTERFACE_KNOWN(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->interface_unknown == 0)
-/* The opposite of CLASSTYPE_INTERFANCE_KNOWN.  */
+/* The opposite of CLASSTYPE_INTERFACE_KNOWN.  */
 #define CLASSTYPE_INTERFACE_UNKNOWN(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->interface_unknown)
 
@@ -2408,12 +2415,16 @@ struct lang_decl GTY(())
    When appearing in a SAVE_EXPR, it means that underneath
    is a call to a constructor.
 
-   When appearing in a CONSTRUCTOR, it means that it was
-   a GNU C constructor expression.
+   When appearing in a CONSTRUCTOR, the expression is a
+   compound literal.
 
    When appearing in a FIELD_DECL, it means that this field
    has been duly initialized in its constructor.  */
 #define TREE_HAS_CONSTRUCTOR(NODE) (TREE_LANG_FLAG_4 (NODE))
+
+/* True if NODE is a brace-enclosed initializer.  */
+#define BRACE_ENCLOSED_INITIALIZER_P(NODE) \
+  (TREE_CODE (NODE) == CONSTRUCTOR && !TREE_TYPE (NODE))
 
 #define EMPTY_CONSTRUCTOR_P(NODE) (TREE_CODE (NODE) == CONSTRUCTOR	   \
 				   && CONSTRUCTOR_ELTS (NODE) == NULL_TREE \
@@ -3708,7 +3719,7 @@ extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
 extern tree delete_sanity (tree, tree, bool, int);
-extern tree check_classfn (tree, tree, bool);
+extern tree check_classfn (tree, tree, tree);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
 extern tree grokbitfield (tree, tree, tree);
@@ -3840,7 +3851,6 @@ extern tree implicitly_declare_fn (special_function_kind, tree, bool);
 extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern bool calls_setjmp_p (tree);
 extern bool maybe_clone_body (tree);
 
 /* in pt.c */

@@ -901,7 +901,7 @@ connect_traces (int n_traces, struct trace *traces)
   last_trace = -1;
 
   /* If we are partitioning hot/cold basic blocks, mark the cold
-     traces as already connnected, to remove them from consideration
+     traces as already connected, to remove them from consideration
      for connection to the hot traces.  After the hot traces have all
      been connected (determined by "unconnected_hot_trace_count"), we
      will go back and connect the cold traces.  */
@@ -1159,6 +1159,7 @@ connect_traces (int n_traces, struct trace *traces)
     }
 
   FREE (connected);
+  FREE (cold_traces);
 }
 
 /* Return true when BB can and should be copied. CODE_MAY_GROW is true
@@ -1409,7 +1410,7 @@ fix_up_fall_thru_edges (void)
   edge succ1;
   edge succ2;
   edge fall_thru;
-  edge cond_jump;
+  edge cond_jump = NULL;
   edge e;
   bool cond_jump_crosses;
   int invert_worked;

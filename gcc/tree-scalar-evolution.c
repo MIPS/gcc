@@ -1511,30 +1511,6 @@ select_loops_exit_conditions (struct loops *loops,
 }
 
 
-
-/* Debugging functions section.  */
-
-extern void draw_tree_cfg (void);
-
-/* Draw the flow graph.  */
-
-void
-draw_tree_cfg (void)
-{
-  FILE *dump_file;
-  if (n_basic_blocks > 0)
-    {
-      dump_file = fopen ("tree_cfg.dot", "w");
-      if (dump_file)
-        {
-          tree_cfg2dot (dump_file);
-          fclose (dump_file);
-          system ("dotty tree_cfg.dot");
-        }
-    }
-}
-     
-
 /* Depth first search algorithm.  */
 
 static bool follow_ssa_edge (struct loop *loop, tree, tree, tree *);

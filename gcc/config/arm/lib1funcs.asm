@@ -60,7 +60,7 @@ Boston, MA 02111-1307, USA.  */
 #define LSYM(x) x
 #endif
 
-/* Function end macros.  Variants for 26 bit APCS and interworking.  */
+/* Function end macros.  Variants for interworking.  */
 
 @ This selects the minimum architecture level required.
 #define __ARM_ARCH__ 3
@@ -74,19 +74,20 @@ Boston, MA 02111-1307, USA.  */
 #endif
 	
 #if defined(__ARM_ARCH_5__) || defined(__ARM_ARCH_5T__) \
-	|| defined(__ARM_ARCH_5TE__)
+	|| defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) \
+	|| defined(__ARM_ARCH_5TEJ__)
 # undef __ARM_ARCH__
 # define __ARM_ARCH__ 5
 #endif
 
+#if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__)
+# undef __ARM_ARCH__
+# define __ARM_ARCH__ 6
+#endif
+
 /* How to return from a function call depends on the architecture variant.  */
 
-#ifdef __APCS_26__
-
-# define RET		movs	pc, lr
-# define RETc(x)	mov##x##s	pc, lr
-
-#elif (__ARM_ARCH__ > 4) || defined(__ARM_ARCH_4T__)
+#if (__ARM_ARCH__ > 4) || defined(__ARM_ARCH_4T__)
 
 # define RET		bx	lr
 # define RETc(x)	bx##x	lr
@@ -106,13 +107,7 @@ Boston, MA 02111-1307, USA.  */
 /* Don't pass dirn, it's there just to get token pasting right.  */
 
 .macro	RETLDM	regs=, cond=, dirn=ia
-#ifdef __APCS_26__
-	.ifc "\regs",""
-	ldm\cond\dirn	sp!, {pc}^
-	.else
-	ldm\cond\dirn	sp!, {\regs, pc}^
-	.endif
-#elif defined (__INTERWORKING__)
+#if defined (__INTERWORKING__)
 	.ifc "\regs",""
 	ldr\cond	lr, [sp], #4
 	.else
@@ -870,13 +865,127 @@ LSYM(Lover12):
 	
 #endif /* L_dvmd_lnx */
 /* ------------------------------------------------------------------------ */
+/* Dword shift operations.  */
+/* All the following Dword shift variants rely on the fact that
+	shft xxx, Reg
+   is in fact done as
+	shft xxx, (Reg & 255)
+   so for Reg value in (32...63) and (-1...-31) we will get zero (in the
+   case of logical shifts) or the sign (for asr).  */
+
+#ifdef __ARMEB__
+#define al	r1
+#define ah	r0
+#else
+#define al	r0
+#define ah	r1
+#endif
+
+#ifdef L_lshrdi3
+
+	FUNC_START lshrdi3
+
+#ifdef __thumb__
+	lsr	al, r2
+	mov	r3, ah
+	lsr	ah, r2
+	mov	ip, r3
+	sub	r2, #32
+	lsr	r3, r2
+	orr	al, r3
+	neg	r2, r2
+	mov	r3, ip
+	lsl	r3, r2
+	orr	al, r3
+	RET
+#else
+	subs	r3, r2, #32
+	rsb	ip, r2, #32
+	movmi	al, al, lsr r2
+	movpl	al, ah, lsr r3
+	orrmi	al, al, ah, lsl ip
+	mov	ah, ah, lsr r2
+	RET
+#endif
+	FUNC_END lshrdi3
+
+#endif
+	
+#ifdef L_ashrdi3
+	
+	FUNC_START ashrdi3
+#ifdef __thumb__
+	lsr	al, r2
+	mov	r3, ah
+	asr	ah, r2
+	sub	r2, #32
+	@ If r2 is negative at this point the following step would OR
+	@ the sign bit into all of AL.  That's not what we want...
+	bmi	1f
+	mov	ip, r3
+	asr	r3, r2
+	orr	al, r3
+	mov	r3, ip
+1:
+	neg	r2, r2
+	lsl	r3, r2
+	orr	al, r3
+	RET
+#else
+	subs	r3, r2, #32
+	rsb	ip, r2, #32
+	movmi	al, al, lsr r2
+	movpl	al, ah, asr r3
+	orrmi	al, al, ah, lsl ip
+	mov	ah, ah, asr r2
+	RET
+#endif
+
+	FUNC_END ashrdi3
+
+#endif
+
+#ifdef L_ashldi3
+
+	FUNC_START ashldi3
+#ifdef __thumb__
+	lsl	ah, r2
+	mov	r3, al
+	lsl	al, r2
+	mov	ip, r3
+	sub	r2, #32
+	lsl	r3, r2
+	orr	ah, r3
+	neg	r2, r2
+	mov	r3, ip
+	lsr	r3, r2
+	orr	ah, r3
+	RET
+#else
+	subs	r3, r2, #32
+	rsb	ip, r2, #32
+	movmi	ah, ah, lsl r2
+	movpl	ah, al, lsl r3
+	orrmi	ah, ah, al, lsr ip
+	mov	al, al, lsl r2
+	RET
+#endif
+	FUNC_END ashldi3
+
+#endif
+
+/* ------------------------------------------------------------------------ */
 /* These next two sections are here despite the fact that they contain Thumb 
    assembler because their presence allows interworked code to be linked even
    when the GCC library is this one.  */
 		
 /* Do not build the interworking functions when the target architecture does 
    not support Thumb instructions.  (This can be a multilib option).  */
-#if defined L_call_via_rX && (defined __ARM_ARCH_4T__ || defined __ARM_ARCH_5T__ || defined __ARM_ARCH_5TE__)
+#if defined __ARM_ARCH_4T__ || defined __ARM_ARCH_5T__\
+      || defined __ARM_ARCH_5TE__ || defined __ARM_ARCH_5TEJ__ \
+      || __ARM_ARCH__ >= 6
+
+#if defined L_call_via_rX
 
 /* These labels & instructions are used by the Arm/Thumb interworking code. 
    The address of function to be called is loaded into a register and then 
@@ -914,10 +1023,8 @@ LSYM(Lover12):
 	call_via lr
 
 #endif /* L_call_via_rX */
-/* ------------------------------------------------------------------------ */
-/* Do not build the interworking functions when the target architecture does 
-   not support Thumb instructions.  (This can be a multilib option).  */
-#if defined L_interwork_call_via_rX && (defined __ARM_ARCH_4T__ || defined __ARM_ARCH_5T__ || defined __ARM_ARCH_5TE__)
+
+#if defined L_interwork_call_via_rX
 
 /* These labels & instructions are used by the Arm/Thumb interworking code,
    when the target address is in an unknown instruction set.  The address 
@@ -993,6 +1100,7 @@ LSYM(Lchange_\register):
 	SIZE	(_interwork_call_via_lr)
 	
 #endif /* L_interwork_call_via_rX */
+#endif /* Arch supports thumb.  */
 
 #include "ieee754-df.S"
 #include "ieee754-sf.S"

@@ -2,7 +2,7 @@
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
---                     ADA.EXCEPTIONS.EXCEPTION_PROPAGATION                 --
+--  A D A . E X C E P T I O N S . E X C E P T I O N _ P R O P A G A T I O N --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
@@ -102,14 +102,17 @@ package body Exception_Propagation is
    GNAT_Exception_Class : constant Exception_Class := 16#474e552d41646100#;
    --  "GNU-Ada\0"
 
+   type Unwind_Word is mod 2 ** System.Word_Size;
+   for Unwind_Word'Size use System.Word_Size;
+   --  Map the corresponding C type used in Unwind_Exception below.
+
    type Unwind_Exception is record
       Class    : Exception_Class := GNAT_Exception_Class;
       Cleanup  : System.Address  := System.Null_Address;
-      Private1 : Integer;
-      Private2 : Integer;
+      Private1 : Unwind_Word;
+      Private2 : Unwind_Word;
    end record;
-
-   pragma Convention (C, Unwind_Exception);
+   --  Map the GCC struct used for exception handling.
 
    for Unwind_Exception'Alignment use Standard'Maximum_Alignment;
    --  The C++ ABI mandates the common exception header to be at least
@@ -119,7 +122,7 @@ package body Exception_Propagation is
    --  1/ We pass pointers to such headers down to the underlying
    --     libGCC unwinder,
 
-   --  and
+   --    and
 
    --  2/ The GNAT_GCC_Exception record below starts with this common
    --     common header and has a C counterpart which needs to be laid

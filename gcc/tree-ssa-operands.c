@@ -78,7 +78,6 @@ static void append_vdef (tree, tree, voperands_t);
 static void add_call_clobber_ops (tree, voperands_t);
 static void add_call_read_ops (tree, voperands_t);
 static void add_stmt_operand (tree *, tree, int, voperands_t);
-static int get_call_flags (tree);
 
 
 struct freelist_d GTY((chain_next ("%h.next")))
@@ -636,24 +635,6 @@ add_vuse (tree var, tree stmt)
 }
 
 
-
-/* Return the ECF_ flags associated with the function called by the
-   CALL_EXPR node EXPR.  */
-
-static int
-get_call_flags (tree expr)
-{
-  tree callee;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (expr) != CALL_EXPR)
-    abort ();
-#endif
-
-  callee = get_callee_fndecl (expr);
-  return (callee) ? flags_from_decl_or_type (callee) : 0;
-}
-
 /* Get the operands of statement STMT.  Note that repeated calls to
    get_stmt_operands for the same statement will do nothing until the
    statement is marked modified by a call to modify_stmt().  */
@@ -843,7 +824,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   /* Expressions that make no memory references.  */
   if (class == 'c'
       || class == 't'
-      || class == 'b'
+      || code == BLOCK
       || code == FUNCTION_DECL
       || code == EXC_PTR_EXPR
       || code == FILTER_EXPR
@@ -1030,7 +1011,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   if (code == CALL_EXPR)
     {
       tree op;
-      int call_flags = get_call_flags (expr);
+      int call_flags = call_expr_flags (expr);
 
       /* Find uses in the called function.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
@@ -1042,12 +1023,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
       if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
 	{
+	  /* A 'pure' or a 'const' functions never call clobber anything. 
+	     A 'noreturn' function might, but since we don't return anyway 
+	     there is no point in recording that.  */ 
 	  if (!(call_flags
-		& (ECF_PURE
-		   | ECF_CONST
-		   | ECF_NORETURN
-		   | ECF_MALLOC
-		   | ECF_MAY_BE_ALLOCA)))
+		& (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	    add_call_clobber_ops (stmt, prev_vops);
 	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
 	    add_call_read_ops (stmt, prev_vops);

@@ -1,6 +1,6 @@
 // Safe iterator implementation  -*- C++ -*-
 
-// Copyright (C) 2003
+// Copyright (C) 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -35,9 +35,13 @@
 #include <debug/debug.h>
 #include <debug/formatter.h>
 #include <debug/safe_base.h>
+#include <bits/cpp_type_traits.h>
 
 namespace __gnu_debug
 {
+  using std::iterator_traits;
+  using std::pair;
+
   /** Iterators that derive from _Safe_iterator_base but that aren't
    *  _Safe_iterators can be determined singular or non-singular via
    *  _Safe_iterator_base.
@@ -85,6 +89,7 @@ namespace __gnu_debug
       typedef iterator_traits<_Iterator> _Traits;
 
     public:
+      typedef _Iterator                           _Base_iterator;
       typedef typename _Traits::iterator_category iterator_category;
       typedef typename _Traits::value_type        value_type;
       typedef typename _Traits::difference_type   difference_type;
@@ -129,7 +134,13 @@ namespace __gnu_debug
        *  @pre @p x is not singular
       */
       template<typename _MutableIterator>
-        _Safe_iterator(const _Safe_iterator<_MutableIterator, _Sequence>& __x)
+        _Safe_iterator(
+          const _Safe_iterator<_MutableIterator,
+          typename std::__enable_if<
+                     _Sequence,
+                     (std::__are_same<_MutableIterator,
+                      typename _Sequence::iterator::_Base_iterator>::_M_type)
+                   >::_M_type>& __x)
 	: _Safe_iterator_base(__x, _M_constant()), _M_current(__x.base())
         {
 	  _GLIBCXX_DEBUG_VERIFY(!__x._M_singular(),

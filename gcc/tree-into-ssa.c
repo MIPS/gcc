@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
@@ -929,7 +929,7 @@ dump_tree_ssa (FILE *file)
 {
   basic_block bb;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "SSA information for %s\n\n", funcname);
 

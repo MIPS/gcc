@@ -411,7 +411,8 @@ __gnat_try_lock (char *dir, char *file)
   int fd;
 
   sprintf (full_path, "%s%c%s", dir, DIR_SEPARATOR, file);
-  sprintf (temp_file, "%s-%ld-%ld", dir, (long) getpid(), (long) getppid ());
+  sprintf (temp_file, "%s%cTMP-%ld-%ld",
+           dir, DIR_SEPARATOR, (long)getpid(), (long)getppid ());
 
   /* Create the temporary file and write the process number.  */
   fd = open (temp_file, O_CREAT | O_WRONLY, 0600);
@@ -805,7 +806,7 @@ __gnat_readdir (DIR *dirp, char *buffer)
     return NULL;
 
 #else
-  struct dirent *dirent = readdir (dirp);
+  struct dirent *dirent = (struct dirent *) readdir (dirp);
 
   if (dirent != NULL)
     {
@@ -861,7 +862,7 @@ win32_filetime (HANDLE h)
 
 /* Return a GNAT time stamp given a file name.  */
 
-time_t
+OS_Time
 __gnat_file_time_name (char *name)
 {
 
@@ -869,7 +870,7 @@ __gnat_file_time_name (char *name)
   int fd = open (name, O_RDONLY | O_BINARY);
   time_t ret = __gnat_file_time_fd (fd);
   close (fd);
-  return ret;
+  return (OS_Time)ret;
 
 #elif defined (_WIN32)
   time_t ret = 0;
@@ -881,22 +882,25 @@ __gnat_file_time_name (char *name)
       ret = win32_filetime (h);
       CloseHandle (h);
     }
-  return ret;
+  return (OS_Time) ret;
 #else
   struct stat statbuf;
-  (void) __gnat_stat (name, &statbuf);
+  if (__gnat_stat (name, &statbuf) != 0) {
+     return (OS_Time)-1;
+  } else {
 #ifdef VMS
-  /* VMS has file versioning.  */
-  return statbuf.st_ctime;
+     /* VMS has file versioning.  */
+     return (OS_Time)statbuf.st_ctime;
 #else
-  return statbuf.st_mtime;
+     return (OS_Time)statbuf.st_mtime;
 #endif
+  }
 #endif
 }
 
 /* Return a GNAT time stamp given a file descriptor.  */
 
-time_t
+OS_Time
 __gnat_file_time_fd (int fd)
 {
   /* The following workaround code is due to the fact that under EMX and
@@ -964,24 +968,26 @@ __gnat_file_time_fd (int fd)
   tot_secs += file_hour * 3600;
   tot_secs += file_min * 60;
   tot_secs += file_tsec * 2;
-  return tot_secs;
+  return (OS_Time) tot_secs;
 
 #elif defined (_WIN32)
   HANDLE h = (HANDLE) _get_osfhandle (fd);
   time_t ret = win32_filetime (h);
-  return ret;
+  return (OS_Time) ret;
 
 #else
   struct stat statbuf;
 
-  (void) fstat (fd, &statbuf);
-
+  if (fstat (fd, &statbuf) != 0) {
+     return (OS_Time) -1;
+  } else {
 #ifdef VMS
-  /* VMS has file versioning.  */
-  return statbuf.st_ctime;
+     /* VMS has file versioning.  */
+     return (OS_Time) statbuf.st_ctime;
 #else
-  return statbuf.st_mtime;
+     return (OS_Time) statbuf.st_mtime;
 #endif
+  }
 #endif
 }
 
@@ -1404,11 +1410,12 @@ __gnat_file_exists (char *name)
 }
 
 int
-__gnat_is_absolute_path (char *name)
+__gnat_is_absolute_path (char *name, int length)
 {
-  return (*name == '/' || *name == DIR_SEPARATOR
+  return (length != 0) &&
+     (*name == '/' || *name == DIR_SEPARATOR
 #if defined (__EMX__) || defined (MSDOS) || defined (WINNT)
-      || (strlen (name) > 1 && isalpha (name[0]) && name[1] == ':')
+      || (length > 1 && isalpha (name[0]) && name[1] == ':')
 #endif
 	  );
 }
@@ -1472,6 +1479,20 @@ __gnat_set_writable (char *name)
 }
 
 void
+__gnat_set_executable (char *name)
+{
+#ifndef __vxworks
+  struct stat statbuf;
+
+  if (stat (name, &statbuf) == 0)
+  {
+    statbuf.st_mode = statbuf.st_mode | S_IXUSR;
+    chmod (name, statbuf.st_mode);
+  }
+#endif
+}
+
+void
 __gnat_set_readonly (char *name)
 {
 #ifndef __vxworks
@@ -1529,7 +1550,19 @@ __gnat_portable_spawn (char *args[])
   int pid ATTRIBUTE_UNUSED;
 
 #if defined (MSDOS) || defined (_WIN32)
-  status = spawnvp (P_WAIT, args[0],(const char* const*)args);
+  /* args[0] must be quotes as it could contain a full pathname with spaces */
+  const char *args_0 = args[0];
+  args[0] = (char *)xmalloc (strlen (args_0) + 3);
+  strcpy (args[0], "\"");
+  strcat (args[0], args_0);
+  strcat (args[0], "\"");
+
+  status = spawnvp (P_WAIT, args_0, (const char* const*)args);
+
+  /* restore previous value */
+  free (args[0]);
+  args[0] = args_0;
+
   if (status < 0)
     return -1;
   else
@@ -1872,7 +1905,7 @@ char *
 __gnat_locate_regular_file (char *file_name, char *path_val)
 {
   char *ptr;
-  int absolute = __gnat_is_absolute_path (file_name);
+  int absolute = __gnat_is_absolute_path (file_name, strlen (file_name));
 
   /* Handle absolute pathnames.  */
   if (absolute)

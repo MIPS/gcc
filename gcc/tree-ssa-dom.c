@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 #include "domwalk.h"
 #include "real.h"
 #include "tree-pass.h"
-#include "flags.h"
 #include "langhooks.h"
 
 /* This file implements optimizations on the dominator tree.  */
@@ -313,12 +312,14 @@ set_value_for (tree var, tree value, varray_type table)
 static void
 redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 {
-  basic_block tgt;
+  basic_block tgt, bb;
+  tree phi;
   unsigned int i;
   size_t old_num_referenced_vars = num_referenced_vars;
+  bitmap virtuals_to_rename = BITMAP_XMALLOC ();
 
   /* First note any variables which we are going to have to take
-     out of SSA form.  */
+     out of SSA form as well as any virtuals which need updating.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
     {
       block_stmt_iterator bsi;
@@ -334,7 +335,11 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+
+	  if (is_gimple_reg (PHI_RESULT (phi)))
+	    bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+	  else
+	    bitmap_set_bit (virtuals_to_rename, var_ann (result)->uid);
         }
 
       /* Any variables set by statements at the start of the block we
@@ -363,7 +368,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
 	    {
 	      tree op = VDEF_RESULT (vdefs, j);
-	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+	      bitmap_set_bit (virtuals_to_rename, var_ann (op)->uid);
 	    }
 	}
 
@@ -372,20 +377,11 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-	  int j;
 
-	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
-
-	  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, j);
-
-	      if (TREE_CODE (arg) != SSA_NAME)
-		continue;
-
-	      arg = SSA_NAME_VAR (arg);
-	      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
-	    }
+	  if (is_gimple_reg (PHI_RESULT (phi)))
+	    bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+	  else
+	    bitmap_set_bit (virtuals_to_rename, var_ann (result)->uid);
         }
     }
 
@@ -498,6 +494,28 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       bitmap_set_bit (vars_to_rename, i);
       var_ann (referenced_var (i))->out_of_ssa_tag = 0;
     }
+
+  bitmap_a_or_b (vars_to_rename, vars_to_rename, virtuals_to_rename);
+
+  /* We must remove any PHIs for virtual variables that we are going to
+     re-rename.  Hopefully we'll be able to simply update these incrementally
+     soon.  */
+  FOR_EACH_BB (bb)
+    {
+      tree next;
+
+      for (phi = phi_nodes (bb); phi; phi = next)
+	{
+	  tree result = PHI_RESULT (phi);
+
+	  next = TREE_CHAIN (phi);
+
+	  if (bitmap_bit_p (virtuals_to_rename,
+			    var_ann (SSA_NAME_VAR (result))->uid))
+	    remove_phi_node (phi, NULL, bb);
+	}
+    }
+  BITMAP_XFREE (virtuals_to_rename);
 }
 
 /* Jump threading, redundancy elimination and const/copy propagation. 
@@ -637,6 +655,9 @@ tree_ssa_dominator_optimize (void)
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
+
+  /* Free nonzero_vars.   */
+  BITMAP_XFREE (nonzero_vars);
 }
 
 static bool
@@ -1299,7 +1320,12 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
    Ignoring any alternatives which are the same as the result, if
    all the alternatives are equal, then the PHI node creates an
-   equivalence.  */
+   equivalence.
+
+   Additionally, if all the PHI alternatives are known to have a nonzero
+   value, then the result of this PHI is known to have a nonzero value,
+   even if we do not know its exact value.  */
+
 static void
 record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 {
@@ -1351,6 +1377,17 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
       if (i == PHI_NUM_ARGS (phi)
 	  && may_propagate_copy (lhs, rhs))
 	set_value_for (lhs, rhs, const_and_copies);
+
+      /* Now see if we know anything about the nonzero property for the
+	 result of this PHI.  */
+      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	{
+	  if (!PHI_ARG_NONZERO (phi, i))
+	    break;
+	}
+
+      if (i == PHI_NUM_ARGS (phi))
+	bitmap_set_bit (nonzero_vars, SSA_NAME_VERSION (PHI_RESULT (phi)));
 
       register_new_def (lhs, &bd->block_defs);
     }
@@ -1833,7 +1870,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
 	  if (! dummy_cond)
 	    {
-	      dummy_cond = build (LT_EXPR, boolean_type_node,
+	      dummy_cond = build (LE_EXPR, boolean_type_node,
 				  op, integer_zero_node);
 	      dummy_cond = build (COND_EXPR, void_type_node,
 				  dummy_cond, NULL, NULL);
@@ -1841,7 +1878,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	    }
 	  else
 	    {
-	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LT_EXPR);
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LE_EXPR);
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
 		= convert (type, integer_zero_node);
@@ -1849,6 +1886,26 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
 						     &bd->avail_exprs,
 						     NULL, false);
+
+	  if (!val)
+	    {
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GE_EXPR);
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+		= convert (type, integer_zero_node);
+
+	      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
+							 &bd->avail_exprs,
+							 NULL, false);
+
+	      if (val)
+		{
+		  if (integer_zerop (val))
+		    val = integer_one_node;
+		  else if (integer_onep (val))
+		    val = integer_zero_node;
+		}
+	    }
 	}
 
       if (val
@@ -2225,7 +2282,7 @@ static void
 cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		 basic_block bb)
 {
-  cprop_into_successor_phis (bb, const_and_copies);
+  cprop_into_successor_phis (bb, const_and_copies, nonzero_vars);
 }
 
 /* Search for redundant computations in STMT.  If any are found, then
@@ -2390,25 +2447,39 @@ record_equivalences_from_stmt (tree stmt,
   /* Look at both sides for pointer dereferences.  If we find one, then
      the pointer must be nonnull and we can enter that equivalence into
      the hash tables.  */
-  for (i = 0; i < 2; i++)
-    {
-      tree t = TREE_OPERAND (stmt, i);
+  if (flag_delete_null_pointer_checks)
+    for (i = 0; i < 2; i++)
+      {
+	tree t = TREE_OPERAND (stmt, i);
 
-      /* Strip away any COMPONENT_REFs.  */
-      while (TREE_CODE (t) == COMPONENT_REF)
-        t = TREE_OPERAND (t, 0);
+	/* Strip away any COMPONENT_REFs.  */
+	while (TREE_CODE (t) == COMPONENT_REF)
+	  t = TREE_OPERAND (t, 0);
 
-      /* Now see if this is a pointer dereference.  */
-      if (TREE_CODE (t) == INDIRECT_REF)
-        {
-	  tree op = TREE_OPERAND (t, 0);
+	/* Now see if this is a pointer dereference.  */
+	if (TREE_CODE (t) == INDIRECT_REF)
+          {
+	    tree op = TREE_OPERAND (t, 0);
 
-	  /* If the pointer is a SSA variable, then enter new
-	     equivalences into the hash table.  */
-	  if (TREE_CODE (op) == SSA_NAME)
-	    record_var_is_nonzero (op, block_nonzero_vars_p);
-	}
-    }
+	    /* If the pointer is a SSA variable, then enter new
+	       equivalences into the hash table.  */
+	    while (TREE_CODE (op) == SSA_NAME)
+	      {
+		tree def = SSA_NAME_DEF_STMT (op);
+
+		record_var_is_nonzero (op, block_nonzero_vars_p);
+
+		/* And walk up the USE-DEF chains noting other SSA_NAMEs
+		   which are known to have a nonzero value.  */
+		if (def
+		    && TREE_CODE (def) == MODIFY_EXPR
+		    && TREE_CODE (TREE_OPERAND (def, 1)) == NOP_EXPR)
+		  op = TREE_OPERAND (TREE_OPERAND (def, 1), 0);
+		else
+		  break;
+	      }
+	  }
+      }
 
   /* A memory store, even an aliased store, creates a useful
      equivalence.  By exchanging the LHS and RHS, creating suitable
@@ -3058,7 +3129,7 @@ avail_expr_eq (const void *p1, const void *p2)
      same VUSE operands.  */
   if ((TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
        || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
-      && operand_equal_p (rhs1, rhs2, 0))
+      && operand_equal_p (rhs1, rhs2, OEP_PURE_SAME))
     {
       vuse_optype ops1 = NULL;
       vuse_optype ops2 = NULL;

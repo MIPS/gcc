@@ -41,9 +41,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Suppress g++ attempt to link in the math library automatically.
    (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.)  */
-
+   for C++ executables.) This needs to be -lmx for Darwin 7.0 and
+   above.  */
+#ifndef MATH_LIBRARY
 #define MATH_LIBRARY ""
+#endif
 
 /* We have atexit.  */
 
@@ -287,11 +289,11 @@ Boston, MA 02111-1307, USA.  */
      %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
                      %{!static:%{object:-lgcrt0.o} \
                                %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o -lcrt2.o}}}} \
+                                 %{!preload:-lgcrt1.o crt2.o%s}}}} \
                 %{!pg:%{static:-lcrt0.o} \
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o -lcrt2.o}}}}}}"
+                                  %{!preload:-lcrt1.o crt2.o%s}}}}}}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
@@ -301,6 +303,21 @@ Boston, MA 02111-1307, USA.  */
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1
+
+/* Also enable Dwarf 2 as an option.  */
+#define DWARF2_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+
+#define DEBUG_FRAME_SECTION   "__DWARFA,__debug_frame,coalesced,no_toc+strip_static_syms"
+#define DEBUG_INFO_SECTION    "__DWARFA,__debug_info"
+#define DEBUG_ABBREV_SECTION  "__DWARFA,__debug_abbrev"
+#define DEBUG_ARANGES_SECTION "__DWARFA,__debug_aranges"
+#define DEBUG_MACINFO_SECTION "__DWARFA,__debug_macinfo"
+#define DEBUG_LINE_SECTION    "__DWARFA,__debug_line"
+#define DEBUG_LOC_SECTION     "__DWARFA,__debug_loc"
+#define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames"
+#define DEBUG_STR_SECTION     "__DWARFA,__debug_str"
+#define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges"
 
 /* When generating stabs debugging, use N_BINCL entries.  */
 
@@ -907,5 +924,10 @@ void add_framework_path (char *);
 #define TARGET_OPTF add_framework_path
 
 #define TARGET_HAS_F_SETLKW
+
+/* Darwin before 7.0 does not have C99 functions.   */
+#ifndef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 0
+#endif
 
 #endif /* CONFIG_DARWIN_H */

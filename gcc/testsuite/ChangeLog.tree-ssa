@@ -1,3 +1,42 @@
+2004-05-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.old-deja/g++.ext/arrnew2.C: Restore XFAIL.  It's broken
+	on mainline too.
+
+2004-05-06  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20031015-1.c: Rewrite for all targets.  Look at
+	alias dump for two VDEFs.
+
+	* gcc.dg/tree-ssa/20040210-1.c: Tweak scan pattern to look for ifs.
+
+2004-05-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/parse/stack1.C: Remove XFAIL.
+	* g++.old-deja/g++.bugs/900205_03.C: Likewise.
+	* g++.old-deja/g++.ext/arrnew2.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.
+	* gcc.c-torture/execute/string-opt-19.x: Remove.
+
+2004-05-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/15062
+	* gcc.c-torture/compile/pr15062.c: New test.
+
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR optimization/15245
+	* gcc.c-torture/compile/pr15245.c: New test.
+
+2004-05-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040430-1.c: New test.
+
+2004-04-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14056
+	* gfortran.fortran-torture/execute/spec_abs.f90: Add new test.
+
 2004-04-25  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/14942
@@ -25,6 +64,11 @@
 
 	PR middle-end/14730
 	* gcc.c-torture/compile/pr14730.c: New test.
+
+2004-04-24  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* execute/intrinsic_count.f90: Fix typo.
+	* execute/intrinsic_mmloc.f90: Fix typo.
 
 2004-04-18  Feng Wang  <fengwang@nudt.edu.cn>
 

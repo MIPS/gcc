@@ -856,7 +856,7 @@ reg_alloc (void)
   /* Cleanup the flow graph.  */
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
     dump_file = NULL;
-  life_analysis (get_insns (), dump_file,
+  life_analysis (dump_file,
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
@@ -887,7 +887,8 @@ reg_alloc (void)
 			 "after allocation/spilling, before reload", NULL);
 
   /* Allocate the reg_equiv_memory_loc array for reload.  */
-  reg_equiv_memory_loc = xcalloc (max_regno, sizeof (rtx));
+  VARRAY_GROW (reg_equiv_memory_loc_varray, max_regno);
+  reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
   /* And possibly initialize it.  */
   allocate_initial_values (reg_equiv_memory_loc);
   /* And one last regclass pass just before reload.  */

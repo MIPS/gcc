@@ -1,5 +1,5 @@
 /* gtkcheckboxpeer.c -- Native implementation of GtkCheckboxPeer
-   Copyright (C) 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,40 +41,6 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 
 static void item_toggled (GtkToggleButton *item, jobject peer);
-
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer_dispose
-  (JNIEnv *env, jobject obj)
-{
-  /* The actual underlying widget is owned by a different class.  So
-     we just clean up the hash table here.  */
-  NSA_DEL_PTR (env, obj);
-}
-
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer_remove
-  (JNIEnv *env, jobject obj, jobject checkbox)
-{
-  GtkRadioButton *button;
-  void *ptr;
-  GSList *list;
-
-  ptr = NSA_GET_PTR (env, checkbox);
-  gdk_threads_enter ();
-  button = GTK_RADIO_BUTTON (ptr);
-
-  /* Update the group to point to some other widget in the group.  We
-     have to do this because Gtk doesn't have a separate object to
-     represent a radio button's group.  */
-  for (list = gtk_radio_button_group (button); list != NULL;
-       list = list->next)
-    {
-      if (list->data != button)
-	break;
-    }
-
-  gdk_threads_leave ();
-
-  NSA_SET_PTR (env, obj, list ? list->data : NULL);
-}
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_nativeCreate
@@ -230,7 +196,6 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkSetLabel
 static void
 item_toggled (GtkToggleButton *item, jobject peer)
 {
-  //g_print ("toggled\n");
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
 			      postItemEventID,
 			      peer,

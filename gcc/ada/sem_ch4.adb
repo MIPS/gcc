@@ -30,7 +30,9 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Util; use Exp_Util;
+with Fname;    use Fname;
 with Itypes;   use Itypes;
+with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
 with Nlists;   use Nlists;
@@ -2095,8 +2097,22 @@ package body Sem_Ch4 is
                         then
                            Error_Msg_NE
                              ("  =='> in call to &#(inherited)!", Actual, Nam);
+
+                        elsif Ekind (Nam) = E_Subprogram_Type then
+                           declare
+                              Access_To_Subprogram_Typ :
+                                constant Entity_Id :=
+                                  Defining_Identifier
+                                    (Associated_Node_For_Itype (Nam));
+                           begin
+                              Error_Msg_NE (
+                                "  =='> in call to dereference of &#!",
+                                Actual, Access_To_Subprogram_Typ);
+                           end;
+
                         else
                            Error_Msg_NE ("  =='> in call to &#!", Actual, Nam);
+
                         end if;
                      end if;
                   end if;
@@ -2752,7 +2768,8 @@ package body Sem_Ch4 is
             <<Next_Comp>>
                Next_Entity (Comp);
                exit when not In_Scope
-                 and then Comp = First_Private_Entity (Prefix_Type);
+                 and then
+                   Comp = First_Private_Entity (Base_Type (Prefix_Type));
          end loop;
 
          Set_Is_Overloaded (N, Is_Overloaded (Sel));
@@ -4330,22 +4347,68 @@ package body Sem_Ch4 is
    --------------------------------
 
    procedure Remove_Abstract_Operations (N : Node_Id) is
-      I               : Interp_Index;
-      It              : Interp;
-      Abstract_Op     : Entity_Id := Empty;
+      I            : Interp_Index;
+      It           : Interp;
+      Abstract_Op  : Entity_Id := Empty;
 
       --  AI-310: If overloaded, remove abstract non-dispatching
-      --  operations.
+      --  operations. We activate this if either extensions are
+      --  enabled, or if the abstract operation in question comes
+      --  from a predefined file. This latter test allows us to
+      --  use abstract to make operations invisible to users. In
+      --  particular, if type Address is non-private and abstract
+      --  subprograms are used to hide its operators, they will be
+      --  truly hidden.
+
+      type Operand_Position is (First_Op, Second_Op);
+
+      procedure Remove_Address_Interpretations (Op : Operand_Position);
+      --  Ambiguities may arise when the operands are literal and the
+      --  address operations in s-auxdec are visible. In that case, remove
+      --  the interpretation of a literal as Address, to retain the semantics
+      --  of Address as a private type.
+
+      ------------------------------------
+      -- Remove_Address_Interpretations --
+      ------------------------------------
+
+      procedure Remove_Address_Interpretations (Op : Operand_Position) is
+         Formal : Entity_Id;
+
+      begin
+         if Is_Overloaded (N) then
+            Get_First_Interp (N, I, It);
+            while Present (It.Nam) loop
+               Formal := First_Entity (It.Nam);
+
+               if Op = Second_Op then
+                  Formal := Next_Entity (Formal);
+               end if;
+
+               if Is_Descendent_Of_Address (Etype (Formal)) then
+                  Remove_Interp (I);
+               end if;
+
+               Get_Next_Interp (I, It);
+            end loop;
+         end if;
+      end Remove_Address_Interpretations;
+
+   --  Start of processing for Remove_Abstract_Operations
 
    begin
-      if Extensions_Allowed
-        and then Is_Overloaded (N)
-      then
+      if Is_Overloaded (N) then
          Get_First_Interp (N, I, It);
+
          while Present (It.Nam) loop
             if not Is_Type (It.Nam)
               and then Is_Abstract (It.Nam)
               and then not Is_Dispatching_Operation (It.Nam)
+              and then
+                (Extensions_Allowed
+                   or else Is_Predefined_File_Name
+                             (Unit_File_Name (Get_Source_Unit (It.Nam))))
+
             then
                Abstract_Op := It.Nam;
                Remove_Interp (I);
@@ -4355,34 +4418,43 @@ package body Sem_Ch4 is
             Get_Next_Interp (I, It);
          end loop;
 
-         --  Remove corresponding predefined operator, which is
-         --  always added to the overload set, unless it is a universal
-         --  operation.
-
          if No (Abstract_Op) then
             return;
 
          elsif Nkind (N) in N_Op then
-            if Nkind (N) in N_Unary_Op
-              and then Present (Universal_Interpretation (Right_Opnd (N)))
-            then
-               return;
+            --  Remove interpretations that treat literals as addresses.
+            --  This is never appropriate.
 
-            elsif Nkind (N) in N_Binary_Op
-              and then Present (Universal_Interpretation (Right_Opnd (N)))
-              and then Present (Universal_Interpretation (Left_Opnd  (N)))
-            then
-               return;
+            if Nkind (N) in N_Binary_Op then
+               declare
+                  U1 : constant Boolean :=
+                     Present (Universal_Interpretation (Right_Opnd (N)));
+                  U2 : constant Boolean :=
+                     Present (Universal_Interpretation (Left_Opnd (N)));
 
-            else
-               Get_First_Interp (N, I, It);
-               while Present (It.Nam) loop
-                  if Scope (It.Nam) = Standard_Standard then
-                     Remove_Interp (I);
+               begin
+                  if U1 and then not U2 then
+                     Remove_Address_Interpretations (Second_Op);
+
+                  elsif U2 and then not U1 then
+                     Remove_Address_Interpretations (First_Op);
                   end if;
 
-                  Get_Next_Interp (I, It);
-               end loop;
+                  if not (U1 and U2) then
+
+                     --  Remove corresponding predefined operator, which is
+                     --  always added to the overload set.
+
+                     Get_First_Interp (N, I, It);
+                     while Present (It.Nam) loop
+                        if Scope (It.Nam) = Standard_Standard then
+                           Remove_Interp (I);
+                        end if;
+
+                        Get_Next_Interp (I, It);
+                     end loop;
+                  end if;
+               end;
             end if;
 
          elsif Nkind (N) = N_Function_Call
@@ -4393,21 +4465,29 @@ package body Sem_Ch4 is
                      and then
                        Nkind (Selector_Name (Name (N))) = N_Operator_Symbol))
          then
+
             declare
                Arg1 : constant Node_Id := First (Parameter_Associations (N));
+               U1   : constant Boolean :=
+                        Present (Universal_Interpretation (Arg1));
+               U2   : constant Boolean :=
+                        Present (Next (Arg1)) and then
+                        Present (Universal_Interpretation (Next (Arg1)));
 
             begin
-               if Present (Universal_Interpretation (Arg1))
-                 and then
-                   (No (Next (Arg1))
-                     or else Present (Universal_Interpretation (Next (Arg1))))
-               then
-                  return;
+               if U1 and then not U2 then
+                  Remove_Address_Interpretations (First_Op);
 
-               else
+               elsif U2 and then not U1 then
+                  Remove_Address_Interpretations (Second_Op);
+               end if;
+
+               if not (U1 and U2) then
                   Get_First_Interp (N, I, It);
                   while Present (It.Nam) loop
-                     if Scope (It.Nam) = Standard_Standard then
+                     if Scope (It.Nam) = Standard_Standard
+                       and then It.Typ = Base_Type (Etype (Abstract_Op))
+                     then
                         Remove_Interp (I);
                      end if;
 
@@ -4418,7 +4498,7 @@ package body Sem_Ch4 is
          end if;
 
          --  If the removal has left no valid interpretations, emit
-         --  error message now an label node as illegal.
+         --  error message now and label node as illegal.
 
          if Present (Abstract_Op) then
             Get_First_Interp (N, I, It);

@@ -2,22 +2,22 @@
    Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -420,10 +420,19 @@ next_fixed (void)
     }
 
   /* Since this line starts a statement, it cannot be a continuation
-     of a previous statement.  Hence we mostly ignore column 6.  */
+     of a previous statement.  If we see something here besides a
+     space or zero, it must be a bad continuation line.  */
 
-  if (gfc_next_char_literal (0) == '\n')
+  c = gfc_next_char_literal (0);
+  if (c == '\n')
     goto blank_line;
+
+  if (c != ' ' && c!= '0')
+    {
+      gfc_buffer_error (0);
+      gfc_error ("Bad continuation line at %C");
+      return ST_NONE;
+    }
 
   /* Now that we've taken care of the statement label columns, we have
      to make sure that the first nonblank character is not a '!'.  If
@@ -474,16 +483,6 @@ next_statement (void)
 
       gfc_skip_comments ();
 
-      if (gfc_at_bol () && gfc_check_include ())
-	continue;
-
-      if (gfc_at_eof () && gfc_current_file->included_by != NULL)
-	{
-	  gfc_current_file = gfc_current_file->included_by;
-	  gfc_advance_line ();
-	  continue;
-	}
-
       if (gfc_at_end ())
 	{
 	  st = ST_NONE;
@@ -491,7 +490,8 @@ next_statement (void)
 	}
 
       st =
-	(gfc_current_file->form == FORM_FIXED) ? next_fixed () : next_free ();
+	(gfc_current_form == FORM_FIXED) ? next_fixed () : next_free ();
+
       if (st != ST_NONE)
 	break;
     }
@@ -1259,7 +1259,7 @@ unexpected_eof (void)
 {
   gfc_state_data *p;
 
-  gfc_error ("Unexpected end of file in '%s'", gfc_current_file->filename);
+  gfc_error ("Unexpected end of file in '%s'", gfc_source_file);
 
   /* Memory cleanup.  Move to "second to last".  */
   for (p = gfc_state_stack; p && p->previous && p->previous->previous;
@@ -1409,7 +1409,6 @@ parse_interface (void)
   gfc_interface_info save;
   gfc_state_data s1, s2;
   gfc_statement st;
-  int seen_body;
 
   accept_statement (ST_INTERFACE);
 
@@ -1420,7 +1419,6 @@ parse_interface (void)
 	 || current_interface.type == INTERFACE_USER_OP) ? gfc_new_block : NULL;
 
   push_state (&s1, COMP_INTERFACE, sym);
-  seen_body = 0;
   current_state = COMP_NONE;
 
 loop:
@@ -1446,7 +1444,6 @@ loop:
 
     case ST_MODULE_PROC:	/* The module procedure matcher makes
 				   sure the context is correct.  */
-      seen_body = 1;
       accept_statement (st);
       gfc_free_namespace (gfc_current_ns);
       goto loop;
@@ -1512,8 +1509,6 @@ decl:
       goto decl;
     }
 
-  seen_body = 1;
-
   current_interface = save;
   gfc_add_interface (prog_unit);
 
@@ -1521,9 +1516,6 @@ decl:
   goto loop;
 
 done:
-  if (!seen_body)
-    gfc_error ("INTERFACE block at %C is empty");
-
   pop_state ();
 }
 

@@ -117,13 +117,11 @@ extern enum processor_type mips_tune;   /* which cpu to schedule for */
 extern int mips_isa;			/* architectural level */
 extern int mips_abi;			/* which ABI to use */
 extern int mips16_hard_float;		/* mips16 without -msoft-float */
-extern int mips_entry;			/* generate entry/exit for mips16 */
 extern const char *mips_arch_string;    /* for -march=<xxx> */
 extern const char *mips_tune_string;    /* for -mtune=<xxx> */
 extern const char *mips_isa_string;	/* for -mips{1,2,3,4} */
 extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
 extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
-extern int mips_string_length;		/* length of strings for mips16 */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
@@ -156,30 +154,30 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_XGOT	   0x00000800	/* emit big-got PIC */
 #define MASK_LONG_CALLS	   0x00001000	/* Always call through a register */
 #define MASK_64BIT	   0x00002000	/* Use 64 bit GP registers and insns */
-#define MASK_EMBEDDED_PIC  0x00004000	/* Generate embedded PIC code */
-#define MASK_EMBEDDED_DATA 0x00008000	/* Reduce RAM usage, not fast code */
-#define MASK_BIG_ENDIAN	   0x00010000	/* Generate big endian code */
-#define MASK_SINGLE_FLOAT  0x00020000	/* Only single precision FPU.  */
-#define MASK_MAD	   0x00040000	/* Generate mad/madu as on 4650.  */
-#define MASK_4300_MUL_FIX  0x00080000   /* Work-around early Vr4300 CPU bug */
-#define MASK_MIPS16	   0x00100000	/* Generate mips16 code */
+#define MASK_EMBEDDED_DATA 0x00004000	/* Reduce RAM usage, not fast code */
+#define MASK_BIG_ENDIAN	   0x00008000	/* Generate big endian code */
+#define MASK_SINGLE_FLOAT  0x00010000	/* Only single precision FPU.  */
+#define MASK_MAD	   0x00020000	/* Generate mad/madu as on 4650.  */
+#define MASK_4300_MUL_FIX  0x00040000   /* Work-around early Vr4300 CPU bug */
+#define MASK_MIPS16	   0x00080000	/* Generate mips16 code */
 #define MASK_NO_CHECK_ZERO_DIV \
-			   0x00200000	/* divide by zero checking */
-#define MASK_BRANCHLIKELY  0x00400000   /* Generate Branch Likely
+			   0x00100000	/* divide by zero checking */
+#define MASK_BRANCHLIKELY  0x00200000   /* Generate Branch Likely
 					   instructions.  */
 #define MASK_UNINIT_CONST_IN_RODATA \
-			   0x00800000	/* Store uninitialized
+			   0x00400000	/* Store uninitialized
 					   consts in rodata */
-#define MASK_FIX_R4000	   0x01000000	/* Work around R4000 errata.  */
-#define MASK_FIX_R4400	   0x02000000	/* Work around R4400 errata.  */
-#define MASK_FIX_SB1	   0x04000000	/* Work around SB-1 errata.  */
-#define MASK_FIX_VR4120	   0x08000000   /* Work around VR4120 errata.  */
+#define MASK_FIX_R4000	   0x00800000	/* Work around R4000 errata.  */
+#define MASK_FIX_R4400	   0x01000000	/* Work around R4400 errata.  */
+#define MASK_FIX_SB1	   0x02000000	/* Work around SB-1 errata.  */
+#define MASK_FIX_VR4120	   0x04000000   /* Work around VR4120 errata.  */
+#define MASK_VR4130_ALIGN  0x08000000	/* Perform VR4130 alignment opts.  */
+#define MASK_FP_EXCEPTIONS 0x10000000   /* FP exceptions are enabled.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
 #define MASK_DEBUG_C	0		/* don't expand seq, etc.  */
 #define MASK_DEBUG_D	0		/* don't do define_split's */
-#define MASK_DEBUG_G	0		/* don't support 64 bit arithmetic */
 
 					/* Dummy switches used only in specs */
 #define MASK_MIPS_TFILE	0		/* flag for mips-tfile usage */
@@ -201,7 +199,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_DEBUG_MODE	(target_flags & MASK_DEBUG)
 #define TARGET_DEBUG_C_MODE	(target_flags & MASK_DEBUG_C)
 #define TARGET_DEBUG_D_MODE	(target_flags & MASK_DEBUG_D)
-#define TARGET_DEBUG_G_MODE	(target_flags & MASK_DEBUG_G)
 
 					/* Reg. Naming in .s ($21 vs. $a0) */
 #define TARGET_NAME_REGS	(target_flags & MASK_NAME_REGS)
@@ -219,10 +216,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 					/* always call through a register */
 #define TARGET_LONG_CALLS	(target_flags & MASK_LONG_CALLS)
-
-					/* generate embedded PIC code;
-					   requires gas.  */
-#define TARGET_EMBEDDED_PIC	(target_flags & MASK_EMBEDDED_PIC)
 
 					/* for embedded systems, optimize for
 					   reduced RAM space instead of for
@@ -258,6 +251,9 @@ extern const struct mips_cpu_info *mips_tune_info;
 					/* Work around R4400 errata.  */
 #define TARGET_FIX_R4400	(target_flags & MASK_FIX_R4400)
 #define TARGET_FIX_VR4120	(target_flags & MASK_FIX_VR4120)
+#define TARGET_VR4130_ALIGN	(target_flags & MASK_VR4130_ALIGN)
+
+#define TARGET_FP_EXCEPTIONS	(target_flags & MASK_FP_EXCEPTIONS)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
@@ -335,12 +331,50 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TUNE_MIPS3000               (mips_tune == PROCESSOR_R3000)
 #define TUNE_MIPS3900               (mips_tune == PROCESSOR_R3900)
 #define TUNE_MIPS4000               (mips_tune == PROCESSOR_R4000)
+#define TUNE_MIPS4120               (mips_tune == PROCESSOR_R4120)
+#define TUNE_MIPS4130               (mips_tune == PROCESSOR_R4130)
 #define TUNE_MIPS5000               (mips_tune == PROCESSOR_R5000)
 #define TUNE_MIPS5400               (mips_tune == PROCESSOR_R5400)
 #define TUNE_MIPS5500               (mips_tune == PROCESSOR_R5500)
 #define TUNE_MIPS6000               (mips_tune == PROCESSOR_R6000)
 #define TUNE_MIPS7000               (mips_tune == PROCESSOR_R7000)
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
+#define TUNE_SB1                    (mips_tune == PROCESSOR_SB1)
+
+/* True if the pre-reload scheduler should try to create chains of
+   multiply-add or multiply-subtract instructions.  For example,
+   suppose we have:
+
+	t1 = a * b
+	t2 = t1 + c * d
+	t3 = e * f
+	t4 = t3 - g * h
+
+   t1 will have a higher priority than t2 and t3 will have a higher
+   priority than t4.  However, before reload, there is no dependence
+   between t1 and t3, and they can often have similar priorities.
+   The scheduler will then tend to prefer:
+
+	t1 = a * b
+	t3 = e * f
+	t2 = t1 + c * d
+	t4 = t3 - g * h
+
+   which stops us from making full use of macc/madd-style instructions.
+   This sort of situation occurs frequently in Fourier transforms and
+   in unrolled loops.
+
+   To counter this, the TUNE_MACC_CHAINS code will reorder the ready
+   queue so that chained multiply-add and multiply-subtract instructions
+   appear ahead of any other instruction that is likely to clobber lo.
+   In the example above, if t2 and t3 become ready at the same time,
+   the code ensures that t2 is scheduled first.
+
+   Multiply-accumulate instructions are a bigger win for some targets
+   than others, so this macro is defined on an opt-in basis.  */
+#define TUNE_MACC_CHAINS	    (TUNE_MIPS5500		\
+				     || TUNE_MIPS4120		\
+				     || TUNE_MIPS4130)
 
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
@@ -564,10 +598,6 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Use indirect calls")},						\
   {"no-long-calls",	 -MASK_LONG_CALLS,				\
      N_("Don't use indirect calls")},					\
-  {"embedded-pic",	  MASK_EMBEDDED_PIC,				\
-     N_("Use embedded PIC")},						\
-  {"no-embedded-pic",	 -MASK_EMBEDDED_PIC,				\
-     N_("Don't use embedded PIC")},					\
   {"embedded-data",	  MASK_EMBEDDED_DATA,				\
      N_("Use ROM instead of RAM")},					\
   {"no-embedded-data",	 -MASK_EMBEDDED_DATA,				\
@@ -592,6 +622,10 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Don't generate fused multiply/add instructions")},		\
   {"fused-madd",         -MASK_NO_FUSED_MADD,                           \
      N_("Generate fused multiply/add instructions")},			\
+  {"vr4130-align",	  MASK_VR4130_ALIGN,				\
+     N_("Perform VR4130-specific alignment optimizations")},		\
+  {"no-vr4130-align",	 -MASK_VR4130_ALIGN,				\
+     N_("Don't perform VR4130-specific alignment optimizations")},	\
   {"fix4300",             MASK_4300_MUL_FIX,				\
      N_("Work around early 4300 hardware bug")},			\
   {"no-fix4300",         -MASK_4300_MUL_FIX,				\
@@ -632,17 +666,20 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Lift restrictions on GOT size") },				\
   {"no-xgot",		 -MASK_XGOT,					\
      N_("Do not lift restrictions on GOT size") },			\
+  {"fp-exceptions",	  MASK_FP_EXCEPTIONS,				\
+     N_("FP exceptions are enabled") },					\
+  {"no-fp-exceptions", 	  -MASK_FP_EXCEPTIONS,				\
+     N_("FP exceptions are not enabled") },				\
   {"debug",		  MASK_DEBUG,					\
      NULL},								\
   {"debugc",		  MASK_DEBUG_C,					\
      NULL},								\
   {"debugd",		  MASK_DEBUG_D,					\
      NULL},								\
-  {"debugg",		  MASK_DEBUG_G,					\
-     NULL},								\
   {"",			  (TARGET_DEFAULT				\
 			   | TARGET_CPU_DEFAULT				\
-			   | TARGET_ENDIAN_DEFAULT),			\
+			   | TARGET_ENDIAN_DEFAULT			\
+			   | TARGET_FP_EXCEPTIONS_DEFAULT),		\
      NULL},								\
 }
 
@@ -658,6 +695,10 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 #ifndef TARGET_ENDIAN_DEFAULT
 #define TARGET_ENDIAN_DEFAULT MASK_BIG_ENDIAN
+#endif
+
+#ifndef TARGET_FP_EXCEPTIONS_DEFAULT
+#define TARGET_FP_EXCEPTIONS_DEFAULT MASK_FP_EXCEPTIONS
 #endif
 
 /* 'from-abi' makes a good default: you get whatever the ABI requires.  */
@@ -813,8 +854,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* ISA has branch likely instructions (eg. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
-#define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1                             \
-				 && !TARGET_MIPS5500)
+#define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1)
 
 /* ISA has the conditional move instructions introduced in mips4.  */
 #define ISA_HAS_CONDMOVE        ((ISA_MIPS4				\
@@ -1118,7 +1158,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 %{mfix-vr4120} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
-%{membedded-pic} \
 %{mabi=32:-32}%{mabi=n32:-n32}%{mabi=64:-64}%{mabi=n64:-64} \
 %{mabi=eabi} %{mabi=o64} %{!mabi*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
@@ -1213,6 +1252,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 #ifndef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #endif
+
+#define DWARF2_ADDR_SIZE (ABI_HAS_64BIT_SYMBOLS ? 8 : 4)
 
 /* By default, turn on GDB extensions.  */
 #define DEFAULT_GDB_EXTENSIONS 1
@@ -1702,11 +1743,6 @@ extern char mips_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
    function address than to call an address kept in a register.  */
 #define NO_FUNCTION_CSE 1
 
-/* Define this macro if it is as good or better for a function to
-   call itself with an explicit address than to call an address
-   kept in a register.  */
-#define NO_RECURSIVE_FUNCTION_CSE 1
-
 /* The ABI-defined global pointer.  Sometimes we use a different
    register in leaf functions: see PIC_OFFSET_TABLE_REGNUM.  */
 #define GLOBAL_POINTER_REGNUM (GP_REG_FIRST + 28)
@@ -2039,7 +2075,7 @@ extern enum reg_class mips_char_to_class[256];
    `T' is for constant move_operands that cannot be safely loaded into $25.
    `U' is for constant move_operands that can be safely loaded into $25.
    `W' is for memory references that are based on a member of BASE_REG_CLASS.
-	 This is true for all non-mips16 references (although it can somtimes
+	 This is true for all non-mips16 references (although it can sometimes
 	 be indirect if !TARGET_EXPLICIT_RELOCS).  For mips16, it excludes
 	 stack and constant-pool references.  */
 
@@ -2574,14 +2610,6 @@ typedef struct mips_args {
 		 XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
   else									\
     asm_fprintf ((FILE), "%U%s", (NAME))
-
-/* The mips16 wants the constant pool to be after the function,
-   because the PC relative load instructions use unsigned offsets.  */
-
-#define CONSTANT_POOL_BEFORE_FUNCTION (! TARGET_MIPS16)
-
-#define ASM_OUTPUT_POOL_EPILOGUE(FILE, FNNAME, FNDECL, SIZE)	\
-  mips_string_length = 0;
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
@@ -2682,7 +2710,7 @@ typedef struct mips_args {
 /* ??? Fix this to be right for the R8000.  */
 #define BRANCH_COST							\
   ((! TARGET_MIPS16							\
-    && (TUNE_MIPS4000 || TUNE_MIPS6000))	\
+    && (TUNE_MIPS4000 || TUNE_MIPS6000))				\
    ? 2 : 1)
 
 /* If defined, modifies the length assigned to instruction INSN as a
@@ -2742,6 +2770,7 @@ typedef struct mips_args {
 				  CONST_DOUBLE, CONST }},		\
   {"fcc_register_operand",	{ REG, SUBREG }},			\
   {"hilo_operand",		{ REG }},				\
+  {"macc_msac_operand",		{ PLUS, MINUS }},			\
   {"extend_operator",		{ ZERO_EXTEND, SIGN_EXTEND }},
 
 /* A list of predicates that do special things with modes, and so
@@ -3206,18 +3235,14 @@ while (0)
 	   LOCAL_LABEL_PREFIX,						\
 	   VALUE)
 
-/* This is how to output an element of a case-vector that is relative.
-   This is used for pc-relative code (e.g. when TARGET_ABICALLS or
-   TARGET_EMBEDDED_PIC).  */
+/* This is how to output an element of a case-vector.  We can make the
+   entries PC-relative in MIPS16 code and GP-relative when .gp(d)word
+   is supported.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL)		\
 do {									\
   if (TARGET_MIPS16)							\
     fprintf (STREAM, "\t.half\t%sL%d-%sL%d\n",				\
-	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
-  else if (TARGET_EMBEDDED_PIC)						\
-    fprintf (STREAM, "\t%s\t%sL%d-%sLS%d\n",				\
-	     ptr_mode == DImode ? ".dword" : ".word",			\
 	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
   else if (TARGET_GPWORD)						\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
@@ -3229,16 +3254,15 @@ do {									\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
 } while (0)
 
-/* When generating embedded PIC or mips16 code we want to put the jump
-   table in the .text section.  In all other cases, we want to put the
-   jump table in the .rdata section.  Unfortunately, we can't use
-   JUMP_TABLES_IN_TEXT_SECTION, because it is not conditional.
-   Instead, we use ASM_OUTPUT_CASE_LABEL to switch back to the .text
-   section if appropriate.  */
+/* When generating mips16 code we want to put the jump table in the .text
+   section.  In all other cases, we want to put the jump table in the .rdata
+   section.  Unfortunately, we can't use JUMP_TABLES_IN_TEXT_SECTION, because
+   it is not conditional.  Instead, we use ASM_OUTPUT_CASE_LABEL to switch back
+   to the .text section if appropriate.  */
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, INSN)			\
 do {									\
-  if (TARGET_EMBEDDED_PIC || TARGET_MIPS16)				\
+  if (TARGET_MIPS16)							\
     function_section (current_function_decl);				\
   (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
 } while (0)

@@ -38,7 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
@@ -349,26 +349,7 @@ eliminate_build (elim_graph g, basic_block B, int i)
       
       /* Ignore results which are not in partitions.  */
       if (T0 == NULL_TREE)
-        {
-#ifdef ENABLE_CHECKING
-	  /* There should be no arguments of this PHI which are in
-	     the partition list, or we get incorrect results.  */
-	  for (pi = 0; pi < PHI_NUM_ARGS (phi); pi++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, pi);
-	      if (TREE_CODE (arg) == SSA_NAME
-		  && var_to_partition (g->map, arg) != NO_PARTITION)
-		{
-		  fprintf (stderr, "Argument of PHI is in a partition :(");
-		  print_generic_expr (stderr, arg, TDF_SLIM);
-		  fprintf (stderr, "), but the result is not :");
-		  print_generic_stmt (stderr, phi, TDF_SLIM);
-		  abort();
-		}
-	    }
-#endif
-	  continue;
-	}
+	continue;
 
       if (PHI_ARG_EDGE (phi, i) == g->e)
 	Ti = PHI_ARG_DEF (phi, i);
@@ -1796,6 +1777,41 @@ rewrite_trees (var_map map, tree *values)
   edge e;
   tree phi;
   bool changed;
+ 
+#ifdef ENABLE_CHECKING
+  /* Search for PHIs where the destination has no partition, but one
+     or more arguments has a partition.  This should not happen and can
+     create incorrect code.  */
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  tree T0 = var_to_partition_to_var (map, PHI_RESULT (phi));
+      
+	  if (T0 == NULL_TREE)
+	    {
+	      int i;
+
+	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+		{
+		  tree arg = PHI_ARG_DEF (phi, i);
+
+		  if (TREE_CODE (arg) == SSA_NAME
+		      && var_to_partition (map, arg) != NO_PARTITION)
+		    {
+		      fprintf (stderr, "Argument of PHI is in a partition :(");
+		      print_generic_expr (stderr, arg, TDF_SLIM);
+		      fprintf (stderr, "), but the result is not :");
+		      print_generic_stmt (stderr, phi, TDF_SLIM);
+		      abort();
+		    }
+		}
+	    }
+	}
+    }
+#endif
 
   /* Replace PHI nodes with any required copies.  */
   g = new_elim_graph (map->num_partitions);
@@ -2081,6 +2097,9 @@ rewrite_vars_out_of_ssa (bitmap vars)
 	{
 	  var_ann (referenced_var (i))->out_of_ssa_tag = 0;
 	});
+
+     /* Free the map as we are done with it.  */
+     delete_var_map (map);
 
     }
 }

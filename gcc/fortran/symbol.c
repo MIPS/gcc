@@ -2,22 +2,22 @@
    Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -722,9 +722,13 @@ gfc_add_dummy (symbol_attribute * attr, locus * where)
 try
 gfc_add_common (symbol_attribute * attr, locus * where)
 {
-
+  /* TODO: We currently add common blocks into the same namespace as normal
+     variables.  This is wrong.  Disable the checks below as a temporary
+     hack.  See PR13249  */
+#if 0
   if (check_used (attr, where) || check_done (attr, where))
     return FAILURE;
+#endif
 
   attr->common = 1;
   return check_conflict (attr, where);

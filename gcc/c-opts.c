@@ -101,7 +101,7 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-/* Permit Fotran front-end options.  */
+/* Permit Fortran front-end options.  */
 static bool permit_fortran_options;
 
 static void set_Wimplicit (int);
@@ -162,6 +162,7 @@ c_common_missing_argument (const char *opt, size_t code)
     case OPT_idirafter:
     case OPT_isysroot:
     case OPT_isystem:
+    case OPT_iquote:
       error ("missing path after \"%s\"", opt);
       break;
 
@@ -296,13 +297,14 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_I:
       if (strcmp (arg, "-"))
-	add_path (xstrdup (arg), BRACKET, 0);
+	add_path (xstrdup (arg), BRACKET, 0, true);
       else
 	{
 	  if (quote_chain_split)
 	    error ("-I- specified twice");
 	  quote_chain_split = true;
 	  split_quote_chain ();
+	  inform ("obsolete option -I- used, please use -iquote instead");
 	}
       break;
 
@@ -537,6 +539,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wmissing_format_attribute:
       warn_missing_format_attribute = value;
+      break;
+
+    case OPT_Wmissing_include_dirs:
+      cpp_opts->warn_missing_include_dirs = value;
       break;
 
     case OPT_Wmissing_prototypes:
@@ -937,7 +943,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_idirafter:
-      add_path (xstrdup (arg), AFTER, 0);
+      add_path (xstrdup (arg), AFTER, 0, true);
       break;
 
     case OPT_imacros:
@@ -949,12 +955,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       iprefix = arg;
       break;
 
+    case OPT_iquote:
+      add_path (xstrdup (arg), QUOTE, 0, true);
+      break;
+
     case OPT_isysroot:
       sysroot = arg;
       break;
 
     case OPT_isystem:
-      add_path (xstrdup (arg), SYSTEM, 0);
+      add_path (xstrdup (arg), SYSTEM, 0, true);
       break;
 
     case OPT_iwithprefix:
@@ -1384,7 +1394,7 @@ add_prefixed_path (const char *suffix, size_t chain)
   memcpy (path + prefix_len, suffix, suffix_len);
   path[prefix_len + suffix_len] = '\0';
 
-  add_path (path, chain, 0);
+  add_path (path, chain, 0, false);
 }
 
 /* Handle -D, -U, -A, -imacros, and the first -include.  */

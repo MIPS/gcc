@@ -57,6 +57,10 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 #define SIZE_TYPE "long unsigned int"
 #endif
 
+#ifndef PID_TYPE
+#define PID_TYPE "int"
+#endif
+
 #ifndef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 #endif
@@ -1285,6 +1289,16 @@ constant_fits_type_p (tree c, tree type)
   return !TREE_OVERFLOW (c);
 }
 
+/* Nonzero if vector types T1 and T2 can be converted to each other
+   without an explicit cast.  */
+int
+vector_types_convertible_p (tree t1, tree t2)
+{
+  return targetm.vector_opaque_p (t1)
+	 || targetm.vector_opaque_p (t2)
+	 || TYPE_MODE (t1) == TYPE_MODE (t2);
+}
+
 /* Convert EXPR to TYPE, warning about conversion problems with constants.
    Invoke this function on every expression that is converted implicitly,
    i.e. because of language rules and not because of an explicit cast.  */
@@ -1678,7 +1692,6 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
     case 'r':
     case '<':
     case '2':
-    case 'b':
     case 'e':
     case 's':
     case 'x':
@@ -2569,8 +2582,10 @@ c_common_truthvalue_conversion (tree expr)
 
   switch (TREE_CODE (expr))
     {
-    case EQ_EXPR:
-    case NE_EXPR: case LE_EXPR: case GE_EXPR: case LT_EXPR: case GT_EXPR:
+    case EQ_EXPR:   case NE_EXPR:   case UNEQ_EXPR:
+    case LE_EXPR:   case GE_EXPR:   case LT_EXPR:   case GT_EXPR:
+    case UNLE_EXPR: case UNGE_EXPR: case UNLT_EXPR: case UNGT_EXPR:
+    case ORDERED_EXPR: case UNORDERED_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
     case TRUTH_AND_EXPR:
@@ -3218,6 +3233,9 @@ c_common_nodes_and_builtins (void)
   signed_size_type_node = c_common_signed_type (size_type_node);
   set_sizetype (size_type_node);
 
+  pid_type_node =
+    TREE_TYPE (identifier_global_value (get_identifier (PID_TYPE)));
+
   build_common_tree_nodes_2 (flag_short_double);
 
   record_builtin_type (RID_FLOAT, NULL, float_type_node);
@@ -3236,59 +3254,6 @@ c_common_nodes_and_builtins (void)
   lang_hooks.decls.pushdecl
     (build_decl (TYPE_DECL, get_identifier ("complex long double"),
 		 complex_long_double_type_node));
-
-  /* Types which are common to the fortran compiler and libf2c.  When
-     changing these, you also need to be concerned with f/com.h.  */
-
-  if (TYPE_PRECISION (float_type_node)
-      == TYPE_PRECISION (long_integer_type_node))
-    {
-      g77_integer_type_node = long_integer_type_node;
-      g77_uinteger_type_node = long_unsigned_type_node;
-    }
-  else if (TYPE_PRECISION (float_type_node)
-	   == TYPE_PRECISION (integer_type_node))
-    {
-      g77_integer_type_node = integer_type_node;
-      g77_uinteger_type_node = unsigned_type_node;
-    }
-  else
-    g77_integer_type_node = g77_uinteger_type_node = NULL_TREE;
-
-  if (g77_integer_type_node != NULL_TREE)
-    {
-      lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					     get_identifier ("__g77_integer"),
-					     g77_integer_type_node));
-      lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					     get_identifier ("__g77_uinteger"),
-					     g77_uinteger_type_node));
-    }
-
-  if (TYPE_PRECISION (float_type_node) * 2
-      == TYPE_PRECISION (long_integer_type_node))
-    {
-      g77_longint_type_node = long_integer_type_node;
-      g77_ulongint_type_node = long_unsigned_type_node;
-    }
-  else if (TYPE_PRECISION (float_type_node) * 2
-	   == TYPE_PRECISION (long_long_integer_type_node))
-    {
-      g77_longint_type_node = long_long_integer_type_node;
-      g77_ulongint_type_node = long_long_unsigned_type_node;
-    }
-  else
-    g77_longint_type_node = g77_ulongint_type_node = NULL_TREE;
-
-  if (g77_longint_type_node != NULL_TREE)
-    {
-      lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					     get_identifier ("__g77_longint"),
-					     g77_longint_type_node));
-      lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					     get_identifier ("__g77_ulongint"),
-					     g77_ulongint_type_node));
-    }
 
   record_builtin_type (RID_VOID, NULL, void_type_node);
 

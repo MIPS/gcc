@@ -3,22 +3,22 @@
    Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* The syntax of g95 modules resembles that of lisp lists, ie a
    sequence of atoms, which can be left or right parenthesis, names,
@@ -3338,7 +3338,6 @@ void
 gfc_dump_module (const char *name, int dump_flag)
 {
   char filename[PATH_MAX], *p;
-  gfc_file *g;
   time_t now;
 
   filename[0] = '\0';
@@ -3359,17 +3358,13 @@ gfc_dump_module (const char *name, int dump_flag)
     gfc_fatal_error ("Can't open module file '%s' for writing: %s",
 		     filename, strerror (errno));
 
-  /* Find the top level filename.  */
-  g = gfc_current_file;
-  while (g->next)
-    g = g->next;
-
   now = time (NULL);
   p = ctime (&now);
 
   *strchr (p, '\n') = '\0';
 
-  fprintf (module_fp, "GFORTRAN module created from %s on %s\n", g->filename, p);
+  fprintf (module_fp, "GFORTRAN module created from %s on %s\n", 
+	   gfc_source_file, p);
   fputs ("If you edit this, you'll get what you deserve.\n\n", module_fp);
 
   iomode = IO_OUTPUT;

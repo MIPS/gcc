@@ -374,6 +374,7 @@ package body Exp_Ch4 is
 
          --  We analyze by hand the new internal allocator to avoid
          --  any recursion and inappropriate call to Initialize
+
          if not Aggr_In_Place then
             Remove_Side_Effects (Exp);
          end if;
@@ -2698,10 +2699,11 @@ package body Exp_Ch4 is
    -----------------
 
    procedure Expand_N_In (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      Rtyp : constant Entity_Id  := Etype (N);
-      Lop  : constant Node_Id    := Left_Opnd (N);
-      Rop  : constant Node_Id    := Right_Opnd (N);
+      Loc    : constant Source_Ptr := Sloc (N);
+      Rtyp   : constant Entity_Id  := Etype (N);
+      Lop    : constant Node_Id    := Left_Opnd (N);
+      Rop    : constant Node_Id    := Right_Opnd (N);
+      Static : constant Boolean    := Is_OK_Static_Expression (N);
 
    begin
       --  If we have an explicit range, do a bit of optimization based
@@ -2717,11 +2719,14 @@ package body Exp_Ch4 is
          begin
             --  If either check is known to fail, replace result
             --  by False, since the other check does not matter.
+            --  Preserve the static flag for legality checks, because
+            --  we are constant-folding beyond RM 4.9.
 
             if Lcheck = LT or else Ucheck = GT then
                Rewrite (N,
                  New_Reference_To (Standard_False, Loc));
                Analyze_And_Resolve (N, Rtyp);
+               Set_Is_Static_Expression (N, Static);
                return;
 
             --  If both checks are known to succeed, replace result
@@ -2731,6 +2736,7 @@ package body Exp_Ch4 is
                Rewrite (N,
                  New_Reference_To (Standard_True, Loc));
                Analyze_And_Resolve (N, Rtyp);
+               Set_Is_Static_Expression (N, Static);
                return;
 
             --  If lower bound check succeeds and upper bound check is
@@ -6523,7 +6529,7 @@ package body Exp_Ch4 is
       Loc  : constant Source_Ptr := Sloc (N);
       Typ  : constant Entity_Id  := Etype (N);
       Pool : constant Entity_Id  := Associated_Storage_Pool (Typ);
-      Pnod : constant Node_Id    := Parent (N);
+      Pnod : Node_Id             := Parent (N);
 
       function Is_Checked_Storage_Pool (P : Entity_Id) return Boolean;
       --  Return true if type of P is derived from Checked_Pool;
@@ -6571,6 +6577,25 @@ package body Exp_Ch4 is
       elsif not Is_Checked_Storage_Pool (Pool) then
          return;
       end if;
+
+      --  Do not generate a dereference check for the object passed
+      --  to an init proc: such a check is not desired (we know for
+      --  sure that a valid dereference is passed to init procs,
+      --  and the calls to 'Size and 'Alignment containent in the
+      --  dereference check would be erroneous anyway if the init proc
+      --  has not been executed yet.)
+
+      while Present (Pnod) loop
+         if Nkind (Pnod) = N_Procedure_Call_Statement
+           and then Is_Entity_Name (Name (Pnod))
+           and then Is_Init_Proc (Name (Pnod))
+         then
+            return;
+         end if;
+
+         Pnod := Parent (Pnod);
+         exit when Nkind (Pnod) not in N_Subexpr;
+      end loop;
 
       Insert_Action (N,
         Make_Procedure_Call_Statement (Loc,

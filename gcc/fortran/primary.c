@@ -21,6 +21,9 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
+#include "system.h"
+#include "flags.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include "gfortran.h"
@@ -125,9 +128,10 @@ check_digit (int c, int radix)
 }
 
 
-/* Match the digit string part of an integer.  If the buffer is NULL,
-   we just count characters for the resolution pass.  Returns the
-   number of characters matched, -1 for no match.  */
+/* Match the digit string part of an integer if signflag is not set,
+   the signed digit string part if signflag is set.  If the buffer 
+   is NULL, we just count characters for the resolution pass.  Returns 
+   the number of characters matched, -1 for no match.  */
 
 static int
 match_digits (int signflag, int radix, char *buffer)
@@ -172,7 +176,8 @@ match_digits (int signflag, int radix, char *buffer)
 }
 
 
-/* Match an integer (digit string and optional kind).  */
+/* Match an integer (digit string and optional kind).  
+   A sign will be accepted if signflag is set.  */
 
 static match
 match_integer_constant (gfc_expr ** result, int signflag)
@@ -249,6 +254,14 @@ match_boz_constant (gfc_expr ** result)
       radix = 8;
       rname = "octal";
       break;
+    case 'x':
+      if (pedantic
+         && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
+                            "constant at %C uses non-standard syntax.")
+             == FAILURE))
+       goto backup;
+
+      /* Fall through.  */
     case 'z':
       radix = 16;
       rname = "hexadecimal";
@@ -476,8 +489,10 @@ done:
       goto cleanup;
 
     case ARITH_UNDERFLOW:
-      gfc_error ("Real constant underflows its kind at %C");
-      goto cleanup;
+      if (gfc_option.warn_underflow)
+        gfc_warning ("Real constant underflows its kind at %C");
+      mpf_set_ui(e->value.real, 0);
+      break;
 
     default:
       gfc_internal_error ("gfc_range_check() returned bad value");
@@ -1509,7 +1524,9 @@ extend_ref (gfc_expr * primary, gfc_ref * tail)
 
 
 /* Match any additional specifications associated with the current
-   variable like member references or substrings.  */
+   variable like member references or substrings.  If equiv_flag is
+   set we only match stuff that is allowed inside an EQUIVALENCE
+   statement.  */
 
 static match
 match_varspec (gfc_expr * primary, int equiv_flag)
@@ -1735,8 +1752,8 @@ gfc_expr_attr (gfc_expr * e)
 /* Match a structure constructor.  The initial symbol has already been
    seen.  */
 
-static match
-match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
+match
+gfc_match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
 {
   gfc_constructor *head, *tail;
   gfc_component *comp;
@@ -1896,7 +1913,7 @@ gfc_match_rvalue (gfc_expr ** result)
       if (sym == NULL)
 	m = MATCH_ERROR;
       else
-        m = match_structure_constructor (sym, &e);
+        m = gfc_match_structure_constructor (sym, &e);
       break;
 
     /* If we're here, then the name is known to be the name of a

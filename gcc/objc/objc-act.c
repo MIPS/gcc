@@ -1381,6 +1381,7 @@ build_objc_string_object (tree string)
 {
   tree initlist, constructor, constant_string_class;
   int length;
+  tree fields;
 
   string = fix_string_type (string);
 
@@ -1410,6 +1411,7 @@ build_objc_string_object (tree string)
 	}
       add_class_reference (constant_string_id);
     }
+  fields = TYPE_FIELDS (constant_string_type);
 
   /* & ((NXConstantString) { NULL, string, length })  */
 
@@ -1425,18 +1427,23 @@ build_objc_string_object (tree string)
 	  return error_mark_node;
 	}
       initlist = build_tree_list
-	(NULL_TREE,
+	(fields,
 	 copy_node (build_unary_op (ADDR_EXPR, string_class_decl, 0)));
     }
   else
     {
-      initlist = build_tree_list (NULL_TREE, build_int_2 (0, 0));
+      initlist = build_tree_list (fields, build_int_2 (0, 0));
     }
 
+  fields = TREE_CHAIN (fields);
+  
   initlist
-    = tree_cons (NULL_TREE, copy_node (build_unary_op (ADDR_EXPR, string, 1)),
+    = tree_cons (fields, copy_node (build_unary_op (ADDR_EXPR, string, 1)),
 		 initlist);
-  initlist = tree_cons (NULL_TREE, build_int_2 (length, 0), initlist);
+                 
+  fields = TREE_CHAIN (fields);
+  
+  initlist = tree_cons (fields, build_int_2 (length, 0), initlist);
   constructor = objc_build_constructor (constant_string_type,
 					nreverse (initlist));
 
@@ -2818,8 +2825,7 @@ objc_build_try_enter_fragment (void)
   cond = build_unary_op (TRUTH_NOT_EXPR,
 			 build_function_call (objc_setjmp_decl, func_params),
 			 0);
-  c_expand_start_cond ((*lang_hooks.truthvalue_conversion) (cond),
-		       0, if_stmt);
+  c_expand_start_cond (lang_hooks.truthvalue_conversion (cond), 0, if_stmt);
   objc_enter_block ();
 }
 
@@ -2946,7 +2952,7 @@ objc_build_try_epilogue (int also_catch_prologue)
       val_stack_push (&catch_count_stack, 1);
       if_stmt = c_begin_if_stmt ();
       if_nesting_count++;
-      c_expand_start_cond ((*lang_hooks.truthvalue_conversion) (boolean_false_node),
+      c_expand_start_cond (lang_hooks.truthvalue_conversion (boolean_false_node),
 			   0, if_stmt);
       objc_enter_block ();
 
@@ -3036,8 +3042,7 @@ objc_build_catch_stmt (tree catch_expr)
       cond = build_function_call (objc_exception_match_decl, func_params);
     }
 
-  c_expand_start_cond ((*lang_hooks.truthvalue_conversion) (cond),
-		       0, if_stmt);
+  c_expand_start_cond (lang_hooks.truthvalue_conversion (cond), 0, if_stmt);
   objc_enter_block ();
   objc_declare_variable (RID_REGISTER, var_name,
 			 build_pointer_type (var_type),
@@ -3106,10 +3111,10 @@ objc_build_finally_prologue (void)
   tree if_stmt = c_begin_if_stmt ();
   if_nesting_count++;
 
-  c_expand_start_cond ((*lang_hooks.truthvalue_conversion)
-		       (build_unary_op
-		        (TRUTH_NOT_EXPR,
-			 TREE_VALUE (objc_rethrow_exception), 0)),
+  c_expand_start_cond (lang_hooks.truthvalue_conversion
+			(build_unary_op (TRUTH_NOT_EXPR,
+					 TREE_VALUE (objc_rethrow_exception),
+					 0)),
 		       0, if_stmt);
   objc_enter_block ();
   objc_build_try_exit_fragment ();
@@ -3134,7 +3139,7 @@ objc_build_finally_epilogue (void)
   if_nesting_count++;
 
   c_expand_start_cond
-    ((*lang_hooks.truthvalue_conversion) (TREE_VALUE (objc_rethrow_exception)),
+    (lang_hooks.truthvalue_conversion (TREE_VALUE (objc_rethrow_exception)),
      0, if_stmt);
   objc_enter_block ();
   objc_build_throw_stmt (TREE_VALUE (objc_rethrow_exception));

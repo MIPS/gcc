@@ -114,7 +114,7 @@ add_env_var_paths (const char *env_var, int chain)
 	  path[q - p] = '\0';
 	}
 
-      add_path (path, chain, chain == SYSTEM);
+      add_path (path, chain, chain == SYSTEM, false);
     }
 }
 
@@ -142,7 +142,7 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
 	      if (!strncmp (p->fname, cpp_GCC_INCLUDE_DIR, len))
 		{
 		  char *str = concat (iprefix, p->fname + len, NULL);
-		  add_path (str, SYSTEM, p->cxx_aware);
+		  add_path (str, SYSTEM, p->cxx_aware, false);
 		}
 	    }
 	}
@@ -160,7 +160,7 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
 	  else
 	    str = update_path (p->fname, p->component);
 
-	  add_path (str, SYSTEM, p->cxx_aware);
+	  add_path (str, SYSTEM, p->cxx_aware, false);
 	}
     }
 }
@@ -171,6 +171,7 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
    JOIN, unless it duplicates JOIN in which case the last path is
    removed.  Return the head of the resulting chain.  Any of HEAD,
    JOIN and SYSTEM can be NULL.  */
+
 static struct cpp_dir *
 remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 		   struct cpp_dir *system, struct cpp_dir *join,
@@ -191,7 +192,13 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	  if (errno != ENOENT)
 	    cpp_errno (pfile, CPP_DL_ERROR, cur->name);
 	  else
-	    reason = REASON_NOENT;
+	    {
+	      /* If -Wmissing-include-dirs is given, warn. */
+	      cpp_options *opts = cpp_get_options (pfile);
+	      if (opts->warn_missing_include_dirs && cur->user_supplied_p)
+		cpp_errno (pfile, CPP_DL_WARNING, cur->name);
+	      reason = REASON_NOENT;
+	    }
 	}
       else if (!S_ISDIR (st.st_mode))
 	cpp_error_with_line (pfile, CPP_DL_ERROR, 0, 0,
@@ -243,9 +250,10 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 
    We can't just merge the lists and then uniquify them because then
    we may lose directories from the <> search path that should be
-   there; consider -Ifoo -Ibar -I- -Ifoo -Iquux.  It is however safe
-   to treat -Ibar -Ifoo -I- -Ifoo -Iquux as if written -Ibar -I- -Ifoo
-   -Iquux.  */
+   there; consider -iquote foo -iquote bar -Ifoo -Iquux.  It is
+   however safe to treat -iquote bar -iquote foo -Ifoo -Iquux as if
+   written -iquote bar -Ifoo -Iquux.  */
+
 static void
 merge_include_chains (cpp_reader *pfile, int verbose)
 {
@@ -315,7 +323,7 @@ add_cpp_dir_path (cpp_dir *p, int chain)
 /* Add PATH to the include chain CHAIN. PATH must be malloc-ed and
    NUL-terminated.  */
 void
-add_path (char *path, int chain, int cxx_aware)
+add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
 {
   cpp_dir *p;
 
@@ -327,12 +335,9 @@ add_path (char *path, int chain, int cxx_aware)
   else
     p->sysp = 0;
   p->construct = 0;
+  p->user_supplied_p = user_supplied_p;
 
-  if (tails[chain])
-    tails[chain]->next = p;
-  else
-    heads[chain] = p;
-  tails[chain] = p;
+  add_cpp_dir_path (p, chain);
 }
 
 /* Exported function to handle include chain merging, duplicate

@@ -43,10 +43,14 @@ Boston, MA 02111-1307, USA.  */
 #include <stdint.h>
 #endif
 
+#if HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-typedef off_t offset_t;
+typedef off_t gfc_offset;
 
 #ifndef NULL
 #define NULL (void *) 0
@@ -391,6 +395,12 @@ void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 #define compare_string prefix(compare_string)
 GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
 			      GFC_INTEGER_4, const char *);
+
+/* random.c */
+
+#define random_seed prefix(random_seed)
+void random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
+             const gfc_array_i4 * get);
 
 #endif
 

@@ -682,6 +682,9 @@ java_init_decl_processing (void)
   otable_ptr_type = build_pointer_type (otable_type);
 
   PUSH_FIELD (object_type_node, field, "vtable", dtable_ptr_type);
+  DECL_FCONTEXT (field) = object_type_node;
+  TYPE_VFIELD (object_type_node) = field;
+
   /* This isn't exactly true, but it is what we have in the source.
      There is an unresolved issue here, which is whether the vtable
      should be marked by the GC.  */
@@ -734,6 +737,7 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "hack_signers", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "aux_info", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);

@@ -93,6 +93,7 @@ static void tree_make_forwarder_block (edge);
 static bool thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
 static void bsi_commit_edge_inserts_1 (edge e);
+static void tree_cfg2vcg (FILE *);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
@@ -163,14 +164,14 @@ build_tree_cfg (tree *tp)
 
   /* Debugging dumps.  */
 
-  /* Write the flowgraph to a dot file.  */
+  /* Write the flowgraph to a VCG file.  */
   {
     int local_dump_flags;
-    FILE *dump_file = dump_begin (TDI_dot, &local_dump_flags);
+    FILE *dump_file = dump_begin (TDI_vcg, &local_dump_flags);
     if (dump_file)
       {
-	tree_cfg2dot (dump_file);
-	dump_end (TDI_dot, dump_file);
+	tree_cfg2vcg (dump_file);
+	dump_end (TDI_vcg, dump_file);
       }
   }
 
@@ -1959,7 +1960,7 @@ find_case_label_for_value (tree switch_expr, tree val)
       else if (CASE_HIGH (t) == NULL)
 	{
 	  /* A `normal' case label.  */
-	  if (simple_cst_equal (CASE_LOW (t), val) == 1)
+	  if (tree_int_cst_equal (CASE_LOW (t), val))
 	    return t;
 	}
       else
@@ -2001,7 +2002,7 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
       val1 = PHI_ARG_DEF (phi, n1);
       val2 = PHI_ARG_DEF (phi, n2);
 
-      if (!operand_equal_p (val1, val2, false))
+      if (!operand_equal_p (val1, val2, 0))
 	return false;
     }
 
@@ -2142,7 +2143,7 @@ dump_tree_cfg (FILE *file, int flags)
   if (flags & TDF_DETAILS)
     {
       const char *funcname
-	= (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	= lang_hooks.decl_printable_name (current_function_decl, 2);
 
       fputc ('\n', file);
       fprintf (file, ";; Function %s\n\n", funcname);
@@ -2173,7 +2174,7 @@ dump_cfg_stats (FILE *file)
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
 
   fprintf (file, "\nCFG Statistics for %s\n\n", funcname);
@@ -2230,28 +2231,33 @@ debug_cfg_stats (void)
 }
 
 
-/* Dump the flowgraph to a .dot FILE.  */
+/* Dump the flowgraph to a .vcg FILE.  */
 
-void
-tree_cfg2dot (FILE *file)
+static void
+tree_cfg2vcg (FILE *file)
 {
   edge e;
   basic_block bb;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   /* Write the file header.  */
-  fprintf (file, "digraph %s\n{\n", funcname);
+  fprintf (file, "graph: { title: \"%s\"\n", funcname);
+  fprintf (file, "node: { title: \"ENTRY\" label: \"ENTRY\" }\n");
+  fprintf (file, "node: { title: \"EXIT\" label: \"EXIT\" }\n");
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      fprintf (file, "\tENTRY -> %d", e->dest->index);
+      fprintf (file, "edge: { sourcename: \"ENTRY\" targetname: \"%d\"",
+	       e->dest->index);
 
       if (e->flags & EDGE_FAKE)
-	fprintf (file, " [weight=0, style=dotted]");
+	fprintf (file, " linestyle: dotted priority: 10");
+      else
+	fprintf (file, " linestyle: solid priority: 100");
 
-      fprintf (file, ";\n");
+      fprintf (file, " }\n");
     }
   fputc ('\n', file);
 
@@ -2282,21 +2288,23 @@ tree_cfg2dot (FILE *file)
       else
 	end_name = "no-statement";
 
-      fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
+      fprintf (file, "node: { title: \"%d\" label: \"#%d\\n%s (%d)\\n%s (%d)\"}\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
 	       end_line);
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR)
-	    fprintf (file, "\t%d -> EXIT", bb->index);
+	    fprintf (file, "edge: { sourcename: \"%d\" targetname: \"EXIT\"", bb->index);
 	  else
-	    fprintf (file, "\t%d -> %d", bb->index, e->dest->index);
+	    fprintf (file, "edge: { sourcename: \"%d\" targetname: \"%d\"", bb->index, e->dest->index);
 
 	  if (e->flags & EDGE_FAKE)
-	    fprintf (file, " [weight=0, style=dotted]");
+	    fprintf (file, " priority: 10 linestyle: dotted");
+	  else
+	    fprintf (file, " priority: 100 linestyle: solid");
 
-	  fprintf (file, ";\n");
+	  fprintf (file, " }\n");
 	}
 
       if (bb->next_bb != EXIT_BLOCK_PTR)
@@ -2542,7 +2550,7 @@ delete_tree_cfg (void)
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
 
-  free_basic_block_vars (0);
+  free_basic_block_vars ();
   basic_block_info = NULL;
   label_to_block_map = NULL;
   free_rbi_pool ();
@@ -4089,7 +4097,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   basic_block bb;
   tree chain;
 
-  fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
+  fprintf (file, "%s (", lang_hooks.decl_printable_name (fn, 2));
 
   arg = DECL_ARGUMENTS (fn);
   while (arg)

@@ -129,7 +129,7 @@ doloop_condition_get (rtx pattern)
     return condition;
 
   /* ??? If a machine uses a funny comparison, we could return a
-     canonicalised form here.  */
+     canonicalized form here.  */
 
   return 0;
 }
@@ -144,6 +144,7 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
   basic_block *body = get_loop_body (loop), bb;
   rtx insn;
   unsigned i;
+  bool result = true;
 
   /* Check for loops that may not terminate under special conditions.  */
   if (!desc->simple_p
@@ -178,9 +179,9 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	 default, and have an option, e.g. -funsafe-loops that would
 	 enable count-register loops in this case.  */
       if (dump_file)
-	fprintf (dump_file,
-		 "Doloop: Possible infinite iteration case.\n");
-      return false;
+	fprintf (dump_file, "Doloop: Possible infinite iteration case.\n");
+      result = false;
+      goto cleanup;
     }
 
   for (i = 0; i < loop->num_nodes; i++)
@@ -196,9 +197,9 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	  if (GET_CODE (insn) == CALL_INSN)
 	    {
 	      if (dump_file)
-		fprintf (dump_file,
-			 "Doloop: Function call in loop.\n");
-	      return false;
+		fprintf (dump_file, "Doloop: Function call in loop.\n");
+	      result = false;
+	      goto cleanup;
 	    }
 
 	  /* Some targets (eg, PPC) use the count register for branch on table
@@ -208,15 +209,18 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
 	    {
 	      if (dump_file)
-		fprintf (dump_file,
-			 "Doloop: Computed branch in the loop.\n");
-	      return false;
+		fprintf (dump_file, "Doloop: Computed branch in the loop.\n");
+	      result = false;
+	      goto cleanup;
 	    }
 	}
     }
+  result = true;
+
+cleanup:
   free (body);
 
-  return true;
+  return result;
 }
 
 /* Adds test of COND jumping to DEST to the end of BB.  */

@@ -999,21 +999,21 @@
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (not:V16QI (match_operand:V16QI 1 "register_operand" "v")))]
   "TARGET_ALTIVEC"
-  "vnot %0,%1"
+  "vnor %0,%1,%1"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "one_cmplv8hi2"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
         (not:V8HI (match_operand:V8HI 1 "register_operand" "v")))]
   "TARGET_ALTIVEC"
-  "vnot %0,%1"
+  "vnor %0,%1,%1"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "one_cmplv4si2"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (not:V4SI (match_operand:V4SI 1 "register_operand" "v")))]
   "TARGET_ALTIVEC"
-  "vnot %0,%1"
+  "vnor %0,%1,%1"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "iorv16qi3"
@@ -1823,13 +1823,13 @@
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_dssall"
-  [(unspec [(const_int 0)] 188)]
+  [(unspec_volatile [(const_int 0)] 188)]
   "TARGET_ALTIVEC"
   "dssall"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_dss"
-  [(unspec [(match_operand:QI 0 "immediate_operand" "i")] 189)]
+  [(unspec_volatile [(match_operand:QI 0 "immediate_operand" "i")] 189)]
   "TARGET_ALTIVEC"
   "dss %0"
   [(set_attr "type" "vecsimple")])

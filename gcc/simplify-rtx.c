@@ -58,6 +58,8 @@ static rtx simplify_immed_subreg (enum machine_mode, rtx, enum machine_mode,
 				  unsigned int);
 static rtx simplify_associative_operation (enum rtx_code, enum machine_mode,
 					   rtx, rtx);
+static rtx simplify_relational_operation_1 (enum rtx_code, enum machine_mode,
+					    enum machine_mode, rtx, rtx);
 
 /* Negate a CONST_INT rtx, truncating (because a conversion from a
    maximally negative number can overflow).  */
@@ -221,10 +223,9 @@ simplify_gen_ternary (enum rtx_code code, enum machine_mode mode,
 
   return gen_rtx_fmt_eee (code, mode, op0, op1, op2);
 }
-
+
 /* Likewise, for relational operations.
-   CMP_MODE specifies mode comparison is done in.
-  */
+   CMP_MODE specifies mode comparison is done in.  */
 
 rtx
 simplify_gen_relational (enum rtx_code code, enum machine_mode mode,
@@ -232,46 +233,9 @@ simplify_gen_relational (enum rtx_code code, enum machine_mode mode,
 {
   rtx tem;
 
-  if (cmp_mode == VOIDmode)
-    cmp_mode = GET_MODE (op0);
-  if (cmp_mode == VOIDmode)
-    cmp_mode = GET_MODE (op1);
-
-  if (cmp_mode != VOIDmode)
-    {
-      tem = simplify_relational_operation (code, mode, cmp_mode, op0, op1);
-      if (tem)
-	return tem;
-    }
-
-  /* For the following tests, ensure const0_rtx is op1.  */
-  if (swap_commutative_operands_p (op0, op1)
-      || (op0 == const0_rtx && op1 != const0_rtx))
-    tem = op0, op0 = op1, op1 = tem, code = swap_condition (code);
-
-  /* If op0 is a compare, extract the comparison arguments from it.  */
-  if (GET_CODE (op0) == COMPARE && op1 == const0_rtx)
-    return simplify_gen_relational (code, mode, VOIDmode,
-				    XEXP (op0, 0), XEXP (op0, 1));
-
-  /* If op0 is a comparison, extract the comparison arguments form it.  */
-  if (COMPARISON_P (op0) && op1 == const0_rtx)
-    {
-      if (code == NE)
-	{
-	  if (GET_MODE (op0) == mode)
-	    return op0;
-	  return simplify_gen_relational (GET_CODE (op0), mode, VOIDmode,
-					  XEXP (op0, 0), XEXP (op0, 1));
-	}
-      else if (code == EQ)
-	{
-	  enum rtx_code new = reversed_comparison_code (op0, NULL_RTX);
-	  if (new != UNKNOWN)
-	    return simplify_gen_relational (new, mode, VOIDmode,
-					    XEXP (op0, 0), XEXP (op0, 1));
-        }
-    }
+  if (0 != (tem = simplify_relational_operation (code, mode, cmp_mode,
+						 op0, op1)))
+    return tem;
 
   return gen_rtx_fmt_ee (code, mode, op0, op1);
 }
@@ -1201,7 +1165,6 @@ simplify_associative_operation (enum rtx_code code, enum machine_mode mode,
 
    Don't use this for relational operations such as EQ or LT.
    Use simplify_relational_operation instead.  */
-
 rtx
 simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 			   rtx op0, rtx op1)
@@ -2662,10 +2625,102 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 }
 
 /* Like simplify_binary_operation except used for relational operators.
-   MODE is the mode of the operands, not that of the result.  If MODE
-   is VOIDmode, both operands must also be VOIDmode and we compare the
-   operands in "infinite precision".
+   MODE is the mode of the result. If MODE is VOIDmode, both operands must
+   also be VOIDmode.
 
+   CMP_MODE specifies in which mode the comparison is done in, so it is
+   the mode of the operands.  If CMP_MODE is VOIDmode, it is taken from
+   the operands or, if both are VOIDmode, the operands are compared in
+   "infinite precision".  */
+rtx
+simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
+			       enum machine_mode cmp_mode, rtx op0, rtx op1)
+{
+  rtx tem, trueop0, trueop1;
+
+  if (cmp_mode == VOIDmode)
+    cmp_mode = GET_MODE (op0);
+  if (cmp_mode == VOIDmode)
+    cmp_mode = GET_MODE (op1);
+
+  tem = simplify_const_relational_operation (code, cmp_mode, op0, op1);
+  if (tem)
+    {
+#ifdef FLOAT_STORE_FLAG_VALUE
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+          if (tem == const0_rtx)
+            return CONST0_RTX (mode);
+          else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	    {
+	      REAL_VALUE_TYPE val;
+	      val = FLOAT_STORE_FLAG_VALUE (mode);
+	      return CONST_DOUBLE_FROM_REAL_VALUE (val, mode);
+	    }
+	}
+#endif
+
+      return tem;
+    }
+
+  /* For the following tests, ensure const0_rtx is op1.  */
+  if (swap_commutative_operands_p (op0, op1)
+      || (op0 == const0_rtx && op1 != const0_rtx))
+    tem = op0, op0 = op1, op1 = tem, code = swap_condition (code);
+
+  /* If op0 is a compare, extract the comparison arguments from it.  */
+  if (GET_CODE (op0) == COMPARE && op1 == const0_rtx)
+    return simplify_relational_operation (code, mode, VOIDmode,
+				          XEXP (op0, 0), XEXP (op0, 1));
+
+  if (mode == VOIDmode
+      || GET_MODE_CLASS (cmp_mode) == MODE_CC
+      || CC0_P (op0))
+    return NULL_RTX;
+
+  trueop0 = avoid_constant_pool_reference (op0);
+  trueop1 = avoid_constant_pool_reference (op1);
+  return simplify_relational_operation_1 (code, mode, cmp_mode,
+		  			  trueop0, trueop1);
+}
+
+/* This part of simplify_relational_operation is only used when CMP_MODE
+   is not in class MODE_CC (i.e. it is a real comparison).
+
+   MODE is the mode of the result, while CMP_MODE specifies in which
+   mode the comparison is done in, so it is the mode of the operands.  */
+rtx
+simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
+				 enum machine_mode cmp_mode, rtx op0, rtx op1)
+{
+  if (GET_CODE (op1) == CONST_INT)
+    {
+      if (INTVAL (op1) == 0 && COMPARISON_P (op0))
+	{
+	  /* If op0 is a comparison, extract the comparison arguments form it.  */
+	  if (code == NE)
+	    {
+	      if (GET_MODE (op0) == cmp_mode)
+		return simplify_rtx (op0);
+	      else
+		return simplify_gen_relational (GET_CODE (op0), mode, VOIDmode,
+					        XEXP (op0, 0), XEXP (op0, 1));
+	    }
+	  else if (code == EQ)
+	    {
+	      enum rtx_code new = reversed_comparison_code (op0, NULL_RTX);
+	      if (new != UNKNOWN)
+	        return simplify_gen_relational (new, mode, VOIDmode,
+					        XEXP (op0, 0), XEXP (op0, 1));
+	    }
+	}
+    }
+
+  return NULL_RTX;
+}
+
+/* Check if the given comparison (done in the given MODE) is actually a
+   tautology or a contradiction.
    If no simplification is possible, this function returns zero.
    Otherwise, it returns either const_true_rtx or const0_rtx.  */
 
@@ -2837,6 +2892,63 @@ simplify_const_relational_operation (enum rtx_code code,
   /* Otherwise, there are some code-specific tests we can make.  */
   else
     {
+      /* Optimize comparisons with upper and lower bounds.  */
+      if (INTEGRAL_MODE_P (mode)
+	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	{
+	  rtx mmin, mmax;
+	  int sign;
+
+	  if (code == GEU
+	      || code == LEU
+	      || code == GTU
+	      || code == LTU)
+	    sign = 0;
+	  else
+	    sign = 1;
+
+	  get_mode_bounds (mode, sign, mode, &mmin, &mmax);
+
+	  tem = NULL_RTX;
+	  switch (code)
+	    {
+	    case GEU:
+	    case GE:
+	      /* x >= min is always true.  */
+	      if (rtx_equal_p (trueop1, mmin))
+		tem = const_true_rtx;
+	      else 
+	      break;
+
+	    case LEU:
+	    case LE:
+	      /* x <= max is always true.  */
+	      if (rtx_equal_p (trueop1, mmax))
+		tem = const_true_rtx;
+	      break;
+
+	    case GTU:
+	    case GT:
+	      /* x > max is always false.  */
+	      if (rtx_equal_p (trueop1, mmax))
+		tem = const0_rtx;
+	      break;
+
+	    case LTU:
+	    case LT:
+	      /* x < min is always false.  */
+	      if (rtx_equal_p (trueop1, mmin))
+		tem = const0_rtx;
+	      break;
+
+	    default:
+	      break;
+	    }
+	  if (tem == const0_rtx
+	      || tem == const_true_rtx)
+	    return tem;
+	}
+
       switch (code)
 	{
 	case EQ:
@@ -2847,33 +2959,6 @@ simplify_const_relational_operation (enum rtx_code code,
 	case NE:
 	  if (trueop1 == const0_rtx && nonzero_address_p (op0))
 	    return const_true_rtx;
-	  break;
-
-	case GEU:
-	  /* Unsigned values are never negative.  */
-	  if (trueop1 == const0_rtx)
-	    return const_true_rtx;
-	  break;
-
-	case LTU:
-	  if (trueop1 == const0_rtx)
-	    return const0_rtx;
-	  break;
-
-	case LEU:
-	  /* Unsigned values are never greater than the largest
-	     unsigned value.  */
-	  if (GET_CODE (trueop1) == CONST_INT
-	      && (unsigned HOST_WIDE_INT) INTVAL (trueop1) == GET_MODE_MASK (mode)
-	    && INTEGRAL_MODE_P (mode))
-	  return const_true_rtx;
-	  break;
-
-	case GTU:
-	  if (GET_CODE (trueop1) == CONST_INT
-	      && (unsigned HOST_WIDE_INT) INTVAL (trueop1) == GET_MODE_MASK (mode)
-	      && INTEGRAL_MODE_P (mode))
-	    return const0_rtx;
 	  break;
 
 	case LT:
@@ -2953,36 +3038,6 @@ simplify_const_relational_operation (enum rtx_code code,
     default:
       abort ();
     }
-}
-
-/* Like simplify_binary_operation except used for relational operators.
-   MODE is the mode of the result, and CMP_MODE is the mode of the operands.
-   If CMP_MODE is VOIDmode, both operands must also be VOIDmode and we
-   compare the operands in "infinite precision".  */
-
-rtx
-simplify_relational_operation (enum rtx_code code,
-			       enum machine_mode mode ATTRIBUTE_UNUSED,
-			       enum machine_mode cmp_mode, rtx op0, rtx op1)
-{
-  rtx tmp;
-
-  tmp = simplify_const_relational_operation (code, cmp_mode, op0, op1);
-  if (tmp)
-    {
-#ifdef FLOAT_STORE_FLAG_VALUE
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
-	{
-	  if (tmp == const0_rtx)
-	    return CONST0_RTX (mode);
-	  return CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE (mode),
-					       mode);
-	}
-#endif
-      return tmp;
-    }
-
-  return NULL_RTX;
 }
 
 /* Simplify CODE, an operation with result mode MODE and three operands,
@@ -3078,20 +3133,6 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 					? GET_MODE (XEXP (op0, 1))
 					: GET_MODE (XEXP (op0, 0)));
 	  rtx temp;
-	  if (cmp_mode == VOIDmode)
-	    cmp_mode = op0_mode;
-	  temp = simplify_const_relational_operation (GET_CODE (op0),
-						      cmp_mode,
-						      XEXP (op0, 0),
-						      XEXP (op0, 1));
-
-	  /* See if any simplifications were possible.  */
-	  if (temp == const0_rtx)
-	    return op2;
-	  else if (temp == const_true_rtx)
-	    return op1;
-	  else if (temp)
-	    abort ();
 
 	  /* Look for happy constants in op1 and op2.  */
 	  if (GET_CODE (op1) == CONST_INT && GET_CODE (op2) == CONST_INT)
@@ -3112,7 +3153,23 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 	      else
 		break;
 
-	      return gen_rtx_fmt_ee (code, mode, XEXP (op0, 0), XEXP (op0, 1));
+	      return simplify_gen_relational (code, mode, cmp_mode,
+					      XEXP (op0, 0), XEXP (op0, 1));
+	    }
+
+	  if (cmp_mode == VOIDmode)
+	    cmp_mode = op0_mode;
+	  temp = simplify_relational_operation (GET_CODE (op0), op0_mode,
+			  			cmp_mode, XEXP (op0, 0),
+						XEXP (op0, 1));
+
+	  /* See if any simplifications were possible.  */
+	  if (temp)
+	    {
+	      if (GET_CODE (temp) == CONST_INT)
+		return temp == const0_rtx ? op2 : op1;
+	      else if (temp)
+	        return gen_rtx_IF_THEN_ELSE (mode, temp, op1, op2);
 	    }
 	}
       break;
@@ -3721,7 +3778,6 @@ simplify_rtx (rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
-  rtx temp;
 
   switch (GET_RTX_CLASS (code))
     {
@@ -3745,13 +3801,13 @@ simplify_rtx (rtx x)
 
     case RTX_COMPARE:
     case RTX_COMM_COMPARE:
-      temp = simplify_relational_operation (code, mode,
-					    ((GET_MODE (XEXP (x, 0))
-					      != VOIDmode)
-					     ? GET_MODE (XEXP (x, 0))
-					     : GET_MODE (XEXP (x, 1))),
-					    XEXP (x, 0), XEXP (x, 1));
-      return temp;
+      return simplify_relational_operation (code, mode,
+                                            ((GET_MODE (XEXP (x, 0))
+                                             != VOIDmode)
+                                            ? GET_MODE (XEXP (x, 0))
+                                            : GET_MODE (XEXP (x, 1))),
+                                            XEXP (x, 0),
+                                            XEXP (x, 1));
 
     case RTX_EXTRA:
       if (code == SUBREG)

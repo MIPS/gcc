@@ -59,7 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
@@ -865,6 +865,8 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
     }
 
   tree_dce_done (aggressive);
+
+  free_edge_list (el);
 }
 
 /* Cleanup the dead code, but avoid cfg changes.  */

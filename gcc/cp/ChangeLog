@@ -1,3 +1,227 @@
+2004-05-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* method.c (implicitly_declare_fn): Don't call defer_fn; abort
+	if it might be needed.
+	* pt.c (mark_decl_instantiated): Only call defer_fn if
+	the function actually needs processing in finish_file.
+	* decl2.c (finish_file): Add check that elements in
+	deferred_fns_used are really needed there.  Remove unnecessary
+	test of DECL_SAVED_TREE.
+
+2004-05-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Make-lang.in: No need to specify $(LIBCPP).
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15044
+	* parser.c (cp_parser_class_head): Robustify.
+
+	PR c++/15317
+	* parser.c (cp_parser_decl_specifier_seq): Correct error in
+	comment.
+	(cp_parser_constructor_declarator_p): Treat attributes
+	as decl-specifiers.
+
+	PR c++/15329
+	* typeck.c (build_unary_op): Do not attempt to resolve casts to
+	base classes in templates.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15165
+	* pt.c (instantiate_template): Robustify.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15025
+	* decl.c (xref_tag): Issue errors about redeclaring template
+	classes as non-template classes.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14821
+	* name-lookup.c (supplement_binding): Allow redefinitions of
+	namespace aliases.
+
+	PR c++/14883
+	* parser.c (cp_parser_template_argument): Robustify.
+
+2004-05-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* class.c (alter_access): Use %E format specifier to print an
+	identifier node.  Avoid looking at the IDENTIFIER_POINTER.
+	(push_lang_context): Likewise.
+	* decl.c (lookup_label): Likewise.
+	(grokdeclarator): Likewise.
+	* parser.c (cp_parser_check_for_invalid_template_id): Likewise.
+	* pt.c (do_type_instantiation): Likewise.
+	* tree.c (handle_java_interface_attribute): Likewise.
+	(handle_com_interface_attribute): Likewise.
+	(handle_init_priority_attribute): Likewise.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15285
+	PR c++/15299
+	* pt.c (build_non_dependent_expr): Expand the set of tree nodes
+	recognized as overloaded functions.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15507
+	* class.c (layout_nonempty_base_or_field): Do not try to avoid
+	layout conflicts for unions.
+
+	PR c++/15542
+	* typeck.c (build_x_unary_op): Instantiate template class
+	specializations before looking for "operator &".
+
+	PR c++/15427
+	* typeck.c (complete_type): Layout non-dependent array types, even
+	in templates.
+
+	PR c++/15287
+	* typeck.c (build_unary_op): Do not optimize "&x[y]" when in a
+	template.
+
+2004-05-22  Roger Sayle  <roger@eyesopen.com>
+
+	* name-lookup.c (check_for_out_of_scope_variable): Avoid ICE by
+	returning when TREE_TYPE is error_mark_node.
+	* typeck.c (require_complete_type): Return error_mark_node if
+	value's type is an error_mark_node.
+
+2005-05-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* optimize.c (calls_setjmp_r): Remove.
+	(calls_setjmp_p): Remove.
+	* cp-tree.c (calls_setjmp_p): Remove.
+	* decl.c (finish_function): Do not call calls_setjmp_p.
+
+2004-05-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (cp_finish_decl): Use mark_decl_referenced.
+	* decl2.c (maybe_make_one_only): Likewise.
+	* method.c (use_thunk): Likewise.
+
+2004-05-18  Jason Merrill  <jason@redhat.com>
+
+	* class.c (build_base_path): Tidy a bit.
+
+2004-05-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* name-lookup.c (struct scope_binding): New.
+	(EMPTY_SCOPE_BINDING): New.
+	(lookup_using_namespace): Take a scope_binding instead of a
+	cxx_binding.
+	(qualified_lookup_using_namespace): Likewise.
+	(cxx_binding_clear): Delete.
+	(do_nonmember_using_decl): Use a scope_binding instead of a
+	cxx_binding.
+	(lookup_tag): Don't call select_decl.
+	(ambiguous_decl): Don't return anything (and change callers to match).
+	Take a scope_binding as the second parameter.
+	(lookup_namespace_name): Use a scope_binding instead of a
+	cxx_binding.
+	(unqualified_namespace_lookup): Likewise.
+	(lookup_qualified_name): Likewise.
+	(select_decl): Take a scope_binding instead of a cxx_binding.
+	Use macros rather than hand-coding tests for type-ness.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-gimplify.c: Rename from cp-simplify.c.
+	* Make-lang.in, optimize.c: Update.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.  See
+	ChangeLog.tree-ssa for details.
+
+	* Make-lang.in, call.c, class.c, cp-lang.c, cp-tree.def,
+	cp-tree.h, cvt.c, decl.c, decl2.c, error.c, except.c,
+	expr.c, init.c, name-lookup.h, optimize.c, parser.c,
+	pt.c, rtti.c, semantics.c, tree.c, typeck.c, typeck2.c:
+	Merged.
+	* cp-mudflap.c: New file.
+	* cp-simplify.c:: New file.
+
+2004-05-03  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14389
+	* decl2.c (check_classfn): For member templates, compare also the
+	template parameters to match the declaration.
+	* cp-tree.h: Adjust declaration of check_classfn.
+	* decl.c (start_decl, grokfndecl): Adjust callers of check_classfn.
+	* friend.c (do_friend): Likewise.
+	* pt.c (tsubst_friend_function): Likewise.
+
+2004-05-01  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (reshape_init): Do not apply TYPE_DOMAIN to a VECTOR_TYPE.
+	Instead, dig into the representation type to find the array bound.
+
+2004-04-30  Jason Merrill  <jason@redhat.com>
+
+	Refer to base members using COMPONENT_REFs where possible.
+	* class.c (build_simple_base_path): New fn.
+	(build_base_path): Use it for non-virtual base references.
+	(layout_class_type): Change base fields to their real type
+	after layout is done.
+	* cp-tree.h (IS_FAKE_BASE_TYPE): New macro.
+	* cp-lang.c (cxx_get_alias_set): Use it.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c, cp-tree.h, decl.c, decl2.c, pt.c, rtti.c: Fix
+	comment typos.
+
+2004-04-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15064
+	* parser.c (cp_parser_postfix_expression): typeid operator cannot be
+	used in integral constant expressions.
+
+2004-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* init.c (build_aggr_init): Fix accidental use of C99 construct in
+	previous change.
+
+	* class.c (initialize_array): Don't set TREE_HAS_CONSTRUCTOR on
+	braced initializer.
+	* cp-tree.h (BRACE_ENCLOSED_INITIALIZER_P): New macro.
+	* decl.c (reshape_init): Use it.
+	* init.c (perform_member_init): Remove redundant condition.
+	(build_aggr_init): Adjust to handle brace-enclosed initializers
+	correctly.
+	(expand_default_init): Use BRACE_ENCLOSED_INITIALIZER_P.
+
+	* parser.c (cp_parser_initializer_clause): Do not set
+	TREE_HAS_CONSTRUCTOR on the initializer.
+	* rtti.c (tinfo_base_init): Likewise.
+	(generic_initializer): Likewise.
+	(ptr_initializer): Likewise.
+	(ptm_initializer): Likewise.
+	(class_initializer): Likewise.
+	(get_pseudo_ti_init): Likewise.
+	* typeck2.c (digest_init): Use BRACE_ENCLOSED_INITIALIZER_P.
+
+2004-04-22  Alan Modra  <amodra@bigpond.net.au>
+
+	* name-lookup.c (anonymous_namespace_name): Make static.
+
+2004-04-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/14531
+	* class.c (build_base_path): Call fold whilst building the NULL
+	pointer check expression trees.
+
+2004-04-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* init.c (build_new_1): Don't use type size argument for Java
+	_Jv_AllocObject call.
+
 2004-04-09  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* method.c (make_alias_for_thunk): Remove preprocessor guard on

@@ -1,6 +1,6 @@
 /* Java(TM) language-specific gimplification routines.
 
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,7 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree.h"
 #include "java-tree.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "toplev.h"
 
 static tree java_gimplify_case_expr (tree);
@@ -60,6 +60,27 @@ int
 java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 		    tree *post_p ATTRIBUTE_UNUSED)
 {
+  char code_class = TREE_CODE_CLASS(TREE_CODE (*expr_p));
+
+  /* Java insists on strict left-to-right evaluation of expressions.
+     A problem may arise if a variable used in the LHS of a binary
+     operation is altered by an assignment to that value in the RHS
+     before we've performed the operation.  So, we always copy every
+     LHS to a temporary variable.  
+
+     FIXME: Are there any other cases where we should do this?
+     Parameter lists, maybe?  Or perhaps that's unnecessary because
+     the front end already generates SAVE_EXPRs.  */
+  if (code_class == '2')
+    {
+      tree lhs = TREE_OPERAND (*expr_p, 0);
+      enum gimplify_status stat 
+	= gimplify_expr (&lhs, pre_p, post_p, is_gimple_tmp_var, fb_rvalue);
+      if (stat == GS_ERROR)
+	return stat;
+      TREE_OPERAND (*expr_p, 0) = lhs;
+    }
+
   switch (TREE_CODE (*expr_p))
     {
     case BLOCK:
@@ -186,6 +207,9 @@ java_gimplify_new_array_init (tree exp)
 		     build_new_array (element_type, length));
 
   int index = 0;
+
+  DECL_CONTEXT (array) = current_function_decl;
+  DECL_CONTEXT (tmp) = current_function_decl;
 
   /* FIXME: try to allocate array statically?  */
   while (values != NULL_TREE)

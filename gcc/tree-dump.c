@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-dump.h"
 #include "langhooks.h"
+#include "tree-iterator.h"
 
 static unsigned int queue (dump_info_p, tree, int);
 static void dump_index (dump_info_p, unsigned int);
@@ -397,6 +398,18 @@ dequeue_and_dump (dump_info_p di)
       dump_child ("chan", TREE_CHAIN (t));
       break;
 
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator it;
+	for (i = 0, it = tsi_start (t); !tsi_end_p (it); tsi_next (&it), i++)
+	  {
+	    char buffer[32];
+	    sprintf (buffer, "%u", i);
+	    dump_child (buffer, tsi_stmt (it));
+	  }
+      }
+      break;
+
     case TREE_VEC:
       dump_int (di, "lngt", TREE_VEC_LENGTH (t));
       for (i = 0; i < TREE_VEC_LENGTH (t); ++i)
@@ -652,7 +665,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".generic", "tree-generic", 0, 0},
   {".nested", "tree-nested", 0, 0},
   {".inlined", "tree-inlined", 0, 0},
-  {".dot", "tree-dot", 0, 0},
+  {".vcg", "tree-vcg", 0, 0},
   {".xml", "call-graph", 0, 0},
   {NULL, "tree-all", 0, 0},
 };

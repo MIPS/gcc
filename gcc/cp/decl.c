@@ -2066,8 +2066,7 @@ lookup_label (tree id)
   /* You can't use labels at global scope.  */
   if (current_function_decl == NULL_TREE)
     {
-      error ("label `%s' referenced outside of any function",
-	     IDENTIFIER_POINTER (id));
+      error ("label `%E' referenced outside of any function", id);
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
     }
 
@@ -3077,7 +3076,7 @@ cp_fname_init (const char* name, tree *type_p)
    decl, NAME is the initialization string and TYPE_DEP indicates whether
    NAME depended on the type of the function. We make use of that to detect
    __PRETTY_FUNCTION__ inside a template fn. This is being done
-   lazily at the point of first use, so we musn't push the decl now.  */
+   lazily at the point of first use, so we mustn't push the decl now.  */
 
 static tree
 cp_make_fname_decl (tree id, int type_dep)
@@ -3705,8 +3704,10 @@ start_decl (tree declarator,
       else
 	{
 	  tree field = check_classfn (context, decl,
-				      processing_template_decl
-				      > template_class_depth (context));
+				      (processing_template_decl
+				       > template_class_depth (context))
+				      ? current_template_parms
+				      : NULL_TREE);
 	  if (field && duplicate_decls (decl, field))
 	    decl = field;
 	}
@@ -4129,8 +4130,7 @@ reshape_init (tree type, tree *initp)
      enclosed elements.  Advance past the brace-enclosed initializer
      now.  */
   if (TREE_CODE (old_init_value) == CONSTRUCTOR
-      && TREE_TYPE (old_init_value) == NULL_TREE
-      && TREE_HAS_CONSTRUCTOR (old_init_value))
+      && BRACE_ENCLOSED_INITIALIZER_P (old_init_value))
     {
       *initp = TREE_CHAIN (old_init);
       TREE_CHAIN (old_init) = NULL_TREE;
@@ -4200,8 +4200,7 @@ reshape_init (tree type, tree *initp)
   else
     {
       /* Build a CONSTRUCTOR to hold the contents of the aggregate.  */  
-      new_init = build_constructor (type, NULL_TREE);
-      TREE_HAS_CONSTRUCTOR (new_init) = 1;
+      new_init = build_constructor (NULL_TREE, NULL_TREE);
 
       if (CLASS_TYPE_P (type))
 	{
@@ -4261,15 +4260,30 @@ reshape_init (tree type, tree *initp)
 		}
 	    }
 	}
-      else if ((TREE_CODE (type) == ARRAY_TYPE)|| (TREE_CODE (type) == VECTOR_TYPE))
+      else if (TREE_CODE (type) == ARRAY_TYPE
+	       || TREE_CODE (type) == VECTOR_TYPE)
 	{
 	  tree index;
 	  tree max_index;
 
 	  /* If the bound of the array is known, take no more initializers
 	     than are allowed.  */
-	  max_index = ((TYPE_DOMAIN (type) && (TREE_CODE (type) == ARRAY_TYPE))
-		       ? array_type_nelts (type) : NULL_TREE);
+	  max_index = NULL_TREE;
+	  if (TREE_CODE (type) == ARRAY_TYPE)
+	    {
+	      if (TYPE_DOMAIN (type))
+		max_index = array_type_nelts (type);
+	    }
+	  else
+	    {
+	      /* For a vector, the representation type is a struct
+		 containing a single member which is an array of the
+		 appropriate size.  */
+	      tree rtype = TYPE_DEBUG_REPRESENTATION_TYPE (type);
+	      if (rtype && TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (rtype))))
+		max_index = array_type_nelts (TREE_TYPE (TYPE_FIELDS (rtype)));
+	    }
+
 	  /* Loop through the array elements, gathering initializers.  */
 	  for (index = size_zero_node;
 	       *initp && (!max_index || !tree_int_cst_lt (max_index, index));
@@ -4377,7 +4391,8 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
     init = grok_reference_init (decl, type, init, cleanup);
   else if (init)
     {
-      if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init))
+      if (TREE_CODE (init) == CONSTRUCTOR 
+	  && BRACE_ENCLOSED_INITIALIZER_P (init))
 	{
 	  /* [dcl.init] paragraph 13,
 	     If T is a scalar type, then a declaration of the form
@@ -4402,15 +4417,13 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	 array size from the initializer.  */
       maybe_deduce_size_from_array_init (decl, init);
       type = TREE_TYPE (decl);
-      if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init))
-	TREE_TYPE (init) = type;
 
       if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
 	{
 	  if (TREE_CODE (type) == ARRAY_TYPE)
 	    goto initialize_aggr;
 	  else if (TREE_CODE (init) == CONSTRUCTOR
-		   && TREE_HAS_CONSTRUCTOR (init))
+		   && BRACE_ENCLOSED_INITIALIZER_P (init))
 	    {
 	      if (TYPE_NON_AGGREGATE_CLASS (type))
 		{
@@ -4898,7 +4911,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 
   /* If this was marked 'used', be sure it will be output.  */
   if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
-    mark_referenced (DECL_ASSEMBLER_NAME (decl));
+    mark_decl_referenced (decl);
 }
 
 /* This is here for a midend callback from c-common.c.  */
@@ -5657,8 +5670,10 @@ grokfndecl (tree ctype,
       tree old_decl;
 
       old_decl = check_classfn (ctype, decl,
-				processing_template_decl
-				> template_class_depth (ctype));
+				(processing_template_decl
+				 > template_class_depth (ctype))
+				? current_template_parms
+				: NULL_TREE);
 
       if (old_decl && TREE_CODE (old_decl) == TEMPLATE_DECL)
 	/* Because grokfndecl is always supposed to return a
@@ -6730,7 +6745,7 @@ grokdeclarator (tree declarator,
 			longlong = 1;
 		    }
 		  else if (RIDBIT_SETP (i, specbits))
-		    pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		    pedwarn ("duplicate `%E'", id);
 
 		  /* Diagnose "__thread extern" or "__thread static".  */
 		  if (RIDBIT_SETP (RID_THREAD, specbits))
@@ -6770,8 +6785,7 @@ grokdeclarator (tree declarator,
 	{
 	  tree t = lookup_name (id, 1);
 	  if (!t || TREE_CODE (t) != TYPE_DECL)
-	    error ("`%s' fails to be a typedef or built in type",
-		   IDENTIFIER_POINTER (id));
+	    error ("`%E' fails to be a typedef or built in type", id);
 	  else
 	    {
 	      type = TREE_TYPE (t);
@@ -7327,8 +7341,8 @@ grokdeclarator (tree declarator,
 		      error ("destructor cannot be static member function");
 		    if (quals)
 		      {
-			error ("destructors may not be `%s'",
-				  IDENTIFIER_POINTER (TREE_VALUE (quals)));
+			error ("destructors may not be `%E'",
+				  TREE_VALUE (quals));
 			quals = NULL_TREE;
 		      }
 		    if (decl_context == FIELD)
@@ -7356,8 +7370,8 @@ grokdeclarator (tree declarator,
 		      }
 		    if (quals)
 		      {
-			error ("constructors may not be `%s'",
-				  IDENTIFIER_POINTER (TREE_VALUE (quals)));
+			error ("constructors may not be `%E'",
+                               TREE_VALUE (quals));
 			quals = NULL_TREE;
 		      }
 		    {
@@ -8163,8 +8177,8 @@ grokdeclarator (tree declarator,
 	  {
 	    if (friendp)
 	      {
-		error ("`%s' is neither function nor member function; cannot be declared friend",
-		       IDENTIFIER_POINTER (declarator));
+		error ("`%E' is neither function nor member function; "
+                       "cannot be declared friend", declarator);
 		friendp = 0;
 	      }
 	    decl = NULL_TREE;
@@ -9393,6 +9407,13 @@ xref_tag (enum tag_types tag_code, tree name,
     {
       if (!globalize && processing_template_decl && IS_AGGR_TYPE (t))
 	redeclare_class_template (t, current_template_parms);
+      else if (!processing_template_decl 
+	       && CLASS_TYPE_P (t)
+	       && CLASSTYPE_IS_TEMPLATE (t))
+	{
+	  error ("redeclaration of `%T' as a non-template", t);
+	  t = error_mark_node;
+	}
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -10739,18 +10760,6 @@ finish_function (int flags)
   /* Save away current state, if appropriate.  */
   if (!processing_template_decl)
     save_function_data (fndecl);
-
-  /* If this function calls `setjmp' it cannot be inlined.  When
-     `longjmp' is called it is not guaranteed to restore the value of
-     local variables that have been modified since the call to
-     `setjmp'.  So, if were to inline this function into some caller
-     `c', then when we `longjmp', we might not restore all variables
-     in `c'.  (It might seem, at first blush, that there's no way for
-     this function to modify local variables in `c', but their
-     addresses may have been stored somewhere accessible to this
-     function.)  */
-  if (!processing_template_decl && calls_setjmp_p (fndecl))
-    DECL_UNINLINABLE (fndecl) = 1;
 
   /* Complain if there's just no return statement.  */
   if (warn_return_type

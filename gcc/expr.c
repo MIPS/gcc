@@ -209,9 +209,6 @@ enum insn_code clrstr_optab[NUM_MACHINE_MODES];
 enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
-/* Stack of EXPR_WITH_FILE_LOCATION nested expressions.  */
-struct file_stack *expr_wfl_stack;
-
 /* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
@@ -4593,7 +4590,10 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
 			 tree exp, tree type, int cleared, int alias_set)
 {
   if (TREE_CODE (exp) == CONSTRUCTOR
+      /* We can only call store_constructor recursively if the size and
+	 bit position are on a byte boundary.  */
       && bitpos % BITS_PER_UNIT == 0
+      && (bitsize > 0 && bitsize % BITS_PER_UNIT == 0)
       /* If we have a nonzero bitpos for a register target, then we just
 	 let store_field do the bitfield handling.  This is unlikely to
 	 generate unnecessary clear instructions anyways.  */
@@ -4817,7 +4817,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       tree elt;
       int i;
       int need_to_clear;
-      tree domain = TYPE_DOMAIN (type);
+      tree domain;
       tree elttype = TREE_TYPE (type);
       int const_bounds_p;
       HOST_WIDE_INT minelt = 0;
@@ -4827,13 +4827,14 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       int elt_size = 0;
       unsigned n_elts = 0;
 
-      /* Vectors are like arrays, but the domain is stored via an array
-	 type indirectly.  */
-      if (TREE_CODE (type) == VECTOR_TYPE)
+      if (TREE_CODE (type) == ARRAY_TYPE)
+	domain = TYPE_DOMAIN (type);
+      else
+	/* Vectors do not have domains; look up the domain of
+	   the array embedded in the debug representation type.
+	   FIXME Would probably be more efficient to treat vectors
+	   separately from arrays.  */
 	{
-	  /* Note that although TYPE_DEBUG_REPRESENTATION_TYPE uses
-	     the same field as TYPE_DOMAIN, we are not guaranteed that
-	     it always will.  */
 	  domain = TYPE_DEBUG_REPRESENTATION_TYPE (type);
 	  domain = TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (domain)));
 	  if (REG_P (target) && VECTOR_MODE_P (GET_MODE (target)))
@@ -4962,8 +4963,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    {
 	      tree lo_index = TREE_OPERAND (index, 0);
 	      tree hi_index = TREE_OPERAND (index, 1);
-	      rtx index_r, pos_rtx, loop_end;
-	      struct nesting *loop;
+	      rtx index_r, pos_rtx;
 	      HOST_WIDE_INT lo, hi, count;
 	      tree position;
 
@@ -5004,9 +5004,11 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		}
 	      else
 		{
-		  expand_expr (hi_index, NULL_RTX, VOIDmode, 0);
-		  loop_end = gen_label_rtx ();
+		  rtx loop_start = gen_label_rtx ();
+		  rtx loop_end = gen_label_rtx ();
+		  tree exit_cond;
 
+		  expand_expr (hi_index, NULL_RTX, VOIDmode, 0);
 		  unsignedp = TYPE_UNSIGNED (domain);
 
 		  index = build_decl (VAR_DECL, NULL_TREE, domain);
@@ -5024,7 +5026,11 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		      emit_queue ();
 		    }
 		  store_expr (lo_index, index_r, 0);
-		  loop = expand_start_loop (0);
+
+		  /* Build the head of the loop.  */
+		  do_pending_stack_adjust ();
+		  emit_queue ();
+		  emit_label (loop_start);
 
 		  /* Assign value to element index.  */
 		  position
@@ -5045,14 +5051,19 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		  else
 		    store_expr (value, xtarget, 0);
 
-		  expand_exit_loop_if_false (loop,
-					     build (LT_EXPR, integer_type_node,
-						    index, hi_index));
+		  /* Generate a conditional jump to exit the loop.  */
+		  exit_cond = build (LT_EXPR, integer_type_node,
+				     index, hi_index);
+		  jumpif (exit_cond, loop_end);
 
+		  /* Update the loop counter, and jump to the head of
+		     the loop.  */
 		  expand_increment (build (PREINCREMENT_EXPR,
 					   TREE_TYPE (index),
 					   index, integer_one_node), 0, 0);
-		  expand_end_loop ();
+		  emit_jump (loop_start);
+
+		  /* Build the end of the loop.  */
 		  emit_label (loop_end);
 		}
 	    }
@@ -5611,7 +5622,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 				 index, low_bound));
 
 	  /* If the index has a self-referential type, instantiate it with
-	     the object; likewise fkor the component size.  */
+	     the object; likewise for the component size.  */
 	  index = SUBSTITUTE_PLACEHOLDER_IN_EXPR (index, exp);
 	  unit_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (unit_size, array);
 	  offset = size_binop (PLUS_EXPR, offset,
@@ -6210,7 +6221,7 @@ expand_var (tree var)
 	  set_mem_attributes (x, var, 1);
 	  SET_DECL_RTL (var, x);
 	}
-      else if ((*lang_hooks.expand_decl) (var))
+      else if (lang_hooks.expand_decl (var))
 	/* OK.  */;
       else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
 	expand_decl (var);
@@ -6353,10 +6364,10 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
      information.  It would be better of the diagnostic routines 
      used the file/line information embedded in the tree nodes rather
      than globals.  */
-  if (cfun && EXPR_LOCUS (exp))
+  if (cfun && EXPR_HAS_LOCATION (exp))
     {
       location_t saved_location = input_location;
-      input_location = *EXPR_LOCUS (exp);
+      input_location = EXPR_LOCATION (exp);
       emit_line_note (input_location);
       
       /* Record where the insns produced belong.  */
@@ -6807,10 +6818,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	expand_computed_goto (TREE_OPERAND (exp, 0));
       return const0_rtx;
 
+    /* These are lowered during gimplification, so we should never ever
+       see them here.  */
+    case LOOP_EXPR:
     case EXIT_EXPR:
-      expand_exit_loop_if_false (NULL,
-				 invert_truthvalue (TREE_OPERAND (exp, 0)));
-      return const0_rtx;
+      abort ();
 
     case LABELED_BLOCK_EXPR:
       if (LABELED_BLOCK_BODY (exp))
@@ -6824,15 +6836,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (EXIT_BLOCK_RETURN (exp))
 	sorry ("returned value in block_exit_expr");
       expand_goto (LABELED_BLOCK_LABEL (EXIT_BLOCK_LABELED_BLOCK (exp)));
-      return const0_rtx;
-
-    case LOOP_EXPR:
-      push_temp_slots ();
-      expand_start_loop (1);
-      expand_expr_stmt_value (TREE_OPERAND (exp, 0), 0, 1);
-      expand_end_loop ();
-      pop_temp_slots ();
-
       return const0_rtx;
 
     case BIND_EXPR:
@@ -6863,7 +6866,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	      {
 		if (TREE_USED (block))
 		  abort ();
-		(*lang_hooks.decls.insert_block) (block);
+		lang_hooks.decls.insert_block (block);
 	      }
 	  }
 
@@ -7625,10 +7628,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	{
 	  if (DECL_BUILT_IN_CLASS (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == BUILT_IN_FRONTEND)
-	  /* ??? Use (*fun) form because expand_expr is a macro.  */
-	    return (*lang_hooks.expand_expr) (exp, original_target,
-					      tmode, modifier,
-					      alt_rtl);
+	    return lang_hooks.expand_expr (exp, original_target,
+					   tmode, modifier,
+					   alt_rtl);
 	  else
 	    return expand_builtin (exp, target, subtarget, tmode, ignore);
 	}
@@ -8453,9 +8455,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  for (; TREE_CODE (exp) == COND_EXPR; exp = TREE_OPERAND (exp, 2))
 	    {
 	      expand_start_else ();
-	      if (EXPR_LOCUS (exp))
+	      if (EXPR_HAS_LOCATION (exp))
 		{
-		  emit_line_note (*(EXPR_LOCUS (exp)));
+		  emit_line_note (EXPR_LOCATION (exp));
 		  if (cfun->dont_emit_block_notes)
 		    record_block_change (TREE_BLOCK (exp));
 		}
@@ -8814,8 +8816,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    else
 	      {
 		target = assign_temp (type, 2, 0, 1);
-		/* All temp slots at this level must not conflict.  */
-		preserve_temp_slots (target);
 		SET_DECL_RTL (slot, target);
 		if (TREE_ADDRESSABLE (slot))
 		  put_var_into_stack (slot, /*rescan=*/false);
@@ -9375,9 +9375,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return const0_rtx;
 
     default:
-      /* ??? Use (*fun) form because expand_expr is a macro.  */
-      return (*lang_hooks.expand_expr) (exp, original_target, tmode,
-					modifier, alt_rtl);
+      return lang_hooks.expand_expr (exp, original_target, tmode,
+				     modifier, alt_rtl);
     }
 
   /* Here to do an ordinary binary operator, generating an instruction

@@ -1,3 +1,8 @@
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* configure.in (GMP checking): s/save_CFLAGS/saved_CFLAGS.
+	* configure: Regenerate.
+
 2004-04-22  Loren J. Rittle <ljrittle@acm.org>
 
 	* configure.in (*-*-freebsd*): Use with_gmp to "Avoid crusty gmp.h."

@@ -1,23 +1,23 @@
 /* Check functions
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* These functions check to see if an argument list is compatible with
@@ -1833,8 +1833,14 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
 
   if (put != NULL)
     {
+
+      if (size != NULL)
+        gfc_error ("Too many arguments to %s at %L", gfc_current_intrinsic,
+                    &put->where);
+
       if (array_check (put, 1) == FAILURE)
 	return FAILURE;
+
       if (rank_check (put, 1, 1) == FAILURE)
 	return FAILURE;
 
@@ -1847,8 +1853,14 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
 
   if (get != NULL)
     {
+
+      if (size != NULL || put != NULL)
+        gfc_error ("Too many arguments to %s at %L", gfc_current_intrinsic,
+                    &get->where);
+
       if (array_check (get, 2) == FAILURE)
 	return FAILURE;
+
       if (rank_check (get, 2, 1) == FAILURE)
 	return FAILURE;
 
@@ -1863,4 +1875,63 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
     }
 
   return SUCCESS;
+}
+
+/* The arguments of SYSTEM_CLOCK are scalar, integer variables.  Note,
+   count, count_rate, and count_max are all optional arguments */
+
+try
+gfc_check_system_clock (gfc_expr * count, gfc_expr * count_rate,
+                        gfc_expr * count_max)
+{
+
+  if (count != NULL)
+    {
+      if (scalar_check (count, 0) == FAILURE)
+        return FAILURE;
+
+      if (type_check (count, 0, BT_INTEGER) == FAILURE)
+        return FAILURE;
+
+      if (variable_check (count, 0) == FAILURE)
+        return FAILURE;
+    }
+
+  if (count_rate != NULL)
+    {
+      if (scalar_check (count_rate, 1) == FAILURE)
+        return FAILURE;
+
+      if (type_check (count_rate, 1, BT_INTEGER) == FAILURE)
+        return FAILURE;
+
+      if (variable_check (count_rate, 1) == FAILURE)
+        return FAILURE;
+
+      if (count != NULL && same_type_check(count, 0, count_rate, 1) == FAILURE)
+        return FAILURE;
+
+    }
+
+  if (count_max != NULL)
+    {
+      if (scalar_check (count_max, 2) == FAILURE)
+        return FAILURE;
+
+      if (type_check (count_max, 2, BT_INTEGER) == FAILURE)
+        return FAILURE;
+
+      if (variable_check (count_max, 2) == FAILURE)
+        return FAILURE;
+
+      if (count != NULL && same_type_check(count, 0, count_max, 2) == FAILURE)
+        return FAILURE;
+
+      if (count_rate != NULL
+          && same_type_check(count_rate, 1, count_max, 2) == FAILURE)
+        return FAILURE;
+
+   }
+
+    return SUCCESS;
 }

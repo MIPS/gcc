@@ -1,30 +1,30 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
@@ -500,13 +500,13 @@ set_error_locus (stmtblock_t * block, locus * where)
   tree tmp;
   int line;
 
-  f = where->file;
+  f = where->lb->file;
   tmp = gfc_build_string_const (strlen (f->filename) + 1, f->filename);
 
   tmp = gfc_build_addr_expr (pchar_type_node, tmp);
   gfc_add_modify_expr (block, locus_file, tmp);
 
-  line = where->lp->start_line + where->line;
+  line = where->lb->linenum;
   gfc_add_modify_expr (block, locus_line, build_int_2 (line, 0));
 }
 

@@ -1,3 +1,10 @@
+2004-05-27  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	Merge from mainline (lno-merge-20040526).
+	* tree-scalar-evolution.c (draw_tree_cfg): Removed.
+	* tree-into-ssa.c: Didn't merged
+	http://gcc.gnu.org/ml/gcc-patches/2004-05/msg01231.html
+
 2004-05-25  Sebastian Pop  <pop@cri.ensmp.fr>
             Dorit Naishlos <dorit@il.ibm.com>
 

@@ -1891,7 +1891,7 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
       if (TYPE_P (type))
 	error ("`%T' is not a template", type);
       else if (TREE_CODE (type) == IDENTIFIER_NODE)
-	error ("`%s' is not a template", IDENTIFIER_POINTER (type));
+	error ("`%E' is not a template", type);
       else
 	error ("invalid template-id");
       /* Remember the location of the invalid "<".  */
@@ -3594,7 +3594,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    /* Look for the `)' token.  */
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	  }
-
+	/* `typeid' may not appear in an integral constant expression.  */
+	if (cp_parser_non_integral_constant_expression(parser, 
+						       "`typeid' operator"))
+	  return error_mark_node;
 	/* Restore the saved message.  */
 	parser->type_definition_forbidden_message = saved_message;
       }
@@ -6353,6 +6356,8 @@ cp_parser_declaration (cp_parser* parser)
   if (token1.type != CPP_EOF)
     token2 = *cp_lexer_peek_nth_token (parser->lexer, 2);
 
+  c_lex_string_translate = true;
+
   /* If the next token is `extern' and the following token is a string
      literal, then we have a linkage specification.  */
   if (token1.keyword == RID_EXTERN
@@ -6402,8 +6407,6 @@ cp_parser_declaration (cp_parser* parser)
   else
     /* Try to parse a block-declaration, or a function-definition.  */
     cp_parser_block_declaration (parser, /*statement_p=*/false);
-
-  c_lex_string_translate = true;
 }
 
 /* Parse a block-declaration.
@@ -6656,8 +6659,8 @@ cp_parser_simple_declaration (cp_parser* parser,
 
    GNU Extension:
 
-   decl-specifier-seq:
-     decl-specifier-seq [opt] attributes
+   decl-specifier:
+     attributes
 
    Returns a TREE_LIST, giving the decl-specifiers in the order they
    appear in the source code.  The TREE_VALUE of each node is the
@@ -8414,12 +8417,16 @@ cp_parser_template_argument (cp_parser* parser)
     cp_parser_error (parser, "expected template-argument");
   if (!cp_parser_error_occurred (parser))
     {
-      /* Figure out what is being referred to.  */
-      argument = cp_parser_lookup_name (parser, argument,
-					/*is_type=*/false,
-					/*is_template=*/template_p,
-					/*is_namespace=*/false,
-					/*check_dependency=*/true);
+      /* Figure out what is being referred to.  If the id-expression
+	 was for a class template specialization, then we will have a
+	 TYPE_DECL at this point.  There is no need to do name lookup
+	 at this point in that case.  */
+      if (TREE_CODE (argument) != TYPE_DECL)
+	argument = cp_parser_lookup_name (parser, argument,
+					  /*is_type=*/false,
+					  /*is_template=*/template_p,
+					  /*is_namespace=*/false,
+					  /*check_dependency=*/true);
       if (TREE_CODE (argument) != TEMPLATE_DECL
 	  && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
@@ -11543,10 +11550,6 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
       cp_lexer_consume_token (parser->lexer);
       /* Create a CONSTRUCTOR to represent the braced-initializer.  */
       initializer = make_node (CONSTRUCTOR);
-      /* Mark it with TREE_HAS_CONSTRUCTOR.  This should not be
-	 necessary, but check_initializer depends upon it, for
-	 now.  */
-      TREE_HAS_CONSTRUCTOR (initializer) = 1;
       /* If it's not a `}', then there is a non-trivial initializer.  */
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
 	{
@@ -12098,7 +12101,8 @@ cp_parser_class_head (cp_parser* parser,
 
   pop_deferring_access_checks ();
 
-  cp_parser_check_for_invalid_template_id (parser, id);
+  if (id)
+    cp_parser_check_for_invalid_template_id (parser, id);
 
   /* If it's not a `:' or a `{' then we can't really be looking at a
      class-head, since a class-head only appears as part of a
@@ -14151,6 +14155,10 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
     {
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN)
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)
+	  /* A parameter declaration begins with a decl-specifier,
+	     which is either the "attribute" keyword, a storage class
+	     specifier, or (usually) a type-specifier.  */
+	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE)
 	  && !cp_parser_storage_class_specifier_opt (parser))
 	{
 	  tree type;
