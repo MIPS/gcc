@@ -29,6 +29,17 @@
 
 #include <config.h>
 
+// A few things redefined in the gcjx config header.
+#undef PACKAGE
+#undef PACKAGE_BUGREPORT
+#undef PACKAGE_NAME
+#undef PACKAGE_STRING
+#undef PACKAGE_TARNAME
+#undef PACKAGE_VERSION
+
+// Include this early to get the same libstc++ flags as gcjx.
+#include <gcjx-config.h>
+
 // We include this before we include other GCC headers, so that we can
 // avoid bad interactions between GCC's identifier poisoning and
 // libstdc++'s use of those same identifiers.
@@ -72,14 +83,6 @@ extern "C"
 // This is defined in tree.h.  It is ok for us to undef it since the
 // define is just an optimization.  But FIXME anyway.
 #undef get_identifier
-
-// A few things redefined in the gcjx config header.
-#undef PACKAGE
-#undef PACKAGE_BUGREPORT
-#undef PACKAGE_NAME
-#undef PACKAGE_STRING
-#undef PACKAGE_TARNAME
-#undef PACKAGE_VERSION
 
 // Now include things from gcjx.
 #include "typedefs.hh"

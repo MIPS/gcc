@@ -1,3 +1,19 @@
+2005-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* glue.hh: Include gcjx-config.h early.
+	* Make-lang.in (jc1$(exeext)): Use $(CXX).
+	(JAVA_OBJS): Updated.
+	(java/java-gimplify.o): Removed.
+	(java/boehm.o): Updated dependencies.
+	(java/jvgenmain.o): Likewise.
+	(java/mangle.o): Likewise.
+	(java/mangle_name.o): Likewise.
+	(java/parse-scan.o-warn): Removed.
+	(java/parse.o-warn): Likewise.
+	(java/jcf-io.o-warn): Likewise.
+	(java.mostlyclean): Updated.
+	(java.maintainer-clean): Likewise.
+
 2005-01-22  Tom Tromey  <tromey@redhat.com>
 
 	* Make-lang.in (gt-java-hooks.h gt-java-langhooks.h

@@ -77,10 +77,10 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 gt-java-hooks.h gt-java-langhooks.h gt-java-mangle.h : s-gtype ; @true
 
 # Executables built by this Makefile:
-JAVA_OBJS = java/abi.o java/boehm.o java/builtins.o java/classobj.o \
-java/decl.o java/driver.o java/java-gimplify.o java/jvspec.o \
-java/langhooks.o java/lower.o java/mangle.o java/mangle_name.o \
-java/tree.o java/treegen.o
+JAVA_OBJS = java/abi.o java/builtins.o java/classobj.o java/decl.o \
+java/driver.o java/langhooks.o java/lower.o java/tree.o java/treegen.o
+# later:
+# java/boehm.o java/mangle.o java/mangle_name.o
 
 JVGENMAIN_OBJS = java/jvgenmain.o java/mangle_name.o errors.o intl.o
 
@@ -90,17 +90,12 @@ java-warn = $(STRICT_WARN)
 # String length warnings
 jvspec.o-warn = -Wno-error
 
-# Bison-1.75 output often yields (harmless) -Wtraditional warnings
-java/parse-scan.o-warn = -Wno-error
-java/parse.o-warn = -Wno-error
-
-# Use of non-standardized scandir
-java/jcf-io.o-warn = -Wno-error
+LIBGCJX = -L../gcjx/.libs -lgcjx
 
 jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
 	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS)
+	$(CXX) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+		$(JAVA_OBJS) $(BACKEND) $(LIBGCJX) $(ZLIB) $(LIBICONV) $(LIBS)
 
 jcf-dump$(exeext): $(JCFDUMP_OBJS) $(LIBDEPS)
 	rm -f $@
@@ -194,14 +189,12 @@ install-info:: $(DESTDIR)$(infodir)/gcj.info
 # We just have to delete files specific to us.
 
 java.mostlyclean:
-	-rm -f java/parse.c java/parse-scan.c
 	-rm -f java/*$(objext) $(DEMANGLER_PROG)
 	-rm -f java/*$(coverageexts)
 	-rm -f jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) s-java
 java.clean:
 java.distclean:
 	-rm -f java/config.status java/Makefile
-	-rm -f java/parse.output java/y.tab.c
 java.maintainer-clean:
 	-rm -f $(docobjdir)/gcj.1
 	-rm -f $(docobjdir)/gij.1
@@ -236,18 +229,16 @@ gcc_java_cxxflags = -I$(srcdir) -I. -I$(srcdir)/../gcjx -I../gcjx \
 	$(CXX) $(CXXFLAGS) $(gcc_java_cxxflags) -c -o $@ $<
 
 java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-  $(TREE_H) $(JAVA_TREE_H) java/parse.h toplev.h
-java/jvgenmain.o: java/jvgenmain.c $(CONFIG_H) $(JAVA_TREE_H) $(SYSTEM_H) \
+  $(TREE_H) toplev.h
+java/jvgenmain.o: java/jvgenmain.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) intl.h
-java/mangle.o: java/mangle.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) $(SYSTEM_H) \
+java/mangle.o: java/mangle.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-mangle.h
-java/mangle_name.o: java/mangle_name.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) \
+java/mangle_name.o: java/mangle_name.c $(CONFIG_H) \
   $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(GGC_H)
-java/java-gimplify.o: java/java-gimplify.c $(CONFIG_H) $(SYSTEM_H) \
-  coretypes.h $(TM_H) $(JAVA_TREE_H) tree-gimple.h toplev.h
 
-TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi $(docdir)/include/gpl.texi \
-	 $(docdir)/include/gcc-common.texi
+TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi
 
 # Documentation
 doc/gcj.info: $(TEXI_JAVA_FILES)
