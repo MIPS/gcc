@@ -4766,7 +4766,7 @@ assign_parms (tree fndecl)
 	  rtx elt0 = XEXP (XVECEXP (entry_parm, 0, 0), 0);
 
 	  if ((XVECLEN (entry_parm, 0) > 1
-	       || hard_regno_nregs[REGNO (elt0)][GET_MODE (elt0)] > 1)
+	       || HARD_REGNO_NREGS(REGNO (elt0), GET_MODE (elt0)) > 1)
 	      && REG_P (parmreg))
 	    {
 	      unsigned int regno = REGNO (parmreg);
