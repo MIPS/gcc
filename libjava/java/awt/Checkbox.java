@@ -150,7 +150,6 @@ protected class AccessibleAWTCheckBox
    */
   public Number getCurrentAccessibleValue()
   {
-    // TODO Auto-generated method stub
     return null;
   }
 
@@ -159,7 +158,6 @@ protected class AccessibleAWTCheckBox
    */
   public boolean setCurrentAccessibleValue(Number number)
   {
-    // TODO Auto-generated method stub
     return false;
   }
 
@@ -168,7 +166,6 @@ protected class AccessibleAWTCheckBox
    */
   public Number getMinimumAccessibleValue()
   {
-    // TODO Auto-generated method stub
     return null;
   }
 
@@ -177,7 +174,6 @@ protected class AccessibleAWTCheckBox
    */
   public Number getMaximumAccessibleValue()
   {
-    // TODO Auto-generated method stub
     return null;
   }
   

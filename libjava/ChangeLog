@@ -1,5 +1,9 @@
 2004-11-21  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/Checkbox.java: Remove stub comments.
+
+2004-11-21  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Button.java
 	(AccessibleAWTButton.getAccessibleActionDescription): Return
 	'click'.
