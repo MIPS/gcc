@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for bi-arch SPARC
-   running Solaris 2 using the system linker.  */
+   running Solaris 2 using the system assembler and linker.  */
 
 /* The default code model.  */
 #undef SPARC_DEFAULT_CMODEL
@@ -7,6 +7,8 @@
 
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE 128
+
+#define AS_SPARC64_FLAG	"-xarch=v9"
 
 #undef ASM_CPU32_DEFAULT_SPEC
 #define ASM_CPU32_DEFAULT_SPEC	""
@@ -233,6 +235,7 @@
 %{mcypress:-mcpu=cypress} \
 %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+%{m32:%{m64:%emay not use both -m32 and -m64}} \
 %{m64:-mptr64 -mstack-bias -mno-v8plus \
   %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8*:%{!msupersparc:-mcpu=v9}}}}}}}} \
 "
@@ -242,6 +245,7 @@
 %{mcypress:-mcpu=cypress} \
 %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+%{m32:%{m64:%emay not use both -m32 and -m64}} \
 %{m32:-mptr32 -mno-stack-bias \
   %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8*:%{!msupersparc:-mcpu=cypress}}}}}}}} \
 %{mv8plus:-m32 -mptr32 -mno-stack-bias \
@@ -260,3 +264,12 @@
    use dwarf2 in 64-bit mode.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE (TARGET_ARCH32 ? DBX_DEBUG : DWARF2_DEBUG)
+
+/* We can't use the above definition for the purposes of specs.  */
+#if defined(HAVE_AS_GDWARF2_DEBUG_FLAG) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
+# if DEFAULT_ARCH32_P
+#  define ASM_DEBUG_SPEC "%{gdwarf-2*:--gdwarf2}%{!gdwarf-2*:%{g*:--gstabs}}"
+# else
+#  define ASM_DEBUG_SPEC "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}"
+# endif
+#endif

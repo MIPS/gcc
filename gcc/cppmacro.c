@@ -64,7 +64,7 @@ static cpp_context *next_context PARAMS ((cpp_reader *));
 static const cpp_token *padding_token
   PARAMS ((cpp_reader *, const cpp_token *));
 static void expand_arg PARAMS ((cpp_reader *, macro_arg *));
-static const cpp_token *new_string_token PARAMS ((cpp_reader *, U_CHAR *,
+static const cpp_token *new_string_token PARAMS ((cpp_reader *, uchar *,
 						  unsigned int));
 static const cpp_token *new_number_token PARAMS ((cpp_reader *, unsigned int));
 static const cpp_token *stringify_arg PARAMS ((cpp_reader *, macro_arg *));
@@ -152,7 +152,7 @@ builtin_macro (pfile, node)
       {
 	unsigned int len;
 	const char *name;
-	U_CHAR *buf;
+	uchar *buf;
 	const struct line_map *map = pfile->map;
 
 	if (node->value.builtin == BT_BASE_FILE)
@@ -244,15 +244,15 @@ builtin_macro (pfile, node)
    backslashes and double quotes.  Non-printable characters are
    converted to octal.  DEST must be of sufficient size.  Returns
    a pointer to the end of the string.  */
-U_CHAR *
+uchar *
 cpp_quote_string (dest, src, len)
-     U_CHAR *dest;
-     const U_CHAR *src;
+     uchar *dest;
+     const uchar *src;
      unsigned int len;
 {
   while (len--)
     {
-      U_CHAR c = *src++;
+      uchar c = *src++;
 
       if (c == '\\' || c == '"')
 	{
@@ -632,12 +632,17 @@ funlike_invocation_p (pfile, node)
       return collect_args (pfile, node);
     }
 
-  /* Back up.  We may have skipped padding, in which case backing up
-     more than one token when expanding macros is in general too
-     difficult.  We re-insert it in its own context.  */
-  _cpp_backup_tokens (pfile, 1);
-  if (padding)
-    push_token_context (pfile, NULL, padding, 1);
+  /* CPP_EOF can be the end of macro arguments, or the end of the
+     file.  We mustn't back up over the latter.  Ugh.  */
+  if (token->type != CPP_EOF || token == &pfile->eof)
+    {
+      /* Back up.  We may have skipped padding, in which case backing
+	 up more than one token when expanding macros is in general
+	 too difficult.  We re-insert it in its own context.  */
+      _cpp_backup_tokens (pfile, 1);
+      if (padding)
+	push_token_context (pfile, NULL, padding, 1);
+    }
 
   return NULL;
 }
@@ -1069,12 +1074,16 @@ cpp_sys_macro_p (pfile)
   return node && node->value.macro && node->value.macro->syshdr;
 }
 
-/* Read each token in, until EOF.  Directives are transparently
-   processed.  */
+/* Read each token in, until end of the current file.  Directives are
+   transparently processed.  */
 void
 cpp_scan_nooutput (pfile)
      cpp_reader *pfile;
 {
+  /* Request a CPP_EOF token at the end of this file, rather than
+     transparently continuing with the including file.  */
+  pfile->buffer->return_at_eof = true;
+
   while (cpp_get_token (pfile)->type != CPP_EOF)
     ;
 }
@@ -1335,7 +1344,7 @@ _cpp_create_definition (pfile, node)
 	goto cleanup2;
 
       /* Success.  Commit the parameter array.  */
-      BUFF_FRONT (pfile->a_buff) = (U_CHAR *) &macro->params[macro->paramc];
+      BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->params[macro->paramc];
       macro->fun_like = 1;
     }
   else if (ctoken->type != CPP_EOF && !(ctoken->flags & PREV_WHITE))
@@ -1411,7 +1420,7 @@ _cpp_create_definition (pfile, node)
     macro->expansion[0].flags &= ~PREV_WHITE;
 
   /* Commit the memory.  */
-  BUFF_FRONT (pfile->a_buff) = (U_CHAR *) &macro->expansion[macro->count];
+  BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->expansion[macro->count];
 
   /* Implement the macro-defined-to-itself optimisation.  */
   if (macro->count == 1 && !macro->fun_like
@@ -1469,7 +1478,7 @@ check_trad_stringification (pfile, macro, string)
      const cpp_string *string;
 {
   unsigned int i, len;
-  const U_CHAR *p, *q, *limit = string->text + string->len;
+  const uchar *p, *q, *limit = string->text + string->len;
   
   /* Loop over the string.  */
   for (p = string->text; p < limit; p = q)
@@ -1550,7 +1559,7 @@ cpp_macro_definition (pfile, node)
 
   if (len > pfile->macro_buffer_len)
     {
-      pfile->macro_buffer = (U_CHAR *) xrealloc (pfile->macro_buffer, len);
+      pfile->macro_buffer = (uchar *) xrealloc (pfile->macro_buffer, len);
       pfile->macro_buffer_len = len;
     }
 

@@ -74,6 +74,12 @@ static void c_post_options PARAMS ((void));
 #define LANG_HOOKS_PRINT_IDENTIFIER c_print_identifier
 #undef LANG_HOOKS_SET_YYDEBUG
 #define LANG_HOOKS_SET_YYDEBUG c_set_yydebug
+#undef LANG_HOOKS_FUNCTION_ENTER_NESTED
+#define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
+#undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
+#define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
+#undef LANG_HOOKS_FUNCTION_MARK
+#define LANG_HOOKS_FUNCTION_MARK c_mark_function_context
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
 
@@ -100,6 +106,10 @@ static void c_post_options PARAMS ((void));
 #define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
+#undef LANG_HOOKS_INCOMPLETE_TYPE_ERROR
+#define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
+#undef LANG_HOOKS_TYPE_PROMOTES_TO
+#define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 

@@ -1,3 +1,49 @@
+2002-04-23  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6314:
+	* jvspec.c (lang_specific_driver): Use --resource, not -R.  Also
+	recognize `-fcompile-resource='.
+	* gcj.texi (Invoking gcj): Use --resource, not -R.  Expanded text
+	a bit.
+
+2002-04-22  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* jcf-parse.c: (yyparse): Don't prepend "./" to relative
+	paths. Fixes PR java/2791.
+
+2002-04-19  Andrew Haley  <aph@redhat.com>
+
+        * jcf-write.c (push_long_const): lo, hi: New variables.
+        Use rshift_double to extract the high part of a 64-bit long.
+        Use WORD_TO_INT to extract the low part.
+
+        * jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
+        HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
+        CONSTANT_Double: Use JPOOL_UINT to get both halve of a double.
+
+2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* typeck.c (incomplete_type_error): Remove.
+
+2002-04-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* class.c (make_class_data): Set DECL_ALIGN on static class data,
+	for hash synchronization.
+	* expr.c (java_expand_expr): Set DECL_ALIGN on static array objects.
+	* decl.c (java_init_decl_processing): Don't set TYPE_ALIGN for
+	class_type_node.
+
+2002-04-16  Mark Wielaard  <mark@klomp.org>
+
+	* jcf-write.c (generate_bytecode_insns): Only write const_0 if not
+	negative zero.
+
+2002-04-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6294:
+	* parse.h (INNER_INTERFACE_MODIFIERS): Allow ACC_PRIVATE for inner
+	interfaces.
+	
 2002-04-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	Fix for PR java/6085:
@@ -33,7 +79,6 @@
 	* Make-lang.in: Compile jcf-path with version info for use in
 	identifying the appropriate libgcj.jar.
 
->>>>>>> 1.982
 2002-04-08  Tom Tromey  <tromey@redhat.com>
 
 	For PR libgcj/5303:
@@ -317,9 +362,9 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Fix for PR java/5812.
 	* expr.c (build_java_jsr):  Take pc arguments, and do lookup_label
-	gere instead of in JSR macro.  Likewise with load_type_state call.
+	here instead of in JSR macro.  Likewise with load_type_state call.
 	Do the latter on if the return_pc has been verified (the jsr returns).
-	(JSR):  No just call build_java_jsr.
+	(JSR):  Now just call build_java_jsr.
 
 2002-03-07  Jeff Sturm  <jsturm@one-point.com>
 

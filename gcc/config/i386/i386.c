@@ -1337,7 +1337,7 @@ ix86_osf_output_function_prologue (file, size)
 {
   const char *prefix = "";
   const char *const lprefix = LPREFIX;
-  int labelno = profile_label_no;
+  int labelno = current_function_profile_label_no;
 
 #ifdef OSF_OS
 
@@ -5426,11 +5426,15 @@ i386_simplify_dwarf_addr (orig_x)
 {
   rtx x = orig_x, y;
 
+  if (GET_CODE (x) == MEM)
+    x = XEXP (x, 0);
+
   if (TARGET_64BIT)
     {
       if (GET_CODE (x) != CONST
 	  || GET_CODE (XEXP (x, 0)) != UNSPEC
-	  || XINT (XEXP (x, 0), 1) != 15)
+	  || XINT (XEXP (x, 0), 1) != 15
+	  || GET_CODE (orig_x) != MEM)
 	return orig_x;
       return XVECEXP (XEXP (x, 0), 0, 0);
     }
@@ -5465,8 +5469,8 @@ i386_simplify_dwarf_addr (orig_x)
 
   x = XEXP (XEXP (x, 1), 0);
   if (GET_CODE (x) == UNSPEC
-      && (XINT (x, 1) == 6
-	  || XINT (x, 1) == 7))
+      && ((XINT (x, 1) == 6 && GET_CODE (orig_x) == MEM)
+	  || (XINT (x, 1) == 7 && GET_CODE (orig_x) != MEM)))
     {
       if (y)
 	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
@@ -5476,8 +5480,8 @@ i386_simplify_dwarf_addr (orig_x)
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == UNSPEC
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (XINT (XEXP (x, 0), 1) == 6
-	  || XINT (XEXP (x, 0), 1) == 7))
+      && ((XINT (XEXP (x, 0), 1) == 6 && GET_CODE (orig_x) == MEM)
+	  || (XINT (XEXP (x, 0), 1) == 7 && GET_CODE (orig_x) != MEM)))
     {
       x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
       if (y)
@@ -6684,7 +6688,7 @@ ix86_output_addr_diff_elt (file, value, rel)
      int value, rel;
 {
   if (TARGET_64BIT)
-    fprintf (file, "%s%s%d-.+(.-%s%d)\n",
+    fprintf (file, "%s%s%d-%s%d\n",
 	     ASM_LONG, LPREFIX, value, LPREFIX, rel);
   else if (HAVE_AS_GOTOFF_IN_DATA)
     fprintf (file, "%s%s%d@GOTOFF\n", ASM_LONG, LPREFIX, value);
@@ -7981,6 +7985,10 @@ ix86_expand_int_movcc (operands)
       && GET_CODE (ix86_compare_op1) == CONST_INT
       && mode != HImode
       && (unsigned int) INTVAL (ix86_compare_op1) != 0xffffffff
+      /* The operand still must be representable as sign extended value.  */
+      && (!TARGET_64BIT
+	  || GET_MODE (ix86_compare_op0) != DImode
+	  || (unsigned int) INTVAL (ix86_compare_op1) != 0x7fffffff)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
     {
@@ -8132,6 +8140,61 @@ ix86_expand_int_movcc (operands)
 	      code = reverse_condition (code);
 	    }
 	}
+
+      compare_code = NIL;
+      if (GET_MODE_CLASS (GET_MODE (ix86_compare_op0)) == MODE_INT
+	  && GET_CODE (ix86_compare_op1) == CONST_INT)
+	{
+	  if (ix86_compare_op1 == const0_rtx
+	      && (code == LT || code == GE))
+	    compare_code = code;
+	  else if (ix86_compare_op1 == constm1_rtx)
+	    {
+	      if (code == LE)
+		compare_code = LT;
+	      else if (code == GT)
+		compare_code = GE;
+	    }
+	}
+
+      /* Optimize dest = (op0 < 0) ? -1 : cf.  */
+      if (compare_code != NIL
+	  && GET_MODE (ix86_compare_op0) == GET_MODE (out)
+	  && (cf == -1 || ct == -1))
+	{
+	  /* If lea code below could be used, only optimize
+	     if it results in a 2 insn sequence.  */
+
+	  if (! (diff == 1 || diff == 2 || diff == 4 || diff == 8
+		 || diff == 3 || diff == 5 || diff == 9)
+	      || (compare_code == LT && ct == -1)
+	      || (compare_code == GE && cf == -1))
+	    {
+	      /*
+	       * notl op1	(if necessary)
+	       * sarl $31, op1
+	       * orl cf, op1
+	       */
+	      if (ct != -1)
+		{
+		  cf = ct;
+	  	  ct = -1;
+		  code = reverse_condition (code);
+		}
+
+	      out = emit_store_flag (out, code, ix86_compare_op0,
+				     ix86_compare_op1, VOIDmode, 0, -1);
+
+	      out = expand_simple_binop (mode, IOR,
+					 out, GEN_INT (cf),
+					 out, 1, OPTAB_DIRECT);
+	      if (out != operands[0])
+		emit_move_insn (operands[0], out);
+
+	      return 1; /* DONE */
+	    }
+	}
+
       if ((diff == 1 || diff == 2 || diff == 4 || diff == 8
 	   || diff == 3 || diff == 5 || diff == 9)
 	  && (mode != DImode || x86_64_sign_extended_value (GEN_INT (cf))))
@@ -8226,29 +8289,60 @@ ix86_expand_int_movcc (operands)
 	      ct = cf;
 	      cf = 0;
 	      if (FLOAT_MODE_P (GET_MODE (ix86_compare_op0)))
-		{
-		  /* We may be reversing unordered compare to normal compare,
-		     that is not valid in general (we may convert non-trapping
-		     condition to trapping one), however on i386 we currently
-		     emit all comparisons unordered.  */
-		  compare_code = reverse_condition_maybe_unordered (compare_code);
-		  code = reverse_condition_maybe_unordered (code);
-		}
+		/* We may be reversing unordered compare to normal compare,
+		   that is not valid in general (we may convert non-trapping
+		   condition to trapping one), however on i386 we currently
+		   emit all comparisons unordered.  */
+		code = reverse_condition_maybe_unordered (code);
 	      else
 		{
-		  compare_code = reverse_condition (compare_code);
 		  code = reverse_condition (code);
+		  if (compare_code != NIL)
+		    compare_code = reverse_condition (compare_code);
 		}
 	    }
 
-	  out = emit_store_flag (out, code, ix86_compare_op0,
-				 ix86_compare_op1, VOIDmode, 0, 1);
-	  if (!out)
-	    return 0;
+	  if (compare_code != NIL)
+	    {
+	      /* notl op1	(if needed)
+		 sarl $31, op1
+		 andl (cf-ct), op1
+	 	 addl ct, op1
 
-	  out = expand_simple_binop (mode, PLUS,
-				     out, constm1_rtx,
-				     out, 1, OPTAB_DIRECT);
+		 For x < 0 (resp. x <= -1) there will be no notl,
+		 so if possible swap the constants to get rid of the
+		 complement.
+		 True/false will be -1/0 while code below (store flag
+		 followed by decrement) is 0/-1, so the constants need
+		 to be exchanged once more.  */
+
+	      if (compare_code == GE || !cf)
+		{
+	  	  code = reverse_condition (code);
+		  compare_code = LT;
+		}
+	      else
+		{
+		  HOST_WIDE_INT tmp = cf;
+	  	  cf = ct;
+		  ct = tmp;
+		}
+
+	      out = emit_store_flag (out, code, ix86_compare_op0,
+				     ix86_compare_op1, VOIDmode, 0, -1);
+	    }
+	  else
+	    {
+	      out = emit_store_flag (out, code, ix86_compare_op0,
+				     ix86_compare_op1, VOIDmode, 0, 1);
+
+	      if (!out)
+		return 0;
+	      out = expand_simple_binop (mode, PLUS,
+					 out, constm1_rtx,
+					 out, 1, OPTAB_DIRECT);
+	    }
+
 	  out = expand_simple_binop (mode, AND,
 				     out,
 				     gen_int_mode (cf - ct, mode),
@@ -9451,7 +9545,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 				 gen_rtx_SUBREG (SImode, zeroreg, 0)));
       if (TARGET_64BIT && (align <= 4 || count == 0))
 	{
-	  rtx label = ix86_expand_aligntest (destreg, 2);
+	  rtx label = ix86_expand_aligntest (countreg, 2);
 	  emit_insn (gen_strsetsi (destreg,
 				   gen_rtx_SUBREG (SImode, zeroreg, 0)));
 	  emit_label (label);
@@ -9462,7 +9556,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 				 gen_rtx_SUBREG (HImode, zeroreg, 0)));
       if (align <= 2 || count == 0)
 	{
-	  rtx label = ix86_expand_aligntest (destreg, 2);
+	  rtx label = ix86_expand_aligntest (countreg, 2);
 	  emit_insn (gen_strsethi (destreg,
 				   gen_rtx_SUBREG (HImode, zeroreg, 0)));
 	  emit_label (label);
@@ -9473,7 +9567,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 				 gen_rtx_SUBREG (QImode, zeroreg, 0)));
       if (align <= 1 || count == 0)
 	{
-	  rtx label = ix86_expand_aligntest (destreg, 1);
+	  rtx label = ix86_expand_aligntest (countreg, 1);
 	  emit_insn (gen_strsetqi (destreg,
 				   gen_rtx_SUBREG (QImode, zeroreg, 0)));
 	  emit_label (label);

@@ -1,3 +1,108 @@
+2002-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/parse/attr1.C: New test.
+
+2002-04-23  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/string-opt-17.c: New test case.
+	* gcc.c-torture/execute/memset-2.c: New test case.
+
+2002-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6256:
+	* g++.dg/template/friend5.C: New test.
+
+	PR c++/6331:
+	* g++.dg/template/qual1.C: Likewise.
+
+2002-04-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/980707-1.c: Don't use isspace().
+	Include stdlib.h, not stdio.h or ctype.h.
+
+2002-04-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20020415-1.c: Expect warning for unsupported -fpic on
+	cris-*-elf* and mmix-*-*.
+	* g77.f-torture/execute/io0.x: xfail for cris-*-elf.
+	* g77.f-torture/execute/io1.x, g77.f-torture/execute/20001201.x,
+	g77.f-torture/execute/6367.x, g77.f-torture/execute/u77-test.x:
+	Ditto.
+	* gcc.dg/wint_t-1.c: Mark excess errors for cris-*-elf.
+	* gcc.dg/wchar_t-1.c: Ditto.
+
+2002-04-21  Hans-Peter Nilsson  <hp@axis.com>
+
+	* g++.dg/opt/cleanup1.C (C::C()): Initialize member c.
+	Clarify comment.
+
+2002-04-21  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/endif.h, gcc.dg/cpp/endif.c: New tests.
+
+2002-04-21  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.c-torture/execute/20000906-1.x: Delete.
+
+2002-04-20  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g77.dg/f77-edit-i-in.f: Restore missing { dg-do run }
+
+2002-04-19  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* PR6367
+	* g77.f-torture/execute/6367.f: New test.
+	* g77.f-torture/execute/6367.x: Disable for MMIX.
+
+2002-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* PR6352
+	* g++.dg/opt/inline2.C: New test.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+        * gcc.dg/20000906-1.c: Enable for all targets.
+        * gcc.c-torture/compile/iftrap-2.c: New.
+
+2002-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020418-1.c: New test.
+	* gcc.dg/20020418-2.c: New test.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+        * gcc.c-torture/compile/iftrap-1.c: New.
+        * gcc.dg/iftrap-1.c: Adjust for ia64.
+        * gcc.dg/iftrap-2.c: New.
+
+2002-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020418-1.c: New test.
+
+2002-04-18  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/compile/20020415-1.c: New.
+
+2002-04-18  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/20020418-1.c: New test.
+
+2002-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020416-1.c: New test.
+
+	* g++.dg/opt/inline1.C: New test.
+
+2002-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/altivec-5.c: New test.
+
+	* gcc.dg/20020415-1.c: New test.
+
+2002-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/lib/chill.exp: Remove.
+
 2002-04-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/other/big-struct.C: New test.
@@ -71,7 +176,7 @@
 	* g++.dg/opt/const1.C: New test.
 
 2002-04-10  Lars Brinkhoff  <lars@nocrew.org>
- 
+
 	* gcc.c-torture/execute/20020406-1.c: Declare malloc.
 
 2002-04-10  Nathan Sidwell  <nathan@codesourcery.com>
@@ -234,7 +339,7 @@
 2002-03-27  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/init/new2.C: New test.
-	
+
 2002-03-26  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/pragma-re-2.c: Avoid empty source file warning.

@@ -39,11 +39,19 @@ lhd_do_nothing ()
 {
 }
 
-/* Do nothing.  */
+/* Do nothing (tree).  */
 
 void
 lhd_do_nothing_t (t)
      tree t ATTRIBUTE_UNUSED;
+{
+}
+
+/* Do nothing (function).  */
+
+void
+lhd_do_nothing_f (f)
+     struct function *f ATTRIBUTE_UNUSED;
 {
 }
 
@@ -176,6 +184,25 @@ lhd_clear_binding_stack ()
 {
   while (! (*lang_hooks.decls.global_bindings_p) ())
     poplevel (0, 0, 0);
+}
+
+/* Type promotion for variable arguments.  */
+tree
+lhd_type_promotes_to (type)
+     tree type ATTRIBUTE_UNUSED;
+{
+  abort ();
+}
+
+/* Invalid use of an incomplete type.  */
+void
+lhd_incomplete_type_error (value, type)
+     tree value ATTRIBUTE_UNUSED, type;
+{
+  if (TREE_CODE (type) == ERROR_MARK)
+    return;
+
+  abort ();
 }
 
 /* Provide a default routine for alias sets that always returns -1.  This

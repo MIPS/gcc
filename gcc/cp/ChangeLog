@@ -1,3 +1,87 @@
+2002-04-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/6331
+	* method.c (do_build_copy_constructor): Use cp_build_qualified_type.
+	* typeck.c (build_modify_expr): Allow arrays to differ in cv-quals.
+
+	PR c++/6395
+	* decl.c (make_rtl_for_nonlocal_decl): Don't mess with #pragma i/i
+	stuff for comdats.
+
+2002-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* parse.y (check_class_key): Allow KEY to be union/enum/struct/class
+	node with attributes.
+
+2002-2-23  David O'Brien  <obrien@FreeBSD.org>
+
+	* g++spec.c (MATH_LIBRARY_PROFILE, LIBSTDCXX_PROFILE): Add.
+	Use MATH_LIBRARY_PROFILE and LIBSTDCXX_PROFILE if profile flag given.
+
+2002-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6256:
+	* pt.c (tsubst_friend_class): Handle templates with explicit
+	nested names.
+
+	PR c++/6331:
+	* typeck.c (merge_types): Remember the cv-qualification of pointer
+	types when merging them.
+
+2002-04-20  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_FUNCTION_INIT,
+	LANG_HOOKS_FUNCTION_FREE, LANG_HOOKS_FUNCTION_MARK): Redefine.
+	* cp-tree.h (cxx_push_function_context, cxx_pop_function_context,
+	cxx_mark_function_context): New.
+	* decl.c (push_cp_function_context, pop_cp_function_context,
+	mark_cp_function_context): Rename for consistency.
+	(cxx_init_decl_processing): Don't set old hooks.
+
+2002-04-19  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* call.c (convert_type_from_ellipsis): Rename, update.
+	* cp-lang.c (LANG_HOOKS_TYPE_PROMOTES_TO): Redefine.
+	* cp-tree.h (convert_type_from_ellipsis): Rename.
+	* decl.c (cxx_init_decl_processing): Don't set hook.
+
+2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* call.c (build_new_method_call): Update.
+	* cp-lang.c (LANG_HOOKS_INCOMPLETE_TYPE_ERROR): Redefine.
+	* cp-tree.h (cxx_incomplete_type_error): New.
+	* decl.c (grokdeclarator, grokparms): Update.
+	* decl2.c (check_classfn): Update.
+	* pt.c (tsubst): Update.
+	* typeck.c (complete_type_or_else, expr_sizeof,
+	decay_conversion): Update.
+	* typeck2.c (incomplete_type_error): Rename.
+	(add_exception_specifier): Update.
+
+2002-04-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/5658
+	* search.c (setup_class_bindings): A class template qualifies as a
+	type binding.
+
+2002-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/6316
+	* decl2.c (finish_file): Clear DECL_EXTERNAL in a separate loop
+	before expanding.
+
+2002-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* init.c (begin_init_stmts): Remove commented out code.
+	(finish_init_stmts): Set STMT_EXPR_NO_SCOPE.
+	* semantics.c (begin_gobal_stmt_expr): Adjust call to
+	expand_start_stmt_expr.
+	
+2002-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (register_dtor_fn): Pass the address of dso_handle, not
+	dso_handle itself, to __cxa_atexit.
+
 2002-04-15  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
 
 	* error.c (cxx_print_error_function): Adjust call to macros.

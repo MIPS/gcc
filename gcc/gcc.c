@@ -825,7 +825,6 @@ static const struct compiler default_compilers[] =
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
   {".r", "#Ratfor", 0},
   {".p", "#Pascal", 0}, {".pas", "#Pascal", 0},
-  {".ch", "#Chill", 0}, {".chi", "#Chill", 0},
   {".java", "#Java", 0}, {".class", "#Java", 0},
   {".zip", "#Java", 0}, {".jar", "#Java", 0},
   /* Next come the entries for C.  */
@@ -967,6 +966,7 @@ static const struct option_map option_map[] =
    {"--profile", "-p", 0},
    {"--profile-blocks", "-a", 0},
    {"--quiet", "-q", 0},
+   {"--resource", "-fcompile-resource=", "aj"},
    {"--save-temps", "-save-temps", 0},
    {"--shared", "-shared", 0},
    {"--silent", "-q", 0},
@@ -1863,8 +1863,9 @@ read_specs (filename, main_p)
 	    {
 	      int name_len;
 	      struct spec_list *sl;
+	      struct spec_list *newsl;
 
-	      /* Get original name */
+	      /* Get original name.  */
 	      p1 += sizeof "%rename";
 	      while (*p1 == ' ' || *p1 == '\t')
 		p1++;
@@ -1909,6 +1910,11 @@ read_specs (filename, main_p)
 
 	      if (strcmp (p1, p2) == 0)
 		continue;
+
+	      for (newsl = specs; newsl; newsl = newsl->next)
+		if (strcmp (newsl->name, p2) == 0)
+		  fatal ("%s: attempt to rename spec '%s' to already defined spec '%s'",
+		    filename, p1, p2);
 
 	      if (verbose_flag)
 		{

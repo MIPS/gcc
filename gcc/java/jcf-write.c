@@ -25,6 +25,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "jcf.h"
 #include "tree.h"
+#include "real.h"
 #include "java-tree.h"
 #include "obstack.h"
 #undef AND
@@ -852,15 +853,20 @@ push_long_const (lo, hi, state)
      HOST_WIDE_INT lo, hi;
      struct jcf_partial *state;
 {
-  if (hi == 0 && lo >= 0 && lo <= 1)
+  HOST_WIDE_INT highpart, dummy;
+  jint lowpart = WORD_TO_INT (lo);
+
+  rshift_double (lo, hi, 32, 64, &highpart, &dummy, 1);
+
+  if (highpart == 0 && (lowpart == 0 || lowpart == 1))
     {
       RESERVE(1);
-      OP1(OPCODE_lconst_0 + lo);
+      OP1(OPCODE_lconst_0 + lowpart);
     }
-  else if ((hi == 0 && (jword)(lo  & 0xFFFFFFFF) < 32768) 
-          || (hi == -1 && (lo & 0xFFFFFFFF) >= (jword)-32768))
+  else if ((highpart == 0 && lowpart > 0 && lowpart < 32768) 
+	   || (highpart == -1 && lowpart < 0 && lowpart >= -32768))
       {
-        push_int_const (lo, state);
+        push_int_const (lowpart, state);
         RESERVE (1);
         OP1 (OPCODE_i2l);
       }
@@ -1536,7 +1542,7 @@ generate_bytecode_insns (exp, target, state)
       {
 	int prec = TYPE_PRECISION (type) >> 5;
 	RESERVE(1);
-	if (real_zerop (exp))
+	if (real_zerop (exp) && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (exp)))
 	  OP1 (prec == 1 ? OPCODE_fconst_0 : OPCODE_dconst_0);
 	else if (real_onep (exp))
 	  OP1 (prec == 1 ? OPCODE_fconst_1 : OPCODE_dconst_1);

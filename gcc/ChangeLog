@@ -1,3 +1,859 @@
+2002-04-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h: Cleanup file.  Add non individual
+	variants.
+	(vec_vaddubm): New.
+	(vec_vadduhm): New.
+	(vec_vadduwm): New.
+	(vec_vaddfp): New.
+	(vec_vaddcuw): New.
+	(vec_vaddubs): New.
+	(vec_vaddsbs): New.
+	(vec_vadduhs): New.
+	(vec_vadduws): New.
+	(vec_vaddsws): New.
+	(vec_vand): New.
+	(vec_vandc): New.
+	(vec_vavgub): New.
+	(vec_vavgsb): New.
+	(vec_vavguh): New.
+	(vec_vavgsh): New.
+	(vec_vavguw): New.
+	(vec_vavgsw): New.
+	(vec_vrfip): New.
+	(vec_vcmpbfp): New.
+	(vec_vcmpequb): New.
+	(vec_vcmpequh): New.
+	(vec_vcmpequw): New.
+	(vec_vcmpeqfp): New.
+	(vec_vcmpgefp): New.
+	(vec_vcmpgtub): New.
+	(vec_vcmpgtsb): New.
+	(vec_vcmpgtuh): New.
+	(vec_vcmpgtsh): New.
+	(vec_vcmpgtuw): New.
+	(vec_vcmpgtsw): New.
+	(vec_vcmpgtfp): New.
+	(vec_vcmpgefp): New.
+	(vec_vcfux): New.
+	(vec_vcfsx): New.
+	(vec_vctsxs): New.
+	(vec_vctuxs): New.
+	(vec_vexptefp): New.
+	(vec_vrfim): New.
+	(vec_lvx): New.
+	(vec_lvebx): New.
+	(vec_lvehx): New.
+	(vec_lde): Add vector float variant.
+	(vec_lvewx): New.
+	(vec_lvxl): New.
+	(vec_vlogefp): New.
+	(vec_vmaddfp): New.
+	(vec_vmhaddshs): New.
+	(vec_vmaxub): New.
+	(vec_vmaxsb): New.
+	(vec_vmaxuh): New.
+	(vec_vmaxsh): New.
+	(vec_vmaxuw): New.
+	(vec_vmaxsw): New.
+	(vec_vmaxsw): New.
+	(vec_vmaxfp): New.
+	(vec_vmrghb): New.
+	(vec_vmrghh): New.
+	(vec_vmrghw): New.
+	(vec_vmrglb): New.
+	(vec_vmrglh): New.
+	(vec_vmrglw): New.
+	(vec_vminub): New.
+	(vec_vminsb): New.
+	(vec_vminuh): New.
+	(vec_vminsh): New.
+	(vec_vminuw): New.
+	(vec_vminsw): New.
+	(vec_vminfp): New.
+	(vec_vmladduhm): New.
+	(vec_vmhraddshs): New.
+	(vec_msumubm): New.
+	(vec_vmsummbm): New.
+	(vec_vmsumuhm): New.
+	(vec_vmsumshm): New.
+	(vec_vmsumuhs): New.
+	(vec_vmsumshs): New.
+	(vec_vmuleub): New.
+	(vec_vmulesb): New.
+	(vec_vmuleuh): New.
+	(vec_vmulesh): New.
+	(vec_vmuloub): New.
+	(vec_mulosb): New.
+	(vec_vmulouh): New.
+	(vec_vmulosh): New.
+	(vec_vnmsubfp): New.
+	(vec_vnor): New.
+	(vec_vor): New.
+	(vec_vpkuhum): New.
+	(vec_vpkuwum): New.
+	(vec_vpkpx): New.
+	(vec_vpkuhus): New.
+	(vec_vpkshss): New.
+	(vec_vpkuwus): New.
+	(vec_vpkswss): New.
+	(vec_vpkshus): New.
+	(vec_vpkswus): New.
+	(vec_vperm): New.
+	(vec_vrefp): New.
+	(vec_vrlb): New.
+	(vec_vrlh): New.
+	(vec_vrlw): New.
+	(vec_vrfin): New.
+	(vec_vrsqrtefp): New.
+	(vec_vsel): New.
+	(vec_vslb): New.
+	(vec_vslh): New.
+	(vec_vslw): New.
+	(vec_vsldoi): New.
+	(vec_vsl): New.
+	(vec_vslo): New.
+	(vec_vspltb): New.
+	(vec_vsplth): New.
+	(vec_vspltw): New.
+	(vec_vspltisb): New.
+	(vec_vspltish): New.
+	(vec_vspltisw): New.
+	(vec_vsrb): New.
+	(vec_vsrh): New.
+	(vec_vsrw): New.
+	(vec_vsrab): New.
+	(vec_vsrah): New.
+	(vec_vsraw): New.
+	(vec_vsr): New.
+	(vec_vsro): New.
+	(vec_stvx): New.
+	(vec_stvebx): New.
+	(vec_stvehx): New.
+	(vec_stvewx): New.
+	(vec_stvxl): New.
+	(vec_vsububm): New.
+	(vec_vsubuhm): New.
+	(vec_vsubuwm): New.
+	(vec_vsubfp): New.
+	(vec_vsubcuw): New.
+	(vec_vsububs): New.
+	(vec_vsubsbs): New.
+	(vec_vsubuhs): New.
+	(vec_vsubshs): New.
+	(vec_vsubuws): New.
+	(vec_vsubsws): New.
+	(vec_vsum4ubs): New.
+	(vec_vsum4sbs): New.
+	(vec_vsum4shs): New.
+	(vec_vsum2sws): New.
+	(vec_vsumsws): New.
+	(vec_vrfiz): New.
+	(vec_vupkhsb): New.
+	(vec_vupkhpx): New.
+	(vec_vupkhsh): New.
+	(vec_vupklsb): New.
+	(vec_vupklpx): New.
+	(vec_vupklsh): New.
+	(vec_vxor): New.
+
+2002-04-23  Eric Botcazou  <ebotcazou@multimania.com>
+
+	PR c/5430
+	* fold-const.c (split_tree): Add MINUS_LITP parameter; separate
+	added literals from substracted literals.
+	(associate_trees): Don't convert MINUS_EXPR into PLUS_EXPR.
+	(fold) [associate]: Preserve MINUS_EXPR if needed.
+
+2002-04-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* doc/install.texi: Clarify which versions of alpha*-dec-osf*
+	are obsoleted.
+
+2002-04-23  Tom Tromey  <tromey@redhat.com>
+
+	* gcc.c: Added --resource.  For PR java/6314.
+
+2002-04-23  David O'Brien  <obrien@FreeBSD.org>
+
+	* cp/g++spec.c: Use profiled libstdc++ and libm with -p/-pg.
+	* config/freebsd.h (MATH_LIBRARY_PROFILE): Use the _p verions of
+	these libraries.
+
+2002-04-23  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/freebsd.h(OBJECT_FORMAT_ELF): Define.
+
+Tue Apr 23 14:24:25 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_output_addr_diff_elt): Avoid x86_64 binutils bug
+	workaround.
+	(ix86_expand_int_movcc): Avoid x86_64 compilation chrash.
+	(ix86_expand_clrstr): Fix typo.
+	* loop.c (gen_load_of_final_value): New.
+	(loop_givs_rescan, strength_reduce, check_dbra_loop):
+	Use it.
+
+2002-04-23  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (builtin_memset_gen_str): New function.
+	(expand_builtin_memset): Optimize the case of constant length, but
+	unknown value.
+
+2002-04-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h (vec_step): Remove extraneous
+	parentheses.
+	(vec_ctu): Cast return.
+
+2002-04-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/6413
+	* function.h: (struct function): Add profile_label_no field.
+	(current_function_profile_label_no): Define.
+	* function.c: (profile_label_no): New static var.
+	(expand_function_start): Increment it, and copy to
+	current_function_profile_label_no.
+	* output.h (profile_label_no): Delete.
+	* final.c (profile_label_no): Delete.
+	(profile_function): Use current_function_profile_label_no.
+	(final_end_function): Don't increment profile_label_no here.
+	* config/i386/i386.c (ix86_osf_output_function_prologue): Replace
+	profile_label_no with current_function_profile_label_no.
+	* config/pa/pa.c (current_function_number): Delete.
+	(pa_output_function_prologue): Don't output profile label here.
+	(hppa_profile_hook): Use label_no param rather than
+	current_function_number.
+	(FUNC_BEGIN_PROLOG_LABEL): Move to ..
+	* config/pa/pa.h: .. here.
+	(FUNCTION_PROFILER): Output profile label here.
+
+2002-04-22  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.h (ASM_OUTPUT_ALIGNED_DECL_COMMON): Revert
+	patch of 2002-04-09 due to binutils issues.
+	(FUNCTION_ARG_REGNO_P): Ensure even numbered float register.
+
+2002-04-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.md ("*movv4si_internal"): Change 'm'
+	constraint to 'o' for m=r and r=m alternatives.
+	("*movv8hi_internal1"): Same.
+	("*movv16qi_internal1"): Same.
+	("*movv4sf_internal1"): Same.
+
+2002-04-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* rtl.h (RTX_FLAG): New macro.
+	* emit-rtl.c (copy_most_rtx): Use macros to access rtx flags.
+	* final.c (alter_subreg): Use macro to access rtx flag.
+	* integrate.c (copy_rtx_and_substitute): Use new access macro.
+	* print-rtl.c (print_rtx): Use new access macro.
+
+	* cse.c (insert): Check rtx code before accessing flag.
+
+	* genattrtab.c (ATTR_IND_SIMPLIFIED_P, ATTR_CURR_SIMPLIFIED_P,
+	ATTR_PERMANENT_P, ATTR_EQ_ATTR_P): New.
+	(attr_hash_add_string, attr_rtx_1, attr_copy_rtx, check_attr_test,
+	convert_const_symbol_ref, make_canonical, make_alternative_compare,
+	evaluate_eq_attr, attr_rtx_cost, simplify_test_exp_in_temp,
+	simplify_test_exp, optimize_attrs, simplify_by_exploding,
+	find_and_mark_used_attributes, unmark_used_attributes,
+	add_values_to_cover, simplify_with_current_value,
+	simplify_with_current_value_aux, clear_struct_flag, walk_attr_value,
+	copy_rtx_unchanging, main): Use new access macros.
+
+2002-04-22  Tom Rix  <trix@redhat.com>
+
+	* expmed.c (init_expmed): Generate shifted constant once.
+
+2002-04-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* c-lex.c (lex_charconst): Call convert to get constant in
+	proper type; don't just smash the type field.
+	Fixes PR c/6300.
+
+	* config.gcc: Add list of obsolete configurations.  Disallow
+	building these without --enable-obsolete.
+	* doc/install.texi: Document --enable-obsolete and obsoletion
+	policy.  Mention obsoletion of individual targets in
+	appropriate places.
+
+2002-04-22  Richard Henderson  <rth@redhat.com>
+
+	* config/sparc/sol2-bi.h (ASM_DEBUG_SPEC): New.
+
+2002-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR f/6138.
+	* function.c (fixup_memory_subreg): Add promoted_mode parameter.
+	(walk_fixup_memory_subreg): Likewise.
+	(fixup_var_refs_insn): Adjust accordingly.
+	(fixup_var_refs_1): Likewise.
+
+2002-04-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/linux.h: (LIBPATH_SPEC, LIBPATH_ARCH31_SPEC,
+	LIBPATH_ARCH64_SPEC): Define.
+	(EXTRA_SPECS): Add libpath, libpath_arch31, libpath_arch64.
+	(STARTFILE_SPEC, ENDFILE_SPEC): Define; use libpath.
+	(LINK_ARCH31_SPEC): Add libpath_arch31 to search path.
+	(LINK_ARCH64_SPEC): Add libpath_arch64 to search path.
+
+2002-04-22	Joel Sherrill <joel@OARcorp.com>
+
+	* gthr-rtems.h: Correct prototypes to remove warnings.
+
+2002-04-22  Richard Henderson  <rth@redhat.com>
+
+	PR c/6344
+	* alias.c (canon_true_dependence): Special case (mem:blk (scratch)).
+
+	* gcse.c (free_insn_expr_list_list): New.
+	(clear_modify_mem_tables): Use it.  Fix bit set usage.
+	(canon_list_insert): Use EXPR_LISTs for expressions.
+	(record_last_mem_set_info): Factor BLOCK_NUM (insn).
+
+2002-04-22  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppfiles.c (_cpp_pop_file_buffer): Return void.  Move
+	file change and include code to _cpp_pop_buffer.
+	* cpphash.h (struct pending_option): Predeclare.
+	(struct cpp_reader): New member next_include_file.
+	(_cpp_pop_file_buffer): Update.
+	(_cpp_push_next_buffer): Update, rename.
+	* cppinit.c (cpp_destroy): Free include chain and pending here.
+	(cpp_finish_options): Simplify.
+	(_cpp_push_next_buffer): Rename and clean up.
+	* cpplib.c (cpp_pop_buffer): Move code from _cpp_pop_file_buffer.
+	Clarify.
+	* cppmacro.c (cpp_scan_nooutput): Set return_at_eof here.
+
+2002-04-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h (vec_xor): Add variant for both args
+	being vector signed int.
+	(vec_andc): Same.
+	(vec_xor): Add variant for both args being vector signed char.
+	Remove redundant variant.
+	(vec_andc): Same.
+
+2002-04-21  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.md (set then compare DI mode peephole2): Fix
+	compare mode in output RTL.
+
+2002-04-22  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Correct
+	style and formatting of previous patch.
+
+2002-04-22  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Always clear
+	flag_pic for ABI_AIX.
+
+2002-04-21  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppexp.c (struct op, parse_number): Replace U_CHAR with uchar.
+	* cppfiles.c (read_include_file): Similarly.
+	* cpphash.h (DSC, U_CHAR, ustrcmp, ustrncmp, ustrlen,
+	uxstrdup ustrchr, ufputs): Similarly.
+	* cppinit.c (TRIGRAPH_MAP, cpp_destroy): Similarly.
+	* cpplex.c (parse_slow, unescaped_terminator_p, save_comment,
+	cpp_ideq, parse_identifier, parse_number): Similarly.
+	* cpplib.c (struct directive, dequote_string, D, run_directive,
+	cpp_push_buffer): Similarly.
+	* cppmacro.c (new_string_token, builtin_macro, cpp_quote_string,
+	_cpp_create_definition, check_trad_stringification,
+	cpp_macro_definition): Similarly.
+
+2002-04-21  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppmacro.c (funlike_invocation_p): Don't step back
+	over CPP_EOF.
+
+2002-04-21  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (output_profile_hook): Do not increment
+	labelno.
+
+2002-04-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* doc/invoke.texi: Remove Chill references.
+	* doc/gcc.texi: Update last modified date.
+
+2002-04-20  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/lib1funcs.asm (___mulsi3): Remove unnecessary
+	push and pop.  Replace add.l with add.w.
+
+2002-04-20  Toshiyasu Morita  <toshiyasu.morita@hsa.hitachi.com>
+
+	* config/h8300/lib1funcs.asm (___mulsi3): Use hardware
+	multiply instructions for H8/300H case.
+
+2002-04-20  Toshiyasu Morita  <toshiyasu.morita@hsa.hitachi.com>
+
+	* config/h8300/lib1funcs.asm (___cmpsi2, ___ucmpsi2):
+	Bum three instructions from each routine.
+
+2002-04-20  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Makefile.in: Update.
+	* decl.c (push_c_function_context, pop_c_function_context,
+	mark_c_function_context): Rename for consistency.
+	* c-objc-common.c (c_objc_common_init): Langhooks set elsewhere.
+	* c-tree.h (push_c_function_context, pop_c_function_context,
+	mark_c_function_context): Rename for consistency.
+	* c-lang.c (LANG_HOOKS_FUNCTION_ENTER_NESTED,
+	LANG_HOOKS_FUNCTION_LEAVE_NESTED, LANG_HOOKS_FUNCTION_MARK): Redefine.
+	* function.c (init_lang_status, save_lang_status,
+	restore_lang_status, mark_lang_status, free_lang_status):
+	Move to langhooks.h.
+	(push_function_context_to, pop_function_context_from,
+	free_after_parsing, prepare_function_start, ggc_mark_struct_function):
+	Update.
+	* function.h (init_lang_status, save_lang_status,
+	restore_lang_status, mark_lang_status, free_lang_status):
+	Move to langhooks.h.
+	* langhooks-def.h (LANG_HOOKS_FUNCTION_INIT,
+	LANG_HOOKS_FUNCTION_FREE, LANG_HOOKS_FUNCTION_ENTER_NESTED,
+	LANG_HOOKS_FUNCTION_LEAVE_NESTED, LANG_HOOKS_FUNCTION_MARK,
+	LANG_HOOKS_FUNCTION_INITIALIZER): New.
+	(LANG_HOOKS_INITIALIZER): Update.
+	(lhd_do_nothing_f): New.
+	* langhooks.h (struct lang_hooks_for_functions): New.
+	(struct lang_hooks): New hooks.
+	* langhooks.c (lhd_do_nothing_f): New.
+objc:
+	* objc-lang.c (LANG_HOOKS_FUNCTION_ENTER_NESTED,
+	LANG_HOOKS_FUNCTION_LEAVE_NESTED, LANG_HOOKS_FUNCTION_MARK): Redefine.
+
+2002-04-19  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Define.
+	* config/sparc/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Likewise.
+
+2002-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/3756
+	* config/i386/i386.c (ix86_expand_int_movcc): Optimize
+	x = ((int) y < 0) ? cst1 : cst2.
+
+2002-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/6358
+	* function.c: Reapply patch for c/6358.
+	(expand_function_end): Copy decl_rtl's mode, not
+	current_function_return_rtx mode.
+
+2002-04-19  Joel Sherrill  <joel@OARcorp.com>
+
+	* config/rtems.h (STARTFILE_SPEC, ENDFILE_SPEC): Fix for non-ELF
+	targets.
+
+2002-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* doc/install.texi (Specific): Update status of Solaris 2.8.
+	For PR libgcj/6158.
+
+2002-04-19  Andreas Schwab  <schwab@suse.de>
+
+	* real.c: Allow sizeof (REAL_VALUE_TYPE) > 2*NE.
+	(PUT_REAL): Restore old definition.
+
+2002-04-19  Dan Nicolaescu  <dann@godzilla.ics.uci.edu>
+	    Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Specific, sparc-sun-solaris2*): Mention that
+	binutils 2.11.2 and higher generate smaller binaries than Sun's
+	native tools.
+
+2002-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6352
+	* toplev.c (rest_of_compilation): Do not defer functions for which
+	TREE_SYMBOL_REFERENCED has already been set.
+
+Fri Apr 19 15:53:03 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movsi_1, movhi_1): Force reload to use more flexible
+	alternative.
+
+2002-04-19  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* builtins.c: Include langhooks.h.
+	(lang_type_promotes_to): Remove.
+	(expand_builtin_va_arg): Use new hook.
+	* c-common.c (c_common_nodes_and_builtins): Don't set hook.
+	(simple_type_promotes_to): Move to c-typeck.c.
+	* c-common.h (simple_type_promotes_to): Remove.
+	* c-decl.c (duplicate_decls, grokdeclarator): Update.
+	* c-format.c: Include langhooks.h.
+	(check_format_types): Update.
+	* c-tree.h (c_type_promotes_to): New.
+	* c-typeck.c (c_type_promotes_to): Move from c-common.c.
+	(type_lists_compatible_p): Update.
+	* langhooks-def.h (lhd_type_promotes_to): New.
+	(LANG_HOOKS_TYPE_PROMOTES_TO): New.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Update.
+	* langhooks.c (lhd_type_promotes_to): New.
+	* langhooks.h (struct lang_hooks_for_types): New hook.
+	* tree.h (lang_type_promotes_to): Remove.
+objc:
+	* objc-lang.c (LANG_HOOKS_TYPE_PROMOTES_TO): Redefine.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+	* function.c: Revert patch for c/6358.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+	* ifcvt.c (find_cond_trap): Handle cases with no proper THEN or JOIN
+	blocks.  Handle multiple references to the TRAP block.  Handle
+	non-adjacent THEN and OTHER blocks.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.c (ia64_function_arg_pass_by_reference): Don't
+	crash with no type for by-mode libcalls.
+
+	* config/ia64/ia64.md (conditional_trap): Fix predicate polarity.
+
+2002-04-18  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/lib2funcs.S (__xtensa_libgcc_window_spill,
+	__xtensa_nonlocal_goto): Use a syscall instructions to flush
+	the register windows.
+
+2002-04-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* real.h: Define REAL_VALUE_TYPE_SIZE as 96 or 160, as
+	appropriate.  Document need for extended precision even when
+	MAX_LONG_DOUBLE_TYPE_SIZE is smaller.  Define REAL_WIDTH here,
+	based on REAL_VALUE_TYPE_SIZE.  Use REAL_WIDTH to size
+	REAL_VALUE_TYPE.  Define CONST_DOUBLE_FORMAT here.  Use #error
+	instead of relying on later syntax error when REAL_WIDTH > 5.
+	* real.c: Define NE based only on whether or not we have a
+	full 128-bit extended type (not INTEL_EXTENDED_IEEE_FORMAT).
+	Require sizeof(REAL_VALUE_TYPE) == 2*NE.  Unconditionally
+	define GET_REAL and PUT_REAL as simple memcpy operations; no
+	need to byteswap or round.
+	Use #error instead of #ifdef-ing out the entire file, for
+	prompt error detection.
+
+	* rtl.c, gengenrtl.c: No need to calculate CONST_DOUBLE_FORMAT here.
+
+2002-04-18  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.h (BRANCH_COST): Define.
+
+	* fold-const.c (BRANCH_COST): Don't provide default here, expr.h
+	does it.
+
+2002-04-18  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* flow.c (update_life_info): Ignore return value of cleanup_cfg.
+	Mask out PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE in
+	propagate_block calls after relaxation loop using new variable
+	stabilized_prop_flags.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.c (ia64_function_arg_pass_by_reference): New.
+	(ia64_va_arg): Expect variable sized types by reference.
+	* config/ia64/ia64-protos.h: Update.
+	* config/ia64/ia64.h (FUNCTION_ARG_PASS_BY_REFERENCE): Use
+	ia64_function_arg_pass_by_reference.
+
+2002-04-18  Richard Henderson  <rth@redhat.com>
+
+	* ifcvt.c: Include except.h.
+	(block_has_only_trap): Break out from find_cond_trap.
+	(find_cond_trap): Use it.  Always delete the trap block.
+	(merge_if_block): Allow then block null.  Be less simplistic about
+	what insns can end a block.
+	* Makefile.in (ifcvt.o): Depend on except.h.
+
+	* config/ia64/ia64.md (trap, conditional_trap): New.
+
+2002-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/6358
+	* function.c (assign_parms): Assign hard current_function_return_rtx
+	register here...
+	(expand_function_end): ...not here.
+
+2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* c-lang.c (LANG_HOOKS_INCOMPLETE_TYPE_ERROR): Redefine.
+	* c-tree.h (c_incomplete_type_error): New.
+	* c-typeck.c (require_complete_type, build_component_ref): Update.
+	(incomplete_type_error): Rename.
+	* langhooks-def.h (lhd_incomplete_type_error): New.
+	(LANG_HOOKS_INCOMPLETE_TYPE_ERROR): New.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Update.
+	* langhooks.c (lhd_incomplete_type_error): New.
+	* langhooks.h (struct lang_hooks_for_types): New hook.
+	* tree.c (size_in_bytes): Use new hook.
+	* tree.h (incomplete_type_error): Remove.
+objc:
+	* objc-lang.c (LANG_HOOKS_INCOMPLETE_TYPE_ERROR): Redefine.
+
+2002-04-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/arc/arc.md: Remove #if HOST_FLOAT_FORMAT !=
+	TARGET_FLOAT_FORMAT blocks.
+
+2002-04-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Downloading the source): Do not mention Chill
+	any longer, but mention Ada.
+	(Configuration): Do not mention Chill any longer.
+
+2002-04-18  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (TARGET_VERSION): Remove local version number.
+
+Thu Apr 18 17:14:08 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (SSE_FLOAT_MODE_P): Fix bogus conflict resolution
+	in last patch.
+
+2002-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (fold): Use (*lang_hooks.types.unsigned_type)
+	instead of unsigned_type.
+
+Thu Apr 18 15:49:12 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (SSE_FLOAT_MODE_P): Kill bogus TARGET_SSE_MATH check.
+	* i386.md (sse_mov?fcc*): Swap operands for cases they will be swapped
+	later.
+
+2002-04-18  Bernd Schmidt  <bernds@redhat.com>
+
+	* attribs.c (vector_type_node_list): New static variable.
+	(handle_vector_size_attribute): Use it to avoid generating a
+	new type node each time we are called.
+
+	* combine.c (subst): Avoid trying to make a vector mode subreg of
+	an integer constant.
+	(gen_lowpart_for_combine): Likewise.
+
+2002-04-18  Roger Sayle  <roger@eyesopen.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (fold) [NOP_EXPR]: Convert (T)(x&c) into ((T)x&(T)c)
+	for integer constant c (if x has unsigned type or sign bit is not
+	set in c).  This folds the zero/sign extension into the bit-wise and
+	operation.
+
+2002-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/6205
+	* config/i386/i386.md (movsf_1): Use pxor only if TARGET_SSE2,
+	otherwise xorps.
+
+2002-04-17  NIIBE Yutaka  <gniibe@m17n.org>
+
+	* config/sh/elf.h: Undefine ASM_OUTPUT_CASE_LABEL.
+
+2002-04-17  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* gcc.c (read_specs): Detect and fail if an attempt is made to
+	rename a spec string to an already existing string.
+
+2002-04-17  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (legitimize_pic_address): Do not generate
+	illegal address constant without CONST.
+
+2002-04-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* sparc/linux64.h (CC1_SPEC): Error for -m32 and -m64.
+	* sparc/netbsd-elf.h (CC1_SPEC32, CC1_SPEC64): Likewise.
+
+2002-04-17  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR optimization/6305
+	* config/s390/s390.c (s390_expand_plus_operand): Use find_replacement
+	to make sure previous reloads are taken into account.  Generate
+	better code if one operand is an in-range immediate constant.
+
+2002-04-16  Andrew Haley  <aph@cambridge.redhat.com>
+
+	* doc/install.texi (Building): libgcj requires GNU make.
+
+2002-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/6315
+	* config/sparc/sparc.md (movtf reg<-reg split): Allow spliting
+	even if hard quad and register is not floating.
+	(movtf reg<-mem split): Disallow splitting if hard quad and
+	register is floating.
+	(movtf mem<-reg split): Likewise.
+	* config/sparc/sparc.c (fp_register_operand): New predicate.
+	* config/sparc/sparc.h (PREDICATE_CODES): Add fp_register_operand.
+
+2002-04-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in (PROTO_OBJS): Add cppdefault.o.
+	(protoize.o): Take $(PREPROCESSOR_DEFINES) off command line.
+	(unprotoize.o): Ditto.  Build from protoize.c.  Define
+	UNPROTOIZE on command line.
+	* protoize.c: Include cppdefault.h.  Delete include_defaults.
+	(in_system_include_dir): Use cpp_include_defaults (defined in
+	cppdefault.o).
+	* unprotoize.c: Delete file.
+
+2002-04-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h (vec_ld): Add array variants.
+	(vec_lde): Same.
+	(vec_ldl): Same.
+
+2002-04-17  Alan Matsuoka  <alanm@redhat.com>
+	    Aldy Hernandez <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h: Define __ALTIVEC__.
+	(bool): New.
+	(__pixel): New.
+	(pixel): New.
+	(vec_cfux): New.
+	(vec_vmaddfp): New.
+	(vec_vsldoi): New.
+	Add parentheses to all macro arguments.
+
+2002-04-16  Richard Henderson  <rth@redhat.com>
+
+	PR c++/6320
+	* except.c (remove_eh_handler): Insert inner regions at beginning
+	of sibling chain.  Refactor expressions.
+
+2002-04-16  Richard Henderson  <rth@redhat.com>
+
+	* config/sparc/sol2-bi.h (AS_SPARC64_FLAG): New.
+	* config/sparc/sol2-gas-bi.h: New file.
+	* config.gcc (sparc*-solaris): Add it as needed.
+	* configure.in (AS_SPARC64_FLAG): Remove check.
+	* config.in, configure: Regenerate.
+
+	* config/sparc/sol2-bi.h (CC1_SPEC): Error for -m32 and -m64.
+
+2002-04-16  Richard Henderson  <rth@redhat.com>
+
+	* config/mips/mips.c (override_options): Don't override N32 for
+	a 64-bit ISA.
+
+	PR 6202
+	* config/mips/mips.md (can_delay): Split out of existing define_delays.
+	(HILO_delay): Set can_delay false.
+
+2002-04-16  Dale Johannesen <dalej@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_output_function_prologue): Compute
+	instruction addresses.
+	(rs6000_output_function_epilogue): Likewise.
+
+2002-04-16  Paolo Carlini  <pcarlini@unitus.it>
+
+	* c-parse.in (poplevel, compstmt_start,
+	compstmt_primary_start): Add ending ';', in accordance
+	with POSIX.
+
+2002-04-16  Richard Henderson  <rth@redhat.com>
+
+	* config.gcc (sparcv9-solaris): Configure for 64-bit default.
+	Adjust tm_file order to get TARGET_DEFAULT set properly.
+	(sparc-solaris): Configure 2.[78] for 64-bit multilibs.
+	* doc/install.texi (sparc-solaris): Update.
+
+2002-04-16  Dale Johannesen <dalej@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_cmove): Fail if modes of
+	comparison operands do not match each other or if modes of
+	conditions do not match result.
+
+2002-04-16  Hartmut Penner <hpenner@de.ibm.com>
+
+	PR target/6305
+	* config/s390/s390.md (mulsidi3): Set both subregs of the
+	multiword register.
+
+2002-04-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/altivec.h (vec_addc): Type check.
+
+2002-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/6279
+	* expr.c (store_expr): Don't copy if DECL_RTL (exp) == target.
+
+	* expr.c (safe_from_p): Cleanup: use DECL_RTL_IF_SET.
+
+2002-04-15  Richard Henderson  <rth@redhat.com>
+
+	* config/mips/abi64.h (SUBTARGET_CONDITIONAL_REGISTER_USAGE): Set
+	call_really_used_regs too.
+
+2002-04-15  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/gnu.h (CPP_PREDEFINES): Underscores for gnu_hurd.
+
+2002-04-15  David S. Miller  <davem@redhat.com>
+
+	* rtlanal.c (note_stores): Don't present PARALLEL SET_DESTs
+	as being CLOBBERed.
+
+2002-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/6290
+	* config/rs6000/rs6000.c (easy_vector_constant): Return 1 if the
+	CONST_VECTOR is { 0, ... 0 }.
+
+2002-04-15  Loren J. Rittle  <ljrittle@acm.org>
+
+	* doc/install.texi (Installing GCC: Configuration): Clarify
+	the only supported ways to configure gcc.
+
+2002-04-15  Roland McGrath  <roland@frob.com>
+
+	* config.gcc (alpha*-*-gnu*): New target configuration.
+	* config/alpha/gnu.h: New file for it.
+	* config/gnu.h (TARGET_MEM_FUNCTIONS): #undef before #define.
+
+2002-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* c-common.h (STMT_EXPR_NO_SCOPE): New macro.
+	* c-common.c (c_expand_expr): Respect STMT_EXPR_NO_SCOPE.
+	* tree.h (expand_start_stmt_expr): Update prototype.
+	* stmt.c (expand_start_stmt_expr): Add has_scope parameter.
+	* tree-inline.c (expand_call_inline): Set STMT_EXPR_NO_SCOPE
+	on the STMT_EXPR created for the inline function.
+
+2002-04-15  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/linux.h, config/arm/linux-elf.h, config/i370/linux.h,
+	config/i386/linux-aout.h, config/i386/linux-oldld.h,
+	config/i386/linux.h, config/i386/linux64.h, config/ia64/linux.h,
+	config/m68k/linux-aout.h, config/m68k/linux.h, config/mips/linux.h,
+	config/pa/pa-linux.h, config/pj/linux.h, config/s390/linux.h,
+	config/sh/linux.h, config/sparc/linux-aout.h, config/sparc/linux.h,
+	config/sparc/linux64.h, config/xtensa/linux.h (CPP_PREDEFINES):
+	Define __gnu_linux__, not gnu_linux.
+	* config/rs6000/sysv4.h (CPP_OS_GNU_SPEC): Likewise for gnu_hurd.
+
+2002-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	Remove Chill front end.
+	* gcc.c (default_compilers): Remove Chill entries.
+	* ch: Remove directory.
+	* doc/frontends.texi: Remove information about Chill.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/standards.texi: Likewise.
+
 2002-04-15  Douglas B Rupp  <rupp@gnat.com>
 
 	* config/alpha/vms.h (INCLUDE_DEFAULTS): Add /gnu/lib/gcc-lib/include.
@@ -217,7 +1073,7 @@ Fri Apr 12 15:42:59 2002  Jeffrey A Law  (law@redhat.com)
 	* config/ia64/ia64.h (ASM_SPEC): Moved from here ...
 	* config/ia64/sysv4.h (ASM_SPEC): ... to here, so that it
 	overrides the definition in config/svr4.h.
-	
+
 2002-04-12	Eric Norum <eric.norum@usask.ca>
 
 	* config/rtems.h, config/a29k/rtems.h, config/arm/rtems-elf.h,
@@ -265,7 +1121,7 @@ Fri Apr 12 10:51:38 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* flow.c (mark_used_reg): Manage reg_cond_dead properly for
 	modes spanning multiple hard regs.
-    
+
 	* recog.c (peephole2_optimize): Rebuild jump labels as needed.
 
 2002-04-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>

@@ -1,5 +1,6 @@
 ;; libgcc routines for the Hitachi H8/300 CPU.
 ;; Contributed by Steve Chamberlain <sac@cygnus.com>
+;; Optimizations by Toshiyasu Morita <toshiyasu.morita@hsa.hitachi.com>
 
 /* Copyright (C) 1994, 2000, 2001 Free Software Foundation, Inc.
 
@@ -108,24 +109,21 @@ Boston, MA 02111-1307, USA.  */
 	.align 2
 	.global ___cmpsi2
 ___cmpsi2:
-	cmp.w	A2,A0
+	cmp.w	A0,A2
 	bne	.L2
-	cmp.w	A3,A1
-	bne	.L2
+	cmp.w	A1,A3
+	bne	.L4
 	mov.w	#1,A0
 	rts
 .L2:
-	cmp.w	A0,A2
-	bgt	.L4
-	bne	.L3
-	cmp.w	A1,A3
-	bls	.L3
-.L4:
-	sub.w	A0,A0
-	rts
+	bgt	.L5
 .L3:
 	mov.w	#2,A0
+	rts
+.L4:
+	bls	.L3
 .L5:
+	sub.w	A0,A0
 	rts
 	.end
 #endif
@@ -137,24 +135,21 @@ ___cmpsi2:
 	.align 2
 	.global ___ucmpsi2
 ___ucmpsi2:
-	cmp.w	A2,A0
+	cmp.w	A0,A2
 	bne	.L2
-	cmp.w	A3,A1
-	bne	.L2
+	cmp.w	A1,A3
+	bne	.L4
 	mov.w	#1,A0
 	rts
 .L2:
-	cmp.w	A0,A2
-	bhi	.L4
-	bne	.L3
-	cmp.w	A1,A3
-	bls	.L3
-.L4:
-	sub.w	A0,A0
-	rts
+	bhi	.L5
 .L3:
 	mov.w	#2,A0
+	rts
+.L4:
+	bls	.L3
 .L5:
+	sub.w	A0,A0
 	rts
 	.end
 #endif
@@ -735,32 +730,42 @@ _done:
 
 #else /* __H8300H__ */
 
+;
+; mulsi3 for H8/300H - based on Hitachi SH implementation
+;
+; by Toshiyasu Morita
+;
+; Old code:
+;
+; 16b * 16b = 372 states (worst case)
+; 32b * 32b = 724 states (worst case)
+;
+; New code:
+;
+; 16b * 16b =  48 states
+; 16b * 32b =  72 states
+; 32b * 32b =  92 states
+;
+
 	.global	___mulsi3
 ___mulsi3:
-	sub.l	A2P,A2P
+	mov.w	r1,r2   ; ( 2 states) b * d
+	mulxu	r0,er2  ; (22 states)
+  
+	mov.w	e0,r3   ; ( 2 states) a * d
+	beq	L_skip1 ; ( 4 states)
+	mulxu	r1,er3  ; (22 states)
+	add.w	r3,e2   ; ( 2 states)
 
-	; while (a)
-_top:	mov.l	A0P,A0P
-	beq	_done
+L_skip1:
+	mov.w	e1,r3   ; ( 2 states) c * b
+	beq	L_skip2 ; ( 4 states)
+	mulxu	r0,er3  ; (22 states)
+	add.w	r3,e2   ; ( 2 states)
 
-	; if (a & 1)
-	bld	#0,A0L
-	bcc	_nobit
-
-	; r += b
-	add.l	A1P,A2P
-
-_nobit:
-	; a >>= 1
-	shlr.l	A0P
-
-	; b <<= 1
-	shll.l	A1P
-	bra	_top
-
-_done:
-	mov.l	A2P,A0P
-	rts
+L_skip2:
+	mov.l	er2,er0	; ( 2 states)
+	rts		; (10 states)
 
 #endif
 #endif /* L_mulsi3 */

@@ -2607,6 +2607,23 @@ do {                                                                    \
     || (CLASS1) == FPCC_REGS || (CLASS2) == FPCC_REGS)		\
    ? (sparc_cpu == PROCESSOR_ULTRASPARC ? 12 : 6) : 2)
 
+/* Provide the cost of a branch.  For pre-v9 processors we use
+   a value of 3 to take into account the potential annulling of
+   the delay slot (which ends up being a bubble in the pipeline slot)
+   plus a cycle to take into consideration the instruction cache
+   effects.
+
+   On v9 and later, which have branch prediction facilities, we set
+   it to the depth of the pipeline as that is the cost of a
+   mispredicted branch.
+
+   ??? Set to 9 when PROCESSOR_ULTRASPARC3 is added  */
+
+#define BRANCH_COST \
+	((sparc_cpu == PROCESSOR_V9 \
+	  || sparc_cpu == PROCESSOR_ULTRASPARC) \
+	 ? 7 : 3)
+
 /* Provide the costs of a rtl expression.  This is in the body of a
    switch on CODE.  The purpose for the cost of MULT is to encourage
    `synth_mult' to find a synthetic multiply when reasonable.
@@ -2947,6 +2964,7 @@ do {									\
 #define PREDICATE_CODES							\
 {"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
 {"fp_zero_operand", {CONST_DOUBLE}},					\
+{"fp_register_operand", {SUBREG, REG}},					\
 {"intreg_operand", {SUBREG, REG}},					\
 {"fcc_reg_operand", {REG}},						\
 {"fcc0_reg_operand", {REG}},						\

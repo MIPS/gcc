@@ -3578,7 +3578,7 @@ extern int enforce_access                       PARAMS ((tree, tree));
 extern tree convert_default_arg                 PARAMS ((tree, tree, tree, int));
 extern tree convert_arg_to_ellipsis             PARAMS ((tree));
 extern tree build_x_va_arg                      PARAMS ((tree, tree));
-extern tree convert_type_from_ellipsis          PARAMS ((tree));
+extern tree cxx_type_promotes_to		PARAMS ((tree));
 extern int is_properly_derived_from             PARAMS ((tree, tree));
 extern tree initialize_reference                PARAMS ((tree, tree));
 extern tree strip_top_quals                     PARAMS ((tree));
@@ -3658,6 +3658,9 @@ extern void cxx_init_decl_processing		PARAMS ((void));
 extern void cxx_mark_tree			PARAMS ((tree));
 extern void cxx_insert_default_attributes	PARAMS ((tree));
 extern bool cxx_mark_addressable		PARAMS ((tree));
+extern void cxx_push_function_context		PARAMS ((struct function *));
+extern void cxx_pop_function_context		PARAMS ((struct function *));
+extern void cxx_mark_function_context		PARAMS ((struct function *));
 extern int toplevel_bindings_p			PARAMS ((void));
 extern int namespace_bindings_p			PARAMS ((void));
 extern void keep_next_level			PARAMS ((int));
@@ -4373,6 +4376,7 @@ extern tree check_return_expr                   PARAMS ((tree));
   build_binary_op(code, arg1, arg2, 1)
 
 /* in typeck2.c */
+extern void cxx_incomplete_type_error		PARAMS ((tree, tree));
 extern tree error_not_base_type			PARAMS ((tree, tree));
 extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));

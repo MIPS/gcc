@@ -171,7 +171,7 @@ complete_type_or_else (type, value)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      incomplete_type_error (value, type);
+      cxx_incomplete_type_error (value, type);
       return NULL_TREE;
     }
   else
@@ -592,12 +592,14 @@ merge_types (t1, t2)
       /* For two pointers, do this recursively on the target type.  */
       {
 	tree target = merge_types (TREE_TYPE (t1), TREE_TYPE (t2));
+	int quals = cp_type_quals (t1);
 
 	if (code1 == POINTER_TYPE)
 	  t1 = build_pointer_type (target);
 	else
 	  t1 = build_reference_type (target);
 	t1 = build_type_attribute_variant (t1, attributes);
+	t1 = cp_build_qualified_type (t1, quals);
 
 	if (TREE_CODE (target) == METHOD_TYPE)
 	  t1 = build_ptrmemfunc_type (t1);
@@ -1566,7 +1568,7 @@ expr_sizeof (e)
     }
   else if (type_unknown_p (e))
     {
-      incomplete_type_error (e, TREE_TYPE (e));
+      cxx_incomplete_type_error (e, TREE_TYPE (e));
       return c_sizeof (char_type_node);
     }
   /* It's illegal to say `sizeof (X::i)' for `i' a non-static data
@@ -1648,7 +1650,7 @@ decay_conversion (exp)
 
   if (type_unknown_p (exp))
     {
-      incomplete_type_error (exp, TREE_TYPE (exp));
+      cxx_incomplete_type_error (exp, TREE_TYPE (exp));
       return error_mark_node;
     }
   
@@ -5663,10 +5665,11 @@ build_modify_expr (lhs, modifycode, rhs)
     {
       int from_array;
       
-      if (!same_or_base_type_p (lhstype, TREE_TYPE (rhs)))
+      if (!same_or_base_type_p (TYPE_MAIN_VARIANT (lhstype),
+				TYPE_MAIN_VARIANT (TREE_TYPE (rhs))))
 	{
 	  error ("incompatible types in assignment of `%T' to `%T'",
-		    TREE_TYPE (rhs), lhstype);
+		 TREE_TYPE (rhs), lhstype);
 	  return error_mark_node;
 	}
 

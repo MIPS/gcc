@@ -128,11 +128,8 @@ static void layout_var_decl PARAMS ((tree));
 static void maybe_commonize_var PARAMS ((tree));
 static tree check_initializer PARAMS ((tree, tree));
 static void make_rtl_for_nonlocal_decl PARAMS ((tree, tree, const char *));
-static void push_cp_function_context PARAMS ((struct function *));
-static void pop_cp_function_context PARAMS ((struct function *));
 static void mark_binding_level PARAMS ((void *));
 static void mark_named_label_lists PARAMS ((void *, void *));
-static void mark_cp_function_context PARAMS ((struct function *));
 static void mark_saved_scope PARAMS ((void *));
 static void mark_lang_function PARAMS ((struct cp_language_function *));
 static void save_function_data PARAMS ((tree));
@@ -6481,9 +6478,6 @@ cxx_init_decl_processing ()
   initialize_predefined_identifiers ();
 
   /* Fill in back-end hooks.  */
-  init_lang_status = &push_cp_function_context;
-  free_lang_status = &pop_cp_function_context;
-  mark_lang_status = &mark_cp_function_context;
   lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
 
   cp_parse_init ();
@@ -6579,8 +6573,6 @@ cxx_init_decl_processing ()
   vtable_index_type = ptrdiff_type_node;
 
   vtt_parm_type = build_pointer_type (const_ptr_type_node);
-  lang_type_promotes_to = convert_type_from_ellipsis;
-
   void_ftype = build_function_type (void_type_node, void_list_node);
   void_ftype_ptr = build_function_type (void_type_node,
 					tree_cons (NULL_TREE,
@@ -7959,17 +7951,15 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
      DECL_STMT is expanded.  */
   defer_p = DECL_FUNCTION_SCOPE_P (decl) || DECL_VIRTUAL_P (decl);
 
-  /* We try to defer namespace-scope static constants and template
-     instantiations so that they are not emitted into the object file
-     unnecessarily.  */
-  if ((!DECL_VIRTUAL_P (decl)
-       && TREE_READONLY (decl)
-       && DECL_INITIAL (decl) != NULL_TREE
-       && DECL_INITIAL (decl) != error_mark_node
-       && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
-       && toplev
-       && !TREE_PUBLIC (decl))
-      || DECL_COMDAT (decl))
+  /* We try to defer namespace-scope static constants so that they are
+     not emitted into the object file unnecessarily.  */
+  if (!DECL_VIRTUAL_P (decl)
+      && TREE_READONLY (decl)
+      && DECL_INITIAL (decl) != NULL_TREE
+      && DECL_INITIAL (decl) != error_mark_node
+      && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
+      && toplev
+      && !TREE_PUBLIC (decl))
     {
       /* Fool with the linkage of static consts according to #pragma
 	 interface.  */
@@ -7981,6 +7971,9 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
 
       defer_p = 1;
     }
+  /* Likewise for template instantiations.  */
+  else if (DECL_COMDAT (decl))
+    defer_p = 1;
 
   /* If we're deferring the variable, we only need to make RTL if
      there's an ASMSPEC.  Otherwise, we'll lazily create it later when
@@ -8608,7 +8601,9 @@ register_dtor_fn (decl)
   cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
   if (flag_use_cxa_atexit)
     {
-      args = tree_cons (NULL_TREE, get_dso_handle_node (), NULL_TREE);
+      args = tree_cons (NULL_TREE, 
+			build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0),
+			NULL_TREE);
       args = tree_cons (NULL_TREE, null_pointer_node, args);
       args = tree_cons (NULL_TREE, cleanup, args);
     }
@@ -11113,7 +11108,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  }
 		else
 	          {
-	            incomplete_type_error (NULL_TREE, ctype);
+	            cxx_incomplete_type_error (NULL_TREE, ctype);
 	            return error_mark_node;
 		  }
 
@@ -12134,7 +12129,7 @@ grokparms (first_parm)
               && !DECL_NAME (decl) && !result && !chain && !ellipsis)
             /* this is a parmlist of `(void)', which is ok.  */
             break;
-          incomplete_type_error (decl, type);
+          cxx_incomplete_type_error (decl, type);
 	  /* It's not a good idea to actually create parameters of
 	     type `void'; other parts of the compiler assume that a
 	     void type terminates the parameter list.  */
@@ -14340,7 +14335,7 @@ finish_function (flags)
   if (! nested)
     /* Let the error reporting routines know that we're outside a
        function.  For a nested function, this value is used in
-       pop_cp_function_context and then reset via pop_function_context.  */
+       cxx_pop_function_context and then reset via pop_function_context.  */
     current_function_decl = NULL_TREE;
 
   return fndecl;
@@ -14629,8 +14624,8 @@ revert_static_member_fn (decl)
 /* Initialize the variables used during compilation of a C++
    function.  */
 
-static void
-push_cp_function_context (f)
+void
+cxx_push_function_context (f)
      struct function *f;
 {
   struct cp_language_function *p
@@ -14650,8 +14645,8 @@ push_cp_function_context (f)
 /* Free the language-specific parts of F, now that we've finished
    compiling the function.  */
 
-static void
-pop_cp_function_context (f)
+void
+cxx_pop_function_context (f)
      struct function *f;
 {
   if (f->language)
@@ -14689,8 +14684,8 @@ mark_lang_function (p)
 
 /* Mark the language-specific data in F for GC.  */
 
-static void
-mark_cp_function_context (f)
+void
+cxx_mark_function_context (f)
      struct function *f;
 {
   mark_lang_function ((struct cp_language_function *) f->language);

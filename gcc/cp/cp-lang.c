@@ -93,6 +93,13 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 
+#undef LANG_HOOKS_FUNCTION_INIT
+#define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
+#undef LANG_HOOKS_FUNCTION_FREE
+#define LANG_HOOKS_FUNCTION_FREE cxx_pop_function_context
+#undef LANG_HOOKS_FUNCTION_MARK
+#define LANG_HOOKS_FUNCTION_MARK cxx_mark_function_context
+
 #undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
 #define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
   cp_walk_subtrees
@@ -134,6 +141,10 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
+#undef LANG_HOOKS_INCOMPLETE_TYPE_ERROR
+#define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
+#undef LANG_HOOKS_TYPE_PROMOTES_TO
+#define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

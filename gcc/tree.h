@@ -2700,7 +2700,7 @@ extern tree lhd_unsave_expr_now		PARAMS ((tree));
 
 extern int in_control_zone_p			PARAMS ((void));
 extern void expand_fixups			PARAMS ((rtx));
-extern tree expand_start_stmt_expr		PARAMS ((void));
+extern tree expand_start_stmt_expr		PARAMS ((int));
 extern tree expand_end_stmt_expr		PARAMS ((tree));
 extern void expand_expr_stmt			PARAMS ((tree));
 extern void expand_expr_stmt_value		PARAMS ((tree, int, int));
@@ -2799,11 +2799,6 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 extern int operand_equal_p	PARAMS ((tree, tree, int));
 extern tree invert_truthvalue	PARAMS ((tree));
 
-/* In builtins.c.  Given a type, apply default promotions wrt unnamed
-   function arguments and return the new type.  Return NULL_TREE if no
-   change.  Required by any language that supports variadic arguments.  */
-
-extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 extern tree build_range_type PARAMS ((tree, tree, tree));
@@ -2942,10 +2937,6 @@ extern const struct attribute_spec *lang_attribute_table;
 
 /* Flag saying whether common language attributes are to be supported.  */
 extern int lang_attribute_common;
-
-/* In front end.  */
-
-extern void incomplete_type_error	PARAMS ((tree, tree));
 
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));
