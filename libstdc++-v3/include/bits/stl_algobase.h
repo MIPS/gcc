@@ -1,6 +1,6 @@
 // Bits and pieces used in algorithms -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -611,9 +611,8 @@ namespace std
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter1>)
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter2>)
-      __glibcpp_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIter1>::value_type>)
-      __glibcpp_function_requires(_EqualityComparableConcept<
+      __glibcpp_function_requires(_EqualOpConcept<
+	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
 
       while (__first1 != __last1 && *__first1 == *__first2) {
