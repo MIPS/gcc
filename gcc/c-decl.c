@@ -6092,6 +6092,32 @@ store_parm_decls (void)
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
+/* Give FNDECL and all its nested functions to cgraph for compilation.  */
+
+static void
+c_finalize (tree fndecl)
+{
+  struct cgraph_node *cgn;
+
+  /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
+  c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+
+  /* ??? Objc emits functions after finalizing the compilation unit.
+     This should be cleaned up later and this conditional removed.  */
+  if (cgraph_global_info_ready)
+    {
+      c_expand_body (fndecl);
+      return;
+    }
+
+  /* Finalize all nested functions now.  */
+  cgn = cgraph_node (fndecl);
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    c_finalize (cgn->decl);
+
+  cgraph_finalize_function (fndecl, false);
+}
+
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage
    for the function definition.
@@ -6193,22 +6219,25 @@ finish_function (void)
      info for the epilogue.  */
   cfun->function_end_locus = input_location;
 
-  /* Genericize before inlining.  */
-  c_genericize (fndecl);
-
-  /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
-  c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+  /* Genericize before inlining.  Delay genericizing nested functions
+     until their parent function is genericized.  Since finalizing
+     requires GENERIC, delay that as well.  */
+  if (!decl_function_context (fndecl))
+    {
+      c_genericize (fndecl);
+      c_finalize (fndecl);
+    }
+  else
+    {
+      /* Register this function with cgraph just far enough to get it
+	 added to our parent's nested function list.  Handy, since the
+	 C front end doesn't have such a list.  */
+      (void) cgraph_node (fndecl);
+    }
 
   /* We're leaving the context of this function, so zap cfun.  It's still in
      DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
-
-  /* ??? Objc emits functions after finalizing the compilation unit.
-     This should be cleaned up later and this conditional removed.  */
-  if (!cgraph_global_info_ready)
-    cgraph_finalize_function (fndecl, false);
-  else
-    c_expand_body (fndecl);
   current_function_decl = NULL;
 }
 

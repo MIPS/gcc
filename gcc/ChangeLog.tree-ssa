@@ -1,3 +1,15 @@
+2004-01-21  Richard Henderson  <rth@redhat.com>
+
+	PR c/11267
+	* c-decl.c (c_finalize): New.
+	(finish_function): Use it.  Genericize and finalize only non-nested
+	functions.  Register nested functions with cgraph.
+	* c-simplify.c: Include cgraph.h.
+	(c_genericize): Genericize nested functions.
+	* gimplify.c (gimplify_expr): Use DECL_SAVED_INSNS to access
+	the struct function for the context.
+	* Makefile.in (c-simplify.o): Update dependencies.
+
 2004-01-21  Steven Bosscher  <stevenb@suse.de>
 
 	PR opt/13767

@@ -46,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-dump.h"
 #include "c-pretty-print.h"
+#include "cgraph.h"
+
 
 /*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -133,6 +135,7 @@ c_genericize (tree fndecl)
 {
   FILE *dump_file;
   int dump_flags;
+  struct cgraph_node *cgn;
 
   /* Dump the C-specific tree IR.  */
   dump_file = dump_begin (TDI_original, &dump_flags);
@@ -161,6 +164,13 @@ c_genericize (tree fndecl)
 
   /* Dump the genericized tree IR.  */
   dump_function (TDI_generic, fndecl);
+
+  /* Genericize all nested functions now.  We do things in this order so
+     that items like VLA sizes are expanded properly in the context of
+     the correct function.  */
+  cgn = cgraph_node (fndecl);
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    c_genericize (cgn->decl);
 }
 
 /*  Entry point for the tree lowering pass.  Recursively scan
