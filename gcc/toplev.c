@@ -5666,6 +5666,7 @@ finalize ()
       stringpool_statistics ();
       dump_tree_statistics ();
       dump_varray_statistics ();
+      dump_alloc_pool_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */
