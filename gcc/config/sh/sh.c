@@ -184,7 +184,7 @@ static int branch_dest (rtx);
 static void force_into (rtx, rtx);
 static void print_slot (rtx);
 static rtx add_constant (rtx, enum machine_mode, rtx);
-static void dump_table (rtx);
+static void dump_table (rtx, rtx);
 static int hi_const (rtx);
 static int broken_move (rtx);
 static int mova_p (rtx);
@@ -241,7 +241,6 @@ struct save_schedule_s;
 static struct save_entry_s *sh5_schedule_saves (HARD_REG_SET *,
 						struct save_schedule_s *, int);
 
-static bool sh_promote_prototypes (tree);
 static rtx sh_struct_value_rtx (tree, int);
 static bool sh_return_in_memory (tree, tree);
 static rtx sh_builtin_saveregs (void);
@@ -851,13 +850,13 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	    {
 	    case TLS_MODEL_GLOBAL_DYNAMIC:
 	      tga_ret = gen_rtx_REG (Pmode, R0_REG);
-	      emit_insn (gen_tls_global_dynamic (tga_ret, op1));
+	      emit_call_insn (gen_tls_global_dynamic (tga_ret, op1));
 	      op1 = tga_ret;
 	      break;
 
 	    case TLS_MODEL_LOCAL_DYNAMIC:
 	      tga_ret = gen_rtx_REG (Pmode, R0_REG);
-	      emit_insn (gen_tls_local_dynamic (tga_ret, op1));
+	      emit_call_insn (gen_tls_local_dynamic (tga_ret, op1));
 
 	      tmp = gen_reg_rtx (Pmode);
 	      emit_move_insn (tmp, tga_ret);
@@ -2664,11 +2663,16 @@ add_constant (rtx x, enum machine_mode mode, rtx last_value)
   return lab;
 }
 
-/* Output the literal table.  */
+/* Output the literal table.  START, if nonzero, is the first instruction
+   this table is needed for, and also indicates that there is at least one
+   casesi_worker_2 instruction; We have to emit the operand3 labels from
+   these insns at a 4-byte  aligned position.  BARRIER is the barrier
+   after which we are to place the table.  */
 
 static void
-dump_table (rtx scan)
+dump_table (rtx start, rtx barrier)
 {
+  rtx scan = barrier;
   int i;
   int need_align = 1;
   rtx lab, ref;
@@ -2703,6 +2707,20 @@ dump_table (rtx scan)
 
   need_align = 1;
 
+  if (start)
+    {
+      scan = emit_insn_after (gen_align_4 (), scan);
+      need_align = 0;
+      for (; start != barrier; start = NEXT_INSN (start))
+	if (GET_CODE (start) == INSN
+	    && recog_memoized (start) == CODE_FOR_casesi_worker_2)
+	  {
+	    rtx src = SET_SRC (XVECEXP (PATTERN (start), 0, 0));
+	    rtx lab = XEXP (XVECEXP (src, 0, 3), 0);
+
+	    scan = emit_label_after (lab, scan);
+	  }
+    }
   if (TARGET_FMOVD && TARGET_ALIGN_DOUBLE && have_df)
     {
       rtx align_insn = NULL_RTX;
@@ -2903,6 +2921,46 @@ mova_p (rtx insn)
 	  && GET_CODE (XVECEXP (SET_SRC (PATTERN (insn)), 0, 0)) == LABEL_REF);
 }
 
+/* Fix up a mova from a switch that went out of range.  */
+static void
+fixup_mova (rtx mova)
+{
+  if (! flag_pic)
+    {
+      SET_SRC (PATTERN (mova)) = XVECEXP (SET_SRC (PATTERN (mova)), 0, 0);
+      INSN_CODE (mova) = -1;
+    }
+  else
+    {
+      rtx worker = mova;
+      rtx lab = gen_label_rtx ();
+      rtx wpat, wpat0, wpat1, wsrc, diff;
+
+      do
+	{
+	  worker = NEXT_INSN (worker);
+	  if (! worker
+	      || GET_CODE (worker) == CODE_LABEL
+	      || GET_CODE (worker) == JUMP_INSN)
+	    abort ();
+	} while (recog_memoized (worker) != CODE_FOR_casesi_worker_1);
+      wpat = PATTERN (worker);
+      wpat0 = XVECEXP (wpat, 0, 0);
+      wpat1 = XVECEXP (wpat, 0, 1);
+      wsrc = SET_SRC (wpat0);
+      PATTERN (worker) = (gen_casesi_worker_2
+			  (SET_DEST (wpat0), XVECEXP (wsrc, 0, 1),
+			   XEXP (XVECEXP (wsrc, 0, 2), 0), lab,
+			   XEXP (wpat1, 0)));
+      INSN_CODE (worker) = -1;
+      diff = gen_rtx_MINUS (Pmode, XVECEXP (SET_SRC (PATTERN (mova)), 0, 0),
+			    gen_rtx_LABEL_REF (Pmode, lab));
+      diff = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, diff), UNSPEC_PIC);
+      SET_SRC (PATTERN (mova)) = gen_rtx_CONST (Pmode, diff);
+      INSN_CODE (mova) = -1;
+    }
+}
+
 /* Find the last barrier from insn FROM which is close enough to hold the
    constant pool.  If we can't find one, then create one near the end of
    the range.  */
@@ -3094,8 +3152,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 	{
 	  /* Try as we might, the leading mova is out of range.  Change
 	     it into a load (which will become a pcload) and retry.  */
-	  SET_SRC (PATTERN (mova)) = XVECEXP (SET_SRC (PATTERN (mova)), 0, 0);
-	  INSN_CODE (mova) = -1;
+	  fixup_mova (mova);
 	  return find_barrier (0, 0, mova);
 	}
       else
@@ -4007,7 +4064,20 @@ sh_reorg (void)
     {
       if (mova_p (insn))
 	{
-	  if (! num_mova++)
+	  /* ??? basic block reordering can move a switch table dispatch
+	     below the switch table.  Check if that has happened.
+	     We only have the addresses available when optimizing; but then,
+	     this check shouldn't be needed when not optimizing.  */
+	  rtx label_ref = XVECEXP (SET_SRC (PATTERN (insn)), 0, 0);
+	  if (optimize
+	      && (INSN_ADDRESSES (INSN_UID (insn))
+		  > INSN_ADDRESSES (INSN_UID (XEXP (label_ref, 0)))))
+	    {
+	      /* Change the mova into a load.
+		 broken_move will then return true for it.  */
+	      fixup_mova (insn);
+	    }
+	  else if (! num_mova++)
 	    mova = insn;
 	}
       else if (GET_CODE (insn) == JUMP_INSN
@@ -4032,19 +4102,20 @@ sh_reorg (void)
 	    {
 	      /* Change the mova into a load, and restart scanning
 		 there.  broken_move will then return true for mova.  */
-	      SET_SRC (PATTERN (mova))
-		= XVECEXP (SET_SRC (PATTERN (mova)), 0, 0);
-	      INSN_CODE (mova) = -1;
+	      fixup_mova (mova);
 	      insn = mova;
 	    }
 	}
-      if (broken_move (insn))
+      if (broken_move (insn)
+	  || (GET_CODE (insn) == INSN
+	      && recog_memoized (insn) == CODE_FOR_casesi_worker_2))
 	{
 	  rtx scan;
 	  /* Scan ahead looking for a barrier to stick the constant table
 	     behind.  */
 	  rtx barrier = find_barrier (num_mova, mova, insn);
 	  rtx last_float_move = NULL_RTX, last_float = 0, *last_float_addr = NULL;
+	  int need_aligned_label = 0;
 
 	  if (num_mova && ! mova_p (mova))
 	    {
@@ -4058,6 +4129,9 @@ sh_reorg (void)
 	    {
 	      if (GET_CODE (scan) == CODE_LABEL)
 		last_float = 0;
+	      if (GET_CODE (scan) == INSN
+		  && recog_memoized (scan) == CODE_FOR_casesi_worker_2)
+		need_aligned_label = 1;
 	      if (broken_move (scan))
 		{
 		  rtx *patp = &PATTERN (scan), pat = *patp;
@@ -4088,7 +4162,6 @@ sh_reorg (void)
 			}
 		      dst = gen_rtx_REG (HImode, REGNO (dst) + offset);
 		    }
-
 		  if (GET_CODE (dst) == REG && FP_ANY_REGISTER_P (REGNO (dst)))
 		    {
 		      /* This must be an insn that clobbers r0.  */
@@ -4162,7 +4235,7 @@ sh_reorg (void)
 		  INSN_CODE (scan) = -1;
 		}
 	    }
-	  dump_table (barrier);
+	  dump_table (need_aligned_label ? insn : 0, barrier);
 	  insn = barrier;
 	}
     }
@@ -4535,8 +4608,9 @@ static int extra_push;
 
 /* Adjust the stack by SIZE bytes.  REG holds the rtl of the register to be
    adjusted.  If epilogue_p is zero, this is for a prologue; otherwise, it's
-   for an epilogue.  If LIVE_REGS_MASK is nonzero, it points to a HARD_REG_SET
-   of all the registers that are about to be restored, and hence dead.  */
+   for an epilogue and a negative value means that it's for a sibcall
+   epilogue.  If LIVE_REGS_MASK is nonzero, it points to a HARD_REG_SET of
+   all the registers that are about to be restored, and hence dead.  */
 
 static void
 output_stack_adjust (int size, rtx reg, int epilogue_p,
@@ -4571,17 +4645,27 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	  /* If TEMP is invalid, we could temporarily save a general
 	     register to MACL.  However, there is currently no need
 	     to handle this case, so just abort when we see it.  */
-	  if (current_function_interrupt
+	  if (epilogue_p < 0
+	      || current_function_interrupt
 	      || ! call_used_regs[temp] || fixed_regs[temp])
 	    temp = -1;
-	  if (temp < 0 && ! current_function_interrupt)
+	  if (temp < 0 && ! current_function_interrupt
+	      && (TARGET_SHMEDIA || epilogue_p >= 0))
 	    {
 	      HARD_REG_SET temps;
 	      COPY_HARD_REG_SET (temps, call_used_reg_set);
 	      AND_COMPL_HARD_REG_SET (temps, call_fixed_reg_set);
-	      if (epilogue_p)
+	      if (epilogue_p > 0)
 		{
-		  for (i = 0; i < HARD_REGNO_NREGS (FIRST_RET_REG, DImode); i++)
+		  int nreg = 0;
+		  if (current_function_return_rtx)
+		    {
+		      enum machine_mode mode;
+		      mode = GET_MODE (current_function_return_rtx);
+		      if (BASE_RETURN_VALUE_REG (mode) == FIRST_RET_REG)
+			nreg = HARD_REGNO_NREGS (FIRST_RET_REG, mode);
+		    }
+		  for (i = 0; i < nreg; i++)
 		    CLEAR_HARD_REG_BIT (temps, FIRST_RET_REG + i);
 		  if (current_function_calls_eh_return)
 		    {
@@ -4590,7 +4674,10 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 			CLEAR_HARD_REG_BIT (temps, EH_RETURN_DATA_REGNO (i));
 		    }
 		}
-	      else
+	      if (TARGET_SHMEDIA && epilogue_p < 0)
+		for (i = FIRST_TARGET_REG; i <= LAST_TARGET_REG; i++)
+		  CLEAR_HARD_REG_BIT (temps, i);
+	      if (epilogue_p <= 0)
 		{
 		  for (i = FIRST_PARM_REG;
 		       i < FIRST_PARM_REG + NPARM_REGS (SImode); i++)
@@ -4603,7 +4690,55 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	  if (temp < 0 && live_regs_mask)
 	    temp = scavenge_reg (live_regs_mask);
 	  if (temp < 0)
-	    abort ();
+	    {
+	      /* If we reached here, the most likely case is the (sibcall)
+		 epilogue for non SHmedia.  Put a special push/pop sequence
+		 for such case as the last resort.  This looks lengthy but
+		 would not be problem because it seems to be very rare.  */
+	      if (! TARGET_SHMEDIA && epilogue_p)
+		{
+		  rtx adj_reg, tmp_reg, mem;
+
+		  /* ??? There is still the slight possibility that r4 or r5
+		     have been reserved as fixed registers or assigned as
+		     global registers, and they change during an interrupt.
+		     There are possible ways to handle this:
+		     - If we are adjusting the frame pointer (r14), we can do
+		       with a single temp register and an ordinary push / pop
+		       on the stack.
+		     - Grab any call-used or call-saved registers (i.e. not
+		       fixed or globals) for the temps we need.  We might
+		       also grab r14 if we are adjusting the stack pointer.
+		       If we can't find enough available registers, issue
+		       a diagnostic and abort - the user must have reserved
+		       way too many registers.
+		     But since all this is rather unlikely to happen and
+		     would require extra testing, we just abort if r4 / r5
+		     are not available.  */
+		  if (fixed_regs[4] || fixed_regs[5]
+		      || global_regs[4] || global_regs[5])
+		    abort ();
+
+		  adj_reg = gen_rtx_REG (GET_MODE (reg), 4);
+		  tmp_reg = gen_rtx_REG (GET_MODE (reg), 5);
+		  emit_move_insn (gen_rtx_MEM (Pmode, reg), adj_reg);
+		  emit_insn (GEN_MOV (adj_reg, GEN_INT (size)));
+		  emit_insn (GEN_ADD3 (adj_reg, adj_reg, reg));
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
+		  emit_move_insn (mem, tmp_reg);
+		  emit_move_insn (tmp_reg, gen_rtx_MEM (Pmode, reg));
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
+		  emit_move_insn (mem, tmp_reg);
+		  emit_move_insn (reg, adj_reg);
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, reg));
+		  emit_move_insn (adj_reg, mem);
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, reg));
+		  emit_move_insn (tmp_reg, mem);
+		  return;
+		}
+	      else
+		abort ();
+	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
 
 	  /* If SIZE is negative, subtract the positive value.
@@ -5443,7 +5578,7 @@ sh_expand_prologue (void)
 }
 
 void
-sh_expand_epilogue (void)
+sh_expand_epilogue (bool sibcall_p)
 {
   HARD_REG_SET live_regs_mask;
   int d, i;
@@ -5452,6 +5587,7 @@ sh_expand_epilogue (void)
   int save_flags = target_flags;
   int frame_size, save_size;
   int fpscr_deferred = 0;
+  int e = sibcall_p ? -1 : 1;
 
   d = calc_live_regs (&live_regs_mask);
 
@@ -5486,7 +5622,7 @@ sh_expand_epilogue (void)
 
   if (frame_pointer_needed)
     {
-      output_stack_adjust (frame_size, frame_pointer_rtx, 1, &live_regs_mask);
+      output_stack_adjust (frame_size, frame_pointer_rtx, e, &live_regs_mask);
 
       /* We must avoid moving the stack pointer adjustment past code
 	 which reads from the local frame, else an interrupt could
@@ -5502,7 +5638,7 @@ sh_expand_epilogue (void)
 	 occur after the SP adjustment and clobber data in the local
 	 frame.  */
       emit_insn (gen_blockage ());
-      output_stack_adjust (frame_size, stack_pointer_rtx, 1, &live_regs_mask);
+      output_stack_adjust (frame_size, stack_pointer_rtx, e, &live_regs_mask);
     }
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
@@ -5675,7 +5811,7 @@ sh_expand_epilogue (void)
   output_stack_adjust (extra_push + current_function_pretend_args_size
 		       + save_size + d_rounding
 		       + current_function_args_info.stack_regs * 8,
-		       stack_pointer_rtx, 1, NULL);
+		       stack_pointer_rtx, e, NULL);
 
   if (current_function_calls_eh_return)
     emit_insn (GEN_ADD3 (stack_pointer_rtx, stack_pointer_rtx,
@@ -5703,7 +5839,7 @@ sh_need_epilogue (void)
       rtx epilogue;
 
       start_sequence ();
-      sh_expand_epilogue ();
+      sh_expand_epilogue (0);
       epilogue = get_insns ();
       end_sequence ();
       sh_need_epilogue_known = (epilogue == NULL ? -1 : 1);
@@ -6256,7 +6392,7 @@ sh_va_arg (tree valist, tree type)
   return result;
 }
 
-static bool
+bool
 sh_promote_prototypes (tree type)
 {
   if (TARGET_HITACHI)

@@ -1066,6 +1066,11 @@ i[34567]86-*-solaris2*)
 	else
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
+	case ${target} in
+	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
+		tm_file="$tm_file tm-dwarf2.h"
+		;;
+	esac
 	extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
 	if test x${enable_threads} = x; then
 	    enable_threads=$have_pthread_h
@@ -2346,11 +2351,20 @@ if test x$with_cpu = x ; then
         pentium2-*)
           with_cpu=pentium2
           ;;
-        pentium3-*)
+        pentium3-*|pentium3m-*)
           with_cpu=pentium3
           ;;
-        pentium4-*)
+        pentium4-*|pentium4m-*)
           with_cpu=pentium4
+          ;;
+        prescott-*)
+          with_cpu=prescott
+          ;;
+        nocona-*)
+          with_cpu=nocona
+          ;;
+        pentium_m-*)
+          with_cpu=pentium-m
           ;;
         *)
           with_cpu=pentiumpro
@@ -2530,7 +2544,8 @@ fi
 			| c3 | c3-2 | i686 | pentiumpro | pentium2 | pentium3 \
 			| pentium4 | k6 | k6-2 | k6-3 | athlon | athlon-tbird \
 			| athlon-4 | athlon-xp | athlon-mp | k8 | opteron \
-			| athlon64 | athlon-fx)
+			| athlon64 | athlon-fx | prescott | pentium-m \
+			| pentium4m | pentium3m| nocona)
 				# OK
 				;;
 			*)

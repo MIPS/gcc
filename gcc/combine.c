@@ -7400,12 +7400,16 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
 	   && 0 != (cond0 = if_then_else_cond (SUBREG_REG (x),
 					       &true0, &false0)))
     {
-      *ptrue = simplify_gen_subreg (mode, true0,
+      true0 = simplify_gen_subreg (mode, true0,
+				   GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+      false0 = simplify_gen_subreg (mode, false0,
 				    GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
-      *pfalse = simplify_gen_subreg (mode, false0,
-				     GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
-
-      return cond0;
+      if (true0 && false0)
+	{
+	  *ptrue = true0;
+	  *pfalse = false0;
+	  return cond0;
+	}
     }
 
   /* If X is a constant, this isn't special and will cause confusions
@@ -10099,7 +10103,7 @@ gen_binary (enum rtx_code code, enum machine_mode mode, rtx op0, rtx op1)
     return op0;
   else if (GET_CODE (op1) == CLOBBER)
     return op1;
-  
+
   if (GET_RTX_CLASS (code) == 'c'
       && swap_commutative_operands_p (op0, op1))
     tem = op0, op0 = op1, op1 = tem;
@@ -12588,6 +12592,9 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		 libcall sequence, don't add the notes.  */
 	      else if (XEXP (note, 0) == from_insn)
 		tem = place = 0;
+	      /* Don't add the dangling REG_RETVAL note.  */
+	      else if (! tem)
+		place = 0;
 	    }
 	  break;
 
@@ -12605,6 +12612,9 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		 libcall sequence, don't add the notes.  */
 	      else if (XEXP (note, 0) == from_insn)
 		tem = place = 0;
+	      /* Don't add the dangling REG_LIBCALL note.  */
+	      else if (! tem)
+		place = 0;
 	    }
 	  break;
 
@@ -12648,8 +12658,11 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 
 		  /* If the register is being set at TEM, see if that is all
 		     TEM is doing.  If so, delete TEM.  Otherwise, make this
-		     into a REG_UNUSED note instead.  */
-		  if (reg_set_p (XEXP (note, 0), PATTERN (tem)))
+		     into a REG_UNUSED note instead.  Don't delete sets to
+		     global register vars.  */
+		  if ((REGNO (XEXP (note, 0)) >= FIRST_PSEUDO_REGISTER
+		       || !global_regs[REGNO (XEXP (note, 0))])
+		      && reg_set_p (XEXP (note, 0), PATTERN (tem)))
 		    {
 		      rtx set = single_set (tem);
 		      rtx inner_dest = 0;

@@ -3535,7 +3535,13 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
       HOST_WIDE_INT hi;
       int prec;
 
-      prec = TYPE_PRECISION (etype);
+      /* For enums the comparison will be done in the underlying type,
+	 so using enum's precision is wrong here.
+	 Consider e.g. enum { A, B, C, D, E }, low == B and high == D.  */
+      if (TREE_CODE (etype) == ENUMERAL_TYPE)
+	prec = GET_MODE_BITSIZE (TYPE_MODE (etype));
+      else
+	prec = TYPE_PRECISION (etype);
       if (prec <= HOST_BITS_PER_WIDE_INT)
 	{
 	  hi = 0;
@@ -4446,9 +4452,9 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type)
 		     && TYPE_IS_SIZETYPE (TREE_TYPE (op0)))
 	       && (GET_MODE_SIZE (TYPE_MODE (ctype))
 	           > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))))
-	      /* ... or its type is larger than ctype,
-		 then we cannot pass through this truncation.  */
-	      || (GET_MODE_SIZE (TYPE_MODE (ctype))
+	      /* ... or this is a truncation (t is narrower than op0),
+		 then we cannot pass through this narrowing.  */
+	      || (GET_MODE_SIZE (TYPE_MODE (type))
 		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))
 	      /* ... or signedness changes for division or modulus,
 		 then we cannot pass through this conversion.  */
@@ -5180,7 +5186,11 @@ fold_single_bit_test (enum tree_code code, tree arg0, tree arg1,
       /* If we have (A & C) != 0 where C is the sign bit of A, convert
 	 this into A < 0.  Similarly for (A & C) == 0 into A >= 0.  */
       arg00 = sign_bit_p (TREE_OPERAND (arg0, 0), TREE_OPERAND (arg0, 1));
-      if (arg00 != NULL_TREE)
+      if (arg00 != NULL_TREE
+	  /* This is only a win if casting to a signed type is cheap,
+	     i.e. when arg00's type is not a partial mode.  */
+	  && TYPE_PRECISION (TREE_TYPE (arg00))
+	     == GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (arg00))))
 	{
 	  tree stype = (*lang_hooks.types.signed_type) (TREE_TYPE (arg00));
 	  return fold (build (code == EQ_EXPR ? GE_EXPR : LT_EXPR, result_type,
@@ -5188,10 +5198,6 @@ fold_single_bit_test (enum tree_code code, tree arg0, tree arg1,
 			      fold_convert (stype, integer_zero_node)));
 	}
 
-      /* At this point, we know that arg0 is not testing the sign bit.  */
-      if (TYPE_PRECISION (type) - 1 == bitnum)
-	abort ();
-      
       /* Otherwise we have (A & C) != 0 where C is a single bit, 
 	 convert that into ((A >> C2) & 1).  Where C2 = log2(C).
 	 Similarly for (A & C) == 0.  */

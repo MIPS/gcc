@@ -5,7 +5,7 @@
    please modify this string to indicate that, e.g. by putting your
    organization's name in parentheses at the end of the string.  */
 
-const char version_string[] = "3.4.0 20040409 (CodeSourcery ARM Q1A 2004)";
+const char version_string[] = "3.4.2 20040813 (CodeSourcery ARM Q1A 2004)";
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,

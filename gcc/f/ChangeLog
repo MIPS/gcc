@@ -1,3 +1,45 @@
+2004-07-12  Bud Davis  <bdavis9659@comcast.net>
+
+	* bld.c (ffebld_constant_new_character1, ffebld_constant_new_complex{1,2},
+	ffebld_constant_new_hollerith, ffebld_constant_new_integer1,
+	ffebld_constant_new_integer{1,2,3,4}_val, ffebld_constant_new_logical1,
+	ffebld_constant_new_logical{1,2,3,4}_val, ffebld_constant_new_real{1,2},
+	ffebld_constant_new_typeless_ov):
+	Fill and use `rlink' and `llink' pointers in _ffebld_ struct.
+	* bld.h (struct _ffebld_): remove 'next' pointer, add
+	`rlink, llink' pointers; remove `negate' entry.
+	* malloc.c (malloc_kill_area_): Adapt for new `mallocArea' pointer.
+	(malloc_display_): Adapt.
+	(malloc_new_inpool_): Set it.
+	(malloc_resize_inpool_): Ditto.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-17  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Note that GCC 3.4.x is the last version
+	of GCC to contain g77.
+
+2004-05-18  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* bugs.texi, news.texi: Don't reference mainline versions.
+
+2004-05-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* g77.texi (Floating-point Errors): Fix typo.
+
+2004-05-07  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* g77.texi (Floating-point Errors): Avoid referencing 
+	http://www.linuxsupportline.com/~billm/ which as has been hijacked;
+	add a reference to the official IEEE 754 site.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
 2004-03-21  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* g77.texi: Update link to "G++ and GCC".

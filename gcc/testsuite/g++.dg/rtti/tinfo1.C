@@ -2,7 +2,7 @@
 // { dg-do compile }
 // { dg-final { scan-assembler "_ZTIP9CTemplateIhE:" { xfail *-*-* } } }
 // { dg-final { scan-assembler-not ".globl\[ 	\]+_ZTIP9CTemplateIhE" { xfail *-*-* } } }
-// { dg-final { scan-assembler-not ".section\[^\n\r\]*_ZTIP9CTemplateIhE\[^\n\r\]*" { xfail *-*-* } } }
+// { dg-final { scan-assembler-not ".section\[^\n\r\]*_ZTIP9CTemplateIhE\[^\n\r\]*" { xfail *-*-* } } };
 
 
 namespace std

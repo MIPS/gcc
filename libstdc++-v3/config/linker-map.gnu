@@ -55,8 +55,12 @@ GLIBCXX_3.4 {
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
       std::[A-Zm-z]*;
+      std::_List_node_base::hook*;
+      std::_List_node_base::swap*;
+      std::_List_node_base::unhook*;
+      std::_List_node_base::reverse*;
+      std::_List_node_base::transfer*;
       std::__throw_*;
-      std::__basic_file*;
       std::__timepunct*;
       std::__numeric_limits_base*;
       std::__num_base::_S_format_float*;
@@ -66,10 +70,14 @@ GLIBCXX_3.4 {
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
       std::__timepunct_cache*;
-      __gnu_norm::*;
       __gnu_debug::_Safe_iterator_base*;
       __gnu_debug::_Safe_sequence_base*;
-      __gnu_debug::_Error_formatter*
+      __gnu_debug::_Error_formatter*;
+      __gnu_norm::_List_node_base::hook*;
+      __gnu_norm::_List_node_base::swap*;
+      __gnu_norm::_List_node_base::unhook*;
+      __gnu_norm::_List_node_base::reverse*;
+      __gnu_norm::_List_node_base::transfer*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -124,6 +132,22 @@ GLIBCXX_3.4 {
 
     # std::__codecvt_abstract_base*
     _ZNStSt23__codecvt_abstract_base*;
+
+    # std::__basic_file
+    _ZNKSt12__basic_fileIcE7is_openEv;
+    _ZNSt12__basic_fileIcE2fdEv;
+    _ZNSt12__basic_fileIcE4openEPKcSt13_Ios_Openmodei;
+    _ZNSt12__basic_fileIcE4syncEv;
+    _ZNSt12__basic_fileIcE5closeEv;
+    _ZNSt12__basic_fileIcE6xsgetn*;
+    _ZNSt12__basic_fileIcE6xsputn*;
+    _ZNSt12__basic_fileIcE7seekoff*;
+    _ZNSt12__basic_fileIcE8sys_openE*St13_Ios_Openmode;
+    _ZNSt12__basic_fileIcE8sys_openEiSt13_Ios_Openmode;
+    _ZNSt12__basic_fileIcE8xsputn_2*;
+    _ZNSt12__basic_fileIcE9showmanycEv;
+    _ZNSt12__basic_fileIcEC*;
+    _ZNSt12__basic_fileIcED*;
 
     # virtual table
     _ZTVNSt8ios_base7failureE;
@@ -225,6 +249,21 @@ GLIBCXX_3.4 {
     *;
 };
 
+GLIBCXX_3.4.1 {
+ 
+    _ZNSt12__basic_fileIcE4fileEv;
+ 
+} GLIBCXX_3.4;
+ 
+GLIBCXX_3.4.2 {
+
+    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE4fileEv;
+
+    _ZN9__gnu_cxx11__pool_base9_M_refillE[jm];
+    _ZN9__gnu_cxx11__pool_base16_M_get_free_listE[jm];
+    _ZN9__gnu_cxx11__pool_base12_M_get_mutexEv;
+
+} GLIBCXX_3.4.1;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {

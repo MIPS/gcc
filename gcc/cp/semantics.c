@@ -2570,25 +2570,15 @@ finish_id_expression (tree id_expression,
       /* Only certain kinds of names are allowed in constant
        expression.  Enumerators and template parameters 
        have already been handled above.  */
-      if (integral_constant_expression_p)
+      if (integral_constant_expression_p
+	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
 	{
-	    /* Const variables or static data members of integral or
-	      enumeration types initialized with constant expressions
-	      are OK.  */
-	  if (TREE_CODE (decl) == VAR_DECL
-	      && CP_TYPE_CONST_P (TREE_TYPE (decl))
-	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
-	    ;
-	  else
+	  if (!allow_non_integral_constant_expression_p)
 	    {
-	      if (!allow_non_integral_constant_expression_p)
-		{
-		  error ("`%D' cannot appear in a constant-expression", decl);
-		  return error_mark_node;
-		}
-	      *non_integral_constant_expression_p = true;
+	      error ("`%D' cannot appear in a constant-expression", decl);
+	      return error_mark_node;
 	    }
+	  *non_integral_constant_expression_p = true;
 	}
       
       if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -2938,18 +2928,6 @@ expand_body (tree fn)
 
   extract_interface_info ();
 
-  /* If this function is marked with the constructor attribute, add it
-     to the list of functions to be called along with constructors
-     from static duration objects.  */
-  if (DECL_STATIC_CONSTRUCTOR (fn))
-    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
-
-  /* If this function is marked with the destructor attribute, add it
-     to the list of functions to be called along with destructors from
-     static duration objects.  */
-  if (DECL_STATIC_DESTRUCTOR (fn))
-    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
-
   if (DECL_CLONED_FUNCTION_P (fn))
     {
       /* If this is a clone, go through the other clones now and mark
@@ -3011,6 +2989,18 @@ expand_or_defer_fn (tree fn)
   /* Compute the appropriate object-file linkage for inline functions.  */
   if (DECL_DECLARED_INLINE_P (fn))
     import_export_decl (fn);
+
+  /* If this function is marked with the constructor attribute, add it
+     to the list of functions to be called along with constructors
+     from static duration objects.  */
+  if (DECL_STATIC_CONSTRUCTOR (fn))
+    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
+
+  /* If this function is marked with the destructor attribute, add it
+     to the list of functions to be called along with destructors from
+     static duration objects.  */
+  if (DECL_STATIC_DESTRUCTOR (fn))
+    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
 
   function_depth++;
 

@@ -1,3 +1,16 @@
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-05-06  Bud Davis  <bdavis9659@comcast.net>
+
+	PR libf2c/15151
+	* libI77/wrtfmt.c(wrt_L):  Make sizes and types consistent.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
 Thu Feb  5 15:08:08 2004  Geoffrey Keating  <geoffk@apple.com>
 
 	PR 12179

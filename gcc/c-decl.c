@@ -1253,6 +1253,11 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	 definition.  */
       && !(TREE_CODE (newdecl) == FUNCTION_DECL
 	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
+      /* Don't warn about redundant redeclarations of builtins. */
+      && !(TREE_CODE (newdecl) == FUNCTION_DECL
+	   && !DECL_BUILT_IN (newdecl)
+	   && DECL_BUILT_IN (olddecl)
+	   && C_DECL_INVISIBLE (olddecl))
       /* Don't warn about an extern followed by a definition.  */
       && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl))
       /* Don't warn about forward parameter decls.  */
@@ -3832,7 +3837,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	      type = error_mark_node;
 	    }
 
-	  if (pedantic && flexible_array_type_p (type))
+	  if (pedantic && !in_system_header && flexible_array_type_p (type))
 	    pedwarn ("invalid use of structure with flexible array member");
 
 	  if (size == error_mark_node)
@@ -5027,7 +5032,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	    }
 	}
 
-      if (pedantic && TREE_CODE (t) == RECORD_TYPE
+      if (pedantic && !in_system_header && TREE_CODE (t) == RECORD_TYPE
 	  && flexible_array_type_p (TREE_TYPE (x)))
 	pedwarn ("%Jinvalid use of structure with flexible array member", x);
 

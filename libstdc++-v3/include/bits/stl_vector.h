@@ -65,7 +65,7 @@
 #include <bits/functexcept.h>
 #include <bits/concept_check.h>
 
-namespace __gnu_norm
+namespace _GLIBCXX_STD
 {
   /**
    *  @if maint
@@ -147,19 +147,19 @@ namespace __gnu_norm
       typedef vector<_Tp, _Alloc>			vector_type;
 
     public:
-      typedef _Tp					value_type;
-      typedef value_type*				pointer;
-      typedef const value_type*				const_pointer;
+      typedef _Tp					 value_type;
+      typedef typename _Alloc::pointer                   pointer;
+      typedef typename _Alloc::const_pointer             const_pointer;
+      typedef typename _Alloc::reference                 reference;
+      typedef typename _Alloc::const_reference           const_reference;
       typedef __gnu_cxx::__normal_iterator<pointer, vector_type> iterator;
       typedef __gnu_cxx::__normal_iterator<const_pointer, vector_type>
       const_iterator;
-      typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
-      typedef std::reverse_iterator<iterator>		reverse_iterator;
-      typedef value_type&				reference;
-      typedef const value_type&				const_reference;
-      typedef size_t					size_type;
-      typedef ptrdiff_t					difference_type;
-      typedef typename _Base::allocator_type		allocator_type;
+      typedef std::reverse_iterator<const_iterator>  const_reverse_iterator;
+      typedef std::reverse_iterator<iterator>		 reverse_iterator;
+      typedef size_t					 size_type;
+      typedef ptrdiff_t					 difference_type;
+      typedef typename _Base::allocator_type		 allocator_type;
 
     protected:
       /** @if maint
@@ -927,6 +927,6 @@ namespace __gnu_norm
     inline void
     swap(vector<_Tp,_Alloc>& __x, vector<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
-} // namespace __gnu_norm
+} // namespace std
 
 #endif /* _VECTOR_H */

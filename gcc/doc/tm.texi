@@ -2293,9 +2293,9 @@ single-byte values can be loaded or stored.  This is so that
 @code{PREFERRED_RELOAD_CLASS} can always have a possible value to return.
 
 @deftp {Data type} {enum reg_class}
-An enumeral type that must be defined with all the register class names
-as enumeral values.  @code{NO_REGS} must be first.  @code{ALL_REGS}
-must be the last register class, followed by one more enumeral value,
+An enumerated type that must be defined with all the register class names
+as enumerated values.  @code{NO_REGS} must be first.  @code{ALL_REGS}
+must be the last register class, followed by one more enumerated value,
 @code{LIM_REG_CLASSES}, which is not a register class but rather
 tells how many classes there are.
 
@@ -4664,6 +4664,19 @@ If defined, expands to a C expression clearing the @emph{instruction
 cache} in the specified interval.  The definition of this macro would
 typically be a series of @code{asm} statements.  Both @var{beg} and
 @var{end} are both pointer expressions.
+@end defmac
+
+The operating system may also require the stack to be made executable
+before calling the trampoline.  To implement this requirement, define
+the following macro.
+
+@defmac ENABLE_EXECUTE_STACK
+Define this macro if certain operations must be performed before executing
+code located on the stack.  The macro should expand to a series of C
+file-scope constructs (e.g. functions) and provide a unique entry point
+named @code{__enable_execute_stack}.  The target is responsible for
+emitting calls to the entry point in the code, for example from the
+@code{INITIALIZE_TRAMPOLINE} macro.
 @end defmac
 
 To use a standard subroutine, define the following macro.  In addition,

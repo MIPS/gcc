@@ -1902,6 +1902,29 @@ m32r_load_pic_register (void)
   emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
 }
 
+static void
+m32r_reload_lr (rtx sp, int size)
+{
+  rtx lr = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+
+  if (size == 0)
+    emit_insn (gen_movsi (lr, gen_rtx_MEM (Pmode, sp)));
+  else if (size <= 32768)
+    emit_insn (gen_movsi (lr, gen_rtx_MEM (Pmode,
+					   gen_rtx_PLUS (Pmode, sp,
+							 GEN_INT (size)))));
+  else
+    {   
+      rtx tmp = gen_rtx_REG (Pmode, PROLOGUE_TMP_REGNUM);
+
+      emit_insn (gen_movsi (tmp, GEN_INT (size)));
+      emit_insn (gen_addsi3 (tmp, tmp, sp));
+      emit_insn (gen_movsi (lr, gen_rtx_MEM (Pmode, tmp)));
+    }
+
+  emit_insn (gen_rtx_USE (VOIDmode, lr));
+}
+
 /* Expand the m32r prologue as a series of insns.  */
 
 void
@@ -1978,7 +2001,11 @@ m32r_expand_prologue (void)
                                gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM)));
                                                                                 
   if (pic_reg_used)
-    m32r_load_pic_register ();
+    {
+      m32r_load_pic_register ();
+      m32r_reload_lr (stack_pointer_rtx,
+                      (current_function_profile ? 0 : frame_size));
+    }
 
   if (current_function_profile && !pic_reg_used)
     emit_insn (gen_blockage ());
@@ -2726,6 +2753,29 @@ m32r_not_same_reg (rtx a, rtx b)
 }
 
 
+rtx
+m32r_function_symbol (const char *name)
+{
+  int extra_flags = 0;
+  enum m32r_model model;
+  rtx sym = gen_rtx_SYMBOL_REF (Pmode, name);
+
+  if (TARGET_MODEL_SMALL)
+    model = M32R_MODEL_SMALL;
+  else if (TARGET_MODEL_MEDIUM)
+    model = M32R_MODEL_MEDIUM;
+  else if (TARGET_MODEL_LARGE)
+    model = M32R_MODEL_LARGE;
+  else
+    abort (); /* shouldn't happen */
+  extra_flags |= model << SYMBOL_FLAG_MODEL_SHIFT;
+                                                                                
+  if (extra_flags)
+    SYMBOL_REF_FLAGS (sym) |= extra_flags;
+
+  return sym;
+}
+
 /* Use a library function to move some bytes.  */
 
 static void
@@ -2738,13 +2788,13 @@ block_move_call (rtx dest_reg, rtx src_reg, rtx bytes_rtx)
     bytes_rtx = convert_to_mode (Pmode, bytes_rtx, 1);
 
 #ifdef TARGET_MEM_FUNCTIONS
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "memcpy"), 0,
+  emit_library_call (m32r_function_symbol ("memcpy"), 0,
 		     VOIDmode, 3, dest_reg, Pmode, src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype), bytes_rtx,
 				      TREE_UNSIGNED (sizetype)),
 		     TYPE_MODE (sizetype));
 #else
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "bcopy"), 0,
+  emit_library_call (m32r_function_symbol ("bcopy"), 0,
 		     VOIDmode, 3, src_reg, Pmode, dest_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (integer_type_node), bytes_rtx,
 				      TREE_UNSIGNED (integer_type_node)),
@@ -3036,4 +3086,13 @@ m32r_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
     return 0;
 
   return 1;
+}
+
+rtx
+m32r_return_addr (int count)
+{
+  if (count != 0)
+    return const0_rtx;
+  
+  return get_hard_reg_initial_val (Pmode, RETURN_ADDR_REGNUM);
 }

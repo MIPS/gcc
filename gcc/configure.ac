@@ -2405,7 +2405,7 @@ foo:
 	or %g1, %lo(ab) + 12, %g1
 	or %g1, %lo(ab + 12), %g1],
       [if test x$gcc_cv_objdump != x \
-       && %gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
+       && $gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
           | grep ' 82106000 82106000' > /dev/null 2>&1; then
 	 gcc_cv_as_offsetable_lo10=yes
        fi],
@@ -2627,24 +2627,29 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
 
-AC_MSG_CHECKING(linker --as-needed support)
-gcc_cv_ld_as_needed=no
-if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
-     && test $in_tree_ld_is_elf = yes; then
-    gcc_cv_ld_as_needed=yes
-  fi
-elif test x$gcc_cv_ld != x; then
-	# Check if linker supports --as-needed and --no-as-needed options
-	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
-		gcc_cv_ld_as_needed=yes
-	fi
-fi
-if test x"$gcc_cv_ld_as_needed" = xyes; then
-	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
-[Define if your linker supports --as-needed and --no-as-needed options.])
-fi
-AC_MSG_RESULT($gcc_cv_ld_as_needed)
+case "$target" in
+  *-*-linux*)
+    AC_CACHE_CHECK(linker --as-needed support,
+    gcc_cv_ld_as_needed,
+    [gcc_cv_ld_as_needed=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+         && test $in_tree_ld_is_elf = yes; then
+        gcc_cv_ld_as_needed=yes
+      fi
+    elif test x$gcc_cv_ld != x; then
+      # Check if linker supports --as-needed and --no-as-needed options
+      if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+        gcc_cv_ld_as_needed=yes
+      fi
+    fi
+    ])
+    if test x"$gcc_cv_ld_as_needed" = xyes; then
+      AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
+    [Define if your linker supports --as-needed and --no-as-needed options.])
+    fi
+    ;;
+esac
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then

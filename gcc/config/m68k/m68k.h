@@ -265,7 +265,7 @@ extern int target_flags;
     { "noshort", - MASK_SHORT,						\
       N_("Consider type `int' to be 32 bits wide") },			\
     { "68881", MASK_68881, "" },					\
-    { "soft-float", - (MASK_68040_ONLY|MASK_68881),			\
+    { "soft-float", - MASK_68881,					\
       N_("Generate code with library calls for floating point") },	\
     { "68020-40", -(MASK_ALL_CF_BITS|MASK_68060|MASK_68040_ONLY),	\
       N_("Generate code for a 68040, without any new instructions") },	\
@@ -389,9 +389,9 @@ extern int target_flags;
 #define LONG_DOUBLE_TYPE_SIZE 96
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
-   instructions, we get proper intermediate rounding, otherwise we 
+   instructions, we get proper intermediate rounding, otherwise we
    get extended precision results.  */
-#define TARGET_FLT_EVAL_METHOD (TARGET_68040_ONLY ? 0 : 2)
+#define TARGET_FLT_EVAL_METHOD ((TARGET_68040_ONLY || ! TARGET_68881) ? 0 : 2)
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -736,7 +736,8 @@ extern enum reg_class regno_reg_class[];
 
    `Q' means address register indirect addressing mode.
    `S' is for operands that satisfy 'm' when -mpcrel is in effect.
-   `T' is for operands that satisfy 's' when -mpcrel is not in effect.  */
+   `T' is for operands that satisfy 's' when -mpcrel is not in effect.
+   `U' is for register offset addressing.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)			\
   (((CODE) == 'S')					\
@@ -756,7 +757,13 @@ extern enum reg_class regno_reg_class[];
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == REG)		\
    :							\
-   0)))
+  (((CODE) == 'U')					\
+   ? (GET_CODE (OP) == MEM 				\
+      && GET_CODE (XEXP (OP, 0)) == PLUS		\
+      && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
+      && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT) \
+   :							\
+   0))))
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.

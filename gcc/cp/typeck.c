@@ -54,7 +54,6 @@ static int comp_ptr_ttypes_const (tree, tree);
 static bool comp_except_types (tree, tree, bool);
 static bool comp_array_types (tree, tree, bool);
 static tree common_base_type (tree, tree);
-static tree lookup_anon_field (tree, tree);
 static tree pointer_diff (tree, tree, tree);
 static tree get_delta_difference (tree, tree, int);
 static void casts_away_constness_r (tree *, tree *);
@@ -124,7 +123,7 @@ complete_type (tree type)
   else if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
     {
       tree t = complete_type (TREE_TYPE (type));
-      if (COMPLETE_TYPE_P (t) && ! processing_template_decl)
+      if (COMPLETE_TYPE_P (t) && !dependent_type_p (type))
 	layout_type (type);
       TYPE_NEEDS_CONSTRUCTING (type)
 	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (t));
@@ -1285,6 +1284,33 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
 }
   
 
+/* EXPR is being used in a context that is not a function call.
+   Enforce:
+
+     [expr.ref] 
+
+     The expression can be used only as the left-hand operand of a
+     member function call.  
+
+     [expr.mptr.operator]
+
+     If the result of .* or ->* is a function, then that result can be
+     used only as the operand for the function call operator ().  
+
+   by issuing an error message if appropriate.  Returns true iff EXPR
+   violates these rules.  */
+
+bool
+invalid_nonstatic_memfn_p (tree expr)
+{
+  if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
+    {
+      error ("invalid use of non-static member function");
+      return true;
+    }
+  return false;
+}
+
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
    function-to-pointer conversions.
@@ -1337,11 +1363,8 @@ decay_conversion (tree exp)
       error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
-  if (code == METHOD_TYPE)
-    {
-      error ("invalid use of non-static member function");
-      return error_mark_node;
-    }
+  if (invalid_nonstatic_memfn_p (exp))
+    return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
@@ -1510,7 +1533,7 @@ rationalize_conditional_expr (enum tree_code code, tree t)
    anonymous unions can nest, we must also search all anonymous unions
    that are directly reachable.  */
 
-static tree
+tree
 lookup_anon_field (tree t, tree type)
 {
   tree field;
@@ -3525,17 +3548,41 @@ build_x_unary_op (enum tree_code code, tree xarg)
     {
       if (type_dependent_expression_p (xarg))
 	return build_min_nt (code, xarg, NULL_TREE);
+
+      /* For non-dependent pointer-to-member, the SCOPE_REF will be
+	 processed during template substitution.  Just compute the
+	 right type here and build an ADDR_EXPR around it for
+	 diagnostics.  */
+      if (code == ADDR_EXPR && TREE_CODE (xarg) == SCOPE_REF)
+	{
+	  tree type;
+	  if (TREE_TYPE (xarg) == unknown_type_node)
+	    type = unknown_type_node;
+	  else if (TREE_CODE (TREE_TYPE (xarg)) == FUNCTION_TYPE)
+	    type = build_pointer_type (TREE_TYPE (xarg));
+	  else
+	    type = build_ptrmem_type (TREE_OPERAND (xarg, 0),
+				      TREE_TYPE (xarg));
+	  return build_min (code, type, xarg, NULL_TREE);
+	}
+
       xarg = build_non_dependent_expr (xarg);
     }
 
   exp = NULL_TREE;
 
-  /* & rec, on incomplete RECORD_TYPEs is the simple opr &, not an
-     error message.  */
+  /* [expr.unary.op] says:
+
+       The address of an object of incomplete type can be taken.
+
+     (And is just the ordinary address operator, not an overloaded
+     "operator &".)  However, if the type is a template
+     specialization, we must complete the type at this point so that
+     an overloaded "operator &" will be available if required.  */
   if (code == ADDR_EXPR
       && TREE_CODE (xarg) != TEMPLATE_ID_EXPR
-      && ((IS_AGGR_TYPE_CODE (TREE_CODE (TREE_TYPE (xarg)))
-	   && !COMPLETE_TYPE_P (TREE_TYPE (xarg)))
+      && ((CLASS_TYPE_P (TREE_TYPE (xarg))
+	   && !COMPLETE_TYPE_P (complete_type (TREE_TYPE (xarg))))
 	  || (TREE_CODE (xarg) == OFFSET_REF)))
     /* Don't look for a function.  */;
   else
@@ -3944,8 +3991,12 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return arg;
 	}
 
-      /* For &x[y], return x+y.  */
-      if (TREE_CODE (arg) == ARRAY_REF)
+      /* For &x[y], return x+y.  But, in a template, ARG may be an
+	 ARRAY_REF representing a non-dependent expression.  In that
+	 case, there may be an overloaded "operator []" that will be
+	 chosen at instantiation time; we must not try to optimize
+	 here.  */
+      if (TREE_CODE (arg) == ARRAY_REF && !processing_template_decl)
 	{
 	  if (!cxx_mark_addressable (TREE_OPERAND (arg, 0)))
 	    return error_mark_node;
@@ -4053,7 +4104,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       {
 	tree addr;
 
-	if (TREE_CODE (arg) != COMPONENT_REF)
+	if (TREE_CODE (arg) != COMPONENT_REF
+	    /* Inside a template, we are processing a non-dependent
+	       expression so we can just form an ADDR_EXPR with the
+	       correct type.  */
+	    || processing_template_decl)
 	  addr = build_address (arg);
 	else if (TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
 	  {
@@ -4212,7 +4267,8 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 	      return error_mark_node;
 	    }
 
-	  type = build_ptrmem_type (DECL_FIELD_CONTEXT (t), TREE_TYPE (t));
+	  type = build_ptrmem_type (context_for_name_lookup (t), 
+				    TREE_TYPE (t));
 	  t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
 	  return t;
 	}
@@ -4514,7 +4570,17 @@ build_static_cast (tree type, tree expr)
      t.  */
   result = perform_direct_initialization_if_possible (type, expr);
   if (result)
-    return convert_from_reference (result);
+    {
+      result = convert_from_reference (result);
+      /* [expr.static.cast]
+
+         If T is a reference type, the result is an lvalue; otherwise,
+	 the result is an rvalue.  */
+      if (TREE_CODE (type) != REFERENCE_TYPE
+	  && real_lvalue_p (result))
+	result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
+      return result;
+    }
   
   /* [expr.static.cast]
 
@@ -5461,7 +5527,10 @@ build_ptrmemfunc (tree type, tree pfn, int force)
 	}
 
       /* Just adjust the DELTA field.  */
-      my_friendly_assert (TREE_TYPE (delta) == ptrdiff_type_node, 20030727);
+      my_friendly_assert 
+	(same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (delta),
+						    ptrdiff_type_node), 
+	 20030727);
       if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_delta)
 	n = cp_build_binary_op (LSHIFT_EXPR, n, integer_one_node);
       delta = cp_build_binary_op (PLUS_EXPR, delta, n);

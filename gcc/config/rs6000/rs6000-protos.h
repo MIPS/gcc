@@ -57,6 +57,7 @@ extern int got_no_const_operand (rtx, enum machine_mode);
 extern int num_insns_constant (rtx, enum machine_mode);
 extern int easy_fp_constant (rtx, enum machine_mode);
 extern int easy_vector_constant (rtx, enum machine_mode);
+extern rtx gen_easy_vector_constant_add_self (rtx);
 extern const char *output_vec_const_move (rtx *);
 extern int zero_fp_constant (rtx, enum machine_mode);
 extern int zero_constant (rtx, enum machine_mode);
@@ -115,6 +116,7 @@ extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 extern void rs6000_emit_sCOND (enum rtx_code, rtx);
 extern void rs6000_emit_cbranch (enum rtx_code, rtx);
 extern char * output_cbranch (rtx, const char *, int, rtx);
+extern char * output_e500_flip_eq_bit (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
 extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
@@ -198,6 +200,7 @@ extern int rs6000_register_move_cost (enum machine_mode,
 extern int rs6000_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern bool rs6000_tls_referenced_p (rtx);
 extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);
+extern void rs6000_output_dwarf_dtprel (FILE*, int, rtx);
 
 /* Declare functions in rs6000-c.c */
 

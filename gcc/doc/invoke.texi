@@ -366,7 +366,8 @@ in the following sections.
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
 -mcypress  -mf930  -mf934 @gol
--msparclite  -msupersparc  -mv8}
+-msparclite  -msupersparc  -mv8
+-threads -pthreads}
 
 @emph{ARM Options}
 @gccoptlist{-mapcs-frame  -mno-apcs-frame @gol
@@ -1695,7 +1696,7 @@ to a plain pointer.
 @item -Wsign-promo @r{(C++ only)}
 @opindex Wsign-promo
 Warn when overload resolution chooses a promotion from unsigned or
-enumeral type to a signed type, over a conversion to an unsigned type of
+enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ would try to preserve
 unsignedness, but the standard mandates the current behavior.
 
@@ -1773,7 +1774,7 @@ for NeXT-based systems, including Darwin and Mac OS X@.  The macro
 used.
 
 @item -fno-nil-receivers
-@opindex -fno-nil-receivers
+@opindex fno-nil-receivers
 Assume that all Objective-C message dispatches (e.g.,
 @code{[receiver message:arg]}) in this translation unit ensure that the receiver
 is not @code{nil}.  This allows for more efficient entry points in the runtime to be
@@ -1781,7 +1782,7 @@ used.  Currently, this option is only available in conjunction with
 the NeXT runtime on Mac OS X 10.3 and later.
 
 @item -fobjc-exceptions
-@opindex -fobjc-exceptions
+@opindex fobjc-exceptions
 Enable syntactic support for structured exception handling in Objective-C,
 similar to what is offered by C++ and Java.  Currently, this option is only
 available in conjunction with the NeXT runtime on Mac OS X 10.3 and later.
@@ -1873,7 +1874,7 @@ Unlike Java, Objective-C does not allow for entire methods to be marked
 to be unlocked properly.
 
 @item -freplace-objc-classes
-@opindex -freplace-objc-classes
+@opindex freplace-objc-classes
 Emit a special marker instructing @command{ld(1)} not to statically link in
 the resulting object file, and allow @command{dyld(1)} to load it in at
 run time instead.  This is used in conjunction with the Fix-and-Continue
@@ -1884,7 +1885,7 @@ is only available in conjunction with the NeXT runtime on Mac OS X 10.3
 and later.
 
 @item -fzero-link
-@opindex -fzero-link
+@opindex fzero-link
 When compiling for the NeXT runtime, the compiler ordinarily replaces calls
 to @code{objc_getClass("@dots{}")} (when the name of the class is known at
 compile time) with static class references that get initialized at load time,
@@ -1935,7 +1936,7 @@ compilation.  This also enforces the coding style convention
 that methods and selectors must be declared before being used.
 
 @item -print-objc-runtime-info
-@opindex -print-objc-runtime-info
+@opindex print-objc-runtime-info
 Generate C header describing the largest structure that is passed by
 value, if any.
 
@@ -2299,7 +2300,7 @@ future implementation may also work for C++ programs.
 The C standard is worded confusingly, therefore there is some debate
 over the precise meaning of the sequence point rules in subtle cases.
 Links to discussions of the problem, including proposed formal
-definitions, may be found on our readings page, at
+definitions, may be found on the GCC readings page, at
 @w{@uref{http://gcc.gnu.org/readings.html}}.
 
 @item -Wreturn-type
@@ -2314,7 +2315,7 @@ exceptions are @samp{main} and functions defined in system headers.
 
 @item -Wswitch
 @opindex Wswitch
-Warn whenever a @code{switch} statement has an index of enumeral type
+Warn whenever a @code{switch} statement has an index of enumerated type
 and lacks a @code{case} for one or more of the named codes of that
 enumeration.  (The presence of a @code{default} label prevents this
 warning.)  @code{case} labels outside the enumeration range also
@@ -2327,7 +2328,7 @@ case.
 
 @item -Wswitch-enum
 @opindex Wswitch-enum
-Warn whenever a @code{switch} statement has an index of enumeral type
+Warn whenever a @code{switch} statement has an index of enumerated type
 and lacks a @code{case} for one or more of the named codes of that
 enumeration.  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
@@ -4149,11 +4150,10 @@ These two options are intended to be removed someday, once
 they have helped determine the efficacy of various
 approaches to improving loop optimizations.
 
-Please let us (@w{@email{gcc@@gcc.gnu.org}} and @w{@email{fortran@@gnu.org}})
-know how use of these options affects
-the performance of your production code.
-We're very interested in code that runs @emph{slower}
-when these options are @emph{enabled}.
+Please contact @w{@email{gcc@@gcc.gnu.org}}, and describe how use of
+these options affects the performance of your production code.
+Examples of code that runs @emph{slower} when these options are
+@emph{enabled} are very valuable.
 
 @item -fno-peephole
 @itemx -fno-peephole2
@@ -4333,7 +4333,7 @@ a ``home register''.
 @item -fweb
 @opindex fweb
 Constructs webs as commonly used for register allocation purposes and assign
-each web individual pseudo register.  This allows our register allocation pass
+each web individual pseudo register.  This allows the register allocation pass
 to operate on pseudos directly, but also strengthens several other optimization
 passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
@@ -4351,10 +4351,13 @@ Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fprofile-generate
 @opindex fprofile-generate
-Enable options usually used for instrumenting application to produce profile usefull
-for later recompilation profile feedback based optimization.
 
-The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values}, @code{-fvpt}
+Enable options usually used for instrumenting application to produce
+profile useful for later recompilation with profile feedback based
+optimization.  You must use @code{-fprofile-generate} both when
+compiling and when linking your program.
+
+The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values}, @code{-fvpt}.
 
 @item -fprofile-use
 @opindex fprofile-use
@@ -5107,14 +5110,14 @@ this is the right thing to do.
 
 If, instead, you use the GCC driver to create shared libraries, you may
 find that they will not always be linked with the shared @file{libgcc}.
-If GCC finds, at its configuration time, that you have a GNU linker that
-does not support option @option{--eh-frame-hdr}, it will link the shared
-version of @file{libgcc} into shared libraries by default.  Otherwise,
-it will take advantage of the linker and optimize away the linking with
-the shared version of @file{libgcc}, linking with the static version of
-libgcc by default.  This allows exceptions to propagate through such
-shared libraries, without incurring relocation costs at library load
-time.
+If GCC finds, at its configuration time, that you have a non-GNU linker
+or a GNU linker that does not support option @option{--eh-frame-hdr},
+it will link the shared version of @file{libgcc} into shared libraries
+by default.  Otherwise, it will take advantage of the linker and optimize
+away the linking with the shared version of @file{libgcc}, linking with
+the static version of libgcc by default.  This allows exceptions to
+propagate through such shared libraries, without incurring relocation
+costs at library load time.
 
 However, if a library or main executable is supposed to throw or catch
 exceptions, you must link it using the G++ or GCJ driver, as appropriate
@@ -6358,8 +6361,8 @@ that select a particular cpu implementation.  Those are @samp{cypress},
 
 @item -mv8plus
 @itemx -mno-v8plus
-@opindex -mv8plus
-@opindex -mno-v8plus
+@opindex mv8plus
+@opindex mno-v8plus
 With @option{-mv8plus}, GCC generates code for the SPARC-V8+ ABI.  The
 difference from the V8 ABI is that the global and out registers are
 considered 64-bit wide.  This is enabled by default on Solaris in 32-bit
@@ -6367,8 +6370,8 @@ mode for all SPARC-V9 processors.
 
 @item -mvis
 @itemx -mno-vis
-@opindex -mvis
-@opindex -mno-vis
+@opindex mvis
+@opindex mno-vis
 With @option{-mvis}, GCC generates code that takes advantage of the UltraSPARC
 Visual Instruction Set extensions.  The default is @option{-mno-vis}.
 @end table
@@ -6427,6 +6430,24 @@ With @option{-mstack-bias}, GCC assumes that the stack pointer, and
 frame pointer if present, are offset by @minus{}2047 which must be added back
 when making stack frame references.  This is the default in 64-bit mode.
 Otherwise, assume no such offset is present.
+@end table
+
+These switches are supported in addition to the above on Solaris:
+
+@table @gcctabopt
+@item -threads
+@opindex threads
+Add support for multithreading using the Solaris threads library.  This
+option sets flags for both the preprocessor and linker.  This option does
+not affect the thread safety of object code produced by the compiler or
+that of libraries supplied with it.
+
+@item -pthreads
+@opindex pthreads
+Add support for multithreading using the POSIX threads library.  This
+option sets flags for both the preprocessor and linker.  This option does
+not affect the thread safety of object code produced  by the compiler or
+that of libraries supplied with it.
 @end table
 
 @node ARM Options
@@ -6856,7 +6877,7 @@ doesn't the linker will give an error message---incorrect code will not be
 generated.
 
 @item -mdebug
-@opindex -mdebug
+@opindex mdebug
 Makes the M32R specific code in the compiler display some statistics
 that might help in debugging programs.
 
@@ -7004,8 +7025,8 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
 @samp{860}, @samp{970}, @samp{common}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
-@samp{power4}, @samp{powerpc}, @samp{powerpc64}, @samp{rios},
-@samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
+@samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
+@samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option will run on any POWER or PowerPC processor.
@@ -8098,11 +8119,20 @@ Intel PentiumMMX CPU based on Pentium core with MMX instruction set support.
 Intel PentiumPro CPU.
 @item pentium2
 Intel Pentium2 CPU based on PentiumPro core with MMX instruction set support.
-@item pentium3
+@item pentium3, pentium3m
 Intel Pentium3 CPU based on PentiumPro core with MMX and SSE instruction set
 support.
-@item pentium4
+@item pentium-m
+Low power version of Intel Pentium3 CPU with MMX, SSE and SSE2 instruction set
+support.  Used by Centrino notebooks.
+@item pentium4, pentium4m
 Intel Pentium4 CPU with MMX, SSE and SSE2 instruction set support.
+@item prescott
+Improved version of Intel Pentium4 CPU with MMX, SSE, SSE2 and SSE3 instruction
+set support.
+@item nocona
+Improved version of Intel Pentium4 CPU with 64-bit extensions, MMX, SSE,
+SSE2 and SSE3 instruction set support.
 @item k6
 AMD K6 CPU with MMX instruction set support.
 @item k6-2, k6-3
@@ -11329,6 +11359,13 @@ over and over again can account for nearly all of the time required to
 build the project.  To make builds faster, GCC allows users to
 `precompile' a header file; then, if builds can use the precompiled
 header file they will be much faster.
+
+@strong{Caution:} There are a few known situations where GCC will
+crash when trying to use a precompiled header.  If you have trouble
+with a precompiled header, you should remove the precompiled header
+and compile without it.  In addition, please use GCC's on-line
+defect-tracking system to report any problems you encounter with
+precompiled headers.  @xref{Bugs}.
 
 To create a precompiled header file, simply compile it as you would any
 other file, if necessary using the @option{-x} option to make the driver

@@ -1409,19 +1409,32 @@ duplicate_decls (tree newdecl, tree olddecl)
     /* One of the declarations is a template instantiation, and the
        other is not a template at all.  That's OK.  */
     return NULL_TREE;
-  else if (TREE_CODE (newdecl) == NAMESPACE_DECL
-           && DECL_NAMESPACE_ALIAS (newdecl)
-           && DECL_NAMESPACE_ALIAS (newdecl) == DECL_NAMESPACE_ALIAS (olddecl))
-    /* In [namespace.alias] we have:
+  else if (TREE_CODE (newdecl) == NAMESPACE_DECL)
+    {
+      /* In [namespace.alias] we have:
+	 
+           In a declarative region, a namespace-alias-definition can be
+	   used to redefine a namespace-alias declared in that declarative
+	   region to refer only to the namespace to which it already
+	   refers.
+	   
+	 Therefore, if we encounter a second alias directive for the same
+	 alias, we can just ignore the second directive.  */
+      if (DECL_NAMESPACE_ALIAS (newdecl)
+	  && (DECL_NAMESPACE_ALIAS (newdecl) 
+	      == DECL_NAMESPACE_ALIAS (olddecl)))
+	return olddecl;
+      /* [namespace.alias]
 
-	 In a declarative region, a namespace-alias-definition can be
-	 used to redefine a namespace-alias declared in that declarative
-	 region to refer only to the namespace to which it already
-	 refers.  
-
-      Therefore, if we encounter a second alias directive for the same
-      alias, we can just ignore the second directive.  */
-    return olddecl;
+         A namespace-name or namespace-alias shall not be declared as
+	 the name of any other entity in the same declarative region.
+	 A namespace-name defined at global scope shall not be
+	 declared as the name of any other entity in any glogal scope
+	 of the program.  */
+      error ("declaration of `namespace %D' conflicts with", newdecl);
+      cp_error_at ("previous declaration of `namespace %D' here", olddecl);
+      return error_mark_node;
+    }
   else
     {
       const char *errmsg = redeclaration_error_message (newdecl, olddecl);
@@ -7625,27 +7638,28 @@ grokdeclarator (tree declarator,
 	    ctype = TREE_OPERAND (declarator, 0);
 
 	    t = ctype;
-	    while (t != NULL_TREE && CLASS_TYPE_P (t))
-	      {
-		/* You're supposed to have one `template <...>'
-		   for every template class, but you don't need one
-		   for a full specialization.  For example:
-
+	    if (TREE_CODE (TREE_OPERAND (declarator, 1)) != INDIRECT_REF)
+	      while (t != NULL_TREE && CLASS_TYPE_P (t))
+		{
+		  /* You're supposed to have one `template <...>'
+		     for every template class, but you don't need one
+		     for a full specialization.  For example:
+		     
 		     template <class T> struct S{};
 		     template <> struct S<int> { void f(); };
 		     void S<int>::f () {}
-
-		   is correct; there shouldn't be a `template <>' for
-		   the definition of `S<int>::f'.  */
-		if (CLASSTYPE_TEMPLATE_INFO (t)
-		    && (CLASSTYPE_TEMPLATE_INSTANTIATION (t)
-			|| uses_template_parms (CLASSTYPE_TI_ARGS (t)))
-	            && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))
-		  template_count += 1;
-
-		t = TYPE_MAIN_DECL (t);
-		t = DECL_CONTEXT (t);
-	      }
+		     
+		     is correct; there shouldn't be a `template <>' for
+		     the definition of `S<int>::f'.  */
+		  if (CLASSTYPE_TEMPLATE_INFO (t)
+		      && (CLASSTYPE_TEMPLATE_INSTANTIATION (t)
+			  || uses_template_parms (CLASSTYPE_TI_ARGS (t)))
+		      && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))
+		    template_count += 1;
+		  
+		  t = TYPE_MAIN_DECL (t);
+		  t = DECL_CONTEXT (t);
+		}
 
 	    if (sname == NULL_TREE)
 	      goto done_scoping;
@@ -9476,6 +9490,13 @@ xref_tag (enum tag_types tag_code, tree name,
     {
       if (!globalize && processing_template_decl && IS_AGGR_TYPE (t))
 	redeclare_class_template (t, current_template_parms);
+      else if (!processing_template_decl 
+	       && CLASS_TYPE_P (t)
+	       && CLASSTYPE_IS_TEMPLATE (t))
+	{
+	  error ("redeclaration of `%T' as a non-template", t);
+	  t = error_mark_node;
+	}
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);

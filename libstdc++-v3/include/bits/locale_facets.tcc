@@ -497,7 +497,9 @@ namespace std
 
 	// At this point, base is determined. If not hex, only allow
 	// base digits as valid input.
-	const size_t __len = __base == 16 ? __num_base::_S_iend - __num_base::_S_izero : __base;
+	const size_t __len = __base == 16 ? (__num_base::_S_iend
+					     - __num_base::_S_izero)
+	                                  : __base;
 
 	// Extract.
 	string __found_grouping;
@@ -826,7 +828,11 @@ namespace std
     inline int
     __int_to_char(_CharT* __bufend, unsigned long __v, const _CharT* __lit,
 		  ios_base::fmtflags __flags)
-    { return __int_to_char(__bufend, __v, __lit, __flags, false); }
+    {
+      // About showpos, see Table 60 and C99 7.19.6.1, p6 (+).
+      return __int_to_char(__bufend, __v, __lit,
+			   __flags & ~ios_base::showpos, false);
+    }
 
 #ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT>
@@ -848,7 +854,8 @@ namespace std
     inline int
     __int_to_char(_CharT* __bufend, unsigned long long __v, 
 		  const _CharT* __lit, ios_base::fmtflags __flags)
-    { return __int_to_char(__bufend, __v, __lit, __flags, false); }
+    { return __int_to_char(__bufend, __v, __lit,
+			   __flags & ~ios_base::showpos, false); }
 #endif
 
   template<typename _CharT, typename _ValueT>
@@ -1043,21 +1050,12 @@ namespace std
 	const locale& __loc = __io._M_getloc();
 	const __cache_type* __lc = __uc(__loc);
 
-	// Note: digits10 is rounded down: add 1 to ensure the maximum
-	// available precision.  Then, in general, one more 1 needs to
-	// be added since, when the %{g,G} conversion specifiers are
-	// chosen inside _S_format_float, the precision field is "the
-	// maximum number of significant digits", *not* the "number of
-	// digits to appear after the decimal point", as happens for
-	// %{e,E,f,F} (C99, 7.19.6.1,4).
-	const int __max_digits = numeric_limits<_ValueT>::digits10 + 2;
-
 	// Use default precision if out of range.
 	streamsize __prec = __io.precision();
-	if (__prec > static_cast<streamsize>(__max_digits))
-	  __prec = static_cast<streamsize>(__max_digits);
-	else if (__prec < static_cast<streamsize>(0))
+	if (__prec < static_cast<streamsize>(0))
 	  __prec = static_cast<streamsize>(6);
+
+	const int __max_digits = numeric_limits<_ValueT>::digits10;
 
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	int __len;
@@ -1065,7 +1063,7 @@ namespace std
 	char __fbuf[16];
 
 #ifdef _GLIBCXX_USE_C99
-	// First try a buffer perhaps big enough (for sure sufficient
+	// First try a buffer perhaps big enough (most probably sufficient
 	// for non-ios_base::fixed outputs)
 	int __cs_size = __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
@@ -1088,13 +1086,13 @@ namespace std
 	const int __max_exp = numeric_limits<_ValueT>::max_exponent10;
 
 	// The size of the output string is computed as follows.
-	// ios_base::fixed outputs may need up to __max_exp+1 chars
-	// for the integer part + up to __max_digits chars for the
-	// fractional part + 3 chars for sign, decimal point, '\0'. On
-	// the other hand, for non-fixed outputs __max_digits*3 chars
-	// are largely sufficient.
-	const int __cs_size = __fixed ? __max_exp + __max_digits + 4
-	                              : __max_digits * 3;
+	// ios_base::fixed outputs may need up to __max_exp + 1 chars
+	// for the integer part + __prec chars for the fractional part
+	// + 3 chars for sign, decimal point, '\0'. On the other hand,
+	// for non-fixed outputs __max_digits * 2 + __prec chars are
+	// largely sufficient.
+	const int __cs_size = __fixed ? __max_exp + __prec + 4
+	                              : __max_digits * 2 + __prec;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 
 	__num_base::_S_format_float(__io, __fbuf, __mod);
@@ -1718,10 +1716,8 @@ namespace std
     time_get<_CharT, _InIter>::do_date_order() const
     { return time_base::no_order; }
 
-  // Recursively expand a strftime format string and parse it.  Starts w/ %x
-  // and %X from do_get_time() and do_get_date(), which translate to a more
-  // specific string, which may contain yet more strings.  I.e. %x => %r =>
-  // %H:%M:%S => extracted characters.
+  // Expand a strftime format string and parse it.  E.g., do_get_date() may
+  // pass %m/%d/%Y => extracted characters.
   template<typename _CharT, typename _InIter>
     _InIter
     time_get<_CharT, _InIter>::
@@ -1998,35 +1994,30 @@ namespace std
       while (__nmatches > 1)
 	{
 	  // Find smallest matching string.
-	  size_t __minlen = 10;
-	  for (size_t __i2 = 0; __i2 < __nmatches; ++__i2)
+	  size_t __minlen = __traits_type::length(__names[__matches[0]]);
+	  for (size_t __i2 = 1; __i2 < __nmatches; ++__i2)
 	    __minlen = std::min(__minlen,
 			      __traits_type::length(__names[__matches[__i2]]));
+	  ++__pos;
 	  ++__beg;
 	  if (__pos < __minlen && __beg != __end)
-	    {
-	      ++__pos;
-	      for (size_t __i3 = 0; __i3 < __nmatches; ++__i3)
-		{
-		  __name = __names[__matches[__i3]];
-		  if (__name[__pos] != *__beg)
-		    __matches[__i3] = __matches[--__nmatches];
-		}
-	    }
+	    for (size_t __i3 = 0; __i3 < __nmatches;)
+	      {
+		__name = __names[__matches[__i3]];
+		if (__name[__pos] != *__beg)
+		  __matches[__i3] = __matches[--__nmatches];
+		else
+		  ++__i3;
+	      }
 	  else
 	    break;
 	}
 
       if (__nmatches == 1)
 	{
-	  // If there was only one match, the first compare is redundant.
-	  if (__pos == 0)
-	    {
-	      ++__pos;
-	      ++__beg;
-	    }
-
 	  // Make sure found name is completely extracted.
+	  ++__pos;
+	  ++__beg;
 	  __name = __names[__matches[0]];
 	  const size_t __len = __traits_type::length(__name);
 	  while (__pos < __len && __beg != __end && __name[__pos] == *__beg)
@@ -2050,12 +2041,12 @@ namespace std
     do_get_time(iter_type __beg, iter_type __end, ios_base& __io,
 		ios_base::iostate& __err, tm* __tm) const
     {
-      _CharT __wcs[3];
-      const char* __cs = "%X";
       const locale& __loc = __io._M_getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      __ctype.widen(__cs, __cs + 3, __wcs);
-      __beg = _M_extract_via_format(__beg, __end, __io, __err, __tm, __wcs);
+      const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
+      const char_type*  __times[2];
+      __tp._M_time_formats(__times);
+      __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+				    __tm, __times[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
@@ -2067,12 +2058,12 @@ namespace std
     do_get_date(iter_type __beg, iter_type __end, ios_base& __io,
 		ios_base::iostate& __err, tm* __tm) const
     {
-      _CharT __wcs[3];
-      const char* __cs = "%x";
       const locale& __loc = __io._M_getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      __ctype.widen(__cs, __cs + 3, __wcs);
-      __beg = _M_extract_via_format(__beg, __end, __io, __err, __tm, __wcs);
+      const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
+      const char_type*  __dates[2];
+      __tp._M_date_formats(__dates);
+      __beg = _M_extract_via_format(__beg, __end, __io, __err,
+				    __tm, __dates[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;

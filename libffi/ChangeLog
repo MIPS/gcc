@@ -1,3 +1,25 @@
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/ia64/unix.S (ffi_call_unix): Insert group barrier break
+	fp_done.
+	(ffi_closure_UNIX): Fix f14/f15 adjustment if FLOAT_SZ is ever
+	changed from 8.
+
+2004-04-26  Joe Buck <jbuck@welsh-buck.org>
+
+	Bug 15093
+	* configure.in: Test for existence of mmap and sys/mman.h before
+	checking blacklist.  Fix suggested by Jim Wilson.
+	* configure: Regenerate.
+	
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
 2004-03-12  Alan Modra  <amodra@bigpond.net.au>
 
 	* src/powerpc/ffi.c (ffi_prep_args64): Correct long double handling.

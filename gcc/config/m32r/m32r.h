@@ -247,14 +247,19 @@ extern int target_flags;
 #undef  TARGET_M32R
 #define TARGET_M32R             (! TARGET_M32RX && ! TARGET_M32R2)
 
-/* Big Endian Flag.  */
-#define BIG_ENDIAN_BIT 		(1 << 7)
-#define TARGET_BIG_ENDIAN       (target_flags & BIG_ENDIAN_BIT)
-
 /* Little Endian Flag.  */
-#define LITTLE_ENDIAN_BIT 	(1 <<  8)
-#ifndef TARGET_LITTLE_ENDIAN 	/* See little.h */
-#define TARGET_LITTLE_ENDIAN    (target_flags & LITTLE_ENDIAN_BIT)
+#define LITTLE_ENDIAN_BIT 	(1 << 7)
+#define TARGET_LITTLE_ENDIAN	(target_flags & LITTLE_ENDIAN_BIT)
+#define TARGET_BIG_ENDIAN       (! TARGET_LITTLE_ENDIAN)
+
+/* This defaults us to big-endian.  */
+#ifndef TARGET_ENDIAN_DEFAULT
+#define TARGET_ENDIAN_DEFAULT 0
+#endif
+
+/* This defaults us to m32r.  */
+#ifndef TARGET_CPU_DEFAULT
+#define TARGET_CPU_DEFAULT 0
 #endif
 
 /* Macro to define tables used to set the flags.
@@ -268,7 +273,7 @@ extern int target_flags;
 #endif
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 0
+#define TARGET_DEFAULT (TARGET_CPU_DEFAULT | TARGET_ENDIAN_DEFAULT)
 #endif
 
 #define TARGET_SWITCHES							\
@@ -738,7 +743,7 @@ enum reg_class
 
 #define N_REG_CLASSES ((int) LIM_REG_CLASSES)
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 #define REG_CLASS_NAMES \
   { "NO_REGS", "CARRY_REG", "ACCUM_REGS", "GENERAL_REGS", "ALL_REGS" }
 
@@ -1293,7 +1298,7 @@ L2:     .word STATIC
 	emit_insn (gen_flush_icache (validize_mem (gen_rtx_MEM (SImode, TRAMP)),\
 				     GEN_INT (m32r_cache_flush_trap) ));	\
       else if (m32r_cache_flush_func && m32r_cache_flush_func[0])		\
-	emit_library_call (gen_rtx_SYMBOL_REF (Pmode, m32r_cache_flush_func), 	\
+	emit_library_call (m32r_function_symbol (m32r_cache_flush_func), 	\
 			   0, VOIDmode, 3, TRAMP, Pmode,			\
 			   GEN_INT (TRAMPOLINE_SIZE), SImode,			\
 			   GEN_INT (3), SImode);				\
@@ -1305,6 +1310,10 @@ L2:     .word STATIC
 /* Generate calls to memcpy, memcmp and memset.  */
 #define TARGET_MEM_FUNCTIONS
 
+#define RETURN_ADDR_RTX(COUNT, FRAME) m32r_return_addr (COUNT)
+
+#define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM)
+
 /* Addressing modes, and classification of registers for them.  */
 
 /* Maximum number of registers that can appear in a valid memory address.  */
@@ -1770,15 +1779,6 @@ extern char m32r_punct_chars[256];
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (flag_pic ? SImode : Pmode)
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* It's not clear what PIC will look like or whether we want to use -fpic
-   for the embedded form currently being talked about.  For now require -fpic
-   to get pc relative switch tables.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
 #define WORD_REGISTER_OPERATIONS
@@ -1818,7 +1818,7 @@ extern char m32r_punct_chars[256];
 extern struct rtx_def * m32r_compare_op0;
 extern struct rtx_def * m32r_compare_op1;
 
-/* M32R function types.   */
+/* M32R function types.  */
 enum m32r_function_type
 {
   M32R_FUNCTION_UNKNOWN, M32R_FUNCTION_NORMAL, M32R_FUNCTION_INTERRUPT

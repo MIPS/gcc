@@ -1,3 +1,36 @@
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.pot: Regenerated.
+
+2004-05-26  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* fr.po: Update.
+
+2004-05-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* es.po: Update.
+
+2004-05-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* fr.po, tr.po: Update.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	sv.po, tr.po: Update.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-04-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.pot: Regenerated.
+
 2004-03-18  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* be.po, da.po, el.po, es.po, ja.po, nl.po, sv.po, tr.po: Update.

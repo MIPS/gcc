@@ -1,3 +1,527 @@
+2004-08-12 Jan Beulich <jbeulich@novell.com>
+
+	* g++.dg/ext/asm5.C: New.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16698
+	* g++.dg/eh/crash1.C: New test.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16717
+	* g++.dg/ext/construct1.C: New test.
+
+	PR c++/16853
+	* g++.dg/init/ptrmem1.C: New test.
+
+	PR c++/16618
+	* g++.dg/parse/offsetof5.C: New test.
+
+	PR c++/16870
+	* g++.dg/template/overload3.C: New test.
+
+	PR c++/16964
+	* g++.dg/parse/error16.C: New test.
+
+	PR c++/16904
+	* g++.dg/template/error14.C: New test.
+
+	PR c++/16929
+	* g++.dg/template/error15.C: New test.
+
+2004-08-07  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/16790
+	* gcc.c-torture/execute/pr16790-1.c: New test case.
+
+2004-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/null1.C: Fix PR number.
+	* g++.dg/parse/namespace10.C: Likewise.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16224
+	* g++.dg/template/spec17.C: New test.
+	* g++.old-deja/g++.ns/template13.C: Remove XFAIL.
+	* g++.old-deja/g++.pt/lookup10.C: Add dg-error marker.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16489
+	* g++.dg/init/null1.C: New test.
+	* g++.dg/tc1/dr76.C: Adjust error marker.
+	
+	PR c++/16529
+	* g++.dg/parse/namespace10.C: New test.
+	
+	PR c++/16810
+	* g++.dg/inherit/ptrmem2.C: New test.
+
+2004-07-28  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* g++.dg/template/non-dependent7.C: New test.
+	* g++.dg/template/non-dependent8.C: Likewise.
+	* g++.dg/template/non-dependent9.C: Likewise.
+	* g++.dg/template/non-dependent10.C: Likewise.
+
+2004-07-27  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/rtti/tinfo1.C: Correct the xfail.
+
+2004-07-26  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/rtti/tinfo1.C: Xfail.
+
+2004-07-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040726-1.c: New test.
+
+2004-07-24  Alexander Kabaev  <kan@freebsd.org>
+	    Zack Weinberg  <zack@codesourcery.com
+
+	PR 16684
+	* gcc.dg/Wredundant-decls-1.c: New test case.
+
+2004-07-21  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16175
+	* g++.dg/template/ttp10.C: New test.
+
+2004-07-21  Jakub Jelinek  <jakub@redhat.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/15345
+	PR c/16450
+	* gcc.dg/torture/nested-fn-1.c: New test.
+
+2004-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16637
+	* g++.dg/parse/lookup4.C: New test.
+
+2004-07-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR rtl-optimization/16536
+	* gcc.c-torture/execute/restrict-1.c: New test.
+
+2004-07-14  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/16325
+	* gcc.dg/profile-generate-1.c: New.
+
+2004-07-13  Richard Sandiford  <rsandifo@redhat.com>
+
+	Brought in from mainline:
+	* gcc.c-torture/execute/20040706-1.c: New test.
+
+2004-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.mist-tests/i386-prefetch.exp (PREFETCH_SSE): Change all
+	-march=i386 into -march=i686.  Add -march=i686 -mtune=x and
+	-march=x for pentium3, pentium3m, pentium-m, pentium4m,
+	prescott and c3-2.
+	(PREFETCH_3DNOW): Add -march=c3.
+
+2004-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/16372
+	* gcc.dg/range-test-1.c: New test.
+	* g++.dg/opt/range-test-1.C: New test.
+
+2004-07-09  Loren James Rittle  <ljrittle@acm.org>
+
+	* gcc.dg/builtins-config.h: Handle FreeBSD.
+
+2004-07-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040708-1.c: New test.
+
+2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/16276
+	* g++.dg/rtti/tinfo1.C: New file.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040707-1.c: New test.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040705-1.c: New test.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-28  Neil Booth  <neil@duron.akihabara.co.uk>
+
+	* gcc.dg/cpp/if-mop.c: Two new testcases.
+	* gcc.dg/cpp/trad/comment-3.c: New.
+
+2004-06-28  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040625-1.c: New test.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR C++/16174
+	* g++.dg/template/ctor4.C: New.
+
+2004-06-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.old-deja/g++.mike/p7325.C: Remove.
+
+2004-06-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-div-1.c: New test.
+
+2004-06-22 Kelley Cook <kcook@gcc.gnu.org>
+
+	* g++.dg/opt/pr15551.C: New testcase.
+
+2004-06-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3518
+	* g++.dg/template/unify7.C: New.
+
+	PR c++/14007
+	* g++.dg/template/unify5.C: New.
+	* g++.dg/template/unify6.C: New.
+	* g++.dg/template/qualttp20.C: Adjust.
+	* g++.old-deja/g++.jason/report.C: Adjust.
+	* g++.old-deja/g++.other/qual1.C: Adjust.
+
+2004-06-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/opt/placeholder1.C: New test.
+
+2004-06-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/lookup/crash3.C: Use __SIZE_TYPE__
+	instead of setting the type of size_t by
+	hand.
+
+2004-06-17  Zack Weinberg  <zack@codesourcery.com>
+
+	Bug 14610
+	* gcc.dg/ia64-float80-1.c, gcc.dg/ia64-float80-2.c: New testcases.
+
+2004-06-15  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15967
+	* g++.dg/lookup/crash3.C: New test.
+
+2004-06-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15947
+	* g++.dg/parse/dtor4.C: New test.
+
+2004-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15096
+	* g++.dg/template/ptrmem10.C: New test.
+
+	PR c++/14930
+	* g++.dg/template/friend30.C: New test.
+
+2004-06-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/15296
+	* gcc.c-torture/execute/pr15296.c: New test.
+
+2004-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15862
+	* g++.dg/parse/enum1.C: New test.
+
+2004-06-11  Hartmut Penner  <hpenner@de.ibm.com>
+
+	Backport from mainline:
+
+	2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
+	* gcc.dg/altivec-11.c: Extend test for more valid cases.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/15569
+	PR rtl-optimization/15681
+	* gcc.dg/20040609-1.c: New test.
+
+2004-06-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/14649
+	* gcc.dg/pr14649-1.c: New test case.
+
+2004-06-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/union-1.c: New test.
+
+2004-06-07  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/14765
+	* gcc.dg/pr14765-1.c: New test.
+
+2004-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14211
+	* g++.dg/conversion/const1.C: New test.
+
+	PR c++/15076
+	* g++.dg/conversion/reinterpret1.C: New test.
+
+	PR c++/15877
+	* g++.dg/template/enum2.C: New test.
+
+	PR c++/15227
+	* g++.dg/template/error13.C: New test.
+
+2004-06-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15337
+	* g++.dg/expr/sizeof3.C: New test.
+
+	PR c++/14777
+	* g++.dg/template/access14.C: New test.
+
+	PR c++/15554
+	* g++.dg/template/enum1.C: New test.
+
+	PR c++/15057
+	* g++.dg/eh/throw1.C: New test.
+
+2004-06-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15503
+	* g++.dg/template/meminit2.C: New test.
+
+2004-06-04  Eric Christopher  <echristo@redhat.com>
+
+	Backport from mainline:
+	2004-06-02  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.c-torture/compile/20040602-1.c: New.
+
+2004-06-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14932
+	* g++.dg/parse/offsetof4.C: New test.
+
+2004-06-01  Nicola Pero  <nicola@brainstorm.co.uk>
+
+ 	PR objc/7993
+	* objc.dg/private-1.m, objc-dg/private-2.m: New testcases.
+
+2004-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/15666
+	* gcc.c-torture/compile/20040531-1.c: New file.
+
+2004-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/15069
+	* g++.dg/opt/fold3.C: New test case.
+
+2004-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15701
+	* g++.dg/template/friend29.C: New test.
+
+2004-05-31  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15749
+	* gcc.dg/pr15749-1.c, gcc.dg/pr15749-1.h: New test.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-trap-1.c: New test.
+
+2004-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15742
+	* g++.dg/warn/Wreturn-1.C: New test.
+
+	PR c++/15696
+	* g++.dg/expr/ptrmem5.C: New test.
+
+	PR c++/15625
+	* g++.dg/template/friend27.C: New test.
+
+	PR c++/15629
+	* g++.dg/template/friend28.C: New test.
+	* g++.dg/template/friend.C: Do not depend on <iostream>.  Add
+	error message.
+
+	PR c++/15209
+	* g++.dg/ext/packed3.C: Remove bogus error.
+	* g++.dg/ext/packed4.C: Remove bogus check.
+	* g++.dg/ext/packed6.C: New test.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15083
+	* g++.dg/warn/noeffect6.C: New test.
+
+	PR c++/15471
+	* g++.dg/expr/ptrmem4.C: New test.
+
+	PR c++/15640
+	* g++.dg/template/operator3.C: New test.
+
+	PR c++/14668
+	* g++.dg/lookup/redecl1.C: New test.
+	* g++.old-deja/g++.benjamin/tem04.C: Add error marker.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15044
+	* g++.dg/template/error12.C: New test.
+
+	PR c++/15317
+	* g++.dg/ext/attrib15.C: New test.
+
+	PR c++/15329
+	* g++.dg/template/ptrmem9.C: New test.
+
+	PR c++/15165
+	* g++.dg/template/crash19.C: New test.
+
+	PR c++/15025
+	* g++.dg/template/redecl1.C: New test.
+
+	PR c++/14821
+	* g++.dg/other/ns1.C: New test.
+
+	PR c++/14883
+	* g++.dg/template/invalid1.C: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15285
+	PR c++/15299
+	* g++.dg/template/non-dependent5.C: New test.
+	* g++.dg/template/non-dependent6.C: New test.
+
+	PR c++/15507
+	* g++.dg/inherit/union1.C: New test.
+
+	PR c++/15542
+	* g++.dg/template/addr1.C: New test.
+
+	PR c++/15427
+	* g++.dg/template/array5.C: New test.
+
+	PR c++/15287
+	* g++.dg/template/array6.C: New test.
+
+2004-05-18  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/15054
+	* g++.dg/opt/pr15054.C: New test.
+
+2004-05-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.dg/loop-4.c: New test.
+
+2004-05-07  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* g++.dg/other/pragma-re-2.C: New test.
+
+2004-04-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/const-elim-1.c: XFAIL on s390*-*-*.
+
+2004-04-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/loop-3.c: New test.
+
+2004-04-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15064
+	* g++.dg/template/crash18.C: New test.
+
+2004-04-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20040310-1.c: New test.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-04-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/funcorder.c: xfail hppa*64*-*-*.
+
+2004-04-17  John David Anglin  <dava.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/const-elim-1.c: XFAIL hppa-*-*.
+
+2004-04-14  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/const-elim-1.c: XFAIL hppa*.*-*-* (PA32).  Merge further
+	XFAILs from mainline: strongarm-*-*, xscale-*-*, powerpc*-*-aix*.
+	Update commentary.
+
+2004-04-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/compat/struct-by-value-5a_main.c,
+	gcc.dg/compat/struct-by-value-5b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-5_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-5a_x.c,
+	gcc.dg/compat/struct-by-value-5b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-5_x.c.
+	* gcc.dg/compat/struct-by-value-5a_y.c,
+	gcc.dg/compat/struct-by-value-5b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-5_y.c.
+
+	* gcc.dg/compat/struct-by-value-6a_main.c,
+	gcc.dg/compat/struct-by-value-6b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-6_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-6a_x.c,
+	gcc.dg/compat/struct-by-value-6b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-6_x.c.
+	* gcc.dg/compat/struct-by-value-6a_y.c,
+	gcc.dg/compat/struct-by-value-6b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-6_y.c.
+
+	* gcc.dg/compat/struct-by-value-7a_main.c,
+	gcc.dg/compat/struct-by-value-7b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-7_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-7a_x.c,
+	gcc.dg/compat/struct-by-value-7b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-7_x.c.
+	* gcc.dg/compat/struct-by-value-7a_y.c,
+	gcc.dg/compat/struct-by-value-7b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-7_y.c.
+
+2004-04-05  Paul Brook  <paul@codesourcery.com>
+
+	PR 2123
+	* g++.dg/expr/anew1.C: XFAIL and make reproducible.  Call abort on
+	failure and exit(0) on success.
+	* g++.dg/expr/anew2.C: Ditto.
+	* g++.dg/expr/anew3.C: Ditto.
+	* g++.dg/expr/anew4.C: Ditto.
+
+2004-04-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* lib/target-supports.exp (check_named_sections_available): New.
+	* lib/gcc-dg.exp (dg-require-named-sections): New.
+	* lib/prune.exp (prune_gcc_output): Incorporate prunes from
+	old-deja.exp.  Also prune error-count message from HP linker.
+	* g++.old-deja/old-deja.exp (g++-dg-prune): Delete.
+
+	* g++.dg/init/init-ref4.C: Use dg-require-weak.
+	* g++.old-deja/g++.pt/static3.C: Likewise.
+	* g++.dg/parse/attr-ctor1.C: Use dg-require-named-sections.
+
+2004-04-09  Andreas Schwab  <schwab@suse.de>
+
+	* lib/prune.exp (prune_gcc_output): Ignore errata warning from
+	IA64 assembler.
+
 2004-04-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	Backport from mainline:
@@ -76,13 +600,13 @@
 	* g++.dg/init/placement3.C: New test.
 
 	* g++.dg/template/spec13.C: New test.
-	
+
 	* g++.dg/lookup/using11.C: New test.
-	
+
 	* g++.dg/lookup/koenig3.C: New test.
 
 	* g++.dg/template/operator2.C: New test.
-	
+
 	* g++.dg/expr/dtor3.C: New test.
 	* g++.old-deja/g++.brendan/crash15.C: Remove incorrect dg-error
 	marker.
@@ -157,7 +681,7 @@
 2004-03-11  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/14476
-	* g++.dg/lookup/enum1.C: New test. 
+	* g++.dg/lookup/enum1.C: New test.
 
 2004-03-10  Mark Mitchell  <mark@codesourcery.com>
 
@@ -17130,7 +17654,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/compile/labels-2.c: New test.
 
-1999-12-27  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+1999-12-27  Martin von LÃ¶wis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991227-1.c: New test.
 
@@ -17138,7 +17662,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* g++.old-deja/g++.pt/instantiate6.C: Remove excess errors XFAIL.
 
-1999-12-21  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+1999-12-21  Martin von LÃ¶wis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991221-1.c: New test.
 

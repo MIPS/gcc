@@ -395,16 +395,17 @@ which is no longer available, thanks deja...-->
       <p>It's not a bug, and it's not really a problem.  Nevertheless, some
          people don't like it, so here are two pseudo-solutions:
       </p>
-      <p>If the only functions from libstdc++.a which you need are language
-         support functions (those listed in
-         <a href="../18_support/howto.html">clause 18</a> of the standard,
-         e.g., <code>new</code> and <code>delete</code>), then try linking
-         against <code>libsupc++.a</code> (usually specifying
-         <code>-lsupc++</code> when calling g++ for the final link step will
-         do it).  This library contains only those support routines, one per
-         object file.  But if you are using anything from the rest of the
-         library, such as IOStreams or vectors, then you'll still need
-         pieces from <code>libstdc++.a</code>.
+      <p>If the only functions from libstdc++.a which you need are
+         language support functions (those listed in <a
+         href="../18_support/howto.html">clause 18</a> of the
+         standard, e.g., <code>new</code> and <code>delete</code>),
+         then try linking against <code>libsupc++.a</code> (Using
+         <code>gcc</code> instead of <code>g++</code> and explicitly
+         linking in <code>-lsupc++</code> for the final link step will
+         do it).  This library contains only those support routines,
+         one per object file.  But if you are using anything from the
+         rest of the library, such as IOStreams or vectors, then
+         you'll still need pieces from <code>libstdc++.a</code>.
       </p>
       <p>The second method is one we hope to incorporate into the library
          build process.  Some platforms can place each function and variable
@@ -754,7 +755,7 @@ New:
          causing problems for you, look carefully before submitting a
          &quot;high&quot; priority bug report (which you probably shouldn't
          do anyhow; see the last paragraph of the page describing
-         <a href="http://gcc.gnu.org/gnatswrite.html">the GCC bug database</a>).
+         <a href="http://gcc.gnu.org/bugs.html">the GCC bug database</a>).
       </p>
       <p>If the headers are in <code>${prefix}/include/g++-3</code>, or if
          the installed library's name looks like <code>libstdc++-2.10.a</code>
@@ -1048,7 +1049,7 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
          ANSI and their website is right <a href="http://www.ansi.org">here</a>.
          (And if you've already registered with them, clicking this link will
          take you to directly to the place where you can
-<a href="http://webstore.ansi.org/ansidocstore/product.asp?sku=ISO%2FIEC+14882%2D1998">buy
+<a href="http://webstore.ansi.org/ansidocstore/product.asp?sku=ISO%2FIEC+14882%3A2003">buy
          the standard on-line</a>.
       </p>
       <p>Who is your country's member body?  Visit the

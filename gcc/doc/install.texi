@@ -290,7 +290,6 @@ systems' @command{tar} programs will also work, only try GNU
 
 @heading Tools/packages necessary for modifying GCC
 @table @asis
-
 @item autoconf versions 2.13 and 2.57
 @itemx GNU m4 version 1.4 (or later)
 
@@ -426,7 +425,7 @@ tarballs compressed with @command{gzip} or
 @command{bzip2}.  It is possible to download a full distribution or specific
 components.
 
-Please refer to our @uref{http://gcc.gnu.org/releases.html,,releases web page}
+Please refer to the @uref{http://gcc.gnu.org/releases.html,,releases web page}
 for information on how to obtain GCC@.
 
 The full distribution includes the C, C++, Objective-C, Fortran, Java,
@@ -1683,7 +1682,7 @@ might emit some harmless messages resembling
 @samp{WARNING: Couldn't find the global config file.} or
 @samp{WARNING: Couldn't find tool init file} that can be ignored.
 
-@section How can I run the test suite on selected tests?
+@section How can you run the testsuite on selected tests?
 
 In order to run sets of tests selectively, there are targets
 @samp{make check-gcc} and @samp{make check-g++}
@@ -1796,7 +1795,7 @@ specifying the location of that tree when invoking @samp{make}, as in
 @samp{make MAUVEDIR=~/mauve check}.
 
 @uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
-is a free test suite that tests Java compiler front ends.  This suite
+is a free testsuite that tests Java compiler front ends.  This suite
 can be run as part of libgcj testing by placing the Jacks tree within
 the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
 
@@ -1826,9 +1825,9 @@ WARNING: the testsuite detected a possible problem
 @end itemize
 
 It is normal for some tests to report unexpected failures.  At the
-current time our testing harness does not allow fine grained control
-over whether or not a test is expected to fail.  We expect to fix this
-problem in future releases.
+current time the testing harness does not allow fine grained control
+over whether or not a test is expected to fail.  This problem should
+be fixed in future releases.
 
 
 @section Submitting test results
@@ -1927,7 +1926,7 @@ Include the following information:
 
 @itemize @bullet
 @item
-Output from running @file{@var{srcdir}/config.guess}.  Do not send us
+Output from running @file{@var{srcdir}/config.guess}.  Do not send
 that file itself, just the one-line output from running it.
 
 @item
@@ -1976,9 +1975,9 @@ We'd also like to know if the
 @end ifhtml
 didn't include your host/target information or if that information is
 incomplete or out of date.  Send a note to
-@email{gcc@@gcc.gnu.org} telling us how the information should be changed.
+@email{gcc@@gcc.gnu.org} detailing how the information should be changed.
 
-If you find a bug, please report it following our
+If you find a bug, please report it following the
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
@@ -2083,6 +2082,10 @@ Digital UNIX 4.0D and 5.1,
 GNU/Linux (i386),
 HP-UX 10.20, 11.00, and 11.11, and
 Solaris/SPARC 2.5.1, 2.6, 2.7, 8, and 9,
+
+@item
+@uref{http://www.openpkg.org/,,OpenPKG} offers binaries for quite a
+number of platforms.
 @end itemize
 
 In addition to those specific offerings, you can get a binary
@@ -2528,7 +2531,7 @@ information about this platform is available at
 @end html
 @heading @anchor{dos}DOS
 
-Please have a look at our @uref{binaries.html,,binaries page}.
+Please have a look at the @uref{binaries.html,,binaries page}.
 
 You cannot install GCC by itself on MSDOS; it will not compile under
 any MSDOS compiler except itself.  You need to get the complete
@@ -2595,7 +2598,7 @@ Shared @file{libgcc_s.so} is now built and installed by default.
 @heading @anchor{h8300-hms}h8300-hms
 Renesas H8/300 series of processors.
 
-Please have a look at our @uref{binaries.html,,binaries page}.
+Please have a look at the @uref{binaries.html,,binaries page}.
 
 The calling convention and structure layout has changed in release 2.6.
 All code must be recompiled.  The calling convention now passes the
@@ -2999,7 +3002,7 @@ The native AIX tools do interoperate with GCC@.
 Building @file{libstdc++.a} requires a fix for an AIX Assembler bug
 APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).  It also requires a
 fix for another AIX Assembler bug and a co-dependent AIX Archiver fix
-referenced as APAR IY53606 (AIX 5.2) or a APAR TBD (AIX 5.1)
+referenced as APAR IY53606 (AIX 5.2) or a APAR IY54774 (AIX 5.1)
 
 @samp{libstdc++} in GCC 3.4 increments the major version number of the
 shared object and GCC installation places the @file{libstdc++.a}
@@ -3204,52 +3207,27 @@ if you use the GNU assembler and linker.
 @end html
 @heading @anchor{mips-sgi-irix5}mips-sgi-irix5
 
-This configuration has considerable problems, which will be fixed in a
-future release.
-
-In order to compile GCC on an SGI running IRIX 5, the ``compiler_dev.hdr''
-subsystem must be installed from the IDO CD-ROM supplied by Silicon
-Graphics.  It is also available for download from
-@uref{http://www.sgi.com/developers/devtools/apis/ido.html,,http://www.sgi.com/developers/devtools/apis/ido.html}.
-
-@samp{make compare} may fail on version 5 of IRIX unless you add
-@option{-save-temps} to @code{CFLAGS}.  On these systems, the name of the
-assembler input file is stored in the object file, and that makes
-comparison fail if it differs between the @code{stage1} and
-@code{stage2} compilations.  The option @option{-save-temps} forces a
-fixed name to be used for the assembler input file, instead of a
-randomly chosen name in @file{/tmp}.  Do not add @option{-save-temps}
-unless the comparisons fail without that option.  If you do you
-@option{-save-temps}, you will have to manually delete the @samp{.i} and
-@samp{.s} files after each series of compilations.
+In order to compile GCC on an SGI running IRIX 5, the @samp{compiler_dev.hdr}
+subsystem must be installed from the IDO CD-ROM supplied by SGI@.
+It is also available for download from
+@uref{ftp://ftp.sgi.com/sgi/IRIX5.3/iris-development-option-5.3.tardist}.
 
 If you use the MIPS C compiler to bootstrap, it may be necessary
 to increase its table size for switch statements with the
 @option{-Wf,-XNg1500} option.  If you use the @option{-O2}
 optimization option, you also need to use @option{-Olimit 3000}.
 
-To enable debugging under IRIX 5, you must use GNU @command{as} 2.11.2
-or later,
-and use the @option{--with-gnu-as} configure option when configuring GCC.
-GNU @command{as} is distributed as part of the binutils package.
-When using release 2.11.2, you need to apply a patch
-@uref{http://sources.redhat.com/ml/binutils/2001-07/msg00352.html,,http://sources.redhat.com/ml/binutils/2001-07/msg00352.html}
-which will be included in the next release of binutils.
-
-When building GCC, the build process loops rebuilding @command{cc1} over
-and over again.  This happens on @samp{mips-sgi-irix5.2}, and possibly
-other platforms.  It has been reported that this is a known bug in the
-@command{make} shipped with IRIX 5.2.  We recommend you use GNU
-@command{make} instead of the vendor supplied @command{make} program;
-however, you may have success with @command{smake} on IRIX 5.2 if you do
-not have GNU @command{make} available.
+To enable debugging under IRIX 5, you must use GNU binutils 2.15 or
+later, and use the @option{--with-gnu-as} and @option{--with-gnu-ld}
+@command{configure} options when configuring GCC@.  You need to use GNU
+@command{ar} and @command{nm}, also distributed with GNU binutils.
 
 @html
 <hr />
 @end html
 @heading @anchor{mips-sgi-irix6}mips-sgi-irix6
 
-If you are using IRIX @command{cc} as your bootstrap compiler, you must
+If you are using SGI's MIPSpro @command{cc} as your bootstrap compiler, you must
 ensure that the N32 ABI is in use.  To test this, compile a simple C
 file with @command{cc} and then run @command{file} on the
 resulting object file.  The output should look like:
@@ -3272,15 +3250,20 @@ test.o: ELF 64-bit MSB @dots{}
 
 then your version of @command{cc} uses the O32 or N64 ABI by default.  You
 should set the environment variable @env{CC} to @samp{cc -n32}
-before configuring GCC@.
+before configuring GCC@.  SGI's MIPSpro 7.2 assembler may misassemble
+parts of the compiler, causing bootstrap failures.  MIPSpro 7.3 is
+known to work.  MIPSpro C 7.4 may cause bootstrap failures, too, due
+to a bug when inlining @code{memcmp}.  Either add @code{-U__INLINE_INTRINSICS}
+to the @env{CC} environment variable as a workaround or upgrade to
+MIPSpro C 7.4.1m.
 
 If you want the resulting @command{gcc} to run on old 32-bit systems
-with the MIPS R4400 CPU, you need to ensure that only code for the mips3
+with the MIPS R4400 CPU, you need to ensure that only code for the @samp{mips3}
 instruction set architecture (ISA) is generated.  While GCC 3.x does
 this correctly, both GCC 2.95 and SGI's MIPSpro @command{cc} may change
 the ISA depending on the machine where GCC is built.  Using one of them
-as the bootstrap compiler may result in mips4 code, which won't run at
-all on mips3-only systems.  For the test program above, you should see:
+as the bootstrap compiler may result in @samp{mips4} code, which won't run at
+all on @samp{mips3}-only systems.  For the test program above, you should see:
 
 @smallexample
 test.o: ELF N32 MSB mips-3 @dots{}
@@ -3295,52 +3278,29 @@ test.o: ELF N32 MSB mips-4 @dots{}
 instead, you should set the environment variable @env{CC} to @samp{cc
 -n32 -mips3} or @samp{gcc -mips3} respectively before configuring GCC@.
 
-GCC on IRIX 6 is usually built to support both the N32 and N64 ABIs.  If
-you build GCC on a system that doesn't have the N64 libraries installed,
+GCC on IRIX 6 is usually built to support the N32, O32 and N64 ABIs.  If
+you build GCC on a system that doesn't have the N64 libraries installed
+or cannot run 64-bit binaries,
 you need to configure with @option{--disable-multilib} so GCC doesn't
-try to use them.  Look for @file{/usr/lib64/libc.so.1} to see if you
+try to use them.  This will disable building the O32 libraries, too.
+Look for @file{/usr/lib64/libc.so.1} to see if you
 have the 64-bit libraries installed.
 
-You must @emph{not} use GNU @command{as} (which isn't built anyway as of
-binutils 2.11.2) on IRIX 6 platforms; doing so will only cause problems.
-
-GCC does not currently support generating O32 ABI binaries in the
-@samp{mips-sgi-irix6} configurations.  It is possible to create a GCC
-with O32 ABI only support by configuring it for the @samp{mips-sgi-irix5}
-target and using a patched GNU @command{as} 2.11.2 as documented in the
-@uref{#mips-sgi-irix5,,@samp{mips-sgi-irix5}} section above.  Using the
-native assembler requires patches to GCC which will be included in a
-future release.  It is
-expected that O32 ABI support will be available again in a future release.
+To enable debugging for the O32 ABI, you must use GNU @command{as} from
+GNU binutils 2.15 or later.  You may also use GNU @command{ld}, but
+this is not required and currently causes some problems with Ada.
 
 The @option{--enable-threads} option doesn't currently work, a patch is
 in preparation for a future release.  The @option{--enable-libgcj}
 option is disabled by default: IRIX 6 uses a very low default limit
-(20480) for the command line length.  Although libtool contains a
+(20480) for the command line length.  Although @command{libtool} contains a
 workaround for this problem, at least the N64 @samp{libgcj} is known not
 to build despite this, running into an internal error of the native
 @command{ld}.  A sure fix is to increase this limit (@samp{ncargs}) to
 its maximum of 262144 bytes.  If you have root access, you can use the
 @command{systune} command to do this.
 
-GCC does not correctly pass/return structures which are
-smaller than 16 bytes and which are not 8 bytes.  The problem is very
-involved and difficult to fix.  It affects a number of other targets also,
-but IRIX 6 is affected the most, because it is a 64-bit target, and 4 byte
-structures are common.  The exact problem is that structures are being padded
-at the wrong end, e.g.@: a 4 byte structure is loaded into the lower 4 bytes
-of the register when it should be loaded into the upper 4 bytes of the
-register.
-
-GCC is consistent with itself, but not consistent with the SGI C compiler
-(and the SGI supplied runtime libraries), so the only failures that can
-happen are when there are library functions that take/return such
-structures. There are very few such library functions.  Currently this
-is known to affect @code{inet_ntoa}, @code{inet_lnaof},
-@code{inet_netof}, @code{inet_makeaddr}, and @code{semctl}.  Until the
-bug is fixed, GCC contains workarounds for the known affected functions.
-
-See @uref{http://freeware.sgi.com/,,http://freeware.sgi.com/} for more
+See @uref{http://freeware.sgi.com/} for more
 information about using GCC on IRIX platforms.
 
 @html
@@ -3453,13 +3413,13 @@ supported as cross-compilation target only.
 <hr />
 @end html
 @c Please use Solaris 2 to refer to all release of Solaris, starting
-@c with 2.0 until 2.6, 7, and 8.  Solaris 1 was a marketing name for
+@c with 2.0 until 2.6, 7, 8, etc.  Solaris 1 was a marketing name for
 @c SunOS 4 releases which we don't use to avoid confusion.  Solaris
 @c alone is too unspecific and must be avoided.
 @heading @anchor{*-*-solaris2*}*-*-solaris2*
 
 Sun does not ship a C compiler with Solaris 2.  To bootstrap and install
-GCC you first have to install a pre-built compiler, see our
+GCC you first have to install a pre-built compiler, see the
 @uref{binaries.html,,binaries page} for details.
 
 The Solaris 2 @command{/bin/sh} will often fail to configure
@@ -3550,10 +3510,28 @@ that supports only 32-bit binaries, one must configure with
 @option{--disable-multilib}, since we will not be able to build the
 64-bit target libraries.
 
+GCC 3.3 and GCC 3.4 trigger code generation bugs in earlier versions of
+the GNU compiler (especially GCC 3.0.x versions), which lead to the
+miscompilation of the stage1 compiler and the subsequent failure of the
+bootstrap process.  A workaround is to use GCC 3.2.3 as an intermediary
+stage, i.e. to bootstrap that compiler with the base compiler and then
+use it to bootstrap the final compiler.
+
 GCC 3.4 triggers a code generation bug in versions 5.4 (Sun ONE Studio 7)
 and 5.5 (Sun ONE Studio 8) of the Sun compiler, which causes a bootstrap
 failure in form of a miscompilation of the stage1 compiler by the Sun
 compiler.  This is Sun bug 4974440.  This is fixed with patch 112760-07.
+
+GCC 3.4 changed the default debugging format from STABS to DWARF-2 for
+32-bit code on Solaris 7 and later.  If you are using the Sun
+assembler, this change apparently runs afoul of Sun bug 4910101, for
+which (as of 2004-05-23) there is no fix.  A symptom of the problem is
+that you cannot compile C++ programs like @command{groff} 1.19.1
+without getting messages like @samp{ld: warning: relocation error:
+R_SPARC_UA32 @dots{} external symbolic relocation against
+non-allocatable section .debug_info; cannot be processed at runtime:
+relocation ignored}.  To work around this problem, compile with
+@option{-gstabs+} instead of plain @option{-g}.
 
 @html
 <hr />
@@ -3591,7 +3569,7 @@ run code generated by GCC; it doesn't suffice to install it only on
 the hosts that run GCC itself.  Second, Sun says that 106950-03 is
 only a partial fix for bug 4210064, but Sun doesn't know whether the
 partial fix is adequate for GCC@.  Revision -08 or later should fix
-the bug.  The current (as of 2001-09-24) revision is -14, and is included in
+the bug.  The current (as of 2004-05-23) revision is -24, and is included in
 the Solaris 7 Recommended Patch Cluster.
 @end itemize
 

@@ -3700,8 +3700,11 @@ gcc_cv_cc_supports_ada=no
 # has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
 # Therefore we must check for the error message as well as an
 # unsuccessful exit.
+# Other compilers, like HP Tru64 UNIX cc, exit successfully when
+# given a .adb file, but produce no object file.  So we must check
+# if an object file was really produced to guard against this.
 errors=`(${CC} -c conftest.adb) 2>&1 || echo failure`
-if test x"$errors" = x; then
+if test x"$errors" = x && test -f conftest.$ac_objext; then
   gcc_cv_cc_supports_ada=yes
   break
 fi
@@ -3710,7 +3713,7 @@ fi
 echo "$as_me:$LINENO: result: $gcc_cv_cc_supports_ada" >&5
 echo "${ECHO_T}$gcc_cv_cc_supports_ada" >&6
 
-if test x$GNATBIND != xno && test x$gcc_cv_supports_ada != xno; then
+if test x$GNATBIND != xno && test x$gcc_cv_cc_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
@@ -5006,7 +5009,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:5009: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:5012: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -10768,7 +10771,7 @@ else
   (exit $ac_status); }; }
     then
 	if test x$gcc_cv_objdump != x \
-       && %gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
+       && $gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
           | grep ' 82106000 82106000' > /dev/null 2>&1; then
 	 gcc_cv_as_offsetable_lo10=yes
        fi
@@ -11311,29 +11314,38 @@ fi
 echo "$as_me:$LINENO: result: $gcc_cv_ld_pie" >&5
 echo "${ECHO_T}$gcc_cv_ld_pie" >&6
 
-echo "$as_me:$LINENO: checking linker --as-needed support" >&5
+case "$target" in
+  *-*-linux*)
+    echo "$as_me:$LINENO: checking linker --as-needed support" >&5
 echo $ECHO_N "checking linker --as-needed support... $ECHO_C" >&6
-gcc_cv_ld_as_needed=no
-if test $in_tree_ld = yes ; then
-  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
-     && test $in_tree_ld_is_elf = yes; then
-    gcc_cv_ld_as_needed=yes
-  fi
-elif test x$gcc_cv_ld != x; then
-	# Check if linker supports --as-needed and --no-as-needed options
-	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
-		gcc_cv_ld_as_needed=yes
-	fi
+if test "${gcc_cv_ld_as_needed+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_ld_as_needed=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+         && test $in_tree_ld_is_elf = yes; then
+        gcc_cv_ld_as_needed=yes
+      fi
+    elif test x$gcc_cv_ld != x; then
+      # Check if linker supports --as-needed and --no-as-needed options
+      if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+        gcc_cv_ld_as_needed=yes
+      fi
+    fi
+
 fi
-if test x"$gcc_cv_ld_as_needed" = xyes; then
+echo "$as_me:$LINENO: result: $gcc_cv_ld_as_needed" >&5
+echo "${ECHO_T}$gcc_cv_ld_as_needed" >&6
+    if test x"$gcc_cv_ld_as_needed" = xyes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_LD_AS_NEEDED 1
 _ACEOF
 
-fi
-echo "$as_me:$LINENO: result: $gcc_cv_ld_as_needed" >&5
-echo "${ECHO_T}$gcc_cv_ld_as_needed" >&6
+    fi
+    ;;
+esac
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then

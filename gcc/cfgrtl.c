@@ -2485,10 +2485,11 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	      && onlyjump_p (BB_END (src)))
 	    delete_insn (BB_END (src));
 	}
-      redirect_edge_succ_nodup (e, dest);
+
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Fallthru edge %i->%i redirected to %i\n",
 		 e->src->index, e->dest->index, dest->index);
+      redirect_edge_succ_nodup (e, dest);
 
       ret = true;
     }
@@ -2709,6 +2710,18 @@ cfg_layout_split_edge (edge e)
 
   new_bb->count = e->count;
   new_bb->frequency = EDGE_FREQUENCY (e);
+
+  /* ??? This info is likely going to be out of date very soon, but we must
+     create it to avoid getting an ICE later.  */
+  if (e->dest->global_live_at_start)
+    {
+      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      COPY_REG_SET (new_bb->global_live_at_start,
+		    e->dest->global_live_at_start);
+      COPY_REG_SET (new_bb->global_live_at_end,
+		    e->dest->global_live_at_start);
+    }
 
   new_e = make_edge (new_bb, e->dest, EDGE_FALLTHRU);
   new_e->probability = REG_BR_PROB_BASE;

@@ -1085,7 +1085,10 @@ ia64_encode_section_info (tree decl, rtx rtl, int first)
 {
   default_encode_section_info (decl, rtl, first);
 
+  /* Careful not to prod global register variables.  */
   if (TREE_CODE (decl) == VAR_DECL
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     ia64_encode_addr_area (decl, XEXP (rtl, 0));
 }
@@ -6268,14 +6271,22 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 	}
       else if (reload_completed)
 	setup_clocks_p = TRUE;
-      memcpy (curr_state, prev_cycle_state, dfa_state_size);
-      state_transition (curr_state, dfa_stop_insn);
-      state_transition (curr_state, dfa_pre_cycle_insn);
-      state_transition (curr_state, NULL);
+      if (GET_CODE (PATTERN (last_scheduled_insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (last_scheduled_insn)) >= 0)
+	state_reset (curr_state);
+      else
+	{
+	  memcpy (curr_state, prev_cycle_state, dfa_state_size);
+	  state_transition (curr_state, dfa_stop_insn);
+	  state_transition (curr_state, dfa_pre_cycle_insn);
+	  state_transition (curr_state, NULL);
+	}
     }
   else if (reload_completed)
     setup_clocks_p = TRUE;
-  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM)
+  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM
+      && GET_CODE (PATTERN (insn)) != ASM_INPUT
+      && asm_noperands (PATTERN (insn)) < 0)
     {
       enum attr_itanium_class c = ia64_safe_itanium_class (insn);
 
@@ -6889,7 +6900,8 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		 guarantee issuing all insns on the same cycle for
 		 Itanium 1, we need to issue 2 nops after the first M
 		 insn (MnnMII where n is a nop insn).  */
-	      || (type == TYPE_M && ia64_tune == PROCESSOR_ITANIUM
+	      || ((type == TYPE_M || type == TYPE_A)
+		  && ia64_tune == PROCESSOR_ITANIUM
 		  && !bundle_end_p && pos == 1))
 	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
 				 only_bundle_end_p);
@@ -7140,7 +7152,9 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		      = gen_bundle_selector (GEN_INT (2)); /* -> MFI */
 		  break;
 		}
-	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
+	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier
+		       && (ia64_safe_itanium_class (last)
+			   != ITANIUM_CLASS_IGNORE))
 		n++;
 	    /* Some check of correctness: the stop is not at the
 	       bundle start, there are no more 3 insns in the bundle,
@@ -7599,11 +7613,12 @@ ia64_reorg (void)
       insn = get_last_insn ();
       if (! INSN_P (insn))
         insn = prev_active_insn (insn);
-      if (GET_CODE (insn) == INSN
-	  && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	  && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
-	{
-	  saw_stop = 1;
+      /* Skip over insns that expand to nothing.  */
+      while (GET_CODE (insn) == INSN && get_attr_empty (insn) == EMPTY_YES)
+        {
+	  if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
+	      && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
+	    saw_stop = 1;
 	  insn = prev_active_insn (insn);
 	}
       if (GET_CODE (insn) == CALL_INSN)
@@ -8652,7 +8667,7 @@ ia64_hpux_file_end (void)
   for (p = extern_func_head; p; p = p->next)
     {
       tree decl = p->decl;
-      tree id = DECL_NAME (decl);
+      tree id = DECL_ASSEMBLER_NAME (decl);
 
       if (!id)
 	abort ();

@@ -468,7 +468,7 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
   pfile->main_file
     = _cpp_find_file (pfile, fname, &pfile->no_search_path, false);
   if (_cpp_find_failed (pfile->main_file))
-    return false;
+    return NULL;
 
   _cpp_stack_file (pfile, pfile->main_file, false);
 
@@ -618,6 +618,8 @@ post_options (cpp_reader *pfile)
 
   if (CPP_OPTION (pfile, traditional))
     {
+      CPP_OPTION (pfile, cplusplus_comments) = 0;
+
       /* Traditional CPP does not accurately track column information.  */
       CPP_OPTION (pfile, show_column) = 0;
       CPP_OPTION (pfile, trigraphs) = 0;
