@@ -3298,10 +3298,9 @@ const struct real_format ieee_extended_intel_96_round_53_format =
    numbers whose sum is equal to the extended precision value.  The number
    with greater magnitude is first.  This format has the same magnitude
    range as an IEEE double precision value, but effectively 106 bits of
-   significand precision.  Infinity and NaN are represented by their IEEE
-   double precision value stored in the first number, the second number is
-   ignored.  Zeroes, Infinities, and NaNs are set in both doubles
-   due to precedent.  */
+   significand precision.  Zero, Infinity and NaN are represented by their
+   IEEE double precision value stored in the first number, the second
+   number is -0.0.  */
 
 static void encode_ibm_extended PARAMS ((const struct real_format *fmt,
 					 long *, const REAL_VALUE_TYPE *));
@@ -3340,9 +3339,21 @@ encode_ibm_extended (fmt, buf, r)
   else
     {
       /* Inf, NaN, 0 are all representable as doubles, so the
-	 least-significant part can be 0.0.  */
-      buf[2] = 0;
-      buf[3] = 0;
+	 least-significant part can be zero.  We choose -0.0 because
+	 conversion of IBM extended precision to double is done by
+	 adding the two component doubles.  -0.0 is the only value that
+	 will result in a long double -0.0 correctly converting to a
+	 -0.0 double.  */
+      if (FLOAT_WORDS_BIG_ENDIAN)
+	{
+	  buf[2] = 0x80000000;
+	  buf[3] = 0;
+	}
+      else
+	{
+	  buf[2] = 0;
+	  buf[3] = 0x80000000;
+	}
     }
 }
 

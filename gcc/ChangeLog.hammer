@@ -1,5 +1,11 @@
 2004-03-08  Alan Modra  <amodra@bigpond.net.au>
 
+	* config/rs6000/rs6000.md (extenddftf2): Use -0.0 in low double.
+	* real.c (encode_ibm_extended): Use -0.0 in low double of Inf,
+	NaN, and zero.  Update comment.
+
+2004-03-08  Alan Modra  <amodra@bigpond.net.au>
+
 	PR debug/11983
 	* dwarf2out.c (enum dw_val_class): Rename dw_val_class_float to
 	dw_val_class_vec.  Replace use throughout file.
