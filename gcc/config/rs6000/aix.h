@@ -272,6 +272,51 @@ toc_section ()						\
 /* AIX allows r13 to be used.  */
 #define FIXED_R13 0
 
+/* This outputs NAME to FILE up to the first null or '['.  */
+
+#define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
+  {						\
+    const char *_p;				\
+						\
+    STRIP_NAME_ENCODING (_p, (NAME));		\
+    assemble_name ((FILE), _p);			\
+  }
+
+/* This is how to output the definition of a user-level label named NAME,
+   such as the label on a static function or variable NAME.  */
+
+#define ASM_OUTPUT_LABEL(FILE,NAME)	\
+  do { RS6000_OUTPUT_BASENAME (FILE, NAME); fputs (":\n", FILE); } while (0)
+
+/* This is how to output a command to make the user-level label named NAME
+   defined for reference from other files.  */
+
+#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
+  do { fputs ("\t.globl ", FILE);	\
+       RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
+
+/* Remove any trailing [DS] or the like from the symbol name.  */
+
+#define STRIP_NAME_ENCODING(VAR,NAME)			\
+  do							\
+    {							\
+      const char *_name = (NAME);			\
+      size_t _len;					\
+      if (*_name == '*')				\
+        _name++;					\
+      _len = strlen (_name);				\
+      if (_name[_len - 1] != ']')			\
+	(VAR) = _name;					\
+      else						\
+	{						\
+	  char *_new_name = (char *) alloca (_len + 1);	\
+	  strcpy (_new_name, _name);			\
+	  _new_name[_len - 4] = '\0';			\
+	  (VAR) = _new_name;				\
+	}						\
+    }							\
+  while (0)
+
 /* Output at beginning of assembler file.
 
    Initialize the section names for the RS/6000 at this point.
@@ -476,6 +521,6 @@ toc_section ()						\
    return address of the function that the throw is being made to.
    This is unfortunate, because we want to check the original
    return address to see if we need to restore the TOC.
-   So we have to squirrel it away with his.  */
+   So we have to squirrel it away with this.  */
 #define SETUP_FRAME_ADDRESSES() rs6000_aix_emit_builtin_unwind_init ()
 

@@ -2380,48 +2380,9 @@ extern int toc_initialized;
     }						\
 }
 
-/* This outputs NAME to FILE up to the first null or '['.  */
-
-#define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
-  {						\
-    const char *_p;				\
-						\
-    STRIP_NAME_ENCODING (_p, (NAME));		\
-    assemble_name ((FILE), _p);			\
-  }
-
-/* Remove any trailing [DS] or the like from the symbol name.  */
-
-#define STRIP_NAME_ENCODING(VAR,NAME)					\
-  do									\
-    {									\
-      const char *_name = (NAME);					\
-      int _len;								\
-      if (_name[0] == '*')						\
-	_name++;							\
-      _len = strlen (_name);						\
-      if (_name[_len - 1] != ']')					\
-	(VAR) = _name;							\
-      else								\
-	{								\
-	  char *_new_name = (char *) alloca (_len + 1);			\
-	  strcpy (_new_name, _name);					\
-	  _new_name[_len - 4] = '\0';					\
-	  (VAR) = _new_name;						\
-	}								\
-    }									\
-  while (0)
-
 /* This is how we tell the assembler that two symbols have the same value.  */
 
-#define ASM_OUTPUT_DEF(FILE,NAME1,NAME2)	\
-do {						\
-  fputs("\t.set ", FILE);			\
-  assemble_name(FILE, NAME1);			\
-  fputc(',', FILE);				\
-  assemble_name(FILE, NAME2);			\
-  fputc('\n', FILE);				\
-} while (0)
+#define SET_ASM_OP ".set"
 
 /* This implementes the `alias' attribute.  */
 
@@ -2435,19 +2396,19 @@ do {							\
       if (TREE_PUBLIC (decl))				\
 	{						\
 	  fputs ("\t.globl .", FILE);			\
-	  RS6000_OUTPUT_BASENAME (FILE, alias);		\
+	  assemble_name (FILE, alias);			\
 	  putc ('\n', FILE);				\
 	}						\
       else						\
 	{						\
 	  fputs ("\t.lglobl .", FILE);			\
-	  RS6000_OUTPUT_BASENAME (FILE, alias);		\
+	  assemble_name (FILE, alias);			\
 	  putc ('\n', FILE);				\
 	}						\
       fputs ("\t.set .", FILE);				\
-      RS6000_OUTPUT_BASENAME (FILE, alias);		\
+      assemble_name (FILE, alias);			\
       fputs (",.", FILE);				\
-      RS6000_OUTPUT_BASENAME (FILE, name);		\
+      assemble_name (FILE, name);			\
       fputc ('\n', FILE);				\
     }							\
   ASM_OUTPUT_DEF (FILE, alias, name);			\
@@ -2615,19 +2576,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
    the loader.  This depends on the AIX version.  */
 #define RS6000_CALL_GLUE "cror 31,31,31"
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { RS6000_OUTPUT_BASENAME (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
-
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
 
@@ -2641,7 +2589,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
     long t[2];						\
     REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);		\
     fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n",	\
-	     t[0] & 0xffffffff, t[1] & 0xffffffff);	\
+	     t[0] & 0xffffffffu, t[1] & 0xffffffffu);	\
   }
 
 /* This is how to output an assembler line defining a `float' constant.  */
@@ -2650,7 +2598,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
   {							\
     long t;						\
     REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);		\
-    fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);	\
+    fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffffu);	\
   }
 
 /* This is how to output an assembler line defining an `int' constant.  */
@@ -2694,17 +2642,8 @@ do {									\
 #define ASM_OUTPUT_BYTE(FILE,VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
-/* This is how to output an element of a case-vector that is absolute.
-   (RS/6000 does not use such vectors, but we must define this macro
-   anyway.)   */
-
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)		\
-  do { char buf[100];					\
-       fputs ("\t.long ", FILE);			\
-       ASM_GENERATE_INTERNAL_LABEL (buf, "L", VALUE);	\
-       assemble_name (FILE, buf);			\
-       putc ('\n', FILE);				\
-     } while (0)
+/* This is used by the definition of ASM_OUTPUT_ADDR_ELT in defaults.h.  */
+#define ASM_LONG (TARGET_32BIT ? ".long" : ".quad")
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -2845,7 +2784,3 @@ extern int flag_pic;
 extern int optimize;
 extern int flag_expensive_optimizations;
 extern int frame_pointer_needed;
-
-/* See nonlocal_goto_receiver for when this must be set.  */
-
-#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_TOC && TARGET_MINIMAL_TOC)

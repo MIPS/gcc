@@ -1,3 +1,49 @@
+2000-02-18  Geoff Keating  <geoffk@cygnus.com>
+
+	* aix41.h (ASM_CPU_SPEC): Delete.
+	(CPP_CPU_SPEC): Delete.
+
+	* aix.h (RS6000_OUTPUT_BASENAME): Define.
+	(ASM_OUTPUT_LABEL): Define.
+	(ASM_GLOBALIZE_LABEL): Define.
+	(STRIP_NAME_ENCODING): Define.
+	* rs6000.h (RS6000_OUTPUT_BASENAME): Don't define.
+	(STRIP_NAME_ENCODING): Don't define.
+	(ASM_OUTPUT_LABEL): Don't define.
+	(ASM_GLOBALIZE_LABEL): Don't define.
+	* sysv4.h (ASM_DECLARE_FUNCTION_NAME): Use assemble_name to output
+	names, and ASM_OUTPUT_LABEL to output labels, rather than
+	asm_fprintf.
+	(ASM_OUTPUT_LABEL): Define.
+	(ASM_OUTPUT_INT): Use assemble_name.
+	(ASM_OUTPUT_DWARF_ADDR): Use assemble_name.
+	(STRIP_NAME_ENCODING): Don't undefine first.
+	(RS6000_OUTPUT_BASENAME): Make equivalent to assemble_name for
+	ELF.
+	(ASM_OUTPUT_LABELREF): Don't prepend underscores to labels
+	specified with 'asm' even with -fleading-underscore.
+	* rs6000.c (print_operand): Use assemble_name when !TARGET_AIX.
+	(output_epilog): Likewise.
+	(output_toc): Likewise. 
+	* tramp.asm: Handle -fleading-underscore correctly.
+
+	* rs6000.md (builtin_setjmp_receiver): Also run for -fPIC and
+	-mminimal-toc.
+	(nonlocal_goto_receiver): Delete.
+	* rs6000.h (DONT_ACCESS_GBLS_AFTER_EPILOGUE): Delete.
+
+	* rs6000.h (ASM_OUTPUT_DEF): Don't define.
+	(SET_ASM_OP): Define.
+	* sysv4.h (ASM_OUTPUT_DEF): Don't undefine.
+
+	* rs6000.h (ASM_OUTPUT_ADDR_VEC_ELT): Don't define.
+	(ASM_LONG): Define.
+
+	* rs6000.c (rs6000_dll_import_ref): Delete, not used.
+	* rs6000-protos.h (rs6000_dll_import_ref): Delete.
+
+	* rs6000.h: Add 'u' to more constants.
+
 2000-02-18  David Edelsohn  <edelsohn@gnu.org>
 
 	* rs6000.md (mfcr+shift): Delete PowerPC64 version.

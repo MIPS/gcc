@@ -3866,7 +3866,11 @@ print_operand (file, x, code)
 	      break;
 	    }
 	}
+#if TARGET_AIX
       RS6000_OUTPUT_BASENAME (file, XSTR (x, 0));
+#else
+      assemble_name (file, XSTR (x, 0));
+#endif
       return;
 
     case 'Z':
@@ -5651,9 +5655,17 @@ output_epilog (file, size)
       /* Offset from start of code to tb table.  */
       fputs ("\t.long ", file);
       ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
+#if TARGET_AIX
       RS6000_OUTPUT_BASENAME (file, fname);
+#else
+      assemble_name (file, fname);
+#endif
       fputs ("-.", file);
+#if TARGET_AIX
       RS6000_OUTPUT_BASENAME (file, fname);
+#else
+      assemble_name (file, fname);
+#endif
       putc ('\n', file);
 
       /* Interrupt handler mask.  */
@@ -6221,7 +6233,7 @@ output_toc (file, x, labelno)
      section.  */
   if (! strncmp ("_vt.", name, 4))
     {
-      RS6000_OUTPUT_BASENAME (file, name);
+      assemble_name (file, name);
       if (offset < 0)
 	fprintf (file, "%d", offset);
       else if (offset > 0)
@@ -6721,36 +6733,6 @@ rs6000_set_default_type_attributes (type)
      tree type ATTRIBUTE_UNUSED;
 {
   return;
-}
-
-/* Return a dll import reference corresponding to a call's SYMBOL_REF */
-struct rtx_def *
-rs6000_dll_import_ref (call_ref)
-     rtx call_ref;
-{
-  const char *call_name;
-  int len;
-  char *p;
-  rtx reg1, reg2;
-  tree node;
-
-  if (GET_CODE (call_ref) != SYMBOL_REF)
-    abort ();
-
-  call_name = XSTR (call_ref, 0);
-  len = sizeof ("__imp_") + strlen (call_name);
-  p = alloca (len);
-  reg2 = gen_reg_rtx (Pmode);
-
-  strcpy (p, "__imp_");
-  strcat (p, call_name);
-  node = get_identifier (p);
-
-  reg1 = force_reg (Pmode, gen_rtx_SYMBOL_REF (VOIDmode,
-					       IDENTIFIER_POINTER (node)));
-  emit_move_insn (reg2, gen_rtx_MEM (Pmode, reg1));
-
-  return reg2;
 }
 
 /* Return a reference suitable for calling a function with the

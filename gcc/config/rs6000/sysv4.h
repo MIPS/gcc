@@ -573,11 +573,9 @@ extern int rs6000_pic_labelno;
 #undef	ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
   do {									\
-    const char *orig_name;						\
     const char *init_ptr = (TARGET_64BIT) ? ".quad" : ".long";		\
-    STRIP_NAME_ENCODING (orig_name, NAME);				\
 									\
-    if (TARGET_RELOCATABLE && (get_pool_size () != 0 || profile_flag)   \
+    if (TARGET_RELOCATABLE && (get_pool_size () != 0 || profile_flag)	\
 	&& uses_TOC())							\
       {									\
 	char buf[256];							\
@@ -586,22 +584,27 @@ extern int rs6000_pic_labelno;
 	ASM_OUTPUT_INTERNAL_LABEL (FILE, "LCL", rs6000_pic_labelno);	\
 									\
 	ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);			\
-	STRIP_NAME_ENCODING (buf_ptr, buf);				\
-	fprintf (FILE, "\t%s %s-", init_ptr, buf_ptr);			\
-									\
+	fprintf (FILE, "\t%s ", init_ptr);				\
+	assemble_name (FILE, buf);					\
+	putc ('-', FILE);						\
 	ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);	\
-	fprintf (FILE, "%s\n", buf_ptr);				\
+	assemble_name (FILE, buf);					\
+	putc ('\n', FILE);						\
       }									\
 									\
-    asm_fprintf (FILE, "\t%s\t %U%s,", TYPE_ASM_OP, orig_name);		\
+    fprintf (FILE, "\t%s\t ", TYPE_ASM_OP);				\
+    assemble_name (FILE, NAME);						\
+    putc (',', FILE);							\
     fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
     putc ('\n', FILE);							\
     ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
 									\
     if (DEFAULT_ABI == ABI_AIX)						\
       {									\
-	const char *desc_name = orig_name;				\
+	const char *desc_name, *orig_name;				\
 									\
+        STRIP_NAME_ENCODING (orig_name, NAME);				\
+        desc_name = orig_name;						\
 	while (*desc_name == '.')					\
 	  desc_name++;							\
 									\
@@ -616,7 +619,7 @@ extern int rs6000_pic_labelno;
 	  fprintf (FILE, "\t%s 0\n", init_ptr);				\
 	fprintf (FILE, "\t.previous\n");				\
       }									\
-    asm_fprintf (FILE, "%U%s:\n", orig_name);				\
+    ASM_OUTPUT_LABEL (FILE, NAME);					\
   } while (0)
 
 /* A C compound statement that outputs the assembler code for a thunk function,
@@ -652,10 +655,6 @@ extern int rs6000_pic_labelno;
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
   output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
-/* override rs6000.h definition */
-
-#undef ASM_OUTPUT_DEF
-
 /* How to renumber registers for dbx and gdb.  */
 
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
@@ -671,6 +670,16 @@ extern int rs6000_pic_labelno;
 #undef ASM_OUTPUT_INTERNAL_LABEL_PREFIX
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   asm_fprintf (FILE, "%L%s", PREFIX)
+
+#define ASM_OUTPUT_LABEL(FILE,NAME)	\
+  (assemble_name (FILE, NAME), fputs (":\n", FILE))
+
+/* This is how to output a command to make the user-level label named NAME
+   defined for reference from other files.  */
+
+#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
+  do { fputs ("\t.globl ", FILE);	\
+       assemble_name (FILE, NAME); putc ('\n', FILE);} while (0)
 
 /* This is how to allocate empty space in some section.  Use .space
    instead of .zero because the Solaris PowerPC assembler doesn't
@@ -759,20 +768,19 @@ do {									\
       && CONSTANT_P (VALUE))						\
     {									\
       char buf[256];							\
-      const char *p;							\
 									\
       recurse = 1;							\
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", fixuplabelno);		\
       fixuplabelno++;							\
-      STRIP_NAME_ENCODING (p, buf);					\
-      fprintf (FILE, "%s:\n", p);					\
+      ASM_OUTPUT_LABEL (FILE, buf);					\
       fprintf (FILE, "\t.long (");					\
       output_addr_const (FILE, (VALUE));				\
       fprintf (FILE, ")@fixup\n");					\
       fprintf (FILE, "\t.section\t\".fixup\",\"aw\"\n");		\
       ASM_OUTPUT_ALIGN (FILE, 2);					\
-      fprintf (FILE, "\t.long\t%s\n", p);				\
-      fprintf (FILE, "\t.previous\n");					\
+      fprintf (FILE, "\t.long\t");					\
+      assemble_name (FILE, buf);					\
+      fprintf (FILE, "\n\t.previous\n");				\
       recurse = 0;							\
     }									\
   /* Remove initial .'s to turn a -mcall-aixdesc function		\
@@ -801,29 +809,30 @@ do {									\
    For -mrelocatable, we mark all addresses that need to be fixed up
    in the .fixup section.  */
 
-#define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				 \
-do {									 \
-  if (TARGET_RELOCATABLE)						 \
-    {									 \
-      char buf[256];							 \
-      const char *p;							 \
-									 \
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", fixuplabelno);		 \
-      fixuplabelno++;							 \
-      STRIP_NAME_ENCODING (p, buf);					 \
-      fprintf (FILE, "%s:\t.%dbyte\t", p, POINTER_SIZE / BITS_PER_UNIT); \
-      assemble_name (FILE, LABEL);					 \
-      fprintf (FILE, "\n");						 \
-      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			 \
-      ASM_OUTPUT_ALIGN (FILE, 2);					 \
-      fprintf (FILE, "\t.long\t%s\n", p);				 \
-      fprintf (FILE, "\t.previous");					 \
-    }									 \
-  else									 \
-    {									 \
-      fprintf (FILE, "\t.%dbyte\t", POINTER_SIZE / BITS_PER_UNIT);	 \
-      assemble_name (FILE, LABEL);					 \
-    }									 \
+#define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				\
+do {									\
+  if (TARGET_RELOCATABLE)						\
+    {									\
+      char buf[256];							\
+      const char *p;							\
+									\
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", fixuplabelno);		\
+      fixuplabelno++;							\
+      ASM_OUTPUT_LABEL (FILE, buf);					\
+      fprintf (FILE, "\t.%dbyte\t", POINTER_SIZE / BITS_PER_UNIT);	\
+      assemble_name (FILE, LABEL);					\
+      fprintf (FILE, "\n");						\
+      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			\
+      ASM_OUTPUT_ALIGN (FILE, 2);					\
+      fprintf (FILE, "\t.long\t");					\
+      assemble_name (FILE, buf);					\
+      fprintf (FILE, "\n\t.previous\n");				\
+    }									\
+  else									\
+    {									\
+      fprintf (FILE, "\t.%dbyte\t", POINTER_SIZE / BITS_PER_UNIT);	\
+      assemble_name (FILE, LABEL);					\
+    }									\
 } while (0)
 
 /* This is the end of what might become sysv4.h.  */
@@ -848,10 +857,15 @@ do {									 \
 
 extern void rs6000_encode_section_info ();
 
+
+/* The ELF version doesn't encode [DS] or whatever at the end of symbols. */
+
+#define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
+    assemble_name (FILE, NAME)
+
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
    a leading * or @. */
-#undef  STRIP_NAME_ENCODING
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
 do {									\
   const char *_name = SYMBOL_NAME;					\
@@ -864,12 +878,16 @@ do {									\
    `assemble_name' uses this.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-do {									\
-  const char *_name = NAME;						\
-  while (*_name == '*' || *_name == '@')				\
-    _name++;								\
-  asm_fprintf (FILE, "%U%s", _name);					\
+#define ASM_OUTPUT_LABELREF(FILE,NAME)		\
+do {						\
+  const char *_name = NAME;			\
+  if (*_name == '@')				\
+    _name++;					\
+ 						\
+  if (*_name == '*')				\
+    fprintf (FILE, "%s", _name + 1);		\
+  else						\
+    asm_fprintf (FILE, "%U%s", _name);		\
 } while (0)
 
 /*

@@ -88,7 +88,6 @@ extern void output_toc PARAMS ((FILE *, rtx, int));
 extern int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 extern int rs6000_adjust_priority PARAMS ((rtx, int));
 extern void rs6000_initialize_trampoline PARAMS ((rtx, rtx, rtx));
-extern struct rtx_def *rs6000_dll_import_ref PARAMS ((rtx));
 extern struct rtx_def *rs6000_longcall_ref PARAMS ((rtx));
 extern void rs6000_fatal_bad_address PARAMS ((rtx));
 extern int stmw_operation PARAMS ((rtx, enum machine_mode));
