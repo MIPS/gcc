@@ -24,64 +24,64 @@ Boston, MA 02111-1307, USA.  */
 
 /*** Public Interface (procedures) ***/
 
-bool objc_init					PARAMS ((void));
-const char *objc_printable_name			PARAMS ((tree, int));
+bool objc_init (void);
+const char *objc_printable_name (tree, int);
 
 /* used by yyparse */
 
-void finish_file				PARAMS ((void));
-tree start_class				PARAMS ((enum tree_code, tree, tree, tree));
-tree continue_class				PARAMS ((tree));
-void finish_class				PARAMS ((tree));
-void start_method_def				PARAMS ((tree));
-void continue_method_def			PARAMS ((void));
-void finish_method_def				PARAMS ((void));
-tree start_protocol				PARAMS ((enum tree_code, tree, tree));
-void finish_protocol				PARAMS ((tree));
+void finish_file (void);
+tree start_class (enum tree_code, tree, tree, tree);
+tree continue_class (tree);
+void finish_class (tree);
+void start_method_def (tree);
+void continue_method_def (void);
+void finish_method_def (void);
+tree start_protocol (enum tree_code, tree, tree);
+void finish_protocol (tree);
 
-tree objc_build_throw_stmt			PARAMS ((tree));
-tree objc_build_try_catch_finally_stmt		PARAMS ((int, int));
-void objc_build_synchronized_prologue		PARAMS ((tree));
-tree objc_build_synchronized_epilogue		PARAMS ((void));
-tree objc_build_try_prologue			PARAMS ((void));
-void objc_build_try_epilogue			PARAMS ((int));
-void objc_build_catch_stmt			PARAMS ((tree));
-void objc_build_catch_epilogue			PARAMS ((void));
-tree objc_build_finally_prologue		PARAMS ((void));
-tree objc_build_finally_epilogue		PARAMS ((void));
+tree objc_build_throw_stmt (tree);
+tree objc_build_try_catch_finally_stmt (int, int);
+void objc_build_synchronized_prologue (tree);
+tree objc_build_synchronized_epilogue (void);
+tree objc_build_try_prologue (void);
+void objc_build_try_epilogue (int);
+void objc_build_catch_stmt (tree);
+void objc_build_catch_epilogue (void);
+tree objc_build_finally_prologue (void);
+tree objc_build_finally_epilogue (void);
 
-tree is_ivar					PARAMS ((tree, tree));
-int is_private					PARAMS ((tree));
-int is_public					PARAMS ((tree, tree));
-tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree));
-tree add_method					PARAMS ((tree, tree, int));
-tree get_super_receiver				PARAMS ((void));
-void objc_clear_super_receiver			PARAMS ((void));
-tree get_class_ivars_from_name			PARAMS ((tree));
-tree get_class_reference			PARAMS ((tree));
-tree get_static_reference			PARAMS ((tree, tree));
-tree get_object_reference			PARAMS ((tree));
-tree build_message_expr				PARAMS ((tree));
-tree finish_message_expr			PARAMS ((tree, tree, tree));
-tree build_selector_expr			PARAMS ((tree));
-tree build_ivar_reference			PARAMS ((tree));
-tree build_keyword_decl				PARAMS ((tree, tree, tree));
-tree build_method_decl				PARAMS ((enum tree_code, tree, tree, tree));
-tree build_protocol_expr			PARAMS ((tree));
-tree build_objc_string_object			PARAMS ((tree));
+tree is_ivar (tree, tree);
+int is_private (tree);
+int is_public (tree, tree);
+tree add_instance_variable (tree, int, tree, tree, tree);
+tree add_method (tree, tree, int);
+tree get_super_receiver (void);
+void objc_clear_super_receiver (void);
+tree get_class_ivars_from_name (tree);
+tree get_class_reference (tree);
+tree get_static_reference (tree, tree);
+tree get_object_reference (tree);
+tree build_message_expr (tree);
+tree finish_message_expr (tree, tree, tree);
+tree build_selector_expr (tree);
+tree build_ivar_reference (tree);
+tree build_keyword_decl (tree, tree, tree);
+tree build_method_decl (enum tree_code, tree, tree, tree);
+tree build_protocol_expr (tree);
+tree build_objc_string_object (tree);
 
-void objc_declare_alias				PARAMS ((tree, tree));
-void objc_declare_class				PARAMS ((tree));
-void objc_declare_protocols			PARAMS ((tree));
+void objc_declare_alias (tree, tree);
+void objc_declare_class (tree);
+void objc_declare_protocols (tree);
 
 /* the following routines are used to implement statically typed objects */
 
-int objc_comptypes				PARAMS ((tree, tree, int));
-void objc_check_decl				PARAMS ((tree));
+int objc_comptypes (tree, tree, int);
+void objc_check_decl (tree);
 
 /* NeXT extensions */
 
-tree build_encode_expr				PARAMS ((tree));
+tree build_encode_expr (tree);
 
 /* Objective-C structures */
 
@@ -139,10 +139,12 @@ tree build_encode_expr				PARAMS ((tree));
 enum objc_tree_code {
 #if defined (GCC_CP_TREE_H)
   LAST_BASE_TREE_CODE = LAST_CPLUS_TREE_CODE,
-#elif defined (GCC_C_TREE_H)
+#else 
+#if defined (GCC_C_TREE_H)
   LAST_BASE_TREE_CODE = LAST_C_TREE_CODE,
 #else
-#error You must include <c-tree.h> or <cp/cp-tree.h> before <objc/objc-act.h>
+  #error You must include <c-tree.h> or <cp/cp-tree.h> before <objc/objc-act.h>
+#endif
 #endif
 #include "objc-tree.def"
   LAST_OBJC_TREE_CODE
@@ -169,7 +171,7 @@ struct hashed_entry GTY(())
 extern GTY ((length ("SIZEHASHTABLE"))) hash *nst_method_hash_list;
 extern GTY ((length ("SIZEHASHTABLE"))) hash *cls_method_hash_list;
 
-#define SIZEHASHTABLE 		257
+#define SIZEHASHTABLE		257
 
 /* Objective-C/Objective-C++ @implementation list.  */
 
@@ -416,7 +418,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 				objc_global_trees[OCTI_METH_PROTO_TEMPL]
 #define function1_template	objc_global_trees[OCTI_FUNCTION1_TEMPL]
 #define function2_template	objc_global_trees[OCTI_FUNCTION2_TEMPL]
-				
+
 #define objc_object_id		objc_global_trees[OCTI_OBJ_ID]
 #define objc_class_id		objc_global_trees[OCTI_CLS_ID]
 #define objc_id_id		objc_global_trees[OCTI_ID_ID]
