@@ -124,7 +124,7 @@ static bool is_strred_cand (const tree);
 static int pre_expression (struct expr_info *, void *);
 static bool is_injuring_def (struct expr_info *, tree);
 static inline bool okay_injuring_def (tree, tree);
-static void expr_phi_insertion (bitmap *, struct expr_info *);
+static bool expr_phi_insertion (bitmap *, struct expr_info *);
 static tree factor_through_injuries (struct expr_info *, tree, tree);
 static inline tree maybe_find_rhs_use_for_var (tree, tree);
 static inline tree find_rhs_use_for_var (tree, tree);
@@ -578,15 +578,18 @@ set_var_phis (struct expr_info *ei, tree phi)
 }
 
 /* EPHI insertion algorithm.  */
-static void
+static bool
 expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 {
   size_t i;
+  unsigned int operands = 0; 
+  bool retval = true;
+
   dfphis = BITMAP_XMALLOC ();
   bitmap_zero (dfphis);
   varphis = BITMAP_XMALLOC ();
   bitmap_zero (varphis);
-
+  
   /*  Compute where we need to place EPHIS. There are two types of
       places we need EPHI's: Those places we would normally place a
       PHI for the occurrence (calculated by determining the IDF+ of
@@ -644,6 +647,7 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
   {
     tree ref = create_expr_ref (ei, ei->expr, EPHI_NODE, BASIC_BLOCK (i), 
 				NULL);
+    operands += EPHI_ARG_CAPACITY (ref);
     VARRAY_PUSH_TREE (ei->erefs, ref);
     EREF_PROCESSED (ref) = false;
     EREF_PROCESSED2 (ref) = false;
@@ -653,8 +657,19 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
     EPHI_EXTRANEOUS (ref) = true;
     EPHI_DEAD (ref) = true;
   });
+  if (operands > 10000)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Aborting SSAPRE for this expression:");
+	  fprintf (dump_file, "Too many ephi operands (%d)\n", operands);
+	}
+      retval = false;
+    }
   BITMAP_XFREE (dfphis);
   BITMAP_XFREE (varphis);
+  return retval;
+  
 }
 
 static inline tree 
@@ -3069,8 +3084,8 @@ pre_expression (struct expr_info *slot, void *data)
     }
   ei->temp = create_tmp_var (TREE_TYPE (ei->expr), "pretmp");
   create_var_ann (ei->temp);
-  expr_phi_insertion ((bitmap *)data, ei);
-
+  if (!expr_phi_insertion ((bitmap *)data, ei))
+    goto cleanup;
   /*rename_1 (ei);*/
   new_rename_1 (ei);
   if (dump_file)
@@ -3079,11 +3094,11 @@ pre_expression (struct expr_info *slot, void *data)
       fprintf (dump_file, "Occurrences for expression ");
       print_generic_expr (dump_file, ei->expr, 0);
       fprintf (dump_file, " after Rename 2\n");
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
-	{
-	  print_generic_expr (dump_file, VARRAY_TREE (ei->erefs, i), 1);
-	  fprintf (dump_file, "\n");
-	}
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
+	    {
+	      print_generic_expr (dump_file, VARRAY_TREE (ei->erefs, i), 1);
+	      fprintf (dump_file, "\n");
+	    }
     }
   insert_euse_in_preorder_dt_order (ei);  
   graph_dump_file = dump_begin (TDI_predot, &graph_dump_flags);
@@ -3093,7 +3108,7 @@ pre_expression (struct expr_info *slot, void *data)
       splay_tree ids;
       size_t i;
       size_t firstid, secondid;
-
+      
       ids = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
       
       fprintf (graph_dump_file, "digraph \"");
@@ -3143,16 +3158,16 @@ pre_expression (struct expr_info *slot, void *data)
 	  firstid = secondid;
 	}
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
-
-      fprintf (graph_dump_file, " \n}\n\n");
-     
+	
+	fprintf (graph_dump_file, " \n}\n\n");
+      
       dump_end (TDI_predot, graph_dump_file);
       splay_tree_delete (ids);
 #endif
     }
   down_safety (ei);
   will_be_avail (ei);
-
+  
   if (dump_file)
     {
       fprintf (dump_file, "EPHI's for expression ");
@@ -3167,12 +3182,14 @@ pre_expression (struct expr_info *slot, void *data)
 	  }
       }
     }
- 
+      
   if (finalize_1 (ei))
     {
       finalize_2 (ei);
       code_motion (ei);
     }
+
+ cleanup:  
   FOR_EACH_BB (bb)
   {
     bb_ann_t ann = bb_ann (bb);
@@ -3300,10 +3317,12 @@ tree_perform_ssapre (tree fndecl)
 	  }
 	process_left_occs_and_kills (bexprs, slot, bsi_stmt_ptr (j));
       }
-  
+  ggc_push_context (); 
   for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
     {
       pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs);
+      free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
+      ggc_collect ();
       if (redo_dominators)
 	{
 	  redo_dominators = false;
@@ -3335,9 +3354,7 @@ tree_perform_ssapre (tree fndecl)
 	  compute_immediate_uses (TDFA_USE_OPS);
 	}
     }
-  for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
-    free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
-
+  ggc_pop_context ();
   /* Debugging dumps.  */
   if (dump_file)
     {

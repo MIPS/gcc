@@ -1,3 +1,12 @@
+2003-06-30  Daniel Berlin  <dberlin@dberlin.org>
+
+    * tree-ssa-pre.c (expr_phi_insertion): Stop optimizing the expression
+	if we have > some very large number of ephi operands, as it will
+	take an ungodly amount of memory and time.
+	(pre_expression): Push/pop gc context so we can do gc collection
+	in between expressions.  
+	Throw away expression info right after done optimizing it.
+	
 2003-06-30  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimplify_call_expr): Check PUSH_ARGS_REVERSED.
