@@ -1,3 +1,9 @@
+2003-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2out_finish): Add AT_comp_dir
+	attribute even if input file name is absolute, but one of the
+	includes is relative.
+
 2001-10-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* unwind-dw2.c (frame_state_296): New type.
