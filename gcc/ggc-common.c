@@ -425,6 +425,12 @@ gt_pch_save (f)
   htab_traverse (saving_htab, call_alloc, &state);
   qsort (state.ptrs, state.count, sizeof (*state.ptrs), compare_ptr_data);
 
+  /* Write out all the scalar variables.  */
+  for (rt = gt_pch_scalar_rtab; *rt; rt++)
+    for (rti = *rt; rti->base != NULL; rti++)
+      if (fwrite (rti->base, rti->stride, 1, f) != 1)
+	fatal_io_error ("can't write PCH file");
+
   /* Write out all the global pointers, after translation.  */
   write_pch_globals (gt_ggc_rtab, &state);
   write_pch_globals (gt_pch_cache_rtab, &state);
@@ -489,6 +495,12 @@ gt_pch_restore (f)
   for (rt = gt_ggc_deletable_rtab; *rt; rt++)
     for (rti = *rt; rti->base != NULL; rti++)
       memset (rti->base, 0, rti->stride);
+
+  /* Read in all the scalar variables.  */
+  for (rt = gt_pch_scalar_rtab; *rt; rt++)
+    for (rti = *rt; rti->base != NULL; rti++)
+      if (fread (rti->base, rti->stride, 1, f) != 1)
+	fatal_io_error ("can't read PCH file");
 
   /* Read in all the global pointers, in 6 easy loops.  */
   for (rt = gt_ggc_rtab; *rt; rt++)

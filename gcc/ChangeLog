@@ -1,3 +1,25 @@
+2002-11-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype.c (adjust_field_rtx_def): Don't use skip on valid fields.
+	(write_array): Remove warning.
+
+	* gengtype.c (contains_scalar_p): New.
+	(finish_root_table): Add the table to all languages, even if it's
+	empty.
+	(write_roots): Output gt_pch_scalar_rtab.
+	* ggc-common.c (gt_pch_save): Write out scalars.
+	(gt_pch_restore): Read scalars back.
+
+	* ggc-page.c (OBJECTS_IN_PAGE): New macro.
+	(struct page_entry): Delete pch_page field.
+	(ggc_recalculate_in_use_p): Use OBJECTS_IN_PAGE.
+	(clear_marks): Likewise.
+	(sweep_pages): Likewise.
+	(poison_pages): Likewise.
+	(ggc_print_statistics): Likewise.
+	(ggc_pch_read): Don't free objects read from a PCH.
+	Properly set up in_use_p and page_tails.
+
 2002-10-25  Geoffrey Keating  <geoffk@apple.com>
 
 	* gengtype.c (struct write_types_data): New.

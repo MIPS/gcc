@@ -600,14 +600,6 @@ adjust_field_rtx_def (t, opt)
 	      subfields->opt->name = "skip";
 	      subfields->opt->info = NULL;
 	    }
-	  else if ((size_t) rtx_next[i] == aindex)
-	    {
-	      /* The 'next' field will be marked by the chain_next option.  */
-	      subfields->opt = xmalloc (sizeof (*subfields->opt));
-	      subfields->opt->next = nodot;
-	      subfields->opt->name = "skip";
-	      subfields->opt->info = NULL;
-	    }
 	  else
 	    subfields->opt = nodot;
 	}
@@ -1404,6 +1396,7 @@ static void write_local_func_for_structure
 static void write_local PARAMS ((type_p structures, 
 				 type_p param_structs));
 static void write_enum_defn PARAMS ((type_p structures, type_p param_structs));
+static int contains_scalar_p PARAMS ((type_p t));
 static void put_mangled_filename PARAMS ((outf_p , const char *));
 static void finish_root_table PARAMS ((struct flist *flp, const char *pfx, 
 				       const char *tname, const char *lastname,
@@ -2376,6 +2369,25 @@ write_enum_defn (structures, param_structs)
   oprintf (header_file, "};\n");
 }
 
+/* Might T contain any non-pointer elements?  */
+
+static int
+contains_scalar_p (t)
+     type_p t;
+{
+  switch (t->kind)
+    {
+    case TYPE_STRING:
+    case TYPE_POINTER:
+      return 0;
+    case TYPE_ARRAY:
+      return contains_scalar_p (t->u.a.p);
+    default:
+      /* Could also check for structures that have no non-pointer
+	 fields, but there aren't enough of those to worry about.  */
+      return 1;
+    }
+}
 
 /* Mangle FN and print it to F.  */
 
@@ -2405,7 +2417,6 @@ finish_root_table (flp, pfx, lastname, tname, name)
      const char *name;
 {
   struct flist *fli2;
-  unsigned started_bitmap = 0;
   
   for (fli2 = flp; fli2; fli2 = fli2->next)
     if (fli2->started_p)
@@ -2430,6 +2441,15 @@ finish_root_table (flp, pfx, lastname, tname, name)
 	      oprintf (base_files[fnum], "[];\n");
 	    }
       }
+  
+  {
+    int fnum;
+    for (fnum = 0; fnum < NUM_BASE_FILES; fnum++)
+      oprintf (base_files [fnum],
+	       "const struct %s * const %s[] = {\n",
+	       tname, name);
+  }
+  
 
   for (fli2 = flp; fli2; fli2 = fli2->next)
     if (fli2->started_p)
@@ -2442,13 +2462,6 @@ finish_root_table (flp, pfx, lastname, tname, name)
 	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
 	  if (bitmap & 1)
 	    {
-	      if (! (started_bitmap & (1 << fnum)))
-		{
-		  oprintf (base_files [fnum],
-			   "const struct %s * const %s[] = {\n",
-			   tname, name);
-		  started_bitmap |= 1 << fnum;
-		}
 	      oprintf (base_files[fnum], "  gt_%s_", pfx);
 	      put_mangled_filename (base_files[fnum], fli2->name);
 	      oprintf (base_files[fnum], ",\n");
@@ -2456,15 +2469,12 @@ finish_root_table (flp, pfx, lastname, tname, name)
       }
 
   {
-    unsigned bitmap;
     int fnum;
-    
-    for (bitmap = started_bitmap, fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
-      if (bitmap & 1)
-	{
-	  oprintf (base_files[fnum], "  NULL\n");
-	  oprintf (base_files[fnum], "};\n");
-	}
+    for (fnum = 0; fnum < NUM_BASE_FILES; fnum++)
+      {
+	oprintf (base_files[fnum], "  NULL\n");
+	oprintf (base_files[fnum], "};\n");
+      }
   }
 }
 
@@ -2634,6 +2644,7 @@ write_array (f, v, wtd)
      const struct write_types_data *wtd;
 {
   struct walk_type_data d;
+  char *prevval3;
   
   memset (&d, 0, sizeof (d));
   d.of = f;
@@ -2644,7 +2655,7 @@ write_array (f, v, wtd)
   d.bitmap = get_base_file_bitmap (v->line.file);
   d.param = NULL;
 
-  d.prev_val[3] = xasprintf ("&%s", v->name);
+  d.prev_val[3] = prevval3 = xasprintf ("&%s", v->name);
 
   if (wtd->param_prefix)
     {
@@ -2673,7 +2684,7 @@ write_array (f, v, wtd)
   d.prev_val[0] = d.prev_val[1] = d.prev_val[2] = d.val = v->name;
   d.process_field = write_types_process_field;
   walk_type (v->type, &d);
-  free (d.prev_val[3]);
+  free (prevval3);
   oprintf (f, "}\n\n");
 }
 
@@ -2887,6 +2898,43 @@ write_roots (variables)
   
   finish_root_table (flp, "pch_rc", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
 		     "gt_pch_cache_rtab");
+
+  for (v = variables; v; v = v->next)
+    {
+      outf_p f = get_output_file_with_visibility (v->line.file);
+      struct flist *fli;
+      int skip_p = 0;
+      options_p o;
+
+      for (o = v->opt; o; o = o->next)
+	if (strcmp (o->name, "deletable") == 0
+	    || strcmp (o->name, "if_marked") == 0)
+	  skip_p = 1;
+
+      if (skip_p)
+	continue;
+
+      if (! contains_scalar_p (v->type))
+	continue;
+
+      for (fli = flp; fli; fli = fli->next)
+	if (fli->f == f)
+	  break;
+      if (! fli->started_p)
+	{
+	  fli->started_p = 1;
+
+	  oprintf (f, "const struct ggc_root_tab gt_pch_rs_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, "[] = {\n");
+	}
+      
+      oprintf (f, "  { &%s, 1, sizeof (%s), NULL, NULL },\n",
+	       v->name, v->name);
+    }
+  
+  finish_root_table (flp, "pch_rs", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
+		     "gt_pch_scalar_rtab");
 }
 
 
