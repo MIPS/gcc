@@ -3530,6 +3530,8 @@ extern void set_decl_rtl		PARAMS ((tree, rtx));
 extern int simplify_function_tree	PARAMS ((tree));
 extern const char *get_name		PARAMS ((tree));
 extern tree unshare_expr		PARAMS ((tree));
+
+extern int keep_function_tree_in_gimple_form PARAMS ((tree));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

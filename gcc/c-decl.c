@@ -6570,7 +6570,7 @@ c_expand_body_1 (fndecl, nested_p)
 
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
-  if (!flag_disable_simple && simplify_function_tree (fndecl))
+  if (!flag_disable_simple && keep_function_tree_in_gimple_form (fndecl))
     {
       /* Debugging dump after simplification.  */
       dump_function (TDI_simple, fndecl);
@@ -6581,7 +6581,9 @@ c_expand_body_1 (fndecl, nested_p)
 
 	  /* Simplify mudflap instrumentation.  FIXME  Long term: Would it
 	     be better for mudflap to simplify each tree as it generates
-	     them?  */
+	     them?  It definitely would be good if mudflap didn't
+	     require another simplification pass.  simplification is
+	     the single most expensive part of the tree-ssa path! */
 	  simplify_function_tree (fndecl);
 	}
 

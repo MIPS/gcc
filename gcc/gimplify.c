@@ -155,6 +155,33 @@ gimple_pop_condition (pre_p)
     abort ();
 }
 
+/* Return nonzero if we should keep FNDECL is gimple form during inlining.  */
+
+int 
+keep_function_tree_in_gimple_form (fndecl)
+     tree fndecl;
+{
+  tree fnbody;
+
+  /* If the program has had errors, then keeping gimple form is not
+     necessary.  */
+  if (errorcount || sorrycount)
+    return 0;
+  
+  /* If the front-end does not support gimplification, then this
+     function was never in gimple form to begin with.  */
+  if (lang_hooks.simplify_expr == lhd_simplify_expr)
+    return 0;
+
+  /* If the function has no body, then we consider it not in gimple
+     form.  */
+  fnbody = DECL_SAVED_TREE (fndecl);
+  if (fnbody == NULL_TREE)
+    return 0;
+
+  return 1;
+}
+
 /*  Entry point to the simplification pass.  FNDECL is the FUNCTION_DECL
     node for the function we want to simplify.  */
 

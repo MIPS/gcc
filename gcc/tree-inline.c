@@ -39,6 +39,11 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "cgraph.h"
 
+/* I'm not real happy about this, but we need to handle gimple and
+   non-gimple trees.  */
+#include "tree-iterator.h"
+#include "tree-simple.h"
+
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
    2 if we should consider *all* functions to be inline
@@ -97,6 +102,10 @@ typedef struct inline_data
   htab_t tree_pruner;
   /* Decl of function we are inlining into.  */
   tree decl;
+  /* Statement iterator.  We need this so we can keep the tree in
+     gimple form when we insert the inlined function.   It is not
+     used when we are not dealing with gimple trees.  */
+  tree_stmt_iterator tsi;
 } inline_data;
 
 /* Prototypes.  */
@@ -349,7 +358,12 @@ copy_body_r (tp, walk_subtrees, data)
 	 assignment into the equivalent of the original
 	 RESULT_DECL.  */
       if (assignment)
-	*tp = build (COMPOUND_EXPR, void_type_node, assignment, goto_stmt);
+        {
+	  *tp = build (BIND_EXPR, void_type_node, NULL_TREE,
+		       build (COMPOUND_EXPR, void_type_node,
+			      assignment, goto_stmt),
+		       make_node (BLOCK));
+        }
       /* If we're not returning anything just do the jump.  */
       else
 	*tp = goto_stmt;
@@ -570,7 +584,9 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
 	 object will be constructed in VAR.  */
       if (value)
 	{
-	  init_stmt = build (INIT_EXPR, TREE_TYPE (p), var, value);
+	  /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
+	     keep our trees in gimple form.  */
+	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (p), var, value);
 	  init_stmts = add_stmt_to_compound (init_stmts, void_type_node,
 					     init_stmt);
 	}
@@ -865,6 +881,7 @@ expand_call_inline (tp, walk_subtrees, data)
   tree fn;
   tree arg_inits;
   tree *inlined_body;
+  tree inline_result;
   splay_tree st;
   tree args;
   tree return_slot_addr;
@@ -967,8 +984,15 @@ expand_call_inline (tp, walk_subtrees, data)
       /* Expand any inlined calls in the initializers.  Do this before we
 	 push FN on the stack of functions we are inlining; we want to
 	 inline calls to FN that appear in the initializers for the
-	 parameters.  */
+	 parameters.
+
+	 Note we need to save and restore the saved tree statement iterator
+	 to avoid having it clobbered by expand_calls_inline.  */
+      tree_stmt_iterator save_tsi;
+     
+      save_tsi = id->tsi;
       expand_calls_inline (&arg_inits, id);
+      id->tsi = save_tsi;
 
       /* And add them to the tree.  */
       BIND_EXPR_BODY (expr) = add_stmt_to_compound (BIND_EXPR_BODY (expr),
@@ -1038,7 +1062,67 @@ expand_call_inline (tp, walk_subtrees, data)
   /* The new expression has side-effects if the old one did.  */
   TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
 
-  *tp = expr;
+  /* If we are working with gimple form, then we need to keep the tree
+     in gimple form.  If we are not in gimple form, we can just replace
+     *tp with the new BIND_EXPR.  */ 
+  if (keep_function_tree_in_gimple_form (id->decl))
+    {
+      tree save_decl;
+
+      /* Keep the new trees in gimple form.  */
+      BIND_EXPR_BODY (expr) = rationalize_compound_expr (BIND_EXPR_BODY (expr));
+
+      /* We want to create a new variable to hold the result of the
+	 inlined body.  This new variable needs to be added to the
+	 function which we are inlining into, thus the saving and
+	 restoring of current_function_decl.  */
+      save_decl = current_function_decl;
+      current_function_decl = id->decl;
+      inline_result = voidify_wrapper_expr (expr);
+      current_function_decl = save_decl;
+
+      /* If the inlined function returns a result that we care about,
+	 then we're going to need to splice in a MODIFY_EXPR.  Otherwise
+	 the call was a standalone statement and we can just replace it
+	 with the BIND_EXPR inline representation of the called function.  */
+      if (TREE_CODE (*tsi_stmt_ptr (id->tsi)) != CALL_EXPR)
+	{
+	  tree *container_p = tsi_container (id->tsi);
+	  tree container = *container_p;
+
+	  if (TREE_CODE (container) != COMPOUND_EXPR)
+	    {
+	      /* If the container is not a COMPOUND_EXPR, then simply
+		 calling add_stmt_to_compound property insert the BIND_EXPR
+		 into the proper location.  */
+	      *container_p
+		= add_stmt_to_compound (expr, TREE_TYPE (expr), container);
+	    }
+	  else
+	    {
+	      /* Insertion of our new COMPOUND_EXPR is slightly more
+	         complex in this case.  We build a the new COMPOUND_EXPR
+		 and set its operands to the contents of the original
+		 COMPOUND_EXPR.  */
+	      tree new_ce = build (COMPOUND_EXPR, TREE_TYPE (expr), 
+				   TREE_OPERAND (container, 0),
+				   TREE_OPERAND (container, 1));
+
+	      /* Then we reset the operands of the original
+	         COMPOUND_EXPR to the new BIND_EXPR and the new
+		 COMPOUND_EXPR.  */
+	      TREE_OPERAND (container, 0) = expr;
+	      TREE_OPERAND (container, 1) = new_ce;
+	    }
+
+	  /* Replace the RHS of the MODIFY_EXPR.  */
+	  *tp = inline_result;
+	}
+      else
+	*tp = expr;
+    }
+  else
+    *tp = expr;
 
   /* If the value of the new expression is ignored, that's OK.  We
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
@@ -1083,13 +1167,81 @@ expand_calls_inline (tp, id)
      tree *tp;
      inline_data *id;
 {
-  /* Search through *TP, replacing all calls to inline functions by
-     appropriate equivalents.  Use walk_tree in no-duplicates mode
-     to avoid exponential time complexity.  (We can't just use
-     walk_tree_without_duplicates, because of the special TARGET_EXPR
-     handling in expand_calls.  The hash table is set up in
-     optimize_function.  */
-  walk_tree (tp, expand_call_inline, id, id->tree_pruner);
+  tree_stmt_iterator i;
+
+  /* If we are not in gimple form, then we want to walk the tree
+     recursively as we do not know anything about the structure
+     of the tree.  */
+
+  if (! keep_function_tree_in_gimple_form (id->decl))
+    {
+      walk_tree (tp, expand_call_inline, id, id->tree_pruner);
+      return;
+    }
+
+  /* We are in gimple form.  We want to stay in gimple form.  Walk
+     the statements, inlining calls in each statement.  By walking
+     the statements, we have enough information to keep the tree
+     in gimple form as we insert inline bodies.  */
+  for (i = tsi_start (tp); !tsi_end_p (i); tsi_next (&i))
+    {
+      tree *stmt_p = tsi_stmt_ptr (i);
+      enum tree_code code = TREE_CODE (*stmt_p); 
+
+      if (code == LOOP_EXPR)
+	{
+	  /* Dive into the LOOP_EXPR.  */
+	  expand_calls_inline (&LOOP_EXPR_BODY (*stmt_p), id);
+	}
+      else if (code == COND_EXPR)
+        {
+	  /* Dive into the COND_EXPR.  */
+	  expand_calls_inline (&COND_EXPR_COND (*stmt_p), id);
+	  expand_calls_inline (&COND_EXPR_THEN (*stmt_p), id);
+	  expand_calls_inline (&COND_EXPR_ELSE (*stmt_p), id);
+        }
+      else if (code == CATCH_EXPR)
+        {
+	  /* Dive into the SWITCH_EXPR.  */
+	  expand_calls_inline (&CATCH_BODY (*stmt_p), id);
+        }
+      else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
+        {
+	  /* Dive into TRY_*_EXPRs.  */
+	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 0), id);
+	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 1), id);
+        }
+      else if (code == SWITCH_EXPR)
+        {
+	  /* Dive into the SWITCH_EXPR.  */
+	  expand_calls_inline (&SWITCH_COND (*stmt_p), id);
+	  expand_calls_inline (&SWITCH_BODY (*stmt_p), id);
+        }
+      else if (code == BIND_EXPR)
+        {
+	  /* Dive into the BIND_EXPR.  */
+	  expand_calls_inline (&BIND_EXPR_BODY (*stmt_p), id);
+        }
+      else if (code == COMPOUND_EXPR)
+        {
+	  /* Dive into the BIND_EXPR, this should only happen at
+	     the end of a function tree, so the recursion isn't nearly
+	     as bad as you might think.  */
+	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 0), id);
+	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 1), id);
+        }
+      else
+	{
+          /* Search through *TP, replacing all calls to inline functions by
+	     appropriate equivalents.  Use walk_tree in no-duplicates mode
+ 	     to avoid exponential time complexity.  (We can't just use
+	     walk_tree_without_duplicates, because of the special TARGET_EXPR
+	     handling in expand_calls.  The hash table is set up in
+	     optimize_function.  */
+	  id->tsi = i;
+	  walk_tree (stmt_p, expand_call_inline, id, id->tree_pruner);
+	}
+    }
 }
 
 /* Expand calls to inline functions in the body of FN.  */

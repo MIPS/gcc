@@ -1,3 +1,25 @@
+2003-03-10  Jeff Law  <law@redhat.com>
+
+	* c-decl.c (c_expand_body_1): Update comments relating to
+	re-simplification after mudflap instrumentation.  Avoid
+	unnecessary simplification of the function tree.
+	* gimplify.c (keep_function_tree_in_gimple_form): New function.
+	* tree-inline.c: Include tree-iterator.h and tree-simple.h
+	(struct inline_data): Add new TSI field.
+	(copy_body_r): Keep tree in gimple form when transforming a
+	RETURN_EXPR into a MODIFY_EXPR and GOTO_EXPR.
+	(initialize_inlined_parameters): Use MODIFY_EXPR, not INIT_EXPR
+	for initialization of inlined parameters.
+	(expand_call_inline): Save and restore the TSI around the
+	call to expand_calls_inline.  Keep the tree in gimple form
+	when replacing a CALL_EXPR with a BIND_EXPR for the inlined
+	body.
+	(expand_calls_inline): Revamp to provide the current TSI to
+	expand_call_inline when we're working with gimple form.
+	* Makefile.in (tree-inline.o): Update dependencies.
+	* tree.h (keep_function_tree_in_gimple_form): Prototype.
+
+
 2003-03-10  Andrew MacLeod  <amacleod@redhat.com>
 
 	* Makefile.in (tree.o): Add tree-iterator.h dependancy.

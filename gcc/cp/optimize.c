@@ -79,8 +79,7 @@ optimize_function (tree fn)
 
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
-  if (!flag_disable_simple
-      && simplify_function_tree (fn))
+  if (!flag_disable_simple && keep_function_tree_in_gimple_form (fn))
     {
       /* Debugging dump after simplification.  */
       dump_function (TDI_simple, fn);
