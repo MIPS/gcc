@@ -1,4 +1,8 @@
 2004-01-12  Sebastian Pop  <s.pop@laposte.net>
+
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-51.c.scev: Adjusted.
+
+2004-01-12  Sebastian Pop  <s.pop@laposte.net>
             Dorit Naishlos  <dorit@il.ibm.com>
 
 	* gcc.dg/tree-ssa-chrec/ssa-chrec-53.c: New test.

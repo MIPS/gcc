@@ -1,5 +1,19 @@
-The result should be something like:
 
-i  ->  {0, +, j + 2}_1
 
-But for the moment the analyzer fails because it recognize it as a wrap-around evolution.
+  Scalar evolution functions: 
+
+temp_var
+  ->  i_1 + j_4;
+
+i
+  ->  {0, +, j_4 + 2}_1
+
+
+
+  Scalar evolution functions: 
+
+j
+  ->  not_analyzed_yet
+
+
+
