@@ -3125,12 +3125,12 @@ tree_make_forwarder_block (edge fallthru)
   set_phi_nodes (bb, nreverse (phi_nodes (bb)));
 
   /* Add the arguments we have stored on edges.  */
-  for (e = dummy->pred; e; e = e->succ_next)
+  for (e = bb->pred; e; e = e->pred_next)
     {
       if (e == fallthru)
 	continue;
 
-      for (phi = phi_nodes (dummy), var = PENDING_STMT (e);
+      for (phi = phi_nodes (bb), var = PENDING_STMT (e);
 	   phi;
 	   phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
 	add_phi_arg (&phi, TREE_VALUE (var), e);
