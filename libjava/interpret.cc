@@ -3696,9 +3696,10 @@ _Jv_InterpreterEngine::do_verify (jclass klass)
   _Jv_InterpClass *iclass = (_Jv_InterpClass *) klass->aux_info;
   for (int i = 0; i < klass->method_count; i++)
     {
+      using namespace java::lang::reflect;
       _Jv_MethodBase *imeth = iclass->interpreted_methods[i];
-      if ((klass->methods[i].accflags & java::lang::reflect::Modifier::NATIVE)
-	  == 0)
+      _Jv_ushort accflags = klass->methods[i].accflags;
+      if ((accflags & (Modifier::NATIVE | Modifier::ABSTRACT)) == 0)
 	{
 	  _Jv_InterpMethod *im = reinterpret_cast<_Jv_InterpMethod *> (imeth);
 	  _Jv_VerifyMethod (im);
