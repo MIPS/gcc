@@ -1,3 +1,9 @@
+2004-05-06  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/Box.java:
+	(getAccessibleContext): Return an instance of the 
+	correct class.
+
 2004-05-05  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics.java
