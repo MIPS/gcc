@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-simple.h"
 #include "tree-inline.h"
 #include "diagnostic.h"
+#include "langhooks.h"
 
 /** The simplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -906,7 +907,7 @@ simplify_return_stmt (stmt, pre_p)
   if (!VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl)))
       && RETURN_EXPR (stmt))
     {
-      tree expr, tmp, ret_expr, post;
+      tree ret_expr;
       
       /* A return expression is represented by a MODIFY_EXPR node that
 	 assigns the return value into a RESULT_DECL.  */
@@ -915,24 +916,15 @@ simplify_return_stmt (stmt, pre_p)
 
       ret_expr = TREE_OPERAND (RETURN_EXPR (stmt), 1);
 
-      if (is_simple_val (ret_expr))
+      /* The grammar calls for a simple VAL here, but the RETURN_STMT
+	 already uses a MODIFY_EXPR, and using a full RHS allows us to
+	 optimize returning a call to a function of struct type.  */
+      if (is_simple_rhs (ret_expr))
 	return;
 
-      /* Create the assignment 'T = ret_expr'.  */
-      tmp = create_tmp_var (TREE_TYPE (ret_expr));
-      expr = build_modify_expr (tmp, NOP_EXPR, ret_expr);
-
-      /* Simplify it.  */
-      post = NULL_TREE;
-      walk_tree (&expr, mostly_copy_tree_r, NULL, NULL);
-      simplify_expr (&expr, pre_p, &post, is_simple_expr, stmt);
-
-      /* Emit the expression and its post side-effects into PRE_P.  */
-      add_tree (expr, pre_p);
-      add_tree (post, pre_p);
-
-      /* Replace the return value with the new temporary.  */
-      TREE_OPERAND (RETURN_EXPR (stmt), 1) = tmp;
+      walk_tree (&ret_expr, mostly_copy_tree_r, NULL, NULL);
+      simplify_expr (&ret_expr, pre_p, NULL, is_simple_rhs, stmt);
+      TREE_OPERAND (RETURN_EXPR (stmt), 1) = ret_expr;
     }
 }
 
@@ -949,7 +941,9 @@ simplify_return_stmt (stmt, pre_p)
 	EXPR should be stored.
 
     POST_P points to the list where side effects that must happen after
-	EXPR should be stored.
+	EXPR should be stored, or NULL if there is no suitable list.  In
+	that case, we copy the result to a temporary, emit the
+	post-effects, and then return the temporary.
 
     SIMPLE_TEST_F points to a function that takes a tree T and
 	returns nonzero if T is in the SIMPLE form requested by the
@@ -982,12 +976,17 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
   int fallback_rvalue = (fallback & 1);
   int fallback_lvalue = (fallback & 2);
   tree tmp;
+  tree internal_post = NULL_TREE;
 
   if (simple_test_f == NULL)
     abort ();
 
   if ((*simple_test_f) (*expr_p))
     return;
+
+  /* Set up our internal postqueue if needed.  */
+  if (post_p == NULL)
+    post_p = &internal_post;
 
   /* First deal with the special cases.  */
   switch (TREE_CODE (*expr_p))
@@ -1155,14 +1154,18 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
       }
     }
 
-  /* If it's sufficiently simple already, we're done.  */
-  if ((*simple_test_f) (*expr_p))
+  /* If it's sufficiently simple already, we're done.  Unless we are
+     handling some post-effects internally; if that's the case, we need to
+     copy into a temp before adding the post-effects to the tree.  */
+  if ((*simple_test_f) (*expr_p) && !internal_post)
     return;
 
   /* Otherwise, we need to create a new temporary for the simplified
      expression.  */
 
-  if (fallback_lvalue && is_simple_varname (*expr_p))
+  if (fallback_lvalue && is_simple_varname (*expr_p)
+      /* We can't return an lvalue if we have an internal postqueue.  */
+      && !internal_post)
     {
       /* An lvalue will do.  Take the address of the expression, store it
 	 in a temporary, and replace the expression with an INDIRECT_REF of
@@ -1178,13 +1181,12 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
 
       /* An rvalue will do.  Assign the simplified expression into a new
 	 temporary TMP and replace the original expression with TMP.  */
-      tmp = create_tmp_var (TREE_TYPE (*expr_p));
-      add_tree (build_modify_expr (tmp, NOP_EXPR, *expr_p), pre_p);
-      *expr_p = tmp;
+      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, stmt);
     }
   else
     {
       fprintf (stderr, "simplification failed:\n");
+      debug_c_tree (*expr_p);
       debug_tree (*expr_p);
       abort ();
     }
@@ -1192,6 +1194,9 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
   /* Make sure the temporary matches our predicate.  */
   if (!(*simple_test_f) (*expr_p))
     abort ();
+
+  if (internal_post)
+    add_tree (internal_post, pre_p);
 }
 
 static void
@@ -1343,28 +1348,26 @@ simplify_self_mod_expr (expr_p, pre_p, post_p, stmt)
       && code != PREDECREMENT_EXPR)
     abort ();
 
-  /* Simplify the LHS into a SIMPLE lvalue.  We need to deep copy the first
-     operand because it will be simplified twice.  Once to convert it into
-     a SIMPLE lvalue and the second time when we simplify the resulting
-     binary expression on the RHS of the assignment.
-
-     ??? This duplicates side-effects.  FIXME!  */
+  /* Simplify the LHS into a SIMPLE lvalue.  */
   lvalue = TREE_OPERAND (*expr_p, 0);
-  walk_tree (&lvalue, copy_tree_r, NULL, NULL);
   simplify_lvalue_expr (&lvalue, pre_p, post_p, is_simple_modify_expr_lhs,
 			stmt);
 
-  /* Determine whether we need to create a PLUS or a MINUS operation.  */
-  lhs = TREE_OPERAND (*expr_p, 0);
+  /* Extract the operands to the arithmetic operation, including an rvalue
+     version of our LHS.  */
+  lhs = lvalue;
+  simplify_expr (&lhs, pre_p, post_p, is_simple_id, stmt);
   rhs = TREE_OPERAND (*expr_p, 1);
+  simplify_expr (&rhs, pre_p, post_p, is_simple_val, stmt);
+
+  /* Determine whether we need to create a PLUS or a MINUS operation.  */
   if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
     t1 = build (PLUS_EXPR, TREE_TYPE (*expr_p), lhs, rhs);
   else
     t1 = build (MINUS_EXPR, TREE_TYPE (*expr_p), lhs, rhs);
 
-  /* If LHS is not a SIMPLE identifier, the resulting binary expression
-     will not be in simple form.  */
-  simplify_expr (&t1, pre_p, post_p, is_simple_binary_expr, stmt);
+  if (!is_simple_binary_expr (t1))
+    abort ();
 
   /* Determine whether the new assignment should go before or after
      the simplified expression.  */
@@ -1633,18 +1636,19 @@ simplify_boolean_expr (expr_p, pre_p, stmt)
      tree stmt;
 {
   enum tree_code code;
-  tree t, lhs, rhs, if_body, if_cond, mod_expr, if_stmt;
+  tree t, lhs, rhs, if_body, if_cond, if_stmt;
 
   code = TREE_CODE (*expr_p);
   if (code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR)
     abort ();
 
-  lhs = TREE_OPERAND (*expr_p, 0);
-  rhs = TREE_OPERAND (*expr_p, 1);
+  /* First, make sure that our operands are truthvalues.  This should
+     already be the case, but let's be conservative.  */
+  lhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 0));
+  rhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 1));
 
   /* Build 'T = a'  */
-  t = create_tmp_var (TREE_TYPE (*expr_p));
-  mod_expr = build_modify_expr (t, NOP_EXPR, lhs);
+  t = get_initialized_tmp_var (lhs, pre_p, stmt);
 
   /* Build the body for the if() statement that conditionally evaluates the
      RHS of the expression.  Note that we first build the assignment
@@ -1662,9 +1666,9 @@ simplify_boolean_expr (expr_p, pre_p, stmt)
      resulting if() statement is simplified, the side effects for the LHS
      of 'a && b' will be inserted before the evaluation of 'b'.  */
   if (code == TRUTH_ANDIF_EXPR)
-    if_cond = build (NE_EXPR, TREE_TYPE (*expr_p), mod_expr, integer_zero_node);
+    if_cond = t;
   else
-    if_cond = build (EQ_EXPR, TREE_TYPE (*expr_p), mod_expr, integer_zero_node);
+    if_cond = build (EQ_EXPR, TREE_TYPE (t), t, integer_zero_node);
 
   if_stmt = build_stmt (IF_STMT, if_cond, if_body, NULL_TREE);
   STMT_LINENO (if_stmt) = STMT_LINENO (stmt);
@@ -1673,8 +1677,15 @@ simplify_boolean_expr (expr_p, pre_p, stmt)
   simplify_if_stmt (if_stmt, pre_p);
   add_tree (if_stmt, pre_p);
 
-  /* Re-write the original expression to evaluate 'T != 0'.  */
-  *expr_p = build (NE_EXPR, TREE_TYPE (*expr_p), t, integer_zero_node);
+  /* If we're not actually looking for a boolean result, convert now.  */
+  if (TREE_TYPE (t) != TREE_TYPE (*expr_p))
+    {
+      t = convert (TREE_TYPE (*expr_p), t);
+      simplify_expr (&t, pre_p, NULL, is_simple_id, stmt);
+    }
+
+  /* Re-write the original expression to use T.  */
+  *expr_p = t;
 }
 
 /* }}} */
@@ -2117,12 +2128,33 @@ create_tmp_var (type)
 
 /* }}} */
 
-/** {{{ simple_tmp_var_p ()
+/* Returns a new temporary variable, initialized with VAL.  PRE_P and STMT
+   are as in simplify_expr.*/
+
+tree
+get_initialized_tmp_var (val, pre_p, stmt)
+     tree val;
+     tree *pre_p;
+     tree stmt;
+{
+  tree t, mod;
+  tree post = NULL_TREE;
+
+  simplify_expr (&val, pre_p, &post, is_simple_rhs, stmt);
+  t = create_tmp_var (TREE_TYPE (val));
+  mod = build_modify_expr (t, NOP_EXPR, val);
+  add_tree (mod, pre_p);
+  add_tree (post, pre_p);
+
+  return t;
+}
+
+/** {{{ is_simple_tmp_var ()
 
     Returns true if T is a SIMPLE temporary variable, false otherwise.  */
 
 bool
-simple_tmp_var_p (t)
+is_simple_tmp_var (t)
      tree t;
 {
   /* FIXME this could trigger for other local artificials, too.  */

@@ -1,3 +1,20 @@
+2002-06-10  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (simplify_boolean_expr): Avoid redundant tests.
+	Give the temp the appropriate type for a boolean value, and
+	reconvert at the end.
+
+	* c-simplify.c (simplify_self_mod_expr): Don't duplicate side-effects.
+
+	* c-simplify.c (simplify_return_stmt): Accept a SIMPLE rhs.
+	Just hand off to simplify_expr.
+
+	* c-simplify.c (get_initialized_tmp_var): New fn.
+	(simplify_expr_common): Use it.  Handle post-effects internally if
+	POST_P is NULL.
+	(is_simple_tmp_var): Rename from simple_tmp_var_p.
+	* tree-simple.h: Adjust.
+
 2002-06-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (simplify_return_stmt): Update folding markers.
