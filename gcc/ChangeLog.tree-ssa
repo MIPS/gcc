@@ -1,3 +1,20 @@
+2003-01-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (parent_array): Make file local.
+	(label_to_block_map): New file local variable.
+	(build_tree_cfg): Initialize label_to_block_map.
+	(make_edges): Don't pre-scan all the blocks looking for blocks with
+	labels.
+	(make_exit_edges): Remove argument label_to_block_map.  Update all
+	callers.
+	(make_goto_expr_edges): Likewise.
+	(dump_tree_bb): Check that the block has a valid annotation.
+	(set_bb_for_stmt): If the statement is a label, add the label to
+	the label_to_block_map.
+
+	* tree-pretty-print.c (dump_vops): Check that the block has a valid
+	annotation.
+
 2003-01-29  Jeff Law <law@redhat.com>
 
 	* tree-dfa.c (find_may_aliases_for): Just accept the index of

@@ -52,7 +52,11 @@ static FILE *dump_file;		/*< CFG dump file. */
 static int dump_flags;		/*< CFG dump flags.  */
 
 /* Array with control flow parents.  */
-varray_type parent_array;
+static varray_type parent_array;
+
+/* Mapping of labels to their associated blocks.  This can greatly speed up
+   building of the CFG in code with lots of gotos.  */
+static varray_type label_to_block_map;
 
 
 /* Basic blocks and flowgraphs.  */
@@ -64,12 +68,12 @@ static void make_switch_expr_blocks	PARAMS ((tree *, basic_block));
 static basic_block create_bb		PARAMS ((tree *, basic_block));
 
 /* Edges.  */
-static void make_edges PARAMS ((void));
+static void make_edges			PARAMS ((void));
 static void make_ctrl_stmt_edges	PARAMS ((basic_block));
-static void make_exit_edges		PARAMS ((basic_block, varray_type));
+static void make_exit_edges		PARAMS ((basic_block));
 static void make_loop_expr_edges	PARAMS ((basic_block));
 static void make_cond_expr_edges	PARAMS ((basic_block));
-static void make_goto_expr_edges	PARAMS ((basic_block, varray_type));
+static void make_goto_expr_edges	PARAMS ((basic_block));
 static void make_case_label_edges	PARAMS ((basic_block));
 
 /* Various helpers.  */
@@ -120,6 +124,10 @@ build_tree_cfg (fnbody)
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
   VARRAY_BB_INIT (parent_array, initial_cfg_capacity, "parent_array");
+
+  /* Build a mapping of labels to their associated blocks.  */
+  VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
+		  "label to block map");
 
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -420,26 +428,10 @@ static void
 make_edges ()
 {
   basic_block bb;
-  varray_type label_to_block_map;
-  int i = 0;
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
   make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
-
-  /* Build a mapping of labels to their associated blocks.  This can
-     greatly speed up building of the CFG in code with lots of gotos.  */
-  VARRAY_BB_INIT (label_to_block_map, n_basic_blocks / 2, "label to block map");
-  FOR_EACH_BB (bb)
-    {
-      tree first = first_stmt (bb);
-
-      if (first && TREE_CODE (first) == LABEL_EXPR)
-	{
-	  VARRAY_PUSH_BB (label_to_block_map, bb);
-	  LABEL_DECL_INDEX (LABEL_EXPR_LABEL (first)) = i++;
-	}
-    }
 
   /* Traverse basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -456,7 +448,7 @@ make_edges ()
 	  /* Edges for control flow altering statements (GOTO_EXPR and
 	     RETURN_EXPR) need an edge to the corresponding target block.  */
 	  if (is_ctrl_altering_stmt (last))
-	    make_exit_edges (bb, label_to_block_map);
+	    make_exit_edges (bb);
 
 	  /* Incoming edges for label blocks in switch statements.  It's easier
 	     to deal with these bottom-up than top-down.  */
@@ -537,9 +529,8 @@ make_ctrl_stmt_edges (bb)
    and calls to non-returning functions.  */
 
 static void
-make_exit_edges (bb, label_to_block_map)
+make_exit_edges (bb)
      basic_block bb;
-     varray_type label_to_block_map;
 {
   tree last = last_stmt (bb);
 
@@ -549,7 +540,7 @@ make_exit_edges (bb, label_to_block_map)
   switch (TREE_CODE (last))
     {
     case GOTO_EXPR:
-      make_goto_expr_edges (bb, label_to_block_map);
+      make_goto_expr_edges (bb);
 
       /* If this is potentially a nonlocal goto, then this should also
 	 create an edge to the exit block.   */
@@ -571,7 +562,7 @@ make_exit_edges (bb, label_to_block_map)
 	make_edge (bb, EXIT_BLOCK_PTR, 0);
       else if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	{
-	  make_goto_expr_edges (bb, label_to_block_map);
+	  make_goto_expr_edges (bb);
           make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
 	}
       break;
@@ -586,7 +577,7 @@ make_exit_edges (bb, label_to_block_map)
 	  && TREE_CODE (TREE_OPERAND (last, 0)) == MODIFY_EXPR
 	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (last, 0), 1)) == CALL_EXPR
 	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-	make_goto_expr_edges (bb, label_to_block_map);
+	make_goto_expr_edges (bb);
       break;
 
     case MODIFY_EXPR:
@@ -596,7 +587,7 @@ make_exit_edges (bb, label_to_block_map)
       if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
 	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	{
-	  make_goto_expr_edges (bb, label_to_block_map);
+	  make_goto_expr_edges (bb);
           make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
 	}
       break;
@@ -694,9 +685,8 @@ make_cond_expr_edges (bb)
 /* Create edges for a goto statement at block BB.  */
 
 static void
-make_goto_expr_edges (bb, label_to_block_map)
+make_goto_expr_edges (bb)
      basic_block bb;
-     varray_type label_to_block_map;
 {
   tree goto_t, dest;
   basic_block target_bb;
@@ -1426,7 +1416,7 @@ dump_tree_bb (outf, prefix, bb, indent)
     fputs ("nil\n", outf);
 
   fprintf (outf, "%s%sParent block: ", s_indent, prefix);
-  if (parent_block (bb))
+  if (bb->aux && parent_block (bb))
     fprintf (outf, "%d\n", parent_block (bb)->index);
   else
     fputs ("nil\n", outf);
@@ -1990,11 +1980,21 @@ set_bb_for_stmt (t, bb)
 {
   stmt_ann_t ann;
 
+
   if (t == empty_stmt_node)
     return;
 
   do
     {
+      /* If the statement is a label, add the label to block-to-labels map
+	 so that we can speed up edge creation for GOTO_EXPRs.  */
+      if (TREE_CODE (t) == LABEL_EXPR)
+	{
+	  LABEL_DECL_INDEX (LABEL_EXPR_LABEL (t))
+	      = VARRAY_ACTIVE_SIZE (label_to_block_map);
+	  VARRAY_PUSH_BB (label_to_block_map, bb);
+	}
+
       ann = stmt_ann (t) ? stmt_ann (t) : create_stmt_ann (t);
       ann->bb = bb;
       if (TREE_CODE (t) == COMPOUND_EXPR)

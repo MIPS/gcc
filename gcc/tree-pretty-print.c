@@ -1899,7 +1899,7 @@ dump_vops (buffer, stmt, spc)
   varray_type vuses = vuse_ops (stmt);
 
   bb = bb_for_stmt (stmt);
-  if (bb && bb->index != last_bb)
+  if (bb && bb->index != last_bb && bb->aux)
     {
       tree phi;
 
