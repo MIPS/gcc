@@ -37,7 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 #include "c-tree.h"
-#include "c-lex.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
@@ -491,6 +490,7 @@ c_decode_option (argc, argv)
     { "missing-prototypes", &warn_missing_prototypes },
     { "multichar", &warn_multichar },
     { "nested-externs", &warn_nested_externs },
+    { "nonnull", &warn_nonnull },
     { "parentheses", &warn_parentheses },
     { "pointer-arith", &warn_pointer_arith },
     { "redundant-decls", &warn_redundant_decls },
@@ -3352,9 +3352,19 @@ start_decl (declarator, declspecs, initialized, attributes)
   /* ANSI specifies that a tentative definition which is not merged with
      a non-tentative definition behaves exactly like a definition with an
      initializer equal to zero.  (Section 3.7.2)
-     -fno-common gives strict ANSI behavior.  Usually you don't want it.
-     This matters only for variables with external linkage.  */
-  if (!initialized && (! flag_no_common || ! TREE_PUBLIC (decl)))
+
+     -fno-common gives strict ANSI behavior, though this tends to break
+     a large body of code that grew up without this rule.
+
+     Thread-local variables are never common, since there's no entrenched
+     body of code to break, and it allows more efficient variable references
+     in the presense of dynamic linking.  */
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && !initialized
+      && TREE_PUBLIC (decl)
+      && !DECL_THREAD_LOCAL (decl)
+      && !flag_no_common)
     DECL_COMMON (decl) = 1;
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
@@ -3935,7 +3945,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  enum rid i = C_RID_CODE (id);
 	  if ((int) i <= (int) RID_LAST_MODIFIER)
 	    {
-	      if (i == RID_LONG && (specbits & (1 << (int) i)))
+	      if (i == RID_LONG && (specbits & (1 << (int) RID_LONG)))
 		{
 		  if (longlong)
 		    error ("`long long long' is too long for GCC");
@@ -3949,6 +3959,19 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		}
 	      else if (specbits & (1 << (int) i))
 		pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+
+	      /* Diagnose "__thread extern".  Recall that this list
+		 is in the reverse order seen in the text.  */
+	      if (i == RID_THREAD
+		  && (specbits & (1 << (int) RID_EXTERN
+				  | 1 << (int) RID_STATIC)))
+		{
+		  if (specbits & 1 << (int) RID_EXTERN)
+		    error ("`__thread' before `extern'");
+		  else
+		    error ("`__thread' before `static'");
+		}
+
 	      specbits |= 1 << (int) i;
 	      goto found;
 	    }
@@ -4198,6 +4221,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     if (specbits & 1 << (int) RID_REGISTER) nclasses++;
     if (specbits & 1 << (int) RID_TYPEDEF) nclasses++;
 
+    /* "static __thread" and "extern __thread" are allowed.  */
+    if ((specbits & (1 << (int) RID_THREAD
+		     | 1 << (int) RID_STATIC
+		     | 1 << (int) RID_EXTERN)) == (1 << (int) RID_THREAD))
+      nclasses++;
+
     /* Warn about storage classes that are invalid for certain
        kinds of declarations (parameters, typenames, etc.).  */
 
@@ -4207,7 +4236,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	     && (specbits
 		 & ((1 << (int) RID_REGISTER)
 		    | (1 << (int) RID_AUTO)
-		    | (1 << (int) RID_TYPEDEF))))
+		    | (1 << (int) RID_TYPEDEF)
+		    | (1 << (int) RID_THREAD))))
       {
 	if (specbits & 1 << (int) RID_AUTO
 	    && (pedantic || current_binding_level == global_binding_level))
@@ -4216,8 +4246,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  error ("function definition declared `register'");
 	if (specbits & 1 << (int) RID_TYPEDEF)
 	  error ("function definition declared `typedef'");
+	if (specbits & 1 << (int) RID_THREAD)
+	  error ("function definition declared `__thread'");
 	specbits &= ~((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
-		      | (1 << (int) RID_AUTO));
+		      | (1 << (int) RID_AUTO) | (1 << (int) RID_THREAD));
       }
     else if (decl_context != NORMAL && nclasses > 0)
       {
@@ -4240,7 +4272,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      }
 	    specbits &= ~((1 << (int) RID_TYPEDEF) | (1 << (int) RID_REGISTER)
 			  | (1 << (int) RID_AUTO) | (1 << (int) RID_STATIC)
-			  | (1 << (int) RID_EXTERN));
+			  | (1 << (int) RID_EXTERN) | (1 << (int) RID_THREAD));
 	  }
       }
     else if (specbits & 1 << (int) RID_EXTERN && initialized && ! funcdef_flag)
@@ -4251,12 +4283,25 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	else
 	  error ("`%s' has both `extern' and initializer", name);
       }
-    else if (specbits & 1 << (int) RID_EXTERN && funcdef_flag
-	     && current_binding_level != global_binding_level)
-      error ("nested function `%s' declared `extern'", name);
-    else if (current_binding_level == global_binding_level
-	     && specbits & (1 << (int) RID_AUTO))
-      error ("top-level declaration of `%s' specifies `auto'", name);
+    else if (current_binding_level == global_binding_level)
+      {
+	if (specbits & 1 << (int) RID_AUTO)
+	  error ("top-level declaration of `%s' specifies `auto'", name);
+      }
+    else
+      {
+	if (specbits & 1 << (int) RID_EXTERN && funcdef_flag)
+	  error ("nested function `%s' declared `extern'", name);
+	else if ((specbits & (1 << (int) RID_THREAD
+			       | 1 << (int) RID_EXTERN
+			       | 1 << (int) RID_STATIC))
+		 == (1 << (int) RID_THREAD))
+	  {
+	    error ("function-scope `%s' implicitly auto and declared `__thread'",
+		   name);
+	    specbits &= ~(1 << (int) RID_THREAD);
+	  }
+      }
   }
 
   /* Now figure out the structure of the declarator proper.
@@ -4844,6 +4889,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  pedwarn ("invalid storage class for function `%s'", name);
 	if (specbits & (1 << (int) RID_REGISTER))
 	  error ("invalid storage class for function `%s'", name);
+	if (specbits & (1 << (int) RID_THREAD))
+	  error ("invalid storage class for function `%s'", name);
 	/* Function declaration not at top level.
 	   Storage classes other than `extern' are not allowed
 	   and `extern' makes no difference.  */
@@ -4936,22 +4983,32 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  pedwarn_with_decl (decl, "variable `%s' declared `inline'");
 
 	DECL_EXTERNAL (decl) = extern_ref;
+
 	/* At top level, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers
 	   makes this declaration a definition (perhaps tentative).  Also,
 	   the absence of both `static' and `register' makes it public.  */
 	if (current_binding_level == global_binding_level)
 	  {
-	    TREE_PUBLIC (decl)
-	      = !(specbits
-		  & ((1 << (int) RID_STATIC) | (1 << (int) RID_REGISTER)));
-	    TREE_STATIC (decl) = ! DECL_EXTERNAL (decl);
+	    TREE_PUBLIC (decl) = !(specbits & ((1 << (int) RID_STATIC)
+					       | (1 << (int) RID_REGISTER)));
+	    TREE_STATIC (decl) = !extern_ref;
 	  }
 	/* Not at top level, only `static' makes a static definition.  */
 	else
 	  {
 	    TREE_STATIC (decl) = (specbits & (1 << (int) RID_STATIC)) != 0;
-	    TREE_PUBLIC (decl) = DECL_EXTERNAL (decl);
+	    TREE_PUBLIC (decl) = extern_ref;
+	  }
+
+	if (specbits & 1 << (int) RID_THREAD)
+	  {
+	    if (targetm.have_tls)
+	      DECL_THREAD_LOCAL (decl) = 1;
+	    else
+	      /* A mere warning is sure to result in improper semantics
+		 at runtime.  Don't bother to allow this to compile.  */
+	      error ("thread-local storage not supported for this target");
 	  }
       }
 
@@ -7297,4 +7354,25 @@ build_void_list_node ()
 {
   tree t = build_tree_list (NULL_TREE, void_type_node);
   return t;
+}
+
+/* Return something to represent absolute declarators containing a *.
+   TARGET is the absolute declarator that the * contains.
+   TYPE_QUALS_ATTRS is a list of modifiers such as const or volatile
+   to apply to the pointer type, represented as identifiers, possible mixed
+   with attributes.
+
+   We return an INDIRECT_REF whose "contents" are TARGET (inside a TREE_LIST,
+   if attributes are present) and whose type is the modifier list.  */
+
+tree
+make_pointer_declarator (type_quals_attrs, target)
+     tree type_quals_attrs, target;
+{
+  tree quals, attrs;
+  tree itarget = target;
+  split_specs_attrs (type_quals_attrs, &quals, &attrs);
+  if (attrs != NULL_TREE)
+    itarget = tree_cons (attrs, target, NULL_TREE);
+  return build1 (INDIRECT_REF, quals, itarget);
 }

@@ -133,7 +133,7 @@ find_basic_block (insn, search_limit)
      rtx insn;
      int search_limit;
 {
-  int i;
+  basic_block bb;
 
   /* Scan backwards to the previous BARRIER.  Then see if we can find a
      label that starts a basic block.  Return the basic block number.  */
@@ -146,9 +146,9 @@ find_basic_block (insn, search_limit)
   if (search_limit == 0)
     return -1;
 
-  /* The start of the function is basic block zero.  */
+  /* The start of the function.  */
   else if (insn == 0)
-    return 0;
+    return ENTRY_BLOCK_PTR->next_bb->index;
 
   /* See if any of the upcoming CODE_LABELs start a basic block.  If we reach
      anything other than a CODE_LABEL or note, we can't find this code.  */
@@ -156,9 +156,9 @@ find_basic_block (insn, search_limit)
        insn && GET_CODE (insn) == CODE_LABEL;
        insn = next_nonnote_insn (insn))
     {
-      for (i = 0; i < n_basic_blocks; i++)
-	if (insn == BLOCK_HEAD (i))
-	  return i;
+      FOR_EACH_BB (bb)
+	if (insn == bb->head)
+	  return bb->index;
     }
 
   return -1;

@@ -12,7 +12,7 @@
 #endif
 
 #ifndef MAX_COPY
-#define MAX_COPY (8 * sizeof (long long))
+#define MAX_COPY (10 * sizeof (long long))
 #endif
 
 #ifndef MAX_EXTRA
@@ -20,6 +20,11 @@
 #endif
 
 #define MAX_LENGTH (MAX_OFFSET + MAX_COPY + MAX_EXTRA)
+
+
+/* Use a sequence length that is not divisible by two, to make it more
+   likely to detect when words are mixed up.  */
+#define SEQUENCE_LENGTH 31
 
 static union {
   char buf[MAX_LENGTH];
@@ -30,16 +35,18 @@ static union {
 main ()
 {
   int off1, off2, len, i;
-  char *p, *q;
+  char *p, *q, c;
 
   for (off1 = 0; off1 < MAX_OFFSET; off1++)
     for (off2 = 0; off2 < MAX_OFFSET; off2++)
       for (len = 1; len < MAX_COPY; len++)
 	{
-	  for (i = 0; i < MAX_LENGTH; i++)
+	  for (i = 0, c = 'A'; i < MAX_LENGTH; i++, c++)
 	    {
 	      u1.buf[i] = 'a';
-	      u2.buf[i] = 'A';
+	      if (c >= 'A' + SEQUENCE_LENGTH)
+		c = 'A';
+	      u2.buf[i] = c;
 	    }
 
 	  p = memcpy (u1.buf + off1, u2.buf + off2, len);
@@ -51,9 +58,13 @@ main ()
 	    if (*q != 'a')
 	      abort ();
 
-	  for (i = 0; i < len; i++, q++)
-	    if (*q != 'A')
-	      abort ();
+	  for (i = 0, c = 'A' + off2; i < len; i++, q++, c++)
+	    {
+	      if (c >= 'A' + SEQUENCE_LENGTH)
+		c = 'A';
+	      if (*q != c)
+		abort ();
+	    }
 
 	  for (i = 0; i < MAX_EXTRA; i++, q++)
 	    if (*q != 'a')

@@ -2,6 +2,95 @@
 
 	* lib/c-torture.exp: Add -ftree-ssa to compiler flags.
 
+2002-05-24  Ben Elliston  <bje@redhat.com>
+
+	* lib/c-torture.exp (c-torture-execute): Handle multiple sources.
+
+2002-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/verbose-asm.c: New test.
+
+2002-05-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/paste12.c: New test.
+
+2002-05-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* g++.dg/parse/named_ops.C: New test.
+
+2002-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/weak-8.c: New test.
+
+Thu May 23 11:09:26 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.dg/weak-2.c: Allow optional leading underscore
+	in scan-assembler symbol name.
+	* gcc.dg/weak-3.c: Likewise.
+	* gcc.dg/weak-4.c: Likewise.
+	* gcc.dg/weak-5.c: Likewise.
+
+2002-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020523-1.c: New test.
+
+2002-05-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* objc.dg/const-str-2.m: Update now that we stop after
+	a command line error.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/dg.exp: Fix typo in test pruneing.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/dg.exp: Prune the tls subdirectory.
+	* g++.dg/tls/tls.exp, g++.dg/tls/trivial.C: New.
+	* g++.dg/tls/diag-1.C, g++.dg/tls/diag-2.C: New.
+	* g++.dg/tls/init-1.C: New.
+
+2002-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020517-1.c: New test.
+
+2002-05-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tls/tls.exp, gcc.dg/tls/trivial.c, gcc.dg/tls/diag-1.c,
+	gcc.dg/tls/diag-2.c, gcc.dg/tls/init-1.c: New directory and files.
+
+Tue May 21 14:25:32 2002  Brian R. Gaeke  <brg@dgate.ORG>
+
+	* g++.dg/other/copy2.C: New test.
+
+Mon May 20 10:51:35 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/memcpy-2.c (SEQUENCE_LENGTH): Define.
+	(MAX_COPY): Bump up to 10 times sizeof (long long).
+	(main): Use a pattern of SEQUENCE_LENGTH different characters to copy.
+
+	* gcc.c-torture/execute/memset-1.c (MAX_COPY): Bump up to 10 times
+	sizeof (long long).
+
+	* gcc.c-torture/execute/strcpy-1.c: New test.
+
+2002-05-19  Jason Merrill  <jason2redhat.com>
+
+	* g++.dg/ext/oper1.C: New test.
+
+2002-05-20  David Billinghurst <David.Billinghurst@riotinto.com>
+2002-05-19  Mark Mitchell  <mitchell@doubledemon.codesourcery.com>
+
+	* README.QMTEST: New file.
+
+	* g++.dg/warn/Wshadow-1.C: Remove unncessary dg-error line.
+
+2002-05-19  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/loop-2c.x: Remove, the test should pass
+	now.
+	* gcc.c-torture/execute/loop-2d.x: Likewise.
+
 2002-05-19  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	* gcc.dg/weak-2.c:  xfail warnings for platforms that don't
@@ -101,7 +190,7 @@
 2002-05-05  Tim Josling  <tej@melbpc.org.au>
 
 	* treelang: Added directory for new sample language treelang. Also
-	lib/treelang.exp: New file to signal treelang should be tested. 
+	lib/treelang.exp: New file to signal treelang should be tested.
 
 2002-05-03  Jakub Jelinek  <jakub@redhat.com>
 
@@ -131,11 +220,11 @@
 
 2002-05-02  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/altivec-8.c: New.
+	* gcc.dg/altivec-8.c: New.
 
 2002-05-01  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/altivec-7.c: New.
+	* gcc.dg/altivec-7.c: New.
 
 2002-04-29  Jakub Jelinek  <jakub@redhat.com>
 
@@ -180,7 +269,7 @@
 
 	PR c++/6497
 	* g++.dg/inherit/access2.C: New test.
-	
+
 2002-04-26  Mark Mitchell  <mark@codesourcery.com>
 
 	PR bootstrap/6445
@@ -282,8 +371,8 @@ Wed Apr 24 21:38:36 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 2002-04-18  Richard Henderson  <rth@redhat.com>
 
-        * gcc.dg/20000906-1.c: Enable for all targets.
-        * gcc.c-torture/compile/iftrap-2.c: New.
+	* gcc.dg/20000906-1.c: Enable for all targets.
+	* gcc.c-torture/compile/iftrap-2.c: New.
 
 2002-04-18  Jakub Jelinek  <jakub@redhat.com>
 
@@ -292,9 +381,9 @@ Wed Apr 24 21:38:36 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 2002-04-18  Richard Henderson  <rth@redhat.com>
 
-        * gcc.c-torture/compile/iftrap-1.c: New.
-        * gcc.dg/iftrap-1.c: Adjust for ia64.
-        * gcc.dg/iftrap-2.c: New.
+	* gcc.c-torture/compile/iftrap-1.c: New.
+	* gcc.dg/iftrap-1.c: Adjust for ia64.
+	* gcc.dg/iftrap-2.c: New.
 
 2002-04-18  Jakub Jelinek  <jakub@redhat.com>
 

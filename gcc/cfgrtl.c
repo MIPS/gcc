@@ -90,7 +90,7 @@ can_delete_note_p (note)
 {
   return (NOTE_LINE_NUMBER (note) == NOTE_INSN_DELETED
 	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_BASIC_BLOCK
-          || NOTE_LINE_NUMBER (note) == NOTE_INSN_PREDICTION);
+	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_PREDICTION);
 }
 
 /* True if a given label can be deleted.  */
@@ -119,7 +119,7 @@ delete_insn (insn)
   if (GET_CODE (insn) == CODE_LABEL)
     {
       /* Some labels can't be directly removed from the INSN chain, as they
-         might be references via variables, constant pool etc. 
+         might be references via variables, constant pool etc.
          Convert them to the special NOTE_INSN_DELETED_LABEL note.  */
       if (! can_delete_label_p (insn))
 	{
@@ -248,12 +248,14 @@ delete_insn_chain_and_edges (first, last)
    the note and basic block struct in BB_NOTE, if any and do not grow
    BASIC_BLOCK chain and should be used directly only by CFG construction code.
    END can be NULL in to create new empty basic block before HEAD.  Both END
-   and HEAD can be NULL to create basic block at the end of INSN chain.  */
+   and HEAD can be NULL to create basic block at the end of INSN chain.
+   AFTER is the basic block we should be put after.  */
 
 basic_block
-create_basic_block_structure (index, head, end, bb_note)
+create_basic_block_structure (index, head, end, bb_note, after)
      int index;
      rtx head, end, bb_note;
+     basic_block after;
 {
   basic_block bb;
 
@@ -311,6 +313,7 @@ create_basic_block_structure (index, head, end, bb_note)
   bb->end = end;
   bb->index = index;
   bb->flags = BB_NEW;
+  link_block (bb, after);
   BASIC_BLOCK (index) = bb;
   if (basic_block_for_insn)
     update_bb_for_insn (bb);
@@ -323,17 +326,18 @@ create_basic_block_structure (index, head, end, bb_note)
 }
 
 /* Create new basic block consisting of instructions in between HEAD and END
-   and place it to the BB chain at position INDEX.  END can be NULL in to
+   and place it to the BB chain after block AFTER.  END can be NULL in to
    create new empty basic block before HEAD.  Both END and HEAD can be NULL to
    create basic block at the end of INSN chain.  */
 
 basic_block
-create_basic_block (index, head, end)
-     int index;
+create_basic_block (head, end, after)
      rtx head, end;
+     basic_block after;
 {
   basic_block bb;
   int i;
+  int index = after->index + 1;
 
   /* Place the new block just after the block being split.  */
   VARRAY_GROW (basic_block_info, ++n_basic_blocks);
@@ -349,7 +353,7 @@ create_basic_block (index, head, end)
       tmp->index = i;
     }
 
-  bb = create_basic_block_structure (index, head, end, NULL);
+  bb = create_basic_block_structure (index, head, end, NULL, after);
   bb->aux = NULL;
   return bb;
 }
@@ -377,13 +381,13 @@ flow_delete_block_noexpunge (b)
      NOTE_INSN_EH_REGION_END notes.  */
 
   /* Get rid of all NOTE_INSN_PREDICTIONs hanging before the block.  */
-  
+
   for (insn = PREV_INSN (b->head); insn; insn = PREV_INSN (insn))
     {
       if (GET_CODE (insn) != NOTE)
-        break;
+	break;
       if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
-        NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
     }
 
   insn = b->head;
@@ -430,7 +434,7 @@ flow_delete_block (b)
      basic_block b;
 {
   int deleted_handler = flow_delete_block_noexpunge (b);
-  
+
   /* Remove the basic block from the array, and compact behind it.  */
   expunge_block (b);
 
@@ -444,16 +448,15 @@ void
 compute_bb_for_insn (max)
      int max;
 {
-  int i;
+  basic_block bb;
 
   if (basic_block_for_insn)
     VARRAY_FREE (basic_block_for_insn);
 
   VARRAY_BB_INIT (basic_block_for_insn, max, "basic_block_for_insn");
 
-  for (i = 0; i < n_basic_blocks; ++i)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx end = bb->end;
       rtx insn;
 
@@ -537,7 +540,7 @@ split_block (bb, insn)
     return 0;
 
   /* Create the new basic block.  */
-  new_bb = create_basic_block (bb->index + 1, NEXT_INSN (insn), bb->end);
+  new_bb = create_basic_block (NEXT_INSN (insn), bb->end, bb);
   new_bb->count = bb->count;
   new_bb->frequency = bb->frequency;
   new_bb->loop_depth = bb->loop_depth;
@@ -998,7 +1001,7 @@ force_nonfallthru_and_redirect (e, target)
       /* We can't redirect the entry block.  Create an empty block at the
          start of the function which we use to add the new jump.  */
       edge *pe1;
-      basic_block bb = create_basic_block (0, e->dest->head, NULL);
+      basic_block bb = create_basic_block (e->dest->head, NULL, ENTRY_BLOCK_PTR);
 
       /* Change the existing edge's source to be the new block, and add
 	 a new edge from the entry block to the new block.  */
@@ -1019,7 +1022,7 @@ force_nonfallthru_and_redirect (e, target)
       /* Create the new structures.  */
       note = last_loop_beg_note (e->src->end);
       jump_block
-	= create_basic_block (e->src->index + 1, NEXT_INSN (note), NULL);
+	= create_basic_block (NEXT_INSN (note), NULL, e->src);
       jump_block->count = e->count;
       jump_block->frequency = EDGE_FREQUENCY (e);
       jump_block->loop_depth = target->loop_depth;
@@ -1164,13 +1167,16 @@ tidy_fallthru_edge (e, b, c)
 void
 tidy_fallthru_edges ()
 {
-  int i;
+  basic_block b, c;
 
-  for (i = 1; i < n_basic_blocks; i++)
+  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
+    return;
+
+  FOR_BB_BETWEEN (b, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR->prev_bb, next_bb)
     {
-      basic_block b = BASIC_BLOCK (i - 1);
-      basic_block c = BASIC_BLOCK (i);
       edge s;
+
+      c = b->next_bb;
 
       /* We care about simple conditional or unconditional jumps with
 	 a single successor.
@@ -1286,8 +1292,7 @@ split_edge (edge_in)
   else
     before = NULL_RTX;
 
-  bb = create_basic_block (edge_in->dest == EXIT_BLOCK_PTR ? n_basic_blocks
-			   : edge_in->dest->index, before, NULL);
+  bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
   bb->count = edge_in->count;
   bb->frequency = EDGE_FREQUENCY (edge_in);
 
@@ -1368,8 +1373,8 @@ commit_one_edge_insertion (e, watch_calls)
       /* The first insn after the call may be a stack pop, skip it.  */
       while (next
 	     && keep_with_call_p (next))
-        {
-          after = next;
+	{
+	  after = next;
 	  next = next_nonnote_insn (next);
 	}
       bb = e->dest;
@@ -1473,16 +1478,13 @@ commit_one_edge_insertion (e, watch_calls)
 void
 commit_edge_insertions ()
 {
-  int i;
   basic_block bb;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
 
-  i = -1;
-  bb = ENTRY_BLOCK_PTR;
-  while (1)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
       edge e, next;
 
@@ -1492,10 +1494,6 @@ commit_edge_insertions ()
 	  if (e->insns)
 	    commit_one_edge_insertion (e, false);
 	}
-
-      if (++i >= n_basic_blocks)
-	break;
-      bb = BASIC_BLOCK (i);
     }
 }
 
@@ -1505,16 +1503,13 @@ commit_edge_insertions ()
 void
 commit_edge_insertions_watch_calls ()
 {
-  int i;
   basic_block bb;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
 
-  i = -1;
-  bb = ENTRY_BLOCK_PTR;
-  while (1)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
       edge e, next;
 
@@ -1524,10 +1519,6 @@ commit_edge_insertions_watch_calls ()
 	  if (e->insns)
 	    commit_one_edge_insertion (e, true);
 	}
-
-      if (++i >= n_basic_blocks)
-	break;
-      bb = BASIC_BLOCK (i);
     }
 }
 
@@ -1598,7 +1589,6 @@ print_rtl_with_bb (outf, rtx_first)
     fprintf (outf, "(nil)\n");
   else
     {
-      int i;
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
       basic_block *start
@@ -1608,9 +1598,10 @@ print_rtl_with_bb (outf, rtx_first)
       enum bb_state *in_bb_p
 	= (enum bb_state *) xcalloc (max_uid, sizeof (enum bb_state));
 
-      for (i = n_basic_blocks - 1; i >= 0; i--)
+      basic_block bb;
+
+      FOR_EACH_BB_REVERSE (bb)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
 	  rtx x;
 
 	  start[INSN_UID (bb->head)] = bb;
@@ -1631,7 +1622,6 @@ print_rtl_with_bb (outf, rtx_first)
       for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
 	{
 	  int did_output;
-	  basic_block bb;
 
 	  if ((bb = start[INSN_UID (tmp_rtx)]) != NULL)
 	    {
@@ -1718,16 +1708,52 @@ verify_flow_info ()
   basic_block *bb_info, *last_visited;
   size_t *edge_checksum;
   rtx x;
-  int i, last_bb_num_seen, num_bb_notes, err = 0;
+  int i, num_bb_notes, err = 0;
+  basic_block bb, last_bb_seen;
 
   bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
   last_visited = (basic_block *) xcalloc (n_basic_blocks + 2,
 					  sizeof (basic_block));
   edge_checksum = (size_t *) xcalloc (n_basic_blocks + 2, sizeof (size_t));
 
-  for (i = n_basic_blocks - 1; i >= 0; i--)
+  /* Check bb chain & numbers.  */
+  last_bb_seen = ENTRY_BLOCK_PTR;
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, NULL, next_bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
+      if (bb != EXIT_BLOCK_PTR
+	  && bb != BASIC_BLOCK (bb->index))
+	{
+	  error ("bb %d on wrong place", bb->index);
+	  err = 1;
+	}
+
+      if (bb->prev_bb != last_bb_seen)
+	{
+	  error ("prev_bb of %d should be %d, not %d",
+		 bb->index, last_bb_seen->index, bb->prev_bb->index);
+	  err = 1;
+	}
+
+      /* For now, also check that we didn't change the order.  */
+      if (bb != EXIT_BLOCK_PTR && bb->index != last_bb_seen->index + 1)
+	{
+	  error ("Wrong order of blocks %d and %d",
+		 last_bb_seen->index, bb->index);
+	  err = 1;
+	}
+
+      if (bb == EXIT_BLOCK_PTR && last_bb_seen->index != n_basic_blocks - 1)
+	{
+	  error ("Only %d of %d blocks in chain",
+		 last_bb_seen->index + 1, n_basic_blocks);
+	  err = 1;
+	}
+
+      last_bb_seen = bb;
+    }
+
+  FOR_EACH_BB_REVERSE (bb)
+    {
       rtx head = bb->head;
       rtx end = bb->end;
 
@@ -1773,9 +1799,8 @@ verify_flow_info ()
     }
 
   /* Now check the basic blocks (boundaries etc.) */
-  for (i = n_basic_blocks - 1; i >= 0; i--)
+  FOR_EACH_BB_REVERSE (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       int n_fallthru = 0, n_eh = 0, n_call = 0, n_abnormal = 0, n_branch = 0;
       edge e;
       rtx note;
@@ -1793,17 +1818,17 @@ verify_flow_info ()
 	    }
 	}
       if (bb->count < 0)
-        {
-          error ("verify_flow_info: Wrong count of block %i %i",
+	{
+	  error ("verify_flow_info: Wrong count of block %i %i",
 	         bb->index, (int)bb->count);
-          err = 1;
-        }
+	  err = 1;
+	}
       if (bb->frequency < 0)
-        {
-          error ("verify_flow_info: Wrong frequency of block %i %i",
+	{
+	  error ("verify_flow_info: Wrong frequency of block %i %i",
 	         bb->index, bb->frequency);
-          err = 1;
-        }
+	  err = 1;
+	}
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  if (last_visited [e->dest->index + 2] == bb)
@@ -1847,7 +1872,7 @@ verify_flow_info ()
 	    {
 	      rtx insn;
 
-	      if (e->src->index + 1 != e->dest->index)
+	      if (e->src->next_bb != e->dest)
 		{
 		  error
 		    ("verify_flow_info: Incorrect blocks for fallthru %i->%i",
@@ -1912,7 +1937,7 @@ verify_flow_info ()
 	  err = 1;
 	}
       if (n_branch != 1 && any_condjump_p (bb->end)
-	  && JUMP_LABEL (bb->end) != BASIC_BLOCK (bb->index + 1)->head)
+	  && JUMP_LABEL (bb->end) != bb->next_bb->head)
 	{
 	  error ("Wrong amount of branch edges after conditional jump %i", bb->index);
 	  err = 1;
@@ -1931,7 +1956,7 @@ verify_flow_info ()
 	  error ("Abnormal edges for no purpose in bb %i", bb->index);
 	  err = 1;
 	}
-	
+
       if (!n_fallthru)
 	{
 	  rtx insn;
@@ -2047,8 +2072,9 @@ verify_flow_info ()
 	err = 1;
       }
 
-  last_bb_num_seen = -1;
   num_bb_notes = 0;
+  last_bb_seen = ENTRY_BLOCK_PTR;
+
   for (x = rtx_first; x; x = NEXT_INSN (x))
     {
       if (NOTE_INSN_BASIC_BLOCK_P (x))
@@ -2056,10 +2082,10 @@ verify_flow_info ()
 	  basic_block bb = NOTE_BASIC_BLOCK (x);
 
 	  num_bb_notes++;
-	  if (bb->index != last_bb_num_seen + 1)
+	  if (bb != last_bb_seen->next_bb)
 	    internal_error ("basic blocks not numbered consecutively");
 
-	  last_bb_num_seen = bb->index;
+	  last_bb_seen = bb;
 	}
 
       if (!bb_info[INSN_UID (x)])
@@ -2183,7 +2209,7 @@ purge_dead_edges (bb)
 
 	  /* Avoid abnormal flags to leak from computed jumps turned
 	     into simplejumps.  */
- 
+
 	  e->flags &= ~EDGE_ABNORMAL;
 
 	  /* See if this edge is one we should keep.  */
@@ -2225,7 +2251,7 @@ purge_dead_edges (bb)
 	{
 	  bb->succ->probability = REG_BR_PROB_BASE;
 	  bb->succ->count = bb->count;
-        }
+	}
       else
 	{
 	  note = find_reg_note (insn, REG_BR_PROB, NULL);
@@ -2285,8 +2311,9 @@ bool
 purge_all_dead_edges (update_life_p)
      int update_life_p;
 {
-  int i, purged = false;
+  int purged = false;
   sbitmap blocks = 0;
+  basic_block bb;
 
   if (update_life_p)
     {
@@ -2294,13 +2321,13 @@ purge_all_dead_edges (update_life_p)
       sbitmap_zero (blocks);
     }
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      bool purged_here = purge_dead_edges (BASIC_BLOCK (i));
+      bool purged_here = purge_dead_edges (bb);
 
       purged |= purged_here;
       if (purged_here && update_life_p)
-	SET_BIT (blocks, i);
+	SET_BIT (blocks, bb->index);
     }
 
   if (update_life_p && purged)

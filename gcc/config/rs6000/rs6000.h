@@ -1460,7 +1460,8 @@ typedef struct rs6000_stack {
 		&& TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
 	       || POINTER_TYPE_P (VALTYPE)			\
 	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       TREE_CODE (VALTYPE) == VECTOR_TYPE ? ALTIVEC_ARG_RETURN \
+	       TREE_CODE (VALTYPE) == VECTOR_TYPE		\
+	       && TARGET_ALTIVEC ? ALTIVEC_ARG_RETURN		\
 	       : TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_HARD_FLOAT \
                ? FP_ARG_RETURN : GP_ARG_RETURN)
 
@@ -2441,12 +2442,14 @@ extern int toc_initialized;
   do									\
     {									\
       fputs ("\t.weak\t", (FILE));					\
-      assemble_name ((FILE), (NAME)); 					\
+      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
       if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
 	  && DEFAULT_ABI == ABI_AIX)					\
 	{								\
+	  if (TARGET_XCOFF)						\
+	    fputs ("[DS]", (FILE));					\
 	  fputs ("\n\t.weak\t.", (FILE));				\
-	  assemble_name ((FILE), (NAME)); 				\
+	  RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
 	}								\
       fputc ('\n', (FILE));						\
       if (VAL)								\
@@ -2456,9 +2459,9 @@ extern int toc_initialized;
 	      && DEFAULT_ABI == ABI_AIX)				\
 	    {								\
 	      fputs ("\t.set\t.", (FILE));				\
-	      assemble_name ((FILE), (NAME));				\
+	      RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
 	      fputs (",.", (FILE));					\
-	      assemble_name ((FILE), (VAL));				\
+	      RS6000_OUTPUT_BASENAME ((FILE), (VAL));			\
 	      fputc ('\n', (FILE));					\
 	    }								\
 	}								\
@@ -2481,20 +2484,20 @@ extern int toc_initialized;
 	      if (!RS6000_WEAK || !DECL_WEAK (DECL))			\
 		{							\
 		  fputs ("\t.globl\t.", FILE);				\
-		  assemble_name (FILE, alias);				\
+		  RS6000_OUTPUT_BASENAME (FILE, alias);			\
 		  putc ('\n', FILE);					\
 		}							\
 	    }								\
 	  else if (TARGET_XCOFF)					\
 	    {								\
 	      fputs ("\t.lglobl\t.", FILE);				\
-	      assemble_name (FILE, alias);				\
+	      RS6000_OUTPUT_BASENAME (FILE, alias);			\
 	      putc ('\n', FILE);					\
 	    }								\
 	  fputs ("\t.set\t.", FILE);					\
-	  assemble_name (FILE, alias);					\
+	  RS6000_OUTPUT_BASENAME (FILE, alias);				\
 	  fputs (",.", FILE);						\
-	  assemble_name (FILE, name);					\
+	  RS6000_OUTPUT_BASENAME (FILE, name);				\
 	  fputc ('\n', FILE);						\
 	}								\
       ASM_OUTPUT_DEF (FILE, alias, name);				\

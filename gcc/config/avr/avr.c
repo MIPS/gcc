@@ -65,7 +65,7 @@ static bool   avr_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_unique_section PARAMS ((tree, int));
-extern void   avr_encode_section_info PARAMS ((tree, int));
+static void   avr_encode_section_info PARAMS ((tree, int));
 
 /* Allocate registers from r25 to r8 for parameters for function calls */
 #define FIRST_CUM_REG 26
@@ -4517,9 +4517,9 @@ avr_unique_section (decl, reloc)
   int len;
   const char *name, *prefix;
   char *string;
+
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in name.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -4683,7 +4683,20 @@ avr_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
 {
   if (DECL_P (*node))
     {
-      if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
+      if (TREE_CODE (*node) == TYPE_DECL)
+	{
+	  /* This is really a decl attribute, not a type attribute,
+	     but try to handle it for GCC 3.0 backwards compatibility.  */
+
+	  tree type = TREE_TYPE (*node);
+	  tree attr = tree_cons (name, args, TYPE_ATTRIBUTES (type));
+	  tree newtype = build_type_attribute_variant (type, attr);
+
+	  TYPE_MAIN_VARIANT (newtype) = TYPE_MAIN_VARIANT (type);
+	  TREE_TYPE (*node) = newtype;
+	  *no_add_attrs = true;
+	}
+      else if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
 	{
 	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
 	    {
@@ -4770,7 +4783,7 @@ avr_encode_section_info (decl, first)
       DECL_SECTION_NAME (decl) = build_string (strlen (dsec), dsec);
       TREE_READONLY (decl) = 1;
     }
-}   
+}
 
 /* Outputs to the stdio stream FILE some
    appropriate text to go at the start of an assembler file.  */
@@ -4801,9 +4814,10 @@ void
 asm_file_end (file)
      FILE *file;
 {
+  fputs ("/* File ", file);
+  output_quoted_string (file, main_input_filename);
   fprintf (file,
-	   "/* File %s: code %4d = 0x%04x (%4d), prologues %3d, epilogues %3d */\n",
-	   main_input_filename,
+	   ": code %4d = 0x%04x (%4d), prologues %3d, epilogues %3d */\n",
 	   commands_in_file,
 	   commands_in_file,
 	   commands_in_file - commands_in_prologues - commands_in_epilogues,
@@ -5067,11 +5081,11 @@ machine_dependent_reorg (first_insn)
 		  rtx pat = PATTERN (next);
 		  rtx src = SET_SRC (pat);
 		  rtx t = XEXP (src,0);
+		  enum machine_mode mode = GET_MODE (XEXP (pattern, 0));
 
-		  if (avr_simplify_comparision_p (GET_MODE (XEXP (pattern,0)),
-						  GET_CODE (t), x))
+		  if (avr_simplify_comparision_p (mode, GET_CODE (t), x))
 		    {
-		      XEXP (pattern,1) = GEN_INT (INTVAL (x)+1);
+		      XEXP (pattern, 1) = gen_int_mode (INTVAL (x) + 1, mode);
 		      PUT_CODE (t, avr_normalize_condition (GET_CODE (t)));
 		      INSN_CODE (next) = -1;
 		      INSN_CODE (insn) = -1;

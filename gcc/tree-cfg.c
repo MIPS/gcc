@@ -108,6 +108,9 @@ tree_find_basic_blocks (t)
   create_bb_ann (ENTRY_BLOCK_PTR);
   create_bb_ann (EXIT_BLOCK_PTR);
 
+  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+
   /* Initialize the stack of binding scopes.  */
   VARRAY_BB_INIT (binding_stack, 5, "binding_stack");
 
@@ -474,6 +477,7 @@ create_bb (head, end, control_parent, prev_chain_p, binding_scope)
   bb->head_tree = head;
   bb->end_tree = end;
   bb->index = n_basic_blocks;
+  bb->flags = BB_NEW;
 
   /* Create annotations for the block.  */
   create_bb_ann (bb);
@@ -492,6 +496,12 @@ create_bb (head, end, control_parent, prev_chain_p, binding_scope)
     }
   else
     BB_LOOP_HDR (bb) = NULL;
+
+  /* Add the new block to the linked list of blocks.  */
+  if (n_basic_blocks == 0)
+    link_block (bb, ENTRY_BLOCK_PTR);
+  else
+    link_block (bb, BASIC_BLOCK (n_basic_blocks - 1));
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
@@ -626,28 +636,20 @@ tree_split_bb (bb, t)
 static void
 make_edges ()
 {
-  int i;
+  basic_block bb;
 
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, ENTRY_BLOCK_PTR->next_bb, EDGE_FALLTHRU);
 
   /* Traverse basic block array placing edges.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       /* Edges for control statements.  */
       if (is_ctrl_stmt (bb->head_tree))
 	make_ctrl_stmt_edges (bb);
 
       /* Edges for statement expressions.  */
       if (is_statement_expression (bb->head_tree))
-	{
-	  basic_block dest = (i + 1 == n_basic_blocks)
-	                     ? EXIT_BLOCK_PTR
-			     : BASIC_BLOCK (i + 1);
-
-	  make_edge (bb, dest, 0);
-	}
+	make_edge (bb, bb->next_bb, 0);
 
       /* Edges for control flow altering statements (goto, break,
          continue, return) need an edge to the corresponding target
@@ -1044,7 +1046,7 @@ make_goto_stmt_edges (bb)
      basic_block bb;
 {
   tree goto_t, dest;
-  int i;
+  basic_block target_bb;
 
   goto_t = bb->end_tree;
   if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_STMT)
@@ -1055,9 +1057,8 @@ make_goto_stmt_edges (bb)
   /* Look for the block starting with the destination label.  In the
      case of a computed goto, make an edge to any label block we find
      in the CFG.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (target_bb)
     {
-      basic_block target_bb = BASIC_BLOCK (i);
       tree target = target_bb->head_tree;
 
       /* Common case, destination is a single label.  Make the edge
@@ -1171,7 +1172,10 @@ remove_unreachable_blocks ()
 
   /* Delete all unreachable basic blocks.  Count down so that we
      don't interfere with the block renumbering that happens in
-     delete_bb.  */
+     delete_bb.
+
+     FIXME: We should not need to compact the basic block array.  However,
+	    the SSA builder relies on contiguous basic blocks.  */
   for (i = n_basic_blocks - 1; i >= 0; --i)
     {
       basic_block bb = BASIC_BLOCK (i);
@@ -1537,13 +1541,13 @@ stmt_ends_bb_p (t)
 void
 delete_cfg ()
 {
-  int i;
+  basic_block bb;
 
   if (basic_block_info == NULL)
     return;
 
-  for (i = 0; i < n_basic_blocks; i++)
-    remove_bb_ann (BASIC_BLOCK (i));
+  FOR_EACH_BB (bb)
+    remove_bb_ann (bb);
 
   remove_bb_ann (ENTRY_BLOCK_PTR);
   remove_bb_ann (EXIT_BLOCK_PTR);
@@ -2507,6 +2511,18 @@ tree_dump_bb (outf, prefix, bb, indent)
     fputs ("nil\n", outf);
 
   fprintf (outf, "%s%sLoop depth: %d\n", s_indent, prefix, bb->loop_depth);
+
+  fprintf (outf, "%s%sNext block: ", s_indent, prefix);
+  if (bb->next_bb)
+    fprintf (outf, "%d\n", bb->next_bb->index);
+  else
+    fprintf (outf, "nil\n");
+
+  fprintf (outf, "%s%sPrevious block: ", s_indent, prefix);
+  if (bb->prev_bb)
+    fprintf (outf, "%d\n", bb->prev_bb->index);
+  else
+    fprintf (outf, "nil\n");
 }
 
 /* }}} */
@@ -2544,16 +2560,16 @@ void
 tree_dump_cfg (file)
      FILE *file;
 {
-  int i;
+  basic_block bb;
 
   fputc ('\n', file);
   fprintf (file, ";; Function %s\n\n",
 	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      tree_dump_bb (file, "", BASIC_BLOCK (i), 0);
+      tree_dump_bb (file, "", bb, 0);
       fputc ('\n', file);
     }
 }
@@ -2568,8 +2584,8 @@ void
 tree_cfg2dot (file)
      FILE *file;
 {
-  int i;
   edge e;
+  basic_block bb;
 
   /* Write the file header.  */
   fprintf (file, "digraph %s\n{\n",
@@ -2587,14 +2603,11 @@ tree_cfg2dot (file)
     }
   fputc ('\n', file);
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
       enum tree_code head_code, end_code;
       const char *head_name, *end_name;
       int head_line, end_line;
-      basic_block bb;
-
-      bb = BASIC_BLOCK (i);
 
       head_code = TREE_CODE (bb->head_tree);
       end_code = TREE_CODE (bb->end_tree);
@@ -2624,7 +2637,7 @@ tree_cfg2dot (file)
 	  fprintf (file, ";\n");
 	}
 
-      if (i < n_basic_blocks - 1)
+      if (bb->next_bb != EXIT_BLOCK_PTR)
 	fputc ('\n', file);
     }
 

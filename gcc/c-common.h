@@ -58,7 +58,7 @@ enum rid
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
 
   /* C extensions */
-  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX,
+  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX, RID_THREAD,
 
   /* C++ */
   RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
@@ -426,6 +426,11 @@ extern int warn_format_nonliteral;
 
 extern int warn_format_security;
 
+/* Warn about NULL being passed to argument slots marked as requiring
+   non-NULL.  */
+
+extern int warn_nonnull;
+
 /* Warn about possible violations of sequence point rules.  */
 
 extern int warn_sequence_point;
@@ -522,6 +527,12 @@ extern const char *fname_as_string		PARAMS ((int));
 extern tree fname_decl				PARAMS ((unsigned, tree));
 extern const char *fname_string			PARAMS ((unsigned));
 
+extern void check_function_arguments		PARAMS ((tree, tree));
+extern void check_function_arguments_recurse	PARAMS ((void (*) (void *,
+								   tree,
+								   unsigned HOST_WIDE_INT),
+							 void *, tree,
+							 unsigned HOST_WIDE_INT));
 extern void check_function_format		PARAMS ((int *, tree, tree));
 extern void set_Wformat				PARAMS ((int));
 extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
@@ -884,6 +895,8 @@ extern int c_safe_from_p                        PARAMS ((rtx, tree));
 extern int c_staticp                            PARAMS ((tree));
 
 extern int c_common_unsafe_for_reeval		PARAMS ((tree));
+
+extern const char *init_c_lex			PARAMS ((const char *));
 
 /* Information recorded about each file examined during compilation.  */
 

@@ -107,7 +107,7 @@ tree_build_ssa ()
 
   if (dump_file)
     {
-      int i;
+      basic_block bb;
 
       fputc ('\n', dump_file);
       fprintf (dump_file, ";; Function %s\n\n",
@@ -115,9 +115,8 @@ tree_build_ssa ()
 
       fputs ("SSA information\n\n", dump_file);
 
-      for (i = 0; i < n_basic_blocks; i++)
+      FOR_EACH_BB (bb)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
 	  tree_dump_bb (dump_file, "", bb, 0);
 	  dump_varref_list (dump_file, "    ", BB_REFS (bb), 0, 1);
 	  fputs ("\n\n", dump_file);

@@ -101,6 +101,7 @@ T_CFLAGS =
 X_CPPFLAGS =
 T_CPPFLAGS =
 
+ADAC = @ADAC@
 AWK = @AWK@
 CC = @CC@
 BISON = @BISON@
@@ -547,6 +548,7 @@ CONFIG_H = $(GCONFIG_H) insn-constants.h insn-flags.h
 TCONFIG_H = tconfig.h $(xm_file_list)
 TARGET_H = target.h
 HOOKS_H = hooks.h
+LANGHOOKS_DEF_H = langhooks.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 TM_P_H = tm_p.h $(tm_p_file_list) tm-preds.h
 
@@ -567,7 +569,7 @@ GCC_H = gcc.h version.h
 GGC_H = ggc.h varray.h
 TIMEVAR_H = timevar.h timevar.def
 INSN_ATTR_H = insn-attr.h $(srcdir)/insn-addr.h $(srcdir)/varray.h
-C_COMMON_H = c-common.h $(SPLAY_TREE_H)
+C_COMMON_H = c-common.h $(SPLAY_TREE_H) $(CPPLIB_H)
 C_TREE_H = c-tree.h $(C_COMMON_H)
 SYSTEM_H = system.h hwint.h $(srcdir)/../include/libiberty.h
 PREDICT_H = predict.h predict.def
@@ -613,6 +615,9 @@ HOST_LIBDEPS= $(BUILD_LIBIBERTY)
 # How to link with both our special library facilities
 # and the system's installed libraries.
 LIBS =	$(INTLLIBS) @LIBS@ $(LIBIBERTY)
+
+# Any system libraries needed just for GNAT.
+SYSLIBS = @GNAT_LIBEXC@
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
@@ -796,6 +801,14 @@ DPBIT_FUNCS = _pack_df _unpack_df _addsub_df _mul_df _div_df \
 # unwinder info.
 LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
+# The only suffixes we want for implicit rules are .c and .o, so clear
+# the list and add them.  This speeds up GNU Make, and allows -r to work.
+# For i18n support, we also need .gmo, .po, .pox.
+# This must come before the language makefile fragments to allow them to
+# add suffixes and rules of their own.
+.SUFFIXES:
+.SUFFIXES: .c .o .po .pox .gmo 
+
 #
 # Language makefile fragments.
 
@@ -821,11 +834,6 @@ LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
 # End of language makefile fragments.
 #
-# The only suffixes we want for implicit rules are .c and .o, so clear
-# the list and add them.  This speeds up GNU Make, and allows -r to work.
-# For i18n support, we also need .gmo, .po, .pox.
-.SUFFIXES:
-.SUFFIXES: .c .o .po .pox .gmo 
 
 Makefile: $(srcdir)/Makefile.in config.status $(srcdir)/version.c \
    $(xmake_file) $(tmake_file) $(LANG_MAKEFILES)
@@ -1136,7 +1144,7 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) flags.h \
     diagnostic.h $(TM_P_H)
-c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) intl.h \
+c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) $(GGC_H) intl.h \
     $(C_TREE_H) input.h flags.h $(SYSTEM_H) toplev.h output.h $(CPPLIB_H)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	       -c $(srcdir)/c-parse.c $(OUTPUT_OPTION)
@@ -1159,14 +1167,14 @@ $(srcdir)/c-parse.y: c-parse.in
 	$(SHELL) $(srcdir)/move-if-change tmp-c-parse.y $(srcdir)/c-parse.y
 
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
-    $(GGC_H) $(TARGET_H) c-lex.h flags.h function.h output.h $(EXPR_H) \
+    $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
     debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h \
     tree-optimize.h
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-    langhooks.h langhooks-def.h c-common.h
-c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
+    langhooks.h $(LANGHOOKS_DEF_H) c-common.h
+c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
     debug.h $(C_TREE_H) c-common.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
@@ -1236,7 +1244,7 @@ c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) langhooks.h \
 	$(C_COMMON_H) flags.h toplev.h intl.h diagnostic.h
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-	c-lex.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
+	flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(PREDICT_H)
 
 # Language-independent files.
@@ -1340,7 +1348,7 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h convert.h \
 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h integrate.h langhooks.h \
-   langhooks-def.h flags.h
+   $(LANGHOOKS_DEF_H) flags.h
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h function.h toplev.h \
    $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
@@ -1387,7 +1395,7 @@ fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
    toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H) langhooks.h
 diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_P_H) flags.h $(GGC_H) \
-   input.h toplev.h intl.h langhooks.h langhooks-def.h
+   input.h toplev.h intl.h langhooks.h $(LANGHOOKS_DEF_H)
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
@@ -1472,7 +1480,7 @@ dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    output.h vmsdbg.h debug.h langhooks.h
 xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) xcoffout.h \
-   flags.h toplev.h output.h dbxout.h $(GGC_H)
+   flags.h toplev.h output.h dbxout.h $(GGC_H) $(TARGET_H)
 emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-config.h $(RECOG_H) real.h $(GGC_H) \
    $(EXPR_H) $(srcdir)/../include/obstack.h hard-reg-set.h bitmap.h toplev.h \
@@ -2547,6 +2555,7 @@ distclean: clean $(INTL_DISTCLEAN) lang.distclean
 	-rm -f float.h
 	-rm -f site.exp site.bak testsuite/site.exp testsuite/site.bak
 	-rm -f testsuite/{gcc,g++}.{log,sum}
+	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f intl/libintl.h libintl.h
 	-rm -f cxxmain.c
 	-rm -f mklibgcc gccbug .gdbinit configargs.h
@@ -3029,6 +3038,74 @@ check-consistency: testsuite/site.exp
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool consistency $(RUNTESTFLAGS)
 
+# QMTest targets
+
+# The path to qmtest.
+QMTEST_PATH=qmtest
+
+# The flags to pass to qmtest.
+QMTESTFLAGS=
+
+# The flags to pass to "qmtest run".
+QMTESTRUNFLAGS=
+
+# The command to use to invoke qmtest.
+QMTEST=${QMTEST_PATH} ${QMTESTFLAGS}
+
+# The tests (or suites) to run.
+QMTEST_GPP_TESTS=gpp
+
+# The subdirectory of the OBJDIR that will be used to store the QMTest
+# test database configuration and that will be used for temporary
+# scratch space during QMTest's execution.
+QMTEST_DIR=${objdir}/qmtestsuite
+
+# Create the QMTest database configuration.
+${QMTEST_DIR} stamp-qmtest:
+	debug_options=""; \
+	    ${STAMP} empty.C; \
+	    for option in \
+	        -gdwarf-2 -gstabs -gstabs+ -gxcoff -gxcoff+ -gcoff; do \
+		(./cc1plus -q $${option} empty.C 2>&1 | \
+		     grep "unknown or unsupported -g option" > /dev/null) || \
+		debug_options="$${debug_options}$${option} "; done; \
+	    ${QMTEST} -D ${QMTEST_DIR} create-tdb \
+	        -c gcc_database.GCCDatabase \
+	        -a GCCDatabase.testsuite_root=`cd ${srcdir}/testsuite && pwd` \
+	        -a GCCDatabase.debug_options="$${debug_options}"
+	rm -f empty.C empty.s
+	$(STAMP) stamp-qmtest
+
+# Create the QMTest context file.
+${QMTEST_DIR}/context: stamp-qmtest
+	echo "GCCTest.flags=-B${objdir}" >> $@
+	echo "GCCTest.objdir=${objdir}/.." >> $@
+	echo "GCCTest.host=${host_canonical}" >> $@
+	echo "GCCTest.target=${target}" >> $@
+	echo "GCCTest.gcov=${objdir}/gcov" >> $@
+	echo "GPPTest.gpp=${objdir}/g++" >> $@
+	echo "DGTest.demangler=${objdir}/c++filt" >> $@
+
+# Run the G++ testsuite using QMTest.
+qmtest-g++: ${QMTEST_DIR}/context ${QMTEST_DIR}/gpp-expected.qmr
+	cd ${QMTEST_DIR} && ${QMTEST} run ${QMTESTRUNFLAGS} -C context \
+	   -o gpp.qmr -O ${QMTEST_DIR}/gpp-expected.qmr \
+	   ${QMTEST_GPP_TESTS}
+
+# Use the QMTest GUI.
+qmtest-gui: ${QMTEST_DIR}/context
+	cd ${QMTEST_DIR} && ${QMTEST} gui -C context
+
+# Build the set of expected G++ failures.
+${QMTEST_DIR}/gpp-expected.qmr: ${QMTEST_DIR}/context
+	echo "Determining expected results..."
+	cd ${QMTEST_DIR} && ${QMTEST} run ${QMTESTRUNFLAGS} -C context \
+           -c "GCCTest.generate_xfails=1" -o gpp-expected.qmr \
+	   ${QMTEST_GPP_TESTS} \
+	   > /dev/null
+
+.PHONY: qmtest-g++
+
 # These exist for maintenance purposes.
 
 # Update the tags table.
@@ -3047,6 +3124,7 @@ VOL_FILES=`echo $(BACKEND) $(OBJS) $(C_OBJS) $(LIBCPP_OBJS) *.c *.h gen*`
 # WARN_CFLAGS setting can't be to the expansion of GCC_WARN_CFLAGS in
 # the context of the stage_x rule.
 STAGE2_FLAGS_TO_PASS = \
+	ADAC="\$$(CC)" \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \

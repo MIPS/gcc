@@ -1349,12 +1349,13 @@ staticp (arg)
     case FUNCTION_DECL:
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
-      return (decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case VAR_DECL:
-      return (TREE_STATIC (arg) || DECL_EXTERNAL (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
+	      && ! DECL_THREAD_LOCAL (arg)
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case CONSTRUCTOR:
       return TREE_STATIC (arg);
@@ -4211,6 +4212,9 @@ decl_type_context (decl)
 
   while (context)
     {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+        return NULL_TREE;
+
       if (TREE_CODE (context) == RECORD_TYPE
 	  || TREE_CODE (context) == UNION_TYPE
 	  || TREE_CODE (context) == QUAL_UNION_TYPE)

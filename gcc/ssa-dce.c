@@ -247,7 +247,7 @@ find_control_dependence (el, edge_index, pdom, cdbte)
     abort ();
   ending_block =
     (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
-    ? BASIC_BLOCK (0)
+    ? ENTRY_BLOCK_PTR->next_bb
     : find_pdom (pdom, INDEX_EDGE_PRED_BB (el, edge_index));
 
   for (current_block = INDEX_EDGE_SUCC_BB (el, edge_index);
@@ -275,7 +275,7 @@ find_pdom (pdom, block)
     abort ();
 
   if (block == ENTRY_BLOCK_PTR)
-    return BASIC_BLOCK (0);
+    return ENTRY_BLOCK_PTR->next_bb;
   else if (block == EXIT_BLOCK_PTR || pdom[block->index] == EXIT_BLOCK)
     return EXIT_BLOCK_PTR;
   else
@@ -490,6 +490,7 @@ ssa_eliminate_dead_code ()
 {
   int i;
   rtx insn;
+  basic_block bb;
   /* Necessary instructions with operands to explore.  */
   varray_type unprocessed_instructions;
   /* Map element (b,e) is nonzero if the block is control dependent on
@@ -718,10 +719,8 @@ ssa_eliminate_dead_code ()
   /* Find any blocks with no successors and ensure they are followed
      by a BARRIER.  delete_insn has the nasty habit of deleting barriers
      when deleting insns.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       if (bb->succ == NULL)
 	{
 	  rtx next = NEXT_INSN (bb->end);

@@ -213,8 +213,6 @@ static tree
 build_default_init (type)
      tree type;
 {
-  tree init = NULL_TREE;
-
   if (TYPE_NEEDS_CONSTRUCTING (type))
     /* Other code will handle running the default constructor.  We can't do
        anything with a CONSTRUCTOR for arrays here, as that would imply
@@ -2776,7 +2774,10 @@ build_vec_init (base, init, from_array)
   if (init && TREE_CODE (init) == CONSTRUCTOR && TREE_TYPE (init) == NULL_TREE)
     init = digest_init (atype, init, 0);
       
-  if (init && !TYPE_NEEDS_CONSTRUCTING (type)
+  if (init
+      && (from_array == 2
+	  ? (!CLASS_TYPE_P (type) || !TYPE_HAS_COMPLEX_ASSIGN_REF (type))
+	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */

@@ -119,6 +119,8 @@ static bool alpha_in_small_data_p
   PARAMS ((tree));
 static void alpha_encode_section_info
   PARAMS ((tree, int));
+static const char *alpha_strip_name_encoding
+  PARAMS ((const char *));
 static int some_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
 static int split_small_symbolic_operand_1
@@ -212,6 +214,8 @@ static void vms_asm_out_destructor PARAMS ((rtx, int));
 #define TARGET_IN_SMALL_DATA_P alpha_in_small_data_p
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO alpha_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING alpha_strip_name_encoding
 
 #if TARGET_ABI_UNICOSMK
 static void unicosmk_asm_named_section PARAMS ((const char *, unsigned int));
@@ -1615,7 +1619,17 @@ alpha_encode_section_info (decl, first)
 {
   const char *symbol_str;
   bool is_local, is_small;
+  rtx rtl, symbol;
 
+  rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
+
+  /* Careful not to prod global register variables.  */
+  if (GET_CODE (rtl) != MEM)
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+    
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       /* We mark public functions once they are emitted; otherwise we
@@ -1628,7 +1642,7 @@ alpha_encode_section_info (decl, first)
       if (! decl_in_text_section (decl))
 	return;
 
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+      SYMBOL_REF_FLAG (symbol) = 1;
       return;
     }
 
@@ -1636,42 +1650,10 @@ alpha_encode_section_info (decl, first)
   if (! TARGET_EXPLICIT_RELOCS)
     return;
 
-  /* Careful not to prod global register variables.  */
-  if (TREE_CODE (decl) != VAR_DECL
-      || GET_CODE (DECL_RTL (decl)) != MEM
-      || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
-    return;
-    
-  symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  symbol_str = XSTR (symbol, 0);
 
   /* A variable is considered "local" if it is defined in this module.  */
-
-  /* Local binding occurs for any non-default visibility.  */
-  if (MODULE_LOCAL_P (decl))
-    is_local = true;
-  /* Otherwise, variables defined outside this object may not be local.  */
-  else if (DECL_EXTERNAL (decl))
-    is_local = false;
-  /* Linkonce and weak data is never local.  */
-  else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-    is_local = false;
-  /* Static variables are always local.  */
-  else if (! TREE_PUBLIC (decl))
-    is_local = true;
-  /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
-  else if (flag_pic)
-    is_local = false;
-  /* Uninitialized COMMON variable may be unified with symbols
-     resolved from other modules.  */
-  else if (DECL_COMMON (decl)
-	   && (DECL_INITIAL (decl) == NULL
-	       || DECL_INITIAL (decl) == error_mark_node))
-    is_local = false;
-  /* Otherwise we're left with initialized (or non-common) global data
-     which is of necessity defined locally.  */
-  else
-    is_local = true;
+  is_local = (*targetm.binds_local_p) (decl);
 
   /* Determine if DECL will wind up in .sdata/.sbss.  */
   is_small = alpha_in_small_data_p (decl);
@@ -1679,7 +1661,6 @@ alpha_encode_section_info (decl, first)
   /* Finally, encode this into the symbol string.  */
   if (is_local)
     {
-      const char *string;
       char *newstr;
       size_t len;
 
@@ -1697,8 +1678,7 @@ alpha_encode_section_info (decl, first)
       newstr[1] = (is_small ? 's' : 'v');
       memcpy (newstr + 2, symbol_str, len);
 	  
-      string = ggc_alloc_string (newstr, len + 2 - 1);
-      XSTR (XEXP (DECL_RTL (decl), 0), 0) = string;
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2 - 1);
     }
   else if (symbol_str[0] == '@')
     {
@@ -1706,6 +1686,19 @@ alpha_encode_section_info (decl, first)
 	 attribute after rtl generation.  They should have gotten
 	 a warning about unspecified behaviour from varasm.c.  */
     }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+alpha_strip_name_encoding (str)
+     const char *str;
+{
+  if (str[0] == '@')
+    str += 2;
+  if (str[0] == '*')
+    str++;
+  return str;
 }
 
 /* legitimate_address_p recognizes an RTL expression that is a valid
@@ -8446,9 +8439,8 @@ unicosmk_output_module_name (file)
      prefix the module name with a '$' if necessary.  */
 
   if (!ISALPHA (*name))
-    fprintf (file, "$%s", name);
-  else
-    fputs (name, file);
+    putc ('$', file);
+  output_clean_symbol_name (file, name);
 }
 
 /* Output text that to appear at the beginning of an assembler file.  */
@@ -8599,7 +8591,7 @@ unicosmk_unique_section (decl, reloc)
     abort ();
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  STRIP_NAME_ENCODING (name, name);
+  name = alpha_strip_name_encoding (name);
   len = strlen (name);
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -8830,8 +8822,7 @@ unicosmk_ssib_name ()
   x = XEXP (x, 0);
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
-  fnname = XSTR (x, 0);
-  STRIP_NAME_ENCODING (fnname, fnname);
+  fnname = alpha_strip_name_encoding (XSTR (x, 0));
 
   len = strlen (fnname);
   if (len + SSIB_PREFIX_LEN > 255)
@@ -9006,7 +8997,7 @@ unicosmk_output_externs (file)
       /* We have to strip the encoding and possibly remove user_label_prefix 
 	 from the identifier in order to handle -fleading-underscore and
 	 explicit asm names correctly (cf. gcc.dg/asm-names-1.c).  */
-      STRIP_NAME_ENCODING (real_name, p->name);
+      real_name = alpha_strip_name_encoding (p->name);
       if (len && p->name[0] == '*'
 	  && !memcmp (real_name, user_label_prefix, len))
 	real_name += len;

@@ -1,3 +1,4 @@
+
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
@@ -684,11 +685,14 @@ int flag_shared_data;
 int flag_delayed_branch;
 
 /* Nonzero if we are compiling pure (sharable) code.
-   Value is 1 if we are doing reasonable (i.e. simple
-   offset into offset table) pic.  Value is 2 if we can
-   only perform register offsets.  */
+   Value is 1 if we are doing "small" pic; value is 2 if we're doing
+   "large" pic.  */
 
 int flag_pic;
+
+/* Set to the default thread-local storage (tls) model to use.  */
+
+enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
@@ -1710,11 +1714,29 @@ output_quoted_string (asm_file, string)
 	  putc (c, asm_file);
 	}
       else
-	fprintf (asm_file, "\\%03o", c);
+	fprintf (asm_file, "\\%03o", (unsigned char) c);
     }
   putc ('\"', asm_file);
 #endif
 }
+
+/* Output NAME into FILE after having turned it into something
+   usable as an identifier in a target's assembly file.  */
+void
+output_clean_symbol_name (file, name)
+    FILE *file;
+    const char *name;
+{
+  /* Make a copy of NAME.  */
+  char *id = xstrdup (name);
+
+  /* Make it look like a valid identifier for an assembler.  */
+  clean_symbol_name (id);
+  
+  fputs (id, file);
+  free (id);
+}
+
 
 /* Output a file name in the form wanted by System V.  */
 
@@ -1793,8 +1815,13 @@ open_dump_file (index, decl)
   free (dump_name);
 
   if (decl)
-    fprintf (rtl_dump_file, "\n;; Function %s\n\n",
-	     (*lang_hooks.decl_printable_name) (decl, 2));
+    fprintf (rtl_dump_file, "\n;; Function %s%s\n\n",
+	     (*lang_hooks.decl_printable_name) (decl, 2),
+	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
+	     ? " (hot)"
+	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+	     ? " (unlikely executed)"
+	     : "");
 
   timevar_pop (TV_DUMP);
   return 1;
@@ -2026,7 +2053,6 @@ push_srcloc (file, line)
   fs = (struct file_stack *) xmalloc (sizeof (struct file_stack));
   fs->name = input_filename = file;
   fs->line = lineno = line;
-  fs->indent_level = 0;
   fs->next = input_file_stack;
   input_file_stack = fs;
   input_file_stack_tick++;
@@ -2578,7 +2604,10 @@ rest_of_compilation (decl)
   unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
-  /* This must be performed before virtual register instantiation.  */
+  /* This must be performed before virtual register instantiation.
+     Please be aware the everything in the compiler that can look
+     at the RTL up to this point must understand that REG_SAVE_AREA
+     is just like a use of the REG contained inside.  */
   if (current_function_calls_alloca)
     optimize_save_area_alloca (insns);
 #endif
@@ -3555,6 +3584,7 @@ display_help ()
   printf (_("  -finline-limit=<number> Limits the size of inlined functions to <number>\n"));
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
+  printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
 
   for (i = ARRAY_SIZE (f_options); i--;)
     {
@@ -3595,12 +3625,6 @@ display_help ()
   printf (_("  -Wunused                Enable unused warnings\n"));
   printf (_("  -Wlarger-than-<number>  Warn if an object is larger than <number> bytes\n"));
   printf (_("  -p                      Enable function profiling\n"));
-#if defined (BLOCK_PROFILER) || defined (FUNCTION_BLOCK_PROFILER)
-  printf (_("  -a                      Enable block profiling \n"));
-#endif
-#if defined (BLOCK_PROFILER) || defined (FUNCTION_BLOCK_PROFILER) || defined FUNCTION_BLOCK_PROFILER_EXIT
-  printf (_("  -ax                     Enable jump profiling \n"));
-#endif
   printf (_("  -o <file>               Place output into <file> \n"));
   printf (_("\
   -G <number>             Put global and static data smaller than <number>\n\
@@ -3838,6 +3862,19 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+    }
+  else if ((option_value = skip_leading_substring (arg, "tls-model=")))
+    {
+      if (strcmp (option_value, "global-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
+      else if (strcmp (option_value, "local-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_DYNAMIC;
+      else if (strcmp (option_value, "initial-exec") == 0)
+	flag_tls_default = TLS_MODEL_INITIAL_EXEC;
+      else if (strcmp (option_value, "local-exec") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
+      else
+	warning ("`%s': unknown tls-model option", arg - 2);
     }
 #ifdef INSN_SCHEDULING
   else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
@@ -5189,7 +5226,7 @@ toplev_main (argc, argv)
   parse_options_and_default_flags (argc, argv);
 
   /* Exit early if we can (e.g. -help).  */
-  if (!exit_after_options)
+  if (!errorcount && !exit_after_options)
     do_compile ();
 
   if (errorcount || sorrycount)

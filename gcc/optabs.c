@@ -554,7 +554,7 @@ expand_cmplxdiv_wide (real0, real1, imag0, imag1, realr, imagr, submode,
 
   /* Calculate dividend.  */
 
-  if (imag0 == 0)
+  if (complex_part_zero_p (imag0, class, submode))
     {
       /* Compute a / (c+id) as a(c/d) / (c(c/d)+d) + i (-a) / (c(c/d)+d).  */
 
@@ -1461,6 +1461,9 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	  rtx temp = expand_binop (word_mode, binoptab, op0_low, op1_xhigh,
 				   NULL_RTX, 0, OPTAB_DIRECT);
 
+	  if (!REG_P (product_high))
+	    product_high = force_reg (word_mode, product_high);
+
 	  if (temp != 0)
 	    temp = expand_binop (word_mode, add_optab, temp, product_high,
 				 product_high, 0, next_methods);
@@ -1479,6 +1482,8 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 
 	  if (temp != 0 && temp != product_high)
 	    emit_move_insn (product_high, temp);
+
+	  emit_move_insn (operand_subword (product, high, 1, mode), product_high);
 
 	  if (temp != 0)
 	    {
@@ -1553,7 +1558,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
       else
 	real1 = op1;
 
-      if (real0 == 0 || real1 == 0 || ! (imag0 != 0|| imag1 != 0))
+      if (real0 == 0 || real1 == 0 || ! (imag0 != 0 || imag1 != 0))
 	abort ();
 
       switch (binoptab->code)
@@ -1570,10 +1575,11 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	  else if (res != realr)
 	    emit_move_insn (realr, res);
 
-	  if (imag0 && imag1)
+	  if (!complex_part_zero_p (imag0, class, submode)
+	      && !complex_part_zero_p (imag1, class, submode))
 	    res = expand_binop (submode, binoptab, imag0, imag1,
 				imagr, unsignedp, methods);
-	  else if (imag0)
+	  else if (!complex_part_zero_p (imag0, class, submode))
 	    res = imag0;
 	  else if (binoptab->code == MINUS)
             res = expand_unop (submode,
@@ -1593,7 +1599,8 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	case MULT:
 	  /* (a+ib) * (c+id) = (ac-bd) + i(ad+cb) */
 
-	  if (imag0 && imag1)
+	  if (!complex_part_zero_p (imag0, class, submode)
+	       && !complex_part_zero_p (imag1, class, submode))
 	    {
 	      rtx temp1, temp2;
 
@@ -1656,7 +1663,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	      else if (res != realr)
 		emit_move_insn (realr, res);
 
-	      if (imag0 != 0)
+	      if (!complex_part_zero_p (imag0, class, submode))
 		res = expand_binop (submode, binoptab,
 				    real1, imag0, imagr, unsignedp, methods);
 	      else

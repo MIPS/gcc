@@ -2591,7 +2591,7 @@ cris_asm_output_mi_thunk (stream, thunkdecl, delta, funcdecl)
     {
       const char *name = XSTR (XEXP (DECL_RTL (funcdecl), 0), 0);
 
-      STRIP_NAME_ENCODING (name, name);
+      name = (* targetm.strip_name_encoding) (name);
       fprintf (stream, "add.d ");
       assemble_name (stream, name);
       fprintf (stream, "%s,$pc\n", CRIS_PLT_PCOFFSET_SUFFIX);
@@ -2889,7 +2889,7 @@ restart:
 	  const char *origstr = XSTR (x, 0);
 	  const char *str;
 
-	  STRIP_NAME_ENCODING (str, origstr);
+	  str = (* targetm.strip_name_encoding) (origstr);
 
 	  if (is_plt)
 	    {
@@ -3048,20 +3048,10 @@ cris_encode_section_info (exp, first)
 {
   if (flag_pic)
     {
-      if (DECL_P (exp))
-	{
-	  if (TREE_CODE (exp) == FUNCTION_DECL
-	      && (TREE_PUBLIC (exp) || DECL_WEAK (exp))
-	      && ! MODULE_LOCAL_P (exp))
-	    SYMBOL_REF_FLAG (XEXP (DECL_RTL (exp), 0)) = 0;
-	  else
-	    SYMBOL_REF_FLAG (XEXP (DECL_RTL (exp), 0))
-	      = ((! TREE_PUBLIC (exp) && ! DECL_WEAK (exp))
-		 || MODULE_LOCAL_P (exp));
-	}
-      else
-	/* Others are local entities.  */
-	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (exp), 0)) = 1;
+      rtx rtl = DECL_P (exp) ? DECL_RTL (exp) : TREE_CST_RTL (exp);
+
+      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+	SYMBOL_REF_FLAG (XEXP (rtl, 0)) = (*targetm.binds_local_p) (exp);
     }
 }
 

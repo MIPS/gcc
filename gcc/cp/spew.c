@@ -29,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "c-lex.h"
+#include "c-pragma.h"
 #include "lex.h"
 #include "parse.h"
 #include "flags.h"
@@ -891,13 +891,6 @@ yyungetc (ch, rescan)
     {
       struct token fake;
 
-      /* If we're putting back a brace, undo the change in indent_level
-	 from the first time we saw it.  */
-      if (ch == '{')
-	indent_level--;
-      else if (ch == '}')
-	indent_level++;
-
       fake.yychar = ch;
       fake.yylval.ttype = 0;
       fake.lineno = lineno;
@@ -1085,8 +1078,7 @@ snarf_block (starting_file, starting_line)
   size_t point;
 
   if (yychar == '{')
-    /* We incremented indent_level in yylex; undo that.  */
-    indent_level--;
+    ;
   else if (yychar == '=')
     look_for_semicolon = 1;
   else if (yychar == ':' || yychar == RETURN_KEYWORD || yychar == TRY)

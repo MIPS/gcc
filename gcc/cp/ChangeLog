@@ -1,3 +1,60 @@
+2002-05-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* lex.c: Don't include c-lex.h.
+	* parse.y, spew.c: Don't include c-lex.h; include c-pragma.h.
+
+2002-05-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* spew.c (yyungetc, snarf_block): Remove indent_level handling.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (obscure_complex_init): Check for VAR_DECL
+	before using DECL_THREAD_LOCAL.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (check_tag_decl): Handle RID_THREAD.
+	(obscure_complex_init): Reject run-time init of tls.
+	(grokvardecl, grokdeclarator): Handle RID_THREAD.
+	* lex.c (reswords): Add __thread.
+	(rid_to_yy): Map RID_THREAD to SCSPEC.
+
+2002-05-22  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_POST_OPTIONS): Use c_common_post_options.
+	* cp-tree.h (cxx_post_options): Kill.
+	* cp-lex.c (cxx_post_options): Kill.
+
+2002-05-21  Richard Henderson  <rth@redhat.com>
+
+	* lex.c (rid_to_yy): Add RID_THREAD.
+
+2002-05-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	* init.c (build_vec_init): Test for trivial copy-assignment when
+	copy-assigning arrays.
+
+2002-05-20  Andreas Jaeger  <aj@suse.de>
+
+	* init.c (build_default_init): Remove unused variable.
+
+2002-05-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* call.c (any_strictly_viable): New.
+	(build_new_op): Use it for COMPOUND_EXPR and ADDR_EXPRs.
+
+2002-05-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* error.c (dump_type) [TYPEOF_TYPE]: Fix parenthesis printing.
+
+2002-05-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/186, DR 259
+	* pt.c (do_decl_instantiation): Don't complain explicit
+	instantiation after explicit specialization.
+	(do_type_instantiation): Likewise.
+
 2002-05-19  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cp-tree.h (complete_type_or_diagnostic): Changed prototype,
@@ -40,7 +97,7 @@
 2002-05-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cp-tree.h (struct lang_type): Added non_zero_init.
-	(CLASS_NON_ZERO_INIT_P): New macro.
+	(CLASSTYPE_NON_ZERO_INIT_P): New macro.
 	(zero_init_p, force_store_init_value, build_forced_zero_init): Declare.
 	* class.c (check_field_decls): Test non_zero_init.
 	* cvt.c (convert_to_pointer_force): Use cp_convert_to_pointer for
@@ -132,11 +189,11 @@
 	PR c++/6486
 	* method.c (do_build_copy_constructor): Avoid building
 	cv-qualified reference types.
-  
+
 2002-04-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/5719
-	* decl.c (grok_op_properties): Assignment ops don't have to return 
+	* decl.c (grok_op_properties): Assignment ops don't have to return
 	by value. operator% should.
 
 2002-04-28  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
@@ -288,7 +345,7 @@
 	(finish_init_stmts): Set STMT_EXPR_NO_SCOPE.
 	* semantics.c (begin_gobal_stmt_expr): Adjust call to
 	expand_start_stmt_expr.
-	
+
 2002-04-15  Mark Mitchell  <mark@codesourcery.com>
 
 	* decl.c (register_dtor_fn): Pass the address of dso_handle, not
@@ -339,11 +396,11 @@
 
 	* typeck.c (type_after_usual_arithmetic_conversions):
 	If two types have the same variant, return immediately.
-	When two floating-point operands are the same precision: 
+	When two floating-point operands are the same precision:
 	  convert to float if one of the operands is float;
 	  if neither operand is one of the standard types, return the type
 	  of the first operand.
- 
+
 2002-04-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/5507
@@ -399,15 +456,15 @@
 	* init.c (build_member_call): Use build_scoped_ref.
 	(resolve_offset_ref): Likewise.
 	* call.c (build_scoped_method_call): Likewise.
-	* tree.c (maybe_dummy_object): Kludge around current_class_type being 
+	* tree.c (maybe_dummy_object): Kludge around current_class_type being
 	wrong.
 	* typeck2.c (build_scoped_ref): Return the binfo via binfo_p parm.
 	* cp-tree.h: Adjust.
-	
+
 	* init.c (push_base_cleanups): Just use build_scoped_method_call.
 
 	PR c++/6179
-	* method.c (implicitly_declare_fn): Pass unqualified type to 
+	* method.c (implicitly_declare_fn): Pass unqualified type to
 	synthesize_exception_spec.
 
 2002-04-04  Neil Booth  <neil@daikokuya.demon.co.uk>
@@ -422,7 +479,7 @@
 
 	* semantics.c (finish_eh_cleanup): New fn.
 	* cp-tree.h: Add prototype.
-	* init.c (perform_member_init, expand_cleanup_for_base): Use 
+	* init.c (perform_member_init, expand_cleanup_for_base): Use
 	finish_eh_cleanup.
 	* cp-tree.def (SUBOBJECT, CTOR_STMT): Remove.
 	* cp-tree.h: Remove references.
@@ -565,7 +622,7 @@
 	PR c++/4884
 	* call.c (build_op_delete_call): Allow for the fact the placement
 	may be a COMPOUND_EXPR.
-	
+
 2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* cp-lang.c (LANG_HOOKS_EXPAND_EXPR): Redefine.
@@ -627,7 +684,7 @@
 
 	PR C++/3656
 	* semantics.c (finish_base_specifier): Handle erronous base
-	classes. 
+	classes.
 
 2002-03-22  Zack Weinberg  <zack@codesourcery.com>
 
@@ -892,7 +949,7 @@
 	* except.c: Don't include decl.h or obstack.h.  Do include
 	tree-inline.h.
 	(build_throw): Destroy temporaries from the thrown
-	expression before calling __cxa_throw.  Construct a thrown 
+	expression before calling __cxa_throw.  Construct a thrown
 	temporary directly into the exception object.
 	(stabilize_throw_expr): New function.
 	(wrap_cleanups_r): New function.
@@ -923,7 +980,7 @@
 	the C front end but not used, or used only to permit the
 	compiler to link.
 
-2002-02-24 Craig Rodrigues  <rodrigc@gcc.gnu.org> 
+2002-02-24 Craig Rodrigues  <rodrigc@gcc.gnu.org>
 
 	PR c++/4093
 	* cp-tree.h (SET_BINFO_MARKED): Cast false part of condition
@@ -977,7 +1034,7 @@
 
 2002-02-19  Jason Merrill  <jason@redhat.com>
 
-	ABI change: Mangle `void (A::*)() const' as 
+	ABI change: Mangle `void (A::*)() const' as
 	M1AKFvvE, not MK1AFvvE.
 	* mangle.c (write_function_type): Write cv-quals for member
 	function type here.
@@ -1052,14 +1109,14 @@
 	(coerce_template_template_parms, convert_template_argument,
 	coerce_template_parms, maybe_get_template_decl_from_type_decl,
 	lookup_template_class, tsubst_friend_function, tsubst_friend_class,
-	instantiate_class_template, tsubst_template_arg_vector, 
-	tsubst_template_parms, tsubst_aggr_type, tsubst_default_argument, 
+	instantiate_class_template, tsubst_template_arg_vector,
+	tsubst_template_parms, tsubst_aggr_type, tsubst_default_argument,
 	tsubst_decl, tsubst_arg_types, tsubst_function_type,
-	tsubst_call_declarator_parms, tsubst, tsubst_copy, tsubst_expr, 
+	tsubst_call_declarator_parms, tsubst, tsubst_copy, tsubst_expr,
 	instantiate_template, fn_type_unification,
-	resolve_overloaded_unification, verify_class_unification, 
-	unify, get_bindings_real, do_type_instantiation, 
-	regenerate_decl_from_template, instantiate_decl, 
+	resolve_overloaded_unification, verify_class_unification,
+	unify, get_bindings_real, do_type_instantiation,
+	regenerate_decl_from_template, instantiate_decl,
 	tsubst_initializer_list, tsubst_enum,
 	get_mostly_instantiated_function_type,
 	invalid_nontype_parm_type_p): Likewise.
@@ -1120,7 +1177,7 @@
 2002-02-01  Jason Merrill  <jason@redhat.com>
 
 	PR c++/4872
-	* decl.c (finish_function): Warn about a non-void function with 
+	* decl.c (finish_function): Warn about a non-void function with
 	no return statement and no abnormal exit.
 	* cp-tree.h (struct cp_language_function): Add returns_abnormally.
 	(current_function_returns_abnormally): New macro.

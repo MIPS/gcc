@@ -934,8 +934,8 @@ insn_current_reference_address (branch)
 void
 compute_alignments ()
 {
-  int i;
   int log, max_skip, max_log;
+  basic_block bb;
 
   if (label_align)
     {
@@ -952,9 +952,8 @@ compute_alignments ()
   if (! optimize || optimize_size)
     return;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx label = bb->head;
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
@@ -984,8 +983,8 @@ compute_alignments ()
 
       if (!has_fallthru
 	  && (branch_frequency > BB_FREQ_MAX / 10
-	      || (bb->frequency > BASIC_BLOCK (i - 1)->frequency * 10
-		  && (BASIC_BLOCK (i - 1)->frequency
+	      || (bb->frequency > bb->prev_bb->frequency * 10
+		  && (bb->prev_bb->frequency
 		      <= ENTRY_BLOCK_PTR->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
@@ -3171,6 +3170,9 @@ get_mem_expr_from_op (op, paddressp)
   int inner_addressp;
 
   *paddressp = 0;
+
+  if (op == NULL)
+    return 0;
 
   if (GET_CODE (op) == REG && ORIGINAL_REGNO (op) >= FIRST_PSEUDO_REGISTER)
     return REGNO_DECL (ORIGINAL_REGNO (op));

@@ -1973,7 +1973,7 @@ find_if_block (test_bb, then_edge, else_edge)
   basic_block join_bb = NULL_BLOCK;
   edge then_succ = then_bb->succ;
   edge else_succ = else_bb->succ;
-  int next_index;
+  basic_block next;
 
   /* The THEN block of an IF-THEN combo must have exactly one predecessor.  */
   if (then_bb->pred->pred_next != NULL_EDGE)
@@ -2057,10 +2057,10 @@ find_if_block (test_bb, then_edge, else_edge)
   /* ??? As an enhancement, move the ELSE block.  Have to deal with
      BLOCK notes, if by no other means than aborting the merge if they
      exist.  Sticky enough I don't want to think about it now.  */
-  next_index = then_bb->index;
-  if (else_bb && ++next_index != else_bb->index)
+  next = then_bb;
+  if (else_bb && (next = next->next_bb) != else_bb)
     return FALSE;
-  if (++next_index != join_bb->index && join_bb->index != EXIT_BLOCK)
+  if ((next = next->next_bb) != join_bb && join_bb != EXIT_BLOCK_PTR)
     {
       if (else_bb)
 	join_bb = NULL;
@@ -2146,7 +2146,7 @@ find_cond_trap (test_bb, then_edge, else_edge)
 
   /* If the non-trap block and the test are now adjacent, merge them.
      Otherwise we must insert a direct branch.  */
-  if (test_bb->index + 1 == other_bb->index)
+  if (test_bb->next_bb == other_bb)
     {
       delete_insn (jump);
       merge_if_block (test_bb, NULL, NULL, other_bb);
@@ -2685,7 +2685,7 @@ void
 if_convert (x_life_data_ok)
      int x_life_data_ok;
 {
-  int block_num;
+  basic_block bb;
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -2707,18 +2707,13 @@ if_convert (x_life_data_ok)
     clear_bb_flags ();
 
   /* Record initial block numbers.  */
-  for (block_num = 0; block_num < n_basic_blocks; block_num++)
-    SET_ORIG_INDEX (BASIC_BLOCK (block_num), block_num);
+  FOR_EACH_BB (bb)
+    SET_ORIG_INDEX (bb, bb->index);
 
   /* Go through each of the basic blocks looking for things to convert.  */
-  for (block_num = 0; block_num < n_basic_blocks; )
-    {
-      basic_block bb = BASIC_BLOCK (block_num);
-      if (find_if_header (bb))
-	block_num = bb->index;
-      else 
-	block_num++;
-    }
+  FOR_EACH_BB (bb)
+    while (find_if_header (bb))
+      continue;
 
   if (post_dominators)
     sbitmap_vector_free (post_dominators);

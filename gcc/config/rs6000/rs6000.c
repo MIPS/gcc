@@ -169,14 +169,16 @@ static void rs6000_elf_unique_section PARAMS ((tree, int));
 static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						   unsigned HOST_WIDE_INT));
 static void rs6000_elf_encode_section_info PARAMS ((tree, int));
+static const char *rs6000_elf_strip_name_encoding PARAMS ((const char *));
 #endif
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 static void xcoff_asm_named_section PARAMS ((const char *, unsigned int));
 static void rs6000_xcoff_select_section PARAMS ((tree, int,
 						 unsigned HOST_WIDE_INT));
 static void rs6000_xcoff_unique_section PARAMS ((tree, int));
 static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						     unsigned HOST_WIDE_INT));
+static const char * rs6000_xcoff_strip_name_encoding PARAMS ((const char *));
 #endif
 static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
      ATTRIBUTE_UNUSED;
@@ -265,7 +267,7 @@ static const char alt_reg_names[][8] =
 /* Default unaligned ops are only provided for ELF.  Find the ops needed
    for non-ELF systems.  */
 #ifndef OBJECT_FORMAT_ELF
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 /* For XCOFF.  rs6000_assemble_integer will handle unaligned DIs on
    64-bit targets.  */
 #undef TARGET_ASM_UNALIGNED_HI_OP
@@ -2313,7 +2315,7 @@ rs6000_emit_move (dest, source, mode)
 
   /* Handle the case where reload calls us with an invalid address;
      and the case of CONSTANT_P_RTX.  */
-  if (!VECTOR_MODE_P (mode)
+  if (!ALTIVEC_VECTOR_MODE (mode)
       && (! general_operand (operands[1], mode)
 	  || ! nonimmediate_operand (operands[0], mode)
 	  || GET_CODE (operands[1]) == CONSTANT_P_RTX))
@@ -3223,8 +3225,8 @@ rs6000_va_arg (valist, type)
   lab_over = gen_label_rtx ();
   addr_rtx = gen_reg_rtx (Pmode);
 
-  /*  Vectors never go in registers.  */
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  /*  AltiVec vectors never go in registers.  */
+  if (!TARGET_ALTIVEC || TREE_CODE (type) != VECTOR_TYPE)
     {
       TREE_THIS_VOLATILE (reg) = 1;
       emit_cmp_and_jump_insns
@@ -3278,7 +3280,8 @@ rs6000_va_arg (valist, type)
      All AltiVec vectors go in the overflow area.  So in the AltiVec
      case we need to get the vectors from the overflow area, but
      remember where the GPRs and FPRs are.  */
-  if (n_reg > 1 && TREE_CODE (type) != VECTOR_TYPE)
+  if (n_reg > 1 && (TREE_CODE (type) != VECTOR_TYPE
+		    || !TARGET_ALTIVEC))
     {
       t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
       TREE_SIDE_EFFECTS (t) = 1;
@@ -3292,8 +3295,8 @@ rs6000_va_arg (valist, type)
     {
       int align;
 
-      /* Vectors are 16 byte aligned.  */
-      if (TREE_CODE (type) == VECTOR_TYPE)
+      /* AltiVec vectors are 16 byte aligned.  */
+      if (TARGET_ALTIVEC && TREE_CODE (type) == VECTOR_TYPE)
 	align = 15;
       else
 	align = 7;
@@ -10253,8 +10256,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],", k[0], k[1]);
-	  fprintf (file, "0x%lx%08lx\n", k[0], k[1]);
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
       else
@@ -10262,8 +10267,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs ("\t.long ", file);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],", k[0], k[1]);
-	  fprintf (file, "0x%lx,0x%lx\n", k[0], k[1]);
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff);
+	  fprintf (file, "0x%lx,0x%lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
     }
@@ -10280,8 +10287,8 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc FS_%lx[TC],", l);
-	  fprintf (file, "0x%lx00000000\n", l);
+	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
+	  fprintf (file, "0x%lx00000000\n", l & 0xffffffff);
 	  return;
 	}
       else
@@ -10289,8 +10296,8 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs ("\t.long ", file);
 	  else
-	    fprintf (file, "\t.tc FS_%lx[TC],", l);
-	  fprintf (file, "0x%lx\n", l);
+	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
+	  fprintf (file, "0x%lx\n", l & 0xffffffff);
 	  return;
 	}
     }
@@ -10340,8 +10347,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long) high, (long) low);
-	  fprintf (file, "0x%lx%08lx\n", (long) high, (long) low);
+	    fprintf (file, "\t.tc ID_%lx_%lx[TC],",
+		     (long) high & 0xffffffff, (long) low & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx\n",
+		   (long) high & 0xffffffff, (long) low & 0xffffffff);
 	  return;
 	}
       else
@@ -10352,16 +10361,17 @@ output_toc (file, x, labelno, mode)
 		fputs ("\t.long ", file);
 	      else
 		fprintf (file, "\t.tc ID_%lx_%lx[TC],",
-			 (long) high, (long) low);
-	      fprintf (file, "0x%lx,0x%lx\n", (long) high, (long) low);
+			 (long) high & 0xffffffff, (long) low & 0xffffffff);
+	      fprintf (file, "0x%lx,0x%lx\n",
+		       (long) high & 0xffffffff, (long) low & 0xffffffff);
 	    }
 	  else
 	    {
 	      if (TARGET_MINIMAL_TOC)
 		fputs ("\t.long ", file);
 	      else
-		fprintf (file, "\t.tc IS_%lx[TC],", (long) low);
-	      fprintf (file, "0x%lx\n", (long) low);
+		fprintf (file, "\t.tc IS_%lx[TC],", (long) low & 0xffffffff);
+	      fprintf (file, "0x%lx\n", (long) low & 0xffffffff);
 	    }
 	  return;
 	}
@@ -10385,7 +10395,7 @@ output_toc (file, x, labelno, mode)
   else
     abort ();
 
-  STRIP_NAME_ENCODING (real_name, name);
+  real_name = (*targetm.strip_name_encoding) (name);
   if (TARGET_MINIMAL_TOC)
     fputs (TARGET_32BIT ? "\t.long " : DOUBLE_INT_ASM_OP, file);
   else
@@ -10557,7 +10567,7 @@ output_profile_hook (labelno)
       rtx fun;
 
       ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
-      STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));
+      label_name = (*targetm.strip_name_encoding) (ggc_strdup (buf));
       fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
 
       emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
@@ -11075,7 +11085,8 @@ rs6000_elf_unique_section (decl, reloc)
 	}
     }
 
-  STRIP_NAME_ENCODING (name, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  name = (*targetm.strip_name_encoding) (name);
   prefix = prefixes[sec][DECL_ONE_ONLY (decl)];
   len    = strlen (name) + strlen (prefix);
   string = alloca (len + 1);
@@ -11165,6 +11176,15 @@ rs6000_elf_encode_section_info (decl, first)
 	  XSTR (sym_ref, 0) = ggc_alloc_string (str, len + 1);
 	}
     }
+}
+
+static const char *
+rs6000_elf_strip_name_encoding (str)
+     const char *str;
+{
+  while (*str == '*' || *str == '@')
+    str++;
+  return str;
 }
 
 #endif /* USING_ELFOS_H */
@@ -11432,7 +11452,7 @@ machopic_output_stub (file, symb, stub)
   static int label = 0;
 
   /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
-  STRIP_NAME_ENCODING (symb, symb);
+  symb = (*targetm.strip_name_encoding) (symb);
 
   label += 1;
 
@@ -11630,7 +11650,7 @@ rs6000_elf_asm_out_destructor (symbol, priority)
 }
 #endif
 
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 static void
 xcoff_asm_named_section (name, flags)
      const char *name;
@@ -11671,7 +11691,7 @@ rs6000_xcoff_select_section (exp, reloc, align)
 static void
 rs6000_xcoff_unique_section (decl, reloc)
      tree decl;
-     int reloc;
+     int reloc ATTRIBUTE_UNUSED;
 {
   const char *name;
   char *string;
@@ -11704,7 +11724,24 @@ rs6000_xcoff_select_rtx_section (mode, x, align)
   else
     read_only_private_data_section ();
 }
-#endif /* OBJECT_FORMAT_COFF */
+
+/* Remove any trailing [DS] or the like from the symbol name.  */
+
+static const char *
+rs6000_xcoff_strip_name_encoding (name)
+     const char *name;
+{
+  size_t len;
+  if (*name == '*')
+    name++;
+  len = strlen (name);
+  if (name[len - 1] == ']')
+    return ggc_alloc_string (name, len - 4);
+  else
+    return name;
+}
+
+#endif /* TARGET_XCOFF */
 
 /* Note that this is also used for ELF64.  */
 

@@ -67,11 +67,10 @@ varray_type referenced_symbols;
 void
 tree_find_varrefs ()
 {
-  int i;
+  basic_block bb;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       tree t = bb->head_tree;
 
       while (t)
@@ -610,14 +609,14 @@ create_tree_ann (t)
 int
 function_may_recurse_p ()
 {
-  int i;
+  basic_block bb;
 
   /* If we only make calls to pure and/or builtin functions, then the
      function is not recursive.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
       size_t j;
-      varray_type refs = BB_REFS (BASIC_BLOCK (i));
+      varray_type refs = BB_REFS (bb);
 
       for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
 	{
@@ -650,15 +649,15 @@ get_fcalls (fcalls_p, which)
      varray_type *fcalls_p;
      unsigned which;
 {
-  int i;
+  basic_block bb;
 
   if (fcalls_p == NULL || *fcalls_p == NULL)
     abort ();
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
       size_t j;
-      varray_type refs = BB_REFS (BASIC_BLOCK (i));
+      varray_type refs = BB_REFS (bb);
 
       for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
 	{
@@ -692,7 +691,7 @@ basic_block
 find_declaration (decl)
      tree decl;
 {
-  int i;
+  basic_block bb;
   tree t;
   varref first_ref;
 
@@ -701,10 +700,8 @@ find_declaration (decl)
      original variable.  */
   first_ref = VARRAY_GENERIC_PTR (TREE_REFS (decl), 0);
   t = VARREF_STMT (first_ref);
-  for (i = BB_FOR_STMT (t)->index; i >= 0; i--)
+  FOR_BB_BETWEEN (bb, BB_FOR_STMT (t), ENTRY_BLOCK_PTR->next_bb, prev_bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       if (TREE_CODE (bb->head_tree) == SCOPE_STMT
 	  && SCOPE_STMT_BLOCK (bb->head_tree))
 	{

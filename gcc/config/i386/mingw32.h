@@ -48,7 +48,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SPEC
 #define CPP_SPEC \
-  "-remap %(cpp_cpu) %{posix:-D_POSIX_SOURCE} %{mthreads:-D_MT} \
+  "%(cpp_cpu) %{posix:-D_POSIX_SOURCE} %{mthreads:-D_MT} \
   -D__stdcall=__attribute__((__stdcall__)) \
   -D__cdecl=__attribute__((__cdecl__)) \
   %{!ansi:-D_stdcall=__attribute__((__stdcall__)) \
@@ -85,25 +85,31 @@ Boston, MA 02111-1307, USA.  */
 #define MATH_LIBRARY ""
 
 /* Output STRING, a string representing a filename, to FILE.
-   We canonicalize it to be in MS-DOS format.  */
+   We canonicalize it to be in Unix format (backslashe are replaced
+   forward slashes.  */
 #undef OUTPUT_QUOTED_STRING
-#define OUTPUT_QUOTED_STRING(FILE, STRING) \
-do {						\
-  char c;					\
-						\
-  putc ('\"', asm_file);			\
-						\
-  while ((c = *string++) != 0)			\
-    {						\
-      if (c == '\\')				\
-	c = '/';				\
-						\
-      if (c == '\"')				\
-	putc ('\\', asm_file);			\
-      putc (c, asm_file);			\
-    }						\
-						\
-  putc ('\"', asm_file);			\
+#define OUTPUT_QUOTED_STRING(FILE, STRING)               \
+do {						         \
+  char c;					         \
+						         \
+  putc ('\"', asm_file);			         \
+						         \
+  while ((c = *string++) != 0)			         \
+    {						         \
+      if (c == '\\')				         \
+	c = '/';				         \
+						         \
+      if (ISPRINT (c))                                   \
+        {                                                \
+          if (c == '\"')			         \
+	    putc ('\\', asm_file);		         \
+          putc (c, asm_file);			         \
+        }                                                \
+      else                                               \
+        fprintf (asm_file, "\\%03o", (unsigned char) c); \
+    }						         \
+						         \
+  putc ('\"', asm_file);			         \
 } while (0)
 
 /* Override Cygwin's definition. This is necessary now due to the way

@@ -1,3 +1,81 @@
+2002-05-24  Phil Edwards  <pme@gcc.gnu.org>
+
+	PR libstdc++/6282
+	* include/std/std_bitset.h (_Base_biteset<0>):  New specialization.
+	(operator>>):  If nothing was extracted, don't fail in the
+	zero-length case.
+	* testsuite/23_containers/bitset_ctor.cc (test02):  New test.
+
+2002-05-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6701
+	* testsuite/22_locale/ctype_narrow_char.cc: New.
+	* testsuite/22_locale/ctype_narrow_wchar_t.cc: New.	
+	* testsuite/22_locale/ctype_widen_char.cc: New.
+	* testsuite/22_locale/ctype_widen_wchar_t.cc: New.
+	* testsuite/22_locale/ctype_members_char.cc: Move some bits into...
+	* testsuite/22_locale/ctype_is_char.cc: ...this.
+	* testsuite/22_locale/ctype_to_char.cc: ...and this.
+	* testsuite/22_locale/ctype_members_wchar_t.cc: Move some bits into...
+	* testsuite/22_locale/ctype_is_wchar_t.cc: ...this.
+	* testsuite/22_locale/ctype_to_wchar_t.cc: ...and this.
+
+	* testsuite/22_locale/ctype_scan_wchar_t.cc: Should pass.
+	
+2002-05-24  Dale Peakall <dale@peakall.net>
+
+	PR libstdc++/6701
+	* config/locale/gnu/ctype_members.cc (ctype<wchar_t>::do_narrow): Fix.
+	* config/locale/generic/ctype_members.cc: Same.
+	
+2002-05-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6750
+	* include/bits/ostream.tcc (ostream::operator<<(const char*)): Fix
+	for empty string literal.
+	(ostream::operator<<(const _CharT*)): Same.
+	(ostream<char>::operator<<(const char*)): Same.
+	(ostream<char>::operator<<(streambuf*)): Same.
+	* testsuite/27_io/ostream_inserter_char.cc (test08): Add tests.
+	* testsuite/27_io/ostream_inserter_other.cc (test02): Modify.
+	
+2002-05-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (release_VERSION): Update to 3.1.1.
+	(libtool_VERSION): Update to 4:1:0.
+	* configure: Regenerate.
+	
+2002-05-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/stl_pair.h:  Tweak comment markup.
+
+2002-05-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/ext/stdio_filebuf.h:  Add header guards.  Doxygenate.
+
+2002-05-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/user.cfg.in (EXCLUDE):  Add 'CVS'.
+
+2002-05-21  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/stl_vector.h:  Reformat to follow C++STYLE.
+	Doxygenate all public members.  Reorder to follow 14882.
+	(vector::push_back(void)):  Remove previously-deprecated fn.
+	(vector::insert(iterator), vector::_M_insert_aux(iterator)):
+	Deprecate for removal in 3.3.
+
+2002-05-20  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html (5.4):  Recommend against -I options for
+	finding the ext headers.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2002-05-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/23_containers/deque_operators.cc (test01):
+	Fix minor typo in last commit.
+
 2002-05-18  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/6503

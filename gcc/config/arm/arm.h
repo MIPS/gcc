@@ -390,8 +390,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 				         ? (target_flags & THUMB_FLAG_LEAF_BACKTRACE)	\
 				         : (target_flags & THUMB_FLAG_BACKTRACE))
 
-/* SUBTARGET_SWITCHES is used to add flags on a per-config basis.
-   Bit 31 is reserved.  See riscix.h.  */
+/* SUBTARGET_SWITCHES is used to add flags on a per-config basis.  */
 #ifndef SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES
 #endif
@@ -1847,12 +1846,6 @@ typedef struct
   case LONG_CALL_FLAG_CHAR:  return 1;		\
   case '*':  return 1;				\
   SUBTARGET_NAME_ENCODING_LENGTHS		
-
-/* This has to be handled by a function because more than part of the
-   ARM backend uses function name prefixes to encode attributes.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)	\
-  (VAR) = arm_strip_name_encoding (SYMBOL_NAME)
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */

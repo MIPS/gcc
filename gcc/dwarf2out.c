@@ -11826,7 +11826,11 @@ lookup_filename (file_name)
   file_table.last_lookup_index = i;
 
   if (DWARF2_ASM_LINE_DEBUG_INFO)
-    fprintf (asm_out_file, "\t.file %u \"%s\"\n", i, file_name);
+    {
+      fprintf (asm_out_file, "\t.file %u ", i);
+      output_quoted_string (asm_out_file, file_name);
+      fputc ('\n', asm_out_file);
+    }
 
   return i;
 }
@@ -12308,6 +12312,7 @@ dwarf2out_finish (input_filename)
     {
       named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
       dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
+      dw2_asm_output_data (1, 0, "End compilation unit");
     }
 
   /* If we emitted any DW_FORM_strp form attribute, output the string

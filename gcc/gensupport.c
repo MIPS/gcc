@@ -50,6 +50,7 @@ static char *base_dir = NULL;
 struct queue_elem
 {
   rtx data;
+  const char *filename;
   int lineno;
   struct queue_elem *next;
 };
@@ -63,7 +64,8 @@ static struct queue_elem **define_cond_exec_tail = &define_cond_exec_queue;
 static struct queue_elem *other_queue;
 static struct queue_elem **other_tail = &other_queue;
 
-static void queue_pattern PARAMS ((rtx, struct queue_elem ***, int));
+static void queue_pattern PARAMS ((rtx, struct queue_elem ***,
+				   const char *, int));
 
 /* Current maximum length of directory names in the search path
    for include files.  (Altered as we get more of them.)  */
@@ -97,9 +99,8 @@ static const char *alter_output_for_insn PARAMS ((struct queue_elem *,
 						  int, int));
 static void process_one_cond_exec PARAMS ((struct queue_elem *));
 static void process_define_cond_exec PARAMS ((void));
-static int process_include PARAMS ((rtx, int));
+static void process_include PARAMS ((rtx, int));
 static char *save_string PARAMS ((const char *, int));
-static int init_include_reader PARAMS ((FILE  *));
 
 void
 message_with_line VPARAMS ((int lineno, const char *msg, ...))
@@ -132,13 +133,15 @@ gen_rtx_CONST_INT (mode, arg)
 /* Queue PATTERN on LIST_TAIL.  */
 
 static void
-queue_pattern (pattern, list_tail, lineno)
+queue_pattern (pattern, list_tail, filename, lineno)
      rtx pattern;
      struct queue_elem ***list_tail;
+     const char *filename;
      int lineno;
 {
   struct queue_elem *e = (struct queue_elem *) xmalloc (sizeof (*e));
   e->data = pattern;
+  e->filename = filename;
   e->lineno = lineno;
   e->next = NULL;
   **list_tail = e;
@@ -179,142 +182,83 @@ remove_constraints (part)
       }
 }
 
-/* The entry point for initializing the reader.  */
-
-static int
-init_include_reader (inf)
-     FILE *inf;
-{
-  int c;
-
-  errors = 0;
-
-  /* Read the entire file.  */
-  while (1)
-    {
-      rtx desc;
-      int lineno;
-
-      c = read_skip_spaces (inf);
-      if (c == EOF)
-	break;
-
-      ungetc (c, inf);
-      lineno = read_rtx_lineno;
-      desc = read_rtx (inf);
-      process_rtx (desc, lineno);
-    }
-  fclose (inf);
-
-  /* Process define_cond_exec patterns.  */
-  if (define_cond_exec_queue != NULL)
-    process_define_cond_exec ();
-
-  return errors ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE;
-}
-
 /* Process an include file assuming that it lives in gcc/config/{target}/ 
-   if the include looks line (include "file" )  */
-static int
+   if the include looks line (include "file").  */
+
+static void
 process_include (desc, lineno)
      rtx desc;
      int lineno;
 {
   const char *filename = XSTR (desc, 0);
-  char *pathname = NULL;
+  const char *old_filename;
+  int old_lineno;
+  char *pathname;
   FILE *input_file;
-  char *fname = NULL;
-  struct file_name_list *stackp;
-  int flen;
 
-  stackp = first_dir_md_include;
-
-  /* If specified file name is absolute, just open it.  */
-  if (IS_ABSOLUTE_PATHNAME (filename) || !stackp)
+  /* If specified file name is absolute, skip the include stack.  */
+  if (! IS_ABSOLUTE_PATHNAME (filename))
     {
-      if (base_dir)
-        {
-          pathname = xmalloc (strlen (base_dir) + strlen (filename) + 1);
-          pathname = strcpy (pathname, base_dir);
-          strcat (pathname, filename);
-          strcat (pathname, "\0");
-	}
-      else
-        {
-	  pathname = xstrdup (filename);
-        }
-      read_rtx_filename = pathname;
-      input_file = fopen (pathname, "r");
+      struct file_name_list *stackp;
 
-      if (input_file == 0)
+      /* Search directory path, trying to open the file.  */
+      for (stackp = first_dir_md_include; stackp; stackp = stackp->next)
 	{
-	  perror (pathname);
-	  return FATAL_EXIT_CODE;
-	}
-    }
-  else if (stackp)
-    {
+	  static const char sep[2] = { DIR_SEPARATOR, '\0' };
 
-      flen = strlen (filename);
-
-      fname = (char *) xmalloc (max_include_len + flen + 2);
-
-      /* + 2 above for slash and terminating null.  */
-
-      /* Search directory path, trying to open the file.
-         Copy each filename tried into FNAME.  */
-
-      for (; stackp; stackp = stackp->next)
-	{
-	  if (stackp->fname)
-	    {
-	      strcpy (fname, stackp->fname);
-	      strcat (fname, "/");
-	      fname[strlen (fname) + flen] = 0;
-	    }
-	  else
-	    {
-	      fname[0] = 0;
-	    }
-	  strncat (fname, (const char *) filename, flen);
-	  read_rtx_filename = fname;
-	  input_file = fopen (fname, "r");
-	  if (input_file != NULL) 
-	    break;
-	}
-      if (stackp == NULL)
-	{
-	  if (strchr (fname, '/') == NULL || strchr (fname, '\\' ) || base_dir)
-	    {
-	      if (base_dir)
-		{
-		  pathname =
-		    xmalloc (strlen (base_dir) + strlen (filename) + 1);
-		  pathname = strcpy (pathname, base_dir);
-		  strcat (pathname, filename);
-		  strcat (pathname, "\0");
-		}
-	      else
-		pathname = xstrdup (filename);
-	    }
-	  read_rtx_filename = pathname;
+	  pathname = concat (stackp->fname, sep, filename, NULL);
 	  input_file = fopen (pathname, "r");
-
-	  if (input_file == 0)
-	    {
-	      perror (filename);
-	      return FATAL_EXIT_CODE;
-	    }
+	  if (input_file != NULL) 
+	    goto success;
+	  free (pathname);
 	}
-
     }
 
-  if (init_include_reader (input_file) == FATAL_EXIT_CODE)
-    message_with_line (lineno, "read errors found in include file  %s\n", pathname);
+  if (base_dir)
+    pathname = concat (base_dir, filename, NULL);
+  else
+    pathname = xstrdup (filename);
+  input_file = fopen (pathname, "r");
+  if (input_file == NULL)
+    {
+      free (pathname);
+      message_with_line (lineno, "include file `%s' not found", filename);
+      errors = 1;
+      return;
+    }
+ success:
 
-  if (fname)
-    free (fname);
-  return SUCCESS_EXIT_CODE;
+  /* Save old cursor; setup new for the new file.  Note that "lineno" the
+     argument to this function is the beginning of the include statement,
+     while read_rtx_lineno has already been advanced.  */
+  old_filename = read_rtx_filename;
+  old_lineno = read_rtx_lineno;
+  read_rtx_filename = pathname;
+  read_rtx_lineno = 1;
+
+  /* Read the entire file.  */
+  while (1)
+    {
+      rtx desc;
+      int c;
+
+      c = read_skip_spaces (input_file);
+      if (c == EOF)
+	break;
+
+      ungetc (c, input_file);
+      lineno = read_rtx_lineno;
+      desc = read_rtx (input_file);
+      process_rtx (desc, lineno);
+    }
+
+  /* Do not free pathname.  It is attached to the various rtx queue
+     elements.  */
+
+  read_rtx_filename = old_filename;
+  read_rtx_lineno = old_lineno;
+
+  fclose (input_file);
 }
 
 /* Process a top level rtx in some way, queueing as appropriate.  */
@@ -327,24 +271,19 @@ process_rtx (desc, lineno)
   switch (GET_CODE (desc))
     {
     case DEFINE_INSN:
-      queue_pattern (desc, &define_insn_tail, lineno);
+      queue_pattern (desc, &define_insn_tail, read_rtx_filename, lineno);
       break;
 
     case DEFINE_COND_EXEC:
-      queue_pattern (desc, &define_cond_exec_tail, lineno);
+      queue_pattern (desc, &define_cond_exec_tail, read_rtx_filename, lineno);
       break;
 
     case DEFINE_ATTR:
-      queue_pattern (desc, &define_attr_tail, lineno);
+      queue_pattern (desc, &define_attr_tail, read_rtx_filename, lineno);
       break;
 
     case INCLUDE:
-      if (process_include (desc, lineno) == FATAL_EXIT_CODE)
-	{
-	  const char *filename = XSTR (desc, 0);
-	  message_with_line (lineno, "include file at  %s not found\n",
-			     filename);
-	}
+      process_include (desc, lineno);
       break;
 
     case DEFINE_INSN_AND_SPLIT:
@@ -391,13 +330,13 @@ process_rtx (desc, lineno)
 	XVEC (desc, 4) = attr;
 
 	/* Queue them.  */
-	queue_pattern (desc, &define_insn_tail, lineno);
-	queue_pattern (split, &other_tail, lineno);
+	queue_pattern (desc, &define_insn_tail, read_rtx_filename, lineno);
+	queue_pattern (split, &other_tail, read_rtx_filename, lineno);
 	break;
       }
 
     default:
-      queue_pattern (desc, &other_tail, lineno);
+      queue_pattern (desc, &other_tail, read_rtx_filename, lineno);
       break;
     }
 }
@@ -917,7 +856,8 @@ process_one_cond_exec (ce_elem)
 	 patterns into the define_insn chain just after their generator
 	 is something we'll have to experiment with.  */
 
-      queue_pattern (insn, &other_tail, insn_elem->lineno);
+      queue_pattern (insn, &other_tail, insn_elem->filename,
+		     insn_elem->lineno);
     }
 }
 
@@ -1078,6 +1018,7 @@ read_md_rtx (lineno, seqnr)
   elem = *queue;
   *queue = elem->next;
   desc = elem->data;
+  read_rtx_filename = elem->filename;
   *lineno = elem->lineno;
   *seqnr = sequence_num;
 

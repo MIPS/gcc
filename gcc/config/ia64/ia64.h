@@ -109,6 +109,11 @@ extern int target_flags;
 
 #define TARGET_DWARF2_ASM	(target_flags & MASK_DWARF2_ASM)
 
+extern int ia64_tls_size;
+#define TARGET_TLS14		(ia64_tls_size == 14)
+#define TARGET_TLS22		(ia64_tls_size == 22)
+#define TARGET_TLS64		(ia64_tls_size == 64)
+
 /* This macro defines names of command options to set and clear bits in
    `target_flags'.  Its definition is an initializer with a subgrouping for
    each command option.  */
@@ -177,10 +182,13 @@ extern int target_flags;
    subgrouping for each command option.  */
 
 extern const char *ia64_fixed_range_string;
+extern const char *ia64_tls_size_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
       N_("Specify range of registers to make fixed")},			\
+  { "tls-size=",	&ia64_tls_size_string,				\
+      N_("Specify bit size of immediate TLS offsets")},			\
 }
 
 /* Sometimes certain combinations of command options do not make sense on a
@@ -1774,21 +1782,9 @@ do {									\
 
 #define BSS_SECTION_ASM_OP "\t.bss"
 
-#define SDATA_NAME_FLAG_CHAR '@'
+#define ENCODE_SECTION_INFO_CHAR '@'
 
 #define IA64_DEFAULT_GVALUE 8
-
-/* Decode SYM_NAME and store the real name part in VAR, sans the characters
-   that encode section info.  */
-
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)	\
-do {						\
-  (VAR) = (SYMBOL_NAME);			\
-  if ((VAR)[0] == SDATA_NAME_FLAG_CHAR)		\
-    (VAR)++;					\
-  if ((VAR)[0] == '*')				\
-    (VAR)++;					\
-} while (0)
 
 /* Position Independent Code.  */
 

@@ -525,7 +525,7 @@ asm_output_bss (file, decl, name, size, rounded)
   /* Standard thing is just output label for the object.  */
   ASM_OUTPUT_LABEL (file, name);
 #endif /* ASM_DECLARE_OBJECT_NAME */
-  ASM_OUTPUT_SKIP (file, rounded);
+  ASM_OUTPUT_SKIP (file, rounded ? rounded : 1);
 }
 
 #endif
@@ -922,6 +922,10 @@ make_decl_rtl (decl, asmspec)
       && DECL_COMMON (decl))
     DECL_COMMON (decl) = 0;
 
+  /* Variables can't be both common and weak.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_WEAK (decl))
+    DECL_COMMON (decl) = 0;
+
   /* Can't use just the variable's own name for a variable
      whose scope is less than the whole file, unless it's a member
      of a local class (which will already be unambiguous).
@@ -1207,7 +1211,7 @@ assemble_start_function (decl, fnname)
 	  const char *p;
 	  char *name;
 
-	  STRIP_NAME_ENCODING (p, fnname);
+	  p = (* targetm.strip_name_encoding) (fnname);
 	  name = permalloc (strlen (p) + 1);
 	  strcpy (name, p);
 
@@ -1527,7 +1531,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       const char *p;
       char *xname;
 
-      STRIP_NAME_ENCODING (p, name);
+      p = (* targetm.strip_name_encoding) (name);
       xname = permalloc (strlen (p) + 1);
       strcpy (xname, p);
       first_global_object_name = xname;
@@ -1586,19 +1590,28 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   /* Handle uninitialized definitions.  */
 
-  if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node
-#if defined ASM_EMIT_BSS
-       || (flag_zero_initialized_in_bss
-	   && initializer_zerop (DECL_INITIAL (decl)))
+  /* If the decl has been given an explicit section name, then it
+     isn't common, and shouldn't be handled as such.  */
+  if (DECL_SECTION_NAME (decl) || dont_output_data)
+    ;
+  /* We don't implement common thread-local data at present.  */
+  else if (DECL_THREAD_LOCAL (decl))
+    {
+      if (DECL_COMMON (decl))
+	sorry ("thread-local COMMON data not implemented");
+    }
+#ifndef ASM_EMIT_BSS
+  /* If the target can't output uninitialized but not common global data
+     in .bss, then we have to use .data.  */
+  /* ??? We should handle .bss via select_section mechanisms rather than
+     via special target hooks.  That would eliminate this special case.  */
+  else if (!DECL_COMMON (decl))
+    ;
 #endif
-       )
-      /* If the target can't output uninitialized but not common global data
-	 in .bss, then we have to use .data.  */
-#if ! defined ASM_EMIT_BSS
-      && DECL_COMMON (decl)
-#endif
-      && DECL_SECTION_NAME (decl) == NULL_TREE
-      && ! dont_output_data)
+  else if (DECL_INITIAL (decl) == 0
+	   || DECL_INITIAL (decl) == error_mark_node
+           || (flag_zero_initialized_in_bss
+	       && initializer_zerop (DECL_INITIAL (decl))))
     {
       unsigned HOST_WIDE_INT size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
       unsigned HOST_WIDE_INT rounded = size;
@@ -1786,7 +1799,7 @@ assemble_name (file, name)
   const char *real_name;
   tree id;
 
-  STRIP_NAME_ENCODING (real_name, name);
+  real_name = (* targetm.strip_name_encoding) (name);
 
   id = maybe_get_identifier (real_name);
   if (id)
@@ -5096,13 +5109,24 @@ default_section_type_flags (decl, name, reloc)
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
+  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    flags |= SECTION_TLS | SECTION_WRITE;
+
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
-      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_BSS;
+
+  if (strcmp (name, ".tdata") == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+    flags |= SECTION_TLS;
 
   return flags;
 }
@@ -5146,6 +5170,8 @@ default_elf_asm_named_section (name, flags)
     *f++ = 'M';
   if (flags & SECTION_STRINGS)
     *f++ = 'S';
+  if (flags & SECTION_TLS)
+    *f++ = 'T';
   *f = '\0';
 
   if (flags & SECTION_BSS)
@@ -5353,8 +5379,17 @@ categorize_decl_for_section (decl, reloc)
   else
     ret = SECCAT_RODATA;
 
+  /* There are no read-only thread-local sections.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    {
+      if (ret == SECCAT_BSS)
+	ret = SECCAT_TBSS;
+      else
+	ret = SECCAT_TDATA;
+    }
+
   /* If the target uses small data sections, select it.  */
-  if ((*targetm.in_small_data_p) (decl))
+  else if ((*targetm.in_small_data_p) (decl))
     {
       if (ret == SECCAT_BSS)
 	ret = SECCAT_SBSS;
@@ -5470,14 +5505,18 @@ default_unique_section (decl, reloc)
       prefix = one_only ? ".gnu.linkonce.sb." : ".sbss.";
       break;
     case SECCAT_TDATA:
+      prefix = one_only ? ".gnu.linkonce.td." : ".tdata.";
+      break;
     case SECCAT_TBSS:
+      prefix = one_only ? ".gnu.linkonce.tb." : ".tbss.";
+      break;
     default:
       abort ();
     }
   plen = strlen (prefix);
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
   nlen = strlen (name);
 
   string = alloca (nlen + plen + 1);
@@ -5534,4 +5573,56 @@ default_elf_select_rtx_section (mode, x, align)
       }
 
   mergeable_constant_section (mode, align, 0);
+}
+
+/* By default, we do nothing for encode_section_info, so we need not
+   do anything but discard the '*' marker.  */
+
+const char *
+default_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*');
+}
+
+/* Assume ELF-ish defaults, since that's pretty much the most liberal
+   wrt cross-module name binding.  */
+
+bool
+default_binds_local_p (exp)
+     tree exp;
+{
+  bool local_p;
+
+  /* A non-decl is an entry in the constant pool.  */
+  if (!DECL_P (exp))
+    local_p = true;
+  /* A variable is considered "local" if it is defined by this module.  */
+  else if (MODULE_LOCAL_P (exp))
+    local_p = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (exp))
+    local_p = false;
+  /* Linkonce and weak data are never local.  */
+  else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
+    local_p = false;
+  /* Static variables are always local.  */
+  else if (! TREE_PUBLIC (exp))
+    local_p = true;
+  /* If PIC, then assume that any global name can be overridden by
+     symbols resolved from other modules.  */
+  else if (flag_pic)
+    local_p = false;
+  /* Uninitialized COMMON variable may be unified with symbols
+     resolved from other modules.  */
+  else if (DECL_COMMON (exp)
+	   && (DECL_INITIAL (exp) == NULL
+	       || DECL_INITIAL (exp) == error_mark_node))
+    local_p = false;
+  /* Otherwise we're left with initialized (or non-common) global data
+     which is of necessity defined locally.  */
+  else
+    local_p = true;
+
+  return local_p;
 }

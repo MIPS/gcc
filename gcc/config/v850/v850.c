@@ -36,8 +36,6 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "function.h"
 #include "toplev.h"
-#include "cpplib.h"
-#include "c-lex.h"
 #include "ggc.h"
 #include "integrate.h"
 #include "tm_p.h"
@@ -61,6 +59,7 @@ static void v850_insert_attributes   PARAMS ((tree, tree *));
 static void v850_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 static void v850_encode_data_area    PARAMS ((tree));
 static void v850_encode_section_info PARAMS ((tree, int));
+static const char *v850_strip_name_encoding PARAMS ((const char *));
 
 /* True if the current function has anonymous arguments.  */
 int current_function_anonymous_args;
@@ -104,6 +103,8 @@ static int v850_interrupt_p = FALSE;
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO v850_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING v850_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2216,6 +2217,13 @@ v850_encode_section_info (decl, first)
   if (first && TREE_CODE (decl) == VAR_DECL
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     v850_encode_data_area (decl);
+}
+
+static const char *
+v850_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (ENCODED_NAME_P (str) || *str == '*');
 }
 
 /* Return true if the given RTX is a register which can be restored

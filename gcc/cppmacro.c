@@ -174,14 +174,17 @@ builtin_macro (pfile, node)
 
       /* __STDC__ has the value 1 under normal circumstances.
 	 However, if (a) we are in a system header, (b) the option
-	 stdc_0_in_system_headers is true, and (c) __STRICT_ANSI__ is
-	 not defined, then it has the value 0.  */
+	 stdc_0_in_system_headers is true (set by target config), and
+	 (c) we are not in strictly conforming mode, then it has the
+	 value 0.  */
     case BT_STDC:
       {
 	int stdc;
+	enum c_lang lang = CPP_OPTION (pfile, lang);
 	if (CPP_IN_SYSTEM_HEADER (pfile)
 	    && CPP_OPTION (pfile, stdc_0_in_system_headers)
-	    && pfile->spec_nodes.n__STRICT_ANSI__->type == NT_VOID)
+	    && !(lang == CLK_STDC89 || lang == CLK_STDC94
+		 || lang == CLK_STDC99))  /* || lang == CLK_CXX98 ? */
 	  stdc = 0;
 	else
 	  stdc = 1;
@@ -566,7 +569,7 @@ collect_args (pfile, node)
 	 the invocation at all.
 	 e.g. #define debug(format, args...) something
 	 debug("string");
-	 
+
 	 This is exactly the same as if there had been an empty rest
 	 argument - debug("string", ).  */
 
@@ -656,6 +659,8 @@ enter_macro_context (pfile, node)
 {
   /* The presence of a macro invalidates a file's controlling macro.  */
   pfile->mi_valid = false;
+
+  pfile->state.angled_headers = false;
 
   /* Handle standard macros.  */
   if (! (node->flags & NODE_BUILTIN))
@@ -1032,7 +1037,7 @@ cpp_get_token (pfile)
 
       if (node->type != NT_MACRO || (result->flags & NO_EXPAND))
 	break;
-      
+
       if (!(node->flags & NODE_DISABLED))
 	{
 	  if (!pfile->state.prevent_expansion
@@ -1477,7 +1482,7 @@ check_trad_stringification (pfile, macro, string)
 {
   unsigned int i, len;
   const uchar *p, *q, *limit = string->text + string->len;
-  
+
   /* Loop over the string.  */
   for (p = string->text; p < limit; p = q)
     {
@@ -1581,9 +1586,9 @@ cpp_macro_definition (pfile, node)
 	    }
 
 	  if (i + 1 < macro->paramc)
-            /* Don't emit a space after the comma here; we're trying
-               to emit a Dwarf-friendly definition, and the Dwarf spec
-               forbids spaces in the argument list.  */
+	    /* Don't emit a space after the comma here; we're trying
+	       to emit a Dwarf-friendly definition, and the Dwarf spec
+	       forbids spaces in the argument list.  */
 	    *buffer++ = ',';
 	  else if (macro->variadic)
 	    *buffer++ = '.', *buffer++ = '.', *buffer++ = '.';
