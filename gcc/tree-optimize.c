@@ -73,7 +73,7 @@ optimize_function_tree (tree fndecl, tree *chain)
      VARS_TO_RENAME bitmap and call rewrite_into_ssa() afterwards.  */
   if (n_basic_blocks > 0)
     {
-      sbitmap vars_to_rename;
+      bitmap vars_to_rename;
 
 #ifdef ENABLE_CHECKING
       verify_stmts ();
@@ -107,19 +107,19 @@ optimize_function_tree (tree fndecl, tree *chain)
 
       /* Set up VARS_TO_RENAME to allow passes to inform which variables
 	 need to be renamed.  */
-      vars_to_rename = sbitmap_alloc (num_referenced_vars);
+      vars_to_rename = BITMAP_XMALLOC ();
 
       /* Perform dominator optimizations.  */
       if (flag_tree_dom)
 	{
 	  tree_ssa_dominator_thread_jumps (fndecl, TDI_thread_jumps);
 
-	  sbitmap_zero (vars_to_rename);
+	  bitmap_clear (vars_to_rename);
 	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_1);
 
 	  /* If the dominator optimizations exposed new variables, we need
 	      to repeat the SSA renaming process for those symbols.  */
-	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_2);
 	}
 
@@ -142,11 +142,11 @@ optimize_function_tree (tree fndecl, tree *chain)
 	 from variables that used to have their address taken.  */
       if (flag_tree_must_alias)
 	{
-	  sbitmap_zero (vars_to_rename);
+	  bitmap_clear (vars_to_rename);
 	  tree_compute_must_alias (fndecl, vars_to_rename, TDI_mustalias);
 
 	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
           ggc_collect ();
 	}
@@ -165,11 +165,11 @@ optimize_function_tree (tree fndecl, tree *chain)
       /* Scalarize some structure references.  */
       if (flag_tree_sra)
 	{
-	  sbitmap_zero (vars_to_rename);
-	  tree_sra (fndecl, &vars_to_rename, TDI_sra);
+	  bitmap_clear (vars_to_rename);
+	  tree_sra (fndecl, vars_to_rename, TDI_sra);
 
 	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
           ggc_collect ();
 	}
@@ -181,11 +181,11 @@ optimize_function_tree (tree fndecl, tree *chain)
       /* Run SCCP (Sparse Conditional Constant Propagation).  */
       if (flag_tree_ccp)
 	{
-	  sbitmap_zero (vars_to_rename);
+	  bitmap_clear (vars_to_rename);
 	  tree_ssa_ccp (fndecl, vars_to_rename, TDI_ccp);
 
 	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
           ggc_collect ();
 	}
@@ -208,11 +208,11 @@ optimize_function_tree (tree fndecl, tree *chain)
       /* Perform a second pass of dominator optimizations.  */
       if (flag_tree_dom)
 	{
-	  sbitmap_zero (vars_to_rename);
+	  bitmap_clear (vars_to_rename);
 	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_2);
 
 	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
 	}
 

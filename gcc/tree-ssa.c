@@ -167,8 +167,7 @@ struct rewrite_block_data
 static struct ssa_stats_d ssa_stats;
 
 /* Bitmap representing variables that need to be renamed into SSA form.  */
-static sbitmap vars_to_rename;
-
+static bitmap vars_to_rename;
 
 /* Local functions.  */
 static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
@@ -337,7 +336,7 @@ set_value_for (tree var, tree value, varray_type table)
    increased compilation time.  */
 
 void
-rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
+rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
 {
   bitmap *dfs;
   dominance_info idom;
@@ -351,16 +350,9 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   dump_file = dump_begin (phase, &dump_flags);
 
   /* Initialize the array of variables to rename.  */
-  if (vars == NULL)
-    {
-      vars_to_rename = sbitmap_alloc (num_referenced_vars);
-      sbitmap_ones (vars_to_rename);
-    }
-  else
-    {
-      vars_to_rename = vars;
-      remove_all_phi_nodes_for (vars_to_rename);
-    }
+  vars_to_rename = vars;
+  if (vars != NULL)
+    remove_all_phi_nodes_for (vars_to_rename);
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
@@ -478,9 +470,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   FOR_EACH_BB (bb)
     BITMAP_XFREE (dfs[bb->index]);
   free (dfs);
-
-  if (vars == NULL)
-    sbitmap_free (vars_to_rename);
 
   htab_delete (def_blocks);
   VARRAY_CLEAR (currdefs);
@@ -751,7 +740,7 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p)
   *uid_p = var_ann (var)->uid;
 
   /* Ignore variables that don't need to be renamed.  */
-  if (!TEST_BIT (vars_to_rename, *uid_p))
+  if (vars_to_rename && !bitmap_bit_p (vars_to_rename, *uid_p))
     return false;
 
   /* The variable needs to be renamed.  If it already had an
@@ -790,14 +779,24 @@ insert_phi_nodes (bitmap *dfs)
      to the work list all the blocks that have a definition for the
      variable.  PHI nodes will be added to the dominance frontier blocks of
      each definition block.  */
-  EXECUTE_IF_SET_IN_SBITMAP (vars_to_rename, 0, i,
-    {
-      tree var = referenced_var (i);
-      var_ann_t ann = var_ann (var);
+  if (vars_to_rename)
+    EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+      {
+        tree var = referenced_var (i);
+        var_ann_t ann = var_ann (var);
+  
+        if (ann->need_phi_state != NEED_PHI_STATE_NO)
+  	  insert_phi_nodes_for (var, dfs);
+      });
+  else
+    for (i = 0; i < num_referenced_vars; i++)
+      {
+	tree var = referenced_var (i);
+	var_ann_t ann = var_ann (var);
 
-      if (ann->need_phi_state != NEED_PHI_STATE_NO)
-	insert_phi_nodes_for (var, dfs);
-    });
+	if (ann->need_phi_state != NEED_PHI_STATE_NO)
+	  insert_phi_nodes_for (var, dfs);
+      }
 
   work_stack = NULL;
   timevar_pop (TV_TREE_INSERT_PHI_NODES);

@@ -77,7 +77,7 @@ static sbitmap sra_candidates;
    scalar replacements created during this pass.  At the end of the pass,
    a new set is created with all the variables in this set and all the new
    scalar replacements.  */
-static sbitmap vars_to_rename;
+static bitmap vars_to_rename;
 
 /* Set of scalarizable PARM_DECLs that need copy-in operations at the
    beginning of the function.  */
@@ -438,7 +438,7 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
       for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
 	{
 	  tree sym = VDEF_RESULT (vdefs, i);
-	  SET_BIT (vars_to_rename, var_ann (sym)->uid);
+	  bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
 	}
 
       /* Set RHS to be the new temporary TMP.  */
@@ -541,7 +541,7 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
       if (mode == SCALAR_FIELD || mode == SCALAR_SCALAR)
 	{
 	  /* If the LHS has been scalarized, mark it for renaming.  */
-	  SET_BIT (vars_to_rename, var_ann (lhs)->uid);
+	  bitmap_set_bit (vars_to_rename, var_ann (lhs)->uid);
 	}
       else if (mode == FIELD_SCALAR)
 	{
@@ -557,7 +557,7 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
 	  for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
 	    {
 	      tree sym = VDEF_RESULT (vdefs, i);
-	      SET_BIT (vars_to_rename, var_ann (sym)->uid);
+	      bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
 	    }
 	}
       else
@@ -676,7 +676,7 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
       if (NUM_VDEFS (vdefs) != 1)
 	abort ();
       sym = SSA_NAME_VAR (VDEF_RESULT (vdefs, 0));
-      SET_BIT (vars_to_rename, var_ann (sym)->uid);
+      bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
     }
 
   /* Found ... = AGGREGATE.FIELD  */
@@ -851,7 +851,7 @@ scalarize_return_expr (block_stmt_iterator *si_p)
    4- Determine what's a good value for MAX_NFIELDS_FOR_SRA.  */
 
 void
-tree_sra (tree fndecl, sbitmap *vars_to_rename_p, enum tree_dump_index phase)
+tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
 {
   size_t old_num_referenced_vars;
 
@@ -863,9 +863,10 @@ tree_sra (tree fndecl, sbitmap *vars_to_rename_p, enum tree_dump_index phase)
   sra_candidates = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (sra_candidates);
   sra_map = NULL;
-  vars_to_rename = NULL;
   needs_copy_in = NULL;
   old_num_referenced_vars = num_referenced_vars;
+
+  vars_to_rename = vars;
 
   /* Find structures to be scalarized.  */
   find_candidates_for_sra ();
@@ -875,9 +876,6 @@ tree_sra (tree fndecl, sbitmap *vars_to_rename_p, enum tree_dump_index phase)
   if (sbitmap_first_set_bit (sra_candidates) >= 0)
     {
       sra_map = xcalloc (num_referenced_vars, sizeof (tree *));
-
-      vars_to_rename = sbitmap_alloc (num_referenced_vars);
-      sbitmap_zero (vars_to_rename);
 
       needs_copy_in = sbitmap_alloc (num_referenced_vars);
       sbitmap_zero (needs_copy_in);
@@ -889,18 +887,9 @@ tree_sra (tree fndecl, sbitmap *vars_to_rename_p, enum tree_dump_index phase)
 	{
 	  size_t i;
 
-	  *vars_to_rename_p = sbitmap_realloc (*vars_to_rename_p,
-					       num_referenced_vars);
-	  sbitmap_zero (*vars_to_rename_p);
-
 	  /* Mark the new scalar replacements.  */
 	  for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
-	    SET_BIT (*vars_to_rename_p, i);
-
-	  /* Also mark existing structures that were modified during the
-	     scalarization process.  */
-	  EXECUTE_IF_SET_IN_SBITMAP (vars_to_rename, 0, i,
-	    SET_BIT (*vars_to_rename_p, i));
+	    bitmap_set_bit (vars_to_rename, i);
 	}
     }
 

@@ -461,7 +461,7 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
 /* Remove all the PHI nodes for variables in the VARS bitmap.  */
 
 void
-remove_all_phi_nodes_for (sbitmap vars)
+remove_all_phi_nodes_for (bitmap vars)
 {
   basic_block bb;
 
@@ -477,7 +477,7 @@ remove_all_phi_nodes_for (sbitmap vars)
 
 	  next = TREE_CHAIN (phi);
 	  /* Only add PHI nodes for variables not in VARS.  */
-	  if (!TEST_BIT (vars, var_ann (var)->uid))
+	  if (!bitmap_bit_p (vars, var_ann (var)->uid))
 	    {
 	      /* If we're not removing this PHI node, then it must have
 		 been rewritten by a previous call into the SSA rewriter.
@@ -510,7 +510,7 @@ remove_all_phi_nodes_for (sbitmap vars)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
-	  if (TEST_BIT (vars, var_ann (var)->uid))
+	  if (bitmap_bit_p (vars, var_ann (var)->uid))
 	    abort ();
 	}
 #endif

@@ -112,7 +112,7 @@ static void def_to_varying (tree);
 static void set_lattice_value (tree, value);
 static void simulate_block (basic_block);
 static void simulate_stmt (tree);
-static void substitute_and_fold (sbitmap);
+static void substitute_and_fold (bitmap);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
 static bool replace_uses_in (tree, bool *);
@@ -144,7 +144,7 @@ static int dump_flags;
    dumping debugging information.  */
 
 void
-tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
+tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
 {
   timevar_push (TV_TREE_CCP);
 
@@ -191,8 +191,6 @@ tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
   /* Free allocated memory.  */
   finalize ();
 
-  timevar_pop (TV_TREE_CCP);
-
   /* Debugging dumps.  */
   if (dump_file)
     {
@@ -206,6 +204,8 @@ tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
       dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
+
+  timevar_pop (TV_TREE_CCP);
 }
 
 
@@ -323,7 +323,7 @@ simulate_stmt (tree use_stmt)
    should still be in SSA form.  */
 
 static void
-substitute_and_fold (sbitmap vars_to_rename)
+substitute_and_fold (bitmap vars_to_rename)
 {
   basic_block bb;
 

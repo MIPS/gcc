@@ -119,7 +119,7 @@ static bitmap compute_idfs (bitmap *, tree);
 static void set_var_phis (struct expr_info *, tree);
 static inline bool names_match_p (const tree, const tree);
 static bool is_strred_cand (const tree);
-static int pre_expression (struct expr_info *, void *, sbitmap);
+static int pre_expression (struct expr_info *, void *, bitmap);
 static bool is_injuring_def (struct expr_info *, tree);
 static inline bool okay_injuring_def (tree, tree);
 static bool expr_phi_insertion (bitmap *, struct expr_info *);
@@ -2981,7 +2981,7 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
 /* Perform SSAPRE on an expression.  */
 
 static int
-pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
+pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
 {
   struct expr_info *ei = (struct expr_info *) slot;
   basic_block bb;
@@ -3045,7 +3045,7 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
       finalize_2 (ei);
       code_motion (ei);
       if (ei->loadpre_cand)
-	SET_BIT (vars_to_rename, var_ann (ei->temp)->uid);
+	bitmap_set_bit (vars_to_rename, var_ann (ei->temp)->uid);
     }
 
   clear_all_eref_arrays ();
@@ -3213,7 +3213,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   varray_type bexprs;
   size_t k;
   int i;
-  sbitmap vars_to_rename;
+  bitmap vars_to_rename;
  
   split_critical_edges ();  
 
@@ -3258,9 +3258,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 
   /* The maximum number of variables we'll add is the number of
      expressions to perform PRE on.  */
-  vars_to_rename = sbitmap_alloc (num_referenced_vars + VARRAY_ACTIVE_SIZE (bexprs));
-  
-  sbitmap_zero (vars_to_rename);
+  vars_to_rename = BITMAP_XMALLOC ();
   
   for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
     {
@@ -3305,9 +3303,9 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   added_phis = NULL;
   
   /* Rewrite any new temporaries load PRE inserted.  */
-  if (sbitmap_first_set_bit (vars_to_rename) != -1)
+  if (bitmap_first_set_bit (vars_to_rename) != -1)
     rewrite_into_ssa (fndecl, vars_to_rename, TDI_pre);
-  sbitmap_free (vars_to_rename);
+  BITMAP_XFREE (vars_to_rename);
   free (dfs_id);
   free (dfs_id_last);
   free (dfn);

@@ -80,7 +80,7 @@ static bool cfg_altered;
 
 /* This pass can expose additional variables to rename.  We track them in
    this bitmap.  */
-static sbitmap vars_to_rename;
+static bitmap vars_to_rename;
 
 /* Nonzero if we should thread jumps through blocks which contain PHI
    nodes.  This is not safe once we have performed any transformation
@@ -291,8 +291,7 @@ tree_ssa_dominator_thread_jumps (tree fndecl, enum tree_dump_index phase)
   /* The jump threader will always perform any necessary rewriting, so
      we do not expose VAR_TO_RENAME to our caller, we just allocate and
      deallocate one here.  */
-  vars_to_rename = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (vars_to_rename);
+  vars_to_rename = BITMAP_XMALLOC ();
 
   /* Mark loop edges so we avoid threading across loop boundaries.
      This may result in transformating natural loop into irreducible
@@ -301,7 +300,7 @@ tree_ssa_dominator_thread_jumps (tree fndecl, enum tree_dump_index phase)
 
   tree_ssa_dominator_optimize_1 (fndecl, phase, TV_TREE_SSA_THREAD_JUMPS);
 
-  sbitmap_free (vars_to_rename);
+  BITMAP_XFREE (vars_to_rename);
 }
 
 /* Optimize function FNDECL based on the dominator tree.  This does
@@ -316,7 +315,7 @@ tree_ssa_dominator_thread_jumps (tree fndecl, enum tree_dump_index phase)
    dumping debugging information.  */
 
 void
-tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
+tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 			     enum tree_dump_index phase)
 {
   /* Indicate we can not thread through blocks with PHI nodes.  */
@@ -326,7 +325,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
      walker datastructure this (along with other pass-global data) should
      move into that structure.  */
   vars_to_rename = vars;
-
+ 
   tree_ssa_dominator_optimize_1 (fndecl, phase, TV_TREE_SSA_DOMINATOR_OPTS);
 }
 
@@ -469,7 +468,7 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
 		 all the PHI arguments are different versions of the same variable,
 		 so we only need to mark the underlying variable for PHI_RESULT.  */
 	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-		SET_BIT (vars_to_rename, var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid);
+		bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid);
 
 	      e = redirect_edge_and_branch (e, tgt);
 	      
@@ -501,10 +500,10 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
       /* If we are going to iterate (CFG_ALTERED is true), then we must
 	 perform any queued renaming before the next iteration.  */
       if (cfg_altered
-	  && sbitmap_first_set_bit (vars_to_rename) >= 0)
+	  && bitmap_first_set_bit (vars_to_rename) >= 0)
 	{
 	  rewrite_into_ssa (fndecl, vars_to_rename, TDI_none);
-	  sbitmap_zero (vars_to_rename);
+	  bitmap_zero (vars_to_rename);
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);
 	  VARRAY_GROW (nonzero_vars, highest_ssa_version);

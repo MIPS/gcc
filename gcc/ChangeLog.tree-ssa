@@ -1,3 +1,32 @@
+2003-12-05  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (mark_new_vars_to_rename): Change VARS_TO_RENAME to be
+	a "bitmap" instead of an "sbitmap".  Callers updated.
+	* tree-must-alias.c (promote_var): Likewise.
+	(tree_compute_must_alias): Likewise.
+	* tree-phinodes.c (remove_all_phi_nodes_for): Likewise.
+	* tree-ssa-dom.c (tree_ssa_dominator_thread_jumps): Likewise.
+	(tree_ssa_dominator_optimize): Likewise.
+	(tree_ssa_dominator_optimize_1): Likewise.
+	* tree-ssa-pre.c (pre_expression): Likewise.
+	(tree_perform_ssapre): Likewise.
+	* tree-ssa.c (rewrite_into_ssa): Likewise.
+	(insert_phi_nodes): If VARS_TO_RENAME is zero, then examine
+	each node to determine if we need to insert a PHI.
+	(prepare_operand_for_rename): If VARS_TO_RENAME is zero, then
+	assume the operand needs renaming.
+	* tree-ssa-ccp.c (substitute_and_fold): Change VARS_TO_RENAME to
+	be a "bitmap" instead of an "sbitmap".  Callers updated.
+	(tree_ssa_ccp): Likewise.  Also make sure timevar_pop encloses
+	entire function.
+	(scalarize_modify_expr): Likewise.
+	* tree-sra.c (create_scalar_copies): Change VARS_TO_RENAME to
+	be a "bitmap" instead of an "sbitmap".  Callers updated.
+	(tree_sra): Likewise.
+	* tree-optimize.c (optimize_function_tree): Make VARS_TO_RENAME
+	be a "bitmap" instead of an "sbitmap".
+	* tree-flow.h: Update various prototypes.
+
 2003-12-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (remove_useless_stmts_goto, remove_useless_stmts): Move

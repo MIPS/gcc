@@ -459,7 +459,7 @@ extern void add_phi_arg (tree *, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
 extern void remove_phi_arg_num (tree, int);
 extern void remove_phi_node (tree, tree, basic_block);
-extern void remove_all_phi_nodes_for (sbitmap);
+extern void remove_all_phi_nodes_for (bitmap);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
 extern void debug_referenced_vars (void);
@@ -484,7 +484,7 @@ extern tree get_virtual_var (tree);
 extern void add_vuse (tree, tree, voperands_t);
 extern void create_global_var (void);
 extern void add_referenced_tmp_var (tree var);
-extern void mark_new_vars_to_rename (tree, sbitmap);
+extern void mark_new_vars_to_rename (tree, bitmap);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -498,7 +498,7 @@ void record_vars (tree);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (tree, sbitmap, enum tree_dump_index);
+extern void rewrite_into_ssa (tree, bitmap, enum tree_dump_index);
 extern void rewrite_out_of_ssa (tree, enum tree_dump_index);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
@@ -520,13 +520,13 @@ extern unsigned int highest_ssa_version;
 extern void tree_perform_ssapre (tree, enum tree_dump_index);
 
 /* In tree-ssa-ccp.c  */
-void tree_ssa_ccp (tree, sbitmap, enum tree_dump_index);
+void tree_ssa_ccp (tree, bitmap, enum tree_dump_index);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
 extern void tree_ssa_dominator_thread_jumps (tree, enum tree_dump_index);
-extern void tree_ssa_dominator_optimize (tree, sbitmap, enum tree_dump_index);
+extern void tree_ssa_dominator_optimize (tree, bitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 extern void propagate_copy (tree *, tree);
@@ -541,7 +541,7 @@ static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */
-void tree_compute_must_alias (tree, sbitmap, enum tree_dump_index);
+void tree_compute_must_alias (tree, bitmap, enum tree_dump_index);
 
 /* In tree-eh.c  */
 extern void lower_eh_constructs (tree *);
@@ -557,7 +557,7 @@ void lower_function_body (tree *);
 extern bool block_may_fallthru (tree block);
 
 /* In tree-sra.c  */
-void tree_sra (tree, sbitmap *, enum tree_dump_index);
+void tree_sra (tree, bitmap, enum tree_dump_index);
 
 #include "tree-flow-inline.h"
 

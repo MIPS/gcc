@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Local functions.  */
 static void find_addressable_vars (sbitmap);
-static void promote_var (tree, sbitmap);
+static void promote_var (tree, bitmap);
 static inline int find_variable_in (varray_type, tree);
 static inline void remove_element_from (varray_type, size_t);
 
@@ -65,7 +65,7 @@ static int dump_flags;
    dumping debugging information.  */
 
 void
-tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
+tree_compute_must_alias (tree fndecl, bitmap vars_to_rename,
 			 enum tree_dump_index phase)
 {
   size_t i;
@@ -77,7 +77,7 @@ tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
   dump_file = dump_begin (phase, &dump_flags);
 
   /* Initialize internal data structures.  */
-  sbitmap_zero (vars_to_rename);
+  bitmap_clear (vars_to_rename);
 
   addresses_needed = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (addresses_needed);
@@ -194,7 +194,7 @@ find_addressable_vars (sbitmap addresses_needed)
    bitmap.  */
 
 static void
-promote_var (tree var, sbitmap vars_to_rename)
+promote_var (tree var, bitmap vars_to_rename)
 {
   int ix;
   var_ann_t ann = var_ann (var);
@@ -212,7 +212,7 @@ promote_var (tree var, sbitmap vars_to_rename)
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->may_aliases); i++)
 	{
 	  tree alias = VARRAY_TREE (ann->may_aliases, i);
-	  SET_BIT (vars_to_rename, var_ann (alias)->uid);
+	  bitmap_set_bit (vars_to_rename, var_ann (alias)->uid);
 	}
     }
 
@@ -241,7 +241,7 @@ promote_var (tree var, sbitmap vars_to_rename)
 	  if (ix >= 0)
 	    {
 	      remove_element_from (aliases, (size_t) ix);
-	      SET_BIT (vars_to_rename, var_ann (aliased_var)->uid);
+	      bitmap_set_bit (vars_to_rename, var_ann (aliased_var)->uid);
 
 	      /* Completely remove the may-alias array if it's empty.  */
 	      if (VARRAY_ACTIVE_SIZE (aliases) == 0)
@@ -254,7 +254,7 @@ promote_var (tree var, sbitmap vars_to_rename)
     }
 
   /* Add VAR to the list of variables to rename.  */
-  SET_BIT (vars_to_rename, var_ann (var)->uid);
+  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 
   /* Remove VAR from CALL_CLOBBERED_VARS.  */
   ix = find_variable_in (call_clobbered_vars, var);
