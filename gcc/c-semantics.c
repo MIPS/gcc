@@ -729,7 +729,7 @@ genrtl_asm_stmt (cv_qualifier, string, output_operands,
 
   emit_line_note (input_filename, lineno);
   if (asm_input_p)
-    expand_asm (string);
+    expand_asm (string, cv_qualifier != NULL_TREE);
   else
     c_expand_asm_operands (string, output_operands, input_operands, 
 			   clobbers, cv_qualifier != NULL_TREE,
@@ -838,7 +838,8 @@ expand_stmt (t)
 	case GOTO_STMT:
 	  /* Emit information for branch prediction.  */
 	  if (!GOTO_FAKE_P (t)
-	      && TREE_CODE (GOTO_DESTINATION (t)) == LABEL_DECL)
+	      && TREE_CODE (GOTO_DESTINATION (t)) == LABEL_DECL
+	      && flag_guess_branch_prob)
 	    {
 	      rtx note = emit_note (NULL, NOTE_INSN_PREDICTION);
 

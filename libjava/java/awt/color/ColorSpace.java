@@ -46,7 +46,7 @@ import java.io.Serializable;
  * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
  * @since 1.2
  */
-public abstract class ColorSpace
+public abstract class ColorSpace implements Serializable
 {
   /**
    * Compatible with JDK 1.2+.
@@ -131,6 +131,13 @@ public abstract class ColorSpace
     return false;
   }
 
+  /**
+   * Transforms a color value assumed to be in this ColorSpace into a value in
+   * the default CS_sRGB color space.
+   *
+   * @exception ArrayIndexOutOfBoundsException If array length is not at least
+   * the number of components in this ColorSpace.
+   */
   public abstract float[] toRGB(float[] colorvalue);
 
   public abstract float[] fromRGB(float[] rgbvalue);

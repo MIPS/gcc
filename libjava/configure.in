@@ -515,12 +515,16 @@ else
        ia64-*-linux*)
 	 # Has broken backtrace()
 	 ;;
-       s390*-*-linux*)
-	 # Has broken backtrace()
-	 ;;
        *)
          AC_DEFINE(HAVE_BACKTRACE)
 	 ;;
+     esac
+   ], [
+     case "$host" in
+       *mingw*)
+         # Has backtrace() defined in libgcj itself
+         AC_DEFINE(HAVE_BACKTRACE)
+         ;;
      esac
    ])
 
@@ -785,13 +789,26 @@ AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
+AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(CANADIAN, test "$CANADIAN" = yes)
 AM_CONDITIONAL(NULL_TARGET, test "$NULL_TARGET" = yes)
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes || test "$NULL_TARGET" = yes)
-AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
 AC_SUBST(GCC_UNWIND_INCLUDE)
+
+if test -n "$with_cross_host" &&
+   test x"$with_cross_host" != x"no"; then
+  toolexecdir='$(exec_prefix)/$(target_alias)'
+  toolexecmainlibdir='$(toolexecdir)/lib'
+else
+  toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
+  toolexecmainlibdir='$(libdir)'
+fi
+toolexeclibdir=$toolexecmainlibdir/`$CC -print-multi-os-directory`
+AC_SUBST(toolexecdir)
+AC_SUBST(toolexecmainlibdir)
+AC_SUBST(toolexeclibdir)
 
 # Determine gcj version number.
 changequote(<<,>>)
@@ -907,7 +924,7 @@ case "${host}" in
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
  powerpc-*-linux*)
-    SIGNAL_HANDLER=include/dwarf2-signal.h
+    SIGNAL_HANDLER=include/powerpc-signal.h
     ;;
  alpha*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
@@ -916,7 +933,7 @@ case "${host}" in
     SIGNAL_HANDLER=include/s390-signal.h
     ;;
  x86_64*-*-linux*)
-    SIGNAL_HANDLER=include/dwarf2-signal.h
+    SIGNAL_HANDLER=include/x86_64-signal.h
     ;;
  sparc*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
@@ -933,6 +950,15 @@ esac
 if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
 fi
+
+# Define here any compiler flags that you need in order to make backtrace() work.
+BACKTRACESPEC=
+case "${host}" in
+ x86_64*-*-linux*)
+    BACKTRACESPEC=-fno-omit-frame-pointer
+    ;;
+esac
+AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 
@@ -1027,4 +1053,5 @@ CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 libgcj_basedir=${libgcj_basedir}
 CC="${CC}"
 CXX="${CXX}"
+ORIGINAL_LD_FOR_MULTILIBS="${ORIGINAL_LD_FOR_MULTILIBS}"
 )

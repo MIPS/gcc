@@ -109,7 +109,7 @@ fix = {
      * the wrapper, this will follow the #include_next chain until
      * we arrive at the real <asm/posix_types.h>.
      */
-    replace  = <<-  _EOF_
+    replace  = <<-  _EndOfHeader_
 	/* This file fixes a bug in the __FD_ZERO macro
 	   for older versions of the Linux kernel. */
 	#ifndef _POSIX_TYPES_H_WRAPPER
@@ -130,7 +130,7 @@ fix = {
 	
 	#define _POSIX_TYPES_H_WRAPPER
 	#endif /* _POSIX_TYPES_H_WRAPPER */
-	_EOF_;
+	_EndOfHeader_;
 };
 
 
@@ -599,6 +599,22 @@ fix = {
 
 
 /*
+ *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX V5 <sys/stat.h>.
+ */
+fix = {
+    hackname  = alpha___extern_prefix;
+    files     = sys/stat.h;
+    select    = "#[ \t]*if[ \t]*defined\\(__DECC\\)";
+
+    mach      = "alpha*-dec-osf5*";
+    c_fix     = format;
+    c_fix_arg = "%0 || defined(__PRAGMA_EXTERN_PREFIX)";
+
+    test_text = "#   if defined(__DECC)";
+};
+
+
+/*
  *  Fix assert macro in assert.h on Alpha OSF/1.
  *  The superfluous int cast breaks C++.
  */
@@ -726,6 +742,7 @@ fix = {
     test_text = "# define bool\t char \n";
 };
 
+
 fix = {
     hackname = avoid_bool_type;
     files    = curses.h;
@@ -742,21 +759,30 @@ fix = {
     test_text = "typedef unsigned int\tbool \t; /* bool\n type */";
 };
 
+
 /*
  *  For C++, avoid any typedef definition of wchar_t,
  *  and use the built in type instead.
+ *  Don't do this for headers that are smart enough to do the right
+ *  thing (recent [n]curses.h and Xlib.h).
+ *  Don't do it for <linux/nls.h> which is never used from C++ anyway,
+ *  and will be broken by the edit.
  */
 
 fix = {
     hackname = avoid_wchar_t_type;
 
     select    = "^[ \t]*typedef[ \t].*[ \t]wchar_t[ \t]*;";
+    bypass    = "we must use the C\\+\\+ compiler's type";
+    bypass    = "_LINUX_NLS_H";
+    bypass    = "XFree86: xc/lib/X11/Xlib\\.h";
 
     c_fix     = format;
     c_fix_arg = "#ifndef __cplusplus\n%0\n#endif";
 
     test_text = "typedef unsigned short\twchar_t \t; /* wchar_t\n type */";
 };
+
 
 /*
  *  Fix #defines under Alpha OSF/1:
@@ -988,6 +1014,7 @@ fix = {
                 "extern __DJ_wint_t x;\n";
 };
 
+
 /*
  * Fix these Sun OS files to avoid an invalid identifier in an #ifdef.
  */
@@ -1142,6 +1169,69 @@ fix = {
 
 
 /*
+ *  Fix hpux 10.X missing ctype declarations 1
+ */
+fix = {
+    hackname = hpux10_ctype_declarations1;
+    files    = ctype.h;
+    select   = "^#[ \t]*define _toupper\\(__c\\)[ \t]*__toupper\\(__c\\)";
+    bypass   = "^[ \t]*extern[ \t]*int[ \t]*__tolower[ \t]*\\(";
+    c_fix     = format;
+    c_fix_arg = "#ifdef _PROTOTYPES\n"
+		"extern int __tolower(int);\n"
+		"extern int __toupper(int);\n"
+		"#else /* NOT _PROTOTYPES */\n"
+		"extern int __tolower();\n"
+		"extern int __toupper();\n"
+		"#endif /* _PROTOTYPES */\n\n"
+		"%0\n";
+
+    test_text = "#  define _toupper(__c)         __toupper(__c)\n";
+};
+
+
+/*
+ *  Fix hpux 10.X missing ctype declarations 2
+ */
+fix = {
+    hackname = hpux10_ctype_declarations2;
+    files    = ctype.h;
+    select   = "^#  if defined\\(_SB_CTYPE_MACROS\\) && \\!defined\\(__lint\\)";
+    bypass   = "^[ \t]*extern[ \t]*int[ \t]*_isalnum[ \t]*\\(";
+    c_fix     = format;
+    c_fix_arg = "%0\n\n"
+		"#ifdef _PROTOTYPES\n"
+		"     extern int _isalnum(int);\n"
+		"     extern int _isalpha(int);\n"
+		"     extern int _iscntrl(int);\n"
+		"     extern int _isdigit(int);\n"
+		"     extern int _isgraph(int);\n"
+		"     extern int _islower(int);\n"
+		"     extern int _isprint(int);\n"
+		"     extern int _ispunct(int);\n"
+		"     extern int _isspace(int);\n"
+		"     extern int _isupper(int);\n"
+		"     extern int _isxdigit(int);\n"
+		"#  else /* not _PROTOTYPES */\n"
+		"     extern int _isalnum();\n"
+		"     extern int _isalpha();\n"
+		"     extern int _iscntrl();\n"
+		"     extern int _isdigit();\n"
+		"     extern int _isgraph();\n"
+		"     extern int _islower();\n"
+		"     extern int _isprint();\n"
+		"     extern int _ispunct();\n"
+		"     extern int _isspace();\n"
+		"     extern int _isupper();\n"
+		"     extern int _isxdigit();\n"
+		"#endif /* _PROTOTYPES */\n";
+
+    test_text = "#  if defined(_SB_CTYPE_MACROS) && !defined(__lint)\n"
+		"     extern unsigned int *__SB_masks;\n";
+};
+
+
+/*
  *  Make sure hpux defines abs in header.
  */
 fix = {
@@ -1252,6 +1342,43 @@ fix = {
     sed = "s@inline double sqr(double [a-z][a-z]*) {.*}@@";
     test_text = "inline int abs(int v) { return (v>=0)?v:-v; }\n"
                 "inline double sqr(double v) { return v**0.5; }";
+};
+
+
+/*
+ *  Fix hpux broken ctype macros
+ */
+fix = {
+    hackname = hpux_ctype_macros;
+    files    = ctype.h;
+    select   = '((: |\()__SB_masks \? )'
+	       '(__SB_masks\[__(alnum|c)\] & _IS)';
+    c_fix     = format;
+    c_fix_arg = "%1(int)%3";
+
+    test_text = ": __SB_masks ? __SB_masks[__alnum] & _ISCNTRL\n"
+		"# define isalpha(__c) (__SB_masks ? __SB_masks[__c] & _IS\n";
+};
+
+
+/*
+ * HP-UX long_double
+ */
+fix = {
+    hackname  = hpux_long_double;
+    files     = stdlib.h;
+    select    = "extern[ \t]long_double[ \t]strtold";
+    bypass    = "long_double_t";
+    sed       = "/^#[ \t]*ifndef _LONG_DOUBLE/,/\\/\\* _LONG_DOUBLE \\*\\//D";
+    sed       = "s/long_double/long double/g";
+
+    test_text = "#  ifndef _LONG_DOUBLE\n"
+		"#    define _LONG_DOUBLE\n"
+		"     typedef struct {\n"
+		"       unsigned int word1, word2, word3, word4;\n"
+		"     } long_double;\n"
+		"#  endif /* _LONG_DOUBLE */\n"
+		"extern long_double strtold(const char *, char **);\n";
 };
 
 
@@ -1367,6 +1494,24 @@ fix = {
 
 
 /*
+ *  IRIX 6.5.1[89] <internal/sgimacros.h> unconditionally defines
+ *  __restrict as restrict iff __c99.  This is wrong for C++, which
+ *  needs many C99 features, but only supports __restrict.
+ */
+fix = {
+    hackname  = irix___restrict;
+    files     = internal/sgimacros.h;
+    select    = "(#ifdef __c99\n)(#[ \t]*define __restrict restrict)";
+
+    mach      = "mips-sgi-irix6.5";
+    c_fix     = format;
+    c_fix_arg = "%1"
+		"#  ifndef __cplusplus\n%2\n#  endif";
+
+    test_text = "#ifdef __c99\n#  define __restrict restrict";
+};
+
+/*
  *  IRIX 5.2's <sys/asm.h> contains an asm comment with a contraction
  *  that causes the assembly preprocessor to complain about an
  *  unterminated character constant.
@@ -1397,12 +1542,38 @@ fix = {
 
 
 /*
- *  IRIX 5.x's stdio.h declares some functions that take a va_list as
+ *  IRIX 6.5.1[78] <sys/socket.h> has a broken definition of socklen_t.
+ *  Various socket function prototypes use different types instead,
+ *  depending on the API in use (BSD, XPG4/5), but the socklen_t
+ *  definition doesn't reflect this (SGI Bug Id 864477, fixed in
+ *  IRIX 6.5.19).
+ */
+fix = {
+    hackname  = irix_socklen_t;
+    files     = sys/socket.h;
+    select    = "(#define _SOCKLEN_T\n)(typedef u_int32_t socklen_t;)";
+
+    mach      = "mips-sgi-irix6.5";
+    c_fix     = format;
+    c_fix_arg = "%1"
+    		"#if _NO_XOPEN4 && _NO_XOPEN5\n"
+    		"typedef int socklen_t;\n"
+		"#else\n"
+    		"%2\n"
+    		"#endif /* _NO_XOPEN4 && _NO_XOPEN5 */";
+
+    test_text = "#define _SOCKLEN_T\ntypedef u_int32_t socklen_t;";
+};
+
+/*
+ *  IRIX 5.x's stdio.h and IRIX 6.5's internal/stdio_core.h declare
+ *  some functions that take a va_list as
  *  taking char *.  However, GCC uses void * for va_list, so
  *  calling vfprintf with a va_list fails in C++.  */
 fix = {
     hackname  = irix_stdio_va_list;
     files     = stdio.h;
+    files     = internal/stdio_core.h;
 
     select = '(printf\(.*), /\* va_list \*/ char \*';
     c_fix  = format;
@@ -1411,6 +1582,23 @@ fix = {
     "extern int printf( const char *, /* va_list */ char * );";
 };
 
+
+/*
+ *  IRIX 6.5.19 <internal/wchar_core.h> provides the XPG4 variant of
+ *  wcsftime by default.  ISO C99 requires the XPG5 variant instead.
+ */
+fix = {
+    hackname  = irix_wcsftime;
+    files     = internal/wchar_core.h;
+    select    = "#if _NO_XOPEN5\n(extern size_t[ \t]+wcsftime.*const char \*.*)";
+
+    mach      = "mips-sgi-irix6.5";
+    c_fix     = format;
+    c_fix_arg = "#if _NO_XOPEN5 && !defined(__c99)\n%1";
+
+    test_text = "#if _NO_XOPEN5\n"
+		"extern size_t          wcsftime(wchar_t *, __SGI_LIBC_NAMESPACE_QUALIFIER size_t, const char *, const struct tm *);";
+};
 
 /*
  * Fixing ISC fmod declaration
@@ -1538,12 +1726,16 @@ fix = {
  *  comment.  Fortunately, HP/UX already uses #ifndefs in limits.h; if
  *  we find a #ifndef FLT_MIN we assume that all the required #ifndefs
  *  are there, and we do not add them ourselves.
+ *
+ *  QNX Software Systems also guards the defines, but doesn't define
+ *  FLT_MIN.  Therefore, bypass the fix for *either* guarded FLT_MIN
+ *  or guarded FLT_MAX.
  */
 fix = {
     hackname = limits_ifndefs;
     files  = "sys/limits.h";
     files  = "limits.h";
-    bypass = "ifndef[ \t]+FLT_MIN";
+    bypass = "ifndef[ \t]+FLT_(MIN|MAX)";
 
     c_fix     = format;
     c_fix_arg = "#ifndef %1\n%0\n#endif";
@@ -1805,6 +1997,7 @@ fix = {
                 "#define OPEN_MAX  20 /* Max, Max, ... */\n";
 };
 
+
 /*
  *  fix bogus recursive stdlib.h in NEWS-OS 4.0C
  */
@@ -2046,7 +2239,7 @@ fix = {
     "#ifdef __STDC__\n"
     "static int\tstat(const char *__f, struct stat *__p) {\n"
     "\treturn __stat32(__f, __p);\n"
-    "}\n\n#  else /* !__STDC__ */\n"
+    "}\n\n#  else /* !__STDC__ THIS FAILS ON BSD SYSTEMS */\n"
 
     "static int\tstat(__f, __p)\n"
     "\tchar *__f;\n"
@@ -2076,6 +2269,26 @@ fix = {
 
 
 /*
+ *  Sun Solaris 2.5.1, 2.6 defines PTHREAD_{MUTEX|COND}_INITIALIZER
+ *  incorrectly, so we replace them with versions that correspond to
+ *  the definition.  We also explicitly name this fix "1" and the next
+ *  fix "2" because this one does not deal with the last field.  This
+ *  fix needs to run before the next.
+ */
+fix = {
+    hackname = solaris_mutex_init_1;
+    select = '@\(#\)pthread.h' "[ \t]+1.1[0-9][ \t]+9[567]/[0-9/]+ SMI";
+    files = pthread.h;
+    sed   = "/define[ \t]*PTHREAD_MUTEX_INI/s/{0, 0,/{{{0}, 0}, {{{0}}},/\n"
+            "/define[ \t]*PTHREAD_COND_INI/s/{0,/{{{0},0},/";
+    test_text =
+    '#ident "@(#)pthread.h  1.16    97/05/05 SMI"'"\n"
+    "#define PTHREAD_MUTEX_INITIALIZER\t{0, 0, 0}\n"
+    "#define PTHREAD_COND_INITIALIZER\t{0, 0} /* */\n";
+};
+
+
+/*
  * Sun Solaris defines PTHREAD_MUTEX_INITIALIZER with a trailing
  * "0" for the last field of the pthread_mutex_t structure, which is
  * of type upad64_t, which itself is typedef'd to int64_t, but with
@@ -2083,7 +2296,7 @@ fix = {
  * initializer to "{0}" instead
  */
 fix = {
-    hackname = solaris_mutex_init;
+    hackname = solaris_mutex_init_2;
     select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
     files = pthread.h;
     c_fix = format;
@@ -2134,35 +2347,6 @@ fix = {
     c_fix_arg = "%0\n#include <wchar.h>";
     test_text = "#include <euc.h>";
 };
-
-/*
- *  Sony NEWSOS 5.0 does not support the complete ANSI C standard.
- */
-#ifdef SONY
-fix = {
-    hackname = sony_ctype;
-    files    = ctype.h;
-    test     = " -x /bin/sony";
-    test     = " ! -z \"`if /bin/sony ; then echo true ; fi`\"";
-    sed      = "s/__ctype/_ctype/g";
-};
-#endif
-
-
-/*
- *  Sony NEWSOS 5.0 does not support the complete ANSI C standard.
- */
-#ifdef SONY
-fix = {
-    hackname = sony_stdio;
-    files    = stdio.h;
-    test     = " -x /bin/sony";
-    test     = " ! -z \"`if /bin/sony ; then echo true ; fi`\"";
-    sed      = "s/__filbuf/_filbuf/g\n"
-               "s/__flsbuf/_flsbuf/g\n"
-               "s/__iob/_iob/g";
-};
-#endif
 
 
 /*
@@ -2217,13 +2401,18 @@ fix = {
 
 /*
  *  Don't use or define the name va_list in stdio.h.
- *  This is for ANSI and also to interoperate properly with gcc's varargs.h.
- *  Note _BSD_VA_LIST_ is dealt with elsewhere.
+ *  This is for ANSI and also to interoperate properly with gcc's
+ *  varargs.h.  Note _BSD_VA_LIST_ is dealt with elsewhere.  The
+ *  presence of __gnuc_va_list, __DJ_va_list, or _G_va_list is taken
+ *  to indicate that the header knows what it's doing -- under SUSv2,
+ *  stdio.h is required to define va_list, and we shouldn't break that.
  */
 fix = {
     hackname = stdio_va_list;
     files    = stdio.h;
-    bypass   = '__gnuc_va_list|_BSD_VA_LIST_|__DJ_va_list';
+    files    = internal/stdio_core.h;
+    files    = internal/wchar_core.h;
+    bypass   = '__gnuc_va_list|_BSD_VA_LIST_|__DJ_va_list|_G_va_list';
 
     /*
      * Use __gnuc_va_list in arg types in place of va_list.
@@ -2236,6 +2425,8 @@ fix = {
      */
     sed = "s@ va_list @ __gnuc_va_list @\n"
           "s@ va_list)@ __gnuc_va_list)@\n"
+    	  "s@va_list _ap;@__gnuc_va_list _ap;@\n"
+	  "s@(va_list)&@(__gnuc_va_list)\\&@\n"
           "s@ _VA_LIST_));@ __gnuc_va_list));@\n"
           "s@ __VA_LIST__));@ __gnuc_va_list));@\n"
           "s@ va_list@ __not_va_list__@\n"
@@ -2265,6 +2456,9 @@ fix = {
                "|__STDC__[ \t]*-[ \t]*0[ \t]*==[ \t]*0)";
     /* Tru64 UNIX V4.0F/V5.1 <standards.h> supports GCC usage of __STDC__. */
     bypass = 'GNU and MIPS C compilers define __STDC__ differently';
+    /* GNU gmp.h uses "__STDC__ != 1" only if __SCO_VERSION__, which
+       is not defined by GCC, so it is safe.  */
+    bypass = '__SCO_VERSION__.*__STDC__ != 1';
     c_test   = stdc_0_in_system_headers;
 
     c_fix     = format;
@@ -2684,8 +2878,8 @@ fix = {
 fix = {
     hackname = svr4_mach_defines;
     files    = ieeefp.h;
-    select   = "#define[ \t]*__(i386|i860|mips|sparc|m88k|m68k)[ \t]";
-    sed      = "/#define[ \t]*__\\(i386|i860|mips|sparc|m88k|m68k\\)[ \t]/d";
+    select   = "#define[ \t]*__(i386|mips|sparc|m88k|m68k)[ \t]";
+    sed      = "/#define[ \t]*__\\(i386|mips|sparc|m88k|m68k\\)[ \t]/d";
 };
 #endif
 
@@ -3111,7 +3305,7 @@ fix = {
     test_text =
     "@(#)stat.h      6.1     (ULTRIX)\n"
     "#define S_IFPORT S_IFIFO\n"
-    "\tfstat(),\n";
+    "\tfstat(),\n/* THE INSERTION LINE FAILS ON BSD SYSTEMS */";
 };
 
 
@@ -3444,7 +3638,7 @@ fix = {
     sed      = "s/Widget new,/Widget c_new,/g";
     test_text =
     "struct wedge {\n"
-    "   Widget\told, new; /* fix the new */\n"
+    "   Widget\told, new; /* fixinc check FAILS ON BSD */\n"
     "};\nextern Wedged( Widget new, Widget old );";
 };
 

@@ -1,3 +1,132 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Make-lang.in: Replace PWD with PWD_COMMAND.
+	* Makefile.adalib: Likewise.
+	* Makefile.in: Likewise.
+
+2003-05-22   Geert Bosch <bosch@gnat.com>
+
+        PR ada/6399
+	* gnat_rm.texi : Remove reference to Ada Core Technologies.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-04-30  Laurent Guerby <guerby@acm.org>
+
+	PR ada/10546 
+	* 5iosinte.ads: Increase pthread_cond_t size to match recent
+	LinuxThread and NPTL version.
+	
+2003-03-31   Geert Bosch <bosch@gnat.com>
+
+        PR ada/10020
+	* link.c : Fix misspelled "const" keyword
+
+2003-03-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7086
+	* utils2.c: Adjust calls to put_var_into_stack.
+
+2003-03-05  Olivier Hainque  <hainque@gnat.com>
+
+	PR ada/9961
+        * raise.c : (__gnat_Unwind_RaiseException): Add prototype to avoid
+        warning, and fix return type for the IN_RTS && !SJLJ case.
+
+2003-03-04  Olivier Hainque  <hainque@act-europe.fr>
+
+        PR ada/9911
+	* a-except.adb (Unwind_RaiseException): Import a GNAT specific
+	wrapper, which name remains constant whatever underlying GCC
+	scheme.
+
+	* raise.c (__gnat_Unwind_RaiseException): New wrappers, providing
+	the stable interface needed for a-except.
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gnat_rm.texi, gnat_ug.texi: Update to GFDL 1.2.
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2003-01-29  Laurent Guerby <guerby@acm.org>
+
+        PR ada/8344
+        * final.c: rename to adafinal.c to avoid file name conflicts with 
+        gcc file.
+        * Makefile.in: match previous change. 
+        * Make-lang.in: match previous change. 
+
+2003-01-29	Joel Sherrill <joel@OARcorp.com>
+
+	* 5rosinte.ads: Add SIGXCPU.
+	* 5rtpopsp.adb: New file.
+	* Make-lang.in: Do not build gnatpsta and gnatpsys when cross.
+	* Makefile.in: Recognize more RTEMS targets and add the RTEMS
+	specific file 5rtpopsp.adb.
+	* adaint.h: Add include of <stdio.h> when target is RTEMS.  This
+	is likely needed for all newlib targets.
+	* init.c: Add RTEMS specific version of __gnat_initialize().
+
+2003-01-28  Christian Cornelssen <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (ada.install-info): Let $(DESTDIR)$(infodir)
+	be created if necessary.
+	(ada.install-common): Let $(DESTDIR)$(bindir) be created
+	if necessary.  Remove erroneous and redundant gnatchop
+	installation commands.	Test for gnatdll before attempting
+	to install it.
+	(ada.uninstall): Also uninstall gnatfind, gnatxref, gnatlbr,
+	and gnatdll from all plausible locations.
+	(cross-gnattools, ada.install-common): Use initial tab
+	instead of spaces in continuation lines.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (ada.install-info, ada.install-common)
+	(ada.uninstall): Prepend $(DESTDIR) to the destination
+	directory in all (un)installation commands.
+	* Makefile.in (install-gnatlib, install-rts): Ditto.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gnat_rm.texi, gnat_ug.texi: Use @copying.
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gnat_rm.texi: Include gcc-common.texi.  Use GCC version number
+	only.
+	* Make-lang.in ($(srcdir)/ada/gnat_ug_unx.info,
+	$(srcdir)/ada/gnat_ug_vms.info, $(srcdir)/ada/gnat_ug_vxw.info,
+	$(srcdir)/ada/gnat_ug_wnt.info, $(srcdir)/ada/gnat_rm.info,
+	ada/gnat_ug_unx.dvi, ada/gnat_ug_vms.dvi, ada/gnat_ug_vxw.dvi,
+	ada/gnat_ug_wnt.dvi, ada/gnat_rm.dvi): Depend on
+	$(srcdir)/doc/include/gcc-common.texi.
+
 2002-11-18  Nathanael Nerode  <neroden@gcc.gnu.org>
 	* adaint.c (__gnat_tmp_name): Better, but good enough for now,
 	solution to buffer overflow bug on GNU/Linux.	

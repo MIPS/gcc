@@ -33,6 +33,30 @@
 
 #include <bits/basic_file.h>
 #include <fcntl.h>
+#include <unistd.h>
+
+#ifdef _GLIBCPP_HAVE_SYS_IOCTL_H
+#define BSD_COMP /* Get FIONREAD on Solaris2. */
+#include <sys/ioctl.h>
+#endif
+
+// Pick up FIONREAD on Solaris 2.5.
+#ifdef _GLIBCPP_HAVE_SYS_FILIO_H
+#include <sys/filio.h>
+#endif
+
+#ifdef _GLIBCPP_HAVE_POLL
+#include <poll.h>
+#endif
+
+#if defined(_GLIBCPP_HAVE_S_ISREG) || defined(_GLIBCPP_HAVE_S_IFREG)
+# include <sys/stat.h>
+# ifdef _GLIBCPP_HAVE_S_ISREG
+#  define _GLIBCPP_ISREG(x) S_ISREG(x)
+# else
+#  define _GLIBCPP_ISREG(x) (((x) & S_IFMT) == S_IFREG)
+# endif
+#endif
 
 namespace std 
 {
@@ -74,7 +98,7 @@ namespace std
     if (__testi && !__testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "r");
-	__p_mode |=  O_RDONLY | O_NONBLOCK;
+	__p_mode |=  O_RDONLY;
       }
     if (__testi && __testo && !__testt && !__testa)
       {
@@ -150,11 +174,6 @@ namespace std
 	if ((_M_cfile = fopen(__name, __c_mode)))
 	  {
 	    _M_cfile_created = true;
-
-	    // Set input to nonblocking for fifos.
-	    if (__mode & ios_base::in)
-	      fcntl(this->fd(), F_SETFL, O_NONBLOCK);
-
 	    __ret = this;
 	  }
       }
@@ -175,12 +194,12 @@ namespace std
     __basic_file* __retval = static_cast<__basic_file*>(NULL);
     if (this->is_open())
       {
-	fflush(_M_cfile);
-	if ((_M_cfile_created && fclose(_M_cfile) == 0) || !_M_cfile_created)
-	  {
-	    _M_cfile = 0;
-	    __retval = this;
-	  }
+	if (_M_cfile_created)
+	  fclose(_M_cfile);
+	else
+	  fflush(_M_cfile);
+	_M_cfile = 0;
+	__retval = this;
       }
     return __retval;
   }
@@ -197,18 +216,54 @@ namespace std
   __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way, 
 			      ios_base::openmode /*__mode*/)
   { 
-    fseek(_M_cfile, __off, __way); 
-    return ftell(_M_cfile); 
+    if (!fseek(_M_cfile, __off, __way))
+      return ftell(_M_cfile); 
+    else
+      // Fseek failed.
+      return -1L;
   }
 
   streamoff
   __basic_file<char>::seekpos(streamoff __pos, ios_base::openmode /*__mode*/)
   { 
-    fseek(_M_cfile, __pos, ios_base::beg); 
-    return ftell(_M_cfile); 
+    if (!fseek(_M_cfile, __pos, ios_base::beg))
+      return ftell(_M_cfile);
+    else
+      // Fseek failed.
+      return -1L;
   }
   
   int 
   __basic_file<char>::sync() 
   { return fflush(_M_cfile); }
+
+  streamsize
+  __basic_file<char>::showmanyc_helper()
+  {
+#ifdef FIONREAD
+    // Pipes and sockets.    
+    int __num = 0;
+    int __r = ioctl(this->fd(), FIONREAD, &__num);
+    if (!__r && __num >= 0)
+      return __num; 
+#endif    
+
+#ifdef _GLIBCPP_HAVE_POLL
+    // Cheap test.
+    struct pollfd __pfd[1];
+    __pfd[0].fd = this->fd();
+    __pfd[0].events = POLLIN;
+    if (poll(__pfd, 1, 0) <= 0)
+      return 0;
+#endif   
+
+#if defined(_GLIBCPP_HAVE_S_ISREG) || defined(_GLIBCPP_HAVE_S_IFREG)
+    // Regular files.
+    struct stat __buffer;
+    int __ret = fstat(this->fd(), &__buffer);
+    if (!__ret && _GLIBCPP_ISREG(__buffer.st_mode))
+      return __buffer.st_size - ftell(_M_cfile);
+#endif
+    return 0;
+  }
 }  // namespace std

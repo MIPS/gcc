@@ -1,6 +1,6 @@
 ## Makefile for the GNU C++ Support library.
 ##
-## Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+## Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ##
 ## Process this file with automake to produce Makefile.in.
 ##
@@ -47,9 +47,8 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 
 # These bits are all figured out from configure. Look in acinclude.m4
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
-# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
 CONFIG_CXXFLAGS = \
-	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @DEBUG_FLAGS@ 
+	@SECTION_FLAGS@ @EXTRA_CXX_FLAGS@ 
 
 # Warning flags to use.
 WARN_CXXFLAGS = \
@@ -98,7 +97,7 @@ sources = \
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
 
-glibcppinstalldir = @gxx_include_dir@
+glibcppinstalldir = $(gxx_include_dir)
 glibcppinstall_HEADERS = $(headers)
 
 LIBSUPCXX_CXXFLAGS = $(LIBSUPCXX_PICFLAGS)
@@ -128,7 +127,7 @@ dyn-string.o: dyn-string.c
 # LTCOMPILE is copied from LTCXXCOMPILE below.
 LTCOMPILE = $(LIBTOOL) --tag CC --tag disable-shared --mode=compile $(CC) \
 	    $(DEFS) $(GCC_INCLUDES) $(LIBSUPCXX_PICFLAGS) \
-            $(AM_CPPFLAGS) $(CPPFLAGS) 
+            $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
@@ -142,6 +141,9 @@ AM_CXXFLAGS = \
 	$(WARN_CXXFLAGS) \
 	$(OPTIMIZE_CXXFLAGS) \
 	$(CONFIG_CXXFLAGS) 
+
+AM_MAKEFLAGS = \
+	"gxx_include_dir=$(gxx_include_dir)"
 
 # libstdc++ libtool notes
 

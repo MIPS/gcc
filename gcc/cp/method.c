@@ -342,6 +342,8 @@ make_thunk (function, delta, vcall_index)
   DECL_NO_STATIC_CHAIN (thunk) = 1;
   /* The THUNK is not a pending inline, even if the FUNCTION is.  */
   DECL_PENDING_INLINE_P (thunk) = 0;
+  DECL_INLINE (thunk) = 0;
+  DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
   /* Add it to the list of thunks associated with FUNCTION.  */
@@ -439,6 +441,9 @@ use_thunk (thunk_fndecl, emit_p)
       assemble_end_function (thunk_fndecl, fnname);
       current_function_decl = 0;
       cfun = 0;
+      /* Because init_function_start increments this, we must
+	 decrement it.  */
+      immediate_size_expand--;
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
     }
   else
@@ -656,7 +661,7 @@ do_build_assign_ref (fndecl)
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
-      /* Assign to each of thedirect base classes.  */
+      /* Assign to each of the direct base classes.  */
       for (i = 0; i < CLASSTYPE_N_BASECLASSES (current_class_type); ++i)
 	{
 	  tree binfo;

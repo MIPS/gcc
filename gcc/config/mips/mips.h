@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -1048,8 +1048,17 @@ extern int mips_abi;
 %{gstabs:-g} %{gstabs0:-g0} %{gstabs1:-g1} %{gstabs2:-g2} %{gstabs3:-g3} \
 %{gstabs+:-g} %{gstabs+0:-g0} %{gstabs+1:-g1} %{gstabs+2:-g2} %{gstabs+3:-g3} \
 %{gcoff:-g} %{gcoff0:-g0} %{gcoff1:-g1} %{gcoff2:-g2} %{gcoff3:-g3} \
-%{!gdwarf*:-mdebug} %{gdwarf*:-no-mdebug}"
+%(mdebug_asm_spec)"
 #endif
+
+/* Beginning with gas 2.13, -mdebug must be passed to correctly handle COFF
+   and stabs debugging info.  */
+#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GAS) != 0
+/* GAS */
+#define MDEBUG_ASM_SPEC "%{!gdwarf*:-mdebug} %{gdwarf*:-no-mdebug}"
+#else /* not GAS */
+#define MDEBUG_ASM_SPEC ""
+#endif /* not GAS */
 
 /* SUBTARGET_ASM_SPEC is always passed to the assembler.  It may be
    overridden by subtargets.  */
@@ -1178,6 +1187,7 @@ extern int mips_abi;
   { "subtarget_mips_as_asm_spec", SUBTARGET_MIPS_AS_ASM_SPEC }, 	\
   { "subtarget_asm_optimizing_spec", SUBTARGET_ASM_OPTIMIZING_SPEC },	\
   { "subtarget_asm_debugging_spec", SUBTARGET_ASM_DEBUGGING_SPEC },	\
+  { "mdebug_asm_spec", MDEBUG_ASM_SPEC },				\
   { "subtarget_asm_spec", SUBTARGET_ASM_SPEC },				\
   { "asm_abi_default_spec", ASM_ABI_DEFAULT_SPEC },			\
   { "endian_spec", ENDIAN_SPEC },					\
@@ -1487,8 +1497,14 @@ do {							\
    the next available register.  */
 #define FP_INC (TARGET_FLOAT64 || TARGET_SINGLE_FLOAT ? 1 : 2)
 
-/* The largest size of value that can be held in floating-point registers.  */
-#define UNITS_PER_FPVALUE (TARGET_SOFT_FLOAT ? 0 : FP_INC * UNITS_PER_FPREG)
+/* The largest size of value that can be held in floating-point
+   registers and moved with a single instruction.  */
+#define UNITS_PER_HWFPVALUE (TARGET_SOFT_FLOAT ? 0 : FP_INC * UNITS_PER_FPREG)
+
+/* The largest size of value that can be held in floating-point
+   registers.  */
+#define UNITS_PER_FPVALUE \
+  (TARGET_SOFT_FLOAT ? 0 : (LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT))
 
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
@@ -1535,7 +1551,21 @@ do {							\
 /* A C expression for the size in bits of the type `long double' on
    the target machine.  If you don't define this, the default is two
    words.  */
-#define LONG_DOUBLE_TYPE_SIZE 64
+#define LONG_DOUBLE_TYPE_SIZE \
+  (mips_abi == ABI_N32 || mips_abi == ABI_64 ? 128 : 64)
+
+/* long double is not a fixed mode, but the idea is that, if we
+   support long double, we also want a 128-bit integer type.  */
+#define MAX_FIXED_MODE_SIZE LONG_DOUBLE_TYPE_SIZE
+
+#ifdef IN_LIBGCC2
+#if  (defined _ABIN32 && _MIPS_SIM == _ABIN32) \
+  || (defined _ABI64 && _MIPS_SIM == _ABI64)
+#  define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
+# else
+#  define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+# endif
+#endif
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
@@ -1562,7 +1592,7 @@ do {							\
 #define STRUCTURE_SIZE_BOUNDARY 8
 
 /* There is no point aligning anything to a rounder boundary than this.  */
-#define BIGGEST_ALIGNMENT 64
+#define BIGGEST_ALIGNMENT LONG_DOUBLE_TYPE_SIZE
 
 /* Set this nonzero if move instructions will actually fail to work
    when given unaligned data.  */
@@ -2326,8 +2356,8 @@ extern enum reg_class mips_char_to_class[256];
 
 #define CLASS_MAX_NREGS(CLASS, MODE) mips_class_max_nregs (CLASS, MODE)
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) \
-  mips_cannot_change_mode_class (FROM, TO)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+  mips_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2624,7 +2654,9 @@ extern enum reg_class mips_char_to_class[256];
    On the MIPS, R2 R3 and F0 F2 are the only register thus used.
    Currently, R2 and F0 are only implemented  here (C has no complex type)  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == GP_RETURN || (N) == FP_RETURN)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == GP_RETURN || (N) == FP_RETURN \
+  || (LONG_DOUBLE_TYPE_SIZE == 128 && FP_RETURN != GP_RETURN \
+      && (N) == FP_RETURN + 2))
 
 /* 1 if N is a possible register number for function argument passing.
    We have no FP argument registers when soft-float.  When FP registers
@@ -3072,17 +3104,15 @@ typedef struct mips_args {
    assembler would use $at as a temp to load in the large offset.  In this
    case $at is already in use.  We convert such problem addresses to
    `la $5,s;sw $4,70000($5)' via LEGITIMIZE_ADDRESS.  */
-/* ??? SGI Irix 6 assembler fails for CONST address, so reject them
-   when !TARGET_GAS.  */
+/* ??? SGI IRIX 6 N32/N64 assembler fails for CONST address, so reject them
+   when !TARGET_GAS or ABI_32.  */
 /* We should be rejecting everything but const addresses.  */
 #define CONSTANT_ADDRESS_P(X)						\
   (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
     || GET_CODE (X) == CONST_INT || GET_CODE (X) == HIGH		\
     || (GET_CODE (X) == CONST						\
 	&& ! (flag_pic && pic_address_needs_scratch (X))		\
-	&& (TARGET_GAS)							\
-	&& (mips_abi != ABI_N32 					\
-	    && mips_abi != ABI_64)))
+	&& (TARGET_GAS || mips_abi == ABI_32)))
 
 
 /* Define this, so that when PIC, reload won't try to reload invalid
@@ -4663,3 +4693,34 @@ while (0)
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS
+
+#ifndef __mips16
+/* Since the bits of the _init and _fini function is spread across
+   many object files, each potentially with its own GP, we must assume
+   we need to load our GP.  We don't preserve $gp or $ra, since each
+   init/fini chunk is supposed to initialize $gp, and crti/crtn
+   already take care of preserving $ra and, when appropriate, $gp.  */
+#if _MIPS_SIM == _MIPS_SIM_ABI32
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
+   asm (SECTION_OP "\n\
+	.set noreorder\n\
+	bal 1f\n\
+	nop\n\
+1:	.cpload $31\n\
+	.set reorder\n\
+	jal " USER_LABEL_PREFIX #FUNC "\n\
+	" TEXT_SECTION_ASM_OP);
+#endif /* Switch to #elif when we're no longer limited by K&R C.  */
+#if (defined _ABIN32 && _MIPS_SIM == _ABIN32) \
+   || (defined _ABI64 && _MIPS_SIM == _ABI64)
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
+   asm (SECTION_OP "\n\
+	.set noreorder\n\
+	bal 1f\n\
+	nop\n\
+1:	.set reorder\n\
+	.cpsetup $31, $2, 1b\n\
+	jal " USER_LABEL_PREFIX #FUNC "\n\
+	" TEXT_SECTION_ASM_OP);
+#endif
+#endif

@@ -1,3 +1,178 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-03  Richard Stallman  <rms@gnu.org>
+            Eben Moglen  <moglen@columbia.edu>
+
+	* README.SCO: New file.
+
+2003-07-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Alphabetize.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.tpl: Fix typos in the last change.
+	* Makefile.in: Regenerated.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* config-ml.in: Replace PWD with PWD_COMMAND.
+	* Makefile.tpl: Likewise.
+	* Makefile.in: Regenerated.
+
+2003-06-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Don't pass --with-stabs for mips*-sgi-irix6*o32.
+
+2003-06-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS (Write After Approval): Remove Andrew Haley.
+
+2003-05-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config-ml.in: Propagate INSTALL variables.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-04  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Remove duplicate entries in Write After Approval.
+
+2003-05-03  Chris Demetriou  <cgd@broadcom.com>
+
+	Merge from mainline:
+	2003-05-02  Chris Demetriou  <cgd@broadcom.com>
+	* Makefile.tpl: Require "makeinfo" from texinfo 4.2 or later.
+	* Makefile.in: Regenerate.
+
+2003-04-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* Makefile.tpl (MAKEINFOFLAGS): Use --no-split instead of
+	--split-size.
+	* Makefile.in: Regenerate.
+	
+2003-04-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* Makefile.tpl (MAKEINFOFLAGS): Default to --split-size=5000000.
+	* Makefile.in: Regenerate.
+
+2003-04-08  Joel Sherrill  <joel@oarcorp.com>
+
+	* MAINTAINERS: Add my email address.
+
+2003-04-03  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	Backport from mainline.
+
+	2003-03-10  Ben Elliston  <bje@wasabisystems.com>
+
+	* MAINTAINERS: Update my mail address.
+
+2003-03-09  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* configure.in (gxx_include_dir): Fix typo.
+
+2003-02-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* MAINTAINERS: Copy from HEAD.
+
+2003-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* libtool.m4 (LD): Append -melf* option to LD on IRIX with GNU ld.
+	* ltconfig: Handle it.
+	* ltcf-cxx.sh: Use with_gnu_ld passed as a shell variable instead of
+	auto-detecting it.
+
+2003-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ltcf-cxx.sh: Replace $linker_flags with $compiler_flags wherever
+	it is used as argument to $CC.
+	* ltcf-gcj.sh: Likewise.
+
+2003-02-18  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.tpl (check-c++): Allow parallelism.
+
+2003-02-16  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Remove John Carr (who never actually had access to
+	gcc.gnu.org).
+
+2003-02-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* MAINTAINERS: Add myself to write-after-approval list.
+
+2003-02-06  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Remove duplicate entry for Bernd Schmidt from Write
+	After Approval.
+
+2003-01-30  Roger Sayle  <roger@eyesopen.com>
+
+	* config.guess: Updated to 2003-01-30's version.
+	* config.sub: Updated to 2003-01-28's version.
+
+2003-01-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config.if: If gcc_version is already set, just use it.  Don't set
+	gcc_version_trigger if it's already set, otherwise set it to
+	gcc/version.c, but only if the file exists.  If it is not set and
+	gcc/version.c does not exist, try to extract the version number from
+	$CC.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.tpl (BASE_FLAGS_TO_PASS): Also pass DESTDIR.
+	(install-info, dir.info): Prepend $(DESTDIR) to $(infodir).
+	* Makefile.in: Regenerate.
+
+2003-01-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* MAINTAINERS: Move myself from GNATS-only-accounts to
+	write-after-approval.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.def (target_modules) [libffi]: Allow installation.
+
+2002-12-13  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.tpl (check-gcc-c++): Renamed from check-c++.  Don't run
+	library tests.
+	(check-c++): Just depend on it and check-target-libstdc++-v3.
+	* Makefile.in: Regenerate.
+
+2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (configure-target-rda): Depend on $(ALL_GCC_C).
+	* Makefile.in: Rebuilt.
+
+2002-12-25  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config.sub: Import from master repository
+	* config.guess: Ditto
+
 2002-12-13  Jason Merrill  <jason@redhat.com>
 
 	* Makefile.in (check-gcc-c++): Renamed from check-c++.  Don't run

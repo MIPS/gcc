@@ -1,3 +1,63 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-07-08  Andreas Schwab  <schwab@suse.de>
+
+	* Make-lang.in (treelang.check.fix): Replace one leftover PWD
+	with PWD_COMMAND.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Make-lang.in: Replace PWD with PWD_COMMAND.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-03-02  Matthias Klose  <doko@debian.org>
+
+	* Make-lang.in (treelang.install-info): Install all info
+	files in $(infodir).
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* treelang.texi: Update to GFDL 1.2.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (treelang.install.common.done)
+	(treelang.install-info, treelang.uninstall): Prepend
+	$(DESTDIR) to destination paths in all (un)installation
+	commands.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* treelang.texi: Use @copying.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* treelang.texi: Include gcc-common.texi.
+	* Make-lang.in ($(srcdir)/treelang/treelang.info, treelang.dvi):
+	Depend on gcc-common.texi.  Add other missing dependencies.
+	(treelang.dvi): Use texi2dvi.
+
+2002-12-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* treelang.texi: Use @ifnottex instead of @ifinfo.
+
 2002-09-09  Tim Josling  <tej@melbpc.org.au>
 
 	* treetree.c (objc_is_id): New.
