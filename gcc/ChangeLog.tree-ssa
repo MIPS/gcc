@@ -1,3 +1,12 @@
+2003-05-20  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (make_loop_expr_blocks): Do not accept next_block_link
+	as an argument, make it a local variable.  Callers changed.
+ 
+	* tree-cfg.c (remove_useless_stmts_and_empty_vars): Eliminate
+	GOTO_EXPRs which jump to the next statement occuring in an
+	outer control/block structure nest.
+
 2003-05-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (set_rhs): Fix typo in handling of

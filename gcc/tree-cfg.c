@@ -82,7 +82,7 @@ static void make_cond_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static void make_catch_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static void make_eh_filter_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static void make_try_expr_blocks	PARAMS ((tree *, tree, basic_block));
-static void make_loop_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static void make_loop_expr_blocks	PARAMS ((tree *, basic_block));
 static void make_switch_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static basic_block make_bind_expr_blocks PARAMS ((tree *, tree, basic_block,
 						  tree));
@@ -325,7 +325,7 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
       append_stmt_to_bb (stmt_p, bb, parent_stmt);
 
       if (code == LOOP_EXPR)
-	make_loop_expr_blocks (stmt_p, next_block_link, bb);
+	make_loop_expr_blocks (stmt_p, bb);
       else if (code == COND_EXPR)
 	make_cond_expr_blocks (stmt_p, next_block_link, bb);
       else if (code == SWITCH_EXPR)
@@ -431,13 +431,13 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
    ENTRY is the block whose last statement is *LOOP_P.  */
 
 static void
-make_loop_expr_blocks (loop_p, next_block_link, entry)
+make_loop_expr_blocks (loop_p, entry)
      tree *loop_p;
-     tree next_block_link;
      basic_block entry;
 {
   tree_stmt_iterator si;
   tree loop = *loop_p;
+  tree next_block_link;
   
   entry->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
 
@@ -1534,11 +1534,13 @@ remove_useless_stmts_and_vars (first_p)
 	{
 	  tree_stmt_iterator tsi = i;
 
-	  /* We can remove a GOTO_EXPR if the next tree statement is
-	     the destination of the GOTO_EXPR.  */
+	  /* Step past the GOTO_EXPR statement.  */
 	  tsi_next (&tsi);
 	  if (! tsi_end_p (tsi))
 	    {
+	      /* If we are not at the end of this tree, then see if
+		 we are at the target label.  If so, then this jump
+		 is not needed.  */
 	      tree label;
 
 	      label = tsi_stmt (tsi);
@@ -1548,6 +1550,31 @@ remove_useless_stmts_and_vars (first_p)
 		  repeat = 1;
 		  *stmt_p = build_empty_stmt ();
 		}
+	    }
+	  else
+	    {
+	      /* We are at the end of this tree, we may still have
+		 an unnecessary GOTO_EXPR if NEXT_BLOCK_LINK
+		 points to the target label.  */
+	      tree next_block_link = NEXT_BLOCK_LINK (*stmt_p);
+
+	      if (next_block_link)
+		{
+		  tree next_stmt;
+
+		  /* Get the statement at NEXT_BLOCK_LINK and see if it
+		     is our target label.  */
+		  next_stmt = tsi_stmt (tsi_start (&next_block_link));
+		  if (next_stmt
+		      && TREE_CODE (next_stmt) == LABEL_EXPR
+		      && (LABEL_EXPR_LABEL (next_stmt)
+			  == GOTO_DESTINATION (*stmt_p)))
+		    {
+		      repeat = 1;
+		      *stmt_p = build_empty_stmt ();
+		    }
+		}
+	      
 	    }
 	}
 
