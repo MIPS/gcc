@@ -166,14 +166,10 @@ static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
 
 static tree simplify_builtin_memcmp (tree);
-static tree simplify_builtin_strcmp (tree);
 static tree simplify_builtin_strpbrk (tree);
 static tree simplify_builtin_strstr (tree);
 static tree simplify_builtin_strchr (tree);
 static tree simplify_builtin_strrchr (tree);
-static tree simplify_builtin_strcpy (tree);
-static tree simplify_builtin_strncpy (tree);
-static tree simplify_builtin_strncmp (tree);
 static tree simplify_builtin_strcat (tree);
 static tree simplify_builtin_strncat (tree);
 static tree simplify_builtin_strspn (tree);
@@ -7163,16 +7159,16 @@ simplify_builtin (tree exp, int ignore)
       val = simplify_builtin_strrchr (arglist);
       break;
     case BUILT_IN_STRCPY:
-      val = simplify_builtin_strcpy (arglist);
+      val = simplify_builtin_strcpy (arglist, NULL_TREE);
       break;
     case BUILT_IN_STRNCPY:
-      val = simplify_builtin_strncpy (arglist);
+      val = simplify_builtin_strncpy (arglist, NULL_TREE);
       break;
     case BUILT_IN_STRCMP:
-      val = simplify_builtin_strcmp (arglist);
+      val = simplify_builtin_strcmp (arglist, NULL_TREE, NULL_TREE);
       break;
     case BUILT_IN_STRNCMP:
-      val = simplify_builtin_strncmp (arglist);
+      val = simplify_builtin_strncmp (arglist, NULL_TREE, NULL_TREE);
       break;
     case BUILT_IN_STRPBRK:
       val = simplify_builtin_strpbrk (arglist);
@@ -7477,10 +7473,10 @@ simplify_builtin_strpbrk (tree arglist)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-static tree
-simplify_builtin_strcpy (tree arglist)
+tree
+simplify_builtin_strcpy (tree arglist, tree len)
 {
-  tree fn, len;
+  tree fn;
 
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -7489,9 +7485,12 @@ simplify_builtin_strcpy (tree arglist)
   if (!fn)
     return 0;
 
-  len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 1);
-  if (len == 0)
-    return 0;
+  if (!len)
+    {
+      len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 1);
+      if (!len)
+	return 0;
+    }
 
   len = size_binop (PLUS_EXPR, len, ssize_int (1));
   chainon (arglist, build_tree_list (NULL_TREE, len));
@@ -7515,15 +7514,14 @@ simplify_builtin_strcpy (tree arglist)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-static tree
-simplify_builtin_strncpy (tree arglist)
+tree
+simplify_builtin_strncpy (tree arglist, tree slen)
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
   else
     {
-      tree slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 0);
       tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
       tree fn;
 
@@ -7541,6 +7539,9 @@ simplify_builtin_strncpy (tree arglist)
 			TREE_VALUE (arglist));
 	}
 
+      if (!slen)
+        slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 0);
+
       /* Now, we must be passed a constant src ptr parameter.  */
       if (slen == 0 || TREE_CODE (slen) != INTEGER_CST)
 	return 0;
@@ -7549,6 +7550,7 @@ simplify_builtin_strncpy (tree arglist)
 
       /* We do not support simplification of this case, though we do
          support it when expanding trees into RTL.  */
+      /* FIXME: generate a call to __builtin_memset.  */
       if (tree_int_cst_lt (slen, len))
 	return 0;
 
@@ -7654,10 +7656,10 @@ simplify_builtin_memcmp (tree arglist)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-static tree
-simplify_builtin_strcmp (tree arglist)
+tree
+simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
 {
-  tree arg1, arg2, len, len2, fn;
+  tree arg1, arg2, fn;
   const char *p1, *p2;
 
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
@@ -7694,12 +7696,13 @@ simplify_builtin_strcmp (tree arglist)
       return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
-  len = c_strlen (arg1, 0);
-  len2 = c_strlen (arg2, 0);
+  if (!len1)
+    len1 = c_strlen (arg1, 0);
+  if (len1)
+    len1 = size_binop (PLUS_EXPR, ssize_int (1), len1);
 
-  if (len)
-    len = size_binop (PLUS_EXPR, ssize_int (1), len);
-
+  if (!len2)
+    len2 = c_strlen (arg2, 0);
   if (len2)
     len2 = size_binop (PLUS_EXPR, ssize_int (1), len2);
 
@@ -7715,26 +7718,26 @@ simplify_builtin_strcmp (tree arglist)
      add some code to the `memcmp' handler below to deal with such
      situations, someday.  */
 
-  if (!len || TREE_CODE (len) != INTEGER_CST)
+  if (!len1 || TREE_CODE (len1) != INTEGER_CST)
     {
       if (len2 && !TREE_SIDE_EFFECTS (len2))
-	len = len2;
-      else if (len == 0)
+	len1 = len2;
+      else if (len1 == 0)
 	return 0;
     }
   else if (len2 && TREE_CODE (len2) == INTEGER_CST
-	   && tree_int_cst_lt (len2, len))
-    len = len2;
+	   && tree_int_cst_lt (len2, len1))
+    len2 = len2;
 
   /* If both arguments have side effects, we cannot optimize.  */
-  if (TREE_SIDE_EFFECTS (len))
+  if (TREE_SIDE_EFFECTS (len1))
     return 0;
 
   fn = implicit_built_in_decls[BUILT_IN_MEMCMP];
   if (!fn)
     return 0;
 
-  chainon (arglist, build_tree_list (NULL_TREE, len));
+  chainon (arglist, build_tree_list (NULL_TREE, len1));
   return build_function_call_expr (fn, arglist);
 }
 
@@ -7755,8 +7758,8 @@ simplify_builtin_strcmp (tree arglist)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-static tree
-simplify_builtin_strncmp (tree arglist)
+tree
+simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
 {
   tree fn, newarglist, len = 0;
   tree arg1, arg2, arg3;
@@ -7819,9 +7822,9 @@ simplify_builtin_strncmp (tree arglist)
   /* Perhaps one of the strings is really constant, if so prefer
      that constant length over the other string's length.  */
   if (p1)
-    len = c_strlen (arg1, 0);
+    len = len1 ? len1 : c_strlen (arg1, 0);
   else if (p2)
-    len = c_strlen (arg2, 0);
+    len = len2 ? len2 : c_strlen (arg2, 0);
 
   /* If we still don't have a len, try either string arg as long
      as they don't have side effects.  */

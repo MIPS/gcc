@@ -110,5 +110,7 @@ extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
 extern struct tree_opt_pass pass_lower_complex;
+extern struct tree_opt_pass pass_fold_builtins;
+
 
 #endif /* GCC_TREE_PASS_H */

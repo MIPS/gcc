@@ -2091,10 +2091,11 @@ get_default_value (tree var)
 static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
-  tree result;
-  tree arglist = TREE_OPERAND (fn, 1);
+  tree result, strlen_val[2];
+  tree arglist = TREE_OPERAND (fn, 1), a;
   tree callee = get_callee_fndecl (fn);
   bitmap visited;
+  int strlen_arg, i;
 
   /* Ignore MD builtins.  */
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
@@ -2106,46 +2107,73 @@ ccp_fold_builtin (tree stmt, tree fn)
   if (result)
     return result;
 
-  /* If the builtin could not be folded, and it has no argument list, we're
-     done.  */
+  /* If the builtin could not be folded, and it has no argument list,
+     we're done.  */
   if (!arglist)
     return NULL_TREE;
+
   /* Limit the work only for builtins we know how to simplify.  */
   switch (DECL_FUNCTION_CODE (callee))
     {
-      case BUILT_IN_STRLEN:
-      case BUILT_IN_FPUTS:
-      case BUILT_IN_FPUTS_UNLOCKED:
-	break;
-      default:
-	return NULL_TREE;
+    case BUILT_IN_STRLEN:
+    case BUILT_IN_FPUTS:
+    case BUILT_IN_FPUTS_UNLOCKED:
+      strlen_arg = 1;
+      break;
+    case BUILT_IN_STRCPY:
+    case BUILT_IN_STRNCPY:
+      strlen_arg = 2;
+      break;
+    case BUILT_IN_STRCMP:
+    case BUILT_IN_STRNCMP:
+      strlen_arg = 3;
+    default:
+      return NULL_TREE;
     }
 
-  /* Otherwise, try to use the dataflow information gathered by the CCP
-     process.  */
+  /* Try to use the dataflow information gathered by the CCP process.  */
   visited = BITMAP_XMALLOC ();
-  if (!get_strlen (TREE_VALUE (arglist), &result, visited))
-    result = NULL_TREE;
+
+  memset (strlen_val, 0, sizeof (strlen_val));
+  for (i = 0, a = arglist;
+       strlen_arg;
+       i++, strlen_arg >>= 1, a = TREE_CHAIN (a))
+    if (strlen_arg & 1)
+      {
+	bitmap_clear (visited);
+	if (!get_strlen (TREE_VALUE (a), &strlen_val[i], visited))
+	  strlen_val[i] = NULL_TREE;
+      }
+
   BITMAP_XFREE (visited);
 
   switch (DECL_FUNCTION_CODE (callee))
     {
-      case BUILT_IN_STRLEN:
-	return result;
+    case BUILT_IN_STRLEN:
+      /* Convert from the internal "sizetype" type to "size_t".  */
+      if (strlen_val[0] && size_type_node)
+	return convert (size_type_node, strlen_val[0]);
+      return strlen_val[0];
+    case BUILT_IN_STRCPY:
+      return simplify_builtin_strcpy (arglist, strlen_val[1]);
+    case BUILT_IN_STRNCPY:
+      return simplify_builtin_strncpy (arglist, strlen_val[1]);
+    case BUILT_IN_STRCMP:
+      return simplify_builtin_strcmp (arglist, strlen_val[0], strlen_val[1]);
+    case BUILT_IN_STRNCMP:
+      return simplify_builtin_strncmp (arglist, strlen_val[0], strlen_val[1]);
+    case BUILT_IN_FPUTS:
+      return simplify_builtin_fputs (arglist,
+				     TREE_CODE (stmt) != MODIFY_EXPR, 0,
+				     strlen_val[0]);
+    case BUILT_IN_FPUTS_UNLOCKED:
+      return simplify_builtin_fputs (arglist,
+				     TREE_CODE (stmt) != MODIFY_EXPR, 1,
+				     strlen_val[0]);
 
-      case BUILT_IN_FPUTS:
-	return simplify_builtin_fputs (arglist,
-				       TREE_CODE (stmt) != MODIFY_EXPR, 0,
-				       result);
-      case BUILT_IN_FPUTS_UNLOCKED:
-	return simplify_builtin_fputs (arglist,
-				       TREE_CODE (stmt) != MODIFY_EXPR, 1,
-				       result);
-
-      default:
-	break;
+    default:
+      abort ();
     }
-
 
   return NULL_TREE;
 }
@@ -2167,11 +2195,7 @@ get_strlen (tree arg, tree *length, bitmap visited)
       if (!val)
 	return false;
 
-      /* Convert from the internal "sizetype" type to "size_t".  */
-      if (size_type_node)
-	val = convert (size_type_node, val);
-      if (*length
-	  && simple_cst_equal (val, *length) != 1)
+      if (*length && simple_cst_equal (val, *length) != 1)
 	return false;
 
       *length = val;
@@ -2204,11 +2228,7 @@ get_strlen (tree arg, tree *length, bitmap visited)
 	  len = c_strlen (rhs, 1);
 	  if (len)
 	    {
-	      /* Convert from the internal "sizetype" type to "size_t".  */
-	      if (size_type_node)
-		len = convert (size_type_node, len);
-	      if (*length
-		  && simple_cst_equal (len, *length) != 1)
+	      if (*length && simple_cst_equal (len, *length) != 1)
 		return false;
 
 	      *length = len;
@@ -2251,5 +2271,68 @@ get_strlen (tree arg, tree *length, bitmap visited)
 
   return false;
 }
+
+
+/* A simple pass that attempts to fold all builtin functions.  This pass
+   is run after we've propagated as many constants as we can.  */
+
+static void
+execute_fold_all_builtins (void)
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	{
+	  tree *stmtp = bsi_stmt_ptr (i);
+	  tree call = get_rhs (*stmtp);
+	  tree callee, result;
+
+	  if (!call || TREE_CODE (call) != CALL_EXPR)
+	    continue;
+	  callee = get_callee_fndecl (call);
+	  if (!callee || !DECL_BUILT_IN (callee))
+	    continue;
+
+	  result = ccp_fold_builtin (*stmtp, call);
+	  if (!result)
+	    continue;
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "Simplified\n  ");
+	      print_generic_stmt (tree_dump_file, *stmtp, 0);
+	    }
+
+	  set_rhs (stmtp, result);
+	  modify_stmt (*stmtp);
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "to\n  ");
+	      print_generic_stmt (tree_dump_file, *stmtp, 0);
+	      fprintf (tree_dump_file, "\n");
+	    }
+	}
+    }
+}
+
+struct tree_opt_pass pass_fold_builtins = 
+{
+  "fab",				/* name */
+  NULL,					/* gate */
+  execute_fold_all_builtins,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
 
 #include "gt-tree-ssa-ccp.h"

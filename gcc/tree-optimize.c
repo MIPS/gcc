@@ -292,6 +292,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_pre);
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_dce));
