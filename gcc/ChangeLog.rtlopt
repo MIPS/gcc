@@ -1,3 +1,9 @@
+Thu Jan  2 20:41:23 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (*mul*): FIx constraints; remove confused comment; fix
+	athlon_decode attributes
+	(imul/k8 optimization peep2s): New.
+
 Thu Jan  2 20:18:46 CET 2003  Josef Zlomek <zlomekj@suse.cz>
 
 	* bb-reorder.c (copy_bb_p): Parameter code_may_grow was added.
