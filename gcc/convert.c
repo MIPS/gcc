@@ -133,12 +133,12 @@ convert_to_real (type, expr)
       /* Be curefull about integer to fp conversions.
 	 These may overflow still.  */
       if (FLOAT_TYPE_P (TREE_TYPE (arg0))
-	  && TYPE_PRECISION (newtype) <= TYPE_PRECISION (itype)
+	  && TYPE_PRECISION (newtype) < TYPE_PRECISION (itype)
 	  && (TYPE_MODE (newtype) == TYPE_MODE (double_type_node)
 	      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
 	{
 	  tree arglist;
-	  tree fn = mathfn_built_in (type, fcode);
+	  tree fn = mathfn_built_in (newtype, fcode);
 
 	  if (fn)
 	    {
@@ -154,41 +154,28 @@ convert_to_real (type, expr)
 	   || fcode == BUILT_IN_CEILL
 	   || fcode == BUILT_IN_ROUND
 	   || fcode == BUILT_IN_TRUNC
-	   || fcode == BUILT_IN_NEARBYINT)
+	   || fcode == BUILT_IN_NEARBYINT
+	   || fcode == BUILT_IN_FABS)
 	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
 	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
 	  || ((fcode == BUILT_IN_FLOOR
 	       || fcode == BUILT_IN_CEIL
 	       || fcode == BUILT_IN_ROUND
 	       || fcode == BUILT_IN_TRUNC
-	       || fcode == BUILT_IN_NEARBYINT)
+	       || fcode == BUILT_IN_NEARBYINT
+	       || fcode == BUILT_IN_FABSL)
 	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
     {
       tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
       tree newtype = type;
-
-      /* We have (outertype)sqrt((innertype)x).  Choose the smaller mode from
-	 the both as the safe type for operation.  */
-      if (TYPE_PRECISION (TREE_TYPE (arg0)) < TYPE_PRECISION (type) && 0)
-	newtype = TREE_TYPE (arg0);
-
-      /* Be curefull about integer to fp conversions.
-	 These may overflow still.  */
-      if (FLOAT_TYPE_P (TREE_TYPE (arg0))
-	  && TYPE_PRECISION (newtype) <= TYPE_PRECISION (itype)
-	  && (TYPE_MODE (newtype) == TYPE_MODE (double_type_node)
-	      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
+      tree arglist;
+      tree fn = mathfn_built_in (type, fcode);
+      if (fn)
 	{
-	  tree arglist;
-	  tree fn = mathfn_built_in (type, fcode);
-
-	  if (fn)
-	    {
-	      arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
-	      expr = build_function_call_expr (fn, arglist);
-	      if (newtype == type)
-		return expr;
-	    }
+	  arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
+	  expr = build_function_call_expr (fn, arglist);
+	  if (newtype == type)
+	    return expr;
 	}
     }
 

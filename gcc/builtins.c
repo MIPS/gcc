@@ -4421,6 +4421,32 @@ fold_builtin_nan (arglist, type, quiet)
 
   return build_real (type, real);
 }
+static tree
+fold_trunc_transparent_mathfn (exp)
+     tree exp;
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+
+  if (optimize && validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    {
+      tree arg0 = strip_float_extensions (TREE_VALUE (arglist));
+      tree ftype = TREE_TYPE (exp);
+      tree newtype = TREE_TYPE (arg0);
+      tree decl;
+
+      if (TYPE_PRECISION (newtype) < TYPE_PRECISION (ftype)
+	  && (decl = mathfn_built_in (newtype, fcode)))
+	{
+	  arglist =
+	    build_tree_list (NULL_TREE, fold (convert (newtype, arg0)));
+	  return convert (ftype,
+			  build_function_call_expr (decl, arglist));
+	}
+    }
+  return 0;
+}
 
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
@@ -4576,6 +4602,23 @@ fold_builtin (exp)
     case BUILT_IN_NANSF:
     case BUILT_IN_NANSL:
       return fold_builtin_nan (arglist, TREE_TYPE (TREE_TYPE (fndecl)), false);
+
+    case BUILT_IN_FLOOR:
+    case BUILT_IN_FLOORF:
+    case BUILT_IN_FLOORL:
+    case BUILT_IN_CEIL:
+    case BUILT_IN_CEILF:
+    case BUILT_IN_CEILL:
+    case BUILT_IN_TRUNC:
+    case BUILT_IN_TRUNCF:
+    case BUILT_IN_TRUNCL:
+    case BUILT_IN_ROUND:
+    case BUILT_IN_ROUNDF:
+    case BUILT_IN_ROUNDL:
+    case BUILT_IN_NEARBYINT:
+    case BUILT_IN_NEARBYINTF:
+    case BUILT_IN_NEARBYINTL:
+      return fold_trunc_transparent_mathfn (exp);
 
     default:
       break;

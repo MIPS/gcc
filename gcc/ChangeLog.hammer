@@ -1,3 +1,9 @@
+Sat Jan 11 12:21:45 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (fold_trunc_transparent_mathfn): New static function
+	(fold_builtin): Fold floor/trunc/round/ceil/nearbyint.
+	* convert.c (convert_to_real): Fix.
+
 Thu Jan  9 14:17:47 CET 2003  Josef Zlomek <zlomekj@suse.cz>
 
 	Merge from rtlopt branch:
