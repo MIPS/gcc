@@ -1,3 +1,162 @@
+2004-06-07  Dan Kegel  <dank@kegel.com>
+
+	PR c++/14808
+	* method.c (make_alias_for_thunk, use_thunk): Use TARGET_IS_PE_COFF
+	instead of __CYWGIN__ and __MINGW32__.
+
+2004-06-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15815
+	* lex.c (handle_pragma_interface): Deprecate.
+	(handle_pragma_implementation): Likewise.
+
+	PR c++/15766
+	* parser.c (cp_parser_iteration_statement): Fix typo in error
+	message.
+
+	PR c++/14777
+	* pt.c (tsubst_default_argument): Do not defer access checks
+	while substituting into the default argument.
+
+	PR c++/15554
+	* pt.c (tsubst_copy): Do not try to substitute for an enumeration
+	constant in a non-dependent context. 
+	
+	PR c++/15057
+	* except.c (build_throw): Ensure that temp_expr has been
+	initialized.
+
+2004-06-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15503
+	* parser.c (cp_parser_mem_initializer_id): Gracefully reject
+	'typename', and accept 'template'.
+
+2004-06-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/15142
+	* call.c (call_builtin_trap): Remove type parm.
+	(convert_arg_to_ellipsis): Change a non-POD argument to integer type.
+	(build_x_va_arg): Dereference a null pointer for a non-POD argument.
+
+2004-06-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* init.c (build_offset_ref): Build SCOPE_REF with non-null
+	TREE_TYPE for non-dependent names.
+	* pt.c (type_dependent_expression_p): Handle SCOPE_REF with
+	unknown_type_node as its TREE_TYPE.
+	* cxx-pretty_print.c (pp_cxx_unqualified_id): Handle BASELINK.
+	* error.c (dump_decl) <SCOPE_REF case>: Use pp_expression.
+	(dump_expr) <SCOPE_REF case>: Likewise.
+
+2004-06-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14932
+	* parser.c (cp_parser_postfix_expression): Allow subscript
+	operator in offsetof.
+
+2004-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15701
+	* friend.c (add_friend): Do not try to perform access checks for
+	functions from dependent classes.
+
+	PR c++/15742
+	* call.c (build_over_call): Set
+	current_function_returns_abnormally even in template functions.
+
+	PR c++/15696
+	* cp-tree.h (invalid_nonstatic_memfn_p): New function.
+	* cvt.c (convert_to_void): Use it.
+	* typeck.c (invalid_nonstatic_memfn_p): New function.
+	(decay_conversion): Use it.
+
+	PR c++/15625
+	* pt.c (tsubst_decl): Set DECL_FRIEND_CONTEXT for instantiated
+	templates.
+
+	PR c++/15629
+	* name-lookup.c (arg_assoc_class): Do not find template
+	specializations.
+
+	PR c++/15209
+	* tree.c (lvalue_p_1): Only consider the right-hand side of "."
+	expressions when determining whether or not an express is packed.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15083
+	* decl2.c (delete_sanity): Set TREE_SIDE_EFFECTS on a DELETE_EXPR,
+	even in a templat.e
+	* init.c (build_new): Likewise.
+
+	PR c++/15640
+	* name-lookup.c (arg_assoc): Robustify.
+
+	PR c++/15471
+	* typeck.c (unary_complex_lvalue): Use context_for_name_lookup
+	when determining the scope to use for a pointer to member.
+	(lookup_anon_field): Give it external linkage.
+	* cp-tree.h (lookup_anon_field): Declare it.
+	* expr.c (cplus_expand_constant): Use it.
+
+	PR c++/14668
+	* parser.c (cp_parser_simple_type_specifier): Call
+	maybe_note_name_used_in_class.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15044
+	* parser.c (cp_parser_class_head): Robustify.
+
+	PR c++/15317
+	* parser.c (cp_parser_decl_specifier_seq): Correct error in
+	comment.
+	(cp_parser_constructor_declarator_p): Treat attributes
+	as decl-specifiers.
+
+	PR c++/15329
+	* typeck.c (build_unary_op): Do not attempt to resolve casts to
+	base classes in templates.
+
+	PR c++/15165
+	* pt.c (instantiate_template): Robustify.
+
+	PR c++/15025
+	* decl.c (xref_tag): Issue errors about redeclaring template
+	classes as non-template classes.
+
+	PR c++/14821
+	* name-lookup.c (supplement_binding): Allow redefinitions of
+	namespace aliases.
+
+	PR c++/14883
+	* parser.c (cp_parser_template_argument): Robustify.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15285
+	PR c++/15299
+	* pt.c (build_non_dependent_expr): Expand the set of tree nodes
+	recognized as overloaded functions.
+
+	PR c++/15507
+	* class.c (layout_nonempty_base_or_field): Do not try to avoid
+	layout conflicts for unions.
+
+	PR c++/15542
+	* typeck.c (build_x_unary_op): Instantiate template class
+	specializations before looking for "operator &".
+
+	PR c++/15427
+	* typeck.c (complete_type): Layout non-dependent array types, even
+	in templates.
+
+	PR c++/15287
+	* typeck.c (build_unary_op): Do not optimize "&x[y]" when in a
+	template.
+
 2004-04-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/15064

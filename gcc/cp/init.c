@@ -1378,7 +1378,7 @@ build_offset_ref (tree type, tree name, bool address_p)
   if (TREE_CODE (name) == TEMPLATE_DECL)
     return name;
 
-  if (processing_template_decl || uses_template_parms (type))
+  if (dependent_type_p (type) || type_dependent_expression_p (name))
     return build_min_nt (SCOPE_REF, type, name);
 
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
@@ -1458,6 +1458,14 @@ build_offset_ref (tree type, tree name, bool address_p)
     {
       error ("`%D' is not a member of type `%T'", name, type);
       return error_mark_node;
+    }
+
+  if (processing_template_decl)
+    {
+      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
+	return build_min (SCOPE_REF, TREE_TYPE (member), type, orig_name);
+      else
+	return build_min (SCOPE_REF, TREE_TYPE (member), type, name);
     }
 
   if (TREE_CODE (member) == TYPE_DECL)
@@ -1797,6 +1805,7 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
       rval = build_min (NEW_EXPR, build_pointer_type (type), 
 			placement, t, init);
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
+      TREE_SIDE_EFFECTS (rval) = 1;
       return rval;
     }
 

@@ -66,7 +66,8 @@
 #       poisoning			empoisonnement
 # msgid "poisoning existing macro \"%s\""
 # msgstr "empoisonnement de la macro existente « %s »"
-# MR 9-jan 2004: poisoning etc... transformé par corruption corrompu etc..
+# MR  9-jan 2004: poisoning etc... transformé par corruption corrompu etc..
+# MR 24-mai 2004: poison etc...suite au msg concernant le #pragma once et #pragma poison 
 #
 # Autres règles:
 # 	- j'ai ajouté un adjectif par rapport à l'anglais si le message est
@@ -81,7 +82,7 @@
 #   - s/en-ligne/enligne/  modifié 18-février-2004 MR pcq expression ou terme enlignage vs inlining
 #   - hors gamme  a été changé pour hors limite ...MR 09-jan-2004
 #   - literal
-#   - chaine de format => formatage
+#   - chaîne de format => formatage
 #   - scope
 #   - supporté est un faux ami
 #
@@ -118,7 +119,7 @@ msgstr ""
 "Project-Id-Version: GNU gcc 3.4.0\n"
 "Report-Msgid-Bugs-To: http://gcc.gnu.org/bugs.html\n"
 "POT-Creation-Date: 2004-04-18 18:00-0700\n"
-"PO-Revision-Date: 2004-05-15 12:00-0500\n"
+"PO-Revision-Date: 2004-05-24 20:00-0500\n"
 "Last-Translator: Michel Robitaille <robitail@IRO.UMontreal.CA>\n"
 "Language-Team: French <traduc@traduc.org>\n"
 "MIME-Version: 1.0\n"
@@ -3018,15 +3019,15 @@ msgstr "tentative pour prendre l'adresse du membre « %s » d'une structure de cha
 
 #: c-typeck.c:2642
 msgid "use of conditional expressions as lvalues is deprecated"
-msgstr "utilisation d'expressions conditionnelles comme lvalues est déprécié"
+msgstr "utilisation d'expressions conditionnelles comme lvalues est obsolète"
 
 #: c-typeck.c:2645
 msgid "use of compound expressions as lvalues is deprecated"
-msgstr "utilisation d'expressions composées comme lvalues est déprécié"
+msgstr "utilisation d'expressions composées comme lvalues est obsolète"
 
 #: c-typeck.c:2648
 msgid "use of cast expressions as lvalues is deprecated"
-msgstr "utilisation de transtypage d'expressions comme lvalues est déprécié"
+msgstr "utilisation de transtypage d'expressions comme lvalues est obsolète"
 
 #: c-typeck.c:2663
 #, c-format
@@ -4653,7 +4654,7 @@ msgstr "directive #ident invalide"
 #: cpplib.c:1027
 #, c-format
 msgid "registering \"%s\" as both a pragma and a pragma namespace"
-msgstr "enregistrement de \"%s\" à la fois comme une pragma un espace de nom de pragma"
+msgstr "enregistrement de \"%s\" à la fois comme une pragma et un espace de nom de pragma"
 
 #: cpplib.c:1030
 #, c-format
@@ -4668,18 +4669,18 @@ msgstr "la #pragma %s est déjà enregistrée"
 # FIXME
 #: cpplib.c:1175
 msgid "#pragma once in main file"
-msgstr "#pragma utilisé une seule fois dans le fichier principal"
+msgstr "#pragma once utilisée une seule fois dans le fichier principal"
 
 # FIXME
 #: cpplib.c:1198
 msgid "invalid #pragma GCC poison directive"
-msgstr "la directive corrompue #pragma GCC est invalide"
+msgstr "la directive GCC #pragma poison est invalide"
 
 # FIXME
 #: cpplib.c:1207
 #, c-format
 msgid "poisoning existing macro \"%s\""
-msgstr "corruption de la macro existente « %s »"
+msgstr "élimination de la macro existente « %s »"
 
 #: cpplib.c:1228
 msgid "#pragma system_header ignored outside include file"
@@ -6775,7 +6776,7 @@ msgstr "opérande asm %d ne concorde pas probablement avec les contraintes"
 #: stmt.c:1721
 #, c-format
 msgid "use of memory input without lvalue in asm operand %d is deprecated"
-msgstr "utilisation de l'entré mémoire sans lvalue dans l'opérande asm %d est dépréciée"
+msgstr "utilisation de l'entré mémoire sans lvalue dans l'opérande asm %d est obsolète"
 
 #: stmt.c:1875
 msgid "asm clobber conflict with output operand"
@@ -7522,27 +7523,27 @@ msgstr "trop d'options pour #pragma pour align=reset"
 #: config/darwin-c.c:95 config/darwin-c.c:98 config/darwin-c.c:100
 #: config/darwin-c.c:102
 msgid "malformed '#pragma options', ignoring"
-msgstr "'#pragma options» mal composé, ignoré"
+msgstr "« #pragma options » mal composé, ignoré"
 
 #: config/darwin-c.c:105
 msgid "junk at end of '#pragma options'"
-msgstr "rebut à la fin de '#pragma options'"
+msgstr "rebut à la fin de « #pragma options »"
 
 #: config/darwin-c.c:115
 msgid "malformed '#pragma options align={mac68k|power|reset}', ignoring"
-msgstr "'#pragma options align={mac68k|power|reset}» mal composé, ignoré"
+msgstr "« #pragma options align={mac68k|power|reset} » mal composé, ignoré"
 
 #: config/darwin-c.c:127
 msgid "missing '(' after '#pragma unused', ignoring"
-msgstr "«(» manquante après '#pragma unused', ignoré"
+msgstr "« ( » manquante après « #pragma unused », ignoré"
 
 #: config/darwin-c.c:145
 msgid "missing ')' after '#pragma unused', ignoring"
-msgstr "«(» manquante après '#pragma unused', ignoré"
+msgstr "« ( » manquante après « #pragma unused », ignoré"
 
 #: config/darwin-c.c:148
 msgid "junk at end of '#pragma unused'"
-msgstr "rebut à la fin de '#pragma unused'"
+msgstr "rebut à la fin de « #pragma unused »"
 
 #: config/darwin.c:1347
 msgid "internal and protected visibility attributes not supportedin this configuration; ignored"
@@ -7918,7 +7919,7 @@ msgstr "le processeur cible ne supporte pas les instructions THUMB"
 
 #: config/arm/arm.c:694
 msgid "future releases of GCC will not support -mapcs-26"
-msgstr "les prochaines version de GCC ne supporteront pas -mapcs-26"
+msgstr "les prochaines versions de GCC ne supporteront pas -mapcs-26"
 
 #: config/arm/arm.c:706
 msgid "enabling backtrace support is only meaningful when compiling for the Thumb"
@@ -15419,7 +15420,7 @@ msgstr "il n'y a pas d'argument à « %D » qui dépend d'un paramètre du canevas, a
 
 #: cp/lex.c:683
 msgid "(if you use `-fpermissive', G++ will accept your code, but allowing the use of an undeclared name is deprecated)"
-msgstr "(si vous utilisez « -fpermissive », G++ acceptera votre core, mais permettre l'utilisation d'un nom non déclaré est déprécié)"
+msgstr "(si vous utilisez « -fpermissive », G++ acceptera votre core, mais permettre l'utilisation d'un nom non déclaré est obsolète)"
 
 #: cp/mangle.c:2037
 msgid "call_expr cannot be mangled due to a defect in the C++ ABI"
@@ -16758,7 +16759,7 @@ msgstr "utilisation invalide d'un membre non statique de fonction"
 
 #: cp/typeck.c:1471
 msgid "deprecated conversion from string constant to `%T'"
-msgstr "conversion dépréciée de la chaîne de constante vers « %T »"
+msgstr "conversion obsolète de la chaîne de constante vers « %T »"
 
 #: cp/typeck.c:1583 cp/typeck.c:1874
 msgid "request for member `%D' in `%E', which is of non-class type `%T'"
@@ -17360,7 +17361,7 @@ msgstr "l'appel à la fonction laquelle écarte le type incomplet « %T »"
 #: cp/cp-tree.h:3756
 #, c-format
 msgid "%s is deprecated, please see the documentation for details"
-msgstr "%s est déprécié, SVP voir la documentation pour les détails"
+msgstr "%s est obsolète, SVP voir la documentation pour les détails"
 
 #: f/bad.c:388
 msgid "note:"
@@ -19609,7 +19610,7 @@ msgstr "-U<macro>\tabandonner la définition <macro>"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:99
 msgid "This switch is deprecated; use -Wextra instead"
-msgstr "Cette option est dépréciée; utiliser -Wextra à la place"
+msgstr "Cette option est obsolète; utiliser -Wextra à la place"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:105
 msgid "Warn about returning structures, unions or arrays"
@@ -19725,7 +19726,7 @@ msgstr "Avertir lorsqu'une déclaration ne spécifie pas le type"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:198
 msgid "Deprecated.  This switch has no effect."
-msgstr "Déprécié. Cette option n'a aucun effet."
+msgstr "Obsolète. Cette option n'a aucun effet."
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:201
 msgid "Warn about variables which are initialized to themselves."
@@ -20818,7 +20819,7 @@ msgstr "Conforme au standard ISO C de 1999"
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:1161
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:1164
 msgid "Deprecated in favor of -std=c99"
-msgstr "Déprécié à la faveur de l'option -std=c99"
+msgstr "Obsolète à la faveur de l'option -std=c99"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:1143
 msgid "Conform to the ISO 1998 C++ standard with GNU extensions"
@@ -20834,11 +20835,11 @@ msgstr "Conforme au standard ISO C de 1999 avec les extensions de GNU"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:1152
 msgid "Deprecated in favor of -std=gnu99"
-msgstr "Déprécié à la faveur de l'option -std=gnu99"
+msgstr "Obsolète à la faveur de l'option -std=gnu99"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:1155
 msgid "Deprecated in favor of -std=c89"
-msgstr "Déprécié à la faveur de l'option -std=c89"
+msgstr "Obsolète à la faveur de l'option -std=c89"
 
 #: /home/mitchell/dev/gcc-3.4/objdir/gcc/options.c:1158
 msgid "Conform to the ISO 1990 C standard as amended in 1994"
@@ -21069,10 +21070,10 @@ msgstr "mno-cygwin et mno-win32 ne sont pas compatibles"
 #~ msgstr "ni le destructeur ni l'opérateur « delete » spécifique à la classe ne sera appellé, même s'ils sont déclarés lorsque la classe est définie"
 
 #~ msgid "Warn if deprecated class, method, or field is used"
-#~ msgstr "Avertir si une classe, une méthode ou un champ déprécié est utilisé"
+#~ msgstr "Avertir si une classe, une méthode ou un champ obsolète est utilisé"
 
 #~ msgid "Warn if deprecated empty statements are found"
-#~ msgstr "Avertir si des déclarations vides dépréciés sont trouvées"
+#~ msgstr "Avertir si des déclarations vides obsolètes sont trouvées"
 
 #~ msgid "Enable warnings about inter-procedural problems"
 #~ msgstr "Autoriser les avertissements à propos des problèmes inter-procédural"
@@ -21087,7 +21088,7 @@ msgstr "mno-cygwin et mno-win32 ne sont pas compatibles"
 #~ msgstr "Avertir à propos des construits ayant des sens surprenants"
 
 #~ msgid "--CLASSPATH\tDeprecated; use --classpath instead"
-#~ msgstr "--CLASSPATH\tdéprécié; utiliser --classpath à la place"
+#~ msgstr "--CLASSPATH\tobsolète; utiliser --classpath à la place"
 
 #~ msgid "Do not treat local variables and COMMON blocks as if they were named in SAVE statements"
 #~ msgstr "Traiter les variables locales et les blocs COMMON comme s'ils étaient nommés dans une déclaration SAVE"
@@ -21855,7 +21856,7 @@ msgstr "mno-cygwin et mno-win32 ne sont pas compatibles"
 
 # FIXME
 #~ msgid "#pragma once is obsolete"
-#~ msgstr "utiliser #pragma une seule fois est obsolète"
+#~ msgstr "utiliser #pragma once est obsolète"
 
 #~ msgid "the conditional began here"
 #~ msgstr "la condition débute ici"
@@ -23022,7 +23023,7 @@ msgstr "mno-cygwin et mno-win32 ne sont pas compatibles"
 #~ msgstr "début possible d'une chaîne de mot non terminée"
 
 #~ msgid "multi-line string literals are deprecated"
-#~ msgstr "chaîne de mots multi-lignes sont dépréciés"
+#~ msgstr "chaîne de mots multi-lignes sont obsolètes"
 
 #~ msgid "directives may not be used inside a macro argument"
 #~ msgstr "directives ne peuvent être utilisées à l'intérieur d'un argument macro"
@@ -24108,7 +24109,7 @@ msgstr "mno-cygwin et mno-win32 ne sont pas compatibles"
 #~ msgstr "énumérateurs « %s » et « %s » ont les mêmes valeurs"
 
 #~ msgid "undefined value in SET mode is obsolete and deprecated"
-#~ msgstr "valeur non définie dans le mode SET est obsolète et déprécié"
+#~ msgstr "valeur non définie dans le mode SET est obsolète"
 
 #~ msgid "BASE variable never declared"
 #~ msgstr "variable de BASE jamais déclarée"
@@ -25950,7 +25951,7 @@ msgstr "mno-cygwin et mno-win32 ne sont pas compatibles"
 #~ msgstr "type d'argument erroné pour %s"
 
 #~ msgid "deprecated initialization of zero-length array"
-#~ msgstr "initialisation dépréciée d'un tableau de taille zéro"
+#~ msgstr "initialisation obsolète d'un tableau de taille zéro"
 
 #~ msgid "initialization of zero-length array before end of structure"
 #~ msgstr "initialisation d'un tableau de taille zéro avant la fin de la structure"

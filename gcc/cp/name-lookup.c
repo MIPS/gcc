@@ -497,11 +497,22 @@ supplement_binding (cxx_binding *binding, tree decl)
       duplicate_decls (decl, binding->value);
       ok = false;
     }
+  else if (TREE_CODE (decl) == NAMESPACE_DECL
+	   && TREE_CODE (bval) == NAMESPACE_DECL
+	   && DECL_NAMESPACE_ALIAS (decl)
+	   && DECL_NAMESPACE_ALIAS (bval)
+	   && ORIGINAL_NAMESPACE (bval) == ORIGINAL_NAMESPACE (decl))
+    /* [namespace.alias]
+       
+      In a declarative region, a namespace-alias-definition can be
+      used to redefine a namespace-alias declared in that declarative
+      region to refer only to the namespace to which it already
+      refers.  */
+    ok = false;
   else
     {
       error ("declaration of `%#D'", decl);
-      cp_error_at ("conflicts with previous declaration `%#D'",
-		   binding->value);
+      cp_error_at ("conflicts with previous declaration `%#D'", bval);
       ok = false;
     }
 
@@ -4278,11 +4289,21 @@ arg_assoc_class (struct arg_lookup *k, tree type)
     if (k->name == FRIEND_NAME (list))
       for (friends = FRIEND_DECLS (list); friends; 
 	   friends = TREE_CHAIN (friends))
-	/* Only interested in global functions with potentially hidden
-           (i.e. unqualified) declarations.  */
-	if (CP_DECL_CONTEXT (TREE_VALUE (friends)) == context)
-	  if (add_function (k, TREE_VALUE (friends)))
+	{
+	  tree fn = TREE_VALUE (friends);
+
+	  /* Only interested in global functions with potentially hidden
+	     (i.e. unqualified) declarations.  */
+	  if (CP_DECL_CONTEXT (fn) != context)
+	    continue;
+	  /* Template specializations are never found by name lookup.
+	     (Templates themselves can be found, but not template
+	     specializations.)  */
+	  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_USE_TEMPLATE (fn))
+	    continue;
+	  if (add_function (k, fn))
 	    return true;
+	}
 
   /* Process template arguments.  */
   if (CLASSTYPE_TEMPLATE_INFO (type))
@@ -4435,10 +4456,8 @@ arg_assoc (struct arg_lookup *k, tree n)
 	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
 	  return true;
     }
-  else
+  else if (TREE_CODE (n) == OVERLOAD)
     {
-      my_friendly_assert (TREE_CODE (n) == OVERLOAD, 980715);
-      
       for (; n; n = OVL_CHAIN (n))
 	if (arg_assoc_type (k, TREE_TYPE (OVL_FUNCTION (n))))
 	  return true;

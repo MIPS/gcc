@@ -5883,22 +5883,18 @@ tsubst_default_argument (tree fn, tree type, tree arg)
        };
      
      we must be careful to do name lookup in the scope of S<T>,
-     rather than in the current class.
-
-     ??? current_class_type affects a lot more than name lookup.  This is
-     very fragile.  Fortunately, it will go away when we do 2-phase name
-     binding properly.  */
-
-  /* FN is already the desired FUNCTION_DECL.  */
+     rather than in the current class.  */
   push_access_scope (fn);
   /* The default argument expression should not be considered to be
      within the scope of FN.  Since push_access_scope sets
      current_function_decl, we must explicitly clear it here.  */
   current_function_decl = NULL_TREE;
 
+  push_deferring_access_checks(dk_no_deferred);
   arg = tsubst_expr (arg, DECL_TI_ARGS (fn),
 		     tf_error | tf_warning, NULL_TREE);
-  
+  pop_deferring_access_checks();
+
   pop_access_scope (fn);
 
   /* Make sure the default argument is reasonable.  */
@@ -6261,6 +6257,11 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	else if (IDENTIFIER_OPNAME_P (DECL_NAME (r)))
 	  grok_op_properties (r, DECL_FRIEND_P (r),
 			      (complain & tf_error) != 0);
+
+	if (DECL_FRIEND_P (t) && DECL_FRIEND_CONTEXT (t))
+	  SET_DECL_FRIEND_CONTEXT (r,
+				   tsubst (DECL_FRIEND_CONTEXT (t),
+					    args, complain, in_decl));
       }
       break;
 
@@ -7405,6 +7406,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	/* There is no need to substitute into namespace-scope
 	   enumerators.  */
 	if (DECL_NAMESPACE_SCOPE_P (t))
+	  return t;
+	/* If ARGS is NULL, then T is known to be non-dependent.  */
+	if (args == NULL_TREE)
 	  return t;
 
 	/* Unfortunately, we cannot just call lookup_name here.
@@ -8654,10 +8658,14 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   /* If this function is a clone, handle it specially.  */
   if (DECL_CLONED_FUNCTION_P (tmpl))
     {
-      tree spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), targ_ptr,
-					complain);
+      tree spec;
       tree clone;
       
+      spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), targ_ptr,
+				   complain);
+      if (spec == error_mark_node)
+	return error_mark_node;
+
       /* Look for the clone.  */
       for (clone = TREE_CHAIN (spec);
 	   clone && DECL_CLONED_FUNCTION_P (clone);
@@ -11879,22 +11887,6 @@ type_dependent_expression_p (tree expression)
 	return dependent_type_p (type);
     }
 
-  if (TREE_CODE (expression) == SCOPE_REF
-      && dependent_scope_ref_p (expression,
-				type_dependent_expression_p))
-    return true;
-
-  if (TREE_CODE (expression) == FUNCTION_DECL
-      && DECL_LANG_SPECIFIC (expression)
-      && DECL_TEMPLATE_INFO (expression)
-      && (any_dependent_template_arguments_p
-	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
-    return true;
-
-  if (TREE_CODE (expression) == TEMPLATE_DECL
-      && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))
-    return false;
-
   if (TREE_TYPE (expression) == unknown_type_node)
     {
       if (TREE_CODE (expression) == ADDR_EXPR)
@@ -11908,7 +11900,9 @@ type_dependent_expression_p (tree expression)
 	  if (TREE_CODE (expression) == IDENTIFIER_NODE)
 	    return false;
 	}
-      
+      if (TREE_CODE (expression) == SCOPE_REF)
+	return false;
+
       if (TREE_CODE (expression) == BASELINK)
 	expression = BASELINK_FUNCTIONS (expression);
       if (TREE_CODE (expression) == TEMPLATE_ID_EXPR)
@@ -11931,6 +11925,22 @@ type_dependent_expression_p (tree expression)
       abort ();
     }
   
+  if (TREE_CODE (expression) == SCOPE_REF
+      && dependent_scope_ref_p (expression,
+				type_dependent_expression_p))
+    return true;
+
+  if (TREE_CODE (expression) == FUNCTION_DECL
+      && DECL_LANG_SPECIFIC (expression)
+      && DECL_TEMPLATE_INFO (expression)
+      && (any_dependent_template_arguments_p
+	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
+    return true;
+
+  if (TREE_CODE (expression) == TEMPLATE_DECL
+      && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))
+    return false;
+
   return (dependent_type_p (TREE_TYPE (expression)));
 }
 
@@ -12116,15 +12126,20 @@ resolve_typename_type (tree type, bool only_current_p)
 tree
 build_non_dependent_expr (tree expr)
 {
+  tree inner_expr;
+
   /* Preserve null pointer constants so that the type of things like 
      "p == 0" where "p" is a pointer can be determined.  */
   if (null_ptr_cst_p (expr))
     return expr;
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
-  if (TREE_CODE (expr) == OVERLOAD 
-      || TREE_CODE (expr) == FUNCTION_DECL
-      || TREE_CODE (expr) == TEMPLATE_DECL)
+  inner_expr = (TREE_CODE (expr) == ADDR_EXPR ? 
+		TREE_OPERAND (expr, 0) : expr);
+  if (TREE_CODE (inner_expr) == OVERLOAD 
+      || TREE_CODE (inner_expr) == FUNCTION_DECL
+      || TREE_CODE (inner_expr) == TEMPLATE_DECL
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
     return expr;
   /* Preserve string constants; conversions from string constants to
      "char *" are allowed, even though normally a "const char *"

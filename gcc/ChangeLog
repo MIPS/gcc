@@ -1,3 +1,249 @@
+2004-06-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/14649
+	* c-typeck.c (require_constant_value, require_constant_elements):
+	Move declarations to the top of the file.
+	(build_function_call): If we require a constant value, fold with
+	fold_initializer.  If the result is a constant, and the function
+	wasn't called using __builtin_foo, issue a pedantic warning.
+	(build_unary_op): If we require a constant value, fold tree with
+	fold_initializer.
+	(build_binary_op): Use require_constant_value to determine whether
+	to call fold or fold_initializer.
+
+2004-06-08  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/15228
+	* function.c (assign_parms): Always set_mem_align with the computed
+	FUNCTION_ARG_BOUNDARY.  Don't clear stack_parm if !STRICT_ALIGNMENT.
+
+2004-06-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/15598
+	* config/ia64/ia64.c (bundling): Add missed TYPE_A.
+
+2004-06-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR rtl-optimization/15717
+	* config/i386/i386.c (legitimate_constant_p): Do not allow
+	x - symbol_ref.
+
+2004-06-07  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/15569
+	* config/ia64/ia64.md (call_value_nogp): Add constraints for op0.
+	(vall_value_gp): Likewise.
+
+2004-06-07  Dan Kegel  <dank@kegel.com>
+
+	PR c++/14808
+	* config/i386/cygwin.h (TARGET_IS_PE_COFF): New.
+	* config/i386/cygming.h (TARGET_IS_PE_COFF): New.
+
+2004-06-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/15783
+	* config/sparc/sparc.c (function_arg_union_value): Add 'mode'
+	parameter.  Enumerate the registers inside the PARALLEL.
+	(function_arg): Adjust call to function_arg_union_value.
+	(function_value): Likewise.
+
+2004-06-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (emit_move_sequence): Fix loading of non 14-bit CONST operands
+	when generating PIC code.
+
+	* pa.md: Disable the peephole2 patterns that generate indexed
+	floating-point stores when indexing is disabled.
+
+2004-06-07  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/14765
+	* c-parse.in (compstmt_primary_start): Set last_expr_type to
+	NULL_TREE.
+
+2004-06-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15815
+	* doc/extend.texi: Deprecate #pragma interface and #pragma
+	implementation.
+
+2004-06-07  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/15193
+	* expmed.c (extract_bit_field): Fix vector_extract return.
+
+2004-06-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15337
+	* c-common.c (c_sizeof_or_alignof_type): Use more detailed error
+	message.
+
+2004-06-06  Stephane Carrez  <stcarrez@nerim.fr>
+
+	PR target/14542
+	* config/m68hc11/m68hc11.md (move peephole2): Emit a use note to avoid
+	a live change of a register after peephole replacement.
+
+2004-06-06  Stephane Carrez  <stcarrez@nerim.fr>
+
+	PR target/14457
+	* config/m68hc11/m68hc11.c (splitable_operand): New predicate.
+	* config/m68hc11/m68hc11-protos.h (splitable_operand): Declare.
+	* config/m68hc11/m68hc11.h (PREDICATE_CODES): Register it.
+	(inhibit_libc): Must define.
+	* config/m68hc11/m68hc11.md ("movhi_const0"): Use splitable_operand.
+	("*andhi3_gen", "iorhi3", "*iorhi3_gen"): Likewise.
+	("xorhi3"): Likewise.
+
+2004-06-05  David S. Miller  <davem@nuts.davemloft.net>
+
+	* config/sparc/linux.h (TARGET_C99_FUNCTIONS): Set.
+	* config/sparc/linux64.h (TARGET_C99_FUNCTIONS): Likewise.
+
+2004-06-04  Eric Christopher  <echristo@redhat.com>
+
+	Backport from mainline:
+	2004-06-02  Eric Christopher  <echristo@redhat.com>
+
+        * c-typeck.c (common_type): Don't lose type qualifiers
+        when creating new variants.
+
+2004-06-03  Bernardo Innocenti  <bernie@develer.com>
+
+	PR target/15782
+	Backport from mainline:
+
+	2004-06-01  Peter Barada  <peter@the-baradas.com>
+	            Peter Jakubek  <peter@laseranimation.com>
+
+	* config/m68k/m68k.c(m68k_output_mi_thunk):  For ColdFire, use %d0 as
+	a scratch to perform an add to memory.
+
+2004-06-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	PR target/15626
+	* doc/install.texi (sparc-sun-solaris2*): Document messages issued
+	by the Sun linker in conjunction with the Sun assembler.
+	(sparc-sun-solaris2.7): Update revision info for Sun patch 106950.
+
+2004-06-01  Nicola Pero  <nicola@brainstorm.co.uk>
+
+ 	PR objc/7993
+	* objc-act.c (is_private): Do not emit the 'instance variable %s
+	is declared private' error.
+	(is_public): Emit the error after calling is_private.
+	(lookup_objc_ivar): If the instance variable is private, return 0
+	- the instance variable is invisible here.
+
+2004-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/invoke.texi (-static-libgcc): Explicitly mention
+	non-GNU linkers.
+
+2004-05-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/13250
+	Backport from mainline:
+
+	2004-05-28  Kaz Kojima  <kkojima@gcc.gnu.org>
+	* config/sh/sh.md (rotlsi3): Use emit_move_insn.
+
+2004-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/15666
+	* cgraph.c (cgraph_remove_node): Don't call htab_clear_slot if
+	we can't find the slot. Abort if we can't find slot and the
+	node isn't for a builtin function.
+
+2004-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/15069
+	* fold-const.c (fold_single_bit_test): Only perform "(X & C) != 0"
+	into "X < 0" (where C is the signbit) if X's type is a full mode.
+
+2004-05-31  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15749
+	* c-decl.c (grokdeclarator, finish_struct): Don't pedwarn for
+	misuses of structures with flexible array members if
+	in_system_header.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/15693
+	* config/sparc/sparc.c (compare_operand): New predicate.
+	* config/sparc/sparc.h (PREDICATE_CODES): Add it.
+	* config/sparc/sparc.md (cmpsi expander): Use it.  If the first
+	operand is a ZERO_EXTRACT and the second operand is not zero,
+	force the former to a register.
+	(cmpdi expander): Likewise.
+
+2004-05-31  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* c-incpath.c (add_path): Canonicalize paths to use '/' if
+	HAVE_DOS_BASED_FILESYSTEM.
+
+2004-05-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR bootstrap/14671
+	* alias.c (init_alias_analysis): Allocate alias_invariant array with
+	ggc_calloc instead of xrealloc.
+	(end_alias_analysis): Don't free alias_invariant.
+
+2004-05-28  DJ Delorie  <dj@redhat.com>
+
+	* stor-layout.c (place_field): Revert erroneous commit.
+
+2004-05-28  Nick Clifton  <nickc@redhat.com>
+
+	Bug 14093
+	* config/sh/sh-protos.h (sh_promote_prototypes): Declare.
+	* config/sh/sh.c (sh_promote_prototypes): Remove declaration.
+	Delete static from definition.
+	* config/sh/sh.h (FUNCTION_VALUE): Add sh_promote_prototypes call.
+
+2004-05-27  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+
+	* config/sh/t-linux (SHLIB_MAPFILES): Use sh specific
+	libgcc-std.ver.
+	* config/sh/libgcc-std.ver: New file.
+
+2004-05-27  Olivier Hainque  <hainque@act-europe.fr>
+
+	* expr.c (store_constructor): Restore sanity check on
+	the size of the type before clearing.
+
+2004-05-27  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/14478
+	* config/rs6000/rs6000.c (reg_or_neg_short_operand): Don't allow zero.
+
+2004-05-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/14924
+	* config/rs6000/rs6000.c (spe_expand_stv_builtin): New.
+
+2004-05-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/gcc.texi, doc/gccint.texi, doc/include/gcc-common.texi:
+	Update based on printed manual.  Enable setting of offsets for
+	FSFPRINT and move it to gcc-common.texi.
+	* doc/gcc.texi: Update FSF printing details.
+	* doc/gccint.texi: Remove FSF printing details.
+
+2004-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/linux64.h (OPTION_DEFAULT_SPECS): If SPARC_BI_ARCH,
+	override sparc.h definition.
+
+2004-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/linux64.h (TARGET_DEFAULT): Make 64-bit by default
+	also for TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3.
+
 2004-05-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR target/15202
@@ -6,9 +252,9 @@
 	move to shift amount register in DF mode.
 
 2004-05-18  Ulrich Weigand  <uweigand@de.ibm.com>
-	
+
 	PR middle-end/15054
-	* expr.c (expand_expr_real): Do not call preserve_temp_slots 
+	* expr.c (expand_expr_real): Do not call preserve_temp_slots
 	on a TARGET_EXPR temp.
 	* function.c (assign_stack_temp_for_type): Set 'keep' flag for
 	TARGET_EXPR temp slots.
@@ -221,37 +467,37 @@
 2004-04-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	PR/12028
-        * config/rs6000/rs6000.c (rs6000_emit_cmove): Disable comparisons
+	* config/rs6000/rs6000.c (rs6000_emit_cmove): Disable comparisons
 	of floats on the E500.
-        (branch_positive_comparison_operator): Do not allow NE even on the
+	(branch_positive_comparison_operator): Do not allow NE even on the
 	E500.
 	(ccr_bit): Remove E500 specific code.
 	Remove miscompilation warning for e500.
-        (print_operand): Add 'c' and 'D'.
-        (rs6000_generate_compare): Rewrite to generate correct rtl.
-        (rs6000_emit_sCOND): Handle E500.
-        (output_cbranch): Adjust for changes in rs6000_generate_compare.
-        (output_e500_flip_gt_bit): New.
+	(print_operand): Add 'c' and 'D'.
+	(rs6000_generate_compare): Rewrite to generate correct rtl.
+	(rs6000_emit_sCOND): Handle E500.
+	(output_cbranch): Adjust for changes in rs6000_generate_compare.
+	(output_e500_flip_gt_bit): New.
 	(rs6000_override_options): Error when user wants altivec and e500
 	instructions.
 
-        * config/rs6000/rs6000.md (UNSPEC_MV_CR_GT): New constant.
-        (move_from_CR_gt_bit): New.
-        (cceq_ior_compare): Name previously unnamed pattern.  Disable for
+	* config/rs6000/rs6000.md (UNSPEC_MV_CR_GT): New constant.
+	(move_from_CR_gt_bit): New.
+	(cceq_ior_compare): Name previously unnamed pattern.  Disable for
 	E500.
-        (cceq_rev_compare): Name previously unnamed pattern.  Allow for
+	(cceq_rev_compare): Name previously unnamed pattern.  Allow for
 	E500.
 
-        * config/rs6000/spe.md (cmpsfeq_gpr): Rewrite as unspec.
-        (tstsfeq_gpr): Same.
-        (cmpsfgt_gpr): Same.
-        (tstsfgt_gpr): Same.
-        (cmpsflt_gpr): Same.
-        (tstsflt_gpr): Same.
-        (e500_cceq_ior_compare): New.
-        (e500_flip_gt_bit): New.
+	* config/rs6000/spe.md (cmpsfeq_gpr): Rewrite as unspec.
+	(tstsfeq_gpr): Same.
+	(cmpsfgt_gpr): Same.
+	(tstsfgt_gpr): Same.
+	(cmpsflt_gpr): Same.
+	(tstsflt_gpr): Same.
+	(e500_cceq_ior_compare): New.
+	(e500_flip_gt_bit): New.
 
-        * config/rs6000/rs6000-protos.h (output_e500_flip_gt_bit):
+	* config/rs6000/rs6000-protos.h (output_e500_flip_gt_bit):
 	Protoize.
 
 2004-04-28  Ben Elliston  <bje@au.ibm.com>
@@ -281,7 +527,7 @@
 	callers.
 	(multiple_reg_loc_descriptor, reg_loc_descriptor): Use gcc register
 	number for indexing hard_regno_nregs array.
-	
+
 2004-04-27  Bob Wilson  <bob.wilson@acm.org>
 
 	* config/xtensa/xtensa.c (call_insn_operand): Check
