@@ -1,3 +1,8 @@
+2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
+	
+	* java/lang/natSystem.cc: Use _timezone on cygwin. Simplified
+	version of mainline patch.
+	
 2002-05-14  Release Manager
 
 	* GCC 3.1 Released.
