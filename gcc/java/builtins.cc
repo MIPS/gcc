@@ -232,7 +232,9 @@ tree_builtins::map_type (model_type *type)
       else
 	record = make_node (RECORD_TYPE);
       TYPE_BINFO (record) = make_tree_binfo (0);
-      TYPE_NAME (record) = map_identifier (klass->get_fully_qualified_name ());
+      if (! klass->array_p ())
+	TYPE_NAME (record)
+	  = map_identifier (klass->get_fully_qualified_name ());
 
       // FIXME: make a NAMESPACE_DECL and use it as the DECL_CONTEXT.
 
@@ -409,8 +411,9 @@ tree_builtins::lay_out_class (model_class *klass)
   // java, but is needed for code generation.
   if (klass->array_p ())
     {
+      tree elt_type = map_type (klass->element_type ());
       tree data = build_decl (FIELD_DECL, get_identifier ("data"),
-			      map_type (klass->element_type ()));
+			      build_array_type (elt_type, type_jint));
       DECL_CONTEXT (data) = klass_record;
       TREE_PUBLIC (data) = 1;
       DECL_ARTIFICIAL (data) = 1;

@@ -1963,7 +1963,7 @@ tree_generator::build_array_reference (tree array, tree index,
 				       tree result_type,
 				       bool use_checks)
 {
-  tree array_type = TREE_TYPE (array);
+  tree array_type = TREE_TYPE (TREE_TYPE (array));
   // Note that the 'data' field is a back-end invention; it does not
   // exist in the model, so we can't look for it there.
   tree datafield = gcc_builtins->find_decl (array_type, "data");
@@ -1971,16 +1971,16 @@ tree_generator::build_array_reference (tree array, tree index,
   array = save_expr (array);
   index = save_expr (index);
 
-  tree current
+  tree result
     = build4 (ARRAY_REF, result_type,
-	      build3 (COMPONENT_REF, array_type,
-		      build1 (INDIRECT_REF, TREE_TYPE (array_type),
+	      build3 (COMPONENT_REF, TREE_TYPE (datafield),
+		      build1 (INDIRECT_REF, array_type,
 			      gcc_builtins->check_reference (array)),
 		      datafield, NULL_TREE),
 	      index,
 	      NULL_TREE, NULL_TREE);
-  TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (array)
-				 || TREE_SIDE_EFFECTS (index));
+  TREE_SIDE_EFFECTS (result) = (TREE_SIDE_EFFECTS (array)
+				|| TREE_SIDE_EFFECTS (index));
 
   if (use_checks && flag_bounds_check)
     {
@@ -1990,8 +1990,7 @@ tree_generator::build_array_reference (tree array, tree index,
       tree length = build3 (COMPONENT_REF, type_jint,
 			    // Note we don't use check_reference here,
 			    // as we it would be redundant.
-			    build1 (INDIRECT_REF, TREE_TYPE (array_type),
-				    array),
+			    build1 (INDIRECT_REF, array_type, array),
 			    field, NULL_TREE);
       tree check = build3 (COND_EXPR, void_type_node,
 			   build2 (GE_EXPR, type_jboolean,
@@ -2001,10 +2000,10 @@ tree_generator::build_array_reference (tree array, tree index,
 				   builtin_Jv_ThrowBadArrayIndex,
 				   NULL_TREE, NULL_TREE),
 			   build_empty_stmt ());
-      current = build2 (COMPOUND_EXPR, result_type, check, current);
-      TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (array)
-				     || TREE_SIDE_EFFECTS (index));
+      result = build2 (COMPOUND_EXPR, result_type, check, result);
+      TREE_SIDE_EFFECTS (result) = (TREE_SIDE_EFFECTS (array)
+				    || TREE_SIDE_EFFECTS (index));
     }
 
-  return current;
+  return result;
 }

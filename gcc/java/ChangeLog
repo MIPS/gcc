@@ -1,5 +1,12 @@
 2005-02-08  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (build_array_reference): Correctly handle array's type.
+	* builtins.cc (map_type): Don't set TYPE_NAME for array types.
+	(lay_out_class): Correctly set type of "data" field of array
+	types.
+
+2005-02-08  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_method): Create BIND_EXPR with void type.
 
 2005-02-08  Tom Tromey  <tromey@redhat.com>
