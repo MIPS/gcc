@@ -1,3 +1,8 @@
+2004-01-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* doloop.c (doloop_optimize): Update number of iterations for the
+	loops entered at bottom.
+
 2004-01-04  Andreas Jaeger  <aj@suse.de>
 
 	* common.opt: Re-order some options in ASCII collating orders.
