@@ -1,5 +1,12 @@
 2004-09-13  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JComponent.java
+	(isMaximumSizeSet): New method.
+	(isMinimumSizeSet): Likewise.
+	(isPreferredSizeSet): Likewise.
+
+2004-09-13  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JSpinner.java:
 	Some Re-formatting.
 	(spinner): New field.

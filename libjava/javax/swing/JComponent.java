@@ -1023,6 +1023,45 @@ public abstract class JComponent extends Container implements Serializable
   }
 
   /**
+   * Checks if a maximum size was explicitely set on the component.
+   *
+   * @return <code>true</code> if a maximum size was set,
+   * <code>false</code> otherwise
+   * 
+   * @since 1.3
+   */
+  public boolean isMaximumSizeSet()
+  {
+    return maximumSize != null;
+  }
+
+  /**
+   * Checks if a minimum size was explicitely set on the component.
+   *
+   * @return <code>true</code> if a minimum size was set,
+   * <code>false</code> otherwise
+   * 
+   * @since 1.3
+   */
+  public boolean isMinimumSizeSet()
+  {
+    return minimumSize != null;
+  }
+
+  /**
+   * Checks if a preferred size was explicitely set on the component.
+   *
+   * @return <code>true</code> if a preferred size was set,
+   * <code>false</code> otherwise
+   * 
+   * @since 1.3
+   */
+  public boolean isPreferredSizeSet()
+  {
+    return preferredSize != null;
+  }
+  
+  /**
    * Return the value of the {@link #nextFocusableComponent} property.
    * 
    * @deprecated See {@link java.awt.FocusTraversalPolicy}
