@@ -1,3 +1,8 @@
+2005-01-31  Mark Mitchell <mark@codesourcery.com>
+
+	* libiberty/pex-unix.c (pexecute): Set last_pipe_input to -1 at
+	the end of the pipeline.
+
 2004-12-30  Paul Brook  <paul@codesourcery.com>
 
 	Merge from GCC 3.4.3 release.
