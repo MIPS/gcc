@@ -682,10 +682,14 @@ update_alignment_for_field (record_layout_info rli, tree field,
 		 && ! integer_zerop (TYPE_SIZE (type)));
 
 #ifdef ADJUST_FIELD_ALIGN
-    if (! user_align)
+    if (! user_align && TREE_CODE (rli->t) == RECORD_TYPE)
       /* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff */
       /* The third argument to ADJUST_FIELD_ALIGN indicates whether
-	 we are dealing with the first field of the structure.  */
+	 we are dealing with the first field of the structure.  
+	 Only adjust the alignment for structs. For unions, every
+	 field is the 'first' field and thus holds to its
+	 natural alignment. Alignment of union is later deterimined 
+	 by the maximum alignment among all its fields. */
       desired_align = 
 	ADJUST_FIELD_ALIGN (field, desired_align,
 			    (darwin_align_is_first_member_of_class 

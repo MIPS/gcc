@@ -1,3 +1,9 @@
+2004-10-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3719208
+	* stor-layout.c (update_alignment_for_field): Don't use
+	first-field alignment adjustment for union.
+
 2004-10-13  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3677258
