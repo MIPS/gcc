@@ -122,9 +122,9 @@ static void rs6000_emit_stack_tie PARAMS ((void));
 static void rs6000_frame_related PARAMS ((rtx, rtx, HOST_WIDE_INT, rtx, rtx));
 static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
 static unsigned rs6000_hash_constant PARAMS ((rtx));
-static unsigned toc_hash_function PARAMS ((hash_table_entry_t));
-static int toc_hash_eq PARAMS ((hash_table_entry_t, hash_table_entry_t));
-static int toc_hash_mark_entry PARAMS ((hash_table_entry_t, void *));
+static unsigned toc_hash_function PARAMS ((const void *));
+static int toc_hash_eq PARAMS ((const void *, const void *));
+static int toc_hash_mark_entry PARAMS ((void *, void *));
 static void toc_hash_mark_table PARAMS ((void *));
 static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
 
@@ -5849,7 +5849,7 @@ struct toc_hash_struct
   int labelno;
 };
 
-static hash_table_t toc_hash_table;
+static htab_t toc_hash_table;
 
 /* Hash functions for the hash table.  */
 
@@ -5912,16 +5912,18 @@ rs6000_hash_constant (k)
 
 static unsigned
 toc_hash_function (hash_entry)
-     hash_table_entry_t hash_entry;
+     const void * hash_entry;
 {
-  return rs6000_hash_constant (((const struct toc_hash_struct *) hash_entry)->key);
+  return rs6000_hash_constant (((const struct toc_hash_struct *) 
+				hash_entry)->key);
 }
 
 /* Compare H1 and H2 for equivalence.  */
 
 static int
 toc_hash_eq (h1, h2)
-     hash_table_entry_t h1, h2;
+     const void * h1;
+     const void * h2;
 {
   rtx r1 = ((const struct toc_hash_struct *) h1)->key;
   rtx r2 = ((const struct toc_hash_struct *) h2)->key;
@@ -5953,12 +5955,14 @@ toc_hash_eq (h1, h2)
 /* Mark the hash table-entry HASH_ENTRY.  */
 
 static int
-toc_hash_mark_entry (hash_entry, unused)
-     hash_table_entry_t hash_entry;
+toc_hash_mark_entry (hash_slot, unused)
+     void * hash_slot;
      void * unused ATTRIBUTE_UNUSED;
 {
-  rtx r = ((const struct toc_hash_struct *) hash_entry)->key;
-  ggc_set_mark ((void *)hash_entry);
+  const struct toc_hash_struct * hash_entry = 
+    *(const struct toc_hash_struct **) hash_slot;
+  rtx r = hash_entry->key;
+  ggc_set_mark (hash_entry);
   /* For CODE_LABELS, we don't want to drag in the whole insn chain... */
   if (GET_CODE (r) == LABEL_REF)
     {
@@ -5976,9 +5980,9 @@ static void
 toc_hash_mark_table (vht)
      void *vht;
 {
-  hash_table_t *ht = vht;
+  htab_t *ht = vht;
   
-  traverse_hash_table (*ht, toc_hash_mark_entry, 0);
+  htab_traverse (*ht, toc_hash_mark_entry, (void *)0);
 }
 
 /* Output a TOC entry.  We derive the entry name from what is
@@ -6007,13 +6011,13 @@ output_toc (file, x, labelno)
   if (TARGET_TOC && ggc_p)
     {
       struct toc_hash_struct *h;
-      hash_table_entry_t * found;
+      void * * found;
       
       h = ggc_alloc (sizeof (*h));
       h->key = x;
       h->labelno = labelno;
       
-      found = find_hash_table_entry (toc_hash_table, h, 1);
+      found = htab_find_slot (toc_hash_table, h, 1);
       if (*found == NULL)
 	*found = h;
       else  /* This is indeed a duplicate.  
@@ -6923,7 +6927,7 @@ rs6000_add_gc_roots ()
   ggc_add_rtx_root (&rs6000_compare_op0, 1);
   ggc_add_rtx_root (&rs6000_compare_op1, 1);
 
-  toc_hash_table = create_hash_table (1021, toc_hash_function, toc_hash_eq);
+  toc_hash_table = htab_create (1021, toc_hash_function, toc_hash_eq, NULL);
   ggc_add_root (&toc_hash_table, 1, sizeof (toc_hash_table), 
 		toc_hash_mark_table);
 }
