@@ -1,3 +1,34 @@
+2002-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* search.c (is_subobject_of_p_1): Fix thinko.
+	(lookup_field_queue_p): Likewise.
+
+2002-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (layout_class_type): Reuse tail padding when laying out
+	virtual bases.
+
+2002-11-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* rtti.c (qualifier_flags): Fix thinko.
+
+2002-11-21  Glen Nakamura  <glen@imodulo.com>
+
+	PR c++/8342
+	* typeck.c (get_member_function_from_ptrfunc): Make sure that a
+	SAVE_EXPR for instance_ptr doesn't get evaluated first inside one
+	of the branches of a COND_EXPR.
+
+2002-11-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (for_each_template_parm): Free allocated memory.
+	* search.c (is_subobject_of_p_1): New function.
+	(is_subobject_of_p): Avoid walking virtual bases multiple times.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* g++spec.c (lang_specific_spec_functions): New.
+
 2002-11-15  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* ChangeLog: Follow spelling conventions.

@@ -1,3 +1,372 @@
+2002-11-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (h8300_init_once): Fix a typo in the
+	target help message.
+
+2002-11-24  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config.gcc (*-*-netbsd*1.[7-9]*, *-*-netbsd*[2-9]*): Set
+	extra_parts to "crtbegin.o crtend.o crtbeginS.o crtendS.o
+	crtbeginT.o".
+	(arm*-*-netbsd*, i[34567]86-*-netbsd*, m68k*-*-netbsd*)
+	(ns32k-*-netbsd*, sparc-*-netbsd*, vax-*-netbsd*): Set extra_parts
+	to "" for a.out configurations.
+	* config/t-netbsd (CRTSTUFF_T_CFLAGS): Set to "-fPIC".
+
+2002-11-24  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/alpha/netbsd.h (CPP_SUBTARGET_SPEC): Just use
+	NETBSD_CPP_SPEC directly. 
+	(SUBTARGET_EXTRA_SPECS): Remove netbsd_cpp_spec.  Add
+	netbsd_endfile_spec.
+	(ENDFILE_SPEC): Use %(netbsd_endfile_spec).
+
+2002-11-24  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/netbsd-elf.h (STARTFILE_SPEC): Rename to
+	NETBSD_STARTFILE_SPEC.
+	(STARTFILE_SPEC): Redefine in terms of NETBSD_STARTFILE_SPEC.
+	(ENDFILE_SPEC): Likewise.
+	* config/netbsd.h (LIB_SPEC, LIBGCC_SPEC): Likewise.
+
+2002-11-24  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in (install-driver): Remove versioned link before
+	trying to create it.
+
+	* config/m68k/m68k.c: Fix typo in last change defining
+	TARGET_ASM_CAN_OUTPUT_MI_THUNK.
+
+2002-11-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (print_operand): Update the use of
+	h8300_tiny_constant_address_p.
+	(h8300_adjust_insn_length): Likewise.
+	(h8300_tiny_constant_address_p): Check if the given rtx is a
+	variable declared with __attribute__ ((tiny_data)).
+
+2002-11-22  Dale Johannesen  <dalej@apple.com>
+
+        * toplev.c (rest_of_compilation):  Fix comments.
+
+2002-11-22  Geoffrey Keating  <geoffk@apple.com>
+
+	* aclocal.m4 (ac_cv_func_mmap_dev_zero): Darwin does not
+	allow mmap from /dev/zero.  Don't make decisions for the host
+	based on presence or absence of /dev/zero on the build machine.
+	(ac_cv_func_mmap_anon): Darwin does have working MMAP_ANON.
+	(AC_FUNC_MMAP_FILE): Darwin does have mmap of a file.
+	* configure: Regenerate.
+
+2002-11-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gcc.c (make_relative_prefix, split_directories)
+	(free_split_directories): Removed.
+
+2002-11-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Set insn=nop for DWARF-2 tests on ARM.
+	* configure: Regenerated.
+
+2002-11-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (compute_a_shift_length): Fix the insn
+	length computation when xor.l is output.
+
+2002-11-21  Jim Wilson  <wilson@redhat.com>
+
+	* config/rs6000/rs6000.c (function_arg): Set inner mode of SPE
+	vectors to SI.
+
+2002-11-21  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa-protos.h (xtensa_copy_incoming_a7): Declare.
+	* config/xtensa/xtensa.c (struct machine_function): Add
+	incoming_a7_copied flag.
+	(xtensa_copy_incoming_a7): Define.
+	(xtensa_emit_move_sequence): Use xtensa_copy_incoming_a7.
+	* config/xtensa/xtensa.md (movdi, movsf, movdf): Ditto.
+
+Thu Nov 21 23:52:04 CET 2002  Jan Hubicka  <jH@suse.cz>
+
+	* i386-protos.h (x86_64_sign_extended_value): Fix prototype.
+	* i386.c (x86_64_general_operand, x86_64_szext_general_operand,
+	x86_64_nonmemory_operand, x86_64_movabs_operand, 
+	x86_64_szext_nonmemory_operand, x86_64_immediate_operand,
+	ix86_expand_int_movcc): Update call of x86_64_sign_extended_value.
+	(local_symbolic_operand): Do not care the 64bit limits.
+	(x86_64_sign_extended_value): Remove allow_rip support.
+	(legitimate_pic_address_disp_p): Handle all cases allowed
+	with RIP addressing.
+	(legitimate_address_p): Use legitimate_pic_address_disp_p for PIC.
+	(legitimize_pic_address): Reorganize.
+	* i386.h (EXTRA_CONSTRAINT): Update call of x86_64_sign_extended_value.
+
+2002-11-21  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config.gcc (arm*-*-netbsdelf*): Enable configuration.
+	* config/arm/netbsd-elf.h: New file.
+
+2002-11-21  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/arm/elf.h (SUBTARGET_EXTRA_SPECS): Add
+	subtarget_asm_float_spec.
+	(SUBTARGET_ASM_FLOAT_SPEC): Define, moving the
+	defaults from...
+	(ASM_SPEC): ...here.  Use subtarget_asm_float_spec.
+
+2002-11-21  Nick Clifton  <nickc@redhat.com>
+
+	* config/fr30/fr30.md (movsf_constant_store): Move code to
+	detect 0.0 into fr30.c.
+	* config/fr30/fr30-protos.h (fr30_const_double_is_zero):
+	Prototype.
+	* config/fr30/fr30.c (fr30_const_double_is_zero): New
+	function.  Return true if the rtx is 0.0.
+
+2002-11-21  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/arm/elf.h (ASM_SPEC, LINK_SPEC): Pass -EL
+	if -mlittle-endian is specified.
+
+2002-11-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR optimization/2903
+	* arm.md (anddi_notzesidi_di): Operand 2 is inverted not operand 1.
+	(anddi_notsesidi_di): Likewise.
+
+2002-11-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (print_operand): Use
+	h8300_eightbit_constant_address_p and
+	h8300_tiny_constant_address_p.
+	(h8300_adjust_insn_length): Likewise.
+	* config/h8300/h8300.h (EIGHTBIT_CONSTANT_ADDRESS_P): Remove.
+	(TINY_CONSTANT_ADDRESS_P): Likewise.
+	(OK_FOR_U): Use eightbit_constant_address_p.
+
+2002-11-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/libgcc-libc.ver: Add multilib support.
+	* config/s390/linux.h (MULTILIB_DEFAULT): Define.
+	* config/s390/t-linux64 (MULTILIB_OPTIONS, MULTILIB_DIRNAMES, 
+	MULTILIB_OSDIRNAMES, LIBGCC, INSTALL_LIBGCC, 
+	EXTRA_MULTILIB_PARTS): Define.
+
+2002-11-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_get_frame_size): A leaf function does not need its
+	stack padding to an aligned boundary if it has no frame.
+	(thumb_get_frame_size): Likewise.
+
+2002-11-20  Steve Ellcey  <sje@cup.hp.com>
+
+	* emit-rtl.c (gen_reg_rtx): Simplify mapping of Complex type
+	to component type using GET_MODE_INNER.
+	* expr.c (emit_move_insn_1): Ditto.
+	* optabs.c (expand_binop): Ditto.
+	(expand_unop): Ditto.
+	(expand_complex_abs): Ditto.
+
+2002-11-20  Douglas B Rupp  <rupp@gnat.com>
+
+	* hwint.h (HAVE___INT64): Fix typo (was HAVE__INT64).
+
+2002-11-20  DJ Delorie  <dj@redhat.com>
+
+	* config/stormy16/stormy16.c (s16builtins,
+	xstormy16_init_builtins, xstormy16_expand_builtin): New.
+	* config/stormy16/stormy16.md (divmodhi4, sdivlh, udivlh): New.
+
+2002-11-20  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* Makefile.in (RUN_GEN, VALGRIND_DRIVER_DEFINES): New variables.
+	(DRIVER_DEFINES): Add $(VALGRIND_DRIVER_DEFINES).
+	(executing gencheck, genconfigs, genconditions, genflags,
+	gencodes, genconstants, genemit, genrecog, genopinit, genextract,
+	genpeep, genattr, genattrtab, genoutput, gengenrtl, genpreds,
+	gengtype, genprotos): Prepend $(RUN_GEN).
+	* configure.in: Move host compiler tests before --enable-checking
+	tests.
+	(--enable-checking=valgrind): New.
+	* config.in, configure: Regenerate.
+	* cppfiles.c [!ENABLE_VALGRIND_CHECKING] (VALGRIND_DISCARD):
+	Define as empty.
+	(read_include_file): When doing the mmap+1 trick,
+	valgrind-annotate the byte after the mmap:ed area as readable.
+	(purge_cache): Remove above annotation.
+	* gcc.c (execute) [ENABLE_VALGRIND_CHECKING]: Arrange to prepend
+	VALGRIND_PATH -q to each command.
+
+	* ggc-common.c [!ENABLE_VALGRIND_CHECKING] (VALGRIND_DISCARD):
+	Define as empty.
+	(ggc_realloc): Update valgrind annotations.
+	* ggc-page.c [!ENABLE_VALGRIND_CHECKING] (VALGRIND_DISCARD):
+	Define as empty.
+ 	(alloc_anon, free_page, ggc_alloc, poison_pages): Add machinery to
+	valgrind-annotate memory.
+
+2002-11-20  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* recog.c (constrain_operands): Prefer exact match over reloadable
+	EXTRA_MEMORY_CONSTRAINT or EXTRA_ADDRESS_CONSTRAINT.
+
+	* reload.c (find_reloads): Always reload EXTRA_ADDRESS_CONSTRAINT
+	operands in Pmode.
+
+2002-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8518
+	* c-decl.c (duplicate_decls): Outline the second definition
+	of an extern inline function in all cases.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* stor-layout.c (place_field): Update rli->offset as well as
+	rli->bitpos.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* sched-deps.c (sched_analyze): Check HARD_REGNO_CALL_PART_CLOBBERED.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/sh/sh.md (udivsi3): Don't put udivsi3_i4_media instructions
+	into a libcall block.
+	(divsi3): Likewise divsi3_i4_media.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* global.c (find_reg): Check HARD_REGNO_NREGS before kicking
+	out another register.
+
+2002-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (force_to_mode): Only replace with (not Y) if all bits in fuller_mask
+	(not just mask) are set in C.
+
+2002-11-19  Andreas Jaeger  <aj@suse.de>
+
+	* loop.c (record_giv): Initialize not_replaceable.
+	(check_final_value): Likewise.
+
+2002-11-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (h8300_init_once): Replace 1 with
+	MASK_H8300S.
+
+2002-11-19  Vijay L. Khuspe  <vijayk1@kpit.com>
+
+	* config/h8300/h8300.c (h8300_init_once): Allow -mn switch
+	only if -mh or -ms present.
+	(h8300_eightbit_constant_address_p): Support the normal mode.
+	(h8300_tiny_constant_address_p): Likewise.
+	* config/h8300/h8300.h (TARGET_NORMAL_MODE): New.
+	(POINTER_SIZE): Add 16 bit pointer for the normal mode.
+	(Pmode): Evaluate to HImode for the normal mode.
+	(SIZE_TYPE): Evaluate to unsigned int for normal mode.
+	(PTRDIFF_TYPE): Evaluate to int for the normal mode.
+	(ASM_WORD_OP): Evaluate to word for the normal mode.
+	* config/h8300/h8300.md (tablejump_normal_mode): New.
+	(indirect_jump_normal_mode): New.
+	* config/h8300/t-h8300 (MULTILIB_OPTIONS): Pass -mn option to
+	directory.
+	(MULTILIB_DIRNAMES): Create target dependent directory
+	'normal'.
+        (MULTILIB_EXCEPTIONS): Don't turn on -mn on H8/300.
+	* doc/invoke.texi (gccoptlist): Describe the new switch -mn.
+
+Tue Nov 19 23:50:56 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (length_immediate): Do not refer to insn address.
+	(jcc*, jmp patterns):  Compute length explicitly.
+
+2002-11-19 Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	PR c/8588
+	* optabs.c (expand_binop): Convert CONST_INTs in shift
+	operations too.
+
+2002-11-19  Roger Sayle  <roger@eyesopen.com>
+
+	* gcse.c (gcse_emit_move_after): Correct typo in REG_EQUAL note.
+
+2002-11-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (an anonymous pattern): Relax the
+	condition to accept the same operands and/or subregs.
+
+2002-11-19  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/sh/sh.c (gen_shl_and): Revert previous patch.
+	* config/sh/sh.md (ashrdi3+1, ashrdi3+2): Predicate on
+	reload_completed.
+
+2002-11-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (print_operand): Update the use of
+	EIGHTBIT_CONSTANT_ADDRESS_P.
+	(h8300_adjust_insn_length): Likewise.
+	(h8300_eightbit_constant_address_p): Check if the given rtx is
+	a variable with __attribute__((eightbit_data)).
+	* config/h8300/h8300.h (OK_FOR_U): Update the use of
+	EIGHTBIT_CONSTANT_ADDRESS_P.
+
+2002-11-19  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Add self as second contact in
+	addition to Jeff Law.
+
+2002-11-19  Andreas Jaeger  <aj@suse.de>
+
+	* tree-inline.c: Move prototpyes of find_alloca_call_1 and
+	find_alloca_call to right place.
+
+2002-11-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cppfiles.c: Fix formatting.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc.c (The Specs Language): Document spec functions.
+	(static_spec_functions, lookup_spec_function)
+	(eval_spec_function, handle_spec_function)
+	(if_exists_spec_function, alloc_args): New.
+	(execute): Abort if processing_spec_function is true.
+	(do_spec_1): Hand off spec to handle_spec_function if %:
+	is encountered.  If processing_spec_function is true,
+	end any pending argument when the end of the string is reached.
+	(main): Use alloc_args to allocate the initial argument vector.
+	* gcc.h (struct spec_function): New.
+	(lang_specific_spec_functions): New extern.
+
+	* config/netbsd-elf.h (STARTFILE_SPEC): Add if-exists(crti%O%s).
+	(ENDFILE_SPEC): Add if-exists(crtn%O%s).
+	* config/alpha/netbsd.h (ENDFILE_SPEC): Likewise.
+
+	* doc/invoke.texi: Document spec functions.
+
+	* cppspec.c (lang_specific_spec_functions): New.
+	* gccspec.c: Likewise.
+
+2002-11-18  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/hpux_longdouble.h (FIXUNS_TRUNCTFSI2_LIBCALL): New.
+	(FIXUNS_TRUNCTFDI2_LIBCALL): New.
+	(fixunstfsi_libfunc): Change.
+	(fixunstfdi_libfunc): Change.
+	(sdiv_optab): Don't zero out SImode handler.
+	(udiv_optab): Don't zero out SImode handler.
+	(smod_optab): Don't zero out SImode handler.
+	(umod_optab): Don't zero out SImode handler.
+
+2002-11-18  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/8524
+	* cpplib.c (run_directive): Remove previous kludge to _Pragma.
+	Add a new one in its place, which hopefully works.
+	(skip_rest_of_line): Change test for bottom-of-context-stack.
+
 Mon Nov 18 21:29:03 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (addqi_1_slp): Fix output template.
@@ -123,7 +492,7 @@ Sat Nov 16 02:06:02 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-11-15  Ulrich Weigand  <uweigand@de.ibm.com>
 
-	* config/s390/s390.c (optimization_options): Set 
+	* config/s390/s390.c (optimization_options): Set
 	flag_asynchronous_unwind_tables to 1 by default.
 
 2002-11-15  Ulrich Weigand  <uweigand@de.ibm.com>
