@@ -1,4 +1,9 @@
-2003-11-26  Jason Merrill  <jason@redhat.com>
+2003-11-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* Make-lang.in: Add check-gfortran to lang_checks.
+	(check-f95): Alias for check-gfortran.
+
+2003-11-25  Jason Merrill  <jason@redhat.com>
 
 	* Make-lang.in (f95.tags): Create TAGS.sub files in each
 	directory and TAGS files that include them for each front end.
