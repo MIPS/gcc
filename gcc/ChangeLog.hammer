@@ -1,3 +1,7 @@
+Sun Dec 15 01:46:56 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* loop-unswitch.c (unswitch_loop): Initialize variable.
+
 2002-12-16  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (bb_to_key): Fix accessing index -1 of array.

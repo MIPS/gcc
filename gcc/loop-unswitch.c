@@ -338,6 +338,7 @@ unswitch_loop (loops, loop, unswitch_on)
   RBI (unswitch_on)->copy = unswitch_on_alt;
 
   /* Loopify the copy.  */
+  prob = switch_bb->succ->probability;
   for (latch_edge = RBI (loop->latch)->copy->succ;
        latch_edge->dest != loop->header;
        latch_edge = latch_edge->succ_next);
