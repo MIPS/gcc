@@ -1,3 +1,8 @@
+2004-11-07  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+	(cairoShowGlyphs) Removed.
+
 2004-11-07  Sven de Marothy <sven@physto.se>
 
 	* gnu/java/awt/color/RgbProfileConverter.java (RgbProfileConverter):
