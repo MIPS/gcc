@@ -1,3 +1,39 @@
+2002-08-24  Geoffrey Keating  <geoffk@redhat.com>
+
+	* c-pch.c: New file.
+	* toplev.h (late_init_hook): Declare.
+	* toplev.c (late_init_hook): Define.
+	(version_flag): Make globally visible.
+	(compile_file): Call late_init_hook.
+	(init_asm_output): Make output file seekable.
+	* gcc.c (default_compilers): Update c-header rule.
+	* flags.h (version_flag): Declare.
+	* cpplib.h (struct cpp_callbacks): Add 'valid_pch' and 'read_pch'
+	fields.
+	* cppfiles.c (struct include_file): Add 'pch' field.
+	(INCLUDE_PCH_P): New.
+	(open_file_pch): New.
+	(stack_include_file): Handle PCH files specially.
+	(find_include_file): Call open_file_pch instead of open_file.
+	(_cpp_read_file): Explain why open_file is used instead of
+	open_file_pch.
+	* c-opts.c (c_common_decode_option): Correct OPT__output_pch case.
+	* c-objc-common.c (c_objc_common_finish_file): Call c_write_pch.
+	* c-lex.c (init_c_lex): Set valid_pch and read_pch fields
+	in cpplib callbacks.
+	* c-common.c (pch_file): Correct comment.
+	(allow_pch): Define.
+	(c_common_init): Call pch_init.
+	* c-common.h (allow_pch): Declare.
+	(pch_init): Declare.
+	(c_valid_pch): Declare.
+	(c_read_pch): Declare.
+	(c_write_pch): Declare.
+	* Makefile.in (c-pch.o): New.
+	(C_AND_OBJC_OBJS): Add c-pch.o.
+	* doc/invoke.texi (Precompiled Headers): Add index entries,
+	complete truncated paragraph.
+
 2002-08-17  Geoffrey Keating  <geoffk@redhat.com>
 
 	* c-common.c: (pch_file): Define.

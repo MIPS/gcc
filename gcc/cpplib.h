@@ -429,6 +429,8 @@ struct cpp_callbacks
   /* Called when the client has a chance to properly register
      built-ins with cpp_define() and cpp_assert().  */
   void (*register_builtins) PARAMS ((cpp_reader *));
+  int (*valid_pch) PARAMS ((cpp_reader *, const char *, int));
+  void (*read_pch) PARAMS ((cpp_reader *, int));
 };
 
 /* Name under which this program was invoked.  */

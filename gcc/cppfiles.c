@@ -91,6 +91,13 @@ struct include_file
   unsigned short include_count;	/* number of times file has been read */
   unsigned short refcnt;	/* number of stacked buffers using this file */
   unsigned char mapped;		/* file buffer is mmapped */
+  unsigned char pch;		/* 0: file not known to be a PCH.
+				   1: file is a PCH 
+				      (on return from find_include_file).
+				   2: file is not and never will be a valid
+				      precompiled header.
+				   3: file is always a valid precompiled
+				      header.  */
 };
 
 /* Variable length record files on VMS will have a stat size that includes
@@ -111,6 +118,7 @@ struct include_file
 ((inc)->cmacro && ((inc)->cmacro == NEVER_REREAD \
 		   || (inc)->cmacro->type == NT_MACRO))
 #define NO_INCLUDE_PATH ((struct include_file *) -1)
+#define INCLUDE_PCH_P(F) (((F)->pch & 1) != 0)
 
 static struct file_name_map *read_name_map
 				PARAMS ((cpp_reader *, const char *));
@@ -123,6 +131,8 @@ static struct include_file *
 	find_include_file PARAMS ((cpp_reader *, const cpp_token *,
 				   enum include_type));
 static struct include_file *open_file PARAMS ((cpp_reader *, const char *));
+static struct include_file *open_file_pch PARAMS ((cpp_reader *, 
+						   const char *));
 static int read_include_file	PARAMS ((cpp_reader *, struct include_file *));
 static bool stack_include_file	PARAMS ((cpp_reader *, struct include_file *));
 static void purge_cache 	PARAMS ((struct include_file *));
@@ -299,6 +309,36 @@ open_file (pfile, filename)
   return 0;
 }
 
+/* Like open_file, but also look for a precompiled header if (a) one exists
+   and (b) it is valid.  */
+static struct include_file *
+open_file_pch (pfile, filename)
+     cpp_reader *pfile;
+     const char *filename;
+{
+  if (filename[0] != '\0'
+      && pfile->cb.valid_pch != NULL)
+    {
+      size_t namelen = strlen (filename);
+      char *pchname = alloca (namelen + 5);
+      struct include_file * file;
+      
+      memcpy (pchname, filename, namelen);
+      memcpy (pchname + namelen, ".pch", 5);
+      file = open_file (pfile, pchname);
+      if (file != NULL)
+	{
+	  if ((file->pch & 2) == 0)
+	    file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
+	  if (INCLUDE_PCH_P (file))
+	    return file;
+	  close (file->fd);
+	  file->fd = -1;
+	}
+    }
+  return open_file (pfile, filename);
+}
+
 /* Place the file referenced by INC into a new buffer on the buffer
    stack, unless there are errors, or the file is not re-included
    because of e.g. multiple-include guards.  Returns true if a buffer
@@ -322,31 +362,47 @@ stack_include_file (pfile, inc)
   if (CPP_OPTION (pfile, print_deps) > !!sysp && !inc->include_count)
     deps_add_dep (pfile->deps, inc->name);
 
-  /* Not in cache?  */
-  if (! inc->buffer)
+  /* PCH files get dealt with immediately.  
+     We stack a zero-sized buffer below.  
+     The reason for this is that reading a PCH directly into memory
+     will approximately double the memory consumption of the compiler.  */
+  if (INCLUDE_PCH_P (inc))
     {
-      if (read_include_file (pfile, inc))
-	{
-	  /* If an error occurs, do not try to read this file again.  */
-	  _cpp_never_reread (inc);
-	  return false;
-	}
-      /* Mark a regular, zero-length file never-reread.  We read it,
-	 NUL-terminate it, and stack it once, so preprocessing a main
-	 file of zero length does not raise an error.  */
-      if (S_ISREG (inc->st.st_mode) && inc->st.st_size == 0)
-	_cpp_never_reread (inc);
+      pfile->cb.read_pch (pfile, inc->fd);
       close (inc->fd);
       inc->fd = -1;
+      
+      fp = cpp_push_buffer (pfile, (unsigned char *)"", 0, 0, 0);
     }
-
-  if (pfile->buffer)
-    /* We don't want MI guard advice for the main file.  */
-    inc->include_count++;
-
-  /* Push a buffer.  */
-  fp = cpp_push_buffer (pfile, inc->buffer, inc->st.st_size,
-			/* from_stage3 */ CPP_OPTION (pfile, preprocessed), 0);
+  else
+    {
+      /* Not in cache?  */
+      if (! inc->buffer)
+	{
+	  if (read_include_file (pfile, inc))
+	    {
+	      /* If an error occurs, do not try to read this file again.  */
+	      _cpp_never_reread (inc);
+	      return false;
+	    }
+	  /* Mark a regular, zero-length file never-reread.  We read it,
+	     NUL-terminate it, and stack it once, so preprocessing a main
+	     file of zero length does not raise an error.  */
+	  if (S_ISREG (inc->st.st_mode) && inc->st.st_size == 0)
+	    _cpp_never_reread (inc);
+	  close (inc->fd);
+	  inc->fd = -1;
+	}
+      
+      if (pfile->buffer)
+	/* We don't want MI guard advice for the main file.  */
+	inc->include_count++;
+      
+      /* Push a buffer.  */
+      fp = cpp_push_buffer (pfile, inc->buffer, inc->st.st_size,
+			    /* from_stage3 */ CPP_OPTION (pfile, preprocessed),
+			    0);
+    }
   fp->inc = inc;
   fp->inc->refcnt++;
 
@@ -557,7 +613,7 @@ find_include_file (pfile, header, type)
   char *name, *n;
 
   if (IS_ABSOLUTE_PATHNAME (fname))
-    return open_file (pfile, fname);
+    return open_file_pch (pfile, fname);
 
   /* For #include_next, skip in the search path past the dir in which
      the current file was found, but if it was found via an absolute
@@ -593,7 +649,7 @@ find_include_file (pfile, header, type)
       else
 	n = name;
 
-      file = open_file (pfile, n);
+      file = open_file_pch (pfile, n);
       if (file)
 	{
 	  file->foundhere = path;
@@ -734,6 +790,9 @@ _cpp_read_file (pfile, fname)
      cpp_reader *pfile;
      const char *fname;
 {
+  /* This uses open_file, because we don't allow a PCH to be used as
+     the toplevel compilation (that would prevent re-compiling an
+     existing PCH without deleting it first).  */
   struct include_file *f = open_file (pfile, fname);
 
   if (f == NULL)

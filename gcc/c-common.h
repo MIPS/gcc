@@ -367,23 +367,30 @@ struct c_lang_decl GTY(()) {
 
 extern c_language_kind c_language;
 
+/* Nonzero if we can read a PCH file now.  */
 
+extern int allow_pch;
+
+
 /* Switches common to the C front ends.  */
 
 /* Nonzero if prepreprocessing only.  */
+
 extern int flag_preprocess_only;
 
-/* The filename to which we should write a precompiled header, or
+/* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
 
 extern const char *pch_file;
 
 /* Nonzero if an ISO standard was selected.  It rejects macros in the
    user's namespace.  */
+
 extern int flag_iso;
 
 /* Nonzero if -undef was given.  It suppresses target built-in macros
    and assertions.  */
+
 extern int flag_undef;
 
 /* Nonzero means don't recognize the non-ANSI builtin functions.  */
@@ -1230,5 +1237,13 @@ struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
 extern void dump_time_statistics		PARAMS ((void));
 
 extern int c_dump_tree				PARAMS ((void *, tree));
+
+extern void pch_init				PARAMS ((void));
+extern int c_valid_pch				PARAMS ((cpp_reader *pfile,
+							 const char *name,
+							 int fd));
+extern void c_read_pch				PARAMS ((cpp_reader *pfile,
+							 int fd));
+extern void c_write_pch				PARAMS ((void));
 
 #endif /* ! GCC_C_COMMON_H */

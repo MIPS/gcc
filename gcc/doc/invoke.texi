@@ -10210,6 +10210,8 @@ preprocessor.
 
 @node Precompiled Headers
 @section Using Precompiled Headers
+@cindex precompiled headers
+@cindex speed of compilation
 
 Often large projects have many header files that are included in every
 source file.  The time the compiler takes to process these header files
@@ -10245,7 +10247,12 @@ used, you can put a file of the same name as the original header in this
 directory containing an @code{#error} command.
 
 This also works with @option{-include}.  So yet another way to use
-precompiled headers is to simply 
+precompiled headers, good for projects not designed with precompiled
+header files in mind, is to simply take most of the header files used by
+a project, include them from another header file, precompile that header
+file, and @option{-include} the precompiled header.  If the header files
+have guards against multiple inclusion, they will be skipped because
+they've already been included (in the precompiled header).
 
 There are many other possibilities, limited only by your imagination,
 good sense, and the constraints of your build system.

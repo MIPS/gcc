@@ -516,7 +516,7 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT__output_pch:
-      pch_file = xstrdup (arg + strlen ("--output-pch="));
+      pch_file = arg;
       break;
 
     case OPT_C:

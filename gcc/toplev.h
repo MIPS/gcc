@@ -115,6 +115,9 @@ extern int target_flags_explicit;
 /* The hashtable, so that the C front ends can pass it to cpplib.  */
 extern struct ht *ident_hash;
 
+/* A hook for last-second initialisations.  */
+extern void (*late_init_hook) PARAMS((void));
+
 /* This function can be used by targets to set the flags originally
     implied by -ffast-math and -fno-fast-math.  */
 

@@ -344,6 +344,9 @@ c_objc_common_finish_file ()
 {
   expand_deferred_fns ();
 
+  if (pch_file)
+    c_write_pch ();
+
   if (static_ctors)
     {
       tree body = start_cdtor ('I');

@@ -192,12 +192,16 @@ enum c_language_kind c_language;
 
 tree c_global_trees[CTI_MAX];
 
+/* Nonzero if we can read a PCH file now.  */
+
+int allow_pch = 1;
+
 /* Switches common to the C front ends.  */
 
 /* Nonzero if prepreprocessing only.  */
 int flag_preprocess_only;
 
-/* The filename to which we should write a precompiled header, or
+/* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
 
 const char *pch_file;
@@ -4926,6 +4930,8 @@ c_common_init (filename)
   filename = init_c_lex (filename);
 
   init_pragma ();
+
+  pch_init ();
 
   if (!c_attrs_initialized)
     c_init_attributes ();
