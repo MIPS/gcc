@@ -1,3 +1,13 @@
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.old-deja/g++.abi/cxa_vec.C: Adjust for ARM
+	EABI.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp/decl.c (cxx_comdat_group): Check for VAR_DECLs before
+	using DECL_VTABLE_OR_VTT_P.
+
 2004-09-14  Mark Mitchell  <mark@codesourcery.com>
 
 	* config.gcc: Do not build a shared libgcc for arm-none-eabi.
