@@ -1,0 +1,22 @@
+2004-05-29  Ziemowit Laski  <zlaski@apple.com>
+
+	Move all ChangeLog entries specific to objc-improvements-branch
+	to newly created files named ChangeLog.objc-improvements, in line
+	with how other FSF branches get handled.
+
+2004-05-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Sync up with HEAD:tree-ssa-pre-merge.
+
+2004-04-20  Ziemowit Laski  <zlaski@apple.com>
+
+	Sync up with HEAD:2004-04-20T0000+0000.
+
+2004-03-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Sync up with HEAD:2004-03-06T01:00.
+
+2004-02-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Sync up with HEAD:2004-02-02.
+

@@ -1,7 +1,3 @@
-2004-04-20  Ziemowit Laski  <zlaski@apple.com>
-
-	Sync up with HEAD:2004-04-20T0000+0000.
-
 2004-04-01  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (synth_module_prologue): Mark UOBJC_SYMBOLS_decl
@@ -16,10 +12,6 @@
 	IS_CLASS() macro.
 	* objc-act.h (IS_CLASS): New macro.
 	(IS_ID, IS_SUPER): Robustify.
-
-2004-04-01  Ziemowit Laski  <zlaski@apple.com>
-
-	Sync up with HEAD:2004-03-26T0130+0000.
 
 2004-03-16  Ziemowit Laski  <zlaski@apple.com>
 
@@ -140,10 +132,6 @@
 	(imp_count, cat_count): Make GGC-aware.
 	(objc_inherit_code, objc_public_flag): New, moved from c-parse.in.
 	
-2004-02-03  Ziemowit Laski  <zlaski@apple.com>
-
-        Sync up with HEAD:2004-02-02.
-
 2004-01-30  Ziemowit Laski  <zlaski@apple.com>
 
 	* Make-lang.in (objc-lang.o): Depend on $(C_PRETTY_PRINT_H),

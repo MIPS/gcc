@@ -1,0 +1,110 @@
+2004-05-24  Ziemowit Laski  <zlaski@apple.com>
+
+	* cvt.c (convert_to_pointer_force): Always retain the NOP_EXPR
+	when converting to an Objective-C pointer type.
+	* parser.c (cp_parser_objc_selector_p, cp_parser_objc_selector):
+	Allow C++ operator names as selectors.
+
+2004-03-16  Ziemowit Laski  <zlaski@apple.com>
+
+	* cp-objcp-common.c (ok_to_generate_alias_set_for_type):
+	Make definition externally visible.
+	* cp-objcp-common.h (ok_to_generate_alias_set_for_type):
+	Make prototype extern.
+
+2004-03-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* lang-specs.h: Add informative blurb about objcp/lang-specs.h.
+
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (cp/parser.o): Depend on c-common.h.
+	* decl.c (get_current_scope): Rename to objc_get_current_scope().
+	* lex.c (D_OBJC): New token table mask.
+	(reswords): Add Objective-C++ reserved words.
+	(init_reswords): Use D_OBJC in mask.
+	* parser.c: Include c-common.h.
+	(cp_lexer_get_preprocessor_token): Detect presence of
+	Objective-C++ reserved words.
+	(cp_parser_objc_message_receiver, cp_parser_objc_message_args,
+	cp_parser_objc_message_expression, cp_parser_objc_literal_expression,
+	cp_parser_objc_encode_expression, cp_parser_objc_protocol_expression,
+	cp_parser_objc_selector_expression, cp_parser_objc_expression,
+	cp_parser_objc_visiblity_spec, cp_parser_objc_method_type,
+	cp_parser_objc_typename, cp_parser_objc_selector_p,
+	cp_parser_objc_selector, cp_parser_objc_method_keyword_params,
+	cp_parser_objc_method_tail_params_opt, cp_parser_method_signature,
+	cp_parser_objc_method_prototype_list, cp_parser_method_definition_list,
+	cp_parser_objc_class_ivars, cp_parser_objc_identifier_list,
+	cp_parser_objc_alias_declaration, cp_parser_objc_class_declaration,
+	cp_parser_objc_protocol_declaration, cp_parser_objc_superclass_or_category,
+	cp_parser_objc_class_interface, cp_parser_objc_class_implementation,
+	cp_parser_objc_end_implementation, cp_parser_objc_declaration):
+	New nonterminals/functions.
+	(cp_parser_primary_expression): Call cp_parser_objc_expression().
+	(cp_parser_declaration): Call cp_parser_objc_declaration().
+	(cp_parser_parameter_declaration_list): Allow parameter list to
+	be terminated by ';' and '{', in addition to '....' and ')'.
+	* typeck.c (comptypes): Call objc_comptypes().
+
+2004-01-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (CXX_AND_OBJCXX_OBJS): New, contains
+	files common to C++ and ObjC++, and $(CXX_C_OBJS).
+	(CXX_OBJS): Now lists only C++-specific files, in
+	addition to $(CXX_AND_OBJC_OBJS).
+	(cc1plus$(exeext)): Remove separate dependency on
+	$(CXX_C_OBJS), now subsumed by $(CXX_OBJS).
+	(cp/cp-lang.o): Depend on gtype-cp.h, debug.h and
+	cp/cp-objcp-common.h.
+	(cp/decl.o): Do not depend on gtype-cp.h.
+	(cp/cp-objcp-common.o): New rule.
+	(cp/tree.o): Depend on debug.h.
+	* cp-lang.c: Include debug.h, cp-objcp-common.h and gtype-cp.h.
+	(LANG_HOOKS_TREE_SIZE, LANG_HOOKS_FINISH,
+	LANG_HOOKS_CLEAR_BINDING_STACK, LANG_HOOKS_INIT_OPTIONS,
+	LANG_HOOKS_INITIALIZE_DIAGNOSTICS, LANG_HOOKS_HANDLE_OPTION,
+	LANG_HOOKS_HANDLE_FILENAME, LANG_HOOKS_MISSING_ARGUMENT,
+	LANG_HOOKS_POST_OPTIONS, LANG_HOOKS_GET_ALIAS_SET,
+	LANG_HOOKS_EXPAND_CONSTANT, LANG_HOOKS_EXPAND_EXPR,
+	LANG_HOOKS_SAFE_FROM_P, LANG_HOOKS_PARSE_FILE,
+	LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, LANG_HOOKS_UNSAVE_EXPR_NOW,
+	LANG_HOOKS_MAYBE_BUILD_CLEANUP, LANG_HOOKS_TRUTHVALUE_CONVERSION,
+	LANG_HOOKS_UNSAFE_FOR_REEVAL, LANG_HOOKS_SET_DECL_ASSEMBLER_NAME,
+	LANG_HOOKS_MARK_ADDRESSABLE, LANG_HOOKS_PRINT_STATISTICS,
+	LANG_HOOKS_PRINT_XNODE, LANG_HOOKS_PRINT_DECL,
+	LANG_HOOKS_PRINT_TYPE, LANG_HOOKS_PRINT_IDENTIFIER,
+	LANG_HOOKS_DECL_PRINTABLE_NAME, LANG_HOOKS_PRINT_ERROR_FUNCTION,
+	LANG_HOOKS_BUILTIN_TYPE_DECLS, LANG_HOOKS_PUSHLEVEL,
+	LANG_HOOKS_POPLEVEL, LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL,
+	LANG_HOOKS_WRITE_GLOBALS, LANG_HOOKS_DECL_UNINIT,
+	LANG_HOOKS_FUNCTION_INIT, LANG_HOOKS_FUNCTION_FINAL,
+	LANG_HOOKS_RTL_EXPAND_START, LANG_HOOKS_RTL_EXPAND_STMT,
+	LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE,
+	LANG_HOOKS_ATTRIBUTE_TABLE, LANG_HOOKS_TREE_INLINING_WALK_SUBTREES,
+	LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN, 
+	LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS,
+	LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P, 
+	LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P,
+	LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING, 
+	LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P,
+	LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P,
+	LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS,
+	LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN, LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN,
+	LANG_HOOKS_EXPR_SIZE, LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR,
+	LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION, LANG_HOOKS_MAKE_TYPE,
+	LANG_HOOKS_TYPE_FOR_MODE, LANG_HOOKS_TYPE_FOR_SIZE,
+	LANG_HOOKS_SIGNED_TYPE, LANG_HOOKS_UNSIGNED_TYPE,
+	LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, LANG_HOOKS_INCOMPLETE_TYPE_ERROR,
+	LANG_HOOKS_TYPE_PROMOTES_TO, LANG_HOOKS_REGISTER_BUILTIN_TYPE):
+	Move to cp-objcp-common.h.
+	(cxx_get_alias_set, ok_to_generate_alias_set_for_type, cxx_warn_unused_global_decl,
+	cp_expr_size, cp_tree_size, cp_var_mod_type_p, cxx_initialize_diagnostics): Move
+	prototypes to cp-objcp-common.h, bodies to cp-objcp-common.c.
+	(finish_file): New function.
+	* cp-objcp-common.c: New file.
+	* cp-objcp-common.h: New file.
+	* cp-tree.h (cp_finish_file): New prototype.
+	* decl.c: Do not include gtype-cp.h.
+	(get_current_scope, objc_mark_locals_volatile): New functions.
+	* decl2.c (finish_file): Rename to cp_finish_file.
