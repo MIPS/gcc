@@ -642,6 +642,19 @@ gnu/java/awt/ClasspathToolkit.java \
 gnu/java/awt/EmbeddedWindow.java \
 gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
+gnu/java/awt/color/CieXyzConverter.java \
+gnu/java/awt/color/ClutProfileConverter.java \
+gnu/java/awt/color/ColorLookUpTable.java \
+gnu/java/awt/color/ColorSpaceConverter.java \
+gnu/java/awt/color/GrayProfileConverter.java \
+gnu/java/awt/color/GrayScaleConverter.java \
+gnu/java/awt/color/LinearRGBConverter.java \
+gnu/java/awt/color/ProfileHeader.java \
+gnu/java/awt/color/PyccConverter.java \
+gnu/java/awt/color/RgbProfileConverter.java \
+gnu/java/awt/color/SrgbConverter.java \
+gnu/java/awt/color/TagEntry.java \
+gnu/java/awt/color/ToneReproductionCurve.java \
 gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
@@ -2965,6 +2978,17 @@ gnu/java/awt/BitMaskExtent.lo gnu/java/awt/Buffers.lo \
 gnu/java/awt/BitwiseXORComposite.lo gnu/java/awt/ComponentDataBlitOp.lo \
 gnu/java/awt/ClasspathToolkit.lo gnu/java/awt/EmbeddedWindow.lo \
 gnu/java/awt/EmbeddedWindowSupport.lo gnu/java/awt/EventModifier.lo \
+gnu/java/awt/color/CieXyzConverter.lo \
+gnu/java/awt/color/ClutProfileConverter.lo \
+gnu/java/awt/color/ColorLookUpTable.lo \
+gnu/java/awt/color/ColorSpaceConverter.lo \
+gnu/java/awt/color/GrayProfileConverter.lo \
+gnu/java/awt/color/GrayScaleConverter.lo \
+gnu/java/awt/color/LinearRGBConverter.lo \
+gnu/java/awt/color/ProfileHeader.lo gnu/java/awt/color/PyccConverter.lo \
+gnu/java/awt/color/RgbProfileConverter.lo \
+gnu/java/awt/color/SrgbConverter.lo gnu/java/awt/color/TagEntry.lo \
+gnu/java/awt/color/ToneReproductionCurve.lo \
 gnu/java/awt/image/ImageDecoder.lo gnu/java/awt/image/XBMDecoder.lo \
 gnu/java/awt/peer/EmbeddedWindowPeer.lo \
 gnu/java/awt/peer/GLightweightPeer.lo \
@@ -3051,20 +3075,18 @@ java/awt/geom/RoundRectangle2D.lo java/awt/geom/Line2D.lo \
 java/awt/geom/Arc2D.lo java/awt/geom/Area.lo \
 java/awt/geom/CubicCurve2D.lo java/awt/geom/FlatteningPathIterator.lo \
 java/awt/geom/GeneralPath.lo java/awt/geom/QuadCurve2D.lo \
-java/awt/image/BandCombineOp.lo \
-java/awt/image/BandedSampleModel.lo java/awt/image/BufferedImage.lo \
-java/awt/image/BufferedImageFilter.lo java/awt/image/ByteLookupTable.lo \
-java/awt/image/ColorConvertOp.lo \
+java/awt/image/BandCombineOp.lo java/awt/image/BandedSampleModel.lo \
+java/awt/image/BufferedImage.lo java/awt/image/BufferedImageFilter.lo \
+java/awt/image/ByteLookupTable.lo java/awt/image/ColorConvertOp.lo \
 java/awt/image/ColorModel.lo java/awt/image/ComponentColorModel.lo \
 java/awt/image/ComponentSampleModel.lo java/awt/image/ConvolveOp.lo \
-java/awt/image/DataBuffer.lo \
-java/awt/image/DataBufferByte.lo java/awt/image/DataBufferDouble.lo \
-java/awt/image/DataBufferFloat.lo java/awt/image/DataBufferInt.lo \
-java/awt/image/DataBufferShort.lo java/awt/image/DataBufferUShort.lo \
-java/awt/image/DirectColorModel.lo java/awt/image/Kernel.lo \
-java/awt/image/ImageConsumer.lo java/awt/image/ImageObserver.lo \
-java/awt/image/ImageProducer.lo java/awt/image/IndexColorModel.lo \
-java/awt/image/LookupOp.lo \
+java/awt/image/DataBuffer.lo java/awt/image/DataBufferByte.lo \
+java/awt/image/DataBufferDouble.lo java/awt/image/DataBufferFloat.lo \
+java/awt/image/DataBufferInt.lo java/awt/image/DataBufferShort.lo \
+java/awt/image/DataBufferUShort.lo java/awt/image/DirectColorModel.lo \
+java/awt/image/Kernel.lo java/awt/image/ImageConsumer.lo \
+java/awt/image/ImageObserver.lo java/awt/image/ImageProducer.lo \
+java/awt/image/IndexColorModel.lo java/awt/image/LookupOp.lo \
 java/awt/image/LookupTable.lo \
 java/awt/image/MultiPixelPackedSampleModel.lo \
 java/awt/image/PackedColorModel.lo \
@@ -3858,6 +3880,19 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/awt/EmbeddedWindow.P \
 .deps/gnu/java/awt/EmbeddedWindowSupport.P \
 .deps/gnu/java/awt/EventModifier.P \
+.deps/gnu/java/awt/color/CieXyzConverter.P \
+.deps/gnu/java/awt/color/ClutProfileConverter.P \
+.deps/gnu/java/awt/color/ColorLookUpTable.P \
+.deps/gnu/java/awt/color/ColorSpaceConverter.P \
+.deps/gnu/java/awt/color/GrayProfileConverter.P \
+.deps/gnu/java/awt/color/GrayScaleConverter.P \
+.deps/gnu/java/awt/color/LinearRGBConverter.P \
+.deps/gnu/java/awt/color/ProfileHeader.P \
+.deps/gnu/java/awt/color/PyccConverter.P \
+.deps/gnu/java/awt/color/RgbProfileConverter.P \
+.deps/gnu/java/awt/color/SrgbConverter.P \
+.deps/gnu/java/awt/color/TagEntry.P \
+.deps/gnu/java/awt/color/ToneReproductionCurve.P \
 .deps/gnu/java/awt/image/ImageDecoder.P \
 .deps/gnu/java/awt/image/XBMDecoder.P \
 .deps/gnu/java/awt/peer/ClasspathFontPeer.P \
@@ -4366,8 +4401,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/BufferedImageFilter.P \
 .deps/java/awt/image/BufferedImageOp.P \
 .deps/java/awt/image/ByteLookupTable.P \
-.deps/java/awt/image/ColorConvertOp.P \
-.deps/java/awt/image/ColorModel.P \
+.deps/java/awt/image/ColorConvertOp.P .deps/java/awt/image/ColorModel.P \
 .deps/java/awt/image/ComponentColorModel.P \
 .deps/java/awt/image/ComponentSampleModel.P \
 .deps/java/awt/image/ConvolveOp.P \
@@ -4385,8 +4419,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/ImageProducer.P \
 .deps/java/awt/image/ImagingOpException.P \
 .deps/java/awt/image/IndexColorModel.P .deps/java/awt/image/Kernel.P \
-.deps/java/awt/image/LookupOp.P \
-.deps/java/awt/image/LookupTable.P \
+.deps/java/awt/image/LookupOp.P .deps/java/awt/image/LookupTable.P \
 .deps/java/awt/image/MemoryImageSource.P \
 .deps/java/awt/image/MultiPixelPackedSampleModel.P \
 .deps/java/awt/image/PackedColorModel.P \

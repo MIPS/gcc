@@ -1,3 +1,31 @@
+2004-11-06  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (awt_java_source_files): Add new gnu/java/awt/color
+	java source files.
+	* Makefile.in: Regenerated.
+
+2004-11-06  Sven de Marothy  <sven@physto.se>
+
+	* gnu/java/awt/color/CieXyzConverter.java,
+	gnu/java/awt/color/GrayScaleConverter.java,
+	gnu/java/awt/color/SrgbConverter.java,
+	gnu/java/awt/color/ClutProfileConverter.java,
+	gnu/java/awt/color/LinearRGBConverter.java,
+	gnu/java/awt/color/TagEntry.java,
+	gnu/java/awt/color/ColorLookUpTable.java,
+	gnu/java/awt/color/ProfileHeader.java,
+	gnu/java/awt/color/ToneReproductionCurve.java,
+	gnu/java/awt/color/ColorSpaceConverter.java,
+	gnu/java/awt/color/PyccConverter.java,
+	gnu/java/awt/color/GrayProfileConverter.java,
+	gnu/java/awt/color/RgbProfileConverter.java:
+	New files.
+	* java/awt/color/ICC_ColorSpace.java,
+	java/awt/color/ICC_Profile.java,
+	java/awt/color/ICC_ProfileGray.java,
+	java/awt/color/ICC_ProfileRGB.java:
+	Implemented (sans PhotoYCC color space).
+
 2004-11-06  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/AffineTransformOp.java (filter):  Implement
