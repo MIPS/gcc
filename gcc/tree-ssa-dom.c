@@ -484,7 +484,7 @@ tree_ssa_dominator_optimize (void)
       cfg_altered = cleanup_tree_cfg ();
       calculate_dominance_info (CDI_DOMINATORS);
 
-      rewrite_ssa_into_ssa ();
+      update_ssa (true);
 
       if (getenv ("DISABLE_DOM"))
 	continue;
@@ -1583,7 +1583,7 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
    will be relatively correct, and as more passes are taught to keep loop info
    up to date, the result will become more and more accurate.  */
 
-static int
+int
 loop_depth_of_name (tree x)
 {
   tree defstmt;

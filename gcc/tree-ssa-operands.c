@@ -1830,48 +1830,6 @@ add_call_read_ops (tree stmt)
   ssa_ro_call_cache_valid = true;
 }
 
-/* Copies virtual operands from SRC to DST.  */
-
-void
-copy_virtual_operands (tree dst, tree src)
-{
-  unsigned i;
-  vuse_optype vuses = STMT_VUSE_OPS (src);
-  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (src);
-  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (src);
-  vuse_optype *vuses_new = &stmt_ann (dst)->operands.vuse_ops;
-  v_may_def_optype *v_may_defs_new = &stmt_ann (dst)->operands.v_may_def_ops;
-  v_must_def_optype *v_must_defs_new = &stmt_ann (dst)->operands.v_must_def_ops;
-
-  if (vuses)
-    {
-      *vuses_new = allocate_vuse_optype (NUM_VUSES (vuses));
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	SET_VUSE_OP (*vuses_new, i, VUSE_OP (vuses, i));
-    }
-
-  if (v_may_defs)
-    {
-      *v_may_defs_new = allocate_v_may_def_optype (NUM_V_MAY_DEFS (v_may_defs));
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  SET_V_MAY_DEF_OP (*v_may_defs_new, i, V_MAY_DEF_OP (v_may_defs, i));
-	  SET_V_MAY_DEF_RESULT (*v_may_defs_new, i, 
-				V_MAY_DEF_RESULT (v_may_defs, i));
-	}
-    }
-
-  if (v_must_defs)
-    {
-      *v_must_defs_new = allocate_v_must_def_optype (NUM_V_MUST_DEFS (v_must_defs));
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  SET_V_MUST_DEF_RESULT (*v_must_defs_new, i, V_MUST_DEF_RESULT (v_must_defs, i));
-	  SET_V_MUST_DEF_KILL (*v_must_defs_new, i, V_MUST_DEF_KILL (v_must_defs, i));
-	}
-    }
-}
-
 
 /* Specifically for use in DOM's expression analysis.  Given a store, we
    create an artificial stmt which looks like a load from the store, this can

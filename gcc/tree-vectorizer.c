@@ -156,13 +156,6 @@ static void slpeel_update_phis_for_duplicate_loop
 static void slpeel_update_phi_nodes_for_guard (edge, struct loop *, bool, bool);
 static edge slpeel_add_loop_guard (basic_block, tree, basic_block, basic_block);
 
-static void allocate_new_names (bitmap);
-static void rename_use_op (use_operand_p);
-static void rename_def_op (def_operand_p, tree);
-static void rename_variables_in_bb (basic_block);
-static void free_new_names (bitmap);
-static void rename_variables_in_loop (struct loop *);
-
 /*************************************************************************
   General Vectorization Utilities
  *************************************************************************/
@@ -184,179 +177,6 @@ enum verbosity_levels vect_verbosity_level = MAX_VERBOSITY_LEVEL;
   Utilities to support loop peeling for vectorization purposes.
  *************************************************************************/
 
-
-/* For each definition in DEFINITIONS this function allocates 
-   new ssa name.  */
-
-static void
-allocate_new_names (bitmap definitions)
-{
-  unsigned ver;
-  bitmap_iterator bi;
-
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      tree def = ssa_name (ver);
-      tree *new_name_ptr = xmalloc (sizeof (tree));
-
-      bool abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
-
-      *new_name_ptr = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
-      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*new_name_ptr) = abnormal;
-
-      SSA_NAME_AUX (def) = new_name_ptr;
-    }
-}
-
-
-/* Renames the use *OP_P.  */
-
-static void
-rename_use_op (use_operand_p op_p)
-{
-  tree *new_name_ptr;
-
-  if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
-    return;
-
-  new_name_ptr = SSA_NAME_AUX (USE_FROM_PTR (op_p));
-
-  /* Something defined outside of the loop.  */
-  if (!new_name_ptr)
-    return;
-
-  /* An ordinary ssa name defined in the loop.  */
-
-  SET_USE (op_p, *new_name_ptr);
-}
-
-
-/* Renames the def *OP_P in statement STMT.  */
-
-static void
-rename_def_op (def_operand_p op_p, tree stmt)
-{
-  tree *new_name_ptr;
-
-  if (TREE_CODE (DEF_FROM_PTR (op_p)) != SSA_NAME)
-    return;
-
-  new_name_ptr = SSA_NAME_AUX (DEF_FROM_PTR (op_p));
-
-  /* Something defined outside of the loop.  */
-  if (!new_name_ptr)
-    return;
-
-  /* An ordinary ssa name defined in the loop.  */
-
-  SET_DEF (op_p, *new_name_ptr);
-  SSA_NAME_DEF_STMT (DEF_FROM_PTR (op_p)) = stmt;
-}
-
-
-/* Renames the variables in basic block BB.  */
-
-static void
-rename_variables_in_bb (basic_block bb)
-{
-  tree phi;
-  block_stmt_iterator bsi;
-  tree stmt;
-  stmt_ann_t ann;
-  use_optype uses;
-  vuse_optype vuses;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  unsigned i;
-  edge e;
-  edge_iterator ei;
-  struct loop *loop = bb->loop_father;
-
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    rename_def_op (PHI_RESULT_PTR (phi), phi);
-
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-	rename_use_op (USE_OP_PTR (uses, i));
-
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	rename_def_op (DEF_OP_PTR (defs, i), stmt);
-
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	rename_use_op (VUSE_OP_PTR (vuses, i));
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  rename_use_op (V_MAY_DEF_OP_PTR (v_may_defs, i));
-	  rename_def_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt);
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  rename_use_op (V_MUST_DEF_KILL_PTR (v_must_defs, i));
-	  rename_def_op (V_MUST_DEF_RESULT_PTR (v_must_defs, i), stmt);
-	}
-    }
-
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (!flow_bb_inside_loop_p (loop, e->dest))
-	continue;
-      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
-        rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e));
-    }
-}
-
-
-/* Releases the structures holding the new ssa names.  */
-
-static void
-free_new_names (bitmap definitions)
-{
-  unsigned ver;
-  bitmap_iterator bi;
-
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      tree def = ssa_name (ver);
-
-      if (SSA_NAME_AUX (def))
-	{
-	  free (SSA_NAME_AUX (def));
-	  SSA_NAME_AUX (def) = NULL;
-	}
-    }
-}
-
-
-/* Renames variables in new generated LOOP.  */
-
-static void
-rename_variables_in_loop (struct loop *loop)
-{
-  unsigned i;
-  basic_block *bbs;
-
-  bbs = get_loop_body (loop);
-
-  for (i = 0; i < loop->num_nodes; i++)
-    rename_variables_in_bb (bbs[i]);
-
-  free (bbs);
-}
-
-
 /* Update the PHI nodes of NEW_LOOP.
 
    NEW_LOOP is a duplicate of ORIG_LOOP.
@@ -368,12 +188,10 @@ static void
 slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 				       struct loop *new_loop, bool after)
 {
-  tree *new_name_ptr, new_ssa_name;
   tree phi_new, phi_orig;
   tree def;
   edge orig_loop_latch = loop_latch_edge (orig_loop);
   edge orig_entry_e = loop_preheader_edge (orig_loop);
-  edge new_loop_exit_e = new_loop->exit_edges[0];
   edge new_loop_entry_e = loop_preheader_edge (new_loop);
   edge entry_arg_e = (after ? orig_loop_latch : orig_entry_e);
 
@@ -384,24 +202,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 
      step 2. For each loop-header-phi:
              Add the second phi argument for the phi in NEW_LOOP
-            (the one associated with the latch of NEW_LOOP)
-
-     step 3. Update the phis in the successor block of NEW_LOOP.
-
-        case 1: NEW_LOOP was placed before ORIG_LOOP:
-                The successor block of NEW_LOOP is the header of ORIG_LOOP.
-                Updating the phis in the successor block can therefore be done
-                along with the scanning of the loop header phis, because the
-                header blocks of ORIG_LOOP and NEW_LOOP have exactly the same
-                phi nodes, organized in the same order.
-
-        case 2: NEW_LOOP was placed after ORIG_LOOP:
-                The successor block of NEW_LOOP is the original exit block of 
-                ORIG_LOOP - the phis to be updated are the loop-closed-ssa phis.
-                We postpone updating these phis to a later stage (when
-                loop guards are added).
-   */
-
+            (the one associated with the latch of NEW_LOOP)  */
 
   /* Scan the phis in the headers of the old and new loops
      (they are organized in exactly the same order).  */
@@ -417,26 +218,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 
       /* step 2.  */
       def = PHI_ARG_DEF_FROM_EDGE (phi_orig, orig_loop_latch);
-      if (TREE_CODE (def) != SSA_NAME)
-        continue;
-
-      new_name_ptr = SSA_NAME_AUX (def);
-      if (!new_name_ptr)
-        /* Something defined outside of the loop.  */
-        continue;
-
-      /* An ordinary ssa name defined in the loop.  */
-      new_ssa_name = *new_name_ptr;
-      add_phi_arg (phi_new, new_ssa_name, loop_latch_edge (new_loop));
-
-      /* step 3 (case 1).  */
-      if (!after)
-        {
-          gcc_assert (new_loop_exit_e == orig_entry_e);
-          SET_PHI_ARG_DEF (phi_orig,
-                           new_loop_exit_e->dest_idx,
-                           new_ssa_name);
-        }
+      add_phi_arg (phi_new, def, loop_latch_edge (new_loop));
     }
 }
 
@@ -504,6 +286,9 @@ slpeel_update_phi_nodes_for_guard (edge guard_edge,
   edge e = EDGE_SUCC (new_merge_bb, 0);
   basic_block update_bb = e->dest;
   basic_block orig_bb = (entry_phis ? loop->header : update_bb);
+
+  if (update_bb == orig_bb)
+    return;
 
   for (orig_phi = phi_nodes (orig_bb), update_phi = phi_nodes (update_bb);
        orig_phi && update_phi;
@@ -777,7 +562,7 @@ slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
   tree orig_cond = get_loop_exit_condition (loop);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_e->src);
 
-  if (any_marked_for_rewrite_p ())
+  if (need_ssa_update_p ())
     return false;
 
   if (loop->inner
@@ -876,7 +661,6 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   struct loop *new_loop = NULL, *first_loop, *second_loop;
   edge skip_e;
   tree pre_condition;
-  bitmap definitions;
   basic_block bb_before_second_loop, bb_after_second_loop;
   basic_block bb_before_first_loop;
   basic_block bb_between_loops;
@@ -933,10 +717,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
       second_loop = loop;
     }
 
-  definitions = marked_ssa_names ();
-  allocate_new_names (definitions);
   slpeel_update_phis_for_duplicate_loop (loop, new_loop, e == exit_e);
-  rename_variables_in_loop (new_loop);
 
 
   /* 2. Add the guard that controls whether the first loop is executed.
@@ -1022,9 +803,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   if (update_first_loop_count)
     slpeel_make_loop_iterate_ntimes (first_loop, first_niters);
 
-  free_new_names (definitions);
-  BITMAP_FREE (definitions);
-  unmark_all_for_rewrite ();
+  update_ssa (true);
 
   return new_loop;
 }

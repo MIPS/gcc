@@ -527,9 +527,6 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned);
-extern void rewrite_to_new_ssa_names_bb (basic_block, struct htab *);
-extern void rewrite_to_new_ssa_names (basic_block *, unsigned, htab_t);
-extern void allocate_ssa_names (bitmap, struct htab **);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
@@ -626,9 +623,16 @@ extern bool stmt_references_memory_p (tree);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
-extern void rewrite_ssa_into_ssa (void);
 extern void rewrite_def_def_chains (void);
-extern void update_ssa (VEC (tree_on_heap) *, VEC (tree_on_heap) *, bool);
+extern void update_ssa (bool);
+extern void register_new_name_mapping (tree, tree);
+extern tree create_new_def_for (tree, tree, def_operand_p);
+extern bool need_ssa_update_p (void);
+extern bool name_registered_for_update_p (tree);
+extern void dump_repl_tbl (FILE *);
+extern void debug_repl_tbl (void);
+extern void dump_names_replaced_by (FILE *, unsigned);
+extern void debug_names_replaced_by (unsigned);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 
@@ -674,6 +678,7 @@ void substitute_and_fold (prop_value_t *);
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
+int loop_depth_of_name (tree);
 
 /* In tree-ssa-copy.c  */
 extern void propagate_value (use_operand_p, tree);

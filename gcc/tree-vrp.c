@@ -36,14 +36,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
 
-/* Mapping between old and new SSA names created when inserting
-   ASSERT_EXPRs.  Each assertion creates a new name that replaces all
-   the uses of the first operand of the ASSERT_EXPR.  The mapping is
-   represented so that for every I, NEW_SSA_NAMES[I] replaces all uses
-   of OLD_SSA_NAMES[I].  */
-static VEC(tree_on_heap) *new_ssa_names;
-static VEC(tree_on_heap) *old_ssa_names;
-
 /* Set of SSA names found during the dominator traversal of a
    sub-graph in maybe_add_assert_expr_on_edges.  */
 static sbitmap found;
@@ -1253,8 +1245,7 @@ build_assert_expr_for (tree cond, tree v)
      operand of the ASSERT_EXPR. Register the new name and the old one
      in the replacement table so that we can fix the SSA web after
      adding all the ASSERT_EXPRs.  */
-  VEC_safe_push (tree_on_heap, new_ssa_names, n);
-  VEC_safe_push (tree_on_heap, old_ssa_names, v);
+  register_new_name_mapping (n, v);
 
   return assertion;
 }
@@ -1398,8 +1389,7 @@ has_assert_expr (tree op, tree cond)
 
    On exit from this function, all the names created by the newly
    inserted ASSERT_EXPRs need to be added to the SSA web by rewriting
-   the SSA names that they replace.  The vectors NEW_SSA_NAMES and
-   OLD_SSA_NAMES contain that information.
+   the SSA names that they replace.
    
    TODO.  Handle SWITCH_EXPR.  */
 
@@ -1594,9 +1584,6 @@ insert_range_assertions (void)
   edge_iterator ei;
   bool update_ssa_p;
   
-  new_ssa_names = VEC_alloc (tree_on_heap, 20);
-  old_ssa_names = VEC_alloc (tree_on_heap, 20);
-
   found = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (found);
 
@@ -1610,7 +1597,7 @@ insert_range_assertions (void)
   if (update_ssa_p)
     {
       bsi_commit_edge_inserts ();
-      update_ssa (new_ssa_names, old_ssa_names, false);
+      update_ssa (false);
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1619,8 +1606,6 @@ insert_range_assertions (void)
       dump_function_to_file (current_function_decl, dump_file, dump_flags);
     }
 
-  VEC_free (tree_on_heap, new_ssa_names);
-  VEC_free (tree_on_heap, old_ssa_names);
   sbitmap_free (found);
 }
 

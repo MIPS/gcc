@@ -144,6 +144,15 @@ may_propagate_copy (tree dest, tree orig)
       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest))
     return false;
 
+  /* Avoid copy propagation from an inner into an outer loop.  This is
+     an optimization consideration.   Otherwise, this may move loop
+     variant variables outside of their loops and prevent coalescing
+     opportunities.  If the value was loop invariant, it will be
+     hoisted by LICM and exposed for copy propagation.  */
+  if (TREE_CODE (orig) == SSA_NAME
+      && loop_depth_of_name (orig) >= loop_depth_of_name (dest))
+    return false;
+
   /* Anything else is OK.  */
   return true;
 }

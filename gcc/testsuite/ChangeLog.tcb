@@ -1,3 +1,7 @@
+2005-03-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20030216-1.x: New file.
+
 2005-02-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/gcc.dg/tree-ssa/ssa-pre-2.c: Adjust expected pattern.

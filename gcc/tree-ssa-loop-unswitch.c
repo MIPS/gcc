@@ -106,7 +106,6 @@ tree_ssa_unswitch_loops (struct loops *loops)
       verify_loop_structure (loops);
 #endif
     }
-
 }
 
 /* Checks whether we can unswitch LOOP on condition at end of BB -- one of its

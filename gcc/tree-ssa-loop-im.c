@@ -723,12 +723,13 @@ move_computations (void)
   rewrite_into_ssa (false);
   if (!bitmap_empty_p (vars_to_rename))
     {
+      bitmap_clear (vars_to_rename);
+
       /* The rewrite of ssa names may cause violation of loop closed ssa
 	 form invariants.  TODO -- avoid these rewrites completely.
 	 Information in virtual phi nodes is sufficient for it.  */
       rewrite_into_loop_closed_ssa ();
     }
-  bitmap_clear (vars_to_rename);
 }
 
 /* Checks whether the statement defining variable *INDEX can be hoisted

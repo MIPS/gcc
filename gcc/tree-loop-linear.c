@@ -372,8 +372,8 @@ linear_transform_loops (struct loops *loops)
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
+
   free_df ();
   scev_reset ();
-  rewrite_into_ssa (false);
   rewrite_into_loop_closed_ssa ();
 }

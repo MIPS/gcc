@@ -323,6 +323,7 @@ get_default_value (tree var)
 	 initial value.  */
       val.lattice_val = CONSTANT;
       val.value = DECL_INITIAL (sym);
+      val.mem_ref = sym;
     }
   else
     {
