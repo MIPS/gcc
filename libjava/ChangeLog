@@ -1,3 +1,7 @@
+2004-07-12  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/Timer.java (run): Queue events each time cycle.
+
 2004-07-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/awt/Component.java (requestFocus()): Don't handle Panels
