@@ -1,3 +1,16 @@
+2003-09-19  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-ccp.c (cfg_edges): Rename to cfg_blocks.
+	(cfg_blocks_num, cfg_blocks_head, cfg_blocks_tail): New. Queue markers.
+	(bb_in_list): New. Vector indicating if a BB is in the cfg_blocks list.
+	(tree_ssa_ccp): Use new routines.
+	(add_control_edge): Add to cfg_blocks list.
+	(initialize): Initialize new variables.
+	(finalize): Free allocations.
+	(cfg_blocks_empty): New. Is cfg_blocks queue list.
+	(cfg_blocks_add): New. Add a basic block to cfg_blocks list.
+	(cfg_blocks_pop): New. Get a a basic_block form the list.
+
 2003-09-18  Richard Henderson  <rth@redhat.com>
 
 	* tree-cfg.c (struct rusv_data): Add may_throw, may_branch.

@@ -92,7 +92,13 @@ struct value_map_d
 static sbitmap executable_blocks;
 
 /* Array of control flow edges on the worklist.  */
-static varray_type cfg_edges;
+static varray_type cfg_blocks;
+
+static unsigned int cfg_blocks_num = 0;
+static int cfg_blocks_tail;
+static int cfg_blocks_head;
+
+static sbitmap bb_in_list;
 
 /* Worklist of SSA edges which will need reexamination as their definition
    has changed.  SSA edges are def-use edges in the SSA web.  For each
@@ -129,7 +135,9 @@ static hashval_t value_map_hash (const void *);
 static int value_map_eq (const void *, const void *);
 static tree ccp_fold_builtin (tree, tree);
 static tree get_strlen (tree);
-
+static inline bool cfg_blocks_empty_p (void);
+static void cfg_blocks_add (basic_block);
+static basic_block cfg_blocks_get (void);
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -147,14 +155,12 @@ tree_ssa_ccp (tree fndecl)
   initialize ();
 
   /* Iterate until the worklists are empty.  */
-  while (VARRAY_ACTIVE_SIZE (cfg_edges) > 0
-	 || VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
+  while (!cfg_blocks_empty_p () || VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
     {
-      if (VARRAY_ACTIVE_SIZE (cfg_edges) > 0)
+      if (!cfg_blocks_empty_p ())
 	{
 	  /* Pull the next block to simulate off the worklist.  */
-	  basic_block dest_block = VARRAY_TOP_EDGE (cfg_edges)->dest;
-	  VARRAY_POP (cfg_edges);
+	  basic_block dest_block = cfg_blocks_get ();
 	  simulate_block (dest_block);
 	}
 
@@ -689,15 +695,24 @@ add_outgoing_control_edges (basic_block bb)
 static void
 add_control_edge (edge e)
 {
-  /* If the edge had already been added, skip it.  */
-  if (e->flags & EDGE_EXECUTABLE)
+  basic_block bb = e->dest;
+  if (bb == EXIT_BLOCK_PTR)
     return;
 
+  /* If the edge had already been executed, skip it.  */
+  if (e->flags & EDGE_EXECUTABLE)
+      return;
+
   e->flags |= EDGE_EXECUTABLE;
-  VARRAY_PUSH_EDGE (cfg_edges, e);
+
+  /* If the block is already in the list, we're done.  */
+  if (TEST_BIT (bb_in_list, bb->index))
+    return;
+
+  cfg_blocks_add (bb);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n",
+    fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
 	     e->src->index, e->dest->index);
 }
 
@@ -1017,6 +1032,9 @@ initialize (void)
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
+  bb_in_list = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (bb_in_list);
+
   /* Initialize simulation flags for PHI nodes, statements and edges.  */
   FOR_EACH_BB (bb)
     {
@@ -1034,14 +1052,17 @@ initialize (void)
     }
 
 
-  VARRAY_EDGE_INIT (cfg_edges, 20, "cfg_edges");
+  VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      e->flags |= EDGE_EXECUTABLE;
-      VARRAY_PUSH_EDGE (cfg_edges, e);
+      if (e->dest != EXIT_BLOCK_PTR)
+        {
+	  e->flags |= EDGE_EXECUTABLE;
+	  cfg_blocks_add (e->dest);
+	}
     }
 }
 
@@ -1051,7 +1072,72 @@ initialize (void)
 static void
 finalize (void)
 {
+  sbitmap_free (bb_in_list);
+  sbitmap_free (executable_blocks);
   htab_delete (const_values);
+}
+
+/* Is the block worklist empty.  */
+
+static inline bool
+cfg_blocks_empty_p ()
+{
+  return (cfg_blocks_num == 0);
+}
+
+/* Add a basic block to the worklist.  */
+
+static void 
+cfg_blocks_add (basic_block bb)
+{
+   if (bb == ENTRY_BLOCK_PTR || bb == EXIT_BLOCK_PTR)
+     return;
+
+   if (TEST_BIT (bb_in_list, bb->index))
+     return;
+
+    if (cfg_blocks_empty_p ())
+      {
+	cfg_blocks_tail = cfg_blocks_head = 0;
+	cfg_blocks_num = 1;
+      }
+    else
+      {
+	cfg_blocks_num++;
+	if (cfg_blocks_num > VARRAY_SIZE (cfg_blocks))
+	  {
+	    /* We have to grow the array now.  Adjust to queue to occupy the
+	       full space of the original array.  */
+	    cfg_blocks_tail = VARRAY_SIZE (cfg_blocks);
+	    cfg_blocks_head = 0;
+	    VARRAY_GROW (cfg_blocks, 2 * VARRAY_SIZE (cfg_blocks));
+	  }
+	else
+	  cfg_blocks_tail = (cfg_blocks_tail + 1) % VARRAY_SIZE (cfg_blocks);
+      }
+    VARRAY_BB (cfg_blocks, cfg_blocks_tail) = bb;
+    SET_BIT (bb_in_list, bb->index);
+}
+
+/* Remove a block from the worklist.  */
+
+static basic_block
+cfg_blocks_get ()
+{
+  basic_block bb;
+
+  bb = VARRAY_BB (cfg_blocks, cfg_blocks_head);
+
+#ifdef ENABLE_CHECKING
+  if (cfg_blocks_empty_p () || !bb)
+    abort ();
+#endif
+
+  cfg_blocks_head = (cfg_blocks_head + 1) % VARRAY_SIZE (cfg_blocks);
+  --cfg_blocks_num;
+  RESET_BIT (bb_in_list, bb->index);
+
+  return bb;
 }
 
 /* We have just definited a new value for VAR.  Add all immediate uses
