@@ -1,3 +1,23 @@
+2004-08-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13684
+	* c.opt (-fno-threadsafe-statics): New option.
+	* c-opts.c (c_common_handle_option): Handle it.
+	* c-common.h (flag_threadsafe_statics): Declare it.
+	* c-common.c (flag_threadsafe_statics): Record it.
+        * doc/invoke.texi: Document it.
+	* tsystem.h (_GNU_SOURCE): Define.
+	* gthr-posix.h (__gthread_recursive_mutex_t): New typedef.
+	(__GTHREAD_RECURSIVE_MUTEX_INIT): New macro.
+	(__GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION): New macro.
+	(__gthread_recursive_mutex_init_function): New fn.
+	(__gthread_recursive_mutex_lock): New fn.
+	(__gthread_recursive_mutex_trylock): New fn.
+	(__gthread_recursive_mutex_unlock): New fn.
+	* gthr-solaris.h, gthr-single.h, gthr-dce.h: Likewise.
+	* gthr-vxworks.h: Likewise.
+	* gthr.h: Document.
+
 2004-09-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* fold-const.c (operand_equal_p): Require equal sign also for

@@ -608,6 +608,11 @@ int warn_abi = 0;
 
 int warn_invalid_offsetof = 1;
 
+/* Nonzero means to generate thread-safe code for initializing local
+   statics.  */
+
+int flag_threadsafe_statics = 1;
+
 /* Nonzero means warn about implicit declarations.  */
 
 int warn_implicit = 1;

@@ -769,6 +769,11 @@ extern int warn_abi;
  
 extern int warn_invalid_offsetof;
 
+/* Nonzero (the default) means to generate thread-safe code for
+   initializing local statics.  */
+
+extern int flag_threadsafe_statics;
+
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
