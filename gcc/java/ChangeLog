@@ -1,3 +1,12 @@
+2004-05-25  Andrew Haley  <aph@redhat.com>
+
+	* class.c (build_symbol_entry): Convert the names of constructors
+	to init_identifier_node when generating an entry for the indirect
+	dispatch table.
+	
+	* expr.c (build_known_method_ref): Generate indirect calls for
+	all methods marked DECL_EXTERNAL or TREE_PUBLIC.
+
 2004-05-24  Andrew Haley  <aph@redhat.com>
 
         * expr.c (build_known_method_ref): Make sure ARRAY_REF access to

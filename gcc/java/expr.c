@@ -1864,16 +1864,12 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
   tree func;
   if (is_compiled_class (self_type))
     {
-      /* At one point I used 
-
-      (!TREE_PUBLIC (method) && DECL_CONTEXT (method))) 
-      
-      here, meaning that we would make a direct call to methods that
-      are in the current compilation unit and not public.  That ought
-      to work, right?  Wrong.  Unfortunately, for some reason we still
-      generate a PLT jump for such methods, and they can end up being
-      resolved in some other library.  Sigh.  */
-      if (!flag_indirect_dispatch)
+      /* With indirect dispatch we have to use indirect calls for all
+	 publically visible methods or gcc will use PLT indirections
+	 to reach them.  We also have to use indirect dispatch for all
+	 external methods.  */
+      if (! flag_indirect_dispatch 
+	  || (! DECL_EXTERNAL (method) && ! TREE_PUBLIC (method)))
 	{
 	  make_decl_rtl (method, NULL);
 	  func = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (method)),

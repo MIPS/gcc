@@ -2358,9 +2358,15 @@ static tree
 build_symbol_entry (tree decl)
 {
   tree clname, name, signature, sym;
-  
   clname = build_utf8_ref (DECL_NAME (TYPE_NAME (DECL_CONTEXT (decl))));
-  name = build_utf8_ref (DECL_NAME (decl));
+  /* ???  Constructors are given the name foo.foo all the way through
+     the compiler, but in the method table they're all renamed
+     foo.<init>.  So, we have to do the same here unless we want an
+     unresolved reference at runtime.  */
+  name = build_utf8_ref ((TREE_CODE (decl) == FUNCTION_DECL 
+			  && DECL_CONSTRUCTOR_P (decl))
+			 ? init_identifier_node
+			 : DECL_NAME (decl));
   signature = build_java_signature (TREE_TYPE (decl));
   signature = build_utf8_ref (unmangle_classname 
 			      (IDENTIFIER_POINTER (signature),
