@@ -82,7 +82,7 @@ public abstract class View implements SwingConstants
 
   public Container getContainer()
   {
-    return parent.getContainer();
+    return parent != null ? parent.getContainer() : null;
   }
   
   public Document getDocument()

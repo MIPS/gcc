@@ -1,5 +1,21 @@
 2004-06-28  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/AttributeSet.java
+	(CharacterAttribute): New interface
+	(ColorAttribute): Likewise.
+	(FontCharacterAttribute): Likewise.
+	(ParagraphAttribute): Likewise.
+	* javax/swing/text/DefaultCaret.java
+	(moveCaret): New method.
+	(positionCaret): Likewise.
+	(repaint): Made protected.
+	* javax/swing/text/JTextComponent.java
+	(KeyBinding): Made it static.
+	* javax/swing/text/View.java
+	(getContainer): Honor parent == null.
+
+2004-06-28  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/AbstractDocument.java:
 	Reformatted.
 

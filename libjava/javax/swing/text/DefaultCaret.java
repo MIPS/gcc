@@ -107,6 +107,14 @@ public class DefaultCaret extends Rectangle
   {
   }
 
+  protected void moveCaret(MouseEvent event)
+  {
+  }
+
+  protected void positionCaret(MouseEvent event)
+  {
+  }
+
   public void deinstall(JTextComponent c)
   {
     parent.removeFocusListener(this);
@@ -148,7 +156,7 @@ public class DefaultCaret extends Rectangle
     return vis_sel;
   }
 
-  private void repaint()
+  protected final void repaint()
   {
     if (parent != null)
       parent.repaint();

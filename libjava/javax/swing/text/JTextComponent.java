@@ -265,7 +265,7 @@ public abstract class JTextComponent extends JComponent
     }
   }
 
-  public class KeyBinding
+  public static class KeyBinding
   {
     public KeyStroke key;
     public String actionName;
