@@ -1,3 +1,15 @@
+2002-05-06  Sebastian Pop  <s.pop@laposte.net>
+
+	* Makefile.in (simple-break-elim.o, simple-goto-elim.o, tree-dchain.o): 
+	Added.
+	* c-decl.c: Include tree-dchain.h
+	(c_expand_body): Add entry point to the goto, break elimination 
+	after the simplification pass.
+	* simple-break-elim.c: New file.
+	* simple-goto-elim.c: New file.
+	* tree-dchain.h: New file.
+	* tree-dchain.c: New file.
+
 2002-05-06  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 doc:

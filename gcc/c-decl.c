@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
+#include "tree-dchain.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6836,6 +6837,14 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
       /* Simplify the function.  */
       simplify_tree (fndecl);
+
+#if 0
+      /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
+      double_chain_stmts (fn);
+      break_continue_elimination (fndecl);
+      goto_elimination (fndecl);
+      double_chain_free (fn);
+#endif
 
       /* Debugging dump after simplification.  */
       if (dump_file)

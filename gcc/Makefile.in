@@ -707,7 +707,8 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-format.o c-semantics.o \
   c-objc-common.o libcpp.a $(C_TARGET_OBJS) \
   tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o c-pretty-print.o \
-  c-simplify.o c-call-graph.o tree-simple.o
+  c-simplify.o c-call-graph.o tree-simple.o simple-break-elim.o \
+  simple-goto-elim.o tree-dchain.o
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
@@ -1359,6 +1360,12 @@ tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h
+simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h
+simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h
+tree-dchain.o : tree-dchain.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   $(C_TREE_H) $(C_COMMON_H) tree-dchain.h
 c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
    $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) tree-flow.h
 tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) tree-simple.h
