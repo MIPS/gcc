@@ -1,5 +1,8 @@
 2004-02-04  Jeff Law  <law@redhat.com>
 
+	* jump.c (duplicate_loop_exit_test): Allow copying of the loop
+	exit test even if we do not find the LOOP_END note.
+
 	* domwalk.c: Update comments.
 
 2004-02-04  Brian Booth  <bbooth@redhat.com>

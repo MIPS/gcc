@@ -289,11 +289,20 @@ mark_all_labels (rtx f)
 }
 
 /* LOOP_START is a NOTE_INSN_LOOP_BEG note that is followed by an unconditional
-   jump.  Assume that this unconditional jump is to the exit test code.  If
-   the code is sufficiently simple, make a copy of it before INSN,
-   followed by a jump to the exit of the loop.  Then delete the unconditional
-   jump after INSN.
+   jump.  Assume that this unconditional jump is to the exit test code.
 
+   Search the exit code for a conditional branch back to the first code
+   label after LOOP_START. 
+
+   If such a conditional jump is found and the exit code is sufficiently
+   simple, then make a copy of it before LOOP_START followed by a jump to
+   fall-thru path of the exit code.  Then delete the unconditional jump after
+   LOOP_START.
+
+   Note that if the loop exit code has multiple paths back to the start
+   of the loop, then we only copy the first path.  I.e. the fall-thru
+   path of the exit code can still be part of the semantic loop.
+   
    Return 1 if we made the change, else 0.
 
    This is only safe immediately after a regscan pass because it uses the
@@ -356,6 +365,20 @@ duplicate_loop_exit_test (rtx loop_start)
 	    return 0;
 	  break;
 	default:
+	  break;
+	}
+
+      /* If this is a conditional jump back to the first label after
+	 LOOP_START, then we stop our search.  */
+      if (GET_CODE (insn) == JUMP_INSN
+	  && JUMP_LABEL (insn)
+	  && JUMP_LABEL (insn) == NEXT_INSN (NEXT_INSN (NEXT_INSN (loop_start)))
+	  && any_condjump_p (insn)
+	  && onlyjump_p (insn))
+	{
+	  /* Advance INSN over the conditional jump since we want to
+	     copy the jump.  */
+	  insn = NEXT_INSN (insn);
 	  break;
 	}
     }
