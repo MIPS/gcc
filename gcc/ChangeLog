@@ -1,3 +1,9 @@
+Tue Nov 26 16:30:59 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (FAST_PROLOGUE_INSN_COUNT): Set to 20.
+	(ix86_expand_prologue): Multiply the count by amount of registers to be
+	pushed.
+
 Tue Nov 26 15:55:27 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (override_options): Error about wrong -mcpu on x86-64
