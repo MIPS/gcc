@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int main ()
@@ -12,7 +12,9 @@ int main ()
       b += 5;
       a += b;
       
-      /* Exercises the add_invariant_expr_to_loop_evolution
+      /* Exercises the sum of a polynomial of degree 2 with an
+	 evolution of degree 1:
+	 
 	 (loop_num = 1, chrec_var = {3, +, 7, +, 5}, to_add = 2).
 	 The result should be:  {3, +, 9, +, 5}.  */
       a += 2;
@@ -24,4 +26,4 @@ int main ()
    a  ->  {3, +, {9, +, 5}_1}_1
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* FIXME. */

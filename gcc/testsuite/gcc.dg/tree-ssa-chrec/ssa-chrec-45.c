@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 /* That's a reduced testcase of one of my favourite simulation programs.
    This is also known under the name: "Newton's falling apple".
@@ -41,4 +41,4 @@ double Newton_s_apple ()
   
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* FIXME. */

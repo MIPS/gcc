@@ -254,8 +254,9 @@ in the following sections.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
--fdump-scalar-evolutions@r{[}-@var{n}@r{]} @gol
--fdump-all-data-deps@r{[}-@var{n}@r{]}@gol
+-fdump-tree-scev @r{[}-@var{n}@r{]} @gol
+-fdump-tree-ddall @r{[}-@var{n}@r{]}@gol
+-fdump-tree-elck @r{[}-@var{n}@r{]} @gol
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
@@ -3533,6 +3534,12 @@ The file name is made by appending @file{.scev} to the source file name.
 Dump all the data dependence relations.
 The file name is made by appending @file{.ddall} to the source file name.
 
+@item elck
+@opindex fdump-tree-elck
+Dump each function after performing checks elimination based on scalar
+evolution informations.  The file name is made by appending
+@file{.elck} to the source file name.
+
 @item sra
 @opindex fdump-tree-sra
 Dump each function after performing scalar replacement of aggregates.  The
@@ -4358,6 +4365,10 @@ enabled by default.
 Perform the data dependence analysis on all the data references.  This
 pass is only used for verifying the correctness of the analyzer, and
 it is not enabled by default.
+
+@item -ftree-elim-checks 
+Perform elimination of checks based on scalar evolution informations.
+This flag is disabled by default.  
 
 @item -ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure

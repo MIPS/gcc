@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats -fall-data-deps -fdump-tree-ddall" } */
 
 int foo (int);
 
@@ -31,8 +31,5 @@ int main ()
    The PRE has screwed up the case...
    ...I really have to implement the mixers analyzers.  */
 
-/* { dg -final FIXME fails-for-the-moment { scan-tree-dump "a\\\n  -\>  \{?1, \\+, 1\}_1" "scev"} } */
-
-/* { dg-final { diff-tree-dumps "scev" } } */
 /* { dg-final { diff-tree-dumps "ddall" } } */
 

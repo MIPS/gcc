@@ -1,11 +1,13 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 int main(void)
 {
   int a;
   int b;
   int *c;
+
+  /* The following loop runs exactly 3 times.  */
   for (a = 11; a < 50; a++)
     {
       /* The following loop runs exactly 9 times.  */
@@ -22,5 +24,5 @@ int main(void)
    b  ->  {8, +, 5}_2
    a  ->  {{11, +, 19}_1, +, 2}_2
 */
-/* { dg-final { diff-tree-dumps "scev" } } */
-
+/* { dg-final { scan-tree-dump-times "nb_iterations 3" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 9" 1 "scev"} } */

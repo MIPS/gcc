@@ -1,6 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
-
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 int main(void)
 {
@@ -32,6 +31,11 @@ int main(void)
    a  ->  {-100, +, {2, +, {3, +, {4, +, {5, +, c_13}_1}_1}_1}_1}_1
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* FIXME:
+   For the moment this testcase does not test for anything, but for
+   not ICEing, and for documentation purposes (okay here is the
+   definition of a mixer).  However, I'm considering testing something
+   around the lines of ssa-chrec-08.c, ie.  build two mixers, and then
+   compare their values.  But that is difficult, and low priority.  */
 
 

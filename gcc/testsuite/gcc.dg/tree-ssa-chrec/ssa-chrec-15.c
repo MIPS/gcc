@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int main (void)
@@ -8,7 +8,7 @@ int main (void)
   int b;
   int c;
   
-  /* Exercises the MINUS_EXPR.  */
+  /* Exercises the MINUS_EXPR.  loop_1 runs 50 times.  */
   for (a = 100; a > 50; a--)
     {
       
@@ -19,5 +19,5 @@ int main (void)
    a  ->  {100, +, -1}_1
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 50" 1 "scev"} } */
 

@@ -743,6 +743,10 @@ ftree-dse
 Common
 Enable dead store elimination
 
+ftree-elim-checks
+Common
+Eliminate checks based on scalar evolution informations
+
 ftree-loop-optimize
 Common
 Enable loop optimizations on trees

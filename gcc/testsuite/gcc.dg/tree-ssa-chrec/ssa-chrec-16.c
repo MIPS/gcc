@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int main (void)
@@ -9,6 +9,9 @@ int main (void)
   int c = 3;
   int d = 4;
   
+  /* Determining the number of iterations for the != or == is work in
+     progress.  Same for polynomials of degree >= 2, where we have to
+     find the zeros of the polynomial.  */
   while (d)
     {
       a += 23;
@@ -20,4 +23,4 @@ int main (void)
    d  ->  {4, +, {-77, +, 23}_1}_1
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* FIXME. */

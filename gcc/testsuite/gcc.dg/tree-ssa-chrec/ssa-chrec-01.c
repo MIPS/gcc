@@ -1,20 +1,21 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 int main(void)
 {
-  int a;
+  unsigned a;
   int b;
   int c;
   
   /* loop_1 runs exactly 4 times. */
   for (a = 22; a < 50; a+=1)
     {
-      
       /* loop_2 runs exactly 6 times.  On exit, the variable B is equal to 53.  */
       for (b = 23; b < 50; b+=5)
 	{
 	  ++a;
+
+	  /* loop_3 runs {{77, +, -7}_1, +, -1}_2 times.  */
 	  for (c = a; c < 100; c++)
 	    {
 	      
@@ -28,4 +29,7 @@ int main(void)
    a  ->  {{22, +, 7}_1, +, 1}_2
    c  ->  {{{23, +, 7}_1, +, 1}_2, +, 1}_3
 */
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 4" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 6" 1 "scev"} } */
+
+

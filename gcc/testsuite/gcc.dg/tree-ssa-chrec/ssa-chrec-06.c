@@ -1,6 +1,7 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -ftree-elim-checks -fdump-tree-scev-stats -fdump-tree-optimized" } */
 
+void remove_me (void);
 
 int main(void)
 {
@@ -8,10 +9,13 @@ int main(void)
   int b;
   int c;
   
-  for (a = 22; a < 50; a+=1)
+  /* loop_1 runs 2 times.  */
+  for (a = 22; a < 83; a+=1)	/* a  ->  {22, +, 60}_1 */
     {
-      /* The inner loop runs exactly 6 times.  */
-      for (b = 23; b < 50; b+=5)
+      c = a;
+      
+      /* loop_2 runs exactly 6 times.  */
+      for (b = 23; b < 50; b+=5) /* b  ->  {23, +, 5}_2 */
 	{
 	  ++a;
 	}
@@ -22,6 +26,10 @@ int main(void)
 
       /* At this point, the variable A has the evolution function:
 	 {{22, +, 6}_1, +, 1}_2.  */
+      if (b != 53 
+	  || a != c + 6)
+	remove_me ();
+      
       a = a + b;
       /* At this point, the variable A has the evolution function:
 	 {{22, +, 59}_1, +, 1}_2.  The evolution of the variable B in
@@ -29,14 +37,14 @@ int main(void)
 	 evolution of A.  The above statement is equivalent to: 
 	 "a = a + 53", ie. the scalar value of B on exit of the loop_2. */
       
+      if (a != c + 59)
+	remove_me ();
+      
       /* And finally the a+=1 from the FOR_STMT produces the evolution
 	 function: {{22, +, 60}_1, +, 1}_2.  */
     }
-  /* Consequently, the outer loop runs exactly 1 times.  */
 }
 
-/* The analyzer has to detect the following evolution functions:
-   b  ->  {23, +, 5}_2
-   a  ->  {{22, +, 60}_1, +, 1}_2
-*/
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 2" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 6" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "remove_me" 0 "optimized"} } */

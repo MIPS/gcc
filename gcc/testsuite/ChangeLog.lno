@@ -1,3 +1,16 @@
+2004-03-03  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* ssa-chrec-*.c.scev: Removed.
+	* ssa-chrec-[54..60].c: New.
+	* ssa-chrec-{59, 60}.c.ddall: New.
+	* ssa-chrec-*.c.ddall: The analyzer don't print the array
+	discovery information, and this information has to go away
+	from the ddall files.  This was one of the most varying part
+	of the ddall files.  Maybe the base_name of the arrays has to
+	be removed in the same way.
+	* ssa-chrec-*.c: Don't scan the output for scev.  Some cases
+	are adapted for using the elimination of checks.  
+
 2004-02-20  Devang Patel <dpatel@apple.com>
 
 	* testsuite/gcc.dg/tree-ssa-vect/tree-ssa-vect-3.c: New test.

@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats -fall-data-deps -fdump-tree-ddall" } */
 
 int bar (int);
 
@@ -19,5 +19,4 @@ int foo (void)
   bar (c[1]);
 }
 
-/* { dg-final { diff-tree-dumps "scev" } } */
 /* { dg-final { diff-tree-dumps "ddall" } } */

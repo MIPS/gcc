@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int main(void)
@@ -7,10 +7,14 @@ int main(void)
   int a;
   int b;
   int c;
+
+  /* nb_iterations 28 */
   for (a = 22; a < 50; a++)
     {
+      /* nb_iterations 6 */
       for (b = 23; b < 50; b+=5)
 	{
+	  /* nb_iterations {78, +, -1}_1 */
 	  for (c = a; c < 100; c++)
 	    {
 	      
@@ -24,4 +28,5 @@ int main(void)
    b  ->  {23, +, 5}_2
    c  ->  {{22, +, 1}_1, +, 1}_3
 */
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 28" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 6" 1 "scev"} } */

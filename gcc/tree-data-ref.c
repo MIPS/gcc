@@ -353,7 +353,7 @@ analyze_array_indexes (unsigned loop_nb,
 		       tree ref)
 {
   tree opnd0, opnd1;
-  tree access_fn, icond;
+  tree access_fn;
   
   opnd0 = TREE_OPERAND (ref, 0);
   opnd1 = TREE_OPERAND (ref, 1);
@@ -363,18 +363,7 @@ analyze_array_indexes (unsigned loop_nb,
      the computation of access functions that are of no interest for
      the optimizers.  */
   access_fn = instantiate_parameters 
-    (loop_nb, analyze_scalar_evolution (loop_nb, opnd1), opnd1);
-  
-  /* FIXME: Maybe this condition could be developed into an ARRAY_REF
-     bounds checker.  */
-  if (0 
-      && !automatically_generated_chrec_p (icond)
-      && chrec_is_negative (icond))
-    {
-      fprintf (stderr, "Warning: I have detected a negative access function:");
-      debug_generic_expr (access_fn);
-      debug_generic_expr (ref);
-    }
+    (loop_nb, analyze_scalar_evolution (loop_nb, opnd1));
   
   VARRAY_PUSH_TREE (access_fns, access_fn);
   
@@ -396,10 +385,14 @@ analyze_array (tree stmt,
 {
   struct data_reference *res;
 
-  DBG_S (fprintf (stderr, "(analyze_array \n");
-	 fprintf (stderr, "  (ref = ");
-	 debug_generic_expr (ref);
-	 fprintf (stderr, "  )\n"));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_dump_file, "(analyze_array \n");
+      fprintf (tree_dump_file, "  (ref = ");
+      print_generic_stmt (tree_dump_file, ref, 0);
+      fprintf (tree_dump_file, ")\n");
+    }
+  
   res = ggc_alloc (sizeof (struct data_reference));
   
   DR_ID (res) = data_ref_id++;
@@ -409,7 +402,9 @@ analyze_array (tree stmt,
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_num (loop_of_stmt (stmt)), DR_ACCESS_FNS (res), ref);
 
-  DBG_S (fprintf (stderr, ")\n"));  
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, ")\n");
+  
   return res;
 }
 
@@ -500,6 +495,7 @@ compute_direction_vector (struct data_dependence_relation *ddr)
  	{
  	  tree distance;
  	  struct subscript *subscript;
+	  bool value;
  	  
  	  subscript = DDR_SUBSCRIPT (ddr, i);
  	  distance = SUB_DISTANCE (subscript);
@@ -510,15 +506,15 @@ compute_direction_vector (struct data_dependence_relation *ddr)
  	  else if (chrec_zerop (distance))
  	    SUB_DIRECTION (subscript) = dir_equal;
  	  
- 	  else if (chrec_is_negative (distance))
- 	    SUB_DIRECTION (subscript) = dir_negative;
- 	  
- 	  else if (chrec_is_positive (distance))
- 	    SUB_DIRECTION (subscript) = dir_positive;
- 	  
- 	  else
+ 	  else if (!chrec_is_positive (distance, &value))
  	    SUB_DIRECTION (subscript) = dir_star;
- 	}
+	  
+	  else if (value == true)
+ 	    SUB_DIRECTION (subscript) = dir_positive;
+	  
+	  else
+	    SUB_DIRECTION (subscript) = dir_negative;
+	}
     }
 }
 
@@ -561,7 +557,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   
-  DBG_S (fprintf (stderr, "(subscript_dependence_tester \n"));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "(subscript_dependence_tester \n");
   
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
@@ -595,7 +592,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	}
     }
   
-  DBG_S (fprintf (stderr, ")\n"));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, ")\n");
 }
 
 /* This is the subscript {coupling | conflict} tester (SubCT).  
@@ -646,9 +644,11 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
 static void
 subscript_coupling_tester (struct data_dependence_relation *res ATTRIBUTE_UNUSED)
 {
-  DBG_S (fprintf (stderr, "(subscript_coupling_tester \n"));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "(subscript_coupling_tester \n");
   
-  DBG_S (fprintf (stderr, ")\n"));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, ")\n");
 }
 
 /* For all the subscripts, set the same value: CHREC.  */
@@ -689,12 +689,16 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   
-  DBG_S (fprintf (stderr, "(compute_affine_dependence (%d, %d)\n", 
-		  DR_ID (dra), DR_ID (drb));
-	 fprintf (stderr, "  stmt_a = \n");
-	 debug_generic_expr (DR_STMT (dra));
-	 fprintf (stderr, "  stmt_b = \n");
-	 debug_generic_expr (DR_STMT (drb)));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_dump_file, "(compute_affine_dependence (%d, %d)\n", 
+	       DR_ID (dra), DR_ID (drb));
+      fprintf (tree_dump_file, "  (stmt_a = \n");
+      print_generic_expr (tree_dump_file, DR_STMT (dra), 0);
+      fprintf (tree_dump_file, ")\n  (stmt_b = \n");
+      print_generic_expr (tree_dump_file, DR_STMT (drb), 0);
+      fprintf (tree_dump_file, ")\n");
+    }
   
   /* Analyze only when the dependence relation is not yet known.  */
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -711,13 +715,16 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	 "don't know".  */
       else
 	{
-	  DBG_S (fprintf (stderr, "I'm not smart enough for this dependence test," 
-			  "please teach me what I should answer.  \n"));
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "I'm not smart enough for this dependence test," 
+		     "please teach me what I should answer.  \n");
+	  
 	  set_all_subscripts_to (ddr, chrec_top);
 	}
     }
   
-  DBG_S (fprintf (stderr, ")\n"));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, ")\n");
 }
 
 
@@ -775,7 +782,7 @@ find_data_references (varray_type datarefs)
 	      default:
 		debug_tree (expr);
 		/* abort (); */
-		fprintf (stderr, "Find ARRAY_REFs: abort.\n");
+		fprintf (tree_dump_file, "Find ARRAY_REFs: abort.\n");
 		break;
 	      }
 	}
@@ -824,7 +831,6 @@ analyze_all_data_dependences (void)
   
   if (tree_dump_file)
     {
-      dump_data_references (tree_dump_file, datarefs);
       dump_data_dependence_relations (tree_dump_file, dependence_relations);
       fprintf (tree_dump_file, "\n\n");
     }

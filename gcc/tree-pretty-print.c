@@ -1502,7 +1502,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ", +, ");
       dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
       pp_string (buffer, "}_");
-      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
+      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
       is_stmt = false;
       break;
 
@@ -1512,15 +1512,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ", *, ");
       dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
       pp_string (buffer, "}_");
-      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
+      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
       is_stmt = false;
       break;
       
-    case PERIODIC_CHREC:
-      pp_string (buffer, "|");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (buffer, "|_");
-      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
+    case PEELED_CHREC:
+      pp_string (buffer, "(");
+      dump_generic_node (buffer, CHREC_LEFT (node), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
+      pp_string (buffer, ")_");
+      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
       is_stmt = false;
       break;
 
@@ -1529,8 +1531,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_string (buffer, "[-oo, +oo]");
       else if (node == chrec_bot)
 	pp_string (buffer, "[+oo, -oo]");
-      else if (node == chrec_symbolic_parameter)
-	pp_string (buffer, "symbolic_parameter");
       else if (node == chrec_not_analyzed_yet)
 	pp_string (buffer, "not_analyzed_yet");
       else

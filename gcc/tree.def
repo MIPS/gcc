@@ -917,16 +917,15 @@ DEFTREECODE (INTERVAL_CHREC, "interval_chrec", 'e', 2)
 
 /* Polynomial chains of recurrences.
    Under the form: cr = {CHREC_LEFT (cr), +, CHREC_RIGHT (cr)}.  */
-DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", 'e', 2)
+DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", 'e', 3)
 
 /* Exponential chains of recurrences.
    Under the form: cr = {CHREC_LEFT (cr), *, CHREC_RIGHT (cr)}.  */
-DEFTREECODE (EXPONENTIAL_CHREC, "exponential_chrec", 'e', 2)
+DEFTREECODE (EXPONENTIAL_CHREC, "exponential_chrec", 'e', 3)
 
-/* Periodic chains of recurrences.
-   Under the form: |CHREC_0, ..., CHREC_n|.  
-   Operand 0 returns a TREE_VEC of chains of recurrences.  */
-DEFTREECODE (PERIODIC_CHREC, "periodic_chrec", 'e', 1)
+/* Peeled chains of recurrences.
+   Under the form: (CHREC_LEFT (cr), CHREC_RIGHT (cr)).  */
+DEFTREECODE (PEELED_CHREC, "peeled_chrec", 'e', 3)
 
 /* Used to chain children of container statements together.
    Use the interface in tree-iterator.h to access this node.  */

@@ -528,7 +528,9 @@ loop_header (struct loop *loop)
   return loop->header;
 }
 
-/* Returns the number of iterations in the loop.  */
+/* Returns the number of iterations in the loop.  Use
+   number_of_iterations_in_loop () instead of accessing directly this
+   field.  */
 
 static inline tree
 loop_nb_iterations (struct loop *loop)

@@ -3979,11 +3979,11 @@ print_pred_bbs (FILE *file,
     return;
   
   else if (e->pred_next == NULL)
-    fprintf (file, "bb_%d", e->src->index);
+    fprintf (file, "%d", e->src->index);
   
   else
     {
-      fprintf (file, "bb_%d, ", e->src->index);
+      fprintf (file, "%d ", e->src->index);
       print_pred_bbs (file, e->pred_next);
     }
 }
@@ -3998,11 +3998,11 @@ print_succ_bbs (FILE *file,
     return;
   
   else if (e->succ_next == NULL)
-    fprintf (file, "bb_%d", e->dest->index);
+    fprintf (file, "%d", e->dest->index);
   
   else
     {
-      fprintf (file, "bb_%d, ", e->dest->index);
+      fprintf (file, "%d ", e->dest->index);
       print_succ_bbs (file, e->succ_next);
     }
 }
@@ -4026,28 +4026,31 @@ print_loop (FILE *file,
 
   
   /* Print the loop's header.  */
-  fprintf (file, "%sloop_%d\n", s_indent, loop->num);
+  fprintf (file, "%s(loop (num %d)", s_indent, loop->num);
+  if (loop_nb_iterations (loop))
+    {
+      fprintf (file, " (nb_iterations ");
+      print_generic_expr (file, loop_nb_iterations (loop), 0);
+      fprintf (file, ")");
+    }
   
   /* Print the loop's body.  */
-  fprintf (file, "%s{\n", s_indent);
+  fprintf (file, " (body (\n");
   FOR_EACH_BB (bb)
     if (bb->loop_father == loop)
       {
 	/* Print the basic_block's header.  */
-	fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
+	fprintf (file, "%s  (bb (num %d) (preds ", s_indent, bb->index);
 	print_pred_bbs (file, bb->pred);
-	fprintf (file, "}, succs = {");
+	fprintf (file, ") (succs ");
 	print_succ_bbs (file, bb->succ);
-	fprintf (file, "})\n");
-	
-	/* Print the basic_block's body.  */
-	fprintf (file, "%s  {\n", s_indent);
+	fprintf (file, ") (stmts (\n");
 	tree_dump_bb (bb, file, indent + 4);
-	fprintf (file, "%s  }\n", s_indent);
+	fprintf (file, "%s  )))\n", s_indent);
       }
   
   print_loop (file, loop->inner, indent + 2);
-  fprintf (file, "%s}\n", s_indent);
+  fprintf (file, "%s)))\n", s_indent);
   print_loop (file, loop->next, indent);
 }
 

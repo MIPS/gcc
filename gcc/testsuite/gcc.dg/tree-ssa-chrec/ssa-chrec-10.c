@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
 
 void bar (int);
 
@@ -9,6 +9,7 @@ int foo (void)
   int x;
   int c[100][100];
   
+  /* loop_1 runs 39 times.  */
   for (a = 11; a < 50; a++)
     {
       /* Array access functions have to be analyzed.  */
@@ -25,5 +26,5 @@ int foo (void)
    x-1 ->  {15, +, 1}_1
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 39" 1 "scev"} } */
 /* { dg-final { diff-tree-dumps "ddall" } } */

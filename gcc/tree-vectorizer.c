@@ -2010,8 +2010,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       access_fn = instantiate_parameters
 	(loop_num (loop),
-	analyze_scalar_evolution (loop_num (loop), PHI_RESULT (phi)),
-	PHI_RESULT (phi));
+	 analyze_scalar_evolution (loop_num (loop), PHI_RESULT (phi)));
 
       if (!access_fn)
 	{

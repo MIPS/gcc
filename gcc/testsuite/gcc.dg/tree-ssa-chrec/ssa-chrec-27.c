@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int bar (void);
@@ -10,11 +10,13 @@ int foo ()
   
   /* This exercises a code with two loop nests.  */
   
+  /* loop_1 runs 100 times.  */
   while (a < 0)
     a++;
   
   a -= 77;
   
+  /* loop_2 runs 26 times.  */
   while (a < 0)
     a+=3;
 }
@@ -32,6 +34,7 @@ int foo ()
 
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 100" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 26" 1 "scev"} } */
 
 

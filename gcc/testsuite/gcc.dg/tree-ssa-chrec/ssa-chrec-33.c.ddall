@@ -2,60 +2,6 @@
 ;; Function foo (foo)
 
 
-
-  Scalar evolution functions: 
-
-T.1
-  ->  {k_1, +, -1}_2
-
-T.2
-  ->  {k_1 * 2, +, -2}_2
-
-T.3
-  ->  {k_1 * 2 + 1, +, -2}_2
-
-
-
-  Scalar evolution functions: 
-
-k
-  ->  {10, +, 1}_1
-
-
-
-  Scalar evolution functions: 
-
-T.6
-  ->  {0, +, 2}_2
-
-T.7
-  ->  {1, +, 2}_2
-
-(Data Ref 0: 
-  stmt: T.4_23 = input[T.3_22];
-  ref: input[T.3_22];
-  base_name: input
-  Access function 0: {{21, +, 2}_1, +, -2}_2
-)
-(Data Ref 1: 
-  stmt: T.8_27 = coefs[T.7_26];
-  ref: coefs[T.7_26];
-  base_name: coefs
-  Access function 0: {1, +, 2}_2
-)
-(Data Ref 2: 
-  stmt: T.11_32 = input[T.2_21];
-  ref: input[T.2_21];
-  base_name: input
-  Access function 0: {{20, +, 2}_1, +, -2}_2
-)
-(Data Ref 3: 
-  stmt: T.13_35 = coefs[T.6_25];
-  ref: coefs[T.6_25];
-  base_name: coefs
-  Access function 0: {0, +, 2}_2
-)
-
 (Data Dep (A = 0, B = 0):
  (subscript 0:
   base_name_A: input

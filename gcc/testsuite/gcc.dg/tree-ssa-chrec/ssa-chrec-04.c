@@ -1,24 +1,21 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -ftree-elim-checks -fdump-tree-scev-details -fdump-tree-elck-details -fdump-tree-optimized" } */
 
+void remove_me (void);
 
 int main(void)
 {
   int a;
-  int b;
-  
-  for (a = 22; a < 50; a++)
+  int b = 22;
+
+  /* loop_1 runs exactly 28 times.  */
+  for (a = 22; a < 50; a++)	/* a -> {22, +, 1}_1 */
     {
-      for (b = 23; b < 50; b+=5)
-	{
-	  b = b + a;
-	}
+      if (a > b)		/* This condition is always false. */
+	remove_me ();
+      b = b + 2; 		/* b -> {22, +, 2}_1 */
     }
 }
 
-/* The analyzer has to detect the following evolution functions:
-   a  ->  {22, +, 1}_1
-   b  ->  {23, +, {27, +, 1}_1}_2
-   b  ->  {23, +, a_1 + 5}_2
-*/
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 28" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "remove_me" 0 "optimized"} } */

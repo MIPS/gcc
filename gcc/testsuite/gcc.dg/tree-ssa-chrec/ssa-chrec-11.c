@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int main(void)
@@ -13,7 +13,7 @@ int main(void)
   
   /* Exercises complex loop exit conditions.  
      FIXME:  This is a strange case where the compiler cc1 and the wrapper gcc 
-     does not produce the same representation: 
+     don't produce the same representation: 
 
      (with gcc from command line)
      
@@ -56,4 +56,4 @@ int main(void)
    a  ->  {-100, +, 2}_1
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* FIXME. */

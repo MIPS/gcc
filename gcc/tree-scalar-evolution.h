@@ -22,21 +22,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_SCALAR_EVOLUTION_H
 #define GCC_TREE_SCALAR_EVOLUTION_H
 
-/* Debugging macros.  Put an A after the macro definition if you want the 
-   debug informations.  */
-#define DBG_SDD_S(A) 
-#define DBG_SCHEDULE_S(A) 
-
 extern tree number_of_iterations_in_loop (struct loop *);
-extern void number_of_iterations_for_all_loops (varray_type);
+extern void number_of_iterations_for_all_loops (varray_type *);
 extern tree get_loop_exit_condition (struct loop *);
 
-extern void select_loops_exit_conditions (struct loops *, varray_type);
 extern tree analyze_scalar_evolution (unsigned, tree);
-extern tree instantiate_parameters (unsigned, tree, tree);
-extern void initialize_scalar_evolutions_analyzer (struct loops *, 
-						   varray_type);
-extern void finalize_scalar_evolutions_analyzer (void);
+extern tree instantiate_parameters (unsigned, tree);
+
+extern void eliminate_redundant_checks (void);
 
 
 /* For a given function with well formed loops, a vector of SCEV_INFOs

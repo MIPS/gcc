@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-stats" } */
 
 
 int bar (void);
@@ -35,5 +35,5 @@ int foo ()
    
 */
 
-/* { dg-final { diff-tree-dumps "scev" } } */
+/* FIXME. */
 

@@ -1,3 +1,51 @@
+2004-03-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-scalar-evolution.c: Use pointers to varray instead of
+	varrays for functions that insert in the scev database.
+
+2004-03-03  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* Makefile.in (OBJS-common): Add tree-elim-check.o.
+	(tree-chrec.o): Add dependence on tree-pass.h.     
+	(tree-elim-check.o): New rule.                
+	* tree-elim-check.c: New file.
+	* basic-block.h (edge_source, edge_destination): New inlined
+	functions.
+	* cfgloop.h (loop_nb_iterations): Added a comment on the use
+	of this accessor.
+	* common.opt (ftree-elim-checks): New flag.
+	* flags.h (flag_tree_elim_checks): Declared here.
+	* opts.c (decode_options): Set flag_tree_elim_checks to zero.
+	(common_handle_option): Add case OPT_ftree_elim_checks.
+	* timevar.def (TV_TREE_ELIM_CHECKS): Defined.          
+	* toplev.c (flag_tree_elim_checks): Defined. 
+	* tree-cfg.c (print_pred_bbs, print_succ_bbs, print_loop):
+	Modify the dumping style.  Print nb_iterations.           
+	* tree-chrec.c, tree-chrec.h, tree-scalar-evolution.c,
+	tree-scalar-evolution.h, tree-data-ref.c: New version of the 
+	scalar evolution algorithm.  Don't use a schedule for 
+	analyzing the scalar variables.
+	* tree-fold-const.c (tree_fold_bezout): Define.
+	* tree-fold-const.h (tree_fold_int_round_div,
+	tree_fold_int_trunc_mod, tree_fold_int_ceil_mod,
+	tree_fold_int_floor_mod, tree_fold_int_round_mod): Removed, because
+	not used for the moment.                                           
+	(chrec_merge_types): New function.
+	* tree-optimize.c (pass_scev_elim_checks): Register the pass.
+	* tree-pass.h (pass_scev_elim_checks): Declare the pass.    
+	* tree-pretty-print.c (dump_generic_node): Print
+	PEELED_CHREC.  Remove PERIODIC_CHREC.
+	* tree-vectorizer.c: Modify the use of
+	analyze_scalar_evolution.
+	* tree.def (POLYNOMIAL_CHREC, EXPONENTIAL_CHREC): Store the            
+	evolution loop in a third leaf instead of in TREE_TYPE.
+	TREE_TYPE is then used in storing the type of the chrec.
+	(PERIODIC_CHREC): Removed since it is not used for the moment.
+	(PEELED_CHREC): New node.
+	* doc/invoke.texi (fdump-tree-scev, fdump-tree-ddall): Correct
+	the name of these flags.
+	(ftree-elim-checks, fdump-tree-elck): Document.
+
 2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (number_of_iterations_cond, cand_value_at):

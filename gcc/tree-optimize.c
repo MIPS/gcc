@@ -324,6 +324,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_scev_init);
   NEXT_PASS (pass_scev_anal);
   NEXT_PASS (pass_scev_depend);
+  NEXT_PASS (pass_scev_elim_checks);
   NEXT_PASS (pass_ddg);
   NEXT_PASS (pass_scev_vectorize);
   NEXT_PASS (pass_delete_ddg);
