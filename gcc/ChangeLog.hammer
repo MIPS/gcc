@@ -1,3 +1,10 @@
+2004-01-26  Jakub Jelinek  <jakub@redhat.com>
+	
+	Backport from mainline:
+	* config/i386/i386.c (ix86_constant_alignment): Decrease alignment
+	of long string literals from 32 bytes to sizeof (void *) when !-Os
+	and to 1 with -Os.
+
 2004-01-28  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	Backport from mainline:
