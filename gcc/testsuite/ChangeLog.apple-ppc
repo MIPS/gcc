@@ -1,3 +1,11 @@
+2005-01-21  Stan Shebs  <shebs@apple.com>
+
+	Radar 3952527
+	* gcc.apple/align-test-1.c: Add 64-bit alignment values.
+	* gcc.apple/align-test-2.c: Add 64-bit alignment values.
+	* gcc.apple/align-test-3.c: Skip over if compiling 64-bit.
+	* gcc.apple/align-test-4.c: Add 64-bit alignment values.
+	
 2005-01-21  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3951887

@@ -8,9 +8,14 @@
  * between FSF and Macintosh alignment modes.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-1-22.
  */
+
+#ifdef __LP64__
+int main()
+{
+  return 0;
+}
+#else /* 32-bit */
  
  /* Check whether we are testing GCC 3 or later.  */
 #ifdef __GNUC__
@@ -103,7 +108,7 @@ static void check_option(char *option)
 int main(int argc, char *argv[])
 {
     int i;
-    
+
     for (i = 1; i < argc; i++)
         check_option(argv[i]);
     
@@ -121,3 +126,5 @@ int main(int argc, char *argv[])
     else
     	return 0;
 }
+
+#endif /* 32-bit */
