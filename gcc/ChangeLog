@@ -1,5 +1,11 @@
 2003-12-12  Per Bothner  <pbothner@apple.com>
 
+	* function.c (init_function_once):  Don't reset funcdef_no.
+	It doesn't work when RTL is reused across translation units.
+	This reverts a 10-29 change.
+
+2003-12-12  Per Bothner  <pbothner@apple.com>
+
 	* c-decl.c (finish_struct):  Move C_TYPE_INCOMPLETE_VARS processing to
 	(finish_incomplete_vars):  ... this new function.
 	(restore_fragment_bindings):  Call finish_incomplete_vars.  Needed if
