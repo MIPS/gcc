@@ -1712,6 +1712,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex EXACT_DIV_EXPR
 @tindex ARRAY_REF
 @tindex ARRAY_RANGE_REF
+@tindex MEM_REF
 @tindex LT_EXPR
 @tindex LE_EXPR
 @tindex GT_EXPR
@@ -2095,6 +2096,12 @@ the array.  The third and fourth operands are used after gimplification
 to represent the lower bound and component size but should not be used
 directly; call @code{array_ref_low_bound} and @code{array_ref_element_size}
 instead.
+
+@item MEM_REF
+These nodes represent array operations on pointers.  The first operand
+is the pointer we are operating on; the second is the index.  To
+calculate the address of the memory accessed, you must scale the index
+by the size of the type of the pointed-to elements.
 
 @item ARRAY_RANGE_REF
 These nodes represent access to a range (or ``slice'') of an array.  The

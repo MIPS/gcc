@@ -1,3 +1,8 @@
+2005-01-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* doc/c-tree.texi: Add cursory docs for MEM_REF.
+	* doc/tree-ssa.texi: Add MEM_REF to gimple grammar.
+
 2005-01-22  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* alias.c : Fixed typos in header comment.
 

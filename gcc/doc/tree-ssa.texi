@@ -615,6 +615,10 @@ void f()
    with-size-arg: addressable
                 | call-stmt
 
+   memref       : MEM_REF
+                        op0 -> val
+                        op1 -> val
+
    indirectref  : INDIRECT_REF
                         op0 -> val
 
@@ -626,6 +630,7 @@ void f()
 
    min-lval     : ID
                 | indirectref
+                | memref
 
    bitfieldref  : BIT_FIELD_REF
                         op0 -> inner-compref
