@@ -10283,6 +10283,7 @@ arm_expand_prologue (void)
 		    {
 		      insn = emit_sfm (reg, 4);
 		      RTX_FRAME_RELATED_P (insn) = 1;
+		      saved_regs += 48;
 		      start_reg = reg - 1;
 		    }
 		}
