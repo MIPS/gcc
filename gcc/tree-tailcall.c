@@ -1,5 +1,5 @@
 /* Tail call optimization on trees.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -279,7 +279,7 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
       return true;
     }
 
-  if (TREE_CODE_CLASS (code) != '2')
+  if (TREE_CODE_CLASS (code) != tcc_binary)
     return false;
 
   /* Accumulator optimizations will reverse the order of operations.
@@ -624,7 +624,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
       var = make_ssa_name (tmp, stmt);
       TREE_OPERAND (stmt, 0) = var;
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
   else
     var = ret_var;
@@ -639,7 +639,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
       var = make_ssa_name (tmp, stmt);
       TREE_OPERAND (stmt, 0) = var;
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
 
   TREE_OPERAND (ret_stmt, 0) = var;
@@ -686,12 +686,14 @@ eliminate_tail_call (struct tailcall *t)
   bsi_next (&bsi);
   while (!bsi_end_p (bsi))
     {
+      tree t = bsi_stmt (bsi);
       /* Do not remove the return statement, so that redirect_edge_and_branch
 	 sees how the block ends.  */
-      if (TREE_CODE (bsi_stmt (bsi)) == RETURN_EXPR)
+      if (TREE_CODE (t) == RETURN_EXPR)
 	break;
 
       bsi_remove (&bsi);
+      release_defs (t);
     }
 
   /* Replace the call by a jump to the start of function.  */
@@ -775,6 +777,7 @@ eliminate_tail_call (struct tailcall *t)
     }
 
   bsi_remove (&t->call_bsi);
+  release_defs (call);
 }
 
 /* Optimizes the tailcall described by T.  If OPT_TAILCALLS is true, also

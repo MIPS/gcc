@@ -304,7 +304,7 @@ static void emit_restore_regs (void);
 static void sparc_asm_function_prologue (FILE *, HOST_WIDE_INT);
 static void sparc_asm_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef OBJECT_FORMAT_ELF
-static void sparc_elf_asm_named_section (const char *, unsigned int);
+static void sparc_elf_asm_named_section (const char *, unsigned int, tree);
 #endif
 
 static int sparc_adjust_cost (rtx, rtx, rtx, int);
@@ -1644,7 +1644,7 @@ sparc_emit_set_const32 (rtx op0, rtx op1)
 
 
 /* Load OP1, a symbolic 64-bit constant, into OP0, a DImode register.
-   If TEMP is non-zero, we are forbidden to use any other scratch
+   If TEMP is nonzero, we are forbidden to use any other scratch
    registers.  Otherwise, we are allowed to generate them as needed.
 
    Note that TEMP may have TImode if the code model is TARGET_CM_MEDANY
@@ -4609,7 +4609,7 @@ sparc_asm_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   /* If code does not drop into the epilogue, we have to still output
      a dummy nop for the sake of sane backtraces.  Otherwise, if the
      last two instructions of a function were "call foo; dslot;" this
-     can make the return PC of foo (ie. address of call instruction
+     can make the return PC of foo (i.e. address of call instruction
      plus 8) point to the first instruction in the next function.  */
 
   rtx insn, last_real_insn;
@@ -8060,13 +8060,14 @@ sparc_profile_hook (int labelno)
 
 #ifdef OBJECT_FORMAT_ELF
 static void
-sparc_elf_asm_named_section (const char *name, unsigned int flags)
+sparc_elf_asm_named_section (const char *name, unsigned int flags,
+			     tree decl)
 {
   if (flags & SECTION_MERGE)
     {
       /* entsize cannot be expressed in this section attributes
 	 encoding style.  */
-      default_elf_asm_named_section (name, flags);
+      default_elf_asm_named_section (name, flags, decl);
       return;
     }
 

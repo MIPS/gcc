@@ -51,7 +51,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sreal.h"
 #include "params.h"
 #include "target.h"
-#include "loop.h"
 #include "cfgloop.h"
 #include "tree-flow.h"
 #include "ggc.h"
@@ -905,9 +904,9 @@ expr_expected_value (tree expr, bitmap visited)
 
 	      /* If this PHI has itself as an argument, we cannot
 		 determine the string length of this argument.  However,
-		 if we can find a constant string length for the other
-		 PHI args then we can still be sure that this is a
-		 constant string length.  So be optimistic and just
+		 if we can find a expected constant value for the other
+		 PHI args then we can still be sure that this is
+		 likely a constant.  So be optimistic and just
 		 continue with the next argument.  */
 	      if (arg == PHI_RESULT (def))
 		continue;
@@ -1021,7 +1020,7 @@ tree_predict_by_opcode (basic_block bb)
     if (then_edge->flags & EDGE_TRUE_VALUE)
        break;
   cond = TREE_OPERAND (stmt, 0);
-  if (TREE_CODE_CLASS (TREE_CODE (cond)) != '<')
+  if (!COMPARISON_CLASS_P (cond))
     return;
   op0 = TREE_OPERAND (cond, 0);
   type = TREE_TYPE (op0);

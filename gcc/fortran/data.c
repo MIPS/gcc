@@ -329,7 +329,7 @@ gfc_assign_data_value (gfc_expr * lvalue, gfc_expr * rvalue, mpz_t index)
     last_con->expr = expr;
 }
 
-/* Similarly, but initialize REPEAT consectutive values in LVALUE the same
+/* Similarly, but initialize REPEAT consecutive values in LVALUE the same
    value in RVALUE.  For the nonce, LVALUE must refer to a full array, not
    an array section.  */
 
@@ -542,7 +542,7 @@ gfc_advance_section (mpz_t *section_index, gfc_array_ref *ar,
 
 
 /* Rearrange a structure constructor so the elements are in the specified
-   order.  Also insert NULL entries if neccessary.  */
+   order.  Also insert NULL entries if necessary.  */
 
 static void
 formalize_structure_cons (gfc_expr * expr)

@@ -1582,7 +1582,6 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
-      DECL_NEEDS_FINAL_OVERRIDER_P (newdecl) |= DECL_NEEDS_FINAL_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -10674,8 +10673,8 @@ finish_method (tree decl)
      for String.cc in libg++.  */
   if (DECL_FRIEND_P (fndecl))
     {
-      CLASSTYPE_INLINE_FRIENDS (current_class_type)
-	= tree_cons (NULL_TREE, fndecl, CLASSTYPE_INLINE_FRIENDS (current_class_type));
+      VEC_safe_push (tree, CLASSTYPE_INLINE_FRIENDS (current_class_type),
+		     fndecl);
       decl = void_type_node;
     }
 
@@ -10882,6 +10881,26 @@ cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */
   return DECL_MAIN_P (decl);
+}
+
+/* Return the COMDAT group into which DECL should be placed.  */
+
+const char *
+cxx_comdat_group (tree decl)
+{
+  tree name;
+
+  /* Virtual tables, construction virtual tables, and virtual table
+     tables all go in a single COMDAT group, named after the primary
+     virtual table.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_VTABLE_OR_VTT_P (decl))
+    name = DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (DECL_CONTEXT (decl)));
+  /* For all other DECLs, the COMDAT group is the mangled name of the
+     declaration itself.  */
+  else
+    name = DECL_ASSEMBLER_NAME (decl);
+
+  return IDENTIFIER_POINTER (name);
 }
 
 #include "gt-cp-decl.h"

@@ -650,7 +650,7 @@ static bool rs6000_elf_in_small_data_p (tree);
 #endif
 #if TARGET_XCOFF
 static void rs6000_xcoff_asm_globalize_label (FILE *, const char *);
-static void rs6000_xcoff_asm_named_section (const char *, unsigned int);
+static void rs6000_xcoff_asm_named_section (const char *, unsigned int, tree);
 static void rs6000_xcoff_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_xcoff_unique_section (tree, int);
 static void rs6000_xcoff_select_rtx_section (enum machine_mode, rtx,
@@ -4619,7 +4619,7 @@ function_arg_padding (enum machine_mode mode, tree type)
     {
       /* GCC used to pass structures of the same size as integer types as
 	 if they were in fact integers, ignoring FUNCTION_ARG_PADDING.
-	 ie. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
+	 i.e. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
 	 passed padded downward, except that -mstrict-align further
 	 muddied the water in that multi-component structures of 2 and 4
 	 bytes in size were passed padded upward.
@@ -16932,7 +16932,8 @@ rs6000_xcoff_asm_globalize_label (FILE *stream, const char *name)
 }
 
 static void
-rs6000_xcoff_asm_named_section (const char *name, unsigned int flags)
+rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
+				tree decl ATTRIBUTE_UNUSED)
 {
   int smclass;
   static const char * const suffix[3] = { "PR", "RO", "RW" };

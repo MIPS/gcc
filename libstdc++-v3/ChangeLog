@@ -1,3 +1,96 @@
+2004-09-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/stl_algo.h (remove): Remove too restrictive
+	concept-check.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/fstream.tcc (xsgetn): Slightly tweak conditional,
+	as per Nathan's original suggestion.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/mt_allocator/tune-1.cc: Use VERIFY, clean
+	up a bit.
+	* testsuite/ext/mt_allocator/tune-2.cc: Likewise.
+	* testsuite/ext/mt_allocator/tune-3.cc: Likewise.
+	* testsuite/ext/mt_allocator/tune-4.cc: Likewise.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+	    Andrea Arcangeli  <andrea@suse.de>
+
+	* config/io/basic_file_stdio.cc (__basic_file<>::close)): Don't
+	call unnecessarily sync, that is fflush: the library, since 3.4.0
+	does not use buffered fread/fwrite.
+	* include/bits/fstream.tcc (basic_filebuf<>::overflow): Likewise.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/cpu/arm/cxxabi_tweaks.h (__cxa_cdtor_return_type):
+	Define.
+	* config/cpu/generic/cxxabi_tweaks.h (__cxa_cdtor_return_type):
+	Define.
+	* libsupc++/cxxabi.h (__cxa_cdtor_return_type): New type.
+	(__cxa_vec_new): Use it.
+	(__cxa_vec_new2): Likewise.
+	(__cxa_vec_new3): Likewise.
+	(__cxa_vec_cdtor): Likewise.
+	(__cxa_vec_cctor): Likeiwse.
+	(__cxa_vec_dtor): Likewise.
+	(__cxa_vec_cleanup): Likewise.
+	(__cxa_vec_delete2): Likewise.
+	(__cxa_vec_delete3): Likewise.
+	* libsupc++/vec.cc (__cxa_vec_new): Likewise.
+	(__cxa_vec_new2): Likewise.
+	(__cxa_vec_new3): Likewise.
+	(__cxa_vec_cdtor): Likewise.
+	(__cxa_vec_cctor): Likeiwse.
+	(__cxa_vec_dtor): Likewise.
+	(__cxa_vec_cleanup): Likewise.
+	(__cxa_vec_delete2): Likewise.
+	(__cxa_vec_delete3): Likewise.
+	(__aeabi_vec_ctor_nocookie_nodtor): New function.
+	(__aeabi_vec_ctor_cookie_nodtor): Likewise.
+	(__aeabi_vec_cctor_nocookie_nodtor): Likewise.
+	(__aeabi_vec_new_cookie_noctor): Likewise.
+	(__aeabi_vec_new_nocookie): Likewise.
+	(__aeabi_vec_new_cookie_nodtor): Likewise.
+	(__aeabi_vec_new_cookie): Likewise.
+	(__aeabi_vec_dtor): Likewise.
+	(__aeabi_vec_dtor_cookie): Likewise.
+	(__aeabi_vec_delete): Likewise.
+	(__aeabi_vec_delete3): Likewise.
+	(__aeabi_vec_delete3_nodtor): Likewise.
+	(__aeabi_atexit): Likewise.
+
+2004-09-14  Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/fstream.tcc (xsgetn): Slightly tweak the recent fix
+	for 11722: copy can replace move; the common case is __avail == 0.
+
+2004-09-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/cpp_type_traits.h: Rename __is_trivially_copyable
+	to __is_scalar, more clear and consistent with "tr1" naming.
+	* include/bits/stl_algobase.h: Update consistently throughout.
+
+2004-09-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11722
+	* include/std/std_fstream.h (xsgetn): Declare only.
+	* include/bits/fstream.tcc (xsgetn): Define, optimize for the
+	always_noconv() case: when __n > __buflen, copy the available
+	buffer and issue a direct read.
+	* testsuite/performance/27_io/filebuf_sgetn_unbuf.cc: New.
+
+	* include/bits/fstream.tcc (xsputn): Minor tweak, reorder a
+	conditional.
+
+2004-09-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* testsuite/lib/libstdc++.exp: Use gcc wrapper.exp and call
+	libstdc++_maybe_build_wrapper instead of using local code.
+
 2004-09-08  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* config/linker-map.gnu (GLIBCXX_3.4.3): New, adjust symbol exports.

@@ -308,6 +308,8 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 #define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
 					   duplicate_loop_to_header_edge.  */
 
+extern struct loop * duplicate_loop (struct loops *, struct loop *,
+				     struct loop *);
 extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					  unsigned, sbitmap, edge, edge *,
 					  unsigned *, int);
@@ -410,6 +412,7 @@ extern void iv_analysis_loop_init (struct loop *);
 extern rtx iv_get_reaching_def (rtx, rtx);
 extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
 extern rtx get_iv_value (struct rtx_iv *, rtx);
+extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_number_of_iterations (struct loop *, rtx, rtx,
 				     struct niter_desc *);
@@ -457,5 +460,12 @@ enum
 extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
+
+/* Old loop optimizer interface.  */
+
+/* Flags passed to loop_optimize.  */
+#define LOOP_PREFETCH 1
+
+extern void loop_optimize (rtx, FILE *, int);
 
 #endif /* GCC_CFGLOOP_H */

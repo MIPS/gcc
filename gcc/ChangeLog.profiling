@@ -1,3 +1,7 @@
+2004-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* Merge form mainline (tree-profiling-merge-20040918)
+
 2004-09-17  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (thread_jumps): Fix profile updating.

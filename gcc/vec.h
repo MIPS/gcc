@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    out-of-line generic functions.  The vectors are designed to
    interoperate with the GTY machinery.
 
-   Because of the different behaviour of objects and of pointers to
+   Because of the different behavior of objects and of pointers to
    objects, there are two flavors.  One to deal with a vector of
    pointers to objects, and one to deal with a vector of objects
    themselves.  Both of these pass pointers to objects around -- in
@@ -186,11 +186,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    
    int VEC_T_space (VEC(T) *v,int reserve)
 
-   If V has space for RESERVE additional entries, return non-zero.  If
+   If V has space for RESERVE additional entries, return nonzero.  If
    RESERVE is < 0, ensure there is at least one space slot.  You
    usually only need to use this if you are doing your own vector
    reallocation, for instance on an embedded vector.  This returns
-   non-zero in exactly the same circumstances that VEC_T_reserve
+   nonzero in exactly the same circumstances that VEC_T_reserve
    will.  */
 
 #define VEC_space(TDEF,V,R)	(VEC_OP(TDEF,space)(V,R))
@@ -200,10 +200,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Ensure that V has at least RESERVE slots available, if RESERVE is
    >= 0.  If RESERVE < 0, ensure that there is at least one spare
-   slot.  These differ in their reallocation behaviour, the first will
+   slot.  These differ in their reallocation behavior, the first will
    not create additional headroom, but the second mechanism will
    perform the usual exponential headroom increase.  Note this can
-   cause V to be reallocated.  Returns non-zero iff reallocation
+   cause V to be reallocated.  Returns nonzero iff reallocation
    actually occurred.  */
 
 #define VEC_reserve(TDEF,V,R)	(VEC_OP(TDEF,reserve)(&(V),R MEM_STAT_INFO))

@@ -1,3 +1,20 @@
+2004-09-17  Roger Sayle  <roger@eyesopen.com>
+
+	* inclhack.def (linux_ia64_ucontext): New fix.
+	* fixincl.x: Regenerate.
+	* tests/base/sys/ucontext.h: New file.
+
+2004-09-15  Roger Sayle  <roger@eyesopen.com>
+
+	* tests/base/sys/time.h: Correct mismatch in 2004-09-10 check-in.
+	* tests/base/stdlib.h: Likewise.
+
+2004-09-13  Loren J. Rittle  <ljrittle@acm.org>
+
+	* inclhack.def (freebsd_gcc4_breakage): Add.
+	* fixincl.x: Regenerate.
+	* tests/base/sys/cdefs.h: Update for new test.
+
 2004-09-10  Adam Nemet  <anemet@lnxw.com>
 
 	* inclhack.def (lynx_void_int): Remove.

@@ -2247,6 +2247,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
   /* Indicate that no algorithm is yet found.  If no algorithm
      is found, this value will be returned and indicate failure.  */
   alg_out->cost.cost = cost_limit->cost + 1;
+  alg_out->cost.latency = cost_limit->latency + 1;
 
   if (cost_limit->cost < 0
       || (cost_limit->cost == 0 && cost_limit->latency <= 0))
@@ -2516,13 +2517,13 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	}
     }
 
+  /* If best_cost has not decreased, we have not found any algorithm.  */
+  if (!CHEAPER_MULT_COST (&best_cost, cost_limit))
+    return;
+
   /* If we are getting a too long sequence for `struct algorithm'
      to record, make this search fail.  */
   if (best_alg->ops == MAX_BITS_PER_WORD)
-    return;
-
-  /* If best_cost has not decreased, we have not found any algorithm.  */
-  if (!CHEAPER_MULT_COST (&best_cost, cost_limit))
     return;
 
   /* Copy the algorithm from temporary space to the space at alg_out.
@@ -3764,7 +3765,19 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			if (remainder)
 			  return gen_lowpart (mode, remainder);
 		      }
-		    quotient = expand_sdiv_pow2 (compute_mode, op0, abs_d);
+
+		    if (sdiv_pow2_cheap[compute_mode]
+			&& ((sdiv_optab->handlers[compute_mode].insn_code
+			     != CODE_FOR_nothing)
+			    || (sdivmod_optab->handlers[compute_mode].insn_code
+				!= CODE_FOR_nothing)))
+		      quotient = expand_divmod (0, TRUNC_DIV_EXPR,
+						compute_mode, op0,
+						gen_int_mode (abs_d,
+							      compute_mode),
+						NULL_RTX, 0);
+		    else
+		      quotient = expand_sdiv_pow2 (compute_mode, op0, abs_d);
 
 		    /* We have computed OP0 / abs(OP1).  If OP1 is negative,
 		       negate the quotient.  */

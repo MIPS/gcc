@@ -358,7 +358,7 @@ static tree
 maybe_cleanup_point_expr (tree expr)
 {
   if (!processing_template_decl && stmts_are_full_exprs_p ())
-    expr = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr));
+    expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr);
   return expr;
 }
 
@@ -1239,7 +1239,7 @@ finish_mem_initializers (tree mem_inits)
 tree
 finish_parenthesized_expr (tree expr)
 {
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
+  if (EXPR_P (expr))
     /* This inhibits warnings in c_common_truthvalue_conversion.  */
     TREE_NO_WARNING (expr) = 1;
 

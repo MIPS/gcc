@@ -125,7 +125,7 @@ c_incomplete_type_error (tree value, tree type)
 
   if (value != 0 && (TREE_CODE (value) == VAR_DECL
 		     || TREE_CODE (value) == PARM_DECL))
-    error ("`%s' has an incomplete type",
+    error ("%qs has an incomplete type",
 	   IDENTIFIER_POINTER (DECL_NAME (value)));
   else
     {
@@ -169,11 +169,11 @@ c_incomplete_type_error (tree value, tree type)
 	}
 
       if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-	error ("invalid use of undefined type `%s %s'",
+	error ("invalid use of undefined type %<%s %s%>",
 	       type_code_string, IDENTIFIER_POINTER (TYPE_NAME (type)));
       else
 	/* If this type has a typedef-name, the TYPE_NAME is a TYPE_DECL.  */
-	error ("invalid use of incomplete typedef `%s'",
+	error ("invalid use of incomplete typedef %qs",
 	       IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type))));
     }
 }
@@ -744,18 +744,24 @@ same_translation_unit_p (tree t1, tree t2)
   while (t1 && TREE_CODE (t1) != TRANSLATION_UNIT_DECL)
     switch (TREE_CODE_CLASS (TREE_CODE (t1)))
       {
-      case 'd': t1 = DECL_CONTEXT (t1); break;
-      case 't': t1 = TYPE_CONTEXT (t1); break;
-      case 'x': t1 = BLOCK_SUPERCONTEXT (t1); break;  /* assume block */
+      case tcc_declaration:
+	t1 = DECL_CONTEXT (t1); break;
+      case tcc_type:
+	t1 = TYPE_CONTEXT (t1); break;
+      case tcc_exceptional:
+	t1 = BLOCK_SUPERCONTEXT (t1); break;  /* assume block */
       default: gcc_unreachable ();
       }
 
   while (t2 && TREE_CODE (t2) != TRANSLATION_UNIT_DECL)
     switch (TREE_CODE_CLASS (TREE_CODE (t2)))
       {
-      case 'd': t2 = DECL_CONTEXT (t2); break;
-      case 't': t2 = TYPE_CONTEXT (t2); break;
-      case 'x': t2 = BLOCK_SUPERCONTEXT (t2); break;  /* assume block */
+      case tcc_declaration:
+	t2 = DECL_CONTEXT (t2); break;
+      case tcc_type:
+	t2 = TYPE_CONTEXT (t2); break;
+      case tcc_exceptional:
+	t2 = BLOCK_SUPERCONTEXT (t2); break;  /* assume block */
       default: gcc_unreachable ();
       }
 
@@ -964,7 +970,7 @@ function_types_compatible_p (tree f1, tree f2)
   /* 'volatile' qualifiers on a function's return type used to mean
      the function is noreturn.  */
   if (TYPE_VOLATILE (ret1) != TYPE_VOLATILE (ret2))
-    pedwarn ("function return types not compatible due to `volatile'");
+    pedwarn ("function return types not compatible due to %<volatile%>");
   if (TYPE_VOLATILE (ret1))
     ret1 = build_qualified_type (TYPE_MAIN_VARIANT (ret1),
 				 TYPE_QUALS (ret1) & ~TYPE_QUAL_VOLATILE);
@@ -1200,7 +1206,7 @@ default_function_array_conversion (tree exp)
       int volatilep = 0;
       int lvalue_array_p;
 
-      if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'r' || DECL_P (exp))
+      if (REFERENCE_CLASS_P (exp) || DECL_P (exp))
 	{
 	  constp = TREE_READONLY (exp);
 	  volatilep = TREE_THIS_VOLATILE (exp);
@@ -1480,7 +1486,7 @@ build_component_ref (tree datum, tree component)
 
       if (!field)
 	{
-	  error ("%s has no member named `%s'",
+	  error ("%s has no member named %qs",
 		 code == RECORD_TYPE ? "structure" : "union",
 		 IDENTIFIER_POINTER (component));
 	  return error_mark_node;
@@ -1517,7 +1523,7 @@ build_component_ref (tree datum, tree component)
       return ref;
     }
   else if (code != ERROR_MARK)
-    error ("request for member `%s' in something not a structure or union",
+    error ("request for member %qs in something not a structure or union",
 	    IDENTIFIER_POINTER (component));
 
   return error_mark_node;
@@ -1550,7 +1556,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	      return error_mark_node;
 	    }
 	  if (VOID_TYPE_P (t) && skip_evaluation == 0)
-	    warning ("dereferencing `void *' pointer");
+	    warning ("dereferencing %<void *%> pointer");
 
 	  /* We *must* set TREE_READONLY when dereferencing a pointer to const,
 	     so that we get the proper error message if the result is used
@@ -1567,7 +1573,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	}
     }
   else if (TREE_CODE (pointer) != ERROR_MARK)
-    error ("invalid type argument of `%s'", errorstring);
+    error ("invalid type argument of %qs", errorstring);
   return error_mark_node;
 }
 
@@ -1605,7 +1611,7 @@ build_array_ref (tree array, tree index)
 	 must have done so deliberately.  */
       if (warn_char_subscripts
 	  && TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node)
-	warning ("array subscript has type `char'");
+	warning ("array subscript has type %<char%>");
 
       /* Apply default promotions *after* noticing character types.  */
       index = default_conversion (index);
@@ -1646,7 +1652,7 @@ build_array_ref (tree array, tree index)
 	  while (TREE_CODE (foo) == COMPONENT_REF)
 	    foo = TREE_OPERAND (foo, 0);
 	  if (TREE_CODE (foo) == VAR_DECL && C_DECL_REGISTER (foo))
-	    pedwarn ("ISO C forbids subscripting `register' array");
+	    pedwarn ("ISO C forbids subscripting %<register%> array");
 	  else if (! flag_isoc99 && ! lvalue_p (foo))
 	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
 	}
@@ -1681,7 +1687,7 @@ build_array_ref (tree array, tree index)
     if (warn_char_subscripts
 	&& TREE_CODE (TREE_TYPE (index)) == INTEGER_TYPE
 	&& TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node)
-      warning ("subscript has type `char'");
+      warning ("subscript has type %<char%>");
 
     /* Put the integer in IND to simplify error checking.  */
     if (TREE_CODE (TREE_TYPE (ar)) == INTEGER_TYPE)
@@ -1727,7 +1733,7 @@ build_external_ref (tree id, int fun)
 	ref = decl;
       else if (decl != objc_ivar && !DECL_FILE_SCOPE_P (decl))
 	{
-	  warning ("local declaration of `%s' hides instance variable",
+	  warning ("local declaration of %qs hides instance variable",
 		   IDENTIFIER_POINTER (id));
 	  ref = decl;
 	}
@@ -2035,7 +2041,7 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
       if (type == void_type_node)
 	{
 	  if (name)
-	    error ("too many arguments to function `%s'",
+	    error ("too many arguments to function %qs",
 		   IDENTIFIER_POINTER (name));
 	  else
 	    error ("too many arguments to function");
@@ -2097,7 +2103,9 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 		      /* Warn if any argument is passed as `float',
 			 since without a prototype it would be `double'.  */
 		      if (formal_prec == TYPE_PRECISION (float_type_node))
-			warn_for_assignment ("%s as `float' rather than `double' due to prototype", (char *) 0, name, parmnum + 1);
+			warn_for_assignment ("%s as %<float%> rather than "
+					     "%<double%> due to prototype",
+					     (char *) 0, name, parmnum + 1);
 		    }
 		  /* Detect integer changing in width or signedness.
 		     These warnings are only activated with
@@ -2174,7 +2182,7 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
   if (typetail != 0 && TREE_VALUE (typetail) != void_type_node)
     {
       if (name)
-	error ("too few arguments to function `%s'",
+	error ("too few arguments to function %qs",
 	       IDENTIFIER_POINTER (name));
       else
 	error ("too few arguments to function");
@@ -2230,7 +2238,8 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
 	    warning ("suggest parentheses around arithmetic in operand of |");
 	  /* Check cases like x|y==z */
-	  if (TREE_CODE_CLASS (code1) == '<' || TREE_CODE_CLASS (code2) == '<')
+	  if (TREE_CODE_CLASS (code1) == tcc_comparison
+	      || TREE_CODE_CLASS (code2) == tcc_comparison)
 	    warning ("suggest parentheses around comparison in operand of |");
 	}
 
@@ -2242,7 +2251,8 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
 	    warning ("suggest parentheses around arithmetic in operand of ^");
 	  /* Check cases like x^y==z */
-	  if (TREE_CODE_CLASS (code1) == '<' || TREE_CODE_CLASS (code2) == '<')
+	  if (TREE_CODE_CLASS (code1) == tcc_comparison
+	      || TREE_CODE_CLASS (code2) == tcc_comparison)
 	    warning ("suggest parentheses around comparison in operand of ^");
 	}
 
@@ -2252,13 +2262,14 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 	      || code2 == PLUS_EXPR || code2 == MINUS_EXPR)
 	    warning ("suggest parentheses around + or - in operand of &");
 	  /* Check cases like x&y==z */
-	  if (TREE_CODE_CLASS (code1) == '<' || TREE_CODE_CLASS (code2) == '<')
+	  if (TREE_CODE_CLASS (code1) == tcc_comparison
+	      || TREE_CODE_CLASS (code2) == tcc_comparison)
 	    warning ("suggest parentheses around comparison in operand of &");
 	}
       /* Similarly, check for cases like 1<=i<=10 that are probably errors.  */
-      if (TREE_CODE_CLASS (code) == '<'
-	  && (TREE_CODE_CLASS (code1) == '<'
-	      || TREE_CODE_CLASS (code2) == '<'))
+      if (TREE_CODE_CLASS (code) == tcc_comparison
+	  && (TREE_CODE_CLASS (code1) == tcc_comparison
+	      || TREE_CODE_CLASS (code2) == tcc_comparison))
 	warning ("comparisons like X<=Y<=Z do not have their mathematical meaning");
 
     }
@@ -2285,7 +2296,7 @@ pointer_diff (tree op0, tree op1)
   if (pedantic || warn_pointer_arith)
     {
       if (TREE_CODE (target_type) == VOID_TYPE)
-	pedwarn ("pointer of type `void *' used in subtraction");
+	pedwarn ("pointer of type %<void *%> used in subtraction");
       if (TREE_CODE (target_type) == FUNCTION_TYPE)
 	pedwarn ("pointer to a function used in subtraction");
     }
@@ -2406,7 +2417,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	{
 	  code = CONJ_EXPR;
 	  if (pedantic)
-	    pedwarn ("ISO C does not support `~' for complex conjugation");
+	    pedwarn ("ISO C does not support %<~%> for complex conjugation");
 	  if (!noconvert)
 	    arg = default_conversion (arg);
 	}
@@ -2483,7 +2494,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  tree real, imag;
 
 	  if (pedantic)
-	    pedwarn ("ISO C does not support `++' and `--' on complex types");
+	    pedwarn ("ISO C does not support %<++%> and %<--%>"
+		     " on complex types");
 
 	  arg = stabilize_reference (arg);
 	  real = build_unary_op (REALPART_EXPR, arg, 1);
@@ -2591,7 +2603,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
       else if (typecode != FUNCTION_TYPE && !flag
-	       && !lvalue_or_else (arg, "invalid lvalue in unary `&'"))
+	       && !lvalue_or_else (arg, "invalid lvalue in unary %<&%>"))
 	return error_mark_node;
 
       /* Ordinary case; arg is a COMPONENT_REF or a decl.  */
@@ -2601,7 +2613,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
          to which the address will point.  Note that you can't get a
 	 restricted pointer by taking the address of something, so we
 	 only have to deal with `const' and `volatile' here.  */
-      if ((DECL_P (arg) || TREE_CODE_CLASS (TREE_CODE (arg)) == 'r')
+      if ((DECL_P (arg) || REFERENCE_CLASS_P (arg))
 	  && (TREE_READONLY (arg) || TREE_THIS_VOLATILE (arg)))
 	  argtype = c_build_type_variant (argtype,
 					  TREE_READONLY (arg),
@@ -2613,7 +2625,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       if (TREE_CODE (arg) == COMPONENT_REF
 	  && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
 	{
-	  error ("attempt to take address of bit-field structure member `%D'",
+	  error ("attempt to take address of bit-field structure member %qD",
 		 TREE_OPERAND (arg, 1));
 	  return error_mark_node;
 	}
@@ -2706,11 +2718,11 @@ readonly_error (tree arg, const char *msgid)
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
 	readonly_error (TREE_OPERAND (arg, 0), msgid);
       else
-	error ("%s of read-only member `%s'", _(msgid),
+	error ("%s of read-only member %qs", _(msgid),
 	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    error ("%s of read-only variable `%s'", _(msgid),
+    error ("%s of read-only variable %qs", _(msgid),
 	   IDENTIFIER_POINTER (DECL_NAME (arg)));
   else
     error ("%s of read-only location", _(msgid));
@@ -2731,7 +2743,7 @@ c_mark_addressable (tree exp)
       case COMPONENT_REF:
 	if (DECL_C_BIT_FIELD (TREE_OPERAND (x, 1)))
 	  {
-	    error ("cannot take address of bit-field `%s'",
+	    error ("cannot take address of bit-field %qs",
 		   IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (x, 1))));
 	    return false;
 	  }
@@ -2759,23 +2771,23 @@ c_mark_addressable (tree exp)
 	  {
 	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
-		error ("global register variable `%s' used in nested function",
+		error ("global register variable %qs used in nested function",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
 		return false;
 	      }
-	    pedwarn ("register variable `%s' used in nested function",
+	    pedwarn ("register variable %qs used in nested function",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
 	else if (C_DECL_REGISTER (x))
 	  {
 	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
-		error ("address of global register variable `%s' requested",
+		error ("address of global register variable %qs requested",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
 		return false;
 	      }
 
-	    pedwarn ("address of register variable `%s' requested",
+	    pedwarn ("address of register variable %qs requested",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
 
@@ -2890,14 +2902,16 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
 	  if (pedantic && TREE_CODE (TREE_TYPE (type2)) == FUNCTION_TYPE)
-	    pedwarn ("ISO C forbids conditional expr between `void *' and function pointer");
+	    pedwarn ("ISO C forbids conditional expr between "
+		     "%<void *%> and function pointer");
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type1),
 							  TREE_TYPE (type2)));
 	}
       else if (VOID_TYPE_P (TREE_TYPE (type2)))
 	{
 	  if (pedantic && TREE_CODE (TREE_TYPE (type1)) == FUNCTION_TYPE)
-	    pedwarn ("ISO C forbids conditional expr between `void *' and function pointer");
+	    pedwarn ("ISO C forbids conditional expr between "
+		     "%<void *%> and function pointer");
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type2),
 							  TREE_TYPE (type1)));
 	}
@@ -3203,7 +3217,7 @@ build_c_cast (tree type, tree expr)
 	  else
 	    TREE_OVERFLOW (value) = 0;
 	  
-	  if (TREE_CODE_CLASS (TREE_CODE (ovalue)) == 'c')
+	  if (CONSTANT_CLASS_P (ovalue))
 	    /* Similarly, constant_overflow cannot have become
 	       cleared.  */
 	    TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
@@ -3552,7 +3566,8 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 		      which are not ANSI null ptr constants.  */
 		   && (!integer_zerop (rhs) || TREE_CODE (rhs) == NOP_EXPR)
 		   && TREE_CODE (ttl) == FUNCTION_TYPE)))
-	    warn_for_assignment ("ISO C forbids %s between function pointer and `void *'",
+	    warn_for_assignment ("ISO C forbids %s between function "
+				 "pointer and %<void *%>",
 				 errtype, funname, parmnum);
 	  /* Const and volatile mean something different for function types,
 	     so the usual warnings are not appropriate.  */
@@ -3626,10 +3641,10 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	  tree selector = objc_message_selector ();
 
 	  if (selector && parmnum > 2)
-	    error ("incompatible type for argument %d of `%s'",
+	    error ("incompatible type for argument %d of %qs",
 		   parmnum - 2, IDENTIFIER_POINTER (selector));
 	  else
-	    error ("incompatible type for argument %d of `%s'",
+	    error ("incompatible type for argument %d of %qs",
 		   parmnum, IDENTIFIER_POINTER (funname));
 	}
       else
@@ -3693,7 +3708,7 @@ warn_for_assignment (const char *msgid, const char *opname, tree function,
 	  if (function)
 	    {
 	      /* Function name is known; supply it.  */
-	      const char *const argstring = _("passing arg of `%s'");
+	      const char *const argstring = _("passing arg of '%s'");
 	      new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
 				   + strlen (argstring) + 1 + 1);
 	      sprintf (new_opname, argstring,
@@ -3710,7 +3725,7 @@ warn_for_assignment (const char *msgid, const char *opname, tree function,
       else if (function)
 	{
 	  /* Function name is known; supply it.  */
-	  const char *const argstring = _("passing arg %d of `%s'");
+	  const char *const argstring = _("passing arg %d of '%s'");
 	  new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
 			       + strlen (argstring) + 1 + 25 /*%d*/ + 1);
 	  sprintf (new_opname, argstring, argnum,
@@ -3943,7 +3958,7 @@ error_init (const char *msgid)
   error ("%s", _(msgid));
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
-    error ("(near initialization for `%s')", ofwhat);
+    error ("(near initialization for %qs)", ofwhat);
 }
 
 /* Issue a pedantic warning for a bad initializer component.
@@ -3958,7 +3973,7 @@ pedwarn_init (const char *msgid)
   pedwarn ("%s", _(msgid));
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
-    pedwarn ("(near initialization for `%s')", ofwhat);
+    pedwarn ("(near initialization for %qs)", ofwhat);
 }
 
 /* Issue a warning for a bad initializer component.
@@ -3973,7 +3988,7 @@ warning_init (const char *msgid)
   warning ("%s", _(msgid));
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
-    warning ("(near initialization for `%s')", ofwhat);
+    warning ("(near initialization for %qs)", ofwhat);
 }
 
 /* If TYPE is an array type and EXPR is a parenthesized string
@@ -4304,9 +4319,6 @@ int constructor_no_implicit = 0; /* 0 for C; 1 for some other languages.  */
    such as (struct foo) {...}.  */
 static tree constructor_decl;
 
-/* start_init saves the ASMSPEC arg here for really_start_incremental_init.  */
-static const char *constructor_asmspec;
-
 /* Nonzero if this is an initializer for a top-level decl.  */
 static int constructor_top_level;
 
@@ -4378,7 +4390,6 @@ struct initializer_stack
 {
   struct initializer_stack *next;
   tree decl;
-  const char *asmspec;
   struct constructor_stack *constructor_stack;
   struct constructor_range_stack *constructor_range_stack;
   tree elements;
@@ -4395,17 +4406,12 @@ struct initializer_stack *initializer_stack;
 /* Prepare to parse and output the initializer for variable DECL.  */
 
 void
-start_init (tree decl, tree asmspec_tree, int top_level)
+start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
 {
   const char *locus;
-  struct initializer_stack *p = XNEW (struct initializer_stack);
-  const char *asmspec = 0;
-
-  if (asmspec_tree)
-    asmspec = TREE_STRING_POINTER (asmspec_tree);
+  struct initializer_stack *p = xmalloc (sizeof (struct initializer_stack));
 
   p->decl = constructor_decl;
-  p->asmspec = constructor_asmspec;
   p->require_constant_value = require_constant_value;
   p->require_constant_elements = require_constant_elements;
   p->constructor_stack = constructor_stack;
@@ -4419,7 +4425,6 @@ start_init (tree decl, tree asmspec_tree, int top_level)
   initializer_stack = p;
 
   constructor_decl = decl;
-  constructor_asmspec = asmspec;
   constructor_designated = 0;
   constructor_top_level = top_level;
 
@@ -4475,7 +4480,6 @@ finish_init (void)
   free (spelling_base);
 
   constructor_decl = p->decl;
-  constructor_asmspec = p->asmspec;
   require_constant_value = p->require_constant_value;
   require_constant_elements = p->require_constant_elements;
   constructor_stack = p->constructor_stack;
@@ -5144,7 +5148,7 @@ set_init_label (tree fieldname)
     }
 
   if (tail == 0)
-    error ("unknown field `%s' specified in initializer",
+    error ("unknown field %qs specified in initializer",
 	   IDENTIFIER_POINTER (fieldname));
   else
     {
@@ -6313,7 +6317,7 @@ tree
 c_finish_goto_ptr (tree expr)
 {
   if (pedantic)
-    pedwarn ("ISO C forbids `goto *expr;'");
+    pedwarn ("ISO C forbids %<goto *expr;%>");
   expr = convert (ptr_type_node, expr);
   return add_stmt (build1 (GOTO_EXPR, void_type_node, expr));
 }
@@ -6327,20 +6331,21 @@ c_finish_return (tree retval)
   tree valtype = TREE_TYPE (TREE_TYPE (current_function_decl));
 
   if (TREE_THIS_VOLATILE (current_function_decl))
-    warning ("function declared `noreturn' has a `return' statement");
+    warning ("function declared %<noreturn%> has a %<return%> statement");
 
   if (!retval)
     {
       current_function_returns_null = 1;
       if ((warn_return_type || flag_isoc99)
 	  && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
-	pedwarn_c99 ("`return' with no value, in function returning non-void");
+	pedwarn_c99 ("%<return%> with no value, in "
+		     "function returning non-void");
     }
   else if (valtype == 0 || TREE_CODE (valtype) == VOID_TYPE)
     {
       current_function_returns_null = 1;
       if (pedantic || TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
-	pedwarn ("`return' with a value, in function returning void");
+	pedwarn ("%<return%> with a value, in function returning void");
     }
   else
     {
@@ -6389,7 +6394,7 @@ c_finish_return (tree retval)
 	    case ADDR_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 
-	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r'
+	      while (REFERENCE_CLASS_P (inner)
 	             && TREE_CODE (inner) != INDIRECT_REF)
 		inner = TREE_OPERAND (inner, 0);
 
@@ -6468,7 +6473,8 @@ c_start_case (tree exp)
 	  if (warn_traditional && !in_system_header
 	      && (type == long_integer_type_node
 		  || type == long_unsigned_type_node))
-	    warning ("`long' switch expression not converted to `int' in ISO C");
+	    warning ("%<long%> switch expression not converted to "
+		     "%<int%> in ISO C");
 
 	  exp = default_conversion (exp);
 	  type = TREE_TYPE (exp);
@@ -6506,7 +6512,7 @@ do_case (tree low_value, tree high_value)
   else if (low_value)
     error ("case label not within a switch statement");
   else
-    error ("`default' label not within a switch statement");
+    error ("%<default%> label not within a switch statement");
 
   return label;
 }
@@ -6570,7 +6576,7 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
     found:
 
       if (COND_EXPR_ELSE (inner_if))
-	 warning ("%Hsuggest explicit braces to avoid ambiguous `else'",
+	 warning ("%Hsuggest explicit braces to avoid ambiguous %<else%>",
 		  &if_locus);
     }
 
@@ -6736,7 +6742,7 @@ c_process_expr_stmt (tree expr)
 
   /* If the expression is not of a type to which we cannot assign a line
      number, wrap the thing in a no-op NOP_EXPR.  */
-  if (DECL_P (expr) || TREE_CODE_CLASS (TREE_CODE (expr)) == 'c')
+  if (DECL_P (expr) || CONSTANT_CLASS_P (expr))
     expr = build1 (NOP_EXPR, TREE_TYPE (expr), expr);
 
   if (EXPR_P (expr))
@@ -7227,13 +7233,15 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		 whose value is 0 but which isn't a valid null ptr const.  */
 	      if (pedantic && (!integer_zerop (op0) || op0 != orig_op0)
 		  && TREE_CODE (tt1) == FUNCTION_TYPE)
-		pedwarn ("ISO C forbids comparison of `void *' with function pointer");
+		pedwarn ("ISO C forbids comparison of %<void *%>"
+			 " with function pointer");
 	    }
 	  else if (VOID_TYPE_P (tt1))
 	    {
 	      if (pedantic && (!integer_zerop (op1) || op1 != orig_op1)
 		  && TREE_CODE (tt0) == FUNCTION_TYPE)
-		pedwarn ("ISO C forbids comparison of `void *' with function pointer");
+		pedwarn ("ISO C forbids comparison of %<void *%>"
+			 " with function pointer");
 	    }
 	  else
 	    pedwarn ("comparison of distinct pointer types lacks a cast");

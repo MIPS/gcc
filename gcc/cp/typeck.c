@@ -3659,7 +3659,7 @@ condition_conversion (tree expr)
   if (processing_template_decl)
     return expr;
   t = perform_implicit_conversion (boolean_type_node, expr);
-  t = fold (build1 (CLEANUP_POINT_EXPR, boolean_type_node, t));
+  t = build1 (CLEANUP_POINT_EXPR, boolean_type_node, t);
   return t;
 }
 		
@@ -4956,7 +4956,7 @@ build_c_cast (tree type, tree expr)
 	{
 	  TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
 
-	  if (TREE_CODE_CLASS (TREE_CODE (ovalue)) == 'c')
+	  if (CONSTANT_CLASS_P (ovalue))
 	    TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
 	}
     }

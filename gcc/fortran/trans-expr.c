@@ -107,7 +107,7 @@ gfc_make_safe_expr (gfc_se * se)
 {
   tree var;
 
-  if (TREE_CODE_CLASS (TREE_CODE (se->expr)) == 'c')
+  if (CONSTANT_CLASS_P (se->expr))
     return;
 
   /* We need a temporary for this result.  */
@@ -1133,7 +1133,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		 actual argument is passed according to the
 		 corresponding formal argument.  If the corresponding
 		 formal argument is a POINTER or assumed shape, we do
-		 not use g77's calling aonvention, and pass the
+		 not use g77's calling convention, and pass the
 		 address of the array descriptor instead. Otherwise we
 		 use g77's calling convention.  */
 	      int f;
@@ -1581,7 +1581,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
     }
   else if (expr->ts.type == BT_DERIVED)
     {
-      /* Nested dervived type.  */
+      /* Nested derived type.  */
       tmp = gfc_trans_structure_assign (dest, expr);
       gfc_add_expr_to_block (&block, tmp);
     }
@@ -1603,7 +1603,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   return gfc_finish_block (&block);
 }
 
-/* Assign a derived type contructor to a variable.  */
+/* Assign a derived type constructor to a variable.  */
 
 static tree
 gfc_trans_structure_assign (tree dest, gfc_expr * expr)
