@@ -265,17 +265,23 @@ mf_init_extern_trees ()
   static int done = 0;
   if (done) return;
 
-  mf_uintptr_type = TREE_TYPE (lookup_name (get_identifier ("uintptr_t")));
+#define mf_lookup_name(id) \
+  ({ tree t = lookup_name (id); \
+     if (t == NULL_TREE) \
+       internal_error ("mudflap: cannot find declarations from mf-runtime.h"); \
+   t; })
+
+  mf_uintptr_type = TREE_TYPE (mf_lookup_name (get_identifier ("uintptr_t")));
 
   mf_cache_struct_type = xref_tag (RECORD_TYPE, get_identifier ("__mf_cache"));
   mf_cache_structptr_type = build_pointer_type (mf_cache_struct_type);
 
-  mf_cache_array_decl = mx_flag (lookup_name (get_identifier ("__mf_lookup_cache")));
-  mf_cache_shift_decl = mx_flag (lookup_name (get_identifier ("__mf_lc_shift")));
-  mf_cache_mask_decl = mx_flag (lookup_name (get_identifier ("__mf_lc_mask")));
-  mf_check_fndecl = lookup_name (get_identifier ("__mf_check"));
-  mf_register_fndecl = lookup_name (get_identifier ("__mf_register"));
-  mf_unregister_fndecl = lookup_name (get_identifier ("__mf_unregister"));
+  mf_cache_array_decl = mx_flag (mf_lookup_name (get_identifier ("__mf_lookup_cache")));
+  mf_cache_shift_decl = mx_flag (mf_lookup_name (get_identifier ("__mf_lc_shift")));
+  mf_cache_mask_decl = mx_flag (mf_lookup_name (get_identifier ("__mf_lc_mask")));
+  mf_check_fndecl = mf_lookup_name (get_identifier ("__mf_check"));
+  mf_register_fndecl = mf_lookup_name (get_identifier ("__mf_register"));
+  mf_unregister_fndecl = mf_lookup_name (get_identifier ("__mf_unregister"));
 
   done = 1;
 }
@@ -365,7 +371,7 @@ mf_varname_tree (decl)
       /* Add (FUNCTION): */
       output_add_string (buf, " (");
       {
-	const char *funcname;
+	const char *funcname = NULL;
 	if (DECL_NAME (current_function_decl))
 	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 	if (funcname == NULL)
@@ -427,7 +433,7 @@ mf_file_function_line_tree (file, line)
     {
       output_add_string (buf, " (");
       {
-	const char *funcname;
+	const char *funcname = NULL;
 	if (DECL_NAME (current_function_decl))
 	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 	if (funcname == NULL)
@@ -609,7 +615,7 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
   DECL_ARTIFICIAL (t1_3_1) = 1;
   TREE_CHAIN (t1_3_1) = bind_decls; bind_decls = t1_3_1;
 
-    /* & __mf_lookup_cache [(((uintptr_t)__mf_value) >> __mf_shift) & __mf_mask] */
+    /* & __mf_lookup_cache [(((uintptr_t)__mf_base) >> __mf_shift) & __mf_mask] */
   add_tree (build (INIT_EXPR, mf_cache_structptr_type,
 		   t1_3_1, 
 		   mx_flag (build1 (ADDR_EXPR, mf_cache_structptr_type,
