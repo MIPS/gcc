@@ -1464,13 +1464,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
       break;
 
-    case VDEF_EXPR:
-      dump_generic_node (buffer, VDEF_RESULT (node), spc, flags, false);
-      pp_string (buffer, " = VDEF <");
-      dump_generic_node (buffer, VDEF_OP (node), spc, flags, false);
-      pp_string (buffer, ">;");
-      break;
-
     default:
       NIY;
     }
@@ -2051,11 +2044,13 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc)
   varray_type vuses = vuse_ops (ann);
 
   if (vdefs)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (vdefs) / 2; i++)
       {
-	tree vdef = VARRAY_TREE (vdefs, i);
 	pp_string (buffer, "#   ");
-	dump_generic_node (buffer, vdef, spc + 2, 0, false);
+        dump_generic_node (buffer, VDEF_RESULT (vdefs, i), spc + 2, 0, false);
+	pp_string (buffer, " = VDEF <");
+	dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, 0, false);
+	pp_string (buffer, ">;");
 	newline_and_indent (buffer, spc);
       }
 

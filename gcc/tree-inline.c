@@ -1182,7 +1182,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case RETURN_EXPR:
     case EXIT_EXPR:
     case LOOP_EXPR:
-    case VDEF_EXPR:
     case EUSE_NODE:
     case EKILL_NODE:
     case EPHI_NODE:

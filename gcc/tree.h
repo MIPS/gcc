@@ -987,8 +987,8 @@ struct tree_vec GTY(())
 /* VDEF_EXPR accessors.  VDEF_RESULT is the the new SSA_NAME created by the
    VDEF operator.  VDEF_OP is its operand (the variable's previous SSA
    name).  */
-#define VDEF_RESULT(NODE)	TREE_OPERAND (VDEF_EXPR_CHECK (NODE), 0)
-#define VDEF_OP(NODE)		TREE_OPERAND (VDEF_EXPR_CHECK (NODE), 1)
+#define VDEF_RESULT(VARRAY, INDEX)	VARRAY_TREE ((VARRAY), 2 * (INDEX))
+#define VDEF_OP(VARRAY, INDEX)	VARRAY_TREE ((VARRAY), (2 * (INDEX)) + 1)
 
 /* CATCH_EXPR accessors.  */
 #define CATCH_TYPES(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 0)
@@ -2532,7 +2532,6 @@ extern tree make_tree_vec (int);
 
 extern tree make_phi_node (tree, int);
 extern void resize_phi_node (tree *, int);
-extern tree build_vdef_expr (tree);
 
 extern void init_ssanames (void);
 extern void fini_ssanames (void);

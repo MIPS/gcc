@@ -595,17 +595,15 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	 definitions is a use of the variable, so it may affect
 	 GLOBALS.  */
       ops = vdef_ops (ann);
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
         {
-          tree vdef = VARRAY_TREE (ops, i);
-
-          if (prepare_operand_for_rename (&VDEF_OP (vdef), &uid))
+          if (prepare_operand_for_rename (&VDEF_OP (ops, i), &uid))
 	    {
-	      VDEF_RESULT (vdef) = VDEF_OP (vdef);
+	      VDEF_RESULT (ops, i) = VDEF_OP (ops, i);
 
-	      set_def_block (VDEF_RESULT (vdef), bb);
+	      set_def_block (VDEF_RESULT (ops, i), bb);
 	      if (!TEST_BIT (kills, uid))
-		set_livein_block (VDEF_OP (vdef), bb, idom);
+		set_livein_block (VDEF_OP (ops, i), bb, idom);
 	    }
 	}
 
@@ -2858,19 +2856,17 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     }
 
   /* Register new virtual definitions made by the statement.  */
-  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs) / 2; i++)
     {
-      tree vdef = VARRAY_TREE (vdefs, i);
+      rewrite_operand (&(VDEF_OP (vdefs, i)));
 
-      rewrite_operand (&(VDEF_OP (vdef)));
-
-      if (TREE_CODE (VDEF_RESULT (vdef)) != SSA_NAME)
-	VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
+      if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
+	VDEF_RESULT (vdefs, i) = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
-			VDEF_RESULT (vdef), block_defs_p);
+      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
+			VDEF_RESULT (vdefs, i), block_defs_p);
     }
 }
 

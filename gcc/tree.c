@@ -5222,21 +5222,6 @@ resize_phi_node (tree *phi, int len)
   *phi = new_phi;
 }
 
-/* Build a VDEF_EXPR node for variable VAR.  This creates the pseudo
-   assignment VAR = VDEF <VAR>.  The SSA builder is responsible for
-   creating the new SSA name for the result and rewriting the RHS with the
-   appropriate reaching definition.  */
-
-tree
-build_vdef_expr (tree var)
-{
-  if (!DECL_P (var) && TREE_CODE (var) != INDIRECT_REF)
-    abort ();
-
-  return build (VDEF_EXPR, TREE_TYPE (var), var, var);
-}
-
-
 /* Build an empty statement.  */
 
 tree

@@ -494,9 +494,9 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
       get_stmt_operands (last_stmt);
 
       vdefs = vdef_ops (stmt_ann (last_stmt));
-      for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+      for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs) / 2; i++)
 	{
-	  tree sym = VDEF_RESULT (VARRAY_TREE (vdefs, i));
+	  tree sym = VDEF_RESULT (vdefs, i);
 	  SET_BIT (vars_to_rename, var_ann (sym)->uid);
 	}
     }

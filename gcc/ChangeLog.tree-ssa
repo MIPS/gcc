@@ -1,5 +1,26 @@
 2003-11-21  Jeff Law  <law@redhat.com>
 
+	* tree-dfa.c (add_vdef): Revamp to handle new method for
+	recording vdefs.
+	(cleanup_operand_arrays): Similarly.
+	* tree-sra.c (create_scalar_copies): Similarly.
+	* tree-ssa-ccp.c (visit_stmt, initialize): Similarly.
+	* tree-ssa-dce.c (stmt_useful_p, process_worklist): Similarly.
+	* tree-ssa-dom.c (cprop_into_stmt): Similarly.
+	(record_equivalences_from_stmt): Similarly.
+	* tree-ssa-live.c (create_ssa_var_map): Similarly.
+	(calculate_live_on_entry): Similarly.
+	* tree-ssa.c (mark_def_sites, rewrite_stmt): Similarly.
+	* tree-ssa-pre.c (process_left_occr_and_kills): Similarly.
+	* tree-inline.c (estimate_num_insns_1): Kill VDEF_EXPR.
+	* tree-pretty-print.c (dump_generic_node) Kill VDEF_EXPR.
+	(dump_vops): Dump VDEFs here.
+	* tree.c (build_vdef_expr): Kill.
+	* tree.h (build_vdef_expr): Kill prototype.
+	(VDEF_RESULT, VDEF_OP): Revamp to handle new method for recording
+	vdefs.
+	* tree.def (VDEF_EXPR): Kill.
+
 	* tree-cfg.c (cfg_remove_useless_stmts): Set both VAR and VAL to
 	NULL anytime one of them is determined to be invalid.
                                                                                 

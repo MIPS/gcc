@@ -409,9 +409,9 @@ create_ssa_var_map (int flags)
 	    }
 
 	  ops = vdef_ops (ann);
-	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops) / 2; x++)
 	    {
-	      tree var = VDEF_OP (VARRAY_TREE (ops, x));
+	      tree var = VDEF_OP (ops, x);
 	      set_is_used (var);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
@@ -637,10 +637,10 @@ calculate_live_on_entry (var_map map)
 	    }
 
 	  ops = vdef_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0) / 2;
 	  for (i = 0; i < num; i++)
 	    {
-	      var = VDEF_OP (VARRAY_TREE (ops, i));
+	      var = VDEF_OP (ops, i);
 	      add_livein_if_notdef (live, saw_def, var, bb);
 	    }
 
@@ -653,10 +653,10 @@ calculate_live_on_entry (var_map map)
 	    }
 
 	  ops = vdef_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0) / 2;
 	  for (i = 0; i < num; i++)
 	    {
-	      var = VDEF_RESULT (VARRAY_TREE (ops, i));
+	      var = VDEF_RESULT (ops, i);
 	      set_if_valid (map, saw_def, var);
 	    }
 	}

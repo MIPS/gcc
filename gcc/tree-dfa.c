@@ -717,7 +717,7 @@ add_use (tree *use_p, tree stmt)
 }
 
 
-/* Add a new VDEF_EXPR for variable VAR to statement STMT.  If PREV_VOPS
+/* Add a new virtual def for variable VAR to statement STMT.  If PREV_VOPS
    is not NULL, the existing entries are preserved and no new entries are
    added here.  This is done to preserve the SSA numbering of virtual
    operands.  */
@@ -725,21 +725,21 @@ add_use (tree *use_p, tree stmt)
 static void
 add_vdef (tree var, tree stmt, voperands_t prev_vops)
 {
-  tree vdef;
   stmt_ann_t ann;
   size_t i;
   bool found;
+  tree result, source;
 
   ann = stmt_ann (stmt);
 
   /* Don't allow duplicate entries.  */
   if (ann->vops && ann->vops->vdef_ops)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops); i++)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops) / 2; i++)
       {
-	tree vdef_var = VDEF_RESULT (VARRAY_TREE (ann->vops->vdef_ops, i));
-	if (var == vdef_var
-	    || (TREE_CODE (vdef_var) == SSA_NAME
-		&& var == SSA_NAME_VAR (vdef_var)))
+	tree result = VDEF_RESULT (ann->vops->vdef_ops, i);
+	if (var == result
+	    || (TREE_CODE (result) == SSA_NAME
+		&& var == SSA_NAME_VAR (result)))
 	  return;
       }
 
@@ -747,16 +747,16 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
      existing VDEFs matches VAR.  If so, re-use it, otherwise add a new
      VDEF for VAR.  */
   found = false;
-  vdef = NULL_TREE;
+  result = NULL_TREE;
+  source = NULL_TREE;
   if (prev_vops && prev_vops->vdef_ops)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops); i++)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops) / 2; i++)
       {
-	tree t;
-	vdef = VARRAY_TREE (prev_vops->vdef_ops, i);
-	t = VDEF_RESULT (vdef);
-	if (t == var
-	    || (TREE_CODE (t) == SSA_NAME
-		&& SSA_NAME_VAR (t) == var))
+	result = VDEF_RESULT (prev_vops->vdef_ops, i);
+	source = VDEF_OP (prev_vops->vdef_ops, i);
+	if (result == var
+	    || (TREE_CODE (result) == SSA_NAME
+		&& SSA_NAME_VAR (result) == var))
 	  {
 	    found = true;
 	    break;
@@ -765,7 +765,10 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
 
   /* If no previous VDEF operand was found for VAR, create one now.  */
   if (!found)
-    vdef = build_vdef_expr (var);
+    {
+      result = var;
+      source = var;
+    }
 
   if (ann->vops == NULL)
     {
@@ -774,9 +777,10 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
     }
 
   if (ann->vops->vdef_ops == NULL)
-    VARRAY_TREE_INIT (ann->vops->vdef_ops, 5, "vdef_ops");
+    VARRAY_TREE_INIT (ann->vops->vdef_ops, 10, "vdef_ops");
 
-  VARRAY_PUSH_TREE (ann->vops->vdef_ops, vdef);
+  VARRAY_PUSH_TREE (ann->vops->vdef_ops, result);
+  VARRAY_PUSH_TREE (ann->vops->vdef_ops, source);
 }
 
 
@@ -1382,11 +1386,11 @@ cleanup_operand_arrays (stmt_ann_t ann)
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
 	    {
 	      bool found = false;
-	      for (j = 0; j < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops); j++)
+	      for (j = 0; j < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops) / 2; j++)
 		{
 		  tree vuse_var, vdef_var;
 		  tree vuse = VARRAY_TREE (ann->vops->vuse_ops, i);
-		  tree vdef = VDEF_OP (VARRAY_TREE (ann->vops->vdef_ops, j));
+		  tree vdef = VDEF_OP (ann->vops->vdef_ops, j);
 
 		  if (TREE_CODE (vuse) == SSA_NAME)
 		    vuse_var = SSA_NAME_VAR (vuse);
@@ -1802,7 +1806,8 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 		voperands_t vops = ann->vops;
 
 		if (vops->vdef_ops)
-		  dfa_stats_p->num_vdefs += VARRAY_ACTIVE_SIZE (vops->vdef_ops);
+		  dfa_stats_p->num_vdefs
+		    += VARRAY_ACTIVE_SIZE (vops->vdef_ops) / 2;
 
 		if (vops->vuse_ops)
 		  dfa_stats_p->num_vuses += VARRAY_ACTIVE_SIZE (vops->vuse_ops);
@@ -2893,9 +2898,9 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
      statement operands.  */
   ann = stmt_ann (stmt);
   vdefs_before = ops = vdef_ops (ann);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
     {
-      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+      tree var = VDEF_RESULT (ops, i);
       if (!DECL_P (var))
 	var = SSA_NAME_VAR (var);
       SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
@@ -2938,9 +2943,9 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     }
 
   vdefs_after = ops = vdef_ops (ann);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
     {
-      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+      tree var = VDEF_RESULT (ops, i);
       if (DECL_P (var))
 	{
 	  found_exposed_symbol = true;

@@ -862,14 +862,6 @@ DEFTREECODE (ASM_EXPR, "asm_expr", 's', 4)
    nodes to implement SSA versioning.  */
 DEFTREECODE (SSA_NAME, "ssa_name", 'x', 0)
 
-/* Artificial definitions used in SSA analysis.  A VDEF_EXPR is akin to a
-   MODIFY_EXPR, it assigns a new (unknown) value to a variable: NEW =
-   VDEF_EXPR <OLD>.  It is used to model aliased stores and other
-   side-effects that may modify the contents of a variable.  Operand 0 is
-   the new SSA_NAME created by the definition. Operand 1 is the previous
-   SSA_NAME for the variable.  */
-DEFTREECODE (VDEF_EXPR, "vdef_expr", 'e', 2)
-
 /* Expression SSA real and phi operand occurrence node.  */
 DEFTREECODE (EUSE_NODE, "euse_node", 'x', 0)
 

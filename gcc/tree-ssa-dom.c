@@ -1752,8 +1752,13 @@ cprop_into_stmt (tree stmt)
 	  op_p = VARRAY_TREE_PTR (uses, i);
 	else if (*table == vuses)
 	  op_p = (tree *) &VARRAY_TREE (vuses, i);
+	/* The vdef table has two elements per entry which we extract
+	   with VDEF_OP/VDEF_RESULT based on the index.  Thus we
+	   want to skip odd indices.  */
+	else if ((*table == vdefs) && ((i % 2) == 1))
+	  continue;
 	else
-	  op_p = (tree *) &VDEF_OP (VARRAY_TREE (vdefs, i));
+	  op_p = (tree *) &VDEF_OP (vdefs, i / 2);
 
 	/* If the operand is not an ssa variable, then there is nothing
 	   to do.  */
@@ -2118,9 +2123,9 @@ record_equivalences_from_stmt (tree stmt,
 
 	  /* For each VDEF on the original statement, we want to create a
 	     VUSE of the VDEF result on the new statement.  */
-	  for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs); j++)
+	  for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs) / 2; j++)
 	    {
-	      tree op = VDEF_RESULT (VARRAY_TREE (vdefs, j));
+	      tree op = VDEF_RESULT (vdefs, j);
 	      add_vuse (op, new, NULL);
 	    }
 
