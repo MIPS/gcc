@@ -55,23 +55,55 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    transform matrix for locality purposes.
    TODO: Completion of partial transforms.  */
 
-/* Returns the sum of all the data dependence distances carried by
-   loop COL.  */
+/* Gather statistics for loop interchange.  Initializes SUM the sum of
+   all the data dependence distances carried by loop LOOP_NUMBER.
+   NB_DEPS_NOT_CARRIED_BY_LOOP is initialized to the number of
+   dependence relations for which the loop LOOP_NUMBER is not carrying
+   any dependence.  */
 
-static int 
-sum_distances_on_loop (varray_type dists, 
-		       unsigned int loop_number)
+static void
+gather_interchange_stats (varray_type dependence_relations, 
+			  unsigned int loop_number, 
+			  unsigned int *sum, 
+			  unsigned int *nb_deps_not_carried_by_loop)
 {
-  int res = 0;
   unsigned int i;
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (dists); i++)
-    {
-      lambda_vector distance = VARRAY_GENERIC_PTR (dists, i);
-      res += distance[loop_number];
-    }
 
-  return res;
+  *sum = 0;
+  *nb_deps_not_carried_by_loop = 0;
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+    {
+      int dist;
+      struct data_dependence_relation *ddr = 
+	(struct data_dependence_relation *) 
+	VARRAY_GENERIC_PTR (dependence_relations, i);
+
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+	{
+	  /* FIXME: Some constants to tweak... maybe this could go as
+	     a param for fast experimentations?  */
+	  *sum += 100;
+	  continue;
+	}
+
+      /* When we know that there is no dependence, we know that there
+	 is no reuse of the data.  */
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+	{
+	  /* FIXME: Some constants to tweak... maybe this could go as
+	     a param for fast experimentations?  */
+	  *sum += 1000;
+	  continue;
+	}
+
+      dist = DDR_DIST_VECT (ddr)[loop_number];
+      if (dist == 0)
+	*nb_deps_not_carried_by_loop++;
+      else if (dist < 0)
+	*sum += -dist;
+      else
+	*sum += dist;
+    }
 }
 
 /* Apply to TRANS any loop interchange that minimize inner loop steps.
@@ -81,40 +113,47 @@ sum_distances_on_loop (varray_type dists,
 static lambda_trans_matrix
 try_interchange_loops (lambda_trans_matrix trans, 
 		       unsigned int depth,		       
-		       varray_type classic_dir, 
-		       varray_type classic_dist)
+		       varray_type dependence_relations)
 {
   unsigned int loop_i, loop_j;
-  int sum_i, sum_j;
+  unsigned int steps_i, steps_j;
+  unsigned int nb_deps_not_carried_by_i, nb_deps_not_carried_by_j;
+  struct data_dependence_relation *ddr;
 
-  for (loop_i = 0; loop_i < depth; loop_i++)
-    for (loop_j = 0; loop_j < depth; loop_j++)
+  /* When there is an unknown relation in the dependence_relations, we
+     know that it is no worth looking at this loop nest: give up.  */
+  ddr = (struct data_dependence_relation *) 
+    VARRAY_GENERIC_PTR (dependence_relations, 0);
+  if (ddr == NULL || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    return trans;
+  
+  /* LOOP_I is always the outer loop.  */
+  for (loop_j = 0; loop_j < depth; loop_j++)
+    for (loop_i = 0; loop_i < loop_j; loop_i++)
       {
-	if (loop_i != loop_j)
-	  {
-	    /* Try to permute rows LOOP_I and LOOP_J.  The basic
-	       profitability model is the minimization of the steps in
-	       the inner loops.  */
-	    sum_i = sum_distances_on_loop (classic_dist, loop_i);
-	    sum_j = sum_distances_on_loop (classic_dist, loop_j);
-
-	    /* When LOOP_I contains smaller steps than LOOP_J, and
-	       LOOP_I is outer than LOOP_J, then interchange
-	       loops.  */
-	    if (sum_i < sum_j 
-		&& loop_i < loop_j)
-	      lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
-	    
-	    /* Validate the resulting matrix.  When the transformation
-	       is not valid, reverse to the previous matrix.  
-	       
-	       FIXME: In this case of transformation it could be
-	       faster to verify the validity of the interchange
-	       without applying the transform to the matrix.  But for
-	       the moment do it cleanly: this is just a prototype.  */
-	    if (!lambda_transform_legal_p (trans, depth, classic_dir, classic_dist))
-	      lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
-	  }
+	gather_interchange_stats (dependence_relations, loop_i, &steps_i, 
+				  &nb_deps_not_carried_by_i);
+	gather_interchange_stats (dependence_relations, loop_j, &steps_j, 
+				  &nb_deps_not_carried_by_j);
+	
+	/* Heuristics for loop interchange profitability:
+	   1. Inner loops should have smallest steps.
+	   2. Inner loops should contain more dependence relations not
+	   carried by the loop.
+	*/
+	if (steps_i < steps_j 
+	    || nb_deps_not_carried_by_i > nb_deps_not_carried_by_j)
+	  lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	
+	/* Validate the resulting matrix.  When the transformation
+	   is not valid, reverse to the previous matrix.  
+	   
+	   FIXME: In this case of transformation it could be
+	   faster to verify the validity of the interchange
+	   without applying the transform to the matrix.  But for
+	   the moment do it cleanly: this is just a prototype.  */
+	if (!lambda_transform_legal_p (trans, depth, dependence_relations))
+	  lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
       }
   
   return trans;
@@ -127,9 +166,6 @@ linear_transform_loops (struct loops *loops)
 {
   unsigned int i;  
   unsigned int depth = 0;
-  unsigned int j;
-  varray_type classic_dist;
-  varray_type classic_dir;
   varray_type datarefs;
   varray_type dependence_relations;
 
@@ -174,32 +210,25 @@ linear_transform_loops (struct loops *loops)
 
       /* Analyze data references and dependence relations using scev.  */      
  
-      VARRAY_GENERIC_PTR_INIT (classic_dist, 10, "classic_dist");
-      VARRAY_GENERIC_PTR_INIT (classic_dir, 10, "classic_dir");
       VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
       VARRAY_GENERIC_PTR_INIT (dependence_relations, 10,
 			       "dependence_relations");
       
   
       compute_data_dependences_for_loop (depth, loop_nest,
-					 &datarefs, &dependence_relations, 
-					 &classic_dist, &classic_dir);
+					 &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (classic_dist); j++)
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
 	    {
+	      struct data_dependence_relation *ddr = 
+		(struct data_dependence_relation *) 
+		VARRAY_GENERIC_PTR (dependence_relations, i);
 	      fprintf (dump_file, "DISTANCE_V (");
-	      print_lambda_vector (dump_file, 
-				   VARRAY_GENERIC_PTR (classic_dist, j),
-				   depth);
+	      print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
 	      fprintf (dump_file, ")\n");
-	    }
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (classic_dir); j++)
-	    {
 	      fprintf (dump_file, "DIRECTION_V (");
-	      print_lambda_vector (dump_file, 
-				   VARRAY_GENERIC_PTR (classic_dir, j),
-				   depth);
+	      print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
 	      fprintf (dump_file, ")\n");
 	    }
 	  fprintf (dump_file, "\n\n");
@@ -208,7 +237,7 @@ linear_transform_loops (struct loops *loops)
       trans = lambda_trans_matrix_new (depth, depth);
 #if 1
       lambda_matrix_id (LTM_MATRIX (trans), depth);
-      trans = try_interchange_loops (trans, depth, classic_dir, classic_dist);
+      trans = try_interchange_loops (trans, depth, dependence_relations);
 #else
       /* This is a 2x2 interchange matrix.  */
       LTM_MATRIX (trans)[0][0] = 0;
@@ -217,7 +246,7 @@ linear_transform_loops (struct loops *loops)
       LTM_MATRIX (trans)[1][1] = 0;
 #endif
       /* Check whether the transformation is legal.  */
-      if (!lambda_transform_legal_p (trans, depth, classic_dir, classic_dist))
+      if (!lambda_transform_legal_p (trans, depth, dependence_relations))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");

@@ -1761,193 +1761,29 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       }
 }
 
-/* A data dependence direction and distance pair.  */
+/* Returns true when the vector V is lexicographically positive, in
+   other words, when the first non zero element is positive.  */
 
-typedef struct dir_dist_pair
-{
-  enum data_dependence_direction dir;
-  int dist;
-} dd_pair;
-
-/* If a dependence direction is reversed, reverse_dep[old_direction]
-   gives the new direction.  MUST BE KEPT IN SYNC WITH enum
-   data_dependence_dir.  
-*/
-static const enum data_dependence_direction reverse_dep[] = 
-  {
-    dir_negative,
-    dir_positive,
-    dir_equal,
-    dir_positive_or_negative,
-    dir_negative_or_equal,
-    dir_positive_or_equal,
-    dir_star,
-    dir_independent
-  };
-
-/* Multiply a dependence pair DEP by CONSTANT, return the new
-   dependence pair.  */
-
-static dd_pair
-lambda_dep_mult_constant (dd_pair dep, int constant)
-{
-  dd_pair ret;
-  ret.dist = dep.dist * constant;
-  
-  /* If the distance is now 0, the direction is now equal.
-     Otherwise, the direction only changes if the constant is < 0.  */
-
-  if (ret.dist == 0)
-    {
-      ret.dir = dir_equal;
-    }
-  else if (constant < 0)
-    {
-      ret.dir = reverse_dep[dep.dir];
-    }
-  else
-    {
-      ret.dir = dep.dir;
-    }
-  return ret;
-}
-
-/* Add two dependence pairs, FIRST and SECOND, and return the new
-   dependence pair.  */
-static dd_pair
-lambda_dep_add (dd_pair first, dd_pair second)
-{
-  dd_pair ret;
-  ret.dist = first.dist + second.dist;
-  switch (first.dir)
-    {
-    case dir_equal:
-      {
-	ret.dir = second.dir;
-	ret.dist = second.dist;
-	break;
-      }
-    case dir_positive_or_equal:
-    case dir_positive:
-      {
-	switch (second.dir)
-	  { 
-	  case dir_negative:
-	  case dir_negative_or_equal:
-	  case dir_star:
-	    ret.dir = dir_star;
-	    ret.dist = 0;
-	    break;
-	  default:
-	    ret.dir = first.dir;
-	    break;
-	  }
-	break;
-      }
-    case dir_negative_or_equal:
-    case dir_negative:
-      {
-	switch (second.dir)
-	  {
-	  case dir_positive:
-	  case dir_positive_or_equal:
-	  case dir_star:
-	    ret.dir = dir_star;
-	    ret.dist = 0;
-	    break;
-	  default:
-	    ret.dir = first.dir;
-	    break;
-	  }
-	break;
-      }
-    case dir_star:
-      {
-	ret.dir = dir_star;
-	ret.dist = 0;
-	break;
-      }
-    default:
-      abort ();
-    }
-  return ret;
-}
-/* Compute the dot product of an integer vector VECTOR, 
-   a vector containing dependence distance DISTANCE, and a vector containing
-   dependence direction DIRECTION. All vectors are of dimension SIZE.
-   Return the resulting distance/direction pair.  */
-
-static dd_pair
-lambda_vec_distdirvec_mult  (lambda_vector vector,
-			     lambda_vector distance,
-			     lambda_vector direction, 
-			     int size)
-{
-  int i;
-  dd_pair ret;
-  ret.dir = dir_equal;
-  ret.dist = 0;
-  for (i = 0; i < size; i++)
-    {
-      dd_pair elem;
-      elem.dist = distance[i];
-      elem.dir = direction[i];
-      elem = lambda_dep_mult_constant (elem, vector[i]);
-      ret = lambda_dep_add (ret, elem);
-    }
-  return ret;
-}
-
-/* Compute the dot product of an integer vector VECTOR, and a
-   dependence matrix represented by varrays of distance and direction
-   vectors, DISTS and DIRS.
-   All vectors are of dimension DIM.  */
-
-static void
-lambda_vec_distdirmat_mult (lambda_vector vector,
-			    int dim,
-			    varray_type dirs,
-			    varray_type dists,
-			    lambda_vector dirres,
-			    lambda_vector distres)
-{
-  size_t i;
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (dists); i++)
-    {
-      dd_pair result;
-      lambda_vector distance = VARRAY_GENERIC_PTR (dists, i);
-      lambda_vector direction = VARRAY_GENERIC_PTR (dirs, i);
-      result = lambda_vec_distdirvec_mult (vector, distance, direction, dim);
-      distres[i] = result.dist;
-      dirres[i] = result.dir;
-    }
-  
-}
-
-/* Return true if the direction vector DIR is all positive or equal
-   elements.  */
 static bool
-lambda_deps_positive (lambda_vector dir, int dirsize)
+lambda_vector_lexico_pos (lambda_vector v, 
+			  unsigned n)
 {
-  int i;
-  for (i = 0; i < dirsize; i++)
+  unsigned i;
+  for (i = 0; i < n; i++)
     {
-      switch (dir[i])
-      {
-      case dir_negative:
-      case dir_negative_or_equal:
-      case dir_star:
+      if (v[i] == 0)
+	continue;
+      if (v[i] < 0)
 	return false;
-	break;
-      }
+      if (v[i] > 0)
+	return true;
     }
   return true;
 }
 
-      
-	
 /* Return true if TRANS is a legal transformation matrix that respects
-   the dependence vectors in DISTS and DIRS.  
+   the dependence vectors in DISTS and DIRS.  The conservative answer
+   is false.
 
    "Wolfe proves that a unimodular transformation represented by the
    matrix T is legal when applied to a loop nest with a set of
@@ -1961,22 +1797,52 @@ lambda_deps_positive (lambda_vector dir, int dirsize)
 bool
 lambda_transform_legal_p (lambda_trans_matrix trans, 
 			  int nb_loops,
-			  varray_type dirs,
-			  varray_type dists)
+			  varray_type dependence_relations)
 {
-  int i;
-  int distsize = VARRAY_ACTIVE_SIZE (dists);
-  int dirsize = VARRAY_ACTIVE_SIZE (dirs);
+  unsigned int i;
   lambda_vector distres;
-  lambda_vector dirres;
-  distres = lambda_vector_new (distsize);
-  dirres = lambda_vector_new (dirsize);
-  for (i = 0; i < LTM_ROWSIZE (trans); i++)
+  struct data_dependence_relation *ddr;
+
+#if defined ENABLE_CHECKING
+  if (LTM_COLSIZE (trans) != nb_loops
+      || LTM_ROWSIZE (trans) != nb_loops)
+    abort ();
+#endif
+
+  /* When there is an unknown relation in the dependence_relations, we
+     know that it is no worth looking at this loop nest: give up.  */
+  ddr = (struct data_dependence_relation *) 
+    VARRAY_GENERIC_PTR (dependence_relations, 0);
+  if (ddr == NULL || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    return false;
+
+
+  distres = lambda_vector_new (nb_loops);
+
+  /* For each distance vector in the dependence graph.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
     {
-      lambda_vec_distdirmat_mult (LTM_MATRIX (trans)[i], nb_loops,
-				  dirs, dists, dirres, distres);
-      if (!lambda_deps_positive (dirres, dirsize))
+      ddr = (struct data_dependence_relation *) 
+	VARRAY_GENERIC_PTR (dependence_relations, i);
+
+      /* Conservatively answer: "this transformation is not valid".  */
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+	return false;
+
+      /* Don't care about relations for which we know that there is no
+	 dependence, nor about read-read (aka. output-dependences):
+	 these data accesses can happen in any order.  */
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_known
+	  || (DR_IS_READ (DDR_A (ddr)) && DR_IS_READ (DDR_B (ddr))))
+	continue;
+
+      /* Compute trans.dist_vect */
+      lambda_matrix_vector_mult (LTM_MATRIX (trans), nb_loops, nb_loops, 
+				 DDR_DIST_VECT (ddr), distres);
+
+      if (!lambda_vector_lexico_pos (distres, nb_loops))
 	return false;
     }
+
   return true;
 }

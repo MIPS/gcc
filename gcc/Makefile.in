@@ -730,6 +730,8 @@ PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
 C_PRETTY_PRINT_H = $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
 SCEV_H = tree-scalar-evolution.h $(GGC_H) tree-chrec.h
+LAMBDA_H = lambda.h $(GGC_H)
+TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H)
 
 #
 # Now figure out from those variables how to compile and link.
@@ -1684,7 +1686,7 @@ tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
-   tree-pass.h flags.h $(SCEV_H) tree-vectorizer.h function.h
+   tree-pass.h flags.h $(SCEV_H) tree-vectorizer.h function.h $(TREE_DATA_REF_H) 
 tree-ssa-loop-unswitch.o : tree-ssa-loop-unswitch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) domwalk.h $(PARAMS_H)\
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1752,7 +1754,7 @@ tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \
 tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
-   tree-data-ref.h $(SCEV_H) tree-pass.h lambda.h
+   $(TREE_DATA_REF_H) $(SCEV_H) tree-pass.h 
 tree-elim-check.o: tree-elim-check.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h $(SCEV_H) \
@@ -1760,11 +1762,11 @@ tree-elim-check.o: tree-elim-check.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
-   tree-vectorizer.h tree-data-ref.h $(SCEV_H)
+   tree-vectorizer.h $(TREE_DATA_REF_H) $(SCEV_H)
 tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
-   tree-data-ref.h $(SCEV_H)
+   $(TREE_DATA_REF_H) $(SCEV_H)
 tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H)
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
@@ -1942,7 +1944,7 @@ lambda-trans.o: lambda-trans.c lambda.h $(GGC_H) $(SYSTEM_H) $(CONFIG_H) $(TM_H)
 lambda-code.o: lambda-code.c lambda.h $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
    errors.h $(TM_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
-   tree-data-ref.h $(SCEV_H)
+   $(TREE_DATA_REF_H) $(SCEV_H)
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) coretypes.h \
    $(TM_H) $(BASIC_BLOCK_H) $(REGS_H) $(FLAGS_H) output.h $(RESOURCE_H) function.h toplev.h \
    $(INSN_ATTR_H) except.h $(PARAMS_H) $(TM_P_H)
@@ -2397,7 +2399,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/dojump.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
-  $(srcdir)/fold-const.c $(srcdir)/function.c $(srcdir)/tree-data-ref.h \
+  $(srcdir)/fold-const.c $(srcdir)/function.c \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c \

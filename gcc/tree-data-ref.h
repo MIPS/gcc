@@ -22,7 +22,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_DATA_REF_H
 #define GCC_TREE_DATA_REF_H
 
-struct data_reference GTY(())
+#include "lambda.h"
+
+struct data_reference
 {
   /* An identifier.  */
   unsigned int id;
@@ -74,7 +76,7 @@ enum data_dependence_direction {
    are stored in the data_dependence_relation structure under the form
    of an array of subscripts.  */
 
-struct subscript GTY(()) 
+struct subscript
 {
   /* A description of the iterations for which the elements are
      accessed twice.  */
@@ -108,7 +110,7 @@ struct subscript GTY(())
 /* A data_dependence_relation represents a relation between two
    data_references A and B.  */
 
-struct data_dependence_relation GTY(())
+struct data_dependence_relation
 {
   
   struct data_reference *a;
@@ -131,6 +133,12 @@ struct data_dependence_relation GTY(())
      this array.  This is the attribute that labels the edge A->B of
      the data_dependence_relation.  */
   varray_type subscripts;
+
+  /* The classic direction vector.  */
+  lambda_vector dir_vect;
+
+  /* The classic distance vector.  */
+  lambda_vector dist_vect;
 };
 
 #define DDR_A(DDR) DDR->a
@@ -141,6 +149,8 @@ struct data_dependence_relation GTY(())
   VARRAY_GENERIC_PTR_INIT (DDR_SUBSCRIPTS (DDR), N, "subscripts_vector");
 #define DDR_SUBSCRIPT(DDR, I) VARRAY_GENERIC_PTR (DDR_SUBSCRIPTS (DDR), I)
 #define DDR_NUM_SUBSCRIPTS(DDR) VARRAY_ACTIVE_SIZE (DDR_SUBSCRIPTS (DDR))
+#define DDR_DIR_VECT(DDR) DDR->dir_vect
+#define DDR_DIST_VECT(DDR) DDR->dist_vect
 
 
 
@@ -149,7 +159,6 @@ struct data_dependence_relation *initialize_data_dependence_relation
 void compute_affine_dependence (struct data_dependence_relation *);
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
-					       varray_type *, varray_type *, 
 					       varray_type *, varray_type *);
 extern struct data_reference * init_data_ref (tree, tree, tree, tree, bool);
 extern struct data_reference *analyze_array (tree, tree, bool);

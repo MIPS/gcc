@@ -1,3 +1,45 @@
+2004-07-25  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (LAMBDA_H, TREE_DATA_REF_H): New.
+	(tree-ssa-loop.o, tree-data-ref.o, tree-vectorizer.o, 
+	tree-loop-linear.o, lambda-code.o): Depend on TREE_DATA_REF_H.
+	(GTFILES): tree-data-ref.h no longer GTYfied.
+	* lambda-code.c (dir_dist_pair, reverse_dep, lambda_dep_mult_constant, 
+	lambda_dep_add, lambda_vec_distdirvec_mult, lambda_vec_distdirmat_mult, 
+	lambda_deps_positive): Removed.
+	(lambda_vector_lexico_pos): New.
+	(lambda_transform_legal_p): Use lambda_vector_lexico_pos.  Use the 
+	information from dependence_relations instead of classic_dist, and 
+	classic_dir vectors.
+	* lambda.h (lambda_transform_legal_p): Pass in parameter only the 
+	dependence_relations varray.
+	* tree-data-ref.c (build_classic_dist_vector, 
+	build_classic_dir_vector): Store in the dependence_relations the 
+	information. Each arc in the dependence_relations graph is labelled 
+	with the distance and direction vectors.
+	(compute_rw_wr_ww_dependences): Renamed again compute_all_dependences.
+	Now computes again the whole dependence graph including read-read 
+	relations.
+	(compute_data_dependences_for_loop): Now dependence_relations contains
+	all the data, and thus it doesn't need to initialize the classic_dir 
+	and classic_dist vectors.
+	(analyze_all_data_dependences): Adjusted for using the new interface of 
+	compute_data_dependences_for_loop.  Remove the statistics dump.
+	* tree-data-ref.h: Include lambda.h.
+	(subscript, data_dependence_relation): Remove GTYfier.
+	(data_dependence_relation): Add dir_vect and dist_vect fields.
+	(DDR_DIR_VECT, DDR_DIST_VECT): New.
+	(compute_data_dependences_for_loop): Adjust parameters.
+	* tree-loop-linear.c (sum_distances_on_loop): Renamed 
+	gather_interchange_stats.  Pass in the dependence_relations.  
+	Now is able to sum also on read-read relations.  Gather also
+	the number of dependences that are not carried by the loop.
+	(try_interchange_loops): Careful on unknown dependence relations.
+	Use the new interface of lambda_transform_legal_p.  Add a heuristic
+	based on the number of dependence relations not carried by a loop.
+	(linear_transform_loops): Adjusted for the new interfaces of 
+	compute_data_dependences_for_loop and lambda_transform_legal_p.
+
 2004-07-24  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* lambda-code.c (lambda_transform_legal_p): Add more comments.

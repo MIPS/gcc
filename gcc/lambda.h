@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef LAMBDA_H
 #define LAMBDA_H
 
+#include "ggc.h"
+
 typedef int *lambda_vector;
 typedef lambda_vector *lambda_matrix;
 
@@ -97,7 +99,7 @@ typedef struct
 
 lambda_loopnest lambda_loopnest_new (int, int);
 lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
-bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type, varray_type);
+bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 #define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
