@@ -3334,6 +3334,10 @@ do {						\
   {"shiftdi_operand", {SUBREG, REG, MEM}},				\
   {"const_int_1_operand", {CONST_INT}},					\
   {"const_int_1_31_operand", {CONST_INT}},				\
+  {"const_0_to_3_operand", {CONST_INT}},				\
+  {"const_0_to_7_operand", {CONST_INT}},				\
+  {"const_0_to_15_operand", {CONST_INT}},				\
+  {"const_0_to_255_operand", {CONST_INT}},				\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		       LABEL_REF, SUBREG, REG, MEM}},			\
@@ -3390,6 +3394,8 @@ do {						\
   {"register_and_not_fp_reg_operand", {REG}},				\
   {"zero_extended_scalar_load_operand", {MEM}},				\
   {"vector_move_operand", {CONST_VECTOR, SUBREG, REG, MEM}},		\
+  {"no_seg_address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF, \
+			      LABEL_REF, SUBREG, REG, MEM, PLUS, MULT}},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
