@@ -762,7 +762,6 @@ emit_pre_reload_insns (insn)
 {
   int j;
   rtx following_insn = NEXT_INSN (insn);
-  rtx before_insn = PREV_INSN (insn);
 
   for (j = 0; j < n_reloads; ++j)
     {
@@ -883,16 +882,6 @@ emit_pre_reload_insns (insn)
       emit_insns_before (output_address_reload_insns[j], following_insn);
       emit_insns_before (output_reload_insns[j], following_insn);
       emit_insns_before (other_output_reload_insns[j], following_insn);
-    }
-
-  /* Keep basic block info up to date.  */
-  if (n_basic_blocks)
-    {
-      basic_block bb = BLOCK_FOR_INSN (insn);
-      if (bb->head  == insn)
-	bb->head = NEXT_INSN (before_insn);
-      if (bb->end == insn)
-	bb->end = PREV_INSN (following_insn);
     }
 }
 
@@ -3822,6 +3811,8 @@ pre_reload_collect (ra_info)
 {
   rtx insn;
   int cnt;
+  int block;
+  
   ra_ref *def_refs[(sizeof (ra_ref *)
 		    * MAX_RECOG_OPERANDS * MAX_REGS_PER_ADDRESS + 1)];
   ra_ref *use_refs[(sizeof (ra_ref *)
@@ -3830,63 +3821,75 @@ pre_reload_collect (ra_info)
   cnt = get_max_uid ();
   cnt += cnt / 5;
   
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      enum rtx_code pat_code;
-      enum rtx_code code = GET_CODE (insn);
-      rtx prev;
-      rtx next;
+  for (block = 0; block < n_basic_blocks; ++block)
+    for (insn = BLOCK_HEAD (block);
+	 insn && PREV_INSN (insn) != BLOCK_END (block);
+	 insn = NEXT_INSN (insn))
+      {
+	enum rtx_code pat_code;
+	enum rtx_code code = GET_CODE (insn);
+	rtx prev;
+	rtx next;
+	rtx orig_insn;
 
-      ra_info_add_insn_refs (ra_info, insn, NULL);
+	ra_info_add_insn_refs (ra_info, insn, NULL);
       
-      if (GET_RTX_CLASS (code) != 'i')
-	continue;
+	if (GET_RTX_CLASS (code) != 'i')
+	  continue;
 
-      pat_code = GET_CODE (PATTERN (insn));
-      if (pat_code == USE
-	  || pat_code == CLOBBER
-	  || pat_code == ASM_INPUT
-	  || pat_code == ADDR_VEC
-	  || pat_code == ADDR_DIFF_VEC)
-	continue;
+	pat_code = GET_CODE (PATTERN (insn));
+	if (pat_code == USE
+	    || pat_code == CLOBBER
+	    || pat_code == ASM_INPUT
+	    || pat_code == ADDR_VEC
+	    || pat_code == ADDR_DIFF_VEC)
+	  continue;
 
-      cnt = 0;
+	cnt = 0;
       
-      next = NEXT_INSN (insn);
-      prev = PREV_INSN (insn);
-      while (1)
-	{
-	  int n_defs;
-	  int n_uses;
+	next = NEXT_INSN (insn);
+	prev = PREV_INSN (insn);
+	orig_insn = insn;
+	while (1)
+	  {
+	    int n_defs;
+	    int n_uses;
 
-	  ra_info_add_insn_refs (ra_info, insn, NULL);
-	  collect_insn_info (insn, def_refs, use_refs, &n_defs, &n_uses);
-	  if (++cnt > 30)
-	    abort ();
-	  if (n_reloads)
-	    {
-	      emit_pre_reload_insns (insn);
-	      subst_pre_reloads (insn);
-	      insn = NEXT_INSN (prev);
-	      continue;
-	    }
-
-	  if (n_defs || n_uses)
-	    {
-	      struct ra_refs *insn_refs;
-	      insn_refs = build_ra_refs_for_insn (ra_info, def_refs, use_refs,
-						  n_defs, n_uses);
-	      ra_info_add_insn_refs (ra_info, insn, insn_refs);
-	      ra_info_add_reg_refs (ra_info, insn, insn_refs);
-	    }
-	  else
 	    ra_info_add_insn_refs (ra_info, insn, NULL);
+	    collect_insn_info (insn, def_refs, use_refs, &n_defs, &n_uses);
+	    if (++cnt > 30)
+	      abort ();
+	    if (n_reloads)
+	      {
+		emit_pre_reload_insns (insn);
+		subst_pre_reloads (insn);
+		insn = NEXT_INSN (prev);
+		continue;
+	      }
 
-	  if (NEXT_INSN (insn) == next)
-	    break;
-	  insn = NEXT_INSN (insn);
-	}
-    }
+	    if (n_defs || n_uses)
+	      {
+		struct ra_refs *insn_refs;
+		insn_refs = build_ra_refs_for_insn (ra_info,
+						    def_refs, use_refs,
+						    n_defs, n_uses);
+		ra_info_add_insn_refs (ra_info, insn, insn_refs);
+		ra_info_add_reg_refs (ra_info, insn, insn_refs);
+	      }
+	    else
+	      ra_info_add_insn_refs (ra_info, insn, NULL);
+
+	    if (NEXT_INSN (insn) == next)
+	      break;
+	    insn = NEXT_INSN (insn);
+	  }
+	
+	/* Keep basic block info up to date.  */
+	if (BLOCK_HEAD (block) == orig_insn)
+	  BLOCK_HEAD (block) = NEXT_INSN (prev);
+	if (BLOCK_END (block) == orig_insn)
+	  BLOCK_END (block) = PREV_INSN (next);
+      }
   
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
