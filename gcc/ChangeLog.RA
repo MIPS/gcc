@@ -1,3 +1,32 @@
+2001-08-28  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* gcse.c (store_killed_in_insn): Even pure/const calls kill
+	argument stack slots, and all things aliased to
+	CALL_INSN_FUNCTION_USAGE.
+
+	* toplev.c (rest_of_compilation): Preserve basic blocks in
+	delete_trivially_dead_insns(), initialize
+	rebuild_label_notes_after_reload.
+
+	* i386/i386.h (LIMIT_RELOAD_CLASS): Also limit LEGACY_REGS.
+
+	* ra.c (NO_REMAT): New macro.
+	(struct df *df): Staticify.
+	(ra_max_regno, ra_reg_renumber): New.
+	(struct undef_table_s): Also handle index 15.
+	(undef_to_bitmap): case 0xF: remove, default: only handle
+	lengths as powers of two.
+	(live_out_1): Remove the x86 hack.
+	(freeze): Call freeze_moves() again.
+	(emit_colors): Initialize ra_reg_renumber[] instead of reg_renumber[].
+	(init_ra): Init ra_reg_renumber.
+	(rematerializable): Return 0 if NO_REMAT.
+	(setup_renumber): New...
+	(reg_alloc): ... call it.  Call update_equiv_regs() after allocation.
+	Don't calculate DU- and UD-chains if NO_REMAT.
+	Preserve basic blocks over delete_trivially_dead_insns().
+	Call allocate_reg_info() to not allocate reg_renumber.
+
 2001-08-18  Daniel Berlin  <dan@cgsoftware.com>
 
 	* ra.c (live_out_1): Temporary hack to make x86 compile. Someone

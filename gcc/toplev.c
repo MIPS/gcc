@@ -3398,7 +3398,7 @@ rest_of_compilation (decl)
   regclass (insns, max_reg_num (), rtl_dump_file);
   if (flag_new_regalloc)
     {
-      delete_trivially_dead_insns (insns, max_reg_num (), 0);
+      delete_trivially_dead_insns (insns, max_reg_num (), 1);
       reg_alloc ();
 
       timevar_pop (TV_LOCAL_ALLOC);
@@ -3434,6 +3434,7 @@ rest_of_compilation (decl)
       if (failure)
         goto exit_rest_of_compilation;
       reload_completed = 1;
+      rebuild_label_notes_after_reload = 0;
     }
   else
     {

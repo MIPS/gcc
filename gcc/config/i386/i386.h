@@ -1333,7 +1333,8 @@ enum reg_class
 
 #define LIMIT_RELOAD_CLASS(MODE, CLASS) 			\
   ((MODE) == QImode && !TARGET_64BIT				\
-   && ((CLASS) == ALL_REGS || (CLASS) == GENERAL_REGS) 		\
+   && ((CLASS) == ALL_REGS || (CLASS) == LEGACY_REGS		\
+       || (CLASS) == GENERAL_REGS) 				\
    ? Q_REGS : (CLASS))
 
 /* Given an rtx X being reloaded into a reg required to be

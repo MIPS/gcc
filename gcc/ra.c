@@ -38,6 +38,8 @@
 #include "ggc.h"
 #include "reload.h"
 
+/*#define NO_REMAT*/
+
 /* The algorithm used is currently Iterated Register Coalescing by
    L.A.George, and Appel.
 */
@@ -402,7 +404,9 @@ static struct web **use2web;
 static struct move_list *wl_moves;
 static struct ref **all_defs_for_web;
 static struct ref **all_uses_for_web;
-struct df *df;
+static int ra_max_regno;
+static short *ra_reg_renumber;
+static struct df *df;
 
 /* Used to detect spill instructions inserted by me.  */
 static int orig_max_uid;
@@ -600,14 +604,15 @@ struct undef_table_s {
   { 3, 1, 3},
   { 0, 2, 2}, /* 12 */
   { 1, 2, 2},
-  { 2, 2, 2}};
+  { 2, 2, 2},
+  { 0, 4, 0}};
 
 static bitmap
 undef_to_bitmap (wp, undefined)
      struct web_part *wp;
      unsigned HOST_WIDE_INT *undefined;
 {
-  if (*undefined < 15)
+  if (*undefined <= 15)
     {
       struct undef_table_s u;
       u = undef_table[*undefined];
@@ -616,7 +621,6 @@ undef_to_bitmap (wp, undefined)
     }
   switch (*undefined)
     {
-      case 0x000f : *undefined = 0; return get_sub_conflicts (wp, 4, 0);
       case 0x00f0 : *undefined = 0; return get_sub_conflicts (wp, 4, 4);
       case 0x00ff : *undefined = 0; return get_sub_conflicts (wp, 8, 0);
       case 0x0f00 : *undefined = 0; return get_sub_conflicts (wp, 4, 8);
@@ -629,20 +633,19 @@ undef_to_bitmap (wp, undefined)
       default :
 	{
 	  unsigned HOST_WIDE_INT u = *undefined;
-	  struct undef_table_s u2;
-	  int i;
-	  
 	  int word;
-	  int size;
-	  
-	  for (word = 0; ! (u & 1); ++word)
-	    u >>= 1;
-	  for (size = 0; u & 1; size++)
-	    u >>= 1;
-	  if (u)
-	    abort ();
+	  bitmap b;
+	  struct undef_table_s tab;
+	  for (word = 0; (u & 15) == 0; word+=4)
+	    u >>= 4;
+	  u = u & 15;
+	  tab = undef_table[u];
+	  u = tab.new_undef;
+	  b = get_sub_conflicts (wp, tab.size, word + tab.word);
+	  u = (*undefined & ~((unsigned HOST_WIDE_INT)15 << word))
+	      | (u << word);
 	  *undefined = u;
-	  return get_sub_conflicts (wp, size, word);
+	  return b;
 	}
 	break;
     }
@@ -999,20 +1002,10 @@ live_out_1 (df, use, insn)
 		    unsigned int bl = rtx_to_bits (s);
 		    int b = BYTE_BEGIN (bl);
 		    int e = b + BYTE_LENGTH (bl);		    
-		    /*FIXME: Complete BS hack to make x86 at least
-		     *compile*, until someone fixes it (set (reg:QI)
-		     (subreg:QI (reg:DI)) causes us to get a word of
-		     1, size of 7, which later causes us to abort,
-		     since this is wrong. */
-		    if (e == 1 && b == 0)
+		    for (; b < e; b++)
 		      {
-			undef = 1;
+		        undef &= ~((unsigned HOST_WIDE_INT)1 << b);
 		      }
-		    else
-		      for (; b < e; b++)
-			{
-			  undef &= ~((unsigned HOST_WIDE_INT)1 << b);
-			}
 		  }
 		if (undef)
 		  {
@@ -3137,7 +3130,7 @@ freeze (void)
 {
   struct dlist *d = pop_list (&freeze_wl);
   put_web (DLIST_WEB (d), SIMPLIFY);
-  /*  freeze_moves (DLIST_WEB (d)); */
+  freeze_moves (DLIST_WEB (d));
 }
 
 static unsigned HOST_WIDE_INT (*spill_heuristic) PARAMS ((struct web *));
@@ -3917,8 +3910,11 @@ emit_colors (df)
 	abort ();
       web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
     }
-  max_regno = max_reg_num ();
-  allocate_reg_info (max_regno, FALSE, TRUE);
+  ra_max_regno = max_regno = max_reg_num ();
+  allocate_reg_info (max_regno, FALSE, FALSE);
+  ra_reg_renumber = (short *) xmalloc (max_regno * sizeof (short));
+  for (si = 0; si < max_regno; si++)
+    ra_reg_renumber[si] = -1;
 
   /* Then go through all references, and replace them by a new
      pseudoreg for each web.  All uses.  */
@@ -3976,7 +3972,7 @@ emit_colors (df)
 	}
     }
 
-  /* And now set up the reg_renumber array for reload with all the new
+  /* And now set up the ra_reg_renumber array for reload with all the new
      pseudo-regs.  */
   for (i = 0; i < num_webs - num_subwebs; i++)
     {
@@ -3984,9 +3980,9 @@ emit_colors (df)
       if (web->reg_rtx)
 	{
 	  int r = REGNO (web->reg_rtx);
-          reg_renumber[r] = web->color;
+          ra_reg_renumber[r] = web->color;
           debug_msg (0, "Renumber pseudo %d (== web %d) to %d\n",
-		     r, web->id, reg_renumber[r]);
+		     r, web->id, ra_reg_renumber[r]);
 	}
     }
 
@@ -4208,6 +4204,7 @@ init_ra (void)
 
   orig_max_uid = get_max_uid ();
   compute_bb_for_insn (get_max_uid ());
+  ra_reg_renumber = NULL;
 }
 static 
 int only_one_reaching_def (link)
@@ -4225,6 +4222,11 @@ int rematerializable (ref)
      struct ref *ref;
 {
   rtx set;
+
+#ifdef NO_REMAT
+  return 0;
+#endif
+
   if (DF_REF_REG_USE_P (ref))
     {
       if (DF_REF_CHAIN (ref) != NULL && DF_REF_CHAIN (ref)->next == NULL)
@@ -4736,6 +4738,19 @@ splits_init ()
     }
 }
 
+static void
+setup_renumber (void)
+{
+  int i;
+  max_regno = max_reg_num ();
+  allocate_reg_info (max_regno, FALSE, TRUE);
+  for (i = 0; i < max_regno; i++)
+    {
+      reg_renumber[i] = (i < ra_max_regno) ? ra_reg_renumber[i] : -1;
+    }
+  free (ra_reg_renumber);
+  ra_max_regno = 0;
+}
 
 /* Main register allocator entry point.  */
 void
@@ -4744,7 +4759,10 @@ reg_alloc (void)
   int changed;
   int pass = 0;
   split_live_ranges = FALSE;
-  update_equiv_regs();
+  /* XXX the REG_EQUIV notes currently are screwed up, when pseudos are
+     coalesced, which have such notes.  In that case, the whole combined
+     web gets that note too, which is wrong.  */
+  /*update_equiv_regs();*/
   init_ra ();
   /*  find_nesting_depths (); */
   pass = 0;
@@ -4763,7 +4781,11 @@ reg_alloc (void)
       debug_msg (0, "RegAlloc Pass %d\n\n", pass);
       if (pass++ > 40)
 	internal_error ("Didn't find a coloring.\n");
-      df_analyse (df, 0, DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN | DF_DU_CHAIN | DF_UD_CHAIN );
+      df_analyse (df, 0, DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN
+#ifndef NO_REMAT
+		  | DF_DU_CHAIN | DF_UD_CHAIN
+#endif
+		 );
       if (rtl_dump_file)
 	{
 	  rtx insn;
@@ -4784,9 +4806,9 @@ reg_alloc (void)
 	}
       else
 	{
-	  allocate_reg_info (max_reg_num (), FALSE, TRUE);
+	  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 	  compute_bb_for_insn (get_max_uid ());
-	  delete_trivially_dead_insns (get_insns (), max_reg_num (), 0);
+	  delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
 	  reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 			   max_regno);
 	  max_regno = max_reg_num ();
@@ -4807,7 +4829,7 @@ reg_alloc (void)
   if (rtl_dump_file)
        print_rtl_with_bb (rtl_dump_file, get_insns ()); 
   no_new_pseudos = 0;
-  allocate_reg_info (max_reg_num (), FALSE, TRUE);
+  allocate_reg_info (max_reg_num (), FALSE, FALSE);
   compute_bb_for_insn (get_max_uid ());
   store_motion ();
   no_new_pseudos = 1;
@@ -4822,6 +4844,10 @@ reg_alloc (void)
      regclass. */
   /*reg_scan (get_insns (), max_reg_num (), 1);
     regclass (get_insns (), max_reg_num (), rtl_dump_file); */
+  update_equiv_regs ();
+  /* We must maintain our own reg_renumber[] array, because life_analysis()
+     destroys any prior set up reg_renumber[].  */
+  setup_renumber ();
 }
 
 /*

@@ -6565,7 +6565,9 @@ store_killed_in_insn (x, insn)
   if (GET_CODE (insn) == CALL_INSN)
     {
       if (CONST_OR_PURE_CALL_P (insn)
-          && find_loads (CALL_INSN_FUNCTION_USAGE (insn), x))
+          && !find_loads (CALL_INSN_FUNCTION_USAGE (insn), x)
+          && !reg_overlap_mentioned_p (frame_pointer_rtx, x)
+	  && !reg_overlap_mentioned_p (stack_pointer_rtx, x))
 	return 0;
       else
 	return 1;
