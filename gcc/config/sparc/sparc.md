@@ -62,7 +62,7 @@
 
 ;; Attribute for cpu type.
 ;; These must match the values for enum processor_type in sparc.h.
-(define_attr "cpu" "v7,cypress,v8,supersparc,sparclite,f930,f934,hypersparc,sparclite86x,sparclet,tsc701,v9,ultrasparc"
+(define_attr "cpu" "v7,cypress,v8,supersparc,sparclite,f930,f934,hypersparc,sparclite86x,sparclet,tsc701,v9,ultrasparc,ultrasparc3"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -83,9 +83,8 @@
 
 ;; Insn type.
 
-;; If you add any new type here, please update ultrasparc_sched_reorder too.
 (define_attr "type"
-  "ialu,compare,shift,load,sload,store,uncond_branch,branch,call,sibcall,call_no_delay_slot,return,imul,idiv,fpload,fpstore,fp,fpmove,fpcmove,fpcmp,fpmul,fpdivs,fpdivd,fpsqrts,fpsqrtd,cmove,multi,misc"
+  "ialu,compare,shift,load,sload,store,uncond_branch,branch,call,sibcall,call_no_delay_slot,return,imul,idiv,fpload,fpstore,fp,fpmove,fpcmove,fpcrmove,fpcmp,fpmul,fpdivs,fpdivd,fpsqrts,fpsqrtd,cmove,multi,misc"
   (const_string "ialu"))
 
 ;; Length (in # of insns).
@@ -93,6 +92,9 @@
 
 ;; FP precision.
 (define_attr "fptype" "single,double" (const_string "single"))
+
+;; UltraSPARC-III integer load type.
+(define_attr "us3load_type" "2cycle,3cycle" (const_string "2cycle"))
 
 (define_asm_attributes
   [(set_attr "length" "2")
@@ -178,8 +180,7 @@
    
 ;; DFA scheduling on the SPARC
 
-;;(define_automaton "cypress_0,cypress_1,supersparc_0,supersparc_1,hypersparc_0,hypersparc_1,sparclet,ultrasparc_0,ultrasparc_1")
-(define_automaton "cypress_0,cypress_1,supersparc_0,supersparc_1,hypersparc_0,hypersparc_1,sparclet,ultrasparc_0,ultrasparc_1")
+(define_automaton "cypress_0,cypress_1,supersparc_0,supersparc_1,hypersparc_0,hypersparc_1,sparclet,ultrasparc_0,ultrasparc_1,ultrasparc3_0,ultrasparc3_1")
 
 ;; Cypress scheduling
 
@@ -467,13 +468,13 @@
 
 (define_insn_reservation "us1_fcmov_single" 2
   (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpcmove"))
+            (eq_attr "type" "fpcmove,fpcrmove"))
        (eq_attr "fptype" "single"))
   "us1_fpa + us1_fp_single + us1_slotany, nothing")
 
 (define_insn_reservation "us1_fcmov_double" 2
   (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpcmove"))
+            (eq_attr "type" "fpcmove,fpcrmove"))
        (eq_attr "fptype" "double"))
   "us1_fpa + us1_fp_double + us1_slotany, nothing")
 
@@ -558,6 +559,143 @@
 ;; An integer branch may execute in the same cycle as the compare
 ;; creating the condition codes.
 (define_bypass 0 "us1_simple_ieu1" "us1_branch")
+
+;; UltraSPARC-III scheduling
+;;
+;; A much simpler beast, no silly slotting rules and both
+;; integer units are fully symmetric.  It does still have
+;; single-issue instructions though.
+
+(define_cpu_unit "us3_a0,us3_a1,us3_ms,us3_br,us3_fpm" "ultrasparc3_0")
+(define_cpu_unit "us3_slot0,us3_slot1,us3_slot2,us3_slot3,us3_fpa" "ultrasparc3_1")
+(define_cpu_unit "us3_load_writeback" "ultrasparc3_1")
+
+(define_reservation "us3_slotany" "(us3_slot0 | us3_slot1 | us3_slot2 | us3_slot3)")
+(define_reservation "us3_single_issue" "us3_slot0 + us3_slot1 + us3_slot2 + us3_slot3")
+(define_reservation "us3_ax" "(us3_a0 | us3_a1)")
+
+(define_insn_reservation "us3_integer" 1
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "ialu,shift,compare"))
+  "us3_ax + us3_slotany")
+
+(define_insn_reservation "us3_cmove" 2
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "cmove"))
+  "us3_ms + us3_br + us3_slotany, nothing")
+
+;; ??? Not entirely accurate.
+;; ??? It can run from 6 to 9 cycles.  The first cycle the MS pipe
+;; ??? is needed, and the instruction group is broken right after
+;; ??? the imul.  Then 'helper' instructions are generated to perform
+;; ??? each further stage of the multiplication, each such 'helper' is
+;; ??? single group.  So, the reservation aspect is represented accurately
+;; ??? here, but the variable cycles are not.
+;; ??? Currently I have no idea how to determine the variability, but once
+;; ??? known we can simply add a define_bypass or similar to model it.
+(define_insn_reservation "us3_imul" 6
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "imul"))
+  "us3_ms + us3_slotany, us3_single_issue*5")
+
+(define_insn_reservation "us3_idiv" 71
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "idiv"))
+  "us3_ms + us3_slotany, us3_single_issue*70")
+
+;; UltraSPARC-III has a similar load delay as UltraSPARC-I/II except
+;; that all loads except 32-bit/64-bit unsigned loads take the extra
+;; delay for sign/zero extension.
+(define_insn_reservation "us3_2cycle_load" 2
+  (and (eq_attr "cpu" "ultrasparc3")
+    (and (eq_attr "type" "load,fpload")
+      (eq_attr "us3load_type" "2cycle")))
+  "us3_ms + us3_slotany, us3_load_writeback")
+
+(define_insn_reservation "us3_load_delayed" 3
+  (and (eq_attr "cpu" "ultrasparc3")
+    (and (eq_attr "type" "load,sload")
+      (eq_attr "us3load_type" "3cycle")))
+  "us3_ms + us3_slotany, nothing, us3_load_writeback")
+
+(define_insn_reservation "us3_store" 1
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "store,fpstore"))
+  "us3_ms + us3_slotany")
+
+(define_insn_reservation "us3_branch" 1
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "branch"))
+  "us3_br + us3_slotany")
+
+(define_insn_reservation "us3_call_jmpl" 1
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "call,sibcall,call_no_delay_slot,uncond_branch"))
+  "us3_br + us3_ms + us3_slotany")
+
+(define_insn_reservation "us3_fmov" 3
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpmove"))
+  "us3_fpa + us3_slotany, nothing*2")
+
+(define_insn_reservation "us3_fcmov" 3
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpcmove"))
+  "us3_fpa + us3_br + us3_slotany, nothing*2")
+
+(define_insn_reservation "us3_fcrmov" 3
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpcrmove"))
+  "us3_fpa + us3_ms + us3_slotany, nothing*2")
+
+(define_insn_reservation "us3_faddsub" 4
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fp"))
+  "us3_fpa + us3_slotany, nothing*3")
+
+(define_insn_reservation "us3_fpcmp" 5
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpcmp"))
+  "us3_fpa + us3_slotany, nothing*4")
+
+(define_insn_reservation "us3_fmult" 4
+ (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpmul"))
+  "us3_fpm + us3_slotany, nothing*3")
+
+(define_insn_reservation "us3_fdivs" 17
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpdivs"))
+  "(us3_fpm + us3_slotany), us3_fpm*14, nothing*2")
+
+(define_insn_reservation "us3_fsqrts" 20
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpsqrts"))
+  "(us3_fpm + us3_slotany), us3_fpm*17, nothing*2")
+
+(define_insn_reservation "us3_fdivd" 20
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpdivd"))
+  "(us3_fpm + us3_slotany), us3_fpm*17, nothing*2")
+
+(define_insn_reservation "us3_fsqrtd" 29
+  (and (eq_attr "cpu" "ultrasparc3")
+    (eq_attr "type" "fpsqrtd"))
+  "(us3_fpm + us3_slotany), us3_fpm*26, nothing*2")
+
+;; Any store may multi issue with the insn creating the source
+;; data as long as that creating insn is not an FPU div/sqrt.
+;; We need a special guard function because this bypass does
+;; not apply to the address inputs of the store.
+(define_bypass 0 "us3_integer,us3_faddsub,us3_fmov,us3_fcmov,us3_fmult" "us3_store"
+   "ultrasparc_store_bypass_p")
+
+;; An integer branch may execute in the same cycle as the compare
+;; creating the condition codes.
+(define_bypass 0 "us3_integer" "us3_branch")
+
+;; If FMOVfcc is user of FPCMP, latency is only 1 cycle.
+(define_bypass 1 "us3_fpcmp" "us3_fcmov")
 
 
 ;; Compare instructions.
@@ -2155,7 +2293,8 @@
    mov\\t%1, %0
    ldub\\t%1, %0
    stb\\t%r1, %0"
-  [(set_attr "type" "*,load,store")])
+  [(set_attr "type" "*,load,store")
+   (set_attr "us3load_type" "*,3cycle,*")])
 
 (define_expand "movhi"
   [(set (match_operand:HI 0 "general_operand" "")
@@ -2229,7 +2368,8 @@
    sethi\\t%%hi(%a1), %0
    lduh\\t%1, %0
    sth\\t%r1, %0"
-  [(set_attr "type" "*,*,load,store")])
+  [(set_attr "type" "*,*,load,store")
+   (set_attr "us3load_type" "*,*,3cycle,*")])
 
 ;; We always work with constants here.
 (define_insn "*movhi_lo_sum"
@@ -4354,7 +4494,7 @@
   "@
    fmovrs%D1\\t%2, %3, %0
    fmovrs%d1\\t%2, %4, %0"
-  [(set_attr "type" "fpcmove")])
+  [(set_attr "type" "fpcrmove")])
 
 (define_insn "movdf_cc_reg_sp64"
   [(set (match_operand:DF 0 "register_operand" "=e,e")
@@ -4367,7 +4507,7 @@
   "@
    fmovrd%D1\\t%2, %3, %0
    fmovrd%d1\\t%2, %4, %0"
-  [(set_attr "type" "fpcmove")
+  [(set_attr "type" "fpcrmove")
    (set_attr "fptype" "double")])
 
 (define_insn "*movtf_cc_reg_hq_sp64"
@@ -4381,7 +4521,7 @@
   "@
    fmovrq%D1\\t%2, %3, %0
    fmovrq%d1\\t%2, %4, %0"
-  [(set_attr "type" "fpcmove")])
+  [(set_attr "type" "fpcrmove")])
 
 (define_insn "*movtf_cc_reg_sp64"
   [(set (match_operand:TF 0 "register_operand" "=e,e")
@@ -4471,7 +4611,8 @@
 	(zero_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
   ""
   "lduh\\t%1, %0"
-  [(set_attr "type" "load")])
+  [(set_attr "type" "load")
+   (set_attr "us3load_type" "3cycle")])
 
 (define_expand "zero_extendqihi2"
   [(set (match_operand:HI 0 "register_operand" "")
@@ -4486,7 +4627,8 @@
   "@
    and\\t%1, 0xff, %0
    ldub\\t%1, %0"
-  [(set_attr "type" "*,load")])
+  [(set_attr "type" "*,load")
+   (set_attr "us3load_type" "*,3cycle")])
 
 (define_expand "zero_extendqisi2"
   [(set (match_operand:SI 0 "register_operand" "")
@@ -4501,7 +4643,8 @@
   "@
    and\\t%1, 0xff, %0
    ldub\\t%1, %0"
-  [(set_attr "type" "*,load")])
+  [(set_attr "type" "*,load")
+   (set_attr "us3load_type" "*,3cycle")])
 
 (define_expand "zero_extendqidi2"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -4516,7 +4659,8 @@
   "@
    and\\t%1, 0xff, %0
    ldub\\t%1, %0"
-  [(set_attr "type" "*,load")])
+  [(set_attr "type" "*,load")
+   (set_attr "us3load_type" "*,3cycle")])
 
 (define_expand "zero_extendhidi2"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -4547,7 +4691,8 @@
 	(zero_extend:DI (match_operand:HI 1 "memory_operand" "m")))]
   "TARGET_ARCH64"
   "lduh\\t%1, %0"
-  [(set_attr "type" "load")])
+  [(set_attr "type" "load")
+   (set_attr "us3load_type" "3cycle")])
 
 
 ;; ??? Write truncdisi pattern using sra?
@@ -4753,7 +4898,8 @@
 	(sign_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
   ""
   "ldsh\\t%1, %0"
-  [(set_attr "type" "sload")])
+  [(set_attr "type" "sload")
+   (set_attr "us3load_type" "3cycle")])
 
 (define_expand "extendqihi2"
   [(set (match_operand:HI 0 "register_operand" "")
@@ -4793,7 +4939,8 @@
 	(sign_extend:HI (match_operand:QI 1 "memory_operand" "m")))]
   ""
   "ldsb\\t%1, %0"
-  [(set_attr "type" "sload")])
+  [(set_attr "type" "sload")
+   (set_attr "us3load_type" "3cycle")])
 
 (define_expand "extendqisi2"
   [(set (match_operand:SI 0 "register_operand" "")
@@ -4824,7 +4971,8 @@
 	(sign_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
   ""
   "ldsb\\t%1, %0"
-  [(set_attr "type" "sload")])
+  [(set_attr "type" "sload")
+   (set_attr "us3load_type" "3cycle")])
 
 (define_expand "extendqidi2"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -4855,7 +5003,8 @@
 	(sign_extend:DI (match_operand:QI 1 "memory_operand" "m")))]
   "TARGET_ARCH64"
   "ldsb\\t%1, %0"
-  [(set_attr "type" "sload")])
+  [(set_attr "type" "sload")
+   (set_attr "us3load_type" "3cycle")])
 
 (define_expand "extendhidi2"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -4886,7 +5035,8 @@
 	(sign_extend:DI (match_operand:HI 1 "memory_operand" "m")))]
   "TARGET_ARCH64"
   "ldsh\\t%1, %0"
-  [(set_attr "type" "sload")])
+  [(set_attr "type" "sload")
+   (set_attr "us3load_type" "3cycle")])
 
 (define_expand "extendsidi2"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -4901,7 +5051,8 @@
   "@
   sra\\t%1, 0, %0
   ldsw\\t%1, %0"
-  [(set_attr "type" "shift,sload")])
+  [(set_attr "type" "shift,sload")
+   (set_attr "us3load_type" "*,3cycle")])
 
 ;; Special pattern for optimizing bit-field compares.  This is needed
 ;; because combine uses this as a canonical form.

@@ -1,3 +1,28 @@
+2002-03-30  David S. Miller  <davem@redhat.com>
+
+	Add UltraSPARC-III DFA scheduling support.
+	* config/sparc/sparc.md (define_attr type): Add fpcrmove.
+	Update FP conditional move on register insn patterns to use it, as
+	appropriate.
+	(define_attr cpu): Add ultrasparc3.
+	(define_attr us3load_type): New, update integer load patterns to
+	set it, as appropriate.
+	(define_automaton): Add ultrasparc3_0 and ultrasparc3_1.
+	(rest): Add UltraSPARC3 scheduling description.
+	* config/sparc/sparc.h (TARGET_CPU_ultrasparc3): New.
+	(PROCESSOR_ULTRASPARC3): New.
+	({ASM,CPP}_CPU64_DEFAULT_SPEC): Handle ultrasparc3.
+	({ASM,CPP}_CPU_SPEC): Likewise.
+	(REGISTER_MOVE_COST): Likewise.
+	(RTX_COSTS): Likewise.
+	* config/sparc/sparc.c (sparc_override_options,
+	sparc_initialize_trampoline, sparc64_initialize_trampoline,
+	sparc_use_dfa_pipeline_interface, sparc_use_sched_lookahead,
+	sparc_issue_rate): Likewise.
+	* config/sparc/sol2.h: Likewise.
+	* config/sparc/sol2-sld-64.h: Likewise.
+	* config/sparc/linux64.h: Likewise.
+	
 2002-03-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/md.texi: Add comments about usage the latency time for the

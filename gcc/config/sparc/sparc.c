@@ -266,6 +266,7 @@ sparc_override_options ()
     { TARGET_CPU_supersparc, "supersparc" },
     { TARGET_CPU_v9, "v9" },
     { TARGET_CPU_ultrasparc, "ultrasparc" },
+    { TARGET_CPU_ultrasparc3, "ultrasparc3" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -298,6 +299,9 @@ sparc_override_options ()
     /* Although insns using %y are deprecated, it is a clear win on current
        ultrasparcs.  */
     						    |MASK_DEPRECATED_V8_INSNS},
+    /* TI ultrasparc III */
+    /* ??? Check if %y issue still holds true in ultra3.  */
+    { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -410,7 +414,9 @@ sparc_override_options ()
     target_flags &= ~MASK_STACK_BIAS;
     
   /* Supply a default value for align_functions.  */
-  if (align_functions == 0 && sparc_cpu == PROCESSOR_ULTRASPARC)
+  if (align_functions == 0
+      && (sparc_cpu == PROCESSOR_ULTRASPARC
+	  || sparc_cpu == PROCESSOR_ULTRASPARC3))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -6297,7 +6303,8 @@ sparc_initialize_trampoline (tramp, fnaddr, cxt)
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   /* On UltraSPARC a flush flushes an entire cache line.  The trampoline is
      aligned on a 16 byte boundary so one flush clears it all.  */
-  if (sparc_cpu != PROCESSOR_ULTRASPARC)
+  if (sparc_cpu != PROCESSOR_ULTRASPARC
+      && sparc_cpu != PROCESSOR_ULTRASPARC3)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 }
@@ -6335,7 +6342,8 @@ sparc64_initialize_trampoline (tramp, fnaddr, cxt)
   emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 24)), fnaddr);
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
-  if (sparc_cpu != PROCESSOR_ULTRASPARC)
+  if (sparc_cpu != PROCESSOR_ULTRASPARC
+      && sparc_cpu != PROCESSOR_ULTRASPARC3)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 }
 
@@ -7223,7 +7231,8 @@ sparc_use_dfa_pipeline_interface ()
   if ((1 << sparc_cpu) &
       ((1 << PROCESSOR_ULTRASPARC) | (1 << PROCESSOR_CYPRESS) |
        (1 << PROCESSOR_SUPERSPARC) | (1 << PROCESSOR_HYPERSPARC) |
-       (1 << PROCESSOR_SPARCLITE86X) | (1 << PROCESSOR_TSC701)))
+       (1 << PROCESSOR_SPARCLITE86X) | (1 << PROCESSOR_TSC701) |
+       (1 << PROCESSOR_ULTRASPARC3)))
     return 1;
   return 0;
 }
@@ -7231,7 +7240,8 @@ sparc_use_dfa_pipeline_interface ()
 static int
 sparc_use_sched_lookahead ()
 {
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)
+  if (sparc_cpu == PROCESSOR_ULTRASPARC
+      || sparc_cpu == PROCESSOR_ULTRASPARC3)
     return 4;
   if ((1 << sparc_cpu) &
       ((1 << PROCESSOR_SUPERSPARC) | (1 << PROCESSOR_HYPERSPARC) |
@@ -7320,23 +7330,24 @@ ultrasparc_store_bypass_p (out_insn, in_insn)
   return 0;
 }
 
-static int                                                           
+static int
 sparc_issue_rate ()
 {
   switch (sparc_cpu)
     {
-    default:                                 
-      return 1;                                                    
-    case PROCESSOR_V9:                                                
+    default:
+      return 1;
+    case PROCESSOR_V9:
       /* Assume V9 processors are capable of at least dual-issue.  */
       return 2;
-    case PROCESSOR_SUPERSPARC:                                        
-      return 3;                                                      
+    case PROCESSOR_SUPERSPARC:
+      return 3;
     case PROCESSOR_HYPERSPARC:
     case PROCESSOR_SPARCLITE86X:
       return 2;
-    case PROCESSOR_ULTRASPARC:                                            
-      return 4;                                                    
+    case PROCESSOR_ULTRASPARC:
+    case PROCESSOR_ULTRASPARC3:
+      return 4;
     }
 }
 
