@@ -1,3 +1,9 @@
+2003-07-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* opts.c (decode_options): Add temporary test for environment
+	variable TREE_SSA_DO_PRE.
+	Do not disable dominator optimizations when PRE is enabled.
+
 2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (finalize_1): Change to not use bsi_last.

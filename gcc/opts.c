@@ -492,6 +492,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_copyprop = 1;
       flag_tree_dom = 1;
+      /* FIXME: Temporary hack to facilitate testing PRE.  */
+      if (getenv ("TREE_SSA_DO_PRE"))
+	flag_tree_pre = 1;
     }
 
   if (optimize >= 2)
@@ -516,11 +519,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
-      /* FIXME: Apparently, dominator optimizations get in the way of
-	 SSA-PRE.  For now, if -ftree-pre is given, disable dominator
-	 optimizations at -O2 and higher.  */
-      if (flag_tree_pre)
-	flag_tree_dom = 0;
     }
 
   if (optimize >= 3)
