@@ -76,6 +76,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "hosthooks.h"
 #include "cgraph.h"
+#include "opts.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -1457,7 +1458,7 @@ documented_lang_options[] =
 
 #define DEFINE_LANG_NAME(NAME) { NULL, NAME },
 
-#include "options.h"
+#include "options_.h"
 
 };
 
@@ -2260,9 +2261,7 @@ compile_file (void)
       timevar_pop (TV_DUMP);
     }
 
-#ifdef ASM_FILE_END
-  ASM_FILE_END (asm_out_file);
-#endif
+  targetm.asm_out.file_end ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
@@ -3571,7 +3570,7 @@ rest_of_compilation (tree decl)
 
   timevar_pop (TV_JUMP);
 
-  scope_to_insns_initialize ();
+  insn_locators_initialize ();
   /* Complete generation of exception handling code.  */
   if (doing_eh (0))
     {
@@ -5134,7 +5133,7 @@ general_init (char *argv0)
 static void
 parse_options_and_default_flags (int argc, char **argv)
 {
-  int i;
+  int i, lang_mask;
 
   /* Save in case md file wants to emit args as a comment.  */
   save_argc = argc;
@@ -5150,7 +5149,7 @@ parse_options_and_default_flags (int argc, char **argv)
   init_ggc_heuristics();
 
   /* Perform language-specific options initialization.  */
-  (*lang_hooks.init_options) ();
+  lang_mask = (*lang_hooks.init_options) ();
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
@@ -5287,7 +5286,7 @@ parse_options_and_default_flags (int argc, char **argv)
       int indep_processed;
 
       /* Give the language a chance to decode the option for itself.  */
-      lang_processed = (*lang_hooks.decode_option) (argc - i, argv + i);
+      lang_processed = handle_option (argc - i, argv + i, lang_mask);
 
       if (lang_processed >= 0)
 	/* Now see if the option also has a language independent meaning.

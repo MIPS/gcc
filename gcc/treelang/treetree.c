@@ -73,7 +73,10 @@
 
 #include "treelang.h"
 #include "treetree.h"
+#include "opts.h"
 
+const unsigned int cl_options_count;
+const struct cl_option cl_options[1];
 extern int option_main;
 extern char **file_names;
 
@@ -854,6 +857,16 @@ objc_comptypes (tree lhs ATTRIBUTE_UNUSED,
   return 0;
 }
 
+/* Should not be called for treelang.  Needed by RS6000 backend.  */
+
+int c_lex (tree *value);
+
+int
+c_lex (tree *value ATTRIBUTE_UNUSED)
+{
+  abort ();
+}
+
 /* Should not be called for treelang.   */
 
 tree
@@ -1273,3 +1286,4 @@ get_string (const char *s, size_t l)
   t = get_identifier_with_length (s, l);
   return IDENTIFIER_POINTER(t);
 }
+

@@ -36,6 +36,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef HAVE_MMAP_FILE
 # include <sys/mman.h>
+# ifdef HAVE_MINCORE
+/* This is on Solaris.  */
+#  include <sys/types.h> 
+# endif
+#endif
+
+#ifndef MAP_FAILED
+# define MAP_FAILED ((void *)-1)
 #endif
 
 #ifdef ENABLE_VALGRIND_CHECKING
@@ -54,25 +62,23 @@ static ggc_statistics *ggc_stats;
 
 struct traversal_state;
 
-static int ggc_htab_delete PARAMS ((void **, void *));
-static hashval_t saving_htab_hash PARAMS ((const PTR));
-static int saving_htab_eq PARAMS ((const PTR, const PTR));
-static int call_count PARAMS ((void **, void *));
-static int call_alloc PARAMS ((void **, void *));
-static int compare_ptr_data PARAMS ((const void *, const void *));
-static void relocate_ptrs PARAMS ((void *, void *));
-static void write_pch_globals PARAMS ((const struct ggc_root_tab * const *tab,
-				       struct traversal_state *state));
-static double ggc_rlimit_bound PARAMS ((double));
+static int ggc_htab_delete (void **, void *);
+static hashval_t saving_htab_hash (const void *);
+static int saving_htab_eq (const void *, const void *);
+static int call_count (void **, void *);
+static int call_alloc (void **, void *);
+static int compare_ptr_data (const void *, const void *);
+static void relocate_ptrs (void *, void *);
+static void write_pch_globals (const struct ggc_root_tab * const *tab,
+			       struct traversal_state *state);
+static double ggc_rlimit_bound (double);
 
 /* Maintain global roots that are preserved during GC.  */
 
 /* Process a slot of an htab by deleting it if it has not been marked.  */
 
 static int
-ggc_htab_delete (slot, info)
-     void **slot;
-     void *info;
+ggc_htab_delete (void **slot, void *info)
 {
   const struct ggc_cache_tab *r = (const struct ggc_cache_tab *) info;
 
@@ -87,7 +93,7 @@ ggc_htab_delete (slot, info)
 /* Iterate through all registered roots and mark each element.  */
 
 void
-ggc_mark_roots ()
+ggc_mark_roots (void)
 {
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
@@ -113,15 +119,14 @@ ggc_mark_roots ()
       if (*cti->base)
 	{
 	  ggc_set_mark (*cti->base);
-	  htab_traverse_noresize (*cti->base, ggc_htab_delete, (PTR) cti);
+	  htab_traverse_noresize (*cti->base, ggc_htab_delete, (void *) cti);
 	  ggc_set_mark ((*cti->base)->entries);
 	}
 }
 
 /* Allocate a block of memory, then clear it.  */
 void *
-ggc_alloc_cleared (size)
-     size_t size;
+ggc_alloc_cleared (size_t size)
 {
   void *buf = ggc_alloc (size);
   memset (buf, 0, size);
@@ -130,9 +135,7 @@ ggc_alloc_cleared (size)
 
 /* Resize a block of memory, possibly re-allocating it.  */
 void *
-ggc_realloc (x, size)
-     void *x;
-     size_t size;
+ggc_realloc (void *x, size_t size)
 {
   void *r;
   size_t old_size;
@@ -150,7 +153,7 @@ ggc_realloc (x, size)
 	 don't know that previously allocated size.  Without that
 	 knowledge we have to lose some initialization-tracking for the
 	 old parts of the object.  An alternative is to mark the whole
-	 old_size as reachable, but that would lose tracking of writes 
+	 old_size as reachable, but that would lose tracking of writes
 	 after the end of the object (by small offsets).  Discard the
 	 handle to avoid handle leak.  */
       VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS ((char *) x + size,
@@ -177,17 +180,14 @@ ggc_realloc (x, size)
 
 /* Like ggc_alloc_cleared, but performs a multiplication.  */
 void *
-ggc_calloc (s1, s2)
-     size_t s1, s2;
+ggc_calloc (size_t s1, size_t s2)
 {
   return ggc_alloc_cleared (s1 * s2);
 }
 
 /* These are for splay_tree_new_ggc.  */
-PTR 
-ggc_splay_alloc (sz, nl)
-     int sz;
-     PTR nl;
+void *
+ggc_splay_alloc (int sz, void *nl)
 {
   if (nl != NULL)
     abort ();
@@ -195,9 +195,7 @@ ggc_splay_alloc (sz, nl)
 }
 
 void
-ggc_splay_dont_free (x, nl)
-     PTR x ATTRIBUTE_UNUSED;
-     PTR nl;
+ggc_splay_dont_free (void * x ATTRIBUTE_UNUSED, void *nl)
 {
   if (nl != NULL)
     abort ();
@@ -212,9 +210,8 @@ ggc_splay_dont_free (x, nl)
 #define LABEL(x) ((x) < 1024*10 ? ' ' : ((x) < 1024*1024*10 ? 'k' : 'M'))
 
 void
-ggc_print_common_statistics (stream, stats)
-     FILE *stream ATTRIBUTE_UNUSED;
-     ggc_statistics *stats;
+ggc_print_common_statistics (FILE *stream ATTRIBUTE_UNUSED,
+			     ggc_statistics *stats)
 {
   /* Set the pointer so that during collection we will actually gather
      the statistics.  */
@@ -233,7 +230,7 @@ ggc_print_common_statistics (stream, stats)
 
 static htab_t saving_htab;
 
-struct ptr_data 
+struct ptr_data
 {
   void *obj;
   void *note_ptr_cookie;
@@ -248,13 +245,11 @@ struct ptr_data
 /* Register an object in the hash table.  */
 
 int
-gt_pch_note_object (obj, note_ptr_cookie, note_ptr_fn)
-     void *obj;
-     void *note_ptr_cookie;
-     gt_note_pointers note_ptr_fn;
+gt_pch_note_object (void *obj, void *note_ptr_cookie,
+		    gt_note_pointers note_ptr_fn)
 {
   struct ptr_data **slot;
-  
+
   if (obj == NULL || obj == (void *) 1)
     return 0;
 
@@ -268,7 +263,7 @@ gt_pch_note_object (obj, note_ptr_cookie, note_ptr_fn)
 	abort ();
       return 0;
     }
-  
+
   *slot = xcalloc (sizeof (struct ptr_data), 1);
   (*slot)->obj = obj;
   (*slot)->note_ptr_fn = note_ptr_fn;
@@ -283,13 +278,11 @@ gt_pch_note_object (obj, note_ptr_cookie, note_ptr_fn)
 /* Register an object in the hash table.  */
 
 void
-gt_pch_note_reorder (obj, note_ptr_cookie, reorder_fn)
-     void *obj;
-     void *note_ptr_cookie;
-     gt_handle_reorder reorder_fn;
+gt_pch_note_reorder (void *obj, void *note_ptr_cookie,
+		     gt_handle_reorder reorder_fn)
 {
   struct ptr_data *data;
-  
+
   if (obj == NULL || obj == (void *) 1)
     return;
 
@@ -297,30 +290,27 @@ gt_pch_note_reorder (obj, note_ptr_cookie, reorder_fn)
   if (data == NULL
       || data->note_ptr_cookie != note_ptr_cookie)
     abort ();
-  
+
   data->reorder_fn = reorder_fn;
 }
 
 /* Hash and equality functions for saving_htab, callbacks for htab_create.  */
 
 static hashval_t
-saving_htab_hash (p)
-     const PTR p;
+saving_htab_hash (const void *p)
 {
   return POINTER_HASH (((struct ptr_data *)p)->obj);
 }
 
 static int
-saving_htab_eq (p1, p2)
-     const PTR p1;
-     const PTR p2;
+saving_htab_eq (const void *p1, const void *p2)
 {
   return ((struct ptr_data *)p1)->obj == p2;
 }
 
 /* Handy state for the traversal functions.  */
 
-struct traversal_state 
+struct traversal_state
 {
   FILE *f;
   struct ggc_pch_data *d;
@@ -332,26 +322,22 @@ struct traversal_state
 /* Callbacks for htab_traverse.  */
 
 static int
-call_count (slot, state_p)
-     void **slot;
-     void *state_p;
+call_count (void **slot, void *state_p)
 {
   struct ptr_data *d = (struct ptr_data *)*slot;
   struct traversal_state *state = (struct traversal_state *)state_p;
-  
+
   ggc_pch_count_object (state->d, d->obj, d->size);
   state->count++;
   return 1;
 }
 
 static int
-call_alloc (slot, state_p)
-     void **slot;
-     void *state_p;
+call_alloc (void **slot, void *state_p)
 {
   struct ptr_data *d = (struct ptr_data *)*slot;
   struct traversal_state *state = (struct traversal_state *)state_p;
-  
+
   d->new_addr = ggc_pch_alloc_object (state->d, d->obj, d->size);
   state->ptrs[state->ptrs_i++] = d;
   return 1;
@@ -360,9 +346,7 @@ call_alloc (slot, state_p)
 /* Callback for qsort.  */
 
 static int
-compare_ptr_data (p1_p, p2_p)
-     const void *p1_p;
-     const void *p2_p;
+compare_ptr_data (const void *p1_p, const void *p2_p)
 {
   struct ptr_data *p1 = *(struct ptr_data *const *)p1_p;
   struct ptr_data *p2 = *(struct ptr_data *const *)p2_p;
@@ -373,18 +357,16 @@ compare_ptr_data (p1_p, p2_p)
 /* Callbacks for note_ptr_fn.  */
 
 static void
-relocate_ptrs (ptr_p, state_p)
-     void *ptr_p;
-     void *state_p;
+relocate_ptrs (void *ptr_p, void *state_p)
 {
   void **ptr = (void **)ptr_p;
-  struct traversal_state *state ATTRIBUTE_UNUSED 
+  struct traversal_state *state ATTRIBUTE_UNUSED
     = (struct traversal_state *)state_p;
   struct ptr_data *result;
 
   if (*ptr == NULL || *ptr == (void *)1)
     return;
-  
+
   result = htab_find_with_hash (saving_htab, *ptr, POINTER_HASH (*ptr));
   if (result == NULL)
     abort ();
@@ -393,9 +375,8 @@ relocate_ptrs (ptr_p, state_p)
 
 /* Write out, after relocation, the pointers in TAB.  */
 static void
-write_pch_globals (tab, state)
-     const struct ggc_root_tab * const *tab;
-     struct traversal_state *state;
+write_pch_globals (const struct ggc_root_tab * const *tab,
+		   struct traversal_state *state)
 {
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
@@ -409,15 +390,15 @@ write_pch_globals (tab, state)
 	  struct ptr_data *new_ptr;
 	  if (ptr == NULL || ptr == (void *)1)
 	    {
-	      if (fwrite (&ptr, sizeof (void *), 1, state->f) 
+	      if (fwrite (&ptr, sizeof (void *), 1, state->f)
 		  != 1)
 		fatal_error ("can't write PCH file: %m");
 	    }
 	  else
 	    {
-	      new_ptr = htab_find_with_hash (saving_htab, ptr, 
+	      new_ptr = htab_find_with_hash (saving_htab, ptr,
 					     POINTER_HASH (ptr));
-	      if (fwrite (&new_ptr->new_addr, sizeof (void *), 1, state->f) 
+	      if (fwrite (&new_ptr->new_addr, sizeof (void *), 1, state->f)
 		  != 1)
 		fatal_error ("can't write PCH file: %m");
 	    }
@@ -426,7 +407,7 @@ write_pch_globals (tab, state)
 
 /* Hold the information we need to mmap the file back in.  */
 
-struct mmap_info 
+struct mmap_info
 {
   size_t offset;
   size_t size;
@@ -436,8 +417,7 @@ struct mmap_info
 /* Write out the state of the compiler to F.  */
 
 void
-gt_pch_save (f)
-     FILE *f;
+gt_pch_save (FILE *f)
 {
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
@@ -474,10 +454,10 @@ gt_pch_save (f)
      but don't try very hard.  On most platforms, this will always work,
      and on the rest it's a lot of work to do better.  */
 #if HAVE_MMAP_FILE
-  mmi.preferred_base = mmap (NULL, mmi.size, 
+  mmi.preferred_base = mmap (NULL, mmi.size,
 			     PROT_READ | PROT_WRITE, MAP_PRIVATE,
 			     fileno (state.f), 0);
-  if (mmi.preferred_base == (void *)-1)
+  if (mmi.preferred_base == MAP_FAILED)
     mmi.preferred_base = NULL;
   else
     munmap (mmi.preferred_base, mmi.size);
@@ -503,7 +483,7 @@ gt_pch_save (f)
   write_pch_globals (gt_pch_cache_rtab, &state);
 
   ggc_pch_prepare_write (state.d, state.f);
-  
+
   /* Pad the PCH file so that the mmaped area starts on a page boundary.  */
   {
     long o;
@@ -531,10 +511,10 @@ gt_pch_save (f)
 	}
       memcpy (this_object, state.ptrs[i]->obj, state.ptrs[i]->size);
       if (state.ptrs[i]->reorder_fn != NULL)
-	state.ptrs[i]->reorder_fn (state.ptrs[i]->obj, 
+	state.ptrs[i]->reorder_fn (state.ptrs[i]->obj,
 				   state.ptrs[i]->note_ptr_cookie,
 				   relocate_ptrs, &state);
-      state.ptrs[i]->note_ptr_fn (state.ptrs[i]->obj, 
+      state.ptrs[i]->note_ptr_fn (state.ptrs[i]->obj,
 				  state.ptrs[i]->note_ptr_cookie,
 				  relocate_ptrs, &state);
       ggc_pch_write_object (state.d, state.f, state.ptrs[i]->obj,
@@ -552,8 +532,7 @@ gt_pch_save (f)
 /* Read the state of the compiler back in from F.  */
 
 void
-gt_pch_restore (f)
-     FILE *f;
+gt_pch_restore (FILE *f)
 {
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
@@ -591,15 +570,46 @@ gt_pch_restore (f)
 
   if (fread (&mmi, sizeof (mmi), 1, f) != 1)
     fatal_error ("can't read PCH file: %m");
-  
+
 #if HAVE_MMAP_FILE
-  addr = mmap (mmi.preferred_base, mmi.size, 
+  addr = mmap (mmi.preferred_base, mmi.size,
 	       PROT_READ | PROT_WRITE, MAP_PRIVATE,
 	       fileno (f), mmi.offset);
-#else
-  addr = (void *)-1;
-#endif
-  if (addr == (void *)-1)
+
+#if HAVE_MINCORE
+  if (addr != mmi.preferred_base)
+    {
+      size_t page_size = getpagesize();
+      char one_byte;
+
+      if (addr != MAP_FAILED)
+	munmap (addr, mmi.size);
+
+      /* We really want to be mapped at mmi.preferred_base
+	 so we're going to resort to MAP_FIXED.  But before,
+	 make sure that we can do so without destroying a
+	 previously mapped area, by looping over all pages
+	 that would be affected by the fixed mapping.  */
+      errno = 0;
+
+      for (i = 0; i < mmi.size; i+= page_size)
+	if (mincore ((char *)mmi.preferred_base + i, page_size, (void *)&one_byte) == -1
+	    && errno == ENOMEM)
+	  continue; /* The page is not mapped.  */
+	else
+	  break;
+
+      if (i >= mmi.size)
+	addr = mmap (mmi.preferred_base, mmi.size, 
+		     PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
+		     fileno (f), mmi.offset);
+    }
+#endif /* HAVE_MINCORE */
+
+#else /* HAVE_MMAP_FILE */
+  addr = MAP_FAILED;
+#endif /* HAVE_MMAP_FILE */
+  if (addr == MAP_FAILED)
     {
       addr = xmalloc (mmi.size);
       if (fseek (f, mmi.offset, SEEK_SET) != 0
@@ -621,7 +631,7 @@ gt_pch_restore (f)
 	      if (*ptr != NULL)
 		*ptr += (size_t)addr - (size_t)mmi.preferred_base;
 	    }
-      
+
       for (rt = gt_pch_cache_rtab; *rt; rt++)
 	for (rti = *rt; rti->base != NULL; rti++)
 	  for (i = 0; i < rti->nelt; i++)
@@ -639,8 +649,7 @@ gt_pch_restore (f)
 
 /* Modify the bound based on rlimits.  Keep the smallest number found.  */
 static double
-ggc_rlimit_bound (limit)
-     double limit;
+ggc_rlimit_bound (double limit)
 {
 #if defined(HAVE_GETRLIMIT)
   struct rlimit rlim;
@@ -669,13 +678,13 @@ ggc_rlimit_bound (limit)
 
 /* Heuristic to set a default for GGC_MIN_EXPAND.  */
 int
-ggc_min_expand_heuristic()
+ggc_min_expand_heuristic (void)
 {
   double min_expand = physmem_total();
 
   /* Adjust for rlimits.  */
   min_expand = ggc_rlimit_bound (min_expand);
-  
+
   /* The heuristic is a percentage equal to 30% + 70%*(RAM/1GB), yielding
      a lower bound of 30% and an upper bound of 100% (when RAM >= 1GB).  */
   min_expand /= 1024*1024*1024;
@@ -688,7 +697,7 @@ ggc_min_expand_heuristic()
 
 /* Heuristic to set a default for GGC_MIN_HEAPSIZE.  */
 int
-ggc_min_heapsize_heuristic()
+ggc_min_heapsize_heuristic (void)
 {
   double min_heap_kbytes = physmem_total();
 
@@ -696,7 +705,7 @@ ggc_min_heapsize_heuristic()
   min_heap_kbytes = ggc_rlimit_bound (min_heap_kbytes);
 
   min_heap_kbytes /= 1024; /* convert to Kbytes.  */
-  
+
   /* The heuristic is RAM/8, with a lower bound of 4M and an upper
      bound of 128M (when RAM >= 1GB).  */
   min_heap_kbytes /= 8;
@@ -707,7 +716,7 @@ ggc_min_heapsize_heuristic()
 }
 
 void
-init_ggc_heuristics ()
+init_ggc_heuristics (void)
 {
 #ifndef ENABLE_GC_ALWAYS_COLLECT
   set_param_value ("ggc-min-expand", ggc_min_expand_heuristic());

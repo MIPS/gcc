@@ -1,3 +1,62 @@
+2003-06-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in (JAVA_OBJS, java/lang.o): Update.
+	(java/j-options.c, java/j-options.h): New.
+	* java-tree.h (resource_name, compile_resource_file,
+	compile_resource_data): Constify.
+	* jcf-write.c (jcf_write_base_directory): Similarly.
+	* jcf.h (jcf_write_base_directory): Similarly.
+	* lang.c: Include j-options.h.
+	(cl_options_count, cl_options, string_option, java_decode_option,
+	lang_f_options, lang_W_options, LANG_HOOKS_DECODE_OPTION,
+	process_option_with_no): Remove.
+	(resource_name): Constify.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+	(java_handle_option): New.
+	(java_init): Don't call jcf_path_init.
+	(java_init_options): Call jcf_path_init.
+	* lang.opt: New.
+	* resource.c (compile_resource_data, compile_resource_file): Constify.
+
+2003-06-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* java-tree.h (DECL_FUNCTION_LAST_LINE): New.
+	(struct lang_decl_func): Add last_line field.
+	* parse.h (DECL_SOURCE_LINE_MERGE, DECL_SOURCE_LINE_FIRST,
+	DECL_SOURCE_LINE_LAST): Remove.
+	* parse.y (missing_return_error, finish_method_declaration,
+	lookup_cl, start_artificial_method_body, source_end_java_method,
+	start_complete_expand_method): Adjust.
+
+2003-06-08  Tom Tromey  <tromey@redhat.com>
+
+	* jvspec.c (jvgenmain_spec): Added `*' after fassume-compiled and
+	fno-assume-compiled.
+
+2003-06-08  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (define_builtin_type, builtin_types): Delete.
+	(define_builtin): Rewritten to take just the built-in code,
+	the function's name, type and fallback library function name.
+	All built-ins used by Java are implicit and BUILT_IN_NORMAL.
+	(initialize_builtins): Overhaul to define the GCC builtins
+	used by gcj manually, providing the Java run-time's
+	implementations as the fallback library function.
+
+2003-06-08  Anthony Green  <green@redhat.com>
+
+	* parse.y (patch_cast): Fix conversions from floating-point to
+	integral types.
+
+2003-06-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update.
+	* lang.c: Include opts.h. Define cl_options_count and cl_options.
+
+2003-06-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.c (java_init_options): Update.
+
 Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback

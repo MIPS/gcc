@@ -258,6 +258,7 @@ static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						     unsigned HOST_WIDE_INT));
 static const char * rs6000_xcoff_strip_name_encoding PARAMS ((const char *));
 static unsigned int rs6000_xcoff_section_type_flags PARAMS ((tree, const char *, int));
+static void rs6000_xcoff_file_end PARAMS ((void));
 #endif
 #if TARGET_MACHO
 static bool rs6000_binds_local_p PARAMS ((tree));
@@ -4179,7 +4180,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 tree
 rs6000_build_va_list ()
 {
-  tree f_gpr, f_fpr, f_ovf, f_sav, record, type_decl;
+  tree f_gpr, f_fpr, f_res, f_ovf, f_sav, record, type_decl;
 
   /* For AIX, prefer 'char *' because that's what the system
      header files like.  */
@@ -4193,6 +4194,10 @@ rs6000_build_va_list ()
 		      unsigned_char_type_node);
   f_fpr = build_decl (FIELD_DECL, get_identifier ("fpr"), 
 		      unsigned_char_type_node);
+  /* Give the two bytes of padding a name, so that -Wpadded won't warn on
+     every user file.  */
+  f_res = build_decl (FIELD_DECL, get_identifier ("reserved"),
+		      short_unsigned_type_node);
   f_ovf = build_decl (FIELD_DECL, get_identifier ("overflow_arg_area"),
 		      ptr_type_node);
   f_sav = build_decl (FIELD_DECL, get_identifier ("reg_save_area"),
@@ -4200,6 +4205,7 @@ rs6000_build_va_list ()
 
   DECL_FIELD_CONTEXT (f_gpr) = record;
   DECL_FIELD_CONTEXT (f_fpr) = record;
+  DECL_FIELD_CONTEXT (f_res) = record;
   DECL_FIELD_CONTEXT (f_ovf) = record;
   DECL_FIELD_CONTEXT (f_sav) = record;
 
@@ -4207,7 +4213,8 @@ rs6000_build_va_list ()
   TYPE_NAME (record) = type_decl;
   TYPE_FIELDS (record) = f_gpr;
   TREE_CHAIN (f_gpr) = f_fpr;
-  TREE_CHAIN (f_fpr) = f_ovf;
+  TREE_CHAIN (f_fpr) = f_res;
+  TREE_CHAIN (f_res) = f_ovf;
   TREE_CHAIN (f_ovf) = f_sav;
 
   layout_type (record);
@@ -4224,7 +4231,7 @@ rs6000_va_start (valist, nextarg)
      rtx nextarg;
 {
   HOST_WIDE_INT words, n_gpr, n_fpr;
-  tree f_gpr, f_fpr, f_ovf, f_sav;
+  tree f_gpr, f_fpr, f_res, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, t;
 
   /* Only SVR4 needs something special.  */
@@ -4236,7 +4243,8 @@ rs6000_va_start (valist, nextarg)
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
-  f_ovf = TREE_CHAIN (f_fpr);
+  f_res = TREE_CHAIN (f_fpr);
+  f_ovf = TREE_CHAIN (f_res);
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)), valist);
@@ -4287,7 +4295,7 @@ rtx
 rs6000_va_arg (valist, type)
      tree valist, type;
 {
-  tree f_gpr, f_fpr, f_ovf, f_sav;
+  tree f_gpr, f_fpr, f_res, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, reg, t, u;
   int indirect_p, size, rsize, n_reg, sav_ofs, sav_scale;
   rtx lab_false, lab_over, addr_rtx, r;
@@ -4318,7 +4326,8 @@ rs6000_va_arg (valist, type)
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
-  f_ovf = TREE_CHAIN (f_fpr);
+  f_res = TREE_CHAIN (f_fpr);
+  f_ovf = TREE_CHAIN (f_res);
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)), valist);
@@ -13054,7 +13063,8 @@ rs6000_variable_issue (stream, verbose, insn, more)
 	       || type == TYPE_LOAD_EXT || type == TYPE_DELAYED_CR
 	       || type == TYPE_COMPARE || type == TYPE_DELAYED_COMPARE
 	       || type == TYPE_IMUL_COMPARE || type == TYPE_LMUL_COMPARE
-	       || type == TYPE_IDIV || type == TYPE_LDIV)
+	       || type == TYPE_IDIV || type == TYPE_LDIV
+	       || type == TYPE_INSERT_WORD)
 	return more > 2 ? more - 2 : 0;
     }
 
@@ -14139,6 +14149,20 @@ rs6000_xcoff_section_type_flags (decl, name, reloc)
 		 ? UNITS_PER_FP_WORD : MIN_UNITS_PER_WORD);
 
   return flags | (exact_log2 (align) & SECTION_ENTSIZE);
+}
+
+/* Output at end of assembler file.
+   On the RS/6000, referencing data should automatically pull in text.  */
+
+static void
+rs6000_xcoff_file_end ()
+{
+  text_section ();
+  fputs ("_section_.text:\n", asm_out_file);
+  data_section ();
+  fputs (TARGET_32BIT
+	 ? "\t.long _section_.text\n" : "\t.llong _section_.text\n",
+	 asm_out_file);
 }
 #endif /* TARGET_XCOFF */
 

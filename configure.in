@@ -165,7 +165,7 @@ configdirs=`echo ${host_libs} ${host_tools}`
 target_configdirs=`echo ${target_libs} ${target_tools}`
 
 # Modules which run on the build machine.
-build_modules=libiberty
+build_modules="libiberty gcc"
 
 ################################################################################
 

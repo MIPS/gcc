@@ -24,7 +24,15 @@ AutoGen definitions Makefile.tpl;
 // "missing" indicates that that module doesn't supply
 // that recursive target in its Makefile.
 
+// "configure_options" indicates special, idiosyncratic options to be
+// passed to 'configure' for this module.  Similarly, "make_options"
+// indicates options to be passed on the 'make' command line.
+
 build_modules= { module= libiberty; };
+build_modules= { module= gcc; 
+                 configure_options="";
+	         make_options="LANGUAGES=\"$(BOOT_LANGUAGES)\" CFLAGS=\"$(STAGE1_CFLAGS)\" COVERAGE_FLAGS= ";
+               };
 
 host_modules= { module= ash; };
 host_modules= { module= autoconf; };

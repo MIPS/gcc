@@ -307,11 +307,13 @@ c_cpp_builtins (pfile)
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
-      if (flag_exceptions)
-	cpp_define (pfile, "__EXCEPTIONS");
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
     }
+  /* Note that we define this for C as well, so that we know if
+     __attribute__((cleanup)) will interface with EH.  */
+  if (flag_exceptions)
+    cpp_define (pfile, "__EXCEPTIONS");
 
   /* represents the C++ ABI version, always defined so it can be used while
      preprocessing C and assembler.  */

@@ -1589,11 +1589,6 @@ do {									    \
 
    If the value of this macro is always zero, it need not be defined.
 
-   `DONT_REDUCE_ADDR'
-   Define this macro to inhibit strength reduction of memory
-   addresses.  (On some machines, such strength reduction seems to do
-   harm rather than good.)
-
    `MOVE_RATIO'
    The number of scalar move insns which should be generated instead
    of a string move insn or a library call.  Increasing the value
@@ -1700,17 +1695,6 @@ progmem_section ()							      \
    `#NO_APP', which is a comment that has no effect on most
    assemblers but tells the GNU assembler that it can save time by not
    checking for certain assembler constructs.
-
-   On systems that use SDB, it is necessary to output certain
-   commands; see `attasm.h'.  */
-
-#define ASM_FILE_END(STREAM) asm_file_end (STREAM)
-/* A C expression which outputs to the stdio stream STREAM some
-   appropriate text to go at the end of an assembler file.
-
-   If this macro is not defined, the default is to output nothing
-   special at the end of the file.  Most systems don't require any
-   definition.
 
    On systems that use SDB, it is necessary to output certain
    commands; see `attasm.h'.  */

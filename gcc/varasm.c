@@ -43,7 +43,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "hashtab.h"
 #include "c-pragma.h"
-#include "c-tree.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
@@ -5362,6 +5361,20 @@ default_internal_label (stream, prefix, labelno)
   char *const buf = alloca (40 + strlen (prefix));
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
   ASM_OUTPUT_LABEL (stream, buf);
+}
+
+/* This is a generic routine suitable for use as TARGET_ASM_FILE_END
+   which emits a special section directive used to indicate whether or
+   not this object file needs an executable stack.  This is primarily
+   a GNU extension to ELF but could be used on other targets.  */
+void
+file_end_indicate_exec_stack ()
+{
+  unsigned int flags = SECTION_DEBUG;
+  if (trampolines_created)
+    flags |= SECTION_CODE;
+
+  named_section_flags (".note.GNU-stack", flags);
 }
 
 #include "gt-varasm.h"

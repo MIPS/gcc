@@ -3139,7 +3139,7 @@ find_expr_with_wfl (tree node)
 static void
 missing_return_error (tree method)
 {
-  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_SOURCE_LINE_LAST (method), -2);
+  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_FUNCTION_LAST_LINE (method), -2);
   parse_error_context (wfl_operator, "Missing return statement");
 }
 
@@ -4758,7 +4758,7 @@ finish_method_declaration (tree method_body)
   /* Merge last line of the function with first line, directly in the
      function decl. It will be used to emit correct debug info. */
   if (!flag_emit_xref)
-    DECL_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
+    DECL_FUNCTION_LAST_LINE (current_function_decl) = ctxp->last_ccb_indent1;
 
   /* Since function's argument's list are shared, reset the
      ARG_FINAL_P parameter that might have been set on some of this
@@ -6604,7 +6604,7 @@ lookup_cl (tree decl)
     }
 
   EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (DECL_SOURCE_FILE (decl));
-  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE_FIRST (decl), -1);
+  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE (decl), -1);
 
   line = java_get_line_col (EXPR_WFL_FILENAME (cl_v),
 			    EXPR_WFL_LINENO (cl_v), EXPR_WFL_COLNO (cl_v));
@@ -7313,7 +7313,7 @@ static void
 start_artificial_method_body (tree mdecl)
 {
   DECL_SOURCE_LINE (mdecl) = 1;
-  DECL_SOURCE_LINE_MERGE (mdecl, 1);
+  DECL_FUNCTION_LAST_LINE (mdecl) = 1;
   source_start_java_method (mdecl);
   enter_block ();
 }
@@ -7385,10 +7385,8 @@ source_end_java_method (void)
   /* Generate rtl for function exit.  */
   if (! flag_emit_class_files && ! flag_emit_xref)
     {
-      input_line = DECL_SOURCE_LINE_LAST (fndecl);
+      input_line = DECL_FUNCTION_LAST_LINE (fndecl);
       expand_function_end (input_filename, input_line, 0);
-
-      DECL_SOURCE_LINE (fndecl) = DECL_SOURCE_LINE_FIRST (fndecl);
 
       /* Run the optimizers and output assembler code for this function. */
       rest_of_compilation (fndecl);
@@ -7894,7 +7892,7 @@ start_complete_expand_method (tree mdecl)
       TREE_CHAIN (tem) = next;
     }
   pushdecl_force_head (DECL_ARGUMENTS (mdecl));
-  input_line = DECL_SOURCE_LINE_FIRST (mdecl);
+  input_line = DECL_SOURCE_LINE (mdecl);
   build_result_decl (mdecl);
 }
 
@@ -14224,14 +14222,15 @@ patch_cast (tree node, tree wfl_op)
       if (cast_type == op_type)
 	return node;
 
-      /* float and double type are converted to the original type main
-	 variant and then to the target type. */
-      if (JFLOAT_TYPE_P (op_type) && TREE_CODE (cast_type) == CHAR_TYPE)
-	op = convert (integer_type_node, op);
+      /* A narrowing conversion from a floating-point number to an
+	 integral type requires special handling (5.1.3).  */
+      if (JFLOAT_TYPE_P (op_type) && JINTEGRAL_TYPE_P (cast_type))
+	if (cast_type != long_type_node)
+	  op = convert (integer_type_node, op);
 
-      /* Try widening/narowwing convertion. Potentially, things need
+      /* Try widening/narrowing convertion.  Potentially, things need
 	 to be worked out in gcc so we implement the extreme cases
-	 correctly. fold_convert() needs to be fixed. */
+	 correctly.  fold_convert() needs to be fixed.  */
       return convert (cast_type, op);
     }
 

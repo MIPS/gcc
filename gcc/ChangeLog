@@ -1,3 +1,573 @@
+2003-06-10  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (fold_builtin): Optimize cos(-x) as cos(x).
+	* fold-const.c (fold <NEGATE_EXPR>): Convert -f(x) into f(-x)
+	when x is easily negated and f is sin, tan or atan.
+	(fold <MULT_EXPR>): Optimize tan(x)*cos(x) and cos(x)*tan(x) as
+	sin(x) with flag_unsafe_math_optimizations.
+	(fold <RDIV_EXPR>): With flag_unsafe_math_optimizations fold
+	sin(x)/cos(x) as tan(x) and cos(x)/sin(x) as 1.0/tan(x).
+
+2003-06-10  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold <EQ_EXPR>):  Don't fold x == x only if x
+	is a floating point type *and* we currently honor NaNs.
+	(fold <NE_EXPR>): Likewise.
+
+2003-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11131
+	* tree-inline.c (inlinable_function_p): Call the language-specific
+	hook early.
+
+2003-06-09  David Taylor  <dtaylor@emc.com>
+
+	* config/rs6000/rs6000.c (rs6000_va_start, rs6000_va_arg):  Skip over
+	the f_res field.
+
+2003-06-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Remove references to host_truncate_target.
+	* configure: Regenerate.
+	* config.gcc: Remove references to truncate_target,
+	host_truncate_target.
+
+	* Makefile.in, configure.in, config/m68hc11/t-m68hc11-gas:
+	Replace "build_canonical" with build, "host_canonical" with host.
+	* configure.in: Use GCC_TOPLEV_SUBDIRS.
+	* aclocal.m4: Include ../config/acx.m4.
+	* configure: Regenerate.
+
+2003-06-09  David Taylor  <dtaylor@emc.com>
+
+	* config/rs6000/rs6000.c (rs6000_build_va_list): Give the two
+	bytes of padding in the __va_list_tag structure a name (reserved).
+
+2003-06-09  Jason Merrill  <jason@redhat.com>
+
+	* fold-const.c (operand_equal_p): Handle ADDR_EXPR and TRUTH_NOT_EXPR.
+
+2003-06-09  Osku Salerma  <osku@iki.fi>
+
+	* c-format.c (check_format_string, get_constant): New.
+	(handle_format_attribute, handle_format_arg_attribute,
+	decode_format_attr): Change to use above functions.
+
+2003-06-09  Richard Henderson  <rth@redhat.com>
+
+        * stmt.c (expand_asm_operands): Re-word warning.
+
+2003-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/8787
+	* config/i386/djgpp.h (ASM_FILE_START): emit `.intel_syntax'
+	if -masm=intel.
+
+2003-06-09  James E Wilson  <wilson@tuliptree.org>
+
+	* config/frv/cmovc.c, config/frv/cmovh.c, config/frv/cmovw.c,
+	config/frv/frvbegin.c, config/frv/frvend.c, config/frv/lib1funcs.asm:
+	Add libgcc exception.
+
+2003-06-09  David Edelsohn  <edelsohn@gnu.org>
+	    Ayal Zaks  <gcchaifa@us.ibm.com>
+
+	* config/rs6000/rs6000.md (define_attr "type"): Add insert_word.
+	(insvsi*): Add insert_word attribute.
+	* config/rs6000/rs6000.c (rs6000_variable_issue): Add TYPE_INSERT_WORD.
+	* config/rs6000/{40x.md,603.md,6xx.md,7450.md,7xx.md,mpc.md,
+	power4.md,rios1.md,rios2.md,rs64.md}: Add insert_word.
+
+2003-06-09  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* fold-const.c (fold): Fix a comment typo.
+
+2003-06-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree-inline.c (expand_call_inline): DECL_SOURCE_LINE_FIRST is
+	removed.
+
+2003-06-09  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (gen_block_redirect): Use locators.
+
+2003-06-09  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (THUMB_PRINT_OPERAND_ADDRESS): Use %wd in format and remove
+	cast to int.
+
+2003-06-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in: Assume gas 2.14 and above can handle MIPS relocation
+	operators.
+	* configure: Regenerated.
+
+2003-06-09  Richard Sandiford  <rsandifo@redhat.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.h (GLOBAL_POINTER_REGNUM): New macro.
+	(PIC_OFFSET_TABLE_REGNUM): Look at pic_offset_table_rtx after reload.
+	(STARTING_FRAME_OFFSET): Don't allocate a cprestore slot for
+	n32/64 PIC.
+	(MUST_SAVE_REGISTERS): Delete.
+	* config/mips/mips.c (mips_frame_info): Remove extra_size field.
+	(machine_function): Add global_pointer field.
+	(mips_classify_constant): Check for (const $gp) using pointer equality
+	with pic_offset_table_rtx.
+	(mips_classify_constant): Handle RELOC_LOADGP_HI and RELOC_LOADGP_LO.
+	(mips_restore_gp): Use current_function_outgoing_args_size.
+	(print_operand): Use PIC_OFFSET_TABLE_REGNUM instead of
+	GP_REG_FIRST + 28.  Handle relocation strings that have
+	more than one '('.
+	(mips_reloc_string): Handle RELOC_LOADGP_HI and RELOC_LOADGP_LO.
+	(mips_global_pointer): New function.
+	(mips_save_reg_p): New function, mostly split out from...
+	(compute_frame_size): ...here.  Remove handling of extra_size.
+	Reclaim args_size if no variables depend on it.  Don't treat gp
+	as a special case: handle it in the main GPR loop.
+	(mips_initial_elimination_offset): Fix comment.
+	(save_restore_insns): Save every register in the GPR mask,
+	removing distinction between mask and real_mask.
+	(mips_output_function_prologue): Update .frame psuedo-op after
+	the removal of extra_size.  Move the SVR4 PIC stack allocation
+	and cprestore instructions to mips_expand_prologue.
+	(mips_gp_insn): New function.
+	(mips_expand_prologue): Set REGNO (pic_offset_table_rtx) to
+	the chosen global pointer.  Handle SVR4 PIC stack allocation
+	in the same way as other ABIs.  Adjust varargs code accordingly.
+	Emit a cprestore insn after allocating the stack.  Use mips_gp_insn
+	to emit the loadgp sequence.  Follow it with a loadgp_blockage
+	if not using explicit relocs.
+	(mips_output_function_epilogue): Reinstate the default gp register.
+	(mips16_gp_pseudo_reg): Use pic_offset_table_rtx.
+	(mips16_optimize_gp): Likewise.
+	* config/mips/mips.md (UNSPEC_LOADGP): Remove.
+	(UNSPEC_SETJMP, UNSPEC_LONGJMP): Remove.
+	(UNSPEC_CPRESTORE, RELOC_LOADGP_HI, RELOC_LOADGP_LO): New.
+	(loadgp): Remove.
+	(loadgp_blockage, cprestore): New instructions.
+	(builtin_setjmp_setup): Implement using emit_move_insn.  Use
+	pic_offset_table_rtx.
+	(builtin_setjmp_setup_32, builtin_setjmp_setup_64): Remove.
+	(builtin_longjmp): Use gen_raw_REG to force use of $28.
+
+2003-06-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_output_division): Declare.
+	* config/mips/mips.h (MASK_CHECK_RANGE_DIV): Remove.
+	(MASK_BRANCHLIKELY): Use MASK_CHECK_RANGE_DIV's old number.
+	(TARGET_NO_CHECK_ZERO_DIV, TARGET_CHECK_RANGE_DIV): Remove.
+	(TARGET_CHECK_ZERO_DIV): New macro.
+	(TARGET_SWITCHES): Remove -mcheck-range-div & -mno-check-range-div.
+	* config/mips/mips.c (mips_output_division): New function.
+	* config/mips/mips.md (length): Take TARGET_CHECK_ZERO_DIV into
+	account when calculating the default length of a division.
+	(divmodsi4, divmoddi4, udivmodsi4, udivmoddi4): Turn into define_insns.
+	Enable regardless of optimization level.  Use mips_output_division.
+	(divmodsi4_internal, divmoddi4_internal, udivmodsi4_internal,
+	udivmoddi4_internal, div_trap, div_trap_normal, div_trap_mips16,
+	divsi3, divsi3_internal, divdi3, divdi3_internal, modsi3,
+	modsi3_internal, moddi3, moddi3_internal, udivsi3, udivsi3_internal,
+	udivdi3, udivdi3_internal, umodsi3, umodsi3_internal, umoddi3,
+	umoddi3_internal): Remove.
+
+2003-06-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_reg_names): Change hilo entry to "".
+	(mips_sw_reg_names): Likewise.
+	(mips_regno_to_class): Change hilo entry to NO_REGS.
+	(hilo_operand): Use MD_REG_P.
+	(extend_operator): New predicate.
+	(override_options): Remove 'a' constraint.
+	(mips_secondary_reload_class): Remove hilo handling.  Also remove
+	handling of (plus sp reg) reloads for mips16.
+	(mips_register_move_cost): Remove hilo handling.
+	* config/mips/mips.h (FIXED_REGISTERS): Make hilo entry fixed.
+	(MD_REG_LAST): Remove hilo from range.
+	(HILO_REGNUM): Delete.
+	(reg_class): Remove HILO_REG and HILO_AND_GR_REGS.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS): Update accordingly.
+	(PREDICATE_CODES): Add entry for extend_operator.
+	(DEBUG_REGISTER_NAMES): Change hilo entry to "".
+	* config/mips/mips.md: Remove hilo clobbers wherever they occur.
+	Remove constraints from multiplication define_expands.  Remove
+	clobbers from "decorative" define_expand patterns.
+	(UNSPEC_HILO_DELAY): Delete.
+	(*mul_acc_si, *mul_sub_si): Add early-clobber to operand 6.
+	(mulsidi3, umulsidi3): Change pattern to match the TARGET_64BIT case.
+	Adjust C code to just emit insns for !TARGET_64BIT.
+	(mulsidi3_internal): Rename to mulsidi3_32bit.
+	(mulsidi3_64bit): Use a "d" constraint for the destination.
+	Use extend_operator so that the pattern can handle umulsidi3 as well.
+	Split the instruction after reload.
+	(*mulsidi3_64bit_parts): New pattern, generated by mulsidi3_64bit.
+	(umulsidi3_internal): Rename to umulsidi3_32bit.
+	(umulsidi3_64bit): Remove.
+	(*smsac_di, *umsac_di): Line-wrap fixes.
+	(udivsi3_internal): Don't allow operand 2 to be constant.
+	(udivdi3_internal, umodsi3_internal, umoddi3_internal): Likewise.
+	(movdi_internal2, movsi_internal): Remove hilo alternatives.
+	(reload_in[sd]i, reload_out[sd]i, hilo_delay): Remove.
+
+2003-06-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/10913
+	* config/mips/mips.h (TARGET_FILE_SWITCHING, NO_DBX_FUNCTION_END,
+	PUT_SDB_SCL, PUT_SDB_INT_VAL, PUT_SDB_VAL, PUT_SDB_ENDEF,
+	PUT_SDB_TYPE, PUT_SDB_SIZE, PUT_SDB_DIM, PUT_SDB_START_DIM,
+	PUT_SDB_NEXT_DIM, PUT_SDB_LAST_DIM, PUT_SDB_TAG, PUT_SDB_SRC_FILE,
+	SDB_GENERATE_FAKE, TEXT_SECTION): Delete.
+	(PUT_SDB_DEF, PUT_SDB_PLAIN_DEF, PUT_SDB_BLOCK_START,
+	PUT_SDB_BLOCK_END, PUT_SDB_FUNCTION_END): Replace use of
+	asm_out_text_file with asm_out_file.
+	* config/mips/iris5gas.h (PUT_SDB_SIZE, PUT_SDB_TYPE): Likewise.
+	* config/mips/elf.h (TEXT_SECTION): Undefine.
+	* config/mips/elf64.h (TEXT_SECION): Undefine.
+	* config/mips/openbsd.h (TEXT_SECION): Undefine.
+	* config/mips/mips.c (asm_out_text_file, asm_out_data_file): Delete.
+	(override_options): Disable small-data optimizations unless using
+	gas or explicit relocations.
+	(mips_asm_file_start, mips_asm_file_end, mips_output_function_epilogue,
+	iris6_asm_named_section, iris6_asm_file_start): Remove code for
+	handling TARGET_FILE_SWITCHING.
+	(copy_file_data): Move into TARGET_IRIX6 block.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+	* expr.h (EXPAND_MEMORY): New.
+	* expr.c (expand_expr): Check it.
+	* stmt.c (expand_asm_operands): Provide it when the constraint
+	requires a memory.  Warn for memory input constraints without
+	a memory operand.
+
+2003-06-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* varasm.c: Don't include c-tree.h.
+
+2003-06-08  Andreas Jaeger  <aj@suse.de>
+
+	* predict.h: Convert to ISO C90 prototypes.
+	* predict.c: Likewise.
+	* tree-dump.h: Likewise.
+	* tree-dump.c: Likewise.
+	* diagnostic.h: Likewise.
+	* diagnostic.c: Likewise.
+	* combine.c: Likewise.
+
+	* rtl.h: Convert prototypes of combine.c to ISO C90.
+
+Sun Jun  8 21:27:41 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cfglayout.c (insn_scope): New static function
+	(block_locators_*, line_locators*, file_locators*): New static varrays.
+	(scope_to_insns_initialize): Use them.
+	(insn_line, insn_file): New functions.
+	(scope_to_insns_finalize): Use insn_scope.
+	(prologue_locator, epilogue_locator): New global variables.
+	* emit-rt.c (try_split, make_insn_raw, make_jump_insn_raw,
+	make_call_insn_raw, emit_copy_of_insn_after): Use locators.
+	(emit_insn_after_scope, emit_insn_before_scope
+	emit_jump_insn_after_scope, emit_jump_insn_before_scope
+	emit_call_insn_after_scope, emit_call_insn_before_scope): Rename to...
+	(emit_insn_after_setloc, emit_insn_before_setloc
+	emit_jump_insn_after_setloc, emit_jump_insn_before_setloc
+	emit_call_insn_after_setloc, emit_call_insn_before_setloc): ... these;
+	use locators.
+	* final.c (notice_source_line): Use locators.
+	(final_start_function): Set initial source file and line.
+	(final_scan_insn): Use locators.
+	* ifcvt.c (noce_try_store_flag, noce_try_store_flag_constants,
+	noce_try_addcc, noce_try_store_flag_mask, noce_try_cmove,
+	noce_try_cmove_arith, noce_try_minmax, noce_try_abs,
+	noce_process_if_block, find_cond_trap): Likewise.
+	* integrate.c (copy_insn_list): Likewise.
+	* jump.c (duplicate_loop_exit_test): LIkewise.
+	* print-rtl.c (print_rtx): Print locators.
+	* recog.c (peephole2_optimize): Likewise.
+	* rtl.h (INSN_SCOPE): Remove.
+	(emit_insn_after_scope, emit_insn_before_scope
+	emit_jump_insn_after_scope, emit_jump_insn_before_scope
+	emit_call_insn_after_scope, emit_call_insn_before_scope): Rename to...
+	(emit_insn_after_setloc, emit_insn_before_setloc
+	emit_jump_insn_after_setloc, emit_jump_insn_before_setloc
+	emit_call_insn_after_setloc, emit_call_insn_before_setloc): ... these;
+	(insn_file, insn_line, prologue_locator, epilogue_locator): Declare.
+	* unroll.c (copy_loop_body): Use locators.
+	* function.c (set_insn_locators): New function.
+	(thread_prologue_and_epilogue_insns): Set the locators accordingly.
+
+2003-06-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (LONG_LONG_TYPE_SIZE): Set to 64.
+	* config/h8300/t-h8300 (LIB1ASMFUNCS): Remove _floatdisf
+	_fixsfdi _fixunssfdi.
+	(LIB2FUNCS_EXTRA): Add entries for clzhi2, ctzhi2, parityhi2,
+	popcounthi2.
+	(TARGET_LIBGCC2_CFLAGS): Remove -DDI=SI.
+	* config/h8300/clzhi2.c: New.
+	* config/h8300/ctzhi2.c: Likewise.
+	* config/h8300/parityhi2.c: Likewise.
+	* config/h8300/popcounthi2.c: Likewise.
+
+Sun Jun  8 15:52:17 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (subsi_3_zext, sse2_nandv2di3): Fix predicates.
+	* i386.c (k8_avoid_jump_misspredicts): Fix debug output.
+
+	* cfg.c (verify_flow_info): Move IL independent checks from cfgrtl here.
+	(dump_bb): New based on old dump_bb in cfgrtl.c
+	(debug_bb, debug_bb_n): Move the functions from cfgrtl.c here.
+	* cfghooks.h (cfgh_verify_flow_info): Return status.
+	* cfglayout.c (cfg_layout_finalize): Verify CFG correctness.
+	* cfgrtl.c (debug_bb, debug_bb_n): Move to cfg.c
+	(dump_bb): Remove generic parts.
+	(rtl_verify_flow_info_1): Break out from rtl_verify_flow_info.
+	(rtl_verify_flow_info): Only check things dependeing on linearized RTL.
+
+2003-06-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Makefile.in: Rename options.c and options.h to c-options.c and
+	c-options.h.
+	(OBJS): Remove options.o.
+	* c-opts.c: Don'tInclude c-options.h instead of options.h.
+	* opts.c: Don't include options.h.
+	(find_opt): Can't use enum opt_code or N_OPTS.
+	* opts.h (struct cl_option, cl_options, cl_options_count): Move from...
+	* opts.sh: ... here.
+
+2003-06-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	    Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR pch/9830
+	* ggc-common.c (HAVE_MMAP_FILE): Include sys/types.h
+	if HAVE_MINCORE is defined.
+	(MAP_FAILED): Define if not defined.
+	(gt_pch_save): Test against MAP_FAILED.
+	(gt_pch_restore): If HAVE_MINCORE, use MAP_FIXED to force
+	the mapping address to the preferred base after checking it
+	is possible to do so. Test against MAP_FAILED.
+	* configure.in: Test for the presence of mincore in libc.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_setup_incoming_varargs): Fix
+	conditional compilation guard.
+
+2003-06-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* optabs.c (expand_abs): Set result_unsignedp to 1 if
+	flag_trav is zero.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __EXCEPTIONS for C also.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* basic-block.h (EDGE_SIBCALL): New.
+	(EDGE_ALL_FLAGS): Update.
+	* cfg.c (dump_edge_info): Add sibcall name.
+	* cfgbuild.c (make_edges): Use EDGE_SIBCALL.
+	* cfgrtl.c (purge_dead_edges): Handle sibcalls.
+
+2003-06-07  Andreas Jaeger  <aj@suse.de>
+
+	* mklibgcc.in (lib2funcs): Remove _exit.
+	* libgcc2.c: Remove L_exit.
+	* gbl-ctors.h: Remove declarations dependend on NEED_ATEXIT.
+
+	* system.h: Poison NEED_ATEXIT, ON_EXIT, EXIT_BODY.
+
+	* doc/tm.texi (Misc): Remove NEED_ATEXIT, ON_EXIT, EXIT_BODY.
+
+	* ggc.h: Convert to ISO C90 prototypes.
+	* ggc-none.c: Likewise.
+	* ggc-common.c: Likewise.
+	* ggc-page.c: Likewise.
+	* ggc-simple.c: Likewise.
+
+	* crtstuff.c: Remove undefined usage of INIT_SECTION_PREAMBLE.
+
+	* system.h: Poison INIT_SECTION_PREAMBLE.
+
+2003-06-07  Zack Weinberg  <zack@codesourcery.com>
+
+	* config.gcc (with_cpu handling): Translate sparc64 in
+	$machine to --with-cpu=v9.
+	* config/alpha/alpha.c
+	(TARGET_ASM_GLOBALIZE_LABEL [TARGET_ABI_UNICOSMK]): Correct definition.
+	(alpha_setup_incoming_varargs): #ifdef out when TARGET_ABI_UNICOSMK.
+
+	* target.h: New hook asm_out.file_end.
+	* target.h: Update to match.  New hook macro TARGET_ASM_FILE_END.
+	* toplev.c (compile_file: Use targetm.asm_out.file_end.
+	* system.h: Poison ASM_FILE_END.
+	* varasm.c (file_end_indicate_exec_stack): New.
+	* output.h: Prototype it.
+	* doc/tm.texi: Document TARGET_ASM_FILE_END and
+	file_end_indicate_exec_stack.  Delete references to attasm.h.
+
+	* config/darwin.h (TARGET_ASM_FILE_END): Reset to darwin_file_end.
+	(ASM_FILE_END): Delete; move code...
+	* config/darwin.c (darwin_file_end): Here; new function.
+	* config/darwin-protos.h: Prototype it.
+	* config/alpha/alpha.c (unicosmk_asm_file_end): Make static,
+	rename unicosmk_file_end.
+	* config/arm/aof.h (ASM_FILE_END): Delete; move code...
+	* config/arm/arm.c (aof_file_end): ... here; new static function.
+	Set TARGET_ASM_FILE_END to aof_file_end if AOF_ASSEMBLER.
+	Make aof_dump_imports and aof_dump_pic_table static.
+	* config/avr/avr.c (asm_file_end): Rename avr_file_end, make static.
+	Set TARGET_ASM_FILE_END to avr_file_end.
+	* config/c4x/c4x.c (c4x_file_end): Make static.  Take no arguments.
+	Set TARGET_ASM_FILE_END to c4x_file_end.
+	* config/h8300/h8300.c (asm_file_end): Rename h8300_file_end,
+	make static. Take no arguments.  Set TARGET_ASM_FILE_END to
+	h8300_file_end.
+	* config/i370/i370.h (ASM_FILE_END): Delete; move code...
+	* config/i370/i370.c (i370_file_end): ... here; new static function.
+	Set TARGET_ASM_FILE_END to i370_file_end.
+	 * config/i386/i386.c (ix86_asm_file_end): Rename ix86_file_end.
+	 Take no arguments.  Call file_end_indicate_exec_stack if
+	 NEED_INDICATE_EXEC_STACK; don't use SUBTARGET_FILE_END.
+	* config/i386/i386.h: Set TARGET_ASM_FILE_END, not ASM_FILE_END.
+	Define NEED_INDICATE_EXEC_STACK to 0.
+	* config/i386/linux.h, config/i386/linux64.h: Redefine
+	NEED_INDICATE_EXEC_STACK to 1 instead of setting SUBTARGET_FILE_END.
+	* config/i386/winnt.c (i386_pe_asm_file_end): Rename to
+	i386_pe_file_end.  Take no arguments.  Use ix86_file_end.
+	* config/ia64/ia64.c (ia64_hpux_asm_file_end): Rename to
+	ia64_hpux_file_end, make static.  Take no arguments.
+	* config/ip2k/ip2k.c (asm_file_start, asm_file_end,
+	commands_in_prologues, commands_in_epilogues): Delete.
+	(function_epilogue): Update to match.
+	* config/mips/mips.c (mips_asm_file_end): Rename mips_file_end,
+	make static.  Take no arguments.
+	(iris6_asm_file_end): Rename iris6_file_end, make static, use
+	mips_file_end, take no arguments.
+	Set TARGET_ASM_FILE_END to iris6_file_end or mips_file_end as
+	appropriate.
+	* config/mmix/mmix.c (mmix_asm_file_end): Rename mmix_file_end,
+	make static, take no arguments. Set TARGET_ASM_FILE_END to
+	mmix_file_end.
+	* config/pa/pa.c (output_deferred_plabels): Make static, take
+	no arguments.  Set TARGET_ASM_FILE_END to output_deferred_plabels.
+	* config/rs6000/xcoff.h (TARGET_ASM_FILE_END): Set it.
+	(ASM_FILE_END): Delete; move code...
+	* config/rs6000/rs6000.c (rs6000_xcoff_file_end): ... here;
+	new static function.
+
+	* config/avr/avr.h, config/cris/cris.h, config/h8300/h8300.h
+	* config/mmix/mmix.h, config/mips/iris6.h, config/mips/mips.h:
+	Don't set ASM_FILE_END.
+	* config/alpha/linux-elf.h, config/m68k/linux.h, config/rs6000/linux.h
+	* config/rs6000/linux64.h, config/s390/linux.h, config/sparc/linux.h
+	* config/sparc/linux64.h: Set TARGET_ASM_FILE_END to
+	file_end_indicate_exec_stack; don't set ASM_FILE_END.
+	* config/alpha/unicosmk.h, config/i386/cygming.h
+	* config/ia64/hpux.h: Set TARGET_ASM_FILE_END, not ASM_FILE_END.
+	* config/arm/arm-protos.h, config/alpha/alpha-protos.h
+	* config/avr/avr-protos.h, config/c4x/c4x-protos.h
+	* config/h8300/h8300-protos.h, config/ia64/ia64-protos.h
+	* config/ip2k/ip2k-protos.h, config/mips/mips-protos.h
+	* config/mmix/mmix-protos.h, config/pa/pa-protos.h: Update.
+
+Sat Jun  7 18:32:13 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (OPTION_DEFAULT_SPECS): Avoid -mcpu default when -march is
+	specified.
+
+Sat Jun  7 15:20:01 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (stageprofile_build): Kill redundant target.
+	* i386.c (mdep_reorg): Don't pad jumps for Athlon.
+
+2003-06-07  Andreas Jaeger  <aj@suse.de>
+
+	* doc/tm.texi (Costs): Remove DONT_REDUCE_ADDR documentation.
+
+	* config/avr/avr.h: Remove comment regarding DONT_REDUCE_ADDR.
+	* config/dsp16xx/dsp16xx.h: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/ip2k/ip2k.h: Likewise.
+
+2003-06-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Makefile.in (OJBS, c-opts.o): Update.
+	(c-options.c, c-options.h): Rename options.h and options.c.
+	(options.h): Rename options_.h.
+	(opts.o): New.
+	* c-common.h (c_common_handle_option): Replace c_common_decode_option.
+	(c_common_init_options): Update prototype.
+	* c-lang.c (c_init_options): Update prototype.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+	(LANG_HOOKS_DECODE_OPTION): Drop.
+	* c-opts.c: Include opts.h and options.h instead of c-options.h
+	and c-options.c.
+	(lang_flags): Move to file scope.
+	(find_opt, c_common_decode_option): Remove.
+	(CL_C, CL_OBJC, CL_CXX, CL_OBJCXX, CL_JOINED, CL_SEPARATE,
+	CL_REJECT_NEGATIVE): Move to opts.h.
+	(missing_arg): Update prototype.
+	(c_common_init_options): Update for new prototype.
+	(c_common_handle_options): Filenames are passed as N_OPTS.
+	* hooks.c (hook_int_void_0): New.
+	* hooks.h (hook_int_void_0): New.
+	* langhooks-def.h (LANG_HOOKS_INIT_OPTIONS): New default.
+	(LANG_HOOKS_HANDLE_OPTION): Default to NULL for now.
+	(LANG_HOOKS_INITIALIZER): Update.
+	* langhooks.h (init_options): Update.
+	(handle_option): New.
+	* opts.c, opts.h: New files.
+	* opts.sh: Update c file to include opts.h and options.h.
+	* toplev.c: Include opts.h; change options.h to options_.h.
+	(parse_options_and_default_flags): Get lang_mask, use
+	handle_option for language-specific handling.
+	* objc/objc-lang.c (LANG_HOOKS_DECODE_OPTON): Drop.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+	(objc_init_options): Update.
+
+2003-06-07  Magnus Kreth <magnus.kreth@gmx.de>
+	    Thibaud Gaillard <thibaud.gaillard@nto.atmel.com>
+
+	PR other/7031
+	* Makefile.in (install-common): Remove GCOV_INSTALL_NAME instead of
+	gcov.
+
+2003-06-07  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Remove quotes in
+	section names.
+	* configure: Regenerate.
+
+2003-06-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (CRT_CALL_STATIC_FUNCTION): Define.
+
+2003-06-06  James E Wilson  <wilson@tuliptree.org>
+
+	PR inline-asm/10890
+	* reload1.c (merge_assigned_reloads): Abort only if two reloads have
+	different in fields.
+
+2003-06-06  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Make $(target_subdir) correspond with top level usage.
+	* Makefile.in: Likewise.
+	* configure: Regenerate.
+
+2003-06-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.h (ASM_OUTPUT_SKIP, ASM_OUTPUT_ALIGNED_COMMON,
+	ASM_OUTPUT_ALIGNED_LOCAL): Cast `SIZE' and `ALIGNED' parameters to
+	unsigned HOST_WIDE_INT.
+	* pa-pro-end.h (ASM_OUTPUT_ALIGNED_COMMOM, ASM_OUTPUT_ALIGNED_LOCAL):
+	Likewise.
+	* pa64-hpux.h (ASM_OUTPUT_ALIGNED_COMMON, ASM_OUTPUT_ALIGNED_LOCAL):
+	Likewise.
+
 2003-06-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* doc/install.texi (Prerequisites): New section documenting
@@ -54,7 +624,7 @@
 	* fold-const.c (fold <ABS_EXPR>):  Re-fold the result of folding
 	fabs(-x) into fabs(x).  Use tree_expr_nonnegative_p to determine
 	when the ABS_EXPR (fabs or abs) is not required.
-  	(tree_expr_nonnegative_p): Move the logic that sqrt and exp are
+	(tree_expr_nonnegative_p): Move the logic that sqrt and exp are
 	always nonnegative from fold to here.  Additionally, cabs and fabs
 	are always non-negative, and pow and atan are non-negative if
 	their first argument is non-negative.
@@ -172,7 +742,7 @@ Fri Jun  6 11:03:14 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-05-06  Richard Henderson  <rth@redhat.com>
 
-	* dwarf2out.c (loc_descriptor_from_tree): Return 0 for 
+	* dwarf2out.c (loc_descriptor_from_tree): Return 0 for
 	language-specific tree codes.
 
 2003-06-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
@@ -194,7 +764,7 @@ Thu Jun  5 18:32:46 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(stage[2-4]_build): Add POSTSTAGE1_FLAGS_TO_PASS.
 	(stageprofile_build, stageprofile_copy, stagefeedback_build,
 	stagefeedback_copy): New.
-	(restageprofile, restagefeedback, stageprofile-start, 
+	(restageprofile, restagefeedback, stageprofile-start,
 	stageprofile, stagefeedback-start): Likewise.
 
 2003-06-05  David Miller  <davem@redhat.com>
@@ -208,7 +778,7 @@ Thu Jun  5 18:32:46 CEST 2003  Jan Hubicka  <jh@suse.cz>
 Thu Jun  5 14:59:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* combine.c (simplify_if_then_else): (IF_THEN_ELSE (NE REG 0) (0) (8))
-	is REG for nonzero_bits (REG) == 8.  
+	is REG for nonzero_bits (REG) == 8.
 
 Thu Jun  5 13:23:51 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
@@ -218,18 +788,18 @@ Thu Jun  5 13:23:51 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2003-06-05  Nick Clifton  <nickc@redhat.com>
 
 	* config.gcc (m32r-elf): Revert previous delta.
-        * config/m32r/t-m32r (crtinit.o): Fix rule to work with
-        multilibs.  Remove m32rx specific version.
-        (crtfini.o): Likewise.
-        (EXTRA_MULTILIB_PARTS): Define.
-        
+	* config/m32r/t-m32r (crtinit.o): Fix rule to work with
+	multilibs.  Remove m32rx specific version.
+	(crtfini.o): Likewise.
+	(EXTRA_MULTILIB_PARTS): Define.
+
 2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* doc/md.texi (Machine Constraints): Correct the meaning of
 	constraints related to floating-point registers on SPARC.
 
 2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Paolo Bonzini  <bonzini@gnu.org>
+	    Paolo Bonzini  <bonzini@gnu.org>
 
 	PR target/10663
 	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Redirect

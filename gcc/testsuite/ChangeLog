@@ -1,3 +1,96 @@
+2003-06-10  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-20.c: New test case.
+
+2003-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11131
+	* g++.dg/opt/template1.C: New test.
+
+2003-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-test): Clear additional_files and
+	additional_sources.
+
+2003-05-21  David Taylor  <dtaylor@emc.com>
+
+	* gcc.dg/Wpadded.c: New file.
+
+2003-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/special/20000419-2.c: Fix dg-require-alias syntax.
+	* gcc.dg/special/weak-2.c: Add dg-require-weak.
+	* gcc.dg/weak/weak-3.c: Reverse order of dg-do and
+	dg-require-weak.
+
+2003-06-09  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* g++.dg/other/offsetof3.C: Adjust linenumber of last expected warning.
+
+2003-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-require-weak): Fix typo.
+	(dg-require-alias): Likewise.
+	(dg-require-gc-sections): Likewise.
+	* lib/target-supports.exp (check_gc_sections_available): Likewise.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20011029-2.c: Fix the array reference.
+	* gcc.dg/asm-7.c: New.
+
+2003-06-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20000804-1.x: Disable on h8300 port.
+
+2003-06-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-require-alias): Fix typo.
+	(dg-require-gc-sections): Likewise.
+
+Sun Jun  8 16:46:04 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386-cmov1.c: Fix regular expression.
+	* i386-cvt-1.c: Likewise.
+	* i386-local.c: Likewise.
+	* i386-local2.c: Likewise.
+	* i386-mul.c: Likewise.
+	* i386-ssetype-1.c: Likewise.
+	* i386-ssetype-3.c: Likewise.
+	* i386-ssetype-5.c: Likewise.
+
+2003-06-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11039
+	* g++.dg/warn/implicit-typename2.C: New test.
+	* g++.dg/warn/implicit-typename3.C: New test.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/other/offsetof3.C: Use size_t.
+	* g++.dg/other/offsetof4.C: Likewise.
+
+2003-06-07  H.J. Lu <hongjiu.lu@intel.com>
+
+	* lib/copy-file.exp: New. Implement gcc_copy_files.
+
+	* lib/dg-pch.exp: Load copy-file.exp
+	(dg-pch): Use gcc_copy_files instead of "file copy".
+
+2003-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/weak/weak.exp: Simplify.
+	* gcc.dg/weak/typeof-2.c: Use dg-require-weak.
+	* gcc.dg/weak/weak-1.c: Likewise.
+	* gcc.dg/weak/weak-2.c: Likewise.
+	* gcc.dg/weak/weak-3.c: Likewise.
+	* gcc.dg/weak/weak-4.c: Likewise.
+	* gcc.dg/weak/weak-5.c: Likewise.
+	* gcc.dg/weak/weak-6.c: Likewise.
+	* gcc.dg/weak/weak-7.c: Likewise.
+	* gcc.dg/weak/weak-8.c: Likewise.
+	* gcc.dg/weak/weak-9.c: Likewise.
+
 2003-06-06  Richard Earnshaw  <rearnsha@arm.com>
 
 	gcc.c-torture/execute/20030606-1.c: New.

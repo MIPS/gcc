@@ -201,15 +201,13 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_MIPS16	   0x00100000	/* Generate mips16 code */
 #define MASK_NO_CHECK_ZERO_DIV \
 			   0x00200000	/* divide by zero checking */
-#define MASK_CHECK_RANGE_DIV \
-			   0x00400000	/* divide result range checking */
+#define MASK_BRANCHLIKELY  0x00400000   /* Generate Branch Likely
+					   instructions.  */
 #define MASK_UNINIT_CONST_IN_RODATA \
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
 #define MASK_NO_FUSED_MADD 0x01000000   /* Don't generate floating point
 					   multiply-add operations.  */
-#define MASK_BRANCHLIKELY  0x02000000   /* Generate Branch Likely
-					   instructions.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -294,8 +292,7 @@ extern void		sbss_section PARAMS ((void));
 
 #define TARGET_4300_MUL_FIX     (target_flags & MASK_4300_MUL_FIX)
 
-#define TARGET_NO_CHECK_ZERO_DIV (target_flags & MASK_NO_CHECK_ZERO_DIV)
-#define TARGET_CHECK_RANGE_DIV  (target_flags & MASK_CHECK_RANGE_DIV)
+#define TARGET_CHECK_ZERO_DIV   (!(target_flags & MASK_NO_CHECK_ZERO_DIV))
 
 #define TARGET_BRANCHLIKELY	(target_flags & MASK_BRANCHLIKELY)
 
@@ -306,12 +303,6 @@ extern void		sbss_section PARAMS ((void));
 
 #define TARGET_EXPLICIT_RELOCS	(target_flags & MASK_EXPLICIT_RELOCS)
 
-
-/* This is true if we must enable the assembly language file switching
-   code.  */
-
-#define TARGET_FILE_SWITCHING \
-  (TARGET_GP_OPT && ! TARGET_GAS && ! TARGET_MIPS16)
 
 /* True if the call patterns should be split into a jalr followed by
    an instruction to restore $gp.  This is only ever true for SVR4 PIC,
@@ -341,12 +332,6 @@ extern void		sbss_section PARAMS ((void));
    Not all SGI assemblers support this.  */
 
 #define TARGET_GPWORD (TARGET_ABICALLS && (!TARGET_NEWABI || TARGET_GAS))
-
-
-/* We must disable the function end stabs when doing the file switching trick,
-   because the Lscope stabs end up in the wrong place, making it impossible
-   to debug the resulting code.  */
-#define NO_DBX_FUNCTION_END TARGET_FILE_SWITCHING
 
 					/* Generate mips16 code */
 #define TARGET_MIPS16		(target_flags & MASK_MIPS16)
@@ -636,10 +621,6 @@ extern void		sbss_section PARAMS ((void));
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
      N_("Don't trap on integer divide by zero")},			\
-  {"check-range-division",MASK_CHECK_RANGE_DIV,				\
-     N_("Trap on integer divide overflow")},				\
-  {"no-check-range-division",-MASK_CHECK_RANGE_DIV,			\
-     N_("Don't trap on integer divide overflow")},			\
   { "branch-likely",      MASK_BRANCHLIKELY,				\
       N_("Use Branch Likely instructions, overriding default for arch")}, \
   { "no-branch-likely",  -MASK_BRANCHLIKELY,				\
@@ -1370,99 +1351,18 @@ extern int mips_abi;
 
 #define FIND_BASE_TERM(X) mips_delegitimize_address (X)
 
-/* Overrides for the COFF debug format.  */
-#define PUT_SDB_SCL(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.scl\t%d;", (a));	\
-} while (0)
-
-#define PUT_SDB_INT_VAL(a)				\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.val\t" HOST_WIDE_INT_PRINT_DEC ";", \
-	   (HOST_WIDE_INT)(a));			        \
-} while (0)
-
-#define PUT_SDB_VAL(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fputs ("\t.val\t", asm_out_text_file);		\
-  output_addr_const (asm_out_text_file, (a));		\
-  fputc (';', asm_out_text_file);			\
-} while (0)
-
 #define PUT_SDB_DEF(a)					\
 do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t%s.def\t",		\
+  fprintf (asm_out_file, "\t%s.def\t",			\
 	   (TARGET_GAS) ? "" : "#");			\
-  ASM_OUTPUT_LABELREF (asm_out_text_file, a); 		\
-  fputc (';', asm_out_text_file);			\
+  ASM_OUTPUT_LABELREF (asm_out_file, a); 		\
+  fputc (';', asm_out_file);				\
 } while (0)
 
 #define PUT_SDB_PLAIN_DEF(a)				\
 do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t%s.def\t.%s;",		\
+  fprintf (asm_out_file, "\t%s.def\t.%s;",		\
 	   (TARGET_GAS) ? "" : "#", (a));		\
-} while (0)
-
-#define PUT_SDB_ENDEF					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.endef\n");		\
-} while (0)
-
-#define PUT_SDB_TYPE(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.type\t0x%x;", (a));	\
-} while (0)
-
-#define PUT_SDB_SIZE(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.size\t" HOST_WIDE_INT_PRINT_DEC ";", \
-	   (HOST_WIDE_INT)(a));			        \
-} while (0)
-
-#define PUT_SDB_DIM(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.dim\t%d;", (a));	\
-} while (0)
-
-#ifndef PUT_SDB_START_DIM
-#define PUT_SDB_START_DIM				\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.dim\t");		\
-} while (0)
-#endif
-
-#ifndef PUT_SDB_NEXT_DIM
-#define PUT_SDB_NEXT_DIM(a)				\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "%d,", a);		\
-} while (0)
-#endif
-
-#ifndef PUT_SDB_LAST_DIM
-#define PUT_SDB_LAST_DIM(a)				\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "%d;", a);		\
-} while (0)
-#endif
-
-#define PUT_SDB_TAG(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.tag\t");		\
-  ASM_OUTPUT_LABELREF (asm_out_text_file, a); 		\
-  fputc (';', asm_out_text_file);			\
 } while (0)
 
 /* For block start and end, we create labels, so that
@@ -1472,8 +1372,7 @@ do {							\
 
 #define PUT_SDB_BLOCK_START(LINE)			\
 do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file,				\
+  fprintf (asm_out_file,				\
 	   "%sLb%d:\n\t%s.begin\t%sLb%d\t%d\n",		\
 	   LOCAL_LABEL_PREFIX,				\
 	   sdb_label_count,				\
@@ -1486,8 +1385,7 @@ do {							\
 
 #define PUT_SDB_BLOCK_END(LINE)				\
 do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file,				\
+  fprintf (asm_out_file,				\
 	   "%sLe%d:\n\t%s.bend\t%sLe%d\t%d\n",		\
 	   LOCAL_LABEL_PREFIX,				\
 	   sdb_label_count,				\
@@ -1502,20 +1400,10 @@ do {							\
 
 #define PUT_SDB_FUNCTION_END(LINE)			\
 do {							\
-  extern FILE *asm_out_text_file;			\
-  ASM_OUTPUT_SOURCE_LINE (asm_out_text_file, LINE + sdb_begin_function_line); \
+  ASM_OUTPUT_SOURCE_LINE (asm_out_file, LINE + sdb_begin_function_line); \
 } while (0)
 
 #define PUT_SDB_EPILOGUE_END(NAME)
-
-#define PUT_SDB_SRC_FILE(FILENAME)			\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  output_file_directive (asm_out_text_file, (FILENAME));\
-} while (0)
-
-#define SDB_GENERATE_FAKE(BUFFER, NUMBER)		\
-  sprintf ((BUFFER), ".%dfake", (NUMBER));
 
 /* Correct the offset of automatic variables and arguments.  Note that
    the MIPS debug format wants all automatic variables and arguments
@@ -1788,14 +1676,9 @@ do {							\
 
    On the Mips, we have 32 integer registers, 32 floating point
    registers, 8 condition code registers, and the special registers
-   hi, lo, hilo, and rap.  Afetr that we have 32 COP0 registers, 32
-   COP2 registers, and 32 COp3 registers.  (COP1 is the floating-point
-   processor.)  The 8 condition code registers are only used if
-   mips_isa >= 4.  The hilo register is only used in 64 bit mode.  It
-   represents a 64 bit value stored as two 32 bit values in the hi and
-   lo registers; this is the result of the mult instruction.  rap is a
-   pointer to the stack where the return address reg ($31) was stored.
-   This is needed for C++ exception handling.  */
+   hi and lo.  After that we have 32 COP0 registers, 32 COP2 registers,
+   and 32 COP3 registers.  (COP1 is the floating-point processor.)
+   The 8 condition code registers are only used if mips_isa >= 4.  */
 
 #define FIRST_PSEUDO_REGISTER 176
 
@@ -1816,7 +1699,7 @@ do {							\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,			\
+  0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,			\
   /* COP0 registers */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
@@ -1900,7 +1783,7 @@ do {							\
 #define FP_DBX_FIRST ((write_symbols == DBX_DEBUG) ? 38 : 32)
 
 #define MD_REG_FIRST 64
-#define MD_REG_LAST  66
+#define MD_REG_LAST  65
 #define MD_REG_NUM   (MD_REG_LAST - MD_REG_FIRST + 1)
 #define MD_DBX_FIRST (FP_DBX_FIRST + FP_REG_NUM)
 
@@ -1927,7 +1810,6 @@ do {							\
 #define AT_REGNUM	(GP_REG_FIRST + 1)
 #define HI_REGNUM	(MD_REG_FIRST + 0)
 #define LO_REGNUM	(MD_REG_FIRST + 1)
-#define HILO_REGNUM	(MD_REG_FIRST + 2)
 
 /* FPSW_REGNUM is the single condition code used if mips_isa < 4.  If
    mips_isa >= 4, it should not be used, and an arbitrary ST_REG
@@ -2063,14 +1945,20 @@ extern char mips_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
    kept in a register.  */
 #define NO_RECURSIVE_FUNCTION_CSE 1
 
-/* The register number of the register used to address a table of
-   static data addresses in memory.  In some cases this register is
-   defined by a processor's "application binary interface" (ABI).
-   When this macro is defined, RTL is generated for this register
-   once, as with the stack pointer and frame pointer registers.  If
-   this macro is not defined, it is up to the machine-dependent
-   files to allocate such a register (if necessary).  */
-#define PIC_OFFSET_TABLE_REGNUM (GP_REG_FIRST + 28)
+/* The ABI-defined global pointer.  Sometimes we use a different
+   register in leaf functions: see PIC_OFFSET_TABLE_REGNUM.  */
+#define GLOBAL_POINTER_REGNUM (GP_REG_FIRST + 28)
+
+/* We normally use $28 as the global pointer.  However, when generating
+   n32/64 PIC, it is better for leaf functions to use a call-clobbered
+   register instead.  They can then avoid saving and restoring $28
+   and perhaps avoid using a frame at all.
+
+   When a leaf function uses something other than $28, mips_expand_prologue
+   will modify pic_offset_table_rtx in place.  Take the register number
+   from there after reload.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (reload_completed ? REGNO (pic_offset_table_rtx) : GLOBAL_POINTER_REGNUM)
 
 #define PIC_FUNCTION_ADDR_REGNUM (GP_REG_FIRST + 25)
 
@@ -2107,14 +1995,12 @@ enum reg_class
   FP_REGS,			/* floating point registers */
   HI_REG,			/* hi register */
   LO_REG,			/* lo register */
-  HILO_REG,			/* hilo register pair for 64 bit mode mult */
   MD_REGS,			/* multiply/divide registers (hi/lo) */
   COP0_REGS,			/* generic coprocessor classes */
   COP2_REGS,
   COP3_REGS,
   HI_AND_GR_REGS,		/* union classes */
   LO_AND_GR_REGS,
-  HILO_AND_GR_REGS,
   HI_AND_FP_REGS,
   COP0_AND_GR_REGS,
   COP2_AND_GR_REGS,
@@ -2147,7 +2033,6 @@ enum reg_class
   "FP_REGS",								\
   "HI_REG",								\
   "LO_REG",								\
-  "HILO_REG",								\
   "MD_REGS",								\
   /* coprocessor registers */						\
   "COP0_REGS",								\
@@ -2155,7 +2040,6 @@ enum reg_class
   "COP3_REGS",								\
   "HI_AND_GR_REGS",							\
   "LO_AND_GR_REGS",							\
-  "HILO_AND_GR_REGS",							\
   "HI_AND_FP_REGS",							\
   "COP0_AND_GR_REGS",							\
   "COP2_AND_GR_REGS",							\
@@ -2190,14 +2074,12 @@ enum reg_class
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* floating registers*/	\
   { 0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x00000000, 0x00000000 },	/* hi register */	\
   { 0x00000000, 0x00000000, 0x00000002, 0x00000000, 0x00000000, 0x00000000 },	/* lo register */	\
-  { 0x00000000, 0x00000000, 0x00000004, 0x00000000, 0x00000000, 0x00000000 },	/* hilo register */	\
   { 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x00000000, 0x00000000 },	/* mul/div registers */	\
   { 0x00000000, 0x00000000, 0xffff0000, 0x0000ffff, 0x00000000, 0x00000000 }, /* cop0 registers */ \
   { 0x00000000, 0x00000000, 0x00000000, 0xffff0000, 0x0000ffff, 0x00000000 }, /* cop2 registers */ \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xffff0000, 0x0000ffff }, /* cop3 registers */ \
   { 0xffffffff, 0x00000000, 0x00000001, 0x00000000, 0x00000000, 0x00000000 },	/* union classes */     \
   { 0xffffffff, 0x00000000, 0x00000002, 0x00000000, 0x00000000, 0x00000000 },				\
-  { 0xffffffff, 0x00000000, 0x00000004, 0x00000000, 0x00000000, 0x00000000 },				\
   { 0x00000000, 0xffffffff, 0x00000001, 0x00000000, 0x00000000, 0x00000000 },				\
   { 0xffffffff, 0x00000000, 0xffff0000, 0x0000ffff, 0x00000000, 0x00000000 },			\
   { 0xffffffff, 0x00000000, 0x00000000, 0xffff0000, 0x0000ffff, 0x00000000 },	\
@@ -2291,7 +2173,6 @@ extern const enum reg_class mips_regno_to_class[];
    'h'	Hi register
    'l'	Lo register
    'x'	Multiply/divide registers
-   'a'	HILO_REG
    'z'	FP Status register
    'B'  Cop0 register
    'C'  Cop2 register
@@ -2478,23 +2359,14 @@ extern enum reg_class mips_char_to_class[256];
 
 /* Stack layout; function entry, exit and calling.  */
 
-/* Define this if pushing a word on the stack
-   makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
-   is at the high-address end of the local variables;
-   that is, each additional local variable allocated
-   goes at a more negative offset in the frame.  */
-/* #define FRAME_GROWS_DOWNWARD */
-
-/* Offset within stack frame to start allocating local variables at.
-   If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
-   first local allocated.  Otherwise, it is the offset to the BEGINNING
-   of the first local allocated.  */
+/* The offset of the first local variable from the beginning of the frame.
+   See compute_frame_size for details about the frame layout.  */
 #define STARTING_FRAME_OFFSET						\
   (current_function_outgoing_args_size					\
-   + (TARGET_ABICALLS ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
+   + (TARGET_ABICALLS && !TARGET_NEWABI					\
+      ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
 
 /* Offset from the stack pointer register to an item dynamically
    allocated on the stack, e.g., by `alloca'.
@@ -2962,13 +2834,6 @@ typedef struct mips_args {
 	(mips_abi == ABI_EABI && UNITS_PER_FPVALUE >= UNITS_PER_DOUBLE)
 
 
-/* Tell prologue and epilogue if register REGNO should be saved / restored.  */
-
-#define MUST_SAVE_REGISTER(regno) \
- ((regs_ever_live[regno] && !call_used_regs[regno])			\
-  || (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)	\
-  || (regno == (GP_REG_FIRST + 31) && regs_ever_live[GP_REG_FIRST + 31]))
-
 /* Say that the epilogue uses the return address register.  Note that
    in the case of sibcalls, the values "used by the epilogue" are
    considered live at the start of the called function.  */
@@ -3417,7 +3282,8 @@ typedef struct mips_args {
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
   {"fcc_register_operand",	{ REG, SUBREG }},			\
-  {"hilo_operand",		{ REG }},
+  {"hilo_operand",		{ REG }},				\
+  {"extend_operator",		{ ZERO_EXTEND, SIGN_EXTEND }},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
@@ -3651,7 +3517,7 @@ typedef struct mips_args {
   "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",	\
   "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",	\
   "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",	\
-  "hi",   "lo",   "accum","$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",	\
+  "hi",   "lo",   "",     "$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",	\
   "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",		\
   "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",\
   "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",\
@@ -3929,23 +3795,6 @@ while (0)
 
 #define ASM_OUTPUT_EXTERNAL(STREAM,DECL,NAME) \
   mips_output_external(STREAM,DECL,NAME)
-
-/* This says what to print at the end of the assembly file */
-#undef ASM_FILE_END
-#define ASM_FILE_END(STREAM) mips_asm_file_end(STREAM)
-
-
-/* Play switch file games if we're optimizing the global pointer.  */
-
-#undef TEXT_SECTION
-#define TEXT_SECTION()					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  if (TARGET_FILE_SWITCHING)				\
-    asm_out_file = asm_out_text_file;			\
-  fputs (TEXT_SECTION_ASM_OP, asm_out_file);		\
-  fputc ('\n', asm_out_file);            		\
-} while (0)
 
 
 /* This is how to declare a function name.  The actual work of

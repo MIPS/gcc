@@ -262,7 +262,7 @@ proc dg-require-weak { args } {
 	unresolved "$name"
     }
     if { $weak_available != 1 } {
-	set dg-do-what [list [lindex $dg_do_what 0] "N" "P"]
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return
     }
 }
@@ -279,7 +279,7 @@ proc dg-require-alias { args } {
 	unresolved "$name"
     }
     if { $alias_available < 2 } {
-	set dg-do-what [list [lindex $dg_do_what 0] "N" "P"]
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return
     }
 }
@@ -290,7 +290,35 @@ proc dg-require-alias { args } {
 proc dg-require-gc-sections { args } {
     if { ![ check_gc_sections_available ] } {
 	upvar dg-do-what dg-do-what
-	set dg-do-what [list [lindex $dg_do_what 0] "N" "P"]
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return
+    }
+}
+
+# We need to make sure that additional_files and additional_sources
+# are both cleared out after every test.  It is not enough to clear
+# them out *before* the next test run because gcc-target-compile gets
+# run directly from some .exp files (outside of any test).  (Those
+# uses should eventually be eliminated.) 
+
+# Because the DG framework doesn't provide a hook that is run at the
+# end of a test, we must replace dg-test with a wrapper.
+
+if { [info procs saved-dg-test] == [list] } {
+    rename dg-test saved-dg-test
+
+    proc dg-test { args } {
+	global additional_files
+	global additional_sources
+	global errorInfo
+
+	if { [ catch { eval saved-dg-test $args } errmsg ] } {
+	    set saved_info $errorInfo
+	    set additional_files ""
+	    set additional_sources ""
+	    error $errmsg $saved_info
+	}
+	set additional_files ""
+	set additional_sources ""
     }
 }

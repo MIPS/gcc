@@ -1,3 +1,11 @@
+2003-06-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl, Makefile.def: Introduce per-directory
+	configure_options and make_options.  Introduce build-gcc.
+	* Makefile.in: Regenerate.
+
+	Merge from mainline.
+
 2003-06-06  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.tpl: Make all-bootstrap depend on maybe-all-build-libiberty.

@@ -1,3 +1,105 @@
+Sun Jun  8 15:42:09 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in (F77_OBJS, f77.mostlyclean, f/com.o): Update.
+	(f/f-options.c, f/f-options.h): New.
+	* com.c: Include opts.h and f-options.h.
+	(ffecom_decode_include_option_): Remove.
+	(LANG_HOOKS_HANDLE_OPTION): New.
+	(LANG_HOOKS_DECODE_OPTION): Drop.
+	(struct file_name_list, ffecom_decode_include_option,
+	ffecom_open_include_): Constify.
+	* com.h (ffecom_decode_include_option): Update.
+	* lang.opt: New.
+	* top.c: Include f-options.h, opts.h.
+	(ffe_is_digit_string_): Constify.
+	(ffe_decode_option): Transform to ffe_handle_option.
+	* top.h (ffe_decode_option): Replace with ffe_handle_option.
+
+2003-06-08  Andreas Jaeger  <aj@suse.de>
+
+	* std.c: Remove #if 0'ed functions.
+
+	* sta.c: Remove usage of HARD_F90, FFESTR_F90 and FFESTR_VXT.
+	* stb.c: Likewise.
+	* stb.h: Likewise.
+	* stc.c: Likewise.
+	* stc.h: Likewise.
+	* std.c: Likewise.
+	* std.h: Likewise.
+	* ste.c: Likewise.
+	* ste.h: Likewise.
+
+	* str.h (FFESTR_F90): Remove macro.
+	(FFESTR_VXT): Remove macro.
+
+	* bld.c: Remove usage of FFETARGET_okCHARACTER2,
+	FFETARGET_okCHARACTER3, FFETARGET_okCHARACTER4,
+	FFETARGET_okCHARACTER5, FFETARGET_okCHARACTER6,
+	FFETARGET_okCHARACTER7, FFETARGET_okCHARACTER8,
+	FFETARGET_okCOMPLEX4, FFETARGET_okCOMPLEX5, FFETARGET_okCOMPLEX6,
+	FFETARGET_okCOMPLEX7, FFETARGET_okCOMPLEX8, FFETARGET_okINTEGER5,
+	FFETARGET_okINTEGER6, FFETARGET_okINTEGER7, FFETARGET_okINTEGER8,
+	FFETARGET_okLOGICAL5, FFETARGET_okLOGICAL6, FFETARGET_okLOGICAL7,
+	FFETARGET_okLOGICAL8, FFETARGET_okREAL4, FFETARGET_okREAL5,
+	FFETARGET_okREAL6, FFETARGET_okREAL7 and FFETARGET_okREAL8.
+	* bld.h: Likewise.
+	* expr.c: Likewise.
+	* target.h: Likewise.
+	* com.c: Likewise.
+
+Sun Jun  8 12:28:14 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update.
+	* top.c: Include opts.h. Define cl_options_count and cl_options.
+
+2003-06-07  Andreas Jaeger  <aj@suse.de>
+
+	* symbol.c (ffesymbol_new_): Remove tests for macro
+	FFECOM_symbolHOOK.
+	* symbol.h: Likewise.
+
+	* storag.c (ffestorag_new): Remove tests for macro
+	FFECOM_storageHOOK.
+	* storag.h: Likewise.
+
+	* lab.c (ffelab_new): Remove tests for macro FFECOM_labelHOOK.
+	* lab.h: Likewise.
+
+	* global.c: Remove tests for macro FFECOM_globalHOOK.
+	* global.h (struct _ffeglobal_): Likewise.
+
+	* bld.h: Remove tests for macros FFECOM_constantHOOK,
+	FFECOM_nonterHOOK, FFECOM_globalHOOK, FFECOM_labelHOOK,
+	FFECOM_storageHOOK, FFECOM_symbolHOOK.
+	Remove code dependend on FFECOM_itemHOOK.
+	* bld.c: Likewise.
+
+	* com.h (FFECOM_constantHOOK): Remove define.
+	(FFECOM_nonterHOOK): Remove.
+	(FFECOM_globalHOOK): Remove.
+	(FFECOM_labelHOOK): Remove.
+	(FFECOM_storageHOOK): Remove.
+	(FFECOM_symbolHOOK): Remove.
+
+	* com.c (ffecom_get_external_identifier_): Remove usage of
+	FFETARGET_isENFORCED_MAIN_NAME.
+
+	* bld.c: Remove code dependend on FFEBLD_BLANK_, FFECOM_itemHOOK.
+	(ffebld_new_accter): Likewise.
+	(ffebld_new_arrter): Likewise.
+	(ffebld_new_conter_with_orig): Likewise.
+	(ffebld_new_item): Likewise.
+	(ffebld_new_labter): Likewise.
+	(ffebld_new_labtok): Likewise.
+	(ffebld_new_none): Likewise.
+	(ffebld_new_one): Likewise.
+	(ffebld_new_symter): Likewise.
+	(ffebld_new_two): Likewise.
+
+Sat Jun  7 12:10:41 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* com.c (ffe_init_options): Update.
+
 Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback

@@ -3898,7 +3898,7 @@ extern void yyhook				(int);
 extern int cp_type_qual_from_rid                (tree);
 extern bool cxx_init				(void);
 extern void cxx_finish (void);
-extern void cxx_init_options (void);
+extern int cxx_init_options (void);
 
 /* in method.c */
 extern void init_method	(void);
@@ -3978,6 +3978,7 @@ extern bool type_dependent_expression_p         (tree);
 extern bool value_dependent_expression_p        (tree);
 extern tree resolve_typename_type               (tree, bool);
 extern tree resolve_typename_type_in_current_instantiation (tree);
+extern tree template_for_substitution           (tree);
 
 /* in repo.c */
 extern void repo_template_used (tree);

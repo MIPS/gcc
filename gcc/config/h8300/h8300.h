@@ -244,7 +244,7 @@ extern int target_flags;
 #define SHORT_TYPE_SIZE	16
 #define INT_TYPE_SIZE		(TARGET_INT32 ? 32 : 16)
 #define LONG_TYPE_SIZE		32
-#define LONG_LONG_TYPE_SIZE	32
+#define LONG_LONG_TYPE_SIZE	64
 #define FLOAT_TYPE_SIZE	32
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	DOUBLE_TYPE_SIZE
@@ -1038,8 +1038,6 @@ struct cum_arg
 /* Output at beginning/end of assembler file.  */
 
 #define ASM_FILE_START(FILE) asm_file_start (FILE)
-
-#define ASM_FILE_END(FILE) asm_file_end (FILE)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */

@@ -657,7 +657,7 @@ maybe-[+make_target+]-[+module+]:
 maybe-[+make_target+]-target-[+module+]:
 [+ IF (match-value? = "missing" (get "make_target") ) +]
 # [+module+] doesn't support [+make_target+].
-[+make_target+]-[+module+]:
+[+make_target+]-target-[+module+]:
 [+ ELSE +]
 [+make_target+]-target-[+module+]: [+
   FOR depend +]\
@@ -908,7 +908,7 @@ configure-build-[+module+]:
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(BUILD_CONFIGARGS) $${srcdiroption} \
-	  --with-build-subdir="$(BUILD_SUBDIR)" \
+	  --with-build-subdir="$(BUILD_SUBDIR)" [+configure_options+] \
 	  || exit 1
 
 .PHONY: all-build-[+module+] maybe-all-build-[+module+]
@@ -916,7 +916,7 @@ maybe-all-build-[+module+]:
 all-build-[+module+]: configure-build-[+module+]
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
-	(cd $(BUILD_SUBDIR)/[+module+] && $(MAKE) all)
+	(cd $(BUILD_SUBDIR)/[+module+] && $(MAKE) [+make_options+] all)
 [+ ENDFOR build_modules +]
 
 # --------------------------------------
@@ -934,18 +934,16 @@ configure-[+module+]:
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
-	if [ z$(build_canonical) !=  z$(host_canoncial) ] ; then \
-	  AR="$(AR)"; export AR; \
-	  AS="$(AS)"; export AS; \
-	  CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
-	  DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	  LD="$(LD)"; export LD; \
-	  NM="$(NM)"; export NM; \
-	  RANLIB="$(RANLIB)"; export RANLIB; \
-	  WINDRES="$(WINDRES)"; export WINDRES; \
-	  OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	  OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
-	fi; \
+	AR="$(AR)"; export AR; \
+	AS="$(AS)"; export AS; \
+	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
+	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
+	LD="$(LD)"; export LD; \
+	NM="$(NM)"; export NM; \
+	RANLIB="$(RANLIB)"; export RANLIB; \
+	WINDRES="$(WINDRES)"; export WINDRES; \
+	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
+	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
 	echo Configuring in [+module+]; \
 	cd [+module+] || exit 1; \
 	case $(srcdir) in \
@@ -960,7 +958,7 @@ configure-[+module+]:
 	    libsrcdir="$$s/[+module+]";; \
 	esac; \
 	$(SHELL) $${libsrcdir}/configure \
-	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  $(HOST_CONFIGARGS) $${srcdiroption} [+configure_options+] \
 	  || exit 1
 
 .PHONY: all-[+module+] maybe-all-[+module+]
@@ -972,7 +970,7 @@ all-[+module+]: configure-[+module+]
 	(cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	  IF with_x 
 	    +] $(X11_FLAGS_TO_PASS)[+ 
-	  ENDIF with_x +] all)
+	  ENDIF with_x +] [+make_options+] all)
 
 .PHONY: check-[+module+] maybe-check-[+module+]
 maybe-check-[+module+]:
@@ -1095,7 +1093,7 @@ ENDIF raw_cxx +]
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
-	  --with-target-subdir="$(TARGET_SUBDIR)" \
+	  --with-target-subdir="$(TARGET_SUBDIR)" [+configure_options+] \
 	  || exit 1
 
 .PHONY: all-target-[+module+] maybe-all-target-[+module+]
@@ -1109,7 +1107,7 @@ all-target-[+module+]: configure-target-[+module+]
 	    IF raw_cxx 
 	  +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
 	    ENDIF raw_cxx 
-	  +] all)
+	  +] [+make_options+] all)
 
 .PHONY: check-target-[+module+] maybe-check-target-[+module+]
 maybe-check-target-[+module+]:
@@ -1165,18 +1163,16 @@ configure-gcc:
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
-	if [ z$(build_canonical) !=  z$(host_canoncial) ] ; then \
-	  AR="$(AR)"; export AR; \
-	  AS="$(AS)"; export AS; \
-	  CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
-	  DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	  LD="$(LD)"; export LD; \
-	  NM="$(NM)"; export NM; \
-	  RANLIB="$(RANLIB)"; export RANLIB; \
-	  WINDRES="$(WINDRES)"; export WINDRES; \
-	  OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	  OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
-	fi; \
+	AR="$(AR)"; export AR; \
+	AS="$(AS)"; export AS; \
+	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
+	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
+	LD="$(LD)"; export LD; \
+	NM="$(NM)"; export NM; \
+	RANLIB="$(RANLIB)"; export RANLIB; \
+	WINDRES="$(WINDRES)"; export WINDRES; \
+	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
+	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
 	echo Configuring in gcc; \
 	cd gcc || exit 1; \
 	case $(srcdir) in \
@@ -1356,6 +1352,9 @@ gcc-no-fixedincludes:
 # or find a substitute somewhere (perhaps installed).  Soft dependencies
 # are specified by depending on a 'maybe-' target.  If you're not sure,
 # it's safer to use a soft dependency.
+
+# Build modules used in toplevel-bootstrap scheme.
+all-build-gcc: maybe-all-build-libiberty
 
 # Host modules specific to gcc.
 # GCC needs to identify certain tools.

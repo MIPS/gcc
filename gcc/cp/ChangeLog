@@ -1,3 +1,33 @@
+2003-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11131
+	* cp-tree.h (template_for_substitution): Declare.
+	* decl2.c (mark_used): Use it when figuring out whether or not a
+	function is inline.
+	* pt.c (template_for_substitution): Give it external linkage.
+	* tree.c (cp_cannot_inline_tree_fn): Instantiate as early as
+	possible.
+
+2003-06-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 8861
+	* mangle.c (write_real_cst): New function.  Implement
+	ABI-compliant mangling of floating-point literals when
+	-fabi-version>=2; provide backward compatibility with 3.3 when
+	-fabi-version=1 (with warning).  Clarify commentary.
+	(write_template_arg_literal): Use write_real_cst.
+
+2003-06-07  Andreas Jaeger  <aj@suse.de>
+
+	* cp/decl.c (xref_tag): Remove undefined macro NONNESTED_CLASSES.
+
+2003-06-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_DECODE_OPTON): Drop.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+	* cp-tree.h (cxx_init_options): Update.
+	* lex.c (cxx_init_options): Update.
+
 Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback
@@ -12,11 +42,11 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-06-03  Jason Merrill  <jason@redhat.com>
 
-        * cp/cp-tree.h (CP_AGGREGATE_TYPE_P): Accept vectors.
+	* cp/cp-tree.h (CP_AGGREGATE_TYPE_P): Accept vectors.
 
-        * cp/decl.c (reshape_init): Handle vectors.
+	* cp/decl.c (reshape_init): Handle vectors.
 
-        * testsuite/g++.dg/init/array10.C: New.
+	* testsuite/g++.dg/init/array10.C: New.
 
 2003-06-03  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
@@ -51,7 +81,7 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(make_binding_level): Remove.
 	(initial_push__namespace_scope): New function.
 	(push_namespace): Use it.  Simplify.
-	(cxx_init_decl_processing): Likewise. 
+	(cxx_init_decl_processing): Likewise.
 	(declare_namespace_level): Remove.
 
 2003-05-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
@@ -66,7 +96,7 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(binding_depth): Unconditionally define.
 	(is_class_level): Likewise.
 	(indent): Likewise.  Take an indenting parameter.
-	(push_binding_level): Remove conditional definittion. 
+	(push_binding_level): Remove conditional definittion.
 	(pop_binding_level): Likewise.
 	(suspend_binding_level): Likewise.
 	(resume_binding_level): Likewise.
@@ -79,7 +109,7 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* name-lookup.h (global_scope_p): New macro.
 	* decl.c (pop_binding_level): Use it.  Don't refer directly to
-	global_binding_level. 
+	global_binding_level.
 	(suspend_binding_level): Likewise.
 	(global_bindings_p): Likewise.
 	(print_other_binding_stack): Likewise.
@@ -136,7 +166,7 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* lang-options.h: Document -Wno-invalid-offsetof
 	* typeck.c (build_class_member_access_expr): Don't complain about
 	(Foo *)p->x for non-POD Foo if warn_invalid_offset is zero.
-	
+
 2003-05-18 Andrew Pinski <pinskia@physics.uc.edu>
 
 	* name-lookup.c (free_binding_entry): fix where the GTY markers are.
@@ -144,17 +174,17 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	fix the spelling of chain in a comment.
 	(binding_table_free): speed up by having temporary variable.
 	(binding_table_new): set table->chain to be NULL after allocating
-	a table. 
+	a table.
 	(cxx_binding_make): use gcc_alloc instead of ggc_alloc_cleared and set
 	binding->previous to NULL after getting an binding for speed.
-	
+
 2003-05-18  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* cp-tree.h (struct lang_type_class): Replace data member tags
 	with hash-table nested_udts.
 	(CLASSTYPE_NESTED_UTDS): Rename from CLASSTYPE_TAGS.
 	* class.c (unreverse_member_declarations): Don't touch
-	CLASSTYPE_TAGS. 
+	CLASSTYPE_TAGS.
 	(pushclass): Use cxx_remember_type_decls.
 	* decl.c (struct cp_binding_level): Replace data member tags with
 	hash-table type_decls.
@@ -227,13 +257,13 @@ Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* ptree.c (cxx_print_type, cxx_print_xnode): Use string
 	concatentation on HOST_WIDE_INT_PRINT_* format specifier to
 	collapse multiple function calls into one.
-	* tree.c (debug_binfo): Likewise.	
+	* tree.c (debug_binfo): Likewise.
 
 2003-05-15  Jason Merrill  <jason@redhat.com>
 
 	PR c++/5388
 	* call.c (conditional_conversion): Don't consider implicit
-	conversions if T2 is a base of T1. 
+	conversions if T2 is a base of T1.
 	* cp-tree.h (DERIVED_FROM_P, UNIQUELY_DERIVED_FROM_P): Make boolean.
 	(ACCESSIBLY_UNIQUELY_DERIVED_P, PUBLICLY_UNIQUELY_DERIVED_P): Likewise.
 

@@ -5382,12 +5382,6 @@ If the value of this macro is always zero, it need not be defined.  If
 this macro is defined, it should produce a nonzero value when
 @code{STRICT_ALIGNMENT} is nonzero.
 
-@findex DONT_REDUCE_ADDR
-@item DONT_REDUCE_ADDR
-Define this macro to inhibit strength reduction of memory addresses.
-(On some machines, such strength reduction seems to do harm rather
-than good.)
-
 @findex MOVE_RATIO
 @item MOVE_RATIO
 The threshold of number of scalar memory-to-memory move insns, @emph{below}
@@ -6192,22 +6186,23 @@ Normally this macro is defined to output a line containing
 @samp{#NO_APP}, which is a comment that has no effect on most
 assemblers but tells the GNU assembler that it can save time by not
 checking for certain assembler constructs.
+@end table
 
-On systems that use SDB, it is necessary to output certain commands;
-see @file{attasm.h}.
+@deftypefn {Target Hook} void TARGET_ASM_FILE_END ()
+Output to @code{asm_out_file} any text which the assembler expects
+to find at the end of a file.  The default is to output nothing.
+@end deftypefn
 
-@findex ASM_FILE_END
-@item ASM_FILE_END (@var{stream})
-A C expression which outputs to the stdio stream @var{stream}
-some appropriate text to go at the end of an assembler file.
+@deftypefun void file_end_indicate_exec_stack ()
+Some systems use a common convention, the @samp{.note.GNU-stack}
+special section, to indicate whether or not an object file relies on
+the stack being executable.  If your system uses this convention, you
+should define @code{TARGET_ASM_FILE_END} to this function.  If you
+need to do other things in that hook, have your hook function call
+this function.
+@end deftypefun
 
-If this macro is not defined, the default is to output nothing
-special at the end of the file.  Most systems don't require any
-definition.
-
-On systems that use SDB, it is necessary to output certain commands;
-see @file{attasm.h}.
-
+@table @code
 @findex ASM_COMMENT_START
 @item ASM_COMMENT_START
 A C string constant describing how to begin a comment in the target
@@ -9010,30 +9005,6 @@ value is explicitly returned).
 The definition should be a C statement (sans semicolon) to generate the
 appropriate rtl instructions.  It is used only when compiling the end of
 @code{main}.
-
-@item NEED_ATEXIT
-@findex NEED_ATEXIT
-Define this if the target system lacks the function @code{atexit}
-from the ISO C standard.  If this macro is defined, a default definition
-will be provided to support C++.  If @code{ON_EXIT} is not defined,
-a default @code{exit} function will also be provided.
-
-@item ON_EXIT
-@findex ON_EXIT
-Define this macro if the target has another way to implement atexit
-functionality without replacing @code{exit}.  For instance, SunOS 4 has
-a similar @code{on_exit} library function.
-
-The definition should be a functional macro which can be used just like
-the @code{atexit} function.
-
-@item EXIT_BODY
-@findex EXIT_BODY
-Define this if your @code{exit} function needs to do something
-besides calling an external function @code{_cleanup} before
-terminating with @code{_exit}.  The @code{EXIT_BODY} macro is
-only needed if @code{NEED_ATEXIT} is defined and @code{ON_EXIT} is not
-defined.
 
 @findex INSN_SETS_ARE_DELAYED
 @item INSN_SETS_ARE_DELAYED (@var{insn})

@@ -74,14 +74,17 @@
 #include "ada-tree.h"
 #include "gigi.h"
 #include "adadecode.h"
+#include "opts.h"
 
 extern FILE *asm_out_file;
 extern int save_argc;
 extern char **save_argv;
+const unsigned int cl_options_count;
+const struct cl_option cl_options[1];
 
 static size_t gnat_tree_size		PARAMS ((enum tree_code));
 static bool gnat_init			PARAMS ((void));
-static void gnat_init_options		PARAMS ((void));
+static int gnat_init_options		PARAMS ((void));
 static int gnat_decode_option		PARAMS ((int, char **));
 static HOST_WIDE_INT gnat_get_alias_set	PARAMS ((tree));
 static void gnat_print_decl		PARAMS ((FILE *, tree, int));
@@ -300,13 +303,15 @@ gnat_decode_option (argc, argv)
 
 /* Initialize for option processing.  */
 
-static void
+static int
 gnat_init_options ()
 {
   /* Initialize gnat_argv with save_argv size */
   gnat_argv = (char **) xmalloc ((save_argc + 1) * sizeof (gnat_argv[0])); 
   gnat_argv[0] = save_argv[0];     /* name of the command */ 
   gnat_argc = 1;
+
+  return 0;
 }
 
 /* Here is the function to handle the compiler error processing in GCC.  */
