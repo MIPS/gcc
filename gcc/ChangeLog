@@ -1,3 +1,10 @@
+Mon Oct 14 19:22:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcov-io.h (gcov_info): Fix type.
+	* profile.c (get_exec_counts): use symbol name.
+	(branch_prob): Likewise.
+	(create_profiler): Fix type missmatch.
+
 2002-10-13  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386.c (ix86_function_ok_for_sibcall): Reject
