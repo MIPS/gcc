@@ -1,3 +1,14 @@
+2004-06-21  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JCheckBoxMenuItem.java: Added Javadoc.
+	(getSelectedObjects): Implemented.
+	* javax/swing/JRadioButtonMenuItem.java: Added Javadoc.
+	* javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.java: 
+	Added javadoc for few methods.
+	(processMouseEvent): Made public.
+	* javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java
+	(processMouseEvent): Likewise.
+
 2004-06-20  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/AbstractDocument.java

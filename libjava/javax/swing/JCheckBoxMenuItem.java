@@ -45,16 +45,24 @@ import javax.accessibility.AccessibleRole;
 
 
 /**
- * DOCUMENT ME!
+ * JCheckBoxMenuItem
  */
 public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
                                                             Accessible
 {
   private static final long serialVersionUID = -6676402307973384715L;
 
+  /** name for the UI delegate for this menuItem. */
   private static final String uiClassID = "CheckBoxMenuItemUI";
+
+  /** Indicates whether this menu item is checked. */
   private boolean state;
-  private Object[] selectedObjects;
+
+  /**
+   * This array contains text of this menu item if this menu item is in
+   * checked state and null it is not.
+   */
+  private Object[] selectedObjects = new Object[1];
 
   /**
    * Creates a new JCheckBoxMenuItem object.
@@ -65,9 +73,9 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * Creates a new JCheckBoxMenuItem object.
+   * Creates a new JCheckBoxMenuItem with given icon
    *
-   * @param icon DOCUMENT ME!
+   * @param icon Icon for this menu item
    */
   public JCheckBoxMenuItem(Icon icon)
   {
@@ -75,9 +83,9 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * Creates a new JCheckBoxMenuItem object.
+   * Creates a new JCheckBoxMenuItem with given label
    *
-   * @param text DOCUMENT ME!
+   * @param text Label for this menu item
    */
   public JCheckBoxMenuItem(String text)
   {
@@ -85,9 +93,9 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * Creates a new JCheckBoxMenuItem object.
+   * Creates a new JCheckBoxMenuItem using given action
    *
-   * @param action DOCUMENT ME!
+   * @param action Action for this menu item.
    */
   public JCheckBoxMenuItem(Action action)
   {
@@ -96,10 +104,10 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * Creates a new JCheckBoxMenuItem object.
+   * Creates a new JCheckBoxMenuItem object with given label and icon
    *
-   * @param text DOCUMENT ME!
-   * @param icon DOCUMENT ME!
+   * @param text Label for this menu item
+   * @param icon Icon for this menu item
    */
   public JCheckBoxMenuItem(String text, Icon icon)
   {
@@ -107,10 +115,11 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * Creates a new JCheckBoxMenuItem object.
+   * Creates a new JCheckBoxMenuItem object using specified label and
+   * marked as checked if given 'state' is true
    *
-   * @param text DOCUMENT ME!
-   * @param state DOCUMENT ME!
+   * @param text Label for this menu item
+   * @param state True if this item should be in checked state and false otherwise
    */
   public JCheckBoxMenuItem(String text, boolean state)
   {
@@ -118,11 +127,12 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * Creates a new JCheckBoxMenuItem object.
+   * Creates a new JCheckBoxMenuItem object with given label, icon,
+   * and marked as checked if given 'state' is true
    *
-   * @param text DOCUMENT ME!
-   * @param icon DOCUMENT ME!
-   * @param state DOCUMENT ME!
+   * @param text Label for this menu item
+   * @param icon icon for this menu item
+   * @param state  True if this item should be in checked state and false otherwise
    */
   public JCheckBoxMenuItem(String text, Icon icon, boolean state)
   {
@@ -131,22 +141,15 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
     this.state = state;
   }
 
-  /**
-   * DOCUMENT ME!
-   *
-   * @param stream DOCUMENT ME!
-   *
-   * @throws IOException DOCUMENT ME!
-   */
   private void writeObject(ObjectOutputStream stream) throws IOException
   {
-    // TODO
   }
 
   /**
-   * DOCUMENT ME!
+   * This method returns a name to identify which look and feel class will be
+   * the UI delegate for the menuItem.
    *
-   * @return $returnType$ DOCUMENT ME!
+   * @return The Look and Feel classID. "JCheckBoxMenuItemUI"
    */
   public String getUIClassID()
   {
@@ -154,9 +157,10 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * DOCUMENT ME!
+   * Returns checked state for this check box menu item.
    *
-   * @return $returnType$ DOCUMENT ME!
+   * @return Returns true if this menu item is in checked state
+   * and false otherwise.
    */
   public boolean getState()
   {
@@ -164,9 +168,12 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * DOCUMENT ME!
+   * Sets state for this check box menu item. If
+   * given 'state' is true, then mark menu item as checked,
+   * and uncheck this menu item otherwise.
    *
-   * @param state DOCUMENT ME!
+   * @param state new state for this menu item
+   *
    */
   public synchronized void setState(boolean state)
   {
@@ -174,38 +181,43 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
   }
 
   /**
-   * DOCUMENT ME!
+   * This method returns array containing label of this
+   * menu item if it is selected and null otherwise.
    *
-   * @return $returnType$ DOCUMENT ME!
+   * @return Array containing label of this
+   * menu item if this menu item is selected or null otherwise.
    */
   public Object[] getSelectedObjects()
   {
+    if (state == true)
+      selectedObjects[0] = this.getText();
+    else
+      selectedObjects[0] = null;
+
     return selectedObjects;
   }
 
   /**
-   * DOCUMENT ME!
-   */
+    * This method overrides JComponent.requestFocus with an empty
+    * implementation, since JCheckBoxMenuItems should not
+    * receve focus in general.
+    */
   public void requestFocus()
   {
-    // TODO
+    //  Should do nothing here
   }
 
   /**
-   * DOCUMENT ME!
+   * A string that describes this JCheckBoxMenuItem. Normally only used
+   * for debugging.
    *
-   * @return $returnType$ DOCUMENT ME!
+   * @return A string describing this JCheckBoxMenuItem
    */
   protected String paramString()
   {
     return "JCheckBoxMenuItem";
   }
 
-  /**
-   * DOCUMENT ME!
-   *
-   * @return $returnType$ DOCUMENT ME!
-   */
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
@@ -214,9 +226,6 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
     return accessibleContext;
   }
 
-  /**
-   * DOCUMENT ME!
-   */
   protected class AccessibleJCheckBoxMenuItem extends AccessibleJMenuItem
   {
     private static final long serialVersionUID = 1079958073579370777L;
@@ -228,11 +237,6 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
     {
     }
 
-    /**
-     * DOCUMENT ME!
-     *
-     * @return $returnType$ DOCUMENT ME!
-     */
     public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.CHECK_BOX;
