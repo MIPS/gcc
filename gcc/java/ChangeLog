@@ -1,3 +1,11 @@
+2004-10-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* verify-impl.c (type_array_elementpop_raw, vfy_pop_type_t, 
+	vfy_push_type_t, set_variable, add_new_state, merge_into,
+	handle_jsr_insn, branch_prepass, check_class_constant,
+	check_wide_constant, get_one_type, compute_static_types, 
+	verify_instructions_0): Clean up C99 declarations after statements.
+
 2004-10-20  Tom Tromey  <tromey@redhat.com>
 
 	* verify-impl.c (merge_refs): Compare reference against iterator,

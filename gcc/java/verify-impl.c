@@ -845,11 +845,12 @@ static type
 type_array_element (type *t)
 {
   type et;
+  vfy_jclass k;
 
   if (t->key != reference_type)
     verify_fail ("programmer error in type::element_type()");
 
-  vfy_jclass k = vfy_get_component_type (ref_getclass (t->klass));
+  k = vfy_get_component_type (ref_getclass (t->klass));
   if (vfy_is_primitive (k))
     init_type_from_tag (&et, get_type_val_for_primtype (k));
   else
@@ -936,6 +937,7 @@ merge_types (type *t, type *old_type, bool local_semantics)
 	verify_fail ("merging initialized and uninitialized types");
       else
 	{
+	  ref_intersection *merged;
 	  if (! type_initialized (t))
 	    {
 	      if (t->pc == UNINIT)
@@ -946,7 +948,7 @@ merge_types (type *t, type *old_type, bool local_semantics)
 		verify_fail ("merging different uninitialized types");
 	    }
 
-	  ref_intersection *merged = merge_refs (old_type->klass, t->klass);
+	  merged = merge_refs (old_type->klass, t->klass);
 	  if (merged != t->klass)
 	    {
 	      t->klass = merged;
@@ -1311,10 +1313,11 @@ debug_print_state (state *s ATTRIBUTE_UNUSED,
 static type
 pop_raw (void)
 {
+  type r;
   state *s = vfr->current_state;
   if (s->stacktop <= 0)
     verify_fail ("stack empty");
-  type r = s->stack[--s->stacktop];
+  r = s->stack[--s->stacktop];
   s->stackdepth -= type_depth (&r);
   if (s->stackdepth < 0)
     verify_fail_pc ("stack empty", vfr->start_PC);
@@ -1333,8 +1336,9 @@ pop32 (void)
 static type
 vfy_pop_type_t (type match)
 {
+  type t;
   vfy_promote_type (&match);
-  type t = pop_raw ();
+  t = pop_raw ();
   if (! types_compatible (&match, &t))
     verify_fail ("incompatible type on stack");
   return t;
@@ -1384,11 +1388,12 @@ pop_ref_or_return (void)
 static void
 vfy_push_type_t (type t)
 {
+  int depth;
   state *s = vfr->current_state;
   /* If T is a numeric type like short, promote it to int.  */
   promote_type (&t);
 
-  int depth = type_depth (&t);
+  depth = type_depth (&t);
 
   if (s->stackdepth + depth > vfr->current_method->max_stack)
     verify_fail ("stack overflow");
@@ -1409,11 +1414,12 @@ vfy_push_type (type_val tval)
 static void
 set_variable (int index, type t)
 {
+  int depth;
   state *s = vfr->current_state;
   /* If T is a numeric type like short, promote it to int.  */
   promote_type (&t);
 
-  int depth = type_depth (&t);
+  depth = type_depth (&t);
   if (index > vfr->current_method->max_locals - depth)
     verify_fail ("invalid local variable");
   s->locals[index] = t;
@@ -1538,6 +1544,7 @@ compute_jump (int offset)
 static state *
 add_new_state (int npc, state *old_state)
 {
+  state_list *nlink;
   vfy_method *current_method = vfr->current_method;
   state *new_state = make_state_copy (old_state, current_method->max_stack,
 				      current_method->max_locals);
@@ -1545,7 +1552,7 @@ add_new_state (int npc, state *old_state)
   debug_print_state (new_state, "New", npc, current_method->max_stack,
 		    current_method->max_locals);
 
-  state_list *nlink = vfy_alloc (sizeof (state_list));
+  nlink = vfy_alloc (sizeof (state_list));
   nlink->val = new_state;
   nlink->next = vfr->states[npc];
   vfr->states[npc] = nlink;
@@ -1579,6 +1586,7 @@ merge_into (int npc, state *from_state)
       if (state_mergeable_p (new_state, from_state,
 					current_method->max_locals))
 	{
+	  bool changed;
 	  applicable = true;
 
 	  debug_print ("== Merge states in merge_into\n");
@@ -1586,8 +1594,8 @@ merge_into (int npc, state *from_state)
 			     current_method->max_locals);
 	  debug_print_state (new_state, " To", npc, current_method->max_stack,
 			    current_method->max_locals);
-	  bool changed = merge_states (new_state, from_state,
-					   current_method->max_locals);
+	  changed = merge_states (new_state, from_state,
+				  current_method->max_locals);
 	  debug_print_state (new_state, "New", npc, current_method->max_stack,
 			    current_method->max_locals);
 
@@ -1701,6 +1709,7 @@ handle_ret_insn (int index)
 
 static void handle_jsr_insn (int offset)
 {
+  type ret_addr;
   int npc = compute_jump (offset);
 
   if (npc < vfr->PC)
@@ -1709,7 +1718,7 @@ static void handle_jsr_insn (int offset)
 					  false);
 
   /* Modify our state as appropriate for entry into a subroutine.  */
-  type ret_addr = make_type (return_address_type);
+  ret_addr = make_type (return_address_type);
   type_set_return_address (&ret_addr, vfr->PC);
   vfy_push_type_t (ret_addr);
   merge_into (npc, vfr->current_state);
@@ -1763,12 +1772,13 @@ branch_prepass (void)
   vfr->PC = 0;
   while (vfr->PC < vfr->current_method->code_length)
     {
+      java_opcode opcode;
       /* Set `start_PC' early so that error checking can have the
          correct value.  */
       vfr->start_PC = vfr->PC;
       vfr->flags[vfr->PC] |= FLAG_INSN_START;
 
-      java_opcode opcode = (java_opcode) vfr->bytecode[vfr->PC++];
+      opcode = (java_opcode) vfr->bytecode[vfr->PC++];
       switch (opcode)
 	{
 	case op_nop:
@@ -1983,10 +1993,11 @@ branch_prepass (void)
 
 	case op_tableswitch:
 	  {
+	    jint low, hi;
 	    skip_padding ();
 	    note_branch_target (compute_jump (get_int ()));
-	    jint low = get_int ();
-	    jint hi = get_int ();
+	    low = get_int ();
+	    hi = get_int ();
 	    if (low > hi)
 	      verify_fail_pc ("invalid tableswitch", vfr->start_PC);
 	    for (i = low; i <= hi; ++i)
@@ -1996,9 +2007,10 @@ branch_prepass (void)
 
 	case op_lookupswitch:
 	  {
+	    int npairs;
 	    skip_padding ();
 	    note_branch_target (compute_jump (get_int ()));
-	    int npairs = get_int ();
+	    npairs = get_int ();
 	    if (npairs < 0)
 	      verify_fail_pc ("too few pairs in lookupswitch", vfr->start_PC);
 	    while (npairs-- > 0)
@@ -2098,8 +2110,10 @@ static type
 check_class_constant (int index)
 {
   type t;
+  vfy_constants *pool;
+
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (vfr->current_class);
+  pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) == JV_CONSTANT_ResolvedClass)
     init_type_from_class (&t, vfy_get_pool_class (pool, index));
   else if (vfy_tag (pool, index) == JV_CONSTANT_Class)
@@ -2113,8 +2127,10 @@ static type
 check_constant (int index)
 {
   type t;
+  vfy_constants *pool;
+
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (vfr->current_class);
+  pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) == JV_CONSTANT_ResolvedString
       || vfy_tag (pool, index) == JV_CONSTANT_String)
     init_type_from_class (&t, vfy_string_type ());
@@ -2131,8 +2147,10 @@ static type
 check_wide_constant (int index)
 {
   type t;
+  vfy_constants *pool;
+
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (vfr->current_class);
+  pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) == JV_CONSTANT_Long)
     init_type_from_tag (&t, long_type);
   else if (vfy_tag (pool, index) == JV_CONSTANT_Double)
@@ -2148,16 +2166,18 @@ static type
 handle_field_or_method (int index, int expected,
 			vfy_string *name, vfy_string *fmtype)
 {
+  vfy_uint_16 class_index, name_and_type_index;
+  vfy_uint_16 name_index, desc_index;
+  vfy_constants *pool;
+
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (vfr->current_class);
+  pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) != expected)
     verify_fail_pc ("didn't see expected constant", vfr->start_PC);
   /* Once we know we have a Fieldref or Methodref we assume that it
      is correctly laid out in the constant pool.  I think the code
      in defineclass.cc guarantees this.  */
-  vfy_uint_16 class_index, name_and_type_index;
   vfy_load_indexes (pool, index, &class_index, &name_and_type_index);
-  vfy_uint_16 name_index, desc_index;
   vfy_load_indexes (pool, name_and_type_index, &name_index, &desc_index);
 
   *name = vfy_get_pool_string (pool, name_index);
@@ -2205,6 +2225,9 @@ static char *
 get_one_type (char *p, type *t)
 {
   const char *start = p;
+  vfy_jclass k;
+  type_val rt;
+  char v;
 
   int arraycount = 0;
   while (*p == '[')
@@ -2213,21 +2236,22 @@ get_one_type (char *p, type *t)
       ++p;
     }
 
-  char v = *p++;
+  v = *p++;
 
   if (v == 'L')
     {
+      vfy_string name;
       while (*p != ';')
 	++p;
       ++p;
-      vfy_string name = vfy_get_string (start, p - start);
+      name = vfy_get_string (start, p - start);
       *t = make_type_from_string (name);
       return p;
     }
 
   /* Casting to jchar here is ok since we are looking at an ASCII
      character.  */
-  type_val rt = get_type_val_for_signature (v);
+  rt = get_type_val_for_signature (v);
 
   if (arraycount == 0)
     {
@@ -2239,7 +2263,7 @@ get_one_type (char *p, type *t)
       return p;
     }
 
-  vfy_jclass k = construct_primitive_array_type (rt);
+  k = construct_primitive_array_type (rt);
   while (--arraycount > 0)
     k = vfy_get_array_class (k);
   *t = make_type_from_class (k);
@@ -2249,12 +2273,13 @@ get_one_type (char *p, type *t)
 static void 
 compute_argument_types (vfy_string signature, type *types)
 {
+  int i;
   char *p = (char *) vfy_string_bytes (signature);
 
   /* Skip `('.  */
   ++p;
 
-  int i = 0;
+  i = 0;
   while (*p != ')')
     p = get_one_type (p, &types[i++]);
 }
@@ -2313,15 +2338,17 @@ initialize_stack (void)
 
   /* We have to handle wide arguments specially here.  */
   arg_count = vfy_count_arguments (vfy_get_signature (vfr->current_method));
-  type arg_types[arg_count];
-  compute_argument_types (vfy_get_signature (vfr->current_method), arg_types);
-  for (i = 0; i < arg_count; ++i)
-    {
-      set_variable (var, arg_types[i]);
-      ++var;
-      if (type_iswide (&arg_types[i]))
+  {
+    type arg_types[arg_count];
+    compute_argument_types (vfy_get_signature (vfr->current_method), arg_types);
+    for (i = 0; i < arg_count; ++i)
+      {
+	set_variable (var, arg_types[i]);
 	++var;
-    }
+	if (type_iswide (&arg_types[i]))
+	  ++var;
+      }
+  }
 
   return is_init;
 }
@@ -2330,6 +2357,7 @@ static void
 verify_instructions_0 (void)
 {
   int i;
+  bool this_is_init;
 
   vfr->current_state = make_state (vfr->current_method->max_stack,
 				   vfr->current_method->max_locals);
@@ -2338,7 +2366,7 @@ verify_instructions_0 (void)
   vfr->start_PC = 0;
 
   /*  True if we are verifying an instance initializer.  */
-  bool this_is_init = initialize_stack ();
+  this_is_init = initialize_stack ();
 
   vfr->states = (state_list **) vfy_alloc (sizeof (state_list *)
 				      * vfr->current_method->code_length);
@@ -2350,6 +2378,8 @@ verify_instructions_0 (void)
 
   while (true)
     {
+      java_opcode opcode;
+
       /* If the PC was invalidated, get a new one from the work list.  */
       if (vfr->PC == NO_NEXT)
 	{
@@ -2425,7 +2455,7 @@ verify_instructions_0 (void)
       debug_print_state (vfr->current_state, "   ", vfr->PC, 
 			 vfr->current_method->max_stack,
 			 vfr->current_method->max_locals);
-      java_opcode opcode = (java_opcode) vfr->bytecode[vfr->PC++];
+      opcode = (java_opcode) vfr->bytecode[vfr->PC++];
       switch (opcode)
 	{
 	case op_nop:
@@ -2945,11 +2975,12 @@ verify_instructions_0 (void)
 	case op_tableswitch:
 	  {
 	    int i;
+	    jint low, high;
 	    pop_type (int_type);
 	    skip_padding ();
 	    push_jump (get_int ());
-	    jint low = get_int ();
-	    jint high = get_int ();
+	    low = get_int ();
+	    high = get_int ();
 	    /* Already checked LOW -vs- HIGH.  */
 	    for (i = low; i <= high; ++i)
 	      push_jump (get_int ());
@@ -2960,12 +2991,14 @@ verify_instructions_0 (void)
 	case op_lookupswitch:
 	  {
 	    int i;
+	    jint npairs, lastkey;
+
 	    pop_type (int_type);
 	    skip_padding ();
 	    push_jump (get_int ());
-	    jint npairs = get_int ();
+	    npairs = get_int ();
 	    /* Already checked NPAIRS >= 0.  */
-	    jint lastkey = 0;
+	    lastkey = 0;
 	    for (i = 0; i < npairs; ++i)
 	      {
 		jint key = get_int ();
@@ -3042,7 +3075,9 @@ verify_instructions_0 (void)
 	  {
 	    vfy_string method_name, method_signature;
 	    const char *namec;
-	    int i;
+	    int i, arg_count;
+	    type rt;
+	    bool is_init = false;
 
 	    type class_type
 	      = check_method_constant (get_ushort (),
@@ -3060,7 +3095,6 @@ verify_instructions_0 (void)
 		  verify_fail ("invokeinterface dummy byte is wrong");
 	      }
 
-	    bool is_init = false;
 	    namec = vfy_string_bytes (method_name);
 
 	    if (vfy_strings_equal (method_name, vfy_init_name()))
@@ -3072,17 +3106,20 @@ verify_instructions_0 (void)
 	    else if (namec[0] == '<')
 	      verify_fail ("can't invoke method starting with `<'");
 
-	    /* Pop arguments and check types.  */
-	    int arg_count = vfy_count_arguments (method_signature);
-	    type arg_types[arg_count];
-	    compute_argument_types (method_signature, arg_types);
-	    for (i = arg_count - 1; i >= 0; --i)
-	      {
-		/* This is only used for verifying the byte for
-		   invokeinterface.  */
-		nargs -= type_depth (&arg_types[i]);
-		pop_init_ref_t (arg_types[i]);
-	      }
+	    arg_count = vfy_count_arguments (method_signature);
+            {
+	      /* Pop arguments and check types.  */
+	      type arg_types[arg_count];
+
+	      compute_argument_types (method_signature, arg_types);
+	      for (i = arg_count - 1; i >= 0; --i)
+		{
+		  /* This is only used for verifying the byte for
+		     invokeinterface.  */
+		  nargs -= type_depth (&arg_types[i]);
+		  pop_init_ref_t (arg_types[i]);
+		}
+	    }
 
 	    if (opcode == op_invokeinterface
 		&& nargs != 1)
@@ -3090,6 +3127,7 @@ verify_instructions_0 (void)
 
 	    if (opcode != op_invokestatic)
 	      {
+	        type raw;
 		type t = class_type;
 		if (is_init)
 		  {
@@ -3100,7 +3138,7 @@ verify_instructions_0 (void)
 		       It must either be super or an exact class
 		       match.  */
 		  }
-		type raw = pop_raw ();
+		raw = pop_raw ();
 		if (! types_compatible (&t, &raw))
 		  verify_fail ("incompatible type on stack");
 
@@ -3109,7 +3147,7 @@ verify_instructions_0 (void)
 		    type_get_pc (&raw), vfr->current_method->max_locals);
 	      }
 
-	    type rt = compute_return_type (method_signature);
+	    rt = compute_return_type (method_signature);
 	    if (! type_isvoid (&rt))
 	      push_type_t (rt);
 	  }
