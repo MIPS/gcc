@@ -42,6 +42,7 @@
 #include "timevar.h"
 #include "debug.h"
 #include "cgraph.h"
+#include "target.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -597,13 +598,15 @@ finish_return_stmt (tree expr)
   expr = check_return_expr (expr);
   if (!processing_template_decl)
     {
-      if (DECL_DESTRUCTOR_P (current_function_decl))
+      if (DECL_DESTRUCTOR_P (current_function_decl)
+	  || (DECL_CONSTRUCTOR_P (current_function_decl) 
+	      && targetm.cxx.cdtor_returns_this ()))
 	{
 	  /* Similarly, all destructors must run destructors for
 	     base-classes before returning.  So, all returns in a
 	     destructor get sent to the DTOR_LABEL; finish_function emits
 	     code to return a value there.  */
-	  return finish_goto_stmt (dtor_label);
+	  return finish_goto_stmt (cdtor_label);
 	}
     }
   r = add_stmt (build_stmt (RETURN_STMT, expr));

@@ -450,6 +450,8 @@ struct gcc_target
     /* Returns true if the element size should be stored in the
        array cookie.  */
     bool (*cookie_has_size) (void);
+    /* Returns true if constructors and destructors return "this".  */
+    bool (*cdtor_returns_this) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

@@ -98,7 +98,6 @@ static tree check_initializer (tree, tree, int, tree *);
 static void make_rtl_for_nonlocal_decl (tree, tree, const char *);
 static void save_function_data (tree);
 static void check_function_type (tree, tree);
-static void begin_constructor_body (void);
 static void finish_constructor_body (void);
 static void begin_destructor_body (void);
 static void finish_destructor_body (void);
@@ -6277,7 +6276,8 @@ create_array_type_for_decl (tree name, tree type, tree size)
 /* Check that it's OK to declare a function with the indicated TYPE.
    SFK indicates the kind of special function (if any) that this
    function is.  OPTYPE is the type given in a conversion operator
-   declaration.  Returns the actual return type of the function; that
+   declaration, or the class type for a constructor/destructor.
+   Returns the actual return type of the function; that
    may be different than TYPE if an error occurs, or for certain
    special functions.  */
 
@@ -6292,13 +6292,23 @@ check_special_function_return_type (special_function_kind sfk,
       if (type)
 	error ("return type specification for constructor invalid");
 
-      type = void_type_node;
+      if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
+	type = build_pointer_type (optype);
+      else
+	type = void_type_node;
       break;
 
     case sfk_destructor:
       if (type)
 	error ("return type specification for destructor invalid");
-      type = void_type_node;
+      /* We can't use the proper return type here because we run into
+	 problems with abiguous bases and covariant returns.
+	 Java classes are left unchanged because (void *) isn't a valid
+	 Java type, and we don't want to change the Java ABI.  */
+      if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
+	type = build_pointer_type (void_type_node);
+      else
+	type = void_type_node;
       break;
 
     case sfk_conversion:
@@ -6882,6 +6892,9 @@ grokdeclarator (tree declarator,
       type = integer_type_node;
       defaulted_int = 1;
     }
+
+  if (sfk != sfk_conversion)
+    ctor_return_type = ctype;
 
   if (sfk != sfk_none)
     type = check_special_function_return_type (sfk, type,
@@ -10384,10 +10397,12 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   ++function_depth;
 
-  if (DECL_DESTRUCTOR_P (decl1))
+  if (DECL_DESTRUCTOR_P (decl1)
+      || (DECL_CONSTRUCTOR_P (decl1)
+	  && targetm.cxx.cdtor_returns_this ()))
     {
-      dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (dtor_label) = current_function_decl;
+      cdtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (cdtor_label) = current_function_decl;
     }
 
   start_fname_decls ();
@@ -10511,22 +10526,26 @@ save_function_data (tree decl)
     }
 }
 
-/* Add a note to mark the beginning of the main body of the constructor.
-   This is used to set up the data structures for the cleanup regions for
-   fully-constructed bases and members.  */
 
-static void
-begin_constructor_body (void)
-{
-}
-
-/* Add a note to mark the end of the main body of the constructor.  This is
-   used to end the cleanup regions for fully-constructed bases and
-   members.  */
+/* Set the return value of the constructor (if present).  */
 
 static void
 finish_constructor_body (void)
 {
+  tree val;
+
+  if (targetm.cxx.cdtor_returns_this ())
+    {
+      /* Any return from a constructor will end up here.  */
+      add_stmt (build_stmt (LABEL_STMT, cdtor_label));
+
+      val = DECL_ARGUMENTS (current_function_decl);
+      val = build (MODIFY_EXPR, TREE_TYPE (val),
+		   DECL_RESULT (current_function_decl), val);
+      /* Return the address of the object.  */
+      add_stmt (build_stmt (RETURN_STMT, val));
+      finish_stmt ();
+    }
 }
 
 /* Do all the processing for the beginning of a destructor; set up the
@@ -10586,7 +10605,7 @@ finish_destructor_body (void)
 
   /* Any return from a destructor will end up here; that way all base
      and member cleanups will be run when the function returns.  */
-  add_stmt (build_stmt (LABEL_STMT, dtor_label));
+  add_stmt (build_stmt (LABEL_STMT, cdtor_label));
 
   /* In a virtual destructor, we must call delete.  */
   if (DECL_VIRTUAL_P (current_function_decl))
@@ -10612,6 +10631,18 @@ finish_destructor_body (void)
       finish_expr_stmt (exprstmt);
       finish_then_clause (if_stmt);
       finish_if_stmt ();
+    }
+
+  if (targetm.cxx.cdtor_returns_this ())
+    {
+      tree val;
+
+      val = DECL_ARGUMENTS (current_function_decl);
+      val = build (MODIFY_EXPR, TREE_TYPE (val),
+		   DECL_RESULT (current_function_decl), val);
+      /* Return the address of the object.  */
+      add_stmt (build_stmt (RETURN_STMT, val));
+      finish_stmt ();
     }
 }
 
@@ -10639,8 +10670,6 @@ begin_function_body (void)
 
   if (processing_template_decl)
     /* Do nothing now.  */;
-  else if (DECL_CONSTRUCTOR_P (current_function_decl))
-    begin_constructor_body ();
   else if (DECL_DESTRUCTOR_P (current_function_decl))
     begin_destructor_body ();
 
@@ -10845,7 +10874,10 @@ finish_function (int flags)
       && !DECL_NAME (DECL_RESULT (fndecl))
       /* Normally, with -Wreturn-type, flow will complain.  Unless we're an
 	 inline function, as we might never be compiled separately.  */
-      && (DECL_INLINE (fndecl) || processing_template_decl))
+      && (DECL_INLINE (fndecl) || processing_template_decl)
+      /* Structor return values (if any) are set by the compiler.  */
+      && !DECL_CONSTRUCTOR_P (fndecl)
+      && !DECL_DESTRUCTOR_P (fndecl))
     warning ("no return statement in function returning non-void");
 
   /* We're leaving the context of this function, so zap cfun.  It's still in

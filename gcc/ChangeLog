@@ -1,3 +1,12 @@
+2004-08-05  Paul Brook  <paul@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_CDTOR_RETURNS_THIS): Define.
+	(TARGET_CXX): Use it.
+	* target.h (struct gcc_target): Add cdtor_returns_this.
+	* config/arm/arm.c (arm_cxx_cdtor_returns_this): New function.
+	(TARGET_CXX_CDTOR_RETURNS_THIS): Define.
+	* doc/tm.texi: Document TARGET_CXX_CDTOR_RETURNS_THIS.
+
 2004-08-03  Richard Earnshaw  <rearnsha@arm.com>
 
 	* arm-cores.def: Sort by architecture.  Add arm946es, arm966es,

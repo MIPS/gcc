@@ -8508,6 +8508,12 @@ This hook should return @code{true} if the element size should be stored in
 array cookies.  The default is to return @code{false}.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CXX_CDTOR_RETURNS_THIS (void)
+This hook should return @code{true} if constructors and destructors return
+the address of the object created/destroyed.  The default is to return
+@code{false}.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous
