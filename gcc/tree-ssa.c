@@ -149,7 +149,7 @@ static void update_indirect_ref_vuses	PARAMS ((tree, tree, varray_type));
 static void update_pointer_vuses	PARAMS ((tree, tree, varray_type));
 static void insert_phi_nodes_for	PARAMS ((tree, bitmap *));
 static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
-static tree currdef_for			PARAMS ((tree, int));
+static tree get_reaching_def		PARAMS ((tree));
 static tree get_value_for		PARAMS ((tree, htab_t));
 static void set_value_for		PARAMS ((tree, tree, htab_t));
 static hashval_t def_blocks_hash	PARAMS ((const void *));
@@ -162,6 +162,7 @@ static tree lookup_avail_expr		PARAMS ((tree, varray_type *));
 static hashval_t avail_expr_hash	PARAMS ((const void *));
 static int avail_expr_eq		PARAMS ((const void *, const void *));
 static struct def_blocks_d *get_def_blocks_for PARAMS ((tree));
+static void htab_statistics		PARAMS ((FILE *, htab_t));
 
 /* FIXME: [UNSSA] Remove once the real unSSA pass is implemented.  */
 #if 1
@@ -424,7 +425,7 @@ mark_def_sites (idom, globals)
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree *use = VARRAY_GENERIC_PTR (ops, i);
-	      int uid = var_ann (*use)->uid;
+	      size_t uid = var_ann (*use)->uid;
 
 	      if (! TEST_BIT (kills, uid))
 		{
@@ -438,7 +439,7 @@ mark_def_sites (idom, globals)
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree use = VARRAY_TREE (ops, i);
-	      int uid = var_ann (use)->uid;
+	      size_t uid = var_ann (use)->uid;
 
 	      if (! TEST_BIT (kills, uid))
 	        {
@@ -457,7 +458,7 @@ mark_def_sites (idom, globals)
 	    {
 	      tree vdef = VARRAY_TREE (ops, i);
 	      tree vdef_op = VDEF_OP (vdef);
-	      int uid = var_ann (vdef_op)->uid;
+	      size_t uid = var_ann (vdef_op)->uid;
 
 	      set_def_block (VDEF_RESULT (vdef), bb);
 	      if (!TEST_BIT (kills, uid))
@@ -465,7 +466,6 @@ mark_def_sites (idom, globals)
 		  SET_BIT (globals, uid);
 	          set_livein_block (vdef_op, bb);
 		}
-
 	    }
 
 	  /* Now process the definition made by this statement.  */
@@ -475,7 +475,6 @@ mark_def_sites (idom, globals)
 	      set_def_block (*dest, bb);
 	      SET_BIT (kills, var_ann (*dest)->uid);
 	    }
-
 	}
     }
 
@@ -665,7 +664,7 @@ rewrite_block (bb)
 	{
 	  /* FIXME.  [UNSSA] After fixing the SSA->normal pass, allow
 	     constants and copies to be propagated into PHI arguments.  */
-	  tree currdef = currdef_for (SSA_NAME_VAR (PHI_RESULT (phi)), true);
+	  tree currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
 	  add_phi_arg (phi, currdef, e);
 	}
     }
@@ -895,6 +894,20 @@ dump_tree_ssa_stats (file)
 	   tmp, PERCENT (tmp, n_exprs));
 #endif
 
+  fprintf (file, "\nHash table statistics:\n");
+
+  fprintf (file, "    def_blocks: ");
+  htab_statistics (file, def_blocks);
+
+  fprintf (file, "    currdefs: ");
+  htab_statistics (file, currdefs);
+
+  fprintf (file, "    avail_exprs: ");
+  htab_statistics (file, avail_exprs);
+
+  fprintf (file, "    const_and_copies: ");
+  htab_statistics (file, const_and_copies);
+
   fprintf (file, "\n");
 }
 
@@ -907,6 +920,19 @@ debug_tree_ssa_stats ()
   dump_tree_ssa_stats (stderr);
 }
 
+
+/* Dump statistics for the hash table HTAB.  */
+
+static void
+htab_statistics (file, htab)
+     FILE *file;
+     htab_t htab;
+{
+  fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
+	   (long) htab_size (htab),
+	   (long) htab_elements (htab),
+	   htab_collisions (htab));
+}
 
 
 /*---------------------------------------------------------------------------
@@ -1277,7 +1303,7 @@ static inline void
 rewrite_operand (op_p)
      tree *op_p;
 {
-  tree op, currdef;
+  tree op;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*op_p) == SSA_NAME)
@@ -1302,13 +1328,12 @@ rewrite_operand (op_p)
   op = *op_p;
   if (TREE_CODE (op) == INDIRECT_REF)
     {
-      tree base = currdef_for (TREE_OPERAND (op, 0), false);
+      tree base = get_value_for (TREE_OPERAND (op, 0), currdefs);
       if (base && SSA_NAME_VAR (base) != TREE_OPERAND (op, 0))
 	op = indirect_ref (base);
     }
 
-  currdef = currdef_for (op, true);
-  *op_p = currdef;
+  *op_p = get_reaching_def (op);
 }
 
 
@@ -1321,7 +1346,7 @@ register_new_def (var, def, block_defs_p)
      tree def;
      varray_type *block_defs_p;
 {
-  tree currdef = currdef_for (var, false);
+  tree currdef = get_value_for (var, currdefs);
 
   /* If the current reaching definition is NULL or a constant, push the
      variable itself so that rewrite_blocks knows what variable is
@@ -1412,20 +1437,10 @@ init_tree_ssa ()
   next_ssa_version = 1;
   num_referenced_vars = 0;
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
+  num_call_clobbered_vars = 0;
+  VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
   memset ((void *) &ssa_stats, 0, sizeof (ssa_stats));
-
-  /* Declare an artificial global variable to act as a representative of
-     all the variables that may be clobbered by function calls.  */
-  global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
-                           ptr_type_node);
-  DECL_ARTIFICIAL (global_var) = 1;
-  TREE_READONLY (global_var) = 0;
-  DECL_EXTERNAL (global_var) = 0;
-  TREE_STATIC (global_var) = 0;
-  TREE_USED (global_var) = 1;
-  DECL_CONTEXT (global_var) = NULL_TREE;
-  TREE_THIS_VOLATILE (global_var) = 1;
-  TREE_ADDRESSABLE (global_var) = 1;
+  global_var = NULL_TREE;
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (num_referenced_vars, def_blocks_hash,
@@ -1436,10 +1451,10 @@ init_tree_ssa ()
 			  free);
 
   /* Allocate memory for the AVAIL_EXPRS hash table.  */
-  avail_exprs = htab_create (100, avail_expr_hash, avail_expr_eq, NULL);
+  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
 
   /* Allocate memory for the CONST_AND_COPIES hash table.  */
-  const_and_copies = htab_create (50, var_value_hash, var_value_eq, free);
+  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
 }
 
 
@@ -1449,7 +1464,7 @@ static void
 delete_tree_ssa (fndecl)
      tree fndecl;
 {
-  unsigned long int i;
+  size_t i;
 
   /* Remove annotations from every tree in the function.  */
   walk_tree (&DECL_SAVED_TREE (fndecl), remove_annotations_r, NULL, NULL);
@@ -1461,6 +1476,8 @@ delete_tree_ssa (fndecl)
   num_referenced_vars = 0;
   referenced_vars = NULL;
   global_var = NULL_TREE;
+  num_call_clobbered_vars = 0;
+  call_clobbered_vars = NULL;
 }
 
 
@@ -1500,23 +1517,33 @@ remove_annotations_r (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
-/* Return the current definition for variable V.  If none is found and
-   CREATE_DEFAULT is nonzero, create a new SSA name to act as the zeroth
-   definition for V.  */
+/* Return the current definition for variable VAR.  If none is found,
+   create a new SSA name to act as the zeroth definition for VAR.  If VAR
+   is call clobbered and there exists a more recent definition of
+   GLOBAL_VAR, return the definition for GLOBAL_VAR.  This means that VAR
+   has been clobbered by a function call since its last assignment.  */
 
 static tree
-currdef_for (v, create_default)
-     tree v;
-     int create_default;
+get_reaching_def (var)
+     tree var;
 {
-  tree def = get_value_for (v, currdefs);
-  if (def == NULL_TREE && create_default)
+  tree default_def, currdef_var;
+  
+  /* Lookup the current reaching definition for VAR.  */
+  default_def = NULL_TREE;
+  currdef_var = get_value_for (var, currdefs);
+
+  /* If there is no reaching definition for VAR, create and register a
+     default definition for it.  */
+  if (currdef_var == NULL_TREE)
     {
-      def = make_ssa_name (v, empty_stmt_node);
-      set_value_for (v, def, currdefs);
+      default_def = make_ssa_name (var, empty_stmt_node);
+      set_value_for (var, default_def, currdefs);
     }
 
-  return def;
+  /* Return the current reaching definition for VAR, or the default
+     definition, if we had to create one.  */
+  return (currdef_var) ? currdef_var : default_def;
 }
 
 
@@ -1751,8 +1778,30 @@ avail_expr_eq (p1, p2)
   s2 = (tree) p2;
   rhs2 = TREE_OPERAND (s2, 1);
 
-  return (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-	  && simple_cst_equal (rhs1, rhs2) == 1);
+  /* In case of a collision, both RHS have to be identical and have the
+     same VUSE operands.  */
+  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
+      && simple_cst_equal (rhs1, rhs2) == 1)
+    {
+      varray_type ops1 = vuse_ops (s1);
+      varray_type ops2 = vuse_ops (s2);
+
+      if (ops1 == NULL && ops2 == NULL)
+	return true;
+
+      if (ops1 == ops2
+	  && VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
+	{
+	  size_t i;
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ops1); i++)
+	    if (VARRAY_GENERIC_PTR (ops1, i) != VARRAY_GENERIC_PTR (ops2, i))
+	      return false;
+
+	  return true;
+	}
+    }
+
+  return false;
 }
 
 
@@ -1786,7 +1835,7 @@ var_is_live (var, bb)
   struct def_blocks_d *def_map;
   tree real_var = SSA_NAME_VAR (var);
 
-  if (currdef_for (real_var, false) != var)
+  if (get_value_for (real_var, currdefs) != var)
     {
       ssa_stats.blocked_by_life_crossing++;
       return false;

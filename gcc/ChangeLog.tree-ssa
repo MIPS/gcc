@@ -1,3 +1,75 @@
+2003-03-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (gtype-desc.o): Add dependency on $(TREE_FLOW_H).
+
+	* tree-dfa.c (struct alias_set_d): Add field 'num_elements'.
+	(struct walk_state): Move declaration earlier in the file.
+	(create_global_var): New local function.
+	(num_referenced_vars, num_aliased_objects): Change type to
+	'size_t'.  Update all users.
+	(aliased_objects, aliased_objects_base, aliased_objects_aliase_set):
+	Mark for garbage collection.
+	(num_call_clobbered_vars, call_clobbered_vars): New global
+	variable.
+	(get_expr_operands): For CALL_EXPRs, add a VUSE or VDEF reference
+	for every pointer argument.  If the call may clobber, add a VDEF,
+	otherwise add a VUSE.
+	If the call may clobber, add VDEF for GLOBAL_VAR.
+	(dump_variable): Show whether the variable is call clobbered.
+	(dump_dfa_stats): Show call clobbered variables.
+	(compute_may_aliases): Minor formatting changes.
+	(compute_alias_sets): If the function makes clobbering calls, add
+	GLOBAL_VAR as an alias to every call-clobbered variable.
+	Remove alias sets that have exactly one element.
+	(register_alias_set): Set 'num_elements' to zero for every newly
+	created alias set.
+	(find_alias_for): Don't make a second call to add_may_alias to make
+	alias tags alias themselves.  It's redundant.
+	Increment 'num_elements' when adding a new alias to an alias set.
+	(may_alias_p): Don't handle GLOBAL_VAR.
+	Check for structure aliasing when either PTR or VAR are a
+	structure.  Don't do it only when both are structures.
+	(dump_alias_info): Show all aliases of each variable.
+	(find_vars_r): When processing a CALL_EXPR node, set
+	walk_state->is_store if the function may clobber and create a
+	reference to GLOBAL_VAR.
+	(add_indirect_ref_var): Change type of second argument from 'void *'
+	to 'struct walk_state *'.  Update all users.
+	(add_referenced_var): Likewise.  If a potentially aliased variabe
+	is not declared 'const', add it to the list of call clobbered
+	variables.
+
+	* tree-flow.h (struct var_ann_d): Add field 'is_call_clobbered'.
+	Change type of field 'uid' to size_t.  Update all users.
+	(stmt_ann_d): Add field 'makes_clobbering_call'.
+	(next_tree_ref_id): Remove unused variable.
+	(call_clobbered_vars): Declare.
+	(num_call_clobbered_vars): Declare.
+	(call_clobbered_var): New inline function.
+
+	* tree-ssa-ccp.c (visit_phi_node): If the LHS of a PHI node is
+	volatile, mark the PHI node VARYING without checking its arguments.
+	(visit_assignment): Likewise.
+	(set_value): Remove.  Update all users.
+	(likely_value): If the statement makes aliased loads or has
+	volatile operands, consider it VARYING.
+	(get_default_value): If a variable is volatile, consider it
+	VARYING.
+
+	* tree-ssa.c (init_tree_ssa): Initialize num_call_clobbered_vars
+	and call_clobbered_vars.
+	Do not create GLOBAL_VAR.  Set it to NULL_TREE.
+	Increase initial size for various hash tables.
+	(delete_tree_ssa): Reset num_call_clobbered_vars and
+	call_clobbered_vars.
+	(get_reaching_def): Rename from currdef_for.  Update all users.
+	Always create default definitions for variables that need them.
+	Callers that use to call currdef_for with the second argument set
+	to false now call get_value_for.
+	(htab_statistics): New function.
+	(dump_tree_ssa): Call it.
+	(avail_expr_eq): Also compare VUSE operands.
+
 2003-03-21  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c: Revert vla changes from yesterday.

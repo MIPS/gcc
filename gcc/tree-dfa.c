@@ -77,9 +77,18 @@ struct alias_set_d
   tree tag_sym;
   HOST_WIDE_INT tag_set;
   HOST_WIDE_INT tag_sym_set;
+  size_t num_elements;
 };
 
 static varray_type alias_sets;
+
+/* State information for find_vars_r.  */
+struct walk_state
+{
+  htab_t vars_found;
+  htab_t aliased_objects_found;
+  int is_store;
+};
 
 
 /* Flags to describe operand properties in get_stmt_operands and helpers.  */
@@ -120,25 +129,27 @@ static void add_stmt_operand		PARAMS ((tree *, tree, int,
       						 voperands_t));
 static void add_immediate_use		PARAMS ((tree, tree));
 static tree find_vars_r			PARAMS ((tree *, int *, void *));
-static void add_referenced_var		PARAMS ((tree, tree, void *));
-static void add_indirect_ref_var	PARAMS ((tree, void *));
+static void add_referenced_var		PARAMS ((tree, tree,
+						 struct walk_state *));
+static void add_indirect_ref_var	PARAMS ((tree, struct walk_state *));
 static void compute_immediate_uses_for	PARAMS ((tree, int));
 static void add_may_alias		PARAMS ((tree, tree, tree, tree));
 static bool call_may_clobber		PARAMS ((tree));
 static void find_vla_decls		PARAMS ((tree));
 static tree find_vla_decls_r		PARAMS ((tree *, int *, void *));
+static void create_global_var		PARAMS ((void));
 
 
 /* Global declarations.  */
 
 /* The total number of referenced variables in the function.  */
-unsigned long num_referenced_vars;
+size_t num_referenced_vars;
 
 /* Array of all variables referenced in the function.  */
 varray_type referenced_vars;
 
 /* The total number of unique aliased objects in the function.  */
-static unsigned long num_aliased_objects;
+static size_t num_aliased_objects;
 
 /* Arrays for all the potentially aliased memory objects in the 
    function.
@@ -155,16 +166,22 @@ static unsigned long num_aliased_objects;
    ALIASED_OBJECTS contains the object 
    ALIASED_OBJECTS_BASE contains the base symbol for those objects
    ALIASED_OBJECTS_ALIAS_SET contains the alias set for those objects.  */
+static GTY(()) varray_type aliased_objects;
+static GTY(()) varray_type aliased_objects_base;
+static GTY(()) varray_type aliased_objects_alias_set;
 
-static varray_type aliased_objects;
-static varray_type aliased_objects_base;
-static varray_type aliased_objects_alias_set;
+/* The total number of unique call clobbered variables in the function.  */
+size_t num_call_clobbered_vars;
+
+/* Arrays for all the call clobbered variables in the function.  */
+varray_type call_clobbered_vars;
 
 /* Artificial variable used to model the effects of function calls on every
    variable that they may use and define.  Calls to non-const and non-pure
    functions are assumed to use and clobber this variable.
 
-   Aliased loads and stores will be considered aliased with this variable.  */
+   Loads and stores to call clobbered variables will be considered aliased
+   with this variable.  */
 tree global_var;
 
 /* Get the operands of statement STMT.  Note that repeated calls to
@@ -374,29 +391,23 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
     }
 
   /* Function calls.  Add every argument to USES.  If the callee is
-     neither pure nor const, create a use and clobbering definition of
-     *GLOBAL_VAR (See find_vars_r).  */
+     neither pure nor const, create a VDEF reference for GLOBAL_VAR
+     (See find_vars_r).  */
   if (code == CALL_EXPR)
     {
+      int flags;
       tree op;
       bool may_clobber = call_may_clobber (expr);
 
       /* Find uses in the called function.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
 
-      if (may_clobber)
-	{
-	  /* If the called function is neither pure nor const, we create a
-	     clobbering definition of *GLOBAL_VAR.  */
-	  tree v = indirect_ref (global_var);
-	  add_stmt_operand (&v, stmt, opf_is_def|opf_force_vop, prev_vops);
-	}
-
-      /* Add all the arguments to the function.  If the function will not
-	 clobber any local variable, check if it may dereference a local
-	 pointer.  If so, add a VUSE for the dereferenced pointer.  This is
-	 to address the following problem: Suppose that function 'foo' is
-	 constant but receives a pointer to a local variable:
+      /* Add all the arguments to the function.  For every pointer argument
+	 to the function, add a VUSE for its dereferenced pointer (if the
+	 function is pure or const) or a VDEF for its dereferenced pointer
+	 (if the function may clobber).  This is to address the following
+	 problem: Suppose that function 'foo' receives a pointer to a local
+	 variable:
 
 	    int foo (int *x)
 	    {
@@ -415,24 +426,39 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	 to kill the assignment to 'i' because it's never used in bar().
 	 To address this problem, we add a VUSE<*p> at the call site of
 	 foo().  */
+      flags = opf_force_vop | opf_ignore_bp;
+      if (may_clobber)
+	flags |= opf_is_def;
+
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
 
 	  add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
 
-	  /* If the function may not clobber locals, add a VUSE<*p> for
-	     every pointer p passed in the argument list (see note above).  */
-	  if (!may_clobber
-	      && SSA_DECL_P (arg)
+	  /* Add a VUSE<*p> or VDEF<*p> for every pointer p passed in the
+	     argument list (see note above).  */
+	  if (SSA_DECL_P (arg)
 	      && POINTER_TYPE_P (TREE_TYPE (arg)))
 	    {
 	      tree deref = indirect_ref (arg);
-	      /* We have already added a real USE for the pointer.  We
-		 don't need to add a VUSE for it as well.  */
-	      add_stmt_operand (&deref, stmt, opf_force_vop|opf_ignore_bp,
-				prev_vops);
+
+	      /* By default, adding a reference to an INDIRECT_REF
+		 variable, adds a VUSE of the base pointer.  Since we have
+		 already added a real USE for the pointer, we don't need to
+		 add a VUSE for it as well.  */
+	      add_stmt_operand (&deref, stmt, flags, prev_vops);
 	    }
+	}
+
+      /* If the called function is neither pure nor const, we create a
+	 definition of GLOBAL_VAR and mark the statement as a clobbering
+	 statement.  */
+      if (may_clobber)
+	{
+	  stmt_ann (stmt)->makes_clobbering_call = may_clobber;
+	  add_stmt_operand (&global_var, stmt, opf_is_def|opf_force_vop,
+			    prev_vops);
 	}
 
       return;
@@ -1121,10 +1147,10 @@ void
 dump_referenced_vars (file)
      FILE *file;
 {
-  unsigned long i;
+  size_t i;
 
-  fprintf (file, "\nReferenced variables in %s: %lu\n\n", 
-	   get_name (current_function_decl), num_referenced_vars);
+  fprintf (file, "\nReferenced variables in %s: %u\n\n", 
+	   get_name (current_function_decl), (unsigned) num_referenced_vars);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -1183,6 +1209,9 @@ dump_variable (file, var)
 
   if (may_point_to_global_mem_p (var))
     fprintf (file, ", may point to global memory");
+
+  if (var_ann (var)->is_call_clobbered)
+    fprintf (file, ", call clobbered");
 
   fprintf (file, "\n");
 }
@@ -1301,7 +1330,12 @@ dump_dfa_stats (file)
 
   size = num_aliased_objects * sizeof (tree);
   total += size;
-  fprintf (file, fmt_str_1, "Aliased objects", num_aliased_objects, 
+  fprintf (file, fmt_str_1, "Aliased variables", num_aliased_objects, 
+	   SCALE (size), LABEL (size));
+
+  size = num_call_clobbered_vars * sizeof (tree);
+  total += size;
+  fprintf (file, fmt_str_1, "Call clobbered variables", num_call_clobbered_vars,
 	   SCALE (size), LABEL (size));
 
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
@@ -1484,14 +1518,6 @@ clobber_vars_r (tp, walk_subtrees, data)
 /*---------------------------------------------------------------------------
 				    Aliasing
 ---------------------------------------------------------------------------*/
-
-struct walk_state
-{
-  htab_t vars_found;
-  htab_t aliased_objects_found;
-  int is_store;
-};
-
 /* Compute may-alias information for every variable referenced in the
    program.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
@@ -1523,7 +1549,7 @@ compute_may_aliases ()
 
   /* Hash table of all the unique aliased objects found.  */
   aliased_objects_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
-				     NULL);
+				       NULL);
 
   walk_state.vars_found = vars_found;
   walk_state.aliased_objects_found = aliased_objects_found;
@@ -1554,9 +1580,9 @@ compute_may_aliases ()
     }
 
   num_aliased_objects = 0;
-  aliased_objects = 0;
-  aliased_objects_base = 0;
-  aliased_objects_alias_set = 0;
+  aliased_objects = NULL;
+  aliased_objects_base = NULL;
+  aliased_objects_alias_set = NULL;
 
   timevar_pop (TV_TREE_MAY_ALIAS);
 }
@@ -1584,40 +1610,19 @@ static void
 compute_alias_sets ()
 {
   size_t i;
-  tree var, sym, deref_gv;
+  tree var, sym;
 
   VARRAY_GENERIC_PTR_INIT (alias_sets, 20, "alias_sets");
 
   /* For each object that is stored in the program, compute its alias set
      and register it in ALIAS_SETS.  If P's alias set does not conflict
      with any entry in ALIAS_SETS, or if it conflicts with more than one
-     entry, create a new entry for P.
-
-     We need to treat GLOBAL_VAR separately.  Since GLOBAL_VAR aliases
-     variables that might have been otherwise unaliased, we register it
-     first so that we make sure that if GLOBAL_VAR is needed for this
-     function, it is always an alias tag.  Otherwise we will miss the
-     following case:  Suppose that *P and Q are two variables that don't
-     alias each other:
-
-	foo (*P)
-	{
-	  *P = ...;
-	  bar (&Q);
-	}
-
-     If *P is added to ALIAS_SETS first, then we will build an alias set
-     tagged with *P which contains *P and GLOBAL_VAR.  However, since Q
-     does not conflict with *P, it will never be added to the set.  */
-  deref_gv = indirect_ref (global_var);
-  if (deref_gv)
-    register_alias_set (deref_gv, global_var);
-
+     entry, create a new entry for P.  */
   for (i = 0; i < num_aliased_objects; i++)
     {
       var = VARRAY_TREE (aliased_objects, i);
       sym = VARRAY_TREE (aliased_objects_base, i);
-      if (var_ann (var)->is_stored && var != deref_gv)
+      if (var_ann (var)->is_stored)
 	register_alias_set (var, sym);
     }
 
@@ -1630,6 +1635,45 @@ compute_alias_sets ()
       sym = VARRAY_TREE (aliased_objects_base, i);
       find_alias_for (var, sym);
     }
+
+  /* Alias sets with exactly one entry are for variables that are not found
+     to alias anything else but themselves.  This is not necessary, so we
+     remove these sets.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
+    {
+      struct alias_set_d *as;
+      size_t num_sets;
+
+      as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
+      if (as->num_elements == 1)
+	{
+	  var_ann_t ann = var_ann (as->tag);
+	  ann->may_alias_global_mem = 0;
+	  ann->may_aliases = NULL;
+
+	  /* Remove the alias set by swapping the current and the last
+	     element, and popping the array.  */
+	  num_sets = VARRAY_ACTIVE_SIZE (alias_sets);
+	  if (i < num_sets - 1)
+	    {
+	      VARRAY_GENERIC_PTR (alias_sets, i) =
+		  VARRAY_GENERIC_PTR (alias_sets, num_sets - 1);
+	      i--;	/* Reset the iterator to avoid missing the entry we
+			   just swapped.  */
+	    }
+	  VARRAY_POP (alias_sets);
+	}
+    }
+
+  /* If the function has calls to clobbering functions, make GLOBAL_VAR alias
+     all call-clobbered variables.  */
+  if (global_var)
+    for (i = 0; i < num_call_clobbered_vars; i++)
+      {
+	var = call_clobbered_var (i);
+	sym = get_base_symbol (var);
+	add_may_alias (var, sym, global_var, global_var);
+      }
 
   /* Debugging dumps.  */
   if (tree_ssa_dump_file && tree_ssa_dump_flags & TDF_ALIAS)
@@ -1650,7 +1694,7 @@ compute_alias_sets ()
 }
 
 
-/* Try to add DEREF as a new new alias tag in ALIAS_SETS.  If a conflicting
+/* Try to add DEREF as a new alias tag in ALIAS_SETS.  If a conflicting
    tag is already present, then instead of adding a new entry, DEREF is
    marked as an alias of the existing entry.  DEREF_SYM is the base symbol
    of DEREF.  */
@@ -1754,6 +1798,7 @@ register_alias_set (deref, deref_sym)
       curr->tag_set = deref_set;
       curr->tag_sym = deref_sym;
       curr->tag_sym_set = deref_sym_set;
+      curr->num_elements = 0;
       VARRAY_PUSH_GENERIC_PTR (alias_sets, (void *) curr);
     }
 }
@@ -1790,29 +1835,7 @@ find_alias_for (var, sym)
 	{
 	  /* Set the tag to be the alias for VAR.  */
 	  add_may_alias (var, sym, as->tag, as->tag_sym);
-
-	  if (may_aliases (as->tag) == NULL)
-	    {
-	      /* Force the alias tag to alias itself.  This avoids problems
-		 when the program is accessing the alias tag directly.  For
-		 instance, suppose that '*p' is the alias tag for 'i' and
-		 'j':
-
-			1  i = ...
-			2  *p = ...
-			3  ... = i
-
-		If '*p' is not made an alias of itself, then the assignment
-		at line 2 will be considered a killing definition of '*p'.
-		This would make the assignment to 'i' at line 1 appear dead
-		because the use of 'i' at line 3 is now reached by the
-		assignment to '*p' at line 2.
-
-		If '*p' does not alias 'i' at runtime, the compiler
-		would've generated wrong code.  This fixes the regression
-		of gcc.c-torture/execute/950929-1.c.  */
-	      add_may_alias (as->tag, as->tag_sym, as->tag, as->tag_sym);
-	    }
+	  as->num_elements++;
 	}
     }
 }
@@ -1840,9 +1863,9 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
   if (v1 == v2)
     return true;
 
-  /* One of the two variables needs to be an INDIRECT_REF or GLOBAL_VAR,
-     otherwise they can't possibly alias each other.  */
-  if (TREE_CODE (v1) == INDIRECT_REF || v1 == global_var)
+  /* One of the two variables needs to be an INDIRECT_REF, otherwise they
+     can't possibly alias each other.  */
+  if (TREE_CODE (v1) == INDIRECT_REF)
     {
       ptr = v1;
       ptr_sym = v1_base;
@@ -1851,7 +1874,7 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
       var_sym = v2_base;
       var_alias_set = v2_alias_set;
     }
-  else if (TREE_CODE (v2) == INDIRECT_REF || v2 == global_var)
+  else if (TREE_CODE (v2) == INDIRECT_REF)
     {
       ptr = v2;
       ptr_sym = v2_base;
@@ -1863,38 +1886,10 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
   else
     return false;
 
-  /* GLOBAL_VAR aliases every global variable, pointer dereference and
-     locals that have had their address taken, unless points-to analysis is
-     done.  This is because points-to is supposed to handle this case, and
-     thus, can give a more accurate answer.   */
-  if (ptr_sym == global_var
-      && (TREE_ADDRESSABLE (var_sym)
-	  || TREE_CODE (var) == INDIRECT_REF
-	  || decl_function_context (var_sym) == NULL))
-    {
-      if (flag_tree_points_to == PTA_NONE)	 
-	return true;
-      else
-	{
-	  /* Right now, it's just not worth the time/space to make
-	     points-to handle the global variables seperately (in
-	     intraprocedural mode, anyway).  */	     
-	  if (decl_function_context (var_sym) == NULL)
-	    return true;
-	  
-	  /* For GLOBAL_VAR, we want to see if the variable aliases
-	     GLOBAL_VAR, not if GLOBAL_VAR aliases the variable (since
-	     the points-to sets are possibly directional, and
-	     GLOBAL_VAR never gets assigned to, only assigned from). */ 
-	  if (ptr_may_alias_var (var_sym, ptr_sym))
-	    return true;  
-	}
-    }
-
   /* If the alias sets don't conflict then PTR cannot alias VAR.  */
   if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
     {
-      /* Handle aliases to structure fields.  If both VAR and PTR are
+      /* Handle aliases to structure fields.  If either VAR or PTR are
 	 aggregate types, they may not have conflicting types, but one of
 	 the structures could contain a pointer to the other one.
 
@@ -1912,12 +1907,28 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
 	 or 'struct Q' aliases 'struct P *'.  Notice, that since GIMPLE
 	 does not have more than one-level pointers, we don't need to
 	 recurse into the structures.  */
-      if (TREE_CODE (var) == INDIRECT_REF
-	  && AGGREGATE_TYPE_P (TREE_TYPE (ptr))
-	  && AGGREGATE_TYPE_P (TREE_TYPE (var))
-	  && (alias_sets_conflict_p (ptr_alias_set, get_alias_set (var_sym))
-	     || alias_sets_conflict_p (var_alias_set, get_alias_set (ptr_sym))))
-	return true;
+      if (AGGREGATE_TYPE_P (TREE_TYPE (ptr))
+	  || AGGREGATE_TYPE_P (TREE_TYPE (var)))
+	{
+	  tree ptr_to_var;
+
+	  /* If VAR is not an INDIRECT_REF, we use the canonical pointer-to
+	     VAR's type.  */
+	  if (TREE_CODE (var) == INDIRECT_REF)
+	    ptr_to_var = var_sym;
+	  else
+	    {
+	      ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
+	      /* If no pointer-to VAR exists, then PTR can't possibly alias
+		  VAR.  */
+	      if (ptr_to_var == NULL_TREE)
+		return false;
+	    }
+
+	return 
+	  alias_sets_conflict_p (ptr_alias_set, get_alias_set (ptr_to_var))
+	  || alias_sets_conflict_p (var_alias_set, get_alias_set (ptr_sym));
+	}
       else
 	return false;
     }
@@ -1979,7 +1990,7 @@ void
 dump_alias_info (file)
      FILE *file;
 {
-  unsigned long i, j;
+  size_t i, j, k;
 
   if (alias_sets == NULL)
     return;
@@ -1993,7 +2004,7 @@ dump_alias_info (file)
 
       as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
 
-      fprintf (file, "Alias set #%ld:\n", i);
+      fprintf (file, "Alias set #%u:\n", (unsigned) i);
       fprintf (file, "  Tag: ");
       dump_variable (file, as->tag);
       fprintf (file, "  Aliases objects: { ");
@@ -2002,11 +2013,12 @@ dump_alias_info (file)
 	{
 	  tree var = VARRAY_TREE (aliased_objects, j);
 	  varray_type aliases = may_aliases (var);
-	  if (aliases && VARRAY_TREE (aliases, 0) == as->tag)
-	    {
-	      print_generic_expr (file, var, 0);
-	      fprintf (file, " ");
-	    }
+	  for (k = 0; aliases && k < VARRAY_ACTIVE_SIZE (aliases); k++)
+	    if (VARRAY_TREE (aliases, k) == as->tag)
+	      {
+		print_generic_expr (file, var, 0);
+		fprintf (file, " ");
+	      }
 	}
       fprintf (file, "}\n\n");
     }
@@ -2199,47 +2211,39 @@ find_vars_r (tp, walk_subtrees, data)
 	    set_indirect_ref (sym, var);
 	}
 
-      add_referenced_var (var, sym, data);
+      add_referenced_var (var, sym, walk_state);
 
       return NULL_TREE;
     }
 
-
-  /* Function calls.  Consider them a reference for an artificial variable
-     called GLOBAL_VAR.  This variable is a pointer that will alias every
-     global variable and locals that have had their address taken.  The
-     exception to this rule are functions marked pure, const or if they are
-     known to not return.
-
-     Stores to *GLOBAL_VAR will reach uses of every call clobbered variable
-     in the function.  Uses of *GLOBAL_VAR will be reached by definitions
-     of call clobbered variables.
-
-     This is used to model the effects that the called function may have on
-     local and global variables that might be visible to it.  */
+  /* A function call that receives pointer arguments may dereference them.
+     For every pointer 'p' add '*p' to the list of referenced variables.
+     See the handler for CALL_EXPR nodes in get_expr_operands for details.  */
   if (TREE_CODE (*tp) == CALL_EXPR)
     {
-      if (call_may_clobber (*tp))
-	{
-          walk_state->is_store = 1;
-	  add_indirect_ref_var (global_var, data);
-	}
-      else
-	{
-	  tree op;
+      tree op;
+      bool may_clobber = call_may_clobber (*tp);
 
-          walk_state->is_store = 0;
-	  /* If the function does not clobber locals, it still may
-	     dereference them.  Scan its operands to see if it receives any
-	     pointers.  For every pointer 'p' add '*p' to the list of
-	     referenced variables.  */
-	  for (op = TREE_OPERAND (*tp, 1); op; op = TREE_CHAIN (op))
-	    {
-	      tree arg = TREE_VALUE (op);
-	      if (SSA_DECL_P (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
-		add_indirect_ref_var (arg, data);
-	    }
+      if (may_clobber)
+	walk_state->is_store = 1;
+
+      for (op = TREE_OPERAND (*tp, 1); op; op = TREE_CHAIN (op))
+	{
+	  tree arg = TREE_VALUE (op);
+	  if (SSA_DECL_P (arg)
+	      && POINTER_TYPE_P (TREE_TYPE (arg)))
+	    add_indirect_ref_var (arg, walk_state);
 	}
+
+      /* If the function may clobber globals and addressable locals, add a
+	 reference to GLOBAL_VAR.  */
+      if (may_clobber)
+	{
+	  if (global_var == NULL_TREE)
+	    create_global_var ();
+	  add_referenced_var (global_var, global_var, walk_state);
+	}
+
       walk_state->is_store = saved_is_store;
     }
 
@@ -2252,29 +2256,35 @@ find_vars_r (tp, walk_subtrees, data)
    same tree.
    
    Also add VAR to the ALIASED_OBJECTS set of varrays that are needed for
-   alias analysis.  DATA is an array with two hash tables used to avoid
-   adding the same variable more than once to its corresponding set as
-   well as a bit indicating if we're processing a load or store.  Note
-   that this function assumes that VAR is a valid SSA variable.  */
+   alias analysis.
+   
+   WALK_STATE is an array with two hash tables used to avoid adding the
+   same variable more than once to its corresponding set as well as a bit
+   indicating if we're processing a load or store.  Note that this function
+   assumes that VAR is a valid SSA variable.  */
 
 static void
-add_referenced_var (var, sym, data)
+add_referenced_var (var, sym, walk_state)
      tree var;
      tree sym;
-     void *data;
+     struct walk_state *walk_state;
 {
   void **slot;
-  struct walk_state *walk_state = (struct walk_state *)data;
   htab_t vars_found = walk_state->vars_found;
   htab_t aliased_objects_found = walk_state->aliased_objects_found;
   int is_store = walk_state->is_store;
 
-  /* First handle aliasing information.  */
+  /* First handle aliasing information.  INDIRECT_REF, global and
+     addressable local variables are all potentially aliased and call
+     clobbered.  */
   if (TREE_CODE (var) == INDIRECT_REF
       || TREE_ADDRESSABLE (sym)
       || decl_function_context (sym) == NULL)
     {
-      var_ann_t ann;
+      var_ann_t ann = var_ann (var);
+      if (! ann)
+	ann = create_var_ann (var);
+
       slot = htab_find_slot (aliased_objects_found, (void *) var, INSERT);
       if (*slot == NULL)
 	{
@@ -2284,12 +2294,18 @@ add_referenced_var (var, sym, data)
 	  VARRAY_PUSH_TREE (aliased_objects_base, sym);
 	  VARRAY_PUSH_INT (aliased_objects_alias_set, get_alias_set (var));
 	  num_aliased_objects++;
+
+	  /* If the variable is not read-only, it may also be clobbered by
+	     function calls.  */
+	  if (!TREE_READONLY (var))
+	    {
+	      VARRAY_PUSH_TREE (call_clobbered_vars, var);
+	      num_call_clobbered_vars++;
+	      ann->is_call_clobbered = 1;
+	    }
 	}
 
       /* Note if this object was loaded or stored.  */
-      ann = var_ann (var);
-      if (! ann)
-	ann = create_var_ann (var);
       if (is_store)
 	ann->is_stored = 1;
       else
@@ -2334,14 +2350,14 @@ add_referenced_var (var, sym, data)
 
 
 /* Add a reference to the INDIRECT_REF node of variable VAR.  If VAR has
-   not been dereferenced yet, create a new INDIRECT_REF node for it.  DATA
-   is as in add_referenced_var.  Note that VAR is assumed to be a valid
-   pointer decl.  */
+   not been dereferenced yet, create a new INDIRECT_REF node for it.
+   WALK_STATE is as in add_referenced_var.  Note that VAR is assumed to be
+   a valid pointer decl.  */
 
 static void
-add_indirect_ref_var (ptr, data)
+add_indirect_ref_var (ptr, walk_state)
      tree ptr;
-     void *data;
+     struct walk_state *walk_state;
 {
   tree deref = indirect_ref (ptr);
   if (deref == NULL_TREE)
@@ -2350,7 +2366,7 @@ add_indirect_ref_var (ptr, data)
       set_indirect_ref (ptr, deref);
     }
 
-  add_referenced_var (deref, ptr, data);
+  add_referenced_var (deref, ptr, walk_state);
 }
 
 
@@ -2450,4 +2466,26 @@ find_vla_decls_r (tp, walk_subtrees, data)
     set_vla_decl (*tp);
 
   return NULL_TREE;
+}
+
+
+/* Create GLOBAL_VAR, an artificial global variable to act as a
+   representative of all the variables that may be clobbered by function
+   calls.  Also create GLOBAL_CLOBBER_EXPR, an artificial expression that
+   is used as the originating definition of all clobbered SSA variables in
+   the program.  */
+
+static void
+create_global_var ()
+{
+  global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
+                           size_type_node);
+  DECL_ARTIFICIAL (global_var) = 1;
+  TREE_READONLY (global_var) = 1;
+  DECL_EXTERNAL (global_var) = 0;
+  TREE_STATIC (global_var) = 1;
+  TREE_USED (global_var) = 1;
+  DECL_CONTEXT (global_var) = current_function_decl;
+  TREE_THIS_VOLATILE (global_var) = 1;
+  TREE_ADDRESSABLE (global_var) = 0;
 }

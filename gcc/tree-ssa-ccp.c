@@ -121,7 +121,6 @@ static latticevalue likely_value	PARAMS ((tree));
 static void fold_stmt			PARAMS ((tree));
 static tree get_rhs			PARAMS ((tree));
 static void set_rhs			PARAMS ((tree, tree));
-static void set_value			PARAMS ((tree, latticevalue, tree));
 static value *get_value			PARAMS ((tree));
 static value get_default_value		PARAMS ((tree));
 static hashval_t value_map_hash		PARAMS ((const void *));
@@ -344,7 +343,10 @@ visit_phi_node (phi)
   phi_val.lattice_val = UNDEFINED;
   phi_val.const_val = NULL_TREE;
 
-  if (!TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
+  /* If the variable is volatile, consider it VARYING.  */
+  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
+    phi_val.lattice_val = VARYING;
+  else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)
       {
 	/* Compute the meet operator over all the PHI arguments. */
@@ -362,27 +364,15 @@ visit_phi_node (phi)
 	if (e->flags & EDGE_EXECUTABLE)
 	  {
 	    tree rdef = PHI_ARG_DEF (phi, i);
+	    value *rdef_val = get_value (rdef);
+	    phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
-	    if (!TREE_THIS_VOLATILE (SSA_NAME_VAR (rdef)))
+	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
-		value *rdef_val = get_value (rdef);
-		phi_val = cp_lattice_meet (phi_val, *rdef_val);
-
-		if (dump_file && (dump_flags & TDF_DETAILS))
-		  {
-		    fprintf (dump_file, "\t");
-		    print_generic_expr (dump_file, rdef, 0);
-		    dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
-		    fprintf (dump_file, "\n");
-		  }
-	      }
-	    else
-	      {
-		/* If the variable is volatile, we cannot assume anything
-		   about this PHI's node value.  In that case, set its
-		   value to VARYING.  */
-		phi_val.lattice_val = VARYING;
-		phi_val.const_val = NULL_TREE;
+		fprintf (dump_file, "\t");
+		print_generic_expr (dump_file, rdef, 0);
+		dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
+		fprintf (dump_file, "\n");
 	      }
 
 	    if (phi_val.lattice_val == VARYING)
@@ -502,7 +492,7 @@ visit_stmt (stmt)
   /* Mark all VDEF operands VARYING.  */
   ops = vdef_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    set_value (VDEF_RESULT (VARRAY_TREE (ops, i)), VARYING, NULL_TREE);
+    def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
 }
 
 
@@ -514,19 +504,26 @@ visit_assignment (stmt)
      tree stmt;
 {
   value val;
+  tree lhs, rhs;
 
 #if defined ENABLE_CHECKING
   if (!def_op (stmt))
     abort ();
 #endif
 
-  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
-      && TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
+  lhs = TREE_OPERAND (stmt, 0);
+  rhs = TREE_OPERAND (stmt, 1);
+
+  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (lhs)))
     {
-      /* For a simple copy operation, we copy the lattice
-         values.  */
-      value *nval = get_value (TREE_OPERAND (stmt, 1));
-       
+      /* Volatile variables are always VARYING.  */
+      val.lattice_val = VARYING;
+      val.const_val = NULL_TREE;
+    }
+  else if (TREE_CODE (rhs) == SSA_NAME)
+    {
+      /* For a simple copy operation, we copy the lattice values.  */
+      value *nval = get_value (rhs);
       val.lattice_val = nval->lattice_val;
       val.const_val = nval->const_val;
     }
@@ -1024,7 +1021,6 @@ def_to_undefined (var)
       value->lattice_val = UNDEFINED;
       value->const_val = NULL_TREE;
     }
-
 }
 
 
@@ -1045,7 +1041,6 @@ def_to_varying (var)
       value->lattice_val = VARYING;
       value->const_val = NULL_TREE;
     }
-
 }
 
 
@@ -1150,8 +1145,15 @@ likely_value (stmt)
   varray_type uses;
   size_t i;
   int found_constant = 0;
+  stmt_ann_t ann;
 
   get_stmt_operands (stmt);
+
+  /* If the statement makes aliased loads or has volatile operands, it
+     won't fold to a constant value.  */
+  ann = stmt_ann (stmt);
+  if (ann->makes_aliased_loads || ann->has_volatile_ops)
+    return VARYING;
 
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
@@ -1166,7 +1168,7 @@ likely_value (stmt)
 	found_constant = 1;
     }
 
-  return (found_constant || (!uses && !vuse_ops (stmt)) ? CONSTANT : VARYING);
+  return ((found_constant || !uses) ? CONSTANT : VARYING);
 }
 
 
@@ -1287,66 +1289,34 @@ get_default_value (var)
      tree var;
 {
   value val;
+  tree sym;
 
-  if (!DECL_P (var))
-    var = get_base_symbol (var);
+  sym = (!DECL_P (var)) ? get_base_symbol (var) : var;
 
   val.lattice_val = UNDEFINED;
   val.const_val = NULL_TREE;
 
-  if (TREE_CODE (var) == PARM_DECL)
+  if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
     {
-      /* Function arguments are considered VARYING.  */
+      /* Function arguments and volatile variables are considered VARYING.  */
       val.lattice_val = VARYING;
     }
-  else if (decl_function_context (var) == NULL_TREE || TREE_STATIC (var))
+  else if (decl_function_context (sym) == NULL_TREE || TREE_STATIC (sym))
     {
-      /* Globals and static variables are considered VARYING.  */
+      /* Globals and static variables are considered VARYING, unless they
+	 are declared 'const'.  */
       val.lattice_val = VARYING;
 
-      /* Except if they are declared 'const'.  */
-      if (TREE_READONLY (var)
-	  && DECL_INITIAL (var)
-	  && really_constant_p (DECL_INITIAL (var)))
+      if (TREE_READONLY (sym)
+	  && DECL_INITIAL (sym)
+	  && really_constant_p (DECL_INITIAL (sym)))
 	{
 	  val.lattice_val = CONSTANT;
-	  val.const_val = DECL_INITIAL (var);
+	  val.const_val = DECL_INITIAL (sym);
 	}
     }
 
   return val;
-}
-
-
-/* Set the value for variable VAR to <LATTICE_VAL, CONST_VAL>.  */
-
-static void
-set_value (var, lattice_val, const_val)
-     tree var;
-     latticevalue lattice_val;
-     tree const_val;
-{
-  void **slot;
-  struct value_map_d *vm_p, vm;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
-
-  vm.var = var;
-  slot = htab_find_slot (const_values, (void *) &vm, INSERT);
-  if (*slot == NULL)
-    {
-      vm_p = xmalloc (sizeof (*vm_p));
-      vm_p->var = var;
-      *slot = (void *) vm_p;
-    }
-  else
-    vm_p = (struct value_map_d *) *slot;
-
-  vm_p->val.lattice_val = lattice_val;
-  vm_p->val.const_val = const_val;
 }
 
 

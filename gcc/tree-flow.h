@@ -68,16 +68,19 @@ struct var_ann_d GTY(())
      
      Note this only applies to objects which are subject to
      alias analysis.  */
-  unsigned int is_stored: 1;
+  unsigned is_stored : 1;
 
   /* Nonzero if this variable was loaded/read in this function.
 
      Note this only applies to objects which are subject to
      alias analysis.  */
-  unsigned int is_loaded: 1;
+  unsigned is_loaded : 1;
+
+  /* Nonzero if the variable may be modified by function calls.  */
+  unsigned is_call_clobbered : 1;
 
   /* Unused bits.  */
-  unsigned int unused: 27;
+  unsigned unused : 26;
 
   /* An INDIRECT_REF expression representing all the dereferences of this
      pointer.  Used to store aliasing information for pointer dereferences
@@ -88,7 +91,7 @@ struct var_ann_d GTY(())
   varray_type may_aliases;
   
   /* Unique ID of this variable.  */
-  int uid;
+  size_t uid;
 };
 
 
@@ -106,10 +109,10 @@ typedef struct operands_d *operands_t;
 
 struct voperands_d GTY(())
 {
-  /* List of V_DEF references in this statement.  */
+  /* List of VDEF references in this statement.  */
   varray_type vdef_ops;
 
-  /* List of V_USE references in this statement.  */
+  /* List of VUSE references in this statement.  */
   varray_type GTY ((skip (""))) vuse_ops;
 };
 
@@ -174,6 +177,10 @@ struct stmt_ann_d GTY(())
 
   /* Nonzero if the statement makes references to volatile storage.  */
   unsigned has_volatile_ops : 1;
+
+  /* Nonzero if the statement makes a function call that may clobber global
+     and local addressable variables.  */
+  unsigned makes_clobbering_call : 1;
 
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
@@ -325,14 +332,11 @@ extern int tree_warn_uninitialized;
 /* Array of all variables referenced in the function.  */
 extern GTY(()) varray_type referenced_vars;
 
-/* Next unique reference ID to be assigned by create_ref().  */
-extern unsigned long next_tree_ref_id;
-
 /* Artificial variable used to model the effects of function calls.  */
 extern GTY(()) tree global_var;
 
 /* Accessors for the referenced_vars array.  */
-extern unsigned long num_referenced_vars;
+extern size_t num_referenced_vars;
 
 static inline tree referenced_var PARAMS ((size_t));
 static inline tree
@@ -340,6 +344,20 @@ referenced_var (i)
      size_t i;
 {
   return VARRAY_TREE (referenced_vars, i);
+}
+
+/* Array of all variables that are call clobbered in the function.  */
+extern GTY(()) varray_type call_clobbered_vars;
+
+/* The total number of unique call clobbered variables in the function.  */
+extern size_t num_call_clobbered_vars;
+
+static inline tree call_clobbered_var PARAMS ((size_t));
+static inline tree
+call_clobbered_var (i)
+     size_t i;
+{
+  return VARRAY_TREE (call_clobbered_vars, i);
 }
 
 /* Macros for showing usage statistics.  */
