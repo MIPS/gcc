@@ -2,8 +2,6 @@
 	* varasm.c (assemble_variable): Resotored zerofill size optimization.
 	* config/rs6000/rs6000.c (rs6000_override_options): Place 
 	rs6000_init_hard_regno_mode_ok after setting of -fast flags.
-	* cp/decl2.c (maybe_emit_vtables, import_export_decl, get_guard):
-	Resore various APPLE LOCAL coalescing codes.
 
 2004-06-08  Caroline Tice  <ctice@apple.com>
         
@@ -19,6 +17,15 @@
 	* doc/invoke.texi (fcreate-profile, fuse-profile):  Add documentation
 	for the new command line options.  Indicates they are obsolete and
 	should not be used.
+
+2004-06-07  Fariborz Jahanian <fjahanian@apple.com>
+	* gcc.c: Removed setting of -combine option with -fast.
+
+2004-06-07  Fariborz Jahanian <fjahanian@apple.com>
+	* decl.c (maybe_commonize_var): Removed APPLE LOCAL coalescing stuff.
+	* method.c (use_thunk): ditto.
+	* rtti.c (tinfo_base_init): ditto.
+	* common.opt: ditto.
 
 2004-06-07  Dale Johannesen  <dalej@apple.com>
 
