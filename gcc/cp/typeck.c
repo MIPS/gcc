@@ -4183,12 +4183,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	    addr = fold (build (PLUS_EXPR, argtype, rval,
 				cp_convert (argtype, byte_position (field))));
 
-	    /* APPLE LOCAL begin mainline --apinski */
-	    /* If the folded PLUS_EXPR is not a constant address, wrap
-               it in an ADDR_EXPR.  */
-	    if (!TREE_CONSTANT (addr))
-	      addr = build_address (arg);
-	    /* APPLE LOCAL end mainline --apinski */
 	  }
 
 	if (TREE_CODE (argtype) == POINTER_TYPE
