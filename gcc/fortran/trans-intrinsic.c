@@ -63,20 +63,20 @@ gfc_intrinsic_map_t;
 static GTY(()) gfc_intrinsic_map_t gfc_intrinsic_map[] =
 {
   /* Math functions.  These are in libm.  */
-  I_LIB (G95_ISYM_SIN, "sin")
-  I_LIB (G95_ISYM_COS, "cos")
-  I_LIB (G95_ISYM_SQRT, "sqrt")
-  I_LIB (G95_ISYM_TAN, "tan")
-  I_LIB (G95_ISYM_ASIN, "asin")
-  I_LIB (G95_ISYM_ACOS, "acos")
-  I_LIB (G95_ISYM_ATAN, "atan")
-  I_LIB (G95_ISYM_ATAN2, "atan2")
-  I_LIB (G95_ISYM_SINH, "sinh")
-  I_LIB (G95_ISYM_COSH, "cosh")
-  I_LIB (G95_ISYM_TANH, "tanh")
-  I_LIB (G95_ISYM_EXP, "exp")
-  I_LIB (G95_ISYM_LOG, "log")
-  I_LIB (G95_ISYM_LOG10, "log10") I_LIB (G95_ISYM_NONE, NULL)
+  I_LIB (GFC_ISYM_SIN, "sin")
+  I_LIB (GFC_ISYM_COS, "cos")
+  I_LIB (GFC_ISYM_SQRT, "sqrt")
+  I_LIB (GFC_ISYM_TAN, "tan")
+  I_LIB (GFC_ISYM_ASIN, "asin")
+  I_LIB (GFC_ISYM_ACOS, "acos")
+  I_LIB (GFC_ISYM_ATAN, "atan")
+  I_LIB (GFC_ISYM_ATAN2, "atan2")
+  I_LIB (GFC_ISYM_SINH, "sinh")
+  I_LIB (GFC_ISYM_COSH, "cosh")
+  I_LIB (GFC_ISYM_TANH, "tanh")
+  I_LIB (GFC_ISYM_EXP, "exp")
+  I_LIB (GFC_ISYM_LOG, "log")
+  I_LIB (GFC_ISYM_LOG10, "log10") I_LIB (GFC_ISYM_NONE, NULL)
 };
 #undef I_LIB
 
@@ -89,10 +89,10 @@ typedef struct
 gfc_builtin_intrinsic_t;
 
 static const gfc_builtin_intrinsic_t gfc_builtin_intrinsics[] = {
-  {G95_ISYM_SIN, BUILT_IN_SINF, BUILT_IN_SIN},
-  {G95_ISYM_COS, BUILT_IN_COSF, BUILT_IN_COS},
-  {G95_ISYM_SQRT, BUILT_IN_SQRTF, BUILT_IN_SQRT},
-  {G95_ISYM_NONE, 0, 0}
+  {GFC_ISYM_SIN, BUILT_IN_SINF, BUILT_IN_SIN},
+  {GFC_ISYM_COS, BUILT_IN_COSF, BUILT_IN_COS},
+  {GFC_ISYM_SQRT, BUILT_IN_SQRTF, BUILT_IN_SQRT},
+  {GFC_ISYM_NONE, 0, 0}
 };
 
 
@@ -408,14 +408,14 @@ gfc_build_intrinsic_lib_fndecls (void)
   gfc_intrinsic_map_t *m;
 
   /* Add GCC builtin functions.  */
-  for (i = gfc_builtin_intrinsics; i->id != G95_ISYM_NONE; i++)
+  for (i = gfc_builtin_intrinsics; i->id != GFC_ISYM_NONE; i++)
     {
-      for (m = gfc_intrinsic_map; m->id != G95_ISYM_NONE; m++)
+      for (m = gfc_intrinsic_map; m->id != GFC_ISYM_NONE; m++)
 	{
 	  if (m->id == i->id)
 	    break;
 	}
-      assert (m->id != G95_ISYM_NONE);
+      assert (m->id != GFC_ISYM_NONE);
 
       m->real4_decl = built_in_decls[i->code4];
       m->real8_decl = built_in_decls[i->code8];
@@ -434,7 +434,7 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
   gfc_actual_arglist *actual;
   tree *pdecl;
   gfc_typespec *ts;
-  char name[G95_MAX_SYMBOL_LEN + 3];
+  char name[GFC_MAX_SYMBOL_LEN + 3];
 
   ts = &expr->ts;
   name[0] = 0;
@@ -520,13 +520,13 @@ gfc_conv_intrinsic_lib_function (gfc_se * se, gfc_expr * expr)
 
   id = expr->value.function.isym->generic_id;
   /* Find the entry for this function.  */
-  for (m = gfc_intrinsic_map; m->id != G95_ISYM_NONE; m++)
+  for (m = gfc_intrinsic_map; m->id != GFC_ISYM_NONE; m++)
     {
       if (id == m->id)
 	break;
     }
 
-  if (m->id == G95_ISYM_NONE)
+  if (m->id == GFC_ISYM_NONE)
     {
       internal_error ("Intrinsic function %s(%d) not recognized",
 		      expr->value.function.name, id);
@@ -599,7 +599,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
     {
       assert (TREE_INT_CST_HIGH (bound) == 0);
       i = TREE_INT_CST_LOW (bound);
-      assert (i >= 0 && i < G95_TYPE_ARRAY_RANK (TREE_TYPE (desc)));
+      assert (i >= 0 && i < GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc)));
     }
   else
     {
@@ -608,7 +608,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
           bound = gfc_evaluate_now (bound, &se->pre);
           cond = fold (build (LT_EXPR, boolean_type_node, bound,
                               integer_zero_node));
-          tmp = gfc_rank_cst[G95_TYPE_ARRAY_RANK (TREE_TYPE (desc))];
+          tmp = gfc_rank_cst[GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc))];
           tmp = fold (build (GE_EXPR, boolean_type_node, bound, tmp));
           cond = fold(build (TRUTH_ORIF_EXPR, boolean_type_node, cond, tmp));
           gfc_trans_runtime_check (cond, gfc_strconst_fault, &se->pre);
@@ -930,7 +930,7 @@ gfc_get_symbol_for_expr (gfc_expr * expr)
   gfc_symbol *sym;
 
   /* TODO: Add symbols for intrinsic function to the global namespace.  */
-  assert (strlen (expr->value.function.name) <= G95_MAX_SYMBOL_LEN - 5);
+  assert (strlen (expr->value.function.name) <= GFC_MAX_SYMBOL_LEN - 5);
   sym = gfc_new_symbol (expr->value.function.name, NULL);
 
   sym->ts = expr->ts;
@@ -1742,8 +1742,8 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
     {
     case EXPR_VARIABLE:
       decl = gfc_get_symbol_decl (arg->symtree->n.sym);
-      assert (G95_DECL_STRING (decl));
-      len = G95_DECL_STRING_LENGTH (decl);
+      assert (GFC_DECL_STRING (decl));
+      len = GFC_DECL_STRING_LENGTH (decl);
       assert (len);
       break;
 
@@ -2165,262 +2165,262 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
   switch (expr->value.function.isym->generic_id)
     {
-    case G95_ISYM_NONE:
+    case GFC_ISYM_NONE:
       abort ();
 
-    case G95_ISYM_CSHIFT:
-    case G95_ISYM_EXPONENT:
-    case G95_ISYM_FRACTION:
-    case G95_ISYM_MODULO:
-    case G95_ISYM_NEAREST:
-    case G95_ISYM_REPEAT:
-    case G95_ISYM_RRSPACING:
-    case G95_ISYM_SCALE:
-    case G95_ISYM_SET_EXPONENT:
-    case G95_ISYM_SI_KIND:
-    case G95_ISYM_SPACING:
-    case G95_ISYM_SR_KIND:
-    case G95_ISYM_TRIM:
+    case GFC_ISYM_CSHIFT:
+    case GFC_ISYM_EXPONENT:
+    case GFC_ISYM_FRACTION:
+    case GFC_ISYM_MODULO:
+    case GFC_ISYM_NEAREST:
+    case GFC_ISYM_REPEAT:
+    case GFC_ISYM_RRSPACING:
+    case GFC_ISYM_SCALE:
+    case GFC_ISYM_SET_EXPONENT:
+    case GFC_ISYM_SI_KIND:
+    case GFC_ISYM_SPACING:
+    case GFC_ISYM_SR_KIND:
+    case GFC_ISYM_TRIM:
       gfc_todo_error ("Intrinsic %s", expr->value.function.name);
 
-    case G95_ISYM_SCAN:
+    case GFC_ISYM_SCAN:
       gfc_conv_intrinsic_scan (se, expr);
       break;
 
-    case G95_ISYM_VERIFY:
+    case GFC_ISYM_VERIFY:
       gfc_conv_intrinsic_verify (se, expr);
       break;
 
-    case G95_ISYM_ALLOCATED:
+    case GFC_ISYM_ALLOCATED:
       gfc_conv_allocated (se, expr);
       break;
 
-    case G95_ISYM_ASSOCIATED:
+    case GFC_ISYM_ASSOCIATED:
       gfc_conv_associated(se, expr);
       break;
 
-    case G95_ISYM_ABS:
+    case GFC_ISYM_ABS:
       gfc_conv_intrinsic_abs (se, expr);
       break;
 
-    case G95_ISYM_ADJUSTL:
+    case GFC_ISYM_ADJUSTL:
       gfc_conv_intrinsic_adjust (se, expr, gfor_fndecl_adjustl);
       break;
 
-    case G95_ISYM_ADJUSTR:
+    case GFC_ISYM_ADJUSTR:
       gfc_conv_intrinsic_adjust (se, expr, gfor_fndecl_adjustr);
       break;
 
-    case G95_ISYM_AIMAG:
+    case GFC_ISYM_AIMAG:
       gfc_conv_intrinsic_imagpart (se, expr);
       break;
 
-    case G95_ISYM_AINT:
+    case GFC_ISYM_AINT:
       gfc_conv_intrinsic_aint (se, expr, FIX_TRUNC_EXPR);
       break;
 
-    case G95_ISYM_ALL:
+    case GFC_ISYM_ALL:
       gfc_conv_intrinsic_anyall (se, expr, EQ_EXPR);
       break;
 
-    case G95_ISYM_ANINT:
+    case GFC_ISYM_ANINT:
       gfc_conv_intrinsic_aint (se, expr, FIX_ROUND_EXPR);
       break;
 
-    case G95_ISYM_ANY:
+    case GFC_ISYM_ANY:
       gfc_conv_intrinsic_anyall (se, expr, NE_EXPR);
       break;
 
-    case G95_ISYM_BTEST:
+    case GFC_ISYM_BTEST:
       gfc_conv_intrinsic_btest (se, expr);
       break;
 
-    case G95_ISYM_ACHAR:
-    case G95_ISYM_CHAR:
+    case GFC_ISYM_ACHAR:
+    case GFC_ISYM_CHAR:
       gfc_conv_intrinsic_char (se, expr);
       break;
 
-    case G95_ISYM_CONVERSION:
-    case G95_ISYM_REAL:
-    case G95_ISYM_LOGICAL:
-    case G95_ISYM_DBLE:
+    case GFC_ISYM_CONVERSION:
+    case GFC_ISYM_REAL:
+    case GFC_ISYM_LOGICAL:
+    case GFC_ISYM_DBLE:
       gfc_conv_intrinsic_conversion (se, expr);
       break;
 
       /* Integer conversions are handled seperately to make sure we get the
          correct rounding mode.  */
-    case G95_ISYM_INT:
+    case GFC_ISYM_INT:
       gfc_conv_intrinsic_int (se, expr, FIX_TRUNC_EXPR);
       break;
 
-    case G95_ISYM_NINT:
+    case GFC_ISYM_NINT:
       gfc_conv_intrinsic_int (se, expr, FIX_ROUND_EXPR);
       break;
 
-    case G95_ISYM_CEILING:
+    case GFC_ISYM_CEILING:
       gfc_conv_intrinsic_int (se, expr, FIX_CEIL_EXPR);
       break;
 
-    case G95_ISYM_FLOOR:
+    case GFC_ISYM_FLOOR:
       gfc_conv_intrinsic_int (se, expr, FIX_FLOOR_EXPR);
       break;
 
-    case G95_ISYM_MOD:
+    case GFC_ISYM_MOD:
       gfc_conv_intrinsic_mod (se, expr);
       break;
 
-    case G95_ISYM_CMPLX:
+    case GFC_ISYM_CMPLX:
       gfc_conv_intrinsic_cmplx (se, expr, name[5] == '1');
       break;
 
-    case G95_ISYM_CONJG:
+    case GFC_ISYM_CONJG:
       gfc_conv_intrinsic_conjg (se, expr);
       break;
 
-    case G95_ISYM_COUNT:
+    case GFC_ISYM_COUNT:
       gfc_conv_intrinsic_count (se, expr);
       break;
 
-    case G95_ISYM_DIM:
+    case GFC_ISYM_DIM:
       gfc_conv_intrinsic_dim (se, expr);
       break;
 
-    case G95_ISYM_DPROD:
+    case GFC_ISYM_DPROD:
       gfc_conv_intrinsic_dprod (se, expr);
       break;
 
-    case G95_ISYM_IAND:
+    case GFC_ISYM_IAND:
       gfc_conv_intrinsic_bitop (se, expr, BIT_AND_EXPR);
       break;
 
-    case G95_ISYM_IBCLR:
+    case GFC_ISYM_IBCLR:
       gfc_conv_intrinsic_singlebitop (se, expr, 0);
       break;
 
-    case G95_ISYM_IBITS:
+    case GFC_ISYM_IBITS:
       gfc_conv_intrinsic_ibits (se, expr);
       break;
 
-    case G95_ISYM_IBSET:
+    case GFC_ISYM_IBSET:
       gfc_conv_intrinsic_singlebitop (se, expr, 1);
       break;
 
-    case G95_ISYM_IACHAR:
-    case G95_ISYM_ICHAR:
+    case GFC_ISYM_IACHAR:
+    case GFC_ISYM_ICHAR:
       /* We assume ASCII character sequence.  */
       gfc_conv_intrinsic_ichar (se, expr);
       break;
 
-    case G95_ISYM_IEOR:
+    case GFC_ISYM_IEOR:
       gfc_conv_intrinsic_bitop (se, expr, BIT_XOR_EXPR);
       break;
 
-    case G95_ISYM_INDEX:
+    case GFC_ISYM_INDEX:
       gfc_conv_intrinsic_index (se, expr);
       break;
 
-    case G95_ISYM_IOR:
+    case GFC_ISYM_IOR:
       gfc_conv_intrinsic_bitop (se, expr, BIT_IOR_EXPR);
       break;
 
-    case G95_ISYM_ISHFT:
+    case GFC_ISYM_ISHFT:
       gfc_conv_intrinsic_ishft (se, expr);
       break;
 
-    case G95_ISYM_ISHFTC:
+    case GFC_ISYM_ISHFTC:
       gfc_conv_intrinsic_ishftc (se, expr);
       break;
 
-    case G95_ISYM_LBOUND:
+    case GFC_ISYM_LBOUND:
       gfc_conv_intrinsic_bound (se, expr, 0);
       break;
 
-    case G95_ISYM_LEN:
+    case GFC_ISYM_LEN:
       gfc_conv_intrinsic_len (se, expr);
       break;
 
-    case G95_ISYM_LEN_TRIM:
+    case GFC_ISYM_LEN_TRIM:
       gfc_conv_intrinsic_len_trim (se, expr);
       break;
 
-    case G95_ISYM_LGE:
+    case GFC_ISYM_LGE:
       gfc_conv_intrinsic_strcmp (se, expr, GE_EXPR);
       break;
 
-    case G95_ISYM_LGT:
+    case GFC_ISYM_LGT:
       gfc_conv_intrinsic_strcmp (se, expr, GT_EXPR);
       break;
 
-    case G95_ISYM_LLE:
+    case GFC_ISYM_LLE:
       gfc_conv_intrinsic_strcmp (se, expr, LE_EXPR);
       break;
 
-    case G95_ISYM_LLT:
+    case GFC_ISYM_LLT:
       gfc_conv_intrinsic_strcmp (se, expr, LT_EXPR);
       break;
 
-    case G95_ISYM_MAX:
+    case GFC_ISYM_MAX:
       gfc_conv_intrinsic_minmax (se, expr, GT_EXPR);
       break;
 
-    case G95_ISYM_MAXLOC:
+    case GFC_ISYM_MAXLOC:
       gfc_conv_intrinsic_minmaxloc (se, expr, GT_EXPR);
       break;
 
-    case G95_ISYM_MAXVAL:
+    case GFC_ISYM_MAXVAL:
       gfc_conv_intrinsic_minmaxval (se, expr, GT_EXPR);
       break;
 
-    case G95_ISYM_MERGE:
+    case GFC_ISYM_MERGE:
       gfc_conv_intrinsic_merge (se, expr);
       break;
 
-    case G95_ISYM_MIN:
+    case GFC_ISYM_MIN:
       gfc_conv_intrinsic_minmax (se, expr, LT_EXPR);
       break;
 
-    case G95_ISYM_MINLOC:
+    case GFC_ISYM_MINLOC:
       gfc_conv_intrinsic_minmaxloc (se, expr, LT_EXPR);
       break;
 
-    case G95_ISYM_MINVAL:
+    case GFC_ISYM_MINVAL:
       gfc_conv_intrinsic_minmaxval (se, expr, LT_EXPR);
       break;
 
-    case G95_ISYM_NOT:
+    case GFC_ISYM_NOT:
       gfc_conv_intrinsic_not (se, expr);
       break;
 
-    case G95_ISYM_PRESENT:
+    case GFC_ISYM_PRESENT:
       gfc_conv_intrinsic_present (se, expr);
       break;
 
-    case G95_ISYM_PRODUCT:
+    case GFC_ISYM_PRODUCT:
       gfc_conv_intrinsic_arith (se, expr, MULT_EXPR);
       break;
 
-    case G95_ISYM_SIGN:
+    case GFC_ISYM_SIGN:
       gfc_conv_intrinsic_sign (se, expr);
       break;
 
-    case G95_ISYM_SIZE:
+    case GFC_ISYM_SIZE:
       gfc_conv_intrinsic_size (se, expr);
       break;
 
-    case G95_ISYM_SUM:
+    case GFC_ISYM_SUM:
       gfc_conv_intrinsic_arith (se, expr, PLUS_EXPR);
       break;
 
-    case G95_ISYM_TRANSFER:
+    case GFC_ISYM_TRANSFER:
       gfc_conv_intrinsic_transfer (se, expr);
       break;
 
-    case G95_ISYM_UBOUND:
+    case GFC_ISYM_UBOUND:
       gfc_conv_intrinsic_bound (se, expr, 1);
       break;
 
-    case G95_ISYM_DOT_PRODUCT:
-    case G95_ISYM_MATMUL:
+    case GFC_ISYM_DOT_PRODUCT:
+    case GFC_ISYM_MATMUL:
       gfc_conv_intrinsic_funcall (se, expr);
       break;
 
@@ -2439,8 +2439,8 @@ gfc_add_intrinsic_ss_code (gfc_loopinfo * loop ATTRIBUTE_UNUSED, gfc_ss * ss)
 {
   switch (ss->expr->value.function.isym->generic_id)
     {
-    case G95_ISYM_UBOUND:
-    case G95_ISYM_LBOUND:
+    case GFC_ISYM_UBOUND:
+    case GFC_ISYM_LBOUND:
       break;
 
     default:
@@ -2463,7 +2463,7 @@ gfc_walk_intrinsic_bound (gfc_ss * ss, gfc_expr * expr)
     return ss;
 
   newss = gfc_get_ss ();
-  newss->type = G95_SS_INTRINSIC;
+  newss->type = GFC_SS_INTRINSIC;
   newss->expr = expr;
   newss->next = ss;
 
@@ -2481,7 +2481,7 @@ gfc_walk_intrinsic_libfunc (gfc_ss * ss, gfc_expr * expr)
   assert (expr->rank > 0);
 
   newss = gfc_get_ss ();
-  newss->type = G95_SS_FUNCTION;
+  newss->type = GFC_SS_FUNCTION;
   newss->expr = expr;
   newss->next = ss;
 
@@ -2501,26 +2501,26 @@ gfc_is_intrinsic_libcall (gfc_expr * expr)
 
   switch (expr->value.function.isym->generic_id)
     {
-    case G95_ISYM_ALL:
-    case G95_ISYM_ANY:
-    case G95_ISYM_COUNT:
-    case G95_ISYM_MATMUL:
-    case G95_ISYM_MAXLOC:
-    case G95_ISYM_MAXVAL:
-    case G95_ISYM_MINLOC:
-    case G95_ISYM_MINVAL:
-    case G95_ISYM_PRODUCT:
-    case G95_ISYM_SUM:
-    case G95_ISYM_SHAPE:
-    case G95_ISYM_SPREAD:
-    case G95_ISYM_TRANSPOSE:
+    case GFC_ISYM_ALL:
+    case GFC_ISYM_ANY:
+    case GFC_ISYM_COUNT:
+    case GFC_ISYM_MATMUL:
+    case GFC_ISYM_MAXLOC:
+    case GFC_ISYM_MAXVAL:
+    case GFC_ISYM_MINLOC:
+    case GFC_ISYM_MINVAL:
+    case GFC_ISYM_PRODUCT:
+    case GFC_ISYM_SUM:
+    case GFC_ISYM_SHAPE:
+    case GFC_ISYM_SPREAD:
+    case GFC_ISYM_TRANSPOSE:
       /* Ignore absent optional parameters.  */
       return 1;
 
-    case G95_ISYM_RESHAPE:
-    case G95_ISYM_EOSHIFT:
-    case G95_ISYM_PACK:
-    case G95_ISYM_UNPACK:
+    case GFC_ISYM_RESHAPE:
+    case GFC_ISYM_EOSHIFT:
+    case GFC_ISYM_PACK:
+    case GFC_ISYM_UNPACK:
       /* Pass absent optional parameters.  */
       return 2;
 
@@ -2537,7 +2537,7 @@ gfc_walk_intrinsic_function (gfc_ss * ss, gfc_expr * expr,
   assert (isym);
 
   if (isym->elemental)
-    return gfc_walk_elemental_function_args (ss, expr, G95_SS_SCALAR);
+    return gfc_walk_elemental_function_args (ss, expr, GFC_SS_SCALAR);
 
   if (expr->rank == 0)
     return ss;
@@ -2548,8 +2548,8 @@ gfc_walk_intrinsic_function (gfc_ss * ss, gfc_expr * expr,
   /* Special cases.  */
   switch (isym->generic_id)
     {
-    case G95_ISYM_LBOUND:
-    case G95_ISYM_UBOUND:
+    case GFC_ISYM_LBOUND:
+    case GFC_ISYM_UBOUND:
       return gfc_walk_intrinsic_bound (ss, expr);
 
     default:

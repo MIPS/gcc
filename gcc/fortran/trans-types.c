@@ -36,12 +36,12 @@ Boston, MA 02111-1307, USA.  */
 #include "trans-const.h"
 
 
-#if (G95_MAX_DIMENSIONS < 10)
-#define G95_RANK_DIGITS 1
-#define G95_RANK_PRINTF_FORMAT "%01d"
-#elif (G95_MAX_DIMENSIONS < 100)
-#define G95_RANK_DIGITS 2
-#define G95_RANK_PRINTF_FORMAT "%02d"
+#if (GFC_MAX_DIMENSIONS < 10)
+#define GFC_RANK_DIGITS 1
+#define GFC_RANK_PRINTF_FORMAT "%01d"
+#elif (GFC_MAX_DIMENSIONS < 100)
+#define GFC_RANK_DIGITS 2
+#define GFC_RANK_PRINTF_FORMAT "%02d"
 #else
 #error If you really need >99 dimensions, continue the sequence above...
 #endif
@@ -82,7 +82,7 @@ gfc_init_types (void)
   PUSH_TYPE ("int4", gfc_int4_type_node);
   gfc_int8_type_node = gfc_type_for_size (64, 0 /*unsigned */ );
   PUSH_TYPE ("int8", gfc_int8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
   gfc_int16_type_node = gfc_type_for_size (128, 0 /*unsigned */ );
   PUSH_TYPE ("int16", gfc_int16_type_node);
 #endif
@@ -91,7 +91,7 @@ gfc_init_types (void)
   PUSH_TYPE ("real4", gfc_real4_type_node);
   gfc_real8_type_node = double_type_node;
   PUSH_TYPE ("real8", gfc_real8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
   /* Hmm, this will not work. Ref. g77 */
   gfc_real16_type_node = long_double_type_node;
   PUSH_TYPE ("real16", gfc_real16_type_node);
@@ -101,7 +101,7 @@ gfc_init_types (void)
   PUSH_TYPE ("complex4", gfc_complex4_type_node);
   gfc_complex8_type_node = complex_double_type_node;
   PUSH_TYPE ("complex8", gfc_complex8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
   /* Hmm, this will not work. Ref. g77 */
   gfc_complex16_type_node = complex_long_double_type_node;
   PUSH_TYPE ("complex16", gfc_complex16_type_node);
@@ -123,7 +123,7 @@ gfc_init_types (void)
   TYPE_PRECISION (gfc_logical8_type_node) = 64;
   fixup_unsigned_type (gfc_logical8_type_node);
   PUSH_TYPE ("logical8", gfc_logical8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
   gfc_logical16_type_node = make_node (BOOLEAN_TYPE);
   TYPE_PRECISION (gfc_logical16_type_node) = 128;
   fixup_unsigned_type (gfc_logical16_type_node);
@@ -155,7 +155,7 @@ gfc_init_types (void)
      descriptor.  */
 
   n = TREE_INT_CST_LOW (TYPE_SIZE (gfc_array_index_type))
-      - G95_DTYPE_SIZE_SHIFT;
+      - GFC_DTYPE_SIZE_SHIFT;
 
   if (n > sizeof (HOST_WIDE_INT) * 8)
     {
@@ -193,7 +193,7 @@ gfc_get_int_type (int kind)
       return (gfc_int4_type_node);
     case 8:
       return (gfc_int8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
     case 16:
       return (95 _int16_type_node);
 #endif
@@ -212,7 +212,7 @@ gfc_get_real_type (int kind)
       return (gfc_real4_type_node);
     case 8:
       return (gfc_real8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
     case 16:
       return (gfc_real16_type_node);
 #endif
@@ -231,7 +231,7 @@ gfc_get_complex_type (int kind)
       return (gfc_complex4_type_node);
     case 8:
       return (gfc_complex8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
     case 16:
       return (gfc_complex16_type_node);
 #endif
@@ -250,7 +250,7 @@ gfc_get_logical_type (int kind)
       return (gfc_logical4_type_node);
     case 8:
       return (gfc_logical8_type_node);
-#if (G95_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
+#if (GFC_USE_TYPES16 && (HOST_BITS_PER_WIDE_INT >= 64))
     case 16:
       return (gfc_logical16_type_node);
 #endif
@@ -290,7 +290,7 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
   type = build_array_type (base, bounds);
   TYPE_STRING_FLAG (type) = 1;
   if (len != NULL_TREE)
-    G95_KNOWN_SIZE_STRING_TYPE (type) = 1;
+    GFC_KNOWN_SIZE_STRING_TYPE (type) = 1;
 
   return type;
 }
@@ -355,7 +355,7 @@ gfc_get_element_type (tree type)
 {
   tree element;
 
-  if (G95_ARRAY_TYPE_P (type))
+  if (GFC_ARRAY_TYPE_P (type))
     {
       if (TREE_CODE (type) == POINTER_TYPE)
         type = TREE_TYPE (type);
@@ -364,7 +364,7 @@ gfc_get_element_type (tree type)
     }
   else
     {
-      assert (G95_DESCRIPTOR_TYPE_P (type));
+      assert (GFC_DESCRIPTOR_TYPE_P (type));
       element = TREE_TYPE (TYPE_FIELDS (type));
 
       assert (TREE_CODE (element) == POINTER_TYPE);
@@ -406,9 +406,9 @@ gfc_get_element_type (tree type)
    for the handling of character types.
 
    The dtype member is formatted as follows:
-    rank = dtype & G95_DTYPE_RANK_MASK // 3 bits
-    type = (dtype & G95_DTYPE_TYPE_MASK) >> G95_DTYPE_TYPE_SHIFT // 3 bits
-    size = dtype >> G95_DTYPE_SIZE_SHIFT
+    rank = dtype & GFC_DTYPE_RANK_MASK // 3 bits
+    type = (dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT // 3 bits
+    size = dtype >> GFC_DTYPE_SIZE_SHIFT
 
    I originaly used nested ARRAY_TYPE nodes to represent arrays, but this
    generated poor code for assumed/deferred size arrays.  These require
@@ -482,8 +482,8 @@ gfc_is_nodesc_array (gfc_symbol * sym)
 static tree
 gfc_build_array_type (tree type, gfc_array_spec * as)
 {
-  tree lbound[G95_MAX_DIMENSIONS];
-  tree ubound[G95_MAX_DIMENSIONS];
+  tree lbound[GFC_MAX_DIMENSIONS];
+  tree ubound[GFC_MAX_DIMENSIONS];
   int n;
 
   for (n = 0; n < as->rank; n++)
@@ -549,52 +549,52 @@ gfc_get_dtype_cst (tree type, int rank)
   unsigned HOST_WIDE_INT lo;
   unsigned HOST_WIDE_INT hi;
 
-  if (G95_DESCRIPTOR_TYPE_P (type) || G95_ARRAY_TYPE_P (type))
-    return (G95_TYPE_ARRAY_DTYPE (type));
+  if (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type))
+    return (GFC_TYPE_ARRAY_DTYPE (type));
 
   /* TODO: Correctly identify LOGICAL types.  */
   switch (TREE_CODE (type))
     {
     case INTEGER_TYPE:
-      n = G95_DTYPE_INTEGER;
+      n = GFC_DTYPE_INTEGER;
       break;
 
     case BOOLEAN_TYPE:
-      n = G95_DTYPE_LOGICAL;
+      n = GFC_DTYPE_LOGICAL;
       break;
 
     case REAL_TYPE:
-      n = G95_DTYPE_REAL;
+      n = GFC_DTYPE_REAL;
       break;
 
     case COMPLEX_TYPE:
-      n = G95_DTYPE_COMPLEX;
+      n = GFC_DTYPE_COMPLEX;
       break;
 
       /* Arrays have already been dealt with.  */
     case RECORD_TYPE:
-      n = G95_DTYPE_DERIVED;
+      n = GFC_DTYPE_DERIVED;
       break;
 /* Arrays of strings are currently broken.  */
 #if 0
     case ARRAY_TYPE:
-      n = G95_DTYPE_CHARACTER;
+      n = GFC_DTYPE_CHARACTER;
       break;
 #endif
     default:
       abort ();
     }
 
-  assert (rank <= G95_DTYPE_RANK_MASK);
+  assert (rank <= GFC_DTYPE_RANK_MASK);
   size = TYPE_SIZE_UNIT (type);
   assert (INTEGER_CST_P (size));
   if (tree_int_cst_lt (gfc_max_array_element_size, size))
     internal_error ("Array element size too big");
 
-  lo = TREE_INT_CST_LOW (size) << G95_DTYPE_SIZE_SHIFT;
-  hi = TREE_INT_CST_HIGH (size) << G95_DTYPE_SIZE_SHIFT
-       | (lo >> (sizeof (HOST_WIDE_INT) * 8 - G95_DTYPE_SIZE_SHIFT));
-  lo |= rank | (n << G95_DTYPE_TYPE_SHIFT);
+  lo = TREE_INT_CST_LOW (size) << GFC_DTYPE_SIZE_SHIFT;
+  hi = TREE_INT_CST_HIGH (size) << GFC_DTYPE_SIZE_SHIFT
+       | (lo >> (sizeof (HOST_WIDE_INT) * 8 - GFC_DTYPE_SIZE_SHIFT));
+  lo |= rank | (n << GFC_DTYPE_TYPE_SHIFT);
 
   return build_int_2 (lo, hi);
 }
@@ -626,7 +626,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
      for duplicates.  */
   type = make_node (ARRAY_TYPE);
 
-  G95_ARRAY_TYPE_P (type) = 1;
+  GFC_ARRAY_TYPE_P (type) = 1;
   TYPE_LANG_SPECIFIC (type) = (struct lang_type *)
     ggc_alloc_cleared (sizeof (struct lang_type));
 
@@ -639,7 +639,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
 	tmp =  gfc_conv_mpz_to_tree (stride, gfc_index_integer_kind);
       else
         tmp = NULL_TREE;
-      G95_TYPE_ARRAY_STRIDE (type, n) = tmp;
+      GFC_TYPE_ARRAY_STRIDE (type, n) = tmp;
 
       expr = as->lower[n];
       if (expr->expr_type == EXPR_CONSTANT)
@@ -652,7 +652,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
           known_stride = 0;
           tmp = NULL_TREE;
         }
-      G95_TYPE_ARRAY_LBOUND (type, n) = tmp;
+      GFC_TYPE_ARRAY_LBOUND (type, n) = tmp;
 
       expr = as->upper[n];
       if (expr && expr->expr_type == EXPR_CONSTANT)
@@ -665,7 +665,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
           tmp = NULL_TREE;
           known_stride = 0;
         }
-      G95_TYPE_ARRAY_UBOUND (type, n) = tmp;
+      GFC_TYPE_ARRAY_UBOUND (type, n) = tmp;
 
       if (known_stride)
         {
@@ -687,26 +687,26 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
 
   if (packed == 3 && known_offset)
     {
-      G95_TYPE_ARRAY_OFFSET (type) =
+      GFC_TYPE_ARRAY_OFFSET (type) =
         gfc_conv_mpz_to_tree (offset, gfc_index_integer_kind);
     }
   else
-    G95_TYPE_ARRAY_OFFSET (type) = NULL_TREE;
+    GFC_TYPE_ARRAY_OFFSET (type) = NULL_TREE;
 
   if (known_stride)
     {
-      G95_TYPE_ARRAY_SIZE (type) =
+      GFC_TYPE_ARRAY_SIZE (type) =
         gfc_conv_mpz_to_tree (stride, gfc_index_integer_kind);
     }
   else
-    G95_TYPE_ARRAY_SIZE (type) = NULL_TREE;
+    GFC_TYPE_ARRAY_SIZE (type) = NULL_TREE;
 
-  G95_TYPE_ARRAY_DTYPE (type) = gfc_get_dtype_cst (etype, as->rank);
-  G95_TYPE_ARRAY_RANK (type) = as->rank;
+  GFC_TYPE_ARRAY_DTYPE (type) = gfc_get_dtype_cst (etype, as->rank);
+  GFC_TYPE_ARRAY_RANK (type) = as->rank;
   range = build_range_type (gfc_array_index_type, integer_zero_node,
 			    NULL_TREE);
   /* TODO: use main type if it is unbounded.  */
-  G95_TYPE_ARRAY_DATAPTR_TYPE (type) =
+  GFC_TYPE_ARRAY_DATAPTR_TYPE (type) =
     build_pointer_type (build_array_type (etype, range));
 
   if (packed == 3 && known_stride)
@@ -732,7 +732,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   if (packed < 3 || !known_stride)
     {
       type = build_pointer_type (type);
-      G95_ARRAY_TYPE_P (type) = 1;
+      GFC_ARRAY_TYPE_P (type) = 1;
       TYPE_LANG_SPECIFIC (type) = TYPE_LANG_SPECIFIC (TREE_TYPE (type));
     }
   return type;
@@ -750,7 +750,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   tree arraytype;
   tree decl;
   int n;
-  char name[8 + G95_RANK_DIGITS + G95_MAX_SYMBOL_LEN];
+  char name[8 + GFC_RANK_DIGITS + GFC_MAX_SYMBOL_LEN];
   const char *typename;
   tree lower;
   tree upper;
@@ -759,11 +759,11 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 
   /* Build the type node.  */
   fat_type = make_node (RECORD_TYPE);
-  G95_DESCRIPTOR_TYPE_P (fat_type) = 1;
+  GFC_DESCRIPTOR_TYPE_P (fat_type) = 1;
   TYPE_LANG_SPECIFIC (fat_type) = (struct lang_type *)
     ggc_alloc_cleared (sizeof (struct lang_type));
-  G95_TYPE_ARRAY_RANK (fat_type) = dimen;
-  G95_TYPE_ARRAY_DTYPE (fat_type) = gfc_get_dtype_cst (etype, dimen);
+  GFC_TYPE_ARRAY_RANK (fat_type) = dimen;
+  GFC_TYPE_ARRAY_DTYPE (fat_type) = gfc_get_dtype_cst (etype, dimen);
 
   tmp = TYPE_NAME (etype);
   if (tmp && TREE_CODE (tmp) == TYPE_DECL)
@@ -773,8 +773,8 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   else
     typename = "unknown";
 
-  sprintf (name, "array" G95_RANK_PRINTF_FORMAT "_%.*s", dimen,
-	   G95_MAX_SYMBOL_LEN, typename);
+  sprintf (name, "array" GFC_RANK_PRINTF_FORMAT "_%.*s", dimen,
+	   GFC_MAX_SYMBOL_LEN, typename);
   TYPE_NAME (fat_type) = get_identifier (name);
   TYPE_PACKED (fat_type) = 0;
 
@@ -788,7 +788,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 
   for (n = 0; n < dimen; n++)
     {
-      G95_TYPE_ARRAY_STRIDE (fat_type, n) = stride;
+      GFC_TYPE_ARRAY_STRIDE (fat_type, n) = stride;
 
       if (lbound)
 	lower = lbound[n];
@@ -798,7 +798,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
       if (lower != NULL_TREE)
 	{
 	  if (INTEGER_CST_P (lower))
-	    G95_TYPE_ARRAY_LBOUND (fat_type, n) = lower;
+	    GFC_TYPE_ARRAY_LBOUND (fat_type, n) = lower;
 	  else
 	    lower = NULL_TREE;
 	}
@@ -807,7 +807,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
       if (upper != NULL_TREE)
 	{
 	  if (INTEGER_CST_P (upper))
-	    G95_TYPE_ARRAY_UBOUND (fat_type, n) = upper;
+	    GFC_TYPE_ARRAY_UBOUND (fat_type, n) = upper;
 	  else
 	    upper = NULL_TREE;
 	}
@@ -825,9 +825,9 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
       else
 	stride = NULL_TREE;
     }
-  G95_TYPE_ARRAY_SIZE (fat_type) = stride;
+  GFC_TYPE_ARRAY_SIZE (fat_type) = stride;
   /* TODO: known offsets for descriptors.  */
-  G95_TYPE_ARRAY_OFFSET (fat_type) = NULL_TREE;
+  GFC_TYPE_ARRAY_OFFSET (fat_type) = NULL_TREE;
 
   /* We define data as an unknown size array. Much better than doing
      pointer arithmetic.  */
@@ -836,7 +836,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 		      build_range_type (gfc_array_index_type,
 					integer_zero_node, NULL_TREE));
   arraytype = build_pointer_type (arraytype);
-  G95_TYPE_ARRAY_DATAPTR_TYPE (fat_type) = arraytype;
+  GFC_TYPE_ARRAY_DATAPTR_TYPE (fat_type) = arraytype;
 
   /* The pointer to the array data.  */
   decl = build_decl (FIELD_DECL, get_identifier ("data"), arraytype);
@@ -952,7 +952,7 @@ gfc_sym_type (gfc_symbol * sym)
 	type = gfc_build_pointer_type (sym, type);
 
     }
-  else if (!(G95_KNOWN_SIZE_STRING_TYPE (type) || sym->attr.dummy))
+  else if (!(GFC_KNOWN_SIZE_STRING_TYPE (type) || sym->attr.dummy))
     {
       type = build_pointer_type (type);
     }
@@ -1082,7 +1082,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 	  assert (TREE_CODE (tmp) == ARRAY_TYPE);
 	  tmp = TYPE_MAX_VALUE (TYPE_DOMAIN (tmp));
 	  assert (INTEGER_CST_P (tmp));
-	  G95_DECL_STRING_LENGTH (field) = tmp;
+	  GFC_DECL_STRING_LENGTH (field) = tmp;
 	}
 
       assert (!c->backend_decl);

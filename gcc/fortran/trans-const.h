@@ -51,5 +51,5 @@ extern GTY(()) tree gfc_strconst_bounds;
 extern GTY(()) tree gfc_strconst_fault;
 extern GTY(()) tree gfc_strconst_wrong_return;
 
-/* Integer constants 0..G95_MAX_DIMENSIONS.  */
-extern GTY(()) tree gfc_rank_cst[G95_MAX_DIMENSIONS + 1];
+/* Integer constants 0..GFC_MAX_DIMENSIONS.  */
+extern GTY(()) tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];

@@ -43,7 +43,7 @@ tree gfc_strconst_fault;
 tree gfc_strconst_wrong_return;
 tree gfc_strconst_current_filename;
 
-tree gfc_rank_cst[G95_MAX_DIMENSIONS + 1];
+tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
 
 /* Build a constant with given type from an int_cst.  */
 tree
@@ -126,7 +126,7 @@ gfc_init_constants (void)
 {
   int n;
 
-  for (n = 0; n <= G95_MAX_DIMENSIONS; n++)
+  for (n = 0; n <= GFC_MAX_DIMENSIONS; n++)
     {
       gfc_rank_cst[n] = build_int_2 (n, 0);
       TREE_TYPE (gfc_rank_cst[n]) = gfc_array_index_type;
@@ -341,7 +341,7 @@ gfc_conv_constant (gfc_se * se, gfc_expr * expr)
   if (se->ss != NULL)
     {
       assert (se->ss != gfc_ss_terminator);
-      assert (se->ss->type == G95_SS_SCALAR);
+      assert (se->ss->type == GFC_SS_SCALAR);
       assert (se->ss->expr == expr);
 
       se->expr = se->ss->data.scalar.expr;

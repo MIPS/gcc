@@ -2684,8 +2684,8 @@ gfc_simplify_reshape (gfc_expr * source, gfc_expr * shape_exp,
 		      gfc_expr * pad, gfc_expr * order_exp)
 {
 
-  int order[G95_MAX_DIMENSIONS], shape[G95_MAX_DIMENSIONS];
-  int i, rank, npad, x[G95_MAX_DIMENSIONS];
+  int order[GFC_MAX_DIMENSIONS], shape[GFC_MAX_DIMENSIONS];
+  int i, rank, npad, x[GFC_MAX_DIMENSIONS];
   gfc_constructor *head, *tail;
   mpz_t index, size;
   unsigned long j;
@@ -2729,7 +2729,7 @@ gfc_simplify_reshape (gfc_expr * source, gfc_expr * shape_exp,
 
       gfc_free_expr (e);
 
-      if (rank >= G95_MAX_DIMENSIONS)
+      if (rank >= GFC_MAX_DIMENSIONS)
 	{
 	  gfc_error ("Too many dimensions in shape specification for RESHAPE "
 		     "at %L", &e->where);
@@ -3231,7 +3231,7 @@ gfc_simplify_set_exponent (gfc_expr * x, gfc_expr * i)
 gfc_expr *
 gfc_simplify_shape (gfc_expr * source)
 {
-  mpz_t shape[G95_MAX_DIMENSIONS];
+  mpz_t shape[GFC_MAX_DIMENSIONS];
   gfc_expr *result, *e, *f;
   gfc_array_ref *ar;
   int n;
@@ -3284,7 +3284,7 @@ gfc_simplify_shape (gfc_expr * source)
 gfc_expr *
 gfc_simplify_size (gfc_expr * array, gfc_expr * dim)
 {
-  mpz_t shape[G95_MAX_DIMENSIONS];
+  mpz_t shape[GFC_MAX_DIMENSIONS];
   gfc_array_ref *ar;
   gfc_expr *result;
   int n, d;

@@ -110,7 +110,7 @@ gfc_free_ref_list (gfc_ref * p)
       switch (p->type)
 	{
 	case REF_ARRAY:
-	  for (i = 0; i < G95_MAX_DIMENSIONS; i++)
+	  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
 	    {
 	      gfc_free_expr (p->u.ar.start[i]);
 	      gfc_free_expr (p->u.ar.end[i]);

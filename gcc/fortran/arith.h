@@ -20,8 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef G95_ARITH_H
-#define G95_ARITH_H
+#ifndef GFC_ARITH_H
+#define GFC_ARITH_H
 
 #include "gfortran.h"
 
@@ -86,5 +86,5 @@ gfc_expr *gfc_complex2real (gfc_expr *, int);
 gfc_expr *gfc_complex2complex (gfc_expr *, int);
 gfc_expr *gfc_log2log (gfc_expr *, int);
 
-#endif /* G95_ARITH_H  */
+#endif /* GFC_ARITH_H  */
 

@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
    will expand to an array constructor without iterators.
    Constructors larger than this will remain in the iterator form.  */
 
-#define G95_MAX_AC_EXPAND 100
+#define GFC_MAX_AC_EXPAND 100
 
 
 /**************** Array reference matching subroutines *****************/
@@ -50,7 +50,7 @@ gfc_copy_array_ref (gfc_array_ref * src)
 
   *dest = *src;
 
-  for (i = 0; i < G95_MAX_DIMENSIONS; i++)
+  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
     {
       dest->start[i] = gfc_copy_expr (src->start[i]);
       dest->end[i] = gfc_copy_expr (src->end[i]);
@@ -152,7 +152,7 @@ gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)
 
   ar->type = AR_UNKNOWN;
 
-  for (ar->dimen = 0; ar->dimen < G95_MAX_DIMENSIONS; ar->dimen++)
+  for (ar->dimen = 0; ar->dimen < GFC_MAX_DIMENSIONS; ar->dimen++)
     {
       m = match_subscript (ar, init);
       if (m == MATCH_ERROR)
@@ -169,7 +169,7 @@ gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)
     }
 
   gfc_error ("Array reference at %C cannot have more than "
-	     stringize (G95_MAX_DIMENSIONS) " dimensions");
+	     stringize (GFC_MAX_DIMENSIONS) " dimensions");
 
 error:
   return MATCH_ERROR;
@@ -340,7 +340,7 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 
   as = gfc_get_array_spec ();
 
-  for (i = 0; i < G95_MAX_DIMENSIONS; i++)
+  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
     {
       as->lower[i] = NULL;
       as->upper[i] = NULL;
@@ -416,10 +416,10 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 	  goto cleanup;
 	}
 
-      if (as->rank >= G95_MAX_DIMENSIONS)
+      if (as->rank >= GFC_MAX_DIMENSIONS)
 	{
 	  gfc_error ("Array specification at %C has more than "
-		     stringize (G95_MAX_DIMENSIONS) " dimensions");
+		     stringize (GFC_MAX_DIMENSIONS) " dimensions");
 	  goto cleanup;
 	}
 
@@ -1300,7 +1300,7 @@ gfc_expand_constructor (gfc_expr * e)
   gfc_expr *f;
   try rc;
 
-  f = gfc_get_array_element (e, G95_MAX_AC_EXPAND);
+  f = gfc_get_array_element (e, GFC_MAX_AC_EXPAND);
   if (f != NULL)
     {
       gfc_free_expr (f);

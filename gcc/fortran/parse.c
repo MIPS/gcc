@@ -91,7 +91,7 @@ decode_statement (void)
   match m;
   int c;
 
-#ifdef G95_DEBUG
+#ifdef GFC_DEBUG
   gfc_symbol_state ();
 #endif
 

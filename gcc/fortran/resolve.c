@@ -1832,7 +1832,7 @@ resolve_ref (gfc_expr * expr)
 static void
 expression_shape (gfc_expr * e)
 {
-  mpz_t array[G95_MAX_DIMENSIONS];
+  mpz_t array[GFC_MAX_DIMENSIONS];
   int i;
 
   if (e->rank == 0 || e->shape != NULL)
@@ -2904,8 +2904,8 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
 static try
 resolve_where_shape (gfc_expr *expr1, gfc_expr *expr2)
 {
-  mpz_t shape[G95_MAX_DIMENSIONS];
-  mpz_t shape2[G95_MAX_DIMENSIONS];
+  mpz_t shape[GFC_MAX_DIMENSIONS];
+  mpz_t shape2[GFC_MAX_DIMENSIONS];
   try result = FAILURE;
   int i;
 
@@ -3038,7 +3038,7 @@ gfc_find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
             case  REF_ARRAY:
               /* Check if the symbol appears in the array subscript.  */
               ar = tmp->u.ar;
-              for (i = 0; i < G95_MAX_DIMENSIONS; i++)
+              for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
                 {
                   if (ar.start[i])
                     if (gfc_find_forall_index (ar.start[i], symbol) == SUCCESS)

@@ -20,8 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef G95_MATCH_H
-#define G95_MATCH_H
+#ifndef GFC_MATCH_H
+#define GFC_MATCH_H
 
 #include "gfortran.h"
 
@@ -160,5 +160,5 @@ match gfc_match_expr (gfc_expr **);
 match gfc_match_use (void);
 void gfc_use_module (void);
 
-#endif  /* G95_MATCH_H  */
+#endif  /* GFC_MATCH_H  */
 

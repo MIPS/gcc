@@ -1374,14 +1374,14 @@ gfc_check_reshape (gfc_expr * source, gfc_expr * shape,
       return FAILURE;
     }
 
-  m = mpz_cmp_ui (size, G95_MAX_DIMENSIONS);
+  m = mpz_cmp_ui (size, GFC_MAX_DIMENSIONS);
   mpz_clear (size);
 
   if (m > 0)
     {
       gfc_error
 	("'shape' argument of 'reshape' intrinsic at %L has more than "
-	 stringize (G95_MAX_DIMENSIONS) " elements", &shape->where);
+	 stringize (GFC_MAX_DIMENSIONS) " elements", &shape->where);
       return FAILURE;
     }
 
@@ -1532,9 +1532,9 @@ try
 gfc_check_spread (gfc_expr * source, gfc_expr * dim, gfc_expr * ncopies)
 {
 
-  if (source->rank >= G95_MAX_DIMENSIONS)
+  if (source->rank >= GFC_MAX_DIMENSIONS)
     {
-      must_be (source, 0, "less than rank " stringize (G95_MAX_DIMENSIONS));
+      must_be (source, 0, "less than rank " stringize (GFC_MAX_DIMENSIONS));
       return FAILURE;
     }
 

@@ -42,36 +42,36 @@ mpf_t pi, half_pi, two_pi, e;
 #define MPZ_NULL {{0,0,0}}
 #define MPF_NULL {{0,0,0,0}}
 
-#define DEF_G95_INTEGER_KIND(KIND,RADIX,DIGITS,BIT_SIZE)		\
+#define DEF_GFC_INTEGER_KIND(KIND,RADIX,DIGITS,BIT_SIZE)		\
 	{KIND, RADIX, DIGITS, BIT_SIZE, 0, MPZ_NULL, MPZ_NULL, MPZ_NULL}
 
-#define DEF_G95_LOGICAL_KIND(KIND,BIT_SIZE)				\
+#define DEF_GFC_LOGICAL_KIND(KIND,BIT_SIZE)				\
 	{KIND, BIT_SIZE}
 
-#define DEF_G95_REAL_KIND(KIND,RADIX,DIGITS,MIN_EXP, MAX_EXP)		\
+#define DEF_GFC_REAL_KIND(KIND,RADIX,DIGITS,MIN_EXP, MAX_EXP)		\
 	{KIND, RADIX, DIGITS, MIN_EXP, MAX_EXP,				\
 	 0, 0, MPF_NULL, MPF_NULL, MPF_NULL}
 
 gfc_integer_info gfc_integer_kinds[] = {
-  DEF_G95_INTEGER_KIND (4, 2, 31, 32),
-  DEF_G95_INTEGER_KIND (8, 2, 63, 64),
-  DEF_G95_INTEGER_KIND (2, 2, 15, 16),
-  DEF_G95_INTEGER_KIND (1, 2,  7,  8),
-  DEF_G95_INTEGER_KIND (0, 0,  0,  0)
+  DEF_GFC_INTEGER_KIND (4, 2, 31, 32),
+  DEF_GFC_INTEGER_KIND (8, 2, 63, 64),
+  DEF_GFC_INTEGER_KIND (2, 2, 15, 16),
+  DEF_GFC_INTEGER_KIND (1, 2,  7,  8),
+  DEF_GFC_INTEGER_KIND (0, 0,  0,  0)
 };
 
 gfc_logical_info gfc_logical_kinds[] = {
-  DEF_G95_LOGICAL_KIND (4, 32),
-  DEF_G95_LOGICAL_KIND (8, 64),
-  DEF_G95_LOGICAL_KIND (2, 16),
-  DEF_G95_LOGICAL_KIND (1,  8),
-  DEF_G95_LOGICAL_KIND (0,  0)
+  DEF_GFC_LOGICAL_KIND (4, 32),
+  DEF_GFC_LOGICAL_KIND (8, 64),
+  DEF_GFC_LOGICAL_KIND (2, 16),
+  DEF_GFC_LOGICAL_KIND (1,  8),
+  DEF_GFC_LOGICAL_KIND (0,  0)
 };
 
 gfc_real_info gfc_real_kinds[] = {
-  DEF_G95_REAL_KIND (4, 2, 24,  -148,  128),
-  DEF_G95_REAL_KIND (8, 2, 53, -1073, 1024),
-  DEF_G95_REAL_KIND (0, 0,  0,     0,    0)
+  DEF_GFC_REAL_KIND (4, 2, 24,  -148,  128),
+  DEF_GFC_REAL_KIND (8, 2, 53, -1073, 1024),
+  DEF_GFC_REAL_KIND (0, 0,  0,     0,    0)
 };
 
 
@@ -124,7 +124,7 @@ natural_logarithm (mpf_t * arg, mpf_t * result)
   mpf_init_set_ui (log, 0);
   mpf_init_set_ui (xp, 1);
 
-  for (i = 1; i < G95_REAL_BITS; i++)
+  for (i = 1; i < GFC_REAL_BITS; i++)
     {
       mpf_mul (xp, xp, x);
       mpf_div_ui (t, xp, i);
@@ -222,7 +222,7 @@ exponential (mpf_t * arg, mpf_t * result)
       mpf_init_set_ui (num, 1);
       mpf_init_set_ui (denom, 1);
 
-      for (i = 1; i <= G95_REAL_BITS + 10; i++)
+      for (i = 1; i <= GFC_REAL_BITS + 10; i++)
 	{
 	  mpf_mul (num, num, r);
 	  mpf_mul_ui (denom, denom, i);
@@ -297,7 +297,7 @@ sine (mpf_t * arg, mpf_t * result)
       mpf_init_set_ui (denom, 1);
 
       sign = -1;
-      for (i = 1; i < G95_REAL_BITS + 10; i++)
+      for (i = 1; i < GFC_REAL_BITS + 10; i++)
 	{
 	  mpf_mul (num, num, r);
 	  mpf_mul_ui (denom, denom, i);
@@ -361,7 +361,7 @@ cosine (mpf_t * arg, mpf_t * result)
       mpf_init_set_ui (denom, 1);
 
       sign = 1;
-      for (i = 1; i < G95_REAL_BITS + 10; i++)
+      for (i = 1; i < GFC_REAL_BITS + 10; i++)
 	{
 	  mpf_mul (num, num, r);
 	  mpf_mul_ui (denom, denom, i);
@@ -437,7 +437,7 @@ arctangent (mpf_t * arg, mpf_t * result)
 	{
 	  mpf_init_set_ui (xp, 0);
 	  sign = -1;
-	  for (i = 1; i < G95_REAL_BITS + 10; i++)
+	  for (i = 1; i < GFC_REAL_BITS + 10; i++)
 	    {
 	      mpf_mul (num, num, absval);
 	      if (i % 2 == 0)
@@ -455,7 +455,7 @@ arctangent (mpf_t * arg, mpf_t * result)
 	{
 	  mpf_init_set (xp, half_pi);
 	  sign = 1;
-	  for (i = 1; i < G95_REAL_BITS + 10; i++)
+	  for (i = 1; i < GFC_REAL_BITS + 10; i++)
 	    {
 	      mpf_div (num, num, absval);
 	      if (i % 2 == 0)
@@ -480,7 +480,7 @@ arctangent (mpf_t * arg, mpf_t * result)
 	  mpf_set_ui (num, 1);
 
 	  sign = -1;
-	  for (i = 1; i < G95_REAL_BITS + 10; i++)
+	  for (i = 1; i < GFC_REAL_BITS + 10; i++)
 	    {
 	      mpf_mul (num, num, absval);
 	      if (i % 2 == 0)
@@ -624,7 +624,7 @@ gfc_arith_init_1 (void)
   int i, n, limit;
 
   /* Set the default precision for GMP computations.  */
-  mpf_set_default_prec (G95_REAL_BITS + 30);
+  mpf_set_default_prec (GFC_REAL_BITS + 30);
 
   /* Calculate e, needed by the natural_logarithm() subroutine.  */
   mpf_init (b);
@@ -651,7 +651,7 @@ gfc_arith_init_1 (void)
   mpf_init (two_pi);
   mpf_init (half_pi);
 
-  limit = (G95_REAL_BITS / 4) + 10;	/* (1/16)^n gives 4 bits per iteration */
+  limit = (GFC_REAL_BITS / 4) + 10;	/* (1/16)^n gives 4 bits per iteration */
 
   for (n = 0; n < limit; n++)
     {
@@ -715,7 +715,7 @@ gfc_arith_init_1 (void)
       int_info->range = mpz_get_si (r);
     }
 
-  /*  mpf_set_default_prec(G95_REAL_BITS); */
+  /*  mpf_set_default_prec(GFC_REAL_BITS); */
   for (real_info = gfc_real_kinds; real_info->kind != 0; real_info++)
     {
       /* Huge */

@@ -868,7 +868,7 @@ load_line (FILE * input, gfc_source_form form, char *buffer,
 static void
 load_file (FILE * input, gfc_file * fp)
 {
-  char *linep, line[G95_MAX_LINE + 1];
+  char *linep, line[GFC_MAX_LINE + 1];
   int len, linenum;
   linebuf *lp;
 

@@ -19,11 +19,11 @@ along with GNU G95; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef G95_TRANS_H
-#define G95_TRANS_H
+#ifndef GFC_TRANS_H
+#define GFC_TRANS_H
 
 /* Mangled symbols take the form __module__name.  */
-#define G95_MAX_MANGLED_SYMBOL_LEN  (G95_MAX_SYMBOL_LEN*2+4)
+#define GFC_MAX_MANGLED_SYMBOL_LEN  (GFC_MAX_SYMBOL_LEN*2+4)
 
 /* Struct for holding a block of statements.  It should be treated as an
    opaque entity and not modified directly.  This allows us to change the
@@ -98,18 +98,18 @@ typedef struct gfc_ss_info
   tree saved_offset;
   tree stride0;
   /* Holds the SS for a subscript.  Indexed by actual dimension.  */
-  struct gfc_ss *subscript[G95_MAX_DIMENSIONS];
+  struct gfc_ss *subscript[GFC_MAX_DIMENSIONS];
 
   /* stride and delta are used to access this inside a scalarization loop.
      start is used in the calculation of these.  Indexed by scalarizer
      dimension.  */
-  tree start[G95_MAX_DIMENSIONS];
-  tree stride[G95_MAX_DIMENSIONS];
-  tree delta[G95_MAX_DIMENSIONS];
+  tree start[GFC_MAX_DIMENSIONS];
+  tree stride[GFC_MAX_DIMENSIONS];
+  tree delta[GFC_MAX_DIMENSIONS];
 
   /* Translation from scalariser dimensions to actual dimensions.
      actual = dim[scalarizer]  */
-  int dim[G95_MAX_DIMENSIONS];
+  int dim[GFC_MAX_DIMENSIONS];
 }
 gfc_ss_info;
 
@@ -117,39 +117,39 @@ typedef enum
 {
   /* A scalar value.  This will be evaluated before entering the
      scalarization loop.  */
-  G95_SS_SCALAR,
+  GFC_SS_SCALAR,
 
-  /* Like G95_SS_SCALAR except it evaluates a pointer the the expression.
+  /* Like GFC_SS_SCALAR except it evaluates a pointer the the expression.
      Used for elemental function parameters.  */
-  G95_SS_REFERENCE,
+  GFC_SS_REFERENCE,
 
   /* An array section.  Scalarization indices will be substituted during
      expression translation.  */
-  G95_SS_SECTION,
+  GFC_SS_SECTION,
 
   /* A non-elemental function call returning an array.  The call is executed
      before entering the scalarization loop, storing the result in a
      temporary.  This temporary is then used inside the scalarization loop.
      Simple assignments, eg. a(:) = fn() are handles without a temporary
      as a special case.  */
-  G95_SS_FUNCTION,
+  GFC_SS_FUNCTION,
 
   /* An array constructor.  The current implementation is sub-optimal in
      many cases.  It allocated a temporary, assigns the values to it, then
      uses this temporary inside the scalarization loop.  */
-  G95_SS_CONSTRUCTOR,
+  GFC_SS_CONSTRUCTOR,
 
   /* A vector subscript.  Only used as the SS chain for a subscript.
-     Similar int format to a G95_SS_SECTION.  */
-  G95_SS_VECTOR,
+     Similar int format to a GFC_SS_SECTION.  */
+  GFC_SS_VECTOR,
 
   /* A temporary array allocated by the scalarizer.  Its rank can be less
      than that of the assignment expression.  */
-  G95_SS_TEMP,
+  GFC_SS_TEMP,
 
   /* An intrinsic function call.  Many intrinsic functions which map directly
-     to library calls are created as G95_SS_FUNCTION nodes.  */
-  G95_SS_INTRINSIC
+     to library calls are created as GFC_SS_FUNCTION nodes.  */
+  GFC_SS_INTRINSIC
 }
 gfc_ss_type;
 
@@ -161,7 +161,7 @@ typedef struct gfc_ss
   gfc_expr *expr;
   union
   {
-    /* If type is G95_SS_SCALAR or G95_SS_REFERENCE.  */
+    /* If type is GFC_SS_SCALAR or GFC_SS_REFERENCE.  */
     struct
     {
       tree expr;
@@ -169,7 +169,7 @@ typedef struct gfc_ss
     }
     scalar;
 
-    /* G95_SS_TEMP.  */
+    /* GFC_SS_TEMP.  */
     struct
     {
       /* The rank of the temporary.  May be less than the rank of the
@@ -215,18 +215,18 @@ typedef struct gfc_loopinfo
   gfc_ss *temp_ss;
 
   /* The scalarization loop index variables.  */
-  tree loopvar[G95_MAX_DIMENSIONS];
+  tree loopvar[GFC_MAX_DIMENSIONS];
 
   /* The bounds of the scalarization loops.  */
-  tree from[G95_MAX_DIMENSIONS];
-  tree to[G95_MAX_DIMENSIONS];
-  gfc_ss *specloop[G95_MAX_DIMENSIONS];
+  tree from[GFC_MAX_DIMENSIONS];
+  tree to[GFC_MAX_DIMENSIONS];
+  gfc_ss *specloop[GFC_MAX_DIMENSIONS];
 
   /* The code member contains the code for the body of the next outer loop.  */
-  stmtblock_t code[G95_MAX_DIMENSIONS];
+  stmtblock_t code[GFC_MAX_DIMENSIONS];
 
   /* Order in which the dimensions should be looped, innermost first.  */
-  int order[G95_MAX_DIMENSIONS];
+  int order[GFC_MAX_DIMENSIONS];
 
   /* The number of dimensions for which a temporary is used.  */
   int temp_dim;
@@ -460,9 +460,9 @@ extern GTY(()) tree gfor_fndecl_size1;
 struct lang_type		GTY(())
 {
   int rank;
-  tree lbound[G95_MAX_DIMENSIONS];
-  tree ubound[G95_MAX_DIMENSIONS];
-  tree stride[G95_MAX_DIMENSIONS];
+  tree lbound[GFC_MAX_DIMENSIONS];
+  tree ubound[GFC_MAX_DIMENSIONS];
+  tree stride[GFC_MAX_DIMENSIONS];
   tree size;
   tree offset;
   tree dtype;
@@ -476,31 +476,31 @@ struct lang_decl		GTY(())
   tree saved_descriptor;
 };
 
-#define G95_DECL_STRING_LENGTH(node) (DECL_LANG_SPECIFIC(node)->stringlength)
-#define G95_DECL_SAVED_DESCRIPTOR(node) \
+#define GFC_DECL_STRING_LENGTH(node) (DECL_LANG_SPECIFIC(node)->stringlength)
+#define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
-#define G95_DECL_STRING(node) DECL_LANG_FLAG_0(node)
-#define G95_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
-#define G95_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_2(node)
+#define GFC_DECL_STRING(node) DECL_LANG_FLAG_0(node)
+#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
+#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_2(node)
 
-#define G95_KNOWN_SIZE_STRING_TYPE(node) TYPE_LANG_FLAG_0(node)
+#define GFC_KNOWN_SIZE_STRING_TYPE(node) TYPE_LANG_FLAG_0(node)
 /* An array descriptor.  */
-#define G95_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
+#define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */
-#define G95_ARRAY_TYPE_P(node) TYPE_LANG_FLAG_2(node)
-/* The G95_TYPE_ARRAY_* members are present in both descriptor and
+#define GFC_ARRAY_TYPE_P(node) TYPE_LANG_FLAG_2(node)
+/* The GFC_TYPE_ARRAY_* members are present in both descriptor and
    descriptorless array types.  */
-#define G95_TYPE_ARRAY_LBOUND(node, dim) \
+#define GFC_TYPE_ARRAY_LBOUND(node, dim) \
   (TYPE_LANG_SPECIFIC(node)->lbound[dim])
-#define G95_TYPE_ARRAY_UBOUND(node, dim) \
+#define GFC_TYPE_ARRAY_UBOUND(node, dim) \
   (TYPE_LANG_SPECIFIC(node)->ubound[dim])
-#define G95_TYPE_ARRAY_STRIDE(node, dim) \
+#define GFC_TYPE_ARRAY_STRIDE(node, dim) \
   (TYPE_LANG_SPECIFIC(node)->stride[dim])
-#define G95_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
-#define G95_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
-#define G95_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
-#define G95_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
-#define G95_TYPE_ARRAY_DATAPTR_TYPE(node) \
+#define GFC_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
+#define GFC_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
+#define GFC_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
+#define GFC_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
+#define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 
 /* I changed this from sorry(...) because it should not return.  */
@@ -511,4 +511,4 @@ struct lang_decl		GTY(())
 #define build1_v(code, arg) build(code, void_type_node, arg)
 #define build_v(code, args...) build(code, void_type_node, args)
 
-#endif /* G95_TRANS_H */
+#endif /* GFC_TRANS_H */

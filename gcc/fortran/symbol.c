@@ -99,8 +99,8 @@ static gfc_symbol *changed_syms = NULL;
    BT_UNKNOWN into all elements.  The arrays of flags indicate whether
    a particular element has been explicitly set or not.  */
 
-static gfc_typespec new_ts[G95_LETTERS];
-static int new_flag[G95_LETTERS];
+static gfc_typespec new_ts[GFC_LETTERS];
+static int new_flag[GFC_LETTERS];
 
 
 /* Handle a correctly parsed IMPLICIT NONE.  */
@@ -125,7 +125,7 @@ gfc_set_implicit (void)
 {
   int i;
 
-  for (i = 0; i < G95_LETTERS; i++)
+  for (i = 0; i < GFC_LETTERS; i++)
     if (new_flag[i])
       {
 	gfc_current_ns->default_type[i] = new_ts[i];
@@ -139,7 +139,7 @@ void gfc_clear_new_implicit (void)
 {
   int i;
 
-  for (i = 0; i < G95_LETTERS; i++)
+  for (i = 0; i < GFC_LETTERS; i++)
     {
       gfc_clear_ts (&new_ts[i]);
       if (new_flag[i])
@@ -185,7 +185,7 @@ gfc_merge_new_implicit (void)
 {
   int i;
 
-  for (i = 0; i < G95_LETTERS; i++)
+  for (i = 0; i < GFC_LETTERS; i++)
     if (new_flag[i])
       {
 	if (gfc_current_ns->set_flag[i])
@@ -1283,7 +1283,7 @@ gfc_use_ha_derived (gfc_symbol * sym)
     goto bad;
 
   /* Get rid of symbol sym, translating all references to s.  */
-  for (i = 0; i < G95_LETTERS; i++)
+  for (i = 0; i < GFC_LETTERS; i++)
     {
       t = &sym->ns->default_type[i];
       if (t->derived == sym)
@@ -1622,7 +1622,7 @@ gfc_get_namespace (gfc_namespace * parent)
   ns->default_access = ACCESS_UNKNOWN;
   ns->parent = parent;
 
-  for (in = G95_INTRINSIC_BEGIN; in != G95_INTRINSIC_END; in++)
+  for (in = GFC_INTRINSIC_BEGIN; in != GFC_INTRINSIC_END; in++)
     ns->operator_access[in] = ACCESS_UNKNOWN;
 
   /* Initialize default implicit types.  */
@@ -1809,7 +1809,7 @@ gfc_new_symbol (const char *name, gfc_namespace * ns)
 
   p->declared_at = *gfc_current_locus ();
 
-  if (strlen (name) > G95_MAX_SYMBOL_LEN)
+  if (strlen (name) > GFC_MAX_SYMBOL_LEN)
     gfc_internal_error ("new_symbol(): Symbol name too long");
 
   strcpy (p->name, name);
@@ -2270,7 +2270,7 @@ gfc_free_namespace (gfc_namespace * ns)
 
   gfc_free_equiv (ns->equiv);
 
-  for (i = G95_INTRINSIC_BEGIN; i != G95_INTRINSIC_END; i++)
+  for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     gfc_free_interface (ns->operator[i]);
 
   gfc_free_data (ns->data);
@@ -2404,7 +2404,7 @@ gfc_save_all (gfc_namespace * ns)
 }
 
 
-#ifdef G95_DEBUG
+#ifdef GFC_DEBUG
 /* Make sure that no changes to symbols are pending.  */
 
 void

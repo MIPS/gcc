@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 static match
 match_kind_param (int *kind)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   const char *p;
   match m;
@@ -698,7 +698,7 @@ match_charkind_name (char *name)
 	break;
 
       *name++ = c;
-      if (++len > G95_MAX_SYMBOL_LEN)
+      if (++len > GFC_MAX_SYMBOL_LEN)
 	break;
     }
 
@@ -716,7 +716,7 @@ match_charkind_name (char *name)
 static match
 match_string_constant (gfc_expr ** result)
 {
-  char *p, name[G95_MAX_SYMBOL_LEN + 1];
+  char *p, name[GFC_MAX_SYMBOL_LEN + 1];
   int i, c, kind, length, delimiter;
   locus old_locus, start_locus;
   gfc_symbol *sym;
@@ -904,7 +904,7 @@ match_logical_constant (gfc_expr ** result)
 static match
 match_sym_complex_part (gfc_expr ** result)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   gfc_expr *e;
   match m;
@@ -1259,7 +1259,7 @@ gfc_match_literal_constant (gfc_expr ** result, int signflag)
 static match
 match_actual_arg (gfc_expr ** result)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symtree *symtree;
   locus where, w;
   gfc_expr *e;
@@ -1334,7 +1334,7 @@ match_actual_arg (gfc_expr ** result)
 static match
 match_keyword_arg (gfc_actual_arglist * actual, gfc_actual_arglist * base)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_actual_arglist *a;
   locus name_locus;
   match m;
@@ -1510,7 +1510,7 @@ extend_ref (gfc_expr * primary, gfc_ref * tail)
 static match
 match_varspec (gfc_expr * primary, int equiv_flag)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_ref *substring, *tail;
   gfc_component *component;
   gfc_symbol *sym;
@@ -1818,7 +1818,7 @@ match
 gfc_match_rvalue (gfc_expr ** result)
 {
   gfc_actual_arglist *actual_arglist;
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_state_data *st;
   gfc_symbol *sym;
   gfc_symtree *symtree;

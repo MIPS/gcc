@@ -131,9 +131,9 @@ gfc_conv_expr_present (gfc_symbol * sym)
     {
       /* Array parameters use a temporary descriptor, we want the real
          parameter.  */
-      assert (G95_DESCRIPTOR_TYPE_P (TREE_TYPE (decl))
-             || G95_ARRAY_TYPE_P (TREE_TYPE (decl)));
-      decl = G95_DECL_SAVED_DESCRIPTOR (decl);
+      assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (decl))
+             || GFC_ARRAY_TYPE_P (TREE_TYPE (decl)));
+      decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
     }
   return build (NE_EXPR, boolean_type_node, decl, null_pointer_node);
 }
@@ -152,7 +152,7 @@ gfc_conv_init_string_length (gfc_symbol * sym, stmtblock_t * pblock)
   gfc_conv_expr_type (&se, sym->ts.cl->length, gfc_strlen_type_node);
   gfc_add_block_to_block (pblock, &se.pre);
 
-  tmp = G95_DECL_STRING_LENGTH (sym->backend_decl);
+  tmp = GFC_DECL_STRING_LENGTH (sym->backend_decl);
   gfc_add_modify_expr (pblock, tmp, se.expr);
 
   return se.expr;
@@ -226,7 +226,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 
   if (c->ts.type == BT_CHARACTER)
     {
-      tmp = G95_DECL_STRING_LENGTH (field);
+      tmp = GFC_DECL_STRING_LENGTH (field);
       assert (tmp);
       if (!INTEGER_CST_P (tmp))
 	gfc_todo_error ("Unknown length character component");
@@ -290,7 +290,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       /* Dereference scalar dummy variables.  */
       if (sym->attr.dummy
-	  && !(G95_DECL_STRING (se->expr) || sym->attr.dimension))
+	  && !(GFC_DECL_STRING (se->expr) || sym->attr.dimension))
 	{
 	  se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)),
 			     se->expr);
@@ -302,7 +302,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      || sym->attr.result
 	      || sym->attr.function
 	      || !sym->attr.dimension)
-          && !G95_DECL_STRING (se->expr))
+          && !GFC_DECL_STRING (se->expr))
 	{
 	  se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)),
 			     se->expr);
@@ -314,8 +314,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   /* For character variables, also get the length.  */
   if (sym->ts.type == BT_CHARACTER)
     {
-      assert (G95_DECL_STRING (se->expr));
-      se->string_length = G95_DECL_STRING_LENGTH (se->expr);
+      assert (GFC_DECL_STRING (se->expr));
+      se->string_length = GFC_DECL_STRING_LENGTH (se->expr);
       assert (se->string_length);
     }
 
@@ -713,7 +713,7 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
   type = gfc_get_character_type (expr->ts.kind, expr->ts.cl);
-  if (G95_KNOWN_SIZE_STRING_TYPE (type))
+  if (GFC_KNOWN_SIZE_STRING_TYPE (type))
     {
       len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
     }
@@ -981,7 +981,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     {
       if (!sym->attr.elemental)
 	{
-	  assert (se->ss->type == G95_SS_FUNCTION);
+	  assert (se->ss->type == GFC_SS_FUNCTION);
           if (se->ss->useflags)
             {
               assert (gfc_return_by_reference (sym)
@@ -1025,7 +1025,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
       else if (sym->ts.type == BT_CHARACTER)
 	{
 	  type = gfc_get_character_type (sym->ts.kind, sym->ts.cl);
-	  assert (G95_KNOWN_SIZE_STRING_TYPE (type));
+	  assert (GFC_KNOWN_SIZE_STRING_TYPE (type));
 	  len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	  type = build_pointer_type (type);
 
@@ -1211,7 +1211,7 @@ static void
 gfc_conv_array_constructor_expr (gfc_se * se, gfc_expr * expr)
 {
   assert (se->ss != NULL && se->ss != gfc_ss_terminator);
-  assert (se->ss->expr == expr && se->ss->type == G95_SS_CONSTRUCTOR);
+  assert (se->ss->expr == expr && se->ss->type == GFC_SS_CONSTRUCTOR);
 
   gfc_conv_tmp_array_ref (se);
   gfc_advance_se_ss_chain (se);
@@ -1289,7 +1289,7 @@ void
 gfc_conv_expr (gfc_se * se, gfc_expr * expr)
 {
   if (se->ss && se->ss->expr == expr
-      && (se->ss->type == G95_SS_SCALAR || se->ss->type == G95_SS_REFERENCE))
+      && (se->ss->type == GFC_SS_SCALAR || se->ss->type == GFC_SS_REFERENCE))
     {
       /* Substiture a scalar expression evaluated outside the scalarization
          loop.  */
@@ -1379,7 +1379,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
   tree var;
 
   if (se->ss && se->ss->expr == expr
-      && se->ss->type == G95_SS_REFERENCE)
+      && se->ss->type == GFC_SS_REFERENCE)
     {
       se->expr = se->ss->data.scalar.expr;
       se->string_length = se->ss->data.scalar.string_length;
@@ -1489,10 +1489,10 @@ gfc_conv_string_length (tree expr)
   while (TREE_CODE (expr) == INDIRECT_REF)
     expr = TREE_OPERAND (expr, 0);
 
-  if (!(DECL_P (expr) && G95_DECL_STRING (expr)))
+  if (!(DECL_P (expr) && GFC_DECL_STRING (expr)))
     return NULL_TREE;
 
-  return G95_DECL_STRING_LENGTH (expr);
+  return GFC_DECL_STRING_LENGTH (expr);
 }
 
 
@@ -1661,7 +1661,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
 
       /* Find a non-scalar SS from the lhs.  */
       while (lss_section != gfc_ss_terminator
-	     && lss_section->type != G95_SS_SECTION)
+	     && lss_section->type != GFC_SS_SECTION)
 	lss_section = lss_section->next;
 
       assert (lss_section != gfc_ss_terminator);
@@ -1676,7 +1676,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	  /* The rhs is scalar.  Add a ss for the expression.  */
 	  rss = gfc_get_ss ();
 	  rss->next = gfc_ss_terminator;
-	  rss->type = G95_SS_SCALAR;
+	  rss->type = GFC_SS_SCALAR;
 	  rss->expr = expr2;
 	}
       /* Associate the SS with the loop.  */

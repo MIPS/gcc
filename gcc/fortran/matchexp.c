@@ -41,7 +41,7 @@ gfc_match_defined_op_name (char *result, int error_flag)
       NULL
   };
 
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   locus old_loc;
   match m;
   int i;
@@ -92,7 +92,7 @@ error:
 static match
 match_defined_operator (gfc_user_op ** result)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   match m;
 
   m = gfc_match_defined_op_name (name, 0);

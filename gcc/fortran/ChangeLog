@@ -1,3 +1,8 @@
+2003-08-02  Paul Brook  <paul@nowt.org>
+
+	* Makelang.in: Rename G95_* to GFORTRAN_*.
+	* All sources: Rename G95_* to GFC_*.
+
 2003-08-01  Paul Brook  <paul@nowt.org>
 
 	* fortran/Make-lang.in: Use GMPLIBS.

@@ -235,7 +235,7 @@ gfc_layout_local_equiv (gfc_symbol * sym)
   tree equiv_decl;
   tree range;
   tree array_type;
-  char equiv_name [G95_MAX_SYMBOL_LEN*2 + 1];
+  char equiv_name [GFC_MAX_SYMBOL_LEN*2 + 1];
 
   /* The symbol is already layed out.  */
   if ( sym->addr_base )

@@ -1372,7 +1372,7 @@ gfc_show_namespace (gfc_namespace * ns)
       do
 	{
 	  int l = i;
-	  while (i < G95_LETTERS - 1
+	  while (i < GFC_LETTERS - 1
 		 && gfc_compare_types(&ns->default_type[i+1],
 				      &ns->default_type[l]))
 	    i++;
@@ -1384,7 +1384,7 @@ gfc_show_namespace (gfc_namespace * ns)
 
 	  gfc_show_typespec(&ns->default_type[l]);
 	  i++;
-      } while (i < G95_LETTERS);
+      } while (i < GFC_LETTERS);
 
       if (ns->proc_name != NULL)
 	{
@@ -1395,7 +1395,7 @@ gfc_show_namespace (gfc_namespace * ns)
       gfc_current_ns = ns;
       gfc_traverse_symtree (ns, show_symtree);
 
-      for (op = G95_INTRINSIC_BEGIN; op != G95_INTRINSIC_END; op++)
+      for (op = GFC_INTRINSIC_BEGIN; op != GFC_INTRINSIC_END; op++)
 	{
 	  /* User operator interfaces */
 	  intr = ns->operator[op];

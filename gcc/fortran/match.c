@@ -252,7 +252,7 @@ gfc_match_st_label (gfc_st_label ** label, int allow_zero)
 match
 gfc_match_label (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_state_data *p;
   match m;
 
@@ -370,7 +370,7 @@ gfc_match_strings (mstring * a)
 
 
 /* See if the current input looks like a name of some sort.  Modifies
-   the passed buffer which must be G95_MAX_SYMBOL_LEN+1 bytes long.  */
+   the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.  */
 
 match
 gfc_match_name (char *buffer)
@@ -394,7 +394,7 @@ gfc_match_name (char *buffer)
     {
       buffer[i++] = c;
 
-      if (i > G95_MAX_SYMBOL_LEN)
+      if (i > GFC_MAX_SYMBOL_LEN)
 	{
 	  gfc_error ("Name at %C is too long");
 	  return MATCH_ERROR;
@@ -420,7 +420,7 @@ gfc_match_name (char *buffer)
 match
 gfc_match_sym_tree (gfc_symtree ** matched_symbol, int host_assoc)
 {
-  char buffer[G95_MAX_SYMBOL_LEN + 1];
+  char buffer[GFC_MAX_SYMBOL_LEN + 1];
   match m;
 
   m = gfc_match_name (buffer);
@@ -486,7 +486,7 @@ gfc_match_intrinsic_op (gfc_intrinsic_op * result)
 match
 gfc_match_iterator (gfc_iterator * iter, int init_flag)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_expr *var, *e1, *e2, *e3;
   locus start;
   match m;
@@ -1095,7 +1095,7 @@ got_match:
 match
 gfc_match_else (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
 
   if (gfc_match_eos () == MATCH_YES)
     return MATCH_YES;
@@ -1124,7 +1124,7 @@ gfc_match_else (void)
 match
 gfc_match_elseif (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_expr *expr;
   match m;
 
@@ -1887,7 +1887,7 @@ done:
 match
 gfc_match_call (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_actual_arglist *a, *arglist;
   gfc_case *new_case;
   gfc_symbol *sym;
@@ -2353,7 +2353,7 @@ cleanup:
 match
 gfc_match_block_data (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
 
@@ -2814,7 +2814,7 @@ syntax:
 static match
 match_data_constant (gfc_expr ** result)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   gfc_expr *expr;
   match m;
@@ -3050,7 +3050,7 @@ cleanup:
 static match
 match_case_eos (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   match m;
 
   if (gfc_match_eos () == MATCH_YES)
@@ -3229,7 +3229,7 @@ gfc_match_where (gfc_statement * st)
 match
 gfc_match_elsewhere (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_expr *expr;
   match m;
 

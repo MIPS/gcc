@@ -126,7 +126,7 @@ gfc_match_generic_spec (interface_type * type,
 			char *name,
 			gfc_intrinsic_op *operator)
 {
-  char buffer[G95_MAX_SYMBOL_LEN + 1];
+  char buffer[GFC_MAX_SYMBOL_LEN + 1];
   match m;
   gfc_intrinsic_op i;
 
@@ -184,7 +184,7 @@ syntax:
 match
 gfc_match_interface (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   interface_type type;
   gfc_symbol *sym;
   gfc_intrinsic_op operator;
@@ -243,7 +243,7 @@ gfc_match_interface (void)
 match
 gfc_match_end_interface (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   interface_type type;
   gfc_intrinsic_op operator;
   match m;
@@ -1017,7 +1017,7 @@ gfc_check_interfaces (gfc_namespace * ns)
 
   gfc_traverse_user_op (ns, check_uop_interfaces);
 
-  for (i = G95_INTRINSIC_BEGIN; i != G95_INTRINSIC_END; i++)
+  for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     {
       if (i == INTRINSIC_USER)
 	continue;

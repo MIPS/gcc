@@ -473,7 +473,7 @@ default_initializer (void)
 static match
 variable_decl (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_expr *initializer, *char_len;
   gfc_array_spec *as;
   gfc_charlen *cl;
@@ -913,7 +913,7 @@ done:
 match
 gfc_match_type_spec (gfc_typespec * ts, int kind_flag)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
 
@@ -1021,17 +1021,17 @@ match_attr_spec (void)
 
   /* Modifiers that can exist in a type statement.  */
   typedef enum
-  { G95_DECL_BEGIN = 0,
-    DECL_ALLOCATABLE = G95_DECL_BEGIN, DECL_DIMENSION, DECL_EXTERNAL,
+  { GFC_DECL_BEGIN = 0,
+    DECL_ALLOCATABLE = GFC_DECL_BEGIN, DECL_DIMENSION, DECL_EXTERNAL,
     DECL_IN, DECL_OUT, DECL_INOUT, DECL_INTRINSIC, DECL_OPTIONAL,
     DECL_PARAMETER, DECL_POINTER, DECL_PRIVATE, DECL_PUBLIC, DECL_SAVE,
     DECL_TARGET, DECL_COLON, DECL_NONE,
-    G95_DECL_END /* Sentinel */
+    GFC_DECL_END /* Sentinel */
   }
   decl_types;
 
-/* G95_DECL_END is the sentinel, index starts at 0.  */
-#define NUM_DECL G95_DECL_END
+/* GFC_DECL_END is the sentinel, index starts at 0.  */
+#define NUM_DECL GFC_DECL_END
 
   static mstring decls[] = {
     minit (", allocatable", DECL_ALLOCATABLE),
@@ -1066,7 +1066,7 @@ match_attr_spec (void)
   colon_seen = 0;
 
   /* See if we get all of the keywords up to the final double colon.  */
-  for (d = G95_DECL_BEGIN; d != G95_DECL_END; d++)
+  for (d = GFC_DECL_BEGIN; d != GFC_DECL_END; d++)
     seen[d] = 0;
 
   for (;;)
@@ -1103,7 +1103,7 @@ match_attr_spec (void)
 
   /* Since we've seen a double colon, we have to be looking at an
      attr-spec.  This means that we can now issue errors.  */
-  for (d = G95_DECL_BEGIN; d != G95_DECL_END; d++)
+  for (d = GFC_DECL_BEGIN; d != GFC_DECL_END; d++)
     if (seen[d] > 1)
       {
 	switch (d)
@@ -1161,7 +1161,7 @@ match_attr_spec (void)
 
   /* Now that we've dealt with duplicate attributes, add the attributes
      to the current attribute.  */
-  for (d = G95_DECL_BEGIN; d != G95_DECL_END; d++)
+  for (d = GFC_DECL_BEGIN; d != GFC_DECL_END; d++)
     {
       if (seen[d] == 0)
 	continue;
@@ -1417,7 +1417,7 @@ match
 gfc_match_formal_arglist (gfc_symbol * progname, int st_flag, int null_flag)
 {
   gfc_formal_arglist *head, *tail, *p, *q;
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
 
@@ -1536,7 +1536,7 @@ cleanup:
 static match
 match_result (gfc_symbol * function, gfc_symbol ** result)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *r;
   match m;
 
@@ -1578,7 +1578,7 @@ match_result (gfc_symbol * function, gfc_symbol ** result)
 match
 gfc_match_function_decl (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym, *result;
   locus old_loc;
   match m;
@@ -1673,7 +1673,7 @@ match
 gfc_match_entry (void)
 {
   gfc_symbol *function, *result, *entry;
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_compile_state state;
   match m;
 
@@ -1768,7 +1768,7 @@ exec_construct:
 match
 gfc_match_subroutine (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
 
@@ -1815,7 +1815,7 @@ gfc_match_subroutine (void)
 match
 gfc_match_end (gfc_statement * st)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_compile_state state;
   locus old_loc;
   const char *block_name;
@@ -1988,7 +1988,7 @@ cleanup:
 static match
 attr_decl1 (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_array_spec *as;
   gfc_symbol *sym;
   locus var_locus;
@@ -2200,7 +2200,7 @@ gfc_match_target (void)
 static match
 access_attr_decl (gfc_statement st)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   interface_type type;
   gfc_user_op *uop;
   gfc_symbol *sym;
@@ -2498,7 +2498,7 @@ syntax:
 match
 gfc_match_modproc (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
 
@@ -2550,7 +2550,7 @@ syntax:
 match
 gfc_match_derived_decl (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   symbol_attribute attr;
   gfc_symbol *sym;
   match m;

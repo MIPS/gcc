@@ -194,7 +194,7 @@ gfc_build_label_decl (tree label_id)
 tree
 gfc_get_return_label (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 10];
+  char name[GFC_MAX_SYMBOL_LEN + 10];
 
   if (current_function_return_label)
     return current_function_return_label;
@@ -222,7 +222,7 @@ gfc_get_label_decl (gfc_st_label * lp)
     return lp->backend_decl;
   else
     {
-      char label_name[G95_MAX_SYMBOL_LEN + 1];
+      char label_name[GFC_MAX_SYMBOL_LEN + 1];
       tree label_decl;
 
       /* Validate the label declaration from the front end.  */
@@ -264,7 +264,7 @@ gfc_sym_identifier (gfc_symbol * sym)
 static tree
 gfc_sym_mangled_identifier (gfc_symbol * sym)
 {
-  char name[G95_MAX_MANGLED_SYMBOL_LEN + 1];
+  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
   if (sym->module[0] == 0)
     return gfc_sym_identifier (sym);
@@ -454,32 +454,32 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   type = TREE_TYPE (decl);
 
   /* We just use the descriptor, if there is one.  */
-  if (G95_DESCRIPTOR_TYPE_P (type))
+  if (GFC_DESCRIPTOR_TYPE_P (type))
     return;
 
   nest = (sym->ns->proc_name->backend_decl != current_function_decl);
-  assert (G95_ARRAY_TYPE_P (type));
+  assert (GFC_ARRAY_TYPE_P (type));
 
-  for (dim = 0; dim < G95_TYPE_ARRAY_RANK (type); dim++)
+  for (dim = 0; dim < GFC_TYPE_ARRAY_RANK (type); dim++)
     {
-      if (G95_TYPE_ARRAY_LBOUND (type, dim) == NULL_TREE)
-        G95_TYPE_ARRAY_LBOUND (type, dim) = create_index_var ("lbound", nest);
+      if (GFC_TYPE_ARRAY_LBOUND (type, dim) == NULL_TREE)
+        GFC_TYPE_ARRAY_LBOUND (type, dim) = create_index_var ("lbound", nest);
       /* Don't try to use the unkown bound for assumed shape arrays.  */
-      if (G95_TYPE_ARRAY_UBOUND (type, dim) == NULL_TREE
+      if (GFC_TYPE_ARRAY_UBOUND (type, dim) == NULL_TREE
           && (sym->as->type != AS_ASSUMED_SIZE
-              || dim < G95_TYPE_ARRAY_RANK (type) - 1))
-        G95_TYPE_ARRAY_UBOUND (type, dim) = create_index_var ("ubound", nest);
+              || dim < GFC_TYPE_ARRAY_RANK (type) - 1))
+        GFC_TYPE_ARRAY_UBOUND (type, dim) = create_index_var ("ubound", nest);
 
-      if (G95_TYPE_ARRAY_STRIDE (type, dim) == NULL_TREE)
-        G95_TYPE_ARRAY_STRIDE (type, dim) = create_index_var ("stride", nest);
+      if (GFC_TYPE_ARRAY_STRIDE (type, dim) == NULL_TREE)
+        GFC_TYPE_ARRAY_STRIDE (type, dim) = create_index_var ("stride", nest);
     }
-  if (G95_TYPE_ARRAY_OFFSET (type) == NULL_TREE)
+  if (GFC_TYPE_ARRAY_OFFSET (type) == NULL_TREE)
     {
-      G95_TYPE_ARRAY_OFFSET (type) = gfc_create_var_np (type, "base");
+      GFC_TYPE_ARRAY_OFFSET (type) = gfc_create_var_np (type, "base");
       if (nest)
-	gfc_add_decl_to_parent_function (G95_TYPE_ARRAY_OFFSET (type));
+	gfc_add_decl_to_parent_function (GFC_TYPE_ARRAY_OFFSET (type));
       else
-	gfc_add_decl_to_function (G95_TYPE_ARRAY_OFFSET (type));
+	gfc_add_decl_to_function (GFC_TYPE_ARRAY_OFFSET (type));
     }
 }
 
@@ -507,9 +507,9 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   assert (TREE_CODE (dummy) == PARM_DECL
           && POINTER_TYPE_P (type));
 
-  if (!G95_DESCRIPTOR_TYPE_P (TREE_TYPE (type)))
+  if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (type)))
     {
-      assert (G95_ARRAY_TYPE_P (type));
+      assert (GFC_ARRAY_TYPE_P (type));
       gfc_build_qualified_array (dummy, sym);
       return dummy;
     }
@@ -558,11 +558,11 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   switch (packed)
     {
     case 1:
-      G95_DECL_PARTIAL_PACKED_ARRAY (decl) = 1;
+      GFC_DECL_PARTIAL_PACKED_ARRAY (decl) = 1;
       break;
 
     case 2:
-      G95_DECL_PACKED_ARRAY (decl) = 1;
+      GFC_DECL_PACKED_ARRAY (decl) = 1;
       break;
     }
 
@@ -573,8 +573,8 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   else
     gfc_allocate_lang_decl (decl);
 
-  G95_DECL_SAVED_DESCRIPTOR (decl) = dummy;
-  G95_DECL_STRING (decl) = G95_DECL_STRING (dummy);
+  GFC_DECL_SAVED_DESCRIPTOR (decl) = dummy;
+  GFC_DECL_STRING (decl) = GFC_DECL_STRING (dummy);
 
   if (sym->ns->proc_name->backend_decl == current_function_decl)
     gfc_add_decl_to_function (decl);
@@ -700,7 +700,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       gfc_defer_symbol_init (sym);
 
       if ((sym->attr.allocatable || !sym->attr.dummy) && !sym->attr.pointer)
-	G95_DECL_PACKED_ARRAY (decl) = 1;
+	GFC_DECL_PACKED_ARRAY (decl) = 1;
     }
 
   gfc_finish_var_decl (decl, sym);
@@ -713,7 +713,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Character lengths are common for a whole array.  */
 
       gfc_allocate_lang_decl (decl);
-      G95_DECL_STRING (decl) = 1;
+      GFC_DECL_STRING (decl) = 1;
 
       if (sym->ts.cl->length->expr_type == EXPR_CONSTANT)
 	{
@@ -731,7 +731,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	}
       else
 	{
-	  char name[G95_MAX_MANGLED_SYMBOL_LEN + 2];
+	  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
 
 	  /* Create annother variable to hold the length.  Prefix the name
 	     to avoid conflicts.  */
@@ -754,7 +754,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  assert (!sym->value);
 	}
 
-      G95_DECL_STRING_LENGTH (decl) = length;
+      GFC_DECL_STRING_LENGTH (decl) = length;
       break;
 
     case BT_DERIVED:
@@ -788,7 +788,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 /* None of the specific intrinsics which can be passed as actual arguments
    for dummy procedures has more then two parameters.  */
 
-#define G95_MAX_SPECIFIC_ARGS 2
+#define GFC_MAX_SPECIFIC_ARGS 2
 
 /* Get a basic decl for an external function.  */
 
@@ -800,9 +800,9 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   gfc_expr e;
   gfc_intrinsic_sym *isym;
   gfc_intrinsic_arg *formal;
-  gfc_expr argexpr[G95_MAX_SPECIFIC_ARGS];
+  gfc_expr argexpr[GFC_MAX_SPECIFIC_ARGS];
   int n;
-  char s[G95_MAX_SYMBOL_LEN];
+  char s[GFC_MAX_SYMBOL_LEN];
   tree name;
 
   if (sym->backend_decl)
@@ -822,7 +822,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 
       for (formal = isym->formal, n = 0; formal; formal = formal->next, n++)
 	{
-	  assert (n < G95_MAX_SPECIFIC_ARGS);
+	  assert (n < GFC_MAX_SPECIFIC_ARGS);
 	  argexpr[n].ts = formal->ts;
 	}
 
@@ -1017,11 +1017,11 @@ gfc_build_function_decl (gfc_symbol * sym)
 	  if (sym->ts.type == BT_CHARACTER)
 	    {
 	      gfc_allocate_lang_decl (parm);
-	      G95_DECL_STRING (parm) = 1;
+	      GFC_DECL_STRING (parm) = 1;
 
 	      assert (sym->ts.cl && sym->ts.cl->length
 		      && sym->ts.cl->length->expr_type == EXPR_CONSTANT);
-	      G95_DECL_STRING_LENGTH (parm) =
+	      GFC_DECL_STRING_LENGTH (parm) =
 		gfc_conv_mpz_to_tree (sym->ts.cl->length->value.integer, 4);
 
 	    }
@@ -1063,7 +1063,7 @@ gfc_build_function_decl (gfc_symbol * sym)
       parm = arglist;
       for (f = sym->formal; f; f = f->next)
 	{
-          char name[G95_MAX_SYMBOL_LEN + 2];
+          char name[GFC_MAX_SYMBOL_LEN + 2];
 	  /* Ignore alternate returns.  */
 	  if (f->sym == NULL)
             continue;
@@ -1086,7 +1086,7 @@ gfc_build_function_decl (gfc_symbol * sym)
           gfc_finish_decl (length, NULL_TREE);
 
           gfc_allocate_lang_decl (parm);
-          G95_DECL_STRING (parm) = 1;
+          GFC_DECL_STRING (parm) = 1;
           if (f->sym->ts.cl
               && f->sym->ts.cl->length
               && f->sym->ts.cl->length->expr_type == EXPR_CONSTANT)
@@ -1096,7 +1096,7 @@ gfc_build_function_decl (gfc_symbol * sym)
             }
           else
             TREE_USED (length) = 1;
-          G95_DECL_STRING_LENGTH (parm) = length;
+          GFC_DECL_STRING_LENGTH (parm) = length;
 
           parm = TREE_CHAIN (parm);
           typelist = TREE_CHAIN (typelist);
@@ -1118,7 +1118,7 @@ tree
 gfc_get_fake_result_decl (gfc_symbol * sym)
 {
   tree decl;
-  char name[G95_MAX_SYMBOL_LEN + 10];
+  char name[GFC_MAX_SYMBOL_LEN + 10];
 
   if (current_fake_result_decl != NULL_TREE)
     return current_fake_result_decl;
@@ -1617,7 +1617,7 @@ gfc_create_module_variable (gfc_symbol * sym)
   if (sym->attr.dimension)
     {
       assert (sym->attr.pointer || sym->attr.allocatable
-	      || G95_ARRAY_TYPE_P (TREE_TYPE (sym->backend_decl)));
+	      || GFC_ARRAY_TYPE_P (TREE_TYPE (sym->backend_decl)));
       if (sym->attr.pointer || sym->attr.allocatable)
 	gfc_trans_static_array_pointer (sym);
       else
@@ -1643,11 +1643,11 @@ gfc_create_module_variable (gfc_symbol * sym)
   rest_of_decl_compilation (decl, NULL, 1, 0);
 
   /* Also add length of strings.  */
-  if (G95_DECL_STRING (decl))
+  if (GFC_DECL_STRING (decl))
     {
       tree length;
 
-      length = G95_DECL_STRING_LENGTH (decl);
+      length = GFC_DECL_STRING_LENGTH (decl);
       if (!INTEGER_CST_P (length))
         {
           pushdecl (length);

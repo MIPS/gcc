@@ -1540,7 +1540,7 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
           /* The rhs is scalar.  Add a ss for the expression.  */
           *rss = gfc_get_ss ();
           (*rss)->next = gfc_ss_terminator;
-          (*rss)->type = G95_SS_SCALAR;
+          (*rss)->type = GFC_SS_SCALAR;
           (*rss)->expr = expr2;
         }
 
@@ -2508,7 +2508,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
 
   /* Find a non-scalar SS from the lhs.  */
   while (lss_section != gfc_ss_terminator
-         && lss_section->type != G95_SS_SECTION)
+         && lss_section->type != GFC_SS_SECTION)
     lss_section = lss_section->next;
 
   assert (lss_section != gfc_ss_terminator);
@@ -2523,7 +2523,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
      /* The rhs is scalar.  Add a ss for the expression.  */
      rss = gfc_get_ss ();
      rss->next = gfc_ss_terminator;
-     rss->type = G95_SS_SCALAR;
+     rss->type = GFC_SS_SCALAR;
      rss->expr = expr2;
     }
 

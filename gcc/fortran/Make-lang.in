@@ -41,10 +41,10 @@
 # $(srcdir) must be set to the gcc/ source directory (*not* gcc/fortran/).
 
 # Actual name to use when installing a native compiler.
-G95_INSTALL_NAME = `echo gfortran|sed '$(program_transform_name)'`
+GFORTRAN_INSTALL_NAME = `echo gfortran|sed '$(program_transform_name)'`
 
 # Actual name to use when installing a cross-compiler.
-G95_CROSS_NAME = `echo gfortran|sed '$(program_transform_cross_name)'`
+GFORTRAN_CROSS_NAME = `echo gfortran|sed '$(program_transform_cross_name)'`
 
 #^L
 
@@ -85,7 +85,7 @@ F95_ADDITIONAL_OBJS = \
 	tree-ssa.o tree-ssa-ccp.o tree-ssa-dce.o \
 	tree-alias-common.o tree-alias-type.o gimplify.o
 
-# G95 uses GMP for its internal arithmetics.
+# GFORTRAN uses GMP for its internal arithmetics.
 F95_LIBS = $(GMPLIBS) $(LIBS)
 
 #
@@ -102,10 +102,10 @@ gfortranspec.o: $(srcdir)/fortran/gfortranspec.c $(SYSTEM_H) $(GCC_H) $(CONFIG_H
 		$(INCLUDES) $(srcdir)/fortran/gfortranspec.c)
 
 # Create the compiler driver gfortran.
-G95_D_OBJS = gcc.o gfortranspec.o version.o prefix.o intl.o
-gfortran$(exeext): $(G95_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBDEPS)
+GFORTRAN_D_OBJS = gcc.o gfortranspec.o version.o prefix.o intl.o
+gfortran$(exeext): $(GFORTRAN_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	  $(G95_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBS)
+	  $(GFORTRAN_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBS)
 
 # Create a version of the gfortran driver which calls the cross-compiler.
 gfortran-cross$(exeext): gfortran$(exeext)
@@ -136,7 +136,7 @@ f95.info: $(srcdir)/fortran/gfortran.info
 f95.dvi: fortran/gfortran.dvi
 f95.generated-manpages:
 
-# G95 documentation.
+# GFORTRAN documentation.
 $(srcdir)/fortran/gfortran.info: $(srcdir)/fortran/gfortran.texi \
 			$(srcdir)/doc/include/fdl.texi \
 			$(srcdir)/doc/include/gpl.texi \
@@ -167,19 +167,19 @@ f95.install-normal:
 f95.install-common: installdirs
 	-if [ -f f951$(exeext) ] ; then \
 	  if [ -f gfortran-cross$(exeext) ] ; then \
-	    rm -f $(bindir)/$(G95_CROSS_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) gfortran-cross$(exeext) $(bindir)/$(G95_CROSS_NAME)$(exeext); \
-	    chmod a+x $(bindir)/$(G95_CROSS_NAME)$(exeext); \
+	    rm -f $(bindir)/$(GFORTRAN_CROSS_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) gfortran-cross$(exeext) $(bindir)/$(GFORTRAN_CROSS_NAME)$(exeext); \
+	    chmod a+x $(bindir)/$(GFORTRAN_CROSS_NAME)$(exeext); \
 	    if [ -d $(gcc_tooldir)/bin/. ] ; then \
 	      rm -f $(gcc_tooldir)/bin/gfortran$(exeext); \
 	      $(INSTALL_PROGRAM) gfortran-cross$(exeext) $(gcc_tooldir)/bin/gfortran$(exeext); \
 	    else true; fi; \
 	  else \
-	    rm -f $(bindir)/$(G95_INSTALL_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) gfortran$(exeext) $(bindir)/$(G95_INSTALL_NAME)$(exeext); \
-	    chmod a+x $(bindir)/$(G95_INSTALL_NAME)$(exeext); \
-	    rm -f $(bindir)/$(G95_TARGET_INSTALL_NAME)$(exeext); \
-	    $(LN) $(bindir)/$(G95_INSTALL_NAME)$(exeext) $(bindir)/$(G95_TARGET_INSTALL_NAME)$(exeext); \
+	    rm -f $(bindir)/$(GFORTRAN_INSTALL_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) gfortran$(exeext) $(bindir)/$(GFORTRAN_INSTALL_NAME)$(exeext); \
+	    chmod a+x $(bindir)/$(GFORTRAN_INSTALL_NAME)$(exeext); \
+	    rm -f $(bindir)/$(GFORTRAN_TARGET_INSTALL_NAME)$(exeext); \
+	    $(LN) $(bindir)/$(GFORTRAN_INSTALL_NAME)$(exeext) $(bindir)/$(GFORTRAN_TARGET_INSTALL_NAME)$(exeext); \
 	  fi ; \
 	fi
 
@@ -209,8 +209,8 @@ f95.uninstall:
 	  echo " install-info --delete --info-dir=$(infodir) $(infodir)/gfortran.info"; \
 	  install-info --delete --info-dir=$(infodir) $(infodir)/gfortran.info || : ; \
 	else : ; fi; \
-	rm -rf $(bindir)/$(G95_INSTALL_NAME)$(exeext); \
-	rm -rf $(bindir)/$(G95_CROSS_NAME)$(exeext); \
+	rm -rf $(bindir)/$(GFORTRAN_INSTALL_NAME)$(exeext); \
+	rm -rf $(bindir)/$(GFORTRAN_CROSS_NAME)$(exeext); \
 	rm -rf $(infodir)/gfortran.info*
 
 #
@@ -256,22 +256,23 @@ $(F95_PARSER_OBJS): fortran/gfortran.h fortran/intrinsic.h fortran/match.h \
 		$(RTL_H) $(TREE_H) $(TREE_DUMP_H) $(GGC_H) $(EXPR_H) \
 		flags.h output.h diagnostic.h errors.h function.h 
 
-G95_TRANS_DEPS = fortran/gfortran.h fortran/intrinsic.h fortran/trans-array.h \
+GFORTRAN_TRANS_DEPS = fortran/gfortran.h fortran/intrinsic.h fortran/trans-array.h \
     fortran/trans-const.h fortran/trans-const.h fortran/trans.h \
     fortran/trans-stmt.h fortran/trans-types.h \
     $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H) coretypes.h
 
-fortran/f95-lang.o: $(G95_TRANS_DEPS) gt-fortran-f95-lang.h gtype-fortran.h
-fortran/convert.o: $(G95_TRANS_DEPS)
-fortran/trans.o: $(G95_TRANS_DEPS)
-fortran/trans-decl.o: $(G95_TRANS_DEPS) gt-fortran-trans-decl.h
-fortran/trans-types.o: $(G95_TRANS_DEPS) gt-fortran-trans-types.h
-fortran/trans-const.o: $(G95_TRANS_DEPS)
-fortran/trans-expr.o: $(G95_TRANS_DEPS)
-fortran/trans-stmt.o: $(G95_TRANS_DEPS)
-fortran/trans-io.o: $(G95_TRANS_DEPS) gt-fortran-trans-io.h
-fortran/trans-array.o: $(G95_TRANS_DEPS)
-fortran/trans-intrinsic.o: $(G95_TRANS_DEPS) gt-fortran-trans-intrinsic.h
+fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-f95-lang.h gtype-fortran.h
+fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h
+fortran/trans-types.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-types.h
+fortran/trans-const.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans-expr.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans-stmt.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans-io.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-io.h
+fortran/trans-array.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans-intrinsic.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-intrinsic.h
 fortran/dependency.o: fortran/gfortran.h fortran/dependency.h
-fortran/trans-common.o: $(G95_TRANS_DEPS) fortran/gfortran.h
-fortran/trans-equivalence.o: $(G95_TRANS_DEPS) fortran/gfortran.h
+fortran/trans-common.o: $(GFORTRAN_TRANS_DEPS) fortran/gfortran.h
+fortran/trans-equivalence.o: $(GFORTRAN_TRANS_DEPS) fortran/gfortran.h
+

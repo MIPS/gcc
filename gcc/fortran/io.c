@@ -1474,7 +1474,7 @@ check_namelist (gfc_symbol * sym)
 static match
 match_dt_element (io_kind k, gfc_dt * dt)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
 
@@ -1952,7 +1952,7 @@ terminate_io (gfc_code * io_code)
 static match
 match_io (io_kind k)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_code *io_code;
   gfc_symbol *sym;
   gfc_expr *expr;

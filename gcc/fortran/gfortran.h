@@ -58,12 +58,12 @@ char *alloca ();
 
 /* Major control parameters.  */
 
-#define G95_VERSION "0.23"
-#define G95_MAX_SYMBOL_LEN 31
-#define G95_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
-#define G95_MAX_LINE 132	/* Characters beyond this are not seen.  */
-#define G95_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
-#define G95_LETTERS 26		/* Number of letters in the alphabet.  */
+#define GFC_VERSION "0.23"
+#define GFC_MAX_SYMBOL_LEN 31
+#define GFC_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
+#define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
+#define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
+#define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
 #define MAX_ERROR_MESSAGE 1000	/* Maximum length of an error message.  */
 
 #define free(x) Use_gfc_free_instead_of_free()
@@ -153,15 +153,15 @@ gfc_sl_type;
 
 /* Intrinsic operators.  */
 typedef enum
-{ G95_INTRINSIC_BEGIN = 0,
-  INTRINSIC_NONE = -1, INTRINSIC_UPLUS = G95_INTRINSIC_BEGIN,
+{ GFC_INTRINSIC_BEGIN = 0,
+  INTRINSIC_NONE = -1, INTRINSIC_UPLUS = GFC_INTRINSIC_BEGIN,
   INTRINSIC_UMINUS, INTRINSIC_PLUS, INTRINSIC_MINUS, INTRINSIC_TIMES,
   INTRINSIC_DIVIDE, INTRINSIC_POWER, INTRINSIC_CONCAT,
   INTRINSIC_AND, INTRINSIC_OR, INTRINSIC_EQV, INTRINSIC_NEQV,
   INTRINSIC_EQ, INTRINSIC_NE, INTRINSIC_GT, INTRINSIC_GE,
   INTRINSIC_LT, INTRINSIC_LE, INTRINSIC_NOT, INTRINSIC_USER,
   INTRINSIC_ASSIGN,
-  G95_INTRINSIC_END /* Sentinel */
+  GFC_INTRINSIC_END /* Sentinel */
 }
 gfc_intrinsic_op;
 
@@ -172,7 +172,7 @@ extern mstring intrinsic_operators[];
 
 /* This macro is the number of intrinsic operators that exist.
    Assumptions are made about the numbering of the interface_op enums.  */
-#define G95_INTRINSIC_OPS G95_INTRINSIC_END
+#define GFC_INTRINSIC_OPS GFC_INTRINSIC_END
 
 /* Arithmetic results.  */
 typedef enum
@@ -261,107 +261,107 @@ extern const mstring ifsrc_types[];
 
 enum gfc_generic_isym_id
 {
-  /* G95_ISYM_NONE is used for intrinsics which will never be seen by
+  /* GFC_ISYM_NONE is used for intrinsics which will never be seen by
      the backend (eg. KIND).  */
-  G95_ISYM_NONE = 0,
-  G95_ISYM_ABS,
-  G95_ISYM_ACHAR,
-  G95_ISYM_ACOS,
-  G95_ISYM_ADJUSTL,
-  G95_ISYM_ADJUSTR,
-  G95_ISYM_AIMAG,
-  G95_ISYM_AINT,
-  G95_ISYM_ALL,
-  G95_ISYM_ALLOCATED,
-  G95_ISYM_ANINT,
-  G95_ISYM_ANY,
-  G95_ISYM_ASIN,
-  G95_ISYM_ASSOCIATED,
-  G95_ISYM_ATAN,
-  G95_ISYM_ATAN2,
-  G95_ISYM_BTEST,
-  G95_ISYM_CEILING,
-  G95_ISYM_CHAR,
-  G95_ISYM_CMPLX,
-  G95_ISYM_CONJG,
-  G95_ISYM_COS,
-  G95_ISYM_COSH,
-  G95_ISYM_COUNT,
-  G95_ISYM_CSHIFT,
-  G95_ISYM_DBLE,
-  G95_ISYM_DIM,
-  G95_ISYM_DOT_PRODUCT,
-  G95_ISYM_DPROD,
-  G95_ISYM_EOSHIFT,
-  G95_ISYM_EXP,
-  G95_ISYM_EXPONENT,
-  G95_ISYM_FLOOR,
-  G95_ISYM_FRACTION,
-  G95_ISYM_IACHAR,
-  G95_ISYM_IAND,
-  G95_ISYM_IBCLR,
-  G95_ISYM_IBITS,
-  G95_ISYM_IBSET,
-  G95_ISYM_ICHAR,
-  G95_ISYM_IEOR,
-  G95_ISYM_INDEX,
-  G95_ISYM_INT,
-  G95_ISYM_IOR,
-  G95_ISYM_ISHFT,
-  G95_ISYM_ISHFTC,
-  G95_ISYM_LBOUND,
-  G95_ISYM_LEN,
-  G95_ISYM_LEN_TRIM,
-  G95_ISYM_LGE,
-  G95_ISYM_LGT,
-  G95_ISYM_LLE,
-  G95_ISYM_LLT,
-  G95_ISYM_LOG,
-  G95_ISYM_LOG10,
-  G95_ISYM_LOGICAL,
-  G95_ISYM_MATMUL,
-  G95_ISYM_MAX,
-  G95_ISYM_MAXLOC,
-  G95_ISYM_MAXVAL,
-  G95_ISYM_MERGE,
-  G95_ISYM_MIN,
-  G95_ISYM_MINLOC,
-  G95_ISYM_MINVAL,
-  G95_ISYM_MOD,
-  G95_ISYM_MODULO,
-  G95_ISYM_NEAREST,
-  G95_ISYM_NINT,
-  G95_ISYM_NOT,
-  G95_ISYM_PACK,
-  G95_ISYM_PRESENT,
-  G95_ISYM_PRODUCT,
-  G95_ISYM_REAL,
-  G95_ISYM_REPEAT,
-  G95_ISYM_RESHAPE,
-  G95_ISYM_RRSPACING,
-  G95_ISYM_SCALE,
-  G95_ISYM_SCAN,
-  G95_ISYM_SET_EXPONENT,
-  G95_ISYM_SHAPE,
-  G95_ISYM_SI_KIND,
-  G95_ISYM_SIGN,
-  G95_ISYM_SIN,
-  G95_ISYM_SINH,
-  G95_ISYM_SIZE,
-  G95_ISYM_SPACING,
-  G95_ISYM_SPREAD,
-  G95_ISYM_SQRT,
-  G95_ISYM_SR_KIND,
-  G95_ISYM_SUM,
-  G95_ISYM_TAN,
-  G95_ISYM_TANH,
-  G95_ISYM_TRANSFER,
-  G95_ISYM_TRANSPOSE,
-  G95_ISYM_TRIM,
-  G95_ISYM_UBOUND,
-  G95_ISYM_UNPACK,
-  G95_ISYM_VERIFY,
-  G95_ISYM_CONVERSION
+  GFC_ISYM_NONE = 0,
+  GFC_ISYM_ABS,
+  GFC_ISYM_ACHAR,
+  GFC_ISYM_ACOS,
+  GFC_ISYM_ADJUSTL,
+  GFC_ISYM_ADJUSTR,
+  GFC_ISYM_AIMAG,
+  GFC_ISYM_AINT,
+  GFC_ISYM_ALL,
+  GFC_ISYM_ALLOCATED,
+  GFC_ISYM_ANINT,
+  GFC_ISYM_ANY,
+  GFC_ISYM_ASIN,
+  GFC_ISYM_ASSOCIATED,
+  GFC_ISYM_ATAN,
+  GFC_ISYM_ATAN2,
+  GFC_ISYM_BTEST,
+  GFC_ISYM_CEILING,
+  GFC_ISYM_CHAR,
+  GFC_ISYM_CMPLX,
+  GFC_ISYM_CONJG,
+  GFC_ISYM_COS,
+  GFC_ISYM_COSH,
+  GFC_ISYM_COUNT,
+  GFC_ISYM_CSHIFT,
+  GFC_ISYM_DBLE,
+  GFC_ISYM_DIM,
+  GFC_ISYM_DOT_PRODUCT,
+  GFC_ISYM_DPROD,
+  GFC_ISYM_EOSHIFT,
+  GFC_ISYM_EXP,
+  GFC_ISYM_EXPONENT,
+  GFC_ISYM_FLOOR,
+  GFC_ISYM_FRACTION,
+  GFC_ISYM_IACHAR,
+  GFC_ISYM_IAND,
+  GFC_ISYM_IBCLR,
+  GFC_ISYM_IBITS,
+  GFC_ISYM_IBSET,
+  GFC_ISYM_ICHAR,
+  GFC_ISYM_IEOR,
+  GFC_ISYM_INDEX,
+  GFC_ISYM_INT,
+  GFC_ISYM_IOR,
+  GFC_ISYM_ISHFT,
+  GFC_ISYM_ISHFTC,
+  GFC_ISYM_LBOUND,
+  GFC_ISYM_LEN,
+  GFC_ISYM_LEN_TRIM,
+  GFC_ISYM_LGE,
+  GFC_ISYM_LGT,
+  GFC_ISYM_LLE,
+  GFC_ISYM_LLT,
+  GFC_ISYM_LOG,
+  GFC_ISYM_LOG10,
+  GFC_ISYM_LOGICAL,
+  GFC_ISYM_MATMUL,
+  GFC_ISYM_MAX,
+  GFC_ISYM_MAXLOC,
+  GFC_ISYM_MAXVAL,
+  GFC_ISYM_MERGE,
+  GFC_ISYM_MIN,
+  GFC_ISYM_MINLOC,
+  GFC_ISYM_MINVAL,
+  GFC_ISYM_MOD,
+  GFC_ISYM_MODULO,
+  GFC_ISYM_NEAREST,
+  GFC_ISYM_NINT,
+  GFC_ISYM_NOT,
+  GFC_ISYM_PACK,
+  GFC_ISYM_PRESENT,
+  GFC_ISYM_PRODUCT,
+  GFC_ISYM_REAL,
+  GFC_ISYM_REPEAT,
+  GFC_ISYM_RESHAPE,
+  GFC_ISYM_RRSPACING,
+  GFC_ISYM_SCALE,
+  GFC_ISYM_SCAN,
+  GFC_ISYM_SET_EXPONENT,
+  GFC_ISYM_SHAPE,
+  GFC_ISYM_SI_KIND,
+  GFC_ISYM_SIGN,
+  GFC_ISYM_SIN,
+  GFC_ISYM_SINH,
+  GFC_ISYM_SIZE,
+  GFC_ISYM_SPACING,
+  GFC_ISYM_SPREAD,
+  GFC_ISYM_SQRT,
+  GFC_ISYM_SR_KIND,
+  GFC_ISYM_SUM,
+  GFC_ISYM_TAN,
+  GFC_ISYM_TANH,
+  GFC_ISYM_TRANSFER,
+  GFC_ISYM_TRANSPOSE,
+  GFC_ISYM_TRIM,
+  GFC_ISYM_UBOUND,
+  GFC_ISYM_UNPACK,
+  GFC_ISYM_VERIFY,
+  GFC_ISYM_CONVERSION
 };
 typedef enum gfc_generic_isym_id gfc_generic_isym_id;
 
@@ -492,7 +492,7 @@ typedef struct
 {
   int rank;	/* A rank of zero means that a variable is a scalar.  */
   array_type type;
-  struct gfc_expr *lower[G95_MAX_DIMENSIONS], *upper[G95_MAX_DIMENSIONS];
+  struct gfc_expr *lower[GFC_MAX_DIMENSIONS], *upper[GFC_MAX_DIMENSIONS];
 }
 gfc_array_spec;
 
@@ -502,7 +502,7 @@ gfc_array_spec;
 /* Components of derived types.  */
 typedef struct gfc_component
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_typespec ts;
 
   int pointer, dimension;
@@ -531,7 +531,7 @@ gfc_formal_arglist;
 /* The gfc_actual_arglist structure is for actual arguments.  */
 typedef struct gfc_actual_arglist
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   /* Alternate return label when the expr member is null.  */
   struct gfc_st_label *label;
 
@@ -591,7 +591,7 @@ gfc_interface;
 /* User operator nodes.  These are like stripped down symbols.  */
 typedef struct
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
 
   gfc_interface *operator;
   struct gfc_namespace *ns;
@@ -608,8 +608,8 @@ gfc_user_op;
 
 typedef struct gfc_symbol
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];	/* Primary name, before renaming */
-  char module[G95_MAX_SYMBOL_LEN + 1];	/* Module this symbol came from */
+  char name[GFC_MAX_SYMBOL_LEN + 1];	/* Primary name, before renaming */
+  char module[GFC_MAX_SYMBOL_LEN + 1];	/* Module this symbol came from */
   locus declared_at;
 
   gfc_typespec ts;
@@ -676,7 +676,7 @@ gfc_symbol;
 typedef struct gfc_symtree
 {
   BBT_HEADER (gfc_symtree);
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   int ambiguous;
   union
   {
@@ -693,16 +693,16 @@ typedef struct gfc_namespace
 {
   gfc_symtree *sym_root, *uop_root;	/* Roots of the red/black symbol trees */
 
-  int set_flag[G95_LETTERS];
-  gfc_typespec default_type[G95_LETTERS];	/* IMPLICIT typespecs */
+  int set_flag[GFC_LETTERS];
+  gfc_typespec default_type[GFC_LETTERS];	/* IMPLICIT typespecs */
 
   struct gfc_symbol *proc_name;
-  gfc_interface *operator[G95_INTRINSIC_OPS];
+  gfc_interface *operator[GFC_INTRINSIC_OPS];
   struct gfc_namespace *parent, *contained, *sibling;
   struct gfc_code *code;
   gfc_symbol *blank_common;
   struct gfc_equiv *equiv;
-  gfc_access default_access, operator_access[G95_INTRINSIC_OPS];
+  gfc_access default_access, operator_access[GFC_INTRINSIC_OPS];
 
   gfc_st_label *st_labels;
   struct gfc_data *data;
@@ -738,13 +738,13 @@ typedef struct gfc_array_ref
   locus where;
   gfc_array_spec *as;
 
-  locus c_where[G95_MAX_DIMENSIONS];	/* All expressions can be NULL */
-  struct gfc_expr *start[G95_MAX_DIMENSIONS], *end[G95_MAX_DIMENSIONS],
-    *stride[G95_MAX_DIMENSIONS];
+  locus c_where[GFC_MAX_DIMENSIONS];	/* All expressions can be NULL */
+  struct gfc_expr *start[GFC_MAX_DIMENSIONS], *end[GFC_MAX_DIMENSIONS],
+    *stride[GFC_MAX_DIMENSIONS];
 
   enum
   { DIMEN_ELEMENT = 1, DIMEN_RANGE, DIMEN_VECTOR, DIMEN_UNKNOWN }
-  dimen_type[G95_MAX_DIMENSIONS];
+  dimen_type[GFC_MAX_DIMENSIONS];
 
   struct gfc_expr *offset;
 }
@@ -798,7 +798,7 @@ gfc_ref;
 /* Structures representing intrinsic symbols and their arguments lists.  */
 typedef struct gfc_intrinsic_arg
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
 
   gfc_typespec ts;
   int optional;
@@ -859,7 +859,7 @@ gfc_resolve_f;
 
 typedef struct gfc_intrinsic_sym
 {
-  char name[G95_MAX_SYMBOL_LEN + 1], lib_name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1], lib_name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
   int elemental, pure, generic, specific, actual_ok;
@@ -1616,4 +1616,4 @@ void gfc_show_namespace (gfc_namespace *);
 /* parse.c */
 try gfc_parse_file (void);
 
-#endif /* G95_G95_H  */
+#endif /* GFC_GFC_H  */

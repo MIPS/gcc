@@ -120,7 +120,7 @@ typedef struct pointer_info
     struct
     {
       gfc_symbol *sym;
-      char true_name[G95_MAX_SYMBOL_LEN + 1], module[G95_MAX_SYMBOL_LEN + 1];
+      char true_name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
       enum
       { UNUSED, NEEDED, USED }
       state;
@@ -152,7 +152,7 @@ pointer_info;
 
 typedef struct gfc_use_rename
 {
-  char local_name[G95_MAX_SYMBOL_LEN + 1], use_name[G95_MAX_SYMBOL_LEN + 1];
+  char local_name[GFC_MAX_SYMBOL_LEN + 1], use_name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_use_rename *next;
   int found;
   gfc_intrinsic_op operator;
@@ -168,7 +168,7 @@ gfc_use_rename;
 static FILE *module_fp;
 
 /* The name of the module we're reading (USE'ing) or writing.  */
-static char module_name[G95_MAX_SYMBOL_LEN + 1];
+static char module_name[GFC_MAX_SYMBOL_LEN + 1];
 
 static int module_line, module_column, only_flag;
 static enum
@@ -478,7 +478,7 @@ free_rename (void)
 match
 gfc_match_use (void)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_use_rename *tail = NULL, *new;
   interface_type type;
   gfc_intrinsic_op operator;
@@ -960,7 +960,7 @@ parse_name (int c)
 	break;
 
       *p++ = c;
-      if (++len > G95_MAX_SYMBOL_LEN)
+      if (++len > GFC_MAX_SYMBOL_LEN)
 	bad_module ("Name too long");
     }
 
@@ -1629,7 +1629,7 @@ mio_charlen (gfc_charlen ** clp)
 static gfc_symtree *
 get_unique_symtree (gfc_namespace * ns)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   static int serial = 0;
 
   sprintf (name, "@%d", serial++);
@@ -1809,7 +1809,7 @@ mio_pointer_ref (void *gp)
 static void
 mio_component_ref (gfc_component ** cp, gfc_symbol * sym)
 {
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_component *q;
   pointer_info *p;
 
@@ -2716,7 +2716,7 @@ static void
 load_operator_interfaces (void)
 {
   const char *p;
-  char name[G95_MAX_SYMBOL_LEN + 1], module[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_user_op *uop;
 
   mio_lparen ();
@@ -2752,7 +2752,7 @@ static void
 load_generic_interfaces (void)
 {
   const char *p;
-  char name[G95_MAX_SYMBOL_LEN + 1], module[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
 
   mio_lparen ();
@@ -2889,7 +2889,7 @@ read_module (void)
 {
   module_locus operator_interfaces, user_operators;
   const char *p;
-  char name[G95_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_op i;
   int ambiguous, symbol;
   pointer_info *info;
@@ -3007,7 +3007,7 @@ read_module (void)
   set_module_locus (&operator_interfaces);
   mio_lparen ();
 
-  for (i = G95_INTRINSIC_BEGIN; i != G95_INTRINSIC_END; i++)
+  for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     {
       if (i == INTRINSIC_USER)
 	continue;
@@ -3262,7 +3262,7 @@ write_module (void)
   /* Write the operator interfaces.  */
   mio_lparen ();
 
-  for (i = G95_INTRINSIC_BEGIN; i != G95_INTRINSIC_END; i++)
+  for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     {
       if (i == INTRINSIC_USER)
 	continue;
@@ -3376,7 +3376,7 @@ gfc_dump_module (const char *name, int dump_flag)
 void
 gfc_use_module (void)
 {
-  char filename[G95_MAX_SYMBOL_LEN + 5];
+  char filename[GFC_MAX_SYMBOL_LEN + 5];
   gfc_state_data *p;
   int c, line;
 
