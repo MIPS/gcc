@@ -2609,8 +2609,6 @@ disband_implicit_edges (void)
 
       if (stmt && TREE_CODE (stmt) == COND_EXPR)
 	{
-	  unsigned ix;
-
 	  /* Remove superfluous gotos from COND_EXPR branches.  Moved
 	     from cfg_remove_useless_stmts here since it violates the
 	     invariants for tree--cfg correspondence and thus fits better
@@ -3992,6 +3990,7 @@ thread_jumps (void)
 	  retval = true;
 	  old_dest = e->dest;
 	  e = redirect_edge_and_branch (e, dest);
+	  ix--;
 
 	  if (!old)
 	    {

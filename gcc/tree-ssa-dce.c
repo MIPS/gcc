@@ -745,7 +745,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 
       /* Remove the remaining the outgoing edges.  */
       while (EDGE_SUCC_COUNT (bb) != 1)
-        remove_edge (EDGE_SUCC (bb, 0));
+        remove_edge (EDGE_SUCC (bb, 1));
     }
 
   bsi_remove (i);

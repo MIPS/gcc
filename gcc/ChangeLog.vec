@@ -1,3 +1,18 @@
+2004-07-30  Steven Bosscher  <stevenb@suse.de>
+
+	* cfgexpand.c (expand_block): Decrement the iterator if
+	an edge is removed so that we re-examine the current vector slot.
+	* tree-ssa-dce.c (remove_dead_stmt): Do not remove the first one but
+	the last edge.
+
+2004-07-30  Andrew Pinski  <apinski@apple.com>
+
+	* cfgclean.c (try_forward_edges): Go back to the first edge after
+	jump threading.
+	* tree-cfg.c (disband_implicit_edges): Remove unused ix.
+	(thread_jumps): Decrement the iterator if an edge is removed
+	so that we re-examine the current vector slot.
+
 2004-07-29  Ben Elliston  <bje@au.ibm.com>
 
 	NOTE: struct basic_block_def members pred and succ have been
