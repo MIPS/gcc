@@ -1,3 +1,64 @@
+2004-07-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JTable.java
+	(autoCreateColumnsFromModel): New field.
+	(autoResizeMode): Likewise.
+	(cellEditor): Likewise.
+	(cellSelectionEnabled): Likewise.
+	(columnModel): Likewise.
+	(dataModel): Likewise.
+	(defaultEditorsByColumnClass): Likewise.
+	(defaultRenderersByColumnClass): Likewise.
+	(editingColumn): Likewise.
+	(editingRow): Likewise.
+	(gridColor): Likewise.
+	(preferredViewportSize): Likewise.
+	(rowHeight): Likewise.
+	(rowMargin): Likewise.
+	(rowSelectionAllowed): Likewise.
+	(selectionBackground): Likewise.
+	(selectionForeground): Likewise.
+	(selectionModel): Likewise.
+	(showHorizontalLines): Likewise.
+	(showVerticalLines): Likewise.
+	(tableHeader): Likewise.
+	(JTable): Implemented.
+	(getColumnModel): Likewise.
+	(getSelectedRow): Likewise.
+	(getSelectionModel): Likewise.
+	(setModel): Likewise.
+	(setSelectionModel): Likewise.
+	(createScrollPaneForTable): New method.
+	(createDefaultDataModel): Likewise.
+	(createDefaultListSelectionModel): Likewise.
+	(getModel): Likewise.
+	(getTableHeader): Likewise.
+	(setTableHeader): Likewise.
+	(getColumnSelectionAllowed): Likewise.
+	(setColumnSelectionAllowed): Likewise.
+	(getRowSelectionAllowed): Likewise.
+	(setRowSelectionAllowed): Likewise.
+	(getAutoResizeMode): Likewise.
+	(setAutoResizeMode): Likewise.
+	(getColumnCount): Likewise.
+	(getRowCount): Likewise.
+	(getCellRenderer): Likewise.
+	* javax/swing/JTree.java
+	(cellRenderer): New field.
+	(editable): Likewise.
+	(rootVisible): Likewise.
+	(showsRootHandles): Likewise.
+	(getModel): New method.
+	(setModel): Likewise.
+	(isEditable): Likewise.
+	(setEditable): Likewise.
+	(isRootVisbile): Likewise.
+	(setRootVisible): Likewise.
+	(getShowsRootHandles): Likewise.
+	(setShowRootHandles): Likewise.
+	(getCellRenderer): Likewise.
+	(setCellRenderer): Likewise.
+
 2004-07-20  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkFileDialogPeer.java:

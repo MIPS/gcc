@@ -50,6 +50,7 @@ import javax.swing.event.TreeSelectionListener;
 import javax.swing.event.TreeWillExpandListener;
 import javax.swing.plaf.TreeUI;
 import javax.swing.tree.ExpandVetoException;
+import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
@@ -60,6 +61,10 @@ public class JTree extends JComponent
 {
   private static final long serialVersionUID = 7559816092864483649L;
 
+  protected TreeCellRenderer cellRenderer;
+  protected boolean editable;
+  protected boolean rootVisible;
+  protected boolean showsRootHandles;
   protected TreeModel treeModel;
 
   /**
@@ -353,5 +358,88 @@ public class JTree extends JComponent
 
     for (int index = 0; index < listeners.length; ++index)
       listeners[index].treeWillExpand(event);
+  }
+
+  /**
+   * Returns the model of this <code>JTree</code> object.
+   *
+   * @return the associated <code>TreeModel</code>
+   */
+  public TreeModel getModel()
+  {
+    return treeModel;
+  }
+
+  /**
+   * Sets the model to use in <code>JTree</object>.
+   *
+   * @param model the <code>TreeModel</code> to use
+   */
+  public void setModel(TreeModel model)
+  {
+    treeModel = model;
+  }
+
+  /**
+   * Checks if this <code>JTree</code> object is editable.
+   *
+   * @return <code>true</code> if this tree object is editable,
+   * <code>false</code> otherwise
+   */
+  public boolean isEditable()
+  {
+    return editable;
+  }
+
+  /**
+   * Sets the <code>editable</code> property.
+   *
+   * @param flag <code>true</code> to make this tree object editable,
+   * <code>false</code> otherwise
+   */
+  public void setEditable(boolean flag)
+  {
+    if (editable == flag)
+      return;
+
+    boolean oldValue = editable;
+    editable = flag;
+    firePropertyChange("editable", oldValue, editable);
+  }
+
+  /**
+   * Checks if the root element is visible.
+   *
+   * @return <code>true</code> if the root element is visible,
+   * <code>false</code> otherwise
+   */
+  public boolean isRootVisbile()
+  {
+    return rootVisible;
+  }
+
+  public void setRootVisible(boolean flag)
+  {
+    rootVisible = flag;
+  }
+
+  public boolean getShowsRootHandles()
+  {
+    return showsRootHandles;
+  }
+
+  public void setShowRootHandles(boolean flag)
+  {
+    showsRootHandles = flag;
+  }
+
+  public TreeCellRenderer getCellRenderer()
+  {
+    return cellRenderer;
+  }
+  
+  public void setCellRenderer(TreeCellRenderer newRenderer)
+  {
+    cellRenderer = newRenderer;
   }
 }
