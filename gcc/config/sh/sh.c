@@ -2354,7 +2354,7 @@ dump_table (scan)
   int i;
   int need_align = 1;
   rtx lab, ref;
-  int have_di = 0;
+  int have_df = 0;
 
   /* Do two passes, first time dump out the HI sized constants.  */
 
@@ -2379,13 +2379,13 @@ dump_table (scan)
 	      scan = emit_insn_after (gen_consttable_window_end (lab), scan);
 	    }
 	}
-      else if (p->mode == DImode || p->mode == DFmode)
-	have_di = 1;
+      else if (p->mode == DFmode)
+	have_df = 1;
     }
 
   need_align = 1;
 
-  if (TARGET_SHCOMPACT && have_di)
+  if (TARGET_FMOVD && TARGET_ALIGN_DOUBLE && have_df)
     {
       rtx align_insn = NULL_RTX;
 
@@ -2429,13 +2429,13 @@ dump_table (scan)
 		}
 	      break;
 	    case DFmode:
-	    case DImode:
 	      if (need_align)
 		{
 		  scan = emit_insn_after (gen_align_log (GEN_INT (3)), scan);
 		  align_insn = scan;
 		  need_align = 0;
 		}
+	    case DImode:
 	      for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		scan = emit_label_after (lab, scan);
 	      scan = emit_insn_after (gen_consttable_8 (p->value, const0_rtx),
@@ -4305,6 +4305,8 @@ push (rn)
   rtx x;
   if (rn == FPUL_REG)
     x = gen_push_fpul ();
+  else if (rn == FPSCR_REG)
+    x = gen_push_fpscr ();
   else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
@@ -4333,6 +4335,8 @@ pop (rn)
   rtx x;
   if (rn == FPUL_REG)
     x = gen_pop_fpul ();
+  else if (rn == FPSCR_REG)
+    x = gen_pop_fpscr ();
   else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
@@ -4431,7 +4435,9 @@ calc_live_regs (count_ptr, live_regs_mask)
 		  && pr_live))
 	     && reg != STACK_POINTER_REGNUM && reg != ARG_POINTER_REGNUM
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
-	     && reg != T_REG && reg != GBR_REG)
+	     && reg != T_REG && reg != GBR_REG
+	     /* Push fpscr only on targets which have FPU */
+	     && (reg != FPSCR_REG || TARGET_FPU_ANY))
 	  : (/* Only push those regs which are used and need to be saved.  */
 	     (TARGET_SHCOMPACT
 	      && flag_pic

@@ -1634,7 +1634,7 @@ unsafe_for_reeval (expr)
 {
   int unsafeness = 0;
   enum tree_code code;
-  int i, tmp;
+  int i, tmp, tmp2;
   tree exp;
   int first_rtl;
 
@@ -1660,8 +1660,9 @@ unsafe_for_reeval (expr)
       return unsafeness;
 
     case CALL_EXPR:
+      tmp2 = unsafe_for_reeval (TREE_OPERAND (expr, 0));
       tmp = unsafe_for_reeval (TREE_OPERAND (expr, 1));
-      return MAX (tmp, 1);
+      return MAX (MAX (tmp, 1), tmp2);
 
     case TARGET_EXPR:
       unsafeness = 1;
@@ -4118,6 +4119,9 @@ bool
 variably_modified_type_p (type)
      tree type;
 {
+  if (type == error_mark_node)
+    return false;
+
   /* If TYPE itself has variable size, it is variably modified.  
 
      We do not yet have a representation of the C99 '[*]' syntax.

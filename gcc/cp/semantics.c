@@ -2251,7 +2251,7 @@ finish_alignof (t)
      tree t;
 {
   if (processing_template_decl)
-    return build_min (ALIGNOF_EXPR, c_size_type_node, t);
+    return build_min (ALIGNOF_EXPR, size_type_node, t);
 
   return TYPE_P (t) ? cxx_alignof (t) : c_alignof_expr (t);
 }

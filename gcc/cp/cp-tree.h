@@ -65,7 +65,6 @@ struct diagnostic_context;
       BINDING_HAS_LEVEL_P (in CPLUS_BINDING)
       BINFO_LOST_PRIMARY_P (in BINFO)
       TREE_PARMLIST (in TREE_LIST)
-      ADDR_IS_INVISIREF (in ADDR_EXPR)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
@@ -1178,6 +1177,7 @@ struct lang_type_class GTY(())
   tree vfields;
   tree vcall_indices;
   tree vtables;
+  tree typeinfo_var;
   tree vbases;
   tree tags;
   tree as_base;
@@ -1656,6 +1656,12 @@ struct lang_type GTY(())
 #define CLASSTYPE_VTABLES(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->vtables)
 
+/* The std::type_info variable representing this class, or NULL if no
+   such variable has been created.  This field is only set for the
+   TYPE_MAIN_VARIANT of the class.  */
+#define CLASSTYPE_TYPEINFO_VAR(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->typeinfo_var)
+
 /* Accessor macros for the vfield slots in structures.  */
 
 /* List of virtual table fields that this type contains (both the primary
@@ -1698,10 +1704,6 @@ struct lang_type GTY(())
 
 /* Nonzero for a parmlist means that this parmlist ended in ...  */
 #define PARMLIST_ELLIPSIS_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
-/* Nonzero if this ADDR_EXPR is used to implement the pass by invisible
-   reference calling convention.  */
-#define ADDR_IS_INVISIREF(NODE) TREE_LANG_FLAG_2 (NODE)
 
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
@@ -2204,7 +2206,7 @@ struct lang_decl GTY(())
 #define DECL_PENDING_INLINE_INFO(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.u.pending_inline_info)
 
-/* For a TYPE_DECL: if this function has many fields, we'll sort them
+/* For a TYPE_DECL: if this structure has many fields, we'll sort them
    and put them into a TREE_VEC.  */
 #define DECL_SORTED_FIELDS(NODE) \
   (DECL_LANG_SPECIFIC (TYPE_DECL_CHECK (NODE))->u.f.u.sorted_fields)

@@ -404,7 +404,6 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
      But as we have it, it counts within whatever size OP0 now has.
      On a bigendian machine, these are not the same, so convert.  */
   if (BYTES_BIG_ENDIAN
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN
       && GET_CODE (op0) != MEM
       && unit > GET_MODE_BITSIZE (GET_MODE (op0)))
     bitpos += unit - GET_MODE_BITSIZE (GET_MODE (op0));
@@ -535,7 +534,9 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
      structure fields.  */
   if (GET_MODE_CLASS (GET_MODE (value)) != MODE_INT
       && GET_MODE_CLASS (GET_MODE (value)) != MODE_PARTIAL_INT)
-    value = gen_lowpart (word_mode, value);
+    value = gen_lowpart ((GET_MODE (value) == VOIDmode
+			  ? word_mode : int_mode_for_mode (GET_MODE (value))),
+			 value);
 
   /* Now OFFSET is nonzero only if OP0 is memory
      and is therefore always measured in bytes.  */

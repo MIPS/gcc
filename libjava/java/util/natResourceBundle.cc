@@ -22,6 +22,8 @@ java::lang::ClassLoader *
 java::util::ResourceBundle::getCallingClassLoader ()
 {
   gnu::gcj::runtime::StackTrace *t = new gnu::gcj::runtime::StackTrace(6);
+  if (! t)
+    return NULL;
   for (int i = 3; i < 6; ++i)
     {
       jclass klass = t->classAt(i);

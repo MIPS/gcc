@@ -1,3 +1,13 @@
+2002-12-09  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config.sub: Import from master repository
+	* config.guess: Ditto
+	* MAINTAINERS: Added Svein Seldal under write after approval
+
+2002-12-05  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Add Christian Ehrhardt under "GNATS only".
+
 2002-11-28  Geoffrey Keating  <geoffk@apple.com>
 
 	* configure.in: Move host-specific darwin noconfigdirs into

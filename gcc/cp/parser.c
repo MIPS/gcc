@@ -32,6 +32,7 @@
 #include "diagnostic.h"
 #include "ggc.h"
 #include "toplev.h"
+#include "output.h"
 
 /* Functions to remove when switching to the new parser:
    
@@ -3988,7 +3989,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		&& args)
 	      {
 		tree arg;
-		tree identifier;
+		tree identifier = NULL_TREE;
 		tree functions = NULL_TREE;
 
 		/* Find the name of the overloaded function.  */
@@ -4408,7 +4409,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p)
 	    if (TYPE_P (operand)
 		? cp_parser_dependent_type_p (operand)
 		: cp_parser_type_dependent_expression_p (operand))
-	      return build_min (SIZEOF_EXPR, c_size_type_node, operand);
+	      return build_min (SIZEOF_EXPR, size_type_node, operand);
 	    /* Otherwise, compute the constant value.  */
 	    else
 	      return finish_sizeof (operand);
@@ -4879,7 +4880,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p)
   /* If it's a `(', then we might be looking at a cast.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
     {
-      tree type;
+      tree type = NULL_TREE;
       tree expr = NULL_TREE;
       bool compound_literal_p;
       const char *saved_message;
@@ -9324,6 +9325,7 @@ cp_parser_asm_definition (parser)
      too.  Doing that means that we have to treat the `::' operator as
      two `:' tokens.  */
   if (cp_parser_allow_gnu_extensions_p (parser)
+      && at_function_scope_p ()
       && (cp_lexer_next_token_is (parser->lexer, CPP_COLON)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_SCOPE)))
     {
@@ -9390,13 +9392,18 @@ cp_parser_asm_definition (parser)
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
   /* Create the ASM_STMT.  */
-  asm_stmt = 
-    finish_asm_stmt (volatile_p 
-		     ? ridpointers[(int) RID_VOLATILE] : NULL_TREE,
-		     string, outputs, inputs, clobbers);
-  /* If the extended syntax was not used, mark the ASM_STMT.  */
-  if (!extended_p)
-    ASM_INPUT_P (asm_stmt) = 1;
+  if (at_function_scope_p ())
+    {
+      asm_stmt = 
+	finish_asm_stmt (volatile_p 
+			 ? ridpointers[(int) RID_VOLATILE] : NULL_TREE,
+			 string, outputs, inputs, clobbers);
+      /* If the extended syntax was not used, mark the ASM_STMT.  */
+      if (!extended_p)
+	ASM_INPUT_P (asm_stmt) = 1;
+    }
+  else
+    assemble_asm (string);
 }
 
 /* Declarators [gram.dcl.decl] */
@@ -9447,7 +9454,7 @@ cp_parser_init_declarator (parser,
   tree attributes;
   tree asm_specification;
   tree initializer;
-  tree decl;
+  tree decl = NULL_TREE;
   tree scope;
   tree declarator_access_checks;
   bool is_initialized;
@@ -9612,7 +9619,7 @@ cp_parser_init_declarator (parser,
      SCOPE the declared entity resides.  */
   if (!member_p && decl) 
     {
-      tree saved_current_function_decl;
+      tree saved_current_function_decl = NULL_TREE;
 
       /* If the entity being declared is a function, pretend that we
 	 are in its scope.  If it is a `friend', it may have access to
@@ -13581,7 +13588,7 @@ static bool
 cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 {
   bool constructor_p;
-  tree type_decl;
+  tree type_decl = NULL_TREE;
   bool nested_name_p;
 
   /* Parse tentatively; we are going to roll back all of the tokens
@@ -13909,7 +13916,7 @@ cp_parser_single_declaration (parser,
      bool *friend_p;
 {
   bool declares_class_or_enum;
-  tree decl;
+  tree decl = NULL_TREE;
   tree decl_specifiers;
   tree attributes;
   tree access_checks;

@@ -9031,7 +9031,7 @@ ix86_expand_int_movcc (operands)
 	  /* To simplify rest of code, restrict to the GEU case.  */
 	  if (compare_code == LTU)
 	    {
-	      int tmp = ct;
+	      HOST_WIDE_INT tmp = ct;
 	      ct = cf;
 	      cf = tmp;
 	      compare_code = reverse_condition (compare_code);
@@ -9250,16 +9250,7 @@ ix86_expand_int_movcc (operands)
 	      && (GET_CODE (tmp) != SUBREG || SUBREG_REG (tmp) != out))
 	    {
 	      if (nops == 1)
-		{
-		  rtx clob;
-
-		  clob = gen_rtx_REG (CCmode, FLAGS_REG);
-		  clob = gen_rtx_CLOBBER (VOIDmode, clob);
-
-		  tmp = gen_rtx_SET (VOIDmode, out, tmp);
-		  tmp = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, clob));
-		  emit_insn (tmp);
-		}
+		out = force_operand (tmp, out);
 	      else
 		emit_insn (gen_rtx_SET (VOIDmode, out, tmp));
 	    }

@@ -2147,8 +2147,7 @@ move_block_from_reg (regno, x, nregs, size)
   /* If SIZE is that of a mode no bigger than a word, just use that
      mode's store operation.  */
   if (size <= UNITS_PER_WORD
-      && (mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0)) != BLKmode
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN)
+      && (mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0)) != BLKmode)
     {
       emit_move_insn (adjust_address (x, mode, 0), gen_rtx_REG (mode, regno));
       return;
@@ -2157,9 +2156,7 @@ move_block_from_reg (regno, x, nregs, size)
   /* Blocks smaller than a word on a BYTES_BIG_ENDIAN machine must be aligned
      to the left before storing to memory.  Note that the previous test
      doesn't handle all cases (e.g. SIZE == 3).  */
-  if (size < UNITS_PER_WORD
-      && BYTES_BIG_ENDIAN
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN)
+  if (size < UNITS_PER_WORD && BYTES_BIG_ENDIAN)
     {
       rtx tem = operand_subword (x, 0, 1, BLKmode);
       rtx shift;
@@ -2523,26 +2520,17 @@ copy_blkmode_from_reg (tgtblk, srcreg, type)
     }
 
   /* This code assumes srcreg is at least a full word.  If it isn't, copy it
-     into a new pseudo which is a full word.
+     into a new pseudo which is a full word.  */
 
-     If FUNCTION_ARG_REG_LITTLE_ENDIAN is set and convert_to_mode does a copy,
-     the wrong part of the register gets copied so we fake a type conversion
-     in place.  */
   if (GET_MODE (srcreg) != BLKmode
       && GET_MODE_SIZE (GET_MODE (srcreg)) < UNITS_PER_WORD)
-    {
-      if (FUNCTION_ARG_REG_LITTLE_ENDIAN)
-	srcreg = simplify_gen_subreg (word_mode, srcreg, GET_MODE (srcreg), 0);
-      else
-	srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
-    }
+    srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
 
   /* Structures whose size is not a multiple of a word are aligned
      to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
      machine, this means we must skip the empty high order bytes when
      calculating the bit offset.  */
   if (BYTES_BIG_ENDIAN
-      && !FUNCTION_ARG_REG_LITTLE_ENDIAN
       && bytes % UNITS_PER_WORD)
     big_endian_correction
       = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD) * BITS_PER_UNIT));
@@ -8618,6 +8606,7 @@ expand_expr (exp, target, tmode, modifier)
 	    && TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (exp, 0))) == '<')
 	  {
 	    rtx result;
+	    tree cond;
 	    optab boptab = (TREE_CODE (binary_op) == PLUS_EXPR
 			    ? (TYPE_TRAP_SIGNED (TREE_TYPE (binary_op))
 			       ? addv_optab : add_optab)
@@ -8627,20 +8616,14 @@ expand_expr (exp, target, tmode, modifier)
 			    : TREE_CODE (binary_op) == BIT_IOR_EXPR ? ior_optab
 			    : xor_optab);
 
-	    /* If we had X ? A : A + 1, do this as A + (X == 0).
-
-	       We have to invert the truth value here and then put it
-	       back later if do_store_flag fails.  We cannot simply copy
-	       TREE_OPERAND (exp, 0) to another variable and modify that
-	       because invert_truthvalue can modify the tree pointed to
-	       by its argument.  */
+	    /* If we had X ? A : A + 1, do this as A + (X == 0).  */
 	    if (singleton == TREE_OPERAND (exp, 1))
-	      TREE_OPERAND (exp, 0)
-		= invert_truthvalue (TREE_OPERAND (exp, 0));
+	      cond = invert_truthvalue (TREE_OPERAND (exp, 0));
+	    else
+	      cond = TREE_OPERAND (exp, 0);
 
-	    result = do_store_flag (TREE_OPERAND (exp, 0),
-				    (safe_from_p (temp, singleton, 1)
-				     ? temp : NULL_RTX),
+	    result = do_store_flag (cond, (safe_from_p (temp, singleton, 1)
+					   ? temp : NULL_RTX),
 				    mode, BRANCH_COST <= 1);
 
 	    if (result != 0 && ! integer_onep (TREE_OPERAND (binary_op, 1)))
@@ -8658,9 +8641,6 @@ expand_expr (exp, target, tmode, modifier)
 		return expand_binop (mode, boptab, op1, result, temp,
 				     unsignedp, OPTAB_LIB_WIDEN);
 	      }
-	    else if (singleton == TREE_OPERAND (exp, 1))
-	      TREE_OPERAND (exp, 0)
-		= invert_truthvalue (TREE_OPERAND (exp, 0));
 	  }
 
 	do_pending_stack_adjust ();

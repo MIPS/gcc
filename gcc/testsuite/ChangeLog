@@ -1,3 +1,77 @@
+2002-12-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/special/conpr-2.C: Expect failure on solaris2.
+	* g++.dg/special/ecos.exp (conpr-3.C): Likewise.
+	* g++.dg/special/initp1.C: Likewise.
+
+2002-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20021204-1.c: New test.
+
+2002-12-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/ppc-fmadd-1.c: New file.
+	* gcc.dg/ppc-fmadd-2.c: New file.
+	* gcc.dg/ppc-fmadd-3.c: New file.
+
+2002-12-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021204-1.c: New test.
+
+2002-12-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8688
+	* g++.dg/init/brace3.C: New test.
+
+2002-12-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/20020210-1.c: Fix a comment typo.
+
+2002-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8720
+	* g++.dg/parse/defarg1.C: New test.
+
+	PR c++/8615
+	* g++.dg/template/char1.C: New test.
+
+	* g++.dg/template/varmod1.C: Fix typo.
+
+2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	DR 180
+	* g++.old-deja/g++.pt/crash32.C: Expect error.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5919
+	* g++.dg/template/varmod1.C: New test.
+
+	PR c++/8727
+	* g++.dg/inherit/typeinfo1.C: New test.
+	
+	PR c++/8663
+	* g++.dg/inherit/typedef1.C: New test.
+
+2002-11-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8332
+	PR c++/8493
+	* g++.dg/template/strlen1.C: New test.
+
+	PR c++/8227
+	* g++.dg/template/ctor2.C: New test.
+
+	PR c++/8214
+	* g++.dg/init/string1.C: New test.
+
+	PR c++/8511
+	* g++.dg/template/friend8.C: New test.
+
+2002-11-29  Joe Buck <jbuck@synopsys.com>
+
+	* g++.dg/lookup/anon2.C: New test.
+
 2002-11-28  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* gcc.c-torture/execute/strct-varg-1.x: Remove xfail on the
@@ -33,7 +107,7 @@ Wed Nov 27 14:37:34 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* g++.dg/abi/empty10.C: New test.
 
-2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/compile/20021124-1.c: New test.
 
@@ -41,11 +115,11 @@ Wed Nov 27 14:37:34 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* g++.dg/abi/rtti2.C: New test.
 
-2002-11-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/i386-unroll-1.c: New test.
 
-2002-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/compile/20021120-1.c: New test.
 	* gcc.c-torture/compile/20021120-2.c: New test.
@@ -70,7 +144,7 @@ Wed Nov 27 14:37:34 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/execute/20021118-3.c: New test.
 
-2002-11-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+2002-11-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/compile/20021119-1.c: New test.
 
