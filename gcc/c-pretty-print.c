@@ -1940,16 +1940,21 @@ pp_c_pretty_printer_init (c_pretty_printer pp)
 void
 print_c_tree (FILE *file, tree t)
 {
-  pretty_printer *base = global_dc->printer;
-  c_pretty_printer pp = xmalloc (sizeof *pp);
-  memcpy (pp_base (pp), base, sizeof (pretty_printer));
-  pp_c_pretty_printer_init (pp);
-  pp_needs_newline (pp) = true;
+  static struct c_pretty_print_info pp_rec;
+  static int initialized = 0;
+  c_pretty_printer pp = & pp_rec;
+
+  if (!initialized)
+    {
+      pp_construct (pp_base (pp), NULL, 0);
+      pp_c_pretty_printer_init (pp);
+      pp_needs_newline (pp) = true;
+      initialized = 1;
+    }
   pp_base (pp)->buffer->stream = file;
 
   pp_statement (pp, t);
 
   pp_newline (pp);
   pp_flush (pp);
-  free (pp);
 }
