@@ -1,3 +1,11 @@
+2002-12-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* invoke.texi (-funroll-loops, -funroll-all-loops, -fpeel-loops,
+	-funswitch-loops, -fold-unroll-loops, -fold-unroll-all-loops):
+	Document.
+	* passes.texi (loop-init.c, loop-unroll.c, loop-unswitch.c,
+	cfgloopanal.c, cfgloopmanip.c): Document.
+
 Sun Dec 15 18:22:59 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c: Update comments, fix coding style.
