@@ -4674,11 +4674,29 @@ build_unary_op (code, xarg, noconvert)
 	  return cp_build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
 				     TREE_OPERAND (arg, 1));
 	}
-
+        
       /* When the address of an overloaded function is requested,
-	 overload resolution is delayed until the expression is used.  */
+         overload resolution is delayed until the expression is used.  */
       if (type_unknown_p (arg))
-	return build1 (ADDR_EXPR, unknown_type_node, arg);
+	{
+	  if (flag_ms_extensions && TREE_CODE (arg) == COMPONENT_REF
+	      && OVL_NEXT (TREE_OPERAND (arg, 1)) == NULL_TREE)
+	    {
+	      /* They're trying to take the address of a unique
+	     	 non-static member function.  This is ill-formed
+	     	 unless we're in MS-land. We cannot leave this until
+	     	 instantiate_type, because we also need to allow base
+	     	 casts on the resulting PMF.  */
+	      tree member = OVL_CURRENT (TREE_OPERAND (arg, 1));
+
+	      arg = build_unary_op (ADDR_EXPR, member, 0);
+	      arg = build_ptrmemfunc (TREE_TYPE (arg), arg, 0);
+
+	      return arg;
+	    }
+	  else
+	    return build1 (ADDR_EXPR, unknown_type_node, arg);
+	}
 	
       /* Handle complex lvalues (when permitted)
 	 by reduction to simpler cases.  */
