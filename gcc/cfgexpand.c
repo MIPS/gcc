@@ -878,7 +878,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 {
   rtx last = get_last_insn ();
   edge e;
-  unsigned ix;
+  edge_iterator ei;
   int probability;
   gcov_type count;
 
@@ -906,7 +906,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
   probability = 0;
   count = 0;
 
-  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
@@ -924,7 +924,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 	  remove_edge (e);
 	}
       else
-	ix++;
+	ei_next (&ei);
     }
 
   /* This is somewhat ugly: the call_expr expander often emits instructions
@@ -973,7 +973,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
   tree stmt = NULL;
   rtx note, last;
   edge e;
-  unsigned ix;
+  edge_iterator ei;
 
   if (dump_file)
     {
@@ -1003,8 +1003,8 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
     note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
 
   NOTE_BASIC_BLOCK (note) = bb;
-  
-  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
@@ -1015,7 +1015,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
       else
-	ix++;
+	ei_next (&ei);
     }
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))

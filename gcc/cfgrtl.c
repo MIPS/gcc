@@ -1051,7 +1051,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	     at the start of the function which we use to add the new
 	     jump.  */
 	  edge tmp;
-	  unsigned ix;
+	  edge_iterator ei;
 	  bool found = false;
 	  
 	  basic_block bb = create_basic_block (BB_HEAD (e->dest), NULL, ENTRY_BLOCK_PTR);
@@ -1059,20 +1059,19 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	  /* Change the existing edge's source to be the new block, and add
 	     a new edge from the entry block to the new block.  */
 	  e->src = bb;
-	  for (ix = 0; VEC_iterate (edge, ENTRY_BLOCK_PTR->succs, ix, tmp); )
+	  for (ei = ei_start (ENTRY_BLOCK_PTR->succs); (tmp = ei_safe_edge (ei)); )
 	    {
 	      if (tmp == e)
 		{
-		  VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ix);
+		  VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ei.index);
 		  found = true;
 		  break;
 		}
 	      else
-		ix++;
+		ei_next (&ei);
 	    }
 	  
-	  if (!found)
-	    abort ();
+	  gcc_assert (found);
 	  
 	  VEC_safe_push (edge, bb->succs, e);
 	  make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
@@ -1212,11 +1211,10 @@ rtl_tidy_fallthru_edge (edge e)
   rtx q;
   basic_block b = e->src, c = b->next_bb;
   edge e2;
-  unsigned ix;
+  edge_iterator ei;
 
-  for (ix = 0; ix < EDGE_COUNT (b->succs); ix++)
+  FOR_EACH_EDGE (e2, ei, b->succs)
     {
-      e2 = EDGE_I (b->succs, ix);
       if (e == e2)
 	break;
     }
@@ -1243,7 +1241,7 @@ rtl_tidy_fallthru_edge (edge e)
       && onlyjump_p (q)
       && (any_uncondjump_p (q)
 	  /* FIXME: correct? */
-	  || (EDGE_SUCC (b, 0) == e && ix == EDGE_COUNT (b->succs) - 1)))
+	  || (EDGE_SUCC (b, 0) == e && ei.index == EDGE_COUNT (b->succs) - 1)))
     {
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
@@ -2295,7 +2293,6 @@ bool
 purge_dead_edges (basic_block bb)
 {
   edge e;
-  unsigned ix;
   rtx insn = BB_END (bb), note;
   bool purged = false;
   bool found;
@@ -2314,13 +2311,13 @@ purge_dead_edges (basic_block bb)
     }
 
   /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
-  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (e->flags & EDGE_EH)
 	{
 	  if (can_throw_internal (BB_END (bb)))
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 	}
@@ -2330,13 +2327,13 @@ purge_dead_edges (basic_block bb)
 	      && (! (note = find_reg_note (insn, REG_EH_REGION, NULL))
 		  || INTVAL (XEXP (note, 0)) >= 0))
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 	}
       else
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 
@@ -2349,7 +2346,7 @@ purge_dead_edges (basic_block bb)
     {
       rtx note;
       edge b,f;
-      unsigned ix;
+      edge_iterator ei;
 
       /* We do care only about conditional jumps and simplejumps.  */
       if (!any_condjump_p (insn)
@@ -2368,7 +2365,7 @@ purge_dead_edges (basic_block bb)
 	    remove_note (insn, note);
 	}
 
-      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+      for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
 	  /* Avoid abnormal flags to leak from computed jumps turned
 	     into simplejumps.  */
@@ -2380,7 +2377,7 @@ purge_dead_edges (basic_block bb)
 	    /* A conditional jump can fall through into the next
 	       block, so we should keep the edge.  */
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 	  else if (e->dest != EXIT_BLOCK_PTR
@@ -2388,14 +2385,14 @@ purge_dead_edges (basic_block bb)
 	    /* If the destination block is the target of the jump,
 	       keep the edge.  */
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 	  else if (e->dest == EXIT_BLOCK_PTR && returnjump_p (insn))
 	    /* If the destination block is the exit block, and this
 	       instruction is a return, then keep the edge.  */
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 	  else if ((e->flags & EDGE_EH) && can_throw_internal (insn))
@@ -2404,7 +2401,7 @@ purge_dead_edges (basic_block bb)
 	       flag we just cleared above.  */
 	    {
 	      e->flags |= EDGE_ABNORMAL;
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 
@@ -2475,7 +2472,7 @@ purge_dead_edges (basic_block bb)
   if (!found)
     return purged;
 
-  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (!(e->flags & EDGE_FALLTHRU))
 	{
@@ -2484,7 +2481,7 @@ purge_dead_edges (basic_block bb)
 	  purged = true;
 	}
       else
-	ix++;
+	ei_next (&ei);
     }
 
   gcc_assert (EDGE_COUNT (bb->succs) == 1);
@@ -2623,8 +2620,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 		}
 	    }
 
-	  if (!found)
-	    abort ();
+	  gcc_assert (found);
 
 	  if (EDGE_COUNT (src->succs) > (ix + 1))
 	    s = EDGE_SUCC (src, ix + 1);

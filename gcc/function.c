@@ -4956,9 +4956,6 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 #if defined (HAVE_epilogue) || defined(HAVE_return)
   rtx epilogue_end = NULL_RTX;
 #endif
-#ifdef HAVE_return
-  unsigned ix;
-#endif
   edge_iterator ei;
 
 #ifdef HAVE_prologue
@@ -5030,7 +5027,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
       if (BB_HEAD (last) == label && LABEL_P (label))
 	{
-	  unsigned ix;
+	  edge_iterator ei2;
 	  rtx epilogue_line_note = NULL_RTX;
 
 	  /* Locate the line number associated with the closing brace,
@@ -5044,21 +5041,21 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  for (ix = 0; VEC_iterate (edge, last->preds, ix, e); )
+	  for (ei2 = ei_start (last->preds); (e = ei_safe_edge (ei2)); )
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
 
 	      if (bb == ENTRY_BLOCK_PTR)
 		{
-		  ix++;
+		  ei_next (&ei2);
 		  continue;
 		}
 
 	      jump = BB_END (bb);
 	      if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
 		{
-		  ix++;
+		  ei_next (&ei2);
 		  continue;
 		}
 
@@ -5076,7 +5073,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		{
 		  if (! redirect_jump (jump, 0, 0))
 		    {
-		      ix++;
+		      ei_next (&ei2);
 		      continue;
 		    }
 
@@ -5085,13 +5082,13 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		     delete the edge.  */
 		  if (EDGE_COUNT (bb->succs) == 1)
 		    {
-		      ix++;
+		      ei_next (&ei2);
 		      continue;
 		    }
 		}
 	      else
 		{
-		  ix++;
+		  ei_next (&ei2);
 		  continue;
 		}
 
@@ -5180,7 +5177,7 @@ epilogue_done:
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
 
-  for (ix = 0; VEC_iterate (edge, EXIT_BLOCK_PTR->preds, ix, e); )
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
@@ -5190,7 +5187,7 @@ epilogue_done:
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 
@@ -5208,7 +5205,7 @@ epilogue_done:
       i = PREV_INSN (insn);
       newinsn = emit_insn_before (seq, insn);
 
-      ix++;
+      ei_next (&ei);
     }
 #endif
 

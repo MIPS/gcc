@@ -1,5 +1,15 @@
 2004-09-19  Ben Elliston  <bje@au.ibm.com>
 
+	* cfgexpand.c (expand_gimple_tailcall): Use an edge_iterator, not
+	VEC_iterate().
+	(expand_gimple_basic_block): Likewise.
+	* cfgrtl.c (force_nonfallthru_and_redirect): Likewise.
+	(purge_dead_edges): Likewise.
+	(cfg_layout_redirect_edge_and_branch): Likewise.
+	* function.c (thread_prologue_and_epilogue_insns): Likewise.
+
+2004-09-19  Ben Elliston  <bje@au.ibm.com>
+
 	* cfg.c (remove_edge): Use an edge_iterator, not VEC_iterate().
 	(redirect_edge_succ): Likewise.
 	(redirect_edge_pred): Likewise.
