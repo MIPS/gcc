@@ -959,6 +959,10 @@ modified_between_p (x, start, end)
   enum rtx_code code = GET_CODE (x);
   const char *fmt;
   int i, j;
+  rtx insn;
+
+  if (start == end)
+    return 0;
 
   switch (code)
     {
@@ -1019,9 +1023,6 @@ modified_in_p (x, insn)
   enum rtx_code code = GET_CODE (x);
   const char *fmt;
   int i, j;
-  rtx insn;
-  if (start == end)
-    return 0;
 
   switch (code)
     {
