@@ -4342,7 +4342,7 @@ replace_stmt (tree *tp1, tree *tp2)
     }
 
   /* Relocate annotations for the replacement statement.  */
-  TREE_LOCUS (t) = TREE_LOCUS (*tp1);
+  SET_EXPR_LOCUS (t, EXPR_LOCUS (*tp1));
   add_stmt_to_bb (&t, bb_for_stmt (*tp1), NULL_TREE);
 
   /* Don't replace COMPOUND_EXPRs.  Only their operands.  */

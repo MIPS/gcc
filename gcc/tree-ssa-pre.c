@@ -2422,9 +2422,9 @@ code_motion (struct expr_info *ei)
 	      fprintf (dump_file, " before statement ");
 	      print_generic_expr (dump_file, use_stmt, 0);
 	      fprintf (dump_file, "\n");
-	      if (TREE_LOCUS (use_stmt))
+	      if (EXPR_LOCUS (use_stmt))
 		fprintf (dump_file, " on line %d\n",
-			 TREE_LINENO (use_stmt));
+			 EXPR_LINENO (use_stmt));
 	    }
 	  modify_stmt (newexpr);
 	  modify_stmt (use_stmt);
@@ -2461,9 +2461,9 @@ code_motion (struct expr_info *ei)
 	      fprintf (dump_file, " in statement ");
 	      print_generic_stmt (dump_file, use_stmt, 0);
 	      fprintf (dump_file, "\n");
-	      if (TREE_LOCUS (use_stmt))
+	      if (EXPR_LOCUS (use_stmt))
 		fprintf (dump_file, " on line %d\n",
-			 TREE_LINENO (use_stmt));
+			 EXPR_LINENO (use_stmt));
 	    }
 	  TREE_OPERAND (use_stmt, 1) = newtemp;
 	  EREF_TEMP (use) = newtemp;

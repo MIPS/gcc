@@ -242,8 +242,8 @@ gfc_get_label_decl (gfc_st_label * lp)
       /* Tell the debugger where the label came from.  */
       if (lp->value <= MAX_LABEL_VALUE)	/* An internal label */
 	{
-	  TREE_LINENO (label_decl) = lp->where.line;
-	  TREE_FILENAME (label_decl) = lp->where.file->filename;
+	  DECL_SOURCE_LINE (label_decl) = lp->where.line;
+	  DECL_SOURCE_FILE (label_decl) = lp->where.file->filename;
 	}
       else
 	DECL_ARTIFICIAL (label_decl) = 1;

@@ -272,8 +272,7 @@ tree_rest_of_compilation (tree fndecl)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
-  input_filename = TREE_FILENAME (fndecl);
-  input_line = TREE_LINENO (fndecl);
+  input_location = DECL_SOURCE_LOCATION (fndecl);
   init_function_start (fndecl);
 
   /* This function is being processed in whole-function mode.  */

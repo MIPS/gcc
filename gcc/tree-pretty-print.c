@@ -494,7 +494,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       break;
 
     case TYPE_DECL:
-      if (strcmp (TREE_FILENAME (node), "<built-in>") == 0)
+      if (strcmp (DECL_SOURCE_FILE (node), "<built-in>") == 0)
 	{
 	  /* Don't print the declaration of built-in types.  */
 	  break;

@@ -1,3 +1,20 @@
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (DECL_SOURCE_LOCATION): Resurrect.
+	(DECL_SOURCE_FILE, DECL_SOURCE_LINE): Likewise.
+	(EXPR_LOCUS): Renamed from TREE_LOCUS.  Null for non-exprs.
+	(SET_EXPR_LOCUS): New macro.
+	(EXPR_FILENAME): Renamed from TREE_FILENAME.
+	(EXPR_LINENO): Renamed from TREE_LINENO.
+	(struct tree_common): Remove locus field.
+	(struct tree_decl): Re-add locus field.
+	(struct tree_expr): Add locus field.
+	* c-aux-info.c, c-decl.c, coverage.c, c-parse.in, dbxout.c,
+	diagnostic.c, dwarf2out.c, expr.c, function.c, gimplify.c,
+	integrate.c, print-tree.c, stmt.c, tree.c, tree-cfg.c,
+	tree-dump.c, tree-flow-inline.h, config/alpha/alpha.c,
+	config/mips/mips.c: Adjust.
+
 2003-09-24  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-ccp.c (enum latticevalue): Add UNINITIALIZED.

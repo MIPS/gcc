@@ -915,7 +915,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	}
     }
   else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && TREE_LINENO (olddecl) == 0)
+	   && DECL_SOURCE_LINE (olddecl) == 0)
     {
       /* A function declaration for a predeclared function
 	 that isn't actually built in.  */
@@ -1185,7 +1185,7 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
     }
 
   /* Optionally warn about more than one declaration for the same name.  */
-  if (errmsg == 0 && warn_redundant_decls && TREE_LINENO (olddecl) != 0
+  if (errmsg == 0 && warn_redundant_decls && DECL_SOURCE_LINE (olddecl) != 0
       /* Don't warn about a function declaration
 	 followed by a definition.  */
       && !(TREE_CODE (newdecl) == FUNCTION_DECL && DECL_INITIAL (newdecl) != 0
@@ -1282,7 +1282,10 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	 information so that meaningful diagnostics can be given.  */
       if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0
 	  && ! different_binding_level)
-	TREE_LOCUS (newdecl) = TREE_LOCUS (olddecl);
+	{
+	  DECL_SOURCE_LINE (newdecl) = DECL_SOURCE_LINE (olddecl);
+	  DECL_SOURCE_FILE (newdecl) = DECL_SOURCE_FILE (olddecl);
+	}
 
       /* Merge the unused-warning information.  */
       if (DECL_IN_SYSTEM_HEADER (olddecl))
@@ -1468,7 +1471,6 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
     DECL_UID (olddecl) = olddecl_uid;
-    TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
   }
 
   /* NEWDECL contains the merged attribute lists.
@@ -1533,7 +1535,7 @@ warn_if_shadowing (tree x, tree old)
       /* Shadow warnings not wanted?  */
       || !warn_shadow
       /* No shadow warnings for internally generated vars.  */
-      || TREE_LINENO (x) == 0
+      || DECL_SOURCE_LINE (x) == 0
       /* No shadow warnings for vars made for inlining.  */
       || DECL_FROM_INLINE (x)
       /* Don't warn about the parm names in function declarator
@@ -1601,7 +1603,7 @@ warn_if_shadowing (tree x, tree old)
 static void
 clone_underlying_type (tree x)
 {
-  if (TREE_LINENO (x) == 0)
+  if (DECL_SOURCE_LINE (x) == 0)
     {
       if (TYPE_NAME (TREE_TYPE (x)) == 0)
 	TYPE_NAME (TREE_TYPE (x)) = x;
@@ -1949,7 +1951,7 @@ make_label (tree name, location_t location)
 
   DECL_CONTEXT (label) = current_function_decl;
   DECL_MODE (label) = VOIDmode;
-  annotate_with_file_line (label, location.file, location.line);
+  DECL_SOURCE_LOCATION (label) = location;
 
   return label;
 }
@@ -1996,8 +1998,7 @@ lookup_label (tree name)
 	 location to point here, for better diagnostics if it
 	 turns out not to have been defined.  */
       if (!TREE_USED (label))
-	annotate_with_file_line (label, input_location.file,
-				 input_location.line);
+	DECL_SOURCE_LOCATION (label) = input_location;
       return label;
     }
 
@@ -2076,7 +2077,7 @@ define_label (location_t location, tree name)
       /* The label has been used or declared already in this function,
 	 but not defined.  Update its location to point to this
 	 definition.  */
-      annotate_with_file_line (label, location.file, location.line);
+      DECL_SOURCE_LOCATION (label) = location;
     }
   else
     {
@@ -5483,7 +5484,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
     {
       TREE_TYPE (decl1) = TREE_TYPE (old_decl);
-      current_function_prototype_locus = *(TREE_LOCUS (old_decl));
+      current_function_prototype_locus = DECL_SOURCE_LOCATION (old_decl);
     }
 
   /* Optionally warn of old-fashioned def with no previous prototype.  */
@@ -5776,7 +5777,7 @@ store_parm_decls_oldstyle (void)
 	{
 	  decl = build_decl (PARM_DECL, TREE_VALUE (parm), integer_type_node);
 	  DECL_ARG_TYPE (decl) = TREE_TYPE (decl);
-	  TREE_LOCUS (decl) = TREE_LOCUS (fndecl);
+	  DECL_SOURCE_LOCATION (decl) = DECL_SOURCE_LOCATION (fndecl);
 	  pushdecl (decl);
 
 	  if (flag_isoc99)

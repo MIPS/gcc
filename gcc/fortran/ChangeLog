@@ -1,3 +1,8 @@
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* f95-lang.c, trans-decl.c: Use DECL_SOURCE_LOCATION instead of
+	TREE_LOCUS.
+
 2003-09-21  Lifang Zeng  <zlf605@hotmail.com>
 	Paul Brook  <paul@nowt.org>
 

@@ -1,3 +1,7 @@
+2003-09-24  Jason Merrill  <jason@redhat.com>
+
+	* treetree.c: Revert 2003-01-15 change.
+
 2003-04-24  Diego Novillo  <dnovillo@redhat.com>
 
 	* treetree.c (find_reachable_label): New function.
@@ -16,3 +20,8 @@
 	(prep_stmt): New function.
 	* Make-lang.in (tree1): Add dependencies on c-simplify.o
 	and c-pretty-print.o
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.tree-ssa"
+End:

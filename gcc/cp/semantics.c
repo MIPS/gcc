@@ -2009,7 +2009,7 @@ begin_class_definition (tree t)
     }
 
   /* Update the location of the decl.  */
-  annotate_with_file_line (TYPE_NAME (t), input_filename, input_line);
+  DECL_SOURCE_LOCATION (TYPE_NAME (t)) = input_location;
   
   if (TYPE_BEING_DEFINED (t))
     {

@@ -457,7 +457,7 @@ extract_interface_info (void)
       tree til = tinst_for_decl ();
 
       if (til)
-	finfo = get_fileinfo (TREE_FILENAME (til));
+	finfo = get_fileinfo (EXPR_FILENAME (til));
     }
   if (!finfo)
     finfo = get_fileinfo (input_filename);

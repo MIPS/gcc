@@ -2032,7 +2032,7 @@ build_selector_translation_table ()
             /* Adjust line number for warning message.  */
             int save_lineno = input_line;
             if (flag_next_runtime && TREE_PURPOSE (chain))
-              input_line = TREE_LINENO (TREE_PURPOSE (chain));
+              input_line = DECL_SOURCE_LINE (TREE_PURPOSE (chain));
             warning ("creating selector for non existant method %s",
                      IDENTIFIER_POINTER (TREE_VALUE (chain)));
             input_line = save_lineno;
@@ -2930,7 +2930,7 @@ build_tmp_function_decl ()
   expr_decl = build1 (INDIRECT_REF, NULL_TREE, expr_decl);
 
   tmp_decl = define_decl (expr_decl, decl_specs);
-  TREE_LINENO (tmp_decl) = 0;
+  DECL_SOURCE_LINE (tmp_decl) = 0;
   
   return tmp_decl;
 }

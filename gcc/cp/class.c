@@ -5192,8 +5192,8 @@ finish_struct (tree t, tree attributes)
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
-  input_filename = TREE_FILENAME (TYPE_NAME (t));
-  input_line = TREE_LINENO (TYPE_NAME (t));
+  input_filename = DECL_SOURCE_FILE (TYPE_NAME (t));
+  input_line = DECL_SOURCE_LINE (TYPE_NAME (t));
 
   if (processing_template_decl)
     {

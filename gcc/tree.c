@@ -311,11 +311,7 @@ make_node (enum tree_code code)
 	DECL_ALIGN (t) = 1;
       DECL_USER_ALIGN (t) = 0;
       DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      annotate_with_file_line (t,
-			       (input_filename
-				? input_filename
-				: "<built-in"),
-			       input_line);
+      DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
 
       /* We have not yet computed the alias set for this declaration.  */
@@ -2298,6 +2294,8 @@ build (enum tree_code code, tree tt, ...)
   length = TREE_CODE_LENGTH (code);
   TREE_TYPE (t) = tt;
 
+  /* FIXME maybe give expr a locus here?  */
+
   /* Below, we automatically set TREE_SIDE_EFFECTS and TREE_READONLY for the
      result based on those same flags for the arguments.  But if the
      arguments aren't really even `tree' expressions, we shouldn't be trying
@@ -2420,6 +2418,8 @@ build1 (enum tree_code code, tree type, tree node)
   TREE_SET_CODE (t, code);
 
   TREE_TYPE (t) = type;
+  /* FIXME maybe give expr a locus here?  */
+  SET_EXPR_LOCUS (t, NULL);
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
   if (node && first_rtl_op (code) != 0)
@@ -2542,28 +2542,31 @@ annotate_with_file_line (tree node, const char *file, int line)
   /* Roughly one percent of the calls to this function are to annotate
      a node with the same information already attached to that node!
      Just return instead of wasting memory.  */
-  if (TREE_LOCUS (node)
-      && (TREE_FILENAME (node) == file
-	  || ! strcmp (TREE_FILENAME (node), file))
-      && TREE_LINENO (node) == line)
-    return;
+  if (EXPR_LOCUS (node)
+      && (EXPR_FILENAME (node) == file
+	  || ! strcmp (EXPR_FILENAME (node), file))
+      && EXPR_LINENO (node) == line)
+    {
+      last_annotated_node = node;
+      return;
+    }
 
   /* In heavily macroized code (such as GCC itself) this single
      entry cache can reduce the number of allocations by more
      than half.  */
   if (last_annotated_node
-      && TREE_LOCUS (last_annotated_node)
-      && (TREE_FILENAME (last_annotated_node) == file
-	  || ! strcmp (TREE_FILENAME (last_annotated_node), file))
-      && TREE_LINENO (last_annotated_node) == line)
+      && EXPR_LOCUS (last_annotated_node)
+      && (EXPR_FILENAME (last_annotated_node) == file
+	  || ! strcmp (EXPR_FILENAME (last_annotated_node), file))
+      && EXPR_LINENO (last_annotated_node) == line)
     {
-      TREE_LOCUS (node) = TREE_LOCUS (last_annotated_node); 
+      SET_EXPR_LOCUS (node, EXPR_LOCUS (last_annotated_node));
       return;
     }
 
-  TREE_LOCUS (node) = ggc_alloc (sizeof (location_t));
-  TREE_LINENO (node) = line;
-  TREE_FILENAME (node) = file;
+  SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
+  EXPR_LINENO (node) = line;
+  EXPR_FILENAME (node) = file;
   last_annotated_node = node;
 }
 

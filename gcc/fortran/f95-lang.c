@@ -599,7 +599,7 @@ pushdecl (tree decl)
 
   if (TREE_CODE (decl) == TYPE_DECL && TYPE_NAME (TREE_TYPE (decl)) == 0)
     {
-      if (TREE_LINENO (decl) == 0)
+      if (DECL_SOURCE_LINE (decl) == 0)
 	TYPE_NAME (TREE_TYPE (decl)) = decl;
       else
 	TYPE_NAME (TREE_TYPE (decl)) = DECL_NAME (decl);

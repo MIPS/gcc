@@ -6722,17 +6722,16 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
      used the file/line information embedded in the tree nodes rather
      than globals.  */
   if (cfun
-      && TREE_LOCUS (exp)
-      && IS_EXPR_CODE_CLASS (class))
+      && EXPR_LOCUS (exp))
       {
 	const char *saved_input_filename = input_filename;
 	int saved_lineno = input_line;
-	location_t *saved_locus = TREE_LOCUS (exp);
+	location_t *saved_locus = EXPR_LOCUS (exp);
 	rtx to_return;
 
 	/* Update the global file line information and emit the note.  */
-	input_filename = TREE_FILENAME (exp);
-	input_line = TREE_LINENO (exp);
+	input_filename = EXPR_FILENAME (exp);
+	input_line = EXPR_LINENO (exp);
 	emit_line_note (input_location);
 
 	/* This is a gross hack.  Temporarily remove the locus information
@@ -6741,12 +6740,12 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	   Long term this should be changed to have the exit paths from
 	   expand_expr restore the global file and line information so
 	   we can avoid this recursive call.  */
-	TREE_LOCUS (exp) = NULL;
+	SET_EXPR_LOCUS (exp, NULL);
 	to_return = expand_expr (exp, (ignore ? const0_rtx : target),
 				 tmode, modifier);
 
 	/* Restore the locus and global file line information.  */
-	TREE_LOCUS (exp) = saved_locus;
+	SET_EXPR_LOCUS (exp, saved_locus);
 	input_filename = saved_input_filename;
 	input_line = saved_lineno;
 	return to_return;
@@ -8897,8 +8896,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	  for (; TREE_CODE (exp) == COND_EXPR; exp = TREE_OPERAND (exp, 2))
 	    {
 	      expand_start_else ();
-	      if (TREE_LOCUS (exp))
-		emit_line_note (*(TREE_LOCUS (exp)));
+	      if (EXPR_LOCUS (exp))
+		emit_line_note (*(EXPR_LOCUS (exp)));
 	      expand_elseif (TREE_OPERAND (exp, 0));
 	      expand_expr (TREE_OPERAND (exp, 1), const0_rtx, VOIDmode, 0);
 	    }

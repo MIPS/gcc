@@ -1981,7 +1981,7 @@ location_of (tree t)
   else if (TREE_CODE (t) == OVERLOAD)
     t = OVL_FUNCTION (t);
   
-  return *(TREE_LOCUS (t));
+  return DECL_SOURCE_LOCATION (t);
 }
 
 /* Now the interfaces from error et al to dump_type et al. Each takes an
@@ -2231,8 +2231,7 @@ print_instantiation_full_context (diagnostic_context *context)
                          decl_as_string (TINST_DECL (p),
                                          TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
 
-	  location.line = TREE_LINENO (p);
-	  location.file = TREE_FILENAME (p);
+	  location = *EXPR_LOCUS (p);
 	  p = TREE_CHAIN (p);
 	}
     }
@@ -2251,8 +2250,7 @@ print_instantiation_partial_context (diagnostic_context *context,
                    loc.file, loc.line,
                    decl_as_string (TINST_DECL (t),
                                    TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
-      loc.line = TREE_LINENO (t);
-      loc.file = TREE_FILENAME (t);
+      loc = *EXPR_LOCUS (t);
     }
   pp_verbatim (context->printer, "%s:%d:   instantiated from here\n",
                loc.file, loc.line);

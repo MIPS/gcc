@@ -1096,7 +1096,7 @@ pushdecl (tree x)
 	  /* Maybe warn if shadowing something else.  */
 	  else if (warn_shadow && !DECL_EXTERNAL (x)
 		   /* No shadow warnings for internally generated vars.  */
-		   && TREE_LINENO (x) != 0
+		   && DECL_SOURCE_LINE (x) != 0
 		   /* No shadow warnings for vars made for inlining.  */
 		   && ! DECL_FROM_INLINE (x))
 	    {

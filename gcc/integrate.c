@@ -989,7 +989,8 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 	  && ! (GET_CODE (XEXP (loc, 0)) == REG
 		&& REGNO (XEXP (loc, 0)) > LAST_VIRTUAL_REGISTER))
 	{
-	  rtx note = emit_line_note (*(TREE_LOCUS (formal)));
+	  rtx note = emit_line_note (DECL_SOURCE_LOCATION (formal));
+
 	  if (note)
 	    RTX_INTEGRATED_P (note) = 1;
 
@@ -2990,8 +2991,7 @@ output_inline_function (tree fndecl)
 
   /* Make sure warnings emitted by the optimizers (e.g. control reaches
      end of non-void function) is not wildly incorrect.  */
-  input_filename = TREE_FILENAME (fndecl);
-  input_line = TREE_LINENO (fndecl);
+  input_location = DECL_SOURCE_LOCATION (fndecl);
 
   /* Compile this function all the way down to assembly code.  As a
      side effect this destroys the saved RTL representation, but

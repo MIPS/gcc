@@ -130,7 +130,6 @@ struct tree_common GTY(())
   tree chain;
   tree type;
   union tree_ann_d *ann;
-  location_t *locus;
 
   ENUM_BITFIELD(tree_code) code : 8;
 
@@ -201,6 +200,8 @@ struct tree_common GTY(())
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        TREE_VIA_PUBLIC in
            TREE_LIST or TREE_VEC
+       EXPR_WFL_EMIT_LINE_NOTE in
+           EXPR_WITH_FILE_LOCATION
        ASM_VOLATILE_P in
            ASM_EXPR
        EXPR_WFL_EMIT_LINE_NOTE in
@@ -888,12 +889,19 @@ struct tree_vec GTY(())
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
-#define TREE_LOCUS(NODE) \
-  ((NODE)->common.locus)
-#define TREE_FILENAME(NODE) \
-  ((NODE)->common.locus->file)
-#define TREE_LINENO(NODE) \
-  ((NODE)->common.locus->line)
+/* The source location of this expression.  Non-tree_exp nodes such as
+   decls and constants can be shared among multiple locations, so
+   return nothing.  */
+#define EXPR_LOCUS(NODE)					\
+  (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
+   ? (NODE)->exp.locus						\
+   : (location_t *)NULL)
+#define SET_EXPR_LOCUS(NODE, FROM) \
+  (EXPR_CHECK (NODE)->exp.locus = (FROM))
+#define EXPR_FILENAME(NODE) \
+  (EXPR_CHECK (NODE)->exp.locus->file)
+#define EXPR_LINENO(NODE) \
+  (EXPR_CHECK (NODE)->exp.locus->line)
 
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
@@ -964,6 +972,7 @@ struct tree_vec GTY(())
 struct tree_exp GTY(())
 {
   struct tree_common common;
+  location_t *locus;
   int complexity;
   tree GTY ((special ("tree_exp"),
 	     desc ("TREE_CODE ((tree) &%0)")))
@@ -1644,6 +1653,13 @@ struct tree_type GTY(())
 /* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
    if nonzero, indicates that the field occupies the type.  */
 #define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->decl.initial)
+/* These two fields describe where in the source code the declaration
+   was.  If the declaration appears in several places (as for a C
+   function that is declared first and then defined later), this
+   information should refer to the definition.  */
+#define DECL_SOURCE_LOCATION(NODE) (DECL_CHECK (NODE)->decl.locus)
+#define DECL_SOURCE_FILE(NODE) (DECL_SOURCE_LOCATION (NODE).file)
+#define DECL_SOURCE_LINE(NODE) (DECL_SOURCE_LOCATION (NODE).line)
 /* Holds the size of the datum, in bits, as a tree expression.
    Need not be constant.  */
 #define DECL_SIZE(NODE) (DECL_CHECK (NODE)->decl.size)
@@ -1981,6 +1997,7 @@ union alias_typevar_def;
 struct tree_decl GTY(())
 {
   struct tree_common common;
+  location_t locus;
   unsigned int uid;
   tree size;
   ENUM_BITFIELD(machine_mode) mode : 8;

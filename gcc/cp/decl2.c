@@ -184,12 +184,9 @@ warn_if_unknown_interface (tree decl)
       location_t saved_loc = input_location;
 
       if (til)
-	{
-	  input_line = TREE_LINENO (til);
-	  input_filename = TREE_FILENAME (til);
-	}
+	input_location = *EXPR_LOCUS (til);
       warning ("template `%#D' instantiated in file without #pragma interface",
-		  decl);
+	       decl);
       input_location = saved_loc;
     }
   else
@@ -2237,8 +2234,7 @@ start_static_initialization_or_destruction (tree decl, int initp)
      where DECL was declared so that error-messages make sense, and so
      that the debugger will show somewhat sensible file and line
      information.  */
-  input_filename = TREE_FILENAME (decl);
-  input_line = TREE_LINENO (decl);
+  input_location = DECL_SOURCE_LOCATION (decl);
 
   /* Because of:
 

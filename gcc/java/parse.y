@@ -3142,7 +3142,7 @@ find_expr_with_wfl (tree node)
 static void
 missing_return_error (tree method)
 {
-  EXPR_WFL_SET_LINECOL (wfl_operator, TREE_SOURCE_LINE_LAST (method), -2);
+  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_SOURCE_LINE_LAST (method), -2);
   parse_error_context (wfl_operator, "Missing return statement");
 }
 
@@ -3214,7 +3214,7 @@ classitf_redefinition_error (const char *context, tree id, tree decl, tree cl)
 {
   parse_error_context (cl, "%s `%s' already defined in %s:%d",
 		       context, IDENTIFIER_POINTER (id),
-		       TREE_FILENAME (decl), TREE_LINENO (decl));
+		       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
   /* Here we should point out where its redefined. It's a unicode. FIXME */
 }
 
@@ -3722,15 +3722,12 @@ maybe_create_class_interface_decl (tree decl, tree raw_name,
     decl = push_class (make_class (), qualified_name);
 
   /* Take care of the file and line business */
+  DECL_SOURCE_FILE (decl) = EXPR_WFL_FILENAME (cl);
+  /* If we're emiting xrefs, store the line/col number information */
   if (flag_emit_xref)
-    annotate_with_file_line (decl,
-			     EXPR_WFL_FILENAME (cl),
-			     EXPR_WFL_LINECOL (cl));
+    DECL_SOURCE_LINE (decl) = EXPR_WFL_LINECOL (cl);
   else
-    annotate_with_file_line (decl,
-			     EXPR_WFL_FILENAME (cl),
-			     EXPR_WFL_LINENO (cl));
-
+    DECL_SOURCE_LINE (decl) = EXPR_WFL_LINENO (cl);
   CLASS_FROM_SOURCE_P (TREE_TYPE (decl)) = 1;
   CLASS_PARSED_P (TREE_TYPE (decl)) = 1;
   CLASS_FROM_CURRENTLY_COMPILED_P (TREE_TYPE (decl)) =
@@ -4214,7 +4211,7 @@ duplicate_declaration_error_p (tree new_field_name, tree new_type, tree cl)
 	(cl , "Duplicate variable declaration: `%s %s' was `%s %s' (%s:%d)",
 	 t1, IDENTIFIER_POINTER (new_field_name),
 	 t2, IDENTIFIER_POINTER (DECL_NAME (decl)),
-	 TREE_FILENAME (decl), TREE_LINENO (decl));
+	 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
       free (t1);
       free (t2);
       return 1;
@@ -4696,9 +4693,7 @@ method_header (int flags, tree type, tree mdecl, tree throws)
   /* If doing xref, store column and line number information instead
      of the line number only. */
   if (flag_emit_xref)
-    annotate_with_file_line (meth,
-			     EXPR_WFL_FILENAME (id),
-			     EXPR_WFL_LINECOL (id));
+    DECL_SOURCE_LINE (meth) = EXPR_WFL_LINECOL (id);
 
   return meth;
 }
@@ -4766,7 +4761,7 @@ finish_method_declaration (tree method_body)
   /* Merge last line of the function with first line, directly in the
      function decl. It will be used to emit correct debug info. */
   if (!flag_emit_xref)
-    TREE_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
+    DECL_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
 
   /* Since function's argument's list are shared, reset the
      ARG_FINAL_P parameter that might have been set on some of this
@@ -6715,8 +6710,8 @@ lookup_cl (tree decl)
       cl_v = build_expr_wfl (NULL_TREE, NULL, 0, 0);
     }
 
-  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (TREE_FILENAME (decl));
-  EXPR_WFL_SET_LINECOL (cl_v, TREE_SOURCE_LINE_FIRST (decl), -1);
+  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (DECL_SOURCE_FILE (decl));
+  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE_FIRST (decl), -1);
 
   line = java_get_line_col (EXPR_WFL_FILENAME (cl_v),
 			    EXPR_WFL_LINENO (cl_v), EXPR_WFL_COLNO (cl_v));
@@ -7296,7 +7291,7 @@ declare_local_variables (int modifier, tree type, tree vlist)
       if ((other = lookup_name_in_blocks (name)))
 	{
 	  variable_redefinition_error (wfl, name, TREE_TYPE (other),
-				       TREE_LINENO (other));
+				       DECL_SOURCE_LINE (other));
 	  continue;
 	}
 
@@ -7316,9 +7311,7 @@ declare_local_variables (int modifier, tree type, tree vlist)
       /* If doing xreferencing, replace the line number with the WFL
          compound value */
       if (flag_emit_xref)
-	annotate_with_file_line (decl,
-			         TREE_FILENAME (decl),
-			         EXPR_WFL_LINECOL (wfl));
+	DECL_SOURCE_LINE (decl) = EXPR_WFL_LINECOL (wfl);
 
       /* Don't try to use an INIT statement when an error was found */
       if (init && java_error_count)
@@ -7426,8 +7419,8 @@ create_artificial_method (tree class, int flags, tree type,
 static void
 start_artificial_method_body (tree mdecl)
 {
-  annotate_with_file_line (mdecl, TREE_FILENAME (mdecl), 1);
-  TREE_SOURCE_LINE_MERGE (mdecl, 1);
+  DECL_SOURCE_LINE (mdecl) = 1;
+  DECL_SOURCE_LINE_MERGE (mdecl, 1);
   source_start_java_method (mdecl);
   enter_block ();
 }
@@ -7526,12 +7519,10 @@ source_end_java_method (void)
   /* Generate rtl for function exit.  */
   if (! flag_emit_class_files && ! flag_emit_xref)
     {
-      input_line = TREE_SOURCE_LINE_LAST (fndecl);
+      input_line = DECL_SOURCE_LINE_LAST (fndecl);
       expand_function_end ();
 
-      annotate_with_file_line (fndecl,
-			       TREE_FILENAME (fndecl),
-			       TREE_SOURCE_LINE_FIRST (fndecl));
+      DECL_SOURCE_LINE (fndecl) = DECL_SOURCE_LINE_FIRST (fndecl);
 
       rest_of_compilation (fndecl);
     }
@@ -8020,7 +8011,7 @@ start_complete_expand_method (tree mdecl)
       TREE_CHAIN (tem) = next;
     }
   pushdecl_force_head (DECL_ARGUMENTS (mdecl));
-  input_line = TREE_SOURCE_LINE_FIRST (mdecl);
+  input_line = DECL_SOURCE_LINE_FIRST (mdecl);
   build_result_decl (mdecl);
 }
 
@@ -10129,7 +10120,7 @@ check_deprecation (tree wfl, tree decl)
 	 to the record.  */
       decl = TYPE_NAME (TREE_TYPE (elt));
     }
-  file = TREE_FILENAME (decl);
+  file = DECL_SOURCE_FILE (decl);
 
   /* Complain if the field is deprecated and the file it was defined
      in isn't compiled at the same time the file which contains its

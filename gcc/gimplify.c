@@ -254,8 +254,7 @@ int
 gimplify_body (tree *body_p, tree fndecl)
 {
   int done;
-  const char *saved_input_filename = input_filename;
-  int saved_lineno = input_line;
+  location_t saved_location = input_location;
 
   timevar_push (TV_TREE_GIMPLIFY);
 
@@ -275,14 +274,10 @@ gimplify_body (tree *body_p, tree fndecl)
     {
       *body_p = build (BIND_EXPR, void_type_node, NULL_TREE, *body_p, NULL_TREE);
       TREE_SIDE_EFFECTS (*body_p) = 1;
-      input_line = get_lineno (fndecl);
-      input_filename = get_filename (fndecl);
+      input_location = DECL_SOURCE_LOCATION (fndecl);
     }
   else
-    {
-      input_line = saved_lineno;
-      input_filename = saved_input_filename;
-    }
+    input_location = saved_location;
 
   /* Declare the new temporary variables.  */
   declare_tmp_vars (gimplify_ctxp->temps, *body_p);
@@ -341,10 +336,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   tree internal_post = NULL_TREE;
   tree save_expr;
   int is_statement = (pre_p == NULL);
-  char class;
   location_t *locus;
-  const char *saved_input_filename;
-  int saved_lineno;
+  location_t saved_location;
 
   if (*expr_p == NULL_TREE)
     return 1;
@@ -357,26 +350,18 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      idempotent, and for the predicates to only test for valid forms, not
      whether they are fully simplified.  */
 
-  saved_input_filename = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
-  saved_lineno = -1;		/* [GIMPLE] Avoid uninitialized use warning.  */
-
   /* Set up our internal queues if needed.  */
   if (pre_p == NULL)
     pre_p = &internal_pre;
   if (post_p == NULL)
     post_p = &internal_post;
 
-  class = TREE_CODE_CLASS (TREE_CODE (*expr_p));
-  locus = TREE_LOCUS (*expr_p);
+  locus = EXPR_LOCUS (*expr_p);
 
-  if (locus && IS_EXPR_CODE_CLASS (class))
+  if (locus)
     {
-      saved_input_filename = input_filename;
-      saved_lineno = input_line;
-
-      input_filename = TREE_FILENAME (*expr_p);
-      input_line = TREE_LINENO (*expr_p);
-
+      saved_location = input_location;
+      input_location = *locus;
     }
 
   /* Loop over the specific gimplifiers until the toplevel node remains the
@@ -716,12 +701,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       annotate_all_with_file_line (&tmp, input_filename, input_line);
       *expr_p = tmp;
 
-      if (locus && IS_EXPR_CODE_CLASS (class))
-	{
-	  input_filename = saved_input_filename;
-	  input_line = saved_lineno;
-	}
-      return 1;
+      goto out;
     }
 
   /* Otherwise we're gimplifying a subexpression, so the resulting value is
@@ -731,14 +711,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
   if (!internal_post && (*gimple_test_f) (*expr_p))
-    {
-      if (locus && IS_EXPR_CODE_CLASS (class))
-        {
-          input_filename = saved_input_filename;
-          input_line = saved_lineno;
-        }
-      return 1;
-    }
+    goto out;
 
   /* Otherwise, we need to create a new temporary for the gimplified
      expression.  */
@@ -795,11 +768,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       add_tree (internal_post, pre_p);
     }
 
-  if (locus && IS_EXPR_CODE_CLASS (class))
-    {
-      input_filename = saved_input_filename;
-      input_line = saved_lineno;
-    }
+ out:
+
+  if (locus)
+    input_location = saved_location;
 
   return 1;
 }
@@ -2275,8 +2247,9 @@ annotate_stmt_with_file_line (tree *stmt_p)
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
      to the beginning of the loop/switch.  */;
-  if (TREE_CODE (*stmt_p) != LABEL_EXPR
-      && ! TREE_LOCUS (*stmt_p))
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*stmt_p)))
+      && TREE_CODE (*stmt_p) != LABEL_EXPR
+      && ! EXPR_LOCUS (*stmt_p))
     annotate_with_file_line (*stmt_p, wfl_filename, wfl_lineno);
 }
 
@@ -2565,8 +2538,8 @@ internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
   mod = build (MODIFY_EXPR, TREE_TYPE (t), t, val);
 
   class = TREE_CODE_CLASS (TREE_CODE (val));
-  if (TREE_LOCUS (val) && IS_EXPR_CODE_CLASS (class))
-    TREE_LOCUS (mod) = TREE_LOCUS (val);
+  if (EXPR_LOCUS (val))
+    SET_EXPR_LOCUS (mod, EXPR_LOCUS (val));
   else
     annotate_with_file_line (mod, input_filename, input_line);
   /* gimplify_modify_expr might want to reduce this further.  */

@@ -1575,10 +1575,10 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
     {
       int i, len;
 
-      /* Set input_line here so we get the right instantiation context
+      /* Set input_location here so we get the right instantiation context
          if we call instantiate_decl from inlinable_function_p.  */
-      if (TREE_LOCUS (*tp))
-        input_line = TREE_LINENO (*tp);
+      if (EXPR_LOCUS (*tp))
+        input_location = *EXPR_LOCUS (*tp);
 
       /* Walk over all the sub-trees of this operand.  */
       len = first_rtl_op (code);
