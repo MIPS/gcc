@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir gcc_version_trigger gcc_version_full gcc_version GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS host_cc_for_libada CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default set_gcc_lib_path GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file extra_opt_files USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS host_cc_for_libada CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default set_gcc_lib_path GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -1383,9 +1383,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
           ac_config_headers="$ac_config_headers auto-host.h:config.in"
 
 
-#Set to 1 on a release branch
-is_release=
-
 # Determine the host, build, and target systems
 ac_aux_dir=
 for ac_dir in $srcdir $srcdir/.. $srcdir/../..; do
@@ -1606,23 +1603,6 @@ echo "$as_me: error:
    { (exit 1); exit 1; }; }
 fi
 
-
-if test "${with_gcc_version_trigger+set}" = set; then
-  gcc_version_trigger=$with_gcc_version_trigger
-else
-  gcc_version_trigger=$srcdir/../gcc/version.c
-fi
-if test -f "${gcc_version_trigger}"; then
-  gcc_version_full=`grep version_string "${gcc_version_trigger}" | sed -e 's/.*"\([^"]*\)".*/\1/'`
-else
-  gcc_version_full=`$CC -v 2>&1 | sed -n 's/^gcc version //p'`
-fi
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-
-
-
-
-
 # -----------
 # Directories
 # -----------
@@ -1669,7 +1649,7 @@ if test x${gcc_gxx_include_dir} = x; then
   if test x${enable_version_specific_runtime_libs} = xyes; then
     gcc_gxx_include_dir='${libsubdir}/include/c++'
   else
-    libstdcxx_incdir=c++/${gcc_version}
+    libstdcxx_incdir='c++/$(version)'
     gcc_gxx_include_dir="\$(libsubdir)/\$(unlibsubdir)/..\`echo \$(exec_prefix) | sed -e 's|^\$(prefix)||' -e 's|/[^/]*|/..|g'\`/include/"${libstdcxx_incdir}
   fi
 fi
@@ -6257,6 +6237,10 @@ fi
 
 
 # Enable -Werror in bootstrap stage2 and later.
+is_release=
+if test x"`cat $srcdir/DEV-PHASE`" != xexperimental; then
+  is_release=yes
+fi
 # Check whether --enable-werror or --disable-werror was given.
 if test "${enable_werror+set}" = set; then
   enableval="$enable_werror"
@@ -7394,7 +7378,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7397: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7381: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -12158,6 +12142,13 @@ _ACEOF
 
 fi
 
+# Convert extra_options into a form suitable for Makefile use.
+extra_opt_files=
+for f in $extra_options; do
+  extra_opt_files="$extra_opt_files \$(srcdir)/config/$f"
+done
+
+
 # auto-host.h is the file containing items generated by autoconf and is
 # the first file included by config.h.
 # If host=build, it is correct to have bconfig include auto-host.h
@@ -12235,16 +12226,6 @@ static const struct {
 EOF
 
 # Internationalization
-PACKAGE=gcc
-VERSION="$gcc_version"
-
-cat >>confdefs.h <<_ACEOF
-#define PACKAGE "$PACKAGE"
-_ACEOF
-
-
-
-
 # If we haven't got the data from the intl directory,
 # assume NLS is disabled.
 USE_NLS=no
@@ -12319,19 +12300,11 @@ if test "${enable_win32_registry+set}" = set; then
   enableval="$enable_win32_registry"
 
 fi;
+
 case $host_os in
-	win32 | pe | cygwin* | mingw32* | uwin*)
-echo "$as_me:$LINENO: checking whether windows registry support is requested" >&5
-echo $ECHO_N "checking whether windows registry support is requested... $ECHO_C" >&6
-if test "x$enable_win32_registry" != xno; then
-
-cat >>confdefs.h <<\_ACEOF
-#define ENABLE_WIN32_REGISTRY 1
-_ACEOF
-
-  echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6
-  echo "$as_me:$LINENO: checking for library containing RegOpenKeyExA" >&5
+  win32 | pe | cygwin* | mingw32* | uwin*)
+    if test "x$enable_win32_registry" != xno; then
+      echo "$as_me:$LINENO: checking for library containing RegOpenKeyExA" >&5
 echo $ECHO_N "checking for library containing RegOpenKeyExA... $ECHO_C" >&6
 if test "${ac_cv_search_RegOpenKeyExA+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -12455,41 +12428,29 @@ echo "${ECHO_T}$ac_cv_search_RegOpenKeyExA" >&6
 if test "$ac_cv_search_RegOpenKeyExA" != no; then
   test "$ac_cv_search_RegOpenKeyExA" = "none required" || LIBS="$ac_cv_search_RegOpenKeyExA $LIBS"
 
-fi
-
 else
-  echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
+  enable_win32_registry=no
 fi
 
-# Check if user specified a different registry key.
-case "x${enable_win32_registry}" in
-x | xyes)
-  # default.
-  gcc_cv_win32_registry_key="$VERSION"
-  ;;
-xno)
-  # no registry lookup.
-  gcc_cv_win32_registry_key=''
-  ;;
-*)
-  # user-specified key.
-  gcc_cv_win32_registry_key="$enable_win32_registry"
-  ;;
-esac
+    fi
 
-if test "x$enable_win32_registry" != xno; then
-  echo "$as_me:$LINENO: checking registry key on windows hosts" >&5
-echo $ECHO_N "checking registry key on windows hosts... $ECHO_C" >&6
+    if test "x$enable_win32_registry" != xno; then
 
-cat >>confdefs.h <<_ACEOF
-#define WIN32_REGISTRY_KEY "$gcc_cv_win32_registry_key"
+cat >>confdefs.h <<\_ACEOF
+#define ENABLE_WIN32_REGISTRY 1
 _ACEOF
 
-  echo "$as_me:$LINENO: result: $gcc_cv_win32_registry_key" >&5
-echo "${ECHO_T}$gcc_cv_win32_registry_key" >&6
-fi
-;;
+
+      if test "x$enable_win32_registry" != xyes \
+         && test "x$enable_win32_registry" != x; then
+
+cat >>confdefs.h <<_ACEOF
+#define WIN32_REGISTRY_KEY "$enable_win32_registry"
+_ACEOF
+
+      fi
+    fi
+  ;;
 esac
 
 # Get an absolute path to the GCC top-level source directory
@@ -12544,8 +12505,8 @@ host_cc_for_libada=${CC}
 
 out_object_file=`basename $out_file .c`.o
 
-tm_file_list=
-tm_include_list=
+tm_file_list="options.h"
+tm_include_list="options.h"
 for f in $tm_file; do
   case $f in
     defaults.h )
@@ -12809,6 +12770,8 @@ elif test -x "$AS" && test x$host = x$target; then
 	gcc_cv_as="$AS"
 fi
 
+gcc_version=`cat $srcdir/BASE-VER`
+
 if test "x$gcc_cv_as" = x; then
 	# Search the same directories that the installed compiler will
 	# search.  Else we may find the wrong assembler and lose.  If we
@@ -12832,10 +12795,12 @@ if test "x$gcc_cv_as" = x; then
 	fi
 
 	# If the loop below does not find an assembler, then use whatever
-	# one we can find in the users's path.
-	# user's path.
+	# one we can find in the users's path.  We are looking for a
+	# ${build} -> ${target} assembler.
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_as=${program_prefix}as$build_exeext
+	elif test x$build != x$host && test x$build != x$target; then
+		gcc_cv_as=${target_noncanonical}-as$build_exeext
 	else
 		gcc_cv_as=`echo as | sed "${program_transform_name}"`$build_exeext
 	fi
@@ -12851,7 +12816,7 @@ if test "x$gcc_cv_as" = x; then
 	    test_dirs=
 	fi
 
-	if test x$host = x$target; then
+	if test x$build = x$target; then
 	    test_dirs="$test_dirs \
 		   /usr/libexec \
 		   /usr/ccs/gcc \
@@ -12955,11 +12920,13 @@ if test "x$gcc_cv_ld" = x; then
 		test_prefix=$exec_prefix
 	fi
 
-	# If the loop below does not find an linker, then use whatever
-	# one we can find in the users's path.
-	# user's path.
+	# If the loop below does not find a linker, then use whatever
+	# one we can find in the users's path.  We are looking for a
+	# ${build} -> ${target} linker.
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_ld=${program_prefix}ld$build_exeext
+	elif test x$build != x$host && test x$build != x$target; then
+		gcc_cv_ld=${target_noncanonical}-ld$build_exeext
 	else
 		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$build_exeext
 	fi
@@ -12975,7 +12942,7 @@ if test "x$gcc_cv_ld" = x; then
 	    test_dirs=
 	fi
 
-	if test x$host = x$target; then
+	if test x$build = x$target; then
 	    test_dirs="$test_dirs \
 		   /usr/libexec \
 		   /usr/ccs/gcc \
@@ -13023,6 +12990,8 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	$LN_S ../binutils/nm-new$build_exeext nm$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$build_exeext
+elif test x$build != x$host && test x$build != x$target; then
+	gcc_cv_nm=${target_noncanonical}-nm$build_exeext
 else
 	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$build_exeext
 fi
@@ -13048,6 +13017,8 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	$LN_S ../binutils/objdump$build_exeext objdump$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$build_exeext
+elif test x$build != x$host && test x$build != x$target; then
+	gcc_cv_objdump=${target_noncanonical}-objdump$build_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
 		sed "${program_transform_name}"`$build_exeext
@@ -13760,6 +13731,23 @@ foo:	data8	25
 	tls_first_major=2
 	tls_first_minor=13
 	tls_as_opt=--fatal-warnings
+	;;
+  mips*-*-*)
+    conftest_s='
+	.section .tdata,"awT",@progbits
+x:
+	.word 2
+	.text
+	addiu $4, $28, %tlsgd(x)
+	addiu $4, $28, %tlsldm(x)
+	lui $4, %dtprel_hi(x)
+	addiu $4, $4, %dtprel_lo(x)
+	lw $4, %gottprel(x)($28)
+	lui $4, %tprel_hi(x)
+	addiu $4, $4, %tprel_lo(x)'
+	tls_first_major=2
+	tls_first_minor=16
+	tls_as_opt='-32 --fatal-warnings'
 	;;
   powerpc-*-*)
     conftest_s='
@@ -15033,8 +15021,16 @@ fi
 if test "${with_gc+set}" = set; then
   withval="$with_gc"
   case "$withval" in
-  page | zone)
+  page)
     GGC=ggc-$withval
+    ;;
+  zone)
+    GGC=ggc-$withval
+
+cat >>confdefs.h <<\_ACEOF
+#define GGC_ZONE 1
+_ACEOF
+
     ;;
   *)
     { { echo "$as_me:$LINENO: error: $withval is an invalid option to --with-gc" >&5
@@ -16034,9 +16030,6 @@ s,@target_noncanonical@,$target_noncanonical,;t t
 s,@build_subdir@,$build_subdir,;t t
 s,@host_subdir@,$host_subdir,;t t
 s,@target_subdir@,$target_subdir,;t t
-s,@gcc_version_trigger@,$gcc_version_trigger,;t t
-s,@gcc_version_full@,$gcc_version_full,;t t
-s,@gcc_version@,$gcc_version,;t t
 s,@GENINSRC@,$GENINSRC,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
@@ -16095,8 +16088,7 @@ s,@manext@,$manext,;t t
 s,@objext@,$objext,;t t
 s,@gthread_flags@,$gthread_flags,;t t
 s,@extra_modes_file@,$extra_modes_file,;t t
-s,@PACKAGE@,$PACKAGE,;t t
-s,@VERSION@,$VERSION,;t t
+s,@extra_opt_files@,$extra_opt_files,;t t
 s,@USE_NLS@,$USE_NLS,;t t
 s,@LIBINTL@,$LIBINTL,;t t
 s,@LIBINTL_DEP@,$LIBINTL_DEP,;t t

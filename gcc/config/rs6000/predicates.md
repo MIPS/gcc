@@ -148,7 +148,7 @@
 (define_predicate "reg_or_add_cint64_operand"
   (if_then_else (match_code "const_int")
     (match_test "(HOST_BITS_PER_WIDE_INT == 32 && INTVAL (op) < 0x7fff8000)
-		 || ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80000000)
+		 || ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80008000)
 		     < (unsigned HOST_WIDE_INT) 0x100000000ll)")
     (match_operand 0 "gpc_reg_operand")))
 
@@ -157,7 +157,7 @@
 (define_predicate "reg_or_sub_cint64_operand"
   (if_then_else (match_code "const_int")
     (match_test "(HOST_BITS_PER_WIDE_INT == 32 && INTVAL (op) < 0x7fff8000)
-		 || ((unsigned HOST_WIDE_INT) ((- INTVAL (op)) + 0x80000000)
+		 || ((unsigned HOST_WIDE_INT) ((- INTVAL (op)) + 0x80008000)
 		     < (unsigned HOST_WIDE_INT) 0x100000000ll)")
     (match_operand 0 "gpc_reg_operand")))
 
@@ -341,12 +341,6 @@
        (match_test "offsettable_address_p (reload_completed
 					   || reload_in_progress,
 					   mode, XEXP (op, 0))")))
-
-;; Return 1 if the operand is either an easy FP constant or memory.
-(define_predicate "mem_or_easy_const_operand"
-  (if_then_else (match_code "const_double")
-    (match_operand 0 "easy_fp_constant")
-    (match_operand 0 "memory_operand")))
 
 ;; Return 1 if the operand is either a non-special register or can be used
 ;; as the operand of a `mode' add insn.
@@ -537,6 +531,20 @@
 	       (match_operand 0 "volatile_mem_operand")))
      (match_operand 0 "gpc_reg_operand")))
 
+;; Return 1 if the operand is either an easy FP constant or memory or reg.
+(define_predicate "reg_or_none500mem_operand"
+  (if_then_else (match_code "mem")
+     (and (match_test "!TARGET_E500_DOUBLE")
+	  (ior (match_operand 0 "memory_operand")
+	       (ior (match_test "macho_lo_sum_memory_operand (op, mode)")
+		    (match_operand 0 "volatile_mem_operand"))))
+     (match_operand 0 "gpc_reg_operand")))
+
+;; Return 1 if the operand is CONST_DOUBLE 0, register or memory operand.
+(define_predicate "zero_reg_mem_operand"
+  (ior (match_operand 0 "zero_fp_constant")
+       (match_operand 0 "reg_or_mem_operand")))
+
 ;; Return 1 if the operand is a general register or memory operand without
 ;; pre_inc or pre_dec, which produces invalid form of PowerPC lwa
 ;; instruction.
@@ -677,42 +685,31 @@
   (match_code "smin,smax,umin,umax"))
 
 ;; Return 1 if OP is a comparison operation that is valid for a branch
-;; instruction.  We only check the opcode against the mode of the CC value.
+;; instruction.  We check the opcode against the mode of the CC value.
+;; validate_condition_mode is an assertion.
 (define_predicate "branch_comparison_operator"
-  (match_code "eq,ne,le,lt,ge,gt,leu,ltu,geu,gtu,unordered,ordered,unge,unle")
-{
-  enum rtx_code code = GET_CODE (op);
-  enum machine_mode cc_mode;
-
-  if (!COMPARISON_P (op))
-    return 0;
-
-  cc_mode = GET_MODE (XEXP (op, 0));
-  if (GET_MODE_CLASS (cc_mode) != MODE_CC)
-    return 0;
-
-  validate_condition_mode (code, cc_mode);
-
-  return 1;
-})
+   (and (match_operand 0 "comparison_operator")
+	(and (match_test "GET_MODE_CLASS (GET_MODE (XEXP (op, 0))) == MODE_CC")
+	     (match_test "validate_condition_mode (GET_CODE (op),
+						   GET_MODE (XEXP (op, 0))),
+			  1"))))
 
 ;; Return 1 if OP is a comparison operation that is valid for an SCC insn --
 ;; it must be a positive comparison.
 (define_predicate "scc_comparison_operator"
-  (and (match_code "eq,lt,gt,ltu,gtu,unordered")
-       (match_operand 0 "branch_comparison_operator")))
+  (and (match_operand 0 "branch_comparison_operator")
+       (match_code "eq,lt,gt,ltu,gtu,unordered")))
 
 ;; Return 1 if OP is a comparison operation that is valid for a branch
 ;; insn, which is true if the corresponding bit in the CC register is set.
 (define_predicate "branch_positive_comparison_operator"
-  (and (match_code "eq,lt,gt,ltu,gtu,unordered")
-       (match_operand 0 "branch_comparison_operator")))
+  (and (match_operand 0 "branch_comparison_operator")
+       (match_code "eq,lt,gt,ltu,gtu,unordered")))
 
 ;; Return 1 is OP is a comparison operation that is valid for a trap insn.
 (define_predicate "trap_comparison_operator"
-  (and (match_code "eq,ne,le,lt,ge,gt,leu,ltu,geu,gtu")
-       (match_test "(mode == VOIDmode || mode == GET_MODE (op))
-		    && COMPARISON_P (op)")))
+   (and (match_operand 0 "comparison_operator")
+	(match_code "eq,ne,le,lt,ge,gt,leu,ltu,geu,gtu")))
 
 ;; Return 1 if OP is a load multiple operation, known to be a PARALLEL.
 (define_predicate "load_multiple_operation"

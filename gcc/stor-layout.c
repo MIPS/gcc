@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,10 +46,6 @@ tree sizetype_tab[(int) TYPE_KIND_LAST];
 unsigned int maximum_field_alignment = TARGET_DEFAULT_PACK_STRUCT * BITS_PER_UNIT;
 /* ... and its original value in bytes, specified via -fpack-struct=<value>.  */
 unsigned int initial_max_fld_align = TARGET_DEFAULT_PACK_STRUCT;
-
-/* If nonzero, the alignment of a bitstring or (power-)set value, in bits.
-   May be overridden by front-ends.  */
-unsigned int set_alignment = 0;
 
 /* Nonzero if all REFERENCE_TYPEs are internal and hence should be
    allocated in Pmode, not ptr_mode.   Set only by internal_reference_types
@@ -489,7 +485,7 @@ relayout_decl (tree decl)
 /* Hook for a front-end function that can modify the record layout as needed
    immediately before it is finalized.  */
 
-void (*lang_adjust_rli) (record_layout_info) = 0;
+static void (*lang_adjust_rli) (record_layout_info) = 0;
 
 void
 set_lang_adjust_rli (void (*f) (record_layout_info))
@@ -2097,8 +2093,8 @@ get_mode_bounds (enum machine_mode mode, int sign,
       max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1;
     }
 
-  *mmin = GEN_INT (trunc_int_for_mode (min_val, target_mode));
-  *mmax = GEN_INT (trunc_int_for_mode (max_val, target_mode));
+  *mmin = gen_int_mode (min_val, target_mode);
+  *mmax = gen_int_mode (max_val, target_mode);
 }
 
 #include "gt-stor-layout.h"

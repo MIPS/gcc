@@ -194,6 +194,7 @@ in changes outside of the parts of the compiler they maintain.
 
 Mark G. Adams                                   mark.g.adams@sympatico.ca
 Matt Austern                                    austern@apple.com
+David Ayers                                     d.ayers@inode.at
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
@@ -217,6 +218,7 @@ Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
+François-Xavier Coudert				coudert@clipper.ens.fr
 David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
 Chris Demetriou					cgd@broadcom.com
@@ -308,6 +310,7 @@ Caroline Tice					ctice@apple.com
 Michael Tiemann					tiemann@redhat.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
+Feng Wang					fengwang@nudt.edu.cn
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org

@@ -817,10 +817,10 @@ modified_between_p (rtx x, rtx start, rtx end)
       return 1;
 
     case MEM:
-      if (MEM_READONLY_P (x))
-	return 0;
       if (modified_between_p (XEXP (x, 0), start, end))
 	return 1;
+      if (MEM_READONLY_P (x))
+	return 0;
       for (insn = NEXT_INSN (start); insn != end; insn = NEXT_INSN (insn))
 	if (memory_modified_in_insn_p (x, insn))
 	  return 1;
@@ -875,10 +875,10 @@ modified_in_p (rtx x, rtx insn)
       return 1;
 
     case MEM:
-      if (MEM_READONLY_P (x))
-	return 0;
       if (modified_in_p (XEXP (x, 0), insn))
 	return 1;
+      if (MEM_READONLY_P (x))
+	return 0;
       if (memory_modified_in_insn_p (x, insn))
 	return 1;
       return 0;
@@ -3159,12 +3159,15 @@ parms_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 }
 
 /* Look backward for first parameter to be loaded.
+   Note that loads of all parameters will not necessarily be
+   found if CSE has eliminated some of them (e.g., an argument
+   to the outer function is passed down as a parameter).
    Do not skip BOUNDARY.  */
 rtx
 find_first_parameter_load (rtx call_insn, rtx boundary)
 {
   struct parms_set_data parm;
-  rtx p, before;
+  rtx p, before, first_set;
 
   /* Since different machines initialize their parameter registers
      in different orders, assume nothing.  Collect the set of all
@@ -3186,6 +3189,7 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	parm.nregs++;
       }
   before = call_insn;
+  first_set = call_insn;
 
   /* Search backward for the first set of a register in this set.  */
   while (parm.nregs && before != boundary)
@@ -3208,9 +3212,20 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	}
 
       if (INSN_P (before))
-	note_stores (PATTERN (before), parms_set, &parm);
+	{
+	  int nregs_old = parm.nregs;
+	  note_stores (PATTERN (before), parms_set, &parm);
+	  /* If we found something that did not set a parameter reg,
+	     we're done.  Do not keep going, as that might result
+	     in hoisting an insn before the setting of a pseudo
+	     that is used by the hoisted insn. */
+	  if (nregs_old != parm.nregs)
+	    first_set = before;
+	  else
+	    break;
+	}
     }
-  return before;
+  return first_set;
 }
 
 /* Return true if we should avoid inserting code between INSN and preceding

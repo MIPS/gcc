@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -1064,10 +1064,10 @@ branch_prob (void)
 
 	      /* Notice GOTO expressions we eliminated while constructing the
 		 CFG.  */
-	      if (EDGE_COUNT (bb->succs) == 1 && EDGE_SUCC (bb, 0)->goto_locus)
+	      if (single_succ_p (bb) && single_succ_edge (bb)->goto_locus)
 		{
 		  /* ??? source_locus type is marked deprecated in input.h.  */
-		  source_locus curr_location = EDGE_SUCC (bb, 0)->goto_locus;
+		  source_locus curr_location = single_succ_edge (bb)->goto_locus;
 		  /* ??? The FILE/LINE API is inconsistent for these cases.  */
 #ifdef USE_MAPPED_LOCATION 
 		  output_location (LOCATION_FILE (curr_location),

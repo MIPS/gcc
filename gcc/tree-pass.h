@@ -193,13 +193,16 @@ extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
+extern struct tree_opt_pass pass_sink_code;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_eliminate_useless_stores;
 extern struct tree_opt_pass pass_lower_memref;
+extern struct tree_opt_pass pass_create_structure_vars;
+extern struct tree_opt_pass pass_promote_statics;
+
 extern struct tree_opt_pass pass_ipa_cp;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_ipa_static;
-extern struct tree_opt_pass pass_promote_statics;
 
 #endif /* GCC_TREE_PASS_H */

@@ -1690,6 +1690,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
       DECL_IS_POINTER_NO_ESCAPE (newdecl) |= DECL_IS_POINTER_NO_ESCAPE (olddecl);
       DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
+      DECL_IS_NOVOPS (newdecl) |= DECL_IS_NOVOPS (olddecl);
     }
 
   /* Merge the storage class information.  */
@@ -2313,26 +2314,26 @@ implicitly_declare (tree functionid)
    ID, including a reference to a builtin outside of function-call
    context.  Establish a binding of the identifier to error_mark_node
    in an appropriate scope, which will suppress further errors for the
-   same identifier.  */
+   same identifier.  The error message should be given location LOC.  */
 void
-undeclared_variable (tree id)
+undeclared_variable (tree id, location_t loc)
 {
   static bool already = false;
   struct c_scope *scope;
 
   if (current_function_decl == 0)
     {
-      error ("%qE undeclared here (not in a function)", id);
+      error ("%H%qE undeclared here (not in a function)", &loc, id);
       scope = current_scope;
     }
   else
     {
-      error ("%qE undeclared (first use in this function)", id);
+      error ("%H%qE undeclared (first use in this function)", &loc, id);
 
       if (!already)
 	{
-	  error ("(Each undeclared identifier is reported only once");
-	  error ("for each function it appears in.)");
+	  error ("%H(Each undeclared identifier is reported only once", &loc);
+	  error ("%Hfor each function it appears in.)", &loc);
 	  already = true;
 	}
 
@@ -2578,8 +2579,6 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
 void
 c_init_decl_processing (void)
 {
-  tree endlink;
-  tree ptr_ftype_void, ptr_ftype_ptr;
   location_t save_loc = input_location;
 
   /* Initialize reserved words for parser.  */
@@ -2615,12 +2614,6 @@ c_init_decl_processing (void)
   /* Even in C99, which has a real boolean type.  */
   pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
 			boolean_type_node));
-
-  endlink = void_list_node;
-  ptr_ftype_void = build_function_type (ptr_type_node, endlink);
-  ptr_ftype_ptr
-    = build_function_type (ptr_type_node,
-			   tree_cons (NULL_TREE, ptr_type_node, endlink));
 
   input_location = save_loc;
 
@@ -4585,6 +4578,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	decl = build_decl (VAR_DECL, declarator->u.id, type);
+	DECL_SOURCE_LOCATION (decl) = declarator->id_loc;
 	if (size_varies)
 	  C_DECL_VARIABLE_SIZE (decl) = 1;
 
@@ -6336,7 +6330,11 @@ finish_function (void)
 	      /* Hack.  We don't want the middle-end to warn that this
 		 return is unreachable, so put the statement on the
 		 special line 0.  */
+#ifdef USE_MAPPED_LOCATION
+	      SET_EXPR_LOCATION (stmt, UNKNOWN_LOCATION);
+#else
 	      annotate_with_file_line (stmt, input_filename, 0);
+#endif
 	    }
 	}
     }
@@ -6706,6 +6704,8 @@ build_id_declarator (tree ident)
   ret->kind = cdk_id;
   ret->declarator = 0;
   ret->u.id = ident;
+  /* Default value - may get reset to a more precise location. */
+  ret->id_loc = input_location;
   return ret;
 }
 

@@ -1,5 +1,5 @@
 /* Loop unswitching for GNU compiler.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -407,7 +407,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 	       rtx cond, rtx cinsn)
 {
   edge entry, latch_edge, true_edge, false_edge, e;
-  basic_block switch_bb, unswitch_on_alt, src;
+  basic_block switch_bb, unswitch_on_alt;
   struct loop *nloop;
   sbitmap zero_bitmap;
   int irred_flag, prob;
@@ -430,7 +430,6 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   entry = loop_preheader_edge (loop);
 
   /* Make a copy.  */
-  src = entry->src;
   irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
   entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   zero_bitmap = sbitmap_alloc (2);
@@ -445,7 +444,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   unswitch_on_alt = unswitch_on->rbi->copy;
   true_edge = BRANCH_EDGE (unswitch_on_alt);
   false_edge = FALLTHRU_EDGE (unswitch_on);
-  latch_edge = EDGE_SUCC (loop->latch->rbi->copy, 0);
+  latch_edge = single_succ_edge (loop->latch->rbi->copy);
 
   /* Create a block with the condition.  */
   prob = true_edge->probability;
@@ -476,7 +475,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (loops, latch_edge,
-		   EDGE_PRED (loop->header->rbi->copy, 0), switch_bb,
+		   single_pred_edge (loop->header->rbi->copy), switch_bb,
 		   BRANCH_EDGE (switch_bb), FALLTHRU_EDGE (switch_bb), true);
 
   /* Remove branches that are now unreachable in new loops.  */

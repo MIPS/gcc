@@ -410,14 +410,13 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
 static unsigned
 stmt_cost (tree stmt)
 {
-  tree lhs, rhs;
+  tree rhs;
   unsigned cost = 1;
 
   /* Always try to create possibilities for unswitching.  */
   if (TREE_CODE (stmt) == COND_EXPR)
     return LIM_EXPENSIVE;
 
-  lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
@@ -657,8 +656,8 @@ loop_commit_inserts (void)
     {
       bb = BASIC_BLOCK (i);
       add_bb_to_loop (bb,
-		      find_common_loop (EDGE_SUCC (bb, 0)->dest->loop_father,
-					EDGE_PRED (bb, 0)->src->loop_father));
+		      find_common_loop (single_pred (bb)->loop_father,
+					single_succ (bb)->loop_father));
     }
 }
 
@@ -738,7 +737,7 @@ move_computations (void)
       /* The rewrite of ssa names may cause violation of loop closed ssa
 	 form invariants.  TODO -- avoid these rewrites completely.
 	 Information in virtual phi nodes is sufficient for it.  */
-      rewrite_into_loop_closed_ssa ();
+      rewrite_into_loop_closed_ssa (NULL);
     }
   bitmap_clear (vars_to_rename);
 }

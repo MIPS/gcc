@@ -555,7 +555,9 @@ struct tree_opt_pass pass_sink_code =
 {
   "sink",				/* name */
   gate_sink,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   do_sink,				/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

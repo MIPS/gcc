@@ -1,4 +1,9 @@
+2005-03-17  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20051703)
+
 2005-03-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* cgraph.c (dump_cgraph_node): Fixed infinite loop in debugging code.
 	* ipa-static-vars-anal (static_execute): Added better debugging and
 	fixed bug that casused local information to computed wrong in the 

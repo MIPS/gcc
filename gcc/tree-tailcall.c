@@ -137,14 +137,15 @@ suitable_for_tail_opt_p (void)
   if (current_function_stdarg)
     return false;
 
-  /* No local variable should be call-clobbered.  We ignore any kind
-     of memory tag, as these are not real variables.  */
+  /* No local variable nor structure field should be call-clobbered.  We
+     ignore any kind of memory tag, as these are not real variables.  */
   for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (referenced_vars); i++)
     {
       tree var = VARRAY_TREE (referenced_vars, i);
 
       if (!(TREE_STATIC (var) || DECL_EXTERNAL (var))
-	  && var_ann (var)->mem_tag_kind == NOT_A_TAG
+	  && (var_ann (var)->mem_tag_kind == NOT_A_TAG
+	      || var_ann (var)->mem_tag_kind == STRUCT_FIELD)
 	  && is_call_clobbered (var))
 	return false;
     }
@@ -211,7 +212,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
   /* Mark the blocks in the chain leading to the end.  */
   at_bb = bb_for_stmt (at);
   call_bb = bb_for_stmt (bsi_stmt (bsi));
-  for (bb = call_bb; bb != at_bb; bb = EDGE_SUCC (bb, 0)->dest)
+  for (bb = call_bb; bb != at_bb; bb = single_succ (bb))
     bb->aux = &bb->aux;
   bb->aux = &bb->aux;
 
@@ -255,7 +256,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
     }
 
   /* Unmark the blocks.  */
-  for (bb = call_bb; bb != at_bb; bb = EDGE_SUCC (bb, 0)->dest)
+  for (bb = call_bb; bb != at_bb; bb = single_succ (bb))
     bb->aux = NULL;
   bb->aux = NULL;
 
@@ -382,7 +383,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   basic_block abb;
   stmt_ann_t ann;
 
-  if (EDGE_COUNT (bb->succs) > 1)
+  if (!single_succ_p (bb))
     return;
 
   for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
@@ -482,8 +483,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       while (bsi_end_p (absi))
 	{
-	  ass_var = propagate_through_phis (ass_var, EDGE_SUCC (abb, 0));
-	  abb = EDGE_SUCC (abb, 0)->dest;
+	  ass_var = propagate_through_phis (ass_var, single_succ_edge (abb));
+	  abb = single_succ (abb);
 	  absi = bsi_start (abb);
 	}
 
@@ -701,7 +702,7 @@ eliminate_tail_call (struct tailcall *t)
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     stmt = TREE_OPERAND (stmt, 1);
 
-  first = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest;
+  first = single_succ (ENTRY_BLOCK_PTR);
 
   /* Remove the code after call_bsi that will become unreachable.  The
      possibly unreachable code in other blocks is removed later in
@@ -721,7 +722,7 @@ eliminate_tail_call (struct tailcall *t)
     }
 
   /* Replace the call by a jump to the start of function.  */
-  e = redirect_edge_and_branch (EDGE_SUCC (t->call_block, 0), first);
+  e = redirect_edge_and_branch (single_succ_edge (t->call_block), first);
   gcc_assert (e);
   PENDING_STMT (e) = NULL_TREE;
 
@@ -776,7 +777,7 @@ eliminate_tail_call (struct tailcall *t)
 	  var_ann (param)->default_def = new_name;
 	  phi = create_phi_node (name, first);
 	  SSA_NAME_DEF_STMT (name) = phi;
-	  add_phi_arg (phi, new_name, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+	  add_phi_arg (phi, new_name, single_succ_edge (ENTRY_BLOCK_PTR));
 
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
@@ -843,7 +844,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   bool phis_constructed = false;
   struct tailcall *tailcalls = NULL, *act, *next;
   bool changed = false;
-  basic_block first = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest;
+  basic_block first = single_succ (ENTRY_BLOCK_PTR);
   tree stmt, param, ret_type, tmp, phi;
   edge_iterator ei;
 
@@ -873,8 +874,8 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
       if (!phis_constructed)
 	{
 	  /* Ensure that there is only one predecessor of the block.  */
-	  if (EDGE_COUNT (first->preds) > 1)
-	    first = split_edge (EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+	  if (!single_pred_p (first))
+	    first = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
 
 	  /* Copy the args if needed.  */
 	  for (param = DECL_ARGUMENTS (current_function_decl);
@@ -894,7 +895,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	      var_ann (param)->default_def = new_name;
 	      phi = create_phi_node (name, first);
 	      SSA_NAME_DEF_STMT (name) = phi;
-	      add_phi_arg (phi, new_name, EDGE_PRED (first, 0));
+	      add_phi_arg (phi, new_name, single_pred_edge (first));
 	    }
 	  phis_constructed = true;
 	}
@@ -911,7 +912,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 		       /* RET_TYPE can be a float when -ffast-maths is
 			  enabled.  */
 		       fold_convert (ret_type, integer_zero_node),
-		       EDGE_PRED (first, 0));
+		       single_pred_edge (first));
 	  a_acc = PHI_RESULT (phi);
 	}
 
@@ -927,7 +928,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 		       /* RET_TYPE can be a float when -ffast-maths is
 			  enabled.  */
 		       fold_convert (ret_type, integer_one_node),
-		       EDGE_PRED (first, 0));
+		       single_pred_edge (first));
 	  m_acc = PHI_RESULT (phi);
 	}
     }

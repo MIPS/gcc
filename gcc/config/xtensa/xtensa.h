@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -208,6 +208,15 @@ extern unsigned xtensa_current_frame_size;
 /* Imitate the way many other C compilers handle alignment of
    bitfields and the structures that contain them.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
+
+/* Disable the use of word-sized or smaller complex modes for structures,
+   and for function arguments in particular, where they cause problems with
+   register a7.  The xtensa_copy_incoming_a7 function assumes that there is
+   a single reference to an argument in a7, but with small complex modes the
+   real and imaginary components may be extracted separately, leading to two
+   uses of the register, only one of which would be replaced.  */
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
+  ((MODE) == CQImode || (MODE) == CHImode)
 
 /* Align string constants and constructors to at least a word boundary.
    The typical use of this macro is to increase alignment for string
@@ -822,7 +831,7 @@ typedef struct xtensa_args
 
 #define TRAMPOLINE_TEMPLATE(STREAM)					\
   do {									\
-    fprintf (STREAM, "\t.begin no-generics\n");				\
+    fprintf (STREAM, "\t.begin no-transform\n");			\
     fprintf (STREAM, "\tentry\tsp, %d\n", MIN_FRAME_SIZE);		\
 									\
     /* save the return address */					\
@@ -860,7 +869,7 @@ typedef struct xtensa_args
     /* jump to the instruction following the entry */			\
     fprintf (STREAM, "\taddi\ta8, a8, 3\n");				\
     fprintf (STREAM, "\tjx\ta8\n");					\
-    fprintf (STREAM, "\t.end no-generics\n");				\
+    fprintf (STREAM, "\t.end no-transform\n");				\
   } while (0)
 
 /* Size in bytes of the trampoline, as an integer.  */

@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004
+   Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -155,8 +155,6 @@ static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
 						sbitmap must_precede,
 						sbitmap must_follow);
 static void rotate_partial_schedule (partial_schedule_ptr, int);
-void set_row_column_for_ps (partial_schedule_ptr);
-
 
 /* This page defines constants and structures for the modulo scheduling
    driver.  */
@@ -741,7 +739,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
       basic_block epilog_bb = BLOCK_FOR_INSN (last_epilog_insn);
       basic_block precond_bb = BLOCK_FOR_INSN (precond_jump);
       basic_block orig_loop_bb = BLOCK_FOR_INSN (precond_exit_label_insn);
-      edge epilog_exit_edge = EDGE_SUCC (epilog_bb, 0);
+      edge epilog_exit_edge = single_succ_edge (epilog_bb);
 
       /* Do loop preconditioning to take care of cases were the loop count is
 	 less than the stage count.  Update the CFG properly.  */

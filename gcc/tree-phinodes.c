@@ -1,5 +1,5 @@
 /* Generic routines for manipulating PHIs
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -403,38 +403,29 @@ remove_phi_args (edge e)
    used as the node immediately before PHI in the linked list.  */
 
 void
-remove_phi_node (tree phi, tree prev, basic_block bb)
+remove_phi_node (tree phi, tree prev)
 {
+  tree *loc;
+
   if (prev)
     {
-      /* Rewire the list if we are given a PREV pointer.  */
-      PHI_CHAIN (prev) = PHI_CHAIN (phi);
-
-      /* If we are deleting the PHI node, then we should release the
-	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
-      release_phi_node (phi);
-    }
-  else if (phi == phi_nodes (bb))
-    {
-      /* Update the list head if removing the first element.  */
-      bb_ann (bb)->phi_nodes = PHI_CHAIN (phi);
-
-      /* If we are deleting the PHI node, then we should release the
-	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
-      release_phi_node (phi);
+      loc = &PHI_CHAIN (prev);
     }
   else
     {
-      /* Traverse the list looking for the node to remove.  */
-      tree prev, t;
-      prev = NULL_TREE;
-      for (t = phi_nodes (bb); t && t != phi; t = PHI_CHAIN (t))
-	prev = t;
-      if (t)
-	remove_phi_node (t, prev, bb);
+      for (loc = &(bb_ann (bb_for_stmt (phi))->phi_nodes);
+	   *loc != phi;
+	   loc = &PHI_CHAIN (*loc))
+	;
     }
+
+  /* Remove PHI from the chain.  */
+  *loc = PHI_CHAIN (phi);
+
+  /* If we are deleting the PHI node, then we should release the
+     SSA_NAME node so that it can be reused.  */
+  release_ssa_name (PHI_RESULT (phi));
+  release_phi_node (phi);
 }
 
 

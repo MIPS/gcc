@@ -715,7 +715,7 @@ set_equal (value_set_t a, value_set_t b)
 }
 
 /* Replace an instance of EXPR's VALUE with EXPR in SET if it exists,
-   and add it otherwise. */
+   and add it otherwise.  */
 
 static void
 bitmap_value_replace_in_set (bitmap_set_t set, tree expr)
@@ -1104,7 +1104,7 @@ clean (value_set_t set)
 }
 
 DEF_VEC_MALLOC_P (basic_block);
-sbitmap has_abnormal_preds;
+static sbitmap has_abnormal_preds;
 
 /* Compute the ANTIC set for BLOCK.
 
@@ -1144,10 +1144,10 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
     ;
   /* If we have one successor, we could have some phi nodes to
      translate through.  */
-  else if (EDGE_COUNT (block->succs) == 1)
+  else if (single_succ_p (block))
     {
-      phi_translate_set (ANTIC_OUT, ANTIC_IN(EDGE_SUCC (block, 0)->dest),
-			 block, EDGE_SUCC (block, 0)->dest);
+      phi_translate_set (ANTIC_OUT, ANTIC_IN(single_succ (block)),
+			 block, single_succ (block));
     }
   /* If we have multiple successors, we take the intersection of all of
      them.  */
@@ -1318,16 +1318,25 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     case tcc_binary:
       {
 	tree_stmt_iterator tsi;
+	tree forced_stmts;
 	tree genop1, genop2;
 	tree temp;
+	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
 	genop1 = find_or_generate_expression (block, op1, stmts);
 	genop2 = find_or_generate_expression (block, op2, stmts);
 	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
 	add_referenced_tmp_var (temp);
-	newexpr = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
-			       genop1, genop2));
+	
+	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
+			      genop1, genop2));
+	newexpr = force_gimple_operand (folded, &forced_stmts, false, NULL);
+	if (forced_stmts)
+	  {
+	    tsi = tsi_last (stmts);
+	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
+	  }
 	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
 			 temp, newexpr);
 	NECESSARY (newexpr) = 0;
@@ -1342,14 +1351,22 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     case tcc_unary:
       {
 	tree_stmt_iterator tsi;
+	tree forced_stmts;
 	tree genop1;
 	tree temp;
+	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
 	genop1 = find_or_generate_expression (block, op1, stmts);
 	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
 	add_referenced_tmp_var (temp);
-	newexpr = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
-			       genop1));
+	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
+			      genop1));
+	newexpr = force_gimple_operand (folded, &forced_stmts, false, NULL);
+	if (forced_stmts)
+	  {
+	    tsi = tsi_last (stmts);
+	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
+	  }
 	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
 			 temp, newexpr);
 	name = make_ssa_name (temp, newexpr);
@@ -1385,7 +1402,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 }
 
 /* Return the folded version of T if T, when folded, is a gimple
-   min_invariant.  Otherwise, return T. */ 
+   min_invariant.  Otherwise, return T.  */ 
 
 static tree
 fully_constant_expression (tree t)
@@ -1555,7 +1572,7 @@ insert_aux (basic_block block)
 		  bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
 		}
 	    }
-	  if (EDGE_COUNT (block->preds) > 1)
+	  if (!single_pred_p (block))
 	    {
 	      value_set_node_t node;
 	      for (node = ANTIC_IN (block)->head;
@@ -1820,9 +1837,8 @@ compute_avail (void)
     {
       if (default_def (param) != NULL)
 	{
-	  tree val;
 	  tree def = default_def (param);
-	  val = vn_lookup_or_add (def, NULL);
+	  vn_lookup_or_add (def, NULL);
 	  bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), def);
 	  bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), def);
 	}
@@ -2024,11 +2040,8 @@ static inline void
 mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
 {
   tree stmt;
-  int ver;
 
   gcc_assert (op);
-
-  ver = SSA_NAME_VERSION (op);
 
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (stmt);
@@ -2108,7 +2121,7 @@ remove_dead_inserted_code (void)
 	    }
 	  if (TREE_CODE (t) == PHI_NODE)
 	    {
-	      remove_phi_node (t, NULL, bb_for_stmt (t));
+	      remove_phi_node (t, NULL);
 	    }
 	  else
 	    {
@@ -2140,9 +2153,9 @@ init_pre (bool do_fre)
      ENTRY_BLOCK_PTR (FIXME, if ENTRY_BLOCK_PTR had an index number
      different than -1 we wouldn't have to hack this.  tree-ssa-dce.c
      needs a similar change).  */
-  if (EDGE_COUNT (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->preds) > 1)
-    if (!(EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->flags & EDGE_ABNORMAL))
-      split_edge (EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+  if (!single_pred_p (single_succ (ENTRY_BLOCK_PTR)))
+    if (!(single_succ_edge (ENTRY_BLOCK_PTR)->flags & EDGE_ABNORMAL))
+      split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
 
   FOR_ALL_BB (bb)
     bb->aux = xcalloc (1, sizeof (struct bb_value_sets));

@@ -1,6 +1,6 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -61,6 +61,17 @@ Boston, MA 02111-1307, USA.  */
        An UNSPEC wrapper around a function's address.  It represents the
        offset of _gp from the start of the function.
 
+   SYMBOL_TLS
+       A thread-local symbol.
+
+   SYMBOL_TLSGD
+   SYMBOL_TLSLDM
+   SYMBOL_DTPREL
+   SYMBOL_GOTTPREL
+   SYMBOL_TPREL
+       UNSPEC wrappers around SYMBOL_TLS, corresponding to the
+       thread-local storage relocation operators.
+
    SYMBOL_64_HIGH
        For a 64-bit symbolic address X, this is the value of
        (%highest(X) << 16) + %higher(X).
@@ -82,6 +93,12 @@ enum mips_symbol_type {
   SYMBOL_GOTOFF_GLOBAL,
   SYMBOL_GOTOFF_CALL,
   SYMBOL_GOTOFF_LOADGP,
+  SYMBOL_TLS,
+  SYMBOL_TLSGD,
+  SYMBOL_TLSLDM,
+  SYMBOL_DTPREL,
+  SYMBOL_GOTTPREL,
+  SYMBOL_TPREL,
   SYMBOL_64_HIGH,
   SYMBOL_64_MID,
   SYMBOL_64_LOW

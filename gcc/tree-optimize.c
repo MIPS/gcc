@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "cgraph.h"
 #include "graph.h"
+#include "cfgloop.h"
 
 
 /* Global variables used to communicate with passes.  */
@@ -509,6 +510,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_lower_memref);
   NEXT_PASS (pass_promote_statics);
+  NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -547,6 +549,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
+  NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
@@ -630,7 +633,12 @@ execute_todo (int properties, unsigned int flags, enum execute_pass_hook hook)
     }
 
   if (flags & TODO_cleanup_cfg)
-    cleanup_tree_cfg ();
+    {
+      if (current_loops)
+	cleanup_tree_cfg_loop ();
+      else
+	cleanup_tree_cfg ();
+    }
 
   if ((flags & TODO_dump_func)
       && (hook == MODIFY_FUNCTION_HOOK || hook == EXECUTE_HOOK)
@@ -955,9 +963,9 @@ tree_rest_of_compilation (tree fndecl)
       if (!flag_unit_at_a_time)
 	{
 	  struct cgraph_edge *e;
+
 	  node = cgraph_node (current_function_decl);
-	  while (node->callees)
-	    cgraph_remove_edge (node->callees);
+	  cgraph_node_remove_callees (node);
 	  node->callees = saved_node->callees;
 	  saved_node->callees = NULL;
 	  update_inlined_to_pointers (node, node);

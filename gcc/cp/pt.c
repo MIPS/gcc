@@ -1353,8 +1353,8 @@ determine_specialization (tree template_id,
   /* Count the number of template headers specified for this
      specialization.  */
   header_count = 0;
-  for (b = current_binding_level;
-       b->kind == sk_template_parms || b->kind == sk_template_spec;
+  for (b = current_binding_level; 
+       b->kind == sk_template_parms;
        b = b->level_chain)
     ++header_count;
 
@@ -1423,6 +1423,14 @@ determine_specialization (tree template_id,
 	  if (header_count && header_count != template_count + 1)
 	    continue;
 
+	  /* Check that the number of template arguments at the
+	     innermost level for DECL is the same as for FN.  */
+	  if (current_binding_level->kind == sk_template_parms
+	      && !current_binding_level->explicit_spec_p
+	      && (TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (fn))
+		  != TREE_VEC_LENGTH (TREE_VALUE (current_template_parms))))
+	    continue;
+ 
 	  /* See whether this function might be a specialization of this
 	     template.  */
 	  targs = get_bindings (fn, decl, explicit_targs);
@@ -3124,6 +3132,13 @@ push_template_decl_real (tree decl, int is_friend)
       tmpl = pushdecl_namespace_level (tmpl);
       if (tmpl == error_mark_node)
 	return error_mark_node;
+
+      /* Hide template friend classes that haven't been declared yet.  */
+      if (is_friend && TREE_CODE (decl) == TYPE_DECL)
+	{
+	  DECL_ANTICIPATED (tmpl) = 1;
+	  DECL_FRIEND_P (tmpl) = 1;
+	}
     }
 
   if (primary)
@@ -3258,6 +3273,52 @@ redeclare_class_template (tree type, tree parms)
     }
 }
 
+/* Return true if non-dependent expressions EXPR contains within it a
+   cast expression with a dependent argument.  */
+
+static bool
+contains_dependent_cast_p (tree expr)
+{
+  switch (TREE_CODE (expr))
+    {
+    case CAST_EXPR:
+    case REINTERPRET_CAST_EXPR:
+    case STATIC_CAST_EXPR:
+    case DYNAMIC_CAST_EXPR:
+    case CONST_CAST_EXPR:
+      {
+	tree op = TREE_OPERAND (expr, 0);
+
+	if (op && (type_dependent_expression_p (op)
+		   || value_dependent_expression_p (op)))
+	  return true;
+      }
+      break;
+
+    case TREE_LIST:
+      /* The operands of a CALL_EXPR are held as a list.  */
+      for (; expr; expr = TREE_CHAIN (expr))
+	if (contains_dependent_cast_p (TREE_VALUE (expr)))
+	  return true;
+      return false;
+
+    default:
+      break;
+    }
+
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
+    {
+      int ix;
+  
+      for (ix = TREE_CODE_LENGTH (TREE_CODE (expr)); ix--;)
+	if (TREE_OPERAND (expr, ix)
+	    && contains_dependent_cast_p (TREE_OPERAND (expr, ix)))
+	  return true;
+    }
+  
+  return false;
+}
+
 /* Simplify EXPR if it is a non-dependent expression.  Returns the
    (possibly simplified) expression.  */
 
@@ -3273,7 +3334,8 @@ fold_non_dependent_expr (tree expr)
      as two declarations of the same function, for example.  */
   if (processing_template_decl
       && !type_dependent_expression_p (expr)
-      && !value_dependent_expression_p (expr))
+      && !value_dependent_expression_p (expr)
+      && !contains_dependent_cast_p (expr))
     {
       HOST_WIDE_INT saved_processing_template_decl;
 
@@ -4574,7 +4636,7 @@ lookup_template_class (tree d1,
 
 	  /* A local class.  Make sure the decl gets registered properly.  */
 	  if (context == current_function_decl)
-	    pushtag (DECL_NAME (template), t, 0);
+	    pushtag (DECL_NAME (template), t, /*tag_scope=*/ts_current);
 	}
 
       /* If we called start_enum or pushtag above, this information
@@ -5624,7 +5686,7 @@ instantiate_class_template (tree type)
 		     tsubst_enum.  */
 		  if (name)
 		    SET_IDENTIFIER_TYPE_VALUE (name, newtag);
-		  pushtag (name, newtag, /*globalize=*/0);
+		  pushtag (name, newtag, /*tag_scope=*/ts_current);
 		}
 	    }
 	  else if (TREE_CODE (t) == FUNCTION_DECL 
@@ -5719,11 +5781,13 @@ instantiate_class_template (tree type)
 
 	      if (TREE_CODE (friend_type) == TEMPLATE_DECL)
 		{
+		  /* template <class T> friend class C;  */
 		  friend_type = tsubst_friend_class (friend_type, args);
 	  	  adjust_processing_template_decl = true;
 		}
 	      else if (TREE_CODE (friend_type) == UNBOUND_CLASS_TEMPLATE)
 		{
+		  /* template <class T> friend class C::D;  */
 		  friend_type = tsubst (friend_type, args,
 					tf_error | tf_warning, NULL_TREE);
 		  if (TREE_CODE (friend_type) == TEMPLATE_DECL)
@@ -5732,6 +5796,15 @@ instantiate_class_template (tree type)
 		}
 	      else if (TREE_CODE (friend_type) == TYPENAME_TYPE)
 		{
+		  /* This could be either
+
+		       friend class T::C;
+
+		     when dependent_type_p is false or
+
+		       template <class U> friend class T::C;
+
+		     otherwise.  */
 		  friend_type = tsubst (friend_type, args,
 					tf_error | tf_warning, NULL_TREE);
 		  /* Bump processing_template_decl for correct
@@ -5741,13 +5814,14 @@ instantiate_class_template (tree type)
 		    adjust_processing_template_decl = true;
 		  --processing_template_decl;
 		}
-	      else if (uses_template_parms (friend_type))
-		friend_type = tsubst (friend_type, args,
-				      tf_error | tf_warning, NULL_TREE);
-	      else if (CLASSTYPE_USE_TEMPLATE (friend_type))
-		friend_type = friend_type;
-	      else 
+	      else if (!CLASSTYPE_USE_TEMPLATE (friend_type)
+		       && hidden_name_p (TYPE_NAME (friend_type)))
 		{
+		  /* friend class C;
+
+		     where C hasn't been declared yet.  Let's lookup name
+		     from namespace scope directly, bypassing any name that
+		     come from dependent base class.  */
 		  tree ns = decl_namespace_context (TYPE_MAIN_DECL (friend_type));
 
 		  /* The call to xref_tag_from_type does injection for friend
@@ -5755,9 +5829,22 @@ instantiate_class_template (tree type)
 		  push_nested_namespace (ns);
 		  friend_type = 
 		    xref_tag_from_type (friend_type, NULL_TREE, 
-					/*tag_scope=*/ts_global);
+					/*tag_scope=*/ts_current);
 		  pop_nested_namespace (ns);
 		}
+	      else if (uses_template_parms (friend_type))
+		/* friend class C<T>;  */
+		friend_type = tsubst (friend_type, args,
+				      tf_error | tf_warning, NULL_TREE);
+	      /* Otherwise it's
+
+		   friend class C;
+
+		 where C is already declared or
+
+		   friend class C<int>;
+
+	         We don't have to do anything in these cases.  */
 
 	      if (adjust_processing_template_decl)
 		/* Trick make_friend_class into realizing that the friend
@@ -6468,6 +6555,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  SET_DECL_TEMPLATE_PARM_P (r);
 
 	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	type = type_decays_to (type);
 	TREE_TYPE (r) = type;
 	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
@@ -11089,6 +11177,7 @@ regenerate_decl_from_template (tree decl, tree tmpl)
 	    DECL_NAME (decl_parm) = DECL_NAME (pattern_parm);
 	  parm_type = tsubst (TREE_TYPE (pattern_parm), args, tf_error,
 			      NULL_TREE);
+	  parm_type = type_decays_to (parm_type);
 	  if (!same_type_p (TREE_TYPE (decl_parm), parm_type))
 	    TREE_TYPE (decl_parm) = parm_type;
 	  decl_parm = TREE_CHAIN (decl_parm);
@@ -12376,7 +12465,8 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (inner_expr) == OVERLOAD 
       || TREE_CODE (inner_expr) == FUNCTION_DECL
       || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+      || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */
   if (TREE_CODE (expr) == VAR_DECL)

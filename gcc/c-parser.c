@@ -295,8 +295,7 @@ static void
 c_lex_one_token (c_token *token)
 {
   timevar_push (TV_LEX);
-  token->type = c_lex (&token->value);
-  token->location = input_location;
+  token->type = c_lex_with_flags (&token->value, &token->location, NULL);
   token->in_system_header = in_system_header;
   switch (token->type)
     {
@@ -1828,6 +1827,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       c_parser_error (parser, "expected %<{%>");
       ret.spec = error_mark_node;
       ret.kind = ctsk_tagref;
+      return ret;
     }
   ret = parser_xref_tag (code, ident);
   return ret;
@@ -1884,7 +1884,7 @@ c_parser_struct_declaration (c_parser *parser)
   specs = build_null_declspecs ();
   c_parser_declspecs (parser, specs, false, true, true);
   if (parser->error)
-    return error_mark_node;
+    return NULL_TREE;
   if (!specs->declspecs_seen_p)
     {
       c_parser_error (parser, "expected specifier-qualifier-list");
@@ -2179,6 +2179,7 @@ c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
       struct c_declarator *inner
 	= build_id_declarator (c_parser_peek_token (parser)->value);
       *seen_id = true;
+      inner->id_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
       return c_parser_direct_declarator_inner (parser, *seen_id, inner);
     }
@@ -3760,7 +3761,7 @@ static void
 c_parser_for_statement (c_parser *parser)
 {
   tree block, cond, incr, save_break, save_cont, body;
-  location_t loc;
+  location_t loc = UNKNOWN_LOCATION;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
@@ -4803,10 +4804,11 @@ c_parser_postfix_expression (c_parser *parser)
 	}
       {
 	tree id = c_parser_peek_token (parser)->value;
+	location_t loc = c_parser_peek_token (parser)->location;
 	c_parser_consume_token (parser);
 	expr.value = build_external_ref (id,
 					 (c_parser_peek_token (parser)->type
-					  == CPP_OPEN_PAREN));
+					  == CPP_OPEN_PAREN), loc);
 	expr.original_code = ERROR_MARK;
       }
       break;

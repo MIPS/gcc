@@ -1032,8 +1032,8 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
 }
 
 
-/* Create a symbol node for this intrinsic.  The symbol form the frontend
-   is for the generic name.  */
+/* Create a symbol node for this intrinsic.  The symbol from the frontend
+   has the generic name.  */
 
 static gfc_symbol *
 gfc_get_symbol_for_expr (gfc_expr * expr)
@@ -1793,7 +1793,7 @@ gfc_conv_intrinsic_ishft (gfc_se * se, gfc_expr * expr)
      numbers, and we try to be compatible with other compilers, most
      notably g77, here.  */
   rshift = fold_convert (type, build2 (RSHIFT_EXPR, utype, 
-				       convert (type, arg), width));
+				       convert (utype, arg), width));
 
   tmp = fold (build2 (GE_EXPR, boolean_type_node, arg2,
 		      build_int_cst (TREE_TYPE (arg2), 0)));

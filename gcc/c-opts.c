@@ -460,6 +460,19 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->warn_multichar = value;
       break;
 
+    case OPT_Wnormalized_:
+      if (!value || (arg && strcasecmp (arg, "none") == 0))
+	cpp_opts->warn_normalize = normalized_none;
+      else if (!arg || strcasecmp (arg, "nfkc") == 0)
+	cpp_opts->warn_normalize = normalized_KC;
+      else if (strcasecmp (arg, "id") == 0)
+	cpp_opts->warn_normalize = normalized_identifier_C;
+      else if (strcasecmp (arg, "nfc") == 0)
+	cpp_opts->warn_normalize = normalized_C;
+      else
+	error ("argument %qs to %<-Wnormalized%> not recognized", arg);
+      break;
+
     case OPT_Wreturn_type:
       warn_return_type = value;
       break;
@@ -1089,13 +1102,16 @@ c_common_parse_file (int set_yydebug)
   i = 0;
   for (;;)
     {
+      /* Start the main input file */
+      (*debug_hooks->start_source_file) (0, this_input_filename);
       finish_options ();
       pch_init ();
       push_file_scope ();
       c_parse_file ();
       finish_file ();
       pop_file_scope ();
-
+      /* And end the main input file.  */
+      (*debug_hooks->end_source_file) (0);
       if (++i >= num_in_fnames)
 	break;
       cpp_undef_all (parse_in);
@@ -1226,7 +1242,7 @@ sanitize_cpp_opts (void)
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
-  /* Also, flag_no_output implies flag_no_line_commands, always. */
+  /* Also, flag_no_output implies flag_no_line_commands, always.  */
   if (flag_no_output)
     {
       if (flag_dump_macros != 'M')

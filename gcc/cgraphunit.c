@@ -337,8 +337,7 @@ cgraph_reset_node (struct cgraph_node *node)
     }
   node->analyzed = node->local.finalized = false;
   node->local.redefined_extern_inline = true;
-  while (node->callees)
-    cgraph_remove_edge (node->callees);
+  cgraph_node_remove_callees (node);
   /* We may need to re-queue the node for assembling in case
      we already proceeded it and ignored as not needed.  */
   if (node->reachable && !flag_unit_at_a_time)
@@ -805,7 +804,7 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   bitmap_obstack_initialize (NULL);
   if (optimize)
-    flow_loops_find (&loops, LOOP_TREE);
+    flow_loops_find (&loops);
   cgraph_create_edges (node, decl);
   if (optimize)
     flow_loops_free (&loops);
@@ -836,6 +835,8 @@ cgraph_finalize_compilation_unit (void)
   /* Keep track of already processed nodes when called multiple times for
      intermodule optmization.  */
   static struct cgraph_node *first_analyzed;
+
+  finish_aliases_1 ();
 
   if (!flag_unit_at_a_time)
     {
@@ -1016,8 +1017,7 @@ cgraph_expand_function (struct cgraph_node *node)
       DECL_INITIAL (node->decl) = error_mark_node;
       /* Eliminate all call edges.  This is important so the call_expr no longer
 	 points to the dead function body.  */
-      while (node->callees)
-	cgraph_remove_edge (node->callees);
+      cgraph_node_remove_callees (node);
     }
 }
 

@@ -538,9 +538,11 @@ static tree handle_no_instrument_function_attribute (tree *, tree,
 						     tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_pointer_no_escape_attribute (tree *, tree, tree, int, bool *);
+static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 					     bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
+static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
 static tree handle_deprecated_attribute (tree *, tree, tree, int,
 					 bool *);
 static tree handle_vector_size_attribute (tree *, tree, tree, int,
@@ -610,10 +612,16 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_pointer_no_escape_attribute },
   { "malloc",                 0, 0, true,  false, false,
 			      handle_malloc_attribute },
+  { "returns_twice",          0, 0, true,  false, false,
+			      handle_returns_twice_attribute },
   { "no_stack_limit",         0, 0, true,  false, false,
 			      handle_no_limit_stack_attribute },
   { "pure",                   0, 0, true,  false, false,
 			      handle_pure_attribute },
+  /* For internal use (marking of builtins) only.  The name contains space
+     to prevent its usage in source code.  */
+  { "no vops",                0, 0, true,  false, false,
+			      handle_novops_attribute },
   { "deprecated",             0, 0, false, false, false,
 			      handle_deprecated_attribute },
   { "vector_size",	      1, 1, false, true, false,
@@ -3272,7 +3280,7 @@ c_common_nodes_and_builtins (void)
 
 /* Look up the function in built_in_decls that corresponds to DECL
    and set ASMSPEC as its user assembler name.  DECL must be a
-   function decl that declares a builtin. */
+   function decl that declares a builtin.  */
 
 void
 set_builtin_user_assembler_name (tree decl, const char *asmspec)
@@ -3698,7 +3706,7 @@ match_case_to_enum (splay_tree_node node, void *data)
 /* Handle -Wswitch*.  Called from the front end after parsing the switch
    construct.  */
 /* ??? Should probably be somewhere generic, since other languages besides
-   C and C++ would want this.  We'd want to agree on the datastructure,
+   C and C++ would want this.  We'd want to agree on the data structure,
    however, which is a problem.  Alternately, we operate on gimplified
    switch_exprs, which I don't especially like.  At the moment, however,
    C/C++ are the only tree-ssa languages that support enumerations at all,
@@ -4809,6 +4817,24 @@ handle_pointer_no_escape_attribute (tree *node, tree name, tree ARG_UNUSED (args
   return NULL_TREE;
 }
 
+/* Handle a "returns_twice" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_returns_twice_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			 int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    DECL_IS_RETURNS_TWICE (*node) = 1;
+  else
+    {
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "no_limit_stack" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -4852,6 +4878,19 @@ handle_pure_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       *no_add_attrs = true;
     }
 
+  return NULL_TREE;
+}
+
+/* Handle a "no vops" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_novops_attribute (tree *node, tree ARG_UNUSED (name),
+			 tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			 bool *ARG_UNUSED (no_add_attrs))
+{
+  gcc_assert (TREE_CODE (*node) == FUNCTION_DECL);
+  DECL_IS_NOVOPS (*node) = 1;
   return NULL_TREE;
 }
 

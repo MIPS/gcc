@@ -1909,6 +1909,7 @@ extern int rtx_renumbered_equal_p (rtx, rtx);
 extern int true_regnum (rtx);
 extern unsigned int reg_or_subregno (rtx);
 extern int redirect_jump_1 (rtx, rtx);
+extern void redirect_jump_2 (rtx, rtx, rtx, int, int);
 extern int redirect_jump (rtx, rtx, int);
 extern void rebuild_jump_labels (rtx);
 extern enum rtx_code reversed_comparison_code (rtx, rtx);
@@ -2115,6 +2116,10 @@ struct md_constant { char *name, *value; };
 /* In read-rtl.c */
 extern int read_skip_spaces (FILE *);
 extern bool read_rtx (FILE *, rtx *, int *);
+extern void copy_rtx_ptr_loc (const void *, const void *);
+extern void print_rtx_ptr_loc (const void *);
+extern const char *join_c_conditions (const char *, const char *);
+extern void print_c_condition (const char *);
 extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
 

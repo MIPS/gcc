@@ -1,5 +1,5 @@
 /* Rtl-level induction variable analysis.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -661,7 +661,7 @@ get_biv_step_1 (rtx insn, rtx reg,
 		enum rtx_code *extend, enum machine_mode outer_mode,
 		rtx *outer_step)
 {
-  rtx set, lhs, rhs, op0 = NULL_RTX, op1 = NULL_RTX;
+  rtx set, rhs, op0 = NULL_RTX, op1 = NULL_RTX;
   rtx next, nextr, def_insn, tmp;
   enum rtx_code code;
 
@@ -671,7 +671,6 @@ get_biv_step_1 (rtx insn, rtx reg,
     rhs = XEXP (rhs, 0);
   else
     rhs = SET_SRC (set);
-  lhs = SET_DEST (set);
 
   code = GET_CODE (rhs);
   switch (code)
@@ -1783,8 +1782,6 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
   while (1)
     {
-      basic_block tmp_bb;
-
       insn = BB_END (e->src);
       if (any_condjump_p (insn))
 	{
@@ -1816,14 +1813,10 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	    }
 	}
 
-      /* This is a bit subtle.  Store away e->src in tmp_bb, since we
-	 modify `e' and this can invalidate the subsequent count of
-	 e->src's predecessors by looking at the wrong block.  */
-      tmp_bb = e->src;
-      e = EDGE_PRED (tmp_bb, 0);
-      if (EDGE_COUNT (tmp_bb->preds) > 1
-	  || e->src == ENTRY_BLOCK_PTR)
+      if (!single_pred_p (e->src)
+	  || single_pred (e->src) == ENTRY_BLOCK_PTR)
 	break;
+      e = single_pred_edge (e->src);
     }
 
   FREE_REG_SET (altered);
@@ -2370,8 +2363,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 
       tmp = simplify_gen_binary (UDIV, mode, tmp1, GEN_INT (d));
       inv = inverse (s, size);
-      inv = trunc_int_for_mode (inv, mode);
-      tmp = simplify_gen_binary (MULT, mode, tmp, GEN_INT (inv));
+      tmp = simplify_gen_binary (MULT, mode, tmp, gen_int_mode (inv, mode));
       desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
     }
   else

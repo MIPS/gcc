@@ -354,7 +354,7 @@ free_after_compilation (struct function *f)
    This size counts from zero.  It is not rounded to PREFERRED_STACK_BOUNDARY;
    the caller may have to do that.  */
 
-HOST_WIDE_INT
+static HOST_WIDE_INT
 get_func_frame_size (struct function *f)
 {
 #ifdef FRAME_GROWS_DOWNWARD
@@ -1993,7 +1993,6 @@ struct assign_parm_data_one
   struct locate_and_pad_arg_data locate;
   int partial;
   BOOL_BITFIELD named_arg : 1;
-  BOOL_BITFIELD last_named : 1;
   BOOL_BITFIELD passed_pointer : 1;
   BOOL_BITFIELD on_stack : 1;
   BOOL_BITFIELD loaded_in_reg : 1;
@@ -2137,24 +2136,15 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
 
   memset (data, 0, sizeof (*data));
 
-  /* Set LAST_NAMED if this is last named arg before last anonymous args.  */
-  if (current_function_stdarg)
-    {
-      tree tem;
-      for (tem = TREE_CHAIN (parm); tem; tem = TREE_CHAIN (tem))
-	if (DECL_NAME (tem))
-	  break;
-      if (tem == 0)
-	data->last_named = true;
-    }
-
-  /* Set NAMED_ARG if this arg should be treated as a named arg.  For
-     most machines, if this is a varargs/stdarg function, then we treat
-     the last named arg as if it were anonymous too.  */
-  if (targetm.calls.strict_argument_naming (&all->args_so_far))
-    data->named_arg = 1;
+  /* NAMED_ARG is a mis-nomer.  We really mean 'non-varadic'. */
+  if (!current_function_stdarg)
+    data->named_arg = 1;  /* No varadic parms.  */
+  else if (TREE_CHAIN (parm))
+    data->named_arg = 1;  /* Not the last non-varadic parm. */
+  else if (targetm.calls.strict_argument_naming (&all->args_so_far))
+    data->named_arg = 1;  /* Only varadic ones are unnamed.  */
   else
-    data->named_arg = !data->last_named;
+    data->named_arg = 0;  /* Treat as varadic.  */
 
   nominal_type = TREE_TYPE (parm);
   passed_type = DECL_ARG_TYPE (parm);
@@ -3056,7 +3046,6 @@ assign_parms (tree fndecl)
   struct assign_parm_data_all all;
   tree fnargs, parm;
   rtx internal_arg_pointer;
-  int varargs_setup = 0;
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -3091,16 +3080,8 @@ assign_parms (tree fndecl)
 	  continue;
 	}
 
-      /* Handle stdargs.  LAST_NAMED is a slight mis-nomer; it's also true
-	 for the unnamed dummy argument following the last named argument.
-	 See ABI silliness wrt strict_argument_naming and NAMED_ARG.  So
-	 we only want to do this when we get to the actual last named
-	 argument, which will be the first time LAST_NAMED gets set.  */
-      if (data.last_named && !varargs_setup)
-	{
-	  varargs_setup = true;
-	  assign_parms_setup_varargs (&all, &data, false);
-	}
+      if (current_function_stdarg && !TREE_CHAIN (parm))
+	assign_parms_setup_varargs (&all, &data, false);
 
       /* Find out where the parameter arrives in this function.  */
       assign_parm_find_entry_rtl (&all, &data);
@@ -5153,9 +5134,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
+      gcc_assert (single_succ_p (ENTRY_BLOCK_PTR));
 
-      insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
       inserted = 1;
     }
 #endif
@@ -5251,7 +5232,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (EDGE_COUNT (bb->succs) == 1)
+		  if (single_succ_p (bb))
 		    {
 		      ei_next (&ei2);
 		      continue;
@@ -5273,7 +5254,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
 	  epilogue_end = BB_END (last);
-	  EDGE_SUCC (last, 0)->flags &= ~EDGE_FALLTHRU;
+	  single_succ_edge (last)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
     }
@@ -5348,8 +5329,6 @@ epilogue_done:
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
-      rtx i;
-      rtx newinsn;
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
@@ -5369,8 +5348,7 @@ epilogue_done:
       record_insns (seq, &sibcall_epilogue);
       set_insn_locators (seq, epilogue_locator);
 
-      i = PREV_INSN (insn);
-      newinsn = emit_insn_before (seq, insn);
+      emit_insn_before (seq, insn);
       ei_next (&ei);
     }
 #endif

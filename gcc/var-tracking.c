@@ -388,9 +388,9 @@ stack_adjust_offset_pre_post (rtx pattern, HOST_WIDE_INT *pre,
 	    {
 	      rtx val = XEXP (XEXP (src, 1), 1);
 	      /* We handle only adjustments by constant amount.  */
-	      if (GET_CODE (XEXP (src, 1)) != PLUS ||
-		  GET_CODE (val) != CONST_INT)
-		abort ();
+	      gcc_assert (GET_CODE (XEXP (src, 1)) == PLUS &&
+			  GET_CODE (val) == CONST_INT);
+	      
 	      if (code == PRE_MODIFY)
 		*pre -= INTVAL (val);
 	      else
@@ -640,10 +640,7 @@ variable_htab_free (void *elem)
   variable var = (variable) elem;
   location_chain node, next;
 
-#ifdef ENABLE_CHECKING
-  if (var->refcount <= 0)
-    abort ();
-#endif
+  gcc_assert (var->refcount > 0);
 
   var->refcount--;
   if (var->refcount > 0)
@@ -1020,22 +1017,14 @@ variable_union (void **slot, void *data)
 	 a copy of the variable.  */
       for (k = 0; k < src->n_var_parts; k++)
 	{
+	  gcc_assert (!src->var_part[k].loc_chain
+		      == !src->var_part[k].cur_loc);
 	  if (src->var_part[k].loc_chain)
 	    {
-#ifdef ENABLE_CHECKING
-	      if (src->var_part[k].cur_loc == NULL)
-		abort ();
-#endif
+	      gcc_assert (src->var_part[k].cur_loc);
 	      if (src->var_part[k].cur_loc != src->var_part[k].loc_chain->loc)
 		break;
 	    }
-#ifdef ENABLE_CHECKING
-	  else
-	    {
-	      if (src->var_part[k].cur_loc != NULL)
-		abort ();
-	    }
-#endif
 	}
       if (k < src->n_var_parts)
 	unshare_variable (set, src);
@@ -1048,10 +1037,7 @@ variable_union (void **slot, void *data)
   else
     dst = *dstp;
 
-#ifdef ENABLE_CHECKING
-  if (src->n_var_parts == 0)
-    abort ();
-#endif
+  gcc_assert (src->n_var_parts);
 
   /* Count the number of location parts, result is K.  */
   for (i = 0, j = 0, k = 0;
@@ -1069,12 +1055,10 @@ variable_union (void **slot, void *data)
     }
   k += src->n_var_parts - i;
   k += dst->n_var_parts - j;
-#ifdef ENABLE_CHECKING
+
   /* We track only variables whose size is <= MAX_VAR_PARTS bytes
      thus there are at most MAX_VAR_PARTS different offsets.  */
-  if (k > MAX_VAR_PARTS)
-    abort ();
-#endif
+  gcc_assert (k <= MAX_VAR_PARTS);
 
   if (dst->refcount > 1 && dst->n_var_parts != k)
     dst = unshare_variable (set, dst);
@@ -1357,12 +1341,9 @@ dataflow_set_different_2 (void **slot, void *data)
       return 0;
     }
 
-#ifdef ENABLE_CHECKING
   /* If both variables are defined they have been already checked for
      equivalence.  */
-  if (variable_different_p (var1, var2, false))
-    abort ();
-#endif
+  gcc_assert (!variable_different_p (var1, var2, false));
 
   /* Continue traversing the hash table.  */
   return 1;
@@ -1518,17 +1499,14 @@ count_uses (rtx *loc, void *insn)
 
   if (REG_P (*loc))
     {
-#ifdef ENABLE_CHECKING
-	if (REGNO (*loc) >= FIRST_PSEUDO_REGISTER)
-	  abort ();
-#endif
-	VTI (bb)->n_mos++;
+      gcc_assert (REGNO (*loc) < FIRST_PSEUDO_REGISTER);
+      VTI (bb)->n_mos++;
     }
   else if (MEM_P (*loc)
 	   && MEM_EXPR (*loc)
 	   && track_expr_p (MEM_EXPR (*loc)))
     {
-	  VTI (bb)->n_mos++;
+      VTI (bb)->n_mos++;
     }
 
   return 0;
@@ -1923,10 +1901,7 @@ variable_was_changed (variable var, htab_t htab)
     }
   else
     {
-#ifdef ENABLE_CHECKING
-      if (!htab)
-	abort ();
-#endif
+      gcc_assert (htab);
       if (var->n_var_parts == 0)
 	{
 	  void **slot = htab_find_slot_with_hash (htab, var->decl, hash,
@@ -1948,16 +1923,10 @@ set_frame_base_location (dataflow_set *set, rtx loc)
   
   var = htab_find_with_hash (set->vars, frame_base_decl,
 			     VARIABLE_HASH_VAL (frame_base_decl));
-#ifdef ENABLE_CHECKING
-  if (!var)
-    abort ();
-  if (var->n_var_parts != 1)
-    abort ();
-  if (var->var_part[0].offset != 0)
-    abort ();
-  if (!var->var_part[0].loc_chain)
-    abort ();
-#endif
+  gcc_assert (var);
+  gcc_assert (var->n_var_parts == 1);
+  gcc_assert (!var->var_part[0].offset);
+  gcc_assert (var->var_part[0].loc_chain);
 
   /* If frame_base_decl is shared unshare it first.  */
   if (var->refcount > 1)
@@ -2041,12 +2010,9 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
 	  if (var->refcount > 1)
 	    var = unshare_variable (set, var);
 
-#ifdef ENABLE_CHECKING
 	  /* We track only variables whose size is <= MAX_VAR_PARTS bytes
 	     thus there are at most MAX_VAR_PARTS different offsets.  */
-	  if (var->n_var_parts >= MAX_VAR_PARTS)
-	    abort ();
-#endif
+	  gcc_assert (var->n_var_parts < MAX_VAR_PARTS);
 
 	  /* We have to move the elements of array starting at index low to the
 	     next position.  */
@@ -2208,10 +2174,7 @@ emit_note_insn_var_location (void **varp, void *data)
   HOST_WIDE_INT last_limit;
   tree type_size_unit;
 
-#ifdef ENABLE_CHECKING
-  if (!var->decl)
-    abort ();
-#endif
+  gcc_assert (var->decl);
 
   complete = true;
   last_limit = 0;
@@ -2448,10 +2411,7 @@ vt_emit_notes (void)
   dataflow_set *last_out;
   dataflow_set empty;
 
-#ifdef ENABLE_CHECKING
-  if (htab_elements (changed_variables))
-    abort ();
-#endif
+  gcc_assert (!htab_elements (changed_variables));
 
   /* Enable emitting notes by functions (mainly by set_variable_part and
      delete_variable_part).  */
@@ -2537,20 +2497,14 @@ vt_add_function_parameters (void)
       if (!decl)
 	continue;
 
-#ifdef ENABLE_CHECKING
-      if (parm != decl)
-	abort ();
-#endif
+      gcc_assert (parm == decl);
 
       incoming = eliminate_regs (incoming, 0, NULL_RTX);
       out = &VTI (ENTRY_BLOCK_PTR)->out;
 
       if (REG_P (incoming))
 	{
-#ifdef ENABLE_CHECKING
-	  if (REGNO (incoming) >= FIRST_PSEUDO_REGISTER)
-	    abort ();
-#endif
+	  gcc_assert (REGNO (incoming) < FIRST_PSEUDO_REGISTER);
 	  attrs_list_insert (&out->regs[REGNO (incoming)],
 			     parm, offset, incoming);
 	  set_variable_part (out, incoming, parm, offset);

@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -627,7 +627,6 @@ fixup_reorder_chain (void)
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
       basic_block nb;
-      basic_block old_bb;
       edge_iterator ei;
 
       if (EDGE_COUNT (bb->succs) == 0)
@@ -772,17 +771,16 @@ fixup_reorder_chain (void)
 	  nb->rbi->next = bb->rbi->next;
 	  bb->rbi->next = nb;
 	  /* Don't process this new block.  */
-	  old_bb = bb;
 	  bb = nb;
 	  
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source, since you cannot fall-throu across
 	     section boundaries).  */
-	  BB_COPY_PARTITION (e_fall->src, EDGE_PRED (bb, 0)->src);
+	  BB_COPY_PARTITION (e_fall->src, single_pred (bb));
 	  if (flag_reorder_blocks_and_partition
 	      && targetm.have_named_sections)
 	    {
-	      if (BB_PARTITION (EDGE_PRED (bb, 0)->src) == BB_COLD_PARTITION)
+	      if (BB_PARTITION (single_pred (bb)) == BB_COLD_PARTITION)
 		{
 		  rtx new_note;
 		  rtx note = BB_HEAD (e_fall->src);
@@ -798,7 +796,7 @@ fixup_reorder_chain (void)
 		}
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-  		  && (EDGE_SUCC (bb, 0)->flags & EDGE_CROSSING))
+  		  && (single_succ_edge (bb)->flags & EDGE_CROSSING))
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	    }

@@ -53,15 +53,13 @@ Boston, MA 02111-1307, USA.  */
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  tree phi, next;
+  tree phi;
   tree list = NULL, *last = &list;
   tree src, dst, node;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = next)
+  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
-      next = PHI_CHAIN (phi);
-
       if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
 	continue;
 
@@ -1238,7 +1236,7 @@ kill_redundant_phi_nodes (void)
   tree *eq_to;
   unsigned i, old_num_ssa_names;
   basic_block bb;
-  tree phi, var, repl, stmt;
+  tree phi, repl, stmt;
 
   /* The EQ_TO[VER] holds the value by that the ssa name VER should be
      replaced.  If EQ_TO[VER] is ssa name and it is decided to replace it by
@@ -1260,10 +1258,7 @@ kill_redundant_phi_nodes (void)
   FOR_EACH_BB (bb)
     {
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  var = PHI_RESULT (phi);
-	  check_phi_redundancy (phi, eq_to);
-	}
+	check_phi_redundancy (phi, eq_to);
     }
 
   /* Now propagate the values.  */
@@ -1287,7 +1282,7 @@ kill_redundant_phi_nodes (void)
       if (repl != ssa_name (i))
 	{
 	  stmt = SSA_NAME_DEF_STMT (ssa_name (i));
-	  remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
+	  remove_phi_node (stmt, NULL_TREE);
 	}
     }
 
