@@ -176,9 +176,9 @@ optimize_function_tree (tree fndecl)
 	  sbitmap_zero (vars_to_rename);
 	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_2);
 
-	  /* There should not be any new symbols exposed.  */
+	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
-	    abort ();
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
 	}
 
       /* Run copy propagation.  */

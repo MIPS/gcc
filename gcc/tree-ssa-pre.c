@@ -230,7 +230,6 @@ static tree create_expr_ref (struct expr_info *, tree, enum tree_code,
 static inline bool ephi_will_be_avail (tree);
 static inline tree ephi_at_block (basic_block);
 static tree get_default_def (tree, htab_t);
-static void handle_bb_creation (edge, edge);
 static inline bool same_e_version_real_occ_real_occ (struct expr_info *,
 						     const tree, 
 						     const tree);
@@ -265,9 +264,6 @@ static bitmap *pre_dfs;
 /* Number of redunancy classes.  */
 static int class_count;
 static int preorder_count;
-
-/* Whether we need to recompute dominators due to basic block changes.  */
-static bool redo_dominators = false;
 
 /* Iterated dominance frontiers cache.  */
 static bitmap *idfs_cache;
@@ -1676,40 +1672,6 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
   return reaching_def (var, currstmt, dom, ignore);
 }
 
-/* Handle creation of a new basic block as a result of edge insertion.  */
-static void
-handle_bb_creation (edge old_edge, edge new_edge)
-{
-  unsigned int i;
-  bb_ann_t ann;
-  basic_block bb;
-  FOR_EACH_BB (bb)
-    {
-      ann = bb_ann (bb);
-      if (ann->erefs)
-	for (i = 0; i < VARRAY_SIZE (ann->erefs); i++)
-	  {
-	    tree tempephi = VARRAY_TREE (ann->erefs, i);
-	    if (tempephi == NULL) continue;
-	    if (TREE_CODE (tempephi) == EPHI_NODE)
-	      {
-		tree phi = EREF_TEMP (tempephi);
-		int num_elem = PHI_NUM_ARGS (phi);
-		int j;
-		for (j = 0; j < num_elem; j++)
-		  if (PHI_ARG_EDGE (phi, j) == old_edge)
-		    PHI_ARG_EDGE (phi, j) = new_edge;
-		
-		num_elem = EPHI_NUM_ARGS (tempephi);
-		for (j = 0; j < num_elem; j++)
-		  if (EPHI_ARG_EDGE (tempephi, j) == old_edge)
-		    EPHI_ARG_EDGE (tempephi, j) = new_edge;
-		
-	      }
-	  }
-    }
-}
-
 /* Insert one ephi operand that doesn't currently exist as a use.  */
 static void
 insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx, 
@@ -1812,22 +1774,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
 	      bsi_insert_on_edge_immediate (e, expr, &bsi,
 					    &createdbb);
 	      if (createdbb != NULL)
-		{
-		  set_bb_for_stmt (x, createdbb);
-		  if (createdbb->succ && createdbb->succ->succ_next)
-		    abort ();
-		  handle_bb_creation (e, createdbb->succ);
-		  /* If we split the block, we need to update
-		     the euse, the ephi edge, etc. */
-		  /* Cheat for now, don't redo the dominance info,
-		     it shouldn't matter until after insertion
-		     is done for this expression.*/
-		  /* bb = bb_for_stmt (expr); */
-		  set_bb_for_stmt (x, createdbb);
-				      
-		  /* e->src = createdbb; */
-		  redo_dominators = true;
-		}
+		abort ();
 	      break;
 	    }
 	}
@@ -2865,26 +2812,17 @@ pre_expression (struct expr_info *slot, void *data)
 static void
 split_critical_edges (void)
 {
-#if 0
   struct edge_list *el = create_edge_list ();
   int i;
   edge e;
-  for (i = 0; i < NUM_EDGES (el); i++)
-  {
-    e = INDEX_EDGE (el, i);
-    if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
-      {
-	tree label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	LABEL_EXPR_LABEL (label) = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	DECL_ARTIFICIAL (LABEL_EXPR_LABEL (label)) = 1;
-	DECL_CONTEXT (LABEL_EXPR_LABEL (label)) = current_function_decl;
 
-	bsi_insert_on_edge (e, label);
-      }
-  }
-  bsi_commit_edge_inserts (0, NULL);
+  for (i = 0; i < NUM_EDGES (el); i++)
+    {
+      e = INDEX_EDGE (el, i);
+      if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
+	split_edge (e);
+    }
   free_edge_list (el);
-#endif
 }
 /* Main entry point to the SSA-PRE pass.
 
@@ -3001,30 +2939,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	  htab_delete (ephi_pindex_htab);
 	  ephi_pindex_htab = NULL;
 	}
-/*      ggc_collect ();  */ /* This causes whole lot of trouble with temporary structures.  */
-      if (redo_dominators)
-	{
-	  redo_dominators = false;
-
-	  free_dominance_info (pre_idom);
-	  for (i = 0; i < currbbs; i++)
-	    BITMAP_XFREE (pre_dfs[i]);
-	  free (pre_dfs);
-	  for (i = 0; i < currbbs; i++)
-	    if (idfs_cache[i] != NULL)
-	      BITMAP_XFREE (idfs_cache[i]);
-	  /* Recompute immediate dominators.  */
-	  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
-	  build_dominator_tree (pre_idom);
-	  currbbs = n_basic_blocks;
-
-	  /* Reompute dominance frontiers.  */
-	  pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
-	  for (i = 0; i < currbbs; i++)
-	    pre_dfs[i] = BITMAP_XMALLOC ();
-	  compute_dominance_frontiers (pre_dfs, pre_idom);
-	  idfs_cache = xcalloc (currbbs, sizeof (bitmap));
-	}
+      ggc_collect ();
     }
   ggc_pop_context (); 
   /* Debugging dumps.  */

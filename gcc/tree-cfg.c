@@ -2044,40 +2044,29 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	}
       last = bsi_stmt (bsi);
 
-      /* If this is a fallthrough edge, then we can simply append this stmt
-	 to the basic block.  */
-      if (e->flags & EDGE_FALLTHRU)
+      /* If the last stmt isn't a control altering stmt, then we can simply
+	 append this stmt to the basic block. This should mean the edge is
+	 a fallthrough edge.  */
+
+      if (!is_ctrl_stmt (last) && !is_ctrl_altering_stmt (last))
 	{
-#ifdef ENABLE_CHECKING
-	  /* Control statement edges should not be marked FALLTHRU.  */
-	  if (is_ctrl_stmt (bsi_stmt (bsi)))
-	    abort ();
-#endif
+	  bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
+	  if (old_bsi)
+	    *old_bsi = bsi;
+	  bsi_next (&bsi);
+	  return bsi;
+      	}
 
-    	  /* If the last stmt isn't a control altering stmt, then we can simply
-    	     append this stmt to the basic block. This should mean the edge is
-    	     a fallthrough edge.  */
-
-	  if (!is_ctrl_stmt (last) && !is_ctrl_altering_stmt (last))
+      /* If the last stmt is a GOTO, the we can simply insert before it.  */
+      if (TREE_CODE (last) == GOTO_EXPR)
+	{
+	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	  if (old_bsi)
 	    {
-	      bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
-	      if (old_bsi)
-		*old_bsi = bsi;
-	      bsi_next (&bsi);
-	      return bsi;
+	      *old_bsi = bsi;
+	      bsi_next (old_bsi);
 	    }
-
-	  /* If the last stmt is a GOTO, the we can simply insert before it.  */
-	  if (TREE_CODE (last) == GOTO_EXPR)
-	    {
-	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-	      if (old_bsi)
-		{
-		  *old_bsi = bsi;
-		  bsi_next (old_bsi);
-		}
-	      return bsi;
-	    }
+	  return bsi;
 	}
     }
 

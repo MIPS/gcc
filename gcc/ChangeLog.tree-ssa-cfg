@@ -1,3 +1,16 @@
+2003-10-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (bsi_insert_on_edge_immediate): Handle non-critical edges
+	correctly.
+	* tree-optimize.c (optimize_function_tree): Allow new vars to rename
+	after second dominator optimization pass.
+	* tree-ssa-pre.c (handle_bb_creation, redo_dominators): Removed.
+	(insert_one_operand): Expect the insertion not to cause new bb
+	creation.
+	(split_critical_edges): Enable.
+	(tree_perform_ssapre): Reenable ggc_collect. Don't allow dominators
+	rebuilding.
+
 2003-10-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (gimple-low.o): Add EXPR_H and toplev.h dependency.
