@@ -1,3 +1,12 @@
+2004-02-07  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c: Add introductionary comment.
+	(cgraph_remove_node): Release DECL_SAVED_INSNS too.
+	* cgraphunit.c: Likewise.
+	(cgraph_finalize_function): Release DECL_SAVED_INSNS of external function.
+	(decl_expand_function): Release DECL_SAVED_INSNS/body/tree.
+	(cgraph_remove_unreachable_nodes): Likewise; guard cgraph verification.
+
 2004-02-06  Richard Henderson  <rth@redhat.com>
 
 	* common.opt (fdisable-tree-ssa): Remove.
