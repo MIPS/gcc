@@ -670,7 +670,7 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
 	case ${target} in
-	arm*-*-linux-gnueabi)
+	arm*-*-linux-gnueabi|arm-wrs-linux-gnu)
 	    tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h"
 	    tmake_file="$tmake_file arm/t-arm-elf arm/t-bpabi arm/t-linux-eabi"
   	    # The BPABI long long divmod functions return a 128-bit value in 
@@ -679,6 +679,13 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	    need_64bit_hwint=yes
 	    # The EABI requires the use of __cxa_atexit.
 	    default_use_cxa_atexit=yes
+	    case  ${target} in
+	    arm-wrs-linux-gnu) 
+		tm_file="$tm_file arm/wrs-linux.h"
+		tmake_file="$tmake_file arm/t-wrs-linux"
+		;;
+            *) ;;
+            esac
 	    ;;
 	*)
 	    tmake_file="$tmake_file arm/t-linux"

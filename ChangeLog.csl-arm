@@ -1,3 +1,14 @@
+2005-01-20  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc/config.gcc: Add arm-wrs-linux-gnu.
+	* gcc/config/arm/t-wrs-linux: New file.
+	* gcc/config/arm/wrs-linux.h: Likewise.
+
+2005-01-20  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define.
+	(DTORS_SECTION_ASM_OP): Conditionalize on TARGET_AAPCS_BASED.
+
 2004-12-30  Paul Brook  <paul@codesourcery.com>
 
 	Merge from GCC 3.4.3 release.
