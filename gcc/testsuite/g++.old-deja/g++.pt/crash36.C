@@ -27,9 +27,9 @@ struct list {
   struct list_iterator {
   };
   
-  reverse_iterator<list_iterator<T> > rbegin()
-    { return reverse_iterator<list_iterator<T> > // ERROR - no type|instantiated here
-	(list_iterator<T>(Head->next())); }
+  reverse_iterator<list_iterator<T> > rbegin() // ERROR - no type|instantiated here
+    { return reverse_iterator<list_iterator<T> > 
+	(list_iterator<T>(Head->next())); } // ERROR - Head undeclared
 };
 
 template class list<int>; // ERROR - instantiated from here

@@ -7,6 +7,6 @@ struct K {  // ERROR - forward declaration
 
 template <class T>
 void
-K<T, i>::f()
-{ // ERROR - template parameters
+K<T, i>::f() // ERROR - template parameters
+{ 
 }

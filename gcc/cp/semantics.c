@@ -1968,18 +1968,14 @@ finish_member_declaration (decl)
 /* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
    the definition is immediately followed by a semicolon.  Returns the
    type.  *INLINE_FRIENDS will be filled in with any friend functions
-   whose bodies were provided in the class definition.  If non-NULL,
-   *INLINE_FRIENDS will be a TREE_LIST; the TREE_VALUE of each node
-   will be the declaration of a function whose body has not yet been
-   parsed.  */
+   whose bodies were provided in the class definition.  */
 
 tree
-finish_class_definition (t, attributes, semi, pop_scope_p, inline_friends)
+finish_class_definition (t, attributes, semi, pop_scope_p)
      tree t;
      tree attributes;
      int semi;
      int pop_scope_p;
-     tree *inline_friends;
 {
   /* finish_struct nukes this anyway; if finish_exception does too,
      then it can go.  */
@@ -1990,10 +1986,6 @@ finish_class_definition (t, attributes, semi, pop_scope_p, inline_friends)
      TREE_TYPE of the type.  Grab them now.  */
   attributes = chainon (TREE_TYPE (t), attributes);
   TREE_TYPE (t) = NULL_TREE;
-
-  /* Save CLASSTYPE_INLINE_FRIENDS; it is about to become
-     TYPE_NONCOPIED_PARTS.  */
-  *inline_friends = CLASSTYPE_INLINE_FRIENDS (t);
 
   t = finish_struct (t, attributes);
   if (semi) 

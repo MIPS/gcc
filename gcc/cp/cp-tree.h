@@ -1234,7 +1234,6 @@ struct lang_type
   unsigned has_const_init_ref : 1;
   unsigned has_complex_init_ref : 1;
   unsigned has_complex_assign_ref : 1;
-  unsigned has_abstract_assign_ref : 1;
   unsigned non_aggregate : 1;
   unsigned is_partial_instantiation : 1;
   unsigned java_interface : 1;
@@ -1246,7 +1245,7 @@ struct lang_type
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 8;
+  unsigned dummy : 9;
 
   int vsize;
 
@@ -2448,7 +2447,6 @@ extern int flag_new_for_scope;
 /* Nonzero if there is a user-defined X::op=(x&) for this class.  */
 #define TYPE_HAS_REAL_ASSIGN_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_real_assign_ref)
 #define TYPE_HAS_COMPLEX_ASSIGN_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_complex_assign_ref)
-#define TYPE_HAS_ABSTRACT_ASSIGN_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_abstract_assign_ref)
 #define TYPE_HAS_COMPLEX_INIT_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_complex_init_ref)
 
 /* Nonzero if TYPE has a trivial destructor.  From [class.dtor]:
@@ -4116,7 +4114,7 @@ extern tree finish_template_template_parm       PARAMS ((cp_tag_kind, tree));
 extern tree check_template_template_default_arg PARAMS ((tree));
 extern tree finish_parmlist                     PARAMS ((tree, int));
 extern tree begin_class_definition              PARAMS ((tree));
-extern tree finish_class_definition             PARAMS ((tree, tree, int, int, tree *));
+extern tree finish_class_definition             PARAMS ((tree, tree, int, int));
 extern void finish_default_args                 PARAMS ((void));
 extern void finish_member_class_template        PARAMS ((tree));
 extern void finish_template_decl                PARAMS ((tree));

@@ -1,6 +1,6 @@
 // Build don't link:
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 22 Nov 2000 <nathan@codesourcery.com>
 
 // Bug 789. We ICE'd trying to instantiate B<float> because there was no
@@ -14,7 +14,7 @@ struct A {
 
 template <typename T1>
 struct B {
-   A<T1>::C<int> s1;
+   typename A<T1>::template C<int> s1;
 };
 
 int main()

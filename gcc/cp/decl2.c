@@ -1478,9 +1478,7 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
    then INIT is the initializer.
 
    Returns the DECL for the declarator, or the ERROR_MARK_NODE if an
-   error occurs.  If the member-declaration is a friend, then
-   NULL_TREE is returned, since the member-declaration does not
-   actually refer to a member of this class.
+   error occurs.
 
    FIXME: Document ASMSPEC_TREE.  */
 
@@ -1491,6 +1489,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
   tree value;
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
+  bool friend_p;
 
   if (declspecs == NULL_TREE
       && TREE_CODE (declarator) == SCOPE_REF
@@ -1504,19 +1503,22 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       && TREE_CHAIN (init) == NULL_TREE)
     init = NULL_TREE;
 
-  value = grokdeclarator (declarator, declspecs, FIELD, init != 0, attrlist);
+  value = grokdeclarator (declarator, declspecs, FIELD, init != 0,
+			  attrlist,
+			  &friend_p);
   if (! value 
       || value == error_mark_node
       || TREE_TYPE (value) == error_mark_node)
     return error_mark_node;
 
-  /* Pass friendly classes back.  */
-  if (TREE_CODE (value) == VOID_TYPE)
-    return NULL_TREE;
+  /* No further processing is required for a `friend'.  */
+  if (friend_p)
+    return value;
 
   if (DECL_NAME (value) != NULL_TREE
-      && IDENTIFIER_POINTER (DECL_NAME (value))[0] == '_'
-      && ! strcmp (IDENTIFIER_POINTER (DECL_NAME (value)), "_vptr"))
+      && strncmp (IDENTIFIER_POINTER (DECL_NAME (value)), 
+		  "_ZTV",
+		  strlen ("_ZTV")) == 0)
     cp_error ("member `%D' conflicts with virtual function table field name",
 	      value);
 
@@ -1631,11 +1633,9 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	}
       cp_finish_decl (value, init, asmspec_tree, flags);
 
-      /* Pass friends back this way.  */
-      if (DECL_FRIEND_P (value))
-	return void_type_node;
+      if (!DECL_FRIEND_P (value))
+	DECL_IN_AGGR_P (value) = 1;
 
-      DECL_IN_AGGR_P (value) = 1;
       return value;
     }
   my_friendly_abort (21);
@@ -1650,14 +1650,14 @@ tree
 grokbitfield (declarator, declspecs, width)
      tree declarator, declspecs, width;
 {
+  bool friend_p;
+
   register tree value = grokdeclarator (declarator, declspecs, BITFIELD,
-					0, NULL_TREE);
+					0, NULL_TREE, &friend_p);
 
-  if (! value) return NULL_TREE; /* friends went bad.  */
-
-  /* Pass friendly classes back.  */
-  if (TREE_CODE (value) == VOID_TYPE)
-    return void_type_node;
+  /* If the bitfield was declared to be a friend, grokdeclarator
+     should issue an error, and ignore the `friend' specifier.  */
+  my_friendly_assert (!friend_p, 20010816);
 
   if (TREE_CODE (value) == TYPE_DECL)
     {
@@ -1707,7 +1707,9 @@ tree
 grokoptypename (declspecs, declarator)
      tree declspecs, declarator;
 {
-  tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0, NULL_TREE);
+  bool friend_p;
+  tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0,
+			   NULL_TREE, &friend_p);
   return mangle_conv_op_name_for_type (t);
 }
 
@@ -1780,17 +1782,7 @@ grok_function_init (decl, init)
   if (TREE_CODE (type) == FUNCTION_TYPE)
     cp_error ("initializer specified for non-member function `%D'", decl);
   else if (integer_zerop (init))
-    {
-      DECL_PURE_VIRTUAL_P (decl) = 1;
-      if (DECL_OVERLOADED_OPERATOR_P (decl) == NOP_EXPR)
-	{
-	  tree parmtype
-	    = TREE_VALUE (TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl))));
-
-	  if (copy_assignment_arg_p (parmtype, 1))
-	    TYPE_HAS_ABSTRACT_ASSIGN_REF (current_class_type) = 1;
-	}
-    }
+    DECL_PURE_VIRTUAL_P (decl) = 1;
   else
     cp_error ("invalid initializer for virtual method `%D'", decl);
 }

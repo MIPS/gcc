@@ -12,7 +12,7 @@ class base
 
 // specialization
 template<class Key, class Value>
-class base<Key, Value, mymap<int, int > >	
-{						// ERROR - type/value mismatch
+class base<Key, Value, mymap<int, int > >	// ERROR - type/value mismatch
+{						
   
 };

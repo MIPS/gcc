@@ -1465,6 +1465,12 @@ internal_error VPARAMS ((const char *msgid, ...))
 
   VA_START (ap, msgid);
 
+  /* If we have been issuing diagnostics tentatively, issue them for
+     real now.  They may be illuminating when it comes to diagnosing
+     the crash.  */
+  while (diagnostic_buffer->ds->next != NULL) 
+    diagnostic_commit (diagnostic_buffer);
+
 #ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, const char *);
 #endif
@@ -1479,12 +1485,6 @@ internal_error VPARAMS ((const char *msgid, ...))
   if (internal_error_function != 0)
     (*internal_error_function) (_(msgid), &ap);
   
-  /* If we have been issuing diagnostics tentatively, issue them for
-     real now.  They may be illuminating when it comes to diagnosing
-     the crash.  */
-  while (diagnostic_buffer->ds->next != NULL) 
-    diagnostic_commit (diagnostic_buffer);
-
   set_diagnostic_context
     (&dc, msgid, &ap, input_filename, lineno, /* warn = */0);
   report_diagnostic (&dc);

@@ -280,10 +280,16 @@ static int
 inline_needs_template_parms (decl)
      tree decl;
 {
+  tree tmpl;
+
   if (! DECL_TEMPLATE_INFO (decl))
     return 0;
 
-  return (TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (most_general_template (decl)))
+  tmpl = most_general_template (decl);
+  if (!tmpl)
+    return 0;
+
+  return (TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (tmpl))
 	  > (processing_template_decl + DECL_TEMPLATE_SPECIALIZATION (decl)));
 }
 
@@ -1811,10 +1817,12 @@ process_template_parm (list, next)
 
   if (!is_type)
     {
+      bool friend_p;
+
       my_friendly_assert (TREE_CODE (TREE_PURPOSE (parm)) == TREE_LIST, 260);
       /* is a const-param */
       parm = grokdeclarator (TREE_VALUE (parm), TREE_PURPOSE (parm),
-			     PARM, 0, NULL_TREE);
+			     PARM, 0, NULL_TREE, &friend_p);
 
       /* [temp.param]
 
@@ -4878,7 +4886,6 @@ instantiate_class_template (type)
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
   TYPE_HAS_ASSIGN_REF (type) = TYPE_HAS_ASSIGN_REF (pattern);
   TYPE_HAS_CONST_ASSIGN_REF (type) = TYPE_HAS_CONST_ASSIGN_REF (pattern);
-  TYPE_HAS_ABSTRACT_ASSIGN_REF (type) = TYPE_HAS_ABSTRACT_ASSIGN_REF (pattern);
   TYPE_HAS_INIT_REF (type) = TYPE_HAS_INIT_REF (pattern);
   TYPE_HAS_CONST_INIT_REF (type) = TYPE_HAS_CONST_INIT_REF (pattern);
   TYPE_HAS_DEFAULT_CONSTRUCTOR (type) = TYPE_HAS_DEFAULT_CONSTRUCTOR (pattern);

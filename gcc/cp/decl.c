@@ -6995,8 +6995,9 @@ shadow_tag (declspecs, friend_p)
 
       if (TYPE_FIELDS (t))
 	{
+	  bool friend_p;
 	  tree decl = grokdeclarator (NULL_TREE, declspecs, NORMAL, 0,
-				      NULL_TREE);
+				      NULL_TREE, &friend_p);
 	  finish_anon_union (decl);
 	}
     }
@@ -7010,11 +7011,12 @@ tree
 groktypename (typename)
      tree typename;
 {
+  bool friend_p;
   if (TREE_CODE (typename) != TREE_LIST)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 TYPENAME, 0, NULL_TREE);
+			 TYPENAME, 0, NULL_TREE, &friend_p);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -7042,6 +7044,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   register tree type, tem;
   tree context;
   tree attrlist;
+  bool friend_p;
 
   /* This should only be done once on the top most decl.  */
   if (have_extern_spec)
@@ -7057,9 +7060,9 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
     attrlist = NULL_TREE;
 
   decl = grokdeclarator (declarator, declspecs, NORMAL, initialized,
-			 attrlist);
+			 attrlist, &friend_p);
 
-  if (decl == NULL_TREE || TREE_CODE (decl) == VOID_TYPE)
+  if (decl == NULL_TREE || friend_p)
     return NULL_TREE;
 
   type = TREE_TYPE (decl);
@@ -8449,8 +8452,9 @@ start_handler_parms (declspecs, declarator)
   tree decl;
   if (declspecs)
     {
+      bool friend_p;
       decl = grokdeclarator (declarator, declspecs, CATCHPARM,
-			     1, NULL_TREE);
+			     1, NULL_TREE, &friend_p);
       if (decl == NULL_TREE)
 	error ("invalid catch parameter");
     }
@@ -9441,16 +9445,17 @@ check_special_function_return_type (sfk, type, optype)
    function, these are the qualifiers to give to the `this' pointer. We
    apply TYPE_QUAL_RESTRICT to the this ptr, not the object.
 
-   May return void_type_node if the declarator turned out to be a friend.
-   See grokfield for details.  */
+   If the DECLARATOR is a FRIEND, *FRIEND_P will be TRUE upon return.  */
 
 tree
-grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
+grokdeclarator (declarator, declspecs, decl_context, 
+		initialized, attrlist, friend_p)
      tree declspecs;
      tree declarator;
      enum decl_context decl_context;
      int initialized;
      tree attrlist;
+     bool *friend_p;
 {
   RID_BIT_TYPE specbits;
   int nclasses = 0;
@@ -9461,7 +9466,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   int restrictp;
   int volatilep;
   int type_quals;
-  int virtualp, explicitp, friendp, inlinep, staticp;
+  int virtualp, explicitp, inlinep, staticp;
   int explicit_int = 0;
   int explicit_char = 0;
   int defaulted_int = 0;
@@ -9674,7 +9679,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			    TREE_OPERAND (decl, 1));
 		  cp_error ("  perhaps you want `typename %T::%D' to make it a type",
 			    cname, TREE_OPERAND (decl, 1));
-		  return void_type_node;
+		  return error_mark_node;
 		}
 	      else if (ctype == NULL_TREE)
 		ctype = cname;
@@ -9760,7 +9765,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       && ! (ctype && declspecs == NULL_TREE))
     {
       cp_error ("declaration of `%D' as non-function", dname);
-      return void_type_node;
+      return error_mark_node;
     }
 
   /* We want to avoid calling this a PARM if it is in a namespace.  */
@@ -10151,7 +10156,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		dname);
       staticp = 0;
     }
-  friendp = RIDBIT_SETP (RID_FRIEND, specbits);
+  *friend_p = RIDBIT_SETP (RID_FRIEND, specbits);
   RIDBIT_RESET (RID_FRIEND, specbits);
 
   /* Warn if two storage classes are given. Default to `auto'.  */
@@ -10267,7 +10272,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	error ("top-level declaration of `%s' specifies `auto'", name);
     }
 
-  if (nclasses > 0 && friendp)
+  if (nclasses > 0 && *friend_p)
     error ("storage class specifiers invalid in friend function declarations");
 
   /* Now figure out the structure of the declarator proper.
@@ -10432,7 +10437,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    if (ctype == NULL_TREE
 		&& decl_context == FIELD
 		&& funcdecl_p
-		&& (friendp == 0 || dname == current_class_name))
+		&& (!*friend_p || dname == current_class_name))
 	      ctype = current_class_type;
 
 	    if (ctype && sfk == sfk_conversion)
@@ -10462,7 +10467,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			if (! member_function_or_else (ctype,
 						       current_class_type,
 						       flags))
-			  return void_type_node;
+			  return error_mark_node;
 		      }
 		  }
 		else            /* It's a constructor.  */
@@ -10499,7 +10504,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			if (! member_function_or_else (ctype,
 						       current_class_type,
 						       flags))
-			  return void_type_node;
+			  return error_mark_node;
 			TYPE_HAS_CONSTRUCTOR (ctype) = 1;
 			if (sfk != sfk_constructor)
 			  return NULL_TREE;
@@ -10508,7 +10513,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		if (decl_context == FIELD)
 		  staticp = 0;
 	      }
-	    else if (friendp)
+	    else if (*friend_p)
 	      {
 		if (initialized)
 		  error ("can't initialize friend function `%s'", name);
@@ -10517,7 +10522,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    /* Cannot be both friend and virtual.  */
 		    error ("virtual functions cannot be friends");
 		    RIDBIT_RESET (RID_FRIEND, specbits);
-		    friendp = 0;
+		    *friend_p = false;
 		  }
 		if (decl_context == NORMAL)
 		  error ("friend declaration not in class definition");
@@ -10712,14 +10717,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  }
 		else if (TREE_CODE (type) == FUNCTION_TYPE)
 		  {
-		    if (current_class_type == NULL_TREE || friendp)
+		    if (current_class_type == NULL_TREE || *friend_p)
 		      type = build_cplus_method_type (ctype, TREE_TYPE (type),
 						      TYPE_ARG_TYPES (type));
 		    else
 		      {
 			cp_error ("cannot declare member function `%T::%s' within `%T'",
 				  ctype, name, current_class_type);
-			return void_type_node;
+			return error_mark_node;
 		      }
 		  }
 		else if (RIDBIT_SETP (RID_TYPEDEF, specbits)
@@ -10734,7 +10739,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		      {
 			cp_error ("cannot declare member `%T::%s' within `%T'",
 				  ctype, name, current_class_type);
-			return void_type_node;
+			return error_mark_node;
 		      }
 		    type = build_offset_type (ctype, type);
 		  }
@@ -10799,7 +10804,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
   /* Now TYPE has the actual type.  */
 
-  if (explicitp == 1 || (explicitp && friendp))
+  if (explicitp == 1 || (explicitp && *friend_p))
     {
       /* [dcl.fct.spec] The explicit specifier shall only be used in
          declarations of constructors within a class definition.  */
@@ -10809,7 +10814,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
   if (RIDBIT_SETP (RID_MUTABLE, specbits))
     {
-      if (current_class_name == NULL_TREE || decl_context == PARM || friendp)
+      if (current_class_name == NULL_TREE || decl_context == PARM || *friend_p)
         {
 	  error ("non-member `%s' cannot be declared `mutable'", name);
           RIDBIT_RESET (RID_MUTABLE, specbits);
@@ -10936,7 +10941,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	C_TYPEDEF_EXPLICITLY_SIGNED (decl) = 1;
 
       bad_specifiers (decl, "type", virtualp, quals != NULL_TREE,
-		      inlinep, friendp, raises != NULL_TREE);
+		      inlinep, *friend_p, raises != NULL_TREE);
 
       if (initialized)
 	error ("typedef declaration includes an initializer");
@@ -10987,7 +10992,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	type_quals = TYPE_UNQUALIFIED;
 
       /* Special case: "friend class foo" looks like a TYPENAME context.  */
-      if (friendp)
+      if (*friend_p)
 	{
 	  if (type_quals != TYPE_UNQUALIFIED)
 	    {
@@ -11112,7 +11117,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	decl = build_decl (PARM_DECL, declarator, type);
 
 	bad_specifiers (decl, "parameter", virtualp, quals != NULL_TREE,
-			inlinep, friendp, raises != NULL_TREE);
+			inlinep, *friend_p, raises != NULL_TREE);
 
 	/* Compute the type actually passed in the parmlist,
 	   for the case where there is no prototype.
@@ -11129,7 +11134,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	       are error_mark_node, for example.  */
 	    decl = NULL_TREE;
 	  }
-	else if (in_namespace && !friendp)
+	else if (in_namespace && !*friend_p)
 	  {
 	    /* Something like struct S { int N::j; };  */
 	    cp_error ("invalid use of `::'");
@@ -11142,14 +11147,14 @@ friend declaration requires class-key, i.e. `friend %#T'",
 
 	    /* We catch the others as conflicts with the builtin
 	       typedefs.  */
-	    if (friendp && declarator == ridpointers[(int) RID_SIGNED])
+	    if (*friend_p && declarator == ridpointers[(int) RID_SIGNED])
 	      {
 		cp_error ("function `%D' cannot be declared friend",
 			  declarator);
-		friendp = 0;
+		*friend_p = false;
 	      }
 
-	    if (friendp == 0)
+	    if (!*friend_p)
 	      {
 		if (ctype == NULL_TREE)
 		  ctype = current_class_type;
@@ -11158,7 +11163,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 		  {
 		    cp_error ("can't make `%D' into a method -- not in a class",
 			      declarator);
-		    return void_type_node;
+		    return error_mark_node;
 		  }
 
 		/* ``A union may [ ... ] not [ have ] virtual functions.''
@@ -11167,7 +11172,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 		  {
 		    cp_error ("function `%D' declared virtual inside a union",
 			      declarator);
-		    return void_type_node;
+		    return error_mark_node;
 		  }
 
 		if (declarator == ansi_opname (NEW_EXPR)
@@ -11190,14 +11195,15 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
 	    function_context = (ctype != NULL_TREE) ?
 	      decl_function_context (TYPE_MAIN_DECL (ctype)) : NULL_TREE;
-	    publicp = (! friendp || ! staticp)
+	    publicp = (!*friend_p || ! staticp)
 	      && function_context == NULL_TREE;
 	    decl = grokfndecl (ctype, type,
 			       TREE_CODE (declarator) != TEMPLATE_ID_EXPR
 			       ? declarator : dname,
 			       declarator,
 			       virtualp, flags, quals, raises,
-			       friendp ? -1 : 0, friendp, publicp, inlinep,
+			       *friend_p ? -1 : 0, 
+			       *friend_p, publicp, inlinep,
 			       funcdef_flag, in_namespace);
 	    if (decl == NULL_TREE)
 	      return decl;
@@ -11240,7 +11246,8 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	       TREE_PUBLIC, also.  */
 	    decl = grokfndecl (ctype, type, declarator, declarator,
 			       virtualp, flags, quals, raises,
-			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
+			       *friend_p ? -1 : 0, 
+			       *friend_p, 1, 0, funcdef_flag,
 			       in_namespace);
 	    if (decl == NULL_TREE)
 	      return NULL_TREE;
@@ -11269,16 +11276,16 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	  }
 	else
 	  {
-	    if (friendp)
+	    if (*friend_p)
 	      {
 		error ("`%s' is neither function nor member function; cannot be declared friend",
 		       IDENTIFIER_POINTER (declarator));
-		friendp = 0;
+		*friend_p = false;
 	      }
 	    decl = NULL_TREE;
 	  }
 
-	if (friendp)
+	if (*friend_p)
 	  {
 	    /* Friends are treated specially.  */
             tree t = NULL_TREE;
@@ -11301,9 +11308,8 @@ friend declaration requires class-key, i.e. `friend %#T'",
               		       last_function_parms, attrlist, flags, quals,
               		       funcdef_flag);
               }
-            if (t && funcdef_flag)
-              return t;
-	    return void_type_node;
+
+	    return t;
 	  }
 
 	/* Structure field.  It may not be a function, except for C++ */
@@ -11337,12 +11343,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 		  ;
 		else if (check_static_variable_definition (declarator,
 							   type))
-		  /* If we just return the declaration, crashes
-		     will sometimes occur.  We therefore return
-		     void_type_node, as if this was a friend
-		     declaration, to cause callers to completely
-		     ignore this declaration.  */
-		  return void_type_node;
+		  return error_mark_node;
 	      }
 
 	    /* 9.2p13 [class.mem] */
@@ -11376,7 +11377,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	      }
 
 	    bad_specifiers (decl, "field", virtualp, quals != NULL_TREE,
-			    inlinep, friendp, raises != NULL_TREE);
+			    inlinep, *friend_p, raises != NULL_TREE);
 	  }
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
@@ -11430,7 +11431,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 
 	decl = grokfndecl (ctype, type, original_name, declarator,
 			   virtualp, flags, quals, raises,
-			   1, friendp,
+			   1, *friend_p,
 			   publicp, inlinep, funcdef_flag,
 			   in_namespace);
 	if (decl == NULL_TREE)
@@ -11471,7 +11472,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 			    (type_quals & TYPE_QUAL_CONST) != 0,
 			    in_namespace ? in_namespace : ctype);
 	bad_specifiers (decl, "variable", virtualp, quals != NULL_TREE,
-			inlinep, friendp, raises != NULL_TREE);
+			inlinep, *friend_p, raises != NULL_TREE);
 
 	if (ctype)
 	  {
@@ -11658,6 +11659,7 @@ grokparms (first_parm)
       tree type = NULL_TREE;
       register tree decl = TREE_VALUE (parm);
       tree init = TREE_PURPOSE (parm);
+      bool friend_p;
 
       chain = TREE_CHAIN (parm);
       /* @@ weak defense against parse errors.  */
@@ -11676,7 +11678,8 @@ grokparms (first_parm)
         break;
 
       decl = grokdeclarator (TREE_VALUE (decl), TREE_PURPOSE (decl),
-		     PARM, init != NULL_TREE, NULL_TREE);
+			     PARM, init != NULL_TREE, NULL_TREE,
+			     &friend_p);
       if (! decl || TREE_TYPE (decl) == error_mark_node)
         continue;
 
@@ -13097,7 +13100,10 @@ start_function (declspecs, declarator, attrs, flags)
     }
   else
     {
-      decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL_TREE);
+      bool friend_p;
+
+      decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1,
+			      NULL_TREE, &friend_p);
       /* If the declarator is not suitable for a function definition,
 	 cause a syntax error.  */
       if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL) return 0;
@@ -13894,8 +13900,9 @@ tree
 start_method (declspecs, declarator, attrlist)
      tree declarator, declspecs, attrlist;
 {
+  bool friend_p;
   tree fndecl = grokdeclarator (declarator, declspecs, MEMFUNCDEF, 0,
-				attrlist);
+				attrlist, &friend_p);
 
   /* Something too ugly to handle.  */
   if (fndecl == NULL_TREE 

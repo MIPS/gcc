@@ -5,6 +5,6 @@
 // Bug: Specialization of implicitly created function should be
 // rejected.
 
-template<class T> class blah{};
+template<class T> class blah{}; // ERROR - previous declaration
 blah<char>::blah(){}		// ERROR - invalid specialization
 int main(){}
