@@ -1,6 +1,6 @@
 // Represent a constructor.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -27,7 +27,20 @@ model_constructor::model_constructor (model_constructor *other,
 				      model_class *enclosing)
   : model_method (other, type_map, enclosing)
 {
-  this0 = other->this0;
+  if (other->this0)
+    {
+      this0 = new model_variable_decl (get_location (),
+				       // FIXME: construct new name
+				       "arg$this$0",
+				       other->this0->get_declared_type (),
+				       declaring_class);
+    }
+}
+
+model_constructor::model_constructor (model_constructor *other)
+  : model_method (get_location (), other->get_declaring_class ()),
+    other_this (NULL)
+{
 }
 
 void

@@ -3146,6 +3146,11 @@ bytecode_generator::visit_type_qualified_invocation
     const std::list<ref_expression> &args,
     bool super)
 {
+  // FIXME: duplicate code.
+  model_class *accessed;
+  if (trampoline_required_p (meth, method->get_declaring_class (), &accessed))
+    meth = accessed->get_accessor (const_cast<model_method *> (meth));
+
   if (! meth->static_p ())
     emit_load (meth->get_declaring_class (), this_index);
   handle_invocation (super ? op_invokespecial : op_invokestatic,
@@ -3159,6 +3164,11 @@ bytecode_generator::visit_super_invocation
      const model_method *meth,
      const std::list<ref_expression> &args)
 {
+  // FIXME: duplicate code.
+  model_class *accessed;
+  if (trampoline_required_p (meth, method->get_declaring_class (), &accessed))
+    meth = accessed->get_accessor (const_cast<model_method *> (meth));
+
   emit_load (method->get_declaring_class (), this_index);
   handle_invocation (op_invokespecial, inv->get_qualifying_class (),
 		     meth, args, inv->get_expression () != NULL);
@@ -3170,6 +3180,7 @@ bytecode_generator::visit_this_invocation
      const model_method *meth,
      const std::list<ref_expression> &args)
 {
+  // Note: an accessor can never be needed here.
   emit_load (method->get_declaring_class (), this_index);
   handle_invocation (op_invokespecial, inv->get_qualifying_class (),
 		     meth, args, inv->get_expression () != NULL);
@@ -3253,9 +3264,16 @@ bytecode_generator::visit_new (model_new *new_expr,
   }
   // Stack: ... NEW-INITIALIZED
   emit (op_invokespecial);
-  // FIXME: cast
+
+  // If we need an accessor constructor, use it instead.
+  model_class *accessed;
+  if (trampoline_required_p (init_meth, method->get_declaring_class (),
+			     &accessed))
+    init_meth
+      = accessed->get_accessor (const_cast<model_method *> (init_meth));
+
   int mindex = cpool->add (init_meth->get_declaring_class (),
-			   (model_method *) init_meth);
+			   const_cast<model_method *> (init_meth));
   emit2 (mindex);
 
   // Pop all the arguments and the class reference.

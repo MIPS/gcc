@@ -2192,25 +2192,39 @@ model_class::get_accessor (model_method *meth)
     {
       location where = meth->get_location ();
 
+      std::string name;
+      ref_method accm;
+      // This is only used in the constructor case.
+      int added_args = 0;
+
       // Note that constructors are special since we can't create one
       // with a new name.  So, we are forced to add dummy arguments to
       // differentiate our constructors from ones that the user might
       // declare.
       if (meth->constructor_p ())
 	{
-	  if (global->get_compiler ()->warn_enclosing_access ())
-	    std::cerr << meth->warn (global->get_compiler ()->warn_enclosing_access (),
-				     "constructor %1 requires accessor")
-	      % meth;
-	  // FIXME: we need to make a new constructor (that is
-	  // disambiguated) here.
-	  return meth;
+	  model_constructor *cons = assert_cast<model_constructor *> (meth);
+	  name = "<init>";
+	  std::string descriptor = cons->get_descriptor ();
+	  std::string::size_type it = descriptor.find(')');
+
+	  // Unlike other compilers, we simply add 'boolean' arguments
+	  // until the result is disambiguated.  This can be defeated
+	  // by having a constructor with many arguments, but cases
+	  // like that are pathological anyway.
+	  do
+	    {
+	      ++added_args;
+	      descriptor.insert (it, "Z");
+	      ++it;
+	    }
+	  while (has_method_with_descriptor_p (name, descriptor));
+
+	  accm = new model_constructor (cons);
 	}
+      else
+	accm = new model_method (where, this);
 
-      ref_method accm = new model_method (where, this);
-
-      // FIXME: it might be better to always emit a static method
-      // here.
       modifier_t mods = 0;
       if (meth->static_p ())
 	mods |= ACC_STATIC;
@@ -2219,6 +2233,8 @@ model_class::get_accessor (model_method *meth)
       accm->set_return_type (new model_forwarding_resolved (get_location (),
 							    meth->get_return_type ()));
 
+      // Compute the new formal arguments and actual arguments to the
+      // forwarding method call we create.
       std::list<ref_variable_decl> args, old_args = meth->get_parameters ();
       std::list<ref_expression> actual;
       for (std::list<ref_variable_decl>::const_iterator i = old_args.begin ();
@@ -2236,7 +2252,54 @@ model_class::get_accessor (model_method *meth)
 							   arg.get ()));
 	}
 
-      ref_method_invocation inv = new model_method_invocation (where, actual);
+      // For a constructor we added arguments, so add those to the
+      // actual parameters.
+      if (added_args)
+	{
+	  assert (meth->constructor_p ());
+	  ref_forwarding_type booltype
+	    = new model_forwarding_resolved (where, primitive_boolean_type);
+	  for (int i = 0; i < added_args; ++i)
+	    {
+	      char buffer[10];
+	      sprintf (buffer, "%d", i);
+	      ref_variable_decl arg
+		= new model_variable_decl (where,
+					   // FIXME: duplicate name?
+					   "added$" + std::string (buffer),
+					   booltype,
+					   this);
+	      args.push_back (arg);
+	    }
+
+	  // If the class is an inner class, then resolving the
+	  // 'this()' invocation will push a new 'this$0' argument at
+	  // the front.  So, eliminate that here.
+	  if (inner_p () && ! static_context_p ())
+	    {
+	      args.pop_front ();
+	      // FIXME: this is a hack: we pop the this$0 parameter if
+	      // the original constructor has been resolved.  There
+	      // has to be a better way.
+	      model_constructor *c = assert_cast<model_constructor *> (meth);
+	      if (c->get_this0_parameter ())
+		actual.pop_front ();
+	    }
+	}
+
+      ref_invocation_base inv;
+      if (meth->constructor_p ())
+	{
+	  // Generate 'this(actual args)'.
+	  inv = new model_this_invocation (where);
+	  // Sigh.
+	  model_this_invocation *thi
+	    = assert_cast<model_this_invocation *> (inv.get ());
+	  thi->set_enclosing_class (this);
+	}
+      else
+	inv = new model_method_invocation (where);
+      inv->set_arguments (actual);
       inv->set_method (meth->get_name ());
 
       std::list<ref_stmt> statements;
@@ -2252,8 +2315,9 @@ model_class::get_accessor (model_method *meth)
       accm->set_throws (meth->get_throws ());
       // FIXME: copy type parameters?
 
-      std::string name
-        = generate_synthetic_method_name ("call$" + meth->get_name (), accm);
+      if (! meth->constructor_p ())
+	name = generate_synthetic_method_name ("call$" + meth->get_name (),
+					       accm);
       accm->set_name (name);
 
       add (accm);

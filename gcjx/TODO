@@ -1,3 +1,7 @@
+in some places we check both inner_p() and static_context_p()
+on a class.  this is lame, we should mark the class static
+in a static context
+
 see verifier fix of 2005-02-18 on trunk
 should go in our verifier too
 

@@ -198,6 +198,11 @@ public:
     return parameters;
   }
 
+  int get_parameter_count () const
+  {
+    return parameters.size ();
+  }
+
   void set_type_parameters (const std::list<ref_type_variable> &ts)
   {
     type_parameters.set_type_parameters (ts);

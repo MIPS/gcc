@@ -1,3 +1,19 @@
+2005-03-12  Tom Tromey  <tromey@redhat.com>
+
+	* model/constructor.cc (model_constructor): New constructor.
+	(model_constructor): Correctly set this0.
+	* model/constructor.hh (model_constructor): Declare.
+	* bytecode/generate.cc (visit_new): Use accessor constructor if
+	needed.
+	(visit_type_qualified_invocation): Handle accessor.
+	(visit_super_invocation): Likewise.
+	* model/invoke.cc (handle_resolve): Add extra arguments when
+	calling constructor accessor.
+	(resolve): Handle class in static context.
+	* model/method.hh (model_method::get_parameter_count): New
+	method.
+	* model/class.cc (get_accessor): Create accessor constructor.
+
 2005-03-03  Tom Tromey  <tromey@redhat.com>
 
 	* aot/aotclass.cc (add_item): Ignore index 0.

@@ -122,9 +122,6 @@ JNI header generation is probably ok
 
 CNI stub generation is not implemented
 
-we don't yet generate trampolines for access to private constructors
-of outer classes
-
 should look at LLVM
 probably easy to write a back end for it
 if we compiled .class as well perhaps we could wind up with a jit

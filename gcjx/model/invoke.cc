@@ -1,6 +1,6 @@
 // Method invocation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -324,7 +324,7 @@ model_invocation_base::handle_resolve (resolution_scope *scope,
   if (trampoline_required_p (method, scope->get_current_class (), &accessed))
     {
       // Ensure that the required accessor exists.
-      accessed->get_accessor (method);
+      model_method *accessor = accessed->get_accessor (method);
       if (scope->warn_enclosing_access ())
 	{
 	  std::cerr << warn (global->get_compiler ()->warn_enclosing_access (),
@@ -333,6 +333,19 @@ model_invocation_base::handle_resolve (resolution_scope *scope,
 	  std::cerr
 	    << method->warn (global->get_compiler ()->warn_enclosing_access (),
 			     "method is defined here");
+	}
+      if (method->constructor_p ())
+	{
+	  // Constructors are handled by adding extra 'boolean'
+	  // arguments.
+	  int extra = (accessor->get_parameter_count ()
+		       - method->get_parameter_count ());
+	  // It is ok to share substructure here.
+	  ref_expression narg = new model_boolean_literal (get_location (),
+							   true);
+	  narg->resolve (scope);
+	  for (int i = 0; i < extra; ++i)
+	    arguments.push_back (narg);
 	}
     }
 
@@ -578,7 +591,7 @@ model_this_invocation::resolve (resolution_scope *scope)
   model_constructor *curr_cons
     = assert_cast<model_constructor *> (scope->get_current_method ());
 
-  if (curr->inner_p ())
+  if (curr->inner_p () && ! curr->static_context_p ())
     {
       // We need to also pass the 'this$0' parameter to the other
       // constructor.
