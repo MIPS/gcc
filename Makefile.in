@@ -216,7 +216,7 @@ TARGET_CONFIGDIRS = @target_configdirs@
 # Changed by configure to $(target_alias) if cross.
 TARGET_SUBDIR = @target_subdir@
 
-BUILD_CONFIGDIRS = libiberty
+BUILD_CONFIGDIRS = libiberty libbanshee
 BUILD_SUBDIR = @build_subdir@
 
 # This is set by the configure script to the arguments to use when configuring
@@ -241,7 +241,7 @@ HOST_LIB_PATH = $$r/bfd:$$r/opcodes
 
 # This is the list of directories that may be needed in RPATH_ENVVAR
 # so that prorgams built for the target machine work.
-TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:
+TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDIR)/libmudflap/.libs
 
 # configure.in sets SET_LIB_PATH to this if --enable-shared was used.
 # Some platforms don't like blank entries, so we remove duplicate,
@@ -523,13 +523,13 @@ GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS)
 # using the build machine's native compiler.  Configure edits the second
 # macro for build!=host builds.
 ALL_BUILD_MODULES_LIST = \
-	all-build-libiberty
+	all-build-libiberty all-build-libbanshee
 ALL_BUILD_MODULES = @all_build_modules@
 
 # This is a list of the configure targets for all of the modules which
 # are compiled using the native tools.
 CONFIGURE_BUILD_MODULES = \
-	configure-build-libiberty
+	configure-build-libiberty configure-build-libbanshee
 
 # This is a list of the configure targets for all of the modules which
 # are compiled using the target tools.
@@ -550,7 +550,8 @@ CONFIGURE_TARGET_MODULES = \
 	configure-target-zlib \
 	configure-target-boehm-gc \
 	configure-target-qthreads \
-	configure-target-rda
+	configure-target-rda \
+	configure-target-libmudflap
 
 configure-target: $(CONFIGURE_TARGET_MODULES)
 
@@ -590,6 +591,7 @@ CLEAN_MODULES = \
 	clean-itcl \
 	clean-ld \
 	clean-libgui \
+	clean-libbanshee \
 	clean-libiberty \
 	clean-libtool \
 	clean-m4 \
@@ -635,7 +637,8 @@ CLEAN_TARGET_MODULES = \
 	clean-target-zlib \
 	clean-target-boehm-gc \
 	clean-target-qthreads \
-	clean-target-rda
+	clean-target-rda \
+	clean-target-libmudflap
 
 # All of the x11 modules that can be cleaned
 CLEAN_X11_MODULES = \
@@ -2720,6 +2723,37 @@ install-libgui: installdirs
 	else \
 	  true; \
 	fi
+
+
+.PHONY: all-libbanshee
+all-libbanshee:
+	@dir=libbanshee; \
+	if [ -f ./libbanshee/Makefile ] ; then \
+	  r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd libbanshee; $(MAKE) $(FLAGS_TO_PASS) all); \
+	else \
+	  true; \
+	fi
+
+
+.PHONY: check-libbanshee
+check-libbanshee:
+	@dir=libbanshee; \
+	if [ -f ./libbanshee/Makefile ] ; then \
+	  r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd libbanshee; $(MAKE) $(FLAGS_TO_PASS) check); \
+	else \
+	  true; \
+	fi
+
+
+
+.PHONY: install-libbanshee
+install-libbanshee:
 
 
 .PHONY: all-libiberty
@@ -6425,6 +6459,150 @@ install-target-rda: installdirs
 	fi
 
 
+.PHONY: configure-target-libmudflap
+configure-target-libmudflap:
+	@if [ -d $(TARGET_SUBDIR)/libmudflap ]; then \
+	  r=`${PWD}`; export r; \
+	  $(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libmudflap/tmpmulti.out 2> /dev/null; \
+	  if [ -s $(TARGET_SUBDIR)/libmudflap/tmpmulti.out ]; then \
+	    if [ -f $(TARGET_SUBDIR)/libmudflap/multilib.out ]; then \
+	      if cmp $(TARGET_SUBDIR)/libmudflap/multilib.out $(TARGET_SUBDIR)/libmudflap/tmpmulti.out > /dev/null; then \
+		rm -f $(TARGET_SUBDIR)/libmudflap/tmpmulti.out; \
+	      else \
+		echo "Multilibs changed for libmudflap, reconfiguring"; \
+		rm -f $(TARGET_SUBDIR)/libmudflap/multilib.out $(TARGET_SUBDIR)/libmudflap/Makefile; \
+		mv $(TARGET_SUBDIR)/libmudflap/tmpmulti.out $(TARGET_SUBDIR)/libmudflap/multilib.out; \
+	      fi; \
+	    else \
+	      mv $(TARGET_SUBDIR)/libmudflap/tmpmulti.out $(TARGET_SUBDIR)/libmudflap/multilib.out; \
+	    fi; \
+	  fi; \
+	fi; exit 0	# break command into two pieces
+	@dir=libmudflap ; \
+	if [ ! -d $(TARGET_SUBDIR) ]; then \
+	  true; \
+	elif [ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] ; then \
+	  true; \
+	elif echo " $(TARGET_CONFIGDIRS) " | grep " libmudflap " >/dev/null 2>&1; then \
+	  if [ -d $(srcdir)/libmudflap ]; then \
+	    [ -d $(TARGET_SUBDIR)/libmudflap ] || mkdir $(TARGET_SUBDIR)/libmudflap;\
+	    r=`${PWD}`; export r; \
+	    s=`cd $(srcdir); ${PWD}`; export s; \
+	    $(SET_LIB_PATH) \
+	    AR="$(AR_FOR_TARGET)"; export AR; \
+	    AS="$(AS_FOR_TARGET)"; export AS; \
+	    CC="$(CC_FOR_TARGET)"; export CC; \
+	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
+	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
+	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
+	    DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
+	    LD="$(LD_FOR_TARGET)"; export LD; \
+            LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
+	    NM="$(NM_FOR_TARGET)"; export NM; \
+	    RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
+	    WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	    echo Configuring in $(TARGET_SUBDIR)/libmudflap; \
+	    cd "$(TARGET_SUBDIR)/libmudflap" || exit 1; \
+	    case $(srcdir) in \
+	    /* | [A-Za-z]:[\\/]*) \
+	      topdir=$(srcdir) ;; \
+	    *) \
+	      case "$(TARGET_SUBDIR)" in \
+	      .) topdir="../$(srcdir)" ;; \
+	      *) topdir="../../$(srcdir)" ;; \
+	      esac ;; \
+	    esac; \
+	    if [ "$(srcdir)" = "." ] ; then \
+	      if [ "$(TARGET_SUBDIR)" != "." ] ; then \
+		if $(SHELL) $$s/symlink-tree $${topdir}/libmudflap "no-such-file" ; then \
+		  if [ -f Makefile ]; then \
+		    if $(MAKE) distclean; then \
+		      true; \
+		    else \
+		      exit 1; \
+		    fi; \
+		  else \
+		    true; \
+		  fi; \
+		else \
+		  exit 1; \
+		fi; \
+	      else \
+		true; \
+	      fi; \
+	      srcdiroption="--srcdir=."; \
+	      libsrcdir="."; \
+	    else \
+	      srcdiroption="--srcdir=$${topdir}/libmudflap"; \
+	      libsrcdir="$$s/libmudflap"; \
+	    fi; \
+	    if [ -f $${libsrcdir}/configure ] ; then \
+	      rm -f no-such-file skip-this-dir; \
+	      CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+		$(TARGET_CONFIGARGS) $${srcdiroption} \
+		--with-target-subdir="$(TARGET_SUBDIR)"; \
+	    else \
+	      rm -f no-such-file skip-this-dir; \
+	      CONFIG_SITE=no-such-file $(SHELL) $$s/configure \
+		$(TARGET_CONFIGARGS) $${srcdiroption} \
+		--with-target-subdir="$(TARGET_SUBDIR)"; \
+	    fi || exit 1; \
+	    if [ -f skip-this-dir ] ; then \
+	      sh skip-this-dir; \
+	      rm -f skip-this-dir; \
+	      cd ..; rmdir libmudflap || true; \
+	    else \
+	      true; \
+	    fi; \
+	  else \
+	    true; \
+	  fi; \
+	else \
+	  true; \
+	fi
+
+.PHONY: all-target-libmudflap
+all-target-libmudflap:
+	@dir=libmudflap ; \
+	if [ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] ; then \
+	  r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd $(TARGET_SUBDIR)/libmudflap; \
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) all); \
+	else \
+	  true; \
+	fi
+
+.PHONY: check-target-libmudflap
+check-target-libmudflap:
+	@dir=libmudflap ; \
+	if [ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] ; then \
+	  r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd $(TARGET_SUBDIR)/libmudflap; \
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) check);\
+	else \
+	  true; \
+	fi
+
+\
+.PHONY: install-target-libmudflap
+install-target-libmudflap: installdirs
+	@dir=libmudflap ; \
+	if [ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] ; then \
+	  r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd $(TARGET_SUBDIR)/libmudflap; \
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install); \
+	else \
+	  true; \
+	fi
+
+
 
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
 .PHONY: all-gcc
@@ -6570,6 +6748,7 @@ all-target-libobjc: all-target-libiberty
 all-m4: all-libiberty all-texinfo
 all-make: all-libiberty
 configure-target-newlib: $(ALL_GCC)
+configure-target-libmudflap: $(ALL_GCC)
 configure-target-libtermcap: $(ALL_GCC_C)
 all-opcodes: all-bfd all-libiberty
 all-patch: all-libiberty
@@ -6631,6 +6810,7 @@ all-target-zlib: configure-target-zlib
 all-target-boehm-gc: configure-target-boehm-gc
 all-target-qthreads: configure-target-qthreads
 all-target-rda: configure-target-rda
+all-target-libmudflap: configure-target-libmudflap
 
 
 ### other supporting targets

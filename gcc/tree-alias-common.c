@@ -179,7 +179,7 @@ get_alias_var (expr)
     case COMPONENT_REF:
       {
 #if FIELD_BASED
-	return get_alias_var (TREE_OPERAND (p, 1));
+	return get_alias_var (TREE_OPERAND (expr, 1));
 #else
         /* Find the first non-component ref, and return its alias variable. */
 	tree p;
@@ -304,6 +304,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						  rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	  /* x = (cast) y */
 	  else if (is_simple_cast (op1))
@@ -311,6 +312,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						  rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	  /* x = *y or x = foo->y */
 	  else if (TREE_CODE (op1) == INDIRECT_REF
@@ -319,6 +321,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->ptr_assign (current_alias_ops, lhsAV, 
 					       rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	  /* x = &y = x = &foo.y */
 	  else if (TREE_CODE (op1) == ADDR_EXPR
@@ -327,6 +330,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->addr_assign (current_alias_ops, lhsAV, 
 						rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	  /* x = func(...) */
 	  else if (is_simple_call_expr (op1))
@@ -361,6 +365,7 @@ find_func_aliases (tp, walk_subtrees, data)
 						    args);		  
 		  if (!current_alias_ops->ip)
 		    intra_function_call (args);
+	      *walk_subtrees = 0;
 		}
 
 	    }
@@ -390,6 +395,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		      }
 		    current_alias_ops->op_assign (current_alias_ops, lhsAV, 
 						  ops);
+	      *walk_subtrees = 0;
 		  }
 		  break;
 		default:
@@ -406,6 +412,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						  rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	  /* *x.f = y or *x->f = y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
@@ -414,6 +421,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
 					       rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	  /* *x = &y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
@@ -427,6 +435,7 @@ find_func_aliases (tp, walk_subtrees, data)
 						     "aliastmp"));   
 	      current_alias_ops->addr_assign (current_alias_ops, tempvar, rhsAV);
 	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
+	      *walk_subtrees = 0;
 	    }
 	  
 	  /* *x = *y */
@@ -441,6 +450,7 @@ find_func_aliases (tp, walk_subtrees, data)
 						     "aliastmp"));   
 	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, rhsAV);
 	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
+	      *walk_subtrees = 0;
 	    }
 	  
 	  /* *x = (cast) y */
@@ -456,6 +466,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      
 	      current_alias_ops->simple_assign (current_alias_ops, tempvar, rhsAV);
 	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
+	      *walk_subtrees = 0;
 	    }
 	  /* *x = <something else */
 	  else
@@ -463,6 +474,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (rhsAV != NULL)
 		current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
 					       rhsAV);
+	      *walk_subtrees = 0;
 	    }
 	}
     }
@@ -485,6 +497,7 @@ find_func_aliases (tp, walk_subtrees, data)
 				      args);
       if (!current_alias_ops->ip)
 	intra_function_call (args);
+      *walk_subtrees = 0;
   } 
   return NULL_TREE;
 }
@@ -804,7 +817,16 @@ ptr_may_alias_var (ptr, var)
 {
   struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
-  
+
+#if !FIELD_BASED
+  ptr = get_base_symbol (ptr);
+  var = get_base_symbol (var);
+#else
+  if (TREE_CODE (ptr) == COMPONENT_REF)
+    ptr = TREE_OPERAND (ptr, 1);
+  if (TREE_CODE (var) == COMPONENT_REF)
+    var = TREE_OPERAND (var, 1);
+#endif
   entry.key = ptr;
   result = htab_find (alias_annot, &entry);
   if (!result 
@@ -815,8 +837,10 @@ ptr_may_alias_var (ptr, var)
       result = htab_find (alias_annot, &entry);
     }
   
-   if (!result)
-     abort ();
+  if (!result && !AGGREGATE_TYPE_P (TREE_TYPE (ptr)))
+    abort ();
+  else if (!result)
+    return false;
 			    
   ptrtv = result->value;  
   entry.key = var;
@@ -829,8 +853,11 @@ ptr_may_alias_var (ptr, var)
       result = htab_find (alias_annot, &entry);
     }
   
-  if (!result)
+  if (!result && !AGGREGATE_TYPE_P (TREE_TYPE (var)))
     abort ();
+  else if (!result)
+    return false;
+
   
   vartv = result->value;
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);

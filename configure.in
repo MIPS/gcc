@@ -42,7 +42,7 @@
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline db tcl tk tclX itcl tix libgui zlib"
+host_libs="intl mmalloc libiberty opcodes bfd readline db tcl tk tclX itcl tix libgui zlib libbanshee"
 
 libstdcxx_version="target-libstdc++-v3"
 
@@ -1211,6 +1211,10 @@ if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " target-
   withoptions="$withoptions --with-newlib"
 fi
 
+if echo " ${configdirs} " |grep " libbanshee " >/dev/null 2>&1; then
+   withoptions="$withoptions --with-libbanshee"
+fi
+
 # We default to --with-shared on platforms where -fpic is meaningless.
 # Well, we don't yet, but we will.
 if false && test "${host}" = "${target}" && test x${enable_shared} = x ; then
@@ -1407,9 +1411,9 @@ if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " newlib 
   targargs="--with-newlib ${targargs}"
 fi
 
+
 # Pass the appropriate --host, --build, and --cache-file arguments.
 targargs="--cache-file=../config.cache --host=${target_alias} --build=${build_alias} ${targargs}"
-
 # provide a proper gxx_include_dir.
 # Note, if you change the default, make sure to fix both here and in
 # the gcc and libstdc++-v3 subdirectories.

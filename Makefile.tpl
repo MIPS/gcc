@@ -219,7 +219,7 @@ TARGET_CONFIGDIRS = @target_configdirs@
 # Changed by configure to $(target_alias) if cross.
 TARGET_SUBDIR = @target_subdir@
 
-BUILD_CONFIGDIRS = libiberty
+BUILD_CONFIGDIRS = libiberty libbanshee
 BUILD_SUBDIR = @build_subdir@
 
 # This is set by the configure script to the arguments to use when configuring
@@ -244,7 +244,7 @@ HOST_LIB_PATH = $$r/bfd:$$r/opcodes
 
 # This is the list of directories that may be needed in RPATH_ENVVAR
 # so that prorgams built for the target machine work.
-TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:
+TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDIR)/libmudflap/.libs
 
 # configure.in sets SET_LIB_PATH to this if --enable-shared was used.
 # Some platforms don't like blank entries, so we remove duplicate,
@@ -526,13 +526,13 @@ GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS)
 # using the build machine's native compiler.  Configure edits the second
 # macro for build!=host builds.
 ALL_BUILD_MODULES_LIST = \
-	all-build-libiberty
+	all-build-libiberty all-build-libbanshee
 ALL_BUILD_MODULES = @all_build_modules@
 
 # This is a list of the configure targets for all of the modules which
 # are compiled using the native tools.
 CONFIGURE_BUILD_MODULES = \
-	configure-build-libiberty
+	configure-build-libiberty configure-build-libbanshee
 
 # This is a list of the configure targets for all of the modules which
 # are compiled using the target tools.
@@ -1270,6 +1270,7 @@ all-target-libobjc: all-target-libiberty
 all-m4: all-libiberty all-texinfo
 all-make: all-libiberty
 configure-target-newlib: $(ALL_GCC)
+configure-target-libmudflap: $(ALL_GCC)
 configure-target-libtermcap: $(ALL_GCC_C)
 all-opcodes: all-bfd all-libiberty
 all-patch: all-libiberty

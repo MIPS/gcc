@@ -992,6 +992,7 @@ i[34567]86-*-darwin*)
 	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
+	rebuild_banshee=yes
 	;;
 i[34567]86-*-elf*)
 	xm_defines=POSIX

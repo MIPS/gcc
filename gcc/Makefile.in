@@ -66,7 +66,7 @@ BOOT_LANGUAGES = c @all_boot_languages@
 XCFLAGS =
 TCFLAGS =
 CFLAGS = -g
-STAGE1_CFLAGS = -g @stage1_cflags@ 
+STAGE1_CFLAGS = -g @stage1_cflags@
 BOOT_CFLAGS = -g -O2 
 
 # Flags to determine code coverage. When coverage is disabled, this will
@@ -162,6 +162,8 @@ STAMP = echo timestamp >
 ZLIB = @zlibdir@ -lz
 ZLIBINC = @zlibinc@
 
+BANSHEELIB = @BANSHEELIB@
+BANSHEEINC = @BANSHEEINC@
 # Substitution type for target's getgroups 2nd arg.
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
 
@@ -616,7 +618,7 @@ LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = @FORBUILD@/libiberty/libiberty.a
 
 # Dependencies on the intl and portability libraries.
-LIBDEPS= $(INTLDEPS) $(LIBIBERTY)
+LIBDEPS= $(INTLDEPS) $(LIBIBERTY) $(BANSHEELIB)
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
@@ -624,7 +626,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
-LIBS =	$(INTLLIBS) @LIBS@ $(LIBIBERTY)
+LIBS =	$(INTLLIBS) @LIBS@ $(LIBIBERTY) $(BANSHEELIB)
 
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
@@ -649,7 +651,7 @@ BUILD_VARRAY = $(BUILD_PREFIX)varray.o
 # -I$(@D) and -I$(srcdir)/$(@D) cause the subdirectory of the file
 # currently being compiled, in both source trees, to be examined as well.
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
-	   -I$(srcdir)/config -I$(srcdir)/../include
+	   -I$(srcdir)/config -I$(srcdir)/../include $(BANSHEEINC)
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
@@ -755,9 +757,9 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
  tree-nomudflap.o tree-pretty-print.o tree-cfg.o tree-dfa.o tree-ssa.o     \
  tree-optimize.o tree-simple.o simple-break-elim.o simple-goto-elim.o      \
- tree-ssa-pre.o tree-alias-type.o gimplify.o  \
+ tree-ssa-pre.o tree-alias-type.o gimplify.o  				   \
  tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o disjoint-set.o    \
- tree-ssa-ccp.o tree-ssa-dce.o                                             \
+ tree-ssa-ccp.o tree-ssa-dce.o @ANDER@ 					   \
  et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1386,14 +1388,19 @@ print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
 disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) 
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-type.h
+tree-alias-ander.o: tree-alias-ander.c tree-alias-ander.h $(SYSTEM_H) \
+	$(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) tree-alias-common.h
 tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
-	$(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H)
+	$(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) tree-alias-common.h
 tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
 	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-common.h $(TREE_FLOW_H)
 tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    ssa.h errors.h toplev.h function.h
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
+tree-ssa-cp.o : tree-ssa-cp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
@@ -3412,6 +3419,7 @@ stage1_copy: stage1_build
 	echo stage2_build > stage_last
 
 stage2_build: stage1_copy
+	@BANSHEEREBUILD@
 	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
 		 STAGE_PREFIX=stage1/ \
 		 $(STAGE2_FLAGS_TO_PASS)

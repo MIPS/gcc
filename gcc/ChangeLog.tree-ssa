@@ -1,3 +1,19 @@
+2002-11-24  Daniel Berlin  <dberlin@dberlin.org>
+
+	* configure.in: Add --with-libbanshee, passed to us by toplevel if
+	libbanshee was configured. Substitute approriate definitions for
+	Makefile (IE disabling tree-alias-ander building) if it wasn't.
+	* config.in: Regenerated.
+	* config.gcc: Rebuild libbanshee with stage1 on darwin to work 
+	around system compiler problem.
+	* configure: Regenerated.
+	* Makefile.in: Add banshee stuff.
+	* tree-alias-ander.c: New file.
+	* tree-alias-ander.h: New file.
+	* tree-alias-common.c (get_alias_var): Fix field based stuff.
+	(find_func_aliases): Don't walk subtrees if we processed the tree.
+	(ptr_may_alias_var): Fix both field-based and non-field-based lookup.
+
 2002-11-22  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-dce.c (mark_necessary): Split out mark_tree_necessary. Don't

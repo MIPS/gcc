@@ -181,7 +181,6 @@ AC_ARG_ENABLE(multilib,
 [  --enable-multilib       enable library support for multiple ABIs],
 [], [enable_multilib=yes])
 AC_SUBST(enable_multilib)
-
 # Enable expensive internal checks
 AC_ARG_ENABLE(checking,
 [  --enable-checking[=LIST]
@@ -2456,7 +2455,32 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
+AC_ARG_WITH(libbanshee,
+[  --with-libbanshee	  enable libbanshee],
+libbanshee="$with_libbanshee",
+libbanshee=no)
 
+if test x"$libbanshee" = xyes; then
+	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
+	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
+	ANDER="tree-alias-ander.o"
+	if test x$rebuild_banshee = xyes; then
+		BANSHEEREBUILD="s=\`\${PWD}\`; export s && cd ../libbanshee && echo \`\${PWD}\` && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
+	else
+		BANSHEEREBUILD=""
+	fi
+	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
+else
+	BANSHEELIB=""
+	BANSHEEINC=""
+	BANSHEEREBUILD=""
+	ANDER=""
+fi
+
+AC_SUBST(ANDER)
+AC_SUBST(BANSHEEINC)
+AC_SUBST(BANSHEELIB)
+AC_SUBST(BANSHEEREBUILD)
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
 
