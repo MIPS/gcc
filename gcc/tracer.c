@@ -386,6 +386,4 @@ tracer ()
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cfg_layout_finalize ();
-  /* Merge basic blocks in duplicated traces.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE);
 }
