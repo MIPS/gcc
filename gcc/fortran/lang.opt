@@ -33,10 +33,6 @@ J
 F95 Joined
 -J<directory>	Put MODULE files in 'directory'
 
-M
-F95 Joined
--M<directory>	Put MODULE files in 'directory'
-
 Wall
 F95 RejectNegative
 ; Documented in C
