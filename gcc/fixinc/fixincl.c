@@ -33,17 +33,25 @@
 # include "The fixincl program does not work properly on this system!"
 #endif
 
+#include "config.h"
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
 #include <signal.h>
 #include <stdio.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 #include <ctype.h>
 
 #include "regex.h"

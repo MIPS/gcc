@@ -50,7 +50,9 @@
 #define FIXINC_SERVER_H
 
 #include <stdio.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 /*
  *  Dual pipe opening of a child process

@@ -45,8 +45,11 @@
  * choice whether to permit this exception to apply to your modifications.
  * If you do not wish that, delete this exception notice.
  */
+#include "config.h"
 
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 #include <errno.h>
 #include <signal.h>
 #include <stdlib.h>
