@@ -1,5 +1,41 @@
 2003-12-13  Jan Hubicka  <jh@suse.cz>
 
+	* timevar.def (TV_TREE_STMT_VERIFY, TV_CFG_VERIFY, TV_CGRAPH_VERIFY):
+	New timers.
+	* tree-cfg.c (verify_stmts):  Push/pop timevar.
+	* cfg.c: Include timevar.h
+	(verify_flow_info): Push/pop timevar.
+	* Makefile.in (cfg.o): Add dependnecy on TIMEVARS
+
+	* cgraph.c (cgraph_create_edge): Sanity check for duplicates;
+	initialize aux.
+	(cgraph_remove_node): Decrease cgraph_n_nodes; do not clear
+	DECL_SAVED_TREE when dumping.
+	(cgraph_dump_node): Break out from ...; print more information.
+	(cgraph_dump): ... here.
+	* cgraph.h (cgraph_node): Add aux field.
+	(dump_cgraph_node, verify_cgraph, verify_cgraph_node): Declare.
+	(cgraph_mark_inline_edge): Declare
+	* cgraphunit.c (error_found): New static variable.
+	(verify_cgraph_node_1): New static function.
+	(verify_cgraph_node, verify_cgraph): New global function.
+	(cgraph_expand_function): More sanity checks.
+	(cgraph_clone_inline_nodes): Destructivly clone DECL_EXTERNAL nodes.
+	(cgraph_mark_inline_edge): Make global.
+	(cgraph_decide_inlining): Remove extern inline functions never inlined.
+	(cgraph_decide_inlining_incrementally): Verify that function body is
+	still present.
+	(expand_all_functions): Verify that all nodes are reachable.
+	(cgraph_optimize): Verify cgraph and memory management.
+	* tree-inline.c (copy_body_r): All edges must be present.
+	(expand_call_inline): Sanity check newly created edges and nodes
+	being inlined.
+	(optimize_inline_calls): Sanity check that we've inlined everything.
+	* tree-optimize.c (tree_rest_of_compilation): Clone functions inlined
+	into cloned node.
+
+2003-12-13  Jan Hubicka  <jh@suse.cz>
+
 	* tree-flow.h (tree_ssa_useless_type_conversion_1): Declare.
 	* tree-flow.c (tree_ssa_useless_type_conversion_1): Break out from
 	from...; allow complex types whose subtypes match.

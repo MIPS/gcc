@@ -2852,6 +2852,7 @@ verify_stmts (void)
   htab_t htab;
   tree addr;
 
+  timevar_push (TV_TREE_STMT_VERIFY);
   htab = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
 
   FOR_EACH_BB (bb)
@@ -2918,6 +2919,7 @@ verify_stmts (void)
     internal_error ("verify_stmts failed.");
 
   htab_delete (htab);
+  timevar_pop (TV_TREE_STMT_VERIFY);
 }
 
 

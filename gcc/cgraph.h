@@ -116,6 +116,7 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   struct cgraph_edge *next_callee;
   tree call_expr;
   bool inline_call;
+  PTR GTY ((skip (""))) aux;
 };
 
 /* The cgraph_varpool data strutcture.
@@ -150,6 +151,7 @@ extern GTY((param_is (union tree_node))) htab_t cgraph_inline_hash;
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
+void dump_cgraph_node (FILE *, struct cgraph_node *);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
@@ -185,5 +187,8 @@ void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *);
 bool cgraph_preserve_function_body_p (tree);
+void verify_cgraph (void);
+void verify_cgraph_node (struct cgraph_node *);
+void cgraph_mark_inline_edge (struct cgraph_edge *e);
 
 #endif  /* GCC_CGRAPH_H  */

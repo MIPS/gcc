@@ -62,6 +62,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "obstack.h"
 #include "alloc-pool.h"
+#include "timevar.h"
 #include "ggc.h"
 
 /* The obstack on which the flow graph components are allocated.  */
@@ -771,6 +772,7 @@ verify_flow_info (void)
   basic_block bb, last_bb_seen;
   basic_block *last_visited;
 
+  timevar_push (TV_CFG_VERIFY);
   last_visited = xcalloc (last_basic_block + 2, sizeof (basic_block));
   edge_checksum = xcalloc (last_basic_block + 2, sizeof (size_t));
 
@@ -902,6 +904,7 @@ verify_flow_info (void)
   err |= cfg_hooks->cfgh_verify_flow_info ();
   if (err)
     internal_error ("verify_flow_info failed");
+  timevar_pop (TV_CFG_VERIFY);
 }
 
 /* Print out one basic block.  This function takes care of the purely

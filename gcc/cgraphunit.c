@@ -304,6 +304,147 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
   visited_nodes = NULL;
 }
 
+static bool error_found;
+
+/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph nodes.  */
+static tree
+verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  tree t = *tp;
+  tree decl;
+
+  if (TREE_CODE (t) == CALL_EXPR && (decl = get_callee_fndecl (t)))
+    {
+      struct cgraph_edge *e = cgraph_edge (data, t);
+      if (e)
+	{
+	  if (e->aux)
+	    {
+	      error ("Shared call_expr:");
+	      debug_tree (t);
+	      error_found = true;
+	    }
+	  if (e->callee->decl != cgraph_node (decl)->decl)
+	    {
+	      error ("Edge points to wrong declaration:");
+	      debug_tree (e->callee->decl);
+	      fprintf (stderr," Instead of:");
+	      debug_tree (decl);
+	    }
+	  e->aux = (void *)1;
+	}
+      else
+	{
+	  error ("Missing callgraph edge for call expr:");
+	  debug_tree (t);
+	  error_found = true;
+	}
+    }
+  /* Save some cycles by not walking types and declaration as we
+     won't find anything useful there anyway.  */
+  if (DECL_P (*tp) || TYPE_P (*tp))
+    {
+      *walk_subtrees = 0;
+    }
+  return NULL_TREE;
+}
+
+/* Verify cgraph nodes of given cgraph node.  */
+void
+verify_cgraph_node (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+  struct cgraph_node *main_clone;
+
+  timevar_push (TV_CGRAPH_VERIFY);
+  error_found = false;
+  for (e = node->callees; e; e = e->next_callee)
+    if (e->aux)
+      {
+	error ("Aux field set for edge %s->%s",
+	       cgraph_node_name (e->caller), cgraph_node_name (e->callee));
+	error_found = true;
+      }
+  for (e = node->callers; e; e = e->next_caller)
+    {
+      if (e->inline_call)
+	{
+	  if (node->global.inlined_to
+	      != (e->caller->global.inlined_to
+		  ? e->caller->global.inlined_to : e->caller))
+	    {
+	      error ("Inlined_to pointer is wrong");
+	      error_found = true;
+	    }
+	  if (node->callers->next_caller)
+	    {
+	      error ("Multiple inline callers");
+	      error_found = true;
+	    }
+	}
+      else
+	if (node->global.inlined_to)
+	  {
+	    error ("Inlined_to pointer set for noninline callers");
+	    error_found = true;
+	  }
+    }
+  if (!node->callers && node->global.inlined_to)
+    {
+      error ("Inlined_to pointer is set but no predecesors found");
+      error_found = true;
+    }
+  if (node->global.inlined_to == node)
+    {
+      error ("Inlined_to pointer reffers to itself");
+      error_found = true;
+    }
+
+  for (main_clone = cgraph_node (node->decl); main_clone;
+       main_clone = main_clone->next_clone)
+    if (main_clone == node)
+      break;
+  if (!node)
+    {
+      error ("Node not found in DECL_ASSEMBLER_NAME hash");
+      error_found = true;
+    }
+  
+  if (node->analyzed
+      && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl))
+    {
+      walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl),
+				    verify_cgraph_node_1, node);
+      for (e = node->callees; e; e = e->next_callee)
+	{
+	  if (!e->aux)
+	    {
+	      error ("Edge %s->%s has no corresponding call_expr",
+		     cgraph_node_name (e->caller),
+		     cgraph_node_name (e->callee));
+	      error_found = true;
+	    }
+	  e->aux = 0;
+	}
+    }
+  if (error_found)
+    {
+      dump_cgraph_node (stderr, node);
+      internal_error ("verify_cgraph_node failed.");
+    }
+  timevar_pop (TV_CGRAPH_VERIFY);
+}
+
+/* Verify whole cgraph structure.  */
+void
+verify_cgraph (void)
+{
+  struct cgraph_node *node;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    verify_cgraph_node (node);
+}
+
 /* Analyze the function scheduled to be output.  */
 static void
 cgraph_analyze_function (struct cgraph_node *node)
@@ -451,6 +592,13 @@ cgraph_mark_functions_to_output (void)
 	  && !TREE_ASM_WRITTEN (decl) && !node->origin
 	  && !DECL_EXTERNAL (decl))
 	node->output = 1;
+      /* We should've reclaimed all functions that are not needed.  */
+      else if (!node->global.inlined_to && DECL_SAVED_TREE (decl)
+	       && !node->origin)
+	{
+	  dump_cgraph_node (stderr, node);
+	  abort ();
+	}
     }
 }
 
@@ -461,12 +609,20 @@ cgraph_expand_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
 
+  /* We ought to not compile any inline clones.  */
+  if (node->global.inlined_to)
+    abort ();
+
   if (flag_unit_at_a_time)
     announce_function (decl);
 
   /* Generate RTL for the body of DECL.  Nested functions are expanded
      via lang_expand_decl_stmt.  */
   (*lang_hooks.callgraph.expand_function) (decl);
+
+  /* Make sure that BE didn't gave up on compiling.  */
+  if (!TREE_ASM_WRITTEN (node->decl))
+    abort ();
 
   current_function_decl = NULL;
 }
@@ -575,7 +731,8 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
 
   /* We may elliminate the need for out-of-line copy to be output.  In that
      case just go ahead and re-use it.  */
-  if (!e->callee->callers->next_caller && !e->callee->needed
+  if (!e->callee->callers->next_caller
+      && (!e->callee->needed || DECL_EXTERNAL (e->callee->decl))
       && !e->callee->origin
       && duplicate
       && flag_unit_at_a_time)
@@ -605,7 +762,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
 
 /* Mark edge E as inlined and update callgraph accordingly.  */
 
-static void
+void
 cgraph_mark_inline_edge (struct cgraph_edge *e)
 {
   int old_insns = 0, new_insns = 0;
@@ -985,6 +1142,19 @@ cgraph_decide_inlining (void)
 	}
     }
 
+  /* We will never output extern functions we didn't inline. 
+     ??? Perhaps we can prevent accounting of growth of external
+     inline functions.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      if (node->global.inlined_to
+	  && DECL_EXTERNAL (node->global.inlined_to->decl))
+        cgraph_remove_node (node);
+      if (!node->global.inlined_to && DECL_EXTERNAL (node->decl)
+	  && !dump_enabled_p (TDI_all))
+	DECL_SAVED_TREE (node->decl) = NULL_TREE;
+    }
+
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file,
 	     "\nInlined %i calls, eliminated %i functions, "
@@ -1006,7 +1176,10 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
   for (e = node->callees; e; e = e->next_callee)
     if (e->callee->local.disregard_inline_limits
 	&& !e->inline_call
-        && !cgraph_recursive_inlining_p (node, e->callee))
+        && !cgraph_recursive_inlining_p (node, e->callee)
+	/* ??? It is possible that renaming variable removed the function body
+	   in duplicate_decls. See gcc.c-torture/compile/20011119-2.c  */
+	&& DECL_SAVED_TREE (e->callee->decl))
       cgraph_mark_inline (node, e->callee);
 
   /* Now do the automatic inlining.  */
@@ -1015,7 +1188,8 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
 	&& !e->inline_call
         && !cgraph_recursive_inlining_p (node, e->callee)
         && cgraph_default_inline_p (e->callee)
-	&& cgraph_check_inline_limits (node, e->callee))
+	&& cgraph_check_inline_limits (node, e->callee)
+	&& DECL_SAVED_TREE (e->callee->decl))
       cgraph_mark_inline (node, e->callee);
 }
 
@@ -1049,6 +1223,8 @@ cgraph_expand_all_functions (void)
   cgraph_mark_functions_to_output ();
 
   order_pos = cgraph_postorder (order);
+  if (order_pos != cgraph_n_nodes)
+    abort ();
 
   /* Garbage collector may remove inline clones we elliminate during
      optimization.  So we must be sure to not reference them.  */
@@ -1121,6 +1297,9 @@ cgraph_preserve_function_body_p (tree decl)
 void
 cgraph_optimize (void)
 {
+#ifdef ENABLE_CHECKING
+  verify_cgraph ();
+#endif
   if (!flag_unit_at_a_time)
     return;
   timevar_push (TV_CGRAPHOPT);
@@ -1147,10 +1326,38 @@ cgraph_optimize (void)
   /* Output everything.  */
   if (!quiet_flag)
     fprintf (stderr, "Assembling functions:\n");
+#ifdef ENABLE_CHECKING
+  verify_cgraph ();
+#endif
   cgraph_expand_all_functions ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "\nFinal ");
       dump_cgraph (cgraph_dump_file);
     }
+#ifdef ENABLE_CHECKING
+  verify_cgraph ();
+  /* Double check that all inline clones are gone and that all function bodies
+     has been released from memory.  */
+  if (flag_unit_at_a_time && !dump_enabled_p (TDI_all))
+    {
+      struct cgraph_node *node;
+      bool error_found = false;
+
+      for (node = cgraph_nodes; node; node = node->next)
+	if (node->analyzed
+	    /* ??? We don't handle memory management of nested functions quite
+	       right.  It probably does not worth the effort as these functions
+	       should go away soon.  */
+	    && !node->origin
+	    && (node->global.inlined_to
+	        || DECL_SAVED_TREE (node->decl)))
+	  {
+	    error_found = true;
+	    dump_cgraph_node (stderr, node);
+ 	  }
+      if (error_found)
+	internal_error ("Nodes with no released memory found.");
+    }
+#endif
 }

@@ -343,7 +343,17 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (cgraph_preserve_function_body_p (fndecl))
     {
       if (!flag_unit_at_a_time)
-	saved_node = cgraph_clone_node (node);
+	{
+	  struct cgraph_edge *e;
+
+	  saved_node = cgraph_clone_node (node);
+	  for (e = saved_node->callees; e; e = e->next_callee)
+	    if (e->inline_call)
+	      {
+		e->inline_call = 0;
+		cgraph_mark_inline_edge (e);
+	      }
+	}
       cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
     }
 

@@ -643,6 +643,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		  edge = cgraph_edge (node, old_node);
 		  if (edge)
 		    edge->call_expr = *tp;
+		  else
+		    abort ();
 		}
 	    }
 	  else
@@ -1437,16 +1439,25 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       && DECL_SAVED_TREE (DECL_ABSTRACT_ORIGIN (fn)))
     fn = DECL_ABSTRACT_ORIGIN (fn);
 
+  /* Objective C and fortran still calls tree_rest_of_compilation directly.
+     Kill this check once this is fixed.  */
+  if (!id->current_node->analyzed)
+    goto egress;
+
   edge = cgraph_edge (id->current_node, t);
 
   /* Constant propagation on argument done during previous inlining
      may create new direct call.  Produce an edge for it.  */
   if (!edge)
     {
-      cgraph_create_edge (id->node, cgraph_node (fn), t);
+      struct cgraph_node *dest = cgraph_node (fn);
+
+      /* FN must have address taken so it can be passed as argument.  */
+      if (!dest->needed)
+	abort ();
+      cgraph_create_edge (id->node, dest, t);
       goto egress;
     }
-    
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
@@ -1460,6 +1471,10 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	}
       goto egress;
     }
+
+#ifdef ENABLE_CHECKING
+  verify_cgraph_node (edge->callee);
+#endif
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     goto egress;
@@ -1801,6 +1816,19 @@ optimize_inline_calls (tree fn)
 		VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
       DECL_INLINED_FNS (fn) = ifn;
     }
+
+#ifdef ENABLE_CHECKING
+    {
+      struct cgraph_edge *e;
+
+      verify_cgraph_node (id.node);
+
+      /* Double check that we inlined everything we are supposed to inline.  */
+      for (e = id.node->callees; e; e = e->next_callee)
+	if (e->inline_call)
+	  abort ();
+    }
+#endif
 }
 
 /* FN is a function that has a complete body, and CLONE is a function

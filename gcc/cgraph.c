@@ -184,11 +184,19 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 		    tree call_expr)
 {
   struct cgraph_edge *edge = ggc_alloc (sizeof (struct cgraph_edge));
+#ifdef ENABLE_CHECKING
+  struct cgraph_edge *e;
+
+  for (e = caller->callees; e; e = e->next_callee)
+    if (e->call_expr == call_expr)
+      abort ();
+#endif
 
   if (TREE_CODE (call_expr) != CALL_EXPR)
     abort ();
 
   edge->inline_call = false;
+  edge->aux = NULL;
 
   edge->caller = caller;
   edge->callee = callee;
@@ -279,7 +287,8 @@ cgraph_remove_node (struct cgraph_node *node)
       else
 	{
           htab_clear_slot (cgraph_hash, slot);
-          DECL_SAVED_TREE (node->decl) = NULL;
+	  if (!dump_enabled_p (TDI_all))
+            DECL_SAVED_TREE (node->decl) = NULL;
 	  check_dead = false;
 	}
     }
@@ -302,9 +311,10 @@ cgraph_remove_node (struct cgraph_node *node)
 	if (n->global.inlined_to
 	    || (!n->global.inlined_to && !TREE_ASM_WRITTEN (n->decl)))
 	  break;
-      if (!n)
+      if (!n && !dump_enabled_p (TDI_all))
         DECL_SAVED_TREE (node->decl) = NULL;
     }
+  cgraph_n_nodes--;
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
 
@@ -404,6 +414,60 @@ cgraph_node_name (struct cgraph_node *node)
   return (*lang_hooks.decl_printable_name) (node->decl, 2);
 }
 
+/* Dump given cgraph node.  */
+void
+dump_cgraph_node (FILE *f, struct cgraph_node *node)
+{
+  struct cgraph_edge *edge;
+  fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
+  if (node->global.inlined_to)
+    fprintf (f, " (inline copy in %s/%i)",
+	     cgraph_node_name (node->global.inlined_to),
+	     node->global.inlined_to->uid);
+  if (node->local.self_insns)
+    fprintf (f, " %i insns", node->local.self_insns);
+  if (node->global.insns && node->global.insns != node->local.self_insns)
+    fprintf (f, " (%i after inlining)", node->global.insns);
+  if (node->origin)
+    fprintf (f, " nested in: %s", cgraph_node_name (node->origin));
+  if (node->needed)
+    fprintf (f, " needed");
+  else if (node->reachable)
+    fprintf (f, " reachable");
+  if (DECL_SAVED_TREE (node->decl))
+    fprintf (f, " tree");
+  if (node->output)
+    fprintf (f, " output");
+
+  if (node->local.local)
+    fprintf (f, " local");
+  if (node->local.disregard_inline_limits)
+    fprintf (f, " always_inline");
+  else if (node->local.inlinable)
+    fprintf (f, " inlinable");
+  if (TREE_ASM_WRITTEN (node->decl))
+    fprintf (f, " asm_written");
+
+  fprintf (f, "\n  called by: ");
+  for (edge = node->callers; edge; edge = edge->next_caller)
+    {
+      fprintf (f, "%s/%i ", cgraph_node_name (edge->caller),
+	       edge->caller->uid);
+      if (edge->inline_call)
+	fprintf(f, "(inlined) ");
+    }
+
+  fprintf (f, "\n  calls: ");
+  for (edge = node->callees; edge; edge = edge->next_callee)
+    {
+      fprintf (f, "%s/%i ", cgraph_node_name (edge->callee),
+	       edge->callee->uid);
+      if (edge->inline_call)
+	fprintf(f, "(inlined) ");
+    }
+  fprintf (f, "\n");
+}
+
 /* Dump the callgraph.  */
 
 void
@@ -413,50 +477,7 @@ dump_cgraph (FILE *f)
 
   fprintf (f, "callgraph:\n\n");
   for (node = cgraph_nodes; node; node = node->next)
-    {
-      struct cgraph_edge *edge;
-      fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
-      if (node->global.inlined_to)
-        fprintf (f, " (inline copy in %s)", cgraph_node_name (node->global.inlined_to));
-      if (node->local.self_insns)
-        fprintf (f, " %i insns", node->local.self_insns);
-      if (node->global.insns && node->global.insns != node->local.self_insns)
-	fprintf (f, " (%i after inlining)", node->global.insns);
-      if (node->origin)
-	fprintf (f, " nested in: %s", cgraph_node_name (node->origin));
-      if (node->needed)
-	fprintf (f, " needed");
-      else if (node->reachable)
-	fprintf (f, " reachable");
-      if (DECL_SAVED_TREE (node->decl))
-	fprintf (f, " tree");
-
-      if (node->local.local)
-	fprintf (f, " local");
-      if (node->local.disregard_inline_limits)
-	fprintf (f, " always_inline");
-      else if (node->local.inlinable)
-	fprintf (f, " inlinable");
-
-      fprintf (f, "\n  called by: ");
-      for (edge = node->callers; edge; edge = edge->next_caller)
-	{
-	  fprintf (f, "%s/%i ", cgraph_node_name (edge->caller),
-		   edge->caller->uid);
-	  if (edge->inline_call)
-	    fprintf(f, "(inlined) ");
-	}
-
-      fprintf (f, "\n  calls: ");
-      for (edge = node->callees; edge; edge = edge->next_callee)
-	{
-	  fprintf (f, "%s/%i ", cgraph_node_name (edge->callee),
-		   edge->callee->uid);
-	  if (edge->inline_call)
-	    fprintf(f, "(inlined) ");
-	}
-      fprintf (f, "\n");
-    }
+    dump_cgraph_node (f, node);
 }
 
 /* Returns a hash code for P.  */
