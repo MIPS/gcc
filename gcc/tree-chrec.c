@@ -35,6 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "tree-chrec.h"
 #include "tree-pass.h"
+#include "cfgloop.h"
+#include "tree-flow.h"
 
 
 
@@ -844,6 +846,25 @@ tree_contains_chrecs (tree expr)
     }
 }
 
+
+/* Return true if CHREC is invariant in loop LOOPNUM, false otherwise. */
+
+bool
+evolution_function_is_invariant_p (tree chrec, int loopnum)
+{
+  if (evolution_function_is_constant_p (chrec))
+    return true;
+  
+  if (current_loops != NULL)
+    {
+      if (TREE_CODE (chrec) == SSA_NAME 
+	  && expr_invariant_in_loop_p (current_loops->parray[loopnum],
+				       chrec))
+	  return true;
+    }
+  return false;
+}
+  
 /* Determine whether the given tree is an affine multivariate
    evolution.  */
 
@@ -856,9 +877,11 @@ evolution_function_is_affine_multivariate_p (tree chrec)
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
-      if (evolution_function_is_constant_p (CHREC_LEFT (chrec)))
+      if (evolution_function_is_invariant_p (CHREC_LEFT (chrec),
+					     CHREC_VARIABLE (chrec)))
 	{
-	  if (evolution_function_is_constant_p (CHREC_RIGHT (chrec)))
+	  if (evolution_function_is_invariant_p (CHREC_RIGHT (chrec),
+						 CHREC_VARIABLE (chrec)))
 	    return true;
 	  else
 	    {
@@ -874,7 +897,8 @@ evolution_function_is_affine_multivariate_p (tree chrec)
 	}
       else
 	{
-	  if (evolution_function_is_constant_p (CHREC_RIGHT (chrec))
+	  if (evolution_function_is_invariant_p (CHREC_RIGHT (chrec),
+						 CHREC_VARIABLE (chrec))
 	      && TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
 	      && CHREC_VARIABLE (CHREC_LEFT (chrec)) != CHREC_VARIABLE (chrec)
 	      && evolution_function_is_affine_multivariate_p 

@@ -1,3 +1,21 @@
+2004-12-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Makefile.in (tree-chrec.o): Add cfgloop.h
+
+	* tree-chrec.c: Add cfgloop.h, tree-flow.h.
+	(evolution_function_is_invariant_p): New function.
+	(evolution_function_is_affine_multivariate_p): Use
+	evolution_function_is_invariant_p instead of
+	evolution_function_is_constant_p.
+
+	* tree-chrec.h: Add prototype for
+	evolution_function_is_invariant_p.
+	(evolution_function_is_affine_p): Use
+	evolution_function_is_invariant_p. 
+
+	* tree-data-ref.c (analyze_overlapping_iterations): chrecs that
+	are equal overlap on every iteration.
+	
 2004-12-14  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/18179

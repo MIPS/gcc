@@ -1811,13 +1811,11 @@ analyze_overlapping_iterations (tree chrec_a,
       print_generic_expr (dump_file, chrec_b, 0);
       fprintf (dump_file, ")\n");
     }
-  
+ 
   if (chrec_a == NULL_TREE
       || chrec_b == NULL_TREE
       || chrec_contains_undetermined (chrec_a)
-      || chrec_contains_undetermined (chrec_b)
-      || chrec_contains_symbols (chrec_a)
-      || chrec_contains_symbols (chrec_b))
+      || chrec_contains_undetermined (chrec_b))
     {
       dependence_stats.num_unimplemented++;
       
@@ -1825,6 +1823,26 @@ analyze_overlapping_iterations (tree chrec_a,
       *overlap_iterations_b = chrec_dont_know;
     }
   
+  /* If they are the same chrec, and are affine, they overlap 
+     on every iteration.  */
+  else if (chrec_a == chrec_b
+	   && evolution_function_is_affine_multivariate_p (chrec_a))
+    {
+      *overlap_iterations_a = integer_zero_node;
+      *overlap_iterations_b = integer_zero_node;
+      *last_conflicts = chrec_dont_know;
+    }
+  /* If they aren't the same, and aren't affine, we can't do anything
+     yet. */
+  else if ((chrec_contains_symbols (chrec_a) 
+	    || chrec_contains_symbols (chrec_b))
+	   && (!evolution_function_is_affine_multivariate_p (chrec_a)
+	       || !evolution_function_is_affine_multivariate_p (chrec_b)))
+    {
+      dependence_stats.num_unimplemented++;
+      *overlap_iterations_a = chrec_dont_know;
+      *overlap_iterations_b = chrec_dont_know;
+    }
   else if (ziv_subscript_p (chrec_a, chrec_b))
     analyze_ziv_subscript (chrec_a, chrec_b, 
 			   overlap_iterations_a, overlap_iterations_b,

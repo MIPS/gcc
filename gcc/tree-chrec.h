@@ -146,6 +146,7 @@ evolution_function_is_constant_p (tree chrec)
     }
 }
 
+extern bool evolution_function_is_invariant_p (tree, int);
 /* Determine whether the given tree is an affine evolution function or not.  */
 
 static inline bool 
@@ -157,8 +158,10 @@ evolution_function_is_affine_p (tree chrec)
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
-      if (evolution_function_is_constant_p (CHREC_LEFT (chrec))
-	  && evolution_function_is_constant_p (CHREC_RIGHT (chrec)))
+      if (evolution_function_is_invariant_p (CHREC_LEFT (chrec), 
+					     CHREC_VARIABLE (chrec))
+	  && evolution_function_is_invariant_p (CHREC_RIGHT (chrec),
+						CHREC_VARIABLE (chrec)))
 	return true;
       else
 	return false;
