@@ -1,3 +1,8 @@
+2004-01-26  Jan Hubicka  <jh@suse.cz>
+
+        * cselib.c (discard_useless_values):  Clear out value pointer pointing
+        to datastructure to be recycled.
+
 2004-02-02  Richard Henderson  <rth@redhat.com>
 
 	PR target/13789
