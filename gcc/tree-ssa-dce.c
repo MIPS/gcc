@@ -61,12 +61,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
+#include "flags.h"
 
-
-/* Debugging dumps.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
 
 static varray_type worklist;
 
@@ -159,7 +157,7 @@ print_stats (void)
 
       percg = ((float) stats.removed / (float) stats.total) * 100;
       fprintf (tree_dump_file, "Removed %d of %d statements (%d%%)\n",
-			  stats.removed, stats.total, (int) percg);
+	       stats.removed, stats.total, (int) percg);
 
       if (stats.total_phis == 0)
 	percg = 0;
@@ -167,7 +165,7 @@ print_stats (void)
 	percg = ((float) stats.removed_phis / (float) stats.total_phis) * 100;
 
       fprintf (tree_dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
-			  stats.removed_phis, stats.total_phis, (int) percg);
+	       stats.removed_phis, stats.total_phis, (int) percg);
     }
 }
 
@@ -513,31 +511,17 @@ should_remove_dead_stmt (tree t)
   return true;
 }
 
-/* Main routine to eliminate dead code.
+/* Main routine to eliminate dead code.  */
 
-   PHASE indicates which dump file from the DUMP_FILES array to use when
-   dumping debugging information.  */
-
-void
-tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
+static void
+tree_ssa_dce (void)
 {
-  tree fnbody;
-
-  timevar_push (TV_TREE_DCE);
-
   memset ((void *) &stats, 0, sizeof (stats));
-
-  fnbody = DECL_SAVED_TREE (fndecl);
-  if (fnbody == NULL_TREE)
-    abort ();
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
   processed = sbitmap_alloc (highest_ssa_version + 1);
   sbitmap_zero (processed);
-
-  /* Initialize tree_dump_file for debugging dumps.  */
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   find_useful_stmts ();
 
@@ -557,10 +541,30 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
   /* Debugging dumps.  */
   if (tree_dump_file)
     {
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
+      dump_function_to_file (current_function_decl,
+			     tree_dump_file, tree_dump_flags);
       print_stats ();
-      dump_end (phase, tree_dump_file);
     }
-
-  timevar_pop (TV_TREE_DCE);
 }
+
+static bool
+gate_dce (void)
+{
+  return flag_tree_dce != 0;
+}
+
+struct tree_opt_pass pass_dce = 
+{
+  "dce",				/* name */
+  gate_dce,				/* gate */
+  tree_ssa_dce,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_DCE,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_ggc_collect | TODO_verify_ssa	/* todo_flags_finish */
+};

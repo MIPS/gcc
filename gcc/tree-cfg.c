@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "timevar.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "toplev.h"
 #include "except.h"
 #include "cfgloop.h"
@@ -50,10 +51,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Initial capacity for the basic block array.  */
 static const int initial_cfg_capacity = 20;
-
-/* Dump files and flags.  */
-static FILE *tree_dump_file;		/* CFG dump file. */
-static int tree_dump_flags;		/* CFG dump flags.  */
 
 /* Mapping of labels to their associated blocks.  This can greatly speed up
    building of the CFG in code with lots of gotos.  */
@@ -129,14 +126,13 @@ static int phi_alternatives_equal (basic_block, edge, edge);
    function to process.  */
 
 void
-build_tree_cfg (tree *fnbody)
+build_tree_cfg (tree *tp)
 {
-  timevar_push (TV_TREE_CFG);
-
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
 
   /* Initialize the basic block array.  */
+  init_flow ();
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
@@ -150,7 +146,7 @@ build_tree_cfg (tree *fnbody)
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 
   found_computed_goto = 0;
-  make_blocks (*fnbody);
+  make_blocks (*tp);
 
   /* Computed gotos are hell to deal with, especially if there are
      lots of them with a large number of destinations.  So we factor
@@ -160,40 +156,58 @@ build_tree_cfg (tree *fnbody)
   if (found_computed_goto)
     factor_computed_gotos ();
 
-  if (n_basic_blocks > 0)
-    {
-      /* Adjust the size of the array.  */
-      VARRAY_GROW (basic_block_info, n_basic_blocks);
+  /* Make sure there is always at least one block, even if its empty.  */
+  if (n_basic_blocks == 0)
+    create_bb (NULL, ENTRY_BLOCK_PTR);
 
-      /* Create block annotations.  */
-      create_blocks_annotations ();
+  /* Adjust the size of the array.  */
+  VARRAY_GROW (basic_block_info, n_basic_blocks);
 
-      /* Create the edges of the flowgraph.  */
-      make_edges ();
-    }
+  /* Create block annotations.  */
+  create_blocks_annotations ();
 
-  timevar_pop (TV_TREE_CFG);
+  /* Create the edges of the flowgraph.  */
+  make_edges ();
 
   /* Debugging dumps.  */
-  if (n_basic_blocks > 0)
-    {
-      /* Write the flowgraph to a dot file.  */
-      tree_dump_file = dump_begin (TDI_dot, &tree_dump_flags);
-      if (tree_dump_file)
-	{
-	  tree_cfg2dot (tree_dump_file);
-	  dump_end (TDI_dot, tree_dump_file);
-	}
 
-      /* Dump a textual representation of the flowgraph.  */
-      tree_dump_file = dump_begin (TDI_cfg, &tree_dump_flags);
-      if (tree_dump_file)
-	{
-	  dump_tree_cfg (tree_dump_file, tree_dump_flags);
-	  dump_end (TDI_cfg, tree_dump_file);
-	}
-    }
+  /* Write the flowgraph to a dot file.  */
+  {
+    int dump_flags;
+    FILE *dump_file = dump_begin (TDI_dot, &dump_flags);
+    if (dump_file)
+      {
+	tree_cfg2dot (dump_file);
+	dump_end (TDI_dot, dump_file);
+      }
+  }
+
+  /* Dump a textual representation of the flowgraph.  */
+  if (tree_dump_file)
+    dump_tree_cfg (tree_dump_file, tree_dump_flags);
 }
+
+static void
+execute_build_cfg (void)
+{
+  build_tree_cfg (&DECL_SAVED_TREE (current_function_decl));
+}
+
+struct tree_opt_pass pass_build_cfg =
+{
+  "cfg",				/* name */
+  NULL,					/* gate */
+  execute_build_cfg,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_CFG,				/* tv_id */
+  PROP_gimple_leh,			/* properties_required */
+  PROP_cfg,				/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_stmts			/* todo_flags_finish */
+};
 
 /* Search the CFG for any computed gotos.  If found, factor them to a 
    common computed goto site.  Also record the location of that site so
@@ -1223,8 +1237,8 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     }
 }
 
-void
-remove_useless_stmts (tree *first_p)
+static void
+remove_useless_stmts (void)
 {
   struct rus_data data;
 
@@ -1233,10 +1247,26 @@ remove_useless_stmts (tree *first_p)
   do
     {
       memset (&data, 0, sizeof (data));
-      remove_useless_stmts_1 (first_p, &data);
+      remove_useless_stmts_1 (&DECL_SAVED_TREE (current_function_decl), &data);
     }
   while (data.repeat);
 }
+
+struct tree_opt_pass pass_remove_useless_stmts = 
+{
+  "useless",				/* name */
+  NULL,					/* gate */
+  remove_useless_stmts,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
 
 /* Remove obviously useless statements in basic block BB.  */
 
@@ -1409,7 +1439,6 @@ remove_bb (basic_block bb)
   block_stmt_iterator i;
   location_t *loc = NULL;
 
-  tree_dump_file = dump_begin (TDI_cfg, &tree_dump_flags);
   if (tree_dump_file)
     {
       fprintf (tree_dump_file, "Removing basic block %d\n", bb->index);
@@ -1418,8 +1447,6 @@ remove_bb (basic_block bb)
 	  dump_bb (bb, tree_dump_file, 0);
 	  fprintf (tree_dump_file, "\n");
 	}
-      dump_end (TDI_cfg, tree_dump_file);
-      tree_dump_file = NULL;
     }
 
   /* Remove all the instructions in the block.  */

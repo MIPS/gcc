@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
+#include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
 
@@ -56,10 +57,6 @@ Boston, MA 02111-1307, USA.  */
    Graph. ACM Transactions on Programming Languages and Systems,
    13(4):451-490, October 1991.  */
 
-
-/* Dump file and flags.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
 
 /* Workstack for computing PHI node insertion points.  */
 static GTY (()) varray_type work_stack = NULL;
@@ -161,9 +158,6 @@ struct rewrite_block_data
 };
 
 static struct ssa_stats_d ssa_stats;
-
-/* Bitmap representing variables that need to be renamed into SSA form.  */
-static bitmap vars_to_rename;
 
 /* Local functions.  */
 static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
@@ -331,7 +325,7 @@ set_value_for (tree var, tree value, varray_type table)
    increased compilation time.  */
 
 void
-rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
+rewrite_into_ssa (void)
 {
   bitmap *dfs;
   basic_block bb;
@@ -340,12 +334,8 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   
   timevar_push (TV_TREE_SSA_OTHER);
 
-  /* Debugging dumps.  */
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
-
   /* Initialize the array of variables to rename.  */
-  vars_to_rename = vars;
-  if (vars != NULL)
+  if (vars_to_rename != NULL)
     remove_all_phi_nodes_for (vars_to_rename);
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
@@ -438,16 +428,10 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
-  if (tree_dump_file)
+  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
     {
-      if (tree_dump_flags & TDF_STATS)
-	{
-	  dump_dfa_stats (tree_dump_file);
-	  dump_tree_ssa_stats (tree_dump_file);
-	}
-
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (phase, tree_dump_file);
+      dump_dfa_stats (tree_dump_file);
+      dump_tree_ssa_stats (tree_dump_file);
     }
 
   /* Free allocated memory.  */
@@ -460,6 +444,23 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
   timevar_pop (TV_TREE_SSA_OTHER);
 }
+
+struct tree_opt_pass pass_build_ssa = 
+{
+  "ssa",				/* name */
+  NULL,					/* gate */
+  rewrite_into_ssa,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_referenced_vars,	/* properties_required */
+  PROP_ssa,				/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
 
 /* Compute global livein information given the set of blockx where
    an object is locally live at the start of the block (LIVEIN)
@@ -2675,30 +2676,27 @@ rewrite_vars_out_of_ssa (bitmap vars)
    PHASE indicates which dump file from the TREE_DUMP_FILES array to use when
    dumping debugging information.  */
 
-void
-rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
+static void
+rewrite_out_of_ssa (void)
 {
   var_map map;
   int var_flags = 0;
   int ssa_flags = SSANORM_REMOVE_ALL_PHIS;
-
-  timevar_push (TV_TREE_SSA_TO_NORMAL);
-
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   eliminate_virtual_phis ();
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
 
-  if (flag_tree_ter)
+  /* We cannot allow unssa to un-gimplify trees before we instrument them.  */
+  if (flag_tree_ter && !flag_mudflap)
     var_flags = SSA_VAR_MAP_REF_COUNT;
 
   map = create_ssa_var_map (var_flags);
 
   if (flag_tree_combine_temps)
     ssa_flags |= SSANORM_COMBINE_TEMPS;
-  if (flag_tree_ter)
+  if (flag_tree_ter && !flag_mudflap)
     ssa_flags |= SSANORM_PERFORM_TER;
 
   remove_ssa_form (tree_dump_file, map, ssa_flags);
@@ -2713,17 +2711,27 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   /* Remove unnecesary variables.  */
   remove_useless_vars ();
 
-  /* Debugging dumps.  */
-  if (tree_dump_file)
-    {
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags & ~TDF_VOPS);
-      dump_end (phase, tree_dump_file);
-    }
-
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
-  timevar_pop (TV_TREE_SSA_TO_NORMAL);
 }
+
+struct tree_opt_pass pass_del_ssa = 
+{
+  "optimized",				/* name */
+  NULL,					/* gate */
+  rewrite_out_of_ssa,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_SSA_TO_NORMAL,		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  /* ??? If TER is enabled, we also kill gimple.  */
+  PROP_ssa,				/* properties_destroyed */
+  TODO_verify_ssa | TODO_verify_flow
+    | TODO_verify_stmts,		/* todo_flags_start */
+  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
+};
 
 /* Remove edge E and remove the corresponding arguments from the PHI nodes
    in E's destination block.  */

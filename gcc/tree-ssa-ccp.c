@@ -46,13 +46,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+
 #include "diagnostic.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
 #include "expr.h"
+#include "flags.h"
+
 
 /* Possible lattice values.  */
 typedef enum
@@ -112,7 +116,7 @@ static void def_to_varying (tree);
 static void set_lattice_value (tree, value);
 static void simulate_block (basic_block);
 static void simulate_stmt (tree);
-static void substitute_and_fold (bitmap);
+static void substitute_and_fold (void);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
 static bool replace_uses_in (tree, bool *);
@@ -128,11 +132,6 @@ static void cfg_blocks_add (basic_block);
 static basic_block cfg_blocks_get (void);
 static bool need_imm_uses_for (tree var);
 
-/* Debugging dumps.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
-
-
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
    the declaration for the function to optimize.
    
@@ -143,14 +142,9 @@ static int tree_dump_flags;
    PHASE indicates which dump file from the DUMP_FILES array to use when
    dumping debugging information.  */
 
-void
-tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
+static void
+tree_ssa_ccp (void)
 {
-  timevar_push (TV_TREE_CCP);
-
-  /* Initialize debugging dumps.  */
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
-
   initialize ();
 
   /* Iterate until the worklists are empty.  */
@@ -183,7 +177,7 @@ tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
     }
 
   /* Now perform substitutions based on the known constant values.  */
-  substitute_and_fold (vars_to_rename);
+  substitute_and_fold ();
 
   /* Now cleanup any unreachable code.  */
   cleanup_tree_cfg ();
@@ -192,21 +186,35 @@ tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
   finalize ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file)
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      if (tree_dump_flags & TDF_DETAILS)
-	{
-	  dump_referenced_vars (tree_dump_file);
-	  fprintf (tree_dump_file, "\n\n");
-	  fprintf (tree_dump_file, "\n");
-	}
-
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (phase, tree_dump_file);
+      dump_referenced_vars (tree_dump_file);
+      fprintf (tree_dump_file, "\n\n");
     }
-
-  timevar_pop (TV_TREE_CCP);
 }
+
+static bool
+gate_ccp (void)
+{
+  return flag_tree_ccp != 0;
+}
+
+struct tree_opt_pass pass_ccp = 
+{
+  "ccp",				/* name */
+  gate_ccp,				/* gate */
+  tree_ssa_ccp,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_CCP,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars | TODO_redundant_phi
+    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+};
 
 
 /* Get the constant value associated with variable VAR.  */
@@ -323,12 +331,13 @@ simulate_stmt (tree use_stmt)
    should still be in SSA form.  */
 
 static void
-substitute_and_fold (bitmap vars_to_rename)
+substitute_and_fold (void)
 {
   basic_block bb;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\nSubstituing constants and folding statements\n\n");
+    fprintf (tree_dump_file,
+	     "\nSubstituing constants and folding statements\n\n");
 
   /* Substitute constants in every statement of every basic block.  */
   FOR_EACH_BB (bb)

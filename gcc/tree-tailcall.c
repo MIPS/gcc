@@ -32,10 +32,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "diagnostic.h"
 #include "except.h"
+#include "tree-pass.h"
+#include "flags.h"
 
-/* Dump files and flags.  */
-static FILE *tree_dump_file;		/* CFG dump file. */
-static int tree_dump_flags;		/* CFG dump flags.  */
 
 /* A structure that describes the tailcall.  */
 
@@ -258,7 +257,8 @@ eliminate_tail_call (struct tailcall *t)
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Eliminated tail recursion in bb %d : ", bb->index);
+      fprintf (tree_dump_file, "Eliminated tail recursion in bb %d : ",
+	       bb->index);
       print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
       fprintf (tree_dump_file, "\n");
     }
@@ -361,8 +361,8 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
 /* Optimizes tail calls in the function, turning the tail recursion
    into iteration.  */
 
-void
-tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
+static void
+tree_optimize_tail_calls_1 (bool opt_tailcalls)
 {
   edge e;
   bool phis_constructed = false;
@@ -373,7 +373,6 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
     return;
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
-  tree_dump_file = dump_begin (pass, &tree_dump_flags);
 
   common.return_block = NULL;
   common.ret_variable = NULL_TREE;
@@ -399,10 +398,54 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
       free_dominance_info (CDI_DOMINATORS);
       cleanup_tree_cfg ();
     }
-
-  if (tree_dump_file)
-    {
-      dump_function_to_file (current_function_decl, tree_dump_file, tree_dump_flags);
-      dump_end (pass, tree_dump_file);
-    }
 }
+
+static void
+execute_tail_recursion (void)
+{
+  tree_optimize_tail_calls_1 (false);
+}
+
+static bool
+gate_tail_calls (void)
+{
+  return flag_optimize_sibling_calls != 0;
+}
+
+static void
+execute_tail_calls (void)
+{
+  tree_optimize_tail_calls_1 (true);
+}
+
+struct tree_opt_pass pass_tail_recursion = 
+{
+  "tailr",				/* name */
+  NULL,					/* gate */
+  execute_tail_recursion,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_tail_calls = 
+{
+  "tailc",				/* name */
+  gate_tail_calls,			/* gate */
+  execute_tail_calls,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};

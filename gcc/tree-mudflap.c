@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-mudflap.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "hashtab.h"
 #include "diagnostic.h"
 #include <demangle.h>
@@ -108,39 +109,81 @@ mf_build_string (const char *string)
 /* Perform the declaration-related mudflap tree transforms on the
    given function.  Update its DECL_SAVED_TREE.  */
 
-void
-mudflap_c_function_decls (tree t)
+static void
+mudflap_function_decls (void)
 {
+  if (mf_marked_p (current_function_decl))
+    return;
+
   push_gimplify_context ();
 
   mf_init_extern_trees ();
-  mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
+  mf_xform_decls (DECL_SAVED_TREE (current_function_decl),
+		  DECL_ARGUMENTS (current_function_decl));
 
   pop_gimplify_context (NULL);
-
-  dump_function (TDI_mudflap1, t);
 }
+
+static bool
+gate_mudflap (void)
+{
+  return flag_mudflap != 0;
+}
+
+struct tree_opt_pass pass_mudflap_1 = 
+{
+  "mudflap1",				/* name */
+  gate_mudflap,				/* gate */
+  mudflap_function_decls,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
 
 /* Same as above, for the indirection-related transforms.  */
 
-void
-mudflap_c_function_ops (tree t)
+static void
+mudflap_function_ops (void)
 {
+  if (mf_marked_p (current_function_decl))
+    return;
+
   push_gimplify_context ();
 
   /* In multithreaded mode, don't cache the lookup cache parameters.  */
   if (! (flag_mudflap > 1))
-    mf_decl_cache_locals (&DECL_SAVED_TREE (t));
+    mf_decl_cache_locals (&DECL_SAVED_TREE (current_function_decl));
 
-  mf_xform_derefs (DECL_SAVED_TREE (t));
+  mf_xform_derefs (DECL_SAVED_TREE (current_function_decl));
 
   if (! (flag_mudflap > 1))
     mf_decl_clear_locals ();
 
   pop_gimplify_context (NULL);
-
-  dump_function (TDI_mudflap2, t);
 }
+
+struct tree_opt_pass pass_mudflap_2 = 
+{
+  "mudflap2",				/* name */
+  gate_mudflap,				/* gate */
+  mudflap_function_ops,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_leh,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
 
 /* global tree nodes */
 
@@ -148,22 +191,40 @@ mudflap_c_function_ops (tree t)
    mudflap runtime library.  mf_init_extern_trees must be called
    before using these.  */
 
-static GTY (()) tree mf_uintptr_type;      /* uintptr_t (usually "unsigned long") */
-static GTY (()) tree mf_cache_struct_type; /* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
-static GTY (()) tree mf_cache_structptr_type; /* struct __mf_cache * const */
+/* uintptr_t (usually "unsigned long") */
+static GTY (()) tree mf_uintptr_type;
 
-static GTY (()) tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_lookup_cache []; */
-static GTY (()) tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
-static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
+/* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
+static GTY (()) tree mf_cache_struct_type;
+
+/* struct __mf_cache * const */
+static GTY (()) tree mf_cache_structptr_type;
+
+/* extern struct __mf_cache __mf_lookup_cache []; */
+static GTY (()) tree mf_cache_array_decl;
+
+/* extern const unsigned char __mf_lc_shift; */
+static GTY (()) tree mf_cache_shift_decl;
+
+/* extern const uintptr_t __mf_lc_mask; */
+static GTY (()) tree mf_cache_mask_decl;
 
 /* Their function-scope local shadows, used in single-threaded mode only. */
-static GTY (()) tree mf_cache_shift_decl_l; /* auto const unsigned char __mf_lc_shift_l; */
-static GTY (()) tree mf_cache_mask_decl_l;  /* auto const uintptr_t __mf_lc_mask_l; */
 
-static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz, int type, const char *); */
-static GTY (()) tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
-static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
+/* auto const unsigned char __mf_lc_shift_l; */
+static GTY (()) tree mf_cache_shift_decl_l;
 
+/* auto const uintptr_t __mf_lc_mask_l; */
+static GTY (()) tree mf_cache_mask_decl_l;
+
+/* extern void __mf_check (void *ptr, size_t sz, int type, const char *); */
+static GTY (()) tree mf_check_fndecl;
+
+/* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
+static GTY (()) tree mf_register_fndecl;
+
+/* extern void __mf_unregister (void *ptr, size_t sz); */
+static GTY (()) tree mf_unregister_fndecl;
 
 
 /* Initialize the global tree nodes that correspond to mf-runtime.h
@@ -849,15 +910,12 @@ mudflap_enqueue_decl (tree obj)
 
   if (COMPLETE_TYPE_P (TREE_TYPE (obj)))
     {
-      FILE *tree_dump_file;
-      int tree_dump_flags;
       tree object_size;
 
       mf_mark (obj);
 
       object_size = size_in_bytes (TREE_TYPE (obj));
 
-      tree_dump_file = dump_begin (TDI_mudflap1, &tree_dump_flags);
       if (tree_dump_file)
         {
           fprintf (tree_dump_file, "enqueue_decl obj=`");
@@ -865,7 +923,6 @@ mudflap_enqueue_decl (tree obj)
           fprintf (tree_dump_file, "' size=");
           print_generic_expr (tree_dump_file, object_size, 0);
           fprintf (tree_dump_file, "\n");
-          dump_end (TDI_mudflap1, tree_dump_file);
         }
 
       /* NB: the above condition doesn't require TREE_USED or
@@ -908,21 +965,14 @@ mudflap_enqueue_constant (tree obj)
   else
     object_size = size_in_bytes (TREE_TYPE (obj));
 
-  {
-    FILE *tree_dump_file;
-    int tree_dump_flags;
-
-    tree_dump_file = dump_begin (TDI_mudflap1, &tree_dump_flags);
-    if (tree_dump_file)
-      {
-        fprintf (tree_dump_file, "enqueue_constant obj=`");
-        print_generic_expr (tree_dump_file, obj, 0);
-        fprintf (tree_dump_file, "' size=");
-        print_generic_expr (tree_dump_file, object_size, 0);
-        fprintf (tree_dump_file, "\n");
-        dump_end (TDI_mudflap1, tree_dump_file);
-      }
-  }
+  if (tree_dump_file)
+    {
+      fprintf (tree_dump_file, "enqueue_constant obj=`");
+      print_generic_expr (tree_dump_file, obj, 0);
+      fprintf (tree_dump_file, "' size=");
+      print_generic_expr (tree_dump_file, object_size, 0);
+      fprintf (tree_dump_file, "\n");
+    }
 
   if (TREE_CODE (obj) == STRING_CST)
     varname = mf_build_string ("string literal");

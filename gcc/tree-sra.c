@@ -40,7 +40,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
+#include "flags.h"
+
 
 /* Maximum number of fields that a structure should have to be scalarized.
    FIXME  This limit has been arbitrarily set to 5.  Experiment to find a
@@ -66,18 +69,8 @@ static void scalarize_asm_expr (block_stmt_iterator *);
 static void scalarize_return_expr (block_stmt_iterator *);
 static void scalarize_tree_list (tree, block_stmt_iterator *);
 
-/* Local variables.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
-
 /* The set of aggregate variables that are candidates for scalarization.  */
 static sbitmap sra_candidates;
-
-/* Set of variables to be renamed.  This bitmap does not include the new
-   scalar replacements created during this pass.  At the end of the pass,
-   a new set is created with all the variables in this set and all the new
-   scalar replacements.  */
-static bitmap vars_to_rename;
 
 /* Set of scalarizable PARM_DECLs that need copy-in operations at the
    beginning of the function.  */
@@ -876,14 +869,10 @@ scalarize_return_expr (block_stmt_iterator *si_p)
    3- Timings to determine when scalarization is not profitable.
    4- Determine what's a good value for MAX_NFIELDS_FOR_SRA.  */
 
-void
-tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
+static void
+tree_sra (void)
 {
   size_t old_num_referenced_vars;
-
-  timevar_push (TV_TREE_SRA);
-
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   /* Initialize local variables.  */
   sra_candidates = sbitmap_alloc (num_referenced_vars);
@@ -891,8 +880,6 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
   sra_map = NULL;
   needs_copy_in = NULL;
   old_num_referenced_vars = num_referenced_vars;
-
-  vars_to_rename = vars;
 
   /* Find structures to be scalarized.  */
   find_candidates_for_sra ();
@@ -943,7 +930,8 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
 		      if (sra_map[i][j])
 			{
-			  print_generic_expr (tree_dump_file, referenced_var (i), 0);
+			  print_generic_expr (tree_dump_file,
+					      referenced_var (i), 0);
 			  fprintf (tree_dump_file, ".%s -> %s\n",
 				   get_name (f),
 				   get_name (sra_map[i][j]));
@@ -956,9 +944,6 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
 		}
 	    }
 	}
-
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (phase, tree_dump_file);
     }
 
   /* Free allocated memory.  */
@@ -971,6 +956,27 @@ tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
     }
 
   sbitmap_free (sra_candidates);
-
-  timevar_pop (TV_TREE_SRA);
 }
+
+static bool
+gate_sra (void)
+{
+  return flag_tree_sra != 0;
+}
+
+struct tree_opt_pass pass_sra = 
+{
+  "sra",				/* name */
+  gate_sra,				/* gate */
+  tree_sra,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_SRA,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars
+    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+};

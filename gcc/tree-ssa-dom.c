@@ -39,12 +39,11 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "domwalk.h"
 #include "real.h"
+#include "tree-pass.h"
+#include "flags.h"
+
 
 /* This file implements optimizations on the dominator tree.  */
-
-/* Dump file and flags.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
 
 /* Hash table with expressions made available during the renaming process.
    When an assignment of the form X_i = EXPR is found, the statement is
@@ -78,10 +77,6 @@ static varray_type nonzero_vars;
 
 /* Track whether or not we have changed the control flow graph.  */
 static bool cfg_altered;
-
-/* This pass can expose additional variables to rename.  We track them in
-   this bitmap.  */
-static bitmap vars_to_rename;
 
 /* Statistics for dominator optimizations.  */
 struct opt_stats_d
@@ -285,29 +280,18 @@ set_value_for (tree var, tree value, varray_type table)
    PHASE indicates which dump file from the DUMP_FILES array to use when
    dumping debugging information.  */
 
-void
-tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
-			     enum tree_dump_index phase)
+static void
+tree_ssa_dominator_optimize (void)
 {
   basic_block bb;
   edge e;
   struct dom_walk_data walk_data;
   tree phi;
 
-  timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
-
   /* Mark loop edges so we avoid threading across loop boundaries.
      This may result in transforming natural loop into irreducible
      region.  */
   mark_dfs_back_edges ();
-
-  /* Once we have the ability to attach pass-global data to the dominator
-     walker datastructure this (along with other pass-global data) should
-     move into that structure.  */
-  vars_to_rename = vars;
-
-  /* Set up debugging dump files.  */
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
 
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
@@ -512,7 +496,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
       if (cfg_altered
 	  && bitmap_first_set_bit (vars_to_rename) >= 0)
 	{
-	  rewrite_into_ssa (fndecl, vars_to_rename, TDI_none);
+	  rewrite_into_ssa ();
 	  bitmap_clear (vars_to_rename);
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);
@@ -528,13 +512,8 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file)
-    {
-      if (tree_dump_flags & TDF_STATS)
-	dump_dominator_optimization_stats (tree_dump_file);
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (phase, tree_dump_file);
-    }
+  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
+    dump_dominator_optimization_stats (tree_dump_file);
 
   htab_delete (avail_exprs);
   htab_delete (true_exprs);
@@ -544,9 +523,31 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
-
-  timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
 }
+
+static bool
+gate_dominator (void)
+{
+  return flag_tree_dom != 0;
+}
+
+struct tree_opt_pass pass_dominator = 
+{
+  "dom",				/* name */
+  gate_dominator,			/* gate */
+  tree_ssa_dominator_optimize,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_SSA_DOMINATOR_OPTS,		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars
+    | TODO_redundant_phi | TODO_verify_ssa	/* todo_flags_finish */
+};
+
 
 /* We are exiting BB, see if the target block begins with a conditional
    jump which has a known value when reached via BB.  */

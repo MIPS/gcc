@@ -3555,7 +3555,7 @@ tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 /* In tree-dump.c */
 
 /* Different tree dump places.  When you add new tree dump places,
-   extend the DUMP_FILES array in tree-dump.c */
+   extend the DUMP_FILES array in tree-dump.c.  */
 enum tree_dump_index
 {
   TDI_none,			/* No dump */
@@ -3565,43 +3565,10 @@ enum tree_dump_index
   TDI_generic,			/* dump each function after genericizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
-  TDI_gimple,			/* dump each function after gimplifying it.  */
-  TDI_useless,			/* dump after cleaning useless bits.  */
-  TDI_mudflap1,
-  TDI_lower,			/* dump after lowering containers.  */
-  TDI_eh,			/* dump after lowering eh.  */
-  TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
-
-  /* Optimization passes.  The ordering and numbering of these phases must
-     be the same as the one in optimize_function_tree.  */
-  TDI_ssa_1,
-  TDI_dom_1,
-  TDI_ssa_2,
-  TDI_dce_1,
-  TDI_pta,
-  TDI_alias,
-  TDI_ssa_3,
-  TDI_sra,
-  TDI_ssa_4,
-  TDI_dom_2,
-  TDI_ssa_5,
-  TDI_dce_2,
-  TDI_loop,
-  TDI_tail1,
-  TDI_ccp,
-  TDI_ssa_6,
-  TDI_pre,
-  TDI_dom_3,
-  TDI_ssa_7,
-  TDI_dce_3,
-  TDI_tail2,
-  TDI_optimized,
-  TDI_mudflap2,
-
   TDI_xml,                      /* dump function call graph.   */
-  TDI_all,			/* enable all the dumps above.  */
+  TDI_all,			/* enable all the dumps.  */
   TDI_end
 };
 

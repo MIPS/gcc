@@ -43,267 +43,112 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "tree-mudflap.h"
+#include "tree-pass.h"
 #include "tree-alias-common.h"
 #include "ggc.h"
 #include "cgraph.h"
 
-static void tree_ssa_finish (tree *);
 
-/* Rewrite a function tree to the SSA form and perform the SSA-based
-   optimizations on it.  */
+/* Global variables used to communicate with passes.  */
+FILE *tree_dump_file;
+int tree_dump_flags;
+bitmap vars_to_rename;
 
-/* Main entry point to the tree SSA transformation routines.  FNDECL is the
-   FUNCTION_DECL node for the function to optimize.  */
+/* The root of the compilation pass tree, once constructed.  */
+static struct tree_opt_pass *all_passes;
+
+/* Pass: gimplify the function if it's not been done.  */
 
 static void
-optimize_function_tree (tree fndecl, tree *chain)
+execute_gimple (void)
 {
-  /* Don't bother doing anything if the program has errors.  */
-  if (errorcount || sorrycount)
-    return;
-
-  /* Build the flowgraph.  */
-  init_flow ();
-
-  build_tree_cfg (chain);
-
-  /* Begin analysis and optimization passes.  After the function is
-     initially renamed into SSA form, passes are responsible from keeping
-     it in SSA form.  If a pass exposes new symbols or invalidates the SSA
-     numbering for existing variables, it should add them to the
-     VARS_TO_RENAME bitmap and call rewrite_into_ssa() afterwards.  */
-  if (n_basic_blocks > 0)
-    {
-      bitmap vars_to_rename;
-
-#ifdef ENABLE_CHECKING
-      verify_stmts ();
-#endif
-
-      /* Initialize common SSA structures.  */
-      init_tree_ssa ();
-
-      /* Find all the variables referenced in the function.  */
-      find_referenced_vars (fndecl);
-
-      /* If a points-to algorithm has been selected, call it now.  */
-      if (flag_tree_points_to == PTA_ANDERSEN)
-	{
-	  timevar_push (TV_TREE_PTA);
-	  create_alias_vars (fndecl);
-	  timevar_pop (TV_TREE_PTA);
-	}
-
-      /*			BEGIN SSA PASSES
-
-	 IMPORTANT: If you change the order in which these passes are
-		    executed, you also need to change the enum
-		    TREE_DUMP_INDEX in tree.h and DUMP_FILES in
-                    tree-dump.c.  */
-
-
-      /* Rewrite the function into SSA form.  Initially, request all
-	 variables to be renamed.  */
-      rewrite_into_ssa (fndecl, NULL, TDI_ssa_1);
-
-#ifdef ENABLE_CHECKING
-      verify_ssa ();
-#endif
-
-      /* Set up VARS_TO_RENAME to allow passes to inform which variables
-	 need to be renamed.  */
-      vars_to_rename = BITMAP_XMALLOC ();
-
-      /* Perform dominator optimizations.  */
-      if (flag_tree_dom)
-	{
-	  bitmap_clear (vars_to_rename);
-	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_1);
-
-	  /* If the dominator optimizations exposed new variables, we need
-	      to repeat the SSA renaming process for those symbols.  */
-	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_2);
-
-	  kill_redundant_phi_nodes ();
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Do a first DCE pass to remove dead pointer assignments taking the
-	 address of local variables.  */
-      if (flag_tree_dce)
-	tree_ssa_dce (fndecl, TDI_dce_1);
-
-      ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-      verify_ssa ();
-#endif
-
-      /* Compute aliasing information for all the variables referenced in
-	 the function.  */
-      bitmap_clear (vars_to_rename);
-      compute_may_aliases (fndecl, vars_to_rename, TDI_alias);
-
-      /* Run the SSA pass again if we need to rename new variables.  */
-      if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
-      ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-      verify_ssa ();
-#endif
-
-      /* Scalarize some structure references.  */
-      if (flag_tree_sra)
-	{
-	  bitmap_clear (vars_to_rename);
-	  tree_sra (fndecl, vars_to_rename, TDI_sra);
-
-	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
-          ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Now that alias analysis has been done and structures scalarized,
-	 do a second DOM/DCE pass to clean up things we couldn't before.  */
-      if (flag_tree_dom)
-	{
-	  bitmap_clear (vars_to_rename);
-	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_2);
-
-	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Do a second DCE pass.  */
-      if (flag_tree_dce)
-	{
-	  tree_ssa_dce (fndecl, TDI_dce_2);
-	  ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Do loop optimizations.  */
-      if (flag_tree_loop)
-	{
-	  tree_ssa_loop_opt (fndecl, TDI_loop);
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Eliminate tail recursion calls.  */
-      tree_optimize_tail_calls (false, TDI_tail1);
-
-#ifdef ENABLE_CHECKING
-      verify_ssa ();
-#endif
-
-      /* Run SCCP (Sparse Conditional Constant Propagation).  */
-      if (flag_tree_ccp)
-	{
-	  bitmap_clear (vars_to_rename);
-	  tree_ssa_ccp (fndecl, vars_to_rename, TDI_ccp);
-
-	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
-          ggc_collect ();
-
-	  kill_redundant_phi_nodes ();
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Run SSA-PRE (Partial Redundancy Elimination).  */
-      if (flag_tree_pre)
-	{
-	  tree_perform_ssapre (fndecl, TDI_pre);
-	  ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Perform a third pass of dominator optimizations.  */
-      if (flag_tree_dom)
-	{
-	  bitmap_clear (vars_to_rename);
-	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_3);
-
-	  /* Run the SSA pass again if we need to rename new variables.  */
-	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_7);
-
-	  kill_redundant_phi_nodes ();
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Do a third DCE pass.  */
-      if (flag_tree_dce)
-	{
-	  tree_ssa_dce (fndecl, TDI_dce_3);
-	  ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
-      /* Eliminate tail recursion calls and discover sibling calls.  */
-      tree_optimize_tail_calls (true, TDI_tail2);
-
-#ifdef ENABLE_CHECKING
-      verify_ssa ();
-#endif
-
-#ifdef ENABLE_CHECKING
-      verify_flow_info ();
-      verify_stmts ();
-      verify_ssa ();
-#endif
-
-      /* Rewrite the function out of SSA form.  */
-      rewrite_out_of_ssa (fndecl, TDI_optimized);
-      ggc_collect ();
-
-      /* Flush out flow graph and SSA data.  */
-      BITMAP_XFREE (vars_to_rename);
-  
-      free_dominance_info (CDI_DOMINATORS);
-    }
-
-  tree_ssa_finish (chain);
+  /* We have this test here rather than as the gate because we always
+     want to dump the original gimplified function.  */
+  if (!lang_hooks.gimple_before_inlining)
+    gimplify_function_tree (current_function_decl);
 }
 
-/* Do the actions required to finish with tree-ssa optimization
-   passes.  Return the final chain of statements in CHAIN.  */
+static struct tree_opt_pass pass_gimple = 
+{
+  "gimple",				/* name */
+  NULL,					/* gate */
+  execute_gimple,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  PROP_gimple_any,			/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
+/* Pass: replace the outermost BIND_EXPR.  We removed all of them while
+   optimizing, but the tree->rtl expander requires it.  */
 
 static void
-tree_ssa_finish (tree *chain)
+execute_rebuild_bind (void)
+{
+  DECL_SAVED_TREE (current_function_decl)
+    = build (BIND_EXPR, void_type_node, NULL_TREE,
+	     DECL_SAVED_TREE (current_function_decl), NULL_TREE);
+}
+
+static struct tree_opt_pass pass_rebuild_bind = 
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  execute_rebuild_bind,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_optimizations (void)
+{
+  return (optimize >= 1 && !flag_disable_tree_ssa
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !(errorcount || sorrycount));
+}
+
+static struct tree_opt_pass pass_all_optimizations =
+{
+  NULL,					/* name */
+  gate_all_optimizations,		/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+/* Pass: do the actions required to finish with tree-ssa optimization
+   passes.  */
+
+static void
+execute_del_cfg (void)
 {
   basic_block bb;
+  tree *chain;
+
+  /* ??? This isn't the right place for this.  Worse, it got computed
+     more or less at random in various passes.  */
+  free_dominance_info (CDI_DOMINATORS);
 
   /* Emit gotos for implicit jumps.  */
   disband_implicit_edges ();
@@ -313,6 +158,7 @@ tree_ssa_finish (tree *chain)
   delete_tree_ssa ();
 
   /* Re-chain the statements from the blocks.  */
+  chain = &DECL_SAVED_TREE (current_function_decl);
   *chain = alloc_stmt_list ();
   FOR_EACH_BB (bb)
     {
@@ -322,6 +168,244 @@ tree_ssa_finish (tree *chain)
   /* And get rid of the cfg.  */
   delete_tree_cfg ();
 }
+
+static struct tree_opt_pass pass_del_cfg =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  execute_del_cfg,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  PROP_cfg,				/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+/* Iterate over the pass tree allocating dump file numbers.  We want
+   to do this depth first, and independent of whether the pass is
+   enabled or not.  */
+
+static void
+register_one_dump_file (struct tree_opt_pass *pass)
+{
+  char *dot_name, *flag_name;
+  char num[10];
+
+  if (!pass->name)
+    return;
+
+  /* See below in dup_pass_1.  */
+  num[0] = '\0';
+  if (pass->static_pass_number)
+    sprintf (num, "%d", ((int) pass->static_pass_number < 0
+			 ? 1 : pass->static_pass_number));
+
+  dot_name = concat (".", pass->name, num, NULL);
+  flag_name = concat ("tree-", pass->name, num, NULL);
+
+  pass->static_pass_number = dump_register (dot_name, flag_name);
+}
+
+static void 
+register_dump_files (struct tree_opt_pass *pass)
+{
+  do
+    {
+      register_one_dump_file (pass);
+      if (pass->sub)
+	register_dump_files (pass->sub);
+      pass = pass->next;
+    }
+  while (pass);
+}
+
+/* Duplicate a pass that's to be run more than once.  */
+
+static struct tree_opt_pass *
+dup_pass_1 (struct tree_opt_pass *pass)
+{
+  struct tree_opt_pass *new;
+
+  new = xmalloc (sizeof (*new));
+  memcpy (new, pass, sizeof (*new));
+
+  /* Indicate to register_dump_files that this pass has duplicates,
+     and so it should rename the dump file.  The first instance will
+     be < 0, and be number of duplicates = -static_pass_number + 1.
+     Subsequent instances will be > 0 and just the duplicate number.  */
+  if (pass->name)
+    {
+      int n, p = pass->static_pass_number;
+	
+      if (p)
+	n = -(--p) + 1;
+      else
+	n = 2, p = -1;
+
+      pass->static_pass_number = p;
+      new->static_pass_number = n;
+    }
+
+  return new;
+}
+
+/* Construct the pass tree.  */
+
+void
+init_tree_optimization_passes (void)
+{
+  struct tree_opt_pass **p;
+
+#define NEXT_PASS(PASS) (*p = &PASS, p = &(*p)->next)
+#define DUP_PASS(PASS)  (*dup_pass_1 (&PASS))
+
+  p = &all_passes;
+  NEXT_PASS (pass_gimple);
+  NEXT_PASS (pass_remove_useless_stmts);
+  NEXT_PASS (pass_mudflap_1);
+  NEXT_PASS (pass_lower_cf);
+  NEXT_PASS (pass_lower_eh);
+  NEXT_PASS (pass_all_optimizations);
+  NEXT_PASS (pass_mudflap_2);
+  NEXT_PASS (pass_rebuild_bind);
+  *p = NULL;
+
+  p = &pass_all_optimizations.sub;
+  NEXT_PASS (pass_build_cfg);
+  NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_build_pta);
+  NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_dominator);
+  NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_del_pta);
+  NEXT_PASS (pass_sra);
+  NEXT_PASS (DUP_PASS (pass_dominator));
+  NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_tail_recursion);
+  NEXT_PASS (pass_loop);
+  NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_pre);
+  NEXT_PASS (DUP_PASS (pass_dominator));
+  NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_tail_calls);
+  NEXT_PASS (pass_del_ssa);
+  NEXT_PASS (pass_del_cfg);
+  *p = NULL;
+
+#undef NEXT_PASS
+#undef DUP_PASS
+
+  /* Register the passes with the tree dump code.  */
+  register_dump_files (all_passes);
+}
+
+static void execute_pass_list (struct tree_opt_pass *);
+
+static unsigned int current_properties;
+static unsigned int last_verified;
+
+static void execute_todo (unsigned int flags)
+{
+  if (flags & TODO_rename_vars)
+    {
+      if (bitmap_first_set_bit (vars_to_rename) >= 0)
+	rewrite_into_ssa ();
+      BITMAP_XFREE (vars_to_rename);
+    }
+
+  if (flags & TODO_redundant_phi)
+    kill_redundant_phi_nodes ();
+
+  if ((flags & TODO_dump_func) && tree_dump_file)
+    dump_function_to_file (current_function_decl,
+			   tree_dump_file, tree_dump_flags);
+
+  if (flags & TODO_ggc_collect)
+    ggc_collect ();
+
+#ifdef ENABLE_CHECKING
+  if (flags & TODO_verify_ssa)
+    verify_ssa ();
+  if (flags & TODO_verify_flow)
+    verify_flow_info ();
+  if (flags & TODO_verify_stmts)
+    verify_stmts ();
+#endif
+}
+
+static bool
+execute_one_pass (struct tree_opt_pass *pass)
+{
+  unsigned int todo; 
+
+  /* See if we're supposed to run this pass.  */
+  if (pass->gate && !pass->gate ())
+    return false;
+
+  /* Verify that all required properties are present.  */
+  if (pass->properties_required & ~current_properties)
+    abort ();
+
+  /* Run pre-pass verification.  */
+  todo = pass->todo_flags_start & ~last_verified;
+  if (todo)
+    execute_todo (todo);
+
+  /* If a dump file name is present, open it if enabled.  */
+  if (pass->static_pass_number)
+    tree_dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
+
+  /* If a timevar is present, start it.  */
+  if (pass->tv_id)
+    timevar_push (pass->tv_id);
+
+  /* If the pass is requesting ssa variable renaming, allocate the bitmap.  */
+  if (pass->todo_flags_finish & TODO_rename_vars)
+    vars_to_rename = BITMAP_XMALLOC ();
+
+  /* Do it!  */
+  if (pass->execute)
+    pass->execute ();
+
+  /* Run post-pass cleanup and verification.  */
+  todo = pass->todo_flags_finish;
+  last_verified = todo & TODO_verify_all;
+  if (todo)
+    execute_todo (todo);
+
+  /* Update properties.  */
+  current_properties &= ~pass->properties_destroyed;
+  current_properties |= pass->properties_provided;
+
+  /* Close down timevar and dump file.  */
+  if (pass->tv_id)
+    timevar_pop (pass->tv_id);
+  if (tree_dump_file)
+    {
+      dump_end (pass->static_pass_number, tree_dump_file);
+      tree_dump_file = NULL;
+    }
+
+  return true;
+}
+
+static void
+execute_pass_list (struct tree_opt_pass *pass)
+{
+  do
+    {
+      if (execute_one_pass (pass) && pass->sub)
+	execute_pass_list (pass->sub);
+      pass = pass->next;
+    }
+  while (pass);
+}
+
 
 /* Called to move the SAVE_EXPRs for parameter declarations in a
    nested function into the nested function.  DATA is really the
@@ -405,65 +489,8 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  /* If the function has not already been gimplified, do so now.  */
-  if (!lang_hooks.gimple_before_inlining)
-    gimplify_function_tree (fndecl);
-
-  /* Debugging dump after gimplification.  */
-  dump_function (TDI_gimple, fndecl);
-
-  /* Run a pass over the statements deleting any obviously useless
-     statements before we build the CFG.  */
-  remove_useless_stmts (&DECL_SAVED_TREE (fndecl));
-  dump_function (TDI_useless, fndecl);
-
-  /* Mudflap-instrument any relevant declarations.  */
-  if (flag_mudflap && ! mf_marked_p (fndecl))
-    mudflap_c_function_decls (fndecl);
-
-  /* Lower the structured statements.  */
-  lower_function_body (&DECL_SAVED_TREE (fndecl));
-
-  /* Avoid producing notes for blocks.  */
-  cfun->dont_emit_block_notes = 1;
-  reset_block_changes ();
-
-  dump_function (TDI_lower, fndecl);
-
-  /* Run a pass to lower magic exception handling constructs into,
-     well, less magic though not completely mundane constructs.  */
-  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
-
-  /* Mudflap-instrument any relevant operations.  */
-  if (flag_mudflap && ! mf_marked_p (fndecl))
-    {
-      /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1 && !flag_disable_tree_ssa)
-	{
-	  /* We cannot allow unssa to un-gimplify trees before we
-	     instrument them.  */
-	  int save_ter = flag_tree_ter;
-	  flag_tree_ter = 0;
-          optimize_function_tree (fndecl, &DECL_SAVED_TREE (fndecl));
-	  flag_tree_ter = save_ter;
-	}
-
-      mudflap_c_function_ops (fndecl);
-
-      /* WIP: set -O4 to re-do optimizations on the mudflapified code.
-	 Should work, but perhaps needs more thought.  */
-      if (optimize >= 4 && !flag_disable_tree_ssa)
-	optimize_function_tree (fndecl, &DECL_SAVED_TREE (fndecl));
-    }
-  else
-    {
-      /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1 && !flag_disable_tree_ssa)
-	optimize_function_tree (fndecl, &DECL_SAVED_TREE (fndecl));
-    }
-
-  DECL_SAVED_TREE (fndecl) = build (BIND_EXPR, void_type_node, NULL_TREE,
-				    DECL_SAVED_TREE (fndecl), NULL_TREE);
+  /* Perform all tree transforms and optimizations.  */
+  execute_pass_list (all_passes);
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to

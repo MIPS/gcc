@@ -32,36 +32,47 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
+#include "flags.h"
 
-/* Dump file and flags.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
 
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
    FNDECL is the current function decl.  */
 
-void
-tree_ssa_loop_opt (tree fndecl ATTRIBUTE_UNUSED,
-		   enum tree_dump_index phase ATTRIBUTE_UNUSED)
+static void
+tree_ssa_loop_opt (void)
 {
   struct loops *loops;
 
   /* Does nothing for now except for checking that we are able to build the
      loops.  */
 
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
-
-  timevar_push (TV_TREE_LOOP);
   loops = loop_optimizer_init (tree_dump_file);
   loop_optimizer_finalize (loops,
-			   (tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL);
-  timevar_pop (TV_TREE_LOOP);
-
-  if (tree_dump_file)
-    {
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (phase, tree_dump_file);
-    }
+			   (tree_dump_flags & TDF_DETAILS
+			    ? tree_dump_file : NULL));
 }
+
+static bool
+gate_loop (void)
+{
+  return flag_tree_loop != 0;
+}
+
+struct tree_opt_pass pass_loop = 
+{
+  "loop",				/* name */
+  gate_loop,				/* gate */
+  tree_ssa_loop_opt,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};

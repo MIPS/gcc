@@ -91,8 +91,6 @@ struct tree_alias_ops
 };
 
 extern struct tree_alias_ops *current_alias_ops;
-extern void create_alias_vars (tree);
-extern void delete_alias_vars (void);
 extern void init_alias_vars (void);
 extern bool ptr_may_alias_var (tree, tree);
 extern bool same_points_to_set (tree, tree);

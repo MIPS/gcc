@@ -49,6 +49,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "hashtab.h"
 #include "function.h"
 #include "cgraph.h"
+#include "tree-pass.h"
+#include "timevar.h"
+
 
 /*  This file contains the implementation of the common parts of the
     tree points-to analysis infrastructure.
@@ -80,7 +83,6 @@ struct tree_alias_ops *current_alias_ops;
 static GTY(()) varray_type local_alias_vars;
 static GTY(()) varray_type local_alias_varnums;
 tree pta_global_var;
-static tree currptadecl;
 static bitmap addrargs;						 
 static alias_typevar get_alias_var_decl (tree);
 static alias_typevar get_alias_var (tree);
@@ -911,15 +913,22 @@ create_alias_var (tree decl)
   return avar;
 }
 
-/* Create points-to sets for function FNDECL.
+/* Create points-to sets for the current function.  */
 
-   Note that fndecl might not be current_function_decl, if we are in
-   ip mode or ip'ing all statics.  */
-
-void
-create_alias_vars (tree fndecl)
+static void
+create_alias_vars (void)
 {
-  currptadecl = fndecl;
+  basic_block bb;
+
+  if (HAVE_BANSHEE && flag_tree_points_to == PTA_ANDERSEN)
+    current_alias_ops = andersen_alias_ops;
+  else
+   {
+     current_alias_ops = NULL;
+     flag_tree_points_to = PTA_NONE;
+     return;
+   }
+
   pta_global_var = build_decl (VAR_DECL, get_identifier (".pta_global_var"),
 			       size_type_node);
   DECL_ARTIFICIAL (pta_global_var) = 1;
@@ -931,30 +940,10 @@ create_alias_vars (tree fndecl)
   TREE_THIS_VOLATILE (pta_global_var) = 1;
   TREE_ADDRESSABLE (pta_global_var) = 0;
 
-#if HAVE_BANSHEE
-  if (flag_tree_points_to == PTA_ANDERSEN)
-    current_alias_ops = andersen_alias_ops;
-  else
-   {
-     current_alias_ops = NULL;
-     flag_tree_points_to = PTA_NONE;
-     return;
-   }
-#else
-     current_alias_ops = NULL;
-     flag_tree_points_to = PTA_NONE;
-     return;
-#endif
+  init_alias_vars ();
 
-  /* If fndecl is current_function_decl, we are at the top level. */
-  if (fndecl  == current_function_decl)
-    init_alias_vars ();
-
-  /* Don't force creation unless we are processing the top level
-     function decl. */
-  if (fndecl == current_function_decl)
-    DECL_PTA_TYPEVAR (fndecl) = NULL;
-  get_alias_var (fndecl);
+  DECL_PTA_TYPEVAR (current_function_decl) = NULL;
+  get_alias_var (current_function_decl);
 
   /* First, walk the variables and their DECL_INITIAL's */
   if (cfun->unexpanded_var_list)
@@ -967,24 +956,45 @@ create_alias_vars (tree fndecl)
 	    find_func_aliases (var);
 	}
     }
-  {
-    basic_block bb;
-    FOR_EACH_BB (bb)
+
+  /* Now walk all statements and derive aliases.  */
+  FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi; 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	find_func_aliases (bsi_stmt (bsi));
     }
-  }
+
   pta_global_var = NULL_TREE;
 }
 
+struct tree_opt_pass pass_build_pta = 
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  create_alias_vars,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PTA,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  PROP_pta,				/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+ 
+
 /* Delete created points-to sets.  */
 
-void
+static void
 delete_alias_vars (void)
 {
   size_t i;
+
+  if (flag_tree_points_to != PTA_ANDERSEN)
+    return;
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
       tree key = VARRAY_TREE (local_alias_vars, i);
@@ -1005,6 +1015,23 @@ delete_alias_vars (void)
   BITMAP_XFREE (addrargs);
   current_alias_ops->cleanup (current_alias_ops);
 }
+
+struct tree_opt_pass pass_del_pta = 
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  delete_alias_vars,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PTA,				/* tv_id */
+  PROP_pta,				/* properties_required */
+  0,					/* properties_provided */
+  PROP_pta,				/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+ 
 
 /*  Initialize points-to analysis machinery.  */
 

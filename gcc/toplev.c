@@ -4231,6 +4231,7 @@ general_init (const char *argv0)
 
   /* This must be done after add_params but before argument processing.  */
   init_ggc_heuristics();
+  init_tree_optimization_passes ();
 }
 
 /* Process the options that have been parsed.  */

@@ -42,6 +42,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-iterator.h"
 #include "real.h"
 #include "alloc-pool.h"
+#include "tree-pass.h"
+#include "flags.h"
+
 
 /* See http://citeseer.nj.nec.com/chow97new.html, and
    http://citeseer.nj.nec.com/kennedy99partial.html for details of the
@@ -104,10 +107,6 @@ Boston, MA 02111-1307, USA.  */
 /* TODOS:
    Do strength reduction on a +-b and -a, not just a * <constant>.
    */
-
-/* Debugging dumps.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
 
 struct expr_info;
 static void clear_all_eref_arrays (void);
@@ -2651,7 +2650,8 @@ code_motion (struct expr_info *ei)
 	    {
 	      fprintf (tree_dump_file, "In BB %d, insert reload of ",
 		       bb->index);
-	      print_generic_expr (tree_dump_file, TREE_OPERAND (use_stmt, 1), 0);
+	      print_generic_expr (tree_dump_file,
+				  TREE_OPERAND (use_stmt, 1), 0);
 	      fprintf (tree_dump_file, " from ");
 	      print_generic_expr (tree_dump_file, newtemp, 0);
 	      fprintf (tree_dump_file, " in statement ");
@@ -2683,8 +2683,8 @@ code_motion (struct expr_info *ei)
 	  bb = bb_for_stmt (use);
 	  if (tree_dump_file)
 	    {
-	      fprintf (tree_dump_file, "In BB %d, insert PHI to replace EPHI\n",
-		       bb->index);
+	      fprintf (tree_dump_file,
+		       "In BB %d, insert PHI to replace EPHI\n", bb->index);
 	    }
 	  newtemp = EREF_TEMP (use);
 	  for (i = 0; i < EPHI_NUM_ARGS (use); i++)
@@ -2964,7 +2964,8 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
     {
       fprintf (tree_dump_file, "EPHI's for expression ");
       print_generic_expr (tree_dump_file, ei->expr, 0);
-      fprintf (tree_dump_file, " after down safety and will_be_avail computation\n");
+      fprintf (tree_dump_file,
+	       " after down safety and will_be_avail computation\n");
       FOR_EACH_BB (bb)
       {
 	tree ephi = ephi_at_block (bb);
@@ -3141,14 +3142,13 @@ collect_expressions (basic_block block, varray_type *bexprsp)
    PHASE indicates which dump file from the DUMP_FILES array to use when
    dumping debugging information.  */
 
-void
-tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
+static void
+execute_pre (void)
 {
   int currbbs;
   varray_type bexprs;
   size_t k;
   int i;
-  bitmap vars_to_rename;
  
   split_critical_edges ();  
 
@@ -3156,8 +3156,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
     if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_ABNORMAL))
       tree_split_edge (ENTRY_BLOCK_PTR->succ);
  
-  timevar_push (TV_TREE_PRE);
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
   euse_node_pool = create_alloc_pool ("EUSE node pool", 
 				      sizeof (struct tree_euse_node), 30);
   eref_node_pool = create_alloc_pool ("EREF node pool",
@@ -3185,13 +3183,9 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   created_phi_preds = BITMAP_XMALLOC ();
   
   collect_expressions (ENTRY_BLOCK_PTR, &bexprs);
- 
-  ggc_push_context ();  
 
-  /* The maximum number of variables we'll add is the number of
-     expressions to perform PRE on.  */
-  vars_to_rename = BITMAP_XMALLOC ();
-  
+  ggc_push_context ();
+ 
   for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
     {
       pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs, vars_to_rename);
@@ -3211,13 +3205,8 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 #endif
       ggc_collect (); 
     }
-  ggc_pop_context (); 
-  /* Debugging dumps.  */
-  if (tree_dump_file)
-    {     
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (phase, tree_dump_file);
-    }
+
+  ggc_pop_context ();
 
   /* Clean up after PRE.  */
   memset (&pre_stats, 0, sizeof (struct pre_stats_d));
@@ -3232,11 +3221,28 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
     if (idfs_cache[i] != NULL)
       BITMAP_XFREE (idfs_cache[i]);
   
-  /* Rewrite any new temporaries load PRE inserted.  */
-  if (bitmap_first_set_bit (vars_to_rename) != -1)
-    rewrite_into_ssa (fndecl, vars_to_rename, TDI_pre);
-  BITMAP_XFREE (vars_to_rename);
   free (dfn);
-  timevar_pop (TV_TREE_PRE);
 }
 
+static bool
+gate_pre (void)
+{
+  return flag_tree_pre != 0;
+}
+
+struct tree_opt_pass pass_pre = 
+{
+  "pre",				/* name */
+  gate_pre,				/* gate */
+  execute_pre,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PRE,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars
+    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+};

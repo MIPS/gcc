@@ -635,8 +635,8 @@ dump_node (tree t, int flags, FILE *stream)
 /* Define a tree dump switch.  */
 struct dump_file_info
 {
-  const char *const suffix;	/* suffix to give output file.  */
-  const char *const swtch;	/* command line switch */
+  const char *suffix;		/* suffix to give output file.  */
+  const char *swtch;		/* command line switch */
   int flags;			/* user flags */
   int state;			/* state of play */
 };
@@ -651,39 +651,15 @@ static struct dump_file_info dump_files[TDI_end] =
   {".original", "tree-original", 0, 0},
   {".generic", "tree-generic", 0, 0},
   {".inlined", "tree-inlined", 0, 0},
-  {".gimple", "tree-gimple", 0, 0},
-  {".useless", "tree-useless", 0, 0},
-  {".mudflap1", "tree-mudflap1", 0, 0},
-  {".lower", "tree-lower", 0, 0},
-  {".eh", "tree-eh", 0, 0},
-  {".cfg", "tree-cfg", 0, 0},
   {".dot", "tree-dot", 0, 0},
-  {".ssa1", "tree-ssa1", 0, 0},
-  {".dom1", "tree-dom1", 0, 0},
-  {".ssa2", "tree-ssa2", 0, 0},
-  {".dce1", "tree-dce1", 0, 0},
-  {".pta", "tree-pta", 0, 0},
-  {".alias", "tree-alias", 0, 0},
-  {".ssa3", "tree-ssa3", 0, 0},
-  {".sra", "tree-sra", 0, 0},
-  {".ssa4", "tree-ssa4", 0, 0},
-  {".dom2", "tree-dom2", 0, 0},
-  {".ssa5", "tree-ssa5", 0, 0},
-  {".dce2", "tree-dce2", 0, 0},
-  {".loop", "tree-loop", 0, 0},
-  {".tail1", "tree-tail1", 0, 0},
-  {".ccp", "tree-ccp", 0, 0},
-  {".ssa6", "tree-ssa6", 0, 0},
-  {".pre", "tree-pre", 0, 0},
-  {".dom3", "tree-dom3", 0, 0},
-  {".ssa7", "tree-ssa7", 0, 0},
-  {".dce3", "tree-dce3", 0, 0},
-  {".tail2", "tree-tail2", 0, 0},
-  {".optimized", "tree-optimized", 0, 0},
-  {".mudflap2", "tree-mudflap2", 0, 0},
   {".xml", "call-graph", 0, 0},
   {NULL, "tree-all", 0, 0},
 };
+
+/* Dynamically registered tree dump files and switches.  */
+static struct dump_file_info *extra_dump_files;
+static size_t extra_dump_files_in_use;
+static size_t extra_dump_files_alloced;
 
 /* Define a name->number mapping for a dump flag value.  */
 struct dump_option_value_info
@@ -708,6 +684,43 @@ static const struct dump_option_value_info dump_options[] =
   {NULL, 0}
 };
 
+unsigned int
+dump_register (const char *suffix, const char *swtch)
+{
+  size_t this = extra_dump_files_in_use++;
+
+  if (this >= extra_dump_files_alloced)
+    {
+      if (extra_dump_files_alloced == 0)
+	extra_dump_files_alloced = 32;
+      else
+	extra_dump_files_alloced *= 2;
+      extra_dump_files = xrealloc (extra_dump_files,
+				   sizeof (struct dump_file_info)
+				   * extra_dump_files_alloced);
+    }
+
+  memset (&extra_dump_files[this], 0, sizeof (struct dump_file_info));
+  extra_dump_files[this].suffix = suffix;
+  extra_dump_files[this].swtch = swtch;
+
+  return this + TDI_end;
+}
+
+/* Return the dump_file_info for the given phase.  */
+
+static struct dump_file_info *
+get_dump_file_info (enum tree_dump_index phase)
+{
+  if (phase < TDI_end)
+    return &dump_files[phase];
+  else if (phase - TDI_end >= extra_dump_files_in_use)
+    abort ();
+  else
+    return extra_dump_files + (phase - TDI_end);
+}
+
+
 /* Begin a tree dump for PHASE. Stores any user supplied flag in
    *FLAG_PTR and returns a stream to write to. If the dump is not
    enabled, returns NULL.
@@ -719,22 +732,28 @@ dump_begin (enum tree_dump_index phase, int *flag_ptr)
   FILE *stream;
   char *name;
   char dump_id[10];
+  struct dump_file_info *dfi;
 
-  if (phase == TDI_none || !dump_files[phase].state)
+  if (phase == TDI_none)
+    return NULL;
+
+  dfi = get_dump_file_info (phase);
+  if (dfi->state == 0)
     return NULL;
 
   if (snprintf (dump_id, sizeof (dump_id), ".t%02d", phase) < 0)
     dump_id[0] = '\0';
 
-  name = concat (dump_base_name, dump_id, dump_files[phase].suffix, NULL);
-  stream = fopen (name, dump_files[phase].state < 0 ? "w" : "a");
+  name = concat (dump_base_name, dump_id, dfi->suffix, NULL);
+  stream = fopen (name, dfi->state < 0 ? "w" : "a");
   if (!stream)
     error ("could not open dump file `%s': %s", name, strerror (errno));
   else
-    dump_files[phase].state = 1;
+    dfi->state = 1;
   free (name);
+
   if (flag_ptr)
-    *flag_ptr = dump_files[phase].flags;
+    *flag_ptr = dfi->flags;
 
   return stream;
 }
@@ -744,7 +763,8 @@ dump_begin (enum tree_dump_index phase, int *flag_ptr)
 int
 dump_enabled_p (enum tree_dump_index phase)
 {
-  return dump_files[phase].state;
+  struct dump_file_info *dfi = get_dump_file_info (phase);
+  return dfi->state;
 }
 
 /* Returns the switch name of PHASE.  */
@@ -752,7 +772,8 @@ dump_enabled_p (enum tree_dump_index phase)
 const char *
 dump_flag_name (enum tree_dump_index phase)
 {
-  return dump_files[phase].swtch;
+  struct dump_file_info *dfi = get_dump_file_info (phase);
+  return dfi->swtch;
 }
 
 /* Finish a tree dump for PHASE. STREAM is the stream created by
@@ -769,12 +790,18 @@ dump_end (enum tree_dump_index phase ATTRIBUTE_UNUSED, FILE *stream)
 static void
 dump_enable_all (int flags)
 {
-  enum tree_dump_index i;
+  size_t i;
 
-  for (i = TDI_none + 1; i < TDI_end; i++)
+  for (i = TDI_none + 1; i < (size_t) TDI_end; i++)
     {
       dump_files[i].state = -1;
       dump_files[i].flags = flags;
+    }
+
+  for (i = 0; i < extra_dump_files_in_use; i++)
+    {
+      extra_dump_files[i].state = -1;
+      extra_dump_files[i].flags = flags;
     }
 
   /* FIXME  -fdump-call-graph is broken.  */
@@ -785,55 +812,69 @@ dump_enable_all (int flags)
 /* Parse ARG as a dump switch. Return nonzero if it is, and store the
    relevant details in the dump_files array.  */
 
+static int
+dump_switch_p_1 (const char *arg, struct dump_file_info *dfi)
+{
+  const char *option_value;
+  const char *ptr;
+  int flags;
+
+  option_value = skip_leading_substring (arg, dfi->swtch);
+  if (!option_value)
+    return 0;
+
+  ptr = option_value;
+  flags = 0;
+
+  while (*ptr)
+    {
+      const struct dump_option_value_info *option_ptr;
+      const char *end_ptr;
+      unsigned length;
+
+      while (*ptr == '-')
+	ptr++;
+      end_ptr = strchr (ptr, '-');
+      if (!end_ptr)
+	end_ptr = ptr + strlen (ptr);
+      length = end_ptr - ptr;
+
+      for (option_ptr = dump_options; option_ptr->name; option_ptr++)
+	if (strlen (option_ptr->name) == length
+	    && !memcmp (option_ptr->name, ptr, length))
+	  {
+	    flags |= option_ptr->value;
+	    goto found;
+	  }
+      warning ("ignoring unknown option `%.*s' in `-fdump-%s'",
+	       length, ptr, dfi->swtch);
+    found:;
+      ptr = end_ptr;
+    }
+
+  dfi->state = -1;
+  dfi->flags = flags;
+
+  /* Process -fdump-tree-all by enabling all the known dumps.  */
+  if (dfi->suffix == NULL)
+    dump_enable_all (flags);
+
+  return 1;
+}
+
 int
 dump_switch_p (const char *arg)
 {
-  unsigned ix;
-  const char *option_value;
+  size_t i;
+  int any = 0;
 
-  for (ix = TDI_none + 1; ix != TDI_end; ix++)
-    if ((option_value = skip_leading_substring (arg, dump_files[ix].swtch)))
-      {
-	const char *ptr = option_value;
-	int flags = 0;
+  for (i = TDI_none + 1; i != TDI_end; i++)
+    any |= dump_switch_p_1 (arg, &dump_files[i]);
 
-	while (*ptr)
-	  {
-	    const struct dump_option_value_info *option_ptr;
-	    const char *end_ptr;
-	    unsigned length;
+  for (i = 0; i < extra_dump_files_in_use; i++)
+    any |= dump_switch_p_1 (arg, &extra_dump_files[i]);
 
-	    while (*ptr == '-')
-	      ptr++;
-	    end_ptr = strchr (ptr, '-');
-	    if (!end_ptr)
-	      end_ptr = ptr + strlen (ptr);
-	    length = end_ptr - ptr;
-
-	    for (option_ptr = dump_options; option_ptr->name;
-		 option_ptr++)
-	      if (strlen (option_ptr->name) == length
-		  && !memcmp (option_ptr->name, ptr, length))
-		{
-		  flags |= option_ptr->value;
-		  goto found;
-		}
-	    warning ("ignoring unknown option `%.*s' in `-fdump-%s'",
-		     length, ptr, dump_files[ix].swtch);
-	  found:;
-	    ptr = end_ptr;
-	  }
-
-	dump_files[ix].state = -1;
-	dump_files[ix].flags = flags;
-
-	/* Process -fdump-tree-all by enabling all the known dumps.  */
-	if (dump_files[ix].suffix == NULL)
-	  dump_enable_all (dump_files[ix].flags);
-
-	return 1;
-      }
-  return 0;
+  return any;
 }
 
 /* Dump FUNCTION_DECL FN as tree dump PHASE.  */

@@ -43,6 +43,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
+#include "tree-pass.h"
 #include "convert.h"
 
 /* Build and maintain data flow information for trees.  */
@@ -107,10 +108,6 @@ struct walk_state
 };
 
 
-/* Debugging dumps.  */
-static FILE *tree_dump_file;
-static int tree_dump_flags;
-
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_stats_d dfa_stats;
 
@@ -162,7 +159,7 @@ bool aliases_computed_p;
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
-/* Find all the variables referenced in function FNDECL.  This function
+/* Find all the variables referenced in the function.  This function
    builds the global arrays REFERENCED_VARS and CALL_CLOBBERED_VARS.
 
    Note that this function does not look for statement operands, it simply
@@ -170,14 +167,16 @@ bool aliases_computed_p;
    various attributes for each variable used by alias analysis and the
    optimizer.  */
 
-void
-find_referenced_vars (tree fndecl)
+static void
+find_referenced_vars (void)
 {
   static htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
   tree block;
+
+  init_tree_ssa ();
 
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs and for nested functions.  Both
@@ -186,7 +185,7 @@ find_referenced_vars (tree fndecl)
      Note that at this point we may have multiple blocks hung off
      DECL_INITIAL chained through the BLOCK_CHAIN field due to
      how inlining works.  Egad.  */
-  block = DECL_INITIAL (fndecl);
+  block = DECL_INITIAL (current_function_decl);
   while (block)
     {
       find_hidden_use_vars (block);
@@ -265,6 +264,22 @@ find_referenced_vars (tree fndecl)
 
   htab_delete (vars_found);
 }
+
+struct tree_opt_pass pass_referenced_vars =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  find_referenced_vars,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_leh | PROP_cfg,		/* properties_required */
+  PROP_referenced_vars,			/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+};
 
 
 /* Compute immediate uses.  The parameter calc_for is an option function 
@@ -930,19 +945,13 @@ static GTY(()) varray_type pointers;
    FNDECL.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
 
-void
-compute_may_aliases (tree fndecl, bitmap vars_to_rename,
-		     enum tree_dump_index phase)
+static void
+compute_may_aliases (void)
 {
-  timevar_push (TV_TREE_MAY_ALIAS);
-
   VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
   VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
   memset (&alias_stats, 0, sizeof (alias_stats));
 
-  /* Debugging dumps.  */
-  tree_dump_file = dump_begin (phase, &tree_dump_flags);
-  
   /* Remove the ADDRESSABLE flag from every call-clobbered variable whose
      address is not needed anymore.  This is caused by the propagation of
      ADDR_EXPR constants into INDIRECT_REF expressions and the removal of
@@ -957,23 +966,13 @@ compute_may_aliases (tree fndecl, bitmap vars_to_rename,
   /* Compute alias sets.  */
   compute_alias_sets ();
   
-  if (flag_tree_points_to == PTA_ANDERSEN)
-    {
-      timevar_push (TV_TREE_PTA);
-      delete_alias_vars ();
-      timevar_pop (TV_TREE_PTA);
-    }
-
   /* Debugging dumps.  */
   if (tree_dump_file)
     {
       if (tree_dump_flags & TDF_STATS)
 	dump_alias_stats (tree_dump_file);
-
       dump_alias_info (tree_dump_file);
       dump_referenced_vars (tree_dump_file);
-      dump_function_to_file (fndecl, tree_dump_file, tree_dump_flags);
-      dump_end (TDI_alias, tree_dump_file);
     }
 
   /* Deallocate memory used by aliasing data structures.  */
@@ -982,9 +981,24 @@ compute_may_aliases (tree fndecl, bitmap vars_to_rename,
 
   /* Indicate that may-alias information is now available.  */
   aliases_computed_p = true;
-
-  timevar_pop (TV_TREE_MAY_ALIAS);
 }
+
+struct tree_opt_pass pass_may_alias = 
+{
+  "alias",				/* name */
+  NULL,					/* gate */
+  compute_may_aliases,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_MAY_ALIAS,			/* tv_id */
+  PROP_cfg | PROP_ssa | PROP_pta,	/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars
+    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+};
 
 
 /* Create memory tags for every dereferenced pointer in the program.

@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
+#include "tree-pass.h"
 #include "timevar.h"
 #include "langhooks.h"
 #include "ggc.h"
@@ -1588,12 +1589,11 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
     }
 }
 
-void
-lower_eh_constructs (tree *tp)
+static void
+lower_eh_constructs (void)
 {
   struct leh_state null_state;
-
-  timevar_push (TV_TREE_EH);
+  tree *tp = &DECL_SAVED_TREE (current_function_decl);
 
   finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
   throw_stmt_table = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, free);
@@ -1606,19 +1606,23 @@ lower_eh_constructs (tree *tp)
   htab_delete (finally_tree);
 
   collect_eh_region_array ();
-
-  {
-    int flags;
-    FILE *file = dump_begin (TDI_eh, &flags);
-    if (file)
-      {
-	dump_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
-        dump_end (TDI_eh, file);
-      }
-  }
-
-  timevar_pop (TV_TREE_EH);
 }
+
+struct tree_opt_pass pass_lower_eh = 
+{
+  "eh",					/* name */
+  NULL,					/* gate */
+  lower_eh_constructs,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_EH,				/* tv_id */
+  PROP_gimple_lcf,			/* properties_required */
+  PROP_gimple_leh,			/* properties_provided */
+  PROP_gimple_lcf,			/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
 
 
 /* Construct EH edges for STMT.  */
@@ -1739,4 +1743,5 @@ tree_can_throw_external (tree stmt)
     return false;
   return can_throw_external_1 (region_nr);
 }
+
 #include "gt-tree-eh.h"

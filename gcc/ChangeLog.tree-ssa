@@ -1,3 +1,126 @@
+2004-01-12  Richard Henderson  <rth@redhat.com>
+
+	* tree-pass.h: New file.
+	* gimple-low.c: Include tree-pass.h.
+	(lower_function_body): Make static, take no arguments.  Set
+	dont_emit_block_notes and call reset_block_changes here.
+	(pass_lower_cf): New.
+	* toplev.c (general_init): Call init_tree_optimization_passes.
+	* toplev.h (init_tree_optimization_passes): Declare.
+	* tree-alias-ander.c: Include tree-pass.h.
+	(tree_dump_file, tree_dump_flags): Remove.
+	(andersen_init): Don't dump_begin.
+	(andersen_cleanup): Don't dump_end.
+	* tree-alias-common.c: Include tree-pass.h, timevar.h.
+	(currptadecl): Remove.
+	(create_alias_vars): Make static, take no args.  Tidy ifdefs.
+	(delete_alias_vars): Likewise.  Protect vs PTA_ANDERSEN.
+	(pass_build_pta, pass_del_pta): New.
+	* tree-alias-common.h (create_alias_vars): Delete decl.
+	(delete_alias_vars): Likewise.
+	* tree-cfg.c: Include tree-pass.h.
+	(tree_dump_file, tree_dump_flags): Remove.
+	(build_tree_cfg): Don't timevar, do init_flow.  Ensure one bb.
+	Don't dump the function here.
+	(execute_build_cfg, pass_build_cfg): New.
+	(remove_useless_stmts): Make static, take no arguments.
+	(pass_remove_useless_stmts): New.
+	(remove_bb): Don't open the dump file.
+	* tree-dfa.c: Include tree-pass.h.
+	(tree_dump_file, tree_dump_flags): Remove.
+	(find_referenced_vars): Make static, take no args.  Do init_tree_ssa.
+	(compute_may_aliases): Similarly.  Don't timevar or open dump file.
+	Don't delete_alias_vars here.
+	(pass_referenced_vars, pass_may_alias): New.
+	* tree-dump.c (dump_files): Remove optimization dumps.
+	(extra_dump_files, extra_dump_files_in_use): New.
+	(extra_dump_files_alloced): New.
+	(dump_register): New.
+	(get_dump_file_info): New.
+	(dump_begin, dump_enabled_p, dump_flag_name): Use it.
+	(dump_enable_all): Handle extra_dump_files.
+	(dump_switch_p_1): Split out from dump_switch_p.
+	(dump_switch_p): Handle extra_dump_files.
+	* tree-dump.h (dump_register): Declare.
+	* tree-eh.c: Include tree-pass.h
+	(lower_eh_constructs): Make static, take no args.  Don't timevar,
+	don't dump function.
+	(pass_lower_eh): New.
+	* tree-flow.h (remove_useless_stmts, find_referenced_vars,
+	compute_may_aliases, lower_function_body, rewrite_out_of_ssa,
+	tree_ssa_ccp, tree_ssa_dominator_optimize, tree_ssa_dce,
+	tree_ssa_loop_opt, lower_eh_constructs, tree_sra): Remove.
+	(rewrite_into_ssa): Update decl.
+	* tree-mudflap.c: Include tree-pass.h.
+	(mudflap_function_decls): Make static, take no args, don't process
+	functions with mf_marked_p.
+	(mudflap_function_ops): Likewise.
+	(gate_mudflap, pass_mudflap_1, pass_mudflap_2): New.
+	(mudflap_enqueue_decl): Don't open dump file.
+	(mudflap_enqueue_constant): Likewise.
+	* tree-nomudflap.c: Include tree-pass.h.
+	(mudflap_c_function_decls, mudflap_c_function_ops): Remove.
+	(pass_mudflap_1, pass_mudflap_2): New.
+	* tree-optimize.c: Include tree-pass.h.
+	(optimize_function_tree): Remove.
+	(tree_dump_file, tree_dump_flags, vars_to_rename): New.
+	(all_passes): New.
+	(execute_gimple, pass_gimple): New.
+	(execute_rebuild_bind, pass_rebuild_bind): New.
+	(gate_all_optimizations, pass_all_optimizations): New.
+	(execute_del_cfg, pass_del_cfg): New.
+	(register_one_dump_file, register_dump_files): New.
+	(dup_pass_1, init_tree_optimization_passes): New.
+	(current_properties, last_verified): New.
+	(execute_todo, execute_one_pass, execute_pass_list): New.
+	(tree_rest_of_compilation): Remove -O0 passes.
+	* tree-sra.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags, vars_to_rename): Remove.
+	(tree_sra): Make static, take no args.  Don't timevar or dump file.
+	(gate_sra, pass_sra): New.
+	* tree-ssa-ccp.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags): New.
+	(tree_ssa_ccp): Make static, take no args.  Don't timevar or dump file.
+	(gate_ccp, pass_ccp): New.
+	(substitute_and_fold): Take no args.
+	* tree-ssa-dce.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags): New.
+	(tree_ssa_dce): Make static, take no args.  Don't open dump file.
+	(gate_dce, pass_dce): New.
+	* tree-ssa-dom.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags, vars_to_rename): Remove.
+	(tree_ssa_dominator_optimize): Make static, take no args, don't
+	timevar, don't dump file.
+	(gate_dominator, pass_dominator): New.
+	* tree-ssa-loop.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags): Remove.
+	(tree_ssa_loop_opt): Make static, take no args, don't open dump file.
+	(gate_loop, pass_loop): New.
+	* tree-ssa-pre.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags): Remove.
+	(execute_pre): Rename from tree_perform_ssapre, make static,
+	take no args, don't timevar, don't open dump file, don't allocate
+	vars_to_rename.
+	(gate_pre, pass_pre): New.
+	* tree-ssa.c: Include tree-pass.h.
+	(tree_dump_file, tree_dump_flags, vars_to_rename): Remove.
+	(rewrite_into_ssa): Take no arguments, don't open dump file.
+	(rewrite_out_of_ssa): Make static, take no args, don't timevar,
+	don't open dump file.  Disable TER if mudflap.
+	(pass_build_ssa, pass_del_ssa): New.
+	* tree-tailcall.c: Include tree-pass.h, flags.h.
+	(tree_dump_file, tree_dump_flags): Remove.
+	(tree_optimize_tail_calls_1): Rename from tree_optimize_tail_calls.
+	Make static, take only opt_tailcalls, don't dump file.
+	(execute_tail_recursion, gate_tail_calls, execute_tail_calls): New.
+	(pass_tail_recursion, pass_tail_calls): New.
+	* tree.h (enum tree_dump_index): Remove optimization dumps.
+	* Makefile.in (tree-alias-ander.o, tree-alias-common.o, tree-ssa.o,
+	tree-ssa-dom.o, tree-ssa-pre.o, tree-cfg.o, tree-tailcall.o,
+	tree-dfa.o, tree-eh.o, tree-ssa-loop.o, tree-optimize.o, gimple-low.o,
+	tree-mudflap.o, tree-ssa-dce.o, tree-ssa-ccp.o, tree-sra.o: Update
+	dependencies.
+
 2004-01-12  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_xform_derefs): Restore instrumentation of 

@@ -416,7 +416,6 @@ extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
-extern void remove_useless_stmts (tree *);
 extern void cfg_remove_useless_stmts (void);
 extern basic_block tree_split_edge (edge);
 extern edge thread_edge (edge, basic_block);
@@ -437,7 +436,6 @@ extern void verify_stmts (void);
 extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
-void find_referenced_vars (tree);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree create_phi_node (tree, basic_block);
@@ -460,7 +458,6 @@ extern void dump_immediate_uses_for (FILE *, tree);
 extern void debug_immediate_uses_for (tree);
 extern void remove_decl (tree, tree);
 extern tree *find_decl_location (tree, tree);
-extern void compute_may_aliases (tree, bitmap, enum tree_dump_index);
 extern void compute_reached_uses (int);
 extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
@@ -479,7 +476,6 @@ extern void mark_new_vars_to_rename (tree, bitmap);
 /* In gimple-low.c  */
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
-extern void lower_function_body (tree *);
 extern void expand_used_vars (void);
 extern void remove_useless_vars (void);
 extern void record_vars (tree);
@@ -487,9 +483,8 @@ extern bool block_may_fallthru (tree block);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (tree, bitmap, enum tree_dump_index);
+extern void rewrite_into_ssa (void);
 extern void rewrite_vars_out_of_ssa (bitmap);
-extern void rewrite_out_of_ssa (tree, enum tree_dump_index);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -512,21 +507,13 @@ extern void kill_redundant_phi_nodes (void);
 extern void tree_perform_ssapre (tree, enum tree_dump_index);
 
 /* In tree-ssa-ccp.c  */
-void tree_ssa_ccp (tree, bitmap, enum tree_dump_index);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
-extern void tree_ssa_dominator_optimize (tree, bitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 extern void propagate_copy (tree *, tree);
-
-/* In tree-ssa-dce.c  */
-void tree_ssa_dce (tree, enum tree_dump_index);
-
-/* In tree-ssa-loop.c  */
-void tree_ssa_loop_opt (tree, enum tree_dump_index);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
@@ -534,16 +521,12 @@ static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-eh.c  */
-extern void lower_eh_constructs (tree *);
 extern void make_eh_edges (tree);
 extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (tree, int);
-
-/* In tree-sra.c  */
-void tree_sra (tree, bitmap, enum tree_dump_index);
 
 #include "tree-flow-inline.h"
 

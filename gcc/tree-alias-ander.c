@@ -47,6 +47,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "libcompat/regions.h"
 #include "andersen_terms.h"
 #include "cgraph.h"
+#include "tree-pass.h"
+
 
 /*  Andersen's interprocedural points-to analysis.
     This is a flow-insensitive, context insensitive algorithm.
@@ -94,8 +96,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     "current_alias_ops".  */
 				
 static unsigned int id_num = 1;
-static FILE *tree_dump_file;
-static int tree_dump_flags;
 static region andersen_rgn;
 static void andersen_simple_assign (struct tree_alias_ops *,
 				    alias_typevar, alias_typevar);
@@ -391,10 +391,6 @@ pr_ptset_aterm_elem (aterm t)
     label_term_print (tree_dump_file, ref.f0);
   else if (lam.f0)
     label_term_print (tree_dump_file, lam.f0);
-  /*
-     fprintf(stderr, ",");
-     aterm_pr(stdout,(aterm)t);
-   */
 }
 
 
@@ -437,19 +433,18 @@ static int initted = 0;
 static void
 andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
-  if (!initted || !flag_unit_at_a_time )
+  if (!initted || !flag_unit_at_a_time)
     {
       pta_init ();
       andersen_rgn = newregion ();
       initted = 1;
     }
 
-  tree_dump_file = dump_begin (TDI_pta, &tree_dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
   /* Don't claim we can do ip partial unless we have unit_at_a_time on. */
   if (!flag_unit_at_a_time) 
     andersen_ops.ip_partial = 0;
-
 }
 
 static int
@@ -476,17 +471,16 @@ andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 
       fprintf (tree_dump_file, "\nPoints-to sets:\n");
       splay_tree_foreach (ptamap, print_out_result, NULL);
-      dump_end (TDI_pta, tree_dump_file);
     }
+
   splay_tree_delete (ptamap);
+
   if (!flag_unit_at_a_time) 
     {
       pta_reset ();
       deleteregion (andersen_rgn);
       andersen_rgn = NULL;
     }
-
-
 }
 
 /* Add decl to the analyzer, and return a typevar for it.  For
