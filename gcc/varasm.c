@@ -201,7 +201,7 @@ static enum in_section { no_section, in_text, in_data, in_named
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL_TREE)
 #endif
-     
+
 /* Text of section name when in_section == in_named.  */
 static char *in_named_name;
 
@@ -872,23 +872,29 @@ make_decl_rtl (decl, asmspec, top_level)
 	      && !TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)))
 	    {
 	      /* GKM FIXME: handle CHKR & BP prefixes separately. */
-	      name = prefix_function_name (name, boundedp);
+	      int starp = (name[0] == '*');
+	      name = prefix_function_name (starp ? name + 1 : name, boundedp);
 	      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
 	      TREE_BOUNDED (DECL_ASSEMBLER_NAME (decl)) = 1;
+	      /* GKM FIXME: should we prepend star back onto name ??? */
+	    }
+	  else
+	    {
+	      /* If this variable is to be treated as volatile, show its
+		 tree node has side effects.   */
+	      if ((flag_volatile_global && TREE_CODE (decl) == VAR_DECL
+		   && TREE_PUBLIC (decl))
+		  || ((flag_volatile_static && TREE_CODE (decl) == VAR_DECL
+		       && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))))
+		TREE_SIDE_EFFECTS (decl) = 1;
+
+	      DECL_ASSEMBLER_NAME (decl)
+		= get_identifier (name[0] == '*' ? name + 1 : name);
 	    }
 
-	  /* If this variable is to be treated as volatile, show its
-	     tree node has side effects.   */
-	  if ((flag_volatile_global && TREE_CODE (decl) == VAR_DECL
-	       && TREE_PUBLIC (decl))
-	      || ((flag_volatile_static && TREE_CODE (decl) == VAR_DECL
-		   && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))))
-	    TREE_SIDE_EFFECTS (decl) = 1;
-
-	  DECL_ASSEMBLER_NAME (decl)
-	    = get_identifier (name[0] == '*' ? name + 1 : name);
 	  DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl),
 					 gen_rtx_SYMBOL_REF (Pmode, name));
+
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
 	    set_mem_attributes (DECL_RTL (decl), decl, 1);
 
