@@ -938,7 +938,7 @@ implies_p (rtx a, rtx b)
    (2) (LE x const) will be replaced with (LT x <const+1>) and similarly
        for GE, GEU, and LEU.  */
 
-static rtx
+rtx
 canon_condition (rtx cond)
 {
   rtx tem;
@@ -1010,7 +1010,7 @@ canon_condition (rtx cond)
 /* Tries to use the fact that COND holds to simplify EXPR.  ALTERED is the
    set of altered regs.  */
 
-static void
+void
 simplify_using_condition (rtx cond, rtx *expr, regset altered)
 {
   rtx rev, reve, exp = *expr;
@@ -1020,7 +1020,8 @@ simplify_using_condition (rtx cond, rtx *expr, regset altered)
 
   /* If some register gets altered later, we do not really speak about its
      value at the time of comparison.  */
-  if (for_each_rtx (&cond, altered_reg_used, altered))
+  if (altered
+      && for_each_rtx (&cond, altered_reg_used, altered))
     return;
 
   rev = reversed_condition (cond);
@@ -1194,7 +1195,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	{
 	  /* FIXME -- slightly wrong -- what if compared register
 	     gets altered between start of the condition and insn?  */
-	  rtx cond = get_condition (BB_END (e->src), NULL, true);
+	  rtx cond = get_condition (BB_END (e->src), NULL, false);
       
 	  if (cond && (e->flags & EDGE_FALLTHRU))
 	    cond = reversed_condition (cond);
@@ -1671,7 +1672,7 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   desc->in_edge = ei;
 
   /* Test whether the condition is suitable.  */
-  if (!(condition = get_condition (BB_END (ei->src), &at, true)))
+  if (!(condition = get_condition (BB_END (ei->src), &at, false)))
     return;
 
   if (ei->flags & EDGE_FALLTHRU)

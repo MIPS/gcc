@@ -746,7 +746,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 static void
 unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 {
-  rtx niter, init_code, branch_code, jump, label;
+  rtx niter, init_code, branch_code;
   unsigned i, j, p;
   basic_block preheader, *body, *dom_bbs, swtch, ezc_swtch;
   unsigned n_dom_bbs;
@@ -857,20 +857,8 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       p = REG_BR_PROB_BASE / (i + 2);
 
       preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
-      label = block_label (preheader);
-      start_sequence ();
-      do_compare_rtx_and_jump (copy_rtx (niter), GEN_INT (j), EQ, 0,
-			       GET_MODE (desc->var), NULL_RTX, NULL_RTX,
-			       label);
-      jump = get_last_insn ();
-      JUMP_LABEL (jump) = label;
-      REG_NOTES (jump)
-	      = gen_rtx_EXPR_LIST (REG_BR_PROB,
-				   GEN_INT (p), REG_NOTES (jump));
-
-      LABEL_NUSES (label)++;
-      branch_code = get_insns ();
-      end_sequence ();
+      branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
+					  block_label (preheader), p);
 
       swtch = loop_split_edge_with (swtch->pred, branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
@@ -886,20 +874,8 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       p = REG_BR_PROB_BASE / (max_unroll + 1);
       swtch = ezc_swtch;
       preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
-      label = block_label (preheader);
-      start_sequence ();
-      do_compare_rtx_and_jump (copy_rtx (niter), const0_rtx, EQ, 0,
-			       GET_MODE (desc->var), NULL_RTX, NULL_RTX,
-			       label);
-      jump = get_last_insn ();
-      JUMP_LABEL (jump) = label;
-      REG_NOTES (jump)
-	      = gen_rtx_EXPR_LIST (REG_BR_PROB,
-				   GEN_INT (p), REG_NOTES (jump));
-
-      LABEL_NUSES (label)++;
-      branch_code = get_insns ();
-      end_sequence ();
+      branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
+					  block_label (preheader), p);
 
       swtch = loop_split_edge_with (swtch->succ, branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);

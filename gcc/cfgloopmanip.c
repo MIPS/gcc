@@ -480,9 +480,10 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    accordingly. Everything between them plus LATCH_EDGE destination must
    be dominated by HEADER_EDGE destination, and back-reachable from
    LATCH_EDGE source.  HEADER_EDGE is redirected to basic block SWITCH_BB,
-   SWITCH_BB->succ to original destination of LATCH_EDGE and
-   SWITCH_BB->succ->succ_next to original destination of HEADER_EDGE.
+   FALLTHRU_EDGE (SWITCH_BB) to original destination of LATCH_EDGE and
+   BRANCH_EDGE (SWITCH_BB) to original destination of HEADER_EDGE.
    Returns newly created loop.  */
+
 struct loop *
 loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block switch_bb)
 {
@@ -510,8 +511,8 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block swi
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
   loop_redirect_edge (header_edge, switch_bb);
-  loop_redirect_edge (switch_bb->succ->succ_next, loop->header);
-  loop_redirect_edge (switch_bb->succ, succ_bb);
+  loop_redirect_edge (BRANCH_EDGE (switch_bb), loop->header);
+  loop_redirect_edge (FALLTHRU_EDGE (switch_bb), succ_bb);
 
   /* Update dominators.  */
   set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);

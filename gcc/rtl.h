@@ -2332,5 +2332,10 @@ extern rtx doloop_condition_get (rtx);
 
 /* In loop-unswitch.c  */
 extern rtx reversed_condition (rtx);
+extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int);
+
+/* In loop-iv.c  */
+extern rtx canon_condition (rtx);
+extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
 #endif /* ! GCC_RTL_H */

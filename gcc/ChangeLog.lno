@@ -1,5 +1,23 @@
 2004-01-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfghooks.c (split_block): Update probabilities.
+
+	* cfgloopmanip.c (loopify): Always redirect branch edge to the new
+	loop.
+	* loop-iv.c (canon_condition, simplify_using_condition): Export.
+	(check_simple_exit): Do not allow cc mode registers.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Use
+	compare_and_jump_seq.
+	* loop-unswitch.c (may_unswitch_on_p): Renamed to may_unswitch_on,
+	returns the condition, use iv_analyse.
+	(compare_and_jump_seq): New function.
+	(unswitch_loops): Call iv_analysis_done.
+	(unswitch_single_loop, unswitch_loop): Handle nontrivial invariants.
+	* rtl.h (compare_and_jump_seq, canon_condition,
+	simplify_using_condition): Declare.
+
+2004-01-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-iv.c: New.
 	* loop-doloop.c: New.
 	* Makefile.in (loop-doloop.o, loop-iv.o): Add.
