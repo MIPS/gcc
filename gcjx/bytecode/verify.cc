@@ -138,6 +138,7 @@ private:
 
   static const int FLAG_INSN_START = 1;
   static const int FLAG_BRANCH_TARGET = 2;
+  static const int FLAG_SEEN = 4;
 
   struct state;
   struct type;
@@ -172,7 +173,7 @@ private:
 
   // We keep some flags for each instruction.  The values are the
   // FLAG_* constants defined above.  This is an array indexed by PC.
-  char *flags;
+  unsigned char *flags;
 
   // The bytecode itself.
   const unsigned char *bytecode;
@@ -1594,7 +1595,7 @@ private:
   // instruction starts.
   void branch_prepass ()
   {
-    flags = (char *) vfy_alloc (current_method->code_length);
+    flags = (unsigned char *) vfy_alloc (current_method->code_length);
 
     for (int i = 0; i < current_method->code_length; ++i)
       flags[i] = 0;
@@ -1930,9 +1931,6 @@ private:
 		       end);
 
 	flags[handler] |= FLAG_BRANCH_TARGET;
-#ifdef VFY_WANT_NOTIFICATION
-	vfy_notify_branch_target (current_method, handler);
-#endif
       }
   }
 
@@ -2238,10 +2236,7 @@ private:
 	// Set this before handling exceptions so that debug output is
 	// sane.
 	start_PC = PC;
-
-#ifdef VFY_WANT_NOTIFICATION
-	vfy_notify_verified (current_method, PC);
-#endif
+	flags[PC] |= FLAG_SEEN;
 
 	// Update states for all active exception handlers.  Ordinarily
 	// there are not many exception handlers.  So we simply run
@@ -3149,8 +3144,7 @@ public:
 
   ~_Jv_BytecodeVerifier ()
   {
-    if (flags)
-      vfy_free (flags);
+    vfy_hand_off_flags (current_method, flags);
 
     while (utf8_list != NULL)
       {

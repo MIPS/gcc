@@ -41,14 +41,10 @@ typedef uint16 vfy_uint_16;
 
 typedef model_bytecode_block::exception vfy_exception;
 
-// These flags aren't used by the verifier itself, but are set on the
-// model_bytecode_block during verification.
-#define VERIFY_SEEN 1
-#define VERIFY_TARGET 2
-
-// This tells the verifier that we want notification of live bytecode
-// and branch targets.
-#define VFY_WANT_NOTIFICATION
+// These must be kept in sync with verify.cc.
+#define VERIFY_INSN_START 1
+#define VERIFY_BRANCH_TARGET 2
+#define VERIFY_SEEN 4
 
 
 struct vfy_method
@@ -57,7 +53,6 @@ struct vfy_method
   model_bytecode_block *block;
   resolution_scope *scope;
   model_unit_class *unit;
-  unsigned char *flags;
 
   // These fields are referred to directly by the verifier.
   vfy_jclass defining_class;
@@ -78,7 +73,6 @@ struct vfy_method
     max_locals = block->get_max_locals ();
     code_length = block->get_code_length ();
     exc_count = block->get_exception_length ();
-    flags = block->get_flags ();
   }
 };
 
@@ -350,16 +344,6 @@ inline int vfy_fail (const char *message, int pc, vfy_jclass,
     % pc % method->method % message;
 }
 
-inline void vfy_notify_verified (vfy_method *method, int pc)
-{
-  method->flags[pc] |= VERIFY_SEEN;
-}
-
-inline void vfy_notify_branch_target (vfy_method *method, int pc)
-{
-  method->flags[pc] |= VERIFY_TARGET;
-}
-
 // Return the primitive type corresponding to the argument to
 // `newarray'.
 inline vfy_jclass vfy_get_primitive_type (int type)
@@ -390,6 +374,13 @@ inline vfy_jclass vfy_get_primitive_type (int type)
 inline bool vfy_is_15 (vfy_method *method)
 {
   return method->unit->is_15_p ();
+}
+
+// Do something with the 'flags' array.
+// (A user could just delete[] it...)
+inline void vfy_hand_off_flags (vfy_method *method, unsigned char *flags)
+{
+  method->block->set_flags (flags);
 }
 
 #define GLOM(name, stuff) name ## stuff

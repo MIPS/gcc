@@ -1,5 +1,9 @@
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (visit_bytecode_block): Use VERIFY_BRANCH_TARGET.
+
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (visit_bytecode_block): Set DECL_CONTEXT on stack and
 	local variables.  Correctly set local_slots[] elements.
 

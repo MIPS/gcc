@@ -140,7 +140,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
       // If this location is a branch target, link its corresponding
       // label into the instruction stream.
-      if ((flags[pc] & VERIFY_TARGET) != 0)
+      if ((flags[pc] & VERIFY_BRANCH_TARGET) != 0)
 	{
 	  tree label_decl = find_label (pc);
 	  tsi_link_after (&statements, build1 (LABEL_EXPR, void_type_node,

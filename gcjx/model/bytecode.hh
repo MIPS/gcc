@@ -72,15 +72,6 @@ private:
   // with new[] and owned by this object.
   unsigned char *flags;
 
-
-  /// Allocate space for the flags.
-  void allocate_flags (int size)
-  {
-    assert (! flags);
-    flags = new unsigned char[size];
-    memset (flags, 0, size);
-  }
-
 public:
 
   model_bytecode_block (const location &w)
@@ -198,6 +189,12 @@ public:
   {
     assert (flags);
     return flags;
+  }
+
+  void set_flags (unsigned char *f)
+  {
+    assert (! flags);
+    flags = f;
   }
 };
 

@@ -1,3 +1,24 @@
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
+	* model/bytecode.cc (verify): Don't call allocate_flags.
+	* model/bytecode.hh (model_bytecode_block::allocate_flags):
+	Removed.
+	(model_bytecode_block::set_flags): New method.
+	* verify.h (VERIFY_INSN_START): New macro.
+	(VERIFY_BRANCH_TARGET): Renamed.
+	(VERIFY_SEEN): Likewise.
+	(vfy_notify_verified): Removed.
+	(vfy_notify_branch_target): Likewise.
+	(vfy_method::flags): Removed.
+	(VFY_WANT_NOTIFICATION): Removed.
+	(vfy_hand_off_flags): New function.
+	* bytecode/verify.cc (FLAG_SEEN): New constant.
+	(branch_prepass): Don't handle notification.  Updated for change
+	to 'flags'.
+	(verify_instructions_0): Likewise.  Use FLAG_SEEN.
+	(flags): Now 'unsigned char *'.
+	(~_Jv_BytecodeVerifier): Call vfy_hand_off_flags.
+
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
 	* verify.h (vfy_find_class): Handle both forms of signature.
