@@ -517,7 +517,7 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  for (ix = 0; ix < EDGE_COUNT (b->succs); ix++)
+  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->succs); ix++)
     {
       e = EDGE_SUCC (b, ix);
       if (e->dest == EXIT_BLOCK_PTR)
@@ -557,7 +557,7 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  for (ix = 0; ix < EDGE_COUNT (b->preds); ix++)
+  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
       e = EDGE_PRED (b, ix);
       if (e->src == ENTRY_BLOCK_PTR)
@@ -637,7 +637,7 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  for (ix = 0; ix < EDGE_COUNT (b->preds); ix++)
+  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
       if (e->src== ENTRY_BLOCK_PTR)
 	continue;

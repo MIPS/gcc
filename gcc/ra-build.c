@@ -954,7 +954,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	  info->pass = loc_vpass;
 	  info->undefined = undef;
 	  /* All but the last predecessor are handled recursively.  */
-	  for (i = 0; i < EDGE_COUNT (bb->preds) - 1; i++)
+	  for (e = NULL, i = 0; i < EDGE_COUNT (bb->preds) - 1; i++)
 	    {
 	      e = EDGE_PRED (bb, i);
 	      insn = live_in_edge (df, use, e);

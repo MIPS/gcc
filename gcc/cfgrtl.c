@@ -2605,7 +2605,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
       if (EDGE_COUNT (src->succs) == 2)
 	{
 	  bool found = false;
-	  unsigned ix;
+	  unsigned ix = 0;
 	  edge tmp, s;
 
 	  FOR_EACH_EDGE (tmp, src->succs)
@@ -2613,6 +2613,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	      if (e == tmp)
 		{
 		  found = true;
+		  ix = __ix;
 		  break;
 		}
 	    }
@@ -2621,7 +2622,6 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  if (!found)
 	    abort ();
 
-	  /* FIXME: Err, isn't this always edge 1? */
 	  if (EDGE_COUNT (src->succs) > (ix + 1))
 	    s = EDGE_SUCC (src, ix + 1);
 	  else
