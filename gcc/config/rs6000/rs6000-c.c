@@ -222,6 +222,10 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       targetm.expand_macro_p = rs6000_expand_macro_p;
       /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
       targetm.cast_expr_as_vector_init = true;
+
+      /* Indicate that the compiler supports Apple AltiVec syntax, including context-
+	 sensitive keywords.  */
+      builtin_define ("__APPLE_ALTIVEC__");
       /* APPLE LOCAL end AltiVec */
     }
   if (TARGET_SPE)

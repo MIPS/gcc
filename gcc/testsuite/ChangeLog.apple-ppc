@@ -1,4 +1,10 @@
+2004-05-10  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-8.C: Brought over from mainline.
+	* gcc.apple/altivec-2.c: Remove, superceded by...
+	* gcc.dg/altivec-13.c: ...this, brought over from mainline.
+
 2004-04-29  Devang Patel  <dpatel@apple.com>
 
-	gcc.dg/tree-ssa/copy-headers.c : Merge from lno-branch as of 
+	* gcc.dg/tree-ssa/copy-headers.c : Merge from lno-branch as of 
 	2004:04:19 00:00.
