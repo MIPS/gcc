@@ -1,3 +1,14 @@
+2003-09-25  Jeff Law  <law@redhat.com>
+
+        * tree-ssa-dom.c (optimize_block): When EQ_EXPR_VALUE has the
+        form DEST = SRC where both DEST and SRC are SSA_NAMEs also
+        record SRC = DEST into the const and copies table.
+ 
+        * tree-ssa-dom.c (optimize_block): Change tests which checked
+        for SSA_VAR_P to only allow SSA_NAMEs.
+        (get_value_for, set_value_for): Likewise.
+        (lookup_avail_expr, get_eq_expr_value): Likewise.
+
 2003-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-dce.c (pdom_info, needed_stmts): Remove.

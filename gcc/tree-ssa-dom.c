@@ -444,6 +444,31 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
       VARRAY_PUSH_TREE (block_const_and_copies, dest);
       VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
 
+      /* If the source is also an SSA_NAME, then we want to record
+	 DEST as the current value for SRC as well.  This allow us
+	 to detect that a == c will always be true in code like the
+	 following:
+
+	   if (a == b)
+	     {
+	       if (b == c)
+		 {
+		    if (a == c)
+		      {
+		      }
+		 }
+	     }
+
+	 This actually happens in real code.  */
+      if (TREE_CODE (src) == SSA_NAME)
+	{
+	  prev_value = get_value_for (src, const_and_copies);
+	  set_value_for (src, dest, const_and_copies);
+
+	  VARRAY_PUSH_TREE (block_const_and_copies, src);
+	  VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
+	}
+
       /* If the new value is a constant, then look at DEST's defining
 	 statement.  If DEST was defined as the result of a typecast,
 	 we may be able to record additional equivalences.  */
@@ -601,9 +626,9 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 #endif
 
 	  /* The alternative may be associated with a constant, so verify
-	     it is an SSA_VAR before doing anything with it.  */
+	     it is an SSA_NAME before doing anything with it.  */
 	  orig_p = &PHI_ARG_DEF (phi, hint);
-	  if (! SSA_VAR_P (*orig_p))
+	  if (TREE_CODE (*orig_p) != SSA_NAME)
 	    continue;
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
@@ -1090,7 +1115,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 
 	/* If the operand is not an ssa variable, then there is nothing
 	   to do.  */
-	if (! SSA_VAR_P (*op_p))
+	if (TREE_CODE (*op_p) != SSA_NAME)
 	  continue;
 
 	/* If the operand has a known constant value or it is known to be a
@@ -1522,7 +1547,7 @@ get_value_for (tree var, htab_t table)
   struct var_value_d *vm_p, vm;
 
 #if defined ENABLE_CHECKING
-  if (!SSA_VAR_P (var))
+  if (TREE_CODE (var) != SSA_NAME)
     abort ();
 #endif
 
@@ -1541,7 +1566,7 @@ set_value_for (tree var, tree value, htab_t table)
   void **slot;
 
 #if defined ENABLE_CHECKING
-  if (!SSA_VAR_P (var))
+  if (TREE_CODE (var) != SSA_NAME)
     abort ();
 #endif
 
@@ -1621,7 +1646,7 @@ lookup_avail_expr (tree stmt,
 
   /* See if the LHS appears in the CONST_AND_COPIES table.  If it does, then
      use the value from the const_and_copies table.  */
-  if (SSA_VAR_P (lhs))
+  if (TREE_CODE (lhs) == SSA_NAME)
     {
       temp = get_value_for (lhs, const_and_copies);
       if (temp)
@@ -1686,7 +1711,7 @@ get_eq_expr_value (tree if_stmt, int true_arm,
 
   /* If the conditional is a single variable 'X', return 'X = 1' for
      the true arm and 'X = 0' on the false arm.   */
-  if (SSA_VAR_P (cond))
+  if (TREE_CODE (cond) == SSA_NAME)
     return build (MODIFY_EXPR, TREE_TYPE (cond), cond,
 		  (true_arm ? integer_one_node : integer_zero_node));
 
