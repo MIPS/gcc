@@ -2133,7 +2133,7 @@ prefer_swapped (insn, op0, op1)
     op1 = SUBREG_REG (op1);
   if (!bb || !REG_P (op0) || !REG_P (op1))
     return 0;
-  while (insn && bb == BLOCK_FOR_INSN (insn))
+  while (insn)
     {
       /* The way it's written (first testing OP0, then OP1) ensures,
          that we do not prefer swapping if both ops die in the same insn.  */
@@ -2142,6 +2142,8 @@ prefer_swapped (insn, op0, op1)
       if (find_reg_note (insn, REG_DEAD, op1))
         return 1;
       insn = NEXT_INSN (insn);
+      if (insn == bb->end)
+	break;
     }
   return 0;
 }

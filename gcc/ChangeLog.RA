@@ -1,3 +1,8 @@
+2003-10-13  Michael Matz  <matz@suse.de>
+
+	* pre-reload.c (prefer_swapped): Change exit test to not
+	apply BLOCK_FOR_INSN on barriers.
+
 2003-10-10  Michael Matz  <matz@suse.de>
 
 	* pre-reload.c (scan_alternative): Don't overwrite operand before
