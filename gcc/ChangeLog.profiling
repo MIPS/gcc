@@ -1,5 +1,9 @@
 2004-04-04  Jan Hubicka  <jh@suse.cz>
 
+	* predict.c (tree_estimate_probability): Fix early return predictor.
+
+2004-04-04  Jan Hubicka  <jh@suse.cz>
+
 	* cfgbuild.c (control_flow_insn_p): Sibling call is control flow.
 	* cfgexpand.c (expand_block): Reprganize call_stmt expansion to handle
 	sqrt builtin.
