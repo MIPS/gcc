@@ -1,3 +1,7 @@
+2003-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-6.c: New test.
+
 2003-04-22  Release Manager
 
 	* GCC 3.2.3 Released.

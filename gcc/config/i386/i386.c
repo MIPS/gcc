@@ -3860,7 +3860,8 @@ x86_64_sign_extended_value (value)
 	 library.  Don't count TLS SYMBOL_REFs here, since they should fit
 	 only if inside of UNSPEC handled below.  */
       case SYMBOL_REF:
-	return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL);
+	return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL)
+	       && !tls_symbolic_operand (value, GET_MODE (value));
 
       /* For certain code models, the code is near as well.  */
       case LABEL_REF:
@@ -3963,9 +3964,11 @@ x86_64_zero_extended_value (value)
 	  return !(INTVAL (value) & ~(HOST_WIDE_INT) 0xffffffff);
 	break;
 
-      /* For certain code models, the symbolic references are known to fit.  */
+      /* For certain code models, the symbolic references are known to fit.
+	 Don't count TLS SYMBOL_REFs here.  */
       case SYMBOL_REF:
-	return ix86_cmodel == CM_SMALL;
+	return (ix86_cmodel == CM_SMALL
+		&& !tls_symbolic_operand (value, GET_MODE (value)));
 
       /* For certain code models, the code is near as well.  */
       case LABEL_REF:
