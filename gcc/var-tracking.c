@@ -1151,27 +1151,25 @@ note_insn_var_location_emit (insn, where, var)
   if ((unsigned HOST_WIDE_INT) last_limit < TREE_INT_CST_LOW (type_size_unit))
     complete = false;
 
-  /* If the variable is not complete a note with empty location should be
-     emitted to specify the end of variable location range.
-     The following test is a temporary workaround because dwarf2out.c does not
-     handle empty location yet.  */
-  if (!complete)
-    return;
-
   if (where == EMIT_NOTE_AFTER_INSN)
     note = emit_note_after (NOTE_INSN_VAR_LOCATION, insn);
   else
     note = emit_note_before (NOTE_INSN_VAR_LOCATION, insn);
 
-  if (var->n_location_parts == 1)
+  if (!complete)
+    {
+      NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
+						       NULL_RTX);
+    }
+  else if (var->n_location_parts == 1)
     {
       rtx expr_list
 	= gen_rtx_EXPR_LIST (VOIDmode,
 			     var->location_part[0].loc,
 			     GEN_INT (var->location_part[0].offset));
 
-      NOTE_VAR_LOCATION (note)
-	= gen_rtx_VAR_LOCATION (VOIDmode, var->decl, expr_list);
+      NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
+						       expr_list);
     }
   else if (var->n_location_parts)
     {
@@ -1184,8 +1182,8 @@ note_insn_var_location_emit (insn, where, var)
 				     GEN_INT (var->location_part[i].offset));
       parallel = gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec_v (var->n_location_parts, argp));
-      NOTE_VAR_LOCATION (note)
-	= gen_rtx_VAR_LOCATION (VOIDmode, var->decl, parallel);
+      NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
+						       parallel);
     }
 }
 

@@ -3480,6 +3480,7 @@ static unsigned decl_die_table_in_use;
    decl_die_table.  */
 #define DECL_DIE_TABLE_INCREMENT 256
 
+/* Node of the variable location list.  */
 struct var_loc_node GTY ((chain_next ("%h.next")))
 {
   rtx GTY (()) var_loc_note;
@@ -3487,11 +3488,19 @@ struct var_loc_node GTY ((chain_next ("%h.next")))
   struct var_loc_node * GTY (()) next;
 };
 
+/* Variable location list.  */
+struct var_loc_list_def GTY (())
+{
+  struct var_loc_node * GTY (()) first;
+  struct var_loc_node * GTY (()) last;
+};
+typedef struct var_loc_list_def var_loc_list;
+
 /* Unique label counter.  */
 static unsigned int loclabel_num = 0;
 
 /* Table of decl location linked lists.  */
-static GTY ((length ("decl_loc_table_allocated"))) struct var_loc_node **decl_loc_table;
+static GTY ((length ("decl_loc_table_allocated"))) var_loc_list *decl_loc_table;
 
 /* Number of elements in the decl_loc_table that are allocated.  */
 static unsigned decl_loc_table_allocated;
@@ -3709,7 +3718,9 @@ static dw_die_ref new_die		PARAMS ((enum dwarf_tag, dw_die_ref,
 static dw_die_ref lookup_type_die	PARAMS ((tree));
 static void equate_type_number_to_die	PARAMS ((tree, dw_die_ref));
 static dw_die_ref lookup_decl_die	PARAMS ((tree));
+static var_loc_list *lookup_decl_loc	PARAMS ((tree));
 static void equate_decl_number_to_die	PARAMS ((tree, dw_die_ref));
+static void add_var_loc_to_decl		PARAMS ((tree, struct var_loc_node *));
 static void print_spaces		PARAMS ((FILE *));
 static void print_die			PARAMS ((dw_die_ref, FILE *));
 static void print_dwarf_line_table	PARAMS ((FILE *));
@@ -5305,18 +5316,15 @@ lookup_decl_die (decl)
   return (decl_id < decl_die_table_in_use ? decl_die_table[decl_id] : NULL);
 }
 
-static struct var_loc_node * lookup_decl_loc PARAMS ((tree));
-static void add_var_loc_to_decl PARAMS ((tree, struct var_loc_node *));
-
 /* Return the var_loc list associated with a given declaration.  */
 
-static inline struct var_loc_node *
+static inline var_loc_list *
 lookup_decl_loc (decl)
      tree decl;
 {
   unsigned decl_id = DECL_UID (decl);
   
-  return (decl_id < decl_loc_table_in_use ? decl_loc_table[decl_id] : NULL);
+  return (decl_id < decl_loc_table_in_use ? &decl_loc_table[decl_id] : NULL);
 }
 
 /* Equate a DIE to a particular declaration.  */
@@ -5359,47 +5367,44 @@ add_var_loc_to_decl (decl, loc)
 {
   unsigned int decl_id = DECL_UID (decl);
   unsigned int num_allocated;
-  struct var_loc_node *temp;
+  var_loc_list *temp;
 
   if (decl_id >= decl_loc_table_allocated)
     {
-      num_allocated
-        = ((decl_id + 1 + DECL_LOC_TABLE_INCREMENT - 1)
-           / DECL_LOC_TABLE_INCREMENT)
-          * DECL_LOC_TABLE_INCREMENT;
+      num_allocated = ((decl_id + 1 + DECL_LOC_TABLE_INCREMENT - 1)
+		       / DECL_LOC_TABLE_INCREMENT)
+		      * DECL_LOC_TABLE_INCREMENT;
 
-      decl_loc_table
-        = (struct var_loc_node **) ggc_realloc (decl_loc_table,
-                                   sizeof (struct var_loc_node *) * num_allocated);
+      decl_loc_table = ggc_realloc (decl_loc_table,
+				    sizeof (var_loc_list) * num_allocated);
 
-      memset ((char *) &decl_loc_table[decl_loc_table_allocated], 0,
-             (num_allocated - decl_loc_table_allocated) * sizeof (struct var_loc_node *));
+      memset (&decl_loc_table[decl_loc_table_allocated], 0,
+	      (num_allocated - decl_loc_table_allocated)
+	      * sizeof (var_loc_list));
       decl_loc_table_allocated = num_allocated;
     }
 
   if (decl_id >= decl_loc_table_in_use)
-    decl_loc_table_in_use = (decl_id + 1);
+    decl_loc_table_in_use = decl_id + 1;
 
-  temp = decl_loc_table[decl_id];
-  if (!temp)
+  temp = &decl_loc_table[decl_id];
+  if (temp->last)
     {
-      decl_loc_table[decl_id] = loc;
-      loc->next = NULL;
-    }
-  else
-    {
-      /* Get to the end of the list */
-      while (temp->next != NULL)
-	temp = temp->next;
-
       /* If the current location is the same as the end of the list,
-	 just extend the range of the location at the end of the
-	 list.  */ 
-      if (rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->var_loc_note), 
-		       NOTE_VAR_LOCATION_LOC (loc->var_loc_note)))
-	temp->label = loc->label;
-      else
-	temp->next = loc;
+	 we have nothing to do.  */
+      if (!rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->last->var_loc_note), 
+			NOTE_VAR_LOCATION_LOC (loc->var_loc_note)))
+	{
+	  /* Add LOC to the end of list and update LAST.  */
+	  temp->last->next = loc;
+	  temp->last = loc;
+	}
+    }
+  /* Do not add empty location to the beginning of the list.  */
+  else if (NOTE_VAR_LOCATION_LOC (loc->var_loc_note) != NULL_RTX)
+    {
+      temp->first = loc;
+      temp->last = loc;
     }
 }
 
@@ -9644,7 +9649,7 @@ add_location_or_const_value_attribute (die, decl)
 {
   rtx rtl;
   dw_loc_descr_ref descr;
-  struct var_loc_node *multiloc;
+  var_loc_list *loc_list;
 
   if (TREE_CODE (decl) == ERROR_MARK)
     return;
@@ -9652,16 +9657,17 @@ add_location_or_const_value_attribute (die, decl)
     abort ();
 
   /* See if we possibly have multiple locations for this variable.  */
-  multiloc = lookup_decl_loc (decl);
+  loc_list = lookup_decl_loc (decl);
 
-  /* If it truly has multiple locations, it will have >1 list 
-     member.  */
-  if (multiloc && multiloc->next)
-    {     
+  /* If it truly has multiple locations, the first and last node will
+     differ.  */
+  if (loc_list && loc_list->first != loc_list->last)
+    {
       const char *secname;
       const char *endname;
       dw_loc_list_ref list;
       rtx varloc;
+      struct var_loc_node *node;
       
       /* We need to figure out what section we should use as the base
 	 for the address ranges where a given location is valid.
@@ -9697,28 +9703,31 @@ add_location_or_const_value_attribute (die, decl)
 	 the range [current location start, next location start].
 	 This means we have to special case the last node, and generate
 	 a range of [last location start, end of function label].  */
-	
 
-      varloc = NOTE_VAR_LOCATION (multiloc->var_loc_note);
-      
-      list = new_loc_list (loc_descriptor (varloc), multiloc->label, 
-			   multiloc->next->label, secname, 1);
-      multiloc = multiloc->next;
+      node = loc_list->first;
+      varloc = NOTE_VAR_LOCATION (node->var_loc_note);
+      list = new_loc_list (loc_descriptor (varloc), node->label, 
+			   node->next->label, secname, 1);
+      node = node->next;
 
-      while (multiloc->next)
+      for (; node->next; node = node->next)
+	if (NOTE_VAR_LOCATION_LOC (node->var_loc_note) != NULL_RTX)
+	  {
+	    /* The variable has a location between NODE->LABEL and
+	       NODE->NEXT->LABEL.  */
+	    varloc = NOTE_VAR_LOCATION (node->var_loc_note);
+	    add_loc_descr_to_loc_list (&list, loc_descriptor (varloc),
+				       node->label, node->next->label,
+				       secname);
+	  }
+
+      /* If the variable has a location at the last label
+	 it keeps its location until the end of function.  */
+      if (NOTE_VAR_LOCATION_LOC (node->var_loc_note) != NULL_RTX)
 	{
-	  varloc = NOTE_VAR_LOCATION (multiloc->var_loc_note);
-	  add_loc_descr_to_loc_list (&list, loc_descriptor (varloc),
-				     multiloc->label, multiloc->next->label,
-				     secname);
-	  multiloc = multiloc->next;
-	}
-      
-      if (multiloc)
-        {
 	  char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
 
-	  varloc = NOTE_VAR_LOCATION (multiloc->var_loc_note);
+	  varloc = NOTE_VAR_LOCATION (node->var_loc_note);
 	  if (!current_function_decl)
 	    endname = text_end_label;
 	  else
@@ -9728,7 +9737,7 @@ add_location_or_const_value_attribute (die, decl)
 	      endname = ggc_strdup (label_id);
 	    }
 	  add_loc_descr_to_loc_list (&list, loc_descriptor (varloc),
-				     multiloc->label, endname, secname);
+				     node->label, endname, secname);
 	}
 
       /* Finally, add the location list to the DIE, and we are done.  */
@@ -12615,6 +12624,7 @@ dwarf2out_var_location (loc_note)
   ASM_OUTPUT_LABEL (asm_out_file, loclabel);  
   newloc->label = ggc_strdup (loclabel);
   newloc->var_loc_note = loc_note;
+  newloc->next = NULL;
 
   add_var_loc_to_decl (NOTE_VAR_LOCATION_DECL (loc_note), newloc);
 }
@@ -12818,8 +12828,8 @@ dwarf2out_init (input_filename)
   decl_die_table_in_use = 0;
 
   /* Allocate the initial hunk of the decl_loc_table.  */
-  decl_loc_table
-    = (struct var_loc_node **) ggc_alloc_cleared (DECL_LOC_TABLE_INCREMENT * sizeof (struct var_loc_node *));
+  decl_loc_table = ggc_alloc_cleared (DECL_LOC_TABLE_INCREMENT
+				      * sizeof (var_loc_list));
   decl_loc_table_allocated = DECL_LOC_TABLE_INCREMENT;
   decl_loc_table_in_use = 0;
   

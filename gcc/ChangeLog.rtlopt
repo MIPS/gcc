@@ -1,3 +1,16 @@
+2003-02-20  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (note_insn_var_location_emit): When variable is not
+	complete emit note with NULL_RTX in the location part, coding style.
+	* dwarf2out.c (struct var_loc_list_def): New structure.
+	(decl_loc_table): Changed to be an array of var_loc_list.
+	(lookup_decl_loc): Now returns var_loc_list *.
+	(add_var_loc_to_decl): Use direct pointer to the last node for adding
+	a node to the end of list.
+	(add_location_or_const_value_attribute): Do not add the empty
+	locations to loc list, finish the range of variable location instead.
+	(dwarf2out_init): Coding style.
+
 2003-02-19  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* dwarf2out.c (output_die): Use dw2_asm_output_offset,
