@@ -1,3 +1,8 @@
+2003-08-15  Andrew Pinski <pinskia@physics.uc.edu>
+
+	* objc/objc-lang.c (LANG_HOOKS_GIMPLIFY_EXPR): Define
+	as the c gimplifier.
+
 2003-08-15  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): Catch more
