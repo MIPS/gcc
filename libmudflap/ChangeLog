@@ -1,6 +1,13 @@
-2003-10-21  David Edelsohn  <dje@watson.ibm.com>
+2003-11-04  David Edelsohn  <edelsohn@gnu.org>
 
-	* mf-runtime.c (_XPOEN_SOURCE_EXTENDED): Define to 1 for AIX.
+	* mf-runtime.c (_ALL_SOURCE): Define for AIX.
+	(_LARGE_FILE_API): Define for AIX.
+	* mf-hooks[123]: Same.
+	(_XOPEN_SOURCE_EXTENDED): Define to 1 for AIX.
+
+2003-10-21  David Edelsohn  <edelsohn@gnu.org>
+
+	* mf-runtime.c (_XOPEN_SOURCE_EXTENDED): Define to 1 for AIX.
 
 2003-07-29  Frank Ch. Eigler  <fche@redhat.com>
 

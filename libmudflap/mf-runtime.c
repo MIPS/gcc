@@ -18,6 +18,8 @@ XXX: libgcc license?
 #define _XOPEN_SOURCE
 #define _BSD_TYPES
 #define __EXTENSIONS__
+#define _ALL_SOURCE
+#define _LARGE_FILE_API
 #define _XOPEN_SOURCE_EXTENDED 1
 
 #include <stdio.h>
