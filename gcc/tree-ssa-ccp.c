@@ -227,6 +227,8 @@ simulate_block (block)
   if (!TEST_BIT (executable_blocks, block->index))
     {
       block_stmt_iterator j;
+      unsigned int normal_edge_count;
+      edge e, normal_edge;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
@@ -234,10 +236,30 @@ simulate_block (block)
       for (j = bsi_start (block); !bsi_end_p (j); bsi_next (&j))
 	visit_stmt (bsi_stmt (j));
 
-      /* If the block has a single successor, it will always get executed.
-	 Add it to the worklist.  */
-      if (block->succ && block->succ->succ_next == NULL)
-	add_control_edge (block->succ);
+      /* We can not predict when abnormal edges will be executed, so
+	 once a block is considered executable, we consider any
+	 outgoing abnormal edges as executable.
+
+	 At the same time, if this block has only one successor that is
+	 reached by non-abnormal edges, then add that successor to the
+	 worklist.  */
+      normal_edge_count = 0;
+      normal_edge = NULL;
+      for (e = block->succ; e; e = e->succ_next)
+        {
+	  if (e->flags & EDGE_ABNORMAL)
+	    {
+	      add_control_edge (e);
+	    }
+	  else
+	    {
+	      normal_edge_count++;
+	      normal_edge = e;
+	    }
+        }
+
+        if (normal_edge_count == 1)
+	  add_control_edge (normal_edge);
     }
 }
 
