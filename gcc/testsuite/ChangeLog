@@ -1,3 +1,112 @@
+2003-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/11420
+	* gcc.dg/20030707-1.c: New test.
+
+	* g++.dg/opt/strength-reduce.C: New test.
+
+2003-07-07  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+            Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/stack1.C: New test.
+
+2003-07-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11345
+	* g++.old-deja/g++.jason/access8.C: Reove error marker.
+
+2003-07-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11431
+	* g++.dg/expr/static_cast3.C: New test.
+
+2003-07-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-call-1.c: New test.
+
+2003-07-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/10700
+	* gcc.c-torture/compile/20030703-1.c: New test case.
+
+2003-07-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-volatile-1.c: New test.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6949
+	* g++.dg/template/local3.C: New test.
+
+2003-06-30  Giovanni Bajo  <giovannibajo@libero.it>
+
+        * g++.dg/other/error5.C: Change line number of expected error.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11137
+	* g++.dg/init/attrib1.C: New test.
+
+	PR c++/11149
+	* g++.dg/lookup/scoped6.C: New test.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9559
+	* g++.dg/init/static1.C: New test.
+
+2003-06-30  Giovanni Bajo  <giovannibajo@libero.it>
+
+        * g++.dg/other/error6.C: New test.
+
+2003-06-30  Giovanni Bajo <giovannibajo@libero.it>
+
+        PR c++/11106
+        * g++.dg/other/error5.C: New test.
+
+2003-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10468
+	* g++.dg/ext/typeof5.C: New test.
+
+2003-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10796
+	* g++.dg/init/enum1.C: New test.
+
+2003-06-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030627-1.c: New test.
+
+2003-06-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11332
+	* g++.dg/expr/static_cast2.C: New test.
+
+2003-06-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10990
+	* g++.dg/rtti/dyncast1.C: New test.
+	* g++.dg/abi/mangle4.C: Correct base-specifier access.
+	* g++.dg/lookup/scoped1.C: Remove XFAIL.
+	* g++.old-deja/g++.martin/pmf1.C: Correct base-specifier access.
+	
+	PR c++/10931
+	* g++.dg/expr/static_cast1.C: New test.
+
+2003-06-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20030625-1.c: New test.
+
+2003-06-25  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.dg/20030625-1.c: New test.
+
+2003-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5754
+	* g++.dg/parse/crash6.C: New test.
+
 2003-06-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/string-opt-17.c: New test.

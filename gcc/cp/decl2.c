@@ -1002,12 +1002,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 		init = decl_constant_value (init);
 	      else if (TREE_CODE (init) == CONSTRUCTOR)
 		init = digest_init (TREE_TYPE (value), init, (tree *)0);
-	      if (init == error_mark_node)
-		/* We must make this look different than `error_mark_node'
-		   because `decl_const_value' would mis-interpret it
-		   as only meaning that this VAR_DECL is defined.  */
-		init = build1 (NOP_EXPR, TREE_TYPE (value), init);
-	      else if (! TREE_CONSTANT (init))
+	      if (init != error_mark_node && ! TREE_CONSTANT (init))
 		{
 		  /* We can allow references to things that are effectively
 		     static, since references are initialized with the
@@ -1024,7 +1019,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	}
     }
 
-  if (processing_template_decl && ! current_function_decl
+  if (processing_template_decl
       && (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == FUNCTION_DECL))
     value = push_template_decl (value);
 
@@ -2698,15 +2693,16 @@ generate_ctor_or_dtor_function (constructor_p, priority)
 
   /* Call the static storage duration function with appropriate
      arguments.  */
-  for (i = 0; i < ssdf_decls->elements_used; ++i) 
-    {
-      arguments = tree_cons (NULL_TREE, build_int_2 (priority, 0), 
-			     NULL_TREE);
-      arguments = tree_cons (NULL_TREE, build_int_2 (constructor_p, 0),
-			     arguments);
-      finish_expr_stmt (build_function_call (VARRAY_TREE (ssdf_decls, i),
-					     arguments));
-    }
+  if (ssdf_decls)
+    for (i = 0; i < ssdf_decls->elements_used; ++i) 
+      {
+	arguments = tree_cons (NULL_TREE, build_int_2 (priority, 0), 
+			       NULL_TREE);
+	arguments = tree_cons (NULL_TREE, build_int_2 (constructor_p, 0),
+			       arguments);
+	finish_expr_stmt (build_function_call (VARRAY_TREE (ssdf_decls, i),
+					       arguments));
+      }
 
   /* If we're generating code for the DEFAULT_INIT_PRIORITY, throw in
      calls to any functions marked with attributes indicating that
@@ -2714,7 +2710,7 @@ generate_ctor_or_dtor_function (constructor_p, priority)
   if (priority == DEFAULT_INIT_PRIORITY)
     {
       tree fns;
-      
+
       for (fns = constructor_p ? static_ctors : static_dtors; 
 	   fns;
 	   fns = TREE_CHAIN (fns))
@@ -3019,6 +3015,15 @@ finish_file ()
     splay_tree_foreach (priority_info_map, 
 			generate_ctor_and_dtor_functions_for_priority,
 			/*data=*/0);
+  else
+    {
+      if (static_ctors)
+	generate_ctor_or_dtor_function (/*constructor_p=*/true,
+					DEFAULT_INIT_PRIORITY);
+      if (static_dtors)
+	generate_ctor_or_dtor_function (/*constructor_p=*/false,
+					DEFAULT_INIT_PRIORITY);
+    }
 
   /* We're done with the splay-tree now.  */
   if (priority_info_map)

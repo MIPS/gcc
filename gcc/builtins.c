@@ -2224,7 +2224,7 @@ expand_builtin_strcpy (exp, target, mode)
      enum machine_mode mode;
 {
   tree arglist = TREE_OPERAND (exp, 1);
-  tree fn, len;
+  tree fn, len, src, dst;
 
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -2233,12 +2233,16 @@ expand_builtin_strcpy (exp, target, mode)
   if (!fn)
     return 0;
 
-  len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)));
-  if (len == 0)
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  len = c_strlen (src);
+  if (len == 0 || TREE_SIDE_EFFECTS (len))
     return 0;
 
+  dst = TREE_VALUE (arglist);
   len = size_binop (PLUS_EXPR, len, ssize_int (1));
-  chainon (arglist, build_tree_list (NULL_TREE, len));
+  arglist = build_tree_list (NULL_TREE, len);
+  arglist = tree_cons (NULL_TREE, src, arglist);
+  arglist = tree_cons (NULL_TREE, dst, arglist);
   return expand_expr (build_function_call_expr (fn, arglist),
 		      target, mode, EXPAND_NORMAL);
 }

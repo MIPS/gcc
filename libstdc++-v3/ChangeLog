@@ -1,3 +1,89 @@
+2003-07-08  Benjamin Kosnik  <bkoz@redhat.com>
+	      Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/ios_base.h (ios_base::_M_getloc): Return reference
+	to the imbued locale.
+	* include/bits/locale_classes.h
+	(__locale_cache_base,__locale_cache): Declare.
+	(locale,locale::_Impl): Befriend __use_cache.
+	(locale::_Impl::_M_get_cache): New function.
+	(locale::_Impl::_M_install_cache): New function.
+	* include/bits/locale_facets.h (__locale_cache): Declare.
+	(numpunct): Befriend __locale_cache.
+	(__locale_cache_base): New class.
+	(__locale_cache): New class.
+	* include/bits/locale_facets.tcc (__use_cache): New function.
+	(num_put::_M_convert_int,_M_convert_float,do_put): Use it.
+	Use cache data members in place of calls to facet.
+	(num_put::_M_convert_int): Use _M_getloc.
+	(num_put::_M_convert_float): Use _M_getloc.
+	(__locale_cache::__locale_cache(locale&): New.
+	(__locale_cache::__locale_cache(locale&,bool)): New.
+	* src/globals.cc (facet_cache_vec): New.
+	(locale_cache_np_c, locale_cache_np_w): New.
+	* src/locale-inst.cc
+	(__locale_cache<numpunct<char> >): Define.
+	(__locale_cache<numpunct<wchar_t> >): Define.
+	(__use_cache<numpunct<char> >): Define.
+	(__use_cache<numpunct<wchar_t> >): Define.
+	* src/localename.cc (facet_cache_vec): Declare.
+	(locale_cache_np_c, locale_cache_np_w): Declare.
+	(locale::_Impl::~Impl): Destroy caches.
+	(locale::_Impl::Impl):  Initialize cache storage.  Fill in
+	static caches.
+	(locale::_Impl::_M_install_facet):  Expand cache storage.
+
+2003-07-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/locale_facets.tcc (__int_to_char): Move common
+        case to the top.
+
+2003-07-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* testsuite/27_io/ostream_inserter_arith.cc (test05, test06):
+        Add missing bool test.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.am: Replace PWD with PWD_COMMAND.
+	* Makefile.in: Regenerated.
+	* docs/html/Makefile: Likewise.
+
+2003-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_STDLIB_SUPPORT): Fix typo in CXXFLAGS.
+	(GLIBCPP_CHECK_MATH_SUPPORT): Likewise.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2003-06-27  Matthias Klose  <doko@debian.org>
+
+	* testsuite/Makefile.am (check-abi, check-abi-verbose): Save
+	output of abi-check in libstdc++-v3-abi.sum.
+	* testsuite/Makefile.in: Regenerate.
+
+2003-06-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	Bulk documentation merge (copy) from trunk.
+	* docs/doxygen/filter, docs/doxygen/filter.sed,
+	docs/doxygen/mainpage.html, docs/doxygen/run_doxygen,
+	docs/doxygen/user.cfg.in, docs/html/configopts.html,
+	docs/html/documentation.html, docs/html/explanations.html,
+	docs/html/install.html, docs/html/test.html, docs/html/17_intro/BUGS,
+	docs/html/17_intro/CHECKLIST, docs/html/17_intro/contribute.html,
+	docs/html/20_util/howto.html, docs/html/ext/howto.html,
+	docs/html/ext/sgiexts.html, docs/html/faq/index.html,
+	docs/html/faq/index.txt:  Merge from trunk.
+
+2003-06-23  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.target (freebsd*): Set abi_baseline_pair.
+	* config/abi/i386-freebsd4/baseline_symbols.txt: Update from 3.2
+	(at or near first release) to 3.3.
+	* config/abi/i386-freebsd5/baseline_symbols.txt: New file.
+	* config/abi/alpha-freebsd5/baseline_symbols.txt: New file.
+	* config/abi/sparc-freebsd5/baseline_symbols.txt: New file.
+
 2003-06-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR bootstrap/11272

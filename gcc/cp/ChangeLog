@@ -1,3 +1,95 @@
+2003-07-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11345
+	* search.c (lookup_base_r): Remove is_non_public and
+	within_current_scope parameters.  Remove other dead code.
+	(lookup_base): Adjust call to lookup_base_r.
+	(adjust_result_of_qualified_name_lookup): Improve comment.
+	* semantics.c (finish_call_expr): Use maybe_dummy_object.
+
+2003-07-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11431
+	* typeck.c (build_static_cast): Check for reference conversions
+	earlier.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6949
+	* decl2.c (grokfield): Create TEMPLATE_DECLs for methods in local
+	classes.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (resolve_scoped_fn_name): Return error_mark_node for
+	erroneous cases.
+
+	PR c++/11137
+	* decl2.c (generate_ctor_or_dtor_function): Tolerate a
+	non-existant ssdf_decls array.
+	(finish_file): Call generator_ctor_or_dtor_function when there are
+	static constructors or destructors and no other static
+	initializations.
+
+	PR c++/11149
+	* call.c (resolve_scoped_fn_name): Check that the qualifying scope
+	is a class type.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9559
+	* decl2.c (grokfield): Do not build NOP_EXPRs around the
+	error_mark_node.
+
+2003-06-30  Giovanni Bajo  <giovannibajo@libero.it>
+
+        * mangle.c (write_expression): Exit gracefully when trying to
+        mangle a CALL_EXPR.
+
+2003-06-30  Giovanni Bajo <giovannibajo@libero.it>
+
+        PR c++/11106
+        * error.c (dump_decl): Call dump_decl to dump the DECL_NAME for a
+        USING_DECL, instead of print_tree_identifier.
+
+2003-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10468
+	* pt.c (tsubst): Handle qualified TYPEOF_TYPEs correctly.
+
+	PR c++/10796
+	* decl.c (finish_enum): Implement DR377.
+
+	* decl.c (cp_finish_decl): Don't make variables with reference
+	type readonly while they are being initialized.
+
+2003-06-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11332
+	* typeck.c (build_static_cast): Avoid returning expressions with
+	reference type.
+
+2003-06-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10990
+	* search.c (lookup_base_r): Rely on accessible_p, rather than
+	trying to emulate that logic here.
+
+	PR c++/10931
+	* call.c (convert_like): Pass issue_conversion_warnings.
+	(convert_like_with_context): Likewise.
+	(convert_like_real): Add issue_conversion_warnings parameter.
+	(perform_direct_initialization_if_possible): New function.
+	* cp-tree.h (perform_direct_initialization_if_possible): Declare it.
+	* typeck.c (check_for_casting_away_constness): New function.
+	(build_static_cast): Rewrite.
+	
+2003-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5754
+	* parse.y (structsp): Improve error handling of invalid nested
+	template classes.
+
 2003-06-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* method.c (thunk_labelno): New variable.

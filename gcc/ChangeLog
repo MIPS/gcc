@@ -1,10 +1,234 @@
+2003-07-08  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (HAVE_AS_DWARF2_DEBUG_LINE): Don't define
+	as .file/.loc directives are incompatible with linker relaxation.
+
+2003-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/11420
+	* config/i386/i386.c (ix86_check_movabs): New function.
+	* config/i386/i386-protos.h (ix86_check_movabs): New prototype.
+	* config/i386/i386.md (movabs[shqd]i_1_rex64): Kill broken alternative.
+	(movabs[shqd]i_[12]_rex64): Add ix86_check_movabs check to conditions.
+
+	* config/i386/i386.md (movdi_1_rex64): Set Y<-m alternative's type
+	to ssemov.
+
+2003-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* unroll.c (reg_dead_after_loop): Check for reg in REG_EQUAL and
+	REG_EQUIV notes as well.
+
+2003-07-07  Dale Johannesen <dalej@apple.com>
+
+        PR 10900
+        * config/rs6000/darwin-tramp.asm:  Fix trampolines.
+
+2003-07-07 Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR optimization/11368
+	* doc/invoke.texi (-falign-functions): Document that
+	when n is zero then a machine-dependent default is used.
+	(-falign-labels): Document that when n is zero then a
+	machine-dependent default is used and that -falign-labels =1
+	is equivalent to -fno-align-labels.
+	(-falign-loops): Likewise.
+	(-falign-jumps): Likewise.
+
+2003-07-07  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+            Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11198
+	* alias.c (objects_must_conflict_p): Return 1 if the types have
+	the same alias set, not if the alias sets only conflict.
+
+2003-07-06  Matthias Klose  <doko@debian.org>
+
+	Backport from mainline:
+
+	2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* doc/extend.texi: Delete entire section on multiline strings.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.in: Replace PWD with PWD_COMMAND.
+
+2003-07-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11304
+	Backport from mainline:
+
+	2003-04-18  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* cfgcleanup.c (flow_find_cross_jump): Use INSN_P, not active_insn_p.
+
+2003-07-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/10700
+	* fold-const.c (extract_muldiv_1): There's nothing that can be done
+	if the expression is a SAVE_EXPR.
+
+2003-07-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11381
+	* simplify-rtx.c (simplify_relational_operation): Check that
+	two equal operands have no side-effects before simplifying
+	the comparison.
+
+2003-07-01  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 2873
+	* fixinc/inclhack.def (avoid_wchar_t_type): Add bypass
+	expressions to prevent triggering on recent curses.h,
+	linux/nls.h, or X11/Xlib.h.
+	(stdio_va_list): Add _G_va_list to bypass pattern.
+	(strict_ansi_not): Add bypass pattern for __SCO_VERSION__.
+	* fixinc/fixincl.x: Regenerate.
+
+2003-07-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* fixinc/inclhack.def (irix_stdio_va_list): Apply to IRIX 6.5
+	<internal/stdio_core.h> too.
+	(stdio_va_list): Apply to IRIX 6.5 <internal/stdio_core.h> and
+	<internal/wchar_core.h> too.
+	Substitute va_list uses in inline definition.
+	* fixinc/fixincl.x: Regenerate.
+
+2003-07-01  Richard Henderson  <rth@redhat.com>
+	    (blame to: Loren James Rittle  <ljrittle@acm.org>)
+
+	* real.h (ieee_extended_intel_96_round_53_format): New.
+	* real.c (ieee_extended_intel_96_round_53_format): New.
+	* config/i386/freebsd.h (SUBTARGET_OVERRIDE_OPTIONS): Use it
+	for XFmode and TFmode.
+
+2003-07-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/contrib.texi: Fix typos.
+	* doc/sourcebuild.texi: Likewise.
+
+2003-06-29  Aaron W. LaFramboise  <awlaframboise@aol.com>
+
+	* config/i386/gthr-win32.h (__GTHREAD_HIDE_WIN32API): Define to 1.
+
+2003-06-27  Gunther Nikl  <gni@gecko.de>
+
+	PR target/11014
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Use correct assembly
+	syntax for MIT / MOTOROLA.
+
+2003-06-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.h (SECONDARY_OUTPUT_RELOAD_CLASS): Define.
+	* config/s390/s390.c (s390_secondary_output_reload_class): New function.
+	* config/s390/s390-protos.h (s390_secondary_output_reload_class):
+	Declare it.
+	* config/s390/s390.md ("reload_outti", "reload_outdi",
+	"reload_outdf"): New expanders.
+
+	* config/s390/s390.md ("movti" + splitters): Handle non-offsettable
+	memory operands as source.
+	("movdi" + splitters): Likewise.
+	("movdf" + splitters): Likewise.
+	* config/s390/s390.c (s390_split_ok_p): New function.
+	* config/s390/s390-protos.h (s390_split_ok_p): Declare it.
+
+2003-06-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/mips.md (trap): Use break 0 when !TARGET_GAS.
+
+	* config/mips/iris6-o32.h (MIPS_ISA_DEFAULT): Remove.
+	(MIPS_CPU_STRING_DEFAULT): Redefine to mips2.
+
+	* config/mips/mips.c (TARGET_ASM_UNALIGNED_DI_OP) [TARGET_IRIX5 &&
+	!TARGET_IRIX6]: Define as NULL.
+
+	* config/mips/iris5gas.h (MDEBUG_ASM_SPEC): Override to match
+	DWARF 2 default.
+
+	* config/mips/dbxmdebug.h: New file.
+	* config.gcc (mips-sgi-irix6*o32, mips-sgi-irix5*): Use it with
+	gas and --with-stabs.
+
+2003-06-27  Andreas Schwab  <schwab@suse.de>
+
+	* config.gcc (m68k-*-linux*): Don't override extra_parts and
+	gnu_ld, use the generic *-*-linux* settings instead.
+
+2003-06-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/11054
+	* rtlanal.c (reg_overlap_mentioned_p): Handle ZERO_EXTRACT
+	and SIGN_EXTRACT.
+
+2003-06-25  Zack Weinberg  <zack@codesourcery.com>
+
+	PR bootstrap/3163
+	* aclocal.m4 (AC_FUNC_MMAP_ANYWHERE, AC_FUNC_MMAP_FILE): Delete.
+	(gcc_AC_FUNC_MMAP_BLACKLIST): New.
+	* configure.in: Check for sys/mman.h and mmap in AC_CHECK_HEADERS
+	and AC_CHECK_FUNCS lists, respectively.  Use
+	gcc_AC_FUNC_MMAP_BLACKLIST, not AC_FUNC_MMAP_ANYWHERE nor
+	AC_FUNC_MMAP_FILE.
+	* configure, config.in: Regenerate.
+
+	* ggc-page.c (init_gcc): Call fatal_io_error, not abort,
+	if opening /dev/zero fails.
+
+2003-06-25  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (expand_builtin_strcpy): Construct new argument list
+	manually instead of using chainon to modify the original arglist.
+
+2003-06-25  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/i386/i386.h (builtin_define): Remove duplicate __amd64
+	and __amd64__.
+
+2003-06-25	Dhananjay Deshpande <dhananjayd@kpitcummins.com>
+
+	* config/sh/sh.c (sh_register_move_cost):
+	Add case for moving between MAC_REGS.
+
+2003-06-24  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR other/11280
+	* gcc/doc/invoke.texi (Optimization Options): Remove -Os from
+	-freorder-functions description.
+
+2003-06-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/11084
+	* config/mips/mips.c (mips_expand_prologue): Fix setting of regno
+	for the end of a variable argument list.
+
+2003-06-25  Josef Zlomek  <zlomekj@suse.cz>
+
+	* dwarf2out.c (gen_field_die): Return if type of decl is error mark.
+
+2003-06-24  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	PR target/11260
+	* config/alpha/alpha.md (sqrtdf2): Fix operand substitution.
+
+2003-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_strcpy): Don't evaluate side-effects in
+	src twice.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (s390_output_mi_thunk): Avoid .plt in -m31
+	mode, as it requires pic register loaded.
+
 2003-06-23  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* doc/extend.texi: Fix typos.
 	* doc/md.texi: Likewise.
 
 2003-06-23  Roger Sayle  <roger@eyesopen.com>
-            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+	    Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* doc/contrib.texi (Contributors): Add a note on testing and
 	remove duplicates from testers list.
@@ -82,7 +306,7 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* flags.h (flag_random_seed): Declare.
 	* configure: Regenerate.
 	* config.in: Regenerate.
-	
+
 2003-06-20  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/10888
@@ -110,7 +334,7 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	(sched_init): Check cached_issue_rate.
 
 2003-06-20  Daniel Egger  <degger@fhm.edu>
-            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+	    Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* doc/install.texi (Building): Correct and improve statement
 	about parallel builds.
@@ -222,18 +446,18 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-06-12  Richard Henderson  <rth@redhat.com>
 
-        PR target/11089
-        * config/i386/i386.md (sse_movaps): Use an expander to force
-        one operand to be a register.
-        (sse_movups): Likewise.
+	PR target/11089
+	* config/i386/i386.md (sse_movaps): Use an expander to force
+	one operand to be a register.
+	(sse_movups): Likewise.
 
 2003-06-12  Richard Henderson  <rth@redhat.com>
 
-        PR middle-end/10557
-        * rtlanal.c (subreg_offset_representable_p): Relax subreg check.
+	PR middle-end/10557
+	* rtlanal.c (subreg_offset_representable_p): Relax subreg check.
 
 2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Christian Ehrhardt <ehrhardt@mathematik.uni-ulm.de>
+	    Christian Ehrhardt <ehrhardt@mathematik.uni-ulm.de>
 
 	PR target/10142
 	* config/sparc/sparc.c (function_arg_record_value_parms): Add
@@ -260,8 +484,8 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2003-06-12  Richard Henderson  <rth@redhat.com>
 
 	PR target/7594
-        * config/m68k/m68k.md (zero_extendhisi2): Use gen_lowpart_SUBREG.
-        (zero_extendqihi2, zero_extendqisi2): Likewise.
+	* config/m68k/m68k.md (zero_extendhisi2): Use gen_lowpart_SUBREG.
+	(zero_extendqihi2, zero_extendqisi2): Likewise.
 
 2003-06-12  Richard Henderson  <rth@redhat.com>
 
@@ -288,8 +512,8 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-06-11  Richard Henderson  <rth@redhat.com>
 
-        * stmt.c (expand_asm_operands): Don't warn for memories with
-        queued addresses.
+	* stmt.c (expand_asm_operands): Don't warn for memories with
+	queued addresses.
 
 2003-06-11  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -310,26 +534,26 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2003-06-09  Richard Henderson  <rth@redhat.com>
 
 	2003-05-11  Ulrich Weigand  <uweigand@de.ibm.com>
-        * except.c (EH_RETURN_STACKADJ_RTX): Do not define.
-        (EH_RETURN_HANDLER_RTX): Likewise.
-        (expand_builtin_eh_return): Do not copy stack adjustment
-        if EH_RETURN_STACKADJ_RTX is not defined.
-        (expand_eh_return): Likewise.  Also, do not pass stack
-        adjustment as argument to the eh_return pattern.
-        * except.h (MUST_USE_SJLJ_EXCEPTIONS): Do not define just
-        because EH_RETURN_STACKADJ_RTX is not defined.
-        * unwind-dw.c (uw_update_context_1): If EH_RETURN_STACKADJ_RTX
-        is not defined, treat stack pointer like a regular register.
-        (uw_init_context_1): Set up fake initial stack pointer register.
-        (uw_install_context_1): Do not compute stack adjustment if
-        EH_RETURN_STACKADJ_RTX is not defined.
+	* except.c (EH_RETURN_STACKADJ_RTX): Do not define.
+	(EH_RETURN_HANDLER_RTX): Likewise.
+	(expand_builtin_eh_return): Do not copy stack adjustment
+	if EH_RETURN_STACKADJ_RTX is not defined.
+	(expand_eh_return): Likewise.  Also, do not pass stack
+	adjustment as argument to the eh_return pattern.
+	* except.h (MUST_USE_SJLJ_EXCEPTIONS): Do not define just
+	because EH_RETURN_STACKADJ_RTX is not defined.
+	* unwind-dw.c (uw_update_context_1): If EH_RETURN_STACKADJ_RTX
+	is not defined, treat stack pointer like a regular register.
+	(uw_init_context_1): Set up fake initial stack pointer register.
+	(uw_install_context_1): Do not compute stack adjustment if
+	EH_RETURN_STACKADJ_RTX is not defined.
 
-        * config/i386/i386.md ("eh_return"): Remove first argument.
-        * config/mips/mips.md ("eh_return"): Likewise.
-        * config/rs6000/rs6000.md ("eh_return"): Likewise.
-        * config/sh/sh.md ("eh_return"): Likewise.
+	* config/i386/i386.md ("eh_return"): Remove first argument.
+	* config/mips/mips.md ("eh_return"): Likewise.
+	* config/rs6000/rs6000.md ("eh_return"): Likewise.
+	* config/sh/sh.md ("eh_return"): Likewise.
 
-        * config/s390/s390.h (EH_RETURN_STACKADJ_RTX): Remove.
+	* config/s390/s390.h (EH_RETURN_STACKADJ_RTX): Remove.
 
 2003-06-08  Richard Henderson  <rth@redhat.com>
 
@@ -337,11 +561,11 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-06-08  Richard Henderson  <rth@redhat.com>
 
-        * expr.h (EXPAND_MEMORY): New.
-        * expr.c (expand_expr): Check it.
-        * stmt.c (expand_asm_operands): Provide it when the constraint
-        requires a memory.  Warn for memory input constraints without
-        a memory operand.
+	* expr.h (EXPAND_MEMORY): New.
+	* expr.c (expand_expr): Check it.
+	* stmt.c (expand_asm_operands): Provide it when the constraint
+	requires a memory.  Warn for memory input constraints without
+	a memory operand.
 
 2003-06-07  Richard Henderson  <rth@redhat.com>
 
@@ -380,12 +604,12 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	-D_GNU_SOURCE.
 
 2003-06-05  David Miller  <davem@redhat.com>
-            Richard Henderson  <rth@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
 
-        * optabs.c (HAVE_conditional_trap): Provide default.
-        (gen_conditional_trap): Likewise.
-        (init_optabs): Merge init_traps.
-        (gen_cond_trap): Use prepare_operand.  Restructure and avoid ifdef.
+	* optabs.c (HAVE_conditional_trap): Provide default.
+	(gen_conditional_trap): Likewise.
+	(init_optabs): Merge init_traps.
+	(gen_cond_trap): Use prepare_operand.  Restructure and avoid ifdef.
 
 2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
@@ -393,7 +617,7 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	constraints related to floating-point registers on SPARC.
 
 2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Paolo Bonzini  <bonzini@gnu.org>
+	    Paolo Bonzini  <bonzini@gnu.org>
 
 	PR target/10663
 	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Redirect
@@ -484,12 +708,12 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 2003-06-03  Richard Henderson  <rth@redhat.com>
 
 	PR target/10673
-        * config/i386/i386.c (ix86_split_long_move): Fix base register
-        mode for XFmode splits for TARGET_64BIT.
+	* config/i386/i386.c (ix86_split_long_move): Fix base register
+	mode for XFmode splits for TARGET_64BIT.
 
 2003-06-02  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
 
-        * gcc/config.gcc Add support multilib parts for m32rx processor.
+	* gcc/config.gcc Add support multilib parts for m32rx processor.
 
 2003-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
@@ -502,9 +726,9 @@ Sat Jun 21 13:37:52 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* rtl.def (CONST_DOUBLE): Update comment.
 
 2003-06-01  Seth Arnold  <sarnold@wirex.com>
-            Aldy Hernandez  <aldyh@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
 
-	PR10871	    
+	PR10871
 	* config/rs6000/rs6000.c (rs6000_stack_info): Do not add
 	vrsave_size twice.
 
@@ -1131,7 +1355,7 @@ Fri May 23 20:55:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-05-06  Eric Christopher  <echristo@redhat.com>
 
-        * config/mips/linux.h: Fix typo.
+	* config/mips/linux.h: Fix typo.
 
 2003-05-06  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -1162,25 +1386,25 @@ Fri May 23 20:55:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* doc/install.texi (mips-*-*):  Add note about libstdc++.
 
 2003-05-05  Mark Mitchell  <mark@codesourcery.com>
-            Kean Johnston <jkj@sco.com>
-	
+	    Kean Johnston <jkj@sco.com>
+
 	* toplev.c (check_global_declarations): Do not warn about unused
 	static consts.
 
 2003-05-05  Richard Henderson  <rth@redhat.com>
 
-        * builtins.c (expand_builtin) <BUILT_IN_DWARF_FP_REGNUM>: Remove.
-        <BUILT_IN_DWARF_SP_COLUMN>: New.
-        * builtins.def (BUILT_IN_DWARF_FP_REGNUM): Remove.
-        (BUILT_IN_DWARF_SP_COLUMN): New.
-        * dwarf2out.c (expand_builtin_dwarf_fp_regnum): Remove.
-        (expand_builtin_dwarf_sp_column): New.
-        * except.h: Update to match.
-        * unwind-dw2.c (execute_stack_op): Correct stack push typo.
-        (execute_cfa_program): Record location expression address
-        before extracting length.
-        (uw_update_context_1): Install old CFA into stack pointer column.
-        (uw_init_context_1): Set cfa_reg to stack pointer column.
+	* builtins.c (expand_builtin) <BUILT_IN_DWARF_FP_REGNUM>: Remove.
+	<BUILT_IN_DWARF_SP_COLUMN>: New.
+	* builtins.def (BUILT_IN_DWARF_FP_REGNUM): Remove.
+	(BUILT_IN_DWARF_SP_COLUMN): New.
+	* dwarf2out.c (expand_builtin_dwarf_fp_regnum): Remove.
+	(expand_builtin_dwarf_sp_column): New.
+	* except.h: Update to match.
+	* unwind-dw2.c (execute_stack_op): Correct stack push typo.
+	(execute_cfa_program): Record location expression address
+	before extracting length.
+	(uw_update_context_1): Install old CFA into stack pointer column.
+	(uw_init_context_1): Set cfa_reg to stack pointer column.
 
 2003-05-05  David O'Brien  <obrien@FreeBSD.org>
 
