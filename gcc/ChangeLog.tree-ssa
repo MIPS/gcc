@@ -1,3 +1,37 @@
+2003-02-10  Jeff Law <law@redhat.com>
+
+	* ssa.c (compute_dominance_frontiers_1): Use a sparse bitmap
+	for the frontiers.
+	(compute_dominance_frontiers): Corresponding changes.
+	(convert_to_ssa): Similarly.  Convert the sparse bitmap to
+	a simple bitmap to avoid lots of collateral damage.
+	* ssa.h (compute_dominance_frontiers): Update prototype.
+	* tree-ssa.c (added, in_work): Kill, no longer needed.
+	(struct def_blocks_d): Add new bitmap (livein_blocks).
+	(rewrite_into_ssa): Make dominance frontiers be a sparse
+	bitmap instead of a simple bitmap.  Rename the "nonlocals"
+	simple bitmap to "globals".  Pass it into mark_def_sites.
+	(compute_global_livein): New function.
+	(mark_def_sites): Also keep track of variables which are
+	used before they are set.  Allow caller to allocate and
+	pass in a simple bitmap for global variables.  Process
+	items defined in the statement last.
+	(set_def_block): Also allocate bitmap for globals.
+	(set_livein_block): New function.
+	(def_blocks_free): Free def_blocks correctly.  Also free
+	livein_blocks.
+	(debug_def_blocks_r): Also dump the livein_blocks.
+	(insert_phi_nodes): Simplify now that we don't need the
+	added and in_work varrays.  Accept DFS as a sparse bitmap
+	instead of a simple bitmap.
+	(insert_phi_nodes_for): Rework significantly.  Pre-compute all
+	the insertion points for semi-pruned form.  While computing those
+	insertion points keep track of how many phi vector entries
+	would be needed at those insertion points.  When the number of
+	entries gets large (32), compute global life information and
+	use that to further pruned the number of PHI insertion points
+	necessary.
+	
 2003-02-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_vars_r): Assume that the RHS of an INDIRECT_REF,

@@ -168,7 +168,7 @@ struct rename_context;
 static inline rtx * phi_alternative
   PARAMS ((rtx, int));
 static void compute_dominance_frontiers_1
-  PARAMS ((sbitmap *frontiers, dominance_info idom, int bb,
+  PARAMS ((bitmap *frontiers, dominance_info idom, int bb,
 	   sbitmap done, basic_block * cached_idoms));
 static void find_evaluations_1
   PARAMS ((rtx dest, rtx set, void *data));
@@ -519,7 +519,7 @@ find_evaluations (evals, nregs)
 
 static void
 compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
-     sbitmap *frontiers;
+     bitmap *frontiers;
      dominance_info idom;
      int bb;
      sbitmap done;
@@ -555,7 +555,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
       if (cached_idoms[e->dest->index]->index != bb)
-	SET_BIT (frontiers[bb], e->dest->index);
+        bitmap_set_bit (frontiers[bb], e->dest->index);
     }
 
   /* Find blocks conforming to rule (2).  */
@@ -564,10 +564,10 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
       c = dominated[i];
       {
 	int x;
-	EXECUTE_IF_SET_IN_SBITMAP (frontiers[c->index], 0, x,
+	EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
 	  {
 	    if (cached_idoms[BASIC_BLOCK (x)->index]->index != bb)
-	      SET_BIT (frontiers[bb], x);
+	      bitmap_set_bit (frontiers[bb], x);
 	  });
       }
     }
@@ -578,7 +578,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
 
 void
 compute_dominance_frontiers (frontiers, idom)
-     sbitmap *frontiers;
+     bitmap *frontiers;
      dominance_info idom;
 {
   basic_block bb, *cached_idoms;
@@ -586,7 +586,6 @@ compute_dominance_frontiers (frontiers, idom)
 
   timevar_push (TV_DOM_FRONTIERS);
 
-  sbitmap_vector_zero (frontiers, last_basic_block);
   sbitmap_zero (done);
 
   cached_idoms = xmalloc (n_basic_blocks * sizeof (bb));
@@ -1195,12 +1194,13 @@ convert_to_ssa ()
 
   /* Dominator bitmaps.  */
   sbitmap *dfs;
+  bitmap *sparse_dfs;
   sbitmap *idfs;
 
   /* Element I is the immediate dominator of block I.  */
   dominance_info idom;
 
-  int nregs;
+  int i, nregs;
 
   basic_block bb;
 
@@ -1225,8 +1225,31 @@ convert_to_ssa ()
 
   /* Compute dominance frontiers.  */
 
+  sparse_dfs = (bitmap *) xmalloc (sizeof (bitmap) * n_basic_blocks);
+  for (i = 0; i < n_basic_blocks; i++)
+    sparse_dfs[i] = BITMAP_XMALLOC ();
+  compute_dominance_frontiers (sparse_dfs, idom);
+
+  /* Now convert the sparse bitmap into an sbitmap.  Long term we
+     need to convert the rest of this code to use sparse bitmaps
+     when appropriate.  */
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
-  compute_dominance_frontiers (dfs, idom);
+  sbitmap_vector_zero (dfs, last_basic_block);
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      unsigned int bb_index;
+
+      EXECUTE_IF_SET_IN_BITMAP (sparse_dfs[i], 0, bb_index,
+	{
+	  SET_BIT (dfs[i], bb_index);
+	});
+    }
+
+  /* Release the SPARSE_DFS.  */
+  for (i = 0; i < n_basic_blocks; i++)
+    BITMAP_XFREE (sparse_dfs[i]);
+  free (sparse_dfs);
 
   if (rtl_dump_file)
     {
