@@ -1469,13 +1469,18 @@ vect_get_base_and_bit_offset (struct data_reference *dr,
 	return NULL_TREE;
       
       if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (expr))) < TYPE_ALIGN (vectype)) 
-	return vect_get_ptr_offset (expr, vectype, offset);
+	{
+	  base = vect_get_ptr_offset (expr, vectype, offset);
+	  if (base)
+	    *base_aligned_p = true;
+	}
       else
 	{	  
 	  *base_aligned_p = true;
 	  *offset = size_zero_node;
-	  return expr;
+	  base = expr;
 	}
+      return base;
       
     case INTEGER_CST:      
       *offset = int_const_binop (MULT_EXPR, expr,     
@@ -1814,6 +1819,7 @@ get_vectype_for_scalar_type (tree scalar_type)
   enum machine_mode inner_mode = TYPE_MODE (scalar_type);
   int nbytes = GET_MODE_SIZE (inner_mode);
   int nunits;
+  tree vectype;
 
   if (nbytes == 0)
     return NULL_TREE;
@@ -1822,7 +1828,10 @@ get_vectype_for_scalar_type (tree scalar_type)
      is expected.  */
   nunits = UNITS_PER_SIMD_WORD / nbytes;
 
-  return build_vector_type (scalar_type, nunits);
+  vectype = build_vector_type (scalar_type, nunits);
+  if (TYPE_MODE (vectype) == BLKmode)
+    return NULL_TREE;
+  return vectype;
 }
 
 
@@ -4070,7 +4079,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
   /* At this point we assume that the base is aligned, and the offset from it
      (including index, if relevant) has been computed and is in BIT_OFFSET.  */
 #ifdef ENABLE_CHECKING
-  ok = TREE_CODE (base) == SSA_NAME
+  ok = base_aligned_p
     || (TREE_CODE (base) == VAR_DECL
         && DECL_ALIGN (base) >= TYPE_ALIGN (vectype));
   if (!ok)
@@ -4529,20 +4538,17 @@ vect_analyze_data_ref_access (struct data_reference *dr)
     }
   
   access_fn = DR_ACCESS_FN (dr, 0); /*  The last dimension access function.  */
-  if (!evolution_function_is_constant_p (access_fn))
-    {
-      if (!vect_is_simple_iv_evolution 
-		(loop_containing_stmt (DR_STMT (dr))->num,
+  if (!evolution_function_is_constant_p (access_fn)
+      && !vect_is_simple_iv_evolution (loop_containing_stmt (DR_STMT (dr))->num,
 				       access_fn, &init, &step, true))
+    {
+      if (vect_debug_details (NULL))
 	{
-	  if (vect_debug_details (NULL))
-	    {
-	      fprintf (dump_file, 
-		       "not vectorized: too complicated access function.");
-	      print_generic_expr (dump_file, access_fn, TDF_SLIM);
-	    }
-	  return false;
-	} 
+	  fprintf (dump_file, 
+		   "not vectorized: too complicated access function.");
+	  print_generic_expr (dump_file, access_fn, TDF_SLIM);
+	}
+      return false;
     }
 
   return true;

@@ -2068,7 +2068,7 @@
   "TARGET_ALTIVEC"
   "{ rs6000_emit_move (operands[0], operands[1], GET_MODE (operands[1])); DONE; }")
 
-(define_expand "addr_floor_v8si"
+(define_expand "addr_floor_v8hi"
   [(set (match_operand 0 "nonimmediate_operand" "")
         (match_operand 1 "any_operand" ""))]
   "TARGET_ALTIVEC"

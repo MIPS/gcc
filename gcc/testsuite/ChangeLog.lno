@@ -1,15 +1,21 @@
+2002-09-27  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-74.c: Split into vect-74, vect-79 and vect-80.
+	* gcc.dg/vect/vect-79.c: New test. A part of former vect-74.
+	* gcc.dg/vect/vect-80.c: New test. A part of former vect-74.
+	
 2004-09-13  Ira Rosen  <irar@il.ibm.com>
 
-        * gcc.dg/vect/vect-73.c: New test.
-        * gcc.dg/vect/vect-74.c: New test.
-        * gcc.dg/vect/vect-75.c: New test.
-        * gcc.dg/vect/vect-76.c: New test.
-        * gcc.dg/vect/vect-77.c: New test.
-        * gcc.dg/vect/vect-78.c: New test.
-        * gcc.dg/vect/vect-28.c: Remove xfail *-*-*, now vectorized.
-        * gcc.dg/vect/vect-29.c: Remove xfail *-*-*, now vectorized.
-        * gcc.dg/vect/vect-56.c: Now vectorized on ppc*.
-        * gcc.dg/vect/vect-60.c: Now vectorized on ppc*.
+	* gcc.dg/vect/vect-73.c: New test.
+	* gcc.dg/vect/vect-74.c: New test.
+	* gcc.dg/vect/vect-75.c: New test.
+	* gcc.dg/vect/vect-76.c: New test.
+	* gcc.dg/vect/vect-77.c: New test.
+	* gcc.dg/vect/vect-78.c: New test.
+	* gcc.dg/vect/vect-28.c: Remove xfail *-*-*, now vectorized.
+	* gcc.dg/vect/vect-29.c: Remove xfail *-*-*, now vectorized.
+	* gcc.dg/vect/vect-56.c: Now vectorized on ppc*.
+	* gcc.dg/vect/vect-60.c: Now vectorized on ppc*.
 
 2004-09-10  Dorit Naishlos <dorit@il.ibm.com>
 

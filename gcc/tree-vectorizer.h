@@ -197,7 +197,7 @@ typedef struct _loop_vec_info {
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L) ((L)->num_iters > 0)
 
-
+/* Perform signed modulo, always returning a non-negative value.  */
 #define VECT_SMODULO(x,y) ((x) % (y) < 0 ? ((x) % (y) + (y)) : (x) % (y))
 
 /*-----------------------------------------------------------------*/
