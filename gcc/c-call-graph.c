@@ -121,7 +121,7 @@ construct_call_graph (pretty_printer *buffer, tree t, HOST_WIDE_INT spc)
 
 	  /* Control flow statistics.  */
 	  init_flow ();
-	  build_tree_cfg (DECL_SAVED_TREE (node));
+	  build_tree_cfg (&DECL_SAVED_TREE (node));
 	  pp_printf (buffer, " CFG-edges=\"%d\" CFG-BB=\"%d\" McCabe=\"%d\">\n",
 			 n_edges, n_basic_blocks, n_edges - n_basic_blocks + 2);
 	  delete_tree_cfg ();

@@ -3440,7 +3440,7 @@ extern void declare_nonlocal_label (tree);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In tree-optimize.c.  */
-void optimize_function_tree (tree);
+void optimize_function_tree (tree, tree *);
 
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);

@@ -111,7 +111,7 @@ tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	dump_referenced_vars (dump_file);
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
 

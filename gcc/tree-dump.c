@@ -876,7 +876,11 @@ dump_function_to_file (tree fn, FILE *stream, int flags)
   if (flags & TDF_RAW)
     dump_node (fn, TDF_SLIM | flags, stream);
   else
-    print_generic_stmt (stream, DECL_SAVED_TREE (fn), flags);
+    {
+      fprintf (stream, "{\n");
+      print_generic_stmt (stream, DECL_SAVED_TREE (fn), flags);
+      fprintf (stream, "\n}");
+    }
 
   fprintf (stream, "\n\n");
 }

@@ -52,7 +52,7 @@ Boston, MA 02111-1307, USA.  */
    FUNCTION_DECL node for the function to optimize.  */
 
 void
-optimize_function_tree (tree fndecl)
+optimize_function_tree (tree fndecl, tree *chain)
 {
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -61,7 +61,7 @@ optimize_function_tree (tree fndecl)
   /* Build the flowgraph.  */
   init_flow ();
 
-  build_tree_cfg (DECL_SAVED_TREE (fndecl));
+  build_tree_cfg (chain);
 
   /* Begin analysis and optimization passes.  After the function is
      initially renamed into SSA form, passes are responsible from keeping
@@ -239,7 +239,7 @@ void
 tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
-  tree saved_tree = NULL;
+  tree saved_tree = NULL, chain;
 
   timevar_push (TV_EXPAND);
 
@@ -290,6 +290,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Lower the structured statements.  */
   lower_function_body (&DECL_SAVED_TREE (fndecl));
+  chain = DECL_SAVED_TREE (fndecl);
 
   /* Avoid producing notes for blocks.  */
   cfun->dont_emit_block_notes = 1;
@@ -299,7 +300,10 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Invoke the SSA tree optimizer.  */
   if (optimize >= 1 && !flag_disable_tree_ssa)
-    optimize_function_tree (fndecl);
+    optimize_function_tree (fndecl, &chain);
+
+  DECL_SAVED_TREE (fndecl) = build (BIND_EXPR, void_type_node,
+				    NULL_TREE, chain, NULL_TREE);
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to

@@ -448,7 +448,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
 	  dump_tree_ssa_stats (dump_file);
 	}
 
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
 
@@ -1898,7 +1898,7 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
 }

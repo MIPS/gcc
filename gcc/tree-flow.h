@@ -426,7 +426,7 @@ extern GTY(()) varray_type call_clobbered_vars;
 			      Function prototypes
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
-extern void build_tree_cfg (tree);
+extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg (void);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
@@ -459,6 +459,7 @@ extern bool cleanup_cond_expr_graph (basic_block, block_stmt_iterator);
 extern bool cleanup_switch_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (void);
 extern basic_block tree_block_forwards_to (basic_block bb);
+extern void dump_cfg_function_to_file (tree, FILE *, int);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -504,6 +505,7 @@ extern void mark_new_vars_to_rename (tree, sbitmap);
 /* In gimple-low.c  */
 void lower_function_body (tree *);
 void expand_used_vars (void);
+void record_vars (tree);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);

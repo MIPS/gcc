@@ -52,13 +52,13 @@ static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static bool simple_goto_p (tree);
-static void record_vars (tree);
 
 /* Lowers the BODY.  */
 void
 lower_function_body (tree *body)
 {
   struct lower_data data;
+  tree root;
 
   if (TREE_CODE (*body) != BIND_EXPR)
     abort ();
@@ -68,13 +68,15 @@ lower_function_body (tree *body)
   BLOCK_CHAIN (data.block) = NULL_TREE;
 
   record_vars (BIND_EXPR_VARS (*body));
-  BIND_EXPR_VARS (*body) = NULL_TREE;
-  lower_stmt_body (&BIND_EXPR_BODY (*body), &data);
+  root = BIND_EXPR_BODY (*body);
+  lower_stmt_body (&root, &data);
 
   if (data.block != DECL_INITIAL (current_function_decl))
     abort ();
   BLOCK_SUBBLOCKS (data.block) =
 	  blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
+
+  *body = root;
 }
 
 /* Lowers the EXPR.  Unlike gimplification the statements are not relowered
@@ -136,7 +138,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 
 /* Record the variables in VARS.  */
 
-static void
+void
 record_vars (tree vars)
 {
   for (; vars; vars = TREE_CHAIN (vars))

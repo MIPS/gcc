@@ -1,3 +1,32 @@
+2003-11-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (gimplify.o): Add function.h dependency.
+	* c-call-graph.c (construct_call_graph): Modify build_tree_cfg call.
+	* gimple-low.c (record_vars): Export.
+	(lower_function_body): Remove the topmost BIND_EXPR.
+	* gimplify.c: Include function.h.
+	(gimple_add_tmp_var): Record temporaries in the
+	cfun->unexpanded_vars_list if available.
+	* tree-cfg.c (build_tree_cfg): Work without the topmost BIND_EXPR.
+	(dump_cfg_function_to_file): New.
+	(dump_tree_cfg): Use dump_cfg_function_to_file.
+	* tree-dump.c (dump_function_to_file): Work without the topmost
+	BIND_EXPR.
+	* tree-flow.h (build_tree_cfg): Declaration changed.
+	(dump_cfg_function_to_file, record_vars): Declare.
+	* tree-optimize.c (optimize_function_tree, tree_rest_of_compilation):
+	Work without the topmost BIND_EXPR.
+	* tree-must-alias.c (tree_compute_must_alias): Use
+	dump_cfg_function_to_file.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Ditto.
+	* tree-ssa-copyprop.c (tree_ssa_copyprop): Ditto.
+	* tree-ssa-dce.c (tree_ssa_dce): Ditto.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize_1): Ditto.
+	* tree-ssa-pre.c (tree_perform_ssapre): Ditto.
+	* tree-ssa.c (rewrite_into_ssa, rewrite_out_of_ssa): Ditto.
+	* tree-tailcall.c (tree_optimize_tail_calls): Ditto.
+	* tree.h (optimize_function_tree): Declaration changed.
+
 2003-11-03  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre (handle_bb_creation): Removed.

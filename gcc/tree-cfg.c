@@ -156,7 +156,7 @@ static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
    function to process.  */
 
 void
-build_tree_cfg (tree fnbody)
+build_tree_cfg (tree *fnbody)
 {
   tree *first_p;
 
@@ -178,14 +178,7 @@ build_tree_cfg (tree fnbody)
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 
-  /* Find the basic blocks for the flowgraph.  Ignore empty functions.  */
-  if (IS_EMPTY_STMT (fnbody) || TREE_CODE (fnbody) != BIND_EXPR)
-    {
-      timevar_pop (TV_TREE_CFG);
-      return;
-    }
-
-  first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
+  first_p = first_exec_stmt (fnbody);
   if (first_p)
     {
       found_computed_goto = 0;
@@ -2101,9 +2094,76 @@ dump_tree_cfg (FILE *file, int flags)
     dump_cfg_stats (file);
 
   if (n_basic_blocks > 0)
-    dump_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
+    dump_cfg_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
 }
 
+/* Dumps function FN to FILE, with details given by FLAGS.  Function body is
+   taken from cfg.  */
+
+void
+dump_cfg_function_to_file (tree fn, FILE *file, int flags)
+{
+  basic_block bb;
+  tree arg, phi;
+  block_stmt_iterator si;
+  edge e;
+  int show_bb_headers = flags & TDF_BLOCKS;
+
+  flags &= ~TDF_BLOCKS;
+
+  fprintf (file, "\n;; Function %s",
+	    (*lang_hooks.decl_printable_name) (fn, 2));
+  fprintf (file, " (%s)\n",
+	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
+  fprintf (file, "\n");
+
+  fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
+
+  arg = DECL_ARGUMENTS (fn);
+  while (arg)
+    {
+      print_generic_expr (file, arg, 0);
+      if (TREE_CHAIN (arg))
+	fprintf (file, ", ");
+      arg = TREE_CHAIN (arg);
+    }
+  fprintf (file, ")\n");
+
+  fprintf (file, "{\n");
+  FOR_EACH_BB (bb)
+    {
+      if (show_bb_headers)
+	{
+	  fprintf (file, "# BLOCK %d\n ", bb->index);
+	  fprintf (file, "# PRED");
+	  for (e = bb->pred; e; e = e->pred_next)
+	    dump_edge_info (file, e, 0);
+	  putc ('\n', file);
+	}
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  fprintf (file, "\t# ");
+	  print_generic_stmt (file, phi, flags);
+	  fprintf (file, "\n");
+	}
+
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	{
+	  fprintf (file, "%d\t", get_lineno (bsi_stmt (si)));
+	  print_generic_stmt (file, bsi_stmt (si), flags & ~TDF_VOPS);
+	  fprintf (file, "\n");
+	}
+
+      if (show_bb_headers)
+	{
+	  fprintf (file, "# SUCC");
+	  for (e = bb->succ; e; e = e->succ_next)
+	    dump_edge_info (file, e, 1);
+	  fprintf (file, "\n\n");
+	}
+    }
+  fprintf (file, "}\n\n");
+}
 
 /* Dump CFG statistics on FILE.  */
 

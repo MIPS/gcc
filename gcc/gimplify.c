@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "flags.h"
 #include "real.h"
+#include "function.h"
 
 static struct gimplify_ctx
 {
@@ -504,6 +505,8 @@ gimple_add_tmp_var (tree tmp)
       TREE_CHAIN (tmp) = gimplify_ctxp->temps;
       gimplify_ctxp->temps = tmp;
     }
+  else if (cfun)
+    record_vars (tmp);
   else
     declare_tmp_vars (tmp, DECL_SAVED_TREE (current_function_decl));
 }
