@@ -1,3 +1,7 @@
+2003-03-22  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h (ADDRESS_COST): Define.
+
 2003-03-20  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips.h (EXTRA_CONSTRAINT): Give existing meaning of

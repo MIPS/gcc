@@ -3469,6 +3469,15 @@ typedef struct mips_args {
     else								\
       return COSTS_N_INSNS (1);
 
+/* Calculate the cost of an address assuming that it will be used
+   to access a single value.  Anything word_mode or smaller would
+   do: the choice only really matters for mips16.
+
+   This macro will only get passed legitimate addresses.  We would
+   actually return zero for illegitimate ones.  */
+
+#define ADDRESS_COST(X) mips_address_insns (X, SImode)
+
 /* A C expression for the cost of moving data from a register in
    class FROM to one in class TO.  The classes are expressed using
    the enumeration values such as `GENERAL_REGS'.  A value of 2 is
