@@ -1,3 +1,10 @@
+2004-04-18  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c (create_index_for_array_ref): Remove code under
+        #ifdef POINTER_ARITHMETIC.
+        (vect_create_data_ref): Likewise. Support array addressing
+        instead of pointer arithmetic in vectorized code.
+
 2004-04-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from tree-ssa branch:
