@@ -162,7 +162,9 @@ static void sh_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void sh_insert_attributes PARAMS ((tree, tree *));
 static void sh_asm_named_section PARAMS ((const char *, unsigned int));
 static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
-
+static int sh_use_dfa_interface PARAMS ((void));
+static int sh_issue_rate PARAMS ((void));
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE sh_attribute_table
@@ -175,6 +177,12 @@ static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST sh_adjust_cost
+
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
+				sh_use_dfa_interface
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE sh_issue_rate
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -5705,4 +5713,27 @@ int
 sh_pr_n_sets ()
 {
   return REG_N_SETS (PR_REG);
+}
+
+/* This Function Returns non zero if DFA based scheduler
+   interface is to be used.At present supported only for
+   SH4.  */
+static int
+sh_use_dfa_interface()
+{
+        if (TARGET_SH4)
+                return 1;
+        else
+                return 0;
+}
+
+/* This function returns "2" that signifies dual issue 
+   for SH4 processor.To be used by DFA pipeline description.  */
+static int
+sh_issue_rate()
+{
+	if(TARGET_SH4)
+		return 2;
+	else
+		return 1;
 }

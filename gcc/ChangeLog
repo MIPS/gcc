@@ -1,3 +1,24 @@
+2001-12-20  Naveen Sharma,Nitin Gupta     <naveens@noida.hcltech.com,niting@noida.hcltech.com>
+
+	* config/sh/sh.c (sh_use_dfa_interface): New function.
+
+	(sh_issue_rate): New Function.
+	TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE: define.
+	TARGET_SCHED_ISSUE_RATE: define.
+
+	* config/sh/sh.md: Add DFA based pipeline description for SH4.
+
+	(define_attr insn_class): New attribute used for DFA 
+         scheduling.
+	(define_insn cmpgtsi_t): Set attribute insn_class mt_group.
+	(cmpgesi_t,cmpgtusi_t,cmpgeusi_t,cmpeqsi_t,
+	 cmpeqdi_t): Likewise.
+
+	(add,addc1,addsi3,subc,subc1,*subsi3_internal,
+	 negc,negsi2,ashldi3_k,lshrdi3_k,ashrdi3_k): Set insn_class 
+	 ex_group.
+	(iorsi3,rotlsi3_1,rotlsi3_31,rotlsi3_16): Likewise.
+	   
 2001-10-03  Vladimir Makarov  <vmakarov@toke.toronto.redhat.com>
 
 	* haifa-sched.c (queue_to_ready): Remove unnecessary condition for
