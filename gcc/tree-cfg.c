@@ -104,6 +104,8 @@ static tree *first_exec_stmt		PARAMS ((tree *));
 static basic_block switch_parent	PARAMS ((basic_block));
 static inline bool stmt_starts_bb_p	PARAMS ((tree, tree));
 static inline bool stmt_ends_bb_p	PARAMS ((tree));
+static void find_contained_blocks_and_edge_targets
+  PARAMS ((tree *, bitmap, bitmap, tree **));
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks	PARAMS ((void));
@@ -886,12 +888,21 @@ create_bb ()
 				 Edge creation
 ---------------------------------------------------------------------------*/
 
+/* We need to keep a stack of the TRY_FINALLY blocks we've found as
+   we must process its children before we know what special edges
+   need to be created.  */
+varray_type try_finallys;
+
+
 /* Join all the blocks in the flowgraph.  */
 
 static void
 make_edges ()
 {
   basic_block bb;
+  unsigned int i;
+
+  VARRAY_TREE_INIT (try_finallys, 10, "try finally block stack");
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -926,8 +937,209 @@ make_edges ()
 	make_edge (bb, successor_block (bb), 0);
     }
 
+  /* Now go back to each TRY_FINALLY_EXPR and add the required special
+     edges.
+
+     For each edge out of the TRY block:
+    
+       1.  Add an abnormal edge from the source of that edge to the
+       FINALLY block. 
+       
+       2. Add an abnormal edge from the FINALLY block to the destination
+       of the edge out of the TRY block.
+
+     Note this does not update the underlying tree codes, just the CFG.
+     This may be an insanely bad idea long term.
+ 
+     Also note this is overly conservative, many of the edges from the
+     TRY to the FINALLY should be normal edges.  Similarly for the
+     edges from the FINALLY to the TRY's original destination.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (try_finallys); i++)
+    {
+      tree try_finally = VARRAY_TREE (try_finallys, i);
+      tree *finally_last_p;
+      basic_block last_bb;
+      int bb;
+      bitmap try_blocks = BITMAP_XMALLOC ();
+      bitmap try_targets = BITMAP_XMALLOC ();
+      bitmap dummy_bitmap = BITMAP_XMALLOC ();
+
+      /* Get bitmaps for the basic blocks within the TRY block as
+	 well as bitmap for the blocks which the TRY block can
+	 reach.  */
+      finally_last_p = NULL;
+      find_contained_blocks_and_edge_targets (&TREE_OPERAND (try_finally, 0),
+		      			      try_blocks,
+					      try_targets,
+					      &finally_last_p);
+
+      /* Examine each basic block within the TRY block.  */
+      EXECUTE_IF_SET_IN_BITMAP (try_blocks, 0, bb,
+	{
+	  edge e;
+
+	  /* Look at each outgoing edge from the block.  */
+	  for (e = BASIC_BLOCK (bb)->succ; e; e = e->succ_next)
+	    {
+	      /* If the destination of this edge is not inside the
+		 TRY block, then wire up an edge from this block to
+		 the FINALLY block.  */
+	      if (! bitmap_bit_p (try_blocks, e->dest->index))
+	        {
+		  tree *finally_p = &TREE_OPERAND (try_finally, 1);
+		  basic_block finally_bb = first_exec_block (finally_p);
+
+		  if (finally_bb)
+		    make_edge (BASIC_BLOCK (bb), finally_bb, EDGE_ABNORMAL);
+		}
+	    }
+	});
+
+      /* We need to know the last statement in the FINALLY so that
+	 we know where to wire up the additional outgoing edges from
+	 the FINALLY block.  */
+      finally_last_p = NULL;
+      find_contained_blocks_and_edge_targets (&TREE_OPERAND (try_finally, 1),
+		      			      dummy_bitmap,
+					      dummy_bitmap,
+					      &finally_last_p);
+
+      last_bb = first_exec_block (finally_last_p);
+
+      /* Find edges which exited the TRY block.  For each of those
+	 edges, we want to create a new edge from the FINALLY block
+	 to the destination of the edge out of the TRY block.  */
+      if (last_bb)
+	EXECUTE_IF_AND_COMPL_IN_BITMAP (try_targets, try_blocks, 0, bb,
+	  {
+	    basic_block b;
+
+	    b = (bb == last_basic_block ? EXIT_BLOCK_PTR : BASIC_BLOCK (bb));
+	    make_edge (last_bb, b, EDGE_ABNORMAL);
+	  });
+
+      BITMAP_XFREE (dummy_bitmap);
+      BITMAP_XFREE (try_targets);
+      BITMAP_XFREE (try_blocks);
+    }
+
+  try_finallys = NULL;
+
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
+}
+
+/* Find all the basic blocks contained within *STMT_P and its children
+   and mark them in MY_BLOCKS.  For each outgoing edge in MY_BLOCKS,
+   mark the destination of the edge in MY_TARGETS.  Also record the
+   last statement processed in *last_p.  */
+
+static void
+find_contained_blocks_and_edge_targets (stmt_p, my_blocks, my_targets, last_p)
+     tree *stmt_p;
+     bitmap my_blocks;
+     bitmap my_targets;
+     tree **last_p;
+{
+  tree_stmt_iterator tsi;
+
+  for (tsi = tsi_start (stmt_p); !tsi_end_p (tsi); tsi_next (&tsi))
+    {
+      tree stmt;
+      enum tree_code code;
+      basic_block bb;
+      edge e;
+
+      stmt = tsi_stmt (tsi);
+      if (!stmt || ! stmt_ann (stmt))
+	break;
+
+      /* Keep track of the last statement we've processed.  */
+      *last_p = tsi_stmt_ptr (tsi);
+
+      /* Mark this statement's block as being contained.  */
+      bb = bb_for_stmt (stmt);
+      bitmap_set_bit (my_blocks, bb->index);
+
+      /* Now mark all destinations of edges out of this block.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  int blocknum
+	    = (e->dest == EXIT_BLOCK_PTR ? last_basic_block : e->dest->index);
+
+	  bitmap_set_bit (my_targets, blocknum);
+	}
+
+      /* And recurse down into control structures.  */
+      code = TREE_CODE (stmt);
+      if (code == LOOP_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&LOOP_EXPR_BODY (stmt),
+			 			  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+      else if (code == COND_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&COND_EXPR_COND (stmt),
+			 			  my_blocks,
+						  my_targets,
+						  last_p);
+	  find_contained_blocks_and_edge_targets (&COND_EXPR_THEN (stmt),
+			  			  my_blocks,
+						  my_targets,
+						  last_p);
+	  find_contained_blocks_and_edge_targets (&COND_EXPR_ELSE (stmt),
+			 			  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+      else if (code == CATCH_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&CATCH_BODY (stmt),
+						  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+      else if (code == EH_FILTER_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&EH_FILTER_FAILURE (stmt),
+			 			  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+      else if (code == TRY_CATCH_EXPR
+	       || code == TRY_FINALLY_EXPR
+	       || code == COMPOUND_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&TREE_OPERAND (stmt, 0),
+			 			  my_blocks,
+						  my_targets,
+						  last_p);
+	  find_contained_blocks_and_edge_targets (&TREE_OPERAND (stmt, 1),
+			  			  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+      else if (code == SWITCH_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&SWITCH_COND (stmt),
+			 			  my_blocks,
+						  my_targets,
+						  last_p);
+	  find_contained_blocks_and_edge_targets (&SWITCH_BODY (stmt),
+			  			  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+      else if (code == BIND_EXPR)
+	{
+	  find_contained_blocks_and_edge_targets (&BIND_EXPR_BODY (stmt),
+			  			  my_blocks,
+						  my_targets,
+						  last_p);
+	}
+    }
 }
 
 
@@ -956,6 +1168,42 @@ make_ctrl_stmt_edges (bb)
 
     case SWITCH_EXPR:
       break;
+
+    case TRY_FINALLY_EXPR:
+      VARRAY_PUSH_TREE (try_finallys, last);
+      if (first_exec_stmt (&TREE_OPERAND (last, 0)) == NULL)
+	make_edge (bb, first_exec_block (&TREE_OPERAND (last, 1)), EDGE_ABNORMAL);
+
+      /* FALL THROUGH */
+    case TRY_CATCH_EXPR:
+      {
+	basic_block target_bb = first_exec_block (&TREE_OPERAND (last, 0));
+
+	if (target_bb)
+          make_edge (bb, target_bb, EDGE_FALLTHRU);
+	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	break;
+      }
+
+    case CATCH_EXPR:
+      {
+	basic_block target_bb = first_exec_block (&CATCH_BODY (last));
+
+	if (target_bb)
+	  make_edge (bb, target_bb, EDGE_FALLTHRU);
+	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	break;
+      }
+
+    case EH_FILTER_EXPR:
+      {
+	basic_block target_bb = first_exec_block (&EH_FILTER_FAILURE (last));
+
+	if (target_bb)
+	  make_edge (bb, target_bb, EDGE_ABNORMAL);
+	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	break;
+      }
 
     default:
       abort ();
@@ -992,18 +1240,32 @@ make_exit_edges (bb)
       break;
 
       /* A CALL_EXPR node here means that the last statement of the block
-	 is a call to a non-returning function.  */
+	 is a call to a non-returning function or a call that may throw.  */
     case CALL_EXPR:
       /* Some calls are known not to return, so we just need to make
-	 an edge from them to the exit block.  Note that we do not
-	 need to worry about nonlocal gotos for such calls.  */
+	 an edge from them to the exit block.  */
       if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
 	make_edge (bb, EXIT_BLOCK_PTR, 0);
-      else if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+      if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	{
 	  make_goto_expr_edges (bb);
           make_edge (bb, successor_block (bb), 0);
 	}
+      
+      /* If this statement has reachable exception handlers, then
+	 create abnormal edges to them.  */
+      if (stmt_ann (last)->reachable_exception_handlers)
+	{
+	  tree t;
+
+	  for (t = stmt_ann (last)->reachable_exception_handlers;
+	       t;
+	       t = TREE_CHAIN (t))
+	    make_edge (bb, first_exec_block (&TREE_VALUE (t)), EDGE_ABNORMAL);
+	}
+
+      /* Don't forget the fall-thru edge.  */
+      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
       break;
 
     case RETURN_EXPR:
@@ -1014,10 +1276,23 @@ make_exit_edges (bb)
       /* A MODIFY_EXPR may have a CALL_EXPR on its RHS and the CALL_EXPR
 	 may have an abnormal edge.  Search the RHS for this case and
 	 create any required edges.  */
-      if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
-	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+      if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR)
 	{
-	  make_goto_expr_edges (bb);
+	  if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	    make_goto_expr_edges (bb);
+
+	  if (stmt_ann (last)->reachable_exception_handlers)
+	    {
+	      tree t;
+
+	      for (t = stmt_ann (last)->reachable_exception_handlers;
+		   t;
+		   t = TREE_CHAIN (t))
+		make_edge (bb,
+			   first_exec_block (&TREE_VALUE (t)),
+			   EDGE_ABNORMAL);
+	    }
+
           make_edge (bb, successor_block (bb), 0);
 	}
       break;
@@ -2346,14 +2621,24 @@ is_ctrl_altering_stmt (t)
     return true;
 
   /* A CALL_EXPR also alters flow control if it does not return.  */
-  if (code == CALL_EXPR)
-    return call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP);
+  if (code == CALL_EXPR
+      && call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP))
+    return 1;
+
+  /* A CALL_EXPR also alters flow control if it may throw.  */
+  if (code == CALL_EXPR
+      && (VARRAY_ACTIVE_SIZE (eh_stack) > 0
+	  || stmt_ann (t)->reachable_exception_handlers))
+    return 1;
 
   /* A MODIFY_EXPR may contain a CALL_EXPR, which in turn may have
      an abnormal edge if the current function has nonlocal labels.  */
   if (code == MODIFY_EXPR
       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR
-      && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+      && (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)
+          || VARRAY_ACTIVE_SIZE (eh_stack) > 0
+	  || stmt_ann (t)->reachable_exception_handlers))
+      	
     return true;
 
   return false;

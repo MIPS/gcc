@@ -1,5 +1,17 @@
 2003-04-21  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (find_contained_blocks_and_edge_targets): New function.
+	(try_finallys): New varray used during edge creation.
+	(make_edges): Initialize try_finallys varray.  After creating
+	all the "normal" edges, go back and create the special edges
+	for the try-finally blocks.
+	(make_ctrl_stmt_edges): Create edges for the EH nodes.  Also
+	make sure to build the try-finally stack.
+	(make_exit_edges): Create edges from calls which may throw
+	to any directly reachable exception handlers.
+	(is_ctrl_altering_stmt): Statements which may throw alter
+	flow control.
+
 	* tree-cfg.c: Include except.h.
 	(eh_stack): New file-scoped varray.
 	(build_tree_cfg): Initialize eh_stack.
