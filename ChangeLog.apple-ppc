@@ -1,4 +1,7 @@
 2004-09-27  Robert Bowdidge <bowdidge@apple.com>
+	* build_gcc: change cp -r to cp -R to ensure we copy symbolic links
+       
+2004-09-27  Robert Bowdidge <bowdidge@apple.com>
 	* build_gcc: set install names and dependent library references
         to the major name for each of the gcc-produced dylibs.
 

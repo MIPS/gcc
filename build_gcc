@@ -228,11 +228,11 @@ rm -rf * || exit 1
 # HTML documentation
 HTMLDIR="/Developer/ADC Reference Library/documentation/DeveloperTools"
 mkdir -p ".$HTMLDIR" || exit 1
-cp -rp $DIR/obj-$BUILD-$BUILD/gcc/doc/HTML/* ".$HTMLDIR/" || exit 1
+cp -Rp $DIR/obj-$BUILD-$BUILD/gcc/doc/HTML/* ".$HTMLDIR/" || exit 1
 
 # Manual pages
 mkdir -p .$DEST_ROOT/share || exit 1
-cp -rp $DIR/dst-$BUILD-$BUILD$DEST_ROOT/share/man .$DEST_ROOT/share/ \
+cp -Rp $DIR/dst-$BUILD-$BUILD$DEST_ROOT/share/man .$DEST_ROOT/share/ \
   || exit 1
 
 # libexec
@@ -271,7 +271,7 @@ done
 # lib
 mkdir -p .$DEST_ROOT/lib/gcc || exit 1
 for t in $TARGETS ; do
-  cp -rp $DIR/dst-$BUILD-$t$DEST_ROOT/lib/gcc/$t-apple-darwin \
+  cp -Rp $DIR/dst-$BUILD-$t$DEST_ROOT/lib/gcc/$t-apple-darwin \
     .$DEST_ROOT/lib/gcc || exit 1
 done
 SHARED_LIBS=`ls $DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib | grep '\.dylib$'`
@@ -329,12 +329,12 @@ ln -s  /usr/bin/cpp-$MAJ_VERS .$DEST_ROOT/libexec/gcc/darwin/i386/$MAJ_VERS/cpp
 # include
 HEADERPATH=$DEST_ROOT/include/gcc/darwin/$MAJ_VERS
 mkdir -p .$HEADERPATH || exit 1
-cp -rp $DIR/dst-$BUILD-$BUILD$HEADERPATH/c++ \
+cp -Rp $DIR/dst-$BUILD-$BUILD$HEADERPATH/c++ \
   .$HEADERPATH/ || exit 1
 for t in $TARGETS ; do
   DS=$HEADERPATH/c++
   [ $t = $BUILD ] || \
-    cp -rp $DIR/dst-$BUILD-$t$DS/$t-apple-darwin .$DS/ || exit 1
+    cp -Rp $DIR/dst-$BUILD-$t$DS/$t-apple-darwin .$DS/ || exit 1
 done
 
 # Some headers are installed from more-hdrs/.  They all share
@@ -345,7 +345,7 @@ done
 # its own.
 cd $SRC_DIR/more-hdrs
 for h in `echo [^C]*` ; do
-  cp -r $h $DEST_DIR$HEADERPATH/$h || exit 1
+  cp -R $h $DEST_DIR$HEADERPATH/$h || exit 1
   for t in $TARGETS ; do
     THEADERPATH=$DEST_DIR$DEST_ROOT/lib/gcc/${t}-apple-darwin/$VERS/include
     [ -f $THEADERPATH/$h ] || \
@@ -423,9 +423,8 @@ find obj-* -name \*.\[chy\] -print | cpio -pdml $SYM_DIR/src || exit 1
 find $DEST_DIR -perm -0111 \! -name \*.dylib -type f -print \
   | xargs strip || exit 1
 if [ "$VERS" != "3.5.0" ]; then
-  # these go away when rdar://problem/3812858 is fixed
-  find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
-    | xargs strip -SX || exit 1
+find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
+  | xargs strip -SX || exit 1
 fi
 find $DEST_DIR -name \*.a -type f -print \
   | xargs ranlib || exit 1
