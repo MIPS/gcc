@@ -427,22 +427,20 @@ do {					\
 
 #define DBX_DEBUGGING_INFO 1
 
-/* APPLE LOCAL dwarf */
 /* Also enable Dwarf 2 as an option.  */
-#define DWARF2_DEBUGGING_INFO 
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG 
+#define DWARF2_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#define DEBUG_FRAME_SECTION	"__DWARFXA,__debug_frame"
-#define DEBUG_INFO_SECTION	"__DWARFXA,__debug_info"
-#define DEBUG_ABBREV_SECTION	"__DWARFXA,__debug_abbrev"
-#define DEBUG_ARANGES_SECTION	"__DWARFXA,__debug_aranges"
-#define DEBUG_MACINFO_SECTION	"__DWARFXA,__debug_macinfo"
-#define DEBUG_LINE_SECTION	"__DWARFXA,__debug_line"
-#define DEBUG_LOC_SECTION	"__DWARFXA,__debug_loc"
-#define DEBUG_PUBNAMES_SECTION	"__DWARFXA,__debug_pubnames"
-#define DEBUG_STR_SECTION	"__DWARFXA,__debug_str"
-#define DEBUG_RANGES_SECTION	"__DWARFXA,__debug_ranges"
-/* APPLE LOCAL end dwarf */
+#define DEBUG_FRAME_SECTION   "__DWARFA,__debug_frame,coalesced,no_toc+strip_static_syms"
+#define DEBUG_INFO_SECTION    "__DWARFA,__debug_info"
+#define DEBUG_ABBREV_SECTION  "__DWARFA,__debug_abbrev"
+#define DEBUG_ARANGES_SECTION "__DWARFA,__debug_aranges"
+#define DEBUG_MACINFO_SECTION "__DWARFA,__debug_macinfo"
+#define DEBUG_LINE_SECTION    "__DWARFA,__debug_line"
+#define DEBUG_LOC_SECTION     "__DWARFA,__debug_loc"
+#define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames"
+#define DEBUG_STR_SECTION     "__DWARFA,__debug_str"
+#define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges"
 
 /* APPLE LOCAL begin gdb only used symbols */
 /* Support option to generate stabs for only used symbols. */
@@ -466,6 +464,11 @@ do { text_section ();							\
      fprintf (FILE,							\
 	      "\t.stabs \"%s\",%d,0,0,Letext\nLetext:\n", "" , N_SO);	\
    } while (0)
+
+/* We need to use a nonlocal label for the start of an EH frame: the
+   Darwin linker requires that a coalesced section start with a label. */
+#undef FRAME_BEGIN_LABEL
+#define FRAME_BEGIN_LABEL "EH_frame"
 
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
@@ -1038,22 +1041,25 @@ enum machopic_addr_class {
 
 
 #define APPLE_ASM_WEAK_DEF_FMT_STRING(LAB) \
-      (name_needs_quotes(LAB) ? ".weak_definition \"%s.eh\"\n" : ".weak_definition %s.eh\n")
+      (name_needs_quotes(LAB) ? ".weak_definition \"%s%s\"\n" : ".weak_definition %s%s\n")
 
-#define ASM_OUTPUT_COAL_UNWIND_LABEL(FILE, LAB, COAL, PUBLIC, PRIVATE_EXTERN) \
+#define ASM_OUTPUT_COAL_UNWIND_LABEL(FILE, LAB, COAL, PUBLIC, PRIVATE_EXTERN, FOR_EH) \
   do {									\
+    const char *suffix = ".eh";						\
+    if (! (FOR_EH))							\
+      suffix = ".eh1";							\
     if ((COAL) || (PUBLIC) || (PRIVATE_EXTERN))                         \
       fprintf ((FILE),							\
-	       (name_needs_quotes(LAB) ? "%s \"%s.eh\"\n" : "%s %s.eh\n"), \
+	       (name_needs_quotes(LAB) ? "%s \"%s%s\"\n" : "%s %s%s\n"),\
 	       ((PUBLIC) ? ".globl" : ".private_extern"),               \
-	       (LAB));							\
+	       (LAB), suffix);						\
     if (COAL)								\
       fprintf ((FILE),							\
 	       APPLE_ASM_WEAK_DEF_FMT_STRING(LAB),			\
-	       (LAB));							\
+	       (LAB), suffix);						\
     fprintf ((FILE), 							\
-	     (name_needs_quotes(LAB) ? "\"%s.eh\":\n" : "%s.eh:\n"),    \
-	     (LAB));							\
+	     (name_needs_quotes(LAB) ? "\"%s%s\":\n" : "%s%s:\n"),	\
+	     (LAB), suffix);						\
   } while (0)
 
 #endif	/* COALESCED_UNWIND_INFO  */

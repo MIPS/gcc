@@ -400,7 +400,9 @@ static void def_cfa_1 (const char *, dw_cfa_location *);
 #define FUNC_END_LABEL		"LFE"
 #endif
 
+#ifndef FRAME_BEGIN_LABEL
 #define FRAME_BEGIN_LABEL	"Lframe"
+#endif
 #define CIE_AFTER_SIZE_LABEL	"LSCIE"
 #define CIE_END_LABEL		"LECIE"
 #define FDE_LABEL		"LSFDE"
@@ -2070,14 +2072,6 @@ output_call_frame_info (int for_eh)
   else
     named_section_flags (DEBUG_FRAME_SECTION, SECTION_DEBUG);
 
-  /* APPLE LOCAL begin coalescing  */
-#ifdef COALESCED_UNWIND_INFO
-  /* We could probably mark the CIE as coalesced as well, since they're
-     all the same (or are they?!)  */
-  ASM_OUTPUT_LABEL (asm_out_file, "EH_unwind_info");
-#endif
-  /* APPLE LOCAL end coalescing  */
-
   ASM_GENERATE_INTERNAL_LABEL (section_start_label, FRAME_BEGIN_LABEL, for_eh);
   ASM_OUTPUT_LABEL (asm_out_file, section_start_label);
 
@@ -2218,7 +2212,8 @@ output_call_frame_info (int for_eh)
 				    fde->coalesced
 				      || fde->public
 				      || fde->private_extern
-				      || fde->explicit);
+				      || fde->explicit,
+				    for_eh);
 #endif
       /* APPLE LOCAL end coalescing  */
 
