@@ -1243,7 +1243,7 @@ if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " target-
 fi
 
 if echo " ${configdirs} " |grep " libbanshee " >/dev/null 2>&1; then
-   withoptions="$withoptions --with-libbanshee"
+   ac_configure_args="$ac_configure_args --with-libbanshee"
 fi
 
 # We default to --with-shared on platforms where -fpic is meaningless.
