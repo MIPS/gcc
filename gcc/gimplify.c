@@ -1956,7 +1956,7 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
     }
   else
     /* Both arms are empty; replace the COND_EXPR with its predicate.  */
-    *expr_p = TREE_OPERAND (expr, 0);
+    expr = TREE_OPERAND (expr, 0);
 
   *expr_p = expr;
 }

@@ -1,3 +1,7 @@
+2003-09-29  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (gimplify_cond_expr): Fix both arms dead return value.
+
 2003-09-29  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (simplify_cond_and_lookup_avail_expr): New function.
