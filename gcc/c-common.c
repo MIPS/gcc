@@ -1019,6 +1019,14 @@ decl_attributes (node, attributes, prefix_attributes)
 	      else
 		DECL_EXTERNAL (decl) = 0;
 	      assemble_alias (decl, id);
+	      if (target && TREE_CODE (target) == VAR_DECL && DECL_ARGUMENTS (target))
+		{
+		  tree target_extent = DECL_ARGUMENTS (target);
+		  tree decl_extent = get_extent_decl (decl);
+		  if (DECL_WEAK (decl))
+		    declare_weak (decl_extent);
+		  assemble_alias (decl_extent, DECL_ASSEMBLER_NAME (target_extent));
+		}
 	    }
 	  else
 	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));

@@ -1,3 +1,49 @@
+2000-05-30  Greg McGary  <greg@mcgary.org>
+
+	* c-common.c (decl_attributes): Test `target' before dereference.
+	* c-decl.c (finish_decl): Call assemble_extent for arrays and
+	structs with flexbile array members.
+	(grokdeclarator): Surround unused variable decls with `#if 0'
+	* c-parse.in (unary_expr): Always call build_bounded_ptr_value_ref
+	when parsing `__ptrvalue' exprs.
+	* c-typeck.c (build_bounded_ptr_field_ref): Don't warn when taking
+	the value of an unbounded pointer--it's a no-op.
+	(build_array_ref): Toss bounds attached to an array index.
+	(build_binary_op): Take extra care to preserve bounds across all
+	bit-manipulations of pointer values.
+	(build_unary_op): Call FINAL_FIELD_P for detecting flexible
+	array members of structs.
+	(build_bounded_ptr_constructor): Call build_bounded_ptr_extent.
+	(variable_extent_p, build_bounded_ptr_extent, get_extent_decl):
+	New functions.
+	(build_extent_decl): Remove function.
+	(pop_init_level): Adjust the decl size of an initialized struct
+	to account for the length of a flexible array member.
+	* convert.c (convert_to_pointer): Invert `if'.
+	* cpplex.c (expand_name_space): Adjust base and end
+	along with pointer values.
+	(_cpp_squeeze_toklist): Likewise.
+	* dbxout.c (dbxout_symbol_location): Ignore non-parm decls
+	for types that have a variable-length component.
+	* output.h (assemble_extent): New function decl.
+	* real.c (asctoeg): Rewrite `etens' handling in a way that
+	doesn't violate array bounds.
+	* tree.c (int_size_in_bytes): Accept decl as well as type nodes.
+	Return DECL_SIZE_UNIT for decls and TYPE_SIZE_UNIT for types.
+	* tree.h (TREE_INT_CST): New macro.
+	(TREE_INT_CST_HIGH, TREE_INT_CST_LOW): Access union members.
+	(struct tree_int_cst): Add union for accessing low/high as
+	uint/int members or as uint array.
+	(FINAL_FIELD_P): New macro.
+	(get_extent_decl, variable_extent_p): New function decls.
+	* varasm.c (const_hash, compare_constant_1, record_constant_1)
+	[INTEGER_CST]: Use TREE_INT_CST.
+	(assemble_extent): New function.
+	* config/elfos.h (ASM_DECLARE_EXTENT): New macro.
+	* config/i386/i386.c (ix86_valid_type_attribute_p):
+	Warn only once about incompatibility of `regparm' attribute
+	and `-fbounded-pointers'.
+
 2000-05-18  Greg McGary  <greg@mcgary.org>
 
 	* builtins.c (expand_builtin_va_arg): Assert that va types

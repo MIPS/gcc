@@ -2452,8 +2452,8 @@ const_hash (exp)
   switch (code)
     {
     case INTEGER_CST:
-      p = (char *) &TREE_INT_CST_LOW (exp);
-      len = 2 * sizeof TREE_INT_CST_LOW (exp);
+      p = (char *) TREE_INT_CST (exp);
+      len = sizeof TREE_INT_CST (exp);
       break;
 
     case REAL_CST:
@@ -2596,8 +2596,8 @@ compare_constant_1 (exp, p)
       if (*p++ != TYPE_PRECISION (TREE_TYPE (exp)))
 	return 0;
 
-      strp = (char *) &TREE_INT_CST_LOW (exp);
-      len = 2 * sizeof TREE_INT_CST_LOW (exp);
+      strp = (char *) &TREE_INT_CST (exp);
+      len = sizeof TREE_INT_CST (exp);
       break;
 
     case REAL_CST:
@@ -2830,8 +2830,8 @@ record_constant_1 (exp)
     {
     case INTEGER_CST:
       obstack_1grow (&permanent_obstack, TYPE_PRECISION (TREE_TYPE (exp)));
-      strp = (char *) &TREE_INT_CST_LOW (exp);
-      len = 2 * sizeof TREE_INT_CST_LOW (exp);
+      strp = (char *) &TREE_INT_CST (exp);
+      len = sizeof TREE_INT_CST (exp);
       break;
 
     case REAL_CST:
@@ -4860,6 +4860,18 @@ assemble_alias (decl, target)
   warning ("alias definitions not supported in this configuration; ignored");
 #endif
 #endif
+}
+
+void
+assemble_extent (decl)
+     tree decl;
+{
+  tree extent = get_extent_decl (decl);
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (extent));
+  if (TREE_PUBLIC (decl))
+    assemble_global (name);
+  if (TREE_PUBLIC (decl) || TREE_USED (decl))
+    ASM_DECLARE_EXTENT (asm_out_file, decl);
 }
 
 /* This determines whether or not we support link-once semantics.  */

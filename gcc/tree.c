@@ -2318,16 +2318,17 @@ size_in_bytes (type)
    or return -1 if the size can vary or is larger than an integer.  */
 
 HOST_WIDE_INT
-int_size_in_bytes (type)
-     tree type;
+int_size_in_bytes (t)
+     tree t;
 {
-  tree t;
-
-  if (type == error_mark_node)
+  if (t == error_mark_node)
     return 0;
 
-  type = TYPE_MAIN_PHYSICAL_VARIANT (type);
-  t = TYPE_SIZE_UNIT (type);
+  if (DECL_P (t))
+    t = DECL_SIZE_UNIT (t);
+  else
+    t = TYPE_SIZE_UNIT (TYPE_MAIN_PHYSICAL_VARIANT (t));
+
   if (t == 0
       || TREE_CODE (t) != INTEGER_CST
       || TREE_OVERFLOW (t)

@@ -757,7 +757,11 @@ ix86_valid_type_attribute_p (type, attributes, identifier, args)
 
       if (flag_bounded_pointers)
 	{
-	  warning ("regparm is incompatible with -fbounded-pointers");
+	  static int warned = 0;
+	  /* Explain once why regparm is ignored.  Each instance
+	     already gets a warning that the attribute is ignored.  */
+	  if (!warned++)
+	    warning ("`regparm' attribute is incompatible with -fbounded-pointers");
 	  return 0;
 	}
 

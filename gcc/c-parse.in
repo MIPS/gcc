@@ -527,8 +527,7 @@ unary_expr:
 	| IMAGPART cast_expr %prec UNARY
 		{ $$ = build_unary_op (IMAGPART_EXPR, $2, 0); }
 	| PTR_VALUE cast_expr %prec UNARY
-		{ $$ = (TREE_BOUNDED ($2)
-			? build_bounded_ptr_value_ref ($2) : $2); }
+		{ $$ = build_bounded_ptr_value_ref ($2); }
 	| PTR_BASE cast_expr %prec UNARY
 		{ $$ = build_bounded_ptr_base_ref ($2); }
 	| PTR_EXTENT cast_expr %prec UNARY

@@ -537,7 +537,13 @@ expand_name_space (list, len)
 
       for (i = 0; i < list->tokens_used; i++)
 	if (token_spellings[list->tokens[i].type].type > SPELL_NONE)
-	  list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+	  {
+	    list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+#if __BOUNDED_POINTERS__
+	    __ptrbase list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+	    __ptrextent list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+#endif
+	  }
     }
 }
 
@@ -687,7 +693,13 @@ _cpp_squeeze_toklist (list)
 
       for (i = 0; i < list->tokens_used; i++)
 	if (token_spellings[list->tokens[i].type].type > SPELL_NONE)
-	  list->tokens[i].val.name.text += delta;
+	  {
+	    list->tokens[i].val.name.text += delta;
+#if __BOUNDED_POINTERS__
+	    __ptrbase list->tokens[i].val.name.text += delta;
+	    __ptrextent list->tokens[i].val.name.text += delta;
+#endif
+	  }
     }
   
   if (list->comments_cap)

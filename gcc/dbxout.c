@@ -2102,10 +2102,14 @@ dbxout_symbol_location (decl, type, suffix, home)
        If it's not a parameter, ignore it.
        (VAR_DECLs like this can be made by integrate.c.)  */
     {
+      if (TREE_CODE (decl) != PARM_DECL)
+	return 0;
       if (GET_CODE (XEXP (home, 0)) == REG)
 	{
 	  letter = 'r';
 	  current_sym_code = N_RSYM;
+	  if (REGNO (XEXP (home, 0)) >= FIRST_PSEUDO_REGISTER)
+	    abort ();
 	  current_sym_value = DBX_REGISTER_NUMBER (REGNO (XEXP (home, 0)));
 	}
       else

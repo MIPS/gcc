@@ -3699,6 +3699,11 @@ finish_decl (decl, init, asmspec_tree)
 	}
     }
 
+  if (TREE_CODE (decl) == VAR_DECL && ! DECL_ARTIFICIAL (decl)
+      && TREE_STATIC (decl) && DECL_INITIAL (decl)
+      && variable_extent_p (TREE_TYPE (decl)))
+    assemble_extent (decl);
+
   if (TREE_CODE (decl) == TYPE_DECL)
     {
       /* This is a no-op in c-lang.c or something real in objc-actions.c.  */
@@ -3881,9 +3886,11 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
      int initialized;
      tree asmspec;
 {
+#if 0 /* GKM FIXME: is this useful? */
   tree orig_declarator = declarator;
   tree orig_declspecs = declspecs;
   enum decl_context orig_decl_context = decl_context;
+#endif
   int specbits = 0;
   tree spec;
   tree type = NULL_TREE;
@@ -4908,8 +4915,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
       mark_addressable (decl);
 
-#if 0
-    /* GKM FIXME: this stuff is incomplete.  Is it useful?  */
+#if 0 /* GKM FIXME: this stuff is incomplete.  Is it useful?  */
     if (TREE_CODE (decl) == FUNCTION_DECL
 	&& DECL_POINTER_DEPTH (decl) == VA_LIST_POINTER_DEPTH
 	&& !default_pointer_boundedness)

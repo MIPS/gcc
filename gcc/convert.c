@@ -51,14 +51,11 @@ convert_to_pointer (type, expr)
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      if (! BOUNDED_POINTER_TYPE_P (type))
-	{
-	  expr = build1 (NOP_EXPR, type, expr);
-	  TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
-	  return expr;
-	}
-      else
+      if (BOUNDED_POINTER_TYPE_P (type))
 	return build_bounded_ptr_constructor (expr);
+      expr = build1 (NOP_EXPR, type, expr);
+      TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
+      return expr;
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:

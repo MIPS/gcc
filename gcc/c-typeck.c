@@ -58,6 +58,7 @@ static tree lookup_field		PARAMS ((tree, tree, tree *));
 static tree convert_arguments		PARAMS ((tree, tree, tree, tree, tree));
 static tree pointer_int_sum		PARAMS ((enum tree_code, tree, tree));
 static tree pointer_diff		PARAMS ((tree, tree));
+static tree build_bounded_ptr_extent	PARAMS ((tree));
 static tree unary_complex_lvalue	PARAMS ((enum tree_code, tree));
 static void pedantic_lvalue_warning	PARAMS ((enum tree_code));
 static tree internal_build_compound_expr PARAMS ((tree, int));
@@ -1230,8 +1231,6 @@ build_bounded_ptr_field_ref (bp, field_number)
       if (field_number)
 	error ("can't take __ptr%s of unbounded pointer",
 	       ((field_number == 1) ? "base" : "extent"));
-      else
-	warning ("pointer is unbounded");
       return bp;
     }
   if (! BOUNDED_POINTER_TYPE_P (TREE_TYPE (bp)))
@@ -1556,6 +1555,9 @@ build_array_ref (array, index)
       return rval;
     }
 
+  /* Index might be a int-casted pointer, so toss its bounds.  */
+  if (TREE_BOUNDED (index))
+    index = build_bounded_ptr_value_ref (index);
   {
     tree ar = default_conversion (array);
     tree ind = default_conversion (index);
@@ -2066,8 +2068,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   tree type0, type1;
   register enum tree_code code0, code1;
   tree op0, op1;
-  tree bp0 = NULL_TREE;
-  tree bp1 = NULL_TREE;
+  tree bp0, bp1;
 
   /* Expression code to give to the expression when it is built.
      Normally this is CODE, which is what the caller asked for,
@@ -2122,32 +2123,58 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       op1 = orig_op1;
     }
 
-  /* Binary operations on BP types should always be on the value field.  */
-  if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (op0)))
-    {
-      if (TREE_CODE (op0) == BIND_EXPR)
-	op0 = save_expr (op0);
-      bp0 = op0;
-      op0 = build_bounded_ptr_value_ref (bp0);
-    }
-  if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (op1)))
-    {
-      if (TREE_CODE (op1) == BIND_EXPR)
-	op1 = save_expr (op1);
-      bp1 = op1;
-      op1 = build_bounded_ptr_value_ref (bp1);
-    }
+  /* Binary operations on BP types should always be on the value field.
+     The underlaying BP operand might be obscured by integer casts, so
+     strip those away first.  */
 
   type0 = TREE_TYPE (op0);
-  type1 = TREE_TYPE (op1);
-
-  /* The expression codes of the data types of the arguments tell us
-     whether the arguments are integers, floating, pointers, etc.  */
+  bp0 = op0;
+  while (TREE_CODE (bp0) == NOP_EXPR
+	 || TREE_CODE (bp0) == CONVERT_EXPR
+	 || TREE_CODE (bp0) == NON_LVALUE_EXPR)
+    bp0 = TREE_OPERAND (bp0, 0);
+  if (TREE_BOUNDED (bp0))
+    {
+      if (TREE_CODE (bp0) == BIND_EXPR)
+	bp0 = save_expr (bp0);
+      op0 = build_bounded_ptr_value_ref (bp0);
+      /* BP constructors shadow scalar-type conversions, so we must
+	 take care to restore them.  */
+      if (TREE_CODE (TREE_TYPE (op0)) != POINTER_TYPE)
+	type0 = TREE_TYPE (op0);
+      else if (BOUNDED_POINTER_TYPE_P (type0))
+	type0 = TYPE_BOUNDED_SUBTYPE (type0);
+      /* Convert back to scalar type, if op0 was a int-casted pointer */
+      op0 = convert (type0, op0);
+    }
+  else
+    bp0 = NULL_TREE;
   code0 = TREE_CODE (type0);
-  code1 = TREE_CODE (type1);
-
-  /* Strip NON_LVALUE_EXPRs, etc., since we aren't using as an lvalue.  */
   STRIP_TYPE_NOPS (op0);
+
+  type1 = TREE_TYPE (op1);
+  bp1 = op1;
+  while (TREE_CODE (bp1) == NOP_EXPR
+	 || TREE_CODE (bp1) == CONVERT_EXPR
+	 || TREE_CODE (bp1) == NON_LVALUE_EXPR)
+    bp1 = TREE_OPERAND (bp1, 0);
+  if (TREE_BOUNDED (bp1))
+    {
+      if (TREE_CODE (bp1) == BIND_EXPR)
+	bp1 = save_expr (bp1);
+      op1 = build_bounded_ptr_value_ref (bp1);
+      /* BP constructors shadow scalar-type conversions, so we must
+	 take care to restore them.  */
+      if (TREE_CODE (TREE_TYPE (op1)) != POINTER_TYPE)
+	type1 = TREE_TYPE (op1);
+      else if (BOUNDED_POINTER_TYPE_P (type1))
+	type1 = TYPE_BOUNDED_SUBTYPE (type1);
+      /* Convert back to scalar type, if op1 was a int-casted pointer */
+      op1 = convert (type1, op1);
+    }
+  else
+    bp1 = NULL_TREE;
+  code1 = TREE_CODE (type1);
   STRIP_TYPE_NOPS (op1);
 
   /* If an error was already reported for one of the arguments,
@@ -2859,8 +2886,15 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     if (TREE_CODE_CLASS (code) == '2')
       {
 	if (bp0 && bp1)
-	  abort ();
-	else if (bp0)
+	  {
+	    if (code0 != POINTER_TYPE)
+	      bp0 = NULL_TREE;
+	    if (code1 != POINTER_TYPE)
+	      bp1 = NULL_TREE;
+	    if (bp0 || bp1)
+	      abort ();
+	  }
+	if (bp0)
 	  folded = build_bounded_ptr_constructor_2 (folded, bp0);
 	else if (bp1)
 	  folded = build_bounded_ptr_constructor_2 (folded, bp1);
@@ -3411,8 +3445,7 @@ build_unary_op (code, xarg, noconvert)
 		   the entire record as the extent of the field.  */
 		/* GKM FIXME: is this test sufficent to identify the
                    final field?  */
-		if (TREE_CODE (DECL_FIELD_CONTEXT (field)) == UNION_TYPE
-		    || TREE_CHAIN (field) == NULL_TREE)
+		if (FINAL_FIELD_P (field))
 		  extent = build_bounded_ptr_extent_ref (addr);
 		addr = build_bounded_ptr_value_ref (addr);
 	      }
@@ -3469,7 +3502,6 @@ build_bounded_ptr_constructor (addr)
      tree addr;
 {
   tree string_type = NULL_TREE;
-  tree extent, result;
 
   if (TREE_BOUNDED (addr) || BOUNDED_POINTER_TYPE_P (TREE_TYPE (addr)))
     abort ();
@@ -3490,27 +3522,103 @@ build_bounded_ptr_constructor (addr)
   if (TREE_SIDE_EFFECTS (addr))
     addr = stabilize_reference (addr);
 
-  /* GKM FIXME: to support variable-length arrays, we need
-     to reach back in the tree to find the root VAR_DECL and
-     use its extent.  */
-  if (TYPE_SIZE (TREE_TYPE (TREE_TYPE (addr))))
-    extent = build_binary_op (PLUS_EXPR, addr, integer_one_node, 0);
+  return build_bounded_ptr_constructor_3 (addr, addr,
+					  build_bounded_ptr_extent (addr));
+}
+
+/* Return nonzero if type is an array type, or is a struct or union
+   type (possibly nested) that possesses a final member of array type.
+   An array, or a struct with a final array member migth have variable
+   length, so we must refer to its bounds-checking extent symbolically.  */
+
+int
+variable_extent_p (type)
+     tree type;
+{
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return 1;
+  else if (TREE_CODE (type) == RECORD_TYPE
+	   || TREE_CODE (type) == UNION_TYPE)
+    {
+      tree field = TYPE_FIELDS (type);
+      if (field == NULL_TREE)
+	return 0;
+      while (TREE_CHAIN (field))
+	field = TREE_CHAIN (field);
+      return variable_extent_p (TREE_TYPE (field));
+    }
   else
-    extent
-#if 1
-      /* For now, the extent of an object with unknown size is
-	 the maximum address.  */
-      = build_bounded_ptr_extent_ref (permissive_null_bounded_ptr_node);
-#else
-      /* GKM FIXME: someday when ld automatically defines the symbol
-	 foo.extent, we can use this code.  */
-      = build1 (ADDR_EXPR, TREE_TYPE (addr),
-	      build_extent_decl (TREE_OPERAND (addr, 0)));
+    return 0;
+}
+
+static tree
+build_bounded_ptr_extent (addr)
+     tree addr;
+{
+  tree deep = addr;
+  STRIP_NOPS (deep);
+  if (TREE_CODE (deep) == ADDR_EXPR)
+    {
+      tree datum = TREE_OPERAND (deep, 0);
+      if (TREE_CODE (datum) == FUNCTION_DECL)
+	return build_bounded_ptr_extent_ref (permissive_null_bounded_ptr_node);
+      if (TREE_CODE (datum) == VAR_DECL && DECL_EXTERNAL (datum)
+	  && variable_extent_p (TREE_TYPE (datum)))
+	{
+	  tree extent = get_extent_decl (datum);
+	  TREE_USED (extent) = 1;
+	  return build1 (ADDR_EXPR, TREE_TYPE (addr), extent);
+	}
+      if (TREE_CODE (datum) == STRING_CST)
+	{
+	  if (TREE_TYPE (addr) != TREE_TYPE (deep))
+	    abort ();
+	}
+      else if (DECL_EXTERNAL (datum) && variable_extent_p (TREE_TYPE (datum)))
+	abort ();
+    }
+  return build_binary_op (PLUS_EXPR, addr, integer_one_node, 0);
+#if 0
+  {
+    ... if (variable_extent_p (TREE_TYPE (datum)))
+  }
+  warning ("unknown extent for bounded pointer");
+  return build_bounded_ptr_extent_ref (permissive_null_bounded_ptr_node);
 #endif
+}
 
-  result = build_bounded_ptr_constructor_3 (addr, addr, extent);
+/* Build a phony VAR_DECL to represent the end address of VAR.
+   GKM FIXME: We should The linker should synthesize a definition if none exists.  */
 
-  return result;
+tree
+get_extent_decl (decl)
+     tree decl;
+{
+  tree extent, ext_id;
+  char const *var_name;
+  char *ext_name;
+
+  if (TREE_CODE (decl) != VAR_DECL || DECL_ASSEMBLER_NAME (decl) == NULL_TREE)
+    abort ();
+
+  if (DECL_ARGUMENTS (decl))
+    return DECL_ARGUMENTS (decl);
+
+  var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  ext_name = alloca (strlen (var_name) + sizeof (".extent"));
+  sprintf (ext_name, "%s%s", var_name, ".extent");
+  ext_id = get_identifier (ext_name);
+
+  extent = copy_node (decl);
+  TREE_USED (extent) = 0;
+  /* GKM FIXME: this doesn't handle local scope statics */
+  DECL_ARGUMENTS (decl) = extent;
+  DECL_NAME (extent) = DECL_ASSEMBLER_NAME (extent) = ext_id;
+  DECL_RTL (extent)
+    = gen_rtx_MEM (VOIDmode,
+		   gen_rtx (SYMBOL_REF, Pmode,
+			    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (extent))));
+  return extent;
 }
 
 tree
@@ -3573,42 +3681,6 @@ build_bounded_ptr_constructor_3 (addr, base, extent)
 
   return result;
 }
-
-#if 0
-/* GKM FIXME: someday when ld automatically defines the symbol
-   foo.extent, we can use this code.  */
-
-/* Build a phony VAR_DECL to represent the end address of VAR.
-   The linker will synthesize a definition.  */
-
-static tree
-build_extent_decl (var)
-     tree var;
-{
-  tree extent;
-  char const *old_name;
-  char *new_name;
-
-  if (TREE_CODE (var) != VAR_DECL)
-    abort ();
-
-  push_obstacks_nochange ();
-  end_temporary_allocation ();
-  extent = copy_node (var);
-  old_name = IDENTIFIER_POINTER (DECL_NAME (extent));
-  new_name = alloca (strlen (old_name) + sizeof (".extent"));
-  sprintf (new_name, "%s%s", old_name, ".extent");
-  DECL_NAME (extent) = get_identifier (new_name);
-  DECL_RTL (extent)
-    = gen_rtx_MEM (VOIDmode,
-		   gen_rtx (SYMBOL_REF, Pmode,
-			    IDENTIFIER_POINTER (DECL_NAME (extent))));
-  TREE_CHAIN (extent) = TREE_CHAIN (var);
-  TREE_CHAIN (var) = extent;
-  pop_obstacks ();
-  return extent;
-}
-#endif
 
 #if 0
 /* If CONVERSIONS is a conversion expression or a nested sequence of such,
@@ -6063,7 +6135,27 @@ pop_init_level (implicit)
 	assemble_zeros (size - tree_low_cst (filled, 1));
     }
 
-	  
+  /* If the final field of an initialized struct is a variable-length
+     array, increment the decl's size according to the number of
+     excess array elements.  */
+  if (constructor_fields && constructor_depth == 2
+      && FINAL_FIELD_P (constructor_fields)
+      && constructor_index && variable_extent_p (constructor_type))
+    {
+      tree eltype = TREE_TYPE (constructor_type);
+      tree size = size_binop (MULT_EXPR, TYPE_SIZE (eltype), constructor_index);
+      tree incr = size_binop (MINUS_EXPR, size, TYPE_SIZE (constructor_type));
+
+      DECL_SIZE (constructor_decl) = size_binop (PLUS_EXPR, incr,
+						 DECL_SIZE (constructor_decl));
+
+      DECL_SIZE_UNIT (constructor_decl)
+	= size_binop (PLUS_EXPR, size_binop (FLOOR_DIV_EXPR,
+					     convert (sizetype, incr),
+					     size_int (BITS_PER_UNIT)),
+		      DECL_SIZE_UNIT (constructor_decl));
+    }
+
   constructor_type = p->type;
   constructor_fields = p->fields;
   constructor_index = p->index;

@@ -656,8 +656,9 @@ extern void tree_class_check_failed PARAMS ((const tree, char,
    If the data type is signed, the value is sign-extended to 2 words
    even though not all of them may really be in use.
    In an unsigned constant shorter than 2 words, the extra bits are 0.  */
-#define TREE_INT_CST_LOW(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst_low)
-#define TREE_INT_CST_HIGH(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst_high)
+#define TREE_INT_CST(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst.a)
+#define TREE_INT_CST_LOW(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst.w.low)
+#define TREE_INT_CST_HIGH(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst.w.high)
 
 #define INT_CST_LT(A, B)  \
 (TREE_INT_CST_HIGH (A) < TREE_INT_CST_HIGH (B)			\
@@ -676,8 +677,13 @@ struct tree_int_cst
   char common[sizeof (struct tree_common)];
   struct rtx_def *rtl;	/* acts as link to register transfer language
 			   (rtl) info */
-  unsigned HOST_WIDE_INT int_cst_low;
-  HOST_WIDE_INT int_cst_high;
+  union {
+    unsigned HOST_WIDE_INT a[2];
+    struct {
+      unsigned HOST_WIDE_INT low;
+      HOST_WIDE_INT high;
+    } w;
+  } int_cst;
 };
 
 /* In REAL_CST, STRING_CST, COMPLEX_CST nodes, and CONSTRUCTOR nodes,
@@ -1543,6 +1549,13 @@ struct tree_type
    parameter's depth, but the function decl will get the actual
    argument's depth.  */
 #define DECL_POINTER_DEPTH(DECL) (DECL_CHECK (DECL)->decl.pointer_depth)
+
+/* Nonzero means that this field terminates a struct or union.
+   All union members are considred to terminate the union.  */
+/* GKM FIMXE: This works for C, but not C++.  */
+#define FINAL_FIELD_P(DECL)				\
+  (TREE_CODE (DECL_FIELD_CONTEXT (DECL)) == UNION_TYPE	\
+   || TREE_CHAIN (DECL) == NULL_TREE)
 
 struct tree_decl
 {
@@ -2805,6 +2818,8 @@ extern tree bounded_pointer_thunk_decls;
 /* In c-typeck.c */
 extern int mark_addressable		PARAMS ((tree));
 extern void incomplete_type_error	PARAMS ((tree, tree));
+extern tree get_extent_decl		PARAMS ((tree));
+extern int variable_extent_p		PARAMS ((tree));
 
 /* In c-lang.c */
 extern void print_lang_statistics	PARAMS ((void));
