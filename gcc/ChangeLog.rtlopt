@@ -1,3 +1,8 @@
+Fri Dec 27 22:59:18 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* vpt.c (gen_divmod_fixed_value,  gen_mod_pow2, gen_mod_subtract):
+	Set probability of the new jump.
+
 Mon Dec 23 19:39:34 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (rest_of_compilation): Form superblocks just before the scheduling.

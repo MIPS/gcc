@@ -347,6 +347,7 @@ gen_divmod_fixed_value (mode, operation, target, op1, op2, value)
   rtx neq_label = gen_label_rtx ();
   rtx end_label = gen_label_rtx ();
   rtx sequence;
+  rtx jump;
 
   start_sequence ();
   
@@ -360,6 +361,10 @@ gen_divmod_fixed_value (mode, operation, target, op1, op2, value)
 
   do_compare_rtx_and_jump (tmp, GEN_INT (value), NE, 0, mode, NULL_RTX,
 			   NULL_RTX, neq_label);
+  jump = get_last_insn ();
+  REG_NOTES (jump)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (REG_BR_PROB_BASE / 100), REG_NOTES (jump));
   tmp1 = simplify_gen_binary (operation, mode, copy_rtx (op1), GEN_INT (value));
   tmp1 = force_operand (tmp1, target);
   if (tmp1 != target)
@@ -459,6 +464,7 @@ gen_mod_pow2 (mode, operation, target, op1, op2)
   rtx neq_label = gen_label_rtx ();
   rtx end_label = gen_label_rtx ();
   rtx sequence;
+  rtx jump;
 
   start_sequence ();
   
@@ -476,6 +482,10 @@ gen_mod_pow2 (mode, operation, target, op1, op2)
 			      0, OPTAB_WIDEN);
   do_compare_rtx_and_jump (tmp2, const0_rtx, NE, 0, mode, NULL_RTX,
 			   NULL_RTX, neq_label);
+  jump = get_last_insn ();
+  REG_NOTES (jump)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (REG_BR_PROB_BASE / 100), REG_NOTES (jump));
   tmp3 = expand_simple_binop (mode, AND, op1, tmp1, target,
 			      0, OPTAB_WIDEN);
   if (tmp3 != target)
@@ -580,6 +590,7 @@ gen_mod_subtract (mode, operation, target, op1, op2, sub)
   rtx tmp, tmp1;
   rtx end_label = gen_label_rtx ();
   rtx sequence;
+  rtx jump;
   int i;
 
   start_sequence ();
@@ -595,6 +606,12 @@ gen_mod_subtract (mode, operation, target, op1, op2, sub)
   emit_move_insn (target, copy_rtx (op1));
   do_compare_rtx_and_jump (target, tmp, LTU, 0, mode, NULL_RTX,
 			   NULL_RTX, end_label);
+  jump = get_last_insn ();
+  REG_NOTES (jump)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (REG_BR_PROB_BASE
+					- REG_BR_PROB_BASE / 100),
+			       REG_NOTES (jump));
   
 
   for (i = 0; i < sub; i++)
@@ -605,6 +622,12 @@ gen_mod_subtract (mode, operation, target, op1, op2, sub)
 	emit_move_insn (target, tmp1);
       do_compare_rtx_and_jump (target, tmp, LTU, 0, mode, NULL_RTX,
     			       NULL_RTX, end_label);
+      jump = get_last_insn ();
+      REG_NOTES (jump)
+	      = gen_rtx_EXPR_LIST (REG_BR_PROB,
+				   GEN_INT (REG_BR_PROB_BASE
+				     	    - REG_BR_PROB_BASE / 100),
+				   REG_NOTES (jump));
     }
 
   tmp1 = simplify_gen_binary (operation, mode, copy_rtx (target), copy_rtx (tmp));
