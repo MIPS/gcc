@@ -1613,7 +1613,7 @@ get_memory_tag_for (tree ptr)
       struct alias_map_d *curr = VARRAY_GENERIC_PTR (pointers, i);
       if (tag_set == curr->set 
 	  && (flag_tree_points_to == PTA_NONE 
-	      || same_points_to_set (ptr_var)))
+	      || same_points_to_set (curr->var, ptr)))
 	{
 	  tag = var_ann (curr->var)->mem_tag;
 	  break;
