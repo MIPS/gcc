@@ -1,3 +1,7 @@
+Mon Feb  3 15:58:28 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Fix setcc sign bit case.
+
 Mon Feb  3 01:46:53 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3-branch (hammer-3_3-merge-20030203)
