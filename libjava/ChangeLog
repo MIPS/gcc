@@ -1,3 +1,14 @@
+2004-03-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(window_wm_protocols_filter): New function.
+	(window_focus_in_cb): Remove function.
+	(window_focus_out_cb): Likewise.
+	(window_focus_or_active_state_change_cb): New function.
+	(create): Add filter that removes WM_TAKE_FOCUS client messages.
+	(connectSignals): Don't attach handlers to focus-in-event or
+	focus-out-event signals.  Handle notify signal.
+
 2004-03-11  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkCheckboxPeer.java
