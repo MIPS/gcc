@@ -1,9 +1,26 @@
-2004-08-06  Benjamin Kosnik  <bkoz@redhat.com>
+2004-07-27  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* config/linker-map.gnu: Export typeinfo information.
 	* configure.in (libtool_VERSION): To 5:7:0.
 	* configure: Regenerate.
 	* testsuite/abi_check.cc (check_version): Add CXXABI_1.2.2.
+	
+2004-07-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR bootstrap/15120
+	* configure: Rebuilt.
+
+2004-07-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* testsuite/22_locale/time_put_members_char.cc (test01): Allow either 
+	"Son" or "So" as abbreviated name for Sunday in de_DE locale.
+	* testsuite/22_locale/time_put_members_wchar_t.cc (test01): Likewise.
+
+2004-06-28  David Asher  <david.asher@cavium.com>
+
+	PR libstdc++/11352
+	* include/bits/locale_facets.tcc (__pad<>::_S_pad): Don't
+	access __olds beyond __oldlen.
 
 2004-05-31  Release Manager
 
