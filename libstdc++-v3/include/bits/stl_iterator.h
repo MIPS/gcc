@@ -548,7 +548,10 @@ namespace std
       return insert_iterator<_Container>(__x, 
 					 typename _Container::iterator(__i));
     }
-  
+} // namespace std
+
+namespace __gnu_cxx
+{  
   // This iterator adapter is 'normal' in the sense that it does not
   // change the semantics of any of the operators of its iterator
   // parameter.  Its primary purpose is to convert an iterator that is
@@ -556,6 +559,8 @@ namespace std
   // The _Container parameter exists solely so that different containers
   // using this template can instantiate different types, even if the
   // _Iterator parameter is the same.
+  using std::iterator_traits;
+  using std::iterator;
   template<typename _Iterator, typename _Container>
     class __normal_iterator
       : public iterator<typename iterator_traits<_Iterator>::iterator_category,
@@ -624,14 +629,18 @@ namespace std
       operator-(const difference_type& __n) const
       { return __normal_iterator(_M_current - __n); }
       
-      difference_type
-      operator-(const __normal_iterator& __i) const
-      { return _M_current - __i._M_current; }
-      
       const _Iterator& 
       base() const { return _M_current; }
     };
 
+  // Note: In what follows, the left- and right-hand-side iterators are
+  // allowed to vary in types (conceptually in cv-qualification) so that
+  // comparaison between cv-qualified and non-cv-qualified iterators be
+  // valid.  However, the greedy and unfriendly operators in std::rel_ops
+  // will make overload resolution ambiguous (when in scope) if we don't
+  // provide overloads whose operands are of the same type.  Can someone
+  // remind me what generic programming is about? -- Gaby
+  
   // Forward iterator requirements
   template<typename _IteratorL, typename _IteratorR, typename _Container>
   inline bool
@@ -639,11 +648,23 @@ namespace std
 	     const __normal_iterator<_IteratorR, _Container>& __rhs)
   { return __lhs.base() == __rhs.base(); }
 
+  template<typename _Iterator, typename _Container>
+  inline bool
+  operator==(const __normal_iterator<_Iterator, _Container>& __lhs,
+             const __normal_iterator<_Iterator, _Container>& __rhs)
+  { return __lhs.base() == __rhs.base(); }
+
   template<typename _IteratorL, typename _IteratorR, typename _Container>
   inline bool
   operator!=(const __normal_iterator<_IteratorL, _Container>& __lhs,
 	     const __normal_iterator<_IteratorR, _Container>& __rhs)
-  { return !(__lhs == __rhs); }
+  { return __lhs.base() != __rhs.base(); }
+
+  template<typename _Iterator, typename _Container>
+  inline bool
+  operator!=(const __normal_iterator<_Iterator, _Container>& __lhs,
+             const __normal_iterator<_Iterator, _Container>& __rhs)
+  { return __lhs.base() != __rhs.base(); }
 
   // Random access iterator requirements
   template<typename _IteratorL, typename _IteratorR, typename _Container>
@@ -652,30 +673,64 @@ namespace std
 	    const __normal_iterator<_IteratorR, _Container>& __rhs)
   { return __lhs.base() < __rhs.base(); }
 
+  template<typename _Iterator, typename _Container>
+  inline bool
+  operator<(const __normal_iterator<_Iterator, _Container>& __lhs,
+             const __normal_iterator<_Iterator, _Container>& __rhs)
+  { return __lhs.base() < __rhs.base(); }
+
   template<typename _IteratorL, typename _IteratorR, typename _Container>
   inline bool
   operator>(const __normal_iterator<_IteratorL, _Container>& __lhs,
 	    const __normal_iterator<_IteratorR, _Container>& __rhs)
-  { return __rhs < __lhs; }
+  { return __lhs.base() > __rhs.base(); }
+
+  template<typename _Iterator, typename _Container>
+  inline bool
+  operator>(const __normal_iterator<_Iterator, _Container>& __lhs,
+	    const __normal_iterator<_Iterator, _Container>& __rhs)
+  { return __lhs.base() > __rhs.base(); }
 
   template<typename _IteratorL, typename _IteratorR, typename _Container>
   inline bool
   operator<=(const __normal_iterator<_IteratorL, _Container>& __lhs,
 	     const __normal_iterator<_IteratorR, _Container>& __rhs)
-  { return !(__rhs < __lhs); }
+  { return __lhs.base() <= __rhs.base(); }
+
+  template<typename _Iterator, typename _Container>
+  inline bool
+  operator<=(const __normal_iterator<_Iterator, _Container>& __lhs,
+	     const __normal_iterator<_Iterator, _Container>& __rhs)
+  { return __lhs.base() <= __rhs.base(); }
 
   template<typename _IteratorL, typename _IteratorR, typename _Container>
   inline bool
   operator>=(const __normal_iterator<_IteratorL, _Container>& __lhs,
 	     const __normal_iterator<_IteratorR, _Container>& __rhs)
-  { return !(__lhs < __rhs); }
+  { return __lhs.base() >= __rhs.base(); }
+
+  template<typename _Iterator, typename _Container>
+  inline bool
+  operator>=(const __normal_iterator<_Iterator, _Container>& __lhs,
+	     const __normal_iterator<_Iterator, _Container>& __rhs)
+  { return __lhs.base() >= __rhs.base(); }
+
+  // _GLIBCPP_RESOLVE_LIB_DEFECTS
+  // According to the resolution of DR179 not only the various comparison
+  // operators but also operator- must accept mixed iterator/const_iterator
+  // parameters.
+  template<typename _IteratorL, typename _IteratorR, typename _Container>
+  inline typename __normal_iterator<_IteratorL, _Container>::difference_type
+  operator-(const __normal_iterator<_IteratorL, _Container>& __lhs,
+	     const __normal_iterator<_IteratorR, _Container>& __rhs)
+  { return __lhs.base() - __rhs.base(); }
 
   template<typename _Iterator, typename _Container>
   inline __normal_iterator<_Iterator, _Container>
   operator+(typename __normal_iterator<_Iterator, _Container>::difference_type __n,
 	    const __normal_iterator<_Iterator, _Container>& __i)
   { return __normal_iterator<_Iterator, _Container>(__i.base() + __n); }
-} // namespace std
+} // namespace __gnu_cxx
 
 #endif 
 

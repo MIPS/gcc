@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -90,10 +90,11 @@ extern YYSTYPE yylval;		/*  the semantic value of the		*/
 int warn_traditional = 0;
 int flag_digraphs = 1;
 
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
+/* the declaration found for the last IDENTIFIER token read in.  yylex
+   must look this up to detect typedefs, which get token type
+   tTYPENAME, so it is left around in case the identifier is not a
+   typedef but is used in a context which makes it a reference to a
+   variable.  */
 tree lastiddecl;
 
 /* Array for holding counts of the numbers of tokens seen.  */
@@ -237,13 +238,6 @@ static const char *const cplus_tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-/* Post-switch processing.  */
-void
-cxx_post_options ()
-{
-  c_common_post_options ();
-}
-
 /* Initialization before switch parsing.  */
 void
 cxx_init_options ()
@@ -746,7 +740,7 @@ yyprint (file, yychar, yylval)
   switch (yychar)
     {
     case IDENTIFIER:
-    case TYPENAME:
+    case tTYPENAME:
     case TYPESPEC:
     case PTYPENAME:
     case PFUNCNAME:
@@ -984,7 +978,7 @@ check_for_missing_semicolon (type)
   if ((yychar > 255
        && yychar != SCSPEC
        && yychar != IDENTIFIER
-       && yychar != TYPENAME
+       && yychar != tTYPENAME
        && yychar != CV_QUALIFIER
        && yychar != SELFNAME)
       || yychar == 0  /* EOF */)
@@ -1201,7 +1195,7 @@ do_identifier (token, parsing, args)
      tree args;
 {
   register tree id;
-  int lexing = (parsing == 1);
+  int lexing = (parsing == 1 || parsing == 3);
 
   if (! lexing)
     id = lookup_name (token, 0);
@@ -1223,7 +1217,7 @@ do_identifier (token, parsing, args)
 
   /* Remember that this name has been used in the class definition, as per
      [class.scope0] */
-  if (id && parsing)
+  if (id && parsing && parsing != 3)
     maybe_note_name_used_in_class (token, id);
 
   if (id == error_mark_node)
@@ -1365,7 +1359,8 @@ do_scoped_id (token, parsing)
     id = IDENTIFIER_GLOBAL_VALUE (token);
   if (parsing && yychar == YYEMPTY)
     yychar = yylex ();
-  if (! id)
+  if (!id || (TREE_CODE (id) == FUNCTION_DECL
+	      && DECL_ANTICIPATED (id)))
     {
       if (processing_template_decl)
 	{

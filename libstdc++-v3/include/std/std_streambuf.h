@@ -71,6 +71,7 @@ namespace std
       // Non-standard Types:
       typedef ctype<char_type>           		__ctype_type;
       typedef basic_streambuf<char_type, traits_type>  	__streambuf_type;
+      typedef typename traits_type::state_type 		__state_type;
       
       friend class basic_ios<char_type, traits_type>;
       friend class basic_istream<char_type, traits_type>;
@@ -91,10 +92,10 @@ namespace std
       char_type*		_M_buf; 	
 
       // Actual size of allocated internal buffer, in bytes.
-      int_type			_M_buf_size;
+      size_t			_M_buf_size;
 
       // Optimal or preferred size of internal buffer, in bytes.
-      int_type			_M_buf_size_opt;
+      size_t			_M_buf_size_opt;
 
       // True iff _M_in_* and _M_out_* buffers should always point to
       // the same place.  True for fstreams, false for sstreams.
@@ -126,11 +127,14 @@ namespace std
       // requirements. The only basic_streambuf member function that
       // needs access to these data members is in_avail...
       // NB: pbacks of over one character are not currently supported.
-      int_type    		_M_pback_size; 
-      char_type*		_M_pback; 
+      static const size_t   	_S_pback_size = 1; 
+      char_type			_M_pback[_S_pback_size]; 
       char_type*		_M_pback_cur_save;
       char_type*		_M_pback_end_save;
       bool			_M_pback_init; 
+
+      // Yet unused.
+      fpos<__state_type>	_M_pos;
 
       // Initializes pback buffers, and moves normal buffers to safety.
       // Assumptions:
@@ -140,8 +144,8 @@ namespace std
       {
 	if (!_M_pback_init)
 	  {
-	    int_type __dist = _M_in_end - _M_in_cur;
-	    int_type __len = min(_M_pback_size, __dist);
+	    size_t __dist = _M_in_end - _M_in_cur;
+	    size_t __len = min(_S_pback_size, __dist);
 	    traits_type::copy(_M_pback, _M_in_cur, __len);
 	    _M_pback_cur_save = _M_in_cur;
 	    _M_pback_end_save = _M_in_end;
@@ -159,12 +163,12 @@ namespace std
 	if (_M_pback_init)
 	  {
 	    // Length _M_in_cur moved in the pback buffer.
-	    int_type __off_cur = _M_in_cur - _M_pback;
+	    size_t __off_cur = _M_in_cur - _M_pback;
 	    
 	    // For in | out buffers, the end can be pushed back...
-	    int_type __off_end = 0;
-	    int_type __pback_len = _M_in_end - _M_pback;
-	    int_type __save_len = _M_pback_end_save - _M_buf;
+	    size_t __off_end = 0;
+	    size_t __pback_len = _M_in_end - _M_pback;
+	    size_t __save_len = _M_pback_end_save - _M_buf;
 	    if (__pback_len > __save_len)
 	      __off_end = __pback_len - __save_len;
 
@@ -231,48 +235,6 @@ namespace std
 	return __ret;
       }
 
-      // These three functions are used to clarify internal buffer
-      // maintenance. After an overflow, or after a seekoff call that
-      // started at beg or end, or possibly when the stream becomes
-      // unbuffered, and a myrid other obscure corner cases, the
-      // internal buffer does not truly reflect the contents of the
-      // external buffer. At this point, for whatever reason, it is in
-      // an indeterminate state.
-      void
-      _M_set_indeterminate(void)
-      {
-	if (_M_mode & ios_base::in)
-	  this->setg(_M_buf, _M_buf, _M_buf);
-	if (_M_mode & ios_base::out)
-	  this->setp(_M_buf, _M_buf);
-      }
-
-      void
-      _M_set_determinate(off_type __off)
-      {
-	bool __testin = _M_mode & ios_base::in;
-	bool __testout = _M_mode & ios_base::out;
-	if (__testin)
-	  this->setg(_M_buf, _M_buf, _M_buf + __off);
-	if (__testout)
-	  this->setp(_M_buf, _M_buf + __off);
-      }
-
-      bool
-      _M_is_indeterminate(void)
-      { 
-	bool __ret = false;
-	// Don't return true if unbuffered.
-	if (_M_buf)
-	  {
-	    if (_M_mode & ios_base::in)
-	      __ret = _M_in_beg == _M_in_cur && _M_in_cur == _M_in_end;
-	    if (_M_mode & ios_base::out)
-	      __ret = _M_out_beg == _M_out_cur && _M_out_cur == _M_out_end;
-	  }
-	return __ret;
-      }
-
   public:
       virtual 
       ~basic_streambuf() 
@@ -330,8 +292,8 @@ namespace std
 	  {
 	    if (_M_pback_init)
 	      {
-		int_type __save_len =  _M_pback_end_save - _M_pback_cur_save;
-		int_type __pback_len = _M_in_cur - _M_pback;
+		size_t __save_len =  _M_pback_end_save - _M_pback_cur_save;
+		size_t __pback_len = _M_in_cur - _M_pback;
 		__ret = __save_len - __pback_len;
 	      }
 	    else
@@ -346,7 +308,8 @@ namespace std
       snextc()
       {
 	int_type __eof = traits_type::eof();
-	return (this->sbumpc() == __eof ? __eof : this->sgetc()); 
+	return (traits_type::eq_int_type(this->sbumpc(), __eof) 
+		? __eof : this->sgetc());
       }
 
       int_type 
@@ -384,12 +347,12 @@ namespace std
 
     protected:
       basic_streambuf()
-      : _M_buf(NULL), _M_buf_size(0), 
-      _M_buf_size_opt(static_cast<int_type>(BUFSIZ)), _M_buf_unified(false), 
-      _M_in_beg(0), _M_in_cur(0), _M_in_end(0), _M_out_beg(0), _M_out_cur(0), 
-      _M_out_end(0), _M_mode(ios_base::openmode(0)), _M_buf_locale(locale()), 
-      _M_buf_locale_init(false), _M_pback_size(1), _M_pback(NULL), 
-      _M_pback_cur_save(NULL), _M_pback_end_save(NULL), _M_pback_init(false)
+      : _M_buf(NULL), _M_buf_size(0), _M_buf_size_opt(BUFSIZ), 
+      _M_buf_unified(false), _M_in_beg(0), _M_in_cur(0), _M_in_end(0), 
+      _M_out_beg(0), _M_out_cur(0), _M_out_end(0), 
+      _M_mode(ios_base::openmode(0)), _M_buf_locale(locale()), 
+      _M_buf_locale_init(false), _M_pback_cur_save(0), _M_pback_end_save(0), 
+      _M_pback_init(false)
       { }
 
       // Get area:
@@ -480,7 +443,7 @@ namespace std
       uflow() 
       {
 	int_type __ret = traits_type::eof();
-	bool __testeof = this->underflow() == __ret;
+	bool __testeof = traits_type::eq_int_type(this->underflow(), __ret);
 	bool __testpending = _M_in_cur && _M_in_cur < _M_in_end;
 	if (!__testeof && __testpending)
 	  {

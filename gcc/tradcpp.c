@@ -430,6 +430,7 @@ static void grow_outbuf 	PARAMS ((FILE_BUF *, int));
 static int handle_directive 	PARAMS ((FILE_BUF *, FILE_BUF *));
 static void process_include	PARAMS ((struct file_name_list *,
 					 const U_CHAR *, int, int, FILE_BUF *));
+static void fixup_newlines	PARAMS ((FILE_BUF *));
 static void finclude		PARAMS ((int, const char *,
 					 struct file_name_list *, FILE_BUF *));
 static void init_dependency_output PARAMS ((void));
@@ -948,6 +949,7 @@ main (argc, argv)
   }
   fp->bufp = fp->buf;
   fp->if_stack = if_stack;
+  fixup_newlines (fp);
 
   /* Make sure data ends with a newline.  And put a null after it.  */
 
@@ -2590,6 +2592,43 @@ process_include (stackp, fbeg, flen, system_header_p, op)
   }
 }
 
+/* Replace all CR NL, NL CR and CR sequences with NL.  */
+
+static void
+fixup_newlines (fp)
+     FILE_BUF *fp;
+{
+  U_CHAR *p, *q, *end;
+
+  if (fp->length <= 0)
+    return;
+
+  end = fp->buf + fp->length;
+  *end = '\r';
+  p = (U_CHAR *) strchr ((const char *) fp->buf, '\r');
+  *end = '\0';
+  if (p == end)
+    return;
+
+  if (p > fp->buf && p[-1] == '\n')
+    p--;
+  q = p;
+  while (p < end)
+    switch (*p)
+      {
+      default:
+	*q++ = *p++;
+	break;
+      case '\n':
+      case '\r':
+	p += 1 + (p[0] + p[1] == '\n' + '\r');
+	*q++ = '\n';
+	break;
+      }
+
+  fp->length = q - fp->buf;
+}
+
 /* Process the contents of include file FNAME, already open on descriptor F,
    with output to OP.  */
 
@@ -2664,6 +2703,7 @@ finclude (f, fname, nhd, op)
     fp->length = st_size;
   }
   close (f);
+  fixup_newlines (fp);
 
   /* Make sure data ends with a newline.  And put a null after it.  */
 
@@ -4064,7 +4104,7 @@ output_line_command (ip, op, conditional, file_change)
   sprintf (line_cmd_buf, "# %d \"%s\"", ip->lineno, ip->fname);
   if (file_change != same_file)
     strcat (line_cmd_buf, file_change == enter_file ? " 1" : " 2");
-  if (system_include_depth > 0)
+  if (system_include_depth > (file_change == leave_file))
     strcat (line_cmd_buf, " 3");
   len = strlen (line_cmd_buf);
   line_cmd_buf[len++] = '\n';

@@ -156,7 +156,7 @@ int
 lhd_tree_inlining_cannot_inline_tree_fn (fnp)
      tree *fnp;
 {
-  if (optimize == 0
+  if (flag_really_no_inline
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (*fnp)) == NULL)
     return 1;
 
@@ -269,6 +269,18 @@ lhd_tree_inlining_end_inlining (fn)
 {
 }
 
+/* lang_hooks.tree_inlining.convert_parm_for_inlining performs any
+   language-specific conversion before assigning VALUE to PARM.  */
+
+tree
+lhd_tree_inlining_convert_parm_for_inlining (parm, value, fndecl)
+     tree parm ATTRIBUTE_UNUSED;
+     tree value;
+     tree fndecl ATTRIBUTE_UNUSED;
+{
+  return value;
+}
+
 /* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree 
    nodes.  Returns non-zero if it does not want the usual dumping of the 
    second argument.  */
@@ -291,3 +303,16 @@ lhd_tree_dump_type_quals (t)
   return TYPE_QUALS (t);
 }
 
+/* lang_hooks.expr_size: Determine the size of the value of an expression T
+   in a language-specific way.  Returns a tree for the size in bytes.  */
+
+tree
+lhd_expr_size (exp)
+     tree exp;
+{
+  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+      && DECL_SIZE_UNIT (exp) != 0)
+    return DECL_SIZE_UNIT (exp);
+  else
+    return size_in_bytes (TREE_TYPE (exp));
+}

@@ -46,23 +46,13 @@
 #include <bits/c++locale.h>     // Defines __c_locale, config-specific includes
 #include <climits>		// For CHAR_BIT
 #include <cctype>		// For isspace, etc.
-#include <string> 		// For string
+#include <string> 		// For string.
 #include <bits/functexcept.h>
-
 #include <bits/atomicity.h>
 
 namespace std
 {
-  // NB: Don't instantiate required wchar_t facets if no wchar_t support.
-#ifdef _GLIBCPP_USE_WCHAR_T
-# define  _GLIBCPP_NUM_FACETS 28
-#else
-# define  _GLIBCPP_NUM_FACETS 14
-#endif
-
   // 22.1.1 Locale
-  template<typename _Tp, typename _Alloc> 
-    class vector;
   class locale;
 
   // 22.1.3 Convenience interfaces
@@ -217,8 +207,8 @@ namespace std
     static const category time 		= 1L << 3;
     static const category monetary 	= 1L << 4;
     static const category messages 	= 1L << 5;
-    static const category all 		= (collate | ctype | monetary |
-				 	   numeric | time  | messages);
+    static const category all 		= (ctype | numeric | collate |
+				 	   time  | monetary | messages);
 
     // Construct/copy/destroy:
     locale() throw();
@@ -226,7 +216,7 @@ namespace std
     locale(const locale& __other) throw();
 
     explicit  
-    locale(const char* __std_name);
+    locale(const char* __s);
 
     locale(const locale& __base, const char* __s, category __cat);
 
@@ -277,8 +267,26 @@ namespace std
     // Current global reference locale
     static _Impl* 	_S_global;  
 
-    static const size_t	_S_num_categories = 6;
-    static const size_t _S_num_facets = _GLIBCPP_NUM_FACETS;
+    // Number of standard categories. For C++, these categories are
+    // collate, ctype, monetary, numeric, time, and messages. These
+    // directly correspond to ISO C99 macros LC_COLLATE, LC_CTYPE,
+    // LC_MONETARY, LC_NUMERIC, and LC_TIME. In addition, POSIX (IEEE
+    // 1003.1-2001) specifies LC_MESSAGES.
+    static const size_t	_S_categories_size = 6;
+
+    // In addition to the standard categories, the underlying
+    // operating system is allowed to define extra LC_*
+    // macros. For GNU systems, the following are also valid:
+    // LC_PAPER, LC_NAME, LC_ADDRESS, LC_TELEPHONE, LC_MEASUREMENT,
+    // and LC_IDENTIFICATION.
+    static const size_t	_S_extra_categories_size = _GLIBCPP_NUM_CATEGORIES;
+
+    // Names of underlying locale categories.  
+    // NB: locale::global() has to know how to modify all the
+    // underlying categories, not just the ones required by the C++
+    // standard.
+    static const char* 	_S_categories[_S_categories_size 
+				      + _S_extra_categories_size];
 
     explicit 
     locale(_Impl*) throw();
@@ -302,9 +310,6 @@ namespace std
   class locale::_Impl
   {
   public:
-    // Types.
-    typedef vector<facet*, allocator<facet*> > 	__vec_facet;
-
     // Friends.
     friend class locale;
     friend class locale::facet;
@@ -320,8 +325,11 @@ namespace std
   private:
     // Data Members.
     _Atomic_word			_M_references;
-    __vec_facet* 			_M_facets;
-    string 				_M_names[_S_num_categories];
+    facet** 				_M_facets;
+    size_t 				_M_facets_size;
+
+    char* 				_M_names[_S_categories_size
+						 + _S_extra_categories_size];
     static const locale::id* const 	_S_id_ctype[];
     static const locale::id* const 	_S_id_numeric[];
     static const locale::id* const 	_S_id_collate[];
@@ -347,15 +355,24 @@ namespace std
     }
 
     _Impl(const _Impl&, size_t);
-    _Impl(string __name, size_t);
+    _Impl(const char*, size_t);
+    _Impl(facet**, size_t, bool);
+
    ~_Impl() throw();
+
+    _Impl(const _Impl&);  // Not defined.
+
+    void 
+    operator=(const _Impl&);  // Not defined.
 
     inline bool
     _M_check_same_name()
     {
       bool __ret = true;
-      for (size_t i = 0; i < _S_num_categories - 1; ++i)
-	__ret &= _M_names[i] == _M_names[i + 1];
+      for (size_t __i = 0; 
+	   __ret && __i < _S_categories_size + _S_extra_categories_size - 1; 
+	   ++__i)
+	__ret &= (strcmp(_M_names[__i], _M_names[__i + 1]) == 0);
       return __ret;
     }
 
@@ -382,18 +399,23 @@ namespace std
     {
       _M_impl = new _Impl(*__other._M_impl, 1);
       _M_impl->_M_install_facet(&_Facet::id, __f);
-      for (size_t __i = 0; __i < _S_num_categories; ++__i)
-	_M_impl->_M_names[__i] = "*";
+      for (size_t __i = 0; 
+	   __i < _S_categories_size + _S_extra_categories_size; ++__i)
+	{
+	  delete [] _M_impl->_M_names[__i];
+	  char* __new = new char[2];
+	  strcpy(__new, "*");
+	  _M_impl->_M_names[__i] = __new;
+	}
     }
 
   // 22.1.1.1.2  Class locale::facet
   class locale::facet
   {
+  private:
     friend class locale;
     friend class locale::_Impl;
-    friend class __enc_traits;
 
-  private:
     _Atomic_word _M_references;
 
   protected:
@@ -408,7 +430,8 @@ namespace std
     ~facet();
 
     static void
-    _S_create_c_locale(__c_locale& __cloc, const char* __s);
+    _S_create_c_locale(__c_locale& __cloc, const char* __s, 
+		       __c_locale __old = 0);
 
     static __c_locale
     _S_clone_c_locale(__c_locale& __cloc);
@@ -448,18 +471,26 @@ namespace std
     // function (even an inline) would be undefined.
     mutable size_t 		_M_index;
 
-    // Last id number assigned
+    // Last id number assigned.
     static _Atomic_word 	_S_highwater;   
 
     void 
-    operator=(const id&);  // not defined
+    operator=(const id&);  // Not defined.
 
-    id(const id&);  // not defined
+    id(const id&);  // Not defined.
 
   public:
     // NB: This class is always a static data member, and thus can be
     // counted on to be zero-initialized.
     id();
+
+    inline size_t
+    _M_id() const
+    {
+      if (!_M_index)
+	_M_index = 1 + __exchange_and_add(&_S_highwater, 1);
+      return _M_index - 1;
+    }
   };
 
   template<typename _Facet>

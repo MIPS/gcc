@@ -727,8 +727,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 
   if (max_labelno > 0)
     {
-      map->label_map = (rtx *) xmalloc (max_labelno * sizeof (rtx));
-
+      map->label_map = (rtx *) xcalloc (max_labelno, sizeof (rtx));
       local_label = (char *) xcalloc (max_labelno, sizeof (char));
     }
 
@@ -1188,6 +1187,9 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 
   /* Keep track of the unroll factor for the loop.  */
   loop_info->unroll_number = unroll_number;
+
+  /* And whether the loop has been preconditioned.  */
+  loop_info->preconditioned = loop_preconditioned;
 
   /* For each biv and giv, determine whether it can be safely split into
      a different variable for each unrolled copy of the loop body.
@@ -2222,6 +2224,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_call_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
+	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
@@ -2868,7 +2871,7 @@ find_splittable_givs (loop, bl, unroll_type, increment, unroll_number)
 		  value = tem;
 		}
 
-	      splittable_regs[REGNO (v->new_reg)] = value;
+	      splittable_regs[reg_or_subregno (v->new_reg)] = value;
 	    }
 	  else
 	    {
@@ -3047,21 +3050,21 @@ find_splittable_givs (loop, bl, unroll_type, increment, unroll_number)
 		 itself does not have to be splittable.  */
 
 	      if (v->same && v->same->giv_type == DEST_REG)
-		addr_combined_regs[REGNO (v->same->new_reg)] = v->same;
+		addr_combined_regs[reg_or_subregno (v->same->new_reg)] = v->same;
 
 	      if (GET_CODE (v->new_reg) == REG)
 		{
 		  /* This giv maybe hasn't been combined with any others.
 		     Make sure that it's giv is marked as splittable here.  */
 
-		  splittable_regs[REGNO (v->new_reg)] = value;
+		  splittable_regs[reg_or_subregno (v->new_reg)] = value;
 
 		  /* Make it appear to depend upon itself, so that the
 		     giv will be properly split in the main loop above.  */
 		  if (! v->same)
 		    {
 		      v->same = v;
-		      addr_combined_regs[REGNO (v->new_reg)] = v;
+		      addr_combined_regs[reg_or_subregno (v->new_reg)] = v;
 		    }
 		}
 
@@ -3098,7 +3101,7 @@ find_splittable_givs (loop, bl, unroll_type, increment, unroll_number)
 	  if (! v->ignore)
 	    count = REG_IV_CLASS (ivs, REGNO (v->src_reg))->biv_count;
 
-	  splittable_regs_updates[REGNO (v->new_reg)] = count;
+	  splittable_regs_updates[reg_or_subregno (v->new_reg)] = count;
 	}
 
       result++;
@@ -3305,7 +3308,8 @@ final_giv_value (loop, v)
 
   /* Try to calculate the final value as a function of the biv it depends
      upon.  The only exit from the loop must be the fall through at the bottom
-     (otherwise it may not have its final value when the loop exits).  */
+     and the insn that sets the giv must be executed on every iteration
+     (otherwise the giv may not have its final value when the loop exits).  */
 
   /* ??? Can calculate the final giv value by subtracting off the
      extra biv increments times the giv's mult_val.  The loop must have
@@ -3313,7 +3317,8 @@ final_giv_value (loop, v)
      to be known.  */
 
   if (n_iterations != 0
-      && ! loop->exit_count)
+      && ! loop->exit_count
+      && v->always_executed)
     {
       /* ?? It is tempting to use the biv's value here since these insns will
 	 be put after the loop, and hence the biv will have its final value
@@ -3744,7 +3749,18 @@ loop_iterations (loop)
 	  for (biv_inc = bl->biv; biv_inc; biv_inc = biv_inc->next_iv)
 	    {
 	      if (loop_insn_first_p (v->insn, biv_inc->insn))
-		offset -= INTVAL (biv_inc->add_val);
+		{
+		  if (REG_P (biv_inc->add_val))
+		    {
+		      if (loop_dump_stream)
+			fprintf (loop_dump_stream,
+				 "Loop iterations: Basic induction var add_val is REG %d.\n",
+				 REGNO (biv_inc->add_val));
+			return 0;
+		    }
+
+		  offset -= INTVAL (biv_inc->add_val);
+		}
 	    }
 	}
       if (loop_dump_stream)
@@ -3984,12 +4000,6 @@ loop_iterations (loop)
 	}
       return 0;
     }
-  else if (comparison_code == EQ)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream, "Loop iterations: EQ comparison loop.\n");
-      return 0;
-    }
   else if (GET_CODE (final_value) != CONST_INT)
     {
       if (loop_dump_stream)
@@ -4000,6 +4010,43 @@ loop_iterations (loop)
 	  fprintf (loop_dump_stream, ".\n");
 	}
       return 0;
+    }
+  else if (comparison_code == EQ)
+    {
+      rtx inc_once;
+
+      if (loop_dump_stream)
+	fprintf (loop_dump_stream, "Loop iterations: EQ comparison loop.\n");
+
+      inc_once = gen_int_mode (INTVAL (initial_value) + INTVAL (increment),
+			       GET_MODE (iteration_var));
+
+      if (inc_once == final_value)
+	{
+	  /* The iterator value once through the loop is equal to the
+	     comparision value.  Either we have an infinite loop, or
+	     we'll loop twice.  */
+	  if (increment == const0_rtx)
+	    return 0;
+	  loop_info->n_iterations = 2;
+	}
+      else
+	loop_info->n_iterations = 1;
+
+      if (GET_CODE (loop_info->initial_value) == CONST_INT)
+	loop_info->final_value
+	  = gen_int_mode ((INTVAL (loop_info->initial_value)
+			   + loop_info->n_iterations * INTVAL (increment)),
+			  GET_MODE (iteration_var));
+      else
+	loop_info->final_value
+	  = plus_constant (loop_info->initial_value,
+			   loop_info->n_iterations * INTVAL (increment));
+      loop_info->final_equiv_value
+	= gen_int_mode ((INTVAL (initial_value)
+			 + loop_info->n_iterations * INTVAL (increment)),
+			GET_MODE (iteration_var));
+      return loop_info->n_iterations;
     }
 
   /* Final_larger is 1 if final larger, 0 if they are equal, otherwise -1.  */

@@ -1,6 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -89,13 +89,6 @@ rebuild_jump_labels (f)
      count doesn't drop to zero.  */
 
   for (insn = forced_labels; insn; insn = XEXP (insn, 1))
-    if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
-      LABEL_NUSES (XEXP (insn, 0))++;
-
-  /* Keep track of labels used for marking handlers for exception
-     regions; they cannot usually be deleted.  */
-
-  for (insn = exception_handler_labels; insn; insn = XEXP (insn, 1))
     if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
       LABEL_NUSES (XEXP (insn, 0))++;
 }
@@ -1082,6 +1075,21 @@ simplejump_p (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_DEST (PATTERN (insn))) == PC
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == LABEL_REF);
+}
+/* Return 1 if INSN is an tablejump.  */
+
+int
+tablejump_p (insn)
+     rtx insn;
+{
+  rtx table;
+  return (GET_CODE (insn) == JUMP_INSN
+	  && JUMP_LABEL (insn)
+	  && NEXT_INSN (JUMP_LABEL (insn))
+	  && (table = next_active_insn (JUMP_LABEL (insn)))
+	  && GET_CODE (table) == JUMP_INSN
+	  && (GET_CODE (PATTERN (table)) == ADDR_VEC
+	      || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC));
 }
 
 /* Return nonzero if INSN is a (possibly) conditional jump
@@ -2434,4 +2442,16 @@ true_regnum (x)
 					   SUBREG_BYTE (x), GET_MODE (x));
     }
   return -1;
+}
+
+/* Return regno of the register REG and handle subregs too.  */
+unsigned int
+reg_or_subregno (reg)
+     rtx reg;
+{
+  if (REG_P (reg))
+    return REGNO (reg);
+  if (GET_CODE (reg) == SUBREG)
+    return REGNO (SUBREG_REG (reg));
+  abort ();
 }

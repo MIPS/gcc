@@ -268,7 +268,7 @@ enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
 const char * arm_pic_register_string = NULL;
-int arm_pic_register = 9;
+int arm_pic_register = INVALID_REGNUM;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed.  */
@@ -651,8 +651,8 @@ arm_override_options ()
   
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  */
-  if (flag_pic && !TARGET_APCS_STACK)
-    arm_pic_register = 10;
+  if (flag_pic)
+    arm_pic_register = TARGET_APCS_STACK ? 9 : 10;
   
   if (TARGET_APCS_FLOAT)
     warning ("passing floating point arguments in fp regs not yet supported");
@@ -713,18 +713,16 @@ arm_override_options ()
 
   if (arm_pic_register_string != NULL)
     {
-      int pic_register;
-
+      int pic_register = decode_reg_name (arm_pic_register_string);
+      
       if (!flag_pic)
 	warning ("-mpic-register= is useless without -fpic");
 
-      pic_register = decode_reg_name (arm_pic_register_string);
-      
       /* Prevent the user from choosing an obviously stupid PIC register.  */
-      if (pic_register < 0 || call_used_regs[pic_register]
-	  || pic_register == HARD_FRAME_POINTER_REGNUM
-	  || pic_register == STACK_POINTER_REGNUM
-	  || pic_register >= PC_REGNUM)
+      else if (pic_register < 0 || call_used_regs[pic_register]
+	       || pic_register == HARD_FRAME_POINTER_REGNUM
+	       || pic_register == STACK_POINTER_REGNUM
+	       || pic_register >= PC_REGNUM)
 	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
@@ -892,6 +890,7 @@ use_return_insn (iscond)
 {
   int regno;
   unsigned int func_type;
+  unsigned long saved_int_regs;
 
   /* Never use a return instruction before reload has run.  */
   if (!reload_completed)
@@ -914,23 +913,31 @@ use_return_insn (iscond)
 	  && !frame_pointer_needed))
     return 0;
 
+  saved_int_regs = arm_compute_save_reg_mask ();
+
   /* Can't be done if interworking with Thumb, and any registers have been
-     stacked.  Similarly, on StrongARM, conditional returns are expensive
-     if they aren't taken and registers have been stacked.  */
-  if (iscond && arm_is_strong && frame_pointer_needed)
+     stacked.  */
+  if (TARGET_INTERWORK && saved_int_regs != 0)
     return 0;
-  
-  if ((iscond && arm_is_strong)
-      || TARGET_INTERWORK)
+
+  /* On StrongARM, conditional returns are expensive if they aren't
+     taken and multiple registers have been stacked.  */
+  if (iscond && arm_is_strong)
     {
-      for (regno = 0; regno <= LAST_ARM_REGNUM; regno++)
-	if (regs_ever_live[regno] && !call_used_regs[regno])
-	  return 0;
+      /* Conditional return when just the LR is stored is a simple 
+	 conditional-load instruction, that's not expensive.  */
+      if (saved_int_regs != 0 && saved_int_regs != (1 << LR_REGNUM))
+	return 0;
 
       if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
 	return 0;
     }
-      
+
+  /* If there are saved registers but the LR isn't saved, then we need
+     two instructions for the return.  */
+  if (saved_int_regs && !(saved_int_regs & (1 << LR_REGNUM)))
+    return 0;
+
   /* Can't be done if any of the FPU regs are pushed,
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT)
@@ -4546,8 +4553,8 @@ arm_gen_movstrqi (operands)
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (QImode, part_bytes_reg, 0));
-	  
+	  emit_move_insn (mem, gen_lowpart (QImode, part_bytes_reg));
+
 	  if (--last_bytes)
 	    {
 	      tmp = gen_reg_rtx (SImode);
@@ -4565,7 +4572,7 @@ arm_gen_movstrqi (operands)
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (HImode, part_bytes_reg, 0));
+	  emit_move_insn (mem, gen_lowpart (HImode, part_bytes_reg));
 	  last_bytes -= 2;
 	  if (last_bytes)
 	    {
@@ -4583,7 +4590,7 @@ arm_gen_movstrqi (operands)
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (QImode, part_bytes_reg, 0));	  
+	  emit_move_insn (mem, gen_lowpart (QImode, part_bytes_reg));
 	}
     }
 
@@ -5121,23 +5128,23 @@ arm_reload_out_hi (operands)
     {
       emit_insn (gen_movqi (gen_rtx_MEM (QImode, 
 					 plus_constant (base, offset + 1)),
-			    gen_rtx_SUBREG (QImode, outval, 0)));
+			    gen_lowpart (QImode, outval)));
       emit_insn (gen_lshrsi3 (scratch,
 			      gen_rtx_SUBREG (SImode, outval, 0),
 			      GEN_INT (8)));
       emit_insn (gen_movqi (gen_rtx_MEM (QImode, plus_constant (base, offset)),
-			    gen_rtx_SUBREG (QImode, scratch, 0)));
+			    gen_lowpart (QImode, scratch)));
     }
   else
     {
       emit_insn (gen_movqi (gen_rtx_MEM (QImode, plus_constant (base, offset)),
-			    gen_rtx_SUBREG (QImode, outval, 0)));
+			    gen_lowpart (QImode, outval)));
       emit_insn (gen_lshrsi3 (scratch,
 			      gen_rtx_SUBREG (SImode, outval, 0),
 			      GEN_INT (8)));
       emit_insn (gen_movqi (gen_rtx_MEM (QImode,
 					 plus_constant (base, offset + 1)),
-			    gen_rtx_SUBREG (QImode, scratch, 0)));
+			    gen_lowpart (QImode, scratch)));
     }
 }
 
@@ -5331,14 +5338,29 @@ is_jump_table (insn)
   return NULL_RTX;
 }
 
+#ifndef JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 0
+#endif
+
 static HOST_WIDE_INT
 get_jump_table_size (insn)
      rtx insn;
 {
-  rtx body = PATTERN (insn);
-  int elt = GET_CODE (body) == ADDR_DIFF_VEC ? 1 : 0;
+  /* ADDR_VECs only take room if read-only data does into the text
+     section.  */
+  if (JUMP_TABLES_IN_TEXT_SECTION
+#if !defined(READONLY_DATA_SECTION)
+      || 1
+#endif
+      )
+    {
+      rtx body = PATTERN (insn);
+      int elt = GET_CODE (body) == ADDR_DIFF_VEC ? 1 : 0;
 
-  return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, elt);
+      return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, elt);
+    }
+
+  return 0;
 }
 
 /* Move a minipool fix MP from its current location to before MAX_MP.
@@ -7469,8 +7491,9 @@ arm_output_epilogue (really_return)
   int reg;
   unsigned long saved_regs_mask;
   unsigned long func_type;
-  /* If we need this, then it will always be at least this much.  */
-  int floats_offset = 12;
+  /* Floats_offset is the offset from the "virtual" frame.  In an APCS 
+     frame that is $fp + 4 for a non-variadic function.  */
+  int floats_offset = 0;
   rtx operands[3];
   int frame_size = get_frame_size ();
   FILE * f = asm_out_file;
@@ -7507,6 +7530,9 @@ arm_output_epilogue (really_return)
   
   saved_regs_mask = arm_compute_save_reg_mask ();
   
+  /* XXX We should adjust floats_offset for any anonymous args, and then
+     re-adjust vfp_offset below to compensate.  */
+
   /* Compute how far away the floats will be.  */
   for (reg = 0; reg <= LAST_ARM_REGNUM; reg ++)
     if (saved_regs_mask & (1 << reg))
@@ -7514,6 +7540,8 @@ arm_output_epilogue (really_return)
   
   if (frame_pointer_needed)
     {
+      int vfp_offset = 4;
+
       if (arm_fpu_arch == FP_SOFT2)
 	{
 	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
@@ -7521,7 +7549,7 @@ arm_output_epilogue (really_return)
 	      {
 		floats_offset += 12;
 		asm_fprintf (f, "\tldfe\t%r, [%r, #-%d]\n", 
-			     reg, FP_REGNUM, floats_offset);
+			     reg, FP_REGNUM, floats_offset - vfp_offset);
 	      }
 	}
       else
@@ -7538,7 +7566,7 @@ arm_output_epilogue (really_return)
 		  if (start_reg - reg == 3)
 		    {
 		      asm_fprintf (f, "\tlfm\t%r, 4, [%r, #-%d]\n",
-			           reg, FP_REGNUM, floats_offset);
+			           reg, FP_REGNUM, floats_offset - vfp_offset);
 		      start_reg = reg - 1;
 		    }
 		}
@@ -7547,7 +7575,7 @@ arm_output_epilogue (really_return)
 		  if (reg != start_reg)
 		    asm_fprintf (f, "\tlfm\t%r, %d, [%r, #-%d]\n",
 				 reg + 1, start_reg - reg,
-				 FP_REGNUM, floats_offset);
+				 FP_REGNUM, floats_offset - vfp_offset);
 		  start_reg = reg - 1;
 		}
 	    }
@@ -7556,7 +7584,7 @@ arm_output_epilogue (really_return)
 	  if (reg != start_reg)
 	    asm_fprintf (f, "\tlfm\t%r, %d, [%r, #-%d]\n",
 			 reg + 1, start_reg - reg,
-			 FP_REGNUM, floats_offset);
+			 FP_REGNUM, floats_offset - vfp_offset);
 	}
 
       /* saved_regs_mask should contain the IP, which at the time of stack
@@ -7650,7 +7678,7 @@ arm_output_epilogue (really_return)
 	 to load use the LDR instruction - it is faster.  */
       if (saved_regs_mask == (1 << LR_REGNUM))
 	{
-	  /* The excpetion handler ignores the LR, so we do
+	  /* The exception handler ignores the LR, so we do
 	     not really need to load it off the stack.  */
 	  if (eh_ofs)
 	    asm_fprintf (f, "\tadd\t%r, %r, #4\n", SP_REGNUM, SP_REGNUM);
@@ -7676,7 +7704,10 @@ arm_output_epilogue (really_return)
 		 REGNO (eh_ofs));
 #endif
 
-  if (! really_return)
+  if (! really_return
+    || (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
+	&& current_function_pretend_args_size == 0
+	&& saved_regs_mask & (1 << PC_REGNUM)))
     return "";
 
   /* Generate the return instruction.  */

@@ -396,11 +396,15 @@ dbxout_function_end ()
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
+#ifdef DBX_OUTPUT_NFUN
+  DBX_OUTPUT_NFUN (asmfile, lscope_label_name, current_function_decl);
+#else
   fprintf (asmfile, "%s\"\",%d,0,0,", ASM_STABS_OP, N_FUN);
   assemble_name (asmfile, lscope_label_name);
   putc ('-', asmfile);
   assemble_name (asmfile, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
   fprintf (asmfile, "\n");
+#endif
 }
 #endif /* DBX_DEBUGGING_INFO */
 
@@ -1219,7 +1223,20 @@ dbxout_type (type, full)
 	 write it as a subtype.  */
       else if (TREE_TYPE (type) != 0
 	       && TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE)
-	dbxout_range_type (type);
+        {
+	  /* If the size is non-standard, say what it is if we can use
+	     GDB extensions.  */
+
+	  if (use_gnu_debug_info_extensions
+	      && TYPE_PRECISION (type) != TYPE_PRECISION (integer_type_node))
+	    {
+	      have_used_extensions = 1;
+	      fprintf (asmfile, "@s%d;", TYPE_PRECISION (type));
+	      CHARS (5);
+	    }
+
+	  dbxout_range_type (type);
+        }
 
       else
   	{

@@ -28,24 +28,17 @@ mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
 noinst_LTLIBRARIES = libmath.la
 
-EXTRA_LONG_DOUBLE_yes = signbitl.c
-
-EXTRA_DIST = $(EXTRA_LONG_DOUBLE_yes) 
-
-libmath_la_LIBADD = \
-	@LIBMATHOBJS@ \
-	$(EXTRA_LONG_DOUBLE_$(USE_COMPLEX_LONG_DOUBLE)) 
+libmath_la_LIBADD = @LIBMATHOBJS@ 
 
 libmath_la_DEPENDENCIES = $(libmath_la_LIBADD)
 
-libmath_la_SOURCES = signbit.c signbitf.c stubs.c
-
-LINK = \
-	$(LIBTOOL) --tag CC --mode=link "$(CCLD)" \
-	$(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+libmath_la_SOURCES = stubs.c
 
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 
 INCLUDES = \
 	$(TOPLEVEL_INCLUDES) 
+
+# Only compiling "C" sources in this directory.
+LIBTOOL = @LIBTOOL@ --tag CC

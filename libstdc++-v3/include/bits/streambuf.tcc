@@ -40,6 +40,10 @@
 namespace std 
 {
   template<typename _CharT, typename _Traits>
+    const size_t
+    basic_streambuf<_CharT, _Traits>::_S_pback_size;
+
+  template<typename _CharT, typename _Traits>
     typename basic_streambuf<_CharT, _Traits>::int_type
     basic_streambuf<_CharT, _Traits>::
     sbumpc()
@@ -47,7 +51,7 @@ namespace std
       int_type __ret;
       if (_M_in_cur && _M_in_cur < _M_in_end)
 	{
-	  char_type __c = *gptr();
+	  char_type __c = *(this->gptr());
 	  _M_in_cur_move(1);
 	  __ret = traits_type::to_int_type(__c);
 	}
@@ -134,7 +138,7 @@ namespace std
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->uflow();  
-	      if (__c != traits_type::eof())
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  traits_type::assign(*__s++, traits_type::to_char_type(__c));
 		  ++__ret;
@@ -173,7 +177,7 @@ namespace std
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->overflow(traits_type::to_int_type(*__s));
-	      if (__c != traits_type::eof())
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  ++__ret;
 		  ++__s;
@@ -204,19 +208,28 @@ namespace std
       try 
 	{
 	  while (__testput && __bufsize != -1)
-	    {
-	      __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
-	      __ret += __xtrct;
-	      __sbin->_M_in_cur_move(__xtrct);
-	      if (__xtrct == __bufsize)
+  	    {
+ 	      if (__bufsize != 0 && __sbin->gptr() != NULL) 
 		{
-		  if (__sbin->sgetc() == _Traits::eof())
+		  __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
+		  __ret += __xtrct;
+		  __sbin->_M_in_cur_move(__xtrct);
+		  if (__xtrct != __bufsize)
 		    break;
-		  __bufsize = __sbin->in_avail();
 		}
-	      else
-		break;
-	    }
+ 	      else 
+		{
+		  _CharT __buf[256];
+		  streamsize __charsread = __sbin->sgetn(__buf, sizeof(__buf));
+		  __xtrct = __sbout->sputn(__buf, __charsread);
+		  __ret += __xtrct;
+		  if (__xtrct != __charsread)
+		    break;
+		}
+ 	      if (_Traits::eq_int_type(__sbin->sgetc(), _Traits::eof()))
+  		break;
+ 	      __bufsize = __sbin->in_avail();
+  	    }
 	}
       catch(exception& __fail) 
 	{
@@ -236,11 +249,13 @@ namespace std
     __copy_streambufs(basic_ios<char>&, basic_streambuf<char>*,
 		      basic_streambuf<char>*); 
 
+#ifdef _GLIBCPP_USE_WCHAR_T
   extern template class basic_streambuf<wchar_t>;
   extern template
     streamsize
     __copy_streambufs(basic_ios<wchar_t>&, basic_streambuf<wchar_t>*,
 		      basic_streambuf<wchar_t>*); 
+#endif
 } // namespace std
 
 #endif 

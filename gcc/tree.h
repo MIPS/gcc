@@ -177,6 +177,9 @@ struct tree_common
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
+       CLEANUP_EH_ONLY in
+           TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
+	   TREE_LIST elements of a block's cleanup list.
 
    public_flag:
 
@@ -194,7 +197,7 @@ struct tree_common
        TREE_VIA_PRIVATE in
            TREE_LIST or TREE_VEC
        TREE_PRIVATE in
-           ??? unspecified nodes
+           ..._DECL
 
    protected_flag:
 
@@ -203,7 +206,7 @@ struct tree_common
 	   TREE_VEC
        TREE_PROTECTED in
            BLOCK
-	   ??? unspecified nodes
+	   ..._DECL
 
    side_effects_flag:
 
@@ -502,6 +505,11 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    In a FUNCTION_DECL, nonzero if function has been defined.
    In a CONSTRUCTOR, nonzero means allocate static storage.  */
 #define TREE_STATIC(NODE) ((NODE)->common.static_flag)
+
+/* In a TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT, or element of a
+   block's cleanup list, means that the pertinent cleanup should only be
+   executed if an exception is thrown, not on normal exit of its scope.  */
+#define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
 /* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
    made implicitly and should not lead to an "unused value" warning.  */
@@ -2044,6 +2052,33 @@ extern tree integer_types[itk_none];
 #define long_long_unsigned_type_node	integer_types[itk_unsigned_long_long]
 
 
+/* A pointer-to-function member type looks like:
+
+     struct {
+       __P __pfn;
+       ptrdiff_t __delta;
+     };
+
+   If __pfn is NULL, it is a NULL pointer-to-member-function.
+
+   (Because the vtable is always the first thing in the object, we
+   don't need its offset.)  If the function is virtual, then PFN is
+   one plus twice the index into the vtable; otherwise, it is just a
+   pointer to the function.
+
+   Unfortunately, using the lowest bit of PFN doesn't work in
+   architectures that don't impose alignment requirements on function
+   addresses, or that use the lowest bit to tell one ISA from another,
+   for example.  For such architectures, we use the lowest bit of
+   DELTA instead of the lowest bit of the PFN, and DELTA will be
+   multiplied by 2.  */
+
+enum ptrmemfunc_vbit_where_t
+{
+  ptrmemfunc_vbit_in_pfn,
+  ptrmemfunc_vbit_in_delta
+};
+
 #define NULL_TREE (tree) NULL
 
 /* Approximate positive square root of a host double.  This is for
@@ -2746,7 +2781,7 @@ extern int type_num_arguments                   PARAMS ((tree));
 
 extern int in_control_zone_p			PARAMS ((void));
 extern void expand_fixups			PARAMS ((rtx));
-extern tree expand_start_stmt_expr		PARAMS ((void));
+extern tree expand_start_stmt_expr		PARAMS ((int));
 extern tree expand_end_stmt_expr		PARAMS ((tree));
 extern void expand_expr_stmt			PARAMS ((tree));
 extern void expand_expr_stmt_value		PARAMS ((tree, int, int));
@@ -2903,6 +2938,7 @@ struct obstack;
 /* In tree.c */
 extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
+extern bool variably_modified_type_p    PARAMS ((tree));
 extern int tree_log2			PARAMS ((tree));
 extern int tree_floor_log2		PARAMS ((tree));
 extern void preserve_data		PARAMS ((void));
@@ -3082,6 +3118,7 @@ extern void expand_elseif		PARAMS ((tree));
 extern void save_stack_pointer		PARAMS ((void));
 extern void expand_decl			PARAMS ((tree));
 extern int expand_decl_cleanup		PARAMS ((tree, tree));
+extern int expand_decl_cleanup_eh	PARAMS ((tree, tree, int));
 extern void expand_anon_union_decl	PARAMS ((tree, tree, tree));
 extern void move_cleanups_up		PARAMS ((void));
 extern void expand_start_case_dummy	PARAMS ((void));

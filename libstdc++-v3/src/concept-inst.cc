@@ -1,23 +1,22 @@
 // Concept checking instantiations -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation
+// Copyright (C) 2001, 2002 Free Software Foundation
 //
-// This file is part of GNU CC.
-//
-// GNU CC is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation; either version 2, or (at your option)
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 2, or (at your option)
 // any later version.
-// 
-// GNU CC is distributed in the hope that it will be useful,
+
+// This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
-// You should have received a copy of the GNU General Public License
-// along with GNU CC; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330,
-// Boston, MA 02111-1307, USA.
+
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// USA.
 
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -40,7 +39,6 @@
 #ifdef _GLIBCPP_CONCEPT_CHECKS
 
 #include <memory>
-#include <vector>
 #include <ostream>
 
 #define _Instantiate(...) template void __function_requires< __VA_ARGS__ > ()
@@ -49,35 +47,11 @@ namespace __gnu_cxx
 {
   template void __aux_require_boolean_expr<bool>(bool const&);
 
-  _Instantiate(_BidirectionalIteratorConcept<
-    std::__normal_iterator< std::locale::facet**,
-    std::vector<std::locale::facet*,std::allocator<std::locale::facet*> > > > );
-
-  _Instantiate(_BidirectionalIteratorConcept<
-    std::__normal_iterator< unsigned*,
-    std::vector<unsigned, std::allocator<unsigned> > > > );
-
-  _Instantiate(_ConvertibleConcept<std::locale::facet*, std::locale::facet*> );
-
   _Instantiate(_ConvertibleConcept<unsigned, unsigned> );
 
   _Instantiate(_InputIteratorConcept<char*> );
 
   _Instantiate(_InputIteratorConcept<char const*> );
-
-  _Instantiate(_InputIteratorConcept<std::locale::facet**> );
-
-  _Instantiate(_InputIteratorConcept<
-    std::__normal_iterator< std::locale::facet* const*,
-    std::vector<std::locale::facet*,std::allocator<std::locale::facet*> > > > );
-
-  _Instantiate(_InputIteratorConcept<
-    std::__normal_iterator< std::locale::facet**,
-    std::vector<std::locale::facet*,std::allocator<std::locale::facet*> > > > );
-
-  _Instantiate(_InputIteratorConcept<
-    std::__normal_iterator< unsigned*,
-    std::vector<unsigned, std::allocator<unsigned> > > > );
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   _Instantiate(_InputIteratorConcept<wchar_t*> );
@@ -97,29 +71,6 @@ namespace __gnu_cxx
 
   _Instantiate(_LessThanComparableConcept<unsigned> );
 
-  _Instantiate(_Mutable_BidirectionalIteratorConcept<
-    std::__normal_iterator< std::locale::facet**,
-    std::vector<std::locale::facet*,std::allocator<std::locale::facet*> > > > );
-
-  _Instantiate(_Mutable_BidirectionalIteratorConcept<
-    std::__normal_iterator< unsigned*,
-    std::vector<unsigned, std::allocator<unsigned> > > > );
-
-  _Instantiate(_Mutable_ForwardIteratorConcept<
-    std::__normal_iterator< std::locale::facet**,
-    std::vector<std::locale::facet*,std::allocator<std::locale::facet*> > > > );
-
-  _Instantiate(_OutputIteratorConcept<
-    std::locale::facet**, std::locale::facet*> );
-
-  _Instantiate(_OutputIteratorConcept<
-    std::__normal_iterator< std::locale::facet**,
-      std::vector<std::locale::facet*, std::allocator<std::locale::facet* > > >,
-    std::locale::facet* > );
-
-  _Instantiate(_OutputIteratorConcept<std::__normal_iterator<
-    unsigned*, std::vector<unsigned, std::allocator<unsigned> > >, unsigned> );
-
   _Instantiate(_OutputIteratorConcept<std::ostreambuf_iterator<
     char, std::char_traits<char> >, char> );
 
@@ -133,19 +84,19 @@ namespace __gnu_cxx
   _Instantiate(_RandomAccessIteratorConcept<char const*> );
 
   _Instantiate(_RandomAccessIteratorConcept<
-    std::__normal_iterator<char const*, std::string> > );
+    __normal_iterator<char const*, std::string> > );
 
   _Instantiate(_RandomAccessIteratorConcept<
-    std::__normal_iterator<char*, std::string> > );
+    __normal_iterator<char*, std::string> > );
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   _Instantiate(_RandomAccessIteratorConcept<
-    std::__normal_iterator<wchar_t const*,
+    __normal_iterator<wchar_t const*,
     std::basic_string<wchar_t, std::char_traits<wchar_t>,
                                std::allocator<wchar_t> > > > );
 
   _Instantiate(_RandomAccessIteratorConcept<
-    std::__normal_iterator<wchar_t*,
+    __normal_iterator<wchar_t*,
     std::basic_string<wchar_t, std::char_traits<wchar_t>,
                                std::allocator<wchar_t> > > > );
 
@@ -153,7 +104,6 @@ namespace __gnu_cxx
 
   _Instantiate(_RandomAccessIteratorConcept<wchar_t const*> );
 #endif
-
 } // namespace __gnu_cxx
 
 #undef _Instantiate

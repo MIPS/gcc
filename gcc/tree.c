@@ -286,7 +286,7 @@ tree_size (node)
     case '1':  /* a unary arithmetic expression */
     case '2':  /* a binary arithmetic expression */
       return (sizeof (struct tree_exp)
-	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+	      + TREE_CODE_LENGTH (code) * sizeof (char *) - sizeof (char *));
 
     case 'c':  /* a constant */
       /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
@@ -304,12 +304,12 @@ tree_size (node)
 
     case 'x':  /* something random, like an identifier.  */
       {
-	  size_t length;
-	  length = (sizeof (struct tree_common)
-		    + TREE_CODE_LENGTH (code) * sizeof (char *));
-	  if (code == TREE_VEC)
-	    length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
-	  return length;
+	size_t length;
+	length = (sizeof (struct tree_common)
+		  + TREE_CODE_LENGTH (code) * sizeof (char *));
+	if (code == TREE_VEC)
+	 length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
+	return length;
       }
 
     default:
@@ -3415,7 +3415,20 @@ tree_int_cst_lt (t1, t2)
   if (t1 == t2)
     return 0;
 
-  if (! TREE_UNSIGNED (TREE_TYPE (t1)))
+  if (TREE_UNSIGNED (TREE_TYPE (t1)) != TREE_UNSIGNED (TREE_TYPE (t2)))
+    {
+      int t1_sgn = tree_int_cst_sgn (t1);
+      int t2_sgn = tree_int_cst_sgn (t2);
+
+      if (t1_sgn < t2_sgn)
+	return 1;
+      else if (t1_sgn > t2_sgn)
+	return 0;
+      /* Otherwise, both are non-negative, so we compare them as
+	 unsigned just in case one of them would overflow a signed
+	 type.  */
+    }
+  else if (! TREE_UNSIGNED (TREE_TYPE (t1)))
     return INT_CST_LT (t1, t2);
 
   return INT_CST_LT_UNSIGNED (t1, t2);
@@ -4320,6 +4333,65 @@ int_fits_type_p (c, type)
       TREE_TYPE (c) = type;
       return !force_fit_type (c, 0);
     }
+}
+
+/* Returns true if T is, contains, or refers to a type with variable
+   size.  This concept is more general than that of C99 'variably
+   modified types': in C99, a struct type is never variably modified
+   because a VLA may not appear as a structure member.  However, in
+   GNU C code like:
+    
+     struct S { int i[f()]; };
+
+   is valid, and other languages may define similar constructs.  */
+
+bool
+variably_modified_type_p (type)
+     tree type;
+{
+  /* If TYPE itself has variable size, it is variably modified.  
+
+     We do not yet have a representation of the C99 '[*]' syntax.
+     When a representation is chosen, this function should be modified
+     to test for that case as well.  */
+  if (TYPE_SIZE (type) 
+      && TYPE_SIZE (type) != error_mark_node
+      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If TYPE is a pointer or reference, it is variably modified if 
+     the type pointed to is variably modified.  */
+  if ((TREE_CODE (type) == POINTER_TYPE
+       || TREE_CODE (type) == REFERENCE_TYPE)
+      && variably_modified_type_p (TREE_TYPE (type)))
+    return true;
+  
+  /* If TYPE is an array, it is variably modified if the array
+     elements are.  (Note that the VLA case has already been checked
+     above.)  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && variably_modified_type_p (TREE_TYPE (type)))
+    return true;
+
+  /* If TYPE is a function type, it is variably modified if any of the
+     parameters or the return type are variably modified.  */
+  if (TREE_CODE (type) == FUNCTION_TYPE
+      || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree parm;
+
+      if (variably_modified_type_p (TREE_TYPE (type)))
+	return true;
+      for (parm = TYPE_ARG_TYPES (type); 
+	   parm && parm != void_list_node; 
+	   parm = TREE_CHAIN (parm))
+	if (variably_modified_type_p (TREE_VALUE (parm)))
+	  return true;
+    }
+
+  /* The current language may have other cases to check, but in general,
+     all other types are not variably modified.  */
+  return (*lang_hooks.tree_inlining.var_mod_type_p) (type);
 }
 
 /* Given a DECL or TYPE, return the scope in which it was declared, or

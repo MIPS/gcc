@@ -222,6 +222,7 @@ extern const int x86_add_esp_4, x86_add_esp_8, x86_sub_esp_4, x86_sub_esp_8;
 extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
 extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
 extern const int x86_epilogue_using_move, x86_decompose_lea;
+extern const int x86_arch_always_fancy_math_387;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
@@ -583,9 +584,13 @@ extern int ix86_arch;
 %{march=pentium-mmx:-D__i586 -D__i586__ -D__pentium -D__pentium__ \
   -D__pentium__mmx__ \
   %{!mcpu*:-D__tune_i586__ -D__tune_pentium__ -D__tune_pentium_mmx__}}\
-%{march=pentiumpro|march=i686:-D__i686 -D__i686__ \
+%{march=pentiumpro|march=i686|march=pentium2|march=pentium3:-D__i686 -D__i686__ \
   -D__pentiumpro -D__pentiumpro__ \
   %{!mcpu*:-D__tune_i686__ -D__tune_pentiumpro__ }}\
+%{march=march=pentium2|march=pentium3: -D__pentium2 -D__pentium2__\
+  %{!mcpu*:-D__tune_pentium2__ }}\
+%{march=pentium3: -D__pentium3 -D__pentium3__\
+  %{!mcpu*:-D__tune_pentium3__ }}\
 %{march=k6:-D__k6 -D__k6__ %{!mcpu*:-D__tune_k6__ }}\
 %{march=k6-2:-D__k6 -D__k6__ -D__k6_2__ \
   %{!mcpu*:-D__tune_k6__ -D__tune_k6_2__ }}\
@@ -600,7 +605,7 @@ extern int ix86_arch;
 %{m386|mcpu=i386:-D__tune_i386__ }\
 %{m486|mcpu=i486:-D__tune_i486__ }\
 %{mpentium|mcpu=pentium|mcpu=i586|mcpu=pentium-mmx:-D__tune_i586__ -D__tune_pentium__ }\
-%{mpentiumpro|mcpu=pentiumpro|mcpu=i686|cpu=pentium2|cpu=pentium3:-D__tune_i686__ \
+%{mpentiumpro|mcpu=pentiumpro|mcpu=i686|mcpu=pentium2|mcpu=pentium3:-D__tune_i686__ \
 -D__tune_pentiumpro__ }\
 %{mcpu=k6|mcpu=k6-2|mcpu=k6-3:-D__tune_k6__ }\
 %{mcpu=athlon|mcpu=athlon-tbird|mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
@@ -608,17 +613,17 @@ extern int ix86_arch;
 %{mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
 -D__tune_athlon_sse__ }\
 %{mcpu=pentium4:-D__tune_pentium4__ }\
-%{march=athlon-tbird|march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
+%{march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4|msse|msse2:\
 -D__SSE__ }\
 %{march=pentium-mmx|march=k6|march=k6-2|march=k6-3\
 |march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
-|march=athlon-mp|march=pentium2|march=pentium3|march=pentium4: -D__MMX__ }\
+|march=athlon-mp|march=pentium2|march=pentium3|march=pentium4|mmx|msse|m3dnow: -D__MMX__ }\
 %{march=k6-2|march=k6-3\
 |march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
-|march=athlon-mp: -D__3dNOW__ }\
+|march=athlon-mp|m3dnow: -D__3dNOW__ }\
 %{march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW_A__ }\
-%{march=pentium4: -D__SSE2__ }\
+%{march=pentium4|msse2: -D__SSE2__ }\
 %{!march*:%{!mcpu*:%{!m386:%{!m486:%{!mpentium*:%(cpp_cpu_default)}}}}}"
 
 #ifndef CPP_CPU_SPEC
@@ -755,8 +760,11 @@ extern int ix86_arch;
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
   (ix86_preferred_stack_boundary > STACK_BOUNDARY && !TARGET_64BIT)
 
-/* Allocation boundary for the code of a function.  */
-#define FUNCTION_BOUNDARY 16
+/* Minimum allocation boundary for the code of a function.  */
+#define FUNCTION_BOUNDARY 8
+
+/* C++ stores the virtual bit in the lowest bit of function pointers.  */
+#define TARGET_PTRMEMFUNC_VBIT_LOCATION ptrmemfunc_vbit_in_pfn
 
 /* Alignment of field after `int : 0' in a structure.  */
 
@@ -780,12 +788,15 @@ extern int ix86_arch;
 /* The published ABIs say that doubles should be aligned on word
    boundaries, so lower the aligment for structure fields unless
    -malign-double is set.  */
-/* BIGGEST_FIELD_ALIGNMENT is also used in libobjc, where it must be
-   constant.  Use the smaller value in that context.  */
-#ifndef IN_TARGET_LIBS
-#define BIGGEST_FIELD_ALIGNMENT (TARGET_64BIT ? 128 : (TARGET_ALIGN_DOUBLE ? 64 : 32))
-#else
+
+/* ??? Blah -- this macro is used directly by libobjc.  Since it
+   supports no vector modes, cut out the complexity and fall back
+   on BIGGEST_FIELD_ALIGNMENT.  */
+#ifdef IN_TARGET_LIBS
 #define BIGGEST_FIELD_ALIGNMENT 32
+#else
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+   x86_field_alignment (FIELD, COMPUTED)
 #endif
 
 /* If defined, a C expression to compute the alignment given to a
@@ -957,7 +968,7 @@ do {									\
         call_used_regs[i] = (call_used_regs[i]				\
 			     & (TARGET_64BIT ? 2 : 1)) != 0;		\
       }									\
-    if (flag_pic)							\
+    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
       {									\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
@@ -1133,11 +1144,11 @@ do {									\
 #define STATIC_CHAIN_REGNUM (TARGET_64BIT ? FIRST_REX_INT_REG + 10 - 8 : 2)
 
 /* Register to hold the addressing base for position independent
-   code access to data items.
-   We don't use PIC pointer for 64bit mode.  Define the regnum to
-   dummy value to prevent gcc from pessimizing code dealing with EBX.
- */
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? INVALID_REGNUM : 3)
+   code access to data items.  We don't use PIC pointer for 64bit
+   mode.  Define the regnum to dummy value to prevent gcc from
+   pessimizing code dealing with EBX.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM : 3)
 
 /* Register in which address to store a structure value
    arrives in the function.  On the 386, the prologue
@@ -1335,7 +1346,7 @@ enum reg_class
 #define SSE_REG_P(N) (REG_P (N) && SSE_REGNO_P (REGNO (N)))
 
 #define SSE_FLOAT_MODE_P(MODE) \
-  ((TARGET_SSE_MATH && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
+  ((TARGET_SSE && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
 
 #define MMX_REGNO_P(N) ((N) >= FIRST_MMX_REG && (N) <= LAST_MMX_REG)
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
@@ -1576,6 +1587,10 @@ enum reg_class
    instructions to pass outgoing arguments.  */
 
 #define PUSH_ARGS (TARGET_PUSH_ARGS && !ACCUMULATE_OUTGOING_ARGS)
+
+/* We want the stack and args grow in opposite directions, even if
+   PUSH_ARGS is 0.  */
+#define PUSH_ARGS_REVERSED 1
 
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL) 0
@@ -2049,13 +2064,9 @@ enum ix86_builtins
   IX86_BUILTIN_CMPEQSS,
   IX86_BUILTIN_CMPLTSS,
   IX86_BUILTIN_CMPLESS,
-  IX86_BUILTIN_CMPGTSS,
-  IX86_BUILTIN_CMPGESS,
   IX86_BUILTIN_CMPNEQSS,
   IX86_BUILTIN_CMPNLTSS,
   IX86_BUILTIN_CMPNLESS,
-  IX86_BUILTIN_CMPNGTSS,
-  IX86_BUILTIN_CMPNGESS,
   IX86_BUILTIN_CMPORDSS,
   IX86_BUILTIN_CMPUNORDSS,
   IX86_BUILTIN_CMPNESS,
@@ -2348,7 +2359,7 @@ do {								\
 /* When a prototype says `char' or `short', really pass an `int'.
    (The 386 can't easily push less than an int.)  */
 
-#define PROMOTE_PROTOTYPES 1
+#define PROMOTE_PROTOTYPES (!TARGET_64BIT)
 
 /* A macro to update M and UNSIGNEDP when an object whose type is
    TYPE and which has the specified mode and signedness is to be
@@ -2867,13 +2878,25 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_PUSH(FILE, REGNO)  \
-  asm_fprintf ((FILE), "\tpush{l}\t%%e%s\n", reg_names[(REGNO)])
+do {									\
+  if (TARGET_64BIT)							\
+    asm_fprintf ((FILE), "\tpush{q}\t%%r%s\n",				\
+		 reg_names[(REGNO)] + (REX_INT_REGNO_P (REGNO) != 0));	\
+  else									\
+    asm_fprintf ((FILE), "\tpush{l}\t%%e%s\n", reg_names[(REGNO)]);	\
+} while (0)
 
 /* This is how to output an insn to pop a register from the stack.
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_POP(FILE, REGNO)  \
-  asm_fprintf ((FILE), "\tpop{l}\t%%e%s\n", reg_names[(REGNO)])
+do {									\
+  if (TARGET_64BIT)							\
+    asm_fprintf ((FILE), "\tpop{q}\t%%r%s\n",				\
+		 reg_names[(REGNO)] + (REX_INT_REGNO_P (REGNO) != 0));	\
+  else									\
+    asm_fprintf ((FILE), "\tpop{l}\t%%e%s\n", reg_names[(REGNO)]);	\
+} while (0)
 
 /* This is how to output an element of a case-vector that is absolute.  */
 
@@ -3025,6 +3048,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 				       SYMBOL_REF, LABEL_REF}},		\
   {"shiftdi_operand", {SUBREG, REG, MEM}},				\
   {"const_int_1_operand", {CONST_INT}},					\
+  {"const_int_1_31_operand", {CONST_INT}},				\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		       LABEL_REF, SUBREG, REG, MEM}},			\

@@ -1,5 +1,5 @@
 /* Definitions for 64-bit SPARC running Linux-based GNU systems with ELF.
-   Copyright 1996, 1997, 1998, 2000 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 2000, 2002 Free Software Foundation, Inc.
    Contributed by David S. Miller (davem@caip.rutgers.edu)
 
 This file is part of GNU CC.
@@ -34,7 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_PTR64 + MASK_64BIT /* + MASK_HARD_QUAD */ \
-   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU + MASK_LONG_DOUBLE_128)
+   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_FPU + MASK_LONG_DOUBLE_128)
 #endif
 
 #undef ASM_CPU_DEFAULT_SPEC
@@ -56,37 +56,11 @@ Boston, MA 02111-1307, USA.  */
    
 #undef  STARTFILE_SPEC
 
-#define STARTFILE_SPEC32 \
+#define STARTFILE_SPEC \
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
    crti.o%s %{static:crtbeginT.o%s}\
    %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
-
-#define STARTFILE_SPEC64 \
-  "%{!shared: \
-     %{pg:/usr/lib64/gcrt1.o%s} %{!pg:%{p:/usr/lib64/gcrt1.o%s} %{!p:/usr/lib64/crt1.o%s}}}\
-   /usr/lib64/crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
-
-#ifdef SPARC_BI_ARCH
-
-#if DEFAULT_ARCH32_P
-#define STARTFILE_SPEC "\
-%{m32:" STARTFILE_SPEC32 "} \
-%{m64:" STARTFILE_SPEC64 "} \
-%{!m32:%{!m64:" STARTFILE_SPEC32 "}}"
-#else
-#define STARTFILE_SPEC "\
-%{m32:" STARTFILE_SPEC32 "} \
-%{m64:" STARTFILE_SPEC64 "} \
-%{!m32:%{!m64:" STARTFILE_SPEC64 "}}"
-#endif
-
-#else
-
-#define STARTFILE_SPEC STARTFILE_SPEC64
-
-#endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
    the GNU/Linux magical crtend.o file (see crtstuff.c) which
@@ -96,31 +70,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ENDFILE_SPEC
 
-#define ENDFILE_SPEC32 \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
-
-#define ENDFILE_SPEC64 \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib64/crtn.o%s"
-  
-#ifdef SPARC_BI_ARCH
-
-#if DEFAULT_ARCH32_P
-#define ENDFILE_SPEC "\
-%{m32:" ENDFILE_SPEC32 "} \
-%{m64:" ENDFILE_SPEC64 "} \
-%{!m32:%{!m64:" ENDFILE_SPEC32 "}}"
-#else
-#define ENDFILE_SPEC "\
-%{m32:" ENDFILE_SPEC32 "} \
-%{m64:" ENDFILE_SPEC64 "} \
-%{!m32:%{!m64:" ENDFILE_SPEC64 "}}"
-#endif
-
-#else
-
-#define ENDFILE_SPEC ENDFILE_SPEC64
-
-#endif
+#define ENDFILE_SPEC \
+  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s\
+   %{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
 
 /* The GNU C++ standard library requires that these macros be defined.  */
 #undef CPLUSPLUS_CPP_SPEC
@@ -144,8 +96,6 @@ Boston, MA 02111-1307, USA.  */
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-#undef MAX_WCHAR_TYPE_SIZE
-
 /* Define for support of TFmode long double and REAL_ARITHMETIC.
    Sparc ABI says that long double is 4 words.  */
 #undef LONG_DOUBLE_TYPE_SIZE
@@ -164,7 +114,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__ELF__ -Dunix -D_LONGLONG -D__sparc__ -Dlinux -Asystem=unix -Asystem=posix"
+#define CPP_PREDEFINES "-D__ELF__ -Dunix -D_LONGLONG -D__sparc__ -D__gnu_linux__ -Dlinux -Asystem=unix -Asystem=posix"
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
@@ -246,6 +196,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcypress:-mcpu=cypress} \
 %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+%{m32:%{m64:%emay not use both -m32 and -m64}} \
 %{m64:-mptr64 -mstack-bias -mlong-double-128 \
   %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:-mcpu=ultrasparc}}}}}}} \
   %{!mno-vis:%{!mcpu=v9:-mvis}}} \
@@ -256,6 +207,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcypress:-mcpu=cypress} \
 %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
 %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+%{m32:%{m64:%emay not use both -m32 and -m64}} \
 %{m32:-mptr32 -mno-stack-bias %{!mlong-double-128:-mlong-double-64} \
   %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:-mcpu=cypress}}}}}}}} \
 %{!m32:%{!mcpu*:-mcpu=ultrasparc}} \
@@ -325,6 +277,9 @@ do {									\
 #undef COMMON_ASM_OP
 #define COMMON_ASM_OP "\t.common\t"
 
+#undef  LOCAL_LABEL_PREFIX
+#define LOCAL_LABEL_PREFIX  "."
+
 /* This is how to output a definition of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
 
@@ -361,3 +316,128 @@ do {									\
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
 
+/* Don't be different from other Linux platforms in this regard.  */
+#define HANDLE_PRAGMA_PACK_PUSH_POP
+
+/* We use GNU ld so undefine this so that attribute((init_priority)) works.  */
+#undef CTORS_SECTION_ASM_OP
+#undef DTORS_SECTION_ASM_OP
+
+/* Do code reading to identify a signal frame, and set the frame
+   state data appropriately.  See unwind-dw2.c for the structs.  */
+
+/* Handle multilib correctly.  */
+#if defined(__arch64__)
+/* 64-bit Sparc version */
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+  do {									\
+    unsigned int *pc_ = (CONTEXT)->ra;					\
+    long new_cfa_, i_;							\
+    long regs_off_, fpu_save_off_;					\
+    long this_cfa_, fpu_save_;						\
+									\
+    if (pc_[0] != 0x82102065		/* mov NR_rt_sigreturn, %g1 */	\
+        || pc_[1] != 0x91d0206d)		/* ta 0x6d */		\
+      break;								\
+    regs_off_ = 192 + 128;						\
+    fpu_save_off_ = regs_off_ + (16 * 8) + (3 * 8) + (2 * 4);		\
+    this_cfa_ = (long) (CONTEXT)->cfa;					\
+    new_cfa_ = *(long *)(((CONTEXT)->cfa) + (regs_off_ + (14 * 8)));	\
+    new_cfa_ += 2047; /* Stack bias */					\
+    fpu_save_ = *(long *)((this_cfa_) + (fpu_save_off_));		\
+    (FS)->cfa_how = CFA_REG_OFFSET;					\
+    (FS)->cfa_reg = 14;							\
+    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
+    for (i_ = 1; i_ < 16; ++i_)						\
+      {									\
+	(FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
+	(FS)->regs.reg[i_].loc.offset =					\
+	  this_cfa_ + (regs_off_ + (i_ * 8)) - new_cfa_;		\
+      }									\
+    for (i_ = 0; i_ < 16; ++i_)						\
+      {									\
+	(FS)->regs.reg[i_ + 16].how = REG_SAVED_OFFSET;			\
+	(FS)->regs.reg[i_ + 16].loc.offset =				\
+	  this_cfa_ + (i_ * 8) - new_cfa_;				\
+      }									\
+    if (fpu_save_)							\
+      {									\
+	for (i_ = 0; i_ < 64; ++i_)					\
+	  {								\
+            if (i_ > 32 && (i_ & 0x1))					\
+              continue;							\
+	    (FS)->regs.reg[i_ + 32].how = REG_SAVED_OFFSET;		\
+	    (FS)->regs.reg[i_ + 32].loc.offset =			\
+	      (fpu_save_ + (i_ * 4)) - new_cfa_;			\
+	  }								\
+      }									\
+    /* Stick return address into %g0, same trick Alpha uses.  */	\
+    (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[0].loc.offset =					\
+      this_cfa_ + (regs_off_ + (16 * 8) + 8) - new_cfa_;		\
+    (FS)->retaddr_column = 0;						\
+    goto SUCCESS;							\
+  } while (0)
+#else
+/* 32-bit Sparc version */
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+  do {									\
+    unsigned int *pc_ = (CONTEXT)->ra;					\
+    int new_cfa_, i_, oldstyle_;					\
+    int regs_off_, fpu_save_off_;					\
+    int fpu_save_, this_cfa_;						\
+									\
+    if (pc_[1] != 0x91d02010)		/* ta 0x10 */			\
+      break;								\
+    if (pc_[0] == 0x821020d8)		/* mov NR_sigreturn, %g1 */	\
+      oldstyle_ = 1;							\
+    else if (pc_[0] == 0x82102065)	/* mov NR_rt_sigreturn, %g1 */	\
+      oldstyle_ = 0;							\
+    else								\
+      break;								\
+    if (oldstyle_)							\
+      {									\
+        regs_off_ = 96;							\
+        fpu_save_off_ = regs_off_ + (4 * 4) + (16 * 4);			\
+      }									\
+    else								\
+      {									\
+        regs_off_ = 96 + 128;						\
+        fpu_save_off_ = regs_off_ + (4 * 4) + (16 * 4) + (2 * 4);	\
+      }									\
+    this_cfa_ = (int) (CONTEXT)->cfa;					\
+    new_cfa_ = *(int *)(((CONTEXT)->cfa) + (regs_off_+(4*4)+(14 * 4)));	\
+    fpu_save_ = *(int *)((this_cfa_) + (fpu_save_off_));		\
+    (FS)->cfa_how = CFA_REG_OFFSET;					\
+    (FS)->cfa_reg = 14;							\
+    (FS)->cfa_offset = new_cfa_ - (int) (CONTEXT)->cfa;			\
+    for (i_ = 1; i_ < 16; ++i_)						\
+      {									\
+        if (i_ == 14)							\
+          continue;							\
+	(FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
+	(FS)->regs.reg[i_].loc.offset =					\
+	   this_cfa_ + (regs_off_+(4 * 4)+(i_ * 4)) - new_cfa_;		\
+      }									\
+    for (i_ = 0; i_ < 16; ++i_)						\
+      {									\
+	(FS)->regs.reg[i_ + 16].how = REG_SAVED_OFFSET;			\
+	(FS)->regs.reg[i_ + 16].loc.offset =				\
+	  this_cfa_ + (i_ * 4) - new_cfa_;				\
+      }									\
+    if (fpu_save_)							\
+      {									\
+	for (i_ = 0; i_ < 32; ++i_)					\
+	  {								\
+	    (FS)->regs.reg[i_ + 32].how = REG_SAVED_OFFSET;		\
+	    (FS)->regs.reg[i_ + 32].loc.offset =			\
+	      (fpu_save_ + (i_ * 4)) - new_cfa_;			\
+	  }								\
+      }									\
+    /* Stick return address into %g0, same trick Alpha uses.  */	\
+    (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[0].loc.offset = this_cfa_+(regs_off_+4)-new_cfa_;	\
+    (FS)->retaddr_column = 0;						\
+    goto SUCCESS;							\
+  } while (0)
+#endif

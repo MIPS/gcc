@@ -1237,6 +1237,8 @@ extern rtx gen_rtx			PARAMS ((enum rtx_code,
 extern rtvec gen_rtvec			PARAMS ((int, ...));
 extern rtx copy_insn_1			PARAMS ((rtx));
 extern rtx copy_insn			PARAMS ((rtx));
+extern rtx gen_int_mode			PARAMS ((HOST_WIDE_INT,
+						 enum machine_mode));
 
 /* In rtl.c */
 extern rtx rtx_alloc			PARAMS ((RTX_CODE));
@@ -1490,6 +1492,7 @@ extern rtx find_reg_equal_equiv_note	PARAMS ((rtx));
 extern int find_reg_fusage		PARAMS ((rtx, enum rtx_code, rtx));
 extern int find_regno_fusage		PARAMS ((rtx, enum rtx_code,
 						 unsigned int));
+extern int pure_call_p			PARAMS ((rtx));
 extern void remove_note			PARAMS ((rtx, rtx));
 extern int side_effects_p		PARAMS ((rtx));
 extern int volatile_refs_p		PARAMS ((rtx));
@@ -1801,6 +1804,7 @@ extern rtx pc_set			PARAMS ((rtx));
 extern rtx condjump_label		PARAMS ((rtx));
 extern int simplejump_p			PARAMS ((rtx));
 extern int returnjump_p			PARAMS ((rtx));
+extern int tablejump_p			PARAMS ((rtx));
 extern int onlyjump_p			PARAMS ((rtx));
 extern int only_sets_cc0_p		PARAMS ((rtx));
 extern int sets_cc0_p			PARAMS ((rtx));
@@ -1808,6 +1812,7 @@ extern int invert_jump_1		PARAMS ((rtx, rtx));
 extern int invert_jump			PARAMS ((rtx, rtx, int));
 extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
+extern unsigned int reg_or_subregno	PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void rebuild_jump_labels		PARAMS ((rtx));

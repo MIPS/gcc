@@ -203,14 +203,14 @@ void test01()
   result1 = oss.str();
   // No grouping characters.
   VERIFY( !char_traits<wchar_t>::find(result1.c_str(), 
-				   numpunct_de.decimal_point(), 
-				   result1.size()) );
+				   result1.size(),
+				   numpunct_de.decimal_point()) );
   // Should contain an 'x'.
   VERIFY( result1.find(L'x') == 1 );
 
 #ifdef _GLIBCPP_USE_LONG_LONG
-  long long ll1 = 9223372036854775807;
-  long long ll2 = -9223372036854775807;
+  long long ll1 = 9223372036854775807LL;
+  long long ll2 = -9223372036854775807LL;
 
   oss.str(empty);
   oss.clear();
@@ -257,7 +257,7 @@ void test02()
   VERIFY( sanity1 == L"1798" );
 
   // 02 put(long double)
-  const long double ld = 1798;
+  const long double ld = 1798.0;
   res = x;
   iter_type ret2 = tp.put(res.begin(), oss, L' ', ld);
   wstring sanity2(res.begin(), ret2);
@@ -309,6 +309,59 @@ void test03()
     }
 #endif
 }
+
+// http://gcc.gnu.org/ml/libstdc++/2002-05/msg00038.html
+void test04()
+{
+  bool test = true;
+
+  const char* tentLANG = std::setlocale(LC_ALL, "ja_JP.eucjp");
+  if (tentLANG != NULL)
+    {
+      std::string preLANG = tentLANG;
+      test01();
+      test02();
+      std::string postLANG = std::setlocale(LC_ALL, NULL);
+      VERIFY( preLANG == postLANG );
+    }
+}
+
+// Make sure that, in a locale that expects grouping, when showbase
+// is true, an hexadecimal or octal zero is correctly output (the case 
+// of zero is special since there is no 0x, 0 respectively, prefix)
+void test05()
+{
+  using namespace std;
+  bool test = true;
+
+  // A locale that expects grouping.
+  locale loc_de("de_DE");
+
+  const wstring empty;
+  wstring result;
+
+  wostringstream oss;
+  oss.imbue(loc_de);
+  const num_put<wchar_t>& np = use_facet<num_put<wchar_t> >(oss.getloc()); 
+
+  long l = 0;
+
+  oss.str(empty);
+  oss.clear();
+  oss.setf(ios::showbase);
+  oss.setf(ios::hex, ios::basefield);
+  np.put(oss.rdbuf(), oss, L'+', l);
+  result = oss.str();
+  VERIFY( result == L"0" );
+
+  oss.str(empty);
+  oss.clear();
+  oss.setf(ios::showbase);
+  oss.setf(ios::oct, ios::basefield);
+  np.put(oss.rdbuf(), oss, L'+', l);
+  result = oss.str();
+  VERIFY( result == L"0" );
+}
 #endif
 
 int main()
@@ -317,6 +370,8 @@ int main()
   test01();
   test02();
   test03();
+  test04();
+  test05();
 #endif
   return 0;
 }

@@ -22,12 +22,12 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 gnits
+AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
-# Cross compiler and multilib support.
+# Cross compiler support.
 CXX = @glibcpp_CXX@
 toolexecdir = @glibcpp_toolexecdir@
 toolexeclibdir = @glibcpp_toolexeclibdir@
@@ -41,7 +41,7 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 # NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
 CONFIG_CXXFLAGS = \
-	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @DEBUG_FLAGS@ 
 
 # Warning flags to use.
 WARN_CXXFLAGS = \
@@ -60,15 +60,54 @@ INCLUDES = \
 	$(LIBSUPCXX_INCLUDES) $(LIBIO_INCLUDES) $(LIBMATH_INCLUDES) \
 	$(TOPLEVEL_INCLUDES)
 
+# Source files linked in via configuration magic for a particular target.
+target_sources = \
+	codecvt_members.cc \
+	collate_members.cc \
+	ctype_members.cc \
+	messages_members.cc \
+	monetary_members.cc \
+	numeric_members.cc \
+	time_members.cc
+
+# Source files linked in via configuration magic for a particular
+# target, but with ad hoc naming rules.
+target_sources_extra = \
+	basic_file.cc \
+	c++locale.cc 
+
+# Sources present in the src directory.
 sources = \
-	globals.cc limits.cc \
-	basic_file.cc complex_io.cc ios.cc strstream.cc \
-	cmath.cc bitset.cc \
-	functexcept.cc stdexcept.cc vterminate.cc \
-	c++locale.cc locale.cc localename.cc codecvt.cc \
-	collate.cc ctype.cc messages.cc moneypunct.cc numpunct.cc time.cc \
-	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
-	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
+	bitset.cc \
+	codecvt.cc \
+	complex_io.cc \
+	concept-inst.cc \
+	ctype.cc \
+	ext-inst.cc \
+	fstream.cc \
+	fstream-inst.cc \
+	functexcept.cc \
+	globals.cc \
+	io-inst.cc \
+	ios.cc \
+	istream-inst.cc \
+	limits.cc \
+	locale.cc \
+	locale-inst.cc \
+	localename.cc \
+	misc-inst.cc \
+	ostream-inst.cc \
+	sstream-inst.cc \
+	stdexcept.cc \
+	stl-inst.cc \
+	streambuf-inst.cc \
+	string-inst.cc \
+	strstream.cc \
+	valarray-inst.cc \
+	vterminate.cc \
+	wstring-inst.cc \
+	${target_sources} \
+	${target_sources_extra}
 
 VPATH = $(top_srcdir)/src:$(top_srcdir)
 
@@ -84,7 +123,9 @@ else
 version_arg=
 endif
 
-libstdc___la_LDFLAGS = -version-info @libtool_VERSION@ -lm ${version_arg}
+libstdc___la_LDFLAGS = \
+	-version-info @libtool_VERSION@ ${version_arg} \
+	-lm @LIBUNWIND_FLAG@ 
 
 libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD) linker.map
 

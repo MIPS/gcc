@@ -34,6 +34,176 @@
 #include <iostream>
 #include <testsuite_hooks.h>
 
+// char_traits specialization
+namespace std
+{
+  template<>
+    struct char_traits<unsigned short>
+    {
+      typedef unsigned short 	char_type;
+      // Unsigned as wint_t in unsigned.
+      typedef unsigned long  	int_type;
+      typedef streampos 	pos_type;
+      typedef streamoff 	off_type;
+      typedef mbstate_t 	state_type;
+      
+      static void 
+      assign(char_type& __c1, const char_type& __c2)
+      { __c1 = __c2; }
+
+      static bool 
+      eq(const char_type& __c1, const char_type& __c2)
+      { return __c1 == __c2; }
+
+      static bool 
+      lt(const char_type& __c1, const char_type& __c2)
+      { return __c1 < __c2; }
+
+      static int 
+      compare(const char_type* __s1, const char_type* __s2, size_t __n)
+      { 
+	for (size_t __i = 0; __i < __n; ++__i)
+	  if (!eq(__s1[__i], __s2[__i]))
+	    return lt(__s1[__i], __s2[__i]) ? -1 : 1;
+	return 0; 
+      }
+
+      static size_t
+      length(const char_type* __s)
+      { 
+	const char_type* __p = __s; 
+	while (__p) 
+	  ++__p; 
+	return (__p - __s); 
+      }
+
+      static const char_type* 
+      find(const char_type* __s, size_t __n, const char_type& __a)
+      { 
+	for (const char_type* __p = __s; size_t(__p - __s) < __n; ++__p)
+	  if (*__p == __a) return __p;
+	return 0;
+      }
+
+      static char_type* 
+      move(char_type* __s1, const char_type* __s2, size_t __n)
+      { return (char_type*) memmove(__s1, __s2, __n * sizeof(char_type)); }
+
+      static char_type* 
+      copy(char_type* __s1, const char_type* __s2, size_t __n)
+      { return (char_type*) memcpy(__s1, __s2, __n * sizeof(char_type)); }
+
+      static char_type* 
+      assign(char_type* __s, size_t __n, char_type __a)
+      { 
+	for (char_type* __p = __s; __p < __s + __n; ++__p) 
+	  assign(*__p, __a);
+        return __s; 
+      }
+
+      static char_type 
+      to_char_type(const int_type& __c)
+      { return char_type(); }
+
+      static int_type 
+      to_int_type(const char_type& __c) { return int_type(); }
+
+      static bool 
+      eq_int_type(const int_type& __c1, const int_type& __c2)
+      { return __c1 == __c2; }
+
+      static int_type 
+      eof() { return static_cast<int_type>(-1); }
+
+      static int_type 
+      not_eof(const int_type& __c)
+      { return eq_int_type(__c, eof()) ? int_type(0) : __c; }
+    };
+
+  template<>
+    struct char_traits<unsigned char>
+    {
+      typedef unsigned char 	char_type;
+      // Unsigned as wint_t in unsigned.
+      typedef unsigned long  	int_type;
+      typedef streampos 	pos_type;
+      typedef streamoff 	off_type;
+      typedef mbstate_t 	state_type;
+      
+      static void 
+      assign(char_type& __c1, const char_type& __c2)
+      { __c1 = __c2; }
+
+      static bool 
+      eq(const char_type& __c1, const char_type& __c2)
+      { return __c1 == __c2; }
+
+      static bool 
+      lt(const char_type& __c1, const char_type& __c2)
+      { return __c1 < __c2; }
+
+      static int 
+      compare(const char_type* __s1, const char_type* __s2, size_t __n)
+      { 
+	for (size_t __i = 0; __i < __n; ++__i)
+	  if (!eq(__s1[__i], __s2[__i]))
+	    return lt(__s1[__i], __s2[__i]) ? -1 : 1;
+	return 0; 
+      }
+
+      static size_t
+      length(const char_type* __s)
+      { 
+	const char_type* __p = __s; 
+	while (__p && *__p) 
+	  ++__p; 
+	return (__p - __s); 
+      }
+
+      static const char_type* 
+      find(const char_type* __s, size_t __n, const char_type& __a)
+      { 
+	for (const char_type* __p = __s; size_t(__p - __s) < __n; ++__p)
+	  if (*__p == __a) return __p;
+	return 0;
+      }
+
+      static char_type* 
+      move(char_type* __s1, const char_type* __s2, size_t __n)
+      { return (char_type*) memmove(__s1, __s2, __n * sizeof(char_type)); }
+
+      static char_type* 
+      copy(char_type* __s1, const char_type* __s2, size_t __n)
+      { return (char_type*) memcpy(__s1, __s2, __n * sizeof(char_type)); }
+
+      static char_type* 
+      assign(char_type* __s, size_t __n, char_type __a)
+      { 
+	for (char_type* __p = __s; __p < __s + __n; ++__p) 
+	  assign(*__p, __a);
+        return __s; 
+      }
+
+      static char_type 
+      to_char_type(const int_type& __c)
+      { return char_type(); }
+
+      static int_type 
+      to_int_type(const char_type& __c) { return int_type(); }
+
+      static bool 
+      eq_int_type(const int_type& __c1, const int_type& __c2)
+      { return __c1 == __c2; }
+
+      static int_type 
+      eof() { return static_cast<int_type>(-1); }
+
+      static int_type 
+      not_eof(const int_type& __c)
+      { return eq_int_type(__c, eof()) ? int_type(0) : __c; }
+    };
+} // namespace std
+
 class gnu_filebuf: public std::filebuf
 {
   int i;
@@ -83,32 +253,31 @@ void test01()
 }
 
 // Non-required instantiations don't have the required facets inbued,
-// by default, into the locale object. As such, basic_ios::init is
-// required to return a bad_cast for the first use of fill() call.
+// by default, into the locale object.
 // See 27.4.4.1
+class gnu_ios: public std::basic_ios<char> { };
+
 void test02() 
 {
   bool test = true;
 
   // 01: Doesn't call basic_ios::init, which uses ctype<char_type>..
+  // This should be unambiguously correct.
   try
     {
-      std::basic_ostringstream<unsigned short> 	oss;
+      gnu_ios gios;
     }
   catch(...)
     { 
       test = false; 
     }
 
-  // 02: Calls basic_ios::init, which uses ctype<char_type>..
+  // 02: Calls basic_ios::init, which may call ctype<char_type>...
   try
     {
       std::basic_string<unsigned short>        	str;
       std::basic_ostringstream<unsigned short> 	oss(str);
       
-      // Shouldn't get this far.
-      test = false; 
-
       // Try each member functions for unformatted io.
       // put
       oss.put(324);
@@ -122,7 +291,9 @@ void test02()
     }
   catch(const std::bad_cast& obj)
     {
-      test = true;
+      // Should be able to do the above without calling fill() and
+      // forcing a call to widen...
+      test = false;
     }
   catch(...)
     {
@@ -131,6 +302,81 @@ void test02()
   VERIFY( test );
 }
 
+// libstdc++/3983
+void test03()
+{
+  using namespace std;
+  bool test = true;
+
+  // input streams
+  basic_istringstream<unsigned char> iss_uc;
+  unsigned char arr[6] = { 'a', 'b', 'c', 'd', 'e' };
+
+  // Sentry uses locale info, so have to try one formatted input.
+  try 
+    { 
+      int i;
+      iss_uc >> i;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+  
+  try 
+    { 
+      iss_uc >> arr;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+  
+  try 
+    { 
+      iss_uc >> ws;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+ 
+  try 
+    { 
+      basic_string<unsigned char> s_uc(arr);
+      iss_uc >> s_uc;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+
+  // output streams
+  basic_ostringstream<unsigned char> oss_uc;
+
+  try 
+    { 
+      bool b = true;
+      oss_uc << b;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+   
+  VERIFY( test );
+}
+
+// libstdc++/5268
+int test04()
+{
+  std::stringbuf b1;
+  std::cout.rdbuf( &b1 );
+  std::cout << "hello\n";
+  return 0;
+}
+
+#if !__GXX_WEAK__
 // Explicitly instantiate for systems with no COMDAT or weak support.
 template 
   std::basic_string<unsigned short>::size_type 
@@ -140,9 +386,20 @@ template
   unsigned short
   std::basic_string<unsigned short>::_Rep::_S_terminal;
 
+template 
+  std::basic_string<unsigned char>::size_type 
+  std::basic_string<unsigned char>::_Rep::_S_max_size;
+
+template 
+  unsigned char
+  std::basic_string<unsigned char>::_Rep::_S_terminal;
+#endif
+
 int main()
 {
   test01();
   test02();
+  test03();
+  test04();
   return 0;
 }
