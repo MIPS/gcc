@@ -145,6 +145,9 @@ static void pa_linux_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_gas_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_hpas_file_start (void) ATTRIBUTE_UNUSED;
 static void output_deferred_plabels (void);
+#ifdef HPUX_LONG_DOUBLE_LIBRARY
+static void pa_hpux_init_libfuncs (void);
+#endif
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -252,6 +255,11 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG pa_reorg
+
+#ifdef HPUX_LONG_DOUBLE_LIBRARY
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS pa_hpux_init_libfuncs
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4950,6 +4958,43 @@ output_deferred_plabels (void)
     }
 }
 
+#ifdef HPUX_LONG_DOUBLE_LIBRARY
+/* Initialize optabs to point to HPUX long double emulation routines.  */
+static void
+pa_hpux_init_libfuncs (void)
+{
+  set_optab_libfunc (add_optab, TFmode, "_U_Qfadd");
+  set_optab_libfunc (sub_optab, TFmode, "_U_Qfsub");
+  set_optab_libfunc (smul_optab, TFmode, "_U_Qfmpy");
+  set_optab_libfunc (sdiv_optab, TFmode, "_U_Qfdiv");
+  set_optab_libfunc (smin_optab, TFmode, "_U_Qmin");
+  set_optab_libfunc (smax_optab, TFmode, "_U_Qfmax");
+  set_optab_libfunc (sqrt_optab, TFmode, "_U_Qfsqrt");
+  set_optab_libfunc (abs_optab, TFmode, "_U_Qfabs");
+  set_optab_libfunc (neg_optab, TFmode, "_U_Qfneg");
+
+  set_optab_libfunc (eq_optab, TFmode, "_U_Qfeq");
+  set_optab_libfunc (ne_optab, TFmode, "_U_Qfne");
+  set_optab_libfunc (gt_optab, TFmode, "_U_Qfgt");
+  set_optab_libfunc (ge_optab, TFmode, "_U_Qfge");
+  set_optab_libfunc (lt_optab, TFmode, "_U_Qflt");
+  set_optab_libfunc (le_optab, TFmode, "_U_Qfle");
+
+  extendsftf2_libfunc = init_one_libfunc ("_U_Qfcnvff_sgl_to_quad");
+  extenddftf2_libfunc = init_one_libfunc ("_U_Qfcnvff_dbl_to_quad");
+  trunctfsf2_libfunc = init_one_libfunc ("_U_Qfcnvff_quad_to_sgl");
+  trunctfdf2_libfunc = init_one_libfunc ("_U_Qfcnvff_quad_to_dbl");
+  floatsitf_libfunc = init_one_libfunc ("_U_Qfcnvxf_sgl_to_quad");
+  floatditf_libfunc = init_one_libfunc ("_U_Qfcnvxf_dbl_to_quad");
+  fixtfsi_libfunc = init_one_libfunc (TARGET_64BIT
+				      ? "__U_Qfcnvfxt_quad_to_sgl"
+				      : "_U_Qfcnvfxt_quad_to_sgl");
+  fixtfdi_libfunc = init_one_libfunc ("_U_Qfcnvfxt_quad_to_dbl");
+  fixunstfsi_libfunc = init_one_libfunc ("_U_Qfcnvfxt_quad_to_usgl");
+  fixunstfdi_libfunc = init_one_libfunc ("_U_Qfcnvfxt_quad_to_udbl");
+}
+#endif
+
 /* HP's millicode routines mean something special to the assembler.
    Keep track of which ones we have used.  */
 
@@ -5996,7 +6041,7 @@ output_bvb (rtx *operands ATTRIBUTE_UNUSED, int nullify, int length,
 	else
 	  strcpy (buf, "{bvb,|bb,}");
 	if (useskip && GET_MODE (operands[0]) == DImode)
-	  strcpy (buf, "extrd,s,*}");
+	  strcpy (buf, "extrd,s,*");
 	else if (GET_MODE (operands[0]) == DImode)
 	  strcpy (buf, "bb,*");
 	if ((which == 0 && negated)

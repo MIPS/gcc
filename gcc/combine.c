@@ -7422,7 +7422,7 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
     }
 
   /* Likewise for 0 or a single bit.  */
-  else if (mode != VOIDmode
+  else if (SCALAR_INT_MODE_P (mode)
 	   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	   && exact_log2 (nz = nonzero_bits (x, mode)) >= 0)
     {
@@ -7666,6 +7666,7 @@ make_field_assignment (rtx x)
 	   && (GET_MODE_SIZE (GET_MODE (XEXP (src, 0)))
 	       < GET_MODE_SIZE (GET_MODE (SUBREG_REG (XEXP (src, 0)))))
 	   && GET_CODE (SUBREG_REG (XEXP (src, 0))) == ROTATE
+	   && GET_CODE (XEXP (SUBREG_REG (XEXP (src, 0)), 0)) == CONST_INT
 	   && INTVAL (XEXP (SUBREG_REG (XEXP (src, 0)), 0)) == -2
 	   && rtx_equal_for_field_assignment_p (dest, XEXP (src, 1)))
     {

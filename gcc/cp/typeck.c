@@ -1888,8 +1888,13 @@ finish_class_member_access_expr (tree object, tree name)
 
 	  /* Find the base of OBJECT_TYPE corresponding to SCOPE.  */
 	  access_path = lookup_base (object_type, scope, ba_check, NULL);
-	  if (!access_path || access_path == error_mark_node)
+	  if (access_path == error_mark_node)
 	    return error_mark_node;
+	  if (!access_path)
+	    {
+	      error ("`%T' is not a base of `%T'", scope, object_type);
+	      return error_mark_node;
+	    }
 	}
       else
 	{
@@ -5749,7 +5754,7 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
 
 void
 c_expand_asm_operands (tree string, tree outputs, tree inputs, tree clobbers,
-		       int vol, const char *filename, int line)
+		       int vol, location_t locus)
 {
   int noutputs = list_length (outputs);
   register int i;
@@ -5764,7 +5769,7 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs, tree clobbers,
   /* Generate the ASM_OPERANDS insn;
      store into the TREE_VALUEs of OUTPUTS some trees for
      where the values were actually stored.  */
-  expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line);
+  expand_asm_operands (string, outputs, inputs, clobbers, vol, locus);
 
   /* Copy all the intermediate outputs into the specified outputs.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)

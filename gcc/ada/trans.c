@@ -196,8 +196,8 @@ gigi (gnat_root, max_gnat_node, number_name, nodes_ptr, next_node_ptr,
 
   gnu_except_ptr_stack = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
 
-  dconstp5 = REAL_VALUE_ATOF ("0.5", DFmode);
-  dconstmp5 = REAL_VALUE_ATOF ("-0.5", DFmode);
+  REAL_ARITHMETIC (dconstp5, RDIV_EXPR, dconst1, dconst2);
+  REAL_ARITHMETIC (dconstmp5, RDIV_EXPR, dconstm1, dconst2);
 
   gnu_standard_long_long_float
     = gnat_to_gnu_entity (Base_Type (standard_long_long_float), NULL_TREE, 0);
@@ -3773,7 +3773,7 @@ tree_transform (gnat_node)
 	  gnu_orig_out_list = nreverse (gnu_orig_out_list);
 	  expand_asm_operands (gnu_template, gnu_output_list, gnu_input_list,
 			       gnu_clobber_list, Is_Asm_Volatile (gnat_node),
-			       input_filename, input_line);
+			       input_location);
 
 	  /* Copy all the intermediate outputs into the specified outputs.  */
 	  for (; gnu_output_list;

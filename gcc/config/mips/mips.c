@@ -6,20 +6,20 @@
    64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
    Brendan Eich, brendan@microunity.com.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -41,6 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
+#include "libfuncs.h"
 #include "flags.h"
 #include "reload.h"
 #include "tm_p.h"
@@ -170,6 +172,8 @@ struct mips_arg_info;
 struct mips_constant_info;
 struct mips_address_info;
 struct mips_integer_op;
+
+static bool mips_reloc_offset_ok_p (int, HOST_WIDE_INT);
 static enum mips_constant_type
   mips_classify_constant (struct mips_constant_info *, rtx);
 static enum mips_symbol_type mips_classify_symbol (rtx);
@@ -179,7 +183,7 @@ static bool mips_symbolic_address_p (rtx, HOST_WIDE_INT,
 static enum mips_address_type
   mips_classify_address (struct mips_address_info *, rtx,
 			 enum machine_mode, int, int);
-static bool mips_splittable_symbol_p (enum mips_symbol_type);
+static bool mips_splittable_symbol_p (enum mips_symbol_type, HOST_WIDE_INT);
 static int mips_symbol_insns (enum mips_symbol_type);
 static bool mips16_unextended_reference_p (enum machine_mode mode, rtx, rtx);
 static rtx mips_reloc (rtx, int);
@@ -235,6 +239,7 @@ static void mips_select_section (tree, int, unsigned HOST_WIDE_INT)
 				  ATTRIBUTE_UNUSED;
 static bool mips_in_small_data_p (tree);
 static void mips_encode_section_info (tree, rtx, int);
+static rtx mips_sdata_pointer (void);
 static void mips16_fp_args (FILE *, int, int);
 static void build_mips16_function_stub (FILE *);
 static void mips16_optimize_gp (void);
@@ -252,6 +257,7 @@ static const struct mips_cpu_info *mips_cpu_info_from_isa (int);
 static int mips_adjust_cost (rtx, rtx, rtx, int);
 static int mips_issue_rate (void);
 static int mips_use_dfa_pipeline_interface (void);
+static void mips_init_libfuncs (void);
 
 #ifdef TARGET_IRIX6
 static void iris6_asm_named_section_1 (const char *, unsigned int,
@@ -348,14 +354,15 @@ struct mips_arg_info
    CONSTANT_GP
        No fields are valid.
 
-   CONSTANT_RELOC
-       SYMBOL is the relocation UNSPEC and OFFSET is the offset applied
-       to the symbol.
-
    CONSTANT_SYMBOLIC
-       SYMBOL is the referenced symbol and OFFSET is the constant offset.  */
+       SYMBOL is the referenced symbol and OFFSET is the constant offset.
+
+   CONSTANT_RELOC
+       SYMBOL and OFFSET are the same as for CONSTANT_SYMBOLIC.  RELOC is
+       the relocation number.  */
 struct mips_constant_info
 {
+  int reloc;
   rtx symbol;
   HOST_WIDE_INT offset;
 };
@@ -783,16 +790,56 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_SECTION_TYPE_FLAGS iris6_section_type_flags
 #endif
 
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS mips_init_libfuncs
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Return true if RELOC is a valid relocation number and OFFSET can be
+   added to the relocation symbol.
+
+   Note that OFFSET might not refer to part of the object.   For example,
+   in an expression like x[i - 0x12345], we might try to take the address
+   of "x - 0x12345".  */
+
+static bool
+mips_reloc_offset_ok_p (int reloc, HOST_WIDE_INT offset)
+{
+  switch (reloc)
+    {
+    case RELOC_GOT_PAGE:
+      /* The linker should provide enough page entries to cope with
+	 16-bit offsets from a valid segment address.  */
+      return SMALL_OPERAND (offset);
+
+    case RELOC_GOT_HI:
+    case RELOC_GOT_LO:
+    case RELOC_GOT_DISP:
+    case RELOC_CALL16:
+    case RELOC_CALL_HI:
+    case RELOC_CALL_LO:
+    case RELOC_LOADGP_HI:
+    case RELOC_LOADGP_LO:
+      /* These relocations should be applied to bare symbols only.  */
+      return offset == 0;
+
+    default:
+      return false;
+    }
+}
+
+
 /* If X is one of the constants described by mips_constant_type,
    store its components in INFO and return its type.  */
 
 static enum mips_constant_type
 mips_classify_constant (struct mips_constant_info *info, rtx x)
 {
+  enum mips_constant_type type;
+
+  type = CONSTANT_SYMBOLIC;
   info->offset = 0;
-  info->symbol = x;
+
   if (GET_CODE (x) == CONST)
     {
       x = XEXP (x, 0);
@@ -805,29 +852,21 @@ mips_classify_constant (struct mips_constant_info *info, rtx x)
 	  info->offset += INTVAL (XEXP (x, 1));
 	  x = XEXP (x, 0);
 	}
-      info->symbol = x;
-      if (GET_CODE (x) == UNSPEC)
-	switch (XINT (x, 1))
-	  {
-	  case RELOC_GPREL16:
-	  case RELOC_GOT_PAGE:
-	    /* These relocations can be applied to symbols with offsets.  */
-	    return CONSTANT_RELOC;
 
-	  case RELOC_GOT_HI:
-	  case RELOC_GOT_LO:
-	  case RELOC_GOT_DISP:
-	  case RELOC_CALL16:
-	  case RELOC_CALL_HI:
-	  case RELOC_CALL_LO:
-	  case RELOC_LOADGP_HI:
-	  case RELOC_LOADGP_LO:
-	    /* These relocations should be applied to bare symbols only.  */
-	    return (info->offset == 0 ? CONSTANT_RELOC : CONSTANT_NONE);
-	  }
+      if (GET_CODE (x) == UNSPEC
+	  && mips_reloc_offset_ok_p (XINT (x, 1), info->offset))
+	{
+	  info->reloc = XINT (x, 1);
+	  x = XVECEXP (x, 0, 0);
+	  type = CONSTANT_RELOC;
+	}
     }
+
   if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
-    return CONSTANT_SYMBOLIC;
+    {
+      info->symbol = x;
+      return type;
+    }
   return CONSTANT_NONE;
 }
 
@@ -997,7 +1036,8 @@ mips_classify_address (struct mips_address_info *info, rtx x,
 	  && mips_valid_base_register_p (XEXP (x, 0), mode, strict)
 	  && (mips_classify_constant (&info->c, XEXP (x, 1))
 	      == CONSTANT_SYMBOLIC)
-	  && mips_splittable_symbol_p (mips_classify_symbol (info->c.symbol)))
+	  && mips_splittable_symbol_p (mips_classify_symbol (info->c.symbol),
+				       info->c.offset))
 	{
 	  info->reg = XEXP (x, 0);
 	  info->offset = XEXP (x, 1);
@@ -1027,16 +1067,28 @@ mips_classify_address (struct mips_address_info *info, rtx x,
 }
 
 /* Return true if symbols of the given type can be split into a
-   HIGH/LO_SUM pair.  */
+   high part and a LO_SUM.  In the case of small data symbols,
+   the high part will be $gp.  */
 
 static bool
-mips_splittable_symbol_p (enum mips_symbol_type type)
+mips_splittable_symbol_p (enum mips_symbol_type type, HOST_WIDE_INT offset)
 {
-  if (TARGET_EXPLICIT_RELOCS)
-    return (type == SYMBOL_GENERAL || type == SYMBOL_GOT_LOCAL);
-  if (mips_split_addresses)
-    return (type == SYMBOL_GENERAL);
-  return false;
+  switch (type)
+    {
+    case SYMBOL_GENERAL:
+      return TARGET_EXPLICIT_RELOCS || mips_split_addresses;
+
+    case SYMBOL_GOT_LOCAL:
+      return TARGET_EXPLICIT_RELOCS && SMALL_OPERAND (offset);
+
+    case SYMBOL_SMALL_DATA:
+      return ((TARGET_EXPLICIT_RELOCS || TARGET_MIPS16)
+	      && (offset == 0
+		  || (offset > 0 && offset <= mips_section_threshold)));
+
+    default:
+      return false;
+    }
 }
 
 
@@ -1582,6 +1634,9 @@ mips_load_got (rtx base, rtx addr, int reloc)
 		     gen_rtx_PLUS (Pmode, base, mips_reloc (addr, reloc)));
   set_mem_alias_set (mem, mips_got_alias_set);
 
+  /* GOT references can't trap.  */
+  MEM_NOTRAP_P (mem) = 1;
+
   /* If we allow a function's address to be lazily bound, its entry
      may change after the first call.  Other entries are constant.  */
   if (reloc != RELOC_CALL16 && reloc != RELOC_CALL_LO)
@@ -1642,6 +1697,7 @@ mips_emit_high (rtx dest, rtx addr)
   return x;
 }
 
+
 /* See if *XLOC is a symbolic constant that can be reduced in some way.
    If it is, set *XLOC to the reduced expression and return true.
    The new expression will be both a legitimate address and a legitimate
@@ -1663,46 +1719,27 @@ mips_legitimize_symbol (rtx dest, rtx *xloc, int offsetable_p)
 
   symbol_type = mips_classify_symbol (c.symbol);
 
-  /* Convert a mips16 reference to the small data section into
-     an address of the form:
-
-	(plus BASE (const (plus (unspec [SYMBOL] UNSPEC_GPREL) OFFSET)))
-
-     BASE is the pseudo created by mips16_gp_pseudo_reg.
-     The (const ...) may include an offset.  */
-  if (TARGET_MIPS16
-      && symbol_type == SYMBOL_SMALL_DATA
-      && !no_new_pseudos)
+  /* If a non-offsetable address is OK, try splitting it into a
+     high part and a LO_SUM.  */
+  if (!offsetable_p && mips_splittable_symbol_p (symbol_type, c.offset))
     {
-      *xloc = gen_rtx_PLUS (Pmode, mips16_gp_pseudo_reg (),
-			    mips_reloc (*xloc, RELOC_GPREL16));
-      return true;
+      if (symbol_type == SYMBOL_SMALL_DATA)
+	x = mips_sdata_pointer ();
+      else
+	x = mips_emit_high (dest, *xloc);
+      if (x != 0)
+	{
+	  *xloc = gen_rtx_LO_SUM (Pmode, x, copy_rtx (*xloc));
+	  return true;
+	}
     }
 
-  /* Likewise for normal-mode code.  In this case we can use $gp
-     as a base register.  */
+  /* If the offset is nonzero, move the symbol into a register (always valid)
+     and add the constant in afterwards.  This requires an extra temporary if
+     the offset isn't a signed 16-bit number.
+
+     For mips16, it's better to force the constant into memory instead.  */
   if (!TARGET_MIPS16
-      && TARGET_EXPLICIT_RELOCS
-      && symbol_type == SYMBOL_SMALL_DATA)
-    {
-      *xloc = gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
-			    mips_reloc (*xloc, RELOC_GPREL16));
-      return true;
-    }
-
-  /* If a non-offsetable address is OK, convert general symbols into
-     a HIGH/LO_SUM pair.  */
-  if (!offsetable_p && mips_splittable_symbol_p (symbol_type))
-    {
-      x = mips_emit_high (dest, *xloc);
-      *xloc = gen_rtx_LO_SUM (Pmode, x, copy_rtx (*xloc));
-      return true;
-    }
-
-  /* If generating PIC, and ADDR is a global symbol with an offset,
-     load the symbol into a register and apply the offset separately.
-     We need a temporary when adding large offsets.  */
-  if (symbol_type == SYMBOL_GOT_GLOBAL
       && c.offset != 0
       && (SMALL_OPERAND (c.offset) || dest == 0))
     {
@@ -1972,15 +2009,15 @@ mips_delegitimize_address (rtx x)
   if (GET_CODE (x) == MEM
       && GET_CODE (XEXP (x, 0)) == PLUS
       && mips_classify_constant (&c, XEXP (XEXP (x, 0), 1)) == CONSTANT_RELOC
-      && mips_classify_symbol (XVECEXP (c.symbol, 0, 0)) == SYMBOL_GOT_GLOBAL)
-    return XVECEXP (c.symbol, 0, 0);
+      && mips_classify_symbol (c.symbol) == SYMBOL_GOT_GLOBAL)
+    return c.symbol;
 
   if (GET_CODE (x) == PLUS
       && (XEXP (x, 0) == pic_offset_table_rtx
 	  || XEXP (x, 0) == cfun->machine->mips16_gp_pseudo_rtx)
       && mips_classify_constant (&c, XEXP (x, 1)) == CONSTANT_RELOC
-      && mips_classify_symbol (XVECEXP (c.symbol, 0, 0)) == SYMBOL_SMALL_DATA)
-    return plus_constant (XVECEXP (c.symbol, 0, 0), c.offset);
+      && mips_classify_symbol (c.symbol) == SYMBOL_SMALL_DATA)
+    return plus_constant (c.symbol, c.offset);
 
   return x;
 }
@@ -2721,29 +2758,26 @@ mips_output_move (rtx dest, rtx src)
   abort ();
 }
 
-/* Return instructions to restore the global pointer from the stack,
-   assuming TARGET_ABICALLS.  Used by exception_receiver to set up
-   the GP for exception handlers.
+/* Return an rtx for the gp save slot.  Valid only when using o32 or
+   o64 abicalls.  */
 
-   OPERANDS is an array of operands whose contents are undefined
-   on entry.  */
-
-const char *
-mips_restore_gp (rtx *operands)
+rtx
+mips_gp_save_slot (void)
 {
   rtx loc;
 
-  operands[0] = pic_offset_table_rtx;
+  if (!TARGET_ABICALLS || TARGET_NEWABI)
+    abort ();
+
   if (frame_pointer_needed)
     loc = hard_frame_pointer_rtx;
   else
     loc = stack_pointer_rtx;
   loc = plus_constant (loc, current_function_outgoing_args_size);
-  operands[1] = gen_rtx_MEM (ptr_mode, loc);
-
-  return mips_output_move (operands[0], operands[1]);
+  loc = gen_rtx_MEM (Pmode, loc);
+  RTX_UNCHANGING_P (loc) = 1;
+  return loc;
 }
-
 
 /* Make normal rtx_code into something we can index from an array */
 
@@ -3799,6 +3833,11 @@ mips_pad_arg_upward (enum machine_mode mode, tree type)
       : GET_MODE_CLASS (mode) == MODE_INT)
     return false;
 
+  /* Big-endian o64 pads floating-point arguments downward.  */
+  if (mips_abi == ABI_O64)
+    if (type != 0 ? FLOAT_TYPE_P (type) : GET_MODE_CLASS (mode) == MODE_FLOAT)
+      return false;
+
   /* Other types are padded upward for o32, o64, n32 and n64.  */
   if (mips_abi != ABI_EABI)
     return true;
@@ -4277,6 +4316,7 @@ mips_va_arg (tree valist, tree type)
     {
       /* Not EABI.  */
       int align;
+      HOST_WIDE_INT min_offset;
 
       /* ??? The original va-mips.h did always align, despite the fact
 	 that alignments <= UNITS_PER_WORD are preserved by the va_arg
@@ -4295,6 +4335,24 @@ mips_va_arg (tree valist, tree type)
       t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
 		 build_int_2 (align - 1, 0));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align, -1));
+
+      /* If arguments of type TYPE must be passed on the stack,
+	 set MIN_OFFSET to the offset of the first stack parameter.  */
+      if (!MUST_PASS_IN_STACK (TYPE_MODE (type), type))
+	min_offset = 0;
+      else if (TARGET_NEWABI)
+	min_offset = current_function_pretend_args_size;
+      else
+	min_offset = REG_PARM_STACK_SPACE (current_function_decl);
+
+      /* Make sure the new address is at least MIN_OFFSET bytes from
+	 the incoming argument pointer.  */
+      if (min_offset > 0)
+	t = build (MAX_EXPR, TREE_TYPE (valist), t,
+		   make_tree (TREE_TYPE (valist),
+			      plus_constant (virtual_incoming_args_rtx,
+					     min_offset)));
+
       t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -5238,17 +5296,7 @@ print_operand (FILE *file, rtx op, int letter)
 
   code = GET_CODE (op);
 
-  if (letter == 'R')
-    {
-      if (TARGET_ABICALLS && TARGET_NEWABI)
-	fputs ("%got_ofst(", file);
-      else
-	fputs ("%lo(", file);
-      output_addr_const (file, op);
-      fputc (')', file);
-    }
-
-  else if (letter == 'h')
+  if (letter == 'h')
     {
       if (GET_CODE (op) != HIGH)
 	abort ();
@@ -5384,8 +5432,22 @@ print_operand (FILE *file, rtx op, int letter)
   else
     switch (mips_classify_constant (&c, op))
       {
-      case CONSTANT_NONE:
       case CONSTANT_SYMBOLIC:
+	if (letter == 'R')
+	  {
+	    if (mips_classify_symbol (c.symbol) == SYMBOL_SMALL_DATA)
+	      fputs (TARGET_MIPS16 ? "%gprel(" : "%gp_rel(", file);
+	    else if (TARGET_ABICALLS && TARGET_NEWABI)
+	      fputs ("%got_ofst(", file);
+	    else
+	      fputs ("%lo(", file);
+	    output_addr_const (file, op);
+	    fputc (')', file);
+	    break;
+	  }
+	/* ... fall through ... */
+
+      case CONSTANT_NONE:
 	output_addr_const (file, op);
 	break;
 
@@ -5394,10 +5456,9 @@ print_operand (FILE *file, rtx op, int letter)
 	break;
 
       case CONSTANT_RELOC:
-	reloc = mips_reloc_string (XINT (c.symbol, 1));
+	reloc = mips_reloc_string (c.reloc);
 	fputs (reloc, file);
-	output_addr_const (file, plus_constant (XVECEXP (c.symbol, 0, 0),
-						c.offset));
+	output_addr_const (file, plus_constant (c.symbol, c.offset));
 	while (*reloc != 0)
 	  if (*reloc++ == '(')
 	    fputc (')', file);
@@ -5411,7 +5472,6 @@ mips_reloc_string (int reloc)
 {
   switch (reloc)
     {
-    case RELOC_GPREL16:	  return (TARGET_MIPS16 ? "%gprel(" : "%gp_rel(");
     case RELOC_GOT_HI:	  return "%got_hi(";
     case RELOC_GOT_LO:	  return "%got_lo(";
     case RELOC_GOT_PAGE:  return (TARGET_NEWABI ? "%got_page(" : "%got(");
@@ -7749,13 +7809,22 @@ mips_valid_pointer_mode (enum machine_mode mode)
 }
 
 
-/* For each mips16 function which refers to GP relative symbols, we
+/* If we can access small data directly (using gp-relative relocation
+   operators) return the small data pointer, otherwise return null.
+
+   For each mips16 function which refers to GP relative symbols, we
    use a pseudo register, initialized at the start of the function, to
    hold the $gp value.  */
 
-rtx
-mips16_gp_pseudo_reg (void)
+static rtx
+mips_sdata_pointer (void)
 {
+  if (TARGET_EXPLICIT_RELOCS)
+    return pic_offset_table_rtx;
+
+  if (!TARGET_MIPS16 || no_new_pseudos)
+    return 0;
+
   if (cfun->machine->mips16_gp_pseudo_rtx == NULL_RTX)
     {
       rtx const_gp;
@@ -8931,6 +9000,55 @@ mips_reorg (void)
     }
 }
 
+/* We need to use a special set of functions to handle hard floating
+   point code in mips16 mode.  Also, allow for --enable-gofast.  */
+
+#include "config/gofast.h"
+
+static void
+mips_init_libfuncs (void)
+{
+  if (TARGET_MIPS16 && mips16_hard_float)
+    {
+      set_optab_libfunc (add_optab, SFmode, "__mips16_addsf3");
+      set_optab_libfunc (sub_optab, SFmode, "__mips16_subsf3");
+      set_optab_libfunc (smul_optab, SFmode, "__mips16_mulsf3");
+      set_optab_libfunc (sdiv_optab, SFmode, "__mips16_divsf3");
+
+      set_optab_libfunc (eq_optab, SFmode, "__mips16_eqsf2");
+      set_optab_libfunc (ne_optab, SFmode, "__mips16_nesf2");
+      set_optab_libfunc (gt_optab, SFmode, "__mips16_gtsf2");
+      set_optab_libfunc (ge_optab, SFmode, "__mips16_gesf2");
+      set_optab_libfunc (lt_optab, SFmode, "__mips16_ltsf2");
+      set_optab_libfunc (le_optab, SFmode, "__mips16_lesf2");
+
+      floatsisf_libfunc = init_one_libfunc ("__mips16_floatsisf");
+      fixsfsi_libfunc   = init_one_libfunc ("__mips16_fixsfsi");
+
+      if (TARGET_DOUBLE_FLOAT)
+	{
+	  set_optab_libfunc (add_optab, DFmode, "__mips16_adddf3");
+	  set_optab_libfunc (sub_optab, DFmode, "__mips16_subdf3");
+	  set_optab_libfunc (smul_optab, DFmode, "__mips16_muldf3");
+	  set_optab_libfunc (sdiv_optab, DFmode, "__mips16_divdf3");
+
+	  set_optab_libfunc (eq_optab, DFmode, "__mips16_eqdf2");
+	  set_optab_libfunc (ne_optab, DFmode, "__mips16_nedf2");
+	  set_optab_libfunc (gt_optab, DFmode, "__mips16_gtdf2");
+	  set_optab_libfunc (ge_optab, DFmode, "__mips16_gedf2");
+	  set_optab_libfunc (lt_optab, DFmode, "__mips16_ltdf2");
+	  set_optab_libfunc (le_optab, DFmode, "__mips16_ledf2");
+
+	  floatsidf_libfunc   = init_one_libfunc ("__mips16_floatsidf");
+	  fixdfsi_libfunc     = init_one_libfunc ("__mips16_fixdfsi");
+
+	  extendsfdf2_libfunc =	init_one_libfunc ("__mips16_extendsfdf2");
+	  truncdfsf2_libfunc  =	init_one_libfunc ("__mips16_truncdfsf2");
+	}
+    }
+  else
+    gofast_maybe_init_libfuncs ();
+}
 
 /* Return a number assessing the cost of moving a register in class
    FROM to class TO.  The classes are expressed using the enumeration
@@ -9523,30 +9641,22 @@ mips_use_dfa_pipeline_interface (void)
 const char *
 mips_emit_prefetch (rtx *operands)
 {
-  /* For the mips32/64 architectures the hint fields are arranged
-     by operation (load/store) and locality (normal/streamed/retained).
-     Irritatingly, numbers 2 and 3 are reserved leaving no simple
-     algorithm for figuring the hint.  */
-
   int write = INTVAL (operands[1]);
   int locality = INTVAL (operands[2]);
+  int indexed = GET_CODE (operands[3]) == REG;
+  int code;
+  char buffer[30];
+  
+  if (locality <= 0)
+    code = (write ? 5 : 4);	/* store_streamed / load_streamed.  */
+  else if (locality <= 2)
+    code = (write ? 1 : 0);	/* store / load.  */
+  else
+    code = (write ? 7 : 6);	/* store_retained / load_retained.  */
 
-  static const char * const alt[2][4] = {
-    {
-      "pref\t4,%a0",
-      "pref\t0,%a0",
-      "pref\t0,%a0",
-      "pref\t6,%a0"
-    },
-    {
-      "pref\t5,%a0",
-      "pref\t1,%a0",
-      "pref\t1,%a0",
-      "pref\t7,%a0"
-    }
-  };
-
-  return alt[write][locality];
+  sprintf (buffer, "%s\t%d,%%3(%%0)", indexed ? "prefx" : "pref", code);
+  output_asm_insn (buffer, operands);
+  return "";
 }
 
 

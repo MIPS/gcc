@@ -165,10 +165,10 @@ SIGNAL_HANDLER (catch_fpe)
 
 
 jboolean
-_Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
+_Jv_equalUtf8Consts (const Utf8Const* a, const Utf8Const *b)
 {
   int len;
-  _Jv_ushort *aptr, *bptr;
+  const _Jv_ushort *aptr, *bptr;
   if (a == b)
     return true;
   if (a->hash != b->hash)
@@ -176,8 +176,8 @@ _Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
   len = a->length;
   if (b->length != len)
     return false;
-  aptr = (_Jv_ushort *)a->data;
-  bptr = (_Jv_ushort *)b->data;
+  aptr = (const _Jv_ushort *)a->data;
+  bptr = (const _Jv_ushort *)b->data;
   len = (len + 1) >> 1;
   while (--len >= 0)
     if (*aptr++ != *bptr++)
@@ -982,6 +982,12 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 #else      
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
 #endif
+
+      // We have to initialize this fairly early, to avoid circular
+      // class initialization.  In particular we want to start the
+      // initialization of ClassLoader before we start the
+      // initialization of VMClassLoader.
+      _Jv_InitClass (&java::lang::ClassLoader::class$);
 
       using namespace gnu::gcj::runtime;
       if (klass)

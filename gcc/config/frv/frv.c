@@ -1,20 +1,20 @@
 /* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "function.h"
 #include "optabs.h"
+#include "libfuncs.h"
 #include "toplev.h"
 #include "basic-block.h"
 #include "tm_p.h"
@@ -271,12 +272,15 @@ static int frv_registers_used_p			PARAMS ((rtx, unsigned char [],
 							 int));
 static int frv_registers_set_p			PARAMS ((rtx, unsigned char [],
 							 int));
+static int frv_issue_rate			PARAMS ((void));
+static int frv_use_dfa_pipeline_interface	PARAMS ((void));
 static void frv_pack_insns			PARAMS ((void));
 static void frv_function_prologue		PARAMS ((FILE *, HOST_WIDE_INT));
 static void frv_function_epilogue		PARAMS ((FILE *, HOST_WIDE_INT));
 static bool frv_assemble_integer		PARAMS ((rtx, unsigned, int));
 static void frv_init_builtins			PARAMS ((void));
 static rtx frv_expand_builtin			PARAMS ((tree, rtx, rtx, enum machine_mode, int));
+static void frv_init_libfuncs			PARAMS ((void));
 static bool frv_in_small_data_p			PARAMS ((tree));
 static void frv_asm_output_mi_thunk
   PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
@@ -295,6 +299,8 @@ static void frv_asm_out_destructor		PARAMS ((rtx, int));
 #define TARGET_INIT_BUILTINS frv_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN frv_expand_builtin
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS frv_init_libfuncs
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P frv_in_small_data_p
 #undef TARGET_RTX_COSTS
@@ -308,6 +314,11 @@ static void frv_asm_out_destructor		PARAMS ((rtx, int));
 #define TARGET_ASM_OUTPUT_MI_THUNK frv_asm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#undef  TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE frv_issue_rate
+#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE frv_use_dfa_pipeline_interface
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -7733,7 +7744,7 @@ frv_class_likely_spilled_p (class)
 
 
 /* An expression for the alignment of a structure field FIELD if the
-   alignment computed in the usual way is COMPUTED.  GNU CC uses this
+   alignment computed in the usual way is COMPUTED.  GCC uses this
    value instead of the value in `BIGGEST_ALIGNMENT' or
    `BIGGEST_FIELD_ALIGNMENT', if defined, for structure fields only.  */
 
@@ -8186,7 +8197,40 @@ frv_init_machine_status ()
 {
   return ggc_alloc_cleared (sizeof (struct machine_function));
 }
+
+/* Implement TARGET_SCHED_ISSUE_RATE.  */
 
+static int
+frv_issue_rate (void)
+{
+  if (!TARGET_PACK)
+    return 1;
+
+  switch (frv_cpu_type)
+    {
+    default:
+    case FRV_CPU_FR300:
+    case FRV_CPU_SIMPLE:
+      return 1;
+
+    case FRV_CPU_FR400:
+      return 2;
+
+    case FRV_CPU_GENERIC:
+    case FRV_CPU_FR500:
+    case FRV_CPU_TOMCAT:
+      return 4;
+    }
+}
+
+
+/* Implement TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE.  */
+
+static int
+frv_use_dfa_pipeline_interface (void)
+{
+  return true;
+}
 
 /* Update the register state information, to know about which registers are set
    or clobbered.  */
@@ -8630,22 +8674,11 @@ frv_pack_insns ()
   unsigned char reg_state[FIRST_PSEUDO_REGISTER];
 
   /* If we weren't going to pack the insns, don't bother with this pass.  */
-  if (!optimize || !flag_schedule_insns_after_reload || TARGET_NO_VLIW_BRANCH)
+  if (!optimize
+      || !flag_schedule_insns_after_reload
+      || TARGET_NO_VLIW_BRANCH
+      || frv_issue_rate () == 1)
     return;
-
-  switch (frv_cpu_type)
-    {
-    default:
-    case FRV_CPU_FR300:		/* FR300/simple are single issue */
-    case FRV_CPU_SIMPLE:
-      return;
-
-    case FRV_CPU_GENERIC:	/* FR-V and FR500 are multi-issue */
-    case FRV_CPU_FR400:
-    case FRV_CPU_FR500:
-    case FRV_CPU_TOMCAT:
-      break;
-    }
 
   /* Set up the instruction and register states.  */
   dfa_start ();
@@ -9081,6 +9114,51 @@ frv_init_builtins ()
 #undef UNARY
 #undef BINARY
 #undef TRINARY
+}
+
+/* Set the names for various arithmetic operations according to the
+   FRV ABI.  */
+static void
+frv_init_libfuncs (void)
+{
+  set_optab_libfunc (smod_optab,     SImode, "__modi");
+  set_optab_libfunc (umod_optab,     SImode, "__umodi");
+
+  set_optab_libfunc (add_optab,      DImode, "__addll");
+  set_optab_libfunc (sub_optab,      DImode, "__subll");
+  set_optab_libfunc (smul_optab,     DImode, "__mulll");
+  set_optab_libfunc (sdiv_optab,     DImode, "__divll");
+  set_optab_libfunc (smod_optab,     DImode, "__modll");
+  set_optab_libfunc (umod_optab,     DImode, "__umodll");
+  set_optab_libfunc (and_optab,      DImode, "__andll");
+  set_optab_libfunc (ior_optab,      DImode, "__orll");
+  set_optab_libfunc (xor_optab,      DImode, "__xorll");
+  set_optab_libfunc (one_cmpl_optab, DImode, "__notll");
+
+  set_optab_libfunc (add_optab,      SFmode, "__addf");
+  set_optab_libfunc (sub_optab,      SFmode, "__subf");
+  set_optab_libfunc (smul_optab,     SFmode, "__mulf");
+  set_optab_libfunc (sdiv_optab,     SFmode, "__divf");
+
+  set_optab_libfunc (add_optab,      DFmode, "__addd");
+  set_optab_libfunc (sub_optab,      DFmode, "__subd");
+  set_optab_libfunc (smul_optab,     DFmode, "__muld");
+  set_optab_libfunc (sdiv_optab,     DFmode, "__divd");
+
+  fixsfsi_libfunc     = init_one_libfunc ("__ftoi");
+  fixunssfsi_libfunc  = init_one_libfunc ("__ftoui");
+  fixsfdi_libfunc     = init_one_libfunc ("__ftoll");
+  fixunssfdi_libfunc  = init_one_libfunc ("__ftoull");
+  fixdfsi_libfunc     = init_one_libfunc ("__dtoi");
+  fixunsdfsi_libfunc  = init_one_libfunc ("__dtoui");
+  fixdfdi_libfunc     = init_one_libfunc ("__dtoll");
+  fixunsdfdi_libfunc  = init_one_libfunc ("__dtoull");
+  floatsisf_libfunc   = init_one_libfunc ("__itof");
+  floatdisf_libfunc   = init_one_libfunc ("__lltof");
+  floatsidf_libfunc   = init_one_libfunc ("__itod");
+  floatdidf_libfunc   = init_one_libfunc ("__lltod");
+  extendsfdf2_libfunc = init_one_libfunc ("__ftod");
+  truncdfsf2_libfunc  = init_one_libfunc ("__dtof");
 }
 
 /* Convert an integer constant to an accumulator register.  ICODE is the

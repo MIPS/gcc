@@ -5,20 +5,20 @@
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -346,7 +346,7 @@ extern enum cmodel sparc_cmodel;
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
@@ -2411,100 +2411,19 @@ do {                                                                    \
 /* alloca should avoid clobbering the old register save area.  */
 #define SETJMP_VIA_SAVE_AREA
 
-/* Define subroutines to call to handle multiply and divide.
-   Use the subroutines that Sun's library provides.
-   The `*' prevents an underscore from being prepended by the compiler.  */
-
-#define DIVSI3_LIBCALL "*.div"
-#define UDIVSI3_LIBCALL "*.udiv"
-#define MODSI3_LIBCALL "*.rem"
-#define UMODSI3_LIBCALL "*.urem"
-/* .umul is a little faster than .mul.  */
-#define MULSI3_LIBCALL "*.umul"
-
-/* Define library calls for quad FP operations.  These are all part of the
-   SPARC 32bit ABI.  */
-#define ADDTF3_LIBCALL "_Q_add"
-#define SUBTF3_LIBCALL "_Q_sub"
-#define NEGTF2_LIBCALL "_Q_neg"
-#define MULTF3_LIBCALL "_Q_mul"
-#define DIVTF3_LIBCALL "_Q_div"
-#define FLOATSITF2_LIBCALL "_Q_itoq"
-#define FIX_TRUNCTFSI2_LIBCALL "_Q_qtoi"
-#define FIXUNS_TRUNCTFSI2_LIBCALL "_Q_qtou"
-#define EXTENDSFTF2_LIBCALL "_Q_stoq"
-#define TRUNCTFSF2_LIBCALL "_Q_qtos"
-#define EXTENDDFTF2_LIBCALL "_Q_dtoq"
-#define TRUNCTFDF2_LIBCALL "_Q_qtod"
-#define EQTF2_LIBCALL "_Q_feq"
-#define NETF2_LIBCALL "_Q_fne"
-#define GTTF2_LIBCALL "_Q_fgt"
-#define GETF2_LIBCALL "_Q_fge"
-#define LTTF2_LIBCALL "_Q_flt"
-#define LETF2_LIBCALL "_Q_fle"
+/* The _Q_* comparison libcalls return booleans.  */
+#define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)
 
 /* Assume by default that the _Qp_* 64-bit libcalls are implemented such
    that the inputs are fully consumed before the output memory is clobbered.  */
 
 #define TARGET_BUGGY_QP_LIB	0
 
-/* We can define the TFmode sqrt optab only if TARGET_FPU.  This is because
-   with soft-float, the SFmode and DFmode sqrt instructions will be absent,
-   and the compiler will notice and try to use the TFmode sqrt instruction
-   for calls to the builtin function sqrt, but this fails.  */
-#define INIT_TARGET_OPTABS						\
-  do {									\
-    if (TARGET_ARCH32)							\
-      {									\
-	add_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (ADDTF3_LIBCALL);				\
-	sub_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (SUBTF3_LIBCALL);				\
-	neg_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (NEGTF2_LIBCALL);				\
-	smul_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (MULTF3_LIBCALL);				\
-	sdiv_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (DIVTF3_LIBCALL);				\
-	eqtf2_libfunc = init_one_libfunc (EQTF2_LIBCALL);		\
-	netf2_libfunc = init_one_libfunc (NETF2_LIBCALL);		\
-	gttf2_libfunc = init_one_libfunc (GTTF2_LIBCALL);		\
-	getf2_libfunc = init_one_libfunc (GETF2_LIBCALL);		\
-	lttf2_libfunc = init_one_libfunc (LTTF2_LIBCALL);		\
-	letf2_libfunc = init_one_libfunc (LETF2_LIBCALL);		\
-	trunctfsf2_libfunc = init_one_libfunc (TRUNCTFSF2_LIBCALL);	\
-	trunctfdf2_libfunc = init_one_libfunc (TRUNCTFDF2_LIBCALL);	\
-	extendsftf2_libfunc = init_one_libfunc (EXTENDSFTF2_LIBCALL);	\
-	extenddftf2_libfunc = init_one_libfunc (EXTENDDFTF2_LIBCALL);	\
-	floatsitf_libfunc = init_one_libfunc (FLOATSITF2_LIBCALL);	\
-	fixtfsi_libfunc = init_one_libfunc (FIX_TRUNCTFSI2_LIBCALL);	\
-	fixunstfsi_libfunc						\
-	  = init_one_libfunc (FIXUNS_TRUNCTFSI2_LIBCALL);		\
-	if (TARGET_FPU)							\
-	  sqrt_optab->handlers[(int) TFmode].libfunc			\
-	    = init_one_libfunc ("_Q_sqrt");				\
-      }									\
-    if (TARGET_ARCH64)							\
-      {									\
-        /* In the SPARC 64bit ABI, these libfuncs do not exist in the	\
-           library.  Make sure the compiler does not emit calls to them	\
-	   by accident.  */						\
-	sdiv_optab->handlers[(int) SImode].libfunc = NULL;		\
-	udiv_optab->handlers[(int) SImode].libfunc = NULL;		\
-	smod_optab->handlers[(int) SImode].libfunc = NULL;		\
-	umod_optab->handlers[(int) SImode].libfunc = NULL;		\
-        smul_optab->handlers[(int) SImode].libfunc = NULL;		\
-      }									\
-    INIT_SUBTARGET_OPTABS;						\
-  } while (0)
+/* Assume by default that we do not have the Solaris-specific conversion
+   routines nor 64-bit integer multiply and divide routines.  */
 
-/* This is meant to be redefined in the host dependent files */
-#define INIT_SUBTARGET_OPTABS
-
-/* Nonzero if a floating point comparison library call for
-   mode MODE that will return a boolean value.  Zero if one
-   of the libgcc2 functions is used.  */
-#define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)
+#define SUN_CONVERSION_LIBFUNCS 0
+#define SUN_INTEGER_MULTIPLY_64 0
 
 /* Compute extra cost of moving data between one register class
    and another.  */

@@ -3,20 +3,20 @@
    Copyright (C) 1996, 1997, 1998, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Richard Henderson.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -85,6 +85,8 @@ Boston, MA 02111-1307, USA.  */
     if (pc_[0] != 0x47fe0410		/* mov $30,$16 */		\
         || pc_[2] != 0x00000083		/* callsys */)			\
       break;								\
+    if ((CONTEXT)->cfa == 0)						\
+      break;								\
     if (pc_[1] == 0x201f0067)		/* lda $0,NR_sigreturn */	\
       sc_ = (CONTEXT)->cfa;						\
     else if (pc_[1] == 0x201f015f)	/* lda $0,NR_rt_sigreturn */	\
@@ -113,8 +115,8 @@ Boston, MA 02111-1307, USA.  */
 	(FS)->regs.reg[i_+32].loc.offset				\
 	  = (long)&sc_->sc_fpregs[i_] - new_cfa_;			\
       }									\
-    (FS)->regs.reg[31].how = REG_SAVED_OFFSET;				\
-    (FS)->regs.reg[31].loc.offset = (long)&sc_->sc_pc - new_cfa_;	\
-    (FS)->retaddr_column = 31;						\
+    (FS)->regs.reg[64].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[64].loc.offset = (long)&sc_->sc_pc - new_cfa_;	\
+    (FS)->retaddr_column = 64;						\
     goto SUCCESS;							\
   } while (0)

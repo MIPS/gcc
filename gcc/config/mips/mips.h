@@ -6,20 +6,20 @@
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
    Brendan Eich (brendan@microunity.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -823,9 +823,9 @@ extern const struct mips_cpu_info *mips_tune_info;
                          	 || ISA_MIPS32R2                        \
 				 || ISA_MIPS64)
 
-/* This is a catch all for the other new mips4 instructions: indexed load and
-   indexed prefetch instructions, the FP madd and msub instructions,
-   and the FP recip and recip sqrt instructions */
+/* This is a catch all for other mips4 instructions: indexed load, the
+   FP madd and msub instructions, and the FP recip and recip sqrt
+   instructions.  */
 #define ISA_HAS_FP4             ((ISA_MIPS4				\
 				  || ISA_MIPS64)       			\
  				 && !TARGET_MIPS16)
@@ -901,12 +901,20 @@ extern const struct mips_cpu_info *mips_tune_info;
                                      || TARGET_SR71K                    \
                                      ))
 
-/* ISA has data prefetch instruction.  */
+/* ISA has data prefetch instructions.  This controls use of 'pref'.  */
 #define ISA_HAS_PREFETCH	((ISA_MIPS4				\
 				  || ISA_MIPS32				\
 				  || ISA_MIPS32R2			\
 				  || ISA_MIPS64)	       		\
 				 && !TARGET_MIPS16)
+
+/* ISA has data indexed prefetch instructions.  This controls use of
+   'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
+   (prefx is a cop1x instruction, so can only be used if FP is
+   enabled.)  */
+#define ISA_HAS_PREFETCHX       ((ISA_MIPS4				\
+				  || ISA_MIPS64)       			\
+ 				 && !TARGET_MIPS16)
 
 /* True if trunc.w.s and trunc.w.d are real (not synthetic)
    instructions.  Both require TARGET_HARD_FLOAT, and trunc.w.d
@@ -1136,7 +1144,7 @@ extern const struct mips_cpu_info *mips_tune_info;
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
@@ -2605,20 +2613,6 @@ typedef struct mips_args {
 #define CONSTANT_ADDRESS_P(X) \
   (CONSTANT_P (X) && mips_legitimate_address_p (SImode, X, 0))
 
-
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.
-
-   At present, GAS doesn't understand li.[sd], so don't allow it
-   to be generated at present.  Also, the MIPS assembler does not
-   grok li.d Infinity.  */
-
-/* ??? SGI Irix 6 assembler fails for CONST address, so reject them.
-   Note that the Irix 6 assembler problem may already be fixed.
-   Note also that the GET_CODE (X) == CONST test catches the mips16
-   gp pseudo reg (see mips16_gp_pseudo_reg) deciding it is not
-   a LEGITIMATE_CONSTANT.  If we ever want mips16 and ABI_N32 or
-   ABI_64 to work together, we'll need to fix this.  */
 #define LEGITIMATE_CONSTANT_P(X) (mips_const_insns (X) > 0)
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
@@ -3465,78 +3459,6 @@ while (0)
 					 && mips_abi != ABI_32		\
 					 && mips_abi != ABI_O64)
 
-/* We need to use a special set of functions to handle hard floating
-   point code in mips16 mode.  */
-
-#ifndef INIT_SUBTARGET_OPTABS
-#define INIT_SUBTARGET_OPTABS
-#endif
-
-#define INIT_TARGET_OPTABS						\
-do									\
-  {									\
-    if (! TARGET_MIPS16 || ! mips16_hard_float)				\
-      INIT_SUBTARGET_OPTABS;						\
-    else								\
-      {									\
-	add_optab->handlers[(int) SFmode].libfunc =			\
-	  init_one_libfunc ("__mips16_addsf3");				\
-	sub_optab->handlers[(int) SFmode].libfunc =			\
-	  init_one_libfunc ("__mips16_subsf3");				\
-	smul_optab->handlers[(int) SFmode].libfunc =			\
-	  init_one_libfunc ("__mips16_mulsf3");				\
-	sdiv_optab->handlers[(int) SFmode].libfunc =			\
-	  init_one_libfunc ("__mips16_divsf3");				\
-									\
-	eqsf2_libfunc = init_one_libfunc ("__mips16_eqsf2");		\
-	nesf2_libfunc = init_one_libfunc ("__mips16_nesf2");		\
-	gtsf2_libfunc = init_one_libfunc ("__mips16_gtsf2");		\
-	gesf2_libfunc = init_one_libfunc ("__mips16_gesf2");		\
-	ltsf2_libfunc = init_one_libfunc ("__mips16_ltsf2");		\
-	lesf2_libfunc = init_one_libfunc ("__mips16_lesf2");		\
-									\
-	floatsisf_libfunc =						\
-	  init_one_libfunc ("__mips16_floatsisf");			\
-	fixsfsi_libfunc =						\
-	  init_one_libfunc ("__mips16_fixsfsi");			\
-									\
-	if (TARGET_DOUBLE_FLOAT)					\
-	  {								\
-	    add_optab->handlers[(int) DFmode].libfunc =			\
-	      init_one_libfunc ("__mips16_adddf3");			\
-	    sub_optab->handlers[(int) DFmode].libfunc =			\
-	      init_one_libfunc ("__mips16_subdf3");			\
-	    smul_optab->handlers[(int) DFmode].libfunc =		\
-	      init_one_libfunc ("__mips16_muldf3");			\
-	    sdiv_optab->handlers[(int) DFmode].libfunc =		\
-	      init_one_libfunc ("__mips16_divdf3");			\
-									\
-	    extendsfdf2_libfunc =					\
-	      init_one_libfunc ("__mips16_extendsfdf2");		\
-	    truncdfsf2_libfunc =					\
-	      init_one_libfunc ("__mips16_truncdfsf2");			\
-									\
-	    eqdf2_libfunc =						\
-	      init_one_libfunc ("__mips16_eqdf2");			\
-	    nedf2_libfunc =						\
-	      init_one_libfunc ("__mips16_nedf2");			\
-	    gtdf2_libfunc =						\
-	      init_one_libfunc ("__mips16_gtdf2");			\
-	    gedf2_libfunc =						\
-	      init_one_libfunc ("__mips16_gedf2");			\
-	    ltdf2_libfunc =						\
-	      init_one_libfunc ("__mips16_ltdf2");			\
-	    ledf2_libfunc =						\
-	      init_one_libfunc ("__mips16_ledf2");			\
-									\
-	    floatsidf_libfunc =						\
-	      init_one_libfunc ("__mips16_floatsidf");			\
-	    fixdfsi_libfunc =						\
-	      init_one_libfunc ("__mips16_fixdfsi");			\
-	  }								\
-      }									\
-  }									\
-while (0)
 
 #define DFMODE_NAN \
 	unsigned short DFbignan[4] = {0x7ff7, 0xffff, 0xffff, 0xffff}; \

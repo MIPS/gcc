@@ -251,6 +251,7 @@ static void java_check_regular_methods (tree);
 static void check_interface_throws_clauses (tree, tree);
 static void java_check_abstract_methods (tree);
 static void unreachable_stmt_error (tree);
+static int not_accessible_field_error (tree, tree);
 static tree find_expr_with_wfl (tree);
 static void missing_return_error (tree);
 static tree build_new_array_init (int, tree);
@@ -3162,6 +3163,18 @@ unreachable_stmt_error (tree node)
     abort ();
 }
 
+static int
+not_accessible_field_error (tree wfl, tree decl)
+{
+  parse_error_context 
+    (wfl, "Can't access %s field `%s.%s' from `%s'",
+     java_accstring_lookup (get_access_flags_from_decl (decl)),
+     GET_TYPE_NAME (DECL_CONTEXT (decl)),
+     IDENTIFIER_POINTER (DECL_NAME (decl)),
+     IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
+  return 1;
+}
+
 int
 java_report_errors (void)
 {
@@ -5449,14 +5462,12 @@ void
 safe_layout_class (tree class)
 {
   tree save_current_class = current_class;
-  const char *save_input_filename = input_filename;
-  int save_lineno = input_line;
+  location_t save_location = input_location;
 
   layout_class (class);
 
   current_class = save_current_class;
-  input_filename = save_input_filename;
-  input_line = save_lineno;
+  input_location = save_location;
 }
 
 static tree
@@ -7513,6 +7524,7 @@ source_end_java_method (void)
       java_expand_body (fndecl);
     }
 
+  current_function_decl = NULL_TREE;
   java_parser_context_restore_global ();
 }
 
@@ -9160,11 +9172,7 @@ java_expand_classes (void)
 	  if (flag_emit_xref)
 	    expand_xref (current_class);
 	  else if (! flag_syntax_only)
-	    {
-	      java_expand_method_bodies (current_class);
-	      if (!flag_unit_at_a_time)
-		finish_class ();
-	    }
+	    java_expand_method_bodies (current_class);
 	}
     }
 }
@@ -9369,6 +9377,12 @@ resolve_expression_name (tree id, tree *orig)
 	      /* We may be asked to save the real field access node */
 	      if (orig)
 		*orig = access;
+	      /* Last check: can we access the field? */
+	      if (not_accessible_p (current_class, decl, NULL_TREE, 0))
+		{
+		  not_accessible_field_error (id, decl);
+		  return error_mark_node;
+		}
 	      /* And we return what we got */
 	      return access;
 	    }
@@ -9848,15 +9862,7 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	    }
 
 	  if (not_accessible_p (TREE_TYPE (decl), decl, type, 0))
-	    {
-	      parse_error_context
-		(qual_wfl, "Can't access %s field `%s.%s' from `%s'",
-		 java_accstring_lookup (get_access_flags_from_decl (decl)),
-		 GET_TYPE_NAME (type),
-		 IDENTIFIER_POINTER (DECL_NAME (decl)),
-		 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
-	      return 1;
-	    }
+ 	    return not_accessible_field_error (qual_wfl, decl);
 	  check_deprecation (qual_wfl, decl);
 
 	  type = TREE_TYPE (decl);
@@ -9977,18 +9983,7 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	      /* Check on accessibility here */
 	      if (not_accessible_p (current_class, field_decl,
 				    DECL_CONTEXT (field_decl), from_super))
-		{
-		  parse_error_context
-		    (qual_wfl,
-		     "Can't access %s field `%s.%s' from `%s'",
-		     java_accstring_lookup
-		       (get_access_flags_from_decl (field_decl)),
-		     GET_TYPE_NAME (type),
-		     IDENTIFIER_POINTER (DECL_NAME (field_decl)),
-		     IDENTIFIER_POINTER
-		       (DECL_NAME (TYPE_NAME (current_class))));
-		  return 1;
-		}
+ 		return not_accessible_field_error (qual_wfl,field_decl);    
 	      check_deprecation (qual_wfl, field_decl);
 
 	      /* There are things to check when fields are accessed
@@ -12282,7 +12277,7 @@ java_complete_lhs (tree node)
 
           TREE_OPERAND (node, 1) = nn;
         }
-      return force_evaluation_order (patch_binop (node, wfl_op1, wfl_op2));
+      return patch_binop (node, wfl_op1, wfl_op2);
 
     case INSTANCEOF_EXPR:
       wfl_op1 = TREE_OPERAND (node, 0);

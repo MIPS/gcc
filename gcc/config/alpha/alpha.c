@@ -3,20 +3,20 @@
    2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -6700,13 +6700,20 @@ alpha_sa_mask (unsigned long *imaskP, unsigned long *fmaskP)
 
   /* We need to restore these for the handler.  */
   if (current_function_calls_eh_return)
-    for (i = 0; ; ++i)
-      {
-	unsigned regno = EH_RETURN_DATA_REGNO (i);
-	if (regno == INVALID_REGNUM)
-	  break;
-	imask |= 1UL << regno;
-      }
+    {
+      for (i = 0; ; ++i)
+	{
+	  unsigned regno = EH_RETURN_DATA_REGNO (i);
+	  if (regno == INVALID_REGNUM)
+	    break;
+	  imask |= 1UL << regno;
+	}
+
+      /* Glibc likes to use $31 as an unwind stopper for crt0.  To
+	 avoid hackery in unwind-dw2.c, we need to actively store a
+	 zero in the prologue of _Unwind_RaiseException et al.  */
+      imask |= 1UL << 31;
+    }
      
   /* If any register spilled, then spill the return address also.  */
   /* ??? This is required by the Digital stack unwind specification
@@ -7168,7 +7175,7 @@ alpha_expand_prologue (void)
 	}
 
       /* Now save any other registers required to be saved.  */
-      for (i = 0; i < 32; i++)
+      for (i = 0; i < 31; i++)
 	if (imask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
@@ -7177,7 +7184,25 @@ alpha_expand_prologue (void)
 	    reg_offset += 8;
 	  }
 
-      for (i = 0; i < 32; i++)
+      /* Store a zero if requested for unwinding.  */
+      if (imask & (1UL << 31))
+	{
+	  rtx insn, t;
+
+	  mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
+	  set_mem_alias_set (mem, alpha_sr_alias_set);
+	  insn = emit_move_insn (mem, const0_rtx);
+
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  t = gen_rtx_REG (Pmode, 31);
+	  t = gen_rtx_SET (VOIDmode, mem, t);
+	  t = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, t, REG_NOTES (insn));
+	  REG_NOTES (insn) = t;
+
+	  reg_offset += 8;
+	}
+
+      for (i = 0; i < 31; i++)
 	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant (sa_reg, reg_offset));
@@ -7588,7 +7613,7 @@ alpha_expand_epilogue (void)
       reg_offset += 8;
       imask &= ~(1UL << REG_RA);
 
-      for (i = 0; i < 32; ++i)
+      for (i = 0; i < 31; ++i)
 	if (imask & (1UL << i))
 	  {
 	    if (i == HARD_FRAME_POINTER_REGNUM && fp_is_frame_pointer)
@@ -7602,7 +7627,10 @@ alpha_expand_epilogue (void)
 	    reg_offset += 8;
 	  }
 
-      for (i = 0; i < 32; ++i)
+      if (imask & (1UL << 31))
+	reg_offset += 8;
+
+      for (i = 0; i < 31; ++i)
 	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant(sa_reg, reg_offset));
@@ -9987,6 +10015,35 @@ unicosmk_need_dex (rtx x ATTRIBUTE_UNUSED)
 
 #endif /* TARGET_ABI_UNICOSMK */
 
+static void
+alpha_init_libfuncs (void)
+{
+  if (TARGET_ABI_UNICOSMK)
+    {
+      /* Prevent gcc from generating calls to __divsi3.  */
+      set_optab_libfunc (sdiv_optab, SImode, 0);
+      set_optab_libfunc (udiv_optab, SImode, 0);
+
+      /* Use the functions provided by the system library
+	 for DImode integer division.  */
+      set_optab_libfunc (sdiv_optab, DImode, "$sldiv");
+      set_optab_libfunc (udiv_optab, DImode, "$uldiv");
+    }
+  else if (TARGET_ABI_OPEN_VMS)
+    {
+      /* Use the VMS runtime library functions for division and
+	 remainder.  */
+      set_optab_libfunc (sdiv_optab, SImode, "OTS$DIV_I");
+      set_optab_libfunc (sdiv_optab, DImode, "OTS$DIV_L");
+      set_optab_libfunc (udiv_optab, SImode, "OTS$DIV_UI");
+      set_optab_libfunc (udiv_optab, DImode, "OTS$DIV_UL");
+      set_optab_libfunc (smod_optab, SImode, "OTS$REM_I");
+      set_optab_libfunc (smod_optab, DImode, "OTS$REM_L");
+      set_optab_libfunc (umod_optab, SImode, "OTS$REM_UI");
+      set_optab_libfunc (umod_optab, DImode, "OTS$REM_UL");
+    }
+}
+
 
 /* Initialize the GCC target structure.  */
 #if TARGET_ABI_OPEN_VMS
@@ -10033,6 +10090,9 @@ unicosmk_need_dex (rtx x ATTRIBUTE_UNUSED)
 
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
 #define TARGET_ASM_FUNCTION_END_PROLOGUE alpha_output_function_end_prologue
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS alpha_init_libfuncs
 
 #if TARGET_ABI_UNICOSMK
 #undef TARGET_ASM_FILE_START

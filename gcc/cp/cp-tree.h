@@ -379,10 +379,10 @@ typedef enum cp_id_kind
 
 /* The IDENTIFIER_BINDING is the innermost cxx_binding for the
     identifier.  It's PREVIOUS is the next outermost binding.  Each
-    BINDING_VALUE is a DECL for the associated declaration.  Thus,
+    VALUE field is a DECL for the associated declaration.  Thus,
     name lookup consists simply of pulling off the node at the front
     of the list (modulo oddities for looking up the names of types,
-    and such.)  You can use BINDING_SCOPE to determine the scope
+    and such.)  You can use SCOPE field to determine the scope
     that bound the name.  */
 #define IDENTIFIER_BINDING(NODE) \
   (LANG_IDENTIFIER_CAST (NODE)->bindings)
@@ -394,7 +394,7 @@ typedef enum cp_id_kind
 
 /* If IDENTIFIER_CLASS_VALUE is set, then NODE is bound in the current
    class, and IDENTIFIER_CLASS_VALUE is the value binding.  This is
-   just a pointer to the BINDING_VALUE of one of the bindings in the
+   just a pointer to the VALUE field of one of the bindings in the
    IDENTIFIER_BINDINGs list, so any time that this is non-NULL so is
    IDENTIFIER_BINDING.  */
 #define IDENTIFIER_CLASS_VALUE(NODE) \
@@ -869,8 +869,6 @@ struct language_function GTY(())
 
 #define current_function_return_value \
   (cp_function_chain->x_return_value)
-
-extern GTY(()) tree global_namespace;
 
 #define ansi_opname(CODE) \
   (operator_name_info[(int) (CODE)].identifier)
@@ -2927,31 +2925,6 @@ typedef enum cp_lvalue_kind {
   clk_bitfield = 4, /* An lvalue for a bit-field.  */
   clk_packed = 8    /* An lvalue for a packed field. */
 } cp_lvalue_kind;
-
-/* The kinds of scopes we recognize.  */
-typedef enum scope_kind {
-  sk_block = 0,      /* An ordinary block scope.  This enumerator must
-			have the value zero because "cp_binding_level"
-			is initialized by using "memset" to set the
-			contents to zero, and the default scope kind
-			is "sk_block".  */
-  sk_cleanup,        /* A scope for (pseudo-)scope for cleanup.  It is
-                        peusdo in that it is transparent to name lookup
-                        activities.  */
-  sk_try,	     /* A try-block.  */
-  sk_catch,          /* A catch-block.  */
-  sk_for,            /* The scope of the variable declared in a
-			for-init-statement.  */
-  sk_function_parms, /* The scope containing function parameters.  */
-  sk_class,          /* The scope containing the members of a class.  */
-  sk_namespace,      /* The scope containing the members of a
-			namespace, including the global scope.  */
-  sk_template_parms, /* A scope for template parameters.  */
-  sk_template_spec   /* Like sk_template_parms, but for an explicit
-			specialization.  Since, by definition, an
-			explicit specialization is introduced by
-			"template <>", this scope is always empty.  */
-} scope_kind;
 
 /* Various kinds of template specialization, instantiation, etc.  */
 typedef enum tmpl_spec_kind {

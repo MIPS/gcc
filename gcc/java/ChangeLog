@@ -1,3 +1,83 @@
+2003-10-03  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* builtins.c, jcf.h, jvspec.c: Remove PARAMS macros.
+
+2003-10-01  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (java_parse_file): Write otable and atable.
+	* java-tree.h (atable_methods): New.
+	(atable_decl): New.
+	(atable_syms_decl): New.
+	(enum java_tree_index): Add JTI_ATABLE_METHODS, JTI_ATABLE_DECL,
+	JTI_ATABLE_SYMS_DECL.  Rename JTI_METHOD_SYMBOL* to JTI_SYMBOL*.
+	(symbol_*type): Rename method_symbol* to symbol*type.	
+	(emit_offset_symbol_table): Delete.
+	(emit_symbol_table): New.
+	(get_symbol_table_index): New.
+	(atable_type): New.
+	* expr.c (build_field_ref): Handle flag_indirect_dispatch.
+	(build_known_method_ref): Likewise.
+	(get_symbol_table_index): Rename from get_offset_table_index.
+	Parameterize to allow re-use by differing types of symbol table.
+	(build_invokevirtual): Pass table to get_offset_table_index.
+	* decl.c (java_init_decl_processing): Push types and decls for
+	atable and atable_syyms.
+	* class.c (build_static_field_ref): Handle flag_indirect_dispatch.
+	(make_class_data): Add new fields atable and atable_syms.
+	(emit_symbol_table): Rename from emit_offset_symbol_table.
+	Parameterize to allow re-use by different types of symbol table.
+	(build_symbol_entry): Renamed from build_method_symbols_entry.
+	
+2003-09-30  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-write.c (generate_bytecode_insns): Implement evaluate-once
+	semantics for SAVE_EXPR, by caching the result in a temporary.
+
+2003-09-28  Richard Henderson  <rth@redhat.com>
+
+	* check-init.c (check_init): Save and restore input_location
+	instead of file and line separately.
+	* decl.c (java_expand_body): Likewise.
+	* jcf-write.c (generate_bytecode_insns): Likewise.
+	* parse.y (safe_layout_class): Likewise.
+	* jcf-parse.c (read_class, parse_class_file): Likewise.
+	(java_parse_file): Use %H for warning locator.
+
+2003-09-28  Roger Sayle  <roger@eyesopen.com>
+
+	* expr.c (java_check_reference): Use the semantics of COND_EXPRs
+	with void-type branches instead of using a COMPOUND_EXPR.
+
+2003-09-28  Jeff Sturm  <jsturm@one-point.com>
+
+	* decl.c (java_optimize_inline, dump_function): Remove.
+	* java-tree.h (java_optimize_inline): Remove declaration.
+	* jcf-parse.c (java_parse_file): Assume flag_unit_at_a_time is set.
+	* parse.y (source_end_java_method, java_expand_classes):
+	Likewise.  Remove dead code.
+
+2003-09-27  Roger Sayle  <roger@eyesopen.com>
+
+	* lang.c (java_init_options): Set flag_evaluation_order.
+	* expr.c (force_evaluation_order): Don't attempt to force
+	evaluation order of binary operations using save_expr.
+	* parse.y (java_complete_lhs): No longer need to call
+	force_evaluation_order when constructing binary operators.
+
+2003-09-27  Alexandre Petit-Bianco  <apbianco@redhat.com>
+	    Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	PR java/1333:
+	* parse.y (not_accessible_field_error): New function.
+	(resolve_expression_name): Check field access permissions.
+	(resolve_qualified_expression_name): Use
+	not_accessible_field_error.
+	(resolve_qualified_expression_name): Likewise.
+
+2003-09-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* class.c (build_utf8_ref): Test for HAVE_GAS_SHF_MERGE value.
+
 2003-09-23  Roger Sayle  <roger@eyesopen.com>
 
 	* jcf-write.c (generate_bytecode_insns): Optimize binary operations
@@ -102,6 +182,11 @@
 	* gcj.texi (Extensions): Added xref.
 	(libgcj Runtime Properties): Document
 	gnu.gcj.runtime.VMClassLoader.library_control.
+
+2003-08-20  Andrew Haley  <aph@redhat.com>
+
+        * except.c (prepare_eh_table_type): Use new encoding for exception
+        handlers when using -fno-assume-compiled.
 
 2003-08-13  Tom Tromey  <tromey@redhat.com>
 

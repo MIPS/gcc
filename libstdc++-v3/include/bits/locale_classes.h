@@ -46,6 +46,7 @@
 #include <cstring>		// For strcmp.
 #include <string>
 #include <bits/atomicity.h>
+#include <bits/gthr.h>
 
 namespace std
 {
@@ -139,7 +140,7 @@ namespace std
     _Impl* 		_M_impl;  
 
     // The "C" reference locale
-    static _Impl* 	_S_classic; 
+    static _Impl*       _S_classic;
 
     // Current global locale
     static _Impl* 	_S_global;  
@@ -148,7 +149,7 @@ namespace std
     // NB: locale::global() has to know how to modify all the
     // underlying categories, not just the ones required by the C++
     // standard.
-    static const char** _S_categories;
+    static const char* const* const _S_categories;
 
     // Number of standard categories. For C++, these categories are
     // collate, ctype, monetary, numeric, time, and messages. These
@@ -162,15 +163,18 @@ namespace std
     // and LC_IDENTIFICATION.
     static const size_t _S_categories_size = 6 + _GLIBCXX_NUM_CATEGORIES;
 
+#ifdef __GTHREADS
+    static __gthread_once_t _S_once;
+#endif
+
     explicit 
     locale(_Impl*) throw();
 
-    static inline void  
-    _S_initialize()
-    { 
-      if (!_S_classic) 
-	classic();  
-    }
+    static void  
+    _S_initialize();
+
+    static void
+    _S_initialize_once();
 
     static category  
     _S_normalize_category(category);
@@ -189,13 +193,20 @@ namespace std
 
     mutable _Atomic_word		_M_references;
 
-  protected:
     // Contains data from the underlying "C" library for the classic locale.
-    static __c_locale		     	_S_c_locale;
+    static __c_locale                   _S_c_locale;
 
     // String literal for the name of the classic locale.
-    static char				_S_c_name[2];
-    
+    static const char			_S_c_name[2];
+
+#ifdef __GTHREADS
+    static __gthread_once_t 		_S_once;
+#endif
+
+    static void 
+    _S_initialize_once();
+
+  protected:
     explicit 
     facet(size_t __refs = 0) throw() : _M_references(__refs ? 1 : 0)
     { }
@@ -212,6 +223,14 @@ namespace std
 
     static void
     _S_destroy_c_locale(__c_locale& __cloc);
+
+    // Returns data from the underlying "C" library data for the
+    // classic locale.
+    static __c_locale
+    _S_get_c_locale();
+
+    static const char*
+    _S_get_c_name();
 
   private:
     inline void
@@ -332,7 +351,7 @@ namespace std
 
     _Impl(const _Impl&, size_t);
     _Impl(const char*, size_t);
-    _Impl(facet**, size_t, bool);
+    _Impl(size_t) throw();
 
    ~_Impl() throw();
 
@@ -346,7 +365,7 @@ namespace std
     {
       bool __ret = true;
       for (size_t __i = 0; __ret && __i < _S_categories_size - 1; ++__i)
-	__ret &= (strcmp(_M_names[__i], _M_names[__i + 1]) == 0);
+	__ret &= (std::strcmp(_M_names[__i], _M_names[__i + 1]) == 0);
       return __ret;
     }
 
@@ -379,13 +398,30 @@ namespace std
     locale::locale(const locale& __other, _Facet* __f)
     {
       _M_impl = new _Impl(*__other._M_impl, 1);
-      _M_impl->_M_install_facet(&_Facet::id, __f);
-      for (size_t __i = 0; __i < _S_categories_size; ++__i)
+
+      char* _M_tmp_names[_S_categories_size];
+      size_t __i = 0;
+      try
 	{
-	  delete [] _M_impl->_M_names[__i];
-	  char* __new = new char[2];
-	  std::strcpy(__new, "*");
-	  _M_impl->_M_names[__i] = __new;
+	  for (; __i < _S_categories_size; ++__i)
+	    {
+	      _M_tmp_names[__i] = new char[2];
+	      std::strcpy(_M_tmp_names[__i], "*");
+	    }
+	  _M_impl->_M_install_facet(&_Facet::id, __f);
+	}
+      catch(...)
+	{
+	  _M_impl->_M_remove_reference();
+	  for (size_t __j = 0; __j < __i; ++__j)
+	    delete [] _M_tmp_names[__j];	  
+	  __throw_exception_again;
+	}
+
+      for (size_t __k = 0; __k < _S_categories_size; ++__k)
+	{
+	  delete [] _M_impl->_M_names[__k];
+	  _M_impl->_M_names[__k] = _M_tmp_names[__k];
 	}
     }
 } // namespace std

@@ -2,20 +2,20 @@
    Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -50,6 +50,7 @@ Note:
 #include "flags.h"
 #include "recog.h"
 #include "expr.h"
+#include "libfuncs.h"
 #include "toplev.h"
 #include "basic-block.h"
 #include "function.h"
@@ -85,6 +86,7 @@ static void m68hc11_file_start PARAMS ((void));
 static void m68hc11_encode_section_info PARAMS((tree, rtx, int));
 static int autoinc_mode PARAMS((rtx));
 static int m68hc11_make_autoinc_notes PARAMS((rtx *, void *));
+static void m68hc11_init_libfuncs PARAMS ((void));
 
 /* Must be set to 1 to produce debug messages.  */
 int debug_m6811 = 0;
@@ -245,6 +247,9 @@ static int nb_soft_regs;
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG m68hc11_reorg
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS m68hc11_init_libfuncs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -5256,6 +5261,17 @@ m68hc11_reorg ()
       }
   }
 }
+
+/* Override memcpy */
+
+static void
+m68hc11_init_libfuncs (void)
+{
+  memcpy_libfunc = init_one_libfunc ("__memcpy");
+  memcmp_libfunc = init_one_libfunc ("__memcmp");
+  memset_libfunc = init_one_libfunc ("__memset");
+}
+
 
 
 /* Cost functions.  */

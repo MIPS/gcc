@@ -37,6 +37,7 @@
 #include "tree.h"
 #include "expr.h"
 #include "optabs.h"
+#include "libfuncs.h"
 #include "except.h"
 #include "function.h"
 #include "output.h"
@@ -279,6 +280,7 @@ static rtx rs6000_expand_ternop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void altivec_init_builtins (void);
 static void rs6000_common_init_builtins (void);
+static void rs6000_init_libfuncs (void);
 
 static void enable_mask_for_builtins (struct builtin_description *,
 					      int, enum rs6000_builtins,
@@ -466,6 +468,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS rs6000_init_libfuncs
 
 #if TARGET_MACHO
 #undef TARGET_BINDS_LOCAL_P
@@ -6767,6 +6772,57 @@ rs6000_common_init_builtins (void)
       def_builtin (d->mask, d->name, type, d->code);
     }
 }
+
+static void
+rs6000_init_libfuncs (void)
+{
+  if (!TARGET_HARD_FLOAT)
+    return;
+
+  if (DEFAULT_ABI != ABI_V4)
+    {
+      if (TARGET_XCOFF && ! TARGET_POWER2 && ! TARGET_POWERPC)
+	{
+	  /* AIX library routines for float->int conversion.  */
+	  fixdfsi_libfunc = init_one_libfunc ("__itrunc");
+	  fixunsdfsi_libfunc = init_one_libfunc ("__uitrunc");
+	}
+
+      /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
+      set_optab_libfunc (add_optab, TFmode, "_xlqadd");
+      set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
+      set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
+      set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
+    }
+  else
+    {
+      /* 32-bit SVR4 quad floating point routines.  */
+
+      set_optab_libfunc (add_optab, TFmode, "_q_add");
+      set_optab_libfunc (sub_optab, TFmode, "_q_sub");
+      set_optab_libfunc (neg_optab, TFmode, "_q_neg");
+      set_optab_libfunc (smul_optab, TFmode, "_q_mul");
+      set_optab_libfunc (sdiv_optab, TFmode, "_q_div");
+      if (TARGET_PPC_GPOPT || TARGET_POWER2)
+	set_optab_libfunc (sqrt_optab, TFmode, "_q_sqrt");
+
+      set_optab_libfunc (eq_optab, TFmode, "_q_feq");
+      set_optab_libfunc (ne_optab, TFmode, "_q_fne");
+      set_optab_libfunc (gt_optab, TFmode, "_q_fgt");
+      set_optab_libfunc (ge_optab, TFmode, "_q_fge");
+      set_optab_libfunc (lt_optab, TFmode, "_q_flt");
+      set_optab_libfunc (le_optab, TFmode, "_q_fle");
+
+      trunctfsf2_libfunc = init_one_libfunc ("_q_qtos");
+      trunctfdf2_libfunc = init_one_libfunc ("_q_qtod");
+      extendsftf2_libfunc = init_one_libfunc ("_q_stoq");
+      extenddftf2_libfunc = init_one_libfunc ("_q_dtoq");
+      floatsitf_libfunc = init_one_libfunc ("_q_itoq");
+      fixtfsi_libfunc = init_one_libfunc ("_q_qtoi");
+      fixunstfsi_libfunc = init_one_libfunc ("_q_qtou");
+    }
+}
+
 
 
 /* Expand a block move operation, and return 1 if successful.  Return 0

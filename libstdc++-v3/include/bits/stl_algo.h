@@ -609,14 +609,14 @@ namespace std
       else {
 	__first = std::find(__first, __last, __val);
 	while (__first != __last) {
-	  _Integer __n = __count - 1;
+	  typename iterator_traits<_ForwardIterator>::difference_type __n = __count;
 	  _ForwardIterator __i = __first;
 	  ++__i;
-	  while (__i != __last && __n != 0 && *__i == __val) {
+	  while (__i != __last && __n != 1 && *__i == __val) {
 	    ++__i;
 	    --__n;
 	  }
-	  if (__n == 0)
+	  if (__n == 1)
 	    return __first;
 	  else
 	    __first = std::find(__i, __last, __val);
@@ -661,14 +661,14 @@ namespace std
 	  ++__first;
 	}
 	while (__first != __last) {
-	  _Integer __n = __count - 1;
+	  typename iterator_traits<_ForwardIterator>::difference_type __n = __count;
 	  _ForwardIterator __i = __first;
 	  ++__i;
-	  while (__i != __last && __n != 0 && __binary_pred(*__i, __val)) {
+	  while (__i != __last && __n != 1 && __binary_pred(*__i, __val)) {
 	    ++__i;
 	    --__n;
 	  }
-	  if (__n == 0)
+	  if (__n == 1)
 	    return __first;
 	  else {
 	    while (__i != __last) {
@@ -1263,13 +1263,13 @@ namespace std
     _ForwardIterator
     unique(_ForwardIterator __first, _ForwardIterator __last)
     {
-	  // concept requirements
-	  __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
-	  __glibcxx_function_requires(_EqualityComparableConcept<
-		    typename iterator_traits<_ForwardIterator>::value_type>)
+      // concept requirements
+      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIterator>)
+      __glibcxx_function_requires(_EqualityComparableConcept<
+	    typename iterator_traits<_ForwardIterator>::value_type>)
 
-	  __first = std::adjacent_find(__first, __last);
-	  return std::unique_copy(__first, __last, __first);
+      __first = std::adjacent_find(__first, __last);
+      return std::unique_copy(__first, __last, __first);
     }
 
   /**
@@ -1349,10 +1349,10 @@ namespace std
     inline void
     reverse(_BidirectionalIterator __first, _BidirectionalIterator __last)
     {
-	  // concept requirements
-	  __glibcxx_function_requires(_Mutable_BidirectionalIteratorConcept<
-		    _BidirectionalIterator>)
-	  std::__reverse(__first, __last, std::__iterator_category(__first));
+      // concept requirements
+      __glibcxx_function_requires(_Mutable_BidirectionalIteratorConcept<
+		_BidirectionalIterator>)
+      std::__reverse(__first, __last, std::__iterator_category(__first));
     }
 
   /**
@@ -1612,7 +1612,7 @@ namespace std
     inline _Distance
     __random_number(_Distance __n)
     {
-  #ifdef _GLIBCXX_HAVE_DRAND48
+  #ifdef _GLIBCXX_HAVE_LRAND48
       return lrand48() % __n;
   #else
       return rand() % __n;

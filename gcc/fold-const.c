@@ -1604,41 +1604,63 @@ fold_convert (tree t, tree arg1)
 	}
       else if (TREE_CODE (arg1) == REAL_CST)
 	{
-	  /* Don't initialize these, use assignments.
-	     Initialized local aggregates don't work on old compilers.  */
-	  REAL_VALUE_TYPE x;
-	  REAL_VALUE_TYPE l;
-	  REAL_VALUE_TYPE u;
-	  tree type1 = TREE_TYPE (arg1);
-	  int no_upper_bound;
+	  /* The following code implements the floating point to integer
+	     conversion rules required by the Java Language Specification,
+	     that IEEE NaNs are mapped to zero and values that overflow
+	     the target precision saturate, i.e. values greater than
+	     INT_MAX are mapped to INT_MAX, and values less than INT_MIN
+	     are mapped to INT_MIN.  These semantics are allowed by the
+	     C and C++ standards that simply state that the behavior of
+	     FP-to-integer conversion is unspecified upon overflow.  */
 
-	  x = TREE_REAL_CST (arg1);
-	  l = real_value_from_int_cst (type1, TYPE_MIN_VALUE (type));
+	  HOST_WIDE_INT high, low;
 
-	  no_upper_bound = (TYPE_MAX_VALUE (type) == NULL);
-	  if (!no_upper_bound)
-	    u = real_value_from_int_cst (type1, TYPE_MAX_VALUE (type));
+	  REAL_VALUE_TYPE x = TREE_REAL_CST (arg1);
+	  /* If x is NaN, return zero and show we have an overflow.  */
+	  if (REAL_VALUE_ISNAN (x))
+	    {
+	      overflow = 1;
+	      high = 0;
+	      low = 0;
+	    }
 
 	  /* See if X will be in range after truncation towards 0.
 	     To compensate for truncation, move the bounds away from 0,
 	     but reject if X exactly equals the adjusted bounds.  */
-	  REAL_ARITHMETIC (l, MINUS_EXPR, l, dconst1);
-	  if (!no_upper_bound)
-	    REAL_ARITHMETIC (u, PLUS_EXPR, u, dconst1);
-	  /* If X is a NaN, use zero instead and show we have an overflow.
-	     Otherwise, range check.  */
-	  if (REAL_VALUE_ISNAN (x))
-	    overflow = 1, x = dconst0;
-	  else if (! (REAL_VALUES_LESS (l, x)
-		      && !no_upper_bound
-		      && REAL_VALUES_LESS (x, u)))
-	    overflow = 1;
 
-	  {
-	    HOST_WIDE_INT low, high;
+	  if (! overflow)
+	    {
+	      tree lt = TYPE_MIN_VALUE (type);
+	      REAL_VALUE_TYPE l = real_value_from_int_cst (NULL_TREE, lt);
+	      REAL_ARITHMETIC (l, MINUS_EXPR, l, dconst1);
+	      if (! REAL_VALUES_LESS (l, x))
+		{
+		  overflow = 1;
+		  high = TREE_INT_CST_HIGH (lt);
+		  low = TREE_INT_CST_LOW (lt);
+		}
+	    }
+
+	  if (! overflow)
+	    {
+	      tree ut = TYPE_MAX_VALUE (type);
+	      if (ut)
+		{
+		  REAL_VALUE_TYPE u = real_value_from_int_cst (NULL_TREE, ut);
+		  REAL_ARITHMETIC (u, PLUS_EXPR, u, dconst1);
+		  if (! REAL_VALUES_LESS (x, u))
+		    {
+		      overflow = 1;
+		      high = TREE_INT_CST_HIGH (ut);
+		      low = TREE_INT_CST_LOW (ut);
+		    }
+		}
+	    }
+
+	  if (! overflow)
 	    REAL_VALUE_TO_INT (&low, &high, x);
-	    t = build_int_2 (low, high);
-	  }
+
+	  t = build_int_2 (low, high);
 	  TREE_TYPE (t) = type;
 	  TREE_OVERFLOW (t)
 	    = TREE_OVERFLOW (arg1) | force_fit_type (t, overflow);
@@ -3081,10 +3103,10 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh)
 
 	      in_p = n_in_p, low = n_low, high = n_high;
 
-	      /* If the high bound is missing, but we
-		 have a low bound, reverse the range so
-		 it goes from zero to the low bound minus 1.  */
-	      if (high == 0 && low)
+	      /* If the high bound is missing, but we have a nonzero low
+		 bound, reverse the range so it goes from zero to the low bound
+		 minus 1.  */
+	      if (high == 0 && low && ! integer_zerop (low))
 		{
 		  in_p = ! in_p;
 		  high = range_binop (MINUS_EXPR, NULL_TREE, low, 0,
@@ -5012,16 +5034,6 @@ tree_swap_operands_p (tree arg0, tree arg1)
   if (TREE_CONSTANT (arg0))
     return 1;
 
-  if (DECL_P (arg1))
-    return 0;
-  if (DECL_P (arg0))
-    return 1;
-
-  if (TREE_CODE (arg1) == SAVE_EXPR)
-    return 0;
-  if (TREE_CODE (arg0) == SAVE_EXPR)
-    return 1;
-
   return 0;
 }
 
@@ -5982,6 +5994,25 @@ fold (tree expr)
 				    fold (build1 (BIT_NOT_EXPR, type,
 						  TREE_OPERAND (arg1, 1))),
 				    arg0));
+	    }
+
+	  /* Fold (A & ~B) - (A & B) into (A ^ B) - B, where B is
+	     any power of 2 minus 1.  */
+	  if (TREE_CODE (arg0) == BIT_AND_EXPR
+	      && TREE_CODE (arg1) == BIT_AND_EXPR
+	      && operand_equal_p (TREE_OPERAND (arg0, 0),
+				  TREE_OPERAND (arg1, 0), 0))
+	    {
+	      tree mask0 = TREE_OPERAND (arg0, 1);
+	      tree mask1 = TREE_OPERAND (arg1, 1);
+	      tree tem = fold (build1 (BIT_NOT_EXPR, type, mask0));
+	      
+	      if (operand_equal_p (tem, mask1, 0))
+		{
+		  tem = fold (build (BIT_XOR_EXPR, type,
+				     TREE_OPERAND (arg0, 0), mask1));
+		  return fold (build (MINUS_EXPR, type, tem, mask1));
+		}
 	    }
 	}
 

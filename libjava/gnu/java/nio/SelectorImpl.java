@@ -1,5 +1,5 @@
 /* SelectorImpl.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package gnu.java.nio;
 
+import java.io.IOException;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -44,14 +45,15 @@ import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.nio.channels.spi.AbstractSelector;
 import java.nio.channels.spi.SelectorProvider;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
 public class SelectorImpl extends AbstractSelector
 {
-  boolean closed = false;
-  Set keys, selected, canceled;
+  private Set keys;
+  private Set selected;
 
   public SelectorImpl (SelectorProvider provider)
   {
@@ -59,29 +61,42 @@ public class SelectorImpl extends AbstractSelector
     
     keys = new HashSet ();
     selected = new HashSet ();
-    canceled = new HashSet ();
   }
 
-  public Set keys ()
+  protected void finalize() throws Throwable
   {
-    return keys;
+    close();
+  }
+
+  protected final void implCloseSelector()
+    throws IOException
+  {
+    // FIXME: We surely need to do more here.
+    wakeup();
+  }
+
+  public final Set keys()
+  {
+    return Collections.unmodifiableSet (keys);
   }
     
-  public int selectNow ()
+  public final int selectNow()
+    throws IOException
   {
     return select (1);
   }
 
-  public int select ()
+  public final int select()
+    throws IOException
   {
     return select (-1);
   }
 
   // A timeout value of -1 means block forever.
-  private static native int java_do_select (int[] read, int[] write,
-                                            int[] except, long timeout);
+  private static native int implSelect (int[] read, int[] write,
+                                        int[] except, long timeout);
 
-  private int[] getFDsAsArray (int ops)
+  private final int[] getFDsAsArray (int ops)
   {
     int[] result;
     int counter = 0;
@@ -110,7 +125,7 @@ public class SelectorImpl extends AbstractSelector
 
         if ((key.interestOps () & ops) != 0)
           {
-            result[counter] = key.fd;
+            result[counter] = key.getNativeFD();
             counter++;
           }
       }
@@ -120,28 +135,26 @@ public class SelectorImpl extends AbstractSelector
 
   public int select (long timeout)
   {
-    if (closed)
-      {
-        throw new ClosedSelectorException ();
-      }
+    if (!isOpen())
+      throw new ClosedSelectorException ();
 
     if (keys == null)
 	    {
         return 0;
 	    }
 
-    int ret = 0;
-
-    deregisterCanceledKeys ();
+    deregisterCancelledKeys();
 
     // Set only keys with the needed interest ops into the arrays.
     int[] read = getFDsAsArray (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT);
     int[] write = getFDsAsArray (SelectionKey.OP_WRITE | SelectionKey.OP_CONNECT);
     int[] except = new int [0]; // FIXME: We dont need to check this yet
-
-    // Call the native select () on all file descriptors.
     int anzahl = read.length + write.length + except.length;
-    ret = java_do_select (read, write, except, timeout);
+
+    // Call the native select() on all file descriptors.
+    begin();
+    int result = implSelect (read, write, except, timeout);
+    end();
 
     Iterator it = keys.iterator ();
 
@@ -159,7 +172,7 @@ public class SelectorImpl extends AbstractSelector
         // Set new ready read/accept ops
         for (int i = 0; i < read.length; i++)
           {
-            if (key.fd == read[i])
+            if (key.getNativeFD() == read[i])
               {
                 if (key.channel () instanceof ServerSocketChannelImpl)
                   {
@@ -175,7 +188,7 @@ public class SelectorImpl extends AbstractSelector
         // Set new ready write ops
         for (int i = 0; i < write.length; i++)
           {
-            if (key.fd == write[i])
+            if (key.getNativeFD() == write[i])
               {
                 ops = ops | SelectionKey.OP_WRITE;
                 
@@ -195,45 +208,30 @@ public class SelectorImpl extends AbstractSelector
         // If key is not yet selected add it.
         if (!selected.contains (key))
           {
-            add_selected (key);
+            selected.add (key);
           }
 
         // Set new ready ops
         key.readyOps (key.interestOps () & ops);
       }
 
-    deregisterCanceledKeys ();
-    return ret;
+    deregisterCancelledKeys();
+    return result;
   }
     
-  public Set selectedKeys ()
+  public final Set selectedKeys()
   {
     return selected;
   }
 
-  public Selector wakeup ()
+  public final Selector wakeup()
   {
     return null;
   }
 
-  public void add (SelectionKeyImpl k)
+  private final void deregisterCancelledKeys()
   {
-    keys.add (k);
-  }
-
-  void add_selected (SelectionKeyImpl k)
-  {
-    selected.add (k);
-  }
-
-  protected void implCloseSelector ()
-  {
-    closed = true;
-  }
-
-  private void deregisterCanceledKeys ()
-  {
-    Iterator it = canceled.iterator ();
+    Iterator it = cancelledKeys().iterator();
 
     while (it.hasNext ())
       {
@@ -247,32 +245,32 @@ public class SelectorImpl extends AbstractSelector
     return register ((AbstractSelectableChannel) ch, ops, att);
   }
 
-  protected SelectionKey register (AbstractSelectableChannel ch, int ops,
-                                   Object att)
+  protected final SelectionKey register (AbstractSelectableChannel ch, int ops,
+                                         Object att)
   {
     SelectionKeyImpl result;
     
     if (ch instanceof SocketChannelImpl)
       {
         SocketChannelImpl sc = (SocketChannelImpl) ch;
-        result = new SelectionKeyImpl (ch, this, 0); // FIXME: last argument
+        result = new SocketChannelSelectionKey (ch, this); // FIXME: last argument
       }
     else if (ch instanceof DatagramChannelImpl)
       {
         DatagramChannelImpl dc = (DatagramChannelImpl) ch;
-        result = new SelectionKeyImpl (ch, this, 0); // FIXME: last argument
+        result = new DatagramChannelSelectionKey (ch, this); // FIXME: last argument
       }
     else if (ch instanceof ServerSocketChannelImpl)
       {
         ServerSocketChannelImpl ssc = (ServerSocketChannelImpl) ch;
-        result = new SelectionKeyImpl (ch, this, 0); // FIXME: last argument
+        result = new SocketChannelSelectionKey (ch, this); // FIXME: last argument
       }
     else
       {
         throw new InternalError ("No known channel type");
       }
 
-    add (result);
+    keys.add (result);
     result.interestOps (ops);
     result.attach (att);
     return result;

@@ -110,12 +110,12 @@ dwarf2out_do_frame (void)
 #define PTR_SIZE (POINTER_SIZE / BITS_PER_UNIT)
 #endif
 
-/* Default version of targetm.eh_frame_section.  Note this must appear
-   outside the DWARF2_DEBUGGING_INFO || DWARF2_UNWIND_INFO macro
-   guards.  */
+/* Various versions of targetm.eh_frame_section.  Note these must appear
+   outside the DWARF2_DEBUGGING_INFO || DWARF2_UNWIND_INFO macro guards.  */
 
+/* Version of targetm.eh_frame_section for systems with named sections.  */ 
 void
-default_eh_frame_section (void)
+named_section_eh_frame_section (void)
 {
 #ifdef EH_FRAME_SECTION_NAME
 #ifdef HAVE_LD_RO_RW_SECTION_MIXING
@@ -136,13 +136,29 @@ default_eh_frame_section (void)
 #else
   named_section_flags (EH_FRAME_SECTION_NAME, SECTION_WRITE);
 #endif
-#else
+#endif
+}
+
+/* Version of targetm.eh_frame_section for systems using collect2.  */ 
+void
+collect2_eh_frame_section (void)
+{
   tree label = get_file_function_name ('F');
 
   data_section ();
   ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
   (*targetm.asm_out.globalize_label) (asm_out_file, IDENTIFIER_POINTER (label));
   ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
+}
+
+/* Default version of targetm.eh_frame_section.  */
+void
+default_eh_frame_section (void)
+{
+#ifdef EH_FRAME_SECTION_NAME
+  named_section_eh_frame_section ();
+#else
+  collect2_eh_frame_section ();
 #endif
 }
 
@@ -466,10 +482,20 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 
 	emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
       }
+
+#ifdef DWARF_ALT_FRAME_RETURN_COLUMN
+  if (! wrote_return_column)
+    abort ();
+  i = DWARF_ALT_FRAME_RETURN_COLUMN;
+  wrote_return_column = false;
+#else
+  i = DWARF_FRAME_RETURN_COLUMN;
+#endif
+
   if (! wrote_return_column)
     {
       enum machine_mode save_mode = Pmode;
-      HOST_WIDE_INT offset = DWARF_FRAME_RETURN_COLUMN * GET_MODE_SIZE (mode);
+      HOST_WIDE_INT offset = i * GET_MODE_SIZE (mode);
       HOST_WIDE_INT size = GET_MODE_SIZE (save_mode);
       emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
     }
@@ -9107,24 +9133,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	    REAL_VALUE_TYPE rv;
 
 	    REAL_VALUE_FROM_CONST_DOUBLE (rv, rtl);
-	    switch (mode)
-	      {
-	      case SFmode:
-		REAL_VALUE_TO_TARGET_SINGLE (rv, array[0]);
-		break;
-
-	      case DFmode:
-		REAL_VALUE_TO_TARGET_DOUBLE (rv, array);
-		break;
-
-	      case XFmode:
-	      case TFmode:
-		REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, array);
-		break;
-
-	      default:
-		abort ();
-	      }
+	    real_to_target (array, &rv, mode);
 
 	    add_AT_float (die, DW_AT_const_value, length, array);
 	  }

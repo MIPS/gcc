@@ -126,7 +126,7 @@ static void cp_token_cache_push_token
 /* Create a new cp_token_cache.  */
 
 static cp_token_cache *
-cp_token_cache_new ()
+cp_token_cache_new (void)
 {
   return ggc_alloc_cleared (sizeof (cp_token_cache));
 }
@@ -1651,6 +1651,8 @@ static enum tag_types cp_parser_token_is_class_key
   (cp_token *);
 static void cp_parser_check_class_key
   (enum tag_types, tree type);
+static void cp_parser_check_access_in_redeclaration
+  (tree type);
 static bool cp_parser_optional_template_keyword
   (cp_parser *);
 static void cp_parser_pre_parsed_nested_name_specifier 
@@ -2995,6 +2997,10 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 			error ("`%T::%D' is not a class-name or "
 			       "namespace-name",
 			       parser->scope, token->value);
+		      else if (parser->scope == global_namespace)
+			error ("`::%D' is not a class-name or "
+			       "namespace-name",
+			       token->value);
 		      else
 			error ("`%D::%D' is not a class-name or "
 			       "namespace-name",
@@ -11832,9 +11838,8 @@ cp_parser_member_declaration (cp_parser* parser)
 		     {
 		       tree s = TREE_VALUE (specifier);
 
-		       if (TREE_CODE (s) == IDENTIFIER_NODE
-			   && IDENTIFIER_GLOBAL_VALUE (s))
-			 type = IDENTIFIER_GLOBAL_VALUE (s);
+		       if (TREE_CODE (s) == IDENTIFIER_NODE)
+                         get_global_value_if_present (s, &type);
 		       if (TREE_CODE (s) == TYPE_DECL)
 			 s = TREE_TYPE (s);
 		       if (TYPE_P (s))
@@ -11868,6 +11873,8 @@ cp_parser_member_declaration (cp_parser* parser)
 	      /* Add it to the class.  */
 	      finish_member_declaration (decl);
 	    }
+	  else
+	    cp_parser_check_access_in_redeclaration (TYPE_NAME (type));
 	}
     }
   else
@@ -13655,7 +13662,12 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       /* If this is a member template declaration, let the front
 	 end know.  */
       if (member_p && !friend_p && decl)
-	decl = finish_member_template_decl (decl);
+	{
+	  if (TREE_CODE (decl) == TYPE_DECL)
+	    cp_parser_check_access_in_redeclaration (decl);
+
+	  decl = finish_member_template_decl (decl);
+	}
       else if (friend_p && decl && TREE_CODE (decl) == TYPE_DECL)
 	make_friend_class (current_class_type, TREE_TYPE (decl),
 			   /*complain=*/true);
@@ -14263,6 +14275,23 @@ cp_parser_check_class_key (enum tag_types class_key, tree type)
 	     type);
 }
 			   
+/* Issue an error message if DECL is redeclared with differnt
+   access than its original declaration [class.access.spec/3].
+   This applies to nested classes and nested class templates.
+   [class.mem/1].  */
+
+static void cp_parser_check_access_in_redeclaration (tree decl)
+{
+  if (!CLASS_TYPE_P (TREE_TYPE (decl)))
+    return;
+
+  if ((TREE_PRIVATE (decl)
+       != (current_access_specifier == access_private_node))
+      || (TREE_PROTECTED (decl)
+	  != (current_access_specifier == access_protected_node)))
+    error ("%D redeclared with different access", decl);
+}
+
 /* Look for the `template' keyword, as a syntactic disambiguator.
    Return TRUE iff it is present, in which case it will be 
    consumed.  */

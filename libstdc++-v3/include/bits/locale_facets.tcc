@@ -51,7 +51,15 @@ namespace std
     locale::combine(const locale& __other) const
     {
       _Impl* __tmp = new _Impl(*_M_impl, 1);
-      __tmp->_M_replace_facet(__other._M_impl, &_Facet::id);
+      try
+	{
+	  __tmp->_M_replace_facet(__other._M_impl, &_Facet::id);
+	}
+      catch(...)
+	{
+	  __tmp->_M_remove_reference();
+	  __throw_exception_again;
+	}
       return locale(__tmp);
     }
 
@@ -138,7 +146,7 @@ namespace std
       // First check for sign.
       int __pos = 0;
       char_type  __c = *__beg;
-      bool __plus = __traits_type::eq(__c, __lit[_S_iplus]);
+      const bool __plus = __traits_type::eq(__c, __lit[_S_iplus]);
       if ((__plus || __traits_type::eq(__c, __lit[_S_iminus])) 
 	  && __beg != __end)
 	{
@@ -222,7 +230,7 @@ namespace std
 	      __c = *(++__beg);
 
 	      // Remove optional plus or minus sign, if they exist.
-	      bool __plus = __traits_type::eq(__c, __lit[_S_iplus]);
+	      const bool __plus = __traits_type::eq(__c, __lit[_S_iplus]);
 	      if (__plus || __traits_type::eq(__c, __lit[_S_iminus]))
 		{
 		  ++__pos;
@@ -424,7 +432,7 @@ namespace std
 
 	  unsigned long __ul; 
 	  std::__convert_to_v(__xtrc.c_str(), __ul, __err, 
-			      _S_c_locale, __base);
+			      _S_get_c_locale(), __base);
 	  if (!(__err & ios_base::failbit) && __ul <= 1)
 	    __v = __ul;
 	  else 
@@ -445,7 +453,8 @@ namespace std
 	  bool __testt = false;
           for (size_t __n = 0; __beg != __end; ++__n)
             {
-              char_type __c = *__beg++;
+              const char_type __c = *__beg;
+	      ++__beg;
 
 	      if (__n <= __fn)
 		__testf = __traits_type::eq(__c, __lc->_M_falsename[__n]);
@@ -485,7 +494,8 @@ namespace std
       string __xtrc;
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err,
+			  _S_get_c_locale(), __base);
       return __beg;
     }
 
@@ -499,7 +509,8 @@ namespace std
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       unsigned long __ul;
-      std::__convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __ul, __err,
+			  _S_get_c_locale(), __base);
       if (!(__err & ios_base::failbit) 
 	  && __ul <= numeric_limits<unsigned short>::max())
 	__v = static_cast<unsigned short>(__ul);
@@ -518,7 +529,8 @@ namespace std
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
       unsigned long __ul;
-      std::__convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __ul, __err,
+			  _S_get_c_locale(), __base);
       if (!(__err & ios_base::failbit) 
 	  && __ul <= numeric_limits<unsigned int>::max())
 	__v = static_cast<unsigned int>(__ul);
@@ -536,7 +548,8 @@ namespace std
       string __xtrc;
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err,
+			  _S_get_c_locale(), __base);
       return __beg;
     }
 
@@ -550,7 +563,8 @@ namespace std
       string __xtrc;
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err,
+			  _S_get_c_locale(), __base);
       return __beg;
     }
 
@@ -563,7 +577,8 @@ namespace std
       string __xtrc;
       int __base;
       __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err,
+			  _S_get_c_locale(), __base);
       return __beg;
     }
 #endif
@@ -577,7 +592,8 @@ namespace std
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err,
+			  _S_get_c_locale());
       return __beg;
     }
 
@@ -590,7 +606,7 @@ namespace std
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_get_c_locale());
       return __beg;
     }
 
@@ -603,7 +619,7 @@ namespace std
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
-      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_get_c_locale());
       return __beg;
     }
 
@@ -628,7 +644,8 @@ namespace std
       __io.flags(__fmt);
 
       unsigned long __ul;
-      std::__convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      std::__convert_to_v(__xtrc.c_str(), __ul, __err,
+			  _S_get_c_locale(), __base);
       if (!(__err & ios_base::failbit))
 	__v = reinterpret_cast<void*>(__ul);
       else 
@@ -722,7 +739,7 @@ namespace std
 	  else if (__flags & ios_base::showpos)
 	    *__buf-- = __lit[__num_base::_S_oplus];
 	}
-	else if (__basefield == ios_base::oct)
+      else if (__basefield == ios_base::oct)
 	{
 	  // Octal.
 	  do 
@@ -776,13 +793,13 @@ namespace std
 	if (__basefield == ios_base::oct)
 	  {
 	    __off = 1;
-	    *__new = *__cs;
+	    __new[0] = __cs[0];
 	  }
 	else if (__basefield == ios_base::hex)
 	  {
 	    __off = 2;
-	    *__new = *__cs;
-	    *(__new + 1) = *(__cs + 1);
+	    __new[0] = __cs[0];
+	    __new[1] = __cs[1];
 	  }
       _CharT* __p;
       __p = std::__add_grouping(__new + __off, __sep, __grouping.c_str(), 
@@ -921,7 +938,7 @@ namespace std
 
 	_S_format_float(__io, __fbuf, __mod);
 	__len = std::__convert_from_v(__cs, __cs_size, __fbuf, __v,
-				      _S_c_locale, __prec);
+				      _S_get_c_locale(), __prec);
 
 	// If the buffer was not large enough, try again with the correct size.
 	if (__len >= __cs_size)
@@ -929,7 +946,7 @@ namespace std
 	    __cs_size = __len + 1; 
 	    __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 	    __len = std::__convert_from_v(__cs, __cs_size, __fbuf, __v,
-					  _S_c_locale, __prec);
+					  _S_get_c_locale(), __prec);
 	  }
 #else
 	// Consider the possibility of long ios_base::fixed outputs
@@ -948,7 +965,7 @@ namespace std
 
 	_S_format_float(__io, __fbuf, __mod);
 	__len = std::__convert_from_v(__cs, 0, __fbuf, __v, 
-				      _S_c_locale, __prec);
+				      _S_get_c_locale(), __prec);
 #endif
 
       // [22.2.2.2.2] Stage 2, convert to char_type, using correct
@@ -970,13 +987,13 @@ namespace std
       _CharT* __ws2;
       if (__lc->_M_use_grouping)
 	{
-	    // Grouping can add (almost) as many separators as the
-	    // number of digits, but no more.
-	    __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
-							  * __len * 2));
-	    _M_group_float(__lc->_M_grouping, __lc->_M_thousands_sep, __p,
-			   __ws2, __ws, __len);
-	    __ws = __ws2;
+	  // Grouping can add (almost) as many separators as the
+	  // number of digits, but no more.
+	  __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							* __len * 2));
+	  _M_group_float(__lc->_M_grouping, __lc->_M_thousands_sep, __p,
+			 __ws2, __ws, __len);
+	  __ws = __ws2;
 	}
 
       // Pad.
@@ -1014,10 +1031,7 @@ namespace std
 	  const __cache_type* __lc = __uc(__loc);
 
 	  const _CharT* __name;
-          if (__v)
-	    __name = __lc->_M_truename;
-          else
-	    __name = __lc->_M_falsename;
+	  __name = __v ? __lc->_M_truename : __lc->_M_falsename;
 	  int __len = char_traits<_CharT>::length(__name);
 
 	  _CharT* __cs;
@@ -1116,7 +1130,7 @@ namespace std
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
       const _CharT* __wcs = __str.c_str();
       __ctype.narrow(__wcs, __wcs + __str.size() + 1, char(), __cs);      
-      std::__convert_to_v(__cs, __units, __err, _S_c_locale);
+      std::__convert_to_v(__cs, __units, __err, _S_get_c_locale());
       return __beg;
     }
 
@@ -1341,14 +1355,14 @@ namespace std
       int __cs_size = 64;
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
       int __len = std::__convert_from_v(__cs, __cs_size, "%.01Lf", __units, 
-					_S_c_locale);
+					_S_get_c_locale());
       // If the buffer was not large enough, try again with the correct size.
       if (__len >= __cs_size)
 	{
 	  __cs_size = __len + 1;
 	  __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 	  __len = std::__convert_from_v(__cs, __cs_size, "%.01Lf", __units, 
-					_S_c_locale);
+					_S_get_c_locale());
 	}
 #else
       // max_exponent10 + 1 for the integer part, + 4 for sign, decimal point,
@@ -1356,7 +1370,7 @@ namespace std
       const int __cs_size = numeric_limits<long double>::max_exponent10 + 5;
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
       int __len = std::__convert_from_v(__cs, 0, "%.01Lf", __units, 
-					_S_c_locale);
+					_S_get_c_locale());
 #endif
       _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							   * __cs_size));
@@ -1796,8 +1810,8 @@ namespace std
 	  // Find smallest matching string.
 	  size_t __minlen = 10;
 	  for (size_t __i2 = 0; __i2 < __nmatches; ++__i2)
-	    __minlen = min(__minlen, 
-			   __traits_type::length(__names[__matches[__i2]]));
+	    __minlen = std::min(__minlen, 
+				__traits_type::length(__names[__matches[__i2]]));
 	  
 	  if (__pos < __minlen && __beg != __end)
 	    {
@@ -1975,7 +1989,8 @@ namespace std
       if (__i == 2 || __i == 4)
 	{
 	  long __l;
-	  std::__convert_to_v(__digits.c_str(), __l, __err, _S_c_locale);
+	  std::__convert_to_v(__digits.c_str(), __l, __err,
+			      _S_get_c_locale());
 	  if (!(__err & ios_base::failbit) && __l <= INT_MAX)
 	    {
 	      __l = __i == 2 ? __l : __l - 1900; 
@@ -1992,21 +2007,20 @@ namespace std
   template<typename _CharT, typename _OutIter>
     _OutIter
     time_put<_CharT, _OutIter>::
-    put(iter_type __s, ios_base& __io, char_type, const tm* __tm, 
+    put(iter_type __s, ios_base& __io, char_type __fill, const tm* __tm, 
 	const _CharT* __beg, const _CharT* __end) const
     {
       locale __loc = __io.getloc();
       ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
       while (__beg != __end)
 	{
-	  char __c = __ctype.narrow(*__beg, 0);
+	  const _CharT __tmp = *__beg;
 	  ++__beg;
-	  if (__c == '%')
+	  if (__ctype.narrow(__tmp, 0) == '%' && __beg != __end)
 	    {
 	      char __format;
 	      char __mod = 0;
-	      size_t __len = 1; 
-	      __c = __ctype.narrow(*__beg, 0);
+	      const char __c = __ctype.narrow(*__beg, 0);
 	      ++__beg;
 	      if (__c == 'E' || __c == 'O')
 		{
@@ -2016,11 +2030,11 @@ namespace std
 		}
 	      else
 		__format = __c;
-	      __s = this->do_put(__s, __io, _CharT(), __tm, __format, __mod);
+	      __s = this->do_put(__s, __io, __fill, __tm, __format, __mod);
 	    }
 	  else
 	    {
-	      *__s = __c;
+	      *__s = __tmp;
 	      ++__s;
 	    }
 	}
@@ -2220,38 +2234,30 @@ namespace std
 	  const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
 	  const _CharT __minus = __ctype.widen('-');
 	  const _CharT __plus = __ctype.widen('+');
-	  bool __testsign = _Traits::eq(__olds[0], __minus)
-	    		    || _Traits::eq(__olds[0], __plus);
+	  const bool __testsign = _Traits::eq(__olds[0], __minus)
+	                          || _Traits::eq(__olds[0], __plus);
 
-	  bool __testhex = _Traits::eq(__ctype.widen('0'), __olds[0]) 
-	    		   && (_Traits::eq(__ctype.widen('x'), __olds[1]) 
-			       || _Traits::eq(__ctype.widen('X'), __olds[1]));
+	  const bool __testhex = _Traits::eq(__ctype.widen('0'), __olds[0]) 
+	                         && (_Traits::eq(__ctype.widen('x'), __olds[1]) 
+				     || _Traits::eq(__ctype.widen('X'), __olds[1]));
 	  if (__testhex)
 	    {
 	      __news[0] = __olds[0]; 
 	      __news[1] = __olds[1];
-	      __mod += 2;
+	      __mod = 2;
 	      __news += 2;
-	      __beg = __pads;
-	      __beglen = __plen;
-	      __end = const_cast<_CharT*>(__olds + __mod);
 	    }
 	  else if (__testsign)
 	    {
 	      __news[0] = __olds[0];
-	      ++__mod;
+	      __mod = 1;
 	      ++__news;
-	      __beg = __pads;
-	      __beglen = __plen;
-	      __end = const_cast<_CharT*>(__olds + __mod);
 	    }
-	  else
-	    {
-	      // Padding first.
-	      __beg = __pads;
-	      __beglen = __plen;
-	      __end = const_cast<_CharT*>(__olds);
-	    }
+	  // else Padding first.
+	  
+	  __beg = __pads;
+	  __beglen = __plen;
+	  __end = const_cast<_CharT*>(__olds + __mod);
 	}
       else
 	{

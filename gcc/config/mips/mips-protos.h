@@ -6,20 +6,20 @@
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
    Brendan Eich (brendan@microunity.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -61,7 +61,7 @@ extern rtx mips_subword (rtx, int);
 extern bool mips_split_64bit_move_p (rtx, rtx);
 extern void mips_split_64bit_move (rtx, rtx);
 extern const char *mips_output_move (rtx, rtx);
-extern const char *mips_restore_gp (rtx *);
+extern rtx mips_gp_save_slot (void);
 #ifdef RTX_CODE
 extern rtx gen_int_relational (enum rtx_code, rtx, rtx, rtx, int *);
 extern void gen_conditional_branch (rtx *, enum rtx_code);
@@ -128,7 +128,6 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   rtx, int);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
 extern bool mips_valid_pointer_mode (enum machine_mode);
-extern struct rtx_def *mips16_gp_pseudo_reg (void);
 extern int build_mips16_call_stub (rtx, rtx, rtx, int);
 extern int mips_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);

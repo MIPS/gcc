@@ -1,3 +1,16 @@
+2003-10-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ltconfig (sys_lib_search_path_spec): Fix a typo for HPUX.
+
+2003-09-30  Carlo Wood  <carlo@alinoe.com>
+
+       * MAINTAINERS (Write After Approval): Add myself.
+
+2003-09-29  Paul Koning  <ni1d@arrl.net>
+
+	* MAINTAINERS: Move myself from "Write After Approval"
+	to CPU platform maintainers for pdp11 platform.
+
 2003-09-23  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* MAINTAINERS: Move myself from 'Write After Approval' to

@@ -1901,7 +1901,9 @@ gnu/java/math/MPN.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/nio/DatagramChannelImpl.java \
+gnu/java/nio/DatagramChannelSelectionKey.java \
 gnu/java/nio/FileLockImpl.java \
+gnu/java/nio/NIOConstants.java \
 gnu/java/nio/NIODatagramSocket.java \
 gnu/java/nio/NIOSocket.java \
 gnu/java/nio/PipeImpl.java \
@@ -1910,6 +1912,7 @@ gnu/java/nio/SelectorImpl.java \
 gnu/java/nio/SelectorProviderImpl.java \
 gnu/java/nio/ServerSocketChannelImpl.java \
 gnu/java/nio/SocketChannelImpl.java \
+gnu/java/nio/SocketChannelSelectionKey.java \
 gnu/java/nio/charset/ISO_8859_1.java \
 gnu/java/nio/charset/Provider.java \
 gnu/java/nio/charset/US_ASCII.java \
@@ -2024,6 +2027,7 @@ java/nio/Buffer.java \
 java/nio/BufferOverflowException.java \
 java/nio/BufferUnderflowException.java \
 java/nio/ByteBuffer.java \
+java/nio/ByteBufferHelper.java \
 java/nio/ByteBufferImpl.java \
 java/nio/ByteOrder.java \
 java/nio/CharBuffer.java \
@@ -3024,13 +3028,15 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/net/natPlainDatagramSocketImpl.P \
 .deps/gnu/java/net/natPlainSocketImpl.P \
 .deps/gnu/java/nio/DatagramChannelImpl.P \
-.deps/gnu/java/nio/FileLockImpl.P \
+.deps/gnu/java/nio/DatagramChannelSelectionKey.P \
+.deps/gnu/java/nio/FileLockImpl.P .deps/gnu/java/nio/NIOConstants.P \
 .deps/gnu/java/nio/NIODatagramSocket.P .deps/gnu/java/nio/NIOSocket.P \
 .deps/gnu/java/nio/PipeImpl.P .deps/gnu/java/nio/SelectionKeyImpl.P \
 .deps/gnu/java/nio/SelectorImpl.P \
 .deps/gnu/java/nio/SelectorProviderImpl.P \
 .deps/gnu/java/nio/ServerSocketChannelImpl.P \
 .deps/gnu/java/nio/SocketChannelImpl.P \
+.deps/gnu/java/nio/SocketChannelSelectionKey.P \
 .deps/gnu/java/nio/charset/ISO_8859_1.P \
 .deps/gnu/java/nio/charset/Provider.P \
 .deps/gnu/java/nio/charset/US_ASCII.P \
@@ -3545,9 +3551,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/net/natInetAddress.P .deps/java/net/natNetworkInterface.P \
 .deps/java/nio/Buffer.P .deps/java/nio/BufferOverflowException.P \
 .deps/java/nio/BufferUnderflowException.P .deps/java/nio/ByteBuffer.P \
-.deps/java/nio/ByteBufferImpl.P .deps/java/nio/ByteOrder.P \
-.deps/java/nio/CharBuffer.P .deps/java/nio/CharBufferImpl.P \
-.deps/java/nio/CharViewBufferImpl.P \
+.deps/java/nio/ByteBufferHelper.P .deps/java/nio/ByteBufferImpl.P \
+.deps/java/nio/ByteOrder.P .deps/java/nio/CharBuffer.P \
+.deps/java/nio/CharBufferImpl.P .deps/java/nio/CharViewBufferImpl.P \
 .deps/java/nio/DirectByteBufferImpl.P .deps/java/nio/DoubleBuffer.P \
 .deps/java/nio/DoubleBufferImpl.P .deps/java/nio/DoubleViewBufferImpl.P \
 .deps/java/nio/FloatBuffer.P .deps/java/nio/FloatBufferImpl.P \

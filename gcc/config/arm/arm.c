@@ -401,16 +401,16 @@ static const struct processors all_cores[] =
   {"arm700",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm700i",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm710",	             FL_MODE26 | FL_MODE32 },
-  {"arm710t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
   {"arm720",	             FL_MODE26 | FL_MODE32 },
-  {"arm720t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
-  {"arm740t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
   {"arm710c",	             FL_MODE26 | FL_MODE32 },
   {"arm7100",	             FL_MODE26 | FL_MODE32 },
   {"arm7500",	             FL_MODE26 | FL_MODE32 },
   /* Doesn't have an external co-proc, but does have embedded fpa.  */
   {"arm7500fe",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm7tdmi",	FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  {"arm710t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  {"arm720t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  {"arm740t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
   {"arm8",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
   {"arm810",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
   {"arm9",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
@@ -2497,7 +2497,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if ((GET_CODE (orig) == LABEL_REF
 	   || (GET_CODE (orig) == SYMBOL_REF && 
-	       ENCODED_SHORT_CALL_ATTR_P (XSTR (orig, 0))))
+	       SYMBOL_REF_LOCAL_P (orig)))
 	  && NEED_GOT_RELOC)
 	pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
       else
@@ -9677,7 +9677,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	{
 	  if (GET_CODE (x) == SYMBOL_REF
 	      && (CONSTANT_POOL_ADDRESS_P (x)
-		  || ENCODED_SHORT_CALL_ATTR_P (XSTR (x, 0))))
+		  || SYMBOL_REF_LOCAL_P (x)))
 	    fputs ("(GOTOFF)", asm_out_file);
 	  else if (GET_CODE (x) == LABEL_REF)
 	    fputs ("(GOTOFF)", asm_out_file);

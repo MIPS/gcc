@@ -68,7 +68,6 @@ static GTY(())  struct cgraph_varpool_node *cgraph_varpool_nodes;
 
 static struct cgraph_edge *create_edge (struct cgraph_node *,
 					struct cgraph_node *);
-static void cgraph_remove_edge (struct cgraph_node *, struct cgraph_node *);
 static hashval_t hash_node (const void *);
 static int eq_node (const void *, const void *);
 
@@ -107,7 +106,7 @@ cgraph_node (tree decl)
   slot = (struct cgraph_node **)
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
 			      IDENTIFIER_HASH_VALUE
-			        (DECL_ASSEMBLER_NAME (decl)), 1);
+			        (DECL_ASSEMBLER_NAME (decl)), INSERT);
   if (*slot)
     return *slot;
   node = ggc_alloc_cleared (sizeof (*node));
@@ -143,7 +142,7 @@ cgraph_node_for_identifier (tree id)
 
   slot = (struct cgraph_node **)
     htab_find_slot_with_hash (cgraph_hash, id,
-			      IDENTIFIER_HASH_VALUE (id), 0);
+			      IDENTIFIER_HASH_VALUE (id), NO_INSERT);
   if (!slot)
     return NULL;
   return *slot;
@@ -180,7 +179,7 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
 
 /* Remove the edge from CALLER to CALLEE in the cgraph.  */
 
-static void
+void
 cgraph_remove_edge (struct cgraph_node *caller, struct cgraph_node *callee)
 {
   struct cgraph_edge **edge, **edge2;
@@ -229,7 +228,7 @@ cgraph_remove_node (struct cgraph_node *node)
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-						     (node->decl)), 1);
+						     (node->decl)), NO_INSERT);
   htab_clear_slot (cgraph_hash, slot);
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
@@ -351,13 +350,15 @@ dump_cgraph (FILE *f)
 {
   struct cgraph_node *node;
 
-  fprintf (f, "\nCallgraph:\n\n");
+  fprintf (f, "callgraph:\n\n");
   for (node = cgraph_nodes; node; node = node->next)
     {
       struct cgraph_edge *edge;
-      fprintf (f, "%s", cgraph_node_name (node));
+      fprintf (f, "%s:", cgraph_node_name (node));
       if (node->local.self_insns)
         fprintf (f, " %i insns", node->local.self_insns);
+      if (node->global.insns && node->global.insns != node->local.self_insns)
+	fprintf (f, " (%i after inlining)", node->global.insns);
       if (node->origin)
 	fprintf (f, " nested in: %s", cgraph_node_name (node->origin));
       if (node->needed)
@@ -367,12 +368,12 @@ dump_cgraph (FILE *f)
       if (DECL_SAVED_TREE (node->decl))
 	fprintf (f, " tree");
 
+      if (node->local.local)
+	fprintf (f, " local");
       if (node->local.disregard_inline_limits)
 	fprintf (f, " always_inline");
       else if (node->local.inlinable)
 	fprintf (f, " inlinable");
-      if (node->global.insns && node->global.insns != node->local.self_insns)
-	fprintf (f, " %i insns after inlining", node->global.insns);
       if (node->global.cloned_times > 1)
 	fprintf (f, " cloned %ix", node->global.cloned_times);
 
@@ -432,7 +433,7 @@ cgraph_varpool_node (tree decl)
   slot = (struct cgraph_varpool_node **)
     htab_find_slot_with_hash (cgraph_varpool_hash, DECL_ASSEMBLER_NAME (decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME (decl)),
-			      1);
+			      INSERT);
   if (*slot)
     return *slot;
   node = ggc_alloc_cleared (sizeof (*node));
@@ -457,7 +458,7 @@ cgraph_varpool_node_for_identifier (tree id)
 
   slot = (struct cgraph_varpool_node **)
     htab_find_slot_with_hash (cgraph_varpool_hash, id,
-			      IDENTIFIER_HASH_VALUE (id), 0);
+			      IDENTIFIER_HASH_VALUE (id), NO_INSERT);
   if (!slot)
     return NULL;
   return *slot;

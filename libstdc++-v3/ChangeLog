@@ -1,3 +1,303 @@
+2003-10-05  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/locale_facets.tcc
+	(num_put::do_put(..., bool)): Prefer ?: to if-else.
+	(time_get::_M_extract_name): Qualify min with std::.
+	(__pad<>::_S_pad): Constify two variables; simplify an
+	if-else statement factoring out some code.
+
+	* include/bits/locale_facets.tcc: Minor cosmetic changes.
+
+2003-10-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float):
+	Constify a couple of variables.
+	(num_get::do_get(..., bool&)): Constify __c; prefer *__beg,
+	++__beg to *__beg++.
+
+2003-10-04  Paolo Carlini  <pcarlini@unitus.it>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	* include/ext/stdio_sync_filebuf.h: Don't include the whole
+	<fstream>, only <streambuf> and <cstdio>.
+
+2003-10-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12206
+	* include/bits/fstream.tcc (imbue): In case a codecvt facet
+	is not available, set _M_codecvt = 0.
+	* testsuite/27_io/basic_filebuf/imbue/12206.cc: New.
+
+2003-10-02  Harald Boehme  <boehme@informatik.hu-berlin.de>
+
+	PR libstdc++/12451
+	* libsupc++/cxxabi.h: Move forward declaration of __class_type_info.
+	
+2003-10-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_classes.h (locale::facet::_S_get_c_name): Add.
+	* src/locale.cc: Define.
+	* src/localename.cc: Use it.
+	* config/locale/generic/time_members.h: Same.
+	* config/locale/gnu/messages_members.h: Same.
+	* config/locale/gnu/time_members.h: Same.
+
+2003-10-02  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12232
+	* include/bits/fstream.tcc (seekoff): Ignore the openmode
+	argument; simplify.
+	* config/io/basic_file_stdio.h (__basic_file<char>::seekoff,
+	seekpos): Remove the openmode argument.
+	* config/io/basic_file_stdio.cc (__basic_file<char>::seekoff,
+	seekpos): Remove redundant placeholder for the openmode argument.
+	* testsuite/27_io/basic_filebuf/seekoff/char/12232.cc: New.
+	* testsuite/27_io/basic_filebuf/seekoff/char/3-in.cc: Tweak.
+	* testsuite/27_io/basic_filebuf/seekoff/char/3-out.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/char/3-in.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/char/3-out.cc: Likewise.
+
+2003-10-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/locale.cc (locale::_S_initialize): Use __gthread_active_p.
+	(locale::facet::_S_get_c_locale): Same.
+	
+2003-10-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Export _S_get_c_locale instead of
+	_S_c_locale object.
+
+2003-10-02  Petur Runolfsson  <peturr02@ru.is>
+
+	* config/locale/generic/c_locale.cc
+	(category_names, locale::_S_categories): Const qualify.
+	* config/locale/gnu/c_locale.cc: Same.
+	* config/locale/generic/time_members.h (__timepunct::__timepunct):
+	Copy string contents before assigning to _M_name_timepunct,
+	qualify strcpy and strlen with std::.
+	* config/locale/gnu/time_members.h: Same.
+	* config/locale/gnu/messages_members.h (messages::messages):
+	Copy string contents before assigning to _M_name_messages,
+	qualify strcpy and strlen with std::.
+	* config/os/gnu-linux/ctype_noninline.h
+	(ctype<char>::classic_table()): Don't call locale::classic().
+	* include/bits/locale_classes.h
+	(locale::_S_categories): Const qualify.	
+	(locale::_S_once, locale::_S_initialize_once,
+	locale::facet::_S_once, locale::facet::_S_initialize_once,
+	locale::facet::_S_get_c_locale): Declare.
+	(locale::_S_initialize): Don't define.
+	(locale::facet::_S_c_locale): Make private.
+	(locale::facet::_S_c_name): Same, const qualify.
+	(locale::_Impl::_Impl(facet**, size_t, bool)): Drop unused
+	parameters, add throw() specifier.
+	* include/bits/locale_facets.h (__timepunct::_M_name_timepunct,
+	messages::_M_name_messages): Const qualify.
+	* src/locale.cc
+	(locale::_S_once, locale::facet::_S_once): Define.
+	(locale::classic): Move initialization code...
+	(locale::_S_initialize_once): ...here.	
+	(locale::_S_initialize): Call _S_initialize_once through
+	__gthread_once.
+	(locale::facet::_S_initialize_once): Initialize _S_c_locale.
+	(locale::facet::_S_get_c_locale): Call _S_initialize_once through
+	__gthread_once before returning _S_c_locale.
+	* src/localename.cc (locale::_Impl::_Impl(facet**, size_t, bool)):
+	Drop unused parameters, add throw() specifier, don't initialize
+	locale::facet::_S_c_locale and _S_c_name.
+	
+	* config/locale/generic/messages_members.h:
+	Replace _S_c_locale with _S_get_c_locale().
+	* config/locale/gnu/c_locale.cc: Same.
+	* config/locale/gnu/messages_members.h: Same.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* config/locale/gnu/time_members.cc: Same.
+	* config/os/gnu-linux/ctype_noninline.h: Same.
+	* include/bits/locale_facets.h: Same.
+	* include/bits/locale_facets.tcc: Same.
+	* src/codecvt.cc: Same.
+	* src/ctype.cc: Same.
+
+2003-10-02  Carlo Wood  <carlo@alinoe.com>
+
+	* include/bits/demangle.h (demangle<Allocator>::symbol(char const*)):
+	Decode symbols that start with _GLOBAL_[ID]_ differently: the
+	trailing part ends with a terminating zero and is not necessarily an
+	encoding.
+	* src/demangle.cc (): Same.
+	* testsuite/demangle/regression/cw-13.cc: Adjust for new output.
+
+2003-10-02  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/locale/cons/12438.cc: Use
+	__gnu_test::try_named_locale("").
+
+2003-10-01  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* linkage.m4 (GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_0): Define.
+	(GLIBCXX_CHECK_STDLIB_SUPPORT): Use it to test for lrand48
+	instead of drand48.
+	* acconfig.h (HAVE_DRAND48): Renamed to HAVE_LRAND48.
+	* crossconfig.m4 (*-freebsd*): Define HAVE_LRAND48 instead of
+	HAVE_DRAND48.
+	* config.h.in, configure: Regenerate.
+	* include/bits/stl_algo.h: Use _GLIBCXX_HAVE_LRAND48 to guard
+	lrand48 use.
+
+2003-10-01  Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/locale_facets.tcc (time_put::put): Avoid
+	expensive *__s++, in favor of *__s, ++__s.
+
+2003-10-01  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/locale_facets.tcc (time_put::put): Minor
+	tweak to the previous commit.
+
+2003-10-01  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12439
+	* include/bits/locale_facets.tcc (time_put::put): Deal
+	with the three issues pointed out by the PR.
+	* testsuite/22_locale/time_put/put/char/12439_1.cc: New.
+	* testsuite/22_locale/time_put/put/char/12439_3.cc: New.
+	* testsuite/22_locale/time_put/put/wchar_t/12439_1.cc: New.
+	* testsuite/22_locale/time_put/put/wchar_t/12439_2.cc: New.
+	* testsuite/22_locale/time_put/put/wchar_t/12439_3.cc: New.
+
+2003-09-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/stl_algo.h: Minor cosmetic reformattings.
+
+2003-09-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/stl_algo.h (search_n): Tweak, to spare the
+	first --__n.
+
+2003-09-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/locale/cons/12352.cc: Explicitly
+	qualify exception name.
+
+2003-09-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12438
+	* include/bits/locale_facets.tcc (locale::combine): Don't
+	leak memory if _M_replace_facet throws.
+	* testsuite/22_locale/locale/cons/12438.cc: New, from the PR.
+
+	* include/bits/locale_classes.h (locale::locale(const locale&,
+	_Facet*)): Tweak, use consistently _M_remove_reference.
+
+2003-09-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12352 (cont)
+	* src/localename.cc (locale::_Impl::_Impl(const char*, size_t)):
+	Don't leak __cloc; don't leak if any of the _M_init_facet(...)
+	calls fail.
+	(locale::_Impl::_Impl(const _Impl&, size_t)): Tweak.
+	(locale::_Impl::~_Impl): Don't do anything if !_M_facets,
+	!_M_caches, !_M_names.
+
+2003-09-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.host: Handle Solaris 2.5 micro releases explicitly.
+	Remove wildcards from Solaris 2.6, 7-9: there were no
+	micro releases.
+	Treat Solaris 10 and up like 7-9.
+
+2003-09-29  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/stl_algo.h (search_n): Improve the previous
+	fix as suggested by Martin.
+
+2003-09-29  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12296
+	* include/bits/istream.tcc (peek): Set eofbit if sgetc
+	returns eof.
+	* testsuite/27_io/basic_istream/peek/char/12296.cc:
+	New, from the PR.
+
+2003-09-29  Nathan Myers  <ncm@cantrip.org>
+	    Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/11400
+	* include/bits/stl_algo.h (search_n):
+	Use iterator_traits<>::difference_type for __n.
+	* testsuite/25_algorithms/search_n/11400.cc: New, from the PR.
+
+2003-09-29  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/locale/cons/12352.cc:
+	Use __attribute__((unused)) for test.
+
+2003-09-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* testsuite/22_locale/time_put/put/char/2.cc (test_02): Allow either 
+	"Son" or "So" as abbreviated name for Sunday in de_DE locale.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc (test_02): Likewise.
+
+2003-09-26  Brad Spencer  <spencer@infointeractive.com>
+
+	* testsuite/27_io/basic_filebuf/cons/wchar_t/10132-1.cc:
+	Explicitly qualify exceptions.
+	* testsuite/27_io/basic_istream/sentry/char/3983-fstream.cc: Same.
+	* testsuite/27_io/basic_istream/sentry/char/3983-sstream.cc: Same.
+	* testsuite/27_io/basic_ostream/sentry/char/3983-fstream.cc: Same.
+	* testsuite/27_io/basic_ostream/sentry/char/3983-sstream.cc: Same.
+	
+2003-09-25  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/12352
+	* src/localename.cc (locale::_Impl::_Impl(const _Impl&,
+	size_t)): Don't leak if memory allocations for _M_facets,
+	_M_caches, and _M_names fail.
+	(locale::_Impl::_Impl(const char*, size_t)): Ditto.
+	(locale::_Impl::_M_replace_categories(const _Impl*,
+	category)): Ditto.
+	(locale::_Impl::_M_install_facet(const locale::id*,
+	const facet*)): Ditto.
+	* include/bits/locale_classes.h (locale::locale(const locale&,
+	_Facet*)): Don't leak memory.
+	* testsuite/22_locale/locale/cons/12352.cc: New, from the PR.
+
+	* src/localename.cc (locale::_Impl::_Impl(facet**, size_t,
+	bool)): Qualify with std:: strcpy, tweak.
+	* include/bits/locale_classes.h
+	(locale::_Impl::_M_check_same_name): Qualify strcmp.
+
+2003-09-25  Brad Spencer  <spencer@infointeractive.com>
+
+	PR libstdc++/6072
+	* acinclude.m4: Split out checks for vfwscanf, vswscanf, vwscanf,
+	wcstof, iswblank.	
+	* aclocal.m4: Regenerate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* crossconfig.m4: Add in wchar_t bits for solaris crosses.
+	* config/io/basic_file_stdio.cc: Guard unistd.h.
+	* include/c_compatibility/wchar.h: Guard extra wchar_t functionality.
+	* include/c_std/std_cwchar.h: Same.
+	* include/c_std/std_cwctype.h: Same.
+	
+2003-09-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/11065
+	* config/locale/gnu/ctype_members.cc (ctype<wchar_t>::do_is): Fix.
+	* config/locale/generic/ctype_members.cc: Same.
+	* testsuite/22_locale/ctype/is/char/1.cc: Initialize mask.
+	* testsuite/22_locale/ctype/is/wchar_t/1.cc: Same.
+
+	* config/os/generic/ctype_inline.h: Update.
+	
+2003-09-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* src/Makefile.am (version_dep): New variable.
+	(libstdc___la_DEPENDENCIES): Use it to add dependency on
+	libstdc++-symbol.ver only when using symbol versioning.
+	* src/Makefile.in: Regenerate.
+
 2003-09-23  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/bits/locale_facets.tcc: Tweak to avoid warnings.

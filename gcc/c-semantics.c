@@ -740,8 +740,7 @@ genrtl_asm_stmt (int volatile_p, tree string, tree output_operands,
     expand_asm (string, volatile_p);
   else
     c_expand_asm_operands (string, output_operands, input_operands, 
-			   clobbers, volatile_p,
-			   input_filename, input_line);
+			   clobbers, volatile_p, input_location);
 }
 
 /* Generate the RTL for a CLEANUP_STMT.  */

@@ -3499,6 +3499,17 @@ emit_move_insn_1 (rtx x, rtx y)
       return emit_insn (GEN_FCN (insn_code) (x, y));
     }
 
+  /* Try using a move pattern for the corresponding integer mode.  This is
+     only safe when simplify_subreg can convert MODE constants into integer
+     constants.  At present, it can only do this reliably if the value
+     fits within a HOST_WIDE_INT.  */
+  else if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
+	   && (submode = int_mode_for_mode (mode)) != BLKmode
+	   && mov_optab->handlers[submode].insn_code != CODE_FOR_nothing)
+    return emit_insn (GEN_FCN (mov_optab->handlers[submode].insn_code)
+		      (simplify_gen_subreg (submode, x, mode, 0),
+		       simplify_gen_subreg (submode, y, mode, 0)));
+
   /* This will handle any multi-word or full-word mode that lacks a move_insn
      pattern.  However, you will get better code if you define such patterns,
      even if they must turn into multiple assembler instructions.  */
@@ -6550,6 +6561,10 @@ expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
     }
   else
     {
+      /* If we need to preserve evaluation order, copy exp0 into its own
+	 temporary variable so that it can't be clobbered by exp1.  */
+      if (flag_evaluation_order && TREE_SIDE_EFFECTS (exp1))
+	exp0 = save_expr (exp0);
       *op0 = expand_expr (exp0, target, VOIDmode, modifier);
       *op1 = expand_expr (exp1, NULL_RTX, VOIDmode, modifier);
     }

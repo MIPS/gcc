@@ -1417,9 +1417,8 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       break;
     case EXPR_WITH_FILE_LOCATION:
       {
-	const char *saved_input_filename = input_filename;
+	location_t saved_location = input_location;
 	tree body = EXPR_WFL_NODE (exp);
-	int saved_lineno = input_line;
 	if (IS_EMPTY_STMT (body))
 	  break;
 	input_filename = EXPR_WFL_FILENAME (exp);
@@ -1428,8 +1427,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	    && debug_info_level > DINFO_LEVEL_NONE)
 	  put_linenumber (input_line, state);
 	generate_bytecode_insns (body, target, state);
-	input_filename = saved_input_filename;
-	input_line = saved_lineno;
+	input_location = saved_location;
       }
       break;
     case INTEGER_CST:
@@ -2151,7 +2149,37 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       }
       break;
     case SAVE_EXPR:
-      generate_bytecode_insns (TREE_OPERAND (exp, 0), STACK_TARGET, state);
+      /* Because the state associated with a SAVE_EXPR tree node must
+	 be a RTL expression, we use it to store the DECL_LOCAL_INDEX
+	 of a temporary variable in a CONST_INT.  */
+      if (! SAVE_EXPR_RTL (exp))
+	{
+	  tree type = TREE_TYPE (exp);
+	  tree decl = build_decl (VAR_DECL, NULL_TREE, type);
+	  generate_bytecode_insns (TREE_OPERAND (exp, 0),
+				   STACK_TARGET, state);
+	  localvar_alloc (decl, state);
+	  SAVE_EXPR_RTL (exp) = GEN_INT (DECL_LOCAL_INDEX (decl));
+	  emit_dup (TYPE_IS_WIDE (type) ? 2 : 1, 0, state);
+	  emit_store (decl, state);
+	}
+      else
+	{
+	  /* The following code avoids creating a temporary DECL just
+	     to pass to emit_load.  This code could be factored with
+	     the similar implementation in emit_load_or_store.  */
+	  tree type = TREE_TYPE (exp);
+	  int kind = adjust_typed_op (type, 4);
+	  int index = (int) INTVAL (SAVE_EXPR_RTL (exp));
+	  if (index <= 3)
+	    {
+	      RESERVE (1);  /* [ilfda]load_[0123]  */
+	      OP1 (OPCODE_iload + 5 + 4*kind + index);
+	    }
+	  else  /* [ilfda]load  */
+	    maybe_wide (OPCODE_iload + kind, index, state);
+	  NOTE_PUSH (TYPE_IS_WIDE (type) ? 2 : 1);
+	}
       break;
     case CONVERT_EXPR:
     case NOP_EXPR:

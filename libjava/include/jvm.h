@@ -145,7 +145,7 @@ extern int _Jv_strLengthUtf8(char* str, int len);
 typedef struct _Jv_Utf8Const Utf8Const;
 _Jv_Utf8Const *_Jv_makeUtf8Const (char *s, int len);
 _Jv_Utf8Const *_Jv_makeUtf8Const (jstring string);
-extern jboolean _Jv_equalUtf8Consts (_Jv_Utf8Const *, _Jv_Utf8Const *);
+extern jboolean _Jv_equalUtf8Consts (const _Jv_Utf8Const *, const _Jv_Utf8Const *);
 extern jboolean _Jv_equal (_Jv_Utf8Const *, jstring, jint);
 extern jboolean _Jv_equaln (_Jv_Utf8Const *, jstring, jint);
 
@@ -289,6 +289,12 @@ void _Jv_GCRegisterDisappearingLink (jobject *objp);
 /* Return true if OBJECT should be reclaimed.  This is used to
    implement soft references.  */
 jboolean _Jv_GCCanReclaimSoftReference (jobject obj);
+
+/* Register a finalizer for a String object.  This is only used by
+   the intern() implementation.  */
+void _Jv_RegisterStringFinalizer (jobject str);
+/* This is called to actually finalize a possibly-intern()d String.  */
+void _Jv_FinalizeString (jobject str);
 
 /* Return approximation of total size of heap.  */
 long _Jv_GCTotalMemory (void);

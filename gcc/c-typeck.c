@@ -511,8 +511,12 @@ comptypes (tree type1, tree type2, int flags)
   switch (TREE_CODE (t1))
     {
     case POINTER_TYPE:
+      /* We must give ObjC the first crack at comparing pointers, since
+	   protocol qualifiers may be involved.  */
+      if (c_dialect_objc () && (val = objc_comptypes (t1, t2, 0)) >= 0)
+	break;
       val = (TREE_TYPE (t1) == TREE_TYPE (t2)
-	      ? 1 : comptypes (TREE_TYPE (t1), TREE_TYPE (t2), flags));
+	     ? 1 : comptypes (TREE_TYPE (t1), TREE_TYPE (t2), flags));
       break;
 
     case FUNCTION_TYPE:
@@ -560,6 +564,8 @@ comptypes (tree type1, tree type2, int flags)
       }
 
     case RECORD_TYPE:
+      /* We are dealing with two distinct structs.  In assorted Objective-C
+	 corner cases, however, these can still be deemed equivalent.  */
       if (c_dialect_objc () && objc_comptypes (t1, t2, 0) == 1)
 	val = 1;
 
@@ -2926,7 +2932,7 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (!c_dialect_objc () || !objc_is_id (type))
+  if (!c_dialect_objc () || !objc_is_object_ptr (type))
     type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3487,6 +3493,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
       tree ttl = TREE_TYPE (type);
       tree ttr = TREE_TYPE (rhstype);
       bool is_opaque_pointer;
+      int target_cmp = 0;   /* Cache comp_target_types () result.  */
 
       /* Opaque pointers are treated like void pointers.  */
       is_opaque_pointer = ((*targetm.vector_opaque_p) (type)
@@ -3498,7 +3505,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || comp_target_types (type, rhstype, 0)
+	  || (target_cmp = comp_target_types (type, rhstype, 0))
 	  || is_opaque_pointer
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
@@ -3524,7 +3531,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		       || comp_target_types (type, rhstype, 0))
+		       || target_cmp)
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (pedantic)
@@ -3547,6 +3554,11 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	warn_for_assignment ("%s from incompatible pointer type",
 			     errtype, funname, parmnum);
       return convert (type, rhs);
+    }
+  else if (codel == POINTER_TYPE && coder == ARRAY_TYPE)
+    {
+      error ("invalid use of non-lvalue array");
+      return error_mark_node;
     }
   else if (codel == POINTER_TYPE && coder == INTEGER_TYPE)
     {
@@ -4044,8 +4056,16 @@ digest_init (tree type, tree init, int require_constant)
 			    TREE_TYPE (type), COMPARE_STRICT))))
     {
       if (code == POINTER_TYPE)
-	inside_init = default_function_array_conversion (inside_init);
-      
+	{
+	  inside_init = default_function_array_conversion (inside_init);
+
+	  if (TREE_CODE (TREE_TYPE (inside_init)) == ARRAY_TYPE)
+	    {
+	      error_init ("invalid use of non-lvalue array");
+	      return error_mark_node;
+	    }
+	 }
+
       if (code == VECTOR_TYPE)
 	/* Although the types are compatible, we may require a
 	   conversion.  */
@@ -6212,8 +6232,7 @@ build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs, tree 
 
 void
 c_expand_asm_operands (tree string, tree outputs, tree inputs,
-		       tree clobbers, int vol, const char *filename,
-		       int line)
+		       tree clobbers, int vol, location_t locus)
 {
   int noutputs = list_length (outputs);
   int i;
@@ -6231,7 +6250,7 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs,
 
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */
-  expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line);
+  expand_asm_operands (string, outputs, inputs, clobbers, vol, locus);
 
   /* Copy all the intermediate outputs into the specified outputs.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)

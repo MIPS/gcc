@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -510,6 +510,7 @@ FUNCTION (void)								\
   in_objc_symbols, in_objc_module_info,			\
   in_objc_protocol, in_objc_string_object,		\
   in_objc_constant_string_object,			\
+  in_objc_image_info,					\
   in_objc_class_names, in_objc_meth_var_names,		\
   in_objc_meth_var_types, in_objc_cls_refs,		\
   in_machopic_nl_symbol_ptr,				\
@@ -599,6 +600,10 @@ SECTION_FUNCTION (objc_string_object_section,	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
 		  ".section __OBJC, __cstring_object", 1)	\
+/* Fix-and-Continue image marker.  */		\
+SECTION_FUNCTION (objc_image_info_section,	\
+                  in_objc_image_info,		\
+                  ".section __OBJC, __image_info", 1)	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
 		".objc_class_names", 1)	\

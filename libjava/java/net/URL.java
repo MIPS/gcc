@@ -43,9 +43,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.StringTokenizer;
-
 
 /*
  * Written using on-line Java Platform 1.2 API Specification, as well
@@ -106,6 +105,11 @@ import java.util.StringTokenizer;
   * caching behavior is disabled.  This property is specific to this
   * implementation.  Sun's JDK may or may not do protocol caching, but it
   * almost certainly does not examine this property.
+  * <p>
+  * Please also note that an application can install its own factory for
+  * loading protocol handlers (see setURLStreamHandlerFactory).  If this is
+  * done, then the above information is superseded and the behavior of this
+  * class in loading protocol handlers is dependent on that factory.
   *
   * @author Aaron M. Renn <arenn@urbanophile.com>
   * @author Warren Levy <warrenl@cygnus.com>
@@ -114,6 +118,9 @@ import java.util.StringTokenizer;
   */
 public final class URL implements Serializable
 {
+  private static final String DEFAULT_SEARCH_PATH =
+    "gnu.gcj.protocol|sun.net.www.protocol";
+  
   /**
    * The name of the protocol for this URL.
    * The protocol is always stored in lower case.
@@ -169,7 +176,7 @@ public final class URL implements Serializable
    * This a table where we cache protocol handlers to avoid the overhead
    * of looking them up each time.
    */
-  private static Hashtable ph_cache = new Hashtable();
+  private static HashMap ph_cache = new HashMap();
 
   /**
    * Whether or not to cache protocol handlers.
@@ -178,7 +185,8 @@ public final class URL implements Serializable
 
   static
     {
-      String s = System.getProperty("gnu.java.net.nocache_protocol_handlers");
+      String s = System.getProperty ("gnu.java.net.nocache_protocol_handlers");
+      
       if (s == null)
         cache_handlers = true;
       else
@@ -751,20 +759,23 @@ public final class URL implements Serializable
   private static synchronized URLStreamHandler
     getURLStreamHandler (String protocol)
   {
-    URLStreamHandler ph;
+    URLStreamHandler ph = null;
 
-    // See if a handler has been cached for this protocol.
-    if ((ph = (URLStreamHandler) ph_cache.get(protocol)) != null)
-      return ph;
+    // First, see if a protocol handler is in our cache.
+    if (cache_handlers)
+      {
+        if ((ph = (URLStreamHandler) ph_cache.get (protocol)) != null)
+          return ph;
+      }
 
     // If a non-default factory has been set, use it to find the protocol.
     if (factory != null)
       {
-	ph = factory.createURLStreamHandler(protocol);
+	ph = factory.createURLStreamHandler (protocol);
       }
     else if (protocol.equals ("core"))
       {
- 	ph = new gnu.gcj.protocol.core.Handler ();
+ 	ph = new gnu.gcj.protocol.core.Handler();
       }
     else if (protocol.equals ("file"))
       {
@@ -778,7 +789,7 @@ public final class URL implements Serializable
 	// fix this problem.  If other protocols are required in a
 	// statically linked application they will need to be handled in
 	// the same way as "file".
-	ph = new gnu.gcj.protocol.file.Handler ();
+	ph = new gnu.gcj.protocol.file.Handler();
       }
 
     // Non-default factory may have returned null or a factory wasn't set.
@@ -789,33 +800,45 @@ public final class URL implements Serializable
 	// to it, along with the JDK specified default as a last resort.
 	// Except in very unusual environments the JDK specified one shouldn't
 	// ever be needed (or available).
-	String propVal = System.getProperty("java.protocol.handler.pkgs");
-	propVal = (propVal == null) ? "" : (propVal + "|");
-	propVal = propVal + "gnu.gcj.protocol|sun.net.www.protocol";
+	String ph_search_path = System.getProperty ("java.protocol.handler.pkgs");
 
-	StringTokenizer pkgPrefix = new StringTokenizer(propVal, "|");
+	// Tack our default package on at the ends.
+	if (ph_search_path != null)
+          ph_search_path += "|" + DEFAULT_SEARCH_PATH;
+	else
+          ph_search_path = DEFAULT_SEARCH_PATH;
+
+	// Finally loop through our search path looking for a match.
+	StringTokenizer pkgPrefix = new StringTokenizer (ph_search_path, "|");
+        
 	do
-	  {
-	    String facName = pkgPrefix.nextToken() + "." + protocol +
-				".Handler";
-	    try
-	      {
-		ph = (URLStreamHandler) Class.forName(facName).newInstance();
-	      }
-	    catch (Exception e)
-	      {
-		// Can't instantiate; handler still null, go on to next element.
-	      }
-	  } while ((ph == null ||
-		    ! (ph instanceof URLStreamHandler)) &&
-		   pkgPrefix.hasMoreTokens());
+          {
+            String clsName = pkgPrefix.nextToken() + "." + protocol + ".Handler";
+         
+            try
+              {
+                Object obj = Class.forName (clsName).newInstance();
+	    
+                if (!(obj instanceof URLStreamHandler))
+                  continue;
+                else
+                  ph = (URLStreamHandler) obj;
+              }
+            catch (Exception e)
+              {
+                // Can't instantiate; handler still null, go on to next element.
+              }
+          }
+	while ((ph == null ||
+		!(ph instanceof URLStreamHandler))
+               && pkgPrefix.hasMoreTokens());
       }
 
     // Update the hashtable with the new protocol handler.
     if (ph != null
         && cache_handlers)
       if (ph instanceof URLStreamHandler)
-	ph_cache.put(protocol, ph);
+	ph_cache.put (protocol, ph);
       else
 	ph = null;
 

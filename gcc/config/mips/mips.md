@@ -6,20 +6,20 @@
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
 ;;  Brendan Eich, brendan@microunity.com.
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -58,16 +58,15 @@
    ;; are really only available for n32 and n64.  However, it is convenient
    ;; to reuse them for SVR4 PIC, where they represent the local and global
    ;; forms of R_MIPS_GOT16.
-   (RELOC_GPREL16		100)
-   (RELOC_GOT_HI		101)
-   (RELOC_GOT_LO		102)
-   (RELOC_GOT_PAGE		103)
-   (RELOC_GOT_DISP		104)
-   (RELOC_CALL16		105)
-   (RELOC_CALL_HI		106)
-   (RELOC_CALL_LO		107)
-   (RELOC_LOADGP_HI		108)
-   (RELOC_LOADGP_LO		109)])
+   (RELOC_GOT_HI		100)
+   (RELOC_GOT_LO		101)
+   (RELOC_GOT_PAGE		102)
+   (RELOC_GOT_DISP		103)
+   (RELOC_CALL16		104)
+   (RELOC_CALL_HI		105)
+   (RELOC_CALL_LO		106)
+   (RELOC_LOADGP_HI		107)
+   (RELOC_LOADGP_LO		108)])
 
 ;; ....................
 ;;
@@ -99,7 +98,8 @@
 ;; call		unconditional call
 ;; load		load instruction(s)
 ;; store	store instruction(s)
-;; prefetch	memory prefetch
+;; prefetch	memory prefetch (register + offset)
+;; prefetchx	memory indexed prefetch (register + register)
 ;; move		data movement within same register set
 ;; condmove	conditional moves
 ;; xfer		transfer to/from coprocessor
@@ -124,7 +124,7 @@
 ;; multi	multiword sequence (or user asm statements)
 ;; nop		no operation
 (define_attr "type"
-  "unknown,branch,jump,call,load,store,prefetch,move,condmove,xfer,hilo,const,arith,darith,imul,imadd,idiv,icmp,fadd,fmul,fmadd,fdiv,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,multi,nop"
+  "unknown,branch,jump,call,load,store,prefetch,prefetchx,move,condmove,xfer,hilo,const,arith,darith,imul,imadd,idiv,icmp,fadd,fmul,fmadd,fdiv,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,multi,nop"
   (cond [(eq_attr "jal" "!unset")
 	 (const_string "call")]
 	(const_string "unknown")))
@@ -8229,7 +8229,11 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
   [(set (reg:SI 28)
 	(unspec_volatile:SI [(const_int 0)] UNSPEC_EH_RECEIVER))]
   "TARGET_ABICALLS && (mips_abi == ABI_32 || mips_abi == ABI_O64)"
-  { return mips_restore_gp (operands); }
+{
+  operands[0] = pic_offset_table_rtx;
+  operands[1] = mips_gp_save_slot ();
+  return mips_output_move (operands[0], operands[1]);
+}
   [(set_attr "type"   "load")
    (set_attr "length" "8")])
 
@@ -8318,17 +8322,55 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
   DONE;
 })
 
+;; This instruction directly corresponds to an assembly-language "jal".
+;; There are four cases:
+;;
+;;    - -mno-abicalls:
+;;	  Both symbolic and register destinations are OK.  The pattern
+;;	  always expands to a single mips instruction.
+;;
+;;    - -mabicalls/-mno-explicit-relocs:
+;;	  Again, both symbolic and register destinations are OK.
+;;	  The call is treated as a multi-instruction black box.
+;;
+;;    - -mabicalls/-mexplicit-relocs with n32 or n64:
+;;	  Only "jal $25" is allowed.  This expands to a single "jalr $25"
+;;	  instruction.
+;;
+;;    - -mabicalls/-mexplicit-relocs with o32 or o64:
+;;	  Only "jal $25" is allowed.  The call is actually two instructions:
+;;	  "jalr $25" followed by an insn to reload $gp.
+;;
+;; In the last case, we can generate the individual instructions with
+;; a define_split.  There are several things to be wary of:
+;;
+;;   - We can't expose the load of $gp before reload.  If we did,
+;;     it might get removed as dead, but reload can introduce new
+;;     uses of $gp by rematerializing constants.
+;;
+;;   - We shouldn't restore $gp after calls that never return.
+;;     It isn't valid to insert instructions between a noreturn
+;;     call and the following barrier.
+;;
+;;   - The splitter deliberately changes the liveness of $gp.  The unsplit
+;;     instruction preserves $gp and so have no effect on its liveness.
+;;     But once we generate the separate insns, it becomes obvious that
+;;     $gp is not live on entry to the call.
+;;
+;; ??? The operands[2] = insn check is a hack to make the original insn
+;; available to the splitter.
 (define_insn_and_split "call_internal"
   [(call (mem:SI (match_operand 0 "call_insn_operand" "c,S"))
 	 (match_operand 1 "" ""))
    (clobber (reg:SI 31))]
   ""
-  "%*jal\t%0%/"
-  "reload_completed && TARGET_SPLIT_CALLS"
+  { return TARGET_SPLIT_CALLS ? "#" : "%*jal\t%0%/"; }
+  "reload_completed && TARGET_SPLIT_CALLS && (operands[2] = insn)"
   [(const_int 0)]
 {
   emit_call_insn (gen_call_split (operands[0], operands[1]));
-  emit_insn (gen_exception_receiver ());
+  if (!find_reg_note (operands[2], REG_NORETURN, 0))
+    emit_move_insn (pic_offset_table_rtx, mips_gp_save_slot ());
   DONE;
 }
   [(set_attr "jal" "indirect,direct")
@@ -8338,7 +8380,7 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
   [(call (mem:SI (match_operand 0 "call_insn_operand" "c"))
 	 (match_operand 1 "" ""))
    (clobber (reg:SI 31))
-   (const_int 1)]
+   (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
   "%*jalr\t%0%/"
   [(set_attr "type" "call")])
@@ -8355,19 +8397,21 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
   DONE;
 })
 
+;; See comment for call_internal.
 (define_insn_and_split "call_value_internal"
   [(set (match_operand 0 "register_operand" "=df,df")
         (call (mem:SI (match_operand 1 "call_insn_operand" "c,S"))
               (match_operand 2 "" "")))
    (clobber (reg:SI 31))]
   ""
-  "%*jal\t%1%/"
-  "reload_completed && TARGET_SPLIT_CALLS"
+  { return TARGET_SPLIT_CALLS ? "#" : "%*jal\t%1%/"; }
+  "reload_completed && TARGET_SPLIT_CALLS && (operands[3] = insn)"
   [(const_int 0)]
 {
   emit_call_insn (gen_call_value_split (operands[0], operands[1],
 					operands[2]));
-  emit_insn (gen_exception_receiver ());
+  if (!find_reg_note (operands[3], REG_NORETURN, 0))
+    emit_move_insn (pic_offset_table_rtx, mips_gp_save_slot ());
   DONE;
 }
   [(set_attr "jal" "indirect,direct")
@@ -8378,11 +8422,12 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
         (call (mem:SI (match_operand 1 "call_insn_operand" "c"))
               (match_operand 2 "" "")))
    (clobber (reg:SI 31))
-   (const_int 1)]
+   (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
   "%*jalr\t%1%/"
   [(set_attr "type" "call")])
 
+;; See comment for call_internal.
 (define_insn_and_split "call_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "=df,df")
         (call (mem:SI (match_operand 1 "call_insn_operand" "c,S"))
@@ -8392,13 +8437,14 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 	      (match_dup 2)))
    (clobber (reg:SI 31))]
   ""
-  "%*jal\t%1%/"
-  "reload_completed && TARGET_SPLIT_CALLS"
+  { return TARGET_SPLIT_CALLS ? "#" : "%*jal\t%1%/"; }
+  "reload_completed && TARGET_SPLIT_CALLS && (operands[4] = insn)"
   [(const_int 0)]
 {
   emit_call_insn (gen_call_value_multiple_split (operands[0], operands[1],
 						 operands[2], operands[3]));
-  emit_insn (gen_exception_receiver ());
+  if (!find_reg_note (operands[4], REG_NORETURN, 0))
+    emit_move_insn (pic_offset_table_rtx, mips_gp_save_slot ());
   DONE;
 }
   [(set_attr "jal" "indirect,direct")
@@ -8412,7 +8458,7 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 	(call (mem:SI (match_dup 1))
 	      (match_dup 2)))
    (clobber (reg:SI 31))
-   (const_int 1)]
+   (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
   "%*jalr\t%1%/"
   [(set_attr "type" "call")])
@@ -8461,36 +8507,60 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 
 (define_insn "prefetch_si_address"
   [(prefetch (plus:SI (match_operand:SI 0 "register_operand" "r")
-		      (match_operand:SI 3 "const_int_operand" "i"))
+		      (match_operand:SI 3 "const_int_operand" "I"))
 	     (match_operand:SI 1 "const_int_operand" "n")
 	     (match_operand:SI 2 "const_int_operand" "n"))]
   "ISA_HAS_PREFETCH && Pmode == SImode"
   { return mips_emit_prefetch (operands); }
   [(set_attr "type" "prefetch")])
+
+(define_insn "prefetch_indexed_si"
+  [(prefetch (plus:SI (match_operand:SI 0 "register_operand" "r")
+		      (match_operand:SI 3 "register_operand" "r"))
+	     (match_operand:SI 1 "const_int_operand" "n")
+	     (match_operand:SI 2 "const_int_operand" "n"))]
+  "ISA_HAS_PREFETCHX && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && Pmode == SImode"
+  { return mips_emit_prefetch (operands); }
+  [(set_attr "type" "prefetchx")])
 
 (define_insn "prefetch_si"
   [(prefetch (match_operand:SI 0 "register_operand" "r")
 	     (match_operand:SI 1 "const_int_operand" "n")
 	     (match_operand:SI 2 "const_int_operand" "n"))]
   "ISA_HAS_PREFETCH && Pmode == SImode"
-  { return mips_emit_prefetch (operands); }
+{
+  operands[3] = const0_rtx;
+  return mips_emit_prefetch (operands);
+}
   [(set_attr "type" "prefetch")])
 
 (define_insn "prefetch_di_address"
   [(prefetch (plus:DI (match_operand:DI 0 "register_operand" "r")
-		      (match_operand:DI 3 "const_int_operand" "i"))
+		      (match_operand:DI 3 "const_int_operand" "I"))
 	     (match_operand:DI 1 "const_int_operand" "n")
 	     (match_operand:DI 2 "const_int_operand" "n"))]
   "ISA_HAS_PREFETCH && Pmode == DImode"
   { return mips_emit_prefetch (operands); }
   [(set_attr "type" "prefetch")])
+
+(define_insn "prefetch_indexed_di"
+  [(prefetch (plus:DI (match_operand:DI 0 "register_operand" "r")
+		      (match_operand:DI 3 "register_operand" "r"))
+	     (match_operand:DI 1 "const_int_operand" "n")
+	     (match_operand:DI 2 "const_int_operand" "n"))]
+  "ISA_HAS_PREFETCHX && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && Pmode == DImode"
+  { return mips_emit_prefetch (operands); }
+  [(set_attr "type" "prefetchx")])
 
 (define_insn "prefetch_di"
   [(prefetch (match_operand:DI 0 "register_operand" "r")
 	     (match_operand:DI 1 "const_int_operand" "n")
 	     (match_operand:DI 2 "const_int_operand" "n"))]
   "ISA_HAS_PREFETCH && Pmode == DImode"
-  { return mips_emit_prefetch (operands); }
+{
+  operands[3] = const0_rtx;
+  return mips_emit_prefetch (operands);
+}
   [(set_attr "type" "prefetch")])
 
 (define_insn "nop"
