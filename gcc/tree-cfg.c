@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GNU CC.
@@ -203,8 +203,8 @@ make_blocks (first_p, parent_block)
       else if (code == SWITCH_EXPR)
 	make_switch_expr_blocks (container, parent_block);
       else if (code == TRY_FINALLY_EXPR || code == TRY_CATCH_EXPR)
-	/* FIXME: These nodes should've been lowered by gimplify.c  */
-	abort ();
+	/* FIXME: Some of these nodes could be lowered by gimplify.c  */
+	; /* abort (); */
       else
 	{
 	  /* For regular statements, add them the current block and move on

@@ -984,6 +984,8 @@ mx_register_decls (decl, compound_expr)
       /* Eligible decl?  */
       if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL) &&
 	  (! TREE_STATIC (decl)) && /* auto variable */
+	  (! DECL_EXTERNAL (decl)) && /* not extern variable */
+	  (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))) && /* complete type */
 	  (! TREE_MUDFLAPPED_P (decl)) && /* not already processed */
 	  mf_find_addrof (*compound_expr, decl)) /* has address taken */
 	{

@@ -1,3 +1,10 @@
+2002-10-21  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-cfg.c (make_blocks): Ignore TRY_FINALLY_EXPR and
+	TRY_CATCH_EXPR.
+	* tree-mudflap.c (mx_register_decls): Ignore local decls
+	of extern variables of unknown size.
+
 2002-10-20  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (ref_type_name): E_* don't have these modifier
