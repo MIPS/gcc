@@ -1403,7 +1403,13 @@ public abstract class AbstractButton extends JComponent
         setToolTipText((String)(a.getValue(Action.SHORT_DESCRIPTION)));
 	if (a.getValue(Action.MNEMONIC_KEY) != null)
           setMnemonic(((Integer)(a.getValue(Action.MNEMONIC_KEY))).intValue());
-        setActionCommand((String)(a.getValue(Action.ACTION_COMMAND_KEY)));
+        String actionCommand = (String)(a.getValue(Action.ACTION_COMMAND_KEY));
+
+        // Set actionCommand to button's text by default if it is not specified
+        if (actionCommand != null)
+	   setActionCommand((String)(a.getValue(Action.ACTION_COMMAND_KEY)));
+	 else
+	   setActionCommand(getText());
       }
   }
 

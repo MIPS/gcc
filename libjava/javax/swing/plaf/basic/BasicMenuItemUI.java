@@ -570,15 +570,14 @@ public class BasicMenuItemUI extends MenuItemUI
     // FIXME: should paint different icon at different button state's.
     // i.e disabled icon when button is disabled.. etc.
 
-    /*
+    
     Icon i = m.getIcon();
     if (i != null)
       {
          int x = ir.x;
          int y = ir.y;
          i.paintIcon(c, g, x, y);
-      }
-    */
+      }    
 
     // paint accelerator    
     String acceleratorText = "";
@@ -990,6 +989,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void propertyChange(PropertyChangeEvent evt)
     {
+	menuItem.revalidate();
+	menuItem.repaint();
     }
   }
 }

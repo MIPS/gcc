@@ -1,3 +1,46 @@
+2004-06-30  Olga Rodimina  <rodimina@redhat.com>
+
+	*  javax/swing/AbstractButton.java: 
+	(configurePropertiesFromAction): Set action command
+	to button's text by default if action command is not 
+	explicitely specified.
+	* javax/swing/JMenu.java: Remove unnecessary listener
+	and methods relevant to it.
+	(setSelected): Reimplemented.
+	(menuSelectionChanged): Moved most part of implementation to
+	setSelected() and call it instead.
+	* javax/swing/JMenuItem.java: 
+	(init): Comment out statement that sets paint_border to false.
+	(configurePropertiesFromAction): Do not set accelerator
+	for JMenu.
+	(menuSelectionChanged): Change selected index in the selection
+	model of menu item's parent.
+	* javax/swing/JPopupMenu.java:
+	(remove): Set constraints.fill field to GridBagConstraints.BOTH
+	instead of GridBagConstraints.HORIZONTAL.
+	(insert): Likewise.
+	(createActionChangeListener): Implemented.
+	(setVisible): Correct location of HeavyWeightMenu and 
+	don't firePopupMenuCanceled().
+	(menuSelectionChanged): Implemented.
+	(ActionChangeListener): New Listener. Implemented.
+	* javax/swing/plaf/basic/BasicMenuBarUI.java:
+	(BasicMenuBarUI.ContainerHandler): Implemented.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(paintMenuItem): Uncommented out code that paints 
+	icon, now that icons are working properly.
+	(PropertyChangeListener): Implemented.
+	* javax/swing/plaf/basic/BasicPopupMenuUI.java:
+	Added javadocs.
+	(topWindowListener): New field.
+	(Constructor): initialize topWindowListener.
+	(BasicPopupMenuUI.TopWindowListener): Implemented.	
+	(BasicPopupMenuUI.PopupMenuHandler): Implemented.
+	(BasicPopupMenuUI.TopWindowListener): New ComponentListener.
+	Implemented.
+	
+	
+
 2004-06-29  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JFormattedTextField.java

@@ -284,15 +284,19 @@ public class BasicMenuBarUI extends MenuBarUI
      */
     public void componentAdded(ContainerEvent e)
     {
+      menuBar.revalidate();
+      menuBar.repaint();
     }
 
     /**
-     * This method is called whenever menu is removed from the menu bar
+     * This method is called whenever menu is removed from the menu bar.
      *
      * @param e The ContainerEvent.
      */
     public void componentRemoved(ContainerEvent e)
     {
+      menuBar.revalidate();
+      menuBar.repaint();
     }
   }
 

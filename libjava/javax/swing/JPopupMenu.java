@@ -169,12 +169,12 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * Adds given menu item to the popup menu
-   *
-   * @param item menu item to add to the popup menu
-   *
-   * @return menu item that was added to the popup menu
-   */
+  * Adds given menu item to the popup menu
+  *
+  * @param item menu item to add to the popup menu
+  *
+  * @return menu item that was added to the popup menu
+  */
   public JMenuItem add(JMenuItem item)
   {
     this.insert(item, -1);
@@ -223,7 +223,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     super.remove(index);
 
     GridBagConstraints constraints = new GridBagConstraints();
-    constraints.fill = GridBagConstraints.HORIZONTAL;
+    constraints.fill = GridBagConstraints.BOTH;
     constraints.weightx = 100.0;
     constraints.weighty = 100.0;
 
@@ -258,7 +258,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   public void insert(Component component, int index)
   {
     GridBagConstraints constraints = new GridBagConstraints();
-    constraints.fill = GridBagConstraints.HORIZONTAL;
+    constraints.fill = GridBagConstraints.BOTH;
     constraints.weightx = 100.0;
     constraints.weighty = 100.0;
 
@@ -397,15 +397,16 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * DOCUMENT ME!
+   * Creates PropertyChangeListener that listens to PropertyChangeEvents
+   * occuring in the Action associated with given menu item in this popup menu.
    *
-   * @param item DOCUMENT ME!
+   * @param item MenuItem
    *
-   * @return DOCUMENT ME!
+   * @return The PropertyChangeListener
    */
   protected PropertyChangeListener createActionChangeListener(JMenuItem item)
   {
-    return null;
+    return new ActionChangeListener();
   }
 
   /**
@@ -602,27 +603,15 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 	      {
 		// Subtract insets of the top-level container if popup menu's
 		// top-left corner is inside it.
-		if (rootContainer.contains(popupLocation))
-		  {
-		    Insets insets = rootContainer.getInsets();
-		    popup.show(popupLocation.x - insets.left,
-		               popupLocation.y - insets.top, size.width,
-		               size.height);
-		  }
-
-		else
-		  popup.show(popupLocation.x, popupLocation.y, size.width,
-		             size.height);
+		Insets insets = rootContainer.getInsets();
+		popup.show(popupLocation.x - insets.left,
+		           popupLocation.y - insets.top, size.width,
+		           size.height);
 	      }
 	  }
 	else
 	  {
-	    // popup menu was cancelled without selection
-	    if (! getSelectionModel().isSelected())
-	      firePopupMenuCanceled();
-
 	    firePopupMenuWillBecomeInvisible();
-
 	    popup.hide();
 	  }
       }
@@ -822,6 +811,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public void menuSelectionChanged(boolean changed)
   {
+    if (! changed)
+      setVisible(false);
   }
 
   /**
@@ -1051,6 +1042,17 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.POPUP_MENU;
+    }
+  }
+
+  /* This class resizes popup menu and repaints popup menu appropriately if one
+   of item's action has changed */
+  protected class ActionChangeListener implements PropertyChangeListener
+  {
+    public void propertyChange(PropertyChangeEvent evt)
+    {
+      JPopupMenu.this.revalidate();
+      JPopupMenu.this.repaint();
     }
   }
 }
