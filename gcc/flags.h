@@ -740,9 +740,6 @@ extern int flag_tree_ch;
 /* Enable dead store and redundant load elimination */
 extern int flag_tree_dse;
 
-/* Enable loop optimization on tree-ssa.  */
-extern int flag_tree_loop;
-
 /* Enable scalar replacement of aggregates.  */
 extern int flag_tree_sra;
 

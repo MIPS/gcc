@@ -302,7 +302,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dse);
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
-  NEXT_PASS (pass_loop);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_fold_builtins);

@@ -1,5 +1,16 @@
 2004-04-12  Diego Novillo  <dnovillo@redhat.com>
 
+	* flags.h (flag_tree_loop): Remove.  Update all users.
+	* opts.c (common_handle_option) <OPT_ftree_loop_optimize>: Remove.
+	* toplev.c (f_options): Remove -ftree-loop-optimize.
+	* tree-optimize.c (init_tree_optimization_passes): Don't
+	schedule pass_loop.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Remove.
+	(gate_loop): Remove.
+	* doc/invoke.texi: Remove documentation for -ftree-loop-optimize.
+
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Remove.
 	* c-semantics.c (expand_stmt_toplev): Remove.
 	* langhooks-def.h (LANG_HOOKS_RTL_EXPAND_INITIALIZER): Remove.

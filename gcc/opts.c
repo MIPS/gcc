@@ -544,7 +544,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
-      flag_tree_loop = 0;
       flag_tree_pre = 1;
       flag_tree_ter = 1;
       flag_tree_sra = 1;
@@ -1490,10 +1489,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_dse:
       flag_tree_dse = value;
-      break;
-
-    case OPT_ftree_loop_optimize:
-      flag_tree_loop = value;
       break;
 
     case OPT_ftree_sra:

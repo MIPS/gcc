@@ -39,46 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 
 
-/* The main entry into loop optimization pass.  PHASE indicates which dump file
-   from the DUMP_FILES array to use when dumping debugging information.
-   FNDECL is the current function decl.  */
-
-static void
-tree_ssa_loop_opt (void)
-{
-  struct loops *loops;
-
-  /* Does nothing for now except for checking that we are able to build the
-     loops.  */
-
-  loops = loop_optimizer_init (dump_file);
-  loop_optimizer_finalize (loops,
-			   (dump_flags & TDF_DETAILS
-			    ? dump_file : NULL));
-}
-
-static bool
-gate_loop (void)
-{
-  return flag_tree_loop != 0;
-}
-
-struct tree_opt_pass pass_loop = 
-{
-  "loop",				/* name */
-  gate_loop,				/* gate */
-  tree_ssa_loop_opt,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_LOOP,				/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
-};
-
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
    instructions should be duplicated, limit is decreased by the actual
    amount.  */

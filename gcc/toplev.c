@@ -816,9 +816,6 @@ int flag_tree_dce = 0;
 /* Enable loop header copying on tree-ssa.  */
 int flag_tree_ch = 0;
 
-/* Enable loop optimization on tree-ssa.  */
-int flag_tree_loop = 0;
-
 /* Enable scalar replacement of aggregates.  */
 int flag_tree_sra = 0;
 
@@ -1060,8 +1057,7 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
-  { "tree-ch", &flag_tree_ch, 1 },
-  { "tree-loop-optimize", &flag_tree_loop, 1 }
+  { "tree-ch", &flag_tree_ch, 1 }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
