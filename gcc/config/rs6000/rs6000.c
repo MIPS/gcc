@@ -10797,8 +10797,8 @@ rs6000_longcall_ref (call_ref)
 
 
 static bool
-rs6000_binds_local_p (exp)
-     tree exp;
+rs6000_binds_local_p (decl)
+     tree decl;
 {
   return default_binds_local_p_1 (decl, flag_pic || rs6000_flag_pic);
 }
