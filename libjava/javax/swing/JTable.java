@@ -1,5 +1,5 @@
 /* JTable.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -62,6 +62,8 @@ public class JTable extends JComponent
   implements TableModelListener, Scrollable, TableColumnModelListener,
              ListSelectionListener, CellEditorListener, Accessible
 {
+  private static final long serialVersionUID = 3876025080382781659L;
+  
   public static final int AUTO_RESIZE_ALL_COLUMNS = 4;
   public static final int AUTO_RESIZE_LAST_COLUMN = 3;
   public static final int AUTO_RESIZE_NEXT_COLUMN = 1;

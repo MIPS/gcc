@@ -71,6 +71,8 @@ import javax.swing.plaf.PopupMenuUI;
  */
 public class JPopupMenu extends JComponent implements Accessible, MenuElement
 {
+  private static final long serialVersionUID = -8336996630009646009L;
+  
   private static final String uiClassID = "PopupMenuUI";
   private static final Object defaultLWPopupEnabledKey = null;
   private static boolean defaultLWPopupEnabled = true;
@@ -421,6 +423,12 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     listenerList.remove(PopupMenuListener.class, listener);
   }
 
+  public PopupMenuListener[] getPopupMenuListeners()
+  {
+    return ((PopupMenuListener[])
+	    listenerList.getListeners(PopupMenuListener.class));
+  }
+
   /**
    * DOCUMENT ME!
    */
@@ -610,6 +618,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    * @param index DOCUMENT ME!
    *
    * @return DOCUMENT ME!
+   *
+   * @deprecated Replaced by getComponent(int)
    */
   public Component getComponentAtIndex(int index)
   {
@@ -967,6 +977,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   protected class AccessibleJPopupMenu extends AccessibleJComponent
   {
+    private static final long serialVersionUID = 7423261328879849768L;
+    
     /**
      * Creates a new AccessibleJPopupMenu object.
      *

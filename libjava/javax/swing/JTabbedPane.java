@@ -81,6 +81,8 @@ public class JTabbedPane extends JComponent implements Serializable,
   protected class AccessibleJTabbedPane extends JComponent.AccessibleJComponent
     implements AccessibleSelection, ChangeListener
   {
+    private static final long serialVersionUID = 7610530885966830483L;
+    
     /**
      * Creates a new AccessibleJTabbedPane object.
      *
@@ -226,6 +228,12 @@ public class JTabbedPane extends JComponent implements Serializable,
    */
   protected class ModelListener implements ChangeListener, Serializable
   {
+    private static final long serialVersionUID = 497359819958114132L;
+
+    protected ModelListener()
+    {
+    }
+    
     /**
      * This method is called whenever the model  is changed.
      *
@@ -378,6 +386,8 @@ public class JTabbedPane extends JComponent implements Serializable,
     {
       return title;
     }
+
+  private static final long serialVersionUID = 1614381073220130939L;
 
     /**
      * This method sets the title of the tab.
@@ -542,10 +552,10 @@ public class JTabbedPane extends JComponent implements Serializable,
   protected SingleSelectionModel model;
 
   /** Indicates that the TabbedPane is in scrolling mode. */
-  static int SCROLL_TAB_LAYOUT = 0;
+  public static final int SCROLL_TAB_LAYOUT = 1;
 
   /** Indicates that the TabbedPane is in wrap mode. */
-  static int WRAP_TAB_LAYOUT = 1;
+  public static final int WRAP_TAB_LAYOUT = 0;
 
   /** The current tabPlacement of the TabbedPane. */
   protected int tabPlacement = SwingConstants.TOP;

@@ -684,6 +684,8 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
   protected class AccessibleJMenu extends AccessibleJMenuItem
     implements AccessibleSelection
   {
+    private static final long serialVersionUID = -8131864021059524309L;
+    
     /**
      * Creates a new AccessibleJMenu object.
      *
@@ -808,6 +810,8 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
    */
   protected class WinListener extends WindowAdapter implements Serializable
   {
+    private static final long serialVersionUID = -6415815570638474823L;
+  
     JPopupMenu popupMenu;
 
     /**

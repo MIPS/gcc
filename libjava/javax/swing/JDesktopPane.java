@@ -51,6 +51,8 @@ import javax.swing.plaf.DesktopPaneUI;
  */
 public class JDesktopPane extends JLayeredPane implements Accessible
 {
+  private static final long serialVersionUID = 766333777224038726L;
+  
 
 	//-------------------------------------------------------------
 	// Classes ----------------------------------------------------

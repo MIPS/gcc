@@ -50,6 +50,8 @@ import javax.accessibility.AccessibleRole;
 public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
                                                             Accessible
 {
+  private static final long serialVersionUID = -6676402307973384715L;
+
   private static final String uiClassID = "CheckBoxMenuItemUI";
   private boolean state;
   private Object[] selectedObjects;
@@ -217,6 +219,8 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
    */
   protected class AccessibleJCheckBoxMenuItem extends AccessibleJMenuItem
   {
+    private static final long serialVersionUID = 1079958073579370777L;
+
     /**
      * Creates a new AccessibleJCheckBoxMenuItem object.
      *

@@ -70,6 +70,8 @@ import javax.swing.plaf.MenuItemUI;
  */
 public class JMenuBar extends JComponent implements Accessible, MenuElement
 {
+  private static final long serialVersionUID = -8191026883931977036L;
+  
   private transient SingleSelectionModel selectionModel;
   private boolean paintBorder;
   private Insets margin;
@@ -133,6 +135,8 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    * @param i DOCUMENT ME!
    *
    * @return DOCUMENT ME!
+   *
+   * @deprecated Replaced by getComponent(int)
    */
   public Component getComponentAtIndex(int i)
   {

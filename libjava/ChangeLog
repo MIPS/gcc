@@ -1,3 +1,98 @@
+2004-06-07  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractButton.java
+	(serialVersionUID): New member variable.
+	(AccessibleAbstractButton.serialVersionUID): Likewise.
+	(AbstractButton): Made public.
+	* javax/swing/Box.java
+	(AccessibleBox.serialVersionUID): New member variable.
+	(Filler.serialVersionUID): Likewise.
+	* javax/swing/DefaultListSelectionModel.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JApplet.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JCheckBox.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JCheckBoxMenuItem.java
+	(serialVersionUID): Likewise.
+	(AccessibleJCheckBoxMenuItem.serialVersionUID): Likewise.
+	* javax/swing/JColorChooser.java
+	(serialVersionUID): Likewise.
+	(AccessibleJColorChooser.serialVersionUID): Likewise.
+	* javax/swing/JComponent.java
+	(serialVersionUID): Made private.
+	(AccessibleJComponent.serialVersionUID): New member variable.
+	* javax/swing/JDesktopPane.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JDialog.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JFormattedTextField.java
+	(serialVersionUID): Fixed value.
+	* javax/swing/JFrame.java
+	(serialVersionUID): New member variable.
+	(getDefaultCloseOpertation): Made public.
+	* javax/swing/JLayeredPane.java
+	(serialVersionUID): Likewise.
+	(LAYER_PROPERTY): Made final, fixed value.
+	(JLayeredPane): Made public.
+	* javax/swing/JMenu.java
+	(AccessibleJMenu.serialVersionUID): New member variable.
+	(WinListener.serialVersionUID): Likewise.
+	* javax/swing/JMenuBar.java
+	(serialVersionUID): Likewise.
+	(getComponentAtIndex): Added @deprecated tag.
+	* javax/swing/JMenuItem.java
+	(serialVersionUID): New member variable.
+	(AccessibleJMenuItem.serialVersionUID): Likewise.
+	* javax/swing/JOptionPane.java
+	(serialVersionUID): Likewise.
+	(AccessibleJOptionPane.serialVersionUID): Likewise.
+	* javax/swing/JPopupMenu.java
+	(serialVersionUID): Likewise.
+	(AccessibleJPopupMenu.serialVersionUID): Likewise.
+	(getPopupMenuListeners): New method.
+	(getComponentAtIndex): Added @deprecated tag.
+	* javax/swing/JProgressBar.java
+	(serialVersionUID): New member variable.
+	(AccessibleJProgressBar.serialVersionUID): Likewise.
+	* javax/swing/JRadioButton.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JRadioButtonMenuItem.java
+	(serialVersionUID): Likewise.
+	(AccessibleJRadioButtonMenuItem.serialVersionUID): Likewise.
+	* javax/swing/JScrollBar.java
+	(serialVersionUID): Likewise.
+	(AccessibleJScrollBar.serialVersionUID): Likewise.
+	* javax/swing/JSeparator.java
+	(serialVersionUID): Likewise.
+	(AccessibleJSeparator.serialVersionUID): Likewise.
+	* javax/swing/JSlider.java: Fixed javadocs.
+	(AccessibleJSlider.serialVersionUID): New member variable.
+	* javax/swing/JSplitPane.java: Added copyright statement.
+	(serialVersionUID): New member variable.
+	(AccessibleJSplitPane.serialVersionUID): Likewise.
+	* javax/swing/JTabbedPane.java
+	(serialVersionUID): Likewise.
+	(AccessibleJTabbedPane.serialVersionUID): Likewise.
+	(ModelListener.serialVersionUID): Likewise.
+	(ModelListener.ModelListener): New constructor.
+	(SCROLL_TAB_LAYOUT): Made public final, fixed value.
+	(WRAP_TAB_LAYOUT): Likewise.
+	* javax/swing/JTable.java
+	(serialVersionUID): New member variable.
+	* javax/swing/JToggleButton.java
+	(serialVersionUID): Likewise.
+	(ToggleButtonModel): Made static.
+	(ToggleButtonModel.serialVersionUID): New member variable.
+	* javax/swing/JToolTip.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JTree.java
+	(serialVersionUID): Likewise.
+	* javax/swing/JWindow.java
+	(serialVersionUID): Likewise.
+	* javax/swing/Timer.java
+	(serialVersionUID): Likewise.
+
 2004-06-06  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/SwingConstants.java

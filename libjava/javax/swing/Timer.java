@@ -1,5 +1,5 @@
 /* Timer.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -47,6 +47,8 @@ import javax.swing.event.EventListenerList;
 
 public class Timer implements Serializable
 {
+  private static final long serialVersionUID = -1116180831621385484L;
+  
   protected EventListenerList listenerList = new EventListenerList();
   
   int ticks;

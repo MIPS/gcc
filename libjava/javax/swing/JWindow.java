@@ -1,5 +1,5 @@
 /* JWindow.java --
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -60,6 +60,8 @@ import javax.accessibility.AccessibleContext;
  */
 public class JWindow extends Window implements Accessible, RootPaneContainer
 {
+  private static final long serialVersionUID = 5420698392125238833L;
+  
     public final static int HIDE_ON_CLOSE        = 0;
     public final static int EXIT_ON_CLOSE        = 1;
     public final static int DISPOSE_ON_CLOSE     = 2;

@@ -66,6 +66,8 @@ import javax.swing.plaf.MenuItemUI;
 public class JMenuItem extends AbstractButton implements Accessible,
                                                          MenuElement
 {
+  private static final long serialVersionUID = -1681004643499461044L;
+
   private static final String uiClassID = "MenuItemUI";
   private KeyStroke accelerator;
 
@@ -587,6 +589,8 @@ public class JMenuItem extends AbstractButton implements Accessible,
   protected class AccessibleJMenuItem extends AccessibleAbstractButton
     implements ChangeListener
   {
+    private static final long serialVersionUID = 6748924232082076534L;
+
     /**
      * Creates a new AccessibleJMenuItem object.
      *

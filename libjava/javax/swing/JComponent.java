@@ -90,7 +90,7 @@ import javax.swing.plaf.ComponentUI;
  */
 public abstract class JComponent extends Container implements Serializable
 {
-  static final long serialVersionUID = -5242478962609715464L;
+  private static final long serialVersionUID = -7908749299918704233L;
 
   /** 
    * Accessibility support is currently missing.
@@ -117,6 +117,8 @@ public abstract class JComponent extends Container implements Serializable
       public void componentRemoved(ContainerEvent valevent) {}
     }
 
+    private static final long serialVersionUID = -7047089700479897799L;
+  
     protected ContainerListener accessibleContainerHandler;
     protected FocusListener accessibleFocusHandler;
 

@@ -71,7 +71,7 @@ import javax.swing.plaf.SliderUI;
  * </p>
  * 
  * <table>
- * <tr><th> Property         </td><th> Stored in </td><th> Bound? </td></tr>
+ * <tr><th> Property         </th><th> Stored in </th><th> Bound? </th></tr>
  * <tr><td> extent           </td><td> model     </td><td> no     </td></tr>
  * <tr><td> inverted         </td><td> slider    </td><td> yes    </td></tr>
  * <tr><td> labelTable       </td><td> slider    </td><td> yes    </td></tr>
@@ -125,6 +125,8 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   protected class AccessibleJSlider extends JComponent.AccessibleJComponent
     implements AccessibleValue
   {
+    private static final long serialVersionUID = -6301740148041106789L;
+  
     /**
      * Creates a new AccessibleJSlider object.
      *
@@ -414,7 +416,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    * This method returns a name to identify which look and feel class will be
    * the UI delegate for the slider.
    *
-   * @return The L&F classID. "SliderUI"
+   * @return The Look and Feel classID. "SliderUI"
    */
   public String getUIClassID()
   {

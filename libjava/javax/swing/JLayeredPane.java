@@ -82,17 +82,18 @@ import javax.accessibility.Accessible;
  * <dd>An offset into a layer's "logical drawing order". Layer position 0
  * is drawn last. Layer position -1 is a synonym for the first layer
  * position (the logical "bottom").</dd>
+ * </dl>
  *
  * <p><b>Note:</b> the layer numbering order is the <em>reverse</em> of the
  * component indexing and position order</p>
  *
  * @author Graydon Hoare <graydon@redhat.com>
  */
-
 public class JLayeredPane extends JComponent implements Accessible
 {
-
-  public static String LAYER_PROPERTY = "LAYER_PROPERTY";
+  private static final long serialVersionUID = 5534920399324590459L;
+  
+  public static final String LAYER_PROPERTY = "layeredContainerLayer";
 
   public static Integer FRAME_CONTENT_LAYER = new Integer (-30000);
 
@@ -105,7 +106,7 @@ public class JLayeredPane extends JComponent implements Accessible
   TreeMap layers;               // Layer Number (Integer) -> Layer Size (Integer)
   Hashtable componentToLayer;   // Component -> Layer Number (Integer)
 
-  JLayeredPane()
+  public JLayeredPane()
   {
     layers = new TreeMap ();
     componentToLayer = new Hashtable ();

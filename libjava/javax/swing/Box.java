@@ -1,5 +1,5 @@
 /* Box.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -57,6 +57,8 @@ public class Box extends JComponent implements Accessible
   
   protected class AccessibleBox extends AccessibleAWTContainer
   {
+    private static final long serialVersionUID = -7775079816389931944L;
+  
     protected AccessibleBox()
     {
     }
@@ -69,6 +71,8 @@ public class Box extends JComponent implements Accessible
   
   public static class Filler extends JComponent implements Accessible
   {
+    private static final long serialVersionUID = -1204263191910183998L;
+  
     protected class AccessibleBoxFiller// extends AccessibleAWTComponent
     {
       protected AccessibleBoxFiller()

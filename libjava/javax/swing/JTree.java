@@ -1,5 +1,5 @@
 /* JTree.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -60,6 +60,8 @@ import javax.swing.tree.TreeSelectionModel;
 
 public class JTree extends JComponent implements Scrollable, Accessible
 {
+  private static final long serialVersionUID = 7559816092864483649L;
+  
     JTree()
     {
 	updateUI();

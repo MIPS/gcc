@@ -57,6 +57,8 @@ public class JSeparator extends JComponent implements SwingConstants,
    */
   protected class AccessibleJSeparator extends AccessibleJComponent
   {
+    private static final long serialVersionUID = 916332890553201095L;
+  
     /**
      * Constructor AccessibleJSeparator
      *
@@ -78,6 +80,8 @@ public class JSeparator extends JComponent implements SwingConstants,
     }
   }
 
+  private static final long serialVersionUID = 125301223445282357L;
+  
   /** The orientation of the JSeparator. */
   private transient int orientation = HORIZONTAL;
 

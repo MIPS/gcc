@@ -60,6 +60,8 @@ public class JOptionPane extends JComponent implements Accessible
    */
   protected class AccessibleJOptionPane extends JComponent.AccessibleJComponent
   {
+    private static final long serialVersionUID = 686071432213084821L;
+  
     /**
      * Creates a new AccessibleJOptionPane object.
      */
@@ -79,6 +81,8 @@ public class JOptionPane extends JComponent implements Accessible
     }
   }
 
+  private static final long serialVersionUID = 5231143276678566796L;
+  
   /** The value returned when cancel option is selected. */
   public static final int CANCEL_OPTION = 2;
 

@@ -1,5 +1,5 @@
 /* JToolTip.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,6 +43,8 @@ import javax.accessibility.AccessibleContext;
 
 public class JToolTip extends JComponent implements Accessible
 {
+  private static final long serialVersionUID = -1138929898906751643L;
+  
     String text;
 
     JToolTip(String text)

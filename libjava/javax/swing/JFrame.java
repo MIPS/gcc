@@ -1,5 +1,5 @@
 /* JFrame.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -59,6 +59,8 @@ import javax.accessibility.AccessibleContext;
  */
 public class JFrame extends Frame implements RootPaneContainer
 {
+  private static final long serialVersionUID = -3362141868504252139L;
+  
     public final static int HIDE_ON_CLOSE        = 0;
     public final static int EXIT_ON_CLOSE        = 1;
     public final static int DISPOSE_ON_CLOSE     = 2;
@@ -192,7 +194,7 @@ public class JFrame extends Frame implements RootPaneContainer
     return accessibleContext;
   }
   
-    int getDefaultCloseOperation()
+    public int getDefaultCloseOperation()
     {    return close_action;   }
 
     

@@ -158,6 +158,8 @@ import javax.swing.text.AttributeSet;
 public abstract class AbstractButton extends JComponent
   implements ItemSelectable, SwingConstants
 {
+  private static final long serialVersionUID = -937921345538462020L;
+  
   /** The icon displayed by default. */
   Icon default_icon;
 
@@ -296,6 +298,8 @@ public abstract class AbstractButton extends JComponent
     extends AccessibleJComponent implements AccessibleAction, AccessibleValue,
                                             AccessibleText
   {
+    private static final long serialVersionUID = -5673062525319836790L;
+    
     protected AccessibleAbstractButton(JComponent c)
     {
       super(c);
@@ -463,7 +467,7 @@ public abstract class AbstractButton extends JComponent
   /**
    * Creates a new AbstractButton object.
    */
-  AbstractButton()
+  public AbstractButton()
   {
     this("",null);
   }
