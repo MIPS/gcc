@@ -1510,7 +1510,6 @@ javax/swing/plaf/TableUI.java \
 javax/swing/plaf/ToolBarUI.java \
 javax/swing/plaf/ToolTipUI.java \
 javax/swing/AbstractListModel.java \
-javax/swing/AbstractSet.java \
 javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \

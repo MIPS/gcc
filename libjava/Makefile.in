@@ -1106,7 +1106,6 @@ javax/swing/plaf/TableUI.java \
 javax/swing/plaf/ToolBarUI.java \
 javax/swing/plaf/ToolTipUI.java \
 javax/swing/AbstractListModel.java \
-javax/swing/AbstractSet.java \
 javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \
@@ -3332,7 +3331,6 @@ javax/swing/plaf/SliderUI.lo javax/swing/plaf/SpinnerUI.lo \
 javax/swing/plaf/SplitPaneUI.lo javax/swing/plaf/TableHeaderUI.lo \
 javax/swing/plaf/TableUI.lo javax/swing/plaf/ToolBarUI.lo \
 javax/swing/plaf/ToolTipUI.lo javax/swing/AbstractListModel.lo \
-javax/swing/AbstractSet.lo \
 javax/swing/colorchooser/AbstractColorChooserPanel.lo \
 javax/swing/colorchooser/ColorChooserComponentFactory.lo \
 javax/swing/colorchooser/ColorSelectionModel.lo \
@@ -5406,7 +5404,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/sql/XAConnection.P .deps/javax/sql/XADataSource.P \
 .deps/javax/swing/AbstractAction.P .deps/javax/swing/AbstractButton.P \
 .deps/javax/swing/AbstractCellEditor.P \
-.deps/javax/swing/AbstractListModel.P .deps/javax/swing/AbstractSet.P \
+.deps/javax/swing/AbstractListModel.P \
 .deps/javax/swing/AbstractSpinnerModel.P .deps/javax/swing/Action.P \
 .deps/javax/swing/ActionMap.P .deps/javax/swing/BorderFactory.P \
 .deps/javax/swing/BoundedRangeModel.P .deps/javax/swing/Box.P \
