@@ -1,3 +1,7 @@
+2004-06-16  Dale Johannesen  <dalej@apple.com>
+	Radar 3661015/PR 15993
+	* tree-ssa-dom.c (thread_across_edge): fix from FSF.
+
 2004-06-15  Dorit Naishlos  <DORIT@il.ibm.com>
         
         Radar 3619941

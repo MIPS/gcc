@@ -923,7 +923,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  edge taken_edge = find_taken_edge (e->dest, cached_lhs);
 	  basic_block dest = (taken_edge ? taken_edge->dest : NULL);
 
-	  if (dest == e->src)
+	  /* APPLE LOCAL change from Zdenek, mainline 06-16-04 --dbj */
+	  if (dest == e->dest)
 	    return;
 
 	  /* If we have a known destination for the conditional, then
