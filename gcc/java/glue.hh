@@ -1,6 +1,6 @@
 // Header glue for interfacing with gcc.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -86,6 +86,8 @@ extern "C"
 
 // Now include things from gcjx.
 #include "typedefs.hh"
+#include "aot/aotclass.hh"
+#include "aot/aotfactory.hh"
 #include "java/builtins.hh"
 #include "java/hooks.hh"
 #include "java/classobj.hh"

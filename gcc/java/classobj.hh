@@ -1,6 +1,6 @@
 // Create a Class instance.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -51,20 +51,36 @@ class class_object_creator
   // The builtins we use.
   tree_builtins *builtins;
 
+  // The class we're converting.
+  aot_class *klass;
+
+  // The resulting tree.
+  tree result;
+
   tree make_decl (tree, tree);
   tree create_one_field_record (model_field *);
   tree create_field_array (model_class *, int &, int &);
   tree create_method_array (model_class *, int &);
   void handle_interfaces (model_class *, tree &, tree &);
+  void create_index_table (const std::vector<model_element *> &,
+			   tree &, tree &);
+  void create_class_instance (tree);
 
 public:
 
-  class_object_creator (tree_builtins *b)
-    : builtins (b)
+  class_object_creator (tree_builtins *b, aot_class *k)
+    : builtins (b),
+      klass (k)
   {
+    abort ();
+    // create_class_instance (FIXME);
   }
 
-  tree create_class_instance (model_class *, tree);
+  /// Return the class object we created.
+  tree get_class ()
+  {
+    return result;
+  }
 };
 
 #endif // GCC_TREE_CLASSOBJ_HH

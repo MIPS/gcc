@@ -229,17 +229,14 @@ tree_generator::build_jni_stub ()
   // function pointer.  _Jv_LookupJNIMethod will throw the appropriate
   // exception if this function is not found at runtime.
   tem = build_tree_list (NULL_TREE, build_int_cst (NULL_TREE, args_size));
-  tree method_sig = get_identifier (method->get_descriptor ().c_str ());
-  method_sig
-    = build_ref_from_constant_pool (alloc_name_constant (CONSTANT_Utf8,
-							 method_sig));
+  tree method_sig
+    = build_ref_from_constant_pool (class_wrapper->add_utf (method->get_descriptor ()));
   // FIXME: set TREE_TYPE on method_sig.
   // FIXME: this should probably be done by build_ref_from_constant_pool?
   TREE_CONSTANT (method_sig) = 1;
   tree lookup_arg = tree_cons (NULL_TREE, method_sig, tem);
 
-  tem = build_ref_from_constant_pool (alloc_name_constant (CONSTANT_Utf8,
-							   DECL_NAME (method_tree)));
+  tem = build_ref_from_constant_pool (class_wrapper->add_utf (method->get_name ()));
   lookup_arg
     = tree_cons (NULL_TREE, klass,
 		 tree_cons (NULL_TREE, tem, lookup_arg));
@@ -420,7 +417,7 @@ tree_generator::visit_catch (model_catch *stmt,
   tree vtype = gcc_builtins->map_type (vardecl->type ());
   // FIXME: type?
   tree assign = build2 (MODIFY_EXPR, ptr_type_node,
-			var, gcc_builtins->build_exception_object_ref (vtype));
+			var, build_exception_object_ref (vtype));
 
   tsi_link_after (&out, assign, TSI_CONTINUE_LINKING);
 
@@ -899,8 +896,8 @@ tree_generator::visit_array_initializer (model_array_initializer *,
       tree idx_tree = build_int_cst (type_jint, index);
       tree assign
 	= build2 (MODIFY_EXPR, elt_tree,
-		  gcc_builtins->build_array_reference (new_expr, idx_tree,
-						       elt_tree, false),
+		  build_array_reference (new_expr, idx_tree,
+					 elt_tree, false),
 		  value);
       TREE_SIDE_EFFECTS (assign) = 1;
       tsi_link_after (&out, assign, TSI_CONTINUE_LINKING);
@@ -924,8 +921,8 @@ tree_generator::visit_array_ref (model_array_ref *,
   tree component_type
     = gcc_builtins->map_type (array->type ()->element_type ());
 
-  current = gcc_builtins->build_array_reference (array_tree, index_tree,
-						 component_type);
+  current = build_array_reference (array_tree, index_tree,
+				   component_type);
 }
 
 void
@@ -969,8 +966,8 @@ tree_generator::visit_arith_binary (model_div *op,
   rhs->visit (this);
   tree rhs_tree = current;
 
-  current = gcc_builtins->build_divide (gcc_builtins->map_type (op->type ()),
-					lhs_tree, rhs_tree);
+  current = build_divide (gcc_builtins->map_type (op->type ()),
+			  lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 | TREE_SIDE_EFFECTS (rhs_tree));
 }
@@ -985,8 +982,8 @@ tree_generator::visit_arith_binary (model_mod *op,
   rhs->visit (this);
   tree rhs_tree = current;
 
-  current = gcc_builtins->build_mod (gcc_builtins->map_type (op->type ()),
-				     lhs_tree, rhs_tree);
+  current = build_mod (gcc_builtins->map_type (op->type ()),
+		       lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 | TREE_SIDE_EFFECTS (rhs_tree));
 }
@@ -1171,8 +1168,8 @@ tree_generator::visit_op_assignment (model_div_equal *op,
 
   current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
 		    lhs_tree,
-		    gcc_builtins->build_divide (div_type, lhs_tree,
-						rhs_tree));
+		    build_divide (div_type, lhs_tree,
+				  rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
 }
 
@@ -1214,8 +1211,8 @@ tree_generator::visit_op_assignment (model_mod_equal *op,
 
   current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
 		    lhs_tree,
-		    gcc_builtins->build_mod (div_type, lhs_tree,
-					     rhs_tree));
+		    build_mod (div_type, lhs_tree,
+			       rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
 }
 
@@ -1307,12 +1304,6 @@ tree_generator::visit_cast (model_cast *,
 	  TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
 	}
     }
-}
-
-tree
-tree_generator::build_class_ref (tree klass)
-{
-  return gcc_builtins->build_class_ref (klass);
 }
 
 tree
@@ -1569,9 +1560,8 @@ tree_generator::visit_simple_literal (model_literal_base *,
 tree
 tree_generator::handle_string_literal (const std::string &val)
 {
-  tree node = get_identifier (val.c_str ());
-  int location = alloc_name_constant (CONSTANT_String, node);
-  node = build_ref_from_constant_pool (location);
+  int location = class_wrapper->add (val);
+  tree node = build_ref_from_constant_pool (location);
   TREE_TYPE (node)
     = gcc_builtins->map_type (global->get_compiler ()->java_lang_String ());
   TREE_CONSTANT (node) = 1;
@@ -1882,14 +1872,132 @@ tree_generator::build_new_object_array (model_type *elt_type, tree size)
   return insn;
 }
 
-int
-tree_generator::alloc_name_constant (classfile_type_constant, tree)
-{
-  abort ();			// FIXME
-}
-
 tree
 tree_generator::build_ref_from_constant_pool (int)
 {
   abort ();			// FIXME
+}
+
+// This comes directly from gcj.
+tree
+tree_generator::build_exception_object_ref (tree type)
+{
+  // Java only passes object via pointer and doesn't require
+  // adjusting.  The java object is immediately before the generic
+  // exception header.
+  tree obj = build0 (EXC_PTR_EXPR, build_pointer_type (type));
+  obj = build2 (MINUS_EXPR, TREE_TYPE (obj), obj,
+		TYPE_SIZE_UNIT (TREE_TYPE (obj)));
+  obj = build1 (INDIRECT_REF, type, obj);
+  return obj;
+}
+
+tree
+tree_generator::build_class_ref (tree klass)
+{
+  // FIXME.
+  gcj_abi *abi = gcc_builtins->find_abi (NULL);
+  // FIXME: this API is wrong, we want to pass in the class wrapper
+  // instead.
+  return abi->build_class_reference (gcc_builtins, klass);
+}
+
+tree
+tree_generator::build_divide (tree result_type, tree lhs, tree rhs)
+{
+  enum tree_code opcode;
+  if (result_type == type_jfloat || result_type == type_jdouble)
+    opcode = RDIV_EXPR;
+  else
+    {
+      if (flag_use_divide_subroutine)
+	{
+	  tree func;
+	  if (result_type == type_jlong)
+	    func = builtin_Jv_divJ;
+	  else
+	    func = builtin_Jv_divI;
+	  return build3 (CALL_EXPR, result_type, func,
+			 tree_cons (NULL_TREE, lhs,
+				    build_tree_list (NULL_TREE, rhs)),
+			 NULL_TREE);
+	}
+      opcode = TRUNC_DIV_EXPR;
+    }
+
+  return build2 (opcode, result_type, lhs, rhs);
+}
+
+tree
+tree_generator::build_mod (tree result_type, tree lhs, tree rhs)
+{
+  tree func;
+  if (result_type == type_jfloat || result_type == type_jdouble)
+    func = builtin_fmod;
+  else
+    {
+      if (! flag_use_divide_subroutine)
+	return build2 (TRUNC_MOD_EXPR, result_type, lhs, rhs);
+
+      if (result_type == type_jlong)
+	func = builtin_Jv_remJ;
+      else
+	func = builtin_Jv_remI;
+    }
+
+  return build3 (CALL_EXPR, result_type, func,
+		 tree_cons (NULL_TREE, lhs,
+			    build_tree_list (NULL_TREE, rhs)),
+		 NULL_TREE);
+}
+
+tree
+tree_generator::build_array_reference (tree array, tree index,
+				       tree result_type,
+				       bool use_checks)
+{
+  tree array_type = TREE_TYPE (array);
+  // Note that the 'data' field is a back-end invention; it does not
+  // exist in the model, so we can't look for it there.
+  tree datafield = gcc_builtins->find_decl (array_type, "data");
+
+  array = save_expr (array);
+  index = save_expr (index);
+
+  tree current
+    = build4 (ARRAY_REF, result_type,
+	      build3 (COMPONENT_REF, array_type,
+		      build1 (INDIRECT_REF, TREE_TYPE (array_type),
+			      gcc_builtins->check_reference (array)),
+		      datafield, NULL_TREE),
+	      index,
+	      NULL_TREE, NULL_TREE);
+  TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (array)
+				 || TREE_SIDE_EFFECTS (index));
+
+  if (use_checks && flag_bounds_check)
+    {
+      tree field = gcc_builtins->find_decl (array_type, "length");
+
+      // First: if ((unsigned) index >= (unsigned) length) throw
+      tree length = build3 (COMPONENT_REF, type_jint,
+			    // Note we don't use check_reference here,
+			    // as we it would be redundant.
+			    build1 (INDIRECT_REF, TREE_TYPE (array_type),
+				    array),
+			    field, NULL_TREE);
+      tree check = build3 (COND_EXPR, void_type_node,
+			   build2 (GE_EXPR, type_jboolean,
+				   build1 (NOP_EXPR, type_juint, index),
+				   build1 (NOP_EXPR, type_juint, length)),
+			   build3 (CALL_EXPR, void_type_node,
+				   builtin_Jv_ThrowBadArrayIndex,
+				   NULL_TREE, NULL_TREE),
+			   build_empty_stmt ());
+      current = build2 (COMPOUND_EXPR, result_type, check, current);
+      TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (array)
+				     || TREE_SIDE_EFFECTS (index));
+    }
+
+  return current;
 }

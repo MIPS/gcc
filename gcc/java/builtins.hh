@@ -24,7 +24,7 @@
 
 #include "java/abi.hh"
 
-class tree_builtins
+class tree_builtins : public aot_class_factory
 {
   // This maps our types to gcc types.
   std::map<model_type *, tree> typemap;
@@ -81,12 +81,6 @@ public:
     // FIXME.
     abort ();
   }
-
-  tree build_divide (tree, tree, tree);
-  tree build_mod (tree, tree, tree);
-  tree build_array_reference (tree, tree, tree, bool = true);
-  tree build_exception_object_ref (tree);
-  tree build_class_ref (tree);
 
   tree lay_out_class (model_class *);
 

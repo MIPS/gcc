@@ -1,3 +1,34 @@
+2005-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (gt-java-mangle.h): Removed.
+	(java/mangle.o): Removed.
+	* mangle.c: Removed.
+	* glue.hh: Include aotclass.hh and aotfactory.hh.
+	* lower.cc (visit_bytecode_block): Updated.
+	* classobj.hh (class_object_creator::klass): New field.
+	(class_object_creator::result): Likewise.
+	(class_object_creator): Updated.
+	(class_object_creator::get_class): New method.
+	* classobj.cc (create_index_table): New method.
+	(create_class_instance): Use it.
+	* builtins.hh (tree_builtins): Updated.
+	* builtins.cc (add): Call SET_DECL_ASSEMBLER_NAME.
+	(build_array_reference, build_exception_object_ref,
+	build_class_ref, build_divide, build_mod): Removed.
+	(check_reference): Likewise.
+	* tree.hh (tree_generator::alloc_name_constant): Removed.
+	(tree_generator::class_wrapper): New field.
+	(tree_generator): Updated.
+	* tree.cc (alloc_name_constant): Removed.
+	(build_jni_stub): Updated.
+	(handle_string_literal): Likewise.
+	(build_exception_object_ref): New method.
+	(build_class_ref): Likewise.
+	(build_divide): Likewise.
+	(build_mod): Likewise.
+	(build_array_reference): Likewise.
+	(check_reference): Likewise.
+
 2005-01-23  Tom Tromey  <tromey@redhat.com>
 
 	* glue.hh: Include gcjx-config.h early.

@@ -23,6 +23,7 @@
 #include "java/glue.hh"
 
 tree_builtins::tree_builtins ()
+  : aot_class_factory ()
 {
 }
 
@@ -114,6 +115,8 @@ tree_builtins::add (tree context, model_method *meth)
 			    mtype);
   TREE_PUBLIC (result) = 1;
   DECL_CONTEXT (result) = context;
+  SET_DECL_ASSEMBLER_NAME (result,
+			   get_identifier (get_mangled_form (meth).c_str ()));
 
   // Convert the actual parameters.  We do this later because we want
   // to set the context when creating the parameter.
@@ -179,6 +182,8 @@ tree_builtins::add (tree context, model_field *field)
   DECL_CONTEXT (result) = context;
   DECL_EXTERNAL (result) = 1;
   TREE_PUBLIC (result) = 1;
+  SET_DECL_ASSEMBLER_NAME (result,
+			   get_identifier (get_mangled_form (field).c_str ()));
 
   TREE_CHAIN (result) = TYPE_FIELDS (context);
   TYPE_FIELDS (context) = result;
@@ -490,56 +495,6 @@ tree_builtins::lay_out_class (model_class *klass)
 }
 
 tree
-tree_builtins::build_array_reference (tree array, tree index, tree result_type,
-				      bool use_checks)
-{
-  tree array_type = TREE_TYPE (array);
-  // Note that the 'data' field is a back-end invention; it does not
-  // exist in the model, so we can't look for it there.
-  tree datafield = find_decl (array_type, "data");
-
-  array = save_expr (array);
-  index = save_expr (index);
-
-  tree current
-    = build4 (ARRAY_REF, result_type,
-	      build3 (COMPONENT_REF, array_type,
-		      build1 (INDIRECT_REF, TREE_TYPE (array_type),
-			      check_reference (array)),
-		      datafield, NULL_TREE),
-	      index,
-	      NULL_TREE, NULL_TREE);
-  TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (array)
-				 || TREE_SIDE_EFFECTS (index));
-
-  if (use_checks && flag_bounds_check)
-    {
-      tree field = find_decl (array_type, "length");
-
-      // First: if ((unsigned) index >= (unsigned) length) throw
-      tree length = build3 (COMPONENT_REF, type_jint,
-			    // Note we don't use check_reference here,
-			    // as we it would be redundant.
-			    build1 (INDIRECT_REF, TREE_TYPE (array_type),
-				    array),
-			    field, NULL_TREE);
-      tree check = build3 (COND_EXPR, void_type_node,
-			   build2 (GE_EXPR, type_jboolean,
-				   build1 (NOP_EXPR, type_juint, index),
-				   build1 (NOP_EXPR, type_juint, length)),
-			   build3 (CALL_EXPR, void_type_node,
-				   builtin_Jv_ThrowBadArrayIndex,
-				   NULL_TREE, NULL_TREE),
-			   build_empty_stmt ());
-      current = build2 (COMPOUND_EXPR, result_type, check, current);
-      TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (array)
-				     || TREE_SIDE_EFFECTS (index));
-    }
-
-  return current;
-}
-
-tree
 tree_builtins::find_decl (tree type, const char *name)
 {
   // This may only be called for local fields.
@@ -550,75 +505,4 @@ tree_builtins::find_decl (tree type, const char *name)
 	return field;
     }
   abort ();
-}
-
-// This comes directly from gcj.
-tree
-tree_builtins::build_exception_object_ref (tree type)
-{
-  // Java only passes object via pointer and doesn't require
-  // adjusting.  The java object is immediately before the generic
-  // exception header.
-  tree obj = build0 (EXC_PTR_EXPR, build_pointer_type (type));
-  obj = build2 (MINUS_EXPR, TREE_TYPE (obj), obj,
-		TYPE_SIZE_UNIT (TREE_TYPE (obj)));
-  obj = build1 (INDIRECT_REF, type, obj);
-  return obj;
-}
-
-tree
-tree_builtins::build_class_ref (tree klass)
-{
-  // FIXME.
-  gcj_abi *abi = find_abi (NULL);
-  return abi->build_class_reference (this, klass);
-}
-
-tree
-tree_builtins::build_divide (tree result_type, tree lhs, tree rhs)
-{
-  enum tree_code opcode;
-  if (result_type == type_jfloat || result_type == type_jdouble)
-    opcode = RDIV_EXPR;
-  else
-    {
-      if (flag_use_divide_subroutine)
-	{
-	  tree func;
-	  if (result_type == type_jlong)
-	    func = builtin_Jv_divJ;
-	  else
-	    func = builtin_Jv_divI;
-	  return build3 (CALL_EXPR, result_type, func,
-			 tree_cons (NULL_TREE, lhs,
-				    build_tree_list (NULL_TREE, rhs)),
-			 NULL_TREE);
-	}
-      opcode = TRUNC_DIV_EXPR;
-    }
-
-  return build2 (opcode, result_type, lhs, rhs);
-}
-
-tree
-tree_builtins::build_mod (tree result_type, tree lhs, tree rhs)
-{
-  tree func;
-  if (result_type == type_jfloat || result_type == type_jdouble)
-    func = builtin_fmod;
-  else
-    {
-      if (! flag_use_divide_subroutine)
-	return build2 (TRUNC_MOD_EXPR, result_type, lhs, rhs);
-
-      if (result_type == type_jlong)
-	func = builtin_Jv_remJ;
-      else
-	func = builtin_Jv_remI;
-    }
-
-  return build3 (CALL_EXPR, result_type, func,
-		 tree_cons (NULL_TREE, lhs,
-			    build_tree_list (NULL_TREE, rhs)),
-		 NULL_TREE);
 }

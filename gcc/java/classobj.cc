@@ -97,11 +97,11 @@ class_object_creator::create_one_field_record (model_field *field)
 }
 
 tree
-class_object_creator::create_field_array (model_class *klass,
+class_object_creator::create_field_array (model_class *real_class,
 					  int &num_fields,
 					  int &num_static_fields)
 {
-  std::list<ref_field> fields = klass->get_fields ();
+  std::list<ref_field> fields = real_class->get_fields ();
 
   num_fields = 0;
   num_static_fields = 0;
@@ -126,17 +126,52 @@ class_object_creator::create_field_array (model_class *klass,
 }
 
 tree
-class_object_creator::create_method_array (model_class *klass, int &)
+class_object_creator::create_method_array (model_class *real_class, int &)
 {
   return null_pointer_node;	// FIXME
 }
 
 void
-class_object_creator::handle_interfaces (model_class *klass,
+class_object_creator::create_index_table (const std::vector<model_element *> &table,
+					  tree &result_table,
+					  tree &result_syms)
+{
+  for (std::vector<model_element *>::const_iterator i = table.begin ();
+       i != table.end ();
+       ++i)
+    {
+      // We can be looking at a field or a method.
+      // FIXME: it would be nice if we could use IMember; it would
+      // need name and descriptor accessors.
+      std::string class_desc, name, descriptor;
+      if (dynamic_cast<model_field *> (*i))
+	{
+	  model_field *field = assert_cast<model_field *> (*i);
+	  class_desc = field->get_declaring_class ()->get_descriptor ();
+	  name = field->get_name ();
+	  descriptor = field->type ()->get_descriptor ();
+	}
+      else
+	{
+	  model_method *method = assert_cast<model_method *> (*i);
+	  class_desc = method->get_declaring_class ()->get_descriptor ();
+	  name = method->get_name ();
+	  descriptor = method->get_descriptor ();
+	}
+
+      // FIXME: enter new utf8consts.
+      
+    }
+
+  // FIXME create the tables and update the arguments
+}
+
+void
+class_object_creator::handle_interfaces (model_class *real_class,
 					 tree &interfaces,
 					 tree &iface_len)
 {
-  std::list<ref_forwarding_type> ifaces (klass->get_interfaces ());
+  std::list<ref_forwarding_type> ifaces (real_class->get_interfaces ());
   int len = 0;
 
   if (ifaces.empty ())
@@ -170,39 +205,39 @@ class_object_creator::handle_interfaces (model_class *klass,
 
 }
 
-tree
-class_object_creator::create_class_instance (model_class *klass,
-					     tree class_tree)
+void
+class_object_creator::create_class_instance (tree class_tree)
 {
   assert (TREE_CODE (class_tree) == RECORD_TYPE);
 
   // FIXME: handle fields in Object.
 
-  gcj_abi *abi = builtins->find_abi (klass);
+  model_class *real_class = klass->get ();
+  gcj_abi *abi = builtins->find_abi (real_class);
   record_creator inst (type_class);
 
   inst.set_field ("next", null_pointer_node);
   inst.set_field ("name",
-		  builtins->map_utf8const (klass->get_fully_qualified_name ()));
+		  builtins->map_utf8const (real_class->get_fully_qualified_name ()));
 
-  int mods = klass->get_modifiers ();
+  int mods = real_class->get_modifiers ();
   // Inner classes have modifiers like top-level classes, where the
   // only valid values are public and package-private.
   if ((mods & ACC_ACCESS) != 0 && (mods & ACC_ACCESS) != ACC_PUBLIC)
     mods &= ~ACC_ACCESS;
   inst.set_field ("accflags", build_int_cst (type_jushort, mods));
 
-  model_class *super = klass->get_superclass ();
-  if (klass->interface_p ())
+  model_class *super = real_class->get_superclass ();
+  if (real_class->interface_p ())
     super = global->get_compiler ()->java_lang_Object ();
   inst.set_field ("superclass",
-		  super ? builtins->map_type (klass->get_superclass ())
+		  super ? builtins->map_type (real_class->get_superclass ())
 		  : null_pointer_node);
 
   inst.set_field ("constants", null_pointer_node);  // FIXME
 
   int method_len;
-  tree methods = create_method_array (klass, method_len);
+  tree methods = create_method_array (real_class, method_len);
   inst.set_field ("methods", methods);
   inst.set_field ("method_count", build_int_cst (type_jshort, method_len));
   inst.set_field ("vtable_method_count",
@@ -210,7 +245,8 @@ class_object_creator::create_class_instance (model_class *klass,
 				 TREE_VEC_LENGTH (BINFO_VTABLE (TYPE_BINFO (class_tree)))));
 
   int num_fields, num_static_fields;
-  tree field_array = create_field_array (klass, num_fields, num_static_fields);
+  tree field_array = create_field_array (real_class, num_fields,
+					 num_static_fields);
 
   inst.set_field ("fields", field_array);
   inst.set_field ("size_in_bytes", abi->get_size_in_bytes (class_tree));
@@ -221,21 +257,23 @@ class_object_creator::create_class_instance (model_class *klass,
   // FIXME abi->get_vtable (blah));
   inst.set_field ("vtable", null_pointer_node);
 
-  tree otable, otable_syms, atable, atable_syms, itable, itable_syms;
-  // FIXME
-//   abi->get_table_info (otable, otable_syms, atable, atable_syms,
-// 		       itable, itable_syms);
-  inst.set_field ("otable", otable);
-  inst.set_field ("otable_syms", otable_syms);
-  inst.set_field ("atable", atable);
-  inst.set_field ("atable_syms", atable_syms);
-  inst.set_field ("itable", itable);
-  inst.set_field ("itable_syms", itable_syms);
+  tree table, syms;
+  create_index_table (klass->get_otable (), table, syms);
+  inst.set_field ("otable", table);
+  inst.set_field ("otable_syms", syms);
+
+  create_index_table (klass->get_atable (), table, syms);
+  inst.set_field ("atable", table);
+  inst.set_field ("atable_syms", syms);
+
+  create_index_table (klass->get_itable (), table, syms);
+  inst.set_field ("itable", table);
+  inst.set_field ("itable_syms", syms);
 
   inst.set_field ("catch_classes", null_pointer_node);  // FIXME
 
   tree interfaces, interface_count;
-  handle_interfaces (klass, interfaces, interface_count);
+  handle_interfaces (real_class, interfaces, interface_count);
   inst.set_field ("interfaces", interfaces);
   inst.set_field ("loader", null_pointer_node);
   inst.set_field ("interface_count", interface_count);
@@ -256,5 +294,5 @@ class_object_creator::create_class_instance (model_class *klass,
 
   tree init = inst.finish_record ();
 
-  return make_decl (type_class, init);
+  result = make_decl (type_class, init);
 }

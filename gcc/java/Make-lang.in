@@ -74,13 +74,13 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 	-rm -f $(GCJ)-cross$(exeext)
 	cp $(GCJ)$(exeext) $(GCJ)-cross$(exeext)
 
-gt-java-hooks.h gt-java-langhooks.h gt-java-mangle.h : s-gtype ; @true
+gt-java-hooks.h gt-java-langhooks.h : s-gtype ; @true
 
 # Executables built by this Makefile:
 JAVA_OBJS = java/abi.o java/builtins.o java/classobj.o java/decl.o \
 java/driver.o java/langhooks.o java/lower.o java/tree.o java/treegen.o
 # later:
-# java/boehm.o java/mangle.o java/mangle_name.o
+# java/boehm.o java/mangle_name.o
 
 JVGENMAIN_OBJS = java/jvgenmain.o java/mangle_name.o errors.o intl.o
 
@@ -232,8 +232,6 @@ java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(TREE_H) toplev.h
 java/jvgenmain.o: java/jvgenmain.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) intl.h
-java/mangle.o: java/mangle.c $(CONFIG_H) $(SYSTEM_H) \
-  coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-mangle.h
 java/mangle_name.o: java/mangle_name.c $(CONFIG_H) \
   $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(GGC_H)
 

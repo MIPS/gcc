@@ -673,7 +673,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jint);
 	    tree val1 = pop (type_jint);
-	    insn = push (gcc_builtins->build_divide (type_jint, val1, val2));
+	    insn = push (build_divide (type_jint, val1, val2));
 	  }
 	  break;
 
@@ -681,7 +681,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jlong);
 	    tree val1 = pop (type_jlong);
-	    insn = push (gcc_builtins->build_divide (type_jlong, val1, val2));
+	    insn = push (build_divide (type_jlong, val1, val2));
 	  }
 	  break;
 
@@ -701,7 +701,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jint);
 	    tree val1 = pop (type_jint);
-	    insn = push (gcc_builtins->build_mod (type_jint, val1, val2));
+	    insn = push (build_mod (type_jint, val1, val2));
 	  }
 	  break;
 
@@ -709,7 +709,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jlong);
 	    tree val1 = pop (type_jlong);
-	    insn = push (gcc_builtins->build_mod (type_jlong, val1, val2));
+	    insn = push (build_mod (type_jlong, val1, val2));
 	  }
 	  break;
 
@@ -1327,7 +1327,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    insn = push (build3 (CALL_EXPR, klass,
 				 builtin_Jv_AllocObject,
 				 build_tree_list (NULL_TREE,
-						  gcc_builtins->build_class_ref (klass)),
+						  build_class_ref (klass)),
 				 NULL_TREE));
 	  }
 	  break;
@@ -1807,7 +1807,7 @@ tree_generator::array_access (tree type)
 
   tree index = pop (type_jint);
   tree array = pop (array_type);
-  return gcc_builtins->build_array_reference (array, index, array_type);
+  return build_array_reference (array, index, array_type);
 }
 
 tree

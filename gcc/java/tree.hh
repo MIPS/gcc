@@ -31,6 +31,9 @@ class tree_generator : public visitor
   // The underlying compiler we're talking to.
   tree_builtins *gcc_builtins;
 
+  // The wrapper for this method's declaring class.
+  aot_class *class_wrapper;
+
   // This maps statements onto 'break' and 'continue' targets.  The
   // first element of the pair is the 'continue' target, the second
   // element is the 'break' target.
@@ -119,11 +122,14 @@ class tree_generator : public visitor
   tree build_long (jlong);
   tree handle_float (jfloat);
   tree handle_double (jdouble);
-  int alloc_name_constant (classfile_type_constant, tree);
   tree build_ref_from_constant_pool (int);
   tree build_new_array (model_type *, tree);
   tree build_new_object_array (model_type *, tree);
   model_type *find_model_class (const std::string &);
+  tree build_divide (tree, tree, tree);
+  tree build_mod (tree, tree, tree);
+  tree build_array_reference (tree, tree, tree, bool = true);
+  tree build_exception_object_ref (tree);
 
 
   // This class also includes code to transform bytecode to trees.
