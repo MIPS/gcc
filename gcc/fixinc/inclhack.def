@@ -842,6 +842,20 @@ fix = {
 
 
 /*
+ *  IRIX 5.2's <sys/asm.h> contains an asm comment with a contraction
+ *  that causes the assembly preprocessor to complain about an
+ *  unterminated character constant.
+ */
+fix = {
+    hackname = irix_asm_apostrophe;
+    files    = sys/asm.h;
+
+    select   = "^[ \t]*#.*[Ww]e're";
+    sed      = "/^[ \t]*#/s/\\([Ww]e\\)'re/\\1 are/";
+};
+
+
+/*
  * Fixing ISC fmod declaration
  */
 fix = {
@@ -2155,6 +2169,7 @@ fix = {
     sed   = "s/char[ \t]*\\*[ \t]*calloc/void \\*\tcalloc/g";
     sed   = "s/char[ \t]*\\*[ \t]*malloc/void \\*\tmalloc/g";
     sed   = "s/char[ \t]*\\*[ \t]*realloc/void \\*\trealloc/g";
+    sed   = "s/char[ \t]*\\*[ \t]*bsearch/void \\*\tbsearch/g";
     sed   = "s/int[ \t][ \t]*exit/void\texit/g";
 
     sed   = "/typedef[ \ta-zA-Z_]*[ \t]size_t[ \t]*;/i\\\n"

@@ -1,3 +1,11 @@
+1999-08007  Bruce Korb  <autogen@linuxbox.com>
+
+	* fixinc/server.c(server_setup): Do not prefix function used as
+	parameter with `&'.
+	* fixinc/inclhack.def: merge changes from main line
+	* fixinc/inclhack.sh: regen
+	* fixinc/fixincl.x: regen
+
 1999-07-01  Bruce Korb  <ddsinc09@ix.netcom.com>
 
 	* fixinc/Makefile.in:  Made provision for several new files and
