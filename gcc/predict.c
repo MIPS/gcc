@@ -431,7 +431,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
   edge e, first = NULL, second = NULL;
 
   for (e = bb->succ; e; e = e->succ_next)
-    if (!(bb->succ->flags & EDGE_EH))
+    if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
       {
         nedges ++;
 	if (first && !second)
@@ -449,11 +449,14 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
   if (nedges != 2)
     {
       for (e = bb->succ; e; e = e->succ_next)
-	if (!(bb->succ->flags & EDGE_EH))
+	if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
 	  e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
 	else
 	  e->probability = 0;
       bb_ann (bb)->predictions = NULL;
+      if (file)
+	fprintf (file, "%i edges in bb %i predicted to even probabilities\n",
+		 nedges, bb->index);
       return;
     }
 
