@@ -6232,7 +6232,7 @@ responsible for outputting the label definition at the proper place.
 Here is how to do this:
 
 @example
-ASM_OUTPUT_INTERNAL_LABEL (@var{file}, "LC", @var{labelno});
+@code{(*targetm.asm_out.internal_label)} (@var{file}, "LC", @var{labelno});
 @end example
 
 When you output a pool entry specially, you should end with a
@@ -6694,11 +6694,11 @@ This macro is not used by @code{output_asm_label}, or the @code{%l}
 specifier that calls it; the intention is that this macro should be set
 when it is necessary to output a label differently when its address
 is being taken.
+@end table
 
-@findex ASM_OUTPUT_INTERNAL_LABEL
-@item ASM_OUTPUT_INTERNAL_LABEL (@var{stream}, @var{prefix}, @var{num})
-A C statement to output to the stdio stream @var{stream} a label whose
-name is made from the string @var{prefix} and the number @var{num}.
+@deftypefn {Target Hook} void TARGET_ASM_INTERNAL_LABEL (FILE *@var{stream}, const char *@var{prefix}, unsigned long @var{labelno})
+A function to output to the stdio stream @var{stream} a label whose
+name is made from the string @var{prefix} and the number @var{labelno}.
 
 It is absolutely essential that these labels be distinct from the labels
 used for user-level functions and variables.  Otherwise, certain programs
@@ -6710,12 +6710,11 @@ should be excluded; on many systems, the letter @samp{L} at the
 beginning of a label has this effect.  You should find out what
 convention your system uses, and follow it.
 
-The usual definition of this macro is as follows:
+The default version of this function utilizes ASM_GENERATE_INTERNAL_LABEL.
 
-@example
-fprintf (@var{stream}, "L%s%d:\n", @var{prefix}, @var{num})
-@end example
+@end deftypefn
 
+@table @code
 @findex ASM_OUTPUT_DEBUG_LABEL
 @item ASM_OUTPUT_DEBUG_LABEL (@var{stream}, @var{prefix}, @var{num})
 A C statement to output to the stdio stream @var{stream} a debug info
@@ -6726,7 +6725,7 @@ systems, branch target labels must be at the beginning of instruction
 bundles, but debug info labels can occur in the middle of instruction
 bundles.
 
-If this macro is not defined, then @code{ASM_OUTPUT_INTERNAL_LABEL} will be
+If this macro is not defined, then @code{(*targetm.asm_out.internal_label)} will be
 used.
 
 @findex ASM_GENERATE_INTERNAL_LABEL
@@ -6735,7 +6734,7 @@ A C statement to store into the string @var{string} a label whose name
 is made from the string @var{prefix} and the number @var{num}.
 
 This string, when output subsequently by @code{assemble_name}, should
-produce the output that @code{ASM_OUTPUT_INTERNAL_LABEL} would produce
+produce the output that @code{(*targetm.asm_out.internal_label)} would produce
 with the same @var{prefix} and @var{num}.
 
 If the string begins with @samp{*}, then @code{assemble_name} will
@@ -7334,7 +7333,7 @@ A C statement to output to the stdio stream @var{stream} an assembler
 pseudo-instruction to generate a difference between two labels.
 @var{value} and @var{rel} are the numbers of two internal labels.  The
 definitions of these labels are output using
-@code{ASM_OUTPUT_INTERNAL_LABEL}, and they must be printed in the same
+@code{(*targetm.asm_out.internal_label)}, and they must be printed in the same
 way here.  For example,
 
 @example
@@ -7356,7 +7355,7 @@ in a dispatch table are absolute.
 The definition should be a C statement to output to the stdio stream
 @var{stream} an assembler pseudo-instruction to generate a reference to
 a label.  @var{value} is the number of an internal label whose
-definition is output using @code{ASM_OUTPUT_INTERNAL_LABEL}.
+definition is output using @code{(*targetm.asm_out.internal_label)}.
 For example,
 
 @example
@@ -7367,7 +7366,7 @@ fprintf (@var{stream}, "\t.word L%d\n", @var{value})
 @item ASM_OUTPUT_CASE_LABEL (@var{stream}, @var{prefix}, @var{num}, @var{table})
 Define this if the label before a jump-table needs to be output
 specially.  The first three arguments are the same as for
-@code{ASM_OUTPUT_INTERNAL_LABEL}; the fourth argument is the
+@code{(*targetm.asm_out.internal_label)}; the fourth argument is the
 jump-table which follows (a @code{jump_insn} containing an
 @code{addr_vec} or @code{addr_diff_vec}).
 
@@ -7375,7 +7374,7 @@ This feature is used on system V to output a @code{swbeg} statement
 for the table.
 
 If this macro is not defined, these labels are output with
-@code{ASM_OUTPUT_INTERNAL_LABEL}.
+@code{(*targetm.asm_out.internal_label)}.
 
 @findex ASM_OUTPUT_CASE_END
 @item ASM_OUTPUT_CASE_END (@var{stream}, @var{num}, @var{table})

@@ -2645,7 +2645,7 @@ do {							\
    outputting the label definition at the proper place.  Here is how to do
    this:
 
-        ASM_OUTPUT_INTERNAL_LABEL (FILE, "LC", LABELNO);
+        (*targetm.asm_out.internal_label) (FILE, "LC", LABELNO);
 
    When you output a pool entry specially, you should end with a `goto' to the
    label JUMPTO.  This will prevent the same pool entry from being output a
@@ -2922,7 +2922,7 @@ do  {						\
    from the string PREFIX and the number NUM.
 
    This string, when output subsequently by `assemble_name', should produce the
-   output that `ASM_OUTPUT_INTERNAL_LABEL' would produce with the same PREFIX
+   output that `(*targetm.asm_out.internal_label)' would produce with the same PREFIX
    and NUM.
 
    If the string begins with `*', then `assemble_name' will output the rest of

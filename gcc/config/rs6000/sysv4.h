@@ -453,7 +453,7 @@ toc_section ()								\
 	    {								\
 	      toc_initialized = 1;					\
 	      fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);	\
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LCTOC", 0);	\
+	      (*targetm.asm_out.internal_label) (asm_out_file, "LCTOC", 0); \
 	      fprintf (asm_out_file, "\t.tc ");				\
 	      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1[TC],"); \
 	      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1"); \
@@ -598,7 +598,7 @@ extern int rs6000_pic_labelno;
       {									\
 	char buf[256];							\
 									\
-	ASM_OUTPUT_INTERNAL_LABEL (FILE, "LCL", rs6000_pic_labelno);	\
+	(*targetm.asm_out.internal_label) (FILE, "LCL", rs6000_pic_labelno); \
 									\
 	ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);			\
 	fprintf (FILE, "\t%s ", init_ptr);				\
@@ -674,7 +674,7 @@ extern int rs6000_pic_labelno;
 #define	LOCAL_LABEL_PREFIX "."
 #define	USER_LABEL_PREFIX ""
 
-/* svr4.h overrides ASM_OUTPUT_INTERNAL_LABEL.  */
+/* svr4.h overrides (*targetm.asm_out.internal_label).  */
 
 #define	ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   asm_fprintf (FILE, "%L%s", PREFIX)

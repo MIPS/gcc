@@ -2482,7 +2482,7 @@ extern int making_const_table;
     {								\
       if (TARGET_THUMB)						\
         ASM_OUTPUT_ALIGN (FILE, 2);				\
-      ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);		\
+      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
     }								\
   while (0)
 

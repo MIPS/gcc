@@ -1718,7 +1718,7 @@ profile_function (file)
 #ifndef NO_PROFILE_COUNTERS
   data_section ();
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LP", current_function_funcdef_no);
+  (*targetm.asm_out.internal_label) (file, "LP", current_function_funcdef_no);
   assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
 #endif
 
@@ -2269,7 +2269,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-	      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+	      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
@@ -2278,7 +2278,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
       if (LABEL_ALT_ENTRY_P (insn))
 	output_alternate_entry_point (file, insn);
       else
-	ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+	(*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (insn));
       break;
 
     default:

@@ -360,7 +360,7 @@ do {								\
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLE)			\
   do {									\
     ASM_OUTPUT_BEFORE_CASE_LABEL((FILE),(PREFIX),(NUM),(TABLE));	\
-    ASM_OUTPUT_INTERNAL_LABEL((FILE),(PREFIX),(NUM));			\
+    (*targetm.asm_out.internal_label)((FILE),(PREFIX),(NUM));			\
   } while (0)
 
 /* At end of a switch table, define LDnnn iff the symbol LInnn was defined.

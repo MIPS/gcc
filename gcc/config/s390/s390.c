@@ -4552,7 +4552,7 @@ s390_function_profiler (file, labelno)
       output_asm_insn ("bras\t%2,%l6", op);
       output_asm_insn (".long\t%4", op);
       output_asm_insn (".long\t%3", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[6]));
       output_asm_insn ("l\t%0,0(%2)", op);
       output_asm_insn ("l\t%2,4(%2)", op);
       output_asm_insn ("basr\t%0,%0", op);
@@ -4565,10 +4565,10 @@ s390_function_profiler (file, labelno)
 
       output_asm_insn ("st\t%0,%1", op);
       output_asm_insn ("bras\t%2,%l6", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[5]));
       output_asm_insn (".long\t%4-%l5", op);
       output_asm_insn (".long\t%3-%l5", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[6]));
       output_asm_insn ("lr\t%0,%2", op);
       output_asm_insn ("a\t%0,0(%2)", op);
       output_asm_insn ("a\t%2,4(%2)", op);

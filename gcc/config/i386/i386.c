@@ -3975,7 +3975,7 @@ output_set_got (dest)
          is what will be referred to by the Mach-O PIC subsystem.  */
       ASM_OUTPUT_LABEL (asm_out_file, machopic_function_base_name ());
 #endif
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
 
       if (flag_pic)
@@ -13802,7 +13802,7 @@ x86_output_mi_thunk (file, delta, function)
 	    abort ();
 	  output_asm_insn ("push{l}\t%0", xops);
 	  output_asm_insn ("call\t%P1", xops);
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (xops[1]));
+	  (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (xops[1]));
 	  output_asm_insn ("pop{l}\t%0", xops);
 	  output_asm_insn
 	    ("add{l}\t{%2+[.-%P1], %0|%0, OFFSET FLAT: %2+[.-%P1]}", xops);

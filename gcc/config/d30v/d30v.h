@@ -2853,7 +2853,7 @@ extern const char *d30v_branch_cost_string;
    outputting the label definition at the proper place.  Here is how to do
    this:
 
-        ASM_OUTPUT_INTERNAL_LABEL (FILE, "LC", LABELNO);
+        (*targetm.asm_out.internal_label) (FILE, "LC", LABELNO);
 
    When you output a pool entry specially, you should end with a `goto' to the
    label JUMPTO.  This will prevent the same pool entry from being output a
@@ -3113,7 +3113,7 @@ extern const char *d30v_branch_cost_string;
    from the string PREFIX and the number NUM.
 
    This string, when output subsequently by `assemble_name', should produce the
-   output that `ASM_OUTPUT_INTERNAL_LABEL' would produce with the same PREFIX
+   output that `(*targetm.asm_out.internal_label)' would produce with the same PREFIX
    and NUM.
 
    If the string begins with `*', then `assemble_name' will output the rest of
@@ -3509,7 +3509,7 @@ do {									\
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a difference between two labels.
    VALUE and REL are the numbers of two internal labels.  The definitions of
-   these labels are output using `ASM_OUTPUT_INTERNAL_LABEL', and they must be
+   these labels are output using `(*targetm.asm_out.internal_label)', and they must be
    printed in the same way here.  For example,
 
         fprintf (STREAM, "\t.word L%d-L%d\n", VALUE, REL)  */
@@ -3523,7 +3523,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a reference to a label.  VALUE
    is the number of an internal label whose definition is output using
-   `ASM_OUTPUT_INTERNAL_LABEL'.  For example,
+   `(*targetm.asm_out.internal_label)'.  For example,
 
         fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 
@@ -3531,7 +3531,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
 fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
 /* Define this if the label before a jump-table needs to be output specially.
-   The first three arguments are the same as for `ASM_OUTPUT_INTERNAL_LABEL';
+   The first three arguments are the same as for `(*targetm.asm_out.internal_label)';
    the fourth argument is the jump-table which follows (a `jump_insn'
    containing an `addr_vec' or `addr_diff_vec').
 
@@ -3539,7 +3539,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    table.
 
    If this macro is not defined, these labels are output with
-   `ASM_OUTPUT_INTERNAL_LABEL'.
+   `(*targetm.asm_out.internal_label)'.
 
    Defined in svr4.h.  */
 /* #define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE) */

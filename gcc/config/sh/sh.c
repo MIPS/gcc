@@ -1010,12 +1010,12 @@ output_far_jump (insn, op)
   if (far && flag_pic && TARGET_SH2)
     {
       braf_base_lab = gen_label_rtx ();
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (braf_base_lab));
     }
   if (far)
     output_asm_insn (".align	2", 0);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
   this.op = op;
   if (far && flag_pic)
     {
@@ -1074,7 +1074,7 @@ output_branch (logic, insn, operands)
     
 	  output_asm_insn ("bra\t%l0", &op0);
 	  fprintf (asm_out_file, "\tnop\n");
-	  ASM_OUTPUT_INTERNAL_LABEL(asm_out_file, "LF", label);
+	  (*targetm.asm_out.internal_label)(asm_out_file, "LF", label);
     
 	  return "";
 	}
@@ -4172,7 +4172,7 @@ final_prescan_insn (insn, opvec, noperands)
 	    asm_fprintf (asm_out_file, "\t.uses %LL%d\n",
 			 CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else if (GET_CODE (pattern) == SET)
-	    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	    (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				       CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else
 	    abort ();
@@ -4195,7 +4195,7 @@ output_jump_label_table ()
 	{
 	  pool_node *p = &pool_vector[i];
 
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				     CODE_LABEL_NUMBER (p->label));
 	  output_asm_insn (".long	%O0", &p->value);
 	}

@@ -129,7 +129,7 @@ Boston, MA 02111-1307, USA.  */
       output_quoted_string (STREAM, NAME);				\
       fprintf (STREAM, ",%d,0,315,%s\n", N_SO, &ltext_label_name[1]);	\
       text_section ();							\
-      ASM_OUTPUT_INTERNAL_LABEL (STREAM, "Ltext", 0);			\
+      (*targetm.asm_out.internal_label) (STREAM, "Ltext", 0);			\
     }									\
   while (0)
   

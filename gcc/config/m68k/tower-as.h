@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_SPEC "-D__TOWER_ASM__ %{m68881:-D__HAVE_68881__}"
 
 /* We don't want local labels to start with period.
-   See ASM_OUTPUT_INTERNAL_LABEL.  */
+   See (*targetm.asm_out.internal_label).  */
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX ""
 

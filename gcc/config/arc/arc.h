@@ -1202,7 +1202,7 @@ do {							\
    compiled for different cpus.  */
 /* We work around a dwarfout.c deficiency by watching for labels from it and
    not adding the '_' prefix nor the cpu suffix.  There is a comment in
-   dwarfout.c that says it should be using ASM_OUTPUT_INTERNAL_LABEL.  */
+   dwarfout.c that says it should be using (*targetm.asm_out.internal_label).  */
 extern const char *arc_mangle_cpu;
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
 do {							\

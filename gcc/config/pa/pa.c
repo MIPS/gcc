@@ -4733,7 +4733,7 @@ output_deferred_plabels (file)
   /* Now output the deferred plabels.  */
   for (i = 0; i < n_deferred_plabels; i++)
     {
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
       assemble_integer (gen_rtx_SYMBOL_REF (Pmode, deferred_plabels[i].name),
 			TARGET_64BIT ? 8 : 4, TARGET_64BIT ? 64 : 32, 1);
     }
@@ -5459,7 +5459,7 @@ output_cbranch (operands, nullify, length, negated, insn)
 	  if (TARGET_SOM || ! TARGET_GAS)
 	    {
 	      output_asm_insn ("addil L'%l0-%l4,%%r1", xoperands);
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[4]));
 	      output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1", xoperands);
 	    }
@@ -6066,7 +6066,7 @@ output_millicode_call (insn, call_dest)
 	    {
 	      /* Add %r1 to the offset of our target from the next insn.  */
 	      output_asm_insn ("addil L%%%0-%1,%%r1", xoperands);
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[1]));
 	      output_asm_insn ("ldo R%%%0-%1(%%r1),%%r1", xoperands);
 	    }
@@ -6158,7 +6158,7 @@ output_millicode_call (insn, call_dest)
       xoperands[2] = gen_label_rtx ();
       output_asm_insn ("\n\t{bl|b,l} %0,%3\n\tldo %1-%2(%3),%3",
 		       xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (xoperands[2]));
     }
 
@@ -6326,7 +6326,7 @@ output_call (insn, call_dest, sibcall)
 		{
 		  /* Add %r1 to the offset of dyncall from the next insn.  */
 		  output_asm_insn ("addil L%%$$dyncall-%1,%%r1", xoperands);
-		  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+		  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 					     CODE_LABEL_NUMBER (xoperands[1]));
 		  output_asm_insn ("ldo R%%$$dyncall-%1(%%r1),%%r1", xoperands);
 	        }
@@ -6424,7 +6424,7 @@ output_call (insn, call_dest, sibcall)
       xoperands[3] = gen_label_rtx ();
       output_asm_insn ("\n\t{bl|b,l} %0,%%r2\n\tldo %1-%3(%%r2),%%r2",
 		       xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (xoperands[3]));
     }
 
@@ -6588,7 +6588,7 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
     {
       data_section ();
       fprintf (file, "\t.align 4\n");
-      ASM_OUTPUT_INTERNAL_LABEL (file, "LTHN", current_thunk_number);
+      (*targetm.asm_out.internal_label) (file, "LTHN", current_thunk_number);
       fprintf (file, "\t.word P%%%s\n", target_name);
       function_section (thunk_fndecl);
     }

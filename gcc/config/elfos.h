@@ -149,7 +149,7 @@ Boston, MA 02111-1307, USA.  */
   do									\
     {									\
       ASM_OUTPUT_BEFORE_CASE_LABEL (FILE, PREFIX, NUM, JUMPTABLE)	\
-	ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);			\
+	(*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);			\
     }									\
   while (0)
 

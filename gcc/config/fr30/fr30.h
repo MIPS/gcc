@@ -1245,7 +1245,7 @@ do										\
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a difference between two labels.
    VALUE and REL are the numbers of two internal labels.  The definitions of
-   these labels are output using `ASM_OUTPUT_INTERNAL_LABEL', and they must be
+   these labels are output using `(*targetm.asm_out.internal_label)', and they must be
    printed in the same way here.  For example,
 
         fprintf (STREAM, "\t.word L%d-L%d\n", VALUE, REL)  */
@@ -1258,7 +1258,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a reference to a label.  VALUE
    is the number of an internal label whose definition is output using
-   `ASM_OUTPUT_INTERNAL_LABEL'.  For example,
+   `(*targetm.asm_out.internal_label)'.  For example,
 
         fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) \

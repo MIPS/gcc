@@ -2251,7 +2251,7 @@ do {									\
 
 /* Use tags for debug info labels, so that they don't break instruction
    bundles.  This also avoids getting spurious DV warnings from the
-   assembler.  This is similar to ASM_OUTPUT_INTERNAL_LABEL, except that we
+   assembler.  This is similar to (*targetm.asm_out.internal_label), except that we
    add brackets around the label.  */
 
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \

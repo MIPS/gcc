@@ -1926,7 +1926,7 @@ record_cc_ref (insn)
    0 -> 2 final_prescan_insn, if the `target' is an unconditional branch
    1 -> 3 branch patterns, after having not output the conditional branch
    2 -> 4 branch patterns, after having not output the conditional branch
-   3 -> 0 ASM_OUTPUT_INTERNAL_LABEL, if the `target' label is reached
+   3 -> 0 (*targetm.asm_out.internal_label), if the `target' label is reached
           (the target label has CODE_LABEL_NUMBER equal to
 	  arc_ccfsm_target_label).
    4 -> 0 final_prescan_insn, if `target' unconditional branch is reached
@@ -2222,7 +2222,7 @@ arc_final_prescan_insn (insn, opvec, noperands)
 /* Record that we are currently outputting label NUM with prefix PREFIX.
    It it's the label we're looking for, reset the ccfsm machinery.
 
-   Called from ASM_OUTPUT_INTERNAL_LABEL.  */
+   Called from (*targetm.asm_out.internal_label).  */
 
 void
 arc_ccfsm_at_label (prefix, num)

@@ -1,3 +1,31 @@
+2002-09-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/alpha/alpha.c config/alpha/alpha.h config/alpha/alpha.md
+	config/alpha/elf.h config/alpha/unicosmk.h config/alpha/vms.h
+	config/arc/arc.c config/arc/arc.h config/arm/aout.h
+	config/arm/arm.c config/arm/arm.h config/arm/arm.md
+	config/avr/avr.h config/d30v/d30v.h config/dbxcoff.h
+	config/dbxelf.h config/elfos.h config/fr30/fr30.h config/frv/frv.h
+	config/i386/i386.c config/i386/i386.md config/i386/sco5.h
+	config/ia64/ia64.h config/ip2k/ip2k.h config/m68hc11/m68hc11.md
+	config/m68k/hp320.h config/m68k/m68k.c config/m68k/m68k.md
+	config/m68k/mot3300.h config/m68k/sgs.h config/m68k/tower-as.h
+	config/m88k/m88k.c config/m88k/m88k.h config/mcore/mcore-pe.h
+	config/mcore/mcore.c config/mips/mips.c config/mips/mips.h
+	config/ns32k/ns32k.md config/pa/pa-linux.h config/pa/pa.c
+	config/pa/pa.h config/pa/pa.md config/romp/romp.h
+	config/rs6000/linux64.h config/rs6000/lynx.h
+	config/rs6000/rs6000.c config/rs6000/sysv4.h config/rs6000/xcoff.h
+	config/s390/s390.c config/s390/s390.md config/sh/sh.c
+	config/sparc/sparc.c config/sparc/sysv4.h
+	config/stormy16/stormy16.h dbxout.c defaults.h dwarf2out.c
+	dwarfout.c except.c final.c varasm.c vmsdbgout.c: Replace
+	ASM_OUTPUT_INTERNAL_LABEL macro with a call to the target hook.
+
+	* doc/tm.texi: Update docs.
+	* default.h (ASM_OUTPUT_INTERNAL_LABEL): Don't define.
+	* system.h (ASM_OUTPUT_INTERNAL_LABEL): Poison.
+
 2002-08-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Makefile.in (sdbout.o, insn-output.o): Depend on $(TARGET_H).

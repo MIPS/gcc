@@ -1860,7 +1860,7 @@ assemble_trampoline_template ()
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LTRAMP", 0);
+  (*targetm.asm_out.internal_label) (asm_out_file, "LTRAMP", 0);
   TRAMPOLINE_TEMPLATE (asm_out_file);
 
   /* Record the rtl to refer to it.  */
@@ -2855,7 +2855,7 @@ output_constant_def_contents (exp, reloc, labelno)
     }
 
   /* Output the label itself.  */
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", labelno);
+  (*targetm.asm_out.internal_label) (asm_out_file, "LC", labelno);
 
   /* Output the value of EXP.  */
   output_constant (exp,
@@ -3404,7 +3404,7 @@ output_constant_pool (fnname, fndecl)
       assemble_align (pool->align);
 
       /* Output the label.  */
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", pool->labelno);
+      (*targetm.asm_out.internal_label) (asm_out_file, "LC", pool->labelno);
 
       /* Output the value of the constant itself.  */
       switch (GET_MODE_CLASS (pool->mode))
@@ -5256,7 +5256,7 @@ default_globalize_label (stream, name)
 #endif /* GLOBAL_ASM_OP */
   
 /* This is how to output an internal numbered label where PREFIX is
-   the class of label and NUM is the number within the class.  */
+   the class of label and LABELNO is the number within the class.  */
 
 void
 default_internal_label (stream, prefix, labelno)

@@ -343,7 +343,7 @@ do {									\
 do {									\
   if (TARGET_ELF)							\
     ASM_OUTPUT_ALIGN ((FILE), 2);					\
-  ASM_OUTPUT_INTERNAL_LABEL((FILE),(PREFIX),(NUM));			\
+  (*targetm.asm_out.internal_label)((FILE),(PREFIX),(NUM));			\
 } while (0)
 
 #undef ASM_OUTPUT_IDENT

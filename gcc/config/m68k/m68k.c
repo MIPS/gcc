@@ -1340,13 +1340,13 @@ output_scc_di(op, operand1, operand2, dest)
   switch (op_code)
     {
       case EQ:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("seq %5", loperands);
         break;
 
       case NE:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sne %5", loperands);
         break;
@@ -1358,15 +1358,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("shi %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sgt %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case GTU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("shi %5", loperands);
         break;
@@ -1378,15 +1378,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("scs %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("slt %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case LTU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("scs %5", loperands);
         break;
@@ -1398,15 +1398,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("scc %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sge %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case GEU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("scc %5", loperands);
         break;
@@ -1418,15 +1418,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("sls %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sle %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case LEU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sls %5", loperands);
         break;
@@ -1841,7 +1841,7 @@ output_move_himode (operands)
 		   CODE_LABEL_NUMBER (XEXP (labelref, 0)));
 #endif /* not SGS */
 #else /* SGS_SWITCH_TABLES or not MOTOROLA */
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LI",
+      (*targetm.asm_out.internal_label) (asm_out_file, "LI",
 				 CODE_LABEL_NUMBER (XEXP (labelref, 0)));
 #ifdef SGS_SWITCH_TABLES
       /* Set flag saying we need to define the symbol

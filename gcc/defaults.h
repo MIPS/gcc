@@ -82,7 +82,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
 do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
-     ASM_OUTPUT_INTERNAL_LABEL (FILE, "L", (VALUE));			\
+     (*targetm.asm_out.internal_label) (FILE, "L", (VALUE));			\
      fputc ('\n', FILE);						\
    } while (0)
 #endif
@@ -148,12 +148,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
   do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
 #endif
 
-/* This is how to output an internal numbered label where PREFIX is
-   the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,LABELNO)		\
-  (*targetm.asm_out.internal_label) (FILE, PREFIX, LABELNO)
-
 /* This is how to output a reference to a user-level label named NAME.  */
 
 #ifndef ASM_OUTPUT_LABELREF
@@ -166,7 +160,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 
 #ifndef ASM_OUTPUT_DEBUG_LABEL
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM)
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM)
 #endif
 
 /* This is how we tell the assembler that a symbol is weak.  */

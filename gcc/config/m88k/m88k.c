@@ -1721,7 +1721,7 @@ void
 output_label (label_number)
      int label_number;
 {
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", label_number);
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", label_number);
 }
 
 /* Generate the assembly code for function entry.

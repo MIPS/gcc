@@ -1112,7 +1112,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   fprintf (FILE, "\tor\t %s,%s,0\n", reg_names[11], reg_names[1]);	\
   /* Locate this block; transfer to the next instruction.  */		\
   fprintf (FILE, "\tbsr\t %s\n", &buf[1]);					\
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, "LTRMP", labelno);			\
+  (*targetm.asm_out.internal_label) (FILE, "LTRMP", labelno);			\
   /* Save r10; use it as the relative pointer; restore r1.  */		\
   fprintf (FILE, "\tst\t %s,%s,24\n", reg_names[10], reg_names[1]);	\
   fprintf (FILE, "\tor\t %s,%s,0\n", reg_names[10], reg_names[1]);	\
@@ -1889,7 +1889,7 @@ do {									 \
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
    This is suitable for output with `assemble_name'.  This must agree
-   with ASM_OUTPUT_INTERNAL_LABEL above, except for being prefixed
+   with (*targetm.asm_out.internal_label) above, except for being prefixed
    with an `*'.  */
 
 #undef ASM_GENERATE_INTERNAL_LABEL
@@ -1911,7 +1911,7 @@ do {									 \
         readonly_data_section ();					\
         ASM_OUTPUT_ALIGN (FILE, 2);					\
       }									\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);			\
+    (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);			\
   } while (0)
 
 /* Epilogue for case labels.  This jump instruction is called by casesi
@@ -2024,10 +2024,10 @@ do {									 \
 #define OCS_END_PREFIX		"Lte"
 
 #define PUT_OCS_FUNCTION_START(FILE) \
-  { ASM_OUTPUT_INTERNAL_LABEL (FILE, OCS_START_PREFIX, m88k_function_number); }
+  { (*targetm.asm_out.internal_label) (FILE, OCS_START_PREFIX, m88k_function_number); }
 
 #define PUT_OCS_FUNCTION_END(FILE) \
-  { ASM_OUTPUT_INTERNAL_LABEL (FILE, OCS_END_PREFIX, m88k_function_number); }
+  { (*targetm.asm_out.internal_label) (FILE, OCS_END_PREFIX, m88k_function_number); }
 
 /* Macros for debug information */
 #define DEBUGGER_AUTO_OFFSET(X) \

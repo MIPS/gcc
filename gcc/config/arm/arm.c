@@ -8679,7 +8679,7 @@ arm_assemble_integer (x, size, aligned_p)
    0 -> 2 final_prescan_insn if the `target' is an unconditional branch
    1 -> 3 ASM_OUTPUT_OPCODE after not having output the conditional branch
    2 -> 4 ASM_OUTPUT_OPCODE after not having output the conditional branch
-   3 -> 0 ASM_OUTPUT_INTERNAL_LABEL if the `target' label is reached
+   3 -> 0 (*targetm.asm_out.internal_label) if the `target' label is reached
           (the target label has CODE_LABEL_NUMBER equal to arm_target_label).
    4 -> 0 final_prescan_insn if the `target' unconditional branch is reached
           (the target insn is arm_target_insn).

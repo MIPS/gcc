@@ -3600,7 +3600,7 @@ output_function_exception_table ()
       assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA",
+  (*targetm.asm_out.internal_label) (asm_out_file, "LLSDA",
 			     current_function_funcdef_no);
 
   /* The LSDA header.  */

@@ -4441,7 +4441,7 @@ do {									\
 do {									\
   if (TARGET_EMBEDDED_PIC || TARGET_MIPS16)				\
     function_section (current_function_decl);				\
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);			\
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);			\
 } while (0)
 
 /* This is how to output an assembler line

@@ -3287,7 +3287,7 @@ load_pic_register ()
       align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
       if (align > 0)
 	ASM_OUTPUT_ALIGN (asm_out_file, align);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LGETPC", 0);
+      (*targetm.asm_out.internal_label) (asm_out_file, "LGETPC", 0);
       fputs ("\tretl\n\tadd\t%o7, %l7, %l7\n", asm_out_file);
     }
 
@@ -7812,7 +7812,7 @@ sparc_output_addr_vec (vec)
   ASM_OUTPUT_CASE_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab),
 			 NEXT_INSN (lab));
 #else
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
 #endif
 
   for (idx = 0; idx < vlen; idx++)
@@ -7842,7 +7842,7 @@ sparc_output_addr_diff_vec (vec)
   ASM_OUTPUT_CASE_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab),
 			 NEXT_INSN (lab));
 #else
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
 #endif
 
   for (idx = 0; idx < vlen; idx++)

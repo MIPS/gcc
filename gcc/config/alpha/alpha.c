@@ -9708,7 +9708,7 @@ unicosmk_output_addr_vec (file, vec)
   int vlen = XVECLEN (body, 0);
   int idx;
 
-  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (lab));
+  (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (lab));
 
   for (idx = 0; idx < vlen; idx++)
     {

@@ -10130,7 +10130,7 @@ mips_output_conditional_branch (insn,
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	output_asm_insn ("%>%)", 0);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
                                    CODE_LABEL_NUMBER (target));
         return "";
       }

@@ -2109,7 +2109,7 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    is made from the string PREFIX and the number NUM.
 
    This string, when output subsequently by `assemble_name', should
-   produce the output that `ASM_OUTPUT_INTERNAL_LABEL' would produce
+   produce the output that `(*targetm.asm_out.internal_label)' would produce
    with the same PREFIX and NUM.
 
    If the string begins with `*', then `assemble_name' will output
@@ -2285,18 +2285,18 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    The definition should be a C statement to output to the stdio
    stream STREAM an assembler pseudo-instruction to generate a
    reference to a label.  VALUE is the number of an internal label
-   whose definition is output using `ASM_OUTPUT_INTERNAL_LABEL'.  For
+   whose definition is output using `(*targetm.asm_out.internal_label)'.  For
    example,
 
    fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 
 #define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE) \
-  progmem_section (), ASM_OUTPUT_INTERNAL_LABEL (STREAM, PREFIX, NUM)
+  progmem_section (), (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM)
 
 /* `ASM_OUTPUT_CASE_LABEL (STREAM, PREFIX, NUM, TABLE)'
    Define this if the label before a jump-table needs to be output
    specially.  The first three arguments are the same as for
-   `ASM_OUTPUT_INTERNAL_LABEL'; the fourth argument is the jump-table
+   `(*targetm.asm_out.internal_label)'; the fourth argument is the jump-table
    which follows (a `jump_insn' containing an `addr_vec' or
    `addr_diff_vec').
 
@@ -2304,7 +2304,7 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    the table.
 
    If this macro is not defined, these labels are output with
-   `ASM_OUTPUT_INTERNAL_LABEL'.  */
+   `(*targetm.asm_out.internal_label)'.  */
 
 /* `ASM_OUTPUT_CASE_END (STREAM, NUM, TABLE)'
    Define this if something special must be output at the end of a

@@ -11350,7 +11350,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	  /* Set up a TOC entry for the function.  */
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "Lthunk", labelno);
 	  toc_section ();
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "Lthunk", labelno);
+	  (*targetm.asm_out.internal_label) (file, "Lthunk", labelno);
 	  labelno++;
 
 	  if (TARGET_MINIMAL_TOC)
@@ -11660,7 +11660,7 @@ output_toc (file, x, labelno, mode)
     ASM_OUTPUT_ALIGN (file, 3);
   }
 
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LC", labelno);
+  (*targetm.asm_out.internal_label) (file, "LC", labelno);
 
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow

@@ -879,7 +879,7 @@ extern enum cmp_type hppa_branch_type;
 #endif
 
 #define FUNCTION_PROFILER(FILE, LABEL) \
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, FUNC_BEGIN_PROLOG_LABEL, LABEL)
+  (*targetm.asm_out.internal_label) (FILE, FUNC_BEGIN_PROLOG_LABEL, LABEL)
 
 #define PROFILE_HOOK(label_no) hppa_profile_hook (label_no)
 void hppa_profile_hook PARAMS ((int label_no));
