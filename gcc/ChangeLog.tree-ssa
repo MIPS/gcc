@@ -1,5 +1,19 @@
 2004-03-25  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (C_AND_OBJC_OBJS): Remove c-call-graph.o
+	(c-call-graph.o): Remove.
+	* c-call-graph.c: Remove.
+	* c-tree.h (print_call_graph): Remove.
+	(debug_call_graph): Remove.
+	* tree-cfg.c: Update/add comments everywhere.
+	(pre_insert_on_edge): Rename from bsi_insert_on_edge_immediate.
+	* tree-flow.h (build_tree_cfg): Make static.
+	(tree_cfg2dot): Likewise.
+	(verify_stmt): Likewise.
+	* tree-ssa-pre.c (insert_one_operand): Call pre_insert_on_edge.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-alias.c (struct alias_info): Change type of field
 	'num_references' to varray_type.  Update all users.
 

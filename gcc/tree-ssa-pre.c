@@ -2084,6 +2084,8 @@ static void
 insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx, 
 		    tree x, edge succ, tree **avdefsp)
 {
+  /* FIXME.  pre_insert_on_edge should probably disappear.  */
+  extern void pre_insert_on_edge (edge, tree);
   tree expr;
   tree temp = ei->temp;
   tree copy;
@@ -2112,11 +2114,11 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
     }
 		      
   /* Do the insertion.  */
-  /* ??? Previously we did bizzare searching, presumably to get
+  /* ??? Previously we did bizarre searching, presumably to get
      around bugs elsewhere in the infrastructure.  I'm not sure
-     if we really should be using bsi_insert_on_edge_immediate,
+     if we really should be using pre_insert_on_edge
      or just bsi_insert_after at the end of BB.  */
-  bsi_insert_on_edge_immediate (succ, expr);
+  pre_insert_on_edge (succ, expr);
 
   EPHI_ARG_DEF (ephi, opnd_indx)
     = create_expr_ref (ei, ei->expr, EUSE_NODE, bb, 0);
