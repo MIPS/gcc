@@ -3339,6 +3339,74 @@ propagate_block (bb, live, local_set, flags)
   pbi.reg_cond_dead = splay_tree_new (splay_tree_compare_ints, NULL,
 				      free_reg_cond_life_info);
   pbi.reg_cond_reg = INITIALIZE_REG_SET (reg_cond_reg_head);
+
+  /* If this block ends in a conditional branch, for each register live
+     from one side of the branch and not the other, record the register
+     as conditionally dead.  */
+  if (GET_CODE (bb->end) == JUMP_INSN
+      && condjump_p (bb->end)
+      && ! simplejump_p (bb->end))
+    {
+      regset_head diff_head;
+      regset diff = INITIALIZE_REG_SET (diff_head);
+      basic_block bb_true, bb_false;
+      rtx cond_true, cond_false;
+      int i;
+
+      /* Identify the successor blocks.  */
+      bb_false = bb->succ->succ_next->dest;
+      bb_true = bb->succ->dest;
+      if (bb->succ->flags & EDGE_FALLTHRU)
+	{
+	  basic_block t = bb_false;
+	  bb_false = bb_true;
+	  bb_true = t;
+	}
+      else if (! (bb->succ->succ_next->flags & EDGE_FALLTHRU))
+	abort ();
+     
+      /* Extract the condition from the branch.  */
+      cond_true = XEXP (SET_SRC (PATTERN (bb->end)), 0);
+      cond_false = gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond_true)),
+				   GET_MODE (cond_true), XEXP (cond_true, 0),
+				   XEXP (cond_true, 1));
+      if (GET_CODE (XEXP (SET_SRC (PATTERN (bb->end)), 1)) == PC)
+	{
+	  rtx t = cond_false;
+	  cond_false = cond_true;
+	  cond_true = t;
+	}
+
+      /* Compute which register lead different lives in the successors.  */
+      if (bitmap_operation (diff, bb_true->global_live_at_start,
+			    bb_false->global_live_at_start, BITMAP_XOR))
+	{
+	  if (GET_CODE (XEXP (cond_true, 0)) != REG)
+	    abort ();
+	  SET_REGNO_REG_SET (pbi.reg_cond_reg, REGNO (XEXP (cond_true, 0)));
+
+	  /* For each such register, mark it conditionally dead.  */
+	  EXECUTE_IF_SET_IN_REG_SET
+	    (diff, 0, i,
+	     {
+	       struct reg_cond_life_info *rcli;
+	       rtx cond;
+
+	       rcli = (struct reg_cond_life_info *) xmalloc (sizeof (*rcli));
+
+	       if (REGNO_REG_SET_P (bb_true->global_live_at_start, i))
+		 cond = cond_false;
+	       else
+		 cond = cond_true;
+	       rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
+
+	       splay_tree_insert (pbi.reg_cond_dead, i,
+				  (splay_tree_value) rcli);
+	     });
+	}
+
+      FREE_REG_SET (diff);
+    }
 #endif
 
   if (flags & PROP_REG_INFO)
