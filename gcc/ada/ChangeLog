@@ -1,3 +1,8 @@
+2004-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnat_ugn.texi: Add : and . to direntry.  Add dircategory.
+	* gnat-style.texi: Change dircategory to GNU Ada tools.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.
