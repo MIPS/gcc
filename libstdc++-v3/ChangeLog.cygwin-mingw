@@ -1,3 +1,13 @@
+2003-03-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from trunk.
+	2003-01-28  Danny Smith  <dannysmith@users.sourceforge.net>
+	* src/Makefile.am (CONFIG_CXXFLAGS): Reverse order of
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@.
+	* libsupc++/Makefile.am (CONFIG_CXXFLAGS): Likewise.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+
 2002-09-02  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* config/os/mingw32/bits/cpu_limits.h (_iec559_consts):
