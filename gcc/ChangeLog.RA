@@ -1,3 +1,18 @@
+2001-08-18  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ra.c (live_out_1): Temporary hack to make x86 compile. Someone
+	please fix this the right way. 
+
+2001-08-17  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ra.c (assign_colors): Stop trying to colors webs with no uses.
+	We can get into infinite spill loops this way, and it's pointless.
+	(we only need them for conflicts, not for coloring, AFAIK)
+
+	From Dan Nicolaescu <dann@godzilla.ics.uci.edu>:
+	* Makefile.in (ra.o): Add reload.h o the dependencies.
+	* ra.c: Include reload.h, so MEMORY_MOVE_COST is always defined.
+
 2001-08-15  Daniel Berlin  <dan@cgsoftware.com>
 
 	* ra.c (splits_init): New function, initialize split data

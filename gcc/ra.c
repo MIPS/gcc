@@ -36,6 +36,8 @@
 #include "toplev.h"
 #include "flags.h"
 #include "ggc.h"
+#include "reload.h"
+
 /* The algorithm used is currently Iterated Register Coalescing by
    L.A.George, and Appel.
 */
@@ -627,12 +629,18 @@ undef_to_bitmap (wp, undefined)
       default :
 	{
 	  unsigned HOST_WIDE_INT u = *undefined;
+	  struct undef_table_s u2;
+	  int i;
+	  
 	  int word;
 	  int size;
+	  
 	  for (word = 0; ! (u & 1); ++word)
 	    u >>= 1;
-	  for (size = 0; u & 1; ++size)
+	  for (size = 0; u & 1; size++)
 	    u >>= 1;
+	  if (u)
+	    abort ();
 	  *undefined = u;
 	  return get_sub_conflicts (wp, size, word);
 	}
@@ -990,11 +998,21 @@ live_out_1 (df, use, insn)
 		  {
 		    unsigned int bl = rtx_to_bits (s);
 		    int b = BYTE_BEGIN (bl);
-		    int e = b + BYTE_LENGTH (bl);
-		    for (; b < e; b++)
+		    int e = b + BYTE_LENGTH (bl);		    
+		    /*FIXME: Complete BS hack to make x86 at least
+		     *compile*, until someone fixes it (set (reg:QI)
+		     (subreg:QI (reg:DI)) causes us to get a word of
+		     1, size of 7, which later causes us to abort,
+		     since this is wrong. */
+		    if (e == 1 && b == 0)
 		      {
-			undef &= ~((unsigned HOST_WIDE_INT)1 << b);
+			undef = 1;
 		      }
+		    else
+		      for (; b < e; b++)
+			{
+			  undef &= ~((unsigned HOST_WIDE_INT)1 << b);
+			}
 		  }
 		if (undef)
 		  {
@@ -3071,7 +3089,7 @@ coalesce (void)
       add_worklist (target);
     }
   else if ((source->type == PRECOLORED && ok (target, source))
-	   || (source->type != PRECOLORED /*&& conservative (target, source)*/))
+	   || (source->type != PRECOLORED /*&& conservative (target, source) */))
     {
       remove_move (source, m);
       remove_move (target, m);
@@ -3119,7 +3137,7 @@ freeze (void)
 {
   struct dlist *d = pop_list (&freeze_wl);
   put_web (DLIST_WEB (d), SIMPLIFY);
-  /*freeze_moves (DLIST_WEB (d));*/
+  /*  freeze_moves (DLIST_WEB (d)); */
 }
 
 static unsigned HOST_WIDE_INT (*spill_heuristic) PARAMS ((struct web *));
@@ -3586,7 +3604,11 @@ assign_colors (void)
   while (select_stack)
     {
       d = pop_list (&select_stack);
-      colorize_one_web (DLIST_WEB (d), 1);
+      /* It's pointless to color webs that have no uses, and in fact,
+	 we'll keep spilling them repeatedly, since they have almost
+	 no cost to spill (since they have no uses)*/
+      if (DLIST_WEB (d)->num_uses > 0)
+	colorize_one_web (DLIST_WEB (d), 1);
     }
 
   for (d = coalesced_nodes; d; d = d->next)
@@ -4035,7 +4057,7 @@ one_pass (df)
   if (rtl_dump_file)
     dump_igraph (df);
   build_worklists (df);
-  /*splits_init ();*/
+  /*  splits_init (); */
   do
     {
       simplify ();
@@ -4662,6 +4684,7 @@ find_nesting_depths()
   sbitmap_free (visited);
   free (pre);
   free (post);
+  free (pre_inverse);
   destroy_dominator_tree (domtree);
 }
 bool split_live_ranges = FALSE;
@@ -4723,7 +4746,7 @@ reg_alloc (void)
   split_live_ranges = FALSE;
   update_equiv_regs();
   init_ra ();
-  /*find_nesting_depths ();*/
+  /*  find_nesting_depths (); */
   pass = 0;
   no_new_pseudos = 0;
   /* We don't use those NOTEs, and as we anyway change all registers,
@@ -4779,6 +4802,7 @@ reg_alloc (void)
       free_mem (df);
     }
   while (changed);
+  /*  free (depths); */
   df_finish (df);
   if (rtl_dump_file)
        print_rtl_with_bb (rtl_dump_file, get_insns ()); 
