@@ -99,13 +99,13 @@ struct processor_costs pentiumpro_cost = {
 
 struct processor_costs k6_cost = {
   1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
+  2,					/* cost of a lea instruction */
   1,					/* variable shift costs */
   1,					/* constant shift costs */
-  2,					/* cost of starting a multiply */
+  3,					/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
   18,					/* cost of a divide/mod */
-  7					/* "large" insn ??? GUESS */
+  8					/* "large" insn */
 };
 
 struct processor_costs *ix86_cost = &pentium_cost;
@@ -128,11 +128,15 @@ const int x86_use_q_reg = m_PENT | m_PPRO | m_K6;
 const int x86_use_any_reg = m_486;
 const int x86_cmove = m_PPRO;
 const int x86_deep_branch = m_PPRO | m_K6;
-const int x86_use_sahf = m_PPRO;
+const int x86_use_sahf = m_PPRO | m_K6;
 const int x86_partial_reg_stall = m_PPRO;
-const int x86_use_loop = 0 /* m_386 | m_PPRO | m_K6 */;
+const int x86_use_loop = m_K6;
 const int x86_use_fiop = ~m_PPRO;
 const int x86_use_mov0 = m_K6;
+const int x86_use_cltd = ~(m_PENT | m_K6);
+const int x86_read_modify_write = ~m_PENT;
+const int x86_read_modify = ~(m_PENT | m_PPRO);
+const int x86_split_long_moves = m_PPRO;
 
 #define AT_BP(mode) (gen_rtx_MEM ((mode), frame_pointer_rtx))
 
@@ -265,7 +269,7 @@ override_options ()
       {&i486_cost, 0, 0, 4, 4, 4, 1},
       {&pentium_cost, 0, 0, -4, -4, -4, 1},
       {&pentiumpro_cost, 0, 0, 4, -4, 4, 1},
-      {&k6_cost, 0, 0, -4, -4, -4, 1}
+      {&k6_cost, 0, 0, -5, -5, 4, 1}
     };
 
   static struct pta

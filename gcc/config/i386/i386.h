@@ -147,6 +147,8 @@ extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
 extern const int x86_unroll_strlen, x86_use_q_reg, x86_use_any_reg;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
+extern const int x86_use_cltd, x86_read_modify_write;
+extern const int x86_read_modify, x86_split_long_moves;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & CPUMASK)
@@ -164,6 +166,10 @@ extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
 #define TARGET_USE_LOOP (x86_use_loop & CPUMASK)
 #define TARGET_USE_FIOP (x86_use_fiop & CPUMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & CPUMASK)
+#define TARGET_USE_CLTD (x86_use_cltd & CPUMASK)
+#define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & CPUMASK)
+#define TARGET_READ_MODIFY_WRITE (x86_read_modify_write & CPUMASK)
+#define TARGET_READ_MODIFY (x86_read_modify & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
