@@ -1253,7 +1253,8 @@ fix_string_type (tree value)
      -Wwrite-strings says make the string constant an array of const char
      so that copying it to a non-const pointer will get a warning.
      For C++, this is the standard behavior.  */
-  if (flag_const_strings)
+  /* APPLE LOCAL fwritable strings  */
+  if (flag_const_strings && ! flag_writable_strings)
     {
       /* APPLE LOCAL pascal strings */
       tree elements = build_type_variant (base_type, 1, 0);
@@ -1269,7 +1270,8 @@ fix_string_type (tree value)
 
   TREE_CONSTANT (value) = 1;
   TREE_INVARIANT (value) = 1;
-  TREE_READONLY (value) = 1;
+  /* APPLE LOCAL fwritable strings  */
+  TREE_READONLY (value) = !flag_writable_strings;
   TREE_STATIC (value) = 1;
   return value;
 }

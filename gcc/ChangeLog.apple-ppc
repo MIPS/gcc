@@ -1,3 +1,28 @@
+2004-08-01  Devang Patel  <dpatel@apple.com>
+
+         Re-implement -fwritable-strings support. 
+         Radar : 3699482 
+
+        * c-common.c (fix_string_type): Check flag_writable_strings.
+        (fix_string_type): Likewise.
+        * c-opts.c (set_std_c89): Initialize flag_writable_strings.
+        (set_std_c99): Likewise.
+        * common.opt (fwritable-strings): Add.
+        * flags.h: Add the external declaration of
+        flag_writable_strings.
+        * opts.c (common_handle_option) <OPT_fwritable_strings>:
+        Add.
+        * toplev.c (flag_writable_strings): Add.
+        (f_options): Add an entry for writable-strings.
+        * varasm.c (const_hash_1) <STRING_CST>: Check
+        flag_writable_strings.
+        (compare_constant) <STRING_CST>: Likewise.
+        (build_constant_desc): Likewise.
+        * config/darwin.c (machopic_select_section): Likewise.
+        * doc/invoke.texi (-fwritable-strings): Add.
+        (-fno-const-strings): Document -fwritable-strings.
+        * doc/trouble.texi: Document -fwritable-strings.
+
 2004-08-01  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-common.c (warn_long_double): Remove.

@@ -3094,6 +3094,13 @@ cxx_init_decl_processing (void)
   /* Show we use EH for cleanups.  */
   if (flag_exceptions)
     using_eh_for_cleanups ();
+
+  /* APPLE LOCAL begin fwritable strings.  */
+  /* Maintain consistency.  Perhaps we should just complain if they
+     say -fwritable-strings?  */
+   if (flag_writable_strings)
+     flag_const_strings = 0;
+  /* APPLE LOCAL end fwritable strings.  */
 }
 
 /* Generate an initializer for a function naming variable from

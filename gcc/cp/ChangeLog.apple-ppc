@@ -1,3 +1,10 @@
+2004-08-01  Devang Patel  <dpatel@apple.com>
+
+         Re-implement -fwritable-strings support. 
+         Radar : 3699482 
+
+        * decl.c (cxx_init_decl_processing): Check flag_writable_strings.
+
 2004-08-01  Geoffrey Keating  <geoffk@apple.com>
 
 	* decl.c (grokdeclarator): Don't call warn_about_long_double.

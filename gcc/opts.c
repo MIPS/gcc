@@ -2223,6 +2223,12 @@ common_handle_option (size_t scode, const char *arg,
       flag_wrapv = value;
       break;
 
+      /* APPLE LOCAL begin fwritable strings  */
+    case OPT_fwritable_strings:
+      flag_writable_strings = value;
+      break;
+      /* APPLE LOCAL end fwritable strings  */
+
     case OPT_fzero_initialized_in_bss:
       flag_zero_initialized_in_bss = value;
       break;

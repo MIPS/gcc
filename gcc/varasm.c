@@ -2198,8 +2198,18 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      p = TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings)
+      {
+        p = (char *) &exp;
+        len = sizeof exp;
+      }
+      else
+      {
+        p = TREE_STRING_POINTER (exp);
+        len = TREE_STRING_LENGTH (exp);
+      }
+      /* APPLE LOCAL end fwritable strings  */
       break;
 
     case COMPLEX_CST:
@@ -2315,6 +2325,11 @@ compare_constant (const tree t1, const tree t2)
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings)
+	return t1 == t2;
+      /* APPLE LOCAL end fwritable strings  */
+
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
 
@@ -2518,7 +2533,12 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  desc->value = copy_constant (exp);
+  /* APPLE LOCAL begin fwritable strings  */
+  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
+    desc->value = exp;
+  else
+    desc->value = copy_constant (exp);
+  /* APPLE LOCAL end fwritable strings  */
 
   /* Propagate marked-ness to copied constant. */
   if (flag_mudflap && mf_marked_p (exp))
@@ -2604,9 +2624,11 @@ maybe_output_constant_def_contents (struct constant_descriptor_tree *desc,
     /* Already output; don't do it again.  */
     return;
 
-  /* We can always defer constants as long as the context allows
-     doing so.  */
-  if (defer)
+  /* APPLE LOCAL fwritable strings  */
+  /* The only constants that cannot safely be deferred, assuming the
+     context allows it, are strings under flag_writable_strings.  */
+  if (defer && (TREE_CODE (exp) != STRING_CST || !flag_writable_strings))
+  /* APPLE LOCAL end fwritable strings  */
     {
       /* Increment n_deferred_constants if it exists.  It needs to be at
 	 least as large as the number of constants actually referred to
@@ -4662,7 +4684,8 @@ default_select_section (tree decl, int reloc,
 	readonly = true;
     }
   else if (TREE_CODE (decl) == STRING_CST)
-    readonly = true;
+    /* APPLE LOCAL fwritable strings  */
+    readonly = !flag_writable_strings;
   else if (! (flag_pic && reloc))
     readonly = true;
 
@@ -4721,6 +4744,10 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
     {
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings)
+	return SECCAT_DATA;
+      /* APPLE LOCAL end fwritable strings  */
       if (flag_mudflap) /* or !flag_merge_constants */
         return SECCAT_RODATA;
       else

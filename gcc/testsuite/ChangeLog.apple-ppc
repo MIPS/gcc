@@ -1,3 +1,10 @@
+2004-07-30  Devang Patel  <dpatel@apple.com>
+
+         Re-implement -fwritable-strings support. 
+         Radar : 3699482 
+	
+	* gcc.apple/fwritable-strings.c: New test.
+
 2004-07-14  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/tree-ssa-vect/ifc-04.c: New test.

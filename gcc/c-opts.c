@@ -1699,6 +1699,8 @@ set_std_c89 (int c94, int iso)
   flag_no_nonansi_builtin = iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
+  /* APPLE LOCAL fwritable strings  */
+  flag_writable_strings = 0;
 }
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
@@ -1711,6 +1713,8 @@ set_std_c99 (int iso)
   flag_iso = iso;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
+  /* APPLE LOCAL fwritable strings  */
+  flag_writable_strings = 0;
 }
 
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */

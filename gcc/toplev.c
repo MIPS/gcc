@@ -435,6 +435,13 @@ int flag_reduce_all_givs = 0;
 
 int flag_regmove = 0;
 
+/* APPLE LOCAL begin fwritable strings  */
+/* Nonzero for -fwritable-strings:
+   store string constants in data segment and don't uniquize them.  */
+
+int flag_writable_strings = 0;
+/* APPLE LOCAL end fwritable strings  */
+
 /* Nonzero means don't put addresses of constant functions in registers.
    Used for compiling the Unix kernel, where strange substitutions are
    done on the assembly output.  */
@@ -1022,6 +1029,8 @@ static const lang_independent_options f_options[] =
   {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1 },
   {"move-all-movables", &flag_move_all_movables, 1 },
   {"reduce-all-givs", &flag_reduce_all_givs, 1 },
+  /* APPLE LOCAL fwritable strings  */
+  {"writable-strings", &flag_writable_strings, 1 },
   {"peephole", &flag_no_peephole, 0 },
   {"force-mem", &flag_force_mem, 1 },
   {"force-addr", &flag_force_addr, 1 },

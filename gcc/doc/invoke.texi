@@ -206,7 +206,9 @@ in the following sections.
 -Wnewline-eof (APPLE ONLY) @gol
 @c APPLE LOCAL -Wno-altivec-long-deprecated --ilr **
 -Wno-altivec-long-deprecated (APPLE ONLY)
--funsigned-bitfields  -funsigned-char}
+-funsigned-bitfields  -funsigned-char
+@c APPLE LOCAL fwritable strings
+-fwritable-strings}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -1411,6 +1413,18 @@ A single "normal" definition will be chosen by the linker over any number
 of weakly-coalesced ones.  (APPLE ONLY)
 @c APPLE LOCAL end coalescing 2002-04-11 --turly **
 
+@c APPLE LOCAL begin fwritable strings. 
+@item -fwritable-strings
+@opindex fwritable-strings
+Store string constants in the writable data segment and don't uniquize
+them.  This is for compatibility with old programs which assume they can
+write into string constants.
+
+Writing into string constants is a very bad idea; ``constants'' should
+be constant.
+
+This option is deprecated.
+@c APPLE LOCAL end fwritable strings.
 @end table
 
 @node C++ Dialect Options
@@ -1482,7 +1496,9 @@ been added for putting variables into BSS without making them common.
 Give string constants type @code{char *} instead of type @code{const
 char *}.  By default, G++ uses type @code{const char *} as required by
 the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant.
+@c APPLE LOCAL fwritable strings. 
+actually modify the value of a string constant, unless you also use
+@option{-fwritable-strings}.
 
 This option might be removed in a future release of G++.  For maximum
 portability, you should structure your code so that it works with
