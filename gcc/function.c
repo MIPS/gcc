@@ -4876,7 +4876,9 @@ assign_parms (tree fndecl)
 	      else if (GET_CODE (entry_parm) == PARALLEL 
 		       && GET_MODE(entry_parm) == BLKmode)
 		;
-	      else if (PARM_BOUNDARY % BITS_PER_WORD != 0)
+	      /* APPLE LOCAL begin handle zero size params */
+	      else if (size != 0 && PARM_BOUNDARY % BITS_PER_WORD != 0)
+	      /* APPLE LOCAL end handle zero size params */
 		abort ();
 
 	      mem = validize_mem (stack_parm);

@@ -4813,12 +4813,20 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       /* AltiVec vector regs are saved in R5-R8. */
       int k;
+      int no_units;
+      int max_no_words;
+      int rtlvec_len;
+      rtx *rtlvec;
       int size = int_size_in_bytes (type);
-      int no_units = ((size - 1) / 4) + 1;
-      int max_no_words = GP_ARG_NUM_REG - align_words;
-      int rtlvec_len = no_units < max_no_words ? no_units : max_no_words;
-      rtx *rtlvec = (rtx *) alloca (rtlvec_len * sizeof (rtx));
 
+      /* size of a BLKmode can be zero. */
+      if (size == 0)
+	return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+
+      no_units = ((size - 1) / 4) + 1;
+      max_no_words = GP_ARG_NUM_REG - align_words;
+      rtlvec_len = no_units < max_no_words ? no_units : max_no_words;
+      rtlvec = (rtx *) alloca (rtlvec_len * sizeof (rtx));
       memset ((char *) rtlvec, 0, rtlvec_len * sizeof (rtx));
 
       for (k=0; k < rtlvec_len; k++)
