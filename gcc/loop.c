@@ -8910,10 +8910,16 @@ check_decr_loop (loop_end, insn_count, loop_start, loop_info)
     }
   else
     {
-      bl->initial_value =
-	gen_rtx_MINUS (GET_MODE (bl->biv->dest_reg),
-		       bl->initial_value,
-		       loop_info->final_value);
+      int dummy;
+      rtx ext_val_dummy;
+
+      bl->initial_value = simplify_giv_expr
+	(gen_rtx_MINUS (GET_MODE (bl->biv->dest_reg),
+			bl->initial_value,
+			loop_info->final_value),
+	 &ext_val_dummy, &dummy);
+      if (GET_CODE (bl->initial_value) == USE)
+	bl->initial_value = XEXP (bl->initial_value, 0);
     }
 
   insn = gen_move_insn (bl->biv->dest_reg, bl->initial_value);
