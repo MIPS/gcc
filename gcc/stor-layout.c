@@ -1517,6 +1517,9 @@ layout_type (tree type)
   if (type == 0)
     abort ();
 
+  if (type == error_mark_node)
+    return;
+
   /* Do nothing if type has been laid out before.  */
   if (TYPE_SIZE (type))
     return;

@@ -3942,6 +3942,11 @@ grokdeclarator (tree declarator, tree declspecs,
 	      TYPE_SIZE (type) = bitsize_zero_node;
 	      TYPE_SIZE_UNIT (type) = size_zero_node;
 	    }
+	  else if (declarator && TREE_CODE (declarator) == INDIRECT_REF)
+	    /* We can never complete an array type which is the target of a
+	       pointer, so go ahead and lay it out.  */
+	    layout_type (type);
+
 	  if (decl_context != PARM
 	      && (array_ptr_quals != NULL_TREE || array_parm_static))
 	    {

@@ -7260,6 +7260,13 @@ grokdeclarator (tree declarator,
 
 	    type = create_array_type_for_decl (dname, type, size);
 
+	    if (declarator
+		&& (TREE_CODE (declarator) == INDIRECT_REF
+		    || TREE_CODE (declarator) == ADDR_EXPR))
+	      /* We can never complete an array type which is the target of a
+		 pointer, so go ahead and lay it out.  */
+	      layout_type (type);
+
 	    ctype = NULL_TREE;
 	  }
 	  break;

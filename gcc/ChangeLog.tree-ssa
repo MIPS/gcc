@@ -1,3 +1,11 @@
+2003-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/12920
+	* stor-layout.c (layout_type): Just return if type is
+	error_mark_node.
+	* c-decl.c (grokdeclarator): Immediately layout an
+	ARRAY_TYPE used in a pointer-to-array declarator.
+
 2003-12-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (may_alias_p): If VAR and PTR are pointers with the
