@@ -1,3 +1,7 @@
+2003-11-13  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20031113-1.c: New test.
+
 2003-11-12  Jan Hubicka  <jh@suse.cz>
 
 	* g++.dg/tree-ssa: New file.
