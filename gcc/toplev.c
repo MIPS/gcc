@@ -874,6 +874,9 @@ int flag_tree_ssa = 0;
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_ssa_pre = 0;
 
+/* Enable Steensgaard's points-to analysis on trees. */
+int flag_tree_points_to = 0;
+
 /* Enable SSA-CCP on trees.  */
 int flag_tree_ssa_ccp = 0;
 
@@ -1191,6 +1194,8 @@ static const lang_independent_options f_options[] =
    N_("Enable SSA optimizations on trees") },
   { "tree-ssa-pre", &flag_tree_ssa_pre, 1,
    N_("Enable SSA-PRE optimization on trees") },
+  { "tree-points-to", &flag_tree_points_to, 1,
+   N_("Enable Steensgaard's points-to analysis on trees") },
   { "tree-ssa-ccp", &flag_tree_ssa_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
 };

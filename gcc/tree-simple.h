@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 extern void insert_before_continue_end PARAMS ((tree, tree));
 extern void tree_build_scope           PARAMS ((tree *));
 extern tree create_tmp_var             PARAMS ((tree, const char *));
+extern tree create_tmp_alias_var       PARAMS ((tree, const char *));
 extern bool is_simple_tmp_var	       PARAMS ((tree));
 extern tree get_initialized_tmp_var    PARAMS ((tree, tree *));
 extern tree declare_tmp_vars           PARAMS ((tree, tree));

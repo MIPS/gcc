@@ -1,3 +1,35 @@
+2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ecr.c: New file. Equivalence Class Representation.
+
+	* tree-alias-steen.c: New file. Steengaard Alias Analysis.
+
+	* disjoint-set.c: New file. Disjoint set data structure.
+
+	* tree-alias-type.c: New file. Alias types.
+
+	* c-simplify.c (create_tmp_alias_var): New function, like
+	create_tmp_var, but doesn't add it to the current binding.
+
+	* tree-simple.h: Prototype for create_tmp_alias_var.
+
+	* tree-optimize.c (build_tree_ssa): Create alias variables, if
+	requested.
+
+	* flags.h: Add flag_tree_points_to.
+
+	* toplev.c: Ditto.
+	
+	* gengtype.c (open_base_files): Add disjoint-set.h,
+	tree-alias-ecr.h, tree-alias-type.h, tree-flow.h.
+
+	* Makefile.in (C_AND_OBJC_OBJS): Add disjoint-set.o,
+	tree-alias-ecr.o, tree-alias-type.o, tree-alias-steen.o.
+	(tree-alias-steen.o): Add dependencies.
+	(tree-alias-ecr.o): Ditto.
+	(tree-alias-type.o): Ditto.
+	(disjoint-set.o): Ditto.
+
 2002-07-10  Daniel Berlin  <dberlin@dberlin.org>
 	    Diego Novillo  <dnovillo@redhat.com>
 

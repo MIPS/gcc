@@ -626,10 +626,10 @@ open_base_files ()
     /* The order of files here matters very much.  */
     static const char *const ifiles [] = {
       "config.h", "system.h", "varray.h", "hashtab.h",
-      "bitmap.h", "tree.h", "rtl.h", "function.h", "insn-config.h",
+      "bitmap.h", "disjoint-set.h", "rtl.h", "function.h", "insn-config.h",
       "expr.h", "hard-reg-set.h", "basic-block.h", "cselib.h",
       "insn-addr.h", "ssa.h", "optabs.h", "libfuncs.h",
-      "debug.h", "ggc.h",
+      "debug.h", "ggc.h", "tree-alias-type.h", "tree-alias-ecr.h", "tree-flow.h",
       NULL
     };
     const char *const *ifp;

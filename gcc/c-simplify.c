@@ -2221,6 +2221,51 @@ create_tmp_var (type, prefix)
   return tmp_var;
 }
 
+/*  Create a new temporary alias variable declaration of type TYPE.  Returns the
+    newly created decl. Does NOT push it into the current binding.  */
+
+tree
+create_tmp_alias_var (type, prefix)
+     tree type;
+     const char *prefix;
+{
+  static unsigned int id_num = 1;
+  char *tmp_name;
+  char *preftmp = NULL;
+  tree tmp_var;
+
+  if (prefix)
+    {
+      preftmp = ASTRDUP (prefix);
+      remove_suffix (preftmp, strlen (preftmp));
+      prefix = preftmp;
+    }
+  
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
+
+  /* If the type is an array, something is wrong.  */
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    abort ();
+
+  tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
+
+  /* The variable was declared by the compiler.  */
+  DECL_ARTIFICIAL (tmp_var) = 1;
+
+  /* Make the variable writable.  */
+  TREE_READONLY (tmp_var) = 0;
+
+  /* Make the type of the variable writable.  */
+  make_type_writable (tmp_var);
+
+  DECL_EXTERNAL (tmp_var) = 0;
+  TREE_STATIC (tmp_var) = 0;
+  TREE_USED (tmp_var) = 1;
+
+
+  return tmp_var;
+}
+
 /*  Given a tree, try to return a useful variable name that we can use
     to prefix a temporary that is being assigned the value of the tree. 
     I.E. given  <temp> = &A, return A.  */

@@ -73,6 +73,8 @@ optimize_function_tree (fndecl)
   delete_cfg ();
   delete_ssa ();
   referenced_symbols = NULL;
+
+
 }
 
 
@@ -94,6 +96,8 @@ build_tree_ssa (fndecl)
       tree_build_ssa ();
       tree_compute_rdefs ();    
     }
+  if (flag_tree_points_to)
+    create_alias_vars ();
 }
 
 
@@ -102,7 +106,7 @@ build_tree_ssa (fndecl)
 static void
 init_tree_flow ()
 {
-  VARRAY_TREE_INIT (referenced_symbols, 20, "referenced_symbols");
+  VARRAY_TREE_INIT (referenced_symbols, 20, "Referenced symbols");
 
   /* If -Wuninitialized was used, set tree_warn_uninitialized and clear
      warn_uninitialized to avoid duplicate warnings.  */
