@@ -1,3 +1,22 @@
+2004-02-25  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.h (assignment_vec_info_type): New enum value for
+        stmt_vec_info_type.
+        * tree-vectorizer.c (vect_transform_assignment): New function.
+        Support vectorization of assignment stmts.
+        (vect_transform_stmt): Call vect_transform_assignment.
+        (vect_is_supportable_assignment): New function.
+        (vect_analyze_operations): Call vect_is_supportable_assignment.
+
+        (vect_create_index_for_array_ref): Replace unsigned_intSI_type_node
+        with size_type_node.
+        (vect_transform_loop_bound): Likewise.
+
+        (get_vectype_for_scalar_type): Avoid division by 0.
+
+        (vect_analyze_operations): Apply check for no-out-of-loop-uses also
+        to stmts that are marked irrelevant.
+
 2004-02-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-flow.h (for_each_index): Declare.

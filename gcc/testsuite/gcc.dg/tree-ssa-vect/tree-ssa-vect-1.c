@@ -39,7 +39,7 @@ foo (int n)
   }
   fbar (a);
 
-  /* Not vetorizable yet (constant assignment).  */
+  /* Vectorizable.  */
   for (i = 0; i < N; i++){
     a[i] = 5;
   }

@@ -36,7 +36,8 @@ enum stmt_vec_info_type {
   undef_vec_info_type = 0,
   load_vec_info_type,
   store_vec_info_type,
-  binop_vec_info_type
+  binop_vec_info_type,
+  assignment_vec_info_type
 };
 
 typedef struct _stmt_vec_info {
