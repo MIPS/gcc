@@ -1,5 +1,9 @@
 2004-08-23  Dorit Naishlos  <dorit@il.ibm.com>
 
+	* gcc.dg/tree-ssa-vect/*.*: Removed.
+
+2004-08-23  Dorit Naishlos  <dorit@il.ibm.com>
+
         * gcc.dg/vect/vect-62.c: New test.
         * gcc.dg/vect/vect-63.c: New test.
         * gcc.dg/vect/vect-64.c: New test.
