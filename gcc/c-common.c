@@ -3897,8 +3897,7 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
   splay_tree_node node;
 
   /* Create the LABEL_DECL itself.  */
-  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (label) = current_function_decl;
+  label = create_artificial_label ();
 
   /* If there was an error processing the switch condition, bail now
      before we get more confused.  */
@@ -4020,7 +4019,7 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
      that just leads to duplicates and thence to aborts later on.  */
   if (!cases->root)
     {
-      tree t = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      tree t = create_artificial_label ();
       add_stmt (build_stmt (LABEL_STMT, t));
     }
   return error_mark_node;

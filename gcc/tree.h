@@ -3473,6 +3473,7 @@ extern void declare_nonlocal_label (tree);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In gimplify.c.  */
+extern tree create_artificial_label (void);
 extern void gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);

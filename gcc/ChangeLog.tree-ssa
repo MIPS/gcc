@@ -1,5 +1,11 @@
 2003-11-16  Richard Henderson  <rth@redhat.com>
 
+        * c-common.c (c_add_case_label): Use create_artificial_label.
+        * tree-simple.h (create_artificial_label): Move decl ...
+        * tree.h: ... here.
+
+2003-11-16  Richard Henderson  <rth@redhat.com>
+
 	PR c++/12770
 	* gimple-low.c (lower_stmt_body): Take a tree, not a tree*.
 	(lower_stmt): Handle EH nodes.
