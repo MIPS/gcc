@@ -1,8 +1,13 @@
+2003-07-02  Frank Ch. Eigler  <fche@redhat.com>
+
+	* varasm.c (build_constant_desc): Propagate mudflap marked-ness
+	across constant copying.
+
 2003-07-02  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (tree_perform_ssapre): Don't optimize things with
 	volatile ops or making aliased loads right now.
-    (create_expr_ref): Mark the phi result of the new phi as having
+	(create_expr_ref): Mark the phi result of the new phi as having
 	real refs.
 	(finalize_1): Mark the new temp as having real refs.
 	(repair_use_injury): Ditto.

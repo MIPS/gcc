@@ -2539,6 +2539,10 @@ build_constant_desc (exp)
   desc = ggc_alloc (sizeof (*desc));
   desc->value = copy_constant (exp);
 
+  /* Propagate marked-ness to copied constant. */
+  if (flag_mudflap && mf_marked_p (exp))
+    mf_mark (desc->value);
+
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
   ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
