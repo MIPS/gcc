@@ -109,3 +109,10 @@ _Jv_DeepDebug (void *p, int depth)
 {
   (new ::gnu::gcj::util::Debug (depth))->write ((jobject)p);
 }
+
+extern "C"
+void
+_Jv_StaticDeepDebug (void *p, int depth)
+{
+  (new ::gnu::gcj::util::Debug (depth, true))->write ((jobject)p);
+}

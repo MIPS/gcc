@@ -1,3 +1,8 @@
+2004-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/util/Debug.java (Debug(int,boolean)): New constructor.
+	* gnu/gcj/util/natDebug.cc (_Jv_StaticDeepDebug): New function.
+
 2004-10-04  Tom Tromey  <tromey@redhat.com>
 
 	* boehm.cc (_Jv_MarkObj): Correctly indicate base pointer when

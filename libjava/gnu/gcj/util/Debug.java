@@ -38,17 +38,22 @@ class Debug
 	this(writer, 0, 10, false);
     }
 
-    Debug(int maxdepth)
+    Debug(int maxdepth, boolean printStaticFields)
     {
 	this(new PrintStream
 	     (new FileOutputStream(FileDescriptor.err), true), 
 	     maxdepth, 
-	     maxdepth > 0 ? 1000 : 10, false);
+	     maxdepth > 0 ? 1000 : 10, printStaticFields);
+    }
+
+    Debug(int maxdepth)
+    {
+        this(maxdepth, false);
     }
 
     Debug()
     {
-	this(0);
+        this(0, false);
     }
   
     private final void indent()
