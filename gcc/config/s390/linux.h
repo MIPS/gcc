@@ -87,7 +87,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	%{rdynamic:-export-dynamic} \
 	%{!dynamic-linker: \
           %{m31:-dynamic-linker /lib/ld.so.1} \
-          %{m64:-dynamic-linker /lib/ld64.so.1}}}}"
+          %{m64:-dynamic-linker /lib64/ld64.so.1}}}}"
 
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
