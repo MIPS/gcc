@@ -1,3 +1,11 @@
+2004-05-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (loadSystemColors): Make
+	native.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c
+	(gdk_color_to_java_color): New function.
+	* jni/gtk-peer/gtkpeer.h: Add SystemColor defines.
+
 2004-05-12  David Jee  <djee@redhat.com>
 
 	* java/awt/image/RGBImageFilter.java:
