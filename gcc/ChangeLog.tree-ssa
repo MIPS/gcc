@@ -1,3 +1,10 @@
+2002-09-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (update_phis_in_list): New function.
+	(update_ssa_for_new_use): New function.
+	(code_motion): Start working on code to update SSA representation.
+	(find_reaching_def_of_var): New function.
+
 2002-09-25  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	* Makefile.in (tree): Add dependency on c-tree.h
