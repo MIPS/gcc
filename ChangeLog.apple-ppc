@@ -1,3 +1,10 @@
+2004-12-16  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3920294
+	* more-hdrs/float.h: Replace by stub for Metrowerks.
+	Radar 3920035
+	* more-hdrs/stdbool.h: Add Metrowerks stub-ness.
+
 2004-12-06  Mike Stump  <mrs@apple.com>
 
 	Radar 3891870
