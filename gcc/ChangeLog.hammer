@@ -1,5 +1,15 @@
 2003-11-10  Andreas Jaeger  <aj@suse.de>
 
+	Backport from mainline:
+	2003-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+        * builtins.c (expand_builtin_expect_jump): Save pending_stack_adjust
+        and restore it if returning NULL.
+
+        * gcc.dg/20030826-2.c: New test.
+
+2003-11-10  Andreas Jaeger  <aj@suse.de>
+
 	* ada/Makefile.in (gnatlib): Pass VPATH.
 	(SYMLIB): Remove libraries.
 
