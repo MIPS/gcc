@@ -877,8 +877,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
-	  error ("%Hsize of variable '%D' is too large",
-                 TREE_LOCUS (decl), decl);
+	  error ("%Jsize of variable '%D' is too large", decl, decl);
 	  size = 1;
 	}
 
@@ -5568,15 +5567,15 @@ uninitialized_vars_warning (tree block)
 	     not worry that it may be a dangling pointer.  */
 	  && DECL_INITIAL (decl) == NULL_TREE
 	  && regno_uninitialized (REGNO (DECL_RTL (decl))))
-	warning ("%H'%D' might be used uninitialized in this function",
-                 TREE_LOCUS (decl), decl);
+	warning ("%J'%D' might be used uninitialized in this function",
+		 decl, decl);
       if (extra_warnings
 	  && TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL (decl) != 0
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning ("%Hvariable '%D' might be clobbered by `longjmp' or `vfork'",
-                 TREE_LOCUS (decl), decl);
+	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
+		 decl, decl);
     }
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
     uninitialized_vars_warning (sub);
@@ -5594,8 +5593,8 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& GET_CODE (DECL_RTL (decl)) == REG
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning ("%Hargument '%D' might be clobbered by `longjmp' or `vfork'",
-               TREE_LOCUS (decl), decl);
+      warning ("%Jargument '%D' might be clobbered by `longjmp' or `vfork'",
+	       decl, decl);
 }
 
 /* If this function call setjmp, put all vars into the stack
@@ -6852,8 +6851,7 @@ expand_function_end (void)
 	   decl; decl = TREE_CHAIN (decl))
 	if (! TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-          warning ("%Hunused parameter '%D'",
-                   TREE_LOCUS (decl), decl);
+          warning ("%Junused parameter '%D'", decl, decl);
     }
 
   /* Delete handlers for nonlocal gotos if nothing uses them.  */

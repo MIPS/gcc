@@ -890,13 +890,11 @@ inlinable_function_p (tree fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
       if (do_warning && calls_builtin_longjmp)
-	warning ("%Hfunction '%F' can never be inlined because it uses "
-		 "setjmp-longjmp exception handling",
-		 TREE_LOCUS (fn), fn);
+	warning ("%Jfunction '%F' can never be inlined because it uses "
+		 "setjmp-longjmp exception handling", fn, fn);
       if (do_warning && calls_alloca)
-	warning ("%Hfunction '%F' can never be inlined because it uses "
-		 "setjmp-longjmp exception handling",
-		 TREE_LOCUS (fn), fn);
+	warning ("%Jfunction '%F' can never be inlined because it uses "
+		 "setjmp-longjmp exception handling", fn, fn);
 
       inlinable = false;
     }
@@ -1090,8 +1088,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       if (warn_inline && DECL_INLINE (fn) && DECL_DECLARED_INLINE_P (fn)
 	  && !DECL_IN_SYSTEM_HEADER (fn))
 	{
-	  warning ("%Hinlining failed in call to '%F'",
-                   TREE_LOCUS (fn), fn);
+	  warning ("%Jinlining failed in call to '%F'", fn, fn);
 	  warning ("called from here");
 	}
       return NULL_TREE;

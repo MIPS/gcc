@@ -1822,8 +1822,7 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
   if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
       && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
     {
-      warning ("%Hinlining failed in call to '%F'",
-               TREE_LOCUS (fndecl), fndecl);
+      warning ("%Jinlining failed in call to '%F'", fndecl, fndecl);
       warning ("called from here");
     }
   (*lang_hooks.mark_addressable) (fndecl);
@@ -2162,8 +2161,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
 	      && optimize > 0)
 	    {
-	      warning ("%Hcan't inline call to '%F'",
-                       TREE_LOCUS (fndecl), fndecl);
+	      warning ("%Jcan't inline call to '%F'", fndecl, fndecl);
 	      warning ("called from here");
 	    }
 	  (*lang_hooks.mark_addressable) (fndecl);
