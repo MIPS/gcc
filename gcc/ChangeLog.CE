@@ -1,3 +1,9 @@
+2000-04-24  Richard Henderson  <rth@cygnus.com>
+
+	* condexec.c (noce_try_store_flag_constants): Pass normalize to
+	emit_store_flag.
+	(noce_try_store_flag_mask): Fix thinko in operand ordering.
+
 2000-04-23  Richard Henderson  <rth@cygnus.com>
 
 	* flow.c (propagate_one_insn): Call mark_set_1, not mark_set_reg.

@@ -484,7 +484,8 @@ noce_try_store_flag_constants (if_info)
       target = emit_store_flag (if_info->x, code, XEXP (if_info->cond, 0),
 				XEXP (if_info->cond, 1), VOIDmode,
 				(code == LTU || code == LEU
-				 || code == GEU || code == GTU), 0);
+				 || code == GEU || code == GTU),
+				normalize);
       if (! target)
 	{
 	  end_sequence ();
@@ -619,12 +620,12 @@ noce_try_store_flag_mask (if_info)
   if (! no_new_pseudos
       && (BRANCH_COST >= 2
 	  || STORE_FLAG_VALUE == -1)
-      && ((if_info->b == const0_rtx
-	   && rtx_equal_p (if_info->a, if_info->x))
+      && ((if_info->a == const0_rtx
+	   && rtx_equal_p (if_info->b, if_info->x))
 	  || ((reversep = can_reverse_comparison_p (if_info->cond,
 						    if_info->jump))
-	      && if_info->a == const0_rtx
-	      && rtx_equal_p (if_info->b, if_info->x))))
+	      && if_info->b == const0_rtx
+	      && rtx_equal_p (if_info->a, if_info->x))))
     {
       code = GET_CODE (if_info->cond);
       if (reversep)
