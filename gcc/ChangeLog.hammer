@@ -1,3 +1,8 @@
+Wed Dec  4 23:42:16 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c: Fix merge problems.
+	* i386.md: Likewise.
+
 Wed Dec  4 11:47:43 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc): Force operand into register for QImode

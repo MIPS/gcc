@@ -4555,14 +4555,16 @@ ix86_expand_prologue ()
   int use_mov = 0;
   HOST_WIDE_INT allocate;
 
+  ix86_compute_frame_layout (&frame);
   if (!optimize_size)
     {
-      use_fast_prologue_epilogue
-	 = !expensive_function_p (FAST_PROLOGUE_INSN_COUNT);
+      int count = frame.nregs;
+      if (count)
+	count = (count - 1) * FAST_PROLOGUE_INSN_COUNT;
+      use_fast_prologue_epilogue = !expensive_function_p (count);
       if (TARGET_PROLOGUE_USING_MOVE)
         use_mov = use_fast_prologue_epilogue;
     }
-  ix86_compute_frame_layout (&frame);
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
