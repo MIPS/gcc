@@ -11,11 +11,8 @@ int f(int i)
   return 0;
 }
 
-/* These are xfailed for now as the returns are not merged so the optimizers do not
-   see the opportunities.   */
-
 /* We should convert one COND_EXPRs into straightline code.  */
-/* { dg-final { scan-tree-dump-times "straightline" 1 "phiopt1" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "straightline" 1 "phiopt1" } } */
 /* Also we should have found that the call to t is tail called.   */
-/* { dg-final { scan-tree-dump-times "Found tail call" 1 "tailc" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "Found tail call" 1 "tailc" } } */
 

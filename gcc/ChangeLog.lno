@@ -1,3 +1,12 @@
+2004-03-11  Andrew Pinski  <apinski@apple.com>
+
+	PR optimization/14135
+	* tree-ssa-return.c: New file.
+	* Makefile.in (tree-ssa-return.o): Add.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_return.
+	* timevar.def (TV_TREE_RETURN): New.
+
 2004-03-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivcanon.o: New file.

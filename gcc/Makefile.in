@@ -877,7 +877,7 @@ OBJS-common = \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-iv.o loop-init.o loop-unswitch.o	   \
- loop-unroll.o loop-doloop.o						   \
+ loop-unroll.o loop-doloop.o tree-ssa-return.o						   \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o	   \
  dbxout.o debug.o df.o diagnostic.o dojump.o doloop.o dominance.o	   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o	                   \
@@ -1562,7 +1562,10 @@ tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-ssa-dse.o : tree-ssa-dse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) domwalk.h flags.h
-tree-ssa-forwprop.o : tree-ssa-phiopt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+tree-ssa-forwprop.o : tree-ssa-forwprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
+   $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H)
+tree-ssa-return.o : tree-ssa-return.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H)
 tree-ssa-phiopt.o : tree-ssa-phiopt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
