@@ -8287,11 +8287,13 @@ expand_expr (exp, target, tmode, modifier)
       return temp;
 
     case COMPOUND_EXPR:
-      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
-      emit_queue ();
-      return expand_expr (TREE_OPERAND (exp, 1),
-			  (ignore ? const0_rtx : target),
-			  VOIDmode, 0);
+      /* Avoid deep recursion for long block.  */
+      for (; TREE_CODE (exp) == COMPOUND_EXPR; exp = TREE_OPERAND (exp, 1))
+	{
+	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
+	  emit_queue ();
+	}
+      return expand_expr (exp, (ignore ? const0_rtx : target), VOIDmode, 0);
 
     case COND_EXPR:
       /* If we would have a "singleton" (see below) were it not for a

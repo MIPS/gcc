@@ -569,8 +569,10 @@ copy_body (id)
   body = DECL_SAVED_TREE (VARRAY_TOP_TREE (id->fns));
   walk_tree (&body, copy_body_r, id, NULL);
 
+#ifndef INLINER_FOR_JAVA
   if (!statement_code_p (TREE_CODE (body)))
     body = build_stmt (EXPR_STMT, body);
+#endif
 
   return body;
 }

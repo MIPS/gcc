@@ -670,12 +670,19 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  output_add_character (buffer, ')');
 	  if (!brief_dump)
 	    {
-	      newline_and_indent (buffer, spc+2);
-	      output_add_character (buffer, '{');
-	      newline_and_indent (buffer, spc+4);
-	      dump_c_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
-	      newline_and_indent (buffer, spc+2);
-	      output_add_character (buffer, '}');
+	      if (TREE_OPERAND (node, 1) == empty_stmt_node)
+		{
+		  output_add_character (buffer, ';');
+		}
+	      else
+		{
+		  newline_and_indent (buffer, spc+2);
+		  output_add_character (buffer, '{');
+		  newline_and_indent (buffer, spc+4);
+		  dump_c_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
+		  newline_and_indent (buffer, spc+2);
+		  output_add_character (buffer, '}');
+		}
 	      if (TREE_OPERAND (node, 2) != empty_stmt_node)
 		{
 		  newline_and_indent (buffer, spc);

@@ -90,6 +90,7 @@ static void simplify_block	     PARAMS ((tree *, tree *));
 static tree simplify_c_loop	     PARAMS ((tree, tree, tree, int));
 static void push_context             PARAMS ((void));
 static void pop_context              PARAMS ((void));
+static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 
 /* Should move to tree-simple.c when the target language loses the C-isms.  */
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
@@ -110,6 +111,7 @@ static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
 static void simplify_return_expr     PARAMS ((tree, tree *));
 static tree build_addr_expr	     PARAMS ((tree));
 static tree add_stmt_to_compound	PARAMS ((tree, tree));
+static void simplify_asm_expr		PARAMS ((tree, tree *));
 
 typedef void foreach_stmt_fn PARAMS ((tree *));
 void foreach_stmt PARAMS ((tree *, foreach_stmt_fn *));
@@ -1081,6 +1083,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
 	  break;
 
+	case CONVERT_EXPR:
+	  if (*expr_p == empty_stmt_node)
+	    break;
 	case NOP_EXPR:
 	  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
 	    {
@@ -1088,7 +1093,6 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	      *expr_p = TREE_OPERAND (*expr_p, 0);
 	      break;
 	    }
-	case CONVERT_EXPR:
 	case FIX_TRUNC_EXPR:
 	case FIX_CEIL_EXPR:
 	case FIX_FLOOR_EXPR:
@@ -1803,77 +1807,15 @@ simplify_compound_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-  tree *expr_s, *pre_expr_s, *post_expr_s;
-  tree t, ret;
-  int i, num;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (*expr_p) != COMPOUND_EXPR)
-    abort ();
-#endif
-
-  /* Count all the expressions in the sequence.  */
-  num = 2;
-  t = *expr_p;
-  while (TREE_OPERAND (t, 1)
-         && TREE_CODE (TREE_OPERAND (t, 1)) == COMPOUND_EXPR)
+  tree t;
+  for (t = *expr_p; TREE_CODE (t) == COMPOUND_EXPR; t = TREE_OPERAND (t, 1))
     {
-      num++;
-      t = TREE_OPERAND (t, 1);
+      tree sub = TREE_OPERAND (t, 0);
+      simplify_stmt (&sub);
+      add_tree (sub, pre_p);
     }
 
-  /* Collect all the expressions in the sequence into the EXPR_S array.  */
-  expr_s = (tree *) xmalloc (num * sizeof (tree));
-  memset (expr_s, 0, num * sizeof (tree));
-
-  pre_expr_s = (tree *) xmalloc (num * sizeof (tree));
-  memset (pre_expr_s, 0, num * sizeof (tree));
-
-  post_expr_s = (tree *) xmalloc (num * sizeof (tree));
-  memset (post_expr_s, 0, num * sizeof (tree));
-
-  t = *expr_p;
-  for (i = 0; i < num; i++)
-    {
-      if (i < num - 1)
-	{
-	  expr_s[i] = TREE_OPERAND (t, 0);
-	  t = TREE_OPERAND (t, 1);
-	}
-      else
-	expr_s[i] = t;
-    }
-
-
-  /* Simplify each expression in the array.  Add all the side effects and
-     the simplified expressions to PRE_P.  POST_P will contain the post
-     side-effects of the last expression in the sequence.  After
-     simplification, we return the last expression of the sequence.  */
-  for (i = 0; i < num; i++)
-    {
-      simplify_expr (&expr_s[i], &pre_expr_s[i], &post_expr_s[i],
-	             is_simple_expr, fb_rvalue);
-
-      /* Add the side-effects and the simplified expression to PRE_P.  
-	 This is necessary because the comma operator represents a sequence
-	 point.  */
-      add_tree (pre_expr_s[i], pre_p);
-
-      if (i < num - 1)
-	{
-	  add_tree (expr_s[i], pre_p);
-	  add_tree (post_expr_s[i], pre_p);
-	}
-    }
-
-  ret = expr_s[num - 1];
-  add_tree (post_expr_s[num - 1], post_p);
-
-  free (expr_s);
-  free (pre_expr_s);
-  free (post_expr_s);
-
-  *expr_p = ret;
+  *expr_p = t;
 }
 
 
@@ -2058,8 +2000,8 @@ simplify_addr_expr (expr_p, pre_p, post_p)
 }
 
 static void
-simplify_asm_expr (expr_p, pre_p)
-     tree *expr_p;
+simplify_asm_expr (expr, pre_p)
+     tree expr;
      tree *pre_p;
 {
   /* punt */
@@ -2504,27 +2446,36 @@ expr_has_effect (expr)
 	      && VOID_TYPE_P (TREE_TYPE (expr))));
 }
 
-#if 0
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
    model computations that should only be done once.  If we were to unshare
    something like SAVE_EXPR(i++), the simplification process would create
    wrong code.  */
 
-static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 static tree
 mostly_copy_tree_r (tp, walk_subtrees, data)
      tree *tp;
      int *walk_subtrees;
      void *data;
 {
-  if (TREE_CODE (*tp) == SAVE_EXPR)
+  enum tree_code code = TREE_CODE (*tp);
+  /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
+  if (TREE_CODE_CLASS (code) == 't'
+      || TREE_CODE_CLASS (code) == 'd'
+      || TREE_CODE_CLASS (code) == 'c'
+      || TREE_CODE_CLASS (code) == 'b'
+      || code == SAVE_EXPR
+      || *tp == empty_stmt_node)
     *walk_subtrees = 0;
+  else if (code == STMT_EXPR || code == SCOPE_STMT)
+    /* Unsharing STMT_EXPRs doesn't make much sense; they tend to be
+       complex, so they shouldn't be shared in the first place.  Unsharing
+       SCOPE_STMTs breaks because copy_tree_r zeroes out the block.  */
+    abort ();
   else
     copy_tree_r (tp, walk_subtrees, data);
 
   return NULL_TREE;
 }
-#endif
 
 /* Callback for walk_tree to unshare most of the shared trees rooted at
    *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
@@ -2541,25 +2492,18 @@ copy_if_shared_r (tp, walk_subtrees, data)
     int *walk_subtrees ATTRIBUTE_UNUSED;
     void *data ATTRIBUTE_UNUSED;
 {
-  enum tree_code code = TREE_CODE (*tp);
-
-  /* If this node has been visited already, unshare it and stop traversing.  */
-  if (TREE_VISITED (*tp)
-      /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
-      && TREE_CODE_CLASS (code) != 't'
-      && TREE_CODE_CLASS (code) != 'd'
-      && TREE_CODE_CLASS (code) != 'b'
-      && code != SAVE_EXPR)
+  /* If this node has been visited already, unshare it and don't look
+     any deeper.  */
+  if (TREE_VISITED (*tp))
     {
-      walk_tree (tp, copy_tree_r, NULL, NULL);
-      return *tp;
+      walk_tree (tp, mostly_copy_tree_r, NULL, NULL);
+      *walk_subtrees = 0;
     }
   else
-    {
-      /* Otherwise, mark the tree as visited and keep looking.  */
-      TREE_VISITED (*tp) = 1;
-      return NULL_TREE;
-    }
+    /* Otherwise, mark the tree as visited and keep looking.  */
+    TREE_VISITED (*tp) = 1;
+
+  return NULL_TREE;
 }
 
 static tree
@@ -2569,12 +2513,11 @@ unmark_visited_r (tp, walk_subtrees, data)
     void *data ATTRIBUTE_UNUSED;
 {
   if (TREE_VISITED (*tp))
-    {
-      TREE_VISITED (*tp) = 0;
-      return NULL_TREE;
-    }
+    TREE_VISITED (*tp) = 0;
   else
-    return *tp;
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
 }
 
 
