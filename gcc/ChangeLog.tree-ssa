@@ -1,3 +1,7 @@
+2004-01-30  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gengtype-yacc.y (bitfieldlen): Add empty action.
+
 2004-01-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* configure.ac: Move configuration for libbanshee and

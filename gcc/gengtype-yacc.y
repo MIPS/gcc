@@ -221,6 +221,7 @@ bitfieldopt: /* empty */
 	     ;
 
 bitfieldlen: NUM | ID
+		{ }
 	     ;
 
 type: SCALAR
