@@ -1,3 +1,7 @@
+Mon Dec  2 19:26:30 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Avoid overflow.
+
 Sun Dec  1 16:50:47 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc): fix
