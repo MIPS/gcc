@@ -4637,7 +4637,7 @@ output_constructor (exp, size, align)
 
 /* This structure contains any weak symbol declarations waiting
    to be emitted.  */
-struct weak_syms
+struct weak_syms GTY(())
 {
   struct weak_syms * next;
   tree decl;
@@ -4645,19 +4645,7 @@ struct weak_syms
   const char * value;
 };
 
-static struct weak_syms * weak_decls;
-
-/* Mark weak_decls for garbage collection.  */
-
-static void
-mark_weak_decls (arg)
-     void *arg;
-{
-  struct weak_syms *t;
-
-  for (t = *(struct weak_syms **) arg; t != NULL; t = t->next)
-    ggc_mark_tree (t->decl);
-}
+static GTY(()) struct weak_syms * weak_decls;
 
 /* Add function NAME to the weak symbols list.  VALUE is a weak alias
    associated with NAME.  */
@@ -4670,7 +4658,7 @@ add_weak (decl, name, value)
 {
   struct weak_syms *weak;
 
-  weak = (struct weak_syms *) xmalloc (sizeof (struct weak_syms));
+  weak = (struct weak_syms *) ggc_alloc (sizeof (struct weak_syms));
 
   if (weak == NULL)
     return 0;
@@ -4753,7 +4741,6 @@ remove_from_pending_weak_list (name)
       if (strcmp (name, t->name) == 0)
         {
           *p = t->next;
-          free (t);
         }
       else
         p = &(t->next);
@@ -4920,7 +4907,6 @@ init_varasm_once ()
 
   ggc_add_root (&const_str_htab, 1, sizeof const_str_htab,
 		mark_const_str_htab);
-  ggc_add_root (&weak_decls, 1, sizeof weak_decls, mark_weak_decls);
 
   const_alias_set = new_alias_set ();
 }
