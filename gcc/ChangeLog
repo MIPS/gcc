@@ -1,3 +1,9 @@
+2003-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/arm/arm.md (generic_sched): arm926 has its own scheduler.
+	(arm926ejs.md): Include it.
+	* config/arm/arm926ejs.md: New pipeline description.
+
 2003-12-24  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_arch6j): New variable.
