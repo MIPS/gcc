@@ -10829,6 +10829,7 @@ rs6000_stack_info (void)
   rs6000_stack_t *info_ptr = &info;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int ehrd_size;
+  int save_align;
   HOST_WIDE_INT non_fixed_size;
 
   /* Zero all fields portably.  */
@@ -11046,6 +11047,7 @@ rs6000_stack_info (void)
       break;
     }
 
+  save_align = (TARGET_ALTIVEC_ABI || DEFAULT_ABI == ABI_DARWIN) ? 16 : 8;
   info_ptr->save_size    = RS6000_ALIGN (info_ptr->fp_size
 					 + info_ptr->gp_size
 					 + info_ptr->altivec_size
@@ -11057,8 +11059,7 @@ rs6000_stack_info (void)
 					 + info_ptr->lr_size
 					 + info_ptr->vrsave_size
 					 + info_ptr->toc_size,
-					 (TARGET_ALTIVEC_ABI || ABI_DARWIN)
-					 ? 16 : 8);
+					 save_align);
 
   non_fixed_size	 = (info_ptr->vars_size
 			    + info_ptr->parm_size

@@ -295,6 +295,14 @@ extern int dot_symbols;
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
+/* Linux doesn't support saving and restoring 64-bit regs in a 32-bit
+   process.  */
+#define OS_MISSING_POWERPC64 !TARGET_64BIT
+
+/* glibc has float and long double forms of math functions.  */
+#undef  TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 1
+
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()            		\
   do							\
@@ -655,6 +663,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
 	}								\
 									\
+    (FS)->regs.reg[CR2_REGNO].how = REG_SAVED_OFFSET;			\
+    (FS)->regs.reg[CR2_REGNO].loc.offset				\
+      = (long)&(sc_->regs->ccr) - new_cfa_;				\
+									\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
@@ -719,6 +731,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
 	}								\
 									\
+    (FS)->regs.reg[CR2_REGNO].how = REG_SAVED_OFFSET;			\
+    (FS)->regs.reg[CR2_REGNO].loc.offset				\
+      = (long)&(sc_->regs->ccr) - new_cfa_;				\
+									\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
@@ -731,6 +747,3 @@ enum { SIGNAL_FRAMESIZE = 64 };
   } while (0)
 
 #endif
-
-
-#define OS_MISSING_POWERPC64 !TARGET_64BIT

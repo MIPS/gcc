@@ -1,3 +1,100 @@
+2004-10-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (basic_stringbuf(ios_base::openmode)):
+	Don't use _M_stringbuf_init, keep the pointers null, per 27.7.1.1.
+	(str()): Slightly tweak, protect from pptr() == 0.
+	(_M_update_egptr()): Likewise.
+	* include/bits/sstream.tcc (ssekoff, seekpos): In order to check
+	for an empty buffer use __beg instead of _M_string.capacity().
+	* testsuite/27_io/basic_stringbuf/cons/char/1.cc: New.
+
+	* testsuite/27_io/basic_filebuf/cons/char/1.cc: New.
+	* testsuite/27_io/basic_streambuf/cons/char/1.cc: Update.
+
+2004-10-02  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/testsuite_io.h (class constraint_buf): New, extended
+	and templatized version of constraint_filebuf; add typedefs for
+	streambuf/stringbuf/filebuf and wchar_t counterparts.
+
+2004-09-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16848
+	* include/Makefile.am (ext_headers): Remove demangle.h.
+	* include/Makefile.in: Regenerate.
+	* include/ext/demangle.h: Remove.
+
+2004-09-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/17469
+	* testsuite/lib/libstdc++.exp: Don't use global ld_library_path.
+
+2004-09-24  Paolo Carlini  <pcarlini@suse.de>
+	    Magnus Fromreide  <magfr@lysator.liu.se>
+	    
+	* include/bits/boost_concept_check.h (struct _SequenceConcept):
+	Remove wrong requirement, i.e., not present in Table 67.
+
+2004-09-20  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* testsuite/23_containers/{set,multiset}/14340.cc: Fix typos in
+	instantiation of set and multiset (functor param given as int).
+
+2004-09-20  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/stl_algo.h (remove): Remove too restrictive
+	concept-check.
+
+2004-09-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/fstream.tcc (xsgetn): Slightly tweak conditional,
+	as per Nathan's original suggestion.
+
+2004-09-19  Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/fstream.tcc (xsgetn): Slightly tweak the recent fix
+	for 11722: copy can replace move; the common case is __avail == 0.
+
+2004-09-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11722
+	* include/std/std_fstream.h (xsgetn): Declare only.
+	* include/bits/fstream.tcc (xsgetn): Define, optimize for the
+	always_noconv() case: when __n > __buflen, copy the available
+	buffer and issue a direct read.
+	* testsuite/performance/27_io/filebuf_sgetn_unbuf.cc: New.
+
+	* include/bits/fstream.tcc (xsputn): Minor tweak, reorder a
+	conditional.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/localename.cc (locale::_Impl::_Impl): Slightly improve
+	the algorithm used to name the categories.
+
+2004-09-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_via_format,
+	case 'S'): Allow for at least one leap-second (as per C99, 7.23.1
+	and 7.23.3.5), two if !_GLIBCXX_USE_C99.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: New.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+
+2004-09-08  Benjamin Kosnik  <bkoz@redhat.com>
+            Simon Richter  <Simon.Richter@hogyros.de>
+         
+        PR libstdc++/16715
+        * include/bits/istream.tcc: Add extern template for iostream
+        char and wchar_t instantiations.
+
+2004-09-08  Benjamin Kosnik  <bkoz@redhat.com>
+            Leland Wang  <llwang@infor.org>
+         
+        PR libstdc++/17259
+        * include/ext/ropeimpl.h (rope::_S_compare): Use
+        _Rope_constants::_S_leaf.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.

@@ -1,3 +1,251 @@
+2004-10-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux.h (TARGET_C99_FUNCTIONS): Define.
+	(OS_MISSING_POWERPC64): Move, and comment.
+	* config/rs6000/linux64.h (TARGET_C99_FUNCTIONS): Define.
+	(OS_MISSING_POWERPC64): Move, and comment.
+
+2004-10-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/stormy16/stormy16.c (TARGET_BUILD_BUILTIN_VA_LIST_TYPE):
+	Fix typo in macro name, it should be: TARGET_BUILD_BUILTIN_VA_LIST.
+
+2004-09-30  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/qrnnd.asm: Mark for noexecstack.
+
+2004-09-30  Richard Henderson  <rth@redhat.com>
+ 
+        * unwind-dw2.c (_Unwind_GetGR): Honor DWARF_ZERO_REG.
+        * doc/tm.texi (DWARF_ZERO_REG): New.
+ 
+        * config/alpha/alpha.c (alpha_sa_mask, alpha_expand_prologue,
+        alpha_expand_epilogue): Revert 2003-09-30 change to store zero.
+        * config/alpha/alpha.h (DWARF_ZERO_REG): New.
+
+2004-09-29  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/17493
+	Backport from mainline
+	2004-07-16  Segher Boessenkool  <segher@kernel.crashing.org>
+	* config/rs6000/eabi.asm (__eabi_convert): Fix typo (cmpi vs. cmpwi).
+
+2004-09-28  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR target/14064
+	Backport from mainline
+	2004-09-01  James E Wilson  <wilson@specifixinc.com>
+	* config/avr/avr.c (avr_unique_section): Delete prototype and
+	definition.
+	(TARGET_ASM_UNIQUE_SECTION): Delete.
+
+2004-09-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/15526
+	Backport from mainline
+	2004-05-20  Falk Hueffner  <falk@debian.org>
+	* libgcc2.c (__mulvsi3): Fix overflow test.
+
+2004-09-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/9771
+	* regclass.c (CALL_REALLY_USED_REGNO_P): New macro to eliminate
+	conditional compilation in init_reg_sets_1.
+	(init_reg_sets_1): Let global_regs[i] take priority over the frame
+	(but not stack) pointer exceptions to regs_invalidated_by_call.
+	(globalize_reg): Globalizing a fixed register may need to update
+	regs_invalidated_by_call.
+
+2004-09-23  Denis Chertykov  <denisc@overta.ru>
+
+	PR target/16884
+	* config/avr/avr.md ("movmemhi"): Substitute match_dup to
+	match_scratch.
+	(*movmemqi_insn): Likewise.
+	(*movmemhi): Likewise.
+	(clrmemhi): Likewise.
+	(*clrmemqi): Likewise.
+	(*clrmemhi): Likewise.
+
+2004-09-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17369
+	* Makefile.in (@set_gcc_lib_path@): Added.
+
+	* configure.ac: Include ../config/gcc-lib-path.m4. Use
+	TL_AC_GNU_MAKE_GCC_LIB_PATH.
+	* configure: Regenerated.
+
+2004-09-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/16566
+	* c-typeck.c (build_component_ref): Don't special-case
+	COMPOUND_EXPR.
+
+2004-09-22  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
+
+	PR target/15583
+	* config/rs6000/rtems.h (TARGET_OS_CPP_BUILTINS): Add
+	builtin_define ("__USE_INIT_FINI__").
+
+2004-09-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/17565
+	* config/mips/mips.md (define_asm_attributes): Set can_delay to no.
+
+2004-09-15  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/17455
+	* config/ia64/ia64.c (ia64_function_ok_for_sibcall): Return false
+	if current_function_decl is a sibcall.
+
+2004-09-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Save
+	location of CR.
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Ditto.
+
+2004-09-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (sparc-sun-solaris2*): Properly format warning.
+
+2004-09-14  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/17186
+	* function.c (expand_function_end): Revert last change.
+
+	* sibcall.c (call_ends_block_p): Fix thinko finding the
+	last real insn in a block.
+
+2004-09-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15498
+	* doc/invoke.texi (Environment Variables): Correct example locale.
+
+2004-09-14  Daniel Jacobowitz  <dan@debian.org>
+
+	* reload.c (find_reloads): Swap operand_loc pointers for
+	find_dummy_reload if we have swapped two operands.
+
+2004-09-13  Richard Henderson  <rth@redhat.com>
+
+	PR inline-asm/6806
+	* cselib.c (cselib_invalidate_rtx): Export.  Remove unused args.
+	(cselib_invalidate_rtx_note_stores): New.
+	(cselib_record_sets, cselib_process_insn): Update to match.
+	* cselib.h (cselib_invalidate_rtx): Declare.
+	* postreload.c (reload_cse_simplify): Invalidate asm clobbers.
+
+2004-09-11  Ramana Radhakrishnan <ramana.radhakrishnan@codito.com>
+
+	PR target/11476
+	* gcc/config/arc/arc.c (arc_va_args): Call build1 instead
+	of build for unary tree operators.
+
+2004-09-11  Andrew Pinski  <apinski@apple.com>
+
+	PR target/17167
+	backport from the mainline:
+	2004-02-28  Andrew Pinski  <pinskia@physics.uc.edu>
+	* config/darwin.h (machopic_finish): Output stub even if
+	the symbol is already defined.
+	2004-02-27  Dale Johannesen  <dalej@apple.com>
+	* config/darwin.c (machopic_output_possible_stub_label):
+	Remove.
+	config/darwin-protos.h:  Ditto.
+	config/darwin.h:  Remove call to it.
+
+2004-09-11  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/17277
+	* config/rs6000/aix.h (MD_FROB_UPDATE_CONTEXT): Use __64BIT__ to
+	choose 64-bit version.
+
+2004-09-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR 15886
+	Backport from mainline:
+	2004-06-11  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (ALLOCATE_INITIAL_VALUE): Use return_address_pointer_rtx.
+
+2004-09-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Correct alignment of
+	save_size.
+
+2004-09-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure: Regenerated.
+
+2004-09-08  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/17186
+	* function.c (expand_function_end): Have fall-off-the-end
+	return path jump around return register setup.
+
+2004-09-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14925:
+	Makefile.in (LIB2ADDEHSTATIC): New.
+	(LIB2ADDEHSHARED): New.
+	(LIBUNWIND): New.
+	(LIBUNWINDDEP): New.
+	(SHLIBUNWIND_LINK): New.
+	(SHLIBUNWIND_INSTALL): New.
+	(libgcc.mk): Pass LIB2ADDEHSTATIC, LIB2ADDEHSHARED, LIBUNWIND,
+	LIBUNWINDDEP, SHLIBUNWIND_LINK and SHLIBUNWIND_INSTALL.
+	(clean): Remove libunwind*
+	(stage1-start): Remove and copy stage1/libunwind*.
+	(stage2-start): Remove and copy stage2/libunwind*.
+	(stage3-start): Remove and copy stage3/libunwind*.
+	(stage4-start): Remove and copy stage4/libunwind*.
+	(stageprofile-start): Remove and copy stageprofile/libunwind*.
+	(stagefeedback-start): Remove and copy stagefeedback/libunwind*.
+
+	* config.gcc (ia64*-*-linux*): Always add t-libunwind to
+	tmake_file. Add t-libunwind-elf and ia64/t-glibc-libunwind to
+	tmake_file if --with-system-libunwind isn't used.
+
+	* config/ia64/t-glibc-libunwind: New file.
+	* config/t-libunwind-elf: Likewise.
+	* unwind-compat.c: Likewise.
+	* unwind-compat.h: Likewise.
+	* unwind-dw2-fde-compat.c: Likewise.
+
+	* config/ia64/t-glibc (LIB2ADDEH): Updated.
+	* config/ia64/t-hpux (T_CFLAGS): Add -DUSE_LIBUNWIND_EXCEPTIONS.
+
+	* config/ia64/unwind-ia64.c: Include "unwind-compat.h". Define
+	aliases if needed.
+	* unwind-dw2-fde-glibc.c: Likewise.
+	* unwind-dw2.c: Likewise.
+
+	* config/t-libunwind (LIB2ADDEH): Updated.
+	(LIB2ADDEHSTATIC): New.
+	(T_CFLAGS): Add -DUSE_LIBUNWIND_EXCEPTIONS.
+	(TARGET_LIBGCC2_CFLAGS): Set to -DUSE_GAS_SYMVER.
+
+	* configure.ac: Change --enable-libunwind-exceptions to
+	--with-system-libunwind. Don't define USE_LIBUNWIND_EXCEPTIONS.
+	* configure: Regenerated.
+	* config.in: Updated.
+
+	* doc/install.texi (ia64-*-linux): Require libunwind 0.98 or
+	above and mention --with-system-libunwind.
+	(ia64-*-hpux*): Mention --enable-libunwind-exceptions is
+	removed in gcc 3.4.3 and later.
+
+	* gcc.c (init_spec): Add -lunwind to -lgcc_s if
+	USE_LIBUNWIND_EXCEPTIONS is defined.
+
+	* mklibgcc.in: Support libunwind.
+
+2004-09-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Restore pre-release marker.
+	* doc/include/gcc-common.texi: Set version to 3.4.3.
+	
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.
@@ -53,9 +301,9 @@
 
 2004-09-01  Richard Henderson  <rth@redhat.com>
 
-        * config/ns32k/ns32k.h (TRANSFER_FROM_TRAMPOLINE): Remove.
-        (TRAMPOLINE_TEMPLATE): Merge code from __trampoline inline.
-                                                                                
+	* config/ns32k/ns32k.h (TRANSFER_FROM_TRAMPOLINE): Remove.
+	(TRAMPOLINE_TEMPLATE): Merge code from __trampoline inline.
+	                                                                        
 2004-09-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgcc-std.ver (GCC_3.4.2): Export also __trampoline_setup.
@@ -203,8 +451,8 @@
 
 2004-08-26  Richard Henderson  <rth@redhat.com>
 
-        * config/alpha/alpha.h (HARD_REGNO_MODE_OK): Allow complex float
-        modes.
+	* config/alpha/alpha.h (HARD_REGNO_MODE_OK): Allow complex float
+	modes.
 
 2004-08-26  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
 
@@ -243,7 +491,7 @@
 	one and two.
 
 2004-08-24  Richard Henderson  <rth@redhat.com>
-                                                                                
+	                                                                        
 	PR target/16298
 	* config/i386/i386.c (legitimate_constant_p): Rework to not accept
 	random codes within CONST.
@@ -299,9 +547,9 @@
 	* c-common.c (vector_size_helper): Remove; call
 	reconstruct_complex_type() instead.
 	* hooks.c (hook_constcharptr_tree_null): New hook.
-        * hooks.h (hook_constcharptr_tree_null): New prototype.
-        * target-def.h (TARGET_MANGLE_FUNDAMENTAL_TYPE): New target hook.
-        * target.h (mangle_fundamental_type): New target hook.
+	* hooks.h (hook_constcharptr_tree_null): New prototype.
+	* target-def.h (TARGET_MANGLE_FUNDAMENTAL_TYPE): New target hook.
+	* target.h (mangle_fundamental_type): New target hook.
 	* tree.c (reconstruct_complex_type): New function
 	(formerly vector_size_helper() in c-common.c).
 	(make_vector): Make externally visible.
@@ -355,16 +603,16 @@
 	(rs6000_common_init_builtins): Rename v4si_ftype_char, v8hi_ftype_char,
 	v16qi_ftype_char, v4sf_ftype_v4si_char, v4si_ftype_v4sf_char,
 	v4si_ftype_v4si_char, v8hi_ftype_v8hi_char, v16qi_ftype_v16qi_char,
-        v16qi_ftype_v16qi_v16qi_char, v8hi_ftype_v8hi_v8hi_char,
-        v4si_ftype_v4si_v4si_char and v4sf_ftype_v4sf_v4sf_char to
-        end in ..._int; change them to accept an int instead of a char
-        as the last parameter.
+	v16qi_ftype_v16qi_v16qi_char, v8hi_ftype_v8hi_v8hi_char,
+	v4si_ftype_v4si_v4si_char and v4sf_ftype_v4sf_v4sf_char to
+	end in ..._int; change them to accept an int instead of a char
+	as the last parameter.
 	(altivec_expand_dst_builtin): Treat expansion as completed even if
 	literal argument is invalid (so that other expansions are not tried
 	in vain).
 	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Point target hook at
 	rs6000_mangle_fundamental_type.
-        (rs6000_mangle_fundamental_type): New function.
+	(rs6000_mangle_fundamental_type): New function.
 	* config/rs6000/rs6000.h (TARGET_OPTIONS): Describe
 	'-m[no-]-warn-altivec-long' (which '-W[no-]altivec-long-deprecated'
 	maps to).

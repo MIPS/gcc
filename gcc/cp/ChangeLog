@@ -1,3 +1,51 @@
+2004-09-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR driver/17537
+	* g++spec.c (lang_specific_driver): Unrecognized libraries, other
+	than -lc and -lm, may require linking against libstc++.
+
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17585
+	* cp-tree.h (shared_member_p): Declare.
+	* search.c (shared_member_p): Give it external linkage.
+	* semantics.c (finish_qualified_id_expr): Use it.
+	(finish_id_expression): Likewise.
+
+2004-09-22  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14179
+	* parser.c (cp_parser_initializer): Speed up parsing of simple
+	literals as initializers.
+
+2004-09-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14179
+	* decl.c (reshape_init): Extract array handling into...
+	(reshape_init_array): New function. Use integers instead of trees
+	for indices. Handle out-of-range designated initializers.
+
+2004-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17501
+	* parser.c (cp_parser_nested_name_specifier): Do not resolve
+	typename types if the user explicitly said "typename".
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16162
+	* parser.c (cp_parser_id_expression): Correct value for
+	is_declarator.
+	(cp_parser_nested_name_specifier_opt): Look through typenames as
+	necessary.
+	(cp_parser_template_name): Honor check_dependency_p.
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17327
+	* pt.c (unify): Add ENUMERAL_TYPE case.  Replace sorry with
+	gcc_unreacable.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.

@@ -1,3 +1,52 @@
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17585
+	* g++.dg/template/static8.C: New test.
+
+2004-09-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/15526
+	Backport from mainline
+	2004-05-20  Falk Hueffner  <falk@debian.org>
+	* gcc.dg/ftrapv-1.c: New test case.
+
+2004-09-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/9771
+	* gcc.dg/pr9771-1.c: New test case.
+
+2004-09-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/16566
+	* gcc.c-torture/compile/pr16566-1.c,
+	gcc.c-torture/compile/pr16566-2.c,
+	gcc.c-torture/compile/pr16566-3.c: New tests.
+
+2004-09-21  Bud Davis  <bdavis9659@comcast.net>
+ 
+        PR fortran/17541
+	* g77.f-torture/execute/pr17541.f: New test.
+ 
+2004-09-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-asm-1.c: New test.
+
+2004-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17501
+	* g++.dg/template/typename7.C: New test.
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16162
+	* g++.dg/template/decl2.C: New test.
+	* g++.dg/template/nested3.C: Expect inferior diagnostics.
+	
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17327
+	* g++.dg/template/enum3.C: New test.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.
