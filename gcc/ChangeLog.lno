@@ -1,5 +1,10 @@
 2004-01-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-alias-common.c (HAVE_BANSHEE): Do not define it.
+	(create_alias_vars): Do not test HAVE_BANSHEE value.
+
+2004-01-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-loop-manip.c: New file.
 	* Makefile.in (tree-ssa-loop-manip.o): Add.
 	* basic-block.h (struct reorder_block_def): New field copy_number.
