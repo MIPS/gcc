@@ -1,3 +1,11 @@
+2003-12-02  Per Bothner  <pbothner@apple.com>
+
+	* toplev.c (lang_dependent_init):  Kludge to skip backend if only
+	pre-processing.  Needed for Mac OSX bootstrap, which otherwise
+	emits output from dbxout_init when processing an assembler file.
+	* Makefile.in (TEST_TARGET):  Leave out dwarfout.o, which doesn't
+	work on Mac OSX.  (vmsgdbout.o has same problem on GNU/Linux.)
+
 2003-12-01  Per Bothner  <pbothner@apple.com>
 
 	* Makefile.in:  New rules to help testing the compile-server by

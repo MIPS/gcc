@@ -4288,6 +4288,7 @@ backend_init (void)
 static int
 lang_dependent_init (void)
 {
+  extern int flag_preprocess_only;
   if (num_in_fnames > 0)
     dump_base_name = in_fnames[0];
   else
@@ -4307,6 +4308,9 @@ lang_dependent_init (void)
     aux_base_name = "gccaux";
 
   main_input_filename = input_filename = dump_base_name;
+
+  if (flag_preprocess_only)
+    return 1;
 
   /* Set up the back-end if requested.  */
   backend_init ();

@@ -4051,7 +4051,7 @@ TEST_TARGET = cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
  dbxout.o debug.o df.o diagnostic.o dojump.o doloop.o dominance.o	   \
- dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
+ dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o	   \
  expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
  ggc-common.o global.o graph.o haifa-sched.o hooks.o ifcvt.o		   \
  integrate.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
@@ -4066,7 +4066,7 @@ TEST_TARGET = cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
  unroll.o varasm.o varray.o version.o xcoffout.o		   \
  alloc-pool.o et-forest.o cfghooks.o bt-load.o pretty-print.o
 #bitmap.o insn-attrtab.o insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o rtl.o intl.o
-#vmsdbgout.o
+#vmsdbgout.o dwarfout.o
 
 test-clean: source.list
 	rm -f $(TEST_TARGET) ./cc1-server
