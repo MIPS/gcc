@@ -223,6 +223,7 @@ case $machine in
  | mn10200-*-*      \
  | ns32k-*-openbsd* \
  | romp-*-openbsd*  \
+ | vax-*-vms* \
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration $machine is obsolete." >&2
@@ -1432,7 +1433,8 @@ ia64*-*-hpux*)
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
-	float_format=i386
+	use_collect2=no
+	float_format=i128
 	;;
 ip2k-*-elf)		
 	;;
@@ -1743,6 +1745,30 @@ mcore-*-pe*)
 	tm_file=mcore/mcore-pe.h
 	tmake_file=mcore/t-mcore-pe
 	;;
+mips-sgi-irix6*o32)		# SGI System V.4., IRIX 6, O32 ABI
+	if test x$gas = xyes
+	then
+		tm_file="mips/iris5.h mips/iris5gas.h mips/iris6-o32-gas.h"
+		if test x$stabs = xyes
+		then
+			tm_file="${tm_file} dbx.h"
+		fi
+		tmake_file=mips/t-iris5-gas
+	else
+		tm_file="mips/iris5.h mips/iris6-o32-as.h"
+		tmake_file=mips/t-iris5-as
+	fi
+	tm_file="${tm_file} mips/iris6-o32.h"
+	tmake_file="${tmake_file} mips/t-iris mips/t-iris5-6"
+	xm_defines=POSIX
+	xm_file=mips/xm-iris5.h
+	# mips-tfile doesn't work yet
+	# See comment in mips/iris5.h file.
+	use_collect2=yes
+#	if test x$enable_threads = xyes; then
+#		thread_file='irix'
+#	fi
+	;;
 mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	if test "x$gnu_ld" = xyes
 	then
@@ -1750,7 +1776,7 @@ mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	else
 		tm_file=mips/iris6.h
 	fi
-	tmake_file="mips/t-iris mips/t-iris6"
+	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
 	xm_defines=POSIX
 #	if test x$enable_threads = xyes; then
 #		thread_file='irix'
@@ -1801,10 +1827,12 @@ mips-sgi-irix5*)		# SGI System V.4., IRIX 5
 		then
 			tm_file="${tm_file} dbx.h"
 		fi
+		tmake_file=mips/t-iris5-gas
 	else
 		tm_file=mips/iris5.h
+		tmake_file=mips/t-iris5-as
 	fi
-	tmake_file=mips/t-iris
+	tmake_file="${tmake_file} mips/t-iris mips/t-iris5-6"
 	xm_defines=POSIX
 	xm_file=mips/xm-iris5.h
 	# mips-tfile doesn't work yet
@@ -2206,10 +2234,6 @@ sh-*-elf* | sh[2346l]*-*-elf*)
 		tmake_file="${tmake_file} sh/t-sh64"
 		tm_file="${tm_file} sh/sh64.h"
 		extra_headers="shmedia.h ushmedia.h sshmedia.h"
-		# Not strictly necessary to check this, but a good idea anyway.
-		if test $machine = $target; then
-			target_requires_64bit_host_wide_int=yes
-		fi
 		;;
 	sh4_single*)  target_cpu_default="SELECT_SH4_SINGLE" ;;
 	sh4*)  target_cpu_default="SELECT_SH4" ;;
@@ -2259,10 +2283,6 @@ sh-*-linux* | sh[2346lbe]*-*-linux*)
 		tmake_file="${tmake_file} sh/t-sh64"
 		tm_file="${tm_file} sh/sh64.h"
 		extra_headers="shmedia.h ushmedia.h sshmedia.h"
-		# Not strictly necessary to check this, but a good idea anyway.
-		if test $machine = $target; then
-			target_requires_64bit_host_wide_int=yes
-		fi
 		;;
 	sh4_single*) target_cpu_default="SELECT_SH4_SINGLE" ;;
 	sh4*) target_cpu_default="SELECT_SH4" ;;
@@ -2884,7 +2904,7 @@ mips*-*-*)
 	esac
 	case $machine in
 		mips*el-*-*)
-			tm_file="mips/little.h ${tm_file}"
+			tm_defines="TARGET_ENDIAN_DEFAULT=0 $tm_defines"
 			;;
 	esac
 	;;

@@ -3698,7 +3698,7 @@ build_op_delete_call (code, addr, size, flags, placement)
 
       /* Go through the `operator delete' functions looking for one
 	 with a matching type.  */
-      for (fn = BASELINK_P (fns) ? TREE_VALUE (fns) : fns; 
+      for (fn = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns; 
 	   fn; 
 	   fn = OVL_NEXT (fn))
 	{
@@ -4428,7 +4428,7 @@ build_java_interface_fn_ref (fn, instance)
       java_iface_lookup_fn 
 	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL);
+			    0, NOT_BUILT_IN, NULL, NULL_TREE);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'. 

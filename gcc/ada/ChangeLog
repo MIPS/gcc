@@ -1,3 +1,24 @@
+2002-07-15  Florian Weimer  <fw@deneb.enyo.de>
+
+	* make.adb (Add_Switch): Make Generic_Position a procedure.  The
+	function approach did not work well because of a side effect (the
+	function call could reallocate the table which was being indexed
+	using its result). Fixes ada/4851. [RESURRECTED]
+
+2002-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* ada/utils.c (builtin_function): Accept an additional parameter.
+
+2002-06-28  Andreas Jaeger  <aj@suse.de>
+
+	PR ada/7144
+	* Makefile.in: Fix typo in comment, patch by Adrian Knoth
+	<adi@thur.de>.
+
+2002-06-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (SHELL): Set to @SHELL@.
+
 2002-06-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* utils.c (init_gigi_decls): Use ARRAY_SIZE in lieu of explicit

@@ -246,10 +246,6 @@ int pexecute_pid;
 /* Defined in the automatically-generated underscore.c.  */
 extern int prepends_underscore;
 
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
-
 /* Structure to hold all the directories in which to search for files to
    execute.  */
 
@@ -753,7 +749,7 @@ prefix_from_env (env, pprefix)
      struct path_prefix *pprefix;
 {
   const char *p;
-  GET_ENV_PATH_LIST (p, env);
+  GET_ENVIRONMENT (p, env);
 
   if (p)
     prefix_from_string (p, pprefix);
@@ -2135,7 +2131,7 @@ scan_prog_file (prog_name, which_pass)
 	fatal_perror ("close %d", pipe_fd[1]);
 
       execv (nm_file_name, real_nm_argv);
-      fatal_perror ("execvp %s", nm_file_name);
+      fatal_perror ("execv %s", nm_file_name);
     }
 
   /* Parent context from here on.  */

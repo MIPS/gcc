@@ -23,6 +23,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
 
+#ifndef GET_ENVIRONMENT
+#define GET_ENVIRONMENT(VALUE, NAME) do { (VALUE) = getenv (NAME); } while (0)
+#endif
+
 /* Define default standard character escape sequences.  */
 #ifndef TARGET_BELL
 #  define TARGET_BELL 007
@@ -78,12 +82,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
      ASM_OUTPUT_INTERNAL_LABEL (FILE, "L", (VALUE));			\
      fputc ('\n', FILE);						\
    } while (0)
-#endif
-
-/* Provide default for ASM_OUTPUT_ALTERNATE_LABEL_NAME.  */
-#ifndef ASM_OUTPUT_ALTERNATE_LABEL_NAME
-#define ASM_OUTPUT_ALTERNATE_LABEL_NAME(FILE,INSN) \
-do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #endif
 
 /* choose a reasonable default for ASM_OUTPUT_ASCII.  */

@@ -119,11 +119,6 @@ static GTY(()) tree named_labels;
 
 static GTY(()) tree shadowed_labels;
 
-/* Nonzero when store_parm_decls is called indicates a varargs function.
-   Value not meaningful after store_parm_decls.  */
-
-static int c_function_varargs;
-
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
 
@@ -1764,11 +1759,6 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
       COPY_DECL_RTL (olddecl, newdecl);
 
       /* Merge the type qualifiers.  */
-      if (TREE_CODE (olddecl) == FUNCTION_DECL
-	  && DECL_BUILT_IN_NONANSI (olddecl) && TREE_THIS_VOLATILE (olddecl)
-	  && ! TREE_THIS_VOLATILE (newdecl))
-	TREE_THIS_VOLATILE (write_olddecl) = 0;
-
       if (TREE_READONLY (newdecl))
 	TREE_READONLY (write_olddecl) = 1;
 
@@ -2961,15 +2951,17 @@ c_make_fname_decl (id, type_dep)
    See tree.h for its possible values.
 
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.  If
+   ATTRS is nonzero, use that for the function's attribute list.  */
 
 tree
-builtin_function (name, type, function_code, class, library_name)
+builtin_function (name, type, function_code, class, library_name, attrs)
      const char *name;
      tree type;
      int function_code;
      enum built_in_class class;
      const char *library_name;
+     tree attrs;
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
@@ -2991,7 +2983,10 @@ builtin_function (name, type, function_code, class, library_name)
     C_DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
-  decl_attributes (&decl, NULL_TREE, 0);
+  if (attrs)
+    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
+  else
+    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -3120,9 +3115,9 @@ build_array_declarator (expr, quals, static_p, vla_unspec_p)
   if (pedantic && !flag_isoc99)
     {
       if (static_p || quals != NULL_TREE)
-	pedwarn ("ISO C89 does not support `static' or type qualifiers in parameter array declarators");
+	pedwarn ("ISO C90 does not support `static' or type qualifiers in parameter array declarators");
       if (vla_unspec_p)
-	pedwarn ("ISO C89 does not support `[*]' array declarators");
+	pedwarn ("ISO C90 does not support `[*]' array declarators");
     }
   if (vla_unspec_p)
     warning ("GCC does not yet properly implement `[*]' array declarators");
@@ -3652,6 +3647,7 @@ build_compound_literal (type, init)
   DECL_CONTEXT (decl) = current_function_decl;
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
+  TREE_READONLY (decl) = TREE_READONLY (type);
   store_init_value (decl, init);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
@@ -3674,12 +3670,18 @@ build_compound_literal (type, init)
   if (TREE_STATIC (decl))
     {
       /* This decl needs a name for the assembler output.  We also need
-	 a unique suffix to be added to the name, for which DECL_CONTEXT
-	 must be set.  */
-      DECL_NAME (decl) = get_identifier ("__compound_literal");
-      DECL_CONTEXT (decl) = complit;
+	 a unique suffix to be added to the name.  */
+      char *name;
+      extern int var_labelno;
+
+      ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal", var_labelno);
+      var_labelno++;
+      DECL_NAME (decl) = get_identifier (name);
+      DECL_DEFER_OUTPUT (decl) = 1;
+      DECL_COMDAT (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      pushdecl (decl);
       rest_of_decl_compilation (decl, NULL, 1, 0);
-      DECL_CONTEXT (decl) = NULL_TREE;
     }
 
   return complit;
@@ -3914,7 +3916,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    {
 		      if (pedantic && !flag_isoc99 && ! in_system_header
 			  && warn_long_long)
-			pedwarn ("ISO C89 does not support `long long'");
+			pedwarn ("ISO C90 does not support `long long'");
 		      longlong = 1;
 		    }
 		}
@@ -4115,7 +4117,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   if (specbits & 1 << (int) RID_COMPLEX)
     {
       if (pedantic && !flag_isoc99)
-	pedwarn ("ISO C89 does not support complex types");
+	pedwarn ("ISO C90 does not support complex types");
       /* If we just have "complex", it is equivalent to
 	 "complex double", but if any modifiers at all are specified it is
 	 the complex form of TYPE.  E.g, "complex short" is
@@ -4393,10 +4395,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		  if (!flag_isoc99 && pedantic)
 		    {
 		      if (TREE_CONSTANT (size))
-			pedwarn ("ISO C89 forbids array `%s' whose size can't be evaluated",
+			pedwarn ("ISO C90 forbids array `%s' whose size can't be evaluated",
 				 name);
 		      else
-			pedwarn ("ISO C89 forbids variable-size array `%s'",
+			pedwarn ("ISO C90 forbids variable-size array `%s'",
 				 name);
 		    }
 		}
@@ -4439,7 +4441,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  else if (decl_context == FIELD)
 	    {
 	      if (pedantic && !flag_isoc99 && !in_system_header)
-		pedwarn ("ISO C89 does not support flexible array members");
+		pedwarn ("ISO C90 does not support flexible array members");
 
 	      /* ISO C99 Flexible array members are effectively identical
 		 to GCC's zero-length array extension.  */
@@ -6027,7 +6029,6 @@ start_function (declspecs, declarator, attributes)
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
-  c_function_varargs = 0;
   named_labels = 0;
   shadowed_labels = 0;
 
@@ -6245,16 +6246,6 @@ start_function (declspecs, declarator, attributes)
   start_fname_decls ();
   
   return 1;
-}
-
-/* Record that this function is going to be a varargs function.
-   This is called before store_parm_decls, which is too early
-   to call mark_varargs directly.  */
-
-void
-c_mark_varargs ()
-{
-  c_function_varargs = 1;
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -6857,10 +6848,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
      not safe to try to expand expressions involving them.  */
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* If this is a varargs function, inform function.c.  */
-  if (c_function_varargs)
-    mark_varargs ();
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);

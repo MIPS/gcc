@@ -440,8 +440,8 @@ static GTY(()) tree src_parse_roots[1];
 #define check_modifiers(__message, __value, __mask) do {	\
   if ((__value) & ~(__mask))					\
     {								\
-      int i, remainder = (__value) & ~(__mask);			\
-      for (i = 0; i <= 10; i++)					\
+      size_t i, remainder = (__value) & ~(__mask);	       	\
+      for (i = 0; i < ARRAY_SIZE (ctxp->modifier_ctx); i++)	\
         if ((1 << i) & remainder)				\
 	  parse_error_context (ctxp->modifier_ctx [i], (__message), \
 			       java_accstring_lookup (1 << i)); \
@@ -7248,8 +7248,10 @@ declare_local_variables (modifier, type, vlist)
 
   if (modifier)
     {
-      int i;
-      for (i = 0; i <= 10; i++) if (1 << i & modifier) break;
+      size_t i;
+      for (i = 0; i < ARRAY_SIZE (ctxp->modifier_ctx); i++)
+	if (1 << i & modifier)
+	  break;
       if (modifier == ACC_FINAL)
 	final_p = 1;
       else
@@ -14029,7 +14031,8 @@ patch_incomplete_class_ref (node)
   if (!(ref_type = resolve_type_during_patch (type)))
     return error_mark_node;
 
-  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type))
+  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type)
+      || TREE_CODE (ref_type) == VOID_TYPE)
     {
       tree dot = build_class_ref (ref_type);
       /* A class referenced by `foo.class' is initialized.  */
@@ -16148,13 +16151,15 @@ mark_parser_ctxt (p)
      void *p;
 {
   struct parser_ctxt *pc = *((struct parser_ctxt **) p);
-  int i;
+#ifndef JC1_LITE
+  size_t i;
+#endif
 
   if (!pc)
     return;
 
 #ifndef JC1_LITE
-  for (i = 0; i < 11; ++i)
+  for (i = 0; i < ARRAY_SIZE (pc->modifier_ctx); ++i)
     ggc_mark_tree (pc->modifier_ctx[i]);
   ggc_mark_tree (pc->class_type);
   ggc_mark_tree (pc->function_decl);

@@ -1125,6 +1125,40 @@ is_global (d)
       }
 }
 
+/* Issue an error message indicating that the lookup of NAME (an
+   IDENTIFIER_NODE) failed.  */
+
+void
+unqualified_name_lookup_error (tree name)
+{
+  if (IDENTIFIER_OPNAME_P (name))
+    {
+      if (name != ansi_opname (ERROR_MARK))
+	error ("`%D' not defined", name);
+    }
+  else if (current_function_decl == 0)
+    error ("`%D' was not declared in this scope", name);
+  else
+    {
+      if (IDENTIFIER_NAMESPACE_VALUE (name) != error_mark_node
+	  || IDENTIFIER_ERROR_LOCUS (name) != current_function_decl)
+	{
+	  static int undeclared_variable_notice;
+
+	  error ("`%D' undeclared (first use this function)", name);
+
+	  if (! undeclared_variable_notice)
+	    {
+	      error ("(Each undeclared identifier is reported only once for each function it appears in.)");
+	      undeclared_variable_notice = 1;
+	    }
+	}
+      /* Prevent repeated error messages.  */
+      SET_IDENTIFIER_NAMESPACE_VALUE (name, error_mark_node);
+      SET_IDENTIFIER_ERROR_LOCUS (name, current_function_decl);
+    }
+}
+
 tree
 do_identifier (token, parsing, args)
      register tree token;
@@ -1175,78 +1209,15 @@ do_identifier (token, parsing, args)
       else if (IDENTIFIER_TYPENAME_P (token))
 	/* A templated conversion operator might exist.  */
 	return token;
-      else if (IDENTIFIER_OPNAME_P (token))
-	{
-	  if (token != ansi_opname (ERROR_MARK))
-	    error ("`%D' not defined", token);
-	  id = error_mark_node;
-	}
-      else if (current_function_decl == 0)
-	{
-	  error ("`%D' was not declared in this scope", token);
-	  id = error_mark_node;
-	}
       else
 	{
-	  if (IDENTIFIER_NAMESPACE_VALUE (token) != error_mark_node
-	      || IDENTIFIER_ERROR_LOCUS (token) != current_function_decl)
-	    {
-	      static int undeclared_variable_notice;
-
-	      error ("`%D' undeclared (first use this function)", token);
-
-	      if (! undeclared_variable_notice)
-		{
-		  error ("(Each undeclared identifier is reported only once for each function it appears in.)");
-		  undeclared_variable_notice = 1;
-		}
-	    }
-	  id = error_mark_node;
-	  /* Prevent repeated error messages.  */
-	  SET_IDENTIFIER_NAMESPACE_VALUE (token, error_mark_node);
-	  SET_IDENTIFIER_ERROR_LOCUS (token, current_function_decl);
+	  unqualified_name_lookup_error (token);
+	  return error_mark_node;
 	}
     }
 
-  if (TREE_CODE (id) == VAR_DECL && DECL_DEAD_FOR_LOCAL (id))
-    {
-      tree shadowed = DECL_SHADOWED_FOR_VAR (id);
-      while (shadowed != NULL_TREE && TREE_CODE (shadowed) == VAR_DECL
-	     && DECL_DEAD_FOR_LOCAL (shadowed))
-	shadowed = DECL_SHADOWED_FOR_VAR (shadowed);
-      if (!shadowed)
-	shadowed = IDENTIFIER_NAMESPACE_VALUE (DECL_NAME (id));
-      if (shadowed)
-	{
-	  if (!DECL_ERROR_REPORTED (id))
-	    {
-	      warning ("name lookup of `%s' changed",
-		       IDENTIFIER_POINTER (token));
-	      cp_warning_at ("  matches this `%D' under ISO standard rules",
-			     shadowed);
-	      cp_warning_at ("  matches this `%D' under old rules", id);
-	      DECL_ERROR_REPORTED (id) = 1;
-	    }
-	  id = shadowed;
-	}
-      else if (!DECL_ERROR_REPORTED (id))
-	{
-	  DECL_ERROR_REPORTED (id) = 1;
-	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (id)))
-	    {
-	      error ("name lookup of `%s' changed for new ISO `for' scoping",
-		     IDENTIFIER_POINTER (token));
-	      cp_error_at ("  cannot use obsolete binding at `%D' because it has a destructor", id);
-	      id = error_mark_node;
-	    }
-	  else
-	    {
-	      pedwarn ("name lookup of `%s' changed for new ISO `for' scoping",
-		       IDENTIFIER_POINTER (token));
-	      cp_pedwarn_at ("  using obsolete binding at `%D'", id);
-	    }
-	}
-    }
+  id = check_for_out_of_scope_variable (id);
+
   /* TREE_USED is set in `hack_identifier'.  */
   if (TREE_CODE (id) == CONST_DECL)
     {

@@ -140,6 +140,8 @@ static rtx rs6000_generate_compare PARAMS ((enum rtx_code));
 static void rs6000_maybe_dead PARAMS ((rtx));
 static void rs6000_emit_stack_tie PARAMS ((void));
 static void rs6000_frame_related PARAMS ((rtx, rtx, HOST_WIDE_INT, rtx, rtx));
+static void emit_frame_save PARAMS ((rtx, rtx, enum machine_mode,
+				     unsigned int, int, int));
 static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
 static unsigned rs6000_hash_constant PARAMS ((rtx));
 static unsigned toc_hash_function PARAMS ((const void *));
@@ -192,6 +194,9 @@ static rtx rs6000_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx rs6000_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static void altivec_init_builtins PARAMS ((void));
 static rtx altivec_expand_builtin PARAMS ((tree, rtx, bool *));
+static rtx altivec_expand_ld_builtin PARAMS ((tree, rtx, bool *));
+static rtx altivec_expand_st_builtin PARAMS ((tree, rtx, bool *));
+static rtx altivec_expand_dst_builtin PARAMS ((tree, rtx, bool *));
 static rtx altivec_expand_abs_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_predicate_builtin PARAMS ((enum insn_code, const char *, tree, rtx));
 static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
@@ -573,6 +578,13 @@ rs6000_override_options (default_cpu)
   /* Handle -mvrsave= option.  */
   rs6000_parse_vrsave_option ();
 
+#ifdef SUBTARGET_OVERRIDE_OPTIONS
+  SUBTARGET_OVERRIDE_OPTIONS;
+#endif
+#ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
+  SUBSUBTARGET_OVERRIDE_OPTIONS;
+#endif
+
   /* Handle -m(no-)longcall option.  This is a bit of a cheap hack,
      using TARGET_OPTIONS to handle a toggle switch, but we're out of
      bits in target_flags so TARGET_SWITCHES cannot be used.
@@ -594,13 +606,6 @@ rs6000_override_options (default_cpu)
      alternate names now.  */
   if (TARGET_REGNAMES)
     memcpy (rs6000_reg_names, alt_reg_names, sizeof (rs6000_reg_names));
-#endif
-
-#ifdef SUBTARGET_OVERRIDE_OPTIONS
-  SUBTARGET_OVERRIDE_OPTIONS;
-#endif
-#ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
-  SUBSUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
   /* Set TARGET_AIX_STRUCT_RET last, after the ABI is determined.
@@ -3093,8 +3098,7 @@ rs6000_build_va_list ()
 /* Implement va_start.  */
 
 void
-rs6000_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+rs6000_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -3105,7 +3109,7 @@ rs6000_va_start (stdarg_p, valist, nextarg)
   /* Only SVR4 needs something special.  */
   if (DEFAULT_ABI != ABI_V4)
     {
-      std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+      std_expand_builtin_va_start (valist, nextarg);
       return;
     }
 
@@ -3330,10 +3334,11 @@ rs6000_va_arg (valist, type)
 
 /* Builtins.  */
 
-#define def_builtin(MASK, NAME, TYPE, CODE)				\
-do {									\
-  if ((MASK) & target_flags)						\
-    builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL);	\
+#define def_builtin(MASK, NAME, TYPE, CODE)			\
+do {								\
+  if ((MASK) & target_flags)					\
+    builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+		      NULL, NULL_TREE);				\
 } while (0)
 
 struct builtin_description
@@ -3888,6 +3893,178 @@ rs6000_expand_ternop_builtin (icode, arglist, target)
   return target;
 }
 
+/* Expand the lvx builtins.  */
+static rtx
+altivec_expand_ld_builtin (exp, target, expandedp)
+     tree exp;
+     rtx target;
+     bool *expandedp;
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arg0;
+  enum machine_mode tmode, mode0;
+  rtx pat, op0;
+  enum insn_code icode;
+
+  switch (fcode)
+    {
+    case ALTIVEC_BUILTIN_LD_INTERNAL_16qi:
+      icode = CODE_FOR_altivec_lvx_16qi;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_8hi:
+      icode = CODE_FOR_altivec_lvx_8hi;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_4si:
+      icode = CODE_FOR_altivec_lvx_4si;
+      break;
+    case ALTIVEC_BUILTIN_LD_INTERNAL_4sf:
+      icode = CODE_FOR_altivec_lvx_4sf;
+      break;
+    default:
+      *expandedp = false;
+      return NULL_RTX;
+    }
+
+  *expandedp = true;
+
+  arg0 = TREE_VALUE (arglist);
+  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  tmode = insn_data[icode].operand[0].mode;
+  mode0 = insn_data[icode].operand[1].mode;
+
+  if (target == 0
+      || GET_MODE (target) != tmode
+      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+    op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
+
+  pat = GEN_FCN (icode) (target, op0);
+  if (! pat)
+    return 0;
+  emit_insn (pat);
+  return target;
+}
+
+/* Expand the stvx builtins.  */
+static rtx
+altivec_expand_st_builtin (exp, target, expandedp)
+     tree exp;
+     rtx target ATTRIBUTE_UNUSED;
+     bool *expandedp;
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arg0, arg1;
+  enum machine_mode mode0, mode1;
+  rtx pat, op0, op1;
+  enum insn_code icode;
+
+  switch (fcode)
+    {
+    case ALTIVEC_BUILTIN_ST_INTERNAL_16qi:
+      icode = CODE_FOR_altivec_stvx_16qi;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_8hi:
+      icode = CODE_FOR_altivec_stvx_8hi;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_4si:
+      icode = CODE_FOR_altivec_stvx_4si;
+      break;
+    case ALTIVEC_BUILTIN_ST_INTERNAL_4sf:
+      icode = CODE_FOR_altivec_stvx_4sf;
+      break;
+    default:
+      *expandedp = false;
+      return NULL_RTX;
+    }
+
+  arg0 = TREE_VALUE (arglist);
+  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  mode0 = insn_data[icode].operand[0].mode;
+  mode1 = insn_data[icode].operand[1].mode;
+
+  if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
+    op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
+  if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
+    op1 = copy_to_mode_reg (mode1, op1);
+
+  pat = GEN_FCN (icode) (op0, op1);
+  if (pat)
+    emit_insn (pat);
+
+  *expandedp = true;
+  return NULL_RTX;
+}
+
+/* Expand the dst builtins.  */
+static rtx
+altivec_expand_dst_builtin (exp, target, expandedp)
+     tree exp;
+     rtx target ATTRIBUTE_UNUSED;
+     bool *expandedp;
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arg0, arg1, arg2;
+  enum machine_mode mode0, mode1, mode2;
+  rtx pat, op0, op1, op2;
+  struct builtin_description *d;
+  int i;
+
+  *expandedp = false;
+
+  /* Handle DST variants.  */
+  d = (struct builtin_description *) bdesc_dst;
+  for (i = 0; i < ARRAY_SIZE (bdesc_dst); i++, d++)
+    if (d->code == fcode)
+      {
+	arg0 = TREE_VALUE (arglist);
+	arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+	arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+	op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+	mode0 = insn_data[d->icode].operand[0].mode;
+	mode1 = insn_data[d->icode].operand[1].mode;
+	mode2 = insn_data[d->icode].operand[2].mode;
+
+	/* Invalid arguments, bail out before generating bad rtl.  */
+	if (arg0 == error_mark_node
+	    || arg1 == error_mark_node
+	    || arg2 == error_mark_node)
+	  return const0_rtx;
+
+	if (TREE_CODE (arg2) != INTEGER_CST
+	    || TREE_INT_CST_LOW (arg2) & ~0x3)
+	  {
+	    error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
+	    return const0_rtx;
+	  }
+
+	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
+	  op0 = copy_to_mode_reg (mode0, op0);
+	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
+	  op1 = copy_to_mode_reg (mode1, op1);
+
+	pat = GEN_FCN (d->icode) (op0, op1, op2);
+	if (pat != 0)
+	  emit_insn (pat);
+
+	*expandedp = true;
+	return NULL_RTX;
+      }
+
+  return NULL_RTX;
+}
+
 /* Expand the builtin in EXP and store the result in TARGET.  Store
    true in *EXPANDEDP if we found a builtin to expand.  */
 static rtx
@@ -3902,175 +4079,27 @@ altivec_expand_builtin (exp, target, expandedp)
   enum insn_code icode;
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
-  tree arg0, arg1, arg2;
-  rtx op0, op1, op2, pat;
-  enum machine_mode tmode, mode0, mode1, mode2;
+  tree arg0;
+  rtx op0, pat;
+  enum machine_mode tmode, mode0;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+
+  target = altivec_expand_ld_builtin (exp, target, expandedp);
+  if (*expandedp)
+    return target;
+
+  target = altivec_expand_st_builtin (exp, target, expandedp);
+  if (*expandedp)
+    return target;
+
+  target = altivec_expand_dst_builtin (exp, target, expandedp);
+  if (*expandedp)
+    return target;
 
   *expandedp = true;
 
   switch (fcode)
     {
-    case ALTIVEC_BUILTIN_LD_INTERNAL_16qi:
-      icode = CODE_FOR_altivec_lvx_16qi;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      tmode = insn_data[icode].operand[0].mode;
-      mode0 = insn_data[icode].operand[1].mode;
-
-      if (target == 0
-	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	target = gen_reg_rtx (tmode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-
-      pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-
-    case ALTIVEC_BUILTIN_LD_INTERNAL_8hi:
-      icode = CODE_FOR_altivec_lvx_8hi;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      tmode = insn_data[icode].operand[0].mode;
-      mode0 = insn_data[icode].operand[1].mode;
-
-      if (target == 0
-	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	target = gen_reg_rtx (tmode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-
-      pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-
-    case ALTIVEC_BUILTIN_LD_INTERNAL_4si:
-      icode = CODE_FOR_altivec_lvx_4si;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      tmode = insn_data[icode].operand[0].mode;
-      mode0 = insn_data[icode].operand[1].mode;
-
-      if (target == 0
-	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	target = gen_reg_rtx (tmode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-
-      pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-
-    case ALTIVEC_BUILTIN_LD_INTERNAL_4sf:
-      icode = CODE_FOR_altivec_lvx_4sf;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      tmode = insn_data[icode].operand[0].mode;
-      mode0 = insn_data[icode].operand[1].mode;
-
-      if (target == 0
-	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	target = gen_reg_rtx (tmode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-
-      pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-
-    case ALTIVEC_BUILTIN_ST_INTERNAL_16qi:
-      icode = CODE_FOR_altivec_stvx_16qi;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (op0, op1);
-      if (pat)
-	emit_insn (pat);
-      return NULL_RTX;
-
-    case ALTIVEC_BUILTIN_ST_INTERNAL_8hi:
-      icode = CODE_FOR_altivec_stvx_8hi;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (op0, op1);
-      if (pat)
-	emit_insn (pat);
-      return NULL_RTX;
-
-    case ALTIVEC_BUILTIN_ST_INTERNAL_4si:
-      icode = CODE_FOR_altivec_stvx_4si;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (op0, op1);
-      if (pat)
-	emit_insn (pat);
-      return NULL_RTX;
-
-    case ALTIVEC_BUILTIN_ST_INTERNAL_4sf:
-      icode = CODE_FOR_altivec_stvx_4sf;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (op0, op1);
-      if (pat)
-	emit_insn (pat);
-      return NULL_RTX;
-
     case ALTIVEC_BUILTIN_STVX:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx, arglist);
     case ALTIVEC_BUILTIN_STVEBX:
@@ -4081,7 +4110,7 @@ altivec_expand_builtin (exp, target, expandedp)
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvewx, arglist);
     case ALTIVEC_BUILTIN_STVXL:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvxl, arglist);
-  
+
     case ALTIVEC_BUILTIN_MFVSCR:
       icode = CODE_FOR_altivec_mfvscr;
       tmode = insn_data[icode].operand[0].mode;
@@ -4114,7 +4143,7 @@ altivec_expand_builtin (exp, target, expandedp)
       if (pat)
 	emit_insn (pat);
       return NULL_RTX;
-      
+
     case ALTIVEC_BUILTIN_DSSALL:
       emit_insn (gen_altivec_dssall ());
       return NULL_RTX;
@@ -4142,46 +4171,6 @@ altivec_expand_builtin (exp, target, expandedp)
       emit_insn (gen_altivec_dss (op0));
       return NULL_RTX;
     }
-
-  /* Handle DST variants.  */
-  d = (struct builtin_description *) bdesc_dst;
-  for (i = 0; i < ARRAY_SIZE (bdesc_dst); i++, d++)
-    if (d->code == fcode)
-      {
-	arg0 = TREE_VALUE (arglist);
-	arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-	arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-	op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-	op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
-	mode0 = insn_data[d->icode].operand[0].mode;
-	mode1 = insn_data[d->icode].operand[1].mode;
-	mode2 = insn_data[d->icode].operand[2].mode;
-
-	/* Invalid arguments, bail out before generating bad rtl.  */
-	if (arg0 == error_mark_node
-	    || arg1 == error_mark_node
-	    || arg2 == error_mark_node)
-	  return const0_rtx;
-
-      if (TREE_CODE (arg2) != INTEGER_CST
-	  || TREE_INT_CST_LOW (arg2) & ~0x3)
-	{
-	  error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
-	  return const0_rtx;
-	}
-
-	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
-	  op0 = copy_to_mode_reg (mode0, op0);
-	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
-	  op1 = copy_to_mode_reg (mode1, op1);
-
-	pat = GEN_FCN (d->icode) (op0, op1, op2);
-	if (pat != 0)
-	  emit_insn (pat);
-
-	return NULL_RTX;
-      }
 
   /* Expand abs* operations.  */
   d = (struct builtin_description *) bdesc_abs;
@@ -4294,8 +4283,6 @@ altivec_init_builtins (void)
   struct builtin_description_predicates *dp;
   size_t i;
 
-  tree endlink = void_list_node;
-
   tree pint_type_node = build_pointer_type (integer_type_node);
   tree pvoid_type_node = build_pointer_type (void_type_node);
   tree pshort_type_node = build_pointer_type (short_integer_type_node);
@@ -4303,423 +4290,213 @@ altivec_init_builtins (void)
   tree pfloat_type_node = build_pointer_type (float_type_node);
 
   tree v4sf_ftype_v4sf_v4sf_v16qi
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 tree_cons (NULL_TREE, 
-							    V16QI_type_node,
-							    endlink))));
+    = build_function_type_list (V4SF_type_node,
+				V4SF_type_node, V4SF_type_node,
+				V16QI_type_node, NULL_TREE);
   tree v4si_ftype_v4si_v4si_v16qi
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 tree_cons (NULL_TREE, 
-							    V16QI_type_node,
-							    endlink))));
+    = build_function_type_list (V4SI_type_node,
+				V4SI_type_node, V4SI_type_node,
+				V16QI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi_v8hi_v16qi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 tree_cons (NULL_TREE, 
-							    V16QI_type_node,
-							    endlink))));
+    = build_function_type_list (V8HI_type_node,
+				V8HI_type_node, V8HI_type_node,
+				V16QI_type_node, NULL_TREE);
   tree v16qi_ftype_v16qi_v16qi_v16qi
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 tree_cons (NULL_TREE, 
-							    V16QI_type_node,
-							    endlink))));
-
-  /* V4SI foo (char).  */
+    = build_function_type_list (V16QI_type_node,
+				V16QI_type_node, V16QI_type_node,
+				V16QI_type_node, NULL_TREE);
   tree v4si_ftype_char
-    = build_function_type (V4SI_type_node,
-		           tree_cons (NULL_TREE, char_type_node, endlink));
-
-  /* V8HI foo (char).  */
+    = build_function_type_list (V4SI_type_node, char_type_node, NULL_TREE);
   tree v8hi_ftype_char
-    = build_function_type (V8HI_type_node,
-		           tree_cons (NULL_TREE, char_type_node, endlink));
-
-  /* V16QI foo (char).  */
+    = build_function_type_list (V8HI_type_node, char_type_node, NULL_TREE);
   tree v16qi_ftype_char
-    = build_function_type (V16QI_type_node,
-		           tree_cons (NULL_TREE, char_type_node, endlink));
-  /* V4SF foo (V4SF).  */
+    = build_function_type_list (V16QI_type_node, char_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node, endlink));
-
-  /* V4SI foo (int *).  */
+    = build_function_type_list (V4SF_type_node, V4SF_type_node, NULL_TREE);
   tree v4si_ftype_pint
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, pint_type_node, endlink));
-  /* V8HI foo (short *).  */
+    = build_function_type_list (V4SI_type_node, pint_type_node, NULL_TREE);
   tree v8hi_ftype_pshort
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, pshort_type_node, endlink));
-  /* V16QI foo (char *).  */
+    = build_function_type_list (V8HI_type_node, pshort_type_node, NULL_TREE);
   tree v16qi_ftype_pchar
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, pchar_type_node, endlink));
-  /* V4SF foo (float *).  */
+    = build_function_type_list (V16QI_type_node, pchar_type_node, NULL_TREE);
   tree v4sf_ftype_pfloat
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, pfloat_type_node, endlink));
-
-  /* V8HI foo (V16QI).  */
+    = build_function_type_list (V4SF_type_node, pfloat_type_node, NULL_TREE);
   tree v8hi_ftype_v16qi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node, endlink));
-
-  /* void foo (void *, int, char/literal).  */
+    = build_function_type_list (V8HI_type_node, V16QI_type_node, NULL_TREE);
   tree void_ftype_pvoid_int_char
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, pvoid_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 tree_cons (NULL_TREE,
-							    char_type_node,
-							    endlink))));
-
-  /* void foo (int *, V4SI).  */
+    = build_function_type_list (void_type_node,
+				pvoid_type_node, integer_type_node,
+				char_type_node, NULL_TREE);
   tree void_ftype_pint_v4si
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, pint_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 endlink)));
-  /* void foo (short *, V8HI).  */
+    = build_function_type_list (void_type_node,
+				pint_type_node, V4SI_type_node, NULL_TREE);
   tree void_ftype_pshort_v8hi
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, pshort_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 endlink)));
-  /* void foo (char *, V16QI).  */
+    = build_function_type_list (void_type_node,
+				pshort_type_node, V8HI_type_node, NULL_TREE);
   tree void_ftype_pchar_v16qi
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, pchar_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 endlink)));
-  /* void foo (float *, V4SF).  */
+    = build_function_type_list (void_type_node,
+				pchar_type_node, V16QI_type_node, NULL_TREE);
   tree void_ftype_pfloat_v4sf
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, pfloat_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 endlink)));
-
-  /* void foo (V4SI).  */
+    = build_function_type_list (void_type_node,
+				pfloat_type_node, V4SF_type_node, NULL_TREE);
   tree void_ftype_v4si
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      endlink));
-
-  /* void foo (vint, int, void *).  */
+    = build_function_type_list (void_type_node, V4SI_type_node, NULL_TREE);
   tree void_ftype_v4si_int_pvoid
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 tree_cons (NULL_TREE,
-							    pvoid_type_node,
-							    endlink))));
+    = build_function_type_list (void_type_node,
+				V4SI_type_node, integer_type_node,
+				pvoid_type_node, NULL_TREE);
 
-  /* void foo (vchar, int, void *).  */
   tree void_ftype_v16qi_int_pvoid
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 tree_cons (NULL_TREE,
-							    pvoid_type_node,
-							    endlink))));
-
-  /* void foo (vshort, int, void *).  */
+    = build_function_type_list (void_type_node,
+				V16QI_type_node, integer_type_node,
+				pvoid_type_node, NULL_TREE);
   tree void_ftype_v8hi_int_pvoid
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 tree_cons (NULL_TREE,
-							    pvoid_type_node,
-							    endlink))));
-
-  /* void foo (char).  */
+    = build_function_type_list (void_type_node,
+				V8HI_type_node, integer_type_node,
+				pvoid_type_node, NULL_TREE);
   tree void_ftype_qi
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, char_type_node,
-				      endlink));
-
-  /* void foo (void).  */
+    = build_function_type_list (void_type_node, char_type_node, NULL_TREE);
   tree void_ftype_void
     = build_function_type (void_type_node, void_list_node);
-
-  /* vshort foo (void).  */
   tree v8hi_ftype_void
     = build_function_type (V8HI_type_node, void_list_node);
 
   tree v4si_ftype_v4si_v4si
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 endlink)));
-
-  /* These are for the unsigned 5 bit literals.  */
-
+    = build_function_type_list (V4SI_type_node,
+				V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree v4sf_ftype_v4si_char
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, char_type_node,
-						 endlink)));
+    = build_function_type_list (V4SF_type_node,
+				V4SI_type_node, char_type_node, NULL_TREE);
   tree v4si_ftype_v4sf_char
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, char_type_node,
-						 endlink)));
+    = build_function_type_list (V4SI_type_node,
+				V4SF_type_node, char_type_node, NULL_TREE);
   tree v4si_ftype_v4si_char
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, char_type_node,
-						 endlink)));
+    = build_function_type_list (V4SI_type_node,
+				V4SI_type_node, char_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi_char
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, char_type_node,
-						 endlink)));
+    = build_function_type_list (V8HI_type_node,
+				V8HI_type_node, char_type_node, NULL_TREE);
   tree v16qi_ftype_v16qi_char
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, char_type_node,
-						 endlink)));
-
-  /* These are for the unsigned 4 bit literals.  */
-
+    = build_function_type_list (V16QI_type_node,
+				V16QI_type_node, char_type_node, NULL_TREE);
   tree v16qi_ftype_v16qi_v16qi_char
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 tree_cons (NULL_TREE,
-							    char_type_node,
-							    endlink))));
-
+    = build_function_type_list (V16QI_type_node,
+				V16QI_type_node, V16QI_type_node,
+				char_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi_v8hi_char
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 tree_cons (NULL_TREE,
-							    char_type_node,
-							    endlink))));
-
+    = build_function_type_list (V8HI_type_node,
+				V8HI_type_node, V8HI_type_node,
+				char_type_node, NULL_TREE);
   tree v4si_ftype_v4si_v4si_char
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 tree_cons (NULL_TREE,
-							    char_type_node,
-							    endlink))));
-
+    = build_function_type_list (V4SI_type_node,
+				V4SI_type_node, V4SI_type_node,
+				char_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf_v4sf_char
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 tree_cons (NULL_TREE,
-							    char_type_node,
-							    endlink))));
-
-  /* End of 4 bit literals.  */
-
+    = build_function_type_list (V4SF_type_node,
+				V4SF_type_node, V4SF_type_node,
+				char_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf_v4sf
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 endlink)));
+    = build_function_type_list (V4SF_type_node,
+				V4SF_type_node, V4SF_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf_v4sf_v4si
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 tree_cons (NULL_TREE,
-							    V4SI_type_node,
-							    endlink))));
+    = build_function_type_list (V4SF_type_node,
+				V4SF_type_node, V4SF_type_node,
+				V4SI_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf_v4sf_v4sf
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 tree_cons (NULL_TREE, 
-							    V4SF_type_node,
-							    endlink))));
+    = build_function_type_list (V4SF_type_node,
+				V4SF_type_node, V4SF_type_node,
+				V4SF_type_node, NULL_TREE);
   tree v4si_ftype_v4si_v4si_v4si 
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 tree_cons (NULL_TREE,
-							    V4SI_type_node,
-							    endlink))));
-
+    = build_function_type_list (V4SI_type_node,
+				V4SI_type_node, V4SI_type_node,
+				V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi_v8hi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 endlink)));
+    = build_function_type_list (V8HI_type_node,
+				V8HI_type_node, V8HI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi_v8hi_v8hi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 tree_cons (NULL_TREE, 
-							    V8HI_type_node,
-							    endlink))));
+    = build_function_type_list (V8HI_type_node,
+				V8HI_type_node, V8HI_type_node,
+				V8HI_type_node, NULL_TREE);
  tree v4si_ftype_v8hi_v8hi_v4si
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 tree_cons (NULL_TREE,
-							    V4SI_type_node,
-							    endlink))));
+    = build_function_type_list (V4SI_type_node,
+				V8HI_type_node, V8HI_type_node,
+				V4SI_type_node, NULL_TREE);
  tree v4si_ftype_v16qi_v16qi_v4si
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 tree_cons (NULL_TREE,
-							    V4SI_type_node,
-							    endlink))));
-  
+    = build_function_type_list (V4SI_type_node,
+				V16QI_type_node, V16QI_type_node,
+				V4SI_type_node, NULL_TREE);
   tree v16qi_ftype_v16qi_v16qi
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 endlink)));
-  
+    = build_function_type_list (V16QI_type_node,
+				V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree v4si_ftype_v4sf_v4sf
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 endlink)));
-
+    = build_function_type_list (V4SI_type_node,
+				V4SF_type_node, V4SF_type_node, NULL_TREE);
   tree v4si_ftype_v4si
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node, endlink));
-
+    = build_function_type_list (V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node, endlink));
-
+    = build_function_type_list (V8HI_type_node, V8HI_type_node, NULL_TREE);
   tree v16qi_ftype_v16qi
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node, endlink));
-
+    = build_function_type_list (V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree v8hi_ftype_v16qi_v16qi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V8HI_type_node,
+				V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree v4si_ftype_v8hi_v8hi
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V4SI_type_node,
+				V8HI_type_node, V8HI_type_node, NULL_TREE);
   tree v8hi_ftype_v4si_v4si
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V8HI_type_node,
+				V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree v16qi_ftype_v8hi_v8hi
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V16QI_type_node,
+				V8HI_type_node, V8HI_type_node, NULL_TREE);
   tree v4si_ftype_v16qi_v4si
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V4SI_type_node,
+				V16QI_type_node, V4SI_type_node, NULL_TREE);
   tree v4si_ftype_v16qi_v16qi
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V4SI_type_node,
+				V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree v4si_ftype_v8hi_v4si
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 endlink)));
-
+    = build_function_type_list (V4SI_type_node,
+				V8HI_type_node, V4SI_type_node, NULL_TREE);
   tree v4si_ftype_v8hi
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node, endlink));
-
+    = build_function_type_list (V4SI_type_node, V8HI_type_node, NULL_TREE);
   tree int_ftype_v4si_v4si
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      tree_cons (NULL_TREE, V4SI_type_node,
-						 endlink)));
-
+    = build_function_type_list (integer_type_node,
+				V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree int_ftype_v4sf_v4sf
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      tree_cons (NULL_TREE, V4SF_type_node,
-						 endlink)));
-
+    = build_function_type_list (integer_type_node,
+				V4SF_type_node, V4SF_type_node, NULL_TREE);
   tree int_ftype_v16qi_v16qi
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      tree_cons (NULL_TREE, V16QI_type_node,
-						 endlink)));
-
+    = build_function_type_list (integer_type_node,
+				V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree int_ftype_int_v4si_v4si
-    = build_function_type
-    (integer_type_node,
-     tree_cons (NULL_TREE, integer_type_node,
-		tree_cons (NULL_TREE, V4SI_type_node,
-			   tree_cons (NULL_TREE, V4SI_type_node,
-				      endlink))));
-
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V4SI_type_node,
+				V4SI_type_node, NULL_TREE);
   tree int_ftype_int_v4sf_v4sf
-    = build_function_type
-    (integer_type_node,
-     tree_cons (NULL_TREE, integer_type_node,
-		tree_cons (NULL_TREE, V4SF_type_node,
-			   tree_cons (NULL_TREE, V4SF_type_node,
-				      endlink))));
-
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V4SF_type_node,
+				V4SF_type_node, NULL_TREE);
   tree int_ftype_int_v8hi_v8hi
-    = build_function_type
-    (integer_type_node,
-     tree_cons (NULL_TREE, integer_type_node,
-		 tree_cons (NULL_TREE, V8HI_type_node,
-			    tree_cons (NULL_TREE, V8HI_type_node,
-				       endlink))));
-
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V8HI_type_node,
+				V8HI_type_node, NULL_TREE);
   tree int_ftype_int_v16qi_v16qi
-    = build_function_type
-    (integer_type_node,
-     tree_cons (NULL_TREE, integer_type_node,
-		tree_cons (NULL_TREE, V16QI_type_node,
-			   tree_cons (NULL_TREE, V16QI_type_node,
-				      endlink))));
-
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V16QI_type_node,
+				V16QI_type_node, NULL_TREE);
   tree v16qi_ftype_int_pvoid
-    = build_function_type (V16QI_type_node,
-			   tree_cons (NULL_TREE, integer_type_node,
-				      tree_cons (NULL_TREE, pvoid_type_node,
-						 endlink)));
-
+    = build_function_type_list (V16QI_type_node,
+				integer_type_node, pvoid_type_node, NULL_TREE);
   tree v4si_ftype_int_pvoid
-    = build_function_type (V4SI_type_node,
-			   tree_cons (NULL_TREE, integer_type_node,
-				      tree_cons (NULL_TREE, pvoid_type_node,
-						 endlink)));
-
+    = build_function_type_list (V4SI_type_node,
+				integer_type_node, pvoid_type_node, NULL_TREE);
   tree v8hi_ftype_int_pvoid
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, integer_type_node,
-				      tree_cons (NULL_TREE, pvoid_type_node,
-						 endlink)));
-
+    = build_function_type_list (V8HI_type_node,
+				integer_type_node, pvoid_type_node, NULL_TREE);
   tree int_ftype_v8hi_v8hi
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 endlink)));
+    = build_function_type_list (integer_type_node,
+				V8HI_type_node, V8HI_type_node, NULL_TREE);
 
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4sf", v4sf_ftype_pfloat, ALTIVEC_BUILTIN_LD_INTERNAL_4sf);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4sf", void_ftype_pfloat_v4sf, ALTIVEC_BUILTIN_ST_INTERNAL_4sf);
@@ -6480,6 +6257,11 @@ print_operand (file, x, code)
 	    output_operand_lossage ("invalid %%K value");
 	  print_operand_address (file, XEXP (XEXP (x, 0), 0));
 	  fputs ("@l", file);
+	  /* For GNU as, there must be a non-alphanumeric character
+	     between 'l' and the number.  The '-' is added by
+	     print_operand() already.  */
+	  if (INTVAL (XEXP (XEXP (x, 0), 1)) >= 0)
+	    fputs ("+", file);
 	  print_operand (file, XEXP (XEXP (x, 0), 1), 0);
 	}
       return;
@@ -7574,53 +7356,6 @@ first_reg_to_save ()
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic)))))
       break;
 
-  if (current_function_profile)
-    {
-      /* AIX must save/restore every register that contains a parameter
-	 before/after the .__mcount call plus an additional register
-	 for the static chain, if needed; use registers from 30 down to 22
-	 to do this.  */
-      if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)
-	{
-	  int last_parm_reg, profile_first_reg;
-
-	  /* Figure out last used parameter register.  The proper thing
-	     to do is to walk incoming args of the function.  A function
-	     might have live parameter registers even if it has no
-	     incoming args.  */
-	  for (last_parm_reg = 10;
-	       last_parm_reg > 2 && ! regs_ever_live [last_parm_reg];
-	       last_parm_reg--)
-	    ;
-
-	  /* Calculate first reg for saving parameter registers
-	     and static chain.
-	     Skip reg 31 which may contain the frame pointer.  */
-	  profile_first_reg = (33 - last_parm_reg
-			       - (current_function_needs_context ? 1 : 0));
-#if TARGET_MACHO
-          /* Need to skip another reg to account for R31 being PICBASE
-             (when flag_pic is set) or R30 being used as the frame
-             pointer (when flag_pic is not set).  */
-          --profile_first_reg;
-#endif
-	  /* Do not save frame pointer if no parameters needs to be saved.  */
-	  if (profile_first_reg == 31)
-	    profile_first_reg = 32;
-
-	  if (first_reg > profile_first_reg)
-	    first_reg = profile_first_reg;
-	}
-
-      /* SVR4 may need one register to preserve the static chain.  */
-      else if (current_function_needs_context)
-	{
-	  /* Skip reg 31 which may contain the frame pointer.  */
-	  if (first_reg > 30)
-	    first_reg = 30;
-	}
-    }
-
 #if TARGET_MACHO
   if (flag_pic && current_function_uses_pic_offset_table &&
       (first_reg > RS6000_PIC_OFFSET_TABLE_REGNUM))
@@ -8676,6 +8411,9 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
 
   real = copy_rtx (PATTERN (insn));
 
+  if (reg2 != NULL_RTX)
+    real = replace_rtx (real, reg2, rreg);
+  
   real = replace_rtx (real, reg, 
 		      gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode,
 							STACK_POINTER_REGNUM),
@@ -8727,9 +8465,6 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
     }
   else
     abort ();
-  
-  if (reg2 != NULL_RTX)
-    real = replace_rtx (real, reg2, rreg);
   
   RTX_FRAME_RELATED_P (insn) = 1;
   REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
@@ -8797,6 +8532,53 @@ generate_set_vrsave (reg, info, epiloguep)
     XVECEXP (insn, 0, i) = clobs[i];
 
   return insn;
+}
+
+/* Save a register into the frame, and emit RTX_FRAME_RELATED_P notes.
+   Save REGNO into [FRAME_REG + OFFSET] in mode MODE.  */
+
+static void
+emit_frame_save (frame_reg, frame_ptr, mode, regno, offset, total_size)
+     rtx frame_reg;
+     rtx frame_ptr;
+     enum machine_mode mode;
+     unsigned int regno;
+     int offset;
+     int total_size;
+{
+  rtx reg, offset_rtx, insn, mem, addr, int_rtx;
+  rtx replacea, replaceb;
+
+  int_rtx = GEN_INT (offset);
+
+  /* Some cases that need register indexed addressing.  */
+  if ((TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+      /* Add more cases here.  */
+      )
+    {
+      /* Whomever calls us must make sure r11 is available in the
+         flow path of instructions in the prologue.  */
+      offset_rtx = gen_rtx_REG (Pmode, 11);
+      emit_move_insn (offset_rtx, int_rtx);
+
+      replacea = offset_rtx;
+      replaceb = int_rtx;
+    }
+  else
+    {
+      offset_rtx = int_rtx;
+      replacea = NULL_RTX;
+      replaceb = NULL_RTX;
+    }
+
+  reg = gen_rtx_REG (mode, regno);
+  addr = gen_rtx_PLUS (Pmode, frame_reg, offset_rtx);
+  mem = gen_rtx_MEM (mode, addr);
+  set_mem_alias_set (mem, rs6000_sr_alias_set);
+
+  insn = emit_move_insn (mem, reg);
+
+  rs6000_frame_related (insn, frame_ptr, total_size, replacea, replaceb);
 }
 
 /* Emit function prologue as insns.  */
@@ -8926,20 +8708,10 @@ rs6000_emit_prologue ()
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
 	if ((regs_ever_live[info->first_fp_reg_save+i] 
 	     && ! call_used_regs[info->first_fp_reg_save+i]))
-	  {
-	    rtx addr, reg, mem;
-	    reg = gen_rtx_REG (DFmode, info->first_fp_reg_save + i);
-	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
-				 GEN_INT (info->fp_save_offset 
-					  + sp_offset 
-					  + 8 * i));
-	    mem = gen_rtx_MEM (DFmode, addr);
-	    set_mem_alias_set (mem, rs6000_sr_alias_set);
-
-	    insn = emit_move_insn (mem, reg);
-	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-				  NULL_RTX, NULL_RTX);
-	  }
+	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, DFmode,
+			   info->first_fp_reg_save + i,
+			   info->fp_save_offset + sp_offset + 8 * i,
+			   info->total_size);
     }
   else if (info->first_fp_reg_save != 64)
     {
@@ -9009,20 +8781,10 @@ rs6000_emit_prologue ()
 	    || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic == 1)
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic))))
-	  {
-	    rtx addr, reg, mem;
-	    reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
-	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
-				 GEN_INT (info->gp_save_offset 
-					  + sp_offset 
-					  + reg_size * i));
-	    mem = gen_rtx_MEM (reg_mode, addr);
-	    set_mem_alias_set (mem, rs6000_sr_alias_set);
-
-	    insn = emit_move_insn (mem, reg);
-	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-				  NULL_RTX, NULL_RTX);
-	  }
+	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, reg_mode,
+			   info->first_gp_reg_save + i,
+			   info->gp_save_offset + sp_offset + reg_size * i,
+			   info->total_size);
     }
 
   /* ??? There's no need to emit actual instructions here, but it's the
@@ -9033,22 +8795,14 @@ rs6000_emit_prologue ()
 
       for (i = 0; ; ++i)
 	{
-	  rtx addr, reg, mem;
-
 	  regno = EH_RETURN_DATA_REGNO (i);
 	  if (regno == INVALID_REGNUM)
 	    break;
 
-	  reg = gen_rtx_REG (reg_mode, regno);
-	  addr = plus_constant (frame_reg_rtx,
-				info->ehrd_offset + sp_offset
-				+ reg_size * (int) i);
-	  mem = gen_rtx_MEM (reg_mode, addr);
-	  set_mem_alias_set (mem, rs6000_sr_alias_set);
-
-	  insn = emit_move_insn (mem, reg);
-	  rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-				NULL_RTX, NULL_RTX);
+	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, reg_mode, regno,
+			   info->ehrd_offset + sp_offset
+			   + reg_size * (int) i,
+			   info->total_size);
 	}
     }
 
@@ -10628,6 +10382,7 @@ output_function_profiler (file, labelno)
   int labelno;
 {
   char buf[100];
+  int save_lr = 8;
 
   ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
   switch (DEFAULT_ABI)
@@ -10636,13 +10391,21 @@ output_function_profiler (file, labelno)
       abort ();
 
     case ABI_V4:
+      save_lr = 4;
+      /* Fall through.  */
+
     case ABI_AIX_NODESC:
+      if (!TARGET_32BIT)
+	{
+	  warning ("no profiling of 64-bit code for this ABI");
+	  return;
+	}
       fprintf (file, "\tmflr %s\n", reg_names[0]);
       if (flag_pic == 1)
 	{
 	  fputs ("\tbl _GLOBAL_OFFSET_TABLE_@local-4\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
-		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[0], save_lr, reg_names[1]);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[12]);
 	  asm_fprintf (file, "\t{l|lwz} %s,", reg_names[0]);
 	  assemble_name (file, buf);
@@ -10650,8 +10413,8 @@ output_function_profiler (file, labelno)
 	}
       else if (flag_pic > 1)
 	{
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
-		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[0], save_lr, reg_names[1]);
 	  /* Now, we need to get the address of the label.  */
 	  fputs ("\tbl 1f\n\t.long ", file);
 	  assemble_name (file, buf);
@@ -10667,27 +10430,32 @@ output_function_profiler (file, labelno)
 	  asm_fprintf (file, "\t{liu|lis} %s,", reg_names[12]);
 	  assemble_name (file, buf);
 	  fputs ("@ha\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
-		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[0], save_lr, reg_names[1]);
 	  asm_fprintf (file, "\t{cal|la} %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "@l(%s)\n", reg_names[12]);
 	}
 
-      if (current_function_needs_context)
-	asm_fprintf (file, "\tmr %s,%s\n",
-		     reg_names[30], reg_names[STATIC_CHAIN_REGNUM]);
-      fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
-      if (current_function_needs_context)
-	asm_fprintf (file, "\tmr %s,%s\n",
-		     reg_names[STATIC_CHAIN_REGNUM], reg_names[30]);
+      if (current_function_needs_context && DEFAULT_ABI == ABI_AIX_NODESC)
+	{
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[STATIC_CHAIN_REGNUM],
+		       12, reg_names[1]);
+	  fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
+	  asm_fprintf (file, "\t{l|lwz} %s,%d(%s)\n",
+		       reg_names[STATIC_CHAIN_REGNUM],
+		       12, reg_names[1]);
+	}
+      else
+	/* ABI_V4 saves the static chain reg with ASM_OUTPUT_REG_PUSH.  */
+	fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
       break;
 
     case ABI_AIX:
     case ABI_DARWIN:
       /* Don't do anything, done in output_profile_hook ().  */
       break;
-
     }
 }
 

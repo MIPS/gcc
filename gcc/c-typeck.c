@@ -1362,7 +1362,7 @@ build_array_ref (array, index)
 	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
 	    pedwarn ("ISO C forbids subscripting `register' array");
 	  else if (! flag_isoc99 && ! lvalue_p (foo))
-	    pedwarn ("ISO C89 forbids subscripting non-lvalue array");
+	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
 	}
 
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
@@ -2071,6 +2071,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	shorten = -1;
+      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+	common = 1;
       break;
 
     case TRUNC_MOD_EXPR:
@@ -2778,7 +2780,12 @@ build_unary_op (code, xarg, flag)
       break;
 
     case BIT_NOT_EXPR:
-      if (typecode == COMPLEX_TYPE)
+      if (typecode == INTEGER_TYPE || typecode == VECTOR_TYPE)
+	{
+	  if (!noconvert)
+	    arg = default_conversion (arg);
+	}
+      else if (typecode == COMPLEX_TYPE)
 	{
 	  code = CONJ_EXPR;
 	  if (pedantic)
@@ -2786,13 +2793,11 @@ build_unary_op (code, xarg, flag)
 	  if (!noconvert)
 	    arg = default_conversion (arg);
 	}
-      else if (typecode != INTEGER_TYPE)
+      else
 	{
 	  error ("wrong type argument to bit-complement");
 	  return error_mark_node;
 	}
-      else if (!noconvert)
-	arg = default_conversion (arg);
       break;
 
     case ABS_EXPR:
@@ -4505,15 +4510,6 @@ static int spelling_size;		/* Size of the spelling stack.  */
 
 #define SPELLING_DEPTH() (spelling - spelling_base)
 #define RESTORE_SPELLING_DEPTH(DEPTH) (spelling = spelling_base + (DEPTH))
-
-/* Save and restore the spelling stack around arbitrary C code.  */
-
-#define SAVE_SPELLING_DEPTH(code)		\
-{						\
-  int __depth = SPELLING_DEPTH ();		\
-  code;						\
-  RESTORE_SPELLING_DEPTH (__depth);		\
-}
 
 /* Push an element on the spelling stack with type KIND and assign VALUE
    to MEMBER.  */

@@ -966,69 +966,60 @@ add_method (type, method, error_p)
 	   fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
-		 
+	  tree parms1;
+	  tree parms2;
+	  bool same = 1;
+
 	  if (TREE_CODE (fn) != TREE_CODE (method))
 	    continue;
 
-	  if (TREE_CODE (method) != TEMPLATE_DECL)
+	  /* [over.load] Member function declarations with the
+	     same name and the same parameter types cannot be
+	     overloaded if any of them is a static member
+	     function declaration.
+
+	     [namespace.udecl] When a using-declaration brings names
+	     from a base class into a derived class scope, member
+	     functions in the derived class override and/or hide member
+	     functions with the same name and parameter types in a base
+	     class (rather than conflicting).  */
+	  parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
+	  parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
+
+	  /* Compare the quals on the 'this' parm.  Don't compare
+	     the whole types, as used functions are treated as
+	     coming from the using class in overload resolution.  */
+	  if (! DECL_STATIC_FUNCTION_P (fn)
+	      && ! DECL_STATIC_FUNCTION_P (method)
+	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
+		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
+	    same = 0;
+	  if (! DECL_STATIC_FUNCTION_P (fn))
+	    parms1 = TREE_CHAIN (parms1);
+	  if (! DECL_STATIC_FUNCTION_P (method))
+	    parms2 = TREE_CHAIN (parms2);
+
+	  if (same && compparms (parms1, parms2) 
+	      && (!DECL_CONV_FN_P (fn) 
+		  || same_type_p (TREE_TYPE (TREE_TYPE (fn)),
+				  TREE_TYPE (TREE_TYPE (method)))))
 	    {
-	      /* [over.load] Member function declarations with the
-		 same name and the same parameter types cannot be
-		 overloaded if any of them is a static member
-		 function declaration.
-
-	         [namespace.udecl] When a using-declaration brings names
-		 from a base class into a derived class scope, member
-		 functions in the derived class override and/or hide member
-		 functions with the same name and parameter types in a base
-		 class (rather than conflicting).  */
-	      if ((DECL_STATIC_FUNCTION_P (fn)
-		   != DECL_STATIC_FUNCTION_P (method))
-		  || using)
+	      if (using && DECL_CONTEXT (fn) == type)
+		/* Defer to the local function.  */
+		return;
+	      else
 		{
-		  tree parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
-		  tree parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
-		  int same = 1;
+		  cp_error_at ("`%#D' and `%#D' cannot be overloaded",
+			       method, fn, method);
 
-		  /* Compare the quals on the 'this' parm.  Don't compare
-		     the whole types, as used functions are treated as
-		     coming from the using class in overload resolution.  */
-		  if (using
-		      && ! DECL_STATIC_FUNCTION_P (fn)
-		      && ! DECL_STATIC_FUNCTION_P (method)
-		      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
-			  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
-		    same = 0;
-		  if (! DECL_STATIC_FUNCTION_P (fn))
-		    parms1 = TREE_CHAIN (parms1);
-		  if (! DECL_STATIC_FUNCTION_P (method))
-		    parms2 = TREE_CHAIN (parms2);
-
-		  if (same && compparms (parms1, parms2))
-		    {
-		      if (using && DECL_CONTEXT (fn) == type)
-			/* Defer to the local function.  */
-			return;
-		      else
-			error ("`%#D' and `%#D' cannot be overloaded",
-				  fn, method);
-		    }
+		  /* We don't call duplicate_decls here to merge
+		     the declarations because that will confuse
+		     things if the methods have inline
+		     definitions.  In particular, we will crash
+		     while processing the definitions.  */
+		  return;
 		}
 	    }
-
-	  if (!decls_match (fn, method))
-	    continue;
-
-	  /* There has already been a declaration of this method
-	     or member template.  */
-	  cp_error_at ("`%D' has already been declared in `%T'", 
-		       method, type);
-
-	  /* We don't call duplicate_decls here to merge the
-	     declarations because that will confuse things if the
-	     methods have inline definitions.  In particular, we
-	     will crash while processing the definitions.  */
-	  return;
 	}
     }
 
@@ -1212,14 +1203,12 @@ handle_using_decl (using_decl, t)
   if (! binfo)
     return;
   
-  if (name == constructor_name (ctype)
-      || name == constructor_name_full (ctype))
+  if (constructor_name_p (name, ctype))
     {
       cp_error_at ("`%D' names constructor", using_decl);
       return;
     }
-  if (name == constructor_name (t)
-      || name == constructor_name_full (t))
+  if (constructor_name_p (name, t))
     {
       cp_error_at ("`%D' invalid in `%T'", using_decl, t);
       return;
@@ -1235,7 +1224,7 @@ handle_using_decl (using_decl, t)
 
   if (BASELINK_P (fdecl))
     /* Ignore base type this came from. */
-    fdecl = TREE_VALUE (fdecl);
+    fdecl = BASELINK_FUNCTIONS (fdecl);
 
   old_value = IDENTIFIER_CLASS_VALUE (name);
   if (old_value)
@@ -5310,12 +5299,8 @@ finish_struct (t, attributes)
   else
     error ("trying to finish struct, but kicked out due to previous parse errors");
 
-  if (processing_template_decl)
-    {
-      tree scope = current_scope ();
-      if (scope && TREE_CODE (scope) == FUNCTION_DECL)
-	add_stmt (build_min (TAG_DEFN, t));
-    }
+  if (processing_template_decl && at_function_scope_p ())
+    add_stmt (build_min (TAG_DEFN, t));
 
   return t;
 }
@@ -6143,7 +6128,7 @@ instantiate_type (lhstype, rhs, flags)
     case OFFSET_REF:
       rhs = TREE_OPERAND (rhs, 1);
       if (BASELINK_P (rhs))
-	return instantiate_type (lhstype, TREE_VALUE (rhs),
+	return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs),
 	                         flags | allow_ptrmem);
 
       /* This can happen if we are forming a pointer-to-member for a
@@ -6179,7 +6164,7 @@ instantiate_type (lhstype, rhs, flags)
       /* Now we should have a baselink. */
       my_friendly_assert (BASELINK_P (rhs), 990412);
 
-      return instantiate_type (lhstype, TREE_VALUE (rhs), flags);
+      return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs), flags);
 
     case CALL_EXPR:
       /* This is too hard for now.  */

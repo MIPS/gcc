@@ -6,6 +6,20 @@
 	(struct splay_tree_s): Likewise.  Make allocate_data a PTR,
 	not a void *.
 
+2002-06-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* demangle.h: #include "ansidecl.h" rather than #include <ansidecl.h>.
+	* fibheap.h: Likewise.
+	* hashtab.h: Likewise.
+	* partition.h: Likewise.
+	* sort.h: Likewise.
+	* splay-tree.h: Likewise.
+
+2002-06-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* libiberty.h (basename): Don't declare if HAVE_DECL_BASENAME.
+	* getopt.h (getopt): Don't declare if HAVE_DECL_GETOPT.
+
 2002-06-06  DJ Delorie  <dj@redhat.com>
 
 	* hashtab.h (htab): Rearrange new members for backward

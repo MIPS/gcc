@@ -1063,6 +1063,15 @@ finish_named_return_value (return_id, init)
   DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
+/* Begin processing a mem-initializer-list.  */
+
+void
+begin_mem_initializers ()
+{
+  if (! DECL_CONSTRUCTOR_P (current_function_decl))
+    error ("only constructors take base initializers");
+}
+
 /* The INIT_LIST is a list of mem-initializers, in the order they were
    written by the user.  The TREE_VALUE of each node is a list of
    initializers for a particular subobject.  The TREE_PURPOSE is a
@@ -1437,6 +1446,20 @@ finish_id_expr (expr)
   return expr;
 }
 
+/* Return the declaration for the function-name variable indicated by
+   ID.  */
+
+tree
+finish_fname (tree id)
+{
+  tree decl;
+  
+  decl = fname_decl (C_RID_CODE (id), id);
+  if (processing_template_decl)
+    decl = build_min_nt (LOOKUP_EXPR, DECL_NAME (decl));
+  return decl;
+}
+
 static tree current_type_lookups;
 
 /* Perform deferred access control for types used in the type of a
@@ -1494,20 +1517,17 @@ reset_type_access_control ()
   current_type_lookups = NULL_TREE;
 }
 
-/* Begin a function definition declared with DECL_SPECS and
-   DECLARATOR.  Returns non-zero if the function-declaration is
+/* Begin a function definition declared with DECL_SPECS, ATTRIBUTES,
+   and DECLARATOR.  Returns non-zero if the function-declaration is
    legal.  */
 
 int
-begin_function_definition (decl_specs, declarator)
+begin_function_definition (decl_specs, attributes, declarator)
      tree decl_specs;
+     tree attributes;
      tree declarator;
 {
-  tree specs;
-  tree attrs;
-
-  split_specs_attrs (decl_specs, &specs, &attrs);
-  if (!start_function (specs, declarator, attrs, SF_DEFAULT))
+  if (!start_function (decl_specs, declarator, attributes, SF_DEFAULT))
     return 0;
 
   deferred_type_access_control ();
@@ -1600,6 +1620,25 @@ finish_template_template_parm (aggr, identifier)
   my_friendly_assert (DECL_TEMPLATE_PARMS (tmpl), 20010110);
 
   return finish_template_type_parm (aggr, tmpl);
+}
+
+/* ARGUMENT is the default-argument value for a template template
+   parameter.  If ARGUMENT is invalid, issue error messages and return
+   the ERROR_MARK_NODE.  Otherwise, ARGUMENT itself is returned.  */
+
+tree
+check_template_template_default_arg (tree argument)
+{
+  if (TREE_CODE (argument) != TEMPLATE_DECL
+      && TREE_CODE (argument) != TEMPLATE_TEMPLATE_PARM
+      && TREE_CODE (argument) != TYPE_DECL
+      && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
+    {
+      error ("invalid default template argument");
+      return error_mark_node;
+    }
+
+  return argument;
 }
 
 /* Finish a parameter list, indicated by PARMS.  If ELLIPSIS is
@@ -2025,9 +2064,7 @@ check_multiple_declarators ()
      We don't just use PROCESSING_TEMPLATE_DECL for the first
      condition since that would disallow the perfectly legal code, 
      like `template <class T> struct S { int i, j; };'.  */
-  tree scope = current_scope ();
-
-  if (scope && TREE_CODE (scope) == FUNCTION_DECL)
+  if (at_function_scope_p ())
     /* It's OK to write `template <class T> void f() { int i, j;}'.  */
     return;
      

@@ -817,11 +817,10 @@ extern int rs6000_default_long_calls;
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
-        (TARGET_ALTIVEC &&		\
 	 ((MODE) == V16QImode		\
 	  || (MODE) == V8HImode		\
 	  || (MODE) == V4SFmode		\
-	  || (MODE) == V4SImode))
+	  || (MODE) == V4SImode)
 
 /* Define this macro to be nonzero if the port is prepared to handle
    insns involving vector mode MODE.  At the very least, it must have
@@ -1683,8 +1682,8 @@ typedef struct rs6000_args
   (VALIST) = rs6000_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  rs6000_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  rs6000_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \

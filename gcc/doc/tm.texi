@@ -2550,9 +2550,9 @@ A C expression that is true if, for a register in
 @code{CLASS_CANNOT_CHANGE_MODE}, the requested mode punning is invalid.
 
 For the example, loading 32-bit integer or floating-point objects into
-floating-point registers on the Alpha extends them to 64-bits.
+floating-point registers on the Alpha extends them to 64 bits.
 Therefore loading a 64-bit object and then storing it as a 32-bit object
-does not store the low-order 32-bits, as would be the case for a normal
+does not store the low-order 32 bits, as would be the case for a normal
 register.  Therefore, @file{alpha.h} defines @code{CLASS_CANNOT_CHANGE_MODE}
 as @code{FLOAT_REGS} and @code{CLASS_CANNOT_CHANGE_MODE_P} restricts
 mode changes to same-size modes.
@@ -2660,7 +2660,7 @@ definition used does not matter.
 
 This macro defines the operation used when something is pushed
 on the stack.  In RTL, a push operation will be
-@code{(set (mem (STACK_PUSH_CODE (reg sp))) ...)}
+@code{(set (mem (STACK_PUSH_CODE (reg sp))) @dots{})}
 
 The choices are @code{PRE_DEC}, @code{POST_DEC}, @code{PRE_INC},
 and @code{POST_INC}.  Which of these is correct depends on
@@ -4006,7 +4006,7 @@ arguments.  But usually, on such machines, nothing else has been pushed
 yet, because the function prologue itself does all the pushing.)  This
 region is used on machines where an argument may be passed partly in
 registers and partly in memory, and, in some cases to support the
-features in @code{<varargs.h>} and @code{<stdarg.h>}.
+features in @code{<stdarg.h>}.
 
 @item
 An area of memory used to save certain registers used by the function.
@@ -5325,6 +5325,22 @@ than @code{MOVE_RATIO}.
 A C expression used by @code{move_by_pieces} to determine the largest unit
 a load or store used to copy memory is.  Defaults to @code{MOVE_MAX}.
 
+@findex CLEAR_RATIO
+@item CLEAR_RATIO
+The threshold of number of scalar move insns, @emph{below} which a sequence
+of insns should be generated to clear memory instead of a string clear insn
+or a library call.  Increasing the value will always make code faster, but
+eventually incurs high cost in increased code size.
+
+If you don't define this, a reasonable default is used.
+
+@findex CLEAR_BY_PIECES_P
+@item CLEAR_BY_PIECES_P (@var{size}, @var{alignment})
+A C expression used to determine whether @code{clear_by_pieces} will be used
+to clear a chunk of memory, or whether some other block clear mechanism
+will be used.  Defaults to 1 if @code{move_by_pieces_ninsns} returns less
+than @code{CLEAR_RATIO}.
+
 @findex USE_LOAD_POST_INCREMENT
 @item USE_LOAD_POST_INCREMENT (@var{mode})
 A C expression used to determine whether a load postincrement is a good
@@ -6580,17 +6596,6 @@ bundles.
 
 If this macro is not defined, then @code{ASM_OUTPUT_INTERNAL_LABEL} will be
 used.
-
-@findex ASM_OUTPUT_ALTERNATE_LABEL_NAME
-@item ASM_OUTPUT_ALTERNATE_LABEL_NAME (@var{stream}, @var{string})
-A C statement to output to the stdio stream @var{stream} the string
-@var{string}.
-
-The default definition of this macro is as follows:
-
-@example
-fprintf (@var{stream}, "%s:\n", LABEL_ALTERNATE_NAME (INSN))
-@end example
 
 @findex ASM_GENERATE_INTERNAL_LABEL
 @item ASM_GENERATE_INTERNAL_LABEL (@var{string}, @var{prefix}, @var{num})
@@ -8568,11 +8573,6 @@ Defining @code{STDC_0_IN_SYSTEM_HEADERS} makes GNU CPP follows the host
 convention when processing system header files, but when processing user
 files @code{__STDC__} will always expand to 1.
 
-@findex SCCS_DIRECTIVE
-@item SCCS_DIRECTIVE
-Define this if the preprocessor should ignore @code{#sccs} directives
-and print no error message.
-
 @findex NO_IMPLICIT_EXTERN_C
 @item NO_IMPLICIT_EXTERN_C
 Define this macro if the system header files support C++ as well as C@.
@@ -8813,29 +8813,54 @@ conditional execution instructions instead of a branch.  A value of
 1 if it does use cc0.
 
 @findex IFCVT_MODIFY_TESTS
-@item IFCVT_MODIFY_TESTS
-A C expression to modify the tests in @code{TRUE_EXPR}, and
-@code{FALSE_EXPR} for use in converting insns in @code{TEST_BB},
-@code{THEN_BB}, @code{ELSE_BB}, and @code{JOIN_BB} basic blocks to
-conditional execution.  Set either @code{TRUE_EXPR} or @code{FALSE_EXPR}
-to a null pointer if the tests cannot be converted.
+@item IFCVT_MODIFY_TESTS(@var{ce_info}, @var{true_expr}, @var{false_expr})
+Used if the target needs to perform machine-dependent modifications on the
+conditionals used for turning basic blocks into conditionally executed code.
+@var{ce_info} points to a data structure, @code{struct ce_if_block}, which
+contains information about the currently processed blocks.  @var{true_expr}
+and @var{false_expr} are the tests that are used for converting the
+then-block and the else-block, respectively.  Set either @var{true_expr} or
+@var{false_expr} to a null pointer if the tests cannot be converted.
+
+@findex IFCVT_MODIFY_MULTIPLE_TESTS
+@item IFCVT_MODIFY_MULTIPLE_TESTS(@var{ce_info}, @var{bb}, @var{true_expr}, @var{false_expr})
+Like @code{IFCVT_MODIFY_TESTS}, but used when converting more complicated
+if-statements into conditions combined by @code{and} and @code{or} operations.
+@var{bb} contains the basic block that contains the test that is currently
+being processed and about to be turned into a condition.
 
 @findex IFCVT_MODIFY_INSN
-@item IFCVT_MODIFY_INSN
-A C expression to modify the @code{PATTERN} of an @code{INSN} that is to
-be converted to conditional execution format.
+@item IFCVT_MODIFY_INSN(@var{ce_info}, @var{pattern}, @var{insn})
+A C expression to modify the @var{PATTERN} of an @var{INSN} that is to
+be converted to conditional execution format.  @var{ce_info} points to
+a data structure, @code{struct ce_if_block}, which contains information
+about the currently processed blocks.
 
 @findex IFCVT_MODIFY_FINAL
-@item IFCVT_MODIFY_FINAL
+@item IFCVT_MODIFY_FINAL(@var{ce_info})
 A C expression to perform any final machine dependent modifications in
-converting code to conditional execution in the basic blocks
-@code{TEST_BB}, @code{THEN_BB}, @code{ELSE_BB}, and @code{JOIN_BB}.
+converting code to conditional execution.  The involved basic blocks
+can be found in the @code{struct ce_if_block} structure that is pointed
+to by @var{ce_info}.
 
 @findex IFCVT_MODIFY_CANCEL
-@item IFCVT_MODIFY_CANCEL
+@item IFCVT_MODIFY_CANCEL(@var{ce_info})
 A C expression to cancel any machine dependent modifications in
-converting code to conditional execution in the basic blocks
-@code{TEST_BB}, @code{THEN_BB}, @code{ELSE_BB}, and @code{JOIN_BB}.
+converting code to conditional execution.  The involved basic blocks
+can be found in the @code{struct ce_if_block} structure that is pointed
+to by @var{ce_info}.
+
+@findex IFCVT_INIT_EXTRA_FIELDS
+@item IFCVT_INIT_EXTRA_FIELDS(@var{ce_info})
+A C expression to initialize any extra fields in a @code{struct ce_if_block}
+structure, which are defined by the @code{IFCVT_EXTRA_FIELDS} macro.
+
+@findex IFCVT_EXTRA_FIELDS
+@item IFCVT_EXTRA_FIELDS
+If defined, it should expand to a set of field declarations that will be
+added to the @code{struct ce_if_block} structure.  These should be intialized
+by the @code{IFCVT_INIT_EXTRA_FIELDS} macro.
+
 @end table
 
 @deftypefn {Target Hook} void TARGET_INIT_BUILTINS ()

@@ -270,7 +270,7 @@ in the following sections.
 -fif-conversion -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmove-all-movables  -fno-default-inline  -fno-defer-pop @gol
+-fmove-all-movables  -fnew-ra -fno-default-inline  -fno-defer-pop @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations -fno-trapping-math @gol
@@ -600,7 +600,7 @@ in the following sections.
 -mlibfuncs -mno-libfuncs -mepsilon -mno-epsilon -mabi=gnu @gol
 -mabi=mmixware -mzero-extend -mknuthdiv -mtoplevel-symbols @gol
 -melf -mbranch-predict -mno-branch-predict -mbase-addresses @gol
--mno-base-addresses}
+-mno-base-addresses -msingle-exit -mno-single-exit}
 
 @emph{IA-64 Options}
 @gccoptlist{
@@ -2410,6 +2410,15 @@ Conversions by prototypes between fixed/floating point values and vice
 versa.  The absence of these prototypes when compiling with traditional
 C would cause serious problems.  This is a subset of the possible
 conversion warnings, for the full set use @option{-Wconversion}.
+
+@item
+Use of ISO C style function definitions.  This warning intentionally is
+@emph{not} issued for prototype declarations or variadic functions
+because these ISO C features will appear in your code when using
+libiberty's traditional C compatibility macros, @code{PARAMS} and
+@code{VPARAMS}.  This warning is also bypassed for nested functions
+because that feature is already a gcc extension and thus not relevant to
+traditional C compatibility.
 @end itemize
 
 @item -Wundef
@@ -2723,12 +2732,16 @@ Produce debugging information in DWARF version 1 format (if that is
 supported).  This is the format used by SDB on most System V Release 4
 systems.
 
+This option is deprecated.
+
 @item -gdwarf+
 @opindex gdwarf+
 Produce debugging information in DWARF version 1 format (if that is
 supported), using GNU extensions understood only by the GNU debugger
 (GDB)@.  The use of these extensions is likely to make other debuggers
 crash or refuse to read the program.
+
+This option is deprecated.
 
 @item -gdwarf-2
 @opindex gdwarf-2
@@ -3381,6 +3394,12 @@ arrays or initialized constant variables with integral or floating point
 types.  Languages like C or C++ require each non-automatic variable to
 have distinct location, so using this option will result in non-conforming
 behavior.
+
+@item -fnew-ra
+@opindex fnew-ra
+Use a graph coloring register allocator.  Currently this option is meant
+for testing, so we are interested to hear about miscompilations with
+@option{-fnew-ra}.
 
 @item -fno-function-cse
 @opindex fno-function-cse
@@ -6904,14 +6923,13 @@ Do not include extra scratch space in floating point data blocks.  This
 results in smaller code, but slower execution, since scratch space must
 be allocated dynamically.
 
-@cindex @file{varargs.h} and RT PC
 @cindex @file{stdarg.h} and RT PC
 @item -mfp-arg-in-fpregs
 @opindex mfp-arg-in-fpregs
 Use a calling sequence incompatible with the IBM calling convention in
 which floating point arguments are passed in floating point registers.
-Note that @code{varargs.h} and @code{stdarg.h} will not work with
-floating point operands if this option is specified.
+Note that @code{stdarg.h} will not work with floating point operands
+if this option is specified.
 
 @item -mfp-arg-in-gregs
 @opindex mfp-arg-in-gregs
@@ -8680,6 +8698,15 @@ Do not try and generate multiply-add floating point instructions
 Generate output containing library calls for floating point.
 @strong{Warning:} the requisite libraries may not be available.
 
+@item -mieee-compare
+@itemx -mno-ieee-compare
+@opindex mieee-compare
+@opindex mno-ieee-compare
+Control whether or not the compiler uses IEEE floating point
+comparisons.  These handle correctly the case where the result of a
+comparison is unordered.
+@strong{Warning:} the requisite kernel support may not be available.
+
 @item -mnobitfield
 @opindex mnobitfield
 Do not use the bit-field instructions.  On some machines it is faster to
@@ -9312,6 +9339,13 @@ to 255 from the value held in the register.  The generally leads to short
 and fast code, but the number of different data items that can be
 addressed is limited.  This means that a program that uses lots of static
 data may require @option{-mno-base-addresses}.
+
+@item -msingle-exit
+@itemx -mno-single-exit
+@opindex msingle-exit
+@opindex mno-single-exit
+Force (do not force) generated code to have a single exit point in each
+function.
 @end table
 
 @node PDP-11 Options

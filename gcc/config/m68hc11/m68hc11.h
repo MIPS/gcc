@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Motorola 68HC11 and 68HC12.
    Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Stephane Carrez (stcarrez@worldnet.fr)
+   Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GNU CC.
 
@@ -213,6 +213,10 @@ extern const char *m68hc11_soft_reg_count;
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
 #define OVERRIDE_OPTIONS	m68hc11_override_options ();
+
+/* Define this to change the optimizations performed by default.  */
+#define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
+m68hc11_optimization_options(LEVEL, SIZE)
 
 
 /* Define cost parameters for a given processor variant.  */
@@ -1070,9 +1074,6 @@ typedef struct m68hc11_args
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
 
 /* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  m68hc11_expand_builtin_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   m68hc11_va_arg (valist, type)
 
@@ -1704,9 +1705,6 @@ do {                                                                    \
 /* A function address in a call instruction is a byte address (for indexing
    purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE		QImode
-
-/* define SCCS_DIRECTIVE if SCCS directives should be ignored */
-#define SCCS_DIRECTIVE		1
 
 /* Allow $ in identifiers */
 #define DOLLARS_IN_IDENTIFIERS	1

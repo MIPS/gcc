@@ -77,7 +77,7 @@ extern char * xtensa_emit_call PARAMS ((int, rtx *));
 
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
-extern void xtensa_va_start PARAMS ((int, tree, rtx));
+extern void xtensa_va_start PARAMS ((tree, rtx));
 extern rtx xtensa_va_arg PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 
@@ -86,6 +86,7 @@ extern void print_operand_address PARAMS ((FILE *, rtx));
 extern void xtensa_output_literal
   PARAMS ((FILE *, rtx, enum machine_mode, int labelno));
 extern void xtensa_reorg PARAMS ((rtx));
+extern rtx xtensa_return_addr PARAMS ((int, rtx));
 extern rtx xtensa_builtin_saveregs PARAMS ((void));
 extern enum reg_class xtensa_preferred_reload_class
   PARAMS ((rtx, enum reg_class));

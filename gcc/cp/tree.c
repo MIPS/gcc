@@ -948,7 +948,7 @@ is_overloaded_fn (x)
   if (TREE_CODE (x) == OFFSET_REF)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
-    x = TREE_VALUE (x);
+    x = BASELINK_FUNCTIONS (x);
   return (TREE_CODE (x) == FUNCTION_DECL
 	  || TREE_CODE (x) == TEMPLATE_ID_EXPR
 	  || DECL_FUNCTION_TEMPLATE_P (x)
@@ -963,10 +963,24 @@ really_overloaded_fn (x)
   if (TREE_CODE (x) == OFFSET_REF)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
-    x = TREE_VALUE (x);
+    x = BASELINK_FUNCTIONS (x);
   return (TREE_CODE (x) == OVERLOAD 
 	  && (TREE_CHAIN (x) != NULL_TREE
 	      || DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (x))));
+}
+
+/* Return the OVERLOAD or FUNCTION_DECL inside FNS.  FNS can be an
+   OVERLOAD, FUNCTION_DECL, TEMPLATE_ID_EXPR, or baselink.  */
+
+tree
+get_overloaded_fn (fns)
+     tree fns;
+{
+  if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
+    fns = TREE_OPERAND (fns, 0);
+  if (BASELINK_P (fns))
+    fns = BASELINK_FUNCTIONS (fns);
+  return fns;
 }
 
 tree
@@ -976,7 +990,7 @@ get_first_fn (from)
   my_friendly_assert (is_overloaded_fn (from), 9);
   /* A baselink is also considered an overloaded function. */
   if (BASELINK_P (from))
-    from = TREE_VALUE (from);
+    from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
 }
 
@@ -2278,6 +2292,11 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
 	  DECL_SOURCE_FILE (var) = DECL_SOURCE_FILE (nrv);
 	  DECL_SOURCE_LINE (var) = DECL_SOURCE_LINE (nrv);
 	  DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
+	  /* Don't lose initialization info.  */
+	  DECL_INITIAL (var) = DECL_INITIAL (nrv);
+	  /* Don't forget that it needs to go in the stack.  */
+	  TREE_ADDRESSABLE (var) = TREE_ADDRESSABLE (nrv);
+
 	  splay_tree_insert (decl_map,
 			     (splay_tree_key) nrv,
 			     (splay_tree_value) var);

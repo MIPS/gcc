@@ -192,6 +192,25 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
   (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) MOVE_RATIO)
 #endif
 
+/* If a clear memory operation would take CLEAR_RATIO or more simple
+   move-instruction sequences, we will do a clrstr or libcall instead.  */
+
+#ifndef CLEAR_RATIO
+#if defined (HAVE_clrstrqi) || defined (HAVE_clrstrhi) || defined (HAVE_clrstrsi) || defined (HAVE_clrstrdi) || defined (HAVE_clrstrti)
+#define CLEAR_RATIO 2
+#else
+/* If we are optimizing for space, cut down the default clear ratio.  */
+#define CLEAR_RATIO (optimize_size ? 3 : 15)
+#endif
+#endif
+
+/* This macro is used to determine whether clear_by_pieces should be
+   called to clear storage.  */
+#ifndef CLEAR_BY_PIECES_P
+#define CLEAR_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) CLEAR_RATIO)
+#endif
+
 /* This array records the insn_code of insns to perform block moves.  */
 enum insn_code movstr_optab[NUM_MACHINE_MODES];
 
@@ -2633,7 +2652,7 @@ clear_storage (object, size)
       size = protect_from_queue (size, 0);
 
       if (GET_CODE (size) == CONST_INT
-	  && MOVE_BY_PIECES_P (INTVAL (size), align))
+	  && CLEAR_BY_PIECES_P (INTVAL (size), align))
 	clear_by_pieces (object, INTVAL (size), align);
       else
 	{
@@ -3039,10 +3058,10 @@ emit_move_insn_1 (x, y)
       return get_last_insn ();
     }
 
-  /* This will handle any multi-word mode that lacks a move_insn pattern.
-     However, you will get better code if you define such patterns,
+  /* This will handle any multi-word or full-word mode that lacks a move_insn
+     pattern.  However, you will get better code if you define such patterns,
      even if they must turn into multiple assembler instructions.  */
-  else if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+  else if (GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
     {
       rtx last_insn = 0;
       rtx seq, inner;
@@ -8946,29 +8965,49 @@ expand_expr (exp, target, tmode, modifier)
       {
 	tree try_block = TREE_OPERAND (exp, 0);
 	tree finally_block = TREE_OPERAND (exp, 1);
-	rtx finally_label = gen_label_rtx ();
-	rtx done_label = gen_label_rtx ();
-	rtx return_link = gen_reg_rtx (Pmode);
-	tree cleanup = build (GOTO_SUBROUTINE_EXPR, void_type_node,
-			      (tree) finally_label, (tree) return_link);
-	TREE_SIDE_EFFECTS (cleanup) = 1;
 
-	/* Start a new binding layer that will keep track of all cleanup
-	   actions to be performed.  */
-	expand_start_bindings (2);
+        if (unsafe_for_reeval (finally_block) > 1)
+	  {
+	    /* In this case, wrapping FINALLY_BLOCK in an UNSAVE_EXPR
+	       is not sufficient, so we cannot expand the block twice.
+	       So we play games with GOTO_SUBROUTINE_EXPR to let us
+	       expand the thing only once.  */
 
-	target_temp_slot_level = temp_slot_level;
+	    rtx finally_label = gen_label_rtx ();
+	    rtx done_label = gen_label_rtx ();
+	    rtx return_link = gen_reg_rtx (Pmode);
+	    tree cleanup = build (GOTO_SUBROUTINE_EXPR, void_type_node,
+			          (tree) finally_label, (tree) return_link);
+	    TREE_SIDE_EFFECTS (cleanup) = 1;
 
-	expand_decl_cleanup (NULL_TREE, cleanup);
-	op0 = expand_expr (try_block, target, tmode, modifier);
+	    /* Start a new binding layer that will keep track of all cleanup
+	       actions to be performed.  */
+	    expand_start_bindings (2);
+	    target_temp_slot_level = temp_slot_level;
 
-	preserve_temp_slots (op0);
-	expand_end_bindings (NULL_TREE, 0, 0);
-	emit_jump (done_label);
-	emit_label (finally_label);
-	expand_expr (finally_block, const0_rtx, VOIDmode, 0);
-	emit_indirect_jump (return_link);
-	emit_label (done_label);
+	    expand_decl_cleanup (NULL_TREE, cleanup);
+	    op0 = expand_expr (try_block, target, tmode, modifier);
+
+	    preserve_temp_slots (op0);
+	    expand_end_bindings (NULL_TREE, 0, 0);
+	    emit_jump (done_label);
+	    emit_label (finally_label);
+	    expand_expr (finally_block, const0_rtx, VOIDmode, 0);
+	    emit_indirect_jump (return_link);
+	    emit_label (done_label);
+	  }
+	else
+	  {
+	    expand_start_bindings (2);
+	    target_temp_slot_level = temp_slot_level;
+
+	    expand_decl_cleanup (NULL_TREE, finally_block);
+	    op0 = expand_expr (try_block, target, tmode, modifier);
+
+	    preserve_temp_slots (op0);
+	    expand_end_bindings (NULL_TREE, 0, 0);
+	  }
+
 	return op0;
       }
 

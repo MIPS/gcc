@@ -1397,11 +1397,15 @@ AIX:
 @uref{http://freeware.bull.net,,Bull's Freeware and Shareware Archive for AIX};
 
 @item
-@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX};
+@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX}.
 @end itemize
 
 @item
-DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP};
+DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP}.
+
+@item
+Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
+Development Tools for the Hitachi H8/300[HS] Series}.
 
 @item
 HP-UX:
@@ -1415,13 +1419,16 @@ HP-UX:
 
 @item
 @uref{http://www.sco.com/skunkware/devtools/index.html#gcc,,SCO
-OpenServer/Unixware};
+OpenServer/Unixware}.
 
 @item
-Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware};
+Sinix/Reliant Unix---@uref{ftp://ftp.siemens.de/sni/mr/pd/gnu/gcc,,Siemens}.
+ 
+@item
+Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware}.
 
 @item
-SGI---@uref{http://freeware.sgi.com/,,SGI Freeware};
+SGI---@uref{http://freeware.sgi.com/,,SGI Freeware}.
 
 @item
 Windows 95, 98, and NT:
@@ -1436,10 +1443,6 @@ The @uref{http://www.mingw.org/,,MinGW} project.
 @uref{ftp://ftp.thewrittenword.com/packages/free/by-name/,,The
 Written Word} offers binaries for Solaris 2.5.1, 2.6, 2.7/SPARC, 2.7/Intel,
 IRIX 6.2, 6.5, Digital UNIX 4.0D, HP-UX 10.20, and HP-UX 11.00.
-
-@item
-Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
-Development Tools for the Hitachi H8/300[HS] Series}
 
 @end itemize
 
@@ -1539,6 +1542,8 @@ GNU Compiler Collection on your machine.
 @uref{#*-lynx-lynxos,,*-lynx-lynxos}
 @item
 @uref{#*-ibm-aix*,,*-ibm-aix*}
+@item
+@uref{#ip2k-*-elf,,ip2k-*-elf}
 @item
 @uref{#m32r-*-elf,,m32r-*-elf}
 @item
@@ -2380,6 +2385,17 @@ switch and using the configure option @option{--with-cpu-@var{cpu_type}}.
 </p>
 <hr>
 @end html
+@heading @anchor{ip2k-*-elf}ip2k-*-elf
+Ubicom IP2022 micro controller.
+This configuration is intended for embedded systems.
+There are no standard Unix configurations.
+
+Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
+
+@html
+</p>
+<hr>
+@end html
 @heading @anchor{m32r-*-elf}m32r-*-elf
 Mitsubishi M32R processor.
 This configuration is intended for embedded systems.
@@ -2693,7 +2709,7 @@ its maximum of 262144 bytes.  If you have root access, you can use the
 GCC does not correctly pass/return structures which are
 smaller than 16 bytes and which are not 8 bytes.  The problem is very
 involved and difficult to fix.  It affects a number of other targets also,
-but IRIX 6 is affected the most, because it is a 64 bit target, and 4 byte
+but IRIX 6 is affected the most, because it is a 64-bit target, and 4 byte
 structures are common.  The exact problem is that structures are being padded
 at the wrong end, e.g.@: a 4 byte structure is loaded into the lower 4 bytes
 of the register when it should be loaded into the upper 4 bytes of the
@@ -2843,7 +2859,7 @@ S/390 system running Linux for S/390@.
 <hr>
 @end html
 @heading @anchor{s390x-*-linux*}s390x-*-linux*
-zSeries system (64 Bit) running Linux for zSeries@.
+zSeries system (64-bit) running Linux for zSeries@.
 
 @html
 </p>
@@ -3124,7 +3140,7 @@ respects, this target is the same as the
 </p>
 <hr>
 @end html
-@heading @anchor{windows}Microsoft Windows (32 bit)
+@heading @anchor{windows}Microsoft Windows (32-bit)
 
 A port of GCC 2.95.x is included with the
 @uref{http://www.cygwin.com/,,Cygwin environment}.

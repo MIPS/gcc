@@ -43,26 +43,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    virtual regs here because the simplify_*_operation routines are called
    by integrate.c, which is called before virtual register instantiation.
 
-   ?!? FIXED_BASE_PLUS_P and NONZERO_BASE_PLUS_P need to move into
+   ?!? NONZERO_BASE_PLUS_P needs to move into
    a header file so that their definitions can be shared with the
    simplification routines in simplify-rtx.c.  Until then, do not
-   change these macros without also changing the copy in simplify-rtx.c.  */
+   change this macro without also changing the copy in simplify-rtx.c.  */
 
-#define FIXED_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || ((X) == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
-/* Similar, but also allows reference to the stack pointer.
+/* Allows reference to the stack pointer.
 
    This used to include FIXED_BASE_PLUS_P, however, we can't assume that
    arg_pointer_rtx by itself is nonzero, because on at least one machine,
@@ -2075,6 +2061,28 @@ simplify_relational_operation (code, mode, op0, op1)
 	    return const0_rtx;
 	  break;
 
+	case LT:
+	  /* Optimize abs(x) < 0.0.  */
+	  if (trueop1 == CONST0_RTX (mode))
+	    {
+	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
+						       : trueop0;
+	      if (GET_CODE (tem) == ABS)
+		return const0_rtx;
+	    }
+	  break;
+
+	case GE:
+	  /* Optimize abs(x) >= 0.0.  */
+	  if (trueop1 == CONST0_RTX (mode) && !HONOR_NANS (mode))
+	    {
+	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
+						       : trueop0;
+	      if (GET_CODE (tem) == ABS)
+		return const1_rtx;
+	    }
+	  break;
+
 	default:
 	  break;
 	}
@@ -2271,19 +2279,78 @@ simplify_subreg (outermode, op, innermode, byte)
   /* Simplify subregs of vector constants.  */
   if (GET_CODE (op) == CONST_VECTOR)
     {
-      int offset = byte / UNITS_PER_WORD;
+      int elt_size = GET_MODE_SIZE (GET_MODE_INNER (innermode));
+      int offset = byte / elt_size;
       rtx elt;
 
-      /* This shouldn't happen, but let's not do anything stupid.  */
-      if (GET_MODE_INNER (innermode) != outermode)
+      if (GET_MODE_INNER (innermode) == outermode)
+	{
+	  elt = CONST_VECTOR_ELT (op, offset);
+
+	  /* ?? We probably don't need this copy_rtx because constants
+	     can be shared.  ?? */
+
+	  return copy_rtx (elt);
+	}
+      else if (GET_MODE_INNER (innermode) == GET_MODE_INNER (outermode)
+	       && GET_MODE_SIZE (innermode) > GET_MODE_SIZE (outermode))
+	{
+	  return (gen_rtx_CONST_VECTOR
+		  (outermode,
+		   gen_rtvec_v (GET_MODE_NUNITS (outermode),
+				&CONST_VECTOR_ELT (op, offset))));
+	}
+      else if (GET_MODE_CLASS (outermode) == MODE_INT
+	       && (GET_MODE_SIZE (outermode) % elt_size == 0))
+	{
+	  /* This happens when the target register size is smaller then
+	     the vector mode, and we synthesize operations with vectors
+	     of elements that are smaller than the register size.  */
+	  HOST_WIDE_INT sum = 0, high = 0;
+	  unsigned n_elts = (GET_MODE_SIZE (outermode) / elt_size);
+	  unsigned i = BYTES_BIG_ENDIAN ? offset : offset + n_elts - 1;
+	  unsigned step = BYTES_BIG_ENDIAN ? 1 : -1;
+	  int shift = BITS_PER_UNIT * elt_size;
+
+	  for (; n_elts--; i += step)
+	    {
+	      elt = CONST_VECTOR_ELT (op, i);
+	      if (GET_CODE (elt) == CONST_DOUBLE
+		  && GET_MODE_CLASS (GET_MODE (elt)) == MODE_FLOAT)
+		{
+		  elt = gen_lowpart_common (int_mode_for_mode (GET_MODE (elt)),
+					    elt);
+		  if (! elt)
+		    return NULL_RTX;
+		}
+	      if (GET_CODE (elt) != CONST_INT)
+		return NULL_RTX;
+	      high = high << shift | sum >> (HOST_BITS_PER_WIDE_INT - shift);
+	      sum = (sum << shift) + INTVAL (elt);
+	    }
+	  if (GET_MODE_BITSIZE (outermode) <= HOST_BITS_PER_WIDE_INT)
+	    return GEN_INT (trunc_int_for_mode (sum, outermode));
+	  else if (GET_MODE_BITSIZE (outermode) == 2* HOST_BITS_PER_WIDE_INT)
+	    return immed_double_const (high, sum, outermode);
+	  else
+	    return NULL_RTX;
+	}
+      else if (GET_MODE_CLASS (outermode) == MODE_INT
+	       && (elt_size % GET_MODE_SIZE (outermode) == 0))
+	{
+	  enum machine_mode new_mode
+	    = int_mode_for_mode (GET_MODE_INNER (innermode));
+	  int subbyte = byte % elt_size;
+
+	  op = simplify_subreg (new_mode, op, innermode, byte - subbyte);
+	    if (! op)
+	      return NULL_RTX;
+	  return simplify_subreg (outermode, op, new_mode, subbyte);
+	}
+      else if (GET_MODE_CLASS (outermode) != MODE_VECTOR_INT
+	       && GET_MODE_CLASS (outermode) != MODE_VECTOR_FLOAT)
+        /* This shouldn't happen, but let's not do anything stupid.  */
 	return NULL_RTX;
-
-      elt = CONST_VECTOR_ELT (op, offset);
-
-      /* ?? We probably don't need this copy_rtx because constants
-	 can be shared.  ?? */
-
-      return copy_rtx (elt);
     }
 
   /* Attempt to simplify constant to non-SUBREG expression.  */
@@ -2291,6 +2358,22 @@ simplify_subreg (outermode, op, innermode, byte)
     {
       int offset, part;
       unsigned HOST_WIDE_INT val = 0;
+
+      if (GET_MODE_CLASS (outermode) == MODE_VECTOR_INT
+	  || GET_MODE_CLASS (outermode) == MODE_VECTOR_FLOAT)
+	{
+	  /* Construct a CONST_VECTOR from individual subregs.  */
+	  enum machine_mode submode = GET_MODE_INNER (outermode);
+	  int subsize = GET_MODE_UNIT_SIZE (outermode);
+	  int i, elts = GET_MODE_NUNITS (outermode);
+	  rtvec v = rtvec_alloc (elts);
+
+	  for (i = 0; i < elts; i++, byte += subsize)
+	    {
+	      RTVEC_ELT (v, i) = simplify_subreg (submode, op, innermode, byte);
+	    }
+	  return gen_rtx_CONST_VECTOR (outermode, v);
+	}
 
       /* ??? This code is partly redundant with code below, but can handle
 	 the subregs of floats and similar corner cases.

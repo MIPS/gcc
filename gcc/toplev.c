@@ -1,4 +1,3 @@
-
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
@@ -95,11 +94,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
 
+extern void reg_alloc PARAMS ((void));
+
 static void general_init PARAMS ((char *));
-static void parse_options_and_default_flags PARAMS ((int, char **));
-static void do_compile PARAMS ((void));
+static bool parse_options_and_default_flags PARAMS ((int, char **));
+static void do_compile PARAMS ((int));
 static void process_options PARAMS ((void));
-static void lang_independent_init PARAMS ((void));
+static void lang_independent_init PARAMS ((int));
 static int lang_dependent_init PARAMS ((const char *));
 static void init_asm_output PARAMS ((const char *));
 static void finalize PARAMS ((void));
@@ -865,6 +866,9 @@ int flag_merge_constants = 1;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+/* If nonzero, use the graph coloring register allocator.  */
+int flag_new_regalloc = 0;
+
 /* Nonzero if we perform superblock formation.  */
 
 int flag_tracer = 0;
@@ -1173,6 +1177,8 @@ static const lang_independent_options f_options[] =
    N_("Report on permanent memory allocation at end of run") },
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
+  { "new-ra", &flag_new_regalloc, 1,
+   N_("Use graph coloring register allocation.") },
 };
 
 /* Table of language-specific options.  */
@@ -1189,7 +1195,7 @@ documented_lang_options[] =
      enabled by default.  */
 
   { "-ansi",
-    N_("Compile just for ISO C89") },
+    N_("Compile just for ISO C90") },
   { "-std= ",
     N_("Determine language standard") },
 
@@ -1549,7 +1555,8 @@ set_Wunused (setting)
    -ffast-math and -fno-fast-math imply.  */
 
 void
-set_fast_math_flags (int set)
+set_fast_math_flags (set)
+     int set;
 {
   flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
@@ -2870,6 +2877,8 @@ rest_of_compilation (decl)
 
   if (optimize > 0 && flag_loop_optimize)
     {
+      int do_unroll, do_prefetch;
+
       timevar_push (TV_LOOP);
       delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
@@ -2877,12 +2886,15 @@ rest_of_compilation (decl)
       /* CFG is no longer maintained up-to-date.  */
       free_bb_for_insn ();
 
+      do_unroll = flag_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
+      do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
       if (flag_rerun_loop_opt)
 	{
 	  cleanup_barriers ();
 
 	  /* We only want to perform unrolling once.  */
-	  loop_optimize (insns, rtl_dump_file, LOOP_FIRST_PASS);
+	  loop_optimize (insns, rtl_dump_file, do_unroll);
+	  do_unroll = 0;
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
@@ -2895,9 +2907,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 1);
 	}
       cleanup_barriers ();
-      loop_optimize (insns, rtl_dump_file,
-		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT
-		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
+      loop_optimize (insns, rtl_dump_file, do_unroll | LOOP_BCT | do_prefetch);
 
       /* Loop can create trivially dead instructions.  */
       delete_trivially_dead_insns (insns, max_reg_num ());
@@ -3038,7 +3048,7 @@ rest_of_compilation (decl)
   if (optimize)
     {
       clear_bb_flags ();
-      if (initialize_uninitialized_subregs ())
+      if (!flag_new_regalloc && initialize_uninitialized_subregs ())
 	{
 	  /* Insns were inserted, so things might look a bit different.  */
 	  insns = get_insns ();
@@ -3173,60 +3183,101 @@ rest_of_compilation (decl)
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
 
-  /* Allocate the reg_renumber array.  */
-  allocate_reg_info (max_regno, FALSE, TRUE);
-
-  /* And the reg_equiv_memory_loc array.  */
-  reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
-
-  allocate_initial_values (reg_equiv_memory_loc);
-
-  regclass (insns, max_reg_num (), rtl_dump_file);
-  rebuild_label_notes_after_reload = local_alloc ();
-
-  timevar_pop (TV_LOCAL_ALLOC);
-
-  if (dump_file[DFI_lreg].enabled)
+  if (flag_new_regalloc)
     {
-      timevar_push (TV_DUMP);
+      delete_trivially_dead_insns (insns, max_reg_num ());
+      reg_alloc ();
 
-      dump_flow_info (rtl_dump_file);
-      dump_local_alloc (rtl_dump_file);
+      timevar_pop (TV_LOCAL_ALLOC);
+      if (dump_file[DFI_lreg].enabled)
+        {
+          timevar_push (TV_DUMP);
 
-      close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
-      timevar_pop (TV_DUMP);
-    }
+          close_dump_file (DFI_lreg, NULL, NULL);
+          timevar_pop (TV_DUMP);
+        }
 
-  ggc_collect ();
+      /* XXX clean up the whole mess to bring live info in shape again.  */
+      timevar_push (TV_GLOBAL_ALLOC);
+      open_dump_file (DFI_greg, decl);
 
-  timevar_push (TV_GLOBAL_ALLOC);
-  open_dump_file (DFI_greg, decl);
-
-  /* If optimizing, allocate remaining pseudo-regs.  Do the reload
-     pass fixing up any insns that are invalid.  */
-
-  if (optimize)
-    failure = global_alloc (rtl_dump_file);
-  else
-    {
       build_insn_chain (insns);
       failure = reload (insns, 0);
+
+      timevar_pop (TV_GLOBAL_ALLOC);
+
+      if (dump_file[DFI_greg].enabled)
+        {
+          timevar_push (TV_DUMP);
+
+          dump_global_regs (rtl_dump_file);
+
+          close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+          timevar_pop (TV_DUMP);
+        }
+
+      if (failure)
+        goto exit_rest_of_compilation;
+      reload_completed = 1;
+      rebuild_label_notes_after_reload = 0;
     }
-
-  timevar_pop (TV_GLOBAL_ALLOC);
-
-  if (dump_file[DFI_greg].enabled)
+  else
     {
-      timevar_push (TV_DUMP);
+      /* Allocate the reg_renumber array.  */
+      allocate_reg_info (max_regno, FALSE, TRUE);
 
-      dump_global_regs (rtl_dump_file);
+      /* And the reg_equiv_memory_loc array.  */
+      reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
 
-      close_dump_file (DFI_greg, print_rtl_with_bb, insns);
-      timevar_pop (TV_DUMP);
+      allocate_initial_values (reg_equiv_memory_loc);
+
+      regclass (insns, max_reg_num (), rtl_dump_file);
+      rebuild_label_notes_after_reload = local_alloc ();
+
+      timevar_pop (TV_LOCAL_ALLOC);
+
+      if (dump_file[DFI_lreg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_flow_info (rtl_dump_file);
+	  dump_local_alloc (rtl_dump_file);
+
+	  close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      ggc_collect ();
+
+      timevar_push (TV_GLOBAL_ALLOC);
+      open_dump_file (DFI_greg, decl);
+
+      /* If optimizing, allocate remaining pseudo-regs.  Do the reload
+	 pass fixing up any insns that are invalid.  */
+
+      if (optimize)
+	failure = global_alloc (rtl_dump_file);
+      else
+	{
+	  build_insn_chain (insns);
+	  failure = reload (insns, 0);
+	}
+
+      timevar_pop (TV_GLOBAL_ALLOC);
+
+      if (dump_file[DFI_greg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_global_regs (rtl_dump_file);
+
+	  close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      if (failure)
+	goto exit_rest_of_compilation;
     }
-
-  if (failure)
-    goto exit_rest_of_compilation;
 
   ggc_collect ();
 
@@ -4583,6 +4634,8 @@ general_init (argv0)
 
   xmalloc_set_program_name (progname);
 
+  hex_init ();
+
   gcc_init_libintl ();
 
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
@@ -4613,8 +4666,10 @@ general_init (argv0)
 /* Parse command line options and set default flag values, called
    after language-independent option-independent initialization.  Do
    minimal options processing.  Outputting diagnostics is OK, but GC
-   and identifier hashtables etc. are not initialized yet.  */
-static void
+   and identifier hashtables etc. are not initialized yet.
+
+   Return non-zero to suppress compiler back end initialization.  */
+static bool
 parse_options_and_default_flags (argc, argv)
      int argc;
      char **argv;
@@ -4845,7 +4900,7 @@ parse_options_and_default_flags (argc, argv)
 
   /* All command line options have been parsed; allow the front end to
      perform consistency checks, etc.  */
-  (*lang_hooks.post_options) ();
+  return (*lang_hooks.post_options) ();
 }
 
 /* Process the options that have been parsed.  */
@@ -5024,13 +5079,17 @@ process_options ()
 /* Language-independent initialization, before language-dependent
    initialization.  */
 static void
-lang_independent_init ()
+lang_independent_init (no_backend)
+     int no_backend;
 {
   /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
 
   init_stringpool ();
   init_obstacks ();
+
+  if (no_backend)
+    return;
 
   /* init_emit_once uses reg_raw_mode and therefore must be called
      after init_regs which initialized reg_raw_mode.  */
@@ -5084,7 +5143,12 @@ lang_dependent_init (name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+
+  /* The following initialization functions need to generate rtl, so
+     provide a dummy function context for them.  */
+  init_dummy_function_start ();
   init_expr_once ();
+  expand_dummy_function_end ();
 
   /* Put an entry on the input file stack for the main input file.  */
   push_srcloc (input_filename, 0);
@@ -5166,7 +5230,8 @@ finalize ()
 
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile ()
+do_compile (no_backend)
+     int no_backend;
 {
   /* The bulk of command line switch processing.  */
   process_options ();
@@ -5177,8 +5242,8 @@ do_compile ()
   timevar_start (TV_TOTAL);
 
   /* Language-independent initialization.  Also sets up GC, identifier
-     hashes etc.  */
-  lang_independent_init ();
+     hashes etc., and the back-end if requested.  */
+  lang_independent_init (no_backend);
 
   /* Language-dependent initialization.  Returns true on success.  */
   if (lang_dependent_init (filename))
@@ -5203,18 +5268,18 @@ toplev_main (argc, argv)
      int argc;
      char **argv;
 {
-  hex_init ();
+  bool no_backend;
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */
-  parse_options_and_default_flags (argc, argv);
+  no_backend = parse_options_and_default_flags (argc, argv);
 
   /* Exit early if we can (e.g. -help).  */
   if (!errorcount && !exit_after_options)
-    do_compile ();
+    do_compile (no_backend);
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);

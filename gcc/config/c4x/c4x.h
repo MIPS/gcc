@@ -35,7 +35,8 @@
 	builtin_define ("_BIGMODEL");		\
       if (!TARGET_MEMPARM)			\
 	builtin_define ("_REGPARM");		\
-      if (flag_inline_functions)		\
+      if (flag_inline_functions			\
+	  || flag_inline_trees)			\
 	builtin_define ("_INLINE");		\
       if (TARGET_C3X)				\
 	{					\
@@ -1165,9 +1166,6 @@ CUMULATIVE_ARGS;
 
 /* Varargs handling.  */
 
-#define	EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  c4x_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   c4x_va_arg (valist, type)
 
@@ -1794,10 +1792,6 @@ do {						\
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	64 /* Actually only 40.  */
-
-/* Allow #sccs in preprocessor.  */
-
-#define SCCS_DIRECTIVE
 
 /* Output #ident as a .ident.  */
 

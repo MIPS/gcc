@@ -62,7 +62,6 @@ bits_headers = \
 	${bits_srcdir}/pthread_allocimpl.h \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
-	${bits_srcdir}/slice.h \
 	${bits_srcdir}/slice_array.h \
 	${bits_srcdir}/sstream.tcc \
 	${bits_srcdir}/stl_algo.h \
@@ -139,7 +138,6 @@ backward_headers = \
 	${backward_srcdir}/vector.h \
 	${backward_srcdir}/fstream.h \
 	${backward_srcdir}/strstream.h \
-	${backward_srcdir}/strstream \
 	${backward_srcdir}/backward_warning.h
 
 ext_srcdir = ${glibcpp_srcdir}/include/ext

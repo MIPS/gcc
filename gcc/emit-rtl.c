@@ -964,6 +964,11 @@ gen_lowpart_common (mode, x)
 	  > ((xsize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)))
     return 0;
 
+  /* Don't allow generating paradoxical FLOAT_MODE subregs.  */
+  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+      && GET_MODE (x) != VOIDmode && msize > xsize)
+    return 0;
+
   offset = subreg_lowpart_offset (mode, GET_MODE (x));
 
   if ((GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND)
@@ -986,7 +991,7 @@ gen_lowpart_common (mode, x)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG || GET_CODE (x) == REG
-	   || GET_CODE (x) == CONCAT)
+	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR)
     return simplify_gen_subreg (mode, x, GET_MODE (x), offset);
   /* If X is a CONST_INT or a CONST_DOUBLE, extract the appropriate bits
      from the low-order part of the constant.  */
@@ -1800,7 +1805,17 @@ set_mem_attributes (ref, t, objectp)
 	    }
 	  while (TREE_CODE (t) == ARRAY_REF);
 
-	  if (TREE_CODE (t) == COMPONENT_REF)
+	  if (DECL_P (t))
+	    {
+	      expr = t;
+	      if (host_integerp (off_tree, 1))
+		offset = GEN_INT (tree_low_cst (off_tree, 1));
+	      size = (DECL_SIZE_UNIT (t)
+		      && host_integerp (DECL_SIZE_UNIT (t), 1)
+		      ? GEN_INT (tree_low_cst (DECL_SIZE_UNIT (t), 1)) : 0);
+	      align = DECL_ALIGN (t);
+	    }
+	  else if (TREE_CODE (t) == COMPONENT_REF)
 	    {
 	      expr = component_ref_for_mem_expr (t);
 	      if (host_integerp (off_tree, 1))
@@ -1808,6 +1823,23 @@ set_mem_attributes (ref, t, objectp)
 	      /* ??? Any reason the field size would be different than
 		 the size we got from the type?  */
 	    }
+	  else if (flag_argument_noalias > 1
+		   && TREE_CODE (t) == INDIRECT_REF
+		   && TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL)
+	    {
+	      expr = t;
+	      offset = NULL;
+	    }
+	}
+
+      /* If this is a Fortran indirect argument reference, record the
+	 parameter decl.  */
+      else if (flag_argument_noalias > 1
+	       && TREE_CODE (t) == INDIRECT_REF
+	       && TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL)
+	{
+	  expr = t;
+	  offset = NULL;
 	}
     }
 
@@ -2180,14 +2212,8 @@ widen_memory_access (memref, mode, offset)
 rtx
 gen_label_rtx ()
 {
-  rtx label;
-
-  label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX, NULL_RTX,
-		  	      NULL, label_num++, NULL, NULL);
-
-  LABEL_NUSES (label) = 0;
-  LABEL_ALTERNATE_NAME (label) = NULL;
-  return label;
+  return gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX, NULL_RTX,
+		  	     NULL, label_num++, NULL);
 }
 
 /* For procedure integration.  */
@@ -5183,8 +5209,24 @@ gen_const_vector_0 (mode)
   for (i = 0; i < units; ++i)
     RTVEC_ELT (v, i) = CONST0_RTX (inner);
 
-  tem = gen_rtx_CONST_VECTOR (mode, v);
+  tem = gen_rtx_raw_CONST_VECTOR (mode, v);
   return tem;
+}
+
+/* Generate a vector like gen_rtx_raw_CONST_VEC, but use the zero vector when
+   all elements are zero.  */
+rtx
+gen_rtx_CONST_VECTOR (mode, v)
+     enum machine_mode mode;
+     rtvec v;
+{
+  rtx inner_zero = CONST0_RTX (GET_MODE_INNER (mode));
+  int i;
+
+  for (i = GET_MODE_NUNITS (mode) - 1; i >= 0; i--)
+    if (RTVEC_ELT (v, i) != inner_zero)
+      return gen_rtx_raw_CONST_VECTOR (mode, v);
+  return CONST0_RTX (mode);
 }
 
 /* Create some permanent unique rtl objects shared between all functions.
@@ -5281,7 +5323,7 @@ init_emit_once (line_numbers)
      tries to use these variables.  */
   for (i = - MAX_SAVED_CONST_INT; i <= MAX_SAVED_CONST_INT; i++)
     const_int_rtx[i + MAX_SAVED_CONST_INT] =
-      gen_rtx_raw_CONST_INT (VOIDmode, i);
+      gen_rtx_raw_CONST_INT (VOIDmode, (HOST_WIDE_INT) i);
 
   if (STORE_FLAG_VALUE >= - MAX_SAVED_CONST_INT
       && STORE_FLAG_VALUE <= MAX_SAVED_CONST_INT)

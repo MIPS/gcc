@@ -125,10 +125,6 @@ static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
-
 /* Most every one is fine with LIBRARY_PATH.  For some, it conflicts.  */
 #ifndef LIBRARY_PATH_ENV
 #define LIBRARY_PATH_ENV "LIBRARY_PATH"
@@ -646,7 +642,7 @@ proper position among the other output files.  */
 # define STARTFILE_PREFIX_SPEC ""
 #endif
 
-static const char *asm_debug = ASM_DEBUG_SPEC;
+static const char *asm_debug;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
 static const char *cc1_spec = CC1_SPEC;
@@ -691,9 +687,12 @@ static const char *cpp_unique_options =
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
-   only when preprocessing only to avoid duplication.  */
+   only when preprocessing only to avoid duplication.  We pass the cc1 spec
+   options to the preprocessor so that it the cc1 spec may manipulate
+   options used to set target flags.  Those special target flags settings may
+   in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %{std*} %{W*&pedantic*} %{w} %{m*} %{f*}\
+"%(cpp_unique_options) %1 %{std*} %{W*&pedantic*} %{w} %{m*} %{f*}\
  %{O*} %{undef}";
 
 /* This contains cpp options which are not passed when the preprocessor
@@ -1482,6 +1481,10 @@ init_spec ()
       next = sl;
     }
 #endif
+
+  /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
+     on ?: in file-scope variable initializations.  */
+  asm_debug = ASM_DEBUG_SPEC;
 
   for (i = ARRAY_SIZE (static_specs) - 1; i >= 0; i--)
     {
@@ -2345,7 +2348,7 @@ make_relative_prefix (progname, bin_prefix, prefix)
     {
       char *temp;
 
-      GET_ENV_PATH_LIST (temp, "PATH");
+      GET_ENVIRONMENT (temp, "PATH");
       if (temp)
 	{
 	  char *startp, *endp, *nstore;
@@ -2967,9 +2970,6 @@ const char **outfiles;
 /* Used to track if none of the -B paths are used.  */
 static int warn_B;
 
-/* Used to track if standard path isn't used and -b or -V is specified.  */
-static int warn_std;
-
 /* Gives value to pass as "warn" to add_prefix for standard prefixes.  */
 static int *warn_std_ptr = 0;
 
@@ -3165,7 +3165,7 @@ process_command (argc, argv)
   int j;
 #endif
 
-  GET_ENV_PATH_LIST (gcc_exec_prefix, "GCC_EXEC_PREFIX");
+  GET_ENVIRONMENT (gcc_exec_prefix, "GCC_EXEC_PREFIX");
 
   n_switches = 0;
   n_infiles = 0;
@@ -3278,7 +3278,7 @@ process_command (argc, argv)
   /* COMPILER_PATH and LIBRARY_PATH have values
      that are lists of directory names with colons.  */
 
-  GET_ENV_PATH_LIST (temp, "COMPILER_PATH");
+  GET_ENVIRONMENT (temp, "COMPILER_PATH");
   if (temp)
     {
       const char *startp, *endp;
@@ -3313,7 +3313,7 @@ process_command (argc, argv)
 	}
     }
 
-  GET_ENV_PATH_LIST (temp, LIBRARY_PATH_ENV);
+  GET_ENVIRONMENT (temp, LIBRARY_PATH_ENV);
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;
@@ -3346,7 +3346,7 @@ process_command (argc, argv)
     }
 
   /* Use LPATH like LIBRARY_PATH (for the CMU build program).  */
-  GET_ENV_PATH_LIST (temp, "LPATH");
+  GET_ENVIRONMENT (temp, "LPATH");
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;

@@ -1,4 +1,168 @@
+2002-07-19  Bo Thorsen  <bo@berlioz.suse.de>
+
+	* java/lang/ieeefp.h: Add x86-64 support.
+	* configure.in: Likewise.
+	* configure.host: Likewise.
+	* configure: Regenerated.
+	* sysdep/x86-64/locks.h: New file with x86-64 locks.
+
+2002-07-16  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/StreamTokenizer.java (pushBack): Update documentation.
+	(whitespaceChars): call resetChar().
+
+2002-07-15  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added new files.
+	* java/beans/ExceptionListener.java: Merged with Classpath.
+	* java/beans/PropertyChangeEvent.java: Merged with Classpath.
+	* java/beans/PropertyChangeListener.java: Merged with Classpath.
+	* java/beans/PropertyChangeListenerProxy.java: Merged with Classpath.
+	* java/beans/PropertyChangeSupport.java: Merged with Classpath.
+	* java/beans/VetoableChangeListener.java: Merged with Classpath.
+	* java/beans/VetoableChangeListenerProxy.java: Merged with Classpath.
+	* java/beans/VetoableChangeSupport.java: Merged with Classpath.
+
+2002-07-14  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/der/DEREncodingException.java,
+	gnu/java/security/provider/DERReader.java,
+	gnu/java/security/provider/DERWriter.java,
+	gnu/java/security/provider/DSAKeyPairGenerator.java,
+	gnu/java/security/provider/DSAParameterGenerator.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/provider/GnuDSAPrivateKey.java,
+	gnu/java/security/provider/GnuDSAPublicKey.java,
+	gnu/java/security/provider/MD5.java,
+	gnu/java/security/util/Prime.java: New files from Classpath.
+	* Makefile.am (ordinary_java_source_files): Add new files.
+	* Makefile.in: Regenerate.
+
+2002-07-14  C. Brian Jones <cbj@gnu.org>
+
+	* gnu/java/security/provider/DefaultPolicy.java
+	(getPermissions): do not maintain static class variable of
+	Permissions
+	* gnu/java/security/provider/SHA.java 
+	(engineUpdate): algorithm change
+	(engineDigest): algorithm change
+
+2002-07-12  Jesse Rosenstock  <jmr@fulcrummicro.com>
+
+	For PR libgcj/7292:
+	* java/lang/Character.java (toString(char)): Now static.
+
+2002-07-12  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/natThrowable.cc (printRawStackTrace): removed.
+	(getStackTrace0): new method.
+	* java/lang/Throwable.java (CPlusPlusDemangler): removed.
+	(printStackTrace(PrintWriter)): replace with pure java implementation.
+	(printRawStackTrace): removed.
+	(getStackTrace0): new method.
+	* java/lang/StackTraceElement.java (toString): add extra whitespace.
+	* gcj/javaprims.h: regenerate class list.
+	* include/name-finder.h (lookup): new returns StackTraceElement*.
+	(method_name, file_name): fields removed.
+	(pid2, f2_pipe, b2_pipe, b2_pipe_fd): new fields.
+	(~_Jv_name_finder): close new descriptors.
+	* name-finder.cc(_Jv_name_finder): setup c++filt helper process.
+	(createStackTraceElement): new method.
+	(lookup): returns StackTraceElement*, uses createStackTraceElement().
+
+2002-07-10  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in: Use `test' after `&&'.  From Chris Faylor.
+
+2002-07-08  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: Don't compile java.sql.Blob.BlobTest,
+	java.sql.Clob.ClobTest, java.sql.Connection.TestJdbc20,
+	java.sql.DatabaseMetaData.TestJdbc20
+
+2002-07-05  Tony Kimball  <alk@pobox.com>
+
+	* java/lang/natRuntime.cc (nativeGetLibname): Added missing `#'.
+
+2002-07-04  Tom Tromey  <tromey@redhat.com>
+            Jeff Sturm  <jsturm@one-point.com>
+
+	Fix for PR libgcj/7060:
+	* java/lang/Class.h (_getMethod): Renamed from getMethod.
+	* java/lang/natClass.cc (_getMethod): Renamed from getMethod.
+	Recurse into superinterfaces.  Don't throw NoSuchMethodException.
+	* java/lang/Class.java (getMethod): New Java implementation;
+	complies with spec.
+	(_getMethod): New native method.
+
+2002-07-02  Tom Tromey  <tromey@redhat.com>
+            David Hovemeyer  <daveho@cs.umd.edu>
+
+	* java/text/ChoiceFormat.java
+	(format(double,StringBuffer,FieldPosition)): Fix fencepost error
+	in check loop.
+	* java/text/MessageFormat.java
+	(format(Object[],StringBuffer,FieldPosition): Pass all arguments
+	to MessageFormat.
+
+2002-07-01  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/spi/NamingManager.java (getPlusPath): Don't create
+	StringTokenizer on null string.  For PR libgcj/7180.
+	From daveho@cs.umd.edu.
+
+2002-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (BooleanClass): Removed.
+	(IntegerClass): Likewise.
+	* java/lang/natClass.cc (CloneableClass): Removed.
+	(ObjectClass, ErrorClass, ClassClass, MethodClass, FieldClass,
+	ConstructorClass): Likewise.
+	* java/lang/natClassLoader.cc (CloneableClass): Removed.
+	(ObjectClass, ClassClass, VMClassLoaderClass, ClassLoaderClass,
+	SerializableClass): Likewise.
+	* java/lang/reflect/natMethod.cc (BooleanClass): Removed.
+	(VoidClass, ByteClass, ShortClass, CharacterClass, IntegerClass,
+	LongClass, FloatClass, DoubleClass): Likewise.
+
+	* verify.cc (branch_prepass): Updated for change to exception
+	handler type.
+	(verify_instructions_0): Likewise.
+	* defineclass.cc (handleCodeAttribute): Initialize `prepared'.
+	(handleExceptionTableEntry): Updated for change to exception
+	handler type.
+	* java/lang/Class.h (Class): Removed _Jv_InterpMethodInvocation.
+	* include/java-interp.h (_Jv_InterpMethodInvocation): Removed.
+	(union _Jv_InterpPC): New.
+	(class _Jv_InterpException): Changed types to _Jv_InterpPC.
+	(class _Jv_InterpMethod): Added new `prepared' field.
+	(class _Jv_InterpMethod): Added `compile' method.  Removed
+	`continue1' and `find_exception'.  Changed arguments to `run'.
+	* interpret.cc (union insn_slot): New.
+	(find_exception): Removed.
+	(run_normal): Removed most logic.
+	(run_synch_object): Likewise; also, use JvSynchronize.
+	(run_synch_class): Likewise.
+	(run): Removed.
+	(continue1): Renamed as `run'.  Compile bytecode if required.
+	Add new code to allow refinement of direct-threaded code at
+	runtime.  Handle exceptions.
+	(SAVE_PC): Removed.
+	(compile): New method.
+	(SET_ONE, SET_INSN, SET_INT, SET_DATUM): New defines.
+	(NULLARRAYCHECK): Don't use SAVE_PC.
+	(pc_t): New typedef.
+	(TAKE_GOTO, GET1S, GET1U, GET2U, AVAL1U, AVAL2U, AVAL2UP,
+	SKIP_GOTO, GOTO_VAL, PCVAL, AMPAMP): New macros.
+
 2002-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in (INTERPRETER): New subst.
+	(AM_RUNTESTFLAGS): Don't subst.
 
 	* Makefile.in: Rebuilt.
 	* Makefile.am ($(srcdir)/java/lang/Object.h,

@@ -85,20 +85,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Machine dependent cpp options.  */
 
-/* The sequence here allows us to get a more specific version number
-   glued into __APPLE_CC__.  Normally this number would be updated as
-   part of submitting to a release engineering organization.  */
-
-#ifndef APPLE_CC
-#define APPLE_CC 999
-#endif
-
-#define STRINGIFY_THIS(x) # x
-#define REALLY_STRINGIFY(x) STRINGIFY_THIS(x)
-
 #undef	CPP_SPEC
-#define CPP_SPEC "-D__APPLE_CC__=" REALLY_STRINGIFY(APPLE_CC) "	\
-		  %{static:-D__STATIC__}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC "%{static:-D__STATIC__}%{!static:-D__DYNAMIC__}"
 
 /* Machine dependent libraries.  */
 
@@ -114,10 +102,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	DOLLARS_IN_IDENTIFIERS
 #define DOLLARS_IN_IDENTIFIERS 2
-
-/* Allow #sccs (but don't do anything). */
-
-#define SCCS_DIRECTIVE
 
 /* We use Dbx symbol format.  */
 
@@ -177,7 +161,14 @@ do { text_section ();							\
       }								\
   } while (0)
 
-/* Give ObjcC methods pretty symbol names. */
+#undef ASM_OUTPUT_LABEL
+#define ASM_OUTPUT_LABEL(FILE,NAME)	\
+  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
+
+#define ASM_OUTPUT_SKIP(FILE,SIZE)  \
+  fprintf (FILE, "\t.space %d\n", SIZE)
+
+/* Give ObjC methods pretty symbol names. */
 
 #undef	OBJC_GEN_METHOD_LABEL
 #define OBJC_GEN_METHOD_LABEL(BUF,IS_INST,CLASS_NAME,CAT_NAME,SEL_NAME,NUM) \
@@ -258,6 +249,15 @@ do { text_section ();							\
        else								     \
          fprintf (FILE, "_%s", xname);					     \
   } while (0)
+
+/* Output before executable code.  */
+#undef TEXT_SECTION_ASM_OP
+#define TEXT_SECTION_ASM_OP ".text"
+
+/* Output before writable data.  */
+
+#undef DATA_SECTION_ASM_OP
+#define DATA_SECTION_ASM_OP ".data"
 
 #undef	ALIGN_ASM_OP
 #define ALIGN_ASM_OP		".align"
@@ -625,3 +625,8 @@ enum machopic_addr_class {
     cpp_register_pragma (PFILE, 0, "segment", darwin_pragma_ignore);	\
     cpp_register_pragma (PFILE, 0, "unused", darwin_pragma_unused);	\
   } while (0)
+
+#undef ASM_APP_ON
+#define ASM_APP_ON ""
+#undef ASM_APP_OFF
+#define ASM_APP_OFF ""

@@ -211,7 +211,7 @@ extern const char *cris_elinux_stacksize_str;
 #define CRIS_LINK_SUBTARGET_SPEC \
  "-mcriself\
   %{sim2:%{!T*:-Tdata 0x4000000 -Tbss 0x8000000}}\
-  %{O2|O3: --gc-sections}"
+  %{!r:%{O2|O3: --gc-sections}}"
 
 /* Which library to get.  The only difference from the default is to get
    libsc.a if -sim is given to the driver.  Repeat -lc -lsysX
@@ -1044,8 +1044,7 @@ struct cum_args {int regs;};
       if (TARGET_PDEBUG)						\
 	{								\
 	  fprintf (asm_out_file,					\
-		   "\n; VA:: %s: %d args before, anon @ #%d, %dtime\n",	\
-		   current_function_varargs ? "OLD" : "ANSI",		\
+		   "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n", \
 		   (ARGSSF).regs, PRETEND, SECOND);			\
 	}								\
     }									\
@@ -1291,13 +1290,13 @@ struct cum_args {int regs;};
 	      something_reloaded = 1;					\
 	    }								\
 									\
-	  if (REG_P (XEXP (XEXP (X, 0), 0))				\
-	      && (REGNO (XEXP (XEXP (X, 0), 0))				\
+	  if (REG_P (XEXP (XEXP (XEXP (X, 0), 0), 0))			\
+	      && (REGNO (XEXP (XEXP (XEXP (X, 0), 0), 0))		\
 		  >= FIRST_PSEUDO_REGISTER))				\
 	    {								\
 	      /* First one is a pseudo - reload that.  */		\
-	      push_reload (XEXP (XEXP (X, 0), 0), NULL_RTX,		\
-			   &XEXP (XEXP (X, 0), 0), NULL, 		\
+	      push_reload (XEXP (XEXP (XEXP (X, 0), 0), 0), NULL_RTX,	\
+			   &XEXP (XEXP (XEXP (X, 0), 0), 0), NULL, 	\
 			   GENERAL_REGS,				\
 			   GET_MODE (X), VOIDmode, 0, 0, OPNUM, TYPE);	\
 	      something_reloaded = 1;					\

@@ -6163,8 +6163,7 @@ alpha_build_va_list ()
 }
 
 void
-alpha_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+alpha_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {
@@ -6175,7 +6174,7 @@ alpha_va_start (stdarg_p, valist, nextarg)
     return;
 
   if (TARGET_ABI_UNICOSMK)
-    std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+    std_expand_builtin_va_start (valist, nextarg);
 
   /* For Unix, SETUP_INCOMING_VARARGS moves the starting address base
      up by 48, storing fp arg registers in the first 48 bytes, and the
@@ -6186,7 +6185,7 @@ alpha_va_start (stdarg_p, valist, nextarg)
      in order to account for the integer arg registers which are counted
      in argsize above, but which are not actually stored on the stack.  */
 
-  if (NUM_ARGS <= 5 + stdarg_p)
+  if (NUM_ARGS <= 6)
     offset = TARGET_ABI_OPEN_VMS ? UNITS_PER_WORD : 6 * UNITS_PER_WORD;
   else
     offset = -6 * UNITS_PER_WORD;
@@ -6497,39 +6496,37 @@ alpha_init_builtins ()
   p = zero_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+			NULL, NULL_TREE);
 
-  ftype = build_function_type (long_integer_type_node,
-			       tree_cons (NULL_TREE,
-					  long_integer_type_node,
-					  void_list_node));
+  ftype = build_function_type_list (long_integer_type_node,
+				    long_integer_type_node, NULL_TREE);
 
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+			NULL, NULL_TREE);
 
-  ftype = build_function_type (long_integer_type_node,
-			       tree_cons (NULL_TREE,
-					  long_integer_type_node,
-					  tree_cons (NULL_TREE,
-						     long_integer_type_node,
-						     void_list_node)));
+  ftype = build_function_type_list (long_integer_type_node,
+				    long_integer_type_node,
+				    long_integer_type_node, NULL_TREE);
 
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+			NULL, NULL_TREE);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
   builtin_function ("__builtin_thread_pointer", ftype,
-		    ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD, NULL);
+		    ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+		    NULL, NULL_TREE);
 
-  ftype = build_function_type (void_type_node, tree_cons (NULL_TREE,
-							  ptr_type_node,
-							  void_list_node));
+  ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
   builtin_function ("__builtin_set_thread_pointer", ftype,
-		    ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD, NULL);
+		    ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
+		    NULL, NULL_TREE);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -6735,7 +6732,7 @@ alpha_sa_size ()
 
       alpha_procedure_type
 	= (sa_size || get_frame_size() != 0
-	   || current_function_outgoing_args_size || current_function_varargs
+	   || current_function_outgoing_args_size
 	   || current_function_stdarg || current_function_calls_alloca
 	   || frame_pointer_needed)
 	  ? PT_STACK : PT_REGISTER;

@@ -872,8 +872,8 @@ enum reg_class { NO_REGS, GLOBAL_REGS, LOCAL_REGS, LOCAL_OR_GLOBAL_REGS,
   (VALIST) = i960_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  i960_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  i960_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1150,9 +1150,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
-
-/* Allow and ignore #sccs directives.  */
-#define	SCCS_DIRECTIVE
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

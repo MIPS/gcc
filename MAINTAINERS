@@ -44,7 +44,7 @@ avr port		Denis Chertykov		denisc@overta.ru
 avr port		Marek Michalkiewicz	marekm@linux.org.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
-fr30 port		Nick Clifton		niclc@redhat.com
+fr30 port		Nick Clifton		nickc@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@hxi.com
 hppa port		Jeff Law		law@redhat.com
@@ -99,7 +99,7 @@ c++                     Mark Mitchell		mark@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
 cpplib			Zack Weinberg		zack@codesourcery.com
-cpplib			Neil Booth		neil@daikokuya.demon.co.uk
+cpplib			Neil Booth		neil@daikokuya.co.uk
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@redhat.com
 libgcj			Tom Tromey		tromey@redhat.com
@@ -145,6 +145,7 @@ RTEMS Ports		Joel Sherrill
 predict.def		Jan Hubicka		jh@suse.cz
 contrib/regression	Geoff Keating		geoffk@redhat.com
 treelang                Tim Josling             tej@melbpc.org.au
+new regalloc (ra*)	Michael Matz		matz@suse.de
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -188,7 +189,7 @@ Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Kaz Kojima					kkojima@gcc.gnu.org
-Matt Kraai					kraai@alumni.carnegiemellon.edu
+Matt Kraai					kraai@alumni.cmu.edu
 Ziemowit Laski					zlaski@apple.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
@@ -206,11 +207,13 @@ Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@redhat.com
+Nathanael Nerode				neroden@gcc.gnu.org
 Diego Novillo					dnovillo@redhat.com
 David O'Brien					obrien@FreeBSD.org
 Turly O'Connor					turly@apple.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
+Devang Patel					dpatel@apple.com
 Nicola Pero					n.pero@mi.flashnet.it
 Alexandre Petit-Bianco				apbianco@redhat.com
 Clinton Popetz					cpopetz@cpopetz.com
@@ -234,7 +237,7 @@ Franz Sirl					franz.sirl-kernel@lauterbach.com
 Danny Smith					dannysmith@users.sourceforge.net
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
-Graham Stott					grahams@redhat.com
+Graham Stott					graham.stott@btinternet.com
 Mike Stump					mrs@windriver.com
 Jeff Sturm					jsturm@gcc.gnu.org
 Ian Taylor					ian@zembu.com

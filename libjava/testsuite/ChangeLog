@@ -1,3 +1,27 @@
+2002-07-18  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* libjava.compile/compile.exp: Sort sources.
+	* libjava.jni/jni.exp (gcj_jni_run): Likewise.
+	* libjava.lang/lang.exp: Likewise.
+
+2002-07-02  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/inline.java: New file.
+	* libjava.lang/inline.out: Likewise.
+
+	* libjava.lang/Array_3.java: Add another case.
+
+2002-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (RUNTEST): Added AM_RUNTESTFLAGS.
+	(AM_RUNTESTFLAGS): New variable.
+	(RUNTESTFLAGS): Don't define.
+	* lib/libjava.exp (libjava_invoke): New proc.
+	(test_libjava_from_source): Use it.
+	(test_libjava_from_javac): Likewise.
+	(libjava_find_gij): New proc.
+
 2002-06-12  Tom Tromey  <tromey@redhat.com>
 
 	* lib/libjava.exp (test_libjava): Fixed typo.

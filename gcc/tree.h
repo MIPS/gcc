@@ -21,6 +21,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "machmode.h"
 #include "version.h"
+#include "location.h"
 
 /* Codes of tree nodes */
 
@@ -80,7 +81,7 @@ extern const char *const built_in_class_names[4];
 /* Codes that identify the various built in functions
    so that expand_call can identify them quickly.  */
 
-#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA) ENUM,
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT) ENUM,
 enum built_in_function
 {
 #include "builtins.def"
@@ -1449,8 +1450,9 @@ struct tree_type GTY(())
    was.  If the declaration appears in several places (as for a C
    function that is declared first and then defined later), this
    information should refer to the definition.  */
-#define DECL_SOURCE_FILE(NODE) (DECL_CHECK (NODE)->decl.filename)
-#define DECL_SOURCE_LINE(NODE) (DECL_CHECK (NODE)->decl.linenum)
+#define DECL_SOURCE_LOCATION(NODE) (DECL_CHECK (NODE)->decl.locus)
+#define DECL_SOURCE_FILE(NODE) (DECL_SOURCE_LOCATION (NODE).file)
+#define DECL_SOURCE_LINE(NODE) (DECL_SOURCE_LOCATION (NODE).line)
 /* Holds the size of the datum, in bits, as a tree expression.
    Need not be constant.  */
 #define DECL_SIZE(NODE) (DECL_CHECK (NODE)->decl.size)
@@ -1770,8 +1772,7 @@ struct function;
 struct tree_decl GTY(())
 {
   struct tree_common common;
-  const char *filename;
-  int linenum;
+  location_t locus;
   unsigned int uid;
   tree size;
   ENUM_BITFIELD(machine_mode) mode : 8;
@@ -2178,6 +2179,7 @@ extern tree build_index_type		PARAMS ((tree));
 extern tree build_index_2_type		PARAMS ((tree, tree));
 extern tree build_array_type		PARAMS ((tree, tree));
 extern tree build_function_type		PARAMS ((tree, tree));
+extern tree build_function_type_list	PARAMS ((tree, ...));
 extern tree build_method_type		PARAMS ((tree, tree));
 extern tree build_offset_type		PARAMS ((tree, tree));
 extern tree build_complex_type		PARAMS ((tree));
@@ -2723,9 +2725,9 @@ extern int all_types_permanent;
 
 /* Declare a predefined function.  Return the declaration.  This function is
    provided by each language frontend.  */
-extern tree builtin_function			PARAMS ((const char *, tree, int,
-						       enum built_in_class,
-						       const char *));
+extern tree builtin_function		PARAMS ((const char *, tree, int,
+					       enum built_in_class,
+					       const char *, tree));
 
 /* In tree.c */
 extern char *perm_calloc			PARAMS ((int, long));
@@ -2897,7 +2899,6 @@ extern void build_common_tree_nodes_2	PARAMS ((int));
 extern void setjmp_protect_args		PARAMS ((void));
 extern void setjmp_protect		PARAMS ((tree));
 extern void expand_main_function	PARAMS ((void));
-extern void mark_varargs		PARAMS ((void));
 extern void init_dummy_function_start	PARAMS ((void));
 extern void expand_dummy_function_end	PARAMS ((void));
 extern void init_function_for_compilation	PARAMS ((void));

@@ -132,11 +132,6 @@ template <typename _Tp, typename _Ref, typename _Ptr>
   reference operator*() const { return *_M_cur; }
   pointer operator->() const { return _M_cur; }
 
-  difference_type operator-(const _Self& __x) const {
-    return difference_type(_S_buffer_size()) * (_M_node - __x._M_node - 1) +
-      (_M_cur - _M_first) + (__x._M_last - __x._M_cur);
-  }
-
   _Self& operator++() {
     ++_M_cur;
     if (_M_cur == _M_last) {
@@ -318,6 +313,22 @@ operator>=(const _Deque_iterator<_Tp, _RefL, _PtrL>& __x,
   return !(__x < __y);
 }
 
+// _GLIBCPP_RESOLVE_LIB_DEFECTS
+// According to the resolution of DR179 not only the various comparison
+// operators but also operator- must accept mixed iterator/const_iterator
+// parameters.
+template <typename _Tp, typename _RefL, typename _PtrL,
+                        typename _RefR, typename _PtrR>
+inline typename _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
+operator-(const _Deque_iterator<_Tp, _RefL, _PtrL>& __x,
+	  const _Deque_iterator<_Tp, _RefR, _PtrR>& __y)
+{
+  return _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
+    (_Deque_iterator<_Tp, _RefL, _PtrL>::_S_buffer_size()) *
+    (__x._M_node - __y._M_node - 1) + (__x._M_cur - __x._M_first) +
+    (__y._M_last - __y._M_cur);
+}
+
 template <typename _Tp, typename _Ref, typename _Ptr>
 inline _Deque_iterator<_Tp, _Ref, _Ptr>
 operator+(ptrdiff_t __n, const _Deque_iterator<_Tp, _Ref, _Ptr>& __x)
@@ -374,10 +385,10 @@ protected:
   _M_deallocate_map(_Tp** __p, size_t __n) 
     { _M_map_allocator.deallocate(__p, __n); }
 
-  _Tp**                _M_map;
-  size_t               _M_map_size;
   allocator_type       _M_node_allocator;
   _Map_allocator_type  _M_map_allocator;
+  _Tp**                _M_map;
+  size_t               _M_map_size;
 };
 
 /// @if maint Specialization for instanceless allocators.  @endif
@@ -718,7 +729,7 @@ public:
    *  @param  first  An input iterator.
    *  @param  last  An input iterator.
    * 
-   *  Creats a %deque consisting of copies of the elements from [first,last).
+   *  Create a %deque consisting of copies of the elements from [first,last).
    *
    *  If the iterators are forward, bidirectional, or random-access, then
    *  this will call the elements' copy constructor N times (where N is
@@ -1023,7 +1034,7 @@ public:
    *  of a %deque this operation can be done in constant time.  You should
    *  consider using push_front(value_type()) instead.
    *
-   *  @note This was deprecated in 3.2 and will be removed in 3.3.  You must
+   *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
    *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
    *        c++config.h.
   */
@@ -1067,7 +1078,7 @@ public:
    *  of a %deque this operation can be done in constant time.  You should
    *  consider using push_back(value_type()) instead.
    *
-   *  @note This was deprecated in 3.2 and will be removed in 3.3.  You must
+   *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
    *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
    *        c++config.h.
   */
@@ -1143,7 +1154,7 @@ public:
    *  specified location.  You should consider using
    *  insert(position,value_type()) instead.
    *
-   *  @note This was deprecated in 3.2 and will be removed in 3.3.  You must
+   *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
    *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
    *        c++config.h.
   */

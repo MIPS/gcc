@@ -162,6 +162,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"
 #include "ggc.h"
 #include "params.h"
+#include "cselib.h"
 
 #include "obstack.h"
 #define obstack_chunk_alloc gmalloc
@@ -613,9 +614,10 @@ static int cprop_jump		PARAMS ((basic_block, rtx, rtx, rtx, rtx));
 static void mems_conflict_for_gcse_p PARAMS ((rtx, rtx, void *));
 static int load_killed_in_block_p    PARAMS ((basic_block, int, rtx, int));
 static void canon_list_insert        PARAMS ((rtx, rtx, void *));
-static int cprop_insn		PARAMS ((basic_block, rtx, int));
+static int cprop_insn		PARAMS ((rtx, int));
 static int cprop		PARAMS ((int));
 static int one_cprop_pass	PARAMS ((int, int));
+static bool constprop_register	PARAMS ((rtx, rtx, rtx, int));
 static struct expr *find_bypass_set PARAMS ((int, int));
 static int bypass_block		    PARAMS ((basic_block, rtx, rtx));
 static int bypass_conditional_jumps PARAMS ((void));
@@ -701,6 +703,8 @@ static void free_insn_expr_list_list	PARAMS ((rtx *));
 static void clear_modify_mem_tables	PARAMS ((void));
 static void free_modify_mem_tables	PARAMS ((void));
 static rtx gcse_emit_move_after		PARAMS ((rtx, rtx, rtx));
+static bool do_local_cprop		PARAMS ((rtx, rtx, int));
+static void local_cprop_pass		PARAMS ((int));
 
 /* Entry point for global common subexpression elimination.
    F is the first instruction in the function.  */
@@ -3971,24 +3975,27 @@ try_replace_reg (from, to, insn)
   int success = 0;
   rtx set = single_set (insn);
 
-  success = validate_replace_src (from, to, insn);
-
-  /* If above failed and this is a single set, try to simplify the source of
-     the set given our substitution.  We could perhaps try this for multiple
-     SETs, but it probably won't buy us anything.  */
-  if (!success && set != 0)
+  if (reg_mentioned_p (from, PATTERN (insn)))
     {
+      success = validate_replace_src (from, to, insn);
+    }
+
+  if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
+    {
+      /* If above failed and this is a single set, try to simplify the source of
+	 the set given our substitution.  We could perhaps try this for multiple
+	 SETs, but it probably won't buy us anything.  */
       src = simplify_replace_rtx (SET_SRC (set), from, to);
 
       if (!rtx_equal_p (src, SET_SRC (set))
 	  && validate_change (insn, &SET_SRC (set), src, 0))
 	success = 1;
-    }
 
-  /* If we've failed to do replacement, have a single SET, and don't already
-     have a note, add a REG_EQUAL note to not lose information.  */
-  if (!success && note == 0 && set != 0)
-    note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
+      /* If we've failed to do replacement, have a single SET, and don't already
+	 have a note, add a REG_EQUAL note to not lose information.  */
+      if (!success && note == 0 && set != 0)
+	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
+    }
 
   /* If there is already a NOTE, update the expression in it with our
      replacement.  */
@@ -4149,12 +4156,48 @@ cprop_jump (bb, setcc, jump, from, src)
   return 1;
 }
 
+static bool
+constprop_register (insn, from, to, alter_jumps)
+     rtx insn;
+     rtx from;
+     rtx to;
+     int alter_jumps;
+{
+  rtx sset;
+
+  /* Check for reg or cc0 setting instructions followed by
+     conditional branch instructions first.  */
+  if (alter_jumps
+      && (sset = single_set (insn)) != NULL
+      && any_condjump_p (NEXT_INSN (insn)) && onlyjump_p (NEXT_INSN (insn)))
+    {
+      rtx dest = SET_DEST (sset);
+      if ((REG_P (dest) || CC0_P (dest))
+	  && cprop_jump (BLOCK_FOR_INSN (insn), insn, NEXT_INSN (insn), from, to))
+	return 1;
+    }
+
+  /* Handle normal insns next.  */
+  if (GET_CODE (insn) == INSN
+      && try_replace_reg (from, to, insn))
+    return 1;
+
+  /* Try to propagate a CONST_INT into a conditional jump.
+     We're pretty specific about what we will handle in this
+     code, we can extend this as necessary over time.
+
+     Right now the insn in question must look like
+     (set (pc) (if_then_else ...))  */
+  else if (alter_jumps && any_condjump_p (insn) && onlyjump_p (insn))
+    return cprop_jump (BLOCK_FOR_INSN (insn), NULL, insn, from, to);
+  return 0;
+}
+
 /* Perform constant and copy propagation on INSN.
    The result is non-zero if a change was made.  */
 
 static int
-cprop_insn (bb, insn, alter_jumps)
-     basic_block bb;
+cprop_insn (insn, alter_jumps)
      rtx insn;
      int alter_jumps;
 {
@@ -4207,56 +4250,18 @@ cprop_insn (bb, insn, alter_jumps)
       /* Constant propagation.  */
       if (CONSTANT_P (src))
 	{
-	  rtx sset;
-
-	  /* Check for reg or cc0 setting instructions followed by
-	     conditional branch instructions first.  */
-	  if (alter_jumps
-	      && (sset = single_set (insn)) != NULL
-	      && any_condjump_p (NEXT_INSN (insn))
-	      && onlyjump_p (NEXT_INSN (insn)))
-	    {
-	      rtx dest = SET_DEST (sset);
-	      if ((REG_P (dest) || CC0_P (dest))
-		  && cprop_jump (bb, insn, NEXT_INSN (insn),
-				 reg_used->reg_rtx, src))
-		{
-		  changed = 1;
-		  break;
-		}
-	    }
-
-	  /* Handle normal insns next.  */
-	  if (GET_CODE (insn) == INSN
-	      && try_replace_reg (reg_used->reg_rtx, src, insn))
+          if (constprop_register (insn, reg_used->reg_rtx, src, alter_jumps))
 	    {
 	      changed = 1;
 	      const_prop_count++;
 	      if (gcse_file != NULL)
 		{
-		  fprintf (gcse_file, "CONST-PROP: Replacing reg %d in ",
-			   regno);
-		  fprintf (gcse_file, "insn %d with constant ",
-			   INSN_UID (insn));
+		  fprintf (gcse_file, "GLOBAL CONST-PROP: Replacing reg %d in ", regno);
+		  fprintf (gcse_file, "insn %d with constant ", INSN_UID (insn));
 		  print_rtl (gcse_file, src);
 		  fprintf (gcse_file, "\n");
 		}
-
-	      /* The original insn setting reg_used may or may not now be
-		 deletable.  We leave the deletion to flow.  */
 	    }
-
-	  /* Try to propagate a CONST_INT into a conditional jump.
-	     We're pretty specific about what we will handle in this
-	     code, we can extend this as necessary over time.
-
-	     Right now the insn in question must look like
-	     (set (pc) (if_then_else ...))  */
-	  else if (alter_jumps
-		   && any_condjump_p (insn)
-		   && onlyjump_p (insn))
-	    changed |= cprop_jump (bb, NULL, insn, reg_used->reg_rtx, src);
-
 	}
       else if (GET_CODE (src) == REG
 	       && REGNO (src) >= FIRST_PSEUDO_REGISTER
@@ -4268,7 +4273,7 @@ cprop_insn (bb, insn, alter_jumps)
 	      copy_prop_count++;
 	      if (gcse_file != NULL)
 		{
-		  fprintf (gcse_file, "COPY-PROP: Replacing reg %d in insn %d",
+		  fprintf (gcse_file, "GLOBAL COPY-PROP: Replacing reg %d in insn %d",
 			   regno, INSN_UID (insn));
 		  fprintf (gcse_file, " with reg %d\n", REGNO (src));
 		}
@@ -4283,6 +4288,105 @@ cprop_insn (bb, insn, alter_jumps)
     }
 
   return changed;
+}
+
+static bool
+do_local_cprop (x, insn, alter_jumps)
+     rtx x;
+     rtx insn;
+     int alter_jumps;
+{
+  rtx newreg = NULL, newcnst = NULL;
+
+  /* Rule out USE instructions and ASM statements as we don't want to change the hard
+     registers mentioned.  */
+  if (GET_CODE (x) == REG
+      && (REGNO (x) >= FIRST_PSEUDO_REGISTER
+          || (GET_CODE (PATTERN (insn)) != USE && asm_noperands (PATTERN (insn)) < 0)))
+    {
+      cselib_val *val = cselib_lookup (x, GET_MODE (x), 0);
+      struct elt_loc_list *l;
+
+      if (!val)
+	return false;
+      for (l = val->locs; l; l = l->next)
+	{
+	  rtx this_rtx = l->loc;
+	  rtx note;
+
+	  if (CONSTANT_P (this_rtx))
+	    newcnst = this_rtx;
+	  if (REG_P (this_rtx) && REGNO (this_rtx) >= FIRST_PSEUDO_REGISTER
+	      /* Don't copy propagate if it has attached REG_EQUIV note.
+		 At this point this only function parameters should have
+		 REG_EQUIV notes and if the argument slot is used somewhere
+		 explicitly, it means address of parameter has been taken,
+		 so we should not extend the lifetime of the pseudo.  */
+	      && (!(note = find_reg_note (l->setting_insn, REG_EQUIV, NULL_RTX))
+		  || GET_CODE (XEXP (note, 0)) != MEM))
+	    newreg = this_rtx;
+	}
+      if (newcnst && constprop_register (insn, x, newcnst, alter_jumps))
+	{
+	  if (gcse_file != NULL)
+	    {
+	      fprintf (gcse_file, "LOCAL CONST-PROP: Replacing reg %d in ",
+		       REGNO (x));
+	      fprintf (gcse_file, "insn %d with constant ",
+		       INSN_UID (insn));
+	      print_rtl (gcse_file, newcnst);
+	      fprintf (gcse_file, "\n");
+	    }
+	  const_prop_count++;
+	  return true;
+	}
+      else if (newreg && newreg != x && try_replace_reg (x, newreg, insn))
+	{
+	  if (gcse_file != NULL)
+	    {
+	      fprintf (gcse_file,
+		       "LOCAL COPY-PROP: Replacing reg %d in insn %d",
+		       REGNO (x), INSN_UID (insn));
+	      fprintf (gcse_file, " with reg %d\n", REGNO (newreg));
+	    }
+	  copy_prop_count++;
+	  return true;
+	}
+    }
+  return false;
+}
+
+static void
+local_cprop_pass (alter_jumps)
+     int alter_jumps;
+{
+  rtx insn;
+  struct reg_use *reg_used;
+
+  cselib_init ();
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn))
+	{
+	  rtx note = find_reg_equal_equiv_note (insn);
+
+	  do
+	    {
+	      reg_use_count = 0;
+	      note_uses (&PATTERN (insn), find_used_regs, NULL);
+	      if (note)
+		find_used_regs (&XEXP (note, 0), NULL);
+
+	      for (reg_used = &reg_use_table[0]; reg_use_count > 0;
+		   reg_used++, reg_use_count--)
+		if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps))
+		  break;
+	    }
+	  while (reg_use_count);
+	}
+      cselib_process_insn (insn);
+    }
+  cselib_finish ();
 }
 
 /* Forward propagate copies.  This includes copies and constants.  Return
@@ -4316,7 +4420,7 @@ cprop (alter_jumps)
 	   insn = NEXT_INSN (insn))
 	if (INSN_P (insn))
 	  {
-	    changed |= cprop_insn (bb, insn, alter_jumps);
+	    changed |= cprop_insn (insn, alter_jumps);
 
 	    /* Keep track of everything modified by this insn.  */
 	    /* ??? Need to be careful w.r.t. mods done to INSN.  Don't
@@ -4345,6 +4449,8 @@ one_cprop_pass (pass, alter_jumps)
 
   const_prop_count = 0;
   copy_prop_count = 0;
+
+  local_cprop_pass (alter_jumps);
 
   alloc_set_hash_table (max_cuid);
   compute_set_hash_table ();
@@ -5144,21 +5250,19 @@ gcse_emit_move_after (src, dest, insn)
      rtx src, dest, insn;
 {
   rtx new;
-  rtx set = single_set (insn);
+  rtx set = single_set (insn), set2;
   rtx note;
   rtx eqv;
 
   /* This should never fail since we're creating a reg->reg copy
      we've verified to be valid.  */
 
-  new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
-
-  /* want_to_gcse_p verifies that this move will be valid.  Still this call
-     is mandatory as it may create clobbers required by the pattern.  */
-  if (insn_invalid_p (insn))
-    abort ();
+  new = emit_insn_after (gen_move_insn (dest, src), insn);
 
   /* Note the equivalence for local CSE pass.  */
+  set2 = single_set (new);
+  if (!set2 || !rtx_equal_p (SET_DEST (set2), dest))
+    return new;
   if ((note = find_reg_equal_equiv_note (insn)))
     eqv = XEXP (note, 0);
   else
@@ -5881,6 +5985,8 @@ hoist_expr_reaches_here_p (expr_bb, expr_index, bb, visited)
 
       if (pred->src == ENTRY_BLOCK_PTR)
 	break;
+      else if (pred_bb == expr_bb)
+	continue;
       else if (visited[pred_bb->index])
 	continue;
 
@@ -5911,7 +6017,9 @@ static void
 hoist_code ()
 {
   basic_block bb, dominated;
-  unsigned int i;
+  basic_block *domby;
+  unsigned int domby_len;
+  unsigned int i,j;
   struct expr **index_map;
   struct expr *expr;
 
@@ -5932,24 +6040,25 @@ hoist_code ()
       int found = 0;
       int insn_inserted_p;
 
+      domby_len = get_dominated_by (dominators, bb, &domby);
       /* Examine each expression that is very busy at the exit of this
 	 block.  These are the potentially hoistable expressions.  */
       for (i = 0; i < hoist_vbeout[bb->index]->n_bits; i++)
 	{
 	  int hoistable = 0;
 
-	  if (TEST_BIT (hoist_vbeout[bb->index], i) && TEST_BIT (transpout[bb->index], i))
+	  if (TEST_BIT (hoist_vbeout[bb->index], i)
+	      && TEST_BIT (transpout[bb->index], i))
 	    {
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      FOR_EACH_BB (dominated)
+	      for (j = 0; j < domby_len; j++)
 		{
+		  dominated = domby[j];
 		  /* Ignore self dominance.  */
-		  if (bb == dominated
-		      || dominated_by_p (dominators, dominated, bb))
+		  if (bb == dominated)
 		    continue;
-
 		  /* We've found a dominated block, now see if it computes
 		     the busy expression and whether or not moving that
 		     expression to the "beginning" of that block is safe.  */
@@ -5982,10 +6091,12 @@ hoist_code ()
 		}
 	    }
 	}
-
       /* If we found nothing to hoist, then quit now.  */
       if (! found)
+        {
+  	  free (domby);
 	continue;
+	}
 
       /* Loop over all the hoistable expressions.  */
       for (i = 0; i < hoist_exprs[bb->index]->n_bits; i++)
@@ -6000,11 +6111,11 @@ hoist_code ()
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      FOR_EACH_BB (dominated)
+	      for (j = 0; j < domby_len; j++)
 		{
+		  dominated = domby[j];
 		  /* Ignore self dominance.  */
-		  if (bb == dominated
-		      || ! dominated_by_p (dominators, dominated, bb))
+		  if (bb == dominated)
 		    continue;
 
 		  /* We've found a dominated block, now see if it computes
@@ -6058,6 +6169,7 @@ hoist_code ()
 		}
 	    }
 	}
+      free (domby);
     }
 
   free (index_map);

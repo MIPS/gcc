@@ -225,7 +225,6 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_DEBUG_E	0		/* function_arg debug */
 #define MASK_DEBUG_F	0		/* ??? */
 #define MASK_DEBUG_G	0		/* don't support 64 bit arithmetic */
-#define MASK_DEBUG_H	0               /* allow ints in FP registers */
 #define MASK_DEBUG_I	0		/* unused */
 
 					/* Dummy switches used only in specs */
@@ -253,7 +252,6 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_DEBUG_E_MODE	(target_flags & MASK_DEBUG_E)
 #define TARGET_DEBUG_F_MODE	(target_flags & MASK_DEBUG_F)
 #define TARGET_DEBUG_G_MODE	(target_flags & MASK_DEBUG_G)
-#define TARGET_DEBUG_H_MODE	(target_flags & MASK_DEBUG_H)
 #define TARGET_DEBUG_I_MODE	(target_flags & MASK_DEBUG_I)
 
 					/* Reg. Naming in .s ($21 vs. $a0) */
@@ -561,10 +559,6 @@ extern void		sbss_section PARAMS ((void));
      N_("Work around early 4300 hardware bug")},			\
   {"no-fix4300",         -MASK_4300_MUL_FIX,				\
      N_("Don't work around early 4300 hardware bug")},			\
-  {"3900",		  0,				                \
-     N_("Optimize for 3900")},						\
-  {"4650",		  0,                    			\
-     N_("Optimize for 4650")},						\
   {"check-zero-division",-MASK_NO_CHECK_ZERO_DIV,			\
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
@@ -588,8 +582,6 @@ extern void		sbss_section PARAMS ((void));
   {"debugf",		  MASK_DEBUG_F,					\
      NULL},								\
   {"debugg",		  MASK_DEBUG_G,					\
-     NULL},								\
-  {"debugh",		  MASK_DEBUG_H,					\
      NULL},								\
   {"debugi",		  MASK_DEBUG_I,					\
      NULL},								\
@@ -786,6 +778,11 @@ extern void		sbss_section PARAMS ((void));
 				  || ISA_MIPS32				\
 				  || ISA_MIPS64)	       		\
 				 && !TARGET_MIPS16)
+
+/* True if trunc.w.s and trunc.w.d are real (not synthetic)
+   instructions.  Both require TARGET_HARD_FLOAT, and trunc.w.d
+   also requires TARGET_DOUBLE_FLOAT.  */
+#define ISA_HAS_TRUNC_W		(!ISA_MIPS1)
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -1044,16 +1041,6 @@ extern int mips_abi;
 #define SUBTARGET_CC1_SPEC ""
 #endif
 
-/* Deal with historic options.  */
-#ifndef CC1_CPU_SPEC
-#define CC1_CPU_SPEC "\
-%{!mcpu*: \
-%{m3900:-march=r3900 -mips1 -mfp32 -mgp32 \
-%n`-m3900' is deprecated. Use `-march=r3900' instead.\n} \
-%{m4650:-march=r4650 -mmad -msingle-float \
-%n`-m4650' is deprecated. Use `-march=r4650' instead.\n}}"
-#endif
-
 /* CC1_SPEC is the set of arguments to pass to the compiler proper.  */
 /* Note, we will need to adjust the following if we ever find a MIPS variant
    that has 32-bit GPRs and 64-bit FPRs as well as fix all of the reload bugs
@@ -1073,8 +1060,7 @@ extern int mips_abi;
 %{mgp32: %{mfp64:%emay not use both -mgp32 and -mfp64} %{!mfp32: -mfp32}} \
 %{G*} %{EB:-meb} %{EL:-mel} %{EB:%{EL:%emay not use both -EB and -EL}} \
 %{save-temps: } \
-%(subtarget_cc1_spec) \
-%(cc1_cpu_spec)"
+%(subtarget_cc1_spec)"
 #endif
 
 /* Preprocessor specs.  */
@@ -1099,7 +1085,6 @@ extern int mips_abi;
 
 #define EXTRA_SPECS							\
   { "subtarget_cc1_spec", SUBTARGET_CC1_SPEC },				\
-  { "cc1_cpu_spec", CC1_CPU_SPEC},                                      \
   { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },				\
   { "mips_as_asm_spec", MIPS_AS_ASM_SPEC },				\
   { "gas_asm_spec", GAS_ASM_SPEC },					\
@@ -2259,17 +2244,20 @@ extern enum reg_class mips_char_to_class[256];
 
 /* If defined, gives a class of registers that cannot be used as the
    operand of a SUBREG that changes the mode of the object illegally.
-   When FP regs are larger than integer regs... Er, anyone remember what
-   goes wrong?
 
    In little-endian mode, the hi-lo registers are numbered backwards,
    so (subreg:SI (reg:DI hi) 0) gets the high word instead of the low
-   word as intended.  */
+   word as intended.
+
+   Also, loading a 32-bit value into a 64-bit floating-point register
+   will not sign-extend the value, despite what LOAD_EXTEND_OP says.
+   We can't allow 64-bit float registers to change from a 32-bit
+   mode to a 64-bit mode.  */
 
 #define CLASS_CANNOT_CHANGE_MODE					\
   (TARGET_BIG_ENDIAN							\
-   ? (TARGET_FLOAT64 && ! TARGET_64BIT ? FP_REGS : NO_REGS)		\
-   : (TARGET_FLOAT64 && ! TARGET_64BIT ? HI_AND_FP_REGS : HI_REG))
+   ? (TARGET_FLOAT64 ? FP_REGS : NO_REGS)				\
+   : (TARGET_FLOAT64 ? HI_AND_FP_REGS : HI_REG))
 
 /* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
 
@@ -2573,11 +2561,10 @@ extern enum reg_class mips_char_to_class[256];
 /* For o64 we should be checking the mode for SFmode as well.  */
 
 #define FUNCTION_ARG_REGNO_P(N)					\
-  ((((N) >= GP_ARG_FIRST && (N) <= GP_ARG_LAST)			\
-    || ((N) >= FP_ARG_FIRST && (N) <= FP_ARG_LAST		\
-	&& (((N) % FP_INC) == 0					\
-	    && (! mips_abi == ABI_O64)))			\
-   && !fixed_regs[N]))
+  ((IN_RANGE((N), GP_ARG_FIRST, GP_ARG_LAST)			\
+    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST)		\
+	&& ((N) % FP_INC == 0) && mips_abi != ABI_O64))		\
+   && !fixed_regs[N])
 
 /* A C expression which can inhibit the returning of certain function
    values in registers, based on the type of value.  A nonzero value says
@@ -2762,8 +2749,8 @@ typedef struct mips_args {
   (VALIST) = mips_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  mips_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  mips_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -2990,9 +2977,10 @@ typedef struct mips_args {
     || GET_CODE (X) == CONST_INT || GET_CODE (X) == HIGH		\
     || (GET_CODE (X) == CONST						\
 	&& ! (flag_pic && pic_address_needs_scratch (X))		\
-	&& (!TARGET_GAS)						\
-	&& (mips_abi == ABI_N32						\
-	    || mips_abi == ABI_64)))
+	&& (TARGET_GAS)							\
+	&& (mips_abi != ABI_N32 					\
+	    && mips_abi != ABI_64)))
+
 
 /* Define this, so that when PIC, reload won't try to reload invalid
    addresses which require two reload registers.  */
@@ -3693,7 +3681,6 @@ typedef struct mips_args {
   {"se_nonmemory_operand",	{ CONST_INT, CONST_DOUBLE, CONST,	\
 				  SYMBOL_REF, LABEL_REF, SUBREG,	\
 				  REG, SIGN_EXTEND }},			\
-  {"se_nonimmediate_operand",   { SUBREG, REG, MEM, SIGN_EXTEND }},	\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
   {"extend_operator",           { SIGN_EXTEND, ZERO_EXTEND }},          \
@@ -4276,11 +4263,12 @@ do {							\
 /* This is how to declare a function name.  The actual work of
    emitting the label is moved to function_prologue, so that we can
    get the line number correctly emitted before the .ent directive,
-   and after any .file directives.  */
-/*
+   and after any .file directives.  Define as empty so that the function
+   is not declared before the .ent directive elsewhere.  */
+
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)
-*/
+
 
 /* This is how to output an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
@@ -4361,9 +4349,6 @@ do {									\
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(STREAM, STRING, LEN)				\
   mips_output_ascii (STREAM, STRING, LEN)
-
-/* Handle certain cpp directives used in header files on sysV.  */
-#define SCCS_DIRECTIVE
 
 /* Output #ident as a in the read-only data section.  */
 #undef  ASM_OUTPUT_IDENT

@@ -1097,7 +1097,6 @@ extern int sparc_mode_class[];
 #define FRAME_POINTER_REQUIRED				\
   (TARGET_FLAT						\
    ? (current_function_calls_alloca			\
-      || current_function_varargs			\
       || !leaf_function_p ())				\
    : ! (leaf_function_p () && only_leaf_regs_used ()))
 
@@ -1913,8 +1912,8 @@ do {									\
 #define EXPAND_BUILTIN_SAVEREGS() sparc_builtin_saveregs ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  sparc_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  sparc_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -2584,6 +2583,17 @@ do {                                                                    \
 	if (TARGET_FPU)							\
 	  sqrt_optab->handlers[(int) TFmode].libfunc			\
 	    = init_one_libfunc ("_Q_sqrt");				\
+      }									\
+    if (TARGET_ARCH64)							\
+      {									\
+        /* In the SPARC 64bit ABI, these libfuncs do not exist in the	\
+           library.  Make sure the compiler does not emit calls to them	\
+	   by accident.  */						\
+	sdiv_optab->handlers[(int) SImode].libfunc = NULL;		\
+	udiv_optab->handlers[(int) SImode].libfunc = NULL;		\
+	smod_optab->handlers[(int) SImode].libfunc = NULL;		\
+	umod_optab->handlers[(int) SImode].libfunc = NULL;		\
+        smul_optab->handlers[(int) SImode].libfunc = NULL;		\
       }									\
     INIT_SUBTARGET_OPTABS;						\
   } while (0)

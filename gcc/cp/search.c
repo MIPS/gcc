@@ -581,6 +581,15 @@ at_function_scope_p ()
   return cs && TREE_CODE (cs) == FUNCTION_DECL;
 }
 
+/* Returns true if the innermost active scope is a class scope.  */
+
+bool
+at_class_scope_p ()
+{
+  tree cs = current_scope ();
+  return cs && TYPE_P (cs);
+}
+
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
 
 tree
@@ -962,8 +971,8 @@ friend_accessible_p (scope, decl, binfo)
   return 0;
 }
 
-/* Perform access control on TYPE_DECL VAL, which was looked up in TYPE.
-   This is fairly complex, so here's the design:
+/* Perform access control on TYPE_DECL or TEMPLATE_DECL VAL, which was
+   looked up in TYPE.  This is fairly complex, so here's the design:
 
    The lang_extdef nonterminal sets type_lookups to NULL_TREE before we
      start to process a top-level declaration.
@@ -986,7 +995,8 @@ void
 type_access_control (type, val)
      tree type, val;
 {
-  if (val == NULL_TREE || TREE_CODE (val) != TYPE_DECL
+  if (val == NULL_TREE
+      || (TREE_CODE (val) != TEMPLATE_DECL && TREE_CODE (val) != TYPE_DECL)
       || ! DECL_CLASS_SCOPE_P (val))
     return;
 

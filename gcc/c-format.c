@@ -356,7 +356,7 @@ enum format_std_version
 				 ? "ISO C++"			\
 				 : ((FEATURE_VER) == STD_EXT	\
 				    ? "ISO C"			\
-				    : "ISO C89"))
+				    : "ISO C90"))
 /* Adjust a C standard version, which may be STD_C9L, to account for
    -Wno-long-long.  Returns other standard versions unchanged.  */
 #define ADJ_STD(VER)		((int)((VER) == STD_C9L			      \
@@ -717,7 +717,6 @@ static const format_flag_pair strfmon_flag_pairs[] =
 
 #define T_I	&integer_type_node
 #define T89_I	{ STD_C89, NULL, T_I }
-#define T99_I	{ STD_C99, NULL, T_I }
 #define T_L	&long_integer_type_node
 #define T89_L	{ STD_C89, NULL, T_L }
 #define T_LL	&long_long_integer_type_node
@@ -727,7 +726,6 @@ static const format_flag_pair strfmon_flag_pairs[] =
 #define T89_S	{ STD_C89, NULL, T_S }
 #define T_UI	&unsigned_type_node
 #define T89_UI	{ STD_C89, NULL, T_UI }
-#define T99_UI	{ STD_C99, NULL, T_UI }
 #define T_UL	&long_unsigned_type_node
 #define T89_UL	{ STD_C89, NULL, T_UL }
 #define T_ULL	&long_long_unsigned_type_node

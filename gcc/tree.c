@@ -3801,6 +3801,32 @@ build_function_type (value_type, arg_types)
   return t;
 }
 
+/* Build a function type.  The RETURN_TYPE is the type retured by the
+   function.  If additional arguments are provided, they are
+   additional argument types.  The list of argument types must always
+   be terminated by NULL_TREE.  */
+
+tree
+build_function_type_list VPARAMS ((tree return_type, ...))
+{
+  tree t, args, last;
+
+  VA_OPEN (p, return_type);
+  VA_FIXEDARG (p, tree, return_type);
+
+  t = va_arg (p, tree);
+  for (args = NULL_TREE; t != NULL_TREE; t = va_arg (p, tree))
+    args = tree_cons (NULL_TREE, t, args);
+
+  last = args;
+  args = nreverse (args);
+  TREE_CHAIN (last) = void_list_node;
+  args = build_function_type (return_type, args);
+
+  VA_CLOSE (p);
+  return args;
+}
+
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments and values are described by TYPE.
    If that type exists already, reuse it.

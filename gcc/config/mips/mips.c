@@ -86,12 +86,6 @@ struct mips_arg_info;
 static enum internal_test map_test_to_internal_test	PARAMS ((enum rtx_code));
 static int mips16_simple_memory_operand		PARAMS ((rtx, rtx,
 							enum machine_mode));
-int coprocessor_operand 			PARAMS ((rtx,
-							enum machine_mode));
-int coprocessor2_operand 			PARAMS ((rtx,
-							enum machine_mode));
-int symbolic_operand				PARAMS ((rtx,
-							 enum machine_mode));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
 static void block_move_loop			PARAMS ((rtx, rtx,
 							 unsigned int,
@@ -581,6 +575,8 @@ enum reg_class mips_char_to_class[256] =
 #define TARGET_ASM_UNALIGNED_HI_OP "\t.align 0\n\t.half\t"
 #undef TARGET_ASM_UNALIGNED_SI_OP
 #define TARGET_ASM_UNALIGNED_SI_OP "\t.align 0\n\t.word\t"
+#undef TARGET_ASM_UNALIGNED_DI_OP
+#define TARGET_ASM_UNALIGNED_DI_OP "\t.align 0\n\t.dword\t"
 #endif
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
@@ -1204,9 +1200,11 @@ move_operand (op, mode)
 
 /* Return nonzero if OPERAND is valid as a source operand for movdi.
    This accepts not only general_operand, but also sign extended
-   constants and registers.  We need to accept sign extended constants
+   move_operands.  Note that we need to accept sign extended constants
    in case a sign extended register which is used in an expression,
-   and is equivalent to a constant, is spilled.  */
+   and is equivalent to a constant, is spilled.  We need to accept
+   sign-extended memory in order to reload registers from stack slots,
+   and so that we generate efficient code for extendsidi2.  */
 
 int
 movdi_operand (op, mode)
@@ -1217,11 +1215,7 @@ movdi_operand (op, mode)
       && mode == DImode
       && GET_CODE (op) == SIGN_EXTEND
       && GET_MODE (op) == DImode
-      && (GET_MODE (XEXP (op, 0)) == SImode
-	  || (GET_CODE (XEXP (op, 0)) == CONST_INT
-	      && GET_MODE (XEXP (op, 0)) == VOIDmode))
-      && (register_operand (XEXP (op, 0), SImode)
-	  || immediate_operand (XEXP (op, 0), SImode)))
+      && move_operand (XEXP (op, 0), SImode))
     return 1;
 
   return (general_operand (op, mode)
@@ -1328,26 +1322,6 @@ se_nonmemory_operand (op, mode)
     return 1;
 
   return nonmemory_operand (op, mode);
-}
-
-/* Like nonimmediate_operand, but when in 64 bit mode also accept a
-   sign extend of a 32 bit register, since the value is known to be
-   already sign extended.  */
-
-int
-se_nonimmediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return nonimmediate_operand (op, mode);
 }
 
 /* Accept any operand that can appear in a mips16 constant table
@@ -2468,6 +2442,33 @@ mips_restore_gp (operands, insn)
   return mips_move_1word (operands, insn, 0);
 }
 
+/* Return an instruction to sign-extend SImode value SRC and store it
+   in DImode value DEST.  INSN is the original extendsidi2-type insn.  */
+
+const char *
+mips_sign_extend (insn, dest, src)
+     rtx insn, dest, src;
+{
+  rtx operands[MAX_RECOG_OPERANDS];
+
+  if ((register_operand (src, SImode) && FP_REG_P (true_regnum (src)))
+      || memory_operand (src, SImode))
+    {
+      /* If the source is a floating-point register, we need to use a
+	 32-bit move, since the float register is not kept sign-extended.
+	 If the source is in memory, we need a 32-bit load.  */
+      operands[0] = gen_lowpart_SUBREG (SImode, dest);
+      operands[1] = src;
+      return mips_move_1word (operands, insn, false);
+    }
+  else
+    {
+      operands[0] = dest;
+      operands[1] = src;
+      return mips_move_2words (operands, insn);
+    }
+}
+
 /* Return the appropriate instructions to move 2 words */
 
 const char *
@@ -2484,6 +2485,9 @@ mips_move_2words (operands, insn)
   int subreg_offset1 = 0;
   enum delay_type delay = DELAY_NONE;
 
+  if (code1 == SIGN_EXTEND)
+    return mips_sign_extend (insn, op0, XEXP (op1, 0));
+
   while (code0 == SUBREG)
     {
       subreg_offset0 += subreg_regno_offset (REGNO (SUBREG_REG (op0)),
@@ -2492,12 +2496,6 @@ mips_move_2words (operands, insn)
 					     GET_MODE (op0));
       op0 = SUBREG_REG (op0);
       code0 = GET_CODE (op0);
-    }
-
-  if (code1 == SIGN_EXTEND)
-    {
-      op1 = XEXP (op1, 0);
-      code1 = GET_CODE (op1);
     }
 
   while (code1 == SUBREG)
@@ -2509,17 +2507,6 @@ mips_move_2words (operands, insn)
       op1 = SUBREG_REG (op1);
       code1 = GET_CODE (op1);
     }
-
-  /* Sanity check.  */
-  if (GET_CODE (operands[1]) == SIGN_EXTEND
-      && code1 != REG
-      && code1 != CONST_INT
-      /* The following three can happen as the result of a questionable
-	 cast.  */
-      && code1 != LABEL_REF
-      && code1 != SYMBOL_REF
-      && code1 != CONST)
-    abort ();
 
   if (code0 == REG)
     {
@@ -4489,15 +4476,10 @@ mips_setup_incoming_varargs (cum, mode, type, no_rtl)
 
   /* The caller has advanced CUM up to, but not beyond, the last named
      argument.  Advance a local copy of CUM past the last "real" named
-     argument, to find out how many registers are left over.
+     argument, to find out how many registers are left over.  */
 
-     For K&R varargs, the last named argument is a dummy word-sized one,
-     so CUM already contains the information we need.  For stdarg, it is
-     a real argument (such as the format in printf()) and we need to
-     step over it.  */
   local_cum = *cum;
-  if (!current_function_varargs)
-    FUNCTION_ARG_ADVANCE (local_cum, mode, type, 1);
+  FUNCTION_ARG_ADVANCE (local_cum, mode, type, 1);
 
   /* Found out how many registers we need to save.  */
   gp_saved = MAX_ARGS_IN_REGISTERS - local_cum.num_gprs;
@@ -4615,14 +4597,10 @@ mips_build_va_list ()
     return ptr_type_node;
 }
 
-/* Implement va_start.   stdarg_p is 0 if implementing
-   __builtin_varargs_va_start, 1 if implementing __builtin_stdarg_va_start.
-   Note that this routine isn't called when compiling e.g. "_vfprintf_r".
-     (It doesn't have "...", so it inherits the pointers of its caller.) */
+/* Implement va_start.   stdarg_p is always 1.  */
 
 void
-mips_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+mips_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -4700,39 +4678,12 @@ mips_va_start (stdarg_p, valist, nextarg)
 	{
 	  /* Everything is in the GPR save area, or in the overflow
 	     area which is contiguous with it.  */
-
-	  int offset = -gpr_save_area_size;
-	  if (gpr_save_area_size == 0)
-	    offset = (stdarg_p ? 0 : -UNITS_PER_WORD);
-	  nextarg = plus_constant (nextarg, offset);
-	  std_expand_builtin_va_start (1, valist, nextarg);
+	  nextarg = plus_constant (nextarg, -gpr_save_area_size);
+	  std_expand_builtin_va_start (valist, nextarg);
 	}
     }
   else
-    {
-      /* not EABI */
-      int ofs;
-
-      if (stdarg_p)
-	ofs = 0;
-      else
-	{
-	  /* ??? This had been conditional on
-	       _MIPS_SIM == _MIPS_SIM_ABI64 || _MIPS_SIM == _MIPS_SIM_NABI32
-	     and both iris5.h and iris6.h define _MIPS_SIM.  */
-	  if (mips_abi == ABI_N32
-	      || mips_abi == ABI_64
-	      || mips_abi == ABI_MEABI)
- 	    ofs = (cum->num_gprs < MAX_ARGS_IN_REGISTERS
-		   ? 0
-		   : -UNITS_PER_WORD);
-	  else
-	    ofs = -UNITS_PER_WORD;
-	}
-
-      nextarg = plus_constant (nextarg, ofs);
-      std_expand_builtin_va_start (1, valist, nextarg);
-    }
+    std_expand_builtin_va_start (valist, nextarg);
 }
 
 /* Implement va_arg.  */
@@ -5446,10 +5397,12 @@ override_options ()
                         the value, not about whether math works on the
                         register.  */
                      || (mips_abi == ABI_MEABI && size <= 4))
-		    && (class == MODE_FLOAT
-			|| class == MODE_COMPLEX_FLOAT
-			|| (TARGET_DEBUG_H_MODE && class == MODE_INT))
-		    && size <= UNITS_PER_FPVALUE);
+		    && (((class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+			 && size <= UNITS_PER_FPVALUE)
+			/* Allow integer modes that fit into a single
+			   register.  We need to put integers into FPRs
+			   when using instructions like cvt and trunc.  */
+			|| (class == MODE_INT && size <= UNITS_PER_FPREG)));
 
 	  else if (MD_REG_P (regno))
 	    temp = (class == MODE_INT
@@ -6349,13 +6302,14 @@ mips_asm_file_start (stream)
 
   if (TARGET_GAS)
     {
-#if defined(OBJECT_FORMAT_ELF)
+#if defined(OBJECT_FORMAT_ELF) && !(TARGET_IRIX5 || TARGET_IRIX6)
       /* Generate a special section to describe the ABI switches used to
 	 produce the resultant binary.  This used to be done by the assembler
 	 setting bits in the ELF header's flags field, but we have run out of
 	 bits.  GDB needs this information in order to be able to correctly
-	 debug these binaries. See the function mips_gdbarch_init() in
-	 gdb/mips-tdep.c.  */
+	 debug these binaries.  See the function mips_gdbarch_init() in
+	 gdb/mips-tdep.c.  This is unnecessary for the IRIX 5/6 ABIs and
+	 causes unnecessary IRIX 6 ld warnings.  */
       const char * abi_string = NULL;
 
       switch (mips_abi)
@@ -7244,7 +7198,7 @@ mips_output_function_prologue (file, size)
 
       /* If this is a varargs function, we need to save all the
          registers onto the stack anyhow.  */
-      if (current_function_stdarg || current_function_varargs)
+      if (current_function_stdarg)
 	savearg = GP_REG_FIRST + 7;
 
       fprintf (file, "\tentry\t");
@@ -8358,6 +8312,18 @@ mips_secondary_reload_class (class, mode, x, in_p)
 	  if (GET_CODE (x) == REG)
 	    regno = REGNO (x) + off;
 	}
+
+      /* 64-bit floating-point registers don't store 32-bit values
+	 in sign-extended form.  The only way we can reload
+	 (sign_extend:DI (reg:SI $f0)) is by moving $f0 into
+	 an integer register using a 32-bit move.  */
+      if (FP_REG_P (regno))
+	return (class == GR_REGS ? NO_REGS : GR_REGS);
+
+      /* For the same reason, we can only reload (sign_extend:DI FOO) into
+	 a floating-point register when FOO is an integer register. */
+      if (class == FP_REGS)
+	return (GP_REG_P (regno) ? NO_REGS : GR_REGS);
     }
 
   else if (GET_CODE (x) == REG || GET_CODE (x) == SUBREG)
@@ -8415,6 +8381,37 @@ mips_secondary_reload_class (class, mode, x, in_p)
       if (! in_p)
 	return FP_REGS;
       return class == GR_REGS ? NO_REGS : GR_REGS;
+    }
+
+  if (class == FP_REGS)
+    {
+      if (GET_CODE (x) == MEM)
+	{
+	  /* In this case we can use lwc1, swc1, ldc1 or sdc1. */
+	  return NO_REGS;
+	}
+      else if (CONSTANT_P (x) && GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  /* We can use the l.s and l.d macros to load floating-point
+	     constants.  ??? For l.s, we could probably get better
+	     code by returning GR_REGS here.  */
+	  return NO_REGS;
+	}
+      else if (GP_REG_P (regno) || x == CONST0_RTX (mode))
+	{
+	  /* In this case we can use mtc1, mfc1, dmtc1 or dmfc1.  */
+	  return NO_REGS;
+	}
+      else if (FP_REG_P (regno))
+	{
+	  /* In this case we can use mov.s or mov.d.  */
+	  return NO_REGS;
+	}
+      else
+	{
+	  /* Otherwise, we need to reload through an integer register.  */
+	  return GR_REGS;
+	}
     }
 
   /* In mips16 mode, going between memory and anything but M16_REGS

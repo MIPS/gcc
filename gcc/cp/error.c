@@ -1236,6 +1236,9 @@ dump_function_name (t, flags)
 {
   tree name = DECL_NAME (t);
 
+  if (TREE_CODE (t) == TEMPLATE_DECL)
+    t = DECL_TEMPLATE_RESULT (t);
+
   /* Don't let the user see __comp_ctor et al.  */
   if (DECL_CONSTRUCTOR_P (t)
       || DECL_DESTRUCTOR_P (t))
@@ -1882,7 +1885,8 @@ dump_expr (t, flags)
 	      /* A::f */
 	      dump_expr (t, flags | TFF_EXPR_IN_PARENS);
 	    else if (BASELINK_P (t))
-	      dump_expr (OVL_CURRENT (TREE_VALUE (t)), flags | TFF_EXPR_IN_PARENS);
+	      dump_expr (OVL_CURRENT (BASELINK_FUNCTIONS (t)), 
+			 flags | TFF_EXPR_IN_PARENS);
 	    else
 	      dump_decl (t, flags);
 	  }

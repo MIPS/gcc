@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -89,6 +89,7 @@ EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
 		src/mips/n32.s src/mips/o32.S src/mips/o32.s \
 		src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S \
 		src/x86/ffi.c src/x86/sysv.S src/x86/win32.S \
+		src/x86/ffi64.c src/x86/unix64.S \
 		src/alpha/ffi.c src/alpha/osf.S \
 		src/m68k/ffi.c src/m68k/sysv.S \
 		src/powerpc/ffi.c src/powerpc/sysv.S \
@@ -97,7 +98,8 @@ EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
 		src/powerpc/darwin.S src/powerpc/aix.S \
 		src/powerpc/darwin_closure.S src/powerpc/aix_closures.S \
 		src/arm/ffi.c src/arm/sysv.S \
-		src/s390/ffi.c src/s390/sysv.S
+		src/s390/ffi.c src/s390/sysv.S \
+		src/sh/ffi.c src/sh/sysv.S
 
 
 VPATH = @srcdir@:@srcdir@/src:@srcdir@/src/@TARGETDIR@
@@ -164,6 +166,7 @@ ffitest_LDADD = libffi.la
 ffitest_LDFLAGS = -shared-libgcc
 
 TARGET_SRC_MIPS_GCC = src/mips/ffi.c src/mips/o32.S src/mips/n32.S
+TARGET_SRC_MIPS_LINUX = src/mips/ffi.c src/mips/o32.S
 TARGET_SRC_MIPS_SGI = src/mips/ffi.c src/mips/o32.s src/mips/n32.s
 TARGET_SRC_X86 = src/x86/ffi.c src/x86/sysv.S
 TARGET_SRC_X86_WIN32 = src/x86/ffi.c src/x86/win32.S
@@ -176,11 +179,14 @@ TARGET_SRC_POWERPC_AIX = src/powerpc/ffi_darwin.c src/powerpc/aix.S src/powerpc/
 TARGET_SRC_POWERPC_DARWIN = src/powerpc/ffi_darwin.c src/powerpc/darwin.S src/powerpc/darwin_closure.S
 TARGET_SRC_ARM = src/arm/sysv.S src/arm/ffi.c
 TARGET_SRC_S390 = src/s390/sysv.S src/s390/ffi.c
+TARGET_SRC_X86_64 = src/x86/ffi64.c src/x86/unix64.S src/x86/ffi.c src/x86/sysv.S
+TARGET_SRC_SH = src/sh/sysv.S src/sh/ffi.c
 
 libffi_la_common_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 		src/raw_api.c src/java_raw_api.c
 
 @MIPS_GCC_TRUE@libffi_la_SOURCES = @MIPS_GCC_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
+@MIPS_LINUX_TRUE@libffi_la_SOURCES = @MIPS_LINUX_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_LINUX)
 @MIPS_SGI_TRUE@libffi_la_SOURCES = @MIPS_SGI_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
 @X86_TRUE@libffi_la_SOURCES = @X86_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
 @X86_WIN32_TRUE@libffi_la_SOURCES = @X86_WIN32_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
@@ -193,7 +199,10 @@ libffi_la_common_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 @POWERPC_DARWIN_TRUE@libffi_la_SOURCES = @POWERPC_DARWIN_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_DARWIN)
 @ARM_TRUE@libffi_la_SOURCES = @ARM_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
 @S390_TRUE@libffi_la_SOURCES = @S390_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_S390)
+@X86_64_TRUE@libffi_la_SOURCES = @X86_64_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_X86_64)
+@SH_TRUE@libffi_la_SOURCES = @SH_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_SH)
 @MIPS_GCC_TRUE@libffi_convenience_la_SOURCES = @MIPS_GCC_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
+@MIPS_LINUX_TRUE@libffi_convenience_la_SOURCES = @MIPS_LINUX_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_LINUX)
 @MIPS_SGI_TRUE@libffi_convenience_la_SOURCES = @MIPS_SGI_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
 @X86_TRUE@libffi_convenience_la_SOURCES = @X86_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
 @X86_WIN32_TRUE@libffi_convenience_la_SOURCES = @X86_WIN32_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
@@ -206,6 +215,8 @@ libffi_la_common_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 @POWERPC_DARWIN_TRUE@libffi_convenience_la_SOURCES = @POWERPC_DARWIN_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_DARWIN)
 @ARM_TRUE@libffi_convenience_la_SOURCES = @ARM_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
 @S390_TRUE@libffi_convenience_la_SOURCES = @S390_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_S390)
+@X86_64_TRUE@libffi_convenience_la_SOURCES = @X86_64_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_X86_64)
+@SH_TRUE@libffi_convenience_la_SOURCES = @SH_TRUE@$(libffi_la_common_SOURCES) $(TARGET_SRC_SH)
 
 AM_CFLAGS = -fexceptions
 
@@ -248,9 +259,15 @@ libffi_convenience_la_LIBADD =
 @MIPS_SGI_TRUE@src/prep_cif.lo src/types.lo src/raw_api.lo \
 @MIPS_SGI_TRUE@src/java_raw_api.lo src/mips/ffi.lo src/mips/o32.lo \
 @MIPS_SGI_TRUE@src/mips/n32.lo
+@MIPS_LINUX_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo \
+@MIPS_LINUX_TRUE@src/prep_cif.lo src/types.lo src/raw_api.lo \
+@MIPS_LINUX_TRUE@src/java_raw_api.lo src/mips/ffi.lo src/mips/o32.lo
 @S390_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @S390_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @S390_TRUE@src/s390/sysv.lo src/s390/ffi.lo
+@SH_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
+@SH_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
+@SH_TRUE@src/sh/sysv.lo src/sh/ffi.lo
 @X86_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @X86_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @X86_TRUE@src/x86/ffi.lo src/x86/sysv.lo
@@ -260,14 +277,14 @@ libffi_convenience_la_LIBADD =
 @ARM_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @ARM_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @ARM_TRUE@src/arm/sysv.lo src/arm/ffi.lo
-@SPARC_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo \
-@SPARC_TRUE@src/prep_cif.lo src/types.lo src/raw_api.lo \
-@SPARC_TRUE@src/java_raw_api.lo src/sparc/ffi.lo src/sparc/v8.lo \
-@SPARC_TRUE@src/sparc/v9.lo
 @POWERPC_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo \
 @POWERPC_TRUE@src/prep_cif.lo src/types.lo src/raw_api.lo \
 @POWERPC_TRUE@src/java_raw_api.lo src/powerpc/ffi.lo \
 @POWERPC_TRUE@src/powerpc/sysv.lo src/powerpc/ppc_closure.lo
+@SPARC_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo \
+@SPARC_TRUE@src/prep_cif.lo src/types.lo src/raw_api.lo \
+@SPARC_TRUE@src/java_raw_api.lo src/sparc/ffi.lo src/sparc/v8.lo \
+@SPARC_TRUE@src/sparc/v9.lo
 @M68K_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @M68K_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @M68K_TRUE@src/m68k/ffi.lo src/m68k/sysv.lo
@@ -292,9 +309,17 @@ libffi_la_LIBADD =
 @MIPS_SGI_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @MIPS_SGI_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @MIPS_SGI_TRUE@src/mips/ffi.lo src/mips/o32.lo src/mips/n32.lo
+@MIPS_LINUX_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
+@MIPS_LINUX_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
+@MIPS_LINUX_TRUE@src/mips/ffi.lo src/mips/o32.lo
 @S390_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @S390_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @S390_TRUE@src/s390/sysv.lo src/s390/ffi.lo
+@X86_64_TRUE@libffi_convenience_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
+@X86_64_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
+@X86_64_TRUE@src/x86/ffi.lo src/x86/sysv.lo src/x86/unix64.lo src/x86/ffi64.lo
+@SH_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo src/types.lo \
+@SH_TRUE@src/raw_api.lo src/java_raw_api.lo src/sh/sysv.lo src/sh/ffi.lo
 @X86_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo src/types.lo \
 @X86_TRUE@src/raw_api.lo src/java_raw_api.lo src/x86/ffi.lo \
 @X86_TRUE@src/x86/sysv.lo
@@ -304,16 +329,19 @@ libffi_la_LIBADD =
 @ARM_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo src/types.lo \
 @ARM_TRUE@src/raw_api.lo src/java_raw_api.lo src/arm/sysv.lo \
 @ARM_TRUE@src/arm/ffi.lo
-@SPARC_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
-@SPARC_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
-@SPARC_TRUE@src/sparc/ffi.lo src/sparc/v8.lo src/sparc/v9.lo
 @POWERPC_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @POWERPC_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @POWERPC_TRUE@src/powerpc/ffi.lo src/powerpc/sysv.lo \
 @POWERPC_TRUE@src/powerpc/ppc_closure.lo
+@SPARC_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
+@SPARC_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
+@SPARC_TRUE@src/sparc/ffi.lo src/sparc/v8.lo src/sparc/v9.lo
 @M68K_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo \
 @M68K_TRUE@src/types.lo src/raw_api.lo src/java_raw_api.lo \
 @M68K_TRUE@src/m68k/ffi.lo src/m68k/sysv.lo
+@X86_64_TRUE@libffi_la_OBJECTS =  src/debug.lo src/prep_cif.lo src/types.lo \
+@X86_64_TRUE@src/raw_api.lo src/java_raw_api.lo src/x86/ffi.lo \
+@X86_64_TRUE@src/x86/sysv.lo src/x86/unix64.lo src/x86/ffi64.lo
 noinst_PROGRAMS =  ffitest$(EXEEXT)
 PROGRAMS =  $(noinst_PROGRAMS)
 
@@ -496,7 +524,7 @@ maintainer-clean-recursive:
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \
-	  test "$$subdir" = "." && dot_seen=yes; \
+	  test "$$subdir" != "." || dot_seen=yes; \
 	done; \
 	test "$$dot_seen" = "no" && rev=". $$rev"; \
 	target=`echo $@ | sed s/-recursive//`; \
