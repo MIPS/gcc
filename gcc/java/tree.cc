@@ -1330,12 +1330,6 @@ tree_generator::visit_cast (model_cast *,
     }
 }
 
-tree
-tree_generator::build_class_ref (model_type *t)
-{
-  return build_class_ref (gcc_builtins->map_type (t));
-}
-
 void
 tree_generator::visit_class_ref (model_class_ref *,
 				 const ref_forwarding_type &req)
@@ -1871,13 +1865,12 @@ tree_generator::build_new_array (model_type *elt_type, tree size)
   assert (elt_type->primitive_p ());
   model_type *array_type = elt_type->array ();
 
-  tree elt_type_tree = gcc_builtins->map_type (elt_type);
   tree array_type_tree = gcc_builtins->map_type (array_type);
 
   tree insn = build3 (CALL_EXPR, array_type_tree, 
 		      builtin_Jv_NewPrimArray,
 		      tree_cons (NULL_TREE,
-				 build_class_ref (elt_type_tree),
+				 build_class_ref (elt_type),
 				 tree_cons (NULL_TREE, size, NULL_TREE)),
 		      NULL_TREE);
   TREE_SIDE_EFFECTS (insn) = 1;
@@ -1926,11 +1919,19 @@ tree_generator::build_exception_object_ref (tree type)
 }
 
 tree
-tree_generator::build_class_ref (tree klass)
+tree_generator::build_class_ref (model_type *t)
 {
-  // FIXME.
-  gcj_abi *abi = gcc_builtins->find_abi (NULL);
-  return abi->build_class_reference (gcc_builtins, class_wrapper, klass);
+  gcj_abi *abi = gcc_builtins->find_abi ();
+  // FIXME: we can see "int.class".
+  return abi->build_class_reference (gcc_builtins, class_wrapper,
+				     assert_cast<model_class *> (t));
+}
+
+tree
+tree_generator::build_class_ref (const std::string &classname)
+{
+  gcj_abi *abi = gcc_builtins->find_abi ();
+  return abi->build_class_reference (gcc_builtins, class_wrapper, classname);
 }
 
 tree

@@ -1327,11 +1327,12 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	case op_new:
 	  {
-	    tree klass = find_class (cpool->get_class (get2u (bytes, pc)));
-	    insn = push (build3 (CALL_EXPR, klass,
+	    tree klass_ref
+	      = build_class_ref (cpool->get_class (get2u (bytes, pc)));
+	    insn = push (build3 (CALL_EXPR,
+				 NULL_TREE, // FIXME!
 				 builtin_Jv_AllocObject,
-				 build_tree_list (NULL_TREE,
-						  build_class_ref (klass)),
+				 build_tree_list (NULL_TREE, klass_ref),
 				 NULL_TREE));
 	  }
 	  break;
@@ -1457,8 +1458,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		args = tree_cons (NULL_TREE, next, args);
 	      }
 
-	    tree klass = find_class (cpool->get_class (kind_index));
-	    args = tree_cons (NULL_TREE, klass, args);
+	    tree klassref = build_class_ref (cpool->get_class (kind_index));
+	    args = tree_cons (NULL_TREE, klassref, args);
 
 	    insn = push (build3 (CALL_EXPR, type_object,
 				 builtin_Jv_NewMultiArray,
@@ -1873,11 +1874,9 @@ tree_generator::handle_ldc (constant_pool *cpool, uint16 index)
       }
 
     case CONSTANT_Class:
-      // 1.5 only.
-      {
-	tree klass = find_class (cpool->get_class (index));
-	result = build_class_ref (klass);
-      }
+      // 1.5 only.  The verifier will reject this for pre-1.5 class
+      // 1.files.
+      result = build_class_ref (cpool->get_class (index));
       break;
 
     default:

@@ -60,6 +60,7 @@ extern "C"
 #include "langhooks-def.h"
 #include "options.h"
 #include "toplev.h"
+  //#include "output.h"
 #include "except.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -68,6 +69,7 @@ extern "C"
 #include "convert.h"
 #include "ggc.h"
 #include "debug.h"
+#include "version.h"
 
 // This gets us alloc_stmt_list().  Shouldn't that be in
 // tree-iterator.h?

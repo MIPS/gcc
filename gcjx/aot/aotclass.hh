@@ -36,6 +36,8 @@ typedef enum
 /// compiler.
 class aot_class
 {
+public:
+
   /// This represents one entry in the constant pool.
   struct pool_entry
   {
@@ -52,6 +54,8 @@ class aot_class
     model_class *base;
     model_class *derived;
   };
+
+private:
 
   /// The class factory.  FIXME: require it as a parameter and not
   /// keep it as state?
@@ -104,6 +108,10 @@ public:
   /// Add a class reference to the constant pool.  Returns the index
   /// of the item.
   int add (model_class *);
+
+  /// Add a class reference to the constant pool, given just the
+  /// descriptor of the class.  Returns the index of the item.
+  int add_class (const std::string &);
 
   /// Add an assertion that BASE is a superclass or superinterface of
   /// DERIVED.
@@ -160,6 +168,12 @@ public:
   model_class *get () const
   {
     return klass;
+  }
+
+  /// Return the constant pool.
+  const std::vector<pool_entry> &get_constant_pool () const
+  {
+    return pool;
   }
 };
 

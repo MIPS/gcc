@@ -147,20 +147,28 @@ cxx_abi::build_field_reference (tree_builtins *builtins,
 
 tree
 cxx_abi::build_class_reference (tree_builtins *builtins,
-				aot_class *,
-				tree klass)
+				aot_class *current,
+				const std::string &classname)
 {
-  assert (TREE_CODE (klass) == POINTER_TYPE);
-  tree decl = TYPE_STUB_DECL (TREE_TYPE (klass));
-  return build1 (ADDR_EXPR, type_class_ptr, decl);
+  // Turn the class name into a reference to a real class in the
+  // model.
+  model_class *klass = current->get ();
+  // We know that any call to this method necessarily comes from a
+  // .class file.
+  model_unit_class *unit
+    = assert_cast<model_unit_class *> (klass->get_compilation_unit ());
+  model_type *type = unit->find_class_from_descriptor (NULL, klass, classname);
+  return build_class_reference (builtins, current, type);
 }
 
 tree
 cxx_abi::build_class_reference (tree_builtins *builtins,
 				aot_class *,
-				model_class *klass)
+				model_type *klass)
 {
-  tree class_obj = builtins->map_class_object (klass);
+  // FIXME: handle primitive type.
+  tree class_obj
+    = builtins->map_class_object (assert_cast<model_class *> (klass));
   return build1 (ADDR_EXPR, type_class_ptr, class_obj);
 }
 
@@ -173,7 +181,8 @@ cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
   tree n = build3 (CALL_EXPR, klass, allocator,
 		   build_tree_list (NULL_TREE,
 				    build_class_reference (builtins, current,
-							   klass)),
+							   // FIXME
+							   NULL)),
 		   NULL_TREE);
   TREE_SIDE_EFFECTS (n) = 1;
   // Call the constructor.
@@ -183,6 +192,13 @@ cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
   TREE_SIDE_EFFECTS (n) = 1;
 
   return n;
+}
+
+tree
+cxx_abi::get_vtable (tree_builtins *builtins, model_class *klass,
+		     bool lay_out)
+{
+  return build_address_of (builtins->get_vtable_decl (klass, lay_out));
 }
 
 
@@ -230,17 +246,30 @@ bc_abi::build_field_reference (tree_builtins *builtins,
 }
 
 tree
-bc_abi::build_class_reference (tree_builtins *, aot_class *current, tree klass)
+bc_abi::build_class_reference (tree_builtins *, aot_class *current,
+			       const std::string &classname)
 {
-  abort ();
+  // FIXME: handle primitive classes
+  int index = current->add_class (classname);
+  // FIXME: find the constant pool
+  tree cpool = NULL_TREE;
+  return build4 (ARRAY_REF, type_class_ptr,
+		 cpool, build_int_cst (type_jint, index),
+		 NULL_TREE, NULL_TREE);
 }
 
 tree
-bc_abi::build_class_reference (tree_builtins *,
-			       aot_class *,
-			       model_class *)
+bc_abi::build_class_reference (tree_builtins *builtins,
+			       aot_class *current,
+			       model_type *klass)
 {
-  abort ();
+  // FIXME: handle primitive classes
+  int index = current->add (assert_cast<model_class *> (klass));
+  // FIXME: find the constant pool
+  tree cpool = NULL_TREE;
+  return build4 (ARRAY_REF, type_class_ptr,
+		 cpool, build_int_cst (type_jint, index),
+		 NULL_TREE, NULL_TREE);
 }
 
 tree

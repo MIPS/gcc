@@ -24,7 +24,8 @@
 #include "aot/mangle.hh"
 
 tree_builtins::tree_builtins ()
-  : aot_class_factory ()
+  : aot_class_factory (),
+    symbol_count (0)
 {
 }
 
@@ -35,9 +36,10 @@ tree_builtins::~tree_builtins ()
 
 
 gcj_abi *
-tree_builtins::find_abi (model_type *)
+tree_builtins::find_abi ()
 {
-  // FIXME: implement
+  if (flag_indirect_dispatch)
+    return &new_abi;
   return &old_abi;
 }
 
@@ -306,7 +308,7 @@ tree_builtins::map_field (model_field *field)
 tree
 tree_builtins::map_field_ref (aot_class *wrapper, tree obj, model_field *field)
 {
-  gcj_abi *abi = find_abi (field->get_declaring_class ());
+  gcj_abi *abi = find_abi ();
 
   tree result
     = abi->build_field_reference (this, wrapper,
@@ -344,7 +346,7 @@ tree_builtins::map_method_call (aot_class *wrapper,
 				tree obj, tree args, model_method *meth,
 				bool is_super)
 {
-  gcj_abi *abi = find_abi (meth->get_declaring_class ());
+  gcj_abi *abi = find_abi ();
   tree result = abi->build_method_call (this, wrapper,
 					meth->static_p () ? NULL_TREE : obj,
 					args, meth, is_super);
@@ -365,35 +367,163 @@ tree_builtins::map_method_call (aot_class *wrapper,
 tree
 tree_builtins::map_new (model_class *klass, tree constructor, tree arguments)
 {
-  gcj_abi *abi = find_abi (klass);
+  gcj_abi *abi = find_abi ();
   return abi->build_new (this, get_class (klass),
 			 map_type (klass), constructor, arguments);
 }
 
 tree
+tree_builtins::build_utf8const_type (int len)
+{
+  if (utf8typemap.find (len) == utf8typemap.end ())
+    {
+      tree field = NULL_TREE;
+      tree new_type = make_node (RECORD_TYPE);
+      push_field (new_type, field, "hash", type_jushort);
+      push_field (new_type, field, "length", type_jushort);
+      push_field (new_type, field, "data",
+		  build_array_type (char_type_node,
+				    build_index_type (build_int_cst (type_jint,
+								     len))));
+      layout_type (new_type);
+      utf8typemap[len] = new_type;
+    }
+  return utf8typemap[len];
+}
+
+int
+tree_builtins::hash_utf8 (const char *s, int len)
+{
+  const unsigned char *ptr = (const unsigned char *) s;
+  const unsigned char *limit = ptr + len;
+  int hash = 0;
+  while (ptr < limit)
+    {
+      // FIXME
+      // int ch = UTF8_GET (ptr, limit);
+      int ch = *ptr++;
+      /* Updated specification from
+	 http://www.javasoft.com/docs/books/jls/clarify.html. */
+      hash = (31 * hash) + ch;
+    }
+  return hash;
+}
+
+tree
 tree_builtins::map_utf8const (const std::string &value)
 {
-  std::map<std::string, tree>::const_iterator it = utf8map.find (value);
-  if (it == utf8map.end ())
+  if (utf8map.find (value) == utf8map.end ())
     {
-      record_creator utf (type_utf8const);
-      utf.set_field ("hash", build_int_cst (type_jushort, 0)); // FIXME
+      // Note: add 1 to length here for trailing \0.
+      tree type = build_utf8const_type (value.length () + 1);
+      int hash = hash_utf8 (value.c_str (), value.length ());
+
+      record_creator utf (type);
+      utf.set_field ("hash", build_int_cst (type_jushort, hash & 0xffff));
       utf.set_field ("length", build_int_cst (type_jushort, value.length ()));
 
-      tree str = build_string (value.length (), value.c_str ());
-      tree strtype = build_index_type (build_int_cst (type_jushort,
-						      value.length ()));
+      tree str = build_string (value.length () + 1, value.c_str ());
+      tree strtype = TREE_TYPE (find_decl (type, "data"));
       TREE_TYPE (str) = strtype;
       TREE_CONSTANT (str) = 1;
+      TREE_INVARIANT (str) = 1;
       TREE_READONLY (str) = 1;
       TREE_STATIC (str) = 1;
       utf.set_field ("data", str);
 
-      utf8map[value] = build_address_of (utf.finish_record ());
+      tree init = utf.finish_record ();
+      TREE_CONSTANT (init) = 1;
+      TREE_INVARIANT (init) = 1;
+      TREE_READONLY (init) = 1;
+
+      char buf[20];
+      sprintf (buf, "_Utf%d", utf8map.size ());
+
+      tree decl = build_decl (VAR_DECL, get_identifier (buf), type);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      TREE_READONLY (decl) = 1;
+      DECL_INITIAL (decl) = init;
+
+      if (HAVE_GAS_SHF_MERGE)
+	{
+	  int decl_size;
+	  // Ensure decl_size is a multiple of utf8const_type's alignment.
+	  decl_size = ((value.length () + 5 + TYPE_ALIGN_UNIT (type) - 1)
+		       & ~(TYPE_ALIGN_UNIT (type) - 1));
+	  if (flag_merge_constants && decl_size < 256)
+	    {
+	      char buf[32];
+	      int flags = (SECTION_OVERRIDE
+			   | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
+	      sprintf (buf, ".rodata.jutf8.%d", decl_size);
+	      named_section_flags (buf, flags);
+	      DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
+	    }
+	}
+
+      layout_decl (decl, 0);
+      rest_of_decl_compilation (decl, 1, 0);
+      make_decl_rtl (decl);
+
+      utf8map[value] = build_address_of (decl);
     }
   return utf8map[value];
 }
 
+tree
+tree_builtins::get_vtable_decl (model_class *klass, bool lay_out)
+{
+  if (vtable_map.find (klass) == vtable_map.end ())
+    {
+      tree decl = build_decl (VAR_DECL, NULL_TREE, type_dtable);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      mangler m (klass, true);
+      SET_DECL_ASSEMBLER_NAME (decl,
+			       get_identifier (m.get ().c_str ()));
+
+      if (lay_out)
+	{
+	  lay_out_class (klass);
+
+	  tree klass_ptr_type = map_type (klass);
+	  tree vtable = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (klass_ptr_type)));
+
+	  // FIXME: this isn't really correct.
+	  // it fails where a pointer-to-function is wider.
+	  tree vtype
+	    = build_array_type (type_nativecode_ptr,
+				build_index_type (build_int_cst (type_jint,
+								 TREE_VEC_LENGTH (vtable))));
+	  tree cons = NULL_TREE;
+
+	  TREE_TYPE (decl) = vtype;
+
+	  // FIXME: set these on the initializer when we make it.
+	  // Also set them on the decl?
+	  // TREE_CONSTANT (init) = 1;
+	  // TREE_INVARIANT (init) = 1;
+	  // TREE_READONLY (init) = 1;
+
+	  // FIXME: make a helper method for this sequence.
+	  // Is it even correct?  We do something with cgraph in
+	  // treegen.cc.
+	  layout_decl (decl, 0);
+	  rest_of_decl_compilation (decl, 1, 0);
+	  make_decl_rtl (decl);
+	}
+
+      vtable_map[klass] = decl;
+    }
+  return vtable_map[klass];
+}
+
+// FIXME: this whole method should probably migrate into the ABI or
+// into classobj.cc.  There's no need, I think, for it to be a generic
+// part of the builtins.
 void
 tree_builtins::lay_out_vtable (model_class *mklass)
 {
@@ -507,4 +637,13 @@ tree_builtins::get_class_object_name (model_class *klass)
 {
   mangler m (klass, "class$");
   return m.get ();
+}
+
+tree
+tree_builtins::get_symbol ()
+{
+  char buf[50];
+  sprintf (buf, "_temp_%d", symbol_count);
+  ++symbol_count;
+  return get_identifier (buf);
 }

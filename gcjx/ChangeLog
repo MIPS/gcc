@@ -1,5 +1,17 @@
 2005-02-21  Tom Tromey  <tromey@redhat.com>
 
+	* aot/aotclass.cc (add_class): New method.
+	* aot/aotclass.hh (aot_class::add_class): Declare.
+
+	* aot/mangle.cc (mangler): New constructor.
+	* aot/mangle.hh (mangler): Declare.
+
+	* aot/aotclass.hh (aot_class::pool_entry): Now public.
+	(aot_class::type_assertion_entry): Likewise.
+	(aot_class::get_constant_pool): New method.
+
+2005-02-21  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/block.cc (optimize): Optimize goto-to-goto.
 
 2005-02-19  Tom Tromey  <tromey@redhat.com>

@@ -250,10 +250,17 @@ mangler::mangler (model_field *f)
   result += "E";
 }
 
-mangler::mangler (model_class *declaring, const std::string &fieldname)
+mangler::mangler (model_class *declaring, const char *fieldname)
   : result ("_Z")
 {
   update (declaring, false);
   update (fieldname);
+  result += "E";
+}
+
+mangler::mangler (model_class *klass, bool)
+  : result ("_ZTV")
+{
+  update (klass, false);
   result += "E";
 }

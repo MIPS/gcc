@@ -87,13 +87,12 @@ public:
   /// Return a tree representing a reference to some other class.
   virtual tree build_class_reference (tree_builtins *builtins,
 				      aot_class *current,
-				      // FIXME: should take a string here
-				      tree other) = 0;
+				      const std::string &class_name) = 0;
 
   /// Return a tree representing a reference to some other class.
   virtual tree build_class_reference (tree_builtins *builtins,
 				      aot_class *current,
-				      model_class *other) = 0;
+				      model_type *other) = 0;
 
   /// Return an expression that is used to create a new object given
   /// its type, constructor, and arguments to the constructor.
@@ -108,6 +107,12 @@ public:
   /// Return the initial 'state' value for a class compiled with this
   /// ABI.
   virtual int get_class_state () = 0;
+
+  /// Return a pointer to the vtable for the indicated class.  If the
+  /// bool argument is true, we are creating the Class object for
+  /// KLASS and need a fully-filled-in vtable, not just a decl.
+  virtual tree get_vtable (tree_builtins *builtins, model_class *klass,
+			   bool lay_out = false) = 0;
 };
 
 /// This class handles C++ ABI code.
@@ -126,11 +131,12 @@ public:
   tree build_field_reference (tree_builtins *, aot_class *,
 			      tree, model_field *);
 
-  tree build_class_reference (tree_builtins *, aot_class *, tree);
+  tree build_class_reference (tree_builtins *, aot_class *,
+			      const std::string &);
 
   tree build_class_reference (tree_builtins *builtins,
 			      aot_class *current,
-			      model_class *other);
+			      model_type *other);
 
   tree build_new (tree_builtins *, aot_class *, tree, tree, tree);
 
@@ -143,6 +149,8 @@ public:
   {
     return JV_STATE_COMPILED;
   }
+
+  tree get_vtable (tree_builtins *, model_class *, bool);
 };
 
 /// This class handles the binary compatibility ABI.
@@ -161,11 +169,12 @@ public:
   tree build_field_reference (tree_builtins *, aot_class *,
 			      tree, model_field *);
 
-  tree build_class_reference (tree_builtins *, aot_class *, tree);
+  tree build_class_reference (tree_builtins *, aot_class *,
+			      const std::string &);
 
   tree build_class_reference (tree_builtins *builtins,
 			      aot_class *current,
-			      model_class *other);
+			      model_type *other);
 
   tree build_new (tree_builtins *, aot_class *, tree, tree, tree);
 
@@ -177,6 +186,12 @@ public:
   int get_class_state ()
   {
     return JV_STATE_PRELOADING;
+  }
+
+  tree get_vtable (tree_builtins *, model_class *, bool)
+  {
+    // The BC ABI lays out all vtables at runtime.
+    return null_pointer_node;
   }
 };
 

@@ -84,13 +84,11 @@ record_creator::finish_record ()
 tree
 class_object_creator::make_decl (tree type, tree value)
 {
-  tree decl = build_decl (VAR_DECL, NULL_TREE, type);
+  tree decl = build_decl (VAR_DECL, builtins->get_symbol (), type);
   DECL_INITIAL (decl) = value;
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
-  SET_DECL_ASSEMBLER_NAME (decl,
-			   get_identifier (builtins->get_class_object_name (klass->get ()).c_str ()));
   rest_of_decl_compilation (decl, 1, 0);
 
   return build1 (ADDR_EXPR, build_pointer_type (type), decl);
@@ -165,6 +163,32 @@ class_object_creator::create_field_array (model_class *real_class,
 }
 
 tree
+class_object_creator::create_method_throws (model_method *method)
+{
+  std::list<ref_forwarding_type> throw_list = method->get_throws ();
+
+  if (throw_list.empty ())
+    return null_pointer_node;
+
+  tree cons_list = tree_cons (NULL_TREE, null_pointer_node, NULL_TREE);
+  for (std::list<ref_forwarding_type>::const_iterator i = throw_list.begin ();
+       i != throw_list.end ();
+       ++i)
+    {
+      tree utf = builtins->map_utf8const ((*i)->type ()->get_descriptor ());
+      cons_list = tree_cons (NULL_TREE, utf, cons_list);
+    }
+
+  tree type
+    = build_array_type (type_utf8const_ptr,
+			build_index_type (build_int_cst (type_jint,
+							 throw_list.size () + 1)));
+  cons_list = build_constructor (type, cons_list);
+
+  return make_decl (type, cons_list);
+}
+
+tree
 class_object_creator::create_one_method_record (model_method *method)
 {
   record_creator inst (type_method);
@@ -174,9 +198,9 @@ class_object_creator::create_one_method_record (model_method *method)
 		  builtins->map_utf8const (method->get_descriptor ()));
   inst.set_field ("accflags",
 		  build_int_cst (type_jushort, method->get_modifiers ()));
-  inst.set_field ("index", integer_zero_node); // FIXME
-  inst.set_field ("ncode", null_pointer_node); // FIXME
-  inst.set_field ("throws", null_pointer_node);	// FIXME
+  inst.set_field ("index", integer_minus_one_node); // FIXME
+  inst.set_field ("ncode", build_address_of (mdecl));
+  inst.set_field ("throws", create_method_throws (method));
   return inst.finish_record ();
 }
 
@@ -214,6 +238,15 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
 					  tree &result_table,
 					  tree &result_syms)
 {
+  tree result_list = NULL_TREE;
+
+  if (table.empty ())
+    {
+      result_table = null_pointer_node;
+      result_syms = null_pointer_node;
+      return;
+    }
+
   for (std::vector<model_element *>::const_iterator i = table.begin ();
        i != table.end ();
        ++i)
@@ -237,13 +270,31 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
 	  descriptor = method->get_descriptor ();
 	}
 
-      // FIXME: enter new utf8consts.
-      
+      tree class_tree = builtins->map_utf8const (class_desc);
+      tree name_tree = builtins->map_utf8const (name);
+      tree desc_tree = builtins->map_utf8const (descriptor);
+
+      record_creator item (type_method_symbol);
+      item.set_field ("class_name", class_tree);
+      item.set_field ("name", name_tree);
+      item.set_field ("signature", desc_tree);
+      tree item_tree = item.finish_record ();
+
+      result_list = tree_cons (NULL_TREE, item_tree, result_list);
     }
 
-  // FIXME create the tables and update the arguments
-  result_table = null_pointer_node;
-  result_syms = null_pointer_node;
+  tree type
+    = build_array_type (type_method_symbol,
+			build_index_type (build_int_cst (type_jint, table.size ())));
+  result_syms = make_decl (type, result);
+
+  tree symtype
+    = build_array_type (ptr_type_node,
+			build_index_type (build_int_cst (type_jint,
+							 table.size ())));
+  // FIXME: we need a decl for this somewhere else so that the ABI can
+  // emit references to it...
+  result_table = make_decl (symtype, NULL_TREE);
 }
 
 void
@@ -264,10 +315,9 @@ class_object_creator::handle_interfaces (model_class *real_class,
 	   ++i)
 	{
 	  ++len;
-	  gcj_abi *abi = builtins->find_abi ((*i)->type ());
-	  tree one_iface
-	    = abi->build_class_reference (builtins, klass,
-					  builtins->map_type ((*i)->type ()));
+	  gcj_abi *abi = builtins->find_abi ();
+	  tree one_iface = abi->build_class_reference (builtins, klass,
+						       (*i)->type ());
 	  result = tree_cons (NULL_TREE, one_iface, result);
 	}
       result = nreverse (result);
@@ -285,19 +335,60 @@ class_object_creator::handle_interfaces (model_class *real_class,
 
 }
 
+tree
+class_object_creator::create_constants ()
+{
+  const std::vector<aot_class::pool_entry> &pool (klass->get_constant_pool ());
+
+  if (pool.empty ())
+    return null_pointer_node;
+
+  record_creator inst (type_constants);
+  inst.set_field ("size", build_int_cst (type_juint, pool.size ()));
+
+  tree type_tags
+    = build_array_type (type_jbyte,
+			build_index_type (build_int_cst (type_jint,
+							 pool.size ())));
+  tree type_data
+    = build_array_type (ptr_type_node,
+			build_index_type (build_int_cst (type_jint,
+							 pool.size ())));
+
+  tree tags_list = NULL_TREE;
+  tree data_list = NULL_TREE;
+  for (std::vector<aot_class::pool_entry>::const_iterator i = pool.begin ();
+       i != pool.end ();
+       ++i)
+    {
+      tags_list = tree_cons (NULL_TREE, build_int_cst (type_jbyte, (*i).tag),
+			     tags_list);
+      data_list = tree_cons (NULL_TREE, builtins->map_utf8const ((*i).value),
+			     data_list);
+    }
+
+  tags_list = nreverse (tags_list);
+  data_list = nreverse (data_list);
+
+  inst.set_field ("tags", make_decl (type_tags, tags_list));
+  inst.set_field ("data", make_decl (type_data, data_list));
+
+  return inst.finish_record ();
+}
+
 void
 class_object_creator::create_class_instance (tree class_tree)
 {
   assert (TREE_CODE (class_tree) == RECORD_TYPE);
 
-  // FIXME: handle fields in Object.
-
   model_class *real_class = klass->get ();
-  gcj_abi *abi = builtins->find_abi (real_class);
+  gcj_abi *abi = builtins->find_abi ();
   record_creator inst (type_class);
 
   // First the fields from Object.
-  inst.set_field ("vtable", null_pointer_node);	// FIXME
+  inst.set_field ("vtable",
+		  abi->get_vtable (builtins,
+				   global->get_compiler ()->java_lang_Class ()));
   if (! flag_hash_synchronization)
     inst.set_field ("sync_info", null_pointer_node);
 
@@ -318,13 +409,10 @@ class_object_creator::create_class_instance (tree class_tree)
   if (real_class->interface_p ())
     super = global->get_compiler ()->java_lang_Object ();
   if (super)
-    {
-      gcj_abi *abi = builtins->find_abi (super);
-      super_tree = abi->build_class_reference (builtins, klass, super);
-    }
+    super_tree = abi->build_class_reference (builtins, klass, super);
   inst.set_field ("superclass", super_tree);
 
-  inst.set_field ("constants", null_pointer_node);  // FIXME
+  inst.set_field ("constants", create_constants ());
 
   int method_len;
   tree methods = create_method_array (real_class, method_len);
@@ -344,8 +432,7 @@ class_object_creator::create_class_instance (tree class_tree)
   inst.set_field ("static_field_count",
 		  build_int_cst (type_jshort, num_static_fields));
 
-  // FIXME abi->get_vtable (blah));
-  inst.set_field ("vtable", null_pointer_node);
+  inst.set_field ("dtable", abi->get_vtable (builtins, klass->get (), true));
 
   tree table, syms;
   create_index_table (klass->get_otable (), table, syms);

@@ -55,7 +55,11 @@ public:
 
   // This is a way to create a mangled name for a non-existing field,
   // given its declaring class.
-  mangler (model_class *, const std::string &);
+  mangler (model_class *, const char *);
+
+  /// This is slightly bogus: the bool argument is ignored; this
+  /// constructor is used to create the name of the class' vtable.
+  mangler (model_class *, bool);
 
   std::string get () const
   {

@@ -101,6 +101,8 @@ extern GTY (()) tree gcj_abi_version;
 
 
 extern tree build_address_of (tree);
+extern void push_field (tree record, tree &field, const char *name,
+			tree field_type, bool is_private = false);
 
 namespace gcjx
 {

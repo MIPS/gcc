@@ -1,6 +1,6 @@
 // Tree generation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -104,7 +104,7 @@ class tree_generator : public visitor
   tree wrap_synchronized (tree, tree);
   tree add_var (const ref_variable_decl &);
   tree build_class_ref (model_type *);
-  tree build_class_ref (tree);
+  tree build_class_ref (const std::string &);
   tree handle_instanceof (tree, tree);
   void handle_inc_dec (tree_code, const ref_expression &);
   void handle_op_assignment (tree_code, const ref_expression &,

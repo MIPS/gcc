@@ -127,6 +127,15 @@ aot_class::add (const std::string &s)
 }
 
 int
+aot_class::add_class (const std::string &s)
+{
+  pool_entry e;
+  e.tag = CONSTANT_Class;
+  e.value = s;
+  return add_item (e);
+}
+
+int
 aot_class::add (model_class *k)
 {
   pool_entry e;

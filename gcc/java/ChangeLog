@@ -1,3 +1,72 @@
+2005-02-21  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (map_utf8const): Use 'type', not 'type_utf8const'.
+
+	* abi.cc (build_class_reference): Wrote.
+
+	* classobj.cc (create_class_instance): Use new get_vtable
+	argument.
+	* abi.cc (get_vtable): Updated.
+	* abi.hh (gcj_abi::get_vtable): Added argument.
+	(cxx_abi::get_vtable): Likewise.
+	(bc_abi::get_vtable): Likewise.
+	* builtins.cc (get_vtable_decl): Updated.
+	* builtins.hh (tree_builtins::get_vtable): Added argument.
+
+	* classobj.cc (handle_interfaces): Updated.
+	(create_class_instance): Updated.
+	* abi.cc (build_class_reference): Rewrote.
+	* abi.hh (gcj_abi::build_class_ref): Changed argument type.
+	(cxx_abi::build_class_ref): Likewise.
+	(bc_abi::build_class_ref): Likewise.
+	* tree.hh (tree_generator::build_class_ref): Updated.
+	* tree.cc (build_class_ref): Rewrote.
+	(build_class_ref): Likewise.  Changed argument type.
+	(build_new_array): Updated.
+	* builtins.hh (tree_builtins::find_abi): Updated.
+	* builtins.cc (find_abi): Removed argument.
+	(map_field_ref): Updated.
+	(map_method_call): Likewise.
+	(map_new): Likewise.
+
+	* abi.cc (get_vtable): New method.
+	* abi.hh (gcj_abi::get_vtable): New abstract method.
+	(cxx_abi::get_vtable): Declare.
+	(bc_abi::get_vtable): Likewise.
+	* glue.hh: Include version.h.
+	* decl.cc (initialize_version): Rewrote.
+	(GCJ_BINARYCOMPAT_ADDITION): New define.
+	(build_class_type): Changed name of field to "dtable".
+	* classobj.hh (class_object_creator::create_constants): Declare.
+	* classobj.cc (create_constants): New method.
+	(make_decl): Don't set DECL_ASSEMBLER_NAME.
+	(create_method_throws): Use make_decl.
+	(create_index_table): Likewise.  Handle case where table is
+	empty.
+	(create_class_instance): Set vtable fields.
+	* builtins.cc (tree_builtins): Initialize new field.
+	(get_symbol): New method.
+	(get_vtable_decl): New method.
+	(find_abi): Rewrote.
+	* builtins.hh (tree_builtins::symbol_count): New field.
+	(tree_builtins::get_symbol): Declare.
+	(tree_builtins::get_vtable_decl): Likewise.
+
+	* glue.hh: Include output.h.
+	* builtins.hh (tree_builtins::utf8typemap): New field.
+	(tree_builtins::build_utf8const_type): Declare.
+	(tree_builtins::hash_utf8): Likewise.
+	* builtins.cc (build_utf8const_type): New method.
+	(hash_utf8): Likewise.
+	(map_utf8const): Finished.
+	* hooks.hh (push_field): Declare.
+	* decl.cc (build_utf8_record): Fix length of "data" field.
+	(push_field): No longer static.
+	(build_method_symbol_type): Fixed field name.
+	* classobj.cc (create_one_method_record): Compute values of
+	"ncode" and "throws".
+	(create_method_throws): New method.
+
 2005-02-10  Tom Tromey  <tromey@redhat.com>
 
 	* hooks.hh (type_method_array): Removed.

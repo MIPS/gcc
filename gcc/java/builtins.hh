@@ -33,6 +33,9 @@ class tree_builtins : public aot_class_factory
   // FIXME: perhaps this should be attached to the gcc type somehow?
   std::map<model_class *, tree> classobj_map;
 
+  // This maps classes to their vtable decls
+  std::map<model_class *, tree> vtable_map;
+
   // This maps a method to its corresponding gcc tree.
   std::map<model_method *, tree> methodmap;
 
@@ -42,9 +45,15 @@ class tree_builtins : public aot_class_factory
   // This maps a variable or parameter to its corresponding gcc tree.
   std::map<model_variable_decl *, tree> varmap;
 
+  // This maps a length to a concrete Utf8Const type.
+  std::map<int, tree> utf8typemap;
+
   // This maps a string to a gcc tree representing the corresponding
   // Utf8Const.
   std::map<std::string, tree> utf8map;
+
+  // Used when creating symbol names.
+  int symbol_count;
 
   // ABI instances.
   cxx_abi old_abi;
@@ -54,6 +63,8 @@ class tree_builtins : public aot_class_factory
   void add (tree, model_field *);
   tree map_param_or_var (tree_code, tree, model_variable_decl *);
   void lay_out_vtable (model_class *);
+  tree build_utf8const_type (int);
+  int hash_utf8 (const char *, int);
 
 
   friend class cxx_abi;
@@ -101,10 +112,18 @@ public:
   /// called once, before any classes are entered into the type map.
   void initialize_type_map ();
 
-  gcj_abi *find_abi (model_type *);
+  gcj_abi *find_abi ();
 
   /// Return the mangled name of the class object for a given class.
   std::string get_class_object_name (model_class *);
+
+  /// Return a new unique symbol name.
+  tree get_symbol ();
+
+  /// Return the decl for a given class' vtable.  If the second
+  /// argument is true, assume we are laying out the vtable, so go
+  /// ahead and fill it in.
+  tree get_vtable_decl (model_class *, bool = false);
 };
 
 #endif // GCC_TREE_BUILTINS_HH
