@@ -1,3 +1,12 @@
+2002-10-11  Andreas Bauer  <baueran@in.tum.de>
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Allow
+	indirect calls to be sibcall optimized.
+	* config/i386/i386.md (sibcall_1): New.
+	(call_1): Add no-sibcalls condition.
+	(sibcall_value_1): New.
+	(call_value_1): Add no-sibcalls condition.
+
 2002-10-11  Eric Christopher  <echristo@redhat.com>
 
        * output.h (default_valid_pointer_mode): Declare.

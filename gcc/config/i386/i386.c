@@ -1319,13 +1319,32 @@ const struct attribute_spec ix86_attribute_table[] =
 static bool
 ix86_function_ok_for_sibcall (decl, exp)
      tree decl;
-     tree exp ATTRIBUTE_UNUSED;
+     tree exp;
 {
-  return ((decl)
-	  && (! flag_pic || ! TREE_PUBLIC (decl))
-	  && (! TARGET_FLOAT_RETURNS_IN_80387
-	      || ! FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (decl))))
-	      || FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl))))));
+  /* We don't have 64-bit patterns in place.  */
+  if (TARGET_64BIT)
+    return 0;
+
+  /* If we are generating position-independent code, we cannot sibcall
+     optimize any indirect call, or a direct call to a global function,
+     as the PLT requires %ebx be live.  */
+  if (flag_pic && (!decl || !TREE_PUBLIC (decl)))
+    return 0;
+
+  /* If we are returning floats on the 80387 register stack, we cannot
+     make a sibcall from a function that doesn't return a float to a
+     function that does; the necessary stack adjustment will not be
+     executed.  */
+  if (TARGET_FLOAT_RETURNS_IN_80387
+      && FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (exp)))
+      && !FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl)))))
+    return 0;
+
+  /* Otherwise okay.
+     That also includes certain types of indirect calls, since DECL
+     is not necessarily defined here and the i386 machine description
+     supports the according call patterns.  */
+  return 1;
 }
 
 /* Handle a "cdecl" or "stdcall" attribute;
