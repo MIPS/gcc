@@ -1048,9 +1048,14 @@ compute_immediate_uses_for (tree stmt, int flags)
 
       for (i = 0; i < PHI_NUM_ARGS (stmt); i++)
 	{
-	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (stmt, i));
-	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
-	    add_immediate_use (imm_rdef_stmt, stmt);
+	  tree arg = PHI_ARG_DEF (stmt, i);
+
+	  if (TREE_CODE (arg) == SSA_NAME)
+	    { 
+	      tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (stmt, i));
+	      if (!IS_EMPTY_STMT (imm_rdef_stmt))
+		add_immediate_use (imm_rdef_stmt, stmt);
+	    }
 	}
       return;
     }

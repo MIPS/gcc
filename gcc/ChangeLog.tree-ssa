@@ -1,5 +1,12 @@
 2003-07-28  Jeff Law  <law@redhat.com>
 
+	* tree-dfa.c (compute_immediate_uses_for): Do not assume that
+	PHI arguments are SSA_NAMEs.
+	* tree-ssa-dce.c (process_worklist): Likewise.
+	* tree-ssa-copyprop.c (copyprop_phi): Likewise.  Use may_propagate_copy.        * tree-ssa-ccp.c (visit_phi_node): Do not assume that PHI arguments
+	are SSA_NAMEs.  Create a suitable value if a PHI argument is a
+	constant.
+
 	* tree-cfg.c (move_outgoing_edges): Correctly handle case where
 	an edge already exists from BB1 to BB2's successor.
 

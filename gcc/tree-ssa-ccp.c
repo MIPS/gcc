@@ -398,7 +398,19 @@ visit_phi_node (tree phi)
 	if (e->flags & EDGE_EXECUTABLE)
 	  {
 	    tree rdef = PHI_ARG_DEF (phi, i);
-	    value *rdef_val = get_value (rdef);
+	    value *rdef_val;
+
+	    if (TREE_CONSTANT (rdef))
+	      {
+		value val;
+
+		val.lattice_val = CONSTANT;
+		val.const_val = rdef;
+		rdef_val = &val;
+	      }
+	    else
+	      rdef_val = get_value (rdef);
+
 	    phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
 	    if (dump_file && (dump_flags & TDF_DETAILS))

@@ -150,11 +150,13 @@ copyprop_phi (tree phi)
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
       tree arg = PHI_ARG_DEF (phi, i);
-      tree orig = get_original (arg);
+      tree orig;
 
-      if (orig
-	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg)
-	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
+      if (TREE_CODE (arg) != SSA_NAME)
+	continue;
+
+      orig = get_original (arg);
+      if (orig && may_propagate_copy (arg, orig))
 	{
 	  if (dump_file && dump_flags & TDF_DETAILS)
 	    {

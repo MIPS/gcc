@@ -357,7 +357,11 @@ process_worklist (void)
 	  /* All the statements feeding this PHI node's arguments are
 	     necessary.  */
 	  for (k = 0; k < PHI_NUM_ARGS (i); k++)
-	    mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+	    {
+	      tree arg = PHI_ARG_DEF (i, k);
+	      if (TREE_CODE (arg) == SSA_NAME)
+		mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+	    }
 
 	  /* Look at all the predecessors, and if this PHI is being fed
 	     from a conditional expression, mark that conditional
