@@ -559,6 +559,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 	  fragment->start = buf;
 	  fragment->end = 0;
 	  file->fragments = fragment;
+	  fragment->empty = true;
 	}
     }
 
@@ -610,8 +611,12 @@ _cpp_enter_fragment (pfile, fragment)
 	  pfile->buffer->line_base = fragment->end - 1;
 	  pfile->buffer->next_line = fragment->end;
 	  pfile->line += fragment->end_line - fragment->start_line;
+	  if (! fragment->empty)
+	    pfile->mi_valid = false;
 	  return;
 	}
+      fragment->end = 0;
+      fragment->empty = pfile->mi_valid;
       fragment->start_line = pfile->line;
     }
 }
@@ -625,8 +630,11 @@ _cpp_exit_fragment (pfile, fragment)
       && ! pfile->state.skipping
       && ! fragment->was_reused)
     {
+      bool empty = fragment->empty;
       pfile->cb.exit_fragment (pfile, fragment);
       fragment->end_line = pfile->line;
+      fragment->empty = pfile->mi_valid;
+      pfile->mi_valid = pfile->mi_valid && empty;
     }
 }
 

@@ -1,5 +1,14 @@
 2003-11-23  Per Bothner  <pbothner@apple.com>
 
+	Note whether fragment was empty so we can update mi_valid.
+	* cpphash.h (struct cpp_fragment):  New field empty.
+	* cppfiles.c (read_file_guts):  Mark head fragment as empty.
+	(_cpp_enter_fragment):  Clear mi_valid if reused fragment is non-empty
+	Otherwise, set empty from mi_valid.
+	(_cpp_exit_fragment):  Update empty and mi_valid fields.
+
+2003-11-23  Per Bothner  <pbothner@apple.com>
+
 	Support compile-server dependency tracking for macros.
 	* c-opts.c (init_c_common_once):  Set uses_fragment callback.
 	* cpplib.h (struct cpp_callbacks):  New uses_fragment field.

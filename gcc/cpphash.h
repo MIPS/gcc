@@ -272,6 +272,10 @@ struct cpp_fragment
   const unsigned char *end_next_line;
   struct cpp_macro_note *macro_notes;
   int macro_notes_count;
+
+  /* True if this fragment contains no non-space not-comment tokene.
+   * If end==NULL, this is a cache for mi_valid. */
+  bool empty;
 };
 
 typedef struct _cpp_line_note _cpp_line_note;
