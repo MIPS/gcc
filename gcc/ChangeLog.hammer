@@ -1,3 +1,7 @@
+2004-02-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcse.c (delete_null_pointer_checks_1): Do not delete CC setter.
+
 2004-02-24  Josef Zlomek  <zlomekj@suse.cz>
 
 	* emit-rtl.c (set_decl_incoming_rtl): Maintain reverse information
