@@ -834,10 +834,8 @@ rs6000_override_options (const char *default_cpu)
       align_jumps = 16;
       set_fast_math_flags (1);
       flag_reorder_blocks = 1;
-#if 0
       if (flag_branch_probabilities && !flag_exceptions)
 	flag_reorder_blocks_and_partition = 1;
-#endif
       if (!flag_pic)
         set_target_switch ("dynamic-no-pic");
         

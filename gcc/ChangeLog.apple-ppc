@@ -1,3 +1,8 @@
+2004-05-29  Dale Johannesen  <dalej@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options):  Enable 
+	hot/cold partitioning with -fast -profile-use.
+
 2004-05-28  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3665286
