@@ -1,3 +1,7 @@
+2004-11-22  Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-ssa-loop.c (pass_vectorize): Require PROP_align.
+	
 2004-11-22  Devang Patel  <dpatel@apple.com>
 
 	Backport from Mainline.
