@@ -43,8 +43,8 @@ Boston, MA 02111-1307, USA.  */
   %{mno-win32:%{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
   %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{!ansi:%{mthreads:-D_MT}}}\
   %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix }\
-  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}\
-  -isystem ../include/w32api%s -isystem ../../include/w32api%s}\
+  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}}\
+  %{!mno-win32|mno-cygwin:-isystem ../include/w32api%s -isystem ../../include/w32api%s}\
 "
 
 #undef STARTFILE_SPEC
@@ -156,12 +156,9 @@ char cygwin_cross_include_dir[sizeof (CROSS_INCLUDE_DIR) + 1] = CROSS_INCLUDE_DI
 char cygwin_tool_include_dir[sizeof (TOOL_INCLUDE_DIR) + 1] = TOOL_INCLUDE_DIR;
 #undef TOOL_INCLUDE_DIR
 #define TOOL_INCLUDE_DIR ((const char *) cygwin_tool_include_dir)
-#ifndef GEN_CVT_ARRAY
-#define GEN_CVT_ARRAY
-#endif
-#endif
 
-#ifdef STANDARD_INCLUDE_DIR
+#undef STANDARD_INCLUDE_DIR
+#define STANDARD_INCLUDE_DIR "/usr/include"
 char cygwin_standard_include_dir[sizeof (STANDARD_INCLUDE_DIR) + 1] = STANDARD_INCLUDE_DIR;
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR ((const char *) cygwin_standard_include_dir)

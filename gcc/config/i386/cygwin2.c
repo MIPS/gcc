@@ -34,27 +34,33 @@ extern char cygwin_cross_include_dir[];
 extern char cygwin_standard_include_dir[];
 
 void
-add_mingw PARAMS((void))
+add_mingw ()
 {
   char **av;
   char *p;
   for (av = cvt_to_mingw; *av; av++)
-    while ((p = strstr (*av, "-cygwin")))
-      {
-	char *over = p + sizeof ("-cygwin") - 1;
-	memmove (over + 1, over, strlen (over));
-	memcpy (p, "-mingw32", sizeof("-mingw32") - 1);
-	p = ++over;
-	while (isalnum (*p))
-	  p++;
-	strcpy (over, p);
-      }
+    {
+      int sawcygwin = 0;
+      while ((p = strstr (*av, "-cygwin")))
+	{
+	  char *over = p + sizeof ("-cygwin") - 1;
+	  memmove (over + 1, over, strlen (over));
+	  memcpy (p, "-mingw32", sizeof("-mingw32") - 1);
+	  p = ++over;
+	  while (isalnum (*p))
+	    p++;
+	  strcpy (over, p);
+	  sawcygwin = 1;
+	}
+      if (!sawcygwin && !strstr (*av, "mingw"))
+	strcat (*av, "/mingw");
+    }
 }
 
 static void set_mingw PARAMS((void)) __attribute__ ((constructor));
 
 static void
-set_mingw PARAMS((void))
+set_mingw ()
 {
   char *env = getenv ("GCC_CYGWIN_MINGW");
   if (env && *env == '1')

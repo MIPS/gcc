@@ -1,3 +1,12 @@
+2002-07-12  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/cygwin.h (CPP_SPEC): Fix include/w32api search behavior
+	in absence of -mwin32.  Always define STANDARD_INCLUDE_DIR when
+	required.
+	* config/i386/cygwin2.c (add_mingw): Tack /mingw on the end of
+	directories that have not been otherwise converted.
+	* config/t-cygming (STMP_FIXINC): Define.
+
 2002-07-05  Christopher Faylor  <cgf@redhat.com>
 
 	* config/i386/cygming.h (TARGET_SUBTARGET_DEFAULT): Default to
