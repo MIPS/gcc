@@ -1,3 +1,11 @@
+2004-04-04  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.h (struct gfc_option_t): Remove flag_g77_calls.
+	* options.c (gfc_init.options, gfc_handle_option): Ditto.
+	* trans-expr.c (gfc_conv_function_call): Ditto.
+	* trans-types.c (gfc_is_nodesc_array): Ditto
+	* lang.opt (fg77-calls): Remove.
+
 2003-04-04  Paul Brook  <paul@codesourcery.com>
 
 	* trans-array.c (OFFSET_FIELD): Rename from BASE_FIELD.

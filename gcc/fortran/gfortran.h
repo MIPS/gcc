@@ -1223,7 +1223,6 @@ typedef struct
   int warn_unused_labels;
 
   int flag_dollar_ok;
-  int flag_g77_calls;
   int flag_underscoring;
   int flag_second_underscore;
   int flag_implicit_none;

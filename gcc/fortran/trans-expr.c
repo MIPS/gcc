@@ -945,7 +945,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   tree type;
   tree var;
   tree len;
-  int g77;
   tree stringargs;
   gfc_formal_arglist *formal;
 
@@ -1016,8 +1015,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     }
 
   formal = sym->formal;
-  /* Use g77 calling convention if neccessary.  */
-  g77 = (gfc_option.flag_g77_calls);
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
     {
@@ -1080,7 +1077,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      f = (formal != NULL)
 		  && !formal->sym->attr.pointer
 		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
-	      f = g77 && (f || !sym->attr.always_explicit);
+	      f = f || !sym->attr.always_explicit;
 	      gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
 	    } 
 	}
