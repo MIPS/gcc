@@ -1,3 +1,23 @@
+2003-04-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* bitmap.c (bitmap_element_link): Removed.
+	(bitmap_find_bit): Replaced with ...
+	(bitmap_find_indx): ... new function.
+	(ensure_allocated_obstack, fill_freelist, verify_bitmap,
+	slow_bitmap_operation): New static functions.
+	(bitmap_elem_to_freelist, bitmap_element_free,
+	bitmap_element_allocate, bitmap_initialize,
+	bitmap_clear, bitmap_copy, bitmap_clear_bit,
+	bitmap_set_bit, bitmap_bit_p,  bitmap_operation, bitmap_equal_p):
+	Speed up.
+	(bitmap_ior_and_compl, bitmap_union_of_diff, debug_bitmap_file,
+	bitmap_first_set_bit, bitmap_last_set_bit): Modified due to above
+	changes.
+	* bitmap.h (struct bitmap_head_def): Add freelist field.
+	(BITMAP_IOR_COMPL): Remove.
+	(EXECUTE_IF_SET_IN_BITMAP, EXECUTE_IF_AND_COMPL_IN_BITMAP,
+	EXECUTE_IF_AND_IN_BITMAP): Modified.
+
 2003-04-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* heap.c: New.

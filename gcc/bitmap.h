@@ -63,6 +63,9 @@ typedef struct bitmap_head_def GTY(()) {
   unsigned int indx;		/* Index of last element looked at.  */
   int using_obstack;		/* Are we using an obstack or ggc for
                                    allocation?  */
+  bitmap_element ** GTY((skip (""))) freelist;
+				/* Freelist from that we allocate
+				   elements. */
 } bitmap_head;
 typedef struct bitmap_head_def *bitmap;
 
@@ -71,8 +74,7 @@ enum bitmap_bits {
   BITMAP_AND,			/* TO = FROM1 & FROM2 */
   BITMAP_AND_COMPL,		/* TO = FROM1 & ~ FROM2 */
   BITMAP_IOR,			/* TO = FROM1 | FROM2 */
-  BITMAP_XOR,			/* TO = FROM1 ^ FROM2 */
-  BITMAP_IOR_COMPL			/* TO = FROM1 | ~FROM2 */
+  BITMAP_XOR			/* TO = FROM1 ^ FROM2 */
 };
 
 /* Global data */
@@ -169,9 +171,10 @@ do {						\
 #define EXECUTE_IF_SET_IN_BITMAP(BITMAP, MIN, BITNUM, CODE)		\
 do {									\
   bitmap_element *ptr_ = (BITMAP)->first;				\
-  unsigned int indx_ = (MIN) / BITMAP_ELEMENT_ALL_BITS;			\
-  unsigned bit_num_ = (MIN) % BITMAP_WORD_BITS;				\
-  unsigned word_num_ = (MIN) / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;	\
+  unsigned int delta_ = (MIN) % BITMAP_ELEMENT_ALL_BITS;		\
+  unsigned int indx_ = (MIN) - delta_;					\
+  unsigned bit_num_ = delta_ % BITMAP_WORD_BITS;			\
+  unsigned word_num_ = delta_ / BITMAP_WORD_BITS;			\
 									\
 									\
   /* Find the block the minimum bit is in.  */				\
@@ -199,7 +202,7 @@ do {									\
 		  if ((word_ & mask_) != 0)				\
 		    {							\
 		      word_ &= ~ mask_;					\
-		      (BITNUM) = (ptr_->indx * BITMAP_ELEMENT_ALL_BITS  \
+		      (BITNUM) = (ptr_->indx				\
 				  + word_num_ * BITMAP_WORD_BITS	\
 				  + bit_num_);				\
 		      CODE;						\
@@ -225,9 +228,10 @@ do {									\
 do {									\
   bitmap_element *ptr1_ = (BITMAP1)->first;				\
   bitmap_element *ptr2_ = (BITMAP2)->first;				\
-  unsigned int indx_ = (MIN) / BITMAP_ELEMENT_ALL_BITS;			\
-  unsigned bit_num_ = (MIN) % BITMAP_WORD_BITS;				\
-  unsigned word_num_ = (MIN) / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;	\
+  unsigned int delta_ = (MIN) % BITMAP_ELEMENT_ALL_BITS;		\
+  unsigned int indx_ = (MIN) - delta_;					\
+  unsigned bit_num_ = delta_ % BITMAP_WORD_BITS;			\
+  unsigned word_num_ = delta_ / BITMAP_WORD_BITS;			\
 									\
   /* Find the block the minimum bit is in in the first bitmap.  */	\
   while (ptr1_ != 0 && ptr1_->indx < indx_)				\
@@ -264,7 +268,7 @@ do {									\
 		  if ((word_ & mask_) != 0)				\
 		    {							\
 		      word_ &= ~ mask_;					\
-		      (BITNUM) = (ptr1_->indx * BITMAP_ELEMENT_ALL_BITS \
+		      (BITNUM) = (ptr1_->indx				\
 				  + word_num_ * BITMAP_WORD_BITS	\
 				  + bit_num_);				\
 									\
@@ -290,9 +294,10 @@ do {									\
 do {									\
   bitmap_element *ptr1_ = (BITMAP1)->first;				\
   bitmap_element *ptr2_ = (BITMAP2)->first;				\
-  unsigned int indx_ = (MIN) / BITMAP_ELEMENT_ALL_BITS;			\
-  unsigned bit_num_ = (MIN) % BITMAP_WORD_BITS;				\
-  unsigned word_num_ = (MIN) / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;	\
+  unsigned int delta_ = (MIN) % BITMAP_ELEMENT_ALL_BITS;		\
+  unsigned int indx_ = (MIN) - delta_;					\
+  unsigned bit_num_ = delta_ % BITMAP_WORD_BITS;			\
+  unsigned word_num_ = delta_ / BITMAP_WORD_BITS;			\
 									\
   /* Find the block the minimum bit is in in the first bitmap.  */	\
   while (ptr1_ != 0 && ptr1_->indx < indx_)				\
@@ -335,7 +340,7 @@ do {									\
 		  if ((word_ & mask_) != 0)				\
 		    {							\
 		      word_ &= ~ mask_;					\
-		      (BITNUM) = (ptr1_->indx * BITMAP_ELEMENT_ALL_BITS \
+		      (BITNUM) = (ptr1_->indx				\
 				  + word_num_ * BITMAP_WORD_BITS	\
 				  + bit_num_);				\
 									\
