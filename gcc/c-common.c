@@ -4131,6 +4131,8 @@ handle_used_attribute (tree *pnode, tree name, tree args ATTRIBUTE_UNUSED,
       || (TREE_CODE (node) == VAR_DECL && TREE_STATIC (node)))
     {
       TREE_USED (node) = 1;
+      /* APPLE LOCAL 3739318 FSF candidate.  */
+      DECL_PRESERVE_P (node) = 1;
     }
   else
     {

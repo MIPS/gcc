@@ -172,6 +172,13 @@ struct gcc_target
     /* Output an assembler pseudo-op to declare a library function name
        external.  */
     void (*external_libcall) (rtx);
+
+    /* APPLE LOCAL begin 3739318 FSF candidate.  */
+     /* Output an assembler directive to mark decl live. This instructs
+	linker to not dead code strip this symbol.  */
+    void (*mark_decl_preserved) (const char *);
+    /* APPLE LOCAL end 3739318 FSF candidate.  */
+
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */

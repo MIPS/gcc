@@ -966,6 +966,11 @@ objc_section_init (void)			\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%ld", PREFIX, (long)(NUM))
 
+/* APPLE LOCAL begin 3739318 FSF candidate.  */
+#undef TARGET_ASM_MARK_DECL_PRESERVED
+#define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
+/* APPLE LOCAL end 3739318 FSF candidate.  */
+
 /* Since we have a separate readonly data section, define this so that
    jump tables end up in text rather than data.  */
 

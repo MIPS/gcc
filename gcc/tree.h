@@ -2184,6 +2184,13 @@ extern GTY (()) unsigned binfo_lang_slots;
 #define DECL_POSSIBLY_INLINED(DECL) \
   FUNCTION_DECL_CHECK (DECL)->decl.possibly_inlined
 
+/* APPLE LOCAL begin 3739318 FSF candidate.  */
+/* Nonzero for a decl that is decorated using attribute used.
+   This indicates compiler tools that this decl needs to be preserved.  */
+#define DECL_PRESERVE_P(DECL) \
+  DECL_CHECK (DECL)->decl.preserve_flag
+/* APPLE LOCAL end 3739318 FSF candidate.  */
+
 /* Enumerate visibility settings.  */
 
 enum symbol_visibility
@@ -2248,6 +2255,8 @@ struct tree_decl GTY(())
   unsigned lang_flag_7 : 1;
 
   unsigned needs_to_live_in_memory : 1;
+  /* APPLE LOCAL 3739318 FSF Candidate -dpatel  */
+  unsigned preserve_flag: 1;
   /* APPLE LOCAL weak import (Radar 2809704) --ilr */
   unsigned weak_import_flag : 1;
   /* APPLE LOCAL duplicate decls in multiple files. */
@@ -2259,7 +2268,7 @@ struct tree_decl GTY(())
   unsigned int cw_asm_frame_size;
   /* APPLE LOCAL end CW asm blocks */
   /* APPLE LOCAL unused bits */
-  /* 10 unused bits.  */
+  /* 9 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is

@@ -102,6 +102,8 @@ extern tree darwin_handle_odd_attribute (tree *, tree, tree, int, bool *);
 extern void darwin_file_end (void);
 
 extern void darwin_make_decl_one_only (tree decl);
+/* APPLE LOCAL 3739318 FSF candidate.  */
+extern void darwin_mark_decl_preserved (const char *);
 
 /* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
 extern void const_section (void);

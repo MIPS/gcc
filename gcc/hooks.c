@@ -141,10 +141,12 @@ hook_void_tree (tree a ATTRIBUTE_UNUSED)
 {
 }
 
+/* APPLE LOCAL begin 3739318 FSF Candidate.  */
 void
-hook_void_charptr (char *a ATTRIBUTE_UNUSED)
+hook_void_constcharptr (const char *a ATTRIBUTE_UNUSED)
 {
 }
+/* APPLE LOCAL end 3739318 FSF Candidate.  */
 
 void
 hook_void_tree_treeptr (tree a ATTRIBUTE_UNUSED, tree *b ATTRIBUTE_UNUSED)

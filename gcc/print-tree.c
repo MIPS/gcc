@@ -357,6 +357,11 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (DECL_DEFER_OUTPUT (node))
 	fputs (" defer-output", file);
 
+      /* APPLE LOCAL begin 3739318 FSF Candidate.  */
+      if (DECL_PRESERVE_P (node))
+	fputs (" preserve", file);
+      /* APPLE LOCAL end 3739318 FSF Candidate.  */
+
       if (DECL_LANG_FLAG_0 (node))
 	fputs (" decl_0", file);
       if (DECL_LANG_FLAG_1 (node))

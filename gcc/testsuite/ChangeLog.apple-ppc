@@ -1,3 +1,10 @@
+2004-08-16  Devang Patel  <dpatel@apple.com>
+	
+	Merge from mainlne.
+	2004-08-16  Devang Patel  <dpatel@apple.com>                                                         
+                                                                                                     
+	* gcc.dg/darwin-20040809-1.c: New test.
+                                                        
 2004-08-13  Matt Austern  <austern@apple.com>
 
 	Radar 2872232

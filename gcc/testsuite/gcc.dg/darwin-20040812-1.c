@@ -1,3 +1,4 @@
+/* APPLE LOCAL 3739318 FSF candidate.  */
 /* Test dead code strip support.  */
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
  

@@ -1314,6 +1314,16 @@ darwin_make_decl_one_only (tree decl)
   DECL_SECTION_NAME (decl) = build_string (strlen (sec), sec);
 }
 
+/* APPLE LOCAL begin 3739318 FSF candidate.  */
+void
+darwin_mark_decl_preserved (const char *name)
+{
+  fprintf (asm_out_file, ".no_dead_strip ");
+  assemble_name (asm_out_file, name);
+  fputc ('\n', asm_out_file);
+}
+/* APPLE LOCAL end 3739318 FSF candidate.  */
+
 void
 machopic_select_section (tree exp, int reloc,
 			 unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
