@@ -1,5 +1,9 @@
 2003-10-29  Per Bothner  <pbothner@apple.com>
 
+	* function.c (init_function_once):  Reset funcdef_no.
+
+2003-10-29  Per Bothner  <pbothner@apple.com>
+
 	* c-patch.in (maybe_identifier):  New non-terminal.
 	(structsp_attr):  Use maybe_identifier to combine_case.  Not only
 	is this simpler, but it calls finish_struct before parsing body,
