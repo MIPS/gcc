@@ -47,3 +47,4 @@ extern void gen_insn_reserv     	PARAMS ((rtx));
 extern void initiate_automaton_gen	PARAMS ((int, char **));
 extern void expand_automata             PARAMS ((void));
 extern void write_automata              PARAMS ((void));
+
