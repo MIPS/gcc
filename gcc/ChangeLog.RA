@@ -1,3 +1,8 @@
+2001-02-23  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (colorize_one_web): only use array-ref, if HARD_REG_SET
+	really is an array (in debug-output).
+
 2001-02-20  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	Bootstraps again on x86.

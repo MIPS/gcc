@@ -2339,7 +2339,13 @@ colorize_one_web (web)
       if (web->was_spilled < 0)
         debug_msg (0,
 		   "  *** Web %d spilled, although it was simplified "
-		   "[free = %x, mode = %s]\n", web->id, colors[0],
+		   "[free = %x, mode = %s]\n", web->id,
+#if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
+		   colors,
+#else
+		   /* Yes, yes, I know, that's not all hard-regs.  */
+		   colors[0],
+#endif
 		   GET_MODE_NAME (PSEUDO_REGNO_MODE (web->regno)));
       if (web->spill_temp)
         debug_msg (0,
