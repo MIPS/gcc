@@ -406,7 +406,7 @@ flow_loop_pre_header_scan (struct loop *loop)
   /* Store edges in order that they are followed.  The source of the first edge
      is the root node of the pre-header extended basic block and the
      destination of the last last edge is the loop header.  */
-  for (e = loop->entry_edges[0]; num; e = e->src->pred)
+  for (e = loop->entry_edges[0]; num; e = EDGE_0 (e->src->pred))
     loop->pre_header_edges[--num] = e;
 }
 

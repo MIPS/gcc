@@ -939,7 +939,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	return;
       if (bb != BLOCK_FOR_INSN (insn))
 	{
-	  edge e;
+	  edge e = NULL;
 	  unsigned HOST_WIDE_INT undef = use->undefined;
 	  struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
 	  if (bb->pred == NULL)

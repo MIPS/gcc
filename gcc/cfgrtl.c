@@ -2570,7 +2570,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
          of conditional jump, remove it.  */
       if (EDGE_COUNT (src->succ) == 2)
 	{
-	  bool found;
+	  bool found = false;
 	  unsigned ix;
 	  edge tmp, s;
 

@@ -172,9 +172,9 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
     {
+      unsigned ix;
       preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
       header = preheader_edge->dest;
-      unsigned ix;
 
       if (!header->aux)
 	abort ();
