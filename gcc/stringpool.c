@@ -170,6 +170,16 @@ ggc_mark_stringpool ()
   ht_forall (ident_hash, mark_ident, NULL);
 }
 
+/* Strings are _not_ GCed, but this routine exists so that a separate
+   roots table isn't needed for the few global variables that refer
+   to strings.  */
+
+void
+gt_ggc_m_S (x)
+     void *x ATTRIBUTE_UNUSED;
+{
+}
+
 /* Pointer-walking routine for strings (not very interesting, since
    strings don't contain pointers).  */
 

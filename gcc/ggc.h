@@ -112,11 +112,12 @@ extern void ggc_mark_roots		PARAMS ((void));
 extern void gt_pch_save_stringpool	PARAMS ((void));
 extern void gt_pch_restore_stringpool	PARAMS ((void));
 
-/* PCH handling for strings.  */
+/* PCH and GGC handling for strings, mostly trivial.  */
 
 extern void gt_pch_p_S			PARAMS ((void *, void *,
 						 gt_pointer_operator, void *));
 extern void gt_pch_n_S			PARAMS ((const void *));
+extern void gt_ggc_m_S			PARAMS ((void *));
 
 
 /* A GC implementation must provide these functions.  */

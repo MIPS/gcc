@@ -1,3 +1,10 @@
+2002-12-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype.c (finish_root_table): Fix some warnings.
+	(write_root): Handle TYPE_STRING.
+	* ggc.h (gt_ggc_m_S): Add prototype.
+	* stringpool.c (gt_ggc_m_S): New function.
+
 2002-11-30  Geoffrey Keating  <geoffk@apple.com>
 
 	* dwarf2out.c (dw2_string_counter): New.

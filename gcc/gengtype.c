@@ -2444,7 +2444,7 @@ finish_root_table (flp, pfx, lastname, tname, name)
       }
   
   {
-    int fnum;
+    size_t fnum;
     for (fnum = 0; fnum < NUM_BASE_FILES; fnum++)
       oprintf (base_files [fnum],
 	       "const struct %s * const %s[] = {\n",
@@ -2470,7 +2470,7 @@ finish_root_table (flp, pfx, lastname, tname, name)
       }
 
   {
-    int fnum;
+    size_t fnum;
     for (fnum = 0; fnum < NUM_BASE_FILES; fnum++)
       {
 	oprintf (base_files[fnum], "  NULL\n");
@@ -2625,8 +2625,19 @@ write_root (f, v, type, name, has_length, line, if_marked)
       }
       break;
 
-    case TYPE_SCALAR:
     case TYPE_STRING:
+      {
+	oprintf (f, "  {\n");
+	oprintf (f, "    &%s,\n", name);
+	oprintf (f, "    1, \n");
+	oprintf (f, "    sizeof (%s),\n", v->name);
+	oprintf (f, "    &gt_ggc_m_S,\n");
+	oprintf (f, "    &gt_pch_n_S\n");
+	oprintf (f, "  },\n");
+      }
+      break;
+	
+    case TYPE_SCALAR:
       break;
       
     default:
