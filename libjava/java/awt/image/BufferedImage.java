@@ -481,7 +481,6 @@ public class BufferedImage extends Image
           Iterator i = consumers.iterator();
           while(i.hasNext())
             {
-              System.err.println("delivering " + width + "x" + height + " (" + pixels.length + ") pixels");
               ImageConsumer c = (ImageConsumer) i.next();
               c.setHints(ImageConsumer.SINGLEPASS);
               c.setDimensions(getWidth(), getHeight());

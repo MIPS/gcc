@@ -1,3 +1,11 @@
+2004-07-07  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/image/BufferedImage.java (getSource): Remove tracing chatter.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java 
+	(GtkErrorImage): New helper class.
+	(bufferedImageOrError): New helper method.
+	(createImage): Use it.
+
 2004-07-06  David Jee  <djee@redhat.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c
