@@ -213,7 +213,8 @@ lang_mark_false_label_stack (arg)
     abort();
 }
 
-void lang_mark_tree (t)
+void
+lang_mark_tree (t)
      tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)
@@ -228,7 +229,8 @@ void lang_mark_tree (t)
     }
 }
 
-void lang_cleanup_tree (t)
+void
+lang_cleanup_tree (t)
      tree t;
 {
   if (TREE_CODE_CLASS (TREE_CODE (t)) == 't'

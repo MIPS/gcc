@@ -25,12 +25,14 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "function.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "output.h"
 #include "except.h"
 #include "expr.h"
 #include "toplev.h"
+#include "ggc.h"
 
 extern void compiler_error ();
 
@@ -85,6 +87,10 @@ void init_init_processing ()
   finish_builtin_type (BI_header_type, "__new_cookie", fields,
 		       0, double_type_node);
   BI_header_size = size_in_bytes (BI_header_type);
+
+  ggc_add_tree_root (&current_base_init_list, 1);
+  ggc_add_tree_root (&current_member_init_list, 1);
+  ggc_add_tree_root (&minus_one, 1);
 }
 
 /* Subroutine of emit_base_init.  For BINFO, initialize all the
@@ -507,7 +513,7 @@ build_partial_cleanup_for (binfo)
    Note that emit_base_init does *not* initialize virtual base
    classes.  That is done specially, elsewhere.  */
 
-extern tree base_init_expr, rtl_expr_chain;
+extern tree base_init_expr;
 
 void
 emit_base_init (t, immediately)

@@ -1,3 +1,131 @@
+Thu Nov  5 14:33:30 1998  Bernd Schmidt <crux@pool.informatik.rwth-aachen.de>
+
+	* Makefile.in (c-pragma.o, stor-layout.o, varasm.o, unroll.o):
+	Update dependencies.
+
+	* c-pragma.c: Don't include except.h.
+	* stor-layout.c: Likewise.
+	* varasm.c: Likewise.
+
+	* c-common.c (permanent_obstack): Delete useless declaration.
+	(c_global_trees): Define here.
+	* c-decl.c (c_global_trees): Not here.
+	(mark_binding_level): Add prototype.
+	(init_decl_processing): Don't build unused type
+	void_ftype_ptr_ptr_int.
+	* c-common.h: New file.
+	* c-tree.h: Include c-common.h.  Move declarations of c-common.c
+	functions and everything related to c_global_trees into that file.
+
+	* function.h (struct function_status): Delete; move all fields back
+	into struct function.
+	(struct function): Now again contains fields moved into struct
+	function_status in last change.
+	(cur_f_s): Don't declare.
+	* function.c (cur_f_s): Delete.
+	(pop_function_context_from): Don't set it.
+	(prepare_function_start): Don't allocate it.  Don't set func field
+	of struct function.
+	(assign_outer_stack_local): Take struct function argument, not
+	struct function_status.  All callers changed.
+	Adjust to match reorganization of struct function.
+	(get_func_frame_size): Adjust to match reorganization of struct
+	function.
+	(put_reg_into_stack): Likewise.
+	(fix_lexical_addr): Likewise.
+	(trampoline_address): Likewise.
+	(mark_function_state): Likewise.
+	(mark_function_chain): Likewise.
+	* calls.c (calls_function_1): Likewise.
+	(expand_call): Likewise.
+	* stmt.c (expand_goto): Likewise.
+	* integrate.c (expand_inline_function): Likewise.
+	(copy_rtx_and_substitute): Likewise.
+	(output_inline_function): Don't set cur_f_s.
+	* toplev.c (rest_of_compilation): Don't set cur_f_s.
+
+	* stmt.c (in_control_zone_p): New function.
+
+	* except.c (struct eh_status): Move this and the corresponding
+	accessor macros into except.h.
+	* except.h (struct eh_status): Define here, not in except.c.
+	(catch_clauses): Don't declare.
+
+	* ggc.h (mark_binding_level): Don't declare.
+
+	* cp/cp-tree.h: Include c-common.h.
+	(struct function): Declare.
+	Delete explicit declarations for all nodes provided by c_global_trees.
+	Substitute a number of the remaining ones in similar manner by
+	new array cp_global_trees and new accessor macros for it.
+	(push_cp_function_context): Adjust prototype.
+	(pop_cp_function_context): Adjust prototype.
+	(mark_cp_function_context): Declare.
+	(init_decl2): Declare.
+	(cp_parse_init): Declare.
+
+	* cp/decl.c: Include function.h and ggc.h.
+	Match changes in cp-tree.h and delete explicit declarations for a
+	large number of tree nodes.
+	(cp_global_trees): New array of trees.
+	(mark_binding_level): New static function.
+	(mark_saved_scope): New static function.
+	(free_binding_vecs): Delete.
+	(store_bindings): Don't use it.
+	(maybe_push_to_toplevel): Call {push,pop}_function_context_to, not
+	{push,pop}_cp_function_context.
+	(pop_from_toplevel): Likewise.
+	Don't set free_binding_vecs.
+	(duplicate_decls): Don't refer to DECL_FRAME_SIZE.
+	(init_decl_processing): Delete variables string_ftype_ptr_ptr and
+	int_ftype_string_string.
+	Add many GC roots.
+	(expand_static_init): Add a root for static local variable Atexit.
+	(store_parm_decls): DECL_SAVED_INSNS is no longer an rtx.
+	(finish_function): Likewise.
+	Rename var last_parm_insn to tmp_last_parm_insn.
+	(finish_stmt): Don't test cond_stack, loop_stack, case_stack;
+	use in_control_zone_p.
+	(struct language_function): Renamed from struct cp_function.
+	Delete next elt.
+	(cp_function_chain): Delete.
+	(push_cp_function_context): Take struct function arg instead of tree.
+	Allocate a struct language_function, fill it and put it into the
+	passed struct function function.  Don't call push_function_context_to
+	and don't build cp_function_chain.
+	(pop_cp_function_context): Mirror changes in push_cp_function_context.
+	Clear language elt of passed struct function when done.
+	(mark_cp_function_context): New function.
+	(lang_mark_false_label_stack): New function.
+	(lang_mark_tree): New function.
+	(lang_cleanup_tree): New function.
+	* cp/decl2.c (abort_fndecl): Delete declaration.
+	(init_decl2): New function.
+	* cp/except.c (catch_clauses, const_ptr_type_node): Delete declarations.
+	(start_anon_func, end_anon_func): Call {push,pop}_function_context_to,
+	not {push,pop}_cp_function_context.
+	* cp/init.c: Include function.h.
+	(init_init_processing): Add some roots.
+	(rtl_expr_chain): Delete declaration.
+	* cp/lex.c: Include function.h.
+	(lang_init): Init function pointers to save, restore and mark language
+	status.
+	Call cp_parse_init and init_decl2.
+	(do_pending_inlines, process_next_inline): Call
+	{push,pop}_function_context_to, not {push,pop}_cp_function_context.
+	(cons_up_default_function): Don't declare void_list_node.
+	* cp/method.c: Include function.h.
+	(synthesize_method): Call {push,pop}_function_context_to, not
+	{push,pop}_cp_function_context.
+	* cp/parse.y (void_list_node): Don't declare.
+	(cp_parse_init): New function.
+	* cp/rtti.c (type_info_type_node, tinfo_fn_id, tinfo_fn_type): Delete.
+	(const_string_type_node): Delete declaration.
+	* cp/search.c (abort_fndecl): Delete declaration.
+	* cp/typeck.c: Include function.h.
+	(c_expand_return): Don't test cond_stack, loop_stack, case_stack;
+	use in_control_zone_p.
+
 Thu Nov  5 14:28:43 1998  Richard Henderson  <rth@cygnus.com>
 
 	* ggc-simple.c (ggc_collect): Lose the `ignore_after' argument.

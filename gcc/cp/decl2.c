@@ -2376,8 +2376,6 @@ coerce_delete_type (type)
   return type;
 }
 
-extern tree abort_fndecl;
-
 static void
 mark_vtable_entries (decl)
      tree decl;
@@ -4912,4 +4910,11 @@ handle_class_head (aggr, scope, id)
   id = xref_tag
     (aggr, make_anon_name (), 1);
   return TYPE_MAIN_DECL (id);
+}
+
+void
+init_decl2 ()
+{
+  ggc_add_tree_root (&decl_namespace_list, 1);
+  ggc_add_tree_root (&saved_inlines, 1);
 }

@@ -184,7 +184,7 @@ calls_function_1 (exp, which)
 	  if ((DECL_BUILT_IN (fndecl)
 	       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA)
 	      || (DECL_SAVED_INSNS (fndecl)
-		  && DECL_SAVED_INSNS (fndecl)->func->calls_alloca))
+		  && DECL_SAVED_INSNS (fndecl)->calls_alloca))
 	    return 1;
 	}
 
@@ -754,7 +754,7 @@ expand_call (exp, target, ignore)
 		 nonzero then there is a call and it is not necessary
 		 to scan the insns.  */
 
-	      if (DECL_SAVED_INSNS (fndecl)->func->outgoing_args_size == 0)
+	      if (DECL_SAVED_INSNS (fndecl)->outgoing_args_size == 0)
 		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
 		  if (GET_CODE (insn) == CALL_INSN)
 		    break;
@@ -779,7 +779,7 @@ expand_call (exp, target, ignore)
 		     correct results on all supported machines.  */
 
 		  int adjust =
-		    (DECL_SAVED_INSNS (fndecl)->func->outgoing_args_size
+		    (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
 		     + reg_parm_stack_space);
 
 		  start_sequence ();

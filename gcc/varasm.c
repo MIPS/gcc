@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
-#include "except.h"
 #include "function.h"
 #include "expr.h"
 #include "output.h"
@@ -2912,7 +2911,7 @@ output_constant_def (exp)
      the label number already assigned.  */
 
   hash = const_hash (exp) % MAX_HASH_TABLE;
-      
+
   for (desc = const_hash_table[hash]; desc; desc = desc->next)
     if (compare_constant (exp, desc))
       {

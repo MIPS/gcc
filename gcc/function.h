@@ -51,8 +51,117 @@ struct simple_obstack_stack
   struct simple_obstack_stack *next;
 };
 
-struct function_status
+struct emit_status
 {
+  /* This is reset to LAST_VIRTUAL_REGISTER + 1 at the start of each function.
+     After rtl generation, it is 1 plus the largest register number used.  */
+  int x_reg_rtx_no;
+
+  /* Lowest label number in current function.  */
+  int x_first_label_num;
+
+  /* The ends of the doubly-linked chain of rtl for the current function.
+     Both are reset to null at the start of rtl generation for the function.
+   
+     start_sequence saves both of these on `sequence_stack' along with
+     `sequence_rtl_expr' and then starts a new, nested sequence of insns.  */
+  rtx x_first_insn;
+  rtx x_last_insn;
+
+  /* RTL_EXPR within which the current sequence will be placed.  Use to
+     prevent reuse of any temporaries within the sequence until after the
+     RTL_EXPR is emitted.  */
+  tree sequence_rtl_expr;
+
+  /* Stack of pending (incomplete) sequences saved by `start_sequence'.
+     Each element describes one pending sequence.
+     The main insn-chain is saved in the last element of the chain,
+     unless the chain is empty.  */
+  struct sequence_stack *sequence_stack;
+
+  /* INSN_UID for next insn emitted.
+     Reset to 1 for each function compiled.  */
+  int x_cur_insn_uid;
+
+  /* Line number and source file of the last line-number NOTE emitted.
+     This is used to avoid generating duplicates.  */
+  int x_last_linenum;
+  char *x_last_filename;
+
+  /* A vector indexed by pseudo reg number.  The allocated length
+     of this vector is regno_pointer_flag_length.  Since this
+     vector is needed during the expansion phase when the total
+     number of registers in the function is not yet known,
+     it is copied and made bigger when necessary.  */
+  char *x_regno_pointer_flag;
+  int x_regno_pointer_flag_length;
+
+  /* Indexed by pseudo register number, if nonzero gives the known alignment
+     for that pseudo (if regno_pointer_flag is set).
+     Allocated in parallel with regno_pointer_flag.  */
+  char *x_regno_pointer_align;
+
+  /* Indexed by pseudo register number, gives the rtx for that pseudo.
+     Allocated in parallel with regno_pointer_flag.  */
+  rtx *x_regno_reg_rtx;
+};
+
+/* For backward compatibility... eventually these should all go away.  */
+#define reg_rtx_no (current_function->emit->x_reg_rtx_no)
+#define seq_rtl_expr (current_function->emit->sequence_rtl_expr)
+#define regno_pointer_flag (current_function->emit->x_regno_pointer_flag)
+#define regno_pointer_flag_length (current_function->emit->x_regno_pointer_flag_length)
+#define regno_pointer_align (current_function->emit->x_regno_pointer_align)
+#define regno_reg_rtx (current_function->emit->x_regno_reg_rtx)
+#define seq_stack (current_function->emit->sequence_stack)
+
+#define REGNO_POINTER_ALIGN(REGNO) regno_pointer_align[REGNO]
+#define REGNO_POINTER_FLAG(REGNO) regno_pointer_flag[REGNO]
+
+struct expr_status
+{
+  /* Number of units that we should eventually pop off the stack.
+     These are the arguments to function calls that have already returned.  */
+  int x_pending_stack_adjust;
+
+  /* Nonzero means stack pops must not be deferred, and deferred stack
+     pops must not be output.  It is nonzero inside a function call,
+     inside a conditional expression, inside a statement expression,
+     and in other cases as well.  */
+  int x_inhibit_defer_pop;
+
+  /* Nonzero means __builtin_saveregs has already been done in this function.
+     The value is the pseudoreg containing the value __builtin_saveregs
+     returned.  */
+  rtx x_saveregs_value;
+
+  /* Similarly for __builtin_apply_args.  */
+  rtx x_apply_args_value;
+
+  /* List of labels that must never be deleted.  */
+  rtx x_forced_labels;
+};
+
+#define pending_stack_adjust (current_function->expr->x_pending_stack_adjust)
+#define inhibit_defer_pop (current_function->expr->x_inhibit_defer_pop)
+#define saveregs_value (current_function->expr->x_saveregs_value)
+#define apply_args_value (current_function->expr->x_apply_args_value)
+#define forced_labels (current_function->expr->x_forced_labels)
+
+/* This structure can save all the important global and static variables
+   describing the status of the current function.  */
+
+struct function
+{
+  /* Global list of all functions.  */
+  struct function *next_global;
+
+  /* Chain of nested functions.  */
+  struct function *next;
+
+  /* The FUNCTION_DECL for this function.  */
+  tree decl;
+
   /* Name of function now being compiled.  */
   char *name;
 
@@ -259,177 +368,7 @@ struct function_status
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   int has_nonlocal_goto;
-};
 
-/* Current function status.  */
-extern struct function_status *cur_f_s;
-
-/* For backward compatibility... eventually these should all go away.  */
-#define current_function_name (cur_f_s->name)
-#define current_function_pops_args (cur_f_s->pops_args)
-#define current_function_returns_struct (cur_f_s->returns_struct)
-#define current_function_returns_pcc_struct (cur_f_s->returns_pcc_struct)
-#define current_function_needs_context (cur_f_s->needs_context)
-#define current_function_calls_setjmp (cur_f_s->calls_setjmp)
-#define current_function_calls_longjmp (cur_f_s->calls_longjmp)
-#define current_function_contains_functions (cur_f_s->contains_functions)
-#define current_function_is_thunk (cur_f_s->is_thunk)
-#define current_function_calls_alloca (cur_f_s->calls_alloca)
-#define current_function_returns_pointer (cur_f_s->returns_pointer)
-#define current_function_args_info (cur_f_s->args_info)
-#define current_function_args_size (cur_f_s->args_size)
-#define current_function_pretend_args_size (cur_f_s->pretend_args_size)
-#define current_function_outgoing_args_size (cur_f_s->outgoing_args_size)
-#define current_function_arg_offset_rtx (cur_f_s->arg_offset_rtx)
-#define current_function_varargs (cur_f_s->varargs)
-#define current_function_stdarg (cur_f_s->stdarg)
-#define current_function_internal_arg_pointer (cur_f_s->internal_arg_pointer)
-#define current_function_return_rtx (cur_f_s->return_rtx)
-#define current_function_instrument_entry_exit (cur_f_s->instrument_entry_exit)
-#define current_function_uses_pic_offset_table (cur_f_s->uses_pic_offset_table)
-#define current_function_uses_const_pool (cur_f_s->uses_const_pool)
-#define current_function_cannot_inline (cur_f_s->cannot_inline)
-#define current_function_epilogue_delay_list (cur_f_s->epilogue_delay_list)
-#define current_function_has_nonlocal_label (cur_f_s->has_nonlocal_label)
-#define current_function_has_nonlocal_goto (cur_f_s->has_nonlocal_goto)
-
-#define max_parm_reg (cur_f_s->saved_max_parm_reg)
-#define parm_reg_stack_loc (cur_f_s->saved_parm_reg_stack_loc)
-#define cleanup_label (cur_f_s->saved_cleanup_label)
-#define return_label (cur_f_s->saved_return_label)
-#define save_expr_regs (cur_f_s->saved_save_expr_regs)
-#define stack_slot_list (cur_f_s->saved_stack_slot_list)
-#define parm_birth_insn (cur_f_s->saved_parm_birth_insn)
-#define frame_offset (cur_f_s->saved_frame_offset)
-#define tail_recursion_label (cur_f_s->saved_tail_recursion_label)
-#define tail_recursion_reentry (cur_f_s->saved_tail_recursion_reentry)
-#define arg_pointer_save_area (cur_f_s->saved_arg_pointer_save_area)
-#define rtl_expr_chain (cur_f_s->saved_rtl_expr_chain)
-#define last_parm_insn (cur_f_s->saved_last_parm_insn)
-#define context_display (cur_f_s->saved_context_display)
-#define trampoline_list (cur_f_s->saved_trampoline_list)
-#define function_call_count (cur_f_s->saved_function_call_count)
-#define temp_slots (cur_f_s->saved_temp_slots)
-#define temp_slot_level (cur_f_s->saved_temp_slot_level)
-#define target_temp_slot_level (cur_f_s->saved_target_temp_slot_level)
-#define var_temp_slot_level (cur_f_s->saved_var_temp_slot_level)
-#define fixup_var_refs_queue (cur_f_s->saved_fixup_var_refs_queue)
-#define nonlocal_labels (cur_f_s->saved_nonlocal_labels)
-#define nonlocal_goto_handler_slot (cur_f_s->saved_nonlocal_goto_handler_slot)
-#define nonlocal_goto_stack_level (cur_f_s->saved_nonlocal_goto_stack_level)
-
-struct emit_status
-{
-  /* This is reset to LAST_VIRTUAL_REGISTER + 1 at the start of each function.
-     After rtl generation, it is 1 plus the largest register number used.  */
-  int x_reg_rtx_no;
-
-  /* Lowest label number in current function.  */
-  int x_first_label_num;
-
-  /* The ends of the doubly-linked chain of rtl for the current function.
-     Both are reset to null at the start of rtl generation for the function.
-   
-     start_sequence saves both of these on `sequence_stack' along with
-     `sequence_rtl_expr' and then starts a new, nested sequence of insns.  */
-  rtx x_first_insn;
-  rtx x_last_insn;
-
-  /* RTL_EXPR within which the current sequence will be placed.  Use to
-     prevent reuse of any temporaries within the sequence until after the
-     RTL_EXPR is emitted.  */
-  tree sequence_rtl_expr;
-
-  /* Stack of pending (incomplete) sequences saved by `start_sequence'.
-     Each element describes one pending sequence.
-     The main insn-chain is saved in the last element of the chain,
-     unless the chain is empty.  */
-  struct sequence_stack *sequence_stack;
-
-  /* INSN_UID for next insn emitted.
-     Reset to 1 for each function compiled.  */
-  int x_cur_insn_uid;
-
-  /* Line number and source file of the last line-number NOTE emitted.
-     This is used to avoid generating duplicates.  */
-  int x_last_linenum;
-  char *x_last_filename;
-
-  /* A vector indexed by pseudo reg number.  The allocated length
-     of this vector is regno_pointer_flag_length.  Since this
-     vector is needed during the expansion phase when the total
-     number of registers in the function is not yet known,
-     it is copied and made bigger when necessary.  */
-  char *x_regno_pointer_flag;
-  int x_regno_pointer_flag_length;
-
-  /* Indexed by pseudo register number, if nonzero gives the known alignment
-     for that pseudo (if regno_pointer_flag is set).
-     Allocated in parallel with regno_pointer_flag.  */
-  char *x_regno_pointer_align;
-
-  /* Indexed by pseudo register number, gives the rtx for that pseudo.
-     Allocated in parallel with regno_pointer_flag.  */
-  rtx *x_regno_reg_rtx;
-};
-
-/* For backward compatibility... eventually these should all go away.  */
-#define reg_rtx_no (current_function->emit->x_reg_rtx_no)
-#define seq_rtl_expr (current_function->emit->sequence_rtl_expr)
-#define regno_pointer_flag (current_function->emit->x_regno_pointer_flag)
-#define regno_pointer_flag_length (current_function->emit->x_regno_pointer_flag_length)
-#define regno_pointer_align (current_function->emit->x_regno_pointer_align)
-#define regno_reg_rtx (current_function->emit->x_regno_reg_rtx)
-#define seq_stack (current_function->emit->sequence_stack)
-
-#define REGNO_POINTER_ALIGN(REGNO) regno_pointer_align[REGNO]
-#define REGNO_POINTER_FLAG(REGNO) regno_pointer_flag[REGNO]
-
-struct expr_status
-{
-  /* Number of units that we should eventually pop off the stack.
-     These are the arguments to function calls that have already returned.  */
-  int x_pending_stack_adjust;
-
-  /* Nonzero means stack pops must not be deferred, and deferred stack
-     pops must not be output.  It is nonzero inside a function call,
-     inside a conditional expression, inside a statement expression,
-     and in other cases as well.  */
-  int x_inhibit_defer_pop;
-
-  /* Nonzero means __builtin_saveregs has already been done in this function.
-     The value is the pseudoreg containing the value __builtin_saveregs
-     returned.  */
-  rtx x_saveregs_value;
-
-  /* Similarly for __builtin_apply_args.  */
-  rtx x_apply_args_value;
-
-  /* List of labels that must never be deleted.  */
-  rtx x_forced_labels;
-};
-
-#define pending_stack_adjust (current_function->expr->x_pending_stack_adjust)
-#define inhibit_defer_pop (current_function->expr->x_inhibit_defer_pop)
-#define saveregs_value (current_function->expr->x_saveregs_value)
-#define apply_args_value (current_function->expr->x_apply_args_value)
-#define forced_labels (current_function->expr->x_forced_labels)
-
-/* This structure can save all the important global and static variables
-   describing the status of the current function.  */
-
-struct function
-{
-  /* Global list of all functions.  */
-  struct function *next_global;
-
-  /* Chain of nested functions.  */
-  struct function *next;
-
-  /* The FUNCTION_DECL for this function.  */
-  tree decl;
-
-  struct function_status *func;
   struct stmt_status *stmt;
   struct eh_status *eh;
   struct emit_status *emit;
@@ -478,6 +417,60 @@ struct function
 
 /* The function structure for the currently being compiled function.  */
 extern struct function *current_function;
+
+/* For backward compatibility... eventually these should all go away.  */
+#define current_function_name (current_function->name)
+#define current_function_pops_args (current_function->pops_args)
+#define current_function_returns_struct (current_function->returns_struct)
+#define current_function_returns_pcc_struct (current_function->returns_pcc_struct)
+#define current_function_needs_context (current_function->needs_context)
+#define current_function_calls_setjmp (current_function->calls_setjmp)
+#define current_function_calls_longjmp (current_function->calls_longjmp)
+#define current_function_contains_functions (current_function->contains_functions)
+#define current_function_is_thunk (current_function->is_thunk)
+#define current_function_calls_alloca (current_function->calls_alloca)
+#define current_function_returns_pointer (current_function->returns_pointer)
+#define current_function_args_info (current_function->args_info)
+#define current_function_args_size (current_function->args_size)
+#define current_function_pretend_args_size (current_function->pretend_args_size)
+#define current_function_outgoing_args_size (current_function->outgoing_args_size)
+#define current_function_arg_offset_rtx (current_function->arg_offset_rtx)
+#define current_function_varargs (current_function->varargs)
+#define current_function_stdarg (current_function->stdarg)
+#define current_function_internal_arg_pointer (current_function->internal_arg_pointer)
+#define current_function_return_rtx (current_function->return_rtx)
+#define current_function_instrument_entry_exit (current_function->instrument_entry_exit)
+#define current_function_uses_pic_offset_table (current_function->uses_pic_offset_table)
+#define current_function_uses_const_pool (current_function->uses_const_pool)
+#define current_function_cannot_inline (current_function->cannot_inline)
+#define current_function_epilogue_delay_list (current_function->epilogue_delay_list)
+#define current_function_has_nonlocal_label (current_function->has_nonlocal_label)
+#define current_function_has_nonlocal_goto (current_function->has_nonlocal_goto)
+
+#define max_parm_reg (current_function->saved_max_parm_reg)
+#define parm_reg_stack_loc (current_function->saved_parm_reg_stack_loc)
+#define cleanup_label (current_function->saved_cleanup_label)
+#define return_label (current_function->saved_return_label)
+#define save_expr_regs (current_function->saved_save_expr_regs)
+#define stack_slot_list (current_function->saved_stack_slot_list)
+#define parm_birth_insn (current_function->saved_parm_birth_insn)
+#define frame_offset (current_function->saved_frame_offset)
+#define tail_recursion_label (current_function->saved_tail_recursion_label)
+#define tail_recursion_reentry (current_function->saved_tail_recursion_reentry)
+#define arg_pointer_save_area (current_function->saved_arg_pointer_save_area)
+#define rtl_expr_chain (current_function->saved_rtl_expr_chain)
+#define last_parm_insn (current_function->saved_last_parm_insn)
+#define context_display (current_function->saved_context_display)
+#define trampoline_list (current_function->saved_trampoline_list)
+#define function_call_count (current_function->saved_function_call_count)
+#define temp_slots (current_function->saved_temp_slots)
+#define temp_slot_level (current_function->saved_temp_slot_level)
+#define target_temp_slot_level (current_function->saved_target_temp_slot_level)
+#define var_temp_slot_level (current_function->saved_var_temp_slot_level)
+#define fixup_var_refs_queue (current_function->saved_fixup_var_refs_queue)
+#define nonlocal_labels (current_function->saved_nonlocal_labels)
+#define nonlocal_goto_handler_slot (current_function->saved_nonlocal_goto_handler_slot)
+#define nonlocal_goto_stack_level (current_function->saved_nonlocal_goto_stack_level)
 
 /* The FUNCTION_DECL for an inline function currently being expanded.  */
 extern tree inline_function_decl;

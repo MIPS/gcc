@@ -93,9 +93,6 @@ Boston, MA 02111-1307, USA.  */
 /* The function structure for the currently being compiled function.  */
 struct function *current_function;
 
-/* Current function status.  */
-struct function_status *cur_f_s;
-
 /* Nonzero if this function has a computed goto.
 
    It is computed during find_basic_blocks or during stupid life
@@ -198,7 +195,7 @@ struct var_refs_queue
 /* Forward declarations.  */
 
 static rtx assign_outer_stack_local PROTO ((enum machine_mode, HOST_WIDE_INT,
-					    int, struct function_status *));
+					    int, struct function *));
 static struct temp_slot *find_temp_slot_from_address  PROTO((rtx));
 static void put_reg_into_stack	PROTO((struct function *, rtx, tree,
 				       enum machine_mode, enum machine_mode,
@@ -299,8 +296,6 @@ pop_function_context_from (context)
 
   outer_function_chain = f->next;
 
-  cur_f_s = f->func;
-
   restore_tree_status (f, context);
   restore_emit_status (f);
   restore_varasm_status (f);
@@ -318,13 +313,13 @@ pop_function_context_from (context)
 
   /* Finish doing put_var_into_stack for any of our variables
      which became addressable during the nested function.  */
-  for (queue = f->func->saved_fixup_var_refs_queue; queue; queue = next)
+  for (queue = f->saved_fixup_var_refs_queue; queue; queue = next)
     {
       next = queue->next;
       fixup_var_refs (queue->modified, queue->promoted_mode, queue->unsignedp);
       free (queue);
     }
-  f->func->saved_fixup_var_refs_queue = 0;
+  f->saved_fixup_var_refs_queue = 0;
 
   /* Reset variables that have known state during rtx generation.  */
   rtx_equal_function_value_matters = 1;
@@ -361,9 +356,9 @@ get_func_frame_size (f)
      struct function *f;
 {
 #ifdef FRAME_GROWS_DOWNWARD
-  return -f->func->saved_frame_offset;
+  return -f->saved_frame_offset;
 #else
-  return f->func->saved_frame_offset;
+  return f->saved_frame_offset;
 #endif
 }
 
@@ -459,7 +454,7 @@ assign_outer_stack_local (mode, size, align, f)
      enum machine_mode mode;
      HOST_WIDE_INT size;
      int align;
-     struct function_status *f;
+     struct function *f;
 {
   register rtx x, addr;
   int bigend_correction = 0;
@@ -1216,11 +1211,11 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
 
   if (function)
     {
-      if (regno < function->func->saved_max_parm_reg)
-	new = function->func->saved_parm_reg_stack_loc[regno];
+      if (regno < function->saved_max_parm_reg)
+	new = function->saved_parm_reg_stack_loc[regno];
       if (new == 0)
 	new = assign_outer_stack_local (decl_mode, GET_MODE_SIZE (decl_mode),
-					0, function->func);
+					0, function);
     }
   else
     {
@@ -1255,8 +1250,8 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
       temp->modified = reg;
       temp->promoted_mode = promoted_mode;
       temp->unsignedp = TREE_UNSIGNED (type);
-      temp->next = function->func->saved_fixup_var_refs_queue;
-      function->func->saved_fixup_var_refs_queue = temp;
+      temp->next = function->saved_fixup_var_refs_queue;
+      function->saved_fixup_var_refs_queue = temp;
     }
   else if (used_p)
     /* Variable is local; fix it up now.  */
@@ -4716,7 +4711,6 @@ fix_lexical_addr (addr, var)
   HOST_WIDE_INT displacement;
   tree context = decl_function_context (var);
   struct function *fp;
-  struct function_status *fps;
   rtx base = 0;
 
   /* If this is the present function, we need not do anything.  */
@@ -4729,7 +4723,6 @@ fix_lexical_addr (addr, var)
 
   if (fp == 0)
     abort ();
-  fps = fp->func;
 
   if (GET_CODE (addr) == ADDRESSOF && GET_CODE (XEXP (addr, 0)) == MEM)
     addr = XEXP (XEXP (addr, 0), 0);
@@ -4744,7 +4737,7 @@ fix_lexical_addr (addr, var)
 
   /* We accept vars reached via the containing function's
      incoming arg pointer and via its stack variables pointer.  */
-  if (basereg == fps->internal_arg_pointer)
+  if (basereg == fp->internal_arg_pointer)
     {
       /* If reached via arg pointer, get the arg pointer value
 	 out of that function's stack frame.
@@ -4758,11 +4751,11 @@ fix_lexical_addr (addr, var)
 #ifdef NEED_SEPARATE_AP
       rtx addr;
 
-      if (fps->saved_arg_pointer_save_area == 0)
-	fps->saved_arg_pointer_save_area
-	  = assign_outer_stack_local (Pmode, GET_MODE_SIZE (Pmode), 0, fps);
+      if (fp->saved_arg_pointer_save_area == 0)
+	fp->saved_arg_pointer_save_area
+	  = assign_outer_stack_local (Pmode, GET_MODE_SIZE (Pmode), 0, fp);
 
-      addr = fix_lexical_addr (XEXP (fps->saved_arg_pointer_save_area, 0), var);
+      addr = fix_lexical_addr (XEXP (fp->saved_arg_pointer_save_area, 0), var);
       addr = memory_address (Pmode, addr);
 
       base = copy_to_reg (gen_rtx_MEM (Pmode, addr));
@@ -4815,7 +4808,7 @@ trampoline_address (function)
 	round_trampoline_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0));
 
   for (fp = outer_function_chain; fp; fp = fp->next)
-    for (link = fp->func->saved_trampoline_list; link; link = TREE_CHAIN (link))
+    for (link = fp->saved_trampoline_list; link; link = TREE_CHAIN (link))
       if (TREE_PURPOSE (link) == function)
 	{
 	  tramp = fix_lexical_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0),
@@ -4848,7 +4841,7 @@ trampoline_address (function)
 #define TRAMPOLINE_REAL_SIZE (TRAMPOLINE_SIZE)
 #endif
   if (fp != 0)
-    tramp = assign_outer_stack_local (BLKmode, TRAMPOLINE_REAL_SIZE, 0, fp->func);
+    tramp = assign_outer_stack_local (BLKmode, TRAMPOLINE_REAL_SIZE, 0, fp);
   else
     tramp = assign_stack_local (BLKmode, TRAMPOLINE_REAL_SIZE, 0);
 #endif
@@ -4858,8 +4851,8 @@ trampoline_address (function)
   rtlexp = make_node (RTL_EXPR);
   RTL_EXPR_RTL (rtlexp) = tramp;
   if (fp != 0)
-    fp->func->saved_trampoline_list = tree_cons (function, rtlexp,
-						 fp->func->saved_trampoline_list);
+    fp->saved_trampoline_list = tree_cons (function, rtlexp,
+						 fp->saved_trampoline_list);
   else
     trampoline_list = tree_cons (function, rtlexp, trampoline_list);
 
@@ -5049,10 +5042,6 @@ prepare_function_start ()
 {
   current_function = (struct function *) xcalloc (1, sizeof (struct function));
   
-  cur_f_s = (struct function_status *) xcalloc (1, sizeof (struct function_status));
-
-  current_function->func = cur_f_s;
-
   init_stmt_for_function ();
 
   cse_not_expected = ! optimize;
@@ -6131,7 +6120,7 @@ void
 mark_function_state (arg)
      void *arg;
 {
-  struct function_status *p = *(struct function_status **) arg;
+  struct function *p = *(struct function **) arg;
   int i;
   rtx *r;
 
@@ -6189,7 +6178,7 @@ mark_function_chain (arg)
 
       ggc_mark_tree (f->decl);
 
-      mark_function_state (&f->func);
+      mark_function_state (&f);
       mark_stmt_state (&f->stmt);
       mark_eh_state (&f->eh);
       mark_emit_state (&f->emit);

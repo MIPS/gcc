@@ -571,8 +571,8 @@ expand_inline_function (fndecl, parms, target, ignore, type,
   struct function *inl_f = DECL_SAVED_INSNS (fndecl);
   tree formal, actual, block;
   rtx parm_insns = inl_f->emit->x_first_insn;
-  rtx insns = (inl_f->func->saved_last_parm_insn
-	       ? NEXT_INSN (inl_f->func->saved_last_parm_insn)
+  rtx insns = (inl_f->saved_last_parm_insn
+	       ? NEXT_INSN (inl_f->saved_last_parm_insn)
 	       : parm_insns);
   tree *arg_trees;
   rtx *arg_vals;
@@ -787,16 +787,16 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 
   /* Update the outgoing argument size to allow for those in the inlined
      function.  */
-  if (inl_f->func->outgoing_args_size > current_function_outgoing_args_size)
-    current_function_outgoing_args_size = inl_f->func->outgoing_args_size;
+  if (inl_f->outgoing_args_size > current_function_outgoing_args_size)
+    current_function_outgoing_args_size = inl_f->outgoing_args_size;
 
   /* If the inline function needs to make PIC references, that means
      that this function's PIC offset table must be used.  */
-  if (inl_f->func->uses_pic_offset_table)
+  if (inl_f->uses_pic_offset_table)
     current_function_uses_pic_offset_table = 1;
 
   /* If this function needs a context, set it up.  */
-  if (inl_f->func->needs_context)
+  if (inl_f->needs_context)
     static_chain_value = lookup_static_chain (fndecl);
 
   if (GET_CODE (parm_insns) == NOTE
@@ -1053,7 +1053,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
      stack pointer around the call.  This saves stack space, but
      also is required if this inline is being done between two
      pushes.  */
-  if (inl_f->func->calls_alloca)
+  if (inl_f->calls_alloca)
     emit_stack_save (SAVE_BLOCK, &stack_save, NULL_RTX);
 
   /* Now copy the insns one by one.  Do this in two passes, first the insns and
@@ -1321,7 +1321,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
     emit_label (local_return_label);
 
   /* Restore the stack pointer if we saved it above.  */
-  if (inl_f->func->calls_alloca)
+  if (inl_f->calls_alloca)
     emit_stack_restore (SAVE_BLOCK, stack_save, NULL_RTX);
 
   /* Make copies of the decls of the symbols in the inline function, so that
@@ -1590,7 +1590,7 @@ copy_rtx_and_substitute (orig, map)
 	      /* Do the same for a block to contain any arguments referenced
 		 in memory.  */
 	      rtx loc, seq;
-	      int size = DECL_SAVED_INSNS (map->fndecl)->func->args_size;
+	      int size = DECL_SAVED_INSNS (map->fndecl)->args_size;
 
 	      start_sequence ();
 	      loc = assign_stack_temp (BLKmode, size, 1);
@@ -2551,7 +2551,6 @@ output_inline_function (fndecl)
 
   current_function = f;
   current_function_decl = fndecl;
-  cur_f_s = f->func;
 
   /* Find last insn and rebuild the constant pool.  */
   init_const_rtx_hash_table ();

@@ -172,21 +172,6 @@ static tree Unwind;
 
 /* ====================================================================== */
 
-
-/* ========================================================================= */
-
-
-
-/* local globals - these local globals are for storing data necessary for
-   generating the exception table and code in the correct order.
-
-   ========================================================================= */
-
-extern rtx catch_clauses;
-extern tree const_ptr_type_node;
-
-/* ========================================================================= */
-
 /* sets up all the global eh stuff that needs to be initialized at the
    start of compilation.
 
@@ -876,7 +861,7 @@ start_anon_func ()
   tree params;
   tree t;
 
-  push_cp_function_context (NULL_TREE);
+  push_function_context_to (NULL_TREE);
   push_to_top_level ();
 
   /* No need to mangle this.  */
@@ -916,7 +901,7 @@ end_anon_func ()
   finish_function (lineno, 0, 0);
 
   pop_from_top_level ();
-  pop_cp_function_context (NULL_TREE);
+  pop_function_context_from (NULL_TREE);
 }
 
 /* Return a pointer to a buffer for an exception object of type TYPE.  */

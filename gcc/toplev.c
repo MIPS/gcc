@@ -3941,7 +3941,6 @@ rest_of_compilation (decl)
     free_after_compilation (current_function);
 
   current_function = 0;
-  cur_f_s = 0;
 
   ggc_collect ();
 

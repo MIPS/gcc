@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include <setjmp.h>
 #include "input.h"
 #include "tree.h"
+#include "function.h"
 #include "lex.h"
 #include "cp-tree.h"
 #include "parse.h"
@@ -403,6 +404,13 @@ lang_init ()
 #endif
   if (flag_gnu_xref) GNU_xref_begin (input_filename);
   init_repo (input_filename);
+
+  save_lang_status = &push_cp_function_context;
+  restore_lang_status = &pop_cp_function_context;
+  mark_lang_status = &mark_cp_function_context;
+
+  cp_parse_init ();
+  init_decl2 ();
 }
 
 void
@@ -1245,7 +1253,7 @@ do_pending_inlines ()
   /* Now start processing the first inline function.  */
   context = hack_decl_function_context (t->fndecl);
   if (context)
-    push_cp_function_context (context);
+    push_function_context_to (context);
   maybe_begin_member_template_processing (t->fndecl);
   if (t->len > 0)
     {
@@ -1286,7 +1294,7 @@ process_next_inline (t)
   context = hack_decl_function_context (i->fndecl);  
   maybe_end_member_template_processing ();
   if (context)
-    pop_cp_function_context (context);
+    pop_function_context_from (context);
   i = i->next;
   if (yychar == YYEMPTY)
     yychar = yylex ();
@@ -1306,7 +1314,7 @@ process_next_inline (t)
     {
       context = hack_decl_function_context (i->fndecl);
       if (context)
-	push_cp_function_context (context);
+	push_function_context_to (context);
       maybe_begin_member_template_processing (i->fndecl);
       feed_input (i->buf, i->len);
       lineno = i->lineno;
@@ -1960,7 +1968,6 @@ cons_up_default_function (type, full_name, kind)
      tree type, full_name;
      int kind;
 {
-  extern tree void_list_node;
   tree declspecs = NULL_TREE;
   tree fn, args = NULL_TREE;
   tree argtype;

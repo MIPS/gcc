@@ -595,6 +595,15 @@ init_stmt_for_function ()
   init_eh_for_function ();
 }
 
+/* Return nonzero if anything is pushed on the loop, condition, or case
+   stack.  */
+int
+in_control_zone_p ()
+{
+  return cond_stack || loop_stack || case_stack;
+}
+
+/* Record the current file and line.  Called from emit_line_note.  */
 void
 set_file_and_line_for_stmt (file, line)
      char *file;
@@ -739,7 +748,7 @@ expand_goto (label)
       rtx label_ref = gen_rtx_LABEL_REF (Pmode, label_rtx (label));
       rtx temp;
 
-      p->func->has_nonlocal_label = 1;
+      p->has_nonlocal_label = 1;
       current_function_has_nonlocal_goto = 1;
       LABEL_REF_NONLOCAL_P (label_ref) = 1;
 
@@ -750,8 +759,8 @@ expand_goto (label)
 #if HAVE_nonlocal_goto
       if (HAVE_nonlocal_goto)
 	emit_insn (gen_nonlocal_goto (lookup_static_chain (label),
-				      copy_rtx (p->func->saved_nonlocal_goto_handler_slot),
-				      copy_rtx (p->func->saved_nonlocal_goto_stack_level),
+				      copy_rtx (p->saved_nonlocal_goto_handler_slot),
+				      copy_rtx (p->saved_nonlocal_goto_stack_level),
 				      label_ref));
       else
 #endif
@@ -772,12 +781,12 @@ expand_goto (label)
 
 	  /* Get addr of containing function's current nonlocal goto handler,
 	     which will do any cleanups and then jump to the label.  */
-	  addr = copy_rtx (p->func->saved_nonlocal_goto_handler_slot);
+	  addr = copy_rtx (p->saved_nonlocal_goto_handler_slot);
 	  temp = copy_to_reg (replace_rtx (addr, virtual_stack_vars_rtx,
 					   hard_frame_pointer_rtx));
 	  
 	  /* Restore the stack pointer.  Note this uses fp just restored.  */
-	  addr = p->func->saved_nonlocal_goto_stack_level;
+	  addr = p->saved_nonlocal_goto_stack_level;
 	  if (addr)
 	    addr = replace_rtx (copy_rtx (addr),
 				virtual_stack_vars_rtx,

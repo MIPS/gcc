@@ -47,7 +47,6 @@ Boston, MA 02111-1307, USA.  */
    definition here.  (fnf) */
 char *language_string = "GNU C++";
 
-extern tree void_list_node;
 extern struct obstack permanent_obstack;
 
 extern int end_of_file;
@@ -327,6 +326,15 @@ parse_decl(declarator, specs_attrs, attributes, initialized, decl)
   *decl = start_decl (declarator, current_declspecs, initialized,
 		      attributes, prefix_attributes);
   return sm;
+}
+
+void
+cp_parse_init ()
+{
+  ggc_add_tree_root (&current_declspecs, 1);
+  ggc_add_tree_root (&prefix_attributes, 1);
+  ggc_add_tree_root (&current_aggr, 1);
+  ggc_add_tree_root (&current_enum_type, 1);
 }
 %}
 

@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "function.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
@@ -41,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
+#include "ggc.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -145,6 +147,7 @@ static void suspend_binding_level PROTO((void));
 static void resume_binding_level PROTO((struct binding_level *));
 static struct binding_level *make_binding_level PROTO((void));
 static int namespace_bindings_p PROTO((void));
+static void mark_binding_level PROTO((void *));
 static void declare_namespace_level PROTO((void));
 static void signal_catch PROTO((int));
 static void storedecls PROTO((tree));
@@ -193,146 +196,173 @@ tree error_mark_node;
 /* Erroneous argument lists can use this *IFF* they do not modify it.  */
 tree error_mark_list;
 
-/* INTEGER_TYPE and REAL_TYPE nodes for the standard data types */
+/* The following symbols are subsumed in the c_global_trees array, and
+   listed here individually for documentation purposes. 
 
-tree short_integer_type_node;
-tree integer_type_node;
-tree long_integer_type_node;
-tree long_long_integer_type_node;
+   INTEGER_TYPE and REAL_TYPE nodes for the standard data types.
 
-tree short_unsigned_type_node;
-tree unsigned_type_node;
-tree long_unsigned_type_node;
-tree long_long_unsigned_type_node;
+	tree short_integer_type_node;
+	tree long_integer_type_node;
+	tree long_long_integer_type_node;
 
-tree ptrdiff_type_node;
+	tree short_unsigned_type_node;
+	tree long_unsigned_type_node;
+	tree long_long_unsigned_type_node;
 
-tree unsigned_char_type_node;
-tree signed_char_type_node;
+	tree boolean_type_node;
+	tree boolean_false_node;
+	tree boolean_true_node;
+
+	tree ptrdiff_type_node;
+
+	tree unsigned_char_type_node;
+	tree signed_char_type_node;
+	tree wchar_type_node;
+	tree signed_wchar_type_node;
+	tree unsigned_wchar_type_node;
+
+	tree float_type_node;
+	tree double_type_node;
+	tree long_double_type_node;
+
+	tree complex_integer_type_node;
+	tree complex_float_type_node;
+	tree complex_double_type_node;
+	tree complex_long_double_type_node;
+
+	tree intQI_type_node;
+	tree intHI_type_node;
+	tree intSI_type_node;
+	tree intDI_type_node;
+	tree intTI_type_node;
+
+	tree unsigned_intQI_type_node;
+	tree unsigned_intHI_type_node;
+	tree unsigned_intSI_type_node;
+	tree unsigned_intDI_type_node;
+	tree unsigned_intTI_type_node;
+
+   Nodes for types `void *' and `const void *'.
+
+	tree ptr_type_node, const_ptr_type_node;
+
+   Nodes for types `char *' and `const char *'.
+
+	tree string_type_node, const_string_type_node;
+
+   Type `char[SOMENUMBER]'.
+   Used when an array of char is needed and the size is irrelevant.
+
+	tree char_array_type_node;
+
+   Type `int[SOMENUMBER]' or something like it.
+   Used when an array of int needed and the size is irrelevant.
+
+	tree int_array_type_node;
+
+   Type `wchar_t[SOMENUMBER]' or something like it.
+   Used when a wide string literal is created.
+
+	tree wchar_array_type_node;
+
+   Type `int ()' -- used for implicit declaration of functions.
+
+	tree default_function_type;
+
+   Function types `double (double)' and `double (double, double)', etc.
+
+	tree double_ftype_double, double_ftype_double_double;
+	tree int_ftype_int, long_ftype_long;
+	tree float_ftype_float;
+	tree ldouble_ftype_ldouble;
+
+   Function type `void (void *, void *, int)' and similar ones.
+
+	tree void_ftype_ptr_ptr_int, int_ftype_ptr_ptr_int
+	tree void_ftype_ptr_int_int;
+
+   Function type `char *(char *, char *)' and similar ones.
+
+	tree string_ftype_ptr_ptr, int_ftype_string_string;
+
+   Function type `int (const void *, const void *, size_t)'.
+
+	tree int_ftype_cptr_cptr_sizet;
+
+   A VOID_TYPE node, packaged in a TREE_LIST.
+
+	tree void_list_node;
+
+	tree void_zero_node;
+
+	tree wchar_decl_node;
+
+   C++ extensions
+	tree vtable_entry_type;
+	tree delta_type_node;
+#if 0
+   Old rtti stuff.
+	tree __baselist_desc_type_node;
+	tree __i_desc_type_node, __m_desc_type_node;
+	tree __t_desc_array_type, __i_desc_array_type, __m_desc_array_type;
+#endif
+	tree __t_desc_type_node;
+#if 0
+	tree __tp_desc_type_node;
+#endif
+	tree __access_mode_type_node;
+	tree __bltn_desc_type_node, __user_desc_type_node, __class_desc_type_node;
+	tree __ptr_desc_type_node, __attr_desc_type_node, __func_desc_type_node;
+	tree __ptmf_desc_type_node, __ptmd_desc_type_node;
+#if 0
+   Not needed yet?  May be needed one day?
+	tree __bltn_desc_array_type, __user_desc_array_type, __class_desc_array_type;
+	tree __ptr_desc_array_type, __attr_dec_array_type, __func_desc_array_type;
+	tree __ptmf_desc_array_type, __ptmd_desc_array_type;
+#endif
+
+	tree class_star_type_node;
+	tree class_type_node, record_type_node, union_type_node, enum_type_node;
+	tree unknown_type_node;
+	tree opaque_type_node, signature_type_node;
+	tree sigtable_entry_type;
+
+   Array type `vtable_entry_type[]'
+
+	tree vtbl_type_node;
+	tree vtbl_ptr_type_node;
+
+   Nnamespace std
+
+	tree std_node;
+
+   A FUNCTION_DECL which can call `abort'.  Not necessarily the
+   one that the user will declare, but sufficient to be called
+   by routines that want to abort the program.
+
+	tree abort_fndecl;
+
+   Used by RTTI
+	tree type_info_type_node, tinfo_fn_id, tinfo_fn_type;
+
+*/
+
+tree cp_global_trees[39];
+
+/* These can't be part of the above array, since they are declared
+   individually in tree.h, and used by the debug output routines.  */
+
+tree void_type_node;
 tree char_type_node;
-tree wchar_type_node;
-tree signed_wchar_type_node;
-tree unsigned_wchar_type_node;
-
-tree wchar_decl_node;
-
-tree float_type_node;
-tree double_type_node;
-tree long_double_type_node;
-
-tree complex_integer_type_node;
-tree complex_float_type_node;
-tree complex_double_type_node;
-tree complex_long_double_type_node;
-
-tree intQI_type_node;
-tree intHI_type_node;
-tree intSI_type_node;
-tree intDI_type_node;
-tree intTI_type_node;
-
-tree unsigned_intQI_type_node;
-tree unsigned_intHI_type_node;
-tree unsigned_intSI_type_node;
-tree unsigned_intDI_type_node;
-tree unsigned_intTI_type_node;
-
-tree java_byte_type_node;
-tree java_short_type_node;
-tree java_int_type_node;
-tree java_long_type_node;
-tree java_float_type_node;
-tree java_double_type_node;
-tree java_char_type_node;
-tree java_boolean_type_node;
-
-/* A VOID_TYPE node, and the same, packaged in a TREE_LIST.  */
-
-tree void_type_node, void_list_node;
-tree void_zero_node;
-
-/* Nodes for types `void *' and `const void *'.  */
-
-tree ptr_type_node;
-tree const_ptr_type_node;
-
-/* Nodes for types `char *' and `const char *'.  */
-
-tree string_type_node, const_string_type_node;
-
-/* Type `char[256]' or something like it.
-   Used when an array of char is needed and the size is irrelevant.  */
-
-tree char_array_type_node;
-
-/* Type `int[256]' or something like it.
-   Used when an array of int needed and the size is irrelevant.  */
-
-tree int_array_type_node;
-
-/* Type `wchar_t[256]' or something like it.
-   Used when a wide string literal is created.  */
-
-tree wchar_array_type_node;
-
-/* The bool data type, and constants */
-tree boolean_type_node, boolean_true_node, boolean_false_node;
-
-/* Type `int ()' -- used for implicit declaration of functions.  */
-
-tree default_function_type;
-
-/* Function types `double (double)' and `double (double, double)', etc.  */
-
-static tree double_ftype_double, double_ftype_double_double;
-static tree int_ftype_int, long_ftype_long;
-static tree float_ftype_float;
-static tree ldouble_ftype_ldouble;
-
-/* Function type `int (const void *, const void *, size_t)' */
-static tree int_ftype_cptr_cptr_sizet;
-
-/* C++ extensions */
-tree vtable_entry_type;
-tree delta_type_node;
-#if 0
-/* Old rtti stuff.  */
-tree __baselist_desc_type_node;
-tree __i_desc_type_node, __m_desc_type_node;
-tree __t_desc_array_type, __i_desc_array_type, __m_desc_array_type;
-#endif
-tree __t_desc_type_node;
-#if 0
-tree __tp_desc_type_node;
-#endif
-tree __access_mode_type_node;
-tree __bltn_desc_type_node, __user_desc_type_node, __class_desc_type_node;
-tree __ptr_desc_type_node, __attr_desc_type_node, __func_desc_type_node;
-tree __ptmf_desc_type_node, __ptmd_desc_type_node;
-#if 0
-/* Not needed yet?  May be needed one day?  */
-tree __bltn_desc_array_type, __user_desc_array_type, __class_desc_array_type;
-tree __ptr_desc_array_type, __attr_dec_array_type, __func_desc_array_type;
-tree __ptmf_desc_array_type, __ptmd_desc_array_type;
-#endif
+tree integer_type_node;
+tree unsigned_type_node;
 
 /* Indicates that there is a type value in some namespace, although
-   that is not necessarily in scope at the moment. */
+   that is not necessarily in scope at the moment.  */
 
 static tree global_type_node;
 
-tree class_star_type_node;
-tree class_type_node, record_type_node, union_type_node, enum_type_node;
-tree unknown_type_node;
-tree opaque_type_node, signature_type_node;
-tree sigtable_entry_type;
-
-/* Array type `vtable_entry_type[]' */
-tree vtbl_type_node;
-tree vtbl_ptr_type_node;
-
-/* namespace std */
-tree std_node;
+/* Namespace std.  */
 int in_std = 0;
 
 /* Expect only namespace names now. */
@@ -359,14 +389,6 @@ static rtx last_parm_cleanup_insn;
    the pointer to the initialized object.  */
 
 tree ctor_label;
-
-/* A FUNCTION_DECL which can call `abort'.  Not necessarily the
-   one that the user will declare, but sufficient to be called
-   by routines that want to abort the program.  */
-
-tree abort_fndecl;
-
-extern rtx cleanup_label, return_label;
 
 /* If original DECL_RESULT of current function was a register,
    but due to being an addressable named return value, would up
@@ -1487,6 +1509,30 @@ poplevel_class (force)
   return block;
 }
 
+static void
+mark_binding_level (arg)
+     void *arg;
+{
+  struct binding_level *lvl = *(struct binding_level **)arg;
+
+  while (lvl)
+    {
+      ggc_mark_tree (lvl->names);
+      ggc_mark_tree (lvl->tags);
+      ggc_mark_tree (lvl->usings);
+      ggc_mark_tree (lvl->using_directives);
+      ggc_mark_tree (lvl->shadowed);
+      ggc_mark_tree (lvl->class_shadowed);
+      ggc_mark_tree (lvl->type_shadowed);
+      ggc_mark_tree (lvl->blocks);
+      ggc_mark_tree (lvl->this_block);
+      ggc_mark_tree (lvl->incomplete);
+      ggc_mark_tree (lvl->dead_vars_from_for);
+
+      lvl = lvl->level_chain;
+    }
+}
+
 /* For debugging.  */
 static int no_print_functions = 0;
 static int no_print_builtins = 0;
@@ -1913,10 +1959,33 @@ struct saved_scope {
 };
 static struct saved_scope *current_saved_scope;
 
-/* A chain of the binding vecs created by store_bindings.  We create a
-   whole bunch of these during compilation, on permanent_obstack, so we
-   can't just throw them away.  */
-static tree free_binding_vecs;
+static void
+mark_saved_scope (arg)
+     void *arg;
+{
+  struct saved_scope *t = *(struct saved_scope **)arg;
+  while (t)
+    {
+      mark_binding_level (&t->old_binding_level);
+      mark_binding_level (&t->class_bindings);
+      ggc_mark_tree (t->old_bindings);
+      ggc_mark_tree (t->old_namespace);
+      ggc_mark_tree (t->class_name);
+      ggc_mark_tree (t->class_type);
+      ggc_mark_tree (t->access_specifier);
+      ggc_mark_tree (t->function_decl);
+      if (t->lang_base)
+	ggc_mark_tree (*t->lang_base);
+      if (t->lang_stack)
+	ggc_mark_tree (*t->lang_stack);
+      ggc_mark_tree (t->lang_name);
+      ggc_mark_tree (t->last_function_parms);
+      ggc_mark_tree (t->template_parms);
+      ggc_mark_tree (t->previous_class_type);
+      ggc_mark_tree (t->previous_class_values);
+      t = t->prev;
+    }
+}
 
 static tree
 store_bindings (names, old_bindings)
@@ -1941,13 +2010,7 @@ store_bindings (names, old_bindings)
 	if (TREE_VEC_ELT (t1, 0) == id)
 	  goto skip_it;
 
-      if (free_binding_vecs)
-	{
-	  binding = free_binding_vecs;
-	  free_binding_vecs = TREE_CHAIN (free_binding_vecs);
-	}
-      else
-	binding = make_tree_vec (4);
+      binding = make_tree_vec (4);
 
       if (id)
 	{
@@ -1978,7 +2041,7 @@ maybe_push_to_top_level (pseudo)
   tree old_bindings = NULL_TREE;
 
   if (current_function_decl)
-    push_cp_function_context (NULL_TREE);
+    push_function_context_to (NULL_TREE);
 
   if (previous_class_type)
     old_bindings = store_bindings (previous_class_values, old_bindings);
@@ -2080,7 +2143,6 @@ pop_from_top_level ()
   current_saved_scope = s->prev;
   for (t = s->old_bindings; t; )
     {
-      tree save = t;
       tree id = TREE_VEC_ELT (t, 0);
       if (id)
 	{
@@ -2089,9 +2151,8 @@ pop_from_top_level ()
 	  IDENTIFIER_CLASS_VALUE (id) = TREE_VEC_ELT (t, 3);
 	}
       t = TREE_CHAIN (t);
-      TREE_CHAIN (save) = free_binding_vecs;
-      free_binding_vecs = save;
     }
+  s->old_bindings = NULL_TREE;
   current_namespace = s->old_namespace;
   current_class_name = s->class_name;
   current_class_type = s->class_type;
@@ -2119,7 +2180,7 @@ pop_from_top_level ()
   free (s);
 
   if (current_function_decl)
-    pop_cp_function_context (NULL_TREE);
+    pop_function_context_from (NULL_TREE);
 }
 
 /* Push a definition of struct, union or enum tag "name".
@@ -2240,7 +2301,7 @@ pop_everything ()
    Returns the TYPE_DECL for TYPE, which may have been altered by this
    processing.  */
 
-static tree 
+static tree
 maybe_process_template_type_declaration (type, globalize, b)
      tree type;
      int globalize;
@@ -3183,8 +3244,6 @@ duplicate_decls (newdecl, olddecl)
 		 regardless of declaration matches.  */
 	      DECL_RTL (newdecl) = DECL_RTL (olddecl);
 	    }
-	  else
-	    DECL_FRAME_SIZE (newdecl) = DECL_FRAME_SIZE (olddecl);
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  if ((DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl)))
@@ -5516,8 +5575,6 @@ init_decl_processing ()
   tree temp;
   tree array_domain_type;
   tree vb_off_identifier = NULL_TREE;
-  /* Function type `char *(char *, char *)' and similar ones */
-  tree string_ftype_ptr_ptr, int_ftype_string_string;
   tree sizetype_endlink;
   tree ptr_ftype, ptr_ftype_unsigned, ptr_ftype_sizetype;
   tree void_ftype, void_ftype_int, void_ftype_ptr;
@@ -6256,6 +6313,46 @@ init_decl_processing ()
      say -fwritable-strings?  */
   if (flag_writable_strings)
     flag_const_strings = 0;
+
+  ggc_add_tree_root (c_global_trees, sizeof c_global_trees / sizeof(tree));
+  ggc_add_tree_root (cp_global_trees, sizeof cp_global_trees / sizeof(tree));
+  ggc_add_tree_root (&char_type_node, 1);
+  ggc_add_tree_root (&current_function_decl, 1);
+  ggc_add_tree_root (&error_mark_node, 1);
+  ggc_add_tree_root (&integer_type_node, 1);
+  ggc_add_tree_root (&integer_three_node, 1);
+  ggc_add_tree_root (&integer_two_node, 1);
+  ggc_add_tree_root (&integer_one_node, 1);
+  ggc_add_tree_root (&integer_zero_node, 1);
+  ggc_add_tree_root (&signed_size_zero_node, 1);
+  ggc_add_tree_root (&named_labels, 1);
+  ggc_add_tree_root (&null_pointer_node, 1);
+  ggc_add_tree_root (&size_one_node, 1);
+  ggc_add_tree_root (&size_zero_node, 1);
+  ggc_add_tree_root (&shadowed_labels, 1);
+  ggc_add_tree_root (&unsigned_type_node, 1);
+  ggc_add_tree_root (&void_type_node, 1);
+  ggc_add_root (&global_binding_level, 1, sizeof global_binding_level,
+		mark_binding_level);
+  ggc_add_root (&current_saved_scope, 1, sizeof current_saved_scope,
+		&mark_saved_scope);
+  ggc_add_tree_root (&static_ctors, 1);
+  ggc_add_tree_root (&static_dtors, 1);
+
+  ggc_add_tree_root (&enum_next_value, 1);
+  ggc_add_tree_root (&last_function_parms, 1);
+  ggc_add_tree_root (&last_function_parm_tags, 1);
+  ggc_add_tree_root (&current_function_return_value, 1);
+  ggc_add_tree_root (&current_function_parms, 1);
+  ggc_add_tree_root (&current_function_parm_tags, 1);
+  ggc_add_tree_root (&error_mark_list, 1);
+  ggc_add_tree_root (&void_list_node, 1);
+  ggc_add_tree_root (&global_namespace, 1);
+  ggc_add_tree_root (&current_namespace, 1);
+  ggc_add_tree_root (&global_type_node, 1);
+  ggc_add_tree_root (&anonymous_namespace_name, 1);
+  ggc_add_rtx_root (&original_result_rtx, 1);
+
 }
 
 /* Function to print any language-specific context for an error message.  */
@@ -7758,6 +7855,9 @@ expand_static_init (decl, init)
 	  if (Atexit == 0)
 	    {
 	      tree atexit_fndecl, PFV, pfvlist;
+
+	      ggc_add_tree_root (&Atexit, 1);
+
 	      /* Remember this information until end of file.  */
 	      push_obstacks (&permanent_obstack, &permanent_obstack);
 	      PFV = build_pointer_type (build_function_type
@@ -12701,7 +12801,7 @@ store_parm_decls ()
   storedecls (chainon (nonparms, DECL_ARGUMENTS (fndecl)));
 
   /* Initialize the RTL code for the function.  */
-  DECL_SAVED_INSNS (fndecl) = NULL_RTX;
+  DECL_SAVED_INSNS (fndecl) = 0;
   if (! processing_template_decl)
     expand_function_start (fndecl, parms_have_cleanups);
 
@@ -12826,7 +12926,7 @@ finish_function (lineno, call_poplevel, nested)
 {
   register tree fndecl = current_function_decl;
   tree fntype, ctype = NULL_TREE;
-  rtx last_parm_insn, insns;
+  rtx tmp_last_parm_insn, insns;
   /* Label to use if this function is supposed to return a value.  */
   tree no_return_label = NULL_TREE;
   tree decls = NULL_TREE;
@@ -13060,13 +13160,13 @@ finish_function (lineno, call_poplevel, nested)
 	  insns = get_insns ();
 	  end_sequence ();
 
-	  last_parm_insn = get_first_nonparm_insn ();
-	  if (last_parm_insn == NULL_RTX)
-	    last_parm_insn = get_last_insn ();
+	  tmp_last_parm_insn = get_first_nonparm_insn ();
+	  if (tmp_last_parm_insn == NULL_RTX)
+	    tmp_last_parm_insn = get_last_insn ();
 	  else
-	    last_parm_insn = previous_insn (last_parm_insn);
+	    tmp_last_parm_insn = previous_insn (tmp_last_parm_insn);
 
-	  emit_insns_after (insns, last_parm_insn);
+	  emit_insns_after (insns, tmp_last_parm_insn);
 
 	  if (! ok_to_optimize_dtor)
 	    expand_end_cond ();
@@ -13355,7 +13455,7 @@ finish_function (lineno, call_poplevel, nested)
   if (! nested)
     permanent_allocation (1);
 
-  if (DECL_SAVED_INSNS (fndecl) == NULL_RTX)
+  if (DECL_SAVED_INSNS (fndecl) == 0)
     {
       tree t;
 
@@ -13744,9 +13844,6 @@ cplus_expand_expr_stmt (exp)
 void
 finish_stmt ()
 {
-  extern struct nesting *cond_stack, *loop_stack, *case_stack;
-
-  
   if (current_function_assigns_this
       || ! current_function_just_assigned_this)
     return;
@@ -13754,7 +13851,7 @@ finish_stmt ()
     {
       /* Constructors must wait until we are out of control
 	 zones before calling base constructors.  */
-      if (cond_stack || loop_stack || case_stack)
+      if (in_control_zone_p ())
 	return;
       expand_expr_stmt (base_init_expr);
       check_base_init (current_class_type);
@@ -13805,7 +13902,7 @@ id_in_current_class (id)
   return !!purpose_member (id, class_binding_level->class_shadowed);
 }
 
-struct cp_function
+struct language_function
 {
   int returns_value;
   int returns_null;
@@ -13826,12 +13923,9 @@ struct cp_function
   tree current_class_ptr;
   tree current_class_ref;
   rtx result_rtx;
-  struct cp_function *next;
   struct binding_level *binding_level;
   int static_labelno;
 };
-
-static struct cp_function *cp_function_chain;
 
 extern int temp_name_counter;
 
@@ -13839,16 +13933,12 @@ extern int temp_name_counter;
    used during compilation of a C++ function.  */
 
 void
-push_cp_function_context (context)
-     tree context;
+push_cp_function_context (f)
+     struct function *f;
 {
-  struct cp_function *p
-    = (struct cp_function *) xmalloc (sizeof (struct cp_function));
-
-  push_function_context_to (context);
-
-  p->next = cp_function_chain;
-  cp_function_chain = p;
+  struct language_function *p
+    = (struct language_function *) xmalloc (sizeof (struct language_function));
+  f->language = p;
 
   p->named_labels = named_labels;
   p->shadowed_labels = shadowed_labels;
@@ -13876,10 +13966,10 @@ push_cp_function_context (context)
 /* Restore the variables used during compilation of a C++ function.  */
 
 void
-pop_cp_function_context (context)
-     tree context;
+pop_cp_function_context (f)
+     struct function *f;
 {
-  struct cp_function *p = cp_function_chain;
+  struct language_function *p = f->language;
   tree link;
 
   /* Bring back all the labels that were shadowed.  */
@@ -13887,10 +13977,6 @@ pop_cp_function_context (context)
     if (DECL_NAME (TREE_VALUE (link)) != 0)
       SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (TREE_VALUE (link)),
 				  TREE_VALUE (link));
-
-  pop_function_context_from (context);
-
-  cp_function_chain = p->next;
 
   named_labels = p->named_labels;
   shadowed_labels = p->shadowed_labels;
@@ -13915,10 +14001,134 @@ pop_cp_function_context (context)
   static_labelno = p->static_labelno;
 
   free (p);
+  f->language = 0;
 }
+
+void
+mark_cp_function_context (f)
+     struct function *f;
+{
+  struct language_function *p = f->language;
+
+  if (p == 0)
+    return;
+
+  ggc_mark_tree (p->named_labels);
+  ggc_mark_tree (p->shadowed_labels);
+  ggc_mark_tree (p->ctor_label);
+  ggc_mark_tree (p->dtor_label);
+  ggc_mark_rtx (p->last_dtor_insn);
+  ggc_mark_rtx (p->last_parm_cleanup_insn);
+  ggc_mark_tree (p->base_init_list);
+  ggc_mark_tree (p->member_init_list);
+  ggc_mark_tree (p->base_init_expr);
+  ggc_mark_tree (p->current_class_ptr);
+  ggc_mark_tree (p->current_class_ref);
+  ggc_mark_rtx (p->result_rtx);
+
+  mark_binding_level (&p->binding_level);
+}
+
 
 int
 in_function_p ()
 {
   return function_depth != 0;
+}
+
+
+void
+lang_mark_false_label_stack (arg)
+     void *arg;
+{
+  /* C++ doesn't use false_label_stack.  It better be NULL.  */
+  if (*(void **)arg != NULL)
+    abort();
+}
+
+void
+lang_mark_tree (t)
+     tree t;
+{
+  enum tree_code code = TREE_CODE (t);
+  if (code == IDENTIFIER_NODE)
+    {
+      struct lang_identifier *li = (struct lang_identifier *) t;
+      struct lang_id2 *li2 = li->x;
+      ggc_mark_tree (li->namespace_bindings);
+      ggc_mark_tree (li->local_value);
+      ggc_mark_tree (li->class_value);
+      ggc_mark_tree (li->class_template_info);
+
+      if (li2)
+	{
+	  ggc_mark_tree (li2->label_value);
+	  ggc_mark_tree (li2->implicit_decl);
+	  ggc_mark_tree (li2->type_desc);
+	  ggc_mark_tree (li2->as_list);
+	  ggc_mark_tree (li2->error_locus);
+	}
+    }
+  else if (TREE_CODE_CLASS (code) == 'd')
+    {
+      struct lang_decl *ld = DECL_LANG_SPECIFIC (t);
+
+      if (ld)
+	{
+	  ggc_mark_tree (ld->decl_flags.access);
+	  ggc_mark_tree (ld->decl_flags.context);
+	  ggc_mark_tree (ld->decl_flags.memfunc_pointer_to);
+	  ggc_mark_tree (ld->decl_flags.template_info);
+	  ggc_mark_tree (ld->main_decl_variant);
+	  mark_binding_level (&ld->decl_flags.level);
+	}
+    }
+  else if (TREE_CODE_CLASS (code) == 't')
+    {
+      struct lang_type *lt = TYPE_LANG_SPECIFIC (t);
+
+      if (lt)
+	{
+	  ggc_mark_tree (lt->baselink_vec);
+	  ggc_mark_tree (lt->vfields);
+	  ggc_mark_tree (lt->vbases);
+
+	  ggc_mark_tree (lt->tags);
+
+	  ggc_mark_tree (lt->search_slot);
+
+	  ggc_mark_tree (lt->size);
+
+	  ggc_mark_tree (lt->base_init_list);
+	  ggc_mark_tree (lt->abstract_virtuals);
+	  ggc_mark_tree (lt->as_list);
+	  ggc_mark_tree (lt->id_as_list);
+	  ggc_mark_tree (lt->binfo_as_list);
+	  ggc_mark_tree (lt->friend_classes);
+
+	  ggc_mark_tree (lt->rtti);
+
+	  ggc_mark_tree (lt->methods);
+
+	  ggc_mark_tree (lt->signature);
+	  ggc_mark_tree (lt->signature_pointer_to);
+	  ggc_mark_tree (lt->signature_reference_to);
+
+	  ggc_mark_tree (lt->template_info);
+	}
+    }
+}
+
+void
+lang_cleanup_tree (t)
+     tree t;
+{
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't'
+      && TYPE_LANG_SPECIFIC (t) != NULL)
+    {
+#if 0
+      /* This is currently allocated with an obstack.  This will change.  */
+      free (TYPE_LANG_SPECIFIC (t));
+#endif
+    }
 }

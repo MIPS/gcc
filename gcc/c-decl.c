@@ -115,102 +115,6 @@ enum decl_context
 
 tree error_mark_node;
 
-/* The following symbols are subsumed in the c_global_trees array, and
-   listed here individually for documentation purposes. 
-
-   INTEGER_TYPE and REAL_TYPE nodes for the standard data types.
-
-	tree short_integer_type_node;
-	tree long_integer_type_node;
-	tree long_long_integer_type_node;
-
-	tree short_unsigned_type_node;
-	tree long_unsigned_type_node;
-	tree long_long_unsigned_type_node;
-
-	tree boolean_type_node;
-	tree boolean_false_node;
-	tree boolean_true_node;
-
-	tree ptrdiff_type_node;
-
-	tree unsigned_char_type_node;
-	tree signed_char_type_node;
-	tree wchar_type_node;
-	tree signed_wchar_type_node;
-	tree unsigned_wchar_type_node;
-
-	tree float_type_node;
-	tree double_type_node;
-	tree long_double_type_node;
-
-	tree complex_integer_type_node;
-	tree complex_float_type_node;
-	tree complex_double_type_node;
-	tree complex_long_double_type_node;
-
-	tree intQI_type_node;
-	tree intHI_type_node;
-	tree intSI_type_node;
-	tree intDI_type_node;
-	tree intTI_type_node;
-
-	tree unsigned_intQI_type_node;
-	tree unsigned_intHI_type_node;
-	tree unsigned_intSI_type_node;
-	tree unsigned_intDI_type_node;
-	tree unsigned_intTI_type_node;
-
-   Nodes for types `void *' and `const void *'.
-
-	tree ptr_type_node, const_ptr_type_node;
-
-   Nodes for types `char *' and `const char *'.
-
-	tree string_type_node, const_string_type_node;
-
-   Type `char[SOMENUMBER]'.
-   Used when an array of char is needed and the size is irrelevant.
-
-	tree char_array_type_node;
-
-   Type `int[SOMENUMBER]' or something like it.
-   Used when an array of int needed and the size is irrelevant.
-
-	tree int_array_type_node;
-
-   Type `wchar_t[SOMENUMBER]' or something like it.
-   Used when a wide string literal is created.
-
-	tree wchar_array_type_node;
-
-   Type `int ()' -- used for implicit declaration of functions.
-
-	tree default_function_type;
-
-   Function types `double (double)' and `double (double, double)', etc.
-
-	tree double_ftype_double, double_ftype_double_double;
-	tree int_ftype_int, long_ftype_long;
-	tree float_ftype_float;
-	tree ldouble_ftype_ldouble;
-
-   Function type `void (void *, void *, int)' and similar ones.
-
-	tree void_ftype_ptr_ptr_int, int_ftype_ptr_ptr_int
-	tree void_ftype_ptr_int_int;
-
-   Function type `char *(char *, char *)' and similar ones.
-
-	tree string_ftype_ptr_ptr, int_ftype_string_string;
-
-   Function type `int (const void *, const void *, size_t)'.
-
-	tree int_ftype_cptr_cptr_sizet;
-   */
-
-tree c_global_trees[52];
-
 /* These can't be part of the above array, since they are declared
    individually in tree.h, and used by the debug output routines.  */
 
@@ -435,6 +339,7 @@ tree static_ctors, static_dtors;
 /* Forward declarations.  */
 
 static struct binding_level * make_binding_level	PROTO((void));
+static void mark_binding_level		PROTO((void *));
 static void clear_limbo_values		PROTO((tree));
 static int duplicate_decls		PROTO((tree, tree, int));
 static char *redeclaration_error_message PROTO((tree, tree));
@@ -3226,14 +3131,6 @@ init_decl_processing ()
     = build_function_type (long_integer_type_node,
 			   tree_cons (NULL_TREE,
 				      long_integer_type_node, endlink));
-
-  void_ftype_ptr_ptr_int
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, ptr_type_node,
-				      tree_cons (NULL_TREE, ptr_type_node,
-						 tree_cons (NULL_TREE,
-							    integer_type_node,
-							    endlink))));
 
   int_ftype_cptr_cptr_sizet
     = build_function_type (integer_type_node,

@@ -63,7 +63,6 @@ void lang_cleanup_tree PROTO ((union tree_node *));
 
 /* Mark functions for various structs scattered about.  */
 
-void mark_binding_level PROTO ((void *));
 void mark_temp_slot PROTO ((void *));
 void mark_function_chain PROTO ((void *));
 void mark_eh_state PROTO ((void *));

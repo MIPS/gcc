@@ -24,6 +24,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "gansidecl.h"
 
+#include "c-common.h"
+
 /* Usage of TREE_LANG_FLAG_?:
    0: TREE_NONLOCAL_FLAG (in TREE_LIST or _TYPE).
       BINFO_MARKED (BINFO nodes).
@@ -74,6 +76,8 @@ Boston, MA 02111-1307, USA.  */
    6: DECL_THIS_STATIC (in VAR_DECL or FUNCTION_DECL).
    7: DECL_DEAD_FOR_LOCAL (in VAR_DECL).
 */
+
+struct function;
 
 /* Language-dependent contents of an identifier.  */
 
@@ -262,37 +266,48 @@ extern int pedantic;
    next exception handler.  */
 extern tree exception_throw_decl;
 
-extern tree double_type_node, long_double_type_node, float_type_node;
-extern tree char_type_node, unsigned_char_type_node, signed_char_type_node;
-extern tree ptrdiff_type_node;
+extern tree cp_global_trees[39];
 
-extern tree short_integer_type_node, short_unsigned_type_node;
-extern tree long_integer_type_node, long_unsigned_type_node;
-extern tree long_long_integer_type_node, long_long_unsigned_type_node;
-extern tree unsigned_type_node;
-extern tree string_type_node, char_array_type_node, int_array_type_node;
-extern tree wchar_array_type_node;
-extern tree wchar_type_node, signed_wchar_type_node, unsigned_wchar_type_node;
+#define java_byte_type_node		cp_global_trees[0]
+#define java_short_type_node		cp_global_trees[1]
+#define java_int_type_node		cp_global_trees[2]
+#define java_long_type_node		cp_global_trees[3]
+#define java_float_type_node		cp_global_trees[4]
+#define java_double_type_node		cp_global_trees[5]
+#define java_char_type_node		cp_global_trees[6]
+#define java_boolean_type_node		cp_global_trees[7]
 
-extern tree complex_integer_type_node;
-extern tree complex_float_type_node;
-extern tree complex_double_type_node;
-extern tree complex_long_double_type_node;
-
-extern tree intQI_type_node, unsigned_intQI_type_node;
-extern tree intHI_type_node, unsigned_intHI_type_node;
-extern tree intSI_type_node, unsigned_intSI_type_node;
-extern tree intDI_type_node, unsigned_intDI_type_node;
-extern tree intTI_type_node, unsigned_intTI_type_node;
-
-extern tree java_byte_type_node;
-extern tree java_short_type_node;
-extern tree java_int_type_node;
-extern tree java_long_type_node;
-extern tree java_float_type_node;
-extern tree java_double_type_node;
-extern tree java_char_type_node;
-extern tree java_boolean_type_node;
+#define void_zero_node			cp_global_trees[8]
+#define void_list_node			cp_global_trees[9]
+#define wchar_decl_node			cp_global_trees[10]
+#define vtable_entry_type		cp_global_trees[11]
+#define delta_type_node			cp_global_trees[12]
+#define __tp_desc_type_node		cp_global_trees[13]
+#define __access_mode_type_node		cp_global_trees[14]
+#define __bltn_desc_type_node		cp_global_trees[15]
+#define __user_desc_type_node		cp_global_trees[16]
+#define __class_desc_type_node		cp_global_trees[17]
+#define __ptr_desc_type_node		cp_global_trees[18]
+#define __attr_desc_type_node		cp_global_trees[19]
+#define __func_desc_type_node		cp_global_trees[20]
+#define __ptmf_desc_type_node		cp_global_trees[21]
+#define __ptmd_desc_type_node		cp_global_trees[22]
+#define class_star_type_node		cp_global_trees[23]
+#define class_type_node			cp_global_trees[24]
+#define record_type_node		cp_global_trees[25]
+#define union_type_node			cp_global_trees[26]
+#define enum_type_node			cp_global_trees[27]
+#define unknown_type_node		cp_global_trees[28]
+#define opaque_type_node		cp_global_trees[29]
+#define signature_type_node		cp_global_trees[30]
+#define sigtable_entry_type		cp_global_trees[31]
+#define vtbl_type_node			cp_global_trees[32]
+#define vtbl_ptr_type_node		cp_global_trees[33]
+#define std_node			cp_global_trees[34]
+#define type_info_type_node		cp_global_trees[35]
+#define tinfo_fn_id			cp_global_trees[36]
+#define tinfo_fn_type			cp_global_trees[37]
+#define abort_fndecl			cp_global_trees[38]
 
 extern int current_function_returns_value;
 extern int current_function_returns_null;
@@ -1892,22 +1907,6 @@ extern tree type_for_size                       PROTO((unsigned, int));
 extern int c_get_alias_set                      PROTO((tree));
 
 /* in decl{2}.c */
-extern tree void_list_node;
-extern tree void_zero_node;
-extern tree default_function_type;
-extern tree vtable_entry_type;
-extern tree sigtable_entry_type;
-extern tree __t_desc_type_node;
-#if 0
-extern tree __tp_desc_type_node;
-#endif
-extern tree __access_mode_type_node;
-extern tree __bltn_desc_type_node, __user_desc_type_node;
-extern tree __class_desc_type_node, __attr_desc_type_node;
-extern tree __ptr_desc_type_node, __func_desc_type_node;
-extern tree __ptmf_desc_type_node, __ptmd_desc_type_node;
-extern tree type_info_type_node;
-extern tree class_star_type_node;
 extern tree this_identifier;
 extern tree ctor_identifier, dtor_identifier;
 extern tree pfn_identifier;
@@ -1921,27 +1920,14 @@ extern tree vt_off_identifier;
 /* A node that is a list (length 1) of error_mark_nodes.  */
 extern tree error_mark_list;
 
-extern tree ptr_type_node;
-extern tree class_type_node, record_type_node, union_type_node, enum_type_node;
-extern tree unknown_type_node;
-extern tree opaque_type_node, signature_type_node;
-
 /* Node for "pointer to (virtual) function".
    This may be distinct from ptr_type_node so gdb can distinguish them.  */
 #define vfunc_ptr_type_node \
   (flag_vtable_thunks ? vtable_entry_type : ptr_type_node)
 
-/* The type of a vtbl, i.e., an array of vtable entries.  */
-extern tree vtbl_type_node;
-/* The type of a class vtbl pointer, i.e., a pointer to a vtable entry.  */
-extern tree vtbl_ptr_type_node;
-extern tree delta_type_node;
-extern tree std_node;
 
-extern tree long_long_integer_type_node, long_long_unsigned_type_node;
 /* For building calls to `delete'.  */
 extern tree integer_two_node, integer_three_node;
-extern tree boolean_type_node, boolean_true_node, boolean_false_node;
 
 extern tree null_node;
 
@@ -2592,8 +2578,9 @@ extern tree maybe_build_cleanup			PROTO((tree));
 extern void cplus_expand_expr_stmt		PROTO((tree));
 extern void finish_stmt				PROTO((void));
 extern int id_in_current_class			PROTO((tree));
-extern void push_cp_function_context		PROTO((tree));
-extern void pop_cp_function_context		PROTO((tree));
+extern void push_cp_function_context		PROTO((struct function *));
+extern void pop_cp_function_context		PROTO((struct function *));
+extern void mark_cp_function_context		PROTO((struct function *));
 extern int in_function_p			PROTO((void));
 extern void replace_defarg			PROTO((tree, tree));
 extern void print_other_binding_stack		PROTO((struct binding_level *));
@@ -2602,6 +2589,7 @@ extern void cat_namespace_levels                PROTO((void));
 extern void fixup_anonymous_union               PROTO((tree));
 
 /* in decl2.c */
+extern void init_decl2				PROTO((void));
 extern int check_java_method			PROTO((tree));
 extern int lang_decode_option			PROTO((int, char **));
 extern tree grok_method_quals			PROTO((tree, tree, tree));
@@ -2663,6 +2651,9 @@ extern void check_default_args			PROTO((tree));
 extern void mark_used				PROTO((tree));
 extern tree handle_class_head			PROTO((tree, tree, tree));
 extern tree lookup_arg_dependent                PROTO((tree, tree, tree));
+
+/* in parse.y */
+extern void cp_parse_init			PROTO((void));
 
 /* in errfn.c */
 extern void cp_error				();
