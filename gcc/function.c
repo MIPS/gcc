@@ -3330,6 +3330,20 @@ purge_addressof (insns)
   hash_table_free (&ht);
   purge_bitfield_addressof_replacements = 0;
   purge_addressof_replacements = 0;
+
+  /* REGs are shared.  purge_addressof will destructively replace a REG
+     with a MEM, which creates shared MEMs.
+
+     Unfortunately, the children of put_reg_into_stack assume that MEMs
+     referring to the same stack slot are shared (fixup_var_refs and
+     the associated hash table code).
+
+     So, we have to do another unsharing pass after we have flushed any
+     REGs that had their address taken into the stack.
+
+     It may be worth tracking whether or not we converted any REGs into
+     MEMs to avoid this overhead when it is not needed.  */
+  unshare_all_rtl_again (get_insns ());
 }
 
 /* Pass through the INSNS of function FNDECL and convert virtual register
@@ -4031,6 +4045,8 @@ aggregate_value_p (exp)
 
   tree type = (TYPE_P (exp)) ? exp : TREE_TYPE (exp);
 
+  if (TREE_CODE (type) == VOID_TYPE)
+    return 0;
   if (RETURN_IN_MEMORY (type))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
@@ -6166,13 +6182,8 @@ expand_function_start (subr, parms_have_cleanups)
   else
     /* Scalar, returned in a register.  */
     {
-#ifdef FUNCTION_OUTGOING_VALUE
       DECL_RTL (DECL_RESULT (subr))
-	= FUNCTION_OUTGOING_VALUE (TREE_TYPE (DECL_RESULT (subr)), subr);
-#else
-      DECL_RTL (DECL_RESULT (subr))
-	= FUNCTION_VALUE (TREE_TYPE (DECL_RESULT (subr)), subr);
-#endif
+	= hard_function_value (TREE_TYPE (DECL_RESULT (subr)), subr, 1);
 
       /* Mark this reg as the function's return value.  */
       if (GET_CODE (DECL_RTL (DECL_RESULT (subr))) == REG)
@@ -6522,7 +6533,7 @@ expand_function_end (filename, line, end_bindings)
      already exists a copy of this note somewhere above.  This line number
      note is still needed for debugging though, so we can't delete it.  */
   if (flag_test_coverage)
-    emit_note (NULL_PTR, NOTE_REPEATED_LINE_NUMBER);
+    emit_note (NULL_PTR, NOTE_INSN_REPEATED_LINE_NUMBER);
 
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */

@@ -900,29 +900,28 @@ mostly_true_jump (jump_insn, condition)
      rtx jump_insn, condition;
 {
   rtx target_label = JUMP_LABEL (jump_insn);
-  rtx insn;
+  rtx insn, note;
   int rare_dest = rare_destination (target_label);
   int rare_fallthrough = rare_destination (NEXT_INSN (jump_insn));
 
   /* If branch probabilities are available, then use that number since it
      always gives a correct answer.  */
-  if (flag_branch_probabilities)
+  note = find_reg_note (jump_insn, REG_BR_PROB, 0);
+  if (note)
     {
-      rtx note = find_reg_note (jump_insn, REG_BR_PROB, 0);
-      if (note)
-	{
-	  int prob = XINT (note, 0);
+      int prob = INTVAL (XEXP (note, 0));
 
-	  if (prob >= REG_BR_PROB_BASE * 9 / 10)
-	    return 2;
-	  else if (prob >= REG_BR_PROB_BASE / 2)
-	    return 1;
-	  else if (prob >= REG_BR_PROB_BASE / 10)
-	    return 0;
-	  else
-	    return -1;
-	}
+      if (prob >= REG_BR_PROB_BASE * 9 / 10)
+        return 2;
+      else if (prob >= REG_BR_PROB_BASE / 2)
+        return 1;
+      else if (prob >= REG_BR_PROB_BASE / 10)
+        return 0;
+      else
+        return -1;
     }
+
+  /* ??? Ought to use estimate_probability instead.  */
 
   /* If this is a branch outside a loop, it is highly unlikely.  */
   if (GET_CODE (PATTERN (jump_insn)) == SET
@@ -2808,7 +2807,8 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
       dest = SET_DEST (pat), src = SET_SRC (pat);
       if ((GET_CODE (src) == PLUS || GET_CODE (src) == MINUS)
 	  && rtx_equal_p (XEXP (src, 0), dest)
-	  && ! reg_overlap_mentioned_p (dest, XEXP (src, 1)))
+	  && ! reg_overlap_mentioned_p (dest, XEXP (src, 1))
+	  && ! side_effects_p (pat))
 	{
 	  rtx other = XEXP (src, 1);
 	  rtx new_arith;

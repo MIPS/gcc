@@ -533,7 +533,7 @@ count(struct __rb_tree_node_base *, struct __rb_tree_node_base *)'
    
    Comments and suggestions are welcome, and may be sent to [71]Phil
    Edwards or [72]Gabriel Dos Reis.
-   $Id: index.txt,v 1.17 2000/03/26 03:44:35 pme Exp $ 
+   $Id: index.txt,v 1.1 2000/04/21 20:33:32 bkoz Exp $ 
 
 References
 

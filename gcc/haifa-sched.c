@@ -4,22 +4,22 @@
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
-   This file is part of GNU CC.
+This file is part of GNU CC.
 
-   GNU CC is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
 
-   GNU CC is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+GNU CC is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to the Free
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to the Free
+the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* Instruction scheduling pass.
@@ -197,7 +197,7 @@ static int issue_rate;
 #endif
 
 /* sched-verbose controls the amount of debugging output the
-   scheduler prints.  It is controlled by -fsched-verbose-N:
+   scheduler prints.  It is controlled by -fsched-verbose=N:
    N>0 and no -DSR : the output is directed to stderr.
    N>=10 will direct the printouts to stderr (regardless of -dSR).
    N=1: same as -dSR.
@@ -220,7 +220,7 @@ static int nr_inter, nr_spec;
 static FILE *dump = 0;
 
 /* fix_sched_param() is called from toplev.c upon detection
-   of the -fsched-***-N options.  */
+   of the -fsched-verbose=N option.  */
 
 void
 fix_sched_param (param, val)
@@ -3939,7 +3939,7 @@ sched_analyze (deps, head, tail)
 	 ??? Actually, the reemit_notes just say what is done, not why.  */
 
       else if (GET_CODE (insn) == NOTE
-	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_START
+	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_END))
 	{
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE, NOTE_RANGE_INFO (insn),
@@ -4277,7 +4277,7 @@ unlink_other_notes (insn, tail)
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_SETJMP
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_START
+	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_END
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
@@ -5632,7 +5632,8 @@ reemit_notes (insn, last)
     {
       if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
 	{
-	  int note_type = INTVAL (XEXP (note, 0));
+	  enum insn_note note_type = INTVAL (XEXP (note, 0));
+
 	  if (note_type == NOTE_INSN_SETJMP)
 	    {
 	      retval = emit_note_after (NOTE_INSN_SETJMP, insn);
@@ -5640,7 +5641,7 @@ reemit_notes (insn, last)
 	      remove_note (insn, note);
 	      note = XEXP (note, 1);
 	    }
-	  else if (note_type == NOTE_INSN_RANGE_START
+	  else if (note_type == NOTE_INSN_RANGE_BEG
                    || note_type == NOTE_INSN_RANGE_END)
 	    {
 	      last = emit_note_before (note_type, last);
@@ -6804,8 +6805,8 @@ schedule_insns (dump_file)
     return;
 
   /* Set dump and sched_verbose for the desired debugging output.  If no
-     dump-file was specified, but -fsched-verbose-N (any N), print to stderr.
-     For -fsched-verbose-N, N>=10, print everything to stderr.  */
+     dump-file was specified, but -fsched-verbose=N (any N), print to stderr.
+     For -fsched-verbose=N, N>=10, print everything to stderr.  */
   sched_verbose = sched_verbose_param;
   if (sched_verbose_param == 0 && dump_file)
     sched_verbose = 1;

@@ -213,9 +213,6 @@ extern unsigned char _cpp_IStable[256];
 #define CPP_PUTC_Q(PFILE, CH) (*(PFILE)->limit++ = (CH))
 /* Append character CH to PFILE's output buffer.  Make space if need be. */
 #define CPP_PUTC(PFILE, CH) (CPP_RESERVE (PFILE, 1), CPP_PUTC_Q (PFILE, CH))
-/* Make sure PFILE->limit is followed by '\0'. */
-#define CPP_NUL_TERMINATE_Q(PFILE) (*(PFILE)->limit = 0)
-#define CPP_NUL_TERMINATE(PFILE) (CPP_RESERVE(PFILE, 1), *(PFILE)->limit = 0)
 
 /* Advance the current line by one. */
 #define CPP_BUMP_BUFFER_LINE(PBUF) ((PBUF)->lineno++,\
@@ -263,9 +260,6 @@ extern unsigned char _cpp_IStable[256];
 #define ADJACENT_TO_MARK(PFILE) \
  (CPP_BUFFER(PFILE)->cur - CPP_BUFFER(PFILE)->mark == 1)
 
-/* Last arg to output_line_command.  */
-enum file_change_code {same_file, rename_file, enter_file, leave_file};
-
 /* In cpphash.c */
 extern HASHNODE *_cpp_make_hashnode	PARAMS ((const U_CHAR *, size_t,
 						 enum node_type,
@@ -274,10 +268,12 @@ extern unsigned int _cpp_calc_hash	PARAMS ((const U_CHAR *, size_t));
 extern HASHNODE *_cpp_lookup		PARAMS ((cpp_reader *,
 						 const U_CHAR *, int));
 extern HASHNODE **_cpp_lookup_slot	PARAMS ((cpp_reader *,
-						 const U_CHAR *, int, int,
+						 const U_CHAR *, int,
+						 enum insert_option,
 						 unsigned long *));
 extern void _cpp_free_definition	PARAMS ((DEFINITION *));
-extern DEFINITION *_cpp_create_definition PARAMS ((cpp_reader *, int));
+extern DEFINITION *_cpp_create_definition PARAMS ((cpp_reader *,
+						   cpp_toklist *, int));
 extern void _cpp_dump_definition	PARAMS ((cpp_reader *, const U_CHAR *,
 						 long, DEFINITION *));
 extern int _cpp_compare_defs		PARAMS ((cpp_reader *, DEFINITION *,
@@ -293,6 +289,7 @@ extern void _cpp_execute_include	PARAMS ((cpp_reader *, char *,
 						 unsigned int, int,
 						 struct file_name_list *));
 extern void _cpp_init_include_hash	PARAMS ((cpp_reader *));
+extern const char *_cpp_fake_ihash	PARAMS ((cpp_reader *, const char *));
 
 /* In cppexp.c */
 extern int _cpp_parse_expr		PARAMS ((cpp_reader *));
@@ -301,22 +298,22 @@ extern int _cpp_parse_expr		PARAMS ((cpp_reader *));
 extern void _cpp_parse_name		PARAMS ((cpp_reader *, int));
 extern void _cpp_skip_rest_of_line	PARAMS ((cpp_reader *));
 extern void _cpp_skip_hspace		PARAMS ((cpp_reader *));
+extern void _cpp_expand_to_buffer	PARAMS ((cpp_reader *,
+						 const unsigned char *, int));
 extern int _cpp_parse_assertion		PARAMS ((cpp_reader *));
-extern enum cpp_token _cpp_lex_token	PARAMS ((cpp_reader *));
+extern enum cpp_ttype _cpp_lex_token	PARAMS ((cpp_reader *));
 extern long _cpp_read_and_prescan	PARAMS ((cpp_reader *, cpp_buffer *,
 						 int, size_t));
 extern void _cpp_init_input_buffer	PARAMS ((cpp_reader *));
 extern void _cpp_grow_token_buffer	PARAMS ((cpp_reader *, long));
-extern enum cpp_token _cpp_get_directive_token
+extern enum cpp_ttype _cpp_get_directive_token
 					PARAMS ((cpp_reader *));
-extern enum cpp_token _cpp_get_define_token
+extern enum cpp_ttype _cpp_get_define_token
 					PARAMS ((cpp_reader *));
+extern void _cpp_scan_line		PARAMS ((cpp_reader *, cpp_toklist *));
 
 /* In cpplib.c */
 extern int _cpp_handle_directive	PARAMS ((cpp_reader *));
 extern void _cpp_handle_eof		PARAMS ((cpp_reader *));
-extern void _cpp_output_line_command	PARAMS ((cpp_reader *,
-						 enum file_change_code));
-
 
 #endif

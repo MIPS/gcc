@@ -22,6 +22,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 
+#include "hashtab.h"
 #include "cpplib.h"
 #include "cpphash.h"
 #include "hashtab.h"
@@ -32,11 +33,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 struct directive
 {
-  int (*func)			/* Function to handle directive */
-    PARAMS ((cpp_reader *));
-  const char *name;		/* Name of directive */
-  unsigned short length;	/* Length of name */
-  unsigned short origin;	/* Origin of this directive */
+  directive_handler func;	/* Function to handle directive.  */
+  const char *name;		/* Name of directive.  */
+  unsigned short length;	/* Length of name.  */
+  unsigned short flags;	        /* Flags describing this directive.  */
 };
 
 /* Stack of conditionals currently in progress
@@ -66,16 +66,21 @@ static int read_line_number		PARAMS ((cpp_reader *, int *));
 static U_CHAR *detect_if_not_defined	PARAMS ((cpp_reader *));
 static int consider_directive_while_skipping
 					PARAMS ((cpp_reader *, IF_STACK *));
-static int get_macro_name		PARAMS ((cpp_reader *));
 
-/* Values for the "origin" field of the table below.  KANDR and COND
+/* Values for the flags field of the table below.  KANDR and COND
    directives come from traditional (K&R) C.  The difference is, if we
    care about it while skipping a failed conditional block, its origin
    is COND.  STDC89 directives come from the 1989 C standard.
    EXTENSION directives are extensions, with origins noted below.  */
-enum { KANDR = 0, COND, STDC89, EXTENSION };
 
-#define TRAD_DIRECT_P(x) ((x) == KANDR || (x) == COND)
+#define KANDR       0
+#define COND        1
+#define STDC89      2
+#define EXTENSION   3
+
+#define ORIGIN_MASK 3
+#define ORIGIN(f) ((f) & ORIGIN_MASK)
+#define TRAD_DIRECT_P(f) (ORIGIN (f) == KANDR || ORIGIN (f) == COND)
 
 /* This is the table of directive handlers.  It is ordered by
    frequency of occurrence; the numbers at the end are directive
@@ -94,25 +99,25 @@ enum { KANDR = 0, COND, STDC89, EXTENSION };
 # define SCCS_ENTRY /* nothing */
 #endif
 
-#define DIRECTIVE_TABLE							\
-D(define,	T_DEFINE = 0,	KANDR)		/* 270554 */		\
-D(include,	T_INCLUDE,	KANDR)		/*  52262 */		\
-D(endif,	T_ENDIF,	COND)		/*  45855 */		\
-D(ifdef,	T_IFDEF,	COND)		/*  22000 */		\
-D(if,		T_IF,		COND)		/*  18162 */		\
-D(else,		T_ELSE,		COND)		/*   9863 */		\
-D(ifndef,	T_IFNDEF,	COND)		/*   9675 */		\
-D(undef,	T_UNDEF,	KANDR)		/*   4837 */		\
-D(line,		T_LINE,		KANDR)		/*   2465 */		\
-D(elif,		T_ELIF,		COND)		/*    610 */		\
-D(error,	T_ERROR,	STDC89)		/*    475 */		\
-D(pragma,	T_PRAGMA,	STDC89)		/*    195 */		\
-D(warning,	T_WARNING,	EXTENSION)	/*     22 - GNU   */	\
-D(include_next,	T_INCLUDE_NEXT,	EXTENSION)	/*     19 - GNU   */	\
-D(ident,	T_IDENT,	EXTENSION)	/*     11 - SVR4  */	\
-D(import,	T_IMPORT,	EXTENSION)	/*      0 - ObjC  */	\
-D(assert,	T_ASSERT,	EXTENSION)	/*      0 - SVR4  */	\
-D(unassert,	T_UNASSERT,	EXTENSION)	/*      0 - SVR4  */	\
+#define DIRECTIVE_TABLE							 \
+D(define,	T_DEFINE = 0,	KANDR)		           /* 270554 */ \
+D(include,	T_INCLUDE,	KANDR | SYNTAX_INCLUDE)    /*  52262 */ \
+D(endif,	T_ENDIF,	COND)		           /*  45855 */ \
+D(ifdef,	T_IFDEF,	COND)			   /*  22000 */ \
+D(if,		T_IF,		COND)			   /*  18162 */ \
+D(else,		T_ELSE,		COND)			    /*  9863 */ \
+D(ifndef,	T_IFNDEF,	COND)			    /*  9675 */ \
+D(undef,	T_UNDEF,	KANDR)			    /*  4837 */ \
+D(line,		T_LINE,		KANDR)			    /*  2465 */ \
+D(elif,		T_ELIF,		COND)			    /*   610 */ \
+D(error,	T_ERROR,	STDC89)			    /*   475 */ \
+D(pragma,	T_PRAGMA,	STDC89)			    /*   195 */ \
+D(warning,	T_WARNING,	EXTENSION)		    /*    22 GNU */ \
+D(include_next,	T_INCLUDE_NEXT,	EXTENSION | SYNTAX_INCLUDE) /*    19 GNU */ \
+D(ident,	T_IDENT,	EXTENSION)		    /*    11 SVR4 */ \
+D(import,	T_IMPORT,	EXTENSION | SYNTAX_INCLUDE) /*     0 ObjC */ \
+D(assert,	T_ASSERT,	EXTENSION | SYNTAX_ASSERT)  /*     0 SVR4 */ \
+D(unassert,	T_UNASSERT,	EXTENSION | SYNTAX_ASSERT)  /*     0 SVR4 */ \
 SCCS_ENTRY
 
 /* Use the table to generate a series of prototypes, an enum for the
@@ -123,11 +128,11 @@ SCCS_ENTRY
    pointers to functions returning void.  */
 
 /* Don't invoke CONCAT2 with any whitespace or K&R cc will fail. */
-#define D(name, t, o) static int CONCAT2(do_,name) PARAMS ((cpp_reader *));
+#define D(name, t, f) static int CONCAT2(do_,name) PARAMS ((cpp_reader *));
 DIRECTIVE_TABLE
 #undef D
 
-#define D(n, tag, o) tag,
+#define D(n, tag, f) tag,
 enum
 {
   DIRECTIVE_TABLE
@@ -136,8 +141,8 @@ enum
 #undef D
 
 /* Don't invoke CONCAT2 with any whitespace or K&R cc will fail. */
-#define D(name, t, origin) \
-{ CONCAT2(do_,name), STRINGX(name), sizeof STRINGX(name) - 1, origin },
+#define D(name, t, flags) \
+{ CONCAT2(do_,name), STRINGX(name), sizeof STRINGX(name) - 1, flags },
 static const struct directive dtable[] =
 {
 DIRECTIVE_TABLE
@@ -157,7 +162,7 @@ _cpp_handle_directive (pfile)
   unsigned int len;
   U_CHAR *ident;
   long old_written = CPP_WRITTEN (pfile);
-  enum cpp_token tok;
+  enum cpp_ttype tok;
 
   if (CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
     {
@@ -249,17 +254,17 @@ _cpp_handle_directive (pfile)
     }
 
   /* Issue -pedantic warnings for extended directives.   */
-  if (CPP_PEDANTIC (pfile) && dtable[i].origin == EXTENSION)
+  if (CPP_PEDANTIC (pfile) && ORIGIN (dtable[i].flags) == EXTENSION)
     cpp_pedwarn (pfile, "ISO C does not allow #%s", dtable[i].name);
 
   /* -Wtraditional gives warnings about directives with inappropriate
      indentation of #.  */
   if (CPP_WTRADITIONAL (pfile))
     {
-      if (!hash_at_bol && TRAD_DIRECT_P (dtable[i].origin))
+      if (!hash_at_bol && TRAD_DIRECT_P (dtable[i].flags))
 	cpp_warning (pfile, "traditional C ignores #%s with the # indented",
 		     dtable[i].name);
-      else if (hash_at_bol && ! TRAD_DIRECT_P (dtable[i].origin))
+      else if (hash_at_bol && ! TRAD_DIRECT_P (dtable[i].flags))
 	cpp_warning (pfile,
 		"suggest hiding #%s from traditional C with an indented #",
 		     dtable[i].name);
@@ -304,36 +309,6 @@ pass_thru_directive (buf, len, pfile, keyword)
   CPP_PUTS_Q (pfile, buf, len);
 }
 
-/* Subroutine of do_define: determine the name of the macro to be
-   defined.  */
-
-static int
-get_macro_name (pfile)
-     cpp_reader *pfile;
-{
-  long here, len;
-
-  here = CPP_WRITTEN (pfile);
-  if (_cpp_get_directive_token (pfile) != CPP_NAME)
-    {
-      cpp_error (pfile, "`#define' must be followed by an identifier");
-      goto invalid;
-    }
-
-  len = CPP_WRITTEN (pfile) - here;
-  if (len == 7 && !strncmp (pfile->token_buffer + here, "defined", 7))
-    {
-      cpp_error (pfile, "`defined' is not a legal macro name");
-      goto invalid;
-    }
-
-  return len;
-
- invalid:
-  _cpp_skip_rest_of_line (pfile);
-  return 0;
-}
-
 /* Process a #define command.  */
 
 static int
@@ -342,53 +317,65 @@ do_define (pfile)
 {
   HASHNODE **slot;
   DEFINITION *def = 0;
-  long here;
   unsigned long hash;
   int len;
   int funlike = 0, empty = 0;
   U_CHAR *sym;
-  enum cpp_token token;
+  cpp_toklist *list = &pfile->directbuf;
 
   pfile->no_macro_expand++;
   pfile->parsing_define_directive++;
   CPP_OPTION (pfile, discard_comments)++;
-  CPP_OPTION (pfile, no_line_commands)++;
 
-  here = CPP_WRITTEN (pfile);
-  len = get_macro_name (pfile);
-  if (len == 0)
-    goto out;
+  _cpp_scan_line (pfile, list);
 
-  /* Copy out the name so we can pop the token buffer.  */
-  len = CPP_WRITTEN (pfile) - here;
-  sym = (U_CHAR *) alloca (len + 1);
-  memcpy (sym, pfile->token_buffer + here, len);
-  sym[len] = '\0';
+  /* First token on the line must be a NAME.  There must be at least
+     one token (the VSPACE at the end).  */
+  if (list->tokens[0].type != CPP_NAME)
+    {
+      cpp_error_with_line (pfile, list->line, list->tokens[0].col,
+			   "#define must be followed by an identifier");
+      goto out;
+    }
+
+  sym = list->namebuf + list->tokens[0].val.name.offset;
+  len = list->tokens[0].val.name.len;
+
+  /* That NAME is not allowed to be "defined".  (Not clear if the
+     standard requires this.)  */
+  if (len == 7 && !strncmp (sym, "defined", 7))
+    {
+      cpp_error_with_line (pfile, list->line, list->tokens[0].col,
+			   "\"defined\" is not a legal macro name");
+      goto out;
+    }
+
+
+  if (list->tokens_used == 2 && list->tokens[1].type == CPP_VSPACE)
+    empty = 0;  /* Empty definition of object-like macro.  */
 
   /* If the next character, with no intervening whitespace, is '(',
-     then this is a function-like macro.
-     XXX Layering violation.  */
-  CPP_SET_MARK (pfile);
-  token = _cpp_get_directive_token (pfile);
-  if (token == CPP_VSPACE)
-    empty = 0;  /* Empty definition of object like macro.  */
-  else if (token == CPP_LPAREN && ADJACENT_TO_MARK (pfile))
-    funlike = 1;
-  else if (ADJACENT_TO_MARK (pfile))
-    /* If this is an object-like macro, C99 requires white space after
-       the name.  */
-    cpp_pedwarn (pfile, "missing white space after `#define %.*s'", len, sym);
-  CPP_GOTO_MARK (pfile);
-  CPP_SET_WRITTEN (pfile, here);
+     then this is a function-like macro.  Otherwise it is an object-
+     like macro, and C99 requires whitespace after the name
+     (6.10.3 para 3).  */
+  else if (!(list->tokens[1].flags & HSPACE_BEFORE))
+    {
+      if (list->tokens[1].type == CPP_OPEN_PAREN)
+	funlike = 1;
+      else
+	cpp_pedwarn (pfile,
+		     "The C standard requires whitespace after #define %.*s",
+		     len, sym);
+    }
 
   if (! empty)
     {
-      def = _cpp_create_definition (pfile, funlike);
+      def = _cpp_create_definition (pfile, list, funlike);
       if (def == 0)
 	goto out;
     }
 
-  slot = _cpp_lookup_slot (pfile, sym, len, 1, &hash);
+  slot = _cpp_lookup_slot (pfile, sym, len, INSERT, &hash);
   if (*slot)
     {
       int ok;
@@ -453,83 +440,7 @@ do_define (pfile)
   pfile->no_macro_expand--;
   pfile->parsing_define_directive--;
   CPP_OPTION (pfile, discard_comments)--;
-  CPP_OPTION (pfile, no_line_commands)--;
   return 0;
-}
-
-/*
- * write out a #line command, for instance, after an #include file.
- * FILE_CHANGE says whether we are entering a file, leaving, or neither.
- */
-
-void
-_cpp_output_line_command (pfile, file_change)
-     cpp_reader *pfile;
-     enum file_change_code file_change;
-{
-  long line;
-  cpp_buffer *ip;
-
-  if (CPP_OPTION (pfile, no_line_commands)
-      || CPP_OPTION (pfile, no_output))
-    return;
-
-  ip = cpp_file_buffer (pfile);
-  cpp_buf_line_and_col (ip, &line, NULL);
-
-  /* If the current file has not changed, we omit the #line if it would
-     appear to be a no-op, and we output a few newlines instead
-     if we want to increase the line number by a small amount.
-     We cannot do this if pfile->lineno is zero, because that means we
-     haven't output any line commands yet.  (The very first line command
-     output is a `same_file' command.)  */
-  if (file_change == same_file && pfile->lineno != 0)
-    {
-      if (line == pfile->lineno)
-	return;
-
-      /* If the inherited line number is a little too small,
-	 output some newlines instead of a #line command.  */
-      if (line > pfile->lineno && line < pfile->lineno + 8)
-	{
-	  CPP_RESERVE (pfile, 20);
-	  while (line > pfile->lineno)
-	    {
-	      CPP_PUTC_Q (pfile, '\n');
-	      pfile->lineno++;
-	    }
-	  return;
-	}
-    }
-
-  CPP_RESERVE (pfile, 4 * strlen (ip->nominal_fname) + 50);
-  CPP_PUTS_Q (pfile, "# ", 2);
-
-  sprintf ((char *) CPP_PWRITTEN (pfile), "%ld ", line);
-  CPP_ADJUST_WRITTEN (pfile, strlen (CPP_PWRITTEN (pfile)));
-
-  _cpp_quote_string (pfile, ip->nominal_fname); 
-  if (file_change != same_file && file_change != rename_file)
-    {
-      CPP_PUTC_Q (pfile, ' ');
-      CPP_PUTC_Q (pfile, file_change == enter_file ? '1' : '2');
-    }
-  /* Tell cc1 if following text comes from a system header file.  */
-  if (ip->system_header_p)
-    {
-      CPP_PUTC_Q (pfile, ' ');
-      CPP_PUTC_Q (pfile, '3');
-    }
-#ifndef NO_IMPLICIT_EXTERN_C
-  /* Tell cc1plus if following text should be treated as C.  */
-  if (ip->system_header_p == 2 && CPP_OPTION (pfile, cplusplus))
-    {
-      CPP_PUTC_Q (pfile, ' ');
-      CPP_PUTC_Q (pfile, '4');
-    }
-#endif
-  CPP_PUTC_Q (pfile, '\n');
-  pfile->lineno = line;
 }
 
 /* Handle #include and #import.  */
@@ -540,7 +451,7 @@ parse_include (pfile, name)
      const char *name;
 {
   long old_written = CPP_WRITTEN (pfile);
-  enum cpp_token token;
+  enum cpp_ttype token;
   int len;
 
   pfile->parsing_include_directive++;
@@ -577,9 +488,6 @@ parse_include (pfile, name)
       return 0;
     }
 
-  CPP_NUL_TERMINATE (pfile);
-  CPP_ADJUST_WRITTEN (pfile, 1);
-
   if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
     {
       cpp_error (pfile, "junk at end of `#%s'", name);
@@ -605,7 +513,8 @@ do_include (pfile)
   if (len == 0)
     return 0;
   token = alloca (len + 1);
-  strcpy (token, CPP_PWRITTEN (pfile));
+  memcpy (token, CPP_PWRITTEN (pfile), len);
+  token[len] = '\0';
   
   if (CPP_OPTION (pfile, dump_includes))
     pass_thru_directive (token, len, pfile, T_INCLUDE);
@@ -633,7 +542,8 @@ do_import (pfile)
   if (len == 0)
     return 0;
   token = alloca (len + 1);
-  strcpy (token, CPP_PWRITTEN (pfile));
+  memcpy (token, CPP_PWRITTEN (pfile), len);
+  token[len] = '\0';
   
   if (CPP_OPTION (pfile, dump_includes))
     pass_thru_directive (token, len, pfile, T_IMPORT);
@@ -654,7 +564,8 @@ do_include_next (pfile)
   if (len == 0)
     return 0;
   token = alloca (len + 1);
-  strcpy (token, CPP_PWRITTEN (pfile));
+  memcpy (token, CPP_PWRITTEN (pfile), len);
+  token[len] = '\0';
   
   if (CPP_OPTION (pfile, dump_includes))
     pass_thru_directive (token, len, pfile, T_INCLUDE_NEXT);
@@ -687,19 +598,21 @@ read_line_number (pfile, num)
 {
   long save_written = CPP_WRITTEN (pfile);
   U_CHAR *p;
-  enum cpp_token token = _cpp_get_directive_token (pfile);
-  CPP_SET_WRITTEN (pfile, save_written);
+  enum cpp_ttype token = _cpp_get_directive_token (pfile);
   p = pfile->token_buffer + save_written;
 
-  if (token == CPP_NUMBER && *p >= '1' && *p <= '4' && p[1] == '\0')
+  if (token == CPP_NUMBER && p + 1 == CPP_PWRITTEN (pfile)
+      && p[0] >= '1' && p[0] <= '4')
     {
       *num = p[0] - '0';
+      CPP_SET_WRITTEN (pfile, save_written);
       return 1;
     }
   else
     {
       if (token != CPP_VSPACE && token != CPP_EOF)
 	cpp_error (pfile, "invalid format `#line' command");
+      CPP_SET_WRITTEN (pfile, save_written);
       return 0;
     }
 }
@@ -713,10 +626,9 @@ do_line (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *ip = CPP_BUFFER (pfile);
-  int new_lineno;
+  unsigned int new_lineno;
   long old_written = CPP_WRITTEN (pfile);
-  enum file_change_code file_change = same_file;
-  enum cpp_token token;
+  enum cpp_ttype token;
   char *x;
 
   token = _cpp_get_directive_token (pfile);
@@ -727,7 +639,8 @@ do_line (pfile)
       goto bad_line_directive;
     }
 
-  new_lineno = strtol (pfile->token_buffer + old_written, &x, 10);
+  CPP_PUTC (pfile, '\0');  /* not terminated for us */
+  new_lineno = strtoul (pfile->token_buffer + old_written, &x, 10);
   if (x[0] != '\0')
     {
       cpp_error (pfile, "token after `#line' is not an integer");
@@ -746,21 +659,24 @@ do_line (pfile)
       U_CHAR *end_name = CPP_PWRITTEN (pfile) - 1;
       int action_number = 0;
 
-      file_change = rename_file;
-
       if (read_line_number (pfile, &action_number))
 	{
 	  if (CPP_PEDANTIC (pfile))
 	    cpp_pedwarn (pfile, "garbage at end of `#line' command");
 
+	  /* This is somewhat questionable: change the buffer stack
+	     depth so that output_line_command thinks we've stacked
+	     another buffer. */
 	  if (action_number == 1)
 	    {
-	      file_change = enter_file;
+	      pfile->buffer_stack_depth++;
+	      ip->system_header_p = 0;
 	      read_line_number (pfile, &action_number);
 	    }
 	  else if (action_number == 2)
 	    {
-	      file_change = leave_file;
+	      pfile->buffer_stack_depth--;
+	      ip->system_header_p = 0;
 	      read_line_number (pfile, &action_number);
 	    }
 	  if (action_number == 3)
@@ -779,29 +695,11 @@ do_line (pfile)
       
       if (strcmp (fname, ip->nominal_fname))
 	{
-	  const char *newname, *oldname;
 	  if (!strcmp (fname, ip->ihash->name))
-	    newname = ip->ihash->name;
-	  else if (ip->last_nominal_fname
-		   && !strcmp (fname, ip->last_nominal_fname))
-	    newname = ip->last_nominal_fname;
+	    ip->nominal_fname = ip->ihash->name;
 	  else
-	    newname = xstrdup (fname);
-
-	  oldname = ip->nominal_fname;
-	  ip->nominal_fname = newname;
-
-	  if (ip->last_nominal_fname
-	      && ip->last_nominal_fname != oldname
-	      && ip->last_nominal_fname != newname
-	      && ip->last_nominal_fname != ip->ihash->name)
-	    free ((void *) ip->last_nominal_fname);
-
-	  if (newname == ip->ihash->name)
-	    ip->last_nominal_fname = NULL;
-	  else
-	    ip->last_nominal_fname = oldname;
-	} 
+	    ip->nominal_fname = _cpp_fake_ihash (pfile, fname);
+	}
     }
   else if (token != CPP_VSPACE && token != CPP_EOF)
     {
@@ -814,7 +712,6 @@ do_line (pfile)
      we must store a line number now that is one less.  */
   ip->lineno = new_lineno - 1;
   CPP_SET_WRITTEN (pfile, old_written);
-  _cpp_output_line_command (pfile, file_change);
   return 0;
 
  bad_line_directive:
@@ -834,7 +731,7 @@ do_undef (pfile)
   HASHNODE **slot;
   U_CHAR *name;
   long here = CPP_WRITTEN (pfile);
-  enum cpp_token token;
+  enum cpp_ttype token;
 
   pfile->no_macro_expand++;
   token = _cpp_get_directive_token (pfile);
@@ -858,7 +755,7 @@ do_undef (pfile)
   name = pfile->token_buffer + here;
   CPP_SET_WRITTEN (pfile, here);
 
-  slot = _cpp_lookup_slot (pfile, name, len, 0, 0);
+  slot = _cpp_lookup_slot (pfile, name, len, NO_INSERT, 0);
   if (slot)
     {
       HASHNODE *hp = *slot;
@@ -971,7 +868,7 @@ do_pragma (pfile)
   long here, key;
   U_CHAR *buf;
   int pop;
-  enum cpp_token token;
+  enum cpp_ttype token;
 
   here = CPP_WRITTEN (pfile);
   CPP_PUTS (pfile, "#pragma ", 8);
@@ -1052,7 +949,7 @@ do_pragma_implementation (pfile)
 {
   /* Be quiet about `#pragma implementation' for a file only if it hasn't
      been included yet.  */
-  enum cpp_token token;
+  enum cpp_ttype token;
   long written = CPP_WRITTEN (pfile);
   U_CHAR *name;
   U_CHAR *copy;
@@ -1091,7 +988,7 @@ do_pragma_poison (pfile)
   HASHNODE **slot;
   long written;
   size_t len;
-  enum cpp_token token;
+  enum cpp_ttype token;
   int writeit;
   unsigned long hash;
 
@@ -1115,14 +1012,14 @@ do_pragma_poison (pfile)
 	}
 
       p = pfile->token_buffer + written;
-      len = strlen (p);
-      slot = _cpp_lookup_slot (pfile, p, len, 1, &hash);
+      len = CPP_PWRITTEN (pfile) - p;
+      slot = _cpp_lookup_slot (pfile, p, len, INSERT, &hash);
       if (*slot)
 	{
 	  HASHNODE *hp = *slot;
 	  if (hp->type != T_POISON)
 	    {
-	      cpp_warning (pfile, "poisoning existing macro `%s'", p);
+	      cpp_warning (pfile, "poisoning existing macro `%s'", hp->name);
 	      if (hp->type == T_MACRO)
 		_cpp_free_definition (hp->value.defn);
 	      hp->value.defn = 0;
@@ -1157,71 +1054,72 @@ do_sccs (pfile)
    `#if ! defined SYMBOL', then SYMBOL is a possible controlling macro
    for inclusion of this file.  (See redundant_include_p in cppfiles.c
    for an explanation of controlling macros.)  If so, return a
-   malloc'd copy of SYMBOL.  Otherwise, return NULL.  */
+   malloced copy of SYMBOL.  Otherwise, return NULL.  */
 
 static U_CHAR *
 detect_if_not_defined (pfile)
      cpp_reader *pfile;
 {
   U_CHAR *control_macro = 0;
+  enum cpp_ttype token;
+  unsigned int base_offset;
+  unsigned int token_offset;
+  unsigned int need_rparen = 0;
+  unsigned int token_len;
 
-  if (pfile->only_seen_white == 2)
+  if (pfile->only_seen_white != 2)
+    return NULL;
+
+  /* Save state required for restore.  */
+  pfile->no_macro_expand++;
+  CPP_SET_MARK (pfile);
+  base_offset = CPP_WRITTEN (pfile);
+
+  /* Look for `!', */
+  if (_cpp_get_directive_token (pfile) != CPP_OTHER
+      || CPP_WRITTEN (pfile) != (size_t) base_offset + 1
+      || CPP_PWRITTEN (pfile)[-1] != '!')
+    goto restore;
+
+  /* ...then `defined', */
+  token_offset = CPP_WRITTEN (pfile);
+  token = _cpp_get_directive_token (pfile);
+  if (token != CPP_NAME)
+    goto restore;
+  if (strncmp (pfile->token_buffer + token_offset, "defined", 7))
+    goto restore;
+
+  /* ...then an optional '(' and the name, */
+  token_offset = CPP_WRITTEN (pfile);
+  token = _cpp_get_directive_token (pfile);
+  if (token == CPP_OPEN_PAREN)
     {
-      U_CHAR *ident;
-      enum cpp_token token;
-      int base_offset;
-      int token_offset;
-      int need_rparen = 0;
-
-      /* Save state required for restore.  */
-      pfile->no_macro_expand++;
-      CPP_SET_MARK (pfile);
-      base_offset = CPP_WRITTEN (pfile);
-
-      /* Look for `!', */
-      if (_cpp_get_directive_token (pfile) != CPP_OTHER
-	  || CPP_WRITTEN (pfile) != (size_t) base_offset + 1
-	  || CPP_PWRITTEN (pfile)[-1] != '!')
-	goto restore;
-
-      /* ...then `defined', */
       token_offset = CPP_WRITTEN (pfile);
+      need_rparen = 1;
       token = _cpp_get_directive_token (pfile);
-      if (token != CPP_NAME)
-	goto restore;
-      ident = pfile->token_buffer + token_offset;
-      CPP_NUL_TERMINATE (pfile);
-      if (strcmp (ident, "defined"))
-	goto restore;
-
-      /* ...then an optional '(' and the name, */
-      token_offset = CPP_WRITTEN (pfile);
-      token = _cpp_get_directive_token (pfile);
-      if (token == CPP_LPAREN)
-	{
-	  token_offset = CPP_WRITTEN (pfile);
-	  token = _cpp_get_directive_token (pfile);
-	  if (token != CPP_NAME)
-	    goto restore;
-	  need_rparen = 1;
-	}
-      else if (token != CPP_NAME)
-	goto restore;
-
-      ident = pfile->token_buffer + token_offset;
-      CPP_NUL_TERMINATE (pfile);
-
-      /* ...then the ')', if necessary, */
-      if ((!need_rparen || _cpp_get_directive_token (pfile) == CPP_RPAREN)
-	  /* ...and make sure there's nothing else on the line.  */
-	  && _cpp_get_directive_token (pfile) == CPP_VSPACE)
-	control_macro = (U_CHAR *) xstrdup (ident);
-
-    restore:
-      CPP_SET_WRITTEN (pfile, base_offset);
-      pfile->no_macro_expand--;
-      CPP_GOTO_MARK (pfile);
     }
+  if (token != CPP_NAME)
+    goto restore;
+
+  token_len = CPP_WRITTEN (pfile) - token_offset;
+
+  /* ...then the ')', if necessary, */
+  if (need_rparen && _cpp_get_directive_token (pfile) != CPP_CLOSE_PAREN)
+    goto restore;
+
+  /* ...and make sure there's nothing else on the line.  */
+  if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
+    goto restore;
+
+  /* We have a legitimate controlling macro for this header.  */
+  control_macro = (U_CHAR *) xmalloc (token_len + 1);
+  memcpy (control_macro, pfile->token_buffer + token_offset, token_len);
+  control_macro[token_len] = '\0';
+
+ restore:
+  CPP_SET_WRITTEN (pfile, base_offset);
+  pfile->no_macro_expand--;
+  CPP_GOTO_MARK (pfile);
 
   return control_macro;
 }
@@ -1259,7 +1157,7 @@ do_elif (pfile)
       if (pfile->if_stack->type == T_ELSE)
 	{
 	  cpp_error (pfile, "`#elif' after `#else'");
-	  cpp_error_with_line (pfile, pfile->if_stack->lineno, -1,
+	  cpp_error_with_line (pfile, pfile->if_stack->lineno, 0,
 			       "the conditional began here");
 	}
       pfile->if_stack->type = T_ELIF;
@@ -1288,7 +1186,7 @@ parse_ifdef (pfile, name)
 {
   U_CHAR *ident;
   unsigned int len;
-  enum cpp_token token;
+  enum cpp_ttype token;
   long old_written = CPP_WRITTEN (pfile);
   int defined;
 
@@ -1309,8 +1207,7 @@ parse_ifdef (pfile, name)
   else if (token == CPP_NAME)
     {
       defined = cpp_defined (pfile, ident, len);
-      CPP_NUL_TERMINATE (pfile);
-      CPP_ADJUST_WRITTEN (pfile, 1);
+      CPP_PUTC (pfile, '\0');  /* so it can be copied with xstrdup */
     }
   else
     {
@@ -1427,7 +1324,7 @@ consider_directive_while_skipping (pfile, stack)
  real_directive:
 
   /* If it's not a directive of interest to us, return now.  */
-  if (dtable[i].origin != COND)
+  if (ORIGIN (dtable[i].flags) != COND)
     return 0;
 
   /* First, deal with -traditional and -Wtraditional.
@@ -1496,7 +1393,7 @@ static int
 skip_if_group (pfile)
     cpp_reader *pfile;
 {
-  enum cpp_token token;
+  enum cpp_ttype token;
   IF_STACK *save_if_stack = pfile->if_stack; /* don't pop past here */
   long old_written;
   int ret = 0;
@@ -1506,7 +1403,6 @@ skip_if_group (pfile)
 
   old_written = CPP_WRITTEN (pfile);
   pfile->no_macro_expand++;
-  CPP_OPTION (pfile, no_line_commands)++;
   for (;;)
     {
       /* We are at the end of a line.  Only cpp_get_token knows how to
@@ -1514,7 +1410,6 @@ skip_if_group (pfile)
       token = cpp_get_token (pfile);
       if (token == CPP_POP)
 	break;  /* Caller will issue error.  */
-      
       else if (token != CPP_VSPACE)
 	cpp_ice (pfile, "cpp_get_token returned %d in skip_if_group", token);
       CPP_SET_WRITTEN (pfile, old_written);
@@ -1533,7 +1428,6 @@ skip_if_group (pfile)
     }
   CPP_SET_WRITTEN (pfile, old_written);
   pfile->no_macro_expand--;
-  CPP_OPTION (pfile, no_line_commands)--;
   return ret;
 }
 
@@ -1565,7 +1459,7 @@ do_else (pfile)
       if (pfile->if_stack->type == T_ELSE)
 	{
 	  cpp_error (pfile, "`#else' after `#else'");
-	  cpp_error_with_line (pfile, pfile->if_stack->lineno, -1,
+	  cpp_error_with_line (pfile, pfile->if_stack->lineno, 0,
 			       "the conditional began here");
 	}
       pfile->if_stack->type = T_ELSE;
@@ -1628,7 +1522,6 @@ void
 _cpp_handle_eof (pfile)
      cpp_reader *pfile;
 {
-  cpp_buffer *next_buf = CPP_PREV_BUFFER (CPP_BUFFER (pfile));
   struct if_stack *ifs, *nifs;
 
   /* Unwind the conditional stack and generate error messages.  */
@@ -1636,7 +1529,7 @@ _cpp_handle_eof (pfile)
        ifs != CPP_BUFFER (pfile)->if_stack;
        ifs = nifs)
     {
-      cpp_error_with_line (pfile, ifs->lineno, -1,
+      cpp_error_with_line (pfile, ifs->lineno, 0,
 			   "unterminated `#%s' conditional",
 			   dtable[ifs->type].name);
 
@@ -1644,26 +1537,6 @@ _cpp_handle_eof (pfile)
       free (ifs);
     }
   pfile->if_stack = ifs;
-
-  if (pfile->potential_control_macro)
-    {
-      CPP_BUFFER (pfile)->ihash->control_macro
-	= pfile->potential_control_macro;
-      pfile->potential_control_macro = 0;
-    }
-
-  if (CPP_BUFFER (pfile)->nominal_fname && next_buf != NULL)
-    {
-      /* We're about to return from an #include file.
-	 Emit #line information now (as part of the CPP_POP) result.
-	 But the #line refers to the file we will pop to.  */
-      cpp_buffer *cur_buffer = CPP_BUFFER (pfile);
-      CPP_BUFFER (pfile) = next_buf;
-      pfile->input_stack_listing_current = 0;
-      _cpp_output_line_command (pfile, leave_file);
-      CPP_BUFFER (pfile) = cur_buffer;
-    }
-
   CPP_BUFFER (pfile)->seen_eof = 1;
 }
 
@@ -1698,14 +1571,14 @@ do_assert (pfile)
 
   sym = pfile->token_buffer + old_written;
   blen = (U_CHAR *) strchr (sym, '(') - sym;
-  tslot = _cpp_lookup_slot (pfile, sym, tlen, 1, &thash);
+  tslot = _cpp_lookup_slot (pfile, sym, tlen, INSERT, &thash);
   if (*tslot)
     {
       cpp_warning (pfile, "%s re-asserted", sym);
       goto error;
     }
 
-  bslot = _cpp_lookup_slot (pfile, sym, blen, 1, &bhash);
+  bslot = _cpp_lookup_slot (pfile, sym, blen, INSERT, &bhash);
   if (! *bslot)
     {
       *bslot = base = _cpp_make_hashnode (sym, blen, T_ASSERT, bhash);
@@ -1820,7 +1693,7 @@ cpp_define (pfile, str)
   if (p)
     {
       count = strlen (str) + 2;
-      buf = alloca (count);
+      buf = (char *) alloca (count);
       memcpy (buf, str, count - 2);
       buf[p - str] = ' ';
       buf[count - 2] = '\n';
@@ -1829,7 +1702,7 @@ cpp_define (pfile, str)
   else
     {
       count = strlen (str) + 4;
-      buf = alloca (count);
+      buf = (char *) alloca (count);
       memcpy (buf, str, count - 4);
       strcpy (&buf[count-4], " 1\n");
     }
@@ -1849,7 +1722,7 @@ cpp_undef (pfile, macro)
 {
   /* Copy the string so we can append a newline.  */
   size_t len = strlen (macro);
-  char *buf = alloca (len + 2);
+  char *buf = (char *) alloca (len + 2);
   memcpy (buf, macro, len);
   buf[len]     = '\n';
   buf[len + 1] = '\0';

@@ -91,7 +91,7 @@ ggc_add_rtx_root (base, nelt)
      rtx *base;
      int nelt;
 {
-  ggc_add_root (base, nelt, sizeof(rtx), ggc_mark_rtx_ptr);
+  ggc_add_root (base, nelt, sizeof (rtx), ggc_mark_rtx_ptr);
 }
 
 /* Register an array of trees as a GC root.  */
@@ -101,7 +101,7 @@ ggc_add_tree_root (base, nelt)
      tree *base;
      int nelt;
 {
-  ggc_add_root (base, nelt, sizeof(tree), ggc_mark_tree_ptr);
+  ggc_add_root (base, nelt, sizeof (tree), ggc_mark_tree_ptr);
 }
 
 /* Register a varray of rtxs as a GC root.  */
@@ -244,7 +244,7 @@ ggc_mark_rtx_children (r)
 	case NOTE:
 	  switch (NOTE_LINE_NUMBER (r))
 	    {
-	    case NOTE_INSN_RANGE_START:
+	    case NOTE_INSN_RANGE_BEG:
 	    case NOTE_INSN_RANGE_END:
 	    case NOTE_INSN_LIVE:
 	      ggc_mark_rtx (NOTE_RANGE_INFO (r));

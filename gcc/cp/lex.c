@@ -2302,7 +2302,7 @@ check_newline ()
 	}
       else if (!strcmp (name, "ident"))
 	{
-	  /* #ident.  The pedantic warning is now in cccp.c.  */
+	  /* #ident.  The pedantic warning is now in cpp.  */
 
 	  /* Here we have just seen `#ident '.
 	     A string constant should follow.  */
@@ -5012,6 +5012,19 @@ copy_lang_decl (node)
   ld = (struct lang_decl *) ggc_alloc (size);
   bcopy ((char *)DECL_LANG_SPECIFIC (node), (char *)ld, size);
   DECL_LANG_SPECIFIC (node) = ld;
+}
+
+/* Copy DECL, including any language-specific parts.  */
+
+tree
+copy_decl (decl)
+     tree decl;
+{
+  tree copy;
+
+  copy = copy_node (decl);
+  copy_lang_decl (copy);
+  return copy;
 }
 
 tree

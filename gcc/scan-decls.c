@@ -45,12 +45,12 @@ skip_to_closing_brace (pfile)
   int nesting = 1;
   for (;;)
     {
-      enum cpp_token token = cpp_get_token (pfile);
+      enum cpp_ttype token = cpp_get_token (pfile);
       if (token == CPP_EOF)
 	break;
-      if (token == CPP_LBRACE)
+      if (token == CPP_OPEN_BRACE)
 	nesting++;
-      if (token == CPP_RBRACE && --nesting == 0)
+      if (token == CPP_CLOSE_BRACE && --nesting == 0)
 	break;
     }
 }
@@ -90,7 +90,7 @@ scan_decls (pfile, argc, argv)
      decl-specs, or prev_id_start marks the start of the declarator.  */
   int declarator_start;
   int prev_id_start, prev_id_end = 0;
-  enum cpp_token token;
+  enum cpp_ttype token;
 
  new_statement:
   CPP_SET_WRITTEN (pfile, 0);
@@ -101,7 +101,7 @@ scan_decls (pfile, argc, argv)
   current_extern_C = 0;
   saw_extern = 0;
   saw_inline = 0;
-  if (token == CPP_RBRACE)
+  if (token == CPP_OPEN_BRACE)
     {
       /* Pop an 'extern "C"' nesting level, if appropriate.  */
       if (extern_C_braces_length
@@ -110,7 +110,7 @@ scan_decls (pfile, argc, argv)
       brace_nesting--;
       goto new_statement;
     }
-  if (token == CPP_LBRACE)
+  if (token == CPP_OPEN_BRACE)
     {
       brace_nesting++;
       goto new_statement;
@@ -128,21 +128,20 @@ scan_decls (pfile, argc, argv)
     {
       switch (token)
 	{
-	case CPP_LPAREN:
+	case CPP_OPEN_PAREN:
 	  /* Looks like this is the start of a formal parameter list.  */
 	  if (prev_id_start)
 	    {
 	      int nesting = 1;
 	      int have_arg_list = 0;
 	      cpp_buffer *fbuf = cpp_file_buffer (pfile);
-	      long func_lineno;
-	      cpp_buf_line_and_col (fbuf, &func_lineno, NULL);
+	      unsigned int func_lineno = CPP_BUF_LINE (fbuf);
 	      for (;;)
 		{
 		  token = cpp_get_token (pfile);
-		  if (token == CPP_LPAREN)
+		  if (token == CPP_OPEN_PAREN)
 		    nesting++;
-		  else if (token == CPP_RPAREN)
+		  else if (token == CPP_CLOSE_PAREN)
 		    {
 		      nesting--;
 		      if (nesting == 0)
@@ -150,7 +149,7 @@ scan_decls (pfile, argc, argv)
 		    }
 		  else if (token == CPP_EOF)
 		    break;
-		  else if (token == CPP_NAME || token == CPP_3DOTS)
+		  else if (token == CPP_NAME || token == CPP_ELLIPSIS)
 		    have_arg_list = 1;
 		}
 	      recognized_function (pfile->token_buffer + prev_id_start,
@@ -162,7 +161,7 @@ scan_decls (pfile, argc, argv)
 				   have_arg_list,
 				   fbuf->nominal_fname, func_lineno);
 	      token = cpp_get_non_space_token (pfile);
-	      if (token == CPP_LBRACE)
+	      if (token == CPP_OPEN_BRACE)
 		{
 		  /* skip body of (normally) inline function */
 		  skip_to_closing_brace (pfile);
@@ -219,7 +218,7 @@ scan_decls (pfile, argc, argv)
 		  CPP_SET_WRITTEN (pfile, start_written);
 		  current_extern_C = 1;
 		  token = cpp_get_non_space_token (pfile);
-		  if (token == CPP_LBRACE)
+		  if (token == CPP_OPEN_BRACE)
 		    {
 		      brace_nesting++;
 		      extern_C_braces[extern_C_braces_length++]
@@ -239,7 +238,7 @@ scan_decls (pfile, argc, argv)
 	case CPP_EOF:
 	  return 0;
 
-	case CPP_LBRACE:  case CPP_RBRACE:  case CPP_DIRECTIVE:
+	case CPP_OPEN_BRACE:  case CPP_CLOSE_BRACE:  case CPP_DIRECTIVE:
 	  goto new_statement;  /* handle_statement? */
 	  
 	case CPP_HSPACE:  case CPP_VSPACE:  case CPP_COMMENT:  case CPP_POP:

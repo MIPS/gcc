@@ -1,5 +1,6 @@
 /* Parse C expressions for cpplib.
    Copyright (C) 1987, 92, 94, 95, 97, 98, 1999, 2000 Free Software Foundation.
+   Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -14,19 +15,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
-
- In other words, you are welcome to use, share and improve this program.
- You are forbidden to forbid anyone else to use, share and improve
- what you give them.   Help stamp out software-hoarding!
-
-Written by Per Bothner 1994.  */
+Boston, MA 02111-1307, USA.  */
 
 /* Parse a C expression from text in a string  */
    
 #include "config.h"
 #include "system.h"
 #include "cpplib.h"
+#include "hashtab.h"
 #include "cpphash.h"
 
 #ifndef CHAR_TYPE_SIZE
@@ -343,7 +339,7 @@ parse_defined (pfile)
 {
   int paren = 0, len;
   U_CHAR *tok;
-  enum cpp_token token;
+  enum cpp_ttype token;
   struct operation op;
   long old_written = CPP_WRITTEN (pfile);
 
@@ -352,7 +348,7 @@ parse_defined (pfile)
 
   pfile->no_macro_expand++;
   token = _cpp_get_directive_token (pfile);
-  if (token == CPP_LPAREN)
+  if (token == CPP_OPEN_PAREN)
     {
       paren++;
       CPP_SET_WRITTEN (pfile, old_written);
@@ -368,7 +364,7 @@ parse_defined (pfile)
 
   if (paren)
     {
-      if (_cpp_get_directive_token (pfile) != CPP_RPAREN)
+      if (_cpp_get_directive_token (pfile) != CPP_CLOSE_PAREN)
 	goto oops;
     }
   CPP_SET_WRITTEN (pfile, old_written);
@@ -413,7 +409,7 @@ lex (pfile, skip_evaluation)
      int skip_evaluation;
 {
   const struct token *toktab;
-  enum cpp_token token;
+  enum cpp_ttype token;
   struct operation op;
   U_CHAR *tok_start, *tok_end;
   long old_written;
@@ -444,7 +440,7 @@ lex (pfile, skip_evaluation)
       return parse_charconst (pfile, tok_start, tok_end);
 
     case CPP_NAME:
-      if (!strcmp (tok_start, "defined"))
+      if (!strncmp (tok_start, "defined", 7))
 	return parse_defined (pfile);
 
       op.op = INT;

@@ -929,18 +929,15 @@ maybe_retrofit_in_chrg (fn)
 {
   tree basetype, arg_types, parms, parm, fntype;
 
-  if (DECL_CONSTRUCTOR_P (fn)
-      && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn))
-      && ! DECL_CONSTRUCTOR_FOR_VBASE_P (fn))
-    /* OK */;
-  else if (! DECL_CONSTRUCTOR_P (fn)
-	   && TREE_CHAIN (DECL_ARGUMENTS (fn)) == NULL_TREE)
-    /* OK */;
-  else
+  /* If we've already add the in-charge parameter don't do it again.  */
+  if (DECL_HAS_IN_CHARGE_PARM_P (fn))
     return;
 
-  if (DECL_CONSTRUCTOR_P (fn))
-    DECL_CONSTRUCTOR_FOR_VBASE_P (fn) = 1;
+  /* We don't need an in-charge parameter for constructors that don't
+     have virtual bases.  */
+  if (DECL_CONSTRUCTOR_P (fn)
+      && !TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
+    return;
 
   /* First add it to DECL_ARGUMENTS...  */
   parm = build_decl (PARM_DECL, in_charge_identifier, integer_type_node);
@@ -962,6 +959,9 @@ maybe_retrofit_in_chrg (fn)
     fntype = build_exception_variant (fntype,
 				      TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)));
   TREE_TYPE (fn) = fntype;
+
+  /* Now we've got the in-charge parameter.  */
+  DECL_HAS_IN_CHARGE_PARM_P (fn) = 1;
 }
 
 /* Classes overload their constituent function names automatically.
@@ -1037,6 +1037,7 @@ grokclassfn (ctype, function, flags, quals)
 
   if (flags == DTOR_FLAG)
     {
+      DECL_DESTRUCTOR_P (function) = 1;
       DECL_ASSEMBLER_NAME (function) = build_destructor_name (ctype);
       TYPE_HAS_DESTRUCTOR (ctype) = 1;
     }
@@ -1389,7 +1390,7 @@ check_classfn (ctype, function)
 	  && DECL_CONSTRUCTOR_P (function))
 	goto got_it;
       if (*++methods && fn_name == DECL_NAME (OVL_CURRENT (*methods))
-	  && DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (function)))
+	  && DECL_DESTRUCTOR_P (function))
 	goto got_it;
 
       while (++methods != end && *methods)
@@ -1410,7 +1411,7 @@ check_classfn (ctype, function)
 		     we can't use this short-cut for them, either.
 		     (It's not legal to declare arguments for a
 		     destructor, but some people try.)  */
-		  if (!DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (function))
+		  if (!DECL_DESTRUCTOR_P (function)
 		      && (DECL_ASSEMBLER_NAME (function)
 			  != DECL_NAME (function))
 		      && (DECL_ASSEMBLER_NAME (fndecl)
@@ -1572,7 +1573,23 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	  || TREE_CODE (TREE_OPERAND (declarator, 0)) == SCOPE_REF)
       && parmlist_is_exprlist (CALL_DECLARATOR_PARMS (declarator)))
     {
-      init = TREE_OPERAND (declarator, 1);
+      /* It's invalid to try to initialize a data member using a
+	 functional notation, e.g.:
+	 
+            struct S {
+	      static int i (3);
+	    };
+	    
+	 Explain that to the user.  */
+      static int explained_p;
+
+      cp_error ("invalid data member initiailization");
+      if (!explained_p)
+	{
+	  cp_error ("use `=' to initialize static data members");
+	  explained_p = 1;
+	}
+
       declarator = TREE_OPERAND (declarator, 0);
       flags = 0;
     }
@@ -1893,7 +1910,7 @@ grok_function_init (decl, init)
       /* pure virtual destructors must be defined.  */
       /* pure virtual needs to be defined (as abort) only when put in 
 	 vtbl. For wellformed call, it should be itself. pr4737 */
-      if (!DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (decl)))
+      if (!DECL_DESTRUCTOR_P (decl)))
 	{
 	  /* Give this node rtl from `abort'.  */
 	  DECL_RTL (decl) = DECL_RTL (abort_fndecl);
@@ -2405,6 +2422,7 @@ key_method (type)
   tree method;
 
   if (TYPE_FOR_JAVA (type)
+      || CLASSTYPE_TEMPLATE_INSTANTIATION (type)
       || CLASSTYPE_INTERFACE_KNOWN (type))
     return NULL_TREE;
 
@@ -2511,8 +2529,7 @@ import_export_class (ctype)
   /* Base our import/export status on that of the first non-inline,
      non-pure virtual function, if any.  */
   if (import_export == 0
-      && TYPE_POLYMORPHIC_P (ctype)
-      && ! CLASSTYPE_TEMPLATE_INSTANTIATION (ctype))
+      && TYPE_POLYMORPHIC_P (ctype))
     {
       tree method = key_method (ctype);
       if (method)
@@ -2760,8 +2777,6 @@ build_cleanup (decl)
   return temp;
 }
 
-extern int parse_time, varconst_time;
-
 static tree
 get_sentry (base)
      tree base;
@@ -2771,6 +2786,7 @@ get_sentry (base)
      __snfoo. Since base is already an assembler name, sname should
      be globally unique */
   tree sentry = IDENTIFIER_GLOBAL_VALUE (sname);
+
   if (! sentry)
     {
       sentry = build_decl (VAR_DECL, sname, integer_type_node);
@@ -2861,7 +2877,7 @@ finish_objects (method_type, initp, body)
 
   /* Finish up. */
   finish_compound_stmt(/*has_no_scope=*/0, body);
-  fn = finish_function (lineno, 0);
+  fn = finish_function (0);
   expand_body (fn);
 
   /* When only doing semantic analysis, and no RTL generation, we
@@ -3045,7 +3061,7 @@ finish_static_storage_duration_function (body)
 {
   /* Close out the function.  */
   finish_compound_stmt (/*has_no_scope=*/0, body);
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 }
 
 /* Return the information about the indicated PRIORITY level.  If no
@@ -3413,8 +3429,7 @@ generate_ctor_and_dtor_functions_for_priority (n, data)
 void
 finish_file ()
 {
-  extern int lineno;
-  int start_time, this_time;
+  long start_time, this_time;
   tree vars;
   int reconsider;
   size_t i;
@@ -4472,6 +4487,8 @@ static tree
 decl_namespace (decl)
      tree decl;
 {
+  if (TYPE_P (decl))
+    decl = TYPE_STUB_DECL (decl);
   while (DECL_CONTEXT (decl))
     {
       decl = DECL_CONTEXT (decl);
@@ -5226,7 +5243,12 @@ mark_used (decl)
       && ! DECL_INITIAL (decl)
       /* Kludge: don't synthesize for default args.  */
       && current_function_decl)
-    synthesize_method (decl);
+    {
+      synthesize_method (decl);
+      /* If we've already synthesized the method we don't need to
+	 instantiate it, so we can return right away.  */
+      return;
+    }
 
   /* If this is a function or variable that is an instance of some
      template, we now know that we will need to actually do the

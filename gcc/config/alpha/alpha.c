@@ -1505,6 +1505,7 @@ alpha_emit_set_long_const (target, c1, c2)
 
 	itoft	$16,$f11
 	lda	$2,LC0
+	cmplt	$16,0,$1
 	cpyse	$f11,$f31,$f10
 	cpyse	$f31,$f11,$f11
 	s4addq	$1,$2,$1
@@ -1527,7 +1528,7 @@ alpha_emit_floatuns (operands)
   enum machine_mode mode;
 
   out = operands[0];
-  in = operands[1];
+  in = force_reg (DImode, operands[1]);
   mode = GET_MODE (out);
   neglab = gen_label_rtx ();
   donelab = gen_label_rtx ();
@@ -1540,6 +1541,7 @@ alpha_emit_floatuns (operands)
 
   emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_FLOAT (mode, in)));
   emit_jump_insn (gen_jump (donelab));
+  emit_barrier ();
 
   emit_label (neglab);
 
@@ -3687,7 +3689,7 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
    and the rest are pushed.  */
 
 rtx
-function_arg(cum, mode, type, named)
+function_arg (cum, mode, type, named)
      CUMULATIVE_ARGS cum;
      enum machine_mode mode;
      tree type;

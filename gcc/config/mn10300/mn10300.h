@@ -257,13 +257,13 @@ enum reg_class {
    {0x00200},		/* SP_REGS */		\
    {0x001ff},		/* DATA_OR_ADDRESS_REGS */\
    {0x003f0},		/* SP_OR_ADDRESS_REGS */\
-   {0x2fc00},		/* EXTENDED_REGS */	\
-   {0x2fc0f},		/* DATA_OR_EXTENDED_REGS */	\
-   {0x2fdf0},		/* ADDRESS_OR_EXTENDED_REGS */	\
-   {0x2fe00},		/* SP_OR_EXTENDED_REGS */	\
-   {0x2fff0},		/* SP_OR_ADDRESS_OR_EXTENDED_REGS */	\
-   {0x2fdff},		/* GENERAL_REGS */    	\
-   {0x2ffff},		/* ALL_REGS 	*/	\
+   {0x3fc00},		/* EXTENDED_REGS */	\
+   {0x3fc0f},		/* DATA_OR_EXTENDED_REGS */	\
+   {0x3fdf0},		/* ADDRESS_OR_EXTENDED_REGS */	\
+   {0x3fe00},		/* SP_OR_EXTENDED_REGS */	\
+   {0x3fff0},		/* SP_OR_ADDRESS_OR_EXTENDED_REGS */	\
+   {0x3fdff},		/* GENERAL_REGS */    	\
+   {0x3ffff},		/* ALL_REGS 	*/	\
 }
 
 /* The same information, inverted:
@@ -274,8 +274,9 @@ enum reg_class {
 #define REGNO_REG_CLASS(REGNO) \
   ((REGNO) < 4 ? DATA_REGS : \
    (REGNO) < 9 ? ADDRESS_REGS : \
-    (REGNO) == 9 ? SP_REGS : \
-     (REGNO) < 18 ? EXTENDED_REGS : 0)
+   (REGNO) == 9 ? SP_REGS : \
+   (REGNO) < 18 ? EXTENDED_REGS : \
+   NO_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS DATA_OR_EXTENDED_REGS
@@ -816,7 +817,17 @@ struct cum_arg {int nbytes; };
 
 #define REGISTER_MOVE_COST(CLASS1, CLASS2) \
   ((CLASS1 == CLASS2 && (CLASS1 == ADDRESS_REGS || CLASS1 == DATA_REGS)) ? 2 :\
-   CLASS1 == CLASS2 && CLASS1 == EXTENDED_REGS ? 6 : 4)
+   ((CLASS1 == ADDRESS_REGS || CLASS1 == DATA_REGS) && \
+    (CLASS2 == ADDRESS_REGS || CLASS2 == DATA_REGS)) ? 4 : \
+   (CLASS1 == SP_REGS && CLASS2 == ADDRESS_REGS) ? 2 : \
+   (CLASS1 == ADDRESS_REGS && CLASS2 == SP_REGS) ? 4 : \
+   ! TARGET_AM33 ? 6 : \
+   (CLASS1 == SP_REGS || CLASS2 == SP_REGS) ? 6 : \
+   (CLASS1 == CLASS2 && CLASS1 == EXTENDED_REGS) ? 6 : \
+   (CLASS1 == EXTENDED_REGS || CLASS2 == EXTENDED_REGS) ? 4 : \
+   4)
+
+#define ADDRESS_COST(X) mn10300_address_cost((X), 0)
 
 /* A crude cut at RTX_COSTS for the MN10300.  */
 
@@ -967,7 +978,15 @@ do { char dstr[30];					\
 
 #define REGISTER_NAMES \
 { "d0", "d1", "d2", "d3", "a0", "a1", "a2", "a3", "ap", "sp", \
-  "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7" }
+  "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7" \
+}
+
+#define ADDITIONAL_REGISTER_NAMES \
+{ {"r8",  4}, {"r9",  5}, {"r10", 6}, {"r11", 7}, \
+  {"r12", 0}, {"r13", 1}, {"r14", 2}, {"r15", 3}, \
+  {"e0", 10}, {"e1", 11}, {"e2", 12}, {"e3", 13}, \
+  {"e4", 14}, {"e5", 15}, {"e6", 16}, {"e7", 17} \
+}
 
 /* Print an instruction operand X on file FILE.
    look in mn10300.c for details */

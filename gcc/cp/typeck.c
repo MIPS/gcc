@@ -2574,6 +2574,10 @@ build_x_function_call (function, params, decl)
 				TYPE_BINFO (type), LOOKUP_NORMAL);
     }
     
+  if (TREE_CODE (function) == OFFSET_REF
+      && TREE_CODE (type) != METHOD_TYPE)
+    function = resolve_offset_ref (function);
+
   if ((TREE_CODE (function) == FUNCTION_DECL
        && DECL_STATIC_FUNCTION_P (function))
       || (TREE_CODE (function) == TEMPLATE_DECL
@@ -5473,9 +5477,6 @@ build_c_cast (type, expr)
     cp_warning ("cast from `%T' to `%T' discards qualifiers from pointer target type",
                 otype, type);
 
-#if 0
-  /* We should see about re-enabling these, they seem useful to
-     me.  */
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (otype) == POINTER_TYPE
       && TYPE_PRECISION (type) != TYPE_PRECISION (otype))
@@ -5488,7 +5489,6 @@ build_c_cast (type, expr)
 	 provided the 0 was explicit--not cast or made by folding.  */
       && !(TREE_CODE (value) == INTEGER_CST && integer_zerop (value)))
     warning ("cast to pointer from integer of different size");
-#endif
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
     value = (convert_from_reference

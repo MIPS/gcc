@@ -104,18 +104,37 @@ estimate_probability (loops_info)
       rtx last_insn = BLOCK_END (i);
       rtx cond, earliest;
       int prob = 0;
+      edge e;
 
       if (GET_CODE (last_insn) != JUMP_INSN
 	  || ! condjump_p (last_insn) || simplejump_p (last_insn))
+	continue;
+      if (find_reg_note (last_insn, REG_BR_PROB, 0))
 	continue;
       cond = get_condition (last_insn, &earliest);
       if (! cond)
 	continue;
 
+      /* If the jump branches around a block with no successors,
+	 predict it to be taken.  */
+      prob = 0;
+      for (e = BASIC_BLOCK (i)->succ; e; e = e->succ_next)
+	if ((e->flags & EDGE_FALLTHRU) && e->dest->succ == NULL)
+	  {
+	    prob = REG_BR_PROB_BASE;
+	    break;
+	  }
+      if (prob)
+	{
+	  REG_NOTES (last_insn)
+	    = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
+				 REG_NOTES (last_insn));
+	  continue;
+	}
+
       /* Try "pointer heuristic."
 	 A comparison ptr == 0 is predicted as false.
 	 Similarly, a comparison ptr1 == ptr2 is predicted as false.  */
-      prob = 0;
       switch (GET_CODE (cond))
 	{
 	case EQ:
@@ -137,10 +156,13 @@ estimate_probability (loops_info)
 	default:
 	  prob = 0;
 	}
-	if (prob && ! find_reg_note (last_insn, REG_BR_PROB, 0))
+      if (prob)
+	{
 	  REG_NOTES (last_insn)
 	    = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
 				 REG_NOTES (last_insn));
+	  continue;
+	}
 
       /* Try "opcode heuristic."
 	 EQ tests are usually false and NE tests are usually true. Also,
@@ -174,10 +196,75 @@ estimate_probability (loops_info)
 	default:
 	  prob = 0;
 	}
-      if (! find_reg_note (last_insn, REG_BR_PROB, 0))
-	REG_NOTES (last_insn)
-	  = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
-			       REG_NOTES (last_insn));
+      REG_NOTES (last_insn)
+	= gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
+			     REG_NOTES (last_insn));
     }
 }
+
+/* __builtin_expect dropped tokens into the insn stream describing
+   expected values of registers.  Generate branch probabilities 
+   based off these values.  */
 
+static rtx find_expected_value		PARAMS ((rtx, rtx));
+
+void
+expected_value_to_br_prob ()
+{
+  rtx insn, cond, ev = NULL_RTX, ev_reg;
+
+  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
+    {
+      switch (GET_CODE (insn))
+	{
+	case NOTE:
+	  /* Look for expected value notes.  */
+	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EXPECTED_VALUE)
+	    {
+	      ev = NOTE_EXPECTED_VALUE (insn);
+	      ev_reg = XEXP (ev, 0);
+	    }
+	  continue;
+
+	case CODE_LABEL:
+	  /* Never propagate across labels.  */
+	  ev = NULL_RTX;
+	  continue;
+
+	default:
+	  /* Look for insns that clobber the EV register.  */
+	  if (ev && reg_set_p (ev_reg, insn))
+	    ev = NULL_RTX;
+	  continue;
+
+	case JUMP_INSN:
+	  /* Look for simple conditional branches.  If we havn't got an
+	     expected value yet, no point going further.  */
+	  if (GET_CODE (insn) != JUMP_INSN || ev == NULL_RTX)
+	    continue;
+	  if (! condjump_p (insn) || simplejump_p (insn))
+	    continue;
+	  break;
+	}
+
+      /* Collect the branch condition, hopefully relative to EV_REG.  */
+      cond = XEXP (SET_SRC (PATTERN (insn)), 0);
+      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg);
+      if (! cond || XEXP (cond, 0) != ev_reg)
+	continue;
+
+      /* Substitute and simplify.  Given that the expression we're 
+	 building involves two constants, we should wind up with either
+	 true or false.  */
+      cond = gen_rtx_fmt_ee (GET_CODE (cond), VOIDmode,
+			     XEXP (ev, 1), XEXP (cond, 1));
+      cond = simplify_rtx (cond);
+
+      /* Turn the condition into a scaled branch probability.  */
+      if (cond == const1_rtx)
+	cond = GEN_INT (REG_BR_PROB_BASE);
+      else if (cond != const0_rtx)
+	abort ();
+      REG_NOTES (insn) = alloc_EXPR_LIST (REG_BR_PROB, cond, REG_NOTES (insn));
+    }
+}

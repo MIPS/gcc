@@ -68,8 +68,6 @@ c-tree.h
 c-typeck.c
 caller-save.c
 calls.c
-cccp.c
-cexp.c
 ../libiberty/choose-temp.c
 collect2.c
 combine.c
@@ -94,7 +92,7 @@ config/alpha/openbsd.h
 config/alpha/osf.h
 config/alpha/osf12.h
 config/alpha/osf2or3.h
-config/alpha/vms-tramp.asm
+#config/alpha/vms-tramp.asm is part of the GCC library
 config/alpha/vms.h
 config/alpha/vxworks.h
 config/alpha/win-nt.h
@@ -451,7 +449,6 @@ config/rs6000/aix3newas.h
 config/rs6000/aix41.h
 config/rs6000/aix43.h
 config/rs6000/beos.h
-#config/rs6000/eabi-ctors.c
 config/rs6000/eabi.h
 config/rs6000/eabiaix.h
 config/rs6000/eabisim.h

@@ -732,9 +732,9 @@ eat_saved_input:
 
 fndef:
 	  fn.def1 maybe_return_init ctor_initializer_opt compstmt_or_error
-		{ expand_body (finish_function (lineno, (int)$3)); }
+		{ expand_body (finish_function ((int)$3)); }
 	| fn.def1 maybe_return_init function_try_block
-		{ expand_body (finish_function (lineno, (int)$3)); }
+		{ expand_body (finish_function ((int)$3)); }
 	| fn.def1 maybe_return_init error
 		{ }
 	;
@@ -776,7 +776,8 @@ constructor_declarator:
 
 fn.def1:
 	  typed_declspecs declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ check_for_new_type ("return type", $1);
+		  if (!begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| declmods notype_declarator
 		{ if (!begin_function_definition ($1.t, $2))
@@ -2101,17 +2102,17 @@ fn.defpen:
 pending_inline:
 	  fn.defpen maybe_return_init ctor_initializer_opt compstmt_or_error
 		{
-		  expand_body (finish_function (lineno, (int)$3 | 2));
+		  expand_body (finish_function ((int)$3 | 2));
 		  process_next_inline ($1);
 		}
 	| fn.defpen maybe_return_init function_try_block
 		{ 
-		  expand_body (finish_function (lineno, (int)$3 | 2)); 
+		  expand_body (finish_function ((int)$3 | 2)); 
                   process_next_inline ($1);
 		}
 	| fn.defpen maybe_return_init error
 		{ 
-		  finish_function (lineno, 2); 
+		  finish_function (2); 
 		  process_next_inline ($1); }
 	;
 

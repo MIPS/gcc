@@ -146,7 +146,6 @@ static void layout_virtual_bases PARAMS ((tree, varray_type *));
 static tree dfs_set_offset_for_shared_vbases PARAMS ((tree, void *));
 static tree dfs_set_offset_for_unshared_vbases PARAMS ((tree, void *));
 static void build_vbase_offset_vtbl_entries PARAMS ((tree, vcall_offset_data *));
-static tree dfs_vcall_offset_queue_p PARAMS ((tree, void *));
 static tree dfs_build_vcall_offset_vtbl_entries PARAMS ((tree, void *));
 static void build_vcall_offset_vtbl_entries PARAMS ((tree, vcall_offset_data *));
 static void layout_vtable_decl PARAMS ((tree, int));
@@ -174,6 +173,8 @@ static void build_vcall_and_vbase_vtbl_entries PARAMS ((tree,
 							vcall_offset_data *));
 static tree dfs_mark_primary_bases PARAMS ((tree, void *));
 static void mark_primary_bases PARAMS ((tree));
+static void clone_constructors_and_destructors PARAMS ((tree));
+static tree build_clone PARAMS ((tree, tree));
 
 /* Variables shared between class.c and call.c.  */
 
@@ -975,9 +976,9 @@ make_new_vtable (t, binfo)
 
 /* Make *VIRTUALS, an entry on the BINFO_VIRTUALS list for BINFO
    (which is in the hierarchy dominated by T) list FNDECL as its
-   BV_FN.  DELTA is the required adjustment from the `this' pointer
-   where the vtable entry appears to the `this' required when the
-   function is actually called.  */
+   BV_FN.  DELTA is the required constant adjustment from the `this'
+   pointer where the vtable entry appears to the `this' required when
+   the function is actually called.  */
 
 static void
 modify_vtable_entry (t, binfo, fndecl, delta, virtuals)
@@ -987,15 +988,12 @@ modify_vtable_entry (t, binfo, fndecl, delta, virtuals)
      tree delta;
      tree *virtuals;
 {
-  tree vcall_index;
   tree v;
 
   v = *virtuals;
-  vcall_index = integer_zero_node;
 
   if (fndecl != BV_FN (v)
-      || !tree_int_cst_equal (delta, BV_DELTA (v))
-      || !tree_int_cst_equal (vcall_index, BV_VCALL_INDEX (v)))
+      || !tree_int_cst_equal (delta, BV_DELTA (v)))
     {
       tree base_fndecl;
 
@@ -1013,7 +1011,7 @@ modify_vtable_entry (t, binfo, fndecl, delta, virtuals)
 
       base_fndecl = BV_FN (v);
       BV_DELTA (v) = delta;
-      BV_VCALL_INDEX (v) = vcall_index;
+      BV_VCALL_INDEX (v) = integer_zero_node;
       BV_FN (v) = fndecl;
 
       /* Now assign virtual dispatch information, if unset.  We can
@@ -1085,7 +1083,8 @@ add_virtual_function (new_virtuals_p, overridden_virtuals_p,
     /* We've already dealt with this function.  */
     return;
 
-  new_virtual = build_tree_list (integer_zero_node, fndecl);
+  new_virtual = build_tree_list (NULL_TREE, fndecl);
+  BV_DELTA (new_virtual) = integer_zero_node;
   BV_VCALL_INDEX (new_virtual) = integer_zero_node;
 
   if (DECL_VINDEX (fndecl) == error_mark_node)
@@ -1150,14 +1149,15 @@ add_method (type, fields, method)
       method_vec = CLASSTYPE_METHOD_VEC (type);
       len = TREE_VEC_LENGTH (method_vec);
 
-      if (DECL_NAME (method) == constructor_name (type))
-	/* A new constructor or destructor.  Constructors go in 
-	   slot 0; destructors go in slot 1.  */
-	slot = DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (method)) ? 1 : 0;
+      /* Constructors and destructors go in special slots.  */
+      if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (method))
+	slot = CLASSTYPE_CONSTRUCTOR_SLOT;
+      else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (method))
+	slot = CLASSTYPE_DESTRUCTOR_SLOT;
       else
 	{
 	  /* See if we already have an entry with this name.  */
-	  for (slot = 2; slot < len; ++slot)
+	  for (slot = CLASSTYPE_FIRST_CONVERSION_SLOT; slot < len; ++slot)
 	    if (!TREE_VEC_ELT (method_vec, slot)
 		|| (DECL_NAME (OVL_CURRENT (TREE_VEC_ELT (method_vec, 
 							  slot))) 
@@ -2122,14 +2122,9 @@ method_name_cmp (m1, m2)
    list.  That allows them to be quickly deleted, and requires no
    extra storage.
 
-   If there are any constructors/destructors, they are moved to the
-   front of the list.  This makes pushclass more efficient.
-
-   @@ The above comment is obsolete.  It mostly describes what add_method
-   @@ and add_implicitly_declared_members do.
-
-   Sort methods that are not special (i.e., constructors, destructors, and
-   type conversion operators) so that we can find them faster in search.  */
+   Sort methods that are not special (i.e., constructors, destructors,
+   and type conversion operators) so that we can find them faster in
+   search.  */
 
 static void
 finish_struct_methods (t)
@@ -2137,7 +2132,6 @@ finish_struct_methods (t)
 {
   tree fn_fields;
   tree method_vec;
-  tree ctor_name = constructor_name (t);
   int slot, len;
 
   if (!TYPE_METHODS (t))
@@ -2158,52 +2152,10 @@ finish_struct_methods (t)
      and the next few with type conversion operators (if any).  */
   for (fn_fields = TYPE_METHODS (t); fn_fields; 
        fn_fields = TREE_CHAIN (fn_fields))
-    {
-      tree fn_name = DECL_NAME (fn_fields);
+    /* Clear out this flag.  */
+    DECL_IN_AGGR_P (fn_fields) = 0;
 
-      /* Clear out this flag.
-
-	 @@ Doug may figure out how to break
-	 @@ this with nested classes and friends.  */
-      DECL_IN_AGGR_P (fn_fields) = 0;
-
-      /* Note here that a copy ctor is private, so we don't dare generate
- 	 a default copy constructor for a class that has a member
- 	 of this type without making sure they have access to it.  */
-      if (fn_name == ctor_name)
- 	{
- 	  tree parmtypes = FUNCTION_ARG_CHAIN (fn_fields);
- 	  tree parmtype = parmtypes ? TREE_VALUE (parmtypes) : void_type_node;
-	  
- 	  if (TREE_CODE (parmtype) == REFERENCE_TYPE
- 	      && TYPE_MAIN_VARIANT (TREE_TYPE (parmtype)) == t)
- 	    {
- 	      if (TREE_CHAIN (parmtypes) == NULL_TREE
- 		  || TREE_CHAIN (parmtypes) == void_list_node
- 		  || TREE_PURPOSE (TREE_CHAIN (parmtypes)))
- 		{
- 		  if (TREE_PROTECTED (fn_fields))
- 		    TYPE_HAS_NONPUBLIC_CTOR (t) = 1;
- 		  else if (TREE_PRIVATE (fn_fields))
- 		    TYPE_HAS_NONPUBLIC_CTOR (t) = 2;
- 		}
- 	    }
-	}
-      else if (fn_name == ansi_opname[(int) MODIFY_EXPR])
-	{
-	  tree parmtype = TREE_VALUE (FUNCTION_ARG_CHAIN (fn_fields));
-
-	  if (copy_assignment_arg_p (parmtype, DECL_VIRTUAL_P (fn_fields)))
-	    {
-	      if (TREE_PROTECTED (fn_fields))
-		TYPE_HAS_NONPUBLIC_ASSIGN_REF (t) = 1;
-	      else if (TREE_PRIVATE (fn_fields))
-		TYPE_HAS_NONPUBLIC_ASSIGN_REF (t) = 2;
-	    }
-	}
-    }
-
-  if (TYPE_HAS_DESTRUCTOR (t) && !TREE_VEC_ELT (method_vec, 1))
+  if (TYPE_HAS_DESTRUCTOR (t) && !CLASSTYPE_DESTRUCTORS (t))
     /* We thought there was a destructor, but there wasn't.  Some
        parse errors cause this anomalous situation.  */
     TYPE_HAS_DESTRUCTOR (t) = 0;
@@ -2333,11 +2285,9 @@ overrides (fndecl, base_fndecl)
      tree fndecl, base_fndecl;
 {
   /* Destructors have special names.  */
-  if (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (base_fndecl))
-      && DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (fndecl)))
+  if (DECL_DESTRUCTOR_P (base_fndecl) && DECL_DESTRUCTOR_P (fndecl))
     return 1;
-  if (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (base_fndecl))
-      || DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (fndecl)))
+  if (DECL_DESTRUCTOR_P (base_fndecl) || DECL_DESTRUCTOR_P (fndecl))
     return 0;
   if (DECL_NAME (fndecl) == DECL_NAME (base_fndecl))
     {
@@ -2515,6 +2465,84 @@ dfs_find_base (binfo, data)
 	  ? binfo : NULL_TREE);
 }
 
+/* Update a entry in the vtable for BINFO, which is in the hierarchy
+   dominated by T.  FN has been overridden in BINFO; VIRTUALS points
+   to the corresponding position in the BINFO_VIRTUALS list.  */
+
+static void
+update_vtable_entry_for_fn (t, binfo, fn, virtuals)
+     tree t;
+     tree binfo;
+     tree fn;
+     tree *virtuals;
+{
+  tree b;
+  tree overrider;
+  tree vindex;
+  tree delta;
+  HOST_WIDE_INT vindex_val;
+  HOST_WIDE_INT i;
+
+  /* Find the function which originally caused this vtable
+     entry to be present.  */
+  vindex = DECL_VINDEX (fn);
+  b = dfs_walk (binfo, dfs_find_base, NULL, DECL_VIRTUAL_CONTEXT (fn));
+  fn = BINFO_VIRTUALS (TYPE_BINFO (BINFO_TYPE (b)));
+  i = first_vfun_index (BINFO_TYPE (b));
+  vindex_val = tree_low_cst (vindex, 0);
+  while (i < vindex_val)
+    {
+      fn = TREE_CHAIN (fn);
+      ++i;
+    }
+  fn = BV_FN (fn);
+
+  /* Handle the case of a virtual function defined in BINFO itself.  */
+  overrider = find_final_overrider (t, b, fn);
+  if (overrider == error_mark_node)
+    return;
+
+  /* Compute the constant adjustment to the `this' pointer.  The
+     `this' pointer, when this function is called, will point at the
+     class whose vtable this is.  */
+  delta = size_binop (PLUS_EXPR,
+		      get_derived_offset (binfo,
+					  DECL_VIRTUAL_CONTEXT (fn)),
+		      BINFO_OFFSET (binfo));
+  if (flag_new_abi)
+    {
+      /* Under the new ABI, we only need to adjust as far as the
+	 nearest virtual base.  Then we use the vcall offset in the
+	 virtual bases vtable.  */
+      for (b = binfo; b; b = BINFO_INHERITANCE_CHAIN (b))
+	{
+	  if (TREE_VIA_VIRTUAL (b))
+	    break;
+	  if (same_type_p (BINFO_TYPE (b), 
+			   BINFO_TYPE (TREE_VALUE (overrider))))
+	    break;
+	}
+    }
+  else
+    b = NULL_TREE;
+
+  if (b && TREE_VIA_VIRTUAL (b))
+    /* The `this' pointer needs to be adjusted to the nearest virtual
+       base.  */
+    delta = size_diffop (BINFO_OFFSET (b), delta);
+  else
+    /* The `this' pointer needs to be adjusted from pointing to
+       BINFO to pointing at the base where the final overrider
+       appears.  */
+    delta = size_diffop (BINFO_OFFSET (TREE_VALUE (overrider)), delta);
+
+  modify_vtable_entry (t, 
+		       binfo, 
+		       TREE_PURPOSE (overrider),
+		       delta,
+		       virtuals);
+}
+
 /* Called from modify_all_vtables via dfs_walk.  */
 
 static tree
@@ -2548,51 +2576,10 @@ dfs_modify_vtables (binfo, data)
 	   virtuals;
 	   virtuals = TREE_CHAIN (virtuals),
 	     old_virtuals = TREE_CHAIN (old_virtuals))
-	{
-	  tree b;
-	  tree fn;
-	  tree overrider;
-	  tree vindex;
-	  tree delta;
-	  HOST_WIDE_INT vindex_val;
-	  HOST_WIDE_INT i;
-
-	  /* Find the function which originally caused this vtable
-	     entry to be present.  */
-	  fn = BV_FN (old_virtuals);
-	  vindex = DECL_VINDEX (fn);
-	  b = dfs_walk (binfo, dfs_find_base, NULL, DECL_VIRTUAL_CONTEXT (fn));
-	  fn = BINFO_VIRTUALS (TYPE_BINFO (BINFO_TYPE (b)));
-	  i = first_vfun_index (BINFO_TYPE (b));
-	  vindex_val = tree_low_cst (vindex, 0);
-	  while (i < vindex_val)
-	    {
-	      fn = TREE_CHAIN (fn);
-	      ++i;
-	    }
-	  fn = BV_FN (fn);
-
-	  /* Handle the case of a virtual function defined in BINFO
-	     itself.  */
-	  overrider = find_final_overrider (t, b, fn);
-	  if (overrider == error_mark_node)
-	    continue;
-
-	  /* The `this' pointer needs to be adjusted from pointing to
-	     BINFO to pointing at the base where the final overrider
-	     appears.  */
-	  delta = size_binop (PLUS_EXPR,
-			      get_derived_offset (binfo,
-						  DECL_VIRTUAL_CONTEXT (fn)),
-			      BINFO_OFFSET (binfo));
-	  delta = size_diffop (BINFO_OFFSET (TREE_VALUE (overrider)), delta);
-
-	  modify_vtable_entry (t, 
-			       binfo, 
-			       TREE_PURPOSE (overrider),
-			       delta,
-			       &virtuals);
-	}
+	update_vtable_entry_for_fn (t, 
+				    binfo, 
+				    BV_FN (old_virtuals),
+				    &virtuals);
     }
 
   SET_BINFO_MARKED (binfo);
@@ -2636,8 +2623,8 @@ modify_all_vtables (t, vfuns_p, overridden_virtuals)
 	{
 	  tree fn = TREE_VALUE (*fnsp);
 
-	  if (BINFO_VIRTUALS (binfo)
-	      && !value_member (fn, BINFO_VIRTUALS (binfo)))
+	  if (!BINFO_VIRTUALS (binfo)
+	      || !value_member (fn, BINFO_VIRTUALS (binfo)))
 	    {
 	      /* Set the vtable index.  */
 	      set_vindex (t, fn, vfuns_p);
@@ -2755,8 +2742,7 @@ check_for_override (decl, ctype)
       if (TYPE_POLYMORPHIC_P (BINFO_TYPE (base_binfo)))
 	{
 	  tree tmp = get_matching_virtual
-	    (base_binfo, decl,
-	     DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (decl)));
+	    (base_binfo, decl, DECL_DESTRUCTOR_P (decl));
 
 	  if (tmp && !found_overriden_fn)
 	    {
@@ -2921,8 +2907,6 @@ finish_struct_anon (t)
 	}
     }
 }
-
-extern int interface_only, interface_unknown;
 
 /* Create default constructors, assignment operators, and so forth for
    the type indicated by T, if they are needed.
@@ -3715,9 +3699,9 @@ layout_empty_base (binfo, eoc, binfo_offsets)
 }
 
 /* Build a FIELD_DECL for the base given by BINFO in the class
-   *indicated by RLI.  If the new object is non-empty, clear *EMPTY_P.
+   indicated by RLI.  If the new object is non-empty, clear *EMPTY_P.
    *BASE_ALIGN is a running maximum of the alignments of any base
-   *class.  */
+   class.  */
 
 static void
 build_base_field (rli, binfo, empty_p, base_align, v)
@@ -3905,6 +3889,178 @@ check_methods (t)
     }
 }
 
+/* FN is a constructor or destructor.  Clone the declaration to create
+   a specialized in-charge or not-in-charge version, as indicated by
+   NAME.  */
+
+static tree
+build_clone (fn, name)
+     tree fn;
+     tree name;
+{
+  tree parms;
+  tree clone;
+
+  /* Copy the function.  */
+  clone = copy_decl (fn);
+  /* Remember where this function came from.  */
+  DECL_CLONED_FUNCTION (clone) = fn;
+  /* Reset the function name.  */
+  DECL_NAME (clone) = name;
+  DECL_ASSEMBLER_NAME (clone) = DECL_NAME (clone);
+  /* There's no pending inline data for this function.  */
+  DECL_PENDING_INLINE_INFO (clone) = NULL;
+  DECL_PENDING_INLINE_P (clone) = 0;
+  /* And it hasn't yet been deferred.  */
+  DECL_DEFERRED_FN (clone) = 0;
+
+  /* The base-class destructor is not virtual.  */
+  if (name == base_dtor_identifier)
+    {
+      DECL_VIRTUAL_P (clone) = 0;
+      if (TREE_CODE (clone) != TEMPLATE_DECL)
+	DECL_VINDEX (clone) = NULL_TREE;
+    }
+
+  /* If there was an in-charge parameter, drop it from the function
+     type.  */
+  if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+    {
+      tree basetype;
+      tree parmtypes;
+      tree exceptions;
+
+      exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (clone));
+      basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (clone));
+      parmtypes = TYPE_ARG_TYPES (TREE_TYPE (clone));
+      /* Skip the `this' parameter.  */
+      parmtypes = TREE_CHAIN (parmtypes);
+      /* Skip the in-charge parameter.  */
+      parmtypes = TREE_CHAIN (parmtypes);
+      TREE_TYPE (clone) 
+	= build_cplus_method_type (basetype,
+				   TREE_TYPE (TREE_TYPE (clone)),
+				   parmtypes);
+      if (exceptions)
+	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
+						     exceptions);
+    }
+
+  /* Copy the function parameters.  But, DECL_ARGUMENTS aren't
+     function parameters; instead, those are the template parameters.  */
+  if (TREE_CODE (clone) != TEMPLATE_DECL)
+    {
+      DECL_ARGUMENTS (clone) = copy_list (DECL_ARGUMENTS (clone));
+      /* Remove the in-charge parameter.  */
+      if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+	{
+	  TREE_CHAIN (DECL_ARGUMENTS (clone))
+	    = TREE_CHAIN (TREE_CHAIN (DECL_ARGUMENTS (clone)));
+	  DECL_HAS_IN_CHARGE_PARM_P (clone) = 0;
+	}
+      for (parms = DECL_ARGUMENTS (clone); parms; parms = TREE_CHAIN (parms))
+	{
+	  DECL_CONTEXT (parms) = clone;
+	  copy_lang_decl (parms);
+	}
+    }
+
+  /* Mangle the function name.  */
+  set_mangled_name_for_decl (clone);
+
+  /* Create the RTL for this function.  */
+  DECL_RTL (clone) = NULL_RTX;
+  rest_of_decl_compilation (clone, NULL, /*top_level=*/1, at_eof);
+  
+  /* Make it easy to find the CLONE given the FN.  */
+  TREE_CHAIN (clone) = TREE_CHAIN (fn);
+  TREE_CHAIN (fn) = clone;
+
+  /* If this is a template, handle the DECL_TEMPLATE_RESULT as well.  */
+  if (TREE_CODE (clone) == TEMPLATE_DECL)
+    {
+      tree result;
+
+      DECL_TEMPLATE_RESULT (clone) 
+	= build_clone (DECL_TEMPLATE_RESULT (clone), name);
+      result = DECL_TEMPLATE_RESULT (clone);
+      DECL_TEMPLATE_INFO (result) = copy_node (DECL_TEMPLATE_INFO (result));
+      DECL_TI_TEMPLATE (result) = clone;
+    }
+  else if (DECL_DEFERRED_FN (fn))
+    defer_fn (clone);
+
+  return clone;
+}
+
+/* Produce declarations for all appropriate clones of FN.  If
+   UPDATE_METHOD_VEC_P is non-zero, the clones are added to the
+   CLASTYPE_METHOD_VEC as well.  */
+
+void
+clone_function_decl (fn, update_method_vec_p)
+     tree fn;
+     int update_method_vec_p;
+{
+  tree clone;
+
+  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn))
+    {
+      /* For each constructor, we need two variants: an in-charge version
+	 and a not-in-charge version.  */
+      clone = build_clone (fn, complete_ctor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+      clone = build_clone (fn, base_ctor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+    }
+  else
+    {
+      my_friendly_assert (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn), 20000411);
+
+      /* For each destructor, we need two variants: an in-charge
+	 version, a not-in-charge version, and an in-charge deleting
+	 version.  We clone the deleting version first because that
+	 means it will go second on the TYPE_METHODS list -- and that
+	 corresponds to the correct layout order in the virtual
+	 function table.  */
+      clone = build_clone (fn, deleting_dtor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+      clone = build_clone (fn, complete_dtor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+      clone = build_clone (fn, base_dtor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+    }
+}
+
+/* For each of the constructors and destructors in T, create an
+   in-charge and not-in-charge variant.  */
+
+static void
+clone_constructors_and_destructors (t)
+     tree t;
+{
+  tree fns;
+
+  /* We only clone constructors and destructors under the new ABI.  */
+  if (!flag_new_abi)
+    return;
+
+  /* If for some reason we don't have a CLASSTYPE_METHOD_VEC, we bail
+     out now.  */
+  if (!CLASSTYPE_METHOD_VEC (t))
+    return;
+
+  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
+  for (fns = CLASSTYPE_DESTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
+}
+
 /* Remove all zero-width bit-fields from T.  */
 
 static void
@@ -4000,6 +4156,10 @@ check_bases_and_members (t, empty_p)
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
 
+  /* Create the in-charge and not-in-charge variants of constructors
+     and destructors.  */
+  clone_constructors_and_destructors (t);
+
   /* Process the using-declarations.  */
   for (; access_decls; access_decls = TREE_CHAIN (access_decls))
     handle_using_decl (TREE_VALUE (access_decls), t);
@@ -4028,7 +4188,8 @@ create_vtable_ptr (t, empty_p, vfuns_p,
   /* Loop over the virtual functions, adding them to our various
      vtables.  */
   for (fn = TYPE_METHODS (t); fn; fn = TREE_CHAIN (fn))
-    if (DECL_VINDEX (fn))
+    if (DECL_VINDEX (fn) 
+	&& !(flag_new_abi && DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)))
       add_virtual_function (new_virtuals_p, overridden_virtuals_p,
 			    vfuns_p, fn, t);
 
@@ -4695,8 +4856,7 @@ finish_struct_1 (t)
     {
       tree binfo = get_binfo (DECL_FIELD_CONTEXT (vfield), t, 0);
 
-      vfield = copy_node (vfield);
-      copy_lang_decl (vfield);
+      vfield = copy_decl (vfield);
 
       DECL_FIELD_CONTEXT (vfield) = t;
       DECL_FIELD_OFFSET (vfield)
@@ -5442,6 +5602,9 @@ resolve_address_of_overloaded_function (target_type,
 			&& (TREE_CODE (TREE_TYPE (target_type)) 
 			    == METHOD_TYPE)), 0);
 
+  if (TREE_CODE (overload) == COMPONENT_REF)
+    overload = TREE_OPERAND (overload, 1);
+
   /* Check that the TARGET_TYPE is reasonable.  */
   if (TYPE_PTRFN_P (target_type))
     /* This is OK.  */
@@ -5651,6 +5814,7 @@ instantiate_type (lhstype, rhs, flags)
 {
   int complain = (flags & 1);
   int strict = (flags & 2) ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
+  tree r;
 
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
@@ -5711,8 +5875,9 @@ instantiate_type (lhstype, rhs, flags)
 
     case COMPONENT_REF:
       {
-	tree r = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
+	r = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
 
+      comp:
 	if (r != error_mark_node && TYPE_PTRMEMFUNC_P (lhstype)
 	    && complain && !flag_ms_extensions)
 	  {
@@ -5747,12 +5912,23 @@ instantiate_type (lhstype, rhs, flags)
       /* Fall through.  */
 
     case TEMPLATE_ID_EXPR:
-      return 
-	resolve_address_of_overloaded_function (lhstype,
-						TREE_OPERAND (rhs, 0),
-						complain,
-						/*template_only=*/1,
-						TREE_OPERAND (rhs, 1));
+      {
+	tree fns = TREE_OPERAND (rhs, 0);
+	tree args = TREE_OPERAND (rhs, 1);
+
+	r =
+	  resolve_address_of_overloaded_function (lhstype,
+						  fns,
+						  complain,
+						  /*template_only=*/1,
+						  args);
+	if (TREE_CODE (fns) == COMPONENT_REF)
+	  {
+	    rhs = fns;
+	    goto comp;
+	  }
+	return r;
+      }
 
     case OVERLOAD:
       return 
@@ -6495,9 +6671,9 @@ build_vbase_offset_vtbl_entries (binfo, vod)
 				vod->index, integer_one_node));
 
       /* The initializer is the delta from BINFO to this virtual base.
-	   The vbase offsets go in reverse inheritance-graph order, and
-	   we are walking in inheritance graph order so these end up in
-	   the right order.  */
+	 The vbase offsets go in reverse inheritance-graph order, and
+	 we are walking in inheritance graph order so these end up in
+	 the right order.  */
       delta = size_diffop (BINFO_OFFSET (b), BINFO_OFFSET (binfo));
       vod->inits = tree_cons (NULL_TREE, 
 			      fold (build1 (NOP_EXPR, 
@@ -6510,58 +6686,69 @@ build_vbase_offset_vtbl_entries (binfo, vod)
 /* Called from build_vcall_offset_vtbl_entries via dfs_walk.  */
 
 static tree
-dfs_vcall_offset_queue_p (binfo, data)
-     tree binfo;
-     void *data;
-{
-  vcall_offset_data* vod = (vcall_offset_data *) data;
-
-  return (binfo == vod->vbase) ? binfo : dfs_skip_vbases (binfo, NULL);
-}
-
-/* Called from build_vcall_offset_vtbl_entries via dfs_walk.  */
-
-static tree
 dfs_build_vcall_offset_vtbl_entries (binfo, data)
      tree binfo;
      void *data;
 {
   vcall_offset_data* vod;
-  tree virtuals;
+  tree derived_virtuals;
+  tree base_virtuals;
   tree binfo_inits;
+  tree non_primary_binfo;
   tree b;
   int i;
 
   vod = (vcall_offset_data *) data;
   binfo_inits = NULL_TREE;
-  
+
+  /* We might be a primary base class.  Go up the inheritance
+     hierarchy until we find the class of which we are a primary base:
+     it is the BINFO_VIRTUALS there that we need to consider.  */
+  non_primary_binfo = binfo;
+  while (BINFO_PRIMARY_MARKED_P (non_primary_binfo))
+    non_primary_binfo = BINFO_INHERITANCE_CHAIN (non_primary_binfo);
+
   /* Skip virtuals that we have already handled in a primary base
      class.  */
-  virtuals = BINFO_VIRTUALS (binfo);
+  base_virtuals = BINFO_VIRTUALS (binfo);
+  derived_virtuals = BINFO_VIRTUALS (non_primary_binfo);
   b = BINFO_PRIMARY_BINFO (binfo);
   if (b)
     for (i = 0; i < CLASSTYPE_VSIZE (BINFO_TYPE (b)); ++i)
-      virtuals = TREE_CHAIN (virtuals);
+      {
+	base_virtuals = TREE_CHAIN (base_virtuals);
+	derived_virtuals = TREE_CHAIN (derived_virtuals);
+      }
 
   /* Make entries for the rest of the virtuals.  */
-  while (virtuals)
+  while (base_virtuals)
     {
       /* Figure out what function we're looking at.  */
-      tree fn = TREE_VALUE (virtuals);
+      tree fn = TREE_VALUE (derived_virtuals);
       tree base = DECL_CONTEXT (fn);
       /* The FN comes from BASE.  So, we must caculate the adjustment
 	 from the virtual base that derived from BINFO to BASE.  */
       tree base_binfo = get_binfo (base, vod->derived, /*protect=*/0);
 
+      /* Compute the vcall offset.  */
       binfo_inits
 	= tree_cons (NULL_TREE,
 		     fold (build1 (NOP_EXPR, vtable_entry_type,
 				   size_diffop (BINFO_OFFSET (base_binfo),
 						BINFO_OFFSET (vod->vbase)))),
 		     binfo_inits);
+
+      /* Keep track of the vtable index where this vcall offset can be
+	 found.  */
+      BV_VCALL_INDEX (derived_virtuals) = vod->index;
+      /* The next vcall offset will be found at a more negative
+	 offset.  */
       vod->index = fold (build (MINUS_EXPR, integer_type_node,
 				vod->index, integer_one_node));
-      virtuals = TREE_CHAIN (virtuals);
+
+      /* Go to the next entries in the list.  */
+      derived_virtuals = TREE_CHAIN (derived_virtuals);
+      base_virtuals = TREE_CHAIN (base_virtuals);
     }
 
   /* The offests are built up in reverse order, so we straighten them
@@ -6630,7 +6817,7 @@ build_vcall_offset_vtbl_entries (binfo, vod)
   dfs_walk_real (binfo,
 		 dfs_build_vcall_offset_vtbl_entries,
 		 NULL,
-		 dfs_vcall_offset_queue_p,
+		 dfs_skip_vbases,
 		 vod);
   vod->inits = chainon (vod->inits, inits);
 }
@@ -6734,11 +6921,14 @@ build_vtable_entry (delta, vcall_index, entry)
     {
       HOST_WIDE_INT idelta;
       HOST_WIDE_INT ivindex;
+      tree fn;
 
       idelta = tree_low_cst (delta, 0);
       ivindex = tree_low_cst (vcall_index, 0);
+      fn = TREE_OPERAND (entry, 0);
       if ((idelta || ivindex) 
-	  && ! DECL_PURE_VIRTUAL_P (TREE_OPERAND (entry, 0)))
+	  && fn != abort_fndecl
+	  && !DECL_TINFO_FN_P (fn))
 	{
 	  entry = make_thunk (entry, idelta, ivindex);
 	  entry = build1 (ADDR_EXPR, vtable_entry_type, entry);
@@ -6752,7 +6942,6 @@ build_vtable_entry (delta, vcall_index, entry)
     }
   else
     {
-      extern int flag_huge_objects;
       tree elems = tree_cons (NULL_TREE, delta,
 			      tree_cons (NULL_TREE, integer_zero_node,
 					 build_tree_list (NULL_TREE, entry)));

@@ -1748,7 +1748,7 @@ set_mangled_name_for_decl (decl)
   DECL_ASSEMBLER_NAME (decl)
     = build_decl_overload (DECL_NAME (decl), parm_types, 
 			   DECL_FUNCTION_MEMBER_P (decl)
-			   + DECL_CONSTRUCTOR_P (decl));
+			   + DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl));
 }
 
 /* Build an overload name for the type expression TYPE.  */
@@ -2036,12 +2036,12 @@ make_thunk (function, delta, vcall_index)
   else
     icat (-delta);
   OB_PUTC ('_');
-  OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
   if (vcall_index)
     {
-      OB_PUTC ('_');
       icat (vcall_index);
+      OB_PUTC ('_');
     }
+  OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
   OB_FINISH ();
   thunk_id = get_identifier (obstack_base (&scratch_obstack));
 
@@ -2062,9 +2062,10 @@ make_thunk (function, delta, vcall_index)
       DECL_INITIAL (thunk) = function;
       THUNK_DELTA (thunk) = delta;
       THUNK_VCALL_OFFSET (thunk) 
-	= vcall_index * TREE_INT_CST_LOW (TYPE_SIZE (vtable_entry_type));
+	= vcall_index * int_size_in_bytes (vtable_entry_type);
       DECL_EXTERNAL (thunk) = 1;
       DECL_ARTIFICIAL (thunk) = 1;
+      DECL_CONTEXT (thunk) = DECL_CONTEXT (func_decl);
       /* So that finish_file can write out any thunks that need to be: */
       pushdecl_top_level (thunk);
     }
@@ -2077,8 +2078,10 @@ void
 emit_thunk (thunk_fndecl)
      tree thunk_fndecl;
 {
-  tree function = TREE_OPERAND (DECL_INITIAL (thunk_fndecl), 0);
+  tree fnaddr = DECL_INITIAL (thunk_fndecl);
+  tree function = TREE_OPERAND (fnaddr, 0);
   int delta = THUNK_DELTA (thunk_fndecl);
+  int vcall_offset = THUNK_VCALL_OFFSET (thunk_fndecl);
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
@@ -2094,7 +2097,7 @@ emit_thunk (thunk_fndecl)
   TREE_SET_CODE (thunk_fndecl, FUNCTION_DECL);
 
 #ifdef ASM_OUTPUT_MI_THUNK
-  if (!flag_syntax_only)
+  if (!flag_syntax_only && vcall_offset == 0)
     {
       const char *fnname;
       current_function_decl = thunk_fndecl;
@@ -2112,7 +2115,8 @@ emit_thunk (thunk_fndecl)
       current_function_decl = 0;
       cfun = 0;
     }
-#else /* ASM_OUTPUT_MI_THUNK */
+  else
+#endif /* ASM_OUTPUT_MI_THUNK */
   {
   /* If we don't have the necessary macro for efficient thunks, generate a
      thunk function that just makes a call to the real function.
@@ -2140,16 +2144,44 @@ emit_thunk (thunk_fndecl)
     copy_lang_decl (thunk_fndecl);
     DECL_INTERFACE_KNOWN (thunk_fndecl) = 1;
     DECL_NOT_REALLY_EXTERN (thunk_fndecl) = 1;
+    DECL_SAVED_FUNCTION_DATA (thunk_fndecl) = NULL;
 
-    start_function (NULL_TREE, thunk_fndecl, NULL_TREE, 
-		    SF_DEFAULT | SF_PRE_PARSED);
+    push_to_top_level ();
+    start_function (NULL_TREE, thunk_fndecl, NULL_TREE, SF_PRE_PARSED);
     store_parm_decls ();
     current_function_is_thunk = 1;
 
-    /* Build up the call to the real function.  */
-    t = build_int_2 (delta, -1 * (delta < 0));
+    /* Adjust the this pointer by the constant.  */
+    t = ssize_int (delta);
     TREE_TYPE (t) = signed_type (sizetype);
     t = fold (build (PLUS_EXPR, TREE_TYPE (a), a, t));
+    /* If there's a vcall offset, look up that value in the vtable and
+       adjust the `this' pointer again.  */
+    if (vcall_offset != 0)
+      {
+	tree orig_this;
+
+	t = save_expr (t);
+	orig_this = t;
+	/* The vptr is always at offset zero in the object.  */
+	t = build1 (NOP_EXPR,
+		    build_pointer_type (build_pointer_type 
+					(vtable_entry_type)),
+		    t);
+	/* Form the vtable address.  */
+	t = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (t)), t);
+	/* Find the entry with the vcall offset.  */
+	t = build (PLUS_EXPR, TREE_TYPE (t), t, ssize_int (vcall_offset));
+	/* Calculate the offset itself.  */
+	t = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (t)), t);
+	/* Adjust the `this' pointer.  */
+	t = fold (build (PLUS_EXPR,
+			 TREE_TYPE (orig_this),
+			 orig_this,
+			 t));
+      }
+
+    /* Build up the call to the real function.  */
     t = tree_cons (NULL_TREE, t, NULL_TREE);
     for (a = TREE_CHAIN (a); a; a = TREE_CHAIN (a))
       t = tree_cons (NULL_TREE, a, t);
@@ -2157,13 +2189,21 @@ emit_thunk (thunk_fndecl)
     t = build_call (function, t);
     finish_return_stmt (t);
 
-    expand_body (finish_function (lineno, 0));
+    /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
+       clear this here.  */
+    DECL_INITIAL (thunk_fndecl) = NULL_TREE;
+    DECL_INITIAL (thunk_fndecl) = make_node (BLOCK);
+    BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) 
+      = DECL_ARGUMENTS (thunk_fndecl);
+    expand_body (finish_function (0));
+    /* Restore the DECL_INITIAL for the THUNK_DECL.  */
+    DECL_INITIAL (thunk_fndecl) = fnaddr;
+    pop_from_top_level ();
 
     /* Don't let the backend defer this function.  */
     if (DECL_DEFER_OUTPUT (thunk_fndecl))
       output_inline_function (thunk_fndecl);
   }
-#endif /* ASM_OUTPUT_MI_THUNK */
 
   TREE_SET_CODE (thunk_fndecl, THUNK_DECL);
 }
@@ -2179,7 +2219,7 @@ do_build_copy_constructor (fndecl)
   tree parm = TREE_CHAIN (DECL_ARGUMENTS (fndecl));
   tree t;
 
-  if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
+  if (DECL_HAS_IN_CHARGE_PARM_P (fndecl))
     parm = TREE_CHAIN (parm);
   parm = convert_from_reference (parm);
 
@@ -2359,6 +2399,15 @@ synthesize_method (fndecl)
   if (at_eof)
     import_export_decl (fndecl);
 
+  /* If we've been asked to synthesize a clone, just synthesize the
+     cloned function instead.  Doing so will automatically fill in the
+     body for the clone.  */
+  if (DECL_CLONED_FUNCTION_P (fndecl))
+    {
+      synthesize_method (DECL_CLONED_FUNCTION (fndecl));
+      return;
+    }
+
   if (! context)
     push_to_top_level ();
   else if (nested)
@@ -2388,7 +2437,7 @@ synthesize_method (fndecl)
   else
     {
       tree arg_chain = FUNCTION_ARG_CHAIN (fndecl);
-      if (DECL_CONSTRUCTOR_FOR_VBASE_P (fndecl))
+      if (DECL_HAS_IN_CHARGE_PARM_P (fndecl))
 	arg_chain = TREE_CHAIN (arg_chain);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
@@ -2405,7 +2454,7 @@ synthesize_method (fndecl)
       finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
     }
 
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 
   extract_interface_info ();
   if (! context)

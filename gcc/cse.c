@@ -705,6 +705,7 @@ static rtx cse_basic_block	PARAMS ((rtx, rtx, struct branch_path *, int));
 static void count_reg_usage	PARAMS ((rtx, int *, rtx, int));
 extern void dump_class          PARAMS ((struct table_elt*));
 static struct cse_reg_info * get_cse_reg_info PARAMS ((unsigned int));
+static int check_dependence	PARAMS ((rtx *, void *));
 
 static void flush_hash_table	PARAMS ((void));
 
@@ -1721,6 +1722,24 @@ flush_hash_table ()
       }
 }
 
+/* Function called for each rtx to check whether true dependence exist.  */
+struct check_dependence_data
+{
+  enum machine_mode mode;
+  rtx exp;
+};
+static int
+check_dependence (x, data)
+     rtx *x;
+     void *data;
+{
+  struct check_dependence_data *d = (struct check_dependence_data *) data;
+  if (*x && GET_CODE (*x) == MEM)
+    return true_dependence (d->exp, d->mode, *x, cse_rtx_varies_p);
+  else
+    return 0;
+}
+
 /* Remove from the hash table, or mark as invalid, all expressions whose
    values could be altered by storing in X.  X is a register, a subreg, or
    a memory reference with nonvarying address (because, when a memory
@@ -1846,20 +1865,18 @@ invalidate (x, full_mode)
 	      next = p->next_same_hash;
 	      if (p->in_memory)
 		{
-		  if (GET_CODE (p->exp) != MEM)
+		  struct check_dependence_data d;
+
+		  /* Just canonicalize the expression once;
+		     otherwise each time we call invalidate
+		     true_dependence will canonicalize the
+		     expression again.  */
+		  if (!p->canon_exp)
+		    p->canon_exp = canon_rtx (p->exp);
+		  d.exp = x;
+		  d.mode = full_mode;
+		  if (for_each_rtx (&p->canon_exp, check_dependence, &d))
 		    remove_from_table (p, i);
-		  else 
-		    {
-		      /* Just canonicalize the expression once;
-			 otherwise each time we call invalidate
-			 true_dependence will canonicalize the
-			 expression again.  */
-		      if (!p->canon_exp)
-			p->canon_exp = canon_rtx (p->exp);
-		      if (true_dependence (x, full_mode, p->canon_exp,
-					   cse_rtx_varies_p))
-			remove_from_table (p, i);
-		    }
 		}
 	    }
 	}
@@ -5911,13 +5928,12 @@ cse_insn (insn, libcall_insn)
 	  }
       }
 
-  /* Special handling for (set REG0 REG1)
-     where REG0 is the "cheapest", cheaper than REG1.
-     After cse, REG1 will probably not be used in the sequel, 
-     so (if easily done) change this insn to (set REG1 REG0) and
-     replace REG1 with REG0 in the previous insn that computed their value.
-     Then REG1 will become a dead store and won't cloud the situation
-     for later optimizations.
+  /* Special handling for (set REG0 REG1) where REG0 is the
+     "cheapest", cheaper than REG1.  After cse, REG1 will probably not
+     be used in the sequel, so (if easily done) change this insn to
+     (set REG1 REG0) and replace REG1 with REG0 in the previous insn
+     that computed their value.  Then REG1 will become a dead store
+     and won't cloud the situation for later optimizations.
 
      Do not make this change if REG1 is a hard register, because it will
      then be used in the sequel and we may be changing a two-operand insn
@@ -5941,19 +5957,18 @@ cse_insn (insn, libcall_insn)
       if ((src_ent->first_reg == REGNO (SET_DEST (sets[0].rtl)))
 	  && ! find_reg_note (insn, REG_RETVAL, NULL_RTX))
 	{
-	  rtx prev = PREV_INSN (insn);
-	  while (prev && GET_CODE (prev) == NOTE)
-	    prev = PREV_INSN (prev);
+	  rtx prev = prev_nonnote_insn (insn);
 
-	  if (prev && GET_CODE (prev) == INSN && GET_CODE (PATTERN (prev)) == SET
+	  if (prev != 0 && GET_CODE (prev) == INSN
+	      && GET_CODE (PATTERN (prev)) == SET
 	      && SET_DEST (PATTERN (prev)) == SET_SRC (sets[0].rtl))
 	    {
 	      rtx dest = SET_DEST (sets[0].rtl);
+	      rtx src = SET_SRC (sets[0].rtl);
 	      rtx note = find_reg_note (prev, REG_EQUIV, NULL_RTX);
 
 	      validate_change (prev, & SET_DEST (PATTERN (prev)), dest, 1);
-	      validate_change (insn, & SET_DEST (sets[0].rtl),
-			       SET_SRC (sets[0].rtl), 1);
+	      validate_change (insn, & SET_DEST (sets[0].rtl), src, 1);
 	      validate_change (insn, & SET_SRC (sets[0].rtl), dest, 1);
 	      apply_change_group ();
 
@@ -5975,10 +5990,14 @@ cse_insn (insn, libcall_insn)
 		  REG_NOTES (prev) = note;
 		}
 
-	      /* If INSN has a REG_EQUAL note, and this note mentions REG0,
-		 then we must delete it, because the value in REG0 has changed.  */
+	      /* If INSN has a REG_EQUAL note, and this note mentions
+		 REG0, then we must delete it, because the value in
+		 REG0 has changed.  If the note's value is REG1, we must
+		 also delete it because that is now this insn's dest.  */
 	      note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
-	      if (note && reg_mentioned_p (dest, XEXP (note, 0)))
+	      if (note != 0
+		  && (reg_mentioned_p (dest, XEXP (note, 0))
+		      || rtx_equal_p (src, XEXP (note, 0))))
 		remove_note (insn, note);
 	    }
 	}
@@ -7268,6 +7287,10 @@ delete_trivially_dead_insns (insns, nreg)
 	       || GET_CODE (SET_DEST (PATTERN (insn))) == SUBREG)
 	      && rtx_equal_p (SET_DEST (PATTERN (insn)),
 			      SET_SRC (PATTERN (insn))))
+	    ;
+	  else if (GET_CODE (SET_DEST (PATTERN (insn))) == STRICT_LOW_PART
+		   && rtx_equal_p (XEXP (SET_DEST (PATTERN (insn)), 0),
+				   SET_SRC (PATTERN (insn))))
 	    ;
 
 #ifdef HAVE_cc0

@@ -119,22 +119,14 @@ typedef union tree_node *tree;
 /* Every kind of tree node starts with this structure,
    so all nodes have these fields.
 
-   See the accessor macros, defined below, for documentation of the fields. 
-
-   DO NOT change the layout of tree_common unless absolutely necessary.  Some
-   front-ends (namely g++) depend on the internal layout of this tructure.
-   See my_tree_cons in the cp subdir for such uglyness.  Ugh.  */
+   See the accessor macros, defined below, for documentation of the
+   fields.   */
 
 struct tree_common
 {
   union tree_node *chain;
   union tree_node *type;
-#ifdef ONLY_INT_FIELDS
-  unsigned int code : 8;
-#else
-  enum tree_code code : 8;
-#endif
-
+  ENUM_BITFIELD(tree_code) code : 8;
   unsigned side_effects_flag : 1;
   unsigned constant_flag : 1;
   unsigned permanent_flag : 1;
@@ -906,14 +898,10 @@ struct tree_type
   union tree_node *size;
   union tree_node *size_unit;
   union tree_node *attributes;
-  unsigned uid;
+  unsigned int uid;
 
-  unsigned char precision;
-#ifdef ONLY_INT_FIELDS
-  unsigned int mode : 8;
-#else
-  enum machine_mode mode : 8;
-#endif
+  unsigned int precision : 9;
+  ENUM_BITFIELD(machine_mode) mode : 7;
 
   unsigned string_flag : 1;
   unsigned no_force_blk_flag : 1;
@@ -1112,7 +1100,7 @@ struct tree_type
 #define DECL_SIZE_UNIT(NODE) (DECL_CHECK (NODE)->decl.size_unit)
 /* Holds the alignment required for the datum.  */
 #define DECL_ALIGN(NODE) (DECL_CHECK (NODE)->decl.u1.a.align)
-/* For FIELD_DECLs, holds the alignment that DECL_FEILD_OFFSET has.  */
+/* For FIELD_DECLs, holds the alignment that DECL_FIELD_OFFSET has.  */
 #define DECL_OFFSET_ALIGN(NODE) (FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align)
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
@@ -1253,6 +1241,10 @@ struct tree_type
    not an alias.  */
 #define DECL_IS_MALLOC(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.malloc_flag)
 
+/* Nonzero in a FUNCTION_DECL means this function should be treated
+   as "pure" function (like const function, but may read global memory).  */
+#define DECL_IS_PURE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.pure_flag)
+
 /* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
    specially.  */
 #define DECL_BIT_FIELD(NODE) (FIELD_DECL_CHECK (NODE)->decl.bit_field_flag)
@@ -1392,11 +1384,8 @@ struct tree_decl
   unsigned comdat_flag : 1;
   unsigned malloc_flag : 1;
   unsigned no_limit_stack : 1;
-#ifdef ONLY_INT_FIELDS
-  unsigned int built_in_class : 2;
-#else
-  enum built_in_class built_in_class : 2;
-#endif
+  unsigned pure_flag : 1;
+  ENUM_BITFIELD(built_in_class) built_in_class : 2;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;

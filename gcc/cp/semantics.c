@@ -141,6 +141,9 @@ finish_expr_stmt (expr)
 		  || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
 	    expr = default_conversion (expr);
 
+	  if (stmts_are_full_exprs_p)
+	    expr = convert_to_void (expr, "statement");
+
 	  if (!processing_template_decl)
 	    expr = break_out_cleanups (expr);
 
@@ -1954,11 +1957,6 @@ begin_class_definition (t)
 	|| ! CLASSTYPE_INTERFACE_ONLY (t))
       CLASSTYPE_VTABLE_NEEDS_WRITING (t) = 1;
   }
-#if 0
-  tmp = TYPE_IDENTIFIER ($<ttype>0);
-  if (tmp && IDENTIFIER_TEMPLATE (tmp))
-    overload_template_name (tmp, 1);
-#endif
   reset_specialization();
   
   /* Make a declaration for this class in its own scope.  */
@@ -2719,6 +2717,16 @@ expand_body (fn)
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
   walk_tree (&DECL_SAVED_TREE (fn), simplify_aggr_init_exprs_r, NULL);
 
+  /* If this is a constructor or destructor body, we have to clone it
+     under the new ABI.  */
+  if (maybe_clone_body (fn))
+    {
+      /* We don't want to process FN again, so pretend we've written
+	 it out, even though we haven't.  */
+      TREE_ASM_WRITTEN (fn) = 1;
+      return;
+    }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
@@ -2785,7 +2793,7 @@ expand_body (fn)
   lineno = STMT_LINENO (DECL_SAVED_TREE (fn));
 
   /* Generate code for the function.  */
-  finish_function (lineno, 0);
+  finish_function (0);
 
   /* If possible, obliterate the body of the function so that it can
      be garbage collected.  */

@@ -103,6 +103,7 @@ static rtx expand_builtin_alloca	PARAMS ((tree, rtx));
 static rtx expand_builtin_ffs		PARAMS ((tree, rtx, rtx));
 static rtx expand_builtin_frame_address	PARAMS ((tree));
 static tree stabilize_va_list		PARAMS ((tree, int));
+static rtx expand_builtin_expect	PARAMS ((tree, rtx));
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -378,8 +379,8 @@ expand_builtin_setjmp (buf_addr, target, first_label, next_label)
      calls may traverse the arc back to this label.  */
 
   current_function_has_nonlocal_label = 1;
-  nonlocal_goto_handler_labels =
-    gen_rtx_EXPR_LIST (VOIDmode, lab1, nonlocal_goto_handler_labels);
+  nonlocal_goto_handler_labels
+    = gen_rtx_EXPR_LIST (VOIDmode, lab1, nonlocal_goto_handler_labels);
 
   /* Clobber the FP when we get here, so we have to make sure it's
      marked as used by this function.  */
@@ -1628,15 +1629,15 @@ expand_builtin_memcmp (exp, arglist, target)
       || TREE_CHAIN (TREE_CHAIN (arglist)) == 0
       || TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist))))) != INTEGER_TYPE)
     return 0;
-  else if (!HAVE_cmpstrsi)
-    return 0;
 
   {
     enum machine_mode mode;
     tree arg1 = TREE_VALUE (arglist);
     tree arg2 = TREE_VALUE (TREE_CHAIN (arglist));
     tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+    rtx arg1_rtx, arg2_rtx, arg3_rtx;
     rtx result;
+    rtx insn;
 
     int arg1_align
       = get_pointer_alignment (arg1, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
@@ -1656,10 +1657,25 @@ expand_builtin_memcmp (exp, arglist, target)
 	   && REGNO (result) >= FIRST_PSEUDO_REGISTER))
       result = gen_reg_rtx (insn_mode);
 
-    emit_insn (gen_cmpstrsi (result, get_memory_rtx (arg1),
-			     get_memory_rtx (arg2),
-			     expand_expr (len, NULL_RTX, VOIDmode, 0),
-			     GEN_INT (MIN (arg1_align, arg2_align))));
+    arg1_rtx = get_memory_rtx (arg1);
+    arg2_rtx = get_memory_rtx (arg2);
+    arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+    if (!HAVE_cmpstrsi)
+      insn = NULL_RTX;
+    else
+      insn = gen_cmpstrsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
+			   GEN_INT (MIN (arg1_align, arg2_align)));
+
+    if (insn)
+      emit_insn (insn);
+    else
+      emit_library_call_value (memcmp_libfunc, result, 2,
+			       TYPE_MODE (integer_type_node), 3,
+			       XEXP (arg1_rtx, 0), Pmode,
+			       XEXP (arg2_rtx, 0), Pmode,
+			       convert_to_mode (TYPE_MODE (sizetype), arg3_rtx,
+						TREE_UNSIGNED (sizetype)),
+			       TYPE_MODE (sizetype));
 
     /* Return the value in the proper mode for this function.  */
     mode = TYPE_MODE (TREE_TYPE (exp));
@@ -2291,6 +2307,48 @@ expand_builtin_ffs (arglist, target, subtarget)
     abort ();
   return target;
 }
+
+/* Expand a call to __builtin_expect.  We return our argument and
+   emit a NOTE_INSN_EXPECTED_VALUE note.  */
+
+static rtx
+expand_builtin_expect (arglist, target)
+     tree arglist;
+     rtx target;
+{
+  tree exp, c;
+  rtx note, rtx_c;
+
+  if (arglist == NULL_TREE
+      || TREE_CHAIN (arglist) == NULL_TREE)
+    return const0_rtx;
+  exp = TREE_VALUE (arglist);
+  c = TREE_VALUE (TREE_CHAIN (arglist));
+
+  if (TREE_CODE (c) != INTEGER_CST)
+    {
+      error ("second arg to `__builtin_expect' must be a constant");
+      c = integer_zero_node;
+    }
+
+  target = expand_expr (exp, target, VOIDmode, EXPAND_NORMAL);
+
+  /* Don't bother with expected value notes for integral constants.  */
+  if (GET_CODE (target) != CONST_INT)
+    {
+      /* We do need to force this into a register so that we can be
+	 moderately sure to be able to correctly interpret the branch
+	 condition later.  */
+      target = force_reg (GET_MODE (target), target);
+  
+      rtx_c = expand_expr (c, NULL_RTX, GET_MODE (target), EXPAND_NORMAL);
+
+      note = emit_note (NULL, NOTE_INSN_EXPECTED_VALUE);
+      NOTE_EXPECTED_VALUE (note) = gen_rtx_EQ (VOIDmode, target, rtx_c);
+    }
+
+  return target;
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -2566,6 +2624,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       return expand_builtin_va_end (arglist);
     case BUILT_IN_VA_COPY:
       return expand_builtin_va_copy (arglist);
+    case BUILT_IN_EXPECT:
+      return expand_builtin_expect (arglist, target);
 
     default:			/* just do library call, if unknown builtin */
       error ("built-in function `%s' not currently supported",

@@ -66,6 +66,7 @@ Boston, MA 02111-1307, USA.  */
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
+      IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
    4: BINFO_NEW_VTABLE_MARKED.
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
           or FIELD_DECL).
@@ -217,6 +218,11 @@ extern int flag_honor_std;
 /* Nonzero means generate 'rtti' that give run-time type information.  */
 
 extern int flag_rtti;
+
+/* Nonzero if we want to support huge (> 2^(sizeof(short)*8-1) bytes)
+   objects.  */
+
+extern int flag_huge_objects;
 
 /* Nonzero if virtual base class offsets are stored in the virtual
    function table.  Zero if, instead, a pointer to the virtual base is
@@ -396,10 +402,6 @@ struct tree_srcloc
   int linenum;
 };
 
-/* To identify to the debug emitters if it should pay attention to the
-   flag `-Wtemplate-debugging'.  */
-#define HAVE_TEMPLATES 1
-
 /* Macros for access to language-specific slots in an identifier.  */
 
 #define IDENTIFIER_NAMESPACE_BINDINGS(NODE)	\
@@ -486,6 +488,11 @@ struct tree_srcloc
               OPERATOR_TYPENAME_FORMAT,			\
 	      strlen (OPERATOR_TYPENAME_FORMAT)))
 
+/* Nonzero if this identifier is the name of a constructor or
+   destructor.  */
+#define IDENTIFIER_CTOR_OR_DTOR_P(NODE) \
+  TREE_LANG_FLAG_3 (NODE)
+
 /* Nonzero means reject anything that ISO standard C++ forbids.  */
 extern int pedantic;
 
@@ -563,6 +570,7 @@ enum cp_tree_index
     CPTI_COMPLETE_CTOR_IDENTIFIER,
     CPTI_BASE_CTOR_IDENTIFIER,
     CPTI_DTOR_IDENTIFIER,
+    CPTI_COMPLETE_DTOR_IDENTIFIER,
     CPTI_BASE_DTOR_IDENTIFIER,
     CPTI_DELETING_DTOR_IDENTIFIER,
     CPTI_DELTA2_IDENTIFIER,
@@ -574,6 +582,7 @@ enum cp_tree_index
     CPTI_PFN_IDENTIFIER,
     CPTI_PFN_OR_DELTA2_IDENTIFIER,
     CPTI_VPTR_IDENTIFIER,
+    CPTI_PUSH_EXCEPTION_IDENTIFIER,
 
     CPTI_LANG_NAME_C,
     CPTI_LANG_NAME_CPLUSPLUS,
@@ -657,14 +666,18 @@ extern tree cp_global_trees[CPTI_MAX];
    frequently.  */
 
 /* The name of a constructor that takes an in-charge parameter to
-   decide whether or not to call virtual base classes.  */
+   decide whether or not to construct virtual base classes.  */
 #define ctor_identifier                 cp_global_trees[CPTI_CTOR_IDENTIFIER]
 /* The name of a constructor that constructs virtual base classes.  */
 #define complete_ctor_identifier        cp_global_trees[CPTI_COMPLETE_CTOR_IDENTIFIER]
 /* The name of a constructor that does not construct virtual base classes.  */
 #define base_ctor_identifier            cp_global_trees[CPTI_BASE_CTOR_IDENTIFIER]
-/* The name of a destructor that destroys virtual base classes.  */
+/* The name of a destructor that takes an in-charge parameter to
+   decide whether or not to destroy virtual base classes and whether
+   or not to delete the object.  */
 #define dtor_identifier                 cp_global_trees[CPTI_DTOR_IDENTIFIER]
+/* The name of a destructor that destroys virtual base classes.  */
+#define complete_dtor_identifier        cp_global_trees[CPTI_COMPLETE_DTOR_IDENTIFIER]
 /* The name of a destructor that does not destroy virtual base
    classes.  */
 #define base_dtor_identifier            cp_global_trees[CPTI_BASE_DTOR_IDENTIFIER]
@@ -681,6 +694,9 @@ extern tree cp_global_trees[CPTI_MAX];
 #define pfn_identifier                  cp_global_trees[CPTI_PFN_IDENTIFIER]
 #define pfn_or_delta2_identifier        cp_global_trees[CPTI_PFN_OR_DELTA2_IDENTIFIER]
 #define vptr_identifier                 cp_global_trees[CPTI_VPTR_IDENTIFIER]
+/* The name of the function to call to push an exception onto the
+   exception stack.  */
+#define cp_push_exception_identifier    cp_global_trees[CPTI_PUSH_EXCEPTION_IDENTIFIER]
 
 #define lang_name_c                     cp_global_trees[CPTI_LANG_NAME_C]
 #define lang_name_cplusplus             cp_global_trees[CPTI_LANG_NAME_CPLUSPLUS]
@@ -1331,8 +1347,10 @@ struct lang_type
   unsigned has_const_assign_ref : 1;
   unsigned anon_aggr : 1;
 
-  unsigned has_nonpublic_ctor : 2;
-  unsigned has_nonpublic_assign_ref : 2;
+  unsigned has_mutable : 1;
+  unsigned com_interface : 1;
+  unsigned non_pod_class : 1;
+  unsigned nearly_empty_p : 1;
   unsigned vtable_needs_writing : 1;
   unsigned has_assign_ref : 1;
   unsigned has_new : 1;
@@ -1365,20 +1383,15 @@ struct lang_type
   unsigned has_abstract_assign_ref : 1;
   unsigned non_aggregate : 1;
   unsigned is_partial_instantiation : 1;
-  unsigned has_mutable : 1;
-
-  unsigned com_interface : 1;
-  unsigned non_pod_class : 1;
-  unsigned nearly_empty_p : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
      so, make sure to copy it in instantiate_class_template!  */
 
-  /* There are six bits left to fill out a 32-bit word.  Keep track of
-     this by updating the size of this bitfield whenever you add or
+  /* There are some bits left to fill out a 32-bit word.  Keep track
+     of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 5;
+  unsigned dummy : 9;
       
   int vsize;
   int vfield_parent;
@@ -1482,17 +1495,29 @@ struct lang_type
    either a FUNCTION_DECL, a TEMPLATE_DECL, or an OVERLOAD.  All
    functions with the same name end up in the same slot.  The first
    two elements are for constructors, and destructors, respectively.
-   These are followed by ordinary member functions.  There may be
-   empty entries at the end of the vector.  */
+   Any conversion operators are next, followed by ordinary member
+   functions.  There may be empty entries at the end of the vector.  */
 #define CLASSTYPE_METHOD_VEC(NODE) (TYPE_LANG_SPECIFIC(NODE)->methods)
 
-/* The first type conversion operator in the class (the others can be
-   searched with TREE_CHAIN), or the first non-constructor function if
-   there are no type conversion operators.  */
-#define CLASSTYPE_FIRST_CONVERSION(NODE) \
-  TREE_VEC_LENGTH (CLASSTYPE_METHOD_VEC (NODE)) > 2 \
-    ? TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), 2) \
-    : NULL_TREE;
+/* The slot in the CLASSTYPE_METHOD_VEC where constructors go.  */
+#define CLASSTYPE_CONSTRUCTOR_SLOT 0
+
+/* The slot in the CLASSTYPE_METHOD_VEC where destructors go.  */
+#define CLASSTYPE_DESTRUCTOR_SLOT 1
+
+/* The first slot in the CLASSTYPE_METHOD_VEC where conversion
+   operators can appear.  */
+#define CLASSTYPE_FIRST_CONVERSION_SLOT 2
+
+/* A FUNCTION_DECL or OVERLOAD for the constructors for NODE.  These
+   are the constructors that take an in-charge parameter.  */
+#define CLASSTYPE_CONSTRUCTORS(NODE) \
+  (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_CONSTRUCTOR_SLOT))
+
+/* A FUNCTION_DECL for the destructor for NODE.  These are te
+   destructors that take an in-charge parameter.  */
+#define CLASSTYPE_DESTRUCTORS(NODE) \
+  (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_DESTRUCTOR_SLOT))
 
 /* Mark bits for depth-first and breath-first searches.  */
 
@@ -1642,14 +1667,6 @@ struct lang_type
 /* Nonzero means that this type has an X() constructor.  */
 #define TYPE_HAS_DEFAULT_CONSTRUCTOR(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_default_ctor)
 
-/* Nonzero means the type declared a ctor as private or protected.  We
-   use this to make sure we don't try to generate a copy ctor for a 
-   class that has a member of type NODE.  */
-#define TYPE_HAS_NONPUBLIC_CTOR(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_nonpublic_ctor)
-
-/* Ditto, for operator=.  */
-#define TYPE_HAS_NONPUBLIC_ASSIGN_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_nonpublic_assign_ref)
-
 /* Nonzero means that this type contains a mutable member */
 #define CLASSTYPE_HAS_MUTABLE(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
@@ -1755,7 +1772,7 @@ struct lang_type
 
       struct A {};
       struct B : public A { };
-      struct C : virtual public B { void f(); };
+      struct C : virtual public B { void f(); int i; };
 
    `A' is the primary base class for `B'.  But, `B' is not a primary
    base class for `C'.  So, in the copy of `A' that appears in the
@@ -1844,12 +1861,12 @@ struct lang_decl_flags
 
   unsigned operator_attr : 1;
   unsigned constructor_attr : 1;
+  unsigned destructor_attr : 1;
   unsigned friend_attr : 1;
   unsigned static_function : 1;
-  unsigned const_memfunc : 1;
-  unsigned volatile_memfunc : 1;
   unsigned pure_virtual : 1;
-  unsigned constructor_for_vbase_attr : 1;
+  unsigned has_in_charge_parm_p : 1;
+  unsigned pretty_function_p : 1;
 
   unsigned mutable_flag : 1;
   unsigned deferred : 1;
@@ -1864,8 +1881,7 @@ struct lang_decl_flags
   unsigned pending_inline_p : 1;
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
-  unsigned pretty_function_p : 1;
-  unsigned dummy : 2;
+  unsigned dummy : 3;
 
   tree context;
 
@@ -1897,6 +1913,9 @@ struct lang_decl
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
   tree saved_tree;
 
+  /* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
+  tree cloned_function;
+
   union
   {
     tree sorted_fields;
@@ -1924,11 +1943,66 @@ struct lang_decl
 /* For FUNCTION_DECLs: nonzero means that this function is a constructor.  */
 #define DECL_CONSTRUCTOR_P(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.constructor_attr)
 
+/* Nonzero if NODE (a FUNCTION_DECL) is a constructor for a complete
+   object.  */
+#define DECL_COMPLETE_CONSTRUCTOR_P(NODE)		\
+  (DECL_CONSTRUCTOR_P (NODE) 				\
+   && DECL_NAME (NODE) == complete_ctor_identifier)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a constructor for a base
+   object.  */
+#define DECL_BASE_CONSTRUCTOR_P(NODE)		\
+  (DECL_CONSTRUCTOR_P (NODE)			\
+   && DECL_NAME (NODE) == base_ctor_identifier)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a constructor, but not either the
+   specialized in-charge constructor or the specialized not-in-charge
+   constructor.  */
+#define DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P(NODE)		\
+  (DECL_CONSTRUCTOR_P (NODE) && !DECL_CLONED_FUNCTION_P (NODE))
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a copy constructor.  */
+#define DECL_COPY_CONSTRUCTOR_P(NODE) \
+  (DECL_CONSTRUCTOR_P (NODE) && copy_args_p (NODE))
+
 /* There ought to be a better way to find out whether or not something is
    a destructor.  */
 #define DECL_DESTRUCTOR_P(NODE)				\
-  (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (NODE))	\
-   && DECL_LANGUAGE (NODE) == lang_cplusplus)
+  (DECL_LANG_SPECIFIC (NODE)->decl_flags.destructor_attr)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a destructor, but not the
+   specialized in-charge constructor, in-charge deleting constructor,
+   or the the base destructor.  */
+#define DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P(NODE)			\
+  (DECL_DESTRUCTOR_P (NODE) && !DECL_CLONED_FUNCTION_P (NODE))
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a complete
+   object.  */
+#define DECL_COMPLETE_DESTRUCTOR_P(NODE)		\
+  (DECL_DESTRUCTOR_P (NODE) 				\
+   && DECL_NAME (NODE) == complete_dtor_identifier)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a base
+   object.  */
+#define DECL_BASE_DESTRUCTOR_P(NODE)		\
+  (DECL_DESTRUCTOR_P (NODE)			\
+   && DECL_NAME (NODE) == base_dtor_identifier)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a complete
+   object.  */
+#define DECL_DELETING_DESTRUCTOR_P(NODE)		\
+  (DECL_DESTRUCTOR_P (NODE) 				\
+   && DECL_NAME (NODE) == deleting_dtor_identifier)
+
+/* Nonzero if NODE (a FUNCTION_DECL) is a cloned constructor or
+   destructor.  */
+#define DECL_CLONED_FUNCTION_P(NODE) \
+  (DECL_CLONED_FUNCTION (NODE) != NULL_TREE)
+
+/* If DECL_CLONED_FUNCTION_P holds, this is the function that was
+   cloned.  */
+#define DECL_CLONED_FUNCTION(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->cloned_function)
 
 /* Non-zero if NODE is a user-defined conversion operator.  */
 #define DECL_CONV_FN_P(NODE)						     \
@@ -1938,9 +2012,11 @@ struct lang_decl
 #define DECL_OVERLOADED_OPERATOR_P(NODE)	\
   (IDENTIFIER_OPNAME_P (DECL_NAME ((NODE))))
 
-/* For FUNCTION_DECLs: nonzero means that this function is a constructor
-   for an object with virtual baseclasses.  */
-#define DECL_CONSTRUCTOR_FOR_VBASE_P(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.constructor_for_vbase_attr)
+/* For FUNCTION_DECLs: nonzero means that this function is a
+   constructor or a destructor with an extra in-charge parameter to
+   control whether or not virtual bases are constructed.  */
+#define DECL_HAS_IN_CHARGE_PARM_P(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->decl_flags.has_in_charge_parm_p)
 
 /* Non-zero for a FUNCTION_DECL that declares a type-info function.
    This only happens in the old abi.  */
@@ -2000,11 +2076,10 @@ struct lang_decl
 
 /* Nonzero for FUNCTION_DECL means that this member function
    has `this' as const X *const.  */
-#define DECL_CONST_MEMFUNC_P(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.const_memfunc)
-
-/* Nonzero for FUNCTION_DECL means that this member function
-   has `this' as volatile X *const.  */
-#define DECL_VOLATILE_MEMFUNC_P(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.volatile_memfunc)
+#define DECL_CONST_MEMFUNC_P(NODE)					 \
+  (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)				 \
+   && CP_TYPE_CONST_P (TREE_TYPE (TREE_VALUE 				 \
+				  (TYPE_ARG_TYPES (TREE_TYPE (NODE))))))
 
 /* Nonzero for a DECL means that this member is a non-static member.  */
 #define DECL_NONSTATIC_MEMBER_P(NODE) 		\
@@ -3716,7 +3791,8 @@ extern void unreverse_member_declarations       PARAMS ((tree));
 extern void invalidate_class_lookup_cache       PARAMS ((void));
 extern void maybe_note_name_used_in_class       PARAMS ((tree, tree));
 extern void note_name_declared_in_class         PARAMS ((tree, tree));
-extern tree get_vtbl_decl_for_binfo           PARAMS ((tree));
+extern tree get_vtbl_decl_for_binfo             PARAMS ((tree));
+extern tree in_charge_arg_for_name              PARAMS ((tree));
 
 /* in cvt.c */
 extern tree convert_to_reference		PARAMS ((tree, tree, int, int, tree));
@@ -3732,6 +3808,7 @@ extern tree build_type_conversion		PARAMS ((tree, tree, int));
 extern tree build_expr_type_conversion		PARAMS ((int, tree, int));
 extern tree type_promotes_to			PARAMS ((tree));
 extern tree perform_qualification_conversions   PARAMS ((tree, tree));
+extern void clone_function_decl                 PARAMS ((tree, int));
 
 /* decl.c */
 /* resume_binding_level */
@@ -3848,11 +3925,10 @@ extern int start_function			PARAMS ((tree, tree, tree, int));
 extern void expand_start_early_try_stmts	PARAMS ((void));
 extern void store_parm_decls			PARAMS ((void));
 extern void store_return_init			PARAMS ((tree));
-extern tree finish_function			PARAMS ((int, int));
+extern tree finish_function			PARAMS ((int));
 extern tree start_method			PARAMS ((tree, tree, tree));
 extern tree finish_method			PARAMS ((tree));
 extern void hack_incomplete_structures		PARAMS ((tree));
-extern tree maybe_build_cleanup_and_delete	PARAMS ((tree));
 extern tree maybe_build_cleanup			PARAMS ((tree));
 extern void cplus_expand_expr_stmt		PARAMS ((tree));
 extern void finish_stmt				PARAMS ((void));
@@ -4063,6 +4139,7 @@ extern int real_yylex				PARAMS ((void));
 extern int is_rid				PARAMS ((tree));
 extern tree build_lang_decl			PARAMS ((enum tree_code, tree, tree));
 extern void retrofit_lang_decl			PARAMS ((tree));
+extern tree copy_decl                           PARAMS ((tree));
 extern void copy_lang_decl			PARAMS ((tree));
 extern tree cp_make_lang_type			PARAMS ((enum tree_code));
 extern tree make_aggr_type			PARAMS ((enum tree_code));
@@ -4101,6 +4178,7 @@ extern tree implicitly_declare_fn               PARAMS ((special_function_kind, 
 /* In optimize.c */
 extern void optimize_function                   PARAMS ((tree));
 extern int calls_setjmp_p                       PARAMS ((tree));
+extern int maybe_clone_body                     PARAMS ((tree));
 
 /* in pt.c */
 extern void init_pt                             PARAMS ((void));

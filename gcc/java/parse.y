@@ -2932,7 +2932,7 @@ yyerror (msg)
   else
     java_error_count++;
   
-  if (elc.col == 0 && msg[1] == ';')
+  if (elc.col == 0 && msg && msg[1] == ';')
     {
       elc.col  = ctxp->p_line->char_col-1;
       elc.line = ctxp->p_line->lineno;
@@ -3348,7 +3348,7 @@ check_class_interface_creation (is_interface, flags, raw_name, qualified_name, d
 	sca = (GET_CPC_LIST () ? ACC_STATIC : 0);
     }
 
-  /* Inner classes and interfaces can be declared private or protected
+  /* Inner classes can be declared private or protected
      within their enclosing classes. */
   if (CPC_INNER_P ())
     {
@@ -3364,11 +3364,20 @@ check_class_interface_creation (is_interface, flags, raw_name, qualified_name, d
 	}
     }
 
-  if (is_interface)
-    check_modifiers ("Illegal modifier `%s' for interface declaration",
-		     flags, INTERFACE_MODIFIERS);
+  if (is_interface) 
+    {
+      if (CPC_INNER_P ())
+	uaaf = INTERFACE_INNER_MODIFIERS;
+      else
+	uaaf = INTERFACE_MODIFIERS;
+      
+      check_modifiers ("Illegal modifier `%s' for interface declaration", 
+		       flags, uaaf);
+    }
   else
-    check_modifiers ("Illegal modifier `%s' for class declaration",
+    check_modifiers ((current_function_decl ?
+		      "Illegal modifier `%s' for local class declaration" :
+		      "Illegal modifier `%s' for class declaration"),
 		     flags, uaaf|sca|icaf);
   return 0;
 }
@@ -3539,9 +3548,9 @@ maybe_make_nested_class_name (name)
   if (CPC_INNER_P ())
     {
       make_nested_class_name (GET_CPC_LIST ());
-      obstack_grow (&temporary_obstack,
-		    IDENTIFIER_POINTER (name), 
-		    IDENTIFIER_LENGTH (name));
+      obstack_grow0 (&temporary_obstack,
+		     IDENTIFIER_POINTER (name), 
+		     IDENTIFIER_LENGTH (name));
       id = get_identifier (obstack_finish (&temporary_obstack));
       if (ctxp->package)
 	QUALIFIED_P (id) = 1;
@@ -3748,7 +3757,7 @@ create_anonymous_class (location, type_name)
   return class;
 }
 
-/* Create an class in pass1 and return its decl. Return class
+/* Create a class in pass1 and return its decl. Return class
    interface's decl in pass 2.  */
 
 static tree
@@ -5390,8 +5399,32 @@ do_resolve_class (enclosing, class_type, decl, cl)
   /* Maybe some code here should be added to load the class or
      something, at least if the class isn't an inner class and ended
      being loaded from class file. FIXME. */
-  if ((new_class_decl = find_as_inner_class (enclosing, class_type, cl)))
-    return new_class_decl;
+  while (enclosing)
+    {
+      tree name;
+
+      if ((new_class_decl = find_as_inner_class (enclosing, class_type, cl)))
+        return new_class_decl;
+
+      /* Now go to the upper classes, bail out if necessary. */
+      enclosing = CLASSTYPE_SUPER (TREE_TYPE (enclosing));
+      if (!enclosing || enclosing == object_type_node)
+	break;
+      
+      if (TREE_CODE (enclosing) == RECORD_TYPE)
+	{
+	  enclosing = TYPE_NAME (enclosing);
+	  continue;
+	}
+
+      if (TREE_CODE (enclosing) == IDENTIFIER_NODE)
+	{
+	  BUILD_PTR_FROM_NAME (name, enclosing);
+	}
+      else
+	name = enclosing;
+      enclosing = do_resolve_class (NULL, name, NULL, NULL);
+    }
 
   /* 1- Check for the type in single imports */
   if (find_in_imports (class_type))
@@ -8239,6 +8272,12 @@ java_expand_classes ()
   java_layout_classes ();
   java_parse_abort_on_error ();
 
+  /* The list of packages declaration seen so far needs to be
+     reversed, so that package declared in a file being compiled gets
+     priority over packages declared as a side effect of parsing other
+     files.*/
+  package_list = nreverse (package_list);
+
   saved_ctxp = ctxp_for_generation;
   for (; ctxp_for_generation; ctxp_for_generation = ctxp_for_generation->next)
     {
@@ -9119,14 +9158,14 @@ not_accessible_p (reference, member, from_super)
 
       /* Otherwise, access is granted if occuring from the class where
 	 member is declared or a subclass of it */
-      if (inherits_from_p (reference, current_class))
+      if (inherits_from_p (reference, DECL_CONTEXT (member)))
 	return 0;
       return 1;
     }
 
   /* Check access on private members. Access is granted only if it
-     occurs from within the class in witch it is declared. Exceptions
-     are access from inner-classes. This section is probably not
+     occurs from within the class in which it is declared. Exceptions
+     are accesses from inner-classes. This section is probably not
      complete. FIXME */
   if (access_flag & ACC_PRIVATE)
     return (current_class == DECL_CONTEXT (member) ? 0 : 
@@ -9137,7 +9176,7 @@ not_accessible_p (reference, member, from_super)
      REFERENCE is defined in the current package */
   if (ctxp->package)
     return !class_in_current_package (reference);
-  
+
   /* Otherwise, access is granted */
   return 0;
 }
@@ -10963,8 +11002,7 @@ java_complete_lhs (node)
           nn = java_complete_tree (wfl_op1);
           if (nn == error_mark_node)
             return error_mark_node;
-          if ((cn = patch_string (nn)))
-            nn = cn;
+
           TREE_OPERAND (node, 0) = nn;
         }
       if (TREE_CODE (node) != PLUS_EXPR || !JSTRING_P (wfl_op2))
@@ -10972,8 +11010,7 @@ java_complete_lhs (node)
           nn = java_complete_tree (wfl_op2);
           if (nn == error_mark_node)
             return error_mark_node;
-          if ((cn = patch_string (nn)))
-            nn = cn;
+
           TREE_OPERAND (node, 1) = nn;
         }
       return force_evaluation_order (patch_binop (node, wfl_op1, wfl_op2));
@@ -12089,7 +12126,7 @@ patch_binop (node, wfl_op1, wfl_op2)
   tree op2 = TREE_OPERAND (node, 1);
   tree op1_type = TREE_TYPE (op1);
   tree op2_type = TREE_TYPE (op2);
-  tree prom_type = NULL_TREE;
+  tree prom_type = NULL_TREE, cn;
   int code = TREE_CODE (node);
 
   /* If 1, tell the routine that we have to return error_mark_node
@@ -12367,6 +12404,18 @@ patch_binop (node, wfl_op1, wfl_op2)
       /* 15.20 Equality Operator */
     case EQ_EXPR:
     case NE_EXPR:
+      /* It's time for us to patch the strings. */
+      if ((cn = patch_string (op1))) 
+       {
+         op1 = cn;
+         op1_type = TREE_TYPE (op1);
+       }
+      if ((cn = patch_string (op2))) 
+       {
+         op2 = cn;
+         op2_type = TREE_TYPE (op2);
+       }
+      
       /* 15.20.1 Numerical Equality Operators == and != */
       /* Binary numeric promotion is performed on the operands */
       if (JNUMERIC_TYPE_P (op1_type) && JNUMERIC_TYPE_P (op2_type))

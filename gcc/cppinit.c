@@ -21,14 +21,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-
+#include "hashtab.h"
 #include "cpplib.h"
 #include "cpphash.h"
 #include "output.h"
 #include "prefix.h"
 #include "intl.h"
 #include "version.h"
-#include "hashtab.h"
 #include "mkdeps.h"
 
 /* Predefined symbols, built-in macros, and the default include path. */
@@ -521,12 +520,11 @@ dump_special_to_buffer (pfile, macro_name)
 {
   static const char define_directive[] = "#define ";
   int macro_name_length = strlen (macro_name);
-  _cpp_output_line_command (pfile, same_file);
   CPP_RESERVE (pfile, sizeof(define_directive) + macro_name_length);
   CPP_PUTS_Q (pfile, define_directive, sizeof(define_directive)-1);
   CPP_PUTS_Q (pfile, macro_name, macro_name_length);
   CPP_PUTC_Q (pfile, ' ');
-  cpp_expand_to_buffer (pfile, macro_name, macro_name_length);
+  _cpp_expand_to_buffer (pfile, macro_name, macro_name_length);
   CPP_PUTC (pfile, '\n');
 }
 
@@ -552,6 +550,31 @@ cpp_reader_init (pfile)
 
   _cpp_init_macro_hash (pfile);
   _cpp_init_include_hash (pfile);
+}
+
+/* Initialize a cpp_printer structure.  As a side effect, open the
+   output file.  */
+cpp_printer *
+cpp_printer_init (pfile, print)
+     cpp_reader *pfile;
+     cpp_printer *print;
+{
+  memset (print, '\0', sizeof (cpp_printer));
+  if (CPP_OPTION (pfile, out_fname) == NULL)
+    CPP_OPTION (pfile, out_fname) = "";
+  
+  if (CPP_OPTION (pfile, out_fname)[0] == '\0')
+    print->outf = stdout;
+  else
+    {
+      print->outf = fopen (CPP_OPTION (pfile, out_fname), "w");
+      if (! print->outf)
+	{
+	  cpp_notice_from_errno (pfile, CPP_OPTION (pfile, out_fname));
+	  return NULL;
+	}
+    }
+  return print;
 }
 
 /* Free resources used by PFILE.
@@ -659,7 +682,7 @@ initialize_builtins (pfile)
       hp = _cpp_make_hashnode (b->name, len, b->type,
 			       _cpp_calc_hash (b->name, len));
       hp->value.cpval = val;
-      *(htab_find_slot (pfile->hashtab, (void *)hp, 1)) = hp;
+      *(htab_find_slot (pfile->hashtab, (void *) hp, INSERT)) = hp;
 
       if ((b->flags & DUMP) && CPP_OPTION (pfile, debug_output))
 	dump_special_to_buffer (pfile, b->name);
@@ -771,7 +794,7 @@ initialize_standard_includes (pfile)
      These have /usr/local/lib/gcc... replaced by specd_prefix.  */
   if (specd_prefix != 0)
     {
-      char *default_prefix = alloca (sizeof GCC_INCLUDE_DIR - 7);
+      char *default_prefix = (char *) alloca (sizeof GCC_INCLUDE_DIR - 7);
       /* Remove the `include' from /usr/local/lib/gcc.../include.
 	 GCC_INCLUDE_DIR will always end in /include. */
       int default_len = sizeof GCC_INCLUDE_DIR - 8;
@@ -829,8 +852,9 @@ initialize_standard_includes (pfile)
  */
 
 int
-cpp_start_read (pfile, fname)
+cpp_start_read (pfile, print, fname)
      cpp_reader *pfile;
+     cpp_printer *print;
      const char *fname;
 {
   struct pending_option *p, *q;
@@ -915,6 +939,14 @@ cpp_start_read (pfile, fname)
 
   CPP_BUFFER (pfile)->lineno = 0;
 
+  if (print)
+    {
+      print->lineno = 0;
+      print->last_fname = CPP_BUFFER (pfile)->nominal_fname;
+      print->last_bsd = pfile->buffer_stack_depth;
+      print->written = CPP_WRITTEN (pfile);
+    }
+
   /* Install __LINE__, etc.  */
   initialize_builtins (pfile);
 
@@ -927,42 +959,32 @@ cpp_start_read (pfile, fname)
       free (p);
       p = q;
     }
-
   pfile->done_initializing = 1;
-  CPP_BUFFER (pfile)->lineno = 1;
-
-  if (CPP_OPTION (pfile, preprocessed))
-    /* If we've already processed this code, we want to trust the #line
-       directives in the input.  But we still need to update our line
-       counter accordingly.  */
-    pfile->lineno = CPP_BUFFER (pfile)->lineno;
-  else
-    _cpp_output_line_command (pfile, same_file);
   pfile->only_seen_white = 2;
+  CPP_BUFFER (pfile)->lineno = 1;
+  if (print && ! CPP_OPTION (pfile, no_output))
+    cpp_output_tokens (pfile, print);
 
   /* The -imacros files can be scanned now, but the -include files
      have to be pushed onto the include stack and processed later,
      in the main loop calling cpp_get_token.  */
 
-  CPP_OPTION (pfile, no_output)++;
   p = CPP_OPTION (pfile, pending)->imacros_head;
   while (p)
     {
       if (cpp_read_file (pfile, p->arg))
-	cpp_scan_buffer (pfile);
-
+	cpp_scan_buffer_nooutput (pfile);
       q = p->next;
       free (p);
       p = q;
     }
-  CPP_OPTION (pfile, no_output)--;
 
   p = CPP_OPTION (pfile, pending)->include_head;
   while (p)
     {
-      if (cpp_read_file (pfile, p->arg))
-	_cpp_output_line_command (pfile, enter_file);
-
+      if (cpp_read_file (pfile, p->arg)
+	  && print && ! CPP_OPTION (pfile, no_output))
+	cpp_output_tokens (pfile, print);
       q = p->next;
       free (p);
       p = q;
@@ -979,13 +1001,16 @@ cpp_start_read (pfile, fname)
    clear macro definitions, such that you could call cpp_start_read
    with a new filename to restart processing. */
 void
-cpp_finish (pfile)
+cpp_finish (pfile, print)
      cpp_reader *pfile;
+     cpp_printer *print;
 {
-  if (CPP_PREV_BUFFER (CPP_BUFFER (pfile)))
-    cpp_ice (pfile, "buffers still stacked in cpp_finish");
-  while (CPP_BUFFER (pfile))
-    cpp_pop_buffer (pfile);
+  if (CPP_BUFFER (pfile))
+    {
+      cpp_ice (pfile, "buffers still stacked in cpp_finish");
+      while (CPP_BUFFER (pfile))
+	cpp_pop_buffer (pfile);
+    }
 
   /* Don't write the deps file if preprocessing has failed.  */
   if (CPP_OPTION (pfile, print_deps) && pfile->errors == 0)
@@ -1015,6 +1040,14 @@ cpp_finish (pfile)
 
   if (CPP_OPTION (pfile, dump_macros) == dump_only)
     _cpp_dump_macro_hash (pfile);
+
+  /* Flush any pending output.  */
+  if (print)
+    {
+      cpp_output_tokens (pfile, print);
+      if (ferror (print->outf) || fclose (print->outf))
+	cpp_notice_from_errno (pfile, CPP_OPTION (pfile, out_fname));
+    }
 }
 
 static void
@@ -1246,7 +1279,7 @@ handle_option (pfile, argc, argv)
 	      arg = argv[++i];
 	      if (!arg)
 		{
-		  cpp_fatal (pfile, _(cl_options[opt_index].msg), argv[i - 1]);
+		  cpp_fatal (pfile, cl_options[opt_index].msg, argv[i - 1]);
 		  return argc;
 		}
 	    }

@@ -336,10 +336,6 @@ extern int flag_no_builtin;
 
 extern int flag_no_nonansi_builtin;
 
-/* Nonzero if we want to support huge (> 2^(sizeof(short)*8-1) bytes)
-   objects.  */
-extern int flag_huge_objects;
-
 /* Nonzero if we want to conserve space in the .o files.  We do this
    by putting uninitialized data and runtime initialized data into
    .common instead of .data at the expense of not flagging multiple
@@ -2940,7 +2936,8 @@ decls_match (newdecl, olddecl)
 
       if (same_type_p (TREE_TYPE (f1), TREE_TYPE (f2)))
 	{
-	  if (! strict_prototypes_lang_c && DECL_LANGUAGE (olddecl) == lang_c
+	  if ((! strict_prototypes_lang_c || DECL_BUILT_IN (olddecl))
+	      && DECL_LANGUAGE (olddecl) == lang_c
 	      && p2 == NULL_TREE)
 	    {
 	      types_match = self_promoting_args_p (p1);
@@ -6045,6 +6042,8 @@ typedef struct predefined_identifier
   const char *name;
   /* The place where the IDENTIFIER_NODE should be stored.  */
   tree *node;
+  /* Non-zero if this is the name of a constructor or destructor.  */
+  int ctor_or_dtor_p;
 } predefined_identifier;
 
 /* Create all the predefined identifiers.  */
@@ -6056,29 +6055,35 @@ initialize_predefined_identifiers ()
 
   /* A table of identifiers to create at startup.  */
   static predefined_identifier predefined_identifiers[] = {
-    { "C++", &lang_name_cplusplus },
-    { "C", &lang_name_c },
-    { "Java", &lang_name_java },
-    { CTOR_NAME, &ctor_identifier },
-    { "__base_ctor", &base_ctor_identifier },
-    { "__comp_ctor", &complete_ctor_identifier },
-    { DTOR_NAME, &dtor_identifier },
-    { "__base_dtor", &base_dtor_identifier },
-    { "__deleting_dtor", &deleting_dtor_identifier },
-    { VTABLE_DELTA2_NAME, &delta2_identifier },
-    { VTABLE_DELTA_NAME, &delta_identifier },
-    { IN_CHARGE_NAME, &in_charge_identifier },
-    { VTABLE_INDEX_NAME, &index_identifier },
-    { "nelts", &nelts_identifier },
-    { THIS_NAME, &this_identifier },
-    { VTABLE_PFN_NAME, &pfn_identifier },
-    { "__pfn_or_delta2", &pfn_or_delta2_identifier },
-    { "_vptr", &vptr_identifier },
-    { NULL, NULL }
+    { "C++", &lang_name_cplusplus, 0 },
+    { "C", &lang_name_c, 0 },
+    { "Java", &lang_name_java, 0 },
+    { CTOR_NAME, &ctor_identifier, 1 },
+    { "__base_ctor", &base_ctor_identifier, 1 },
+    { "__comp_ctor", &complete_ctor_identifier, 1 },
+    { DTOR_NAME, &dtor_identifier, 1 },
+    { "__comp_dtor", &complete_dtor_identifier, 1 },
+    { "__base_dtor", &base_dtor_identifier, 1 },
+    { "__deleting_dtor", &deleting_dtor_identifier, 1 },
+    { VTABLE_DELTA2_NAME, &delta2_identifier, 0 },
+    { VTABLE_DELTA_NAME, &delta_identifier, 0 },
+    { IN_CHARGE_NAME, &in_charge_identifier, 0 },
+    { VTABLE_INDEX_NAME, &index_identifier, 0 },
+    { "nelts", &nelts_identifier, 0 },
+    { THIS_NAME, &this_identifier, 0 },
+    { VTABLE_PFN_NAME, &pfn_identifier, 0 },
+    { "__pfn_or_delta2", &pfn_or_delta2_identifier, 0 },
+    { "_vptr", &vptr_identifier, 0 },
+    { "__cp_push_exception", &cp_push_exception_identifier, 0 },
+    { NULL, NULL, 0 }
   };
 
   for (pid = predefined_identifiers; pid->name; ++pid)
-    *pid->node = get_identifier (pid->name);
+    {
+      *pid->node = get_identifier (pid->name);
+      if (pid->ctor_or_dtor_p)
+	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
+    }
 }
 
 /* Create the predefined scalar types of C,
@@ -6781,6 +6786,7 @@ check_tag_decl (declspecs)
      tree declspecs;
 {
   int found_type = 0;
+  int saw_friend = 0;
   tree ob_modifier = NULL_TREE;
   register tree link;
   register tree t = NULL_TREE;
@@ -6789,7 +6795,10 @@ check_tag_decl (declspecs)
     {
       register tree value = TREE_VALUE (link);
 
-      if (TYPE_P (value))
+      if (TYPE_P (value)
+	  || (TREE_CODE (value) == IDENTIFIER_NODE
+	      && IDENTIFIER_GLOBAL_VALUE (value)
+	      && TYPE_P (IDENTIFIER_GLOBAL_VALUE (value))))
 	{
 	  ++found_type;
 
@@ -6804,6 +6813,8 @@ check_tag_decl (declspecs)
 	  if (current_class_type == NULL_TREE
 	      || current_scope () != current_class_type)
 	    ob_modifier = value;
+	  else
+	    saw_friend = 1;
 	}
       else if (value == ridpointers[(int) RID_STATIC]
 	       || value == ridpointers[(int) RID_EXTERN]
@@ -6820,9 +6831,7 @@ check_tag_decl (declspecs)
   if (found_type > 1)
     error ("multiple types in one declaration");
 
-  /* Inside a class, we might be in a friend or access declaration.
-     Until we have a good way of detecting the latter, don't warn.  */
-  if (t == NULL_TREE && ! current_class_type)
+  if (t == NULL_TREE && ! saw_friend)
     pedwarn ("declaration does not declare anything");
 
   /* Check for an anonymous union.  We're careful
@@ -8279,7 +8288,7 @@ end_cleanup_fn ()
 {
   do_poplevel ();
 
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 
   pop_from_top_level ();
 }
@@ -10922,6 +10931,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	 Nothing can refer to it, so nothing needs know about the name
 	 change.  */
       if (type != error_mark_node
+	  && declarator
 	  && TYPE_NAME (type)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	  && ANON_AGGRNAME_P (TYPE_IDENTIFIER (type))
@@ -11245,7 +11255,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl)));
 
 		/* Skip the `in_chrg' argument too, if present.  */
-		if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (decl)))
+		if (DECL_HAS_IN_CHARGE_PARM_P (decl))
 		  arg_types = TREE_CHAIN (arg_types);
 
 		if (arg_types == void_list_node
@@ -11963,8 +11973,7 @@ copy_args_p (d)
     return 0;
 
   t = FUNCTION_ARG_CHAIN (d);
-  if (DECL_CONSTRUCTOR_P (d)
-      && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (d)))
+  if (DECL_CONSTRUCTOR_P (d) && DECL_HAS_IN_CHARGE_PARM_P (d))
     t = TREE_CHAIN (t);
   if (t && TREE_CODE (TREE_VALUE (t)) == REFERENCE_TYPE
       && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (t)))
@@ -11995,7 +12004,7 @@ grok_ctor_properties (ctype, decl)
      added to any ctor so we can tell if the class has been initialized
      yet.  This could screw things up in this function, so we deliberately
      ignore the leading int if we're in that situation.  */
-  if (TYPE_USES_VIRTUAL_BASECLASSES (ctype))
+  if (DECL_HAS_IN_CHARGE_PARM_P (decl))
     {
       my_friendly_assert (parmtypes
 			  && TREE_VALUE (parmtypes) == integer_type_node,
@@ -13439,8 +13448,7 @@ start_function (declspecs, declarator, attrs, flags)
 
       /* Constructors and destructors need to know whether they're "in
 	 charge" of initializing virtual base classes.  */
-      if (DECL_CONSTRUCTOR_FOR_VBASE_P (decl1)
-	  || DECL_DESTRUCTOR_P (decl1))
+      if (DECL_HAS_IN_CHARGE_PARM_P (decl1))
 	current_in_charge_parm = TREE_CHAIN (t);
     }
 
@@ -13543,8 +13551,7 @@ start_function (declspecs, declarator, attrs, flags)
 
   ++function_depth;
 
-  if (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (decl1))
-      && DECL_LANGUAGE (decl1) == lang_cplusplus)
+  if (DECL_DESTRUCTOR_P (decl1))
     {
       dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (dtor_label) = current_function_decl;
@@ -13807,9 +13814,9 @@ static void
 finish_destructor_body ()
 {
   tree compound_stmt;
-  tree in_charge;
   tree virtual_size;
   tree exprstmt;
+  tree if_stmt;
 
   /* Create a block to contain all the extra code.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
@@ -13827,16 +13834,9 @@ finish_destructor_body ()
      will set the flag again.  */
   TYPE_HAS_DESTRUCTOR (current_class_type) = 0;
 
-  /* These are two cases where we cannot delegate deletion.  */
-  if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type)
-      || TYPE_GETS_REG_DELETE (current_class_type))
-    in_charge = integer_zero_node;
-  else
-    in_charge = current_in_charge_parm;
-
   exprstmt = build_delete (current_class_type,
 			   current_class_ref,
-			   in_charge,
+			   integer_zero_node,
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR|LOOKUP_NORMAL,
 			   0);
 
@@ -13869,8 +13869,8 @@ finish_destructor_body ()
 		     TYPE_BINFO (current_class_type));
 		  finish_expr_stmt
 		    (build_scoped_method_call
-		     (current_class_ref, vb, dtor_identifier,
-		      build_tree_list (NULL_TREE, integer_zero_node)));
+		     (current_class_ref, vb, complete_dtor_identifier,
+		      NULL_TREE));
 		}
 	      vbases = TREE_CHAIN (vbases);
 	    }
@@ -13893,24 +13893,18 @@ finish_destructor_body ()
      only defines placement deletes we don't do anything here.  So we
      pass LOOKUP_SPECULATIVELY; delete_sanity will complain for us if
      they ever try to delete one of these.  */
-  if (TYPE_GETS_REG_DELETE (current_class_type)
-      || TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
-    {
-      tree if_stmt;
+  exprstmt = build_op_delete_call
+    (DELETE_EXPR, current_class_ptr, virtual_size,
+     LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
 
-      exprstmt = build_op_delete_call
-	(DELETE_EXPR, current_class_ptr, virtual_size,
-	 LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
-
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
-				  current_in_charge_parm,
-				  integer_one_node),
-			   if_stmt);
-      finish_expr_stmt (exprstmt);
-      finish_then_clause (if_stmt);
-      finish_if_stmt ();
-    }
+  if_stmt = begin_if_stmt ();
+  finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
+			      current_in_charge_parm,
+			      integer_one_node),
+		       if_stmt);
+  finish_expr_stmt (exprstmt);
+  finish_then_clause (if_stmt);
+  finish_if_stmt ();
 
   /* Close the block we started above.  */
   finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
@@ -13919,9 +13913,6 @@ finish_destructor_body ()
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage
    for the function definition.
-
-   This is called after parsing the body of the function definition.
-   LINENO is the current line number.
 
    FLAGS is a bitwise or of the following values:
      1 - CALL_POPLEVEL
@@ -13934,8 +13925,7 @@ finish_destructor_body ()
        after the class definition is complete.)  */
 
 tree
-finish_function (lineno, flags)
-     int lineno;
+finish_function (flags)
      int flags;
 {
   register tree fndecl = current_function_decl;
@@ -13946,6 +13936,7 @@ finish_function (lineno, flags)
   int inclass_inline = (flags & 2) != 0;
   int expand_p;
   int nested;
+  int current_line = lineno;
 
   /* When we get some parse errors, we can end up without a
      current_function_decl, so cope.  */
@@ -13966,7 +13957,11 @@ finish_function (lineno, flags)
       store_parm_decls ();
     }
 
-  if (building_stmt_tree ())
+  /* For a cloned function, we've already got all the code we need;
+     there's no need to add any extra bits.  */
+  if (building_stmt_tree () && DECL_CLONED_FUNCTION_P (fndecl))
+    ;
+  else if (building_stmt_tree ())
     {
       if (DECL_CONSTRUCTOR_P (fndecl))
 	{
@@ -14060,7 +14055,7 @@ finish_function (lineno, flags)
 	  DECL_CONTEXT (no_return_label) = fndecl;
 	  DECL_INITIAL (no_return_label) = error_mark_node;
 	  DECL_SOURCE_FILE (no_return_label) = input_filename;
-	  DECL_SOURCE_LINE (no_return_label) = lineno;
+	  DECL_SOURCE_LINE (no_return_label) = current_line;
 	  expand_goto (no_return_label);
 	}
 
@@ -14099,7 +14094,7 @@ finish_function (lineno, flags)
       immediate_size_expand = 1;
 
       /* Generate rtl for function exit.  */
-      expand_function_end (input_filename, lineno, 1);
+      expand_function_end (input_filename, current_line, 1);
     }
 
   /* We have to save this value here in case
@@ -14555,16 +14550,6 @@ maybe_build_cleanup_1 (decl, auto_delete)
 }
 
 /* If DECL is of a type which needs a cleanup, build that cleanup
-   here.  The cleanup does free the storage with a call to delete.  */
-
-tree
-maybe_build_cleanup_and_delete (decl)
-     tree decl;
-{
-  return maybe_build_cleanup_1 (decl, integer_three_node);
-}
-
-/* If DECL is of a type which needs a cleanup, build that cleanup
    here.  The cleanup does not free the storage with a call a delete.  */
 
 tree
@@ -14586,9 +14571,6 @@ void
 cplus_expand_expr_stmt (exp)
      tree exp;
 {
-  if (stmts_are_full_exprs_p)
-    exp = convert_to_void (exp, "statement");
-
 #if 0
   /* We should do this eventually, but right now this causes regex.o from
      libg++ to miscompile, and tString to core dump.  */
@@ -14766,6 +14748,7 @@ lang_mark_tree (t)
 	    {
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->saved_tree);
+	      ggc_mark_tree (ld->cloned_function);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL

@@ -31,36 +31,160 @@ extern "C" {
 typedef struct cpp_reader cpp_reader;
 typedef struct cpp_buffer cpp_buffer;
 typedef struct cpp_options cpp_options;
+typedef struct cpp_printer cpp_printer;
+typedef struct cpp_token cpp_token;
+typedef struct cpp_toklist cpp_toklist;
 
-enum cpp_token
+  /* Put operators that can appear in a preprocessor expression first.
+     This allows a lookup table to be implemented in _cpp_parse_expr.
+     Ordering within this group is currently not significant, apart
+     from those ending in '=' being at the end.  */
+#define TTYPE_TABLE				\
+  T(CPP_PLUS = 0,	"+")	/* math */	\
+  T(CPP_MINUS,		"-")			\
+  T(CPP_MULT,		"*")			\
+  T(CPP_DIV,		"/")			\
+  T(CPP_MOD,		"%")			\
+  T(CPP_AND,		"&")	/* bit ops */	\
+  T(CPP_OR,		"|")			\
+  T(CPP_XOR,		"^")			\
+  T(CPP_COMPL,		"~")			\
+  T(CPP_RSHIFT,		">>")			\
+  T(CPP_LSHIFT,		"<<")			\
+  T(CPP_NOT,		"!")	/* logicals */	\
+  T(CPP_AND_AND,	"&&")			\
+  T(CPP_OR_OR,		"||")			\
+  T(CPP_QUERY,		"?")			\
+  T(CPP_COLON,		":")			\
+  T(CPP_COMMA,		",")	/* grouping */	\
+  T(CPP_OPEN_PAREN,	"(")			\
+  T(CPP_CLOSE_PAREN,	")")			\
+  T(CPP_GREATER,	">")	/* compare */	\
+  T(CPP_LESS,		"<")			\
+  T(CPP_EQ_EQ,		"==")			\
+  T(CPP_NOT_EQ,		"!=")			\
+  T(CPP_GREATER_EQ,	">=")			\
+  T(CPP_LESS_EQ,	"<=")			\
+\
+  /* The remainder of the punctuation.  Order is not significant. */	\
+  T(CPP_PLUS_EQ,	"+=")	/* math */	\
+  T(CPP_MINUS_EQ,	"-=")			\
+  T(CPP_MULT_EQ,	"*=")			\
+  T(CPP_DIV_EQ,		"/=")			\
+  T(CPP_MOD_EQ,		"%=")			\
+  T(CPP_AND_EQ,		"&=")	/* bit ops */	\
+  T(CPP_OR_EQ,		"|=")			\
+  T(CPP_XOR_EQ,		"^=")			\
+  T(CPP_COMPL_EQ,	"~=")			\
+  T(CPP_RSHIFT_EQ,	">>=")			\
+  T(CPP_LSHIFT_EQ,	"<<=")			\
+  T(CPP_EQ,		"=")	/* assign */	\
+  T(CPP_PLUS_PLUS,	"++")	/* increment */	\
+  T(CPP_MINUS_MINUS,	"--")			\
+  T(CPP_DEREF,		"->")	/* accessors */	\
+  T(CPP_DOT,		".")			\
+  T(CPP_OPEN_SQUARE,	"[")			\
+  T(CPP_CLOSE_SQUARE,	"]")			\
+  T(CPP_SCOPE,		"::")			\
+  T(CPP_DEREF_STAR,	"->*")			\
+  T(CPP_DOT_STAR,	".*")			\
+  T(CPP_OPEN_BRACE,	"{")	/* structure */	\
+  T(CPP_CLOSE_BRACE,	"}")			\
+  T(CPP_SEMICOLON,	";")			\
+  T(CPP_ELLIPSIS,	"...")			\
+  T(CPP_HASH,		"#")			\
+  T(CPP_PASTE,		"##")			\
+  T(CPP_BACKSLASH,	"\\")			\
+  T(CPP_MIN,		"<?")	/* extension */	\
+  T(CPP_MAX,		">?")			\
+  T(CPP_OTHER,		spell_other) /* stray punctuation */ \
+\
+  T(CPP_NAME,		spell_name)	/* word */	\
+  T(CPP_INT,		0)		/* 23 */	\
+  T(CPP_FLOAT,		0)		/* 3.14159 */	\
+  T(CPP_NUMBER,		spell_name)	/* 34_be+ta  */	\
+  T(CPP_CHAR,		spell_char)	/* 'char' */	\
+  T(CPP_WCHAR,		spell_char)	/* L'char' */	\
+  T(CPP_STRING,		spell_string)	/* "string" */	\
+  T(CPP_WSTRING,	spell_string)	/* L"string" */	\
+\
+  T(CPP_COMMENT,	spell_comment)	/* Only if output comments.  */ \
+  T(CPP_VSPACE,		"\n")		/* End of line.  */		\
+  T(CPP_EOF,		0)		/* End of file.  */		\
+  T(CPP_HEADER_NAME,	0)		/* <stdio.h> in #include */	\
+  T(CPP_ASSERTION,	0)		/* (...) in #assert */		\
+\
+  /* Obsolete - will be removed when no code uses them still.  */	\
+  T(CPP_HSPACE,		0)		/* Horizontal white space.  */	\
+  T(CPP_POP,		0)		/* End of buffer.  */		\
+  T(CPP_DIRECTIVE,	0)		/* #define and the like */	\
+  T(CPP_MACRO,		0)		/* Like a NAME, but expanded.  */
+
+#define T(e, s) e,
+enum cpp_ttype
 {
-  CPP_EOF = -1,
-  CPP_OTHER = 0,
-  CPP_COMMENT = 1,
-  CPP_HSPACE,
-  CPP_VSPACE, /* newlines and #line directives */
-  CPP_NAME,
-  CPP_MACRO,
-  CPP_NUMBER,
-  CPP_CHAR,
-  CPP_WCHAR,
-  CPP_STRING,
-  CPP_WSTRING,
-  CPP_DIRECTIVE,
-  CPP_ASSERTION,	/* #machine(a29k) */
-  CPP_STRINGIZE,	/* stringize macro argument */
-  CPP_TOKPASTE,		/* paste macro arg with next/prev token */
-  CPP_LPAREN,		/* "(" */
-  CPP_RPAREN,		/* ")" */
-  CPP_LBRACE,		/* "{" */
-  CPP_RBRACE,		/* "}" */
-  CPP_COMMA,		/* "," */
-  CPP_SEMICOLON,	/* ";" */
-  CPP_3DOTS,		/* "..." */
-  CPP_POP		/* We're about to pop the buffer stack.  */
+  TTYPE_TABLE
+  N_TTYPES
+};
+#undef T
+
+/* Payload of a NAME, NUMBER, FLOAT, STRING, or COMMENT token.  */
+struct cpp_name
+{
+  unsigned int len;
+  unsigned int offset;		/* from list->namebuf */
 };
 
-typedef int (*parse_cleanup_t) PARAMS((cpp_buffer *, cpp_reader *));
+/* Per token flags.  */
+#define HSPACE_BEFORE	(1 << 0)	/* token preceded by hspace */
+
+/* A preprocessing token.
+   This has been carefully packed and should occupy 16 bytes on
+   both 32- and 64-bit hosts.  */
+struct cpp_token
+{
+  unsigned short col;			/* starting column of this token */
+#ifdef ENUM_BITFIELDS_ARE_UNSIGNED
+  enum cpp_ttype type : CHAR_BIT;	/* node type */
+#else
+  unsigned char type;
+#endif
+  unsigned char flags;			/* flags - see above */
+  unsigned int aux;			/* hash of a NAME, or something -
+					   see uses in the code */
+  union
+  {
+    struct cpp_name name;		/* a string */
+    HOST_WIDEST_INT integer;		/* an integer */
+  } val;
+};
+
+/* Directive flags.  */
+#define SYNTAX_INCLUDE (1 << 8)
+#define SYNTAX_ASSERT  (1 << 9)
+
+typedef int (*directive_handler) PARAMS ((cpp_reader *));
+typedef int (*parse_cleanup_t) PARAMS ((cpp_buffer *, cpp_reader *));
+
+struct cpp_toklist
+{
+  struct cpp_token *tokens;	/* actual tokens as an array */
+  unsigned int tokens_used;	/* tokens used */
+  unsigned int tokens_cap;	/* tokens allocated */
+
+  unsigned char *namebuf;	/* names buffer */
+  unsigned int name_used;	/* _bytes_ used */
+  unsigned int name_cap;	/* _bytes_ allocated */
+
+  unsigned int line;		/* starting line number */
+
+  /* Only used if tokens[0].type == CPP_DIRECTIVE.  This is the
+     handler to call after lexing the rest of this line.  The flags
+     indicate whether the rest of the line gets special treatment
+     during lexing (#include, #if, #assert, #unassert).  */
+  directive_handler dir_handler;
+  unsigned short dir_flags;
+};
 
 struct cpp_buffer
 {
@@ -74,8 +198,6 @@ struct cpp_buffer
 
   /* Filename specified with #line command.  */
   const char *nominal_fname;
-  /* Last filename specified with #line command.  */
-  const char *last_nominal_fname;
   /* Actual directory of this file, used only for "" includes */
   struct file_name_list *actual_dir;
 
@@ -83,7 +205,6 @@ struct cpp_buffer
      to record control macros. */
   struct ihash *ihash;
 
-  long lineno; /* Line number at CPP_LINE_BASE. */
   parse_cleanup_t cleanup;
 
   /* If the buffer is the expansion of a macro, this points to the
@@ -94,8 +215,13 @@ struct cpp_buffer
      Used to prohibit unmatched #endif (etc) in an include file.  */
   struct if_stack *if_stack;
 
+  /* Line number at line_base (above). */
+  unsigned int lineno;
+
   /* True if this is a header file included using <FILENAME>.  */
   char system_header_p;
+
+  /* True if end-of-file has already been hit once in this buffer.  */
   char seen_eof;
 
   /* True if buffer contains escape sequences.
@@ -132,7 +258,7 @@ struct htab;
 /* Values for opts.dump_macros.
   dump_only means inhibit output of the preprocessed text
              and instead output the definitions of all user-defined
-             macros in a form suitable for use as input to cccp.
+             macros in a form suitable for use as input to cpp.
    dump_names means pass #define and the macro name through to output.
    dump_definitions means pass the whole definition (plus #define) through
 */
@@ -312,7 +438,11 @@ struct cpp_options
 
 struct cpp_reader
 {
+  /* Top of buffer stack.  */
   cpp_buffer *buffer;
+
+  /* Token list used by get_directive_token.  */
+  cpp_toklist directbuf;
 
   /* A buffer used for both for cpp_get_token's output, and also internally. */
   unsigned char *token_buffer;
@@ -322,16 +452,16 @@ struct cpp_reader
   unsigned char *limit;
 
   /* Error counter for exit code */
-  int errors;
+  unsigned int errors;
 
   /* Line where a newline was first seen in a string constant.  */
-  int multiline_string_line;
+  unsigned int multiline_string_line;
 
   /* Current depth in #include directives that use <...>.  */
-  int system_include_depth;
+  unsigned int system_include_depth;
 
   /* Current depth of buffer stack. */
-  int buffer_stack_depth;
+  unsigned int buffer_stack_depth;
 
   /* Hash table of macros and assertions.  See cpphash.c */
   struct htab *hashtab;
@@ -349,8 +479,6 @@ struct cpp_reader
 
   struct if_stack *if_stack;
   const unsigned char *potential_control_macro;
-
-  long lineno;
 
   /* Buffer of -M output.  */
   struct deps *deps;
@@ -400,6 +528,19 @@ struct cpp_reader
   unsigned char done_initializing;
 };
 
+/* struct cpp_printer encapsulates state used to convert the stream of
+   tokens coming from cpp_get_token back into a text file.  Not
+   everyone wants to do that, hence we separate the function.  */
+
+struct cpp_printer
+{
+  FILE *outf;			/* stream to write to */
+  const char *last_fname;	/* previous file name */
+  unsigned int last_bsd;	/* did we just push? */
+  unsigned int lineno;		/* line currently being written */
+  unsigned int written;		/* low water mark in token buffer */
+};
+
 #define CPP_FATAL_LIMIT 1000
 /* True if we have seen a "fatal" error. */
 #define CPP_FATAL_ERRORS(READER) ((READER)->errors >= CPP_FATAL_LIMIT)
@@ -414,20 +555,25 @@ struct cpp_reader
 
 #define CPP_OPTION(PFILE, OPTION) ((PFILE)->opts.OPTION)
 #define CPP_BUFFER(PFILE) ((PFILE)->buffer)
+#define CPP_BUF_LINE(BUF) ((BUF)->lineno)
+#define CPP_BUF_COL(BUF) ((BUF)->cur - (BUF)->line_base)
 
 /* Name under which this program was invoked.  */
 extern const char *progname;
 
 extern int cpp_handle_options PARAMS ((cpp_reader *, int, char **));
-extern enum cpp_token cpp_get_token PARAMS ((cpp_reader *));
-extern enum cpp_token cpp_get_non_space_token PARAMS ((cpp_reader *));
+extern enum cpp_ttype cpp_get_token PARAMS ((cpp_reader *));
+extern enum cpp_ttype cpp_get_non_space_token PARAMS ((cpp_reader *));
 
 extern void cpp_reader_init PARAMS ((cpp_reader *));
-extern int cpp_start_read PARAMS ((cpp_reader *, const char *));
-extern void cpp_finish PARAMS ((cpp_reader *));
-extern void cpp_cleanup PARAMS ((cpp_reader *PFILE));
+extern cpp_printer *cpp_printer_init PARAMS ((cpp_reader *, cpp_printer *));
+extern int cpp_start_read PARAMS ((cpp_reader *, cpp_printer *, const char *));
+extern void cpp_output_tokens PARAMS ((cpp_reader *, cpp_printer *));
+extern void cpp_output_list PARAMS ((cpp_reader *, cpp_printer *,
+				     const cpp_toklist *));
+extern void cpp_finish PARAMS ((cpp_reader *, cpp_printer *));
+extern void cpp_cleanup PARAMS ((cpp_reader *));
 
-extern void cpp_buf_line_and_col PARAMS((cpp_buffer *, long *, long *));
 extern cpp_buffer *cpp_file_buffer PARAMS((cpp_reader *));
 extern void cpp_define PARAMS ((cpp_reader *, const char *));
 extern void cpp_assert PARAMS ((cpp_reader *, const char *));
@@ -460,17 +606,21 @@ extern void cpp_pedwarn_with_line PARAMS ((cpp_reader *, int, int, const char *m
   ATTRIBUTE_PRINTF_4;
 extern void cpp_pedwarn_with_file_and_line PARAMS ((cpp_reader *, const char *, int, int, const char *msgid, ...))
   ATTRIBUTE_PRINTF_5;
-extern void cpp_error_from_errno PARAMS ((cpp_reader *, const char *));
-extern void cpp_notice_from_errno PARAMS ((cpp_reader *, const char *));
+extern void cpp_error_from_errno	PARAMS ((cpp_reader *, const char *));
+extern void cpp_notice_from_errno	PARAMS ((cpp_reader *, const char *));
 
-extern cpp_buffer *cpp_push_buffer PARAMS ((cpp_reader *,
-					    const unsigned char *, long));
-extern cpp_buffer *cpp_pop_buffer PARAMS ((cpp_reader *));
-extern int cpp_defined PARAMS ((cpp_reader *, const unsigned char *, int));
+/* In cpplex.c */
+extern cpp_buffer *cpp_push_buffer	PARAMS ((cpp_reader *,
+						 const unsigned char *, long));
+extern cpp_buffer *cpp_pop_buffer	PARAMS ((cpp_reader *));
+extern void cpp_scan_buffer		PARAMS ((cpp_reader *, cpp_printer *));
+extern void cpp_scan_buffer_nooutput	PARAMS ((cpp_reader *));
 
-extern void cpp_expand_to_buffer	PARAMS ((cpp_reader *,
+
+
+/* In cpphash.c */
+extern int cpp_defined			PARAMS ((cpp_reader *,
 						 const unsigned char *, int));
-extern void cpp_scan_buffer		PARAMS ((cpp_reader *));
 
 /* In cppfiles.c */
 extern int cpp_included			PARAMS ((cpp_reader *, const char *));

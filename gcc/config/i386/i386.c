@@ -163,12 +163,12 @@ struct processor_costs k6_cost = {
 
 struct processor_costs athlon_cost = {
   1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
+  2,					/* cost of a lea instruction */
   1,					/* variable shift costs */
   1,					/* constant shift costs */
   5,					/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  19,					/* cost of a divide/mod */
+  42,					/* cost of a divide/mod */
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -177,9 +177,9 @@ struct processor_costs athlon_cost = {
 					   Relative to reg-reg move (2). */
   {2, 3, 2},				/* cost of storing integer registers */
   4,					/* cost of reg,reg fld/fst */
-  {6, 6, 6},				/* cost of loading fp registers
+  {6, 6, 20},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 4}				/* cost of loading integer registers */
+  {4, 4, 16}				/* cost of loading integer registers */
 };
 
 struct processor_costs *ix86_cost = &pentium_cost;
@@ -218,6 +218,13 @@ const int x86_qimode_math = ~(0);
 const int x86_promote_qi_regs = 0;
 const int x86_himode_math = ~(m_PPRO);
 const int x86_promote_hi_regs = m_PPRO;
+const int x86_sub_esp_4 = m_ATHLON | m_PPRO;
+const int x86_sub_esp_8 = m_ATHLON | m_PPRO | m_386 | m_486;
+const int x86_add_esp_4 = m_ATHLON | m_K6;
+const int x86_add_esp_8 = m_ATHLON | m_PPRO | m_K6 | m_386 | m_486;
+const int x86_integer_DFmode_moves = ~m_ATHLON;
+const int x86_partial_reg_dependency = m_ATHLON;
+const int x86_memory_mismatch_stall = m_ATHLON;
 
 #define AT_BP(mode) (gen_rtx_MEM ((mode), hard_frame_pointer_rtx))
 
@@ -1968,51 +1975,16 @@ static void
 ix86_emit_epilogue_esp_adjustment (tsize)
      int tsize;
 {
-  /* Intel's docs say that for 4 or 8 bytes of stack frame one should
-     use `pop' and not `add'.  */
-  int use_pop = tsize == 4;
-  rtx edx = 0, ecx;
-
-  /* Use two pops only for the Pentium processors.  */
-  if (tsize == 8 && !TARGET_386 && !TARGET_486)
-    {
-      rtx retval = current_function_return_rtx;
-
-      edx = gen_rtx_REG (SImode, 1);
-
-      /* This case is a bit more complex.  Since we cannot pop into
-         %ecx twice we need a second register.  But this is only
-         available if the return value is not of DImode in which
-         case the %edx register is not available.  */
-      use_pop = (retval == NULL
-		 || !reg_overlap_mentioned_p (edx, retval));
-    }
-
-  if (use_pop)
-    {
-      ecx = gen_rtx_REG (SImode, 2);
-
-      /* We have to prevent the two pops here from being scheduled.
-         GCC otherwise would try in some situation to put other
-         instructions in between them which has a bad effect.  */
-      emit_insn (gen_blockage ());
-      emit_insn (gen_popsi1 (ecx));
-      if (tsize == 8)
-	emit_insn (gen_popsi1 (edx));
-    }
+  /* If a frame pointer is present, we must be sure to tie the sp
+     to the fp so that we don't mis-schedule.  */
+  if (frame_pointer_needed)
+    emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
+					      stack_pointer_rtx,
+					      GEN_INT (tsize),
+					      hard_frame_pointer_rtx));
   else
-    {
-      /* If a frame pointer is present, we must be sure to tie the sp
-	 to the fp so that we don't mis-schedule.  */
-      if (frame_pointer_needed)
-        emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
-						  stack_pointer_rtx,
-						  GEN_INT (tsize),
-						  hard_frame_pointer_rtx));
-      else
-        emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-			       GEN_INT (tsize)));
-    }
+    emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
+			   GEN_INT (tsize)));
 }
 
 /* Emit code to restore saved registers using MOV insns.  First register
@@ -2137,11 +2109,11 @@ ix86_expand_epilogue (emit_return)
     {
       rtx popc = GEN_INT (current_function_pops_args);
 
-      /* i386 can only pop 32K bytes (maybe 64K?  Is it signed?).  If
-	 asked to pop more, pop return address, do explicit add, and jump
-	 indirectly to the caller. */
+      /* i386 can only pop 64K bytes.  If asked to pop more, pop
+	 return address, do explicit add, and jump indirectly to the
+	 caller. */
 
-      if (current_function_pops_args >= 32768)
+      if (current_function_pops_args >= 65536)
 	{
 	  rtx ecx = gen_rtx_REG (SImode, 2);
 
@@ -4231,7 +4203,7 @@ ix86_expand_binary_operator (code, mode, operands)
     src1 = force_reg (mode, src1);
     
   /* If optimizing, copy to regs to improve CSE */
-  if (optimize && !reload_in_progress && !reload_completed)
+  if (optimize && ! no_new_pseudos)
     {
       if (GET_CODE (dst) == MEM)
 	dst = gen_reg_rtx (mode);
@@ -4325,7 +4297,7 @@ ix86_expand_unary_operator (code, mode, operands)
     src = force_reg (mode, src);
   
   /* If optimizing, copy to regs to improve CSE */
-  if (optimize && !reload_in_progress && !reload_completed)
+  if (optimize && ! no_new_pseudos)
     {
       if (GET_CODE (dst) == MEM)
 	dst = gen_reg_rtx (mode);
@@ -5644,9 +5616,9 @@ ix86_split_ashldi (operands, scratch)
       emit_insn (gen_x86_shld_1 (high[0], low[0], operands[2]));
       emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
 
-      if (TARGET_CMOVE && (! reload_completed || scratch))
+      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
 	{
-	  if (! reload_completed)
+	  if (! no_new_pseudos)
 	    scratch = force_reg (SImode, const0_rtx);
 	  else
 	    emit_move_insn (scratch, const0_rtx);
@@ -5704,9 +5676,9 @@ ix86_split_ashrdi (operands, scratch)
       emit_insn (gen_x86_shrd_1 (low[0], high[0], operands[2]));
       emit_insn (gen_ashrsi3 (high[0], high[0], operands[2]));
 
-      if (TARGET_CMOVE && (!reload_completed || scratch))
+      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
 	{
-	  if (! reload_completed)
+	  if (! no_new_pseudos)
 	    scratch = gen_reg_rtx (SImode);
 	  emit_move_insn (scratch, high[0]);
 	  emit_insn (gen_ashrsi3 (scratch, scratch, GEN_INT (31)));
@@ -5757,9 +5729,9 @@ ix86_split_lshrdi (operands, scratch)
       emit_insn (gen_lshrsi3 (high[0], high[0], operands[2]));
 
       /* Heh.  By reversing the arguments, we can reuse this pattern.  */
-      if (TARGET_CMOVE && (! reload_completed || scratch))
+      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
 	{
-	  if (! reload_completed)
+	  if (! no_new_pseudos)
 	    scratch = force_reg (SImode, const0_rtx);
 	  else
 	    emit_move_insn (scratch, const0_rtx);
@@ -6318,6 +6290,7 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
      int cost;
 {
   enum attr_type insn_type, dep_insn_type;
+  enum attr_memory memory;
   rtx set, set2;
   int dep_insn_code_number;
 
@@ -6365,7 +6338,8 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
 	 increase the cost here for non-imov insns.  */
       if (dep_insn_type != TYPE_IMOV
 	  && dep_insn_type != TYPE_FMOV
-	  && get_attr_memory (dep_insn) == MEMORY_LOAD)
+	  && ((memory = get_attr_memory (dep_insn) == MEMORY_LOAD)
+              || memory == MEMORY_BOTH))
 	cost += 1;
 
       /* INT->FP conversion is expensive.  */
@@ -6390,7 +6364,8 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
 
       /* Since we can't represent delayed latencies of load+operation, 
 	 increase the cost here for non-imov insns.  */
-      if (get_attr_memory (dep_insn) == MEMORY_LOAD)
+      if ((memory = get_attr_memory (dep_insn) == MEMORY_LOAD)
+          || memory == MEMORY_BOTH)
 	cost += (dep_insn_type != TYPE_IMOV) ? 2 : 1;
 
       /* INT->FP conversion is expensive.  */
@@ -6399,19 +6374,15 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       break;
 
     case PROCESSOR_ATHLON:
-      /* Address Generation Interlock cause problems on the Athlon CPU because
-         the loads and stores are done in order so once one load or store has
-	 to wait, others must too, so penalize the AGIs slightly by one cycle.
-	 We might experiment with this value later.  */
-      if (ix86_agi_dependant (insn, dep_insn, insn_type))
-	cost += 1;
+      if ((memory = get_attr_memory (dep_insn)) == MEMORY_LOAD
+           || memory == MEMORY_BOTH)
+	{
+	  if (dep_insn_type == TYPE_IMOV || dep_insn_type == TYPE_FMOV)
+	    cost += 2;
+	  else
+	    cost += 3;
+        }
 
-      /* Since we can't represent delayed latencies of load+operation, 
-	 increase the cost here for non-imov insns.  */
-      if (dep_insn_type != TYPE_IMOV
-	  && dep_insn_type != TYPE_FMOV
-	  && get_attr_memory (dep_insn) == MEMORY_LOAD)
-	cost += 2;
     default:
       break;
     }
