@@ -1,3 +1,11 @@
+2004-08-16  Caroline Tice  <ctice@apple.com>
+
+	Add hot/cold partitioning update that was accepted in FSF Mainline.
+        * varasm.c (text_section): Remove alignment statement.
+	(assemble_start_function): Remove APPLE LOCAL markers from code
+	added to FSF mainline;  Add code to properly align cold section at
+	start of function.
+	
 2004-08-16  Devang Patel  <dpatel@apple.com>
 	
 	Merge from mainlne.

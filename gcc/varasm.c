@@ -221,7 +221,6 @@ text_section (void)
     {
       in_section = in_text;
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
-      ASM_OUTPUT_ALIGN (asm_out_file, 2);
     }
 }
 
@@ -1145,7 +1144,6 @@ assemble_start_function (tree decl, const char *fnname)
 {
   int align;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (unlikely_text_section_name)
     free (unlikely_text_section_name);
 
@@ -1156,11 +1154,24 @@ assemble_start_function (tree decl, const char *fnname)
     free (unlikely_section_label);
   unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
   sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* The following code does not need preprocessing in the assembler.  */
 
   app_disable ();
+
+  /* Make sure the cold text (code) section is properly aligned.  This
+     is necessary here in the case where the function has both hot and
+     cold sections, because we don't want to re-set the alignment when the
+     section switch happens mid-function.  We don't need to set the hot
+     section alignment here, because code further down in this function
+     sets the alignment for whichever section comes first, and if there
+     is a hot section it is guaranteed to be first.  */
+
+  if (flag_reorder_blocks_and_partition)
+    {
+      unlikely_text_section ();
+      assemble_align (FUNCTION_BOUNDARY);
+    }
 
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
@@ -1221,14 +1232,12 @@ assemble_start_function (tree decl, const char *fnname)
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
 
-  /* APPLE LOCAL begin hot/cold partitioning */
   if (in_unlikely_text_section ()
       && !unlikely_section_label_printed)
     {
       ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
       unlikely_section_label_printed = true;
     }
-  /* APPLE LOCAL end hot/cold partitioning */
 }
 
 /* Output assembler code associated with defining the size of the
