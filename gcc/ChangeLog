@@ -1,3 +1,9 @@
+2002-10-08  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) [LROTATE_EXPR, RROTATE_EXPR]: Optimize
+	left and right rotates of ~0, i.e. integer_all_onesp (arg0).
+	[LSHIFT_EXPR, RSHIFT_EXPR]: Optimize shifts and rotates of zero.
+
 Tue Oct  8 01:24:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
