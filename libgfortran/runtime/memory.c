@@ -340,6 +340,7 @@ deallocate (void **mem, GFC_INTEGER_4 * stat)
 
   /* Just use the internal routine.  */
   internal_free (*mem);
+  *mem = NULL;
 
   if (stat)
     *stat = 0;

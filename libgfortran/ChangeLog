@@ -1,5 +1,9 @@
 2003-11-27  Paul Brook  <paul@nowt.org>
 
+	* runtime/memory.c (deallocate): Nullify pointer after freeing.
+
+2003-11-27  Paul Brook  <paul@nowt.org>
+
 	* intrinsics/string_intrinsics.c: Use new memory allocation interface.
 	* libgfortran.h: Ditto.
 	* m4/in_pack.m4: Ditto.

@@ -1,6 +1,6 @@
-2003-11-28  Paul Brook  <paul@nowt.org>
+2003-11-29  Paul Brook  <paul@nowt.org>
 
-	* gfortran.fortran-torture/execute/alternate_return.f90: New test.
+	* gfortran.fortran-torture/execute/allocate.f90: New test.
 
 2003-11-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
