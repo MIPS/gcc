@@ -2148,8 +2148,8 @@ subst_to_stack_p ()
    spill code.  This also sets up the structures for incrementally
    building the interference graph in the next pass.  */
 
+extern int have_splits_p (void);
 extern void insert_splits (bitmap);
-int any_splits_found;
 
 int
 actual_spill (int spill_p ATTRIBUTE_UNUSED)
@@ -2198,7 +2198,7 @@ actual_spill (int spill_p ATTRIBUTE_UNUSED)
   if (ra_pass > 1)
     {
       rebuildit = need_rebuild ();
-      rebuildit |= any_splits_found;
+      rebuildit |= have_splits_p ();
       detect_non_changed_webs ();
     }
   detect_web_parts_to_rebuild ();
@@ -3175,6 +3175,18 @@ reset_web_live_s (live, suplive, web)
     bitmap_clear_bit (suplive, web->id);
 }
 
+int
+have_splits_p (void)
+{
+  unsigned int i;
+  if (!flag_ra_split_webs)
+    return 0;
+  for (i = 0; i < num_webs - num_subwebs; i++)
+    if (split_around[i] && bitmap_first_set_bit (split_around[i]) >= 0)
+      return 1;
+  return 0;
+}
+
 extern int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
 extern void init_split_costs PARAMS ((void));
 extern int find_splits PARAMS ((struct web *));
@@ -3202,7 +3214,6 @@ init_split_costs ()
   for (i = 0; i < (unsigned) last_basic_block + 2; i++)
     live_at_begin[i] = sbitmap_alloc (num_webs);
   live_at_begin += 2;
-  any_splits_found = 0;
 
   FOR_EACH_BB (bb)
     {
@@ -3560,7 +3571,6 @@ find_splits (web)
       web->color = newcol;
       remove_list (web->dlink, &WEBS(SPILLED));
       put_web (web, COLORED);
-      any_splits_found = 1;
       return 1;
     }
   else
@@ -3732,7 +3742,7 @@ insert_splits (new_deaths)
   basic_block bb;
   sbitmap live, need_load;
   bitmap suplive, split_those_1, lazy_store;
-  if (!any_splits_found)
+  if (!have_splits_p ())
     return;
   suplive = BITMAP_XMALLOC ();
   split_those_1 = BITMAP_XMALLOC ();

@@ -1,3 +1,20 @@
+2003-10-29  Michael Matz  <matz@suse.de>
+
+	* ra-build.c (select_regclass): Extend usable_regs for uninitialized
+	webs.
+
+2003-10-28  Michael Matz  <matz@suse.de>
+
+	* ra.c (toplevel, one_pass): Use have_splits_p instead of
+	any_splits_found.
+	* ra-rewrite.c (have_splits_p): New.
+	(any_splits_found): Delete.
+	(actual_spill, init_split_costs, insert_splits): Use it.
+
+2003-10-28  Michael Matz  <matz@suse.de>
+
+	* ra-build.c (parts_to_webs_1): Initialize web members.
+
 2003-10-27  Denis Chertykov  <denisc@overta.ru>
 
 	* pre-reload.c (collect_insn_info): Add #ifdef MICHAEL around

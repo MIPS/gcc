@@ -453,7 +453,7 @@ free_all_mem (struct df *df)
 static long ticks_build;
 static long ticks_rebuild;
 
-extern int any_splits_found;
+extern int have_splits_p (void);
 
 /* Perform one pass of allocation.  Returns nonzero, if some spill code
    was added, i.e. if the allocator needs to rerun.  */
@@ -489,7 +489,7 @@ one_pass (struct df *df, int rebuild)
       something_spilled = !!WEBS(SPILLED);
 
       /* Add spill code if necessary.  */
-      if (something_spilled || any_splits_found)
+      if (something_spilled || have_splits_p ())
 	something_spilled = actual_spill (1);
 
       /* Check all colored webs to detect ones colored by an_unusable_color.

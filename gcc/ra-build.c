@@ -2008,6 +2008,16 @@ parts_to_webs_1 (struct df *df, struct web_link **copy_webs,
 	    abort ();
 	  refs[r] = ref;
 	  def2web[i] = subweb;
+	  /* Remember to also update the flag depending on this ref.  */
+	  if ((DF_REF_FLAGS (ref) & DF_REF_MODE_CHANGE) != 0
+	      && web->regno >= FIRST_PSEUDO_REGISTER)
+	    web->mode_changed = 1;
+	  if ((DF_REF_FLAGS (ref) & DF_REF_STRIPPED) != 0
+	      && web->regno >= FIRST_PSEUDO_REGISTER)
+	    web->subreg_stripped = 1;
+	  if (i >= def_id
+	      && TEST_BIT (live_over_abnormal, ref_id))
+	    web->live_over_abnormal = 1;
 	  continue;
 	}
 
@@ -3023,6 +3033,19 @@ select_regclass ()
 	 where, if it finally is allocated to GENERAL_REGS it needs two,
 	 if allocated to FLOAT_REGS only one hardreg.  XXX */
       AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
+
+      /* Don't limit usable regs for uninitialized webs too much.
+	 This could make us spill them (when usable_regs becomes empty
+	 if we also remove caller saved regs),
+	 which actually produces invalid code for rmw references (where we
+	 didn't connect both refs dues to the read part being
+	 uninitialized).  Don't just avoid removing caller saved regs
+         for such webs.  Such webs look like live everywhere to flow,
+         also live over calls.  If we choose a caller save reg then
+         caller-save.c will insert the necessary insns.  */
+      if (!web->num_defs)
+	IOR_HARD_REG_SET (web->usable_regs,
+			  reg_class_contents[(int) GENERAL_REGS]);
       if (web->crosses_call)
 	{
 	  unsigned int num_refs = web->num_uses + web->num_defs;
