@@ -3279,10 +3279,7 @@ get_free_reg (dont_begin_colors, free_colors, mode)
       {
 	int i, size;
 	size = HARD_REGNO_NREGS (c, mode);
-	for (i = 1; (i < size
-		     && TEST_HARD_REG_BIT (free_colors, c + i)
-		     && !TEST_HARD_REG_BIT (dont_begin_colors, c + i))
-		     ; i++);
+	for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i) ; i++);
 	if (i != size)
  	  {
  	    c += i;

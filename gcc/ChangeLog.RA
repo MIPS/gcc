@@ -1,3 +1,7 @@
+Sun Dec 23 17:40:53 2001  Denis Chertykov  <denisc@overta.ru>
+
+	* ra.c (get_free_reg): Remove my wrong changes.
+
 Thu Dec 20 23:57:05 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c (get_free_reg): Check hardregs for dont_begin_colors.
