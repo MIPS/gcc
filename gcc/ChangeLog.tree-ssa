@@ -1,3 +1,11 @@
+2003-06-01  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (simplify_compound_lval): Call
+	recalculate_side_effects on each of the subexpressions.
+
+	* expr.c (expand_expr) <COND_EXPR>: Use the if-statement code if
+	it's void.
+
 2003-06-01  Daniel Berlin  <dberlin@dberlin.org
 
 	* tree-alias-common.c: Remove setting of DECL_CONTEXT in temp vars,

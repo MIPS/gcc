@@ -1194,7 +1194,7 @@ simplify_compound_lval (expr_p, pre_p, post_p)
 {
   tree *p;
   enum tree_code code;
-  varray_type dim_stack;
+  varray_type stack;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
@@ -1203,9 +1203,9 @@ simplify_compound_lval (expr_p, pre_p, post_p)
 
   code = ERROR_MARK;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
-  /* Create a stack with all the array dimensions so that they can be
-     simplified from left to right (to match user expectations).  */
-  VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
+  /* Create a stack of the subexpressions so later we can walk them in
+     order from inner to outer.  */
+  VARRAY_TREE_INIT (stack, 10, "stack");
 
   for (p = expr_p;
        TREE_CODE (*p) == ARRAY_REF || TREE_CODE (*p) == COMPONENT_REF;
@@ -1219,27 +1219,30 @@ simplify_compound_lval (expr_p, pre_p, post_p)
 	    /* If the size of the array elements is not constant,
 	       computing the offset is non-trivial, so expose it.  */
 	    break;
-	  VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR) &TREE_OPERAND (*p, 1));
 	}
+      VARRAY_PUSH_TREE (stack, *p);
     }
 
   /* Now 'p' points to the first bit that isn't an ARRAY_REF or
      COMPONENT_REF, 'code' is the TREE_CODE of the last bit that was, and
-     'dim_stack' is a stack of pointers to all the dimensions in left to
-     right order (the leftmost dimension is at the top of the stack).
+     'stack' is a stack of pointers to all the ARRAY_REFs and
+     COMPONENT_REFs we've walked through.
 
-     Simplify the base, and then each of the dimensions from left to
-     right.  */
+     Simplify the base, and then process each of the outer nodes from left
+     to right.  */
   simplify_expr (p, pre_p, post_p, is_simple_min_lval,
 		 code == COMPONENT_REF ? fb_either : fb_lvalue);
 
-  for (; VARRAY_ACTIVE_SIZE (dim_stack) > 0; VARRAY_POP (dim_stack))
+  for (; VARRAY_ACTIVE_SIZE (stack) > 0; VARRAY_POP (stack))
     {
-      tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
-      simplify_expr (dim_p, pre_p, post_p, is_simple_val, fb_rvalue);
+      tree t = VARRAY_TOP_TREE (stack);
+      if (TREE_CODE (t) == ARRAY_REF)
+	/* Simplify the dimension.  */
+	simplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p, is_simple_val,
+		       fb_rvalue);
+      /* Update TREE_SIDE_EFFECTS.  */
+      recalculate_side_effects (t);
     }
-
-  recalculate_side_effects (*expr_p);
 }
 
 /*  Simplify the self modifying expression pointed by EXPR_P (++, --, +=, -=).
