@@ -382,10 +382,38 @@ If @var{fn} wants to get at @var{var}, it should call
 @end deftypefn
 
 @subsection Walking the dominator tree
-@cindex walk dominator tree
 
-In progress.
+@deftypefn {Tree SSA function} void walk_dominator_tree (@var{walk_data}, @var{bb})
 
+This function walks the dominator tree for the current CFG calling a
+set of callback functions defined in @var{struct dom_walk_data} in
+@file{domwalk.h}.  The call back functions you need to define give you
+hooks to execute custom code at various points during traversal:
+
+@enumerate
+@item Once to initialize any local data needed while processing
+      @var{bb} and its children.  This local data is pushed into an
+      internal stack which is automatically pushed and popped as the
+      walker traverses the dominator tree.
+
+@item Once before traversing all the statements in the @var{bb}.
+
+@item Once for every statement inside @var{bb}.
+
+@item Once after traversing all the statements and before recursing
+      into @var{bb}'s dominator children.
+
+@item It then recurses into all the dominator children of @var{bb}.
+
+@item After recursing into all the dominator children of @var{bb} it
+      can, optionally, traverse every statement in @var{bb} again
+      (i.e., repeating steps 2 and 3).
+
+@item Once after walking the statements in @var{bb} and @var{bb}'s
+      dominator children.  At this stage, the block local data stack
+      is popped.
+@end enumerate
+@end deftypefn
 
 @node Alias analysis
 @section Alias analysis
