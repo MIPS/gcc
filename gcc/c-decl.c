@@ -2166,7 +2166,8 @@ implicitly_declare (tree functionid)
 	      implicit_decl_warning (functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
 	    }
-	  if (DECL_BUILT_IN (decl))
+	  /* APPLE LOCAL disable typechecking for SPEC --dbj */
+	  if (DECL_BUILT_IN (decl) || disable_typechecking_for_spec_flag)
 	    {
 	      if (!comptypes (default_function_type, TREE_TYPE (decl)))
 		{

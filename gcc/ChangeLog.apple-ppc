@@ -1,3 +1,8 @@
+2004-08-19  Dale Johannesen  <dalej@apple.com>
+
+	* c-decl.c (implicitly_declare): Reduce error to warning when
+	disable_typechecking_for_spec_flag is on.
+
 2004-08-18  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3753413
