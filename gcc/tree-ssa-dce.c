@@ -126,7 +126,7 @@ static void find_obviously_necessary_stmts (struct edge_list *);
 static void mark_control_dependent_edges_necessary (basic_block, struct edge_list *);
 static void propagate_necessity (struct edge_list *);
 
-static void eliminate_unnecessary_stmts (void);
+static bool eliminate_unnecessary_stmts (void);
 static void remove_dead_phis (basic_block);
 static void remove_dead_stmt (block_stmt_iterator *, basic_block);
 
@@ -695,11 +695,12 @@ mark_really_necessary_kill_operand_phis (void)
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
-static void
+static bool
 eliminate_unnecessary_stmts (void)
 {
   basic_block bb;
   block_stmt_iterator i;
+  bool modified = false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
@@ -719,7 +720,10 @@ eliminate_unnecessary_stmts (void)
 
          /* If `i' is not necessary then remove it.  */
          if (! NECESSARY (t))
-           remove_dead_stmt (&i, bb);
+	   {
+             modified = true;
+	     remove_dead_stmt (&i, bb);
+	   }
          else
            {
              tree call = get_call_expr_in (t);
@@ -728,8 +732,12 @@ eliminate_unnecessary_stmts (void)
              bsi_next (&i);
            }
 	}
+      bb->flags &= ~BB_VISITED;
     }
- }
+  ENTRY_BLOCK_PTR->flags &= ~BB_VISITED;
+  EXIT_BLOCK_PTR->flags &= ~BB_VISITED;
+  return modified;
+}
 
 /* Remove dead PHI nodes from block BB.  */
 
@@ -930,6 +938,7 @@ static void
 perform_tree_ssa_dce (bool aggressive)
 {
   struct edge_list *el = NULL;
+  bool modified;
 
   tree_dce_init (aggressive);
 
@@ -953,7 +962,7 @@ perform_tree_ssa_dce (bool aggressive)
   propagate_necessity (el);
 
   mark_really_necessary_kill_operand_phis ();
-  eliminate_unnecessary_stmts ();
+  modified = eliminate_unnecessary_stmts ();
 
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
@@ -963,6 +972,11 @@ perform_tree_ssa_dce (bool aggressive)
     print_stats ();
 
   tree_dce_done (aggressive);
+
+  /* Fixing def-def chains needs to build dominance tree that requires
+     all basic blocks reachable.  */
+  if (aggressive && modified)
+    delete_unreachable_blocks ();
 
   free_edge_list (el);
 }

@@ -1781,7 +1781,7 @@ struct tree_opt_pass pass_rest_of_compilation =
   TV_REST_OF_COMPILATION,               /* tv_id */
   PROP_rtl,		                /* properties_required */
   0,                                    /* properties_provided */
-  PROP_rtl,                             /* properties_destroyed */
+  PROP_rtl | PROP_cfg,                  /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */

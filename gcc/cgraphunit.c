@@ -803,12 +803,14 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   node->count = ENTRY_BLOCK_PTR->count;
 
+  bitmap_obstack_initialize (NULL);
   if (optimize)
     flow_loops_find (&loops, LOOP_TREE);
   cgraph_create_edges (node, decl);
   if (optimize)
     flow_loops_free (&loops);
   free_dominance_info (CDI_DOMINATORS);
+  bitmap_obstack_release (NULL);
 
   /* Only optimization we do in non-unit-at-a-time mode is inlining.  We don't
      use the passmanager then and instead call it directly.  Since we probably

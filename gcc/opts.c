@@ -524,6 +524,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
       flag_rerun_loop_opt = 1;
+      flag_early_optimizations = 1;
       flag_caller_saves = 1;
       flag_force_mem = 1;
       flag_peephole2 = 1;

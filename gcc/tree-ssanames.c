@@ -309,6 +309,9 @@ release_defs (tree stmt)
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
+  stmt_ann(stmt)->addresses_taken = NULL;
+  free_ssa_operands (&stmt_ann (stmt)->operands);
+  modify_stmt (stmt);
 }
 
 

@@ -1,3 +1,30 @@
+2005-03-03  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_analyze_function): Initialize bitmap obstack.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Return true when
+	something is elliminated.
+	(perform_tree_ssa_dce): Delete unreachable blocks for cddce.
+	* common.opt (fearly-optimizations): New flag.
+	* opts.c (decode_options): Enable at -O2.
+	* passes.c (pass_rest_of_compilation): Kill CFG.
+	* sched-rgn.c (compute_trg_info): Silence uninitialized warning.
+	* tree-flow-inline.h (mark_call_clobbered): New sanity check.
+	* tree-optimize.c (gate_early_optimizations): New function.
+	(pass_all_early_optimizations): New pass.
+	(execute_free_cfg_annotations): Break out from ...
+	(execute_free_datastructures): here; do not mess up with stmts list;
+	free
+	dominance info.
+	(pass_cfg_annotations): New pass.
+	(init_tree_optimization_passes): Add new passes.
+	(tree_early_local_passes): Temporarily disable TER.
+	(tree_rest_of_compilation): Do not allocate vars_to_rename.
+	* tree-ssa-operands.c (free_ssa_operands): Export.
+	* tree-ssa-operands.h (free_ssa_operands): Declare.
+	* tree-ssa.c (delete_tree_ssa): Kill the operands and phi nodes too; do
+	not kill
+	* tree-ssanames.c (release_defs): Kill addreses_taken and ssa operands.
+	annotations.
 
 2005-03-03  Jan Hubicka  <jh@suse.cz>
 

@@ -736,15 +736,12 @@ delete_tree_ssa (void)
   basic_block bb;
   block_stmt_iterator bsi;
 
-  /* Remove annotations from every tree in the function.  */
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree stmt = bsi_stmt (bsi);
-        release_defs (stmt);
-	ggc_free (stmt->common.ann);
-	stmt->common.ann = NULL;
-      }
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	release_defs (bsi_stmt (bsi));
+      set_phi_nodes (bb, NULL);
+    }
 
   /* Remove annotations from every referenced variable.  */
   if (referenced_vars)

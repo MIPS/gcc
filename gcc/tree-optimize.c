@@ -138,6 +138,35 @@ static struct tree_opt_pass pass_all_optimizations =
   0					/* letter */
 };
 
+/* Gate: execute, or not, all of the early optimizations.  */
+
+static bool
+gate_early_optimizations (void)
+{
+  return (flag_early_optimizations
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !(errorcount || sorrycount));
+}
+
+static struct tree_opt_pass pass_all_early_optimizations =
+{
+  NULL,					/* name */
+  gate_early_optimizations,		/* gate */
+  NULL, NULL,				/* IPA analysis */
+  NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
+
 /* Pass: cleanup the CFG just before expanding trees to RTL.
    This is just a round of label cleanups and case node grouping
    because after the tree optimizers have run such cleanups may
@@ -176,18 +205,58 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 static void
 execute_free_datastructures (void)
 {
-  tree *chain;
-
   /* ??? This isn't the right place for this.  Worse, it got computed
      more or less at random in various passes.  */
   free_dominance_info (CDI_DOMINATORS);
-
-  /* Emit gotos for implicit jumps.  */
-  disband_implicit_edges ();
+  free_dominance_info (CDI_POST_DOMINATORS);
 
   /* Remove the ssa structures.  Do it here since this includes statement
      annotations that need to be intact during disband_implicit_edges.  */
   delete_tree_ssa ();
+
+  BITMAP_FREE (vars_to_rename);
+  vars_to_rename = NULL;
+}
+
+static struct tree_opt_pass pass_free_datastructures =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  execute_free_datastructures,			/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Pass: free cfg annotations.  */
+
+static void
+execute_free_cfg_annotations (void)
+{
+  tree *chain;
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  /* Emit gotos for implicit jumps.  */
+  disband_implicit_edges ();
+
+  /* Remove annotations from every tree in the function.  */
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	ggc_free (stmt->common.ann);
+	stmt->common.ann = NULL;
+      }
 
   /* Re-chain the statements from the blocks.  */
   chain = &DECL_SAVED_TREE (current_function_decl);
@@ -197,12 +266,12 @@ execute_free_datastructures (void)
   delete_tree_cfg_annotations ();
 }
 
-static struct tree_opt_pass pass_free_datastructures =
+static struct tree_opt_pass pass_free_cfg_annotations =
 {
   NULL,					/* name */
   NULL,					/* gate */
   NULL, NULL,				/* IPA analysis */
-  execute_free_datastructures,			/* execute */
+  execute_free_cfg_annotations,		/* execute */
   NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
@@ -225,6 +294,7 @@ execute_init_datastructures (void)
 {
   /* Allocate hash tables, arrays and other structures.  */
   init_tree_ssa ();
+  vars_to_rename = BITMAP_ALLOC (NULL);
 }
 
 static struct tree_opt_pass pass_init_datastructures =
@@ -388,10 +458,30 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_pre_expand);
   *p = NULL;
 
-  /* Optimizations passes run before the intraprocedural passes are done.  */
+  /* Optimizations passes run before the intraprocedural passes are done.
+     We simply do subset of local passes done later (those likely helping IPA
+     a most all gated by the flag_early_optimizations).  We do cleanup_cfg
+     unconditionally as it always reduce memory footprint and save compilation
+     time.  */
   p = &all_early_local_passes;
   NEXT_PASS (pass_tree_profile); 
   NEXT_PASS (pass_cleanup_cfg);
+  NEXT_PASS (pass_all_early_optimizations);
+  *p = NULL;
+
+  p = &pass_all_early_optimizations.sub;
+  NEXT_PASS (pass_init_datastructures);
+  NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_lower_memref);
+  NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_dominator);
+  NEXT_PASS (pass_redundant_phi);
+  NEXT_PASS (pass_tail_recursion);
+  NEXT_PASS (pass_del_ssa);
+  NEXT_PASS (pass_cleanup_cfg);
+  NEXT_PASS (pass_free_datastructures);
   *p = NULL;
 
   /* Intraprocedural optimization passes.  */
@@ -410,6 +500,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_memref);
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_datastructures);
+  NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
   *p = NULL;
@@ -721,18 +812,26 @@ void
 tree_early_local_passes (tree fn)
 {
   tree saved_current_function_decl = current_function_decl;
+  int saved_flag_tree_ter = flag_tree_ter;
 
+  /* Leaving GIMPLE in out-of-ssa pass does no good.  */
+  flag_tree_ter = 0;
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
   bitmap_obstack_initialize (NULL);
   tree_register_cfg_hooks ();
   execute_pass_list (all_early_local_passes, EXECUTE_HOOK, NULL, NULL);
+#ifndef ENABLE_CHECKING
+  verify_stmts ();
+  verify_flow_info ();
+#endif
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
   compact_blocks ();
   current_function_decl = saved_current_function_decl;
   bitmap_obstack_release (NULL);
   pop_cfun ();
+  flag_tree_ter = saved_flag_tree_ter;
 }
 
 void
@@ -830,8 +929,6 @@ tree_rest_of_compilation (tree fndecl)
   /* Initialize the default bitmap obstack.  */
   bitmap_obstack_initialize (NULL);
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
-  
-  vars_to_rename = BITMAP_ALLOC (NULL);
   
   /* Perform all tree transforms and optimizations.  */
   ipa_modify_function (cgraph_node (fndecl));

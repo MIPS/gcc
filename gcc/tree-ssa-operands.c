@@ -977,7 +977,7 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 
 /* Free any operands vectors in OPS.  */
 
-static void 
+void 
 free_ssa_operands (stmt_operands_p ops)
 {
   if (ops->def_ops)
