@@ -1,3 +1,16 @@
+2004-08-10  Geoffrey Keating  <geoffk@apple.com>
+
+	* tree-vn.c (val_expr_pair_expr_eq): Compare vuses, to match the
+	hash function.
+
+2004-08-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* ggc-common.c (ggc_rlimit_bound): Don't check RSS limit.
+	Check DATA limit only if there's no AS limit.  Ignore insanely
+	low DATA limits.
+	(ggc_min_heapsize_heuristic): Don't divide AS or RSS limits by 8,
+	but take care that the AS limit isn't overrun.
+
 2004-07-17  Eric Botcazou  <ebotcazou@act-europe.fr>
 	* libgcc2.c (__enable_execute_stack): New symbol.
 	* libgcc-std.ver (GCC_3.4.2): New version.  Inherit from GCC_3.4
