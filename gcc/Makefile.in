@@ -893,7 +893,8 @@ OBJS-common = \
  simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o 	 	  \
  targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o unroll.o	   \
  varasm.o varray.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
- et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o
+ et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o              \
+ rtl-profile.o tree-profile.o
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) hashtable.o tree-inline.o	   \
@@ -1804,7 +1805,14 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(OBSTACK_H)
    $(HASHTAB_H) $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) flags.h output.h $(REGS_H) $(EXPR_H) function.h \
-   toplev.h $(BASIC_BLOCK_H) $(COVERAGE_H) $(TREE_H) value-prof.h
+   toplev.h $(BASIC_BLOCK_H) $(COVERAGE_H) $(TREE_FLOW_H) value-prof.h
+tree-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(RTL_H) $(TREE_H) flags.h output.h $(REGS_H) $(EXPR_H) function.h \
+   toplev.h $(BASIC_BLOCK_H) $(COVERAGE_H) $(TREE_H) value-prof.h \
+   tree-pass.h $(TREE_FLOW_H) $(TIMEVAR_H)
+rtl-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(RTL_H) $(TREE_H) flags.h output.h $(REGS_H) $(EXPR_H) function.h \
+   toplev.h $(BASIC_BLOCK_H) $(COVERAGE_H) $(TREE_FLOW_H) value-prof.h
 value-prof.o : value-prof.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h value-prof.h $(EXPR_H) output.h flags.h \
    $(RECOG_H) insn-config.h $(OPTABS_H) $(REGS_H)
@@ -2210,6 +2218,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
   $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-common.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
+  $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c \
   $(out_file) \
   @all_gtfiles@
 

@@ -378,7 +378,6 @@ extern void commit_edge_insertions_watch_calls (void);
 extern void remove_fake_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
-extern int flow_call_edges_add (sbitmap);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
 extern edge cached_make_edge (sbitmap *, basic_block, basic_block, int);
 extern edge make_edge (basic_block, basic_block, int);

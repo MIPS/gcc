@@ -703,6 +703,10 @@ ftrapv
 Common
 Trap for signed overflow in addition, subtraction and multiplication
 
+ftree-based-profiling
+Common
+Use tree-ssa based implementation of profiling
+
 ftree-ccp
 Common
 Enable SSA-CCP optimization on trees

@@ -95,6 +95,7 @@ extern struct tree_opt_pass pass_remove_useless_stmts;
 extern struct tree_opt_pass pass_lower_cf;
 extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
+extern struct tree_opt_pass pass_tree_profile;
 extern struct tree_opt_pass pass_referenced_vars;
 extern struct tree_opt_pass pass_build_pta;
 extern struct tree_opt_pass pass_del_pta;

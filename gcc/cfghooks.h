@@ -77,6 +77,23 @@ struct cfg_hooks
 
   /* Tries to make the edge fallthru.  */
   void (*tidy_fallthru_edge) (edge);
+
+  /* Say whether a block ends with a call, possibly followed by some
+     other code that must stay with the call.  */
+  bool (*block_ends_with_call_p) (basic_block);
+
+  /* Say whether a block ends with a conditional branch.  Switches
+     and unconditional branches do not qualify.  */
+  bool (*block_ends_with_condjump_p) (basic_block);
+
+  /* Add fake edges to the function exit for any non constant and non noreturn
+     calls, volatile inline assembly in the bitmap of blocks specified by
+     BLOCKS or to the whole CFG if BLOCKS is zero.  Return the number of blocks
+     that were split.
+
+     The goal is to expose cases in which entering a basic block does not imply
+     that all subsequent instructions must be executed.  */
+  int (*flow_call_edges_add) (sbitmap);
 };
 
 extern void verify_flow_info (void);
@@ -98,6 +115,9 @@ extern void tidy_fallthru_edge (edge);
 extern void tidy_fallthru_edges (void);
 extern void predict_edge (edge e, enum br_predictor predictor, int probability);
 extern bool predicted_by_p (basic_block bb, enum br_predictor predictor);
+extern bool block_ends_with_call_p (basic_block bb);
+extern bool block_ends_with_condjump_p (basic_block bb);
+extern int flow_call_edges_add (sbitmap);
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;

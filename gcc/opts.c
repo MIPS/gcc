@@ -1431,6 +1431,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_trapv = value;
       break;
 
+    case OPT_ftree_based_profiling:
+      flag_tree_based_profiling = value;
+      break;
+
     case OPT_ftree_ccp:
       flag_tree_ccp = value;
       break;

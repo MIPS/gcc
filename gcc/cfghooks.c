@@ -609,3 +609,45 @@ tidy_fallthru_edges (void)
 	tidy_fallthru_edge (s);
     }
 }
+
+/* Return 1 if BB ends with a call, possibly followed by some
+   instructions that must stay with the call, 0 otherwise.  */
+
+bool 
+block_ends_with_call_p (basic_block bb)
+{
+  if (!cfg_hooks->block_ends_with_call_p)
+    internal_error ("%s does not support block_ends_with_call_p", cfg_hooks->name);
+
+  return (cfg_hooks->block_ends_with_call_p) (bb);
+}
+
+/* Return 1 if BB ends with a conditional branch, 0 otherwise.  */
+
+bool 
+block_ends_with_condjump_p (basic_block bb)
+{
+  if (!cfg_hooks->block_ends_with_condjump_p)
+    internal_error ("%s does not support block_ends_with_condjump_p",
+		    cfg_hooks->name);
+
+  return (cfg_hooks->block_ends_with_condjump_p) (bb);
+}
+
+/* Add fake edges to the function exit for any non constant and non noreturn
+   calls, volatile inline assembly in the bitmap of blocks specified by
+   BLOCKS or to the whole CFG if BLOCKS is zero.  Return the number of blocks
+   that were split.
+
+   The goal is to expose cases in which entering a basic block does not imply
+   that all subsequent instructions must be executed.  */
+
+int
+flow_call_edges_add (sbitmap blocks)
+{
+  if (!cfg_hooks->flow_call_edges_add)
+    internal_error ("%s does not support flow_call_edges_add", 
+		    cfg_hooks->name);
+
+  return (cfg_hooks->flow_call_edges_add) (blocks);
+}

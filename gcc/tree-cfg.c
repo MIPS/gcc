@@ -3918,6 +3918,178 @@ debug_loop_ir (void)
   print_loop_ir (stderr);
 }
 
+/* Return 1 if BB ends with a call, possibly followed by some
+   instructions that must stay with the call, 0 otherwise.  */
+
+static bool
+tree_block_ends_with_call_p (basic_block bb)
+{
+  block_stmt_iterator bsi = bsi_last (bb);
+  tree t = tsi_stmt (bsi.tsi);
+  if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
+    t = TREE_OPERAND (t, 0);
+  if (TREE_CODE (t) == MODIFY_EXPR)
+    t = TREE_OPERAND (t, 1);
+  return TREE_CODE (t) == CALL_EXPR;
+}
+
+/* Return 1 if BB ends with a conditional branch, 0 otherwise.  */
+
+static bool
+tree_block_ends_with_condjump_p (basic_block bb)
+{
+  tree stmt = tsi_stmt (bsi_last (bb).tsi);
+  return (TREE_CODE (stmt) == COND_EXPR);
+}
+
+/* Return true if we need to add fake edge to exit.
+   Helper function for tree_flow_call_edges_add.  */
+
+static bool
+need_fake_edge_p (tree t)
+{
+  if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
+    t = TREE_OPERAND (t, 0);
+  if (TREE_CODE (t) == MODIFY_EXPR)
+    t = TREE_OPERAND (t, 1);
+
+  /* NORETURN and LONGJMP calls already have an edge to exit.
+     CONST, PURE and ALWAYS_RETURN calls do not need one.
+     We don't currently check for CONST and PURE here, although
+     it would be a good idea, because those attributes are
+     figured out from the RTL in mark_constant_function, and
+     the counter incrementation code from -fprofile-arcs
+     leads to different results from -fbranch-probabilities.  */
+  if (TREE_CODE (t) == CALL_EXPR
+      && !(call_expr_flags (t) & 
+	    (ECF_NORETURN | ECF_LONGJMP | ECF_ALWAYS_RETURN)))
+    return true;
+
+  if (TREE_CODE (t) == ASM_EXPR
+       && (ASM_VOLATILE_P (t) || ASM_INPUT_P (t)))
+    return true;
+
+  return false;
+}
+
+/* Add fake edges to the function exit for any non constant and non noreturn
+   calls, volatile inline assembly in the bitmap of blocks specified by
+   BLOCKS or to the whole CFG if BLOCKS is zero.  Return the number of blocks
+   that were split.
+
+   The goal is to expose cases in which entering a basic block does not imply
+   that all subsequent instructions must be executed.  */
+
+static int
+tree_flow_call_edges_add (sbitmap blocks)
+{
+  int i;
+  int blocks_split = 0;
+  int last_bb = last_basic_block;
+  bool check_last_block = false;
+
+  if (n_basic_blocks == 0)
+    return 0;
+
+  if (! blocks)
+    check_last_block = true;
+  else
+    check_last_block = TEST_BIT (blocks, EXIT_BLOCK_PTR->prev_bb->index);
+
+  /* In the last basic block, before epilogue generation, there will be
+     a fallthru edge to EXIT.  Special care is required if the last insn
+     of the last basic block is a call because make_edge folds duplicate
+     edges, which would result in the fallthru edge also being marked
+     fake, which would result in the fallthru edge being removed by
+     remove_fake_edges, which would result in an invalid CFG.
+
+     Moreover, we can't elide the outgoing fake edge, since the block
+     profiler needs to take this into account in order to solve the minimal
+     spanning tree in the case that the call doesn't return.
+
+     Handle this by adding a dummy instruction in a new last basic block.  */
+  if (check_last_block)
+    {
+      basic_block bb = EXIT_BLOCK_PTR->prev_bb;
+      block_stmt_iterator bsi = bsi_last (bb);
+      tree t = NULL_TREE;
+      if (!bsi_end_p (bsi))
+	t = bsi_stmt (bsi);
+
+      if (need_fake_edge_p (t))
+	{
+	  edge e;
+
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->dest == EXIT_BLOCK_PTR)
+	      {
+		bsi_insert_on_edge (e, build_empty_stmt ());
+		bsi_commit_edge_inserts ((int *)NULL);
+		break;
+	      }
+	}
+    }
+
+  /* Now add fake edges to the function exit for any non constant
+     calls since there is no way that we can determine if they will
+     return or not...  */
+
+  for (i = 0; i < last_bb; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      block_stmt_iterator bsi;
+      tree stmt, last_stmt;
+
+      if (!bb)
+	continue;
+
+      if (blocks && !TEST_BIT (blocks, i))
+	continue;
+
+      bsi = bsi_last (bb);
+      if (!bsi_end_p (bsi))
+	{
+	  last_stmt = bsi_stmt (bsi);
+	  do
+	    {
+	      stmt = bsi_stmt (bsi);
+	      if (need_fake_edge_p (stmt))
+		{
+		  edge e;
+		  /* The handling above of the final block before the epilogue
+		     should be enough to verify that there is no edge to the exit
+		     block in CFG already.  Calling make_edge in such case would
+		     cause us to mark that edge as fake and remove it later.  */
+
+#ifdef ENABLE_CHECKING
+		  if (stmt == last_stmt)
+		    for (e = bb->succ; e; e = e->succ_next)
+		      if (e->dest == EXIT_BLOCK_PTR)
+			abort ();
+#endif
+
+		  /* Note that the following may create a new basic block
+		     and renumber the existing basic blocks.  */
+		  if (stmt != last_stmt)
+		    {
+		      e = split_block (bb, stmt);
+		      if (e)
+			blocks_split++;
+		    }
+		  make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
+		}
+	      bsi_prev (&bsi);
+	    }
+	  while (!bsi_end_p (bsi));
+	}
+    }
+
+  if (blocks_split)
+    verify_flow_info ();
+
+  return blocks_split;
+}
+
 /* FIXME These need to be filled in with appropriate pointers.  But this
    implies an ABI change in some functions.  */
 struct cfg_hooks tree_cfg_hooks = {
@@ -3936,7 +4108,10 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_predicted_by_p,		/* predicted_by_p  */
   tree_split_edge,		/* split_edge  */
   tree_make_forwarder_block,	/* make_forward_block  */
-  NULL				/* tidy_fallthru_edge  */
+  NULL,				/* tidy_fallthru_edge  */
+  tree_block_ends_with_call_p,	/* block_ends_with_call_p */
+  tree_block_ends_with_condjump_p, /* block_ends_with_condjump_p */
+  tree_flow_call_edges_add      /* flow_call_edges_add */
 };
 
 

@@ -2233,11 +2233,6 @@ extern void dump_local_alloc (FILE *);
 extern int local_alloc (void);
 extern int function_invariant_p (rtx);
 
-/* In profile.c */
-extern void init_branch_prob (void);
-extern void branch_prob (void);
-extern void end_branch_prob (void);
-
 /* In reg-stack.c */
 #ifdef BUFSIZ
 extern bool reg_to_stack (rtx, FILE *);

@@ -956,6 +956,9 @@ int flag_renumber_insns = 1;
 /* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 0;
 
+/* If nonzero, use tree-based instead of rtl-based profiling.  */
+int flag_tree_based_profiling = 0;
+
 /* Enable SSA-GVN on trees.  */
 int flag_tree_gvn = 0;
 
@@ -1130,6 +1133,7 @@ static const lang_independent_options f_options[] =
   {"test-coverage", &flag_test_coverage, 1 },
   {"branch-probabilities", &flag_branch_probabilities, 1 },
   {"profile", &profile_flag, 1 },
+  {"tree-based-profiling", &flag_tree_based_profiling, 1 },
   {"reorder-blocks", &flag_reorder_blocks, 1 },
   {"reorder-functions", &flag_reorder_functions, 1 },
   {"rename-registers", &flag_rename_registers, 1 },
@@ -1890,6 +1894,12 @@ compile_file (void)
     {
       timevar_push (TV_DUMP);
       open_dump_file (DFI_bp, NULL);
+
+      /* For a file with no function definitions, this will not have
+	 been done yet.  Do it now.  */
+      rtl_register_cfg_hooks ();
+      rtl_register_profile_hooks ();
+      rtl_register_value_prof_hooks ();
 
       end_branch_prob ();
 
@@ -3350,9 +3360,12 @@ rest_of_compilation (tree decl)
 
   rest_of_handle_cfg (decl, insns);
 
-  if (optimize > 0
-      || profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+  if (!flag_tree_based_profiling 
+       && (optimize > 0 || profile_arc_flag 
+	    || flag_test_coverage || flag_branch_probabilities))
     {
+      rtl_register_profile_hooks ();
+      rtl_register_value_prof_hooks ();
       rest_of_handle_branch_prob (decl, insns);
 
       if (flag_branch_probabilities
@@ -4372,6 +4385,11 @@ process_options (void)
   if (flag_delayed_branch)
     warning ("this target machine does not have delayed branches");
 #endif
+
+  if (flag_tree_based_profiling && flag_test_coverage)
+    sorry ("test-coverage not yet implemented in trees.");
+  if (flag_tree_based_profiling && flag_profile_values)
+    sorry ("value-based profiling not yet implemented in trees.");
 
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)

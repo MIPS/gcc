@@ -1,3 +1,109 @@
+2004-02-12  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in (OBJS-common): Add rtl-profile.o, tree-profile.o.
+	(profile.o): Add tree-flow.h dependency.
+	(rtl-profile.o): New rule.
+	(tree-profile.o): New rule.
+	(GTFILES): Add tree-profile.c, rtl-profile.c.
+	* basic-block.h (flow_call_edges_add): Remove.
+	* cfganal.c (need_fake_edge_p): Move to cfgrtl.c.
+	(flow_call_edges_add): Move to cfgrtl.c (rtl_flow_call_edges_add).
+	* cfghooks.c: (block_ends_with_call_p): New.
+	(block_ends_with_condjump_p): New.
+	(flow_call_edges_add): New.
+	* cfghooks.h: (struct cfg_hooks): add block_ends_with_call_p,
+	block_ends_with_condjump_p, flow_call_edges_add.
+	(block_ends_with_call_p): New declaration.
+	(block_ends_with_condjump_p): New declaration.
+	(flow_call_edges_add): New declaration.
+	* cfgrtl.c (rtl_block_ends_with_call_p): New.
+	(rtl_block_ends_with_condjump_p): New.
+	(need_fake_edge_p): Moved from cfganal.c.
+	(rtl_flow_call_edges_add): Moved from cfganal.c (flow_call_edges_add).
+	(rtl_cfg_hooks): Add rtl_block_ends_with_call_p, 
+	rtl_block_ends_with_condjump_p, rtl_flow_call_edges_add.
+	(cfg_layout_rtl_cfg_hooks): Ditto.
+	* common.opt (ftree-based-profiling): New.
+	* coverage.c (tree_ctr_tables): New.
+	(coverage_counter_alloc): Use it.
+	(build_ctr_info_value): Ditto.
+	(coverage_counter_ref): Ditto.  Rename to rtl_coverage_counter_ref.
+	(tree_coverage_counter_ref): New.
+	* coverage.h (coverage_counter_ref): Remove declaration.
+	(rtl_coverage_counter_ref): New declaration.
+	(tree_coverage_counter_ref): New declaration.
+	* opts.c (OPT_ftree_based_profiling): New.
+	* profile.c: Include cfghooks.h, tree-flow.h.
+	(profile_hooks): New.
+	(profile_dump_file): New.
+	(instrument_edges): Use hooks instead of RTL-specific code.
+	(instrument_values): Ditto.
+	(get_exec_counts): Ditto.
+	(compute_branch_probabilities): Ditto.
+	(compute_value_histograms): Ditto.
+	(branch_prob): Ditto.
+	(find_spanning_tree): Ditto.
+	(end_branch_prob): Ditto.
+	(gen_edge_profiler): Move to rtl-profile.c (rtl_gen_edge_profiler).
+	(gen_interval_profiler): Ditto (rtl_gen_interval_profiler).
+	(gen_pow2_profiler): Ditto (rtl_gen_pow2_profiler).
+	(gen_one_value_profiler): Ditto (rtl_gen_one_value_profiler).
+	(tree_register_profile_hooks): New.
+	(rtl_register_profile_hooks): New.
+	* rtl-profile.c: New file.
+	* rtl.h (init_branch_prob): Move declaration to value-prof.h.
+	(end_branch_prob): Ditto.
+	(branch_prob): Ditto.
+	* toplev.c (flag_tree_based_profiling): New.
+	(f_options): Add -ftree-based-profiling.
+	(compile_file): Register rtl-based CFG and profiling hooks.
+	(rest_of_compilation): Do rtl-based profiling only when
+	!flag_tree_based_profiling.  Register rtl-based profiling hooks.
+	(process_options): Sorry for -ftree-based-profiling plus
+	-ftest-coverage or -fprofile-values.
+	* toplev.h (flag_tree_based_profiling): New.
+	* tree-cfg.c (tree_block_ends_with_call_p): New.
+	(tree_block_ends_with_condjump_p): New.
+	(need_fake_edge_p): New.
+	(tree_flow_call_edges_add): New (largely from flow_call_edges_add
+	in cfganal.c).
+	(tree_cfg_hooks): Add tree_block_ends_with_call_p,
+	tree_block_ends_with_condjump_p, tree_flow_call_edges_add.
+	* tree-optimize.c (init_tree_optimization_passes):
+	Add pass_tree_profile.
+	* tree-pass.h: Ditto.
+	* tree-profile.c: New file.
+	* value-prof.c (value_prof_hooks): New.
+	(find_values_to_profile): Rename to rtl_find_values_to_profile.
+	Move rtl-specific bits in from branch_prob.
+	(value_profile_transformations): Rename to 
+	rtl_value_profile_transformations.
+	(struct value_prof_hooks): New.
+	(rtl_value_prof_hooks): New.
+	(rtl_register_value_prof_hooks): New.
+	(tree_find_values_to_profile): New stub.
+	(tree_value_profile_transformations): New stub.
+	(tree_value_prof_hooks): New stub.
+	(tree_register_value_prof_hooks): New stub.
+	(find_values_to_profile): New.
+	(value_profile_transformations): New.
+	* value-prof.h: Add multiple inclusion guard.
+	(struct histogram_value): Change rtx fields to void *.
+	(rtl_register_value_prof_hooks): New declaration.
+	(tree_register_value_prof_hooks): New declaration.
+	(find_values_to_profile): New declaration.
+	(free_profiled_values): New declaration.
+	(value_profile_transformations): New declaration.
+	(struct profile_hooks): New declaration.
+	(init_branch_prob): Declaration moved from rtl.h.
+	(branch_prob): Declaration moved from rtl.h.
+	(end_branch_prob): Declaration mooved from rtl.h.
+	(tree_register_profile_hooks): New declaration.
+	(rtl_register_profile_hooks): New declaration.
+	(tree_profile_hooks): New declaration.
+	(rtl_profile_hooks): New declaration.
+	* doc/invoke.texi: Document -ftree-based-profiling.
+	
 2004-02-12  Jeff Law  <law@redhat.com>
 
 	* domwalk.c (walk_dominator_tree): Move statement walking from
