@@ -1,5 +1,8 @@
 2004-02-21  Alan Modra  <amodra@bigpond.net.au>
 
+	* config/rs6000/linux.h (OS_MISSING_POWERPC64): Define.
+	* config/rs6000/linux64.h (OS_MISSING_POWERPC64): Define.
+
 	* config.gcc (powerpc cpu default): Match cpus supported in rs6000.c.
 
 	* combine.c (can_combine_p): Don't ignore SETs marked with

@@ -24,6 +24,10 @@
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
+/* Linux doesn't support saving and restoring 64-bit regs in a 32-bit
+   process.  */
+#define OS_MISSING_POWERPC64 1
+
 #undef TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()          \
   do                                      \
@@ -182,4 +186,3 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)
-
