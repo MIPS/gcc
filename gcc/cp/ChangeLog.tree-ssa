@@ -1,5 +1,8 @@
 2003-04-15  Jeff Law  <law@redhat.com>
 
+	* pt.c (instantiate_decl): If CFUN is null, then we will
+	need to push to the toplevel.
+
 	* Makefile.in (decl.o): Depends on tree-flow.h.
 	* decl.c (finish_function): Call set_has_hidden_use when
 	nullifying returns for named value return optimization.

@@ -10927,7 +10927,7 @@ instantiate_decl (d, defer_ok)
       goto out;
     }
 
-  need_push = !global_bindings_p ();
+  need_push = !cfun || !global_bindings_p ();
   if (need_push)
     push_to_top_level ();
 
