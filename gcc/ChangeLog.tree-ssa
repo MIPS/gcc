@@ -1,3 +1,9 @@
+2004-02-05  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-pretty-print.c (dump_bb_header):  Allow TDF_SLIM printing.
+	(dump_bb_end):  Allow TDF_SLIM printing.
+	(dump_generic_bb_buff):  Add flags parameter to dump_bb_end.
+
 2004-02-05  Jan Hubicka  <jh@suse.cz>
 
 	* alias.c (find_base_term, get_addr):  Do not dereference NULL

@@ -2125,7 +2125,16 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
       for (e = bb->pred; e; e = e->pred_next)
-	dump_edge_info (buffer->buffer->stream, e, 0);
+        if (flags & TDF_SLIM)
+	  {
+	    pp_string (buffer, " ");
+	    if (e->src == ENTRY_BLOCK_PTR)
+	      pp_string (buffer, "ENTRY");
+	    else
+	      pp_decimal_int (buffer, e->src->index);
+	  }
+	else
+	  dump_edge_info (buffer->buffer->stream, e, 0);
       pp_newline (buffer);
     }
   else
@@ -2146,7 +2155,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
    spaces.  */
 
 static void
-dump_bb_end (pretty_printer *buffer, basic_block bb, int indent)
+dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
 
@@ -2154,7 +2163,16 @@ dump_bb_end (pretty_printer *buffer, basic_block bb, int indent)
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
   for (e = bb->succ; e; e = e->succ_next)
-    dump_edge_info (buffer->buffer->stream, e, 1);
+    if (flags & TDF_SLIM)
+      {
+	pp_string (buffer, " ");
+	if (e->dest == EXIT_BLOCK_PTR)
+	  pp_string (buffer, "EXIT");
+	else
+	  pp_decimal_int (buffer, e->dest->index);
+      }
+    else
+      dump_edge_info (buffer->buffer->stream, e, 1);
   pp_newline (buffer);
 }
 
@@ -2257,5 +2275,5 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
   dump_implicit_edges (buffer, bb, indent);
 
   if (flags & TDF_BLOCKS)
-    dump_bb_end (buffer, bb, indent);
+    dump_bb_end (buffer, bb, indent, flags);
 }
