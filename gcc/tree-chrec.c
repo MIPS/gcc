@@ -3450,7 +3450,10 @@ how_far_to_positive (unsigned evolution_loop_num,
   if (chrec == NULL_TREE)
     abort ();
 #endif
-  
+
+  if (chrec == chrec_top)
+    return chrec_top;
+
   if (no_evolution_in_loop_p (chrec, evolution_loop_num))
     {
       chrec = initial_condition (chrec);

@@ -156,7 +156,7 @@ allocate_new_names (tree definitions, unsigned ndupl)
 {
   tree def;
   unsigned i;
-  ssa_name_ann_t ann;
+  ssa_name_ann_t ann, ann1;
   tree *new_names;
 
   for (; definitions; definitions = TREE_CHAIN (definitions))
@@ -167,8 +167,12 @@ allocate_new_names (tree definitions, unsigned ndupl)
       ann->common.aux = new_names;
 
       for (i = 0; i <= ndupl; i++)
-	new_names[i] = make_ssa_name (SSA_NAME_VAR (def),
-				      SSA_NAME_DEF_STMT (def));
+	{
+	  new_names[i] = make_ssa_name (SSA_NAME_VAR (def),
+					SSA_NAME_DEF_STMT (def));
+	  ann1 = get_ssa_name_ann (new_names[i]);
+	  ann1->name_mem_tag = ann->name_mem_tag;
+	}
     }
 }
 

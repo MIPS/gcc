@@ -411,19 +411,48 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 				       bool create_iv, bool completely_unroll)
 {
   edge exit = NULL;
-  tree niter 
-#if 0 /* Causes bootstrap to fail  */
-	  = number_of_iterations_in_loop (loop);
+  tree niter;
 
-  if (TREE_CODE (niter) == INTEGER_CST)
-    exit = loop_exit_edge (loop, 0);
+  /* ??? Why is this needed?  I.e. from where comes the invalid info?  */
+  loop->nb_iterations = NULL;
+
+  niter = number_of_iterations_in_loop (loop);
+
+  if (0 && TREE_CODE (niter) == INTEGER_CST)
+    {
+      tree nit;
+      edge ex;
+
+      exit = loop_exit_edge (loop, 0);
+      if (!just_once_each_iteration_p (loop, exit->src))
+	return;
+
+      /* The result of number_of_iterations_in_loop is by one higher than
+	 we expect (i.e. it returns number of executions of the exit
+	 condition, not of the loop latch edge).  */
+      niter = fold (build (PLUS_EXPR, TREE_TYPE (niter), niter,
+			   convert (TREE_TYPE (niter),
+				    integer_minus_one_node)));
+
+      nit = find_loop_niter_by_eval (loop, &ex);
+
+      if (ex == exit
+	  && TREE_CODE (nit) == INTEGER_CST
+	  && !operand_equal_p (niter, nit, 0))
+	abort ();
+    }
   else
-    niter  
-#endif
-	  = find_loop_niter_by_eval (loop, &exit);
+    niter = find_loop_niter_by_eval (loop, &exit);
 
   if (TREE_CODE (niter) != INTEGER_CST)
     return;
+
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_dump_file, "Loop %d iterates ", loop->num);
+      print_generic_expr (tree_dump_file, niter, TDF_SLIM);
+      fprintf (tree_dump_file, " times.\n");
+    }
 
   if (try_unroll_loop_completely (loops, loop, exit, niter, completely_unroll))
     return;

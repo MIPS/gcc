@@ -3499,11 +3499,21 @@ thread_jumps (void)
   edge e, next, last, old;
   basic_block bb, dest, tmp;
   tree phi;
-  int arg;
+  int arg, old_forwardable;
   bool retval = false;
 
+  mark_dfs_back_edges ();
   FOR_EACH_BB (bb)
-    bb_ann (bb)->forwardable = 1;
+    {
+      /* Prevent threading though loop headers.  This could create irreducible
+	 regions (for entry edges) or loops with shared headers (for latch
+	 edges).  */
+      for (e = bb->pred; e; e = e->pred_next)
+	if (e->flags & EDGE_DFS_BACK)
+	  break;
+
+      bb_ann (bb)->forwardable = (e == NULL);
+    }
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
@@ -3518,6 +3528,7 @@ thread_jumps (void)
       /* This block is now part of a forwarding path, mark it as not
 	 forwardable so that we can detect loops.   This bit will be
 	 reset below.  */
+      old_forwardable = bb_ann (bb)->forwardable;
       bb_ann (bb)->forwardable = 0;
 
       /* Examine each of our block's successors to see if it is
@@ -3541,11 +3552,6 @@ thread_jumps (void)
 	       last = dest->succ,
 	       dest = dest->succ->dest)
 	    {
-	      /* An infinite loop detected.  We redirect the edge anyway, so
-		 that the loop is shrinked into single basic block.  */
-	      if (!bb_ann (dest)->forwardable)
-		break;
-
 	      if (dest->succ->dest == EXIT_BLOCK_PTR)
 		break;
 
@@ -3605,7 +3611,7 @@ thread_jumps (void)
 
       /* Reset the forwardable bit on our block since it's no longer in
 	 a forwarding chain path.  */
-      bb_ann (bb)->forwardable = 1;
+      bb_ann (bb)->forwardable = old_forwardable;
     }
   return retval;
 }

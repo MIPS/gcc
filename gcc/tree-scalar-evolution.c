@@ -2527,6 +2527,7 @@ number_of_iterations_in_loop (struct loop *loop)
   tree res;
   tree cond, test, opnd0, opnd1;
   tree chrec0, chrec1, chrec_cond;
+  edge exit;
 
   /* Determine whether the number_of_iterations_in_loop has already
      been computed.  */
@@ -2542,6 +2543,10 @@ number_of_iterations_in_loop (struct loop *loop)
     return set_nb_iterations_in_loop (loop, chrec_top);
   
   test = TREE_OPERAND (cond, 0);
+  exit = loop_exit_edge (loop, 0);
+  if (exit->flags & EDGE_TRUE_VALUE)
+    test = invert_truthvalue (test);
+
   switch (TREE_CODE (test))
     {
     case SSA_NAME:
@@ -2724,7 +2729,7 @@ initialize_scalar_evolutions_analyzer (void)
 static void
 scev_init (void)
 {
-  current_loops = loop_optimizer_init (NULL);
+  current_loops = tree_loop_optimizer_init (NULL);
   if (!current_loops)
     return;
   

@@ -559,7 +559,7 @@ typedef void (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (void);
+extern void rewrite_into_ssa (bool);
 extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
@@ -577,6 +577,7 @@ extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, tree, varray_type *, varray_type);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+extern void kill_redundant_phi_nodes (void);
 
 extern unsigned int highest_ssa_version;
 
@@ -596,6 +597,7 @@ extern void propagate_value (tree *, tree);
 void tree_ssa_dce_no_cfg_changes (void);
 
 /* In tree-ssa-loop*.c  */
+struct loops *tree_loop_optimizer_init (FILE *);
 void tree_ssa_lim (struct loops *loops);
 void tree_ssa_iv_optimize (struct loops *);
 void canonicalize_induction_variables (struct loops *loops);

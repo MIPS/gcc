@@ -1,3 +1,30 @@
+2004-03-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (thread_jumps): Don't thread jumps over loop headers.
+	* tree-flow.h (rewrite_into_ssa): Declaration changed.
+	(kill_redundant_phi_nodes, tree_loop_optimizer_init): Declare.
+	* tree-optimize.c (execute_todo): Do not free vars_to_rename.
+	(execute_one_pass): Do not allocate vars_to_rename.
+	(tree_rest_of_compilation): Allocate vars_to_rename.
+	* tree-scalar-evolution.c (number_of_iterations_in_loop): Handle
+	loops exited when condition is true.
+	(initialize_scalar_evolutions_analyzer): Use tree_loop_optimizer_init.
+	* tree-ssa-chrec.c (how_far_to_positive): Handle chrec_top correctly.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Changed due to
+	rewrite_into_ssa change.
+	* tree-ssa-loop-im.c (move_computations, determine_lsm): Ditto.
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables):
+	Use scev analyser.
+	* tree-ssa-loop-manip.c (allocate_new_names): Update name memory
+	tags.
+	* tree-ssa-loop.c (tree_loop_optimizer_init): New.
+	(tree_ssa_loop_opt, copy_loop_headers): Use it.
+	* tree-ssa.c (rewrite_into_ssa): Use argument to decide whether
+	to rename all variables.
+	(rewrite_all_into_ssa): New.
+	(pass_build_ssa): Use it.
+	(kill_redundant_phi_nodes): Export.
+
 2004-03-15  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa-return.c (tree_ssa_return):

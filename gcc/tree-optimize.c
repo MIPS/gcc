@@ -352,9 +352,8 @@ execute_todo (unsigned int flags)
 {
   if (flags & TODO_rename_vars)
     {
-      if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	rewrite_into_ssa ();
-      BITMAP_XFREE (vars_to_rename);
+      rewrite_into_ssa (false);
+      bitmap_clear (vars_to_rename);
     }
 
   if ((flags & TODO_dump_func) && tree_dump_file)
@@ -409,10 +408,6 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* If a timevar is present, start it.  */
   if (pass->tv_id)
     timevar_push (pass->tv_id);
-
-  /* If the pass is requesting ssa variable renaming, allocate the bitmap.  */
-  if (pass->todo_flags_finish & TODO_rename_vars)
-    vars_to_rename = BITMAP_XMALLOC ();
 
   /* Do it!  */
   if (pass->execute)
@@ -534,6 +529,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	  timevar_pop (TV_INTEGRATION);
 	}
     }
+
+  if (!vars_to_rename)
+    vars_to_rename = BITMAP_XMALLOC ();
 
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);

@@ -652,7 +652,7 @@ tree_ssa_dominator_optimize (void)
       if (cfg_altered
 	  && bitmap_first_set_bit (vars_to_rename) >= 0)
 	{
-	  rewrite_into_ssa ();
+	  rewrite_into_ssa (false);
 	  bitmap_clear (vars_to_rename);
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);

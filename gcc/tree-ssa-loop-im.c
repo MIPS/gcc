@@ -555,9 +555,8 @@ move_computations (void)
   fini_walk_dominator_tree (&walk_data);
 
   commit_inserts ();
-  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-    rewrite_into_ssa ();
-  BITMAP_XFREE (vars_to_rename);
+  rewrite_into_ssa (false);
+  bitmap_clear (vars_to_rename);
 }
 
 /* Checks whether variable in *INDEX is movable out of the loop passed
@@ -901,7 +900,6 @@ determine_lsm (struct loops *loops)
 	stmt_ann (phi)->uid = max_uid++;
     }
 
-  vars_to_rename = BITMAP_XMALLOC ();
   compute_immediate_uses (TDFA_USE_VOPS, NULL);
 
   /* Pass the loops from the outermost.  For each virtual operand loop phi node

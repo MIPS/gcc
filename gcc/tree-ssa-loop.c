@@ -38,6 +38,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "tree-inline.h"
 
+/* Initializes the loop structures.  DUMP is the file to that the details
+   about the analysis should be dumped.  */
+
+struct loops *
+tree_loop_optimizer_init (FILE *dump)
+{
+  struct loops *loops = loop_optimizer_init (dump);
+
+  if (!loops)
+    return NULL;
+
+  /* Creation of preheaders may create redundant phi nodes (if the loop is
+     entered by more than one edge, but the initial value of the induction
+     variable is the same on all of them).  */
+  kill_redundant_phi_nodes ();
+  rewrite_into_ssa (false);
+  bitmap_clear (vars_to_rename);
+
+  return loops;
+}
+
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
    FNDECL is the current function decl.  */
@@ -47,7 +68,7 @@ tree_ssa_loop_opt (void)
 {
   struct loops *loops;
 
-  loops = loop_optimizer_init (tree_dump_file);
+  loops = tree_loop_optimizer_init (tree_dump_file);
 
   if (loops)
     {
@@ -305,14 +326,12 @@ copy_loop_headers (void)
   edge preheader_edge;
   varray_type bbs_to_duplicate = NULL;
 
-  loops = loop_optimizer_init (tree_dump_file);
+  loops = tree_loop_optimizer_init (tree_dump_file);
   if (!loops)
     return;
   
   /* We are not going to need or update dominators.  */
   free_dominance_info (CDI_DOMINATORS);
-
-  create_preheaders (loops, CP_SIMPLE_PREHEADERS);
 
   /* We do not try to keep the information about irreductible regions
      up-to-date.  */

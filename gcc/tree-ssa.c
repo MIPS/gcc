@@ -321,24 +321,40 @@ set_value_for (tree var, tree value, varray_type table)
    Virtual operands provide safe information about potential references to
    the operands in a statement.  But they are imprecise by nature.
    Optimizations may want to take them into account, at the expense of
-   increased compilation time.  */
+   increased compilation time.
+   
+   ALL is true if all variables should be renamed (otherwise just those
+   mentioned in vars_to_rename are taken into account).  */
 
 void
-rewrite_into_ssa (void)
+rewrite_into_ssa (bool all)
 {
   bitmap *dfs;
   basic_block bb;
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
+  bitmap old_vars_to_rename = vars_to_rename;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
-  /* Initialize the array of variables to rename.  */
-  if (vars_to_rename != NULL)
+  if (all)
+    vars_to_rename = NULL;
+  else
     {
       size_t i;
       bool rename_name_tags_p;
 
+      /* Initialize the array of variables to rename.  */
+ 
+      if (vars_to_rename == NULL)
+	abort ();
+
+      if (bitmap_first_set_bit (vars_to_rename) < 0)
+	{
+	  timevar_pop (TV_TREE_SSA_OTHER);
+	  return;
+	}
+      
       /* If any of the variables in VARS_TO_RENAME is a pointer, we need to
 	 invalidate all the name memory tags associated with the variables
 	 that we are about to rename.  FIXME: Currently we just invalidate
@@ -473,14 +489,23 @@ rewrite_into_ssa (void)
   htab_delete (def_blocks);
   VARRAY_CLEAR (currdefs);
 
+  vars_to_rename = old_vars_to_rename;
   timevar_pop (TV_TREE_SSA_OTHER);
+}
+
+/* Rewrites all variables into ssa.  */
+
+static void
+rewrite_all_into_ssa (void)
+{
+  rewrite_into_ssa (true);
 }
 
 struct tree_opt_pass pass_build_ssa = 
 {
   "ssa",				/* name */
   NULL,					/* gate */
-  rewrite_into_ssa,			/* execute */
+  rewrite_all_into_ssa,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -3912,7 +3937,7 @@ raise_value (tree phi, tree val, tree *eq_to)
    The most important effect of this pass is to remove degenerate PHI
    nodes created by removing unreachable code.  */
 
-static void
+void
 kill_redundant_phi_nodes (void)
 {
   tree *eq_to, *ssa_names;
