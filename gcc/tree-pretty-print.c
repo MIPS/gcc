@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -45,6 +45,7 @@ static void print_struct_decl (pretty_printer *, tree, int, int);
 static void do_niy (pretty_printer *, tree);
 static void dump_vops (pretty_printer *, tree, int, int);
 static void dump_generic_bb_buff (pretty_printer *, basic_block, int, int);
+static void dump_type_name (pretty_printer *, tree, int);
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
@@ -246,6 +247,20 @@ dump_array_domain (pretty_printer *buffer, tree domain, int spc, int flags)
   pp_character (buffer, ']');
 }
 
+/* Dump a type's name.  */
+
+static void
+dump_type_name (pretty_printer *buffer, tree node, int flags)
+{
+  tree name = TYPE_NAME (node);
+  if (name && TREE_CODE (name) == IDENTIFIER_NODE)
+    pp_tree_identifier (buffer, name);
+  else if (name && TREE_CODE (name) == TYPE_DECL && DECL_NAME (name))
+    dump_decl_name (buffer, name, flags);
+  else
+    pp_string (buffer, "<unnamed type>");
+}
+
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
    FLAGS specifies details to show in the dump (see TDF_* in tree.h).  If
    IS_STMT is true, the object printed is considered to be a statement
@@ -371,15 +386,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	else if (class == tcc_type)
 	  {
 	    if (TYPE_NAME (node))
-	      {
-		if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
-		  pp_tree_identifier (buffer, TYPE_NAME (node));
-		else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
-			 && DECL_NAME (TYPE_NAME (node)))
-		  dump_decl_name (buffer, TYPE_NAME (node), flags);
-		else
-		  pp_string (buffer, "<unnamed type>");
-	      }
+	      dump_type_name (buffer, node, flags);
 	    else if (TREE_CODE (node) == VECTOR_TYPE)
 	      {
 		pp_string (buffer, "vector ");
@@ -437,7 +444,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case METHOD_TYPE:
-      dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)), flags);
+      dump_type_name (buffer, TYPE_METHOD_BASETYPE (node), flags);
       pp_string (buffer, "::");
       break;
 
