@@ -142,8 +142,10 @@ extern void objc_class_names_section (void);
 extern void objc_meth_var_names_section (void);
 extern void objc_meth_var_types_section (void);
 extern void objc_cls_refs_section (void);
-/* APPLE LOCAL constant cfstrings */
+/* APPLE LOCAL begin constant cfstrings */
 extern void cfstring_constant_object_section (void);
+extern bool darwin_constant_cfstring_p (tree);
+/* APPLE LOCAL end constant cfstrings */
 extern void machopic_lazy_symbol_ptr_section (void);
 extern void machopic_nl_symbol_ptr_section (void);
 extern void machopic_symbol_stub_section (void);

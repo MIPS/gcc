@@ -1799,6 +1799,32 @@ darwin_construct_objc_string (tree str)
   return darwin_build_constant_cfstring (str);
 }
 
+bool
+darwin_constant_cfstring_p (tree str)
+{
+  struct cfstring_descriptor key;
+  void **loc;
+
+  if (!str)
+    return false;
+
+  STRIP_NOPS (str);
+
+  if (TREE_CODE (str) == ADDR_EXPR)
+    str = TREE_OPERAND (str, 0);
+
+  if (TREE_CODE (str) != STRING_CST)
+    return false;
+
+  key.literal = str;
+  loc = htab_find_slot (cfstring_htab, &key, NO_INSERT);
+  
+  if (loc)
+    return true;
+
+  return false;
+}
+
 static tree
 darwin_build_constant_cfstring (tree str)
 {

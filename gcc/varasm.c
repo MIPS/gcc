@@ -2267,7 +2267,8 @@ const_hash_1 (const tree exp)
 
     case STRING_CST:
       /* APPLE LOCAL begin fwritable strings  */
-      if (flag_writable_strings)
+      if (flag_writable_strings 
+	  && !darwin_constant_cfstring_p (exp))
       {
         p = (char *) &exp;
         len = sizeof exp;
@@ -2394,7 +2395,9 @@ compare_constant (const tree t1, const tree t2)
 
     case STRING_CST:
       /* APPLE LOCAL begin fwritable strings  */
-      if (flag_writable_strings)
+      if (flag_writable_strings 
+	  && !darwin_constant_cfstring_p (t1)
+	  && !darwin_constant_cfstring_p (t2))
 	return t1 == t2;
       /* APPLE LOCAL end fwritable strings  */
 
