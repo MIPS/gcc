@@ -119,7 +119,7 @@ static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
 static inline void rewrite_operand (tree *);
-static void insert_phi_nodes_for (tree, bitmap *);
+static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, varray_type);
 static void set_value_for (tree, tree, varray_type);
@@ -408,11 +408,11 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p)
    at the dominance frontier (DFS) of blocks defining VAR.  */
 
 static inline
-void insert_phi_nodes_1 (tree var, bitmap *dfs)
+void insert_phi_nodes_1 (tree var, bitmap *dfs, varray_type *work_stack)
 {
   var_ann_t ann = var_ann (var);
   if (ann->need_phi_state != NEED_PHI_STATE_NO)
-    insert_phi_nodes_for (var, dfs);
+    insert_phi_nodes_for (var, dfs, work_stack);
 }
 
 
@@ -427,8 +427,13 @@ static void
 insert_phi_nodes (bitmap *dfs)
 {
   size_t i;
+  varray_type work_stack;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
+
+  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
+     an assignment or PHI node will be pushed to this stack.  */
+  VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
 
   /* Iterate over all variables in VARS_TO_RENAME.  For each variable, add
      to the work list all the blocks that have a definition for the
@@ -436,10 +441,10 @@ insert_phi_nodes (bitmap *dfs)
      each definition block.  */
   if (vars_to_rename)
     EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	insert_phi_nodes_1 (referenced_var (i), dfs));
+	insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack));
   else
     for (i = 0; i < num_referenced_vars; i++)
-      insert_phi_nodes_1 (referenced_var (i), dfs);
+      insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
@@ -652,26 +657,21 @@ htab_statistics (FILE *file, htab_t htab)
    information given in DFS.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap *dfs)
+insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
   int bb_index;
-  varray_type work_stack;
 
   def_map = find_def_blocks_for (var);
   if (def_map == NULL)
     return;
 
-  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
-     an assignment or PHI node will be pushed to this stack.  */
-  VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
-
   phi_insertion_points = BITMAP_XMALLOC ();
 
   EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index,
     {
-      VARRAY_PUSH_BB (work_stack, BASIC_BLOCK (bb_index));
+      VARRAY_PUSH_BB (*work_stack, BASIC_BLOCK (bb_index));
     });
 
   /* Pop a block off the worklist, add every block that appears in
@@ -686,13 +686,13 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
      determine if fully pruned or semi pruned SSA form was appropriate.
 
      We now always use fully pruned SSA form.  */
-  while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
+  while (VARRAY_ACTIVE_SIZE (*work_stack) > 0)
     {
-      basic_block bb = VARRAY_TOP_BB (work_stack);
+      basic_block bb = VARRAY_TOP_BB (*work_stack);
       int bb_index = bb->index;
       int dfs_index;
 
-      VARRAY_POP (work_stack);
+      VARRAY_POP (*work_stack);
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
 				      phi_insertion_points,
@@ -700,7 +700,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  VARRAY_PUSH_BB (work_stack, bb);
+	  VARRAY_PUSH_BB (*work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	});
     }
