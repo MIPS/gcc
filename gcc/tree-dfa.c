@@ -420,7 +420,6 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
      (See find_vars_r).  */
   if (code == CALL_EXPR)
     {
-      int flags;
       tree op;
       bool may_clobber = call_may_clobber (expr);
 
@@ -428,11 +427,9 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
 
       /* Add all the arguments to the function.  For every pointer argument
-	 to the function, add a VUSE for its dereferenced pointer (if the
-	 function is pure or const) or a VDEF for its dereferenced pointer
-	 (if the function may clobber).  This is to address the following
-	 problem: Suppose that function 'foo' receives a pointer to a local
-	 variable:
+	 to the function, add a VUSE for its dereferenced pointer.  This is
+	 to address the following problem: Suppose that function 'foo'
+	 receives a pointer to a local variable:
 
 	    int foo (int *x)
 	    {
@@ -451,26 +448,28 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	 to kill the assignment to 'i' because it's never used in bar().
 	 To address this problem, we add a VUSE<*p> at the call site of
 	 foo().  */
-      flags = opf_force_vop | opf_ignore_bp;
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
 
 	  add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
 
-	  /* Add a VUSE<*p> or VDEF<*p> for every pointer p passed in the
-	     argument list (see note above).  */
-	  if (SSA_DECL_P (arg)
+	  /* If the function may not clobber locals, add a VUSE<*p> for
+	     every pointer p passed in the argument list (see note above).
+	     It's not necessary to do this for clobbering calls because we
+	     will be adding a VDEF for .GLOBAL_VAR for this call.  */
+	  if (!may_clobber
+	      && SSA_DECL_P (arg)
 	      && POINTER_TYPE_P (TREE_TYPE (arg)))
 	    {
 	      tree deref = indirect_ref (arg);
-	      int clobber_arg = (may_clobber && !TREE_READONLY (deref));
 
 	      /* By default, adding a reference to an INDIRECT_REF
 		 variable, adds a VUSE of the base pointer.  Since we have
 		 already added a real USE for the pointer, we don't need to
 		 add a VUSE for it as well.  */
-	      add_stmt_operand (&deref, stmt, flags | clobber_arg, prev_vops);
+	      add_stmt_operand (&deref, stmt, opf_force_vop|opf_ignore_bp,
+				prev_vops);
 	    }
 	}
 

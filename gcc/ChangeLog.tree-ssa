@@ -1,3 +1,12 @@
+2003-04-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* builtins.def (BUILTIN_CONSTANT_P): Mark as constant.
+
+	* tree-dfa.c (get_expr_operands): Do not add VDEF operands for
+	dereferenced pointers at call sites.
+	* tree-ssa.c (assign_vars): Abort if we couldn't coalesce all the
+	versions together.
+
 2003-04-29  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (bsi_start): If there are no stmts in a block, use the

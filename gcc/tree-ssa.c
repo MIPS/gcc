@@ -1397,19 +1397,16 @@ assign_vars (map)
 	      change_partition_var (map, var, i);
 	      continue;
 	    }
-/*
-  TODO: enable this line of code once the bug which removed VDEFS in 
-  get_stmt_operands() is fixed.  
 
-  This abort() should then verify that we always coalesce all versions of 
-  a variable together. The abort() is then removed when we allow overlapping
-  live ranges.  
-
-abort();
+	  /* Since we still don't have passes that create overlapping live
+	     ranges, the code above should've coalesced all the versions of
+	     the variable together.  */
+	  abort();
+#if 0
 	  var = create_temp (t);
-*/
 	  change_partition_var (map, var, i);
 	  ann = var_ann (var);
+#endif
 	}
     }
 
