@@ -565,7 +565,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_a), drb);
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_b), dra);
 
-      if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, LOOP_LOC (loop_vinfo)))
+      if (vect_print_dump_info (REPORT_DR_DETAILS, LOOP_LOC (loop_vinfo)))
 	fprintf (vect_dump, "dependence distance 0.");
       return false;
     }
@@ -1195,7 +1195,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 
   if (!step || tree_int_cst_compare (step, TYPE_SIZE_UNIT (scalar_type)))
     {
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+      if (vect_print_dump_info (REPORT_DR_DETAILS, UNKNOWN_LOC))
 	fprintf (vect_dump, "not consecutive access");
       return false;
     }
