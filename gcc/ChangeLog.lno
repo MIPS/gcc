@@ -1,3 +1,63 @@
+2004-09-01  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* cfgloop.h (struct loop): New fields parallel_p, and 
+	estimated_nb_iterations.
+	* tree-chrec.c (nb_vars_in_chrec): New.
+	* tree-chrec.h (nb_vars_in_chrec): Declared here.
+	* tree-data-ref.c (tree_fold_divides_p): Don't test for a equals one, 
+	this test is already in tree_fold_gcd.
+	(gcd): For integers, yet again a copy defined static.
+	(int_divides_p): Same for integers.
+	(dump_data_dependence_relation): Fix dumping.  Dump dir and dist 
+	vectors.
+	(dump_dist_dir_vectors): Don't pass in the size of the
+	vectors; it is now read from DDR_SIZE_VECT.
+	(dump_ddrs, estimate_niter_from_size_of_data, all_chrecs_equal_p): New.
+	(compute_distance_vector): Renamed compute_subscript_distance.
+	Fix comment.
+	(compute_distance_vector): Handle the case where the description of 
+	a multivariate function is a TREE_VEC.
+	(analyze_ziv_subscript, analyze_siv_subscript_cst_affine, 
+	analyze_siv_subscript, analyze_miv_subscript, 
+	analyze_overlapping_iterations, ): 
+	Pass in a pointer to last_conflicts, and initialize it.
+	(initialize_matrix_A, FLOOR, compute_overlap_steps_for_affine_univar, 
+	compute_overlap_steps_for_affine_1_2): New.
+	(analyze_siv_subscript_affine_cst): Removed, replaced its uses with
+	analyze_siv_subscript_cst_affine.
+	(analyze_subscript_affine_affine): Pass in a pointer to
+	last_conflicts, and initialize it.  Add a special case for avoiding 
+	the computation of the Hermite normal form when there exist a trivial 
+	solution: when gamma is zero.  Rewrite the dependence tester for using 
+	fewer tree nodes, it now uses integers for the computations.
+	(no_conflicts_p): Fix typo: return true when overlaps is chrec_known.
+	(subscript_dependence_tester): Compute the last conflict.  Initialize 
+	SUB_LAST_CONFLICT.
+	(build_classic_dist_vector, build_classic_dir_vector): Conflict 
+	functions don't store the loop number that carry the dependence.  
+	Retrieve this information from the array access function. 
+	Initialize DDR_SIZE_VECT.
+	(find_data_references_in_loop): Detect parallel loops when all the 
+	data accesses are in read only mode.  Insert a single chrec_dont_know
+	node in the data dependence graph.
+	* tree-data-ref.h (struct data_dependence_relation): Add a field
+	size_vect.
+	(DDR_SIZE_VECT): New.
+	(dump_ddrs): Declared here.
+	(dump_dist_dir_vectors): Modify the declaration.
+	(gather_interchange_stats): Fix leading comment.  Gather also the 
+	access strides, and consequently pass in the datarefs array from which
+	this information is extracted.  Correctly parenthesize the access to
+	nb_deps_not_carried_by_loop such that its value is incremented.
+	Modify the constants, such that in the unknown and known cases the 
+	dependence steps are not increased.
+	(try_interchange_loops): Pass in the datarefs array.  Add more 
+	comments.  Add a test for temporal locality: inner loops
+	should have smallest array access strides.
+	* tree-pretty-print.c (dump_generic_node): BINFO_TYPE has nothing to do 
+	with the TREE_VEC node.  Correctly dump the TREE_VEC node printing 
+	all its elements.
+
 2004-08-31  Keith Besaw  <kbesaw@us.ibm.com>
 
 	* tree-vectorizer.h (struct _loop_vec_info): Add fields ptr_mask,

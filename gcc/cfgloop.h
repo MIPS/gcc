@@ -183,12 +183,22 @@ struct loop
      information in this field.  */
   tree nb_iterations;
 
+  /* An INTEGER_CST estimation of the number of iterations.  NULL_TREE
+     if there is no estimation.  */
+  tree estimated_nb_iterations;
+
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
   /* If not NULL, loop has just single exit edge stored here (edges to the
      EXIT_BLOCK_PTR do not count.  */
   edge single_exit;
+
+  /* True when the loop does not carry data dependences, and
+     consequently the iterations can be executed in any order.  False
+     when the loop carries data dependences, or when the property is
+     not decidable.  */
+  bool parallel_p;
 };
 
 /* Flags for state of loop structure.  */

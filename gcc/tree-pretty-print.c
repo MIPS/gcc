@@ -273,8 +273,22 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case TREE_VEC:
-      dump_generic_node (buffer, BINFO_TYPE (node), spc, flags, false);
-      break;
+      {
+	int it;
+	pp_string (buffer, "TREE_VEC ");
+	pp_character (buffer, '(');
+	for (it = 0; it < TREE_VEC_LENGTH (node) - 1; it++)
+	  {
+	    dump_generic_node (buffer, TREE_VEC_ELT (node, it), spc, flags, 
+			       false);
+	    pp_character (buffer, ',');
+	    pp_space (buffer);
+	  }
+	dump_generic_node (buffer, TREE_VEC_ELT (node, it), spc, flags, 
+			   false);
+	pp_character (buffer, ')');
+	break;
+      }
 
     case BLOCK:
       NIY;

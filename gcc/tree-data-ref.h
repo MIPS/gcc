@@ -79,10 +79,9 @@ struct subscript
   tree conflicting_iterations_in_a;
   tree conflicting_iterations_in_b;
   
-  /* These fields store the information about the iteration domain
+  /* This field store the information about the iteration domain
      validity of the dependence relation.  */
-  tree last_conflict_in_a;
-  tree last_conflict_in_b;
+  tree last_conflict;
   
   /* Distance from the iteration that access a conflicting element in
      A to the iteration that access this same conflicting element in
@@ -93,8 +92,7 @@ struct subscript
 
 #define SUB_CONFLICTS_IN_A(SUB) SUB->conflicting_iterations_in_a
 #define SUB_CONFLICTS_IN_B(SUB) SUB->conflicting_iterations_in_b
-#define SUB_LAST_CONFLICT_IN_A(SUB) SUB->last_conflict_in_a
-#define SUB_LAST_CONFLICT_IN_B(SUB) SUB->last_conflict_in_b
+#define SUB_LAST_CONFLICT(SUB) SUB->last_conflict
 #define SUB_DISTANCE(SUB) SUB->distance
 
 /* A data_dependence_relation represents a relation between two
@@ -128,6 +126,9 @@ struct data_dependence_relation
      the data_dependence_relation.  */
   varray_type subscripts;
 
+  /* The size of the direction/distance vectors.  */
+  int size_vect;
+
   /* The classic direction vector.  */
   lambda_vector dir_vect;
 
@@ -144,6 +145,7 @@ struct data_dependence_relation
   VARRAY_GENERIC_PTR_INIT (DDR_SUBSCRIPTS (DDR), N, "subscripts_vector");
 #define DDR_SUBSCRIPT(DDR, I) VARRAY_GENERIC_PTR (DDR_SUBSCRIPTS (DDR), I)
 #define DDR_NUM_SUBSCRIPTS(DDR) VARRAY_ACTIVE_SIZE (DDR_SUBSCRIPTS (DDR))
+#define DDR_SIZE_VECT(DDR) DDR->size_vect
 #define DDR_DIR_VECT(DDR) DDR->dir_vect
 #define DDR_DIST_VECT(DDR) DDR->dist_vect
 
@@ -159,7 +161,8 @@ extern struct data_reference * init_data_ref (tree, tree, tree, tree, bool);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
 extern void dump_subscript (FILE *, struct subscript *);
-extern void dump_dist_dir_vectors (FILE *, varray_type, unsigned int);
+extern void dump_ddrs (FILE *, varray_type);
+extern void dump_dist_dir_vectors (FILE *, varray_type);
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void dump_data_references (FILE *, varray_type);
 extern void dump_data_dependence_relation (FILE *, 
