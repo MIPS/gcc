@@ -1818,12 +1818,7 @@ simplify_lvalue_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
 
   /* If it's sufficiently simple already, return.  */
   if (ok)
-    {
-      /* If we end up with a temporary variable, something broke.  */
-      if (simple_tmp_var_p (*expr_p))
-	abort ();
-      return;
-    }
+    return;
 
   /* Otherwise, we need to create a new temporary to hold the address of
      the simplified expression.  At this point, the expression should be
