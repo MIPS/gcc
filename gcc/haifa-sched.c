@@ -327,6 +327,7 @@ static void queue_insn PARAMS ((rtx, int));
 static void schedule_insn PARAMS ((rtx, struct ready_list *, int));
 static void find_insn_reg_weight PARAMS ((int));
 static void adjust_priority PARAMS ((rtx));
+static void advance_one_cycle PARAMS ((void));
 
 /* Notes handling mechanism:
    =========================
@@ -1081,6 +1082,25 @@ adjust_priority (prev)
       (*targetm.sched.adjust_priority) (prev, INSN_PRIORITY (prev));
 }
 
+/* Advance time on one cycle.  */
+HAIFA_INLINE static void
+advance_one_cycle ()
+{
+  if (targetm.sched.use_dfa_pipeline_interface
+      && (*targetm.sched.use_dfa_pipeline_interface) ())
+    {
+      if (targetm.sched.dfa_pre_cycle_insn)
+	state_transition (curr_state,
+			  (*targetm.sched.dfa_pre_cycle_insn) ());
+
+      state_transition (curr_state, NULL);
+
+      if (targetm.sched.dfa_post_cycle_insn)
+	state_transition (curr_state,
+			  (*targetm.sched.dfa_post_cycle_insn) ());
+    }
+}
+
 /* Clock at which the previous instruction was issued.  */
 static int last_clock_var;
 
@@ -1629,24 +1649,13 @@ queue_to_ready (ready)
 		}
 	      insn_queue[NEXT_Q_AFTER (q_ptr, stalls)] = 0;
 
-	      /* Advance time on one cycle.  */
-	      if (targetm.sched.use_dfa_pipeline_interface
-		  && (*targetm.sched.use_dfa_pipeline_interface) ())
-		{
-		  if (targetm.sched.dfa_pre_cycle_insn)
-		    state_transition (curr_state,
-				      (*targetm.sched.dfa_pre_cycle_insn) ());
-
-		  state_transition (curr_state, NULL);
-
-		  if (targetm.sched.dfa_post_cycle_insn)
-		    state_transition (curr_state,
-				      (*targetm.sched.dfa_post_cycle_insn) ());
-		}
+	      advance_one_cycle ();
 
 	      if (ready->n_ready)
 		break;
 	    }
+
+	  advance_one_cycle ();
 	}
 
       if ((!targetm.sched.use_dfa_pipeline_interface
@@ -1991,20 +2000,7 @@ schedule_block (b, rgn_n_insns)
     {
       clock_var++;
 
-      if (targetm.sched.use_dfa_pipeline_interface
-	  && (*targetm.sched.use_dfa_pipeline_interface) ())
-	{
-	  if (targetm.sched.dfa_pre_cycle_insn)
-	    state_transition (curr_state,
-			      (*targetm.sched.dfa_pre_cycle_insn) ());
-
-	  /* Advance time on one cycle.  */
-	  state_transition (curr_state, NULL);
-
-	  if (targetm.sched.dfa_post_cycle_insn)
-	    state_transition (curr_state,
-			      (*targetm.sched.dfa_post_cycle_insn) ());
-	}
+      advance_one_cycle ();
 
       /* Add to the ready list all pending insns that can be issued now.
          If there are no ready insns, increment clock until one

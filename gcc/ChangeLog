@@ -1,3 +1,11 @@
+2001-10-02  David S. Miller  <davem@redhat.com>
+
+	* haifa-sched.c (advance_one_cycle): New function.
+	(schedule_block): Use it.
+	(queue_to_ready): Use it, and also make sure to advance the DFA
+	state on all stall cycles, not just those where insn_queue links
+	are found.
+
 2001-10-02  Richard Sandiford  <rsandifo@redhat.com>
 
 	* haifa-sched.c (max_issue): Remove last_p argument.  Only return
