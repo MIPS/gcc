@@ -707,8 +707,8 @@ static tree
 chain_of_csts_start (struct loop *loop, tree x)
 {
   tree stmt = SSA_NAME_DEF_STMT (x);
+  tree use;
   basic_block bb = bb_for_stmt (stmt);
-  use_optype uses;
 
   if (!bb
       || !flow_bb_inside_loop_p (loop, bb))
@@ -726,19 +726,17 @@ chain_of_csts_start (struct loop *loop, tree x)
     return NULL_TREE;
 
   get_stmt_operands (stmt);
-  if (NUM_VUSES (STMT_VUSE_OPS (stmt)) > 0)
+  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return NULL_TREE;
-  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0)
-    return NULL_TREE;
-  if (NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) > 0)
-    return NULL_TREE;
-  if (NUM_DEFS (STMT_DEF_OPS (stmt)) > 1)
-    return NULL_TREE;
-  uses = STMT_USE_OPS (stmt);
-  if (NUM_USES (uses) != 1)
+  if (SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF).def == NULL
+      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_DEF))
     return NULL_TREE;
 
-  return chain_of_csts_start (loop, USE_OP (uses, 0));
+  use = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_USE);
+  if (!use)
+    return NULL_TREE;
+
+  return chain_of_csts_start (loop, use);
 }
 
 /* Determines whether the expression X is derived from a result of a phi node
@@ -791,8 +789,8 @@ static tree
 get_val_for (tree x, tree base)
 {
   tree stmt, nx, val;
-  use_optype uses;
   use_operand_p op;
+  ssa_op_iter iter;
 
   if (!x)
     return base;
@@ -801,16 +799,19 @@ get_val_for (tree x, tree base)
   if (TREE_CODE (stmt) == PHI_NODE)
     return base;
 
-  uses = STMT_USE_OPS (stmt);
-  op = USE_OP_PTR (uses, 0);
+  FOR_EACH_SSA_USE_OPERAND (op, stmt, iter, SSA_OP_USE)
+    {
+      nx = USE_FROM_PTR (op);
+      val = get_val_for (nx, base);
+      SET_USE (op, val);
+      val = fold (TREE_OPERAND (stmt, 1));
+      SET_USE (op, nx);
+      /* only iterate loop once.  */
+      return val;
+    }
 
-  nx = USE_FROM_PTR (op);
-  val = get_val_for (nx, base);
-  SET_USE (op, val);
-  val = fold (TREE_OPERAND (stmt, 1));
-  SET_USE (op, nx);
-
-  return val;
+  /* Should never reach here.  */
+  abort();
 }
 
 /* Tries to count the number of iterations of LOOP till it exits by EXIT

@@ -930,11 +930,6 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   tree vect_ptr_type;
   tree vect_ptr;
   tree tag;
-  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses, nv_may_defs, nv_must_defs;
-  int i;
   tree new_temp;
   tree vec_stmt;
   tree new_stmt_list = NULL_TREE;
@@ -945,6 +940,8 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   tree vectype_size;
   tree ptr_update;
   tree data_ref_ptr;
+  tree use;
+  ssa_op_iter iter;
 
   base_name = unshare_expr (DR_BASE_NAME (dr));
   if (vect_debug_details (NULL))
@@ -979,28 +976,11 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   
   /* Mark for renaming all aliased variables
      (i.e, the may-aliases of the type-mem-tag).  */
-  nvuses = NUM_VUSES (vuses);
-  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
-  for (i = 0; i < nvuses; i++)
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
     {
-      tree use = VUSE_OP (vuses, i);
       if (TREE_CODE (use) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
     }
-  for (i = 0; i < nv_may_defs; i++)
-    {
-      tree def = V_MAY_DEF_RESULT (v_may_defs, i);
-      if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
-    }
-  for (i = 0; i < nv_must_defs; i++)
-    {
-      tree def = V_MUST_DEF_OP (v_must_defs, i);
-      if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
-    }
-
 
   /** (3) Calculate the initial address the vector-pointer, and set
           the vector-pointer to point to it before the loop:  **/
@@ -3458,25 +3438,21 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  bool is_read = false;
 	  tree stmt = bsi_stmt (si);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-	  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-	  vuse_optype vuses = STMT_VUSE_OPS (stmt);
 	  varray_type *datarefs = NULL;
-	  int nvuses, nv_may_defs, nv_must_defs;
 	  tree memref = NULL;
 	  tree symbl;
+	  bool no_vuse, no_vmaymust;
 
 	  /* Assumption: there exists a data-ref in stmt, if and only if 
              it has vuses/vdefs.  */
 
-	  if (!vuses && !v_may_defs && !v_must_defs)
+	  no_vuse = ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE);
+	  no_vmaymust = ZERO_SSA_OPERANDS (stmt, 
+					   SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF);
+	  if (no_vuse && no_vmaymust)
 	    continue;
 
-	  nvuses = NUM_VUSES (vuses);
-	  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-	  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
-
-	  if (nvuses && (nv_may_defs || nv_must_defs))
+	  if (!no_vuse && !no_vmaymust)
 	    {
 	      if (vect_debug_details (NULL))
 		{
@@ -3496,7 +3472,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 
-	  if (vuses)
+	  if (!no_vuse)
 	    {
 	      memref = TREE_OPERAND (stmt, 1);
 	      datarefs = &(LOOP_VINFO_DATAREF_READS (loop_vinfo));
@@ -3649,8 +3625,6 @@ vect_mark_relevant (varray_type worklist, tree stmt)
 static bool
 vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
 {
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   ssa_op_iter op_iter;
   imm_use_iterator imm_iter;
@@ -3662,9 +3636,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
     return true;
 
   /* changing memory.  */
-  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-  if (v_may_defs || v_must_defs)
+  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "vec_stmt_relevant_p: stmt has vdefs.");
@@ -3714,11 +3686,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   unsigned int nbbs = loop->num_nodes;
   block_stmt_iterator si;
-  tree stmt;
-  stmt_ann_t ann;
+  tree stmt, use;
+  ssa_op_iter iter;
   unsigned int i;
   int j;
-  use_optype use_ops;
   stmt_vec_info stmt_info;
 
   if (vect_debug_details (NULL))
@@ -3797,13 +3768,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	    }
 	} 
 
-      ann = stmt_ann (stmt);
-      use_ops = USE_OPS (ann);
-
-      for (i = 0; i < NUM_USES (use_ops); i++)
+      FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
 	{
-	  tree use = USE_OP (use_ops, i);
-
 	  /* We are only interested in uses that need to be vectorized. Uses 
 	     that are used for address computation are not considered relevant.
 	   */

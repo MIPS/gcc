@@ -120,10 +120,9 @@ tree_ssa_unswitch_loops (struct loops *loops)
 static tree
 tree_may_unswitch_on (basic_block bb, struct loop *loop)
 {
-  tree stmt, def, cond;
+  tree stmt, def, cond, use;
   basic_block def_bb;
-  use_optype uses;
-  unsigned i;
+  ssa_op_iter iter;
 
   /* BB must end in a simple conditional jump.  */
   stmt = last_stmt (bb);
@@ -132,10 +131,9 @@ tree_may_unswitch_on (basic_block bb, struct loop *loop)
 
   /* Condition must be invariant.  */
   get_stmt_operands (stmt);
-  uses = STMT_USE_OPS (stmt);
-  for (i = 0; i < NUM_USES (uses); i++)
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
-      def = SSA_NAME_DEF_STMT (USE_OP (uses, i));
+      def = SSA_NAME_DEF_STMT (use);
       def_bb = bb_for_stmt (def);
       if (def_bb
 	  && flow_bb_inside_loop_p (loop, def_bb))

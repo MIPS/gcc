@@ -4426,17 +4426,13 @@ rewrite_to_new_ssa_names_use (use_operand_p use, htab_t map)
 void
 rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
 {
-  unsigned i;
   edge e;
   edge_iterator ei;
   tree phi, stmt;
   block_stmt_iterator bsi;
-  use_optype uses;
-  vuse_optype vuses;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  stmt_ann_t ann;
+  ssa_op_iter iter;
+  use_operand_p use_p;
+  def_operand_p def_p;
 
   FOR_EACH_EDGE (e, ei, bb->preds)
     if (e->flags & EDGE_ABNORMAL)
@@ -4453,33 +4449,13 @@ rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
     {
       stmt = bsi_stmt (bsi);
       get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
 
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-	rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+	rewrite_to_new_ssa_names_use (use_p, map);
 
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
+      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
+	rewrite_to_new_ssa_names_def (def_p, stmt, map);
 
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  rewrite_to_new_ssa_names_use
-		  (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
-	  rewrite_to_new_ssa_names_def
-		  (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	rewrite_to_new_ssa_names_def
-		(V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
     }
 
   FOR_EACH_EDGE (e, ei, bb->succs)

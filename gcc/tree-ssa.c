@@ -594,7 +594,7 @@ verify_ssa (bool check_modified_stmt)
 	  if (check_modified_stmt && stmt_modified_p (stmt))
 	    {
 	      error ("Stmt (0x%x) marked modified after optimization pass : ",
-		     (unsigned long)stmt);
+		     (unsigned int)(size_t)stmt);
 	      print_generic_stmt (stderr, stmt, TDF_VOPS);
 	      goto err;
 	    }

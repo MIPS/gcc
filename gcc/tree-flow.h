@@ -699,10 +699,10 @@ void print_value_expressions (FILE *, tree);
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
 tree get_value_handle (tree);
-hashval_t vn_compute (tree, hashval_t, vuse_optype);
-tree vn_lookup_or_add (tree, vuse_optype);
-void vn_add (tree, tree, vuse_optype);
-tree vn_lookup (tree, vuse_optype);
+hashval_t vn_compute (tree, hashval_t, tree);
+tree vn_lookup_or_add (tree, tree);
+void vn_add (tree, tree, tree);
+tree vn_lookup (tree, tree);
 void vn_init (void);
 void vn_delete (void);
 

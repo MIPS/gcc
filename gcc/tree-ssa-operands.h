@@ -203,6 +203,12 @@ extern void dump_immediate_uses_for (FILE *file, tree var);
 extern void debug_immediate_uses (void);
 extern void debug_immediate_uses_for (tree var);
 
+enum ssa_op_iter_type {
+  ssa_op_iter_tree,
+  ssa_op_iter_use,
+  ssa_op_iter_def,
+  ssa_op_iter_maydef
+};
 /* This structure is used in the operand iterator loops.  It contains the 
    items required to determine which operand is retrieved next.  During
    optimization, this structure is scalarized, and any unused fields are 
@@ -224,6 +230,10 @@ typedef struct ssa_operand_iterator_d
   int v_must_i;
   stmt_operands_p ops;
   bool done;
+  enum ssa_op_iter_type iter_type;
+  int phi_i;
+  int num_phi;
+  tree phi_stmt;
 } ssa_op_iter;
 
 /* These flags are used to determine which operands are returned during 
@@ -240,6 +250,7 @@ typedef struct ssa_operand_iterator_d
 #define SSA_OP_VIRTUAL_DEFS	(SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF)
 #define SSA_OP_ALL_USES		(SSA_OP_VIRTUAL_USES | SSA_OP_USE)
 #define SSA_OP_ALL_DEFS		(SSA_OP_VIRTUAL_DEFS | SSA_OP_DEF)
+#define SSA_OP_ALL_VIRTUALS	(SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_DEFS)
 #define SSA_OP_ALL_OPERANDS	(SSA_OP_ALL_USES | SSA_OP_ALL_DEFS)
 
 /* This macro executes a loop over the operands of STMT specified in FLAG, 
@@ -273,5 +284,31 @@ typedef struct ssa_operand_iterator_d
   for (op_iter_init_maydef (&(ITER), STMT, &(USEVAR), &(DEFVAR));	\
        !op_iter_done (&(ITER));					\
        op_iter_next_maydef (&(USEVAR), &(DEFVAR), &(ITER)))
+
+#define SINGLE_SSA_TREE_OPERAND(STMT, FLAGS)			\
+  single_ssa_tree_operand (STMT, FLAGS)
+                                                                                
+#define SINGLE_SSA_USE_OPERAND(STMT, FLAGS)			\
+  single_ssa_use_operand (STMT, FLAGS)
+                                                                                
+#define SINGLE_SSA_DEF_OPERAND(STMT, FLAGS)			\
+  single_ssa_def_operand (STMT, FLAGS)
+                                                                                
+#define ZERO_SSA_OPERANDS(STMT, FLAGS) 	zero_ssa_operands (STMT, FLAGS)
+#define NUM_SSA_OPERANDS(STMT, FLAGS)	num_ssa_operands (STMT, FLAGS)
+										#define FOR_EACH_PHI_ARG (USEVAR, STMT, ITER, FLAGS)		\
+  for ((USEVAR) = op_iter_init_phiuse (&(ITER), STMT, FLAGS);	\
+       !op_iter_done (&(ITER));					\
+       (USEVAR) = op_iter_next_use (&(ITER)))
+
+#define SINGLE_PHI_DEF (STMT, FLAGS)	single_phi_def (STMT, FLAGS)
+
+
+#define FOR_EACH_PHI_OR_STMT_USE(USEVAR, STMT, ITER, FLAGS)	\
+  for ((USEVAR) = (TREE_CODE (STMT) == PHI_NODE 		\
+		   ? op_iter_init_phiuse (&(ITER), STMT, FLAGS)	\
+		   : op_iter_init_use (&(ITER), STMT, FLAGS));	\
+       !op_iter_done (&(ITER));					\
+       (USEVAR) = op_iter_next_use (&(ITER)))
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

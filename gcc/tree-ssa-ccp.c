@@ -279,11 +279,11 @@ def_to_varying (tree var)
 static latticevalue
 likely_value (tree stmt)
 {
-  vuse_optype vuses;
-  int found_constant = 0;
+  int found_constant = 0, num_uses;
   stmt_ann_t ann;
   tree use;
   ssa_op_iter iter;
+  bool zero_vuse;
 
   /* If the statement makes aliased loads or has volatile operands, it
      won't fold to a constant value.  */
@@ -298,9 +298,11 @@ likely_value (tree stmt)
 
   get_stmt_operands (stmt);
 
+  num_uses = 0;
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
       value *val = get_value (use);
+      num_uses++;
 
       if (val->lattice_val == UNDEFINED)
 	return UNDEFINED;
@@ -309,24 +311,31 @@ likely_value (tree stmt)
 	found_constant = 1;
     }
     
-  vuses = VUSE_OPS (ann);
   
-  if (NUM_VUSES (vuses))
+  zero_vuse = ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE);
+
+  if (!zero_vuse)
     {
-      tree vuse = VUSE_OP (vuses, 0);
-      value *val = get_value (vuse);
-      
-      if (val->lattice_val == UNKNOWN_VAL)
-        return UNKNOWN_VAL;
-	
-      /* There should be no VUSE operands that are UNDEFINED.  */
-      gcc_assert (val->lattice_val != UNDEFINED);
-	
-      if (val->lattice_val == CONSTANT)
-	found_constant = 1;
+      FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VUSE)
+        {
+	  value *val = get_value (use);
+
+	  if (val->lattice_val == UNKNOWN_VAL)
+	    return UNKNOWN_VAL;
+	    
+	  /* There should be no VUSE operands that are UNDEFINED.  */
+	  gcc_assert (val->lattice_val != UNDEFINED);
+	    
+	  if (val->lattice_val == CONSTANT)
+	    found_constant = 1;
+
+	  /* Only do one iteration of the loop.  */
+	  break;
+	}
     }
 
-  return ((found_constant || (!USE_OPS (ann) && !vuses)) ? CONSTANT : VARYING);
+  return ((found_constant || (num_uses == 0 && zero_vuse)) 
+	  ? CONSTANT : VARYING);
 }
 
 
@@ -471,7 +480,6 @@ static bool
 replace_vuse_in (tree stmt, bool *replaced_addresses_p)
 {
   bool replaced = false;
-  vuse_optype vuses;
   use_operand_p vuse;
   value *val;
 
@@ -480,12 +488,11 @@ replace_vuse_in (tree stmt, bool *replaced_addresses_p)
 
   get_stmt_operands (stmt);
 
-  vuses = STMT_VUSE_OPS (stmt);
+  vuse = SINGLE_SSA_USE_OPERAND (stmt, SSA_OP_VUSE);
 
-  if (NUM_VUSES (vuses) != 1)
+  if (vuse == NULL_USE_OPERAND_P)
     return false;
 
-  vuse = VUSE_OP_PTR (vuses, 0);
   val = get_value (USE_FROM_PTR (vuse));
 
   if (val->lattice_val == CONSTANT
@@ -808,18 +815,16 @@ ccp_fold (tree stmt)
   enum tree_code code = TREE_CODE (rhs);
   enum tree_code_class kind = TREE_CODE_CLASS (code);
   tree retval = NULL_TREE;
-  vuse_optype vuses;
+  tree vuse;
   
-  vuses = STMT_VUSE_OPS (stmt);
+  vuse = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_VUSE);
 
   /* If the RHS is just a variable, then that variable must now have
      a constant value that we can return directly.  */
   if (TREE_CODE (rhs) == SSA_NAME)
     return get_value (rhs)->const_val;
-  else if (DECL_P (rhs) 
-           && NUM_VUSES (vuses) == 1
-           && rhs == SSA_NAME_VAR (VUSE_OP (vuses, 0)))
-    return get_value (VUSE_OP (vuses, 0))->const_val;
+  else if (DECL_P (rhs) && vuse && rhs == SSA_NAME_VAR (vuse))
+    return get_value (vuse)->const_val;
 
   /* Unary operators.  Note that we know the single operand must
      be a constant.  So this should almost always return a
@@ -925,24 +930,26 @@ ccp_fold (tree stmt)
 	       == FUNCTION_DECL)
 	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
     {
-      use_optype uses = STMT_USE_OPS (stmt);
-      if (NUM_USES (uses) != 0)
+      if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
-	  tree *orig;
-	  size_t i;
+	  tree *orig, var;
+	  ssa_op_iter iter;
+	  use_operand_p var_p;
+	  size_t i = 0;
 
 	  /* Preserve the original values of every operand.  */
-	  orig = xmalloc (sizeof (tree) * NUM_USES (uses));
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    orig[i] = USE_OP (uses, i);
+	  orig = xmalloc (sizeof (tree) * NUM_SSA_OPERANDS (stmt, SSA_OP_USE));
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
+	    orig[i++] = var;
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL);
 	  retval = fold_builtin (rhs, false);
 
 	  /* Restore operands to their original form.  */
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    SET_USE_OP (uses, i, orig[i]);
+	  i = 0;
+	  FOR_EACH_SSA_USE_OPERAND (var_p, stmt, iter, SSA_OP_USE)
+	    SET_USE (var_p, orig[i++]);
 	  free (orig);
 	}
     }
@@ -1010,17 +1017,16 @@ visit_assignment (tree stmt, tree *output_p)
 {
   value val;
   tree lhs, rhs;
-  vuse_optype vuses;
-  v_must_def_optype v_must_defs;
+  tree vmust, vuse;
 
   lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
-  vuses = STMT_VUSE_OPS (stmt);
-  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
 
-  gcc_assert (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0);
-  gcc_assert (NUM_V_MUST_DEFS (v_must_defs) == 1
-	      || TREE_CODE (lhs) == SSA_NAME);
+  vmust = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_VMUSTDEF);
+  vuse = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_VUSE);
+
+  gcc_assert (ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF));
+  gcc_assert (vmust != NULL_TREE || TREE_CODE (lhs) == SSA_NAME);
 
   /* We require the SSA version number of the lhs for the value_vector.
      Make sure we have it.  */
@@ -1028,7 +1034,7 @@ visit_assignment (tree stmt, tree *output_p)
     {
       /* If we make it here, then stmt only has one definition:
          a V_MUST_DEF.  */
-      lhs = V_MUST_DEF_OP (v_must_defs, 0);
+      lhs = vmust;
     }
 
   if (TREE_CODE (rhs) == SSA_NAME)
@@ -1037,13 +1043,11 @@ visit_assignment (tree stmt, tree *output_p)
       value *nval = get_value (rhs);
       val = *nval;
     }
-  else if (DECL_P (rhs) 
-           && NUM_VUSES (vuses) == 1
-           && rhs == SSA_NAME_VAR (VUSE_OP (vuses, 0)))
+  else if (DECL_P (rhs) && vuse && rhs == SSA_NAME_VAR (vuse))
     {
       /* Same as above, but the rhs is not a gimple register and yet
         has a known VUSE.  */
-      value *nval = get_value (VUSE_OP (vuses, 0));
+      value *nval = get_value (vuse);
       val = *nval;
     }
   else
@@ -1130,10 +1134,7 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
 static enum ssa_prop_result
 ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 {
-  stmt_ann_t ann;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  tree def;
+  tree def, vmust;
   ssa_op_iter iter;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1143,14 +1144,10 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  ann = stmt_ann (stmt);
-
-  v_must_defs = V_MUST_DEF_OPS (ann);
-  v_may_defs = V_MAY_DEF_OPS (ann);
+  vmust = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_VMUSTDEF);
   if (TREE_CODE (stmt) == MODIFY_EXPR
-      && NUM_V_MAY_DEFS (v_may_defs) == 0
-      && (NUM_V_MUST_DEFS (v_must_defs) == 1
-          || TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME))
+      && ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF)
+      && (vmust || TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME))
     {
       /* If the statement is an assignment that produces a single
 	 output value, evaluate its RHS to see if the lattice value of
