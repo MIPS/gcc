@@ -1,5 +1,9 @@
 2000-04-25  Richard Henderson  <rth@cygnus.com>
 
+	* condexec.c (noce_try_cmove_arith): Also fail if no insn_a.
+
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
 	* condexec.c (noce_process_if_block): Reject insn_b from test_bb
 	if X is referenced by the condition.  Make sure set_b is initialized.
 	(dead_or_predicable): Squeeze notes out of the sequence we move.

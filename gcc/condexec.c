@@ -786,6 +786,8 @@ noce_try_cmove_arith (if_info)
 	  tmp = gen_reg_rtx (GET_MODE (a));
 	  tmp = emit_insn (gen_rtx_SET (VOIDmode, tmp, a));
 	}
+      else if (! insn_a)
+	goto end_seq_and_fail;
       else
 	{
 	  a = gen_reg_rtx (GET_MODE (a));
