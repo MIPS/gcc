@@ -1,5 +1,27 @@
 2004-10-21  Andreas Tobler  <a.tobler@schweiz.ch>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c
+	(Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun):
+	Mark unused arguments unused.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c
+	(Java_gnu_java_awt_peer_gtk_GdkGlyphVector_initState),
+	(Java_gnu_java_awt_peer_gtk_GdkGlyphVector_setGlyphCodes),
+	(Java_gnu_java_awt_peer_gtk_GdkGlyphVector_glyphCharIndex),
+	(Java_gnu_java_awt_peer_gtk_GdkGlyphVector_glyphIsHorizontal):
+	Likewise.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c
+	(Java_gnu_java_awt_peer_gtk_GdkFontMetrics_getPeerFontMetrics),
+	(Java_gnu_java_awt_peer_gtk_GdkFontMetrics_getPeerTextMetrics):
+	Likewise.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFilenameFilter):
+	Likewise.
+	(filenameFilterCallback): Remove unused var.
+	(handle_response): Declare str_fileName and remove last else statement.
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c:
 	New File.
 	(nativeGetNumFontsFamilies) New function.

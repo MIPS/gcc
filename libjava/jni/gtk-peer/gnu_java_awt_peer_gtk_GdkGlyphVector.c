@@ -58,8 +58,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_initStaticState
   NSA_GV_INIT (env, clazz);
 }
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_initState 
-  (JNIEnv *env, jobject self, jobject font, jobject ctx)
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_initState
+  (JNIEnv *env, jobject self, jobject font, jobject ctx __attribute__ ((unused)))
 {
   struct glyphvec *vec = NULL;
   struct peerfont *pfont = NULL;
@@ -330,8 +330,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_setChars
 }
 
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_setGlyphCodes 
-  (JNIEnv *env, jobject self, jintArray codes)
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_setGlyphCodes
+  (JNIEnv *env, jobject self, jintArray codes __attribute__ ((unused)))
 {
   struct glyphvec *vec = NULL;
 
@@ -398,8 +398,8 @@ JNIEXPORT jint JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_numGlyphs
 }
 
 
-JNIEXPORT jint JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_glyphCharIndex 
-  (JNIEnv *env, jobject self, jint idx)
+JNIEXPORT jint JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_glyphCharIndex
+(JNIEnv *env __attribute__ ((unused)), jobject self  __attribute__ ((unused)), jint idx)
 {
   /* 
      FIXME: this is not correct, rather it assumes a (broken) 1:1
@@ -625,7 +625,7 @@ JNIEXPORT jdoubleArray JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_glyphIn
 
 
 JNIEXPORT jboolean JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_glyphIsHorizontal 
-  (JNIEnv *env, jobject self, jint idx)
+(JNIEnv *env, jobject self, jint idx  __attribute__ ((unused)))
 {
   struct glyphvec *vec = NULL;
   PangoDirection dir;

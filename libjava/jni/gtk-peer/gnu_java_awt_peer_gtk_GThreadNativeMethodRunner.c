@@ -48,8 +48,7 @@ exception statement from your version. */
  * 
  */
 JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun(JNIEnv *gdk_env, jobject lcl_obj, 
-					 jlong funcAddr, jlong funcArg)
+Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun(JNIEnv *gdk_env __attribute__((unused)), jobject lcl_obj __attribute__((unused)), jlong funcAddr, jlong funcArg)
 {
   /* Convert the function's address back into a pointer to a C function. */
   void *(*funcPtr)(void *) = (void *(*)(void *)) funcAddr;

@@ -130,7 +130,6 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeGetDirectory
 gboolean filenameFilterCallback (const GtkFileFilterInfo *filter_info,
                                  gpointer obj)
 {
-  gchar* dirname;
   jclass cx;
   jmethodID id;
   jstring *filename;
@@ -151,7 +150,7 @@ gboolean filenameFilterCallback (const GtkFileFilterInfo *filter_info,
 
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFilenameFilter
-    (JNIEnv *env, jobject obj, jobject filter_obj)
+    (JNIEnv *env, jobject obj, jobject filter_obj __attribute__((unused)))
 {
   void *ptr;
   GtkFileFilter *filter;
@@ -220,7 +219,7 @@ handle_response (GtkDialog *dialog __attribute__((unused)),
   static jmethodID disposeID;
   void *ptr;
   G_CONST_RETURN gchar *fileName;
-  jstring str_fileName;
+  jstring str_fileName = NULL;
 
   /* We only need this for the case when the user closed the window,
      or clicked ok or cancel. */
@@ -252,8 +251,6 @@ handle_response (GtkDialog *dialog __attribute__((unused)),
   if (responseId == GTK_RESPONSE_OK) {
     fileName = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (GTK_WIDGET (ptr)));
     str_fileName = (*gdk_env)->NewStringUTF (gdk_env, fileName);
-  } else if (responseId == GTK_RESPONSE_CANCEL) {
-    str_fileName = NULL;
   }
 
   if (!isIDSet)
