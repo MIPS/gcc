@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
 
   {".m", "@objective-c", 0, 0, 0},
   {"@objective-c",
-     /* APPLE LOCAL Objective-C */
+     /* APPLE LOCAL mainline */
      "%{E|M|MM:cc1obj -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}\
           %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
