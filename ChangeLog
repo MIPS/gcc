@@ -1,5 +1,9 @@
 2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.tpl: Make all-target, install-target behave similarly
+	to all, install (only hitting configured targets).  Eliminate
+	unused macro defintions.
+
 	* Makefile.tpl: Add all-gcc: all-build-libiberty dependency when
 	build != host.
 
