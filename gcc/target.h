@@ -265,6 +265,9 @@ struct gcc_target
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
 
+  /* True if the constant X cannot be placed in the constant pool.  */
+  bool (* cannot_force_const_mem) PARAMS ((rtx));
+
   /* True if it is OK to do sibling call optimization for the specified
      call expression EXP.  DECL will be the called function, or NULL if
      this is an indirect call.  */

@@ -124,3 +124,10 @@ hook_bool_tree_tree_false (a, b)
 {
   return false;
 }
+
+bool
+hook_bool_rtx_false (a)
+     rtx a ATTRIBUTE_UNUSED;
+{
+  return false;
+}

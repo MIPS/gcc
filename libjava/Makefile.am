@@ -1720,8 +1720,10 @@ gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/FirstThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
+gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
 gnu/gcj/runtime/SharedLibLoader.java \
+gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
@@ -2316,7 +2318,9 @@ gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natFirstThread.cc \
 gnu/gcj/runtime/natNameFinder.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
+gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
+gnu/gcj/runtime/natVMClassLoader.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
@@ -2334,7 +2338,7 @@ java/lang/natString.cc \
 java/lang/natStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
-java/lang/natVMThrowable.cc \
+java/lang/natVMSecurityManager.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
@@ -2346,6 +2350,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/text/natCollator.cc \
+java/util/natResourceBundle.cc \
 java/util/natTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc

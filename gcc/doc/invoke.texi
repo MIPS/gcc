@@ -463,6 +463,28 @@ in the following sections.
 -msim  -mmvme  -mads  -myellowknife  -memb -msdata @gol
 -msdata=@var{opt}  -mvxworks -mwindiss -G @var{num} -pthread}
 
+@emph{Darwin Options}
+@gccoptlist{
+-all_load -allowable_client -arch -arch_errors_fatal @gol
+-arch_only -bind_at_load -bundle -bundle_loader @gol
+-client_name -compatibility_version -current_version @gol
+-dependency-file -dylib_file -dylinker_install_name @gol
+-dynamic -dynamiclib -exported_symbols_list @gol
+-filelist -flat_namespace -force_cpusubtype_ALL @gol
+-force_flat_namespace -headerpad_max_install_names @gol
+-image_base -init -install_name -keep_private_externs @gol
+-multi_module -multiply_defined -multiply_defined_unused @gol
+-noall_load -nomultidefs -noprebind -noseglinkedit @gol
+-pagezero_size -prebind -prebind_all_twolevel_modules @gol
+-private_bundle -read_only_relocs -sectalign @gol
+-sectobjectsymbols -whyload -seg1addr @gol
+-sectcreate -sectobjectsymbols -sectorder @gol
+-seg_addr_table -seg_addr_table_filename -seglinkedit @gol
+-segprot -segs_read_only_addr -segs_read_write_addr @gol
+-single_module -static -sub_library -sub_umbrella @gol
+-twolevel_namespace -umbrella -undefined @gol
+-unexported_symbols_list -weak_reference_mismatches -whatsloaded}
+
 @emph{RT Options}
 @gccoptlist{
 -mcall-lib-mul  -mfp-arg-in-fpregs  -mfp-arg-in-gregs @gol
@@ -677,6 +699,19 @@ in the following sections.
 -mtext-section-literals -mno-text-section-literals @gol
 -mtarget-align -mno-target-align @gol
 -mlongcalls -mno-longcalls}
+
+@emph{FRV Options}
+@gccoptlist{
+-mgpr-32 -mgpr-64 -mfpr-32 -mfpr-64 -mhard-float -msoft-float @gol
+-malloc-cc -mfixed-cc -mdword -mno-dword -mdouble -mno-double @gol
+-mmedia -mno-media -mmuladd -mno-muladd -mlibrary-pic -macc-4 @gol
+-macc-8 -mpack -mno-pack -mno-eflags -mcond-move -mno-cond-move @gol
+-mscc -mno-scc -mcond-exec -mno-cond-exec -mvliw-branch -mno-vliw-branch @gol
+-mmulti-cond-exec -mno-multi-cond-exec -mnested-cond-exec @gol
+-mno-nested-cond-exec -mtomcat-stats @gol
+-mcpu=@var{cpu}}
+
+
 
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
@@ -3053,19 +3088,19 @@ meanings:
 Annotate the assembler output with miscellaneous debugging information.
 @item b
 @opindex db
-Dump after computing branch probabilities, to @file{@var{file}.15.bp}.
+Dump after computing branch probabilities, to @file{@var{file}.14.bp}.
 @item B
 @opindex dB
-Dump after block reordering, to @file{@var{file}.30.bbro}.
+Dump after block reordering, to @file{@var{file}.32.bbro}.
 @item c
 @opindex dc
-Dump after instruction combination, to the file @file{@var{file}.17.combine}.
+Dump after instruction combination, to the file @file{@var{file}.19.combine}.
 @item C
 @opindex dC
-Dump after the first if conversion, to the file @file{@var{file}.18.ce}.
+Dump after the first if conversion, to the file @file{@var{file}.15.ce1}.
 @item d
 @opindex dd
-Dump after delayed branch scheduling, to @file{@var{file}.32.dbr}.
+Dump after delayed branch scheduling, to @file{@var{file}.34.dbr}.
 @item D
 @opindex dD
 Dump all macro definitions, at the end of preprocessing, in addition to
@@ -3076,25 +3111,25 @@ Dump after SSA optimizations, to @file{@var{file}.04.ssa} and
 @file{@var{file}.07.ussa}.
 @item E
 @opindex dE
-Dump after the second if conversion, to @file{@var{file}.27.ce2}.
+Dump after the second if conversion, to @file{@var{file}.29.ce3}.
 @item f
 @opindex df
-Dump after life analysis, to @file{@var{file}.16.life}.
+Dump after life analysis, to @file{@var{file}.18.life}.
 @item F
 @opindex dF
 Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.10.addressof}.
 @item g
 @opindex dg
-Dump after global register allocation, to @file{@var{file}.22.greg}.
+Dump after global register allocation, to @file{@var{file}.24.greg}.
 @item h
 @opindex dh
 Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
 @item k
 @opindex dk
-Dump after reg-to-stack conversion, to @file{@var{file}.29.stack}.
+Dump after reg-to-stack conversion, to @file{@var{file}.31.stack}.
 @item o
 @opindex do
-Dump after post-reload optimizations, to @file{@var{file}.23.postreload}.
+Dump after post-reload optimizations, to @file{@var{file}.25.postreload}.
 @item G
 @opindex dG
 Dump after GCSE, to @file{@var{file}.11.gcse}.
@@ -3106,52 +3141,52 @@ Dump after sibling call optimizations, to @file{@var{file}.01.sibling}.
 Dump after the first jump optimization, to @file{@var{file}.03.jump}.
 @item k
 @opindex dk
-Dump after conversion from registers to stack, to @file{@var{file}.33.stack}.
+Dump after conversion from registers to stack, to @file{@var{file}.31.stack}.
 @item l
 @opindex dl
-Dump after local register allocation, to @file{@var{file}.21.lreg}.
+Dump after local register allocation, to @file{@var{file}.23.lreg}.
 @item L
 @opindex dL
 Dump after loop optimization, to @file{@var{file}.12.loop}.
 @item M
 @opindex dM
 Dump after performing the machine dependent reorganisation pass, to
-@file{@var{file}.31.mach}.
+@file{@var{file}.33.mach}.
 @item n
 @opindex dn
-Dump after register renumbering, to @file{@var{file}.26.rnreg}.
+Dump after register renumbering, to @file{@var{file}.28.rnreg}.
 @item N
 @opindex dN
-Dump after the register move pass, to @file{@var{file}.19.regmove}.
+Dump after the register move pass, to @file{@var{file}.21.regmove}.
 @item r
 @opindex dr
 Dump after RTL generation, to @file{@var{file}.00.rtl}.
 @item R
 @opindex dR
-Dump after the second scheduling pass, to @file{@var{file}.28.sched2}.
+Dump after the second scheduling pass, to @file{@var{file}.30.sched2}.
 @item s
 @opindex ds
 Dump after CSE (including the jump optimization that sometimes follows
 CSE), to @file{@var{file}.09.cse}.
 @item S
 @opindex dS
-Dump after the first scheduling pass, to @file{@var{file}.20.sched}.
+Dump after the first scheduling pass, to @file{@var{file}.22.sched}.
 @item t
 @opindex dt
 Dump after the second CSE pass (including the jump optimization that
-sometimes follows CSE), to @file{@var{file}.13.cse2}.
+sometimes follows CSE), to @file{@var{file}.17.cse2}.
 @item u
 @opindex du
 Dump after null pointer ellimination pass ti @file{@var{file}.08.null}.
 @item w
 @opindex dw
-Dump after the second flow pass, to @file{@var{file}.24.flow2}.
+Dump after the second flow pass, to @file{@var{file}.26.flow2}.
 @item X
 @opindex dX
 Dump after SSA dead code elimination, to @file{@var{file}.06.ssadce}.
 @item z
 @opindex dz
-Dump after the peephole pass, to @file{@var{file}.25.peephole2}.
+Dump after the peephole pass, to @file{@var{file}.27.peephole2}.
 @item a
 @opindex da
 Produce all the dumps listed above.
@@ -5221,6 +5256,7 @@ that macro, which enables you to change the defaults.
 * M32R/D Options::
 * M88K Options::
 * RS/6000 and PowerPC Options::
+* Darwin Options::
 * RT Options::
 * MIPS Options::
 * i386 and x86-64 Options::
@@ -5246,6 +5282,7 @@ that macro, which enables you to change the defaults.
 * PDP-11 Options::
 * Xstormy16 Options::
 * Xtensa Options::
+* FRV Options::
 @end menu
 
 @node M680x0 Options
@@ -5644,7 +5681,8 @@ Set the instruction set, register set, and instruction scheduling parameters
 for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{sparclite},
 @samp{hypersparc}, @samp{sparclite86x}, @samp{f930}, @samp{f934},
-@samp{sparclet}, @samp{tsc701}, @samp{v9}, and @samp{ultrasparc}.
+@samp{sparclet}, @samp{tsc701}, @samp{v9}, @samp{ultrasparc}, and
+@samp{ultrasparc3}.
 
 Default instruction scheduling parameters are used for values that select
 an architecture and not an implementation.  These are @samp{v7}, @samp{v8},
@@ -5658,7 +5696,7 @@ implementations.
     v8:             supersparc, hypersparc
     sparclite:      f930, f934, sparclite86x
     sparclet:       tsc701
-    v9:             ultrasparc
+    v9:             ultrasparc, ultrasparc3
 @end smallexample
 
 @item -mtune=@var{cpu_type}
@@ -5671,7 +5709,8 @@ The same values for @option{-mcpu=@var{cpu_type}} can be used for
 @option{-mtune=@var{cpu_type}}, but the only useful values are those
 that select a particular cpu implementation.  Those are @samp{cypress},
 @samp{supersparc}, @samp{hypersparc}, @samp{f930}, @samp{f934},
-@samp{sparclite86x}, @samp{tsc701}, and @samp{ultrasparc}.
+@samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc}, and
+@samp{ultrasparc3}.
 
 @end table
 
@@ -7242,6 +7281,153 @@ Adds support for multithreading with the @dfn{pthreads} library.
 This option sets flags for both the preprocessor and linker.
 
 @end table
+
+@node Darwin Options
+@subsection Darwin Options
+@cindex Darwin options
+@table @gcctabopt
+@item -all_load    
+@opindex all_load   
+Loads all members of static archive libraries.
+See man ld(1) for more information.
+
+@item -arch_errors_fatal
+@opindex arch_errors_fatal
+Cause the errors having to do with files that have the wrong architecture
+to be fatal.
+
+@item -bind_at_load
+@opindex bind_at_load
+Causes the output file to be marked such that the dynamic linker will
+bind all undefined references when the file is loaded or launched.
+
+@item -bundle     
+@opindex bundle
+Produce a Mach-o bundle format file.
+See man ld(1) for more information.
+
+@item -bundle_loader @var{executable}
+@opindex bundle_loader
+This specifies the @var{executable} that will be loading the build
+output file being linked. See man ld(1) for more information.
+
+@item -allowable_client  @var{client_name}
+@item -arch_only
+
+@item -client_name       
+@item -compatibility_version
+@item -current_version    
+@item -dependency-file
+@item -dylib_file    
+@item -dylinker_install_name
+@item -dynamic
+@item -dynamiclib   
+@item -exported_symbols_list  
+@item -filelist
+@item -flat_namespace   
+@item -force_cpusubtype_ALL
+@item -force_flat_namespace   
+@item -headerpad_max_install_names
+@item -image_base  
+@item -init
+@item -install_name
+@item -keep_private_externs
+@item -multi_module
+@item -multiply_defined      
+@item -multiply_defined_unused      
+@item -noall_load  
+@item -nomultidefs
+@item -noprebind     
+@item -noseglinkedit
+@item -pagezero_size    
+@item -prebind
+@item -prebind_all_twolevel_modules
+@item -private_bundle
+@item -read_only_relocs
+@item -sectalign  
+@item -sectobjectsymbols    
+@item -whyload
+@item -seg1addr 
+@item -sectcreate
+@item -sectobjectsymbols
+@item -sectorder
+@item -seg_addr_table
+@item -seg_addr_table_filename
+@item -seglinkedit
+@item -segprot   
+@item -segs_read_only_addr
+@item -segs_read_write_addr
+@item -single_module   
+@item -static
+@item -sub_library
+@item -sub_umbrella 
+@item -twolevel_namespace
+@item -umbrella
+@item -undefined
+@item -unexported_symbols_list
+@item -weak_reference_mismatches
+@item -whatsloaded  
+
+@opindex allowable_client
+@opindex arch_only    
+@opindex client_name
+@opindex compatibility_version
+@opindex current_version
+@opindex dependency-file
+@opindex dylib_file
+@opindex dylinker_install_name
+@opindex dynamic
+@opindex dynamiclib
+@opindex exported_symbols_list
+@opindex filelist  
+@opindex flat_namespace    
+@opindex force_cpusubtype_ALL
+@opindex force_flat_namespace
+@opindex headerpad_max_install_names
+@opindex image_base
+@opindex init     
+@opindex install_name
+@opindex keep_private_externs
+@opindex multi_module   
+@opindex multiply_defined
+@opindex multiply_defined_unused   
+@opindex noall_load  
+@opindex nomultidefs   
+@opindex noprebind
+@opindex noseglinkedit      
+@opindex pagezero_size
+@opindex prebind
+@opindex prebind_all_twolevel_modules
+@opindex private_bundle 
+@opindex read_only_relocs
+@opindex sectalign   
+@opindex sectobjectsymbols    
+@opindex whyload  
+@opindex seg1addr
+@opindex sectcreate       
+@opindex sectobjectsymbols 
+@opindex sectorder     
+@opindex seg_addr_table
+@opindex seg_addr_table_filename
+@opindex seglinkedit
+@opindex segprot
+@opindex segs_read_only_addr
+@opindex segs_read_write_addr
+@opindex single_module
+@opindex static
+@opindex sub_library
+@opindex sub_umbrella
+@opindex twolevel_namespace
+@opindex umbrella
+@opindex undefined
+@opindex unexported_symbols_list
+@opindex weak_reference_mismatches
+@opindex whatsloaded
+
+This options are available for Darwin linker. Darwin linker man page
+describes them in detail.
+@end table
+
 
 @node RT Options
 @subsection IBM RT Options
@@ -9969,6 +10155,233 @@ These options are defined for Xstormy16:
 @item -msim
 @opindex msim
 Choose startup files and linker script suitable for the simulator.
+@end table
+
+@node FRV Options
+@subsection FRV Options
+@cindex FRV Options
+
+@table @gcctabopt
+@item -mgpr-32
+@opindex mgpr-32
+
+Only use the first 32 general purpose registers.
+
+@item -mgpr-64
+@opindex mgpr-64
+
+Use all 64 general purpose registers.
+
+@item -mfpr-32
+@opindex mfpr-32
+
+Use only the first 32 floating point registers.
+
+@item -mfpr-64
+@opindex mfpr-64
+
+Use all 64 floating point registers
+
+@item -mhard-float
+@opindex mhard-float
+
+Use hardware instructions for floating point operations.
+
+@item -msoft-float
+@opindex msoft-float
+
+Use library routines for floating point operations.
+
+@item -malloc-cc
+@opindex malloc-cc
+
+Dynamically allocate condition code registers.
+
+@item -mfixed-cc
+@opindex mfixed-cc
+
+Do not try to dynamically allocate condition code registers, only
+use @code{icc0} and @code{fcc0}.
+
+@item -mdword
+@opindex mdword
+
+Change ABI to use double word insns.
+
+@item -mno-dword
+@opindex mno-dword
+
+Do not use double word instructions.
+
+@item -mdouble
+@opindex mdouble
+
+Use floating point double instructions.
+
+@item -mno-double
+@opindex mno-double
+
+Do not use floating point double instructions.
+
+@item -mmedia
+@opindex mmedia
+
+Use media instructions.
+
+@item -mno-media
+@opindex mno-media
+
+Do not use media instructions.
+
+@item -mmuladd
+@opindex mmuladd
+
+Use multiply and add/subtract instructions.
+
+@item -mno-muladd
+@opindex mno-muladd
+
+Do not use multiply and add/subtract instructions.
+
+@item -mlibrary-pic
+@opindex mlibrary-pic
+
+Enable PIC support for building libraries
+
+@item -macc-4
+@opindex macc-4
+
+Use only the first four media accumulator registers.
+
+@item -macc-8
+@opindex macc-8
+
+Use all eight media accumulator registers.
+
+@item -mpack
+@opindex mpack
+
+Pack VLIW instructions.
+
+@item -mno-pack
+@opindex mno-pack
+
+Do not pack VLIW instructions.
+
+@item -mno-eflags
+@opindex mno-eflags
+
+Do not mark ABI switches in e_flags.
+
+@item -mcond-move
+@opindex mcond-move
+
+Enable the use of conditional-move instructions (default).
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mno-cond-move
+@opindex mno-cond-move
+
+Disable the use of conditional-move instructions.
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mscc
+@opindex mscc
+
+Enable the use of conditional set instructions (default).
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mno-scc
+@opindex mno-scc
+
+Disable the use of conditional set instructions.
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mcond-exec
+@opindex mcond-exec
+
+Enable the use of conditional execution (default).
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mno-cond-exec
+@opindex mno-cond-exec
+
+Disable the use of conditional execution.
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mvliw-branch
+@opindex mvliw-branch
+
+Run a pass to pack branches into VLIW instructions (default).
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mno-vliw-branch
+@opindex mno-vliw-branch
+
+Do not run a pass to pack branches into VLIW instructions.
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mmulti-cond-exec
+@opindex mmulti-cond-exec
+
+Enable optimization of @code{&&} and @code{||} in conditional execution
+(default).
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mno-multi-cond-exec
+@opindex mno-multi-cond-exec
+
+Disable optimization of @code{&&} and @code{||} in conditional execution.
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mnested-cond-exec
+@opindex mnested-cond-exec
+
+Enable nested conditional execution optimizations (default).
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mno-nested-cond-exec
+@opindex mno-nested-cond-exec
+
+Disable nested conditional execution optimizations.
+
+This switch is mainly for debugging the compiler and will likely be removed
+in a future version.
+
+@item -mtomcat-stats
+@opindex mtomcat-stats
+
+Cause gas to print out tomcat statistics.
+
+@item -mcpu=@var{cpu}
+@opindex mcpu
+
+Select the processor type for which to generate code.  Possible values are
+@samp{simple}, @samp{tomcat}, @samp{fr500}, @samp{fr400}, @samp{fr300},
+@samp{frv}.
+
 @end table
 
 @node Xtensa Options

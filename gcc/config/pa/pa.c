@@ -6336,7 +6336,7 @@ output_millicode_call (insn, call_dest)
       xoperands[1] = gen_label_rtx ();
       output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
       (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				 CODE_LABEL_NUMBER (xoperands[3]));
+				 CODE_LABEL_NUMBER (xoperands[1]));
     }
   else
     /* ??? This branch may not reach its target.  */
@@ -6674,7 +6674,7 @@ output_call (insn, call_dest, sibcall)
 	  xoperands[1] = gen_label_rtx ();
 	  output_asm_insn ("ldo %0-%1(%%r2),%%r2", xoperands);
 	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					     CODE_LABEL_NUMBER (xoperands[3]));
+					     CODE_LABEL_NUMBER (xoperands[1]));
 	}
       else
 	/* ??? This branch may not reach its target.  */

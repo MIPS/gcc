@@ -3,10 +3,20 @@
 	* configure.in, Makefile.tpl, Makefile.def: Remove tclX.
 	* Makefile.in: Regenerate.
 
+2002-12-13  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in (check-gcc-c++): Renamed from check-c++.  Don't run
+	library tests.
+	(check-c++): Just depend on it and check-target-libstdc++-v3.
+
 2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	* Makefile.tpl (configure-target-rda): Depend on $(ALL_GCC_C).
 	* Makefile.in: Rebuilt.
+
+2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (configure-target-rda): Depend on ALL_GCC_C.
 
 2002-12-10  Nathanael Nerode  <neroden@gcc.gnu.org>
 
@@ -15,6 +25,12 @@
 	* Makefile.tpl: Substitute more autoconfily.
 	* configure: Substitute more autoconfily.
 	* Makefile.in: Regenerate.
+
+2002-12-09  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config.sub: Import from master repository
+	* config.guess: Ditto
+	* MAINTAINERS: Added Svein Seldal under write after approval
 
 2002-12-08  Andrew Cagney  <ac131313@redhat.com>
 
@@ -37,6 +53,10 @@
 	* configure: Run subconfigures from the Makefile.
 	* Makefile.tpl: Run subconfigures from the Makefile; add a few
 	convenience targets.  Make sure gcc isn't rebuilt after bootstrap.
+
+2002-12-05  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Add Christian Ehrhardt under "GNATS only".
 
 2002-12-03  Nathanael Nerode  <neroden@gcc.gnu.org>
 
