@@ -5,8 +5,6 @@
 	* version.c (version_string): Modify.
 	(bug_report_url): Likewise.
 
-	* config/arm/arm.h (REGISTER_MOVE_COST): Prohibit moving a
-	register from LO_REGS to BASE_REGS on Thumb.
 	Revert this change:
 	* config/arm/arm.h (THUMB_LEGTITIMIZE_RELOAD_ADDRESS): Reload REG
 	+ REG addressing modes.

@@ -1608,19 +1608,18 @@ enum reg_class
    operand of a SUBREG that changes the mode of the object illegally.  */
 
 /* Moves between FPA_REGS and GENERAL_REGS are two memory insns.  */
-#define REGISTER_MOVE_COST(MODE, FROM, TO)			\
-  (TARGET_ARM ?							\
-   ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :		\
-    (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :		\
-    (FROM) == IWMMXT_REGS && (TO) != IWMMXT_REGS ? 4 :		\
-    (FROM) != IWMMXT_REGS && (TO) == IWMMXT_REGS ? 4 :		\
-    (FROM) == IWMMXT_GR_REGS || (TO) == IWMMXT_GR_REGS ? 20 :	\
-    (FROM) == CIRRUS_REGS && (TO) != CIRRUS_REGS ? 20 :		\
-    (FROM) != CIRRUS_REGS && (TO) == CIRRUS_REGS ? 20 :		\
-   2)								\
-   :								\
-   ((FROM) == HI_REGS || (TO) == HI_REGS ? 4 : 			\
-    (FROM) == LO_REGS && (TO) == BASE_REGS ? 65536 : 2))
+#define REGISTER_MOVE_COST(MODE, FROM, TO)		\
+  (TARGET_ARM ?						\
+   ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :	\
+    (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :	\
+    (FROM) == IWMMXT_REGS && (TO) != IWMMXT_REGS ? 4 :  \
+    (FROM) != IWMMXT_REGS && (TO) == IWMMXT_REGS ? 4 :  \
+    (FROM) == IWMMXT_GR_REGS || (TO) == IWMMXT_GR_REGS ? 20 :  \
+    (FROM) == CIRRUS_REGS && (TO) != CIRRUS_REGS ? 20 :	\
+    (FROM) != CIRRUS_REGS && (TO) == CIRRUS_REGS ? 20 :	\
+   2)							\
+   :							\
+   ((FROM) == HI_REGS || (TO) == HI_REGS) ? 4 : 2)
 
 /* Stack layout; function entry, exit and calling.  */
 
