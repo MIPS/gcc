@@ -1,7 +1,7 @@
 2003-09-18  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Allow optimizing the RHS of a
-	MODIFY_EXPR even if we can't require any equivalences created by
+	MODIFY_EXPR even if we can't record any equivalences created by
 	the MODIFY_EXPR.  Move code to simplify ABS_EXPR, TRUNC_DIV_EXPR
 	and TRUNC_MOD_EXPR to an earlier position.
 
