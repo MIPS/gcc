@@ -585,6 +585,12 @@ is_gimple_const (tree t)
       && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST)
     return 1;
 
+  if (TREE_CODE (t) == PLUS_EXPR
+      && TREE_CONSTANT (t)
+      && is_gimple_const (TREE_OPERAND (t, 0))
+      && is_gimple_const (TREE_OPERAND (t, 1)))
+    return 1;
+
   return (TREE_CODE (t) == INTEGER_CST
 	  || TREE_CODE (t) == REAL_CST
 	  || TREE_CODE (t) == STRING_CST
