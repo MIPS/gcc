@@ -2451,7 +2451,7 @@ remove_eh_handler (struct eh_region *region)
 
   outer = region->outer;
   if (cfun->eh->region_array)
-  cfun->eh->region_array[region->region_number] = outer;
+    cfun->eh->region_array[region->region_number] = outer;
   if (region->aka)
     {
       int i;
@@ -3039,6 +3039,7 @@ void
 set_nothrow_function_flags (void)
 {
   rtx insn;
+  bool old_nothrow = TREE_NOTHROW (current_function_decl);
 
   TREE_NOTHROW (current_function_decl) = 1;
 
@@ -3077,6 +3078,14 @@ set_nothrow_function_flags (void)
 	    return;
 	  }
       }
+  if (!old_nothrow && TREE_NOTHROW (current_function_decl))
+    {
+      /* Function used to throw (we thought) and now we know better.
+	 It is possible that functions that call this one have
+         already built CFGs and region info that is now wrong.
+	 Fix these. */
+      cgraph_change_to_nothrow (current_function_decl);
+    }
 }
 
 

@@ -322,13 +322,21 @@ cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
   bool check_dead = 1;
+  struct cgraph_node *node2, *node2_next;
 
   while (node->callers)
     cgraph_remove_edge (node->callers);
   while (node->callees)
     cgraph_remove_edge (node->callees);
-  while (node->nested)
-    cgraph_remove_node (node->nested);
+  /* Nested functions can be removed now, provided they aren't inlined into
+     some other function (a caller of this one).  */
+  for (node2 = node->nested; node2; )
+    {
+      node2_next = node2->next_nested;
+      if (node2 && (!node2->global.inlined_to || node2->global.inlined_to == node))
+	cgraph_remove_node (node2);
+      node2 = node2_next;
+    }
   if (node->origin)
     {
       struct cgraph_node **node2 = &node->origin->nested;

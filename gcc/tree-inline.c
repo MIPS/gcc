@@ -559,9 +559,9 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    {
 	      *tp = build (BIND_EXPR, void_type_node, NULL_TREE, NULL_TREE, 
 			   make_node (BLOCK));
-	  append_to_statement_list (assignment, &BIND_EXPR_BODY (*tp));
-	  append_to_statement_list (goto_stmt, &BIND_EXPR_BODY (*tp));
-        }
+	      append_to_statement_list (assignment, &BIND_EXPR_BODY (*tp));
+	      append_to_statement_list (goto_stmt, &BIND_EXPR_BODY (*tp));
+	    }
         }
       else /* Else the RETURN_EXPR returns no value.  */
 	{
@@ -575,8 +575,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      tsi_delink (&id->copy_tsi);
 	    }
 	  else /* In GENERIC, replace the RETURN_EXPR with a GOTO.  */
-	*tp = goto_stmt;
-    }
+	    *tp = goto_stmt;
+	}
       /* If we're working on CFGs, add an outgoing CFG edge to the
 	 return block.  */
       if (id->inlining_cfgs)
@@ -613,7 +613,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    copy_statement_list (step_p);
 	}
       else
-    copy_statement_list (tp);
+	copy_statement_list (tp);
     }
   else if (TREE_CODE (*tp) == SAVE_EXPR)
     remap_save_expr (tp, id->decl_map, VARRAY_TREE (id->fns,0), 
@@ -827,7 +827,6 @@ copy_cfg_body (inline_data *id)
   tree orig_stmt;
   tree_stmt_iterator tsi, tsi_copy, tsi_end;
   int current_bb_index = 0;
-  tree saved_cfd;
 
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
@@ -847,22 +846,8 @@ copy_cfg_body (inline_data *id)
   my_cfun->cfg = my_cfg;
   my_cfun->ib_boundaries_block = (varray_type)0;
 
-  /* Ack!  No CFG!  This may be a con/de/structor from the C++FE.
-     Build a CFG for it.  */
-  if (!ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun_to_copy))
-    {
-      saved_cfd = current_function_decl;
-      current_function_decl = fndecl;
-      push_cfun (cfun_to_copy);
-      gimplify_function_tree (current_function_decl);
-      lower_function_body ();
-      lower_eh_constructs ();
-      build_tree_cfg (&DECL_SAVED_TREE (current_function_decl));
-      if (do_tree_profiling())
-	branch_prob();
-      current_function_decl = saved_cfd;
-      pop_cfun ();
-    }
+  /* Make sure callee has a CFG.  */
+  cgraph_build_cfg (fndecl);
 
   /* If there is a saved_cfg+saved_tree+saved_args lurking in the
      struct function, a copy of the callee body was saved there, and
@@ -872,6 +857,7 @@ copy_cfg_body (inline_data *id)
   if (cfun_to_copy->saved_cfg)
     {
       cfun_to_copy->cfg = cfun_to_copy->saved_cfg;
+      cfun_to_copy->eh = cfun_to_copy->saved_eh;
       DECL_SAVED_TREE (my_fndecl) = my_cfun->saved_tree;
       DECL_ARGUMENTS (my_fndecl) = my_cfun->saved_args;
     }
@@ -908,9 +894,8 @@ copy_cfg_body (inline_data *id)
   if (cfun->eh)
     {
       init_eh_for_function ();
-      tree_duplicate_eh_regions (DECL_STRUCT_FUNCTION (fndecl), id, true);
+      tree_duplicate_eh_regions (cfun_to_copy, id, true);
     }
-
   n_edges = 0;
   ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
@@ -1103,10 +1088,10 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	 all of the variables that determine its value are
 	 read-only, but we don't bother.  */
       if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
-      /* We may produce non-gimple trees by adding NOPs or introduce
-	 invalid sharing when operand is not really constant.
-	 It is not big deal to prohibit constant propagation here as
-	 we will constant propagate in DOM1 pass anyway.  */
+	  /* We may produce non-gimple trees by adding NOPs or introduce
+	     invalid sharing when operand is not really constant.
+	     It is not big deal to prohibit constant propagation here as
+	     we will constant propagate in DOM1 pass anyway.  */
 	  && (!lang_hooks.gimple_before_inlining
 	      || (is_gimple_min_invariant (value)
 	          && (TREE_CODE_CLASS (TREE_CODE (value)) == 'c'
@@ -1543,9 +1528,22 @@ static tree
 inline_forbidden_p (tree fndecl)
 {
   location_t saved_loc = input_location;
-  tree ret = walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-					   inline_forbidden_p_1, fndecl);
+  block_stmt_iterator bsi;
+  basic_block bb;
+  tree ret = NULL_TREE;
+  /* We should always be called after the CFG is built. */
+  if (basic_block_info_for_function (DECL_STRUCT_FUNCTION (fndecl))== (varray_type) 0)
+    abort ();
 
+  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (fndecl))
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	ret = walk_tree_without_duplicates (bsi_stmt_ptr (bsi), 
+				    inline_forbidden_p_1, fndecl);
+	if (ret)
+	  goto egress;
+      }
+egress:
   input_location = saved_loc;
   return ret;
 }
@@ -1868,7 +1866,7 @@ estimate_num_insns (tree expr)
       htab_delete (htab);
     }
   else
-  walk_tree_without_duplicates (&expr, estimate_num_insns_1, &num);
+    walk_tree_without_duplicates (&expr, estimate_num_insns_1, &num);
   return num;
 }
 
@@ -2146,7 +2144,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      a self-referential call; if we're calling ourselves, we need to
      duplicate our body before altering anything.  */
   dup_fndecl = copy_body (id);
-    id->current_node = old_node;
+  id->current_node = old_node;
   my_cfun = DECL_STRUCT_FUNCTION (dup_fndecl);
   remove_edge (ENTRY_BLOCK_PTR_FOR_FUNCTION (my_cfun)->succ);
   remove_edge (EXIT_BLOCK_PTR_FOR_FUNCTION (my_cfun)->pred);
@@ -2158,7 +2156,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       head_copied_body = create_basic_block (arg_inits, (void*)0, ENTRY_BLOCK_PTR_FOR_FUNCTION (my_cfun));
       set_bb_for_stmt (arg_inits, head_copied_body);
       make_edge (head_copied_body, head_copied_body->next_bb, EDGE_FALLTHRU);
-  }
+    }
   else
     head_copied_body = ENTRY_BLOCK_PTR_FOR_FUNCTION (my_cfun)->next_bb;
   /* Backup from exit block.  */
@@ -2546,11 +2544,11 @@ optimize_inline_calls (tree fn)
   htab_delete (id.tree_pruner);
   if (DECL_LANG_SPECIFIC (fn))
     {
-  ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
-  if (VARRAY_ACTIVE_SIZE (id.inlined_fns))
-    memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
-	    VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
-  DECL_INLINED_FNS (fn) = ifn;
+      ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
+      if (VARRAY_ACTIVE_SIZE (id.inlined_fns))
+	memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
+		VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
+      DECL_INLINED_FNS (fn) = ifn;
     }
 
 #ifdef ENABLE_CHECKING
@@ -2688,10 +2686,12 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
 
   insert_decl_map (&id, DECL_RESULT (fn), DECL_RESULT (fn));
 
-  /* Actually copy the body, including a new (struct function *) and CFG.  */
+  /* Actually copy the body, including a new (struct function *) and CFG.
+     EH info is also duplicated so its labels point into the copied
+     CFG, not the original (FIXME: not all of it has to be duplicated.)  */
   body = copy_body (&id);
-
   DECL_STRUCT_FUNCTION (fn)->saved_cfg = DECL_STRUCT_FUNCTION (body)->cfg;
+  DECL_STRUCT_FUNCTION (fn)->saved_eh = DECL_STRUCT_FUNCTION (body)->eh;
 
   /* Clean up.  */ /* FIXME: un-comment or delete.  */
   /* splay_tree_delete (id.decl_map); */
@@ -3167,7 +3167,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
    the function into which the copy will be placed.  */
 
 void
-remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
+remap_save_expr (tree *tp, void *st_, tree fn ATTRIBUTE_UNUSED, int *walk_subtrees)
 {
   splay_tree st = (splay_tree) st_;
   splay_tree_node n;
@@ -3181,11 +3181,6 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
     {
       t = copy_node (*tp);
 
-      /* The SAVE_EXPR is now part of the funciton into which we
-	 are inlining this body.  */
-      SAVE_EXPR_CONTEXT (t) = fn;
-      /* And we haven't evaluated it yet.  */
-      SAVE_EXPR_RTL (t) = NULL_RTX;
       /* Remember this SAVE_EXPR.  */
       splay_tree_insert (st, (splay_tree_key) *tp, (splay_tree_value) t);
       /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
@@ -3217,7 +3212,7 @@ mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   /* Don't walk into types.  */
   if (TYPE_P (t))
     {
-    *walk_subtrees = 0;
+      *walk_subtrees = 0;
       return NULL_TREE;
     }
 
@@ -3332,9 +3327,9 @@ declare_inline_vars (tree bind_expr, tree vars)
 {
   if (lang_hooks.gimple_before_inlining)
     {
-  tree t;
-  for (t = vars; t; t = TREE_CHAIN (t))
-    DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
+      tree t;
+      for (t = vars; t; t = TREE_CHAIN (t))
+	DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
     }
 
   add_var_to_bind_expr (bind_expr, vars);

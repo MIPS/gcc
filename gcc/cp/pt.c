@@ -11231,6 +11231,9 @@ instantiate_decl (tree d, int defer_ok, int undefined_ok)
   /* We're not deferring instantiation any more.  */
   TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (d)) = 0;
 
+  /* Tell cgraph we really need this.  */
+  mark_decl_referenced (d);
+
   if (need_push)
     pop_from_top_level ();
 

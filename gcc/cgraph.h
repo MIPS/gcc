@@ -178,8 +178,8 @@ void cgraph_remove_node (struct cgraph_node *);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
 				        tree);
-struct cgraph_node *cgraph_node (tree decl);
-struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree call_expr);
+struct cgraph_node *cgraph_node (tree);
+struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
 bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
@@ -188,7 +188,7 @@ const char * cgraph_node_name (struct cgraph_node *);
 struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
 
-struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
+struct cgraph_varpool_node *cgraph_varpool_node (tree);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
@@ -198,6 +198,7 @@ void cgraph_redirect_edge_caller (struct cgraph_edge *, struct cgraph_node *);
 bool cgraph_function_possibly_inlined_p (tree);
 
 /* In cgraphunit.c  */
+void cgraph_build_cfg (tree);
 bool cgraph_assemble_pending_functions (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_finalize_compilation_unit (void);
@@ -205,12 +206,13 @@ void cgraph_create_edges (struct cgraph_node *, tree);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
-bool cgraph_inline_p (struct cgraph_edge *, const char **reason);
+bool cgraph_inline_p (struct cgraph_edge *, const char **);
 bool cgraph_preserve_function_body_p (tree);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
-void cgraph_mark_inline_edge (struct cgraph_edge *e);
-void cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate);
-void cgraph_build_static_cdtor (char which, tree body, int priority);
+void cgraph_mark_inline_edge (struct cgraph_edge *);
+void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
+void cgraph_build_static_cdtor (char, tree, int);
+void cgraph_change_to_nothrow (tree);
 
 #endif  /* GCC_CGRAPH_H  */

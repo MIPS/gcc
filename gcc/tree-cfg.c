@@ -3910,6 +3910,8 @@ tree_forwarder_block_p (basic_block bb)
 	case LABEL_EXPR:
 	  if (DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
 	    return false;
+	  if (FORCED_LABEL (LABEL_EXPR_LABEL (stmt)))
+	    return false;
 	  break;
 
 	default:

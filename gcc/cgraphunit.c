@@ -190,6 +190,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "coverage.h"
+#include "except.h"
 
 #define max(A,B)      ((A) > (B) ? (A) : (B))
 #define INSNS_PER_CALL 10
@@ -279,6 +280,31 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
     return true;
 
   return false;
+}
+
+/* If we've progressed far enough to have a DECL_STRUCT_FUNCTION allocated,
+   but  haven't yet built the CFG for this function, build it now.  */
+
+void 
+cgraph_build_cfg (tree decl)
+{
+  if (DECL_STRUCT_FUNCTION (decl)
+      && (!DECL_STRUCT_FUNCTION (decl)->cfg
+          || !DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr))
+    {
+      tree saved_current_function_decl = current_function_decl;
+      current_function_decl = decl;
+      push_cfun (DECL_STRUCT_FUNCTION (decl));
+      gimplify_function_tree (decl);
+      lower_function_body ();
+      lower_eh_constructs ();
+      build_tree_cfg (&DECL_SAVED_TREE (decl));
+      tree_register_profile_hooks ();
+      branch_prob ();
+      coverage_end_function ();
+      current_function_decl = saved_current_function_decl;
+      pop_cfun ();
+    }
 }
 
 /* When not doing unit-at-a-time, output all functions enqueued.
@@ -645,8 +671,8 @@ verify_cgraph_node (struct cgraph_node *node)
       else
 	{
 	  /* No CFG available; walk the trees directly.  */
-      walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl),
-				    verify_cgraph_node_1, node);
+	  walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl),
+					verify_cgraph_node_1, node);
 	}
       for (e = node->callees; e; e = e->next_callee)
 	{
@@ -687,21 +713,8 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   current_function_decl = decl;
 
-  /* If we haven't yet built the CFG for this function, build it now.  */
-  if (!DECL_STRUCT_FUNCTION (decl)->cfg
-      || !DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr)
-    {
-      push_cfun (DECL_STRUCT_FUNCTION (decl));
-      gimplify_function_tree (decl);
-      lower_function_body ();
-      lower_eh_constructs ();
-      build_tree_cfg (&DECL_SAVED_TREE (decl));
-      tree_register_profile_hooks ();
-      branch_prob ();
-      coverage_end_function ();
-      pop_cfun ();
-    }
-  
+  cgraph_build_cfg (decl);
+
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, /* DECL_SAVED_TREE */ (decl));
 
@@ -1209,7 +1222,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
   /* Install the just-cloned cgraph_node on the list.  */
 
   /* Now update size of caller and all functions caller is inlined into.  */
-  for (;e && !e->inline_failed/* && !e->caller->aux*/; e = e->caller->callers)
+  for (;e && !e->inline_failed; e = e->caller->callers)
     {
       old_insns = e->caller->global.insns;
       new_insns = cgraph_estimate_size_after_inlining (1, e->caller,
@@ -1746,7 +1759,7 @@ cgraph_decide_inlining (void)
       if (profile_info)
 	cgraph_profile_driven_inlining ();
       else
-      cgraph_decide_inlining_of_small_functions ();
+	cgraph_decide_inlining_of_small_functions ();
 
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file, "\nDeciding on functions called once:\n");
@@ -2078,20 +2091,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   gimplify_function_tree (decl);
 
-  /* If we haven't yet built the CFG for this function, build it now.  */
-  if (!DECL_STRUCT_FUNCTION (decl)->cfg
-      || !DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr)
-    {
-      push_cfun (DECL_STRUCT_FUNCTION (decl));
-      gimplify_function_tree (decl);
-      lower_function_body ();
-      lower_eh_constructs ();
-      build_tree_cfg (&DECL_SAVED_TREE (decl));
-      tree_register_profile_hooks ();
-      branch_prob ();
-      coverage_end_function ();
-      pop_cfun ();
-    }
+  cgraph_build_cfg (decl);
 
   /* ??? We will get called LATE in the compilation process.  */
   if (cgraph_global_info_ready)
@@ -2108,5 +2108,59 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
       else
 	fn = targetm.asm_out.destructor;
       fn (XEXP (DECL_RTL (decl), 0), priority);
+    }
+}
+
+/* A function used to throw (we thought) and now we know better.
+   It is possible that functions that call this one have
+   already built CFGs and region info that is now wrong.
+   Fix these. */
+void cgraph_change_to_nothrow (tree funcdecl)
+{
+  struct cgraph_node *node = cgraph_node (funcdecl);
+  struct cgraph_edge *cge;
+  struct function *ifun;
+  tree call, caller_decl;
+  basic_block bb;
+  for (cge = node->callers; cge; cge = cge->next_caller)
+    {
+      call = cge->call_expr;
+      caller_decl = cge->caller->decl;
+      ifun = DECL_STRUCT_FUNCTION (caller_decl);
+      if (ifun && (ifun->cfg || ifun->eh))
+        {
+	  push_cfun (ifun);
+	  /* This part is currently s l o w, as there is no
+	     pointer up to the bb node.  */
+	  FOR_EACH_BB (bb)
+	    {
+	      block_stmt_iterator bsi = bsi_last (bb);
+	      tree stmt;
+	      if (bsi_end_p (bsi))
+		continue;
+	      stmt = bsi_stmt (bsi);
+	      if (stmt 
+		  && (stmt == call 
+		      || (TREE_CODE (stmt) == MODIFY_EXPR
+			  && TREE_OPERAND (stmt, 1) == call)
+		      || (TREE_CODE (stmt) == RETURN_EXPR
+			  && TREE_OPERAND (stmt, 0)
+			  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
+			  && TREE_OPERAND (TREE_OPERAND (stmt, 0), 1) == call)))
+		{
+		  /* found it. */
+		  edge e, next_e;
+		  for (e = bb->succ; e; e = next_e)
+		    {
+		      next_e = e->succ_next;
+		      if (e->flags & EDGE_EH)
+			remove_edge (e);
+		    }
+		  remove_stmt_from_eh_region_fn (ifun, stmt);
+		  break;
+		}
+	    }
+	  pop_cfun ();
+	}
     }
 }

@@ -162,6 +162,7 @@ struct expr_status GTY(())
 struct function GTY(())
 {
   struct eh_status *eh;
+  struct eh_status *saved_eh;
   struct stmt_status *stmt;
   struct expr_status *expr;
   struct emit_status *emit;
