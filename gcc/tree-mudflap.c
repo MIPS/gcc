@@ -288,6 +288,8 @@ static tree
 mx_flag (t)
      tree t;
 {
+  if (!t)
+    abort ();
   MARK_TREE_MUDFLAPPED(t);
   return t;
 }
