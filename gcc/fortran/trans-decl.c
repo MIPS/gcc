@@ -1,5 +1,5 @@
 /* Backend function setup
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GNU G95.
@@ -2032,7 +2032,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   poplevel (1, 0, 1);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
-  /* Output the SIMPLE tree.  */
+  /* Output the GENERIC tree.  */
   dump_function (TDI_original, fndecl);
 
   /* Store the end of the function, so that we get good line number

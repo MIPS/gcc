@@ -1,3 +1,10 @@
+2004-04-24  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-intrinsic.c: Fix comment, this is not trans-expr.c. Add
+	2004 to copyright years.
+	* trans-expr.c, trans-decl.c: Comment update, we now generate
+	GENERIC, not SIMPLE. Add 2004 to copyright years.
+
 2004-04-24  Paul Brook  <paul@codesourcery.com>
 
 	* Make-lang.in (gfortranspec.o): Add dependency on $(TM_H).
