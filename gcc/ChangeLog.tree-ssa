@@ -1,3 +1,15 @@
+2002-11-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-dce.c (mark_necessary): Split out mark_tree_necessary. Don't
+	mark if tree is already marked.
+	(mark_tree_necessary): New. Mark tree without processing control parent.
+	(mark_control_parent_necessary): Remove recursion, mark trees directly.
+	(need_to_preserve_store): Can expression/symbol affect external values.
+	(tree_ssa_eliminate_dead_code): Split.
+	(find_useful_stmts): Find initial set of needed statements.
+	(process_worklist): Find statements which calculate needed statements.
+	(remove_dead_stmts): Delete statements which are dead.
+
 2002-11-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* toplev.c (parse_options_and_default_flags): Enable SSA-CCP by
