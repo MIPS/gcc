@@ -450,7 +450,7 @@ extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
-extern void remove_useless_stmts_and_vars (tree *, bool);
+extern void remove_useless_stmts (tree *);
 extern basic_block tree_split_edge (edge);
 extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);

@@ -1,3 +1,14 @@
+2003-11-11  Richard Henderson  <rth@redhat.com>
+
+	* tree-cfg.c (struct rus_data): Rename from rusv_data.
+	Remove remove_unused_vars.
+	(remove_useless_stmts*): Rename from remove_useless_stmts_and_vars*.
+	(remove_useless_stmts_bind): Do not remove dead variables.
+	(remove_useless_stmts): Kill remove_unused_vars argument.
+	* tree-flow.h (remove_useless_stmts): Update.
+	* tree-optimize.c (tree_rest_of_compilation): Update call.
+	* tree-ssa.c (rewrite_out_of_ssa): Likewise.
+
 2003-11-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
             Diego Novillo  <dnovillo@redhat.com>
 

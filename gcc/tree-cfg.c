@@ -857,23 +857,22 @@ cleanup_tree_cfg (void)
    BIND_EXPR, or TRY block, we will need to repeat this optimization pass
    to ensure we eliminate all the useless code.  */
 
-struct rusv_data
+struct rus_data
 {
   bool repeat;
-  bool remove_unused_vars;
   bool may_throw;
   bool may_branch;
 };
 
-static void remove_useless_stmts_and_vars_1 (tree *, struct rusv_data *);
+static void remove_useless_stmts_1 (tree *, struct rus_data *);
 
 static void
-remove_useless_stmts_and_vars_cond (tree *stmt_p, struct rusv_data *data)
+remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 {
   tree then_clause, else_clause, cond;
 
-  remove_useless_stmts_and_vars_1 (&COND_EXPR_THEN (*stmt_p), data);
-  remove_useless_stmts_and_vars_1 (&COND_EXPR_ELSE (*stmt_p), data);
+  remove_useless_stmts_1 (&COND_EXPR_THEN (*stmt_p), data);
+  remove_useless_stmts_1 (&COND_EXPR_ELSE (*stmt_p), data);
 
   then_clause = COND_EXPR_THEN (*stmt_p);
   else_clause = COND_EXPR_ELSE (*stmt_p);
@@ -934,7 +933,7 @@ remove_useless_stmts_and_vars_cond (tree *stmt_p, struct rusv_data *data)
 }
 
 static void
-remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
+remove_useless_stmts_tf (tree *stmt_p, struct rus_data *data)
 {
   bool save_may_branch, save_may_throw;
   bool this_may_branch, this_may_throw;
@@ -945,14 +944,14 @@ remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
   data->may_branch = false;
   data->may_throw = false;
 
-  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+  remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 0), data);
 
   this_may_branch = data->may_branch;
   this_may_throw = data->may_throw;
   data->may_branch |= save_may_branch;
   data->may_throw |= save_may_throw;
 
-  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+  remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 1), data);
 
   /* If the body is empty, then we can emit the FINALLY block without
      the enclosing TRY_FINALLY_EXPR.  */
@@ -972,13 +971,13 @@ remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
 
   /* If the body neither throws, nor branches, then we can safely string
      the TRY and FINALLY blocks together.  We'll reassociate this in the
-     main body of remove_useless_stmts_and_vars.  */
+     main body of remove_useless_stmts.  */
   else if (!this_may_branch && !this_may_throw)
     TREE_SET_CODE (*stmt_p, COMPOUND_EXPR);
 }
 
 static void
-remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
+remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
 {
   bool save_may_throw, this_may_throw;
   tree_stmt_iterator i;
@@ -988,7 +987,7 @@ remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
   save_may_throw = data->may_throw;
   data->may_throw = false;
 
-  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+  remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 0), data);
 
   this_may_throw = data->may_throw;
   data->may_throw = save_may_throw;
@@ -1018,7 +1017,7 @@ remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
 	     propagate exceptions past this point.  */
 	  if (CATCH_TYPES (stmt) == NULL)
 	    this_may_throw = false;
-	  remove_useless_stmts_and_vars_1 (&CATCH_BODY (stmt), data);
+	  remove_useless_stmts_1 (&CATCH_BODY (stmt), data);
 	}
       break;
 
@@ -1027,12 +1026,12 @@ remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
 	this_may_throw = false;
       else if (EH_FILTER_TYPES (stmt) == NULL)
 	this_may_throw = false;
-      remove_useless_stmts_and_vars_1 (&EH_FILTER_FAILURE (stmt), data);
+      remove_useless_stmts_1 (&EH_FILTER_FAILURE (stmt), data);
       break;
 
     default:
       /* Otherwise this is a cleanup.  */
-      remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+      remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 1), data);
 
       /* If the cleanup is empty, then we can emit the TRY block without
 	 the enclosing TRY_CATCH_EXPR.  */
@@ -1047,12 +1046,12 @@ remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
 }
 
 static void
-remove_useless_stmts_and_vars_bind (tree *stmt_p, struct rusv_data *data)
+remove_useless_stmts_bind (tree *stmt_p, struct rus_data *data)
 {
   tree block;
 
   /* First remove anything underneath the BIND_EXPR.  */
-  remove_useless_stmts_and_vars_1 (&BIND_EXPR_BODY (*stmt_p), data);
+  remove_useless_stmts_1 (&BIND_EXPR_BODY (*stmt_p), data);
 
   /* If the BIND_EXPR has no variables, then we can pull everything
      up one level and remove the BIND_EXPR, unless this is the toplevel
@@ -1071,84 +1070,11 @@ remove_useless_stmts_and_vars_bind (tree *stmt_p, struct rusv_data *data)
       *stmt_p = BIND_EXPR_BODY (*stmt_p);
       data->repeat = true;
     }
-  else if (data->remove_unused_vars)
-    {
-      /* If we were unable to completely eliminate the BIND_EXPR,
-	 go ahead and prune out any unused variables.  We do not
-	 want to expand them as that is a waste of time.  If we
-	 happen to remove all the variables, then we may be able
-	 to eliminate the BIND_EXPR as well.  */
-      tree vars, prev_var;
-
-      /* Walk all the variables associated with the BIND_EXPR.  */
-      for (prev_var = NULL, vars = BIND_EXPR_VARS (*stmt_p);
-	   vars;
-	   vars = TREE_CHAIN (vars))
-	{
-	  struct var_ann_d *ann;
-	  tree  var = vars;
-
-	  /* We could have function declarations and the like
-	     on this list.  Ignore them.  Also we do not deal with
-	     static variables yet.   */
-	  if (TREE_CODE (var) != VAR_DECL)
-	    {
-	      prev_var = vars;
-	      continue;
-	    }
-
-	  /* Unlike for normal expressions, the tree-inline duplicates
-	     static variables for BIND_EXPR in order to get debug info right.
-	     We must work out the original expression.  */
-	  if (TREE_STATIC (var) && DECL_ABSTRACT_ORIGIN (var))
-	    var = DECL_ABSTRACT_ORIGIN (var);
-
-	  /* Remove all unused, unaliased temporaries.  Also remove
-	     unused, unaliased local variables during highly
-	     optimizing compilations.  */
-	  ann = var_ann (var);
-	  if (ann
-	      && ! ann->may_aliases
-	      && ! ann->used
-	      && ! ann->has_hidden_use
-	      && ! TREE_ADDRESSABLE (var)
-	      && (DECL_ARTIFICIAL (var) || optimize >= 2))
-	    {
-	      /* Remove the variable from the BLOCK structures.  */
-	      if (block)
-		remove_decl (vars,
-			     (block
-			      ? block
-			      : DECL_INITIAL (current_function_decl)));
-
-	      /* And splice the variable out of BIND_EXPR_VARS.  */
-	      if (prev_var)
-		TREE_CHAIN (prev_var) = TREE_CHAIN (vars);
-	      else
-		BIND_EXPR_VARS (*stmt_p) = TREE_CHAIN (vars);
-	    }
-	  else
-	    prev_var = vars;
-	}
-
-      /* If there are no variables left after removing unused
-	 variables, then go ahead and remove this BIND_EXPR.  */
-      if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
-	  && *stmt_p != DECL_SAVED_TREE (current_function_decl)
-	  && (! block
-	      || ! BLOCK_ABSTRACT_ORIGIN (block)
-	      || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
-		  != FUNCTION_DECL)))
-	{
-	  *stmt_p = BIND_EXPR_BODY (*stmt_p);
-	  data->repeat = true;
-	}
-    }
 }
 
 static void
-remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
-				    struct rusv_data *data)
+remove_useless_stmts_goto (tree_stmt_iterator i, tree *stmt_p,
+				    struct rus_data *data)
 {
   tree_stmt_iterator tsi = i;
 
@@ -1183,7 +1109,7 @@ remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
 }
 
 static void
-remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
+remove_useless_stmts_1 (tree *first_p, struct rus_data *data)
 {
   tree_stmt_iterator i;
 
@@ -1211,19 +1137,19 @@ remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
       switch (code)
 	{
 	case COND_EXPR:
-	  remove_useless_stmts_and_vars_cond (stmt_p, data);
+	  remove_useless_stmts_cond (stmt_p, data);
 	  break;
 	case TRY_FINALLY_EXPR:
-	  remove_useless_stmts_and_vars_tf (stmt_p, data);
+	  remove_useless_stmts_tf (stmt_p, data);
 	  break;
 	case TRY_CATCH_EXPR:
-	  remove_useless_stmts_and_vars_tc (stmt_p, data);
+	  remove_useless_stmts_tc (stmt_p, data);
 	  break;
 	case BIND_EXPR:
-	  remove_useless_stmts_and_vars_bind (stmt_p, data);
+	  remove_useless_stmts_bind (stmt_p, data);
 	  break;
 	case GOTO_EXPR:
-	  remove_useless_stmts_and_vars_goto (i, stmt_p, data);
+	  remove_useless_stmts_goto (i, stmt_p, data);
 	  break;
 	case RETURN_EXPR:
 	  data->may_branch = true;
@@ -1246,16 +1172,13 @@ remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
 }
 
 void
-remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
+remove_useless_stmts (tree *first_p)
 {
-  struct rusv_data data;
+  struct rus_data data;
   do
     {
       memset (&data, 0, sizeof (data));
-      data.remove_unused_vars = remove_unused_vars;
-      remove_unused_vars = false;
-
-      remove_useless_stmts_and_vars_1 (first_p, &data);
+      remove_useless_stmts_1 (first_p, &data);
     }
   while (data.repeat);
 
