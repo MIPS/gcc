@@ -31,24 +31,24 @@ private:
   int num_;
 };
 
-Base::Base()
-{ // ERROR - private
+Base::Base() // ERROR - private
+{ 
   name_ = std::strcpy(new char[std::strlen(" ") + 1], " ");
 }
 
-Base::Base(char* str)
-{ // ERROR - private
+Base::Base(char* str) // ERROR - private
+{ 
   if(str != NULL)
     name_ = std::strcpy(new char[std::strlen(str) + 1], str);
 }
 
-Derived::Derived(int n, char* str) : Base(str)
-{// ERROR - .*
+Derived::Derived(int n, char* str) : Base(str) // ERROR - .*
+{
   num_ = n;
 }
 
-Derived::Derived(int n) : Base()
-{// ERROR - .*
+Derived::Derived(int n) : Base() // ERROR - .*
+{
   num_ = n;
 }
 

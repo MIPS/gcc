@@ -2,8 +2,8 @@ template <class T, class U>
 int func(U, T);			// ERROR - ref below
 
 template <class T, class U>    
-int func(T, U)
-{				// ERROR - ref below
+int func(T, U)                  // ERROR - ref below
+{				
         return 2;
 }
 

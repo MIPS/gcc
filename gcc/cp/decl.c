@@ -333,14 +333,6 @@ tree anonymous_namespace_name;
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
 
-/* Back-door communication channel to the lexer.  */
-int looking_for_typename;
-int looking_for_template;
-
-/* Tell the lexer where to look for names.  */
-tree got_scope;
-tree got_object;
-
 const char * const language_string = "GNU C++";
 
 /* For each binding contour we allocate a binding_level structure
@@ -2877,6 +2869,23 @@ clear_anon_tags ()
     }
   last_cnt = anon_cnt;
 }
+
+/* Returns an IDENTIFIER_NODE that can be used to name a declaration
+   that was in some way erroneous.  Every time this function is called
+   it will return a different identifier, and the identifiers returned
+   will not conflict with any identifier that can appear in a valid
+   program.  */
+
+tree
+make_error_name ()
+{
+  static int counter;
+
+  char buffer[32];
+  sprintf (buffer, "error %d", counter++);
+  return get_identifier (buffer);
+}
+
 
 /* Subroutine of duplicate_decls: return truthvalue of whether
    or not types of these decls match.
@@ -3408,7 +3417,14 @@ duplicate_decls (newdecl, olddecl)
 
   if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
-      TREE_TYPE (olddecl) = TREE_TYPE (DECL_TEMPLATE_RESULT (olddecl));
+      tree old_result = DECL_TEMPLATE_RESULT (olddecl);
+      tree new_result = DECL_TEMPLATE_RESULT (newdecl);
+
+      TREE_TYPE (olddecl) = TREE_TYPE (old_result);
+      if (DECL_FRIEND_CONTEXT (new_result))
+	SET_DECL_FRIEND_CONTEXT (old_result,
+				 DECL_FRIEND_CONTEXT (new_result));
+				 
       DECL_TEMPLATE_SPECIALIZATIONS (olddecl)
 	= chainon (DECL_TEMPLATE_SPECIALIZATIONS (olddecl),
 		   DECL_TEMPLATE_SPECIALIZATIONS (newdecl));
@@ -5827,8 +5843,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 {
   tree t;
   tree val = NULL_TREE;
-  int yylex = 0;
-  tree from_obj = NULL_TREE;
   int flags;
   int val_is_implicit_typename = 0;
 
@@ -5865,7 +5879,7 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
       if (binding
 	  && (!val || !IMPLICIT_TYPENAME_TYPE_DECL_P (binding)))
 	{
-	  if (val_is_implicit_typename && !yylex)
+	  if (val_is_implicit_typename)
 	    warn_about_implicit_typename_lookup (val, binding);
 	  val = binding;
 	  val_is_implicit_typename
@@ -5881,38 +5895,15 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
       t = unqualified_namespace_lookup (name, flags, 0);
       if (t)
 	{
-	  if (val_is_implicit_typename && !yylex)
+	  if (val_is_implicit_typename)
 	    warn_about_implicit_typename_lookup (val, t);
 	  val = t;
 	}
     }
 
-  if (val)
-    {
-      /* This should only warn about types used in qualified-ids.  */
-      if (from_obj && from_obj != val)
-	{
-	  if (looking_for_typename && TREE_CODE (from_obj) == TYPE_DECL
-	      && TREE_CODE (val) == TYPE_DECL
-	      && ! same_type_p (TREE_TYPE (from_obj), TREE_TYPE (val)))
-	    cp_pedwarn ("\
-lookup of `%D' in the scope of `%#T' (`%#D') \
-does not match lookup in the current scope (`%#D')",
-			name, got_object, from_obj, val);
-
-	  /* We don't change val to from_obj if got_object depends on
-	     template parms because that breaks implicit typename for
-	     destructor calls.  */
-	  if (! uses_template_parms (got_object))
-	    val = from_obj;
-	}
-
-      /* If we have a single function from a using decl, pull it out.  */
-      if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
-	val = OVL_FUNCTION (val);
-    }
-  else if (from_obj)
-    val = from_obj;
+  /* If we have a single function from a using decl, pull it out.  */
+  if (val && TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
+    val = OVL_FUNCTION (val);
 
   return val;
 }
@@ -6465,7 +6456,6 @@ init_decl_processing ()
   ggc_add_root (&scope_chain, 1, sizeof scope_chain, &mark_saved_scope);
   ggc_add_tree_root (&static_ctors, 1);
   ggc_add_tree_root (&static_dtors, 1);
-  ggc_add_tree_root (&lastiddecl, 1);
 
   ggc_add_tree_root (&last_function_parm_tags, 1);
   ggc_add_tree_root (&current_function_return_value, 1);
@@ -6475,9 +6465,6 @@ init_decl_processing ()
   ggc_add_tree_root (&global_namespace, 1);
   ggc_add_tree_root (&global_type_node, 1);
   ggc_add_tree_root (&anonymous_namespace_name, 1);
-
-  ggc_add_tree_root (&got_object, 1);
-  ggc_add_tree_root (&got_scope, 1);
 
   ggc_add_tree_root (&current_lang_name, 1);
   ggc_add_tree_root (&static_aggregates, 1);
@@ -14204,6 +14191,8 @@ lang_mark_tree (t)
 	   TYPE_LANG_SPECIFIC is really just a tree.  */
 	ggc_mark_tree ((tree) lt);
     }
+  else if (code == DEFAULT_ARG)
+    ggc_mark_default_arg (t);
 }
 
 /* Return the IDENTIFIER_GLOBAL_VALUE of T, for use in common code, since

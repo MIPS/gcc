@@ -3778,6 +3778,7 @@ extern void pop_everything			PARAMS ((void));
 extern void pushtag				PARAMS ((tree, tree, int));
 extern tree make_anon_name			PARAMS ((void));
 extern void clear_anon_tags			PARAMS ((void));
+extern tree make_error_name                     PARAMS ((void));
 extern int decls_match				PARAMS ((tree, tree));
 extern int duplicate_decls			PARAMS ((tree, tree));
 extern tree pushdecl_top_level			PARAMS ((tree));
@@ -4103,7 +4104,7 @@ extern tree tinst_for_decl			PARAMS ((void));
 extern void mark_decl_instantiated		PARAMS ((tree, int));
 extern int more_specialized			PARAMS ((tree, tree, int, int));
 extern void mark_class_instantiated		PARAMS ((tree, int));
-extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
+extern void do_decl_instantiation		PARAMS ((tree, tree));
 extern void do_type_instantiation		PARAMS ((tree, tree, int));
 extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
@@ -4295,16 +4296,8 @@ extern tree finish_global_stmt_expr             PARAMS ((tree));
 extern tree finish_fname                        PARAMS ((tree));
 
 /* in spew.c */
-extern void init_spew				PARAMS ((void));
-extern int peekyylex				PARAMS ((void));
-extern tree arbitrate_lookup			PARAMS ((tree, tree, tree));
-extern tree frob_opname                         PARAMS ((tree));
-extern void maybe_snarf_defarg			PARAMS ((void));
 extern void add_defarg_fn			PARAMS ((tree));
-extern void do_pending_defargs			PARAMS ((void));
-extern void done_pending_defargs		PARAMS ((void));
 extern void unprocessed_defarg_fn               PARAMS ((tree));
-extern void replace_defarg			PARAMS ((tree, tree));
 
 /* in tree.c */
 extern void init_tree			        PARAMS ((void));
@@ -4506,6 +4499,7 @@ extern int cp_dump_tree                         PARAMS ((dump_info_p, tree));
 /* in parser.c */
 extern int cp_parse_translation_unit            PARAMS ((void));
 extern void ggc_mark_inline_definition          PARAMS ((tree));
+extern void ggc_mark_default_arg                PARAMS ((tree));
 
 /* -- end of C++ */
 

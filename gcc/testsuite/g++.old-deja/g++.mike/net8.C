@@ -18,8 +18,8 @@ void func2(const Derived& d) {
 }
 
 void
-foo (int& a)
-{				// ERROR - 
+foo (int& a) // ERROR - 
+{				
 }
 
 int main ()

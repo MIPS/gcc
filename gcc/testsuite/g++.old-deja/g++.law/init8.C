@@ -8,8 +8,8 @@
 
 
 const int ic = 1;
-void f(int& arg)
-{ // ERROR - argument 1
+void f(int& arg) // ERROR - argument 1
+{ 
         if (arg) ;
 }
 const int& icr = ic;

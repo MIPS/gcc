@@ -1765,7 +1765,7 @@ begin_class_definition (t)
   if (t == error_mark_node || ! IS_AGGR_TYPE (t))
     {
       t = make_aggr_type (RECORD_TYPE);
-      pushtag (make_anon_name (), t, 0);
+      pushtag (make_error_name (), t, 0);
     }
 
   /* If we generated a partial instantiation of this type, but now
@@ -1970,8 +1970,6 @@ finish_class_definition (t, attributes, semi, pop_scope_p, inline_friends)
 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-  if (current_scope () == current_function_decl)
-    do_pending_defargs ();
 
   return t;
 }

@@ -25,7 +25,7 @@ struct base_trait<float> {
 template<class T>
 class weird : public base_trait<T>::base {
 public:
-    typedef base_trait<T>::base base;
+    typedef typename base_trait<T>::base base;
 
     base f ();
     int base::* g ();
@@ -35,7 +35,7 @@ public:
 };
 
 template <class T>
-weird<T>::base weird<T>::f ()
+typename weird<T>::base weird<T>::f ()
 {
     return base();
 }

@@ -15,10 +15,10 @@ class A {
     {}
   virtual ~A()
     {}
-  virtual void Number(int c)
-    { number = c; } // ERROR - private
-  virtual int Number()
-    { return number; } // ERROR - private
+  virtual void Number(int c) // ERROR - private
+    { number = c; } 
+  virtual int Number() // ERROR - private
+    { return number; } 
 };
 
 class B : private A {

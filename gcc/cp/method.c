@@ -264,15 +264,7 @@ hack_identifier (value, name)
     }
 
   if (DECL_P (value) && DECL_NONLOCAL (value))
-    {
-      if (DECL_CLASS_SCOPE_P (value)
-	  && DECL_CONTEXT (value) != current_class_type)
-	{
-	  tree path;
-	  path = currently_open_derived_class (DECL_CONTEXT (value));
-	  enforce_access (path, value);
-	}
-    }
+    ;
   else if (TREE_CODE (value) == TREE_LIST 
 	   && TREE_TYPE (value) == error_mark_node)
     {

@@ -9213,10 +9213,10 @@ most_specialized_class (tmpl, args)
 /* called from the parser.  */
 
 void
-do_decl_instantiation (declspecs, declarator, storage)
-     tree declspecs, declarator, storage;
+do_decl_instantiation (decl, storage)
+     tree decl;
+     tree storage;
 {
-  tree decl = grokdeclarator (declarator, declspecs, NORMAL, 0, NULL_TREE);
   tree result = NULL_TREE;
   int extern_p = 0;
 

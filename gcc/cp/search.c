@@ -1571,14 +1571,6 @@ lookup_member (xbasetype, name, protect, want_type)
 	protect = 0;
     }
 
-  /* [class.access]
-
-     In the case of overloaded function names, access control is
-     applied to the function selected by overloaded resolution.  */
-  if (rval && protect && !is_overloaded_fn (rval)
-      && !enforce_access (xbasetype, rval))
-    return error_mark_node;
-
   if (errstr && protect)
     {
       cp_error (errstr, name, type);

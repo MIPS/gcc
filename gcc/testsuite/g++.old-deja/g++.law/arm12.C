@@ -22,8 +22,8 @@ public:
   Y();
 };
 
-X::X()
-{// ERROR - .*
+X::X() // ERROR - .*
+{
   std::cout << "X::X()" << std::endl;
 }
 
@@ -32,8 +32,8 @@ void X::f()
   std::cout << "X::f()" << std::endl;
 }
 
-Y::Y()
-{// ERROR -  within this
+Y::Y() // ERROR -  within this
+{
   std::cout << "Y::Y()" << std::endl;
 }
 

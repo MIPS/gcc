@@ -2175,7 +2175,6 @@ build_component_ref (datum, component, basetype_path, protect)
 		  if (DECL_STATIC_FUNCTION_P (TREE_VALUE (fndecls)))
 		    {
 		      tree fndecl = TREE_VALUE (fndecls);
-		      enforce_access (basetype_path, fndecl);
 		      mark_used (fndecl);
 		      return fndecl;
 		    }

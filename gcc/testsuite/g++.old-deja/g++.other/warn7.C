@@ -34,12 +34,12 @@ struct Y
 };
 void bar (int);
 
-Y::Y(int i)
-{ // WARNING - unused parameter
+Y::Y(int i) // WARNING - unused parameter
+{ 
 }
-void Y::bar (int i) 
-{ // WARNING - unused parameter
+void Y::bar (int i) // WARNING - unused parameter
+{ 
 }
-void bar (int i)
-{ // WARNING - unused parameter
+void bar (int i) // WARNING - unused parameter
+{ 
 }

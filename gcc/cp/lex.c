@@ -87,12 +87,6 @@ static void init_operators PARAMS ((void));
 int warn_traditional = 0;
 int flag_digraphs = 1;
 
-/* the declaration found for the last IDENTIFIER token read in.
-   yylex must look this up to detect typedefs, which get token type TYPENAME,
-   so it is left around in case the identifier is not a typedef but is
-   used in a context which makes it a reference to a variable.  */
-tree lastiddecl;
-
 /* Functions and data structures for #pragma interface.
 
    `#pragma implementation' means that the main file being compiled
@@ -875,12 +869,8 @@ do_identifier (token, parsing, args)
      tree args;
 {
   register tree id;
-  int lexing = (parsing == 1);
 
-  if (! lexing)
-    id = lookup_name (token, 0);
-  else
-    id = lastiddecl;
+  id = lookup_name (token, 0);
 
   /* Do Koenig lookup if appropriate (inside templates we build lookup
      expressions instead).
@@ -987,9 +977,6 @@ do_identifier (token, parsing, args)
   /* TREE_USED is set in `hack_identifier'.  */
   if (TREE_CODE (id) == CONST_DECL)
     {
-      /* Check access.  */
-      if (IDENTIFIER_CLASS_VALUE (token) == id)
-	enforce_access (CP_DECL_CONTEXT(id), id);
       if (!processing_template_decl || DECL_TEMPLATE_PARM_P (id))
 	id = DECL_INITIAL (id);
     }

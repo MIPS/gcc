@@ -1,3 +1,4 @@
+// Build don't link:
 // Testcase for ambiguity between functional cast and abstract declarator.
 // This ambiguity accounts for 6 of the r/r conflicts.
 // Special g++ Options: -pedantic-errors
