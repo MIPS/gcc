@@ -1,3 +1,57 @@
+2004-08-23  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.h (struct _loop_vec_info): Field num_iters is now
+        HOST_WIDE_INT.
+        * tree-vectorizer.c (vect_get_loop_niters): Takes HOST_WIDE_INT instead
+        of int as argument.
+        (vect_analyze_loop_form): number_of_iterations is now HOST_WIDE_INT.
+
+        (vect_transform_load, vect_is_supportable_load): Replaced with
+        vectorizable_load.
+        (vect_tranrform_store, vect_is_supportable_store): Replaced with
+        vectorizable_store.
+        (vect_transform_op, vect_is_supportable_op): Replaced with
+        vectorizable_operation.
+        (vect_transform_assignment, vect_is_supportable_assignment): Replaced
+        with vectorizable_assignment.
+        (vectorizable_load, vectorizable_store, vectorizable_operation):
+        (vectorizable_assignment): New functions.
+        (vect_analyze_operations): Use above new functions.
+
+        (vect_get_array_first_index): Replaced by vect_get_first_index.
+        (vect_get_first_index): New Function.
+
+        (vect_force_dr_alignment_p): Replaced with
+        vect_can_force_dr_alignment_p.
+        (vect_can_force_dr_alignment_p): New function.
+        (vect_get_base_decl_and_bit_offset): New function.
+        (vect_compute_array_alignment): Take trees instead of ints as arguments.
+        Return tree (the array base) rather than bool.
+        (vect_align_data_ref): Functionality moved to
+        vect_analyze_data_ref_alignment.
+        (vect_compute_data_ref_alignment): Use above new function. Perform
+        arithmetic on trees rather than ints.
+
+        (vect_get_vec_def_for_operand): Test for IS_EMPTY_STMT.
+        (vect_is_simple_use): Test for IS_EMPTY_STMT.
+
+        (tree_nargs): Removed.
+        (vect_get_new_vect_var): Use concat and avoid unnecessary malloc.
+        (vect_create_index_for_array_ref): Remove check of step.
+        (vect_create_data_ref): vect_ptr is pointer to array of vectype (rather
+        than pointer to vectype). Use build_fold_addr_expr. Avoid using
+        force_gimple.
+        (vect_create_destinamtion_var): Remove ALIAS_SET setting.
+        (vect_transform_loop_bound): Use fold_convert to assign a type to
+        new_loop_bound.
+        (vect_analyze_pointer_ref_access): Use host_integerp.
+        (vect_analyze_data_refs): Change handling of COMPONENT_REF case; call
+        vect_get_base_decl_and_bit_offset.
+        (ANALYZE_ALL_THEN_VECTORIZE_ALL): "#ifdef" removed.
+
+        * optabs.c (optab_for_tree_code): Bring from mainline.
+        * optabs.h (optab_for_tree_code): Bring from mainline.
+
 2004-08-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR tree-optimization/17016

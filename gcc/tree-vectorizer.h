@@ -149,7 +149,7 @@ typedef struct _loop_vec_info {
   tree exit_cond;
 
   /* Number of iterations. -1 if unknown.  */
-  int num_iters;
+  HOST_WIDE_INT num_iters;
 
   /* If number of iterations is unknown at compile time, this tree represents it.  */
   tree symb_numb_of_iters;
