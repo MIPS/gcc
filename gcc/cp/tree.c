@@ -1966,24 +1966,26 @@ cp_walk_subtrees (tree* tp,
                   void* htab)
 {
   enum tree_code code = TREE_CODE (*tp);
+  location_t save_locus;
   tree result;
   
 #define WALK_SUBTREE(NODE)				\
   do							\
     {							\
       result = walk_tree (&(NODE), func, data, htab);	\
-      if (result)					\
-	return result;					\
+      if (result) goto out;				\
     }							\
   while (0)
 
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
+  save_locus = input_location;
   if (EXPR_LOCUS (*tp))
     input_location = *EXPR_LOCUS (*tp);
 
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */
+  result = NULL_TREE;
   switch (code)
     {
     case DEFAULT_ARG:
@@ -2021,13 +2023,14 @@ cp_walk_subtrees (tree* tp,
       break;
 
     default:
-      break;
+      input_location = save_locus;
+      return c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
     }
 
-  c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
-
   /* We didn't find what we were looking for.  */
-  return NULL_TREE;
+ out:
+  input_location = save_locus;
+  return result;
 
 #undef WALK_SUBTREE
 }

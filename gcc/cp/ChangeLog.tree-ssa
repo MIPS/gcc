@@ -1,3 +1,8 @@
+2004-04-19  Richard Henderson  <rth@redhat.com>
+
+	* except.c (check_handlers_1): Use locus stored in master for warning.
+	* tree.c (cp_walk_subtrees): Save and restore input_location.
+
 2004-04-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* cp-lang.c (LANG_HOOKS_RTL_EXPAND_START): Remove.

@@ -5676,38 +5676,41 @@ c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
 		 walk_tree_fn func, void *data, void *htab)
 {
   enum tree_code code = TREE_CODE (*tp);
+  location_t save_locus;
   tree result;
 
 #define WALK_SUBTREE(NODE)				\
   do							\
     {							\
       result = walk_tree (&(NODE), func, data, htab);	\
-      if (result)					\
-	return result;					\
+      if (result) goto out;				\
     }							\
   while (0)
 
+  if (code != DECL_STMT)
+    return NULL_TREE;
+
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
+  save_locus = input_location;
   if (EXPR_LOCUS (*tp))
     input_location = *EXPR_LOCUS (*tp);
 
-  if (code == DECL_STMT)
-    {
-      /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-	 into declarations that are just mentioned, rather than
-	 declared; they don't really belong to this part of the tree.
-	 And, we can see cycles: the initializer for a declaration can
-	 refer to the declaration itself.  */
-      WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
-      WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
-      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
-      WALK_SUBTREE (TREE_CHAIN (*tp));
-      *walk_subtrees_p = 0;
-    }
+  /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+     into declarations that are just mentioned, rather than
+     declared; they don't really belong to this part of the tree.
+     And, we can see cycles: the initializer for a declaration can
+     refer to the declaration itself.  */
+  WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
+  WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
+  WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
+  WALK_SUBTREE (TREE_CHAIN (*tp));
+  *walk_subtrees_p = 0;
 
   /* We didn't find what we were looking for.  */
-  return NULL_TREE;
+ out:
+  input_location = save_locus;
+  return result;
 
 #undef WALK_SUBTREE
 }

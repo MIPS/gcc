@@ -891,7 +891,8 @@ check_handlers_1 (tree master, tree handlers)
       {
 	warning ("%Hexception of type `%T' will be caught",
 		 EXPR_LOCUS (handler), TREE_TYPE (handler));
-	warning ("   by earlier handler for `%T'", type);
+	warning ("%H   by earlier handler for `%T'",
+		 EXPR_LOCUS (master), type);
 	break;
       }
 }
