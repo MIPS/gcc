@@ -68,7 +68,20 @@ static basic_block first_exec_block	PARAMS ((tree *));
 static tree *first_exec_stmt		PARAMS ((tree *));
 static bool block_invalidates_loop	PARAMS ((basic_block, struct loop *));
 static basic_block switch_parent	PARAMS ((basic_block));
-static void remove_tree_bb		PARAMS ((basic_block));
+
+/* Flowgraph optimization and cleanup.  */
+static void remove_tree_bb		PARAMS ((basic_block, int));
+static void remove_stmt			PARAMS ((tree *));
+static bool blocks_unreachable_p	PARAMS ((varray_type));
+static void remove_blocks		PARAMS ((varray_type));
+static varray_type find_subblocks	PARAMS ((basic_block));
+static bool is_parent			PARAMS ((basic_block, basic_block));
+static bool is_nonlocal_label_block	PARAMS ((basic_block));
+static void cleanup_control_flow	PARAMS ((void));
+static void cleanup_cond_expr_graph	PARAMS ((basic_block));
+static void cleanup_switch_expr_graph	PARAMS ((basic_block));
+static void disconnect_unreachable_case_labels PARAMS ((basic_block));
+
 
 /* Remove any COMPOUND_EXPR and WFL container from NODE.  */
 #define STRIP_CONTAINERS(NODE)					\
@@ -474,8 +487,22 @@ make_ctrl_stmt_edges (bb)
       break;
 
     case SWITCH_EXPR:
-      /* Nothing to do.  Each label inside the switch statement will create
-         its own edge from the switch block.  */
+      /* FIXME  We should not need to make an edge to the body of the switch.
+		Each label block inside the switch statement will create
+		its own edge from the switch block.  However, if we remove
+		the code that might exist between the switch() and the
+		first case statement, the RTL expander gets all confused
+		and enters an infinite loop.  */
+      {
+	tree body = SWITCH_BODY (first_stmt (bb));
+	STRIP_WFL (body);
+	STRIP_NOPS (body);
+	if (TREE_CODE (body) == BIND_EXPR)
+	  {
+	    make_edge (bb, bb_for_stmt (body), 0);
+	    make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	  }
+      }
       break;
 
     default:
@@ -561,8 +588,6 @@ make_cond_expr_edges (bb)
 {
   tree entry = first_stmt (bb);
   basic_block successor_bb, then_bb, else_bb;
-  tree predicate;
-  bool always_true, always_false;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (entry) != COND_EXPR)
@@ -581,28 +606,12 @@ make_cond_expr_edges (bb)
 	       /   \
 	    THEN   ELSE
 
-     Either clause may be empty.  Linearize the IF statement if the
-     conditional can be statically computed.  */
-  predicate = COND_EXPR_COND (entry);
-
-  always_true = (simple_cst_equal (predicate, integer_one_node) == 1);
-  if (always_true)
-    else_bb = NULL;
-
-  always_false = (simple_cst_equal (predicate, integer_zero_node) == 1);
-  if (always_false)
-    then_bb = NULL;
-
+     Either clause may be empty.  */
   if (then_bb)
     make_edge (bb, then_bb, EDGE_TRUE_VALUE);
 
   if (else_bb)
     make_edge (bb, else_bb, EDGE_FALSE_VALUE);
-
-  /* If the conditional is always true or false, return.  The only edge we
-     needed to add has been already created above.  */
-  if (always_true || always_false)
-    return;
 
   /* If conditional is missing one of the clauses, make an edge between the
      entry block and the first block outside the conditional.  */
@@ -669,24 +678,6 @@ make_case_label_edges (bb)
 #endif
 
   make_edge (switch_bb, bb, 0);
-
-  /* If this label is the default label, we need to remove the
-     fallthru edge that was created when we processed the entry
-     block for the switch() statement.  */
-  if (CASE_LOW (first_stmt (bb)) == NULL_TREE)
-    {
-      edge e;
-      basic_block entry_bb, chain_bb;
-
-      entry_bb = parent_block (bb);
-      chain_bb = successor_block (entry_bb);
-      for (e = entry_bb->succ; e; e = e->succ_next)
-	if (e->dest == chain_bb)
-	  {
-	    remove_edge (e);
-	    break;
-	  }
-    }
 }
 
 
@@ -700,10 +691,9 @@ make_case_label_edges (bb)
 void
 cleanup_tree_cfg ()
 {
+  cleanup_control_flow ();
   remove_unreachable_blocks ();
   compact_blocks ();
-  /* FIXME  Optimize the CFG by stratightening out dead conditionals and
-	    whatnot.  */
 }
 
 
@@ -712,43 +702,85 @@ cleanup_tree_cfg ()
 static void
 remove_unreachable_blocks ()
 {
-  basic_block next_bb, bb;
+  int i, n;
 
   find_unreachable_blocks ();
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; bb = next_bb)
+  /* n_basic_blocks will change constantly as we delete blocks, so get a
+     copy first.  */
+  n = n_basic_blocks;
+  for (i = 0; i < n; i++)
     {
-      next_bb = bb->next_bb;
+      basic_block bb = BASIC_BLOCK (i);
+
+      /* The block may have been removed in a previous iteration if it was
+	 inside an unreachable control structure.  */
+      if (bb == NULL || bb->index == INVALID_BLOCK)
+	continue;
 
       if (!(bb->flags & BB_REACHABLE))
-	remove_tree_bb (bb);
+	{
+	  if (bb->flags & BB_COMPOUND_ENTRY)
+	    {
+	      /* Before removing an entry block for a compound structure,
+		 make sure that all its subblocks are unreachable as well.  */
+	      varray_type subblocks = find_subblocks (bb);
+	      if (blocks_unreachable_p (subblocks))
+		{
+		  remove_blocks (subblocks);
+		  remove_tree_bb (bb, !is_nonlocal_label_block (bb));
+		}
+	      else
+		remove_tree_bb (bb, 0);
+	    }
+	  else
+	    remove_tree_bb (bb, !is_nonlocal_label_block (bb));
+	}
     }
 }
 
 
-/* Remove a block from the flowgraph.  */
+/* Remove block BB and its statements from the flowgraph.  Note that if
+   REMOVE_STMTS is nonzero and BB is the entry block for a compound
+   statement (control structures or blocks of code), removing BB will
+   effectively remove the whole structure from the program.  The caller is
+   responsible for making sure that all the blocks in the compound
+   structure are also removed.  */
 
 static void
-remove_tree_bb (bb)
+remove_tree_bb (bb, remove_stmts)
      basic_block bb;
+     int remove_stmts;
 {
   gimple_stmt_iterator i;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "Removed unreachable basic block %d\n", bb->index);
+      fprintf (dump_file, "Removing unreachable basic block %d\n", bb->index);
       dump_tree_bb (dump_file, "", bb, 0);
-      if (TREE_CODE (first_stmt (bb)) != BIND_EXPR)
-	fprintf (dump_file, "WARNING: Block %d has executable statements.\n",
-	         bb->index);
       fprintf (dump_file, "\n");
       dump_end (TDI_cfg, dump_file);
     }
 
-  /* Unmap all the instructions in the block.  */
+  /* Remove all the instructions in the block.  */
   for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
-    set_bb_for_stmt (gsi_stmt (i), NULL);
+    {
+      tree stmt = gsi_stmt (i);
+      STRIP_WFL (stmt);
+      STRIP_NOPS (stmt);
+
+      if (remove_stmts)
+	gsi_remove (i);
+      else
+	set_bb_for_stmt (stmt, NULL);
+
+      if (dump_file && is_exec_stmt (gsi_stmt (i)))
+	{
+	  fprintf (dump_file, "WARNING: Removing executable statement: ");
+	  print_generic_node (dump_file, gsi_stmt (i), PPF_BRIEF);
+	}
+    }
 
   /* Remove the edges into and out of this block.  */
   while (bb->pred != NULL)
@@ -762,6 +794,207 @@ remove_tree_bb (bb)
 
   /* Remove the basic block from the array.  */
   expunge_block (bb);
+}
+
+
+/* Remove all the blocks in BB_ARRAY.  */
+
+static void
+remove_blocks (bb_array)
+     varray_type bb_array;
+{
+  size_t i;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (bb_array); i++)
+    {
+      basic_block bb = VARRAY_BB (bb_array, i);
+      remove_tree_bb (bb, !is_nonlocal_label_block (bb));
+    }
+}
+
+
+/* Return true if all the blocks in BB_ARRAY are unreachable.  */
+
+static bool
+blocks_unreachable_p (bb_array)
+     varray_type bb_array;
+{
+  size_t i;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (bb_array); i++)
+    {
+      basic_block bb = VARRAY_BB (bb_array, i);
+      if (bb->flags & BB_REACHABLE || is_nonlocal_label_block (bb))
+	return false;
+    }
+
+  return true;
+}
+
+
+/* Return true if block BB starts with a nonlocal label.  */
+
+static bool
+is_nonlocal_label_block (bb)
+     basic_block bb;
+{
+  tree t = first_stmt (bb);
+
+  /* FIXME  We don't compute nonlocal labels until RTL expansion.  This
+	    returns false positives.  */
+  return (TREE_CODE (t) == LABEL_EXPR && DECL_NAME (LABEL_EXPR_LABEL (t)));
+}
+
+
+/* Find all the blocks in the graph that are included in the compound
+   structure starting at block BB.  */
+
+static varray_type
+find_subblocks (bb)
+     basic_block bb;
+{
+  varray_type subblocks;
+  basic_block child_bb;
+
+  VARRAY_BB_INIT (subblocks, 5, "subblocks");
+
+  if (bb->flags & BB_COMPOUND_ENTRY)
+    {
+      /* Note: This assumes that all the blocks inside a compound a control
+	 structure are consecutive in the linked list of blocks.  */
+      child_bb = bb->next_bb;
+      while (child_bb != EXIT_BLOCK_PTR && is_parent (bb, child_bb))
+	{
+	  VARRAY_PUSH_BB (subblocks, child_bb);
+	  child_bb = child_bb->next_bb;
+	}
+    }
+
+  return subblocks;
+}
+
+
+/* Return true if BB is a control parent for CHILD_BB.  Notice that this
+   property is not the same as dominance.  This is a test for containment.
+   Given two blocks A and B, A DOM B does not imply A is-parent-of B.  For
+   instance,
+
+	    1	{
+	    2	  s1;
+	    3	}
+	    4	{
+	    5	  s2;
+	    6	}
+
+   The block at line 1 dominates the block at line 4, but line 4 is not
+   contained in 1's compound structure.  */
+
+static bool
+is_parent (bb, child_bb)
+     basic_block bb;
+     basic_block child_bb;
+{
+  basic_block parent;
+
+  if (bb == child_bb)
+    return true;
+
+  for (parent = parent_block (child_bb);
+       parent && parent->index != INVALID_BLOCK;
+       parent = parent_block (parent))
+    if (parent == bb)
+      return true;
+
+  return false;
+}
+
+
+/* Remove statement pointed by iterator I.  Note that this function will
+   wipe out control statements that may span multiple basic blocks.  Make
+   sure that you really want to remove the whole control structure before
+   calling this function.  */
+
+void
+gsi_remove (i)
+     gimple_stmt_iterator i;
+{
+  tree t = *(i.tp);
+
+  STRIP_WFL (t);
+  STRIP_NOPS (t);
+
+  if (!is_exec_stmt (t))
+    return;
+
+  if (TREE_CODE (t) == COMPOUND_EXPR)
+    {
+      remove_stmt (&TREE_OPERAND (t, 0));
+
+      /* If both operands are empty, delete the whole COMPOUND_EXPR.  */
+      if (TREE_OPERAND (t, 1) == empty_stmt_node)
+	remove_stmt (i.tp);
+    }
+  else
+    remove_stmt (i.tp);
+}
+
+
+/* Remove statement *STMT_P.  Update all references associated with it.
+   Note that this function will wipe out control statements that may span
+   multiple basic blocks.  Make sure that you really want to remove the
+   whole control structure before calling this function.  */
+
+static void
+remove_stmt (stmt_p)
+     tree *stmt_p;
+{
+  ref_list_iterator i;
+  varray_type todelete;
+  tree stmt = *stmt_p;
+
+  STRIP_WFL (stmt);
+  STRIP_NOPS (stmt);
+
+  /* Collect variables referenced by the statement.  */
+  VARRAY_TREE_INIT (todelete, 5, "todelete");
+  for (i = rli_start (tree_refs (stmt)); !rli_after_end (i); rli_step (&i))
+    {
+      tree var = ref_var (rli_ref (i));
+      if (!TREE_VISITED (var))
+	{
+	  VARRAY_PUSH_TREE (todelete, var);
+	  TREE_VISITED (var) = 1;
+	}
+    }
+
+  /* For every variable, remove all the references associated with STMT.  */
+  while (VARRAY_ACTIVE_SIZE (todelete) > 0)
+    {
+      ref_list_iterator j;
+      tree var = VARRAY_TOP_TREE (todelete);
+      VARRAY_POP (todelete);
+
+      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
+	{
+	  tree_ref ref = rli_ref (j);
+	  if (ref_stmt (ref) == stmt)
+	    rli_delete (j);
+	}
+
+      /* If there are no more references to VAR, mark it unused.  */
+      if (ref_list_is_empty (tree_refs (var)))
+	TREE_USED (var) = 0;
+
+      TREE_VISITED (var) = 0;
+    }
+
+  /* Finally, if the statement is a LABEL_EXPR, remove the LABEL_DECL from
+     the symbol table.  */
+  if (TREE_CODE (stmt) == LABEL_EXPR)
+    remove_decl (LABEL_EXPR_LABEL (stmt));
+
+  /* Replace STMT with empty_stmt_node.  */
+  *stmt_p = empty_stmt_node;
 }
 
 
@@ -822,6 +1055,185 @@ block_invalidates_loop (bb, loop)
       return true;
 
   return false;
+}
+
+
+/* Try to remove superfluous control structures.  */
+
+static void
+cleanup_control_flow ()
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      enum tree_code code;
+
+      if (bb->flags & BB_CONTROL_EXPR
+	  && bb->flags & BB_COMPOUND_ENTRY)
+	{
+	  code = TREE_CODE (first_stmt (bb));
+
+	  if (code == COND_EXPR)
+	    cleanup_cond_expr_graph (bb);
+	  else if (code == SWITCH_EXPR)
+	    cleanup_switch_expr_graph (bb);
+	}
+    }
+}
+
+      
+/* If the predicate of the COND_EXPR node in block BB is constant,
+   disconnect the subgraph that contains the clause that is never
+   executed.  FIXME  Must also update DFA/SSA information.  */
+
+static void
+cleanup_cond_expr_graph (bb)
+     basic_block bb;
+{
+  tree cond_expr = first_stmt (bb);
+  tree val;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (cond_expr) != COND_EXPR)
+    abort ();
+#endif
+
+  val = COND_EXPR_COND (cond_expr);
+  if (really_constant_p (val))
+    {
+      bool always_false;
+      edge e, taken_edge, next;
+
+      /* Determine which branch of the if() will be taken.  */
+      taken_edge = NULL;
+      always_false = (simple_cst_equal (val, integer_zero_node) == 1);
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (((e->flags & EDGE_TRUE_VALUE) && !always_false)
+	      || ((e->flags & EDGE_FALSE_VALUE) && always_false))
+	    {
+	      taken_edge = e;
+	      break;
+	    }
+	}
+
+      if (taken_edge == NULL)
+	{
+	  /* If E is not going to the THEN nor the ELSE clause, then it's
+	     the fallthru edge to the successor block of the if() block.  */
+	  taken_edge = find_edge (bb, successor_block (bb));
+	}
+
+      /* Remove all the edges except the one that is always executed.  */
+      for (e = bb->succ; e; e = next)
+	{
+	  next = e->succ_next;
+	  if (e != taken_edge)
+	    remove_edge (e);
+	}
+    }
+}
+
+
+/* If the switch condition of the SWITCH_EXPR node in block BB is constant,
+   disconnect all the subgraphs for all the case labels that will never be
+   taken.  FIXME  Must also update DFA/SSA information.  */
+
+static void
+cleanup_switch_expr_graph (bb)
+     basic_block bb;
+{
+  tree switch_expr = first_stmt (bb);
+  edge e;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (switch_expr) != SWITCH_EXPR)
+    abort ();
+#endif
+
+  disconnect_unreachable_case_labels (bb);
+
+  /* If the switch() has a default label, remove the fallthru edge that was
+     created when we processed the entry block for the switch() statement.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      basic_block bb = e->dest;
+      tree t = first_stmt (bb);
+
+      if (TREE_CODE (t) == CASE_LABEL_EXPR && CASE_LOW (t) == NULL_TREE)
+	{
+	  basic_block entry_bb = parent_block (bb);
+	  basic_block chain_bb = successor_block (entry_bb);
+	  edge e = find_edge (entry_bb, chain_bb);
+	  if (e)
+	    remove_edge (e);
+	  break;
+	}
+    }
+}
+
+
+/* If the switch() statement starting at basic block BB has a constant
+   condition, disconnect all the unreachable case labels.  */
+
+static void
+disconnect_unreachable_case_labels (bb)
+     basic_block bb;
+{
+  edge e, default_edge, taken_edge;
+  tree switch_val;
+
+  default_edge = NULL;
+  taken_edge = NULL;
+
+  switch_val = SWITCH_COND (first_stmt (bb));
+  if (!really_constant_p (switch_val))
+    return;
+
+  /* See if the switch() value matches one of the case labels.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      tree val;
+      edge dest_edge = e;
+      tree dest_t = first_stmt (dest_edge->dest);
+
+      if (TREE_CODE (dest_t) != CASE_LABEL_EXPR)
+	continue;
+
+      val = CASE_LOW (dest_t);
+      if (val == NULL_TREE)
+	{
+	  /* Remember that we found a default label, just in case no other
+	     label matches the switch() value.  */
+	  default_edge = dest_edge;
+	}
+      else if (simple_cst_equal (val, switch_val) == 1)
+	{
+	  /* We found the unique label that will be taken by the switch.
+	     No need to keep looking.  All the other labels are never
+	     reached directly from the switch().  */
+	  taken_edge = dest_edge;
+	  break;
+	}
+    }
+
+  /* If no case exists for the value used in the switch(), we use the
+     default label.  */
+  if (taken_edge == NULL)
+    taken_edge = default_edge;
+
+  /* Remove all the edges that go to case labels that will never be taken.  */
+  if (taken_edge)
+    {
+      edge next;
+      for (e = bb->succ; e; e = next)
+	{
+	  next = e->succ_next;
+	  if (e != taken_edge)
+	    remove_edge (e);
+	}
+    }
 }
 
 

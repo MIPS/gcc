@@ -585,12 +585,12 @@ struct dfa_counts_d
    gimple_stmt_iterator in tree-simple.h.  */
 static inline void gsi_step_bb PARAMS ((gimple_stmt_iterator *));
 static inline gimple_stmt_iterator gsi_start_bb	PARAMS ((basic_block));
+extern void gsi_remove PARAMS ((gimple_stmt_iterator));
 
 #if 0
 /* FIXME Not implemented yet.  */
 extern void gsi_insert_before (tree stmt, gimple_stmt_iterator, basic_block);
 extern void gsi_insert_after (tree stmt, gimple_stmt_iterator, basic_block);
-extern void gsi_delete (gimple_stmt_iterator, basic_block);
 extern void gsi_replace (tree stmt, gimple_stmt_iterator, basic_block);
 #endif
 
@@ -706,6 +706,8 @@ extern bool ref_defines			PARAMS ((tree_ref, tree));
 extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
 extern int get_alias_index		PARAMS ((tree, tree));
 extern enum tree_ref_structure_enum tree_ref_structure PARAMS ((tree_ref));
+void remove_decl			PARAMS ((tree));
+tree * find_decl_location		PARAMS ((tree, tree));
 
 
 /* In tree-ssa.c  */

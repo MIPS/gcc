@@ -2029,3 +2029,48 @@ create_indirect_ref (ptr_sym)
 #endif
   return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr_sym)), ptr_sym);
 }
+
+
+/* Remove DECL from the block that declares it.  */
+
+void
+remove_decl (decl)
+     tree decl;
+{
+  tree *loc;
+  
+  loc = find_decl_location (decl, DECL_INITIAL (current_function_decl));
+  if (loc)
+    *loc = TREE_CHAIN (decl);
+}
+
+
+/* Find the location for DECL's declaration starting in BLOCK.  This
+   returns an address LOC such that *LOC == DECL or NULL if DECL couldn't
+   be located.  */
+
+tree *
+find_decl_location (decl, block)
+     tree decl;
+     tree block;
+{
+  tree d, sub;
+
+  /* Special case.  If DECL is the first symbol in the block, return its
+     location directly.  */
+  if (BLOCK_VARS (block) == decl)
+    return &(BLOCK_VARS (block));
+
+  for (d = BLOCK_VARS (block); d; d = TREE_CHAIN (d))
+    if (TREE_CHAIN (d) == decl)
+      return &(TREE_CHAIN (d));
+
+  for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
+    {
+      tree *loc = find_decl_location (decl, sub);
+      if (loc)
+	return loc;
+    }
+
+  return NULL;
+}

@@ -102,9 +102,7 @@ static void def_to_varying             PARAMS ((tree_ref));
 static void set_lattice_value          PARAMS ((tree_ref, value));
 static void simulate_block             PARAMS ((basic_block));
 static void simulate_def_use_chains    PARAMS ((tree_ref));
-static void optimize_unexecutable_edges PARAMS ((struct edge_list *));
 static void substitute_and_fold        PARAMS ((void));
-static void ssa_ccp_df_delete_unreachable_insns PARAMS ((void));
 static value evaluate_expr             PARAMS ((tree));
 static void dump_lattice_value         PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield             PARAMS ((tree, tree, tree));
@@ -158,16 +156,8 @@ tree_ssa_ccp (fndecl)
   /* Now perform substitutions based on the known constant values.  */
   substitute_and_fold ();
 
-  /* Remove unexecutable edges from the CFG and make appropriate
-     adjustments to PHI nodes.  */
-  optimize_unexecutable_edges (edges);
-
   /* Now cleanup any unreachable code.  */
   cleanup_tree_cfg ();
-
-  /* Now remove all unreachable insns and update the DF information.
-     as appropriate.  */
-  ssa_ccp_df_delete_unreachable_insns ();
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -177,7 +167,7 @@ tree_ssa_ccp (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_generic_tree (dump_file, fnbody, 0);
+	print_generic_tree (dump_file, fnbody, PPF_BLOCK);
 
       fprintf (dump_file, "\n");
       dump_end (TDI_ccp, dump_file);
@@ -240,7 +230,7 @@ simulate_block (block)
 	 single successor, add it onto the worklist.  This is because
 	 if we only have one successor, we know it gets executed,
 	 so we don't have to wait for cprop to tell us. */
-      if (succ_edge != NULL && succ_edge->succ_next == NULL)
+      if (succ_edge && succ_edge->succ_next == NULL)
 	add_control_edge (succ_edge);
     }
 }
@@ -276,50 +266,6 @@ simulate_def_use_chains (def)
     }
 }
 
-
-/* Examine each edge to see if we were able to prove any were
-   not executable. 
-
-   If an edge is not executable, then we can remove its alternative
-   in PHI nodes as the destination of the edge, we can simplify the
-   conditional branch at the source of the edge, and we can remove
-   the edge from the CFG.  Note we do not delete unreachable blocks
-   yet as the DF analyzer can not deal with that yet.  */
-
-static void
-optimize_unexecutable_edges (edges)
-     struct edge_list *edges ATTRIBUTE_UNUSED;
-{
-  int i;
-
-  for (i = 0; i < NUM_EDGES (edges); i++)
-    {
-      edge edge = INDEX_EDGE (edges, i);
-
-      if (! (edge->flags & EDGE_EXECUTABLE))
-	{
-	  if (edge->flags & EDGE_ABNORMAL)
-	    continue;
-
-	  /* We found an edge that is not executable.  First simplify
-	     the PHI nodes in the target block.  This may make 
-	     simplifications possible in other optimizers.  */
-	  if (edge->dest != EXIT_BLOCK_PTR)
-	    {
-	      ref_list blockrefs = bb_refs (edge->dest);
-	      ref_list_iterator i;
-
-	      for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
-		if (ref_type (rli_ref (i)) == V_PHI)
-		  tree_ssa_remove_phi_alternative (rli_ref (i), edge->src);
-	    }
-
-	  /* Since the edge was not executable, remove it from the CFG.  */
-	  remove_edge (edge);
-	}
-    }
-}
- 
 
 /* Perform substitution and folding.   */
 
@@ -379,16 +325,6 @@ substitute_and_fold ()
 	    }
 	}
     }
-}
-
-
-/* Now find all unreachable basic blocks.  All the insns in those
-   blocks are unreachable, so delete them and mark any necessary
-   updates for the DF analyzer.  */
-
-static void
-ssa_ccp_df_delete_unreachable_insns ()
-{
 }
 
 

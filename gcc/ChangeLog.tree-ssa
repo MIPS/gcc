@@ -1,3 +1,38 @@
+2002-11-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (remove_tree_bb): Add new argument remove_stmts.
+	Update all callers.
+	(make_ctrl_stmt_edges): Add an edge to the body of a SWITCH_EXPR.
+	(make_cond_expr_edges): Don't try to linearize the if() subgraph.
+	(make_case_label_edges): Don't remove the fallthru edge from the
+	entry block to the switch() subgraph.
+	(cleanup_tree_cfg): Call cleanup_control_flow.
+	(remove_unreachable_blocks): Remove blocks of compound structures
+	before removing the entry block.
+	(remove_blocks): New local function.
+	(blocks_unreachable_p): New local function.
+	(is_nonlocal_label_block): New local function.
+	(find_subblocks): New local function.
+	(is_parent): New local function.
+	(gsi_remove): New function.
+	(remove_stmt): New local function.
+	(cleanup_control_flow): New local function.
+	(cleanup_cond_expr_graph): New local function.
+	(cleanup_switch_expr_graph): New local function.
+	(disconnect_unreachable_case_labels): New local function.
+
+	* tree-dfa.c (remove_decl): New function.
+	(find_decl_location): New function.
+
+	* tree-flow.h (gsi_remove): Declare.
+	(remove_decl): Declare.
+	(find_decl_location): Declare.
+
+	* tree-ssa-ccp.c (optimize_unexecutable_edges): Remove.  Update all
+	users.
+	(ssa_ccp_df_delete_unreachable_insns): Remove.  Update all users.
+	(tree_ssa_ccp): Call print_generic_tree with PPF_BLOCK.
+
 2002-10-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (create_indirect_ref): New local function.
