@@ -1,3 +1,8 @@
+2004-01-21  Andreas Jaeger  <aj@suse.de>
+
+	* expr.c (MOVE_RATIO, CLEAR_RATIO): Move from here...
+	* expr.h (MOVE_RATIO, CLEAR_RATIO): ... to here.
+
 2004-01-21  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/t-linuxbi: Rename from t-linux64.
