@@ -1,3 +1,7 @@
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050216.
+
 2005-02-10  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/21_strings/basic_string/capacity/1.c: Tweak, avoid
