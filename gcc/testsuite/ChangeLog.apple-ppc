@@ -1,5 +1,9 @@
 2004-11-16  Devang Patel  <dpatel@apple.com>
 
+	* gcc.dg/vect/vect-none.c: Now 2 loops are vectorized.
+
+2004-11-16  Devang Patel  <dpatel@apple.com>
+
 	From autovect-branch.
 
 	* gcc.dg/vect/vect-ifcvt-1.c: New test.
