@@ -140,7 +140,7 @@ static void finish_objc (void);
 
 static void synth_module_prologue (void);
 static tree objc_build_constructor (tree, tree);
-static rtx build_module_descriptor (void);
+static void build_module_descriptor (void);
 static tree init_module_descriptor (tree);
 static tree build_objc_method_call (int, tree, tree, tree, tree);
 static void generate_strings (void);
@@ -164,6 +164,8 @@ static tree get_super_receiver (void);
 
 static void build_objc_exception_stuff (void);
 static tree objc_declare_variable (enum rid, tree, tree, tree);
+static tree objc_begin_compound_stmt (void);
+static void objc_finish_compound_stmt (tree);
 static tree objc_enter_block (void);
 static tree objc_exit_block (void);
 static void objc_build_try_enter_fragment (void);
@@ -228,6 +230,7 @@ static tree add_objc_string (tree, enum string_section);
 static tree get_objc_string_decl (tree, enum string_section);
 static tree build_objc_string_decl (enum string_section);
 static tree build_selector_reference_decl (void);
+static void build_selector_table_decl (void);
 
 /* Protocol additions.  */
 
@@ -271,7 +274,7 @@ static void dump_interface (FILE *, tree);
 static tree define_decl (tree, tree);
 static tree lookup_method_in_protocol_list (tree, tree, int);
 static tree lookup_protocol_in_reflist (tree, tree);
-static tree create_builtin_decl (enum tree_code, tree, const char *);
+static tree create_field_decl (tree, const char *);
 static void setup_string_decl (void);
 static int check_string_class_template (void);
 static tree my_build_string (int, const char *);
@@ -362,7 +365,6 @@ static const char *TAG_MSGSENDSUPER;
    when returning a structure. */
 static const char *TAG_MSGSEND_STRET;
 static const char *TAG_MSGSENDSUPER_STRET;
-static const char *TAG_EXECCLASS;
 static const char *default_constant_string_class_name;
 
 /* Runtime metadata flags.  */
@@ -381,6 +383,8 @@ static const char *default_constant_string_class_name;
 #define OBJC_MODIFIER_TRANSIENT		0x00000200
 #define OBJC_MODIFIER_NONE_SPECIFIED	0x80000000
 
+/* NeXT-specific tags.  */
+
 #define TAG_MSGSEND_NONNIL		"objc_msgSendNonNil"
 #define TAG_MSGSEND_NONNIL_STRET	"objc_msgSendNonNil_stret"
 #define TAG_EXCEPTIONEXTRACT		"objc_exception_extract"
@@ -391,13 +395,17 @@ static const char *default_constant_string_class_name;
 #define TAG_SYNCENTER			"objc_sync_enter"
 #define TAG_SYNCEXIT			"objc_sync_exit"
 #define TAG_SETJMP			"_setjmp"
-#define TAG_RETURN_STRUCT		"objc_return_struct"
 
 #define UTAG_EXCDATA			"_objc_exception_data"
 #define UTAG_EXCDATA_VAR		"_stackExceptionData"
 #define UTAG_CAUGHTEXC_VAR		"_caughtException"
 #define UTAG_RETHROWEXC_VAR		"_rethrowException"
 #define UTAG_EVALONCE_VAR		"_eval_once"
+
+/* GNU-specific tags.  */
+
+#define TAG_EXECCLASS			"__objc_exec_class"
+#define TAG_GNUINIT			"__objc_gnu_init"
 
 struct val_stack {
   long val;
@@ -472,17 +480,15 @@ generate_struct_by_value_array (void)
       type = start_struct (RECORD_TYPE, NULL_TREE);
 
       strcpy (buffer, "c1");
-      field_decl = create_builtin_decl (FIELD_DECL,
-					char_type_node,
-					buffer);
+      field_decl = create_field_decl (char_type_node,
+				      buffer);
       field_decl_chain = field_decl;
 
       for (j = 1; j < i; j++)
 	{
 	  sprintf (buffer, "c%d", j + 1);
-	  field_decl = create_builtin_decl (FIELD_DECL,
-					    char_type_node,
-					    buffer);
+	  field_decl = create_field_decl (char_type_node,
+					  buffer);
 	  chainon (field_decl_chain, field_decl);
 	}
       finish_struct (type, field_decl_chain, NULL_TREE);
@@ -546,7 +552,6 @@ objc_init (void)
       TAG_MSGSENDSUPER = "objc_msgSendSuper";
       TAG_MSGSEND_STRET = "objc_msgSend_stret";
       TAG_MSGSENDSUPER_STRET = "objc_msgSendSuper_stret";
-      TAG_EXECCLASS = "__objc_execClass";
       default_constant_string_class_name = "NSConstantString";
     }
   else
@@ -557,7 +562,6 @@ objc_init (void)
       TAG_MSGSENDSUPER = "objc_msg_lookup_super";
       /* GNU runtime does not provide special functions to support
 	 structure-returning methods.  */
-      TAG_EXECCLASS = "__objc_exec_class";
       default_constant_string_class_name = "NXConstantString";
       flag_typed_selectors = 1;
     }
@@ -577,12 +581,6 @@ objc_finish_file (void)
 {
   mark_referenced_methods ();
 
-#ifdef OBJCPLUS
-  cp_finish_file ();
-#else
-  c_objc_common_finish_file ();
-#endif
-
   /* Finalize Objective-C runtime data.  No need to generate tables
      and code if only checking syntax.  */
   if (!flag_syntax_only)
@@ -590,6 +588,12 @@ objc_finish_file (void)
 
   if (gen_declaration_file)
     fclose (gen_declaration_file);
+
+#ifdef OBJCPLUS
+  cp_finish_file ();
+#else
+  c_objc_common_finish_file ();
+#endif
 }
 
 static tree
@@ -1271,24 +1275,12 @@ lookup_and_install_protocols (tree protocols)
   return return_value;
 }
 
-/* Create and push a decl for a built-in external variable or field NAME.
-   CODE says which.
-   TYPE is its data type.  */
+/* Create a declaration for field NAME of a given TYPE.  */
 
 static tree
-create_builtin_decl (enum tree_code code, tree type, const char *name)
+create_field_decl (tree type, const char *name)
 {
-  tree decl = build_decl (code, get_identifier (name), type);
-
-  if (code == VAR_DECL)
-    {
-      TREE_STATIC (decl) = 1;
-      make_decl_rtl (decl, 0);
-      pushdecl (decl);
-      DECL_ARTIFICIAL (decl) = 1;
-    }
-
-  return decl;
+  return build_decl (FIELD_DECL, get_identifier (name), type);
 }
 
 /* Find the decl for the constant string class.  */
@@ -1329,6 +1321,13 @@ static void
 synth_module_prologue (void)
 {
   tree temp_type;
+  enum debug_info_type save_write_symbols = write_symbols;
+  const struct gcc_debug_hooks *const save_hooks = debug_hooks;
+
+  /* Suppress outputting debug symbols, because
+     dbxout_init hasn'r been called yet.  */
+  write_symbols = NO_DEBUG;
+  debug_hooks = &do_nothing_debug_hooks;
 
 #ifdef OBJCPLUS
   push_lang_context (lang_name_c); /* extern "C" */
@@ -1429,9 +1428,9 @@ synth_module_prologue (void)
       /* IMP objc_msg_lookup (id, SEL); */
       temp_type
         = build_function_type (IMP_type,
-                               tree_cons (NULL_TREE, id_type,
-                                          tree_cons (NULL_TREE, selector_type,
-                                                     OBJC_VOID_AT_END)));
+			       tree_cons (NULL_TREE, id_type,
+					  tree_cons (NULL_TREE, selector_type,
+						     OBJC_VOID_AT_END)));
       umsg_decl = builtin_function (TAG_MSGSEND,
 				    temp_type, 0, NOT_BUILT_IN,
 				    NULL, NULL_TREE);
@@ -1439,12 +1438,24 @@ synth_module_prologue (void)
       /* IMP objc_msg_lookup_super (struct objc_super *, SEL); */
       temp_type
         = build_function_type (IMP_type,
-                               tree_cons (NULL_TREE, super_type,
-                                          tree_cons (NULL_TREE, selector_type,
-                                                     OBJC_VOID_AT_END)));
+			       tree_cons (NULL_TREE, super_type,
+					  tree_cons (NULL_TREE, selector_type,
+						     OBJC_VOID_AT_END)));
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
 					  temp_type, 0, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
+
+      /* The following GNU runtime entry point is called to initialize
+	 each module:
+
+	 __objc_exec_class (void *); */
+      temp_type
+	= build_function_type (void_type_node,
+			       tree_cons (NULL_TREE, ptr_type_node,
+					  OBJC_VOID_AT_END));
+      execclass_decl = builtin_function (TAG_EXECCLASS,
+					 temp_type, 0, NOT_BUILT_IN,
+					 NULL, NULL_TREE);
     }
 
   /* id objc_getClass (const char *); */
@@ -1470,33 +1481,7 @@ synth_module_prologue (void)
   /* static SEL _OBJC_SELECTOR_TABLE[]; */
 
   if (! flag_next_runtime)
-    {
-      if (flag_typed_selectors)
-	{
-	  /* Suppress outputting debug symbols, because
-	     dbxout_init hasn'r been called yet.  */
-	  enum debug_info_type save_write_symbols = write_symbols;
-	  const struct gcc_debug_hooks *const save_hooks = debug_hooks;
-	  write_symbols = NO_DEBUG;
-	  debug_hooks = &do_nothing_debug_hooks;
-
-	  build_selector_template ();
-	  temp_type = build_array_type (objc_selector_template, NULL_TREE);
-
-	  write_symbols = save_write_symbols;
-	  debug_hooks = save_hooks;
-	}
-      else
-	temp_type = build_array_type (selector_type, NULL_TREE);
-
-      layout_type (temp_type);
-      UOBJC_SELECTOR_TABLE_decl
-	= create_builtin_decl (VAR_DECL, temp_type,
-			       "_OBJC_SELECTOR_TABLE");
-
-      /* Avoid warning when not sending messages.  */
-      TREE_USED (UOBJC_SELECTOR_TABLE_decl) = 1;
-    }
+    build_selector_table_decl ();
 
   generate_forward_declaration_to_string_table ();
 
@@ -1518,6 +1503,9 @@ synth_module_prologue (void)
 #ifdef OBJCPLUS
   pop_lang_context ();
 #endif
+
+  write_symbols = save_write_symbols;
+  debug_hooks = save_hooks;
 }
 
 /* Ensure that the ivar list for NSConstantString/NXConstantString
@@ -1721,6 +1709,8 @@ objc_build_constructor (tree type, tree elts)
   /* zlaski 2001-Apr-02: mark this as a call to a constructor, as required by
      build_unary_op (wasn't true in 2.7.2.1 days) */
   TREE_HAS_CONSTRUCTOR (constructor) = 1;
+  /* Yet another impedance mismatch: C++ gets confused by typed constructors.  */
+  TREE_TYPE (constructor) = NULL_TREE;
 #endif
   return constructor;
 }
@@ -1748,30 +1738,26 @@ build_objc_symtab_template (void)
 
   /* long sel_ref_cnt; */
 
-  field_decl = create_builtin_decl (FIELD_DECL,
-				    long_integer_type_node,
-				    "sel_ref_cnt");
+  field_decl = create_field_decl (long_integer_type_node,
+				  "sel_ref_cnt");
   field_decl_chain = field_decl;
 
   /* SEL *refs; */
 
-  field_decl = create_builtin_decl (FIELD_DECL,
-				    build_pointer_type (selector_type),
-				    "refs");
+  field_decl = create_field_decl (build_pointer_type (selector_type),
+				  "refs");
   chainon (field_decl_chain, field_decl);
 
   /* short cls_def_cnt; */
 
-  field_decl = create_builtin_decl (FIELD_DECL,
-				    short_integer_type_node,
-				    "cls_def_cnt");
+  field_decl = create_field_decl (short_integer_type_node,
+				  "cls_def_cnt");
   chainon (field_decl_chain, field_decl);
 
   /* short cat_def_cnt; */
 
-  field_decl = create_builtin_decl (FIELD_DECL,
-				    short_integer_type_node,
-				    "cat_def_cnt");
+  field_decl = create_field_decl (short_integer_type_node,
+				  "cat_def_cnt");
   chainon (field_decl_chain, field_decl);
 
   if (imp_count || cat_count || !flag_next_runtime)
@@ -1780,9 +1766,8 @@ build_objc_symtab_template (void)
       /* NB: The index is one less than the size of the array.  */
       int index = imp_count + cat_count
 		+ (flag_next_runtime? -1: 0);
-      field_decl = create_builtin_decl
-		   (FIELD_DECL,
-		    build_array_type
+      field_decl = create_field_decl
+		   (build_array_type
 		    (ptr_type_node,
 		     build_index_type (build_int_2 (index, 0))),
 		    "defs");
@@ -1993,13 +1978,10 @@ init_module_descriptor (tree type)
 }
 
 /* Write out the data structures to describe Objective C classes defined.
-   If appropriate, compile and output a setup function to initialize them.
-   Return a symbol_ref to the function to call to initialize the Objective C
-   data structures for this file (and perhaps for other files also).
 
    struct objc_module { ... } _OBJC_MODULE = { ... };   */
 
-static rtx
+static void
 build_module_descriptor (void)
 {
   tree decl_specs, field_decl, field_decl_chain;
@@ -2059,72 +2041,47 @@ build_module_descriptor (void)
 	       init_module_descriptor (TREE_TYPE (UOBJC_MODULES_decl)),
 	       NULL_TREE);
 
-  /* Mark the decl to avoid "defined but not used" warning.  */
-  DECL_IN_SYSTEM_HEADER (UOBJC_MODULES_decl) = 1;
-
-  /* Generate a constructor call for the module descriptor.
-     This code was generated by reading the grammar rules
-     of c-parse.in;  Therefore, it may not be the most efficient
-     way of generating the requisite code.  */
-
   if (flag_next_runtime)
-    return NULL_RTX;
+    /* Mark the decl to avoid "defined but not used" warning.  */
+    TREE_USED (UOBJC_MODULES_decl) = 1;
 
-  {
-    tree parms, execclass_decl, decelerator, void_list_node_1;
-    tree init_function_name, init_function_decl;
+  else
+    {
+      /* The GNU runtime requires us to provide a static initializer function
+	 for each module:
 
-    /* Declare void __objc_execClass (void *); */
+	 static void __objc_gnu_init (void) {
+	   __objc_exec_class (&L_OBJC_MODULES);
+	 }  */ 
 
-    void_list_node_1 = build_tree_list (NULL_TREE, void_type_node);
-    execclass_decl = build_decl (FUNCTION_DECL,
-				 get_identifier (TAG_EXECCLASS),
-				 build_function_type (void_type_node,
-					tree_cons (NULL_TREE, ptr_type_node,
-						   OBJC_VOID_AT_END)));
-						
-    DECL_EXTERNAL (execclass_decl) = 1;
-    DECL_ARTIFICIAL (execclass_decl) = 1;
-    TREE_PUBLIC (execclass_decl) = 1;
-    pushdecl (execclass_decl);
-    rest_of_decl_compilation (execclass_decl, 0, 0, 0);
-    assemble_external (execclass_decl);
+      tree body, void_list_node_1
+	= build_tree_list (NULL_TREE, void_type_node);
 
-    /* void _GLOBAL_$I$<gnyf> () {objc_execClass (&L_OBJC_MODULES);}  */
+      start_function (void_list_node_1,
+		      build_nt (CALL_EXPR, get_identifier (TAG_GNUINIT),
+				tree_cons (NULL_TREE, NULL_TREE,
+					   OBJC_VOID_AT_END),
+				NULL_TREE),
+		      NULL_TREE);
+      store_parm_decls ();
+      body = objc_begin_compound_stmt ();
 
-    init_function_name = get_file_function_name ('I');
-    start_function (void_list_node_1,
-		    build_nt (CALL_EXPR, init_function_name,
-			      tree_cons (NULL_TREE, NULL_TREE,
-					 OBJC_VOID_AT_END),
-			      NULL_TREE),
-		    NULL_TREE);
-    store_parm_decls ();
+      c_expand_expr_stmt (build_function_call
+			  (execclass_decl,
+			   build_tree_list
+			   (NULL_TREE,
+			    build_unary_op (ADDR_EXPR,
+					    UOBJC_MODULES_decl, 0))));
 
-    init_function_decl = current_function_decl;
-    TREE_PUBLIC (init_function_decl) = ! targetm.have_ctors_dtors;
-    TREE_USED (init_function_decl) = 1;
-    /* Don't let this one be deferred.  */
-    DECL_INLINE (init_function_decl) = 0;
-    DECL_UNINLINABLE (init_function_decl) = 1;
-    current_function_cannot_inline
-      = "static constructors and destructors cannot be inlined";
-
-    parms
-      = build_tree_list (NULL_TREE,
-			 build_unary_op (ADDR_EXPR, UOBJC_MODULES_decl, 0));
-    decelerator = build_function_call (execclass_decl, parms);
-
-    c_expand_expr_stmt (decelerator);
-
-    finish_function ();
+      objc_finish_compound_stmt (body);
+      TREE_PUBLIC (current_function_decl) = 0;
+      DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
+      finish_function ();
+    }
 
 #ifdef OBJCPLUS
     pop_lang_context ();
 #endif
-
-    return XEXP (DECL_RTL (init_function_decl), 0);
-  }
 }
 
 /* extern const char _OBJC_STRINGS[]; */
@@ -2327,6 +2284,33 @@ build_selector_reference_decl (void)
   return decl;
 }
 
+static void
+build_selector_table_decl (void)
+{
+  tree temp;
+
+  if (flag_typed_selectors)
+    {
+      build_selector_template ();
+      temp = build_array_type (objc_selector_template, NULL_TREE);
+    }
+  else
+    temp = build_array_type (selector_type, NULL_TREE);
+
+  temp = tree_cons (NULL_TREE, temp,
+		    build_tree_list (NULL_TREE,
+				     ridpointers[(int) RID_EXTERN]));
+  UOBJC_SELECTOR_TABLE_decl
+   = define_decl (get_identifier ("_OBJC_SELECTOR_TABLE"), temp);
+
+  TREE_USED (UOBJC_SELECTOR_TABLE_decl) = 1;
+  DECL_ARTIFICIAL (UOBJC_SELECTOR_TABLE_decl) = 1;
+  TREE_PUBLIC (UOBJC_SELECTOR_TABLE_decl) = 0;
+#ifdef OBJCPLUS
+  DECL_THIS_STATIC (UOBJC_SELECTOR_TABLE_decl) = 1; /* squash redeclaration errors */
+#endif  
+}
+
 /* Just a handy wrapper for add_objc_string.  */
 
 static tree
@@ -2418,16 +2402,29 @@ build_selector_translation_table (void)
 
   if (! flag_next_runtime)
     {
-      /* Cause the variable and its initial value to be actually output.  */
-      DECL_EXTERNAL (UOBJC_SELECTOR_TABLE_decl) = 0;
-      TREE_STATIC (UOBJC_SELECTOR_TABLE_decl) = 1;
-      /* NULL terminate the list and fix the decl for output.  */
-      initlist = tree_cons (NULL_TREE, build_int_2 (0, 0), initlist);
-      DECL_INITIAL (UOBJC_SELECTOR_TABLE_decl) = objc_ellipsis_node;
+      /* Cause the selector table to be actually output.  */
+      tree sc_spec = tree_cons (NULL_TREE, ridpointers[(int) RID_STATIC],
+				NULL_TREE);
+      tree decl_specs = tree_cons (NULL_TREE,
+				   TREE_TYPE (UOBJC_SELECTOR_TABLE_decl),
+				   sc_spec);
+      tree decl = start_decl (get_identifier ("_OBJC_SELECTOR_TABLE"),
+			      decl_specs, 1, NULL_TREE);
+
+      /* NULL-terminate the list and initialize the table.  */
+      initlist = tree_cons (NULL_TREE,
+			    flag_typed_selectors
+			    ? objc_build_constructor
+			      (objc_selector_template,
+			       tree_cons (NULL_TREE,
+					  build_int_2 (0, 0),
+					  tree_cons (NULL_TREE,
+						     build_int_2 (0, 0), 
+						     NULL_TREE)))
+			    : build_int_2 (0, 0), initlist);
       initlist = objc_build_constructor (TREE_TYPE (UOBJC_SELECTOR_TABLE_decl),
 					 nreverse (initlist));
-      finish_decl (UOBJC_SELECTOR_TABLE_decl, initlist, NULL_TREE);
-      current_function_decl = NULL_TREE;
+      finish_decl (decl, initlist, NULL_TREE);
     }
 }
 
@@ -2908,7 +2905,7 @@ get_class_ivars (tree interface, int raw)
 }
 
 static tree
-objc_enter_block (void)
+objc_begin_compound_stmt (void)
 {
   tree block;
 
@@ -2921,10 +2918,34 @@ objc_enter_block (void)
   add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 #endif
 
+  return block;
+}
+
+static void
+objc_finish_compound_stmt (tree block)
+{
+#ifdef OBJCPLUS
+  finish_compound_stmt (block);
+#else
+  tree scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
+  tree inner = poplevel (KEEP_MAYBE, 1, 0);
+  
+  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmt))
+        = SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmt))
+        = inner;
+  RECHAIN_STMTS (block, COMPOUND_BODY (block));
+#endif
+}
+
+static tree
+objc_enter_block (void)
+{
+  tree block = objc_begin_compound_stmt ();
+
   objc_exception_block_stack = tree_cons (NULL_TREE, block,
 					  objc_exception_block_stack);
-
   blk_nesting_count++;
+
   return block;
 }
 
@@ -2932,22 +2953,9 @@ static tree
 objc_exit_block (void)
 {
   tree block = TREE_VALUE (objc_exception_block_stack);
-#ifndef OBJCPLUS
-  tree scope_stmt, inner;
-#endif
 
   objc_clear_super_receiver ();
-#ifdef OBJCPLUS
-  finish_compound_stmt (block);
-#else
-  scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  inner = poplevel (KEEP_MAYBE, 1, 0);
-
-  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmt))
-	= SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmt))
-	= inner;
-  RECHAIN_STMTS (block, COMPOUND_BODY (block));
-#endif
+  objc_finish_compound_stmt (block);
   last_expr_type = NULL_TREE;
   objc_exception_block_stack = TREE_CHAIN (objc_exception_block_stack);	
 
@@ -3508,30 +3516,21 @@ build_objc_exception_stuff (void)
 {
   tree field_decl, field_decl_chain, index, temp_type;
 
-  /* Suppress outputting debug symbols, because
-     dbxout_init hasn't been called yet.  */
-  enum debug_info_type save_write_symbols = write_symbols;
-  const struct gcc_debug_hooks *save_hooks = debug_hooks;
-
-  write_symbols = NO_DEBUG;
-  debug_hooks = &do_nothing_debug_hooks;
   objc_exception_data_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_EXCDATA));
 
   /* int buf[_JBLEN]; */
 
   index = build_index_type (build_int_2 (_JBLEN - 1, 0));
-  field_decl = create_builtin_decl (FIELD_DECL,
-				    build_array_type (integer_type_node, index),
-				    "buf");
+  field_decl = create_field_decl (build_array_type (integer_type_node, index),
+				  "buf");
   field_decl_chain = field_decl;
 
   /* void *pointers[4]; */
 
   index = build_index_type (build_int_2 (4 - 1, 0));
-  field_decl = create_builtin_decl (FIELD_DECL,
-				    build_array_type (ptr_type_node, index),
-				    "pointers");
+  field_decl = create_field_decl (build_array_type (ptr_type_node, index),
+				  "pointers");
   chainon (field_decl_chain, field_decl);
 
   finish_struct (objc_exception_data_template, field_decl_chain, NULL_TREE);
@@ -3583,9 +3582,6 @@ build_objc_exception_stuff (void)
 							 OBJC_VOID_AT_END)));
   objc_exception_match_decl
     = builtin_function (TAG_EXCEPTIONMATCH, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
-	
-  write_symbols = save_write_symbols;
-  debug_hooks = save_hooks;
 }
 
 /* struct <classname> {
@@ -4526,14 +4522,6 @@ build_super_template (void)
 {
   tree decl_specs, field_decl, field_decl_chain;
 
-  /* Suppress outputting debug symbols, because
-     dbxout_init hasn't been called yet.  */
-  enum debug_info_type save_write_symbols = write_symbols;
-  const struct gcc_debug_hooks *save_hooks = debug_hooks;
-
-  write_symbols = NO_DEBUG;
-  debug_hooks = &do_nothing_debug_hooks;
-
   objc_super_template = start_struct (RECORD_TYPE, get_identifier (UTAG_SUPER));
 
   /* struct objc_object *self; */
@@ -4562,9 +4550,6 @@ build_super_template (void)
   chainon (field_decl_chain, field_decl);
 
   finish_struct (objc_super_template, field_decl_chain, NULL_TREE);
-
-  write_symbols = save_write_symbols;
-  debug_hooks = save_hooks;
 }
 
 /* struct objc_ivar {
@@ -9104,14 +9089,10 @@ finish_objc (void)
   if (flag_replace_objc_classes && imp_list)
     generate_objc_image_info ();
 
+  /* Arrange for ObjC data structures to be initialized at run time.  */
   if (objc_implementation_context || class_names_chain || objc_static_instances
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
-    {
-      /* Arrange for ObjC data structures to be initialized at run time.  */
-      rtx init_sym = build_module_descriptor ();
-      if (init_sym && targetm.have_ctors_dtors)
-	(* targetm.asm_out.constructor) (init_sym, DEFAULT_INIT_PRIORITY);
-    }
+    build_module_descriptor ();
 
   /* Dump the class references.  This forces the appropriate classes
      to be linked into the executable image, preserving unix archive

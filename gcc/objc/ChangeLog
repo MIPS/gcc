@@ -1,3 +1,40 @@
+2004-03-16  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (build_module_descriptor): Use '__objc_gnu_init'
+	as static constructor name, so as not to collide with the
+	global C/C++ module constructor, and mark it as
+	DECL_STATIC_CONSTRUCTOR so that the back-end treats it
+	properly; call objc_begin_compount_stmt() and
+	objc_end_compound_stmt().
+	(objc_begin_compound_stmt, objc_end_compound_stmt,
+	objc_build_selector_decl): New functions.
+	(objc_enter_block): Call objc_begin_compound_stmt().
+	(objc_exit_block): Call objc_end_compound_stmt().
+	(create_builtin_decl): Rename to 'create_field_decl' and get
+	rid of the first parameter.
+	(TAG_EXECCLASS): Change from a global variable to a #define.
+	(TAG_RETURN_STRUCT): Delete.
+	(TAG_GNUINIT): New, holds '__objc_gnu_init' name.
+	(objc_init): Do not initialize TAG_EXECCLASS.
+	(objc_finish_file): Move calls to cp_finish_file() or
+	c_objc_common_finish_file() to the end.
+	(synth_module_prologue): Tidy up; disable debug hooks
+	for duration of function; fix GNU runtime messenger
+	signatures to correspond to reality; forward-declare
+	'__objc_exec_class' for the GNU runtime; call
+	build_selector_table_decl().
+	(objc_build_constructor): For ObjC++, zero out the constructor
+	type.
+	(generate_struct_by_value_array, build_objc_symtab_template):
+	Call create_field_decl() instead of create_builtin_decl().
+	(build_objc_exception_stuff): Call create_field_decl() instead
+	of create_builtin_decl(); do not touch debug hooks.
+	(build_super_template): Do not touch debug hooks.
+	(finish_objc): Do not hand-generate the constructor after
+	calling build_module_descriptor(); the C/C++ machinery will
+	do it for us.
+	* objc-act.h (OCTI_EXECCLASS_DECL, execclass_decl): New.
+
 2004-03-04  Ziemowit Laski  <zlaski@apple.com>
 
 	* Make-lang.in (objc/objc-parse.o): Depend on $(C_COMMON_H)

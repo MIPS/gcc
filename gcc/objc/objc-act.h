@@ -236,6 +236,7 @@ enum objc_tree_index
     OCTI_EVAL_ONCE_DECL,
     OCTI_EXCEPTION_BLK_STACK,
     OCTI_CATCH_TYPE,
+    OCTI_EXECCLASS_DECL,
 
     OCTI_MAX
 };
@@ -358,6 +359,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_exception_block_stack		\
 				objc_global_trees[OCTI_EXCEPTION_BLK_STACK]
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
+
+#define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]
