@@ -800,10 +800,13 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
   /* Replace the uses we know to be dominated.  It saves work for copy
      propagation, and also it is necessary so that dependent invariants
      are computed right.  */
-  for (use = inv->def->uses; use; use = use->next)
+  if (inv->def)
     {
-      *use->pos = reg;
-      df_insn_modify (df, BLOCK_FOR_INSN (use->insn), use->insn);
+      for (use = inv->def->uses; use; use = use->next)
+	{
+	  *use->pos = reg;
+	  df_insn_modify (df, BLOCK_FOR_INSN (use->insn), use->insn);
+	}
     }
 }
 

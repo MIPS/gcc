@@ -1,3 +1,9 @@
+2004-03-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR optimization/14658
+	* loop-invariant.c (move_invariant_reg): Handle assignments
+	with nontrivial lhs correctly.
+
 2004-03-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* df.c (df_reg_def_chain_create, df_reg_use_chain_create): Do not clean
