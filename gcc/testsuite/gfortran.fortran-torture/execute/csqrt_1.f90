@@ -1,7 +1,7 @@
-C PR 14396
-C These we failing on targets which do not provide the c99 complex math
-C functions.
-C Extracted from intrinsic77.f in the g77 testsuite.
+! PR 14396
+! These we failing on targets which do not provide the c99 complex math
+! functions.
+! Extracted from intrinsic77.f in the g77 testsuite.
       logical fail
       common /flags/ fail
       fail = .false.
@@ -23,7 +23,7 @@ C Extracted from intrinsic77.f in the g77 testsuite.
       call p_c_c(CSQRT,(1.,0.)*x,(1.,0.)*a ,'CSQRT')
       end
       subroutine failure(label)
-c     Report failure and set flag
+!     Report failure and set flag
       character*(*) label
       logical fail
       common /flags/ fail
@@ -31,7 +31,7 @@ c     Report failure and set flag
       fail = .true.
       end
       subroutine c_r(a,b,label)
-c     Check if REAL a equals b, and fail otherwise
+!     Check if REAL a equals b, and fail otherwise
       real a, b
       character*(*) label
       if ( abs(a-b) .gt. 1.0e-5 ) then
@@ -40,7 +40,7 @@ c     Check if REAL a equals b, and fail otherwise
       end if
       end
       subroutine c_d(a,b,label)
-c     Check if DOUBLE PRECISION a equals b, and fail otherwise
+!     Check if DOUBLE PRECISION a equals b, and fail otherwise
       double precision a, b
       character*(*) label
       if ( abs(a-b) .gt. 1.0d-5 ) then
@@ -50,7 +50,7 @@ c     Check if DOUBLE PRECISION a equals b, and fail otherwise
       end
  
       subroutine c_c(a,b,label)
-c     Check if COMPLEX a equals b, and fail otherwise
+!     Check if COMPLEX a equals b, and fail otherwise
       complex a, b
       character*(*) label
       if ( abs(a-b) .gt. 1.0e-5 ) then
@@ -59,19 +59,19 @@ c     Check if COMPLEX a equals b, and fail otherwise
       end if
       end
       subroutine p_r_r(f,x,a,label)
-c     Check if REAL f(x) equals a for REAL x
+!     Check if REAL f(x) equals a for REAL x
       real f,x,a
       character*(*) label
       call c_r(f(x),a,label)
       end
       subroutine p_d_d(f,x,a,label)
-c     Check if DOUBLE PRECISION f(x) equals a for DOUBLE PRECISION x
+!     Check if DOUBLE PRECISION f(x) equals a for DOUBLE PRECISION x
       double precision f,x,a
       character*(*) label
       call c_d(f(x),a,label)
       end
       subroutine p_c_c(f,x,a,label)
-c     Check if COMPLEX f(x) equals a for COMPLEX x
+!     Check if COMPLEX f(x) equals a for COMPLEX x
       complex f,x,a
       character*(*) label
       call c_c(f(x),a,label)
