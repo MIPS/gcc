@@ -43,7 +43,7 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(srcdir)/$<
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $<
 
 # The only suffixes we want for implicit rules are .c and .o.
 .SUFFIXES:
