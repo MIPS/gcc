@@ -206,9 +206,10 @@ static int elim_unvisited_predecessor	PARAMS ((elim_graph, int));
 static void elim_backward		PARAMS ((elim_graph, int));
 static void elim_create			PARAMS ((elim_graph, int));
 static void eliminate_phi		PARAMS ((edge, int, elim_graph));
-static void eliminate_extraneous_phis	PARAMS ((void));
 static void coalesce_ssa_name		PARAMS ((var_map));
 static void assign_vars			PARAMS ((var_map));
+static inline void set_if_valid		PARAMS ((var_map, sbitmap, tree));
+static inline void add_conflicts_if_valid	PARAMS ((root_var_p, conflict_graph, var_map, sbitmap, tree));
 
 /* FIXME: [UNSSA] Remove once the real unSSA pass is implemented.  */
 #if 1
@@ -1172,39 +1173,41 @@ eliminate_phi (e, i, g)
     }
 }
 
+/* Set the bit for a partition index if the variable is in a partition.  */
 
-/* Eliminate any PHI nodes which were for aliasing or other uses which 
-   do not generate real code.  This reduces the number of variables in
-   the partition.  */
+static inline void 
+set_if_valid (map, vec, var)
+     var_map map;
+     sbitmap vec;
+     tree var;
+{ 
+  int p = var_to_partition (map, var);
+  if (p != NO_PARTITION)
+    SET_BIT (vec, p);
+}
 
-static void
-eliminate_extraneous_phis ()
-{
-  tree phi, result, last;
-  basic_block bb;
-  int code;
+/* If a variable is in a partition, and its not already live, add a 
+   conflict between it and any other live partition.  Reset the live bit.  */
 
-  FOR_EACH_BB (bb)
-    {
-      phi = phi_nodes (bb);
-      for (last = NULL; phi; )
-        {
-	  result = PHI_RESULT (phi);
-	  code = TREE_CODE (TREE_TYPE (result));
-	  if (code == ARRAY_TYPE 
-	      || code == RECORD_TYPE 
-	      || code == UNION_TYPE
-	      || may_aliases (result) 
-	      || result == global_var)
-	    {
-	      phi = TREE_CHAIN (phi);
-	      remove_phi_node (result, last, bb);
-	    }
-	  else
-	    {
-	      last = phi;
-	      phi = TREE_CHAIN (phi);
-	    }
+static inline void 
+add_conflicts_if_valid (rv, graph, map, vec, var)
+     root_var_p rv;
+     conflict_graph graph;
+     var_map map;
+     sbitmap vec;
+     tree var;
+{ 
+  int p, y;
+  p = var_to_partition (map, var);
+  if (p != NO_PARTITION)
+    { 
+      RESET_BIT (vec, p);
+      for (y = first_root_var_partition (rv, find_root_var (rv, p));
+	   y != ROOT_VAR_NONE;
+	   y = next_root_var_partition (rv, y))
+	{
+	  if (TEST_BIT (vec, y))
+	    conflict_graph_add (graph, p, y);
 	}
     }
 }
@@ -1216,44 +1219,120 @@ static void
 coalesce_ssa_name (map)
      var_map map;
 {
-  int num, x;
-  tree t1, var;
-  var_ann_t ann;
+  int num, x, y, z;
+  conflict_graph graph;
+  basic_block bb;
+  varray_type stmt_stack, ops;
+  tree stmt;
+  sbitmap live;
+  tree *var_p, var;
+  root_var_p rv;
+  tree_live_info_p liveinfo;
 
-  varray_type real_vars;
-/* FIXME. Currently, all versions of a var are coalesced together, regardless
-   of whether there is an overlapping live range. This needs to be fixed 
-   shortly.  */
+  if (num_var_partitions (map) <= 1)
+    return;
+  
+  liveinfo = calculate_live_on_entry (map);
+  calculate_live_on_exit (liveinfo);
 
-  num = num_var_partitions (map);
-  VARRAY_TREE_INIT (real_vars, num, "real_vars");
+  graph = conflict_graph_new (num_var_partitions (map));
 
-  for (x = 0; x< num; x++)
+  live = sbitmap_alloc (num_var_partitions (map));
+
+  rv = init_root_var (map);
+
+  FOR_EACH_BB (bb)
     {
-      t1 = partition_to_var (map, x);
-      var = SSA_NAME_VAR (t1);
-      ann = var_ann (var);
-      if (!ann->processed_out_of_ssa)
+      /* Start with live on exit temporaries.  */
+      sbitmap_copy (live, live_on_exit (liveinfo, bb));
+
+      FOR_EACH_STMT_IN_REVERSE (stmt_stack, bb, stmt)
         {
-	  ann->partition = x;
-	  ann->processed_out_of_ssa = 1;
-	  VARRAY_PUSH_TREE (real_vars, var);
+	  get_stmt_operands (stmt);
+
+	  var_p = def_op (stmt);
+	  if (var_p)
+	    {
+	      add_conflicts_if_valid (rv, graph, map, live, *var_p);
+	    }
+
+	  ops = vdef_ops (stmt);
+	  num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  for (x = 0; x < num; x++)
+	    {
+	      var = VDEF_RESULT (VARRAY_TREE (ops, x));
+	      add_conflicts_if_valid (rv, graph, map, live, var);
+	    }
+
+	  
+	  ops = use_ops (stmt);
+	  num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  for (x = 0; x < num; x++)
+	    {
+	      var_p = VARRAY_GENERIC_PTR (ops, x);
+	      set_if_valid (map, live, *var_p);
+	    }
+  
+	  ops = vuse_ops (stmt);
+	  num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  for (x = 0; x < num; x++)
+	    {
+	      var = VARRAY_TREE (ops, x);
+	      set_if_valid (map, live, var);
+	    }
+ 
+	  ops = vdef_ops (stmt);
+	  num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  for (x = 0; x < num; x++)
+	    {
+	      var = VDEF_OP (VARRAY_TREE (ops, x));
+	      set_if_valid (map, live, var);
+	    }
 	}
-      else
+
+      /* Anything which is still live at this point interferes.  */
+
+      EXECUTE_IF_SET_IN_SBITMAP (live, 0, x,
         {
-	  var = partition_to_var (map, x);
-	  ann->partition 
-		= var_union (map, var, partition_to_var (map, ann->partition));
+	  for (y = first_root_var_partition (rv, find_root_var (rv, x));
+	       y != ROOT_VAR_NONE;
+	       y = next_root_var_partition (rv, y))
+	    {
+	      if (x != y && TEST_BIT (live, y))
+		conflict_graph_add (graph, x, y);
+	    }
+
+	});
+    }
+
+  delete_tree_live_info (liveinfo);
+  sbitmap_free (live);
+
+  VARRAY_INT_INIT (ops, num_var_partitions (map), "ops");
+  for (x = 0; x < num_root_vars (rv); x++)
+    {
+      while (first_root_var_partition (rv, x) != ROOT_VAR_NONE)
+        {
+	  /* Coalesce first partition with everything that doesn't conflict.  */
+	  y = first_root_var_partition (rv, x);
+	  remove_root_var_partition (rv, x, y);
+	  var = partition_to_var (map, y);
+	  for (z = next_root_var_partition (rv, y); 
+	       z != ROOT_VAR_NONE; 
+	       z = next_root_var_partition (rv, z))
+	    {
+	      if (!conflict_graph_conflict_p (graph, y, z))
+	        {
+		  var_union (map, var, partition_to_var (map, z));
+		  remove_root_var_partition (rv, x, z);
+		  conflict_graph_merge_regs (graph, y, z);
+		}
+	    }
 	}
     }
-  /* Now reset the processed bit on the vars.  */
-  while (VARRAY_ACTIVE_SIZE (real_vars) > 0)
-    {
-      var = VARRAY_TOP_TREE (real_vars);
-      VARRAY_POP (real_vars);
-      ann = var_ann (var);
-      ann->processed_out_of_ssa = 0;
-    }
+
+  delete_root_var (rv);
+  conflict_graph_delete (graph);
 }
 
 /* Take the ssa-name var_map, and make real variables out of each partition.
@@ -1263,41 +1342,57 @@ static void
 assign_vars (map)
      var_map map;
 {
-  int num, x;
+  int x, i;
   tree t, var;
   var_ann_t ann;
+  root_var_p rv;
 
-  num = num_var_partitions (map);
-  for (x = 0; x< num; x++)
+  rv = init_root_var (map);
+  if (!rv) 
+    return;
+
+  for (x = 0; x < num_root_vars (rv); x++)
     {
-      t = partition_to_var (map, x);
-      if (!t) 
-        continue;
-
-      if (TREE_CODE (t) == SSA_NAME)
-        {
-	  /* If the base variable for this version has not been assigned
-	     a partition, then we use that.  */
-	  var = SSA_NAME_VAR (t);
-	  ann = var_ann (var);
-	  if (!ann->processed_out_of_ssa)
-	    {
-	      change_partition_var (map, var, x);
-	      continue;
-	    }
-	}
-      else
-	{
-	  /* Make sure This variable agree's with this partition.  */
-	  if (var_to_partition (map, t) == x)
-	    continue;
-	}
-      /* If this point is reached, we need a new temp.  */
-
-      var = create_temp (t);
-      change_partition_var (map, var, x);
+      var = root_var (rv, x);
+      ann = var_ann (var);
+      ann->out_of_ssa_tag = 0;
     }
 
+  for (x = 0; x < num_root_vars (rv); x++)
+    {
+      var = root_var (rv, x);
+      ann = var_ann (var);
+      for (i = first_root_var_partition (rv, x);
+	   i != ROOT_VAR_NONE;
+	   i = next_root_var_partition (rv, i))
+	{
+	  t = partition_to_var (map, i);
+
+	  if (t == var)
+	    continue;
+	  
+	  if (!ann->out_of_ssa_tag)
+	    {
+	      change_partition_var (map, var, i);
+	      continue;
+	    }
+/*
+  TODO: enable this line of code once the bug which removed VDEFS in 
+  get_stmt_operands() is fixed.  
+
+  This abort() should then verify that we always coalesce all versions of 
+  a variable together. The abort() is then removed when we allow overlapping
+  live ranges.  
+
+abort();
+	  var = create_temp (t);
+*/
+	  change_partition_var (map, var, i);
+	  ann = var_ann (var);
+	}
+    }
+
+  delete_root_var (rv);
 }
 
 
@@ -1324,14 +1419,12 @@ rewrite_out_of_ssa (fndecl)
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
-  eliminate_extraneous_phis ();
   map = create_ssa_var_map ();
+
   /* Shrink the map to include only referenced variables.  */
   compact_var_map (map);
 
   coalesce_ssa_name (map);
-  /* Shrink the map again now that ranges have been coalesced.  */
-  compact_var_map (map);
 
   /* This is the final var list, so assign real variables to the different
      partitions.  */

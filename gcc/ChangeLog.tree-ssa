@@ -1,3 +1,52 @@
+2003-04-24  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-flow.h (processed_out_of_ssa): Rename to out_of_ssa_tag.
+	* tree-ssa-live.c (register_ssa_partition): Add variable to partition.
+	(change_partition_var): Use out_of_ssa_tag.
+	(create_ssa_var_map): Add all uses, defs and PHI elements to partition.
+	(new_tree_live_info): Create a live range info structure.
+	(delete_tree_live_info): Free storage.
+	(live_worklist): Fill in the live range info for a variable for the
+	blocks between the def and all the blocks containing uses.
+	(set_if_valid): Set partition bit if variable is in a partition.
+	(add_livein_if_notdef): Set live on entry bit for a var's partition
+	if a definition has not been seen.
+	(calculate_live_on_entry): Create partition live on entry bitmaps for 
+	all basic blocks .
+	(calculate_live_on_exit): Calculate live on exit information for each
+	basic block.
+	(init_root_var): Initialize and fill in a root_var structure.
+	(remove_root_var_partition): remove a partition from a root_var list.
+	(delete_root_var): Free storage.
+	(dump_root_var): Display root_var summary.
+	(dump_var_map): Show extra info for ssa name versions.
+	* tree-ssa-live.h (NO_PARTITION): Define.
+	(register_ssa_partition): Remove.
+	(partition_to_var): Use partition_find after decompressing.
+	(var_to_partition): Return NO_PARTITION if var is not in a partition.
+	(struct tree_live_info_d): Define live range info structure.
+	(partition_is_global): Return 1 if used outside a basic block.
+	(live_entry_blocks): Return bitmap over blocks that partition is live 
+	on entry to.
+	(live_on_exit): Return bitmap of partitions live on exit from a block.
+	(struct root_var_d): Define a root_var structure.
+	(ROOT_VAR_NONE): Define.
+	(num_root_vars): Number of variables in root_var object.
+	(root_var): Return variable for a root_var index.
+	(first_root_var_partition): Return first partition for a root_var.
+	(next_root_var_partition): Get next partition for a root_var.
+	(find_root_var): Find root_var index for a specific partition.
+	* tree-ssa.c (eliminate_extraneous_phis): Remove.
+	(set_if_valid): Set partition bit if variable is in a partition.
+	(add_conflicts_if_valid): Add conflict between variable and all 
+	related partitions set in a bitvector.
+	(coalesce_ssa_name): Create a conflict graph and coalesce all 
+	partitions which don't conflict and are related by the same root_var.
+	(assign_vars): Use a root_var object, and assign different real 
+	variables to all partitions.
+	(rewrite_out_of_ssa): Call compact_var_map() once, and don't call
+	eliminate_extraneous_phis.
+
 2003-04-23  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (do_proper_save): Remove old code, since the new

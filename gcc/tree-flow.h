@@ -88,7 +88,7 @@ struct var_ann_d GTY(())
 
   /* Used by the out of SSA pass to determine whether this var has been
      seen yet or not.  */
-  unsigned processed_out_of_ssa : 1;
+  unsigned out_of_ssa_tag : 1;
 
   /* Unused bits.  */
   unsigned unused : 25;
