@@ -1,3 +1,4 @@
 2005-03-18  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* Makefile.in (gtfiles): Add reload1.c.
+	* emit-rtl.c (copy_insn_1): Leave code 'B' untouched.
