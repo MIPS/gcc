@@ -1167,30 +1167,26 @@ mips_symbol_insns (type)
 
 /* Return true if a value at OFFSET bytes from BASE can be accessed
    using an unextended mips16 instruction.  MODE is the mode of the
-   value.  */
+   value.
+
+   Usually the offset in an unextended instruction is a 5-bit field.
+   The offset is unsigned and shifted left once for HIs, twice
+   for SIs, and so on.  An exception is SImode accesses off the
+   stack pointer, which have an 8-bit immediate field.  */
 
 static bool
 mips16_unextended_reference_p (mode, base, offset)
      enum machine_mode mode;
      rtx base, offset;
 {
-  if (TARGET_MIPS16 && GET_CODE (offset) == CONST_INT)
+  if (TARGET_MIPS16
+      && GET_CODE (offset) == CONST_INT
+      && INTVAL (offset) >= 0
+      && (INTVAL (offset) & (GET_MODE_SIZE (mode) - 1)) == 0)
     {
-      int range;
-
       if (GET_MODE_SIZE (mode) == 4 && base == stack_pointer_rtx)
-	range = 256;
-      else
-	range = 32;
-
-      if (GET_MODE_SIZE (mode) > 1)
-	range *= 2;
-      if (GET_MODE_SIZE (mode) > 2)
-	range *= 2;
-      if (GET_MODE_SIZE (mode) > 4)
-	range *= 2;
-
-      return (INTVAL (offset) >= 0 && INTVAL (offset) < range);
+	return INTVAL (offset) < 256 * GET_MODE_SIZE (mode);
+      return INTVAL (offset) < 32 * GET_MODE_SIZE (mode);
     }
   return false;
 }

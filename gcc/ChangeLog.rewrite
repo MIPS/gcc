@@ -1,6 +1,9 @@
 2003-03-25  Richard Sandiford  <rsandifo@redhat.com>
 
-	* config/mips/mips.h (mips_splittable_symbol_p): Fix handling
+	* config/mips/mips.c (mips_symbol_insns): Rework.  Fix handling
+	of unaligned offsets.
+
+	* config/mips/mips.c (mips_splittable_symbol_p): Fix handling
 	of SYMBOL_GENERAL.
 
 2003-03-22  Richard Sandiford  <rsandifo@redhat.com>
