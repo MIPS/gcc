@@ -147,8 +147,7 @@ record_in_finally_tree (tree child, tree parent)
 static void
 collect_finally_tree (tree t, tree region)
 {
-tailrecurse:
-
+ tailrecurse:
   switch (TREE_CODE (t))
     {
     case LABEL_EXPR:
@@ -158,26 +157,30 @@ tailrecurse:
     case TRY_FINALLY_EXPR:
       record_in_finally_tree (t, region);
       collect_finally_tree (TREE_OPERAND (t, 0), t);
-      collect_finally_tree (TREE_OPERAND (t, 1), region);
-      break;
+      t = TREE_OPERAND (t, 1);
+      goto tailrecurse;
 
     case COND_EXPR:
       collect_finally_tree (COND_EXPR_THEN (t), region);
-      collect_finally_tree (COND_EXPR_ELSE (t), region);
-      break;
+      t = COND_EXPR_ELSE (t);
+      goto tailrecurse;
+
     case BIND_EXPR:
-      collect_finally_tree (BIND_EXPR_BODY (t), region);
-      break;
+      t = BIND_EXPR_BODY (t);
+      goto tailrecurse;
+
     case TRY_CATCH_EXPR:
       collect_finally_tree (TREE_OPERAND (t, 0), region);
       t = TREE_OPERAND (t, 1);
       goto tailrecurse;
+
     case CATCH_EXPR:
-      collect_finally_tree (CATCH_BODY (t), region);
-      break;
+      t = CATCH_BODY (t);
+      goto tailrecurse;
+
     case EH_FILTER_EXPR:
-      collect_finally_tree (EH_FILTER_FAILURE (t), region);
-      break;
+      t = EH_FILTER_FAILURE (t);
+      goto tailrecurse;
 
     case STATEMENT_LIST:
       {
