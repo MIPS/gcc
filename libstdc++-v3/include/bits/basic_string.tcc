@@ -645,7 +645,9 @@ namespace std
 	_M_mutate(__off, __dold, __dnew);
 
 	// Invalidated __i1, __i2
-        if (__dnew)
+	if (__dnew == 1)
+	  _M_data()[__off] = *__k1;
+        else if (__dnew)
 	  _S_copy_chars(_M_data() + __off, __k1, __k2);
 
 	return *this;
@@ -760,7 +762,9 @@ namespace std
 	__throw_length_error("basic_string::replace");
       _M_mutate (__off1, __n1, __n2);
       // Invalidated __i1, __i2
-      if (__n2)
+      if (__n2 == 1)
+	_M_data()[__off1] = __c;
+      else if (__n2)
 	traits_type::assign(_M_data() + __off1, __n2, __c);
       return *this;
     }

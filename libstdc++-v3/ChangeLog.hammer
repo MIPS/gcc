@@ -1,3 +1,10 @@
+2004-04-23  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15002 (partial)
+	* include/bits/basic_string.tcc (_M_replace_safe, replace(iterator,
+	iterator, size_type, _CharT)): Special case __dnew/__n2 == 1, not
+	calling _S_copy_chars/traits_type::assign.
+
 2004-02-24  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/22_locale/time_put_members_char.cc (test01): Allow either 
