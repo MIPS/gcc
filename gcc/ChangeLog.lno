@@ -1,3 +1,13 @@
+2004-02-19  Devang Patel  <dpatel@apple.com>
+
+	* tree-dg.c (dg_delete_edges, dg_delete_node, dg_delete_graph,
+	dg_delete_edge, gate_delete_ddg): New functions.
+	(pass_delete_ddg): New.
+	* tree-dg.h (dg_delete_graph, dg_delete_edge): New extern decls.
+	* tree-optimize.c (init_tree_optimization_passes): Add new pass
+	pass_delete_ddg.
+	* tree-pass.h (pass_delete_ddg): New extern.
+
 2004-02-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-flow.h (create_iv): Declare.

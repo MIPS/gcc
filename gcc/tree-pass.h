@@ -109,6 +109,7 @@ extern struct tree_opt_pass pass_scev_depend;
 extern struct tree_opt_pass pass_scev_vectorize;
 extern struct tree_opt_pass pass_scev_done;
 extern struct tree_opt_pass pass_ddg;
+extern struct tree_opt_pass pass_delete_ddg;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
 extern struct tree_opt_pass pass_build_ssa;

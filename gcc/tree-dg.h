@@ -67,6 +67,12 @@ typedef struct dependence_node_def *dependence_node;
 /* Create dependency graph.  */
 extern void dg_create_graph (void);
 
+/* Delete dependency graph.  */
+extern void dg_delete_graph (void);
+
+/* Delete edge from the dependency graph.  */
+void dg_delete_edge (dependence_edge);
+
 /* Debug dependence graph.  */
 extern void debug_dg (int);
 #endif

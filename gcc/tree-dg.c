@@ -62,6 +62,8 @@ static dependence_node dg_create_node (tree);
 static dependence_edge dg_find_edge (dependence_node, dependence_node, bool);
 static bool gate_ddg (void);
 static void dump_dg (FILE *, int);
+static void dg_delete_edges (void);
+static void dg_delete_node (dependence_node);
 
 /* Initial dependence graph capacity.  */
 static int dependence_graph_size = 25;
@@ -144,8 +146,35 @@ void dg_create_graph (void)
   
 }
 
+/* Delete data dependence graph.  */
+void
+dg_delete_graph (void)
+{
+  if (dependence_graph)
+    {
+
+      /* Delete all edges.  */
+      dg_delete_edges ();
+
+      /* Reset node count.  */
+      n_dependence_node = 0;
+
+      /* Clear data reference and dependence relations.  */
+      if (datarefs)
+	VARRAY_CLEAR (datarefs);
+
+      if (dependence_relations)
+	VARRAY_CLEAR (dependence_relations);
+
+      /* Clear dependence graph itself.  */
+      VARRAY_CLEAR (dependence_graph);
+    } 
+
+}
+
+
 /*---------------------------------------------------------------------------
-			Dependence node creation
+			Dependence node
 ---------------------------------------------------------------------------*/
 
 /* Allocate memory for dependence_node.  */
@@ -185,8 +214,28 @@ dg_create_node (tree stmt)
   return dg_node;
 }
 
+/* Delete dependence node.  */
+static void
+dg_delete_node (dependence_node node)
+{
+  stmt_ann_t ann = stmt_ann (node->stmt);
+
+#ifdef ENABLE_CHECKING
+  /* If node has live edges, then it is a problem.  */
+  if (node->succ || node->pred)
+    abort ();
+#endif
+
+  /* Clear dg_node entry in stmt_ann */
+  if (ann)
+    ann->dg_node = NULL;
+
+  /* Delete node.  */
+  node = NULL;
+}
+
 /*---------------------------------------------------------------------------
-			Dependence edge creation
+			Dependence edge
 ---------------------------------------------------------------------------*/
 
 /* Allocate memory for dependence_edge.  */
@@ -256,6 +305,91 @@ dg_find_edge (dependence_node n1, dependence_node n2, bool create)
   return e;
 }
 
+/* Delete edge 'e' from the graph. After deleting edge 'e'
+   if source or destination node does not have any more edges
+   associated then delete nodes also.  */
+void
+dg_delete_edge (dependence_edge e)
+{
+  dependence_edge current_edge,prev_edge;
+  dependence_node src, dst;
+
+  src = e->src;
+  dst = e->dst;
+
+  /* Remove edge from the list of source successors.  */
+  prev_edge = NULL;
+  for (current_edge = src->succ; 
+       current_edge; 
+       current_edge = current_edge->succ_next)
+    {
+      if (current_edge == e)
+	{
+	  /* Found edge 'e' in the list. Remove it from the link list.  */
+	  if (prev_edge)
+	    prev_edge->succ_next = current_edge->succ_next;
+	  else
+	    src->succ = current_edge->succ_next;
+	}
+      else
+	/* If this is not edge 'e' then make it prev_edge for next
+	   iteration.  */
+	prev_edge = current_edge;
+    }
+
+  /* If source is not associated with any edge then delete it.  */
+  if (!src->succ && !src->pred)
+    dg_delete_node (src);
+
+  /* Remove edge from the list of destination predecessors.  */
+  prev_edge = NULL;
+  for (current_edge = dst->pred;
+       current_edge; 
+       current_edge = current_edge->pred_next)
+    {
+      if (current_edge == e)
+	{
+	  /* Found edge 'e' in the list. Remove it from the link list.  */
+	  if (prev_edge)
+	    prev_edge->pred_next = current_edge->pred_next;
+	  else
+	    dst->pred = current_edge->pred_next;
+	}
+      else
+	/* If this is not edge 'e' then make it prev_edge for next
+	   iteration.  */
+	prev_edge = current_edge;
+    }
+
+  /* If source is not associated with any edge then delete it.  */
+  if (!dst->succ && !dst->pred)
+    dg_delete_node (dst);
+
+
+  /* Now, actually delete this edge.  */
+  e = NULL; 
+}
+
+/* Delete all edges in the dependence graph.  */
+static void
+dg_delete_edges (void)
+{
+  unsigned int i;
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_graph); i++)
+    {
+      dependence_edge e;
+      dependence_node dg_node = DEPENDENCE_GRAPH (i);
+
+      if (!dg_node)
+	continue;
+
+      /* One by one delete all edges.  */
+      for (e = dg_node->succ; e; e = e->succ_next)
+	dg_delete_edge (e);
+    }
+
+}
+
 /*---------------------------------------------------------------------------
 			stmt_ann manipulation for dg_node
 ---------------------------------------------------------------------------*/
@@ -311,6 +445,28 @@ struct tree_opt_pass pass_ddg =
   0,					/* static_pass_number */
   TV_DEP_GRAPH,			        /* tv_id */
   PROP_scev,      			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+static bool
+gate_delete_ddg (void)
+{
+  return flag_ddg && flag_scalar_evolutions != 0 && dependence_graph;
+}
+
+struct tree_opt_pass pass_delete_ddg =
+{
+  "delete ddg",				/* name */
+  gate_delete_ddg,		        /* gate */
+  dg_delete_graph,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_DEP_GRAPH,			        /* tv_id */
+  0,      			        /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
