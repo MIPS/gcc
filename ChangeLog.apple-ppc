@@ -1,3 +1,8 @@
+2004-10-7  Robert Bowdidge <bowdidge@apple.com>
+	* build_gcc: Remove earlier patch for copying cpp into 
+	/usr/libexec/blah.  /usr/bin/cpp will now use gcc -E to do preprocessing
+        rather than each compiler's cpp.
+
 2004-09-27  Robert Bowdidge <bowdidge@apple.com>
 	* build_gcc: change cp -r to cp -R to ensure we copy symbolic links
        

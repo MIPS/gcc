@@ -320,12 +320,6 @@ done
 mkdir -p .$DEST_ROOT/libexec/gcc/darwin/ppc/$MAJ_VERS
 mkdir -p .$DEST_ROOT/lib/gcc/darwin/$MAJ_VERS
 
-# Symlink cpp into this directory.
-# Radar 3763777
-mkdir -p .$DEST_ROOT/libexec/gcc/darwin/i386/$MAJ_VERS
-ln -s  /usr/bin/cpp-$MAJ_VERS .$DEST_ROOT/libexec/gcc/darwin/ppc/$MAJ_VERS/cpp
-ln -s  /usr/bin/cpp-$MAJ_VERS .$DEST_ROOT/libexec/gcc/darwin/i386/$MAJ_VERS/cpp
-
 # include
 HEADERPATH=$DEST_ROOT/include/gcc/darwin/$MAJ_VERS
 mkdir -p .$HEADERPATH || exit 1
