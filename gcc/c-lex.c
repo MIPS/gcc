@@ -615,6 +615,26 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
       break;
 
+    /* APPLE LOCAL begin CW asm blocks */
+    case CPP_MULT:
+      if (flag_cw_asm_blocks_local)
+        {
+	  /* Check and replace use of '*' with '.' if '*' is followed by '-'
+	     or '+'. This is to allow "b *+8" which is disallwed by darwin's
+	     assembler but nevertheless is needed to be compatible with CW tools. */
+  	  lasttok = tok;
+	  do
+              tok = cpp_get_token (parse_in);
+          while (tok->type == CPP_PADDING);
+	  cw_asm_saved_token = tok;
+	  if (tok->type == CPP_PLUS || tok->type == CPP_MINUS)
+	      type = CPP_DOT;
+	  tok = lasttok;
+        }
+      *value = NULL_TREE;
+      break;
+    /* APPLE LOCAL end CW asm blocks */
+
       /* These tokens should not be visible outside cpplib.  */
     case CPP_HEADER_NAME:
     case CPP_COMMENT:
