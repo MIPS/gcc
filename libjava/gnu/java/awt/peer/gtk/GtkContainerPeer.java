@@ -100,7 +100,7 @@ public class GtkContainerPeer extends GtkComponentPeer
     for (int i = 0; i < components.length; i++)
       {
         GtkComponentPeer peer = (GtkComponentPeer) components[i].getPeer();
-        if (! peer.awtComponent.isFontSet())
+        if (peer != null && ! peer.awtComponent.isFontSet())
           peer.setFont(f);
       }
   }

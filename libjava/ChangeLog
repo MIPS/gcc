@@ -1,3 +1,8 @@
+2004-03-04  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
+	(setFont): Check if child peers are null.
+
 2004-03-04  Graydon Hoare  <graydon@redhat.com>
 
 	* testsuite/lib/libjava.exp (libjava_find_lib): Don't include
