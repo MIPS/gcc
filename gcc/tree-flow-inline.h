@@ -234,7 +234,29 @@ get_def_op_ptr (def_optype defs, unsigned int index)
   return defs->defs[index];
 }
 
+/* Return a pointer to an unsigned int that is the VUSE_OFFSET for the
+   VUSE at INDEX in the VUSES array.  */
+static inline unsigned int *
+get_vuse_offset_ptr(vuse_optype vuses, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= vuses->num_vuses)
+    abort();
+#endif
+  return &(vuses->vuses[index].offset);
+}
 
+/* Return a pointer to an unsigned int that is the VUSE_SIZE for the
+   VUSE at INDEX in the VUSES array.  */
+static inline unsigned int *
+get_vuse_size_ptr(vuse_optype vuses, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= vuses->num_vuses)
+    abort();
+#endif
+  return &(vuses->vuses[index].size);
+}
 /* Return the def_operand_p that is the V_MAY_DEF_RESULT for the V_MAY_DEF
    at INDEX in the V_MAY_DEFS array.  */
 static inline def_operand_p
@@ -287,7 +309,7 @@ get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
 {
   use_operand_p op;
   gcc_assert (index < vuses->num_vuses);
-  op.use = &(vuses->vuses[index]);
+  op.use = &(vuses->vuses[index].use);
   return op;
 }
 
@@ -693,6 +715,7 @@ op_iter_next_use (ssa_op_iter *ptr)
     {
       return VUSE_OP_PTR (ptr->ops->vuse_ops, (ptr->vuse_i)++);
     }
+
   if (ptr->v_mayu_i < ptr->num_v_mayu)
     {
       return V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops,
@@ -813,7 +836,7 @@ op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
 }
 
 /* Get the next iterator maydef value for PTR, returning the maydef values in
-   USE and DEF.  */
+   USE, DEF, OFFSET and SIZE.  */
 static inline void
 op_iter_next_maydef (use_operand_p *use, def_operand_p *def, 
 		     unsigned int *offset, unsigned int *size,
@@ -839,8 +862,33 @@ op_iter_next_maydef (use_operand_p *use, def_operand_p *def,
   return;
 }
 
-/* Initialize iterator PTR to the operands in STMT.  Return the first operands
-   in USE and DEF.  */
+
+/* Get the next iterator partuse value for PTR, returning the partuse values in
+   USE, OFFSET, and SIZE.  */
+static inline void
+op_iter_next_partuse(use_operand_p *use,unsigned int *offset, 
+		     unsigned int *size, ssa_op_iter *ptr)
+{
+  if (ptr->vuse_i < ptr->num_vuse)
+    {
+      *use = VUSE_OP_PTR (ptr->ops->vuse_ops, ptr->vuse_i);
+      *offset = VUSE_OFFSET (ptr->ops->vuse_ops, ptr->vuse_i);
+      *size = VUSE_SIZE (ptr->ops->vuse_ops, ptr->vuse_i);
+      ptr->vuse_i++;
+      return;
+    }
+  else
+    {
+      *use = NULL_USE_OPERAND_P;
+      *offset = 0;
+      *size = 0;
+    }
+  ptr->done = true;
+  return;
+}
+
+/* Initialize iterator PTR to the V_MAY_DEF operands in STMT.  
+   Return the first operand in USE and DEF, OFFSET, and SIZE */
 static inline void
 op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
 		     def_operand_p *def, unsigned int *offset, 
@@ -848,5 +896,17 @@ op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use,
 {
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
   op_iter_next_maydef (use, def, offset, size, ptr);
+}
+
+
+/* Initialize iterator PTR to the VUSE operands in STMT.  
+   Return the first operands in USE, OFFSET, and SIZE */
+static inline void
+op_iter_init_partuse (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
+		     unsigned int *offset, 
+		     unsigned int *size)
+{
+  op_iter_init (ptr, stmt, SSA_OP_VUSE);
+  op_iter_next_partuse (use, offset, size, ptr);
 }
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -2060,7 +2060,7 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  tree use, def;
+  tree def;
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
@@ -2091,10 +2091,15 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
       newline_and_indent (buffer, spc);
     }
 
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VUSE)
+  FOR_EACH_SSA_PARTUSE_OPERAND (use_p, offset, size, stmt, iter)
     {
       pp_string (buffer, "#   VUSE <");
-      dump_generic_node (buffer, use, spc + 2, flags, false);
+      dump_generic_node (buffer, USE_FROM_PTR (use_p),
+                         spc + 2, flags, false);
+      pp_string (buffer, ",");
+      pp_decimal_int (buffer, offset);
+      pp_string (buffer, ",");
+      pp_decimal_int (buffer, size);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }

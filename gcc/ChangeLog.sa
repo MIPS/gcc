@@ -1,3 +1,36 @@
+2004-09-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow-inline.h (get_vuse_offset_ptr): New.
+	(get_vuse_size_ptr): New.
+	(get_vuse_op_ptr): Modify for vuse operand type change.
+	(op_iter_init_tree): Fix comment.
+	(op_iter_next_partuse): New function.
+	(op_iter_init_partuse): Ditto.
+	* tree-pretty-print.c (dump_vops): Use new partuse iterator
+	to get offset and size info for vuses.
+	* tree-ssa-operands.c (build_vuses_offset): New array.
+	(build_vuses_size): New array.
+	(allocate_vuse_optype): Modify to use vuse_operand_type_t.
+	(init_ssa_operands): Init new arrays.
+	(fini_ssa_operands): Free new arrays.
+	(finalize_ssa_vuses): Rewrite to handle size and offset info as
+	well.
+	(append_vuse): Take offset and size now as well.
+	Push onto new arrays.	
+	(add_stmt_operand): Do partial uses here.
+	(copy_virtual_operands): Copy offset and size for vuse as well.
+	(create_ssa_artficial_load_stmt): Modify to append vuse offset
+	and size from the may_def result and size.
+	* tree-ssa-operands.h (VUSE_OFFSET_PTR): New macro.
+	(VUSE_OFFSET): Ditto.
+	(SET_VUSE_OFFSET): Ditto.
+	(VUSE_SIZE_PTR): Ditto.
+	(VUSE_SIZE): Ditto.
+	(SET_VUSE_SIZE): Ditto.
+	(vuse_operand_type): New structure.
+	(vuse_optype_d): Use it.
+	(FOR_EACH_SSA_PARTUSE_OPERAND): New macro.
+	
 2004-09-19  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-ccp.c (substitute_and_fold): Changing some piece

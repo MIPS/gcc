@@ -57,7 +57,9 @@ typedef struct use_optype_d GTY(())
 
 typedef use_optype_t *use_optype;
 
-/* Operand type which stores a def and a use tree.  */
+
+/* Operand type which stores a def and a use tree, and the size and offset
+   of the use */
 typedef struct v_may_def_operand_type GTY(())
 {
   tree def;
@@ -76,11 +78,18 @@ typedef struct v_may_def_optype_d GTY(())
 
 typedef v_may_def_optype_t *v_may_def_optype;
 
+typedef struct vuse_operand_type GTY(())
+{
+  tree use;
+  unsigned int offset;
+  unsigned int size;
+} vuse_operand_type_t;
+
 /* This represents the VUSEs for a stmt.  */
 typedef struct vuse_optype_d GTY(()) 
 {
   unsigned num_vuses; 
-  tree GTY((length ("%h.num_vuses"))) vuses[1];
+  vuse_operand_type_t GTY((length ("%h.num_vuses"))) vuses[1];
 } vuse_optype_t;
 
 typedef vuse_optype_t *vuse_optype;
@@ -94,7 +103,7 @@ typedef struct v_must_def_optype_d GTY(())
 
 typedef v_must_def_optype_t *v_must_def_optype;
 
-/* This represents the operand cache fora stmt.  */
+/* This represents the operand cache for a stmt.  */
 typedef struct stmt_operands_d GTY(())
 {
   /* Statement operands.  */
@@ -130,8 +139,6 @@ typedef stmt_operands_t *stmt_operands_p;
 #define DEF_OP(OPS, I)		(DEF_FROM_PTR (DEF_OP_PTR ((OPS), (I))))
 #define SET_DEF_OP(OPS, I, V)	(SET_DEF (DEF_OP_PTR ((OPS), (I)), (V)))
 
-
-
 #define V_MAY_DEF_OPS(ANN)		get_v_may_def_ops (ANN)
 #define STMT_V_MAY_DEF_OPS(STMT)	get_v_may_def_ops (stmt_ann(STMT))
 #define NUM_V_MAY_DEFS(OPS)		((OPS) ? (OPS)->num_v_may_defs : 0)
@@ -158,7 +165,12 @@ typedef stmt_operands_t *stmt_operands_p;
 #define VUSE_OP_PTR(OPS, I)  	get_vuse_op_ptr ((OPS), (I))
 #define VUSE_OP(OPS, I)  	(USE_FROM_PTR (VUSE_OP_PTR ((OPS), (I))))
 #define SET_VUSE_OP(OPS, I, V)	(SET_USE (VUSE_OP_PTR ((OPS), (I)), (V)))
-
+#define VUSE_OFFSET_PTR(OPS, I)  get_vuse_offset_ptr ((OPS), (I))
+#define VUSE_OFFSET(OPS, I)  *(VUSE_OFFSET_PTR (OPS, I))
+#define SET_VUSE_OFFSET(OPS, I, V) VUSE_OFFSET (OPS, I) = (V)
+#define VUSE_SIZE_PTR(OPS, I)  get_vuse_size_ptr ((OPS), (I))
+#define VUSE_SIZE(OPS, I)  *(VUSE_SIZE_PTR (OPS, I))
+#define SET_VUSE_SIZE(OPS, I, V) VUSE_SIZE (OPS, I) = (V)
 
 #define V_MUST_DEF_OPS(ANN)		get_v_must_def_ops (ANN)
 #define STMT_V_MUST_DEF_OPS(STMT)	get_v_must_def_ops (stmt_ann (STMT))
@@ -256,12 +268,23 @@ typedef struct ssa_operand_iterator_d
        !op_iter_done (&(ITER));					\
        DEFVAR = op_iter_next_def (&(ITER)))
 
-/* This macro executes a loop over the V_MAY_DEF operands of STMT.  The def
-   and use for each V_MAY_DEF is returned in DEFVAR and USEVAR. 
+/* This macro executes a loop over the V_MAY_DEF operands of STMT.  The def,
+   use, offset and size for each V_MAY_DEF is returned in DEFVAR, USEVAR,
+   OFFSET and SIZE. 
    ITER is an ssa_op_iter structure used to control the loop.  */
 #define FOR_EACH_SSA_MAYDEF_OPERAND(DEFVAR, USEVAR, OFFSET, SIZE, STMT, ITER)	\
   for (op_iter_init_maydef (&(ITER), STMT, &(USEVAR), &(DEFVAR), &(OFFSET), &(SIZE));	\
        !op_iter_done (&(ITER));					\
        op_iter_next_maydef (&(USEVAR), &(DEFVAR), &(OFFSET), &(SIZE), &(ITER)))
+
+
+/* This macro executes a loop over the VUSE operands of STMT.  The use,
+   offset, and size for each VUSE is returned in USEVAR, OFFSET, and
+   SIZE.
+   ITER is an ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_PARTUSE_OPERAND(USEVAR, OFFSET, SIZE, STMT, ITER)	\
+  for (op_iter_init_partuse (&(ITER), STMT, &(USEVAR), &(OFFSET), &(SIZE));	\
+       !op_iter_done (&(ITER));					\
+       op_iter_next_partuse (&(USEVAR), &(OFFSET), &(SIZE), &(ITER)))
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

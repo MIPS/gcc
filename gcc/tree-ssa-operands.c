@@ -120,6 +120,12 @@ static GTY (()) varray_type build_v_may_defs_size;
 /* Array for building all the vuse operands.  */
 static GTY (()) varray_type build_vuses;
 
+/* Array for building all offsets of vuse operands.  */
+static GTY (()) varray_type build_vuses_offset;
+
+/* Array for building all sizes of vuse operands.  */
+static GTY (()) varray_type build_vuses_size;
+
 /* Array for building all the v_must_def operands.  */
 static GTY (()) varray_type build_v_must_defs;
 
@@ -195,7 +201,8 @@ allocate_vuse_optype (unsigned num)
 {
   vuse_optype vuse_ops;
   unsigned size;
-  size = sizeof (struct vuse_optype_d) + sizeof (tree) * (num - 1);
+  size = sizeof (struct vuse_optype_d) + sizeof (vuse_operand_type_t) 
+    * (num - 1);
   vuse_ops =  ggc_alloc (size);
   vuse_ops->num_vuses = num;
   return vuse_ops;
@@ -254,7 +261,6 @@ free_vuses (vuse_optype *vuses)
     }
 }
 
-
 /* Free memory for V_MAY_DEFS.  */
 
 static inline void
@@ -292,6 +298,8 @@ init_ssa_operands (void)
   VARRAY_UINT_INIT (build_v_may_defs_offset, 10, "build_v_may_defs_offset");
   VARRAY_UINT_INIT (build_v_may_defs_size, 10, "build_v_may_defs_size");
   VARRAY_TREE_INIT (build_vuses, 10, "build vuses");
+  VARRAY_UINT_INIT (build_vuses_offset, 10, "build_vuses_offset");
+  VARRAY_UINT_INIT (build_vuses_size, 10, "build_vuses_size");
   VARRAY_TREE_INIT (build_v_must_defs, 10, "build v_must_defs");
 }
 
@@ -307,6 +315,8 @@ fini_ssa_operands (void)
   ggc_free (build_v_may_defs_offset);
   ggc_free (build_v_may_defs_size);
   ggc_free (build_vuses);
+  ggc_free (build_vuses_offset);
+  ggc_free (build_vuses_size);
   ggc_free (build_v_must_defs);
   build_defs = NULL;
   build_uses = NULL;
@@ -314,6 +324,8 @@ fini_ssa_operands (void)
   build_v_may_defs_offset = NULL;
   build_v_may_defs_size = NULL;
   build_vuses = NULL;
+  build_vuses_offset = NULL;
+  build_vuses_size = NULL;
   build_v_must_defs = NULL;
 }
 
@@ -518,6 +530,8 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
 }
 
 
+
+
 /* Return a new vuse operand vector, comparing to OLD_OPS_P.  */
 
 static vuse_optype
@@ -531,10 +545,12 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
   if (num == 0)
     {
       VARRAY_POP_ALL (build_v_may_defs);
-      VARRAY_POP_ALL (build_v_may_defs_offset);
       VARRAY_POP_ALL (build_v_may_defs_size);
+      VARRAY_POP_ALL (build_v_may_defs_offset);      
       return NULL;
     }
+  
+
 
   /* Remove superfluous VUSE operands.  If the statement already has a
    V_MAY_DEF operation for a variable 'a', then a VUSE for 'a' is not
@@ -554,12 +570,18 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
     {
       size_t i, j;
       tree vuse;
+      unsigned int offset;
+      unsigned int size;
       for (i = 0; i < VARRAY_ACTIVE_SIZE (build_vuses); i++)
 	{
 	  vuse = VARRAY_TREE (build_vuses, i);
+	  offset = VARRAY_UINT (build_vuses_offset, i);
+	  size = VARRAY_UINT (build_vuses_size, i);
 	  for (j = 0; j < num_v_may_defs; j++)
 	    {
-	      if (vuse == VARRAY_TREE (build_v_may_defs, j))
+	      if (vuse == VARRAY_TREE (build_v_may_defs, j)
+		  && offset == VARRAY_UINT (build_v_may_defs_offset, j)
+		  && size == VARRAY_UINT (build_v_may_defs_size, j))
 		break;
 	    }
 
@@ -574,8 +596,18 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
 		  VARRAY_TREE (build_vuses, i)
 		    = VARRAY_TREE (build_vuses,
 				   VARRAY_ACTIVE_SIZE (build_vuses) - 1);
+		  
+		  VARRAY_UINT (build_vuses_size, i) 
+		    = VARRAY_UINT (build_vuses_size,
+				   VARRAY_ACTIVE_SIZE (build_vuses_size) - 1);
+		  VARRAY_UINT (build_vuses_offset, i)
+		    = VARRAY_UINT (build_vuses_offset,
+				   VARRAY_ACTIVE_SIZE (build_vuses_offset) - 1 );
 		}
 	      VARRAY_POP (build_vuses);
+	      VARRAY_POP (build_vuses_offset);
+	      VARRAY_POP (build_vuses_size);
+	      
 
 	      /* We want to rescan the element at this index, unless
 		 this was the last element, in which case the loop
@@ -591,7 +623,7 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
     {
       VARRAY_POP_ALL (build_v_may_defs);
       VARRAY_POP_ALL (build_v_may_defs_size);
-      VARRAY_POP_ALL (build_v_may_defs_offset);
+      VARRAY_POP_ALL (build_v_may_defs_offset);      
       return NULL;
     }
 
@@ -605,11 +637,15 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
       build_diff = false;
       for (x = 0; x < num ; x++)
         {
+	  vuse_operand_type_t vpartuse;
 	  tree v;
-	  v = old_ops->vuses[x];
+	  vpartuse = old_ops->vuses[x];
+	  v = vpartuse.use;
 	  if (TREE_CODE (v) == SSA_NAME)
 	    v = SSA_NAME_VAR (v);
-	  if (v != VARRAY_TREE (build_vuses, x))
+	  if (v != VARRAY_TREE (build_vuses, x)
+	      || vpartuse.size != VARRAY_UINT (build_vuses_size, x)
+	      || vpartuse.offset != VARRAY_UINT (build_vuses_offset, x))
 	    {
 	      build_diff = true;
 	      break;
@@ -629,31 +665,44 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
       vuse_ops = allocate_vuse_optype (num);
       for (x = 0; x < num; x++)
         {
-	  tree result, var = VARRAY_TREE (build_vuses, x);
+	  tree var = VARRAY_TREE (build_vuses, x);	  
+	  unsigned int offset = VARRAY_UINT (build_vuses_offset, x);
+	  unsigned int size = VARRAY_UINT (build_vuses_size, x);
 	  /* Look for VAR in the old vector, and use that SSA_NAME.  */
 	  for (i = 0; i < old_num; i++)
 	    {
+	      vuse_operand_type_t result;
+	      tree use;
 	      result = old_ops->vuses[i];
-	      if (TREE_CODE (result) == SSA_NAME)
-		result = SSA_NAME_VAR (result);
-	      if (result == var)
+	      use = result.use;
+	      if (TREE_CODE (use) == SSA_NAME)
+		use = SSA_NAME_VAR (use);
+	      if (use == var
+		  && result.size == size
+		  && result.offset == offset)
 	        {
 		  vuse_ops->vuses[x] = old_ops->vuses[i];
 		  break;
 		}
 	    }
 	  if (i == old_num)
-	    vuse_ops->vuses[x] = var;
+	    {
+	      vuse_ops->vuses[x].use = var;
+	      vuse_ops->vuses[x].offset = offset;
+	      vuse_ops->vuses[x].size = size;
+	    }
 	}
     }
 
   /* The v_may_def build vector wasn't freed because we needed it here.
      Free it now with the vuses build vector.  */
   VARRAY_POP_ALL (build_vuses);
+  VARRAY_POP_ALL (build_vuses_size);
+  VARRAY_POP_ALL (build_vuses_offset);
   VARRAY_POP_ALL (build_v_may_defs);
   VARRAY_POP_ALL (build_v_may_defs_offset);
   VARRAY_POP_ALL (build_v_may_defs_size);
-
+  
   return vuse_ops;
 }
 
@@ -752,10 +801,12 @@ start_ssa_stmt_operands (void)
 {
   gcc_assert (VARRAY_ACTIVE_SIZE (build_defs) == 0);
   gcc_assert (VARRAY_ACTIVE_SIZE (build_uses) == 0);
-  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses) == 0);
   gcc_assert (VARRAY_ACTIVE_SIZE (build_v_may_defs) == 0);
   gcc_assert (VARRAY_ACTIVE_SIZE (build_v_may_defs_size) == 0);
   gcc_assert (VARRAY_ACTIVE_SIZE (build_v_may_defs_offset) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses_size) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses_offset) == 0);
   gcc_assert (VARRAY_ACTIVE_SIZE (build_v_must_defs) == 0);
 }
 
@@ -799,19 +850,24 @@ append_v_may_def (tree var, unsigned int offset, unsigned int size)
 }
 
 
-/* Add VAR to the list of virtual uses.  */
+/* Add a new virtual use for variable VAR to the build array.  */
 
 static inline void
-append_vuse (tree var)
+append_vuse (tree var, unsigned int offset, unsigned int size)
 {
-  size_t i;
-
+  unsigned i;
+  if (size == 0)
+    size = (unsigned int)~0;
   /* Don't allow duplicate entries.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (build_vuses); i++)
-    if (var == VARRAY_TREE (build_vuses, i))
+    if (var == VARRAY_TREE (build_vuses, i)
+	&& offset == VARRAY_UINT (build_vuses_offset, i)
+	&& size == VARRAY_UINT (build_vuses_size, i))
       return;
 
   VARRAY_PUSH_TREE (build_vuses, var);
+  VARRAY_PUSH_UINT (build_vuses_offset, offset);
+  VARRAY_PUSH_UINT (build_vuses_size, size);
 }
 
 
@@ -955,6 +1011,7 @@ free_ssa_operands (stmt_operands_p ops)
     free_v_may_defs (&(ops->v_may_def_ops));
   if (ops->v_must_def_ops)
     free_v_must_defs (&(ops->v_must_def_ops));
+
 }
 
 
@@ -1543,7 +1600,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 		      int unsignedp;
 		      int volatilep;
 		      
-		      get_inner_reference (TREE_OPERAND (stmt, 0), &bitsize,
+		      get_inner_reference (lhs, &bitsize,
 					   &bitpos, &offset,
 					   &mode, &unsignedp, &volatilep);
 		      if (offset == NULL && bitsize != -1)
@@ -1564,9 +1621,39 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 	    }
 	  else
 	    {
-	      append_vuse (var);
-	      if (s_ann && v_ann->is_alias_tag)
-		s_ann->makes_aliased_loads = 1;
+	      tree rhs = NULL;
+	      if (TREE_CODE (stmt) == MODIFY_EXPR)
+		rhs = TREE_OPERAND (stmt, 1);
+	      if (v_ann->mem_tag_kind == NOT_A_TAG
+		  && rhs
+		  && handled_component_p (rhs))
+		{
+		  HOST_WIDE_INT bitsize;
+		  HOST_WIDE_INT bitpos;
+		  tree offset;
+		  enum machine_mode mode;
+		  int unsignedp;
+		  int volatilep;
+		  
+		  get_inner_reference (rhs, &bitsize,
+				       &bitpos, &offset,
+				       &mode, &unsignedp, &volatilep);
+		  if (offset == NULL && bitsize != -1)
+		    {
+		      append_vuse (var, bitpos / BITS_PER_UNIT,
+					 bitsize / BITS_PER_UNIT);
+		    }
+		  else
+		    {
+		      append_vuse (var, 0, ~0);
+		    }
+		}
+	      else
+		{
+		  append_vuse (var, 0, ~0);
+		  if (s_ann && v_ann->is_alias_tag)
+		    s_ann->makes_aliased_loads = 1;
+		}
 	    }
 	}
       else
@@ -1602,10 +1689,10 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 	      /* Similarly, append a virtual uses for VAR itself, when
 		 it is an alias tag.  */
 	      if (v_ann->is_alias_tag)
-		append_vuse (var);
+		append_vuse (var, 0, ~0);
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_vuse (VARRAY_TREE (aliases, i));
+		append_vuse (VARRAY_TREE (aliases, i), 0, ~0);
 
 	      if (s_ann)
 		s_ann->makes_aliased_loads = 1;
@@ -1757,9 +1844,12 @@ copy_virtual_operands (tree dst, tree src)
     {
       *vuses_new = allocate_vuse_optype (NUM_VUSES (vuses));
       for (i = 0; i < NUM_VUSES (vuses); i++)
-	SET_VUSE_OP (*vuses_new, i, VUSE_OP (vuses, i));
+	{
+	  SET_VUSE_OP (*vuses_new, i, VUSE_OP (vuses, i));
+	  SET_VUSE_OFFSET (*vuses_new, i, VUSE_OFFSET (vuses, i));
+	  SET_VUSE_SIZE (*vuses_new, i, VUSE_SIZE (vuses, i));
+	}
     }
-
   if (v_may_defs)
     {
       *v_may_defs_new = allocate_v_may_def_optype (NUM_V_MAY_DEFS (v_may_defs));
@@ -1814,14 +1904,18 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
      statement.  */
   for (j = 0; j < NUM_V_MAY_DEFS (old_ops->v_may_def_ops); j++)
     {
+      unsigned int size;
+      unsigned int offset;
       op = V_MAY_DEF_RESULT (old_ops->v_may_def_ops, j);
-      append_vuse (op);
+      offset = V_MAY_DEF_OFFSET (old_ops->v_may_def_ops, j);
+      size = V_MAY_DEF_SIZE (old_ops->v_may_def_ops, j);
+      append_vuse (op, offset, size);
     }
     
   for (j = 0; j < NUM_V_MUST_DEFS (old_ops->v_must_def_ops); j++)
     {
       op = V_MUST_DEF_OP (old_ops->v_must_def_ops, j);
-      append_vuse (op);
+      append_vuse (op, 0, ~0);
     }
 
   /* Now set the vuses for this new stmt.  */
