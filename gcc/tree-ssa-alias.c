@@ -388,7 +388,7 @@ count_ptr_derefs (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
    *NUM_DEREFS_P respectively.  *IS_STORE_P is set to 'true' if at
    least one of those dereferences is a store operation.  */
 
-static void
+void
 count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
 		       unsigned *num_derefs_p, bool *is_store)
 {

@@ -2684,20 +2684,6 @@ record_equivalences_from_stmt (tree stmt,
 	      || is_gimple_min_invariant (rhs)))
 	SSA_NAME_VALUE (lhs) = rhs;
 
-      /* If the RHS is ASSERT_EXPR <X, COND>, record the conditional
-	 COND as being true.  */
-      if (may_optimize_p && TREE_CODE (rhs) == ASSERT_EXPR)
-	{
-	  tree op = TREE_OPERAND (rhs, 0);
-	  tree cond = fold (TREE_OPERAND (rhs, 1));
-	  /* If STMT is inside a basic block that will never be
-	     executed, the predicate of this ASSERT_EXPR will be
-	     false.  We need to handle this contradiction gracefully
-	     because the CFG is not cleaned up while DOM runs.  */
-	  if (cond != boolean_false_node)
-	    record_const_or_copy (lhs, op);
-	}
-
       /* alloca never returns zero and the address of a non-weak symbol
 	 is never zero.  NOP_EXPRs and CONVERT_EXPRs can be completely
 	 stripped as they do not affect this equivalence.  */

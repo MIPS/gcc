@@ -474,11 +474,6 @@ likely_value (tree stmt)
       && TREE_CODE (stmt) != SWITCH_EXPR)
     return VARYING;
 
-  /* FIXME, ASSERT_EXPRs can convey useful constants.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
-    return VARYING;
-
   get_stmt_operands (stmt);
 
   found_constant = false;
@@ -599,7 +594,8 @@ ccp_initialize (void)
     }
 
   /* Compute immediate uses for variables we care about.  */
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, need_imm_uses_for);
+  compute_immediate_uses (TDFA_USE_OPS | ((do_store_ccp) ? TDFA_USE_VOPS : 0),
+			  need_imm_uses_for);
 }
 
 

@@ -346,7 +346,6 @@ init_tree_optimization_passes (void)
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_maybe_create_global_var);
-  NEXT_PASS (pass_insert_range_assertions);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -355,6 +354,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_copy_prop);
   NEXT_PASS (pass_fre);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_merge_phi);
@@ -404,7 +404,6 @@ init_tree_optimization_passes (void)
      needs to be put in SSA form and scanned for aliases.  */
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_calls);
-  NEXT_PASS (pass_remove_range_assertions);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);

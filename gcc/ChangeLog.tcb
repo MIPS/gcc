@@ -1,5 +1,100 @@
 2005-02-02  Diego Novillo  <dnovillo@redhat.com>
 
+	Value Range Propagation
+
+	* Makefile.in (tree-vrp.o): Depend on
+	tree-ssa-propagate.h, $(FLAGS_H) and $(TREE_DUMP_H).
+	* common.opt (ftree-vrp): Define.
+	* opts.c (decode_options): Set flag_tree_vrp at -O2.
+	* timevar.def (TV_TREE_INSERT_ASSERT): Remove.
+	(TV_TREE_VRP): Define.
+	* tree-flow.h (enum value_range_type): Define.
+	(struct value_range_def): Define.
+	(count_uses_and_derefs): Declare.
+	(get_value_range): Declare.
+	(dump_value_range): Declare.
+	(debug_value_range): Declare.
+	(dump_all_value_ranges): Declare.
+	(debug_all_value_ranges): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Remove
+	pass_insert_range_assertions and pass_remove_range_assertions.
+	Add pass_vrp.
+	* tree-pass.h (pass_insert_range_assertions): Remove.
+	(pass_remove_range_assertions): Remove.
+	(pass_vrp): Define.
+	* tree-ssa-alias.c (count_ptr_derefs): Make extern.
+	* tree.h (SSA_NAME_VALUE_RANGE): Define.
+	(struct value_range_def): Forward declare.
+	(struct tree_ssa_name): Add field value_range.
+	* tree-vrp.c: Include flags.h, tree-dump.h and
+	tree-ssa-propagate.h.
+	(new_ssa_names): Declare.
+	(old_ssa_names): Declare.
+	(found): Declare.
+	(get_opposite_operand): New.
+	(opposite_comparison): New.
+	(copy_value_range): New.
+	(set_value_range): New.
+	(update_value_range): New.
+	(get_value_range): New.
+	(symbolic_range_p): New.
+	(expr_computes_nonnull): New.
+	(range_is_nonnull): New.
+	(range_is_null): New.
+	(set_value_range_to_nonnull): New.
+	(set_value_range_to_null): New.
+	(compare_values): New.
+	(extract_range_from_assert): New.
+	(extract_range_from_binary_expr): New.
+	(extract_range_from_unary_expr): New.
+	(extract_range_from_expr): New.
+	(compare_ranges): New.
+	(compare_range_with_value): New.
+	(value_inside_range): New.
+	(value_ranges_intersect_p): New.
+	(dump_value_range): New.
+	(debug_value_range): New.
+	(dump_all_value_ranges): New.
+	(debug_all_value_ranges): New.
+
+	(build_assert_expr_for): Create a new SSA name for every
+	assertion.
+	If the conditional is an equality, create a regular
+	assignment.
+	Push the new name into NEW_SSA_NAMES.  Push the operand into
+	OLD_SSA_NAMES.
+	(infer_value_range): New.
+	(has_assert_expr): New.
+	(maybe_add_assert_expr): Add ASSERT_EXPR after pointer
+	dereferences.
+	Handle cases that require inserting after the last statement
+	of a block.
+	Call has_assert_expr and infer_value_range.
+	(insert_range_assertions): Rename from
+	execute_insert_range_assertions.
+	Initialize new_ssa_names and old_ssa_names.
+	Do not use BB_VISITED to mark visited blocks.
+	(pass_insert_range_assertions): Remove.
+	(remove_range_assertions): Rename from
+	execute_remove_range_assertions.
+	(pass_remove_range_assertions): Remove.
+
+	(stmt_interesting_for_vrp): New.
+	(need_imm_uses_for): New.
+	(vrp_initialize): New.
+	(vrp_visit_assignment): New.
+	(vrp_evaluate_conditional): New.
+	(vrp_visit_cond_stmt): New.
+	(vrp_visit_stmt): New.
+	(vrp_meet): New.
+	(vrp_visit_phi_node): New.
+	(vrp_finalize): New.
+	(execute_vrp): New.
+	(gate_vrp): New.
+	(pass_vrp): Declare.
+
+2005-02-02  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (tree-into-ssa.o): Depend on pointer-set.h
 	* timevar.def (TV_TREE_SSA_INCREMENTAL): Define.
 	* tree-flow.h (update_ssa): Declare.
