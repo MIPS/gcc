@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "errors.h"
 #include "flags.h"
+#include "function.h"
 #include "expr.h"
 #include "ggc.h"
 #include "diagnostic.h"
@@ -151,6 +152,7 @@ build_tree_cfg (fnbody)
 	    {
 	      tree_cfg2dot (dump_file);
 	      dump_end (TDI_dot, dump_file);
+	      dump_file = NULL;
 	    }
 
 	  /* Dump a textual representation of the flowgraph.  */
@@ -159,6 +161,7 @@ build_tree_cfg (fnbody)
 	    {
 	      dump_tree_cfg (dump_file, dump_flags);
 	      dump_end (TDI_cfg, dump_file);
+	      dump_file = NULL;
 	    }
 	}
     }
@@ -745,18 +748,13 @@ remove_tree_bb (bb, remove_stmts)
       dump_tree_bb (dump_file, "", bb, 0);
       fprintf (dump_file, "\n");
       dump_end (TDI_cfg, dump_file);
+      dump_file = NULL;
     }
 
   /* Remove all the instructions in the block.  */
   for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
     {
       tree stmt = gsi_stmt (i);
-
-      if (dump_file && is_exec_stmt (gsi_stmt (i)))
-	{
-	  fprintf (dump_file, "WARNING: Removing executable statement: ");
-	  print_generic_stmt (dump_file, gsi_stmt (i), dump_flags|TDF_SLIM);
-	}
 
       set_bb_for_stmt (stmt, NULL);
       if (remove_stmts)
@@ -1413,7 +1411,7 @@ dump_tree_cfg (file, flags)
   if (flags & TDF_DETAILS)
     {
       fputc ('\n', file);
-      fprintf (file, "Function %s\n\n", get_name (current_function_decl));
+      fprintf (file, "Function %s\n\n", current_function_name);
       fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
 	       n_basic_blocks, n_edges, last_basic_block);
 
@@ -1424,10 +1422,13 @@ dump_tree_cfg (file, flags)
 	}
     }
 
-  fprintf (file, "%s()\n", get_name (current_function_decl));
-  print_generic_stmt (file, DECL_SAVED_TREE (current_function_decl),
-                      flags|TDF_BLOCK);
-  fprintf (file, "\n");
+  if (n_basic_blocks > 0)
+    {
+      fprintf (file, "%s()\n", current_function_name);
+      print_generic_stmt (file, DECL_SAVED_TREE (current_function_decl),
+			  flags|TDF_BLOCK);
+      fprintf (file, "\n");
+    }
 }
 
 
@@ -1441,7 +1442,7 @@ tree_cfg2dot (file)
   basic_block bb;
 
   /* Write the file header.  */
-  fprintf (file, "digraph %s\n{\n", get_name (current_function_decl));
+  fprintf (file, "digraph %s\n{\n", current_function_name);
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)

@@ -1,5 +1,31 @@
 2002-11-07  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (tree-ssa.o, tree-cfg.o, tree-dfa.o): Add dependency
+	on function.h
+	* tree-cfg.c: Include function.h.
+	(build_tree_cfg): Set dump_file to NULL after closing the file.
+	(remove_tree_bb): Don't dump warnings about statements being
+	removed.
+	(dump_tree_cfg): Use current_function_name.
+	Check that the flowgraph is not empty before dumping the function
+	body.
+	(tree_cfg2dot): Use current_function_name.
+	* tree-dfa.c: Include function.h
+	(dump_dfa_stats): Use current_function_name.
+	* tree-optimize.c (optimize_function_tree): Set dump_file to NULL
+	after closing the file.
+	* tree-pretty-print.c (dump_generic_node): Make sure that the
+	flowgraph exists before displaying block boundaries.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Set dump_file to NULL after
+	closing the file.
+	* tree-ssa.c: Include function.h.
+	(build_tree_ssa): Set tree_ssa_dump_file to NULL after closing the
+	file.
+	(dump_reaching_defs): Use current_function_name.
+	(dump_tree_ssa): Likewise.
+
+2002-11-07  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-cfg.c (successor_block): Return EXIT_BLOCK_PTR if no
 	successor can be found while walking the nesting chain.
 

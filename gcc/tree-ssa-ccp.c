@@ -172,6 +172,7 @@ tree_ssa_ccp (fndecl)
 
       fprintf (dump_file, "\n");
       dump_end (TDI_ccp, dump_file);
+      dump_file = NULL;
     }
 
   finalize ();

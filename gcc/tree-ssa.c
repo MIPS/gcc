@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "errors.h"
 #include "expr.h"
+#include "function.h"
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
@@ -231,6 +232,7 @@ build_tree_ssa (fndecl)
 	dump_dfa_stats (tree_ssa_dump_file);
 
       dump_end (TDI_ssa, tree_ssa_dump_file);
+      tree_ssa_dump_file = NULL;
     }
 }
 
@@ -676,8 +678,7 @@ dump_reaching_defs (file)
 {
   size_t i;
 
-  fprintf (file, "Reaching definitions for %s\n", 
-	   get_name (current_function_decl));
+  fprintf (file, "Reaching definitions for %s\n", current_function_name);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -718,8 +719,7 @@ dump_tree_ssa (file)
 {
   basic_block bb;
 
-  fprintf (file, "SSA information for %s\n\n",
-	   get_name (current_function_decl));
+  fprintf (file, "SSA information for %s\n\n", current_function_name);
 
   FOR_EACH_BB (bb)
     {

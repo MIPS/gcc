@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "ggc.h"
 #include "flags.h"
+#include "function.h"
 #include "diagnostic.h"
 #include "tree-simple.h"
 #include "tree-flow.h"
@@ -1472,7 +1473,7 @@ dump_dfa_stats (file)
 
   collect_dfa_stats (&dfa_stats);
 
-  fprintf (file, "\nDFA Statistics for %s\n\n", get_name (current_function_decl));
+  fprintf (file, "\nDFA Statistics for %s\n\n", current_function_name);
 
   fprintf (file, "---------------------------------------------------------\n");
   fprintf (file, fmt_str, "", "  Number of  ", "Memory");

@@ -115,6 +115,7 @@ dump_generic_node (buffer, node, spc, flags)
     return spc;
 
   if ((flags & TDF_BLOCK)
+      && basic_block_info
       && node != empty_stmt_node
       && node != error_mark_node)
     dump_block_info (buffer, bb_for_stmt (node), spc);
@@ -1053,7 +1054,7 @@ dump_generic_node (buffer, node, spc, flags)
 	     flowgraph information, we should show them to avoid confusing
 	     the user.  This perhaps should be fixed by actually inserting
 	     an empty statement at the end of LOOP_EXPRs.  */
-	  if ((flags & TDF_BLOCK) && bb_for_stmt (node))
+	  if ((flags & TDF_BLOCK) && basic_block_info && bb_for_stmt (node))
 	    {
 	      newline_and_indent (buffer, spc);
 	      dump_block_info (buffer, latch_block (bb_for_stmt (node)), spc);

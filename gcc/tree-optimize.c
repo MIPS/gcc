@@ -114,6 +114,7 @@ optimize_function_tree (fndecl)
       fprintf (dump_file, "\n");
 
       dump_end (TDI_optimized, dump_file);
+      dump_file = NULL;
     }
 
   /* Flush out flow graph and SSA data.  */
