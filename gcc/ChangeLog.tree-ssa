@@ -37,7 +37,6 @@
 	the argument list here.
 	(gimplify_tree_list): Remove.
 	(gimplify_addr_expr): Use fb_either.
-	* tree-simple.h: Adjust.
 	* tree-alias-common.c (find_func_aliases): Update use of predicates.
 
 2003-08-21  Andrew Pinski  <pinskia@physics.uc.edu>
