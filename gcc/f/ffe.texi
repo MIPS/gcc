@@ -29,6 +29,9 @@ by the GBE is:
 
 @enumerate
 @item
+Stripping punched-card sources (@file{g77stripcard.c})
+
+@item
 Lexing (@file{lex.c})
 
 @item
@@ -140,6 +143,7 @@ the appropriate GBE routines.
 Details on the transformational phases follow.
 
 @menu
+* g77stripcard::
 * lex.c::
 * sta.c::
 * stb.c::
@@ -147,10 +151,104 @@ Details on the transformational phases follow.
 * stc.c::
 * std.c::
 * ste.c::
+
+* Gotchas::
+* To Do::
 @end menu
+
+@node g77stripcard
+@subsection g77stripcard
+
+The @code{g77stripcard} program handles removing content beyond
+column 72 (adjustable via a command-line option),
+optionally warning about that content being something other
+than trailing whitespace or Fortran commentary.
+
+This program is needed because @code{lex.c} doesn't pay attention
+to maximum line lengths at all, to make it easier to maintain,
+as well as faster (for sources that don't depend on the maximum
+column length vis-a-vis trailing non-blank non-commentary content).
+
+Just how this program will be run---whether automatically for
+old source (perhaps as the default for @file{.f} files?)---is not
+yet determined.
+
+In the meantime, it might as well be implemented as a typical UNIX pipe.
+Anyone who wants to work on this, email me at
+@email{@value{email-burley}}.
 
 @node lex.c
 @subsection lex.c
+
+To help make the lexer simple, fast, and easy to maintain,
+while also having @code{g77} generally encourage Fortran programmers
+to write simple, maintainable, portable code:
+
+@itemize @bullet
+@item
+There'll be just lexer, for both fixed-form and free-form source.
+
+@item
+It'll care about the form only when handling the first 7 columns of
+text, stuff like spaces between strings of alphanumerics, and
+how lines are continued.
+
+@item
+It won't worry about line lengths
+(beyond the first 7 columns for fixed-form source).
+
+That is, once it starts parsing the ``statement'' part of a line
+(column 7 for fixed-form, column 1 for free-form),
+it'll keep going until it finds a newline,
+rather than ignoring everything past a particular column
+(72 or 132).
+
+The implication here is that there shouldn't @emph{be}
+anything past that last column, other than whitespace or
+commentary, because users using typical editors won't
+necessarily know just where the last column is.
+
+Code that has ``garbage'' beyond the last column
+(almost certainly only fixed-form code with a punched-card legacy,
+such as code using columns 73-80 for ``sequence numbers'')
+will have to be run through @code{g77stripcard} first.
+
+@item
+ASCII coding is assumed.
+
+Code written in other character sets will have to be converted first.
+
+@item
+Tabs (ASCII code 9)
+will be converted to spaces via the straightforward
+approach.
+
+Specifically, a tab is converted to between one and eight spaces
+as necessary to reach column @var{n},
+where dividing @samp{(@var{n} - 1)} by eight
+results in a remainder of zero.
+
+@item
+Linefeeds (ASCII code 10)
+mark the ends of lines.
+
+@item
+Carriage returns (ASCII code 13)
+are accepted when they immediately precede or follow
+linefeeds, in which case they are ignored.
+
+Otherwise, they are rejected (with a diagnostic).
+
+@item
+
+@end itemize
+
+The above implements nearly exactly what is specified by
+@ref{Character Set},
+and
+@ref{Lines},
+except it also provides automatic conversion of tabs
+and ignoring of newline-related carriage returns.
 
 @node sta.c
 @subsection sta.c
@@ -169,6 +267,50 @@ Details on the transformational phases follow.
 
 @node ste.c
 @subsection ste.c
+
+@node Gotchas (Transforming)
+@subsection Gotchas (Transforming)
+
+This section is not about transforming ``gotchas'' into something else.
+It is about the weirder aspects of transforming Fortran,
+however that's defined,
+into a more modern, canonical form.
+
+@node To Do (Transforming)
+@subsection To Do (Transforming)
+
+Continue researching gotchas, designing the transformational process,
+and implementing it.
+
+Specific issues to resolve:
+
+@itemize @bullet
+@item
+Just where should @code{INCLUDE} processing take place?
+
+Clearly before (or part of) statement identification (@file{sta.c}),
+since determining whether @samp{I(J)=K} is a statement-function
+definition or an assignment statement requires knowing the context,
+which in turn requires having processed @code{INCLUDE} files.
+
+@item
+Just where should (if it was implemented) @code{USE} processing take place?
+
+This gets into the whole issue of how @code{g77} should handle the concept
+of modules.
+I think GNAT already takes on this issue, but don't know more than that.
+Jim Giles has written extensively on @code{comp.lang.fortran}
+about his opinions on module handling, as have others.
+Jim's views should be taken into account.
+
+Actually, Richard M. Stallman (RMS) also has written up
+some guidelines for implementing such things,
+but I'm not sure where I read them.
+Perhaps the old @email{gcc2@cygnus.com} list.
+
+If someone could dig references to these up and get them to me,
+that would be much appreciated!
+@end itemize
 
 @node Philosophy of Code Generation
 @section Philosophy of Code Generation
@@ -1032,6 +1174,4 @@ to hold the value of the expression.
 
 @item
 Other stuff???
-
-
 @end itemize
