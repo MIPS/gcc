@@ -1,5 +1,5 @@
 /* { dg-do compile */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-optimized" } */
                                                                                 
 static int copying_arguments;
 static int
@@ -12,4 +12,4 @@ foo ()
 }
 
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "optimized"} } */
