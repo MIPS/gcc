@@ -103,8 +103,6 @@ typedef struct inline_data
   /* Hash table used to prevent walk_tree from visiting the same node
      umpteen million times.  */
   htab_t tree_pruner;
-  /* Decl of function we are inlining into.  */
-  tree decl;
 } inline_data;
 
 /* Prototypes.  */
@@ -1349,12 +1347,6 @@ expand_call_inline (tp, walk_subtrees, data)
 
   (*lang_hooks.tree_inlining.end_inlining) (fn);
 
-  /* Update callgraph if needed.  */
-  if (id->decl && cgraph_calls_p (id->decl, fn))
-    {
-      cgraph_remove_call (id->decl, fn);
-      create_cgraph_edges (id->decl, *tp);
-    }
   /* Keep iterating.  */
   return NULL_TREE;
 }
@@ -1387,7 +1379,6 @@ optimize_inline_calls (fn)
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 
-  id.decl = fn;
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);

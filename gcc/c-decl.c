@@ -6426,18 +6426,11 @@ c_expand_deferred_function (fndecl)
 {
   /* DECL_INLINE or DECL_RESULT might got cleared after the inline
      function was deferred, e.g. in duplicate_decls.  */
-  if (/*DECL_INLINE (fndecl) && DECL_RESULT (fndecl)*/1)
+  if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
     {
       c_expand_body (fndecl, 0, 0);
       current_function_decl = NULL;
     }
-}
-void
-expand_deferred_function (fndecl)
-     tree fndecl;
-{
-  c_expand_body (fndecl, 0, 0);
-  current_function_decl = NULL;
 }
 
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
@@ -6457,8 +6450,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (flag_syntax_only)
     return;
 
-  create_cgraph_edges (fndecl, DECL_SAVED_TREE (fndecl));
-
   if (flag_inline_trees)
     {
       /* First, cache whether the current function is inlinable.  Some
@@ -6467,19 +6458,16 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       timevar_push (TV_INTEGRATION);
       uninlinable = ! tree_inlinable_function_p (fndecl);
       
-      if (can_defer_p
-	  && (flag_unit_at_time || (! uninlinable && can_defer_p)))
+      if (! uninlinable && can_defer_p
+	  /* Save function tree for inlining.  Should return 0 if the
+             language does not support function deferring or the
+             function could not be deferred.  */
+	  && defer_fn (fndecl))
 	{
-	       /* Save function tree for inlining.  Should return 0 if the
-		  language does not support function deferring or the
-		  function could not be deferred.  */
-	  if (defer_fn (fndecl))
-	    {
-	      /* Let the back-end know that this function exists.  */
-	      (*debug_hooks->deferred_inline_function) (fndecl);
-	      timevar_pop (TV_INTEGRATION);
-	      return;
-	    }
+	  /* Let the back-end know that this function exists.  */
+	  (*debug_hooks->deferred_inline_function) (fndecl);
+          timevar_pop (TV_INTEGRATION);
+	  return;
 	}
       
       /* Then, inline any functions called in it.  */

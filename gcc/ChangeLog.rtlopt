@@ -1,3 +1,7 @@
+Sat Jan 11 18:06:12 CET 2003  Jan Hubicka   <jh@suse.cz>
+
+	* undo accidental commit of callgraph code.
+
 2003-01-11  Andreas Jaeger  <aj@suse.de>
 
 	* Makefile.in (callgraph.o): New.

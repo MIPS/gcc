@@ -292,9 +292,6 @@ expand_deferred_fns ()
 {
   unsigned int i;
 
-  if (flag_unit_at_time)
-    cgraph_optimize ();
-
   for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
     {
       tree decl = VARRAY_TREE (deferred_fns, i);
