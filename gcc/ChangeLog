@@ -1,3 +1,10 @@
+Sun Apr 28 13:35:13 2002  Jeffrey A Law  (law@redhat.com)
+
+	* pa.md (7100lc, 7200, 7300 scheduling): Refine handling of
+	fpdiv and fpsqrt instructions.
+	(7200 & 7300 scheduling): Fix typo in handling of
+	store-load and store-store penalties.
+
 2002-04-24  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* genautomata.c (output_reserv_sets): Fix typo.
