@@ -1,3 +1,8 @@
+Thu Nov 28 23:56:24 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc): Add copy_rtx to avoid invalid RTX
+	sharing when operand is SUBREG.
+
 Thu Nov 28 08:57:26 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* athlon.md (athlon-decodev): New reservation unit.
