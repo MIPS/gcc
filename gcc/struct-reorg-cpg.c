@@ -1414,11 +1414,14 @@ split_data_structure (struct data_structure *ds)
       /* Find the hotest CP relation in the CPG from the remaining fields.  */
       for (i = 0; i < ds->num_fields; i++)
 	for (j = i; j < ds->num_fields; j++)
-	  if (TEST_BIT (remaining_fields, i) && TEST_BIT (remaining_fields, j))
+	  if (TEST_BIT (remaining_fields, i))
 	    {
 	      gcov_type cp = cp_relation (ds, i, j);
-	      HOST_WIDE_INT size = field_size_in_bytes (ds->fields[i].decl) 
-				  + field_size_in_bytes (ds->fields[j].decl);  
+	      HOST_WIDE_INT size = field_size_in_bytes (ds->fields[i].decl);
+
+	      if (TEST_BIT (remaining_fields, j))
+		size += field_size_in_bytes (ds->fields[j].decl);  
+		
 	      if (cp > max_cp && size <= max_size) 
 		{
 		  max_cp = cp;
@@ -1448,8 +1451,11 @@ split_data_structure (struct data_structure *ds)
       sbitmap_zero (crr_cluster->fields_in_cluster);
       SET_BIT (crr_cluster->fields_in_cluster, max_i);
       RESET_BIT (remaining_fields, max_i);
-      SET_BIT (crr_cluster->fields_in_cluster, max_j);
-      RESET_BIT (remaining_fields, max_j);
+      if (TEST_BIT (remaining_fields, max_j))
+	{
+	  SET_BIT (crr_cluster->fields_in_cluster, max_j);
+	  RESET_BIT (remaining_fields, max_j);
+	}
 
       while (sbitmap_first_set_bit (remaining_fields) >= 0)
 	{

@@ -300,5 +300,8 @@ bool cgraph_default_inline_p (struct cgraph_node *);
 void peel_structs (void);
 void add_call_to_malloc_list (tree);
 
+/* In matrix-transpose.c  */
+void matrix_reorg (void);
+
 #endif  /* GCC_CGRAPH_H  */
 

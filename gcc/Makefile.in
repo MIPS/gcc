@@ -922,8 +922,8 @@ OBJS-common = \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o struct-reorg.o   \
- struct-reorg-cpg.o targhooks.o timevar.o toplev.o tracer.o tree.o 	   \
- tree-dump.o								   \
+ struct-reorg-cpg.o matrix-reorg.o targhooks.o timevar.o toplev.o tracer.o \
+ tree.o tree-dump.o							   \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
@@ -1945,6 +1945,10 @@ struct-reorg.o: struct-reorg.c struct-reorg.h $(CONFIG_H) $(SYSTEM_H) coretypes.
    toplev.h $(GGC_H) $(TARGET_H) langhooks.h $(COVERAGE_H) libfuncs.h \
    gt-coverage.h $(HASHTAB_H)
 struct-reorg-cpg.o: struct-reorg-cpg.c struct-reorg.h $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) function.h \
+   toplev.h $(GGC_H) $(TARGET_H) langhooks.h $(COVERAGE_H) libfuncs.h \
+   gt-coverage.h $(HASHTAB_H)
+matrix-reorg.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) function.h \
    toplev.h $(GGC_H) $(TARGET_H) langhooks.h $(COVERAGE_H) libfuncs.h \
    gt-coverage.h $(HASHTAB_H)

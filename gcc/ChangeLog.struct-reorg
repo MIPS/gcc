@@ -1,3 +1,18 @@
+2004-12-28  Revital Eres  <eres@il.ibm.com>
+
+	* Makefile.in: (matrix_reorg.o): New file.
+	* matrix-reorg.c: New file.
+	* cgraph.h (matrix_reorg): Declare.
+	* graphunit.c (matrix_reorg): Call.
+	* common.opt (flag_matrix_flattening): New flag.
+
+2004-12-28 Mostafa Hagog <mustafa@il.ibm.com>
+
+        * struct-reorg-cpg.c: (split_data_structure): Minor Tweaks.
+        * struct-reorg.c: (build_f1neuron_cluster_info): Comment out.
+        (collect_struct_use_data): Check struct_clustering->direct_access.
+        (do_peel): Check struct_clustering->children/sibling.
+
 2004-12-19  Caroline Tice  <ctice@apple.com>
 
 	* cgraph.h (add_call_to_malloc_list):  New function declaration.
