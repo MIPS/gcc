@@ -433,8 +433,8 @@
 3691624: gcc.dg/debug/dwarf2/dwarf-die7.c scan-assembler 1.*DW_AT_inline
 3717694: gcc.dg/pch/valid-3.c  -fast   (test for errors, line 3)
 3717694: gcc.dg/pch/valid-3.c  -fast   (test for errors, line 3) #1
-3753405: gcc.apple/asm-block-1.c (test for excess errors)
-3753405: gcc.apple/asm-block-2.c (test for excess errors)
+#3753405: gcc.apple/asm-block-1.c (test for excess errors)
+#3753405: gcc.apple/asm-block-2.c (test for excess errors)
 #3753413: gcc.apple/const-cfstring-1.c (test for excess errors)
 #3753413: gcc.apple/const-cfstring-3.c (test for excess errors)
 3753408: gcc.dg/tree-ssa-vect/ifc-01.c (test for excess errors)
@@ -442,17 +442,17 @@
 3753408: gcc.dg/tree-ssa-vect/ifc-01.c scan-tree-dump-times vectorized 1 loops 1
 3753408: gcc.dg/tree-ssa-vect/ifc-02.c (test for excess errors)
 3753408: gcc.dg/tree-ssa-vect/ifc-02.c scan-tree-dump-times Applying if-conversion 1
-3753408: gcc.dg/tree-ssa-vect/ifc-03.c (test for excess errors)
+#3753408: gcc.dg/tree-ssa-vect/ifc-03.c (test for excess errors)
 3753408: gcc.dg/tree-ssa-vect/ifc-03.c scan-tree-dump-times Applying if-conversion 1
-3753408: gcc.dg/tree-ssa-vect/ifc-04.c (test for excess errors)
+#3753408: gcc.dg/tree-ssa-vect/ifc-04.c (test for excess errors)
 3753408: gcc.dg/tree-ssa-vect/ifc-04.c scan-tree-dump-times Applying if-conversion 1
 3753408: gcc.dg/tree-ssa-vect/ifc-04.c scan-tree-dump-times vectorized 1 loops 1
-3753410: gcc.dg/tree-ssa-vect/pr16105.c (test for excess errors)
+#3753410: gcc.dg/tree-ssa-vect/pr16105.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-1.c (test for excess errors)
-3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-10.c (test for excess errors)
+#3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-10.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-11.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-12.c (test for excess errors)
-3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-13.c (test for excess errors)
+#3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-13.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-14.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-15.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-16.c (test for excess errors)
@@ -500,8 +500,8 @@
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-none.c scan-tree-dump-times vectorized 1 loops 1
 3753410: gcc.dg/tree-ssa/ivcanon-1.c (test for excess errors)
 3753410: gcc.dg/tree-ssa/sra-1.c scan-tree-dump-times link_error 0
-3753410: gcc.dg/tree-ssa/ssa-dce-3.c scan-tree-dump-times PHI  1
-3753410: gcc.dg/tree-ssa/ssa-dce-3.c scan-tree-dump-times if  1
+#3753410: gcc.dg/tree-ssa/ssa-dce-3.c scan-tree-dump-times PHI  1
+#3753410: gcc.dg/tree-ssa/ssa-dce-3.c scan-tree-dump-times if  1
 3753410: gcc.dg/tree-ssa-chrec/20040216-1.c scan-tree-dump-times Dependence Node 4
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-31.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-32.c (test for excess errors)
@@ -541,3 +541,5 @@
 3765630: gcc.c-torture/execute/ieee/fp-cmp-8l.c execution,  -fast
 #3765772: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
 3765772: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
+3801739: gcc.dg/verbose-asm-2.c (test for excess errors)
+3801739: gcc.dg/verbose-asm.c (test for excess errors)
