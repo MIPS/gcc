@@ -1,4 +1,3 @@
-<<<<<<< ChangeLog
 2003-12-10  Per Bothner  <pbothner@apple.com>
 
 	* cppfiles.c (open_file):  Tweak previous patch.  Only do extra
@@ -10833,7 +10832,6 @@ Sat Oct 11 12:24:23 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* haifa-sched.c (schedule_block): Likewise.
 	* hashtable.c (ht_create): Likewise.
 
->>>>>>> 2.1943
 2003-08-11  Bob Wilson  <bob.wilson@acm.org>
 
 	* config/xtensa/lib2funcs.S: Fix whitespace.
