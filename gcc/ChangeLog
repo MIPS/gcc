@@ -1,3 +1,23 @@
+2003-02-16 Arend Bayer <arend.bayer@web.de>
+           Richard Henderson  <rth@redhat.com>
+
+	PR c/8068
+        * fold-const.c (extract_muldiv_1): Rename from extract_muldiv;
+        rearrange mult arguments for less recursion.
+        (extract_muldiv): New.  Prevent runaway recursion.
+
+2003-02-14  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	PR optimization/7702
+	* reload1.c (reload_cse_simplify_set): Honor
+	CLASS_CANNOT_CHANGE_MODE_P.
+
+2003-02-13  John David Anglin  <dave.anglin@nrc-crnc.gc.ca>
+
+	* inclhack.def (hpux_long_double): Tighten select and add bypass
+	regexp.
+	* fixincl.x: Rebuilt.
+
 2003-02-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/s390/s390.c (s390_simplify_dwarf_addr): Simplify
@@ -100,12 +120,6 @@
 	(output_function_exception_table): Likewise.
 	* final.c (profile_function): Use current_function_funcdef_no
 	instead of current_function_profile_label_no.
-
-2003-02-14  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
-
-	PR optimization/7702
-	* reload1.c (reload_cse_simplify_set): Honor
-	CLASS_CANNOT_CHANGE_MODE_P.
 
 2003-02-13  Josef Zlomek  <zlomekj@suse.cz>
 

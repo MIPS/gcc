@@ -1887,10 +1887,17 @@ tSCC zHpux_Long_DoubleList[] =
  *  content selection pattern - do fix if pattern found
  */
 tSCC zHpux_Long_DoubleSelect0[] =
-       "long_double";
+       "extern[ \t]long_double[ \t]strtold";
 
-#define    HPUX_LONG_DOUBLE_TEST_CT  1
+/*
+ *  content bypass pattern - skip fix if pattern found
+ */
+tSCC zHpux_Long_DoubleBypass0[] =
+       "long_double_t";
+
+#define    HPUX_LONG_DOUBLE_TEST_CT  2
 static tTestDesc aHpux_Long_DoubleTests[] = {
+  { TT_NEGREP,   zHpux_Long_DoubleBypass0, (regex_t*)NULL },
   { TT_EGREP,    zHpux_Long_DoubleSelect0, (regex_t*)NULL }, };
 
 /*
