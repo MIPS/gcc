@@ -628,12 +628,23 @@ get_constraint_for (tree t)
      That is, of course, unless it is an integer constant being treated as a
      pointer, in which case, we will return that this is really the addressof
      anything.  This happens below, since it will fall into the default case.
+     
+     The only case we know something about an integer treated like a pointer
+     is when it is the NULL pointer, and then we just say it points to NULL.
      */
   if (TREE_CODE (t) == INTEGER_CST
       && !POINTER_TYPE_P (TREE_TYPE (t)))
     {
       temp.var = integer_id;
       temp.type = SCALAR;
+      temp.offset = 0;
+      return temp;
+    }
+  else if (TREE_CODE (t) == INTEGER_CST
+	   && integer_zerop (t))
+    {
+      temp.var = nothing_id;
+      temp.type = ADDRESSOF;
       temp.offset = 0;
       return temp;
     }
@@ -2467,6 +2478,7 @@ create_alias_vars (void)
   var_nothing->offset = 0;
   var_nothing->size = ~0;
   var_nothing->fullsize = ~0;
+  var_nothing->base = var_nothing;
   nothing_id = 0;
   VEC_safe_push (varinfo_t, varmap, var_nothing);
 
