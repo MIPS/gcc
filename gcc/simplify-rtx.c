@@ -955,7 +955,10 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 
 	  /* (neg (plus X 1)) can become (not X).  */
 	  if (GET_CODE (op) == PLUS
-	      && XEXP (op, 1) == const1_rtx)
+	      /* APPLE LOCAL begin disallow generating (not (SYM)) */
+	      && XEXP (op, 1) == const1_rtx
+	      && GET_CODE (XEXP (op, 0)) != SYMBOL_REF)
+	      /* APPLE LOCAL end disallow generating (not (SYM)) */
 	    return simplify_gen_unary (NOT, mode, XEXP (op, 0), mode);
 
 	  /* Similarly, (neg (not X)) is (plus X 1).  */
@@ -973,9 +976,12 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_binary (MINUS, mode, XEXP (op, 1),
 					XEXP (op, 0));
 
+	  /* APPLE LOCAL begin don't allow subtraction of symbol address */
 	  if (GET_CODE (op) == PLUS
 	      && !HONOR_SIGNED_ZEROS (mode)
-	      && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
+	      && !HONOR_SIGN_DEPENDENT_ROUNDING (mode)
+	      && GET_CODE (XEXP (op, 0)) != SYMBOL_REF)
+	    /* APPLE LOCAL end don't allow subtraction of symbol address */
 	    {
 	      /* (neg (plus A C)) is simplified to (minus -C A).  */
 	      if (GET_CODE (XEXP (op, 1)) == CONST_INT
@@ -1681,7 +1687,12 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_unary (NEG, mode, op1, mode);
 
 	  /* (-1 - a) is ~a.  */
-	  if (trueop0 == constm1_rtx)
+	  /* APPLE LOCAL begin disallow generating (not (SYM))
+	     But not when a is relocatable (this arises temporarily when
+	     pulling 386 global addresses out of a loop).  */
+	  if (trueop0 == constm1_rtx
+	      && GET_CODE (op1) != SYMBOL_REF )
+	    /* APPLE LOCAL end disallow generating (not (SYM)) */
 	    return simplify_gen_unary (NOT, mode, op1, mode);
 
 	  /* Subtracting 0 has no effect unless the mode has signed zeros

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 extern void abort (void);
 
 int foo = 0;

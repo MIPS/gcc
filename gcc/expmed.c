@@ -669,7 +669,15 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  /* Fetch that unit, store the bitfield in it, then store
 	     the unit.  */
 	  tempreg = copy_to_reg (op0);
-	  store_bit_field (tempreg, bitsize, bitpos, fieldmode, orig_value);
+	  /* APPLE LOCAL begin do not use float fieldmode */
+	  /* If value was float, we munged it to be int above, so it
+	     is never appropriate to use a float fieldmode here. */
+	  store_bit_field (tempreg, bitsize, bitpos, 
+	      (GET_MODE_CLASS (fieldmode) != MODE_INT
+		&& GET_MODE_CLASS (fieldmode) != MODE_PARTIAL_INT)
+	      ? GET_MODE (orig_value) : fieldmode,
+	    orig_value);
+	  /* APPLE LOCAL end do not use float fieldmode */
 	  emit_move_insn (op0, tempreg);
 	  return value;
 	}

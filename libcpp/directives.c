@@ -66,12 +66,20 @@ struct pragma_entry
    means this directive should be handled even if -fpreprocessed is in
    effect (these are the directives with callback hooks).
 
+   APPLE LOCAL begin pch distcc --mrs
+   IN_I_PCH means that this directive should be handled even if
+   -fpreprocessed is in effect as long as pch_preprocess is also in
+   effect.
+   APPLE LOCAL end pch distcc --mrs
+
    EXPAND is set on directives that are always macro-expanded.  */
 #define COND		(1 << 0)
 #define IF_COND		(1 << 1)
 #define INCL		(1 << 2)
 #define IN_I		(1 << 3)
 #define EXPAND		(1 << 4)
+/* APPLE LOCAL pch distcc --mrs */
+#define IN_I_PCH        (1 << 5)
 
 /* Defines one #-directive, including how to handle it.  */
 typedef void (*directive_handler) (cpp_reader *);
@@ -141,6 +149,8 @@ static void handle_assertion (cpp_reader *, const char *, int);
 #define DIRECTIVE_TABLE							\
 D(define,	T_DEFINE = 0,	KANDR,     IN_I)	   /* 270554 */ \
 D(include,	T_INCLUDE,	KANDR,     INCL | EXPAND)  /*  52262 */ \
+/* APPLE LOCAL pch distcc --mrs */ \
+D(include_pch,  T_INCLUDE_PCH,  KANDR,     INCL | IN_I_PCH)             \
 D(endif,	T_ENDIF,	KANDR,     COND)	   /*  45855 */ \
 D(ifdef,	T_IFDEF,	KANDR,     COND | IF_COND) /*  22000 */ \
 D(if,		T_IF,		KANDR, COND | IF_COND | EXPAND) /*  18162 */ \
@@ -212,7 +222,10 @@ skip_rest_of_line (cpp_reader *pfile)
 static void
 check_eol (cpp_reader *pfile)
 {
-  if (! SEEN_EOL () && _cpp_lex_token (pfile)->type != CPP_EOF)
+  /* APPLE LOCAL begin -Wextra-tokens 2001-08-02 --sts */
+  if (! SEEN_EOL () && _cpp_lex_token (pfile)->type != CPP_EOF
+      && CPP_OPTION (pfile, warn_extra_tokens))
+  /* APPLE LOCAL end -Wextra-tokens 2001-08-02 --sts */
     cpp_error (pfile, CPP_DL_PEDWARN, "extra tokens at end of #%s directive",
 	       pfile->directive->name);
 }
@@ -385,7 +398,11 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 	 -fpreprocessed mode only if the # is in column 1.  macro.c
 	 puts a space in front of any '#' at the start of a macro.  */
       if (CPP_OPTION (pfile, preprocessed)
-	  && (indented || !(dir->flags & IN_I)))
+          /* APPLE LOCAL begin pch distcc --mrs */
+          && (indented || !(dir->flags & IN_I))
+          && ! (CPP_OPTION (pfile, pch_preprocess)
+                && (dir->flags & IN_I_PCH)))
+          /* APPLE LOCAL end pch distcc --mrs */
 	{
 	  skip = 0;
 	  dir = 0;
@@ -700,6 +717,14 @@ do_include (cpp_reader *pfile)
   do_include_common (pfile, IT_INCLUDE);
 }
 
+/* APPLE LOCAL begin pch distcc --mrs */
+static void
+do_include_pch (cpp_reader *pfile)
+{
+  do_include_common (pfile, IT_INCLUDE_PCH);
+}
+/* APPLE LOCAL end pch distcc --mrs */
+
 static void
 do_import (cpp_reader *pfile)
 {
@@ -802,7 +827,8 @@ do_line (cpp_reader *pfile)
     {
       cpp_string s = { 0, 0 };
       if (cpp_interpret_string_notranslate (pfile, &token->val.str, 1,
-					    &s, false))
+					    /* APPLE LOCAL pascal strings */
+					    &s, false, false))
 	new_file = (const char *)s.text;
       check_eol (pfile);
     }
@@ -855,7 +881,8 @@ do_linemarker (cpp_reader *pfile)
     {
       cpp_string s = { 0, 0 };
       if (cpp_interpret_string_notranslate (pfile, &token->val.str,
-					    1, &s, false))
+					    /* APPLE LOCAL pascal strings */
+					    1, &s, false, false))
 	new_file = (const char *)s.text;
 
       new_sysp = 0;
@@ -937,7 +964,14 @@ static void
 do_warning (cpp_reader *pfile)
 {
   /* We want #warning diagnostics to be emitted in system headers too.  */
-  do_diagnostic (pfile, CPP_DL_WARNING_SYSHDR, 1);
+  /* APPLE LOCAL begin handle -Wno-system-headers (2910306)  --ilr */
+  /* Unless explicitly suppressed with -Wno-system-headers or
+     -Wno-#warning.  */
+    if (!CPP_OPTION (pfile, no_pound_warnings)
+        && (!CPP_IN_SYSTEM_HEADER (pfile)
+            || CPP_OPTION (pfile, warn_system_headers)))
+      do_diagnostic (pfile, CPP_DL_WARNING_SYSHDR, 1);
+  /* APPLE LOCAL end handle -Wno-system-headers (2910306)  --ilr */
 }
 
 /* Report program identification.  */
@@ -1562,7 +1596,10 @@ do_else (cpp_reader *pfile)
       ifs->mi_cmacro = 0;
 
       /* Only check EOL if was not originally skipping.  */
-      if (!ifs->was_skipping && CPP_OPTION (pfile, warn_endif_labels))
+      /* APPLE LOCAL begin -Wextra-tokens */
+      if (!ifs->was_skipping
+          && (CPP_OPTION (pfile, warn_endif_labels) || CPP_OPTION (pfile, warn_extra_tokens)))
+      /* APPLE LOCAL end -Wextra-tokens */
 	check_eol (pfile);
     }
 }
@@ -1615,7 +1652,10 @@ do_endif (cpp_reader *pfile)
   else
     {
       /* Only check EOL if was not originally skipping.  */
-      if (!ifs->was_skipping && CPP_OPTION (pfile, warn_endif_labels))
+      /* APPLE LOCAL begin -Wextra-tokens */
+      if (!ifs->was_skipping
+          && (CPP_OPTION (pfile, warn_endif_labels) || CPP_OPTION (pfile, warn_extra_tokens)))
+      /* APPLE LOCAL end -Wextra-tokens */
 	check_eol (pfile);
 
       /* If potential control macro, we go back outside again.  */
@@ -2002,6 +2042,20 @@ cpp_get_options (cpp_reader *pfile)
   return &pfile->opts;
 }
 
+/* APPLE LOCAL begin predictive compilation */
+void
+set_stdin_option (cpp_reader *pfile, int predict_comp_size)
+{
+  if (! CPP_OPTION (pfile, preprocessed))
+  {
+    /* -fpreprocessed -fpredictive-compilation=n: compiler is reading from
+       the processed file in this case. */
+    CPP_OPTION (pfile, predictive_compilation) = true;
+    CPP_OPTION (pfile, predictive_compilation_size) =  predict_comp_size;
+  }
+}
+/* APPLE LOCAL end predictive compilation */
+
 /* The callbacks structure.  */
 cpp_callbacks *
 cpp_get_callbacks (cpp_reader *pfile)
@@ -2097,3 +2151,29 @@ _cpp_init_directives (cpp_reader *pfile)
       node->directive_index = i;
     }
 }
+
+/* APPLE LOCAL begin Symbol Separation */
+/* MERGE FIXME: These are stub routines.  */
+void find_include_cinfo (cpp_reader *pfile ATTRIBUTE_UNUSED,
+                         const char *in_name ATTRIBUTE_UNUSED)
+{
+}
+
+const char *
+cpp_symbol_separation_init (struct cpp_reader *pfile ATTRIBUTE_UNUSED,
+                            const char * dbg_dir ATTRIBUTE_UNUSED,
+                            const char * main_input_filename ATTRIBUTE_UNUSED)
+{
+  return dbg_dir;
+}
+
+void cpp_write_symbol_deps (struct cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+}
+
+unsigned long
+cpp_get_stabs_checksum (void)
+{
+  return 0;
+}
+/* APPLE LOCAL end symbol separation */

@@ -225,17 +225,8 @@ struct c_binding GTY((chain_next ("%h.prev")))
 #define I_LABEL_DECL(node) \
  (I_LABEL_BINDING(node) ? I_LABEL_BINDING(node)->decl : 0)
 
-/* Each C symbol points to three linked lists of c_binding structures.
-   These describe the values of the identifier in the three different
-   namespaces defined by the language.  */
-
-struct lang_identifier GTY(())
-{
-  struct c_common_identifier common_id;
-  struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
-  struct c_binding *tag_binding;    /* struct/union/enum tags */
-  struct c_binding *label_binding;  /* labels */
-};
+/* APPLE LOCAL objc speedup --dpatel */
+/* Definition of 'struct lang_identifier' moved to c-tree.h.  */
 
 /* Validate c-lang.c's assumptions.  */
 extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
@@ -414,10 +405,17 @@ static void layout_array_type (tree);
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
    deprecated items.  */
+/* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+/* Also add an __attribute__((unavailable)).  An object declared as
+   __attribute__((unavailable)) suppresses any reports of being
+   declared with unavailable or deprecated items.  */
+/* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
 enum deprecated_states {
   DEPRECATED_NORMAL,
   DEPRECATED_SUPPRESS
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
+  , DEPRECATED_UNAVAILABLE_SUPPRESS
 };
 
 static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
@@ -1228,12 +1226,68 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	}
       else
 	{
-	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
-	    error ("%J conflicting type qualifiers for %qD", newdecl, newdecl);
+	  /* APPLE LOCAL begin disable typechecking for SPEC --dbj */
+	  /* Accept incompatible function declarations, and incompatible
+	     global variables provided they are in different files. 
+	     (Would be nice to check this for functions also, but
+	     context is not set for them.)  */
+	  void (*err) (const char*, ...);
+	  if (disable_typechecking_for_spec_flag 
+	      && TREE_PUBLIC (olddecl)
+	      && TREE_PUBLIC (newdecl)
+	      && ((TREE_CODE (olddecl) == VAR_DECL 
+	            && TREE_CODE (newdecl) == VAR_DECL
+		    && !same_translation_unit_p (olddecl, newdecl))
+	          || (TREE_CODE (olddecl) == FUNCTION_DECL
+		      && TREE_CODE (newdecl) == FUNCTION_DECL)))
+	    err = warning;
 	  else
-	    error ("%Jconflicting types for %qD", newdecl, newdecl);
+	    err = error;
+	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
+	    err ("%J conflicting type qualifiers for %qD", newdecl, newdecl);
+	  else
+	    err ("%Jconflicting types for %qD", newdecl, newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl, *err);
+	  /* In the case where we're being lenient, two trees will
+	     continue to exist, which represent the same variable.
+	     These are currently never used in the same function, but
+	     watch out for inlining.  */
+	  if (err == warning
+	      && TREE_CODE (olddecl) == VAR_DECL)
+	    {
+	      HOST_WIDE_INT newalias;
+	      /* To prevent aliasing problems, 
+	         make both of them have the same alias class right now.  */
+	      if (TYPE_ALIAS_SET_KNOWN_P (oldtype))
+		{
+		  newalias = TYPE_ALIAS_SET (oldtype);
+		  if (TYPE_ALIAS_SET_KNOWN_P (newtype)
+		      && newalias != TYPE_ALIAS_SET (oldtype))
+		    internal_error ("%Jalias set conflict for '%D'", 
+				newdecl, newdecl);
+		}
+	      else if (TYPE_ALIAS_SET_KNOWN_P (newtype))
+		newalias = TYPE_ALIAS_SET (newtype);
+	      else
+		newalias = new_alias_set ();
+	      TYPE_ALIAS_SET (oldtype) = newalias;
+	      TYPE_ALIAS_SET (newtype) = newalias;
+	      /* Set a marker bit so that only one of them gets emitted
+		 to the output file.  I think this only matters if the 
+		 sizes are different, in which case we must emit the larger.
+		 If a size is unknown, we can mark that one.  */
+	      if (!DECL_SIZE (newdecl))
+		DECL_DUPLICATE_DECL (newdecl) = 1;
+	      else if (!DECL_SIZE (olddecl))
+		DECL_DUPLICATE_DECL (olddecl) = 1;
+	      else if (tree_int_cst_lt (DECL_SIZE (newdecl), 
+					DECL_SIZE (olddecl)))
+		DECL_DUPLICATE_DECL (newdecl) = 1;
+	      else
+		DECL_DUPLICATE_DECL (olddecl) = 1;
+	    }
+	  /* APPLE LOCAL end disable typechecking for SPEC --dbj */
 	  return false;
 	}
     }
@@ -1645,6 +1699,12 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge deprecatedness.  */
   if (TREE_DEPRECATED (newdecl))
     TREE_DEPRECATED (olddecl) = 1;
+
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  /* Merge unavailableness.  */
+  if (TREE_UNAVAILABLE (newdecl))
+    TREE_UNAVAILABLE (olddecl) = 1;
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   /* Keep source location of definition rather than declaration.  */
   if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
@@ -2252,7 +2312,8 @@ implicitly_declare (tree functionid)
 	      implicit_decl_warning (functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
 	    }
-	  if (DECL_BUILT_IN (decl))
+	  /* APPLE LOCAL disable typechecking for SPEC --dbj */
+	  if (DECL_BUILT_IN (decl) || disable_typechecking_for_spec_flag)
 	    {
 	      newtype = build_type_attribute_variant (newtype,
 						      TYPE_ATTRIBUTES
@@ -2703,7 +2764,17 @@ builtin_function (const char *name, tree type, int function_code,
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
-  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+  /* APPLE LOCAL begin AltiVec */
+  if ((name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+#ifdef TARGET_POWERPC
+      /* AltiVec PIM builtins, even though they do not begin with
+	 underscores, need not be declared either.  */
+      || (cl == BUILT_IN_MD
+	  && function_code >= ALTIVEC_PIM__FIRST
+	  && function_code <= ALTIVEC_PIM__LAST)
+#endif /* TARGET_POWERPC */
+      )
+  /* APPLE LOCAL end AltiVec */
     {
       TREE_CHAIN (decl) = visible_builtins;
       visible_builtins = decl;
@@ -2990,8 +3061,37 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   /* An object declared as __attribute__((deprecated)) suppresses
      warnings of uses of other deprecated items.  */
+
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  /* An object declared as __attribute__((unavailable)) suppresses
+     any reports of being declared with unavailable or deprecated
+     items.  An object declared as __attribute__((deprecated))
+     suppresses warnings of uses of other deprecated items.  */
+#ifdef A_LESS_INEFFICENT_WAY /* which I really don't want to do!  */
   if (lookup_attribute ("deprecated", attributes))
     deprecated_state = DEPRECATED_SUPPRESS;
+  else if (lookup_attribute ("unavailable", attributes))
+    deprecated_state = DEPRECATED_UNAVAILABLE_SUPPRESS;
+#else /* a more efficient way doing what lookup_attribute would do */
+  tree a;
+
+  for (a = attributes; a; a = TREE_CHAIN (a))
+    {
+      tree name = TREE_PURPOSE (a);
+      if (TREE_CODE (name) == IDENTIFIER_NODE)
+        if (is_attribute_p ("deprecated", name))
+	  {
+	    deprecated_state = DEPRECATED_SUPPRESS;
+	    break;
+	  }
+        if (is_attribute_p ("unavailable", name))
+	  {
+	    deprecated_state = DEPRECATED_UNAVAILABLE_SUPPRESS;
+	    break;
+	  }
+    }
+#endif
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   decl = grokdeclarator (declarator, declspecs,
 			 NORMAL, initialized, NULL);
@@ -3816,6 +3916,11 @@ grokdeclarator (const struct c_declarator *declarator,
   if (decl_context == NORMAL && !funcdef_flag && current_scope->parm_flag)
     decl_context = PARM;
 
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  if (declspecs->unavailable_p)
+    warn_unavailable_use (declspecs->type);
+  else
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
   if (declspecs->deprecated_p && deprecated_state != DEPRECATED_SUPPRESS)
     warn_deprecated_use (declspecs->type);
 
@@ -3922,6 +4027,8 @@ grokdeclarator (const struct c_declarator *declarator,
     }
   else if (storage_class == csc_extern
 	   && initialized
+	   /* APPLE LOCAL private extern */
+	   && !declspecs->private_extern_p
 	   && !funcdef_flag)
     {
       /* 'extern' with initialization is invalid if not at file scope.  */
@@ -4528,6 +4635,14 @@ grokdeclarator (const struct c_declarator *declarator,
 	if (declspecs->default_int_p)
 	  C_FUNCTION_IMPLICIT_INT (decl) = 1;
 
+	/* APPLE LOCAL begin private extern */
+        if (declspecs->private_extern_p)
+	  {
+	    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	    DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  }
+	/* APPLE LOCAL end private extern */
+
 	/* Record presence of `inline', if it is reasonable.  */
 	if (flag_hosted && MAIN_NAME_P (declarator->u.id))
 	  {
@@ -4595,6 +4710,14 @@ grokdeclarator (const struct c_declarator *declarator,
 	   reset later in start_decl.  */
 	DECL_EXTERNAL (decl) = (storage_class == csc_extern);
 
+	/* APPLE LOCAL begin private extern */
+	if (declspecs->private_extern_p)
+	  {
+	    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	    DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  }
+	/* APPLE LOCAL end private extern */
+
 	/* At file scope, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers
 	   makes this declaration a definition (perhaps tentative).  Also,
@@ -4631,6 +4754,21 @@ grokdeclarator (const struct c_declarator *declarator,
 	C_DECL_REGISTER (decl) = 1;
 	DECL_REGISTER (decl) = 1;
       }
+
+    /* APPLE LOCAL begin CW asm blocks */
+    if (declspecs->cw_asm_specbit)
+      {
+	/* Record that this is a decl of a CW-style asm function.  */
+	if (flag_cw_asm_blocks)
+	  {
+	    DECL_CW_ASM_FUNCTION (decl) = 1;
+	    DECL_CW_ASM_NORETURN (decl) = 0;
+	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	  }
+	else
+	  error ("asm functions not enabled, use `-fasm-blocks'");
+      }
+    /* APPLE LOCAL end CW asm blocks */
 
     /* Record constancy and volatility.  */
     c_apply_type_quals_to_decl (type_quals, decl);
@@ -5909,6 +6047,16 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   DECL_IGNORED_P (resdecl) = 1;
   DECL_RESULT (current_function_decl) = resdecl;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* If this was a function declared as an assembly function, change
+     the state to expect to see C decls, possibly followed by assembly
+     code.  */
+  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+    {
+      cw_asm_state = cw_asm_decls;
+      cw_asm_in_decl = 0;
+    }
+  /* APPLE LOCAL end CW asm blocks */
   start_fname_decls ();
 
   return 1;
@@ -6751,6 +6899,8 @@ build_null_declspecs (void)
   ret->tag_defined_p = false;
   ret->explicit_signed_p = false;
   ret->deprecated_p = false;
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
+  ret->unavailable_p = false;
   ret->default_int_p = false;
   ret->long_p = false;
   ret->long_long_p = false;
@@ -6763,6 +6913,10 @@ build_null_declspecs (void)
   ret->const_p = false;
   ret->volatile_p = false;
   ret->restrict_p = false;
+  /* APPLE LOCAL CW asm blocks */
+  ret->cw_asm_specbit = false;
+  /* APPLE LOCAL private extern */
+  ret->private_extern_p = false;
   return ret;
 }
 
@@ -6810,6 +6964,11 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
   specs->non_sc_seen_p = true;
   if (TREE_DEPRECATED (type))
     specs->deprecated_p = true;
+
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  if (TREE_UNAVAILABLE (type))
+    specs->unavailable_p = true;
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   /* Handle type specifier keywords.  */
   if (TREE_CODE (type) == IDENTIFIER_NODE && C_IS_RESERVED_WORD (type))
@@ -7110,6 +7269,12 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
 	     IDENTIFIER_POINTER (scspec));
   switch (i)
     {
+      /* APPLE LOCAL begin CW asm blocks */
+    case RID_ASM:
+      dupe = specs->cw_asm_specbit;
+      specs->cw_asm_specbit = true;
+      break;
+      /* APPLE LOCAL end CW asm blocks */
     case RID_INLINE:
       /* C99 permits duplicate inline.  Although of doubtful utility,
 	 it seems simplest to permit it in gnu89 mode as well, as
@@ -7138,6 +7303,15 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
       if (specs->thread_p)
 	error ("%<__thread%> before %<extern%>");
       break;
+      /* APPLE LOCAL begin private extern */
+    case RID_PRIVATE_EXTERN:
+      specs->private_extern_p = true;
+      n = csc_extern;
+      /* Diagnose "__thread extern".  */
+      if (specs->thread_p)
+	error ("%<__thread%> before %<private_extern%>");
+      break;
+      /* APPLE LOCAL end private extern */
     case RID_REGISTER:
       n = csc_register;
       break;
@@ -7414,5 +7588,22 @@ c_write_global_declarations (void)
      FIXME: shouldn't be the front end's responsibility to call this.  */
   cgraph_optimize ();
 }
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Look for a struct or union tag, but quietly; don't complain if neither
+   is found, and don't autocreate. Used to identify struct/union tags
+   mentioned in CW asm operands.  */
+tree
+lookup_struct_or_union_tag (tree typename)
+{
+  tree rslt = lookup_tag (RECORD_TYPE, typename, 0);
+
+  pending_invalid_xref = 0;
+  if (!rslt)
+    rslt = lookup_tag (UNION_TYPE, typename, 0);
+  pending_invalid_xref = 0;
+  return rslt;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 #include "gt-c-decl.h"

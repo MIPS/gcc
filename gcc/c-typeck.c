@@ -101,6 +101,8 @@ static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
 static void readonly_error (tree, enum lvalue_use);
 static void record_maybe_used_decl (tree);
+/* APPLE LOCAL non lvalue assign */
+static int apple_lvalue_or_else (tree *ref, enum lvalue_use use);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)  */
@@ -827,6 +829,10 @@ struct tagged_tu_seen {
   const struct tagged_tu_seen * next;
   tree t1;
   tree t2;
+  /* APPLE LOCAL begin IMA speed up */
+  int  isEnum;
+  int  enumMatched;
+  /* APPLE LOCAL end IMA speed up */
 };
 
 /* Can they be compatible with each other?  We choose to break the
@@ -877,45 +883,72 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
     const struct tagged_tu_seen * tts_i;
     for (tts_i = tagged_tu_seen_base; tts_i != NULL; tts_i = tts_i->next)
       if (tts_i->t1 == t1 && tts_i->t2 == t2)
-	return 1;
+	/* APPLE LOCAL IMA speed up */
+	return tts_i->isEnum ? tts_i->enumMatched : 1;
   }
 
   switch (TREE_CODE (t1))
     {
     case ENUMERAL_TYPE:
       {
+	/* APPLE LOCAL begin IMA speed up */
+	struct tagged_tu_seen *tts;
+	int res;
+	bool done;
+	/* Speed up the case where the type values are in the same order. */
+	tree tv1 = TYPE_VALUES (t1);
+	tree tv2 = TYPE_VALUES (t2);
+	if (tv1 == tv2)
+	  return 1;
 
-        /* Speed up the case where the type values are in the same order.  */
-        tree tv1 = TYPE_VALUES (t1);
-        tree tv2 = TYPE_VALUES (t2);
-
-        if (tv1 == tv2)
-          return 1;
-
+	res = 0;
+	done = false;
         for (;tv1 && tv2; tv1 = TREE_CHAIN (tv1), tv2 = TREE_CHAIN (tv2))
           {
             if (TREE_PURPOSE (tv1) != TREE_PURPOSE (tv2))
               break;
             if (simple_cst_equal (TREE_VALUE (tv1), TREE_VALUE (tv2)) != 1)
-              return 0;
+	      {
+	        res = 0;
+		done = true;
+		break;
+	      }
           }
+    
+	if (!done)
+	  {
+            if (tv1 == NULL_TREE && tv2 == NULL_TREE)
+              res = 1, done = true;
+            else if (tv1 == NULL_TREE || tv2 == NULL_TREE)
+              res = 0, done = true;
+	  }
 
-        if (tv1 == NULL_TREE && tv2 == NULL_TREE)
-          return 1;
-        if (tv1 == NULL_TREE || tv2 == NULL_TREE)
-          return 0;
-
-	if (list_length (TYPE_VALUES (t1)) != list_length (TYPE_VALUES (t2)))
-	  return 0;
-
-	for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
+	if (!done && list_length (TYPE_VALUES (t1)) == list_length (TYPE_VALUES (t2)))
+	{
+	  res = 1;
+	  for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
 	  {
 	    s2 = purpose_member (TREE_PURPOSE (s1), TYPE_VALUES (t2));
 	    if (s2 == NULL
 		|| simple_cst_equal (TREE_VALUE (s1), TREE_VALUE (s2)) != 1)
-	      return 0;
+	    {
+	      res = 0;
+	      break;
+	    }
 	  }
-	return 1;
+	}
+	if (tagged_tu_seen_base)
+	{
+	  tts = xmalloc(sizeof (struct tagged_tu_seen));
+	  tts->next = tagged_tu_seen_base;
+	  tts->t1 = t1;
+	  tts->t2 = t2;
+	  tts->isEnum = 1;
+	  tts->enumMatched = res;
+	  tagged_tu_seen_base = tts;
+	}
+	return res;
+	/* APPLE LOCAL end IMA speed up */
       }
 
     case UNION_TYPE:
@@ -927,10 +960,14 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
 	  {
 	    bool ok = false;
 	    struct tagged_tu_seen tts;
+	    /* APPLE LOCAL IMA speed up */
+	    const struct tagged_tu_seen * tts_i;
 
 	    tts.next = tagged_tu_seen_base;
 	    tts.t1 = t1;
 	    tts.t2 = t2;
+	    /* APPLE LOCAL IMA speed up */
+	    tts.isEnum = 0;
 	    tagged_tu_seen_base = &tts;
 
 	    if (DECL_NAME (s1) != NULL)
@@ -952,6 +989,15 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
 		    ok = true;
 		    break;
 		  }
+	    /* APPLE LOCAL begin IMA speed up */
+	    tts_i = tagged_tu_seen_base;
+	    while (tts_i->isEnum)
+	    {
+	      const struct tagged_tu_seen* p = tts_i->next;
+	      free((struct tagged_tu_seen*)tts_i);
+	      tts_i = p;
+	    }
+	    /* APPLE LOCAL end IMA speed up */
 	    tagged_tu_seen_base = tts.next;
 	    if (!ok)
 	      return 0;
@@ -962,10 +1008,14 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
     case RECORD_TYPE:
       {
 	struct tagged_tu_seen tts;
+	/* APPLE LOCAL IMA speedup */
+	const struct tagged_tu_seen * tts_i;
 
 	tts.next = tagged_tu_seen_base;
 	tts.t1 = t1;
 	tts.t2 = t2;
+	/* APPLE LOCAL IMA speedup */
+	tts.isEnum = 0;
 	tagged_tu_seen_base = &tts;
 
 	for (s1 = TYPE_FIELDS (t1), s2 = TYPE_FIELDS (t2);
@@ -987,6 +1037,16 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
 				     DECL_FIELD_BIT_OFFSET (s2)) != 1)
 	      break;
 	  }
+
+	/* APPLE LOCAL begin IMA speed up */
+	tts_i = tagged_tu_seen_base;
+	while (tts_i->isEnum)
+	{
+	  const struct tagged_tu_seen* p = tts_i->next;
+	  free((struct tagged_tu_seen*)tts_i);
+	  tts_i = p;
+	}
+	/* APPLE LOCAL end IMA speed up */
 	tagged_tu_seen_base = tts.next;
 	if (s1 && s2)
 	  return 0;
@@ -1549,6 +1609,11 @@ build_component_ref (tree datum, tree component)
 	  if (TREE_DEPRECATED (subdatum))
 	    warn_deprecated_use (subdatum);
 
+	  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+	  if (TREE_UNAVAILABLE (subdatum))
+	    warn_unavailable_use (subdatum);
+	  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
+
 	  datum = ref;
 
 	  field = TREE_CHAIN (field);
@@ -1760,6 +1825,34 @@ build_external_ref (tree id, int fun)
   tree ref;
   tree decl = lookup_name (id);
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* CW assembly has automagical handling of register names.  It's
+     also handy to assume undeclared names as labels, although it
+     would be better to have a second pass and complain about names in
+     the block that are not labels.  */
+  if (cw_asm_block)
+    {
+      if (decl)
+	{
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    TREE_USED (decl) = 1;
+	  /* Locals and parms just need to be left alone for now.  */
+	}
+      else
+	{
+	  tree newid;
+	  if ((newid = cw_asm_reg_name (id)))
+	    return newid;
+#ifdef CW_ASM_SPECIAL_LABEL
+	  if ((newid = CW_ASM_SPECIAL_LABEL (id)))
+	    return newid;
+#endif
+	  /* Assume undeclared symbols are labels. */
+	  return get_cw_asm_label (id);
+	}
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   /* In Objective-C, an instance variable (ivar) may be preferred to
      whatever lookup_name() found.  */
   decl = objc_lookup_ivar (decl, id);
@@ -1784,6 +1877,11 @@ build_external_ref (tree id, int fun)
 
   if (TREE_DEPRECATED (ref))
     warn_deprecated_use (ref);
+
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  if (TREE_UNAVAILABLE (ref))
+    warn_unavailable_use (ref);
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   if (!skip_evaluation)
     assemble_external (ref);
@@ -2270,6 +2368,17 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   enum tree_code code1 = arg1.original_code;
   enum tree_code code2 = arg2.original_code;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cw_asm_block 
+      && (TREE_CODE (arg1.value) == IDENTIFIER_NODE
+          || TREE_CODE (arg2.value) == IDENTIFIER_NODE))
+    {
+      result.value = error_mark_node;
+      result.original_code = code;
+      return result;
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   result.value = build_binary_op (code, arg1.value, arg2.value, 1);
   result.original_code = code;
 
@@ -2619,7 +2728,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	inc = convert (argtype, inc);
 
 	/* Complain about anything else that is not a true lvalue.  */
-	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
+	/* APPLE LOCAL non lvalue assign */
+	if (!apple_lvalue_or_else (&arg, ((code == PREINCREMENT_EXPR
 				    || code == POSTINCREMENT_EXPR)
 				   ? lv_increment
 				   : lv_decrement)))
@@ -2667,7 +2777,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
       else if (typecode != FUNCTION_TYPE && !flag
-	       && !lvalue_or_else (arg, lv_addressof))
+	       /* APPLE LOCAL non lvalue assign */
+	       && !apple_lvalue_or_else (&arg, lv_addressof))
 	return error_mark_node;
 
       /* Ordinary case; arg is a COMPONENT_REF or a decl.  */
@@ -2751,6 +2862,107 @@ lvalue_p (tree ref)
       return 0;
     }
 }
+
+/* APPLE LOCAL begin non lvalue assign */
+/* Return nonzero if the expression pointed to by REF is an lvalue
+   valid for this language; otherwise, print an error message and return
+   zero.  USE says how the lvalue is being used and so selects the error
+   message.  If -fnon-lvalue-assign has been specified, certain
+   non-lvalue expression shall be rewritten as lvalues and stored back
+   at the location pointed to by REF.  */
+
+static int
+apple_lvalue_or_else (tree *ref, enum lvalue_use use)
+{
+  tree r = *ref;
+  int win = lvalue_p (r);
+
+  /* If -fnon-lvalue-assign is specified, we shall allow assignments
+     to certain constructs that are not (stricly speaking) lvalues.  */
+  if (!win && flag_non_lvalue_assign)
+    {
+      /* (1) Assignment to casts of lvalues, as long as both the lvalue and
+	     the cast are POD types with identical size and alignment.  */
+      if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR
+	   || TREE_CODE (r) == NON_LVALUE_EXPR)
+	  && (use == lv_assign || use == lv_increment || use == lv_decrement
+	      || use == lv_addressof)
+	  /* APPLE LOCAL non lvalue assign */
+	  && apple_lvalue_or_else (&TREE_OPERAND (r, 0), use))
+	{
+	  tree cast_to = TREE_TYPE (r);
+	  tree cast_from = TREE_TYPE (TREE_OPERAND (r, 0));
+
+	  if (simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
+	      && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
+	    {
+	      /* Rewrite '(cast_to)ref' as '*(cast_to *)&ref' so
+		 that the back-end need not think too hard...  */
+	      *ref
+		= build_indirect_ref
+		  (convert (build_pointer_type (cast_to),
+			    build_unary_op
+			    (ADDR_EXPR, TREE_OPERAND (r, 0), 0)), 0);
+
+	      goto allow_as_lvalue;
+	    }
+	}
+      /* (2) Assignment to conditional expressions, as long as both
+	     alternatives are already lvalues.  */
+      else if (TREE_CODE (r) == COND_EXPR
+	       /* APPLE LOCAL non lvalue assign */
+	       && apple_lvalue_or_else (&TREE_OPERAND (r, 1), use)
+	       /* APPLE LOCAL non lvalue assign */
+	       && apple_lvalue_or_else (&TREE_OPERAND (r, 2), use))
+	{
+	  /* Rewrite 'cond ? lv1 : lv2' as '*(cond ? &lv1 : &lv2)' to
+	     placate the back-end.  */
+	  *ref
+	    = build_indirect_ref
+	      (build_conditional_expr
+	       (TREE_OPERAND (r, 0),
+		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 1), 0),
+		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 2), 0)),
+	       0);
+
+	 allow_as_lvalue:
+	  win = 1;
+	  warning ("%s not really an lvalue; "
+		   "this will be a hard error in the future",
+		   (use == lv_addressof
+		    ? "argument to '&'"
+		    : "target of assignment"));
+	}
+    } 
+
+  if (!win)
+    {
+      switch (use)
+	{
+	case lv_assign:
+	  error ("invalid lvalue in assignment");
+	  break;
+	case lv_increment:
+	  error ("invalid lvalue in increment");
+	  break;
+	case lv_decrement:
+	  error ("invalid lvalue in decrement");
+	  break;
+	case lv_addressof:
+	  error ("invalid lvalue in unary %<&%>");
+	  break;
+	case lv_asm:
+	  error ("invalid lvalue in asm statement");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return win;
+}
+/* APPLE LOCAL end non lvalue assign */
+
 
 /* Give an error for storing in something that is 'const'.  */
 
@@ -3031,6 +3243,11 @@ build_compound_expr (tree expr1, tree expr2)
   /* Convert arrays and functions to pointers.  */
   expr2 = default_function_array_conversion (expr2);
 
+ /* APPLE LOCAL begin AltiVec */
+  if (targetm.cast_expr_as_vector_init)
+    ;
+  else
+  /* APPLE LOCAL end AltiVec */
   if (!TREE_SIDE_EFFECTS (expr1))
     {
       /* The left-hand operand of a comma expression is like an expression
@@ -3061,6 +3278,13 @@ build_c_cast (tree type, tree expr)
 
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
@@ -3251,6 +3475,13 @@ build_c_cast (tree type, tree expr)
 	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
 
       ovalue = value;
+      /* APPLE LOCAL begin don't sign-extend pointers cast to integers */
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TYPE_PRECISION (type) > TYPE_PRECISION (otype)
+	  && TYPE_UNSIGNED (type))
+        value = convert (c_common_type_for_size (POINTER_SIZE, 1), value);
+      /* APPLE LOCAL end don't sign-extend pointers cast to integers */
       value = convert (type, value);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -3332,7 +3563,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       newrhs = build_binary_op (modifycode, lhs, rhs, 1);
     }
 
-  if (!lvalue_or_else (lhs, lv_assign))
+  /* APPLE LOCAL non lvalue assign */
+  if (!apple_lvalue_or_else (&lhs, lv_assign))
     return error_mark_node;
 
   /* Give an error for storing in something that is 'const'.  */
@@ -4146,6 +4378,8 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	{
 	  struct c_expr expr;
 	  bool char_string;
+	  /* APPLE LOCAL pascal strings */
+	  bool pascal_string;
 	  expr.value = inside_init;
 	  expr.original_code = (strict_string ? STRING_CST : ERROR_MARK);
 	  maybe_warn_string_init (type, expr);
@@ -4154,16 +4388,24 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	    = (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
 	       == char_type_node);
 
+	  /* APPLE LOCAL begin pascal strings */
+	  pascal_string
+	    = (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
+	       == unsigned_char_type_node);
+	  /* APPLE LOCAL end pascal strings */
+
 	  if (comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
 			 TYPE_MAIN_VARIANT (type)))
 	    return inside_init;
 
-	  if (!wchar_array && !char_string)
+	  /* APPLE LOCAL pascal strings */
+	  if (!wchar_array && !pascal_string && !char_string)
 	    {
 	      error_init ("char-array initialized from wide string");
 	      return error_mark_node;
 	    }
-	  if (char_string && !char_array)
+	  /* APPLE LOCAL pascal strings */
+	  if ((char_string || pascal_string) && !char_array)
 	    {
 	      error_init ("wchar_t-array initialized from non-wide string");
 	      return error_mark_node;
@@ -4296,6 +4538,34 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	  if (flag_pedantic_errors)
 	    inside_init = error_mark_node;
 	}
+      /* APPLE LOCAL begin AltiVec */
+      /* This test catches a Motorola-syntax Altivec vector
+         represented as a constructor of vector type. This tree
+	 is not constant but can be initializer to a const vector. */
+      else if (require_constant
+	       && (code == VECTOR_TYPE && TREE_CODE (init) == CONSTRUCTOR))
+	  return inside_init;
+      else if (require_constant
+	       && (code == VECTOR_TYPE && TREE_CODE (init) == NOP_EXPR))
+	{
+	  /* User is using FSF style vector const. It must be converted to
+	    VECTOR_CST so it is generated at assebly time. */
+	  while (TREE_CODE (init) == NOP_EXPR)
+	    init = TREE_OPERAND (init, 0);
+	  if (TREE_CODE (init) == COMPOUND_LITERAL_EXPR)
+	    {
+	      init = COMPOUND_LITERAL_EXPR_DECL (init);
+	      if (TREE_CODE (init) == VAR_DECL && DECL_INITIAL (init))
+	        {
+		  init = DECL_INITIAL (init);
+		  if (TREE_CODE (init) == VECTOR_CST)
+		    return convert (type, init);
+		}
+	    }
+	  error_init ("initializer element is not constant");
+	  inside_init = error_mark_node;
+	}
+      /* APPLE LOCAL end AltiVec */
       else if (require_constant
 	       && !initializer_constant_valid_p (inside_init,
 						 TREE_TYPE (inside_init)))
@@ -6372,7 +6642,8 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
 	 get an error.  Gross, but ...  */
       STRIP_NOPS (output);
 
-      if (!lvalue_or_else (output, lv_asm))
+      /* APPLE LOCAL non lvalue assign */
+      if (!apple_lvalue_or_else (&output, lv_asm))
 	output = error_mark_node;
 
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));
@@ -6460,6 +6731,120 @@ c_finish_goto_ptr (tree expr)
   return add_stmt (build1 (GOTO_EXPR, void_type_node, expr));
 }
 
+/* APPLE LOCAL begin CW asm blocks */
+int
+cw_asm_typename_or_reserved (tree value)
+{
+  return (C_IS_RESERVED_WORD (value));
+}
+
+/* Given a typename and a component, collect the component's offset.
+   Do this by creating a fake decl with that type and walking it
+   through the usual process.  */
+
+tree
+cw_asm_c_build_component_ref (tree typename, tree component)
+{
+  tree val, type, fake_datum;
+  enum tree_code code;
+  tree field = NULL;
+  tree ref;
+
+  /* Intercept variables here and make a component ref instead.  */
+  if (TREE_CODE (typename) == VAR_DECL)
+    {
+      return build_component_ref (typename, component);
+    }
+
+  val = lookup_name (typename);
+  if (val)
+    {
+      type = TREE_TYPE (val);
+    }
+  else
+    {
+      /* A structure tag will have been assumed to be a label; pick
+	 out the original name.  */
+      if (strncmp ("LASM", IDENTIFIER_POINTER (typename), 4) == 0)
+	{
+	  char *pos = strchr (IDENTIFIER_POINTER (typename), '$');
+	  typename = get_identifier (pos + 1);
+	}
+      type = lookup_struct_or_union_tag (typename);
+      if (!type)
+	{
+	  error ("no structure or union tag named `%s'", IDENTIFIER_POINTER (typename));
+	  return error_mark_node;
+	}
+    }
+
+  fake_datum = make_node (VAR_DECL);
+  TREE_TYPE (fake_datum) = type;
+
+  code = TREE_CODE (type);
+
+  /* See if there is a field or component with name COMPONENT.  */
+
+  if (code == RECORD_TYPE || code == UNION_TYPE)
+    {
+      if (!COMPLETE_TYPE_P (type))
+	{
+	  c_incomplete_type_error (NULL_TREE, type);
+	  return error_mark_node;
+	}
+
+      field = lookup_field (fake_datum, component);
+
+      if (!field)
+	{
+	  error ("%s has no member named `%s'",
+		 code == RECORD_TYPE ? "structure" : "union",
+		 IDENTIFIER_POINTER (component));
+	  return error_mark_node;
+	}
+
+      /* Chain the COMPONENT_REFs if necessary down to the FIELD.
+	 This might be better solved in future the way the C++ front
+	 end does it - by giving the anonymous entities each a
+	 separate name and type, and then have build_component_ref
+	 recursively call itself.  We can't do that here.  */
+      for (; field; field = TREE_CHAIN (field))
+	{
+	  tree subdatum = TREE_VALUE (field);
+
+	  if (TREE_TYPE (subdatum) == error_mark_node)
+	    return error_mark_node;
+
+	  ref = build3 (COMPONENT_REF, TREE_TYPE (subdatum), fake_datum,
+		        subdatum, NULL_TREE);
+	  
+	  if (TREE_READONLY (fake_datum) || TREE_READONLY (subdatum))
+	    TREE_READONLY (ref) = 1;
+	  if (TREE_THIS_VOLATILE (fake_datum) || TREE_THIS_VOLATILE (subdatum))
+	    TREE_THIS_VOLATILE (ref) = 1;
+
+	  if (TREE_DEPRECATED (subdatum))
+	    warn_deprecated_use (subdatum);
+
+	  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+	  if (TREE_UNAVAILABLE (subdatum))
+	    warn_unavailable_use (subdatum);
+	  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
+
+	  fake_datum = ref;
+	}
+
+      /* Return the field decl by itself. */
+      return TREE_OPERAND (ref, 1);
+    }
+  else if (code != ERROR_MARK)
+    error ("request for member `%s' in something not a structure or union",
+	    IDENTIFIER_POINTER (component));
+
+  return error_mark_node;
+}
+/* APPLE LOCAL end CW asm blocks */
+
 /* Generate a C `return' statement.  RETVAL is the expression for what
    to return, or a null pointer for `return;' with no value.  */
 

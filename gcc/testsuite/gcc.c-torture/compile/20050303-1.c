@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 void crc()
 {
     int  toread;

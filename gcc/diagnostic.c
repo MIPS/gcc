@@ -60,6 +60,16 @@ static void real_abort (void) ATTRIBUTE_NORETURN;
 /* A diagnostic_context surrogate for stderr.  */
 static diagnostic_context global_diagnostic_context;
 diagnostic_context *global_dc = &global_diagnostic_context;
+
+/* APPLE LOCAL begin error-colon */
+static int gcc_error_colon = 0;
+/* APPLE LOCAL end error-colon */
+
+/* APPLE LOCAL begin insert assembly ".abort" directive on fatal error   */
+#ifdef EXIT_FROM_FATAL_DIAGNOSTIC
+#define exit(status)	EXIT_FROM_FATAL_DIAGNOSTIC (status)
+#endif
+/* APPLE LOCAL end insert assembly ".abort" directive on fatal error   */
 
 /* Return a malloc'd string containing MSG formatted a la printf.  The
    caller is responsible for freeing the memory.  */
@@ -80,6 +90,11 @@ build_message_string (const char *msg, ...)
 char *
 file_name_as_prefix (const char *f)
 {
+  /* APPLE LOCAL begin error-colon */
+  if (gcc_error_colon)
+    return build_message_string ("%s: error: ", f);
+  else
+  /* APPLE LOCAL end error-colon */
   return build_message_string ("%s: ", f);
 }
 
@@ -150,6 +165,23 @@ diagnostic_count_diagnostic (diagnostic_context *context,
 			     diagnostic_info *diagnostic)
 {
   diagnostic_t kind = diagnostic->kind;
+
+  /* APPLE LOCAL begin error-colon */
+  /* Here so it gets executed early on.  */
+  {
+    static int done = 0;
+    if (!done)
+      {
+	done = 1;	/* Do this only once.  */
+	/* Pretend we saw "-w" on commandline.  */
+	if (getenv ("GCC_DASH_W"))
+	  inhibit_warnings = 1;	/* referenced by diagnostic.h:diagnostic_report_warnings() */
+	if (getenv ("GCC_ERROR_COLON"))
+	  gcc_error_colon = 1;
+      }
+  }
+  /* APPLE LOCAL end error-colon */
+
   switch (kind)
     {
     default:

@@ -1236,8 +1236,18 @@ assemble_start_function (tree decl, const char *fnname)
 
   if (flag_reorder_blocks_and_partition)
     {
+      /* APPLE LOCAL begin hot/cold partitioning */
+      /* We don't want to print out the label for the cold section here,
+	 just fix the alignment.  Therefore play games with 
+	 unlikely_section_label_printed to get this behavior.  */
+      
+      unlikely_section_label_printed = true;
+      /* APPLE LOCAL end hot/cold partitioning */
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
+      /* APPLE LOCAL begin hot/cold partitioning */
+      unlikely_section_label_printed = false;
+      /* APPLE LOCAL end hot/cold partitioning */
     }
 
   resolve_unique_section (decl, 0, flag_function_sections);
@@ -1576,6 +1586,11 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (flag_syntax_only)
     return;
 
+  /* APPLE LOCAL begin duplicate decls in multiple files.  */
+  if (DECL_DUPLICATE_DECL (decl))
+    return;
+  /* APPLE LOCAL end duplicate decls in multiple files.  */
+
   app_disable ();
 
   if (! dont_output_data
@@ -1698,6 +1713,27 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* Switch to the appropriate section.  */
   resolve_unique_section (decl, reloc, flag_data_sections);
   variable_section (decl, reloc);
+
+  /* APPLE LOCAL begin zerofill 20020218 --turly  */
+#ifdef ASM_OUTPUT_ZEROFILL
+  /* We need a ZEROFILL COALESCED option!  */
+  if (!DECL_COMMON (decl)
+      && ! dont_output_data
+      && ! DECL_ONE_ONLY (decl)
+      && ! DECL_WEAK (decl)
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    {
+      ASM_OUTPUT_ZEROFILL (asm_out_file, name,
+			   tree_low_cst (DECL_SIZE_UNIT (decl), 1),
+			   floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT));
+
+      /********************************/
+      /* NOTE THE EARLY RETURN HERE!! */
+      /********************************/
+      return;
+    }
+#endif
+  /* APPLE LOCAL end zerofill 20020218 --turly  */
 
   /* dbxout.c needs to know this.  */
   if (in_text_section () || in_unlikely_text_section ())
@@ -2296,8 +2332,19 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      p = TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings 
+	  && !darwin_constant_cfstring_p (exp))
+      {
+        p = (char *) &exp;
+        len = sizeof exp;
+      }
+      else
+      {
+        p = TREE_STRING_POINTER (exp);
+        len = TREE_STRING_LENGTH (exp);
+      }
+      /* APPLE LOCAL end fwritable strings  */
       break;
 
     case COMPLEX_CST:
@@ -2402,6 +2449,13 @@ compare_constant (const tree t1, const tree t2)
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings 
+	  && !darwin_constant_cfstring_p (t1)
+	  && !darwin_constant_cfstring_p (t2))
+	return t1 == t2;
+      /* APPLE LOCAL end fwritable strings  */
+
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
 
@@ -2583,7 +2637,12 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  desc->value = copy_constant (exp);
+  /* APPLE LOCAL begin fwritable strings  */
+  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
+    desc->value = exp;
+  else
+    desc->value = copy_constant (exp);
+  /* APPLE LOCAL end fwritable strings  */
 
   /* Propagate marked-ness to copied constant.  */
   if (flag_mudflap && mf_marked_p (exp))
@@ -2669,9 +2728,11 @@ maybe_output_constant_def_contents (struct constant_descriptor_tree *desc,
     /* Already output; don't do it again.  */
     return;
 
-  /* We can always defer constants as long as the context allows
-     doing so.  */
-  if (defer)
+  /* APPLE LOCAL begin fwritable strings  */
+  /* The only constants that cannot safely be deferred, assuming the
+     context allows it, are strings under flag_writable_strings.  */
+  if (defer && (TREE_CODE (exp) != STRING_CST || !flag_writable_strings))
+  /* APPLE LOCAL end fwritable strings  */
     {
       /* Increment n_deferred_constants if it exists.  It needs to be at
 	 least as large as the number of constants actually referred to
@@ -3468,6 +3529,8 @@ initializer_constant_valid_p (tree value, tree endtype)
     {
     case CONSTRUCTOR:
       if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
+	   /* APPLE LOCAL AltiVec */
+	   || TREE_CODE (TREE_TYPE (value)) == VECTOR_TYPE
 	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
 	  && TREE_CONSTANT (value)
 	  && CONSTRUCTOR_ELTS (value))
@@ -4839,7 +4902,8 @@ default_select_section (tree decl, int reloc,
 	readonly = true;
     }
   else if (TREE_CODE (decl) == STRING_CST)
-    readonly = true;
+    /* APPLE LOCAL fwritable strings  */
+    readonly = !flag_writable_strings;
   else if (! (flag_pic && reloc))
     readonly = true;
 
@@ -4898,6 +4962,10 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
     {
+      /* APPLE LOCAL begin fwritable strings  */
+      if (flag_writable_strings)
+	return SECCAT_DATA;
+      /* APPLE LOCAL end fwritable strings  */
       if (flag_mudflap) /* or !flag_merge_constants */
         return SECCAT_RODATA;
       else

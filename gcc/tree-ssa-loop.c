@@ -37,36 +37,49 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
+/* APPLE LOCAL begin lno */
+#include "tree-data-ref.h"
+#include "tree-vectorizer.h"
+#include "function.h"
+/* APPLE LOCAL end lno */
 
 /* The loop tree currently optimized.  */
 
 struct loops *current_loops;
 
+/* APPLE LOCAL begin lno */
 /* Initializes the loop structures.  DUMP is the file to that the details
-   about the analysis should be dumped.  */
+   about the analysis should be dumped.  If CANONICALIZE_SSA is true, loop
+   closed ssa form is enforced and redundant phi nodes created by creating
+   preheaders are cleaned up.  */
 
-static struct loops *
-tree_loop_optimizer_init (FILE *dump)
+struct loops *
+tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
 {
   struct loops *loops = loop_optimizer_init (dump);
 
   if (!loops)
     return NULL;
 
-  /* Creation of preheaders may create redundant phi nodes if the loop is
+  if (!canonicalize_ssa)
+    return loops;
+
+  /* Creation of preheaders may create redundant phi nodes (if the loop is
      entered by more than one edge, but the initial value of the induction
-     variable is the same on all of them.  */
+     variable is the same on all of them).  */
   kill_redundant_phi_nodes ();
   rewrite_into_ssa (false);
   bitmap_clear (vars_to_rename);
 
   rewrite_into_loop_closed_ssa ();
+
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
 #endif
 
   return loops;
 }
+/* APPLE LOCAL end lno */
 
 /* The loop superpass.  */
 
@@ -98,7 +111,8 @@ struct tree_opt_pass pass_loop =
 static void
 tree_ssa_loop_init (void)
 {
-  current_loops = tree_loop_optimizer_init (dump_file);
+  /* APPLE LOCAL lno */
+  current_loops = tree_loop_optimizer_init (dump_file, true);
   if (!current_loops)
     return;
 
@@ -193,6 +207,150 @@ struct tree_opt_pass pass_unswitch =
   0					/* letter */
 };
 
+/* APPLE LOCAL begin lno */
+/* A pass for testing of loop infrastructure.  */
+
+static void
+tree_ssa_loop_test (void)
+{
+  if (!current_loops)
+    return;
+
+  scev_analysis ();
+  analyze_all_data_dependences (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_test (void)
+{
+  return flag_tree_ssa_loop_test != 0;
+}
+
+struct tree_opt_pass pass_loop_test = 
+{
+  "lptest",				/* name */
+  gate_tree_ssa_loop_test,		/* gate */
+  tree_ssa_loop_test,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0
+};
+
+/* Marks loops that cannot be removed in DCE, since they are possibly
+   infinite.  */
+
+static void
+tree_mark_maybe_inf_loops (void)
+{
+  if (!current_loops)
+    return;
+
+  cfun->marked_maybe_inf_loops = 1;
+  mark_maybe_infinite_loops (current_loops);
+}
+
+static bool
+gate_tree_mark_maybe_inf_loops (void)
+{
+  return (flag_tree_dce != 0 && optimize >= 2);
+}
+
+struct tree_opt_pass pass_mark_maybe_inf_loops = 
+{
+  "miloops",				/* name */
+  gate_tree_mark_maybe_inf_loops,	/* gate */
+  tree_mark_maybe_inf_loops,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_MARK_MILOOPS,  			/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0
+};
+
+/* Removal of redundant checks.  */
+
+static void
+tree_elim_checks (void)
+{
+  if (!current_loops)
+    return;
+
+  /* This pass is disabled for now.  */
+  /* eliminate_redundant_checks (); */
+}
+
+static bool
+gate_tree_elim_checks (void)
+{
+  return flag_tree_elim_checks != 0;
+}
+
+struct tree_opt_pass pass_elim_checks = 
+{
+  "elck",				/* name */
+  gate_tree_elim_checks,		/* gate */
+  tree_elim_checks,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_ELIM_CHECKS,  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0
+};
+/* APPLE LOCAL end lno */
+
+/* APPLE LOCAL begin loops-to-memset  */
+/* Loops to memset pass.  */
+
+static void
+tree_ssa_loop_memset (void)
+{
+  if (!current_loops)
+    return;
+  
+  tree_ssa_memset (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_memset (void)
+{
+  return flag_tree_loop_memset != 0;
+}
+
+struct tree_opt_pass pass_memset =
+{
+  "memset",                            /* name */
+  gate_tree_ssa_loop_memset,           /* gate */
+  tree_ssa_loop_memset,                        /* execute */
+  NULL,                                        /* sub */
+  NULL,                                        /* next */
+  0,                                   /* static_pass_number */
+  TV_LIM,                              /* tv_id */
+  PROP_cfg,                            /* properties_required */
+  0,                                   /* properties_provided */
+  0,                                   /* properties_destroyed */
+  0,                                   /* todo_flags_start */
+  TODO_dump_func,                      /* todo_flags_finish */
+  0                                    /* letter */
+};
+/* APPLE LOCAL end loops-to-memset */
+
 /* Loop autovectorization.  */
 
 static void
@@ -262,6 +420,42 @@ struct tree_opt_pass pass_linear_transform =
   TODO_dump_func,                	/* todo_flags_finish */
   0				        /* letter */	
 };
+
+/* APPLE LOCAL begin lno */
+/* Prefetching.  */
+
+static void
+tree_ssa_loop_prefetch (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_prefetch_arrays (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_prefetch (void)
+{
+  return flag_prefetch_loop_arrays != 0;
+}
+
+struct tree_opt_pass pass_loop_prefetch =
+{
+  "prefetch",				/* name */
+  gate_tree_ssa_loop_prefetch,		/* gate */
+  tree_ssa_loop_prefetch,	       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PREFETCH,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0
+};
+/* APPLE LOCAL end lno */
 
 /* Canonical induction variable creation pass.  */
 

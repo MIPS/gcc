@@ -792,7 +792,15 @@ extern int x86_prefetch_sse;
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY BITS_PER_WORD
+/* APPLE LOCAL begin compiler should obey -mpreferred-stack-boundary (radar 3232990) */
+/* prefer * #define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary) */
+/*  We're going to extremes to yield a result of indeterminite
+    signedness here; this macro will be expanded in signed and
+    unsigned contexts, and mixed signedness induces fatal
+    warnings.  Radar 3941684.  */
+#define STACK_BOUNDARY ((ix86_preferred_stack_boundary >=  128) ? 128 : \
+			(ix86_preferred_stack_boundary == 64) ? 64 : 32)
+/* APPLE LOCAL end compiler should obey -mpreferred-stack-boundary (radar 3232990) */
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -843,7 +851,8 @@ extern int x86_prefetch_sse;
 #define BIGGEST_FIELD_ALIGNMENT 32
 #endif
 #else
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+/* APPLE LOCAL Macintosh alignment */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED, FIRST_FIELD_P) \
    x86_field_alignment (FIELD, COMPUTED)
 #endif
 

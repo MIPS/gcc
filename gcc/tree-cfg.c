@@ -4466,7 +4466,8 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     return ret;
 
   if (e->dest == dest)
-    return NULL;
+  /* APPLE LOCAL lno */
+    return e;
 
   label = tree_block_label (dest);
 
@@ -4609,9 +4610,17 @@ tree_split_block (basic_block bb, void *stmt)
   bsi_tgt = bsi_start (new_bb);
   while (!bsi_end_p (bsi))
     {
+      /* APPLE LOCAL lno */
+      bool was_modified;
       act = bsi_stmt (bsi);
+      /* APPLE LOCAL lno */
+      was_modified = stmt_modified_p (act);
       bsi_remove (&bsi);
       bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
+      /* APPLE LOCAL begin lno */
+      if (!was_modified)
+	unmodify_stmt (act);
+      /* APPLE LOCAL end lno */
     }
 
   return new_bb;
@@ -5272,12 +5281,21 @@ print_loop_ir (FILE *file)
 
 /* Debugging loops structure at tree level.  */
 
+/* APPLE LOCAL begin lno */
 void 
-debug_loop_ir (void)
+tree_debug_loops (void)
 {
   print_loop_ir (stderr);
 }
 
+/* Debugging loops structure at tree level.  */
+
+void 
+tree_debug_loop (struct loop *loop)
+{
+  print_loop (stderr, loop, 0);
+}
+/* APPLE LOCAL end lno */
 
 /* Return true if BB ends with a call, possibly followed by some
    instructions that must stay with the call.  Return false,
@@ -5287,6 +5305,10 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
+  /* APPLE LOCAL begin tree-profiling-branch --dbj */
+  if (bsi_end_p (bsi))
+    return false;
+  /* APPLE LOCAL end tree-profiling-branch --dbj */
   return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
 
@@ -5297,8 +5319,15 @@ tree_block_ends_with_call_p (basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (basic_block bb)
 {
-  tree stmt = tsi_stmt (bsi_last (bb).tsi);
-  return (TREE_CODE (stmt) == COND_EXPR);
+  /* APPLE LOCAL begin tree-profiling-branch --dbj */
+  block_stmt_iterator bsi = bsi_last (bb);
+  if (!bsi_end_p (bsi))
+    {
+      tree stmt = bsi_stmt (bsi);
+      return (TREE_CODE (stmt) == COND_EXPR);
+    }
+  else return false;
+  /* APPLE LOCAL end tree-profiling-branch --dbj */
 }
 
 

@@ -40,6 +40,21 @@ gcc [@option{-c}|@option{-S}|@option{-E}] [@option{-std=}@var{standard}]
 
 Only the most useful options are listed here; see below for the
 remainder.  @samp{g++} accepts mostly the same options as @samp{gcc}.
+
+@c APPLE LOCAL begin manual
+In Apple's version of GCC, both @samp{cc} and @samp{gcc} are actually
+symbolic links to a compiler named like @samp{gcc-3.4}; which compiler
+is linked to may be changed using the command @samp{gcc_select}.
+Similarly, @samp{c++} and @samp{g++} are links to a compiler named like
+@samp{g++-3.4}.
+
+Note that Apple's GCC includes a number of extensions to standard GCC
+(flagged below with ``APPLE ONLY''), and that not all generic GCC
+options are available or supported on Darwin / Mac OS X.  In particular,
+Apple does not currently support the compilation of Fortran, Ada, or
+Java, although there are third parties who have made these work.
+@c APPLE LOCAL end manual
+
 @c man end
 @c man begin SEEALSO
 gpl(7), gfdl(7), fsf-funding(7),
@@ -48,8 +63,10 @@ and the Info entries for @file{gcc}, @file{cpp}, @file{as},
 @file{ld}, @file{binutils} and @file{gdb}.
 @c man end
 @c man begin BUGS
-For instructions on reporting bugs, see
-@w{@uref{http://gcc.gnu.org/bugs.html}}.
+@c APPLE LOCAL begin Apple bug-report
+To report bugs to Apple, see
+@w{@uref{http://developer.apple.com/bugreporter}}.
+@c APPLE LOCAL end Apple bug-report
 @c man end
 @c man begin AUTHOR
 See the Info entry for @command{gcc}, or
@@ -156,17 +173,44 @@ in the following sections.
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{-c  -S  -E  -o @var{file}  -combine -pipe  -pass-exit-codes  @gol
+@c APPLE LOCAL -ObjC 2001-08-03 --sts **
+-ObjC (APPLE ONLY) -ObjC++ (APPLE ONLY) @gol
+@c APPLE LOCAL fat builds
+-arch @var{arch} (APPLE ONLY) @gol
 -x @var{language}  -v  -###  --help  --target-help  --version}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
 @gccoptlist{-ansi  -std=@var{standard}  -aux-info @var{filename} @gol
+@c APPLE LOCAL AltiVec
+-faltivec (APPLE ONLY) @gol
+@c APPLE LOCAL CW asm blocks
+-fasm-blocks (APPLE ONLY) @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
 -fhosted  -ffreestanding  -fms-extensions @gol
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
+@c APPLE LOCAL constant cfstrings --mrs
+-fconstant-cfstrings (APPLE ONLY) @gol
+@c APPLE LOCAL non lvalue assign
+-fnon-lvalue-assign (APPLE ONLY) @gol
+@c APPLE LOCAL pch distcc --mrs
+-fpch-preprocess (APPLE ONLY) @gol
 -fsigned-bitfields  -fsigned-char @gol
--funsigned-bitfields  -funsigned-char}
+@c APPLE LOCAL pascal strings
+-fpascal-strings (APPLE ONLY) @gol
+@c APPLE LOCAL -Wno-#warnings
+-Wno-#warnings (APPLE ONLY) @gol
+@c APPLE LOCAL -Wextra-tokens 2001-08-02 --sts **
+-Wextra-tokens (APPLE ONLY) @gol
+@c APPLE LOCAL -Wpragma-once 2001-08-01 --sts **
+-Wpragma-once (APPLE ONLY) @gol
+@c APPLE LOCAL -Wnewline-eof 2001-08-23 --sts **
+-Wnewline-eof (APPLE ONLY) @gol
+@c APPLE LOCAL -Wno-altivec-long-deprecated --ilr **
+-Wno-altivec-long-deprecated (APPLE ONLY)
+@c APPLE LOCAL fwritable strings
+-funsigned-bitfields  -funsigned-char  -fwritable-strings}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -197,11 +241,17 @@ Objective-C and Objective-C++ Dialects}.
 -fconstant-string-class=@var{class-name} @gol
 -fgnu-runtime  -fnext-runtime @gol
 -fno-nil-receivers @gol
+@c APPLE LOCAL ObjC C++ ivars
+-fobjc-call-cxx-cdtors (APPLE ONLY) @gol
 -fobjc-exceptions @gol
 -freplace-objc-classes @gol
 -fzero-link @gol
 -gen-decls @gol
--Wno-protocol  -Wselector -Wundeclared-selector}
+@c APPLE LOCAL begin Objective-C
+-Wno-protocol  -Wselector @gol
+-Wstrict-selector-match @gol
+-Wundeclared-selector}
+@c APPLE LOCAL end Objective-C
 
 @item Language Independent Options
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
@@ -226,6 +276,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
+@c APPLE LOCAL -Wmost
+-Wmost (APPLE ONLY) @gol
 -Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
@@ -258,6 +310,11 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL begin lno
+-fdump-tree-scev @r{[}-@var{n}@r{]} @gol
+-fdump-tree-ddall @r{[}-@var{n}@r{]}@gol
+-fdump-tree-elck @r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL end lno
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
@@ -266,6 +323,10 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL begin lno
+-fdump-tree-loop@r{[}-@var{n}@r{]} @gol
+-fdump-tree-vect@r{[}-@var{n}@r{]} @gol
+@c APPLE LOCAL end lno
 -ftree-vectorizer-verbose=@var{n} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
@@ -285,7 +346,8 @@ Objective-C and Objective-C++ Dialects}.
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
--fcaller-saves  -fcprop-registers @gol
+@c APPLE LOCAL add fcreate-profile
+-fcaller-saves  -fcprop-registers -fcreate-profile @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
@@ -320,9 +382,13 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
--ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
+@c APPLE LOCAL lno
+-ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -fscalar-evolutions -fall-data-deps -ftree-vectorize @gol
+@c APPLE LOCAL add fuse-profile
+-fuse-profile @gol
 --param @var{name}=@var{value}
--O  -O0  -O1  -O2  -O3  -Os}
+@c APPLE LOCAL -fast 
+-O  -O0  -O1  -O2  -O3  -Os -fast (APPLE ONLY)}
 
 @item Preprocessor Options
 @xref{Preprocessor Options,,Options Controlling the Preprocessor}.
@@ -346,6 +412,8 @@ Objective-C and Objective-C++ Dialects}.
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
+@c APPLE LOCAL radar 2466994 - -no-c++filt  --ilr
+-no-c++filt (APPLE ONLY)  @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie @gol
 -s  -static  -static-libgcc  -shared  -shared-libgcc  -symbolic @gol
 -Wl,@var{option}  -Xlinker @var{option} @gol
@@ -366,6 +434,8 @@ Objective-C and Objective-C++ Dialects}.
 @c Try and put the significant identifier (CPU or system) first,
 @c so users have a clue at guessing where the ones they want will be.
 
+@c APPLE LOCAL prune man page
+@ignore
 @emph{ARC Options}
 @gccoptlist{-EB  -EL @gol
 -mmangle-cpu  -mcpu=@var{cpu}  -mtext=@var{text-section} @gol
@@ -406,6 +476,8 @@ Objective-C and Objective-C++ Dialects}.
 -m32-bit  -m16-bit  -m8-bit  -mno-prologue-epilogue  -mno-gotplt @gol
 -melf  -maout  -melinux  -mlinux  -sim  -sim2 @gol
 -mmul-bug-workaround  -mno-mul-bug-workaround}
+@c APPLE LOCAL prune man page
+@end ignore
 
 @emph{Darwin Options}
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
@@ -432,6 +504,8 @@ Objective-C and Objective-C++ Dialects}.
 -unexported_symbols_list  -weak_reference_mismatches @gol
 -whatsloaded -F -gused -gfull -mone-byte-bool}
 
+@c APPLE LOCAL prune man page
+@ignore
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
 -mieee  -mieee-with-inexact  -mieee-conformant @gol
@@ -481,6 +555,8 @@ Objective-C and Objective-C++ Dialects}.
 -mpa-risc-1-1  -mpa-risc-2-0  -mportable-runtime @gol
 -mschedule=@var{cpu-type}  -mspace-regs  -msio  -mwsio @gol
 -munix=@var{unix-std}  -nolibdld  -static  -threads}
+@c APPLE LOCAL prune man page
+@end ignore
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -497,6 +573,8 @@ Objective-C and Objective-C++ Dialects}.
 -mcmodel=@var{code-model} @gol
 -m32  -m64}
 
+@c APPLE LOCAL prune man page
+@ignore
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
 -mvolatile-asm-stop  -mb-step  -mregister-names  -mno-sdata @gol
@@ -588,6 +666,8 @@ Objective-C and Objective-C++ Dialects}.
 -mfloat64  -mno-float32  -mabshi  -mno-abshi @gol
 -mbranch-expensive  -mbranch-cheap @gol
 -msplit  -mno-split  -munix-asm  -mdec-asm}
+@c APPLE LOCAL prune man page
+@end ignore
 
 @emph{PowerPC Options}
 See RS/6000 and PowerPC Options.
@@ -598,6 +678,8 @@ See RS/6000 and PowerPC Options.
 -mpower  -mno-power  -mpower2  -mno-power2 @gol
 -mpowerpc  -mpowerpc64  -mno-powerpc @gol
 -maltivec  -mno-altivec @gol
+@c APPLE LOCAL AltiVec
+-mpim-altivec -mno-pim-altivec @gol
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mnew-mnemonics  -mold-mnemonics @gol
@@ -625,6 +707,8 @@ See RS/6000 and PowerPC Options.
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
 -msdata=@var{opt}  -mvxworks  -mwindiss  -G @var{num}  -pthread}
 
+@c APPLE LOCAL prune man page
+@ignore
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
 -mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
@@ -697,6 +781,8 @@ See i386 and x86-64 Options.
 
 @emph{zSeries Options}
 See S/390 and zSeries Options.
+@c APPLE LOCAL prune man page
+@end ignore
 
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
@@ -797,6 +883,15 @@ C++ source code which must be preprocessed.  Note that in @samp{.cxx},
 the last two letters must both be literally @samp{x}.  Likewise,
 @samp{.C} refers to a literal capital C@.
 
+@c APPLE LOCAL begin Objective-C++
+@item @var{file}.mm
+@itemx @var{file}.M
+Objective-C++ source code which must be preprocessed.  (APPLE ONLY)
+
+@item @var{file}.mii
+Objective-C++ source code which should not be preprocessed.  (APPLE ONLY)
+@c APPLE LOCAL end Objective-C++
+
 @item @var{file}.hh
 @itemx @var{file}.H
 C++ header file to be turned into a precompiled header.
@@ -843,7 +938,10 @@ package body).  Such files are also called @dfn{bodies}.
 @c @var{file}.pas
 
 @item @var{file}.s
-Assembler code.
+@c APPLE LOCAL begin preprocess .s files
+Assembler code.  Apple's version of GCC runs the preprocessor
+on these files as well as those ending in @samp{.S}.
+@c APPLE LOCAL end preprocess .s files
 
 @item @var{file}.S
 Assembler code which must be preprocessed.
@@ -879,6 +977,27 @@ treelang
 Turn off any specification of a language, so that subsequent files are
 handled according to their file name suffixes (as they are if @option{-x}
 has not been used at all).
+
+@c APPLE LOCAL begin -ObjC 2001-08-03 --sts **
+@item -ObjC
+@item -ObjC++
+@opindex ObjC
+@opindex ObjC++
+These are similar in effect to @option{-x objective-c} and @option{-x
+objective-c++}, but affect only the choice of compiler for files already
+identified as source files.  (APPLE ONLY)
+@c APPLE LOCAL end -ObjC 2001-08-03 --sts **
+
+@c APPLE LOCAL begin fat builds
+@item -arch @var{arch}
+Compile for the specified target architecture @var{arch}.  The allowable
+values are @samp{i386} and @samp{ppc}.  Multiple options work, and
+direct the compiler to produce ``fat'' binaries including object code
+for each architecture specified with @option{-arch}.  This option only
+works if assembler and libraries are available for each architecture
+specified.  (APPLE ONLY)
+@opindex arch
+@c APPLE LOCAL end fat builds
 
 @item -pass-exit-codes
 @opindex pass-exit-codes
@@ -1150,6 +1269,20 @@ character).  In the case of function definitions, a K&R-style list of
 arguments followed by their declarations is also provided, inside
 comments, after the declaration.
 
+@c APPLE LOCAL begin AltiVec
+@item -faltivec
+This flag is provided for compatibility with Metrowerks CodeWarrior and MrC
+compilers as well as previous Apple versions of GCC.  It causes the
+@option{-mpim-altivec} option to be turned on.
+@c APPLE LOCAL end AltiVec
+
+@c APPLE LOCAL begin CW asm blocks
+@item -fasm-blocks
+Enable the use of blocks and entire functions of assembly code within
+a C or C++ file.  The syntax follows that used in CodeWarrior. (APPLE
+ONLY)
+@c APPLE LOCAL end CW asm blocks
+
 @item -fno-asm
 @opindex fno-asm
 Do not recognize @code{asm}, @code{inline} or @code{typeof} as a
@@ -1268,6 +1401,41 @@ Allow conditional expressions with mismatched types in the second and
 third arguments.  The value of such an expression is void.  This option
 is not supported for C++.
 
+@c APPLE LOCAL begin pch distcc --mrs
+@item -fpch-preprocess
+@opindex fpch-preprocess
+Enable PCH processing even when @option{-E} or @option{-save-temps} is used.
+@c APPLE LOCAL end pch distcc --mrs
+
+@c APPLE LOCAL begin non lvalue assign
+@item -fnon-lvalue-assign
+@item fnon-lvalue-assign
+C and C++ forbid the use of casts and conditional expressions as lvalues, e.g.:
+
+@smallexample
+float *p, q, r;
+((int *)p)++;
+(cond ? q : r) = 3.0;
+@end smallexample
+
+@noindent
+As a transitional measure, the Apple version of GCC 4.0 allows casts and 
+conditional expressions to be used as lvalues in certain situations.  This
+is accomplished via the @option{-fnon-lvalue-assign} switch, which is on
+by default.  Whenever an lvalue cast or an lvalue conditional expression is
+encountered, the compiler will issue a deprecation warning and then rewrite
+the expression as follows:
+
+@smallexample
+(type)expr                ---becomes--->      *(type *)&expr
+cond ? expr1 : expr2      ---becomes--->      *(cond ? &expr1 : &expr2)
+@end smallexample
+
+To disallow lvalue casts and lvalue conditional expressions altogether, 
+specify @option{-fno-non-lvalue-assign}; lvalue casts and lvalue conditional
+expressions will be disallowed in future versions of Apple's GCC.
+@c APPLE LOCAL end non lvalue assign
+
 @item -funsigned-char
 @opindex funsigned-char
 Let the type @code{char} be unsigned, like @code{unsigned char}.
@@ -1307,6 +1475,36 @@ These options control whether a bit-field is signed or unsigned, when the
 declaration does not use either @code{signed} or @code{unsigned}.  By
 default, such a bit-field is signed, because this is consistent: the
 basic integer types such as @code{int} are signed types.
+
+@c APPLE LOCAL begin constant cfstrings
+@item -fconstant-cfstrings
+@opindex fconstant-cfstrings
+Enable the automatic creation of a CoreFoundation-type constant string
+whenever a special builtin @code{__builtin__CFStringMakeConstantString}
+is called on a literal string.  (APPLE ONLY)
+@c APPLE LOCAL end constant cfstrings
+
+@c APPLE LOCAL begin pascal strings
+@item -fpascal-strings
+Allow Pascal-style string literals to be constructed.  (APPLE ONLY)
+
+@xref{Pascal Strings,,Constructing String Literals with a Pascal-style
+Length Byte}, for more information on the syntax and semantics of Pascal
+string literals.
+@c APPLE LOCAL end pascal strings
+
+@c APPLE LOCAL begin fwritable strings. 
+@item -fwritable-strings
+@opindex fwritable-strings
+Store string constants in the writable data segment and don't uniquize
+them.  This is for compatibility with old programs which assume they can
+write into string constants.
+
+Writing into string constants is a very bad idea; ``constants'' should
+be constant.
+
+This option is deprecated.
+@c APPLE LOCAL end fwritable strings.
 @end table
 
 @node C++ Dialect Options
@@ -1378,7 +1576,10 @@ been added for putting variables into BSS without making them common.
 Give string constants type @code{char *} instead of type @code{const
 char *}.  By default, G++ uses type @code{const char *} as required by
 the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant.
+@c APPLE LOCAL begin fwritable strings. 
+actually modify the value of a string constant, unless you also use
+@option{-fwritable-strings}.
+@c APPLE LOCAL end fwritable strings. 
 
 This option might be removed in a future release of G++.  For maximum
 portability, you should structure your code so that it works with
@@ -1508,6 +1709,8 @@ Register destructors for objects with static storage duration with the
 This option is required for fully standards-compliant handling of static
 destructors, but will only work if your C library supports
 @code{__cxa_atexit}.
+@c APPLE LOCAL manual
+This option is not supported on Mac OS X.
 
 @item -fvisibility-inlines-hidden
 @opindex fvisibility-inlines-hidden
@@ -1877,6 +2080,32 @@ is not @code{nil}.  This allows for more efficient entry points in the runtime
 to be used.  Currently, this option is only available in conjunction with
 the NeXT runtime on Mac OS X 10.3 and later.
 
+@c APPLE LOCAL begin ObjC C++ ivars
+@item -fobjc-call-cxx-cdtors
+@opindex fobjc-call-cxx-cdtors
+For each Objective-C class, check if any of its instance variables is a
+C++ object with a non-trivial default constructor.  If so, synthesize a
+special @code{- (id) .cxx_construct} instance method that will run
+non-trivial default constructors on any such instance variables, in order,
+and then return @code{self}.  Similarly, check if any instance variable
+is a C++ object with a non-trivial destructor, and if so, synthesize a
+special @code{- (void) .cxx_destruct} method that will run
+all such default destructors, in reverse order.
+
+The @code{- (id) .cxx_construct} and/or @code{- (void) .cxx_destruct} methods
+thusly generated will only operate on instance variables declared in the
+current Objective-C class, and not those inherited from superclasses.  It
+is the responsibility of the Objective-C runtime to invoke all such methods
+in an object's inheritance hierarchy.  The @code{- (id) .cxx_construct} methods
+will be invoked by the runtime immediately after a new object
+instance is allocated; the @code{- (void) .cxx_destruct} methods will
+be invoked immediately before the runtime deallocates an object instance.
+
+As of this writing, only the NeXT runtime on Mac OS X 10.4 and later has
+support for invoking the @code{- (id) .cxx_construct} and
+@code{- (void) .cxx_destruct} methods.
+@c APPLE LOCAL end ObjC C++ ivars
+
 @item -fobjc-exceptions
 @opindex fobjc-exceptions
 Enable syntactic support for structured exception handling in Objective-C,
@@ -2017,6 +2246,17 @@ the end of compilation, these warnings are not produced if the final
 stage of compilation is not reached, for example because an error is
 found during compilation, or because the @option{-fsyntax-only} option is
 being used.
+
+@c APPLE LOCAL begin Objective-C
+@item -Wstrict-selector-match
+@opindex Wstrict-selector-match
+Warn if multiple methods with differing argument and/or return types are
+found for a given selector when attempting to send a message using this
+selector to a receiver of type @code{id} or @code{Class}.  When this flag
+is off (which is the default behavior), the compiler will omit such warnings
+if any differences found are confined to types which share the same size
+and alignment.
+@c APPLE LOCAL end Objective-C
 
 @item -Wundeclared-selector
 @opindex Wundeclared-selector
@@ -2160,6 +2400,37 @@ Inhibit all warning messages.
 @item -Wno-import
 @opindex Wno-import
 Inhibit warning messages about the use of @samp{#import}.
+
+@c APPLE LOCAL begin -Wno-#warnings
+@item -Wno-#warnings
+@opindex Wno-#warnings
+Inhibit warning messages issued by @samp{#warning}.
+@c APPLE LOCAL end -Wno-#warnings
+
+@c APPLE LOCAL begin -Wpragma-once 2001-08-01 --sts **
+@item -Wpragma-once
+@opindex Wpragma-once
+Warn about the use of @samp{#pragma once}.  (APPLE ONLY)
+@c APPLE LOCAL end -Wpragma-once 2001-08-01 --sts **
+
+@c APPLE LOCAL begin -Wextra-tokens 2001-08-02 --sts **
+@item -Wextra-tokens
+@opindex Wextra-tokens
+Warn about extra tokens at the end of prepreprocessor directives.  (APPLE ONLY)
+@c APPLE LOCAL end -Wextra-tokens 2001-08-02 --sts **
+
+@c APPLE LOCAL begin -Wnewline-eof 2001-08-23 --sts **
+@item -Wnewline-eof
+@opindex Wnewline-eof
+Warn about files missing a newline at the end of the file.  (APPLE ONLY)
+@c APPLE LOCAL end -Wnewline-eof 2001-08-23 --sts **
+
+@c APPLE LOCAL begin -Wno-altivec-long-deprecated --ilr **
+@item -Wno-altivec-long-deprecated
+@opindex Wno-altivec-long-deprecated
+Do not warn about the use of the deprecated 'long' keyword in
+AltiVec data types.  (APPLE ONLY)
+@c APPLE LOCAL end -Wno-altivec-long-deprecated --ilr **
 
 @item -Wchar-subscripts
 @opindex Wchar-subscripts
@@ -2638,7 +2909,12 @@ that are easy to avoid (or modify to prevent the warning), even in
 conjunction with macros.  This also enables some language-specific
 warnings described in @ref{C++ Dialect Options} and
 @ref{Objective-C and Objective-C++ Dialect Options}.
+@c APPLE LOCAL begin -Wmost
+@item -Wmost
+@opindex Wmost
+This is equivalent to -Wall -Wno-parentheses.  (APPLE ONLY)
 @end table
+@c APPLE LOCAL end -Wmost
 
 The following @option{-W@dots{}} options are not implied by @option{-Wall}.
 Some of them warn about constructions that users generally do not
@@ -2776,6 +3052,13 @@ different problem).  In particular, instead of testing for equality, you
 would check to see whether the two values have ranges that overlap; and
 this is done with the relational operators, so equality comparisons are
 probably mistaken.
+
+@c APPLE LOCAL begin -Wfour-char-constants
+@item -Wfour-char-constants
+@opindex Wfour-char-constants
+Warn about four char constants, e.g. OSType 'APPL'.  This warning is 
+disabled by default.
+@c APPLE LOCAL end
 
 @item -Wtraditional @r{(C only)}
 @opindex Wtraditional
@@ -2941,6 +3224,12 @@ converted to an unsigned type.  For example, warn about the assignment
 @code{x = -1} if @code{x} is unsigned.  But do not warn about explicit
 casts like @code{(unsigned) -1}.
 
+@c APPLE LOCAL begin 64bit shorten warning 3865314
+@item -Wshorten-64-to-32
+@opindex Wshorten-64-to-32
+Warn if a value is implicitly converted from a 64 bit type to a 32 bit type.
+@c APPLE LOCAL end 64bit shorten warning 3865314 */
+
 @item -Wsign-compare
 @opindex Wsign-compare
 @cindex warning for comparison of signed and unsigned values
@@ -3031,9 +3320,13 @@ appropriate may not be detected.  This option has no effect unless
 @item -Wno-multichar
 @opindex Wno-multichar
 @opindex Wmultichar
-Do not warn if a multicharacter constant (@samp{'FOOF'}) is used.
+@c APPLE LOCAL begin -Wfour-char-constants
+Do not warn if a multicharacter constant (@samp{'FOO'}) is used.
 Usually they indicate a typo in the user's code, as they have
 implementation-defined values, and should not be used in portable code.
+This flag does not control warning for a constant with four characters,
+use -Wfour-char-constants instead.
+@c APPLE LOCAL end -Wfour-char-constants
 
 @item -Wno-deprecated-declarations
 @opindex Wno-deprecated-declarations
@@ -3190,8 +3483,10 @@ debugging information that only GDB can use; this extra information
 makes debugging work better in GDB but will probably make other debuggers
 crash or
 refuse to read the program.  If you want to control for certain whether
-to generate the extra information, use @option{-gstabs+}, @option{-gstabs},
-@option{-gxcoff+}, @option{-gxcoff}, or @option{-gvms} (see below).
+@c APPLE LOCAL begin prune man page
+to generate the extra information, use @option{-gstabs+} or @option{-gstabs}
+(see below).
+@c APPLE LOCAL end prune man page
 
 GCC allows you to use @option{-g} with
 @option{-O}.  The shortcuts taken by optimized code may occasionally
@@ -3234,6 +3529,8 @@ using GNU extensions understood only by the GNU debugger (GDB)@.  The
 use of these extensions is likely to make other debuggers crash or
 refuse to read the program.
 
+@c APPLE LOCAL prune man page
+@ignore
 @item -gcoff
 @opindex gcoff
 Produce debugging information in COFF format (if that is supported).
@@ -3252,6 +3549,8 @@ using GNU extensions understood only by the GNU debugger (GDB)@.  The
 use of these extensions is likely to make other debuggers crash or
 refuse to read the program, and may cause assemblers other than the GNU
 assembler (GAS) to fail with an error.
+@c APPLE LOCAL prune man page
+@end ignore
 
 @item -gdwarf-2
 @opindex gdwarf-2
@@ -3261,17 +3560,27 @@ option, GCC uses features of DWARF version 3 when they are useful;
 version 3 is upward compatible with version 2, but may still cause
 problems for older debuggers.
 
+@c APPLE LOCAL begin prune man page
+(Other debug formats, such as @option{-gcoff}, are not supported in
+Darwin or Mac OS X.)
+@ignore
 @item -gvms
 @opindex gvms
 Produce debugging information in VMS debug format (if that is
 supported).  This is the format used by DEBUG on VMS systems.
+@end ignore
+@c APPLE LOCAL end prune man page
 
 @item -g@var{level}
 @itemx -ggdb@var{level}
 @itemx -gstabs@var{level}
+@c APPLE LOCAL prune man page
+@ignore
 @itemx -gcoff@var{level}
 @itemx -gxcoff@var{level}
 @itemx -gvms@var{level}
+@c APPLE LOCAL prune man page
+@end ignore
 Request debugging information and also use @var{level} to specify how
 much information.  The default level is 2.
 
@@ -3838,6 +4147,24 @@ appending @file{.dce} to the source file name.
 Dump each function after adding mudflap instrumentation.  The file name is
 made by appending @file{.mudflap} to the source file name.
 
+@c APPLE LOCAL begin lno
+@item scev
+@opindex fdump-tree-scev
+Dump the information gathered by the scalar evolution analyzer.
+The file name is made by appending @file{.scev} to the source file name.
+
+@item ddall
+@opindex fdump-tree-ddall
+Dump all the data dependence relations.
+The file name is made by appending @file{.ddall} to the source file name.
+
+@item elck
+@opindex fdump-tree-elck
+Dump each function after performing checks elimination based on scalar
+evolution informations.  The file name is made by appending
+@file{.elck} to the source file name.
+@c APPLE LOCAL end lno
+
 @item sra
 @opindex fdump-tree-sra
 Dump each function after performing scalar replacement of aggregates.  The
@@ -3873,6 +4200,13 @@ name is made by appending @file{.copyrename} to the source file name.
 Dump each function after applying the named return value optimization on
 generic trees.  The file name is made by appending @file{.nrv} to the source
 file name.
+
+@c APPLE LOCAL begin lno
+@item loop
+@opindex fdump-tree-loop
+Dump each function after applying tree-level loop optimizations.  The file
+name is made by appending @file{.loop} to the source file name.
+@c APPLE LOCAL end lno
 
 @item vect
 @opindex fdump-tree-vect
@@ -4138,6 +4472,12 @@ also turns on the following optimization flags:
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
 
+@c APPLE LOCAL begin optimization
+In Apple's version of GCC, @option{-fstrict-aliasing},
+@option{-freorder-blocks}, and @option{-fsched-interblock}
+are disabled by default when optimizing.
+@c APPLE LOCAL end optimization
+
 @item -O3
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
@@ -4148,6 +4488,52 @@ Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @opindex O0
 Do not optimize.  This is the default.
 
+@c APPLE LOCAL begin -fast  
+@item -fast
+@opindex fast
+Optimize for maximum performance. @option{-fast} changes the overall optimization 
+strategy of GCC in order to produce the fastest possible running code for PPC7450 
+and G5 architectures. By default, @option{-fast} optimizes for G5. Programs 
+optimized for G5 will not run on PPC7450. To optimize for PPC7450, add 
+@option{-mcpu=7450} on command line.
+
+@option{-fast} currently enables the following optimization flags (for G5 and PPC7450). 
+These flags may change in the future. You cannot override any of these options if you use 
+@option{-fast} except by setting @option{-mcpu=7450}. 
+
+To build shared libraries with @option{-fast}, specify @option{-fPIC} on command line. 
+
+@gccoptlist{-O3
+-fgcse-sm
+-funroll-loops
+-fstrict-aliasing
+-fsched-interblock
+-falign-loops=16
+-falign-jumps=16
+-falign-functions=16
+-falign-jumps-max-skip=15
+-falign-loops-max-skip=15
+-malign-natural
+-ffast-math
+-freorder-blocks
+-freorder-blocks-and-partition
+-finline-floor
+-mdynamic-no-pic
+-mpowerpc-gpopt
+-force_cpusubtype_ALL
+-fstrict-aliasing
+-mtune=G5
+-mcpu=G5
+-mpowerpc64}
+
+Important notes: @option{-ffast-math} results in code that is not necessarily 
+IEEE-compliant.  @option{-fstrict-aliasing} is highly likely break 
+non-standard-compliant programs.  @option{-malign-natural} only works properly if
+the entire program is compiled with it, and none of the standard headers/libraries
+contain any code that changes alignment when this option is used.
+
+@c APPLE LOCAL end -fast
+
 @item -Os
 @opindex Os
 Optimize for size.  @option{-Os} enables all @option{-O2} optimizations that
@@ -4157,6 +4543,15 @@ optimizations designed to reduce code size.
 @option{-Os} disables the following optimization flags:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
 -falign-labels  -freorder-blocks  -freorder-blocks-and-partition -fprefetch-loop-arrays}
+
+@c APPLE LOCAL begin Disable string insns with -Os on Darwin (radar 3509006)
+When compiling for Apple powerPC targets, -Os disables use of the string
+instructions even though they would usually be smaller, because
+the kernel can't emulate them correctly in some rare cases.
+This behavior is not portable to any other gcc environment, and will
+not affect most programs at all.  If you really want the string instructions,
+use -mstring.
+@c APPLE LOCAL end Disable string insns with -Os on Darwin (radar 3509006)
 
 If you use multiple @option{-O} options, with or without level numbers,
 the last such option is the one that is effective.
@@ -4697,6 +5092,12 @@ effectiveness of code motion optimizations.  It also saves one jump.  This flag
 is enabled by default at @option{-O} and higher.  It is not enabled
 for @option{-Os}, since it usually increases code size.
 
+@c APPLE LOCAL begin lno
+@item -ftree-elim-checks 
+Perform elimination of checks based on scalar evolution informations.
+This flag is disabled by default.  
+@c APPLE LOCAL end lno
+
 @item -ftree-loop-optimize
 Perform loop optimizations on trees.  This flag is enabled by default
 at @option{-O} and higher.
@@ -4748,6 +5149,12 @@ optimization later.  This is enabled by default at @option{-O} and higher.
 
 @item -ftree-vectorize
 Perform loop vectorization on trees.
+
+@c APPLE LOCAL begin optimization
+In Apple's version of GCC, @option{-fstrict-aliasing} is enabled by default 
+when loop vectorization is enabled. See @option{-fstrict-aliasing} document
+for more information.
+@c APPLE LOCAL end optimization
 
 @item -ftracer
 @opindex ftracer
@@ -5088,12 +5495,19 @@ with a single instruction, e.g., sqrt.  A program that relies on
 IEEE exceptions for math error handling may want to use this flag
 for speed while maintaining IEEE arithmetic compatibility.
 
+@c APPLE LOCAL begin disable math-errno
+@ignore
 This option should never be turned on by any @option{-O} option since
 it can result in incorrect output for programs which depend on
 an exact implementation of IEEE or ISO rules/specifications for
 math functions.
 
 The default is @option{-fmath-errno}.
+@end ignore
+(APPLE ONLY) The Darwin math libraries never set errno, so there is
+no point in having the compiler generate code that assumes they
+might.  Therefore, the default is @option{-fno-math-errno} on Darwin.
+@c APPLE LOCAL end disable math-errno
 
 @item -funsafe-math-optimizations
 @opindex funsafe-math-optimizations
@@ -5748,6 +6162,15 @@ These options come into play when the compiler links object files into
 an executable output file.  They are meaningless if the compiler is
 not doing a link step.
 
+@c APPLE LOCAL begin linker flags
+In addition to the options listed below, Apple's GCC also accepts and
+passes nearly all of the options defined by the linker @samp{ld} and by
+the library tool @samp{libtool}.  Common options include
+@samp{-framework}, @samp{-dynamic}, @samp{-bundle},
+@samp{-flat_namespace}, and so forth.  See the ld and libtool man pages
+for further details.
+@c APPLE LOCAL end linker flags
+
 @table @gcctabopt
 @cindex file names
 @item @var{object-file-name}
@@ -5819,6 +6242,12 @@ These entries are usually resolved by entries in
 libc.  These entry points should be supplied through some other
 mechanism when this option is specified.
 
+@c APPLE LOCAL begin radar 2466994 - -no-c++filt  --ilr
+@item -no-c++filt
+By default all linker diagnostic output is piped through c++filt.
+This option suppresses that behavior.  (APPLE ONLY)
+@c APPLE LOCAL end radar 2466994 - -no-c++filt  --ilr
+
 @item -nostdlib
 @opindex nostdlib
 Do not use the standard system startup files or libraries when linking.
@@ -5866,6 +6295,13 @@ Remove all symbol table and relocation information from the executable.
 On systems that support dynamic linking, this prevents linking with the shared
 libraries.  On other systems, this option has no effect.
 
+@c APPLE LOCAL begin manual
+This option will not work on Mac OS X unless all libraries (including
+@file{libgcc.a}) have also been compiled with @option{-static}.  Since
+neither a static version of libSystem.dylib nor crt0.o are provided, this
+option is not useful to most people.
+@c APPLE LOCAL end manual
+
 @item -shared
 @opindex shared
 Produce a shared object which can then be linked with other objects to
@@ -5878,6 +6314,10 @@ multi-libbed systems, @samp{gcc -shared} must select the correct support
 libraries to link against.  Failing to supply the correct flags may lead
 to subtle defects.  Supplying them in cases where they are not necessary
 is innocuous.}
+
+@c APPLE LOCAL begin manual
+This option is not supported on Mac OS X.
+@c APPLE LOCAL end manual
 
 @item -shared-libgcc
 @itemx -static-libgcc
@@ -6642,17 +7082,27 @@ that macro, which enables you to change the defaults.
 @c in Machine Dependent Options
 
 @menu
+@c APPLE LOCAL prune man page
+@ignore
 * ARC Options::
 * ARM Options::
 * AVR Options::
 * CRIS Options::
+@c APPLE LOCAL prune man page
+@end ignore
 * Darwin Options::
+@c APPLE LOCAL prune man page
+@ignore
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
 * FRV Options::
 * H8/300 Options::
 * HPPA Options::
+@c APPLE LOCAL prune man page
+@end ignore
 * i386 and x86-64 Options::
+@c APPLE LOCAL prune man page
+@ignore
 * IA-64 Options::
 * M32R/D Options::
 * M680x0 Options::
@@ -6663,8 +7113,12 @@ that macro, which enables you to change the defaults.
 * MN10300 Options::
 * NS32K Options::
 * PDP-11 Options::
+@c APPLE LOCAL prune man page
+@end ignore
 * PowerPC Options::
 * RS/6000 and PowerPC Options::
+@c APPLE LOCAL prune man page
+@ignore
 * S/390 and zSeries Options::
 * SH Options::
 * SPARC Options::
@@ -6676,8 +7130,12 @@ that macro, which enables you to change the defaults.
 * Xstormy16 Options::
 * Xtensa Options::
 * zSeries Options::
+@c APPLE LOCAL prune man page
+@end ignore
 @end menu
 
+@c APPLE LOCAL prune man page
+@ignore
 @node ARC Options
 @subsection ARC Options
 @cindex ARC Options
@@ -6746,7 +7204,8 @@ leaf functions.  The default is @option{-mno-apcs-frame}.
 @opindex mapcs
 This is a synonym for @option{-mapcs-frame}.
 
-@ignore
+@c APPLE LOCAL We already have ignore running -- do not do this one --bowdidge 
+@c @ignore
 @c not currently implemented
 @item -mapcs-stack-check
 @opindex mapcs-stack-check
@@ -6773,7 +7232,8 @@ size if @option{-mapcs-float} is used.
 @opindex mapcs-reentrant
 Generate reentrant, position independent code.  The default is
 @option{-mno-apcs-reentrant}.
-@end ignore
+@c APPLE LOCAL We already have ignore running -- do not do this one --bowdidge 
+@c @end ignore
 
 @item -mthumb-interwork
 @opindex mthumb-interwork
@@ -7239,6 +7699,8 @@ initialized data and zero-initialized data are allocated consecutively.
 Like @option{-sim}, but pass linker options to locate initialized data at
 0x40000000 and zero-initialized data at 0x80000000.
 @end table
+@c APPLE LOCAL prune man page
+@end ignore
 
 @node Darwin Options
 @subsection Darwin Options
@@ -7332,6 +7794,32 @@ Generate code suitable for fast turn around development.  Needed to
 enable gdb to dynamically load @code{.o} files into already running
 programs.  @option{-findirect-data} and @option{-ffix-and-continue}
 are provided for backwards compatibility.
+
+@c APPLE LOCAL KEXT
+@item -fapple-kext
+@c APPLE LOCAL KEXT indirect-virtual-calls --sts
+@itemx -findirect-virtual-calls
+@c APPLE LOCAL KEXT terminated-vtables
+@itemx -fterminated-vtables
+@c APPLE LOCAL KEXT
+@opindex fapple-kext
+@c APPLE LOCAL KEXT indirect-virtual-calls --sts
+@opindex findirect-virtual-calls
+@c APPLE LOCAL KEXT terminated-vtables
+@opindex fterminated-vtables
+@c APPLE LOCAL begin KEXT
+Alter vtables, destructors, and other implementation details to more
+closely resemble the GCC 2.95 ABI.  This is to make kernel extensions
+loadable by Darwin kernels, and is required to build any Darwin kernel
+extension.  In addition, virtual calls are not made directly, instead,
+code is generated to always go through the virtual table, as virtual
+tables can be patched by the kernel module loader.  Vtables are
+altered by adding a zero word at the end of every vtable.
+@option{-fno-exceptions} and @option{-static} must also be used with
+this flag.  @option{-findirect-virtual-calls} and
+@option{-fterminated-vtables} are accepted for backwards compatibility
+but will be removed in the future.  (APPLE ONLY)
+@c APPLE LOCAL end KEXT
 
 @item -all_load
 @opindex all_load
@@ -7490,6 +7978,8 @@ These options are passed to the Darwin linker.  The Darwin linker man page
 describes them in detail.
 @end table
 
+@c APPLE LOCAL prune man page
+@ignore
 @node DEC Alpha Options
 @subsection DEC Alpha Options
 
@@ -8382,6 +8872,8 @@ Add support for multithreading with the @dfn{dce thread} library
 under HP-UX@.  This option sets flags for both the preprocessor and
 linker.
 @end table
+@c APPLE LOCAL prune man page
+@end ignore
 
 @node i386 and x86-64 Options
 @subsection Intel 386 and AMD x86-64 Options
@@ -8822,6 +9314,8 @@ about addresses and sizes of sections.  Currently GCC does not implement
 this model.
 @end table
 
+@c APPLE LOCAL prune man page
+@ignore
 @node IA-64 Options
 @subsection IA-64 Options
 @cindex IA-64 Options
@@ -10242,6 +10736,8 @@ Use Unix assembler syntax.  This is the default when configured for
 Use DEC assembler syntax.  This is the default when configured for any
 PDP-11 target other than @samp{pdp11-*-bsd}.
 @end table
+@c APPLE LOCAL prune man page
+@end ignore
 
 @node PowerPC Options
 @subsection PowerPC Options
@@ -10410,6 +10906,35 @@ the AltiVec instruction set.  You may also need to set
 @option{-mabi=altivec} to adjust the current ABI with AltiVec ABI
 enhancements.
 
+@c APPLE LOCAL begin AltiVec
+@item -mpim-altivec
+@itemx -mno-pim-altivec
+@opindex mpim-altivec
+@opindex mno-pim-altivec
+Enable (or disable) built-in compiler support for the syntactic extensions as
+well as operations and predicates defined in the Motorola AltiVec
+Technology Programming Interface Manual (PIM).  This includes the
+recognition of @code{vector} and @code{pixel} as (context-dependent)
+keywords, the definition of built-in functions such as @code{vec_add},
+and the use of parenthesized comma expression as AltiVec literals.
+Note that unlike the option @option{-maltivec}, the extension does not require
+the inclusion of any special header files; if @code{<altivec.h>} is included,
+a warning will be issued and the contents of the header will be
+ignored.  The preprocessor shall provide an @code{__APPLE_ALTIVEC__}
+manifest constant when @option{-mpim-altivec} is specified.  (APPLE ONLY)
+
+In addition, the @option{-mpim-altivec} option disables the inlining of
+functions containing AltiVec instructions into functions that do not make
+use of the vector unit.  Certain other optimizations, such as inline 
+vectorization of @code{memset} and @code{memcpy} calls, are also disabled.
+These adjustments make it possible to compile programs whose use of AltiVec
+instructions is preceded by a run-time check for the presence of AltiVec
+functionality, and that can therefore be made to run on G3 processors.
+Note that all of these optimizations may be re-enabled by supplying
+the @option{-maltivec} option, or an @option{-mcpu} option specifying
+a processor that supports AltiVec instructions.
+@c APPLE LOCAL end AltiVec
+
 @item -mabi=spe
 @opindex mabi=spe
 Extend the current ABI with SPE ABI extensions.  This does not change
@@ -10550,6 +11075,16 @@ alignment rules.  GCC defaults to the standard alignment defined in the ABI@.
 Generate code that does not use (uses) the floating-point register set.
 Software floating point emulation is provided if you use the
 @option{-msoft-float} option, and pass the option to GCC when linking.
+
+@c APPLE LOCAL begin describe actual behavior 3888787
+(APPLE ONLY) While the -msoft-float option is supported, the libraries that
+do the floating point emulation are not shipped on Apple PowerPCs, with the
+effect that the emulation does not work.  However, the option
+may be useful for a different reason.  Normally the compiler can use floating
+point registers in contexts where you might not expect it, for example, to
+copy data from one memory location to another.  The -msoft-float option will
+prevent it from doing this.
+@c APPLE LOCAL end describe actual behavior 3888787
 
 @item -mmultiple
 @itemx -mno-multiple
@@ -10925,6 +11460,8 @@ This option sets flags for both the preprocessor and linker.
 
 @end table
 
+@c APPLE LOCAL prune man page
+@ignore
 @node S/390 and zSeries Options
 @subsection S/390 and zSeries Options
 @cindex S/390 and zSeries Options
@@ -11929,6 +12466,8 @@ every cross-file call, not just those that really will be out of range.
 @cindex zSeries options
 
 These are listed under @xref{S/390 and zSeries Options}.
+@c APPLE LOCAL prune man page
+@end ignore
 
 @node Code Gen Options
 @section Options for Code Generation Conventions
@@ -12127,6 +12666,10 @@ only on certain machines.  For the 386, GCC supports PIC for System V
 but not for the Sun 386i.  Code generated for the IBM RS/6000 is always
 position-independent.
 
+@c APPLE LOCAL begin manual
+@option{-fpic} is not supported on Mac OS X.
+@c APPLE LOCAL end manual
+
 @item -fPIC
 @opindex fPIC
 If supported for the target machine, emit position-independent code,
@@ -12136,6 +12679,10 @@ PowerPC and SPARC@.
 
 Position-independent code requires special support, and therefore works
 only on certain machines.
+
+@c APPLE LOCAL begin manual
+@option{-fPIC} is the default on Darwin and Mac OS X.
+@c APPLE LOCAL end manual
 
 @item -fpie
 @itemx -fPIE

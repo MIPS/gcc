@@ -145,6 +145,8 @@ Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 
 * Copying::         GNU General Public License says
                      how you can copy and share GCC.
+@c APPLE LOCAL GPL compliance
+* Source Code::     How to get the source code for this compiler.
 * GNU Free Documentation License:: How you can copy and share this manual.
 * Contributors::    People who have contributed to GCC.
 
@@ -167,6 +169,8 @@ Introduction, gccint, GNU Compiler Collection (GCC) Internals}.
 
 @include funding.texi
 @include gnu.texi
+@c APPLE LOCAL GPL compliance
+@include sourcecode.texi
 @include gpl.texi
 
 @c ---------------------------------------------------------------------

@@ -138,6 +138,8 @@ enum stmt_vec_info_type {
   load_vec_info_type,
   store_vec_info_type,
   op_vec_info_type,
+  /* APPLE LOCAL AV cond expr. -dpatel */
+  select_vec_info_type,
   assignment_vec_info_type
 };
 
@@ -270,5 +272,9 @@ extern void vectorize_loops (struct loops *);
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
+/* APPLE LOCAL begin loops-to-memset  */
+extern struct data_reference * vect_analyze_pointer_ref_access (tree, tree, bool, tree, tree *, tree *);
+extern tree vect_get_loop_niters (struct loop *, tree *);
+/* APPLE LOCAL end loops-to-memset  */
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

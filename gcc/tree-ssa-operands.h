@@ -182,6 +182,8 @@ typedef stmt_operands_t *stmt_operands_p;
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
+/* APPLE LOCAL AV if-conversion --dpatel  */
+extern void add_vdef (tree, tree);
 extern void get_stmt_operands (tree);
 extern void copy_virtual_operands (tree, tree);
 extern void create_ssa_artficial_load_stmt (stmt_operands_p, tree);

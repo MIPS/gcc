@@ -113,7 +113,8 @@ struct type_hash GTY(())
 };
 
 /* Initial size of the hash table (rounded to next prime).  */
-#define TYPE_HASH_INITIAL_SIZE 1000
+/* APPLE LOCAL fsf candidate */
+#define TYPE_HASH_INITIAL_SIZE 4111
 
 /* Now here is the hash table.  When recording a type, it is added to
    the slot whose index is the hash code.  Note that the hash table is
@@ -753,6 +754,10 @@ build_vector (tree type, tree vals)
   tree v = make_node (VECTOR_CST);
   int over1 = 0, over2 = 0;
   tree link;
+  /* APPLE LOCAL begin AltiVec */
+  int max_index, count = 0;
+  tree list = NULL_TREE;
+  /* APPLE LOCAL end AltiVec */
 
   TREE_VECTOR_CST_ELTS (v) = vals;
   TREE_TYPE (v) = type;
@@ -762,9 +767,35 @@ build_vector (tree type, tree vals)
     {
       tree value = TREE_VALUE (link);
 
+      /* APPLE LOCAL begin AltiVec */
+      value = fold (value);
+      if (TREE_CODE (value) != INTEGER_CST && TREE_CODE (value) != REAL_CST)
+	{
+	  error ("vector literal contains an invalid constant expression");
+	  /* recover */
+	  set_fast_math_flags (1);
+	  value = fold (value);
+	}
+      TREE_VALUE (link) = value;
+      count++;
+      list = link;
+      /* APPLE LOCAL end AltiVec */
       over1 |= TREE_OVERFLOW (value);
       over2 |= TREE_CONSTANT_OVERFLOW (value);
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  max_index = TYPE_VECTOR_SUBPARTS (type);
+  if (count > 0 && count < max_index)
+    {
+      int index;
+      tree expr = TREE_VALUE (list);
+      for (index = count; index < max_index; ++index)
+         list = chainon (list,
+                         build_tree_list (NULL_TREE,
+                                          convert (TREE_TYPE (type), expr)));
+    }
+  /* APPLE LOCAL end AltiVec */
 
   TREE_OVERFLOW (v) = over1;
   TREE_CONSTANT_OVERFLOW (v) = over2;
@@ -2605,6 +2636,8 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   /* Expressions without side effects may be constant if their
      arguments are as well.  */
   constant = (TREE_CODE_CLASS (code) == tcc_comparison
+	      /* APPLE LOCAL Altivec */
+	      || TREE_CODE_CLASS (code) == tcc_expression
 	      || TREE_CODE_CLASS (code) == tcc_binary);
   read_only = 1;
   side_effects = TREE_SIDE_EFFECTS (t);
@@ -5965,7 +5998,11 @@ reconstruct_complex_type (tree type, tree bottom)
   if (POINTER_TYPE_P (type))
     {
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
+      /* APPLE LOCAL begin AltiVec */
+      outer = (TREE_CODE (type) == REFERENCE_TYPE
+	       ? build_reference_type (inner)
+	       : build_pointer_type (inner));
+      /* APPLE LOCAL end AltiVec */
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

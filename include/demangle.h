@@ -141,6 +141,8 @@ enum gnu_v3_ctor_kinds {
   gnu_v3_complete_object_ctor = 1,
   gnu_v3_base_object_ctor,
   gnu_v3_complete_object_allocating_ctor
+  /* APPLE LOCAL decloning */
+  , gnu_v3_unified_ctor
 };
 
 /* Return non-zero iff NAME is the mangled form of a constructor name
@@ -155,6 +157,8 @@ enum gnu_v3_dtor_kinds {
   gnu_v3_deleting_dtor = 1,
   gnu_v3_complete_object_dtor,
   gnu_v3_base_object_dtor
+  /* APPLE LOCAL decloning */
+  , gnu_v3_unified_dtor
 };
 
 /* Return non-zero iff NAME is the mangled form of a destructor name

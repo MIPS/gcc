@@ -20,6 +20,43 @@ autogen definitions fixincl;
 FIXINC_DEBUG = yes;
 #endif
 
+/* APPLE LOCAL begin pragma fenv */
+/*
+ * This adds #pragma GCC fenv to <fenv.h>.  This is part of a
+ * kludge to allow no-trapping-math be the default, yet handle
+ * all the edge cases in C99 right, although FENV_ACCESS doesn't
+ * work in a useful fashion.  It should be possible to remove
+ * this if and when FENV_ACCESS is fully implemented.
+ *
+ * For Tiger the macro is already added to the standard header.
+ * This exists to support backwards compatibility in SDKs.
+ */
+fix = {
+    hackname = AAB_darwin_fenv_h;
+    files    = fenv.h;
+    mach     = '*-*-darwin*';
+    bypass   = '#pragma GCC fenv';
+
+    /*
+     * Define _DARWIN_FENV_H_WRAPPER at the end of the wrapper, not
+     * the start, so that if #include_next gets another instance of
+     * the wrapper, this will follow the #include_next chain until
+     * we arrive at the real <fenv.h>.
+     */
+    replace  = <<-  _EndOfHeader_
+	/* This file is a backwards compability hack to allow 
+	   no-trapping-math to be the default.  */
+	#ifndef _DARWIN_FENV_H_WRAPPER
+	#if defined(__GNUC__) && __GNUC__ >= 4
+	#pragma GCC fenv
+	#endif
+	#include_next <fenv.h>
+	#define _DARWIN_FENV_H_WRAPPER
+	#endif /* _DARWIN_FENV_H_WRAPPER */
+	_EndOfHeader_;
+};
+/* APPLE LOCAL end pragma fenv */
+
 /*
  *  This fixes __FD_ZERO bug for linux 2.x.y (x <= 2 && y <= some n)
  */
@@ -1038,6 +1075,26 @@ fix = {
 };
 
 
+/* APPLE LOCAL begin deployment target */
+/*
+ *  GCC used to set MAC_OS_X_VERSION_MIN_REQUIRED directly, but that isn't
+ *  namespace-clean.
+ */
+fix = {
+  hackname  = darwin_macosx_deployment_target;
+  mach      = "*-*-darwin*";
+  files     = AvailabilityMacros.h;
+  bypass    = "__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__";
+  c_fix     = format;
+  c_fix_arg = "#if ! defined (MAC_OS_X_VERSION_MIN_REQUIRED) && defined (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)\n  #define MAC_OS_X_VERSION_MIN_REQUIRED __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__\n#elif ! defined (MAC_OS_X_VERSION_MIN_REQUIRED)\n";
+  c_fix_arg = "#ifndef MAC_OS_X_VERSION_MIN_REQUIRED\n";
+  test_text = "__private_extern__ int _dyld_func_lookup(\n"
+	      "const char *dyld_func_name,\n"
+	      "unsigned long *address);\n";
+};
+/* APPLE LOCAL end deployment target */
+
+
 /*
  *  __private_extern__ doesn't exist in FSF GCC.  Even if it did,
  *  why would you ever put it in a system header file?
@@ -1054,6 +1111,52 @@ fix = {
 	      "const char *dyld_func_name,\n"
 	      "unsigned long *address);\n";
 };
+
+
+/* APPLE LOCAL begin stdint.h */
+/*
+ *  To support a fully namespace-clean stdint.h, <machine/types.h> can't
+ *  be included; and that means that the various types.h files must
+ *  cooperate with stdint.h.
+ */
+fix = {
+  hackname  = darwin_stdint_guards_intn;
+  mach      = "*-*-darwin*";
+  files     = ppc/types.h;
+  files     = i386/types.h;
+  bypass    = "_INT32_T[ \n]";
+  c_fix     = format;
+  c_fix_arg = "#ifndef _INT%2_T\n#define _INT%2_T\n%0\n#endif";
+  c_fix_arg = "typedef[ \t]([_a-z ]*\t+)int([0-9]+)_t;";
+  test_text = "typedef\t__signed char\t\tint8_t;\n";
+};
+
+
+fix = {
+  hackname  = darwin_stdint_guards_intptr;
+  mach      = "*-*-darwin*";
+  files     = ppc/types.h;
+  files     = i386/types.h;
+  bypass    = "_INTPTR_T[ \n]";
+  c_fix     = format;
+  c_fix_arg = "#ifndef _INTPTR_T\n#define _INTPTR_T\n%0\n#endif";
+  c_fix_arg = "typedef[ \t]([_a-z \t]+)[ \t]+intptr_t;";
+  test_text = "typedef long int\t\tintptr_t;\n";
+};
+
+
+fix = {
+  hackname  = darwin_stdint_guards_uintptr;
+  mach      = "*-*-darwin*";
+  files     = ppc/types.h;
+  files     = i386/types.h;
+  bypass    = "_UINTPTR_T[ \n]";
+  c_fix     = format;
+  c_fix_arg = "#ifndef _UINTPTR_T\n#define _UINTPTR_T\n%0\n#endif";
+  c_fix_arg = "typedef[ \t]([_a-z \t]+)[ \t]+uintptr_t;";
+  test_text = "typedef unsigned long int\tuintptr_t;\n";
+};
+/* APPLE LOCAL end stdint.h */
 
 
 /*

@@ -1703,8 +1703,103 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  {
 	    int regno;
 
-	    gcc_assert (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT);
-	    offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+	    /* APPLE LOCAL  begin 'reg + index' case.  */
+	    offset = 0x696b6c6c;
+
+	    if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT)
+	      offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+	    /* If it's a 'reg + index', we need to find out what value
+	       the index reg has at this point.  (This can happen
+	       because some architectures have registers which can
+	       only be stored using a "reg + index" mode.)
+
+	       This method of finding out the index value is VERY
+	       FRAGILE.  Ideally we'd try to add a note to the save
+	       insn, but...  */
+	    else if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == REG)
+	      {
+	        unsigned the_reg = REGNO (XEXP (XEXP (dest, 0), 1));
+	        rtx insn;
+
+	        /* The REG_FRAME_RELATED_EXPR can sometimes be
+		   out-of-date after the optimiser/inliner has done
+		   its stuff.  For example,
+
+		   (insn: (set (mem:V16QI (plus:SI (reg/f:SI 1 r1)
+					  (reg:SI 6 r6)) [0 S16 A8])
+			  (reg:V16QI 108 v31))
+		          ...
+		          (expr_list:REG_FRAME_RELATED_EXPR
+				       (set (mem:V16QI (plus:SI (reg/f:SI 1 r1)
+						       (reg:SI 0 r0)) [0 S16 A8])
+				            (reg:V16QI 108 v31))
+
+		   Note that the optimiser has used R6 instead of the original
+		   R0 to store the SP offset.  Alas, we blindly look for R0
+		   here, since DEST is the REG_FRAME_RELATED_EXPR, so we need
+		   to check for that.
+
+		   This needs a rework from scratch, but it'll do for now.  */
+
+		insn = XEXP (XEXP (XEXP (PATTERN (current_output_insn),
+					 0), 0), 1);
+		if (GET_CODE (insn) == REG)
+		  the_reg = REGNO (insn);
+
+		insn = PREV_INSN (current_output_insn);
+		for (; insn != NULL; insn = PREV_INSN (insn))
+		  {
+		    if (GET_CODE (insn) != INSN
+			|| PATTERN (insn) == NULL)
+		      ;
+		    else if (GET_CODE (PATTERN (insn)) == SET)
+		      {
+			rtx p = PATTERN (insn);
+			if (SET_DEST (p) != NULL
+			    && GET_CODE (SET_DEST (p)) == REG
+			    && REGNO (SET_DEST (p)) == the_reg)
+			  {
+			    if (GET_CODE (SET_SRC (p)) == CONST_INT)
+			      {
+				offset = INTVAL (SET_SRC (p));
+				break;
+			      }
+			    else
+			      abort ();
+			  }
+		      }
+		    else
+		      /* A label?  All bets are off.  */
+		      if (GET_CODE (PATTERN (insn)) == CODE_LABEL)
+			abort ();
+		  }
+
+		/* DEST can also be something like:
+
+		     (mem:V16QI (plus:SI (plus:SI (reg/f:SI 1 r1)
+						  (const_int 147792 [0x24150]))
+					 (reg:SI 0 r0)) [0 S16 A8])
+
+		   This is handled here by adjusting the offset appropriately.  */
+
+		insn = XEXP (XEXP (dest, 0), 0);
+		if (GET_CODE (insn) == PLUS && GET_CODE (XEXP (insn, 0)) == REG
+		    && GET_CODE (XEXP (insn, 1)) == CONST_INT)
+		  {
+		    gcc_assert (offset != 0x696b6c6c);
+		    offset += INTVAL (XEXP (insn, 1));
+
+		    /* Set DEST to be the inner PLUS so that
+		       REGNO (XEXP (XEXP (dest, 0), 0) will be sensible.  */
+
+		    dest = XEXP (dest, 0);
+		  }
+	      }
+	    else
+	      abort ();
+	    gcc_assert (offset != 0x696b6c6c);
+	    /* APPLE LOCAL  end 'reg + index' case.  */
+
 	    if (GET_CODE (XEXP (dest, 0)) == MINUS)
 	      offset = -offset;
 

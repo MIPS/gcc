@@ -273,6 +273,11 @@ proc g++_target_compile { source dest type options } {
     }
 
     lappend options "additional_flags=[libio_include_flags]"
+    # APPLE LOCAL begin testsuite multiply defined
+    if [ istarget *-*-darwin* ] {
+	lappend options "ldflags=-Wl,-multiply_defined,suppress"
+    }
+    # APPLE LOCAL end testsuite multiply defined
     lappend options "compiler=$GXX_UNDER_TEST";
 
     set options [concat $gpp_compile_options $options]

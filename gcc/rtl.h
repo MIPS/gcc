@@ -1424,6 +1424,10 @@ extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
 extern rtx assign_stack_local (enum machine_mode, HOST_WIDE_INT, int);
+/* APPLE LOCAL begin next declaration */
+extern rtx assign_stack_local_with_alias (enum machine_mode, 
+					  HOST_WIDE_INT, int);
+/* APPLE LOCAL end next declaration */
 extern rtx assign_stack_temp (enum machine_mode, HOST_WIDE_INT, int);
 extern rtx assign_stack_temp_for_type (enum machine_mode,
 				       HOST_WIDE_INT, int, tree);
@@ -2122,6 +2126,8 @@ extern int read_rtx_lineno;
 extern void clear_reg_alias_info (rtx);
 extern rtx canon_rtx (rtx);
 extern int true_dependence (rtx, enum machine_mode, rtx, int (*)(rtx, int));
+/* APPLE LOCAL nop on true-dependence. */
+extern int must_true_dependence (rtx, rtx);
 extern rtx get_addr (rtx);
 extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 				  int (*)(rtx, int));
@@ -2157,6 +2163,16 @@ extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In tracer.c */
 extern void tracer (unsigned int);
+
+/* APPLE LOCAL begin lno */
+/* In loop-unswitch.c  */
+extern rtx reversed_condition (rtx);
+extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
+
+/* In loop-iv.c  */
+extern rtx canon_condition (rtx);
+extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+/* APPLE LOCAL end lno */
 
 /* In var-tracking.c */
 extern void variable_tracking_main (void);

@@ -26,6 +26,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "ggc.h"
 
+/* APPLE LOCAL begin CW asm blocks */
+/* We use a small state machine to inform the lexer when to start
+   returning tokens marking the beginning of each asm line.  */
+enum cw_asm_states {
+  /* Normal code.  */
+  cw_asm_none,
+  /* '{' of asm block seen, decls may appear.  */
+  cw_asm_decls,
+  /* No more decls, in asm block proper, '}' not seen yet.  */
+  cw_asm_asm
+};
+
+extern enum cw_asm_states cw_asm_state;
+extern int cw_asm_in_decl;
+extern int cw_asm_block;
+extern int cw_asm_at_bol;
+extern int cw_asm_in_operands;
+extern int cw_asm_labelno;
+extern int cw_asm_lineno;
+/* APPLE LOCAL end CW asm blocks */
+
 /* Usage of TREE_LANG_FLAG_?:
    0: TREE_NEGATED_INT (in INTEGER_CST).
       IDENTIFIER_MARKED (used by search routines).
@@ -56,6 +77,8 @@ enum rid
 
   /* C extensions */
   RID_COMPLEX, RID_THREAD,
+  /* APPLE LOCAL private extern */
+  RID_PRIVATE_EXTERN,
 
   /* C++ */
   RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
@@ -140,6 +163,8 @@ enum c_tree_index
     CTI_WIDEST_UINT_LIT_TYPE,
 
     CTI_CHAR_ARRAY_TYPE,
+    /* APPLE LOCAL pascal strings */
+    CTI_PASCAL_STRING_TYPE,    /* for Pascal strings */
     CTI_WCHAR_ARRAY_TYPE,
     CTI_INT_ARRAY_TYPE,
     CTI_STRING_TYPE,
@@ -189,6 +214,8 @@ struct c_common_identifier GTY(())
 #define truthvalue_false_node		c_global_trees[CTI_TRUTHVALUE_FALSE]
 
 #define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
+/* APPLE LOCAL pascal strings */
+#define pascal_string_type_node 	c_global_trees[CTI_PASCAL_STRING_TYPE]
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
 #define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
 #define string_type_node		c_global_trees[CTI_STRING_TYPE]
@@ -386,12 +413,25 @@ extern int flag_short_double;
 
 extern int flag_short_wchar;
 
+/* APPLE LOCAL begin lvalue cast */
+/* Nonzero means allow assignment, increment or decrement of casts of
+   lvalues (e.g., '((foo *)p)++') if both the lvalue and its cast are
+   of POD type with identical size and alignment.  */
+extern int flag_lvalue_cast_assign;
+/* APPLE LOCAL end lvalue cast */
+
 /* Nonzero means allow Microsoft extensions without warnings or errors.  */
 extern int flag_ms_extensions;
 
 /* Nonzero means don't recognize the keyword `asm'.  */
 
 extern int flag_no_asm;
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Nonzero means that CodeWarrior-style inline assembler is to be parsed.  */
+
+extern int flag_cw_asm_blocks;
+/* APPLE LOCAL end CW asm blocks */
 
 /* Nonzero means give string constants the type `const char *', as mandated
    by the standard.  */
@@ -416,6 +456,12 @@ extern int warn_unknown_pragmas; /* Tri state variable.  */
 
 extern int warn_format;
 
+/* APPLE LOCAL begin disable_typechecking_for_spec_flag */
+/* This makes type conflicts a warning, instead of an error,
+   to work around some problems with SPEC.  */
+
+extern int disable_typechecking_for_spec_flag;
+/* APPLE LOCAL end disable_typechecking_for_spec_flag */
 
 /* C/ObjC language option variables.  */
 
@@ -453,6 +499,13 @@ extern int flag_gen_declaration;
 /* Generate code for GNU or NeXT runtime environment.  */
 
 extern int flag_next_runtime;
+
+/* APPLE LOCAL begin ObjC C++ ivars */
+/* Generate special '- .cxx_construct' and '- .cxx_destruct' methods
+   to initialize any non-POD ivars in ObjC++ classes.  */
+
+extern int flag_objc_call_cxx_cdtors;
+/* APPLE LOCAL end ObjC C++ ivars */
 
 /* Tells the compiler that this is a special run.  Do not perform any
    compiling, instead we are to test some platform dependent features
@@ -565,6 +618,26 @@ extern int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 extern int flag_enforce_eh_specs;
+
+/* APPLE LOCAL KEXT */
+extern int flag_apple_kext;
+
+/* APPLE LOCAL begin structor thunks */
+/* Nonzero if we prefer to clone con/de/structors.
+   Alternative is to gen multiple tiny thunk-esque things that
+   call/jump to a unified con/de/structor.  This is a classic
+   size/speed tradeoff.  */
+extern int flag_clone_structors;
+/* APPLE LOCAL end structor thunks */
+
+/* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
+/* Nonzero if -fpreprocessed specified.  This is needed by init_reswords()
+   so that it can make __private_extern__ have the same rid code as extern
+   when -fpreprocessed is specified.  Normally there is a -D on the command
+   line for this.  But if -fpreprocessed was specified then macros aren't
+   expanded.  So we fake the token value out using the rid code.  */
+extern int flag_preprocessed;
+/* APPLE LOCAL end private extern  Radar 2872481 --ilr */
 
 /* Nonzero (the default) means to generate thread-safe code for
    initializing local statics.  */
@@ -688,6 +761,10 @@ extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
 extern tree strip_pointer_operator (tree);
+
+/* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
+extern bool builtin_function_disabled_p (const char *);
+/* APPLE LOCAL end */
 
 /* This is the basic parsing function.  */
 extern void c_parse_file (void);
@@ -951,11 +1028,13 @@ extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
 extern tree objc_build_throw_stmt (tree);
 extern void objc_begin_try_stmt (location_t, tree);
-extern void objc_finish_try_stmt (void);
+/* APPLE LOCAL Objective-C++ */
+extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
 extern void objc_finish_catch_clause (void);
 extern void objc_build_finally_clause (location_t, tree);
-extern void objc_build_synchronized (location_t, tree, tree);
+/* APPLE LOCAL Objective-C++ */
+extern tree objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
 
@@ -969,5 +1048,25 @@ extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
+
+/* APPLE LOCAL begin CW asm blocks */
+extern tree cw_asm_stmt (tree, tree);
+extern tree cw_asm_build_register_offset (tree, tree);
+extern tree cw_asm_label (tree, int);
+extern tree prepend_char_identifier (tree, char);
+extern void clear_cw_asm_labels (void);
+extern tree cw_asm_reg_name (tree);
+extern tree get_cw_asm_label (tree);
+extern tree cw_asm_entry (tree, tree, tree);
+extern int cw_asm_typename_or_reserved (tree);
+extern tree cw_asm_c_build_component_ref (tree, tree);
+extern tree cw_get_identifier (tree, const char *);
+/* APPLE LOCAL end CW asm blocks */
+
+/* APPLE LOCAL begin AltiVec */
+/* The following function will convert expressions into
+   vector initializers.  */
+extern tree vector_constructor_from_expr (tree, tree);
+/* APPLE LOCAL end AltiVec */
 
 #endif /* ! GCC_C_COMMON_H */

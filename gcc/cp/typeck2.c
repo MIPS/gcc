@@ -698,13 +698,21 @@ digest_init (tree type, tree init, tree* tail)
 
 	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       != char_type_node)
+	      /* APPLE LOCAL begin pascal strings */
+	      && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+	       != unsigned_char_type_node) 
+	      /* APPLE LOCAL end pascal strings */
 	      && TYPE_PRECISION (typ1) == BITS_PER_UNIT)
 	    {
 	      error ("char-array initialized from wide string");
 	      return error_mark_node;
 	    }
-	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+          /* APPLE LOCAL begin pascal strings */
+	  if (((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       == char_type_node)
+	      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+	       == unsigned_char_type_node))	       
+	      /* APPLE LOCAL end pascal strings */
 	      && TYPE_PRECISION (typ1) != BITS_PER_UNIT)
 	    {
 	      error ("int-array initialized from non-wide string");
@@ -789,7 +797,15 @@ digest_init (tree type, tree init, tree* tail)
 	  return process_init_constructor (type, 0, tail);
 	}
 
-      if (code != ARRAY_TYPE)
+      /* APPLE LOCAL begin AltiVec */
+      if (code == VECTOR_TYPE
+	  && TREE_CODE (init) == CONSTRUCTOR
+	  && TREE_CODE (TREE_TYPE (init)) == VECTOR_TYPE
+	  && vector_types_convertible_p (TREE_TYPE (init), type)
+	  && TREE_CONSTANT (init))
+        return build_vector (type, CONSTRUCTOR_ELTS (init));
+      else if (code != ARRAY_TYPE)
+      /* APPLE LOCAL end AltiVec */
 	{
 	  int flags = LOOKUP_NORMAL;
 	  /* Initialization from { } is copy-initialization.  */

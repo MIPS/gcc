@@ -80,6 +80,12 @@ Boston, MA 02111-1307, USA.  */
 #undef	DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
+/* APPLE LOCAL begin -Wfour-char-constants */
+/* Don't warn about MacOS-style 'APPL' four-char-constants.  */
+#undef WARN_FOUR_CHAR_CONSTANTS
+#define WARN_FOUR_CHAR_CONSTANTS 0
+/* APPLE LOCAL end -Wfour-char-constants */
+
 /* This table intercepts weirdo options whose names would interfere
    with normal driver conventions, and either translates them into
    standardly-named options, or adds a 'Z' so that they can get to
@@ -103,6 +109,10 @@ Boston, MA 02111-1307, USA.  */
    architecture.  */
    
 #define TARGET_OPTION_TRANSLATE_TABLE \
+/* APPLE LOCAL KEXT terminated-vtables */ \
+  { "-fterminated-vtables", "-fapple-kext" }, \
+/* APPLE LOCAL KEXT indirect-virtual-calls --sts */ \
+  { "-findirect-virtual-calls", "-fapple-kext" }, \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
   { "-arch_errors_fatal", "-Zarch_errors_fatal" },  \
@@ -123,7 +133,8 @@ Boston, MA 02111-1307, USA.  */
   { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
-  { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
+  /* APPLE LOCAL why did I do that?  -- mrs */ \
+  { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
   { "-flat_namespace", "-Zflat_namespace" },  \
@@ -138,7 +149,25 @@ Boston, MA 02111-1307, USA.  */
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
+  /* APPLE LOCAL begin constant cfstrings */	\
+  { "-fconstant-cfstrings", "-mconstant-cfstrings" }, \
+  { "-fno-constant-cfstrings", "-mno-constant-cfstrings" }, \
+  { "-Wnonportable-cfstrings", "-mwarn-nonportable-cfstrings" }, \
+  { "-Wno-nonportable-cfstrings", "-mno-warn-nonportable-cfstrings" }, \
+  { "-fpascal-strings", "-mpascal-strings" },	\
+  { "-fno-pascal-strings", "-mno-pascal-strings" },	\
+  /* APPLE LOCAL end constant cfstrings */	\
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+/* APPLE LOCAL begin constant cfstrings */
+extern int darwin_constant_cfstrings;
+extern const char *darwin_constant_cfstrings_switch;
+extern int darwin_warn_nonportable_cfstrings;
+extern const char *darwin_warn_nonportable_cfstrings_switch;
+extern int darwin_pascal_strings;
+extern const char *darwin_pascal_strings_switch;
+extern int darwin_running_cxx;
+/* APPLE LOCAL end constant cfstrings */
 
 /* Nonzero if the user has chosen to force sizeof(bool) to be 1
    by providing the -mone-byte-bool switch.  It would be better
@@ -156,7 +185,87 @@ extern const char *darwin_fix_and_continue_switch;
   {"fix-and-continue", &darwin_fix_and_continue_switch,			\
    N_("Generate code suitable for fast turn around debugging"), 0},	\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-   N_("Don't generate code suitable for fast turn around debugging"), 0}
+/* APPLE LOCAL begin constant cfstrings */				\
+   N_("Don't generate code suitable for fast turn around debugging"), 0}, \
+   {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
+    N_("Generate compile-time CFString objects"), 0},			\
+   {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
+   {"pascal-strings", &darwin_pascal_strings_switch,			\
+    N_("Allow use of Pascal strings"), 0},				\
+   {"no-pascal-strings", &darwin_pascal_strings_switch, "", 0},		\
+   {"warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch,		\
+    N_("Warn if constant CFString objects contain non-portable characters"), 0},	\
+   {"no-warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch, "", 0}
+
+#define SUBTARGET_OS_CPP_BUILTINS()			\
+  do							\
+    {							\
+      builtin_define ("__MACH__");			\
+      builtin_define ("__APPLE__");			\
+      if (darwin_constant_cfstrings)			\
+	builtin_define ("__CONSTANT_CFSTRINGS__");	\
+      /* APPLE LOCAL begin pascal strings */		\
+      if (darwin_pascal_strings)			\
+	{						\
+	  builtin_define ("__PASCAL_STRINGS__");	\
+	}						\
+      /* APPLE LOCAL end pascal strings */		\
+    }							\
+  while (0)
+
+#define SUBSUBTARGET_OVERRIDE_OPTIONS					\
+do {									\
+ /* APPLE LOCAL kext */                                                 \
+ extern int flag_weak;                                                  \
+  if (darwin_constant_cfstrings_switch)					\
+    {									\
+      const char *base = darwin_constant_cfstrings_switch;		\
+      while (base[-1] != 'm') base--;					\
+									\
+      if (*darwin_constant_cfstrings_switch != '\0')			\
+	error ("invalid option `%s'", base);				\
+      darwin_constant_cfstrings = (base[0] != 'n');			\
+    }									\
+  if (darwin_warn_nonportable_cfstrings_switch)				\
+    {									\
+      const char *base = darwin_warn_nonportable_cfstrings_switch;	\
+      while (base[-1] != 'm') base--;					\
+									\
+      if (*darwin_warn_nonportable_cfstrings_switch != '\0')		\
+	error ("invalid option `%s'", base);				\
+      darwin_warn_nonportable_cfstrings = (base[0] != 'n');		\
+    }									\
+  if (darwin_pascal_strings_switch)					\
+    {									\
+      const char *base = darwin_pascal_strings_switch;			\
+      while (base[-1] != 'm') base--;					\
+									\
+      if (*darwin_pascal_strings_switch != '\0')			\
+	error ("invalid option `%s'", base);				\
+      darwin_pascal_strings = (base[0] != 'n');				\
+      if (darwin_pascal_strings)					\
+        CPP_OPTION (parse_in, pascal_strings) = 1;			\
+    }									\
+  /* The c_dialect...() macros are not available to us here.  */	\
+  darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);		\
+  /* APPLE LOCAL begin kexts --bowdidge */                              \
+  /* kexts should always be built without the coalesced sections */     \
+  /*  because the kernel loader doesn't grok such sections. */          \
+  if (flag_apple_kext) flag_weak = 0;                                   \
+  /* APPLE LOCAL end kexts */                                           \
+} while(0)
+
+#define SUBTARGET_INIT_BUILTINS		\
+do {					\
+  darwin_init_cfstring_builtins ();	\
+} while(0)
+
+#undef TARGET_EXPAND_TREE_BUILTIN
+#define TARGET_EXPAND_TREE_BUILTIN darwin_expand_tree_builtin
+#undef TARGET_CONSTRUCT_OBJC_STRING
+#define TARGET_CONSTRUCT_OBJC_STRING darwin_construct_objc_string
+
+/* APPLE LOCAL end constant cfstrings */
 
 /* These compiler options take n arguments.  */
 
@@ -185,7 +294,8 @@ extern const char *darwin_fix_and_continue_switch;
    !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
    !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
    !strcmp (STR, "Zseg_addr_table") ? 1 :       \
-   !strcmp (STR, "Zseg_addr_table_filename") ?1 :\
+  /* APPLE LOCAL why did I do that?  -- mrs */ \
+   !strcmp (STR, "Zfn_seg_addr_table_filename") ? 1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
    !strcmp (STR, "sub_library") ? 1 :           \
@@ -208,8 +318,15 @@ extern const char *darwin_fix_and_continue_switch;
    isn't.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}\
-    -D__APPLE_CC__=1"
+/* APPLE LOCAL __APPLE__ setting, don't set __APPLE__ here, as we do it someplace else */
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} \
+"/* APPLE LOCAL -arch */"\
+		  %{arch}"
+
+/* APPLE LOCAL begin private extern  */
+#undef CC1PLUS_SPEC
+#define CC1PLUS_SPEC "-D__private_extern__=extern"
+/* APPLE LOCAL end private extern */
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -219,16 +336,19 @@ extern const char *darwin_fix_and_continue_switch;
    instead of LINK_COMMAND_SPEC.  The command spec is better for
    specifying the handling of options understood by generic Unix
    linkers, and for positional arguments like libraries.  */
+/* APPLE LOCAL begin symbol separation */
 #define LINK_COMMAND_SPEC "\
-%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+%{!foutput-dbg*:%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
-    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
+"/* APPLE LOCAL add fcreate-profile */"\
+    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}}"
+/* APPLE LOCAL end symbol separation */
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -291,7 +411,8 @@ extern const char *darwin_fix_and_continue_switch;
    %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
    %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
    %{Zseg_addr_table*: -seg_addr_table %*} \
-   %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
+   "/* APPLE LOCAL why did I do that?  -- mrs */" \
+   %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
@@ -315,12 +436,24 @@ extern const char *darwin_fix_and_continue_switch;
 #define LIB_SPEC "%{!static:-lSystem}"
 #endif
 
-/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
-#define REAL_LIBGCC_SPEC \
-   "%{static|static-libgcc:-lgcc -lgcc_eh}\
-    %{!static:%{!static-libgcc:\
-      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}\
-      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
+/* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
+#undef LIBGCC_SPEC
+#undef REAL_LIBGCC_SPEC
+/* APPLE LOCAL 64-bit bringup */
+#ifdef ENABLE_SHARED_LIBGCC
+#define REAL_LIBGCC_SPEC 					   \
+   "%{static:-lgcc_static}					   \
+    %{!static:%{static-libgcc:-lgcc -lgcc_eh}			   \
+	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
+			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
+#else
+#define REAL_LIBGCC_SPEC 					 \
+   "%{static:-lgcc_static}					 \
+    %{!static:%{static-libgcc:-lgcc}			         \
+	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	 \
+			       %{!shared-libgcc:-lgcc}}}"
+#endif /* ENABLE_SHARED_LIBGCC */
+/* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 /* We don't want anything to do with crt2.o in the 64-bit case;
@@ -367,6 +500,12 @@ extern const char *darwin_fix_and_continue_switch;
 #define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames"
 #define DEBUG_STR_SECTION     "__DWARFA,__debug_str"
 #define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges"
+
+/* APPLE LOCAL begin gdb only used symbols */
+/* Support option to generate stabs for only used symbols. */
+
+#define DBX_ONLY_USED_SYMBOLS
+/* APPLE LOCAL end gdb only used symbols */
 
 /* When generating stabs debugging, use N_BINCL entries.  */
 
@@ -446,6 +585,10 @@ extern const char *darwin_fix_and_continue_switch;
 
 #undef	INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP
+
+/* APPLE LOCAL begin static structors in __StaticInit section */
+#define STATIC_INIT_SECTION "__TEXT,__StaticInit,regular,pure_instructions"
+/* APPLE LOCAL end static structors in __StaticInit section */
 
 #undef	INVOKE__main
 
@@ -551,7 +694,12 @@ extern const char *darwin_fix_and_continue_switch;
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   fputs (&xname[1], FILE);					     \
+	   /* APPLE LOCAL begin Objective-C++ */			\
+	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))		\
+	     fprintf (FILE, "\"%s\"", &xname[1]);			\
+	   else								\
+	     fputs (&xname[1], FILE); 					\
+	   /* APPLE LOCAL end Objective-C++ */				\
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
@@ -559,6 +707,10 @@ extern const char *darwin_fix_and_continue_switch;
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
+	 /* APPLE LOCAL begin Objective-C++  */				\
+       else if (xname[0] != '"' && name_needs_quotes (xname))		\
+	 fprintf (FILE, "\"%s\"", xname);				\
+	 /* APPLE LOCAL end Objective-C++  */				\
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
@@ -642,6 +794,8 @@ FUNCTION (void)								\
   in_objc_image_info,							\
   in_objc_class_names, in_objc_meth_var_names,				\
   in_objc_meth_var_types, in_objc_cls_refs,				\
+  /* APPLE LOCAL constant cfstrings */			\
+  in_cfstring_constant_object,				\
   in_machopic_nl_symbol_ptr,						\
   in_machopic_lazy_symbol_ptr,						\
   in_machopic_symbol_stub,						\
@@ -751,6 +905,14 @@ SECTION_FUNCTION (objc_constant_string_object_section,			\
 		  in_objc_constant_string_object,			\
 		  ".section __OBJC, __cstring_object, regular, "	\
 		    "no_dead_strip", 1)					\
+/* APPLE LOCAL begin constant cfstrings */	\
+/* Unlike constant NSStrings, constant CFStrings do not live */\
+/* in the __OBJC segment since they may also occur in pure C */\
+/* or C++ programs.  */\
+SECTION_FUNCTION (cfstring_constant_object_section,	\
+		  in_cfstring_constant_object,	\
+		  ".section __DATA, __cfstring", 0)	\
+/* APPLE LOCAL end constant cfstrings */	\
 /* Fix-and-Continue image marker.  */					\
 SECTION_FUNCTION (objc_image_info_section,				\
                   in_objc_image_info,					\
@@ -870,6 +1032,13 @@ objc_section_init (void)			\
 #define GLOBAL_ASM_OP ".globl "
 #define TARGET_ASM_GLOBALIZE_LABEL darwin_globalize_label
 
+/* APPLE LOCAL begin weak definition */
+#define ASM_WEAK_DEFINITIONIZE_LABEL(FILE,  NAME)                       \
+ do { const char* _x = (NAME); if (!!strncmp (_x, "_OBJC_", 6)) {	\
+  fputs (".weak_definition ", FILE); assemble_name (FILE, _x);		\
+  fputs ("\n", FILE); }} while (0)
+/* APPLE LOCAL end weak definition */
+
 /* Emit an assembler directive to set visibility for a symbol.  Used
    to support visibility attribute and Darwin's private extern
    feature.  */
@@ -879,6 +1048,10 @@ objc_section_init (void)			\
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
+  /* APPLE LOCAL begin KEXT double destructor */			     \
+  { "apple_kext_compatibility", 0, 0, false, true, false,		     \
+    darwin_handle_odd_attribute },					     \
+  /* APPLE LOCAL end KEXT double destructor */				     \
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 
@@ -924,6 +1097,12 @@ enum machopic_addr_class {
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  default_strip_name_encoding
+
+/* APPLE LOCAL begin what is this for? */
+/* Be conservative and always redo the encoding.  */
+
+#define REDO_SECTION_INFO_P(DECL) (1)
+/* APPLE LOCAL end what is this for? */
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
@@ -1013,6 +1192,19 @@ enum machopic_addr_class {
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 #endif
 
+/* APPLE LOCAL begin OS pragma hook */
+#define REGISTER_OS_PRAGMAS()			\
+  do {								\
+    /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */  \
+    c_register_pragma (0, "pack", darwin_pragma_pack);  \
+    /* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */  \
+    /* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
+    c_register_pragma (0, "CALL_ON_LOAD", darwin_pragma_call_on_load); \
+    c_register_pragma (0, "CALL_ON_UNLOAD", darwin_pragma_call_on_unload); \
+    /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
+  } while (0)
+/* APPLE LOCAL end OS pragma hook */
+
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
 #undef TARGET_ASM_NAMED_SECTION
@@ -1023,8 +1215,77 @@ enum machopic_addr_class {
     c_register_pragma (0, "mark", darwin_pragma_ignore);	\
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
+    /* APPLE LOCAL pragma fenv */                               \
+    c_register_pragma ("GCC", "fenv", darwin_pragma_fenv);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
   } while (0)
+
+/* APPLE LOCAL begin insert assembly ".abort" directive on fatal error   */
+#define EXIT_FROM_FATAL_DIAGNOSTIC(status) abort_assembly_and_exit (status)
+extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
+/* APPLE LOCAL end insert assembly ".abort" directive on fatal error   */
+
+/* APPLE LOCAL begin Macintosh alignment 2002-2-13 --ff */
+#ifdef RS6000_VECTOR_ALIGNMENT
+/* When adjusting (lowering) the alignment of fields when in the
+   mac68k alignment mode, the 128-bit alignment of vectors *MUST*
+   be preserved.  */
+#define PEG_ALIGN_FOR_MAC68K(DESIRED)           \
+        ((TARGET_ALTIVEC && (DESIRED) == RS6000_VECTOR_ALIGNMENT) \
+         ? RS6000_VECTOR_ALIGNMENT              \
+         : MIN ((DESIRED), 16))
+#else
+#define PEG_ALIGN_FOR_MAC68K(DESIRED)   MIN ((DESIRED), 16)
+#endif 
+/* APPLE LOCAL end Macintosh alignment 2002-2-13 --ff */
+
+/* APPLE LOCAL begin KEXT double destructor */
+/* Need a mechanism to tell whether a C++ operator delete is empty so
+   we overload TREE_SIDE_EFFECTS here (it is unused for FUNCTION_DECLS.)
+   Fromage, c'est moi!  */
+#define CHECK_TRIVIAL_FUNCTION(DECL)					\
+    do {								\
+      const char *_name = IDENTIFIER_POINTER (DECL_NAME (DECL));	\
+      if (flag_apple_kext && DECL_SAVED_TREE (DECL)			\
+	  && strstr (_name, "operator delete")				\
+	  && TREE_CODE (DECL_SAVED_TREE (DECL)) == COMPOUND_STMT	\
+	  && compound_body_is_empty_p (					\
+				COMPOUND_BODY (DECL_SAVED_TREE (DECL))))\
+	  TREE_SIDE_EFFECTS (DECL) = 1;					\
+    } while (0)
+
+/* gcc3 initialises the vptr field of all objects so that it points at the
+   first virtual function slot, NOT the base address of the vtable proper.
+   This is different from gcc2.95 which always initialised the vptr to
+   point at the base address of the vtable.  The difference here is 8 bytes.
+   So, for 2.95 compatibility, we need to:
+
+     (1) subtract 8 from the vptr initialiser, and
+     (2) add 2 to every vfunc index.  (2 * 4 == 8.)
+
+   This is getting ever cheesier.  */
+
+#define VPTR_INITIALIZER_ADJUSTMENT	8
+#define ADJUST_VTABLE_INDEX(IDX, VTBL)					\
+    do {								\
+      if (flag_apple_kext)						\
+	(IDX) = fold (build2 (PLUS_EXPR, TREE_TYPE (IDX), IDX, size_int (2))); \
+    } while (0)
+/* APPLE LOCAL end KEXT double destructor */
+
+/* APPLE LOCAL begin zerofill 20020218 --turly  */
+/* This keeps uninitialized data from bloating the data when -fno-common.
+   Radar 2863107.  */
+#define ASM_OUTPUT_ZEROFILL(FILE, NAME, SIZE, ALIGNMENT)		    \
+  do {									    \
+    fputs (".zerofill __DATA, __common, ", (FILE));			    \
+    assemble_name ((FILE), (NAME));					    \
+    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (SIZE)); \
+    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC "\n",			    \
+	     (HOST_WIDE_INT) (ALIGNMENT));				    \
+    in_section = no_section;						    \
+  } while (0)
+/* APPLE LOCAL end zerofill 20020218 --turly  */
 
 #undef ASM_APP_ON
 #define ASM_APP_ON ""
@@ -1045,6 +1306,12 @@ void add_framework_path (char *);
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0
 #endif
+
+/* APPLE LOCAL begin KEXT ctors return this */
+/* For Apple KEXTs, we make the constructors return this to match gcc
+   2.95.  */
+#define TARGET_CXX_CDTOR_RETURNS_THIS (flag_apple_kext_p)
+/* APPLE LOCAL end KEXT ctors return this */
 
 #define WINT_TYPE "int"
 

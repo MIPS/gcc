@@ -3,6 +3,8 @@
 /* { dg-do preprocess } */
 /* { dg-options "-Wno-endif-labels -pedantic" } */
 
+/* APPLE LOCAL -Wextra-tokens */
+/* { dg-options "-Wextra-tokens -Wno-endif-labels -pedantic" { target *-apple-darwin* } } */
 /* Tests combinations of -pedantic and -Wno-endif-labels; see extratokens2.c
    for more general tests.  */
 

@@ -214,6 +214,10 @@ int n_compute_conversion_costs = 0;
 int n_inner_fields_searched = 0;
 #endif
 
+/* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff  */
+extern int darwin_align_is_first_member_of_class;
+/* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff  */
+
 /* Convert to or from a base subobject.  EXPR is an expression of type
    `A' or `A*', an expression of type `B' or `B*' is returned.  To
    convert A to a base B, CODE is PLUS_EXPR and BINFO is the binfo for
@@ -578,6 +582,12 @@ build_vtbl_ref_1 (tree instance, tree idx)
   
   assemble_external (vtbl);
 
+  /* APPLE LOCAL begin KEXT double destructor */
+#ifdef ADJUST_VTABLE_INDEX
+  ADJUST_VTABLE_INDEX (idx, vtbl);
+#endif
+  /* APPLE LOCAL end KEXT double destructor */
+
   aref = build_array_ref (vtbl, idx);
   TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
   TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
@@ -614,6 +624,32 @@ build_vfn_ref (tree instance_ptr, tree idx)
 
   return aref;
 }
+
+/* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
+/* Given a VTBL and an IDX, return an expression for the function
+   pointer located at the indicated index.  BASETYPE is the static
+   type of the object containing the vtable.  */
+
+tree
+build_vfn_ref_using_vtable (tree vtbl, tree idx)
+{
+  tree aref;
+
+  vtbl = unshare_expr (vtbl);
+  assemble_external (vtbl);
+
+  /* APPLE LOCAL KEXT double destructor */
+#ifdef ADJUST_VTABLE_INDEX
+  ADJUST_VTABLE_INDEX (idx, vtbl);
+#endif
+
+  aref = build_array_ref (vtbl, idx);
+  TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
+  TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
+
+  return aref;
+}
+/* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
 
 /* Return the name of the virtual function table (as an IDENTIFIER_NODE)
    for the given TYPE.  */
@@ -1734,9 +1770,21 @@ layout_vtable_decl (tree binfo, int n)
 {
   tree atype;
   tree vtable;
+  /* APPLE LOCAL begin KEXT terminated-vtables */
+  int n_entries;
+
+  n_entries = n;
+  
+  /* Enlarge suggested vtable size by one entry; it will be filled
+     with a zero word.  Darwin kernel dynamic-driver loader looks
+     for this value to find vtable ends for patching.  */
+  if (flag_apple_kext)
+    n_entries += 1;
+  /* APPLE LOCAL end KEXT terminated-vtables */
 
   atype = build_cplus_array_type (vtable_entry_type, 
-				  build_index_type (size_int (n - 1)));
+				  /* APPLE LOCAL KEXT terminated-vtables */
+				  build_index_type (size_int (n_entries - 1)));
   layout_type (atype);
 
   /* We may have to grow the vtable.  */
@@ -3848,9 +3896,18 @@ clone_function_decl (tree fn, int update_method_vec_p)
 	  if (update_method_vec_p)
 	    add_method (DECL_CONTEXT (clone), clone);
 	}
-      clone = build_clone (fn, complete_dtor_identifier);
-      if (update_method_vec_p)
-	add_method (DECL_CONTEXT (clone), clone);
+
+      /* APPLE LOCAL begin KEXT double destructor */
+      /* Don't use the complete dtor.  */
+      if (! flag_apple_kext
+	  || ! has_apple_kext_compatibility_attr_p (DECL_CONTEXT (fn)))
+	{
+	  clone = build_clone (fn, complete_dtor_identifier);
+	  if (update_method_vec_p)
+	    add_method (DECL_CONTEXT (clone), clone);
+	}
+      /* APPLE LOCAL end KEXT double destructor */
+
       clone = build_clone (fn, base_dtor_identifier);
       if (update_method_vec_p)
 	add_method (DECL_CONTEXT (clone), clone);
@@ -4546,6 +4603,13 @@ layout_class_type (tree t, tree *virtuals_p)
 				       NULL, NULL);
   build_base_fields (rli, empty_base_offsets, next_field);
   
+  /* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff  */
+  /* Turn on this flag until the first real member of the class is
+     laid out.  (Enums and such things declared in the class do not
+     count.)  */
+  darwin_align_is_first_member_of_class = 1;	  
+  /* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff  */
+
   /* Layout the non-static data members.  */
   for (field = non_static_data_members; field; field = TREE_CHAIN (field))
     {
@@ -4664,6 +4728,12 @@ layout_class_type (tree t, tree *virtuals_p)
 	layout_nonempty_base_or_field (rli, field, NULL_TREE,
 				       empty_base_offsets);
 
+      /* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff  */
+      /* When we reach here we have laid out the first real member of
+         the class.  */
+      darwin_align_is_first_member_of_class = 0;	  
+      /* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff  */
+
       /* Remember the location of any empty classes in FIELD.  */
       if (abi_version_at_least (2))
 	record_subobject_offsets (TREE_TYPE (field), 
@@ -4717,6 +4787,12 @@ layout_class_type (tree t, tree *virtuals_p)
       last_field_was_bitfield = DECL_C_BIT_FIELD (field);
     }
 
+  /* APPLE LOCAL begin Macintosh alignment 2002-5-24 --ff  */
+  /* Make sure the flag is turned off in cases where there were no
+     real members in the class.  */
+  darwin_align_is_first_member_of_class = 0;	  
+
+  /* APPLE LOCAL end Macintosh alignment 2002-5-24 --ff  */
   if (abi_version_at_least (2) && !integer_zerop (rli->bitpos))
     {
       /* Make sure that we are on a byte boundary so that the size of
@@ -7069,6 +7145,19 @@ dfs_accumulate_vtbl_inits (tree binfo,
       index = size_binop (MULT_EXPR,
 			  TYPE_SIZE_UNIT (vtable_entry_type),
 			  index);
+      /* APPLE LOCAL begin KEXT double destructor */
+#ifdef VPTR_INITIALIZER_ADJUSTMENT
+      /* Subtract VPTR_INITIALIZER_ADJUSTMENT from INDEX.  */
+      if (flag_apple_kext && !ctor_vtbl_p && ! BINFO_PRIMARY_P (binfo)
+	  && TREE_CODE (index) == INTEGER_CST
+	  && TREE_INT_CST_LOW (index) >= VPTR_INITIALIZER_ADJUSTMENT
+	  && TREE_INT_CST_HIGH (index) == 0)
+	index = fold (build (MINUS_EXPR,
+			     TREE_TYPE (index), index,
+			     size_int (VPTR_INITIALIZER_ADJUSTMENT)));
+#endif
+      /* APPLE LOCAL end KEXT double destructor */
+
       vtbl = build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
     }
 
@@ -7714,5 +7803,117 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
 
   return build_address (fndecl);
 }
+
+/* APPLE LOCAL begin KEXT double destructor */
+/* Return whether CLASS or any of its primary ancestors have the
+   "apple_kext_compatibility" attribute, in which case the
+   non-deleting destructor is not emitted.  Only single
+   inheritance heirarchies can have this tag.  */
+int
+has_apple_kext_compatibility_attr_p (tree class)
+{
+  while (class != NULL)
+    {
+      tree base_binfo;
+
+      if (TREE_CODE (class) == ARRAY_TYPE)
+	{
+	  class = TREE_TYPE (class);
+	  continue;
+	}
+
+      if (BINFO_N_BASE_BINFOS (TYPE_BINFO (class)) > 1)
+	return 0;
+
+      if (lookup_attribute ("apple_kext_compatibility",
+			    TYPE_ATTRIBUTES (class)))
+	return 1;
+
+      /* If there are no more base classes, we're done.  */
+      if (BINFO_N_BASE_BINFOS (TYPE_BINFO (class)) < 1)
+	break;
+
+      base_binfo = BINFO_BASE_BINFO (TYPE_BINFO (class), 0);
+      if (base_binfo
+	  && ! BINFO_VIRTUAL_P (base_binfo))
+	class = BINFO_TYPE (base_binfo);
+      else
+	break;
+    }
+
+  return 0;
+}
+
+/* Walk through a function body and return true if nothing in there
+   would cause us to generate code.  */
+static int
+compound_body_is_empty_p (tree t)
+{
+  while (t && t != error_mark_node)
+    {
+      enum tree_code tc = TREE_CODE (t);
+      if (tc == BIND_EXPR)
+	{
+	  if (BIND_EXPR_VARS (t) == 0
+	      && compound_body_is_empty_p (BIND_EXPR_BODY (t)))
+	    t = TREE_CHAIN (t);
+	  else
+	    return 0;
+	}
+      else if (tc == STATEMENT_LIST)
+	{
+	  tree_stmt_iterator iter;
+
+	  for (iter = tsi_start (t); !tsi_end_p (iter); tsi_next (&iter))
+	    if (! compound_body_is_empty_p (tsi_stmt (iter)))
+	      return 0;
+	  return 1;
+	}
+      else
+	return 0;
+    }
+  /* We hit the end of the body function without seeing anything.  */
+  return 1;
+}
+
+/* TRUE if we have an operator delete which is empty (i.e., NO CODE!)  */
+int
+has_empty_operator_delete_p (tree class)
+{
+  if (! class)
+    return 0;
+
+  if (BINFO_N_BASE_BINFOS (TYPE_BINFO (class)) > 1)
+    return 0;
+
+  if (TYPE_GETS_DELETE (class))
+    {
+      tree f = lookup_fnfields (TYPE_BINFO (class),
+				ansi_opname (DELETE_EXPR), 0);
+
+      if (f == error_mark_node)
+	return 0;
+
+      if (BASELINK_P (f))
+	f = BASELINK_FUNCTIONS (f);
+
+      if (OVL_CURRENT (f))
+	{
+	  f = OVL_CURRENT (f);
+
+	  /* We've overridden TREE_SIDE_EFFECTS for C++ operator deletes
+	     to mean that the function is empty.  */
+	  if (TREE_SIDE_EFFECTS (f))
+	    return 1;
+
+	  /* Otherwise, it could be an inline but empty function.  */
+	  if (DECL_SAVED_TREE (f))
+	    return compound_body_is_empty_p (DECL_SAVED_TREE (f));
+	}
+    }
+
+  return 0;
+}
+/* APPLE LOCAL end KEXT double destructor */
 
 #include "gt-cp-class.h"

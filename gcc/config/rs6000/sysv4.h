@@ -438,6 +438,11 @@ do {									\
 
 #define	BSS_SECTION_ASM_OP	"\t.section\t\".bss\""
 
+/* APPLE LOCAL begin hot/cold partitioning  */
+#define HOT_TEXT_SECTION_NAME ".text"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
+/* APPLE LOCAL end hot/cold partitioning  */
+
 /* Override elfos.h definition.  */
 #undef	INIT_SECTION_ASM_OP
 #define	INIT_SECTION_ASM_OP "\t.section\t\".init\",\"ax\""

@@ -161,6 +161,11 @@ Wunused-variable
 Common Var(warn_unused_variable)
 Warn when a variable is unused
 
+; APPLE LOCAL begin fat builds
+arch
+Common Separate
+; APPLE LOCAL end fat builds
+
 aux-info
 Common Separate
 -aux-info <file>	Emit declaration information into <file>
@@ -223,6 +228,15 @@ Align the start of loops
 
 falign-loops=
 Common RejectNegative Joined UInteger
+
+; APPLE LOCAL begin predictive compilation
+fpredictive-compilation
+Common
+Predictive Compilation
+
+fpredictive-compilation=
+Common RejectNegative Joined UInteger
+; APPLE LOCAL end predictive compilation
 
 ; This flag is only tested if alias checking is enabled.
 ; 0 if pointer arguments may alias each other.  True in C.
@@ -297,6 +311,12 @@ Do not put uninitialized globals in the common section
 fcprop-registers
 Common Report Var(flag_cprop_registers)
 Perform a register copy-propagation optimization pass
+
+; APPLE LOCAL begin new profiling flag
+fcreate-profile
+Common
+Enable common options for generating profile info for profile feedback directed optimizations
+; APPLE LOCAL end new profiling flag
 
 fcrossjumping
 Common Report Var(flag_crossjumping)
@@ -472,6 +492,12 @@ finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
 
+; APPLE LOCAL begin lno
+fivcanon
+Common Report Var(flag_ivcanon)
+Create canonical induction variables in loops
+; APPLE LOCAL end lno
+
 fivopts
 Common Report Var(flag_ivopts) Init(1)
 Optimize induction variables on trees
@@ -495,6 +521,12 @@ Perform loop optimizations
 floop-optimize2
 Common Report Var(flag_loop_optimize2)
 Perform loop optimizations using the new loop optimizer
+
+; APPLE LOCAL begin lno
+floop-test
+Common Report Var(flag_tree_ssa_loop_test)
+Run loop optimizer tests
+; APPLE LOCAL end lno
 
 fmath-errno
 Common Report Var(flag_errno_math) Init(1)
@@ -547,6 +579,12 @@ fnon-call-exceptions
 Common Report Var(flag_non_call_exceptions)
 Support synchronous non-call exceptions
 
+; APPLE LOCAL begin -fobey-inline
+fobey-inline
+Common Report Var(flag_obey_inline) VarExists
+Obey 'inline' keyword and always inline, regardless of size
+; APPLE LOCAL end -fobey-inline
+
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer)
 When possible do not generate stack frames
@@ -562,6 +600,12 @@ Optimize sibling and tail recursive calls
 fpack-struct
 Common Report Var(flag_pack_struct)
 Pack structure members together without holes
+
+; APPLE LOCAL begin pascal strings
+fpascal-strings
+Common
+Allow Pascal-style string literals
+; APPLE LOCAL end pascal strings
 
 fpack-struct=
 Common RejectNegative Joined UInteger
@@ -598,6 +642,12 @@ Generate position-independent code if possible (small mode)
 fpie
 Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
+
+; APPLE LOCAL begin -ffppc 2001-08-01 --sts
+fppc
+Common Var(flag_fppc) VarExists
+Perform floating-point precision-control pass
+; APPLE LOCAL end -ffppc 2001-08-01 --sts
 
 fprefetch-loop-arrays
 Common Report Var(flag_prefetch_loop_arrays)
@@ -844,6 +894,16 @@ ftree-dse
 Common Report Var(flag_tree_dse)
 Enable dead store elimination
 
+; APPLE LOCAL begin lno
+ftree-elim-checks
+Common Report Var(flag_tree_elim_checks)
+Eliminate checks based on scalar evolution informations
+
+ftree-loop-linear
+Common Report Var(flag_tree_loop_linear)
+Enable linear loop transforms on trees
+; APPLE LOCAL end lno
+
 ftree-fre
 Common Report Var(flag_tree_fre)
 Enable Full Redundancy Elimination (FRE) on trees
@@ -860,6 +920,12 @@ ftree-loop-ivcanon
 Common Report Var(flag_tree_loop_ivcanon) Init(1)
 Create canonical induction variables in loops
 
+; APPLE LOCAL begin loops-to-memset
+ftree-loop-memset
+Common Report Var(flag_tree_loop_memset) Init(0)
+Transform appropriate loops to memset calls
+; APPLE LOCAL end loops-to-memset
+
 ftree-loop-optimize
 Common Report Var(flag_tree_loop_optimize) Init(1)
 Enable loop optimizations on tree level
@@ -867,6 +933,12 @@ Enable loop optimizations on tree level
 ftree-pre
 Common Report Var(flag_tree_pre)
 Enable SSA-PRE optimization on trees
+
+; APPLE LOCAL begin lno
+ftree-vectorize
+Common Report Var(flag_tree_vectorize)
+Enable loop vectorization on trees
+; APPLE LOCAL end lno
 
 ftree-sra
 Common Report Var(flag_tree_sra)
@@ -908,6 +980,12 @@ funwind-tables
 Common Report Var(flag_unwind_tables)
 Just generate unwind tables for exception handling
 
+; APPLE LOCAL begin new profiling flag
+fuse-profile
+Common
+Enable common options for performing profile feedback directed optimizations
+; APPLE LOCAL end new profiling flag
+
 fvar-tracking
 Common Report Var(flag_var_tracking) VarExists
 Perform variable tracking
@@ -946,6 +1024,18 @@ Construct webs and split unrelated uses of single variable
 fwrapv
 Common Report Var(flag_wrapv)
 Assume signed arithmetic overflow wraps around
+
+; APPLE LOCAL begin fwritable strings
+fwritable-strings
+Common Report Var(flag_writable_strings) VarExists
+Store strings in writable data section
+; APPLE LOCAL end fwritable strings
+
+; APPLE LOCAL begin KEXT
+fapple-kext
+C++ Report Var(flag_apple_kext)
+Generate code for darwin loadable kernel extentions
+; APPLE LOCAL end KEXT
 
 fzero-initialized-in-bss
 Common Report Var(flag_zero_initialized_in_bss) Init(1)

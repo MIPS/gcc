@@ -652,7 +652,11 @@ all_chrecs_equal_p (tree chrec)
 /* Determine for each subscript in the data dependence relation DDR
    the distance.  */
 
-static void
+/* APPLE LOCAL begin AV data dependence. -dpatel */
+/* Patch is waiting FSF review since mid Sep, 2004.
+   Make this function externally visible.  */
+void
+/* APPLE LOCAL end AV data dependence. -dpatel */
 compute_subscript_distance (struct data_dependence_relation *ddr)
 {
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -1775,7 +1779,11 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
    starting at FIRST_LOOP_DEPTH. 
    Return TRUE otherwise.  */
 
-static bool
+/* APPLE LOCAL begin AV data dependence. -dpatel */
+/* Patch is waiting FSF review since mid Sep, 2004.
+   Make this function externally visible.  */
+bool
+/* APPLE LOCAL end AV data dependence. -dpatel */
 build_classic_dist_vector (struct data_dependence_relation *ddr, 
 			   int nb_loops, int first_loop_depth)
 {

@@ -1030,6 +1030,32 @@ get_stmt_operands (tree stmt)
 }
 
 
+/* APPLE LOCAL begin lno */
+/* Returns true if the function call EXPR does not access memory.  */
+
+static bool
+function_ignores_memory_p (tree expr)
+{
+  tree fndecl = get_callee_fndecl (expr);
+  enum built_in_function fcode;
+  
+  if (!fndecl || !DECL_BUILT_IN (fndecl))
+    return false;
+  
+  fcode = DECL_FUNCTION_CODE (fndecl);
+
+  switch (fcode)
+    {
+      case BUILT_IN_PREFETCH:
+      case BUILT_IN_MAYBE_INFINITE_LOOP:
+	return true;
+
+      default:
+	return false;
+    }
+}
+/* APPLE LOCAL end lno */
+
 /* Recursively scan the expression pointed by EXPR_P in statement referred to
    by INFO.  FLAGS is one of the OPF_* constants modifying how to interpret the
    operands found.  */
@@ -1465,7 +1491,11 @@ get_call_expr_operands (tree stmt, tree expr)
       /* A 'pure' or a 'const' functions never call clobber anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
-      if (TREE_SIDE_EFFECTS (expr)
+      /* APPLE LOCAL begin lno */
+      if (function_ignores_memory_p (expr))
+	;
+      else if (TREE_SIDE_EFFECTS (expr)
+      /* APPLE LOCAL end lno */
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	add_call_clobber_ops (stmt);
       else if (!(call_flags & ECF_CONST))
@@ -1496,6 +1526,10 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
   var_ann_t v_ann;
 
   var = *var_p;
+  /* APPLE LOCAL begin lno */
+  if (!var)
+    return;
+  /* APPLE LOCAL end lno */
   STRIP_NOPS (var);
 
   /* If the operand is an ADDR_EXPR, add its operand to the list of

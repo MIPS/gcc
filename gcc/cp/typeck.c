@@ -530,10 +530,16 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       class1 = TREE_TYPE (t1);
       class2 = TREE_TYPE (t2);
 
-      if (DERIVED_FROM_P (class1, class2))
+      /* APPLE LOCAL begin Objective-C++ */
+      if (DERIVED_FROM_P (class1, class2) || 
+	  (c_dialect_objc () && objc_comptypes (class1, class2, 0) == 1))
+      /* APPLE LOCAL end Objective-C++ */
 	t2 = (build_pointer_type 
 	      (cp_build_qualified_type (class1, TYPE_QUALS (class2))));
-      else if (DERIVED_FROM_P (class2, class1))
+      /* APPLE LOCAL begin Objective-C++ */
+      else if (DERIVED_FROM_P (class2, class1) ||
+	       (c_dialect_objc () && objc_comptypes (class2, class1, 0) == 1))
+      /* APPLE LOCAL end Objective-C++ */
 	t1 = (build_pointer_type 
 	      (cp_build_qualified_type (class2, TYPE_QUALS (class1))));
       else
@@ -1847,6 +1853,12 @@ finish_class_member_access_expr (tree object, tree name)
   if (object == error_mark_node || name == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin Objective-C++ */
+  /* If OBJECT is an ObjC class instance, we must obey ObjC access rules.  */
+  if (!objc_is_public (object, name))
+    return error_mark_node;
+  /* APPLE LOCAL end Objective-C++ */
+
   object_type = TREE_TYPE (object);
 
   if (processing_template_decl)
@@ -2006,6 +2018,8 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
      routine directly because it expects the object to be of class
      type.  */
   ptrmem_type = TREE_TYPE (ptrmem);
+  /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
+  if (!flag_apple_kext)
   gcc_assert (TYPE_PTRMEMFUNC_P (ptrmem_type));
   member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
 			  /*want_type=*/false);
@@ -2289,7 +2303,10 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 
   if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
     {
-      tree idx, delta, e1, e2, e3, vtbl, basetype;
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+      tree idx, delta, e1, e2, e3, vtbl = vtbl, basetype;
+      tree delta2 = delta2;
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
       tree fntype = TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (function));
 
       tree instance_ptr = *instance_ptrptr;
@@ -2321,6 +2338,17 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       /* Start by extracting all the information from the PMF itself.  */
       e3 = pfn_from_ptrmemfunc (function);
       delta = build_ptrmemfunc_access_expr (function, delta_identifier);
+      
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+      if (flag_apple_kext)
+	{
+	  idx = build_ptrmemfunc_access_expr (function, index_identifier);
+	  idx = save_expr (default_conversion (idx));
+	  e1 = cp_build_binary_op (GE_EXPR, idx, integer_zero_node);
+	}
+      else
+        {
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
       idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
@@ -2338,6 +2366,19 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  gcc_unreachable ();
 	}
 
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+        }
+      /* DELTA2 is the amount by which to adjust the `this' pointer
+	 to find the vtbl.  */
+      if (flag_apple_kext)
+	{
+	  delta2 = build_ptrmemfunc_access_expr (function,
+						 pfn_or_delta2_identifier);
+	  delta2 = build_ptrmemfunc_access_expr (delta2,
+						 delta2_identifier);
+	}
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
       /* Convert down to the right base before using the instance.  First
          use the type...  */
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
@@ -2346,6 +2387,14 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 1);
       if (instance_ptr == error_mark_node)
 	return error_mark_node;
+
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+      if (flag_apple_kext)
+	/* Next extract the vtable pointer from the object.  */
+	vtbl = build (PLUS_EXPR,build_pointer_type (vtbl_ptr_type_node),
+		      instance_ptr, cp_convert (ptrdiff_type_node, delta2));
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
       /* ...and then the delta in the PMF.  */
       instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
 			     instance_ptr, delta);
@@ -2353,10 +2402,21 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       /* Hand back the adjusted 'this' argument to our caller.  */
       *instance_ptrptr = instance_ptr;
 
+      /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
+      if (!flag_apple_kext)
       /* Next extract the vtable pointer from the object.  */
       vtbl = build1 (NOP_EXPR, build_pointer_type (vtbl_ptr_type_node),
 		     instance_ptr);
       vtbl = build_indirect_ref (vtbl, NULL);
+
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+      /* 2.95-style indices are off by one.  */
+      if (flag_apple_kext)
+	{
+	  idx = cp_build_binary_op (MINUS_EXPR, idx, integer_one_node);
+	  idx = cp_build_binary_op (LSHIFT_EXPR, idx, integer_two_node);
+	}
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
       /* Finally, extract the function pointer from the vtable.  */
       e2 = fold (build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx));
@@ -2652,6 +2712,13 @@ build_x_binary_op (enum tree_code code, tree arg1, tree arg2,
   tree orig_arg1;
   tree orig_arg2;
   tree expr;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cw_asm_block
+      && (TREE_CODE (arg1) == IDENTIFIER_NODE
+          || TREE_CODE (arg2) == IDENTIFIER_NODE))
+    return error_mark_node;
+  /* APPLE LOCAL end CW asm blocks */
 
   orig_arg1 = arg1;
   orig_arg2 = arg2;
@@ -3016,6 +3083,13 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
       else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
 	{
+	  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+	  /* Shouldn't we use INDEX here rather than PFN?  This seems to
+	     work fine, though...  */
+	  if (flag_apple_kext)
+	    op0 = build_ptrmemfunc_access_expr (op0, index_identifier);
+	  else
+	  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 	  op0 = build_ptrmemfunc_access_expr (op0, pfn_identifier);
 	  op1 = cp_convert (TREE_TYPE (op0), integer_zero_node);
 	  result_type = TREE_TYPE (op0);
@@ -4429,8 +4503,12 @@ build_x_compound_expr (tree op1, tree op2)
 tree
 build_compound_expr (tree lhs, tree rhs)
 {
-  lhs = convert_to_void (lhs, "left-hand operand of comma");
-  
+  /* APPLE LOCAL begin AltiVec */
+  lhs = convert_to_void (lhs, targetm.cast_expr_as_vector_init
+			      ? NULL
+			      : "left-hand operand of comma");
+  /* APPLE LOCAL end AltiVec */
+
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
   
@@ -4739,6 +4817,13 @@ build_static_cast (tree type, tree expr)
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
+
   if (processing_template_decl)
     {
       expr = build_min (STATIC_CAST_EXPR, type, expr);
@@ -4937,6 +5022,14 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       error ("invalid cast from type %qT to type %qT", intype, type);
       return error_mark_node;
     }
+
+  /* APPLE LOCAL begin don't sign-extend pointers cast to integers */
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TREE_CODE (intype) == POINTER_TYPE
+      && TYPE_PRECISION (type) > TYPE_PRECISION (intype)
+      && TYPE_UNSIGNED (type))
+    expr = cp_convert (c_common_type_for_size (POINTER_SIZE, 1), expr);
+  /* APPLE LOCAL end don't sign-extend pointers cast to integers */
       
   return cp_convert (type, expr);
 }
@@ -4946,6 +5039,13 @@ build_reinterpret_cast (tree type, tree expr)
 {
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   if (processing_template_decl)
     {
@@ -5111,6 +5211,15 @@ build_c_cast (tree type, tree expr)
       TREE_SIDE_EFFECTS (t) = 1;
       return convert_from_reference (t);
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE 
+      && targetm.cast_expr_as_vector_init
+      && !IS_AGGR_TYPE (TREE_TYPE(expr)))
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   /* Casts to a (pointer to a) specific ObjC class (or 'id' or
      'Class') should always be retained, because this information aids
@@ -5603,6 +5712,114 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   tree delta_field;
   tree pfn_field;
 
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+  if (flag_apple_kext)
+    {
+      /* Ooo-err, Missus.  Cons up a 2.95-style ptmf struct given
+	 gcc3-style inputs!  Recall:
+
+	   struct ptmf2 {                  struct ptmf3 {
+             short __delta;                  __P  __pfn;
+             short __index;                  ptrdiff_t __delta;
+             union {                       }
+               __P __pfn;
+               short __delta2;
+             }
+           }
+
+	 Won't this be fun.  Much of this is snarfed from 2.95.
+	 Note that the __delta2 val, if required, will always be __delta.  */
+
+      tree subtype, pfn_or_delta2_field, idx, idx_field, delta2_field;
+      tree delta2 = integer_zero_node;
+      int ixval = 0;
+      int allconstant = 0, allsimple = 0, allinvariant = 0;
+
+      delta_field = TYPE_FIELDS (type);
+      idx_field = TREE_CHAIN (delta_field);
+      pfn_or_delta2_field = TREE_CHAIN (idx_field);
+      subtype = TREE_TYPE (pfn_or_delta2_field);
+      pfn_field = TYPE_FIELDS (subtype);
+      delta2_field = TREE_CHAIN (pfn_field);
+
+      if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn)
+	{
+	  /* If the low bit of PFN is set, the virtual index is PFN >> 1.
+	     Else it's nonvirtual.  */
+	  allconstant = TREE_CONSTANT (pfn);
+	  allinvariant = TREE_INVARIANT (pfn);
+	  allsimple = !! initializer_constant_valid_p (pfn, TREE_TYPE (pfn));
+	  if (TREE_CODE (pfn) == INTEGER_CST && (TREE_INT_CST_LOW (pfn) & 1))
+	    {
+	      /* It's a virtual function.  PFN is the vt offset + 1.  */
+
+	      int vt_entry_sz = 4;
+	      tree vt_entry_sz_tree = TYPE_SIZE_UNIT (vtable_entry_type);
+	      if (TREE_CODE (vt_entry_sz_tree) == INTEGER_CST)
+		vt_entry_sz = TREE_INT_CST_LOW (vt_entry_sz_tree);
+
+	      ixval = (TREE_INT_CST_LOW (pfn) - 1);
+	      ixval /= vt_entry_sz;
+
+	      /* Now add 2 for that spadgey VPTR index hack, plus one because
+		 2.95 indices are offset by 1.  */
+	      ixval += 2 + 1;
+
+	      /* __delta2 is the same as __delta.  */
+	      u = tree_cons (delta2_field, delta, NULL_TREE);
+	    }
+	  else
+	  if (TREE_CODE (pfn) == INTEGER_CST && TREE_INT_CST_LOW (pfn) == 0)
+	    {
+	      /* NULL pfn.  Just zero out everything.  */
+	      ixval = 0;
+	      pfn = integer_zero_node;
+	      delta = integer_zero_node;
+	      u = tree_cons (pfn_field, pfn, NULL_TREE);
+	    }
+	  else
+	    {
+	      ixval = -1;  /* -1 ==> PFN is the pointer  */
+	      u = tree_cons (pfn_field, pfn, NULL_TREE);
+	    }
+	}
+      else	/* Low bit of DELTA is set if we're virtual.  */
+	{
+	  /* Don't know how to do this yet. Much like the above, probably.  */
+	  abort ();
+	  allconstant = TREE_CONSTANT (delta);
+	  allinvariant = TREE_INVARIANT (delta);
+	  allsimple = !! initializer_constant_valid_p (delta,
+							TREE_TYPE (delta));
+	  
+	  u = tree_cons (delta2_field, delta2, NULL_TREE);
+	}
+
+      delta = convert_and_check (delta_type_node, delta);
+      idx = convert_and_check (delta_type_node, ssize_int (ixval));
+
+      u = build_constructor (subtype, u);
+      TREE_CONSTANT (u) = allconstant;
+      TREE_INVARIANT (u) = allinvariant;
+      TREE_STATIC (u) = allconstant && allsimple;
+      
+      allconstant = allconstant && TREE_CONSTANT (delta) && TREE_CONSTANT (idx);
+      allinvariant = allinvariant && TREE_INVARIANT (delta) && TREE_INVARIANT (idx);
+      allsimple = allsimple
+		&& initializer_constant_valid_p (delta, TREE_TYPE (delta))
+		&& initializer_constant_valid_p (idx, TREE_TYPE (idx));
+
+      u = tree_cons (delta_field, delta,
+		     tree_cons (idx_field, idx,
+		     tree_cons (pfn_or_delta2_field, u, NULL_TREE)));
+      u = build_constructor (type, u);
+      TREE_CONSTANT (u) = allconstant;
+      TREE_INVARIANT (u) = allinvariant;
+      TREE_STATIC (u) = allconstant && allsimple;
+      return u;
+    }
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
   /* Pull the FIELD_DECLs out of the type.  */
   pfn_field = TYPE_FIELDS (type);
   delta_field = TREE_CHAIN (pfn_field);
@@ -5794,6 +6011,22 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 tree
 pfn_from_ptrmemfunc (tree t)
 {
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+  if (flag_apple_kext)
+    {
+      if (TREE_CODE (t) == PTRMEM_CST)
+	{ 
+	  tree fn = PTRMEM_CST_MEMBER (t);
+	  if (!DECL_VIRTUAL_P (fn))
+	    return convert (TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (t)),
+			    build_addr_func (fn));
+	}
+      
+      t = build_ptrmemfunc_access_expr (t, pfn_or_delta2_identifier);
+      return build_ptrmemfunc_access_expr (t, pfn_identifier);
+    }
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
   if (TREE_CODE (t) == PTRMEM_CST)
     {
       tree delta;
@@ -6500,3 +6733,16 @@ non_reference (tree t)
     t = TREE_TYPE (t);
   return t;
 }
+
+/* APPLE LOCAL begin CW asm blocks */
+tree
+cw_asm_cp_build_component_ref (tree datum, tree component)
+{
+  tree expr = finish_class_member_access_expr (datum, component);
+  /* If this is not a real component reference, extract the field
+     decl, which includes the numeric offset we'll use later.  */
+  if (TREE_CODE (datum) == TYPE_DECL)
+    expr = TREE_OPERAND (expr, 1);
+  return expr;
+}
+/* APPLE LOCAL end CW asm blocks */

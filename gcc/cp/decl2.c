@@ -2069,6 +2069,14 @@ start_objects (int method_type, int initp)
     DECL_GLOBAL_DTOR_P (current_function_decl) = 1;
   DECL_LANG_SPECIFIC (current_function_decl)->decl_flags.u2sel = 1;
 
+  /* APPLE LOCAL begin static structors in __StaticInit section */
+#ifdef STATIC_INIT_SECTION
+  if ( ! flag_apple_kext)
+    DECL_SECTION_NAME (current_function_decl) = 
+      build_string (strlen (STATIC_INIT_SECTION), STATIC_INIT_SECTION);
+#endif
+  /* APPLE LOCAL end static structors in __StaticInit section */
+
   body = begin_compound_stmt (BCS_FN_BODY);
 
   /* We cannot allow these functions to be elided, even if they do not
@@ -2174,6 +2182,14 @@ start_static_storage_duration_function (unsigned count)
 			       type);
   TREE_PUBLIC (ssdf_decl) = 0;
   DECL_ARTIFICIAL (ssdf_decl) = 1;
+
+  /* APPLE LOCAL begin static structors in __StaticInit section */
+#ifdef STATIC_INIT_SECTION
+  if ( ! flag_apple_kext)
+    DECL_SECTION_NAME (ssdf_decl) = build_string (strlen (STATIC_INIT_SECTION),
+						  STATIC_INIT_SECTION);
+#endif
+  /* APPLE LOCAL end static structors in __StaticInit section */
 
   /* Put this function in the list of functions to be called from the
      static constructors and destructors.  */
@@ -2569,6 +2585,17 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
      global constructors and destructors.  */
   body = NULL_TREE;
 
+  /* APPLE LOCAL begin Objective-C++ */
+  /* For Objective-C++, we may need to initialize metadata found in this module.
+     This must be done _before_ any other static initializations.  */
+  if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
+      && constructor_p && objc_static_init_needed_p ())
+    {
+      body = start_objects (function_key, priority);
+      static_ctors = objc_generate_static_init_call (static_ctors);
+    }
+  /* APPLE LOCAL end Objective-C++ */
+
   /* Call the static storage duration function with appropriate
      arguments.  */
   if (ssdf_decls)
@@ -2943,6 +2970,22 @@ cp_finish_file (void)
 	     back end.  */
 	  if (DECL_NOT_REALLY_EXTERN (decl) && decl_needed_p (decl))
 	    DECL_EXTERNAL (decl) = 0;
+	  /* APPLE LOCAL begin  write used class statics  20020226 --turly  */
+#ifdef MACHOPIC_VAR_REFERRED_TO_P
+	  else
+	  if (TREE_USED (decl) && DECL_INITIAL (decl) != 0
+	      && DECL_INITIAL (decl) != error_mark_node
+	      && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR
+	      && DECL_EXTERNAL (decl)
+	      && MACHOPIC_VAR_REFERRED_TO_P (IDENTIFIER_POINTER (
+						DECL_ASSEMBLER_NAME (decl))))
+	    {
+	      /* Force a local copy of this decl to be written.  */
+	      DECL_EXTERNAL (decl) = 0;
+	      TREE_PUBLIC (decl) = 0;
+	    }
+#endif
+	  /* APPLE LOCAL end  write used class statics  20020226 --turly  */
 	}
       if (pending_statics
 	  && wrapup_global_declarations (&VARRAY_TREE (pending_statics, 0),

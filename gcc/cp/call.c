@@ -4079,6 +4079,36 @@ enforce_access (tree basetype_path, tree decl)
   return true;
 }
 
+/* APPLE LOCAL begin direct-binding-refs 20020224 --turly  */
+
+/* Should we *really* call a constructor for the object whose reference type
+   we want?  If we have a user conversion function which returns the ref
+   type directly, there's no need to call the object's constructor as we
+   can bind directly (dcl.init.ref.) 
+
+   These must be exactly the same types.  */
+
+static int really_call_constructor_p (tree, tree, tree);
+static int
+really_call_constructor_p (tree expr, tree convfn, tree totype)
+{
+  /* TEMPORARILY DISABLING THIS "FIX" NOW WE HAVE A SOURCE WORKAROUND.  */
+  /* However, we'll leave the code here pending input from the FSF
+     on this issue.  */
+
+  if (0 /* && ! NEED_TEMPORARY_P (convfn)  Watch out! this macro is undefined */
+      && TREE_CODE (expr) == INDIRECT_REF
+      && TREE_CODE (TREE_TYPE (convfn)) == METHOD_TYPE
+      && TREE_CODE (TREE_TYPE (TREE_TYPE (convfn))) == REFERENCE_TYPE
+      && TREE_CODE (TREE_TYPE (TREE_TYPE (TREE_TYPE (convfn)))) == RECORD_TYPE
+      && TREE_TYPE (TREE_TYPE (TREE_TYPE (convfn))) == totype
+      && TREE_TYPE (expr) == totype)
+	return 0;
+
+  return 1;
+}
+/* APPLE LOCAL end direct-binding-refs 20020224 --turly  */
+
 /* Check that a callable constructor to initialize a temporary of
    TYPE from an EXPR exists.  */
 
@@ -4246,6 +4276,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
 	   If the target is a class, that means call a ctor.  */
 	if (IS_AGGR_TYPE (totype)
+	    /* APPLE LOCAL direct-binding-refs  20020224 --turly  */
+	    && really_call_constructor_p (expr, convfn, totype)
 	    && (inner >= 0 || !lvalue_p (expr)))
 	  {
 	    expr = (build_temp 
@@ -4904,7 +4936,11 @@ build_over_call (struct z_candidate *cand, int flags)
 
   mark_used (fn);
 
-  if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0)
+  /* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
+  if (DECL_VINDEX (fn)
+      && (flag_apple_kext
+          || (flags & LOOKUP_NONVIRTUAL) == 0))
+    /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
     {
       tree t, *p = &TREE_VALUE (converted_args);
       tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (*p)),
@@ -4918,6 +4954,31 @@ build_over_call (struct z_candidate *cand, int flags)
       t = build_pointer_type (TREE_TYPE (fn));
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
 	fn = build_java_interface_fn_ref (fn, *p);
+      /* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
+      /* If this is not really supposed to be a virtual call, find the
+         vtable corresponding to the correct type, and use it.  */
+      else if (flags & LOOKUP_NONVIRTUAL) {
+	tree call_site_type = TREE_TYPE (cand->access_path);
+	tree fn_class_type = DECL_CLASS_CONTEXT (fn);
+
+	gcc_assert (call_site_type != NULL &&
+		    fn_class_type != NULL &&
+		    AGGREGATE_TYPE_P (call_site_type) &&
+		    AGGREGATE_TYPE_P (fn_class_type));
+	gcc_assert (lookup_base(TYPE_MAIN_VARIANT (call_site_type),
+				TYPE_MAIN_VARIANT (fn_class_type),
+				ba_any | ba_quiet,
+				NULL) != NULL);
+
+	if (BINFO_N_BASE_BINFOS (TYPE_BINFO (call_site_type)) > 1
+	    || CLASSTYPE_VBASECLASSES (call_site_type))
+	  error ("indirect virtual calls are invalid for a type that uses multiple or virtual inheritance");
+
+        fn = (build_vfn_ref_using_vtable
+              (BINFO_VTABLE (TYPE_BINFO (call_site_type)),
+               DECL_VINDEX (fn)));
+      }
+      /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
       else
 	fn = build_vfn_ref (*p, DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;

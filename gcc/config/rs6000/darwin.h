@@ -56,8 +56,9 @@
       if (TARGET_64BIT) builtin_define ("__ppc64__");  \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL remove __MACH__ and __APPLE__ definitions -- put elsewhere */\
+      /* APPLE LOCAL constant cfstrings */	\
+      SUBTARGET_OS_CPP_BUILTINS ();		\
     }                                           \
   while (0)
 
@@ -106,6 +107,10 @@ do {									\
 	  error ("invalid option %qs", base);				\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
+    /* APPLE LOCAL begin longcall */					\
+    if (TARGET_64BIT)							\
+      rs6000_longcall_switch = (char *)0;				\
+    /* APPLE LOCAL end longcall */					\
   }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
@@ -128,7 +133,8 @@ do {									\
 #define CC1_SPEC "\
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
-%{!static:%{!mdynamic-no-pic:-fPIC}}"
+"/* APPLE LOCAL -fast and PIC code.  */"\
+%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
 #define DARWIN_SUBARCH_SPEC "			\
  %{m64: ppc64}					\
@@ -165,7 +171,8 @@ do {									\
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
   { "-ffix-and-continue", "-mfix-and-continue" },			\
   { "-findirect-data", "-mfix-and-continue" },				\
-  { "-faltivec", "-maltivec -include altivec.h" },			\
+  /* APPLE LOCAL AltiVec */						\
+  { "-faltivec", "-faltivec -mpim-altivec" },				\
   { "-fno-altivec", "-mno-altivec" },					\
   { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
@@ -181,6 +188,24 @@ do {									\
 
 #undef  RS6000_PIC_OFFSET_TABLE_REGNUM
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 31
+
+/* APPLE LOCAL begin -pg fix */
+/* -pg has a problem which is normally concealed by -fPIC;
+   either -mdynamic-no-pic or -static exposes the -pg problem, causing the
+   crash.  FSF gcc for Darwin also has this bug.  The problem is that -pg
+   causes several int registers to be saved and restored although they may
+   not actually be used (config/rs6000/rs6000.c:first_reg_to_save()).  In the
+   rare case where none of them is actually used, a consistency check fails
+   (correctly).  This cannot happen with -fPIC because the PIC register (R31)
+   is always "used" in the sense checked by the consistency check.  The
+   easy fix, here, is therefore to mark R31 always "used" whenever -pg is on.
+   A better, but harder, fix would be to improve -pg's register-use
+   logic along the lines suggested by comments in the function listed above. */
+#undef PIC_OFFSET_TABLE_REGNUM
+#define PIC_OFFSET_TABLE_REGNUM ((flag_pic || profile_flag) \
+    ? RS6000_PIC_OFFSET_TABLE_REGNUM \
+    : INVALID_REGNUM)
+/* APPLE LOCAL end -pg fix */
 
 /* Pad the outgoing args area to 16 bytes instead of the usual 8.  */
 
@@ -200,11 +225,35 @@ do {									\
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
                               "__TEXT,__unlikely,regular,pure_instructions"
 
-/* Define cutoff for using external functions to save floating point.
-   Currently on Darwin, always use inline stores.  */
+/* APPLE LOCAL begin long call hot cold */
+/* The following is used by hot/cold partitioning to determine whether to
+   unconditional branches are "long enough" to span the distance between
+   hot and cold sections  (otherwise we have to use indirect jumps).  It 
+   is set based on the -mlongcall flag.
+   If -mlongcall is set, we use the indirect jumps (the macro below gets '0');
+   otherwise we use unconditional branches (the macro below gets '1').  */
+#define HAS_LONG_UNCOND_BRANCH (TARGET_LONG_BRANCH ? 0 : 1)
+/* APPLE LOCAL end long call hot cold */
 
-#undef	FP_SAVE_INLINE
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
+/* APPLE LOCAL begin long-branch */
+/* Define cutoff for using external functions to save floating point.
+   For Darwin, use the function for more than a few registers.  */
+
+/* APPLE LOCAL begin inline FP save/restore (radar 3414605) */
+#undef FP_SAVE_INLINE
+#define FP_SAVE_INLINE(FIRST_REG) \
+(optimize >= 3   \
+|| ((FIRST_REG) > 60 && (FIRST_REG) < 64) \
+|| TARGET_LONG_BRANCH)
+/* APPLE LOCAL end inline FP save/restore (radar 3414605) */
+
+/* Define cutoff for using external functions to save vector registers.  */
+
+#undef VECTOR_SAVE_INLINE
+#define VECTOR_SAVE_INLINE(FIRST_REG) \
+  (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) \
+   || TARGET_LONG_BRANCH)
+/* APPLE LOCAL end long-branch */
 
 /* Darwin uses a function call if everything needs to be saved/restored.  */
 #undef WORLD_SAVE_P
@@ -271,11 +320,8 @@ do {									\
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START ";"
 
-/* FP save and restore routines.  */
-#define	SAVE_FP_PREFIX "._savef"
-#define SAVE_FP_SUFFIX ""
-#define	RESTORE_FP_PREFIX "._restf"
-#define RESTORE_FP_SUFFIX ""
+/* APPLE LOCAL reduce code size */
+/* Don't define SAVE_FP_PREFIX and friends */
 
 /* This is how to output an assembler line that says to advance
    the location counter to a multiple of 2**LOG bytes using the
@@ -353,30 +399,45 @@ do {									\
    ? GENERAL_REGS						\
    : (CLASS))
 
-/* Fix for emit_group_load (): force large constants to be pushed via regs.  */
-#define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
+/* This now supports the Macintosh power, mac68k, and natural 
+   alignment modes.  It now has one more parameter than the standard 
+   version of the ADJUST_FIELD_ALIGN macro.  
+   
+   The macro works as follows: We use the computed alignment of the 
+   field if we are in the natural alignment mode or if the field is 
+   a vector.  Otherwise, if we are in the mac68k alignment mode, we
+   use the minimum of the computed alignment and 16 (pegging at
+   2-byte alignment).  If we are in the power mode, we peg at 32
+   (word alignment) unless it is the first field of the struct, in 
+   which case we use the computed alignment.  */
+#undef ADJUST_FIELD_ALIGN
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED, FIRST_FIELD_P)	\
+  (TARGET_ALIGN_NATURAL ? (COMPUTED) :				\
+   (((COMPUTED) == RS6000_VECTOR_ALIGNMENT)			\
+    ? RS6000_VECTOR_ALIGNMENT					\
+    : (MIN ((COMPUTED), 					\
+    	    (TARGET_ALIGN_MAC68K ? 16 				\
+    	    			 : ((FIRST_FIELD_P) ? (COMPUTED) \
+    	    			 		    : 32))))))
 
-/* This now supports a natural alignment mode */
-/* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED)))
+#undef ROUND_TYPE_ALIGN
+/* Macintosh alignment modes require more complicated handling
+   of alignment, so we replace the macro with a call to a
+   out-of-line function.  */
+union tree_node;
+extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs6000.c  */
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
+  round_type_align(STRUCT, COMPUTED, SPECIFIED)
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
 
-/* Darwin increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
-    || TREE_CODE (STRUCT) == UNION_TYPE					\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
-   && TARGET_ALIGN_NATURAL == 0                         		\
-   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
-   : (TREE_CODE (STRUCT) == VECTOR_TYPE					\
-      && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT))) 			\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
-   : MAX ((COMPUTED), (SPECIFIED)))
+/* APPLE LOCAL begin alignment */
+/* Make sure local alignments come from the type node, not the mode;
+   mode-based alignments are wrong for vectors.  */
+#undef LOCAL_ALIGNMENT
+#define LOCAL_ALIGNMENT(TYPE, ALIGN)	(MAX ((unsigned) ALIGN,	\
+					      TYPE_ALIGN (TYPE)))
+/* APPLE LOCAL end alignment */
 
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only
@@ -387,6 +448,17 @@ do {									\
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
    support 64 bit PowerPC either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
+
+/* APPLE LOCAL begin branch cost */
+#undef BRANCH_COST
+/* Better code is generated by saying conditional branches take 1 tick.  */
+#define BRANCH_COST	1
+/* APPLE LOCAL end branch cost */
+
+/* APPLE LOCAL begin indirect calls in R12 */
+/* Address of indirect call must be computed here */
+#define MAGIC_INDIRECT_CALL_REG 12
+/* APPLE LOCAL end indirect calls in R12 */
 
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly

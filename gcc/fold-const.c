@@ -6484,7 +6484,8 @@ static
 tree
 fold (tree expr)
 {
-  const tree t = expr;
+  /* APPLE LOCAL altivec */
+  tree t = expr;
   const tree type = TREE_TYPE (expr);
   tree t1 = NULL_TREE;
   tree tem;
@@ -6495,6 +6496,15 @@ fold (tree expr)
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
   int wins = 1;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* Fold constant comma expressions.  */
+  while (TREE_CODE (t) == COMPOUND_EXPR && TREE_CONSTANT (t))
+    t = TREE_OPERAND (t, 1);
+    
+  code = TREE_CODE (t);
+  kind = TREE_CODE_CLASS (code);
+  /* APPLE LOCAL end AltiVec */
 
   /* Return right away if a constant.  */
   if (kind == tcc_constant)

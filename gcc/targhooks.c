@@ -129,6 +129,16 @@ default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 	  != default_setup_incoming_varargs);
 }
 
+/* APPLE LOCAL begin Altivec */
+bool
+default_skip_vec_args(tree type ATTRIBUTE_UNUSED,
+		      int pass ATTRIBUTE_UNUSED,
+		      int* last_pass ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+/* APPLE LOCAL end Altivec */
+
 enum machine_mode
 default_eh_return_filter_mode (void)
 {

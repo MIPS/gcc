@@ -161,6 +161,8 @@ initialize_builtins (void)
 {
   tree double_ftype_double, double_ftype_double_double;
   tree float_ftype_float, float_ftype_float_float;
+  /* APPLE LOCAL lno */
+  tree void_ftype;
   tree t;
   int i;
 
@@ -184,6 +186,10 @@ initialize_builtins (void)
   double_ftype_double = build_function_type (double_type_node, t);
   t = tree_cons (NULL_TREE, double_type_node, t);
   double_ftype_double_double = build_function_type (double_type_node, t);
+
+  /* APPLE LOCAL begin lno */
+  void_ftype = build_function_type (void_type_node, NULL_TREE);
+  /* APPLE LOCAL end lno */
 
   define_builtin (BUILT_IN_FMOD, "__builtin_fmod",
 		  double_ftype_double_double, "fmod");
@@ -216,6 +222,10 @@ initialize_builtins (void)
 		  double_ftype_double, "_ZN4java4lang4Math4sqrtEd");
   define_builtin (BUILT_IN_TAN, "__builtin_tan",
 		  double_ftype_double, "_ZN4java4lang4Math3tanEd");
+  /* APPLE LOCAL begin lno */
+  define_builtin (BUILT_IN_MAYBE_INFINITE_LOOP, "__builtin_maybe_infinite_loop",
+		  void_ftype, "__builtin_maybe_infinite_loop");
+  /* APPLE LOCAL end lno */
 
   build_common_builtin_nodes ();
 }

@@ -200,6 +200,10 @@ static void cgraph_mark_local_functions (void);
 static bool cgraph_default_inline_p (struct cgraph_node *n);
 static void cgraph_analyze_function (struct cgraph_node *node);
 static void cgraph_decide_inlining_incrementally (struct cgraph_node *);
+/* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+static bool altivec_infection (struct cgraph_edge *);
+static bool fndecl_uses_vector_p (tree);
+/* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
 
 /* Statistics we collect about inlining algorithm.  */
 static int ncalls_inlined;
@@ -398,6 +402,35 @@ cgraph_finalize_function (tree decl, bool nested)
     do_warn_unused_parameter (decl);
 }
 
+/* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+static bool
+fndecl_uses_vector_p (tree fndecl)
+{
+   tree arg, vars, var;
+   struct function *my_cfun = DECL_STRUCT_FUNCTION (fndecl);
+
+   if (TREE_CODE (TREE_TYPE (fndecl)) == VECTOR_TYPE)
+     return true;
+
+   arg = DECL_ARGUMENTS (fndecl);
+   while (arg)
+     {
+       if (TREE_CODE (TREE_TYPE (arg)) == VECTOR_TYPE)
+       return true;
+       arg = TREE_CHAIN (arg);
+     }
+
+   for (vars = my_cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
+     {
+       var = TREE_VALUE (vars);
+       if (TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
+       return true;
+     }
+   /* Treewalk part folded into record_call_1 below.  */
+   return false;
+}
+/* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
+
 /* Walk tree and record all calls.  Called via walk_tree.  */
 static tree
 record_call_1 (tree *tp, int *walk_subtrees, void *data)
@@ -407,6 +440,15 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case VAR_DECL:
+      /* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+      {
+	struct cgraph_node *node = (struct cgraph_node *)data;
+	struct function *my_cfun = DECL_STRUCT_FUNCTION (node->decl);
+
+	if (TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	  my_cfun->uses_vector = 1;	    
+      }
+      /* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
       /* ??? Really, we should mark this decl as *potentially* referenced
 	 by this function and re-examine whether the decl is actually used
 	 after rtl has been generated.  */
@@ -473,6 +515,11 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 void
 cgraph_create_edges (struct cgraph_node *node, tree body)
 {
+  /* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+  if (!DECL_STRUCT_FUNCTION (node->decl)->uses_vector)
+    DECL_STRUCT_FUNCTION (node->decl)->uses_vector = fndecl_uses_vector_p (node->decl);
+  /* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
+
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
   visited_nodes = pointer_set_create ();
@@ -1085,6 +1132,32 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
       cgraph_clone_inlined_nodes (e, duplicate);
 }
 
+/* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+/* Return TRUE if the given edge represents a CALL from a
+   non-Altivec-using function to another that does.  We must not
+   inline these CALLs, lest we infect a virgin G3-executable function
+   with AltiVec codes (e.g. prolog & epilog).  Only active if
+   -faltivec and not -maltivec.  */
+static bool
+altivec_infection (struct cgraph_edge *edge)
+{
+  if (flag_disable_opts_for_faltivec
+      && edge
+      && edge->caller
+      && !DECL_STRUCT_FUNCTION (edge->caller->decl)->uses_vector
+      && edge->callee
+      && DECL_STRUCT_FUNCTION (edge->callee->decl)
+      && DECL_STRUCT_FUNCTION (edge->callee->decl)->uses_vector)
+    {
+      edge->inline_failed = N_(" -faltivec on, callee has AltiVec(tm), caller doesn't; not inlined.  Use -maltivec to allow.\n");
+      return true;
+    }
+  else
+    return false;
+}
+/* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
+
+
 /* Mark edge E as inlined and update callgraph accordingly.  */
 
 void
@@ -1419,6 +1492,8 @@ cgraph_decide_inlining_of_small_functions (void)
 
 	      if (cgraph_recursive_inlining_p (e->caller, e->callee,
 				      	       &e->inline_failed)
+		  /* APPLE LOCAL Selective inlining of functions that use Altivec 3837835 */
+		  || altivec_infection (e)
 		  || !cgraph_check_inline_limits (e->caller, e->callee,
 			  			  &e->inline_failed))
 		{
@@ -1565,6 +1640,14 @@ cgraph_decide_inlining (void)
 			     node->callers->caller->global.insns);
 
 		  old_insns = overall_insns;
+		  /* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+		  if (altivec_infection (node->callers))
+		    {
+		      if (cgraph_dump_file)
+			fprintf (cgraph_dump_file, node->callers->inline_failed);
+		      continue;
+		    }
+		  /* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
 
 		  if (cgraph_check_inline_limits (node->callers->caller, node,
 					  	  NULL))
@@ -1613,6 +1696,11 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
 
   /* First of all look for always inline functions.  */
   for (e = node->callees; e; e = e->next_callee)
+    /* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+    if (altivec_infection (e))
+      continue;
+    else
+    /* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
     if (e->callee->local.disregard_inline_limits
 	&& e->inline_failed
         && !cgraph_recursive_inlining_p (node, e->callee, &e->inline_failed)
@@ -1631,6 +1719,10 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
 	  && cgraph_check_inline_limits (node, e->callee, &e->inline_failed)
 	  && DECL_SAVED_TREE (e->callee->decl))
 	{
+	  /* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+	  if (altivec_infection (e))
+	    continue;
+	  /* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
 	  if (cgraph_default_inline_p (e->callee))
 	    cgraph_mark_inline (e);
 	  else
@@ -1842,7 +1934,8 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_IGNORED_P (decl) = 1;
+  /* APPLE LOCAL Radar 3939078 */
+  /* Delete DECL_IGNORED_P (decl) = 1; */
   DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
   DECL_SAVED_TREE (decl) = body;
   TREE_PUBLIC (decl) = ! targetm.have_ctors_dtors;

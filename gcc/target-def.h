@@ -278,6 +278,37 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE                                                \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
+/* APPLE LOCAL begin AV misaligned --haifa  */
+/* MERGE FIXME - how many of these are now dead given TARGET_VECTORIZE and friends?  */
+/* Vectorizer hooks.  All of these default to null pointers, which
+   tree-vectorizer.c looks for and handles.  */
+#define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
+#define TARGET_VECT_PERMUTE_MISALIGNED_LOADS 0
+#define TARGET_VECT_BUILD_BUILTIN_LVSL 0
+#define TARGET_VECT_BUILD_BUILTIN_LVSR 0
+#define TARGET_VECT_BUILD_BUILTIN_VPERM 0
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
+/* APPLE LOCAL begin AV vector_init --haifa  */
+#define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
+#define TARGET_VECT_BUILD_VMUL_UCH 0
+#define TARGET_VECT_SUPPORT_VECTOR_INIT_P 0
+#define TARGET_VECT_BUILD_VECTOR_INIT 0
+
+#define TARGET_VECT                                       \
+  {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
+   TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
+   TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
+   TARGET_VECT_BUILD_BUILTIN_LVSR,                        \
+   TARGET_VECT_BUILD_BUILTIN_VPERM,                       \
+   TARGET_VECT_SUPPORT_VMUL_UCH_P,			  \
+   TARGET_VECT_BUILD_VMUL_UCH,				  \
+   TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
+   TARGET_VECT_BUILD_VECTOR_INIT}
+
+/* APPLE LOCAL end AV vmul_uch --haifa  */
+/* APPLE LOCAL end AV vector_init --haifa  */
+/* APPLE LOCAL end AV misaligned --haifa  */
+
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
 
@@ -293,6 +324,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 #define TARGET_FOLD_BUILTIN hook_tree_tree_bool_null
+
+/* APPLE LOCAL begin constant cfstrings */
+/* In c-common.c.  */
+#ifndef TARGET_EXPAND_TREE_BUILTIN
+#define TARGET_EXPAND_TREE_BUILTIN hook_tree_tree_tree_tree_null
+#endif
+#ifndef TARGET_CONSTRUCT_OBJC_STRING
+#define TARGET_CONSTRUCT_OBJC_STRING hook_tree_tree_null
+#endif
+/* APPLE LOCAL end constant cfstrings */
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -356,6 +397,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
 
+/* APPLE LOCAL begin AltiVec */
+#define TARGET_CAST_EXPR_AS_VECTOR_INIT false
+/* APPLE LOCAL end AltiVec */
+
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
 #define TARGET_CC_MODES_COMPATIBLE default_cc_modes_compatible
@@ -390,6 +435,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_false
 #define TARGET_PRETEND_OUTGOING_VARARGS_NAMED \
   default_pretend_outgoing_varargs_named
+/* APPLE LOCAL begin Altivec */
+#define TARGET_SKIP_VEC_ARGS default_skip_vec_args
+/* APPLE LOCAL end Altivec */
+
 #define TARGET_SPLIT_COMPLEX_ARG NULL
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
@@ -414,6 +463,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    TARGET_SPLIT_COMPLEX_ARG,					\
+   /* APPLE LOCAL begin Altivec */				\
+   TARGET_SKIP_VEC_ARGS,					\
+   /* APPLE LOCAL end Altivec */				\
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
    TARGET_ARG_PARTIAL_BYTES					\
@@ -492,6 +544,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  /* APPLE LOCAL begin constant cfstrings */	\
+  TARGET_EXPAND_TREE_BUILTIN,			\
+  TARGET_CONSTRUCT_OBJC_STRING,			\
+  /* APPLE LOCAL end constant cfstrings */	\
   TARGET_FOLD_BUILTIN,				\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
@@ -519,6 +575,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
+  /* APPLE LOCAL AV misaligned --haifa  */       \
+  TARGET_VECT,                                  \
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
@@ -536,6 +594,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
+  /* APPLE LOCAL AltiVec */			\
+  TARGET_CAST_EXPR_AS_VECTOR_INIT,		\
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
   TARGET_RELAXED_ORDERING,			\

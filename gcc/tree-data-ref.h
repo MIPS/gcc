@@ -155,6 +155,13 @@ extern tree find_data_references_in_loop (struct loop *, varray_type *);
 extern struct data_dependence_relation *initialize_data_dependence_relation 
 (struct data_reference *, struct data_reference *);
 extern void compute_affine_dependence (struct data_dependence_relation *);
+/* APPLE LOCAL begin AV data dependence. -dpatel */
+/* Patch is waiting FSF review since mid Sep, 2004.
+   Make these two functions externally visible.  */
+extern void compute_subscript_distance (struct data_dependence_relation *);
+extern bool build_classic_dist_vector (struct data_dependence_relation *, int, 
+				       int);
+/* APPLE LOCAL end AV data dependence. -dpatel */
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
 					       varray_type *, varray_type *);

@@ -35,6 +35,8 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "timevar.h"
+/* APPLE LOCAL lno */
+#include "cfgloop.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "domwalk.h"
@@ -367,7 +369,14 @@ static void
 tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
+  /* APPLE LOCAL lno */
+  struct loops *loops;
   unsigned int i;
+
+  /* APPLE LOCAL begin lno */
+  /* Compute the natural loops.  */
+  loops = loop_optimizer_init (NULL);
+  /* APPLE LOCAL end lno */
 
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -480,6 +489,10 @@ tree_ssa_dominator_optimize (void)
 	}
     }
   while (optimize > 1 && cfg_altered);
+
+  /* APPLE LOCAL begin lno */
+  loop_optimizer_finalize (loops, NULL);
+  /* APPLE LOCAL end lno */
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
@@ -1662,8 +1675,11 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
+	  /* APPLE LOCAL begin lno */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
+	  /* APPLE LOCAL end lno */
 	{
 	  tree rhs_def_operand;
 
@@ -1689,7 +1705,11 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
+      /* APPLE LOCAL begin lno */
+      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
+	  /* APPLE LOCAL end lno */
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);

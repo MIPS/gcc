@@ -70,6 +70,15 @@ g++-cross$(exeext): g++$(exeext)
 	-rm -f g++-cross$(exeext)
 	cp g++$(exeext) g++-cross$(exeext)
 
+# APPLE LOCAL begin order files  --ilr
+ifeq ($(ORDER_FILES),yes)
+CC1PLUS_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1plus.order ]; then \
+		         echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1plus.order -e start ; fi`
+else
+CC1PLUS_ORDER_FLAGS =
+endif
+# APPLE LOCAL end order files  --ilr
+
 # The compiler itself.
 # Shared with C front end:
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
@@ -91,9 +100,12 @@ CXX_OBJS = cp/cp-lang.o stub-objc.o $(CXX_AND_OBJCXX_OBJS)
 # Use strict warnings for this front end.
 cp-warn = $(STRICT_WARN)
 
+# APPLE LOCAL begin order files  --ilr
 cc1plus$(exeext): $(CXX_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(CXX_OBJS) $(BACKEND) $(LIBS)
+	      $(CXX_OBJS) $(BACKEND) $(LIBS) \
+	      $(CC1PLUS_ORDER_FLAGS)
+# APPLE LOCAL end order files  --ilr
 
 # Special build rules.
 $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
@@ -253,16 +265,20 @@ cp/method.o: cp/method.c $(CXX_TREE_H) $(TM_H) toplev.h $(RTL_H) $(EXPR_H) \
   $(TM_P_H) $(TARGET_H) gt-cp-method.h
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) $(TM_H) cp/decl.h flags.h toplev.h convert.h
 cp/search.o: cp/search.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H)
+# APPLE LOCAL begin Objective-C++
 cp/tree.o: cp/tree.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) \
-  insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h $(TARGET_H)
+  insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h $(TARGET_H) debug.h
+# APPLE LOCAL end Objective-C++
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(TM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h convert.h
 cp/except.o: cp/except.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) except.h toplev.h \
   cp/cfns.h $(EXPR_H) libfuncs.h tree-inline.h
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
-cp/pt.o: cp/pt.c $(CXX_TREE_H) $(TM_H) cp/decl.h \
-  toplev.h $(RTL_H) except.h tree-inline.h pointer-set.h gt-cp-pt.h
+# APPLE LOCAL begin Objective-C++
+cp/pt.o: cp/pt.c $(CXX_TREE_H) $(TM_H) cp/decl.h cp/cp-objcp-common.h \
+  toplev.h $(RTL_H) except.h tree-inline.h pointer-set.h gt-cp-pt.h c-common.h
+# APPLE LOCAL end Objective-C++
 cp/error.o: cp/error.c $(CXX_TREE_H) $(TM_H) toplev.h $(DIAGNOSTIC_H) \
   flags.h real.h $(LANGHOOKS_DEF_H) $(CXX_PRETTY_PRINT_H)
 cp/repo.o: cp/repo.c $(CXX_TREE_H) $(TM_H) toplev.h diagnostic.h \
@@ -276,8 +292,10 @@ cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h \
   $(TARGET_H) $(TM_P_H)
 
+# APPLE LOCAL begin Objective-C++
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h \
-  output.h
+  output.h c-common.h
+# APPLE LOCAL end Objective-C++
 cp/cp-gimplify.o: cp/cp-gimplify.c $(CXX_TREE_H) toplev.h c-common.h \
 	$(TM_H) coretypes.h pointer-set.h
 

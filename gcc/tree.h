@@ -288,6 +288,8 @@ struct tree_common GTY(())
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
+  /* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
+  unsigned unavailable_flag : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -420,6 +422,13 @@ struct tree_common GTY(())
 
 	TREE_DEPRECATED in
 	   ..._DECL
+
+   APPLE LOCAL begin "unavailable" attribute (Radar 2809697)
+   unavailable_flag:
+
+	TREE_UNAVAILABLE in
+	   ..._DECL
+   APPLE LOCAL end "unavailable" attribute (Radar 2809697)
 
    visited:
 
@@ -1023,6 +1032,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
+
+/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) */
+/* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
+   unavailable feature by __attribute__((unavailable)).  */
+#define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
+/* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -2231,6 +2246,15 @@ struct tree_binfo GTY (())
 /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_CHECK (NODE)->decl.weak_flag)
 
+/* APPLE LOCAL handling duplicate decls across files */
+#define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
+
+/* APPLE LOCAL begin CW asm blocks */
+#define DECL_CW_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.cw_asm_function_flag)
+#define DECL_CW_ASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.cw_asm_noreturn_flag)
+#define DECL_CW_ASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.cw_asm_frame_size)
+/* APPLE LOCAL end CW asm blocks */
+
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_CHECK (NODE)->decl.transparent_union)
@@ -2291,6 +2315,15 @@ struct tree_binfo GTY (())
 /* Nonzero if an alias set has been assigned to this declaration.  */
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
+
+/* APPLE LOCAL begin DECL_ESTIMATED_INSNS */
+/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
+   the approximate number of statements in this function.  There is
+   no need for this number to be exact; it is only used in various
+   heuristics regarding optimization.  */
+#define DECL_ESTIMATED_INSNS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
+/* APPLE LOCAL end */
 
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
@@ -2378,11 +2411,19 @@ struct tree_decl GTY(())
   unsigned lang_flag_6 : 1;
   unsigned lang_flag_7 : 1;
 
+  /* APPLE LOCAL duplicate decls in multiple files. */
+  unsigned duplicate_decl : 1;
   unsigned possibly_inlined : 1;
   unsigned preserve_flag: 1;
   unsigned gimple_formal_temp : 1;
   unsigned debug_expr_is_from : 1;
-  /* 12 unused bits.  */
+  /* APPLE LOCAL unused bits */
+  /* 9 unused bits.  */
+  /* APPLE LOCAL begin CW asm blocks */
+  unsigned cw_asm_function_flag : 1;
+  unsigned cw_asm_noreturn_flag : 1;
+  unsigned int cw_asm_frame_size;
+  /* APPLE LOCAL end CW asm blocks */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -2781,6 +2822,10 @@ extern tree make_tree_binfo_stat (unsigned MEM_STAT_DECL);
 extern tree make_tree_vec_stat (int MEM_STAT_DECL);
 #define make_tree_vec(t) make_tree_vec_stat (t MEM_STAT_INFO)
 
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
+/* General untility functions.  */
+tree get_array_base (tree);
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 /* Tree nodes for SSA analysis.  */
 
 extern void init_phinodes (void);
@@ -3541,6 +3586,8 @@ extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
+/* APPLE LOCAL lno */
+extern enum tree_code swap_tree_comparison (enum tree_code);
 extern tree build_fold_addr_expr (tree);
 extern tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree fold_strip_sign_ops (tree);
@@ -3612,6 +3659,9 @@ extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree tree_fold_gcd (tree, tree);
+/* APPLE LOCAL begin lno */
+extern bool cst_and_fits_in_hwi (tree);
+/* APPLE LOCAL end lno */
 extern tree build_addr (tree);
 
 extern bool fields_compatible_p (tree, tree);

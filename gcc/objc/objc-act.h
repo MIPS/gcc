@@ -26,6 +26,8 @@ Boston, MA 02111-1307, USA.  */
 
 bool objc_init (void);
 const char *objc_printable_name (tree, int);
+/* APPLE LOCAL Radar 3926484 FSF candidate */
+tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
 int objc_types_compatible_p (tree, tree);
@@ -115,6 +117,11 @@ int objc_types_compatible_p (tree, tree);
 #define OBJC_TYPE_NAME(TYPE) TYPE_NAME(TYPE)
 #define OBJC_SET_TYPE_NAME(TYPE, NAME) (TYPE_NAME (TYPE) = NAME)
 
+/* APPLE LOCAL begin objc speedup --dpatel */
+#define IDENTIFIER_INTERFACE_VALUE(NODE) \
+	(((struct lang_identifier *) (NODE))->interface_value)
+/* APPLE LOCAL end objc speedup --dpatel */
+
 /* Define the Objective-C or Objective-C++ language-specific tree codes.  */
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
@@ -164,6 +171,8 @@ struct imp_entry GTY(())
   tree imp_template;
   tree class_decl;		/* _OBJC_CLASS_<my_name>; */
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
+  /* APPLE LOCAL ObjC C++ ivars */
+  BOOL_BITFIELD has_cxx_cdtors : 1;
 };
 
 extern GTY(()) struct imp_entry *imp_list;

@@ -960,7 +960,13 @@ flow_loops_find (struct loops *loops, int flags)
 
       loops->num = num_loops;
       initialize_loops_parallel_p (loops);
+/* APPLE LOCAL begin lno */
     }
+  else
+    {
+      free_dominance_info (CDI_DOMINATORS);
+    }
+/* APPLE LOCAL end lno */
 
   sbitmap_free (headers);
 

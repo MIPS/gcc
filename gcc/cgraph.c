@@ -95,6 +95,8 @@ The varpool data structure:
 #include "varray.h"
 #include "output.h"
 #include "intl.h"
+/* APPLE LOCAL Selective inlining of functions that use Altivec 3837835 */
+#include "function.h"
 
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
@@ -511,6 +513,10 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " inlinable");
   if (TREE_ASM_WRITTEN (node->decl))
     fprintf (f, " asm_written");
+  /* APPLE LOCAL begin Selective inlining of functions that use Altivec 3837835 */
+  if (DECL_STRUCT_FUNCTION (node->decl) && DECL_STRUCT_FUNCTION (node->decl)->uses_vector)
+    fprintf (f, " uses_vector");
+  /* APPLE LOCAL end Selective inlining of functions that use Altivec 3837835 */
 
   fprintf (f, "\n  called by: ");
   for (edge = node->callers; edge; edge = edge->next_caller)

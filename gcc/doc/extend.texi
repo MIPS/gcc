@@ -54,6 +54,10 @@ extensions, accepted by GCC in C89 mode and in C++.
 * C++ Comments::        C++ comments are recognized.
 * Dollar Signs::        Dollar sign is allowed in identifiers.
 * Character Escapes::   @samp{\e} stands for the character @key{ESC}.
+@c APPLE LOCAL begin pascal strings
+* Pascal Strings::      Constructing string literals with a Pascal-style 
+                         length byte.
+@c APPLE LOCAL end pascal strings
 * Variable Attributes::	Specifying attributes of variables.
 * Type Attributes::	Specifying attributes of types.
 * Alignment::           Inquiring about the alignment of a type or variable.
@@ -63,6 +67,8 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Constraints::         Constraints for asm operands
 * Asm Labels::          Specifying the assembler name to use for a C symbol.
 * Explicit Reg Vars::   Defining variables residing in specified registers.
+@c APPLE LOCAL CW asm blocks
+* Asm Blocks and Functions:: Block and functions of assembly code.
 * Alternate Keywords::  @code{__const__}, @code{__asm__}, etc., for header files.
 * Incomplete Enums::    @code{enum foo;}, with details to follow.
 * Function Names::	Printable strings which are the name of the current
@@ -1868,6 +1874,8 @@ the specified function is an interrupt handler.  The compiler will generate
 function entry and exit sequences suitable for use in an interrupt
 handler when this attribute is present.
 
+@c APPLE LOCAL Apple customers doesn't care about ARM options.
+@ignore
 @item long_call/short_call
 @cindex indirect calls on ARM
 This attribute specifies how a particular function is called on
@@ -1878,6 +1886,8 @@ function by first loading its address into a register and then using the
 contents of that register.   The @code{short_call} attribute always places
 the offset to the function from the call site into the @samp{BL}
 instruction directly.
+@c APPLE LOCAL Apple customers don't care about ARM options.
+@end ignore
 
 @item longcall/shortcall
 @cindex functions called via pointer on the RS/6000 and PowerPC
@@ -2639,6 +2649,62 @@ machines, typically because the target assembler does not allow them.
 
 You can use the sequence @samp{\e} in a string or character constant to
 stand for the ASCII character @key{ESC}.
+
+@c APPLE LOCAL begin pascal strings
+@node Pascal Strings
+@section Constructing String Literals with a Pascal-style Length Byte
+@cindex Pascal length byte
+@cindex Pascal strings
+
+Specifying the @w{@option{-fpascal-strings}} option will cause the
+compiler to recognize and construct Pascal-style string literals.  This
+functionality is disabled by default; furthermore, its use in new code
+is discouraged.
+
+Pascal string literals take the form @samp{"\pstring"}.  The special
+escape sequence @samp{\p} denotes the Pascal length byte for the string,
+and will be replaced at compile time with the number of characters that
+follow.  The @samp{\p} may only appear at the beginning of a string
+literal, and may @emph{not} appear in wide string literals or as an
+integral constant.
+
+As is the case with C string literals, Pascal string literals are
+terminated with a NUL character; this character is @emph{not} counted
+when computing the value of the length byte.  The maximum @samp{unsigned
+char} value that can be stored in the length byte is also the maximum
+permissible length for the Pascal literal itself.  On most target
+platforms, this value is 255 (excluding both the length byte and the
+terminating NUL).
+
+Pascal-style literals are treated by the compiler as being of type
+@samp{const unsigned char []} in C++ and @samp{unsigned char []} (or
+@samp{const unsigned char []}, if the @w{@option{-Wwrite-strings}}
+option is given) in C.  Pascal string literals may be used as static
+initializers for @samp{char} arrays (whose elements need not be
+@samp{unsigned} or @samp{const}).  They may also be converted to
+@samp{const unsigned char *} and, in the C language to @samp{const char
+*} of any signedness (In C, if the @w{@option{-Wwrite-strings}} is not
+given, then @samp{const} may be omitted as well).  For example:
+
+@example
+const unsigned char a[] = "\pHello";
+char b[] = "\pGoodbye";
+const unsigned char *c = "\pHello";
+const signed char *d = "\pHello";    /* error in C++ */
+char *e = "\pHi";  /* error in C++; warning in C with -Wwrite-strings */
+unsigned char *f = "\pHello";      /* error in C++ */
+@end example
+
+@noindent
+In all other respects, Pascal-style string literals behave the same as
+ordinary string literals.  For example, if a program attempts to modify
+the conents of a Pascal-style string literal at run-time, the behaviour
+is undefined, unless the @w{@option{-fwritable-strings}} option is used.
+
+Pascal-style literals are useful for calling external routines that
+expect Pascal strings as arguments, as is true with some Apple MacOS
+Toolbox calls.
+@c APPLE LOCAL end pascal strings
 
 @node Alignment
 @section Inquiring on Alignment of Types or Variables
@@ -4194,6 +4260,85 @@ register int *p2 asm ("r1") = @dots{};
 @end smallexample
 In those cases, a solution is to use a temporary variable for
 each arbitrary expression.   @xref{Example of asm with clobbered asm reg}.
+
+@c APPLE LOCAL begin CW asm blocks
+@node Asm Blocks and Functions
+@section Blocks and Functions of Assembly Language
+
+(This feature is APPLE ONLY.)
+
+In addition to writing single statements in assembly, you can also
+define blocks and entire functions to use a mixed assembly and C
+syntax.  The syntax follows that used in Metrowerks' CodeWarrior.
+This extension must be explicitly enabled with the
+@option{-fasm-blocks} option.
+
+The block syntax consists of @code{asm} followed by braces, with the
+assembly instructions on separate lines.  (However, @code{';'} may be
+used to put several instructions on one line.)  You write labels with
+either a preceding @code{'@@'} or a trailing @code{':'} (or both, if
+you prefer); labels are always local to the asm block, and there is no
+way for a label in one block to refer to a label in another block.
+Comments and lexical rules are as for standard C/C++.
+
+@verbatim
+int foo (int arg) {
+  register int bar;
+  asm {
+    li bar, 42
+    add bar, arg, bar ; nop ; ; nop
+  }
+  return bar;
+}
+@end verbatim
+
+The function syntax uses @code{asm} as a keyword in the function
+definition.  In this form, C declarations may appear at the beginning
+of the function body, in order to declare variables that you want to
+use in the body, but may not be used after the first assembly opcode
+or label (even in C99 or C++).
+
+@verbatim
+asm int baz (int arg1) {
+    register int loc1, loc2;
+    @123
+    li loc1,4 * 89
+    nand. r5,arg1,loc1
+    ble- cr0, @123
+    otherlab: nop
+    mr r3,r5
+}
+@end verbatim
+
+Note that the compiler just passes the instructions through to the
+assembler with only necessary changes, such as a substitution of
+globally unique labels.  Assembly syntax errors will therefore be
+reported by the assembler.
+
+Also note that the use of literal registers (such as r3) in functions
+may not work properly with functions that are being inlined.
+
+The following instructions are assumed to affect memory: @code{l...}
+except @code{la}, @code{li} and @code{lis} (all memory loads),
+@code{st...} (all memory stores), @code{sc}, @code{td...},
+@code{trap}, @code{tw...}.  All other instructions are assumed to not
+affect memory.
+
+The following instructions take a memory operand (address operand) as
+their second operand, all other instructions are assumed to not:
+
+@code{la}, @code{lbzu}, @code{ld}, @code{ldu}, @code{lfd},
+@code{lfdu}, @code{lfs}, @code{lfsu}, @code{lha}, @code{lhau},
+@code{lhz}, @code{lhzu}, @code{lmw}, @code{lwa}, @code{lwz},
+@code{lwzu}, @code{stb}, @code{stbu}, @code{std}, @code{stdu},
+@code{stfd}, @code{stfdu}, @code{stfs}, @code{stfsu}, @code{sth},
+@code{sthu}, @code{stmw}, @code{stw}, @code{stwu}.
+
+Arguments that require substitution beyond vector registers, floating
+point registers, general registers are not supported; an example
+would be trying to use the compiler to allocate condition code
+registers instead of just writting a specific condition code register.
+@c APPLE LOCAL end CW asm blocks
 
 @node Alternate Keywords
 @section Alternate Keywords
@@ -7448,7 +7593,11 @@ vector unsigned short vec_vmuloub (vector unsigned char,
                                    vector unsigned char);
 
 vector float vec_nmsub (vector float, vector float, vector float);
+@c APPLE LOCAL begin fixhtml --mrs
+@end smallexample
 
+@smallexample
+@c APPLE LOCAL end fixhtml --mrs
 vector float vec_nor (vector float, vector float);
 vector signed int vec_nor (vector signed int, vector signed int);
 vector unsigned int vec_nor (vector unsigned int, vector unsigned int);

@@ -47,6 +47,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef abort
 #endif
 
+/* APPLE LOCAL begin libcc_kext */
+#ifdef LIBCC_KEXT
+/* Make aborts into panics (kernel panics presumably) */
+#define abort() panic()
+extern void panic (void);
+#endif
+/* APPLE LOCAL end libcc_kext */
+
 #ifdef HAVE_GAS_HIDDEN
 #define ATTRIBUTE_HIDDEN  __attribute__ ((__visibility__ ("hidden")))
 #else

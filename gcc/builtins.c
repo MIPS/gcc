@@ -5726,6 +5726,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    /* APPLE LOCAL begin lno */
+    case BUILT_IN_MAYBE_INFINITE_LOOP:
+      /* This is just a fake statement that expands to nothing.  */
+      return const0_rtx;
+    /* APPLE LOCAL end lno */
+
     default:	/* just do library call, if unknown builtin */
       break;
     }
@@ -8177,6 +8183,11 @@ fold_builtin_1 (tree exp, bool ignore)
       break;
 
     default:
+      /* APPLE LOCAL begin constant cfstrings */
+      /* Don't just do the library call if it's unknown, try using
+	 our target version, then call the library call if that doesn't work. */
+      return (*targetm.expand_tree_builtin) (fndecl, arglist,NULL_TREE);
+      /* APPLE LOCAL end constant cfstrings */
       break;
     }
 

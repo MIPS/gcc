@@ -36,7 +36,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # define FAB_C_VAR 2 /* variable length records (see Starlet fabdef.h) */
 # define STAT_SIZE_RELIABLE(ST) ((ST).st_fab_rfm != FAB_C_VAR)
 #else
-# define STAT_SIZE_RELIABLE(ST) true
+/* APPLE LOCAL begin predictive compilation */
+# define STAT_SIZE_RELIABLE(ST) (!CPP_OPTION (pfile, predictive_compilation))
+/* APPLE LOCAL end predictive compilation */
 #endif
 
 #ifdef __DJGPP__
@@ -177,6 +179,11 @@ static int pchf_save_compare (const void *e1, const void *e2);
 static int pchf_compare (const void *d_p, const void *e_p);
 static bool check_file_against_entries (cpp_reader *, _cpp_file *, bool);
 
+/* APPLE LOCAL begin distcc pch indirection --mrs */
+#include <sys/param.h>
+char *indirect_file (char *, const int);
+/* APPLE LOCAL end distcc pch indirection --mrs */
+
 /* Given a filename in FILE->PATH, with the empty string interpreted
    as <stdin>, open it.
 
@@ -248,15 +255,22 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
   struct stat st;
   bool valid = false;
 
-  /* No PCH on <stdin> or if not requested.  */
-  if (file->name[0] == '\0' || !pfile->cb.valid_pch)
+  /* APPLE LOCAL begin predictive compilation */
+  /* No PCH on <stdin> or if predictive compilation or if not requested.  */
+  if (pfile->is_main_file || file->name[0] == '\0' || !pfile->cb.valid_pch)
     return false;
+  /* APPLE LOCAL end predictive compilation */
 
   flen = strlen (path);
   len = flen + sizeof (extension);
   pchname = xmalloc (len);
   memcpy (pchname, path, flen);
   memcpy (pchname + flen, extension, sizeof (extension));
+
+  /* APPLE LOCAL begin distcc pch indirection --mrs */
+  if (! file->main_file)
+    pchname = indirect_file (pchname, 0);
+  /* APPLE LOCAL end distcc pch indirection --mrs */
 
   if (stat (pchname, &st) == 0)
     {
@@ -321,11 +335,21 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 
   if (path)
     {
+      /* APPLE LOCAL predictive compilation */
+      bool res_open_file;
       file->path = path;
       if (pch_open_file (pfile, file, invalid_pch))
 	return true;
 
-      if (open_file (file))
+      /* APPLE LOCAL begin predictive compilation */
+      /* Temporary path change to force opening stdin */
+      if (pfile->is_main_file)
+        file->path = "";
+      res_open_file = open_file (file);
+      file->path = path;
+
+      if (res_open_file)
+      /* APPLE LOCAL end predictive compilation */
 	return true;
 
       if (file->err_no != ENOENT)
@@ -542,6 +566,17 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 
       size = file->st.st_size;
     }
+  /* APPLE LOCAL begin predictive compilation */
+  else
+    if (CPP_OPTION (pfile, predictive_compilation))
+      {
+        size = CPP_OPTION (pfile, predictive_compilation_size);
+        regular = size >= 0;
+        if (size < 0)
+          size = 8 * 1024;
+        CPP_OPTION(pfile, predictive_compilation_size) = -1;
+      }
+  /* APPLE LOCAL end predictive compilation */
   else
     /* 8 kilobytes is a sensible starting size.  It ought to be bigger
        than the kernel pipe buffer, and it's definitely bigger than
@@ -601,8 +636,13 @@ read_file (cpp_reader *pfile, _cpp_file *file)
     }
 
   file->dont_read = !read_file_guts (pfile, file);
-  close (file->fd);
-  file->fd = -1;
+  /* APPLE LOCAL begin predictive compilation */
+  if (file->fd != 0)  /* Don't close stdin */
+    {
+      close (file->fd);
+      file->fd = -1;
+    }
+  /* APPLE LOCAL end predictive compilation */
 
   return !file->dont_read;
 }
@@ -973,6 +1013,22 @@ new_file_hash_entry (cpp_reader *pfile)
 
   return &pfile->file_hash_entries[pfile->file_hash_entries_used++];
 }
+
+/* APPLE LOCAL begin predictive compilation */
+bool read_from_stdin (cpp_reader *pfile)
+{
+  _cpp_file *file;
+
+  if (pfile->buffer->file->fd != 0)
+    return false;
+
+  file = pfile->main_file;
+  file->dont_read = !read_file_guts (pfile, file);
+  pfile->buffer->next_line = file->buffer;
+  pfile->buffer->rlimit = file->buffer + file->st.st_size;
+  return !file->dont_read;
+}
+/* APPLE LOCAL end predictive compilation */
 
 /* Returns TRUE if a file FNAME has ever been successfully opened.
    This routine is not intended to correctly handle filenames aliased
@@ -1615,3 +1671,145 @@ check_file_against_entries (cpp_reader *pfile ATTRIBUTE_UNUSED,
   return bsearch (&d, pchf->entries, pchf->count, sizeof (struct pchf_entry),
 		  pchf_compare) != NULL;
 }
+
+/* APPLE LOCAL begin distcc pch indirection --mrs */
+static const char message_terminator = '\n';
+
+/* Communications routine to communicate with filename translation
+   server for distributed builds.  This routine reads data from the
+   server.  */
+
+static int
+read_from_parent (int fd, char *buffer, int size)
+{
+  int index = 0;
+  int result;
+
+  if (size <= 0)
+    return 0;
+
+  do {
+    result = read (fd, &buffer[index], size - index);
+
+    if (result <= 0 || index >= size )
+      return 0;
+    else
+      index += result;
+  } while (buffer[index - 1] != message_terminator);
+
+  /* Straighten out the string termination. */
+  buffer[index - 1] = '\0';
+
+  return 1;
+}
+
+/* Communications routine to communicate with filename translation server
+   for distributed builds.  This routine writes data to the server.  */
+
+static int
+write_to_parent (int fd, const char *message)
+{
+  int result;
+
+  if (message) {
+    const int length = strlen (message);
+    int index = 0;
+
+    while (index < length) {
+      result = write (fd, &message[index], length - index);
+
+      if (result < 0)
+        return 0;
+      else
+        index += result;
+    }
+  }
+
+  result = write (fd, &message_terminator, 1);
+
+  if (result < 0)
+    return 0;
+
+  return 1;
+}
+
+
+/* Initialize the filename translation service.  */
+
+static int
+init_indirect_pipes (int *read_fd, int *write_fd)
+{
+  const char *file_indirect_pipes = getenv ("GCC_INDIRECT_FILES");
+  const char *protocol_operation = "VERS";
+  const char *protocol_version = "1";
+  char response[MAXPATHLEN];
+
+  if (!file_indirect_pipes)
+    return -1;
+
+  /* The environment variable indicates that the process that invoked
+     gcc would like to provide a different path for certain files.
+     This is mainly intended to be used with PCH headers and symbol
+     separation files (.cinfo) files under certain circumstances. */
+
+  if (sscanf (file_indirect_pipes, "%d, %d", read_fd, write_fd) != 2)
+    return -1;
+
+  /* Verify the protocol version. */
+  if (write_to_parent (*write_fd, protocol_operation))
+    if (write_to_parent (*write_fd, protocol_version))
+      if (read_from_parent (*read_fd, response, MAXPATHLEN))
+	if (strcmp ("OK", response) == 0)
+	  return 1;
+
+  return -1;
+}
+
+/* Redirect file I/O at the direction of a translation server.  fname
+   is the filename to transform.  OPERATION is:
+
+   0 for reading
+   1 for writing
+   2 for reading and writing  */
+
+char *
+indirect_file (char *fname, int operation)
+{
+  static int indirection_initialized;
+  static int read_fd;
+  static int write_fd;
+  const char *operation_identifier = NULL;
+
+  if (!indirection_initialized)
+    indirection_initialized = init_indirect_pipes (&read_fd, &write_fd);
+
+  if (indirection_initialized != 1)
+    return fname;
+
+  switch (operation)
+    {
+    case 0:
+      operation_identifier = "PULL";
+      break;
+    case 1:
+      operation_identifier = "PUSH";
+      break;
+    case 2:
+      operation_identifier = "BOTH";
+      break;
+    default:
+      return fname;
+    }
+
+  if (write_to_parent (write_fd, operation_identifier))
+    if (write_to_parent (write_fd, fname))
+      {
+	char response[MAXPATHLEN];
+
+	if (read_from_parent (read_fd, response, MAXPATHLEN))
+	  fname = xstrdup (response);
+      }
+
+  return fname;
+}
+/* APPLE LOCAL end distcc pch indirection --mrs */

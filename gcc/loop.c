@@ -502,12 +502,25 @@ struct loop_info
 #define PREFETCH_CONDITIONAL 1
 #endif
 
+/* APPLE LOCAL begin avoid out-of-bounds refs */
+/* If the first or last uid lies outside the loop, assume the
+   lifetime extends to that end of the loop. */
 #define LOOP_REG_LIFETIME(LOOP, REGNO) \
-((REGNO_LAST_LUID (REGNO) - REGNO_FIRST_LUID (REGNO)))
+(((REGNO_LAST_UID (REGNO) > max_uid_for_loop) \
+  ? (INSN_LUID ((LOOP)->end)) \
+  : (REGNO_LAST_LUID (REGNO))) \
+ - ((REGNO_FIRST_UID (REGNO) > max_uid_for_loop) \
+  ? (INSN_LUID ((LOOP)->start)) \
+  : (REGNO_FIRST_LUID (REGNO))))
 
+/* uid's that are too big are derived from nested loops and are
+   not referenced outside this loop, hence they are not global. */
 #define LOOP_REG_GLOBAL_P(LOOP, REGNO) \
-((REGNO_LAST_LUID (REGNO) > INSN_LUID ((LOOP)->end) \
- || REGNO_FIRST_LUID (REGNO) < INSN_LUID ((LOOP)->start)))
+((REGNO_LAST_UID (REGNO) > max_uid_for_loop) ? 0 : \
+(((REGNO_FIRST_UID (REGNO) > max_uid_for_loop) ? 0 : \
+((((REGNO_LAST_LUID (REGNO) > INSN_LUID ((LOOP)->end) \
+ || REGNO_FIRST_LUID (REGNO) < INSN_LUID ((LOOP)->start))))))))
+/* APPLE LOCAL end avoid out-of-bounds refs */
 
 #define LOOP_REGNO_NREGS(REGNO, SET_DEST) \
 ((REGNO) < FIRST_PSEUDO_REGISTER \
@@ -1893,6 +1906,8 @@ combine_movables (struct loop_movables *movables, struct loop_regs *regs)
 			&& GET_MODE_CLASS (GET_MODE (m1->set_dest)) == MODE_INT
 			&& (GET_MODE_BITSIZE (GET_MODE (m->set_dest))
 			    >= GET_MODE_BITSIZE (GET_MODE (m1->set_dest)))))
+		   /* APPLE LOCAL combine hoisted consts */
+		   && m1->regno >= FIRST_PSEUDO_REGISTER
 		   /* See if the source of M1 says it matches M.  */
 		   && ((REG_P (m1->set_src)
 			&& matched_regs[REGNO (m1->set_src)])
@@ -5571,7 +5586,8 @@ loop_giv_reduce_benefit (struct loop *loop ATTRIBUTE_UNUSED,
       /* Increasing the benefit is risky, since this is only a guess.
 	 Avoid increasing register pressure in cases where there would
 	 be no other benefit from reducing this giv.  */
-      && benefit > 0
+      /* APPLE LOCAL  compare >= 0, not > 0.  */
+      && benefit >= 0
       && GET_CODE (v->mult_val) == CONST_INT)
     {
       int size = GET_MODE_SIZE (GET_MODE (v->mem));
@@ -6504,10 +6520,25 @@ strength_reduce (struct loop *loop, int flags)
 	     value, so we don't need another one.  We can't calculate the
 	     proper final value for such a biv here anyways.  */
 	  if (bl->final_value && ! bl->reversed)
-	      loop_insn_sink_or_swim (loop,
-				      gen_load_of_final_value (bl->biv->dest_reg,
-							       bl->final_value));
-
+	    /* APPLE LOCAL begin put this insn after the loop in all cases */
+	    /* Putting it before the loop can cause problems in an
+	       obscure case.  "a" is the variable we're currently
+	       looking at: 
+	         b <- a
+                 loop beginning
+                 b++;   and references
+                 a++;   no references
+               if we put the final value for a before the loop, then
+	       eliminate b in favor of c later on, we'll get this
+	       before the loop:
+                 b <- a
+                 a <- final value
+                 c <- a
+               which is no good.  */
+	    loop_insn_sink (loop, gen_load_of_final_value (bl->biv->dest_reg,
+							   bl->final_value));
+	    /* APPLE LOCAL end put this insn after the loop in all cases */
+	  
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "Reg %d: biv eliminated\n",
 		     bl->regno);

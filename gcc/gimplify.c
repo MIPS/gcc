@@ -619,6 +619,25 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* APPLE LOCAL begin PR 14498, etc --bowdidge */
+/* This routine was deleted from FSF mainline and lno-branch; however,
+   we're still using it in the next routine.  Keep a local copy until 
+   we can rewrite that other stuff.  The FIXME on this worries me. */
+
+/* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
+   after VA_ARG_EXPRs are properly lowered.  */
+
+static tree
+mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		       void *data ATTRIBUTE_UNUSED)
+{
+  if (SSA_VAR_P (*tp))
+    TREE_THIS_VOLATILE (*tp) = 1;
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end PR 14498, etc --bowdidge */
+
 /* Callback for walk_tree to unshare most of the shared trees rooted at
    *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
    then *TP is deep copied by calling copy_tree_r.
@@ -659,7 +678,24 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   /* Otherwise, mark the tree as visited and keep looking.  */
   else
-    TREE_VISITED (t) = 1;
+    /* APPLE LOCAL begin PR 14498 etc. --dbj */
+    /* History is complicated, this was in mainline prior to merge,
+       temporarily and erroneously removed at merge snapshot,
+       later put back, still later replaced by different mechanism. */
+    {
+      TREE_VISITED (t) = 1;
+      if (TREE_CODE (*tp) == VA_ARG_EXPR)
+	{
+	  /* Mark any _DECL inside the operand as volatile to avoid
+	     the optimizers messing around with it. We have to do this
+	     early, otherwise we might mark a variable as volatile
+	     after we gimplify other statements that use the variable
+	     assuming it's not volatile.  */
+	  walk_tree (&TREE_OPERAND (*tp, 0), mark_decls_volatile_r,
+		     NULL, NULL);
+	}
+    }
+    /* APPLE LOCAL end PR 14498 etc. */
 
   return NULL_TREE;
 }
@@ -3805,6 +3841,16 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case MISALIGNED_INDIRECT_REF:
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			       is_gimple_reg, fb_rvalue);
+
+	  /* APPLE LOCAL begin Objective-C */
+	  /* Useless type conversions may have been discarded, so ensure
+	     that the INDIRECT_REF has a type corresponding to the pointee
+	     type of its operand.  */
+	  if (TREE_CODE (*expr_p) == INDIRECT_REF)
+	    TREE_TYPE (*expr_p)
+	      = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*expr_p, 0)));
+	  /* APPLE LOCAL end Objective-C */
+
 	  recalculate_side_effects (*expr_p);
 	  break;
 

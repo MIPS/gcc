@@ -194,6 +194,9 @@ struct lang_identifier GTY(())
   cxx_binding *namespace_bindings;
   cxx_binding *bindings;
   tree class_template_info;
+  /* APPLE LOCAL begin objc speedup --dpatel */
+  tree interface_value; /* ObjC interface, if any */
+  /* APPLE LOCAL end objc speedup --dpatel */
   tree label_value;
 };
 
@@ -522,6 +525,12 @@ enum cp_tree_index
 
     CPTI_KEYED_CLASSES,
 
+    /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+    CPTI_DELTA2_IDENTIFIER,
+    CPTI_INDEX_IDENTIFIER,
+    CPTI_PFN_OR_DELTA2_IDENTIFIER,
+    /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
     CPTI_MAX
 };
 
@@ -592,6 +601,12 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define deleting_dtor_identifier        cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
 #define delta_identifier                cp_global_trees[CPTI_DELTA_IDENTIFIER]
 #define in_charge_identifier            cp_global_trees[CPTI_IN_CHARGE_IDENTIFIER]
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+#define delta2_identifier		cp_global_trees[CPTI_DELTA2_IDENTIFIER]
+#define index_identifier		cp_global_trees[CPTI_INDEX_IDENTIFIER]
+#define pfn_or_delta2_identifier cp_global_trees[CPTI_PFN_OR_DELTA2_IDENTIFIER]
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
 /* The name of the parameter that contains a pointer to the VTT to use
    for this subobject constructor or destructor.  */
 #define vtt_parm_identifier             cp_global_trees[CPTI_VTT_PARM_IDENTIFIER]
@@ -2521,8 +2536,13 @@ struct lang_decl GTY(())
 /* Get the POINTER_TYPE to the METHOD_TYPE associated with this
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
    before using this macro.  */
-#define TYPE_PTRMEMFUNC_FN_TYPE(NODE) \
-  (TREE_TYPE (TYPE_FIELDS (NODE)))
+/* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+#define TYPE_PTRMEMFUNC_FN_TYPE(NODE)					\
+  *((flag_apple_kext) ?							\
+	&(TREE_TYPE (TYPE_FIELDS (TREE_TYPE (TREE_CHAIN (		\
+				 TREE_CHAIN (TYPE_FIELDS (NODE))))))) :	\
+    &(TREE_TYPE (TYPE_FIELDS (NODE))))					\
+/* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
 /* Returns `A' for a type like `int (A::*)(double)' */
 #define TYPE_PTRMEMFUNC_OBJECT_TYPE(NODE) \
@@ -3517,6 +3537,8 @@ typedef enum cp_decl_spec {
   ds_typedef,
   ds_complex,
   ds_thread,
+  /* APPLE LOCAL CW asm blocks. */
+  ds_cw_asm,
   ds_last
 } cp_decl_spec;
 
@@ -3723,6 +3745,8 @@ extern void note_name_declared_in_class         (tree, tree);
 extern tree get_vtbl_decl_for_binfo             (tree);
 extern tree get_vtt_name                        (tree);
 extern tree get_primary_binfo                   (tree);
+/* APPLE LOCAL KEXT indirect-virtual-calls --sts */
+extern tree build_vfn_ref_using_vtable          (tree, tree);
 extern void debug_class				(tree);
 extern void debug_thunks 			(tree);
 extern tree cp_fold_obj_type_ref		(tree, tree);
@@ -4370,9 +4394,33 @@ extern tree mangle_ref_init_variable            (tree);
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
 
+/* APPLE LOCAL begin Objective-C */
+/* In cp/cp-objcp-common.c.  */
+
+extern HOST_WIDE_INT cxx_get_alias_set (tree);
+extern bool cxx_warn_unused_global_decl (tree);
+extern tree cp_expr_size (tree);
+extern size_t cp_tree_size (enum tree_code);
+extern bool cp_var_mod_type_p (tree, tree);
+extern void cxx_initialize_diagnostics (struct diagnostic_context *);
+extern int cxx_types_compatible_p (tree, tree);
+/* APPLE LOCAL end Objective-C */
+
+/* APPLE LOCAL begin KEXT double destructor */
+extern int has_apple_kext_compatibility_attr_p	PARAMS ((tree));
+extern int has_empty_operator_delete_p		PARAMS ((tree));
+/* APPLE LOCAL end KEXT double destructor */
+
+/* APPLE LOCAL kext identify vtables */
+extern int cp_vtable_p (tree);
+
 /* in cp-simplify.c */
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);
 extern void cp_genericize			(tree);
+
+/* APPLE LOCAL begin CW asm blocks */
+extern tree cw_asm_cp_build_component_ref	(tree, tree);
+/* APPLE LOCAL end CW asm blocks */
 
 /* -- end of C++ */
 

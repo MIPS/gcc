@@ -37,6 +37,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "toplev.h"
 
+/* APPLE LOCAL begin rewrite weight computation */
+/* The rewritten weight computation works fine on Darwin, but causes
+   bootstrap compares to fail on Linux.  */
+#ifdef CONFIG_DARWIN_H
+#define REWRITE_WEIGHT_COMPUTATION
+#endif
+/* APPLE LOCAL end rewrite weight computation */
+
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
    that were not handled in local_alloc.  Assignments are recorded
@@ -225,6 +233,18 @@ static HARD_REG_SET regs_used_so_far;
 
 static int local_reg_n_refs[FIRST_PSEUDO_REGISTER];
 
+/* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+/* Overall weight of each hard reg, as used by local alloc.
+   This was formerly computed once as 
+   SUM(REG_FREQ(i))/SUM(REG_LIVE_LENGTH(i)) where the sums
+   are computed over all uses.  But that computation produces very
+   wrong answers when a reg is used both inside and outside a loop.
+   Now it is computed as
+   SUM (REG_FREQ(i)/REG_LIVE_LENGTH(i)) over all uses. */
+
+static double local_reg_weight[FIRST_PSEUDO_REGISTER];
+#else
 /* Frequency of uses of given hard reg.  */
 static int local_reg_freq[FIRST_PSEUDO_REGISTER];
 
@@ -232,6 +252,8 @@ static int local_reg_freq[FIRST_PSEUDO_REGISTER];
    This is actually the sum of the live lengths of the specific regs.  */
 
 static int local_reg_live_length[FIRST_PSEUDO_REGISTER];
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+/* APPLE LOCAL end rewrite weight computation */
 
 /* Set to 1 a bit in a vector TABLE of HARD_REG_SETs, for vector
    element I, and hard register number J.  */
@@ -493,9 +515,17 @@ global_alloc (FILE *file)
   /* Calculate amount of usage of each hard reg by pseudos
      allocated by local-alloc.  This is to see if we want to
      override it.  */
+  /* APPLE LOCAL begin rewrite weight computation */
+#ifndef REWRITE_WEIGHT_COMPUTATION
   memset (local_reg_live_length, 0, sizeof local_reg_live_length);
+#endif /* REWRITE_WEIGHT_COMPUTATION */
   memset (local_reg_n_refs, 0, sizeof local_reg_n_refs);
+#ifdef REWRITE_WEIGHT_COMPUTATION
+  memset (local_reg_weight, 0, sizeof local_reg_weight);
+#else
   memset (local_reg_freq, 0, sizeof local_reg_freq);
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+  /* APPLE LOCAL end rewrite weight computation */
   for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     if (reg_renumber[i] >= 0)
       {
@@ -506,15 +536,29 @@ global_alloc (FILE *file)
 	for (j = regno; j < endregno; j++)
 	  {
 	    local_reg_n_refs[j] += REG_N_REFS (i);
+	    /* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+	    if ( REG_LIVE_LENGTH (i) > 0 )
+	      local_reg_weight[j] += (double)REG_FREQ (i) 
+				    / (double) REG_LIVE_LENGTH (i);
+#else
 	    local_reg_freq[j] += REG_FREQ (i);
 	    local_reg_live_length[j] += REG_LIVE_LENGTH (i);
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+	    /* APPLE LOCAL end rewrite weight computation */
 	  }
       }
 
   /* We can't override local-alloc for a reg used not just by local-alloc.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (regs_ever_live[i])
+      /* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+      local_reg_n_refs[i] = 0;
+#else
       local_reg_n_refs[i] = 0, local_reg_freq[i] = 0;
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+      /* APPLE LOCAL end rewrite weight computation */
 
   allocno_row_words = (max_allocno + INT_BITS - 1) / INT_BITS;
 
@@ -1265,6 +1309,15 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 #endif
 	      )
 	    {
+	      /* APPLE LOCAL begin rewrite weight computation */
+#ifdef REWRITE_WEIGHT_COMPUTATION
+	      /* We explicitly evaluate the divide result into a temporary
+		 variable so as to avoid excess precision problems that occur
+		 on an i386-unknown-sysv4.2 (unixware) host.  */
+	      double tmp = ((double) allocno[num].freq
+			    / allocno[num].live_length);
+#else
+	    /* APPLE LOCAL end rewrite weight computation */
 	      /* We explicitly evaluate the divide results into temporary
 		 variables so as to avoid excess precision problems that occur
 		 on an i386-unknown-sysv4.2 (unixware) host.  */
@@ -1273,8 +1326,15 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 			    / local_reg_live_length[regno]);
 	      double tmp2 = ((double) allocno[num].freq
 			     / allocno[num].live_length);
+	      /* APPLE LOCAL begin rewrite weight computation */
+#endif /* REWRITE_WEIGHT_COMPUTATION */
 
+#ifdef REWRITE_WEIGHT_COMPUTATION
+	      if (local_reg_weight[regno] < tmp)
+#else
 	      if (tmp1 < tmp2)
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+		/* APPLE LOCAL end rewrite weight computation */
 		{
 		  /* Hard reg REGNO was used less in total by local regs
 		     than it would be used by this one allocno!  */
@@ -1321,7 +1381,11 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	  SET_HARD_REG_BIT (regs_used_so_far, j);
 	  /* This is no longer a reg used just by local regs.  */
 	  local_reg_n_refs[j] = 0;
+	  /* APPLE LOCAL begin rewrite weight computation */
+#ifndef REWRITE_WEIGHT_COMPUTATION
 	  local_reg_freq[j] = 0;
+#endif /* REWRITE_WEIGHT_COMPUTATION */
+	  /* APPLE LOCAL end rewrite weight computation */
 	}
       /* For each other pseudo-reg conflicting with this one,
 	 mark it as conflicting with the hard regs this one occupies.  */

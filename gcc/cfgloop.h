@@ -324,6 +324,10 @@ extern unsigned expected_loop_iterations (const struct loop *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (struct loop *loop);
+/* APPLE LOCAL begin lno */
+extern struct loop * duplicate_loop (struct loops *, 
+				     struct loop *, struct loop *);
+/* APPLE LOCAL end lno */
 
 #define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
 					   duplicate_loop_to_header_edge.  */

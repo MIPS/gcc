@@ -219,6 +219,13 @@ c_common_init_options (unsigned int argc, const char **argv)
      before passing on command-line options to cpplib.  */
   cpp_opts->warn_dollars = 0;
 
+  /* APPLE LOCAL begin -Wfour-char-constants  */
+#ifdef WARN_FOUR_CHAR_CONSTANTS
+  /* Warn about 4-char constants everywhere except on Macs.  */
+  cpp_opts->warn_four_char_constants = WARN_FOUR_CHAR_CONSTANTS;
+#endif
+  /* APPLE LOCAL end -Wfour-char-constants  */
+
   flag_const_strings = c_dialect_cxx ();
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
@@ -349,6 +356,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_line_commands = 1;
       break;
 
+      /* APPLE LOCAL begin -Wno-#warnings */
+    case OPT_W_warnings:
+      cpp_opts->no_pound_warnings = !value;
+      break;
+      /* APPLE LOCAL end -Wno-#warnings */
+
     case OPT_fworking_directory:
       flag_working_directory = value;
       break;
@@ -358,12 +371,17 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wall:
+      /* APPLE LOCAL -Wmost */
+    case OPT_Wmost:
       set_Wunused (value);
       set_Wformat (value);
       set_Wimplicit (value);
       warn_char_subscripts = value;
       warn_missing_braces = value;
-      warn_parentheses = value;
+      /* APPLE LOCAL begin -Wmost --dpatel */
+      if (code != OPT_Wmost) 
+	warn_parentheses = value;
+      /* APPLE LOCAL end -Wmost --dpatel */
       warn_return_type = value;
       warn_sequence_point = value;	/* Was C only.  */
       if (c_dialect_cxx ())
@@ -417,9 +435,23 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Werror:
+      /* APPLE LOCAL begin QA_DISABLE_WERROR 2002-21-01 --dpatel */
+      if (getenv ("QA_DISABLE_WERROR"))
+	{
+	  warning ("-Werror ignored because QA_DISABLE_WERROR is set.");
+	  warning ("Warnings will not be treated as errors.");
+	  break;
+	}
+      /* APPLE LOCAL end QA_DISABLE_WERROR 2002-21-01 --dpatel */
       cpp_opts->warnings_are_errors = value;
       global_dc->warning_as_error_requested = value;
       break;
+
+      /* APPLE LOCAL begin -Wextra-tokens */
+    case OPT_Wextra_tokens:
+      cpp_opts->warn_extra_tokens = value;
+      break;
+      /* APPLE LOCAL end -Wextra-tokens */
 
     case OPT_Werror_implicit_function_declaration:
       mesg_implicit_function_declaration = 2;
@@ -432,6 +464,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_Wformat_:
       set_Wformat (atoi (arg));
       break;
+
+      /* APPLE LOCAL begin -Wfour-char-constants */
+    case OPT_Wfour_char_constants:
+      cpp_opts->warn_four_char_constants = value;
+      break;
+      /* APPLE LOCAL end -Wfour-char-constants */
 
     case OPT_Wimplicit:
       set_Wimplicit (value);
@@ -459,6 +497,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_Wmultichar:
       cpp_opts->warn_multichar = value;
       break;
+
+      /* APPLE LOCAL begin -Wnewline-eof */
+    case OPT_Wnewline_eof:
+      cpp_opts->warn_newline_at_eof = value;
+      break;
+      /* APPLE LOCAL end -Wnewline-eof */
 
     case OPT_Wreturn_type:
       warn_return_type = value;
@@ -508,6 +552,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	set_std_cxx98 (true);
       break;
 
+      /* APPLE LOCAL begin fat builds */
+    case OPT_arch:
+      break;
+      /* APPLE LOCAL end fat builds */
+
     case OPT_d:
       handle_OPT_d (arg);
       break;
@@ -548,6 +597,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_asm = !value;
       break;
 
+      /* APPLE LOCAL begin CW asm blocks */
+    case OPT_fasm_blocks:
+      flag_cw_asm_blocks = value;
+      break;
+      /* APPLE LOCAL end CW asm blocks */
+
     case OPT_fbuiltin:
       flag_no_builtin = !value;
       break;
@@ -558,6 +613,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       else
 	disable_builtin_function (arg);
       break;
+
+      /* APPLE LOCAL begin disable_typechecking_for_spec_flag */
+    case OPT_fdisable_typechecking_for_spec:
+      disable_typechecking_for_spec_flag = value;
+      break;
+      /* APPLE LOCAL end disable_typechecking_for_spec_flag */
 
     case OPT_fdollars_in_identifiers:
       cpp_opts->dollars_in_ident = value;
@@ -601,6 +662,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_funsigned_char:
       flag_signed_char = !value;
       break;
+
+      /* APPLE LOCAL begin structor decloning */
+    case OPT_fclone_structors:
+      flag_clone_structors = value;
+      break;
+      /* APPLE LOCAL end structor decloning */
 
     case OPT_fcheck_new:
       flag_check_new = value;
@@ -682,6 +749,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_nonansi_builtin = !value;
       break;
 
+    /* APPLE LOCAL begin ObjC C++ ivars */
+    case OPT_fobjc_call_cxx_cdtors:
+      flag_objc_call_cxx_cdtors = value;
+      break;
+    /* APPLE LOCAL end ObjC C++ ivars */
+
     case OPT_fobjc_exceptions:
       flag_objc_exceptions = value;
       break;
@@ -712,6 +785,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fpreprocessed:
       cpp_opts->preprocessed = value;
+      /* APPLE LOCAL private extern  Radar 2872481 --ilr */
+      flag_preprocessed = value;
       break;
 
     case OPT_freplace_objc_classes:
@@ -904,6 +979,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_v:
       verbose = true;
       break;
+
+    /* APPLE LOCAL begin -fast or -fastf or -fastcp */
+    case OPT_fast:
+    case OPT_fastcp:
+    case OPT_fastf:
+      break;
+    /* APPLE LOCAL end -fast or -fastf or -fastcp */
     }
 
   return result;
@@ -921,6 +1003,12 @@ c_common_post_options (const char **pfilename)
       in_fnames = XNEWVEC (const char *, 1);
       in_fnames[0] = "";
     }
+  /* APPLE LOCAL begin predictive compilation */
+  else if (predictive_compilation >= 0)
+      {
+	set_stdin_option(parse_in, predictive_compilation);
+      }
+  /* APPLE LOCAL end predictive compilation */
   else if (strcmp (in_fnames[0], "-") == 0)
     in_fnames[0] = "";
 
@@ -1386,12 +1474,18 @@ static void
 set_std_c89 (int c94, int iso)
 {
   cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
+  /* APPLE LOCAL begin preprocess .s files (radar #3191171) */
+  /* Do not override CLK_ASM if set */
+  if (cpp_opts->lang != CLK_ASM)
+  /* APPLE LOCAL end */
   flag_iso = iso;
   flag_no_asm = iso;
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
+  /* APPLE LOCAL fwritable strings  */
+  flag_writable_strings = 0;
 }
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
@@ -1404,6 +1498,8 @@ set_std_c99 (int iso)
   flag_iso = iso;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
+  /* APPLE LOCAL fwritable strings  */
+  flag_writable_strings = 0;
 }
 
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */

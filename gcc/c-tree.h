@@ -25,10 +25,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "diagnostic.h"
 
+/* APPLE LOCAL begin objc speedup --dpatel */
+/* Definition of 'struct lang_identifier' has been moved here from c-decl.c.
+   so that ObjC can see it.  */
+   
+/* Each C symbol points to three linked lists of c_binding structures.
+   These describe the values of the identifier in the three different
+   namespaces defined by the language.  */
+
+struct lang_identifier GTY(())
+{
+  struct c_common_identifier common_id;
+  struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
+  struct c_binding *tag_binding;    /* struct/union/enum tags */
+  struct c_binding *label_binding;  /* labels */
+  tree interface_value;             /* ObjC interface, if any */
+};
+/* APPLE LOCAL end objc speedup --dpatel */
+
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
-  (sizeof (struct c_common_identifier) + 3 * sizeof (void *))
+  /* APPLE LOCAL objc speedup --dpatel */ \
+  (sizeof (struct c_common_identifier) + 4 * sizeof (void *))
 
 /* For gc purposes, return the most likely link for the longest chain.  */
 #define C_LANG_TREE_NODE_CHAIN_NEXT(T)				\
@@ -223,6 +242,16 @@ struct c_declspecs {
   BOOL_BITFIELD explicit_signed_p : 1;
   /* Whether the specifiers include a deprecated typedef.  */
   BOOL_BITFIELD deprecated_p : 1;
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  /* Whether the specifiers include a unavailable typedef.  */
+  BOOL_BITFIELD unavailable_p : 1;
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
+  /* APPLE LOCAL begin private extern */
+  /* Whether the specifiers include __private_extern.  */
+  BOOL_BITFIELD private_extern_p : 1;
+  /* APPLE LOCAL end private extern */
+  /* APPLE LOCAL CW asm blocks */
+  BOOL_BITFIELD cw_asm_specbit : 1;
   /* Whether the type defaulted to "int" because there were no type
      specifiers.  */
   BOOL_BITFIELD default_int_p;
@@ -501,6 +530,11 @@ extern tree c_finish_return (tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
+
+/* APPLE LOCAL begin CW asm blocks */
+extern tree get_structure_offset (tree, tree);
+extern tree lookup_struct_or_union_tag (tree);
+/* APPLE LOCAL end CW asm blocks */
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

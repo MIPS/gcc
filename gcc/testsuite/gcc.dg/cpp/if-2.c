@@ -1,5 +1,7 @@
 /* { dg-do preprocess } */
 /* { dg-options -pedantic-errors } */
+/* APPLE LOCAL -Wfour-char-constants */
+/* { dg-options "-Wfour-char-constants" { target *-apple-darwin* } } */
 
 #if 'a' != 'a' || '\001' != 1 || '\x12' != 0x12
 #error a,1,0x12 /* { dg-bogus "#error" "basic charconst recognition" } */

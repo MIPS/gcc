@@ -776,6 +776,10 @@ AC_SUBST(ranlib_flags)
      
 gcc_AC_PROG_INSTALL
 
+# APPLE LOCAL begin Mach time
+AC_CHECK_HEADERS(mach/mach_time.h)
+# APPLE LOCAL end Mach time
+
 # See if cmp has --ignore-initial.
 gcc_AC_PROG_CMP_IGNORE_INITIAL
 

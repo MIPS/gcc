@@ -1283,6 +1283,14 @@ static bool
 mode_change_ok (enum machine_mode orig_mode, enum machine_mode new_mode,
 		unsigned int regno ATTRIBUTE_UNUSED)
 {
+  /* APPLE LOCAL begin add mode change case */
+#ifdef TARGET_POWERPC
+  /* This arises from FLOAT_EXTEND which is really a NOP.  */
+  if (orig_mode == SFmode && new_mode == DFmode)
+    return true;
+#endif
+  /* APPLE LOCAL end add mode change case */
+
   if (GET_MODE_SIZE (orig_mode) < GET_MODE_SIZE (new_mode))
     return false;
 
@@ -1733,6 +1741,15 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       /* Notice copies.  */
       if (set && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set)))
 	copy_value (SET_DEST (set), SET_SRC (set), vd);
+      /* APPLE LOCAL begin record that float extend is a copy */
+#ifdef TARGET_POWERPC
+      /* FLOAT_EXTEND is actually a copy; record that too.  */
+      if (set && REG_P (SET_DEST (set)) 
+	  && GET_CODE (SET_SRC (set)) == FLOAT_EXTEND
+	  && REG_P (XEXP (SET_SRC (set), 0)))
+        copy_value (SET_DEST (set), XEXP (SET_SRC (set), 0), vd);
+#endif
+      /* APPLE LOCAL end record that float extend is a copy */
 
       if (insn == BB_END (bb))
 	break;

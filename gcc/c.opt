@@ -156,6 +156,12 @@ U
 C ObjC C++ ObjC++ Joined Separate
 -U<macro>	Undefine <macro>
 
+; APPLE LOCAL begin -Wno-#warnings
+W#warnings
+C ObjC C++ ObjC++
+Enable #warning
+; APPLE LOCAL end -Wno-#warnings
+
 Wabi
 C++ ObjC++ Var(warn_abi)
 Warn about things that will change when compiling with an ABI-compliant compiler
@@ -187,6 +193,12 @@ Synonym for -Wcomment
 Wconversion
 C ObjC C++ ObjC++ Var(warn_conversion)
 Warn about possibly confusing type conversions
+
+; APPLE LOCAL begin 64bit shorten warning 3865314
+Wshorten-64-to-32
+C ObjC C++ ObjC++ Var(warn_shorten_64_to_32)
+Warn if a value is implicitly converted from a 64 bit type to a 32 bit type
+; APPLE LOCAL end 64bit shorten warning 3865314
 
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
@@ -220,6 +232,12 @@ Werror-implicit-function-declaration
 C ObjC RejectNegative
 Make implicit function declarations an error
 
+; APPLE LOCAL begin -Wextra-tokens
+Wextra-tokens
+C ObjC C++ ObjC++
+Warn about extra tokens at the end of prepreprocessor directives
+; APPLE LOCAL end -Wextra-tokens
+
 Wfloat-equal
 C ObjC C++ ObjC++ Var(warn_float_equal)
 Warn if testing floating point numbers for equality
@@ -251,6 +269,12 @@ Warn about zero-length formats
 Wformat=
 C ObjC C++ ObjC++ Joined
 
+; APPLE LOCAL begin -Wfour-char-constants
+Wfour-char-constants
+C ObjC C++ ObjC++
+Warn about multicharacter constants containing exactly four characters
+; APPLE LOCAL end -Wfour-char-constants
+
 Winit-self
 C ObjC C++ ObjC++ Var(warn_init_self)
 Warn about variables which are initialized to themselves.
@@ -277,6 +301,12 @@ Warn about invalid uses of the \"offsetof\" macro
 Winvalid-pch
 C ObjC C++ ObjC++
 Warn about PCH files that are found but not used
+
+; APPLE LOCAL begin -Wlong-double
+Wlong-double
+C ObjC C++ ObjC++
+Warn about \"long double\"
+; APPLE LOCAL end -Wlong-double
 
 Wlong-long
 C ObjC C++ ObjC++ Var(warn_long_long) Init(1)
@@ -310,6 +340,12 @@ Wmissing-prototypes
 C ObjC Var(warn_missing_prototypes)
 Warn about global functions without prototypes
 
+; APPLE LOCAL begin -Wmost
+Wmost
+C ObjC C++ ObjC++ 
+Like -Wall but without -Wparentheses
+; APPLE LOCAL end -Wmost
+
 Wmultichar
 C ObjC C++ ObjC++
 Warn about use of multi-character character constants
@@ -317,6 +353,12 @@ Warn about use of multi-character character constants
 Wnested-externs
 C ObjC Var(warn_nested_externs)
 Warn about \"extern\" declarations not at file scope
+
+; APPLE LOCAL begin -Wnewline-eof
+Wnewline-eof
+C ObjC C++ ObjC++
+Warn about files missing a newline at the end of the file
+; APPLE LOCAL end -Wnewline-eof
 
 Wnon-template-friend
 C++ ObjC++ Var(warn_nontemplate_friend) Init(1)
@@ -390,6 +432,12 @@ Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
 
+; APPLE LOCAL begin Objective-C
+Wstrict-selector-match
+ObjC ObjC++ Var(warn_strict_selector_match)
+Warn if type signatures of candidate methods do not match exactly
+; APPLE LOCAL end Objective-C
+
 Wsynth
 C++ ObjC++ Var(warn_synth)
 Warn when synthesis behavior differs from Cfront
@@ -438,6 +486,12 @@ ansi
 C ObjC C++ ObjC++
 A synonym for -std=c89.  In a future version of GCC it will become synonymous with -std=c99 instead
 
+; APPLE LOCAL begin fat builds
+arch
+C ObjC C++ ObjC++ Separate
+The architecture to build for.
+; APPLE LOCAL end fat builds
+
 d
 C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
@@ -453,9 +507,35 @@ falt-external-templates
 C++ ObjC++
 Change when template instances are emitted
 
+; APPLE LOCAL begin Altivec 3837840
+faltivec
+C ObjC C++ ObjC++ Var(flag_faltivec)
+Enable Altivec
+; APPLE LOCAL end Altivec 3837840
+
 fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
+
+; APPLE LOCAL begin CW asm blocks
+fasm-blocks
+C ObjC C++ ObjC++
+Handle CW-style assembly blocks
+; APPLE LOCAL end CW asm blocks
+
+; APPLE LOCAL begin -fast or -fastf or -fastcp
+fast
+C C++
+Used for c or c++ optimization
+
+fastcp
+C++
+Used when C++ specific optimization is needed
+
+fastf
+C
+Used when c is generated from NAG fortran
+; APPLE LOCAL end -fast or -fastf or -fastcp
 
 fbuiltin
 C ObjC C++ ObjC++
@@ -467,6 +547,12 @@ C ObjC C++ ObjC++ Joined
 fcheck-new
 C++ ObjC++
 Check the return value of new
+
+; APPLE LOCAL begin structor decloning
+fclone-structors
+C++ ObjC++
+Factor out certain duplicate code in constructors and destructors
+; APPLE LOCAL end structor decloning
 
 fcond-mismatch
 C ObjC C++ ObjC++
@@ -487,6 +573,12 @@ ObjC ObjC++ Joined
 fdefault-inline
 C++ ObjC++
 Inline member functions by default
+
+; APPLE LOCAL begin disable_typechecking_for_spec_flag
+fdisable-typechecking-for-spec
+C C++
+Make crossfile type mismatches warnings not errors (for SPEC)
+; APPLE LOCAL end disable_typechecking_for_spec_flag
 
 fdollars-in-identifiers
 C ObjC C++ ObjC++
@@ -586,11 +678,23 @@ fnil-receivers
 ObjC ObjC++
 Assume that receivers of Objective-C messages may be nil
 
+; APPLE LOCAL begin non lvalue assign
+fnon-lvalue-assign
+C ObjC C++ ObjC++ Var(flag_non_lvalue_assign) Init(1)
+Allow assignment to casts and conditional expressions of lvalues
+; APPLE LOCAL end non lvalue assign
+
 fnonansi-builtins
 C++ ObjC++
 
 fnonnull-objects
 C++ ObjC++
+
+; APPLE LOCAL begin ObjC C++ ivars
+fobjc-call-cxx-cdtors
+ObjC++
+Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
+; APPLE LOCAL end ObjC C++ ivars
 
 fobjc-exceptions
 ObjC ObjC++

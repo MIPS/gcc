@@ -4900,6 +4900,9 @@ cse_insn (rtx insn, rtx libcall_insn)
       rtx src_eqv_here;
       rtx src_const = 0;
       rtx src_related = 0;
+      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+      rtx zero_sign_extended_src = NULL_RTX;
+      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
       struct table_elt *src_const_elt = 0;
       int src_cost = MAX_COST;
       int src_eqv_cost = MAX_COST;
@@ -5033,7 +5036,35 @@ cse_insn (rtx insn, rtx libcall_insn)
          REG_NOTE.  */
 
       if (!sets[i].src_volatile)
+      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+      {
 	elt = lookup (src, sets[i].src_hash, mode);
+	if (!elt 
+	    && (GET_CODE(src) == ZERO_EXTEND || GET_CODE(src) == SIGN_EXTEND) 
+	    && GET_CODE (XEXP (src, 0)) == MEM)
+	{
+	  unsigned mem_hash;
+	  rtx nsrc = XEXP (src, 0);
+	  enum machine_mode nmode = GET_MODE(nsrc);
+          do_not_record = 0;
+          hash_arg_in_memory = 0;
+	  mem_hash = HASH (nsrc, nmode);
+	  elt = lookup (nsrc, mem_hash, nmode);
+	  if (elt)
+	  {
+	    sets[i].src = nsrc;
+	    sets[i].src_hash = mem_hash;
+	    sets[i].src_volatile = do_not_record;
+	    sets[i].src_in_memory = hash_arg_in_memory;
+	    zero_sign_extended_src = src;
+	    src = nsrc;
+	    mode = GET_MODE (src) == VOIDmode ? GET_MODE (dest) : GET_MODE (src);
+	    sets[i].mode = mode;
+	    src_folded = fold_rtx (src, insn);
+	  }
+	}
+      }
+      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 
       sets[i].src_elt = elt;
 
@@ -5062,6 +5093,26 @@ cse_insn (rtx insn, rtx libcall_insn)
 	for (p = elt->first_same_value; p; p = p->next_same_value)
 	  if (p->is_const)
 	    {
+	      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+	      /* If we're looking at a MEM under a SIGN/ZERO_EXTEND,
+		 constants match only if the high bits match.  */
+	      if (zero_sign_extended_src)
+		{
+		  rtx truncated_const, trial;
+		  truncated_const = gen_rtx_TRUNCATE (
+		    GET_MODE (XEXP (zero_sign_extended_src, 0)), 
+		    copy_rtx (p->exp));
+		  if (GET_CODE (zero_sign_extended_src) == ZERO_EXTEND)
+		    trial = gen_rtx_ZERO_EXTEND (
+			GET_MODE (zero_sign_extended_src), truncated_const);
+		  else
+		    trial = gen_rtx_SIGN_EXTEND (
+			GET_MODE (zero_sign_extended_src), truncated_const);
+		  trial = fold_rtx (trial, NULL_RTX);
+		  if (!rtx_equal_p (trial, p->exp))
+		    continue;
+		}
+	      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 	      src_const = p->exp;
 	      src_const_elt = elt;
 	      break;
@@ -5437,6 +5488,18 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   && preferable (src_related_cost, src_related_regcost,
 				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = copy_rtx (src_related), src_related_cost = MAX_COST;
+	  /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+	  else if (zero_sign_extended_src)
+	    {
+	      trial = GET_CODE(zero_sign_extended_src) == ZERO_EXTEND 
+		      ? gen_rtx_ZERO_EXTEND (GET_MODE(zero_sign_extended_src),
+					     copy_rtx (elt->exp))
+		      : gen_rtx_SIGN_EXTEND (GET_MODE(zero_sign_extended_src),
+					     copy_rtx (elt->exp));
+	      elt = elt->next_same_value;
+	      src_elt_cost = MAX_COST;
+	    }
+	  /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 	  else
 	    {
 	      trial = copy_rtx (elt->exp);
@@ -5527,6 +5590,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 	}
 
       src = SET_SRC (sets[i].rtl);
+      /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
+      if (zero_sign_extended_src
+	  && (GET_CODE (src) == GET_CODE (zero_sign_extended_src)))
+        src = XEXP (src, 0);
+      /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 
       /* In general, it is good to have a SET with SET_SRC == SET_DEST.
 	 However, there is an important exception:  If both are registers
@@ -5603,7 +5671,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  && ! (GET_CODE (src_const) == CONST
 		&& GET_CODE (XEXP (src_const, 0)) == MINUS
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
-		&& GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF))
+		/* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */	    
+		&& (GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF
+		    || rtx_equal_p ((XEXP (XEXP (src_const, 0), 1)), 
+				     const0_rtx))))
+		/* APPLE LOCAL end */
 	{
 	  /* We only want a REG_EQUAL note if src_const != src.  */
 	  if (! rtx_equal_p (src, src_const))

@@ -960,6 +960,10 @@ get_lang_number (void)
     return N_SO_PASCAL;
   else if (strcmp (language_string, "GNU Objective-C") == 0)
     return N_SO_OBJC;
+  /* APPLE LOCAL begin Objective-C++ */
+  else if (strcmp (language_string, "GNU Objective-C++") == 0)
+    return N_SO_OBJCPLUS;
+  /* APPLE LOCAL end Objective-C++ */
   else
     return 0;
 
@@ -1044,6 +1048,13 @@ dbxout_init (const char *input_file_name)
   current_file->bincl_status = BINCL_NOT_REQUIRED;
   current_file->pending_bincl_name = NULL;
 #endif
+
+/* APPLE LOCAL begin gdb only used symbols */
+#ifndef DBX_ONLY_USED_SYMBOLS
+      dbxout_symbol (TYPE_NAME (integer_type_node), 0);
+      dbxout_symbol (TYPE_NAME (char_type_node), 0);
+#endif
+/* APPLE LOCAL end gdb only used symbols */
 
   /* Get all permanent types that have typedef names, and output them
      all, except for those already output.  Some language front ends
@@ -2487,7 +2498,14 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	int tag_needed = 1;
 	int did_output = 0;
 
-	if (DECL_NAME (decl))
+            /* APPLE LOCAL begin gdb only used symbols */
+	if (DECL_NAME (decl)
+#ifdef DBX_ONLY_USED_SYMBOLS
+            /* Do not generate a tag for incomplete records */
+            && (COMPLETE_TYPE_P (type) || TREE_CODE (type) == VOID_TYPE)
+#endif
+           )
+            /* APPLE LOCAL end gdb only used symbols */
 	  {
 	    /* Nonzero means we must output a tag as well as a typedef.  */
 	    tag_needed = 0;

@@ -253,6 +253,11 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);
 
+  /* APPLE LOCAL begin Objective-C++  */
+  /* Called at the end of the translation unit.  */
+  void (*finish_file) PARAMS ((void));
+  /* APPLE LOCAL end Objective-C++ */
+  
   /* Parses the entire file.  The argument is nonzero to cause bison
      parsers to dump debugging information during parsing.  */
   void (*parse_file) (int);
@@ -382,6 +387,10 @@ struct lang_hooks
   const struct attribute_spec *attribute_table;
   const struct attribute_spec *common_attribute_table;
   const struct attribute_spec *format_attribute_table;
+
+  /* APPLE LOCAL begin kext identify vtables */
+  int (*vtable_p)	    (tree);
+  /* APPLE LOCAL end kext identify vtables */
 
   /* Function-related language hooks.  */
   struct lang_hooks_for_functions function;

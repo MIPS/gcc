@@ -449,3 +449,61 @@ Boston, MA 02111-1307, USA.  */
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
+/* APPLE LOCAL begin 64-bit */
+(define_insn "*save_fpregs_with_label_di"
+ [(match_parallel 0 "any_parallel_operand"
+                  [(clobber (match_operand:DI 1 "register_operand" "=l"))
+		   (use (match_operand:DI 2 "call_operand" "s"))
+		   (use (match_operand:DI 3 "" ""))
+		   (set (match_operand:DF 4 "memory_operand" "=m")
+			(match_operand:DF 5 "gpc_reg_operand" "f"))])]
+ "TARGET_64BIT"
+ "*
+#if TARGET_MACHO
+  const char *picbase = machopic_function_base_name ();
+  operands[3] = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (picbase, -1));
+#endif
+  return \"bl %z2\\n%3:\";
+"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+(define_insn "*save_vregs_di"
+ [(match_parallel 0 "any_parallel_operand"
+                  [(clobber (match_operand:DI 1 "register_operand" "=l"))
+		   (use (match_operand:DI 2 "call_operand" "s"))
+		   (set (match_operand:V4SI 3 "any_operand" "=m")
+			(match_operand:V4SI 4 "register_operand" "v"))])]
+ "TARGET_64BIT"
+ "bl %z2"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+(define_insn "*restore_vregs_di"
+ [(match_parallel 0 "any_parallel_operand"
+                  [(clobber (match_operand:DI 1 "register_operand" "=l"))
+		   (use (match_operand:DI 2 "call_operand" "s"))
+		   (clobber (match_operand:DI 3 "gpc_reg_operand" "=r"))
+		   (set (match_operand:V4SI 4 "register_operand" "=v")
+			(match_operand:V4SI 5 "any_operand" "m"))])]
+ "TARGET_64BIT"
+ "bl %z2")
+
+(define_insn "*save_vregs_with_label_di"
+ [(match_parallel 0 "any_parallel_operand"
+                  [(clobber (match_operand:DI 1 "register_operand" "=l"))
+		   (use (match_operand:DI 2 "call_operand" "s"))
+		   (use (match_operand:DI 3 "" ""))
+		   (set (match_operand:V4SI 4 "any_operand" "=m")
+			(match_operand:V4SI 5 "register_operand" "v"))])]
+ "TARGET_64BIT"
+ "*
+#if TARGET_MACHO
+  const char *picbase = machopic_function_base_name ();
+  operands[3] = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (picbase, -1));
+#endif
+  return \"bl %z2\\n%3:\";
+"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+/* APPLE LOCAL end 64-bit */

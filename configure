@@ -1170,10 +1170,13 @@ case "${target}" in
     ;;
   powerpc-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
+    # APPLE LOCAL 64-bit bringup
+    noconfigdirs="$noconfigdirs target-libobjc"
     ;;
   *-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
-    noconfigdirs="$noconfigdirs ${libgcj}"
+    # APPLE LOCAL 64-bit bringup
+    noconfigdirs="$noconfigdirs target-libobjc ${libgcj}"
     ;;
   *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"

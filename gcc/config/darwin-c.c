@@ -32,42 +32,83 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "cppdefault.h"
 #include "prefix.h"
+/* APPLE LOCAL include options.h */
+#include "options.h"
 
 /* Pragmas.  */
 
 #define BAD(msgid) do { warning (msgid); return; } while (0)
+/* APPLE LOCAL Macintosh alignment 2002-1-22 --ff */
+#define BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
 
 static bool using_frameworks = false;
+
+/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
+static void directive_with_named_function (const char *, void (*sec_f)(void));
+/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 
 /* Maintain a small stack of alignments.  This is similar to pragma
    pack's stack, but simpler.  */
 
-static void push_field_alignment (int);
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
+static void push_field_alignment (int, int, int);
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
 static void pop_field_alignment (void);
 static const char *find_subframework_file (const char *, const char *);
 static void add_system_framework_path (char *);
 static const char *find_subframework_header (cpp_reader *pfile, const char *header,
 					     cpp_dir **dirp);
 
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
+/* There are four alignment modes supported on the Apple Macintosh
+   platform: power, mac68k, natural, and packed.  These modes are
+   identified as follows:
+     if maximum_field_alignment != 0
+       mode = packed
+     else if TARGET_ALIGN_NATURAL
+       mode = natural
+     else if TARGET_ALIGN_MAC68K
+       mode
+     else
+       mode = power
+   These modes are saved on the alignment stack by saving the values
+   of maximum_field_alignment, TARGET_ALIGN_MAC68K, and 
+   TARGET_ALIGN_NATURAL.  */
 typedef struct align_stack
 {
   int alignment;
+  unsigned long mac68k;
+  unsigned long natural;
   struct align_stack * prev;
 } align_stack;
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 static struct align_stack * field_align_stack = NULL;
 
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
 static void
-push_field_alignment (int bit_alignment)
+push_field_alignment (int bit_alignment, 
+		      int mac68k_alignment, int natural_alignment)
 {
   align_stack *entry = (align_stack *) xmalloc (sizeof (align_stack));
 
   entry->alignment = maximum_field_alignment;
+  entry->mac68k = TARGET_ALIGN_MAC68K;
+  entry->natural = TARGET_ALIGN_NATURAL;
   entry->prev = field_align_stack;
   field_align_stack = entry;
 
   maximum_field_alignment = bit_alignment;
+  if (mac68k_alignment)
+    rs6000_alignment_flags |= MASK_ALIGN_MAC68K;
+  else
+    rs6000_alignment_flags &= ~MASK_ALIGN_MAC68K;
+  if (natural_alignment)
+    rs6000_alignment_flags |= MASK_ALIGN_NATURAL;
+  else
+    rs6000_alignment_flags &= ~MASK_ALIGN_NATURAL;
 }
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
 
 static void
 pop_field_alignment (void)
@@ -77,6 +118,16 @@ pop_field_alignment (void)
       align_stack *entry = field_align_stack;
 
       maximum_field_alignment = entry->alignment;
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
+      if (entry->mac68k)
+	rs6000_alignment_flags |= MASK_ALIGN_MAC68K;
+      else
+	rs6000_alignment_flags &= ~MASK_ALIGN_MAC68K;
+      if (entry->natural)
+	rs6000_alignment_flags |= MASK_ALIGN_NATURAL;
+      else
+	rs6000_alignment_flags &= ~MASK_ALIGN_NATURAL;
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
       field_align_stack = entry->prev;
       free (entry);
     }
@@ -91,6 +142,20 @@ darwin_pragma_ignore (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   /* Do nothing.  */
 }
+
+/* APPLE LOCAL begin pragma fenv */
+/* #pragma GCC fenv
+   This is kept in <fenv.h>.  The point is to allow trapping
+   math to default to off.  According to C99, any program
+   that requires trapping math must include <fenv.h>, so
+   we enable trapping math when that gets included.  */
+
+void
+darwin_pragma_fenv (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  flag_trapping_math = 1;
+}
+/* APPLE LOCAL end pragma fenv */
 
 /* #pragma options align={mac68k|power|reset} */
 
@@ -114,15 +179,84 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning ("junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
   if (!strcmp (arg, "mac68k"))
-    push_field_alignment (16);
+    push_field_alignment (0, 1, 0);
+  else if (!strcmp (arg, "native"))	/* equivalent to power on PowerPC */
+    push_field_alignment (0, 0, 0);
+  else if (!strcmp (arg, "natural"))
+    push_field_alignment (0, 0, 1);
+  else if (!strcmp (arg, "packed"))
+    push_field_alignment (8, 0, 0);
   else if (!strcmp (arg, "power"))
-    push_field_alignment (0);
+    push_field_alignment (0, 0, 0);
   else if (!strcmp (arg, "reset"))
     pop_field_alignment ();
   else
-    warning ("malformed '#pragma options align={mac68k|power|reset}', ignoring");
+    warning ("malformed '#pragma options align={mac68k|power|natural|reset}', ignoring");
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 }
+
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
+/* #pragma pack ()
+   #pragma pack (N)  
+   
+   We have a problem handling the semantics of these directives since,
+   to play well with the Macintosh alignment directives, we want the
+   usual pack(N) form to do a push of the previous alignment state.
+   Do we want pack() to do another push or a pop?  */
+
+void
+darwin_pragma_pack (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  tree x;
+  int align = -1;
+  enum cpp_ttype token;
+  enum { set, push, pop } action;
+
+  if (c_lex (&x) != CPP_OPEN_PAREN)
+    BAD ("missing '(' after '#pragma pack' - ignored");
+  token = c_lex (&x);
+  if (token == CPP_CLOSE_PAREN)
+    {
+      action = pop;  		/* or "set" ???  */    
+      align = 0;
+    }
+  else if (token == CPP_NUMBER)
+    {
+      align = TREE_INT_CST_LOW (x);
+      action = push;
+      if (c_lex (&x) != CPP_CLOSE_PAREN)
+	BAD ("malformed '#pragma pack' - ignored");
+    }
+  else
+    BAD ("malformed '#pragma pack' - ignored");
+
+  if (c_lex (&x) != CPP_EOF)
+    warning ("junk at end of '#pragma pack'");
+    
+  switch (align)
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+      align *= BITS_PER_UNIT;
+      break;
+    default:
+      BAD2 ("alignment must be a small power of two, not %d", align);
+    }
+  
+  switch (action)
+    {
+    case pop:   pop_field_alignment ();		      break;
+    case push:  push_field_alignment (align, 0, 0);   break;
+    case set:   				      break;
+    }
+}
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 /* #pragma unused ([var {, var}*]) */
 
@@ -525,3 +659,44 @@ find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
 
   return 0;
 }
+
+/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
+extern void mod_init_section (void), mod_term_section (void);
+/* Grab the function name from the pragma line and output it to the
+   assembly output file with the parameter DIRECTIVE.  Called by the
+   pragma CALL_ON_LOAD and CALL_ON_UNLOAD handlers below.
+   So: "#pragma CALL_ON_LOAD foo"  will output ".mod_init_func _foo".  */
+
+static void directive_with_named_function (const char *pragma_name,
+			         void (*section_function) (void))
+{
+  tree decl;
+  int tok;
+
+  tok = c_lex (&decl);
+  if (tok == CPP_NAME && decl)
+    {
+      extern FILE *asm_out_file;
+
+      section_function ();
+      fprintf (asm_out_file, "\t.long _%s\n", IDENTIFIER_POINTER (decl));
+
+      if (c_lex (&decl) != CPP_EOF)
+	warning ("junk at end of #pragma %s <function_name>\n", pragma_name);
+    }
+  else
+    warning ("function name expected after #pragma %s\n", pragma_name);
+}
+void
+darwin_pragma_call_on_load (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  warning("Pragma CALL_ON_LOAD is deprecated; use constructor attribute instead");
+  directive_with_named_function ("CALL_ON_LOAD", mod_init_section);
+}
+void
+darwin_pragma_call_on_unload (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  warning("Pragma CALL_ON_UNLOAD is deprecated; use destructor attribute instead");
+  directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
+}
+/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */

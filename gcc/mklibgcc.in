@@ -339,13 +339,15 @@ for ml in $MULTILIBS; do
       out="libgcc/${dir}/${name}${objext}"
       outS="libgcc/${dir}/${name}_s${objext}"
 
+# APPLE LOCAL begin libcc_kext move options to start of line for overriding --bowdidge
       echo $outS: $libgcc2_c_dep
-      echo "	$gcc_compile" $flags -DL$name \
-        -fexceptions -fnon-call-exceptions -c '$(srcdir)/libgcc2.c' -o $outS
+      echo "	$gcc_compile" -fexceptions -fnon-call-exceptions $flags -DL$name \
+        -c '$(srcdir)/libgcc2.c' -o $outS
 
       echo $out: $libgcc2_c_dep
-      echo "	$gcc_compile" $flags -DL$name '$(vis_hide)' \
-        -fexceptions -fnon-call-exceptions -c '$(srcdir)/libgcc2.c' -o $out
+      echo "	$gcc_compile" -fexceptions -fnon-call-exceptions $flags -DL$name '$(vis_hide)' \
+        -c '$(srcdir)/libgcc2.c' -o $out
+# APPLE LOCAL end libcc_kext move options to start of line for overriding --bowdidge
 
       echo $libgcc_a: $out
       echo $libgcc_s_so: $outS
@@ -766,7 +768,8 @@ EOF
   fi
 
   # Shared libraries.
-  if [ "$libgcc_s_so" ]; then
+  # APPLE LOCAL libcc_kext
+  if [ "$libgcc_s_so" -a  "$dir" != "static" -a "$dir" != "kext" ]; then
     echo ""
     echo "$libgcc_s_so: stmp-dirs $libunwind_so"
     echo "	$SHLIB_LINK" \
@@ -835,7 +838,8 @@ for ml in $MULTILIBS; do
     echo '	$(INSTALL_DATA)' ${dir}/libgcc_eh.a ${ldir}/
     echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc_eh.a
 
-    if [ -z "$SHLIB_MULTILIB" ]; then
+    # APPLE LOCAL libcc_kext
+    if [ -z "$SHLIB_MULTILIB" -a  "$dir" != "static" -a "$dir" != "kext" ]; then
       if [ "$dir" = . ]; then
 	shlib_base_name=libgcc_s
 	shlibunwind_base_name=libunwind

@@ -1,5 +1,6 @@
 /* Target definitions for x86 running Darwin.
-   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
+   APPLE LOCAL copyright
+   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -23,6 +24,12 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_MACHO
 #define TARGET_MACHO 1
 
+/* APPLE LOCAL begin default to ppro */
+/* Default to -mcpu=pentiumpro instead of i386 (radar 2730299)  ilr */
+#undef TARGET_CPU_DEFAULT
+#define TARGET_CPU_DEFAULT 4
+/* APPLE LOCAL end default to ppro */
+
 #define TARGET_VERSION fprintf (stderr, " (i686 Darwin)");
 
 #define TARGET_OS_CPP_BUILTINS()                \
@@ -30,8 +37,9 @@ Boston, MA 02111-1307, USA.  */
     {                                           \
       builtin_define ("__i386__");              \
       builtin_define ("__LITTLE_ENDIAN__");     \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL remove __MACH__ and __APPLE__, defined in gcc/config/darwin.h */\
+      /* APPLE LOCAL constant cfstrings */	\
+      SUBTARGET_OS_CPP_BUILTINS ();		\
     }                                           \
   while (0)
 
@@ -39,16 +47,27 @@ Boston, MA 02111-1307, USA.  */
    the kernel or some such.  */
 
 #undef CC1_SPEC
-#define CC1_SPEC "%{!static:-fPIC}\
-  %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }}"
+/* APPLE LOCAL begin dynamic-no-pic */
+/* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
+#define CC1_SPEC "\
+%{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
+"/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */"\
+%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+/* APPLE LOCAL end dynamic-no-pic */
+
+/* APPLE LOCAL AltiVec */
+#define CPP_ALTIVEC_SPEC "%<faltivec"
 
 #undef ASM_SPEC
-#define ASM_SPEC "-arch i686 -force_cpusubtype_ALL"
+/* APPLE LOCAL Mach-O wants only i386 here */
+#define ASM_SPEC "-arch i386 -force_cpusubtype_ALL"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\
-  { "darwin_arch", "i686" },					\
-  { "darwin_subarch", "%{march=pentium3:pentIIm3;:i686}" },
+  /* APPLE LOCAL begin Mach-O wants only i386 here */		\
+  { "darwin_arch", "i386" },					\
+  { "darwin_subarch", "i386" },
+  /* APPLE LOCAL end Mach-O wants only i386 here */
    
 
 /* Use the following macro for any Darwin/x86-specific command-line option
@@ -76,7 +95,10 @@ Boston, MA 02111-1307, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
-#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
+/* APPLE LOCAL begin long double default size --mrs */
+/* MERGE FIXME: 0 & to make the build go */
+#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | (0 & MASK_128BIT_LONG_DOUBLE))
+/* APPLE LOCAL end long double default size -- mrs */
 
 /* TARGET_DEEP_BRANCH_PREDICTION is incompatible with Mach-O PIC.  */
 
@@ -131,6 +153,27 @@ Boston, MA 02111-1307, USA.  */
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
+
+/* APPLE LOCAL begin Macintosh alignment 2002-2-19 --ff */
+#define MASK_ALIGN_NATURAL	0x40000000
+#define TARGET_ALIGN_NATURAL	(target_flags & MASK_ALIGN_NATURAL)
+#define rs6000_alignment_flags target_flags
+#define MASK_ALIGN_MAC68K	0x20000000
+#define TARGET_ALIGN_MAC68K	(target_flags & MASK_ALIGN_MAC68K)
+
+#undef SUBTARGET_SWITCHES
+#define SUBTARGET_SWITCHES						\
+  {"align-mac68k",      MASK_ALIGN_MAC68K,				\
+	N_("Align structs and unions according to mac68k rules")},	\
+  {"align-power",       - (MASK_ALIGN_MAC68K | MASK_ALIGN_NATURAL),	\
+	N_("Align structs and unions according to PowerPC rules")},	\
+  {"align-natural",     MASK_ALIGN_NATURAL,				\
+	N_("Align structs and unions according to natural rules")},	\
+  {"dynamic-no-pic",    MASK_MACHO_DYNAMIC_NO_PIC,			\
+	N_("Generate code suitable for executables (NOT shared libs)")},\
+  {"no-dynamic-no-pic", -MASK_MACHO_DYNAMIC_NO_PIC,  ""},
+/* APPLE LOCAL end Macintosh alignment 2002-2-19 --ff */
+
 /* Darwin profiling -- call mcount.  */
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)				\
@@ -143,3 +186,17 @@ Boston, MA 02111-1307, USA.  */
 	}								\
       else fprintf (FILE, "\tcall mcount\n");				\
     } while (0)
+
+/* APPLE LOCAL begin SSE stack alignment */
+#define BASIC_STACK_BOUNDARY (128)
+/* APPLE LOCAL end SSE stack alignment */
+
+/* APPLE LOCAL begin default to ppro */
+#undef SUBTARGET_OVERRIDE_OPTIONS
+/* Force Darwin/x86 to default as "-march=i686 -mcpu=pentium4".  */
+#define SUBTARGET_OVERRIDE_OPTIONS \
+  do { \
+    if (!ix86_arch_string) ix86_arch_string = "pentiumpro"; \
+    if (!ix86_tune_string) ix86_tune_string = "pentium4"; \
+  } while (0)
+/* APPLE LOCAL end default to ppro */

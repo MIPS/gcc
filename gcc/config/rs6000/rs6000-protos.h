@@ -135,6 +135,8 @@ extern int mfcr_operation (rtx, enum machine_mode);
 extern int mtcrf_operation (rtx, enum machine_mode);
 extern int lmw_operation (rtx, enum machine_mode);
 extern struct rtx_def *create_TOC_reference (rtx);
+/* APPLE LOCAL RTX_COST for multiply */
+extern int rs6000_rtx_mult_cost (rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
 extern rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);
@@ -206,11 +208,20 @@ extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);
 extern void rs6000_output_dwarf_dtprel (FILE*, int, rtx);
 extern int rs6000_hard_regno_nregs (int, enum machine_mode);
 extern void rs6000_conditional_register_usage (void);
+/* APPLE LOCAL AltiVec */
+extern tree rs6000_fold_builtin (tree, bool);
+/* APPLE LOCAL CW asm blocks */
+extern const char *rs6000_cw_asm_register_name (const char *, char *);
 
 /* Declare functions in rs6000-c.c */
 
 extern void rs6000_pragma_longcall (struct cpp_reader *);
 extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
+
+/* APPLE LOCAL begin AltiVec */
+extern struct cpp_hashnode *rs6000_macro_to_expand (struct cpp_reader *,
+						    const struct cpp_token *);
+/* APPLE LOCAL end AltiVec */
 
 #if TARGET_MACHO
 char *output_call (rtx, rtx *, int, int);

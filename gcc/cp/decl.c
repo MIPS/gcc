@@ -229,10 +229,17 @@ int function_depth;
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
    deprecated items.  */
+/* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+/* An object declared as __attribute__((unavailable)) suppresses
+   any reports of being declared with unavailable or deprecated
+   items.  */
+/* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
 enum deprecated_states {
   DEPRECATED_NORMAL,
   DEPRECATED_SUPPRESS
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
+  , DEPRECATED_UNAVAILABLE_SUPPRESS
 };
 
 static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
@@ -2846,6 +2853,45 @@ initialize_predefined_identifiers (void)
       if (pid->ctor_or_dtor_p)
 	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
     }
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+  if (flag_apple_kext)
+    {
+      /* This is snarfed from the 2.95 cp-tree.h.  The mechanism is
+	 completely different from gcc3 (see cp-tree.h, and read the
+	 comment just above 'enum ptrmemfunc_vbit_where_t'.  Sigh.
+
+	 A 2.95 pointer-to-function member type looks like:
+
+	 struct {
+	   short __delta;
+	   short __index;
+	   union {
+	     P __pfn;
+	     short __delta2;
+	   } __pfn_or_delta2;
+	 };
+
+	 where P is a POINTER_TYPE to a METHOD_TYPE appropriate for the
+	 pointer to member.  The fields are used as follows:
+      
+	 If __INDEX is -1, then the function to call is non-virtual, and
+	 is located at the address given by __PFN.  
+      
+	 If __INDEX is zero, then this a NULL pointer-to-member.
+
+	 Otherwise, the function to call is virtual.  Then, __DELTA2 gives
+	 the offset from an instance of the object to the virtual function
+	 table, and __INDEX - 1 is the index into the vtable to use to
+	 find the function.
+      
+	 The value to use for the THIS parameter is the address of the
+	 object plus __DELTA.  */
+
+      delta2_identifier = get_identifier ("__delta2");
+      index_identifier = get_identifier ("__index");
+      pfn_or_delta2_identifier = get_identifier ("__pfn_or_delta2");
+    }
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 }
 
 /* Create the predefined scalar types of C,
@@ -2930,6 +2976,11 @@ cxx_init_decl_processing (void)
   record_builtin_type (RID_MAX, NULL, string_type_node);
 #endif
 
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+  if (flag_apple_kext)
+    delta_type_node = short_integer_type_node;
+  else
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
   delta_type_node = ptrdiff_type_node;
   vtable_index_type = ptrdiff_type_node;
 
@@ -3037,6 +3088,13 @@ cxx_init_decl_processing (void)
   /* Show we use EH for cleanups.  */
   if (flag_exceptions)
     using_eh_for_cleanups ();
+
+  /* APPLE LOCAL begin fwritable strings.  */
+  /* Maintain consistency.  Perhaps we should just complain if they
+     say -fwritable-strings?  */
+   if (flag_writable_strings)
+     flag_const_strings = 0;
+  /* APPLE LOCAL end fwritable strings.  */
 }
 
 /* Generate an initializer for a function naming variable from
@@ -3150,8 +3208,18 @@ builtin_function_1 (const char* name,
 
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
-  if (name[0] != '_' || name[1] != '_')
+  /* APPLE LOCAL begin AltiVec */
+  if ((name[0] != '_' || name[1] != '_')
+#ifdef TARGET_POWERPC
+      /* AltiVec PIM builtins, even though they do not begin with
+	 underscores, need not be declared either.  */
+      && !(class == BUILT_IN_MD
+	   && code >= ALTIVEC_PIM__FIRST
+	   && code <= ALTIVEC_PIM__LAST)
+#endif /* TARGET_POWERPC */
+      )
     DECL_ANTICIPATED (decl) = 1;
+  /* APPLE LOCAL end AltiVec */
 
   /* Possibly apply some default attributes to this built-in function.  */
   if (attrs)
@@ -3188,7 +3256,10 @@ builtin_function (const char* name,
 {
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
-  if (name[0] != '_')
+  /* APPLE LOCAL begin alloca not in std */
+  /* Don't use `std' namespace for alloca.  */
+  if (name[0] != '_' && strcmp (name, "alloca"))
+    /* APPLE LOCAL end alloca not in std */
     {
       push_namespace (std_identifier);
       builtin_function_1 (name, type, std_node, code, cl, libname, attrs);
@@ -3566,6 +3637,8 @@ start_decl (const cp_declarator *declarator,
   tree decl;
   tree type, tem;
   tree context;
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
+  tree a;
 
   *pushed_scope_p = NULL_TREE;
  
@@ -3576,10 +3649,34 @@ start_decl (const cp_declarator *declarator,
       have_extern_spec = false;
     }
 
-  /* An object declared as __attribute__((deprecated)) suppresses
-     warnings of uses of other deprecated items.  */
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  /* An object declared as __attribute__((unavailable)) suppresses
+     any reports of being declared with unavailable or deprecated
+     items.  An object declared as __attribute__((deprecated))
+     suppresses warnings of uses of other deprecated items.  */
+#ifdef A_LESS_INEFFICENT_WAY /* which I really don't want to do!  */
   if (lookup_attribute ("deprecated", attributes))
     deprecated_state = DEPRECATED_SUPPRESS;
+  else if (lookup_attribute ("unavailable", attributes))
+    deprecated_state = DEPRECATED_UNAVAILABLE_SUPPRESS;
+#else /* a more efficient way doing what lookup_attribute would do */
+  for (a = attributes; a; a = TREE_CHAIN (a))
+    {
+      tree name = TREE_PURPOSE (a);
+      if (TREE_CODE (name) == IDENTIFIER_NODE)
+        if (is_attribute_p ("deprecated", name))
+	  {
+	    deprecated_state = DEPRECATED_SUPPRESS;
+	    break;
+	  }
+        if (is_attribute_p ("unavailable", name))
+	  {
+	    deprecated_state = DEPRECATED_UNAVAILABLE_SUPPRESS;
+	    break;
+	  }
+    }
+#endif
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   attributes = chainon (attributes, prefix_attributes);
 
@@ -4610,7 +4707,19 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	   && DECL_IMPLICIT_INSTANTIATION (decl))
     defer_p = 1;
 
-  /* If we're not deferring, go ahead and assemble the variable.  */
+
+  /* APPLE LOCAL begin static const members  20020110 --turly  */
+  /* Static const members which require runtime initialisation should
+     not be placed in readonly memory.  Avoid this by temporarily
+     whacking the TREE_READONLY bit.  */
+  if (!defer_p && init != NULL_TREE && TREE_READONLY (decl) && toplev)
+    {
+      TREE_READONLY (decl) = 0;
+      rest_of_decl_compilation (decl, toplev, at_eof);
+      TREE_READONLY (decl) = 1;
+    }
+  else
+  /* APPLE LOCAL end static const members  20020110 --turly  */
   if (!defer_p)
     rest_of_decl_compilation (decl, toplev, at_eof);
 }
@@ -5994,6 +6103,37 @@ build_ptrmemfunc_type (tree type)
     unqualified_variant
       = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
 
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
+  if (flag_apple_kext)
+    {
+      tree u = make_aggr_type (UNION_TYPE);
+      SET_IS_AGGR_TYPE (u, 0);
+      xref_basetypes (u, NULL_TREE);
+      fields = build_decl (FIELD_DECL, delta2_identifier, delta_type_node);
+      TREE_CHAIN (fields) 
+	= build_decl (FIELD_DECL, pfn_identifier, type);
+      finish_builtin_struct (u, "__ptrmemfunc_type", fields, ptr_type_node);
+      TYPE_NAME (u) = NULL_TREE;
+  
+      t = make_aggr_type (RECORD_TYPE);
+      xref_basetypes (t, NULL_TREE);
+  
+      /* Let the front-end know this is a pointer to member function...  */
+      TYPE_PTRMEMFUNC_FLAG (t) = 1;
+      /* ... and not really an aggregate.  */
+      SET_IS_AGGR_TYPE (t, 0);
+  
+      fields = build_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
+      TREE_CHAIN (fields) =
+	build_decl (FIELD_DECL, index_identifier, delta_type_node);
+      TREE_CHAIN (TREE_CHAIN (fields)) = 
+	build_decl (FIELD_DECL, delta_identifier, delta_type_node);
+      finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
+    }
+  else
+    {
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
+
   t = make_aggr_type (RECORD_TYPE);
   xref_basetypes (t, NULL_TREE);
 
@@ -6010,6 +6150,8 @@ build_ptrmemfunc_type (tree type)
   fields = field;
 
   finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
+  /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
+    }
 
   /* Zap out the name so that the back-end will give us the debugging
      information for this anonymous RECORD_TYPE.  */
@@ -6491,6 +6633,8 @@ grokdeclarator (const cp_declarator *declarator,
   cp_decl_spec ds;
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
+  /* APPLE LOCAL CW asm blocks */
+  bool cw_asm_p;
   bool type_was_error_mark_node = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
@@ -6498,6 +6642,8 @@ grokdeclarator (const cp_declarator *declarator,
   short_p = declspecs->specs[(int)ds_short];
   long_p = declspecs->specs[(int)ds_long];
   thread_p = declspecs->specs[(int)ds_thread];
+  /* APPLE LOCAL CW asm blocks */
+  cw_asm_p = declspecs->specs[(int)ds_cw_asm];
 
   if (decl_context == FUNCDEF)
     funcdef_flag = 1, decl_context = NORMAL;
@@ -6696,6 +6842,19 @@ grokdeclarator (const cp_declarator *declarator,
       type = NULL_TREE;
       type_was_error_mark_node = true;
     }
+
+  /* APPLE LOCAL begin unavailable attribute (radar 2809697) --bowdidge */
+  /* If the entire declaration is itself tagged as unavailable then
+     suppress reports of unavailable/deprecated items.  If the
+     entire declaration is tagged as only deprecated we still
+     report unavailable uses.  */
+  if (type && TREE_DEPRECATED (type) && TREE_UNAVAILABLE (type)) 
+    {
+      if (deprecated_state != DEPRECATED_UNAVAILABLE_SUPPRESS) 
+	warn_deprecated_use (type);
+    }
+  else
+  /* APPLE LOCAL end unavailable attribute (radar 2809697) --bowdidge */
   /* If the entire declaration is itself tagged as deprecated then
      suppress reports of deprecated items.  */
   if (type && TREE_DEPRECATED (type)
@@ -6752,6 +6911,8 @@ grokdeclarator (const cp_declarator *declarator,
 	    "typedef",
 	    "__complex",
 	    "__thread"
+	    /* APPLE LOCAL CW asm blocks. */
+	    , "asm"
 	  };
 	  error ("duplicate %qs", decl_spec_names[(int)ds]);
 	}
@@ -8198,6 +8359,21 @@ grokdeclarator (const cp_declarator *declarator,
       DECL_THIS_EXTERN (decl) = 1;
     else if (storage_class == sc_static)
       DECL_THIS_STATIC (decl) = 1;
+
+    /* APPLE LOCAL begin CW asm blocks */
+    if (cw_asm_p)
+      {
+	/* Record that this is a decl of a CW-style asm function.  */
+	if (flag_cw_asm_blocks)
+	  {
+	    DECL_CW_ASM_FUNCTION (decl) = 1;
+	    DECL_CW_ASM_NORETURN (decl) = 0;
+	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	  }
+	else
+	  error ("asm functions not enabled, use `-fasm-blocks'");
+      }
+    /* APPLE LOCAL end CW asm blocks */
 
     /* Record constancy and volatility.  There's no need to do this
        when processing a template; we'll do this for the instantiated
@@ -10173,6 +10349,17 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       DECL_CONTEXT (cdtor_label) = current_function_decl;
     }
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* If this was a function declared as an assembly function, change
+     the state to expect to see C++ decls, possibly followed by assembly
+     code.  */
+  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+    {
+      cw_asm_state = cw_asm_decls;
+      cw_asm_in_decl = 0;
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   start_fname_decls ();
 
   store_parm_decls (current_function_parms);
@@ -10938,6 +11125,25 @@ cxx_maybe_build_cleanup (tree decl)
       tree rval;
       bool has_vbases = (TREE_CODE (type) == RECORD_TYPE
 			 && CLASSTYPE_VBASECLASSES (type));
+      /* APPLE LOCAL begin KEXT double destructor */
+      special_function_kind dtor = sfk_complete_destructor;
+      if (flag_apple_kext
+	  && has_apple_kext_compatibility_attr_p (type))
+	{
+	  /* If we have a trivial operator delete (), we can go ahead and
+	     just use the deleting destructor, sfk_deleting_destructor.  */
+
+	  if (! has_empty_operator_delete_p (type) || pedantic)
+	    {
+	      cp_warning_at ("'%D' is an instance of a class which does "
+			 "not allow global or stack-based objects; it "
+			 "does not have an empty `operator delete', and "
+			 "so it will ** NOT ** be destructed.", decl);
+	      return NULL_TREE;
+	    }
+	  dtor = sfk_deleting_destructor;
+	}
+      /* APPLE LOCAL end KEXT double destructor */
 
       if (TREE_CODE (type) == ARRAY_TYPE)
 	rval = decl;
@@ -10952,7 +11158,8 @@ cxx_maybe_build_cleanup (tree decl)
 	flags |= LOOKUP_NONVIRTUAL;
 
       rval = build_delete (TREE_TYPE (rval), rval,
-			   sfk_complete_destructor, flags, 0);
+			   /* APPLE LOCAL KEXT double destructor  */
+			   dtor, flags, 0);
 
       return rval;
     }

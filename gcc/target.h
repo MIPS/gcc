@@ -48,6 +48,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define GCC_TARGET_H
 
 #include "tm.h"
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
+#include "tree.h"
+#include "tree-flow.h"
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 #include "insn-modes.h"
 
 struct gcc_target
@@ -333,6 +337,18 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
+  /* APPLE LOCAL begin constant cfstrings */
+  /* Expand a platform-specific (but machine-independent) builtin.  */
+  tree (* expand_tree_builtin) (tree function, tree params,
+				tree coerced_params);
+
+  /* Construct a target-specific Objective-C string object based on the
+     STRING_CST passed in STR, or NULL if the default Objective-C objects
+     (based on NSConstantString or NXConstantString) should be used
+     instead.  */
+  tree (* construct_objc_string) (tree str);
+  /* APPLE LOCAL end constant cfstrings */
+
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree exp, bool ignore);
 
@@ -454,7 +470,64 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
-  /* Gimplifies a VA_ARG_EXPR.  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
+  /* Functions relating to vectorization.  */
+  struct vect
+  {
+    /* True if loads from misaligned addresses are supported.  */
+    bool (* support_misaligned_loads) (void);
+
+    /* True if loads from misaligned addresses are permuted.  */
+    bool (* permute_misaligned_loads) (void);
+
+    /* Function decl for mask used to shift left by vperm.  */
+    tree (* build_builtin_lvsl) (void);
+
+    /* Function decl for mask used to shift right by vperm.  */
+    tree (* build_builtin_lvsr) (void);
+
+    /* Function decl for vector permute.  */
+    tree (* build_builtin_vperm) (enum machine_mode);
+
+    /* APPLE LOCAL begin AV vmul_uch --haifa  */
+    /* True if vector "mult_uch" can be supported (see below).  */
+    bool (* support_vmul_uch_p) (void);
+
+    /* Generate a sequence that vectorizes the following functionality:
+	  uchar x' = (ushort) x;
+	  uchar y' = (ushort) y;
+	  ushort prod = mul (x`, y`);
+	  ushort z` = prod >> 8;
+	  uchar z = (uchar) z`;
+       This sequence is modelled by a single scalar_stmt "mul_uch".
+       The function generates a vectorized sequence that multiplies two vectors
+       of unsigned chars, vx and vy, and converts the (vector of unsigned 
+       shorts) result back to a vector of unsigned chars, vz. The vectorized
+       sequence will replace the scalar_stmt "mul_uch".
+       The arguments are: tree vx, tree vy, tree vz, edge pe - where code can 
+       be inserted at the loop preheader), and a block_stmt_iterator that 
+       points to the place where the vectorized sequence should be inserted. 
+       The output: Generate a sequence of vectorized stmts; all the stmts but 
+       the last are inserted either at the preheader edge or at bsi; the last 
+       stmt is returned.  */
+    tree (* build_vmul_uch) (tree, tree, tree, edge, block_stmt_iterator *);
+    /* APPLE LOCAL end AV vmul_uch --haifa  */
+
+    /* APPLE LOCAL begin AV vector_init --haifa  */
+    /* True if the target supports vector initialization with a non-immediate 
+       value, of a certain type (passed as argument).  */
+    bool (* support_vector_init_p) (tree);
+
+    /* Generate a sequence to initialize a vector with a non-immediate value.
+       The arguments are: tree vectype - type of stmts to be generated, 
+       tree def - the scalar value to be put into the vector variable,
+       edge pe - the preheader edge where this code sequence is to be inserted,
+       struct bitmap_head_def - bitmap of variables to be renamed.  */
+    tree (* build_vector_init) (tree, tree, edge, struct bitmap_head_def *);
+    /* APPLE LOCAL end AV vector_init --haifa  */
+  } vect;
+  /* APPLE LOCAL end AV misaligned --haifa  */
+
   tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
 				 tree *post_p);
 
@@ -525,6 +598,9 @@ struct gcc_target
     /* Given a complex type T, return true if a parameter of type T
        should be passed as two scalars.  */
     bool (* split_complex_arg) (tree type);
+    /* APPLE LOCAL begin Altivec */
+    bool (*skip_vec_args) (tree, int, int*);
+    /* APPLE LOCAL end Altivec */
 
     /* Return true if type T, mode MODE, may not be passed in registers,
        but must be passed on the stack.  */
@@ -598,6 +674,17 @@ struct gcc_target
      at the beginning of assembly output.  */
   bool file_start_file_directive;
 
+  /* APPLE LOCAL begin AltiVec */
+  /* True if it is permissible to use cast expressions as
+     vector initializers, e.g.:
+
+       (vector unsigned int)(3, 4, 5, 6)
+       (vector float)(2.5)
+
+     This is required for the Motorola AltiVec syntax on the PowerPC.  */
+  bool cast_expr_as_vector_init;
+  /* APPLE LOCAL end AltiVec */
+  
   /* True if #pragma redefine_extname is to be supported.  */
   bool handle_pragma_redefine_extname;
 

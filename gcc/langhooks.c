@@ -366,6 +366,14 @@ lhd_tree_inlining_anon_aggr_type_p (tree t ATTRIBUTE_UNUSED)
   return 0;
 }
 
+/* APPLE LOCAL begin kext identify vtables */
+int
+lhd_vtable_p (tree t ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+/* APPLE LOCAL end kext identify vtables */
+
 /* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
    language-specific bookkeeping necessary for processing
    FN. start_inlining returns nonzero if inlining should proceed, zero if
