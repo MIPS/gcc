@@ -319,6 +319,7 @@ compute_may_aliases (void)
   /* Debugging dumps.  */
   if (dump_file)
     {
+      dump_referenced_vars (dump_file);
       if (dump_flags & TDF_STATS)
 	dump_alias_stats (dump_file);
       dump_points_to_info (dump_file);
@@ -500,6 +501,21 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
 	  if (stmt_escapes_p)
 	    block_ann->has_escape_site = 1;
+
+	  /* Special case for silly ADDR_EXPR tricks.  If this
+	     statement is an assignment to a non-pointer variable and
+	     the RHS takes the address of a variable, assume that the
+	     variable on the RHS is call-clobbered.  We could add the
+	     LHS to the list of "pointers" and follow it to see if it
+	     really escapes, but it's not worth the pain.  */
+	  if (addr_taken
+	      && TREE_CODE (stmt) == MODIFY_EXPR
+	      && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 0))))
+	    EXECUTE_IF_SET_IN_BITMAP (addr_taken, 0, i,
+		{
+		  tree var = referenced_var (i);
+		  mark_call_clobbered (var);
+		});
 
 	  ann = stmt_ann (stmt);
 	  uses = USE_OPS (ann);

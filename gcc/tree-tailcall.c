@@ -72,16 +72,16 @@ suitable_for_tail_opt_p (void)
   if (current_function_stdarg)
     return false;
 
-  /* No local variable should have its address taken, as otherwise it might
-     be passed to the recursive call.  This of course is overly
-     conservative and should be replaced by a dataflow analysis later.  */
+  /* No local variable should be call-clobbered.  We ignore any kind
+     of memory tag, as these are not real variables.  */
   for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (referenced_vars); i++)
     {
       tree var = VARRAY_TREE (referenced_vars, i);
 
       if (decl_function_context (var) == current_function_decl
 	  && !TREE_STATIC (var)
-	  && TREE_ADDRESSABLE (var))
+	  && var_ann (var)->mem_tag_kind == NOT_A_TAG
+	  && is_call_clobbered (var))
 	return false;
     }
 
@@ -400,7 +400,7 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
         {
 	  fprintf (dump_file, "Found tail call ");
 	  print_generic_expr (dump_file, stmt, 0);
-	  fprintf (dump_file, " in bb %i", t->call_block->index);
+	  fprintf (dump_file, " in bb %i\n", t->call_block->index);
 	}
     }
   return false;

@@ -874,6 +874,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  dump_generic_node (buffer, op1, spc, flags, false);
 	  pp_character (buffer, ']');
 	}
+
+      if (CALL_EXPR_TAILCALL (node))
+	pp_string (buffer, " [tail call]");
       break;
 
     case WITH_CLEANUP_EXPR:

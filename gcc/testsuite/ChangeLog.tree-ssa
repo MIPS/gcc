@@ -1,3 +1,7 @@
+2004-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/tailcall-2.c: New test.
+
 2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcc.dg/tree-ssa/copy-headers.c: New test.

@@ -1,5 +1,19 @@
 2004-02-27  Diego Novillo  <dnovillo@redhat.com>
 
+	PR optimization/14312
+	* tree-pretty-print.c (dump_generic_node): Mark tail calls.
+	* tree-ssa-alias.c (compute_may_aliases): Restore call to
+	dump_referenced_vars.
+	(compute_points_to_and_addr_escape): If the address of a
+	variable V is stored into a non-pointer variable, mark V as
+	call-clobbered.
+	* tree-tailcall.c (suitable_for_tail_opt_p): Check for
+	call-clobbered instead of TREE_ADDRESSABLE.
+	Ignore memory tags.
+	(optimize_tail_call): Add newline to dump output.
+
+2004-02-27  Diego Novillo  <dnovillo@redhat.com>
+
 	PR optimization/13347
 	* tree-sra.c (scalarize_structure_assignment): Use STRIP_NOPS
 	instead of STRIP_USELESS_TYPE_CONVERSION to remove type casts
