@@ -597,7 +597,8 @@ estimate_probability (loops_info)
   /* Attach the combined probability to each conditional jump.  */
   for (i = 0; i < n_basic_blocks; i++)
     if (GET_CODE (BLOCK_END (i)) == JUMP_INSN
-	&& any_condjump_p (BLOCK_END (i)))
+	&& any_condjump_p (BLOCK_END (i))
+	&& BASIC_BLOCK (i)->succ->succ_next != NULL)
       combine_predictions_for_insn (BLOCK_END (i), BASIC_BLOCK (i));
 
   sbitmap_vector_free (post_dominators);
@@ -1128,8 +1129,6 @@ estimate_bb_frequencies (loops)
   for (i = 0; i < n_basic_blocks; i++)
     {
       rtx last_insn = BLOCK_END (i);
-      int probability;
-      edge fallthru, branch;
 
       if (GET_CODE (last_insn) != JUMP_INSN || !any_condjump_p (last_insn)
 	  /* Avoid handling of conditional jumps jumping to fallthru edge.  */
@@ -1150,20 +1149,6 @@ estimate_bb_frequencies (loops)
 	  if (!e)
 	    for (e = BASIC_BLOCK (i)->succ; e; e = e->succ_next)
 	      e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
-	}
-      else
-	{
-	  probability = INTVAL (XEXP (find_reg_note (last_insn,
-						     REG_BR_PROB, 0), 0));
-	  fallthru = BASIC_BLOCK (i)->succ;
-	  if (!fallthru->flags & EDGE_FALLTHRU)
-	    fallthru = fallthru->succ_next;
-	  branch = BASIC_BLOCK (i)->succ;
-	  if (branch->flags & EDGE_FALLTHRU)
-	    branch = branch->succ_next;
-
-	  branch->probability = probability;
-	  fallthru->probability = REG_BR_PROB_BASE - probability;
 	}
     }
 
