@@ -109,6 +109,7 @@ static tree TB_last_in_bind (tree);
 static int  TB_parent_eq (const void *, const void *);
 static tree TB_history_prev (void);
 
+/* FIXME: To be declared in a .h file.  */
 void browse_tree (tree);
 
 /* Static variables.  */

@@ -1,3 +1,8 @@
+2004-08-23  Ben Elliston  <bje@au.ibm.com>
+
+	* tree-browser.c: Revert trivial patch to minimise diffs.
+	* ifcvt.c (block_fallthru): Correct logic inversion bug.
+
 2004-08-19  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with edge-vector-mergepoint-20040819.

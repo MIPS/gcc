@@ -253,7 +253,7 @@ block_fallthru (basic_block bb)
 
   FOR_EACH_EDGE (e, bb->succs)
     {
-      if (! (e->flags & EDGE_FALLTHRU))
+      if (e->flags & EDGE_FALLTHRU)
 	break;
     }
   END_FOR_EACH_EDGE;
