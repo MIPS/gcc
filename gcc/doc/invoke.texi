@@ -484,8 +484,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
 -arch_only  -bind_at_load  -bundle  -bundle_loader @gol
 -client_name  -compatibility_version  -current_version @gol
-@c APPLE LOCAL MERGE FIXME -- submit addition of '-no_dead_strip_inits_and_terms' to FSF
--dead_strip -no_dead_strip_inits_and_terms @gol
+-dead_strip @gol
 -dependency-file  -dylib_file  -dylinker_install_name @gol
 -dynamic  -dynamiclib  -exported_symbols_list @gol
 -filelist  -flat_namespace  -force_cpusubtype_ALL @gol
