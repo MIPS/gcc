@@ -103,7 +103,8 @@ get_ttype_entry(lsda_header_info* info, _Unwind_Word i)
 /* The ABI provides a routine for matching exception object types.  */
 typedef _Unwind_Control_Block _throw_typet;
 #define get_adjusted_ptr(catch_type, throw_type, thrown_ptr_p) \
-  __cxa_type_match (throw_type, catch_type, thrown_ptr_p)
+  (__cxa_type_match (throw_type, catch_type, false, thrown_ptr_p) \
+   != ctm_failed)
 
 // Return true if THROW_TYPE matches one if the filter types.
 

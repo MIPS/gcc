@@ -124,9 +124,14 @@ extern "C" void __cxa_call_unexpected (void *) __attribute__((noreturn));
 extern "C" void __cxa_call_terminate (void*) __attribute__((noreturn));
 
 #ifdef __ARM_EABI_UNWINDER__
-/* Arm EABI specified routines.  */
-extern "C" bool __cxa_type_match (_Unwind_Exception*, const std::type_info*,
-				  void**);
+// Arm EABI specified routines.
+typedef enum {
+  ctm_failed = 0,
+  ctm_succeeded = 1,
+  ctm_succeeded_with_ptr_to_base = 2
+} __cxa_type_match_result;
+extern "C" bool __cxa_type_match(_Unwind_Exception*, const std::type_info*,
+				 bool, void**);
 extern "C" void __cxa_begin_cleanup (_Unwind_Exception*);
 extern "C" void __cxa_end_cleanup (_Unwind_Exception*);
 #endif

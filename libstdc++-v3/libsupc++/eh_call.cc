@@ -136,7 +136,8 @@ __cxa_call_unexpected(void* exc_obj_in)
 	  offset = _Unwind_decode_target2(offset);
 	  catch_type = (const std::type_info*) (offset);
 
-	  if (__cxa_type_match(&new_xh->unwindHeader, catch_type, &new_ptr))
+	  if (__cxa_type_match(&new_xh->unwindHeader, catch_type, false,
+			       &new_ptr) != ctm_failed)
 	    __throw_exception_again;
 
 	  if (catch_type->__do_catch(&bad_exc, 0, 1))

@@ -27,6 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+#include <cxxabi.h>
 #include "unwind-cxx.h"
 
 #ifdef __ARM_EABI_UNWINDER__
@@ -39,13 +40,14 @@ using namespace __cxxabiv1;
 // compare against, return whether or not there is a match and if so,
 // update *THROWN_PTR_P.
 
-extern "C" bool
+extern "C" __cxa_type_match_result
 __cxa_type_match(_Unwind_Exception* ue_header,
 		 const std::type_info* catch_type,
+		 bool is_reference __attribute__((unused)),
 		 void** thrown_ptr_p)
 {
   if (!__is_gxx_exception_class(ue_header->exception_class))
-    return false;
+    return ctm_failed;
 
   __cxa_exception* xh = __get_exception_header_from_ue(ue_header);
   const std::type_info* throw_type = xh->exceptionType;
@@ -61,10 +63,24 @@ __cxa_type_match(_Unwind_Exception* ue_header,
   if (catch_type->__do_catch(throw_type, &thrown_ptr, 1))
     {
       *thrown_ptr_p = thrown_ptr;
-      return true;
+
+      if (typeid(*catch_type) == typeid (typeid(void*)))
+	{
+	  const __pointer_type_info *catch_pointer_type =
+	    static_cast<const __pointer_type_info *> (catch_type);
+	  const __pointer_type_info *throw_pointer_type =
+	    static_cast<const __pointer_type_info *> (throw_type);
+
+	  if (typeid (*catch_pointer_type->__pointee) != typeid (void)
+	      && (*catch_pointer_type->__pointee != 
+		  *throw_pointer_type->__pointee))
+	    return ctm_succeeded_with_ptr_to_base;
+	}
+
+      return ctm_succeeded;
     }
 
-  return false;
+  return ctm_failed;
 }
 
 extern "C" void

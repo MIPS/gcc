@@ -1,3 +1,13 @@
+2004-11-16  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++/libsupc++/eh_arm.cc: Include cxxabi.h.
+	(__cxa_type_match): Update prototype.  Change return values.
+	* libstdc++/libsupc++/eh_call.cc (__cxa_call_unexpected): Pass extra
+	argument to __cxa_type_match.
+	* libstdc++/libsupc++/eh_personality.cc (get_adjusted_ptr): Ditto.
+	* libstdc++/libsupc++/unwind-cxx.h (__cxa_type_match_result): Declare.
+	(__cxa_type_match): Update prototype.
+
 2004-10-05  Phil Edwards  <phil@codesourcery.com>
 
 	* gcc/aclocal.m4 (_gcc_COMPUTE_GAS_VERSION):  Handle leading
