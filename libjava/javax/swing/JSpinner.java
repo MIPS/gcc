@@ -337,6 +337,29 @@ public class JSpinner extends JComponent
   }
 
   /**
+   * Sets a new underlying model.
+   *
+   * @param newModel the new model to set
+   *
+   * @exception IllegalArgumentException if newModel is <code>null</code>
+   */
+  public void setModel(SpinnerModel newModel)
+  {
+    if (newModel == null)
+      throw new IllegalArgumentException();
+    
+    if (model == newModel)
+      return;
+
+    SpinnerModel oldModel = model;
+    model = newModel;
+    firePropertyChange("model", oldModel, newModel);
+
+    if (editor == null)
+      setEditor(createEditor(model));
+  }
+
+  /**
    * Gets the next value without changing the current value.
    *
    * @return the next value
