@@ -1182,7 +1182,8 @@ get_asm_expr_operands (tree stmt, voperands_t prev_vops)
       }
 }
 
-/* A subroutine of get_expr_operands to handle INDIRECT_REF.  */
+/* A subroutine of get_expr_operands to handle INDIRECT_REF,
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.  */
 
 static void
 get_indirect_ref_operands (tree stmt, tree expr, int flags,

@@ -2157,6 +2157,8 @@ stabilize_reference (tree ref)
       result = build_nt (code, stabilize_reference (TREE_OPERAND (ref, 0)));
       break;
 
+    case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       result = build_nt (INDIRECT_REF,
 			 stabilize_reference_1 (TREE_OPERAND (ref, 0)));
@@ -2467,6 +2469,8 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
       TREE_READONLY (t) = 0;
       break;
 
+    case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       /* Whether a dereference is readonly has nothing to do with whether
 	 its operand is readonly.  */

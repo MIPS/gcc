@@ -689,12 +689,6 @@ optab_for_tree_code (enum tree_code code, tree type)
     case REALIGN_LOAD_EXPR:
       return vec_realign_load_optab;
 
-    case ALIGN_INDIRECT_REF:
-      return addr_floor_optab;	
-
-    case MISALIGNED_INDIRECT_REF:
-      return addr_misaligned_optab;	
-
     default:
       break;
     }
@@ -722,25 +716,11 @@ optab_for_tree_code (enum tree_code code, tree type)
     }
 }
 
-/* Generate code to perform a realign_op operation specified by REALIGN_OPTAB
-   on operands OP0,OP1,OP2 with result having machine-mode MODE.
-    
-   realign_op extracts elements from two input vectors 
-   OP0,OP1 of size VS, according to the offset OFF defined by OP2 as
-   follows: 
+/* Generate code to perform an operation specified by TERNARY_OPTAB
+   on operands OP0, OP1 and OP2, with result having machine-mode MODE.
 
-   If realign_optab == realign_load_optab: 
-     If OFF > 0, the last VS - OFF elements of vector OP0 are concatenated to
-     the first OFF elements of the vector OP1.
-     If OFF == 0, then the returned vector is OP1.
-
-   If realign_optab == realign_store_optab:
-     If OFF > 0, the last OFF elements of vector OP0 are concatenated to     
-     the first VS - OFF elements of the vector OP1.
-     If OFF == 0, then the returned vector is OP0.
-
-   On different targets, OP2 may take different forms; The default is
-   that OP2 is an address, and its low log2(VS)-1 bits define the offset OFF.
+   UNSIGNEDP is for the case where we have to widen the operands
+   to perform the operation.  It says to use zero-extension.
 
    If TARGET is nonzero, the value
    is generated there, if it is convenient to do so.
@@ -748,21 +728,21 @@ optab_for_tree_code (enum tree_code code, tree type)
    this may or may not be TARGET.  */
 
 rtx
-expand_realign_op (enum machine_mode mode, optab realign_optab,
-                   rtx op0, rtx op1, rtx op2, rtx target, int unsignedp)
+expand_ternary_op (enum machine_mode mode, optab ternary_optab, rtx op0,
+                   rtx op1, rtx op2, rtx target, int unsignedp)
 {
-  int icode = (int) realign_optab->handlers[(int) mode].insn_code;
+  int icode = (int) ternary_optab->handlers[(int) mode].insn_code;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
   enum machine_mode mode2 = insn_data[icode].operand[3].mode;
   rtx temp;
-  rtx pat; 
+  rtx pat;
   rtx xop0 = op0, xop1 = op1, xop2 = op2;
 
-  if (realign_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing)
+  if (ternary_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing)
     abort ();
 
-  if (!target 
+  if (!target
       || ! (*insn_data[icode].operand[0].predicate) (target, mode))
     temp = gen_reg_rtx (mode);
   else
@@ -812,52 +792,9 @@ expand_realign_op (enum machine_mode mode, optab realign_optab,
 
   pat = GEN_FCN (icode) (temp, xop0, xop1, xop2);
 
-  /* CHECKME: Need special handling if PAT is composed of more than one insn? */
-
   emit_insn (pat);
   return temp;
 }
-
-/* Generate code to align an address that will be used in a vector
-   load/store operation.  */
-extern rtx
-expand_addr_floor_op (enum machine_mode mode ATTRIBUTE_UNUSED, rtx op0)
-{
-  int icode;
-  rtx pat;
-  rtx temp = gen_reg_rtx (GET_MODE (op0));
-
-  if (addr_floor_optab->handlers[mode].insn_code == CODE_FOR_nothing)
-    abort ();
-
-  icode = (int) addr_floor_optab->handlers[mode].insn_code;
-
-  pat = GEN_FCN (icode) (temp, op0);
-
-  emit_insn (pat);
-  return temp;
-}
-
-/* Generate code to handle an unaligned address that will be used in a vector
-   load/store operation.  */
-extern rtx
-expand_addr_misaligned_op (enum machine_mode mode, rtx op0, rtx op1)
-{
-  int icode;
-  rtx pat;
-  rtx temp = gen_reg_rtx (mode);
-
-  if (addr_misaligned_optab->handlers[mode].insn_code == CODE_FOR_nothing)
-    abort ();
-
-  icode = (int) addr_misaligned_optab->handlers[mode].insn_code;
-
-  pat = GEN_FCN (icode) (temp, op0, op1);
-
-  emit_insn (pat);
-  return temp;
-}
-
 
 /* Wrapper around expand_binop which takes an rtx code to specify
    the operation to perform, not an optab pointer.  All other
@@ -5556,8 +5493,6 @@ init_optabs (void)
   vec_set_optab = init_optab (UNKNOWN);
   vec_init_optab = init_optab (UNKNOWN);
   vec_realign_load_optab = init_optab (UNKNOWN);
-  addr_floor_optab = init_optab (UNKNOWN);
-  addr_misaligned_optab = init_optab (UNKNOWN);
 
   /* Conversions.  */
   sext_optab = init_convert_optab (SIGN_EXTEND);

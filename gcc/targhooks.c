@@ -201,3 +201,10 @@ default_unwind_emit (FILE * stream ATTRIBUTE_UNUSED,
   /* Should never happen.  */
   abort ();
 }
+
+bool
+default_vect_misaligned_mem_ok (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return !STRICT_ALIGNMENT; 
+}
+

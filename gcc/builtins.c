@@ -87,9 +87,6 @@ static rtx result_vector (int, rtx);
 static rtx expand_builtin_setjmp (tree, rtx);
 static void expand_builtin_update_setjmp_buf (rtx);
 static void expand_builtin_prefetch (tree);
-#if defined (HAVE_build_vector_mask_for_load) || defined (HAVE_build_cc_mask_for_load)
-static rtx expand_builtin_build_mask_for_load (tree);
-#endif
 static rtx expand_builtin_apply_args (void);
 static rtx expand_builtin_apply_args_1 (void);
 static rtx expand_builtin_apply (rtx, rtx, rtx);
@@ -969,59 +966,6 @@ expand_builtin_prefetch (tree arglist)
   if (!MEM_P (op0) && side_effects_p (op0))
     emit_insn (op0);
 }
-
-#if defined (HAVE_build_vector_mask_for_load) || defined (HAVE_build_cc_mask_for_load)
-/* Expand a call to __builtin_build_[*]_mask_for_load.  The target is expected to
-   support some kind of mask creation functionality.  */
-
-static rtx
-expand_builtin_build_mask_for_load (tree arglist)
-{
-  tree arg;
-  rtx op, temp = const0_rtx;
-
-  /* Argument 0 is an address.  */
-  if (!validate_arglist (arglist, POINTER_TYPE, 0))
-    return const0_rtx;
-
-  arg = TREE_VALUE (arglist);
-  op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
-
-#ifdef HAVE_build_vector_mask_for_load
-  if (HAVE_build_vector_mask_for_load)
-    {
-      int icode = (int) CODE_FOR_build_vector_mask_for_load;
-      enum machine_mode mode0 = insn_data[icode].operand[0].mode; 
-      enum machine_mode mode1 = insn_data[icode].operand[1].mode;
-      rtx pat;
-
-      temp = gen_reg_rtx (mode0);
-
-      if (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE)
-	{
-	  op = expand_expr (arg, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-	  op = memory_address (mode1, op);
-	  op = gen_rtx_MEM (mode1, op);
-	}
-      else
-	abort ();
-
-      pat = gen_build_vector_mask_for_load (temp, op);
-      emit_insn (pat);
-    }
-#else 
-#ifdef HAVE_build_cc_mask_for_load
-  if (HAVE_build_cc_mask_for_load)
-    {
-      /* Not implemented yet.  */
-      abort ();
-    }
-#endif /* HAVE_build_cc_mask_for_load */
-#endif /* HAVE_build_vector_mask_for_load */
-
-  return temp;
-}
-#endif /* HAVE_build_mask_for_load */
 
 /* Get a MEM rtx for expression EXP which is the address of an operand
    to be used to be used in a string instruction (cmpstrsi, movmemsi, ..).  */
@@ -6147,11 +6091,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_PREFETCH:
       expand_builtin_prefetch (arglist);
       return const0_rtx;
-#if defined (HAVE_build_vector_mask_for_load) || defined (HAVE_build_cc_mask_for_load)
-    case BUILT_IN_BUILD_VECTOR_MASK_FOR_LOAD:
-    case BUILT_IN_BUILD_CC_MASK_FOR_LOAD:
-      return expand_builtin_build_mask_for_load (arglist);
-#endif
     case BUILT_IN_PROFILE_FUNC_ENTER:
       return expand_builtin_profile_func (false);
     case BUILT_IN_PROFILE_FUNC_EXIT:

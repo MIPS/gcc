@@ -1684,8 +1684,8 @@ vect_create_index_for_vector_ref (struct loop *loop, block_stmt_iterator *bsi)
 
    Input:
    STMT: The statement containing the data reference.
-   NEW_STMT_LIST: Must be initialized to NULL_TREE or a
-   statement list.
+   NEW_STMT_LIST: Must be initialized to NULL_TREE or a statement list.
+   OFFSET: Optional. If supplied, it is be added to the initial address.
 
    Output:
    1. Return an SSA_NAME whose value is the address of the memory location of 
@@ -1696,7 +1696,8 @@ vect_create_index_for_vector_ref (struct loop *loop, block_stmt_iterator *bsi)
    FORNOW: We are only handling array accesses with step 1.  */
 
 static tree
-vect_create_addr_base_for_vector_ref (tree stmt, tree *new_stmt_list, 
+vect_create_addr_base_for_vector_ref (tree stmt, 
+				      tree *new_stmt_list, 
 				      tree offset)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -1762,7 +1763,8 @@ vect_create_addr_base_for_vector_ref (tree stmt, tree *new_stmt_list,
 
       dest = create_tmp_var (TREE_TYPE (data_ref_base), "dataref");
       add_referenced_tmp_var (dest);
-      data_ref_base  = force_gimple_operand (data_ref_base, &new_stmt, false, dest);  
+      data_ref_base = 
+	force_gimple_operand (data_ref_base, &new_stmt, false, dest);  
       append_to_statement_list_force (new_stmt, new_stmt_list);
 
       vec_stmt = fold_convert (scalar_array_ptr_type, data_ref_base);
@@ -2520,6 +2522,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (!aligned_access_p (STMT_VINFO_DATA_REF (stmt_info)))
     return false;
 
+  if (!aligned_access_p (STMT_VINFO_DATA_REF (stmt_info)))
+    return false;
+
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = store_vec_info_type;
@@ -2594,30 +2599,28 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   mode = (int) TYPE_MODE (vectype);
 
-  if (aligned_access_p (dr))
+  /* FORNOW. In some cases can vectorize even if data-type not supported
+    (e.g. - data copies).  */
+  if (mov_optab->handlers[mode].insn_code == CODE_FOR_nothing)
     {
-      /* FORNOW. In some cases can vectorize even if data-type not supported
-         (e.g. - data copies).  */
-      if (mov_optab->handlers[mode].insn_code == CODE_FOR_nothing)
-	{
-	  if (vect_debug_details (loop))
-	    fprintf (dump_file, "Aligned load, but unsupported type.");
-          return false;
-	}
+      if (vect_debug_details (loop))
+        fprintf (dump_file, "Aligned load, but unsupported type.");
+      return false;
     }
-  else /* possibly unaligned access */
+
+  if (!aligned_access_p (dr))
     {
       if (vec_realign_load_optab->handlers[mode].insn_code != CODE_FOR_nothing
-          && addr_floor_optab->handlers[mode].insn_code != CODE_FOR_nothing)
-	software_pipeline_loads_p = true;
-      else if (addr_misaligned_optab->handlers[mode].insn_code == 
-							   CODE_FOR_nothing)
-	{
-	  /* Possibly unaligned access, and can't sofware pipeline the loads  */
-	  if (vect_debug_details (loop))
-	    fprintf (dump_file, "Arbitrary load not supported.");
-	  return false;
-	}
+          && (!targetm.vectorize.builtin_mask_for_load
+              || targetm.vectorize.builtin_mask_for_load ()))
+        software_pipeline_loads_p = true;
+      else if (!targetm.vectorize.misaligned_mem_ok (mode))
+        {
+          /* Possibly unaligned access, and can't software pipeline the loads  */
+          if (vect_debug_details (loop))
+            fprintf (dump_file, "Arbitrary load not supported.");
+          return false;
+        }
     }
 
   if (!vec_stmt) /* transformation not required.  */
@@ -2648,9 +2651,13 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
         data_ref = build_fold_indirect_ref (data_ref);
       else
 	{
-	  tree mis = fold_convert (integer_type_node, 
-				   build_int_2 (DR_MISALIGNMENT (dr), 0));
-	  data_ref = build2 (MISALIGNED_INDIRECT_REF, vectype, data_ref, mis);
+          int mis = DR_MISALIGNMENT (dr);
+          tree tmis = (mis == -1 ?
+                       integer_zero_node :
+                       build_int_cst (integer_type_node, mis));
+          tmis = int_const_binop (MULT_EXPR, tmis,
+                        build_int_cst (integer_type_node, BITS_PER_UNIT), 1);
+          data_ref = build2 (MISALIGNED_INDIRECT_REF, vectype, data_ref, tmis);
 	}
       new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
@@ -2715,25 +2722,29 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
 
       /* <3> */
-#ifdef BUILT_IN_build_mask_for_load
-      /* Create permutation mask, if required, in loop preheader.  */
-      params = build_tree_list (NULL_TREE, init_addr);
-      vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      new_stmt = build_function_call_expr (
-			built_in_decls[BUILT_IN_build_mask_for_load], params);
-      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
-      new_temp = make_ssa_name (vec_dest, new_stmt);
-      TREE_OPERAND (new_stmt, 0) = new_temp;
-      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+      if (targetm.vectorize.builtin_mask_for_load)
+        {
+          /* Create permutation mask, if required, in loop preheader.  */
+          tree builtin_decl;
+          params = build_tree_list (NULL_TREE, init_addr);
+          vec_dest = vect_create_destination_var (scalar_dest, vectype);
+          builtin_decl = targetm.vectorize.builtin_mask_for_load ();
+          new_stmt = build_function_call_expr (builtin_decl, params);
+          new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+          new_temp = make_ssa_name (vec_dest, new_stmt);
+          TREE_OPERAND (new_stmt, 0) = new_temp;
+          new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
 #ifdef ENABLE_CHECKING
-      if (new_bb)
-        abort ();
+	  if (new_bb)
+	    abort ();
 #endif
-      magic = TREE_OPERAND (new_stmt, 0);
-#else
-      /* Use current address instead of init_addr for reduced reg pressure.  */
-      magic = dataref_ptr;
-#endif /* BUILT_IN_build_mask_for_load */
+          magic = TREE_OPERAND (new_stmt, 0);
+        }
+      else
+        {
+          /* Use current address instead of init_addr for reduced reg pressure.  */
+          magic = dataref_ptr;
+        }
 
 
       /* <4> Create msq = phi <msq_init, lsq> in loop  */ 
@@ -4779,7 +4790,6 @@ vect_get_symbl_and_dr (tree memref, tree stmt, bool is_read,
 
     case ARRAY_REF:
       offset = size_zero_node;
-      array_base = TREE_OPERAND (memref, 0);
 
       /* Store the array base in the stmt info. 
 	 For one dimensional array ref a[i], the base is a,

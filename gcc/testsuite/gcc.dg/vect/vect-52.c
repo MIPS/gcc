@@ -51,6 +51,7 @@ int main (void)
 
   main1 (N,a,&b[1],c);
   main1 (N,a,&b[1],&c[1]);
+  return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */

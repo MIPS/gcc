@@ -123,6 +123,7 @@ vinfo_for_stmt (tree stmt)
    a target specific compilation flag.  */
 #define MAX_RUNTIME_ALIGNMENT_CHECKS 6
 
+/* The misalignment of the memory access in bytes.  */
 #define DR_MISALIGNMENT(DR)   (DR)->aux
 
 static inline bool

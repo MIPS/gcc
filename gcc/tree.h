@@ -303,7 +303,7 @@ struct tree_common GTY(())
 	   ..._TYPE
 
        TREE_THIS_NOTRAP in
-          INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
+          (ALIGN/MISALIGNED_)INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
 
    deprecated_flag:
 
@@ -798,7 +798,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero means this node will not trap.  In an INDIRECT_REF, means
    accessing the memory pointed to won't generate a trap.  However,
    this only applies to an object when used appropriately: it doesn't
-   mean that writing a READONLY mem won't trap.
+   mean that writing a READONLY mem won't trap.  Similarly for
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
    
    In ARRAY_REF and ARRAY_RANGE_REF means that we know that the index
    (or slice of the array) always belongs to the range of the array.

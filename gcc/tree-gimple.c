@@ -328,7 +328,9 @@ is_gimple_addr_expr_arg (tree t)
 	  || TREE_CODE (t) == COMPONENT_REF
 	  || TREE_CODE (t) == REALPART_EXPR
 	  || TREE_CODE (t) == IMAGPART_EXPR
-	  || TREE_CODE (t) == INDIRECT_REF);
+	  || TREE_CODE (t) == INDIRECT_REF
+	  || TREE_CODE (t) == ALIGN_INDIRECT_REF
+	  || TREE_CODE (t) == MISALIGNED_INDIRECT_REF);
 }
 
 /* Return true if T is function invariant.  Or rather a restricted

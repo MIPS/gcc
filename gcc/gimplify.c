@@ -2996,10 +2996,12 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
   switch (TREE_CODE (op0))
     {
     case INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
       /* Check if we are dealing with an expression of the form '&*ptr'.
 	 While the front end folds away '&*ptr' into 'ptr', these
 	 expressions may be generated internally by the compiler (e.g.,
 	 builtins like __builtin_va_end).  */
+      /* Note: Doesn't apply to ALIGN_INDIRECT_REF */
       *expr_p = TREE_OPERAND (op0, 0);
       ret = GS_OK;
       break;
@@ -3594,6 +3596,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  recalculate_side_effects (*expr_p);
 	  break;
 
+	case ALIGN_INDIRECT_REF:
+	case MISALIGNED_INDIRECT_REF:
 	case INDIRECT_REF:
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			       is_gimple_reg, fb_rvalue);

@@ -1,3 +1,70 @@
+2004-09-29  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* builtin-types.def (BT_CHAR_VECTOR, BT_FN_CHAR_VECTOR_PTR): Removed.
+	* builtins.c (expand_builtin_build_mask_for_load): Removed.
+	* builtins.def (BUILT_IN_BUILD_VECTOR_MASK_FOR_LOAD): Removed.
+	(BUILT_IN_BUILD_CC_MASK_FOR_LOAD): Removed.
+	* genopinit.c (addr_floor_optab, addr_misaligned_optab): Removed.
+	* optabs.c (optab_for_tree_code): ALIGN_INDIRECT_REF and
+	MISALIGNED_INDIRECT_REF cases removed.
+	(expand_realign_op): Renamed to expand_ternary_op.
+	(expand_addr_floor_op, expand_addr_misaligned_op): Removed.
+	(init_optabs): addr_floor_optab, addr_misaligned_optab removed.
+	* optabs.h (addr_floor_optab, addr_misaligned_optab): Removed.
+	(expand_realign_op): Renamed to expand_ternary_op.
+	(expand_addr_floor_op, expand_addr_misaligned_op): Removed.
+
+	* target-def.h (TARGET_VECTORIZE): New member for struct gcc_target.
+	(TARGET_VECTORIZE_MISALIGNED_MEM_OK): New member for targetm.vectorize.
+	(TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD): Likewise.
+	(TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE): Likewise.
+	* target.h (struct vectorize): New member for struct gcc_target.
+	(misaligned_mem_ok): New member for targetm.vectorize.
+	(builtin_mask_for_load): Likewise.
+	(builtin_mask_for_store): Likewise.
+	* targethooks.c (default_vect_misaligned_mem_ok): New function.
+	* targethooks.h (default_vect_misaligned_mem_ok): New function.
+
+	* emit-rtl.c (set_mem_attributes_minus_bitpos, mem_expr_equal_p):
+	Consider ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
+	* gimplify.c (gimplify_addr_expr, gimplify_expr): Likewise.
+	* tree-dump.c (dequeue_and_dump): Likewise.
+	* tree-eh.c (tree_could_trap_p): Likewise.
+	* tree-gimple.c (is_gimple_addr_expr_arg): Likewise.
+	* tree-ssa-alias.c (find_ptr_dereference): Likewise.
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Likewise.
+	* tree-ssa-loop-ivopts.c (add_address_candidates): Likewise.
+	* tree.c (stabilize_reference, build1_stat): Likewise.
+	* tree.def: Update comments.
+	* tree.h: Update comments.
+	* fold-const.c (non_lvalue, operand_equal_p, fold_relational_const):
+	Likewise.
+	* expr.c (expand_expr_real_1): Change handling of ALIGN_INDIRECT_REF
+	and MISALIGNED_INDIRECT_REF.
+
+	* tree-vectorizer.c (vectorizable_store): Check that access is aligned.
+	(vectorizable_load): Use targetm.vectorize.builtin_mask_for_load and
+	targetm.vectorize.misaligned_mem_ok instead of addr_floor_optab and
+	addr_misaligned_optab. Default of MISALIGNED_INDIRECT_REF is 0 instead
+	of -1.
+	* tree-vectorizer.h (DR_MISALIGNMENT): Add comment.
+	* config/i386/i386.c (ix86_misaligned_mem_ok): New function.
+	(TARGET_VECTORIZE_MISALIGNED_MEM_OK): Define.
+	* config/i386/i386.md (addr_misaligned_v16qi): Remove.
+	* config/rs6000/altivec.md (addr_floor_v4si, addr_floor_v8hi): Removed.
+	(addr_floor_v16qi, addr_floor_v4sf): Removed.
+	* config/rs6000/rs6000.h (ALTIVEC_BUILTIN_MASK_FOR_LOAD):
+	(ALTIVEC_BUILTIN_MASK_FOR_STORE): New target builtins.
+	* config/rs6000/rs6000.c (altivec_builtin_mask_for_load):
+	(altivec_builtin_mask_for_store): New variables.
+	(rs6000_builtin_mask_for_load): New function. Implements
+	TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD.
+	(rs6000_builtin_mask_for_store): New function. Implements
+	TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE.
+	(rs6000_expand_builtin): Expand the target builtins
+	builtin_mask_for_load and builtin_mask_for_store.
+	(altivec_init_builtins): Initialize the new target builtins.
+
 2004-09-27  Ira Rosen <irar@il.ibm.com>
 
 	* tree-vectorizer.c (vect_get_base_and_bit_offset): Update 

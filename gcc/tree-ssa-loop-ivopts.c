@@ -1989,7 +1989,9 @@ add_address_candidates (struct ivopts_data *data,
 
       if (base != TREE_OPERAND (iv->base, 0))
 	{ 
-	  if (TREE_CODE (base) == INDIRECT_REF)
+	  if (TREE_CODE (base) == INDIRECT_REF
+	      || TREE_CODE (base) == ALIGN_INDIRECT_REF
+	      || TREE_CODE (base) == MISALIGNED_INDIRECT_REF)
 	    base = TREE_OPERAND (base, 0);
 	  else
 	    base = build1 (ADDR_EXPR, type, base);

@@ -49,6 +49,7 @@ int main (void)
   check_vect ();
 
   main1 (N,a,b,c);
+  return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */

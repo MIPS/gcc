@@ -79,6 +79,18 @@ print_mem_expr (FILE *outfile, tree expr)
       print_mem_expr (outfile, TREE_OPERAND (expr, 0));
       fputs (")", outfile);
     }
+  else if (TREE_CODE (expr) == ALIGN_INDIRECT_REF)
+    {
+      fputs (" (A*", outfile);
+      print_mem_expr (outfile, TREE_OPERAND (expr, 0));
+      fputs (")", outfile);
+    }
+  else if (TREE_CODE (expr) == MISALIGNED_INDIRECT_REF)
+    {
+      fputs (" (M*", outfile);
+      print_mem_expr (outfile, TREE_OPERAND (expr, 0));
+      fputs (")", outfile);
+    }
   else if (DECL_NAME (expr))
     fprintf (outfile, " %s", IDENTIFIER_POINTER (DECL_NAME (expr)));
   else if (TREE_CODE (expr) == RESULT_DECL)

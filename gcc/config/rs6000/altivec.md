@@ -2062,30 +2062,6 @@
   [(set_attr "type" "vecsimple")
    (set_attr "length" "12")])
 
-(define_expand "addr_floor_v4si"
-  [(set (match_operand 0 "nonimmediate_operand" "")
-        (match_operand 1 "any_operand" ""))]
-  "TARGET_ALTIVEC"
-  "{ rs6000_emit_move (operands[0], operands[1], GET_MODE (operands[1])); DONE; }")
-
-(define_expand "addr_floor_v8hi"
-  [(set (match_operand 0 "nonimmediate_operand" "")
-        (match_operand 1 "any_operand" ""))]
-  "TARGET_ALTIVEC"
-  "{ rs6000_emit_move (operands[0], operands[1], GET_MODE (operands[1])); DONE; }")
-
-(define_expand "addr_floor_v16qi"
-  [(set (match_operand 0 "nonimmediate_operand" "")
-        (match_operand 1 "any_operand" ""))]
-  "TARGET_ALTIVEC"
-  "{ rs6000_emit_move (operands[0], operands[1], GET_MODE (operands[1])); DONE; }")
-
-(define_expand "addr_floor_v4sf"
-  [(set (match_operand 0 "nonimmediate_operand" "")
-        (match_operand 1 "any_operand" ""))]
-  "TARGET_ALTIVEC"
-  "{ rs6000_emit_move (operands[0], operands[1], GET_MODE (operands[1])); DONE; }")
-
 (define_insn "vec_realign_load_v4si"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")

@@ -170,9 +170,7 @@ static const char * const optabs[] =
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
   "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
   "vec_realign_store_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_store_$a$)",
-  "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)",
-  "addr_floor_optab->handlers[$A].insn_code = CODE_FOR_$(addr_floor_$a$)",
-  "addr_misaligned_optab->handlers[$A].insn_code = CODE_FOR_$(addr_misaligned_$a$)" };
+  "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)" };
 
 static void gen_insn (rtx);
 
