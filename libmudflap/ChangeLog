@@ -1,3 +1,7 @@
+2004-03-25  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-impl.h: Added libgcc license header.
+
 2004-03-20  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-hooks[123].c, mf-runtime.c, mf-heuristics.c:
