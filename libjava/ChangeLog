@@ -1,5 +1,10 @@
 2004-09-27  Andrew John Hughes  <address@hidden>
 
+	* javax/swing/JTextArea.java: Added additional
+	documentation.
+
+2004-09-27  Andrew John Hughes  <address@hidden>
+
 	* javax/swing/JRadioButton.java:
 	Implemented additional constructors and accessibility
 	classes.  Added documentation and fixed a typo in
