@@ -5,6 +5,9 @@
 
 2003-02-27  Jeff Law  <law@redhat.com>
 
+	* tree-dfa.c (find_vars_r): Clear *walk_subtrees appropriately
+	to avoid useless walking of subtrees.
+
 	* fold-const.c (nondestructive_fold_binary_to_constant): Renamed
 	from nondestructive_fold_binary.  Update comments slightly.
 	(nondestructive_fold_unary_to_constant): Similarly.

@@ -2103,6 +2103,24 @@ find_vars_r (tp, walk_subtrees, data)
   struct walk_state *walk_state = (struct walk_state *)data;
   int saved_is_store = walk_state->is_store;
 
+  /* Type and constant nodes have no interesting children.  Ignore them.  */
+  if (TYPE_P (t) || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
+  /* DECL nodes have no interesting children.  */
+  if (DECL_P (t))
+    {
+      *walk_subtrees = 0;
+
+      /* If this _DECL node is not interesting to the SSA builder,
+         then we can just return now.  */
+      if (! SSA_VAR_P (t)) 
+	return NULL_TREE;
+    }
+
   if (TREE_CODE (t) == MODIFY_EXPR || TREE_CODE (t) == INIT_EXPR)
     {
       walk_state->is_store = 1;
