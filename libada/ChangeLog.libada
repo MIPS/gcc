@@ -1,0 +1,11 @@
+2004-03-31  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Call gcc/ada/Makefile directly, not through
+	the intermediary of gcc/Makefile.  Incorporate all necessary parts
+	of rules from gcc/ada/Make-lang.in.  Get needed bits of GCC
+	configuration from (new) gcc/libada-mk.  
+	* configure.ac: Provide Makefile.in with the new information it
+	needs.
+	* configure: Regenerate.
+
+ChangeLog for changes on libada-branch.
