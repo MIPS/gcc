@@ -492,7 +492,7 @@ sreal_mul (r, a, b)
 
       r->exp = a->exp + b->exp + SREAL_PART_BITS;
 
-      tmp1 = a->sig_lo * b->sig_lo + ((uhwi) 1 << (SREAL_PART_BITS - 1));
+      tmp1 = a->sig_lo * b->sig_lo;
       tmp2 = a->sig_lo * b->sig_hi;
       tmp3 = a->sig_hi * b->sig_lo + (tmp1 >> SREAL_PART_BITS);
 

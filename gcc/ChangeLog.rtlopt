@@ -1,3 +1,7 @@
+2003-01-21  Josef Zlomek  <zlomekj@suse.cz>
+
+	* sreal.c (sreal_mul): Remove superfluous rounding.
+
 2003-01-16  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (IN_OUT_SIZE): Deleted.
