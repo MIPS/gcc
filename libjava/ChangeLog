@@ -1,3 +1,30 @@
+2004-03-23  Kim Ho  <kho@redhat.com>
+
+	* Makefile.am: New file
+	* Makefile.in: Regenerate
+	* java/awt/Graphics.java: (drawRect):
+	Draw to the correct point.
+	* javax/swing/DefaultSingleSelectionModel.java
+	(isSelected): Return true if the selected index
+	is not -1.
+	* javax/swing/JLabel.java: Do not change mnemonic
+	index if text is null.
+	* javax/swing/JProgressBar.java: Use JComponent's
+	EventListenerList.
+	* javax/swing/JScrollBar.java: Ditto.
+	* javax/swing/JSlider.java: Ditto.
+	* javax/swing/JTabbedPane.java: Reimplement.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java:
+	Add defaults for TabbedPane.
+	* javax/swing/plaf/basic/BasicArrowButton.java:
+	Implement
+	* javax/swing/plaf/basic/BasicProgressBarUI.java:
+	(paintDeterminate): Don't paint String if it's
+	empty.
+	(paintIndeterminate): ditto.
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java:
+	Reimplement.
+
 2004-03-19  Michael Koch  <konqueror@gmx.de>
 
 	* java/awt/image/AffineTransformOp.java
