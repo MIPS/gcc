@@ -1,5 +1,11 @@
 2002-10-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfgloopanal.c (count_loop_iterations): Undo my previous fix.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Better
+	preconditioning for preincrement loops.
+
+2002-10-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* cfgloopanal.c (count_loop_iterations): Use stride instead of
 	const1_rtx.
 	* loop-unroll.c (unroll_loop_runtime_iterations): Revert the wrong

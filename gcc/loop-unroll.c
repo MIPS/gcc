@@ -323,15 +323,13 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
     {
       /* Leave exit in last copy.  */
       may_exit_copy = max_unroll;
-      niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
-				   niter,
-				   const1_rtx, NULL_RTX, 0, OPTAB_LIB_WIDEN);
       n_peel = max_unroll + 1;
-      skip_first_test = true;
       /* First check for zero is obviously unnecessary now; it might seem
 	 we could do better by increasing it before AND; but we must have
 	 guaranteed that exit condition will be checked in first iteration,
-	 so that we won't miscompile loop with negative number of iterations.  */
+	 so that we won't miscompile loop with negative number of
+	 iterations.  */
+      skip_first_test = true;
     }
 
   niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
@@ -352,7 +350,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   remove_edges = xcalloc (max_unroll + n_peel, sizeof (edge));
   n_remove_edges = 0;
 
-  wont_exit = sbitmap_alloc (2);
+  wont_exit = sbitmap_alloc (max_unroll + 2);
 
   for (i = 0; i < n_peel; i++)
     {
@@ -389,11 +387,12 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
       if (i || !skip_first_test)
 	make_edge (preheader, fake, 0);
 
-      /* We must be a bit careful here, as we might have negative
-	 number of iterations.  Also, in case of preincrement we do
-	 not know whether we should not exit before reaching the loop.  */
+      /* We must be a bit careful here, as we might have negative number of
+	 iterations.  In case of preincrement, we also must have the exit
+	 check in the first copy for case there were exactly zero iterations.
+      */
       sbitmap_zero (wont_exit);
-      if (desc->postincr && (i || desc->cond == NE))
+      if (i || (desc->postincr && desc->cond == NE))
 	SET_BIT (wont_exit, 1);
 
       if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
@@ -402,7 +401,6 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 		DLTHE_FLAG_ALL))
 	abort ();
     }
-  free (wont_exit);
 
   /* Now redirect the edges from fake.  */
   preheader =
@@ -426,9 +424,21 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   delete_from_dominance_info (loops->cfg.dom, fake);
   flow_delete_block (fake);
 
+  /* When unrolling preincr loop, we must peel one more iteration to
+     get the numbers right; we must leave exit test in this iteration,
+     for case we are iterating less than max_unroll times.  */
+  if (!desc->postincr)
+    {
+      sbitmap_zero (wont_exit);
+      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, 1,
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
+		DLTHE_FLAG_ALL))
+	abort ();
+    }
+
   /* And unroll loop.  */
 
-  wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
   RESET_BIT (wont_exit, may_exit_copy);
 
