@@ -146,38 +146,39 @@ struct web
   unsigned int use_my_regs; /* Determine if we should use the
                                usable_regs for this web */
   unsigned HOST_WIDE_INT spill_cost; /* Cost of spilling */
-  int was_spilled;
+  int color; /* Color of the web */
+  int was_spilled:1;
   /* We need to distinguish also webs which are targets of coalescing
      (all x with some y, so that x==alias(y)), but the alias field is
      only set for sources of coalescing.  This flag is set for all webs
      involved in coalescing in some way.  */
-  int is_coalesced;
-  int color; /* Color of the web */
+  int is_coalesced:1;
+  int has_sub_conflicts:1; /* != 0 if this web conflicts with sub_webs */
+  int artificial:1; /* != 0 : there is no rtl in the code which corresponds
+                       to this web.  Happens e.g. with conflicts to a web,
+                       of which only a part was still undefined at the point
+                       of that conflict.  In this case we construct a subweb
+                       representing these yet undefined bits to have a target
+                       for the conflict.  Suppose e.g. this sequence:
+                       (set (reg:DI x) ...)
+                       (set (reg:SI y) ...)
+                       (set (subreg:SI (reg:DI x) 0) ...)
+                       (use (reg:DI x))
+                       Here x only partly conflicts with y.  Namely only
+                       (subreg:SI (reg:DI x) 1) conflicts with it, but this
+                       rtx doesn't show up in the program.  For such things
+                       an "artificial" subweb is built, and this flag is true
+                       for them.  */
+  int crosses_call:1;
+  int move_related:1; /* Whether the web is move related (IE involved
+                       in a move) */
+  ENUM_BITFIELD(node_type) type:5; /* Current state of the node */
+  ENUM_BITFIELD(reg_class) regclass:10; /* just used for debugging */
   int add_hardregs; /* Additional hard registers needed to be
                        allocated to the web */
-  int has_sub_conflicts; /* != 0 if this web conflicts with sub_webs */
-  int artificial; /* != 0 : there is no rtl in the code which corresponds
-		     to this web.  Happens e.g. with conflicts to a web,
-		     of which only a part was still undefined at the point
-		     of that conflict.  In this case we construct a subweb
-		     representing these yet undefined bits to have a target
-		     for the conflict.  Suppose e.g. this sequence:
-		     (set (reg:DI x) ...)
-		     (set (reg:SI y) ...)
-		     (set (subreg:SI (reg:DI x) 0) ...)
-		     (use (reg:DI x))
-		     Here x only partly conflicts with y.  Namely only
-		     (subreg:SI (reg:DI x) 1) conflicts with it, but this
-		     rtx doesn't show up in the program.  For such things
-		     an "artificial" subweb is built, and this flag is true
-		     for them.  */
-  int crosses_call;
   int num_conflicts;  /* Number of conflicts currently */
   int num_uses; /* Number of uses this web spans */
   int num_defs; /* Number of defs this web spans. */
-  int move_related; /* Whether the web is move related (IE involved
-                       in a move) */
-  enum node_type type; /* Current state of the node */
   rtx orig_x; /* The (reg:M a) or (subreg:M1 (reg:M2 a) x) rtx which this
 		 web is based on.  This is used to distinguish subreg webs
 		 from it's reg parents, and to get hold of the mode.  */
@@ -197,7 +198,6 @@ struct web
      I.e. If web A conflicts only with subweb B,1, then A is _not_ in B's
      conflict_list, but instead really in B,1's.  */
   struct conflict_link *conflict_list;
-  enum reg_class regclass; /* just used for debugging */
   /* might be too much to store a HARD_REG_SET here for machines with _many_
      registers.  Shouldn't hurt for now.  */
   HARD_REG_SET usable_regs;
