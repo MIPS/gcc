@@ -1,3 +1,8 @@
+2002-12-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* hooks.h (hook_tree_tree_bool_false): Declare
+	hook_bool_tree_tree_false instead.
+
 2002-12-11  Zack Weinberg  <zack@codesourcery.com>
 
 	* Makefile.in (GTFILES): Add $(host_xm_file_list) and
