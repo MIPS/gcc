@@ -1,3 +1,9 @@
+2004-04-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: Reinstate all changes from 2004-04-12.
+	(lookup_avail_expr): Do not access a hash table object after
+	it has been freed.
+
 2004-04-19  Daniel Berlin  <dberlin@dberlin.org>
 
 	* doc/passes.texi: Add blurb about PRE.
