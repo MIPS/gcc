@@ -1,5 +1,10 @@
 2004-03-29  Olga Rodimina  <rodimina@redhat.com>
 
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	Corrected position of the accelerator.
+
+2004-03-29  Olga Rodimina  <rodimina@redhat.com>
+
 	* Makefile.am: Added new file. 
 	* Makefile.in: Regenerate.
 	* javax/swing/JMenuItem.java: Partly 

@@ -345,7 +345,7 @@ public class BasicMenuItemUI extends MenuItemUI
         ar.width = fm.stringWidth(acceleratorText);
         ar.height = fm.getHeight();
         ar.x = br.width - ar.width;
-        ar.y = br.y;
+        ar.y = tr.y;
         paintAccelerator(g, (JMenuItem) c, ar, acceleratorText);
 	
       }          
