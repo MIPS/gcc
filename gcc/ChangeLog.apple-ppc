@@ -1,4 +1,10 @@
-2005-01-06  Stuart Hastings <stuart@apple.com>
+2005-01-06  Andrew Pinski  <pinskia@physics.uc.edu>
+            Stuart Hastings  <stuart@apple.com>
+
+        Radar 3830232
+        * gcc/testsuite/gcc.apple/notailcall-1.c: New testcase.
+
+2005-01-06  Stuart Hastings  <stuart@apple.com>
 
         Radar 3941684
         * gcc/c-common.c (print_cw_asm_operand): Casts for long long format.
