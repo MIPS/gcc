@@ -19,8 +19,10 @@
 #the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #02111-1307, USA.
 
-SHELL = /bin/sh
+SHELL = @SHELL@
+PWD = $${PWDCMD-pwd}
 MAKEOVERRIDES=
+.NOEXPORTS:
 
 #### Start of system configuration section. ####
 
@@ -73,6 +75,7 @@ RANLIB = @RANLIB@
 # Quote this way so that it can be used to set shell variables too.
 FLAGS_TO_PASS= \
 	CC='$(CC)' \
+	LD='$(LD)' \
 	LIBTOOL='$(LIBTOOL)' \
 	CFLAGS='$(CFLAGS)' \
 	CPPFLAGS='$(CPPFLAGS)' \
@@ -253,8 +256,8 @@ rebuilt: configure
         installcheck installdirs all-unilib
 
 subdir_do:
-	@rootpre=`pwd`/; export rootpre; \
-	srcrootpre=`cd $(srcdir); pwd`/; export srcrootpre; \
+	@rootpre=`${PWD}`/; export rootpre; \
+	srcrootpre=`cd $(srcdir); ${PWD}`/; export srcrootpre; \
 	for i in .. $(DODIRS); do \
 	  if [ x$$i != x.. ]; then \
 	    if [ -f ./$$i/Makefile ]; then \
