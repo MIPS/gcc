@@ -1233,3 +1233,17 @@ _Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
 	      && _Jv_ClassNameSamePackage (self_klass->name,
 					   other_klass->name)));
 }
+
+// Like _Jv_CheckAccess, but won't cause classes to be initialized.
+jboolean
+_Jv_CheckAccessNoInit (jclass self_klass, jclass other_klass, jint flags)
+{
+  using namespace java::lang::reflect;
+  return ((self_klass == other_klass)
+	  || ((flags & Modifier::PUBLIC) != 0)
+	  || (((flags & Modifier::PROTECTED) != 0)
+	      && _Jv_IsAssignableFromSlow (other_klass, self_klass))
+	  || (((flags & Modifier::PRIVATE) == 0)
+	      && _Jv_ClassNameSamePackage (self_klass->name,
+					   other_klass->name)));
+}

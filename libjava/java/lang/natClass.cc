@@ -2093,8 +2093,8 @@ _Jv_LayoutVTableMethods (jclass klass)
 	  if (super_meth)
 	    {
 	      if (! _Jv_isVirtualMethod (super_meth)
-		  || ! _Jv_CheckAccess (klass, declarer,
-					super_meth->accflags))
+		  || ! _Jv_CheckAccessNoInit (klass, declarer,
+					      super_meth->accflags))
 		super_meth = NULL;
 	      else if ((super_meth->accflags
 			& java::lang::reflect::Modifier::FINAL) != 0)

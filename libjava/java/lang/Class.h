@@ -374,6 +374,8 @@ private:
 
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);
+  friend jboolean _Jv_CheckAccessNoInit (jclass self_klass, jclass other_klass,
+					 jint flags);
   
   friend bool _Jv_isBinaryCompatible (jclass);
 

@@ -420,6 +420,8 @@ extern void _Jv_GetTypesFromSignature (jmethodID method,
 
 extern jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				 jint flags);
+extern jboolean _Jv_CheckAccessNoInit (jclass self_klass, jclass other_klass,
+				       jint flags);
 
 extern jobject _Jv_CallAnyMethodA (jobject obj, jclass return_type,
 				   jmethodID meth, jboolean is_constructor,

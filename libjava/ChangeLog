@@ -1,5 +1,11 @@
 2004-09-01  Tom Tromey  <tromey@redhat.com>
 
+	* java/lang/Class.h (_Jv_CheckAccessNoInit): Declare as friend.
+	* java/lang/natClass.cc (_Jv_LayoutVTableMethods): Use
+	_Jv_CheckAccessNoInit.
+	* include/jvm.h (_Jv_CheckAccessNoInit): Declare.
+	* prims.cc (_Jv_CheckAccessNoInit): New method.
+
 	* java/lang/reflect/natMethod.cc (invoke): Check access against
 	declaring class, not object's class.
 	* java/lang/natClass.cc (_Jv_LookupDeclaredMethod): Added another
