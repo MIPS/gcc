@@ -3062,6 +3062,18 @@ rest_of_compilation (decl)
       ggc_collect ();
     }
 
+  /* Perform store motion.  */
+  if (optimize > 0 && flag_gcse && !optimize_size && flag_gcse_sm)
+    {
+      timevar_push (TV_GCSE);
+      open_dump_file (DFI_gcse, decl);
+      store_motion ();
+      delete_trivially_dead_insns (insns, max_reg_num ());
+      reg_scan (insns, max_reg_num (), 1);
+      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
+      timevar_pop (TV_GCSE);
+    }
+
   /* Perform jump bypassing and control flow optimizations.  */
   if (optimize > 0 && flag_gcse)
     {

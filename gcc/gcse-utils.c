@@ -160,7 +160,7 @@ mems_conflict_for_gcse_p (dest, setter, data)
   /* If we are setting a MEM in our list of specially recognized MEMs,
      don't mark as killed this time.  */
 
-  if (dest == gcse_mem_operand && pre_ldst_mems != NULL)
+  if (expr_equiv_p (dest, gcse_mem_operand) && pre_ldst_mems != NULL)
     {
       if (!find_rtx_in_ldst (dest))
 	gcse_mems_conflict_p = 1;

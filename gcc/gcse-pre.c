@@ -361,7 +361,7 @@ pre_insert_copy_insn (expr, insn)
   if (!set)
     abort ();
 
-  new_insn = emit_insn_after (gen_move_insn (reg, SET_DEST (set)), insn);
+  new_insn = emit_insn_after (gen_move_insn (reg, copy_rtx (SET_DEST (set))), insn);
 
   /* Keep register set table up to date.  */
   record_one_set (regno, new_insn);
@@ -522,10 +522,14 @@ simple_mem (x)
   if (GET_MODE (x) == BLKmode)
     return 0;
 
-  if (!rtx_varies_p (XEXP (x, 0), 0))
-    return 1;
+  if (side_effects_p (x))
+    return 0;
 
-  return 0;
+  /* Do not consider function arguments passed on stack.  */
+  if (reg_mentioned_p (stack_pointer_rtx, x))
+    return 0;
+
+  return 1;
 }
 
 /* Make sure there isn't a buried reference in this pattern anywhere.
@@ -739,7 +743,7 @@ update_ld_motion_stores (expr)
 	      fprintf (gcse_file, "\n");
 	    }
 
-	  copy = gen_move_insn ( reg, SET_SRC (pat));
+	  copy = gen_move_insn ( reg, copy_rtx (SET_SRC (pat)));
 	  new = emit_insn_before (copy, insn);
 	  record_one_set (REGNO (reg), new);
 	  SET_SRC (pat) = reg;

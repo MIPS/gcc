@@ -1,3 +1,15 @@
+2003-02-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcse.c (gcse_main): Do not call store motion.
+	* toplev.c (rest_of_compilation): Call it after loop optimizer
+	instead.
+	* gcse-pre.c (pre_insert_copy_insn, update_ld_motion_stores):
+	Prevent sharing in rtl.
+	(simple_mem): Enable load motion of more complex MEMs.
+	* gcse-store.c (store_motion): Add debug dump.
+	* gcse-utils.c (mems_conflict_for_gcse_p): Take alias classes in
+	account.
+
 2003-02-19  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (note_insn_var_location_emit): Detect incomplete

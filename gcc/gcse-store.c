@@ -833,10 +833,21 @@ store_motion ()
   int update_flow = 0;
   struct store_global store_data;
 
+  gcse_file = rtl_dump_file;
   if (gcse_file)
     {
       fprintf (gcse_file, "before store motion\n");
       print_rtl (gcse_file, get_insns ());
+
+      FOR_EACH_BB (bb)
+	{
+	  edge e;
+
+	  fprintf (gcse_file, "%d ->", bb->index);
+	  for (e = bb->succ; e; e = e->succ_next)
+	    fprintf (gcse_file, " %d", e->dest->index);
+	  fprintf (gcse_file, "\n");
+	}
     }
 
   init_alias_analysis ();
