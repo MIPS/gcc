@@ -1,3 +1,7 @@
+Mon Dec  2 19:21:37 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Avoid overflow.
+
 Mon Dec  2 18:06:41 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfgrtl.c (force_nonfallthru_and_redirect):  Allow abnormal edge
