@@ -1565,7 +1565,9 @@ call_operand (op, mode)
     return 0;
 
   return (GET_CODE (op) == SYMBOL_REF
-	  || (GET_CODE (op) == REG && REGNO (op) >= FIRST_PSEUDO_REGISTER));
+	  || (GET_CODE (op) == REG
+	      && (REGNO (op) == LINK_REGISTER_REGNUM
+	          || REGNO (op) >= FIRST_PSEUDO_REGISTER)));
 }
 
 /* Return 1 if the operand is a SYMBOL_REF for a function known to be in
