@@ -1,3 +1,9 @@
+2003-12-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* options.c (gfc_init_options): Set flag_argument_noalias to 2, to indicate
+	that arguments to subroutines/functions can't alias themselves, nor global
+	memory.
+
 2003-12-20  Steven Bosscher  <stevenb@suse.de>
 
 	* trans-expr.c (gfc_conv_expr_op): Fold the result expression.

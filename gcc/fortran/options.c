@@ -73,6 +73,8 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.r8 = 0;
   gfc_option.d8 = 0;
 
+  flag_argument_noalias = 2;
+
   return CL_F95;
 }
 

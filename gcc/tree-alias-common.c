@@ -548,7 +548,9 @@ find_func_aliases (tree stp)
 							    get_alias_var (callop0),
 							    args, addrargs))
 			{ 
-			  if (call_may_clobber (op1) && !current_alias_ops->ip)
+			  if (call_may_clobber (op1)
+                              && !current_alias_ops->ip
+                              && flag_argument_noalias != 2)
 			    {
 			      intra_function_call (args);
 			    }
@@ -720,7 +722,7 @@ find_func_aliases (tree stp)
 	    if (current_alias_ops->function_call (current_alias_ops, NULL,
 						  callvar,
 						  args, addrargs))
-	      if (!current_alias_ops->ip)
+	      if (!current_alias_ops->ip && flag_argument_noalias != 2)
 		intra_function_call (args);
 	}
   }

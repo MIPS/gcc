@@ -1,3 +1,9 @@
+2003-12-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* tree-alias-common.c (find_func_aliases): Do not call intra_function_call
+	for languages assuring no aliasing between arguments (by themselves) and
+	and global memory.
+
 2003-12-21  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-ccp.c (fold_stmt): Return when there is no RHS
