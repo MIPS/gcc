@@ -30,9 +30,10 @@
 #define TARGET_CPU_CPP_BUILTINS()			\
   do							\
     {							\
-	if (TARGET_ARM)					\
-	  builtin_define ("__arm__");			\
-	else						\
+	/* Define __arm__ even when in thumb mode, for	\
+	   consistency with armcc.  */			\
+	builtin_define ("__arm__");			\
+	if (TARGET_THUMB)				\
 	  builtin_define ("__thumb__");			\
 							\
 	if (TARGET_BIG_END)				\
