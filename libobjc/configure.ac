@@ -190,6 +190,9 @@ AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_PROG_INSTALL
 
+# APPLE LOCAL libobjc maintainer-mode
+AM_MAINTAINER_MODE
+
 # Enable Win32 DLL on MS Windows - FIXME
 AC_LIBTOOL_WIN32_DLL
 
