@@ -120,6 +120,9 @@ else
 AM_CFLAGS = @LIBGCJ_CFLAGS@
 endif
 
+## Extra CFLAGS used for JNI C sources shared with GNU Classpath.
+PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
+
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
@@ -471,9 +474,11 @@ $(extra_cc_files): %.lo: %.cc
 $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 ## FIXME: see above
+## These JNI C files are shared with GNU Classpath which needs PEDANTIC_CFLAGS.
 $(gtk_c_files): %.lo: %.c
 	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer \
-	$(GTK_CFLAGS) $(LIBART_CFLAGS) $(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
+	$(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
+	$(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
 
 $(gtk_c_files): $(gtk_c_headers)
 
@@ -1113,7 +1118,10 @@ java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
+java/awt/image/DataBufferDouble.java \
+java/awt/image/DataBufferFloat.java \
 java/awt/image/DataBufferInt.java \
+java/awt/image/DataBufferShort.java \
 java/awt/image/DataBufferUShort.java \
 java/awt/image/DirectColorModel.java \
 java/awt/image/ImageConsumer.java \
@@ -1121,6 +1129,7 @@ java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
 java/awt/image/PackedColorModel.java \
+java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
 java/awt/image/SampleModel.java \
@@ -1326,17 +1335,21 @@ javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
+javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
+javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
 javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
+javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java \
+javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.java \
 javax/swing/plaf/basic/BasicScrollBarUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
 javax/swing/plaf/basic/BasicSeparatorUI.java \
@@ -1740,6 +1753,19 @@ javax/accessibility/AccessibleTable.java \
 javax/accessibility/AccessibleTableModelChange.java \
 javax/accessibility/AccessibleText.java \
 javax/accessibility/AccessibleValue.java \
+javax/imageio/ImageReader.java \
+javax/imageio/ImageTranscoder.java \
+javax/imageio/ImageWriter.java \
+javax/imageio/spi/IIOServiceProvider.java \
+javax/imageio/spi/ImageInputStreamSpi.java \
+javax/imageio/spi/ImageOutputStreamSpi.java \
+javax/imageio/spi/ImageReaderWriterSpi.java \
+javax/imageio/spi/ImageTranscoderSpi.java \
+javax/imageio/spi/RegisterableService.java \
+javax/imageio/spi/ServiceRegistry.java \
+javax/imageio/stream/IIOByteBuffer.java \
+javax/imageio/stream/ImageInputStream.java \
+javax/imageio/stream/ImageOutputStream.java \
 javax/naming/directory/Attribute.java \
 javax/naming/directory/AttributeInUseException.java \
 javax/naming/directory/AttributeModificationException.java \
@@ -2179,6 +2205,8 @@ java/util/regex/PatternSyntaxException.java
 ## awt_java_source_files.  If the .java file has a hand-maintained
 ## header, please list it in special_java_source_files.
 ordinary_java_source_files = $(core_java_source_files) \
+gnu/classpath/ServiceFactory.java \
+gnu/classpath/ServiceProviderLoadingAction.java \
 gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
 gnu/gcj/io/DefaultMimeTypes.java \

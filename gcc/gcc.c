@@ -1567,6 +1567,11 @@ static int processing_spec_function;
    various permutations of -shared-libgcc, -shared, and such.  */
 
 #if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
+
+#ifndef USE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 0
+#endif
+
 static void
 init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		const char *static_name, const char *eh_name)
@@ -1575,7 +1580,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
-#ifdef HAVE_LD_AS_NEEDED
+#if USE_LD_AS_NEEDED
 		"%{!shared-libgcc:", static_name,
 		" --as-needed ", shared_name, " --no-as-needed}"
 		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
@@ -6933,20 +6938,21 @@ used_arg (const char *p, int len)
 	= xmalloc (sizeof (struct mswitchstr)
 		   * (n_mdswitches + (n_switches ? n_switches : 1)));
       for (i = 0; i < n_switches; i++)
-	{
-	  int xlen = strlen (switches[i].part1);
-	  for (j = 0; j < cnt; j++)
-	    if (xlen == matches[j].len
-		&& ! strncmp (switches[i].part1, matches[j].str, xlen))
-	      {
-		mswitches[n_mswitches].str = matches[j].replace;
-		mswitches[n_mswitches].len = matches[j].rep_len;
-		mswitches[n_mswitches].replace = (char *) 0;
-		mswitches[n_mswitches].rep_len = 0;
-		n_mswitches++;
-		break;
-	      }
-	}
+	if (switches[i].live_cond != SWITCH_IGNORE)
+	  {
+	    int xlen = strlen (switches[i].part1);
+	    for (j = 0; j < cnt; j++)
+	      if (xlen == matches[j].len
+		  && ! strncmp (switches[i].part1, matches[j].str, xlen))
+		{
+		  mswitches[n_mswitches].str = matches[j].replace;
+		  mswitches[n_mswitches].len = matches[j].rep_len;
+		  mswitches[n_mswitches].replace = (char *) 0;
+		  mswitches[n_mswitches].rep_len = 0;
+		  n_mswitches++;
+		  break;
+		}
+	  }
 
       /* Add MULTILIB_DEFAULTS switches too, as long as they were not present
 	 on the command line nor any options mutually incompatible with

@@ -1,5 +1,5 @@
 /* gtkpopupmenupeer.c -- Native implementation of GtkPopupMenuPeer
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -72,7 +72,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkPopupMenuPeer_show
   
   gdk_threads_enter ();
   gtk_menu_popup (GTK_MENU (GTK_MENU_ITEM (ptr)->submenu), 
-		  NULL, NULL, menu_pos, p, 3, time);
+		  NULL, NULL, menu_pos, p, 0, time);
   gdk_threads_leave ();
 
   g_free (p);

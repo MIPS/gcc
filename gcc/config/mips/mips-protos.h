@@ -93,6 +93,8 @@ extern int mips_address_insns (rtx, enum machine_mode);
 extern int mips_const_insns (rtx);
 extern int mips_fetch_insns (rtx);
 extern int mips_idiv_insns (void);
+extern int fp_register_operand (rtx, enum machine_mode);
+extern int lo_operand (rtx, enum machine_mode);
 extern bool mips_legitimate_address_p (enum machine_mode, rtx, int);
 extern rtx mips_unspec_address (rtx, enum mips_symbol_type);
 extern bool mips_legitimize_address (rtx *, enum machine_mode);
@@ -114,11 +116,7 @@ extern int m16_uimm8_4 (rtx, enum machine_mode);
 extern int m16_nuimm8_4 (rtx, enum machine_mode);
 extern int m16_simm8_8 (rtx, enum machine_mode);
 extern int m16_nsimm8_8 (rtx, enum machine_mode);
-extern int m16_usym8_4 (rtx, enum machine_mode);
-extern int m16_usym5_4 (rtx, enum machine_mode);
 
-extern struct rtx_def *embedded_pic_fnaddr_reg (void);
-extern struct rtx_def *embedded_pic_offset (rtx);
 extern rtx mips_subword (rtx, int);
 extern bool mips_split_64bit_move_p (rtx, rtx);
 extern void mips_split_64bit_move (rtx, rtx);
@@ -203,6 +201,7 @@ extern const char *mips_output_conditional_branch (rtx, rtx *, int, int,
 						   int, int);
 extern const char *mips_output_division (const char *, rtx *);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
+extern bool mips_linked_madd_p (rtx, rtx);
 extern const char *mips_emit_prefetch (rtx *);
 
 extern void irix_asm_output_align (FILE *, unsigned);

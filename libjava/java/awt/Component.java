@@ -105,7 +105,7 @@ import javax.accessibility.AccessibleStateSet;
  * in inner classes, rather than using this object itself as the listener, if
  * external objects do not need to save the state of this object.
  *
- * <p><pre>
+ * <pre>
  * import java.awt.*;
  * import java.awt.event.*;
  * import java.io.Serializable;
@@ -127,6 +127,7 @@ import javax.accessibility.AccessibleStateSet;
  *     aButton.addActionListener(new MyActionListener());
  *   }
  * }
+ * </pre>
  *
  * <p>Status: Incomplete. The event dispatch mechanism is implemented. All
  * other methods defined in the J2SE 1.3 API javadoc exist, but are mostly
@@ -3816,6 +3817,12 @@ public abstract class Component
     if (popups == null)
       popups = new Vector();
     popups.add(popup);
+
+    if (popup.parent != null)
+      popup.parent.remove(popup);
+    popup.parent = this;
+    if (peer != null)
+      popup.addNotify();
   }
 
   /**

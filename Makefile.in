@@ -2019,6 +2019,76 @@ all-build-libiberty: configure-build-libiberty
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	(cd $(BUILD_SUBDIR)/libiberty && $(MAKE) all)
 
+.PHONY: configure-build-libbanshee maybe-configure-build-libbanshee
+maybe-configure-build-libbanshee:
+configure-build-libbanshee:
+	@test ! -f $(BUILD_SUBDIR)/libbanshee/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/libbanshee ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	AR="$(AR_FOR_BUILD)"; export AR; \
+	AS="$(AS_FOR_BUILD)"; export AS; \
+	CC="$(CC_FOR_BUILD)"; export CC; \
+	CFLAGS="$(CFLAGS_FOR_BUILD)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
+	CXX="$(CXX_FOR_BUILD)"; export CXX; \
+	CXXFLAGS="$(CXXFLAGS_FOR_BUILD)"; export CXXFLAGS; \
+	GCJ="$(GCJ_FOR_BUILD)"; export GCJ; \
+	GFORTRAN="$(GFORTRAN_FOR_BUILD)"; export GFORTRAN; \
+	DLLTOOL="$(DLLTOOL_FOR_BUILD)"; export DLLTOOL; \
+	LD="$(LD_FOR_BUILD)"; export LD; \
+	LDFLAGS="$(LDFLAGS_FOR_BUILD)"; export LDFLAGS; \
+	NM="$(NM_FOR_BUILD)"; export NM; \
+	RANLIB="$(RANLIB_FOR_BUILD)"; export RANLIB; \
+	WINDRES="$(WINDRES_FOR_BUILD)"; export WINDRES; \
+	echo Configuring in $(BUILD_SUBDIR)/libbanshee; \
+	cd "$(BUILD_SUBDIR)/libbanshee" || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) \
+	    topdir=$(srcdir) ;; \
+	  *) \
+	    case "$(BUILD_SUBDIR)" in \
+	      .) topdir="../$(srcdir)" ;; \
+	      *) topdir="../../$(srcdir)" ;; \
+	    esac ;; \
+	esac; \
+	if [ "$(srcdir)" = "." ] ; then \
+	  if [ "$(BUILD_SUBDIR)" != "." ] ; then \
+	    if $(SHELL) $$s/symlink-tree $${topdir}/libbanshee "no-such-file" ; then \
+	      if [ -f Makefile ]; then \
+	        if $(MAKE) distclean; then \
+	          true; \
+	        else \
+	          exit 1; \
+	        fi; \
+	      else \
+	        true; \
+	      fi; \
+	    else \
+	      exit 1; \
+	    fi; \
+	  else \
+	    true; \
+	  fi; \
+	  srcdiroption="--srcdir=."; \
+	  libsrcdir="."; \
+	else \
+	  srcdiroption="--srcdir=$${topdir}/libbanshee"; \
+	  libsrcdir="$$s/libbanshee"; \
+	fi; \
+	rm -f no-such-file || : ; \
+	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	  $(BUILD_CONFIGARGS) $${srcdiroption} \
+	  --with-build-subdir="$(BUILD_SUBDIR)" \
+	  || exit 1
+
+.PHONY: all-build-libbanshee maybe-all-build-libbanshee
+maybe-all-build-libbanshee:
+all-build-libbanshee: configure-build-libbanshee
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	(cd $(BUILD_SUBDIR)/libbanshee && $(MAKE) all)
+
 
 # --------------------------------------
 # Modules which run on the host machine
@@ -2041,6 +2111,7 @@ configure-ash:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -2306,6 +2377,7 @@ configure-autoconf:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -2571,6 +2643,7 @@ configure-automake:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -2836,6 +2909,7 @@ configure-bash:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -3101,6 +3175,7 @@ configure-bfd:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -3366,6 +3441,7 @@ configure-opcodes:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -3631,6 +3707,7 @@ configure-binutils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -3896,6 +3973,7 @@ configure-bison:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -4164,6 +4242,7 @@ configure-byacc:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -4432,6 +4511,7 @@ configure-bzip2:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -4697,6 +4777,7 @@ configure-dejagnu:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -4962,6 +5043,7 @@ configure-diff:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -5227,6 +5309,7 @@ configure-dosutils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -5488,6 +5571,7 @@ configure-etc:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -5753,6 +5837,7 @@ configure-fastjar:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -6021,6 +6106,7 @@ configure-fileutils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -6286,6 +6372,7 @@ configure-findutils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -6551,6 +6638,7 @@ configure-find:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -6816,6 +6904,7 @@ configure-flex:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -7084,6 +7173,7 @@ configure-gas:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -7349,6 +7439,7 @@ configure-gawk:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -7614,6 +7705,7 @@ configure-gettext:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -7879,6 +7971,7 @@ configure-gnuserv:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -8144,6 +8237,7 @@ configure-gprof:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -8409,6 +8503,7 @@ configure-gzip:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -8674,6 +8769,7 @@ configure-hello:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -8939,6 +9035,7 @@ configure-indent:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -9204,6 +9301,7 @@ configure-intl:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -9469,6 +9567,7 @@ configure-tcl:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -9720,6 +9819,7 @@ configure-itcl:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -9985,6 +10085,7 @@ configure-ld:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -10250,6 +10351,7 @@ configure-libgui:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -10515,6 +10617,7 @@ configure-libbanshee:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -10776,6 +10879,7 @@ configure-libiberty:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -11041,6 +11145,7 @@ configure-libtool:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -11306,6 +11411,7 @@ configure-m4:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -11571,6 +11677,7 @@ configure-make:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -11836,6 +11943,7 @@ configure-mmalloc:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -12097,6 +12205,7 @@ configure-patch:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -12362,6 +12471,7 @@ configure-perl:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -12627,6 +12737,7 @@ configure-prms:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -12892,6 +13003,7 @@ configure-rcs:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -13157,6 +13269,7 @@ configure-readline:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -13422,6 +13535,7 @@ configure-release:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -13679,6 +13793,7 @@ configure-recode:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -13944,6 +14059,7 @@ configure-sed:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -14209,6 +14325,7 @@ configure-send-pr:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -14474,6 +14591,7 @@ configure-shellutils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -14739,6 +14857,7 @@ configure-sid:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -15004,6 +15123,7 @@ configure-sim:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -15269,6 +15389,7 @@ configure-tar:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -15534,6 +15655,7 @@ configure-texinfo:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -15795,6 +15917,7 @@ configure-textutils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -16060,6 +16183,7 @@ configure-time:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -16325,6 +16449,7 @@ configure-uudecode:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -16590,6 +16715,7 @@ configure-wdiff:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -16855,6 +16981,7 @@ configure-zip:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -17123,6 +17250,7 @@ configure-zlib:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -17380,6 +17508,7 @@ configure-gdb:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -17645,6 +17774,7 @@ configure-expect:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -17910,6 +18040,7 @@ configure-guile:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -18175,6 +18306,7 @@ configure-tk:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -18440,6 +18572,7 @@ configure-tix:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -18705,6 +18838,7 @@ configure-libtermcap:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -18910,6 +19044,7 @@ configure-utils:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -24468,6 +24603,7 @@ configure-gcc:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -24892,6 +25028,7 @@ configure-stage1-gcc:
 	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -24931,11 +25068,11 @@ all-stage1-gcc: configure-stage1-gcc prebootstrap
 	mv stage1-gcc gcc ; \
 	cd gcc && \
 	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE1_CFLAGS)" \
-		|| exit 1 ; \
+		CFLAGS="$(STAGE1_CFLAGS)" && $(STAMP) ../all-stage1-gcc ; \
+	result=$$? ; \
 	cd .. ; \
 	mv gcc stage1-gcc ; \
-	$(STAMP) all-stage1-gcc
+	exit $$result
 
 # TODO: Deal with STAGE_PREFIX (which is only for ada, incidentally)
 # Possibly pass --enable-werror-always (depending on --enable-werror);
@@ -24962,6 +25099,7 @@ configure-stage2-gcc: all-stage1-gcc
 	AS="$(AS)"; export AS; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -25006,11 +25144,12 @@ all-stage2-gcc: all-stage1-gcc configure-stage2-gcc
 		CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
 		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
 		STAGE_PREFIX=$$r/prev-gcc/ \
-		$(POSTSTAGE1_FLAGS_TO_PASS) || exit 1 ; \
+		$(POSTSTAGE1_FLAGS_TO_PASS) && $(STAMP) ../all-stage2-gcc ; \
+	result=$$? ; \
 	cd .. ; \
 	mv prev-gcc stage1-gcc ; \
 	mv gcc stage2-gcc ; \
-	$(STAMP) all-stage2-gcc
+	exit $$result
 
 configure-stage3-gcc: all-stage2-gcc
 	echo configure-stage3-gcc > stage_last ; \
@@ -25034,6 +25173,7 @@ configure-stage3-gcc: all-stage2-gcc
 	AS="$(AS)"; export AS; \
 	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
 	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
 	NM="$(NM)"; export NM; \
 	RANLIB="$(RANLIB)"; export RANLIB; \
 	WINDRES="$(WINDRES)"; export WINDRES; \
@@ -25072,11 +25212,12 @@ all-stage3-gcc: all-stage2-gcc configure-stage3-gcc
 		CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
 		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
 		STAGE_PREFIX=$$r/prev-gcc/ \
-		$(POSTSTAGE1_FLAGS_TO_PASS) || exit 1 ; \
+		$(POSTSTAGE1_FLAGS_TO_PASS) && $(STAMP) ../all-stage3-gcc \
+	result=$$? ; \
 	cd .. ; \
 	mv prev-gcc stage2-gcc ; \
 	mv gcc stage3-gcc ; \
-	$(STAMP) all-stage3-gcc
+	exit $$result
 
 # We only want to compare .o files, so set this!
 objext = .o
@@ -25089,8 +25230,8 @@ compare: all-stage3-gcc
 	files=`find . -name "*$(objext)" -print` ; \
 	cd .. ; \
 	for file in $${files} ; do \
-	  cmp --ignore-initial=16 $$r/stage2-gcc/$$file $$r/stage3-gcc/$$file \
-	      > /dev/null 2>&1; \
+	  f1=$$r/stage2-gcc/$$file; f2=$$r/stage3-gcc/$$file; \
+	  @do_compare@ > /dev/null 2>&1; \
 	  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
 	done ; \
 	if [ -f .bad_compare ]; then \
@@ -25111,6 +25252,30 @@ new-bootstrap: compare
 	$(MAKE) all ; \
 	mv gcc stage3-gcc
 
+new-cleanstrap:
+	rm -rf configure-stage1-gcc all-stage1-gcc stage1-gcc \
+	  configure-stage2-gcc all-stage2-gcc stage2-gcc \
+	  configure-stage3-gcc all-stage3-gcc stage3-gcc \
+	  compare
+	$(MAKE) new-bootstrap
+
+new-restage1:
+	rm -rf all-stage1-gcc \
+	  configure-stage2-gcc all-stage2-gcc stage2-gcc \
+	  configure-stage3-gcc all-stage3-gcc stage3-gcc \
+	  compare
+	$(MAKE) all-stage1-gcc
+
+new-restage2: all-stage1-gcc
+	rm -rf all-stage2-gcc \
+	  configure-stage3-gcc all-stage3-gcc stage3-gcc \
+	  compare
+	$(MAKE) all-stage2-gcc
+
+new-restage3: all-stage2-gcc
+	rm -rf all-stage3-gcc compare
+	$(MAKE) compare
+
 # --------------------------------------
 # Dependencies between different modules
 # --------------------------------------
@@ -25130,7 +25295,7 @@ all-gcc: maybe-all-libiberty maybe-all-intl maybe-all-bison maybe-all-byacc mayb
 # This is a slightly kludgy method of getting dependencies on 
 # all-build-libiberty correct; it would be better to build it every time.
 all-gcc: maybe-all-build-libiberty maybe-all-libbanshee
-all-bootstrap: maybe-all-libiberty maybe-all-intl maybe-all-texinfo maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib maybe-all-libbanshee
+all-bootstrap: maybe-all-binutils maybe-all-bison maybe-all-byacc maybe-all-gas maybe-all-intl maybe-all-ld maybe-all-libbanshee maybe-all-libiberty maybe-all-texinfo maybe-all-zlib 
 
 # Host modules specific to gdb.
 # GDB needs to know that the simulator is being built.

@@ -6507,7 +6507,12 @@ package body Sem_Attr is
                --  also be accessibility checks on those, this is where the
                --  checks can eventually be centralized ???
 
-               if Ekind (Btyp) = E_Access_Subprogram_Type then
+               if Ekind (Btyp) = E_Access_Subprogram_Type
+                    or else
+                  Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type
+                    or else
+                  Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type
+               then
                   if Convention (Btyp) /= Convention (Entity (P)) then
                      Error_Msg_N
                       ("subprogram has invalid convention for context", P);
@@ -6533,8 +6538,12 @@ package body Sem_Attr is
                   --  warning  is needed.
 
                   elsif Attr_Id = Attribute_Access
-                    and then Subprogram_Access_Level (Entity (P))
-                      > Type_Access_Level (Btyp)
+                    and then Subprogram_Access_Level (Entity (P)) >
+                               Type_Access_Level (Btyp)
+                    and then Ekind (Btyp) /=
+                               E_Anonymous_Access_Subprogram_Type
+                    and then Ekind (Btyp) /=
+                               E_Anonymous_Access_Protected_Subprogram_Type
                   then
                      if not In_Instance_Body then
                         Error_Msg_N
@@ -6617,9 +6626,12 @@ package body Sem_Attr is
             --  The rule does not apply to 'Unrestricted_Access.
 
             if not (Ekind (Btyp) = E_Access_Subprogram_Type
+                     or else Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type
                      or else (Is_Record_Type (Btyp) and then
                               Present (Corresponding_Remote_Type (Btyp)))
                      or else Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                     or else Ekind (Btyp)
+                               = E_Anonymous_Access_Protected_Subprogram_Type
                      or else Is_Access_Constant (Btyp)
                      or else Is_Variable (P)
                      or else Attr_Id = Attribute_Unrestricted_Access)
@@ -6633,8 +6645,37 @@ package body Sem_Attr is
                   or else
                 Attr_Id = Attribute_Unchecked_Access)
               and then (Ekind (Btyp) = E_General_Access_Type
-                         or else Ekind (Btyp) = E_Anonymous_Access_Type)
+                          or else Ekind (Btyp) = E_Anonymous_Access_Type)
             then
+               --  Ada 0Y (AI-230): Check the accessibility of anonymous access
+               --  types in record and array components. For a component defini
+               --  tion the level is the same of the enclosing composite type.
+
+               if Extensions_Allowed
+                 and then Ekind (Btyp) = E_Anonymous_Access_Type
+                 and then (Is_Array_Type (Scope (Btyp))
+                             or else Ekind (Scope (Btyp)) = E_Record_Type)
+                 and then Object_Access_Level (P)
+                            > Type_Access_Level (Btyp)
+               then
+                  --  In an instance, this is a runtime check, but one we
+                  --  know will fail, so generate an appropriate warning.
+
+                  if In_Instance_Body then
+                     Error_Msg_N
+                       ("?non-local pointer cannot point to local object", P);
+                     Error_Msg_N
+                       ("?Program_Error will be raised at run time", P);
+                     Rewrite (N,
+                       Make_Raise_Program_Error (Loc,
+                         Reason => PE_Accessibility_Check_Failed));
+                     Set_Etype (N, Typ);
+                  else
+                     Error_Msg_N
+                       ("non-local pointer cannot point to local object", P);
+                  end if;
+               end if;
+
                if Is_Dependent_Component_Of_Mutable_Object (P) then
                   Error_Msg_N
                     ("illegal attribute for discriminant-dependent component",
@@ -6791,13 +6832,17 @@ package body Sem_Attr is
                end if;
             end if;
 
-            if Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+            if (Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                  or else
+                Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type)
               and then Is_Entity_Name (P)
               and then not Is_Protected_Type (Scope (Entity (P)))
             then
                Error_Msg_N ("context requires a protected subprogram", P);
 
-            elsif Ekind (Btyp) = E_Access_Subprogram_Type
+            elsif (Ekind (Btyp) = E_Access_Subprogram_Type
+                     or else
+                   Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type)
               and then Ekind (Etype (N)) = E_Access_Protected_Subprogram_Type
             then
                Error_Msg_N ("context requires a non-protected subprogram", P);

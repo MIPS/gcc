@@ -290,7 +290,8 @@ build_base_path (enum tree_code code,
     expr = save_expr (expr);
 
   if (want_pointer && !nonnull)
-    null_test = build (EQ_EXPR, boolean_type_node, expr, integer_zero_node);
+    null_test = fold (build2 (NE_EXPR, boolean_type_node,
+			      expr, integer_zero_node));
   
   offset = BINFO_OFFSET (binfo);
   
@@ -367,9 +368,9 @@ build_base_path (enum tree_code code,
     expr = build_indirect_ref (expr, NULL);
 
   if (null_test)
-    expr = build (COND_EXPR, target_type, null_test,
-		  build1 (NOP_EXPR, target_type, integer_zero_node),
-		  expr);
+    expr = fold (build3 (COND_EXPR, target_type, null_test, expr,
+			 fold (build1 (NOP_EXPR, target_type,
+				       integer_zero_node))));
 
   return expr;
 }
@@ -6732,7 +6733,6 @@ initialize_array (tree decl, tree inits)
   context = DECL_CONTEXT (decl);
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = build_constructor (NULL_TREE, inits);
-  TREE_HAS_CONSTRUCTOR (DECL_INITIAL (decl)) = 1;
   cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0);
   DECL_CONTEXT (decl) = context;
 }

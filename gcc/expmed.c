@@ -2877,6 +2877,7 @@ static rtx
 expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 			    rtx target, int unsignedp, int max_cost)
 {
+  rtx narrow_op1 = gen_int_mode (INTVAL (op1), mode);
   enum machine_mode wider_mode;
   optab moptab;
   rtx tem;
@@ -2890,7 +2891,7 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
   if (mul_highpart_cost[(int) mode] < max_cost)
     {
       moptab = unsignedp ? umul_highpart_optab : smul_highpart_optab;
-      tem = expand_binop (mode, moptab, op0, op1, target,
+      tem = expand_binop (mode, moptab, op0, narrow_op1, target,
 			  unsignedp, OPTAB_DIRECT);
       if (tem)
 	return tem;
@@ -2903,11 +2904,11 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 	  < max_cost))
     {
       moptab = unsignedp ? smul_highpart_optab : umul_highpart_optab;
-      tem = expand_binop (mode, moptab, op0, op1, target,
+      tem = expand_binop (mode, moptab, op0, narrow_op1, target,
 			  unsignedp, OPTAB_DIRECT);
       if (tem)
 	/* We used the wrong signedness.  Adjust the result.  */
-	return expand_mult_highpart_adjust (mode, tem, op0, op1,
+	return expand_mult_highpart_adjust (mode, tem, op0, narrow_op1,
 					    tem, unsignedp);
     }
 
@@ -2916,7 +2917,7 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
   if (moptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
       && mul_widen_cost[(int) wider_mode] < max_cost)
     {
-      tem = expand_binop (wider_mode, moptab, op0, op1, 0,
+      tem = expand_binop (wider_mode, moptab, op0, narrow_op1, 0,
 			  unsignedp, OPTAB_WIDEN);
       if (tem)
 	return extract_high_half (mode, tem);
@@ -2941,14 +2942,13 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
       && (mul_widen_cost[(int) wider_mode]
 	  + 2 * shift_cost[size-1] + 4 * add_cost < max_cost))
     {
-      rtx regop1 = force_reg (mode, op1);
-      tem = expand_binop (wider_mode, moptab, op0, regop1,
+      tem = expand_binop (wider_mode, moptab, op0, narrow_op1,
 			  NULL_RTX, ! unsignedp, OPTAB_WIDEN);
       if (tem != 0)
 	{
 	  tem = extract_high_half (mode, tem);
 	  /* We used the wrong signedness.  Adjust the result.  */
-	  return expand_mult_highpart_adjust (mode, tem, op0, op1,
+	  return expand_mult_highpart_adjust (mode, tem, op0, narrow_op1,
 					      target, unsignedp);
 	}
     }
@@ -2982,7 +2982,7 @@ expand_mult_highpart (enum machine_mode mode, rtx op0,
   if (GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT)
     abort ();
 
-  op1 = gen_int_mode (cnst1, mode);
+  op1 = gen_int_mode (cnst1, wider_mode);
   cnst1 &= GET_MODE_MASK (mode);
 
   /* We can't optimize modes wider than BITS_PER_WORD. 

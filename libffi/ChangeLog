@@ -1,10 +1,30 @@
+2004-04-26  Joe Buck <jbuck@welsh-buck.org>
+
+	Bug 15093
+	* configure.ac: Test for existence of mmap and sys/mman.h before
+	checking blacklist.  Fix suggested by Jim Wilson.
+	* configure: Regenerate.
+
+2004-04-26  Matt Austern  <austern@apple.com>
+
+	* src/powerpc/darwin.S: Go through a non-lazy pointer for initial
+	FDE location.
+	* src/powerpc/darwin_closure.S: Likewise.
+	
+2004-04-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/cls_multi_schar.c (main): Fix initialization
+	error. Reported by Thomas Heller <theller@python.net>.
+	* testsuite/libffi.call/cls_multi_sshort.c (main): Likewise.
+	* testsuite/libffi.call/cls_multi_ushort.c (main): Likewise.
+
 2004-03-20  Matthias Klose  <doko@debian.org>
 
 	* src/pa/linux.S: Fix typo.
 
 2004-03-19  Matthias Klose  <doko@debian.org>
 
-	* Makefile.am: Update 
+	* Makefile.am: Update.
 	* Makefile.in: Regenerate.
 	* src/pa/ffi.h.in: Remove.
 	* src/pa/ffitarget.h: New file.

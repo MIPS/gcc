@@ -270,6 +270,7 @@ GNATRTL_NONTASKING_OBJS= \
   ioexcept$(objext) \
   machcode$(objext) \
   s-addima$(objext) \
+  s-addope$(objext) \
   s-arit64$(objext) \
   s-assert$(objext) \
   s-atacco$(objext) \

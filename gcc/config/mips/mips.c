@@ -134,7 +134,7 @@ enum mips_address_type {
    register and the second is the stack slot.  */
 typedef void (*mips_save_restore_fn) (rtx, rtx);
 
-struct constant;
+struct mips16_constant;
 struct mips_arg_info;
 struct mips_address_info;
 struct mips_integer_op;
@@ -206,7 +206,6 @@ static void mips_select_rtx_section (enum machine_mode, rtx,
 static void mips_select_section (tree, int, unsigned HOST_WIDE_INT)
 				  ATTRIBUTE_UNUSED;
 static bool mips_in_small_data_p (tree);
-static void mips_encode_section_info (tree, rtx, int);
 static int mips_fpr_return_fields (tree, tree *);
 static bool mips_return_in_msb (tree);
 static rtx mips_return_fpr_pair (enum machine_mode mode,
@@ -215,9 +214,10 @@ static rtx mips_return_fpr_pair (enum machine_mode mode,
 static rtx mips16_gp_pseudo_reg (void);
 static void mips16_fp_args (FILE *, int, int);
 static void build_mips16_function_stub (FILE *);
-static rtx add_constant	(struct constant **, rtx, enum machine_mode);
-static void dump_constants (struct constant *, rtx);
-static rtx mips_find_symbol (rtx);
+static rtx dump_constants_1 (enum machine_mode, rtx, rtx);
+static void dump_constants (struct mips16_constant *, rtx);
+static int mips16_insn_length (rtx);
+static int mips16_rewrite_pool_refs (rtx *, void *);
 static void mips16_lay_out_constants (void);
 static void mips_avoid_hazard (rtx, rtx, int *, rtx *, rtx);
 static void mips_avoid_hazards (void);
@@ -226,11 +226,17 @@ static bool mips_strict_matching_cpu_name_p (const char *, const char *);
 static bool mips_matching_cpu_name_p (const char *, const char *);
 static const struct mips_cpu_info *mips_parse_cpu (const char *, const char *);
 static const struct mips_cpu_info *mips_cpu_info_from_isa (int);
-static int mips_adjust_cost (rtx, rtx, rtx, int);
 static bool mips_return_in_memory (tree, tree);
 static bool mips_strict_argument_naming (CUMULATIVE_ARGS *);
+static void mips_macc_chains_record (rtx);
+static void mips_macc_chains_reorder (rtx *, int);
+static void mips_promote_ready (rtx *, int, int);
+static int mips_sched_reorder (FILE *, int, rtx *, int *, int);
+static int mips_variable_issue (FILE *, int, rtx, int);
+static int mips_adjust_cost (rtx, rtx, rtx, int);
 static int mips_issue_rate (void);
 static int mips_use_dfa_pipeline_interface (void);
+static int mips_multipass_dfa_lookahead (void);
 static void mips_init_libfuncs (void);
 static void mips_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
@@ -272,19 +278,12 @@ struct mips_frame_info GTY(())
 };
 
 struct machine_function GTY(()) {
-  /* Pseudo-reg holding the address of the current function when
-     generating embedded PIC code.  */
-  rtx embedded_pic_fnaddr_rtx;
-
   /* Pseudo-reg holding the value of $28 in a mips16 function which
      refers to GP relative global variables.  */
   rtx mips16_gp_pseudo_rtx;
 
   /* Current frame information, calculated by compute_frame_size.  */
   struct mips_frame_info frame;
-
-  /* Length of instructions in function; mips16 only.  */
-  long insns_len;
 
   /* The register to use as the global pointer within this function.  */
   unsigned int global_pointer;
@@ -461,28 +460,6 @@ static enum machine_mode gpr_mode;
 /* Array giving truth value on whether or not a given hard register
    can support a given mode.  */
 char mips_hard_regno_mode_ok[(int)MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
-
-/* The length of all strings seen when compiling for the mips16.  This
-   is used to tell how many strings are in the constant pool, so that
-   we can see if we may have an overflow.  This is reset each time the
-   constant pool is output.  */
-int mips_string_length;
-
-/* When generating mips16 code, a list of all strings that are to be
-   output after the current function.  */
-
-static GTY(()) rtx mips16_strings;
-
-/* In mips16 mode, we build a list of all the string constants we see
-   in a particular function.  */
-
-struct string_constant
-{
-  struct string_constant *next;
-  const char *label;
-};
-
-static struct string_constant *string_constants;
 
 /* List of all MIPS punctuation characters used by print_operand.  */
 char mips_print_operand_punct[256];
@@ -698,12 +675,19 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION mips_select_rtx_section
 
+#undef TARGET_SCHED_REORDER
+#define TARGET_SCHED_REORDER mips_sched_reorder
+#undef TARGET_SCHED_VARIABLE_ISSUE
+#define TARGET_SCHED_VARIABLE_ISSUE mips_variable_issue
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE mips_issue_rate
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE mips_use_dfa_pipeline_interface
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
+  mips_multipass_dfa_lookahead
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL mips_function_ok_for_sibcall
@@ -715,8 +699,6 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST mips_address_cost
 
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P mips_in_small_data_p
 
@@ -776,7 +758,13 @@ static enum mips_symbol_type
 mips_classify_symbol (rtx x)
 {
   if (GET_CODE (x) == LABEL_REF)
-    return (TARGET_ABICALLS ? SYMBOL_GOT_LOCAL : SYMBOL_GENERAL);
+    {
+      if (TARGET_MIPS16)
+	return SYMBOL_CONSTANT_POOL;
+      if (TARGET_ABICALLS)
+	return SYMBOL_GOT_LOCAL;
+      return SYMBOL_GENERAL;
+    }
 
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
@@ -797,11 +785,6 @@ mips_classify_symbol (rtx x)
 
   if (SYMBOL_REF_SMALL_P (x))
     return SYMBOL_SMALL_DATA;
-
-  /* When generating mips16 code, SYMBOL_REF_FLAG indicates a string
-     in the current function's constant pool.  */
-  if (TARGET_MIPS16 && SYMBOL_REF_FLAG (x))
-    return SYMBOL_CONSTANT_POOL;
 
   if (TARGET_ABICALLS)
     {
@@ -919,8 +902,16 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
       /* In other cases the relocations can handle any offset.  */
       return true;
 
-    case SYMBOL_SMALL_DATA:
     case SYMBOL_CONSTANT_POOL:
+      /* Allow constant pool references to be converted to LABEL+CONSTANT.
+	 In this case, we no longer have access to the underlying constant,
+	 but the original symbol-based access was known to be valid.  */
+      if (GET_CODE (x) == LABEL_REF)
+	return true;
+
+      /* Fall through.  */
+
+    case SYMBOL_SMALL_DATA:
       /* Make sure that the offset refers to something within the
 	 underlying object.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
@@ -1012,7 +1003,7 @@ mips_symbolic_address_p (enum mips_symbol_type symbol_type,
       return true;
 
     case SYMBOL_CONSTANT_POOL:
-      /* PC-relative addressing is only available for lw, sw, ld and sd.  */
+      /* PC-relative addressing is only available for lw and ld.  */
       return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
     case SYMBOL_GOT_LOCAL:
@@ -1446,6 +1437,22 @@ extend_operator (rtx op, enum machine_mode mode)
 	  && (GET_CODE (op) == ZERO_EXTEND || GET_CODE (op) == SIGN_EXTEND));
 }
 
+/* Return true if X is the right hand side of a "macc" or "msac" instruction.
+   This predicate is intended for use in peephole optimizations.  */
+
+int
+macc_msac_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  if (ISA_HAS_MACC && GET_CODE (x) == PLUS && REG_P (XEXP (x, 1)))
+    x = XEXP (x, 0);
+  else if (ISA_HAS_MSAC && GET_CODE (x) == MINUS && REG_P (XEXP (x, 0)))
+    x = XEXP (x, 1);
+  else
+    return false;
+
+  return GET_CODE (x) == MULT && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1));
+}
+
 /* Return nonzero if the code of this rtx pattern is EQ or NE.  */
 
 int
@@ -1657,6 +1664,23 @@ stack_operand (rtx op, enum machine_mode mode)
 	  && addr.reg == stack_pointer_rtx);
 }
 
+/* Helper function for DFA schedulers.  Return true if OP is a floating
+   point register.  */
+
+int
+fp_register_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return REG_P (op) && FP_REG_P (REGNO (op));
+}
+
+/* Helper function for DFA schedulers.  Return true if OP is a LO reg.  */
+
+int
+lo_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return REG_P (op) && REGNO (op) == LO_REGNUM;
+}
+
 
 /* This function is used to implement GO_IF_LEGITIMATE_ADDRESS.  It
    returns a nonzero value if X is a legitimate address for a memory
@@ -1986,6 +2010,23 @@ mips_legitimize_move (enum machine_mode mode, rtx dest, rtx src)
       return true;
     }
 
+  /* Check for individual, fully-reloaded mflo and mfhi instructions.  */
+  if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
+      && REG_P (src) && MD_REG_P (REGNO (src))
+      && REG_P (dest) && GP_REG_P (REGNO (dest)))
+    {
+      int other_regno = REGNO (src) == HI_REGNUM ? LO_REGNUM : HI_REGNUM;
+      if (GET_MODE_SIZE (mode) <= 4)
+	emit_insn (gen_mfhilo_si (gen_rtx_REG (SImode, REGNO (dest)),
+				  gen_rtx_REG (SImode, REGNO (src)),
+				  gen_rtx_REG (SImode, other_regno)));
+      else
+	emit_insn (gen_mfhilo_di (gen_rtx_REG (DImode, REGNO (dest)),
+				  gen_rtx_REG (DImode, REGNO (src)),
+				  gen_rtx_REG (DImode, other_regno)));
+      return true;
+    }
+
   /* We need to deal with constants that would be legitimate
      immediate_operands but not legitimate move_operands.  */
   if (CONSTANT_P (src) && !move_operand (src, mode))
@@ -2105,55 +2146,6 @@ int
 m16_nsimm8_8 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return m16_check_op (op, (- 0x7f) << 3, 0x80 << 3, 7);
-}
-
-/* References to the string table on the mips16 only use a small
-   offset if the function is small.  We can't check for LABEL_REF here,
-   because the offset is always large if the label is before the
-   referencing instruction.  */
-
-int
-m16_usym8_4 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) == SYMBOL_REF
-      && SYMBOL_REF_FLAG (op)
-      && cfun->machine->insns_len > 0
-      && (cfun->machine->insns_len + get_pool_size () + mips_string_length
-	  < 4 * 0x100))
-    {
-      struct string_constant *l;
-
-      /* Make sure this symbol is on thelist of string constants to be
-         output for this function.  It is possible that it has already
-         been output, in which case this requires a large offset.  */
-      for (l = string_constants; l != NULL; l = l->next)
-	if (strcmp (l->label, XSTR (op, 0)) == 0)
-	  return 1;
-    }
-
-  return 0;
-}
-
-int
-m16_usym5_4 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) == SYMBOL_REF
-      && SYMBOL_REF_FLAG (op)
-      && cfun->machine->insns_len > 0
-      && (cfun->machine->insns_len + get_pool_size () + mips_string_length
-	  < 4 * 0x20))
-    {
-      struct string_constant *l;
-
-      /* Make sure this symbol is on thelist of string constants to be
-         output for this function.  It is possible that it has already
-         been output, in which case this requires a large offset.  */
-      for (l = string_constants; l != NULL; l = l->next)
-	if (strcmp (l->label, XSTR (op, 0)) == 0)
-	  return 1;
-    }
-
-  return 0;
 }
 
 static bool
@@ -2293,6 +2285,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
             *total = COSTS_N_INSNS (2);
           else if (TUNE_MIPS6000)
             *total = COSTS_N_INSNS (3);
+	  else if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (4);
           else
             *total = COSTS_N_INSNS (6);
           return true;
@@ -2317,7 +2311,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         {
           if (TUNE_MIPS3000
               || TUNE_MIPS3900
-              || TUNE_MIPS5000)
+              || TUNE_MIPS5000
+	      || TUNE_SB1)
             *total = COSTS_N_INSNS (4);
           else if (TUNE_MIPS6000
                    || TUNE_MIPS5400
@@ -2330,7 +2325,9 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 
       if (mode == DFmode)
         {
-          if (TUNE_MIPS3000
+          if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (4);
+          else if (TUNE_MIPS3000
               || TUNE_MIPS3900
               || TUNE_MIPS5000)
             *total = COSTS_N_INSNS (5);
@@ -2347,7 +2344,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         *total = COSTS_N_INSNS (12);
       else if (TUNE_MIPS3900)
         *total = COSTS_N_INSNS (2);
-      else if (TUNE_MIPS5400 || TUNE_MIPS5500)
+      else if (TUNE_MIPS5400 || TUNE_MIPS5500 || TUNE_SB1)
         *total = COSTS_N_INSNS ((mode == DImode) ? 4 : 3);
       else if (TUNE_MIPS7000)
         *total = COSTS_N_INSNS (mode == DImode ? 9 : 5);
@@ -2370,6 +2367,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
             *total = COSTS_N_INSNS (12);
           else if (TUNE_MIPS6000)
             *total = COSTS_N_INSNS (15);
+	  else if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (24);
           else if (TUNE_MIPS5400 || TUNE_MIPS5500)
             *total = COSTS_N_INSNS (30);
           else
@@ -2386,6 +2385,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
             *total = COSTS_N_INSNS (59);
           else if (TUNE_MIPS6000)
             *total = COSTS_N_INSNS (16);
+	  else if (TUNE_SB1)
+	    *total = COSTS_N_INSNS (32);
           else
             *total = COSTS_N_INSNS (36);
           return true;
@@ -2401,6 +2402,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
         *total = COSTS_N_INSNS (38);
       else if (TUNE_MIPS5000)
         *total = COSTS_N_INSNS (36);
+      else if (TUNE_SB1)
+	*total = COSTS_N_INSNS ((mode == SImode) ? 36 : 68);
       else if (TUNE_MIPS5400 || TUNE_MIPS5500)
         *total = COSTS_N_INSNS ((mode == SImode) ? 42 : 74);
       else
@@ -2438,55 +2441,6 @@ static int
 mips_address_cost (rtx addr)
 {
   return mips_address_insns (addr, SImode);
-}
-
-/* Return a pseudo that points to the address of the current function.
-   The first time it is called for a function, an initializer for the
-   pseudo is emitted in the beginning of the function.  */
-
-rtx
-embedded_pic_fnaddr_reg (void)
-{
-  if (cfun->machine->embedded_pic_fnaddr_rtx == NULL)
-    {
-      rtx seq;
-
-      cfun->machine->embedded_pic_fnaddr_rtx = gen_reg_rtx (Pmode);
-
-      /* Output code at function start to initialize the pseudo-reg.  */
-      /* ??? We used to do this in FINALIZE_PIC, but that does not work for
-	 inline functions, because it is called after RTL for the function
-	 has been copied.  The pseudo-reg in embedded_pic_fnaddr_rtx however
-	 does not get copied, and ends up not matching the rest of the RTL.
-	 This solution works, but means that we get unnecessary code to
-	 initialize this value every time a function is inlined into another
-	 function.  */
-      start_sequence ();
-      emit_insn (gen_get_fnaddr (cfun->machine->embedded_pic_fnaddr_rtx,
-				 XEXP (DECL_RTL (current_function_decl), 0)));
-      seq = get_insns ();
-      end_sequence ();
-      push_topmost_sequence ();
-      emit_insn_after (seq, get_insns ());
-      pop_topmost_sequence ();
-    }
-
-  return cfun->machine->embedded_pic_fnaddr_rtx;
-}
-
-/* Return RTL for the offset from the current function to the argument.
-   X is the symbol whose offset from the current function we want.  */
-
-rtx
-embedded_pic_offset (rtx x)
-{
-  /* Make sure it is emitted.  */
-  embedded_pic_fnaddr_reg ();
-
-  return
-    gen_rtx_CONST (Pmode,
-		   gen_rtx_MINUS (Pmode, x,
-				  XEXP (DECL_RTL (current_function_decl), 0)));
 }
 
 /* Return one word of double-word value OP, taking into account the fixed
@@ -2645,9 +2599,6 @@ mips_output_move (rtx dest, rtx src)
     {
       if (src_code == REG)
 	{
-	  if (MD_REG_P (REGNO (src)))
-	    return "mf%1\t%0";
-
 	  if (ST_REG_P (REGNO (src)) && ISA_HAS_8CC)
 	    return "lui\t%0,0x3f80\n\tmovf\t%0,%.,%1";
 
@@ -4777,30 +4728,6 @@ override_options (void)
   if (!targetm.have_named_sections)
     mips_section_threshold = 0;
 
-  /* -membedded-pic is a form of PIC code suitable for embedded
-     systems.  All calls are made using PC relative addressing, and
-     all data is addressed using the $gp register.  This requires gas,
-     which does most of the work, and GNU ld, which automatically
-     expands PC relative calls which are out of range into a longer
-     instruction sequence.  All gcc really does differently is
-     generate a different sequence for a switch.  */
-  if (TARGET_EMBEDDED_PIC)
-    {
-      flag_pic = 1;
-      if (TARGET_ABICALLS)
-	warning ("-membedded-pic and -mabicalls are incompatible");
-
-      if (g_switch_set)
-	warning ("-G and -membedded-pic are incompatible");
-
-      /* Setting mips_section_threshold is not required, because gas
-	 will force everything to be GP addressable anyhow, but
-	 setting it will cause gcc to make better estimates of the
-	 number of instructions required to access a particular data
-	 item.  */
-      mips_section_threshold = 0x7fffffff;
-    }
-
   /* mips_split_addresses is a half-way house between explicit
      relocations and the traditional assembler macros.  It can
      split absolute 32-bit symbolic constants into a high/lo_sum
@@ -5254,7 +5181,6 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
    'F'  print part of opcode for a floating-point branch condition.
    'N'  print part of opcode for a branch condition, inverted.
    'W'  print part of opcode for a floating-point branch condition, inverted.
-   'S'  OP is CODE_LABEL, print with prefix of "LS" (for embedded switch).
    'B'  print 'z' for EQ, 'n' for NE
    'b'  print 'n' for EQ, 'z' for NE
    'T'  print 'f' for EQ, 't' for NE
@@ -5491,14 +5417,6 @@ print_operand (FILE *file, rtx op, int letter)
 
   else if (letter == 'R')
     print_operand_reloc (file, op, mips_lo_relocs);
-
-  else if (letter == 'S')
-    {
-      char buffer[100];
-
-      ASM_GENERATE_INTERNAL_LABEL (buffer, "LS", CODE_LABEL_NUMBER (op));
-      assemble_name (file, buffer);
-    }
 
   else if (letter == 'Z')
     {
@@ -6868,8 +6786,6 @@ static void
 mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  rtx string;
-
   /* Reinstate the normal $gp.  */
   REGNO (pic_offset_table_rtx) = GLOBAL_POINTER_REGNUM;
   mips_output_cplocal ();
@@ -6894,26 +6810,6 @@ mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       assemble_name (file, fnname);
       fputs ("\n", file);
     }
-
-  while (string_constants != NULL)
-    {
-      struct string_constant *next;
-
-      next = string_constants->next;
-      free (string_constants);
-      string_constants = next;
-    }
-
-  /* If any following function uses the same strings as this one, force
-     them to refer those strings indirectly.  Nearby functions could
-     refer them using pc-relative addressing, but it isn't safe in
-     general.  For instance, some functions may be placed in sections
-     other than .text, and we don't know whether they be close enough
-     to this one.  In large files, even other .text functions can be
-     too far away.  */
-  for (string = mips16_strings; string != 0; string = XEXP (string, 1))
-    SYMBOL_REF_FLAG (XEXP (string, 0)) = 0;
-  free_EXPR_LIST_list (&mips16_strings);
 }
 
 /* Emit instructions to restore register REG from slot MEM.  */
@@ -7199,6 +7095,8 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn = get_insns ();
   insn_locators_initialize ();
   split_all_insns_noflow ();
+  if (TARGET_MIPS16)
+    mips16_lay_out_constants ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1, 0);
@@ -7279,14 +7177,7 @@ static void
 mips_select_section (tree decl, int reloc,
 		     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)
-      && TREE_CODE (decl) == STRING_CST)
-    /* For embedded position independent code, put constant strings in the
-       text section, because the data section is limited to 64K in size.
-       For mips16 code, put strings in the text section so that a PC
-       relative load instruction can be used to get their address.  */
-    text_section ();
-  else if (targetm.have_named_sections)
+  if (targetm.have_named_sections)
     default_elf_select_section (decl, reloc, align);
   else
     /* The native irix o32 assembler doesn't support named sections.  */
@@ -7339,67 +7230,6 @@ mips_in_small_data_p (tree decl)
 
   size = int_size_in_bytes (TREE_TYPE (decl));
   return (size > 0 && size <= mips_section_threshold);
-}
-
-
-/* When generating embedded PIC code, SYMBOL_REF_FLAG is set for
-   symbols which are not in the .text section.
-
-   When generating mips16 code, SYMBOL_REF_FLAG is set for string
-   constants which are put in the .text section.  We also record the
-   total length of all such strings; this total is used to decide
-   whether we need to split the constant table, and need not be
-   precisely correct.  */
-
-static void
-mips_encode_section_info (tree decl, rtx rtl, int first)
-{
-  rtx symbol;
-
-  if (GET_CODE (rtl) != MEM)
-    return;
-
-  symbol = XEXP (rtl, 0);
-
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return;
-
-  if (TARGET_MIPS16)
-    {
-      if (first && TREE_CODE (decl) == STRING_CST
-          /* If this string is from a function, and the function will
-             go in a gnu linkonce section, then we can't directly
-             access the string.  This gets an assembler error
-             "unsupported PC relative reference to different section".
-             If we modify SELECT_SECTION to put it in function_section
-             instead of text_section, it still fails because
-             DECL_SECTION_NAME isn't set until assemble_start_function.
-             If we fix that, it still fails because strings are shared
-             among multiple functions, and we have cross section
-             references again.  We force it to work by putting string
-             addresses in the constant pool and indirecting.  */
-          && (! current_function_decl
-              || ! DECL_ONE_ONLY (current_function_decl)))
-        {
-          mips16_strings = alloc_EXPR_LIST (0, symbol, mips16_strings);
-          SYMBOL_REF_FLAG (symbol) = 1;
-          mips_string_length += TREE_STRING_LENGTH (decl);
-        }
-    }
-
-  if (TARGET_EMBEDDED_PIC)
-    {
-      if (TREE_CODE (decl) == VAR_DECL)
-        SYMBOL_REF_FLAG (symbol) = 1;
-      else if (TREE_CODE (decl) == FUNCTION_DECL)
-        SYMBOL_REF_FLAG (symbol) = 0;
-      else if (TREE_CODE (decl) == STRING_CST)
-        SYMBOL_REF_FLAG (symbol) = 0;
-      else
-        SYMBOL_REF_FLAG (symbol) = 1;
-    }
-
-  default_encode_section_info (decl, rtl, first);
 }
 
 /* See whether VALTYPE is a record whose fields should be returned in
@@ -8300,329 +8130,236 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
   return 0;
 }
 
-/* We keep a list of constants we which we have to add to internal
-   constant tables in the middle of large functions.  */
+/* An entry in the mips16 constant pool.  VALUE is the pool constant,
+   MODE is its mode, and LABEL is the CODE_LABEL associated with it.  */
 
-struct constant
-{
-  struct constant *next;
+struct mips16_constant {
+  struct mips16_constant *next;
   rtx value;
   rtx label;
   enum machine_mode mode;
 };
 
-/* Add a constant to the list in *PCONSTANTS.  */
+/* Information about an incomplete mips16 constant pool.  FIRST is the
+   first constant, HIGHEST_ADDRESS is the highest address that the first
+   byte of the pool can have, and INSN_ADDRESS is the current instruction
+   address.  */
+
+struct mips16_constant_pool {
+  struct mips16_constant *first;
+  int highest_address;
+  int insn_address;
+};
+
+/* Add constant VALUE to POOL and return its label.  MODE is the
+   value's mode (used for CONST_INTs, etc.).  */
 
 static rtx
-add_constant (struct constant **pconstants, rtx val, enum machine_mode mode)
+add_constant (struct mips16_constant_pool *pool,
+	      rtx value, enum machine_mode mode)
 {
-  struct constant *c;
+  struct mips16_constant **p, *c;
+  bool first_of_size_p;
 
-  for (c = *pconstants; c != NULL; c = c->next)
-    if (mode == c->mode && rtx_equal_p (val, c->value))
-      return c->label;
+  /* See whether the constant is already in the pool.  If so, return the
+     existing label, otherwise leave P pointing to the place where the
+     constant should be added.
 
-  c = (struct constant *) xmalloc (sizeof *c);
-  c->value = val;
+     Keep the pool sorted in increasing order of mode size so that we can
+     reduce the number of alignments needed.  */
+  first_of_size_p = true;
+  for (p = &pool->first; *p != 0; p = &(*p)->next)
+    {
+      if (mode == (*p)->mode && rtx_equal_p (value, (*p)->value))
+	return (*p)->label;
+      if (GET_MODE_SIZE (mode) < GET_MODE_SIZE ((*p)->mode))
+	break;
+      if (GET_MODE_SIZE (mode) == GET_MODE_SIZE ((*p)->mode))
+	first_of_size_p = false;
+    }
+
+  /* In the worst case, the constant needed by the earliest instruction
+     will end up at the end of the pool.  The entire pool must then be
+     accessible from that instruction.
+
+     When adding the first constant, set the pool's highest address to
+     the address of the first out-of-range byte.  Adjust this address
+     downwards each time a new constant is added.  */
+  if (pool->first == 0)
+    /* For pc-relative lw, addiu and daddiu instructions, the base PC value
+       is the address of the instruction with the lowest two bits clear.
+       The base PC value for ld has the lowest three bits clear.  Assume
+       the worst case here.  */
+    pool->highest_address = pool->insn_address - (UNITS_PER_WORD - 2) + 0x8000;
+  pool->highest_address -= GET_MODE_SIZE (mode);
+  if (first_of_size_p)
+    /* Take into account the worst possible padding due to alignment.  */
+    pool->highest_address -= GET_MODE_SIZE (mode) - 1;
+
+  /* Create a new entry.  */
+  c = (struct mips16_constant *) xmalloc (sizeof *c);
+  c->value = value;
   c->mode = mode;
   c->label = gen_label_rtx ();
-  c->next = *pconstants;
-  *pconstants = c;
+  c->next = *p;
+  *p = c;
+
   return c->label;
 }
+
+/* Output constant VALUE after instruction INSN and return the last
+   instruction emitted.  MODE is the mode of the constant.  */
+
+static rtx
+dump_constants_1 (enum machine_mode mode, rtx value, rtx insn)
+{
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_INT:
+      {
+	rtx size = GEN_INT (GET_MODE_SIZE (mode));
+	return emit_insn_after (gen_consttable_int (value, size), insn);
+      }
+
+    case MODE_FLOAT:
+      return emit_insn_after (gen_consttable_float (value), insn);
+
+    case MODE_VECTOR_FLOAT:
+    case MODE_VECTOR_INT:
+      {
+	int i;
+	for (i = 0; i < CONST_VECTOR_NUNITS (value); i++)
+	  insn = dump_constants_1 (GET_MODE_INNER (mode),
+				   CONST_VECTOR_ELT (value, i), insn);
+	return insn;
+      }
+
+    default:
+      abort ();
+    }
+}
+
 
 /* Dump out the constants in CONSTANTS after INSN.  */
 
 static void
-dump_constants (struct constant *constants, rtx insn)
+dump_constants (struct mips16_constant *constants, rtx insn)
 {
-  struct constant *c;
+  struct mips16_constant *c, *next;
   int align;
 
-  c = constants;
   align = 0;
-  while (c != NULL)
+  for (c = constants; c != NULL; c = next)
     {
-      rtx r;
-      struct constant *next;
-
-      switch (GET_MODE_SIZE (c->mode))
+      /* If necessary, increase the alignment of PC.  */
+      if (align < GET_MODE_SIZE (c->mode))
 	{
-	case 1:
-	  align = 0;
-	  break;
-	case 2:
-	  if (align < 1)
-	    insn = emit_insn_after (gen_align_2 (), insn);
-	  align = 1;
-	  break;
-	case 4:
-	  if (align < 2)
-	    insn = emit_insn_after (gen_align_4 (), insn);
-	  align = 2;
-	  break;
-	default:
-	  if (align < 3)
-	    insn = emit_insn_after (gen_align_8 (), insn);
-	  align = 3;
-	  break;
+	  int align_log = floor_log2 (GET_MODE_SIZE (c->mode));
+	  insn = emit_insn_after (gen_align (GEN_INT (align_log)), insn);
 	}
+      align = GET_MODE_SIZE (c->mode);
 
       insn = emit_label_after (c->label, insn);
-
-      switch (c->mode)
-	{
-	case QImode:
-	  r = gen_consttable_qi (c->value);
-	  break;
-	case HImode:
-	  r = gen_consttable_hi (c->value);
-	  break;
-	case SImode:
-	  r = gen_consttable_si (c->value);
-	  break;
-	case SFmode:
-	  r = gen_consttable_sf (c->value);
-	  break;
-	case DImode:
-	  r = gen_consttable_di (c->value);
-	  break;
-	case DFmode:
-	  r = gen_consttable_df (c->value);
-	  break;
-	default:
-	  abort ();
-	}
-
-      insn = emit_insn_after (r, insn);
+      insn = dump_constants_1 (c->mode, c->value, insn);
 
       next = c->next;
       free (c);
-      c = next;
     }
 
   emit_barrier_after (insn);
 }
 
-/* Find the symbol in an address expression.  */
+/* Return the length of instruction INSN.
 
-static rtx
-mips_find_symbol (rtx addr)
+   ??? MIPS16 switch tables go in .text, but we don't define
+   JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
+   compute their lengths correctly.  */
+
+static int
+mips16_insn_length (rtx insn)
 {
-  if (GET_CODE (addr) == MEM)
-    addr = XEXP (addr, 0);
-  while (GET_CODE (addr) == CONST)
-    addr = XEXP (addr, 0);
-  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
-    return addr;
-  if (GET_CODE (addr) == PLUS)
+  if (GET_CODE (insn) == JUMP_INSN)
     {
-      rtx l1, l2;
-
-      l1 = mips_find_symbol (XEXP (addr, 0));
-      l2 = mips_find_symbol (XEXP (addr, 1));
-      if (l1 != NULL_RTX && l2 == NULL_RTX)
-	return l1;
-      else if (l1 == NULL_RTX && l2 != NULL_RTX)
-	return l2;
+      rtx body = PATTERN (insn);
+      if (GET_CODE (body) == ADDR_VEC)
+	return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, 0);
+      if (GET_CODE (body) == ADDR_DIFF_VEC)
+	return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, 1);
     }
-  return NULL_RTX;
+  return get_attr_length (insn);
 }
 
-/* In mips16 mode, we need to look through the function to check for
-   PC relative loads that are out of range.  */
+/* Rewrite *X so that constant pool references refer to the constant's
+   label instead.  DATA points to the constant pool structure.  */
+
+static int
+mips16_rewrite_pool_refs (rtx *x, void *data)
+{
+  struct mips16_constant_pool *pool = data;
+  if (GET_CODE (*x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (*x))
+    *x = gen_rtx_LABEL_REF (Pmode, add_constant (pool,
+						 get_pool_constant (*x),
+						 get_pool_mode (*x)));
+  return 0;
+}
+
+/* Build MIPS16 constant pools.  */
 
 static void
 mips16_lay_out_constants (void)
 {
-  int insns_len, max_internal_pool_size, pool_size, addr, first_constant_ref;
-  rtx first, insn;
-  struct constant *constants;
+  struct mips16_constant_pool pool;
+  rtx insn, barrier;
 
-  first = get_insns ();
-
-  /* Scan the function looking for PC relative loads which may be out
-     of range.  All such loads will either be from the constant table,
-     or be getting the address of a constant string.  If the size of
-     the function plus the size of the constant table is less than
-     0x8000, then all loads are in range.  */
-
-  insns_len = 0;
-  for (insn = first; insn; insn = NEXT_INSN (insn))
+  barrier = 0;
+  memset (&pool, 0, sizeof (pool));
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      insns_len += get_attr_length (insn);
+      /* Rewrite constant pool references in INSN.  */
+      if (INSN_P (insn))
+	for_each_rtx (&PATTERN (insn), mips16_rewrite_pool_refs, &pool);
 
-      /* ??? We put switch tables in .text, but we don't define
-         JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-         compute their lengths correctly.  */
-      if (GET_CODE (insn) == JUMP_INSN)
+      pool.insn_address += mips16_insn_length (insn);
+
+      if (pool.first != NULL)
 	{
-	  rtx body;
+	  /* If there are no natural barriers between the first user of
+	     the pool and the highest acceptable address, we'll need to
+	     create a new instruction to jump around the constant pool.
+	     In the worst case, this instruction will be 4 bytes long.
 
-	  body = PATTERN (insn);
-	  if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
-	    insns_len += (XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC)
-			  * GET_MODE_SIZE (GET_MODE (body)));
-	  insns_len += GET_MODE_SIZE (GET_MODE (body)) - 1;
+	     If it's too late to do this transformation after INSN,
+	     do it immediately before INSN.  */
+	  if (barrier == 0 && pool.insn_address + 4 > pool.highest_address)
+	    {
+	      rtx label, jump;
+
+	      label = gen_label_rtx ();
+
+	      jump = emit_jump_insn_before (gen_jump (label), insn);
+	      JUMP_LABEL (jump) = label;
+	      LABEL_NUSES (label) = 1;
+	      barrier = emit_barrier_after (jump);
+
+	      emit_label_after (label, barrier);
+	      pool.insn_address += 4;
+	    }
+
+	  /* See whether the constant pool is now out of range of the first
+	     user.  If so, output the constants after the previous barrier.
+	     Note that any instructions between BARRIER and INSN (inclusive)
+	     will use negative offsets to refer to the pool.  */
+	  if (pool.insn_address > pool.highest_address)
+	    {
+	      dump_constants (pool.first, barrier);
+	      pool.first = NULL;
+	      barrier = 0;
+	    }
+	  else if (BARRIER_P (insn))
+	    barrier = insn;
 	}
     }
-
-  /* Store the original value of insns_len in cfun->machine, so
-     that m16_usym8_4 and m16_usym5_4 can look at it.  */
-  cfun->machine->insns_len = insns_len;
-
-  pool_size = get_pool_size ();
-  if (insns_len + pool_size + mips_string_length < 0x8000)
-    return;
-
-  /* Loop over the insns and figure out what the maximum internal pool
-     size could be.  */
-  max_internal_pool_size = 0;
-  for (insn = first; insn; insn = NEXT_INSN (insn))
-    {
-      if (GET_CODE (insn) == INSN
-	  && GET_CODE (PATTERN (insn)) == SET)
-	{
-	  rtx src;
-
-	  src = mips_find_symbol (SET_SRC (PATTERN (insn)));
-	  if (src == NULL_RTX)
-	    continue;
-	  if (CONSTANT_POOL_ADDRESS_P (src))
-	    max_internal_pool_size += GET_MODE_SIZE (get_pool_mode (src));
-	  else if (SYMBOL_REF_FLAG (src))
-	    max_internal_pool_size += GET_MODE_SIZE (Pmode);
-	}
-    }
-
-  constants = NULL;
-  addr = 0;
-  first_constant_ref = -1;
-
-  for (insn = first; insn; insn = NEXT_INSN (insn))
-    {
-      if (GET_CODE (insn) == INSN
-	  && GET_CODE (PATTERN (insn)) == SET)
-	{
-	  rtx val, src;
-	  enum machine_mode mode = VOIDmode;
-
-	  val = NULL_RTX;
-	  src = mips_find_symbol (SET_SRC (PATTERN (insn)));
-	  if (src != NULL_RTX && CONSTANT_POOL_ADDRESS_P (src))
-	    {
-	      /* ??? This is very conservative, which means that we
-                 will generate too many copies of the constant table.
-                 The only solution would seem to be some form of
-                 relaxing.  */
-	      if (((insns_len - addr)
-		   + max_internal_pool_size
-		   + get_pool_offset (src))
-		  >= 0x8000)
-		{
-		  val = get_pool_constant (src);
-		  mode = get_pool_mode (src);
-		}
-	      max_internal_pool_size -= GET_MODE_SIZE (get_pool_mode (src));
-	    }
-	  else if (src != NULL_RTX && SYMBOL_REF_FLAG (src))
-	    {
-	      /* Including all of mips_string_length is conservative,
-                 and so is including all of max_internal_pool_size.  */
-	      if (((insns_len - addr)
-		   + max_internal_pool_size
-		   + pool_size
-		   + mips_string_length)
-		  >= 0x8000)
-		{
-		  val = src;
-		  mode = Pmode;
-		}
-	      max_internal_pool_size -= Pmode;
-	    }
-
-	  if (val != NULL_RTX)
-	    {
-	      rtx lab, newsrc;
-
-	      /* This PC relative load is out of range.  ??? In the
-		 case of a string constant, we are only guessing that
-		 it is range, since we don't know the offset of a
-		 particular string constant.  */
-
-	      lab = add_constant (&constants, val, mode);
-	      newsrc = gen_rtx_MEM (mode,
-				    gen_rtx_LABEL_REF (VOIDmode, lab));
-	      RTX_UNCHANGING_P (newsrc) = 1;
-	      PATTERN (insn) = gen_rtx_SET (VOIDmode,
-					    SET_DEST (PATTERN (insn)),
-					    newsrc);
-	      INSN_CODE (insn) = -1;
-
-	      if (first_constant_ref < 0)
-		first_constant_ref = addr;
-	    }
-	}
-
-      addr += get_attr_length (insn);
-
-      /* ??? We put switch tables in .text, but we don't define
-         JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-         compute their lengths correctly.  */
-      if (GET_CODE (insn) == JUMP_INSN)
-	{
-	  rtx body;
-
-	  body = PATTERN (insn);
-	  if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
-	    addr += (XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC)
-			  * GET_MODE_SIZE (GET_MODE (body)));
-	  addr += GET_MODE_SIZE (GET_MODE (body)) - 1;
-	}
-
-      if (GET_CODE (insn) == BARRIER)
-	{
-	  /* Output any constants we have accumulated.  Note that we
-             don't need to change ADDR, since its only use is
-             subtraction from INSNS_LEN, and both would be changed by
-             the same amount.
-	     ??? If the instructions up to the next barrier reuse a
-	     constant, it would often be better to continue
-	     accumulating.  */
-	  if (constants != NULL)
-	    dump_constants (constants, insn);
-	  constants = NULL;
-	  first_constant_ref = -1;
-	}
-
-      if (constants != NULL
-	       && (NEXT_INSN (insn) == NULL
-		   || (first_constant_ref >= 0
-		       && (((addr - first_constant_ref)
-			    + 2 /* for alignment */
-			    + 2 /* for a short jump insn */
-			    + pool_size)
-			   >= 0x8000))))
-	{
-	  /* If we haven't had a barrier within 0x8000 bytes of a
-             constant reference or we are at the end of the function,
-             emit a barrier now.  */
-
-	  rtx label, jump, barrier;
-
-	  label = gen_label_rtx ();
-	  jump = emit_jump_insn_after (gen_jump (label), insn);
-	  JUMP_LABEL (jump) = label;
-	  LABEL_NUSES (label) = 1;
-	  barrier = emit_barrier_after (jump);
-	  emit_label_after (label, barrier);
-	  first_constant_ref = -1;
-	}
-     }
-
-  /* ??? If we output all references to a constant in internal
-     constants table, we don't need to output the constant in the real
-     constant table, but we have no way to prevent that.  */
+  dump_constants (pool.first, get_last_insn ());
 }
 
 
@@ -9121,7 +8858,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
 		.set macro
 		.set reorder
 
-	   When generating non-embedded PIC, instead of:
+	   When generating PIC, instead of:
 
 	        j     target
 
@@ -9421,20 +9158,6 @@ mips_cpu_info_from_isa (int isa)
   return 0;
 }
 
-/* Adjust the cost of INSN based on the relationship between INSN that
-   is dependent on DEP_INSN through the dependence LINK.  The default
-   is to make no adjustment to COST.
-
-   On the MIPS, ignore the cost of anti- and output-dependencies.  */
-static int
-mips_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
-		  rtx dep ATTRIBUTE_UNUSED, int cost)
-{
-  if (REG_NOTE_KIND (link) != 0)
-    return 0;	/* Anti or output dependence.  */
-  return cost;
-}
-
 /* Implement HARD_REGNO_NREGS.  The size of FP registers are controlled
    by UNITS_PER_FPREG.  All other registers are word sized.  */
 
@@ -9468,6 +9191,142 @@ mips_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
   return !TARGET_OLDABI;
 }
+
+/* Return true if INSN is a multiply-add or multiply-subtract
+   instruction and PREV assigns to the accumulator operand.  */
+
+bool
+mips_linked_madd_p (rtx prev, rtx insn)
+{
+  rtx x;
+
+  x = single_set (insn);
+  if (x == 0)
+    return false;
+
+  x = SET_SRC (x);
+
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 0)) == MULT
+      && reg_set_p (XEXP (x, 1), prev))
+    return true;
+
+  if (GET_CODE (x) == MINUS
+      && GET_CODE (XEXP (x, 1)) == MULT
+      && reg_set_p (XEXP (x, 0), prev))
+    return true;
+
+  return false;
+}
+
+/* Used by TUNE_MACC_CHAINS to record the last scheduled instruction
+   that may clobber hi or lo.  */
+
+static rtx mips_macc_chains_last_hilo;
+
+/* A TUNE_MACC_CHAINS helper function.  Record that instruction INSN has
+   been scheduled, updating mips_macc_chains_last_hilo appropriately.  */
+
+static void
+mips_macc_chains_record (rtx insn)
+{
+  if (get_attr_may_clobber_hilo (insn))
+    mips_macc_chains_last_hilo = insn;
+}
+
+/* A TUNE_MACC_CHAINS helper function.  Search ready queue READY, which
+   has NREADY elements, looking for a multiply-add or multiply-subtract
+   instruction that is cumulative with mips_macc_chains_last_hilo.
+   If there is one, promote it ahead of anything else that might
+   clobber hi or lo.  */
+
+static void
+mips_macc_chains_reorder (rtx *ready, int nready)
+{
+  int i, j;
+
+  if (mips_macc_chains_last_hilo != 0)
+    for (i = nready - 1; i >= 0; i--)
+      if (mips_linked_madd_p (mips_macc_chains_last_hilo, ready[i]))
+	{
+	  for (j = nready - 1; j > i; j--)
+	    if (recog_memoized (ready[j]) >= 0
+		&& get_attr_may_clobber_hilo (ready[j]))
+	      {
+		mips_promote_ready (ready, i, j);
+		break;
+	      }
+	  break;
+	}
+}
+
+/* Remove the instruction at index LOWER from ready queue READY and
+   reinsert it in front of the instruction at index HIGHER.  LOWER must
+   be <= HIGHER.  */
+
+static void
+mips_promote_ready (rtx *ready, int lower, int higher)
+{
+  rtx new_head;
+  int i;
+
+  new_head = ready[lower];
+  for (i = lower; i < higher; i++)
+    ready[i] = ready[i + 1];
+  ready[i] = new_head;
+}
+
+/* Implement TARGET_SCHED_REORDER.  */
+
+static int
+mips_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
+		    rtx *ready, int *nreadyp, int cycle)
+{
+  if (!reload_completed && TUNE_MACC_CHAINS)
+    {
+      if (cycle == 0)
+	mips_macc_chains_last_hilo = 0;
+      if (*nreadyp > 0)
+	mips_macc_chains_reorder (ready, *nreadyp);
+    }
+  return mips_issue_rate ();
+}
+
+/* Implement TARGET_SCHED_VARIABLE_ISSUE.  */
+
+static int
+mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
+		     rtx insn, int more)
+{
+  switch (GET_CODE (PATTERN (insn)))
+    {
+    case USE:
+    case CLOBBER:
+      /* Don't count USEs and CLOBBERs against the issue rate.  */
+      break;
+
+    default:
+      more--;
+      if (!reload_completed && TUNE_MACC_CHAINS)
+	mips_macc_chains_record (insn);
+      break;
+    }
+  return more;
+}
+
+/* Implement TARGET_SCHED_ADJUST_COST.  We assume that anti and output
+   dependencies have no cost.  */
+
+static int
+mips_adjust_cost (rtx insn ATTRIBUTE_UNUSED, rtx link,
+		  rtx dep ATTRIBUTE_UNUSED, int cost)
+{
+  if (REG_NOTE_KIND (link) != 0)
+    return 0;
+  return cost;
+}
+
+/* Return the number of instructions that can be issued per cycle.  */
 
 static int
 mips_issue_rate (void)
@@ -9479,6 +9338,13 @@ mips_issue_rate (void)
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
       return 2;
+
+    case PROCESSOR_SB1:
+      /* This is actually 4, but we get better performance if we claim 3.
+	 This is partly because of unwanted speculative code motion with the
+	 larger number, and partly because in most common cases we can't
+	 reach the theoretical max of 4.  */
+      return 3;
 
     default:
       return 1;
@@ -9500,6 +9366,7 @@ mips_use_dfa_pipeline_interface (void)
     case PROCESSOR_R5500:
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
+    case PROCESSOR_SB1:
     case PROCESSOR_SR71000:
       return true;
 
@@ -9508,6 +9375,19 @@ mips_use_dfa_pipeline_interface (void)
     }
 }
 
+/* Implements TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD.  This should
+   be as wide as the scheduling freedom in the DFA.  */
+
+static int
+mips_multipass_dfa_lookahead (void)
+{
+  /* Can schedule up to 4 of the 6 function units in any one cycle.  */
+  if (mips_tune == PROCESSOR_SB1)
+    return 4;
+
+  return 0;
+}
+
 
 const char *
 mips_emit_prefetch (rtx *operands)

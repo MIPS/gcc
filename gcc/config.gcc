@@ -331,6 +331,10 @@ esac
 # Common parts for widely ported systems.
 case ${target} in
 *-*-darwin*)
+  case ${target} in
+    *-darwin[0-6]*) ;;
+    *) tm_file="${tm_file} darwin7.h" ;;
+  esac
   tm_file="${tm_file} darwin.h"
   tm_p_file="${tm_p_file} darwin-protos.h"
   tmake_file="t-darwin t-slibgcc-darwin"
@@ -987,6 +991,11 @@ i[34567]86-*-solaris2*)
 	else
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
+	case ${target} in
+	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
+		tm_file="$tm_file tm-dwarf2.h"
+		;;
+	esac
 	extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
 	case ${enable_threads}:${have_pthread_h}:${have_thread_h} in
 	  no:*:*) ;;
@@ -2229,7 +2238,7 @@ fi
 		case "$with_arch" in
 		"" \
 		| armv[23456] | armv2a | armv3m | armv4t | armv5t \
-		| armv5te | armv6j | ep9312)
+		| armv5te | armv6j | iwmmxt | ep9312)
 			# OK
 			;;
 		*)

@@ -1,5 +1,5 @@
 /* gtkcomponentpeer.c -- Native implementation of GtkComponentPeer
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -136,7 +136,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_requestFocus
   ptr = NSA_GET_PTR (env, obj);
   
   gdk_threads_enter ();
-  gtk_widget_grab_focus (GTK_WIDGET (ptr));
+  /* XXX gtk_widget_grab_focus (GTK_WIDGET (ptr)); */
   gdk_threads_leave ();
 }
 
@@ -386,7 +386,6 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkSetFont
 {
   const char *font_name;
   void *ptr;
-  GtkWidget *label;
   PangoFontDescription *font_desc;
 
   ptr = NSA_GET_PTR (env, obj);
@@ -611,10 +610,12 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_set__Ljava_lang_String_2Ljava_lang_O
 gboolean
 filter_expose_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 {
-  // Prevent the default event handler from getting this signal if applicable
-  // FIXME: I came up with these filters by looking for patterns in the unwanted
-  //        expose events that are fed back to us from gtk/X. Perhaps there is
-  //        a way to prevent them from occuring in the first place.
+  /*
+   * Prevent the default event handler from getting this signal if applicable
+   * FIXME: I came up with these filters by looking for patterns in the unwanted
+   *        expose events that are fed back to us from gtk/X. Perhaps there is
+   *        a way to prevent them from occuring in the first place.
+   */
   if (event->type == GDK_EXPOSE && (!GTK_IS_LAYOUT(widget)
                                     || event->any.window != widget->window))
     {
@@ -623,8 +624,8 @@ filter_expose_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
     }
   else
     {
-      // There may be non-expose events that are triggered while we're
-      // painting a heavyweight peer.
+      /* There may be non-expose events that are triggered while we're
+        painting a heavyweight peer. */
       return pre_event_handler(widget, event, peer);
     }
 }
@@ -632,17 +633,18 @@ filter_expose_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_addExposeFilter
   (JNIEnv *env, jobject obj)
 {
-  void *ptr = NSA_GET_PTR (env, obj);
-  jobject *gref = NSA_GET_GLOBAL_REF (env, obj);
-  g_assert (gref);
   GtkObject *filterobj;
   GtkWidget *vbox, *layout;
   GList *children;
+  void *ptr = NSA_GET_PTR (env, obj);
+  jobject *gref = NSA_GET_GLOBAL_REF (env, obj);
+
+  g_assert (gref);
 
   gdk_threads_enter ();
 
-  // GtkFramePeer is built as a GtkLayout inside a GtkVBox inside a GtkWindow.
-  // Events go to the GtkLayout layer, so we filter them there.
+  /* GtkFramePeer is built as a GtkLayout inside a GtkVBox inside a GtkWindow.
+     Events go to the GtkLayout layer, so we filter them there. */
   if (GTK_IS_WINDOW(ptr))
     {
       children = gtk_container_get_children(GTK_CONTAINER(ptr));
@@ -675,17 +677,18 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_addExposeFilt
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_removeExposeFilter
   (JNIEnv *env, jobject obj)
 {
-  void *ptr = NSA_GET_PTR (env, obj);
-  jobject *gref = NSA_GET_GLOBAL_REF (env, obj);
-  g_assert (gref);
   GtkObject *filterobj;
   GtkWidget *vbox, *layout;
   GList *children;
+  void *ptr = NSA_GET_PTR (env, obj);
+  jobject *gref = NSA_GET_GLOBAL_REF (env, obj);
+
+  g_assert (gref);
 
   gdk_threads_enter ();
 
-  // GtkFramePeer is built as a GtkLayout inside a GtkVBox inside a GtkWindow.
-  // Events go to the GtkLayout layer, so we filter them there.
+  /* GtkFramePeer is built as a GtkLayout inside a GtkVBox inside a GtkWindow.
+     Events go to the GtkLayout layer, so we filter them there. */
   if (GTK_IS_WINDOW(ptr))
     {
       children = gtk_container_get_children(GTK_CONTAINER(ptr));

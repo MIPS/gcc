@@ -683,15 +683,29 @@ package body Sem_Ch8 is
          T := Entity (Subtype_Mark (N));
          Analyze_And_Resolve (Nam, T);
 
-      --  Ada 0Y (AI-230): Access renaming
+      --  Ada 0Y (AI-230/AI-254): Access renaming
 
       elsif Present (Access_Definition (N)) then
-         Find_Type (Subtype_Mark (Access_Definition (N)));
+
          T := Access_Definition
                 (Related_Nod => N,
                  N           => Access_Definition (N));
+
          Analyze_And_Resolve (Nam, T);
 
+         --  Ada 0Y (AI-230): Renaming of anonymous access-to-constant types
+         --  allowed if and only if the renamed object is access-to-constant
+
+         if Constant_Present (Access_Definition (N))
+           and then not Is_Access_Constant (Etype (Nam))
+         then
+            Error_Msg_N ("(Ada 0Y): the renamed object is not "
+                         & "access-to-constant ('R'M 8.5.1(6))", N);
+
+         elsif Null_Exclusion_Present (Access_Definition (N)) then
+            Error_Msg_N ("(Ada 0Y): null-excluding attribute ignored "
+                         & "('R'M 8.5.1(6))?", N);
+         end if;
       else
          pragma Assert (False);
          null;

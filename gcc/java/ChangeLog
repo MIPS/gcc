@@ -1,3 +1,20 @@
+2004-04-22  Roger Sayle  <roger@eyesopen.com>
+
+	* resource.c (write_resource_constructor): Guard call to possibly
+	NULL targetm.asm_out.constructor with targetm.have_ctors_dtors.
+
+2004-04-19  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* class.c (make_class_data): Add new field aux_info.
+	* decl.c (java_init_decl_processing): Push type and decl for 
+	`aux_info'.
+
+2004-04-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* expr.c (expand_java_NEW): Don't use size argument for 
+	_Jv_AllocObject calls.
+	* parse.y (patch_invoke): Likewise.
+
 2004-04-12  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* expr.c (build_invokeinterface): Remove unused variables to

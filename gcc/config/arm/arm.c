@@ -158,6 +158,7 @@ static void aof_file_end (void);
 static rtx arm_struct_value_rtx (tree, int);
 static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
+static bool arm_promote_prototypes (tree);
 
 
 /* Initialize the GCC target structure.  */
@@ -247,7 +248,7 @@ static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
+#define TARGET_PROMOTE_PROTOTYPES arm_promote_prototypes
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
@@ -856,12 +857,7 @@ arm_override_options (void)
 	error ("invalid ABI option: -mabi=%s", target_abi_name);
     }
   else
-    {
-      if (TARGET_IWMMXT)
-	arm_abi = ARM_ABI_AAPCS;
-      else
-	arm_abi = ARM_DEFAULT_ABI;
-    }
+    arm_abi = ARM_DEFAULT_ABI;
 
   if (TARGET_IWMMXT && !ARM_DOUBLEWORD_ALIGN)
     error ("iwmmxt requires an AAPCS compatible ABI for proper operation");
@@ -2999,7 +2995,7 @@ arm_legitimate_address_p (enum machine_mode mode, rtx x, RTX_CODE outer,
 	   && GET_MODE_SIZE (mode) <= 4
 	   && arm_address_register_rtx_p (XEXP (x, 0), strict_p)
 	   && GET_CODE (XEXP (x, 1)) == PLUS
-	   && XEXP (XEXP (x, 1), 0) == XEXP (x, 0))
+	   && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
     return arm_legitimate_index_p (mode, XEXP (XEXP (x, 1), 1), outer,
 				   strict_p);
 
@@ -3094,16 +3090,14 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
   HOST_WIDE_INT range;
   enum rtx_code code = GET_CODE (index);
 
-  if (TARGET_HARD_FLOAT && TARGET_FPA && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  /* Standard coprocessor addressing modes.  */
+  if (TARGET_HARD_FLOAT
+      && (TARGET_FPA || TARGET_MAVERICK)
+      && (GET_MODE_CLASS (mode) == MODE_FLOAT
+	  || (TARGET_MAVERICK && mode == DImode)))
     return (code == CONST_INT && INTVAL (index) < 1024
 	    && INTVAL (index) > -1024
 	    && (INTVAL (index) & 3) == 0);
-
-  if (TARGET_HARD_FLOAT && TARGET_MAVERICK
-      && (GET_MODE_CLASS (mode) == MODE_FLOAT || mode == DImode))
-    return (code == CONST_INT
-	    && INTVAL (index) < 255
-	    && INTVAL (index) > -255);
 
   if (arm_address_register_rtx_p (index, strict_p)
       && GET_MODE_SIZE (mode) <= 4)
@@ -3111,8 +3105,9 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
 
   if (TARGET_REALLY_IWMMXT && VALID_IWMMXT_REG_MODE (mode))
     return (code == CONST_INT
-	    && INTVAL (index) < 256
-	    && INTVAL (index) > -256);
+	    && INTVAL (index) < 1024
+	    && INTVAL (index) > -1024
+	    && (INTVAL (index) & 3) == 0);
 
   if (GET_MODE_SIZE (mode) <= 4
       && ! (arm_arch4
@@ -9497,7 +9492,7 @@ arm_output_epilogue (rtx sibling)
 	     the live_regs_mask.  */
 	  lrm_count += (lrm_count % 2 ? 2 : 1);
 	      
-	  for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
+	  for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
 	      {
 		asm_fprintf (f, "\twldrd\t%r, [%r, #-%d]\n", 
@@ -9618,7 +9613,7 @@ arm_output_epilogue (rtx sibling)
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
 	  if (regs_ever_live[reg] && !call_used_regs[reg])
-	    asm_fprintf (f, "\twldrd\t%r, [%r, #+8]!\n", reg, SP_REGNUM);
+	    asm_fprintf (f, "\twldrd\t%r, [%r], #8\n", reg, SP_REGNUM);
 
       /* If we can, restore the LR into the PC.  */
       if (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
@@ -10344,7 +10339,7 @@ arm_expand_prologue (void)
     }
 
   if (TARGET_IWMMXT)
-    for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
+    for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
       if (regs_ever_live[reg] && ! call_used_regs [reg])
 	{
 	  insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
@@ -10386,6 +10381,7 @@ arm_expand_prologue (void)
 		    {
 		      insn = emit_sfm (reg, 4);
 		      RTX_FRAME_RELATED_P (insn) = 1;
+		      saved_regs += 48;
 		      start_reg = reg - 1;
 		    }
 		}
@@ -10395,7 +10391,7 @@ arm_expand_prologue (void)
 		    {
 		      insn = emit_sfm (reg + 1, start_reg - reg);
 		      RTX_FRAME_RELATED_P (insn) = 1;
-		      saved_regs += (reg - start_reg) * 12;
+		      saved_regs += (start_reg - reg) * 12;
 		    }
 		  start_reg = reg - 1;
 		}
@@ -10404,7 +10400,7 @@ arm_expand_prologue (void)
 	  if (start_reg != reg)
 	    {
 	      insn = emit_sfm (reg + 1, start_reg - reg);
-	      saved_regs += (reg - start_reg) * 12;
+	      saved_regs += (start_reg - reg) * 12;
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	    }
 	}
@@ -14442,5 +14438,15 @@ arm_no_early_mul_dep (rtx producer, rtx consumer)
   
   return (GET_CODE (op) == PLUS
 	  && !reg_overlap_mentioned_p (value, XEXP (op, 0)));
+}
+
+
+/* We can't rely on the caller doing the proper promotion when
+   using APCS or ATPCS.  */
+
+static bool
+arm_promote_prototypes (tree t ATTRIBUTE_UNUSED)
+{
+    return arm_abi == ARM_ABI_APCS || arm_abi == ARM_ABI_ATPCS;
 }
 
