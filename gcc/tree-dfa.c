@@ -96,6 +96,7 @@ static void add_may_alias		PARAMS ((tree, tree));
 static bool may_alias_p			PARAMS ((tree, tree));
 static bool is_visible_to		PARAMS ((tree, tree));
 static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
+static inline tree create_indirect_ref	PARAMS ((tree));
 
 
 /* Global declarations.  */
@@ -290,10 +291,14 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p)
 	 we have to clobber the associated '*p' variable, because now 'p'
 	 is pointing to a different memory location.  */
       if (ref_type == V_DEF
-	  && POINTER_TYPE_P (TREE_TYPE (expr))
-	  && indirect_var (expr))
-	create_ref (indirect_var (expr), V_DEF, TRM_RELOCATE, bb, parent_stmt_p,
-	            parent_expr_p, NULL, 1);
+	  && POINTER_TYPE_P (TREE_TYPE (expr)))
+	{
+	  if (indirect_var (expr) == NULL)
+	    set_indirect_var (expr, create_indirect_ref (expr));
+
+	  create_ref (indirect_var (expr), V_DEF, TRM_RELOCATE, bb,
+		      parent_stmt_p, parent_expr_p, NULL, 1);
+	}
 
       return;
     }
@@ -891,7 +896,7 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p, operand_p,
 
       ref->vuse.rdefs = create_ref_list ();
     }
-  else if (ref_type & E_PHI)
+  else if (ref_type == E_PHI)
     {
       varray_type temp;
       VARRAY_GENERIC_PTR_INIT (temp, 
@@ -1159,7 +1164,7 @@ dump_ref (outf, prefix, ref, indent, details)
 	    }
 	}
 
-      if ((ref_type (ref) & E_PHI) && exprphi_phi_args (ref))
+      if ((ref_type (ref) == E_PHI) && exprphi_phi_args (ref))
 	{
 	  if (details)
 	    fprintf (outf, " class:%d downsafe:%d can_be_avail:%d later:%d\n", 
@@ -1181,7 +1186,7 @@ dump_ref (outf, prefix, ref, indent, details)
 	  dump_ref (outf, prefix, imm_reaching_def (ref), indent + 4, 0);
 	}	  
 
-      if ((ref_type (ref) & E_USE) && expruse_phiop (ref))
+      if ((ref_type (ref) == E_USE) && expruse_phiop (ref))
 	{
 	  char *temp_indent;
 	  fprintf (outf, " class:%d has_real_use:%d  operand defined by:\n", 
@@ -1648,11 +1653,11 @@ count_tree_refs (dfa_stats_p, list)
 	  if (num > dfa_stats_p->max_num_phi_args)
 	    dfa_stats_p->max_num_phi_args = num;
 	}
-      else if (ref_type (ref) & E_PHI)
+      else if (ref_type (ref) == E_PHI)
 	dfa_stats_p->num_ephis++;
-      else if (ref_type (ref) & E_USE)
+      else if (ref_type (ref) == E_USE)
 	dfa_stats_p->num_euses++;
-      else if (ref_type (ref) & E_KILL)
+      else if (ref_type (ref) == E_KILL)
 	dfa_stats_p->num_ekills++;
     }
 }
@@ -2009,4 +2014,18 @@ tree_ref_structure (ref)
     return TR_EXPR_REF_COMMON;
 
   abort ();
+}
+
+
+/* Create and return a new INDIRECT_REF for pointer symbol PTR_SYM.  */
+
+static inline tree
+create_indirect_ref (ptr_sym)
+     tree ptr_sym;
+{
+#if defined ENABLE_CHECKING
+  if (!POINTER_TYPE_P (TREE_TYPE (ptr_sym)))
+    abort ();
+#endif
+  return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr_sym)), ptr_sym);
 }

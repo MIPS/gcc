@@ -867,8 +867,11 @@ set_ssa_links (ref, var, alias_ix)
     }
   else if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
     {
-      /* Save the current definition chain (only when not processing
-	 aliases).  */
+      /* Save the current definition chain for the variable.  This is used
+	 when visiting the dominator children of a block in
+	 search_fud_chains.  Once all the dominator children of block BB
+	 have been visited, we need to restore CURRDEF for all the
+	 variables referenced in BB.  */
       save_chain[ref_id (ref)] = currdef;
 
       /* Set a def-def link for partial definitions.  */

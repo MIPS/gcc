@@ -1,5 +1,15 @@
 2002-10-31  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (create_indirect_ref): New local function.
+	(find_refs_in_expr): Call it.
+	(create_ref): Check E_* reference types with == instead of &.
+	(dump_ref): Likewise.
+	(count_tree_refs): Likewise.
+	* tree-ssa.c (set_ssa_links): Update documentation comment for
+	save_chain.
+
+2002-10-31  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-cfg.c (remove_tree_bb): Don't walk beyond the end of the
 	basic block.
 
