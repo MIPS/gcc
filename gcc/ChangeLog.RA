@@ -1,3 +1,7 @@
+2001-03-21  Michael Matz  <matz@suse.de>
+
+	* reload.c: Include <pre-reload.h> after <hard-reg-set.h>.
+
 Sat Mar 16 12:33:21 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* pre-reload.h (ra_ref_type): New enum. Type of ra_ref.
