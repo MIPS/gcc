@@ -2069,14 +2069,22 @@ process_double_test_block (test_bb, test2_bb, then_bb, else_bb,
       branch_edge->probability = REG_BR_PROB_BASE - info.probability;
       fallthru_edge->probability = info.probability;
       branch_edge->count = test_bb->count - info.count1 - info.count2;
+      if (branch_edge->count < 0)
+	branch_edge->count = 0;
       fallthru_edge->count = info.count1 + info.count2;
+      if (fallthru_edge->count < 0)
+	fallthru_edge->count = 0;
     }
   else
     {
       fallthru_edge->probability = REG_BR_PROB_BASE - info.probability;
       branch_edge->probability = info.probability;
       fallthru_edge->count = test_bb->count - info.count1 - info.count2;
+      if (fallthru_edge->count < 0)
+	fallthru_edge->count = 0;
       branch_edge->count = info.count1 + info.count2;
+      if (branch_edge->count < 0)
+	branch_edge->count = 0;
     }
 
   /* The test basic block may define some pseudos used by test2.  We do not
