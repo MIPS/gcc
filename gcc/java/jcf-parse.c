@@ -747,7 +747,7 @@ parse_class_file (void)
 	  DECL_MAX_LOCALS (method) = decl_max_locals;
 	  start_java_method (method);
 	  give_name_to_locals (jcf);
-	  expand_expr_stmt (build_jni_stub (method));
+	  *get_stmts () = build_jni_stub (method);
 	  end_java_method ();
 	  continue;
 	}
@@ -789,7 +789,7 @@ parse_class_file (void)
 
       give_name_to_locals (jcf);
 
-      /* Actually generate code. */
+      /* Convert bytecode to trees.  */
       expand_byte_code (jcf, method);
 
       end_java_method ();

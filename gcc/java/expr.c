@@ -233,7 +233,7 @@ flush_quick_stack (void)
 
       decl = find_stack_slot (stack_index, type);
       if (decl != node)
-	  expand_assignment (decl, node, 0);
+	java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (node), decl, node));
       stack_index += 1 + TYPE_IS_WIDE (type);
     }
 }
@@ -551,7 +551,8 @@ java_stack_dup (int size, int offset)
 	{
 	  tree src_decl = find_stack_slot (src_index, type);
 	  tree dst_decl = find_stack_slot (dst_index, type);
-	  emit_move_insn (DECL_RTL (dst_decl), DECL_RTL (src_decl));
+
+	  java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (dst_decl), dst_decl, src_decl));
 	  stack_type_map[dst_index] = type;
 	}
     }
@@ -571,7 +572,7 @@ build_java_athrow (tree node)
 		build_tree_list (NULL_TREE, node),
 		NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
-  expand_expr_stmt (call);
+  java_add_stmt (call);
   java_stack_pop (stack_pointer);
 }
 
@@ -585,8 +586,8 @@ build_java_jsr (int target_pc, int return_pc)
   tree ret_label = fold (build1 (ADDR_EXPR, return_address_type_node, ret));
   push_value (ret_label);
   flush_quick_stack ();
-  emit_jump (label_rtx (where));
-  expand_label (ret);
+  java_add_stmt (build (GOTO_EXPR, void_type_node, where));
+  java_add_stmt (build (LABEL_EXPR, void_type_node, ret));
   if (instruction_bits [return_pc] & BCODE_VERIFIED)
     load_type_state (ret);
 }
@@ -594,7 +595,7 @@ build_java_jsr (int target_pc, int return_pc)
 static void
 build_java_ret (tree location)
 {
-  expand_computed_goto (location);
+  java_add_stmt (build (GOTO_EXPR, void_type_node, location));
 }
  
 /* Implementation of operations on array: new, load, store, length */
@@ -981,13 +982,11 @@ expand_java_arraystore (tree rhs_type_node)
   if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
     {
       tree check = build_java_arraystore_check (array, rhs_node);
-      expand_expr_stmt (check);
+      java_add_stmt (check);
     }
   
-  expand_assignment (build_java_arrayaccess (array,
-					     rhs_type_node,
-					     index),
-		     rhs_node, 0);
+  array = build_java_arrayaccess (array, rhs_type_node, index);
+  java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (array), array, rhs_node));  
 }
 
 /* Expand the evaluation of ARRAY[INDEX]. build_java_check_indexed_type makes 
@@ -1080,7 +1079,7 @@ static void
 expand_java_return (tree type)
 {
   if (type == void_type_node)
-    expand_null_return ();
+    java_add_stmt (build (RETURN_EXPR, void_type_node, NULL));   
   else
     {
       tree retval = pop_value (type);
@@ -1097,7 +1096,7 @@ expand_java_return (tree type)
 	retval = build1(NOP_EXPR, TREE_TYPE(res), retval);
       
       TREE_SIDE_EFFECTS (retval) = 1;
-      expand_return (retval);
+      java_add_stmt (build (RETURN_EXPR, TREE_TYPE (retval), retval));
     }
 }
 
@@ -1115,12 +1114,11 @@ expand_load_internal (int index, tree type, int pc)
      Hopefully this all gets optimized out.  */
   copy = build_decl (VAR_DECL, NULL_TREE, type);
   DECL_CONTEXT (copy) = current_function_decl;
-  layout_decl (copy, 0);
-  DECL_REGISTER (copy) = 1;
-  expand_decl (copy);
   MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (copy);
-  DECL_INITIAL (copy) = var;
-  expand_decl_init (copy);
+
+  java_add_local_var (copy);
+  java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (var), copy, var));
+  
   push_value (copy);
 }
 
@@ -1275,7 +1273,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
     local_var = find_local_variable (local_var_index, int_type_node, pc);
     constant_value = build_int_2 (ival, ival < 0 ? -1 : 0);
     res = fold (build (PLUS_EXPR, int_type_node, local_var, constant_value));
-    expand_assignment (local_var, res, 0);
+    java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
 }
 
       
@@ -1584,9 +1582,10 @@ expand_compare (enum tree_code condition, tree value1, tree value2,
 {
   tree target = lookup_label (target_pc);
   tree cond = fold (build (condition, boolean_type_node, value1, value2));
-  expand_start_cond (java_truthvalue_conversion (cond), 0);
-  expand_goto (target);
-  expand_end_cond ();
+  java_add_stmt 
+    (build (COND_EXPR, void_type_node, java_truthvalue_conversion (cond),
+	    build (GOTO_EXPR, void_type_node, target), 
+	    build_java_empty_stmt ()));
 }
 
 /* Emit code for a TEST-type opcode. */
@@ -1620,7 +1619,7 @@ expand_java_goto (int target_pc)
 {
   tree target_label = lookup_label (target_pc);
   flush_quick_stack ();
-  expand_goto (target_label);
+  java_add_stmt (build  (GOTO_EXPR, void_type_node, target_label));
 }
 
 #if 0
@@ -2064,7 +2063,11 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
       else
 	func = build_invokeinterface (dtable, method);
     }
-  func = build1 (NOP_EXPR, build_pointer_type (method_type), func);
+      
+  if (TREE_CODE (func) == ADDR_EXPR)
+    TREE_TYPE (func) = build_pointer_type (method_type);
+  else
+    func = build1 (NOP_EXPR, build_pointer_type (method_type), func);
 
   call = build (CALL_EXPR, TREE_TYPE (method_type), func, arg_list, NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
@@ -2077,7 +2080,7 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
     }
 
   if (TREE_CODE (TREE_TYPE (method_type)) == VOID_TYPE)
-    expand_expr_stmt (call);
+    java_add_stmt (call);
   else
     {
       push_value (call);
@@ -2096,6 +2099,7 @@ build_jni_stub (tree method)
   tree env_var, res_var = NULL_TREE, block;
   tree method_args, res_type;
   tree meth_var;
+  tree bind;
 
   int args_size = 0;
 
@@ -2129,9 +2133,7 @@ build_jni_stub (tree method)
   DECL_INITIAL (meth_var) = null_pointer_node;
   TREE_USED (meth_var) = 1;
   chainon (env_var, meth_var);
-  layout_decl (meth_var, 0);
-  make_decl_rtl (meth_var, NULL);
-  rest_of_decl_compilation (meth_var, NULL, 0, 0);
+  build_result_decl (method);
 
   /* One strange way that the front ends are different is that they
      store arguments differently.  */
@@ -2247,39 +2249,31 @@ build_jni_stub (tree method)
   body = build (COMPOUND_EXPR, void_type_node, body, call);
   TREE_SIDE_EFFECTS (body) = 1;
 
-  /* Finally, do the return.  When compiling from source we rely on
-     patch_return to patch the return value -- because DECL_RESULT is
-     not set at the time this function is called.  */
-  if (from_class)
+  /* Finally, do the return.  */
+  res_type = void_type_node;
+  if (res_var != NULL_TREE)
     {
-      res_type = void_type_node;
-      if (res_var != NULL_TREE)
-	{
-	  tree drt;
-	  if (! DECL_RESULT (method))
-	    abort ();
-	  /* Make sure we copy the result variable to the actual
-	     result.  We use the type of the DECL_RESULT because it
-	     might be different from the return type of the function:
-	     it might be promoted.  */
-	  drt = TREE_TYPE (DECL_RESULT (method));
-	  if (drt != TREE_TYPE (res_var))
-	    res_var = build1 (CONVERT_EXPR, drt, res_var);
-	  res_var = build (MODIFY_EXPR, drt, DECL_RESULT (method), res_var);
-	  TREE_SIDE_EFFECTS (res_var) = 1;
-	}
+      tree drt;
+      if (! DECL_RESULT (method))
+	abort ();
+      /* Make sure we copy the result variable to the actual
+	 result.  We use the type of the DECL_RESULT because it
+	 might be different from the return type of the function:
+	 it might be promoted.  */
+      drt = TREE_TYPE (DECL_RESULT (method));
+      if (drt != TREE_TYPE (res_var))
+	res_var = build1 (CONVERT_EXPR, drt, res_var);
+      res_var = build (MODIFY_EXPR, drt, DECL_RESULT (method), res_var);
+      TREE_SIDE_EFFECTS (res_var) = 1;
     }
-  else
-    {
-      /* This is necessary to get patch_return to run.  */
-      res_type = NULL_TREE;
-    }
+
   body = build (COMPOUND_EXPR, void_type_node, body,
 		build1 (RETURN_EXPR, res_type, res_var));
   TREE_SIDE_EFFECTS (body) = 1;
-
-  BLOCK_EXPR_BODY (block) = body;
-  return block;
+  
+  bind = build (BIND_EXPR, void_type_node, BLOCK_VARS (block), 
+		body, block);
+  return bind;
 }
 
 /* Expand an operation to extract from or store into a field.
@@ -2353,7 +2347,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 		warning_with_decl (field_decl, "assignment to final field `%s' not in constructor");
 	    }
 	}
-      expand_assignment (field_ref, new_value, 0);
+      java_add_stmt (build (MODIFY_EXPR, 
+			    TREE_TYPE (field_ref), field_ref, new_value));
     }
   else
     push_value (field_ref);
@@ -2412,6 +2407,8 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 		  int modifier /* Actually an enum expand_modifier.  */)
 {
   tree current;
+
+  abort ();
 
   switch (TREE_CODE (exp))
     {
@@ -2781,7 +2778,7 @@ expand_byte_code (JCF *jcf, tree method)
   if (! verify_jvm_instructions (jcf, byte_ops, length))
     return;
 
-  /* Translate bytecodes to rtl instructions. */
+  /* Translate bytecodes.  */
   linenumber_pointer = linenumber_table;
   for (PC = 0; PC < length;)
     {
@@ -2790,7 +2787,7 @@ expand_byte_code (JCF *jcf, tree method)
 	  tree label = lookup_label (PC);
           flush_quick_stack ();
 	  if ((instruction_bits [PC] & BCODE_TARGET) != 0)
-	    expand_label (label);
+	    java_add_stmt (build (LABEL_EXPR, void_type_node, label));
 	  if (LABEL_VERIFIED (label) || PC == 0)
 	    load_type_state (label);
 	}
@@ -2885,7 +2882,7 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   if (instruction_bits [PC] & BCODE_EXCEPTION_TARGET)
     {
       tree type = pop_type (ptr_type_node);
-      push_value (build (JAVA_EXC_OBJ_EXPR, type));
+      push_value (build_exception_object_ref (type));
     }
 
   switch (byte_ops[PC++])
@@ -3091,16 +3088,16 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
 
 /* internal macro added for use by the WIDE case 
    Added TREE_TYPE (decl) assignment, apbianco  */
-#define STORE_INTERNAL(OPTYPE, OPVALUE)			\
-  {							\
-    tree decl, value;					\
-    int var = OPVALUE;					\
-    tree type = OPTYPE;					\
-    value = pop_value (type);				\
-    type = TREE_TYPE (value);				\
-    decl = find_local_variable (var, type, oldpc);	\
-    set_local_type (var, type );			\
-    expand_assignment (decl, value, 0);			\
+#define STORE_INTERNAL(OPTYPE, OPVALUE)				\
+  {								\
+    tree decl, value;						\
+    int var = OPVALUE;						\
+    tree type = OPTYPE;						\
+    value = pop_value (type);					\
+    type = TREE_TYPE (value);					\
+    decl = find_local_variable (var, type, oldpc);		\
+    set_local_type (var, type);					\
+    java_add_stmt (build (MODIFY_EXPR, type, decl, value));	\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \
@@ -3123,7 +3120,7 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     flush_quick_stack ();			\
     c = build_java_monitor (call, o);		\
     TREE_SIDE_EFFECTS (c) = 1;			\
-    expand_expr_stmt (c);			\
+    java_add_stmt (c);				\
   }
 
 #define SPECIAL_IINC(IGNORED) \

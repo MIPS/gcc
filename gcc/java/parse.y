@@ -196,7 +196,6 @@ static void check_deprecation (tree, tree);
 static int class_in_current_package (tree);
 static tree build_if_else_statement (int, tree, tree, tree);
 static tree patch_if_else_statement (tree);
-static tree add_stmt_to_compound (tree, tree, tree);
 static tree add_stmt_to_block (tree, tree, tree);
 static tree patch_exit_expr (tree);
 static tree build_labeled_block (int, tree);
@@ -7454,18 +7453,6 @@ add_stmt_to_block (tree b, tree type, tree stmt)
   BLOCK_EXPR_BODY (b) = c;
   TREE_SIDE_EFFECTS (c) = 1;
   return c;
-}
-
-/* Add STMT to EXISTING if possible, otherwise create a new
-   COMPOUND_EXPR and add STMT to it. */
-
-static tree
-add_stmt_to_compound (tree existing, tree type, tree stmt)
-{
-  if (existing)
-    return build (COMPOUND_EXPR, type, existing, stmt);
-  else
-    return stmt;
 }
 
 void java_layout_seen_class_methods (void)

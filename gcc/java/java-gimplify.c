@@ -143,7 +143,7 @@ java_gimplify_block (tree java_block)
   tree block;
 
   /* Don't bother with empty blocks.  */
-  if (IS_EMPTY_STMT (body))
+  if (! body || IS_EMPTY_STMT (body))
     return body;
 
   /* Make a proper block.  Java blocks are unsuitable for BIND_EXPR

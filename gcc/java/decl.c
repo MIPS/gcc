@@ -45,6 +45,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "timevar.h"
 #include "tree-inline.h"
+#include "tree-dump.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -94,7 +95,7 @@ int current_pc;
 void
 indent (void)
 {
-  register unsigned i;
+  register int i;
 
   for (i = 0; i < binding_depth*2; i++)
     putc (' ', stderr);
@@ -141,6 +142,9 @@ push_jvm_slot (int index, tree decl)
     }
   DECL_LOCAL_SLOT_CHAIN (decl) = TREE_VEC_ELT (decl_map, index);
   TREE_VEC_ELT (decl_map, index) = decl;
+
+  if (TREE_CODE (decl) != PARM_DECL)
+    pushdecl (decl);
   return decl;
 }
 
@@ -203,11 +207,16 @@ find_local_variable (int index, tree type, int pc)
   /* Scan through every declaration that has been created in this slot. */
   while (decl != NULL_TREE)
     {
+      bool has_name = false;
+      tree name = DECL_NAME (decl);
+      if (name && IDENTIFIER_POINTER (name))
+	has_name = IDENTIFIER_POINTER (name)[0] != '#';
+      
        /* Variables created in give_name_to_locals() have a name and have
  	 a specified scope, so we can handle them specifically.  We want
  	 to use the specific decls created for those so they are assigned
  	 the right variables in the debugging information. */
-      if (DECL_NAME (decl) != NULL_TREE)
+      if (has_name)
 	{
 	  /* This is a variable we have a name for, so it has a scope
 	     supplied in the class file.  But it only matters when we
@@ -232,8 +241,20 @@ find_local_variable (int index, tree type, int pc)
   if (best != NULL_TREE)
     return best;
 
-  /* If we don't find a match, create one with the type passed in. */
-  return push_jvm_slot (index, build_decl (VAR_DECL, NULL_TREE, type));
+  /* If we don't find a match, create one with the type passed in.
+     Ths name of the variable is #n#m, which n is the variable index
+     in the local variable area and m is a dummy identifier for
+     uniqueness -- multiple variables may share the same local
+     variable index.  */
+  {
+    char buf[64];
+    tree name;
+    static int uniq;
+    sprintf (buf, "#%d#%d", index, uniq++);
+    name = get_identifier (buf);
+
+    return push_jvm_slot (index, build_decl (VAR_DECL, name, type));
+  }
 }
 
 
@@ -276,6 +297,9 @@ struct binding_level
     /* The bytecode PC that marks the start of this level. */
     int start_pc;
 
+    /* The statements in this binding level.  */
+    tree stmts;
+
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
     /* Binding depth at which this level began.  */
     unsigned binding_depth;
@@ -306,7 +330,11 @@ static struct binding_level *global_binding_level;
 
 static const struct binding_level clear_binding_level
   = {NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE,
-       NULL_BINDING_LEVEL, LARGEST_PC, 0};
+     NULL_BINDING_LEVEL, LARGEST_PC, 0, NULL,
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+     0,
+#endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
+};
 
 #if 0
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
@@ -1201,7 +1229,7 @@ pushlevel (int unused ATTRIBUTE_UNUSED)
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   newlevel->binding_depth = binding_depth;
   indent ();
-  fprintf (stderr, "push %s level 0x%08x pc %d\n",
+  fprintf (stderr, "push %s level %p pc %d\n",
 	   (is_class_level) ? "class" : "block", newlevel, current_pc);
   is_class_level = 0;
   binding_depth++;
@@ -1233,17 +1261,18 @@ poplevel (int keep, int reverse, int functionbody)
   tree subblocks = current_binding_level->blocks;
   tree block = 0;
   tree decl;
+  tree bind = 0;
   int block_previously_created;
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   binding_depth--;
   indent ();
   if (current_binding_level->end_pc != LARGEST_PC)
-    fprintf (stderr, "pop  %s level 0x%08x pc %d (end pc %d)\n",
+    fprintf (stderr, "pop  %s level %p pc %d (end pc %d)\n",
 	     (is_class_level) ? "class" : "block", current_binding_level, current_pc,
 	     current_binding_level->end_pc);
   else
-    fprintf (stderr, "pop  %s level 0x%08x pc %d\n",
+    fprintf (stderr, "pop  %s level %p pc %d\n",
 	     (is_class_level) ? "class" : "block", current_binding_level, current_pc);
 #if 0
   if (is_class_level != (current_binding_level == class_binding_level))
@@ -1300,12 +1329,55 @@ poplevel (int keep, int reverse, int functionbody)
   if (block_previously_created)
     block = current_binding_level->this_block;
   else if (keep || functionbody)
-    block = make_node (BLOCK);
+    {
+      block = make_node (BLOCK);
+      TREE_TYPE (block) = void_type_node;
+    }
+
   if (block != 0)
     {
-      BLOCK_VARS (block) = decls;
+      /* If any statements have been generated at this level, create a
+	 BIND_EXPR to hold them and copy the variables to it.  This
+	 only applies to the bytecode compiler.  */
+      if (current_binding_level->stmts)
+	{
+	  tree decl = decls;
+	  tree *var = &BLOCK_VARS (block);
+
+	  /* Copy decls from names list, ignoring labels.  */
+	  while (decl)
+	    {
+	      tree next = TREE_CHAIN (decl);
+	      if (TREE_CODE (decl) != LABEL_DECL)
+		{
+		  *var = decl;
+		  var = &TREE_CHAIN (decl);
+		}
+	      decl = next;
+	    }
+	  *var = NULL;
+	    
+	  bind =  build (BIND_EXPR, TREE_TYPE (block), BLOCK_VARS (block), 
+			 BLOCK_EXPR_BODY (block), block);
+
+	  BIND_EXPR_BODY (bind) = current_binding_level->stmts;
+	  
+	  if (BIND_EXPR_BODY (bind)
+	      && TREE_SIDE_EFFECTS (BIND_EXPR_BODY (bind)))
+	    TREE_SIDE_EFFECTS (bind) = 1;
+	  
+	  /* FIXME: gimplifier brain damage.  */
+	  if (BIND_EXPR_BODY (bind) == NULL)
+	    BIND_EXPR_BODY (bind) = build_java_empty_stmt ();
+
+	  current_binding_level->stmts = NULL;
+	}
+      else
+	{
+	  BLOCK_VARS (block) = decls;
+	}
       BLOCK_SUBBLOCKS (block) = subblocks;
-    }
+    }	
 
   /* In each subblock, record that this is its superior.  */
 
@@ -1390,7 +1462,10 @@ poplevel (int keep, int reverse, int functionbody)
 
   /* Dispose of the block that we just made inside some higher level.  */
   if (functionbody)
-    DECL_INITIAL (current_function_decl) = block;
+    {
+      DECL_INITIAL (current_function_decl) = block;
+      DECL_SAVED_TREE (current_function_decl) = bind;
+    }
   else if (block)
     {
       if (!block_previously_created)
@@ -1406,21 +1481,9 @@ poplevel (int keep, int reverse, int functionbody)
     current_binding_level->blocks
       = chainon (current_binding_level->blocks, subblocks);
 
-  /* Set the TYPE_CONTEXTs for all of the tagged types belonging to this
-     binding contour so that they point to the appropriate construct, i.e.
-     either to the current FUNCTION_DECL node, or else to the BLOCK node
-     we just constructed.
-
-     Note that for tagged types whose scope is just the formal parameter
-     list for some function type specification, we can't properly set
-     their TYPE_CONTEXTs here, because we don't have a pointer to the
-     appropriate FUNCTION_TYPE node readily available to us.  For those
-     cases, the TYPE_CONTEXTs of the relevant tagged type nodes get set
-     in `grokdeclarator' as soon as we have created the FUNCTION_TYPE
-     node which will represent the "scope" for these "parameter list local"
-     tagged types.
-  */
-
+  if (bind)
+    java_add_stmt (bind);
+  
   if (block)
     TREE_USED (block) = 1;
   return block;
@@ -1454,7 +1517,6 @@ maybe_pushlevels (int pc)
       maybe_start_try (pc, end_pc);
       
       pushlevel (1);
-      expand_start_bindings (0);
 
       current_binding_level->end_pc = end_pc;
       current_binding_level->start_pc = pc;      
@@ -1477,7 +1539,6 @@ maybe_poplevels (int pc)
 
   while (current_binding_level->end_pc <= pc)
     {
-      expand_end_bindings (getdecls (), 1, 0);
       maybe_end_try (current_binding_level->start_pc, pc);
       poplevel (1, 0, 0);
     }
@@ -1498,7 +1559,6 @@ force_poplevels (int start_pc)
 	warning_with_decl (current_function_decl, 
 			   "In %s: overlapped variable and exception ranges at %d",
 			   current_binding_level->start_pc);
-      expand_end_bindings (getdecls (), 1, 0);
       poplevel (1, 0, 0);
     }
 }
@@ -1673,67 +1733,67 @@ complete_start_java_method (tree fndecl)
       expand_function_start (fndecl, 0);
     }
 
-#if 0
-      /* If this fcn was already referenced via a block-scope `extern' decl (or
-         an implicit decl), propagate certain information about the usage. */
-      if (TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (current_function_decl)))
-        TREE_ADDRESSABLE (current_function_decl) = 1;
-
-#endif
-
-  if (METHOD_STATIC (fndecl) && ! METHOD_PRIVATE (fndecl)
-      && ! flag_emit_class_files
-      && ! DECL_CLINIT_P (fndecl)
-      && ! CLASS_INTERFACE (TYPE_NAME (current_class)))
-    {
-      tree clas = DECL_CONTEXT (fndecl);
-      tree init = build (CALL_EXPR, void_type_node,
-			 build_address_of (soft_initclass_node),
-			 build_tree_list (NULL_TREE, build_class_ref (clas)),
-			 NULL_TREE);
-      TREE_SIDE_EFFECTS (init) = 1;
-      expand_expr_stmt (init);
-    }
-
   /* Push local variables. Function compiled from source code are
      using a different local variables management, and for them,
      pushlevel shouldn't be called from here.  */
   if (!CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl)))
     {
       pushlevel (2);
-      if (! flag_emit_class_files)
-	expand_start_bindings (1);
     }
 
-  if (METHOD_SYNCHRONIZED (fndecl) && ! flag_emit_class_files)
+  if (flag_emit_class_files)
+    return;
+
+  if (CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl)))
     {
-      /* Wrap function body with a monitorenter plus monitorexit cleanup. */
-      tree enter, exit, lock;
-      if (METHOD_STATIC (fndecl))
-	lock = build_class_ref (DECL_CONTEXT (fndecl));
-      else
-	lock = DECL_ARGUMENTS (fndecl);
-      BUILD_MONITOR_ENTER (enter, lock);
-      BUILD_MONITOR_EXIT (exit, lock);
-      if (!CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl)))
-	{
-	  expand_expr_stmt (enter);
-	  expand_decl_cleanup (NULL_TREE, exit);
-	}
-      else
+      tree *saved_tree = &DECL_SAVED_TREE (fndecl);
+      if (METHOD_STATIC (fndecl)
+	  && ! flag_emit_class_files
+	  && ! DECL_CLINIT_P (fndecl)
+	  && ! CLASS_INTERFACE (TYPE_NAME (current_class)))
 	{
 	  tree function_body = DECL_FUNCTION_BODY (fndecl);
 	  tree body = BLOCK_EXPR_BODY (function_body);
-	  lock = build (COMPOUND_EXPR, void_type_node,
-			enter,
-			build (TRY_FINALLY_EXPR, void_type_node, body, exit));
-	  TREE_SIDE_EFFECTS (lock) = 1;
-	  BLOCK_EXPR_BODY (function_body) = lock;
-
+	  tree clas = DECL_CONTEXT (fndecl);
+	  tree init = build (CALL_EXPR, void_type_node,
+			     build_address_of (soft_initclass_node),
+			     build_tree_list (NULL_TREE, build_class_ref (clas)),
+			     NULL_TREE);
+	  TREE_SIDE_EFFECTS (init) = 1;
+	  init = build (COMPOUND_EXPR, void_type_node, init, body);
+	  TREE_SIDE_EFFECTS (init) = 1;
+	  BLOCK_EXPR_BODY (function_body) = init;
+	
 	  /* If we previously saved the tree for inlining,
 	     update that too.  */
-	  if (DECL_SAVED_TREE (fndecl) != NULL_TREE)
-	    DECL_SAVED_TREE (fndecl) = lock;
+	  if (*saved_tree != NULL_TREE)
+	    *saved_tree = init;
+	}
+
+      if (METHOD_SYNCHRONIZED (fndecl))
+	{
+	  /* Wrap function body with a monitorenter plus monitorexit cleanup. */
+	  tree enter, exit, lock;
+	  if (METHOD_STATIC (fndecl))
+	    lock = build_class_ref (DECL_CONTEXT (fndecl));
+	  else
+	    lock = DECL_ARGUMENTS (fndecl);
+	  BUILD_MONITOR_ENTER (enter, lock);
+	  BUILD_MONITOR_EXIT (exit, lock);
+	  {
+	    tree function_body = DECL_FUNCTION_BODY (fndecl);
+	    tree body = BLOCK_EXPR_BODY (function_body);
+	    lock = build (COMPOUND_EXPR, void_type_node,
+			  enter,
+			  build (TRY_FINALLY_EXPR, void_type_node, body, exit));
+	    TREE_SIDE_EFFECTS (lock) = 1;
+	    BLOCK_EXPR_BODY (function_body) = lock;
+	
+	    /* If we previously saved the tree for inlining,
+	       update that too.  */
+	    if (*saved_tree != NULL_TREE)
+	      *saved_tree = lock;
+	  }
 	}
     }
 }
@@ -1802,7 +1862,45 @@ end_java_method (void)
 {
   tree fndecl = current_function_decl;
 
-  expand_end_bindings (getdecls (), 1, 0);
+  if (!CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl))
+      && ! flag_emit_class_files)
+    {
+      if (METHOD_SYNCHRONIZED (fndecl))
+	{
+	  /* Wrap function body with a monitorenter plus monitorexit cleanup. */
+	  tree enter, exit, lock;
+	  if (METHOD_STATIC (fndecl))
+	    lock = build_class_ref (DECL_CONTEXT (fndecl));
+	  else
+	    lock = DECL_ARGUMENTS (fndecl);
+	  BUILD_MONITOR_ENTER (enter, lock);
+	  BUILD_MONITOR_EXIT (exit, lock);
+	  
+	  {
+	    tree lock = build (COMPOUND_EXPR, void_type_node,
+			       enter,
+			       build (TRY_FINALLY_EXPR, 
+				      void_type_node, *get_stmts (), exit));
+	    TREE_SIDE_EFFECTS (lock) = 1;
+	    *get_stmts () = lock;
+	  }
+	}
+
+      if (METHOD_STATIC (fndecl) && ! METHOD_PRIVATE (fndecl)
+	  && ! DECL_CLINIT_P (fndecl)
+	  && ! CLASS_INTERFACE (TYPE_NAME (current_class)))
+	{
+	  tree *stmts = get_stmts ();
+	  tree clas = DECL_CONTEXT (fndecl);
+	  tree init = build (CALL_EXPR, void_type_node,
+			     build_address_of (soft_initclass_node),
+			     build_tree_list (NULL_TREE, build_class_ref (clas)),
+			     NULL_TREE);
+	  TREE_SIDE_EFFECTS (init) = 1;
+	  *stmts = build (COMPOUND_EXPR, void_type_node, init, *stmts);
+	}
+    }
+
   /* pop out of function */
   poplevel (1, 1, 0);
 
@@ -1811,6 +1909,24 @@ end_java_method (void)
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
+  cfun->x_whole_function_mode_p = 1;
+
+  gimplify_function_tree (fndecl);
+  dump_function (TDI_gimple, fndecl);
+  if (optimize > 0 && !flag_disable_tree_ssa)
+    optimize_function_tree (fndecl);
+  
+  if (flag_inline_trees)
+    {
+      timevar_push (TV_INTEGRATION);
+      optimize_inline_calls (fndecl);
+      timevar_pop (TV_INTEGRATION);
+      dump_function (TDI_inlined, fndecl);
+    }
+
+  /* Generate function's code.  */
+  expand_expr_stmt (DECL_SAVED_TREE (fndecl));
+
   /* Generate rtl for function exit.  */
   expand_function_end ();
 
@@ -1818,6 +1934,19 @@ end_java_method (void)
   rest_of_compilation (fndecl);
 
   current_function_decl = NULL_TREE;
+}
+
+/* Dump FUNCTION_DECL FN as tree dump PHASE. */
+
+void java_optimize_inline (tree fndecl)
+{
+  if (flag_inline_trees)
+    {
+      timevar_push (TV_INTEGRATION);
+      optimize_inline_calls (fndecl);
+      timevar_pop (TV_INTEGRATION);
+      dump_function (TDI_inlined, fndecl);
+    }
 }
 
 /* We pessimistically marked all methods and fields external until we
@@ -1848,5 +1977,61 @@ java_mark_class_local (tree class)
     if (!METHOD_ABSTRACT (t) && (!METHOD_NATIVE (t) || flag_jni))
       java_mark_decl_local (t);
 }
+
+/* Add a statement to a compound_expr.  */
+
+tree
+add_stmt_to_compound (existing, type, stmt)
+     tree existing, type, stmt;
+{
+  if (!stmt)
+    return existing;
+  else if (existing)
+    {
+      tree expr = build (COMPOUND_EXPR, type, existing, stmt);
+      TREE_SIDE_EFFECTS (expr)
+	= TREE_SIDE_EFFECTS (existing) | TREE_SIDE_EFFECTS (stmt);
+      return expr;
+    }
+  else
+    return stmt;
+}
+
+/* Add a statement to the compound_expr currently being
+   constructed.  */
+
+tree
+java_add_stmt (stmt)
+     tree stmt;
+{
+  if (input_filename)
+    annotate_with_file_line (stmt, input_filename, input_line);
+  
+  return current_binding_level->stmts 
+    = add_stmt_to_compound (current_binding_level->stmts, 
+			    TREE_TYPE (stmt), stmt);
+}
+
+/* Add a variable to the current scope.  */
+
+tree
+java_add_local_var (tree decl)
+{
+  tree *vars = &current_binding_level->names;
+  tree next = *vars;
+  TREE_CHAIN (decl) = next;
+  *vars = decl;
+  return decl;
+}
+
+/* Return a pointer to the compound_expr currently being
+   constructed.  */
+
+tree *
+get_stmts (void)
+{
+  return &current_binding_level->stmts;
+}
+
 
 #include "gt-java-decl.h"

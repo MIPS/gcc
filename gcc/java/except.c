@@ -170,6 +170,7 @@ link_handler (struct eh_range *range, struct eh_range *outer)
 				     TREE_VALUE (range->handlers));
       h->next_sibling = NULL;
       h->expanded = 0;
+      h->stmt = NULL;
       /* Restart both from the top to avoid having to make this
 	 function smart about reentrancy.  */
       link_handler (h, &whole_range);
@@ -287,13 +288,13 @@ add_handler (int start_pc, int end_pc, tree handler, tree type)
   h->handlers = build_tree_list (type, handler);
   h->next_sibling = NULL;
   h->expanded = 0;
+  h->stmt = NULL;
 
   if (prev == NULL)
     whole_range.first_child = h;
   else
     prev->next_sibling = h;
 }
-
 
 /* if there are any handlers for this range, issue start of region */
 static void
@@ -304,8 +305,14 @@ expand_start_java_handler (struct eh_range *range)
   fprintf (stderr, "expand start handler pc %d --> %d\n",
 	   current_pc, range->end_pc);
 #endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
+  {
+    tree new = build (TRY_CATCH_EXPR, void_type_node, NULL, NULL);
+    TREE_SIDE_EFFECTS (new) = 1;
+    java_add_stmt (build_java_empty_stmt ());
+    range->stmt = java_add_stmt (new);
+  }
+		     
   range->expanded = 1;
-  expand_eh_region_start ();
 }
 
 tree
@@ -356,8 +363,9 @@ static void
 expand_end_java_handler (struct eh_range *range)
 {  
   tree handler = range->handlers;
-  force_poplevels (range->start_pc);
-  expand_start_all_catch ();
+  tree compound = NULL;
+
+  force_poplevels (range->start_pc);  
   for ( ; handler != NULL_TREE; handler = TREE_CHAIN (handler))
     {
       /* For bytecode we treat exceptions a little unusually.  A
@@ -367,14 +375,52 @@ expand_end_java_handler (struct eh_range *range)
 	 extra (and difficult) work to get this to look like a
 	 gcc-style finally clause.  */
       tree type = TREE_PURPOSE (handler);
+
       if (type == NULL)
 	type = throwable_type_node;
 
-      expand_start_catch (type);
-      expand_goto (TREE_VALUE (handler));
-      expand_end_catch ();
+      if (compound)
+	{
+	  /* If we already have a COMPOUND there is more than one
+	     catch handler for this try block.  Wrap the
+	     TRY_CATCH_EXPR in operand 1 of COMPOUND with another
+	     TRY_CATCH_EXPR.  */
+	  tree inner_try_expr = TREE_OPERAND (compound, 1);
+	  tree catch_expr 
+	    = build (CATCH_EXPR, void_type_node, type,
+		     build (GOTO_EXPR, void_type_node, TREE_VALUE (handler)));
+	  tree try_expr
+	    = build (TRY_CATCH_EXPR, void_type_node,
+		     inner_try_expr, catch_expr);
+	  TREE_OPERAND (compound, 1) = try_expr;
+	}
+      else
+	{
+	  tree *stmts = get_stmts ();
+	  compound = range->stmt;
+	  tree outer = TREE_OPERAND (compound, 0);
+	  tree try_expr = TREE_OPERAND (compound, 1);
+	  /* On the left of COMPOUND is the expresion to be evaluated
+	     before the try handler is entered; on the right is a
+	     TRY_FINALLY_EXPR with no operands as yet.  In the current
+	     statement list is an expression that we're going to move
+	     inside the try handler.  We'll create a new COMPOUND_EXPR
+	     with the outer context on the left and the TRY_FINALLY_EXPR
+	     on the right, then nullify both operands of COMPOUND, which
+	     becomes the final expression in OUTER.  This new compound
+	     expression replaces the current statement list.  */
+	  TREE_OPERAND (try_expr, 0) = *stmts;
+	  TREE_OPERAND (try_expr, 1)
+	    = build (CATCH_EXPR, void_type_node, type,
+		     build (GOTO_EXPR, void_type_node, TREE_VALUE (handler)));
+	  TREE_SIDE_EFFECTS (try_expr) = 1;
+	  TREE_OPERAND (compound, 0) = build_java_empty_stmt ();
+	  TREE_OPERAND (compound, 1) = build_java_empty_stmt ();
+	  compound 
+	    = build (COMPOUND_EXPR, TREE_TYPE (try_expr), outer, try_expr);
+	  *stmts = compound;
+	}
     }
-  expand_end_all_catch ();
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   indent ();
   fprintf (stderr, "expand end handler pc %d <-- %d\n",

@@ -1292,6 +1292,10 @@ extern void compile_resource_file (const char *, const char *);
 extern void write_resource_constructor (void);
 extern void init_resource_processing (void);
 extern tree build_java_empty_stmt (void);
+extern tree add_stmt_to_compound (tree, tree, tree);
+extern tree java_add_stmt (tree);
+extern tree java_add_local_var (tree decl);
+extern tree *get_stmts (void);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
@@ -1749,8 +1753,10 @@ enum
 /* In an EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
   (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
+#undef EXPR_WFL_NODE
 #define EXPR_WFL_NODE(NODE) \
   TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 0)
+#undef EXPR_WFL_FILENAME_NODE
 #define EXPR_WFL_FILENAME_NODE(NODE) \
   TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 1)
 #define EXPR_WFL_FILENAME(NODE) \
