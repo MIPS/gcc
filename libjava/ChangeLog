@@ -1,5 +1,10 @@
 2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
 
+	* javax/imageio/metadata/IIOInvalidTreeException.java: Use Node
+	instead of Object.
+
+2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
+
 	* javax/imageio/metadata/IIOMetadataNode.java: Add Node to
 	implemented interface list.
 
