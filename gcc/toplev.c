@@ -3081,7 +3081,12 @@ rest_of_compilation (decl)
      life_analyzis rarely eliminates modification of external memory.
    */
   if (optimize)
-    mark_constant_function ();
+    {
+      /* Alias analysis depends on this information and mark_constant_function
+	 depends on alias analysis.  */
+      reg_scan (insns, max_reg_num (), 1);
+      mark_constant_function ();
+    }
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
   /* Do branch profiling and static profile estimation passes.  */
