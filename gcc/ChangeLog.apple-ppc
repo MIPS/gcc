@@ -1,3 +1,12 @@
+2004-08-18  Dale Johannesen  <dalej@apple.com>
+
+	* tree-cfg.c (tree_block_ends_with_call_p):  Fix comments.
+	(tree_block_ends_with_condjump_p):  Ditto.
+
+2004-08-18  Matthew Sachs  <msachs@apple.com>
+
+	* Merge from mainline.
+
 2004-08-17  Devang Patel  <dpatel@apple.com>
 
 	* config/darwin-driver.c (main): Do not handle -x separately.

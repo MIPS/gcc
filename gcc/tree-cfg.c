@@ -5099,10 +5099,10 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
-  /* APPLE LOCAL begin mainline */
+  /* APPLE LOCAL begin tree-profiling-branch --dbj */
   if (!bsi_end_p (bsi))
     return get_call_expr_in (bsi_stmt (bsi)) != NULL;
-  /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL end tree-profiling-branch --dbj */
   return false;
 }
 
@@ -5113,7 +5113,7 @@ tree_block_ends_with_call_p (basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (basic_block bb)
 {
-  /* APPLE LOCAL begin mainline */
+  /* APPLE LOCAL begin tree-profiling-branch --dbj */
   block_stmt_iterator bsi = bsi_last (bb);
   if (!bsi_end_p (bsi))
     {
@@ -5121,7 +5121,7 @@ tree_block_ends_with_condjump_p (basic_block bb)
       return (TREE_CODE (stmt) == COND_EXPR);
     }
   else return false;
-  /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL end tree-profiling-branch --dbj */
 }
 
 
