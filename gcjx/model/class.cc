@@ -2230,7 +2230,7 @@ model_class::get_accessor (model_method *meth)
 	mods |= ACC_STATIC;
       accm->set_modifiers (mods);
       accm->set_synthetic ();
-      accm->set_return_type (new model_forwarding_resolved (get_location (),
+      accm->set_return_type (new model_forwarding_resolved (where,
 							    meth->get_return_type ()));
 
       // Compute the new formal arguments and actual arguments to the

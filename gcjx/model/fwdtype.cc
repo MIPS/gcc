@@ -1,6 +1,6 @@
 // Forwarding type implementation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -83,10 +83,13 @@ model_forwarding_element::resolve (resolution_scope *scope)
 void
 model_forwarding_full::resolve (resolution_scope *scope)
 {
-  resolved_type = classify_type_descriptor (scope, this, name);
   if (resolved_type == NULL)
-    throw error ("couldn't find type named %1")
-      % name;
+    {
+      resolved_type = classify_type_descriptor (scope, this, name);
+      if (resolved_type == NULL)
+	throw error ("couldn't find type named %1")
+	  % name;
+    }
 }
 
 
