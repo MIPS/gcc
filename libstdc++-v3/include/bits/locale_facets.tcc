@@ -161,7 +161,9 @@ namespace std
 
       string __found_grouping;
       const string __grouping = __np.grouping();
-      bool __check_grouping = __grouping.size();
+      const bool __check_grouping = __grouping.size();
+      if (__check_grouping)
+	__found_grouping.reserve(32);
       int __sep_pos = 0;
       const char_type __sep = __np.thousands_sep();
 
@@ -242,7 +244,6 @@ namespace std
         }
 
       // Finish up
-      __xtrc += char();
       if (__beg == __end)
         __err |= ios_base::eofbit;
       return __beg;
@@ -345,7 +346,9 @@ namespace std
       __ctype.widen(_S_atoms_in, _S_atoms_in + __len, __watoms);
       string __found_grouping;
       const string __grouping = __np.grouping();
-      bool __check_grouping = __grouping.size();
+      const bool __check_grouping = __grouping.size();
+      if (__check_grouping)
+	__found_grouping.reserve(32);
       int __sep_pos = 0;
       const char_type __sep = __np.thousands_sep();
       while (__beg != __end)
