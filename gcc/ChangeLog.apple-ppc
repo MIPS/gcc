@@ -1,3 +1,9 @@
+2004-12-02  Fariborz Jahanian <fjahanian@apple.com>
+	Radar 3893215 - part 1
+	* tree-scalar-evolution.c (follow_ssa_edge_in_condition_phi):
+	Added missing check for unknown evolution_of_loop.
+	(from FSF mainline).
+
 2004-11-30  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3893125
