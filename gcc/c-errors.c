@@ -42,3 +42,22 @@ pedwarn_c99 VPARAMS ((const char *msgid, ...))
   report_diagnostic (&dc);
   VA_CLOSE (ap);
 }
+
+/* Issue an ISO C90 pedantic warning MSGID.  This function is supposed to
+   be used for matters that are allowed in ISO C99 but not supported in
+   ISO C90, thus we explicitly don't pedwarn when C99 is specified.
+   (There is no flag_c90.)  */
+
+void
+pedwarn_c90 (const char *msgid, ...)
+{
+  diagnostic_context dc;
+
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
+
+  set_diagnostic_context (&dc, msgid, &ap, input_filename, lineno,
+			  flag_isoc99 || !flag_pedantic_errors);
+  report_diagnostic (&dc);
+  VA_CLOSE (ap);
+}

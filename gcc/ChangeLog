@@ -1,3 +1,20 @@
+2003-07-28  Hans-Peter Nilsson  <hp@bitrange.com>
+	    Michael Culbertson  <Michael.J.Culbertson@wheaton.edu>
+
+	* c-parse.in (lineno_stmt_decl_or_labels_ending_decl): Also warn
+	when warn_declaration_after_statement.  Call pedwarn_c90, not
+	pedwarn.  Correct message: it's "ISO C90", not "ISO C89".
+	* c-decl.c (warn_declaration_after_statement): Define.
+	(c_decode_option): Handle -Wdeclaration-after-statement.
+	* c-errors.c (pedwarn_c90): New function.
+	* c-tree.h (pedwarn_c90): Declare.
+	(warn_declaration_after_statement): Declare.
+	* toplev.c (documented_lang_options): Document
+	-Wdeclaration-after-statement.
+	* doc/invoke.texi (Option Summary): Document
+	-Wdeclaration-after-statement.
+	(Warning Options): Ditto.
+
 2003-07-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (legitimate_pic_address_disp_p): Disallow TLS

@@ -440,6 +440,10 @@ int warn_float_equal = 0;
 
 int warn_multichar = 1;
 
+/* Nonzero means warn for a declaration found after a statement.  */
+
+int warn_declaration_after_statement;
+
 /* Nonzero means `$' can be in an identifier.  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
@@ -689,6 +693,10 @@ c_decode_option (argc, argv)
     warn_traditional = 1;
   else if (!strcmp (p, "-Wno-traditional"))
     warn_traditional = 0;
+  else if (!strcmp (p, "-Wdeclaration-after-statement"))
+    warn_declaration_after_statement = 1;
+  else if (!strcmp (p, "-Wno-declaration-after-statement"))
+    warn_declaration_after_statement = 0;
   else if (!strncmp (p, "-Wformat=", 9))
     set_Wformat (atoi (p + 9));
   else if (!strcmp (p, "-Wformat"))
