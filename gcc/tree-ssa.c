@@ -2449,10 +2449,15 @@ tree_ssa_useless_type_conversion (tree expr)
 
       /* If both the inner and outer types are integral types, then
          we can enter the equivalence if they have the same mode
-         and signedness.  */
+         and signedness and precision (The type _Bool can have size of 4
+         (only happens on powerpc-darwin right now but can happen on any 
+         target that defines BOOL_TYPE_SIZE to be INT_TYPE_SIZE) and a
+         precision of 1 while unsigned int is the same expect for a 
+         precision of 4 so testing of precision is nessary).  */
       else if (INTEGRAL_TYPE_P (inner_type) && INTEGRAL_TYPE_P (outer_type)
 	       && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
-	       && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type))
+	       && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type)
+	       && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
 	return true;
     }
 
