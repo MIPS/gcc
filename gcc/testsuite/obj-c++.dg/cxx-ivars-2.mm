@@ -30,6 +30,7 @@ struct boo: bar {
 };
 
 @interface Baz: Object {
+@public
   bar aa;
 }
 @end
@@ -38,6 +39,7 @@ struct boo: bar {
 @end
 
 @interface Foo: Baz {
+@public
   int a;
   boo bb;
   bar b;

@@ -1882,6 +1882,12 @@ finish_class_member_access_expr (tree object, tree name)
   if (object == error_mark_node || name == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin Objective-C++ */
+  /* If OBJECT is an ObjC class instance, we must obey ObjC access rules.  */
+  if (!objc_is_public (object, name))
+    return error_mark_node;
+  /* APPLE LOCAL end Objective-C++ */
+
   object_type = TREE_TYPE (object);
 
   if (processing_template_decl)

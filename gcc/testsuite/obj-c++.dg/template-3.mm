@@ -11,6 +11,7 @@
 
 @interface ObjCClass : Object
 {
+@public
   int info;
 }
 -(id) init;

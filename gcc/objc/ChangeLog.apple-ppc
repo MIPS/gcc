@@ -1,3 +1,15 @@
+2004-11-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3761423
+	* objc-act.c (build_private_template): Return 'void';
+	move fix for Radar 3261135 from continue_class().
+	(objc_is_public): Robustify for use with ObjC++; examine
+	"raw" ivars of the ObjC class instead of side-effected 
+	fields of the underlying struct.
+	(continue_class): Return "raw" ivar list instead of
+	struct field list; move Radar 3261135 to
+	build_private_template(), and call it.
+
 2004-11-01  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 2810013 (fix from mainline)

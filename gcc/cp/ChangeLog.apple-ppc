@@ -1,3 +1,9 @@
+2004-11-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3761423
+	* typeck.c (finish_class_member_access_expr): Insert call to
+	objc_is_public() to check ObjC ivar access.
+
 2004-11-08  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3869280

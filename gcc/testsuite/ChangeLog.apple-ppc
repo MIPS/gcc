@@ -1,3 +1,11 @@
+2004-11-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3761423
+	* obj-c++.dg/cxx-ivars-2.mm, obj-c++.dg/template-3.mm:
+	Make ivars @public to squash new warnings/errors.
+	* obj-c++.dg/private-1.mm, obj-c++.dg/private-2.mm:
+	New tests.
+
 2004-11-10  Devang Patel  <dpatel@apple.com>
 
 	Partial Radar 3846472 fix

@@ -184,7 +184,8 @@ static void build_next_objc_exception_stuff (void);
 
 static tree build_ivar_template (void);
 static tree build_method_template (void);
-static tree build_private_template (tree);
+/* APPLE LOCAL Objective-C++ */
+static void build_private_template (tree);
 static void build_class_template (void);
 static void build_selector_template (void);
 static void build_category_template (void);
@@ -3542,22 +3543,28 @@ build_objc_exception_stuff (void)
      ...
    };  */
 
-static tree
+/* APPLE LOCAL Objective-C++ */
+static void
 build_private_template (tree class)
 {
-  tree ivar_context;
-
+  /* APPLE LOCAL Objective-C++ */
   if (CLASS_STATIC_TEMPLATE (class))
-    {
-      uprivate_record = CLASS_STATIC_TEMPLATE (class);
-      ivar_context = TYPE_FIELDS (CLASS_STATIC_TEMPLATE (class));
-    }
+    /* APPLE LOCAL Objective-C++ */
+    uprivate_record = CLASS_STATIC_TEMPLATE (class);
   else
     {
       uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-      ivar_context = get_class_ivars (class);
 
-      finish_struct (uprivate_record, ivar_context, NULL_TREE);
+      /* APPLE LOCAL begin NSFoundation classes not included in -gused (radar #3261135) */
+      /* FSF Candidate */
+      /* Set the TREE_USED bit for this struct, so that stab generator can emit
+	 stabs for this struct type.  */
+      if (flag_debug_only_used_symbols && TYPE_STUB_DECL (uprivate_record))
+	TREE_USED (TYPE_STUB_DECL (uprivate_record)) = 1;
+      /* APPLE LOCAL end NSFoundation classes not included in -gused (radar #3261135) */
+
+      /* APPLE LOCAL Objective-C++ */
+      finish_struct (uprivate_record, get_class_ivars (class), NULL_TREE);
 
       CLASS_STATIC_TEMPLATE (class) = uprivate_record;
 
@@ -3567,7 +3574,7 @@ build_private_template (tree class)
 
   objc_instance_type = build_pointer_type (uprivate_record);
 
-  return ivar_context;
+  /* APPLE LOCAL Objective-C++ */
 }
 
 /* Begin code generation for protocols...  */
@@ -6593,21 +6600,24 @@ int
 objc_is_public (tree expr, tree identifier)
 {
   tree basetype = TREE_TYPE (expr);
-  enum tree_code code = TREE_CODE (basetype);
   tree decl;
 
-  if (code == RECORD_TYPE)
+  if (basetype && TREE_CODE (basetype) == RECORD_TYPE)
     {
       if (TREE_STATIC_TEMPLATE (basetype))
 	{
-	  if (!lookup_interface (OBJC_TYPE_NAME (basetype)))
+	  /* APPLE LOCAL begin Objective-C++ */
+	  tree class = lookup_interface (OBJC_TYPE_NAME (basetype));
+
+	  if (!class)
 	    {
 	      error ("cannot find interface declaration for `%s'",
 		     IDENTIFIER_POINTER (OBJC_TYPE_NAME (basetype)));
 	      return 0;
 	    }
 
-	  if ((decl = is_ivar (TYPE_FIELDS (basetype), identifier)))
+	  if ((decl = is_ivar (get_class_ivars (class), identifier)))
+	  /* APPLE LOCAL end Objective-C++ */
 	    {
 	      if (TREE_PUBLIC (decl))
 		return 1;
@@ -7025,7 +7035,7 @@ continue_class (tree class)
       || TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
     {
       struct imp_entry *imp_entry;
-      tree ivar_context;
+      /* APPLE LOCAL Objective-C++ */
 
       /* Check consistency of the instance variables.  */
 
@@ -7038,7 +7048,8 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif
 
-      ivar_context = build_private_template (implementation_template);
+      /* APPLE LOCAL Objective-C++ */
+      build_private_template (implementation_template);
 
       imp_entry = (struct imp_entry *) ggc_alloc (sizeof (struct imp_entry));
 
@@ -7064,7 +7075,8 @@ continue_class (tree class)
       pop_lang_context ();
 #endif /* OBJCPLUS */
 
-      return ivar_context;
+      /* APPLE LOCAL Objective-C++ */
+      return get_class_ivars (implementation_template);
     }
 
   else if (TREE_CODE (class) == CLASS_INTERFACE_TYPE)
@@ -7073,24 +7085,8 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif /* OBJCPLUS */
 
-      if (!CLASS_STATIC_TEMPLATE (class))
-	{
-	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
-
-	  /* APPLE LOCAL begin NSFoundation classes not included in -gused (radar #3261135) */
-	  /* FSF Candidate */
-	  /* Set the TREE_USED bit for this struct, so that stab generator can emit
-	     stabs for this struct type.  */
-	  if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
-	    TREE_USED (TYPE_STUB_DECL (record)) = 1;
-	  /* APPLE LOCAL end NSFoundation classes not included in -gused (radar #3261135) */
-
-	  finish_struct (record, get_class_ivars (class), NULL_TREE);
-	  CLASS_STATIC_TEMPLATE (class) = record;
-
-	  /* Mark this record as a class template for static typing.  */
-	  TREE_STATIC_TEMPLATE (record) = 1;
-	}
+      /* APPLE LOCAL Objective-C++ */
+      build_private_template (class);
 
 #ifdef OBJCPLUS
       pop_lang_context ();
