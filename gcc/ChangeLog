@@ -1,3 +1,11 @@
+1999-11-21  Nick Clifton  <nickc@cygnus.com>
+
+	* invoke.texi (ARM Options): Replace -mshort-load-bytes with
+	-malignment-traps. 
+	(arm.h): Replace -mshort-load-bytes with -malignment-traps.
+	(arm.c): Replace TARGET_SHORT_BY_BYTES with TARGET_MMU_TRAPS.
+	(arm.md): Replace TARGET_SHORT_BY_BYTES with TARGET_MMU_TRAPS.
+
 Fri Nov 12 13:28:58 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Treat QImode

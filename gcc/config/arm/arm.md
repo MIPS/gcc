@@ -2941,7 +2941,7 @@
       {
         if (arm_arch4 && GET_CODE (operands[1]) == MEM)
           {
-           /* Note: We do not have to worry about TARGET_SHORT_BY_BYTES
+           /* Note: We do not have to worry about TARGET_MMU_TRAPS
 	      here because the insn below will generate an LDRH instruction
 	      rather than an LDR instruction, so we cannot get an unaligned
 	      word access.  */
@@ -2949,7 +2949,7 @@
 			            gen_rtx_ZERO_EXTEND (SImode, operands[1])));
             DONE;
           }
-        if (TARGET_SHORT_BY_BYTES && GET_CODE (operands[1]) == MEM)
+        if (TARGET_MMU_TRAPS && GET_CODE (operands[1]) == MEM)
           {
             emit_insn (gen_movhi_bytes (operands[0], operands[1]));
             DONE;
@@ -3162,7 +3162,7 @@
   {
     if (TARGET_ARM && arm_arch4 && GET_CODE (operands[1]) == MEM)
       {
-       /* Note: We do not have to worry about TARGET_SHORT_BY_BYTES
+       /* Note: We do not have to worry about TARGET_MMU_TRAPS
 	  here because the insn below will generate an LDRH instruction
 	  rather than an LDR instruction, so we cannot get an unaligned
 	  word access.  */
@@ -3171,7 +3171,7 @@
         DONE;
       }
 
-    if (TARGET_ARM && TARGET_SHORT_BY_BYTES && GET_CODE (operands[1]) == MEM)
+    if (TARGET_ARM && TARGET_MMU_TRAPS && GET_CODE (operands[1]) == MEM)
       {
         emit_insn (gen_extendhisi2_mem (operands[0], operands[1]));
         DONE;
@@ -4126,13 +4126,13 @@
 	    }
           else if (! arm_arch4)
 	    {
-	     /* Note: We do not have to worry about TARGET_SHORT_BY_BYTES
+	     /* Note: We do not have to worry about TARGET_MMU_TRAPS
 	        for v4 and up architectures because LDRH instructions will
 	        be used to access the HI values, and these cannot generate
 	        unaligned word access faults in the MMU.  */
 	      if (GET_CODE (operands[1]) == MEM)
 	        {
-	          if (TARGET_SHORT_BY_BYTES)
+	          if (TARGET_MMU_TRAPS)
 		    {
 		      rtx base;
 		      rtx offset = const0_rtx;
@@ -4316,7 +4316,7 @@
   [(set (match_operand:SI            0 "s_register_operand"        "=r")
 	(rotate:SI (match_operand:SI 1 "offsettable_memory_operand" "o")
 		   (const_int 16)))]
-  "TARGET_ARM && (! TARGET_SHORT_BY_BYTES)"
+  "TARGET_ARM && (! TARGET_MMU_TRAPS)"
   "*
 {
   rtx ops[2];
@@ -4404,7 +4404,7 @@
   "TARGET_ARM
    && ! arm_arch4
    && ! BYTES_BIG_ENDIAN
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && (GET_CODE (operands[1]) != CONST_INT
        || const_ok_for_arm (INTVAL (operands[1]))
        || const_ok_for_arm (~INTVAL (operands[1])))"
@@ -4422,7 +4422,7 @@
   "TARGET_ARM
    && ! arm_arch4
    && BYTES_BIG_ENDIAN
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && (GET_CODE (operands[1]) != CONST_INT
        || const_ok_for_arm (INTVAL (operands[1]))
        || const_ok_for_arm (~INTVAL (operands[1])))"
@@ -4441,7 +4441,7 @@
 		   (const_int 16)))]
   "TARGET_ARM
    && BYTES_BIG_ENDIAN
-   && ! TARGET_SHORT_BY_BYTES"
+   && ! TARGET_MMU_TRAPS"
   "ldr%?\\t%0, %1\\t%@ movhi_bigend"
   [(set_attr "type" "load")
    (set_attr "pool_range" "4096")]
@@ -4450,7 +4450,7 @@
 (define_insn "*movhi_bytes"
   [(set (match_operand:HI 0 "s_register_operand" "=r,r")
 	(match_operand:HI 1 "arm_rhs_operand"  "rI,K"))]
-  "TARGET_ARM && TARGET_SHORT_BY_BYTES"
+  "TARGET_ARM && TARGET_MMU_TRAPS"
   "@
    mov%?\\t%0, %1\\t%@ movhi
    mvn%?\\t%0, #%B1\\t%@ movhi")
@@ -4483,7 +4483,7 @@
   [(parallel [(match_operand:HI 0 "s_register_operand" "=r")
 	      (match_operand:HI 1 "arm_reload_memory_operand" "o")
 	      (match_operand:DI 2 "s_register_operand" "=&r")])]
-  "TARGET_THUMB || (TARGET_ARM && TARGET_SHORT_BY_BYTES)"
+  "TARGET_THUMB || (TARGET_ARM && TARGET_MMU_TRAPS)"
   "
   if (TARGET_ARM)
     arm_reload_in_hi (operands);
@@ -7362,7 +7362,7 @@
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
    && (! BYTES_BIG_ENDIAN)
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && REGNO (operands[0]) != FRAME_POINTER_REGNUM
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && (GET_CODE (operands[2]) != REG
@@ -7378,7 +7378,7 @@
 	(minus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
    && (!BYTES_BIG_ENDIAN)
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && REGNO (operands[0]) != FRAME_POINTER_REGNUM
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && (GET_CODE (operands[2]) != REG
@@ -7525,7 +7525,7 @@
 		 (match_dup 1)))]
   "TARGET_ARM
    && (! BYTES_BIG_ENDIAN)
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && REGNO (operands[0]) != FRAME_POINTER_REGNUM
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
@@ -7543,7 +7543,7 @@
 						 (match_dup 4)])))]
   "TARGET_ARM
    && (! BYTES_BIG_ENDIAN)
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && REGNO (operands[0]) != FRAME_POINTER_REGNUM
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
@@ -7591,7 +7591,7 @@
 	(plus:SI (match_dup 1) (match_operand:SI 2 "index_operand" "rJ")))]
   "TARGET_ARM
    && (! BYTES_BIG_ENDIAN)
-   && ! TARGET_SHORT_BY_BYTES
+   && ! TARGET_MMU_TRAPS
    && REGNO(operands[0]) != REGNO(operands[1])
    && (GET_CODE (operands[2]) != REG
        || REGNO(operands[0]) != REGNO (operands[2]))"
