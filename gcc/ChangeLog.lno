@@ -1,5 +1,10 @@
 2004-07-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-niter.c (mark_maybe_infinite_loops): Handle abnormal
+	edges.
+
+2004-07-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* Makefile.in (tree-ssa-loop.o, tree-ssa-dce.o): Add function.h
 	dependency.
 	* builtins.c (expand_builtin): Handle BUILT_IN_MAYBE_INFINITE_LOOP.

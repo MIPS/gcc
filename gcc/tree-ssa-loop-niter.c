@@ -1298,6 +1298,7 @@ mark_maybe_infinite_loops (struct loops *loops)
   edge e;
   tree stmt;
   bool inserted = false;
+  block_stmt_iterator bsi;
 
   mark_dfs_back_edges ();
 
@@ -1315,8 +1316,22 @@ mark_maybe_infinite_loops (struct loops *loops)
 	  {
 	    stmt = build_function_call_expr (built_in_decls[BUILT_IN_MAYBE_INFINITE_LOOP],
 					     NULL);
-	    bsi_insert_on_edge (e, stmt);
-	    inserted = true;
+
+	    if (!(e->flags & EDGE_ABNORMAL))
+	      {
+		bsi_insert_on_edge (e, stmt);
+		inserted = true;
+		continue;
+	      }
+
+	    /* We cannot insert on abnormal edge, so insert to the basic block
+	       at its start.  */
+	    bsi = bsi_last (e->src);
+	    if (!bsi_end_p (bsi)
+		&& stmt_ends_bb_p (bsi_stmt (bsi)))
+	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	    else
+	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
 	  }
     }
 
