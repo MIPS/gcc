@@ -1,3 +1,12 @@
+2003-04-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/ia64/ia64.c (issue_nops_and_insn): Add new parameter.
+	Check that asm insn starts on a new cycle.  Add nops after asm
+	insn to end bundle.
+	(bundling): Move insn type evaluation from the loop.  Call
+	issue_nops_and_insn with the new parameter.  Ignore changing
+	position for nops after asm insn.
+
 2003-03-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_select_rtx_section): Add align

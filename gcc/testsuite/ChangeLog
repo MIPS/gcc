@@ -1,3 +1,7 @@
+2003-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030405-1.c: New test.
+
 2003-03-17  Zack Weinberg  <zack@codesourcery.com>
 
 	* objc.dg/naming-1.m: Use "(parse|syntax) error".

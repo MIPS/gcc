@@ -194,7 +194,7 @@ static void finish_bundle_state_table PARAMS ((void));
 static int try_issue_nops PARAMS ((struct bundle_state *, int));
 static int try_issue_insn PARAMS ((struct bundle_state *, rtx));
 static void issue_nops_and_insn PARAMS ((struct bundle_state *, int,
-					 rtx, int));
+					 rtx, int, int));
 static int get_max_pos PARAMS ((state_t));
 static int get_template PARAMS ((state_t, int));
 
@@ -6135,17 +6135,18 @@ try_issue_insn (curr_state, insn)
 
 /* The following function tries to issue BEFORE_NOPS_NUM nops and INSN
    starting with ORIGINATOR without advancing processor cycle.  If
-   TRY_BUNDLE_END_P is TRUE, the function also tries to issue nops to
-   fill all bundle. If it was successful, the function creates new
-   bundle state and insert into the hash table and into
-   `index_to_bundle_states'.  */
+   TRY_BUNDLE_END_P is TRUE, the function also/only (if
+   ONLY_BUNDLE_END_P is TRUE) tries to issue nops to fill all bundle.
+   If it was successful, the function creates new bundle state and
+   insert into the hash table and into `index_to_bundle_states'.  */
 
 static void
-issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
+issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p,
+		     only_bundle_end_p)
      struct bundle_state *originator;
      int before_nops_num;
      rtx insn;
-     int try_bundle_end_p;
+     int try_bundle_end_p, only_bundle_end_p;
 {
   struct bundle_state *curr_state;
 
@@ -6184,9 +6185,10 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
 	return;
       if (!try_issue_insn (curr_state, insn))
 	return;
-      if (GET_CODE (PATTERN (insn)) != ASM_INPUT
-	  && asm_noperands (PATTERN (insn)) < 0)
-	curr_state->accumulated_insns_num++;
+      curr_state->accumulated_insns_num++;
+      if (GET_CODE (PATTERN (insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (insn)) >= 0)
+	abort ();
       if (ia64_safe_type (insn) == TYPE_L)
 	curr_state->accumulated_insns_num++;
     }
@@ -6199,10 +6201,17 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
 	return;
       if (!try_issue_insn (curr_state, insn))
 	return;
-      if (GET_CODE (PATTERN (insn)) != ASM_INPUT
-	  && asm_noperands (PATTERN (insn)) < 0)
-	curr_state->accumulated_insns_num++;
-      if (ia64_safe_type (insn) == TYPE_L)
+      curr_state->accumulated_insns_num++;
+      if (GET_CODE (PATTERN (insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (insn)) >= 0)
+	{
+	  /* Finish bundle containing asm insn.  */
+	  curr_state->after_nops_num
+	    = 3 - curr_state->accumulated_insns_num % 3;
+	  curr_state->accumulated_insns_num
+	    += 3 - curr_state->accumulated_insns_num % 3;
+	}
+      else if (ia64_safe_type (insn) == TYPE_L)
 	curr_state->accumulated_insns_num++;
     }
   if (ia64_safe_type (insn) == TYPE_B)
@@ -6210,7 +6219,7 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
       += 2 - (curr_state->accumulated_insns_num - 1) % 3;
   if (try_bundle_end_p && curr_state->accumulated_insns_num % 3 != 0)
     {
-      if (insert_bundle_state (curr_state))
+      if (!only_bundle_end_p && insert_bundle_state (curr_state))
 	{
 	  state_t dfa_state;
 	  struct bundle_state *curr_state1;
@@ -6357,7 +6366,7 @@ bundling (dump, verbose, prev_head_insn, tail)
   struct bundle_state *curr_state, *next_state, *best_state;
   rtx insn, next_insn;
   int insn_num;
-  int i, bundle_end_p;
+  int i, bundle_end_p, only_bundle_end_p, asm_p;
   int pos, max_pos, template0, template1;
   rtx b;
   rtx nop;
@@ -6421,6 +6430,7 @@ bundling (dump, verbose, prev_head_insn, tail)
 	  || GET_CODE (PATTERN (insn)) == USE
 	  || GET_CODE (PATTERN (insn)) == CLOBBER)
 	abort ();
+      type = ia64_safe_type (insn);
       next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
       insn_num++;
       index_to_bundle_states [insn_num] = NULL;
@@ -6429,10 +6439,15 @@ bundling (dump, verbose, prev_head_insn, tail)
 	   curr_state = next_state)
 	{
 	  pos = curr_state->accumulated_insns_num % 3;
-	  type = ia64_safe_type (insn);
 	  next_state = curr_state->next;
+	  /* Finish the current bundle in order to start a subsequent
+	     asm insn in a new bundle.  */
+	  only_bundle_end_p
+	    = (next_insn != NULL_RTX
+	       && INSN_CODE (insn) == CODE_FOR_insn_group_barrier
+	       && ia64_safe_type (next_insn) == TYPE_UNKNOWN);
 	  bundle_end_p
-	    = (next_insn == NULL_RTX
+	    = (only_bundle_end_p || next_insn == NULL_RTX
 	       || (GET_MODE (next_insn) == TImode
 		   && INSN_CODE (insn) != CODE_FOR_insn_group_barrier));
 	  if (type == TYPE_F || type == TYPE_B || type == TYPE_L
@@ -6440,9 +6455,12 @@ bundling (dump, verbose, prev_head_insn, tail)
 	      /* We need to insert 2 Nops for cases like M_MII.  */
 	      || (type == TYPE_M && ia64_tune == PROCESSOR_ITANIUM
 		  && !bundle_end_p && pos == 1))
-	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p);
-	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p);
-	  issue_nops_and_insn (curr_state, 0, insn, bundle_end_p);
+	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
+				 only_bundle_end_p);
+	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p,
+			       only_bundle_end_p);
+	  issue_nops_and_insn (curr_state, 0, insn, bundle_end_p,
+			       only_bundle_end_p);
 	}
       if (index_to_bundle_states [insn_num] == NULL)
 	abort ();
@@ -6499,6 +6517,8 @@ bundling (dump, verbose, prev_head_insn, tail)
        curr_state = curr_state->originator)
     {
       insn = curr_state->insn;
+      asm_p = (GET_CODE (PATTERN (insn)) == ASM_INPUT
+	       || asm_noperands (PATTERN (insn)) >= 0);
       insn_num++;
       if (verbose >= 2 && dump)
 	{
@@ -6543,23 +6563,24 @@ bundling (dump, verbose, prev_head_insn, tail)
 	  template1 = get_template (curr_state->dfa_state, 3);
 	  pos += 3;
 	}
-      for (i = 0; i < curr_state->after_nops_num; i++)
-	{
-	  nop = gen_nop ();
-	  emit_insn_after (nop, insn);
-	  pos--;
-	  if (pos < 0)
-	    abort ();
-	  if (pos % 3 == 0)
-	    {
-	      if (template0 < 0)
-		abort ();
-	      b = gen_bundle_selector (GEN_INT (template0));
-	      ia64_emit_insn_before (b, nop);
-	      template0 = template1;
-	      template1 = -1;
-	    }
-	}
+      if (!asm_p)
+	for (i = 0; i < curr_state->after_nops_num; i++)
+	  {
+	    nop = gen_nop ();
+	    emit_insn_after (nop, insn);
+	    pos--;
+	    if (pos < 0)
+	      abort ();
+	    if (pos % 3 == 0)
+	      {
+		if (template0 < 0)
+		  abort ();
+		b = gen_bundle_selector (GEN_INT (template0));
+		ia64_emit_insn_before (b, nop);
+		template0 = template1;
+		template1 = -1;
+	      }
+	  }
       if (INSN_CODE (insn) != CODE_FOR_insn_group_barrier
 	  && GET_CODE (PATTERN (insn)) != ASM_INPUT
 	  && asm_noperands (PATTERN (insn)) < 0)
