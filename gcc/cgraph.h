@@ -211,6 +211,10 @@ struct cgraph_varpool_node GTY(())
   bool output;
   /* Set when function is visible by other units.  */
   bool externally_visible;
+  /* Some datastructures (such as typeinfos for EH handling) can be output
+     late during the RTL compilation.  We need to make these invisible to
+     IPA optimizers or we confuse them badly.  */
+  bool non_ipa;
 };
 
 extern GTY(()) struct cgraph_node *cgraph_nodes;

@@ -715,7 +715,14 @@ cgraph_varpool_analyze_pending_decls (void)
       tree decl = cgraph_varpool_first_unanalyzed_node->decl;
 
       cgraph_varpool_first_unanalyzed_node->analyzed = true;
-      ipa_analyze_variable (cgraph_varpool_first_unanalyzed_node);
+
+      /* Some datastructures (such as typeinfos for EH handling) can be output
+         late during the RTL compilation.  We need to make these invisible to
+	 IPA optimizers or we confuse them badly.  */
+      if (!cgraph_global_info_ready)
+        ipa_analyze_variable (cgraph_varpool_first_unanalyzed_node);
+      else
+        cgraph_varpool_first_unanalyzed_node->non_ipa = true;
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
       if (DECL_INITIAL (decl))
 	cgraph_create_edges (NULL, DECL_INITIAL (decl));
@@ -747,7 +754,8 @@ cgraph_varpool_assemble_pending_decls (void)
       cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
       if (!TREE_ASM_WRITTEN (decl) && !DECL_EXTERNAL (decl))
 	{
-          ipa_modify_variable (node);
+	  if (!node->non_ipa)
+            ipa_modify_variable (node);
 	  assemble_variable (decl, 0, 1, 0);
 	  changed = true;
 	}
@@ -1122,6 +1130,10 @@ cgraph_optimize (void)
       return;
     }
   timevar_push (TV_IPA_OPT);
+
+  /* Frontend may output common variables after the unit has been finalized.
+     It is safe to deal with them here as they are always zero initialized.  */
+  cgraph_varpool_analyze_pending_decls ();
 
   cgraph_function_and_variable_visibility ();
 

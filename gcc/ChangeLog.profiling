@@ -1,3 +1,12 @@
+2004-12-02  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_varpool_node): Add non_ipa field.
+	* cgraphunit.c (cgraph-varpool_analyze_pending_decls): Set noipa flag
+	for declarations comming late.
+	(cgraph_varpool_assemble_pending_decls): Do not call IPA for nonipa variables.
+	(cgraph_optimize): Analyze pending decls early.
+	(cgraph_remove_unreachable_node): Clear analyzed flag.
+
 2004-12-02  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-inline.c: Fix indenting and other style issues.

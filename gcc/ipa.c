@@ -186,6 +186,7 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
 		      DECL_SAVED_TREE (node->decl) = NULL;
 		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
 		      DECL_INITIAL (node->decl) = error_mark_node;
+		      node->analyzed = false;
 		    }
 		  while (node->callees)
 		    cgraph_remove_edge (node->callees);
