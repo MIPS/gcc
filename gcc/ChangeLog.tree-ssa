@@ -1,3 +1,21 @@
+2003-10-25  Jan Hubicka  <jh@suse.cz>
+
+	* c-common.c (c_estimate_num_insns_1): Kill.
+	(c_estimate_num_insns): Kill.
+	* c-common.h (c_estimate_num_insns): Kill.
+	* c-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
+	* cp-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
+	* objc-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
+	* lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
+	(java_estimate_num_insns_1, java_estimate_num_insns): Kill.
+	* cgraphunit (cgraph_analyze_function): Use estimate_num_insns.
+	* tree-eh.c (decide_copy_try_finally): Likewise.
+	* tree-inline.c (limits_allow_inilining, optimize_inline_calls): Likewise.
+	(estimate_num_insns_1, estimate_num_insns): New functions.
+	* langhooks-def.h (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
+	* langhooks.h (estimate_num_inssn): Kill.
+	* tree-inline.h (estimate_num_insns): Declare.
+
 2003-10-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gimple-low.c: New.

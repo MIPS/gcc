@@ -64,7 +64,6 @@ static bool java_can_use_bit_fields_p (void);
 static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (tree);
-static int java_estimate_num_insns (tree);
 static int java_start_inlining (tree);
 
 #ifndef TARGET_OBJECT_SUFFIX
@@ -246,9 +245,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_UNSIGNED_TYPE java_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE java_signed_or_unsigned_type
-
-#undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
-#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS java_estimate_num_insns
 
 #undef LANG_HOOKS_TREE_INLINING_START_INLINING
 #define LANG_HOOKS_TREE_INLINING_START_INLINING java_start_inlining
@@ -1044,108 +1040,6 @@ static bool
 java_decl_ok_for_sibcall (tree decl)
 {
   return decl != NULL && DECL_CONTEXT (decl) == current_class;
-}
-
-/* Used by estimate_num_insns.  Estimate number of instructions seen
-   by given statement.  */
-static tree
-java_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
-{
-  int *count = data;
-  tree x = *tp;
-
-  if (TYPE_P (x) || DECL_P (x))
-    {
-      *walk_subtrees = 0;
-      return NULL;
-    }
-  /* Assume that constants and references counts nothing.  These should
-     be majorized by amount of operations amoung them we count later
-     and are common target of CSE and similar optimizations.  */
-  if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
-    return NULL;
-  switch (TREE_CODE (x))
-    { 
-    /* Reconginze assignments of large structures and constructors of
-       big arrays.  */
-    case MODIFY_EXPR:
-    case CONSTRUCTOR:
-      {
-	int size = int_size_in_bytes (TREE_TYPE (x));
-
-	if (!size || size > MOVE_MAX_PIECES)
-	  *count += 10;
-	else
-	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
-	return NULL;
-      }
-      break;
-    /* Few special cases of expensive operations.  This is usefull
-       to avoid inlining on functions having too many of these.  */
-    case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case RDIV_EXPR:
-    case CALL_EXPR:
-
-    case NEW_ARRAY_EXPR:
-    case NEW_ANONYMOUS_ARRAY_EXPR:
-    case NEW_CLASS_EXPR:
-      *count += 10;
-      break;
-    /* Various containers that will produce no code themselves.  */
-    case INIT_EXPR:
-    case TARGET_EXPR:
-    case BIND_EXPR:
-    case BLOCK:
-    case TREE_LIST:
-    case TREE_VEC:
-    case IDENTIFIER_NODE:
-    case PLACEHOLDER_EXPR:
-    case WITH_CLEANUP_EXPR:
-    case CLEANUP_POINT_EXPR:
-    case NOP_EXPR:
-    case VIEW_CONVERT_EXPR:
-    case SAVE_EXPR:
-    case UNSAVE_EXPR:
-    case COMPLEX_EXPR:
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
-    case LABEL_EXPR:
-    case EXIT_EXPR:
-    case LABELED_BLOCK_EXPR:
-    case EXIT_BLOCK_EXPR:
-    case EXPR_WITH_FILE_LOCATION:
-    case UNARY_PLUS_EXPR:
-    case THIS_EXPR:
-    case DEFAULT_EXPR:
-    case TRY_EXPR:
-
-      break;
-    case CLASS_LITERAL:
-      *walk_subtrees = 0;
-      break;
-    default:
-      (*count)++;
-    }
-  return NULL;
-}
-
-/*  Estimate number of instructions that will be created by expanding EXPR.  */
-static int
-java_estimate_num_insns (tree expr)
-{
-  int num = 0;
-  walk_tree_without_duplicates (&expr, java_estimate_num_insns_1, &num);
-  return num;
 }
 
 /* Start inlining fn.  Called by the tree inliner via

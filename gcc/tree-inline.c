@@ -1097,6 +1097,204 @@ inlinable_function_p (tree fn)
   return inlinable;
 }
 
+/* Used by estimate_num_insns.  Estimate number of instructions seen
+   by given statement.  */
+static tree
+estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  int *count = data;
+  tree x = *tp;
+
+  if (TYPE_P (x) || DECL_P (x))
+    {
+      *walk_subtrees = 0;
+      return NULL;
+    }
+  /* Assume that constants and references counts nothing.  These should
+     be majorized by amount of operations among them we count later
+     and are common target of CSE and similar optimizations.  */
+  if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
+    return NULL;
+  switch (TREE_CODE (x))
+    { 
+    /* Containers have no cost.  */
+    case TREE_LIST:
+    case TREE_VEC:
+    case BLOCK:
+    case COMPONENT_REF:
+    case BIT_FIELD_REF:
+    case INDIRECT_REF:
+    case BUFFER_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case VTABLE_REF:
+    case EXC_PTR_EXPR: /* ??? */
+    case FILTER_EXPR: /* ??? */
+    case COMPOUND_EXPR:
+    case BIND_EXPR:
+    case LABELED_BLOCK_EXPR:
+    case WITH_CLEANUP_EXPR:
+    case WITH_RECORD_EXPR:
+    case NOP_EXPR:
+    case VIEW_CONVERT_EXPR:
+    case SAVE_EXPR:
+    case UNSAVE_EXPR:
+    case ADDR_EXPR:
+    case REFERENCE_EXPR:
+    case COMPLEX_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case EXIT_BLOCK_EXPR:
+    case CASE_LABEL_EXPR:
+    case SSA_NAME:
+    case CATCH_EXPR:
+    case EH_FILTER_EXPR:
+      break;
+    /* We don't account constants for now.  Assume that the cost is amortized
+       by operations that do use them.  We may re-consider this decision once
+       we are able to optimize the tree before estimating it's size and break
+       out static initializers.  */
+    case IDENTIFIER_NODE:
+    case INTEGER_CST:
+    case REAL_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
+    case STRING_CST:
+    case ENTRY_VALUE_EXPR:
+    case FDESC_EXPR:
+    case VA_ARG_EXPR:
+    case TRY_CATCH_EXPR:
+    case TRY_FINALLY_EXPR:
+    case LABEL_EXPR:
+    case GOTO_EXPR:
+    case RETURN_EXPR:
+    case EXIT_EXPR:
+    case LOOP_EXPR:
+    case VDEF_EXPR:
+    case EUSE_NODE:
+    case EKILL_NODE:
+    case EPHI_NODE:
+    case EEXIT_NODE:
+    case PHI_NODE:
+      *walk_subtrees = 0;
+      return NULL;
+      break;
+    /* Reconginze assignments of large structures and constructors of
+       big arrays.  */
+    case INIT_EXPR:
+    case TARGET_EXPR:
+    case MODIFY_EXPR:
+    case CONSTRUCTOR:
+      {
+	int size = int_size_in_bytes (TREE_TYPE (x));
+
+	if (!size || size > MOVE_MAX_PIECES)
+	  *count += 10;
+	else
+	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
+	return NULL;
+      }
+      break;
+
+      /* Assign cost of 1 to usual operations.
+	 ??? We may consider mapping RTL costs to this.  */
+    case COND_EXPR:
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+
+    case FIX_TRUNC_EXPR:
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
+    case FIX_ROUND_EXPR:
+
+    case NEGATE_EXPR:
+    case FLOAT_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case ABS_EXPR:
+
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+    case BIT_NOT_EXPR:
+
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
+    case TRUTH_NOT_EXPR:
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+    case ORDERED_EXPR:
+    case UNORDERED_EXPR:
+
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+
+    case CONVERT_EXPR:
+
+    case CONJ_EXPR:
+
+    case PREDECREMENT_EXPR:
+    case PREINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+
+    case SWITCH_EXPR:
+
+    case ASM_EXPR:
+
+    case RESX_EXPR:
+      *count++;
+      break;
+
+    /* Few special cases of expensive operations.  This is usefull
+       to avoid inlining on functions having too many of these.  */
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case RDIV_EXPR:
+    case CALL_EXPR:
+      *count += 10;
+      break;
+    default:
+      break;
+    }
+  return NULL;
+}
+
+/* Estimate number of instructions that will be created by expanding EXPR.  */
+int
+estimate_num_insns (tree expr)
+{
+  int num = 0;
+  walk_tree_without_duplicates (&expr, estimate_num_insns_1, &num);
+  return num;
+}
+
 /* We can't inline functions that are too big.  Only allow a single
    function to be of MAX_INLINE_INSNS_SINGLE size.  Make special
    allowance for extern inline functions, though.
@@ -1123,9 +1321,7 @@ limits_allow_inlining (tree fn, inline_data *id)
       /* If we haven't already done so, get an estimate of the number of
 	 instructions that will be produces when expanding this function.  */
       if (!DECL_ESTIMATED_INSNS (fn))
-	DECL_ESTIMATED_INSNS (fn)
-	  = (*lang_hooks.tree_inlining.estimate_num_insns)
-	    (DECL_SAVED_TREE (fn));
+	DECL_ESTIMATED_INSNS (fn) = estimate_num_insns (DECL_SAVED_TREE (fn));
       estimated_insns = DECL_ESTIMATED_INSNS (fn);
 
       /* We may be here either because fn is declared inline or because
@@ -1629,8 +1825,7 @@ optimize_inline_calls (tree fn)
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
   if (!DECL_ESTIMATED_INSNS (fn))
-    DECL_ESTIMATED_INSNS (fn) 
-      = (*lang_hooks.tree_inlining.estimate_num_insns) (fn);
+    DECL_ESTIMATED_INSNS (fn) = estimate_num_insns (fn);
   /* Or any functions that aren't finished yet.  */
   prev_fn = NULL_TREE;
   if (current_function_decl)

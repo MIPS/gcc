@@ -31,6 +31,7 @@ tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 tree copy_tree_r (tree*, int*, void*);
 void clone_body (tree, tree, void*);
 void remap_save_expr (tree*, void*, tree, int*);
+int estimate_num_insns (tree expr);
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.

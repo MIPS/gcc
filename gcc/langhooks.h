@@ -48,7 +48,6 @@ struct lang_hooks_for_tree_inlining
   int (*start_inlining) (tree);
   void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree);
-  int (*estimate_num_insns) (tree);
 };
 
 struct lang_hooks_for_callgraph

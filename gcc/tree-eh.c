@@ -1179,7 +1179,7 @@ decide_copy_try_finally (int ndests, tree finally)
     return false;
 
   /* Finally estimate N times, plus N gotos.  */
-  f_estimate = (*lang_hooks.tree_inlining.estimate_num_insns) (finally);
+  f_estimate = estimate_num_insns (finally);
   f_estimate = (f_estimate + 1) * ndests;
 
   /* Switch statement (cost 10), N variable assignments, N gotos.  */
