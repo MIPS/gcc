@@ -886,6 +886,10 @@ declare_return_variable (inline_data *id, tree return_slot_addr, tree *use_p)
   var = ((*lang_hooks.tree_inlining.copy_res_decl_for_inlining)
 	 (result, fn, VARRAY_TREE (id->fns, 0), id->decl_map,
 	  &need_return_decl, return_slot_addr));
+  
+  /* Do not have the rest of GCC warn about this variable as it should
+     not be visible to the user.   */
+  TREE_NO_WARNING (var) = 1;
 
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
      way, when the RESULT_DECL is encountered, it will be

@@ -1,3 +1,8 @@
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/13127
+	* gcc.dg/20040206-1.c: New test.
+
 2004-02-04  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/opt/bool1.C: Declare abort.

@@ -1,3 +1,9 @@
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/13127
+	* tree-inline.c (declare_return_variable): Set the no warning bit
+	on the variable created for the return value.
+
 2004-02-06  Richard Henderson  <rth@redhat.com>
 
 	* tree-pretty-print.c (dump_generic_node): Render NON_LVALUE_EXPR.
