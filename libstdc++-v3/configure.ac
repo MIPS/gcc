@@ -13,7 +13,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:2:0
+libtool_VERSION=6:3:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -194,7 +194,6 @@ else
 
     # GLIBCXX_CHECK_STDLIB_SUPPORT
     AC_DEFINE(HAVE_STRTOF)        
-    AC_DEFINE(HAVE_STRTOLD)        
     # AC_FUNC_MMAP
     AC_DEFINE(HAVE_MMAP)
 

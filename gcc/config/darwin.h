@@ -330,6 +330,9 @@ extern const char *darwin_fix_and_continue_switch;
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
 
+/* Default Darwin ASM_SPEC, very simple.  */
+#define ASM_SPEC "-arch %(darwin_arch)"
+
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1
@@ -820,13 +823,6 @@ objc_section_init (void)			\
 
 #undef TARGET_ASM_MARK_DECL_PRESERVED
 #define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
-
-/* Since we have a separate readonly data section, define this so that
-   jump tables end up in text rather than data.  */
-
-#ifndef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION 1
-#endif
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or

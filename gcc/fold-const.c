@@ -5720,6 +5720,9 @@ fold_div_compare (enum tree_code code, tree type, tree arg0, tree arg1)
     }
   else
     {
+      /* A negative divisor reverses the relational operators.  */
+      code = swap_tree_comparison (code);
+
       tmp = int_const_binop (PLUS_EXPR, arg01, integer_one_node, 0);
       switch (tree_int_cst_sgn (arg1))
 	{
@@ -8400,11 +8403,11 @@ fold (tree expr)
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
 	{
-	  tree dandnotc
-	    = fold (build2 (BIT_AND_EXPR, TREE_TYPE (arg0),
-			    arg1, build1 (BIT_NOT_EXPR,
-					  TREE_TYPE (TREE_OPERAND (arg0, 1)),
-					  TREE_OPERAND (arg0, 1))));
+	  tree notc = fold (build1 (BIT_NOT_EXPR,
+				    TREE_TYPE (TREE_OPERAND (arg0, 1)),
+				    TREE_OPERAND (arg0, 1)));
+	  tree dandnotc = fold (build2 (BIT_AND_EXPR, TREE_TYPE (arg0),
+					arg1, notc));
 	  tree rslt = code == EQ_EXPR ? integer_zero_node : integer_one_node;
 	  if (integer_nonzerop (dandnotc))
 	    return omit_one_operand (type, rslt, arg0);
@@ -8417,10 +8420,9 @@ fold (tree expr)
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
 	{
-	  tree candnotd
-	    = fold (build2 (BIT_AND_EXPR, TREE_TYPE (arg0),
-			    TREE_OPERAND (arg0, 1),
-			    build1 (BIT_NOT_EXPR, TREE_TYPE (arg1), arg1)));
+	  tree notd = fold (build1 (BIT_NOT_EXPR, TREE_TYPE (arg1), arg1));
+	  tree candnotd = fold (build2 (BIT_AND_EXPR, TREE_TYPE (arg0),
+					TREE_OPERAND (arg0, 1), notd));
 	  tree rslt = code == EQ_EXPR ? integer_zero_node : integer_one_node;
 	  if (integer_nonzerop (candnotd))
 	    return omit_one_operand (type, rslt, arg0);
@@ -10461,6 +10463,21 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
   if (invert)
     result ^= 1;
   return constant_boolean_node (result, type);
+}
+
+/* Build an expression for the a clean point containing EXPR with type TYPE.
+   Don't build a cleanup point expression for EXPR which don't have side
+   effects.  */
+
+tree
+fold_build_cleanup_point_expr (tree type, tree expr)
+{
+  /* If the expression does not have side effects then we don't have to wrap
+     it with a cleanup point expression.  */
+  if (!TREE_SIDE_EFFECTS (expr))
+    return expr;
+  
+  return build1 (CLEANUP_POINT_EXPR, type, expr);
 }
 
 /* Build an expression for the address of T.  Folds away INDIRECT_REF to

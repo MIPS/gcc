@@ -1,5 +1,5 @@
 /* Utility routines for finding and reading Java(TM) .class files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -532,7 +532,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
   if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
     {
       if (flag_newer)
-	warning ("source file for class `%s' is newer than its matching class file.  Source file `%s' used instead", classname, java_buffer);
+	warning ("source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
       class = -1;
     }
 

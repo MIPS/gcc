@@ -1060,13 +1060,14 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
+#define TREE_STRING_POINTER(NODE) \
+  ((const char *)(STRING_CST_CHECK (NODE)->string.str))
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char str[1];
+  char str[1];
 };
 
 /* In a COMPLEX_CST node.  */
@@ -3466,7 +3467,6 @@ extern bool commutative_tree_code (enum tree_code);
 extern void expand_expr_stmt (tree);
 extern void expand_expr_stmt_value (tree, int, int);
 extern int warn_if_unused_value (tree, location_t);
-extern void expand_decl_init (tree);
 extern void expand_label (tree);
 extern void expand_goto (tree);
 extern void expand_asm (tree, int);
@@ -3539,6 +3539,7 @@ extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, 
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
 extern tree build_fold_addr_expr (tree);
+tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
@@ -3789,10 +3790,14 @@ extern void dwarf2out_return_reg (const char *, unsigned);
 
 /* In tree-inline.c  */
 
+/* The type of a set of already-visited pointers.  Functions for creating
+   and manipulating it are declared in pointer-set.h */
+struct pointer_set_t;
+
 /* The type of a callback function for walking over tree structure.  */
 
 typedef tree (*walk_tree_fn) (tree *, int *, void *);
-extern tree walk_tree (tree*, walk_tree_fn, void*, void*);
+extern tree walk_tree (tree*, walk_tree_fn, void*, struct pointer_set_t*);
 extern tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 
 /* In tree-dump.c */

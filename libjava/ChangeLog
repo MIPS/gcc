@@ -1,3 +1,213 @@
+2004-10-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/BindException.java,
+	java/net/ConnectException.java,
+	java/net/ContentHandler.java,
+	java/net/ContentHandlerFactory.java,
+	java/net/DatagramPacket.java,
+	java/net/DatagramSocket.java,
+	java/net/DatagramSocketImpl.java,
+	java/net/DatagramSocketImplFactory.java,
+	java/net/FileNameMap.java,
+	java/net/HttpURLConnection.java,
+	java/net/MalformedURLException.java,
+	java/net/MulticastSocket.java,
+	java/net/NetworkInterface.java,
+	java/net/NoRouteToHostException.java,
+	java/net/PasswordAuthentication.java,
+	java/net/PortUnreachableException.java,
+	java/net/ProtocolException.java,
+	java/net/ServerSocket.java,
+	java/net/Socket.java,
+	java/net/SocketException.java,
+	java/net/SocketImpl.java,
+	java/net/SocketImplFactory.java,
+	java/net/SocketOptions.java,
+	java/net/SocketPermission.java,
+	java/net/SocketTimeoutException.java,
+	java/net/URI.java,
+	java/net/URISyntaxException.java,
+	java/net/URL.java,
+	java/net/URLDecoder.java,
+	java/net/URLEncoder.java,
+	java/net/URLStreamHandler.java,
+	java/net/URLStreamHandlerFactory.java,
+	java/net/UnknownHostException.java,
+	java/net/UnknownServiceException.java:
+	Big import statement and @author tag cleanup.
+
+2004-10-17  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/security/OID.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/x509/X500DistinguishedName.java,
+	gnu/java/security/x509/X509CRL.java:
+	Import statements cleaned up.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/NIODatagramSocket.java,
+	gnu/java/nio/ServerSocketChannelImpl.java:
+	Reorganized import statements.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/rmi/RMIMarshalledObjectOutputStream.java
+	gnu/java/rmi/rmic/RMIC.java,
+	gnu/java/rmi/server/RMIHashes.java,
+	gnu/java/rmi/server/RMIObjectInputStream.java,
+	gnu/java/rmi/server/RMIObjectOutputStream.java,
+	gnu/java/rmi/server/UnicastConnection.java,
+	gnu/java/rmi/server/UnicastConnectionManager.java,
+	gnu/java/rmi/server/UnicastRemoteCall.java,
+	gnu/java/rmi/server/UnicastServer.java,
+	gnu/java/rmi/server/UnicastServerRef.java,
+	java/rmi/MarshalledObject.java,
+	java/rmi/Naming.java,
+	java/rmi/RMISecurityManager.java,
+	java/rmi/Remote.java,
+	java/rmi/activation/Activatable.java,
+	java/rmi/activation/ActivationDesc.java,
+	java/rmi/activation/ActivationGroup.java,
+	java/rmi/activation/ActivationGroupDesc.java,
+	java/rmi/activation/ActivationGroupID.java,
+	java/rmi/activation/ActivationID.java,
+	java/rmi/activation/ActivationInstantiator.java,
+	java/rmi/activation/ActivationMonitor.java,
+	java/rmi/activation/ActivationSystem.java,
+	java/rmi/activation/Activator.java,
+	java/rmi/dgc/DGC.java,
+	java/rmi/dgc/Lease.java,
+	java/rmi/dgc/VMID.java,
+	java/rmi/registry/LocateRegistry.java,
+	java/rmi/registry/Registry.java,
+	java/rmi/registry/RegistryHandler.java,
+	java/rmi/server/LoaderHandler.java,
+	java/rmi/server/LogStream.java,
+	java/rmi/server/ObjID.java,
+	java/rmi/server/Operation.java,
+	java/rmi/server/RMIClassLoader.java,
+	java/rmi/server/RMIClassLoaderSpi.java,
+	java/rmi/server/RMIClientSocketFactory.java,
+	java/rmi/server/RMIFailureHandler.java,
+	java/rmi/server/RMIServerSocketFactory.java,
+	java/rmi/server/RMISocketFactory.java,
+	java/rmi/server/RemoteCall.java,
+	java/rmi/server/RemoteObject.java,
+	java/rmi/server/RemoteRef.java,
+	java/rmi/server/RemoteServer.java,
+	java/rmi/server/RemoteStub.java,
+	java/rmi/server/ServerRef.java,
+	java/rmi/server/Skeleton.java,
+	java/rmi/server/SkeletonMismatchException.java,
+	java/rmi/server/UID.java,
+	java/rmi/server/UnicastRemoteObject.java,
+	java/rmi/server/Unreferenced.java:
+	File headers and import statements cleaned up.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* libjava/gnu/java/nio/charset/UTF_16.java,
+	libjava/gnu/java/nio/charset/UTF_16BE.java,
+	libjava/gnu/java/nio/charset/UTF_16LE.java,
+	libjava/java/nio/ByteOrder.java,
+	libjava/java/nio/MappedByteBuffer.java,
+	libjava/java/nio/channels/Channels.java,
+	libjava/java/nio/channels/spi/SelectorProvider.java,
+	libjava/java/nio/charset/Charset.java:
+	Cleanup.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/charset/UTF_16Encoder.java
+	(UTF_16Encoder): Fixed maxBytesPerChar handling.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/math/BigDecimal.java, java/math/BigInteger.java:
+	Reorganized import statements, removed redundant and
+	reorganized modifiers.
+
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/beans/ExplicitBeanInfo.java:
+	Explicitely import java.awt.Image.
+	(getIcon): Fixed off-by-one error.
+
+2004-10-15  Andrew Haley  <aph@redhat.com>
+
+        * Makefile.am (nat_files, xlib_nat_files): New.
+        * Makefile.in: Regenerate.
+
+2004-10-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* jni.cc (_Jv_JNIMethod::call): Use ffi_java_raw_call instead of
+	ffi_raw_call if FFI_NATIVE_RAW_API is not defined.
+
+2004-10-13  Andrew Haley  <aph@redhat.com>
+
+	* interpret.cc (_Jv_InterpMethod::run): Initialize
+	_Jv_StartOfInterpreter.
+	(_Jv_StartOfInterpreter, _Jv_EndOfInterpreter): Functions removed.
+	(_Jv_StartOfInterpreter, _Jv_EndOfInterpreter): New variables.
+	* gnu/gcj/runtime/natStackTrace.cc (fillInStackTrace): Use
+	_Unwind_FindEnclosingFunction to discover whether PC is within the
+	interpreter.
+
+2004-10-12  Rutger Ovidius  <ovidr@users.sourceforge.net>
+
+	PR libgcj/17903:
+	* testsuite/libjava.lang/md5test.java: New file.
+	* testsuite/libjava.lang/md5test.out: Likewise.
+	* testsuite/libjava.lang/shatest.java: Likewise.
+	* testsuite/libjava.lang/shatest.out: Likewise.
+
+2004-10-11  Richard Henderson  <rth@redhat.com>
+
+	* include/posix-threads.h <__alpha__> (_Jv_ThreadId_t): Use void*.
+	(_Jv_ThreadSelf): Use __builtin_thread_pointer.
+
+2004-10-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/util/Calendar.java (set): Invalidate DST_OFFSET
+	field as a DST boundary may have been crossed.
+	* java/util/GregorianCalendar.java (add): Throw 
+	IllegalArgumentException on attempt to add to DST_OFFSET or 
+	ZONE_OFFSET fields. Update javadoc.
+
+2004-10-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/CharArrayWriter.java
+	(resize): Removed redundant 'final' modifier.
+	* java/io/DataInputStream.java
+	(readFully): Throw IndexOutOfBoundsException of len < 0.
+	* java/io/FileDescriptor.java,
+	java/io/FileInputStream.java,
+	java/io/FileOutputStream.java,
+	java/io/ObjectOutputStream.java,
+	java/io/ObjectStreamClass.java,
+	java/io/PipedInputStream.java,
+	java/io/RandomAccessFile.java:
+	Reorganized import statements.
+
+2004-10-09  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/rmi/rmic/RMIC.java,
+	gnu/java/rmi/server/RMIHashes.java,
+	gnu/java/rmi/server/RMIObjectInputStream.java,
+	gnu/java/rmi/server/UnicastConnection.java,
+	gnu/java/rmi/server/UnicastConnectionManager.java,
+	gnu/java/rmi/server/UnicastRemoteCall.java,
+	gnu/java/rmi/server/UnicastServerRef.java:
+	Reworked import statements and fixed file headers.
+
+2004-10-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.ac (*-*-freebsd[[1234]]*): Refine error message
+	emission rule.
+	* configure: Rebuilt.
+
 2004-09-30  Tom Tromey  <tromey@redhat.com>
 
 	* java/text/MessageFormat.java (Field): Constructor now
