@@ -1,6 +1,11 @@
 2005-02-22  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4015820
+	* obj-c++.dg/objc-fast-4.mm:  New.
+
+2005-02-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4015820
 	* objc.dg/objc-fast-4.m:  New.
 
 2005-02-21  Stan Shebs  <shebs@apple.com>
