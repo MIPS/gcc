@@ -1,24 +1,24 @@
 /* Core target definitions for GNU compiler
    for PowerPC embedded targeted systems with SPE support.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez (aldyh@redhat.com).
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS | MASK_EABI)
@@ -28,12 +28,19 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SUBSUBTARGET_OVERRIDE_OPTIONS
 #define SUBSUBTARGET_OVERRIDE_OPTIONS \
-  rs6000_cpu = PROCESSOR_PPC8540; \
-  rs6000_spe_abi = 1; \
-  rs6000_fprs = 0; \
+  if (rs6000_select[1].string == NULL) \
+    rs6000_cpu = PROCESSOR_PPC8540; \
+  if (rs6000_abi_string == NULL || strstr (rs6000_abi_string, "spe") == NULL) \
+    rs6000_spe_abi = 1; \
+  if (rs6000_float_gprs_string == NULL) \
+    rs6000_float_gprs = 1; \
   /* See note below.  */ \
-  /*rs6000_long_double_type_size = 128;*/ \
-  rs6000_isel = 1
+  /*if (rs6000_long_double_size_string == NULL)*/ \
+  /*  rs6000_long_double_type_size = 128;*/ \
+  if (rs6000_spe_string == NULL) \
+    rs6000_spe = 1; \
+  if (rs6000_isel_string == NULL) \
+    rs6000_isel = 1
 
 /*
   The e500 ABI says that either long doubles are 128 bits, or if

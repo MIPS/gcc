@@ -4,22 +4,22 @@
    Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -49,9 +49,6 @@ Boston, MA 02111-1307, USA.  */
 #undef LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
 
-#define LINK_GCC_C_SEQUENCE_SPEC \
-  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
-
 #undef	LIB_DEFAULT_SPEC
 #define LIB_DEFAULT_SPEC "%(lib_linux)"
 
@@ -66,6 +63,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (PowerPC GNU/Linux)");

@@ -1,3 +1,7 @@
+2004-02-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/types.c: Use 16 byte long double for POWERPC64.
+
 2004-01-24  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.

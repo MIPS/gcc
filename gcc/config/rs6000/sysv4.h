@@ -3,23 +3,22 @@
    2004 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 /* Header files should be C++ aware in general.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -210,6 +209,8 @@ do {									\
   else if (!strcmp (rs6000_abi_name, "gnu"))				\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "netbsd"))				\
+    rs6000_current_abi = ABI_V4;					\
+  else if (!strcmp (rs6000_abi_name, "openbsd"))			\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "i960-old"))			\
     {									\
@@ -682,6 +683,20 @@ do {									\
 do {									\
   ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);			\
 } while (0)
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+/* To support -falign-* switches we need to use .p2align so
+   that alignment directives in code sections will be padded
+   with no-op instructions, rather than zeroes.  */
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE, LOG, MAX_SKIP)			\
+  if ((LOG) != 0)							\
+    {									\
+      if ((MAX_SKIP) == 0)						\
+	fprintf ((FILE), "\t.p2align %d\n", (LOG));			\
+      else								\
+	fprintf ((FILE), "\t.p2align %d,,%d\n",	(LOG), (MAX_SKIP));	\
+    }
+#endif
 
 /* This is how to output code to push a register on the stack.
    It need not be very fast code.
@@ -1238,6 +1253,34 @@ ncrtn.o%s"
 #define CPP_OS_NETBSD_SPEC "\
 -D__powerpc__ -D__NetBSD__ -D__ELF__ -D__KPRINTF_ATTRIBUTE__"
 
+/* OpenBSD support.  */
+#ifndef	LIB_OPENBSD_SPEC
+#define LIB_OPENBSD_SPEC "%{!shared:%{pthread:-lpthread%{p:_p}%{!p:%{pg:_p}}}} %{!shared:-lc%{p:_p}%{!p:%{pg:_p}}}"
+#endif
+
+#ifndef	STARTFILE_OPENBSD_SPEC
+#define	STARTFILE_OPENBSD_SPEC "\
+%{!shared: %{pg:gcrt0.o%s} %{!pg:%{p:gcrt0.o%s} %{!p:crt0.o%s}}} \
+%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
+#endif
+
+#ifndef	ENDFILE_OPENBSD_SPEC
+#define	ENDFILE_OPENBSD_SPEC "\
+%{!shared:crtend.o%s} %{shared:crtendS.o%s}"
+#endif
+
+#ifndef LINK_START_OPENBSD_SPEC
+#define LINK_START_OPENBSD_SPEC "-Ttext 0x400074"
+#endif
+
+#ifndef LINK_OS_OPENBSD_SPEC
+#define LINK_OS_OPENBSD_SPEC ""
+#endif
+
+#ifndef CPP_OS_OPENBSD_SPEC
+#define CPP_OS_OPENBSD_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_POSIX_THREADS}"
+#endif
+
 /* RTEMS support.  */  
 
 #define CPP_OS_RTEMS_SPEC "\
@@ -1327,6 +1370,7 @@ ncrtn.o%s"
   { "lib_gnu",			LIB_GNU_SPEC },				\
   { "lib_linux",		LIB_LINUX_SPEC },			\
   { "lib_netbsd",		LIB_NETBSD_SPEC },			\
+  { "lib_openbsd",		LIB_OPENBSD_SPEC },			\
   { "lib_vxworks",		LIB_VXWORKS_SPEC },			\
   { "lib_windiss",              LIB_WINDISS_SPEC },                     \
   { "lib_default",		LIB_DEFAULT_SPEC },			\
@@ -1338,6 +1382,7 @@ ncrtn.o%s"
   { "startfile_gnu",		STARTFILE_GNU_SPEC },			\
   { "startfile_linux",		STARTFILE_LINUX_SPEC },			\
   { "startfile_netbsd",		STARTFILE_NETBSD_SPEC },		\
+  { "startfile_openbsd",	STARTFILE_OPENBSD_SPEC },		\
   { "startfile_vxworks",	STARTFILE_VXWORKS_SPEC },		\
   { "startfile_windiss",        STARTFILE_WINDISS_SPEC },               \
   { "startfile_default",	STARTFILE_DEFAULT_SPEC },		\
@@ -1349,6 +1394,7 @@ ncrtn.o%s"
   { "endfile_gnu",		ENDFILE_GNU_SPEC },			\
   { "endfile_linux",		ENDFILE_LINUX_SPEC },			\
   { "endfile_netbsd",		ENDFILE_NETBSD_SPEC },			\
+  { "endfile_openbsd",		ENDFILE_OPENBSD_SPEC },			\
   { "endfile_vxworks",		ENDFILE_VXWORKS_SPEC },			\
   { "endfile_windiss",          ENDFILE_WINDISS_SPEC },                 \
   { "endfile_default",		ENDFILE_DEFAULT_SPEC },			\
@@ -1364,6 +1410,7 @@ ncrtn.o%s"
   { "link_start_gnu",		LINK_START_GNU_SPEC },			\
   { "link_start_linux",		LINK_START_LINUX_SPEC },		\
   { "link_start_netbsd",	LINK_START_NETBSD_SPEC },		\
+  { "link_start_openbsd",	LINK_START_OPENBSD_SPEC },		\
   { "link_start_vxworks",	LINK_START_VXWORKS_SPEC },		\
   { "link_start_windiss",	LINK_START_WINDISS_SPEC },		\
   { "link_start_default",	LINK_START_DEFAULT_SPEC },		\
@@ -1376,6 +1423,7 @@ ncrtn.o%s"
   { "link_os_linux",		LINK_OS_LINUX_SPEC },			\
   { "link_os_gnu",		LINK_OS_GNU_SPEC },			\
   { "link_os_netbsd",		LINK_OS_NETBSD_SPEC },			\
+  { "link_os_openbsd",		LINK_OS_OPENBSD_SPEC },			\
   { "link_os_vxworks",		LINK_OS_VXWORKS_SPEC },			\
   { "link_os_windiss",		LINK_OS_WINDISS_SPEC },			\
   { "link_os_default",		LINK_OS_DEFAULT_SPEC },			\
@@ -1390,6 +1438,7 @@ ncrtn.o%s"
   { "cpp_os_gnu",		CPP_OS_GNU_SPEC },			\
   { "cpp_os_linux",		CPP_OS_LINUX_SPEC },			\
   { "cpp_os_netbsd",		CPP_OS_NETBSD_SPEC },			\
+  { "cpp_os_openbsd",		CPP_OS_OPENBSD_SPEC },			\
   { "cpp_os_rtems",		CPP_OS_RTEMS_SPEC },			\
   { "cpp_os_vxworks",		CPP_OS_VXWORKS_SPEC },			\
   { "cpp_os_windiss",           CPP_OS_WINDISS_SPEC },                  \
@@ -1428,63 +1477,6 @@ ncrtn.o%s"
    to the previous value.  */
 
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
-
-/* Define library calls for quad FP operations.  These are all part of the
-   PowerPC 32bit ABI.  */
-#define ADDTF3_LIBCALL "_q_add"
-#define DIVTF3_LIBCALL "_q_div"
-#define EXTENDDFTF2_LIBCALL "_q_dtoq"
-#define EQTF2_LIBCALL "_q_feq"
-#define GETF2_LIBCALL "_q_fge"
-#define GTTF2_LIBCALL "_q_fgt"
-#define LETF2_LIBCALL "_q_fle"
-#define LTTF2_LIBCALL "_q_flt"
-#define NETF2_LIBCALL "_q_fne"
-#define FLOATSITF2_LIBCALL "_q_itoq"
-#define MULTF3_LIBCALL "_q_mul"
-#define NEGTF2_LIBCALL "_q_neg"
-#define TRUNCTFDF2_LIBCALL "_q_qtod"
-#define FIX_TRUNCTFSI2_LIBCALL "_q_qtoi"
-#define TRUNCTFSF2_LIBCALL "_q_qtos"
-#define FIXUNS_TRUNCTFSI2_LIBCALL "_q_qtou"
-#define SQRTTF_LIBCALL "_q_sqrt"
-#define EXTENDSFTF2_LIBCALL "_q_stoq"
-#define SUBTF3_LIBCALL "_q_sub"
-#define FLOATUNSSITF2_LIBCALL "_q_utoq"
-
-#define INIT_TARGET_OPTABS						\
-  do {									\
-    if (TARGET_HARD_FLOAT)						\
-      {									\
-	add_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (ADDTF3_LIBCALL);				\
-	sub_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (SUBTF3_LIBCALL);				\
-	neg_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (NEGTF2_LIBCALL);				\
-	smul_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (MULTF3_LIBCALL);				\
-	sdiv_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (DIVTF3_LIBCALL);				\
-	eqtf2_libfunc = init_one_libfunc (EQTF2_LIBCALL);		\
-	netf2_libfunc = init_one_libfunc (NETF2_LIBCALL);		\
-	gttf2_libfunc = init_one_libfunc (GTTF2_LIBCALL);		\
-	getf2_libfunc = init_one_libfunc (GETF2_LIBCALL);		\
-	lttf2_libfunc = init_one_libfunc (LTTF2_LIBCALL);		\
-	letf2_libfunc = init_one_libfunc (LETF2_LIBCALL);		\
-	trunctfsf2_libfunc = init_one_libfunc (TRUNCTFSF2_LIBCALL);	\
-	trunctfdf2_libfunc = init_one_libfunc (TRUNCTFDF2_LIBCALL);	\
-	extendsftf2_libfunc = init_one_libfunc (EXTENDSFTF2_LIBCALL);	\
-	extenddftf2_libfunc = init_one_libfunc (EXTENDDFTF2_LIBCALL);	\
-	floatsitf_libfunc = init_one_libfunc (FLOATSITF2_LIBCALL);	\
-	fixtfsi_libfunc = init_one_libfunc (FIX_TRUNCTFSI2_LIBCALL);	\
-	fixunstfsi_libfunc						\
-	  = init_one_libfunc (FIXUNS_TRUNCTFSI2_LIBCALL);		\
-	if (TARGET_PPC_GPOPT || TARGET_POWER2) 				\
-	  sqrt_optab->handlers[(int) TFmode].libfunc			\
-	    = init_one_libfunc (SQRTTF_LIBCALL);			\
-      }									\
-  } while (0)
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is

@@ -1,23 +1,24 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #ifndef RS6000_BI_ARCH
 
@@ -244,7 +245,7 @@ Boston, MA 02111-1307, USA.  */
    : (COMPUTED))
 
 /* PowerPC64 Linux increases natural record alignment to doubleword if
-   the first field is an FP double.  */
+   the first field is an FP double, only if in power alignment mode.  */
 #undef  ROUND_TYPE_ALIGN
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)		\
   ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)	\
@@ -253,10 +254,8 @@ Boston, MA 02111-1307, USA.  */
       && TARGET_ALIGN_NATURAL == 0				\
       && (TREE_CODE (STRUCT) == RECORD_TYPE			\
 	  || TREE_CODE (STRUCT) == UNION_TYPE			\
-	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-      && TYPE_FIELDS (STRUCT) != 0				\
-      && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)			\
+	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE))		\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Indicate that jump tables go in the text section.  */
@@ -268,7 +267,7 @@ Boston, MA 02111-1307, USA.  */
    reasonably assume that they follow the normal rules for structure
    layout treating the parameter area as any other block of memory,
    then map the reg param area to registers.  ie. pad updard.
-   Setting both of the following defines results in this behaviour.
+   Setting both of the following defines results in this behavior.
    Setting just the first one will result in aggregates that fit in a
    doubleword being padded downward, and others being padded upward.
    Not a bad idea as this results in struct { int x; } being passed
@@ -341,9 +340,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
-
-#define LINK_GCC_C_SEQUENCE_SPEC \
-  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
 #undef  LIB_DEFAULT_SPEC
 #define LIB_DEFAULT_SPEC "%(lib_linux)"
@@ -578,18 +574,35 @@ while (0)
 			   | (trampolines_created ? SECTION_CODE : 0));	\
   } while (0)
 
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
 #ifdef IN_LIBGCC2
 #include <signal.h>
+#ifdef __powerpc64__
 #include <sys/ucontext.h>
 
-#ifdef __powerpc64__
 enum { SIGNAL_FRAMESIZE = 128 };
+
 #else
+
+/* During the 2.5 kernel series the kernel ucontext was changed, but
+   the new layout is compatible with the old one, so we just define
+   and use the old one here for simplicity and compatibility.  */
+
+struct kernel_old_ucontext {
+  unsigned long     uc_flags;
+  struct ucontext  *uc_link;
+  stack_t           uc_stack;
+  struct sigcontext_struct uc_mcontext;
+  sigset_t          uc_sigmask;
+};
 enum { SIGNAL_FRAMESIZE = 64 };
 #endif
+
 #endif
 
 #ifdef __powerpc64__
@@ -667,10 +680,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
        get the same result for multiple evaluation of the same signal	\
        frame.  */							\
     sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
-    (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
-    (FS)->regs.reg[CR0_REGNO].loc.offset 				\
+    (FS)->regs.reg[ARG_POINTER_REGNUM].how = REG_SAVED_OFFSET;		\
+    (FS)->regs.reg[ARG_POINTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
-    (FS)->retaddr_column = CR0_REGNO;					\
+    (FS)->retaddr_column = ARG_POINTER_REGNUM;				\
     goto SUCCESS;							\
   } while (0)
 
@@ -707,7 +720,7 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	  struct siginfo *pinfo;					\
 	  void *puc;							\
 	  struct siginfo info;						\
-	  struct ucontext uc;						\
+	  struct kernel_old_ucontext uc;				\
 	} *rt_ = (CONTEXT)->cfa;					\
 	sc_ = &rt_->uc.uc_mcontext;					\
       }									\
@@ -731,15 +744,9 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
 									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn. We store NIP+4 in an unused register slot to	\
-       get the same result for multiple evaluation of the same signal	\
-       frame.  */							\
-    sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
     (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
     (FS)->regs.reg[CR0_REGNO].loc.offset 				\
-      = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
+      = (long)&(sc_->regs->nip) - new_cfa_;				\
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)

@@ -2087,15 +2087,10 @@ powerpc-*-chorusos*)
 		;;
 	esac
 	;;
-powerpc-*-eabiaix*)
-	xm_defines=POSIX
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabiaix.h"
-	tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
-	;;
 powerpc-*-eabispe*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabispe.h"
-	tmake_file="rs6000/t-ppcendian rs6000/t-ppccomm"
+	tmake_file="rs6000/t-spe rs6000/t-ppccomm"
 	;;
 powerpc-*-eabisimaltivec*)
 	xm_defines=POSIX
@@ -2138,9 +2133,13 @@ powerpc-*-linux*libc1)
 		thread_file='posix'
 	fi
 	;;
-powerpc-*-linux-gnualtivec*)
+powerpc-*-linux-*altivec*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h"
 	out_file=rs6000/rs6000.c
+	tmake_file="rs6000/t-ppcos t-slibgcc-elf-ver t-linux rs6000/t-ppccomm"
+	;;
+powerpc-*-linux*spe*)
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxspe.h"
 	tmake_file="rs6000/t-ppcos t-slibgcc-elf-ver t-linux rs6000/t-ppccomm"
 	;;
 powerpc-*-linux*)
@@ -2270,7 +2269,7 @@ rs6000-*-mach*)
 	use_collect2=yes
 	;;
 rs6000-*-lynxos*)
-	tm_file="lynx.h rs6000/lynx.h"
+	tm_file="svr3.h lynx.h rs6000/lynxbase.h rs6000/rs6000.h rs6000/lynx.h"
 	tmake_file=rs6000/t-rs6000
 	use_collect2=yes
 	;;

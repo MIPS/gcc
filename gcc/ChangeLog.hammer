@@ -1,5 +1,73 @@
 2004-02-06  Alan Modra  <amodra@bigpond.net.au>
 
+	* config.gcc: Update rs6000.
+	* config/lynxbase.h, config/rs6000/aix.h, config/rs6000/aix41.h,
+	config/rs6000/aix43.h, config/rs6000/aix51.h, config/rs6000/aix52.h,
+	config/rs6000/altivec-defs.h, config/rs6000/altivec.h,
+	config/rs6000/crtsavres.asm, config/rs6000/darwin-ldouble.c,
+	config/rs6000/darwin.h, config/rs6000/eabi.h,
+	config/rs6000/eabialtivec.h, config/rs6000/eabisim.h,
+	config/rs6000/eabispe.h, config/rs6000/libgcc-ppc64.ver,
+	config/rs6000/linux.h, config/rs6000/linux64.h,
+	config/rs6000/linuxspe.h, config/rs6000/lynx.h,
+	config/rs6000/lynxbase.h, config/rs6000/ppc64-fp.c,
+	config/rs6000/rs6000-protos.h, config/rs6000/rs6000.c,
+	config/rs6000/rs6000.h, config/rs6000/rs6000.md,
+	config/rs6000/rtems.h, config/rs6000/spe.h, config/rs6000/spe.md,
+	config/rs6000/sysv4.h, config/rs6000/t-darwin,
+	config/rs6000/t-linux64, config/rs6000/t-linuxbi, config/rs6000/t-spe,
+	config/rs6000/xcoff.h: Merge/import from gcc-3.4.  In addition,
+	make the following changes..
+
+	* config/rs6000/t-linuxbi (LIB2FUNCS_EXTRA): Add darwin-ldouble.c.
+	(SHLIB_MAPFILES): Add libgcc-ppc64.ver.
+	(SHLIB_MKMAP_OPTS): Delete.
+	(TARGET_LIBGCC2_CFLAGS): Add -specs.
+	(bispecs): Add rule.
+	* config/rs6000/t-linux64 (LIB2FUNCS_EXTRA): Add darwin-ldouble.c.
+	(SHLIB_MAPFILES): Add libgcc-ppc64.ver.
+	(FPBIT, DPBIT): Define.
+	(dp-bit32.c, fp-bit32.c): Add rules.
+	* config/rs6000/libgcc-ppc64.ver: New file.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Default
+	to 128 bit long double.
+	* config/rs6000/ppc64-fp.c (__fixtfdi, __floatditf): New functions.
+	(__floatdidf, __floatdisf): Optimize multiply.
+	(__fixunstfdi): New function.
+	* config/rs6000/rs6000.c (rs6000_complex_function_value): Allow for
+	real and imag parts larger than one register.
+	(function_arg): Correct type of reg used when fp arg split partially
+	to stack.
+	* config/rs6000/darwin-ldouble.c: Import from mainline.  Protect
+	with #if !_SOFT_FLOAT and __MACH__ or __powerpc64__.
+
+	* config/rs6000/rs6000.h (RS6000_ARG_SIZE): Delete.
+	(HARD_REGNO_MODE_OK): Disallow TFmode for fp31.
+	* config/rs6000/rs6000.c (rs6000_arg_size): New function.
+	Update all users of RS6000_ARG_SIZE.
+	(function_arg_advance): Count fregno using mode size.
+	(function_arg): Handle long double split over regs and memory.
+	(function_arg_partial_nregs): Likewise.
+	(rs6000_va_arg): Repackage complex args.
+
+	* config/rs6000/aix.h (ADDTF3_LIBCALL, DIVTF3_LIBCALL,
+	MULTF3_LIBCALL, SUBTF3_LIBCALL, INIT_TARGET_OPTABS): Delete.
+	* config/rs6000/sysv4.h (ADDTF3_LIBCALL, DIVTF3_LIBCALL,
+	EXTENDDFTF2_LIBCALL, EQTF2_LIBCALL, GETF2_LIBCALL, GTTF2_LIBCALL,
+	LETF2_LIBCALL, LTTF2_LIBCALL, NETF2_LIBCALL, FLOATSITF2_LIBCALL,
+	MULTF3_LIBCALL, NEGTF2_LIBCALL, TRUNCTFDF2_LIBCALL,
+	FIX_TRUNCTFSI2_LIBCALL, TRUNCTFSF2_LIBCALL, FIXUNS_TRUNCTFSI2_LIBCALL,
+	SQRTTF_LIBCALL, EXTENDSFTF2_LIBCALL, SUBTF3_LIBCALL,
+	FLOATUNSSITF2_LIBCALL, INIT_TARGET_OPTABS): Delete.
+	* config/rs6000/xcoff.h (RS6000_ITRUNC, RS6000_UITRUNC): Delete.
+	* config/rs6000/rs6000.h (INIT_TARGET_OPTABS): Define.
+
+	* config/rs6000/rs6000.md (extzv): Fail on size greater than wordsize
+	to work around extract_bit_field bug.
+	(floatdisf2): Make the predicate logic match the expanded insns.
+
+2004-02-06  Alan Modra  <amodra@bigpond.net.au>
+
 	Backport from mainline.
 	2004-01-09  Geoffrey Keating  <geoffk@apple.com>
 	* real.c (encode_ibm_extended): Make consistent with darwin-ldouble.c.
