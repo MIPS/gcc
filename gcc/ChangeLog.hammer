@@ -1,3 +1,7 @@
+2003-09-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* flow.c (allocate_reg_life_data): Reset REG_FREQ.
+
 2003-09-04  Michael Matz  <matz@suse.de>
 
 	* cfgloopmanip.c (recount_frequencies): Don't clear the ENTRY_BLOCK.
