@@ -5000,16 +5000,14 @@ legitimate_pic_address_disp_p (disp)
     case UNSPEC_GOTOFF:
       return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_GOTTPOFF:
+    case UNSPEC_GOTNTPOFF:
+    case UNSPEC_INDNTPOFF:
       if (saw_plus)
 	return false;
       return initial_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_NTPOFF:
-      if (saw_plus)
-	return false;
       return local_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_DTPOFF:
-      if (saw_plus)
-	return false;
       return local_dynamic_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     }
     
@@ -5173,6 +5171,8 @@ legitimate_address_p (mode, addr, strict)
 	    goto is_legitimate_pic;
 
 	  case UNSPEC_GOTTPOFF:
+	  case UNSPEC_GOTNTPOFF:
+	  case UNSPEC_INDNTPOFF:
 	  case UNSPEC_NTPOFF:
 	  case UNSPEC_DTPOFF:
 	    break;
@@ -5558,32 +5558,36 @@ legitimize_address (x, oldx, mode)
 	      current_function_uses_pic_offset_table = 1;
 	      pic = pic_offset_table_rtx;
 	    }
-	  else
+	  else if (!TARGET_GNU_TLS)
 	    {
 	      pic = gen_reg_rtx (Pmode);
 	      emit_insn (gen_set_got (pic));
 	    }
+	  else
+	    pic = NULL;
 
 	  base = get_thread_pointer ();
 
-	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_GOTTPOFF);
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
+				!TARGET_GNU_TLS
+				? UNSPEC_GOTTPOFF
+				: flag_pic ? UNSPEC_GOTNTPOFF
+					   : UNSPEC_INDNTPOFF);
 	  off = gen_rtx_CONST (Pmode, off);
-	  off = gen_rtx_PLUS (Pmode, pic, off);
+	  if (flag_pic || !TARGET_GNU_TLS)
+	    off = gen_rtx_PLUS (Pmode, pic, off);
 	  off = gen_rtx_MEM (Pmode, off);
 	  RTX_UNCHANGING_P (off) = 1;
 	  set_mem_alias_set (off, ix86_GOT_alias_set ());
-
-	  /* Damn Sun for specifing a set of dynamic relocations without
-	     considering the two-operand nature of the architecture!
-	     We'd be much better off with a "GOTNTPOFF" relocation that
-	     already contained the negated constant.  */
-	  /* ??? Using negl and reg+reg addressing appears to be a lose
-	     size-wise.  The negl is two bytes, just like the extra movl
-	     incurred by the two-operand subl, but reg+reg addressing
-	     uses the two-byte modrm form, unlike plain reg.  */
-
 	  dest = gen_reg_rtx (Pmode);
-	  emit_insn (gen_subsi3 (dest, base, off));
+
+	  if (TARGET_GNU_TLS)
+	    {
+	      emit_move_insn (dest, off);
+	      return gen_rtx_PLUS (Pmode, base, dest);
+	    }
+	  else
+	    emit_insn (gen_subsi3 (dest, base, off));
 	  break;
 
         case TLS_MODEL_LOCAL_EXEC:
@@ -5865,6 +5869,7 @@ output_pic_addr_const (file, x, code)
 	  fputs ("@GOTPCREL(%rip)", file);
 	  break;
 	case UNSPEC_GOTTPOFF:
+	  /* FIXME: This might be @TPOFF in Sun ld too.  */
 	  fputs ("@GOTTPOFF", file);
 	  break;
 	case UNSPEC_TPOFF:
@@ -5875,6 +5880,12 @@ output_pic_addr_const (file, x, code)
 	  break;
 	case UNSPEC_DTPOFF:
 	  fputs ("@DTPOFF", file);
+	  break;
+	case UNSPEC_GOTNTPOFF:
+	  fputs ("@GOTNTPOFF", file);
+	  break;
+	case UNSPEC_INDNTPOFF:
+	  fputs ("@INDNTPOFF", file);
 	  break;
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
@@ -6785,6 +6796,7 @@ output_addr_const_extra (file, x)
     {
     case UNSPEC_GOTTPOFF:
       output_addr_const (file, op);
+      /* FIXME: This might be @TPOFF in Sun ld.  */
       fputs ("@GOTTPOFF", file);
       break;
     case UNSPEC_TPOFF:
@@ -6798,6 +6810,14 @@ output_addr_const_extra (file, x)
     case UNSPEC_DTPOFF:
       output_addr_const (file, op);
       fputs ("@DTPOFF", file);
+      break;
+    case UNSPEC_GOTNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@GOTNTPOFF", file);
+      break;
+    case UNSPEC_INDNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@INDNTPOFF", file);
       break;
 
     default:
