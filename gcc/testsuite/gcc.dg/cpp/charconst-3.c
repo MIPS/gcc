@@ -1,6 +1,6 @@
 /* Copyright (C) 2001 Free Software Foundation, Inc.  */
 
-/* { dg-do run } */
+/* { dg-do compile } */
 /* { dg-options -Wno-multichar } */
 
 /* This tests values and signedness of multichar charconsts.

@@ -668,7 +668,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 
 #define TREE_BOUNDED(NODE) ((NODE)->common.bounded_flag)
 
-/* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
+/* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
 
@@ -853,7 +853,7 @@ struct tree_vec
 #define LABELED_BLOCK_BODY(NODE) \
   TREE_OPERAND (LABELED_BLOCK_EXPR_CHECK (NODE), 1)
 
-/* In a EXIT_BLOCK_EXPR node.  */
+/* In an EXIT_BLOCK_EXPR node.  */
 #define EXIT_BLOCK_LABELED_BLOCK(NODE) \
   TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 0)
 #define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 1)
@@ -861,7 +861,7 @@ struct tree_vec
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND (LOOP_EXPR_CHECK (NODE), 0)
 
-/* In a EXPR_WITH_FILE_LOCATION node.  */
+/* In an EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
   (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
 #define EXPR_WFL_NODE(NODE) \
@@ -1325,7 +1325,7 @@ struct tree_type
    base.  The actual contents are language-dependent.  Under the old
    ABI, the C++ front-end uses a FIELD_DECL whose contents are a
    pointer to the virtual base; under the new ABI this field is
-   instead a INTEGER_CST giving an offset into the vtable where the
+   instead an INTEGER_CST giving an offset into the vtable where the
    offset to the virtual base can be found.  */
 #define BINFO_VPTR_FIELD(NODE) TREE_VEC_ELT (NODE, 5)
 
@@ -1929,6 +1929,7 @@ enum tree_index
   TI_UV4HI_TYPE,
   TI_UV2SI_TYPE,
   TI_UV2SF_TYPE,
+  TI_UV2DI_TYPE,
   TI_UV16QI_TYPE,
 
   TI_V4SF_TYPE,
@@ -1939,6 +1940,8 @@ enum tree_index
   TI_V4HI_TYPE,
   TI_V2SI_TYPE,
   TI_V2SF_TYPE,
+  TI_V2DF_TYPE,
+  TI_V2DI_TYPE,
   TI_V16QI_TYPE,
 
   TI_MAIN_IDENTIFIER,
@@ -2006,6 +2009,7 @@ extern tree global_trees[TI_MAX];
 #define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
 #define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
 #define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
+#define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
 
 #define V16QI_type_node			global_trees[TI_V16QI_TYPE]
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]
@@ -2015,6 +2019,8 @@ extern tree global_trees[TI_MAX];
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
+#define V2DI_type_node			global_trees[TI_V2DI_TYPE]
+#define V2DF_type_node			global_trees[TI_V2DF_TYPE]
 #define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
@@ -2256,6 +2262,8 @@ extern void default_set_default_type_attributes PARAMS ((tree));
 extern void default_insert_attributes PARAMS ((tree, tree *));
 extern bool default_function_attribute_inlinable_p PARAMS ((tree));
 extern bool default_ms_bitfield_layout_p PARAMS ((tree));
+struct cpp_reader;
+extern void default_register_cpp_builtins PARAMS ((struct cpp_reader *));
 
 /* Split a list of declspecs and attributes into two.  */
 

@@ -1,6 +1,6 @@
 // 2000-08-02 bkoz
 
-// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -145,6 +145,36 @@ void test05()
   std::cout << "hello " << s << std::endl;
 }
 
+// libstdc++/5280
+// Interactive test: input "1234^D^D" for i should terminate for EOF.
+void test06()
+{
+  using namespace std;
+  int i;
+  cin >> i;
+  if (!cin.good()) 
+    {
+      cerr << endl;
+      cerr << "i == " << i << endl;
+      cerr << "cin.rdstate() == " << cin.rdstate() << endl;
+      cerr << "cin.bad() == " << cin.bad() << endl;      
+      cerr << "cin.fail() == " << cin.fail() << endl;      
+      cerr << "cin.eof() == " << cin.eof() << endl;
+    }   
+  else
+    cerr << "i == " << i << endl;
+}
+
+// libstdc++/6548
+void test07()
+{
+  bool test = true;
+  std::cout << "Please, enter 'test':";
+  std::string s;
+  std::getline(std::cin, s, '\n');
+  VERIFY( s == "test" );
+}
+
 int 
 main()
 {
@@ -154,5 +184,7 @@ main()
   // test03();
   // test04();
   // test05();
+  // test06();
+  // test07();
   return 0;
 }

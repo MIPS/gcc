@@ -41,6 +41,7 @@ enum processor_type
   PROCESSOR_7100,
   PROCESSOR_7100LC,
   PROCESSOR_7200,
+  PROCESSOR_7300,
   PROCESSOR_8000
 };
 
@@ -1239,6 +1240,7 @@ extern int may_call_alloca;
 			     ? GET_MODE (OP)		\
 			     : DFmode),			\
 			    XEXP (OP, 0))		\
+       && GET_CODE (XEXP (OP, 0)) != LO_SUM		\
        && !(GET_CODE (XEXP (OP, 0)) == PLUS		\
 	    && (GET_CODE (XEXP (XEXP (OP, 0), 0)) == MULT\
 		|| GET_CODE (XEXP (XEXP (OP, 0), 1)) == MULT)))\

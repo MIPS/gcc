@@ -1,3 +1,169 @@
+2002-05-04  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/num_put_members_char.cc: Add test04(),
+	testing for the locale_facets.tcc entry of the previous commit.
+	* testsuite/22_locale/num_put_members_wchar_t.cc: Likewise.
+
+2002-05-04  Takeshi Kobayakawa  <tskoba@mte.biglobe.ne.jp>
+
+	* config/locale/generic/c_locale.cc
+	(__convert_to_v(float, double, long double)):
+	Fix the temporary switch to the "C" locale, saving and
+	restoring in the proper way the current locale.
+	* config/locale/generic/time_members.cc
+	(__timepunct<char, wchar_t>::_M_put): Likewise.
+	* config/locale/gnu/messages_members.cc
+	(messages<char>::do_get): Likewise.
+	* config/locale/gnu/messages_members.h
+	(messages<_CharT>::do_get): Likewise.
+	* config/locale/gnu/time_members.cc
+	(__timepunct<char, wchar_t>::_M_put): Likewise.
+	* include/bits/locale_facets.tcc (__convert_from_v): Likewise.
+
+2002-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (AC_CHECK_HEADERS): Check for string.h & stdlib.h.
+	* libsupc++/Makefile.am (LTCOMPILE): Add $(DEFS).
+
+	* Makefile.in, config.h.in, configure: Regenerate.
+
+2002-05-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6549.
+	* include/bits/fstream.tcc (filebuf::_M_underflow_common): Revert.
+	* testsuite/27_io/narrow_stream_objects.cc (test07): Add.
+	
+2002-05-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/ctype_noninline.h (classic_table):
+	Return __ctype + 1.
+	(ctype:_M_table): Initialize to classic_table(), not __ctype.
+
+2002-05-03  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Update local install.html, configopts.html paths.
+	* configure: Regenerate.
+
+2002-05-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/os_defines.h
+	(__glibcpp_long_double_bits, __glibcpp_long_bits): Define.
+
+	* config/os/irix/irix5.2/bits/ctype_inline.h: Cast to unsigned
+	char.
+
+2002-05-02  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Update list in #4.1.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2002-05-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/17_intro/RELEASE-NOTES (New): Update.
+
+2002-05-01  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/std_bitset.h:  Fix doxygen comments.
+	* docs/html/documentation.html:  Minor tweaks for 3.1.
+	* docs/html/27_io/howto.html:  Likewise.
+	* docs/html/ext/howto.html:  Likewise, mention stdio_filebuf.
+	* docs/html/faq/index.html:  Likewise.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2002-05-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6533
+	* include/bits/streambuf_iterator.h (istreambuf_iterator::_M_get): New.
+	(istreambuf_iterator::equal): Use it.
+	(istreambuf_iterator::operator*): Use it.	
+
+2002-05-01  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6513
+	* include/bits/stl_uninitialized.h
+	(uninitialized_copy(_InputIter, _InputIter, _ForwardIter)):
+	Fix typo in 2001-07-17 commit: typedef _ValueType to
+	iterator_traits<_ForwardIter> not <_InputIter>.
+	* testsuite/23_containers/vector_ctor.cc: Add test04.
+
+2002-04-30  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+	
+	PR libstdc++/6501
+	* include/c_std/std_cctype.h: Include bits/c++config.h.
+	* config/os/hpux/bits/os_defines.h (_SB_CTYPE_MACROS): Define.
+
+2002-04-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/stdio_filebuf.h: New file.
+	* include/ext/enc_filebuf.h: New file.	
+	* config/io/basic_file_stdio.h (__basic_file::sys_open): Add fd ctor.
+	* config/io/basic_file_stdio.cc: Same.	
+	* include/bits/fstream.tcc (filebuf::_M_allocate_internal_buffer):
+	Remove _M_unbuf hacks.
+	(filebuf::_M_destroy_internal_buffer): Same.
+	(filebuf::filebuf(cfile, openmode, int_type): Remove definition.
+	(filebuf::fd): Remove.
+	* include/std/std_fstream.h (filebuf::_M_unbuf): Remove.
+	(filebuf::filebuf(__c_file*, openmode, int_type)): Remove.
+	(filebuf::fd): Remove.	
+	* src/ios.cc (ios_base::_S_ios_create): Change to use specialized
+	filebufs.
+	(ios_base::_S_ios_destroy): Same.
+	* src/misc-inst.cc (file_filebuf<char>): Add instantiation.
+	* include/Makefile.am (ext_headers): Add ext_filebuf.h,
+	stdio_filebuf.h.  * include/Makefile.in: Regenerate.
+
+2002-04-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6511
+	* config/os/solaris/solaris2.7/bits/ctype_noninline.h: Fix typo.
+
+2002-04-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/5820
+	* include/bits/fstream.tcc (basic_filebuf::_M_underflow_common):
+	Check for eof.
+	* include/bits/streambuf_iterator.h: Match stream_iterator.h.
+	(istreambuf_iterator::operator++): Invalidate on eof.
+	(istreambuf_iterator::operator++(int)): Same.
+	(istreambuf_iterator::operator*): Same.
+	
+2002-04-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Set all
+	of LD_LIBRARY_PATH, SHLIB_PATH, LD_LIBRARYN32_PATH,
+	LD_LIBRARY64_PATH. 
+
+2002-04-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/5820
+	* config/io/basic_file_stdio.h (__basic_file::sys_getc): Return int.
+	(__basic_file::sys_ungetc): Take int.
+	* config/io/basic_file_stdio.cc (__basic_file::sys_ungetc): Same.
+	* include/bits/fstream.tcc (basic_filebuf::_M_underflow_common):
+	Use sys_getc for unbuffered input.
+	* testsuite/27_io/narrow_stream_objects.cc (test06): New.
+	
+	* src/ios.cc (_M_grow_words): Adjust error checking.
+	* testsuite/27_io/ios_base_storage.cc: Same.
+
+2002-04-28  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* include/ext/stl_hashtable.h: Import __iterator_category
+
+2002-04-28  Paolo Carlini  <pcarlini@unitus.it>
+            Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* testsuite/ext/hash_set.cc: New testfile.
+
+2002-04-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/os/solaris/solaris2.5/bits/os_defines.h: Remove
+	_G_USING_THUNKS.
+	* config/os/solaris/solaris2.6/bits/os_defines.h: Same.
+	* config/os/solaris/solaris2.7/bits/os_defines.h: Same.
+
 2002-04-26  Paolo Carlini  <pcarlini@unitus.it>
 
 	* include/bits/basic_string.h (replace(__pos, __n1, __s, __n2):

@@ -39,6 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "splay-tree.h"
 #include "debug.h"
+#include "target.h"
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
@@ -80,6 +81,7 @@ static tree lex_string		PARAMS ((const unsigned char *, unsigned int,
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
+static void cb_register_builtins PARAMS ((cpp_reader *));
 static void cb_line_change     PARAMS ((cpp_reader *, const cpp_token *, int));
 static void cb_ident		PARAMS ((cpp_reader *, unsigned int,
 					 const cpp_string *));
@@ -121,6 +123,7 @@ init_c_lex (filename)
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
+  cb->register_builtins = cb_register_builtins;
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
@@ -223,6 +226,22 @@ dump_time_statistics ()
   fprintf (stderr, "\n******\n");
 
   splay_tree_foreach (file_info_tree, dump_one_header, 0);
+}
+
+/* Register preprocessor built-ins.  */
+static void
+cb_register_builtins (pfile)
+     cpp_reader *pfile;
+{
+  if (c_language == clk_cplusplus)
+    {
+      if (SUPPORTS_ONE_ONLY)
+	cpp_define (pfile, "__GXX_WEAK__");
+      else
+	cpp_define (pfile, "__GXX_WEAK__=0");
+    }
+
+  (*targetm.register_cpp_builtins) (pfile);
 }
 
 /* Not yet handled: #pragma, #define, #undef.
@@ -1238,9 +1257,7 @@ lex_string (str, len, wide)
   char *buf = alloca ((len + 1) * (wide ? WCHAR_BYTES : 1));
   char *q = buf;
   const unsigned char *p = str, *limit = str + len;
-  unsigned int c;
-  unsigned width = wide ? WCHAR_TYPE_SIZE
-			: TYPE_PRECISION (char_type_node);
+  cppchar_t c;
 
 #ifdef MULTIBYTE_CHARS
   /* Reset multibyte conversion state.  */
@@ -1270,15 +1287,7 @@ lex_string (str, len, wide)
 #endif
 
       if (c == '\\' && !ignore_escape_flag)
-	{
-	  unsigned int mask;
-
-	  if (width < HOST_BITS_PER_INT)
-	    mask = ((unsigned int) 1 << width) - 1;
-	  else
-	    mask = ~0;
-	  c = cpp_parse_escape (parse_in, &p, limit, mask);
-	}
+	c = cpp_parse_escape (parse_in, &p, limit, wide);
 	
       /* Add this single character into the buffer either as a wchar_t,
 	 a multibyte sequence, or as a single byte.  */
@@ -1345,45 +1354,31 @@ static tree
 lex_charconst (token)
      const cpp_token *token;
 {
-  HOST_WIDE_INT result;
+  cppchar_t result;
   tree type, value;
   unsigned int chars_seen;
+  int unsignedp;
  
   result = cpp_interpret_charconst (parse_in, token, warn_multichar,
- 				    &chars_seen);
-  if (token->type == CPP_WCHAR)
-    {
-      value = build_int_2 (result, 0);
-      type = wchar_type_node;
-    }
+ 				    &chars_seen, &unsignedp);
+
+  /* Cast to cppchar_signed_t to get correct sign-extension of RESULT
+     before possibly widening to HOST_WIDE_INT for build_int_2.  */
+  if (unsignedp || (cppchar_signed_t) result >= 0)
+    value = build_int_2 (result, 0);
   else
-    {
-      if (result < 0)
- 	value = build_int_2 (result, -1);
-      else
- 	value = build_int_2 (result, 0);
- 
-      /* In C, a character constant has type 'int'.
- 	 In C++ 'char', but multi-char charconsts have type 'int'.  */
-      if (c_language == clk_cplusplus && chars_seen <= 1)
-	type = char_type_node;
-      else
-	type = integer_type_node;
-    }
+    value = build_int_2 ((cppchar_signed_t) result, -1);
 
-  /* cpp_interpret_charconst issues a warning if the constant
-     overflows, but if the number fits in HOST_WIDE_INT anyway, it
-     will return it un-truncated, which may cause problems down the
-     line.  So set the type to widest_integer_literal_type, call
-     convert to truncate it to the proper type, then clear
-     TREE_OVERFLOW so we don't get a second warning.
+  if (token->type == CPP_WCHAR)
+    type = wchar_type_node;
+  /* In C, a character constant has type 'int'.
+     In C++ 'char', but multi-char charconsts have type 'int'.  */
+  else if ((c_language == clk_c || c_language == clk_objective_c)
+	   || chars_seen > 1)
+    type = integer_type_node;
+  else
+    type = char_type_node;
 
-     FIXME: cpplib's assessment of overflow may not be accurate on a
-     platform where the final type can change at (compiler's) runtime.  */
-
-  TREE_TYPE (value) = widest_integer_literal_type_node;
-  value = convert (type, value);
-  TREE_OVERFLOW (value) = 0;
-
+  TREE_TYPE (value) = type;
   return value;
 }

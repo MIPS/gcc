@@ -27,6 +27,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
+struct op;
+
+#define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))
 
 /* Test if a sign is valid within a preprocessing number.  */
 #define VALID_SIGN(c, prevc) \
@@ -153,6 +156,9 @@ struct lexer_state
 
   /* Nonzero when parsing arguments to a function-like macro.  */
   unsigned char parsing_args;
+
+  /* Nonzero to skip evaluating part of an expression.  */
+  unsigned int skip_eval;
 };
 
 /* Special nodes - identifiers with predefined significance.  */
@@ -312,6 +318,9 @@ struct cpp_reader
   /* Identifier hash table.  */ 
   struct ht *hash_table;
 
+  /* Expression parser stack.  */
+  struct op *op_stack, *op_limit;
+
   /* User visible options.  */
   struct cpp_options opts;
 
@@ -391,7 +400,8 @@ extern void _cpp_pop_file_buffer	PARAMS ((cpp_reader *,
 						 struct include_file *));
 
 /* In cppexp.c */
-extern int _cpp_parse_expr		PARAMS ((cpp_reader *));
+extern bool _cpp_parse_expr		PARAMS ((cpp_reader *));
+extern struct op *_cpp_expand_op_stack	PARAMS ((cpp_reader *));
 
 /* In cpplex.c */
 extern cpp_token *_cpp_temp_token	PARAMS ((cpp_reader *));
@@ -405,7 +415,7 @@ extern void _cpp_init_tokenrun		PARAMS ((tokenrun *, unsigned int));
 extern void _cpp_maybe_push_include_file PARAMS ((cpp_reader *));
 
 /* In cpplib.c */
-extern int _cpp_test_assertion PARAMS ((cpp_reader *, int *));
+extern int _cpp_test_assertion PARAMS ((cpp_reader *, unsigned int *));
 extern int _cpp_handle_directive PARAMS ((cpp_reader *, int));
 extern void _cpp_define_builtin	PARAMS ((cpp_reader *, const char *));
 extern void _cpp_do__Pragma	PARAMS ((cpp_reader *));

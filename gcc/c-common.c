@@ -1559,6 +1559,8 @@ c_common_type_for_mode (mode, unsignedp)
 	  return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
 	case V4SImode:
 	  return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
+	case V2DImode:
+	  return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
 	case V2SImode:
 	  return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
 	case V4HImode:
@@ -1571,6 +1573,8 @@ c_common_type_for_mode (mode, unsignedp)
 	  return V4SF_type_node;
 	case V2SFmode:
 	  return V2SF_type_node;
+	case V2DFmode:
+	  return V2DF_type_node;
 	default:
 	  break;
 	}
@@ -4299,6 +4303,14 @@ const char *
 c_common_init (filename)
      const char *filename;
 {
+  cpp_options *options = cpp_get_options (parse_in);
+
+  /* Set up preprocessor arithmetic.  Must be done after call to
+     c_common_nodes_and_builtins for wchar_type_node to be good.  */
+  options->char_precision = TYPE_PRECISION (char_type_node);
+  options->int_precision = TYPE_PRECISION (integer_type_node);
+  options->wchar_precision = TYPE_PRECISION (wchar_type_node);
+
   /* NULL is passed up to toplev.c and we exit quickly.  */
   if (flag_preprocess_only)
     {

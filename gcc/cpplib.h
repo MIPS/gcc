@@ -58,7 +58,7 @@ struct file_name_map_list;
 #define CPP_LAST_EQ CPP_MAX
 #define CPP_FIRST_DIGRAPH CPP_HASH
 #define CPP_LAST_PUNCTUATOR CPP_DOT_STAR
-#define CPP_LAST_CPP_OP CPP_EOF
+#define CPP_LAST_CPP_OP CPP_LESS_EQ
 
 #define TTYPE_TABLE				\
   OP(CPP_EQ = 0,	"=")			\
@@ -86,13 +86,13 @@ struct file_name_map_list;
   OP(CPP_COMMA,		",")	/* grouping */	\
   OP(CPP_OPEN_PAREN,	"(")			\
   OP(CPP_CLOSE_PAREN,	")")			\
+  TK(CPP_EOF,		SPELL_NONE)		\
   OP(CPP_EQ_EQ,		"==")	/* compare */	\
   OP(CPP_NOT_EQ,	"!=")			\
   OP(CPP_GREATER_EQ,	">=")			\
   OP(CPP_LESS_EQ,	"<=")			\
 \
-  /* These 3 are special in preprocessor expressions.  */ \
-  TK(CPP_EOF,		SPELL_NONE)		\
+  /* These two are unary + / - in preprocessor expressions.  */ \
   OP(CPP_PLUS_EQ,	"+=")	/* math */	\
   OP(CPP_MINUS_EQ,	"-=")			\
 \
@@ -190,9 +190,23 @@ struct cpp_token
   } val;
 };
 
-/* A standalone character.  It is unsigned for the same reason we use
-   unsigned char - to avoid signedness issues.  */
-typedef unsigned int cppchar_t;
+/* A type wide enough to hold any multibyte source character.
+   cpplib's character constant interpreter requires an unsigned type.
+   Also, a typedef for the signed equivalent.  */
+#ifndef MAX_WCHAR_TYPE_SIZE
+# define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
+#endif
+#if SIZEOF_INT >= MAX_WCHAR_TYPE_SIZE
+# define CPPCHAR_SIGNED_T int
+#else
+# if SIZEOF_LONG >= MAX_WCHAR_TYPE_SIZE || !HAVE_LONG_LONG
+#  define CPPCHAR_SIGNED_T long
+# else
+#  define CPPCHAR_SIGNED_T long long
+# endif
+#endif
+typedef unsigned CPPCHAR_SIGNED_T cppchar_t;
+typedef CPPCHAR_SIGNED_T cppchar_signed_t;
 
 /* Values for opts.dump_macros.
   dump_only means inhibit output of the preprocessed text
@@ -236,6 +250,10 @@ struct cpp_options
 
   /* -fleading_underscore sets this to "_".  */
   const char *user_label_prefix;
+
+  /* Precision for target CPP arithmetic, target characters, target
+     ints and target wide characters, respectively.  */
+  size_t precision, char_precision, int_precision, wchar_precision;
 
   /* The language we're preprocessing.  */
   enum c_lang lang;
@@ -388,6 +406,9 @@ struct cpp_callbacks
   void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
   void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));
   void (*def_pragma) PARAMS ((cpp_reader *, unsigned int));
+  /* Called when the client has a chance to properly register
+     built-ins with cpp_define() and cpp_assert().  */
+  void (*register_builtins) PARAMS ((cpp_reader *));
 };
 
 #define CPP_FATAL_LIMIT 1000
@@ -535,10 +556,12 @@ extern const unsigned char *cpp_macro_definition PARAMS ((cpp_reader *,
 extern void _cpp_backup_tokens PARAMS ((cpp_reader *, unsigned int));
 
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
-extern HOST_WIDE_INT
+extern cppchar_t
 cpp_interpret_charconst PARAMS ((cpp_reader *, const cpp_token *,
-				 int, unsigned int *));
+				 int, unsigned int *, int *));
 
+/* Used to register builtins during the register_builtins callback.
+   The text is the same as the command line argument.  */
 extern void cpp_define PARAMS ((cpp_reader *, const char *));
 extern void cpp_assert PARAMS ((cpp_reader *, const char *));
 extern void cpp_undef  PARAMS ((cpp_reader *, const char *));
@@ -600,10 +623,15 @@ extern int cpp_ideq			PARAMS ((const cpp_token *,
 extern void cpp_output_line		PARAMS ((cpp_reader *, FILE *));
 extern void cpp_output_token		PARAMS ((const cpp_token *, FILE *));
 extern const char *cpp_type2name	PARAMS ((enum cpp_ttype));
-extern unsigned int cpp_parse_escape	PARAMS ((cpp_reader *,
-						 const unsigned char **,
-						 const unsigned char *,
-						 unsigned HOST_WIDE_INT));
+/* Returns the value of an escape sequence, truncated to the correct
+   target precision.  PSTR points to the input pointer, which is just
+   after the backslash.  LIMIT is how much text we have.  WIDE is true
+   if the escape sequence is part of a wide character constant or
+   string literal.  Handles all relevant diagnostics.  */
+extern cppchar_t cpp_parse_escape	PARAMS ((cpp_reader *,
+						 const unsigned char ** pstr,
+						 const unsigned char *limit,
+						 int wide));
 
 /* In cpphash.c */
 

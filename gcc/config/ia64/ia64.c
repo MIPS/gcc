@@ -152,7 +152,6 @@ static int ia64_internal_sched_reorder PARAMS ((FILE *, int, rtx *,
 static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
-static rtx ia64_cycle_display PARAMS ((int, rtx));
 
 
 /* Table of valid machine attributes.  */
@@ -211,8 +210,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SCHED_REORDER ia64_sched_reorder
 #undef TARGET_SCHED_REORDER2
 #define TARGET_SCHED_REORDER2 ia64_sched_reorder2
-#undef TARGET_SCHED_CYCLE_DISPLAY
-#define TARGET_SCHED_CYCLE_DISPLAY ia64_cycle_display
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4605,7 +4602,6 @@ rtx_needs_barrier (x, flags, pred)
 	case 20: /* mov = ar.bsp */
 	case 21: /* flushrs */
 	case 22: /* bundle selector */
-	case 23: /* cycle display */
           break;
 
         case 24: /* addp4 */
@@ -5485,18 +5481,13 @@ insn_matches_slot (p, itype, slot, insn)
   return 0;
 }
 
-/* Like emit_insn_before, but skip cycle_display insns.  This makes the
-   assembly output a bit prettier.  */
+/* Like emit_insn_before, but skip cycle_display notes.
+   ??? When cycle display notes are implemented, update this.  */
 
 static void
 ia64_emit_insn_before (insn, before)
      rtx insn, before;
 {
-  rtx prev = PREV_INSN (before);
-  if (prev && GET_CODE (prev) == INSN
-      && GET_CODE (PATTERN (prev)) == UNSPEC
-      && XINT (PATTERN (prev), 1) == 23)
-    before = prev;
   emit_insn_before (insn, before);
 }
 
@@ -6391,9 +6382,11 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
 	    abort ();
 	  insn_code = recog_memoized (stop);
 
-	  /* Ignore cycle displays and .pred.rel.mutex.  */
-	  if (insn_code == CODE_FOR_cycle_display
-	      || insn_code == CODE_FOR_pred_rel_mutex
+	  /* Ignore .pred.rel.mutex.
+
+	     ??? Update this to ignore cycle display notes too
+	     ??? once those are implemented  */
+	  if (insn_code == CODE_FOR_pred_rel_mutex
 	      || insn_code == CODE_FOR_prologue_use)
 	    continue;
 
@@ -6546,17 +6539,6 @@ ia64_sched_finish (dump, sched_verbose)
   rotate_two_bundles (NULL);
   free (sched_types);
   free (sched_ready);
-}
-
-static rtx
-ia64_cycle_display (clock, last)
-     int clock;
-     rtx last;
-{
-  if (ia64_final_schedule)
-    return emit_insn_after (gen_cycle_display (GEN_INT (clock)), last);
-  else
-    return last;
 }
 
 /* Emit pseudo-ops for the assembler to describe predicate relations.
