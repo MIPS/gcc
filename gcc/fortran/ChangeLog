@@ -1,3 +1,7 @@
+2003-09-07  Paul Brook  <paul@nowt.org>
+
+	* io.c (gfc_resolve_dt): Error if format label is not defined.
+
 2003-09-07  Kejia Zhao  <kejia_zh@yahoo.com.cn>
 
 	* trans-intrinsic.c (gfc_conv_intrinsic_aint): Fix two bugs. One is 

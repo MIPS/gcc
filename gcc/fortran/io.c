@@ -1675,6 +1675,14 @@ gfc_resolve_dt (gfc_dt * dt)
   if (gfc_reference_st_label (dt->eor, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;
 
+  /* Check the format label ectually exists.  */
+  if (dt->format_label && dt->format_label != &format_asterisk
+      && dt->format_label->defined == ST_LABEL_UNKNOWN)
+    {
+      gfc_error ("FORMAT label %d at %L not defined", dt->format_label->value,
+	         &dt->format_label->where);
+      return FAILURE;
+    }
   return SUCCESS;
 }
 
