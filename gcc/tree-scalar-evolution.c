@@ -1,5 +1,5 @@
 /* Scalar evolution detector.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -3977,6 +3977,7 @@ finalize_scalar_evolutions_analyzer (void)
     {
       fprintf (dump_file, "\n\n");
       dump_end (TDI_scev, dump_file);
+      dump_file = NULL;
     }
 }
 
