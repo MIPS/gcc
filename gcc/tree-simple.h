@@ -34,11 +34,6 @@ extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
 
-/* Validation of SIMPLE statements.  */
-int is_simple_stmt                     PARAMS ((tree));
-int is_simple_decl_stmt                PARAMS ((tree));
-int is_simple_compstmt                 PARAMS ((tree));
-
 /* Validation of SIMPLE expressions.  */
 int is_simple_expr                     PARAMS ((tree));
 int is_simple_rhs                      PARAMS ((tree));

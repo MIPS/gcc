@@ -1,0 +1,8 @@
+2002-08-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile: New file.
+	* mf-config.h: New file: runtime configuration.
+	* mf-hooks.c: New file: interposed libc functions.
+	* mf-runtime.c: New file: bulk of runtime.
+	* mf-runtime.h: New file: public functions.
+

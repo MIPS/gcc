@@ -1,3 +1,26 @@
+2002-08-11  Frank Ch. Eigler  <fche@redhat.com>
+
+	Prototype -fmudflap support.
+	* Makefile.in (C_AND_OBJC_OBJS): Add tree-mudflap.o.
+	(OBJS): Add tree-nomudflap.o.
+	* flags.h (flag_mudflap): New flag.
+	* toplev.c: Map "-fmudflap" to that flag.
+	* c-decl.c (c_expand_body): Call mudflap_c_function if flag_mudflap.
+	* c-objc-common.c (c_objc_common_finish_file): Add mudflap hook.
+	* varasm.c (make_decl_rtl): Add mudflap hook.
+	(output_constant_def_contents): Ditto.
+	* tree-mudflap.c: New file: implement mudflap instrumentation.
+	* tree-nomudflap.c: New file: stub functions for non-C frontends.
+	* tree-mudflap.h: New file: define exported functions.
+	* gcc.c (MFLIB_SPEC, MFCC1_SPEC, MFCPP_SPEC): Add general
+	-fmudflap spec mappings.
+	* c-simplify.c (simplify_stmt): Stub: handle CLEANUP_STMT nodes.
+	* tree-dfa.c (find_refs_in_stmt): Ditto.
+	* c-pretty-print.c (dump_c_node): Ditto.
+	(print_declaration): Handle "extern" decls.  Handle arrays with
+	indefinite sizes.
+	* tree-simple.h (is_simple_stmt, is_simple_compstmt): Remove decls.
+
 2002-08-11  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_self_mod_expr): Unshare the lhs before

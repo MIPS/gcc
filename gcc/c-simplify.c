@@ -252,6 +252,11 @@ simplify_stmt (stmt_p)
 	  simplify_decl_stmt (stmt, &pre, &post, &post);
 	  break;
 
+	case CLEANUP_STMT:
+	  /* XXX: need to clean up CLEANUP_STMT.  Idea: turn it into
+	     an statement-expression and simplify that.  */
+	  break;
+
 	/* Statements that need no simplification.  */
 	case LABEL_STMT:
 	case GOTO_STMT:

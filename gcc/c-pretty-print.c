@@ -999,6 +999,15 @@ dump_c_node (buffer, node, spc)
       print_declaration (buffer, TREE_OPERAND (node, 0), spc);
       break;
 
+    case CLEANUP_STMT:
+      output_add_string (buffer, "__cleanup (");
+      dump_c_node (buffer, CLEANUP_DECL (node), spc);  /* Just the var name.  */
+      output_add_string (buffer, ", ");
+      dump_c_node (buffer, CLEANUP_EXPR (node), spc+2);
+      output_add_string (buffer, ");");
+      output_add_newline (buffer);
+      break;
+
     case IF_STMT:
       INDENT (spc);
       output_add_string (buffer, "if (");
@@ -1216,6 +1225,9 @@ print_declaration (buffer, t, spc)
   if (DECL_REGISTER (t))
     output_add_string (buffer, "register ");
 
+  if (TREE_PUBLIC (t) && DECL_EXTERNAL (t))
+    output_add_string (buffer, "extern ");
+
   /* Print the type and name.  */
   if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
     {
@@ -1236,12 +1248,15 @@ print_declaration (buffer, t, spc)
       while (TREE_CODE (tmp) == ARRAY_TYPE)
 	{
 	  output_add_character (buffer, '[');
-	  if (TREE_CODE (TYPE_SIZE (tmp)) == INTEGER_CST)
-	    output_decimal (buffer,
-			    TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
-			    TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
-	  else
-	    dump_c_node (buffer, TYPE_SIZE_UNIT (tmp), spc);
+	  if (TYPE_DOMAIN (tmp))
+	    {
+	      if (TREE_CODE (TYPE_SIZE (tmp)) == INTEGER_CST)
+		output_decimal (buffer,
+				TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
+				TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
+	      else
+		dump_c_node (buffer, TYPE_SIZE_UNIT (tmp), spc);
+	    }
 	  output_add_character (buffer, ']');
 	  tmp = TREE_TYPE (tmp);
 	}

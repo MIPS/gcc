@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-pragma.h"
 #include "tree-dchain.h"
 #include "langhooks.h"
+#include "tree-mudflap.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6710,11 +6711,23 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
+  /* Perform the mudflap transform, if requested.  */
+  if (flag_mudflap && flag_disable_simple)
+    mudflap_c_function (fndecl);
+
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
   if (!flag_disable_simple
       && simplify_function_tree (fndecl))
     {
+      if (flag_mudflap)
+	{
+	  mudflap_c_function (fndecl);
+
+	  /* Simplify mudflap instrumentation.  */
+	  simplify_function_tree (fndecl);
+	}
+
       /* Invoke the SSA tree optimizer.  */
       if (flag_tree_ssa)
 	optimize_function_tree (fndecl);

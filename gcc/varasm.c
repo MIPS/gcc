@@ -47,6 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
+#include "tree-mudflap.h"
+
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -960,6 +962,10 @@ make_decl_rtl (decl, asmspec)
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
   (* targetm.encode_section_info) (decl, true);
+
+  /* Make this function static known to the mudflap runtime.  */
+  if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+    mudflap_enqueue_decl (decl, name);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -2877,6 +2883,16 @@ output_constant_def_contents (exp, reloc, labelno)
 		    : int_size_in_bytes (TREE_TYPE (exp))),
 		   align);
 
+  if (flag_mudflap)
+    {
+      char label[200];
+
+      /* It's a waste to regenerate this string here.  The callers
+	 almost always have a copy of the same string someplace.  */
+      ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
+
+      mudflap_enqueue_constant (exp, ggc_strdup (label));
+    }
 }
 
 /* Used in the hash tables to avoid outputting the same constant

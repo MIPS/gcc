@@ -719,6 +719,7 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o \
   c-simplify.o c-call-graph.o tree-simple.o simple-break-elim.o \
   simple-goto-elim.o tree-dchain.o tree-ssa-pre.o tree-alias-type.o \
+  tree-mudflap.o \
   tree-alias-ecr.o tree-alias-steen.o disjoint-set.o tree-ssa-ccp.o
 
 # Language-specific object files for C.
@@ -744,6 +745,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
+ tree-nomudflap.o \
  et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a

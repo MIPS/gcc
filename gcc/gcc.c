@@ -544,6 +544,20 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
+/* general mudflap specs */
+#ifndef MFCPP_SPEC
+#define MFCPP_SPEC " %{fmudflap:-D_MUDFLAP}"
+#endif
+
+#ifndef MFCC1_SPEC
+#define MFCC1_SPEC " %{fmudflap:-fmudflap -fno-builtin}"
+#endif
+
+#ifndef MFLIB_SPEC
+/* XXX hack */
+#define MFLIB_SPEC " %{fmudflap: --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc -lmudflap}"
+#endif
+
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
@@ -637,15 +651,15 @@ proper position among the other output files.  */
 #endif
 
 static const char *asm_debug;
-static const char *cpp_spec = CPP_SPEC;
+static const char *cpp_spec = CPP_SPEC MFCPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
-static const char *cc1_spec = CC1_SPEC;
+static const char *cc1_spec = CC1_SPEC MFCC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
 static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
-static const char *lib_spec = LIB_SPEC;
+static const char *lib_spec = LIB_SPEC MFLIB_SPEC;
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;

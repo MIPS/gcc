@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GNU CC.
@@ -181,6 +181,16 @@ find_refs_in_stmt (t, bb)
 	  if (DECL_INITIAL (decl))
 	    find_refs_in_expr (decl, VARDEF, bb, t, t);
 	}
+      break;
+
+    case CLEANUP_STMT:
+      if (TREE_CODE (CLEANUP_DECL (t)) == VAR_DECL)
+	{
+	  tree decl = TREE_OPERAND (t, 0);
+	  if (DECL_INITIAL (decl))
+	    find_refs_in_expr (decl, VARDEF, bb, t, t);
+	}
+      find_refs_in_expr (CLEANUP_EXPR (t), VARUSE, bb, t, t);
       break;
 
     case LABEL_STMT:

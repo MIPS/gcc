@@ -1,5 +1,5 @@
 /* Some code common to C and ObjC front ends.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -343,6 +343,9 @@ void
 c_objc_common_finish_file ()
 {
   expand_deferred_fns ();
+
+  if (flag_mudflap)
+    mudflap_finish_file ();
 
   if (static_ctors)
     {

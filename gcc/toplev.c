@@ -873,6 +873,9 @@ int flag_bounded_pointers = 0;
    For CHILL: defaults to off.  */
 int flag_bounds_check = 0;
 
+/* Mudflap bounds-checking transform.  */
+int flag_mudflap = 0;
+
 /* This will attempt to merge constant section constants, if 1 only
    string constants and constants from constant pool, if 2 also constant
    variables.  */
@@ -1215,6 +1218,8 @@ static const lang_independent_options f_options[] =
    N_("Report on permanent memory allocation at end of run") },
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
+  { "mudflap", &flag_mudflap, 1,
+   N_("Add mudflap bounds-checking instrumentation") },
   { "new-ra", &flag_new_regalloc, 1,
    N_("Use graph coloring register allocation.") },
   { "disable-simple", &flag_disable_simple, 1,

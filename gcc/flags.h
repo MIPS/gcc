@@ -664,6 +664,9 @@ extern int flag_detailed_statistics;
 /* Nonzero means enable synchronous exceptions for non-call instructions.  */
 extern int flag_non_call_exceptions;
 
+/* Nonzero means enable mudflap bounds-checking transforms. */
+extern int flag_mudflap;
+
 /* Disable tree simplification.  */
 extern int flag_disable_simple;
 
