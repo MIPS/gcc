@@ -1,3 +1,8 @@
+2004-04-13  James E Wilson  <wilson@specifixinc.com>
+
+	* c-opt.c (c_common_post_options): If this_input_filename is NULL,
+	increment errorcount and return false instead of true.
+
 2004-11-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/18282
