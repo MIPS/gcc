@@ -282,19 +282,6 @@ init_expr ()
   forced_labels = 0;
 }
 
-void
-mark_expr_status (p)
-     struct expr_status *p;
-{
-  if (p == NULL)
-    return;
-
-  ggc_mark (p);
-  ggc_mark_rtx (p->x_saveregs_value);
-  ggc_mark_rtx (p->x_apply_args_value);
-  ggc_mark_rtx (p->x_forced_labels);
-}
-
 /* Small sanity check that the queue is empty at the end of a function.  */
 
 void

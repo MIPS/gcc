@@ -11,3 +11,6 @@ c-tree.info*
 cppinternals.info*
 cscope.files
 cscope.out
+gengtype-lex.c
+gengtype-yacc.c
+gengtype-yacc.h

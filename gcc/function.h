@@ -19,7 +19,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-struct var_refs_queue
+struct var_refs_queue GTY(())
 {
   rtx modified;
   enum machine_mode promoted_mode;
@@ -32,10 +32,11 @@ struct var_refs_queue
    The main insn-chain is saved in the last element of the chain,
    unless the chain is empty.  */
 
-struct sequence_stack
+struct sequence_stack GTY(())
 {
   /* First and last insns in the chain of the saved sequence.  */
-  rtx first, last;
+  rtx first;
+  rtx last;
   tree sequence_rtl_expr;
   struct sequence_stack *next;
 };
@@ -50,7 +51,7 @@ struct simple_obstack_stack
   struct simple_obstack_stack *next;
 };
 
-struct emit_status
+struct emit_status GTY(())
 {
   /* This is reset to LAST_VIRTUAL_REGISTER + 1 at the start of each function.
      After rtl generation, it is 1 plus the largest register number used.  */
@@ -96,15 +97,16 @@ struct emit_status
   /* Indexed by pseudo register number, if nonzero gives the known alignment
      for that pseudo (if REG_POINTER is set in x_regno_reg_rtx).
      Allocated in parallel with x_regno_reg_rtx.  */
-  unsigned char *regno_pointer_align;
+  unsigned char * GTY ((length ("%.regno_pointer_align_length"))) 
+    regno_pointer_align;
 
   /* Indexed by pseudo register number, if nonzero gives the decl
      corresponding to that register.  */
-  tree *regno_decl;
+  tree * GTY ((length ("%.regno_pointer_align_length"))) regno_decl;
 
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
      Allocated in parallel with regno_pointer_align.  */
-  rtx *x_regno_reg_rtx;
+  rtx * GTY ((length ("%.regno_pointer_align_length"))) x_regno_reg_rtx;
 };
 
 /* For backward compatibility... eventually these should all go away.  */
@@ -116,7 +118,7 @@ struct emit_status
 #define REGNO_POINTER_ALIGN(REGNO) (cfun->emit->regno_pointer_align[REGNO])
 #define REGNO_DECL(REGNO) (cfun->emit->regno_decl[REGNO])
 
-struct expr_status
+struct expr_status GTY(())
 {
   /* Number of units that we should eventually pop off the stack.
      These are the arguments to function calls that have already returned.  */
@@ -331,7 +333,7 @@ struct function
      to put the parm which is nominally in pseudo register REGNO,
      if we discover that that parm must go in the stack.  The highest
      element in this vector is one less than MAX_PARM_REG, above.  */
-  rtx *x_parm_reg_stack_loc;
+  rtx * GTY ((length ("%.x_max_parm_reg"))) x_parm_reg_stack_loc;
 
   /* List of all temporaries allocated, both available and in use.  */
   struct temp_slot *x_temp_slots;

@@ -1045,7 +1045,7 @@ for f in $tm_file; do
     ansidecl.h )
        tm_file_list="${tm_file_list} \$(srcdir)/../include/ansidecl.h" ;;
     defaults.h )
-       tm_file_list="${tm_file_list} $f" ;;
+       tm_file_list="${tm_file_list} \$(srcdir)/$f" ;;
     *) tm_file_list="${tm_file_list} \$(srcdir)/config/$f" ;;
   esac
 done
@@ -1060,8 +1060,10 @@ for f in $host_xm_file; do
   case $f in
     ansidecl.h )
        host_xm_file_list="${host_xm_file_list} \$(srcdir)/../include/ansidecl.h" ;;
-    auto-host.h | defaults.h )
+    auto-host.h )
        host_xm_file_list="${host_xm_file_list} $f" ;;
+    defaults.h )
+       host_xm_file_list="${host_xm_file_list} \$(srcdir)/$f" ;;
     *) host_xm_file_list="${host_xm_file_list} \$(srcdir)/config/$f" ;;
   esac
 done
@@ -1071,8 +1073,10 @@ for f in $build_xm_file; do
   case $f in
     ansidecl.h )
        build_xm_file_list="${build_xm_file_list} \$(srcdir)/../include/ansidecl.h" ;;
-    auto-build.h | auto-host.h | defaults.h )
+    auto-build.h | auto-host.h )
        build_xm_file_list="${build_xm_file_list} $f" ;;
+    defaults.h )
+       host_xm_file_list="${host_xm_file_list} \$(srcdir)/$f" ;;
     *) build_xm_file_list="${build_xm_file_list} \$(srcdir)/config/$f" ;;
   esac
 done

@@ -1,3 +1,54 @@
+2002-03-09  Geoffrey Keating  <geoffk@redhat.com>
+
+	* .cvsignore: Ignore gengtype flex/bison generated files.
+	* Makefile.in (GGC_H): Add gtype-desc.h.
+	(OBJS): Add gtype-desc.o.
+	(GEN): Add gengtype.
+	(STAGESTUFF): Add gengtype.
+	(varasm.o): Add gt-varasm.h.
+	(stmt.o): Add gt-stmt.h.
+	(except.o): Add gt-except.h.
+	(integrate.o): Add gt-integrate.h.
+	(GTFILES): New.
+	Add new rules for new files.
+	* configure: Regenerate.
+	* configure.in: Correct defaults.h paths.
+	* emit-rtl.c (mark_sequence_stack): Delete.
+	(mark_emit_status): Delete.
+	(start_sequence): Allocate sequence structures using GGC.
+	(end_sequence): Allocate sequence structures using GGC.
+	* except.c: Use gengtype for various structures.  Include
+	gt-except.h.
+	* expr.c (mark_expr_status): Delete.
+	* function.c: Use gengtype for various structures.  Include
+	gt-function.h.
+	(mark_function_status): Use standard gt_ggc names for marker functions.
+	(ggc_mark_struct_function): Likewise.
+	* function.h: Use gengtype for various structures.
+	* gengtype-lex.l: New file.
+	* gengtype-yacc.y: New file.
+	* gengtype.c: New file.
+	* gengtype.h: New file.
+	* ggc.h: Include gtype-desc.h.  Alias some marker procedures to
+	the standard names.  Remove some now-unnecessary prototypes.
+	* integrate.c: Use gengtype for various structures.  Include
+	gt-integrate.h.
+	(mark_hard_reg_initial_vals): Delete.
+	* integrate.h (mark_hard_reg_initial_vals): Delete.
+	* stmt.c: Use gengtype for various structures.  Include
+	gt-stmt.h.
+	(mark_case_node): Delete.
+	(mark_goto_fixup): Delete.
+	(mark_stmt_status): Use standard gt_ggc names for marker functions.
+	* system.h: Define GTY to empty.   In flex/bison files,
+	don't poison malloc or realloc, instead just define them to
+	xmalloc and xrealloc.
+	* varasm.c: Use gengtype for various structures.  Include
+	gt-varasm.h.  Use standard gt_ggc names for marker functions.
+	(mark_pool_constant): Delete.
+	(mark_varasm_status): Delete.
+	(decode_rtx_const): #if 0 out non-typesafe hack.
+
 2002-02-18  Geoffrey Keating  <geoffk@redhat.com>
 
 	* function.h (free_lang_status): Mark as obsolete.

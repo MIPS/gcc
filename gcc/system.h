@@ -557,6 +557,10 @@ typedef char _Bool;
 #define TRUE true
 #define FALSE false
 
+/* GT is used to pass information to gengtype about data structures.
+   For C, it is unused.  */
+#define GTY(x)
+
 /* As the last action in this file, we poison the identifiers that
    shouldn't be used.  Note, luckily gcc-3.0's token-based integrated
    preprocessor won't trip on poisoned identifiers that arrive from
@@ -579,11 +583,19 @@ typedef char _Bool;
    compiling gcc, so that the autoconf declaration tests for malloc
    etc don't spuriously fail.  */
 #ifdef IN_GCC
-#undef malloc
-#undef realloc
 #undef calloc
 #undef strdup
- #pragma GCC poison malloc realloc calloc strdup
+ #pragma GCC poison calloc strdup
+
+#if defined(FLEX_SCANNER) || defined (YYBISON)
+/* Flex and bison use malloc and realloc.  Yuk.  */
+#define malloc xmalloc
+#define realloc xrealloc
+#else
+#undef malloc
+#undef realloc
+ #pragma GCC poison malloc realloc
+#endif
 
 /* Old target macros that have moved to the target hooks structure.  */
  #pragma GCC poison ASM_OPEN_PAREN ASM_CLOSE_PAREN			\

@@ -113,7 +113,7 @@ static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
 
 /* Describes one exception region.  */
-struct eh_region
+struct eh_region GTY(())
 {
   /* The immediately surrounding region.  */
   struct eh_region *outer;
@@ -139,50 +139,50 @@ struct eh_region
   } type;
 
   /* Holds the action to perform based on the preceding type.  */
-  union {
+  union eh_region_u {
     /* A list of catch blocks, a surrounding try block,
        and the label for continuing after a catch.  */
-    struct {
+    struct eh_region_u_try {
       struct eh_region *catch;
       struct eh_region *last_catch;
       struct eh_region *prev_try;
       rtx continue_label;
-    } try;
+    } GTY ((tag ("ERT_TRY"))) try;
 
     /* The list through the catch handlers, the list of type objects
        matched, and the list of associated filters.  */
-    struct {
+    struct eh_region_u_catch {
       struct eh_region *next_catch;
       struct eh_region *prev_catch;
       tree type_list;
       tree filter_list;
-    } catch;
+    } GTY ((tag ("ERT_CATCH"))) catch;
 
     /* A tree_list of allowed types.  */
-    struct {
+    struct eh_region_u_allowed {
       tree type_list;
       int filter;
-    } allowed;
+    } GTY ((tag ("ERT_ALLOWED_EXCEPTIONS"))) allowed;
 
     /* The type given by a call to "throw foo();", or discovered
        for a throw.  */
-    struct {
+    struct eh_region_u_throw {
       tree type;
-    } throw;
+    } GTY ((tag ("ERT_THROW"))) throw;
 
     /* Retain the cleanup expression even after expansion so that
        we can match up fixup regions.  */
-    struct {
+    struct eh_region_u_cleanup {
       tree exp;
-    } cleanup;
+    } GTY ((tag ("ERT_CLEANUP"))) cleanup;
 
     /* The real region (by expression and by pointer) that fixup code
        should live in.  */
-    struct {
+    struct eh_region_u_fixup {
       tree cleanup_exp;
       struct eh_region *real_region;
-    } fixup;
-  } u;
+    } GTY ((tag ("ERT_FIXUP"))) fixup;
+  } GTY ((desc ("%0.type"))) u;
 
   /* Entry point for this region's handler before landing pads are built.  */
   rtx label;
@@ -198,14 +198,20 @@ struct eh_region
   rtx resume;
 };
 
+struct call_site_record GTY(())
+{
+  rtx landing_pad;
+  int action;
+};
+
 /* Used to save exception status for each function.  */
-struct eh_status
+struct eh_status GTY(())
 {
   /* The tree of all regions for this function.  */
   struct eh_region *region_tree;
 
   /* The same information as an indexable array.  */
-  struct eh_region **region_array;
+  struct eh_region ** GTY ((length ("%.last_region_number"))) region_array;
 
   /* The most recently open region.  */
   struct eh_region *cur_region;
@@ -225,15 +231,12 @@ struct eh_status
   int built_landing_pads;
   int last_region_number;
 
-  varray_type ttype_data;
-  varray_type ehspec_data;
-  varray_type action_record_data;
+  varray_type GTY ((varray_type (tree))) ttype_data;
+  varray_type GTY ((varray_type (unsigned char))) ehspec_data;
+  varray_type GTY ((varray_type (unsigned char))) action_record_data;
 
-  struct call_site_record
-  {
-    rtx landing_pad;
-    int action;
-  } *call_site_data;
+  struct call_site_record * GTY ((length ("%.call_site_data_used"))) 
+    call_site_data;
   int call_site_data_used;
   int call_site_data_size;
 
@@ -1621,7 +1624,7 @@ lookup_type_for_runtime (type)
 
 /* Represent an entry in @TTypes for either catch actions
    or exception filter actions.  */
-struct ttypes_filter
+struct ttypes_filter GTY(())
 {
   tree t;
   int filter;
@@ -2608,7 +2611,7 @@ maybe_remove_eh_handler (label)
 /* This section describes CFG exception edges for flow.  */
 
 /* For communicating between calls to reachable_next_level.  */
-struct reachable_info
+struct reachable_info GTY(())
 {
   tree types_caught;
   tree types_allowed;
@@ -3863,3 +3866,5 @@ output_function_exception_table ()
   if (USING_SJLJ_EXCEPTIONS)
     sjlj_funcdef_number += 1;
 }
+
+#include "gt-except.h"

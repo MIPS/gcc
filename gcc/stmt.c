@@ -87,7 +87,7 @@ struct obstack stmt_obstack;
    and nodes on the right having higher values.  We then output the tree
    in order.  */
 
-struct case_node
+struct case_node GTY(())
 {
   struct case_node	*left;	/* Left son in binary tree */
   struct case_node	*right;	/* Right son in binary tree; also node chain */
@@ -290,7 +290,7 @@ do { struct nesting *target = STACK;			\
    we check each fixup.
    If the target label has now been defined, we can insert the proper code.  */
 
-struct goto_fixup
+struct goto_fixup GTY(())
 {
   /* Points to following fixup.  */
   struct goto_fixup *next;
@@ -324,36 +324,36 @@ struct goto_fixup
 /* Within any binding contour that must restore a stack level,
    all labels are recorded with a chain of these structures.  */
 
-struct label_chain
+struct label_chain GTY(())
 {
   /* Points to following fixup.  */
   struct label_chain *next;
   tree label;
 };
 
-struct stmt_status
+struct stmt_status GTY(())
 {
   /* Chain of all pending binding contours.  */
-  struct nesting *x_block_stack;
+  struct nesting * GTY ((really("nesting_block"))) x_block_stack;
 
   /* If any new stacks are added here, add them to POPSTACKS too.  */
 
   /* Chain of all pending binding contours that restore stack levels
      or have cleanups.  */
-  struct nesting *x_stack_block_stack;
+  struct nesting * GTY ((skip(""))) x_stack_block_stack;
 
   /* Chain of all pending conditional statements.  */
-  struct nesting *x_cond_stack;
+  struct nesting * GTY ((really("nesting_cond"))) x_cond_stack;
 
   /* Chain of all pending loops.  */
-  struct nesting *x_loop_stack;
+  struct nesting * GTY ((really("nesting_loop"))) x_loop_stack;
 
   /* Chain of all pending case or switch statements.  */
-  struct nesting *x_case_stack;
+  struct nesting * GTY ((really("nesting_case_stmt"))) x_case_stack;
 
   /* Separate chain including all of the above,
      chained through the `all' field.  */
-  struct nesting *x_nesting_stack;
+  struct nesting * GTY ((skip(""))) x_nesting_stack;
 
   /* Number of entries on nesting_stack now.  */
   int x_nesting_depth;
@@ -428,12 +428,10 @@ static int node_is_bounded		PARAMS ((case_node_ptr, tree));
 static void emit_jump_if_reachable	PARAMS ((rtx));
 static void emit_case_nodes		PARAMS ((rtx, case_node_ptr, rtx, tree));
 static struct case_node *case_tree2list	PARAMS ((case_node *, case_node *));
-static void mark_cond_nesting           PARAMS ((struct nesting *));
-static void mark_loop_nesting           PARAMS ((struct nesting *));
-static void mark_block_nesting          PARAMS ((struct nesting *));
-static void mark_case_nesting           PARAMS ((struct nesting *));
-static void mark_case_node		PARAMS ((struct case_node *));
-static void mark_goto_fixup             PARAMS ((struct goto_fixup *));
+static void gt_ggc_mr_nesting_cond           PARAMS ((struct nesting *));
+static void gt_ggc_mr_nesting_loop           PARAMS ((struct nesting *));
+static void gt_ggc_mr_nesting_block          PARAMS ((struct nesting *));
+static void gt_ggc_mr_nesting_case_stmt           PARAMS ((struct nesting *));
 static void free_case_nodes             PARAMS ((case_node_ptr));
 
 void
@@ -445,7 +443,7 @@ using_eh_for_cleanups ()
 /* Mark N (known to be a cond-nesting) for GC.  */
 
 static void
-mark_cond_nesting (n)
+gt_ggc_mr_nesting_cond (n)
      struct nesting *n;
 {
   while (n)
@@ -461,7 +459,7 @@ mark_cond_nesting (n)
 /* Mark N (known to be a loop-nesting) for GC.  */
 
 static void
-mark_loop_nesting (n)
+gt_ggc_mr_nesting_loop (n)
      struct nesting *n;
 {
 
@@ -480,7 +478,7 @@ mark_loop_nesting (n)
 /* Mark N (known to be a block-nesting) for GC.  */
 
 static void
-mark_block_nesting (n)
+gt_ggc_mr_nesting_block (n)
      struct nesting *n;
 {
   while (n)
@@ -493,11 +491,7 @@ mark_block_nesting (n)
       ggc_mark_tree (n->data.block.cleanups);
       ggc_mark_tree (n->data.block.outer_cleanups);
 
-      for (l = n->data.block.label_chain; l != NULL; l = l->next) 
-	{
-	  ggc_mark (l);
-	  ggc_mark_tree (l->label);
-	}
+      gt_ggc_m_label_chain (n->data.block.label_chain);
 
       ggc_mark_rtx (n->data.block.last_unconditional_cleanup);
 
@@ -510,7 +504,7 @@ mark_block_nesting (n)
 /* Mark N (known to be a case-nesting) for GC.  */
 
 static void
-mark_case_nesting (n)
+gt_ggc_mr_nesting_case_stmt (n)
      struct nesting *n;
 {
   while (n)
@@ -522,45 +516,8 @@ mark_case_nesting (n)
       ggc_mark_tree (n->data.case_stmt.index_expr);
       ggc_mark_tree (n->data.case_stmt.nominal_type);
 
-      mark_case_node (n->data.case_stmt.case_list);
+      gt_ggc_m_case_node (n->data.case_stmt.case_list);
       n = n->next;
-    }
-}
-
-/* Mark C for GC.  */
-
-static void
-mark_case_node (c)
-     struct case_node *c;
-{
-  if (c != 0)
-    {
-      ggc_mark_tree (c->low);
-      ggc_mark_tree (c->high);
-      ggc_mark_tree (c->code_label);
-
-      mark_case_node (c->right);
-      mark_case_node (c->left);
-    }
-}
-
-/* Mark G for GC.  */
-
-static void
-mark_goto_fixup (g)
-     struct goto_fixup *g;
-{
-  while (g)
-    {
-      ggc_mark (g);
-      ggc_mark_rtx (g->before_jump);
-      ggc_mark_tree (g->target);
-      ggc_mark_tree (g->context);
-      ggc_mark_rtx (g->target_rtl);
-      ggc_mark_rtx (g->stack_level);
-      ggc_mark_tree (g->cleanup_list_list);
-
-      g = g->next;
     }
 }
 
@@ -574,17 +531,17 @@ mark_stmt_status (p)
     return;
 
   ggc_mark (p);
-  mark_block_nesting (p->x_block_stack);
-  mark_cond_nesting (p->x_cond_stack);
-  mark_loop_nesting (p->x_loop_stack);
-  mark_case_nesting (p->x_case_stack);
+  gt_ggc_mr_nesting_block (p->x_block_stack);
+  gt_ggc_mr_nesting_cond (p->x_cond_stack);
+  gt_ggc_mr_nesting_loop (p->x_loop_stack);
+  gt_ggc_mr_nesting_case_stmt (p->x_case_stack);
 
   ggc_mark_tree (p->x_last_expr_type);
   /* last_epxr_value is only valid if last_expr_type is nonzero.  */
   if (p->x_last_expr_type)
     ggc_mark_rtx (p->x_last_expr_value);
 
-  mark_goto_fixup (p->x_goto_fixup_chain);
+  gt_ggc_m_goto_fixup (p->x_goto_fixup_chain);
 }
 
 void
@@ -6305,3 +6262,5 @@ emit_case_nodes (index, node, default_label, index_type)
 	}
     }
 }
+
+#include "gt-stmt.h"

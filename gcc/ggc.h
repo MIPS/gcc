@@ -19,6 +19,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "varray.h"
+#include "gtype-desc.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -93,12 +94,16 @@ extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));
       ggc_mark_rtx_children (r__);              \
   } while (0)
 
+#define gt_ggc_m_rtx_def(EXPR) ggc_mark_rtx (EXPR)
+
 #define ggc_mark_tree(EXPR)				\
   do {							\
     tree t__ = (EXPR);					\
     if (ggc_test_and_set_mark (t__))			\
       VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
   } while (0)
+
+#define gt_ggc_m_tree_node(EXPR) ggc_mark_tree (EXPR)
 
 #define ggc_mark_nonnull_tree(EXPR)			\
   do {							\
@@ -113,6 +118,8 @@ extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));
     if (ggc_test_and_set_mark (v__))            \
       ggc_mark_rtvec_children (v__);            \
   } while (0)
+
+#define gt_ggc_m_rtvec_def(EXPR) ggc_mark_rtvec (EXPR)
 
 #define ggc_mark(EXPR)				\
   do {						\
@@ -194,10 +201,7 @@ extern void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 /* Mark functions for various structs scattered about.  */
 
 void mark_eh_status			PARAMS ((struct eh_status *));
-void mark_emit_status			PARAMS ((struct emit_status *));
-void mark_expr_status			PARAMS ((struct expr_status *));
 void mark_stmt_status			PARAMS ((struct stmt_status *));
-void mark_varasm_status			PARAMS ((struct varasm_status *));
 void mark_optab				PARAMS ((void *));
 
 /* Statistics.  */

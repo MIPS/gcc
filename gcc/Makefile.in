@@ -561,7 +561,7 @@ REGS_H = regs.h varray.h $(MACHMODE_H)
 INTEGRATE_H = integrate.h varray.h
 LOOP_H = loop.h varray.h bitmap.h
 GCC_H = gcc.h version.h
-GGC_H = ggc.h varray.h
+GGC_H = ggc.h varray.h gtype-desc.h
 TIMEVAR_H = timevar.h timevar.def
 INSN_ATTR_H = insn-attr.h $(srcdir)/insn-addr.h $(srcdir)/varray.h
 C_COMMON_H = c-common.h $(SPLAY_TREE_H)
@@ -713,23 +713,24 @@ C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 
-OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	\
- cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o cfgrtl.o \
- combine.o conflict.o convert.o cse.o cselib.o dbxout.o debug.o dependence.o \
- df.o diagnostic.o doloop.o dominance.o dwarf2asm.o dwarf2out.o dwarfout.o \
- emit-rtl.o except.o explow.o expmed.o expr.o final.o flow.o 		\
- fold-const.o function.o gcse.o genrtl.o ggc-common.o global.o graph.o	\
+OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	     \
+ cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		     \
+ cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	     \
+ debug.o dependence.o df.o diagnostic.o doloop.o dominance.o		     \
+ dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	     \
+ expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		     \
+ genrtl.o ggc-common.o global.o graph.o gtype-desc.o		     \
  haifa-sched.o hash.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o \
- insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	\
- integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o 	\
- loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	\
- profile.o real.o recog.o reg-stack.o regclass.o regmove.o regrename.o	\
- reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	\
- sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	\
- sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	\
- stor-layout.o stringpool.o timevar.o toplev.o tree.o tree-dump.o 	\
- tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
- $(GGC) $(out_object_file) $(EXTRA_OBJS)
+ insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	     \
+ integrate.o intl.o jump.o langhooks.o lcm.o lists.o local-alloc.o	     \
+ loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	     \
+ profile.o real.o recog.o reg-stack.o regclass.o regmove.o regrename.o	     \
+ reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	     \
+ sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	     \
+ sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		     \
+ stor-layout.o stringpool.o timevar.o toplev.o tree.o tree-dump.o	     \
+ tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o		     \
+ xcoffout.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
 
@@ -739,7 +740,8 @@ BACKEND = main.o libbackend.a
 GEN= genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
  genextract$(build_exeext) genflags$(build_exeext) gencodes$(build_exeext)   \
  genconfig$(build_exeext) genpeep$(build_exeext) gengenrtl$(build_exeext)    \
- gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext)
+ gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
+ gengtype$(build_exeext)
 
 # Files to be copied away after each stage in building.
 STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
@@ -754,6 +756,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  genconfig$(build_exeext) genpeep$(build_exeext) genattrtab$(build_exeext) \
  genattr$(build_exeext) genopinit$(build_exeext) gengenrtl$(build_exeext) \
  gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
+ gengtype$(build_exeext) \
  genrtl.c genrtl.h \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) cpp0$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
@@ -1296,6 +1299,9 @@ dumpvers: dumpvers.c
 
 version.o: version.c version.h
 
+gtype-desc.o: gtype-desc.c varray.h $(RTL_H) $(CONFIG_H) $(SYSTEM_H) \
+	function.h
+
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	flags.h $(GGC_H) varray.h hash.h $(HASHTAB_H) $(TM_P_H)
 
@@ -1371,17 +1377,20 @@ errors.o : errors.c $(GCONFIG_H) $(SYSTEM_H) errors.h
 varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    function.h $(EXPR_H) hard-reg-set.h $(REGS_H) \
    output.h c-pragma.h toplev.h xcoffout.h debug.h $(GGC_H) $(TM_P_H) \
-   $(HASHTAB_H) $(TARGET_H) langhooks.h
+   $(HASHTAB_H) $(TARGET_H) langhooks.h gt-varasm.h
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) libfuncs.h $(REGS_H) hard-reg-set.h \
-   insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H) $(TM_P_H)
+   insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H) \
+   $(TM_P_H) gt-function.h
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h  \
    insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
-   $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H)
+   $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
+   gt-stmt.h
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    except.h function.h $(EXPR_H) libfuncs.h integrate.h \
    insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
-   dwarf2asm.h dwarf2out.h toplev.h $(HASHTAB_H) intl.h $(GGC_H)
+   dwarf2asm.h dwarf2out.h toplev.h $(HASHTAB_H) intl.h $(GGC_H) \
+   gt-except.h
 expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h \
    $(REGS_H) $(EXPR_H) $(OPTABS_H) libfuncs.h insn-attr.h insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
@@ -1430,7 +1439,7 @@ real.o : real.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h $(TM_P_H)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    debug.h $(INTEGRATE_H) insn-config.h $(EXPR_H) real.h $(REGS_H) \
    intl.h function.h output.h $(RECOG_H) except.h toplev.h $(LOOP_H) \
-   $(PARAMS_H) $(TM_P_H) $(TARGET_H)
+   $(PARAMS_H) $(TM_P_H) $(TARGET_H) gt-integrate.h
 jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h hard-reg-set.h $(REGS_H) \
    insn-config.h $(RECOG_H) $(EXPR_H) real.h except.h function.h \
    toplev.h $(INSN_ATTR_H) $(TM_P_H) reload.h $(PREDICT_H)
@@ -1581,6 +1590,8 @@ dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    $(C_COMMON_H) flags.h varray.h $(EXPR_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) $(HOOKS_H)
+gtype-desc.o : gtype-desc.c $(CONFIG_H) $(SYSTEM_H) $(GGC_H) varray.h \
+   $(RTL_H) $(TREE_H)
 
 $(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
@@ -1761,6 +1772,18 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-preds.h tm-preds.h
 	$(STAMP) s-preds
 
+GTFILES = config.h $(build_xm_file_list) $(out_file) \
+  $(srcdir)/function.h \
+  $(srcdir)/except.c $(srcdir)/function.c $(srcdir)/integrate.c \
+  $(srcdir)/stmt.c $(srcdir)/varasm.c
+
+gtype-desc.h gtype-desc.c gtype-c.h gt-except.h gt-function.h : s-gtype; @true
+gt-integrate.h gt-stmt.h gt-varasm.h : s-gtype; @true
+
+s-gtype: gengtype$(build_exeext) $(GTFILES)
+	./gengtype $(GTFILES)
+	$(STAMP) s-gtype
+
 #
 # Compile the programs that generate insn-* from the machine description.
 # They are compiled with $(HOST_CC), and associated libraries,
@@ -1884,6 +1907,33 @@ genpreds$(build_exeext) : genpreds.o $(HOST_LIBDEPS)
 
 genpreds.o : genpreds.c $(RTL_BASE_H) $(HCONFIG_H) $(SYSTEM_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genpreds.c $(OUTPUT_OPTION)
+
+gengtype$(build_exeext) : gengtype.o gengtype-lex.o gengtype-yacc.o \
+  $(HOST_LIBDEPS)
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
+	 gengtype.o gengtype-lex.o gengtype-yacc.o $(HOST_LIBS)
+
+gengtype.o : gengtype.c gengtype.h $(HCONFIG_H) $(SYSTEM_H) real.h
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/gengtype.c $(OUTPUT_OPTION)
+
+gengtype-lex.o : gengtype-lex.c gengtype.h gengtype-yacc.c \
+  $(HCONFIG_H) $(SYSTEM_H)
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/gengtype-lex.c $(OUTPUT_OPTION)
+
+gengtype-yacc.o : gengtype-yacc.c gengtype.h $(HCONFIG_H) $(SYSTEM_H)
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/gengtype-yacc.c $(OUTPUT_OPTION)
+
+$(srcdir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
+	$(FLEX) $(FLEXFLAGS) -o$@ $(srcdir)/gengtype-lex.l \
+	 || ( rm -f $@ && false )
+
+$(srcdir)/gengtype-yacc.c: $(srcdir)/gengtype-yacc.y
+	(cd $(srcdir) && \
+	 $(BISON) $(BISONFLAGS) -d -o gengtype-yacc.c gengtype-yacc.y || \
+	 ( rm -f $@ && false ) )
 
 #
 # Compile the libraries to be used by gen*.

@@ -67,14 +67,14 @@ extern struct obstack *function_maybepermanent_obstack;
 
 
 /* Private type used by {get/has}_func_hard_reg_initial_val.  */
-typedef struct initial_value_pair {
+typedef struct initial_value_pair GTY(()) {
   rtx hard_reg;
   rtx pseudo;
 } initial_value_pair;
-typedef struct initial_value_struct {
+typedef struct initial_value_struct GTY(()) {
   int num_entries;
   int max_entries;
-  initial_value_pair *entries;
+  initial_value_pair * GTY((length("%.num_entries"))) entries;
 } initial_value_struct;
 
 static void setup_initial_hard_reg_value_integration PARAMS ((struct function *, struct inline_remap *));
@@ -3091,23 +3091,6 @@ has_hard_reg_initial_val (mode, regno)
   return has_func_hard_reg_initial_val (cfun, gen_rtx_REG (mode, regno));
 }
 
-void
-mark_hard_reg_initial_vals (fun)
-     struct function *fun;
-{
-  struct initial_value_struct *ivs = fun->hard_reg_initial_vals;
-  int i;
-
-  if (ivs == 0)
-    return;
-
-  for (i = 0; i < ivs->num_entries; i ++)
-    {
-      ggc_mark_rtx (ivs->entries[i].hard_reg);
-      ggc_mark_rtx (ivs->entries[i].pseudo);
-    }
-}
-
 static void
 setup_initial_hard_reg_value_integration (inl_f, remap)
      struct function *inl_f;
@@ -3177,3 +3160,5 @@ allocate_initial_values (reg_equiv_memory_loc)
     }
 #endif
 }
+
+#include "gt-integrate.h"

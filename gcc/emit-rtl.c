@@ -178,7 +178,6 @@ static rtx free_insn;
 static rtx make_jump_insn_raw		PARAMS ((rtx));
 static rtx make_call_insn_raw		PARAMS ((rtx));
 static rtx find_line_note		PARAMS ((rtx));
-static void mark_sequence_stack         PARAMS ((struct sequence_stack *));
 static rtx change_address_1		PARAMS ((rtx, enum machine_mode, rtx,
 						 int));
 static void unshare_all_rtl_1		PARAMS ((rtx));
@@ -4278,7 +4277,7 @@ start_sequence ()
 {
   struct sequence_stack *tem;
 
-  tem = (struct sequence_stack *) xmalloc (sizeof (struct sequence_stack));
+  tem = (struct sequence_stack *) ggc_alloc (sizeof (struct sequence_stack));
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -4394,8 +4393,6 @@ end_sequence ()
   last_insn = tem->last;
   seq_rtl_expr = tem->sequence_rtl_expr;
   seq_stack = tem->next;
-
-  free (tem);
 }
 
 /* This works like end_sequence, but records the old sequence in FIRST
@@ -4724,51 +4721,6 @@ init_emit ()
 #ifdef INIT_EXPANDERS
   INIT_EXPANDERS;
 #endif
-}
-
-/* Mark SS for GC.  */
-
-static void
-mark_sequence_stack (ss)
-     struct sequence_stack *ss;
-{
-  while (ss)
-    {
-      ggc_mark_rtx (ss->first);
-      ggc_mark_tree (ss->sequence_rtl_expr);
-      ss = ss->next;
-    }
-}
-
-/* Mark ES for GC.  */
-
-void
-mark_emit_status (es)
-     struct emit_status *es;
-{
-  rtx *r;
-  tree *t;
-  int i;
-
-  if (es == 0)
-    return;
-
-  ggc_mark (es);
-  ggc_mark (es->x_regno_reg_rtx);
-  ggc_mark (es->regno_decl);
-  ggc_mark (es->regno_pointer_align);
-  
-  for (i = es->regno_pointer_align_length, r = es->x_regno_reg_rtx,
-       t = es->regno_decl;
-       i > 0; --i, ++r, ++t)
-    {
-      ggc_mark_rtx (*r);
-      ggc_mark_tree (*t);
-    }
-
-  mark_sequence_stack (es->sequence_stack);
-  ggc_mark_tree (es->sequence_rtl_expr);
-  ggc_mark_rtx (es->x_first_insn);
 }
 
 /* Create some permanent unique rtl objects shared between all functions.

@@ -71,7 +71,7 @@ struct pool_constant;
 
 #define MAX_RTX_HASH_TABLE 61
 
-struct varasm_status
+struct varasm_status GTY(())
 {
   /* Hash facility for making memory-constants
      from constant rtl-expressions.  It is used on RISC machines
@@ -81,8 +81,10 @@ struct varasm_status
      This pool of constants is reinitialized for each function
      so each function gets its own constants-pool that comes right before
      it.  */
-  struct constant_descriptor_rtx ** x_const_rtx_hash_table;
-  struct pool_constant **x_const_rtx_sym_hash_table;
+  struct constant_descriptor_rtx ** GTY ((length ("MAX_RTX_HASH_TABLE"))) 
+    x_const_rtx_hash_table;
+  struct pool_constant ** GTY ((length ("MAX_RTX_HASH_TABLE")))
+    x_const_rtx_sym_hash_table;
 
   /* Pointers to first and last constant in pool.  */
   struct pool_constant *x_first_pool;
@@ -173,7 +175,6 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static void mark_pool_constant          PARAMS ((struct pool_constant *));
 static void mark_const_hash_entry	PARAMS ((void *));
 static int mark_const_str_htab_1	PARAMS ((void **, void *));
 static void mark_const_str_htab		PARAMS ((void *));
@@ -2305,7 +2306,7 @@ clear_const_double_mem ()
    Store them both in the structure *VALUE.
    Abort if EXP does not reduce.  */
 
-struct addr_const
+struct addr_const GTY(())
 {
   rtx base;
   HOST_WIDE_INT offset;
@@ -2376,25 +2377,25 @@ decode_addr_const (exp, value)
 }
 
 enum kind { RTX_UNKNOWN, RTX_DOUBLE, RTX_INT, RTX_UNSPEC };
-struct rtx_const
+struct rtx_const GTY(())
 {
   ENUM_BITFIELD(kind) kind : 16;
   ENUM_BITFIELD(machine_mode) mode : 16;
   union rtx_const_un {
-    union real_extract du;
-    struct addr_const addr;
+    union real_extract GTY ((skip (""))) du;
+    struct addr_const GTY ((tag ("1"))) addr;
     struct rtx_const_u_di { 
       HOST_WIDE_INT high;
       HOST_WIDE_INT low; 
-    } di;
-  } un;
+    } GTY ((tag ("0"))) di;
+  } GTY ((desc ("%1.kind > RTX_DOUBLE"), descbits ("1"))) un;
 };
 
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
    in `const_hash_table'.  */
 
-struct constant_descriptor_tree
+struct constant_descriptor_tree GTY(())
 {
   /* More constant_descriptors with the same hash code.  */
   struct constant_descriptor_tree *next;
@@ -2420,7 +2421,7 @@ static struct constant_descriptor_tree *const_hash_table[MAX_HASH_TABLE];
 
 #define STRHASH(x) ((hashval_t) ((long) (x) >> 3))
 
-struct deferred_string
+struct deferred_string GTY(())
 {
   const char *label;
   tree exp;
@@ -2438,13 +2439,7 @@ mark_const_hash_entry (ptr)
   struct constant_descriptor_tree *desc;
   desc = * (struct constant_descriptor_tree **) ptr;
 
-  while (desc)
-    {
-      ggc_mark (desc);
-      ggc_mark_rtx (desc->rtl);
-      ggc_mark_tree (desc->value);
-      desc = desc->next;
-    }
+  gt_ggc_m_constant_descriptor_tree (desc);
 }
 
 /* Mark the hash-table element X (which is really a pointer to an
@@ -2455,8 +2450,7 @@ mark_const_str_htab_1 (x, data)
      void **x;
      void *data ATTRIBUTE_UNUSED;
 {
-  ggc_mark (*x);
-  ggc_mark_tree (((struct deferred_string *) *x)->exp);
+  gt_ggc_m_deferred_string (*x);
   return 1;
 }
 
@@ -3138,7 +3132,7 @@ output_constant_def_contents (exp, reloc, labelno)
    are output once per function, not once per file; there seems
    to be no reason for the difference.  */
 
-struct constant_descriptor_rtx 
+struct constant_descriptor_rtx GTY(())
 {
   /* More constant_descriptors with the same hash code.  */
   struct constant_descriptor_rtx *next;
@@ -3158,7 +3152,7 @@ struct constant_descriptor_rtx
    integration can be done, and to simplify handling on machines that reference
    constant pool as base+displacement.  */
 
-struct pool_constant
+struct pool_constant GTY(())
 {
   struct constant_descriptor_rtx *desc;
   struct pool_constant *next;
@@ -3198,48 +3192,6 @@ init_varasm_status (f)
   p->x_first_pool = p->x_last_pool = 0;
   p->x_pool_offset = 0;
   p->x_const_double_chain = 0;
-}
-
-/* Mark PC for GC.  */
-
-static void
-mark_pool_constant (pc)
-     struct pool_constant *pc;
-{
-  while (pc)
-    {
-      ggc_mark (pc);
-      ggc_mark_rtx (pc->constant);
-      ggc_mark_rtx (pc->desc->rtl);
-      pc = pc->next;
-    }
-}
-
-/* Mark P for GC.  */
-
-void
-mark_varasm_status (p)
-     struct varasm_status *p;
-{
-  int i;
-  
-  if (p == NULL)
-    return;
-
-  ggc_mark (p);
-  ggc_mark (p->x_const_rtx_hash_table);
-  for (i = 0; i < MAX_RTX_HASH_TABLE; i++)
-    {
-      struct constant_descriptor_rtx *l;
-      for (l = p->x_const_rtx_hash_table[i]; l; l = l->next)
-	{
-	  ggc_mark (l);
-	  ggc_mark_rtx (l->rtl);
-	}
-    }
-  ggc_mark (p->x_const_rtx_sym_hash_table);
-  mark_pool_constant (p->x_first_pool);
-  ggc_mark_rtx (p->x_const_double_chain);
 }
 
 
@@ -3330,11 +3282,13 @@ decode_rtx_const (mode, x, value)
   if (value->kind > RTX_DOUBLE && value->un.addr.base != 0)
     switch (GET_CODE (value->un.addr.base))
       {
+#if 0
       case SYMBOL_REF:
 	/* Use the string's address, not the SYMBOL_REF's address,
 	   for the sake of addresses of library routines.  */
 	value->un.addr.base = (rtx) XSTR (value->un.addr.base, 0);
 	break;
+#endif
 
       case LABEL_REF:
 	/* For a LABEL_REF, compare labels.  */
@@ -4965,3 +4919,5 @@ assemble_vtable_inherit (child, parent)
   output_addr_const (asm_out_file, parent);
   fputc ('\n', asm_out_file);
 }
+
+#include "gt-varasm.h"

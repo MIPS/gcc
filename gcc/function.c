@@ -171,7 +171,7 @@ static varray_type sibcall_epilogue;
    level where they are defined.  They are marked a "kept" so that
    free_temp_slots will not free them.  */
 
-struct temp_slot
+struct temp_slot GTY(())
 {
   /* Points to next temporary slot.  */
   struct temp_slot *next;
@@ -212,7 +212,7 @@ struct temp_slot
    maintain this list in case two operands of an insn were required to match;
    in that case we must ensure we use the same replacement.  */
 
-struct fixup_replacement
+struct fixup_replacement GTY(())
 {
   rtx old;
   rtx new;
@@ -7891,7 +7891,7 @@ mark_function_status (p)
   ggc_mark_rtx (p->x_nonlocal_goto_stack_level);
   ggc_mark_tree (p->x_nonlocal_labels);
 
-  mark_hard_reg_initial_vals (p);
+  gt_ggc_m_initial_value_struct (p->hard_reg_initial_vals);
 }
 
 /* Mark the struct function pointed to by *ARG for GC, if it is not
@@ -7922,9 +7922,9 @@ ggc_mark_struct_function (f)
   mark_function_status (f);
   mark_eh_status (f->eh);
   mark_stmt_status (f->stmt);
-  mark_expr_status (f->expr);
-  mark_emit_status (f->emit);
-  mark_varasm_status (f->varasm);
+  gt_ggc_m_expr_status (f->expr);
+  gt_ggc_m_emit_status (f->emit);
+  gt_ggc_m_varasm_status (f->varasm);
 
   if (f->machine)
     {
@@ -7956,3 +7956,5 @@ init_function_once ()
   VARRAY_INT_INIT (epilogue, 0, "epilogue");
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
 }
+
+#include "gt-function.h"
