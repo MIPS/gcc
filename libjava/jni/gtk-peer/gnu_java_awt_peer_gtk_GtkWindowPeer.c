@@ -46,11 +46,11 @@ exception statement from your version. */
 
 static int filter_added = 0;
 
-// FIXME: this function is needed to work around double-activation
-// that occurs with metacity and GTK.  See
-// http://bugzilla.gnome.org/show_bug.cgi?id=140977 for details.  Owen
-// says filtering protocol messages will break future versions of GTK.
-// Once the bug is fixed, we'll remove this logic.
+/* FIXME: this function is needed to work around double-activation
+   that occurs with metacity and GTK.  See
+   http://bugzilla.gnome.org/show_bug.cgi?id=140977 for details.  Owen
+   says filtering protocol messages will break future versions of
+   GTK. Once the bug is fixed, we'll remove this logic. */
 static GdkFilterReturn window_wm_protocols_filter (GdkXEvent *xev,
                                                    GdkEvent  *event,
                                                    gpointer   data);

@@ -1,5 +1,8 @@
 2004-04-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu_java_awt_peer_gtk_GtkWindowPeer.c: Change FIXME comment to
+	C-style.
+
 	* gnu_java_awt_peer_gtk_GtkWindowPeer.c: Add FIXME comment.
 
 	* java/awt/ContainerOrderFocusTraversalPolicy.java
