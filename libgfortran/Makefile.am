@@ -232,7 +232,7 @@ hyp_c4.lo \
 hyp_c8.lo
 
 # Machine generated specifics
-gfor_built_specific_c= \
+gfor_built_specific_src= \
 generated/_abs_r4.f90 \
 generated/_abs_r8.f90 \
 generated/_exp_r4.f90 \
@@ -272,9 +272,13 @@ generated/_cosh_r8.f90 \
 generated/_tanh_r4.f90 \
 generated/_tanh_r8.f90 \
 generated/_conjg_c4.f90 \
-generated/_conjg_c8.f90
+generated/_conjg_c8.f90 \
+generated/_aint_r4.f90 \
+generated/_aint_r8.f90 \
+generated/_anint_r4.f90 \
+generated/_anint_r8.f90
 
-gfor_built_specific2_c= \
+gfor_built_specific2_src= \
 generated/_sign_i4.f90 \
 generated/_sign_i8.f90 \
 generated/_sign_r4.f90 \
@@ -282,31 +286,32 @@ generated/_sign_r8.f90 \
 generated/_dim_i4.f90 \
 generated/_dim_i8.f90 \
 generated/_dim_r4.f90 \
-generated/_dim_r8.f90
+generated/_dim_r8.f90 \
+generated/_atan2_r4.f90 \
+generated/_atan2_r8.f90 \
+generated/_mod_i4.f90 \
+generated/_mod_i8.f90 \
+generated/_mod_r4.f90 \
+generated/_mod_r8.f90
 #specific intrinsics requiring manal code
 #gfor_specific_c= \
-intrinsics/_sign \
-intrinsics/_dim.c \
 intrinsics/_aimag.c \
 intrinsics/_cabs.c \
-intrinsics/_mod.c \
-intrinsics/_aint.c \
-intrinsics/_anint.c \
-intrinsics/_atan2.c \
-intrinsics/_dprod.c \
 foo
-gfor_specific_c= \
-$(gfor_built_specific_c) \
-$(gfor_built_specific2_c)
+
+gfor_specific_src= \
+$(gfor_built_specific_src) \
+$(gfor_built_specific2_src) \
+intrinsics/dprod_r8.f90
 
 gfor_cmath_src= $(gfor_math_trig_c) $(gfor_math_exp_c) $(gfor_math_hyp_c)
 gfor_cmath_obj= $(gfor_math_trig_obj) $(gfor_math_exp_obj) \
     $(gfor_math_hyp_obj)
 
-BUILT_SOURCES=$(gfor_built_src) $(gfor_cmath_src) $(gfor_built_specific_c) \
-    $(gfor_built_specific2_c)
+BUILT_SOURCES=$(gfor_built_src) $(gfor_cmath_src) $(gfor_built_specific_src) \
+    $(gfor_built_specific2_src)
 libgfortran_la_SOURCES = $(gfor_src) $(gfor_built_src) $(gfor_io_src) \
-    $(gfor_helper_src) $(gfor_io_headers) $(gfor_specific_c)
+    $(gfor_helper_src) $(gfor_io_headers) $(gfor_specific_src)
 
 EXTRA_libgfortran_la_SOURCES = $(gfor_cmath_src)
 
@@ -396,10 +401,10 @@ $(gfor_math_exp_c): m4/cexp.m4 m4/mtype.m4
 $(gfor_math_hyp_c): m4/chyp.m4 m4/mtype.m4
 	m4 -Dfile=$@ -I$(srcdir)/m4 chyp.m4 > $@
 
-$(gfor_built_specific_c): m4/specific.m4 m4/head.m4
+$(gfor_built_specific_src): m4/specific.m4 m4/head.m4
 	m4 -Dfile=$@ -I$(srcdir)/m4 specific.m4 > $@
 
-$(gfor_built_specific2_c): m4/specific2.m4 m4/head.m4
+$(gfor_built_specific2_src): m4/specific2.m4 m4/head.m4
 	m4 -Dfile=$@ -I$(srcdir)/m4 specific2.m4 > $@
 ## end of maintainer mode only rules
 endif

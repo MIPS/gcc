@@ -826,11 +826,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 }
 
 
-/* None of the specific intrinsics which can be passed as actual arguments
-   for dummy procedures has more then two parameters.  */
-
-#define GFC_MAX_SPECIFIC_ARGS 2
-
 /* Get a basic decl for an external function.  */
 
 tree
@@ -840,9 +835,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   tree fndecl;
   gfc_expr e;
   gfc_intrinsic_sym *isym;
-  gfc_intrinsic_arg *formal;
-  gfc_expr argexpr[GFC_MAX_SPECIFIC_ARGS];
-  int n;
+  gfc_expr argexpr;
   char s[GFC_MAX_SYMBOL_LEN];
   tree name;
   tree mangled_name;
@@ -852,38 +845,27 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 
   if (sym->attr.intrinsic)
     {
-      /* Call the resolution function to get the actual name.  */
+      /* Call the resolution function to get the actual name.  This is
+         a nasty hack which relies on the resolution functions only looking
+	 at the first argument.  We pass NULL for the second argument
+	 otherwise things like AINT get confused.  */
       isym = gfc_find_function (sym->name);
-      assert (isym->resolve.f0);
+      assert (isym->resolve.f0 != NULL);
 
       memset (&e, 0, sizeof (e));
-      memset (argexpr, 0, sizeof (argexpr));
       e.expr_type = EXPR_FUNCTION;
-      formal = NULL;
-      n = 0;
 
-      for (formal = isym->formal, n = 0; formal; formal = formal->next, n++)
+      memset (&argexpr, 0, sizeof (argexpr));
+      assert (isym->formal);
+      argexpr.ts = isym->formal->ts;
+
+      if (isym->formal->next == NULL)
+	isym->resolve.f1 (&e, &argexpr);
+      else
 	{
-	  assert (n < GFC_MAX_SPECIFIC_ARGS);
-	  argexpr[n].ts = formal->ts;
-	}
-
-      switch (n)
-	{
-	case 0:
-	  isym->resolve.f0 (&e);
-	  break;
-
-	case 1:
-	  isym->resolve.f1 (&e, &argexpr[0]);
-	  break;
-
-	case 2:
-	  isym->resolve.f2 (&e, &argexpr[0], &argexpr[1]);
-	  break;
-
-	default:
-	  abort ();
+	  /* All specific intrinsics take one or two arguments.  */
+	  assert (isym->formal->next->next == NULL);
+	  isym->resolve.f2 (&e, &argexpr, NULL);
 	}
       sprintf (s, "specific%s", e.value.function.name);
       name = get_identifier (s);

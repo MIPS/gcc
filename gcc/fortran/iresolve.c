@@ -163,9 +163,17 @@ gfc_resolve_aint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
   f->ts.type = a->ts.type;
   f->ts.kind = (kind == NULL) ? a->ts.kind : mpz_get_si (kind->value.integer);
 
+  /* The resolved name is only used for specific intrinsics where
+     the return kind is the same as the arg kind.  */
   f->value.function.name =
-    gfc_get_string ("__aint_%d_%c%d", f->ts.kind,
-		    gfc_type_letter (a->ts.type), a->ts.kind);
+    gfc_get_string ("__aint_%c%d", gfc_type_letter (a->ts.type), a->ts.kind);
+}
+
+
+void
+gfc_resolve_dint (gfc_expr * f, gfc_expr * a)
+{
+  gfc_resolve_aint (f, a, NULL);
 }
 
 
@@ -194,9 +202,17 @@ gfc_resolve_anint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
   f->ts.type = a->ts.type;
   f->ts.kind = (kind == NULL) ? a->ts.kind : mpz_get_si (kind->value.integer);
 
+  /* The resolved name is only used for specific intrinsics where
+     the return kind is the same as the arg kind.  */
   f->value.function.name =
-    gfc_get_string ("__anint_%d_%c%d", f->ts.kind,
-		    gfc_type_letter (a->ts.type), a->ts.kind);
+    gfc_get_string ("__anint_%c%d", gfc_type_letter (a->ts.type), a->ts.kind);
+}
+
+
+void
+gfc_resolve_dnint (gfc_expr * f, gfc_expr * a)
+{
+  gfc_resolve_anint (f, a, NULL);
 }
 
 
@@ -423,6 +439,18 @@ gfc_resolve_dot_product (gfc_expr * f, gfc_expr * a, gfc_expr * b)
   f->value.function.name =
     gfc_get_string ("__dot_product_%c%d", gfc_type_letter (f->ts.type),
 		    f->ts.kind);
+}
+
+
+void
+gfc_resolve_dprod (gfc_expr * f,
+		   gfc_expr * a ATTRIBUTE_UNUSED,
+		   gfc_expr * b ATTRIBUTE_UNUSED)
+{
+  f->ts.kind = gfc_default_double_kind ();
+  f->ts.type = BT_REAL;
+
+  f->value.function.name = gfc_get_string ("__dprod_r%d", f->ts.kind);
 }
 
 

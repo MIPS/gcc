@@ -214,8 +214,10 @@ void gfc_resolve_abs (gfc_expr *, gfc_expr *);
 void gfc_resolve_acos (gfc_expr *, gfc_expr *);
 void gfc_resolve_aimag (gfc_expr *, gfc_expr *);
 void gfc_resolve_aint (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_dint (gfc_expr *, gfc_expr *);
 void gfc_resolve_all (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_anint (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_dnint (gfc_expr *, gfc_expr *);
 void gfc_resolve_any (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_asin (gfc_expr *, gfc_expr *);
 void gfc_resolve_atan (gfc_expr *, gfc_expr *);
@@ -232,6 +234,7 @@ void gfc_resolve_cshift (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_dble (gfc_expr *, gfc_expr *);
 void gfc_resolve_dim (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_dot_product (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_dprod (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_eoshift (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 			  gfc_expr *);
 void gfc_resolve_exp (gfc_expr *, gfc_expr *);

@@ -1,3 +1,17 @@
+2003-10-11  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/dprod_r8.f90: New file.
+	* Makefile.am (gfor_specific_src): Add it.
+	(gfor_built_specific_src): Rename from gfor_build_specific_c.
+	Add new intrinsics.
+	(gfor_specific2_src): Rename from gfor_built_specific2_c.
+	Add new intrinsics.
+	* Makefile.in: Regenerate.
+	* generated/_aint_*.f90: New files.
+	* generated/_anint*.f90: New files.
+	* generated/_atan2*.f90: New files.
+	* generated/_mod*.f90: New files.
+
 2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
  
 	* intrinsics/selected_kind.f90: New file.

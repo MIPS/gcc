@@ -1,3 +1,13 @@
+2003-10-11  Paul Brook  <paul@nowt.org>
+
+	* iresolve.c (gfc_resolve_dint, gfc_resolve_dnint): New functions.
+	(gfc_resolve_dprod): New function.
+	(gfc_resolve_aint, gfc_resolve_anint): Only base name on arg type.
+	* intrinsic.h (gfc_resolve_dint, gfc_resolve_dnint): Declare.
+	(gfc_resolve_dprod): Declare.
+	* intrinsic.c (add_functions): Use them.
+	* trans-decl.c (gfc_get_extern_function_decl): Only pass one arg.
+
 2003-10-06  Richard Henderson  <rth@redhat.com>
 
 	* f95-lang.c (gfc_init_builtin_functions): Add clzll.

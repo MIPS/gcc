@@ -751,7 +751,8 @@ add_functions (void)
 	     a, BT_REAL, dr, 0, kind, BT_INTEGER, di, 1);
 
   add_sym_1 ("dint", 1, 1, BT_REAL, dd,
-	     NULL, gfc_simplify_dint, NULL, a, BT_REAL, dd, 0);
+	     NULL, gfc_simplify_dint, gfc_resolve_dint,
+	     a, BT_REAL, dd, 0);
 
   make_generic ("aint", GFC_ISYM_AINT);
 
@@ -771,7 +772,8 @@ add_functions (void)
 	     a, BT_REAL, dr, 0, kind, BT_INTEGER, di, 1);
 
   add_sym_1 ("dnint", 1, 1, BT_REAL, dd,
-	   NULL, gfc_simplify_dnint, NULL, a, BT_REAL, dd, 0);
+	     NULL, gfc_simplify_dnint, gfc_resolve_dnint,
+	     a, BT_REAL, dd, 0);
 
   make_generic ("anint", GFC_ISYM_ANINT);
 
@@ -935,7 +937,7 @@ add_functions (void)
   make_generic ("dot_product", GFC_ISYM_DOT_PRODUCT);
 
   add_sym_2 ("dprod", 1, 1, BT_REAL, dd,
-	     NULL, gfc_simplify_dprod, NULL,
+	     NULL, gfc_simplify_dprod, gfc_resolve_dprod,
 	     x, BT_REAL, dr, 0, y, BT_REAL, dr, 0);
 
   make_generic ("dprod", GFC_ISYM_DPROD);
