@@ -2617,8 +2617,7 @@ tree_transform (gnat_node)
 	   the body so that the line number notes are written 
 	   correctly.  */
 	set_lineno (gnat_node, 0);
-	DECL_SOURCE_FILE (gnu_subprog_decl) = input_filename;
-	DECL_SOURCE_LINE (gnu_subprog_decl) = lineno;
+	annotate_with_file_line (gnu_subprog_decl, input_filename, lineno);
 
 	begin_subprog_body (gnu_subprog_decl);
 	set_lineno (gnat_node, 1);
@@ -5340,8 +5339,8 @@ build_unit_elab (gnat_unit, body_p, gnu_elab_list)
       {
 	tree lhs = TREE_PURPOSE (gnu_elab_list);
 
-	input_filename = DECL_SOURCE_FILE (lhs);
-	lineno = DECL_SOURCE_LINE (lhs);
+	input_filename = TREE_FILENAME (lhs);
+	lineno = TREE_LINENO (lhs);
 
 	/* If LHS has a padded type, convert it to the unpadded type
 	   so the assignment is done properly.  */

@@ -2314,6 +2314,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	     as in a do .. while loop.  */
 	  if (GET_CODE (insn) == NOTE
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED
+	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED_LABEL
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_VTOP
 	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_CONT)

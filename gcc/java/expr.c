@@ -2387,6 +2387,23 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 
   switch (TREE_CODE (exp))
     {
+
+    case EXPR_WITH_FILE_LOCATION:
+      {
+	rtx to_return;
+	const char *saved_input_filename = input_filename;
+	int saved_lineno = lineno;
+	input_filename = EXPR_WFL_FILENAME (exp);
+	lineno = EXPR_WFL_LINENO (exp);
+        if (EXPR_WFL_EMIT_LINE_NOTE (exp))
+          emit_line_note (input_filename, lineno);
+	/* Possibly avoid switching back and forth here.  */
+	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
+	input_filename = saved_input_filename;
+	lineno = saved_lineno;
+	return to_return;
+      }
+
     case NEW_ARRAY_INIT:
       {
 	rtx tmp;
@@ -2524,12 +2541,6 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 		build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), NULL);
       return const0_rtx;
 
-    case SWITCH_EXPR:
-      expand_start_case (0, TREE_OPERAND (exp, 0), int_type_node, "switch");
-      expand_expr_stmt (TREE_OPERAND (exp, 1));
-      expand_end_case (TREE_OPERAND (exp, 0));
-      return const0_rtx;
-
     case TRY_EXPR:
       /* We expand a try[-catch] block */
 
@@ -2556,11 +2567,6 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
     case JAVA_EXC_OBJ_EXPR:
       return expand_expr (build_exception_object_ref (TREE_TYPE (exp)),
 			  target, tmode, modifier);
-
-    case LABEL_EXPR:
-      /* Used only by expanded inline functions.  */
-      expand_label (TREE_OPERAND (exp, 0));
-      return const0_rtx;
 
     default:
       internal_error ("can't expand %s", tree_code_name [TREE_CODE (exp)]);
@@ -3380,5 +3386,37 @@ emit_init_test_initialization (void **entry, void *x ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* EXPR_WITH_FILE_LOCATION are used to keep track of the exact
+   location where an expression or an identifier were encountered. It
+   is necessary for languages where the frontend parser will handle
+   recursively more than one file (Java is one of them).  */
+
+tree
+build_expr_wfl (node, file, line, col)
+     tree node;
+     const char *file;
+     int line, col;
+{
+  static const char *last_file = 0;
+  static tree last_filenode = NULL_TREE;
+  tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
+
+  EXPR_WFL_NODE (wfl) = node;
+  EXPR_WFL_SET_LINECOL (wfl, line, col);
+  if (file != last_file)
+    {
+      last_file = file;
+      last_filenode = file ? get_identifier (file) : NULL_TREE;
+    }
+
+  EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
+  if (node)
+    {
+      TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
+      TREE_TYPE (wfl) = TREE_TYPE (node);
+    }
+
+  return wfl;
+}
 #include "gt-java-expr.h"
 

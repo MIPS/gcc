@@ -35,6 +35,7 @@ static bool ok_to_generate_alias_set_for_type (tree);
 static bool cxx_warn_unused_global_decl (tree);
 static tree cp_expr_size (tree);
 static bool cp_var_mod_type_p (tree);
+static int cp_expand_decl (tree);
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -56,14 +57,14 @@ static bool cp_var_mod_type_p (tree);
 #define LANG_HOOKS_EXPAND_CONSTANT cplus_expand_constant
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
+#undef LANG_HOOKS_EXPAND_DECL
+#define LANG_HOOKS_EXPAND_DECL cp_expand_decl
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
-#undef LANG_HOOKS_UNSAVE_EXPR_NOW
-#define LANG_HOOKS_UNSAVE_EXPR_NOW cxx_unsave_expr_now
 #undef LANG_HOOKS_MAYBE_BUILD_CLEANUP
 #define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
@@ -117,7 +118,7 @@ static bool cp_var_mod_type_p (tree);
   cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
 #define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_is_overload_p
+  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
@@ -155,6 +156,8 @@ static bool cp_var_mod_type_p (tree);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_SIMPLIFY_EXPR
+#define LANG_HOOKS_SIMPLIFY_EXPR cp_simplify_expr
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -309,6 +312,40 @@ cp_expr_size (tree exp)
     return lhd_expr_size (exp);
 }
 
+/* Expand DECL if it declares an entity not handled by the
+   common code.  */
+
+static int
+cp_expand_decl (decl)
+     tree decl;
+{
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+	emit_local_var (decl);
+      else
+	expand_anon_union_decl (decl, NULL_TREE, 
+				DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
+  else if (TREE_CODE (decl) == LABEL_DECL 
+	   && C_DECLARED_LABEL_FLAG (decl))
+    declare_nonlocal_label (decl);
+  else
+    return 0;
+
+  return 1;
+}
+
+int
+cp_tree_chain_matters_p (t)
+     tree t;
+{
+  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
+}
+
 /* Returns true if T is a variably modified type, in the sense of C99.
    This routine needs only check cases that cannot be handled by the
    language-independent logic in tree-inline.c.  */
@@ -325,4 +362,3 @@ cp_var_mod_type_p (tree type)
   /* All other types are not variably modified.  */
   return false;
 }
-

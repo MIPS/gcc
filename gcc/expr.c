@@ -5058,6 +5058,9 @@ store_constructor (exp, target, cleared, size)
 	      HOST_WIDE_INT lo, hi, count;
 	      tree position;
 
+	      lo = 0;	/* [GIMPLE] Avoid uninitialized use warning.  */
+	      hi = 0;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
 	      /* If the range is constant and "small", unroll the loop.  */
 	      if (const_bounds_p
 		  && host_integerp (lo_index, 0)
@@ -5297,6 +5300,9 @@ store_constructor (exp, target, cleared, size)
 	  HOST_WIDE_INT startb, endb;
 	  rtx bitlength_rtx, startbit_rtx, endbit_rtx, targetx;
 
+	  startb = 0;	/* [GIMPLE] Avoid uninitialized use warning.  */
+	  endb = 0;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
 	  bitlength_rtx = expand_expr (bitlength,
 				       NULL_RTX, MEM, EXPAND_CONST_ADDRESS);
 
@@ -5449,7 +5455,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 
       if (bitpos != 0)
 	abort ();
-      return store_expr (exp, target, 0);
+      return store_expr (exp, target, value_mode != VOIDmode);
     }
 
   /* If the structure is in a register or if the component
@@ -6424,10 +6430,13 @@ expand_expr (exp, target, tmode, modifier)
   int unsignedp = TREE_UNSIGNED (type);
   enum machine_mode mode;
   enum tree_code code = TREE_CODE (exp);
+  char class = TREE_CODE_CLASS (code);
   optab this_optab;
   rtx subtarget, original_target;
   int ignore;
   tree context;
+
+  op0 = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
@@ -6556,6 +6565,48 @@ expand_expr (exp, target, tmode, modifier)
       && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
       && ! (code == CALL_EXPR && aggregate_value_p (exp)))
     target = subtarget;
+
+
+  /* If this is an expression of some kind and it has an associated line
+     number, then emit the line number before expanding the expression. 
+
+     We need to save and restore the file and line information so that
+     errors discovered during expansion are emitted with the right
+     information.  It would be better of the diagnostic routines 
+     used the file/line information embedded in the tree nodes rather
+     than globals.  */
+  if (cfun
+      && TREE_LOCUS (exp)
+      && (IS_EXPR_CODE_CLASS (class)
+          || class == 'r'
+	  || class == 's'))
+      {
+	const char *saved_input_filename = input_filename;
+	int saved_lineno = lineno;
+	location_t *saved_locus = TREE_LOCUS (exp);
+	rtx to_return;
+
+	/* Update the global file line information and emit the note.  */
+	input_filename = TREE_FILENAME (exp);
+	lineno = TREE_LINENO (exp);
+	emit_line_note (input_filename, lineno);
+
+	/* This is a gross hack.  Temporarily remove the locus information
+	   and re-call expand_expr.
+
+	   Long term this should be changed to have the exit paths from
+	   expand_expr restore the global file and line information so
+	   we can avoid this recursive call.  */
+	TREE_LOCUS (exp) = NULL;
+	to_return = expand_expr (exp, (ignore ? const0_rtx : target),
+				 tmode, modifier);
+
+	/* Restore the locus and global file line information.  */
+	TREE_LOCUS (exp) = saved_locus;
+	input_filename = saved_input_filename;
+	lineno = saved_lineno;
+	return to_return;
+      }
 
   switch (code)
     {
@@ -6776,22 +6827,6 @@ expand_expr (exp, target, tmode, modifier)
 				      copy_rtx (XEXP (TREE_CST_RTL (exp), 0)));
       return TREE_CST_RTL (exp);
 
-    case EXPR_WITH_FILE_LOCATION:
-      {
-	rtx to_return;
-	const char *saved_input_filename = input_filename;
-	int saved_lineno = lineno;
-	input_filename = EXPR_WFL_FILENAME (exp);
-	lineno = EXPR_WFL_LINENO (exp);
-	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
-	  emit_line_note (input_filename, lineno);
-	/* Possibly avoid switching back and forth here.  */
-	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
-	input_filename = saved_input_filename;
-	lineno = saved_lineno;
-	return to_return;
-      }
-
     case SAVE_EXPR:
       context = decl_function_context (exp);
 
@@ -6950,29 +6985,88 @@ expand_expr (exp, target, tmode, modifier)
 
     case BIND_EXPR:
       {
-	tree vars = TREE_OPERAND (exp, 0);
+	tree vars;
+	tree block = BIND_EXPR_BLOCK (exp);
+	int mark_ends;
 
-	/* Need to open a binding contour here because
-	   if there are any cleanups they must be contained here.  */
-	expand_start_bindings (2);
-
-	/* Mark the corresponding BLOCK for output in its proper place.  */
-	if (TREE_OPERAND (exp, 2) != 0
-	    && ! TREE_USED (TREE_OPERAND (exp, 2)))
-	  (*lang_hooks.decls.insert_block) (TREE_OPERAND (exp, 2));
-
-	/* If VARS have not yet been expanded, expand them now.  */
-	while (vars)
+	if (TREE_CODE (BIND_EXPR_BODY (exp)) != RTL_EXPR)
 	  {
-	    if (!DECL_RTL_SET_P (vars))
-	      expand_decl (vars);
-	    expand_decl_init (vars);
-	    vars = TREE_CHAIN (vars);
+	    /* If we're in functions-as-trees mode, this BIND_EXPR represents
+	       the block, so we need to emit NOTE_INSN_BLOCK_* notes.  */
+	    mark_ends = (block != NULL_TREE);
+	    expand_start_bindings_and_block (mark_ends ? 0 : 2, block);
+	  }
+	else
+	  {
+	    /* If we're not in functions-as-trees mode, we've already emitted
+	       those notes into our RTL_EXPR, so we just want to splice our BLOCK
+	       into the enclosing one.  */
+	    mark_ends = 0;
+
+	    /* Need to open a binding contour here because
+	       if there are any cleanups they must be contained here.  */
+	    expand_start_bindings_and_block (2, NULL_TREE);
+
+	    /* Mark the corresponding BLOCK for output in its proper place.  */
+	    if (block)
+	      {
+		if (TREE_USED (block))
+		  abort ();
+		(*lang_hooks.decls.insert_block) (block);
+	      }
 	  }
 
-	temp = expand_expr (TREE_OPERAND (exp, 1), target, tmode, modifier);
+	/* If VARS have not yet been expanded, expand them now.  */
+	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
+	  {
+	    tree var = vars;
 
-	expand_end_bindings (TREE_OPERAND (exp, 0), 0, 0);
+	    if (DECL_EXTERNAL (var))
+	      continue;
+
+	    if (TREE_STATIC (var))
+	      /* If this is an inlined copy of a static local variable,
+		 look up the original decl.  */
+	      var = DECL_ORIGIN (var);
+
+	    if (TREE_STATIC (var)
+		? !TREE_ASM_WRITTEN (var)
+		: !DECL_RTL_SET_P (var))
+	      {
+		if ((*lang_hooks.expand_decl) (var))
+		  /* OK.  */;
+		else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
+		  expand_decl (var);
+		else if (TREE_CODE (var) == VAR_DECL && TREE_STATIC (var))
+		  rest_of_decl_compilation (var, NULL, 0, 0);
+		else if (TREE_CODE (var) == TYPE_DECL
+			 || TREE_CODE (var) == CONST_DECL)
+		  /* No expansion needed.  */;
+		else
+		  abort ();
+	      }
+	    expand_decl_init (var);
+	  }
+
+	temp = expand_expr (BIND_EXPR_BODY (exp), target, tmode, modifier);
+
+	expand_end_bindings (BIND_EXPR_VARS (exp), mark_ends, 0);
+
+	/* If we're at the end of a scope that contains inlined nested
+	   functions, we have to decide whether or not to write them out.  */
+	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
+	  {
+	    if (TREE_CODE (vars) == FUNCTION_DECL 
+		&& DECL_CONTEXT (vars) == current_function_decl
+		&& DECL_SAVED_INSNS (vars)
+		&& !TREE_ASM_WRITTEN (vars)
+		&& TREE_ADDRESSABLE (vars))
+	      {
+		push_function_context ();
+		output_inline_function (vars);
+		pop_function_context ();
+	      }
+	  }
 
 	return temp;
       }
@@ -8513,11 +8607,19 @@ expand_expr (exp, target, tmode, modifier)
       return temp;
 
     case COMPOUND_EXPR:
-      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
-      emit_queue ();
-      return expand_expr (TREE_OPERAND (exp, 1),
-			  (ignore ? const0_rtx : target),
-			  VOIDmode, 0);
+      /* Avoid deep recursion for long block.  */
+      for (; TREE_CODE (exp) == COMPOUND_EXPR; exp = TREE_OPERAND (exp, 1))
+	{
+	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
+	  emit_queue ();
+#if 0
+	  /* FIXME try this.  */
+	  /* Free any temporaries used to evaluate this expression.  */
+	  if (ignore)
+	    free_temp_slots ();
+#endif
+	}
+      return expand_expr (exp, (ignore ? const0_rtx : target), VOIDmode, 0);
 
     case COND_EXPR:
       /* If we would have a "singleton" (see below) were it not for a
@@ -9216,20 +9318,29 @@ expand_expr (exp, target, tmode, modifier)
 	tree handler = TREE_OPERAND (exp, 1);
 
 	expand_eh_region_start ();
-
 	op0 = expand_expr (TREE_OPERAND (exp, 0), 0, VOIDmode, 0);
-
-	expand_eh_region_end_cleanup (handler);
+	expand_eh_handler (handler);
 
 	return op0;
       }
+
+    case CATCH_EXPR:
+      expand_start_catch (CATCH_TYPES (exp));
+      expand_expr (CATCH_BODY (exp), const0_rtx, VOIDmode, 0);
+      expand_end_catch ();
+      return op0;
+
+    case EH_FILTER_EXPR:
+      /* Should have been handled in expand_eh_handler.  */
+      abort ();
 
     case TRY_FINALLY_EXPR:
       {
 	tree try_block = TREE_OPERAND (exp, 0);
 	tree finally_block = TREE_OPERAND (exp, 1);
 
-        if (!optimize || unsafe_for_reeval (finally_block) > 1)
+        if ((!optimize && lang_protect_cleanup_actions == NULL)
+	    || unsafe_for_reeval (finally_block) > 1)
 	  {
 	    /* In this case, wrapping FINALLY_BLOCK in an UNSAVE_EXPR
 	       is not sufficient, so we cannot expand the block twice.
@@ -9302,6 +9413,32 @@ expand_expr (exp, target, tmode, modifier)
       /* Function descriptors are not valid except for as
 	 initialization constants, and should not be expanded.  */
       abort ();
+
+    case SWITCH_EXPR:
+      expand_start_case (0, SWITCH_COND (exp), integer_type_node,
+			 "switch");
+      expand_expr_stmt (SWITCH_BODY (exp));
+      expand_end_case (SWITCH_COND (exp));
+      return const0_rtx;
+
+    case LABEL_EXPR:
+      expand_label (TREE_OPERAND (exp, 0));
+      return const0_rtx;
+
+    case CASE_LABEL_EXPR:
+      {
+	tree duplicate = 0;
+	add_case_node (CASE_LOW (exp), CASE_HIGH (exp),
+		       build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), 
+		       &duplicate);
+	if (duplicate)
+	  abort ();
+	return const0_rtx;
+      }
+
+    case ASM_EXPR:
+      expand_asm_expr (exp);
+      return const0_rtx;
 
     default:
       return (*lang_hooks.expand_expr) (exp, original_target, tmode, modifier);

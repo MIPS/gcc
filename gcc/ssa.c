@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "ssa.h"
+#include "timevar.h"
 
 /* TODO:
 
@@ -167,7 +168,8 @@ struct rename_context;
 static inline rtx * phi_alternative
   PARAMS ((rtx, int));
 static void compute_dominance_frontiers_1
-  PARAMS ((sbitmap *frontiers, dominance_info idom, int bb, sbitmap done));
+  PARAMS ((sbitmap *frontiers, dominance_info idom, int bb,
+	   sbitmap done, basic_block * cached_idoms));
 static void find_evaluations_1
   PARAMS ((rtx dest, rtx set, void *data));
 static void find_evaluations
@@ -516,47 +518,62 @@ find_evaluations (evals, nregs)
 */
 
 static void
-compute_dominance_frontiers_1 (frontiers, idom, bb, done)
+compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
      sbitmap *frontiers;
      dominance_info idom;
      int bb;
      sbitmap done;
+     basic_block *cached_idoms;
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
   basic_block c;
+  int n_dominated, i;
+  basic_block *dominated;
+
+  /* Get a list of all the blocks dominated by B so that we do not
+     have to iterate over all the blocks in the function.  */
+  n_dominated = get_dominated_by (idom, b, &dominated);
 
   SET_BIT (done, bb);
-  sbitmap_zero (frontiers[bb]);
 
   /* Do the frontier of the children first.  Not all children in the
      dominator tree (blocks dominated by this one) are children in the
      CFG, so check all blocks.  */
-  FOR_EACH_BB (c)
-    if (get_immediate_dominator (idom, c)->index == bb
-	&& ! TEST_BIT (done, c->index))
-      compute_dominance_frontiers_1 (frontiers, idom, c->index, done);
+  for (i = 0; i < n_dominated; i++)
+    {
+      c = dominated[i];
+      if (! TEST_BIT (done, c->index))
+        compute_dominance_frontiers_1 (frontiers, idom, c->index,
+				       done, cached_idoms);
+	
+    }
 
   /* Find blocks conforming to rule (1) above.  */
   for (e = b->succ; e; e = e->succ_next)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
-      if (get_immediate_dominator (idom, e->dest)->index != bb)
+      if (cached_idoms[e->dest->index]->index != bb)
 	SET_BIT (frontiers[bb], e->dest->index);
     }
 
   /* Find blocks conforming to rule (2).  */
-  FOR_EACH_BB (c)
-    if (get_immediate_dominator (idom, c)->index == bb)
+  for (i = 0; i < n_dominated; i++)
+    {
+      c = dominated[i];
       {
 	int x;
 	EXECUTE_IF_SET_IN_SBITMAP (frontiers[c->index], 0, x,
 	  {
-	    if (get_immediate_dominator (idom, BASIC_BLOCK (x))->index != bb)
+	    if (cached_idoms[BASIC_BLOCK (x)->index]->index != bb)
 	      SET_BIT (frontiers[bb], x);
 	  });
       }
+    }
+
+  /* Release the array of blocks B dominates.  */
+  free (dominated);
 }
 
 void
@@ -564,12 +581,25 @@ compute_dominance_frontiers (frontiers, idom)
      sbitmap *frontiers;
      dominance_info idom;
 {
+  basic_block bb, *cached_idoms;
   sbitmap done = sbitmap_alloc (last_basic_block);
+
+  timevar_push (TV_DOM_FRONTIERS);
+
+  sbitmap_vector_zero (frontiers, last_basic_block);
   sbitmap_zero (done);
 
-  compute_dominance_frontiers_1 (frontiers, idom, 0, done);
+  cached_idoms = xmalloc (n_basic_blocks * sizeof (bb));
 
+  FOR_EACH_BB (bb)
+    cached_idoms[bb->index] = get_immediate_dominator (idom, bb);
+
+  compute_dominance_frontiers_1 (frontiers, idom, 0, done, cached_idoms);
+
+  free (cached_idoms);
   sbitmap_free (done);
+
+  timevar_pop (TV_DOM_FRONTIERS);
 }
 
 /* Computing the Iterated Dominance Frontier:

@@ -6,7 +6,7 @@ in
 #
 # Makefile for directory with subdirs to build.
 #   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-#   1999, 2000, 2001, 2002, 2003 Free Software Foundation
+#   1999, 2000, 2001, 2002 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -216,7 +216,7 @@ TARGET_CONFIGDIRS = @target_configdirs@
 # Changed by configure to $(target_alias) if cross.
 TARGET_SUBDIR = @target_subdir@
 
-BUILD_CONFIGDIRS = libiberty
+BUILD_CONFIGDIRS = libiberty libbanshee
 BUILD_SUBDIR = @build_subdir@
 
 # This is set by the configure script to the arguments to use when configuring
@@ -245,7 +245,7 @@ HOST_LIB_PATH = $$r/bfd:$$r/opcodes
 
 # This is the list of directories that may be needed in RPATH_ENVVAR
 # so that prorgams built for the target machine work.
-TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:
+TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDIR)/libmudflap/.libs
 
 # configure.in sets SET_LIB_PATH to this if --enable-shared was used.
 # Some platforms don't like blank entries, so we remove duplicate,
@@ -1281,11 +1281,11 @@ gcc-no-fixedincludes:
 # Host modules specific to gcc.
 # GCC needs to identify certain tools.
 configure-gcc: maybe-configure-binutils maybe-configure-gas maybe-configure-ld maybe-configure-bison maybe-configure-flex
-all-gcc: maybe-all-libiberty maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib
+all-gcc: maybe-all-libiberty maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib maybe-all-libbanshee
 # This is a slightly kludgy method of getting dependencies on 
 # all-build-libiberty correct; it would be better to build it every time.
-all-gcc: maybe-all-build-libiberty
-all-bootstrap: maybe-all-libiberty maybe-all-texinfo maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib
+all-gcc: maybe-all-build-libiberty maybe-all-libbanshee
+all-bootstrap: maybe-all-libiberty maybe-all-texinfo maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib maybe-all-libbanshee
 
 # Host modules specific to gdb.
 # GDB needs to know that the simulator is being built.
@@ -1335,6 +1335,7 @@ all-diff: maybe-all-libiberty
 all-fastjar: maybe-all-zlib maybe-all-libiberty
 all-fileutils: maybe-all-libiberty
 all-flex: maybe-all-libiberty maybe-all-bison maybe-all-byacc
+all-grep: maybe-all-libiberty
 all-gzip: maybe-all-libiberty
 all-hello: maybe-all-libiberty
 all-m4: maybe-all-libiberty maybe-all-texinfo
@@ -1344,6 +1345,7 @@ all-prms: maybe-all-libiberty
 all-recode: maybe-all-libiberty
 all-sed: maybe-all-libiberty
 all-send-pr: maybe-all-prms
+all-snavigator: maybe-all-tcl maybe-all-tk maybe-all-itcl maybe-all-tix maybe-all-db maybe-all-grep maybe-all-libgui
 all-tar: maybe-all-libiberty
 all-uudecode: maybe-all-libiberty
 

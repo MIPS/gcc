@@ -1115,7 +1115,8 @@ build_component_ref (datum, component)
       {
 	tree value = build_component_ref (TREE_OPERAND (datum, 1), component);
 	return build (COMPOUND_EXPR, TREE_TYPE (value),
-		      TREE_OPERAND (datum, 0), pedantic_non_lvalue (value));
+		      TREE_OPERAND (datum, 0),
+		      flag_isoc99 ? value : pedantic_non_lvalue (value));
       }
     default:
       break;
@@ -2316,7 +2317,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  tree arg1 = get_narrower (op1, &unsigned1);
 	  /* UNS is 1 if the operation to be done is an unsigned one.  */
 	  int uns = TREE_UNSIGNED (result_type);
-	  tree type;
+	  tree type = NULL;  /* [GIMPLE] Avoid uninitialized use warning.  */
 
 	  final_type = result_type;
 
@@ -6852,9 +6853,11 @@ simple_asm_stmt (expr)
     {
       tree stmt;
 
+      stmt = add_stmt (build_stmt (ASM_STMT, expr,
+				   NULL_TREE, NULL_TREE,
+				   NULL_TREE));
       /* Simple asm statements are treated as volatile.  */
-      stmt = add_stmt (build_stmt (ASM_STMT, ridpointers[(int) RID_VOLATILE],
-				   expr, NULL_TREE, NULL_TREE, NULL_TREE));
+      ASM_VOLATILE_P (stmt) = 1;
       ASM_INPUT_P (stmt) = 1;
       return stmt;
     }
@@ -6875,6 +6878,7 @@ build_asm_stmt (cv_qualifier, string, outputs, inputs, clobbers)
      tree clobbers;
 {
   tree tail;
+  tree stmt;
 
   if (TREE_CODE (string) != STRING_CST)
     {
@@ -6927,8 +6931,10 @@ build_asm_stmt (cv_qualifier, string, outputs, inputs, clobbers)
   for (tail = inputs; tail; tail = TREE_CHAIN (tail))
     TREE_VALUE (tail) = default_function_array_conversion (TREE_VALUE (tail));
 
-  return add_stmt (build_stmt (ASM_STMT, cv_qualifier, string,
-			       outputs, inputs, clobbers));
+  stmt = build_stmt (ASM_STMT, string, outputs, inputs, clobbers);
+  if (cv_qualifier)
+    ASM_VOLATILE_P (stmt) = 1;
+  return add_stmt (stmt);
 }
 
 /* Expand an ASM statement with operands, handling output operands

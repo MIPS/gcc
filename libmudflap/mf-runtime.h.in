@@ -1,0 +1,61 @@
+/* ------------------------------------------------------------------------ */
+/* Public libmudflap declarations */
+
+
+/* XXX: need a better way of conditionally defining this type.  */
+#if HAVE_STDINT_H
+#include <stdint.h>
+#else
+# if !defined (HAVE_UINTPTR_T)
+typedef unsigned long uintptr_t;
+# endif
+#endif
+/* Define this here, in case an autoconf application was run without CFLAGS=-fmudflap
+   but is being compiled with -fmudflap.  */
+#define HAVE_UINTPTR_T 1
+#include <sys/types.h>
+
+
+/* Global variables. */
+
+struct __mf_cache { uintptr_t low; uintptr_t high; };
+extern struct __mf_cache __mf_lookup_cache [];
+extern uintptr_t __mf_lc_mask;
+extern unsigned char __mf_lc_shift;
+
+
+/* Codes to describe the type of access to check. */
+
+#define __MF_CHECK_READ 0
+#define __MF_CHECK_WRITE 1
+
+
+/* Codes to describe a region of memory being registered. */
+  
+#define __MF_TYPE_NOACCESS 0
+#define __MF_TYPE_HEAP 1
+#define __MF_TYPE_STACK 2
+#define __MF_TYPE_STATIC 3
+#define __MF_TYPE_MAX_CEM 3 /* the largest type stored in the cemetary */
+
+#define __MF_TYPE_GUESS 4
+#define __MF_TYPE_MAX __MF_TYPE_GUESS
+
+
+/* The public mudflap API */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void __mf_check (void *ptr, size_t sz, int type, const char *location);
+extern void __mf_register (void *ptr, size_t sz, int type, const char *name);
+extern void __mf_unregister (void *ptr, size_t sz);
+extern unsigned __mf_watch (void *ptr, size_t sz);
+extern unsigned __mf_unwatch (void *ptr, size_t sz);
+extern void __mf_report ();
+extern int __mf_set_options (const char *opts);
+
+#ifdef __cplusplus
+}
+#endif

@@ -521,7 +521,6 @@ const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
-const int x86_inter_unit_moves = ~(m_ATHLON_K8);
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -843,7 +842,6 @@ struct ix86_address
 static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
 static int ix86_address_cost PARAMS ((rtx));
 static bool ix86_cannot_force_const_mem PARAMS ((rtx));
-static rtx ix86_delegitimize_address PARAMS ((rtx));
 
 static void ix86_encode_section_info PARAMS ((tree, int)) ATTRIBUTE_UNUSED;
 static const char *ix86_strip_name_encoding PARAMS ((const char *))
@@ -991,9 +989,6 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
-
-#undef TARGET_DELEGITIMIZE_ADDRESS
-#define TARGET_DELEGITIMIZE_ADDRESS ix86_delegitimize_address
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
@@ -1482,9 +1477,11 @@ const struct attribute_spec ix86_attribute_table[] =
   { NULL,        0, 0, false, false, false, NULL }
 };
 
-/* Decide whether we can make a sibling call to a function.  DECL is the
-   declaration of the function being targeted by the call and EXP is the
-   CALL_EXPR representing the call.  */
+/* If PIC, we cannot make sibling calls to global functions
+   because the PLT requires %ebx live.
+   If we are returning floats on the register stack, we cannot make
+   sibling calls to functions that return floats.  (The stack adjust
+   instruction will wind up after the sibcall jump, and not be executed.)  */
 
 static bool
 ix86_function_ok_for_sibcall (decl, exp)
@@ -1499,11 +1496,10 @@ ix86_function_ok_for_sibcall (decl, exp)
 
   /* If we are returning floats on the 80387 register stack, we cannot
      make a sibcall from a function that doesn't return a float to a
-     function that does or, conversely, from a function that does return
-     a float to a function that doesn't; the necessary stack adjustment
-     would not be executed.  */
+     function that does; the necessary stack adjustment will not be
+     executed.  */
   if (STACK_REG_P (ix86_function_value (TREE_TYPE (exp)))
-      != STACK_REG_P (ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)))))
+      && ! STACK_REG_P (ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)))))
     return false;
 
   /* If this call is indirect, we'll need to be able to use a call-clobbered
@@ -5372,7 +5368,21 @@ ix86_find_base_term (x)
       return term;
     }
 
-  term = ix86_delegitimize_address (x);
+  if (GET_CODE (x) != PLUS
+      || XEXP (x, 0) != pic_offset_table_rtx
+      || GET_CODE (XEXP (x, 1)) != CONST)
+    return x;
+
+  term = XEXP (XEXP (x, 1), 0);
+
+  if (GET_CODE (term) == PLUS && GET_CODE (XEXP (term, 1)) == CONST_INT)
+    term = XEXP (term, 0);
+
+  if (GET_CODE (term) != UNSPEC
+      || XINT (term, 1) != UNSPEC_GOTOFF)
+    return x;
+
+  term = XVECEXP (term, 0, 0);
 
   if (GET_CODE (term) != SYMBOL_REF
       && GET_CODE (term) != LABEL_REF)
@@ -6606,8 +6616,8 @@ i386_output_dwarf_dtprel (file, size, x)
    general assembler losage, recognize PIC+GOTOFF and turn it back
    into a direct symbol reference.  */
 
-static rtx
-ix86_delegitimize_address (orig_x)
+rtx
+i386_simplify_dwarf_addr (orig_x)
      rtx orig_x;
 {
   rtx x = orig_x, y;
@@ -8037,7 +8047,24 @@ static rtx
 maybe_get_pool_constant (x)
      rtx x;
 {
-  x = ix86_delegitimize_address (XEXP (x, 0));
+  x = XEXP (x, 0);
+
+  if (flag_pic && ! TARGET_64BIT)
+    {
+      if (GET_CODE (x) != PLUS)
+	return NULL_RTX;
+      if (XEXP (x, 0) != pic_offset_table_rtx)
+	return NULL_RTX;
+      x = XEXP (x, 1);
+      if (GET_CODE (x) != CONST)
+	return NULL_RTX;
+      x = XEXP (x, 0);
+      if (GET_CODE (x) != UNSPEC)
+	return NULL_RTX;
+      if (XINT (x, 1) != UNSPEC_GOTOFF)
+	return NULL_RTX;
+      x = XVECEXP (x, 0, 0);
+    }
 
   if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
     return get_pool_constant (x);
@@ -9533,7 +9560,6 @@ ix86_expand_int_movcc (operands)
 		  HOST_WIDE_INT tmp = ct;
 		  ct = cf;
 		  cf = tmp;
-		  diff = ct - cf;
 		}
 	      tmp = emit_store_flag (tmp, code, ix86_compare_op0,
 				     ix86_compare_op1, VOIDmode, 0, -1);
@@ -13470,7 +13496,9 @@ ix86_expand_store_builtin (icode, arglist)
     op1 = safe_vector_operand (op1, mode1);
 
   op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-  op1 = copy_to_mode_reg (mode1, op1);
+
+  if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
+    op1 = copy_to_mode_reg (mode1, op1);
 
   pat = GEN_FCN (icode) (op0, op1);
   if (pat)
@@ -14386,10 +14414,10 @@ ix86_secondary_memory_needed (class1, class2, mode, strict)
 	return 1;
     }
   return (FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class2)
-	  || ((SSE_CLASS_P (class1) != SSE_CLASS_P (class2)
-	       || MMX_CLASS_P (class1) != MMX_CLASS_P (class2))
-	      && ((mode != SImode && (mode != DImode || !TARGET_64BIT))
-		  || (!TARGET_INTER_UNIT_MOVES && !optimize_size))));
+	  || (SSE_CLASS_P (class1) != SSE_CLASS_P (class2)
+	      && (mode) != SImode)
+	  || (MMX_CLASS_P (class1) != MMX_CLASS_P (class2)
+	      && (mode) != SImode));
 }
 /* Return the cost of moving data from a register in class CLASS1 to
    one in class CLASS2.
@@ -15244,7 +15272,7 @@ x86_function_profiler (file, labelno)
   else
     {
 #ifndef NO_PROFILE_COUNTERS
-      fprintf (file, "\tmovl\t$%sP%d,%%%s\n", LPREFIX, labelno,
+      fprintf (file, "\tmovl\t$%sP%d,%%$%s\n", LPREFIX, labelno,
 	       PROFILE_COUNT_REGISTER);
 #endif
       fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
@@ -15336,41 +15364,6 @@ x86_extended_reg_mentioned_p (insn)
      rtx insn;
 {
   return for_each_rtx (&PATTERN (insn), extended_reg_mentioned_1, NULL);
-}
-
-/* Generate an unsigned DImode to FP conversion.  This is the same code
-   optabs would emit if we didn't have TFmode patterns.  */
-
-void
-x86_emit_floatuns (operands)
-     rtx operands[2];
-{
-  rtx neglab, donelab, i0, i1, f0, in, out;
-  enum machine_mode mode;
-
-  out = operands[0];
-  in = force_reg (DImode, operands[1]);
-  mode = GET_MODE (out);
-  neglab = gen_label_rtx ();
-  donelab = gen_label_rtx ();
-  i1 = gen_reg_rtx (Pmode);
-  f0 = gen_reg_rtx (mode);
-
-  emit_cmp_and_jump_insns (in, const0_rtx, LT, const0_rtx, Pmode, 0, neglab);
-
-  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_FLOAT (mode, in)));
-  emit_jump_insn (gen_jump (donelab));
-  emit_barrier ();
-
-  emit_label (neglab);
-
-  i0 = expand_simple_binop (Pmode, LSHIFTRT, in, const1_rtx, NULL, 1, OPTAB_DIRECT);
-  i1 = expand_simple_binop (Pmode, AND, in, const1_rtx, NULL, 1, OPTAB_DIRECT);
-  i0 = expand_simple_binop (Pmode, IOR, i0, i1, i0, 1, OPTAB_DIRECT);
-  expand_float (f0, i0, 0);
-  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_PLUS (mode, f0, f0)));
-
-  emit_label (donelab);
 }
 
 #include "gt-i386.h"

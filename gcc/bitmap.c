@@ -501,6 +501,7 @@ bitmap_last_set_bit (a)
   if (word == 0)
     word_num = 0, word = ptr->bits[0];
 #else
+  word = 0;	/* [GIMPLE] Avoid uninitialized use warning.  */
   for (word_num = BITMAP_ELEMENT_WORDS; word_num-- > 0; )
     if ((word = ptr->bits[word_num]) != 0)
       break;

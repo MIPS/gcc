@@ -1,0 +1,9 @@
+2003-01-15  Jeff Law <law@redhat.com>
+
+	* trans.c (tree_transform): Use annotate_with_file_line to add
+	file/line information to nodes.
+	(build_unit_elab): Use TREE_FILENAME and TREE_LINENO to 
+	retrieve file/line information from a node.
+	* utils.c (create_label_decl): Use annotate_with_file_line to
+	add file/line information to nodes.
+

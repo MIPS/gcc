@@ -9475,10 +9475,8 @@ cp_parser_asm_definition (cp_parser* parser)
   /* Create the ASM_STMT.  */
   if (at_function_scope_p ())
     {
-      asm_stmt = 
-	finish_asm_stmt (volatile_p 
-			 ? ridpointers[(int) RID_VOLATILE] : NULL_TREE,
-			 string, outputs, inputs, clobbers);
+      asm_stmt = finish_asm_stmt (volatile_p, string, outputs, inputs,
+	                          clobbers);
       /* If the extended syntax was not used, mark the ASM_STMT.  */
       if (!extended_p)
 	ASM_INPUT_P (asm_stmt) = 1;

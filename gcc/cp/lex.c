@@ -470,7 +470,7 @@ extract_interface_info ()
       tree til = tinst_for_decl ();
 
       if (til)
-	finfo = get_fileinfo (TINST_FILE (til));
+	finfo = get_fileinfo (TREE_FILENAME (til));
     }
   if (!finfo)
     finfo = get_fileinfo (input_filename);

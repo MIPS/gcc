@@ -3233,12 +3233,9 @@ typedef enum unification_kind_t {
   DEDUCE_ORDER
 } unification_kind_t;
 
-/* Macros for operating on a template instantiation level node, represented
-   by an EXPR_WITH_FILE_LOCATION.  */
+/* Macros for operating on a template instantiation level node.  */
 
-#define TINST_DECL(NODE) EXPR_WFL_NODE (NODE)
-#define TINST_LINE(NODE) EXPR_WFL_LINENO (NODE)
-#define TINST_FILE(NODE) EXPR_WFL_FILENAME (NODE)
+#define TINST_DECL(NODE) TREE_OPERAND (NODE, 0)
 
 /* in class.c */
 
@@ -4220,7 +4217,7 @@ extern void finish_handler                      (tree);
 extern void finish_cleanup                      (tree, tree);
 extern tree begin_compound_stmt                 (int);
 extern tree finish_compound_stmt                (int, tree);
-extern tree finish_asm_stmt                     (tree, tree, tree, tree, tree);
+extern tree finish_asm_stmt                     (int, tree, tree, tree, tree);
 extern tree finish_label_stmt                   (tree);
 extern void finish_label_decl                   (tree);
 extern void finish_subobject                    (tree);
@@ -4343,6 +4340,7 @@ extern tree find_tree                           (tree, tree);
 extern linkage_kind decl_linkage                (tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 				      void*, void*);
+extern int cp_tree_chain_matters_p		(tree);
 extern int cp_cannot_inline_tree_fn (tree*);
 extern tree cp_add_pending_fn_decls (void*,tree);
 extern int cp_is_overload_p (tree);
@@ -4457,6 +4455,11 @@ extern tree mangle_ref_init_variable            (tree);
 
 /* in dump.c */
 extern int cp_dump_tree                         (void *, tree);
+
+/* in cp-simplify.c */
+extern int cp_simplify_expr		        PARAMS ((tree *, tree *, tree *));
+extern int cp_simplify_stmt		        PARAMS ((tree *, tree *));
+extern void simplify_aggr_init_expr		PARAMS ((tree *));
 
 /* -- end of C++ */
 

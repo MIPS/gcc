@@ -1,0 +1,171 @@
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_asm_definition): Call finish_asm_stmt with
+	'volatile_p' directly.
+	* typeck.c (build_binary_op): Initialize variable 'type'.
+	* Make-lang.in (cp/tree.o-warn): Add -Wno-error.
+
+2003-01-29  Frank Ch. Eigler  <fche@redhat.com>
+
+	* cp-mudflap.c (mflang_register_call): Adapt to mf-runtime.h API
+	change.
+
+2003-01-15  Jeff Law <law@redhat.com>
+
+	* class.c: Use TREE_FILENAME and TREE_LINENO to extract
+	file/line information from tree nodes.  Remove EXPR_WITH_FILE_LOCATION
+	nodes.  Use annotate_with_file_line to attach file/line information
+	to tree nodes.  Use TREE_LOCUS to copy file/line information
+	from one node to another.
+	* decl2.c, error.c, init.c, lex.c, method.c: Likewise.
+	* optimize.c: Likewise.
+	* cp-tree.def (TINST_LEVEL): New tree node.
+	* cp-tree.h (TINST_DECL): Update now that we no longer use
+	EXPR_WITH_FILE_LOCATION to represent the TINST_DECL information.
+	(TINST_FILE, TINST_LINE): Kill.
+	* decl.c: Use TREE_FILENAME and TREE_LINENO to extract
+	file/line information from tree nodes.  Use annotate_witH_file_line
+	to add file/line information to tree nodes.  Use TREE_LOCUS
+	to copy file/line information from one node to another.
+	(duplicate_decls): Make sure to copy TREE_LOCUS information
+	from the old decl to the new decl.
+	(finish_function): Save and restore file/line information
+	around genericizing the function tree.
+	* pt.c (lookup_template_class): Use TREE_LOCUS to copy file/line
+	information from one node to another.
+	(push_tinst_level): Generate a TINST_LEVEL node rather than 
+	using EXPR_WITH_FILE_LOCATION nodes.  Use annotate_with_file_line
+	to annotate the new node with file/line information.
+	(pop_tinst_level): Use  TREE_LINENO and TREE_FILENAME to extract
+	file/line information from nodes.
+	(tsubst_friend_function, instantiate_class_template): Likewise.
+	(tsubst_decl, instantiate_decl, tsubst_enum): Likewise.
+	* semantics.c: Use annotate_with_file_line to annotate tree
+	nodes with file/line information.  Use TREE_FILENAME and TREE_LINENO
+	to extract file/line information from tree nodes.
+	(expand_body): Restore file/line information slightly earlier.
+	tree.c (cp_walk_subtrees): Set lineno appropriately.
+	(cp_copy_res_decl_for_inlining): Use TREE_LOCUS to copy file/line
+	information from one node to another.
+
+2003-01-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	Prototype C++ mudflap support.
+	* Make-lang.in (CXX_OBJS): Add cp/cp-mudflap.o and dependencies.
+	* cp-mudflap.c: New file with C++ front-end mflang_* routines.
+	* decl2.c (finish_file): Divert to mudflap if appropriate.
+	* optimize.c (optimize_function): Ditto.
+
+2003-01-02  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Replace old-tree-inline.o with
+	tree-inline.o.
+
+	* optimize.c (dump_function): Move to ../tree-dump.c.
+
+	* cp-simplify.c (cp_simplify_expr): Handle PTRMEM_CST, INIT_EXPR, 
+	MODIFY_EXPR and EMPTY_CLASS_EXPR.
+	(cp_simplify_stmt): Handle USING_STMT.
+	(cp_simplify_init_expr): New fn.
+	* cvt.c (build_up_reference): Don't push the decl.
+	* class.c (build_vtable_entry_ref, build_vtbl_ref_1): Unshare the 
+	vtable address.
+	* init.c (build_vtbl_address): Likewise.
+	* cp-lang.c (LANG_HOOKS_UNSAVE_EXPR_NOW): Remove.
+	* decl.c (lookup_name_real): Unshare the expansion of an ALIAS_DECL.
+	(finish_function): Don't genericize templates.
+	* parse.y (parse_asm_stmt): Fix prototype.
+	* semantics.c (expand_body): Don't expand if we saw errors.
+	Drop support for expanding non-GENERIC code.
+
+	* cp-simplify.c (cp_simplify_stmt): Handle HANDLER and EH_SPEC_BLOCK.
+	(genericize_try_block): Always build a TRY_CATCH_EXPR.
+	(genericize_catch_block): New fn.
+	(genericize_eh_spec_block): New fn.
+	(cp_simplify_expr): Handle THROW_EXPR and MUST_NOT_THROW_EXPR.
+	(simplify_must_not_throw_expr): New fn.
+	* except.c (wrap_cleanups_r): Make the MUST_NOT_THROW_EXPR void.
+	(build_throw): Likewise.
+
+2002-12-14  Jason Merrill  <jason@redhat.com>
+
+	* optimize.c (dump_function): Use pretty dumpers.
+	(optimize_function): Don't do .original dump here.
+
+2002-12-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-simplify.c: Include coretypes.h and tm.h.
+
+2002-11-24  Jason Merrill  <jason@redhat.com>
+
+	Gimplify C++ cleanups.
+	* decl.c (finish_function): Call c_genericize.
+	* cp-simplify.c (cp_simplify_stmt): New fn.
+	(genericize_try_block): New fn.
+	(cp_simplify_expr): Move INIT_EXPR/TARGET_EXPR code
+	to ../gimplify.c.  Handle AGGR_INIT_EXPR.
+	(simplify_target_expr): Move to ../gimplify.c.
+	(maybe_fixup_loop_cond): Remove.
+	(simplify_aggr_init_expr): Split out from...
+	* semantics.c (simplify_aggr_init_exprs_r): ...here.
+	(expand_body): Don't simplify AGGR_INIT_EXPRs here
+	if we're gimplifying.  Handle expanding generic trees.
+	* tree.c (init_tree): Set lang_simplify_stmt.
+	* cp-tree.h: Declare the new fns.
+
+	* optimize.c (optimize_function): Do pretty dumps.
+
+2002-10-04  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Add gimplify.o.
+
+2002-09-24  Jason Merrill  <jason@redhat.com>
+
+	* parse.y (parse_asm_stmt): New fn.
+	(simple_stmt): Use it.
+	* semantics.c (finish_asm_stmt): Change cv_qualifier parm to 
+	volatile_p.
+	* cp-tree.h: Adjust prototype.
+	* pt.c (tsubst_expr): Adjust call.
+
+2002-08-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Add tree-dchain.o
+
+2002-08-11  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (maybe_fixup_loop_cond): Move here.
+	(cp_simplify_expr): Call it.
+	(simplify_target_expr): Remove pre_p parm.
+
+2002-08-09  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_simplify_expr): New fn.
+	(simplify_target_expr): New fn.
+	(cp_simplify_function_tree): Remove.
+	* cp-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Don't define.
+	(LANG_HOOKS_SIMPLIFY_EXPR): Define.
+	* optimize.c (optimize_function): De-hook simplify_function_tree.
+	* cp-tree.h: Declare cp_simplify_expr.
+
+2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Make-lang.in (CXX_C_OBJS): Add tree-alias-ecr.c,
+	tree-alias-type.o, tree-alias-steen.o, disjoint-set.o. 
+
+2002-06-21  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (cp-simplify.o): New.
+
+2002-06-18  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c: New file.
+	* Make-lang.in: Add it.
+	* cp-tree.h: Declare cp_simplify_function_tree.
+	* cp-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define.
+	* optimize.c (optimize_function): Call tree optimizers (but not yet).
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.tree-ssa"	
+End:

@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -5082,7 +5082,9 @@ is_fortran ()
 {
   unsigned lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
 
-  return (lang == DW_LANG_Fortran77 || lang == DW_LANG_Fortran90);
+  return (lang == DW_LANG_Fortran77
+	  || lang == DW_LANG_Fortran90
+	  || lang == DW_LANG_Fortran95);
 }
 
 static inline int
@@ -8270,7 +8272,9 @@ mem_loc_descriptor (rtl, mode)
      actually within the array.  That's *not* necessarily the same as the
      zeroth element of the array.  */
 
-  rtl = (*targetm.delegitimize_address) (rtl);
+#ifdef ASM_SIMPLIFY_DWARF_ADDR
+  rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
+#endif
 
   switch (GET_CODE (rtl))
     {
@@ -9368,7 +9372,9 @@ rtl_for_decl_location (decl)
 	      || (GET_CODE (rtl) == MEM
 	          && CONSTANT_P (XEXP (rtl, 0)))))
 	{
-	  rtl = (*targetm.delegitimize_address) (rtl);
+#ifdef ASM_SIMPLIFY_DWARF_ADDR
+	  rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
+#endif
 	  return rtl;
 	}
       rtl = NULL_RTX;
@@ -9474,8 +9480,10 @@ rtl_for_decl_location (decl)
 	}
     }
 
+#ifdef ASM_SIMPLIFY_DWARF_ADDR
   if (rtl)
-    rtl = (*targetm.delegitimize_address) (rtl);
+    rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
+#endif
 
   /* If we don't look past the constant pool, we risk emitting a
      reference to a constant pool entry that isn't referenced from
@@ -10033,10 +10041,10 @@ add_src_coords_attributes (die, decl)
      dw_die_ref die;
      tree decl;
 {
-  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+  unsigned file_index = lookup_filename (TREE_FILENAME (decl));
 
   add_AT_unsigned (die, DW_AT_decl_file, file_index);
-  add_AT_unsigned (die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
+  add_AT_unsigned (die, DW_AT_decl_line, TREE_LINENO (decl));
 }
 
 /* Add an DW_AT_name attribute and source coordinate attribute for the
@@ -10760,7 +10768,7 @@ gen_subprogram_die (decl, context_die)
     }
   else if (old_die)
     {
-      unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+      unsigned file_index = lookup_filename (TREE_FILENAME (decl));
 
       if (!get_AT_flag (old_die, DW_AT_declaration)
 	  /* We can have a normal definition following an inline one in the
@@ -10789,7 +10797,7 @@ gen_subprogram_die (decl, context_die)
 	  && (DECL_ARTIFICIAL (decl)
 	      || (get_AT_unsigned (old_die, DW_AT_decl_file) == file_index
 		  && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		      == (unsigned) DECL_SOURCE_LINE (decl)))))
+		      == (unsigned) TREE_LINENO (decl)))))
 	{
 	  subr_die = old_die;
 
@@ -10804,9 +10812,9 @@ gen_subprogram_die (decl, context_die)
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) DECL_SOURCE_LINE (decl))
+	      != (unsigned) TREE_LINENO (decl))
 	    add_AT_unsigned
-	      (subr_die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
+	      (subr_die, DW_AT_decl_line, TREE_LINENO (decl));
 	}
     }
   else
@@ -11025,16 +11033,16 @@ gen_variable_die (decl, context_die)
       add_AT_die_ref (var_die, DW_AT_specification, old_die);
       if (DECL_NAME (decl))
 	{
-	  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+	  unsigned file_index = lookup_filename (TREE_FILENAME (decl));
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (var_die, DW_AT_decl_file, file_index);
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) DECL_SOURCE_LINE (decl))
+	      != (unsigned) TREE_LINENO (decl))
 
 	    add_AT_unsigned (var_die, DW_AT_decl_line,
-			     DECL_SOURCE_LINE (decl));
+			     TREE_LINENO (decl));
 	}
     }
   else
@@ -11329,6 +11337,8 @@ gen_compile_unit_die (filename)
     language = DW_LANG_Ada83;
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
+  else if (strcmp (language_string, "GNU F95") == 0)
+    language = DW_LANG_Fortran95;
   else if (strcmp (language_string, "GNU Pascal") == 0)
     language = DW_LANG_Pascal83;
   else if (strcmp (language_string, "GNU Java") == 0)
@@ -11986,6 +11996,14 @@ gen_decl_die (decl, context_die)
 	  && (current_function_decl == NULL_TREE || DECL_ARTIFICIAL (decl)))
 	break;
 
+#if 0
+      /* FIXME */
+      /* This doesn't work because the C frontend sets DECL_ABSTRACT_ORIGIN
+	 on local redeclarations of global functions.  That seems broken.  */
+      if (current_function_decl != decl)
+	/* This is only a declaration.  */;
+#endif
+
       /* If we're emitting a clone, emit info for the abstract instance.  */
       if (DECL_ORIGIN (decl) != decl)
 	dwarf2out_abstract_function (DECL_ABSTRACT_ORIGIN (decl));
@@ -12226,7 +12244,7 @@ dwarf2out_decl (decl)
 
       /* Don't bother trying to generate any DIEs to represent any of the
          normal built-in types for the language we are compiling.  */
-      if (DECL_SOURCE_LINE (decl) == 0)
+      if (TREE_LINENO (decl) == 0)
 	{
 	  /* OK, we need to generate one for `bool' so GDB knows what type
              comparisons have.  */
@@ -12320,7 +12338,7 @@ lookup_filename (file_name)
   size_t i, n;
   char *save_file_name;
 
-  /* ??? Why isn't DECL_SOURCE_FILE left null instead.  */
+  /* ??? Why isn't TREE_FILENAME left null instead.  */
   if (strcmp (file_name, "<internal>") == 0
       || strcmp (file_name, "<built-in>") == 0)
     return 0;
@@ -12657,16 +12675,6 @@ dwarf2out_finish (input_filename)
   add_name_attribute (comp_unit_die, input_filename);
   if (input_filename[0] != DIR_SEPARATOR)
     add_comp_dir_attribute (comp_unit_die);
-  else if (get_AT (comp_unit_die, DW_AT_comp_dir) == NULL)
-    {
-      size_t i;
-      for (i = 1; i < VARRAY_ACTIVE_SIZE (file_table); i++)
-	if (VARRAY_CHAR_PTR (file_table, i)[0] != DIR_SEPARATOR)
-	  {
-	    add_comp_dir_attribute (comp_unit_die);
-	    break;
-	  }
-    }
 
   /* Traverse the limbo die list, and add parent/child links.  The only
      dies without parents that should be here are concrete instances of
@@ -12682,6 +12690,8 @@ dwarf2out_finish (input_filename)
 	{
 	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
 	  tree context;
+
+	  context = NULL_TREE; /* [GIMPLE] Avoid uninitialized use warning.  */
 
 	  if (origin)
 	    add_child_die (origin->die_parent, die);

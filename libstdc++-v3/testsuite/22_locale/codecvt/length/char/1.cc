@@ -33,14 +33,26 @@ void test01()
 
   bool 			test = true;
   const char* 		c_lit = "black pearl jasmine tea";
+  const char* 	        from_next;
   int 			size = 25;
+  char* 		c_arr = new char[size];
+  char*                 c_ref = new char[size];
+  char*			to_next;
 
   locale 		loc = locale::classic();
   c_codecvt::state_type state;
   const c_codecvt* 	cvt = &use_facet<c_codecvt>(loc); 
 
+  // According to the resolution of DR19 (see also libstd++/9168), in
+  // case of degenerate conversion ('noconv'), "there are no changes to
+  // the values in [to, to_limit)."
+  memset(c_ref, 'X', size);
+
   int j = cvt->length(state, c_lit, c_lit + size, 5);
   VERIFY( j == 5 );
+
+  delete [] c_arr;
+  delete [] c_ref;
 }
 
 int main ()

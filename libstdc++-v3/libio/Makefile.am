@@ -45,7 +45,7 @@ libio_headers = \
 
 if GLIBCPP_NEED_LIBIO
 LIBIO_SRCS = \
-	filedoalloc.c genops.c fileops.c stdfiles.c \
+	filedoalloc.c genops.c fileops.c stdfiles.c c_codecvt.c \
 	iofclose.c iofopen.c 
 else
 LIBIO_SRCS =

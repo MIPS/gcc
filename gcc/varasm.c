@@ -49,6 +49,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
+#include "tree-mudflap.h"
+
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -169,8 +171,8 @@ static void asm_output_bss		PARAMS ((FILE *, tree, const char *, int, int));
 #endif
 #ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
-static void asm_output_aligned_bss
-  PARAMS ((FILE *, tree, const char *, int, int)) ATTRIBUTE_UNUSED;
+static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
+						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
@@ -811,6 +813,11 @@ make_decl_rtl (decl, asmspec)
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
       (* targetm.encode_section_info) (decl, false);
+
+      /* Make this function static known to the mudflap runtime.  */
+      if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+	mudflap_enqueue_decl (decl, name);
+      
       return;
     }
 
@@ -931,6 +938,10 @@ make_decl_rtl (decl, asmspec)
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
   (* targetm.encode_section_info) (decl, true);
+
+  /* Make this function static known to the mudflap runtime.  */
+  if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+    mudflap_enqueue_decl (decl, name);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -1434,8 +1445,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   if (!dont_output_data && DECL_SIZE (decl) == 0)
     {
-      error_with_file_and_line (DECL_SOURCE_FILE (decl),
-				DECL_SOURCE_LINE (decl),
+      error_with_file_and_line (TREE_FILENAME (decl),
+				TREE_LINENO (decl),
 				"storage size of `%s' isn't known",
 				IDENTIFIER_POINTER (DECL_NAME (decl)));
       TREE_ASM_WRITTEN (decl) = 1;
@@ -2621,6 +2632,8 @@ output_constant_def (exp, defer)
   int labelno = -1;
   rtx rtl;
 
+  defstr = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
   /* We can't just use the saved RTL if this is a deferred string constant
      and we are not to defer anymore.  */
   if (TREE_CODE (exp) != INTEGER_CST && TREE_CST_RTL (exp)
@@ -2812,6 +2825,16 @@ output_constant_def_contents (exp, reloc, labelno)
 		    : int_size_in_bytes (TREE_TYPE (exp))),
 		   align);
 
+  if (flag_mudflap)
+    {
+      char label[200];
+
+      /* It's a waste to regenerate this string here.  The callers
+	 almost always have a copy of the same string someplace.  */
+      ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
+
+      mudflap_enqueue_constant (exp, ggc_strdup (label));
+    }
 }
 
 /* Used in the hash tables to avoid outputting the same constant
@@ -5050,6 +5073,8 @@ categorize_decl_for_section (decl, reloc, shlib)
     {
       if (flag_writable_strings)
 	return SECCAT_DATA;
+      else if (flag_mudflap) /* or !flag_merge_constants */
+        return SECCAT_RODATA;
       else
 	return SECCAT_RODATA_MERGE_STR;
     }

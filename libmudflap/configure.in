@@ -1,0 +1,50 @@
+# Process this file with autoconf to produce a configure script, like so:
+# aclocal && autoconf && autoheader && automake
+
+AC_PREREQ(2.13)
+AC_INIT(mf-runtime.c)
+AC_CANONICAL_SYSTEM
+AM_INIT_AUTOMAKE(libmudflap, 1.0)
+
+AC_SUBST(PACKAGE)
+# For libtool versioning info, format is CURRENT:REVISION:AGE
+libtool_VERSION=1:0:0
+AC_SUBST(libtool_VERSION)
+
+dnl AM_ENABLE_MULTILIB
+AM_MAINTAINER_MODE
+AC_EXEEXT
+AC_PROG_CXX
+
+target_alias=${target_alias-$target}
+AC_SUBST(target_alias)
+
+AM_CONFIG_HEADER(config.h)
+
+AC_LIBTOOL_DLOPEN
+AM_PROG_LIBTOOL
+AC_SUBST(enable_shared)
+AC_SUBST(enable_static)
+
+dnl Should check for this header for the host/target, not the build platform
+AC_CHECK_HEADERS(stdint.h execinfo.h)
+AC_CHECK_FUNCS(backtrace backtrace_symbols)
+
+if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CC --features |
+   grep "enable shared" > /dev/null; then
+  LIBMUDFLAP_PICFLAGS=-prefer-pic
+else
+  LIBMUDFLAP_PICFLAGS=
+fi
+AC_SUBST(LIBMUDFLAP_PICFLAGS)
+
+AC_OUTPUT(Makefile, [
+(
+ echo '#ifndef __MF_RUNTIME_H'
+ echo '#define __MF_RUNTIME_H'
+ egrep 'HAVE_(STDINT|UINTPTR)' < config.h
+ cat $srcdir/mf-runtime.h.in
+ echo '#endif'
+) > mf-runtime.h
+echo creating mf-runtime.h
+])

@@ -505,12 +505,11 @@ namespace std
 
   const char __num_base::_S_atoms[] = "0123456789eEabcdfABCDF";
 
-  // _GLIBCPP_RESOLVE_LIB_DEFECTS
-  // According to the resolution of DR 231, about 22.2.2.2.2, p11,
-  // "str.precision() is specified in the conversion specification".
-  void
-  __num_base::_S_format_float(const ios_base& __io, char* __fptr, char __mod)
+  bool
+  __num_base::_S_format_float(const ios_base& __io, char* __fptr, char __mod,
+			      streamsize __prec)
   {
+    bool __incl_prec = false;
     ios_base::fmtflags __flags = __io.flags();
     *__fptr++ = '%';
     // [22.2.2.2.2] Table 60
@@ -518,12 +517,13 @@ namespace std
       *__fptr++ = '+';
     if (__flags & ios_base::showpoint)
       *__fptr++ = '#';
-
-    // As per DR 231: _always_, not only when 
-    // __flags & ios_base::fixed || __prec > 0
-    *__fptr++ = '.';
-    *__fptr++ = '*';
-
+    // As per [22.2.2.2.2.11]
+    if (__flags & ios_base::fixed || __prec > 0)
+      {
+	*__fptr++ = '.';
+	*__fptr++ = '*';
+	__incl_prec = true;
+      }
     if (__mod)
       *__fptr++ = __mod;
     ios_base::fmtflags __fltfield = __flags & ios_base::floatfield;
@@ -535,6 +535,7 @@ namespace std
     else
       *__fptr++ = (__flags & ios_base::uppercase) ? 'G' : 'g';
     *__fptr = '\0';
+    return __incl_prec;
   }
   
   void

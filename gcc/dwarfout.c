@@ -1,6 +1,6 @@
 /* Output Dwarf format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 2002,
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com) of Network Computing Devices.
 
 This file is part of GCC.
@@ -581,7 +581,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tm_p.h"
 #include "debug.h"
-#include "target.h"
 #include "langhooks.h"
 
 /* NOTE: In the comments in this file, many references are made to
@@ -2098,7 +2097,9 @@ output_mem_loc_descriptor (rtl)
      which is actually within the array.  That's *not* necessarily the
      same as the zeroth element of the array.  */
 
-  rtl = (*targetm.delegitimize_address) (rtl);
+#ifdef ASM_SIMPLIFY_DWARF_ADDR
+  rtl = ASM_SIMPLIFY_DWARF_ADDR (rtl);
+#endif
 
   switch (GET_CODE (rtl))
     {
@@ -3491,10 +3492,10 @@ name_and_src_coords_attributes (decl)
 	   Fred Fish sez that m68k/svr4 assemblers botch those.  */
 
 	ASM_OUTPUT_POP_SECTION (asm_out_file);
-	file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+	file_index = lookup_filename (TREE_FILENAME (decl));
 	ASM_OUTPUT_PUSH_SECTION (asm_out_file, DEBUG_SECTION);
 
-	src_coords_attribute (file_index, DECL_SOURCE_LINE (decl));
+	src_coords_attribute (file_index, TREE_LINENO (decl));
       }
 #endif /* defined(DWARF_DECL_COORDINATES) */
     }
@@ -5747,7 +5748,7 @@ dwarfout_file_scope_decl (decl, set_finalizing)
       /* ??? This code is different than the equivalent code in dwarf2out.c.
 	 The dwarf2out.c code is probably more correct.  */
 
-      if (DECL_SOURCE_LINE (decl) == 0
+      if (TREE_LINENO (decl) == 0
 	  && (type_is_fundamental (TREE_TYPE (decl))
 	      || TREE_CODE (TREE_TYPE (decl)) == LANG_TYPE))
 	return;

@@ -604,6 +604,22 @@ verify_edge_list (f, elist)
       }
 }
 
+/* Given PRED and SUCC blocks, return the edge which connects the blocks.
+   If no such edge exists, return NULL.  */
+
+edge
+find_edge (pred, succ)
+     basic_block pred, succ;
+{
+  edge e;
+
+  for (e = pred->succ; e; e = e->succ_next)
+    if (e->dest == succ)
+      return e;
+
+  return NULL;
+}
+
 /* This routine will determine what, if any, edge there is between
    a specified predecessor and successor.  */
 

@@ -1,3 +1,7 @@
+DO NOT REMOVE: This is a deliberate syntax error.  Tree SSA cannot handle
+	       this testcase yet.  The compiler consumes all available
+	       memory until dejagnu times out.
+
 /* This testcase exposed two branch shortening bugs on powerpc.  */
 
 #define C(a,b) \

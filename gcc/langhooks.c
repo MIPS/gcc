@@ -244,6 +244,20 @@ lhd_expand_expr (t, r, mm, em)
   abort ();
 }
 
+/* This is the default expand_decl function.  */
+/* The default language-specific function for expanding a DECL_STMT.  After
+   the language-independent cases are handled, this function will be
+   called.  If this function is not defined, it is assumed that
+   declarations other than those for variables and labels do not require
+   any RTL generation.  */
+
+int
+lhd_expand_decl (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
 /* This is the default decl_printable_name function.  */
 
 const char *
@@ -447,4 +461,15 @@ lhd_expr_size (exp)
     return DECL_SIZE_UNIT (exp);
   else
     return size_in_bytes (TREE_TYPE (exp));
+}
+
+/* lang_hooks.simplify_expr re-writes *EXPR_P into SIMPLE form.  */
+
+int
+lhd_simplify_expr (expr_p, pre_p, post_p)
+     tree *expr_p ATTRIBUTE_UNUSED;
+     tree *pre_p ATTRIBUTE_UNUSED;
+     tree *post_p ATTRIBUTE_UNUSED;
+{
+  return 0;
 }

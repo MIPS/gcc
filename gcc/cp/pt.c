@@ -4342,8 +4342,8 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	  type_decl = create_implicit_typedef (DECL_NAME (template), t);
 	  DECL_CONTEXT (type_decl) = TYPE_CONTEXT (t);
 	  TYPE_STUB_DECL (t) = type_decl;
-	  DECL_SOURCE_LOCATION (type_decl) 
-	    = DECL_SOURCE_LOCATION (TYPE_STUB_DECL (template_type));
+	  TREE_LOCUS (type_decl)
+	    = TREE_LOCUS (TYPE_STUB_DECL (template_type));
 	}
       else
 	type_decl = TYPE_NAME (t);
@@ -4733,7 +4733,9 @@ push_tinst_level (d)
       return 0;
     }
 
-  new = build_expr_wfl (d, input_filename, lineno, 0);
+  new = make_node (TINST_LEVEL);
+  annotate_with_file_line (new, input_filename, lineno);
+  TINST_DECL (new) = d;
   TREE_CHAIN (new) = current_tinst_level;
   current_tinst_level = new;
 
@@ -4757,8 +4759,8 @@ pop_tinst_level ()
 
   /* Restore the filename and line number stashed away when we started
      this instantiation.  */
-  lineno = TINST_LINE (old);
-  input_filename = TINST_FILE (old);
+  lineno = TREE_LINENO (old);
+  input_filename = TREE_FILENAME (old);
   extract_interface_info ();
   
   current_tinst_level = TREE_CHAIN (old);
@@ -4812,8 +4814,8 @@ tsubst_friend_function (decl, args)
   int line = lineno;
   const char *file = input_filename;
 
-  lineno = DECL_SOURCE_LINE (decl);
-  input_filename = DECL_SOURCE_FILE (decl);
+  lineno = TREE_LINENO (decl);
+  input_filename = TREE_FILENAME (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL 
       && DECL_TEMPLATE_INSTANTIATION (decl)
@@ -5395,8 +5397,8 @@ instantiate_class_template (type)
 		  /* The the file and line for this declaration, to assist
 		     in error message reporting.  Since we called 
 		     push_tinst_level above, we don't need to restore these.  */
-		  lineno = DECL_SOURCE_LINE (t);
-		  input_filename = DECL_SOURCE_FILE (t);
+		  lineno = TREE_LINENO (t);
+		  input_filename = TREE_FILENAME (t);
 
 		  r = tsubst (t, args, tf_error | tf_warning, NULL_TREE);
 		  if (TREE_CODE (r) == VAR_DECL)
@@ -5502,8 +5504,8 @@ instantiate_class_template (type)
      implicit functions at a predictable point, and the same point
      that would be used for non-template classes.  */
   typedecl = TYPE_MAIN_DECL (type);
-  lineno = DECL_SOURCE_LINE (typedecl);
-  input_filename = DECL_SOURCE_FILE (typedecl);
+  lineno = TREE_LINENO (typedecl);
+  input_filename = TREE_FILENAME (typedecl);
 
   unreverse_member_declarations (type);
   finish_struct_1 (type);
@@ -5827,8 +5829,8 @@ tsubst_decl (t, args, type, complain)
   /* Set the filename and linenumber to improve error-reporting.  */
   saved_lineno = lineno;
   saved_filename = input_filename;
-  lineno = DECL_SOURCE_LINE (t);
-  input_filename = DECL_SOURCE_FILE (t);
+  lineno = TREE_LINENO (t);
+  input_filename = TREE_FILENAME (t);
 
   switch (TREE_CODE (t))
     {
@@ -7757,7 +7759,7 @@ tsubst_expr (t, args, complain, in_decl)
     case ASM_STMT:
       prep_stmt (t);
       tmp = finish_asm_stmt
-	(ASM_CV_QUAL (t),
+	(ASM_VOLATILE_P (t),
 	 tsubst_expr (ASM_STRING (t), args, complain, in_decl),
 	 tsubst_expr (ASM_OUTPUTS (t), args, complain, in_decl),
 	 tsubst_expr (ASM_INPUTS (t), args, complain, in_decl), 
@@ -10705,8 +10707,8 @@ instantiate_decl (d, defer_ok)
   else
     pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
 
-  lineno = DECL_SOURCE_LINE (d);
-  input_filename = DECL_SOURCE_FILE (d);
+  lineno = TREE_LINENO (d);
+  input_filename = TREE_FILENAME (d);
 
   if (pattern_defined)
     {
@@ -10827,8 +10829,8 @@ instantiate_decl (d, defer_ok)
 
   /* We already set the file and line above.  Reset them now in case
      they changed as a result of calling regenerate_decl_from_template.  */
-  lineno = DECL_SOURCE_LINE (d);
-  input_filename = DECL_SOURCE_FILE (d);
+  lineno = TREE_LINENO (d);
+  input_filename = TREE_FILENAME (d);
 
   if (TREE_CODE (d) == VAR_DECL)
     {
@@ -11083,8 +11085,8 @@ tsubst_enum (tag, newtag, args)
     }
 
   finish_enum (newtag);
-  DECL_SOURCE_LOCATION (TYPE_NAME (newtag))
-    = DECL_SOURCE_LOCATION (TYPE_NAME (tag));
+  TREE_LOCUS (TYPE_NAME (newtag))
+    = TREE_LOCUS (TYPE_NAME (tag));
 }
 
 /* DECL is a FUNCTION_DECL that is a template specialization.  Return

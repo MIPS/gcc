@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "tree-inline.h"
 
 static void c_init_options PARAMS ((void));
 
@@ -53,6 +54,8 @@ static void c_init_options PARAMS ((void));
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR c_expand_expr
+#undef LANG_HOOKS_EXPAND_DECL
+#define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_PARSE_FILE
@@ -84,12 +87,18 @@ static void c_init_options PARAMS ((void));
 #undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
 #define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
 
+#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
+#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
+  c_walk_subtrees
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   c_cannot_inline_tree_fn
 #undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   c_disregard_inline_limits
+#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
+#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
+  c_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   anon_aggr_type_p
@@ -113,6 +122,10 @@ static void c_init_options PARAMS ((void));
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
+
+/* Hooks for tree simplification.  */
+#undef LANG_HOOKS_SIMPLIFY_EXPR
+#define LANG_HOOKS_SIMPLIFY_EXPR c_simplify_expr
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 

@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "tree-mudflap.h"
 #include "target.h"
 
 static bool c_tree_printer PARAMS ((output_buffer *, text_info *));
@@ -109,10 +110,11 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
 
       break;
 
-    case DECL_STMT:
+    case BIND_EXPR:
       /* We cannot inline functions that contain other functions.  */
-      if (TREE_CODE (TREE_OPERAND (node, 0)) == FUNCTION_DECL
-	  && DECL_INITIAL (TREE_OPERAND (node, 0)))
+      for (t = BIND_EXPR_VARS (node); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == FUNCTION_DECL
+	    && DECL_INITIAL (t))
 	return node;
       break;
 
@@ -214,6 +216,13 @@ c_cannot_inline_tree_fn (fnp)
       if (! t)
 	return 0;
     }
+
+  /* We can't inline this function if genericization failed.  */
+  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
+    {
+      DECL_UNINLINABLE (fn) = 1;
+      return 1;
+    }
     
   if (walk_tree (&DECL_SAVED_TREE (fn), inline_forbidden_p, fn, NULL))
     goto cannot_inline;
@@ -249,8 +258,6 @@ c_objc_common_init (filename)
   filename = c_common_init (filename);
   if (filename == NULL)
     return NULL;
-
-  lang_expand_decl_stmt = c_expand_decl_stmt;
 
   /* These were not defined in the Objective-C front end, but I'm
      putting them here anyway.  The diagnostic format decoder might
@@ -363,6 +370,9 @@ c_objc_common_finish_file ()
 
   expand_deferred_fns ();
 
+  if (flag_mudflap)
+    mudflap_finish_file ();
+
   if (static_ctors)
     {
       tree body = start_cdtor ('I');
@@ -387,12 +397,12 @@ c_objc_common_finish_file ()
 
   {
     int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
+    FILE *stream = dump_begin (TDI_tu, &flags);
 
     if (stream)
       {
 	dump_node (getdecls (), flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
+	dump_end (TDI_tu, stream);
       }
   }
 }

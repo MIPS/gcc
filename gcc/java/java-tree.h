@@ -343,7 +343,6 @@ enum java_tree_index
   JTI_DOUBLE_ZERO_NODE,
   JTI_INTEGER_TWO_NODE,
   JTI_INTEGER_FOUR_NODE,
-  JTI_EMPTY_STMT_NODE,
 
   JTI_METHODTABLE_TYPE,
   JTI_METHODTABLE_PTR_TYPE,
@@ -570,8 +569,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_INTEGER_TWO_NODE]
 #define integer_four_node \
   java_global_trees[JTI_INTEGER_FOUR_NODE]
-#define empty_stmt_node \
-  java_global_trees[JTI_EMPTY_STMT_NODE]
 
 /* The type for struct methodtable. */
 #define methodtable_type \
@@ -916,12 +913,6 @@ union lang_tree_node
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE) \
   (DECL_LANG_SPECIFIC(NODE)->u.v.wfl)
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-     the approximate number of statements in this function.  There is
-     no need for this number to be exact; it is only used in various
-     heuristics regarding optimization.  */
-#define DECL_NUM_STMTS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
 /* True if NODE is a final field. */
@@ -1757,4 +1748,23 @@ enum
 };
 
 #undef DEBUG_JAVA_BINDING_LEVELS
+
+/* In an EXPR_WITH_FILE_LOCATION node.  */
+#define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
+  (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
+#define EXPR_WFL_NODE(NODE) \
+  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 0)
+#define EXPR_WFL_FILENAME_NODE(NODE) \
+  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 1)
+#define EXPR_WFL_FILENAME(NODE) \
+  IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE (NODE))
+/* ??? Java uses this in all expressions.  */
+#define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
+#define EXPR_WFL_LINENO(NODE) (EXPR_WFL_LINECOL (NODE) >> 12)
+#define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
+#define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
+  (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
+
+extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
+
 #endif /* ! GCC_JAVA_TREE_H */

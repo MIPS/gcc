@@ -672,6 +672,11 @@ tree (*make_fname_decl)                PARAMS ((tree, int));
    returns 1 for language-specific statement codes.  */
 int (*lang_statement_code_p)           PARAMS ((enum tree_code));
 
+/* If non-NULL, the address of a language-specific function that does any
+   language-specific simplification for _STMT nodes and returns 1 iff
+   handled.  */
+int (*lang_simplify_stmt)           PARAMS ((tree *, tree *));
+
 /* If non-NULL, the address of a language-specific function that takes
    any action required right before expand_function_end is called.  */
 void (*lang_expand_function_end)       PARAMS ((void));
@@ -5243,8 +5248,8 @@ shadow_warning (msgid, name, decl)
      tree name, decl;
 {
   warning ("declaration of `%s' shadows %s", IDENTIFIER_POINTER (name), msgid);
-  warning_with_file_and_line (DECL_SOURCE_FILE (decl),
-			      DECL_SOURCE_LINE (decl),
+  warning_with_file_and_line (TREE_FILENAME (decl),
+			      TREE_LINENO (decl),
 			      "shadowed declaration is here");
 }
 
@@ -6655,6 +6660,65 @@ check_function_arguments_recurse (callback, ctx, param, param_num)
     }
 
   (*callback) (ctx, param, param_num);
+}
+
+/* C implementation of lang_hooks.tree_inlining.walk_subtrees.  Tracks the
+   line number from STMT_LINENO and handles DECL_STMT specially.  */
+
+tree 
+c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
+     tree *tp;
+     int *walk_subtrees_p ATTRIBUTE_UNUSED;
+     walk_tree_fn func;
+     void *data;
+     void *htab;
+{
+  enum tree_code code = TREE_CODE (*tp);
+  tree result;
+
+#define WALK_SUBTREE(NODE)				\
+  do							\
+    {							\
+      result = walk_tree (&(NODE), func, data, htab);	\
+      if (result)					\
+	return result;					\
+    }							\
+  while (0)
+
+  /* Set lineno here so we get the right instantiation context
+     if we call instantiate_decl from inlinable_function_p.  */
+  if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
+    lineno = STMT_LINENO (*tp);
+
+  if (code == DECL_STMT)
+    {
+      /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+	 into declarations that are just mentioned, rather than
+	 declared; they don't really belong to this part of the tree.
+	 And, we can see cycles: the initializer for a declaration can
+	 refer to the declaration itself.  */
+      WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
+      WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
+      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
+    }
+
+  /* We didn't find what we were looking for.  */
+  return NULL_TREE;
+
+#undef WALK_SUBTREE
+}
+
+/* C implementation of lang_hooks.tree_inlining.tree_chain_matters_p.
+   Apart from TREE_LISTs, the only trees whose TREE_CHAIN we care about are
+   _STMT nodes.  */
+
+int
+c_tree_chain_matters_p (t)
+     tree t;
+{
+  /* For statements, we also walk the chain so that we cover the
+     entire statement tree.  */
+  return statement_code_p (TREE_CODE (t));
 }
 
 #include "gt-c-common.h"

@@ -3628,6 +3628,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  int uns = TREE_UNSIGNED (result_type);
 	  tree type;
 
+	  type = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
 	  final_type = result_type;
 
 	  /* Handle the case that OP0 does not *contain* a conversion

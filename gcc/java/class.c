@@ -1764,8 +1764,8 @@ layout_class (tree this_class)
 	  tree decl = TYPE_NAME (TREE_PURPOSE (current));
 	  sprintf (buffer, "\n  which inherits from `%s' (%s:%d)",
 		   IDENTIFIER_POINTER (DECL_NAME (decl)),
-		   DECL_SOURCE_FILE (decl),
-		   DECL_SOURCE_LINE (decl));
+		   TREE_FILENAME (decl),
+		   TREE_LINENO (decl));
 	  obstack_grow (&temporary_obstack, buffer, strlen (buffer));
 	}
       obstack_1grow (&temporary_obstack, '\0');

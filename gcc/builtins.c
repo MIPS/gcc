@@ -3564,6 +3564,12 @@ expand_builtin_alloca (arglist, target)
   rtx op0;
   rtx result;
 
+  /* In -fmudflap-instrumented code, alloca() and __builtin_alloca()
+     should always expand to function calls.  These can be intercepted
+     in libmudflap.  */
+  if (flag_mudflap)
+    return 0;
+
   if (!validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
     return 0;
 

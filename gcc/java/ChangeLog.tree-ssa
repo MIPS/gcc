@@ -1,0 +1,17 @@
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* parse.y (qualify_ambiguous_name): Initialize variable 'decl'.
+
+2003-01-15  Jeff Law <law@redhat.com>
+
+	* class.c: Use TREE_FILENAME and TREE_LINENO to extract file/line
+	information from tree nodes.  Use annotate_with_file_line to
+	annotate tree nodes with file/line information.
+	* decl.c, jcf-parse.c, jcf-write.c, parse.h: Likewise.
+	* parse.y: Likewise.
+	* expr.c (java_expand_expr): Handle EXPR_WITH_FILE_LOCATION nodes.
+	(build_expr_wfl): New function.
+	* java-tree.def (EXPR_WITH_FILE_LOCATION): New node.
+	* java-tree.h (EXPR_WFL_*): New macros.
+	(build_expr_wfl): Declare.
+

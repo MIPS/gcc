@@ -42,11 +42,22 @@ void test01()
 {
   using namespace std;
   typedef codecvt<wchar_t, char, mbstate_t> 	w_codecvt;
+  typedef codecvt_base::result			result;
+  typedef wchar_t				int_type;
   typedef char					ext_type;
+  typedef char_traits<wchar_t>			int_traits;
+  typedef char_traits<char>			ext_traits;
 
   bool 			test = true;
   const ext_type* 	e_lit = "black pearl jasmine tea";
+  const ext_type*       efrom_next;
+  const int_type* 	i_lit = L"black pearl jasmine tea";
+  const int_type*       ifrom_next;
   int 			size = strlen(e_lit);
+  ext_type* 		e_arr = new ext_type[size + 1];
+  ext_type*		eto_next;
+  int_type* 		i_arr = new int_type[size + 1];
+  int_type*		ito_next;
 
   locale 		loc;
   const w_codecvt* 	cvt = &use_facet<w_codecvt>(loc); 
@@ -55,6 +66,9 @@ void test01()
   zero_state(state04);
   int j = cvt->length(state04, e_lit, e_lit + size, 5);
   VERIFY( j == 5 );
+
+  delete [] e_arr;
+  delete [] i_arr;
 }
 
 int main ()

@@ -1337,10 +1337,11 @@ the outermost block of the function, but it may also be a
 
 @subsubsection Statements
 
-There are tree nodes corresponding to all of the source-level statement
-constructs.  These are enumerated here, together with a list of the
-various macros that can be used to obtain information about them.  There
-are a few macros that can be used with all statements:
+There are tree nodes corresponding to all of the source-level
+statement constructs, used within the C and C++ frontends.  These are
+enumerated here, together with a list of the various macros that can
+be used to obtain information about them.  There are a few macros that
+can be used with all statements:
 
 @ftable @code
 @item STMT_LINENO
@@ -2185,9 +2186,9 @@ the @code{STMT_EXPR} does not yield a value, it's type will be
 
 @item BIND_EXPR
 These nodes represent local blocks.  The first operand is a list of
-temporary variables, connected via their @code{TREE_CHAIN} field.  These
-will never require cleanups.  The scope of these variables is just the
-body of the @code{BIND_EXPR}.  The body of the @code{BIND_EXPR} is the
+variables, connected via their @code{TREE_CHAIN} field.  These will
+never require cleanups.  The scope of these variables is just the body
+of the @code{BIND_EXPR}.  The body of the @code{BIND_EXPR} is the
 second operand.
 
 @item LOOP_EXPR

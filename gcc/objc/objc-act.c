@@ -2049,7 +2049,7 @@ build_selector_translation_table ()
             /* Adjust line number for warning message.  */
             int save_lineno = lineno;
             if (flag_next_runtime && TREE_PURPOSE (chain))
-              lineno = DECL_SOURCE_LINE (TREE_PURPOSE (chain));
+              lineno = TREE_LINENO (TREE_PURPOSE (chain));
             warning ("creating selector for non existant method %s",
                      IDENTIFIER_POINTER (TREE_VALUE (chain)));
             lineno = save_lineno;
@@ -3541,8 +3541,8 @@ error_with_ivar (message, decl, rawdecl)
 
   diagnostic_report_current_function (global_dc);
 
-  error_with_file_and_line (DECL_SOURCE_FILE (decl),
-			    DECL_SOURCE_LINE (decl),
+  error_with_file_and_line (TREE_FILENAME (decl),
+			    TREE_LINENO (decl),
 			    "%s `%s'",
 			    message, gen_declaration (rawdecl, errbuf));
 
@@ -7089,8 +7089,8 @@ warn_with_method (message, mtype, method)
   diagnostic_report_current_function (global_dc);
 
   /* Add a readable method name to the warning.  */
-  warning_with_file_and_line (DECL_SOURCE_FILE (method),
-			      DECL_SOURCE_LINE (method),
+  warning_with_file_and_line (TREE_FILENAME (method),
+			      TREE_LINENO (method),
 			      "%s `%c%s'",
 			      message, mtype,
 			      gen_method_decl (method, errbuf));

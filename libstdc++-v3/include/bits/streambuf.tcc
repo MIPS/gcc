@@ -67,7 +67,8 @@ namespace std
     {
       int_type __ret;
       bool __testpos = _M_in_cur && _M_in_beg < _M_in_cur;
-      if (!__testpos || !traits_type::eq(__c, this->gptr()[-1]))
+      bool __testne = _M_in_cur && !traits_type::eq(__c, this->gptr()[-1]);
+      if (!__testpos || __testne)
 	__ret = this->pbackfail(traits_type::to_int_type(__c));
       else 
 	{

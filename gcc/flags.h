@@ -646,6 +646,30 @@ extern int flag_detailed_statistics;
 /* Nonzero means enable synchronous exceptions for non-call instructions.  */
 extern int flag_non_call_exceptions;
 
+/* Nonzero means enable mudflap bounds-checking transforms. */
+extern int flag_mudflap;
+
+/* Disable tree simplification.  */
+extern int flag_disable_simple;
+
+/* Disable SSA optimizations on trees.  */
+extern int flag_disable_tree_ssa;
+
+/* Enable SSA-PRE on trees.  */
+extern int flag_tree_pre;
+
+/* Enable SSA-CP on trees. */
+extern int flag_tree_cp;
+
+/* Enable SSA-CCP on trees.  */
+extern int flag_tree_ccp;
+
+/* Enable SSA-DCE on trees.  */
+extern int flag_tree_dce;
+
+/* Enable interprocedural analysis.  */
+extern int flag_ip;
+
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 

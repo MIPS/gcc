@@ -123,6 +123,3 @@
 /* Get 64-bit file size support */
 #undef _FILE_OFFSET_BITS
 
-/* Get GNU extensions */
-#undef _GNU_SOURCE
-

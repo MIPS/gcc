@@ -46,6 +46,8 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "target.h"
 #include "c-common.h"
+#include "tree-mudflap.h"
+
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -184,8 +186,8 @@ warn_if_unknown_interface (tree decl)
 
       if (til)
 	{
-	  lineno = TINST_LINE (til);
-	  input_filename = TINST_FILE (til);
+	  lineno = TREE_LINENO (til);
+	  input_filename = TREE_FILENAME (til);
 	}
       warning ("template `%#D' instantiated in file without #pragma interface",
 		  decl);
@@ -2233,8 +2235,8 @@ start_static_initialization_or_destruction (tree decl, int initp)
      where DECL was declared so that error-messages make sense, and so
      that the debugger will show somewhat sensible file and line
      information.  */
-  input_filename = DECL_SOURCE_FILE (decl);
-  lineno = DECL_SOURCE_LINE (decl);
+  input_filename = TREE_FILENAME (decl);
+  lineno = TREE_LINENO (decl);
 
   /* Because of:
 
@@ -2572,6 +2574,10 @@ finish_file ()
   timevar_push (TV_VARCONST);
 
   emit_support_tinfos ();
+
+  /* Emit mudflap static registration function.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
   
   do 
     {
@@ -2813,12 +2819,12 @@ finish_file ()
      to a file.  */
   {
     int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
+    FILE *stream = dump_begin (TDI_tu, &flags);
 
     if (stream)
       {
 	dump_node (global_namespace, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
+	dump_end (TDI_tu, stream);
       }
   }
   
@@ -4291,6 +4297,7 @@ do_local_using_decl (tree decl)
   if (decl == NULL_TREE)
     return;
 
+  /* What's this for?  --jason 2002-09-12  */
   if (building_stmt_tree ()
       && at_function_scope_p ())
     add_decl_stmt (decl);

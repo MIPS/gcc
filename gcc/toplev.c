@@ -73,8 +73,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "cfglayout.h"
+#include "tree-alias-common.h" 
 #include "cfgloop.h"
-#include "hosthooks.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -860,6 +860,9 @@ int flag_guess_branch_prob = 0;
    For Fortran: defaults to off.  */
 int flag_bounds_check = 0;
 
+/* Mudflap bounds-checking transform.  */
+int flag_mudflap = 0;
+
 /* This will attempt to merge constant section constants, if 1 only
    string constants and constants from constant pool, if 2 also constant
    variables.  */
@@ -873,8 +876,31 @@ int flag_renumber_insns = 1;
 /* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 0;
 
-/* Nonzero if we perform superblock formation.  */
+/* Disable tree simplification.  */
+int flag_disable_simple = 0;
 
+/* Disable SSA on trees optimizations.  */
+int flag_disable_tree_ssa = 0;
+
+/* Enable the SSA-PRE tree optimization.  */
+int flag_tree_pre = 0;
+
+/* Enable points-to analysis on trees. */
+enum pta_type flag_tree_points_to = PTA_NONE;
+
+/* Enable SSA-CCP on trees.  */
+int flag_tree_ccp = 0;
+
+/* Enable SSA-CP on trees.  */
+int flag_tree_cp = 0;
+
+/* Enable SSA-DCE on trees.  */
+int flag_tree_dce = 0;
+
+/* Enable interprocedural analysis.  */
+int flag_ip = 0;
+
+/* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
 /* Values of the -falign-* flags: how much to align labels in code.
@@ -1174,8 +1200,24 @@ static const lang_independent_options f_options[] =
    N_("Report on permanent memory allocation at end of run") },
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
+  { "mudflap", &flag_mudflap, 1,
+   N_("Add mudflap bounds-checking instrumentation") },
   { "new-ra", &flag_new_regalloc, 1,
    N_("Use graph coloring register allocation.") },
+  { "disable-simple", &flag_disable_simple, 1,
+   N_("Do not re-write trees into SIMPLE form") },
+  { "disable-tree-ssa", &flag_disable_tree_ssa, 1,
+   N_("Disable SSA optimizations on trees") },
+  { "tree-pre", &flag_tree_pre, 1,
+   N_("Enable SSA-PRE optimization on trees") },
+  { "tree-ccp", &flag_tree_ccp, 1,
+   N_("Enable SSA-CCP optimization on trees") },
+  { "tree-cp", &flag_tree_cp, 1,
+   N_("Enable SSA-CP optimization on trees") },
+  { "tree-dce", &flag_tree_dce, 1,
+   N_("Enable SSA dead code elimination optimization on trees") },
+  { "ip", &flag_ip, 1, 
+   N_("Enable interprocedural analysis") },
 };
 
 /* Table of language-specific options.  */
@@ -3022,6 +3064,7 @@ rest_of_compilation (decl)
 	estimate_probability (&loops);
 
       flow_loops_free (&loops);
+      
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
@@ -3700,7 +3743,7 @@ display_help ()
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
   printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
-
+  printf (_("  -ftree-points-to=[andersen] Turn on points-to analysis using the specified algorithm.\n"));
   for (i = ARRAY_SIZE (f_options); i--;)
     {
       const char *description = f_options[i].description;
@@ -3976,6 +4019,19 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+    }
+  else if ((option_value = skip_leading_substring (arg, "tree-points-to=")))
+    {
+      if (strcmp (option_value, "andersen") == 0)
+	{
+#ifdef HAVE_BANSHEE
+        flag_tree_points_to = PTA_ANDERSEN;
+#else
+	warning ("Andersen's PTA not available - libbanshee not compiled.");
+#endif
+	}
+      else
+        warning ("`%s`: unknown points-to analysis algorithm", arg - 2);
     }
   else if ((option_value = skip_leading_substring (arg, "tls-model=")))
     {
@@ -4739,7 +4795,6 @@ general_init (argv0)
   hex_init ();
 
   gcc_init_libintl ();
-
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
   signal (SIGSEGV, crash_signal);
@@ -4759,10 +4814,6 @@ general_init (argv0)
 #ifdef SIGFPE
   signal (SIGFPE, crash_signal);
 #endif
-
-  /* Other host-specific signal setup.  */
-  (*host_hooks.extra_signals)();
-
   /* Initialize the diagnostics reporting machinery, so option parsing
      can give warnings and errors.  */
   diagnostic_initialize (global_dc);
@@ -4854,6 +4905,9 @@ parse_options_and_default_flags (argc, argv)
       flag_crossjumping = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
+      flag_tree_ccp = 1;
+      if (getenv ("TREE_DCE"))
+	flag_tree_dce = 1;
     }
 
   if (optimize >= 2)
@@ -4884,6 +4938,11 @@ parse_options_and_default_flags (argc, argv)
     {
       flag_inline_functions = 1;
       flag_rename_registers = 1;
+    }
+  
+  if  (optimize >= 4)
+    {
+      flag_ip = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -5194,6 +5253,13 @@ process_options ()
     /* The presence of IEEE signaling NaNs, implies all math can trap.  */
     if (flag_signaling_nans)
       flag_trapping_math = 1;
+
+  /* -fdisable-simple also disables the tree optimizers.  */
+  if (optimize >= 1 && flag_disable_simple)
+    warning ("-fdisable-simple also disables optimizations on trees");
+
+  if (flag_disable_simple && flag_mudflap)
+    warning ("-fdisable-simple also disables mudflap instrumentation");
 }
 
 /* Initialize the compiler back end.  */

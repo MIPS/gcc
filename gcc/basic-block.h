@@ -150,6 +150,12 @@ typedef struct edge_def {
 #define EDGE_DFS_BACK		32	/* A backwards edge */
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
 					   flow.  */
+#define EDGE_TRUE_VALUE		128	/* Edge taken when controlling
+					   predicate is non zero.  */
+#define EDGE_FALSE_VALUE	256	/* Edge taken when controlling
+					   predicate is zero.  */
+#define EDGE_EXECUTABLE		512	/* Edge is executable.  Only
+					   valid during SSA-CCP.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -187,9 +193,9 @@ typedef struct basic_block_def {
   /* The first and last insns of the block.  */
   rtx head, end;
 
-  /* The first and last trees of the block.  */
-  tree head_tree;
-  tree end_tree;
+  /* Pointers to the first and last trees of the block.  */
+  tree *head_tree_p;
+  tree *end_tree_p;
 
   /* The edges into and out of the block.  */
   edge pred, succ;
@@ -245,6 +251,16 @@ typedef struct basic_block_def {
 #define BB_VISITED		8
 #define BB_IRREDUCIBLE_LOOP	16
 #define BB_SUPERBLOCK		32
+
+/* Block contains a control flow expression.  */
+#define BB_CONTROL_EXPR		16
+
+/* Block contains a control flow expression for a loop.  */
+#define BB_LOOP_CONTROL_EXPR	32
+
+/* Block is the entry block to a compound statement (BIND_EXPR, LOOP_EXPR,
+   COND_EXPR, SWITCH_EXPR).  */
+#define BB_COMPOUND_ENTRY	64
 
 /* Number of basic blocks in the current function.  */
 
@@ -307,9 +323,6 @@ extern struct obstack flow_obstack;
 
 #define BLOCK_HEAD(B)      (BASIC_BLOCK (B)->head)
 #define BLOCK_END(B)       (BASIC_BLOCK (B)->end)
-
-#define BLOCK_HEAD_TREE(B) (BASIC_BLOCK (B)->head_tree)
-#define BLOCK_END_TREE(B) (BASIC_BLOCK (B)->end_tree)
 
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)
@@ -454,6 +467,7 @@ void print_edge_list			PARAMS ((FILE *, struct edge_list *));
 void verify_edge_list			PARAMS ((FILE *, struct edge_list *));
 int find_edge_index			PARAMS ((struct edge_list *,
 						 basic_block, basic_block));
+edge find_edge				PARAMS ((basic_block, basic_block));
 
 
 enum update_life_extent
@@ -613,7 +627,6 @@ extern void fixup_abnormal_edges	PARAMS ((void));
 extern bool can_hoist_insn_p		PARAMS ((rtx, rtx, regset));
 extern rtx hoist_insn_after		PARAMS ((rtx, rtx, rtx, rtx));
 extern rtx hoist_insn_to_edge		PARAMS ((rtx, edge, rtx, rtx));
-extern bool inside_basic_block_p	PARAMS ((rtx));
 extern bool control_flow_insn_p		PARAMS ((rtx));
 
 /* In dominance.c */

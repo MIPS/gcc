@@ -286,6 +286,8 @@ print_node (file, prefix, node, indent)
     fputs (" static", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
+  if (TREE_VISITED (node))
+    fputs (" visited", file);
   if (TREE_LANG_FLAG_0 (node))
     fputs (" tree_0", file);
   if (TREE_LANG_FLAG_1 (node))
@@ -383,7 +385,7 @@ print_node (file, prefix, node, indent)
 
       fprintf (file, " %s", GET_MODE_NAME (mode));
       fprintf (file, " file %s line %d",
-	       DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+	       TREE_FILENAME (node), TREE_LINENO (node));
 
       print_node (file, "size", DECL_SIZE (node), indent + 4);
       print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
@@ -636,14 +638,6 @@ print_node (file, prefix, node, indent)
 	    }
 	}
 
-      if (TREE_CODE (node) == EXPR_WITH_FILE_LOCATION)
-	{
-	  indent_to (file, indent+4);
-	  fprintf (file, "%s:%d:%d",
-		   (EXPR_WFL_FILENAME_NODE (node ) ?
-		    EXPR_WFL_FILENAME (node) : "(no file info)"),
-		   EXPR_WFL_LINENO (node), EXPR_WFL_COLNO (node));
-	}
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
@@ -764,6 +758,14 @@ print_node (file, prefix, node, indent)
 	}
 
       break;
+    }
+
+  if (TREE_LOCUS (node) && TREE_FILENAME (node))
+    {
+      indent_to (file, indent+4);
+      fprintf (file, "%s:%d",
+	       TREE_FILENAME (node),
+	       TREE_LINENO (node));
     }
 
   fprintf (file, ">");

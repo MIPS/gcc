@@ -35,20 +35,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "debug.h"
 #include "tree-inline.h"
+#include "tree-mudflap.h"
+#include "flags.h"
+#include "langhooks.h"
+#include "diagnostic.h"
+#include "tree-dump.h"
 
 /* Prototypes.  */
 
 static tree calls_setjmp_r (tree *, int *, void *);
 static void update_cloned_parm (tree, tree);
-static void dump_function (enum tree_dump_index, tree);
 
 /* Optimize the body of FN.  */
 
 void
 optimize_function (tree fn)
 {
-  dump_function (TDI_original, fn);
-
   /* While in this function, we may choose to go off and compile
      another function.  For example, we might instantiate a function
      in the hopes of inlining it.  Normally, that wouldn't trigger any
@@ -74,7 +76,30 @@ optimize_function (tree fn)
   
   /* Undo the call to ggc_push_context above.  */
   --function_depth;
-  
+
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!flag_disable_simple
+      && simplify_function_tree (fn))
+    {
+      /* Debugging dump after simplification.  */
+      dump_function (TDI_simple, fn);
+
+      if (flag_mudflap)
+	{
+	  mudflap_c_function (fn);
+
+	  /* Simplify mudflap instrumentation.  FIXME  Long term: Would it
+	     be better for mudflap to simplify each tree as it generates
+	     them?  */
+	  simplify_function_tree (fn);
+	}
+
+      /* Invoke the SSA tree optimizer.  */
+      if (optimize >= 1 && 0)
+	optimize_function_tree (fn);
+    }
+
   dump_function (TDI_optimized, fn);
 }
 
@@ -124,7 +149,7 @@ update_cloned_parm (tree parm, tree cloned_parm)
   
   /* The name may have changed from the declaration.  */
   DECL_NAME (cloned_parm) = DECL_NAME (parm);
-  DECL_SOURCE_LOCATION (cloned_parm) = DECL_SOURCE_LOCATION (parm);
+  TREE_LOCUS (cloned_parm) = TREE_LOCUS (parm);
 }
 
 /* FN is a function that has a complete body.  Clone the body as
@@ -157,7 +182,7 @@ maybe_clone_body (tree fn)
       splay_tree decl_map;
 
       /* Update CLONE's source position information to match FN's.  */
-      DECL_SOURCE_LOCATION (clone) = DECL_SOURCE_LOCATION (fn);
+      TREE_LOCUS (clone) = TREE_LOCUS (fn);
       DECL_INLINE (clone) = DECL_INLINE (fn);
       DECL_DECLARED_INLINE_P (clone) = DECL_DECLARED_INLINE_P (fn);
       DECL_COMDAT (clone) = DECL_COMDAT (fn);
@@ -267,27 +292,4 @@ maybe_clone_body (tree fn)
 
   /* We don't need to process the original function any further.  */
   return 1;
-}
-
-/* Dump FUNCTION_DECL FN as tree dump PHASE.  */
-
-static void
-dump_function (enum tree_dump_index phase, tree fn)
-{
-  FILE *stream;
-  int flags;
-
-  stream = dump_begin (phase, &flags);
-  if (stream)
-    {
-      fprintf (stream, "\n;; Function %s",
-	       decl_as_string (fn, TFF_DECL_SPECIFIERS));
-      fprintf (stream, " (%s)\n",
-	       decl_as_string (DECL_ASSEMBLER_NAME (fn), 0));
-      fprintf (stream, ";; enabled by -%s\n", dump_flag_name (phase));
-      fprintf (stream, "\n");
-      
-      dump_node (fn, TDF_SLIM | flags, stream);
-      dump_end (phase, stream);
-    }
 }

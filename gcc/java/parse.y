@@ -1588,7 +1588,7 @@ switch_statement:
 switch_expression:
 	SWITCH_TK OP_TK expression CP_TK
 		{
-		  $$ = build (SWITCH_EXPR, NULL_TREE, $3, NULL_TREE);
+		  $$ = build (SWITCH_EXPR, NULL_TREE, $3, NULL_TREE, NULL_TREE);
 		  EXPR_WFL_LINECOL ($$) = $2.location;
 		}
 |	SWITCH_TK error
@@ -1914,7 +1914,7 @@ catch_clause_parameter:
 		  declare_local_variables (0, TREE_VALUE ($3),
 					   build_tree_list (TREE_PURPOSE ($3),
 							    init));
-		  $$ = build1 (CATCH_EXPR, NULL_TREE, ccpb);
+		  $$ = build1 (JAVA_CATCH_EXPR, NULL_TREE, ccpb);
 		  EXPR_WFL_LINECOL ($$) = $1.location;
 		}
 |	CATCH_TK error
@@ -3139,7 +3139,7 @@ find_expr_with_wfl (tree node)
 static void
 missing_return_error (tree method)
 {
-  EXPR_WFL_SET_LINECOL (wfl_operator, DECL_SOURCE_LINE_LAST (method), -2);
+  EXPR_WFL_SET_LINECOL (wfl_operator, TREE_SOURCE_LINE_LAST (method), -2);
   parse_error_context (wfl_operator, "Missing return statement");
 }
 
@@ -3211,7 +3211,7 @@ classitf_redefinition_error (const char *context, tree id, tree decl, tree cl)
 {
   parse_error_context (cl, "%s `%s' already defined in %s:%d",
 		       context, IDENTIFIER_POINTER (id),
-		       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+		       TREE_FILENAME (decl), TREE_LINENO (decl));
   /* Here we should point out where its redefined. It's a unicode. FIXME */
 }
 
@@ -3712,12 +3712,15 @@ maybe_create_class_interface_decl (tree decl, tree raw_name,
     decl = push_class (make_class (), qualified_name);
 
   /* Take care of the file and line business */
-  DECL_SOURCE_FILE (decl) = EXPR_WFL_FILENAME (cl);
-  /* If we're emiting xrefs, store the line/col number information */
   if (flag_emit_xref)
-    DECL_SOURCE_LINE (decl) = EXPR_WFL_LINECOL (cl);
+    annotate_with_file_line (decl,
+			     EXPR_WFL_FILENAME (cl),
+			     EXPR_WFL_LINECOL (cl));
   else
-    DECL_SOURCE_LINE (decl) = EXPR_WFL_LINENO (cl);
+    annotate_with_file_line (decl,
+			     EXPR_WFL_FILENAME (cl),
+			     EXPR_WFL_LINENO (cl));
+
   CLASS_FROM_SOURCE_P (TREE_TYPE (decl)) = 1;
   CLASS_PARSED_P (TREE_TYPE (decl)) = 1;
   CLASS_FROM_CURRENTLY_COMPILED_P (TREE_TYPE (decl)) =
@@ -4198,7 +4201,7 @@ duplicate_declaration_error_p (tree new_field_name, tree new_type, tree cl)
 	(cl , "Duplicate variable declaration: `%s %s' was `%s %s' (%s:%d)",
 	 t1, IDENTIFIER_POINTER (new_field_name),
 	 t2, IDENTIFIER_POINTER (DECL_NAME (decl)),
-	 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	 TREE_FILENAME (decl), TREE_LINENO (decl));
       free (t1);
       free (t2);
       return 1;
@@ -4678,7 +4681,9 @@ method_header (int flags, tree type, tree mdecl, tree throws)
   /* If doing xref, store column and line number information instead
      of the line number only. */
   if (flag_emit_xref)
-    DECL_SOURCE_LINE (meth) = EXPR_WFL_LINECOL (id);
+    annotate_with_file_line (meth,
+			     EXPR_WFL_FILENAME (id),
+			     EXPR_WFL_LINECOL (id));
 
   return meth;
 }
@@ -4746,7 +4751,7 @@ finish_method_declaration (tree method_body)
   /* Merge last line of the function with first line, directly in the
      function decl. It will be used to emit correct debug info. */
   if (!flag_emit_xref)
-    DECL_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
+    TREE_SOURCE_LINE_MERGE (current_function_decl, ctxp->last_ccb_indent1);
 
   /* Since function's argument's list are shared, reset the
      ARG_FINAL_P parameter that might have been set on some of this
@@ -6587,8 +6592,8 @@ lookup_cl (tree decl)
       cl_v = build_expr_wfl (NULL_TREE, NULL, 0, 0);
     }
 
-  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (DECL_SOURCE_FILE (decl));
-  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE_FIRST (decl), -1);
+  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (TREE_FILENAME (decl));
+  EXPR_WFL_SET_LINECOL (cl_v, TREE_SOURCE_LINE_FIRST (decl), -1);
 
   line = java_get_line_col (EXPR_WFL_FILENAME (cl_v),
 			    EXPR_WFL_LINENO (cl_v), EXPR_WFL_COLNO (cl_v));
@@ -7164,7 +7169,7 @@ declare_local_variables (int modifier, tree type, tree vlist)
       if ((other = lookup_name_in_blocks (name)))
 	{
 	  variable_redefinition_error (wfl, name, TREE_TYPE (other),
-				       DECL_SOURCE_LINE (other));
+				       TREE_LINENO (other));
 	  continue;
 	}
 
@@ -7184,7 +7189,9 @@ declare_local_variables (int modifier, tree type, tree vlist)
       /* If doing xreferencing, replace the line number with the WFL
          compound value */
       if (flag_emit_xref)
-	DECL_SOURCE_LINE (decl) = EXPR_WFL_LINECOL (wfl);
+	annotate_with_file_line (decl,
+			         TREE_FILENAME (decl),
+			         EXPR_WFL_LINECOL (wfl));
 
       /* Don't try to use an INIT statement when an error was found */
       if (init && java_error_count)
@@ -7292,8 +7299,8 @@ create_artificial_method (tree class, int flags, tree type,
 static void
 start_artificial_method_body (tree mdecl)
 {
-  DECL_SOURCE_LINE (mdecl) = 1;
-  DECL_SOURCE_LINE_MERGE (mdecl, 1);
+  annotate_with_file_line (mdecl, TREE_FILENAME (mdecl), 1);
+  TREE_SOURCE_LINE_MERGE (mdecl, 1);
   source_start_java_method (mdecl);
   enter_block ();
 }
@@ -7365,10 +7372,12 @@ source_end_java_method (void)
   /* Generate rtl for function exit.  */
   if (! flag_emit_class_files && ! flag_emit_xref)
     {
-      lineno = DECL_SOURCE_LINE_LAST (fndecl);
+      lineno = TREE_SOURCE_LINE_LAST (fndecl);
       expand_function_end (input_filename, lineno, 0);
 
-      DECL_SOURCE_LINE (fndecl) = DECL_SOURCE_LINE_FIRST (fndecl);
+      annotate_with_file_line (fndecl,
+			       TREE_FILENAME (fndecl),
+			       TREE_SOURCE_LINE_FIRST (fndecl));
 
       /* Run the optimizers and output assembler code for this function. */
       rest_of_compilation (fndecl);
@@ -7874,7 +7883,7 @@ start_complete_expand_method (tree mdecl)
       TREE_CHAIN (tem) = next;
     }
   pushdecl_force_head (DECL_ARGUMENTS (mdecl));
-  lineno = DECL_SOURCE_LINE_FIRST (mdecl);
+  lineno = TREE_SOURCE_LINE_FIRST (mdecl);
   build_result_decl (mdecl);
 }
 
@@ -8888,65 +8897,6 @@ java_expand_classes (void)
 	}
     }
 
-  /* Expanding the constructors of anonymous classes generates access
-     methods.  Scan all the methods looking for null DECL_RESULTs --
-     this will be the case if a method hasn't been expanded.  */
-  for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
-    {
-      tree current;
-      ctxp = cur_ctxp;
-      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
-	{
-	  tree d;
-	  current_class = TREE_TYPE (current);
-	  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
-	    {
-	      if (DECL_RESULT (d) == NULL_TREE)
-		{
-		  restore_line_number_status (1);
-		  java_complete_expand_method (d);
-		  restore_line_number_status (0);
-		}
-	    }
-	}
-    }
-
-  /* ???  Instead of all this we could iterate around the list of
-     classes until there were no more un-expanded methods.  It would
-     take a little longer -- one pass over the whole list of methods
-     -- but it would be simpler.  Like this:  */
-#if 0
-    {
-      int something_changed;
-    
-      do
-	{
-	  something_changed = 0;
-	  for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
-	    {
-	      tree current;
-	      ctxp = cur_ctxp;
-	      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
-		{
-		  tree d;
-		  current_class = TREE_TYPE (current);
-		  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
-		    {
-		      if (DECL_RESULT (d) == NULL_TREE)
-			{
-			  something_changed = 1;
-			  restore_line_number_status (1);
-			  java_complete_expand_method (d);
-			  restore_line_number_status (0);
-			}
-		    }
-		}
-	    }
-	}
-      while (something_changed);
-    }
-#endif
-
   /* If we've found error at that stage, don't try to generate
      anything, unless we're emitting xrefs or checking the syntax only
      (but not using -fsyntax-only for the purpose of generating
@@ -9952,7 +9902,7 @@ not_accessible_p (tree reference, tree member, tree where, int from_super)
 static void
 check_deprecation (tree wfl, tree decl)
 {
-  const char *file = DECL_SOURCE_FILE (decl);
+  const char *file = TREE_FILENAME (decl);
   /* Complain if the field is deprecated and the file it was defined
      in isn't compiled at the same time the file which contains its
      use is */
@@ -11098,6 +11048,8 @@ qualify_ambiguous_name (tree id)
     saved_current_class;
   int again, super_found = 0, this_found = 0, new_array_found = 0;
   int code;
+
+  decl = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* We first qualify the first element, then derive qualification of
      others based on the first one. If the first element is qualified
@@ -15260,8 +15212,8 @@ encapsulate_with_try_catch (int location, tree type, tree try_stmts,
   /* Add the catch statements */
   add_stmt_to_block (catch_block, NULL_TREE, catch_stmts);
 
-  /* Now we can build a CATCH_EXPR */
-  catch_block = build1 (CATCH_EXPR, NULL_TREE, catch_block);
+  /* Now we can build a JAVA_CATCH_EXPR */
+  catch_block = build1 (JAVA_CATCH_EXPR, NULL_TREE, catch_block);
 
   return build_try_statement (location, try_block, catch_block);
 }
@@ -15302,7 +15254,7 @@ patch_try_statement (tree node)
       int unreachable;
 
       /* At this point, the structure of the catch clause is
-	   CATCH_EXPR		(catch node)
+	   JAVA_CATCH_EXPR		(catch node)
 	     BLOCK	        (with the decl of the parameter)
                COMPOUND_EXPR
                  MODIFY_EXPR   (assignment of the catch parameter)

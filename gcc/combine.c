@@ -3710,6 +3710,9 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	    {
 	      enum rtx_code reversed;
 
+	      /* [GIMPLE] Avoid uninitialized use warning.  */ 
+	      reversed = UNKNOWN;
+
 	      /* Restarting if we generate a store-flag expression will cause
 		 us to loop.  Just drop through in this case.  */
 
@@ -6512,6 +6515,8 @@ make_compound_operation (x, in_code)
   rtx tem;
   const char *fmt;
 
+  i = 0;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
   /* Select the code to be used in recursive calls.  Once we are inside an
      address, we stay there.  If we have a comparison, set to COMPARE,
      but once inside, go back to our default of SET.  */
@@ -8547,27 +8552,11 @@ nonzero_bits (x, mode)
       break;
 
     case FFS:
+    case CLZ:
+    case CTZ:
     case POPCOUNT:
       /* This is at most the number of bits in the mode.  */
-      nonzero = ((HOST_WIDE_INT) 2 << (floor_log2 (mode_width))) - 1;
-      break;
-
-    case CLZ:
-      /* If CLZ has a known value at zero, then the nonzero bits are
-	 that value, plus the number of bits in the mode minus one.  */
-      if (CLZ_DEFINED_VALUE_AT_ZERO (mode, nonzero))
-	nonzero |= ((HOST_WIDE_INT) 1 << (floor_log2 (mode_width))) - 1;
-      else
-	nonzero = -1;
-      break;
-
-    case CTZ:
-      /* If CTZ has a known value at zero, then the nonzero bits are
-	 that value, plus the number of bits in the mode minus one.  */
-      if (CTZ_DEFINED_VALUE_AT_ZERO (mode, nonzero))
-	nonzero |= ((HOST_WIDE_INT) 1 << (floor_log2 (mode_width))) - 1;
-      else
-	nonzero = -1;
+      nonzero = ((HOST_WIDE_INT) 1 << (floor_log2 (mode_width) + 1)) - 1;
       break;
 
     case PARITY:

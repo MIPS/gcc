@@ -612,11 +612,14 @@ typedef struct jdeplist_s jdeplist;
 
 /* Merge an other line to the source line number of a decl. Used to
    remember function's end. */
-#define DECL_SOURCE_LINE_MERGE(DECL,NO) DECL_SOURCE_LINE(DECL) |= (NO << 16)
+#define TREE_SOURCE_LINE_MERGE(DECL,NO) \
+  annotate_with_file_line (DECL, \
+			   TREE_FILENAME (DECL), \
+			   TREE_LINENO (DECL) | (NO << 16));
 
 /* Retrieve those two info separately. */
-#define DECL_SOURCE_LINE_FIRST(DECL)    (DECL_SOURCE_LINE(DECL) & 0x0000ffff)
-#define DECL_SOURCE_LINE_LAST(DECL)     (DECL_SOURCE_LINE(DECL) >> 16)
+#define TREE_SOURCE_LINE_FIRST(DECL)    (TREE_LINENO (DECL) & 0x0000ffff)
+#define TREE_SOURCE_LINE_LAST(DECL)     (TREE_LINENO (DECL) >> 16)
 
 /* Retrieve line/column from a WFL. */
 #define EXPR_WFL_GET_LINECOL(V,LINE,COL)	\

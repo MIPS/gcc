@@ -7651,12 +7651,12 @@ alpha_start_function (file, fnname, decl)
     {
 #ifdef ASM_OUTPUT_SOURCE_FILENAME
       ASM_OUTPUT_SOURCE_FILENAME (file,
-				  DECL_SOURCE_FILE (current_function_decl));
+				  TREE_FILENAME (current_function_decl));
 #endif
 #ifdef ASM_OUTPUT_SOURCE_LINE
       if (debug_info_level != DINFO_LEVEL_TERSE)
         ASM_OUTPUT_SOURCE_LINE (file,
-				DECL_SOURCE_LINE (current_function_decl));
+				TREE_LINENO (current_function_decl));
 #endif
     }
 

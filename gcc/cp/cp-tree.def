@@ -284,6 +284,15 @@ DEFTREECODE (USER_CONV, "user_conv", 'e', 2)
 DEFTREECODE (AMBIG_CONV, "ambig_conv", 'e', 1)
 DEFTREECODE (RVALUE_CONV, "rvalue_conv", 'e', 1)
 
+/* Template instantiation level node.
+
+   Operand 1 contains the original DECL node and can be accessed via TINST_DECL.
+
+   A stack of template instantiation nodes is kept through the TREE_CHAIN
+   fields of these nodes.  */
+
+DEFTREECODE (TINST_LEVEL, "TINST_LEVEL", 'e', 1)
+
 /*
 Local variables:
 mode:c

@@ -182,6 +182,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __lshrdi3	__NDW(lshr,3)
 #define __ashldi3	__NDW(ashl,3)
 #define __ashrdi3	__NDW(ashr,3)
+#define __ffsdi2	__NDW(ffs,2)
 #define __cmpdi2	__NDW(cmp,2)
 #define __ucmpdi2	__NDW(ucmp,2)
 #define __udivmoddi4	__NDW(udivmod,4)
@@ -201,9 +202,6 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __fixunstfSI	__NW(fixunstf,)
 #define __fixunsdfSI	__NW(fixunsdf,)
 #define __fixunssfSI	__NW(fixunssf,)
-
-#define __ffsSI2	__NW(ffs,2)
-#define __ffsDI2	__NDW(ffs,2)
 
 extern DWtype __muldi3 (DWtype, DWtype);
 extern DWtype __divdi3 (DWtype, DWtype);
@@ -225,19 +223,31 @@ extern DWtype __negdi2 (DWtype);
 extern DWtype __lshrdi3 (DWtype, word_type);
 extern DWtype __ashldi3 (DWtype, word_type);
 extern DWtype __ashrdi3 (DWtype, word_type);
+extern Wtype __ffsdi2 (DWtype);
 
 /* ??? Ought to get these named properly for DSPs.  */
-#if BITS_PER_UNIT != 8 || MIN_UNITS_PER_WORD < 4
-# undef L_clzsi2
-# undef L_ctzsi2
-# undef L_popcountsi2
-# undef L_paritysi2
-# if LONG_LONG_TYPE_SIZE <= 32
-#  undef L_clzdi2
-#  undef L_ctzdi2
-#  undef L_popcountdi2
-#  undef L_paritydi2
-# endif
+#if BITS_PER_UNIT == 8 && MIN_UNITS_PER_WORD >= 4
+extern Wtype __clzsi2 (USItype);
+extern Wtype __ctzsi2 (USItype);
+extern Wtype __popcountsi2 (USItype x);
+extern Wtype __paritysi2 (USItype x);
+#else
+#undef L_clzsi2
+#undef L_ctzsi2
+#undef L_popcountsi2
+#undef L_paritysi2
+#endif
+
+#if BITS_PER_UNIT == 8 && MIN_UNITS_PER_WORD >= 4 && LONG_LONG_TYPE_SIZE > 32
+extern Wtype __clzdi2 (UDItype);
+extern Wtype __ctzdi2 (UDItype);
+extern Wtype __popcountdi2 (UDItype x);
+extern Wtype __paritydi2 (UDItype x);
+#else
+#undef L_clzdi2
+#undef L_ctzdi2
+#undef L_popcountdi2
+#undef L_paritydi2
 #endif
 
 /* __udiv_w_sdiv is static inline when building other libgcc2 portions.  */

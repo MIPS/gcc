@@ -342,14 +342,7 @@ main (argc, argv)
   printf ("#endif\n");
 
   if (have_cc0_flag)
-    {
-      printf ("#define HAVE_cc0 1\n");
-      printf ("#define CC0_P(X) ((X) == cc0_rtx)\n");
-    }
-  else
-    {
-      printf ("#define CC0_P(X) 0\n");
-    }
+    printf ("#define HAVE_cc0 1\n");
 
   if (have_cmove_flag)
     printf ("#define HAVE_conditional_move 1\n");

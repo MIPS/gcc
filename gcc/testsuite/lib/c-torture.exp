@@ -34,13 +34,13 @@ if ![info exists TORTURE_OPTIONS] {
     # choose to disable inlining functions by default, even when optimizing.
     set TORTURE_OPTIONS [list \
 	{ -O0 } \
-	{ -O1 } \
-	{ -O2 } \
-	{ -O3 -fomit-frame-pointer } \
-	{ -O3 -fomit-frame-pointer -funroll-loops } \
-	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions } \
-	{ -O3 -g } \
-	{ -Os } ]
+	{ -O1 -ftree-dce } \
+	{ -O2 -ftree-dce } \
+	{ -O3 -fomit-frame-pointer -ftree-dce } \
+	{ -O3 -fomit-frame-pointer -funroll-loops -ftree-dce } \
+	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions -ftree-dce } \
+	{ -O3 -g -ftree-dce } \
+	{ -Os -ftree-dce } ]
 }
 
 

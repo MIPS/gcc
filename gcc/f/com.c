@@ -13164,7 +13164,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	return 0;
     }
   else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && DECL_SOURCE_LINE (olddecl) == 0)
+	   && TREE_LINENO (olddecl) == 0)
     {
       /* A function declaration for a predeclared function
 	 that isn't actually built in.  */
@@ -13237,8 +13237,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       if ((DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
 	  || (DECL_CONTEXT (newdecl) != 0 && DECL_CONTEXT (olddecl) == 0))
 	{
-	  DECL_SOURCE_LINE (newdecl) = DECL_SOURCE_LINE (olddecl);
-	  DECL_SOURCE_FILE (newdecl) = DECL_SOURCE_FILE (olddecl);
+	  TREE_LOCUS (newdecl) = TREE_LOCUS (olddecl);
 
 	  if (DECL_CONTEXT (olddecl) == 0
 	      && TREE_CODE (newdecl) != FUNCTION_DECL)
@@ -13344,6 +13343,7 @@ duplicate_decls (tree newdecl, tree olddecl)
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
+    TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
     DECL_UID (olddecl) = olddecl_uid;
   }
 
@@ -14472,7 +14472,7 @@ pushdecl (tree x)
 
       if (TREE_CODE (x) == TYPE_DECL)
 	{
-	  if (DECL_SOURCE_LINE (x) == 0)
+	  if (TREE_LINENO (x) == 0)
 	    {
 	      if (TYPE_NAME (TREE_TYPE (x)) == 0)
 		TYPE_NAME (TREE_TYPE (x)) = x;

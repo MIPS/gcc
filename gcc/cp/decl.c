@@ -1901,7 +1901,7 @@ print_binding_level (struct cp_binding_level* lvl)
 	    continue;
 	  if (no_print_builtins
 	      && (TREE_CODE (t) == TYPE_DECL)
-	      && (!strcmp (DECL_SOURCE_FILE (t),"<built-in>")))
+	      && (!strcmp (TREE_FILENAME (t),"<built-in>")))
 	    continue;
 
 	  /* Function decls tend to have longer names.  */
@@ -3350,9 +3350,8 @@ duplicate_decls (tree newdecl, tree olddecl)
       if (DECL_INITIAL (DECL_TEMPLATE_RESULT (olddecl)) == NULL_TREE
 	  && DECL_INITIAL (DECL_TEMPLATE_RESULT (newdecl)) != NULL_TREE)
 	{
-	  DECL_SOURCE_LOCATION (olddecl) 
-	    = DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (olddecl))
-	    = DECL_SOURCE_LOCATION (newdecl);
+	  TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
+	  TREE_LOCUS (DECL_TEMPLATE_RESULT (olddecl)) = TREE_LOCUS (newdecl);
 	}
 
       return 1;
@@ -3390,7 +3389,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 							 TYPE_RAISES_EXCEPTIONS (oldtype));
 
 	  if ((pedantic || ! DECL_IN_SYSTEM_HEADER (olddecl))
-	      && DECL_SOURCE_LINE (olddecl) != 0
+	      && TREE_LINENO (olddecl) != 0
 	      && flag_exceptions
 	      && !comp_except_specs (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (newdecl)),
 	                             TYPE_RAISES_EXCEPTIONS (TREE_TYPE (olddecl)), 1))
@@ -3427,7 +3426,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  && DECL_INITIAL (olddecl) != NULL_TREE)
 	{
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
-	  DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
+	  TREE_LOCUS (newdecl) = TREE_LOCUS (olddecl);
 	  if (CAN_HAVE_FULL_LANG_DECL_P (newdecl)
 	      && DECL_LANG_SPECIFIC (newdecl)
 	      && DECL_LANG_SPECIFIC (olddecl))
@@ -3619,6 +3618,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       memcpy ((char *) olddecl + sizeof (struct tree_common),
 	      (char *) newdecl + sizeof (struct tree_common),
 	      function_size - sizeof (struct tree_common));
+      TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
 
       if (DECL_TEMPLATE_INSTANTIATION (newdecl))
 	{
@@ -3658,6 +3658,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      (char *) newdecl + sizeof (struct tree_common),
 	      sizeof (struct tree_decl) - sizeof (struct tree_common)
 	      + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
+      TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
     }
 
   DECL_UID (olddecl) = olddecl_uid;
@@ -3889,7 +3890,7 @@ pushdecl (tree x)
       if (TREE_CODE (x) == TYPE_DECL)
 	{
 	  tree type = TREE_TYPE (x);
-	  if (DECL_SOURCE_LINE (x) == 0)
+	  if (TREE_LINENO (x) == 0)
             {
 	      if (TYPE_NAME (type) == 0)
 	        TYPE_NAME (type) = x;
@@ -4362,6 +4363,7 @@ push_using_decl (tree scope, tree name)
   if (decl)
     return namespace_bindings_p () ? decl : NULL_TREE;
   decl = build_lang_decl (USING_DECL, name, void_type_node);
+  DECL_EXTERNAL (decl) = 1;
   DECL_INITIAL (decl) = scope;
   TREE_CHAIN (decl) = current_binding_level->usings;
   current_binding_level->usings = decl;
@@ -4656,8 +4658,7 @@ make_label_decl (tree id, int local_p)
 
   /* Say where one reference is to the label, for the sake of the
      error if it is not defined.  */
-  DECL_SOURCE_LINE (decl) = lineno;
-  DECL_SOURCE_FILE (decl) = input_filename;
+  annotate_with_file_line (decl, input_filename, lineno);
 
   /* Record the fact that this identifier is bound to this label.  */
   SET_IDENTIFIER_LABEL_VALUE (id, decl);
@@ -4974,8 +4975,7 @@ define_label (const char* filename, int line, tree name)
       /* Mark label as having been defined.  */
       DECL_INITIAL (decl) = error_mark_node;
       /* Say where in the source.  */
-      DECL_SOURCE_FILE (decl) = filename;
-      DECL_SOURCE_LINE (decl) = line;
+      annotate_with_file_line (decl, filename, line);
       if (ent)
 	{
 	  ent->names_in_scope = current_binding_level->names;
@@ -5964,6 +5964,9 @@ lookup_name_real (tree name,
       if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
 	val = OVL_FUNCTION (val);
     }
+
+  if (val && TREE_CODE (val) == ALIAS_DECL)
+    val = unshare_expr (DECL_INITIAL (val));
 
   return val;
 }
@@ -13940,6 +13943,8 @@ finish_function (int flags)
   tree fntype, ctype = NULL_TREE;
   int inclass_inline = (flags & 2) != 0;
   int nested;
+  int saved_lineno;
+  const char *saved_filename;
 
   /* When we get some parse errors, we can end up without a
      current_function_decl, so cope.  */
@@ -14079,13 +14084,27 @@ finish_function (int flags)
 	 inline function, as we might never be compiled separately.  */
       && (DECL_INLINE (fndecl) || processing_template_decl))
     warning ("no return statement in function returning non-void");
-    
+
+  /* Genericizing can change the current line number and filename.
+     We need to save/restore so that we can emit the proper line
+     note for the end of the function later.  */
+  saved_lineno = lineno;
+  saved_filename = input_filename;
+
+  /* Genericize before inlining.  */
+  if (!flag_disable_simple && !processing_template_decl)
+    c_genericize (fndecl);
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
      CFUN.  Do so explicitly.  */
   free_after_compilation (cfun);
   cfun = NULL;
+
+  /* Restore file and line information.  */
+  lineno = saved_lineno;
+  input_filename = saved_filename;
 
   /* If this is an in-class inline definition, we may have to pop the
      bindings for the template parameters that we added in

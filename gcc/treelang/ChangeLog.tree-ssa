@@ -1,0 +1,8 @@
+2003-01-15  Jeff Law <law@redhat.com>
+
+	* treetree.c (tree_code_create_function_prototype): Use
+	annotate_with_file_line to annotate tree nodes with file/line
+	information.  Use TREE_FILENAME and TREE_LINENO to extract file/line
+	information from tree nodes.
+
+

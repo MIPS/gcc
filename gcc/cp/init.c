@@ -737,7 +737,7 @@ build_vtbl_address (binfo)
   TREE_USED (vtbl) = 1;
 
   /* Now compute the address to use when initializing the vptr.  */
-  vtbl = BINFO_VTABLE (binfo_for);
+  vtbl = unshare_expr (BINFO_VTABLE (binfo_for));
   if (TREE_CODE (vtbl) == VAR_DECL)
     {
       vtbl = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (vtbl)), vtbl);
@@ -2681,8 +2681,7 @@ create_temporary_var (type)
   decl = build_decl (VAR_DECL, NULL_TREE, type);
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_SOURCE_FILE (decl) = input_filename;
-  DECL_SOURCE_LINE (decl) = lineno;
+  annotate_with_file_line (decl, input_filename, lineno);
   DECL_IGNORED_P (decl) = 1;
   DECL_CONTEXT (decl) = current_function_decl;
 

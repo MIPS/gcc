@@ -237,6 +237,10 @@ struct lang_hooks
      Fourth argument is actually an enum expand_modifier.  */
   rtx (*expand_expr) PARAMS ((tree, rtx, enum machine_mode, int));
 
+  /* Called by expand_expr to generate the definition of a decl.  Returns
+     1 if handled, 0 otherwise.  */
+  int (*expand_decl) PARAMS ((tree));
+
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.
 
@@ -358,6 +362,11 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
+
+  /* Perform language-specific simplification on the argument.  Returns
+     1 if simplification is complete, or 0 to use default simplification
+     semantics.  */
+  int (*simplify_expr) PARAMS ((tree *, tree *, tree *));
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

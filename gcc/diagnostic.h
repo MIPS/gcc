@@ -328,4 +328,12 @@ extern void verbatim			PARAMS ((const char *, ...))
 extern char *file_name_as_prefix	PARAMS ((const char *));
 extern void inform                      PARAMS ((const char *, ...));
 
+extern void debug_output_buffer		PARAMS ((output_buffer *));
+
+/* In tree-pretty-print.c  */
+extern int dump_generic_node		PARAMS ((output_buffer *, tree, int,
+      						 int));
+extern void print_generic_stmt		PARAMS ((FILE *, tree, int));
+extern void print_generic_expr		PARAMS ((FILE *, tree, int));
+
 #endif /* ! GCC_DIAGNOSTIC_H */

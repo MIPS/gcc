@@ -956,7 +956,6 @@ else
 		echo "	$srcdir/config/$f"
 	done
 fi
-echo "Using ${out_host_hook_obj} for host machine hooks."
 
 if test "$host_xm_file" != "$build_xm_file"; then
 	count=a
@@ -2597,7 +2596,32 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
+AC_ARG_WITH(libbanshee,
+[  --with-libbanshee	  enable libbanshee],
+libbanshee="$with_libbanshee",
+libbanshee=no)
 
+if test x"$libbanshee" = xyes; then
+	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
+	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
+	ANDER="tree-alias-ander.o"
+	if test x$rebuild_banshee = xyes; then
+		BANSHEEREBUILD="s=\`\${PWD}\`; export s && cd ../libbanshee && echo \`\${PWD}\` && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
+	else
+		BANSHEEREBUILD=""
+	fi
+	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
+else
+	BANSHEELIB=""
+	BANSHEEINC=""
+	BANSHEEREBUILD=""
+	ANDER=""
+fi
+
+AC_SUBST(ANDER)
+AC_SUBST(BANSHEEINC)
+AC_SUBST(BANSHEELIB)
+AC_SUBST(BANSHEEREBUILD)
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
 
@@ -2859,7 +2883,6 @@ AC_SUBST(host_extra_gcc_objs)
 AC_SUBST(host_xm_file_list)
 AC_SUBST(host_xm_file)
 AC_SUBST(host_xm_defines)
-AC_SUBST(out_host_hook_obj)
 AC_SUBST(install)
 AC_SUBST(lang_options_files)
 AC_SUBST(lang_specs_files)

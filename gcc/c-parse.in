@@ -436,8 +436,7 @@ fndef:
 	  old_style_parm_decls
 		{ store_parm_decls (); }
 	  save_filename save_lineno compstmt_or_error
-		{ DECL_SOURCE_FILE (current_function_decl) = $7;
-		  DECL_SOURCE_LINE (current_function_decl) = $8;
+		{ annotate_with_file_line (current_function_decl, $7, $8);
 		  finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs declarator error
@@ -450,8 +449,7 @@ fndef:
 	  old_style_parm_decls
 		{ store_parm_decls (); }
 	  save_filename save_lineno compstmt_or_error
-		{ DECL_SOURCE_FILE (current_function_decl) = $7;
-		  DECL_SOURCE_LINE (current_function_decl) = $8;
+		{ annotate_with_file_line (current_function_decl, $7, $8);
 		  finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_declarator error
@@ -464,8 +462,7 @@ fndef:
 	  old_style_parm_decls
 		{ store_parm_decls (); }
 	  save_filename save_lineno compstmt_or_error
-		{ DECL_SOURCE_FILE (current_function_decl) = $6;
-		  DECL_SOURCE_LINE (current_function_decl) = $7;
+		{ annotate_with_file_line (current_function_decl, $6, $7);
 		  finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| setspecs notype_declarator error
@@ -1602,8 +1599,7 @@ nested_function:
    which called YYERROR1 again, and so on.  */
 	  save_filename save_lineno compstmt
 		{ tree decl = current_function_decl;
-		  DECL_SOURCE_FILE (decl) = $5;
-		  DECL_SOURCE_LINE (decl) = $6;
+		  annotate_with_file_line (decl, $5, $6);
 		  finish_function (1, 1);
 		  pop_function_context ();
 		  add_decl_stmt (decl); }
@@ -1633,8 +1629,7 @@ notype_nested_function:
    which called YYERROR1 again, and so on.  */
 	  save_filename save_lineno compstmt
 		{ tree decl = current_function_decl;
-		  DECL_SOURCE_FILE (decl) = $5;
-		  DECL_SOURCE_LINE (decl) = $6;
+		  annotate_with_file_line (decl, $5, $6);
 		  finish_function (1, 1);
 		  pop_function_context ();
 		  add_decl_stmt (decl); }
@@ -2134,6 +2129,7 @@ label_decl:
 		    {
 		      tree label = shadow_label (TREE_VALUE (link));
 		      C_DECLARED_LABEL_FLAG (label) = 1;
+		      pushdecl (label);
 		      add_decl_stmt (label);
 		    }
 		}

@@ -1036,8 +1036,8 @@ pushdecl (tree x)
 
       if (t != 0)
 	{
-	  file = DECL_SOURCE_FILE (t);
-	  line = DECL_SOURCE_LINE (t);
+	  file = TREE_FILENAME (t);
+	  line = TREE_LINENO (t);
 	}
 
       /* If we're naming a hitherto-unnamed type, set its TYPE_NAME
@@ -1088,7 +1088,7 @@ pushdecl (tree x)
 	  /* Maybe warn if shadowing something else.  */
 	  else if (warn_shadow && !DECL_EXTERNAL (x)
 		   /* No shadow warnings for internally generated vars.  */
-		   && DECL_SOURCE_LINE (x) != 0
+		   && TREE_LINENO (x) != 0
 		   /* No shadow warnings for vars made for inlining.  */
 		   && ! DECL_FROM_INLINE (x))
 	    {

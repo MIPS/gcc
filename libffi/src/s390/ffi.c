@@ -70,13 +70,9 @@
  
 static void ffi_prep_args (unsigned char *, extended_cif *);
 static int ffi_check_float_struct (ffi_type *);
-void
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 2)
-__attribute__ ((visibility ("hidden")))
-#endif
-ffi_closure_helper_SYSV (ffi_closure *, unsigned long *, 
-			 unsigned long long *, unsigned long *);
-
+void ffi_closure_helper_SYSV (ffi_closure *, unsigned long *, 
+			      unsigned long long *, unsigned long *);
+ 
 /*====================== End of Prototypes ===========================*/
  
 /*====================================================================*/

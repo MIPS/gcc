@@ -40,6 +40,7 @@
 #include "output.h"
 #include "timevar.h"
 #include "debug.h"
+#include "diagnostic.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -1007,14 +1008,14 @@ finish_compound_stmt (has_no_scope, compound_stmt)
   return r;
 }
 
-/* Finish an asm-statement, whose components are a CV_QUALIFIER, a
-   STRING, some OUTPUT_OPERANDS, some INPUT_OPERANDS, and some
-   CLOBBERS.  */
+/* Finish an asm-statement, whose components are a STRING, some
+   OUTPUT_OPERANDS, some INPUT_OPERANDS, and some CLOBBERS.  Also note
+   whether the asm-statement should be considered volatile.  */
 
 tree
-finish_asm_stmt (cv_qualifier, string, output_operands,
+finish_asm_stmt (volatile_p, string, output_operands,
 		 input_operands, clobbers)
-     tree cv_qualifier;
+     int volatile_p;
      tree string;
      tree output_operands;
      tree input_operands;
@@ -1022,14 +1023,6 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 {
   tree r;
   tree t;
-
-  if (cv_qualifier != NULL_TREE
-      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-    {
-      warning ("%s qualifier ignored on asm",
-		  IDENTIFIER_POINTER (cv_qualifier));
-      cv_qualifier = NULL_TREE;
-    }
 
   if (!processing_template_decl)
     {
@@ -1092,9 +1085,10 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 	}
     }
 
-  r = build_stmt (ASM_STMT, cv_qualifier, string,
+  r = build_stmt (ASM_STMT, string,
 		  output_operands, input_operands,
 		  clobbers);
+  ASM_VOLATILE_P (r) = volatile_p;
   return add_stmt (r);
 }
 
@@ -1809,8 +1803,7 @@ begin_class_definition (t)
     duplicate_tag_error (t);
 
   /* Update the location of the decl.  */
-  DECL_SOURCE_FILE (TYPE_NAME (t)) = input_filename;
-  DECL_SOURCE_LINE (TYPE_NAME (t)) = lineno;
+  annotate_with_file_line (TYPE_NAME (t), input_filename, lineno);
   
   if (TYPE_BEING_DEFINED (t))
     {
@@ -2173,7 +2166,7 @@ cp_expand_stmt (t)
 }
 
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
-   will equivalent CALL_EXPRs.  */
+   with equivalent CALL_EXPRs.  */
 
 static tree
 simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
@@ -2181,93 +2174,21 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
      int *walk_subtrees ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
-  tree aggr_init_expr;
-  tree call_expr;
-  tree fn;
-  tree args;
-  tree slot;
-  tree type;
-  enum style_t { ctor, arg, pcc } style;
-
-  aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
      needs simplification.  (And, furthermore, there are places we
      actively don't want to go.  For example, we don't want to wander
      into the default arguments for a FUNCTION_DECL that appears in a
      CALL_EXPR.)  */
-  if (TYPE_P (aggr_init_expr))
+  if (TYPE_P (*tp))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
   /* Only AGGR_INIT_EXPRs are interesting.  */
-  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+  else if (TREE_CODE (*tp) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
-  /* Form an appropriate CALL_EXPR.  */
-  fn = TREE_OPERAND (aggr_init_expr, 0);
-  args = TREE_OPERAND (aggr_init_expr, 1);
-  slot = TREE_OPERAND (aggr_init_expr, 2);
-  type = TREE_TYPE (aggr_init_expr);
-
-  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
-    style = ctor;
-#ifdef PCC_STATIC_STRUCT_RETURN
-  else if (1)
-    style = pcc;
-#endif
-  else if (TREE_ADDRESSABLE (type))
-    style = arg;
-  else
-    /* We shouldn't build an AGGR_INIT_EXPR if we don't need any special
-       handling.  See build_cplus_new.  */
-    abort ();
-
-  if (style == ctor || style == arg)
-    {
-      /* Pass the address of the slot.  If this is a constructor, we
-	 replace the first argument; otherwise, we tack on a new one.  */
-      if (style == ctor)
-	args = TREE_CHAIN (args);
-
-      cxx_mark_addressable (slot);
-      args = tree_cons (NULL_TREE, 
-			build1 (ADDR_EXPR, 
-				build_pointer_type (TREE_TYPE (slot)),
-				slot),
-			args);
-    }
-
-  call_expr = build (CALL_EXPR, 
-		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
-		     fn, args, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
-
-  if (style == arg)
-    /* Tell the backend that we've added our return slot to the argument
-       list.  */
-    CALL_EXPR_HAS_RETURN_SLOT_ADDR (call_expr) = 1;
-  else if (style == pcc)
-    {
-      /* If we're using the non-reentrant PCC calling convention, then we
-	 need to copy the returned value out of the static buffer into the
-	 SLOT.  */
-      int old_ac = flag_access_control;
-
-      flag_access_control = 0;
-      call_expr = build_aggr_init (slot, call_expr,
-				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
-      flag_access_control = old_ac;
-    }
-
-  /* We want to use the value of the initialized location as the
-     result.  */
-  call_expr = build (COMPOUND_EXPR, type,
-		     call_expr, slot);
-
-  /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
-  TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
-  *tp = call_expr;
+  simplify_aggr_init_expr (tp);
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -2332,9 +2253,10 @@ expand_body (fn)
     }
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				simplify_aggr_init_exprs_r,
-				NULL);
+  if (flag_disable_simple)
+    walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				  simplify_aggr_init_exprs_r,
+				  NULL);
 
   /* If this is a constructor or destructor body, we have to clone
      it.  */
@@ -2389,14 +2311,20 @@ expand_body (fn)
   if (DECL_EXTERNAL (fn))
     return;
 
+  if (errorcount || sorrycount)
+    {
+      TREE_ASM_WRITTEN (fn) = 1;
+      return;
+    }
+
   /* Save the current file name and line number.  When we expand the
      body of the function, we'll set LINENO and INPUT_FILENAME so that
      error-mesages come out in the right places.  */
   saved_lineno = lineno;
   saved_input_filename = input_filename;
   saved_function = current_function_decl;
-  lineno = DECL_SOURCE_LINE (fn);
-  input_filename = DECL_SOURCE_FILE (fn);
+  lineno = TREE_LINENO (fn);
+  input_filename = TREE_FILENAME (fn);
   current_function_decl = fn;
 
   timevar_push (TV_INTEGRATION);
@@ -2411,22 +2339,25 @@ expand_body (fn)
   current_function_is_thunk = DECL_THUNK_P (fn);
 
   /* Expand the body.  */
-  expand_stmt (DECL_SAVED_TREE (fn));
+  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
+    abort ();
+
+  expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
+
+  /* And restore the current source position.  */
+  lineno = saved_lineno;
+  input_filename = saved_input_filename;
 
   /* Statements should always be full-expressions at the outermost set
      of curly braces for a function.  */
   my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
-
-  /* The outermost statement for a function contains the line number
-     recorded when we finished processing the function.  */
-  lineno = STMT_LINENO (DECL_SAVED_TREE (fn));
 
   /* Generate code for the function.  */
   genrtl_finish_function (fn);
 
   /* If possible, obliterate the body of the function so that it can
      be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
+  if (dump_enabled_p (TDI_tu))
     /* Keep the body; we're going to dump it.  */
     ;
   else if (DECL_INLINE (fn) && flag_inline_trees)
@@ -2437,10 +2368,7 @@ expand_body (fn)
     /* We don't need the body; blow it away.  */
     DECL_SAVED_TREE (fn) = NULL_TREE;
 
-  /* And restore the current source position.  */
   current_function_decl = saved_function;
-  lineno = saved_lineno;
-  input_filename = saved_input_filename;
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
@@ -2484,7 +2412,7 @@ genrtl_start_function (fn)
   /* Tell everybody what function we're processing.  */
   current_function_decl = fn;
   /* Get the RTL machinery going for this function.  */
-  init_function_start (fn, DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn));
+  init_function_start (fn, TREE_FILENAME (fn), TREE_LINENO (fn));
   /* Let everybody know that we're expanding this function, not doing
      semantic analysis.  */
   expanding_p = 1;

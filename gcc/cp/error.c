@@ -1847,10 +1847,6 @@ dump_expr (t, flags)
       dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
-    case EXPR_WITH_FILE_LOCATION:
-      dump_expr (EXPR_WFL_NODE (t), flags);
-      break;
-
     case CONSTRUCTOR:
       if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
 	{
@@ -2179,13 +2175,13 @@ cp_file_of (t)
      tree t;
 {
   if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
-    return DECL_SOURCE_FILE (DECL_CONTEXT (t));
+    return TREE_FILENAME (DECL_CONTEXT (t));
   else if (TYPE_P (t))
-    return DECL_SOURCE_FILE (TYPE_MAIN_DECL (t));
+    return TREE_FILENAME (TYPE_MAIN_DECL (t));
   else if (TREE_CODE (t) == OVERLOAD)
-    return DECL_SOURCE_FILE (OVL_FUNCTION (t));
+    return TREE_FILENAME (OVL_FUNCTION (t));
   else
-    return DECL_SOURCE_FILE (t);
+    return TREE_FILENAME (t);
 }
 
 int
@@ -2194,17 +2190,17 @@ cp_line_of (t)
 {
   int line = 0;
   if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
-    line = DECL_SOURCE_LINE (DECL_CONTEXT (t));
+    line = TREE_LINENO (DECL_CONTEXT (t));
   if (TREE_CODE (t) == TYPE_DECL && DECL_ARTIFICIAL (t)
       && TYPE_MAIN_DECL (TREE_TYPE (t)))
     t = TREE_TYPE (t);
 
   if (TYPE_P (t))
-    line = DECL_SOURCE_LINE (TYPE_MAIN_DECL (t));
+    line = TREE_LINENO (TYPE_MAIN_DECL (t));
   else if (TREE_CODE (t) == OVERLOAD)
-    line = DECL_SOURCE_LINE (OVL_FUNCTION (t));
+    line = TREE_LINENO (OVL_FUNCTION (t));
   else
-    line = DECL_SOURCE_LINE (t);
+    line = TREE_LINENO (t);
 
   if (line == 0)
     return lineno;
@@ -2504,8 +2500,8 @@ print_instantiation_full_context (context)
                              decl_as_string (TINST_DECL (p),
                                              TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
 
-	  line = TINST_LINE (p);
-	  file = TINST_FILE (p);
+	  line = TREE_LINENO (p);
+	  file = TREE_FILENAME (p);
 	  p = TREE_CHAIN (p);
 	}
     }
@@ -2526,8 +2522,8 @@ print_instantiation_partial_context (context, t, file, line)
       output_verbatim
         (&context->buffer, "%s:%d:   instantiated from `%s'\n", file, line,
          decl_as_string (TINST_DECL (t), TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
-      line = TINST_LINE (t);
-      file = TINST_FILE (t);
+      line = TREE_LINENO (t);
+      file = TREE_FILENAME (t);
     }
   output_verbatim (&context->buffer, "%s:%d:   instantiated from here\n", file, line);
 }

@@ -620,6 +620,8 @@
 /* Define if your MIPS libgloss linker scripts consistently include STARTUP directives. */
 #undef HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES
 
+/* Define if BANSHEE is available */
+#undef HAVE_BANSHEE
 
 /* Bison unconditionally undefines `const' if neither `__STDC__' nor
    __cplusplus are defined.  That's a problem since we use `const' in

@@ -79,7 +79,6 @@ static enum tree_code compcode_to_comparison PARAMS ((int));
 static int truth_value_p	PARAMS ((enum tree_code));
 static int operand_equal_for_comparison_p PARAMS ((tree, tree, tree));
 static int twoval_comparison_p	PARAMS ((tree, tree *, tree *, int *));
-static tree eval_subst		PARAMS ((tree, tree, tree, tree, tree));
 static tree omit_one_operand	PARAMS ((tree, tree, tree));
 static tree pedantic_omit_one_operand PARAMS ((tree, tree, tree));
 static tree distribute_bit_expr PARAMS ((enum tree_code, tree, tree, tree));
@@ -1798,7 +1797,9 @@ operand_equal_p (arg0, arg1, only_const)
   /* If both types don't have the same signedness, then we can't consider
      them equal.  We must check this before the STRIP_NOPS calls
      because they may change the signedness of the arguments.  */
-  if (TREE_UNSIGNED (TREE_TYPE (arg0)) != TREE_UNSIGNED (TREE_TYPE (arg1)))
+  if (TREE_TYPE (arg0) == NULL_TREE
+      || TREE_TYPE (arg1) == NULL_TREE
+      || TREE_UNSIGNED (TREE_TYPE (arg0)) != TREE_UNSIGNED (TREE_TYPE (arg1)))
     return 0;
 
   STRIP_NOPS (arg0);
@@ -2119,7 +2120,7 @@ twoval_comparison_p (arg, cval1, cval2, save_p)
    any occurrence of OLD0 as an operand of a comparison and likewise for
    NEW1 and OLD1.  */
 
-static tree
+tree
 eval_subst (arg, old0, new0, old1, new1)
      tree arg;
      tree old0, new0, old1, new1;
@@ -4598,6 +4599,8 @@ fold (expr)
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
   int wins = 1;
+
+  tem = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* Don't try to process an RTL_EXPR since its operands aren't trees.
      Likewise for a SAVE_EXPR that's already been evaluated.  */
@@ -7436,17 +7439,11 @@ tree_expr_nonnegative_p (t)
     {
     case ABS_EXPR:
     case FFS_EXPR:
+    case CLZ_EXPR:
+    case CTZ_EXPR:
     case POPCOUNT_EXPR:
     case PARITY_EXPR:
       return 1;
-
-    case CLZ_EXPR:
-    case CTZ_EXPR:
-      /* These are undefined at zero.  This is true even if
-	 C[LT]Z_DEFINED_VALUE_AT_ZERO is set, since what we're
-	 computing here is a user-visible property.  */
-      return 0;
-      
     case INTEGER_CST:
       return tree_int_cst_sgn (t) >= 0;
     case TRUNC_DIV_EXPR:

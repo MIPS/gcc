@@ -7509,11 +7509,11 @@ mips_output_function_prologue (file, size)
      need the source filename more than once in the file, beyond what is
      emitted by the debug information.  */
   if (!TARGET_GAS)
-    ASM_OUTPUT_SOURCE_FILENAME (file, DECL_SOURCE_FILE (current_function_decl));
+    ASM_OUTPUT_SOURCE_FILENAME (file, TREE_FILENAME (current_function_decl));
 
 #ifdef SDB_DEBUGGING_INFO
   if (debug_info_level != DINFO_LEVEL_TERSE && write_symbols == SDB_DEBUG)
-    ASM_OUTPUT_SOURCE_LINE (file, DECL_SOURCE_LINE (current_function_decl));
+    ASM_OUTPUT_SOURCE_LINE (file, TREE_LINENO (current_function_decl));
 #endif
 
   /* In mips16 mode, we may need to generate a 32 bit to handle

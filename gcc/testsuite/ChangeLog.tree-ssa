@@ -1,0 +1,30 @@
+2003-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* lib/c-torture.exp (TORTURE_OPTIONS): Add -ftree-dce.
+
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/builtin-constant.x: Remove.
+
+2003-01-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/compile/20001226-1.c: Add clarifying
+	remarks about why we introduced a deliberate syntax
+	error.
+
+2002-11-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/compile/20001226-1.c: Introduce a
+	deliberate syntax error.
+
+2002-11-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20021113-1.c: New test.
+
+2002-08-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20020819-1.c: New test. 
+
+2002-08-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20020819-1.c: Add exit(0).

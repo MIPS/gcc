@@ -64,6 +64,8 @@ typedef enum
   perm_list_kind,
   temp_list_kind,
   vec_kind,
+  phi_kind,
+  ssa_name_kind,
   x_kind,
   lang_decl,
   lang_type,
@@ -85,6 +87,8 @@ static const char * const tree_node_kind_names[] = {
   "perm_tree_lists",
   "temp_tree_lists",
   "vecs",
+  "phi_nodes",
+  "ssa names",
   "random kinds",
   "lang_decl kinds",
   "lang_type kinds"
@@ -92,7 +96,7 @@ static const char * const tree_node_kind_names[] = {
 #endif /* GATHER_STATISTICS */
 
 /* Unique id for next decl created.  */
-static int next_decl_uid;
+int next_decl_uid;
 /* Unique id for next type created.  */
 static int next_type_uid = 1;
 
@@ -202,6 +206,11 @@ tree_size (node)
 		  + TREE_CODE_LENGTH (code) * sizeof (char *));
 	if (code == TREE_VEC)
 	  length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
+	else if (code == PHI_NODE)
+	  length = sizeof (struct tree_phi_node)
+		   + (PHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d);
+	else if (code == SSA_NAME)
+	  length = sizeof (struct tree_ssa_name);
 	return length;
       }
 
@@ -228,9 +237,9 @@ make_node (code)
 #endif
   struct tree_common ttmp;
 
-  /* We can't allocate a TREE_VEC without knowing how many elements
+  /* We can't allocate a TREE_VEC or PHI_NODE without knowing how many elements
      it will have.  */
-  if (code == TREE_VEC)
+  if (code == TREE_VEC || code == PHI_NODE)
     abort ();
 
   TREE_SET_CODE ((tree)&ttmp, code);
@@ -275,6 +284,10 @@ make_node (code)
 	kind = id_kind;
       else if (code == TREE_VEC)
 	kind = vec_kind;
+      else if (code == PHI_NODE)
+	kind = phi_kind;
+      else if (code == SSA_NAME)
+	kind = ssa_name_kind;
       else
 	kind = x_kind;
       break;
@@ -304,9 +317,11 @@ make_node (code)
 	DECL_ALIGN (t) = 1;
       DECL_USER_ALIGN (t) = 0;
       DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      DECL_SOURCE_LINE (t) = lineno;
-      DECL_SOURCE_FILE (t) =
-	(input_filename) ? input_filename : "<built-in>";
+      annotate_with_file_line (t,
+			       (input_filename
+				? input_filename
+				: "<built-in"),
+			       lineno);
       DECL_UID (t) = next_decl_uid++;
 
       /* We have not yet computed the alias set for this declaration.  */
@@ -373,6 +388,7 @@ copy_node (node)
 
   TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
+  TREE_VISITED (t) = 0;
 
   if (TREE_CODE_CLASS (code) == 'd')
     DECL_UID (t) = next_decl_uid++;
@@ -1004,7 +1020,6 @@ tree
 chainon (op1, op2)
      tree op1, op2;
 {
-
   if (op1)
     {
       tree t1;
@@ -1487,6 +1502,8 @@ tree_node_structure (t)
     case IDENTIFIER_NODE:	return TS_IDENTIFIER;
     case TREE_LIST:		return TS_LIST;
     case TREE_VEC:		return TS_VEC;
+    case PHI_NODE:		return TS_PHI_NODE;
+    case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
 
     default:
@@ -1531,58 +1548,6 @@ unsave_expr_1 (expr)
     }
 }
 
-/* Default lang hook for "unsave_expr_now".  */
-
-tree
-lhd_unsave_expr_now (expr)
-     tree expr;
-{
-  enum tree_code code;
-
-  /* There's nothing to do for NULL_TREE.  */
-  if (expr == 0)
-    return expr;
-
-  unsave_expr_1 (expr);
-
-  code = TREE_CODE (expr);
-  switch (TREE_CODE_CLASS (code))
-    {
-    case 'c':  /* a constant */
-    case 't':  /* a type node */
-    case 'd':  /* A decl node */
-    case 'b':  /* A block node */
-      break;
-
-    case 'x':  /* miscellaneous: e.g., identifier, TREE_LIST or ERROR_MARK.  */
-      if (code == TREE_LIST)
-	{
-	  lhd_unsave_expr_now (TREE_VALUE (expr));
-	  lhd_unsave_expr_now (TREE_CHAIN (expr));
-	}
-      break;
-
-    case 'e':  /* an expression */
-    case 'r':  /* a reference */
-    case 's':  /* an expression with side effects */
-    case '<':  /* a comparison expression */
-    case '2':  /* a binary arithmetic expression */
-    case '1':  /* a unary arithmetic expression */
-      {
-	int i;
-
-	for (i = first_rtl_op (code) - 1; i >= 0; i--)
-	  lhd_unsave_expr_now (TREE_OPERAND (expr, i));
-      }
-      break;
-
-    default:
-      abort ();
-    }
-
-  return expr;
-}
-
 /* Return 0 if it is safe to evaluate EXPR multiple times,
    return 1 if it is safe if EXPR is unsaved afterward, or
    return 2 if it is completely unsafe.
@@ -1620,6 +1585,14 @@ unsafe_for_reeval (expr)
     case SAVE_EXPR:
     case RTL_EXPR:
       return 2;
+
+      /* A label can only be emitted once.  */
+    case LABEL_EXPR:
+      return 1;
+
+    case BIND_EXPR:
+      unsafeness = 1;
+      break;
 
     case TREE_LIST:
       for (exp = expr; exp != 0; exp = TREE_CHAIN (exp))
@@ -2432,37 +2405,42 @@ build_block (vars, tags, subblocks, supercontext, chain)
   return block;
 }
 
-/* EXPR_WITH_FILE_LOCATION are used to keep track of the exact
-   location where an expression or an identifier were encountered. It
-   is necessary for languages where the frontend parser will handle
-   recursively more than one file (Java is one of them).  */
+static GTY(()) tree last_annotated_node;
 
-tree
-build_expr_wfl (node, file, line, col)
+/* Record the exact location where an expression or an identifier were
+   encountered.  */
+void
+annotate_with_file_line (node, file, line)
      tree node;
      const char *file;
-     int line, col;
+     int line;
 {
-  static const char *last_file = 0;
-  static tree last_filenode = NULL_TREE;
-  tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
+  /* Roughly one percent of the calls to this function are to annotate
+     a node with the same information already attached to that node!
+     Just return instead of wasting memory.  */
+  if (TREE_LOCUS (node)
+      && (TREE_FILENAME (node) == file
+	  || ! strcmp (TREE_FILENAME (node), file))
+      && TREE_LINENO (node) == line)
+    return;
 
-  EXPR_WFL_NODE (wfl) = node;
-  EXPR_WFL_SET_LINECOL (wfl, line, col);
-  if (file != last_file)
+  /* In heavily macroized code (such as GCC itself) this single
+     entry cache can reduce the number of allocations by more
+     than half.  */
+  if (last_annotated_node
+      && TREE_LOCUS (last_annotated_node)
+      && (TREE_FILENAME (last_annotated_node) == file
+	  || ! strcmp (TREE_FILENAME (last_annotated_node), file))
+      && TREE_LINENO (last_annotated_node) == line)
     {
-      last_file = file;
-      last_filenode = file ? get_identifier (file) : NULL_TREE;
+      TREE_LOCUS (node) = TREE_LOCUS (last_annotated_node); 
+      return;
     }
 
-  EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
-  if (node)
-    {
-      TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
-      TREE_TYPE (wfl) = TREE_TYPE (node);
-    }
-
-  return wfl;
+  TREE_LOCUS (node) = ggc_alloc (sizeof (location_t));
+  TREE_LINENO (node) = line;
+  TREE_FILENAME (node) = file;
+  last_annotated_node = node;
 }
 
 /* Return a declaration like DDECL except that its DECL_ATTRIBUTES
@@ -3295,10 +3273,8 @@ simple_cst_equal (t1, t2)
 			 TREE_STRING_LENGTH (t1)));
 
     case CONSTRUCTOR:
-      if (CONSTRUCTOR_ELTS (t1) == CONSTRUCTOR_ELTS (t2))
-	return 1;
-      else
-	abort ();
+      return simple_cst_list_equal (CONSTRUCTOR_ELTS (t1), 
+	                            CONSTRUCTOR_ELTS (t2));
 
     case SAVE_EXPR:
       return simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
@@ -4592,6 +4568,22 @@ tree_vec_elt_check_failed (idx, len, file, line, function)
      idx + 1, len, function, trim_filename (file), line);
 }
 
+/* Similar to above, except that the check is for the bounds of a PHI_NODE's
+   (dynamically sized) vector.  */
+
+void
+phi_node_elt_check_failed (idx, len, file, line, function)
+     int idx;
+     int len;
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error
+    ("tree check: accessed elt %d of phi_node with %d elts in %s, at %s:%d",
+     idx + 1, len, function, trim_filename (file), line);
+}
+
 #endif /* ENABLE_TREE_CHECKING */
 
 /* For a new vector type node T, build the information necessary for
@@ -4692,6 +4684,9 @@ build_common_tree_nodes_2 (short_double)
      so we might as well not have any types that claim to have it.  */
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
+
+  /* Used in the tree IR to represent empty statements and blocks. */
+  empty_stmt_node = build1 (CONVERT_EXPR, void_type_node, size_zero_node);
 
   null_pointer_node = build_int_2 (0, 0);
   TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);
@@ -4841,6 +4836,99 @@ initializer_zerop (init)
     default:
       return false;
     }
+}
+
+void
+add_var_to_bind_expr (bind_expr, var)
+     tree bind_expr;
+     tree var;
+{
+  BIND_EXPR_VARS (bind_expr)
+    = chainon (BIND_EXPR_VARS (bind_expr), var);
+  if (BIND_EXPR_BLOCK (bind_expr))
+    BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
+      = BIND_EXPR_VARS (bind_expr);
+}
+
+
+/* Return a new PHI_NODE for variable VAR and LEN number of arguments.  */
+
+tree
+make_phi_node (var, len)
+     tree var;
+     int len;
+{
+  tree phi;
+  int size;
+
+  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int) phi_kind]++;
+  tree_node_sizes[(int) phi_kind] += size;
+#endif
+
+  phi = ggc_alloc_tree (size);
+  memset ((PTR) phi, 0, size);
+
+  TREE_SET_CODE (phi, PHI_NODE);
+  PHI_NUM_ARGS (phi) = 0;
+  PHI_ARG_CAPACITY (phi) = len;
+  PHI_RESULT (phi) = make_ssa_name (var, phi);
+
+  return phi;
+}
+
+
+/* Return an SSA_NAME node for variable VAR defined in statement STMT.  STMT
+   may be empty_stmt_node for artificial references (e.g., default
+   definitions created when a variable is used without a preceding
+   definition.  See currdef_for.)  */
+
+tree
+make_ssa_name (var, stmt)
+     tree var;
+     tree stmt;
+{
+  /* Next SSA version number.  Initialized by init_tree_ssa.  */
+  extern unsigned long next_ssa_version;
+  tree t;
+
+#if defined ENABLE_CHECKING
+  if ((!DECL_P (var)
+       && TREE_CODE (var) != INDIRECT_REF)
+      || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
+	  && TREE_CODE (stmt) != ASM_EXPR
+	  && TREE_CODE (stmt) != RETURN_EXPR
+	  && TREE_CODE (stmt) != PHI_NODE
+	  && stmt != empty_stmt_node))
+    abort ();
+#endif
+
+  t = make_node (SSA_NAME);
+
+  TREE_TYPE (t) = TREE_TYPE (var);
+  SSA_NAME_VAR (t) = var;
+  SSA_NAME_DEF_STMT (t) = stmt;
+  SSA_NAME_VERSION (t) = next_ssa_version++;
+
+  return t;
+}
+
+
+/* Build a VDEF_EXPR node for variable VAR.  This creates the pseudo
+   assignment VAR = VDEF <VAR>.  The SSA builder is responsible for
+   creating the new SSA name for the result and rewriting the RHS with the
+   appropriate reaching definition.  */
+
+tree
+build_vdef_expr (var)
+     tree var;
+{
+  if (!DECL_P (var) && TREE_CODE (var) != INDIRECT_REF)
+    abort ();
+
+  return build (VDEF_EXPR, TREE_TYPE (var), var, var);
 }
 
 #include "gt-tree.h"

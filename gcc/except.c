@@ -534,6 +534,39 @@ expand_eh_region_end ()
   return cur_region;
 }
 
+/* Expand HANDLER, which is the operand 1 of a TRY_CATCH_EXPR.  Catch
+   blocks and C++ exception-specifications are handled specially.  */
+
+void
+expand_eh_handler (handler)
+     tree handler;
+{
+  tree inner = handler;
+  while (TREE_CODE (inner) == COMPOUND_EXPR)
+    inner = TREE_OPERAND (inner, 0);
+
+  switch (TREE_CODE (inner))
+    {
+    case CATCH_EXPR:
+      expand_start_all_catch ();
+      expand_expr (handler, const0_rtx, VOIDmode, 0);
+      expand_end_all_catch ();
+      break;
+
+    case EH_FILTER_EXPR:
+      if (EH_FILTER_MUST_NOT_THROW (handler))
+	expand_eh_region_end_must_not_throw (EH_FILTER_FAILURE (handler));
+      else
+	expand_eh_region_end_allowed (EH_FILTER_TYPES (handler),
+				      EH_FILTER_FAILURE (handler));
+      break;
+
+    default:
+      expand_eh_region_end_cleanup (handler);
+      break;
+    }
+}
+
 /* End an exception handling region for a cleanup.  HANDLER is an
    expression to expand for the cleanup.  */
 

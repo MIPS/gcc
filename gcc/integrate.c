@@ -999,8 +999,8 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	  && ! (GET_CODE (XEXP (loc, 0)) == REG
 		&& REGNO (XEXP (loc, 0)) > LAST_VIRTUAL_REGISTER))
 	{
-	  rtx note = emit_note (DECL_SOURCE_FILE (formal),
-				DECL_SOURCE_LINE (formal));
+	  rtx note = emit_note (TREE_FILENAME (formal),
+				TREE_LINENO (formal));
 	  if (note)
 	    RTX_INTEGRATED_P (note) = 1;
 
@@ -3027,11 +3027,6 @@ output_inline_function (fndecl)
       write_symbols = NO_DEBUG;
       debug_hooks = &do_nothing_debug_hooks;
     }
-
-  /* Make sure warnings emitted by the optimizers (e.g. control reaches
-     end of non-void function) is not wildly incorrect.  */
-  input_filename = DECL_SOURCE_FILE (fndecl);
-  lineno = DECL_SOURCE_LINE (fndecl);
 
   /* Compile this function all the way down to assembly code.  As a
      side effect this destroys the saved RTL representation, but

@@ -311,7 +311,7 @@ for peer in $peerlibs ; do
       else
         use_xlib_awt="yes"
 	if test -z "$TOOLKIT"; then
-	   TOOLKIT=gnu.awt.xlib.XToolkit
+	   TOOLKIT=gnu.gnu.awt.xlib.XToolkit
 	fi
       fi
       ;;
@@ -1018,15 +1018,6 @@ esac
 if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
 fi
-
-# Define here any compiler flags that you need in order to make backtrace() work.
-BACKTRACESPEC=
-case "${host}" in
- x86_64*-*-linux*)
-    BACKTRACESPEC=-fno-omit-frame-pointer
-    ;;
-esac
-AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 

@@ -179,6 +179,11 @@ variable_size (size)
   if (TREE_CODE (size) == SAVE_EXPR)
     SAVE_EXPR_PERSISTENT_P (size) = 1;
 
+  if (!immediate_size_expand && cfun && cfun->x_dont_save_pending_sizes_p)
+    /* The front-end doesn't want us to keep a list of the expressions
+       that determine sizes for variable size objects.  Trust it.  */
+    return size;
+
   if ((*lang_hooks.decls.global_bindings_p) ())
     {
       if (TREE_CONSTANT (size))
@@ -194,10 +199,6 @@ variable_size (size)
        Also, we would like to pass const0_rtx here, but don't have it.  */
     expand_expr (size, expand_expr (integer_zero_node, NULL_RTX, VOIDmode, 0),
 		 VOIDmode, 0);
-  else if (cfun != 0 && cfun->x_dont_save_pending_sizes_p)
-    /* The front-end doesn't want us to keep a list of the expressions
-       that determine sizes for variable size objects.  */
-    ;
   else
     put_pending_size (size);
 

@@ -537,53 +537,6 @@ void test07()
   VERIFY( ob.getloc() == loc_de );
 }
 
-class MyTraits : public std::char_traits<char>
-{
-public:
-  static bool eq(char c1, char c2)
-  {
-    VERIFY( c1 >= 0 );
-    VERIFY( c2 >= 0 );
-    return std::char_traits<char>::eq(c1, c2);
-  }
-};
-
-class MyBuf : public std::basic_streambuf<char, MyTraits>
-{
-  char buffer[8];
-
-public:
-  MyBuf()
-  {
-    std::memset(buffer, -1, sizeof(buffer));
-    std::memset(buffer + 2, 0, 4);
-    setg(buffer + 2, buffer + 2, buffer + 6);
-  }
-};
-
-// libstdc++/9538
-void test08()
-{
-  bool test = true;
-
-  MyBuf mb;
-  mb.sputbackc(0);  
-}
-
-// libstdc++/9439, libstdc++/9425
-void test09()
-{
-  using namespace std;
-  bool test = true;
-
-  filebuf fbuf;
-  fbuf.open(name_01, ios_base::in);
-  filebuf::int_type r = fbuf.sputbackc('a');
-  fbuf.close();
-
-  VERIFY( r == filebuf::traits_type::eof() );
-}
-
 main() 
 {
   test01();
@@ -595,7 +548,5 @@ main()
   test06();
 
   test07();
-  test08();
-  test09();
   return 0;
 }
