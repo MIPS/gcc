@@ -41,7 +41,7 @@ static void newline_and_indent (pretty_printer *, int);
 static void maybe_init_pretty_print (FILE *);
 static void print_declaration (pretty_printer *, tree, int, int);
 static void print_struct_decl (pretty_printer *, tree, int);
-static void dump_block_info (pretty_printer *, basic_block, int);
+static void dump_block_info (pretty_printer *, basic_block, int, int);
 static void do_niy (pretty_printer *, tree);
 static void dump_vops (pretty_printer *, tree, int);
 
@@ -144,7 +144,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       basic_block curr_bb = bb_for_stmt (node);
 
       if ((flags & TDF_BLOCKS) && curr_bb && curr_bb != last_bb)
-	dump_block_info (buffer, curr_bb, spc);
+	dump_block_info (buffer, curr_bb, spc, flags);
 
       if ((flags & TDF_VOPS) && stmt_ann (node))
 	dump_vops (buffer, node, spc);
@@ -1974,7 +1974,7 @@ newline_and_indent (pretty_printer *buffer, int spc)
 
 
 static void
-dump_block_info (pretty_printer *buffer, basic_block bb, int spc)
+dump_block_info (pretty_printer *buffer, basic_block bb, int spc, int flags)
 {
   if (bb)
     {
@@ -1987,7 +1987,8 @@ dump_block_info (pretty_printer *buffer, basic_block bb, int spc)
 
       if (stmt_p
 	  && is_exec_stmt (*stmt_p)
-	  && (lineno = get_lineno (*stmt_p)) > 0)
+	  && (lineno = get_lineno (*stmt_p)) > 0
+	  && (flags & TDF_LINENO))
 	{
 	  pp_string (buffer, " (");
 	  pp_string (buffer, get_filename (*stmt_p));

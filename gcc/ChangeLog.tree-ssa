@@ -1,3 +1,9 @@
+2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-pretty-print.c (dump_block_info): Add flags parameter.
+	Only show line number when asked to.
+	(dump_generic_node): Pass flags to dump_block_info.
+
 2003-11-03  Jan Hubicka  <jh@suse.cz>
 
 	* cfghooks.h (redirect_edge_and_branch hook): Make it return edge.
