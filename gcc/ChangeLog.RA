@@ -1,3 +1,13 @@
+2002-01-11  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (struct web.changed): New.
+	(detect_spill_temp): Use it to deny further spilling for marked
+	webs.
+	(emit_loads): Set it.
+	(detect_non_changed_flag, reset_changed_flag): New.
+	(actual_spill): Call them.
+	(one_pass): Remember state of WEBS(SPILLED) in case it changes.
+
 2002-01-09  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (struct web.useless_conflicts): New.

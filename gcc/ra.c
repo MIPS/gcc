@@ -181,6 +181,11 @@ struct web
 			      Zero if more uses currently need a reload.
 			      Used to differentiate between inserting register
 			      loads or directly substituting the stackref.  */
+  unsigned int changed:1; /* When using rewrite_program2() this flag gets set
+			     if some insns were inserted on behalf of this
+			     web.  IR spilling might ignore some deaths up to
+			     the def, so no code might be emitted and we need
+			     not to spill such a web again.  */
   unsigned int target_of_spilled_move:1;
   unsigned int have_orig_conflicts:1;
   ENUM_BITFIELD(node_type) type:5; /* Current state of the node */
@@ -443,6 +448,8 @@ static void rewrite_program2 PARAMS ((bitmap));
 static void mark_refs_for_checking PARAMS ((struct web *, bitmap));
 static void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
+static void detect_non_changed_webs PARAMS ((void));
+static void reset_changed_flag PARAMS ((void));
 static void actual_spill PARAMS ((void));
 static void emit_colors PARAMS ((struct df *));
 static void delete_moves PARAMS ((void));
@@ -3479,6 +3486,11 @@ detect_spill_temps (void)
 	 live at these defs.  So we make it a short web.  */
       if (web->num_uses == 0)
 	web->spill_temp = 3;
+      /* A web which was spilled last time, but for which no insns were
+         emitted (can happen with IR spilling ignoring sometimes
+	 all deaths).  */
+      else if (web->changed)
+	web->spill_temp = 1;
       /* A spill temporary has one def, one or more uses, all uses
 	 are in one insn, and either the def or use insn was inserted
 	 by the allocator.  */
@@ -4370,13 +4382,14 @@ reset_lists (void)
   while ((d = pop_list (&WEBS(COALESCED))) != NULL)
     {
       struct web *web = DLIST_WEB (d);
+      struct web *aweb = alias (web);
       /* Note, how alias() becomes invalid through the two put_web()'s
 	 below.  It might set the type of a web to FREE (from COALESCED),
 	 which itself is a target of aliasing (i.e. in the middle of
 	 an alias chain).  We can handle this by checking also for
 	 type == FREE.  Note nevertheless, that alias() is invalid
 	 henceforth.  */
-      if (alias (web)->type == SPILLED || alias (web)->type == FREE)
+      if (aweb->type == SPILLED || aweb->type == FREE)
 	put_web (web, FREE);
       else
 	put_web (web, INITIAL);
@@ -6939,6 +6952,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
       if (j < nl_first_reload && !TEST_BIT (ri->live, web->id))
 	continue;
       aweb = alias (supweb);
+      aweb->changed = 1;
       start_sequence ();
       if (supweb->pattern)
 	{
@@ -7725,10 +7739,43 @@ delete_useless_defs (void)
 }
 
 static void
+detect_non_changed_webs (void)
+{
+  struct dlist *d, *d_next;
+  for (d = WEBS(SPILLED); d; d = d_next)
+    {
+      struct web *web = DLIST_WEB (d);
+      d_next = d->next;
+      if (!web->changed)
+	{
+	  debug_msg (DUMP_PROCESS, "no insns emitted for spilled web %d\n",
+		     web->id);
+	  remove_web_from_list (web);
+	  put_web (web, COLORED);
+	  web->changed = 1;
+	}
+      else
+	web->changed = 0;
+      /* From now on web->changed is used as the opposite flag.
+	 I.e. colored webs, which have changed set were formerly
+	 spilled webs for which no insns were emitted.  */
+    }
+}
+
+static void
+reset_changed_flag (void)
+{
+  struct dlist *d;
+  for (d = WEBS(SPILLED); d; d = d->next)
+    DLIST_WEB(d)->changed = 0;
+}
+
+static void
 actual_spill (void)
 {
   int i;
   bitmap new_deaths = BITMAP_XMALLOC ();
+  reset_changed_flag ();
   spill_coalprop ();
   choose_spill_colors ();
   useless_defs = BITMAP_XMALLOC ();
@@ -7743,6 +7790,7 @@ actual_spill (void)
   sbitmap_zero (insns_with_deaths);
   EXECUTE_IF_SET_IN_BITMAP (new_deaths, 0, i,
     { SET_BIT (insns_with_deaths, i);});
+  detect_non_changed_webs ();
   detect_web_parts_to_rebuild ();
   BITMAP_XFREE (new_deaths);
 }
@@ -8296,6 +8344,7 @@ one_pass (df, rebuild)
      int rebuild;
 {
   long ticks = clock ();
+  int something_spilled;
   remember_conflicts = 0;
   build_i_graph (df);
   remember_conflicts = 1;
@@ -8335,14 +8384,17 @@ one_pass (df, rebuild)
   dump_graph_cost (DUMP_COSTS, "after spill-recolor");
   check_colors ();
   last_max_uid = get_max_uid ();
-  if (WEBS(SPILLED))
+  /* actual_spill() might change WEBS(SPILLED) and even empty it,
+     so we need to remember it's state.  */
+  something_spilled = !!WEBS(SPILLED);
+  if (something_spilled)
     actual_spill ();
   ticks = clock () - ticks;
   if (rebuild)
     ticks_rebuild += ticks;
   else
     ticks_build += ticks;
-  return WEBS(SPILLED) != NULL;
+  return something_spilled;
 }
 
 static void
@@ -9153,7 +9205,7 @@ reg_alloc (void)
   int changed;
   FILE *ra_dump_file = rtl_dump_file;
 
-  switch (5)
+  switch (0)
     {
       case 0: debug_new_regalloc = DUMP_EVER; break;
       case 1: debug_new_regalloc = DUMP_COSTS; break;
