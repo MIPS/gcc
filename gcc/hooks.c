@@ -63,6 +63,37 @@ hook_FILEptr_constcharptr_void (a, b)
 {
 }
 
+/* Used for the TARGET_ASM_CAN_OUTPUT_MI_THUNK hook.  */
+bool
+hook_bool_tree_hwi_hwi_tree_false (a, b, c, d)
+     tree a ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT b ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT c ATTRIBUTE_UNUSED;
+     tree d ATTRIBUTE_UNUSED;
+{
+  return false;
+}
+
+bool
+hook_bool_tree_hwi_hwi_tree_true (a, b, c, d)
+     tree a ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT b ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT c ATTRIBUTE_UNUSED;
+     tree d ATTRIBUTE_UNUSED;
+{
+  return true;
+}
+
+bool
+default_can_output_mi_thunk_no_vcall (a, b, c, d)
+     tree a ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT b ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT c;
+     tree d ATTRIBUTE_UNUSED;
+{
+  return c == 0;
+}
+
 /* Hook that takes two trees and returns false.  */
 bool
 hook_tree_tree_bool_false (a, b)

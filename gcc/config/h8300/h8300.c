@@ -431,7 +431,8 @@ static int
 round_frame_size (size)
      int size;
 {
-  return (size + STACK_BOUNDARY / 8 - 1) & -STACK_BOUNDARY / 8;
+  return ((size + STACK_BOUNDARY / BITS_PER_UNIT - 1)
+	  & -STACK_BOUNDARY / BITS_PER_UNIT);
 }
 
 /* Compute which registers to push/pop.
@@ -1609,7 +1610,7 @@ do_movsi (operands)
    the other its replacement, at the start of a routine.  */
 
 int
-initial_offset (from, to)
+h8300_initial_elimination_offset (from, to)
      int from, to;
 {
   int offset = 0;
@@ -1629,8 +1630,7 @@ initial_offset (from, to)
       /* See the comments for get_frame_size.  We need to round it up to
 	 STACK_BOUNDARY.  */
 
-      offset += ((get_frame_size () + STACK_BOUNDARY / BITS_PER_UNIT - 1)
-		 & ~(STACK_BOUNDARY / BITS_PER_UNIT - 1));
+      offset += round_frame_size (get_frame_size ());
 
       if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
 	offset += UNITS_PER_WORD;	/* Skip saved PC */
@@ -3856,3 +3856,56 @@ h8300_asm_named_section (name, flags)
   fprintf (asm_out_file, "\t.section %s\n", name);
 }
 #endif /* ! OBJECT_FORMAT_ELF */
+
+int
+h8300_eightbit_constant_address_p (x)
+     rtx x;
+{
+  /* The ranges the 8-bit area. */
+  const unsigned HOST_WIDE_INT n1 = trunc_int_for_mode (0xff00, HImode);
+  const unsigned HOST_WIDE_INT n2 = trunc_int_for_mode (0xffff, HImode);
+  const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00ffff00, SImode);
+  const unsigned HOST_WIDE_INT h2 = trunc_int_for_mode (0x00ffffff, SImode);
+  const unsigned HOST_WIDE_INT s1 = trunc_int_for_mode (0xffffff00, SImode);
+  const unsigned HOST_WIDE_INT s2 = trunc_int_for_mode (0xffffffff, SImode);
+
+  unsigned HOST_WIDE_INT addr;
+
+  if (GET_CODE (x) != CONST_INT)
+    return 0;
+
+  addr = INTVAL (x);
+
+  return (0
+	  || (TARGET_H8300  && IN_RANGE (addr, n1, n2))
+	  || (TARGET_H8300H && IN_RANGE (addr, h1, h2))
+	  || (TARGET_H8300S && IN_RANGE (addr, s1, s2)));
+}
+
+int
+h8300_tiny_constant_address_p (x)
+     rtx x;
+{
+  /* The ranges for the 16-bit area.  */
+  const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00000000, SImode);
+  const unsigned HOST_WIDE_INT h2 = trunc_int_for_mode (0x00007fff, SImode);
+  const unsigned HOST_WIDE_INT h3 = trunc_int_for_mode (0x00ff8000, SImode);
+  const unsigned HOST_WIDE_INT h4 = trunc_int_for_mode (0x00ffffff, SImode);
+  const unsigned HOST_WIDE_INT s1 = trunc_int_for_mode (0x00000000, SImode);
+  const unsigned HOST_WIDE_INT s2 = trunc_int_for_mode (0x00007fff, SImode);
+  const unsigned HOST_WIDE_INT s3 = trunc_int_for_mode (0xffff8000, SImode);
+  const unsigned HOST_WIDE_INT s4 = trunc_int_for_mode (0xffffffff, SImode);
+
+  unsigned HOST_WIDE_INT addr;
+
+  if (GET_CODE (x) != CONST_INT)
+    return 0;
+
+  addr = INTVAL (x);
+
+  return (0
+	  || (TARGET_H8300H
+	      && IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4))
+	  || (TARGET_H8300S
+	      && IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4)));
+}

@@ -129,6 +129,7 @@ static void	 aof_globalize_label		PARAMS ((FILE *, const char *));
 #endif
 static void	 arm_internal_label		PARAMS ((FILE *, const char *, unsigned long));
 static void arm_output_mi_thunk			PARAMS ((FILE *, tree,
+							 HOST_WIDE_INT,
 							 HOST_WIDE_INT, tree));
 
 #undef Hint
@@ -200,6 +201,8 @@ static void arm_output_mi_thunk			PARAMS ((FILE *, tree,
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK arm_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -914,6 +917,7 @@ use_return_insn (iscond)
 {
   int regno;
   unsigned int func_type;
+  unsigned long saved_int_regs;
 
   /* Never use a return instruction before reload has run.  */
   if (!reload_completed)
@@ -936,23 +940,31 @@ use_return_insn (iscond)
 	  && !frame_pointer_needed))
     return 0;
 
+  saved_int_regs = arm_compute_save_reg_mask ();
+
   /* Can't be done if interworking with Thumb, and any registers have been
-     stacked.  Similarly, on StrongARM, conditional returns are expensive
-     if they aren't taken and registers have been stacked.  */
-  if (iscond && arm_is_strong && frame_pointer_needed)
+     stacked.  */
+  if (TARGET_INTERWORK && saved_int_regs != 0)
     return 0;
-  
-  if ((iscond && arm_is_strong)
-      || TARGET_INTERWORK)
+
+  /* On StrongARM, conditional returns are expensive if they aren't
+     taken and multiple registers have been stacked.  */
+  if (iscond && arm_is_strong)
     {
-      for (regno = 0; regno <= LAST_ARM_REGNUM; regno++)
-	if (regs_ever_live[regno] && !call_used_regs[regno])
-	  return 0;
+      /* Conditional return when just the LR is stored is a simple 
+	 conditional-load instruction, that's not expensive.  */
+      if (saved_int_regs != 0 && saved_int_regs != (1 << LR_REGNUM))
+	return 0;
 
       if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
 	return 0;
     }
-      
+
+  /* If there are saved registers but the LR isn't saved, then we need
+     two instructions for the return.  */
+  if (saved_int_regs && !(saved_int_regs & (1 << LR_REGNUM)))
+    return 0;
+
   /* Can't be done if any of the FPU regs are pushed,
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT)
@@ -11077,8 +11089,13 @@ arm_elf_asm_named_section (name, flags)
      const char *name;
      unsigned int flags;
 {
-  char flagchars[8], *f = flagchars;
-  const char *type;
+  char flagchars[10], *f = flagchars;
+
+  if (! named_section_first_declaration (name))
+    {
+      fprintf (asm_out_file, "\t.section\t%s\n", name);
+      return;
+    }
 
   if (!(flags & SECTION_DEBUG))
     *f++ = 'a';
@@ -11092,19 +11109,28 @@ arm_elf_asm_named_section (name, flags)
     *f++ = 'M';
   if (flags & SECTION_STRINGS)
     *f++ = 'S';
+  if (flags & SECTION_TLS)
+    *f++ = 'T';
   *f = '\0';
 
-  if (flags & SECTION_BSS)
-    type = "nobits";
-  else
-    type = "progbits";
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
 
-  if (flags & SECTION_ENTSIZE)
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",%%%s,%d\n",
-	     name, flagchars, type, flags & SECTION_ENTSIZE);
-  else
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",%%%s\n",
-	     name, flagchars, type);
+  if (!(flags & SECTION_NOTYPE))
+    {
+      const char *type;
+
+      if (flags & SECTION_BSS)
+	type = "nobits";
+      else
+	type = "progbits";
+
+      fprintf (asm_out_file, ",%%%s", type);
+
+      if (flags & SECTION_ENTSIZE)
+	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
+    }
+
+  putc ('\n', asm_out_file);
 }
 #endif
 
@@ -11164,10 +11190,11 @@ arm_internal_label (stream, prefix, labelno)
    to FUNCTION.  Used for C++ multiple inheritance.  */
 
 static void
-arm_output_mi_thunk (file, thunk, delta, function)
+arm_output_mi_thunk (file, thunk, delta, vcall_offset, function)
      FILE *file;
      tree thunk ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   int mi_delta = delta;

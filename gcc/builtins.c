@@ -4245,6 +4245,23 @@ fold_builtin (exp)
 	  if (real_zerop (arg) || real_onep (arg))
 	    return arg;
 
+	  /* Optimize sqrt of constant value.  */
+	  if (flag_unsafe_math_optimizations
+	      && TREE_CODE (arg) == REAL_CST
+	      && ! TREE_CONSTANT_OVERFLOW (arg))
+	    {
+	      enum machine_mode mode;
+	      REAL_VALUE_TYPE r, x;
+
+	      x = TREE_REAL_CST (arg);
+	      mode = TYPE_MODE (TREE_TYPE (arg));
+	      if (!HONOR_SNANS (mode) || !real_isnan (&x))
+	      {
+		real_sqrt (&r, mode, &x);
+		return build_real (TREE_TYPE (arg), r);
+	      }
+	    }
+
 	  /* Optimize sqrt(exp(x)) = exp(x/2.0).  */
 	  fcode = builtin_mathfn_code (arg);
 	  if (flag_unsafe_math_optimizations

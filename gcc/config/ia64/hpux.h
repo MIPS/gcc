@@ -101,9 +101,6 @@ do {							\
 
 #define JMP_BUF_SIZE  (8 * 76)
 
-#undef BITS_BIG_ENDIAN
-#define BITS_BIG_ENDIAN 1
-
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
 
@@ -126,7 +123,7 @@ do {								\
   ASM_OUTPUT_TYPE_DIRECTIVE (FILE, XSTR (FUN, 0), "function");	\
 } while (0)
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) 1
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
 
 /* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
    defaults.h.  Setting this to true means that we are not passing

@@ -927,35 +927,14 @@ extern int rs6000_default_long_calls;
    : 1)
 
 /* A C expression returning the cost of moving data from a register of class
-   CLASS1 to one of CLASS2.
+   CLASS1 to one of CLASS2.  */
 
-   On the RS/6000, copying between floating-point and fixed-point
-   registers is expensive.  */
-
-#define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)		\
-   ((CLASS1) == FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 2	\
-   : (CLASS1) == FLOAT_REGS && (CLASS2) != FLOAT_REGS ? 10	\
-   : (CLASS1) != FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 10	\
-   : (CLASS1) == ALTIVEC_REGS && (CLASS2) != ALTIVEC_REGS ? 20	\
-   : (CLASS1) != ALTIVEC_REGS && (CLASS2) == ALTIVEC_REGS ? 20	\
-   : (((CLASS1) == SPECIAL_REGS || (CLASS1) == MQ_REGS		\
-       || (CLASS1) == LINK_REGS || (CLASS1) == CTR_REGS		\
-       || (CLASS1) == LINK_OR_CTR_REGS)				\
-      && ((CLASS2) == SPECIAL_REGS || (CLASS2) == MQ_REGS	\
-	  || (CLASS2) == LINK_REGS || (CLASS2) == CTR_REGS	\
-	  || (CLASS2) == LINK_OR_CTR_REGS)) ? 10		\
-   : 2)
+#define REGISTER_MOVE_COST rs6000_register_move_cost
 
 /* A C expressions returning the cost of moving data of MODE from a register to
-   or from memory.
+   or from memory.  */
 
-   On the RS/6000, bump this up a bit.  */
-
-#define MEMORY_MOVE_COST(MODE, CLASS, IN)	\
-  ((GET_MODE_CLASS (MODE) == MODE_FLOAT		\
-    && (rs6000_cpu == PROCESSOR_RIOS1 || rs6000_cpu == PROCESSOR_PPC601) \
-    ? 3 : 2) \
-   + 4)
+#define MEMORY_MOVE_COST rs6000_memory_move_cost
 
 /* Specify the cost of a branch insn; roughly the number of extra insns that
    should be added to avoid a branch.
@@ -1336,16 +1315,14 @@ enum reg_class
   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
-/* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the mode of the object illegally.  */
 
-#define CLASS_CANNOT_CHANGE_MODE        FLOAT_REGS
+/* Return a class of registers that cannot change FROM mode to TO mode.  */
 
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO)				 \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS		 \
+   : (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1 ? GENERAL_REGS \
+   : NO_REGS)
 
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
-
 /* Stack layout; function entry, exit and calling.  */
 
 /* Enumeration to give which calling sequence to use.  */

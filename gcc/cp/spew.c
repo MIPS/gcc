@@ -133,6 +133,7 @@ static struct unparsed_text * alloc_unparsed_text
 
 static void snarf_block PARAMS ((struct unparsed_text *t));
 static tree snarf_defarg PARAMS ((void));
+static void snarf_parenthesized_expression (struct unparsed_text *);
 static int frob_id PARAMS ((int, int, tree *));
 
 /* The list of inline functions being held off until we reach the end of
@@ -476,8 +477,7 @@ next_token (t)
       return t->yychar;
     }
 
-  memcpy (t, &Teosi, sizeof (struct token));
-  return END_OF_SAVED_INPUT;
+  return 0;
 }
 
 /* Shift the next token onto the fifo.  */
@@ -1067,6 +1067,30 @@ alloc_unparsed_text (locus, decl, interface)
   return r;
 }
 
+/* Accumulate the tokens that make up a parenthesized expression in T,
+   having already read the opening parenthesis.  */
+
+static void
+snarf_parenthesized_expression (struct unparsed_text *t)
+{
+  int yyc;
+  int level = 1;
+
+  while (1)
+    {
+      yyc = next_token (space_for_token (t));
+      if (yyc == '(')
+	++level;
+      else if (yyc == ')' && --level == 0)
+	break;
+      else if (yyc == 0)
+	{
+	  error ("%Hend of file read inside definition", &t->locus);
+	  break;
+	}
+    }
+}
+
 /* Subroutine of snarf_method, deals with actual absorption of the block.  */
 
 static void
@@ -1145,6 +1169,8 @@ snarf_block (t)
 	  else if (look_for_semicolon && blev == 0)
 	    break;
 	}
+      else if (yyc == '(' && blev == 0)
+	snarf_parenthesized_expression (t);
       else if (yyc == 0)
 	{
 	  error ("%Hend of file read inside definition", &t->locus);
@@ -1168,6 +1194,14 @@ snarf_method (decl)
 						: (interface_only ? 0 : 2)));
 
   snarf_block (meth);
+  /* Add three END_OF_SAVED_INPUT tokens.  We used to provide an
+     infinite stream of END_OF_SAVED_INPUT tokens -- but that can
+     cause the compiler to get stuck in an infinite loop when
+     encountering invalid code.  We need more than one because the
+     parser sometimes peeks ahead several tokens.  */
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (meth), &Teosi, sizeof (struct token));
 
   /* Happens when we get two declarations of the same function in the
      same scope.  */
@@ -1226,6 +1260,14 @@ snarf_defarg ()
 
   /* Unget the last token.  */
   push_token (remove_last_token (buf));
+  /* Add three END_OF_SAVED_INPUT tokens.  We used to provide an
+     infinite stream of END_OF_SAVED_INPUT tokens -- but that can
+     cause the compiler to get stuck in an infinite loop when
+     encountering invalid code.  We need more than one because the
+     parser sometimes peeks ahead several tokens.  */
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
+  memcpy (space_for_token (buf), &Teosi, sizeof (struct token));
 
  done:
 #ifdef SPEW_DEBUG

@@ -765,10 +765,11 @@ static int ix86_variable_issue PARAMS ((FILE *, int, rtx, int));
 static int ia32_use_dfa_pipeline_interface PARAMS ((void));
 static int ia32_multipass_dfa_lookahead PARAMS ((void));
 static void ix86_init_mmx_sse_builtins PARAMS ((void));
-static rtx ia32_this_parameter PARAMS ((tree));
-static void x86_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
-static void x86_output_mi_vcall_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
-					       HOST_WIDE_INT, tree));
+static rtx x86_this_parameter PARAMS ((tree));
+static void x86_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					 HOST_WIDE_INT, tree));
+static bool x86_can_output_mi_thunk PARAMS ((tree, HOST_WIDE_INT,
+					     HOST_WIDE_INT, tree));
 
 struct ix86_address
 {
@@ -921,8 +922,8 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
-#undef TARGET_ASM_OUTPUT_MI_VCALL_THUNK
-#define TARGET_ASM_OUTPUT_MI_VCALL_THUNK x86_output_mi_vcall_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK x86_can_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1016,6 +1017,27 @@ override_options ()
      use TFmode instead, it's also the 80-bit format, but with padding.  */
   real_format_for_mode[XFmode - QFmode] = &ieee_extended_intel_96_format;
   real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
+
+  /* Set the default values for switches whose default depends on TARGET_64BIT
+     in case they weren't overwriten by command line options.  */
+  if (TARGET_64BIT)
+    {
+      if (flag_omit_frame_pointer == 2)
+	flag_omit_frame_pointer = 1;
+      if (flag_asynchronous_unwind_tables == 2)
+	flag_asynchronous_unwind_tables = 1;
+      if (flag_pcc_struct_return == 2)
+	flag_pcc_struct_return = 0;
+    }
+  else
+    {
+      if (flag_omit_frame_pointer == 2)
+	flag_omit_frame_pointer = 0;
+      if (flag_asynchronous_unwind_tables == 2)
+	flag_asynchronous_unwind_tables = 0;
+      if (flag_pcc_struct_return == 2)
+	flag_pcc_struct_return = 1;
+    }
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -1229,9 +1251,6 @@ override_options ()
 	       ix86_tls_dialect_string);
     }
 
-  if (profile_flag)
-    target_flags &= ~MASK_OMIT_LEAF_FRAME_POINTER;
-
   /* Keep nonleaf frame pointers.  */
   if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
@@ -1323,10 +1342,6 @@ override_options ()
     internal_label_prefix_len = p - internal_label_prefix;
     *p = '\0';
   }
-
-  /* In 64-bit mode, we do not have support for vcall thunks.  */
-  if (TARGET_64BIT)
-    targetm.asm_out.output_mi_vcall_thunk = NULL;
 }
 
 void
@@ -1340,15 +1355,15 @@ optimization_options (level, size)
   if (level > 1)
     flag_schedule_insns = 0;
 #endif
-  if (TARGET_64BIT && optimize >= 1)
-    flag_omit_frame_pointer = 1;
-  if (TARGET_64BIT)
-    {
-      flag_pcc_struct_return = 0;
-      flag_asynchronous_unwind_tables = 1;
-    }
-  if (profile_flag)
-    flag_omit_frame_pointer = 0;
+
+  /* The default values of these switches depend on the TARGET_64BIT
+     that is not known at this moment.  Mark these values with 2 and
+     let user the to override these.  In case there is no command line option
+     specifying them, we will set the defaults in override_options.  */
+  if (optimize >= 1)
+    flag_omit_frame_pointer = 2;
+  flag_pcc_struct_return = 2;
+  flag_asynchronous_unwind_tables = 2;
 }
 
 /* Table of valid machine attributes.  */
@@ -1382,23 +1397,18 @@ ix86_function_ok_for_sibcall (decl, exp)
      tree decl;
      tree exp;
 {
-  /* We don't have 64-bit patterns in place.  */
-  if (TARGET_64BIT)
-    return false;
-
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  */
-  if (flag_pic && (!decl || TREE_PUBLIC (decl)))
+  if (!TARGET_64BIT && flag_pic && (!decl || TREE_PUBLIC (decl)))
     return false;
 
   /* If we are returning floats on the 80387 register stack, we cannot
      make a sibcall from a function that doesn't return a float to a
      function that does; the necessary stack adjustment will not be
      executed.  */
-  if (TARGET_FLOAT_RETURNS_IN_80387
-      && FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (exp)))
-      && !FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl)))))
+  if (STACK_REG_P (ix86_function_value (TREE_TYPE (exp)))
+      && ! STACK_REG_P (ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)))))
     return false;
 
   /* If this call is indirect, we'll need to be able to use a call-clobbered
@@ -2954,7 +2964,7 @@ x86_64_general_operand (op, mode)
     return general_operand (op, mode);
   if (nonimmediate_operand (op, mode))
     return 1;
-  return x86_64_sign_extended_value (op);
+  return x86_64_sign_extended_value (op, 1);
 }
 
 /* Return nonzero if OP is general operand representable on x86_64
@@ -2969,7 +2979,7 @@ x86_64_szext_general_operand (op, mode)
     return general_operand (op, mode);
   if (nonimmediate_operand (op, mode))
     return 1;
-  return x86_64_sign_extended_value (op) || x86_64_zero_extended_value (op);
+  return x86_64_sign_extended_value (op, 1) || x86_64_zero_extended_value (op);
 }
 
 /* Return nonzero if OP is nonmemory operand representable on x86_64.  */
@@ -2983,7 +2993,7 @@ x86_64_nonmemory_operand (op, mode)
     return nonmemory_operand (op, mode);
   if (register_operand (op, mode))
     return 1;
-  return x86_64_sign_extended_value (op);
+  return x86_64_sign_extended_value (op, 1);
 }
 
 /* Return nonzero if OP is nonmemory operand acceptable by movabs patterns.  */
@@ -2995,7 +3005,7 @@ x86_64_movabs_operand (op, mode)
 {
   if (!TARGET_64BIT || !flag_pic)
     return nonmemory_operand (op, mode);
-  if (register_operand (op, mode) || x86_64_sign_extended_value (op))
+  if (register_operand (op, mode) || x86_64_sign_extended_value (op, 0))
     return 1;
   if (CONSTANT_P (op) && !symbolic_reference_mentioned_p (op))
     return 1;
@@ -3013,7 +3023,7 @@ x86_64_szext_nonmemory_operand (op, mode)
     return nonmemory_operand (op, mode);
   if (register_operand (op, mode))
     return 1;
-  return x86_64_sign_extended_value (op) || x86_64_zero_extended_value (op);
+  return x86_64_sign_extended_value (op, 0) || x86_64_zero_extended_value (op);
 }
 
 /* Return nonzero if OP is immediate operand representable on x86_64.  */
@@ -3025,7 +3035,7 @@ x86_64_immediate_operand (op, mode)
 {
   if (!TARGET_64BIT)
     return immediate_operand (op, mode);
-  return x86_64_sign_extended_value (op);
+  return x86_64_sign_extended_value (op, 0);
 }
 
 /* Return nonzero if OP is immediate operand representable on x86_64.  */
@@ -3143,13 +3153,16 @@ local_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  if (GET_CODE (op) == LABEL_REF)
-    return 1;
-
   if (GET_CODE (op) == CONST
       && GET_CODE (XEXP (op, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
+      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT
+      && (ix86_cmodel != CM_SMALL_PIC
+	  || (INTVAL (XEXP (XEXP (op, 0), 1)) >= -16*1024*1024
+	      && INTVAL (XEXP (XEXP (op, 0), 1)) < 16*1024*1024)))
     op = XEXP (XEXP (op, 0), 0);
+
+  if (GET_CODE (op) == LABEL_REF)
+    return 1;
 
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
@@ -3482,6 +3495,31 @@ non_q_regs_operand (op, mode)
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
   return NON_QI_REG_P (op);
+}
+
+int
+zero_extended_scalar_load_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  unsigned n_elts;
+  if (GET_CODE (op) != MEM)
+    return 0;
+  op = maybe_get_pool_constant (op);
+  if (!op)
+    return 0;
+  if (GET_CODE (op) != CONST_VECTOR)
+    return 0;
+  n_elts =
+    (GET_MODE_SIZE (GET_MODE (op)) /
+     GET_MODE_SIZE (GET_MODE_INNER (GET_MODE (op))));
+  for (n_elts--; n_elts > 0; n_elts--)
+    {
+      rtx elt = CONST_VECTOR_ELT (op, n_elts);
+      if (elt != CONST0_RTX (GET_MODE_INNER (GET_MODE (op))))
+	return 0;
+    }
+  return 1;
 }
 
 /* Return 1 if OP is a comparison that can be used in the CMPSS/CMPPS
@@ -3849,8 +3887,8 @@ int
 standard_sse_constant_p (x)
      rtx x;
 {
-  if (GET_CODE (x) != CONST_DOUBLE)
-    return -1;
+  if (x == const0_rtx)
+    return 1;
   return (x == CONST0_RTX (GET_MODE (x)));
 }
 
@@ -3922,8 +3960,9 @@ ix86_can_use_return_insn_p ()
 
 /* Return 1 if VALUE can be stored in the sign extended immediate field.  */
 int
-x86_64_sign_extended_value (value)
+x86_64_sign_extended_value (value, allow_rip)
      rtx value;
+     int allow_rip;
 {
   switch (GET_CODE (value))
     {
@@ -3940,21 +3979,38 @@ x86_64_sign_extended_value (value)
 	  }
 	break;
 
-      /* For certain code models, the symbolic references are known to fit.  */
+      /* For certain code models, the symbolic references are known to fit.
+	 in CM_SMALL_PIC model we know it fits if it is local to the shared
+	 library.  Don't count TLS SYMBOL_REFs here, since they should fit
+	 only if inside of UNSPEC handled below.  */
       case SYMBOL_REF:
-	return ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL;
+	return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL
+		|| (allow_rip
+		    && ix86_cmodel == CM_SMALL_PIC
+		    && (CONSTANT_POOL_ADDRESS_P (value)
+			|| SYMBOL_REF_FLAG (value))
+		    && ! tls_symbolic_operand (value, GET_MODE (value))));
 
       /* For certain code models, the code is near as well.  */
       case LABEL_REF:
-	return ix86_cmodel != CM_LARGE && ix86_cmodel != CM_SMALL_PIC;
+	return ix86_cmodel != CM_LARGE
+	       && (allow_rip || ix86_cmodel != CM_SMALL_PIC);
 
       /* We also may accept the offsetted memory references in certain special
          cases.  */
       case CONST:
-	if (GET_CODE (XEXP (value, 0)) == UNSPEC
-	    && XINT (XEXP (value, 0), 1) == UNSPEC_GOTPCREL)
-	  return 1;
-	else if (GET_CODE (XEXP (value, 0)) == PLUS)
+	if (GET_CODE (XEXP (value, 0)) == UNSPEC)
+	  switch (XINT (XEXP (value, 0), 1))
+	    {
+	    case UNSPEC_GOTPCREL:
+	    case UNSPEC_DTPOFF:
+	    case UNSPEC_GOTNTPOFF:
+	    case UNSPEC_NTPOFF:
+	      return 1;
+	    default:
+	      break;
+	    }
+	if (GET_CODE (XEXP (value, 0)) == PLUS)
 	  {
 	    rtx op1 = XEXP (XEXP (value, 0), 0);
 	    rtx op2 = XEXP (XEXP (value, 0), 1);
@@ -3968,12 +4024,12 @@ x86_64_sign_extended_value (value)
 	    switch (GET_CODE (op1))
 	      {
 		case SYMBOL_REF:
-		  /* For CM_SMALL assume that latest object is 1MB before
+		  /* For CM_SMALL assume that latest object is 16MB before
 		     end of 31bits boundary.  We may also accept pretty
 		     large negative constants knowing that all objects are
 		     in the positive half of address space.  */
 		  if (ix86_cmodel == CM_SMALL
-		      && offset < 1024*1024*1024
+		      && offset < 16*1024*1024
 		      && trunc_int_for_mode (offset, SImode) == offset)
 		    return 1;
 		  /* For CM_KERNEL we know that all object resist in the
@@ -3984,18 +4040,43 @@ x86_64_sign_extended_value (value)
 		      && offset > 0
 		      && trunc_int_for_mode (offset, SImode) == offset)
 		    return 1;
+		  /* For CM_SMALL_PIC, we can make similar assumptions
+		     as for CM_SMALL model, if we know the symbol is local
+		     to the shared library.  Disallow any TLS symbols,
+		     since they should always be enclosed in an UNSPEC.  */
+		  if (ix86_cmodel == CM_SMALL_PIC
+		      && allow_rip
+		      && (CONSTANT_POOL_ADDRESS_P (op1)
+			  || SYMBOL_REF_FLAG (op1))
+		      && ! tls_symbolic_operand (op1, GET_MODE (op1))
+		      && offset < 16*1024*1024
+		      && offset >= -16*1024*1024
+		      && trunc_int_for_mode (offset, SImode) == offset)
+		    return 1;
 		  break;
 		case LABEL_REF:
 		  /* These conditions are similar to SYMBOL_REF ones, just the
 		     constraints for code models differ.  */
-		  if ((ix86_cmodel == CM_SMALL || ix86_cmodel == CM_MEDIUM)
-		      && offset < 1024*1024*1024
+		  if ((ix86_cmodel == CM_SMALL || ix86_cmodel == CM_MEDIUM
+		       || (ix86_cmodel == CM_SMALL_PIC && allow_rip
+			   && offset >= -16*1024*1024))
+		      && offset < 16*1024*1024
 		      && trunc_int_for_mode (offset, SImode) == offset)
 		    return 1;
 		  if (ix86_cmodel == CM_KERNEL
 		      && offset > 0
 		      && trunc_int_for_mode (offset, SImode) == offset)
 		    return 1;
+		  break;
+		case UNSPEC:
+		  switch (XINT (op1, 1))
+		    {
+		    case UNSPEC_DTPOFF:
+		    case UNSPEC_NTPOFF:
+		      if (offset > 0
+			  && trunc_int_for_mode (offset, SImode) == offset)
+			return 1;
+		    }
 		  break;
 		default:
 		  return 0;
@@ -4105,7 +4186,10 @@ ix86_frame_pointer_required ()
      the frame pointer by default.  Turn it back on now if we've not
      got a leaf function.  */
   if (TARGET_OMIT_LEAF_FRAME_POINTER
-      && (!current_function_is_leaf || current_function_profile))
+      && (!current_function_is_leaf))
+    return 1;
+
+  if (current_function_profile)
     return 1;
 
   return 0;
@@ -5185,21 +5269,8 @@ legitimate_pic_address_disp_p (disp)
 
   /* In 64bit mode we can allow direct addresses of symbols and labels
      when they are not dynamic symbols.  */
-  if (TARGET_64BIT)
-    {
-      rtx x = disp;
-      if (GET_CODE (disp) == CONST)
-	x = XEXP (disp, 0);
-      /* ??? Handle PIC code models */
-      if (GET_CODE (x) == PLUS
-	  && (GET_CODE (XEXP (x, 1)) == CONST_INT
-	      && ix86_cmodel == CM_SMALL_PIC
-	      && INTVAL (XEXP (x, 1)) < 1024*1024*1024
-	      && INTVAL (XEXP (x, 1)) > -1024*1024*1024))
-	x = XEXP (x, 0);
-      if (local_symbolic_operand (x, Pmode))
-	return 1;
-    }
+  if (TARGET_64BIT && local_symbolic_operand (disp, Pmode))
+    return 1;
   if (GET_CODE (disp) != CONST)
     return 0;
   disp = XEXP (disp, 0);
@@ -5408,7 +5479,7 @@ legitimate_address_p (mode, addr, strict)
 
       if (TARGET_64BIT)
 	{
-	  if (!x86_64_sign_extended_value (disp))
+	  if (!x86_64_sign_extended_value (disp, !(index || base)))
 	    {
 	      reason = "displacement is out of range";
 	      goto report_error;
@@ -5455,10 +5526,19 @@ legitimate_address_p (mode, addr, strict)
 	is_legitimate_pic:
 	  if (TARGET_64BIT && (index || base))
 	    {
-	      reason = "non-constant pic memory reference";
-	      goto report_error;
+	      /* foo@dtpoff(%rX) is ok.  */
+	      if (GET_CODE (disp) != CONST
+		  || GET_CODE (XEXP (disp, 0)) != PLUS
+		  || GET_CODE (XEXP (XEXP (disp, 0), 0)) != UNSPEC
+		  || GET_CODE (XEXP (XEXP (disp, 0), 1)) != CONST_INT
+		  || (XINT (XEXP (XEXP (disp, 0), 0), 1) != UNSPEC_DTPOFF
+		      && XINT (XEXP (XEXP (disp, 0), 0), 1) != UNSPEC_NTPOFF))
+		{
+		  reason = "non-constant pic memory reference";
+		  goto report_error;
+		}
 	    }
-	  if (! legitimate_pic_address_disp_p (disp))
+	  else if (! legitimate_pic_address_disp_p (disp))
 	    {
 	      reason = "displacement is an invalid pic construct";
 	      goto report_error;
@@ -5656,7 +5736,9 @@ legitimize_pic_address (orig, reg)
 		}
 	      else
 		{
-		  /* ??? We need to limit offsets here.  */
+		  if (INTVAL (op1) < -16*1024*1024
+		      || INTVAL (op1) >= 16*1024*1024)
+		    new = gen_rtx_PLUS (Pmode, op0, force_reg (Pmode, op1));
 		}
 	    }
 	  else
@@ -5713,6 +5795,21 @@ ix86_encode_section_info (decl, first)
       char *newstr;
       size_t len;
       enum tls_model kind = decl_tls_model (decl);
+
+      if (TARGET_64BIT && ! flag_pic)
+	{
+	  /* x86-64 doesn't allow non-pic code for shared libraries,
+	     so don't generate GD/LD TLS models for non-pic code.  */
+	  switch (kind)
+	    {
+	    case TLS_MODEL_GLOBAL_DYNAMIC:
+	      kind = TLS_MODEL_INITIAL_EXEC; break;
+	    case TLS_MODEL_LOCAL_DYNAMIC:
+	      kind = TLS_MODEL_LOCAL_EXEC; break;
+	    default:
+	      break;
+	    }
+	}
 
       symbol_str = XSTR (symbol, 0);
 
@@ -5803,17 +5900,44 @@ legitimize_address (x, oldx, mode)
   if (log)
     {
       rtx dest, base, off, pic;
+      int type;
 
       switch (log)
         {
         case TLS_MODEL_GLOBAL_DYNAMIC:
 	  dest = gen_reg_rtx (Pmode);
-          emit_insn (gen_tls_global_dynamic (dest, x));
+	  if (TARGET_64BIT)
+	    {
+	      rtx rax = gen_rtx_REG (Pmode, 0), insns;
+
+	      start_sequence ();
+	      emit_call_insn (gen_tls_global_dynamic_64 (rax, x));
+	      insns = get_insns ();
+	      end_sequence ();
+
+	      emit_libcall_block (insns, dest, rax, x);
+	    }
+	  else
+	    emit_insn (gen_tls_global_dynamic_32 (dest, x));
 	  break;
 
         case TLS_MODEL_LOCAL_DYNAMIC:
 	  base = gen_reg_rtx (Pmode);
-	  emit_insn (gen_tls_local_dynamic_base (base));
+	  if (TARGET_64BIT)
+	    {
+	      rtx rax = gen_rtx_REG (Pmode, 0), insns, note;
+
+	      start_sequence ();
+	      emit_call_insn (gen_tls_local_dynamic_base_64 (rax));
+	      insns = get_insns ();
+	      end_sequence ();
+
+	      note = gen_rtx_EXPR_LIST (VOIDmode, const0_rtx, NULL);
+	      note = gen_rtx_EXPR_LIST (VOIDmode, ix86_tls_get_addr (), note);
+	      emit_libcall_block (insns, base, rax, note);
+	    }
+	  else
+	    emit_insn (gen_tls_local_dynamic_base_32 (base));
 
 	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_DTPOFF);
 	  off = gen_rtx_CONST (Pmode, off);
@@ -5821,36 +5945,42 @@ legitimize_address (x, oldx, mode)
 	  return gen_rtx_PLUS (Pmode, base, off);
 
         case TLS_MODEL_INITIAL_EXEC:
-	  if (flag_pic)
+	  if (TARGET_64BIT)
+	    {
+	      pic = NULL;
+	      type = UNSPEC_GOTNTPOFF;
+	    }
+	  else if (flag_pic)
 	    {
 	      if (reload_in_progress)
 		regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	      pic = pic_offset_table_rtx;
+	      type = TARGET_GNU_TLS ? UNSPEC_GOTNTPOFF : UNSPEC_GOTTPOFF;
 	    }
 	  else if (!TARGET_GNU_TLS)
 	    {
 	      pic = gen_reg_rtx (Pmode);
 	      emit_insn (gen_set_got (pic));
+	      type = UNSPEC_GOTTPOFF;
 	    }
 	  else
-	    pic = NULL;
+	    {
+	      pic = NULL;
+	      type = UNSPEC_INDNTPOFF;
+	    }
 
 	  base = get_thread_pointer ();
 
-	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
-				!TARGET_GNU_TLS
-				? UNSPEC_GOTTPOFF
-				: flag_pic ? UNSPEC_GOTNTPOFF
-					   : UNSPEC_INDNTPOFF);
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), type);
 	  off = gen_rtx_CONST (Pmode, off);
-	  if (flag_pic || !TARGET_GNU_TLS)
+	  if (pic)
 	    off = gen_rtx_PLUS (Pmode, pic, off);
 	  off = gen_rtx_MEM (Pmode, off);
 	  RTX_UNCHANGING_P (off) = 1;
 	  set_mem_alias_set (off, ix86_GOT_alias_set ());
 	  dest = gen_reg_rtx (Pmode);
 
-	  if (TARGET_GNU_TLS)
+	  if (TARGET_64BIT || TARGET_GNU_TLS)
 	    {
 	      emit_move_insn (dest, off);
 	      return gen_rtx_PLUS (Pmode, base, dest);
@@ -5863,10 +5993,11 @@ legitimize_address (x, oldx, mode)
 	  base = get_thread_pointer ();
 
 	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
-				TARGET_GNU_TLS ? UNSPEC_NTPOFF : UNSPEC_TPOFF);
+				(TARGET_64BIT || TARGET_GNU_TLS)
+				? UNSPEC_NTPOFF : UNSPEC_TPOFF);
 	  off = gen_rtx_CONST (Pmode, off);
 
-	  if (TARGET_GNU_TLS)
+	  if (TARGET_64BIT || TARGET_GNU_TLS)
 	    return gen_rtx_PLUS (Pmode, base, off);
 	  else
 	    {
@@ -6144,13 +6275,19 @@ output_pic_addr_const (file, x, code)
 	  fputs ("@TPOFF", file);
 	  break;
 	case UNSPEC_NTPOFF:
-	  fputs ("@NTPOFF", file);
+	  if (TARGET_64BIT)
+	    fputs ("@TPOFF", file);
+	  else
+	    fputs ("@NTPOFF", file);
 	  break;
 	case UNSPEC_DTPOFF:
 	  fputs ("@DTPOFF", file);
 	  break;
 	case UNSPEC_GOTNTPOFF:
-	  fputs ("@GOTNTPOFF", file);
+	  if (TARGET_64BIT)
+	    fputs ("@GOTTPOFF(%rip)", file);
+	  else
+	    fputs ("@GOTNTPOFF", file);
 	  break;
 	case UNSPEC_INDNTPOFF:
 	  fputs ("@INDNTPOFF", file);
@@ -6197,22 +6334,19 @@ i386_output_dwarf_dtprel (file, size, x)
      int size;
      rtx x;
 {
+  fputs (ASM_LONG, file);
+  output_addr_const (file, x);
+  fputs ("@DTPOFF", file);
   switch (size)
     {
     case 4:
-      fputs (ASM_LONG, file);
       break;
     case 8:
-#ifdef ASM_QUAD
-      fputs (ASM_QUAD, file);
+      fputs (", 0", file);
       break;
-#endif
     default:
       abort ();
    }
-  
-  output_addr_const (file, x);
-  fputs ("@DTPOFF", file);
 }
 
 /* In the name of slightly smaller debug output, and to cater to
@@ -6924,7 +7058,10 @@ print_operand_address (file, addr)
 	fputs ("DWORD PTR ", file);
       if (ASSEMBLER_DIALECT == ASM_ATT || USER_LABEL_PREFIX[0] == 0)
 	putc ('%', file);
-      fputs ("gs:0", file);
+      if (TARGET_64BIT)
+	fputs ("fs:0", file);
+      else
+	fputs ("gs:0", file);
       return;
     }
 
@@ -6957,7 +7094,8 @@ print_operand_address (file, addr)
 
       /* Use one byte shorter RIP relative addressing for 64bit mode.  */
       if (TARGET_64BIT
-	  && (GET_CODE (addr) == SYMBOL_REF
+	  && ((GET_CODE (addr) == SYMBOL_REF
+	       && ! tls_symbolic_operand (addr, GET_MODE (addr)))
 	      || GET_CODE (addr) == LABEL_REF
 	      || (GET_CODE (addr) == CONST
 		  && GET_CODE (XEXP (addr, 0)) == PLUS
@@ -7070,7 +7208,10 @@ output_addr_const_extra (file, x)
       break;
     case UNSPEC_NTPOFF:
       output_addr_const (file, op);
-      fputs ("@NTPOFF", file);
+      if (TARGET_64BIT)
+	fputs ("@TPOFF", file);
+      else
+	fputs ("@NTPOFF", file);
       break;
     case UNSPEC_DTPOFF:
       output_addr_const (file, op);
@@ -7078,7 +7219,10 @@ output_addr_const_extra (file, x)
       break;
     case UNSPEC_GOTNTPOFF:
       output_addr_const (file, op);
-      fputs ("@GOTNTPOFF", file);
+      if (TARGET_64BIT)
+	fputs ("@GOTTPOFF(%rip)", file);
+      else
+	fputs ("@GOTNTPOFF", file);
       break;
     case UNSPEC_INDNTPOFF:
       output_addr_const (file, op);
@@ -7642,7 +7786,7 @@ maybe_get_pool_constant (x)
 {
   x = XEXP (x, 0);
 
-  if (flag_pic)
+  if (flag_pic && ! TARGET_64BIT)
     {
       if (GET_CODE (x) != PLUS)
 	return NULL_RTX;
@@ -7799,14 +7943,10 @@ ix86_expand_vector_move (mode, operands)
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (operands[0], mode)
       && CONSTANT_P (operands[1]))
-    {
-      rtx addr = gen_reg_rtx (Pmode);
-      emit_move_insn (addr, XEXP (force_const_mem (mode, operands[1]), 0));
-      operands[1] = gen_rtx_MEM (mode, addr);
-    }
+    operands[1] = force_const_mem (mode, operands[1]);
 
   /* Make operand1 a register if it isn't already.  */
-  if ((reload_in_progress | reload_completed) == 0
+  if (!no_new_pseudos
       && !register_operand (operands[0], mode)
       && !register_operand (operands[1], mode))
     {
@@ -9199,7 +9339,7 @@ ix86_expand_int_movcc (operands)
 
       if ((diff == 1 || diff == 2 || diff == 4 || diff == 8
 	   || diff == 3 || diff == 5 || diff == 9)
-	  && (mode != DImode || x86_64_sign_extended_value (GEN_INT (cf))))
+	  && (mode != DImode || x86_64_sign_extended_value (GEN_INT (cf), 0)))
 	{
 	  /*
 	   * xorl dest,dest
@@ -10837,8 +10977,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
 }
 
 void
-ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop)
+ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop, sibcall)
      rtx retval, fnaddr, callarg1, callarg2, pop;
+     int sibcall;
 {
   rtx use = NULL, call;
 
@@ -10868,6 +11009,15 @@ ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop)
   if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
     {
       fnaddr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
+      fnaddr = gen_rtx_MEM (QImode, fnaddr);
+    }
+  if (sibcall && TARGET_64BIT
+      && !constant_call_address_operand (XEXP (fnaddr, 0), Pmode))
+    {
+      rtx addr;
+      addr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
+      fnaddr = gen_rtx_REG (Pmode, 40);
+      emit_move_insn (fnaddr, addr);
       fnaddr = gen_rtx_MEM (QImode, fnaddr);
     }
 
@@ -10927,9 +11077,10 @@ ix86_tls_get_addr ()
 
   if (!ix86_tls_symbol)
     {
-      ix86_tls_symbol = gen_rtx_SYMBOL_REF (Pmode, (TARGET_GNU_TLS
-					   ? "___tls_get_addr"
-					   : "__tls_get_addr"));
+      ix86_tls_symbol = gen_rtx_SYMBOL_REF (Pmode,
+					    (TARGET_GNU_TLS && !TARGET_64BIT)
+					    ? "___tls_get_addr"
+					    : "__tls_get_addr");
     }
 
   return ix86_tls_symbol;
@@ -12100,9 +12251,11 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_sse2_punpckhbw, "__builtin_ia32_punpckhbw128", IX86_BUILTIN_PUNPCKHBW128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpckhwd, "__builtin_ia32_punpckhwd128", IX86_BUILTIN_PUNPCKHWD128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpckhdq, "__builtin_ia32_punpckhdq128", IX86_BUILTIN_PUNPCKHDQ128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_punpckhqdq, "__builtin_ia32_punpckhqdq128", IX86_BUILTIN_PUNPCKHQDQ128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpcklbw, "__builtin_ia32_punpcklbw128", IX86_BUILTIN_PUNPCKLBW128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpcklwd, "__builtin_ia32_punpcklwd128", IX86_BUILTIN_PUNPCKLWD128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpckldq, "__builtin_ia32_punpckldq128", IX86_BUILTIN_PUNPCKLDQ128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_punpcklqdq, "__builtin_ia32_punpcklqdq128", IX86_BUILTIN_PUNPCKLQDQ128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_sse2_packsswb, "__builtin_ia32_packsswb128", IX86_BUILTIN_PACKSSWB128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_packssdw, "__builtin_ia32_packssdw128", IX86_BUILTIN_PACKSSDW128, 0, 0 },
@@ -12154,6 +12307,7 @@ static const struct builtin_description bdesc_1arg[] =
   { MASK_SSE2, CODE_FOR_sse2_pmovmskb, 0, IX86_BUILTIN_PMOVMSKB128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_movmskpd, 0, IX86_BUILTIN_MOVMSKPD, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_movq2dq, 0, IX86_BUILTIN_MOVQ2DQ, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_movdq2q, 0, IX86_BUILTIN_MOVDQ2Q, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_sqrtv2df2, 0, IX86_BUILTIN_SQRTPD, 0, 0 },
 
@@ -12173,7 +12327,9 @@ static const struct builtin_description bdesc_1arg[] =
 
   { MASK_SSE2, CODE_FOR_cvtps2dq, 0, IX86_BUILTIN_CVTPS2DQ, 0, 0 },
   { MASK_SSE2, CODE_FOR_cvtps2pd, 0, IX86_BUILTIN_CVTPS2PD, 0, 0 },
-  { MASK_SSE2, CODE_FOR_cvttps2dq, 0, IX86_BUILTIN_CVTTPS2DQ, 0, 0 }
+  { MASK_SSE2, CODE_FOR_cvttps2dq, 0, IX86_BUILTIN_CVTTPS2DQ, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_sse2_movq, 0, IX86_BUILTIN_MOVQ, 0, 0 }
 };
 
 void
@@ -12271,10 +12427,10 @@ ix86_init_mmx_sse_builtins ()
   /* @@@ the type is bogus */
   tree v4sf_ftype_v4sf_pv2si
     = build_function_type_list (V4SF_type_node,
-				V4SF_type_node, pv2di_type_node, NULL_TREE);
+				V4SF_type_node, pv2si_type_node, NULL_TREE);
   tree void_ftype_pv2si_v4sf
     = build_function_type_list (void_type_node,
-				pv2di_type_node, V4SF_type_node, NULL_TREE);
+				pv2si_type_node, V4SF_type_node, NULL_TREE);
   tree void_ftype_pfloat_v4sf
     = build_function_type_list (void_type_node,
 				pfloat_type_node, V4SF_type_node, NULL_TREE);
@@ -12329,6 +12485,8 @@ ix86_init_mmx_sse_builtins ()
 
   tree ti_ftype_void
     = build_function_type (intTI_type_node, void_list_node);
+  tree v2di_ftype_void
+    = build_function_type (V2DI_type_node, void_list_node);
   tree ti_ftype_ti_ti
     = build_function_type_list (intTI_type_node,
 				intTI_type_node, intTI_type_node, NULL_TREE);
@@ -12337,6 +12495,9 @@ ix86_init_mmx_sse_builtins ()
   tree v2di_ftype_di
     = build_function_type_list (V2DI_type_node,
 				long_long_unsigned_type_node, NULL_TREE);
+  tree di_ftype_v2di
+    = build_function_type_list (long_long_unsigned_type_node,
+				V2DI_type_node, NULL_TREE);
   tree v4sf_ftype_v4si
     = build_function_type_list (V4SF_type_node, V4SI_type_node, NULL_TREE);
   tree v4si_ftype_v4sf
@@ -12445,6 +12606,18 @@ ix86_init_mmx_sse_builtins ()
 				V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree int_ftype_v16qi
     = build_function_type_list (integer_type_node, V16QI_type_node, NULL_TREE);
+  tree v16qi_ftype_pchar
+    = build_function_type_list (V16QI_type_node, pchar_type_node, NULL_TREE);
+  tree void_ftype_pchar_v16qi
+    = build_function_type_list (void_type_node,
+			        pchar_type_node, V16QI_type_node, NULL_TREE);
+  tree v4si_ftype_pchar
+    = build_function_type_list (V4SI_type_node, pchar_type_node, NULL_TREE);
+  tree void_ftype_pchar_v4si
+    = build_function_type_list (void_type_node,
+			        pchar_type_node, V4SI_type_node, NULL_TREE);
+  tree v2di_ftype_v2di
+    = build_function_type_list (V2DI_type_node, V2DI_type_node, NULL_TREE);
 
   /* Add all builtins that are more or less simple operations on two
      operands.  */
@@ -12625,6 +12798,7 @@ ix86_init_mmx_sse_builtins ()
 
   def_builtin (MASK_SSE2, "__builtin_ia32_maskmovdqu", void_ftype_v16qi_v16qi_pchar, IX86_BUILTIN_MASKMOVDQU);
   def_builtin (MASK_SSE2, "__builtin_ia32_movq2dq", v2di_ftype_di, IX86_BUILTIN_MOVQ2DQ);
+  def_builtin (MASK_SSE2, "__builtin_ia32_movdq2q", di_ftype_v2di, IX86_BUILTIN_MOVDQ2Q);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_loadapd", v2df_ftype_pdouble, IX86_BUILTIN_LOADAPD);
   def_builtin (MASK_SSE2, "__builtin_ia32_loadupd", v2df_ftype_pdouble, IX86_BUILTIN_LOADUPD);
@@ -12687,6 +12861,16 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_SSE2, "__builtin_ia32_clflush", void_ftype_pvoid, IX86_BUILTIN_CLFLUSH);
   def_builtin (MASK_SSE2, "__builtin_ia32_lfence", void_ftype_void, IX86_BUILTIN_LFENCE);
   def_builtin (MASK_SSE2, "__builtin_ia32_mfence", void_ftype_void, IX86_BUILTIN_MFENCE);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_loaddqa", v16qi_ftype_pchar, IX86_BUILTIN_LOADDQA);
+  def_builtin (MASK_SSE2, "__builtin_ia32_loaddqu", v16qi_ftype_pchar, IX86_BUILTIN_LOADDQU);
+  def_builtin (MASK_SSE2, "__builtin_ia32_loadd", v4si_ftype_pchar, IX86_BUILTIN_LOADD);
+  def_builtin (MASK_SSE2, "__builtin_ia32_storedqa", void_ftype_pchar_v16qi, IX86_BUILTIN_STOREDQA);
+  def_builtin (MASK_SSE2, "__builtin_ia32_storedqu", void_ftype_pchar_v16qi, IX86_BUILTIN_STOREDQU);
+  def_builtin (MASK_SSE2, "__builtin_ia32_stored", void_ftype_pchar_v4si, IX86_BUILTIN_STORED);
+  def_builtin (MASK_SSE2, "__builtin_ia32_movq", v2di_ftype_v2di, IX86_BUILTIN_MOVQ);
+
+  def_builtin (MASK_SSE1, "__builtin_ia32_setzero128", v2di_ftype_void, IX86_BUILTIN_CLRTI);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_psllw128", v8hi_ftype_v8hi_v2di, IX86_BUILTIN_PSLLW128);
   def_builtin (MASK_SSE2, "__builtin_ia32_pslld128", v4si_ftype_v4si_v2di, IX86_BUILTIN_PSLLD128);
@@ -13099,9 +13283,11 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       return target;
 
     case IX86_BUILTIN_MASKMOVQ:
+    case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
 	       ? (TARGET_64BIT ? CODE_FOR_mmx_maskmovq_rex : CODE_FOR_mmx_maskmovq)
-	       : CODE_FOR_sse2_maskmovdqu);
+	       : (TARGET_64BIT ? CODE_FOR_sse2_maskmovdqu_rex64
+		  : CODE_FOR_sse2_maskmovdqu));
       /* Note the arg order is different from the operand order.  */
       arg1 = TREE_VALUE (arglist);
       arg2 = TREE_VALUE (TREE_CHAIN (arglist));
@@ -13140,6 +13326,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
 
     case IX86_BUILTIN_STOREAPS:
       return ix86_expand_store_builtin (CODE_FOR_sse_movaps, arglist);
+
     case IX86_BUILTIN_STOREUPS:
       return ix86_expand_store_builtin (CODE_FOR_sse_movups, arglist);
 
@@ -13408,6 +13595,12 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       emit_insn (gen_mmx_clrdi (target));
       return target;
 
+    case IX86_BUILTIN_CLRTI:
+      target = gen_reg_rtx (V2DImode);
+      emit_insn (gen_sse2_clrti (simplify_gen_subreg (TImode, target, V2DImode, 0)));
+      return target;
+
+
     case IX86_BUILTIN_SQRTSD:
       return ix86_expand_unop1_builtin (CODE_FOR_vmsqrtv2df2, arglist, target);
     case IX86_BUILTIN_LOADAPD:
@@ -13493,6 +13686,20 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       return ix86_expand_store_builtin (CODE_FOR_sse2_movntv2di, arglist);
     case IX86_BUILTIN_MOVNTI:
       return ix86_expand_store_builtin (CODE_FOR_sse2_movntsi, arglist);
+
+    case IX86_BUILTIN_LOADDQA:
+      return ix86_expand_unop_builtin (CODE_FOR_sse2_movdqa, arglist, target, 1);
+    case IX86_BUILTIN_LOADDQU:
+      return ix86_expand_unop_builtin (CODE_FOR_sse2_movdqu, arglist, target, 1);
+    case IX86_BUILTIN_LOADD:
+      return ix86_expand_unop_builtin (CODE_FOR_sse2_loadd, arglist, target, 1);
+
+    case IX86_BUILTIN_STOREDQA:
+      return ix86_expand_store_builtin (CODE_FOR_sse2_movdqa, arglist);
+    case IX86_BUILTIN_STOREDQU:
+      return ix86_expand_store_builtin (CODE_FOR_sse2_movdqu, arglist);
+    case IX86_BUILTIN_STORED:
+      return ix86_expand_store_builtin (CODE_FOR_sse2_stored, arglist);
 
     default:
       break;
@@ -14008,10 +14215,16 @@ x86_order_regs_for_local_alloc ()
    located on entry to the FUNCTION.  */
 
 static rtx
-ia32_this_parameter (function)
+x86_this_parameter (function)
      tree function;
 {
   tree type = TREE_TYPE (function);
+
+  if (TARGET_64BIT)
+    {
+      int n = aggregate_value_p (TREE_TYPE (type)) != 0;
+      return gen_rtx_REG (DImode, x86_64_int_parameter_registers[n]);
+    }
 
   if (ix86_fntype_regparm (type) > 0)
     {
@@ -14020,7 +14233,7 @@ ia32_this_parameter (function)
       parm = TYPE_ARG_TYPES (type);
       /* Figure out whether or not the function has a variable number of
 	 arguments.  */
-      for (; parm; parm = TREE_CHAIN (parm))\
+      for (; parm; parm = TREE_CHAIN (parm))
 	if (TREE_VALUE (parm) == void_type_node)
 	  break;
       /* If not, the this parameter is in %eax.  */
@@ -14034,120 +14247,157 @@ ia32_this_parameter (function)
     return gen_rtx_MEM (SImode, plus_constant (stack_pointer_rtx, 4));
 }
 
+/* Determine whether x86_output_mi_thunk can succeed.  */
+
+static bool
+x86_can_output_mi_thunk (thunk, delta, vcall_offset, function)
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT vcall_offset;
+     tree function;
+{
+  /* 64-bit can handle anything.  */
+  if (TARGET_64BIT)
+    return true;
+
+  /* For 32-bit, everything's fine if we have one free register.  */
+  if (ix86_fntype_regparm (TREE_TYPE (function)) < 3)
+    return true;
+
+  /* Need a free register for vcall_offset.  */
+  if (vcall_offset)
+    return false;
+
+  /* Need a free register for GOT references.  */
+  if (flag_pic && !(*targetm.binds_local_p) (function))
+    return false;
+
+  /* Otherwise ok.  */
+  return true;
+}
+
+/* Output the assembler code for a thunk function.  THUNK_DECL is the
+   declaration for the thunk function itself, FUNCTION is the decl for
+   the target function.  DELTA is an immediate constant offset to be
+   added to THIS.  If VCALL_OFFSET is non-zero, the word at
+   *(*this + vcall_offset) should be added to THIS.  */
 
 static void
-x86_output_mi_vcall_thunk (file, thunk, delta, vcall_index, function)
-     FILE *file;
+x86_output_mi_thunk (file, thunk, delta, vcall_offset, function)
+     FILE *file ATTRIBUTE_UNUSED;
      tree thunk ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
-     HOST_WIDE_INT vcall_index;
+     HOST_WIDE_INT vcall_offset;
      tree function;
 {
   rtx xops[3];
+  rtx this = x86_this_parameter (function);
+  rtx this_reg, tmp;
 
-  if (TARGET_64BIT)
+  /* If VCALL_OFFSET, we'll need THIS in a register.  Might as well
+     pull it in now and let DELTA benefit.  */
+  if (REG_P (this))
+    this_reg = this;
+  else if (vcall_offset)
     {
-      int n = aggregate_value_p (TREE_TYPE (TREE_TYPE (function))) != 0;
+      /* Put the this parameter into %eax.  */
+      xops[0] = this;
+      xops[1] = this_reg = gen_rtx_REG (Pmode, 0);
+      output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
+    }
+  else
+    this_reg = NULL_RTX;
+
+  /* Adjust the this parameter by a fixed constant.  */
+  if (delta)
+    {
       xops[0] = GEN_INT (delta);
-      xops[1] = gen_rtx_REG (DImode, x86_64_int_parameter_registers[n]);
-      output_asm_insn ("add{q} {%0, %1|%1, %0}", xops);
-      if (flag_pic)
+      xops[1] = this_reg ? this_reg : this;
+      if (TARGET_64BIT)
 	{
-	  fprintf (file, "\tjmp *");
-	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
-	  fprintf (file, "@GOTPCREL(%%rip)\n");
+	  if (!x86_64_general_operand (xops[0], DImode))
+	    {
+	      tmp = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 2 /* R10 */);
+	      xops[1] = tmp;
+	      output_asm_insn ("mov{q}\t{%1, %0|%0, %1}", xops);
+	      xops[0] = tmp;
+	      xops[1] = this;
+	    }
+	  output_asm_insn ("add{q}\t{%0, %1|%1, %0}", xops);
 	}
       else
+	output_asm_insn ("add{l}\t{%0, %1|%1, %0}", xops);
+    }
+
+  /* Adjust the this parameter by a value stored in the vtable.  */
+  if (vcall_offset)
+    {
+      if (TARGET_64BIT)
+	tmp = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 2 /* R10 */);
+      else
+	tmp = gen_rtx_REG (SImode, 2 /* ECX */);
+
+      xops[0] = gen_rtx_MEM (Pmode, this_reg);
+      xops[1] = tmp;
+      if (TARGET_64BIT)
+	output_asm_insn ("mov{q}\t{%0, %1|%1, %0}", xops);
+      else
+	output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
+
+      /* Adjust the this parameter.  */
+      xops[0] = gen_rtx_MEM (Pmode, plus_constant (tmp, vcall_offset));
+      if (TARGET_64BIT && !memory_operand (xops[0], Pmode))
 	{
-	  fprintf (file, "\tjmp ");
-	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
-	  fprintf (file, "\n");
+	  rtx tmp2 = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 3 /* R11 */);
+	  xops[0] = GEN_INT (vcall_offset);
+	  xops[1] = tmp2;
+	  output_asm_insn ("mov{q}\t{%0, %1|%1, %0}", xops);
+	  xops[0] = gen_rtx_MEM (Pmode, gen_rtx_PLUS (Pmode, tmp, tmp2));
+	}
+      xops[1] = this_reg;
+      if (TARGET_64BIT)
+	output_asm_insn ("add{q}\t{%0, %1|%1, %0}", xops);
+      else
+	output_asm_insn ("add{l}\t{%0, %1|%1, %0}", xops);
+    }
+
+  /* If necessary, drop THIS back to its stack slot.  */
+  if (this_reg && this_reg != this)
+    {
+      xops[0] = this_reg;
+      xops[1] = this;
+      output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
+    }
+
+  xops[0] = DECL_RTL (function);
+  if (TARGET_64BIT)
+    {
+      if (!flag_pic || (*targetm.binds_local_p) (function))
+	output_asm_insn ("jmp\t%P0", xops);
+      else
+	{
+	  tmp = XEXP (xops[0], 0);
+	  tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, tmp), UNSPEC_GOTPCREL);
+	  tmp = gen_rtx_CONST (Pmode, tmp);
+	  tmp = gen_rtx_MEM (QImode, tmp);
+	  xops[0] = tmp;
+	  output_asm_insn ("jmp\t%A0", xops);
 	}
     }
   else
     {
-      /* Adjust the this parameter by a fixed constant.  */
-      if (delta)
-	{
-	  xops[0] = GEN_INT (delta);
-	  xops[1] = ia32_this_parameter (function);
-	  output_asm_insn ("add{l}\t{%0, %1|%1, %0}", xops);
-	}
-
-      /* Adjust the this parameter by a value stored in the vtable.  */
-      if (vcall_index)
-	{
-	  rtx this_parm;
-
-	  /* Put the this parameter into %eax.  */
-	  this_parm = ia32_this_parameter (function);
-	  if (!REG_P (this_parm))
-	    {
-	      xops[0] = this_parm;
-	      xops[1] = gen_rtx_REG (Pmode, 0);
-	      output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
-	    }
-	  /* Load the virtual table pointer into %edx.  */
-	  if (ix86_fntype_regparm (TREE_TYPE (function)) > 2)
-	    error ("virtual function `%D' cannot have more than two register parameters",
-		   function);
-	  xops[0] = gen_rtx_MEM (Pmode, 
-				 gen_rtx_REG (Pmode, 0));
-	  xops[1] = gen_rtx_REG (Pmode, 1);
-	  output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
-	  /* Adjust the this parameter.  */
-	  xops[0] = gen_rtx_MEM (SImode, 
-				 plus_constant (gen_rtx_REG (Pmode, 1), 
-						vcall_index));
-	  xops[1] = gen_rtx_REG (Pmode, 0);
-	  output_asm_insn ("add{l}\t{%0, %1|%1, %0}", xops);
-	  /* Put the this parameter back where it came from.  */
-	  if (!REG_P (this_parm))
-	    {
-	      xops[0] = gen_rtx_REG (Pmode, 0);
-	      xops[1] = ia32_this_parameter (function);
-	      output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
-	    }
-	}
-
-      if (flag_pic)
-	{
-	  xops[0] = pic_offset_table_rtx;
-	  xops[1] = gen_label_rtx ();
-	  xops[2] = gen_rtx_SYMBOL_REF (Pmode, GOT_SYMBOL_NAME);
-
-	  if (ix86_regparm > 2)
-	    abort ();
-	  output_asm_insn ("push{l}\t%0", xops);
-	  output_asm_insn ("call\t%P1", xops);
-	  (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (xops[1]));
-	  output_asm_insn ("pop{l}\t%0", xops);
-	  output_asm_insn
-	    ("add{l}\t{%2+[.-%P1], %0|%0, OFFSET FLAT: %2+[.-%P1]}", xops);
-	  xops[0] = gen_rtx_MEM (SImode, XEXP (DECL_RTL (function), 0));
-	  output_asm_insn
-	    ("mov{l}\t{%0@GOT(%%ebx), %%ecx|%%ecx, %0@GOT[%%ebx]}", xops);
-	  asm_fprintf (file, "\tpop{l\t%%ebx|\t%%ebx}\n");
-	  asm_fprintf (file, "\tjmp\t{*%%ecx|%%ecx}\n");
-	}
+      if (!flag_pic || (*targetm.binds_local_p) (function))
+	output_asm_insn ("jmp\t%P0", xops);
       else
 	{
-	  fprintf (file, "\tjmp\t");
-	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
-	  fprintf (file, "\n");
+	  tmp = gen_rtx_REG (SImode, 2 /* ECX */);
+	  output_set_got (tmp);
+
+	  xops[1] = tmp;
+	  output_asm_insn ("mov{l}\t{%0@GOT(%1), %1|%1, %0@GOT[%1]}", xops);
+	  output_asm_insn ("jmp\t{*}%1", xops);
 	}
     }
-}
-
-static void
-x86_output_mi_thunk (file, thunk, delta, function)
-     FILE *file;
-     tree thunk;
-     HOST_WIDE_INT delta;
-     tree function;
-{
-  x86_output_mi_vcall_thunk (file, thunk, delta, /*vcall_index=*/0, 
-			     function);
 }
 
 int

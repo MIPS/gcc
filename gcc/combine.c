@@ -3499,15 +3499,13 @@ subst (x, from, to, in_dest, unique_copy)
 		      )
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 
-#ifdef CLASS_CANNOT_CHANGE_MODE
+#ifdef CANNOT_CHANGE_MODE_CLASS
 		  if (code == SUBREG
 		      && GET_CODE (to) == REG
 		      && REGNO (to) < FIRST_PSEUDO_REGISTER
-		      && (TEST_HARD_REG_BIT
-			  (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
-			   REGNO (to)))
-		      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (to),
-						     GET_MODE (x)))
+		      && REG_CANNOT_CHANGE_MODE_P (REGNO (to),
+						   GET_MODE (to),
+						   GET_MODE (x)))
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 #endif
 
@@ -5178,13 +5176,11 @@ simplify_set (x)
       && (GET_MODE_SIZE (GET_MODE (src))
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (src))))
 #endif
-#ifdef CLASS_CANNOT_CHANGE_MODE
+#ifdef CANNOT_CHANGE_MODE_CLASS
       && ! (GET_CODE (dest) == REG && REGNO (dest) < FIRST_PSEUDO_REGISTER
-	    && (TEST_HARD_REG_BIT
-		(reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
-		 REGNO (dest)))
-	    && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (src),
-					   GET_MODE (SUBREG_REG (src))))
+	    && REG_CANNOT_CHANGE_MODE_P (REGNO (dest),
+					 GET_MODE (src), 
+					 GET_MODE (SUBREG_REG (src))))
 #endif
       && (GET_CODE (dest) == REG
 	  || (GET_CODE (dest) == SUBREG
@@ -9917,14 +9913,13 @@ gen_lowpart_for_combine (mode, x)
     }
 
   result = gen_lowpart_common (mode, x);
-#ifdef CLASS_CANNOT_CHANGE_MODE
+#ifdef CANNOT_CHANGE_MODE_CLASS
   if (result != 0
       && GET_CODE (result) == SUBREG
       && GET_CODE (SUBREG_REG (result)) == REG
-      && REGNO (SUBREG_REG (result)) >= FIRST_PSEUDO_REGISTER
-      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (result),
-				     GET_MODE (SUBREG_REG (result))))
-    REG_CHANGES_MODE (REGNO (SUBREG_REG (result))) = 1;
+      && REGNO (SUBREG_REG (result)) >= FIRST_PSEUDO_REGISTER)
+    SET_REGNO_REG_SET (&subregs_of_mode[GET_MODE (result)],
+		       REGNO (SUBREG_REG (result)));
 #endif
 
   if (result)
@@ -11893,7 +11888,7 @@ mark_used_regs_combine (x)
 	{
 	  unsigned int endregno, r;
 
-	  /* None of this applies to the stack, frame or arg pointers */
+	  /* None of this applies to the stack, frame or arg pointers.  */
 	  if (regno == STACK_POINTER_REGNUM
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
 	      || regno == HARD_FRAME_POINTER_REGNUM
@@ -12001,7 +11996,7 @@ move_deaths (x, maybe_kill_insn, from_cuid, to_insn, pnotes)
       rtx where_dead = reg_last_death[regno];
       rtx before_dead, after_dead;
 
-      /* Don't move the register if it gets killed in between from and to */
+      /* Don't move the register if it gets killed in between from and to.  */
       if (maybe_kill_insn && reg_set_p (x, maybe_kill_insn)
 	  && ! reg_referenced_p (x, maybe_kill_insn))
 	return;

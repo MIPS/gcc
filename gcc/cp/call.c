@@ -4277,7 +4277,10 @@ convert_for_arg_passing (type, val)
 {
   /* Pass classes with copy ctors by invisible reference.  */
   if (TREE_ADDRESSABLE (type))
-    val = build1 (ADDR_EXPR, build_reference_type (type), val);
+    {
+      val = build1 (ADDR_EXPR, build_reference_type (type), val);
+      ADDR_IS_INVISIREF (val) = 1;
+    }
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
 	   && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
@@ -4295,7 +4298,11 @@ cp_convert_parm_for_inlining (parm, value, fn)
   /* When inlining, we don't need to mess with invisible references, so
      undo the ADDR_EXPR.  */
   if (TREE_ADDRESSABLE (TREE_TYPE (parm)))
-    value = build_indirect_ref (value, NULL);
+    {
+      value = TREE_OPERAND (value, 0);
+      if (TREE_CODE (value) != TARGET_EXPR)
+	abort ();
+    }
   return value;
 }
 
@@ -4507,7 +4514,7 @@ build_over_call (cand, args, flags)
     {
       tree t, *p = &TREE_VALUE (converted_args);
       tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (*p)),
-				DECL_VIRTUAL_CONTEXT (fn),
+				DECL_CONTEXT (fn),
 				ba_any, NULL);
       my_friendly_assert (binfo && binfo != error_mark_node, 20010730);
       
@@ -4705,7 +4712,7 @@ build_special_member_call (tree instance, tree name, tree args,
       /* If the current function is a complete object constructor
 	 or destructor, then we fetch the VTT directly.
 	 Otherwise, we look it up using the VTT we were given.  */
-      vtt = IDENTIFIER_GLOBAL_VALUE (get_vtt_name (current_class_type));
+      vtt = TREE_CHAIN (CLASSTYPE_VTABLES (current_class_type));
       vtt = decay_conversion (vtt);
       vtt = build (COND_EXPR, TREE_TYPE (vtt),
 		   build (EQ_EXPR, boolean_type_node,

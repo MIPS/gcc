@@ -27,7 +27,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -49,6 +49,7 @@
 #include "insn-codes.h"
 #include "insn-flags.h"
 #include "insn-config.h"
+#include "optabs.h"
 #include "recog.h"
 #include "toplev.h"
 #include "output.h"
@@ -209,7 +210,7 @@ gnat_parse_file (set_yydebug)
    it cannot decode.  This routine returns the number of consecutive arguments
    from ARGV that it successfully decoded; 0 indicates failure.  */
 
-int
+static int
 gnat_decode_option (argc, argv)
      int argc ATTRIBUTE_UNUSED;
      char **argv;
@@ -294,7 +295,7 @@ gnat_decode_option (argc, argv)
 
 /* Initialize for option processing.  */
 
-void
+static void
 gnat_init_options ()
 {
   /* Initialize gnat_argv with save_argv size */
@@ -357,6 +358,10 @@ gnat_init (filename)
   internal_reference_types ();
 
   set_lang_adjust_rli (gnat_adjust_rli);
+
+  if (filename == 0)
+    filename = "";
+
   return filename;
 }
 

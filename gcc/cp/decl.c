@@ -2617,7 +2617,11 @@ maybe_process_template_type_declaration (type, globalize, b)
 	      b->level_chain->tags =
 		tree_cons (name, type, b->level_chain->tags);
 	      if (!COMPLETE_TYPE_P (current_class_type))
-		CLASSTYPE_TAGS (current_class_type) = b->level_chain->tags;
+		{
+		  maybe_add_class_template_decl_list (current_class_type,
+						      type, /*friend_p=*/0);
+		  CLASSTYPE_TAGS (current_class_type) = b->level_chain->tags;
+		}
 	    }
 	}
     }
@@ -2781,7 +2785,11 @@ pushtag (name, type, globalize)
       if (b->parm_flag == 2)
 	{
 	  if (!COMPLETE_TYPE_P (current_class_type))
-	    CLASSTYPE_TAGS (current_class_type) = b->tags;
+	    {
+	      maybe_add_class_template_decl_list (current_class_type,
+						  type, /*friend_p=*/0);
+	      CLASSTYPE_TAGS (current_class_type) = b->tags;
+	    }
 	}
     }
 
@@ -3374,8 +3382,6 @@ duplicate_decls (newdecl, olddecl)
 	 definition.  */
       if (DECL_VINDEX (olddecl))
 	DECL_VINDEX (newdecl) = DECL_VINDEX (olddecl);
-      if (DECL_VIRTUAL_CONTEXT (olddecl))
-	DECL_VIRTUAL_CONTEXT (newdecl) = DECL_VIRTUAL_CONTEXT (olddecl);
       if (DECL_CONTEXT (olddecl))
 	DECL_CONTEXT (newdecl) = DECL_CONTEXT (olddecl);
       DECL_STATIC_CONSTRUCTOR (newdecl) |= DECL_STATIC_CONSTRUCTOR (olddecl);
@@ -3412,12 +3418,9 @@ duplicate_decls (newdecl, olddecl)
 
       if (newtype != error_mark_node && oldtype != error_mark_node
 	  && TYPE_LANG_SPECIFIC (newtype) && TYPE_LANG_SPECIFIC (oldtype))
-	{
-	  CLASSTYPE_VSIZE (newtype) = CLASSTYPE_VSIZE (oldtype);
-	  CLASSTYPE_FRIEND_CLASSES (newtype)
-	    = CLASSTYPE_FRIEND_CLASSES (oldtype);
-	}
-
+	CLASSTYPE_FRIEND_CLASSES (newtype)
+	  = CLASSTYPE_FRIEND_CLASSES (oldtype);
+\
       DECL_ORIGINAL_TYPE (newdecl) = DECL_ORIGINAL_TYPE (olddecl);
     }
 
@@ -3594,9 +3597,12 @@ duplicate_decls (newdecl, olddecl)
       /* Only functions have DECL_BEFRIENDING_CLASSES.  */
       if (TREE_CODE (newdecl) == FUNCTION_DECL
 	  || DECL_FUNCTION_TEMPLATE_P (newdecl))
-	DECL_BEFRIENDING_CLASSES (newdecl)
-	  = chainon (DECL_BEFRIENDING_CLASSES (newdecl),
-		     DECL_BEFRIENDING_CLASSES (olddecl));
+	{
+	  DECL_BEFRIENDING_CLASSES (newdecl)
+	    = chainon (DECL_BEFRIENDING_CLASSES (newdecl),
+		       DECL_BEFRIENDING_CLASSES (olddecl));
+	  DECL_THUNKS (newdecl) = DECL_THUNKS (olddecl);
+	}
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -5696,6 +5702,13 @@ make_typename_type (context, name, complain)
 	  t = lookup_field (context, name, 0, 1);
 	  if (t)
 	    {
+	      if (TREE_CODE (t) != TYPE_DECL)
+		{
+		  if (complain & tf_error)
+		    error ("no type named `%#T' in `%#T'", name, context);
+		  return error_mark_node;
+		}
+
 	      if (complain & tf_parsing)
 		type_access_control (context, t);
 	      else
@@ -7838,7 +7851,7 @@ reshape_init (tree type, tree *initp)
 
   if (TREE_CODE (old_init_value) == STRING_CST
       && TREE_CODE (type) == ARRAY_TYPE
-      && char_type_p (TREE_TYPE (type)))
+      && char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (type))))
     {
       /* [dcl.init.string]
 
@@ -8174,6 +8187,12 @@ maybe_inject_for_scope_var (decl)
      tree decl;
 {
   if (!DECL_NAME (decl))
+    return;
+  
+  /* Declarations of __FUNCTION__ and its ilk appear magically when
+     the variable is first used.  If that happens to be inside a
+     for-loop, we don't want to do anything special.  */
+  if (DECL_PRETTY_FUNCTION_P (decl))
     return;
 
   if (current_binding_level->is_for_scope)
@@ -11236,8 +11255,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      pop_decl_namespace ();
 	    else if (friendp && (TREE_COMPLEXITY (declarator) < 2))
 	      /* Don't fall out into global scope. Hides real bug? --eichin */ ;
-	    else if (! IS_AGGR_TYPE_CODE
-		     (TREE_CODE (TREE_OPERAND (declarator, 0))))
+	    else if (!TREE_OPERAND (declarator, 0)
+		     || !IS_AGGR_TYPE_CODE
+		          (TREE_CODE (TREE_OPERAND (declarator, 0))))
 	      ;
 	    else if (TREE_COMPLEXITY (declarator) == current_class_depth)
 	      {
@@ -14274,6 +14294,10 @@ finish_destructor_body ()
 {
   tree exprstmt;
 
+  /* Any return from a destructor will end up here; that way all base
+     and member cleanups will be run when the function returns.  */
+  add_stmt (build_stmt (LABEL_STMT, dtor_label));
+
   /* In a virtual destructor, we must call delete.  */
   if (DECL_VIRTUAL_P (current_function_decl))
     {
@@ -14346,14 +14370,7 @@ void
 finish_function_body (compstmt)
      tree compstmt;
 {
-  if (processing_template_decl)
-    /* Do nothing now.  */;
-  else if (DECL_DESTRUCTOR_P (current_function_decl))
-    /* Any return from a destructor will end up here.  Put it before the
-       cleanups so that an explicit return doesn't duplicate them.  */
-    add_stmt (build_stmt (LABEL_STMT, dtor_label));
-
-  /* Close the block; in a destructor, run the member cleanups.  */
+  /* Close the block.  */
   finish_compound_stmt (0, compstmt);
 
   if (processing_template_decl)

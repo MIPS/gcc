@@ -4298,7 +4298,8 @@ c_convert_parm_for_inlining (parm, value, fn)
 
 /* Print a warning using MSGID.
    It gets OPNAME as its one parameter.
-   If OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
+   if OPNAME is null and ARGNUM is 0, it is replaced by "passing arg of `FUNCTION'".
+   Otherwise if OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
    FUNCTION and ARGNUM are handled specially if we are building an
    Objective-C selector.  */
 
@@ -4319,7 +4320,27 @@ warn_for_assignment (msgid, opname, function, argnum)
 	  function = selector;
 	  argnum -= 2;
 	}
-      if (function)
+      if (argnum == 0)
+	{
+	  if (function)
+	    {	    
+	      /* Function name is known; supply it.  */
+	      const char *const argstring = _("passing arg of `%s'");
+	      new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
+					    + strlen (argstring) + 1
+					    + 1);
+	      sprintf (new_opname, argstring,
+		       IDENTIFIER_POINTER (function));
+	    }
+	  else
+	    {
+	      /* Function name unknown (call through ptr).  */
+	      const char *const argnofun = _("passing arg of pointer to function");
+	      new_opname = (char *) alloca (strlen (argnofun) + 1 + 1);
+	      sprintf (new_opname, argnofun);
+	    }
+	}
+      else if (function)
 	{
 	  /* Function name is known; supply it.  */
 	  const char *const argstring = _("passing arg %d of `%s'");
@@ -6925,7 +6946,11 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   /* Record the contents of OUTPUTS before it is modified.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    o[i] = TREE_VALUE (tail);
+    {
+      o[i] = TREE_VALUE (tail);
+      if (o[i] == error_mark_node)
+	return;
+    }
 
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */

@@ -2465,7 +2465,7 @@ prescan_loop (loop)
   loop_info->first_loop_store_insn = NULL_RTX;
   loop_info->mems_idx = 0;
   loop_info->num_mem_sets = 0;
-  /* If loop opts run twice, this was set on 1st pass for 2nd. */
+  /* If loop opts run twice, this was set on 1st pass for 2nd.  */
   loop_info->preconditioned = NOTE_PRECONDITIONED (end);
 
   for (insn = start; insn && GET_CODE (insn) != CODE_LABEL;
@@ -3261,6 +3261,13 @@ loop_invariant_p (loop, x)
 
       if (LOOP_INFO (loop)->has_call
 	  && REGNO (x) < FIRST_PSEUDO_REGISTER && call_used_regs[REGNO (x)])
+	return 0;
+
+      /* Out-of-range regs can occur when we are called from unrolling.
+	 These have always been created by the unroller and are set in
+	 the loop, hence are never invariant. */
+
+      if (REGNO (x) >= regs->num)
 	return 0;
 
       if (regs->array[REGNO (x)].set_in_loop < 0)

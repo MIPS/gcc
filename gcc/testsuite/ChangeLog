@@ -2,12 +2,192 @@
 
 	* gcc.dg/vr-mult[1-7].c: New tests.
 
+2002-11-04  Adam Nemet  <anemet@lnxw.com>
+
+	* gcc.c-torture/execute/941014-1.x: thumb-elf was deprecated, use
+	-mthumb.  Only xfail with -O0.
+
+2002-11-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/thunk1.C: New test.
+	* g++.dg/abi/thunk2.C: Likewise.
+	* g++.dg/abi/vtt1.C: Likewise.
+
+2002-11-02  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/8423
+	* gcc.c-torture/execute/builtin-constant.c: New test.
+
+2002-11-01  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/ext/typedef-init.C, gcc.dg/typedef-init.C:
+	Add some more cases.
+
+2002-11-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8391
+	* g++.dg/opt/local1.C: New test.
+
+2002-10-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8160
+	* g++.dg/template/complit1.C: New test.
+
+	PR c++/8149
+	* g++.dg/template/typename4.C: Likewise.
+
+2002-10-30  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Core issue 287, PR c++/7639
+	* g++.dg/template/instantiate1.C: Adjust error location.
+	* g++.dg/template/instantiate3.C: New test.
+	* g++.old-deja/g++.pt/crash10.C: Adjust error location.
+	* g++.old-deja/g++.pt/derived3.C: Adjust error location.
+	* g++.old-deja/g++.pt/spec28.C: Reorder declaration.
+
+2002-10-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/compat.exp (compat-execute): Don't clean out a gluefile.
+
+2002-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8287
+	* g++.dg/init/dtor2.C: New test.
+
+2002-10-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/20021014-1.c: Bypass errors on solaris2 and irix6.
+	* gcc.dg/nest.c: Bypass errors on irix6.
+
+2002-10-27  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/nest.c: Expect error for mmix-*-*.
+	* gcc.dg/20021014-1.c: Use dg-error, not dg-build.
+
+2002-10-26  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/wint_t-1.c, gcc.dg/wchar_t-1.c: Remove excess-errors
+	markers.
+
+	* gcc.dg/20021014-1.c: Expect build failure on mmix-*-*.
+
+2002-10-25  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/warn-1.c: New test.
+
+2002-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/template/typename3.C: New test.
+
+2002-10-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/lookup/ptrmem1.C: New test.
+
+	* g++.dg/abi/vthunk2.C: New test.
+
+2002-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/ext/vla1.C, gcc.dg/vla-2.c: New tests.
+
+2002-10-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty9.C: New test.
+
+2002-10-24  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/inherit/thunk1.C: Enable for ia64.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8067
+	* g++.dg/lookup/pretty1.C: New test.
+
+2002-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021023-1.c: New test.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7679
+	* g++.dg/parse/inline1.C: New test.
+
+2002-10-23  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/inherit/thunk1.C: Enable for x86_64.
+
+	* g++.dg/inherit/thunk1.C: Enable for s390 and alpha.
+
+2002-10-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6579
+	* g++.dg/parse/stmtexpr3.C: New test.
+
+2002-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/expr/cond1.C: New test.
+
+2002-10-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/sibcall-5.c: Correct { dg-do run } line.
+
+2002-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vbase13.C: New test.
+	* g++.dg/abi/vbase14.C: Likewise.
+
+2002-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/pic-1.c: New test.
+	* gcc.dg/tls/nonpic-1.c: New test.
+	* gcc.dg/20021018-1.c: New test.
+
+2002-10-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* lib/profopt.exp (profopt-cleanup): New argument TESTCASE.
+	Remove only files with the same base name as the test case.
+	(profopt-perf-value): Pass TESTCASE to profopt-cleanup.
+	(profopt-execute): Likewise.  Also, remove old profiling
+	and performance data files before running the tests.
+
+	* gcc.misc-tests/bprob.exp: Remove profopt-cleanup calls.
+	* g++.dg/bprob/bprob.exp: Likewise.
+	* g77.dg/bprob/bprob.exp: Likewise.  Also, relax regexp
+	to allow more general test case names.
+
+	* g++.dg/bprob/bprob-1.C: Rename to ...
+	* g++.dg/bprob/g++-bprob-1.C: ... this.
+
+	* g77.dg/bprob/bprob-1.f: Rename to ...
+	* g77.dg/bprob/g77-bprob-1.f: ... this.
+
 2002-10-21  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.dg/noncompile/920923-1.c: Prevent spurious regressions with
 	bison 1.50 or later.
 
-	* gcc.dg/sibcall-5.c: Correct { dg-do run } line.
+2002-10-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.dg/README: Describe more test directories.
+
+2002-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+ 	* g++.dg/init/array6.C: Add additional tests.
+
+2002-10-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/weak/typeof-2.c: Handle s390x targets as well.
+	* gcc.misc-tests/linkage.exp: Handle s390x targets in -m31 mode.
+
+2002-10-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20020604-1.x: New.
+	* gcc.c-torture/compile/simd-5.x: Likewise.
+	* gcc.c-torture/execute/920710-1.x: Likewise.
+	* gcc.c-torture/execute/20020720-1.x: Disable on h8300.
+
+2002-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/inherit/override1.C: Add dg-options clause.
 
 2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 

@@ -571,15 +571,19 @@ simplify_unary_operation (code, mode, op, op_mode)
   else if (GET_CODE (trueop) == CONST_DOUBLE
 	   && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
-      REAL_VALUE_TYPE d;
+      REAL_VALUE_TYPE d, t;
       REAL_VALUE_FROM_CONST_DOUBLE (d, trueop);
 
       switch (code)
 	{
 	case SQRT:
-	  /* We don't attempt to optimize this.  */
-	  return 0;
-
+	  if (! flag_unsafe_math_optimizations)
+	    return 0;
+	  if (HONOR_SNANS (mode) && real_isnan (&d))
+	    return 0;
+	  real_sqrt (&t, mode, &d);
+	  d = t;
+	  break;
 	case ABS:
 	  d = REAL_VALUE_ABS (d);
 	  break;
@@ -2351,7 +2355,10 @@ simplify_subreg (outermode, op, innermode, byte)
 	      /* This might fail, e.g. if taking a subreg from a SYMBOL_REF.  */
 	      /* ??? It would be nice if we could actually make such subregs
 		 on targets that allow such relocations.  */
-	      elt = simplify_subreg (submode, op, innermode, byte);
+	      if (byte >= GET_MODE_UNIT_SIZE (innermode))
+		elt = CONST0_RTX (submode);
+	      else
+	        elt = simplify_subreg (submode, op, innermode, byte);
 	      if (! elt)
 		return NULL_RTX;
 	      RTVEC_ELT (v, i) = elt;
@@ -2535,15 +2542,12 @@ simplify_subreg (outermode, op, innermode, byte)
   if (REG_P (op)
       && (! REG_FUNCTION_VALUE_P (op)
 	  || ! rtx_equal_function_value_matters)
-#ifdef CLASS_CANNOT_CHANGE_MODE
-      && ! (CLASS_CANNOT_CHANGE_MODE_P (outermode, innermode)
-	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_INT
-	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_FLOAT
-	    && (TEST_HARD_REG_BIT
-		(reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
-		 REGNO (op))))
-#endif
       && REGNO (op) < FIRST_PSEUDO_REGISTER
+#ifdef CANNOT_CHANGE_MODE_CLASS
+      && ! (REG_CANNOT_CHANGE_MODE_P (REGNO (op), outermode, innermode)
+	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_INT
+	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_FLOAT)
+#endif
       && ((reload_completed && !frame_pointer_needed)
 	  || (REGNO (op) != FRAME_POINTER_REGNUM
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM

@@ -278,9 +278,10 @@ make_thunk (function, delta, vcall_index)
 {
   tree thunk_id;
   tree thunk;
-  tree func_decl;
   tree vcall_offset;
   HOST_WIDE_INT d;
+
+  my_friendly_assert (TREE_CODE (function) == FUNCTION_DECL, 20021025);
 
   /* Scale the VCALL_INDEX to be in terms of bytes.  */
   if (vcall_index)
@@ -294,59 +295,59 @@ make_thunk (function, delta, vcall_index)
 
   d = tree_low_cst (delta, 0);
 
-  if (TREE_CODE (function) != ADDR_EXPR)
-    abort ();
-  func_decl = TREE_OPERAND (function, 0);
-  if (TREE_CODE (func_decl) != FUNCTION_DECL)
-    abort ();
+  /* See if we already have the thunk in question.  */
+  for (thunk = DECL_THUNKS (function); thunk; thunk = TREE_CHAIN (thunk))
+    if (THUNK_DELTA (thunk) == d
+	&& ((THUNK_VCALL_OFFSET (thunk) != NULL_TREE)
+	    == (vcall_offset != NULL_TREE))
+	&& (THUNK_VCALL_OFFSET (thunk)
+	    ? tree_int_cst_equal (THUNK_VCALL_OFFSET (thunk), 
+				  vcall_offset)
+	    : true))
+      return thunk;
 
-  thunk_id = mangle_thunk (TREE_OPERAND (function, 0), 
-			   delta, vcall_offset);
-  thunk = IDENTIFIER_GLOBAL_VALUE (thunk_id);
-  if (thunk && !DECL_THUNK_P (thunk))
-    {
-      error ("implementation-reserved name `%D' used", thunk_id);
-      thunk = NULL_TREE;
-      SET_IDENTIFIER_GLOBAL_VALUE (thunk_id, thunk);
-    }
-  if (thunk == NULL_TREE)
-    {
-      thunk = build_decl (FUNCTION_DECL, thunk_id, TREE_TYPE (func_decl));
-      DECL_LANG_SPECIFIC (thunk) = DECL_LANG_SPECIFIC (func_decl);
-      cxx_dup_lang_specific_decl (func_decl);
-      SET_DECL_ASSEMBLER_NAME (thunk, thunk_id);
-      DECL_CONTEXT (thunk) = DECL_CONTEXT (func_decl);
-      TREE_READONLY (thunk) = TREE_READONLY (func_decl);
-      TREE_THIS_VOLATILE (thunk) = TREE_THIS_VOLATILE (func_decl);
-      TREE_PUBLIC (thunk) = TREE_PUBLIC (func_decl);
-      if (flag_weak)
-	comdat_linkage (thunk);
-      SET_DECL_THUNK_P (thunk);
-      DECL_INITIAL (thunk) = function;
-      THUNK_DELTA (thunk) = d;
-      THUNK_VCALL_OFFSET (thunk) = vcall_offset;
-      /* The thunk itself is not a constructor or destructor, even if
-         the thing it is thunking to is.  */
-      DECL_INTERFACE_KNOWN (thunk) = 1;
-      DECL_NOT_REALLY_EXTERN (thunk) = 1;
-      DECL_SAVED_FUNCTION_DATA (thunk) = NULL;
-      DECL_DESTRUCTOR_P (thunk) = 0;
-      DECL_CONSTRUCTOR_P (thunk) = 0;
-      /* And neither is it a clone.  */
-      DECL_CLONED_FUNCTION (thunk) = NULL_TREE;
-      DECL_EXTERNAL (thunk) = 1;
-      DECL_ARTIFICIAL (thunk) = 1;
-      /* Even if this thunk is a member of a local class, we don't
-	 need a static chain.  */
-      DECL_NO_STATIC_CHAIN (thunk) = 1;
-      /* The THUNK is not a pending inline, even if the FUNC_DECL is.  */
-      DECL_PENDING_INLINE_P (thunk) = 0;
-      /* Nor has it been deferred.  */
-      DECL_DEFERRED_FN (thunk) = 0;
-      /* So that finish_file can write out any thunks that need to be: */
-      pushdecl_top_level (thunk);
-      SET_IDENTIFIER_GLOBAL_VALUE (thunk_id, thunk);
-    }
+  /* All thunks must be created before FUNCTION is actually emitted;
+     the ABI requires that all thunks be emitted together with the
+     function to which they transfer control.  */
+  my_friendly_assert (!TREE_ASM_WRITTEN (function), 20021025);
+
+  thunk_id = mangle_thunk (function, delta, vcall_offset);
+  thunk = build_decl (FUNCTION_DECL, thunk_id, TREE_TYPE (function));
+  DECL_LANG_SPECIFIC (thunk) = DECL_LANG_SPECIFIC (function);
+  cxx_dup_lang_specific_decl (function);
+  SET_DECL_ASSEMBLER_NAME (thunk, thunk_id);
+  DECL_CONTEXT (thunk) = DECL_CONTEXT (function);
+  TREE_READONLY (thunk) = TREE_READONLY (function);
+  TREE_THIS_VOLATILE (thunk) = TREE_THIS_VOLATILE (function);
+  TREE_PUBLIC (thunk) = TREE_PUBLIC (function);
+  if (flag_weak)
+    comdat_linkage (thunk);
+  SET_DECL_THUNK_P (thunk);
+  DECL_INITIAL (thunk) = build1 (ADDR_EXPR, vfunc_ptr_type_node, function);
+  THUNK_DELTA (thunk) = d;
+  THUNK_VCALL_OFFSET (thunk) = vcall_offset;
+  /* The thunk itself is not a constructor or destructor, even if
+     the thing it is thunking to is.  */
+  DECL_INTERFACE_KNOWN (thunk) = 1;
+  DECL_NOT_REALLY_EXTERN (thunk) = 1;
+  DECL_SAVED_FUNCTION_DATA (thunk) = NULL;
+  DECL_DESTRUCTOR_P (thunk) = 0;
+  DECL_CONSTRUCTOR_P (thunk) = 0;
+  /* And neither is it a clone.  */
+  DECL_CLONED_FUNCTION (thunk) = NULL_TREE;
+  DECL_EXTERNAL (thunk) = 1;
+  DECL_ARTIFICIAL (thunk) = 1;
+  /* Even if this thunk is a member of a local class, we don't
+     need a static chain.  */
+  DECL_NO_STATIC_CHAIN (thunk) = 1;
+  /* The THUNK is not a pending inline, even if the FUNCTION is.  */
+  DECL_PENDING_INLINE_P (thunk) = 0;
+  /* Nor has it been deferred.  */
+  DECL_DEFERRED_FN (thunk) = 0;
+  /* Add it to the list of thunks associated with FUNCTION.  */
+  TREE_CHAIN (thunk) = DECL_THUNKS (function);
+  DECL_THUNKS (function) = thunk;
+
   return thunk;
 }
 
@@ -361,7 +362,7 @@ use_thunk (thunk_fndecl, emit_p)
   tree fnaddr;
   tree function;
   tree vcall_offset;
-  HOST_WIDE_INT delta;
+  HOST_WIDE_INT delta, vcall_value;
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
@@ -387,6 +388,17 @@ use_thunk (thunk_fndecl, emit_p)
   delta = THUNK_DELTA (thunk_fndecl);
   vcall_offset = THUNK_VCALL_OFFSET (thunk_fndecl);
 
+  if (vcall_offset)
+    {
+      vcall_value = tree_low_cst (vcall_offset, /*pos=*/0);
+
+      /* It is expected that a value of zero means no vcall.  */
+      if (!vcall_value)
+	abort ();
+    }
+  else
+    vcall_value = 0;
+
   /* And, if we need to emit the thunk, it's used.  */
   mark_used (thunk_fndecl);
   /* This thunk is actually defined.  */
@@ -409,8 +421,8 @@ use_thunk (thunk_fndecl, emit_p)
   BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) 
     = DECL_ARGUMENTS (thunk_fndecl);
 
-  if (targetm.asm_out.output_mi_vcall_thunk
-      || (targetm.asm_out.output_mi_thunk && !vcall_offset))
+  if (targetm.asm_out.can_output_mi_thunk (thunk_fndecl, delta,
+					   vcall_value, function))
     {
       const char *fnname;
       current_function_decl = thunk_fndecl;
@@ -420,22 +432,10 @@ use_thunk (thunk_fndecl, emit_p)
       init_function_start (thunk_fndecl, input_filename, lineno);
       current_function_is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
-      if (targetm.asm_out.output_mi_vcall_thunk)
-	{
-	  HOST_WIDE_INT vcall_value;
 
-	  if (vcall_offset)
-	    vcall_value = tree_low_cst (vcall_offset, /*pos=*/0);
-	  else
-	    vcall_value = 0;
-	  targetm.asm_out.output_mi_vcall_thunk (asm_out_file, 
-						 thunk_fndecl, delta, 
-						 vcall_value,
-						 function);
-	}
-      else
-	targetm.asm_out.output_mi_thunk (asm_out_file, thunk_fndecl, 
-					 delta, function);
+      targetm.asm_out.output_mi_thunk (asm_out_file, thunk_fndecl, delta,
+				       vcall_value, function);
+
       assemble_end_function (thunk_fndecl, fnname);
       current_function_decl = 0;
       cfun = 0;

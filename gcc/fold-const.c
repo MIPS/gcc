@@ -4430,6 +4430,7 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
   /* And these are the types of the expressions.  */
   tree lhs_type = type;
   tree rhs_type = type;
+  int save = 0;
 
   if (cond_first_p)
     {
@@ -4455,15 +4456,23 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
 	 we simply build `a, throw 3'.  */
       if (VOID_TYPE_P (TREE_TYPE (true_value)))
 	{
-	  lhs_code = COMPOUND_EXPR;
-	  if (!cond_first_p)
-	    lhs_type = void_type_node;
+	  if (! cond_first_p)
+	    {
+	      lhs_code = COMPOUND_EXPR;
+	      lhs_type = void_type_node;
+	    }
+	  else
+	    lhs = true_value;
 	}
       if (VOID_TYPE_P (TREE_TYPE (false_value)))
 	{
-	  rhs_code = COMPOUND_EXPR;
-	  if (!cond_first_p)
-	    rhs_type = void_type_node;
+	  if (! cond_first_p)
+	    {
+	      rhs_code = COMPOUND_EXPR;
+	      rhs_type = void_type_node;
+	    }
+	  else
+	    rhs = false_value;
 	}
     }
   else
@@ -4488,11 +4497,13 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
      if an arm is a COND_EXPR since we get exponential behavior
      in that case.  */
 
-  if (TREE_CODE (arg) != SAVE_EXPR && ! TREE_CONSTANT (arg)
-      && (*lang_hooks.decls.global_bindings_p) () == 0
-      && ((TREE_CODE (arg) != VAR_DECL
-	   && TREE_CODE (arg) != PARM_DECL)
-	  || TREE_SIDE_EFFECTS (arg)))
+  if (TREE_CODE (arg) == SAVE_EXPR)
+    save = 1;
+  else if (lhs == 0 && rhs == 0
+	   && !TREE_CONSTANT (arg)
+	   && (*lang_hooks.decls.global_bindings_p) () == 0
+	   && ((TREE_CODE (arg) != VAR_DECL && TREE_CODE (arg) != PARM_DECL)
+	       || TREE_SIDE_EFFECTS (arg)))
     {
       if (TREE_CODE (true_value) != COND_EXPR)
 	lhs = fold (build (lhs_code, lhs_type, *true_lhs, *true_rhs));
@@ -4502,7 +4513,11 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
 
       if ((lhs == 0 || ! TREE_CONSTANT (lhs))
 	  && (rhs == 0 || !TREE_CONSTANT (rhs)))
-	arg = save_expr (arg), lhs = rhs = 0;
+	{
+	  arg = save_expr (arg);
+	  lhs = rhs = 0;
+	  save = 1;
+	}
     }
 
   if (lhs == 0)
@@ -4512,7 +4527,7 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
 
   test = fold (build (COND_EXPR, type, test, lhs, rhs));
 
-  if (TREE_CODE (arg) == SAVE_EXPR)
+  if (save)
     return build (COMPOUND_EXPR, type,
 		  convert (void_type_node, arg),
 		  strip_compound_expr (test, arg));
@@ -4720,9 +4735,14 @@ fold (expr)
 		      fold (build1 (code, type, TREE_OPERAND (arg0, 1))));
       else if (TREE_CODE (arg0) == COND_EXPR)
 	{
+	  tree arg01 = TREE_OPERAND (arg0, 1);
+	  tree arg02 = TREE_OPERAND (arg0, 2);
+	  if (! VOID_TYPE_P (TREE_TYPE (arg01)))
+	    arg01 = fold (build1 (code, type, arg01));
+	  if (! VOID_TYPE_P (TREE_TYPE (arg02)))
+	    arg02 = fold (build1 (code, type, arg02));
 	  t = fold (build (COND_EXPR, type, TREE_OPERAND (arg0, 0),
-			   fold (build1 (code, type, TREE_OPERAND (arg0, 1))),
-			   fold (build1 (code, type, TREE_OPERAND (arg0, 2)))));
+			   arg01, arg02));
 
 	  /* If this was a conversion, and all we did was to move into
 	     inside the COND_EXPR, bring it back out.  But leave it if
@@ -4738,6 +4758,8 @@ fold (expr)
 	      && TREE_CODE (t) == COND_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 1)) == code
 	      && TREE_CODE (TREE_OPERAND (t, 2)) == code
+	      && ! VOID_TYPE_P (TREE_OPERAND (t, 1))
+	      && ! VOID_TYPE_P (TREE_OPERAND (t, 2))
 	      && (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (t, 1), 0))
 		  == TREE_TYPE (TREE_OPERAND (TREE_OPERAND (t, 2), 0)))
 	      && ! (INTEGRAL_TYPE_P (TREE_TYPE (t))
