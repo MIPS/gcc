@@ -1205,6 +1205,11 @@ expand_calls_inline (tp, id)
 	  /* Dive into the SWITCH_EXPR.  */
 	  expand_calls_inline (&CATCH_BODY (*stmt_p), id);
         }
+      else if (code == EH_FILTER_EXPR)
+        {
+	  /* Dive into the SWITCH_EXPR.  */
+	  expand_calls_inline (&EH_FILTER_FAILURE (*stmt_p), id);
+        }
       else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
         {
 	  /* Dive into TRY_*_EXPRs.  */

@@ -355,7 +355,7 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 
 	      /* If we are starting the new block just to work around
 		 iterator limitations, keep track of it.  */
-	      if (!stmt_ends_bb_p (stmt))
+	      if (stmt && !stmt_ends_bb_p (stmt))
 		cfg_stats.num_failed_bind_expr_merges++;
 	    }
 	}
@@ -1832,7 +1832,8 @@ dump_tree_cfg (file, flags)
   if (flags & TDF_DETAILS)
     {
       fputc ('\n', file);
-      fprintf (file, ";; Function %s\n\n", current_function_name);
+      if (cfun)
+        fprintf (file, ";; Function %s\n\n", current_function_name);
       fprintf (file, ";; \n%d basic blocks, %d edges, last basic block %d.\n",
 	       n_basic_blocks, n_edges, last_basic_block);
 
@@ -1940,7 +1941,8 @@ tree_cfg2dot (file)
   basic_block bb;
 
   /* Write the file header.  */
-  fprintf (file, "digraph %s\n{\n", current_function_name);
+  if (cfun)
+    fprintf (file, "digraph %s\n{\n", current_function_name);
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)

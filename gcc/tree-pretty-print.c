@@ -1059,6 +1059,12 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_string (buffer, "<<<eh_filter (");
       dump_generic_node (buffer, EH_FILTER_TYPES (node), spc+2, flags);
       output_add_string (buffer, ")>>>");
+      newline_and_indent (buffer, spc+2);
+      output_add_string (buffer, "{");
+      newline_and_indent (buffer, spc+4);
+      dump_generic_node (buffer, EH_FILTER_FAILURE (node), spc+4, flags);
+      newline_and_indent (buffer, spc+2);
+      output_add_string (buffer, "}");
       break;
 
     case GOTO_SUBROUTINE_EXPR:

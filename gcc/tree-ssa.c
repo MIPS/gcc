@@ -285,7 +285,7 @@ rewrite_into_ssa (fndecl)
   tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
 
   /* Compute aliasing information.  */
-  compute_may_aliases ();
+  compute_may_aliases (fndecl);
 
   globals = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (globals);

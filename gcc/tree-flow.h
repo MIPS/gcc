@@ -409,7 +409,7 @@ extern void dump_immediate_uses_for	PARAMS ((FILE *, tree));
 extern void debug_immediate_uses_for	PARAMS ((tree));
 extern void remove_decl			PARAMS ((tree));
 extern tree *find_decl_location		PARAMS ((tree, tree));
-extern void compute_may_aliases		PARAMS ((void));
+extern void compute_may_aliases		PARAMS ((tree));
 extern void compute_reached_uses	PARAMS ((int));
 extern void compute_immediate_uses	PARAMS ((int));
 extern void compute_reaching_defs	PARAMS ((int));

@@ -1,3 +1,26 @@
+2003-04-01  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (make_blocks): Make sure the BIND_EXPR's subgraph
+	actually ended in a statement before seeing of the statement should
+	end a basic block.
+
+	* tree-cfg.c (dump_tree_cfg): Avoid crashing when cfun is NULL.
+	(tree_cfg2dot): Likewise.
+	* tree-dfa.c (dump_immediate_uses): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Dump the EH_FILTER_FAILURE
+	nodes attached to an EH_FILTER_EXPR.
+	
+	* tree-dfa.c (get_stmt_operands): Add cases for TRY_FINALLY_EXPR,
+	TRY_CATCH_EXPR, CATCH_EXPR and EH_FILTER_EXPR.
+	(get_expr_operands): Add case for EXC_PTR_EXPR.
+
+	* tree-dfa.c (compute_may_aliases): Accept FNDECL as an argument.
+	Use FNDECL instead of relying on CURRENT_FUNCTION_DECL.
+	* tree-flow.h (compute_may_aliases): Update prototype.
+	* tree-ssa.c (rewrite_into_ssa): Corresponding changes.
+
+	* tree-inline.c (expand_calls_inline): Correctly handle EH_FILTER_EXPR.
+
 2003-03-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (STRICT_WARN, STRICT2_WARN): Remove -Wtraditional.

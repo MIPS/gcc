@@ -258,6 +258,10 @@ get_stmt_operands (stmt)
     case LOOP_EXPR:
     case BIND_EXPR:
     case CASE_LABEL_EXPR:
+    case TRY_CATCH_EXPR:
+    case TRY_FINALLY_EXPR:
+    case EH_FILTER_EXPR:
+    case CATCH_EXPR:
       break;
 
     default:
@@ -319,6 +323,7 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
       || class == 'b'
       || code == ADDR_EXPR
       || code == FUNCTION_DECL
+      || code == EXC_PTR_EXPR
       || code == LABEL_DECL)
     return;
 
@@ -1236,7 +1241,8 @@ dump_immediate_uses (file)
   basic_block bb;
   block_stmt_iterator si;
 
-  fprintf (file, "\nDef-use edges for function %s\n", current_function_name);
+  if (cfun)
+    fprintf (file, "\nDef-use edges for function %s\n", current_function_name);
 
   FOR_EACH_BB (bb)
     {
@@ -1523,7 +1529,8 @@ clobber_vars_r (tp, walk_subtrees, data)
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
 
 void
-compute_may_aliases ()
+compute_may_aliases (fndecl)
+     tree fndecl;
 {
   static htab_t vars_found;
   static htab_t aliased_objects_found;
@@ -1537,7 +1544,7 @@ compute_may_aliases ()
      have been used to declare VLAs.  Those variables will be considered
      implicitly live by passes like DCE.  FIXME: This is a hack.  GIMPLE
      should expose VLAs in the code.  */
-  find_vla_decls (DECL_INITIAL (current_function_decl));
+  find_vla_decls (DECL_INITIAL (fndecl));
 
   num_aliased_objects = 0;
   VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");
@@ -1566,7 +1573,7 @@ compute_may_aliases ()
   if (flag_tree_points_to != PTA_NONE && num_aliased_objects)
     {
       timevar_push (TV_TREE_PTA);
-      create_alias_vars (current_function_decl);
+      create_alias_vars (fndecl);
       timevar_pop (TV_TREE_PTA);
     }
 
