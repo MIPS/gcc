@@ -1,3 +1,4 @@
+/* APPLE LOCAL file PCH and structs --pinskia */
 #include "struct-1.h"
 
 struct ChainSearchRecord {
@@ -8,4 +9,4 @@ void foo (ChainSearchPtr s)
 {
   s->identity = 0x6a73616d;
 }
-
++

@@ -835,6 +835,12 @@ push_file_scope (void)
 {
   tree decl;
 
+/* APPLE LOCAL begin Fix PCH and structs -- pinskia */
+/* This is already in the mainline so when the next merge this might here.  */
+  if (file_scope)
+    return;
+/* APPLE LOCAL end */
+
   push_scope ();
   file_scope = current_scope;
 

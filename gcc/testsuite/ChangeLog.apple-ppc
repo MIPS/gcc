@@ -1,3 +1,8 @@
+2006-06-22  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/pch/struct-1.c: New.
+	* gcc.dg/pch/struct-1.hs: New.
+
 2004-06-22  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/tree-ssa-vect/pr16105.c: New test.

@@ -1,3 +1,9 @@
+2004-06-22  Andrew Pinski  <apinski@apple.com>
+
+	Radar #: 3701874
+	* c-decl.c (push_file_scope): Return early if we already
+	have a file scope.
+
 2004-06-22  Devang Patel  <dpatel@apple.com>
 
         PR 16105
