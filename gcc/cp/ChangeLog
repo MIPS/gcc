@@ -1,7 +1,14 @@
+2002-08-17  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++spec.c (lang_specific_driver): Treat .h files as C++ header
+	files when using g++.
+	* lang-specs.h: Handle compiling C++ header files.
+
 2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* cp-tree.h (union lang_tree_node): Add chain_next option.
 
+*** End of unmerged pch-branch ChangeLog ***
 2002-08-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* call.c (standard_conversion): Use build_ptrmem_type.

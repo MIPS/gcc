@@ -79,6 +79,7 @@ static void handle_OPT_d PARAMS ((const char *));
 
 #define COMMAND_LINE_OPTIONS						     \
   OPT("-help",                  CL_ALL,   OPT__help)			     \
+  OPT("-output-pch=",		CL_ALL | CL_JOINED, OPT__output_pch)	     \
   OPT("C",                      CL_ALL,   OPT_C)			     \
   OPT("CC",                     CL_ALL,   OPT_CC)			     \
   OPT("E",			CL_ALL,   OPT_E)			     \
@@ -282,6 +283,7 @@ missing_arg (opt_index)
 {
   switch (opt_index)
     {
+    case OPT__output_pch:
     case OPT_Wformat_eq:
     case OPT_d:
     case OPT_fbuiltin_:
@@ -511,6 +513,10 @@ c_common_decode_option (argc, argv)
 
     case OPT__help:
       print_help ();
+      break;
+
+    case OPT__output_pch:
+      pch_file = xstrdup (arg + strlen ("--output-pch="));
       break;
 
     case OPT_C:

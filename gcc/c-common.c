@@ -197,6 +197,11 @@ tree c_global_trees[CTI_MAX];
 /* Nonzero if prepreprocessing only.  */
 int flag_preprocess_only;
 
+/* The filename to which we should write a precompiled header, or
+   NULL if no header will be written in this compile.  */
+
+const char *pch_file;
+
 /* Nonzero if an ISO standard was selected.  It rejects macros in the
    user's namespace.  */
 int flag_iso;

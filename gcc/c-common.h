@@ -373,6 +373,11 @@ extern c_language_kind c_language;
 /* Nonzero if prepreprocessing only.  */
 extern int flag_preprocess_only;
 
+/* The filename to which we should write a precompiled header, or
+   NULL if no header will be written in this compile.  */
+
+extern const char *pch_file;
+
 /* Nonzero if an ISO standard was selected.  It rejects macros in the
    user's namespace.  */
 extern int flag_iso;
