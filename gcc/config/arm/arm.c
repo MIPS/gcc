@@ -86,7 +86,6 @@ static int number_of_first_bit_set (int);
 static void replace_symbols_in_block (tree, rtx, rtx);
 static void thumb_exit (FILE *, int, rtx);
 static void thumb_pushpop (FILE *, int, int);
-static const char *thumb_condition_code (rtx, int);
 static rtx is_jump_table (rtx);
 static HOST_WIDE_INT get_jump_table_size (rtx);
 static Mnode *move_minipool_fix_forward_ref (Mnode *, Mnode *, HOST_WIDE_INT);
@@ -3750,6 +3749,15 @@ arm_add_operand (rtx op, enum machine_mode mode)
 		  || const_ok_for_arm (-INTVAL (op)))));
 }
 
+/* Return TRUE for valid ARM constants (or when valid if negated).  */
+int
+arm_addimm_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT
+	  && (const_ok_for_arm (INTVAL (op))
+	      || const_ok_for_arm (-INTVAL (op))));
+}
+
 int
 arm_not_operand (rtx op, enum machine_mode mode)
 {
@@ -5566,10 +5574,19 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
     return arm_select_dominance_cc_mode (XEXP (x, 0), XEXP (x, 1),
 					 DOM_CC_X_OR_Y);
 
+  /* An operation (on Thumb) where we want to test for a single bit.
+     This is done by shifting that bit up into the top bit of a
+     scratch register; we can then branch on the sign bit.  */
+  if (TARGET_THUMB
+      && GET_MODE (x) == SImode
+      && (op == EQ || op == NE)
+      && (GET_CODE (x) == ZERO_EXTRACT))
+    return CC_Nmode;
+
   /* An operation that sets the condition codes as a side-effect, the
      V flag is not set correctly, so we can only use comparisons where
      this doesn't matter.  (For LT and GE we can use "mi" and "pl"
-     instead.  */
+     instead.)  */
   if (GET_MODE (x) == SImode
       && y == const0_rtx
       && (op == EQ || op == NE || op == LT || op == GE)
@@ -5579,7 +5596,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	  || GET_CODE (x) == NOT || GET_CODE (x) == NEG
 	  || GET_CODE (x) == LSHIFTRT
 	  || GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
-	  || GET_CODE (x) == ROTATERT || GET_CODE (x) == ZERO_EXTRACT))
+	  || GET_CODE (x) == ROTATERT
+	  || (TARGET_ARM && GET_CODE (x) == ZERO_EXTRACT)))
     return CC_NOOVmode;
 
   if (GET_MODE (x) == QImode && (op == EQ || op == NE))
@@ -9548,11 +9566,8 @@ arm_print_operand (FILE *stream, rtx x, int code)
       if (x == const_true_rtx)
 	return;
       
-      if (TARGET_ARM)
-        fputs (arm_condition_codes[get_arm_condition_code (x)],
-	       stream);
-      else
-	fputs (thumb_condition_code (x, 0), stream);
+      fputs (arm_condition_codes[get_arm_condition_code (x)],
+	     stream);
       return;
 
     case 'D':
@@ -9561,12 +9576,9 @@ arm_print_operand (FILE *stream, rtx x, int code)
       if (x == const_true_rtx)
 	abort ();
 
-      if (TARGET_ARM)
-	fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE
-				  (get_arm_condition_code (x))],
-	       stream);
-      else
-	fputs (thumb_condition_code (x, 1), stream);
+      fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE
+				 (get_arm_condition_code (x))],
+	     stream);
       return;
 
     /* Cirrus registers can be accessed in a variety of ways:
@@ -9803,6 +9815,14 @@ get_arm_condition_code (rtx comparison)
 	{
 	case NE: return ARM_NE;
 	case EQ: return ARM_EQ;
+	default: abort ();
+	}
+
+    case CC_Nmode:
+      switch (comp_code)
+	{
+	case NE: return ARM_MI;
+	case EQ: return ARM_PL;
 	default: abort ();
 	}
 
@@ -10290,6 +10310,9 @@ arm_regno_class (int regno)
 
   if (IS_IWMMXT_REGNUM (regno))
     return IWMMXT_REGS;
+
+  if (IS_IWMMXT_GR_REGNUM (regno))
+    return IWMMXT_GR_REGS;
 
   return FPA_REGS;
 }
@@ -12071,7 +12094,8 @@ thumb_expand_epilogue (void)
 {
   HOST_WIDE_INT amount = (thumb_get_frame_size ()
 			  + current_function_outgoing_args_size);
-  
+  int regno;
+
   /* Naked functions don't have prologues.  */
   if (IS_NAKED (arm_current_func_type ()))
     return;
@@ -12101,6 +12125,15 @@ thumb_expand_epilogue (void)
 
   if (current_function_profile || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
+
+  /* Emit a clobber for each insn that will be restored in the epilogue,
+     so that flow2 will get register lifetimes correct.  */
+  for (regno = 0; regno < 13; regno++)
+    if (regs_ever_live[regno] && !call_used_regs[regno])
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, regno)));
+
+  if (! regs_ever_live[LR_REGNUM])
+    emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 static void
@@ -12559,36 +12592,25 @@ thumb_cmp_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT
 	   && (unsigned HOST_WIDE_INT) (INTVAL (op)) < 256)
-	  || register_operand (op, mode));
+	  || s_register_operand (op, mode));
 }
 
-static const char *
-thumb_condition_code (rtx x, int invert)
+/* Return TRUE if a result can be stored in OP without clobbering the
+   condition code register.  Prior to reload we only accept a
+   register.  After reload we have to be able to handle memory as
+   well, since a pseudo may not get a hard reg and reload cannot
+   handle output-reloads on jump insns.
+
+   We could possibly handle mem before reload as well, but that might
+   complicate things with the need to handle increment
+   side-effects.  */
+
+int
+thumb_cbrch_target_operand (rtx op, enum machine_mode mode)
 {
-  static const char * const conds[] =
-  {
-    "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc", 
-    "hi", "ls", "ge", "lt", "gt", "le"
-  };
-  int val;
-
-  switch (GET_CODE (x))
-    {
-    case EQ: val = 0; break;
-    case NE: val = 1; break;
-    case GEU: val = 2; break;
-    case LTU: val = 3; break;
-    case GTU: val = 8; break;
-    case LEU: val = 9; break;
-    case GE: val = 10; break;
-    case LT: val = 11; break;
-    case GT: val = 12; break;
-    case LE: val = 13; break;
-    default:
-      abort ();
-    }
-
-  return conds[val ^ invert];
+  return (s_register_operand (op, mode)
+	  || ((reload_in_progress || reload_completed)
+	      && memory_operand (op, mode)));
 }
 
 /* Handle storing a half-word to memory during reload.  */ 

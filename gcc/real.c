@@ -2105,7 +2105,7 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2195,7 +2195,7 @@ real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
   const struct real_format *fmt;
   int np2;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2368,7 +2368,7 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2430,7 +2430,7 @@ real_to_target (long *buf, const REAL_VALUE_TYPE *r, enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2455,7 +2455,7 @@ real_from_target (REAL_VALUE_TYPE *r, const long *buf, enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2470,7 +2470,7 @@ significand_size (enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     return 0;
 
@@ -4415,24 +4415,6 @@ const struct real_format real_internal_format =
     true,
     true
   };
-
-/* Set up default mode to format mapping for IEEE.  Everyone else has
-   to set these values in OVERRIDE_OPTIONS.  */
-
-const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
-{
-  NULL,				/* QFmode */
-  NULL,				/* HFmode */
-  NULL,				/* TQFmode */
-  &ieee_single_format,		/* SFmode */
-  &ieee_double_format,		/* DFmode */
-
-  /* We explicitly don't handle XFmode.  There are two formats,
-     pretty much equally common.  Choose one in OVERRIDE_OPTIONS.  */
-  NULL,				/* XFmode */
-  &ieee_quad_format		/* TFmode */
-};
-
 
 /* Calculate the square root of X in mode MODE, and store the result
    in R.  Return TRUE if the operation does not raise an exception.

@@ -37,7 +37,6 @@
 #include "tree.h"
 #include "expr.h"
 #include "optabs.h"
-#include "libfuncs.h"
 #include "except.h"
 #include "function.h"
 #include "output.h"
@@ -52,6 +51,7 @@
 #include "langhooks.h"
 #include "reload.h"
 #include "cfglayout.h"
+#include "sched-int.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -80,6 +80,15 @@ struct rs6000_cpu_select rs6000_select[3] =
   { (const char *)0,	"-mcpu=",		1,	1 },
   { (const char *)0,	"-mtune=",		1,	0 },
 };
+
+/* Support adjust_priority scheduler hook 
+   and -mprioritize-restricted-insns= option.  */
+const char *rs6000_sched_restricted_insns_priority_str;
+int rs6000_sched_restricted_insns_priority;
+
+/* Support for -msched-costly-dep option.  */
+const char *rs6000_sched_costly_dep_str;
+enum rs6000_dependence_cost rs6000_sched_costly_dep;
 
 /* Size of long double */
 const char *rs6000_long_double_size_string;
@@ -208,8 +217,8 @@ static void rs6000_emit_stack_tie (void);
 static void rs6000_frame_related (rtx, rtx, HOST_WIDE_INT, rtx, rtx);
 static rtx spe_synthesize_frame_save (rtx);
 static bool spe_func_has_64bit_regs_p (void);
-static void emit_frame_save (rtx, rtx, enum machine_mode,
-				     unsigned int, int, int);
+static void emit_frame_save (rtx, rtx, enum machine_mode, unsigned int,
+			     int, int);
 static rtx gen_frame_mem_offset (enum machine_mode, rtx, int);
 static void rs6000_emit_allocate_stack (HOST_WIDE_INT, int);
 static unsigned rs6000_hash_constant (rtx);
@@ -234,9 +243,10 @@ extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
 static void rs6000_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void rs6000_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static void rs6000_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
-					    HOST_WIDE_INT, tree);
+static void rs6000_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT,
+				    tree);
 static rtx rs6000_emit_set_long_const (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
+static bool rs6000_return_in_memory (tree, tree);
 static void rs6000_file_start (void);
 #if TARGET_ELF
 static unsigned int rs6000_elf_section_type_flags (tree, const char *, int);
@@ -245,7 +255,7 @@ static void rs6000_elf_asm_out_destructor (rtx, int);
 static void rs6000_elf_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_elf_unique_section (tree, int);
 static void rs6000_elf_select_rtx_section (enum machine_mode, rtx,
-						   unsigned HOST_WIDE_INT);
+					   unsigned HOST_WIDE_INT);
 static void rs6000_elf_encode_section_info (tree, rtx, int)
      ATTRIBUTE_UNUSED;
 static bool rs6000_elf_in_small_data_p (tree);
@@ -256,7 +266,7 @@ static void rs6000_xcoff_asm_named_section (const char *, unsigned int);
 static void rs6000_xcoff_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_xcoff_unique_section (tree, int);
 static void rs6000_xcoff_select_rtx_section (enum machine_mode, rtx,
-						     unsigned HOST_WIDE_INT);
+					     unsigned HOST_WIDE_INT);
 static const char * rs6000_xcoff_strip_name_encoding (const char *);
 static unsigned int rs6000_xcoff_section_type_flags (tree, const char *, int);
 static void rs6000_xcoff_file_start (void);
@@ -269,8 +279,10 @@ static int rs6000_use_dfa_pipeline_interface (void);
 static int rs6000_variable_issue (FILE *, int, rtx, int);
 static bool rs6000_rtx_costs (rtx, int, int, int *);
 static int rs6000_adjust_cost (rtx, rtx, rtx, int);
+static int is_dispatch_slot_restricted (rtx);
 static int rs6000_adjust_priority (rtx, int);
 static int rs6000_issue_rate (void);
+static bool rs6000_is_costly_dependence (rtx, rtx, rtx, int, int);
 static int rs6000_use_sched_lookahead (void);
 
 static void rs6000_init_builtins (void);
@@ -282,9 +294,9 @@ static void altivec_init_builtins (void);
 static void rs6000_common_init_builtins (void);
 static void rs6000_init_libfuncs (void);
 
-static void enable_mask_for_builtins (struct builtin_description *,
-					      int, enum rs6000_builtins,
-					      enum rs6000_builtins);
+static void enable_mask_for_builtins (struct builtin_description *, int,
+				      enum rs6000_builtins,
+				      enum rs6000_builtins);
 static void spe_init_builtins (void);
 static rtx spe_expand_builtin (tree, rtx, bool *);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
@@ -318,8 +330,11 @@ static inline int rs6000_tls_symbol_ref_1 (rtx *, void *);
 static const char *rs6000_get_some_local_dynamic_name (void);
 static int rs6000_get_some_local_dynamic_name_1 (rtx *, void *);
 static rtx rs6000_complex_function_value (enum machine_mode);
-static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *, 
+static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree);
+static void setup_incoming_varargs (CUMULATIVE_ARGS *,
+				    enum machine_mode, tree,
+				    int *, int);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -459,6 +474,8 @@ static const char alt_reg_names[][8] =
 #define TARGET_SCHED_ADJUST_COST rs6000_adjust_cost
 #undef TARGET_SCHED_ADJUST_PRIORITY
 #define TARGET_SCHED_ADJUST_PRIORITY rs6000_adjust_priority
+#undef TARGET_SCHED_IS_COSTLY_DEPENDENCE      
+#define TARGET_SCHED_IS_COSTLY_DEPENDENCE rs6000_is_costly_dependence
 
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD rs6000_use_sched_lookahead
@@ -496,6 +513,29 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN rs6000_dwarf_register_span
+
+/* On rs6000, function arguments are promoted, as are function return
+   values.  */
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+
+/* Structure return values are passed as an extra parameter.  */
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
+
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY rs6000_return_in_memory
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS setup_incoming_varargs
+
+/* Always strict argument naming on rs6000.  */
+#undef TARGET_STRICT_ARGUMENT_NAMING
+#define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
+#undef TARGET_PRETEND_OUTGOING_VARARGS_NAMED
+#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED hook_bool_CUMULATIVE_ARGS_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -825,6 +865,27 @@ rs6000_override_options (const char *default_cpu)
       rs6000_default_long_calls = (base[0] != 'n');
     }
 
+  /* Handle -mprioritize-restrcted-insns option.  */
+  rs6000_sched_restricted_insns_priority = DEFAULT_RESTRICTED_INSNS_PRIORITY;
+  if (rs6000_sched_restricted_insns_priority_str)
+    rs6000_sched_restricted_insns_priority =
+      atoi (rs6000_sched_restricted_insns_priority_str);
+
+  /* Handle -msched-costly-dep option.  */
+  rs6000_sched_costly_dep = DEFAULT_SCHED_COSTLY_DEP;
+  if (rs6000_sched_costly_dep_str)
+    {
+      if (! strcmp (rs6000_sched_costly_dep_str, "no"))  
+        rs6000_sched_costly_dep = no_dep_costly;
+      else if (! strcmp (rs6000_sched_costly_dep_str, "all"))
+        rs6000_sched_costly_dep = all_deps_costly;
+      else if (! strcmp (rs6000_sched_costly_dep_str, "true_store_to_load"))
+        rs6000_sched_costly_dep = true_store_to_load_dep_costly;
+      else if (! strcmp (rs6000_sched_costly_dep_str, "store_to_load"))
+        rs6000_sched_costly_dep = store_to_load_dep_costly;
+      else rs6000_sched_costly_dep = atoi (rs6000_sched_costly_dep_str);
+    }
+
 #ifdef TARGET_REGNAMES
   /* If the user desires alternate register names, copy in the
      alternate names now.  */
@@ -845,7 +906,7 @@ rs6000_override_options (const char *default_cpu)
 
   if (TARGET_LONG_DOUBLE_128
       && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN))
-    real_format_for_mode[TFmode - QFmode] = &ibm_extended_format;
+    REAL_MODE_FORMAT (TFmode) = &ibm_extended_format;
 
   /* Allocate an alias set for register saves & restores from stack.  */
   rs6000_sr_alias_set = new_alias_set ();
@@ -914,8 +975,9 @@ rs6000_parse_abi_options (void)
 static void
 rs6000_parse_alignment_option (void)
 {
-  if (rs6000_alignment_string == 0
-      || ! strcmp (rs6000_alignment_string, "power"))
+  if (rs6000_alignment_string == 0)
+    return;
+  else if (! strcmp (rs6000_alignment_string, "power"))
     rs6000_alignment_flags = MASK_ALIGN_POWER;
   else if (! strcmp (rs6000_alignment_string, "natural"))
     rs6000_alignment_flags = MASK_ALIGN_NATURAL;
@@ -3509,6 +3571,39 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
 }
 
+/* Return a nonzero value to say to return the function value in
+   memory, just as large structures are always returned.  TYPE will be
+   the data type of the value, and FNTYPE will be the type of the
+   function doing the returning, or @code{NULL} for libcalls.
+
+   The AIX ABI for the RS/6000 specifies that all structures are
+   returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
+   specifies that structures <= 8 bytes are returned in r3/r4, but a
+   draft put them in memory, and GCC used to implement the draft
+   instead of the final standard.  Therefore, TARGET_AIX_STRUCT_RET
+   controls this instead of DEFAULT_ABI; V.4 targets needing backward
+   compatibility can change DRAFT_V4_STRUCT_RET to override the
+   default, and -m switches get the final word.  See
+   rs6000_override_options for more details.
+
+   The PPC32 SVR4 ABI uses IEEE double extended for long double, if 128-bit
+   long double support is enabled.  These values are returned in memory.
+
+   int_size_in_bytes returns -1 for variable size objects, which go in
+   memory always.  The cast to unsigned makes -1 > 8.  */
+
+static bool
+rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  if (AGGREGATE_TYPE_P (type)
+      && (TARGET_AIX_STRUCT_RET
+	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
+    return true;
+  if (DEFAULT_ABI == ABI_V4 && TYPE_MODE (type) == TFmode)
+    return true;
+  return false;
+}
+
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
@@ -3541,7 +3636,8 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
   else if (cum->prototype)
     cum->nargs_prototype = (list_length (TYPE_ARG_TYPES (fntype)) - 1
 			    + (TYPE_MODE (TREE_TYPE (fntype)) == BLKmode
-			       || RETURN_IN_MEMORY (TREE_TYPE (fntype))));
+			       || rs6000_return_in_memory (TREE_TYPE (fntype),
+							   fntype)));
 
   else
     cum->nargs_prototype = 0;
@@ -3659,10 +3755,25 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
-      if (cum->vregno <= ALTIVEC_ARG_MAX_REG && cum->nargs_prototype >= 0)
+      if (named && cum->vregno <= ALTIVEC_ARG_MAX_REG)
 	cum->vregno++;
       else
-	cum->words += RS6000_ARG_SIZE (mode, type);
+	{
+	  int align;
+	  
+	  /* Vector parameters must be 16-byte aligned.  This places them at
+	     2 mod 4 in terms of words (on both ABIs).  */
+	  align = ((6 - (cum->words & 3)) & 3);
+	  cum->words += align + RS6000_ARG_SIZE (mode, type);
+
+	  if (TARGET_DEBUG_ARG)
+	    {
+	      fprintf (stderr, "function_adv: words = %2d, align=%d, ", 
+		       cum->words, align);
+	      fprintf (stderr, "nargs = %4d, proto = %d, mode = %4s\n",
+		       cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode));
+	    }
+	}
     }
   else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode)
 	   && !cum->stdarg
@@ -3840,8 +3951,37 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (named && cum->vregno <= ALTIVEC_ARG_MAX_REG)
 	return gen_rtx_REG (mode, cum->vregno);
+      else if (named || abi == ABI_V4)
+	return NULL_RTX;
       else
-	return NULL;
+	{
+	  /* Vector parameters to varargs functions under AIX or Darwin
+	     get passed in memory and possibly also in GPRs.  */
+	  int align, align_words;
+	  rtx reg;
+
+	  /* Vector parameters must be 16-byte aligned.  This places them at
+	     2 mod 4 in terms of words.  */
+	  align = ((6 - (cum->words & 3)) & 3);
+	  align_words = cum->words + align;
+
+	  /* Out of registers?  Memory, then.  */
+	  if (align_words >= GP_ARG_NUM_REG)
+	    return NULL_RTX;
+	  
+	  /* The vector value goes in both memory and GPRs.  Varargs
+	     vector regs will always be saved in R5-R8 or R9-R12.  */
+	  reg = gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+
+	  return gen_rtx_PARALLEL (mode,
+				   gen_rtvec (2,
+					      gen_rtx_EXPR_LIST (VOIDmode,
+								 NULL_RTX, 
+								 const0_rtx),
+					      gen_rtx_EXPR_LIST (VOIDmode,
+								 reg, 
+								 const0_rtx)));
+	}
     }
   else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return rs6000_spe_function_arg (cum, mode, type);
@@ -3999,7 +4139,7 @@ function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
    Normally, this macro will push all remaining incoming registers on the
    stack and set PRETEND_SIZE to the length of the registers pushed.  */
 
-void
+static void
 setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode, 
 		tree type, int *pretend_size ATTRIBUTE_UNUSED, int no_rtl)
 {
@@ -4229,7 +4369,29 @@ rs6000_va_arg (tree valist, tree type)
 	  return expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	}
       else
-	return std_expand_builtin_va_arg (valist, type);
+	{
+	  /* Altivec arguments must be aligned to a 128-bit boundary.  */
+	  if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (TYPE_MODE (type)))
+	    {
+	      tree vtype = TREE_TYPE (valist);
+	      tree new_valist, modify;
+	      
+	      /* Round address up to multiple of 16.  Computes
+		 (addr+15)&~0xf.  */
+	      new_valist = fold (build (BIT_AND_EXPR, vtype,
+					fold (build (PLUS_EXPR, vtype, valist,
+						     build_int_2 (15, 0))),
+					build_int_2 (~15, -1)));
+
+	      /* Update valist.  */
+	      modify = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+			      new_valist);
+	      TREE_SIDE_EFFECTS (modify) = 1;
+	      expand_expr (modify, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	    }
+	  
+	  return std_expand_builtin_va_arg (valist, type);
+	}
     }
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
@@ -6784,8 +6946,8 @@ rs6000_init_libfuncs (void)
       if (TARGET_XCOFF && ! TARGET_POWER2 && ! TARGET_POWERPC)
 	{
 	  /* AIX library routines for float->int conversion.  */
-	  fixdfsi_libfunc = init_one_libfunc ("__itrunc");
-	  fixunsdfsi_libfunc = init_one_libfunc ("__uitrunc");
+	  set_conv_libfunc (sfix_optab, SImode, DFmode, "__itrunc");
+	  set_conv_libfunc (ufix_optab, SImode, DFmode, "__uitrunc");
 	}
 
       /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
@@ -6813,17 +6975,15 @@ rs6000_init_libfuncs (void)
       set_optab_libfunc (lt_optab, TFmode, "_q_flt");
       set_optab_libfunc (le_optab, TFmode, "_q_fle");
 
-      trunctfsf2_libfunc = init_one_libfunc ("_q_qtos");
-      trunctfdf2_libfunc = init_one_libfunc ("_q_qtod");
-      extendsftf2_libfunc = init_one_libfunc ("_q_stoq");
-      extenddftf2_libfunc = init_one_libfunc ("_q_dtoq");
-      floatsitf_libfunc = init_one_libfunc ("_q_itoq");
-      fixtfsi_libfunc = init_one_libfunc ("_q_qtoi");
-      fixunstfsi_libfunc = init_one_libfunc ("_q_qtou");
+      set_conv_libfunc (sext_optab, TFmode, SFmode, "_q_stoq");
+      set_conv_libfunc (sext_optab, TFmode, DFmode, "_q_dtoq");
+      set_conv_libfunc (trunc_optab, SFmode, TFmode, "_q_qtos");
+      set_conv_libfunc (trunc_optab, DFmode, TFmode, "_q_qtod");
+      set_conv_libfunc (sfix_optab, SImode, TFmode, "_q_qtoi");
+      set_conv_libfunc (ufix_optab, SImode, TFmode, "_q_qtou");
+      set_conv_libfunc (sfloat_optab, TFmode, SImode, "_q_itoq");
     }
 }
-
-
 
 /* Expand a block move operation, and return 1 if successful.  Return 0
    if we should let the compiler generate normal code.
@@ -13100,9 +13260,50 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn ATTRIBUTE_UNUSED,
   return cost;
 }
 
+/* The function returns a non-zero value if INSN can be scheduled only
+   as the first insn in a dispatch group ("dispatch-slot restricted"). 
+   In this case, the returned value indicates how many dispatch slots 
+   the insn occupies (at the beginning of the group). 
+   Return 0 otherwise.  */
+
+static int 
+is_dispatch_slot_restricted (rtx insn)
+{
+  enum attr_type type;
+
+  if (rs6000_cpu != PROCESSOR_POWER4)
+    return 0;
+
+  if (!insn
+      || insn == NULL_RTX
+      || GET_CODE (insn) == NOTE
+      || GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return 0;
+
+  type = get_attr_type (insn);
+
+  switch (type){
+  case TYPE_MFCR:
+  case TYPE_MFCRF:
+  case TYPE_MTCR:
+  case TYPE_DELAYED_CR:
+  case TYPE_CR_LOGICAL:
+  case TYPE_MTJMPR:
+  case TYPE_MFJMPR:
+    return 1;
+  case TYPE_IDIV:
+  case TYPE_LDIV:
+    return 2;
+  default:
+    return 0;
+  }
+}
+
+
 /* A C statement (sans semicolon) to update the integer scheduling
-   priority INSN_PRIORITY (INSN).  Reduce the priority to execute the
-   INSN earlier, increase the priority to execute INSN later.  Do not
+   priority INSN_PRIORITY (INSN). Increase the priority to execute the
+   INSN earlier, reduce the priority to execute INSN later.  Do not
    define this macro if you do not need to adjust the scheduling
    priorities of insns.  */
 
@@ -13138,6 +13339,25 @@ rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
       }
   }
 #endif
+
+  if (is_dispatch_slot_restricted (insn)
+      && reload_completed
+      && current_sched_info->sched_max_insns_priority 
+      && rs6000_sched_restricted_insns_priority)
+    {
+
+      /* Prioritize insns that can be dispatched only in the first dispatch slot.  */
+      if (rs6000_sched_restricted_insns_priority == 1)
+	/* Attach highest priority to insn. This means that in 
+	   haifa-sched.c:ready_sort(), dispatch-slot restriction considerations 
+	   precede 'priority' (critical path) considerations.  */
+	return current_sched_info->sched_max_insns_priority; 
+      else if (rs6000_sched_restricted_insns_priority == 2)
+	/* Increase priority of insn by a minimal amount. This means that in 
+	   haifa-sched.c:ready_sort(), only 'priority' (critical path) considerations
+	   precede dispatch-slot restriction considerations.  */
+	return (priority + 1); 
+    } 
 
   return priority;
 }
@@ -13185,6 +13405,145 @@ rs6000_use_sched_lookahead (void)
     return 4;
   return 0;
 }
+
+/* Determine is PAT refers to memory.  */
+
+static bool
+is_mem_ref (rtx pat)
+{
+  const char * fmt;
+  int i, j;
+  bool ret = false;
+
+  if (GET_CODE (pat) == MEM)
+    return true;
+
+  /* Recursively process the pattern.  */
+  fmt = GET_RTX_FORMAT (GET_CODE (pat));
+
+  for (i = GET_RTX_LENGTH (GET_CODE (pat)) - 1; i >= 0 && !ret; i--)
+    {
+      if (fmt[i] == 'e')
+	ret |= is_mem_ref (XEXP (pat, i));
+      else if (fmt[i] == 'E')
+	for (j = XVECLEN (pat, i) - 1; j >= 0; j--)
+	  ret |= is_mem_ref (XVECEXP (pat, i, j));
+    }
+
+  return ret;
+}
+
+/* Determine if PAT is a PATTERN of a load insn.  */
+ 
+static bool
+is_load_insn1 (rtx pat)
+{
+  if (!pat || pat == NULL_RTX)
+    return false;
+
+  if (GET_CODE (pat) == SET)
+    return is_mem_ref (SET_SRC (pat));
+
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (is_load_insn1 (XVECEXP (pat, 0, i)))
+	  return true;
+    }
+
+  return false;
+}
+
+/* Determine if INSN loads from memory.  */
+
+static bool
+is_load_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn))
+    return false;
+
+  if (GET_CODE (insn) == CALL_INSN)
+    return false;
+
+  return is_load_insn1 (PATTERN (insn));
+}
+
+/* Determine if PAT is a PATTERN of a store insn.  */
+
+static bool
+is_store_insn1 (rtx pat)
+{
+  if (!pat || pat == NULL_RTX)
+    return false;
+
+  if (GET_CODE (pat) == SET)
+    return is_mem_ref (SET_DEST (pat));
+
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (is_store_insn1 (XVECEXP (pat, 0, i)))
+	  return true;
+    }
+
+  return false;
+}
+
+/* Determine if INSN stores to memory.  */
+
+static bool
+is_store_insn (rtx insn)
+{
+  if (!insn || !INSN_P (insn))
+    return false;
+
+  return is_store_insn1 (PATTERN (insn));
+}
+
+/* Returns whether the dependence between INSN and NEXT is considered
+   costly by the given target.  */
+
+static bool
+rs6000_is_costly_dependence (rtx insn, rtx next, rtx link, int cost, int distance)
+{      
+  /* If the flag is not enbled - no dependence is considered costly;
+     allow all dependent insns in the same group. 
+     This is the most aggressive option.  */
+  if (rs6000_sched_costly_dep == no_dep_costly)
+    return false;
+
+  /* If the flag is set to 1 - a dependence is always considered costly; 
+     do not allow dependent instructions in the same group.
+     This is the most conservative option.  */
+  if (rs6000_sched_costly_dep == all_deps_costly)
+    return true;       
+
+  if (rs6000_sched_costly_dep == store_to_load_dep_costly 
+      && is_load_insn (next) 
+      && is_store_insn (insn))
+    /* Prevent load after store in the same group.  */
+    return true;
+
+  if (rs6000_sched_costly_dep == true_store_to_load_dep_costly
+      && is_load_insn (next) 
+      && is_store_insn (insn)
+      && (!link || (int) REG_NOTE_KIND (link) == 0))
+     /* Prevent load after store in the same group if it is a true dependence.  */
+     return true;
+    
+  /* The flag is set to X; dependences with latency >= X are considered costly, 
+     and will not be scheduled in the same group.  */
+  if (rs6000_sched_costly_dep <= max_dep_latency
+      && ((cost - distance) >= (int)rs6000_sched_costly_dep))
+    return true;
+
+  return false;
+}
+
 
 
 /* Length in units of the trampoline for entering a nested function.  */

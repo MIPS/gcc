@@ -45,13 +45,14 @@ Boston, MA 02111-1307, USA.  */
 static int machopic_data_defined_p (const char *);
 static void update_non_lazy_ptrs (const char *);
 static void update_stubs (const char *);
+static const char *machopic_non_lazy_ptr_name (const char*);
 
 int
 name_needs_quotes (const char *name)
 {
   int c;
   while ((c = *name++) != '\0')
-    if (! ISIDNUM (c))
+    if (! ISIDNUM (c) && c != '.' && c != '$')
       return 1;
   return 0;
 }
@@ -262,7 +263,7 @@ static GTY(()) tree machopic_non_lazy_pointers;
    either by finding it in our list of pointer names, or by generating
    a new one.  */
 
-const char *
+static const char *
 machopic_non_lazy_ptr_name (const char *name)
 {
   const char *temp_name;
@@ -294,20 +295,28 @@ machopic_non_lazy_ptr_name (const char *name)
 
   {
     char *buffer;
+    int namelen = strlen (name);
+    int bufferlen = 0;
     tree ptr_name;
 
-    buffer = alloca (strlen (name) + 20);
+    buffer = alloca (namelen + strlen("$non_lazy_ptr") + 5);
 
     strcpy (buffer, "&L");
+    bufferlen = 2;
     if (name[0] == '*')
-      strcat (buffer, name+1);
+      {
+        memcpy (buffer + bufferlen, name+1, namelen-1+1);
+        bufferlen += namelen-1;
+      }
     else
       {
-	strcat (buffer, "_");
-	strcat (buffer, name);
+	buffer[bufferlen] = '_';
+	memcpy (buffer + bufferlen +1, name, namelen+1);
+        bufferlen += namelen +1;
       }
 
-    strcat (buffer, "$non_lazy_ptr");
+    memcpy (buffer + bufferlen, "$non_lazy_ptr", strlen("$non_lazy_ptr")+1);
+    bufferlen += strlen("$non_lazy_ptr");
     ptr_name = get_identifier (buffer);
 
     machopic_non_lazy_pointers
@@ -351,29 +360,46 @@ machopic_stub_name (const char *name)
 
   {
     char *buffer;
+    int bufferlen = 0;
+    int namelen = strlen (name);
     tree ptr_name;
     int needs_quotes = name_needs_quotes (name);
 
-    buffer = alloca (strlen (name) + 20);
+    buffer = alloca (namelen + 20);
 
     if (needs_quotes)
-      strcpy (buffer, "&\"L");
+      {
+        strcpy (buffer, "&\"L");
+        bufferlen = strlen("&\"L");
+      }
     else
-      strcpy (buffer, "&L");
+      {
+        strcpy (buffer, "&L");
+        bufferlen = strlen("&L");
+      }
+    
     if (name[0] == '*')
       {
-	strcat (buffer, name+1);
+	memcpy (buffer + bufferlen, name+1, namelen - 1 +1);
+        bufferlen += namelen - 1;
       }
     else
       {
-	strcat (buffer, "_");
-	strcat (buffer, name);
+	buffer[bufferlen] = '_';
+	memcpy (buffer + bufferlen +1, name, namelen+1);
+        bufferlen += namelen +1;
       }
 
     if (needs_quotes)
-      strcat (buffer, "$stub\"");
+      {
+        memcpy (buffer + bufferlen, "$stub\"", strlen("$stub\"")+1);
+        bufferlen += strlen("$stub\"");
+      }
     else
-      strcat (buffer, "$stub");
+      {
+        memcpy (buffer + bufferlen, "$stub", strlen("$stub")+1);
+        bufferlen += strlen("$stub");
+      }
     ptr_name = get_identifier (buffer);
 
     machopic_stubs = tree_cons (ptr_name, ident, machopic_stubs);
@@ -421,7 +447,6 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
   if (GET_CODE (orig) == SYMBOL_REF)
     {
       const char *name = XSTR (orig, 0);
-
       int defined = machopic_data_defined_p (name);
 
       if (defined && MACHO_DYNAMIC_NO_PIC_P)
@@ -438,44 +463,43 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
       else if (defined)
 	{
 #if defined (TARGET_TOC) || defined (HAVE_lo_sum)
-	  rtx pic_base = gen_rtx (SYMBOL_REF, Pmode,
-				  machopic_function_base_name ());
-	  rtx offset = gen_rtx (CONST, Pmode,
-				gen_rtx (MINUS, Pmode, orig, pic_base));
+	  rtx pic_base = gen_rtx_SYMBOL_REF (Pmode,
+					     machopic_function_base_name ());
+	  rtx offset = gen_rtx_CONST (Pmode,
+				      gen_rtx_MINUS (Pmode, orig, pic_base));
 #endif
 
 #if defined (TARGET_TOC) /* i.e., PowerPC */
-	  rtx hi_sum_reg = reg;
+	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
 
 	  if (reg == NULL)
 	    abort ();
 
-	  emit_insn (gen_rtx (SET, Pmode, hi_sum_reg,
-			      gen_rtx (PLUS, Pmode, pic_offset_table_rtx,
-				       gen_rtx (HIGH, Pmode, offset))));
-	  emit_insn (gen_rtx (SET, Pmode, reg,
-			      gen_rtx (LO_SUM, Pmode, hi_sum_reg, offset)));
+	  emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
+			      gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+				       gen_rtx_HIGH (Pmode, offset))));
+	  emit_insn (gen_rtx_SET (Pmode, reg,
+				  gen_rtx_LO_SUM (Pmode, hi_sum_reg, offset)));
 
 	  orig = reg;
 #else
 #if defined (HAVE_lo_sum)
 	  if (reg == 0) abort ();
 
-	  emit_insn (gen_rtx (SET, VOIDmode, reg,
-			      gen_rtx (HIGH, Pmode, offset)));
-	  emit_insn (gen_rtx (SET, VOIDmode, reg,
-			      gen_rtx (LO_SUM, Pmode, reg, offset)));
-	  emit_insn (gen_rtx (USE, VOIDmode,
-			      gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM)));
+	  emit_insn (gen_rtx_SET (VOIDmode, reg,
+				  gen_rtx_HIGH (Pmode, offset)));
+	  emit_insn (gen_rtx_SET (VOIDmode, reg,
+				  gen_rtx_LO_SUM (Pmode, reg, offset)));
+	  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
 
-	  orig = gen_rtx (PLUS, Pmode, pic_offset_table_rtx, reg);
+	  orig = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, reg);
 #endif
 #endif
 	  return orig;
 	}
 
-      ptr_ref = gen_rtx (SYMBOL_REF, Pmode,
-                         machopic_non_lazy_ptr_name (name));
+      ptr_ref = gen_rtx_SYMBOL_REF (Pmode,
+				    machopic_non_lazy_ptr_name (name));
 
       ptr_ref = gen_rtx_MEM (Pmode, ptr_ref);
       RTX_UNCHANGING_P (ptr_ref) = 1;
@@ -500,7 +524,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
       if (MACHOPIC_PURE && GET_CODE (orig) == CONST_INT)
 	result = plus_constant (base, INTVAL (orig));
       else
-	result = gen_rtx (PLUS, Pmode, base, orig);
+	result = gen_rtx_PLUS (Pmode, base, orig);
 
       if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
 	{
@@ -562,7 +586,7 @@ machopic_indirect_call_target (rtx target)
 	{
 	  const char *stub_name = machopic_stub_name (name);
 
-	  XEXP (target, 0) = gen_rtx (SYMBOL_REF, mode, stub_name);
+	  XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
 	  RTX_UNCHANGING_P (target) = 1;
 	}
     }
@@ -602,7 +626,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       if (MACHO_DYNAMIC_NO_PIC_P)
 	pic_base = CONST0_RTX (Pmode);
       else
-      pic_base = gen_rtx (SYMBOL_REF, Pmode, machopic_function_base_name ());
+      pic_base = gen_rtx_SYMBOL_REF (Pmode, machopic_function_base_name ());
 
       if (GET_CODE (orig) == MEM)
 	{
@@ -626,9 +650,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      emit_insn (gen_macho_high (temp_reg, asym));
 	      mem = gen_rtx_MEM (GET_MODE (orig),
-				 gen_rtx (LO_SUM, Pmode, temp_reg, asym));
+				 gen_rtx_LO_SUM (Pmode, temp_reg, asym));
 	      RTX_UNCHANGING_P (mem) = 1;
-	      emit_insn (gen_rtx (SET, VOIDmode, reg, mem));
+	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other platform that can use dynamic-no-pic  */
 	      abort ();
@@ -639,37 +663,47 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  if (GET_CODE (XEXP (orig, 0)) == SYMBOL_REF
 	      || GET_CODE (XEXP (orig, 0)) == LABEL_REF)
 	    {
-	      rtx offset = gen_rtx (CONST, Pmode,
-				    gen_rtx (MINUS, Pmode,
-					     XEXP (orig, 0), pic_base));
+	      rtx offset = gen_rtx_CONST (Pmode,
+					  gen_rtx_MINUS (Pmode,
+							 XEXP (orig, 0),
+							 pic_base));
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	      /* Generating a new reg may expose opportunities for
 		 common subexpression elimination.  */
-              rtx hi_sum_reg =
-		(reload_in_progress ? reg : gen_reg_rtx (SImode));
+              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	      rtx mem;
+	      rtx insn;
+	      rtx sum;
+	      
+	      sum = gen_rtx_HIGH (Pmode, offset);
+	      if (! MACHO_DYNAMIC_NO_PIC_P)
+		sum = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, sum);
 
-	      emit_insn (gen_rtx (SET, Pmode, hi_sum_reg,
-				  gen_rtx (PLUS, Pmode,
-					   pic_offset_table_rtx,
-					   gen_rtx (HIGH, Pmode, offset))));
-	      emit_insn (gen_rtx (SET, VOIDmode, reg,
-				  gen_rtx (MEM, GET_MODE (orig),
-					   gen_rtx (LO_SUM, Pmode,
-						    hi_sum_reg, offset))));
+	      emit_insn (gen_rtx_SET (Pmode, hi_sum_reg, sum));
+
+	      mem = gen_rtx_MEM (GET_MODE (orig),
+				 gen_rtx_LO_SUM (Pmode, 
+						 hi_sum_reg, offset));
+	      RTX_UNCHANGING_P (mem) = 1;
+	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, pic_ref, 
+						    REG_NOTES (insn));
+
 	      pic_ref = reg;
-
 #else
-	      emit_insn (gen_rtx (USE, VOIDmode,
-			      gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM)));
+	      emit_insn (gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (Pmode, 
+						   PIC_OFFSET_TABLE_REGNUM)));
 
-	      emit_insn (gen_rtx (SET, VOIDmode, reg,
-				  gen_rtx (HIGH, Pmode,
-					   gen_rtx (CONST, Pmode, offset))));
-	      emit_insn (gen_rtx (SET, VOIDmode, reg,
-				  gen_rtx (LO_SUM, Pmode, reg,
-					   gen_rtx (CONST, Pmode, offset))));
-	      pic_ref = gen_rtx (PLUS, Pmode,
-				 pic_offset_table_rtx, reg);
+	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+				      gen_rtx_HIGH (Pmode,
+						    gen_rtx_CONST (Pmode, 
+								   offset))));
+	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+				  gen_rtx_LO_SUM (Pmode, reg,
+					   gen_rtx_CONST (Pmode, offset))));
+	      pic_ref = gen_rtx_PLUS (Pmode,
+				      pic_offset_table_rtx, reg);
 #endif
 	    }
 	  else
@@ -682,21 +716,22 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  pic = reg;
 		}
 #if 0
-	      emit_insn (gen_rtx (USE, VOIDmode,
-				  gen_rtx (REG, Pmode, PIC_OFFSET_TABLE_REGNUM)));
+	      emit_insn (gen_rtx_USE (VOIDmode,
+				      gen_rtx_REG (Pmode, 
+						   PIC_OFFSET_TABLE_REGNUM)));
 #endif
 
-	      pic_ref = gen_rtx (PLUS, Pmode,
-				 pic,
-				 gen_rtx (CONST, Pmode,
-					  gen_rtx (MINUS, Pmode,
-						   XEXP (orig, 0),
-						   pic_base)));
+	      pic_ref = gen_rtx_PLUS (Pmode,
+				      pic,
+				      gen_rtx_CONST (Pmode,
+					  gen_rtx_MINUS (Pmode,
+							 XEXP (orig, 0),
+							 pic_base)));
 	    }
 
 #if !defined (TARGET_TOC)
 	  emit_move_insn (reg, pic_ref);
-	  pic_ref = gen_rtx (MEM, GET_MODE (orig), reg);
+	  pic_ref = gen_rtx_MEM (GET_MODE (orig), reg);
 #endif
 	  RTX_UNCHANGING_P (pic_ref) = 1;
 	}
@@ -707,8 +742,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  if (GET_CODE (orig) == SYMBOL_REF
 	      || GET_CODE (orig) == LABEL_REF)
 	    {
-	      rtx offset = gen_rtx (CONST, Pmode,
-				    gen_rtx (MINUS, Pmode, orig, pic_base));
+	      rtx offset = gen_rtx_CONST (Pmode,
+					  gen_rtx_MINUS (Pmode, 
+							 orig, pic_base));
 #if defined (TARGET_TOC) /* i.e., PowerPC */
               rtx hi_sum_reg;
 
@@ -722,24 +758,25 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      hi_sum_reg = reg;
 
-	      emit_insn (gen_rtx (SET, Pmode, hi_sum_reg,
-			   (MACHO_DYNAMIC_NO_PIC_P)
-				? gen_rtx (HIGH, Pmode, offset)
-				: gen_rtx (PLUS, Pmode,
-					   pic_offset_table_rtx,
-					   gen_rtx (HIGH, Pmode, offset))));
-	      emit_insn (gen_rtx (SET, VOIDmode, reg,
-				  gen_rtx (LO_SUM, Pmode,
-					   hi_sum_reg, offset)));
+	      emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
+				      (MACHO_DYNAMIC_NO_PIC_P)
+				      ? gen_rtx_HIGH (Pmode, offset)
+				      : gen_rtx_PLUS (Pmode,
+						      pic_offset_table_rtx,
+						      gen_rtx_HIGH (Pmode, 
+								    offset))));
+	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+				      gen_rtx_LO_SUM (Pmode,
+						      hi_sum_reg, offset)));
 	      pic_ref = reg;
 	      RTX_UNCHANGING_P (pic_ref) = 1;
 #else
-	      emit_insn (gen_rtx (SET, VOIDmode, reg,
-				  gen_rtx (HIGH, Pmode, offset)));
-	      emit_insn (gen_rtx (SET, VOIDmode, reg,
-				  gen_rtx (LO_SUM, Pmode, reg, offset)));
-	      pic_ref = gen_rtx (PLUS, Pmode,
-				 pic_offset_table_rtx, reg);
+	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+				      gen_rtx_HIGH (Pmode, offset)));
+	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+				      gen_rtx_LO_SUM (Pmode, reg, offset)));
+	      pic_ref = gen_rtx_PLUS (Pmode,
+				      pic_offset_table_rtx, reg);
 	      RTX_UNCHANGING_P (pic_ref) = 1;
 #endif
 	    }
@@ -759,14 +796,14 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		      pic = reg;
 		    }
 #if 0
-		  emit_insn (gen_rtx (USE, VOIDmode,
-				      pic_offset_table_rtx));
+		  emit_insn (gen_rtx_USE (VOIDmode,
+					  pic_offset_table_rtx));
 #endif
-		  pic_ref = gen_rtx (PLUS, Pmode,
-				     pic,
-				     gen_rtx (CONST, Pmode,
-					      gen_rtx (MINUS, Pmode,
-						       orig, pic_base)));
+		  pic_ref = gen_rtx_PLUS (Pmode,
+					  pic,
+					  gen_rtx_CONST (Pmode,
+					      gen_rtx_MINUS (Pmode,
+							     orig, pic_base)));
 		}
 	    }
 	}
@@ -812,7 +849,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  is_complex = 1;
 	}
       else
-	pic_ref = gen_rtx (PLUS, Pmode, base, orig);
+	pic_ref = gen_rtx_PLUS (Pmode, base, orig);
 
       if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
 	RTX_UNCHANGING_P (pic_ref) = 1;
@@ -835,7 +872,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
     {
       rtx addr = machopic_legitimize_pic_address (XEXP (orig, 0), Pmode, reg);
 
-      addr = gen_rtx (MEM, GET_MODE (orig), addr);
+      addr = gen_rtx_MEM (GET_MODE (orig), addr);
       RTX_UNCHANGING_P (addr) = RTX_UNCHANGING_P (orig);
       emit_move_insn (reg, addr);
       pic_ref = reg;
@@ -900,7 +937,7 @@ machopic_finish (FILE *asm_out_file)
 	  data_section ();
 	  assemble_align (GET_MODE_ALIGNMENT (Pmode));
 	  assemble_label (lazy_name);
-	  assemble_integer (gen_rtx (SYMBOL_REF, Pmode, sym_name),
+	  assemble_integer (gen_rtx_SYMBOL_REF (Pmode, sym_name),
 			    GET_MODE_SIZE (Pmode),
 			    GET_MODE_ALIGNMENT (Pmode), 1);
 	}
@@ -1066,7 +1103,6 @@ void
 machopic_output_possible_stub_label (FILE *file, const char *name)
 {
   tree temp;
-
 
   /* Ensure we're looking at a section-encoded name.  */
   if (name[0] != '!' || (name[1] != 't' && name[1] != 'T'))
@@ -1256,14 +1292,12 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 void
 machopic_asm_out_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
 {
-
   if (MACHOPIC_INDIRECT)
     mod_init_section ();
   else
     constructor_section ();
   assemble_align (POINTER_SIZE);
   assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
-
 
   if (! MACHOPIC_INDIRECT)
     fprintf (asm_out_file, ".reference .constructors_used\n");
@@ -1272,7 +1306,6 @@ machopic_asm_out_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
 void
 machopic_asm_out_destructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
 {
-
   if (MACHOPIC_INDIRECT)
     mod_term_section ();
   else

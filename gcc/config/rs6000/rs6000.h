@@ -376,6 +376,16 @@ extern enum processor_type rs6000_cpu;
    and the old mnemonics are dialect zero.  */
 #define ASSEMBLER_DIALECT (TARGET_NEW_MNEMONICS ? 1 : 0)
 
+/* Types of costly dependences.  */
+enum rs6000_dependence_cost
+ {
+   max_dep_latency = 1000,
+   no_dep_costly,
+   all_deps_costly,
+   true_store_to_load_dep_costly,
+   store_to_load_dep_costly
+ };
+
 /* This is meant to be overridden in target specific files.  */
 #define	SUBTARGET_OPTIONS
 
@@ -402,8 +412,12 @@ extern enum processor_type rs6000_cpu;
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   {"sched-costly-dep=", &rs6000_sched_costly_dep_str,                  \
+    N_("determine which dependences between insns are considered costly"), 0}, \
    {"align-", &rs6000_alignment_string,					\
     N_("Specify alignment of structure fields default/natural"), 0},	\
+   {"prioritize-restricted-insns=", &rs6000_sched_restricted_insns_priority_str, \
+    N_("Specify scheduling priority for dispatch slot restricted insns"), 0}, \
    SUBTARGET_OPTIONS							\
 }
 
@@ -457,6 +471,10 @@ extern const char *rs6000_longcall_switch;
 extern int rs6000_default_long_calls;
 extern const char* rs6000_alignment_string;
 extern int rs6000_alignment_flags;
+extern const char *rs6000_sched_restricted_insns_priority_str;
+extern int rs6000_sched_restricted_insns_priority;
+extern const char *rs6000_sched_costly_dep_str;
+extern enum rs6000_dependence_cost rs6000_sched_costly_dep;
 
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
@@ -474,6 +492,14 @@ extern int rs6000_alignment_flags;
 #else
 #define TARGET_ALIGN_NATURAL 0
 #endif
+
+/* Set a default value for DEFAULT_SCHED_COSTLY_DEP used by target hook
+   is_costly_dependence.  */ 
+#define DEFAULT_SCHED_COSTLY_DEP                           \
+  (rs6000_cpu == PROCESSOR_POWER4 ? store_to_load_dep_costly : no_dep_costly)
+
+/* Define if the target has restricted dispatch slot instructions.  */
+#define DEFAULT_RESTRICTED_INSNS_PRIORITY (rs6000_cpu == PROCESSOR_POWER4 ? 1 : 0)
 
 /* Define TARGET_MFCRF if the target assembler supports the optional
    field operand for mfcr and the target processor supports the
@@ -555,15 +581,6 @@ extern int rs6000_alignment_flags;
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
     (MODE) = word_mode;
-
-/* Define this if function arguments should also be promoted using the above
-   procedure.  */
-
-#define PROMOTE_FUNCTION_ARGS
-
-/* Likewise, if the function return value is promoted.  */
-
-#define PROMOTE_FUNCTION_RETURN
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -1144,11 +1161,6 @@ extern int rs6000_alignment_flags;
 
 /* Count register number.  */
 #define COUNT_REGISTER_REGNUM 66
-
-/* Place that structure value return address is placed.
-
-   On the RS/6000, it is passed as an extra parameter.  */
-#define STRUCT_VALUE 0
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -1609,28 +1621,6 @@ typedef struct rs6000_stack {
 
 #define LIBCALL_VALUE(MODE) rs6000_libcall_value ((MODE))
 
-/* The AIX ABI for the RS/6000 specifies that all structures are
-   returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
-   specifies that structures <= 8 bytes are returned in r3/r4, but a
-   draft put them in memory, and GCC used to implement the draft
-   instead of the final standard.  Therefore, TARGET_AIX_STRUCT_RET
-   controls this instead of DEFAULT_ABI; V.4 targets needing backward
-   compatibility can change DRAFT_V4_STRUCT_RET to override the
-   default, and -m switches get the final word.  See
-   rs6000_override_options for more details.
-
-   The PPC32 SVR4 ABI uses IEEE double extended for long double, if 128-bit
-   long double support is enabled.  These values are returned in memory.
-
-   int_size_in_bytes returns -1 for variable size objects, which go in
-   memory always.  The cast to unsigned makes -1 > 8.  */
-
-#define RETURN_IN_MEMORY(TYPE) \
-  ((AGGREGATE_TYPE_P (TYPE)						\
-    && (TARGET_AIX_STRUCT_RET						\
-	|| (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 8))	\
-   || (DEFAULT_ABI == ABI_V4 && TYPE_MODE (TYPE) == TFmode))
-
 /* DRAFT_V4_STRUCT_RET defaults off.  */
 #define DRAFT_V4_STRUCT_RET 0
 
@@ -1849,23 +1839,6 @@ typedef struct rs6000_args
    This should be set for Linux and Darwin as well, but we can't break
    the ABIs at the moment.  For now, only AIX gets fixed.  */
 #define SPLIT_COMPLEX_ARGS (DEFAULT_ABI == ABI_AIX)
-
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments.
-
-   CUM is as above.
-
-   MODE and TYPE are the mode and type of the current parameter.
-
-   PRETEND_SIZE is a variable that should be set to the amount of stack
-   that must be pushed by the prolog to pretend that our caller pushed
-   it.
-
-   Normally, this macro will push all remaining incoming registers on the
-   stack and set PRETEND_SIZE to the length of the registers pushed.  */
-
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL) \
-  setup_incoming_varargs (&CUM, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \
@@ -2575,31 +2548,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   &rs6000_reg_names[110][0],	/* vscr  */				\
   &rs6000_reg_names[111][0],	/* spe_acc */				\
   &rs6000_reg_names[112][0],	/* spefscr */				\
-}
-
-/* print-rtl can't handle the above REGISTER_NAMES, so define the
-   following for it.  Switch to use the alternate names since
-   they are more mnemonic.  */
-
-#define DEBUG_REGISTER_NAMES						\
-{									\
-     "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",		\
-     "r8",  "r9", "r10", "r11", "r12", "r13", "r14", "r15",		\
-    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",		\
-    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",		\
-     "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",		\
-     "f8",  "f9", "f10", "f11", "f12", "f13", "f14", "f15",		\
-    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",		\
-    "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",		\
-     "mq",  "lr", "ctr",  "ap",						\
-    "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",		\
-    "xer",								\
-     "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",             \
-     "v8",  "v9", "v10", "v11", "v12", "v13", "v14", "v15",             \
-    "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
-    "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
-    "vrsave", "vscr",							\
-    "spe_acc", "spefscr"                                                \
 }
 
 /* Table of additional register names to use in user input.  */

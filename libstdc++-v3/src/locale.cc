@@ -68,6 +68,14 @@ namespace std
   __gthread_once_t 		locale::_S_once = __GTHREAD_ONCE_INIT;
 #endif
 
+  size_t
+  locale::id::_M_id() const
+  {
+    if (!_M_index)
+      _M_index = 1 + __exchange_and_add(&_S_highwater, 1);
+    return _M_index - 1;
+  }
+
   // Definitions for static const data members of locale::id
   _Atomic_word locale::id::_S_highwater;  // init'd to 0 by linker
 
@@ -200,34 +208,34 @@ namespace std
 	      }
 	    else
 	      {
-		char* __res;
+		string __res;
 		// LANG may set a default different from "C".
 		char* __env = std::getenv("LANG");
 		if (!__env || std::strcmp(__env, "") == 0 
 		    || std::strcmp(__env, "C") == 0 
 		    || std::strcmp(__env, "POSIX") == 0)
-		  __res = strdup("C");
+		  __res = "C";
 		else 
-		  __res = strdup(__env);
+		  __res = __env;
 		
 		// Scan the categories looking for the first one
 		// different from LANG.
 		size_t __i = 0;
-		if (std::strcmp(__res, "C") == 0)
+		if (__res == "C")
 		  for (; __i < _S_categories_size; ++__i)
 		    {
 		      __env = std::getenv(_S_categories[__i]);
 		      if (__env && std::strcmp(__env, "") != 0 
 			  && std::strcmp(__env, "C") != 0 
-			  && std::strcmp(__env, "POSIX") != 0) 
+			  && std::strcmp(__env, "POSIX") != 0)
 			break;
 		    }
 		else
 		  for (; __i < _S_categories_size; ++__i)
 		    {
 		      __env = std::getenv(_S_categories[__i]);
-		      if (__env && std::strcmp(__env, "") != 0 
-			  && std::strcmp(__env, __res) != 0) 
+		      if (__env && std::strcmp(__env, "") != 0
+			  && __res != __env)
 			break;
 		    }
 	
@@ -277,11 +285,10 @@ namespace std
 		  }
 		// ... otherwise either an additional instance of
 		// the "C" locale or LANG.
-		else if (std::strcmp(__res, "C") == 0)
+		else if (__res == "C")
 		  (_M_impl = _S_classic)->_M_add_reference();
 		else
-		  _M_impl = new _Impl(__res, 1);
-		std::free(__res);
+		  _M_impl = new _Impl(__res.c_str(), 1);
 	      }
 	  }
       }
@@ -387,12 +394,9 @@ namespace std
 #ifdef __GTHREADS
     if (__gthread_active_p())
       __gthread_once(&_S_once, _S_initialize_once);
-    else
 #endif
-      {
-	if (!_S_classic)
-	  _S_initialize_once();
-      }
+    if (!_S_classic)
+      _S_initialize_once();
   }
 
   void

@@ -62,7 +62,7 @@ VPATH = @srcdir@
 build=@build@
 host=@host@
 target=@target@
-target_alias=@target_alias@
+target_noncanonical=@target_noncanonical@
 
 # Sed command to transform gcc to installed name.
 program_transform_name = @program_transform_name@
@@ -392,6 +392,7 @@ target_cpu_default=@target_cpu_default@
 GCC_THREAD_FILE=@thread_file@
 OBJC_BOEHM_GC=@objc_boehm_gc@
 GTHREAD_FLAGS=@gthread_flags@
+extra_modes_file=@extra_modes_file@
 host_hook_obj=@out_host_hook_obj@
 # Be prepared for gcc2 merges.
 gcc_version=@gcc_version@
@@ -425,9 +426,9 @@ libexecdir = @libexecdir@
 # --------
 
 # Directory in which the compiler finds libraries etc.
-libsubdir = $(libdir)/gcc/$(target_alias)/$(version)
+libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(version)
 # Directory in which the compiler finds executables
-libexecsubdir = $(libexecdir)/gcc/$(target_alias)/$(version)
+libexecsubdir = $(libexecdir)/gcc/$(target_noncanonical)/$(version)
 # Used to produce a relative $(gcc_tooldir) in gcc.o
 unlibsubdir = ../../..
 # Directory in which to find other cross-compilation tools and headers.
@@ -437,7 +438,7 @@ gcc_tooldir = @gcc_tooldir@
 # Used to install the shared libgcc.
 slibdir = @slibdir@
 # Since gcc_tooldir does not exist at build-time, use -B$(build_tooldir)/bin/
-build_tooldir = $(exec_prefix)/$(target_alias)
+build_tooldir = $(exec_prefix)/$(target_noncanonical)
 # Directory in which the compiler finds target-independent g++ includes.
 gcc_gxx_include_dir = @gcc_gxx_include_dir@
 # Directory to search for site-specific includes.
@@ -599,7 +600,7 @@ BUILD_CPPFLAGS=$(ALL_CPPFLAGS)
 
 # Actual name to use when installing a native compiler.
 GCC_INSTALL_NAME = `echo gcc|sed '$(program_transform_name)'`
-GCC_TARGET_INSTALL_NAME = $(target_alias)-`echo gcc|sed '$(program_transform_name)'`
+GCC_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo gcc|sed '$(program_transform_name)'`
 CPP_INSTALL_NAME = `echo cpp|sed '$(program_transform_name)'`
 PROTOIZE_INSTALL_NAME = `echo protoize|sed '$(program_transform_name)'`
 UNPROTOIZE_INSTALL_NAME = `echo unprotoize|sed '$(program_transform_name)'`
@@ -662,7 +663,7 @@ TARGET_H = target.h
 HOOKS_H = hooks.h
 LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
-MACHMODE_H = machmode.h machmode.def @extra_modes_file@
+MACHMODE_H = machmode.h mode-classes.def insn-modes.h
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H)
 RTL_H = $(RTL_BASE_H) genrtl.h input.h
 PARAMS_H = params.h params.def
@@ -748,7 +749,7 @@ LDEXP_LIB = @LDEXP_LIB@
 BUILD_LIBS = $(BUILD_LIBIBERTY)
 
 BUILD_RTL = $(BUILD_PREFIX)rtl.o read-rtl.o $(BUILD_PREFIX)bitmap.o \
-		$(BUILD_PREFIX)ggc-none.o
+		$(BUILD_PREFIX)ggc-none.o min-insn-modes.o
 BUILD_SUPPORT = gensupport.o insn-conditions.o
 BUILD_EARLY_SUPPORT = gensupport.o dummy-conditions.o
 
@@ -876,7 +877,7 @@ OBJS-common = \
  dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
  expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
  genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
- haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o		   \
+ haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
  loop.o optabs.o options.o opts.o params.o postreload.o predict.o	   \
@@ -888,7 +889,7 @@ OBJS-common = \
  sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
  stor-layout.o stringpool.o targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o		   \
- alloc-pool.o et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) 
+ alloc-pool.o et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) hashtable.o tree-inline.o	   \
@@ -904,8 +905,8 @@ BACKEND = main.o libbackend.a
 STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attrtab.c insn-opinit.c insn-constants.h tm-preds.h \
- tree-check.h insn-conditions.c \
- s-flags s-config s-codes s-mlib s-genrtl s-gtype gtyp-gen.h \
+ tree-check.h insn-conditions.c min-insn-modes.c insn-modes.c insn-modes.h \
+ s-flags s-config s-codes s-mlib s-genrtl s-modes s-gtype gtyp-gen.h \
  s-output s-recog s-emit s-extract s-peep s-check s-conditions \
  s-attr s-attrtab s-opinit s-preds s-constants s-crt0 \
  genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
@@ -913,7 +914,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  genconfig$(build_exeext) genpeep$(build_exeext) genattrtab$(build_exeext) \
  genattr$(build_exeext) genopinit$(build_exeext) gengenrtl$(build_exeext) \
  gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
- gengtype$(build_exeext) genconditions$(build_exeext) \
+ gengtype$(build_exeext) genconditions$(build_exeext) genmodes$(build_exeext) \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
@@ -954,15 +955,15 @@ LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 # The following targets define the interface between us and the languages.
 #
 # all.cross, start.encap, rest.encap,
-# info, dvi,
 # install-normal, install-common, install-info, install-man,
 # uninstall,
 # mostlyclean, clean, distclean, extraclean, maintainer-clean,
 # stage1, stage2, stage3, stage4
 #
-# Each language is linked in with a series of hooks (since we can't use `::'
-# targets).  The name of each hooked is "lang.${target_name}" (eg: lang.info).
-# Configure computes and adds these here.
+# Each language is linked in with a series of hooks.  The name of each
+# hooked is "lang.${target_name}" (eg: lang.info).  Configure computes
+# and adds these here.  We use double-colon rules for some of the hooks;
+# double-colon rules should be preferred for any new hooks.
 
 # language hooks, generated by configure
 @language_hooks@
@@ -1357,7 +1358,7 @@ collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
 collect2.o : collect2.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) gstab.h intl.h \
 	$(OBSTACK_H) $(DEMANGLE_H) collect2.h version.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES)  \
-	-DTARGET_MACHINE=\"$(target_alias)\" \
+	-DTARGET_MACHINE=\"$(target_noncanonical)\" \
 	-c $(srcdir)/collect2.c $(OUTPUT_OPTION)
 
 tlink.o: tlink.c $(DEMANGLE_H) $(HASHTAB_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1411,7 +1412,7 @@ DRIVER_DEFINES = \
   -DSTANDARD_EXEC_PREFIX=\"$(libdir)/gcc/\" \
   -DSTANDARD_LIBEXEC_PREFIX=\"$(libexecdir)/gcc/\" \
   -DDEFAULT_TARGET_VERSION=\"$(version)\" \
-  -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
+  -DDEFAULT_TARGET_MACHINE=\"$(target_noncanonical)\" \
   -DSTANDARD_BINDIR_PREFIX=\"$(bindir)/\" \
   -DTOOLDIR_BASE_PREFIX=\"$(unlibsubdir)/../\" \
   @TARGET_SYSTEM_ROOT_DEFINE@ \
@@ -1623,7 +1624,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
    langhooks.h insn-flags.h cfglayout.h real.h cfgloop.h \
    hosthooks.h $(LANGHOOKS_DEF_H) cgraph.h $(COVERAGE_H)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	  -DTARGET_NAME=\"$(target_alias)\" \
+	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h
 
@@ -1638,11 +1639,11 @@ rtl.o : rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) $(RTL_H) real.h \
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 print-rtl.o : print-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
-    hard-reg-set.h $(BASIC_BLOCK_H) real.h
+    hard-reg-set.h $(BASIC_BLOCK_H) real.h $(TM_P_H)
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(RTL_H) \
    hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) real.h flags.h
 
-errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) errors.h
+errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
@@ -1741,6 +1742,8 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) \
    except.h $(TARGET_H) $(PARAMS_H)
+web.o : web.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h $(BASIC_BLOCK_H) function.h output.h toplev.h df.h
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(GGC_H) $(RECOG_H) $(EXPR_H) \
    $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) except.h gt-gcse.h
@@ -1972,7 +1975,7 @@ libbackend.o : $(OBJS-common:.o=.c) $(out_file) \
   insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-attr.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	  -DTARGET_NAME=\"$(target_alias)\" \
+	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -DLOCALEDIR=\"$(localedir)\" \
 	  -c $(filter %.c,$^) -o $@
 
@@ -2136,12 +2139,25 @@ genrtl.o : genrtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 genrtl.c genrtl.h : s-genrtl
 	@true	# force gnu make to recheck modification times.
 
-s-genrtl: gengenrtl$(build_exeext) $(srcdir)/move-if-change $(RTL_BASE_H)
+s-genrtl: gengenrtl$(build_exeext) $(srcdir)/move-if-change
 	$(RUN_GEN) ./gengenrtl$(build_exeext) -h > tmp-genrtl.h
 	$(SHELL) $(srcdir)/move-if-change tmp-genrtl.h genrtl.h
 	$(RUN_GEN) ./gengenrtl$(build_exeext) > tmp-genrtl.c
 	$(SHELL) $(srcdir)/move-if-change tmp-genrtl.c genrtl.c
 	$(STAMP) s-genrtl
+
+insn-modes.o : insn-modes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+	       $(MACHMODE_H) real.h
+min-insn-modes.c insn-modes.c insn-modes.h : s-modes ; @true
+
+s-modes: genmodes$(build_exeext) $(srcdir)/move-if-change
+	$(RUN_GEN) ./genmodes$(build_exeext) -h > tmp-modes.h
+	$(SHELL) $(srcdir)/move-if-change tmp-modes.h insn-modes.h
+	$(RUN_GEN) ./genmodes$(build_exeext) -m > tmp-min-modes.c
+	$(SHELL) $(srcdir)/move-if-change tmp-min-modes.c min-insn-modes.c
+	$(RUN_GEN) ./genmodes$(build_exeext) > tmp-modes.c
+	$(SHELL) $(srcdir)/move-if-change tmp-modes.c insn-modes.c
+	$(STAMP) s-modes
 
 tm-preds.h: s-preds; @true
 
@@ -2241,7 +2257,7 @@ genprogs=$(genprognames:%=%$(build_exeext))
 
 # Object files used in those programs.
 genobjs=$(genprognames:%=%.o) read-rtl.o gensupport.o genattrtab.o \
-        genautomata.o gengenrtl.o genpreds.o gengtype.o \
+        genautomata.o gengenrtl.o genmodes.o genpreds.o gengtype.o \
 	genconstants.o gen-protos.o scan.o fix-header.o scan-decls.o \
 	gencheck.o dummy-conditions.o genconditions.o
 
@@ -2318,8 +2334,14 @@ gengenrtl$(build_exeext) : gengenrtl.o $(BUILD_LIBDEPS)
 	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ \
 	 gengenrtl.o $(BUILD_LIBS)
 
-gengenrtl.o : gengenrtl.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(GTM_H) real.h
+gengenrtl.o : gengenrtl.c $(BCONFIG_H) $(SYSTEM_H) rtl.def
+
+genmodes$(build_exeext) : genmodes.o $(BUILD_ERRORS) $(BUILD_LIBDEPS)
+	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ \
+	 genmodes.o $(BUILD_ERRORS) $(BUILD_LIBS)
+
+genmodes.o : genmodes.c $(BCONFIG_H) $(SYSTEM_H) errors.h $(HASHTAB_H) \
+	     machmode.def $(extra_modes_file)
 
 genpreds$(build_exeext) : genpreds.o $(BUILD_LIBDEPS)
 	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ \
@@ -2345,11 +2367,8 @@ gengtype-yacc.o : $(parsedir)/gengtype-yacc.c gengtype.h $(BCONFIG_H) $(SYSTEM_H
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
 	  $(parsedir)/gengtype-yacc.c $(OUTPUT_OPTION)
 
-# The sed command works around a bug in flex-2.5.4.
 $(parsedir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
-	$(FLEX) $(FLEXFLAGS) -t -o- $(srcdir)/gengtype-lex.l | \
-	  sed 's/^\(char msg\[\];\)/yyconst \1/' > g-$$$$ ; \
-	if test $$? -eq 0 ; then \
+	if $(FLEX) $(FLEXFLAGS) -og-$$$$ $(srcdir)/gengtype-lex.l; then \
 	  mv -f g-$$$$ $(parsedir)/gengtype-lex.c ; \
 	else \
 	  rm -f g-$$$$ ; \
@@ -2386,7 +2405,7 @@ $(BUILD_PREFIX_1)rtl.o: $(srcdir)/rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYST
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)rtl.c $(OUTPUT_OPTION)
 
 print-rtl1.o: $(srcdir)/print-rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) \
-  $(RTL_H) $(TREE_H) hard-reg-set.h $(BASIC_BLOCK_H)
+  $(RTL_H) $(TREE_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H)
 	rm -f print-rtl1.c
 	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/print-rtl.c > print-rtl1.c
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) print-rtl1.c $(OUTPUT_OPTION)
@@ -2397,7 +2416,7 @@ $(BUILD_PREFIX_1)bitmap.o: $(srcdir)/bitmap.c $(BCONFIG_H) coretypes.h $(GTM_H) 
 	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/bitmap.c > $(BUILD_PREFIX)bitmap.c
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)bitmap.c $(OUTPUT_OPTION)
 
-$(BUILD_PREFIX_1)errors.o: errors.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) errors.h
+$(BUILD_PREFIX_1)errors.o: errors.c $(BCONFIG_H) $(SYSTEM_H) errors.h
 	rm -f $(BUILD_PREFIX)errors.c
 	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/errors.c > $(BUILD_PREFIX)errors.c
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)errors.c $(OUTPUT_OPTION)
@@ -2414,6 +2433,10 @@ $(BUILD_PREFIX_1)ggc-none.o: ggc-none.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYST
 	rm -f $(BUILD_PREFIX)ggc-none.c
 	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/ggc-none.c > $(BUILD_PREFIX)ggc-none.c
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)ggc-none.c $(OUTPUT_OPTION)
+
+min-insn-modes.o: insn-modes.c $(BCONFIG_H) $(SYSTEM_H) $(MACHMODE_H)
+	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
+	    min-insn-modes.c $(OUTPUT_OPTION)
 
 #
 # Remake internationalization support.
@@ -2432,7 +2455,7 @@ po-generated: $(parsedir)/c-parse.c options.c
 PREPROCESSOR_DEFINES = \
   -DGCC_INCLUDE_DIR=\"$(libsubdir)/include\" \
   -DGPLUSPLUS_INCLUDE_DIR=\"$(gcc_gxx_include_dir)\" \
-  -DGPLUSPLUS_TOOL_INCLUDE_DIR=\"$(gcc_gxx_include_dir)/$(target_alias)\" \
+  -DGPLUSPLUS_TOOL_INCLUDE_DIR=\"$(gcc_gxx_include_dir)/$(target_noncanonical)\" \
   -DGPLUSPLUS_BACKWARD_INCLUDE_DIR=\"$(gcc_gxx_include_dir)/backward\" \
   -DLOCAL_INCLUDE_DIR=\"$(local_includedir)\" \
   -DCROSS_INCLUDE_DIR=\"$(CROSS_SYSTEM_HEADER_DIR)\" \
@@ -2735,7 +2758,7 @@ stmp-docobjdir:
 	$(STAMP) stmp-docobjdir
 
 doc: $(BUILD_INFO) $(GENERATED_MANPAGES) gccbug
-info: $(docobjdir)/cpp.info $(docobjdir)/gcc.info $(docobjdir)/gccint.info $(docobjdir)/gccinstall.info lang.info $(docobjdir)/cppinternals.info
+info:: $(docobjdir)/cpp.info $(docobjdir)/gcc.info $(docobjdir)/gccint.info $(docobjdir)/gccinstall.info $(docobjdir)/cppinternals.info
 
 TEXI_CPP_FILES = $(docdir)/cpp.texi $(docdir)/include/fdl.texi \
   $(docdir)/cppenv.texi $(docdir)/cppopts.texi
@@ -2779,7 +2802,7 @@ $(docobjdir)/%.info: $(docdir)/%.texi stmp-docobjdir
 	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
 	  -o $@ $<
 
-dvi: gcc.dvi gccint.dvi gccinstall.dvi cpp.dvi lang.dvi cppinternals.dvi
+dvi:: gcc.dvi gccint.dvi gccinstall.dvi cpp.dvi cppinternals.dvi
 
 %.dvi: $(docdir)/%.texi
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $<
@@ -2788,9 +2811,9 @@ gccinstall.dvi:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(TEXI2DVI) -I $$s/doc -I $$s/doc/include -o $@ $$s/doc/install.texi
 
-generated-manpages: $(docobjdir)/gcov.1 $(docobjdir)/cpp.1 $(docobjdir)/gcc.1 \
-	$(docobjdir)/gfdl.7 $(docobjdir)/gpl.7 $(docobjdir)/fsf-funding.7 \
-	lang.generated-manpages
+generated-manpages:: $(docobjdir)/gcov.1 $(docobjdir)/cpp.1 \
+	$(docobjdir)/gcc.1 $(docobjdir)/gfdl.7 $(docobjdir)/gpl.7 \
+	$(docobjdir)/fsf-funding.7
 
 $(docobjdir)/gcov.1: $(docdir)/gcov.texi
 $(docobjdir)/cpp.1: $(docdir)/cpp.texi $(docdir)/cppenv.texi \
@@ -3049,16 +3072,16 @@ install-common: native $(EXTRA_PARTS) lang.install-common installdirs
 	fi
 	$(INSTALL_SCRIPT) gccbug $(DESTDIR)$(bindir)/$(GCCBUG_INSTALL_NAME)
 
-# Install the driver program as $(target_alias)-gcc, 
-# $(target_alias)-gcc-$(version)
+# Install the driver program as $(target_noncanonical)-gcc, 
+# $(target_noncanonical)-gcc-$(version)
 # and also as either gcc (if native) or $(gcc_tooldir)/bin/gcc.
 install-driver: installdirs xgcc$(exeext)
 	-if [ -f gcc-cross$(exeext) ] ; then \
 	  rm -f $(DESTDIR)$(bindir)/$(GCC_CROSS_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) gcc-cross$(exeext) $(DESTDIR)$(bindir)/$(GCC_CROSS_NAME)$(exeext); \
-	  rm -f $(DESTDIR)$(bindir)/$(target_alias)-gcc-$(version); \
+	  rm -f $(DESTDIR)$(bindir)/$(target_noncanonical)-gcc-$(version); \
 	  ( cd $(DESTDIR)$(bindir) && \
-	    $(LN) $(GCC_CROSS_NAME)$(exeext) $(target_alias)-gcc-$(version) ); \
+	    $(LN) $(GCC_CROSS_NAME)$(exeext) $(target_noncanonical)-gcc-$(version) ); \
 	  if [ -d $(DESTDIR)$(gcc_tooldir)/bin/. ] ; then \
 	    rm -f $(DESTDIR)$(gcc_tooldir)/bin/gcc$(exeext); \
 	    $(INSTALL_PROGRAM) gcc-cross$(exeext) $(DESTDIR)$(gcc_tooldir)/bin/gcc$(exeext); \
@@ -3066,13 +3089,13 @@ install-driver: installdirs xgcc$(exeext)
 	else \
 	  rm -f $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
-	  rm -f $(DESTDIR)$(bindir)/$(target_alias)-gcc-$(version); \
+	  rm -f $(DESTDIR)$(bindir)/$(target_noncanonical)-gcc-$(version); \
 	  ( cd $(DESTDIR)$(bindir) && \
-	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_alias)-gcc-$(version) ); \
-	  rm -f $(DESTDIR)$(bindir)/$(target_alias)-gcc-tmp$(exeext); \
+	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_noncanonical)-gcc-$(version) ); \
+	  rm -f $(DESTDIR)$(bindir)/$(target_noncanonical)-gcc-tmp$(exeext); \
 	  ( cd $(DESTDIR)$(bindir) && \
-	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_alias)-gcc-tmp$(exeext) && \
-	    mv -f $(target_alias)-gcc-tmp$(exeext) $(GCC_TARGET_INSTALL_NAME)$(exeext) ); \
+	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_noncanonical)-gcc-tmp$(exeext) && \
+	    mv -f $(target_noncanonical)-gcc-tmp$(exeext) $(GCC_TARGET_INSTALL_NAME)$(exeext) ); \
 	fi
 
 # Install the info files.
@@ -3264,7 +3287,6 @@ uninstall: lang.uninstall
 # These targets are for the dejagnu testsuites. The file site.exp
 # contains global variables that all the testsuites will use.
 
-# Set to $(target_alias).
 target_subdir = @target_subdir@
 
 site.exp: ./config.status Makefile
@@ -3280,7 +3302,7 @@ site.exp: ./config.status Makefile
 	@echo "set host_triplet $(host)" >> ./tmp0
 	@echo "set build_triplet $(build)" >> ./tmp0
 	@echo "set target_triplet $(target)" >> ./tmp0
-	@echo "set target_alias $(target_alias)" >> ./tmp0
+	@echo "set target_alias $(target_noncanonical)" >> ./tmp0
 # CFLAGS is set even though it's empty to show we reserve the right to set it.
 	@echo "set CFLAGS \"\"" >> ./tmp0
 	@echo "set CXXFLAGS \"\"" >> ./tmp0
@@ -3416,7 +3438,7 @@ ${QMTEST_DIR}/context: stamp-qmtest
 	echo "CompilerTable.cplusplus_kind=GCC" >> $@
 	echo "CompilerTable.cplusplus_path=${objdir}/g++" >> $@
 	echo "CompilerTable.cplusplus_options=-B${objdir}/" >> $@
-	echo "DejaGNUTest.target=${target_alias}" >> $@
+	echo "DejaGNUTest.target=${target_noncanonical}" >> $@
 
 # Run the G++ testsuite using QMTest.
 qmtest-g++: ${QMTEST_DIR}/context
@@ -3454,6 +3476,10 @@ TAGS: lang.tags
 	etags *.y *.h *.c $$incs;				     \
 	mv tmp-tags/* .;					     \
 	rmdir tmp-tags)
+
+# ------------------------------------------------------
+# Bootstrap-related targets (not used during 'make all')
+# ------------------------------------------------------
 
 # A list of files to be destroyed during "lean" builds.
 VOL_FILES=`echo $(BACKEND) $(OBJS) $(C_OBJS) $(LIBCPP_OBJS) *.c *.h gen*`
@@ -3951,8 +3977,10 @@ risky-stage4: stage4
 .PHONY: risky-stage1 risky-stage2 risky-stage3 risky-stage4
 .PHONY: stagefeedback stageprofile
 
+# -----------------------------------------------------
 # Rules for generating translated message descriptions.
 # Disabled by autoconf if the tools are not available.
+# -----------------------------------------------------
 
 XGETTEXT = @XGETTEXT@
 GMSGFMT = @GMSGFMT@

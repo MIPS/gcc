@@ -149,19 +149,6 @@ namespace std
   int ios_base::Init::_S_ios_base_init = 0;
   bool ios_base::Init::_S_synced_with_stdio = true;
 
-  ios_base::failure::failure(const string& __str) throw()
-  {
-    strncpy(_M_name, __str.c_str(), _S_bufsize);
-    _M_name[_S_bufsize - 1] = '\0';
-  }
-
-  ios_base::failure::~failure() throw()
-  { }
-
-  const char*
-  ios_base::failure::what() const throw()
-  { return _M_name; }
-
   ios_base::Init::Init()
   {
     if (_S_ios_base_init == 0)
@@ -351,10 +338,9 @@ namespace std
   bool 
   ios_base::sync_with_stdio(bool __sync)
   { 
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
+    // _GLIBCXX_RESOLVE_LIB_DEFECTS
     // 49.  Underspecification of ios_base::sync_with_stdio
     bool __ret = ios_base::Init::_S_synced_with_stdio;
-#endif
 
     // Turn off sync with C FILE* for cin, cout, cerr, clog iff
     // currently synchronized.
@@ -398,4 +384,4 @@ namespace std
       }
     return __ret; 
   }
-}  // namespace std
+} // namespace std

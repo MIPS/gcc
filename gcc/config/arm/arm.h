@@ -2681,6 +2681,7 @@ extern int making_const_table;
   {"arm_hard_register_operand", {REG}},					\
   {"f_register_operand", {SUBREG, REG}},				\
   {"arm_add_operand",    {SUBREG, REG, CONST_INT}},			\
+  {"arm_addimm_operand", {CONST_INT}},					\
   {"fpa_add_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
   {"fpa_rhs_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
   {"arm_rhs_operand",    {SUBREG, REG, CONST_INT}},			\
@@ -2688,6 +2689,7 @@ extern int making_const_table;
   {"reg_or_int_operand", {SUBREG, REG, CONST_INT}},			\
   {"index_operand",      {SUBREG, REG, CONST_INT}},			\
   {"thumb_cmp_operand",  {SUBREG, REG, CONST_INT}},			\
+  {"thumb_cbrch_target_operand", {SUBREG, REG, MEM}},			\
   {"offsettable_memory_operand", {MEM}},				\
   {"bad_signed_byte_operand", {MEM}},					\
   {"alignable_memory_operand", {MEM}},					\

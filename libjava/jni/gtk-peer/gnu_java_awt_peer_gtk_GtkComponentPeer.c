@@ -133,31 +133,6 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_requestFocus
   gdk_threads_leave ();
 }
 
-
-/*
- * Show a widget (NO LONGER USED)
- */
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setVisible
-  (JNIEnv *env, jobject obj, jboolean visible)
-{
-  GtkWidget *widget;
-  void *ptr;
-
-  ptr = NSA_GET_PTR (env, obj);
-
-  gdk_threads_enter ();
-  widget = GTK_WIDGET (ptr);
-
-  if (visible)
-    gtk_widget_show (widget);
-  else
-    gtk_widget_hide (widget);
-
-  gdk_flush ();
-  gdk_threads_leave ();
-}
-
 /*
  * Find the origin of a widget's window.
  */
@@ -223,104 +198,6 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetUsize (JNIEnv *env,
   gdk_threads_enter ();
   gtk_widget_set_usize (GTK_WIDGET (ptr), w, h);
   gdk_threads_leave ();
-}
-
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkFixedNew (JNIEnv *env, 
-    jobject obj, jint width, jint height, jboolean visible)
-{
-  GtkWidget *layout;
-
-  gdk_threads_enter ();
-  layout = gtk_layout_new (NULL, NULL);
-  gtk_widget_realize (layout);
-  connect_awt_hook (env, obj, 1, GTK_LAYOUT (layout)->bin_window);
-  set_visible (layout, visible);
-  gdk_threads_leave ();
-
-  NSA_SET_PTR (env, obj, layout);
-}
-
-/*
- * Place a widget on the layout widget. 
- */
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkFixedPut 
-    (JNIEnv *env, jobject obj, jobject container, jint x, jint y)
-{
-  GList *child;
-  GtkWidget *fix;
-  void *containerptr=NULL;
-  void *objptr=NULL;
-
-  /* We hawe a container which, if it is a window, will have
-     this component added to its fixed.  If it is a fixed, we add the
-     component to it. */
-  
-  containerptr=NSA_GET_PTR (env, container);
-  objptr=NSA_GET_PTR (env, obj);
-  
-  gdk_threads_enter ();
-  if (GTK_IS_WINDOW(GTK_OBJECT(containerptr)))
-    {
-      child=gtk_container_children (GTK_CONTAINER(containerptr));
-      
-      while (child && !GTK_IS_FIXED(child->data))
-	{
-	  child=g_list_next(child);
-	}
-      
-      fix=GTK_WIDGET(child->data);
-      g_list_free(child);
-    }
-  else
-    if (GTK_IS_SCROLLED_WINDOW(GTK_OBJECT(containerptr)))
-    {
-      child=gtk_container_children (GTK_CONTAINER (GTK_BIN(containerptr)->child));
-      
-      while (child && !GTK_IS_FIXED(child->data))
-	{
-	  child=g_list_next(child);
-	}
-      
-      fix=GTK_WIDGET(child->data);
-
-      g_list_free(child);
-    }
-  else
-    {
-      fix=GTK_WIDGET(containerptr);
-    }
-  
-  gtk_fixed_put(GTK_FIXED(fix),GTK_WIDGET(objptr),x,y);
-  gtk_widget_realize (GTK_WIDGET (objptr));
-  gtk_widget_show (GTK_WIDGET (objptr));
-  
-  gdk_threads_leave ();
-}
-
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkFixedMove (JNIEnv *env, 
-    jobject obj, jint x, jint y)
-{
-  GtkWidget *widget;
-  void *ptr=NULL;
-
-  /* For some reason, ScrolledWindow tries to scroll its contents
-     by moving them using this function.  Since we want to use GTK's
-     nice fast scrolling, we try to second guess it here.  This
-     might cause problems later.  */
-  
-  if (x >= 0 && y >= 0) 
-    {
-      ptr = NSA_GET_PTR (env, obj);
-      
-      gdk_threads_enter ();
-      widget=GTK_WIDGET (ptr);
-      if (!GTK_IS_WINDOW (widget))
-	  gtk_fixed_move (GTK_FIXED (widget->parent), widget, x, y);
-      gdk_threads_leave ();
-    }
 }
 
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBounds
@@ -397,6 +274,61 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetForeground
   (*env)->ReleaseIntArrayElements (env, array, rgb, 0);
 
   return array;
+}
+
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetBackground
+  (JNIEnv *env, jobject obj, jint red, jint green, jint blue)
+{
+  GdkColor normal_color;
+  GdkColor active_color;
+  GtkWidget *widget;
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  normal_color.red = (red / 255.0) * 65535;
+  normal_color.green = (green / 255.0) * 65535;
+  normal_color.blue = (blue / 255.0) * 65535;
+
+  /* This calculation only approximates the active colors produced by
+     Sun's AWT. */
+  active_color.red = 0.85 * (red / 255.0) * 65535;
+  active_color.green = 0.85 * (green / 255.0) * 65535;
+  active_color.blue = 0.85 * (blue / 255.0) * 65535;
+
+  gdk_threads_enter ();
+
+  widget = GTK_WIDGET (ptr);
+
+  gtk_widget_modify_bg (widget, GTK_STATE_NORMAL, &normal_color);
+  gtk_widget_modify_bg (widget, GTK_STATE_ACTIVE, &active_color);
+  gtk_widget_modify_bg (widget, GTK_STATE_PRELIGHT, &normal_color);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetForeground
+  (JNIEnv *env, jobject obj, jint red, jint green, jint blue)
+{
+  GdkColor color;
+  GtkWidget *widget;
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  color.red = (red / 255.0) * 65535;
+  color.green = (green / 255.0) * 65535;
+  color.blue = (blue / 255.0) * 65535;
+
+  gdk_threads_enter ();
+
+  widget = GTK_WIDGET (ptr);
+
+  gtk_widget_modify_fg (widget, GTK_STATE_NORMAL, &color);
+
+  gdk_threads_leave ();
 }
 
 void
@@ -482,7 +414,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_isEnabled
 
 JNIEXPORT jboolean JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkComponentPeer_modalHasGrab
-  (JNIEnv *env, jclass clazz)
+  (JNIEnv *env __attribute__((unused)), jclass clazz __attribute__((unused)))
 {
   GtkWidget *widget;
   jboolean retval;

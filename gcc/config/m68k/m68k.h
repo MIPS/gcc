@@ -83,14 +83,15 @@ Boston, MA 02111-1307, USA.  */
       if (TARGET_CF_HWDIV)			\
 	builtin_define ("__mcfhwdiv__");	\
       if (flag_pic)				\
-	builtin_define ("__pic__");		\
-      if (flag_pic > 1)				\
-	builtin_define ("__PIC__");		\
+	{					\
+	  builtin_define ("__pic__");		\
+	  if (flag_pic > 1)			\
+	    builtin_define ("__PIC__");		\
+	}					\
       builtin_assert ("cpu=m68k");		\
       builtin_assert ("machine=m68k");		\
     }						\
   while (0)
-
 
 /* Classify the groups of pseudo-ops used to assemble QI, HI and SI
    quantities.  */
@@ -180,8 +181,8 @@ extern int target_flags;
 
 /* Align ints to a word boundary.  This breaks compatibility with the 
    published ABI's for structures containing ints, but produces faster
-   code on cpus with 32 bit busses (020, 030, 040, 060, CPU32+, coldfire).
-   It's required for coldfire cpus without a misalignment module.  */
+   code on cpus with 32-bit busses (020, 030, 040, 060, CPU32+, ColdFire).
+   It's required for ColdFire cpus without a misalignment module.  */
 #define MASK_ALIGN_INT	(1<<13)
 #define TARGET_ALIGN_INT (target_flags & MASK_ALIGN_INT)
 
@@ -207,6 +208,19 @@ extern int target_flags;
 #define MASK_RTD	(1<<16)
 #define TARGET_RTD	(target_flags & MASK_RTD)
 
+/* Support A5 relative data seperate from text.
+ * This option implies -fPIC, however it inhibits the generation of the
+ * A5 save/restore in functions and the loading of a5 with a got pointer.
+ */
+#define MASK_SEP_DATA	(1<<17)
+#define TARGET_SEP_DATA (target_flags & MASK_SEP_DATA)
+
+/* Compile using library ID based shared libraries.
+ * Set a specific ID using the -mshared-library-id=xxx option.
+ */
+#define MASK_ID_SHARED_LIBRARY	(1<<18)
+#define TARGET_ID_SHARED_LIBRARY	(target_flags & MASK_ID_SHARED_LIBRARY)
+
 /* Compile for a CPU32.  A 68020 without bitfields is a good
    heuristic for a CPU32.  */
 #define TARGET_CPU32	(TARGET_68020 && !TARGET_BITFIELD)
@@ -215,7 +229,7 @@ extern int target_flags;
 #define MASK_COLDFIRE	(MASK_5200|MASK_528x|MASK_CFV3|MASK_CFV4)
 #define TARGET_COLDFIRE	(target_flags & MASK_COLDFIRE)
 
-/* Which bits can be set by specifying a coldfire */
+/* Which bits can be set by specifying a ColdFire */
 #define MASK_ALL_CF_BITS	(MASK_COLDFIRE|MASK_CF_HWDIV)
 
 /* Macro to define tables used to set the flags.
@@ -305,6 +319,14 @@ extern int target_flags;
       N_("Align variables on a 32-bit boundary") },			\
     { "no-align-int", -MASK_ALIGN_INT, 					\
       N_("Align variables on a 16-bit boundary") },			\
+    { "sep-data", MASK_SEP_DATA,					\
+      N_("Enable separate data segment") },				\
+    { "no-sep-data", -MASK_SEP_DATA,					\
+      N_("Disable separate data segment") },				\
+    { "id-shared-library", MASK_ID_SHARED_LIBRARY,			\
+      N_("Enable ID based shared library") },				\
+    { "no-id-shared-library", -MASK_ID_SHARED_LIBRARY,			\
+      N_("Disable ID based shared library") },				\
     { "pcrel", MASK_PCREL,						\
       N_("Generate pc-relative code") },				\
     { "strict-align", -MASK_NO_STRICT_ALIGNMENT,			\
@@ -335,6 +357,8 @@ extern int target_flags;
     N_("Jump targets are aligned to this power of 2"), 0},		\
   { "align-functions=",	&m68k_align_funcs_string,			\
     N_("Function starts are aligned to this power of 2"), 0},		\
+  { "shared-library-id=",	&m68k_library_id_string,		\
+    N_("ID of shared library to build"), 0},				\
   SUBTARGET_OPTIONS							\
 }
 
@@ -399,9 +423,9 @@ extern int target_flags;
 
 /* No data type wants to be aligned rounder than this. 
    Most published ABIs say that ints should be aligned on 16 bit
-   boundaries, but cpus with 32 bit busses get better performance
-   aligned on 32 bit boundaries.  Coldfires without a misalignment
-   module require 32 bit alignment.  */
+   boundaries, but cpus with 32-bit busses get better performance
+   aligned on 32-bit boundaries.  ColdFires without a misalignment
+   module require 32-bit alignment.  */
 #define BIGGEST_ALIGNMENT (TARGET_ALIGN_INT ? 32 : 16)
 
 /* Set this nonzero if move instructions will actually fail to work
@@ -410,6 +434,9 @@ extern int target_flags;
 
 /* Maximum power of 2 that code can be aligned to.  */
 #define MAX_CODE_ALIGN	2			/* 4 byte alignment */
+
+/* Maximum number of library ids we permit */
+#define MAX_LIBRARY_ID 255
 
 /* Align loop starts for optimal branching.  */
 #define LOOP_ALIGN(LABEL) (m68k_align_loops)
@@ -781,7 +808,7 @@ enum reg_class {
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
    On the 68000, sp@- in a byte insn really pushes a word.
-   On the 5200 (coldfire), sp@- in a byte insn pushes just a byte.  */
+   On the 5200 (ColdFire), sp@- in a byte insn pushes just a byte.  */
 #define PUSH_ROUNDING(BYTES) (TARGET_COLDFIRE ? BYTES : ((BYTES) + 1) & ~1)
 
 /* We want to avoid trying to push bytes.  */
@@ -1210,7 +1237,7 @@ __transfer_from_trampoline ()					\
 	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
 	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
 
-/* coldfire/5200 does not allow HImode index registers.  */
+/* ColdFire/5200 does not allow HImode index registers.  */
 #define LEGITIMATE_INDEX_REG_P(X)   \
   ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
    || (! TARGET_COLDFIRE					\
@@ -1638,6 +1665,7 @@ __transfer_from_trampoline ()					\
 extern const char *m68k_align_loops_string;
 extern const char *m68k_align_jumps_string;
 extern const char *m68k_align_funcs_string;
+extern const char *m68k_library_id_string;
 extern int m68k_align_loops;
 extern int m68k_align_jumps;
 extern int m68k_align_funcs;

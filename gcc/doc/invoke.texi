@@ -294,7 +294,9 @@ in the following sections.
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -frounding-math -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
--fsched-spec-load-dangerous  -fsched2-use-superblocks @gol
+-fsched-spec-load-dangerous  @gol
+-fsched-stalled-insns=@var{n} -sched-stalled-insns-dep=@var{n} @gol
+-fsched2-use-superblocks @gol
 -fsched2-use-traces  -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa  -fssa-ccp  -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
@@ -440,6 +442,8 @@ in the following sections.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc  -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mdynamic-no-pic @gol
+-mprioritize-restricted-insns=@var{priority} @gol
+-msched-costly-dep=@var{dependence_type} @gol
 -mcall-sysv  -mcall-netbsd @gol
 -maix-struct-return  -msvr4-struct-return @gol
 -mabi=altivec  -mabi=no-altivec @gol
@@ -629,7 +633,7 @@ in the following sections.
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
 -mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
--m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch}
+-m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch  -mfused-madd  -mno-fused-madd}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -2186,7 +2190,7 @@ Enable @option{-Wformat} plus format checks not included in
 
 @item -Wnonnull
 @opindex Wnonnull
-Enable warning about passing a null pointer for arguments marked as
+Warn about passing a null pointer for arguments marked as
 requiring a non-null value by the @code{nonnull} function attribute.
 
 @option{-Wnonnull} is included in @option{-Wall} and @option{-Wformat}.  It
@@ -2194,12 +2198,12 @@ can be disabled with the @option{-Wno-nonnull} option.
 
 @item -Winit-self @r{(C, C++, and Objective-C only)} 
 @opindex Winit-self
-Enable warning about uninitialized variables which are initalized with themselves.
-Note this option can only be used with the @option{-Wuninitialized} option and 
-that only works with @option{-O}.
+Warn about uninitialized variables which are initialized with themselves.
+Note this option can only be used with the @option{-Wuninitialized} option,
+which in turn only works with @option{-O1} and above.
 
-For an example, the following code will not warn about i being uninitialized 
-without this option:
+For example, GCC will warn about @code{i} being uninitialized in the
+following snippet only when @option{-Winit-self} has been specified:
 @smallexample
 @group
 int f()
@@ -3771,13 +3775,14 @@ also turns on the following optimization flags:
 -fgcse   -fgcse-lm   -fgcse-sm @gol
 -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations @gol
--fregmove @gol
+-fregmove -@gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
 -fcaller-saves @gol
 -fpeephole2 @gol
 -freorder-blocks  -freorder-functions @gol
 -fstrict-aliasing @gol
+-funit-at-a-time @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels}
 
@@ -3788,7 +3793,7 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-funit-at-a-time} and @option{-frename-registers} options.
+@option{-fweb} and @option{-frename-registers} options.
 
 @item -O0
 @opindex O0
@@ -4231,6 +4236,18 @@ sense when scheduling before register allocation, i.e.@: with
 Allow speculative motion of more load instructions.  This only makes
 sense when scheduling before register allocation, i.e.@: with
 @option{-fschedule-insns} or at @option{-O2} or higher.
+
+@item -fsched-stalled-insns=@var{n}
+@opindex fsched-stalled-insns
+Define how many insns (if any) can be moved prematurely from the queue
+of stalled insns into the ready list, during the second scheduling pass.
+
+@item -fsched-stalled-insns-dep=@var{n}
+@opindex fsched-stalled-insns-dep
+Define how many insn groups (cycles) will be examined for a dependency 
+on a stalled insn that is candidate for premature removal from the queue 
+of stalled insns.  Has an effect only during the second scheduling pass, 
+and only if @option{-fsched-stalled-insns} is used and its value is not zero.
 
 @item -fsched2-use-superblocks
 @opindex fsched2-use-superblocks
@@ -7700,6 +7717,25 @@ relocatable, but that its external references are relocatable.  The
 resulting code is suitable for applications, but not shared
 libraries.
 
+@item -mprioritize-restricted-insns=@var{priority}
+@opindex mprioritize-restricted-insns
+This option controls the priority that is assigned to 
+dispatch-slot restricted instructions during the second scheduling 
+pass.  The argument @var{priority} takes the value @var{0/1/2} to assign 
+@var{no/highest/second-highest} priority to dispatch slot restricted 
+instructions.
+
+@item -msched-costly-dep=@var{dependence_type}
+@opindex msched-costly-dep
+This option controls which dependences are considered costly
+by the target during instruction scheduling.  The argument
+@var{dependence_type} takes one of the following values:
+@var{no}: no dependence is costly, 
+@var{all}: all dependences are costly, 
+@var{true_store_to_load}: a true dependence from store to load is costly,
+@var{store_to_load}: any dependence from store to load is costly,
+@var{number}: any dependence which latency >= @var{number} is costly.
+ 
 @item -mcall-sysv
 @opindex mcall-sysv
 On System V.4 and embedded PowerPC systems compile code using calling
@@ -8480,11 +8516,6 @@ Turns on @option{-msingle-float}, @option{-mmad}, and, at least for now,
 @opindex mips16
 @opindex mno-mips16
 Enable 16-bit instructions.
-
-@item -mentry
-@opindex mentry
-Use the entry and exit pseudo ops.  This option can only be used with
-@option{-mips16}.
 
 @item -EL
 @opindex EL
@@ -10589,6 +10620,13 @@ except for the ABI and the set of available instructions.
 The list of @var{cpu-type} values is the same as for @option{-march}.
 The default is the value used for @option{-march}.
 
+@item -mfused-madd
+@itemx -mno-fused-madd
+@opindex mfused-madd
+@opindex mno-fused-madd
+Generate code that uses (does not use) the floating point multiply and
+accumulate instructions.  These instructions are generated by default if
+hardware floating point is used.
 @end table
 
 @node CRIS Options

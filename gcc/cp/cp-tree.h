@@ -3429,7 +3429,8 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    TFF_TEMPLATE_HEADER: show the template<...> header in a
        template-declaration.
    TFF_TEMPLATE_NAME: show only template-name.
-   TFF_EXPR_IN_PARENS: Parenthesize expressions.  */
+   TFF_EXPR_IN_PARENS: parenthesize expressions.
+   TFF_NO_FUNCTION_ARGUMENTS: don't show function arguments.  */
 
 #define TFF_PLAIN_IDENTIFIER               (0)
 #define TFF_SCOPE                	   (1)
@@ -3442,6 +3443,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define TFF_TEMPLATE_HEADER                (1 << 7)
 #define TFF_TEMPLATE_NAME                  (1 << 8)
 #define TFF_EXPR_IN_PARENS                 (1 << 9)
+#define TFF_NO_FUNCTION_ARGUMENTS          (1 << 10)
 
 /* Returns the TEMPLATE_DECL associated to a TEMPLATE_TEMPLATE_PARM
    node.  */
@@ -3579,9 +3581,6 @@ extern void clone_function_decl                 (tree, int);
 extern void adjust_clone_args			(tree);
 
 /* decl.c */
-extern int global_bindings_p			(void);
-extern int kept_level_p				(void);
-extern tree getdecls				(void);
 extern void insert_block			(tree);
 extern void set_block				(tree);
 extern tree pushdecl				(tree);
@@ -3592,34 +3591,12 @@ extern bool cxx_mark_addressable		(tree);
 extern void cxx_push_function_context		(struct function *);
 extern void cxx_pop_function_context		(struct function *);
 extern void cxx_mark_function_context		(struct function *);
-extern int toplevel_bindings_p			(void);
-extern int namespace_bindings_p			(void);
-extern void keep_next_level (bool);
-extern scope_kind innermost_scope_kind          (void);
-extern int template_parm_scope_p		(void);
-extern void set_class_shadows			(tree);
-extern void maybe_push_cleanup_level		(tree);
-extern cxx_scope *begin_scope (scope_kind, tree);
+extern void maybe_push_cleanup_level (tree);
 extern void finish_scope                        (void);
-extern void resume_level			(struct cp_binding_level *);
 extern void delete_block			(tree);
 extern void add_block_current_level		(tree);
-extern void pushlevel_class			(void);
-extern void poplevel_class                      (void);
-extern void print_binding_stack			(void);
-extern void print_binding_level			(struct cp_binding_level *);
-extern void push_namespace			(tree);
-extern void pop_namespace			(void);
-extern void push_nested_namespace		(tree);
-extern void pop_nested_namespace		(tree);
-extern void maybe_push_to_top_level		(int);
-extern void push_to_top_level			(void);
-extern void pop_from_top_level			(void);
 extern void push_switch				(tree);
 extern void pop_switch				(void);
-extern tree identifier_type_value		(tree);
-extern void set_identifier_type_value		(tree, tree);
-extern void pop_everything			(void);
 extern void pushtag				(tree, tree, int);
 extern tree make_anon_name			(void);
 extern void clear_anon_tags			(void);
@@ -3627,34 +3604,15 @@ extern int decls_match				(tree, tree);
 extern int duplicate_decls			(tree, tree);
 extern tree pushdecl_top_level			(tree);
 extern tree pushdecl_top_level_and_finish       (tree, tree);
-extern bool pushdecl_class_level		(tree);
-extern tree pushdecl_namespace_level            (tree);
 extern tree push_using_decl                     (tree, tree);
-extern tree push_using_directive                (tree);
-extern bool push_class_level_binding		(tree, tree);
 extern tree implicitly_declare			(tree);
 extern tree declare_local_label                 (tree);
 extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
 extern void define_case_label			(void);
-extern tree namespace_binding                   (tree, tree);
-extern void set_namespace_binding               (tree, tree, tree);
-extern tree lookup_namespace_name		(tree, tree);
 extern tree make_typename_type			(tree, tree, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tsubst_flags_t);
-extern tree lookup_name_nonclass		(tree);
-extern tree lookup_function_nonclass            (tree, tree);
-extern tree lookup_qualified_name               (tree, tree, bool, bool);
-extern tree lookup_name				(tree, int);
-extern tree lookup_name_current_level		(tree);
-extern tree lookup_type_current_level		(tree);
-extern tree lookup_name_real                    (tree, int, int, int, int);
-extern tree namespace_ancestor			(tree, tree);
-extern bool is_ancestor                         (tree, tree);
-extern tree unqualified_namespace_lookup	(tree, int, tree *);
 extern tree check_for_out_of_scope_variable     (tree);
-extern bool lookup_using_namespace (tree, cxx_binding *, tree, tree, int, tree *);
-extern bool qualified_lookup_using_namespace (tree, tree, cxx_binding *, int);
 extern tree build_library_fn			(tree, tree);
 extern tree build_library_fn_ptr		(const char *, tree);
 extern tree build_cp_library_fn_ptr		(const char *, tree);
@@ -3700,12 +3658,7 @@ extern void revert_static_member_fn             (tree);
 extern void fixup_anonymous_aggr                (tree);
 extern int check_static_variable_definition     (tree, tree);
 extern tree compute_array_index_type		(tree, tree);
-extern void push_local_binding                  (tree, tree, int);
-extern int push_class_binding                   (tree, tree);
 extern tree check_default_argument              (tree, tree);
-extern tree push_overloaded_decl		(tree, int);
-extern void clear_identifier_class_values       (void);
-extern void storetags                           (tree);
 extern int vtable_decl_p                        (tree, void *);
 extern int vtype_decl_p                         (tree, void *);
 extern int sigtable_decl_p                      (tree, void *);
@@ -3717,7 +3670,6 @@ typedef int (*walk_namespaces_fn)               (tree, void *);
 extern int walk_namespaces                      (walk_namespaces_fn,
 						       void *);
 extern int wrapup_globals_for_namespace         (tree, void *);
-extern tree cp_namespace_decls                  (tree);
 extern tree create_implicit_typedef             (tree, tree);
 extern tree maybe_push_decl                     (tree);
 extern tree build_target_expr_with_type         (tree, tree);
@@ -3729,8 +3681,10 @@ extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern tree cxx_builtin_type_decls              (void);
+extern void warn_extern_redeclared_static (tree, tree);
 
 extern bool have_extern_spec;
+extern GTY(()) tree last_function_parms;
 
 /* in decl2.c */
 extern bool check_java_method (tree);
@@ -3748,9 +3702,6 @@ extern tree grokfield (tree, tree, tree, tree, tree);
 extern tree grokbitfield (tree, tree, tree);
 extern tree groktypefield			(tree, tree);
 extern void cplus_decl_attributes (tree *, tree, int);
-extern tree constructor_name_full		(tree);
-extern tree constructor_name (tree);
-extern bool constructor_name_p                  (tree, tree);
 extern void defer_fn (tree);
 extern void finish_anon_union (tree);
 extern tree finish_table (tree, tree, tree, int);
@@ -3762,20 +3713,8 @@ extern void import_export_decl (tree);
 extern void import_export_tinfo	(tree, tree, bool);
 extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree     (tree, tree);
-extern void set_decl_namespace (tree, tree, bool);
-extern tree current_decl_namespace              (void);
-extern void push_decl_namespace                 (tree);
-extern void pop_decl_namespace                  (void);
-extern void push_scope				(tree);
-extern void pop_scope				(tree);
-extern void do_namespace_alias (tree, tree);
-extern void do_toplevel_using_decl (tree);
-extern void do_local_using_decl (tree);
-extern tree do_class_using_decl (tree);
-extern void do_using_directive (tree);
 extern void check_default_args (tree);
 extern void mark_used (tree);
-extern tree lookup_arg_dependent (tree, tree, tree);
 extern void finish_static_data_member_decl (tree, tree, tree, int);
 extern tree cp_build_parm_decl (tree, tree);
 extern tree build_artificial_parm (tree, tree);

@@ -1111,11 +1111,6 @@ override_options (void)
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
-  /* By default our XFmode is the 80-bit extended format.  If we have
-     use TFmode instead, it's also the 80-bit format, but with padding.  */
-  real_format_for_mode[XFmode - QFmode] = &ieee_extended_intel_96_format;
-  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
-
   /* Set the default values for switches whose default depends on TARGET_64BIT
      in case they weren't overwritten by command line options.  */
   if (TARGET_64BIT)
@@ -5078,27 +5073,19 @@ ix86_expand_prologue (void)
     }
   else
     {
-      /* ??? Is this only valid for Win32?  */
+      /* Only valid for Win32 */
 
-      rtx arg0, sym;
+      const rtx eax = gen_rtx_REG (SImode, 0);
+      rtx rtx_allocate = GEN_INT(allocate);
 
       if (TARGET_64BIT)
-	abort ();
+        abort ();
 
-      arg0 = gen_rtx_REG (SImode, 0);
-      emit_move_insn (arg0, GEN_INT (allocate));
+      insn = emit_move_insn (eax, rtx_allocate);
+      RTX_FRAME_RELATED_P (insn) = 1;
 
-      sym = gen_rtx_MEM (FUNCTION_MODE,
-			 gen_rtx_SYMBOL_REF (Pmode, "_alloca"));
-      insn = emit_call_insn (gen_call (sym, const0_rtx, constm1_rtx));
-
-      CALL_INSN_FUNCTION_USAGE (insn)
-	= gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_USE (VOIDmode, arg0),
-			     CALL_INSN_FUNCTION_USAGE (insn));
-
-      /* Don't allow scheduling pass to move insns across __alloca
-         call.  */
-      emit_insn (gen_blockage (const0_rtx));
+      insn = emit_insn (gen_allocate_stack_worker (eax));
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
   if (frame.save_regs_using_mov && !TARGET_RED_ZONE)
     {
@@ -9334,7 +9321,7 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 int
 ix86_expand_setcc (enum rtx_code code, rtx dest)
 {
-  rtx ret, tmp, tmpreg;
+  rtx ret, tmp, tmpreg, equiv;
   rtx second_test, bypass_test;
 
   if (GET_MODE (ix86_compare_op0) == DImode
@@ -9372,6 +9359,12 @@ ix86_expand_setcc (enum rtx_code code, rtx dest)
       else
 	emit_insn (gen_iorqi3 (tmp, tmpreg, tmp2));
     }
+
+  /* Attach a REG_EQUAL note describing the comparison result.  */
+  equiv = simplify_gen_relational (code, QImode,
+				   GET_MODE (ix86_compare_op0),
+				   ix86_compare_op0, ix86_compare_op1);
+  set_unique_reg_note (get_last_insn (), REG_EQUAL, equiv);
 
   return 1; /* DONE */
 }
@@ -15182,7 +15175,7 @@ x86_this_parameter (tree function)
 	  int regno = 0;
 	  if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
 	    regno = 2;
-	  return gen_rtx_REG (SImode, 0);
+	  return gen_rtx_REG (SImode, regno);
 	}
     }
 

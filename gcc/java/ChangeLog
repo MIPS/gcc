@@ -1,3 +1,27 @@
+2003-10-14  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Replace uses of $(target_alias) with
+	$(target_noncanonical).
+
+2003-10-09  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (java_init_decl_processing): Declare signers field.
+	* class.c (make_class_data): Set signers field.
+
+2003-10-09  Jason Merrill  <jason@redhat.com>
+
+	* parse.y (patch_assignment): Use make_node to create a BLOCK.
+	* parse.h (BUILD_PTR_FROM_NAME): Use make_node to create a
+	POINTER_TYPE.
+
+2003-10-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (java.info): Replace with ...
+	(info): ... this.
+	(java.dvi): Replace with ...
+	(dvi): ... this.
+	(java.generated-manpages): Replace with ...
+
 2003-10-03  Kelley Cook  <kelleycook@wideopenwest.com>
 
 	* builtins.c, jcf.h, jvspec.c: Remove PARAMS macros.

@@ -1438,6 +1438,33 @@ cant_combine_insn_p (rtx insn)
   return 0;
 }
 
+/* Adjust INSN after we made a change to its destination.
+
+   Changing the destination can invalidate notes that say something about
+   the results of the insn and a LOG_LINK pointing to the insn.  */
+
+static void
+adjust_for_new_dest (rtx insn)
+{
+  rtx *loc;
+
+  /* For notes, be conservative and simply remove them.  */
+  loc = &REG_NOTES (insn);
+  while (*loc)
+    {
+      enum reg_note kind = REG_NOTE_KIND (*loc);
+      if (kind == REG_EQUAL || kind == REG_EQUIV)
+	*loc = XEXP (*loc, 1);
+      else
+	loc = &XEXP (*loc, 1);
+    }
+
+  /* The new insn will have a destination that was previously the destination
+     of an insn just above it.  Call distribute_links to make a LOG_LINK from
+     the next use of that destination.  */
+  distribute_links (gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX));
+}
+
 /* Try to combine the insns I1 and I2 into I3.
    Here I1 and I2 appear earlier than I3.
    I1 can be zero; then we combine just I2 into I3.
@@ -1866,7 +1893,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       && XEXP (SET_SRC (PATTERN (i3)), 1) == const0_rtx
       && rtx_equal_p (XEXP (SET_SRC (PATTERN (i3)), 0), i2dest))
     {
-#ifdef EXTRA_CC_MODES
+#ifdef SELECT_CC_MODE
       rtx *cc_use;
       enum machine_mode compare_mode;
 #endif
@@ -1876,7 +1903,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
       i2_is_used = 1;
 
-#ifdef EXTRA_CC_MODES
+#ifdef SELECT_CC_MODE
       /* See if a COMPARE with the operand we substituted in should be done
 	 with the mode that is currently being used.  If not, do the same
 	 processing we do in `subst' for a SET; namely, if the destination
@@ -2057,6 +2084,14 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     {
       newpat = XVECEXP (newpat, 0, 1);
       insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+ 
+      if (insn_code_number >= 0)
+	{
+	  /* If we will be able to accept this, we have made a change to the
+	     destination of I3.  This requires us to do a few adjustments.  */
+	  PATTERN (i3) = newpat;
+	  adjust_for_new_dest (i3);
+	}
     }
 
   /* If we were combining three insns and the result is a simple SET
@@ -2327,16 +2362,9 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	  rtx link;
 
 	  /* If we will be able to accept this, we have made a change to the
-	     destination of I3.  This can invalidate a LOG_LINKS pointing
-	     to I3.  No other part of combine.c makes such a transformation.
-
-	     The new I3 will have a destination that was previously the
-	     destination of I1 or I2 and which was used in i2 or I3.  Call
-	     distribute_links to make a LOG_LINK from the next use of
-	     that destination.  */
-
+	     destination of I3.  This requires us to do a few adjustments.  */
 	  PATTERN (i3) = newpat;
-	  distribute_links (gen_rtx_INSN_LIST (VOIDmode, i3, NULL_RTX));
+	  adjust_for_new_dest (i3);
 
 	  /* I3 now uses what used to be its destination and which is
 	     now I2's destination.  That means we need a LOG_LINK from
@@ -5020,13 +5048,12 @@ simplify_set (rtx x)
       /* Simplify our comparison, if possible.  */
       new_code = simplify_comparison (old_code, &op0, &op1);
 
-#ifdef EXTRA_CC_MODES
+#ifdef SELECT_CC_MODE
       /* If this machine has CC modes other than CCmode, check to see if we
 	 need to use a different CC mode here.  */
       compare_mode = SELECT_CC_MODE (new_code, op0, op1);
-#endif /* EXTRA_CC_MODES */
 
-#if !defined (HAVE_cc0) && defined (EXTRA_CC_MODES)
+#ifndef HAVE_cc0
       /* If the mode changed, we have to change SET_DEST, the mode in the
 	 compare, and the mode in the place SET_DEST is used.  If SET_DEST is
 	 a hard register, just build new versions with the proper mode.  If it
@@ -5050,16 +5077,19 @@ simplify_set (rtx x)
 	      dest = new_dest;
 	    }
 	}
-#endif
+#endif  /* cc0 */
+#endif  /* SELECT_CC_MODE */
 
       /* If the code changed, we have to build a new comparison in
 	 undobuf.other_insn.  */
       if (new_code != old_code)
 	{
+	  int other_changed_previously = other_changed;
 	  unsigned HOST_WIDE_INT mask;
 
 	  SUBST (*cc_use, gen_rtx_fmt_ee (new_code, GET_MODE (*cc_use),
 					  dest, const0_rtx));
+	  other_changed = 1;
 
 	  /* If the only change we made was to change an EQ into an NE or
 	     vice versa, OP0 has only one bit that might be nonzero, and OP1
@@ -5069,7 +5099,7 @@ simplify_set (rtx x)
 
 	  if (((old_code == NE && new_code == EQ)
 	       || (old_code == EQ && new_code == NE))
-	      && ! other_changed && op1 == const0_rtx
+	      && ! other_changed_previously && op1 == const0_rtx
 	      && GET_MODE_BITSIZE (GET_MODE (op0)) <= HOST_BITS_PER_WIDE_INT
 	      && exact_log2 (mask = nonzero_bits (op0, GET_MODE (op0))) >= 0)
 	    {
@@ -5079,13 +5109,11 @@ simplify_set (rtx x)
 		   && ! check_asm_operands (pat)))
 		{
 		  PUT_CODE (*cc_use, old_code);
-		  other_insn = 0;
+		  other_changed = 0;
 
 		  op0 = gen_binary (XOR, GET_MODE (op0), op0, GEN_INT (mask));
 		}
 	    }
-
-	  other_changed = 1;
 	}
 
       if (other_changed)
@@ -7763,14 +7791,14 @@ static rtx
 apply_distributive_law (rtx x)
 {
   enum rtx_code code = GET_CODE (x);
+  enum rtx_code inner_code;
   rtx lhs, rhs, other;
   rtx tem;
-  enum rtx_code inner_code;
 
-  /* Distributivity is not true for floating point.
-     It can change the value.  So don't do it.
-     -- rms and moshier@world.std.com.  */
-  if (FLOAT_MODE_P (GET_MODE (x)))
+  /* Distributivity is not true for floating point as it can change the
+     value.  So we don't do it unless -funsafe-math-optimizations.  */
+  if (FLOAT_MODE_P (GET_MODE (x))
+      && ! flag_unsafe_math_optimizations)
     return x;
 
   /* The outer operation can only be one of the following:  */
@@ -7778,7 +7806,8 @@ apply_distributive_law (rtx x)
       && code != PLUS && code != MINUS)
     return x;
 
-  lhs = XEXP (x, 0), rhs = XEXP (x, 1);
+  lhs = XEXP (x, 0);
+  rhs = XEXP (x, 1);
 
   /* If either operand is a primitive we can't do anything, so get out
      fast.  */
@@ -12909,8 +12938,8 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 }
 
 /* Similarly to above, distribute the LOG_LINKS that used to be present on
-   I3, I2, and I1 to new locations.  This is also called in one case to
-   add a link pointing at I3 when I3's destination is changed.  */
+   I3, I2, and I1 to new locations.  This is also called to add a link
+   pointing at I3 when I3's destination is changed.  */
 
 static void
 distribute_links (rtx links)
@@ -12971,6 +13000,8 @@ distribute_links (rtx links)
 	    place = insn;
 	    break;
 	  }
+	else if (INSN_P (insn) && reg_set_p (reg, insn))
+	  break;
 
       /* If we found a place to put the link, place it there unless there
 	 is already a link to the same insn as LINK at that point.  */

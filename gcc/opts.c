@@ -570,6 +570,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
+      flag_web = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -1281,6 +1282,24 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fschedule_insns2:
       flag_schedule_insns_after_reload = value;
+      break;
+
+    case OPT_fsched_stalled_insns:
+      flag_sched_stalled_insns = value;
+      break;
+
+    case OPT_fsched_stalled_insns_:
+      flag_sched_stalled_insns = value;
+      if (flag_sched_stalled_insns == 0)
+	flag_sched_stalled_insns = -1;
+      break;
+
+    case OPT_fsched_stalled_insns_dep:
+      flag_sched_stalled_insns_dep = 1;
+      break;
+
+    case OPT_fsched_stalled_insns_dep_:
+      flag_sched_stalled_insns_dep = value;
       break;
 
     case OPT_fshared_data:

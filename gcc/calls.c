@@ -41,10 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "except.h"
 
-#ifndef STACK_POINTER_OFFSET
-#define STACK_POINTER_OFFSET    0
-#endif
-
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
 
@@ -2349,7 +2345,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Start updating where the next arg would go.
 
-     On some machines (such as the PA) indirect calls have a difuferent
+     On some machines (such as the PA) indirect calls have a different
      calling convention than normal calls.  The last argument in
      INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
      or not.  */

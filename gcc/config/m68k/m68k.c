@@ -41,9 +41,40 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "debug.h"
-
-/* Needed for use_return_insn.  */
 #include "flags.h"
+
+/* Structure describing stack frame layout. */
+struct m68k_frame
+{
+  /* Stack pointer to frame pointer offset.  */
+  HOST_WIDE_INT offset;
+
+  /* Offset of FPU registers.  */
+  HOST_WIDE_INT foffset;
+
+  /* Frame size in bytes (rounded up).  */
+  HOST_WIDE_INT size;
+
+  /* Data and address register.  */
+  int reg_no;
+  unsigned int reg_mask;
+  unsigned int reg_rev_mask;
+
+  /* FPU registers.  */
+  int fpu_no;
+  unsigned int fpu_mask;
+  unsigned int fpu_rev_mask;
+
+  /* Offsets relative to ARG_POINTER.  */
+  HOST_WIDE_INT frame_pointer_offset;
+  HOST_WIDE_INT stack_pointer_offset;
+
+  /* Function which the above information refers to.  */
+  int funcdef_no;
+};
+
+/* Current frame information calculated by m68k_compute_frame_layout().  */
+static struct m68k_frame current_frame;
 
 /* This flag is used to communicate between movhi and ASM_OUTPUT_CASE_END,
    if SGS_SWITCH_TABLE.  */
@@ -62,7 +93,12 @@ static void m68k_hp320_file_start (void);
 #endif
 static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree);
-static int m68k_save_reg (unsigned int);
+static bool m68k_interrupt_function_p (tree func);
+static tree m68k_handle_fndecl_attribute (tree *node, tree name,
+					  tree args, int flags,
+					  bool *no_add_attrs);
+static void m68k_compute_frame_layout (void);
+static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static int const_int_cost (rtx);
 static bool m68k_rtx_costs (rtx, int, int, int *);
 
@@ -74,6 +110,8 @@ const char *m68k_align_loops_string;
 const char *m68k_align_jumps_string;
 /* Specify power of two alignment used for functions.  */
 const char *m68k_align_funcs_string;
+/* Specify the identification number of the library being built */
+const char *m68k_library_id_string;
 
 /* Specify power of two alignment used for loops.  */
 int m68k_align_loops;
@@ -137,6 +175,16 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m68k_rtx_costs
 
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE m68k_attribute_table
+
+static const struct attribute_spec m68k_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt_handler", 0, 0, true,  false, false, m68k_handle_fndecl_attribute },
+  { NULL,                0, 0, false, false, false, NULL }
+};
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Sometimes certain combinations of command options do not make
@@ -167,6 +215,38 @@ override_options (void)
 	m68k_align_loops = i;
     }
 
+  /* Library identification */
+  if (m68k_library_id_string)
+    {
+      int id;
+
+      if (! TARGET_ID_SHARED_LIBRARY)
+	error ("-mshared-library-id= specified without -mid-shared-library");
+      id = atoi (m68k_library_id_string);
+      if (id < 0 || id > MAX_LIBRARY_ID)
+	error ("-mshared-library-id=%d is not between 0 and %d", id, MAX_LIBRARY_ID);
+
+      /* From now on, m68k_library_id_string will contain the library offset.  */
+      asprintf ((char **)&m68k_library_id_string, "%d", (id * -4) - 4);
+    }
+  else
+    /* If TARGET_ID_SHARED_LIBRARY is enabled, this will point to the
+       current library.  */
+    m68k_library_id_string = "_current_shared_library_a5_offset_";
+
+  /* Sanity check to ensure that msep-data and mid-sahred-library are not
+   * both specified together.  Doing so simply doesn't make sense.
+   */
+  if (TARGET_SEP_DATA && TARGET_ID_SHARED_LIBRARY)
+    error ("cannot specify both -msep-data and -mid-shared-library");
+
+  /* If we're generating code for a separate A5 relative data segment,
+   * we've got to enable -fPIC as well.  This might be relaxable to
+   * -fpic but it hasn't been tested properly.
+   */
+  if (TARGET_SEP_DATA || TARGET_ID_SHARED_LIBRARY)
+    flag_pic = 2;
+
   /* Validate -malign-jumps= value, or provide default */
   m68k_align_jumps = def_align;
   if (m68k_align_jumps_string)
@@ -192,7 +272,7 @@ override_options (void)
 
   /* -fPIC uses 32-bit pc-relative displacements, which don't exist
      until the 68020.  */
-  if (! TARGET_68020 && flag_pic == 2)
+  if (!TARGET_68020 && !TARGET_COLDFIRE && (flag_pic == 2))
     error("-fPIC is not currently supported on the 68000 or 68010\n");
 
   /* ??? A historic way of turning on pic, or is this intended to
@@ -210,96 +290,115 @@ override_options (void)
     flag_no_function_cse = 1;
 
   SUBTARGET_OVERRIDE_OPTIONS;
-
-  /* Tell the compiler which flavor of XFmode we're using.  */
-  real_format_for_mode[XFmode - QFmode] = &ieee_extended_motorola_format;
 }
 
-/* Structure describing stack frame layout. */
-struct m68k_frame {
-  HOST_WIDE_INT offset;
-  HOST_WIDE_INT size;
-  /* data and address register */
-  int reg_no;
-  unsigned int reg_mask;
-  unsigned int reg_rev_mask;
-  /* fpu registers */
-  int fpu_no;
-  unsigned int fpu_mask;
-  unsigned int fpu_rev_mask;
-  /* fpa registers */
-  int fpa_no;
-  /* offsets relative to ARG_POINTER.  */
-  HOST_WIDE_INT frame_pointer_offset;
-  HOST_WIDE_INT stack_pointer_offset;
-};
+/* Return nonzero if FUNC is an interrupt function as specified by the
+   "interrupt_handler" attribute.  */
+static bool
+m68k_interrupt_function_p(tree func)
+{
+  tree a;
+
+  if (TREE_CODE (func) != FUNCTION_DECL)
+    return false;
+
+  a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
+  return (a != NULL_TREE);
+}
+
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+m68k_handle_fndecl_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED,
+			      bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
 
 static void
-m68k_compute_frame_layout (struct m68k_frame *frame)
+m68k_compute_frame_layout (void)
 {
   int regno, saved;
   unsigned int mask, rmask;
+  bool interrupt_handler = m68k_interrupt_function_p (current_function_decl);
 
-  frame->size = (get_frame_size () + 3) & -4;
+  /* Only compute the frame once per function.
+     Don't cache information until reload has been completed.  */
+  if (current_frame.funcdef_no == current_function_funcdef_no
+      && reload_completed)
+    return;
+
+  current_frame.size = (get_frame_size () + 3) & -4;
 
   mask = rmask = saved = 0;
   for (regno = 0; regno < 16; regno++)
-    if (m68k_save_reg (regno))
+    if (m68k_save_reg (regno, interrupt_handler))
       {
 	mask |= 1 << regno;
 	rmask |= 1 << (15 - regno);
 	saved++;
       }
-  frame->offset = saved * 4;
-  frame->reg_no = saved;
-  frame->reg_mask = mask;
-  frame->reg_rev_mask = rmask;
+  current_frame.offset = saved * 4;
+  current_frame.reg_no = saved;
+  current_frame.reg_mask = mask;
+  current_frame.reg_rev_mask = rmask;
 
   if (TARGET_68881 /* || TARGET_CFV4E */)
     {
       mask = rmask = saved = 0;
       for (regno = 16; regno < 24; regno++)
-	if (regs_ever_live[regno] && ! call_used_regs[regno])
+	if (m68k_save_reg (regno, interrupt_handler))
 	  {
 	    mask |= 1 << (23 - regno);
 	    rmask |= 1 << (regno - 16);
 	    saved++;
 	  }
-      frame->offset += saved * 12 /* (TARGET_CFV4E ? 8 : 12) */;
-      frame->fpu_no = saved;
-      frame->fpu_mask = mask;
-      frame->fpu_rev_mask = rmask;
+      current_frame.foffset = saved * 12 /* (TARGET_CFV4E ? 8 : 12) */;
+      current_frame.offset += current_frame.foffset;
+      current_frame.fpu_no = saved;
+      current_frame.fpu_mask = mask;
+      current_frame.fpu_rev_mask = rmask;
     }
+
+  /* Remember what function this frame refers to.  */
+  current_frame.funcdef_no = current_function_funcdef_no;
 }
 
 HOST_WIDE_INT
 m68k_initial_elimination_offset (int from, int to)
 {
-  struct m68k_frame frame;
-
   /* FIXME: The correct offset to compute here would appear to be
        (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
      but for some obscure reason, this must be 0 to get correct code.  */
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     return 0;
 
-  m68k_compute_frame_layout (&frame);
+  m68k_compute_frame_layout ();
 
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-    return frame.offset + frame.size + (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
+    return current_frame.offset + current_frame.size + (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
   else if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-    return frame.offset + frame.size;
+    return current_frame.offset + current_frame.size;
 
   abort();
 }
 
-/* Return 1 if we need to save REGNO.  */
-static int
-m68k_save_reg (unsigned int regno)
+/* Return true if we need to save REGNO. */
+static bool
+m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
   if (flag_pic && current_function_uses_pic_offset_table
       && regno == PIC_OFFSET_TABLE_REGNUM)
-    return 1;
+    return true;
 
   if (current_function_calls_eh_return)
     {
@@ -310,14 +409,35 @@ m68k_save_reg (unsigned int regno)
 	  if (test == INVALID_REGNUM)
 	    break;
 	  if (test == regno)
-	    return 1;
+	    return true;
 	}
     }
 
-  return (regs_ever_live[regno]
-	  && !call_used_regs[regno]
-	  && !fixed_regs[regno]
-	  && !(regno == FRAME_POINTER_REGNUM && frame_pointer_needed));
+  /* Fixed regs we never touch.  */
+  if (fixed_regs[regno])
+    return false;
+
+  /* The frame pointer (if it is such) is handled specially.  */
+  if (regno == FRAME_POINTER_REGNUM && frame_pointer_needed)
+    return false;
+
+  /* Interrupt handlers must also save call_used_regs
+     if they are live or when calling nested functions.  */
+  if (interrupt_handler)
+  {
+     if (regs_ever_live[regno])
+       return true;
+
+     if (!current_function_is_leaf && call_used_regs[regno])
+       return true;
+  }
+
+  /* Never need to save registers that aren't touched.  */
+  if (!regs_ever_live[regno])
+    return false;
+
+  /* Otherwise save everything that isn't call-clobbered.  */
+  return !call_used_regs[regno];
 }
 
 /* This function generates the assembly code for function entry.
@@ -333,15 +453,14 @@ m68k_save_reg (unsigned int regno)
    of the order for movem!  */
 
 static void
-m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
+m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  register int regno;
-  register int mask = 0;
   int num_saved_regs = 0;
-  HOST_WIDE_INT fsize = (size + 3) & -4;
   HOST_WIDE_INT fsize_with_regs;
   HOST_WIDE_INT cfa_offset = INCOMING_FRAME_SP_OFFSET;
-  
+
+  m68k_compute_frame_layout();
+
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
   if (current_function_limit_stack
@@ -349,31 +468,23 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
     {
 #if defined (MOTOROLA)
       asm_fprintf (stream, "\tcmp.l %I%s+%wd,%Rsp\n\ttrapcs\n",
-		   XSTR (stack_limit_rtx, 0), fsize + 4);
+		   XSTR (stack_limit_rtx, 0), current_frame.size + 4);
 #else
       asm_fprintf (stream, "\tcmpl %I%s+%wd,%Rsp\n\ttrapcs\n",
-		   XSTR (stack_limit_rtx, 0), fsize + 4);
+		   XSTR (stack_limit_rtx, 0), current_frame.size + 4);
 #endif
     }
 
-  if (TARGET_COLDFIRE)
-    {
-      /* on Coldfire add register save into initial stack frame setup, if possible */
-      for (regno = 0; regno < 16; regno++)
-        if (m68k_save_reg (regno))
-          num_saved_regs++;
+  /* on ColdFire add register save into initial stack frame setup, if possible */
+  num_saved_regs = 0;
+  if (TARGET_COLDFIRE && current_frame.reg_no > 2)
+    num_saved_regs = current_frame.reg_no;
 
-      if (num_saved_regs <= 2)
-        num_saved_regs = 0;
-    }
-  else
-      num_saved_regs = 0;
-
-  fsize_with_regs = fsize + num_saved_regs * 4;
+  fsize_with_regs = current_frame.size + num_saved_regs * 4;
   
   if (frame_pointer_needed)
     {
-      if (fsize == 0 && TARGET_68040)
+      if (current_frame.size == 0 && TARGET_68040)
 	{
 	/* on the 68040, pea + move is faster than link.w 0 */
 #ifdef MOTOROLA
@@ -426,7 +537,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 	  cfa_offset += 4;
 	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_offset);
 	  dwarf2out_def_cfa (l, FRAME_POINTER_REGNUM, cfa_offset);
-	  cfa_offset += fsize;
+	  cfa_offset += current_frame.size;
 	}
     }
   else if (fsize_with_regs) /* !frame_pointer_needed */
@@ -497,51 +608,35 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 	}
       if (dwarf2out_do_frame ())
 	{
-	  cfa_offset += fsize + 4;
+	  cfa_offset += current_frame.size + 4;
 	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM, cfa_offset);
 	}
     } /* !frame_pointer_needed */
 
-  num_saved_regs = 0;
-
   if (TARGET_68881)
     {
-      for (regno = 16; regno < 24; regno++)
-	if (m68k_save_reg (regno))
-	  {
-	    mask |= 1 << (regno - 16);
-	    num_saved_regs++;
-	  }
-      if ((mask & 0xff) != 0)
+      if (current_frame.fpu_mask)
 	{
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tfmovm %I0x%x,-(%Rsp)\n", mask & 0xff);
+	  asm_fprintf (stream, "\tfmovm %I0x%x,-(%Rsp)\n", current_frame.fpu_mask);
 #else
-	  asm_fprintf (stream, "\tfmovem %I0x%x,%Rsp@-\n", mask & 0xff);
+	  asm_fprintf (stream, "\tfmovem %I0x%x,%Rsp@-\n", current_frmae.fpu_mask);
 #endif
 	  if (dwarf2out_do_frame ())
 	    {
 	      char *l = (char *) dwarf2out_cfi_label ();
-	      int n_regs;
+	      int n_regs, regno;
 
-	      cfa_offset += num_saved_regs * 12;
+	      cfa_offset += current_frame.fpu_no * 12;
 	      if (! frame_pointer_needed)
 		dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	      for (regno = 16, n_regs = 0; regno < 24; regno++)
-		if (mask & (1 << (regno - 16)))
+		if (current_frame.fpu_mask & (1 << (regno - 16)))
 		  dwarf2out_reg_save (l, regno,
 				      -cfa_offset + n_regs++ * 12);
 	    }
 	}
-      mask = 0;
-      num_saved_regs = 0;
     }
-  for (regno = 0; regno < 16; regno++)
-    if (m68k_save_reg (regno))
-      {
-        mask |= 1 << (15 - regno);
-        num_saved_regs++;
-      }
 
   /* If the stack limit is not a symbol, check it here.  
      This has the disadvantage that it may be too late...  */
@@ -570,9 +665,8 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 
       int i;
 
-      /* Undo the work from above.  */
-      for (i = 0; i< 16; i++)
-        if (mask & (1 << i))
+      for (i = 0; i < 16; i++)
+        if (current_frame.reg_rev_mask & (1 << i))
 	  {
 	    asm_fprintf (stream,
 #ifdef MOTOROLA
@@ -592,83 +686,83 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 	      }
 	  }
     }
-  else if (mask)
+  else if (current_frame.reg_rev_mask)
     {
       if (TARGET_COLDFIRE)
 	{
-	  /* The coldfire does not support the predecrement form of the 
-	     movml instruction, so we must adjust the stack pointer and
-	     then use the plain address register indirect mode.  We also
-	     have to invert the register save mask to use the new mode.
-
+	  /* The ColdFire does not support the predecrement form of the 
+	     MOVEM instruction, so we must adjust the stack pointer and
+	     then use the plain address register indirect mode.
 	     The required register save space was combined earlier with
-	     the fsize amount.  Don't add it again.  */
-	     
-	  int newmask = 0;
-	  int i;
-
-	  for (i = 0; i < 16; i++)
-	    if (mask & (1 << i))
-		newmask |= (1 << (15-i));
+	     the fsize_with_regs amount.  */
 
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tmovm.l %I0x%x,(%Rsp)\n", newmask);
+	  asm_fprintf (stream, "\tmovm.l %I0x%x,(%Rsp)\n", current_frame.reg_mask);
 #else
-	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@\n", newmask);
+	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@\n", current_frame.reg_mask);
 #endif
 	}
       else
 	{
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tmovm.l %I0x%x,-(%Rsp)\n", mask);
+	  asm_fprintf (stream, "\tmovm.l %I0x%x,-(%Rsp)\n", current_frame.reg_mask);
 #else
-	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@-\n", mask);
+	  asm_fprintf (stream, "\tmoveml %I0x%x,%Rsp@-\n", current_frame.reg_mask);
 #endif
 	}
       if (dwarf2out_do_frame ())
 	{
 	  char *l = (char *) dwarf2out_cfi_label ();
-	  int n_regs;
+	  int n_regs, regno;
 
-	  cfa_offset += num_saved_regs * 4;
+	  cfa_offset += current_frame.reg_no * 4;
 	  if (! frame_pointer_needed)
 	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 0, n_regs = 0; regno < 16; regno++)
-	    if (mask & (1 << (15 - regno)))
+	    if (current_frame.reg_mask & (1 << regno))
 	      dwarf2out_reg_save (l, regno,
 				  -cfa_offset + n_regs++ * 4);
 	}
     }
-  if (flag_pic && current_function_uses_pic_offset_table)
+  if (!TARGET_SEP_DATA && flag_pic &&
+      (current_function_uses_pic_offset_table ||
+        (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)))
     {
+      if (TARGET_ID_SHARED_LIBRARY)
+	{
+	  asm_fprintf (stream, "\tmovel %s@(%s), %s\n",
+		       reg_names[PIC_OFFSET_TABLE_REGNUM],
+		       m68k_library_id_string,
+		       reg_names[PIC_OFFSET_TABLE_REGNUM]);
+	}
+      else
+	{
 #ifdef MOTOROLA
-      asm_fprintf (stream, "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
-		   reg_names[PIC_OFFSET_TABLE_REGNUM]);
+	  asm_fprintf (stream, "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
+		       reg_names[PIC_OFFSET_TABLE_REGNUM]);
 #else
-      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
-		   reg_names[PIC_OFFSET_TABLE_REGNUM]);
-      asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
-		   reg_names[PIC_OFFSET_TABLE_REGNUM],
-		   reg_names[PIC_OFFSET_TABLE_REGNUM]);
+	  asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
+		       reg_names[PIC_OFFSET_TABLE_REGNUM]);
+	  asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
+		       reg_names[PIC_OFFSET_TABLE_REGNUM],
+		       reg_names[PIC_OFFSET_TABLE_REGNUM]);
 #endif
+	}
     }
 }
 
 /* Return true if this function's epilogue can be output as RTL.  */
 
-int
-use_return_insn ()
+bool
+use_return_insn (void)
 {
-  int regno;
-
   if (!reload_completed || frame_pointer_needed || get_frame_size () != 0)
-    return 0;
-  
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-    if (m68k_save_reg (regno))
-      return 0;
+    return false;
 
-  return 1;
+  /* We can output the epilogue as RTL only if no registers need to be
+     restored.  */
+  m68k_compute_frame_layout();
+  return current_frame.reg_no ? false : true;
 }
 
 /* This function generates the assembly code for function exit,
@@ -680,18 +774,15 @@ use_return_insn ()
    omit stack adjustments before returning.  */
 
 static void
-m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
+m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  register int regno;
-  register int mask, fmask;
-  register int nregs;
-  HOST_WIDE_INT offset, foffset;
-  HOST_WIDE_INT fsize = (size + 3) & -4;
-  HOST_WIDE_INT fsize_with_regs;
-  int big = 0;
+  HOST_WIDE_INT fsize, fsize_with_regs;
+  bool big = false;
+  bool restore_from_sp = false;
   rtx insn = get_last_insn ();
-  int restore_from_sp = 0;
-  
+
+  m68k_compute_frame_layout();
+
   /* If the last insn was a BARRIER, we don't have to write any code.  */
   if (GET_CODE (insn) == NOTE)
     insn = prev_nonnote_insn (insn);
@@ -706,25 +797,9 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 #ifdef FUNCTION_EXTRA_EPILOGUE
   FUNCTION_EXTRA_EPILOGUE (stream, size);
 #endif
-  nregs = 0;  fmask = 0;
-  if (TARGET_68881)
-    {
-      for (regno = 16; regno < 24; regno++)
-	if (m68k_save_reg (regno))
-	  {
-	    nregs++;
-	    fmask |= 1 << (23 - regno);
-	  }
-    }
-  foffset = nregs * 12;
-  nregs = 0;  mask = 0;
-  for (regno = 0; regno < 16; regno++)
-    if (m68k_save_reg (regno))
-      {
-        nregs++;
-	mask |= 1 << regno;
-      }
-  offset = foffset + nregs * 4;
+
+  fsize = current_frame.size;
+
   /* FIXME : leaf_function_p below is too strong.
      What we really need to know there is if there could be pending
      stack adjustment needed at that point.  */
@@ -740,21 +815,23 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
      after restoring registers. When the frame pointer isn't used,
      we can merge movem adjustment into frame unlinking
      made immediately after it. */
-  if (TARGET_COLDFIRE && restore_from_sp && (nregs > 2))
-    fsize_with_regs += nregs * 4;
+  if (TARGET_COLDFIRE && restore_from_sp && (current_frame.reg_no > 2))
+    fsize_with_regs += current_frame.reg_no * 4;
 
-  if (offset + fsize >= 0x8000
+  if (current_frame.offset + fsize >= 0x8000
       && ! restore_from_sp
-      && (mask || fmask))
+      && (current_frame.reg_mask || current_frame.fpu_mask))
     {
       /* Because the ColdFire doesn't support moveml with
          complex address modes we make an extra correction here */
       if (TARGET_COLDFIRE)
         {
 #ifdef MOTOROLA
-          asm_fprintf (stream, "\t%Omove.l %I%d,%Ra1\n", -fsize - offset);
+          asm_fprintf (stream, "\t%Omove.l %I%d,%Ra1\n",
+		       -fsize - current_frame.offset);
 #else
-          asm_fprintf (stream, "\tmovel %I%d,%Ra1\n", -fsize - offset);
+          asm_fprintf (stream, "\tmovel %I%d,%Ra1\n",
+		       -fsize - current_frame.offset);
 #endif
         }
       else
@@ -766,9 +843,9 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 #endif
         }
 
-      fsize = 0, big = 1;
+      fsize = 0, big = true;
     }
-  if (nregs <= 2)
+  if (current_frame.reg_no <= 2)
     {
       /* Restore each separately in the same order moveml does.
          Using two movel instructions instead of a single moveml
@@ -776,22 +853,22 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
          in code size.  */
 
       int i;
+      HOST_WIDE_INT offset = current_frame.offset + fsize;
 
-      /* Undo the work from above.  */
-      for (i = 0; i< 16; i++)
-        if (mask & (1 << i))
+      for (i = 0; i < 16; i++)
+        if (current_frame.reg_mask & (1 << i))
           {
             if (big)
 	      {
 #ifdef MOTOROLA
 		asm_fprintf (stream, "\t%Omove.l -%wd(%s,%Ra1.l),%s\n",
-			     offset + fsize,
+			     offset,
 			     reg_names[FRAME_POINTER_REGNUM],
 			     reg_names[i]);
 #else
 		asm_fprintf (stream, "\tmovel %s@(-%wd,%Ra1:l),%s\n",
 			     reg_names[FRAME_POINTER_REGNUM],
-			     offset + fsize, reg_names[i]);
+			     offset);
 #endif
 	      }
             else if (restore_from_sp)
@@ -808,19 +885,20 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	      {
 #ifdef MOTOROLA
 		asm_fprintf (stream, "\t%Omove.l -%wd(%s),%s\n",
-			     offset + fsize,
+			     offset,
 			     reg_names[FRAME_POINTER_REGNUM],
 			     reg_names[i]);
 #else
 		asm_fprintf (stream, "\tmovel %s@(-%wd),%s\n",
 			     reg_names[FRAME_POINTER_REGNUM],
-			     offset + fsize, reg_names[i]);
+			     offset,
+			     reg_names[i]);
 #endif
 	      }
-            offset = offset - 4;
+            offset -= 4;
           }
     }
-  else if (mask)
+  else if (current_frame.reg_mask)
     {
       /* The ColdFire requires special handling due to its limited moveml insn */
       if (TARGET_COLDFIRE)
@@ -829,31 +907,32 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
             {
 #ifdef MOTOROLA
               asm_fprintf (stream, "\tadd.l %s,%Ra1\n", reg_names[FRAME_POINTER_REGNUM]);
-              asm_fprintf (stream, "\tmovm.l (%Ra1),%I0x%x\n", mask);
+              asm_fprintf (stream, "\tmovm.l (%Ra1),%I0x%x\n", current_frame.reg_mask);
 #else
               asm_fprintf (stream, "\taddl %s,%Ra1\n", reg_names[FRAME_POINTER_REGNUM]);
-              asm_fprintf (stream, "\tmoveml %Ra1@,%I0x%x\n", mask);
+              asm_fprintf (stream, "\tmoveml %Ra1@,%I0x%x\n", current_frame.reg_mask);
 #endif
 	     }
 	   else if (restore_from_sp)
 	     {
 #ifdef MOTOROLA
-	       asm_fprintf (stream, "\tmovm.l (%Rsp),%I0x%x\n", mask);
+	       asm_fprintf (stream, "\tmovm.l (%Rsp),%I0x%x\n", current_frame.reg_mask);
 #else
-	       asm_fprintf (stream, "\tmoveml %Rsp@,%I0x%x\n", mask);
+	       asm_fprintf (stream, "\tmoveml %Rsp@,%I0x%x\n", current_frame.reg_mask);
 #endif
             }
           else
             {
 #ifdef MOTOROLA
               asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
-                           offset + fsize,
+                           current_frame.offset + fsize,
                            reg_names[FRAME_POINTER_REGNUM],
-                           mask);
+                           current_frame.reg_mask);
 #else
               asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
                            reg_names[FRAME_POINTER_REGNUM],
-                           offset + fsize, mask);
+                           offset + fsize,
+			   current_frame.reg_mask);
 #endif
 	    }
         }
@@ -863,72 +942,80 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	    {
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tmovm.l -%wd(%s,%Ra1.l),%I0x%x\n",
-			   offset + fsize,
+			   current_frame.offset + fsize,
 			   reg_names[FRAME_POINTER_REGNUM],
-			   mask);
+			   current_frame.reg_mask);
 #else
 	      asm_fprintf (stream, "\tmoveml %s@(-%wd,%Ra1:l),%I0x%x\n",
 			   reg_names[FRAME_POINTER_REGNUM],
-			   offset + fsize, mask);
+			   current_frame.offset + fsize,
+			   current_frame.reg_mask);
 #endif
 	    }
 	  else if (restore_from_sp)
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tmovm.l (%Rsp)+,%I0x%x\n", mask);
+	      asm_fprintf (stream, "\tmovm.l (%Rsp)+,%I0x%x\n",
+			   current_frame.reg_mask);
 #else
-	      asm_fprintf (stream, "\tmoveml %Rsp@+,%I0x%x\n", mask);
+	      asm_fprintf (stream, "\tmoveml %Rsp@+,%I0x%x\n",
+			   current_frame.reg_mask);
 #endif
 	    }
 	  else
 	    {
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
-			   offset + fsize,
+			   current_frame.offset + fsize,
 			   reg_names[FRAME_POINTER_REGNUM],
-			   mask);
+			   current_frame.reg_mask);
 #else
 	      asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
 			   reg_names[FRAME_POINTER_REGNUM],
-			   offset + fsize, mask);
+			   current_frame.offset + fsize,
+			   current_frame.reg_mask);
 #endif
 	    }
 	}
     }
-  if (fmask)
+  if (current_frame.fpu_rev_mask)
     {
       if (big)
 	{
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tfmovm -%wd(%s,%Ra1.l),%I0x%x\n",
-		       foffset + fsize,
+		       current_frame.foffset + fsize,
 		       reg_names[FRAME_POINTER_REGNUM],
-		       fmask);
+		       current_frame.fpu_rev_mask);
 #else
 	  asm_fprintf (stream, "\tfmovem %s@(-%wd,%Ra1:l),%I0x%x\n",
 		       reg_names[FRAME_POINTER_REGNUM],
-		       foffset + fsize, fmask);
+		       current_frame.foffset + fsize,
+		       current_frame.fpu_rev_mask);
 #endif
 	}
       else if (restore_from_sp)
 	{
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tfmovm (%Rsp)+,%I0x%x\n", fmask);
+	  asm_fprintf (stream, "\tfmovm (%Rsp)+,%I0x%x\n",
+		       current_frame.fpu_rev_mask);
 #else
-	  asm_fprintf (stream, "\tfmovem %Rsp@+,%I0x%x\n", fmask);
+	  asm_fprintf (stream, "\tfmovem %Rsp@+,%I0x%x\n",
+		       current_frame.fpu_rev_mask);
 #endif
 	}
       else
 	{
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
-		       foffset + fsize,
+		       current_frame.foffset + fsize,
 		       reg_names[FRAME_POINTER_REGNUM],
-		       fmask);
+		       current_frame.fpu_mask);
 #else
 	  asm_fprintf (stream, "\tfmovem %s@(-%wd),%I0x%x\n",
 		       reg_names[FRAME_POINTER_REGNUM],
-		       foffset + fsize, fmask);
+		       current_frame.foffset + fsize,
+		       current_frame.fpu_rev_mask);
 #endif
 	}
     }
@@ -960,7 +1047,6 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	{
 	  /* On the CPU32 it is faster to use two addqw instructions to
 	     add a small integer (8 < N <= 16) to a register.  */
-	  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\taddq.w %I8,%Rsp\n\taddq.w %I%wd,%Rsp\n",
 		       fsize_with_regs - 8);
@@ -973,7 +1059,6 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	{
 	  if (TARGET_68040)
 	    { 
-	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tadd.w %I%wd,%Rsp\n", fsize_with_regs);
 #else
@@ -991,7 +1076,6 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	}
       else
 	{
-	/* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tadd.l %I%wd,%Rsp\n", fsize_with_regs);
 #else
@@ -1007,7 +1091,9 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
       asm_fprintf (stream, "\taddl %Ra0,%Rsp\n");
 #endif
     }
-  if (current_function_pops_args)
+  if (m68k_interrupt_function_p (current_function_decl))
+    fprintf (stream, "\trte\n");
+  else if (current_function_pops_args)
     asm_fprintf (stream, "\trtd %I%d\n", current_function_pops_args);
   else
     fprintf (stream, "\trts\n");
@@ -1053,6 +1139,39 @@ flags_in_68881 (void)
 {
   /* We could add support for these in the future */
   return cc_status.flags & CC_IN_68881;
+}
+
+/* Output a BSR instruction suitable for PIC code.  */
+void
+m68k_output_pic_call(rtx dest)
+{
+  const char *out;
+
+  if (!(GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == SYMBOL_REF))
+    out = "jsr %0";
+      /* We output a BSR instruction if we're using -fpic or we're building for
+       * a target that supports long branches.  If we're building -fPIC on the
+       * 68000, 68010 or ColdFire we generate one of two sequences:
+       * a shorter one that uses a GOT entry or a longer one that doesn't.
+       * We'll use the -Os command-line flag to decide which to generate.
+       * Both sequences take the same time to execute on the ColdFire.
+       */
+  else if (TARGET_PCREL)
+    out = "bsr.l %o0";
+  else if ((flag_pic == 1) || TARGET_68020)
+#ifdef HPUX_ASM
+    out = "bsr.l %0";
+#elif defined(USE_GAS)
+    out = "bsr.l %0@PLTPC";
+#else
+    out = "bsr %0@PLTPC";
+#endif
+  else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
+    out = "move.l %0@GOT(%%a5), %%a1\n\tjsr (%%a1)";
+  else
+    out = "lea %0-.-8,%%a1\n\tjsr 0(%%pc,%%a1)";
+
+  output_asm_insn(out, &dest);
 }
 
 /* Output a dbCC; jCC sequence.  Note we do not handle the 
@@ -1503,7 +1622,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
     {
       rtx base;
 
-      /* Make sure this is CONST has not already been legitimized */
+      /* Make sure this has not already been legitimized.  */
       if (GET_CODE (XEXP (orig, 0)) == PLUS
 	  && XEXP (XEXP (orig, 0), 0) == pic_offset_table_rtx)
 	return orig;
@@ -1545,7 +1664,7 @@ const_method (rtx constant)
   if (USE_MOVQ (i))
     return MOVQ;
 
-  /* The Coldfire doesn't have byte or word operations.  */
+  /* The ColdFire doesn't have byte or word operations.  */
   /* FIXME: This may not be useful for the m68060 either */
   if (!TARGET_COLDFIRE) 
     {
@@ -1860,7 +1979,7 @@ output_move_qimode (rtx *operands)
   /* This is probably useless, since it loses for pushing a struct
      of several bytes a byte at a time.	 */
   /* 68k family always modifies the stack pointer by at least 2, even for
-     byte pushes.  The 5200 (coldfire) does not do this.  */
+     byte pushes.  The 5200 (ColdFire) does not do this.  */
   if (GET_CODE (operands[0]) == MEM
       && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
       && XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
@@ -1910,7 +2029,7 @@ output_move_qimode (rtx *operands)
     return "sub%.l %0,%0";
   if (GET_CODE (operands[1]) != CONST_INT && CONSTANT_P (operands[1]))
     return "move%.l %1,%0";
-  /* 68k family (including the 5200 coldfire) does not support byte moves to
+  /* 68k family (including the 5200 ColdFire) does not support byte moves to
      from address registers.  */
   if (ADDRESS_REG_P (operands[0]) || ADDRESS_REG_P (operands[1]))
     return "move%.w %1,%0";
@@ -2330,7 +2449,7 @@ find_addr_reg (rtx addr)
   abort ();
 }
 
-/* Output assembler code to perform a 32 bit 3 operand add.  */
+/* Output assembler code to perform a 32-bit 3-operand add.  */
 
 const char *
 output_addsi3 (rtx *operands)
@@ -3567,7 +3686,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     {
       if (TARGET_PCREL)
 	fmt = "bra.l %o0";
-      else
+      else if ((flag_pic == 1) || TARGET_68020)
 	{
 #ifdef MOTOROLA
 #ifdef HPUX_ASM
@@ -3587,6 +3706,10 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 #endif
 #endif
 	}
+      else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
+        fmt = "move.l %0@GOT(%%a5), %%a1\n\tjmp (%%a1)";
+      else
+        fmt = "lea %0-.-8,%%a1\n\tjsr 0(%%pc,%%a1)";
     }
   else
     {

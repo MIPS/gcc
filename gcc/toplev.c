@@ -267,6 +267,7 @@ enum dump_file_index
   DFI_bp,
   DFI_ce1,
   DFI_tracer,
+  DFI_web,
   DFI_loop2,
   DFI_cse2,
   DFI_life,
@@ -296,7 +297,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"            m   q         "
-	"         JK   O Q    V  YZ"
+	"         JK   O Q    V  Y "
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -320,6 +321,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "bp",	'b', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
+  { "web",      'Z', 0, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
@@ -655,6 +657,10 @@ int flag_complex_divide_method = 0;
 
 int flag_syntax_only = 0;
 
+/* Nonzero means performs web construction pass.  */
+
+int flag_web;
+
 /* Nonzero means perform loop optimizer.  */
 
 int flag_loop_optimize;
@@ -826,6 +832,20 @@ int flag_schedule_interblock = 1;
 int flag_schedule_speculative = 1;
 int flag_schedule_speculative_load = 0;
 int flag_schedule_speculative_load_dangerous = 0;
+
+/* The following flags have an effect during scheduling after register
+   allocation:
+
+   flag_sched_stalled_insns means that insns can be moved prematurely from the queue
+   of stalled insns into the ready list.
+  
+   flag_sched_stalled_insns_dep controls how many insn groups will be examined
+   for a dependency on a stalled insn that is candidate for premature removal
+   from the queue of stalled insns into the ready list (has an effect only if
+   the flag 'sched_stalled_insns' is set).  */ 
+
+int flag_sched_stalled_insns = 0;
+int flag_sched_stalled_insns_dep = 1;
 
 int flag_single_precision_constant;
 
@@ -1081,6 +1101,7 @@ static const lang_independent_options f_options[] =
   {"pcc-struct-return", &flag_pcc_struct_return, 1 },
   {"reg-struct-return", &flag_pcc_struct_return, 0 },
   {"delayed-branch", &flag_delayed_branch, 1 },
+  {"web", &flag_web, 1},
   {"gcse", &flag_gcse, 1 },
   {"gcse-lm", &flag_gcse_lm, 1 },
   {"gcse-sm", &flag_gcse_sm, 1 },
@@ -1099,6 +1120,8 @@ static const lang_independent_options f_options[] =
   {"sched-spec",&flag_schedule_speculative, 1 },
   {"sched-spec-load",&flag_schedule_speculative_load, 1 },
   {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1 },
+  {"sched-stalled-insns", &flag_sched_stalled_insns, 0 },
+  {"sched-stalled-insns-dep", &flag_sched_stalled_insns_dep, 1 },
   {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1 },
   {"sched2-use-traces", &flag_sched2_use_traces, 1 },
   {"branch-count-reg",&flag_branch_on_count_reg, 1 },
@@ -2458,6 +2481,20 @@ rest_of_handle_if_after_combine (tree decl, rtx insns)
   timevar_pop (TV_IFCVT);
 }
 
+static void
+rest_of_handle_web (tree decl, rtx insns)
+{
+  open_dump_file (DFI_web, decl);
+  timevar_push (TV_WEB);
+  web_main ();
+  delete_trivially_dead_insns (insns, max_reg_num ());
+  cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  timevar_pop (TV_WEB);
+  close_dump_file (DFI_web, print_rtl_with_bb, insns);
+  reg_scan (get_insns (), max_reg_num (), 0);
+}
+
 /* Do branch profiling and static profile estimation passes.  */
 static void
 rest_of_handle_branch_prob (tree decl, rtx insns)
@@ -3346,6 +3383,9 @@ rest_of_compilation (tree decl)
   timevar_push (TV_FLOW);
 
   rest_of_handle_cfg (decl, insns);
+
+  if (flag_web)
+    rest_of_handle_web (decl, insns);
 
   if (optimize > 0
       || profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
@@ -4375,6 +4415,8 @@ process_options (void)
 static void
 backend_init (void)
 {
+  init_adjust_machine_modes ();
+
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO

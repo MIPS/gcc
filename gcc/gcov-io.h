@@ -148,7 +148,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    program.  The checksum is used for whole program summaries, and
    disambiguates different programs which include the same
    instrumented object file.  There may be several program summaries,
-   each with a unique checksum.  The object summary's checkum is zero.
+   each with a unique checksum.  The object summary's checksum is zero.
    Note that the data file might contain information from several runs
    concatenated, or the data might be merged.
 
@@ -167,6 +167,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #if IN_LIBGCOV
 /* About the target */
 
+#if BITS_PER_UNIT == 8
 typedef unsigned gcov_unsigned_t __attribute__ ((mode (SI)));
 typedef unsigned gcov_position_t __attribute__ ((mode (SI)));
 #if LONG_LONG_TYPE_SIZE > 32
@@ -174,6 +175,26 @@ typedef signed gcov_type __attribute__ ((mode (DI)));
 #else
 typedef signed gcov_type __attribute__ ((mode (SI)));
 #endif
+#else
+#if BITS_PER_UNIT == 16
+typedef unsigned gcov_unsigned_t __attribute__ ((mode (HI)));
+typedef unsigned gcov_position_t __attribute__ ((mode (HI)));
+#if LONG_LONG_TYPE_SIZE > 32
+typedef signed gcov_type __attribute__ ((mode (SI)));
+#else
+typedef signed gcov_type __attribute__ ((mode (HI)));
+#endif
+#else
+typedef unsigned gcov_unsigned_t __attribute__ ((mode (QI)));
+typedef unsigned gcov_position_t __attribute__ ((mode (QI)));
+#if LONG_LONG_TYPE_SIZE > 32
+typedef signed gcov_type __attribute__ ((mode (HI)));
+#else
+typedef signed gcov_type __attribute__ ((mode (QI)));
+#endif
+#endif
+#endif
+
 
 #if defined (TARGET_HAS_F_SETLKW)
 #define GCOV_LOCKED 1

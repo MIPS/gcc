@@ -370,18 +370,25 @@ case ${target} in
   gnu_ld=yes
   extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
   case ${target} in
-    *-*-freebsd3 | *-*-freebsd[3].*) fbsd_tm_file="freebsd3.h";;
-    *-*-freebsd4 | *-*-freebsd[4].*) fbsd_tm_file="freebsd4.h";;
-    *-*-freebsd5 | *-*-freebsd[5].*) fbsd_tm_file="freebsd5.h";;
-    *-*-freebsd6 | *-*-freebsd[6].*) fbsd_tm_file="freebsd6.h";;
-    *) echo 'Please update *-*-freebsd* in gcc/config.gcc'; exit 1;;
+    *-*-freebsd3 | *-*-freebsd[3].*)
+      tm_defines="${tm_defines} FBSD_MAJOR=3" ;;
+    *-*-freebsd4 | *-*-freebsd[4].*)
+      tm_defines="${tm_defines} FBSD_MAJOR=4" ;;
+    *-*-freebsd5 | *-*-freebsd[5].*)
+      tm_defines="${tm_defines} FBSD_MAJOR=5" ;;
+    *-*-freebsd6 | *-*-freebsd[6].*)
+      tm_defines="${tm_defines} FBSD_MAJOR=6" ;;
+    *)
+      echo 'Please update *-*-freebsd* in gcc/config.gcc'
+      exit 1
+      ;;
   esac
   tmake_file="t-slibgcc-elf-ver t-freebsd"
   case ${enable_threads} in
     no)
       fbsd_tm_file="${fbsd_tm_file} freebsd-nthr.h"
       ;;
-    "" | yes | pthreads | posix)
+    "" | yes | posix)
       thread_file='posix'
       tmake_file="${tmake_file} t-freebsd-thread"
       # Before 5.0, FreeBSD can't bind shared libraries to -lc
@@ -567,8 +574,8 @@ alpha*-dec-osf[45]*)
 	    target_cpu_default=MASK_SUPPORT_ARCH
 	    ;;
 	esac
-	case x${enable_threads} in
-	x | xyes | xpthreads | xposix)
+	case ${enable_threads} in
+	  "" | yes | posix)
 	    thread_file='posix'
 	    tmake_file="${tmake_file} alpha/t-osf-pthread"
 	    ;;
@@ -620,11 +627,6 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	tmake_file="t-slibgcc-elf-ver t-linux arm/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
-	case x${enable_threads} in
-	x | xyes | xpthreads | xposix)
-		thread_file='posix'
-		;;
-	esac
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h arm/uclinux-elf.h"
@@ -1328,6 +1330,12 @@ m68k-*-sysv4*)			# Motorola m68k's running system V.4
 	extra_parts="crtbegin.o crtend.o"
 	use_fixproto=yes
 	;;
+m68k-*-uclinux*)		# Motorola m68k/ColdFire running uClinux with uClibc
+	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/uclinux.h"
+ 	tm_defines="MOTOROLA USE_GAS"
+	tmake_file=m68k/t-uclinux
+	use_fixproto=no
+	;;
 m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 				# with ELF format using glibc 2
 				# aka the GNU/Linux C library 6.
@@ -1369,7 +1377,10 @@ mips-sgi-irix6*o32)		# SGI System V.4., IRIX 6, O32 ABI
 	target_cpu_default="MASK_ABICALLS"
 	# mips-tfile doesn't work yet
 	# See comment in mips/iris5.h file.
-	use_collect2=yes
+	if test x$gas = xno
+	then
+		use_collect2=yes
+	fi
 #	if test x$enable_threads = xyes; then
 #		thread_file='irix'
 #	fi
@@ -1377,6 +1388,10 @@ mips-sgi-irix6*o32)		# SGI System V.4., IRIX 6, O32 ABI
 	;;
 mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	tm_file="${tm_file} mips/iris5.h mips/iris6.h"
+	if test x$gas = xyes
+	then
+		tm_file="${tm_file} mips/iris6gas.h"
+	fi
 	if test "x$gnu_ld" = xyes
 	then
 		tm_file="${tm_file} mips/iris6gld.h"
@@ -1384,6 +1399,12 @@ mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
 	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
+	# See comment in mips/iris5.h file.  Only enabled for O32 ABI
+	# without GNU as.
+	if test x$gas = xno
+	then
+		use_collect2=yes
+	fi
 #	if test x$enable_threads = xyes; then
 #		thread_file='irix'
 #	fi
@@ -1427,7 +1448,6 @@ mips-sgi-irix5*)		# SGI System V.4., IRIX 5
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	target_cpu_default="MASK_GAS|MASK_ABICALLS"
 	tm_file="elfos.h ${tm_file} mips/elf.h netbsd.h netbsd-elf.h mips/netbsd.h"
-	tmake_file="${tmake_file}"
 	;;
 mips64*-*-linux*)
 	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h mips/linux64.h"
@@ -1443,9 +1463,6 @@ mips64*-*-linux*)
 	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	gnu_ld=yes
 	gas=yes
-	if test x$enable_threads = xyes; then
-		thread_file='posix'
-	fi
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h"
@@ -1610,10 +1627,10 @@ powerpc-*-netbsd*)
 powerpc-*-chorusos*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h chorus.h"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos rs6000/t-ppccomm"
-	case x${enable_threads} in
-	  xyes | xpthreads | xposix)
-		thread_file='posix'
-		;;
+	case ${enable_threads} in
+	  yes | posix)
+	    thread_file='posix'
+	    ;;
 	esac
 	use_fixproto=yes
 	;;
@@ -1757,6 +1774,14 @@ s390x-*-linux*)
 	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
 	tmake_file="t-slibgcc-elf-ver t-linux s390/t-crtstuff s390/t-linux64"
+	;;
+s390x-ibm-tpf*)
+	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h s390/tpf.h"
+	tm_p_file=s390/s390-protos.h
+	md_file=s390/s390.md
+	extra_modes=s390/s390-modes.def
+	out_file=s390/s390.c
+	tmake_file="t-slibgcc-elf-ver s390/t-crtstuff s390/t-tpf"
 	;;
 sh-*-elf* | sh[2346l]*-*-elf* | sh*-*-kaos*)
 	tmake_file="sh/t-sh sh/t-elf"
@@ -2157,11 +2182,8 @@ xtensa-*-linux*)
 	;;
 am33_2.0-*-linux*)
 	tm_file="mn10300/mn10300.h dbxelf.h elfos.h linux.h mn10300/linux.h"
-	tmake_file="t-linux mn10300/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux mn10300/t-linux"
 	gas=yes gnu_ld=yes
-	if test x$enable_threads = xyes; then
-		thread_file='posix'
-	fi
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	use_collect2=no
 	;;
@@ -2192,7 +2214,7 @@ if test x$with_cpu = x ; then
       with_cpu=i486
       ;;
     i586-*-*)
-      case $target_alias in
+      case ${target_noncanonical} in
         k6_2-*)
           with_cpu=k6-2
           ;;
@@ -2211,7 +2233,7 @@ if test x$with_cpu = x ; then
       esac
       ;;
     i686-*-* | i786-*-*)
-      case $target_alias in
+      case ${target_noncanonical} in
         k8-*)
           with_cpu=k8
           ;;

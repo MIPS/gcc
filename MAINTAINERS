@@ -162,6 +162,7 @@ gcov			Jan Hubicka		jh@suse.cz
 gcov			Nathan Sidwell		nathan@codesourcery.com
 option handling		Neil Booth		neil@daikokuya.co.uk
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
+middle-end		Roger Sayle		roger@eyesopen.com
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -180,12 +181,14 @@ Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Eric Botcazou					ebotcazou@libertysurf.fr
+Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Kevin Buettner					kevinb@redhat.com
 Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Christian Cornelssen				ccorn@cs.tu-berlin.de
+David Daney					ddaney@avtrex.com
 Chris Demetriou					cgd@broadcom.com
 Zdenek Dvorak					dvorakz@suse.cz
 Steve Ellcey					sje@cup.hp.com
@@ -202,6 +205,7 @@ Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mh@suse.com
+Falk Hueffner					falk@debian.org
 Bernardo Innocenti				bernie@develer.com
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
@@ -217,6 +221,7 @@ Alan Lehotsky					apl@alum.mit.edu
 Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
+Ralph Loader					rcl@ihug.co.nz
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org
@@ -249,7 +254,6 @@ Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
 Alex Samuel					samuel@codesourcery.com
 Richard Sandiford				rsandifo@redhat.com
-Roger Sayle					roger@eyesopen.com
 Andreas Schwab					schwab@suse.de
 Svein Seldal                                    svein.seldal@solidas.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -276,7 +280,6 @@ Giovanni Bajo					giovannibajo@libero.it
 James Dennett					jdennett@acm.org
 Christian Ehrhardt				ehrhardt@mathematik.uni-ulm.de
 Dara Hazeghi					dhazeghi@yahoo.com
-Falk Hueffner					falk.hueffner@student.uni-tuebingen.de
 
 Peter Bienstman(?)
 Benjamin Chelf(?)

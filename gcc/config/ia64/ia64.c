@@ -37,7 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "expr.h"
 #include "optabs.h"
-#include "libfuncs.h"
 #include "except.h"
 #include "function.h"
 #include "ggc.h"
@@ -255,6 +254,8 @@ static void ia64_hpux_add_extern_decl (const char *name)
 static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_init_libfuncs (void)
+     ATTRIBUTE_UNUSED;
+static void ia64_vms_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
@@ -1499,6 +1500,7 @@ ia64_expand_call (rtx retval, rtx addr, rtx nextarg ATTRIBUTE_UNUSED,
   rtx insn, b0;
 
   addr = XEXP (addr, 0);
+  addr = convert_memory_address (DImode, addr);
   b0 = gen_rtx_REG (DImode, R_BR (0));
 
   /* ??? Should do this for functions known to bind local too.  */
@@ -3133,7 +3135,7 @@ ia64_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	grsave = current_frame_info.reg_save_pr;
     }
 
-  if (mask)
+  if (mask && TARGET_GNU_AS)
     fprintf (file, "\t.prologue %d, %d\n", mask,
 	     ia64_dbx_register_number (grsave));
   else
@@ -3215,6 +3217,19 @@ void
 ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 {
   rtx addr_reg, eight = GEN_INT (8);
+
+  /* The Intel assembler requires that the global __ia64_trampoline symbol
+     be declared explicitly */
+  if (!TARGET_GNU_AS)
+    {
+      static bool declared_ia64_trampoline = false;
+
+      if (!declared_ia64_trampoline)
+	{
+	  declared_ia64_trampoline = true;
+	  fputs ("\t.global\t__ia64_trampoline\n", asm_out_file);
+	}
+    }
 
   /* Load up our iterator.  */
   addr_reg = gen_reg_rtx (Pmode);
@@ -4508,8 +4523,8 @@ ia64_override_options (void)
   init_machine_status = ia64_init_machine_status;
 
   /* Tell the compiler which flavor of TFmode we're using.  */
-  if (INTEL_EXTENDED_IEEE_FORMAT)
-    real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
+  if (!INTEL_EXTENDED_IEEE_FORMAT)
+    REAL_MODE_FORMAT (TFmode) = &ieee_quad_format;
 }
 
 static enum attr_itanium_class ia64_safe_itanium_class (rtx);
@@ -8308,6 +8323,7 @@ ia64_hpux_file_end (void)
 }
 
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */
+
 static void
 ia64_hpux_init_libfuncs (void)
 {
@@ -8327,16 +8343,33 @@ ia64_hpux_init_libfuncs (void)
   set_optab_libfunc (lt_optab, TFmode, "_U_Qflt");
   set_optab_libfunc (le_optab, TFmode, "_U_Qfle");
 
-  extendsftf2_libfunc = init_one_libfunc ("_U_Qfcnvff_sgl_to_quad");
-  extenddftf2_libfunc = init_one_libfunc ("_U_Qfcnvff_dbl_to_quad");
-  trunctfsf2_libfunc = init_one_libfunc ("_U_Qfcnvff_quad_to_sgl");
-  trunctfdf2_libfunc = init_one_libfunc ("_U_Qfcnvff_quad_to_dbl");
-  floatsitf_libfunc = init_one_libfunc ("_U_Qfcnvxf_sgl_to_quad");
-  floatditf_libfunc = init_one_libfunc ("_U_Qfcnvxf_dbl_to_quad");
-  fixtfsi_libfunc = init_one_libfunc ("_U_Qfcnvfxt_quad_to_sgl");
-  fixtfdi_libfunc = init_one_libfunc ("_U_Qfcnvfxt_quad_to_dbl");
-  fixunstfsi_libfunc = init_one_libfunc ("_U_Qfcnvfxut_quad_to_sgl");
-  fixunstfdi_libfunc = init_one_libfunc ("_U_Qfcnvfxut_quad_to_dbl");
+  set_conv_libfunc (sext_optab,   TFmode, SFmode, "_U_Qfcnvff_sgl_to_quad");
+  set_conv_libfunc (sext_optab,   TFmode, DFmode, "_U_Qfcnvff_dbl_to_quad");
+  set_conv_libfunc (trunc_optab,  SFmode, TFmode, "_U_Qfcnvff_quad_to_sgl");
+  set_conv_libfunc (trunc_optab,  DFmode, TFmode, "_U_Qfcnvff_quad_to_dbl");
+
+  set_conv_libfunc (sfix_optab,   SImode, TFmode, "_U_Qfcnvfxt_quad_to_sgl");
+  set_conv_libfunc (sfix_optab,   DImode, TFmode, "_U_Qfcnvfxt_quad_to_dbl");
+  set_conv_libfunc (ufix_optab,   SImode, TFmode, "_U_Qfcnvfxut_quad_to_sgl");
+  set_conv_libfunc (ufix_optab,   DImode, TFmode, "_U_Qfcnvfxut_quad_to_dbl");
+
+  set_conv_libfunc (sfloat_optab, TFmode, SImode, "_U_Qfcnvxf_sgl_to_quad");
+  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_U_Qfcnvxf_dbl_to_quad");
+}
+
+/* Rename the division and modulus functions in VMS.  */
+
+static void
+ia64_vms_init_libfuncs (void)
+{
+  set_optab_libfunc (sdiv_optab, SImode, "OTS$DIV_I");
+  set_optab_libfunc (sdiv_optab, DImode, "OTS$DIV_L");
+  set_optab_libfunc (udiv_optab, SImode, "OTS$DIV_UI");
+  set_optab_libfunc (udiv_optab, DImode, "OTS$DIV_UL");
+  set_optab_libfunc (smod_optab, SImode, "OTS$REM_I");
+  set_optab_libfunc (smod_optab, DImode, "OTS$REM_L");
+  set_optab_libfunc (umod_optab, SImode, "OTS$REM_UI");
+  set_optab_libfunc (umod_optab, DImode, "OTS$REM_UL");
 }
 
 /* Switch to the section to which we should output X.  The only thing

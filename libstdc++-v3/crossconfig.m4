@@ -125,7 +125,7 @@ case "${host}" in
 	;;
     esac
     ;;
-  *-linux*)
+  *-linux* | *-uclinux* | *-gnu*)
     #os_include_dir="os/gnu-linux"
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
       machine/endian.h machine/param.h sys/machine.h sys/types.h \
@@ -236,7 +236,6 @@ case "${host}" in
          AC_DEFINE(HAVE_GETPAGESIZE)
          AC_DEFINE(HAVE_GETWC)
          AC_DEFINE(HAVE_GETWCHAR)
-         AC_DEFINE(HAVE_ISATTY)
          AC_DEFINE(HAVE_MBRLEN)
          AC_DEFINE(HAVE_MBRTOWC)
          AC_DEFINE(HAVE_MBSINIT)

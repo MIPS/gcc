@@ -2508,7 +2508,7 @@ cleanup_subreg_operands (rtx insn)
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
     {
-      /* The following test cannot use recog_data.operand when tesing
+      /* The following test cannot use recog_data.operand when testing
 	 for a SUBREG: the underlying object might have been changed
 	 already if we are inside a match_operator expression that
 	 matches the else clause.  Instead we test the underlying
@@ -3422,7 +3422,7 @@ asm_fprintf (FILE *file, const char *p, ...)
 	    break;
 
 #ifdef ASM_FPRINTF_EXTENSIONS
-	    /* Upper case letters are reserved for general use by asm_fprintf
+	    /* Uppercase letters are reserved for general use by asm_fprintf
 	       and so are not available to target specific code.  In order to
 	       prevent the ASM_FPRINTF_EXTENSIONS macro from using them then,
 	       they are defined here.  As they get turned into real extensions

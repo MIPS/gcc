@@ -64,7 +64,7 @@
 #undef HAVE_GTHR_DEFAULT
 
 // Define if lrand48 exists.
-#undef HAVE_LRAND48
+#undef HAVE_DRAND48
 
 // Define if getpagesize exists.
 #undef HAVE_GETPAGESIZE

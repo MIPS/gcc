@@ -127,19 +127,17 @@ namespace std
   ctype<wchar_t>::
   do_is(mask __m, char_type __c) const
   { 
-    bool __ret = true;
-    bool __match_any = false;
-    const size_t __bitmasksize = 10; 
+    bool __ret = false;
+    // Generically, 15 (instead of 10) since we don't know the numerical
+    // encoding of the various categories in /usr/include/ctype.h.
+    const size_t __bitmasksize = 15; 
     for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
       {
-	mask __bit = static_cast<mask>(1 << __bitcur);
+	const mask __bit = static_cast<mask>(1 << __bitcur);
 	if (__m & __bit)
-	  {
-	    __match_any = true;
-	    __ret &= iswctype(__c, _M_convert_to_wmask(__bit));
-	  }
+	  __ret |= iswctype(__c, _M_convert_to_wmask(__bit));
       }
-    return __ret & __match_any;    
+    return __ret;    
   }
   
   const wchar_t* 
@@ -148,11 +146,13 @@ namespace std
   {
     for (;__lo < __hi; ++__vec, ++__lo)
       {
-	const size_t __bitmasksize = 10; 
+	// Generically, 15 (instead of 10) since we don't know the numerical
+	// encoding of the various categories in /usr/include/ctype.h.
+	const size_t __bitmasksize = 15; 
 	mask __m = 0;
 	for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
 	  { 
-	    mask __bit = static_cast<mask>(1 << __bitcur);
+	    const mask __bit = static_cast<mask>(1 << __bitcur);
 	    if (iswctype(*__lo, _M_convert_to_wmask(__bit)))
 	      __m |= __bit;
 	  }

@@ -63,6 +63,8 @@ JNIEnv *gdk_env;
 JavaVM *gdk_vm;
 #endif
 
+GtkWindowGroup *global_gtk_window_group;
+
 /*
  * Call gtk_init.  It is very important that this happen before any other
  * gtk calls.
@@ -179,13 +181,15 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   postTextEventID = (*env)->GetMethodID (env, gtktextcomponentpeer,
 					     "postTextEvent",
 					     "()V");
+  global_gtk_window_group = gtk_window_group_new ();
 }
 
 /*
  * Run gtk_main and block.
  */ 
 JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkMain (JNIEnv *env, jobject obj)
+Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkMain
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)))
 {
   gdk_threads_enter ();
   gtk_main ();

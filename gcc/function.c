@@ -1324,8 +1324,9 @@ put_var_into_stack (tree decl, int rescan)
       if (function->decl == context)
 	break;
 
-  /* If this is a variable-size object with a pseudo to address it,
-     put that pseudo into the stack, if the var is nonlocal.  */
+  /* If this is a variable-sized object or a structure passed by invisible
+     reference, with a pseudo to address it, put that pseudo into the stack
+     if the var is non-local.  */
   if (TREE_CODE (decl) != SAVE_EXPR && DECL_NONLOCAL (decl)
       && GET_CODE (reg) == MEM
       && GET_CODE (XEXP (reg, 0)) == REG
@@ -1335,8 +1336,12 @@ put_var_into_stack (tree decl, int rescan)
       decl_mode = promoted_mode = GET_MODE (reg);
     }
 
+  /* If this variable lives in the current function and we don't need to put it
+     in the stack for the sake of setjmp or the non-locality, try to keep it in
+     a register until we know we actually need the address.  */
   can_use_addressof
     = (function == 0
+       && ! (TREE_CODE (decl) != SAVE_EXPR && DECL_NONLOCAL (decl))
        && optimize > 0
        /* FIXME make it work for promoted modes too */
        && decl_mode == promoted_mode
@@ -1355,9 +1360,6 @@ put_var_into_stack (tree decl, int rescan)
 
   if (GET_CODE (reg) == REG)
     {
-      /* If this variable lives in the current function and we don't need
-	 to put things in the stack for the sake of setjmp, try to keep it
-	 in a register until we know we actually need the address.  */
       if (can_use_addressof)
 	gen_mem_addressof (reg, decl, rescan);
       else
@@ -5506,8 +5508,17 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 {
   tree save_var = NULL_TREE;
   HOST_WIDE_INT save_constant = 0;
-
   int boundary_in_bytes = boundary / BITS_PER_UNIT;
+  HOST_WIDE_INT sp_offset = STACK_POINTER_OFFSET;
+
+#ifdef SPARC_STACK_BOUNDARY_HACK
+  /* The sparc port has a bug.  It sometimes claims a STACK_BOUNDARY
+     higher than the real alignment of %sp.  However, when it does this,
+     the alignment of %sp+STACK_POINTER_OFFSET will be STACK_BOUNDARY.
+     This is a temporary hack while the sparc port is fixed.  */
+  if (SPARC_STACK_BOUNDARY_HACK)
+    sp_offset = 0;
+#endif
 
   if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
     {
@@ -5522,14 +5533,17 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
     {
       if (offset_ptr->var)
 	{
-	  offset_ptr->var =
+	  tree sp_offset_tree = ssize_int (sp_offset);
+	  tree offset = size_binop (PLUS_EXPR,
+				    ARGS_SIZE_TREE (*offset_ptr),
+				    sp_offset_tree);
 #ifdef ARGS_GROW_DOWNWARD
-	    round_down
+	  tree rounded = round_down (offset, boundary / BITS_PER_UNIT);
 #else
-	    round_up
+	  tree rounded = round_up   (offset, boundary / BITS_PER_UNIT);
 #endif
-	      (ARGS_SIZE_TREE (*offset_ptr),
-	       boundary / BITS_PER_UNIT);
+
+	  offset_ptr->var = size_binop (MINUS_EXPR, rounded, sp_offset_tree);
 	  /* ARGS_SIZE_TREE includes constant term.  */
 	  offset_ptr->constant = 0;
 	  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
@@ -5538,11 +5552,11 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 	}
       else
 	{
-	  offset_ptr->constant =
+	  offset_ptr->constant = -sp_offset +
 #ifdef ARGS_GROW_DOWNWARD
-	    FLOOR_ROUND (offset_ptr->constant, boundary_in_bytes);
+	    FLOOR_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
 #else
-	    CEIL_ROUND (offset_ptr->constant, boundary_in_bytes);
+	    CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
 #endif
 	    if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
 	      alignment_pad->constant = offset_ptr->constant - save_constant;
@@ -6344,7 +6358,7 @@ allocate_struct_function (tree fndecl)
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as
-   appropriate for emiiting rtl at the start of a function.  */
+   appropriate for emitting rtl at the start of a function.  */
 
 static void
 prepare_function_start (tree fndecl)

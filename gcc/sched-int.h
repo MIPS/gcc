@@ -82,7 +82,7 @@ struct deps
      scheduling is done.  */
   rtx sched_before_next_call;
 
-  /* Used to keep post-call psuedo/hard reg movements together with
+  /* Used to keep post-call pseudo/hard reg movements together with
      the call.  */
   bool in_post_call_group_p;
 
@@ -167,6 +167,9 @@ struct sched_info
      has completed, e.g. if we're using it to initialize state for successor
      blocks in region scheduling.  */
   unsigned int use_cselib:1;
+
+  /* Maximum priority that has been assigned to an insn.  */
+  int sched_max_insns_priority;
 };
 
 extern struct sched_info *current_sched_info;

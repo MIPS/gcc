@@ -23,7 +23,6 @@
 # Each language makefile fragment must provide the following targets:
 #
 # foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.info, foo.dvi,
 # foo.install-normal, foo.install-common, foo.install-info, foo.install-man,
 # foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
@@ -40,8 +39,8 @@
 # Actual names to use when installing a native compiler.
 CXX_INSTALL_NAME = `echo c++|sed '$(program_transform_name)'`
 GXX_INSTALL_NAME = `echo g++|sed '$(program_transform_name)'`
-CXX_TARGET_INSTALL_NAME = $(target_alias)-`echo c++|sed '$(program_transform_name)'`
-GXX_TARGET_INSTALL_NAME = $(target_alias)-`echo g++|sed '$(program_transform_name)'`
+CXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo c++|sed '$(program_transform_name)'`
+GXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo g++|sed '$(program_transform_name)'`
 
 # Actual names to use when installing a cross-compiler.
 CXX_CROSS_NAME = `echo c++|sed '$(program_transform_cross_name)'`
@@ -125,9 +124,7 @@ c++.rest.encap:
 c++.tags: force
 	cd $(srcdir)/cp; etags *.c *.h
 
-c++.info: 
-c++.dvi:
-c++.generated-manpages: cp/g++.1
+generated-manpages:: cp/g++.1
 
 #
 # Install hooks:
@@ -294,7 +291,8 @@ cp/cp-mudflap.o: cp/cp-mudflap.c $(CXX_TREE_H) toplev.h c-common.h \
 	$(TM_H) coretypes.h
 
 cp/name-lookup.o: cp/name-lookup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-	$(TM_H) $(CXX_TREE_H) timevar.h gt-cp-name-lookup.h toplev.h
+	$(TM_H) $(CXX_TREE_H) timevar.h gt-cp-name-lookup.h toplev.h \
+	$(DIAGNOSTIC_H) flags.h
 
 cp/cxx-pretty-print.o: cp/cxx-pretty-print.c $(CXX_PRETTY_PRINT_H) \
   $(CONFIG_H) $(SYSTEM_H) $(TM_H) coretypes.h $(CXX_TREE_H)

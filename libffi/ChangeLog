@@ -1,3 +1,13 @@
+2003-10-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/types.c (double, longdouble): Default POWERPC64 to 8 byte size
+	and align.
+
+2003-10-06  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* include/ffi_mips.h: Define FFI_MIPS_N32 for N32/N64 ABIs,
+	FFI_MIPS_O32 for O32 ABI.
+
 2003-10-01  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* testsuite/lib/libffi-dg.exp: Set LD_LIBRARY_PATH_64 for

@@ -679,4 +679,14 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define MOVE_MAX_PIECES   MOVE_MAX
 #endif
 
+#ifndef STACK_POINTER_OFFSET
+#define STACK_POINTER_OFFSET    0
+#endif
+
+/* How to print out a register name.  */
+#ifndef PRINT_REG
+#define PRINT_REG(RTX, CODE, FILE) \
+  fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
+#endif
+
 #endif  /* ! GCC_DEFAULTS_H */

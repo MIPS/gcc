@@ -340,6 +340,9 @@
 #undef HAVE_DECL_ERRNO
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_SNPRINTF
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_VASPRINTF
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
@@ -414,10 +417,6 @@
 /* Define to the name of a file containing a list of extra machine modes
    for this architecture. */
 #undef EXTRA_MODES_FILE
-
-/* Define if the target architecture needs extra machine modes to represent
-   the results of comparisons. */
-#undef EXTRA_CC_MODES
 
 /* Define to 1 if translation of program messages to the 
   user's native language is requested. */

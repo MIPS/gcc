@@ -838,6 +838,7 @@ negate_mathfn_p (enum built_in_function code)
   return false;
 }
 
+
 /* Determine whether an expression T can be cheaply negated using
    the function negate_expr.  */
 
@@ -5132,6 +5133,18 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
   if (TREE_CONSTANT (arg1))
     return 0;
   if (TREE_CONSTANT (arg0))
+    return 1;
+    
+  if (optimize_size)
+    return 0;
+
+  if (reorder && flag_evaluation_order
+      && (TREE_SIDE_EFFECTS (arg0) || TREE_SIDE_EFFECTS (arg1)))
+    return 0;
+
+  if (DECL_P (arg1))
+    return 0;
+  if (DECL_P (arg0))
     return 1;
 
   if (reorder && flag_evaluation_order

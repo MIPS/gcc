@@ -22,19 +22,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "bconfig.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
-
-#define NO_GENRTL_H
-#include "rtl.h"
-#undef abort
-
-#include "real.h"
 
 struct rtx_definition
 {
   const char *const enumname, *const name, *const format;
 };
+
+/* rtl.def needs CONST_DOUBLE_FORMAT, but we don't care what
+   CONST_DOUBLE_FORMAT is because we're not going to be generating
+   anything for CONST_DOUBLE anyway.  */
+#define CONST_DOUBLE_FORMAT ""
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { #ENUM, NAME, FORMAT },
 
@@ -42,6 +39,7 @@ static const struct rtx_definition defs[] =
 {
 #include "rtl.def"		/* rtl expressions are documented here */
 };
+#define NUM_RTX_CODE ARRAY_SIZE(defs)
 
 static const char *formats[NUM_RTX_CODE];
 
@@ -167,7 +165,7 @@ excluded_rtx (int idx)
 static void
 find_formats (void)
 {
-  int i;
+  unsigned int i;
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     {
@@ -298,7 +296,7 @@ genlegend (void)
 static void
 genheader (void)
 {
-  int i;
+  unsigned int i;
   const char **fmt;
 
   puts ("#ifndef GCC_GENRTL_H");

@@ -23,7 +23,6 @@
 # Each language makefile fragment must provide the following targets:
 #
 # foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.info, foo.dvi,
 # foo.install-normal, foo.install-common, foo.install-info, foo.install-man,
 # foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
@@ -66,6 +65,8 @@ objc/objc-lang.o : objc/objc-lang.c \
 objc/objc-parse.o : $(parsedir)/objc/objc-parse.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
    toplev.h $(GGC_H) c-pragma.h input.h flags.h output.h objc/objc-act.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	$(parsedir)/objc/objc-parse.c $(OUTPUT_OPTION)
 
 objc/objc-act.o : objc/objc-act.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) $(TM_P_H) \
@@ -104,10 +105,6 @@ objc.rest.encap:
 
 objc.tags: force
 	cd $(srcdir)/objc; etags *.y *.c *.h
-
-objc.info:
-objc.dvi:
-objc.generated-manpages:
 
 #
 # Install hooks:

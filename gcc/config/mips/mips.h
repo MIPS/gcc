@@ -121,7 +121,6 @@ extern const char *mips_arch_string;    /* for -march=<xxx> */
 extern const char *mips_tune_string;    /* for -mtune=<xxx> */
 extern const char *mips_isa_string;	/* for -mips{1,2,3,4} */
 extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
-extern const char *mips_entry_string;	/* for -mentry */
 extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
 extern int mips_string_length;		/* length of strings for mips16 */
 extern const struct mips_cpu_info mips_cpu_info_table[];
@@ -336,6 +335,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
+
+/* IRIX specific stuff.  */
+#define TARGET_IRIX	   0
+#define TARGET_IRIX5	   0
+#define TARGET_SGI_O32_AS  (TARGET_IRIX && mips_abi == ABI_32 && !TARGET_GAS)
 
 /* Define preprocessor macros for the -march and -mtune options.
    PREFIX is either _MIPS_ARCH or _MIPS_TUNE, INFO is the selected
@@ -731,8 +735,6 @@ extern const struct mips_cpu_info *mips_tune_info;
       N_("Specify an ABI"), 0},						\
   { "ips",	&mips_isa_string,					\
       N_("Specify a Standard MIPS ISA"), 0},				\
-  { "entry",	&mips_entry_string,					\
-      N_("Use mips16 entry/exit psuedo ops"), 0},			\
   { "no-flush-func", &mips_cache_flush_func,				\
       N_("Don't call any cache flush functions"), 0},			\
   { "flush-func=", &mips_cache_flush_func,				\
@@ -1219,11 +1221,14 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define DBX_REGISTER_NUMBER(REGNO) mips_dbx_regno[ (REGNO) ]
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
-#define DWARF_FRAME_REGNUM(REG)				\
-  (REG == GP_REG_FIRST + 31 ? DWARF_FRAME_RETURN_COLUMN : REG)
+#define DWARF_FRAME_REGNUM(REG)	(REG)
 
 /* The DWARF 2 CFA column which tracks the return address.  */
-#define DWARF_FRAME_RETURN_COLUMN (FP_REG_LAST + 1)
+#define DWARF_FRAME_RETURN_COLUMN (GP_REG_FIRST + 31)
+
+/* The DWARF 2 CFA column which tracks the return address from a
+   signal handler context.  */
+#define SIGNAL_UNWIND_RETURN_COLUMN (FP_REG_LAST + 1)
 
 /* Before the prologue, RA lives in r31.  */
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (VOIDmode, GP_REG_FIRST + 31)
@@ -1677,15 +1682,18 @@ extern char mips_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
 /* Pass structure addresses as an "invisible" first argument.  */
 #define STRUCT_VALUE 0
 
-/* Mips registers used in prologue/epilogue code when the stack frame
-   is larger than 32K bytes.  These registers must come from the
-   scratch register set, and not used for passing and returning
-   arguments and any other information used in the calling sequence
-   (such as pic).  Must start at 12, since t0/t3 are parameter passing
-   registers in the 64 bit ABI.  */
+/* Registers used as temporaries in prologue/epilogue code.  If we're
+   generating mips16 code, these registers must come from the core set
+   of 8.  The prologue register mustn't conflict with any incoming
+   arguments, the static chain pointer, or the frame pointer.  The
+   epilogue temporary mustn't conflict with the return registers, the
+   frame pointer, the EH stack adjustment, or the EH data registers.  */
 
-#define MIPS_TEMP1_REGNUM (GP_REG_FIRST + 12)
-#define MIPS_TEMP2_REGNUM (GP_REG_FIRST + 13)
+#define MIPS_PROLOGUE_TEMP_REGNUM (GP_REG_FIRST + 3)
+#define MIPS_EPILOGUE_TEMP_REGNUM (GP_REG_FIRST + (TARGET_MIPS16 ? 6 : 8))
+
+#define MIPS_PROLOGUE_TEMP(MODE) gen_rtx_REG (MODE, MIPS_PROLOGUE_TEMP_REGNUM)
+#define MIPS_EPILOGUE_TEMP(MODE) gen_rtx_REG (MODE, MIPS_EPILOGUE_TEMP_REGNUM)
 
 /* Define this macro if it is as good or better to call a constant
    function address than to call an address kept in a register.  */
@@ -2035,7 +2043,11 @@ extern enum reg_class mips_char_to_class[256];
 	 constraint has often been used in linux and glibc code.
    `S' is for legitimate constant call addresses.
    `T' is for constant move_operands that cannot be safely loaded into $25.
-   `U' is for constant move_operands that can be safely loaded into $25.  */
+   `U' is for constant move_operands that can be safely loaded into $25.
+   `W' is for memory references that are based on a member of BASE_REG_CLASS.
+	 This is true for all non-mips16 references (although it can somtimes
+	 be indirect if !TARGET_EXPLICIT_RELOCS).  For mips16, it excludes
+	 stack and constant-pool references.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)					\
   (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
@@ -2049,7 +2061,15 @@ extern enum reg_class mips_char_to_class[256];
    : ((CODE) == 'U')	  ? (CONSTANT_P (OP)				\
 			     && move_operand (OP, VOIDmode)		\
 			     && !DANGEROUS_FOR_LA25_P (OP))		\
+   : ((CODE) == 'W')	  ? (GET_CODE (OP) == MEM			\
+			     && memory_operand (OP, VOIDmode)		\
+			     && (!TARGET_MIPS16				\
+				 || (!stack_operand (OP, VOIDmode)	\
+				     && !CONSTANT_P (XEXP (OP, 0)))))	\
    : FALSE)
+
+/* Say which of the above are memory constraints.  */
+#define EXTRA_MEMORY_CONSTRAINT(C, STR) ((C) == 'R' || (C) == 'W')
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -2150,15 +2170,10 @@ extern enum reg_class mips_char_to_class[256];
    In mips16 mode, we need a frame pointer for a large frame; otherwise,
    reload may be unable to compute the address of a local variable,
    since there is no way to add a large constant to the stack pointer
-   without using a temporary register.
-
-   Also, for some mips16 instructions (eg lwu), we can't eliminate the
-   frame pointer for the stack pointer.  These instructions are
-   only generated in TARGET_64BIT mode.  */
+   without using a temporary register.  */
 #define CAN_ELIMINATE(FROM, TO)						\
   ((TO) == HARD_FRAME_POINTER_REGNUM 				        \
    || ((TO) == STACK_POINTER_REGNUM && !frame_pointer_needed		\
-       && !(TARGET_MIPS16 && TARGET_64BIT)				\
        && (!TARGET_MIPS16						\
 	   || compute_frame_size (get_frame_size ()) < 32768)))
 
@@ -2806,6 +2821,7 @@ typedef struct mips_args {
   {"move_operand", 		{ CONST_INT, CONST_DOUBLE, CONST,	\
 				  SYMBOL_REF, LABEL_REF, SUBREG,	\
 				  REG, MEM}},				\
+  {"stack_operand",		{ MEM }},				\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
   {"fcc_register_operand",	{ REG, SUBREG }},			\
@@ -3019,34 +3035,6 @@ typedef struct mips_args {
   &mips_reg_names[173][0],						\
   &mips_reg_names[174][0],						\
   &mips_reg_names[175][0]						\
-}
-
-/* print-rtl.c can't use REGISTER_NAMES, since it depends on mips.c.
-   So define this for it.  */
-#define DEBUG_REGISTER_NAMES						\
-{									\
-  "$0",   "at",   "v0",   "v1",   "a0",   "a1",   "a2",   "a3",		\
-  "t0",   "t1",   "t2",   "t3",   "t4",   "t5",   "t6",   "t7",		\
-  "s0",   "s1",   "s2",   "s3",   "s4",   "s5",   "s6",   "s7",		\
-  "t8",   "t9",   "k0",   "k1",   "gp",   "sp",   "$fp",  "ra",		\
-  "$f0",  "$f1",  "$f2",  "$f3",  "$f4",  "$f5",  "$f6",  "$f7",	\
-  "$f8",  "$f9",  "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",	\
-  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",	\
-  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",	\
-  "hi",   "lo",   "",     "$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",	\
-  "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",		\
-  "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",\
-  "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",\
-  "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",\
-  "$c0r24","$c0r25","$c0r26","$c0r27","$c0r28","$c0r29","$c0r30","$c0r31",\
-  "$c2r0", "$c2r1", "$c2r2", "$c2r3", "$c2r4", "$c2r5", "$c2r6", "$c2r7",\
-  "$c2r8", "$c2r9", "$c2r10","$c2r11","$c2r12","$c2r13","$c2r14","$c2r15",\
-  "$c2r16","$c2r17","$c2r18","$c2r19","$c2r20","$c2r21","$c2r22","$c2r23",\
-  "$c2r24","$c2r25","$c2r26","$c2r27","$c2r28","$c2r29","$c2r30","$c2r31",\
-  "$c3r0", "$c3r1", "$c3r2", "$c3r3", "$c3r4", "$c3r5", "$c3r6", "$c3r7",\
-  "$c3r8", "$c3r9", "$c3r10","$c3r11","$c3r12","$c3r13","$c3r14","$c3r15",\
-  "$c3r16","$c3r17","$c3r18","$c3r19","$c3r20","$c3r21","$c3r22","$c3r23",\
-  "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31"\
 }
 
 /* If defined, a C initializer for an array of structures
@@ -3293,7 +3281,6 @@ while (0)
 #define ASM_OUTPUT_EXTERNAL(STREAM,DECL,NAME) \
   mips_output_external(STREAM,DECL,NAME)
 
-
 /* This is how to declare a function name.  The actual work of
    emitting the label is moved to function_prologue, so that we can
    get the line number correctly emitted before the .ent directive,
@@ -3302,6 +3289,10 @@ while (0)
 
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)
+
+#ifndef FUNCTION_NAME_ALREADY_DECLARED
+#define FUNCTION_NAME_ALREADY_DECLARED 0
+#endif
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where

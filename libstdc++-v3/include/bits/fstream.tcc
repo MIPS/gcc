@@ -106,7 +106,8 @@ namespace std
 
 	      // 27.8.1.3,4
 	      if ((__mode & ios_base::ate) 
-		  && this->seekoff(0, ios_base::end, __mode) < 0)
+		  && this->seekoff(0, ios_base::end, __mode)
+		  == pos_type(off_type(-1)))
 		this->close();
 	      else
 		__ret = this;
@@ -333,7 +334,7 @@ namespace std
 	      this->gbump(-1);
 	      __tmp = traits_type::to_int_type(*this->gptr());
 	    }
-	  else if (this->seekoff(-1, ios_base::cur) >= 0)
+	  else if (this->seekoff(-1, ios_base::cur) != pos_type(off_type(-1)))
 	    {
 	      __tmp = this->underflow();
 	      if (traits_type::eq_int_type(__tmp, __ret))
@@ -573,10 +574,8 @@ namespace std
     }
   
 
-  // _GLIBCXX_RESOLVE_LIB_DEFECTS
-  // According to 27.8.1.4 p11 - 13 (for seekoff) and the resolution of
-  // DR 171 (for seekpos), both functions should ignore the last argument
-  // (of type openmode).
+  // According to 27.8.1.4 p11 - 13, seekoff should ignore the last
+  // argument (of type openmode).
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::pos_type
     basic_filebuf<_CharT, _Traits>::
@@ -597,15 +596,7 @@ namespace std
 	  _M_destroy_pback();
 
 	  off_type __computed_off = __off * __width;
-	  if (this->pbase() < this->pptr())
-	    {
-	      // Part one: update the output sequence.
-	      this->sync();
-	      
-	      // Part two: output unshift sequence.
-	      _M_output_unshift();
-	    }
-	  else if (_M_reading && __way == ios_base::cur)
+	  if (_M_reading && __way == ios_base::cur)
 	    {
 	      if (_M_codecvt->always_noconv())
 		__computed_off += this->gptr() - this->egptr();
@@ -620,13 +611,29 @@ namespace std
 		}
 	    }
 	  
-	  // Returns pos_type(off_type(-1)) in case of failure.
-	  __ret = _M_file.seekoff(__computed_off, __way);
-	  
-	  _M_reading = false;
-	  _M_writing = false;
-	  _M_ext_next = _M_ext_end = _M_ext_buf;
-	  _M_set_buffer(-1);
+	  __ret = _M_seek(__computed_off, __way);
+	}
+      _M_last_overflowed = false;	
+      return __ret;
+    }
+
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 171. Strange seekpos() semantics due to joint position
+  // According to the resolution of DR 171, seekpos should ignore the last
+  // argument (of type openmode).
+  template<typename _CharT, typename _Traits>
+    typename basic_filebuf<_CharT, _Traits>::pos_type
+    basic_filebuf<_CharT, _Traits>::
+    seekpos(pos_type __pos, ios_base::openmode)
+    {
+      pos_type __ret =  pos_type(off_type(-1)); 
+
+      if (this->is_open()) 
+	{
+	  // Ditch any pback buffers to avoid confusion.
+	  _M_destroy_pback();
+
+	  __ret = _M_seek(off_type(__pos), ios_base::beg);
 	}
       _M_last_overflowed = false;	
       return __ret;
@@ -635,20 +642,25 @@ namespace std
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::pos_type
     basic_filebuf<_CharT, _Traits>::
-    seekpos(pos_type __pos, ios_base::openmode __mode)
+    _M_seek(off_type __off, ios_base::seekdir __way)
     {
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 171. Strange seekpos() semantics due to joint position
-      pos_type __ret =  pos_type(off_type(-1)); 
-
-      int __width = 0;
-      if (_M_codecvt)
-	__width = _M_codecvt->encoding();
-      if (__width > 0)
-	__ret = this->seekoff(off_type(__pos) / __width, ios_base::beg, __mode);
-
+      if (this->pbase() < this->pptr())
+	{
+	  // Part one: update the output sequence.
+	  this->sync();
+	      
+	  // Part two: output unshift sequence.
+	  _M_output_unshift();
+	}
+	  
+      // Returns pos_type(off_type(-1)) in case of failure.
+      pos_type __ret (_M_file.seekoff(__off, __way));
+	  
+      _M_reading = false;
+      _M_writing = false;
+      _M_ext_next = _M_ext_end = _M_ext_buf;
+      _M_set_buffer(-1);
       return __ret;
-#endif
     }
 
   template<typename _CharT, typename _Traits>
@@ -662,24 +674,35 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     imbue(const locale& __loc)
     {
-      const bool __testbeg = !this->seekoff(0, ios_base::cur, this->_M_mode);
-      const bool __teststate = __check_facet(_M_codecvt).encoding() == -1;
-
-      if (this->_M_buf_locale != __loc 
-	  && (!this->is_open() || (__testbeg && !__teststate)))
+      if (this->_M_buf_locale != __loc)
 	{
-	  this->_M_buf_locale = __loc;
-	  if (__builtin_expect(has_facet<__codecvt_type>(__loc), true))
-	    _M_codecvt = &use_facet<__codecvt_type>(__loc);
-	  else
-	    _M_codecvt = 0;
+	  bool __testfail = false;
+	  if (this->is_open())
+	    {
+	      const bool __testbeg =
+		this->seekoff(0, ios_base::cur, this->_M_mode) ==
+		pos_type(off_type(0));
+	      const bool __teststate =
+		__check_facet(_M_codecvt).encoding() == -1;
 
-	  // NB This may require the reconversion of previously
-	  // converted chars. This in turn may cause the
-	  // reconstruction of the original file. YIKES!!  This
-	  // implementation interprets this requirement as requiring
-	  // the file position be at the beginning, and a stateless
-	  // encoding, or that the filebuf be closed. Opinions may differ.
+	      __testfail = !__testbeg || __teststate;
+	    }
+
+	  if (!__testfail)
+	    {
+	      this->_M_buf_locale = __loc;
+	      if (__builtin_expect(has_facet<__codecvt_type>(__loc), true))
+		_M_codecvt = &use_facet<__codecvt_type>(__loc);
+	      else
+		_M_codecvt = 0;
+
+	      // NB This may require the reconversion of previously
+	      // converted chars. This in turn may cause the
+	      // reconstruction of the original file. YIKES!!  This
+	      // implementation interprets this requirement as requiring
+	      // the file position be at the beginning, and a stateless
+	      // encoding, or that the filebuf be closed. Opinions may differ.
+	    }
 	}
       _M_last_overflowed = false;	
     }

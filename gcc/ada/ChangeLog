@@ -1,3 +1,16 @@
+2003-10-14  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Replace uses of $(target_alias) with
+	$(target_noncanonical).
+	* ada/Makefile.in: Remove unused mention of $(target_alias).
+
+2003-10-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (ada.info): Replace with ...
+	(info): ... this.
+	(ada.dvi): Replace with ...
+	(dvi): ... this.
+
 2003-09-29  Zack Weinberg  <zack@codesourcery.com>
 
 	* trans.c (gigi): Use REAL_ARITHMETIC, not REAL_VALUE_ATOF, to
