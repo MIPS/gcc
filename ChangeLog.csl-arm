@@ -1,3 +1,32 @@
+2004-09-22  Paul Brook  <paul@codesourcery.com>
+
+libstdc++/
+	Add support for ARM EABI unwinding library.
+	* libsupc++/Makefile.am (sources): Add eh_arm.cc and eh_call.cc.
+	* libsupc++/Makefile.in: Regenerate.
+	* libsupc++/eh_arm.cc: New file.
+	* libsupc++/eh_call.cc: New file.
+	* libsupc++/eh_catch.cc (__cxa_begin_catch): Call _Unwind_Complete.
+	Use __is_gxx_exception_class.
+	(__cxa_end_catch): Use __is_gxx_exception_class.
+	* libsupc++/eh_personality.cc (NO_SIZE_OF_ENCODED_VALUE): Define if
+	using ARM EABI unwinder.
+	(_throw_typet): Declare.
+	(check_exception_spec, get_ttype_entry, get_adjusted_ptr): Add
+	ARM EABI implementations.
+	(CONTINUE_UNWINDING): Define.
+	(PERSONALITY_FUNCTION): Use CONTINUE_UNWINDING and
+	__cxa_call_terminate.  Add Support for ARM EABI.  Including changes
+	to function prototype, initialization code, exception object format,
+	and calling __cxa_begin_cleanup.
+	(__cxa_call_unexpected): Disable on arm systems.
+	* libsupc++/eh_throw.cc (__cxa_throw): Use __GXX_INIT_EXCEPTION_CLASS.
+	(__cxa_rethrow): Use __is_gxx_exception_class.  Always call
+	_Unwind_RaiseException on ARM EABI targets.
+	* libsupc++/unwind-cxx.h (__cxa_call_terminate): Declare.
+	(__cxa_type_match, __cxa_begin_cleanup, __cxa_end_cleanup): Declare.
+	(__is_gxx_exception_class, __GXX_INIT_EXCEPTION_CLASS): Define.
+
 2004-09-15  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/cpu/arm/cxxabi_tweaks.h (__cxa_cdtor_return_type):

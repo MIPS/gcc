@@ -1,3 +1,41 @@
+2004-09-22  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in (USER_H): Add unwind-arm.h.
+	* except.c (fnspec_ttable_indirect): Add.
+	(init_eh): Set it.
+	(add_ehspec_entry): Handle fnspec_ttable_indirect.
+	(output_ttype): New function.
+	(output_function_exception_table): Use it.  Handle
+	fnspec_ttable_indirect.
+	* target-def.h (TARGET_ASM_TTYPE): Define.
+	(TARGET_EH_FNSPEC_TTABLE_INDIRECT): Ditto.
+	* target.h (struct gcc_target): Add asm_out.ttype and
+	eh_fnspec_ttable_indirect.
+	* unwind-arm.h: New file.
+	* unwind-c.c (CONTINUE_UNWINDING): Define.
+	(PERSONALITY_FUNCTION): Add ARM EABI prototype and initialization
+	code.  Use CONTINUE_UNWINDING.
+	* unwind.h: Include unwind-arm.h when using ARM EABI unwinder.
+	* config/arm/arm.c (arm_unwind_emit, arm_output_ttype): New functions.
+	(arm_unwind_emit_stm, arm_unwind_emit_set): New functions.
+	(TARGET_UNWIND_EMIT, TARGET_ASM_TTYPE): Define.
+	(TARGET_EH_FNSPEC_TTABLE_INDIRECT): Ditto.
+	(thumb_pushpop, thumb_output_function_prologue): Output frame
+	unwinding directives.
+	* config/arm/arm.h (MUST_USE_SJLJ_EXCEPTIONS): Only define when
+	!TARGET_UNWIND_INFO.
+	* config/arm/bpabi.h (TARGET_UNWIND_INFO): Define.
+	* config/arm/elf.h (ASM_DECLARE_FUNCTION_NAME,
+	ASM_DECLARE_FUNCTION_SIZE): Output frame unwinding annotatons.
+	* config/arm/lib1funcs.asm: Include libunwind.s
+	* config/arm/libunwind.S: New file.
+	* config/arm/t-bpabi (LIB1ASMFUNCS): Add _unwind.
+	(LIB2ADDEH, LIB2ADDEHDEP): Set.
+	* config/arm/t-symbian (LIB2ADDEH, LIB2ADDEHDEP): Set.
+	* config/arm/unwind-arm.c: New file.
+	* doc/tm.texi: Document TARGET_ASM_TTYPE and
+	TARGET_EH_FNSPEC_TTABLE_INDIRECT.
+
 2004-09-21  Paul Brook  <paul@codesourcery.com>
 
 	* varasm.c (default_assemble_integer): Return false for values wider

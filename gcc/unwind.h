@@ -33,6 +33,11 @@
 
 #pragma GCC visibility push(default)
 
+#if defined(__arm__) && !defined(__USING_SJLJ_EXCEPTIONS__)
+/* The arm unwinder provides its own version of this file.  */
+#include "unwind-arm.h"
+#else
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -230,6 +235,8 @@ extern void * _Unwind_FindEnclosingFunction (void *pc);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* arm unwinder */
 
 #pragma GCC visibility pop
 

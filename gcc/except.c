@@ -81,6 +81,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
 #endif
 
+/* True if function exception specification lists should be encoded as
+   offsets into the ttype table.  Otherwise typeinfo offsets will be
+   used directly.  */
+bool fnspec_ttable_indirect;
 
 /* Nonzero means enable synchronous exceptions for non-call instructions.  */
 int flag_non_call_exceptions;
@@ -368,6 +372,8 @@ init_eh (void)
 {
   if (! flag_exceptions)
     return;
+
+  fnspec_ttable_indirect = targetm.eh_fnspec_ttable_indirect ();
 
   type_to_runtime_map = htab_create_ggc (31, t2r_hash, t2r_eq, NULL);
 
@@ -1425,6 +1431,7 @@ t2r_hash (const void *pentry)
   return TYPE_HASH (TREE_PURPOSE (entry));
 }
 
+
 static void
 add_type_for_runtime (tree type)
 {
@@ -1555,12 +1562,23 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
       n->filter = -(VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data) + 1);
       *slot = n;
 
-      /* Look up each type in the list and encode its filter
-	 value as a uleb128.  Terminate the list with 0.  */
+      /* Generate a 0 terminated list of filter values.  */
       for (; list ; list = TREE_CHAIN (list))
-	push_uleb128 (&cfun->eh->ehspec_data,
-		      add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
-      VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
+	{
+	  if (fnspec_ttable_indirect)
+	    {
+	      /* Look up each type in the list and encode its filter
+		 value as a uleb128.  */
+	      push_uleb128 (&cfun->eh->ehspec_data,
+		  add_ttypes_entry (ttypes_hash, TREE_VALUE (list)));
+	    }
+	  else
+	    VARRAY_PUSH_TREE (cfun->eh->ehspec_data, TREE_VALUE (list));
+	}
+      if (fnspec_ttable_indirect)
+	VARRAY_PUSH_UCHAR (cfun->eh->ehspec_data, 0);
+      else
+	VARRAY_PUSH_TREE (cfun->eh->ehspec_data, NULL_TREE);
     }
 
   return n->filter;
@@ -1578,7 +1596,10 @@ assign_filter_values (void)
   htab_t ttypes, ehspec;
 
   VARRAY_TREE_INIT (cfun->eh->ttype_data, 16, "ttype_data");
-  VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
+  if (fnspec_ttable_indirect)
+    VARRAY_UCHAR_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
+  else
+    VARRAY_TREE_INIT (cfun->eh->ehspec_data, 64, "ehspec_data");
 
   ttypes = htab_create (31, ttypes_filter_hash, ttypes_filter_eq, free);
   ehspec = htab_create (31, ehspec_filter_hash, ehspec_filter_eq, free);
@@ -3600,6 +3621,52 @@ default_exception_section (void)
     readonly_data_section ();
 }
 
+
+/* Output a reference from an exception table to a type_info object.  */
+
+static void
+output_ttype (tree type, int tt_format, int tt_format_size)
+{
+  rtx value;
+
+  if (type == NULL_TREE)
+    value = const0_rtx;
+  else
+    {
+      struct cgraph_varpool_node *node;
+
+      type = lookup_type_for_runtime (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+
+      /* Let cgraph know that the rtti decl is used.  Not all of the
+	 paths below go through assemble_integer, which would take
+	 care of this for us.  */
+      STRIP_NOPS (type);
+      if (TREE_CODE (type) == ADDR_EXPR)
+	{
+	  type = TREE_OPERAND (type, 0);
+	  if (TREE_CODE (type) == VAR_DECL)
+	    {
+	      node = cgraph_varpool_node (type);
+	      if (node)
+		cgraph_varpool_mark_needed_node (node);
+	    }
+	}
+      else if (TREE_CODE (type) != INTEGER_CST)
+	abort ();
+    }
+
+  /* Allow the target to override the type table entry format.  */
+  if (targetm.asm_out.ttype (value))
+    return;
+
+  if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
+    assemble_integer (value, tt_format_size,
+		      tt_format_size * BITS_PER_UNIT, 1);
+  else
+    dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+}
+
 void
 output_function_exception_table (void)
 {
@@ -3758,36 +3825,7 @@ output_function_exception_table (void)
   while (i-- > 0)
     {
       tree type = VARRAY_TREE (cfun->eh->ttype_data, i);
-      rtx value;
-
-      if (type == NULL_TREE)
-	value = const0_rtx;
-      else
-	{
-	  struct cgraph_varpool_node *node;
-
-	  type = lookup_type_for_runtime (type);
-	  value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
-
-	  /* Let cgraph know that the rtti decl is used.  Not all of the
-	     paths below go through assemble_integer, which would take
-	     care of this for us.  */
-	  if (TREE_CODE (type) == ADDR_EXPR)
-	    {
-	      type = TREE_OPERAND (type, 0);
-	      node = cgraph_varpool_node (type);
-	      if (node)
-		cgraph_varpool_mark_needed_node (node);
-	    }
-	  else if (TREE_CODE (type) != INTEGER_CST)
-	    abort ();
-	}
-
-      if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
-	assemble_integer (value, tt_format_size,
-			  tt_format_size * BITS_PER_UNIT, 1);
-      else
-	dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+      output_ttype (type, tt_format, tt_format_size);
     }
 
 #ifdef HAVE_AS_LEB128
@@ -3798,8 +3836,18 @@ output_function_exception_table (void)
   /* ??? Decode and interpret the data for flag_debug_asm.  */
   n = VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data);
   for (i = 0; i < n; ++i)
-    dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
-			 (i ? NULL : "Exception specification table"));
+    {
+      if (fnspec_ttable_indirect)
+	dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
+			     (i ? NULL : "Exception specification table"));
+      else
+	{
+	  tree type;
+
+	  type = VARRAY_TREE (cfun->eh->ehspec_data, i);
+	  output_ttype (type, tt_format, tt_format_size);
+	}
+    }
 
   function_section (current_function_decl);
 }

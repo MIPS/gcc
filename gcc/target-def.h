@@ -65,6 +65,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_UNWIND_EMIT default_unwind_emit
 #endif
 
+#ifndef TARGET_ARM_TTYPE
+#define TARGET_ASM_TTYPE hook_bool_rtx_false
+#endif
+
 #ifndef TARGET_ASM_ASSEMBLE_VISIBILITY
 #define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
@@ -195,6 +199,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_GLOBALIZE_LABEL,		\
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_UNWIND_EMIT,			\
+			TARGET_ASM_TTYPE,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
@@ -331,6 +336,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_GET_PCH_VALIDITY default_get_pch_validity
 #define TARGET_PCH_VALID_P default_pch_valid_p
 
+#define TARGET_EH_FNSPEC_TTABLE_INDIRECT hook_bool_void_true
+
 #define TARGET_PROMOTE_FUNCTION_ARGS default_promote_function_args
 #define TARGET_PROMOTE_FUNCTION_RETURN default_promote_function_return
 #define TARGET_PROMOTE_PROTOTYPES default_promote_prototypes
@@ -441,6 +448,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BUILD_BUILTIN_VA_LIST,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
+  TARGET_EH_FNSPEC_TTABLE_INDIRECT,		\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\

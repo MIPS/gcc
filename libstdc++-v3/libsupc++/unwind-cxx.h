@@ -121,6 +121,15 @@ extern "C" void __cxa_bad_typeid ();
 // throws, and if bad_exception needs to be thrown.  Called from the
 // compiler.
 extern "C" void __cxa_call_unexpected (void *) __attribute__((noreturn));
+extern "C" void __cxa_call_terminate (void*) __attribute__((noreturn));
+
+#ifdef __ARM_EABI_UNWINDER__
+/* Arm EABI specified routines.  */
+extern "C" bool __cxa_type_match (_Unwind_Exception*, const std::type_info*,
+				  void**);
+extern "C" void __cxa_begin_cleanup (_Unwind_Exception*);
+extern "C" void __cxa_end_cleanup (_Unwind_Exception*);
+#endif
 
 // Invokes given handler, dying appropriately if the user handler was
 // so inconsiderate as to return.
@@ -133,6 +142,35 @@ extern std::unexpected_handler __unexpected_handler;
 
 // These are explicitly GNU C++ specific.
 
+#ifdef __ARM_EABI_UNWINDER__
+static inline bool
+__is_gxx_exception_class(_Unwind_Exception_Class c)
+{
+  /* TODO: Take advantage of the fact that c will always be word aligned.  */
+  return c[0] == 'G'
+	 && c[1] == 'N'
+	 && c[2] == 'U'
+	 && c[3] == 'C'
+	 && c[4] == 'C'
+	 && c[5] == '+'
+	 && c[6] == '+'
+	 && c[7] == '\0';
+}
+
+static inline void
+__GXX_INIT_EXCEPTION_CLASS(_Unwind_Exception_Class c)
+{
+  c[0] = 'G';
+  c[1] = 'N';
+  c[2] = 'U';
+  c[3] = 'C';
+  c[4] = 'C';
+  c[5] = '+';
+  c[6] = '+';
+  c[7] = '\0';
+}
+
+#else
 // This is the exception class we report -- "GNUCC++\0".
 const _Unwind_Exception_Class __gxx_exception_class
 = ((((((((_Unwind_Exception_Class) 'G' 
@@ -144,6 +182,14 @@ const _Unwind_Exception_Class __gxx_exception_class
     << 8 | (_Unwind_Exception_Class) '+')
    << 8 | (_Unwind_Exception_Class) '\0');
 
+static inline bool
+__is_gxx_exception_class(_Unwind_Exception_Class c)
+{
+  return c == __gxx_exception_class;
+}
+
+#define __GXX_INIT_EXCEPTION_CLASS(c) c = __gxx_exception_class
+
 // GNU C++ personality routine, Version 0.
 extern "C" _Unwind_Reason_Code __gxx_personality_v0
      (int, _Unwind_Action, _Unwind_Exception_Class,
@@ -153,6 +199,7 @@ extern "C" _Unwind_Reason_Code __gxx_personality_v0
 extern "C" _Unwind_Reason_Code __gxx_personality_sj0
      (int, _Unwind_Action, _Unwind_Exception_Class,
       struct _Unwind_Exception *, struct _Unwind_Context *);
+#endif
 
 // Acquire the C++ exception header from the C++ object.
 static inline __cxa_exception *

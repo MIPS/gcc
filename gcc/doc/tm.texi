@@ -7615,6 +7615,20 @@ register in Dwarf.  Otherwise, this hook should return @code{NULL_RTX}.
 If not defined, the default is to return @code{NULL_RTX}.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_ASM_TTYPE (rtx @var{sym})
+This hook is used to output a reference from a frame unwinding table to
+the type_info object identified by @var{sym}.  It should return @code{TRUE}
+if the reference was output.  Returning @code{FALSE} will cause the
+reference to be output using the normal Dwarf2 routines.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_EH_FNSPEC_TTABLE_INDIRECT (void)
+This hook should return @code{TRUE} if function exception specifications
+in frame unwinding tables should consist of indices into the TType table.
+This hook should return @var{FALSE} to output these as lists of references
+to type_info objects.
+@end deftypefn
+
 @node Alignment Output
 @subsection Assembler Commands for Alignment
 

@@ -80,6 +80,9 @@ struct gcc_target
     /* Emit any directives required to unwind this instruction.  */
     void (* unwind_emit) (FILE *, rtx);
 
+    /* Emit a ttype table reference to a typeinfo object.  */
+    bool (* ttype) (rtx);
+
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
     void (* visibility) (tree, int);
@@ -416,6 +419,10 @@ struct gcc_target
   */
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
+
+  /* Returns true if function exception specification lists should
+     be offsets into the ttype table.  */
+  bool (* eh_fnspec_ttable_indirect) (void);
 
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
