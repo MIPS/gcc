@@ -46,15 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 
 
-/* See http://citeseer.nj.nec.com/chow97new.html, and
-   http://citeseer.nj.nec.com/kennedy99partial.html for details of the
-   algorithm.
-
-   kennedy99partial is newer, and is what this implementation is based
-   on.
-
-   For strength reduction addition, see
-   http://citeseer.nj.nec.com/kennedy98strength.html
+/*
 
    Some of the algorithms are also based on Open64's SSAPRE implementation.
 
@@ -66,7 +58,11 @@ Boston, MA 02111-1307, USA.  */
    through bitmap operations and iterative dataflow.
 
    SSAPRE, like most non-SSA->SSA algorithm conversions, operates one
-   expression at a time, and doesn't use bitvectors or iterative dataflow.
+   expression at a time, and doesn't use bitvectors or iterative
+   dataflow.
+   
+   It answers the question "Given a single hypothetical temporary
+   variable, what expressions could we eliminate.  
 
    To be able to do this, we need an SSA form for expressions.
    If you are already confused, you likely think an expression, as
@@ -87,7 +83,7 @@ Boston, MA 02111-1307, USA.  */
    don't have expressions with more than two operators, and each
    operator is either a constant or a variable.  Thus, no second
    order effects.
-
+   
    Once we have the lists of occurrences, we process one expression
    at a time, doing the following:
    1. Using a slightly modified SSA phi placement algorithm, place
@@ -96,12 +92,31 @@ Boston, MA 02111-1307, USA.  */
    nodes and link phi operands to their real occurrences, if they
    exist.  This creates a factored graph of our expression SSA occurrences.
    3. Using the factored graph, compute downsafe, avail, and later for
-   EPHIs.
+   EPHIs (which are SSA versions of the same named bitvector PRE
+   problems)
    4. Using EPHI availability information and versions, compute what
    occurrences need to have saves, and what occurrences can be
    reloaded from an already saved value.
    5. Insert the saves and reloads, and transform EPHIs into regular
-   phis of the temporary we use for insertion/saving.  */
+   phis of the temporary we use for insertion/saving.  
+   
+   See http://citeseer.nj.nec.com/chow97new.html, and
+   http://citeseer.nj.nec.com/kennedy99partial.html for details of the
+   algorithm.
+   
+   kennedy99partial is newer, and is what this implementation is based
+   on.
+   
+   For strength reduction addition, see
+   http://citeseer.nj.nec.com/kennedy98strength.html.
+
+   There is also a paper on sparse register promotion using PRE that
+   contains the basic algorithm for load PRE.  The exact title/url of
+   the paper escapes me.  
+
+   Lastly, there is a code hoisting extension that open64 performs
+   (see opt_ehoist.cxx), but we don't. It's not documented in any
+   papers, but not that difficult to understand of implement.  */
 
 
 /* TODOS:
@@ -127,12 +142,12 @@ static tree create_ephi_node (basic_block, unsigned int);
 static inline int opnum_of_phi (tree, int);
 static inline int opnum_of_ephi (const tree, const edge);
 static tree subst_phis (struct expr_info *, tree, basic_block, basic_block);
-static void generate_expr_as_of_bb (tree, int, basic_block);
-static void generate_vops_as_of_bb (tree, int, basic_block);
+static void generate_expr_as_of_bb (tree, basic_block, basic_block);
+static void generate_vops_as_of_bb (tree, basic_block, basic_block);
 static void rename_1 (struct expr_info *);
 static void process_delayed_rename (struct expr_info *, tree, tree);
 static void assign_new_class (tree, varray_type *, varray_type *);
-static void insert_occ_in_preorder_dt_order (struct expr_info *);
+static void create_and_insert_occ_in_preorder_dt_order (struct expr_info *);
 static void insert_euse_in_preorder_dt_order (struct expr_info *);
 static bool ephi_has_unsafe_arg (tree);
 static void reset_down_safe (tree, int);
@@ -607,7 +622,8 @@ factor_through_injuries (struct expr_info *ei, tree start, tree var,
   return end;
 }
 
-/* Return true if an EPHI will be available.  */
+/* Return true if the result of the EPHI, when transformed into a phi,
+   will be available.  */
 
 static inline bool
 ephi_will_be_avail (tree ephi)
@@ -671,8 +687,14 @@ create_expr_ref (struct expr_info *ei, tree expr, enum tree_code type,
 }
 
 
-/* dfphis and varphis, from the papers. */
+/* dfphis is a bitmap of where we need to insert ephis due to the
+   iterated dominance frontier of an expression.  */
+
 static bitmap dfphis;
+
+/* varphis is a bitmap of where we need to insert ephis due to the
+   presence of phis for a variable.  */
+
 static bitmap varphis;
 
 
@@ -751,7 +773,7 @@ clear_all_eref_arrays (void)
 /* EPHI insertion algorithm.  */
 
 static bool
-expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
+expr_phi_insertion (bitmap *dfs, struct expr_info *ei)
 {
   size_t i, j;
   vuse_optype vuses;
@@ -852,6 +874,7 @@ ephi_at_block (basic_block bb)
     return NULL_TREE;
 }
 
+/* Depth first numbering array.  */
 static int *dfn;
 
 /* Build a depth first numbering array to be used in sorting in
@@ -925,16 +948,22 @@ eref_compare (const void *elem1, const void *elem2)
   abort ();
 }
 
-/* Insert the occurrences in preorder dominator tree order.  */
+/* Create expression references for occurrences, kills, phi operands,
+   and the like.  At the same time,  insert the occurrences into the
+   ei->euses_dt_order array in the proper order.  If this function had
+   any use outside of rename_1, you could split it into two
+   functions, one creating, one inserting.  */
 
 static void
-insert_occ_in_preorder_dt_order (struct expr_info *ei)
+create_and_insert_occ_in_preorder_dt_order (struct expr_info *ei)
 {
   size_t i;
   edge succ;
   tree curr_phi_pred = NULL_TREE;
   basic_block block;
   
+  /* The ephis references were already created, so just push them into
+     the euses_dt_order list.  */
   FOR_EACH_BB (block)
   {
     tree ephi = ephi_at_block (block);
@@ -943,7 +972,9 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
     if (ephi != NULL_TREE)
       VARRAY_PUSH_TREE (ei->euses_dt_order, ephi);
   }
-  
+
+  /* The non-ephis have to actually be created, so do that, then push
+     them into the list.  */
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->occurs); i++)
       {
@@ -989,10 +1020,11 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	  }
       }
 
-
+  /* Lastly, we need to create and insert the ephi operand occurrences
+     into the list.  */
   FOR_ALL_BB (block)
   {
-    /* Insert the phi operand occurrences's in the heap at the
+    /* Insert the phi operand occurrences into the list at the
        successors.*/
     for (succ = block->succ; succ; succ = succ->succ_next)
       {
@@ -1044,7 +1076,7 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 
   
 /* Assign a new redundancy class to the occurrence, and push it on the
-   stack.  */
+   renaming stack.  */
 
 static void
 assign_new_class (tree occ, varray_type * stack, varray_type * stack2)
@@ -1060,7 +1092,11 @@ assign_new_class (tree occ, varray_type * stack, varray_type * stack2)
   class_count++;
 }
 
-/* Determine if two real occurrences have the same ESSA version.  */
+/* Determine if two real occurrences have the same ESSA version.
+   We do this by hashing the expressions and comparing the hash
+   values.  Even if they don't match, we then see if this is a
+   strength reduction candidate, and if so, if the use is simply
+   injured.  */
 
 static inline bool
 same_e_version_real_occ_real_occ (struct expr_info *ei,
@@ -1075,7 +1111,7 @@ same_e_version_real_occ_real_occ (struct expr_info *ei,
 
   expr1val = iterative_hash_expr (TREE_OPERAND (t1, 1), 0);
   expr2val = iterative_hash_expr (TREE_OPERAND (t2, 1), 0);
-
+  
   if (expr1val == expr2val)
     {
       vuses = STMT_VUSE_OPS (t1);
@@ -1087,12 +1123,19 @@ same_e_version_real_occ_real_occ (struct expr_info *ei,
       if (expr1val != expr2val)
         return false;
     }
+
+  /* If the def is injured, and the expressions have the same value,
+     then the use is injured.  */
   if (expr1val == expr2val)
     {
       if (EREF_INJURED (def))
 	EREF_INJURED (use) = true;
       return true;
     }
+
+  /* Even if the expressions don't have the same value, it might be
+     the case that the use is simply injured, in which case, it's
+     still okay.  */
   if (expr1val != expr2val && ei->strred_cand)
     {
       if (injured_real_occ_real_occ (ei, def, use))
@@ -1104,7 +1147,8 @@ same_e_version_real_occ_real_occ (struct expr_info *ei,
   return false;
 }  
 
-/* Determine if the use occurrence is injured.  */
+/* Determine if the use occurrence is injured.
+   TODO: Finish actually implementing this.  */
 
 static inline bool
 injured_real_occ_real_occ (struct expr_info *ei ATTRIBUTE_UNUSED, 
@@ -1124,7 +1168,7 @@ injured_real_occ_real_occ (struct expr_info *ei ATTRIBUTE_UNUSED,
   
 }
 
-/* Determine the operand number of predecessor block J in EPHI.  */
+/* Determine the operand number of edge E in EPHI.  */
 
 static inline int
 opnum_of_ephi (const tree ephi, const edge e)
@@ -1139,7 +1183,7 @@ opnum_of_ephi (const tree ephi, const edge e)
   return epp->opnd;
 }
 
-/* Determine the phi operand index for J, for PHI.  */
+/* Determine the phi operand index for J in PHI.  */
 
 static inline int
 opnum_of_phi (tree phi, int j)
@@ -1155,11 +1199,13 @@ opnum_of_phi (tree phi, int j)
   abort();
 }
 
-/* Generate EXPR as it would look in basic block J (using the phi in
-   block BB). */
+/* Generate EXPR as it would look in basic block PRED (using the phi in
+   block BB).  We do this by replacing the variables with the phi
+   argument definitions for block J if they are defined by a phi in
+   block BB.  */
 
 static void
-generate_expr_as_of_bb (tree expr, int j, basic_block bb)
+generate_expr_as_of_bb (tree expr, basic_block pred, basic_block bb)
 {
   use_optype uses = STMT_USE_OPS (expr);
   bool replaced_constants = false;
@@ -1175,7 +1221,7 @@ generate_expr_as_of_bb (tree expr, int j, basic_block bb)
 	{
 	  if (names_match_p (PHI_RESULT (phi), v))
 	    {
-	      int opnum = opnum_of_phi (phi, j);
+	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
 	      *vp = p;
 	      if (!phi_ssa_name_p (p))
@@ -1189,14 +1235,14 @@ generate_expr_as_of_bb (tree expr, int j, basic_block bb)
      simplify the result lest we crash in get_expr_operands.  */
   if (replaced_constants)
     fold_stmt (&expr);
-
 }
 
-/* Generate VUSE ops as they would look in basic block J (using the phi in
-   block BB). */
+/* Generate VUSE ops as they would look in basic block PRED (using the
+   phi in block BB).  Done the same way as we do generation of regular
+   ops for the bb.  */
 
 static void
-generate_vops_as_of_bb (tree expr, int j, basic_block bb)
+generate_vops_as_of_bb (tree expr, basic_block pred, basic_block bb)
 {
   vuse_optype vuses = STMT_VUSE_OPS (expr);
   size_t i;
@@ -1210,7 +1256,7 @@ generate_vops_as_of_bb (tree expr, int j, basic_block bb)
 	{
 	  if (names_match_p (PHI_RESULT (phi), v))
 	    {
-	      int opnum = opnum_of_phi (phi, j);
+	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
 	      *VUSE_OP_PTR (vuses, i) = p;
 	      break;
@@ -1219,18 +1265,19 @@ generate_vops_as_of_bb (tree expr, int j, basic_block bb)
     }
 }
 
-/* Make a copy of Z as it would look in BB j, using the PHIs in BB.  */
+/* Make a copy of Z as it would look in basic block PRED, using the PHIs
+   in BB. */
 
 static tree
-subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
+subst_phis (struct expr_info *ei, tree Z, basic_block pred, basic_block bb)
 {
   tree stmt_copy;
   size_t i;
 
   /* Return the cached version, if we have one. */
-  if (j->index < n_phi_preds 
-      && phi_pred_cache[j->index] != NULL_TREE)
-    return phi_pred_cache[j->index];
+  if (pred->index < n_phi_preds 
+      && phi_pred_cache[pred->index] != NULL_TREE)
+    return phi_pred_cache[pred->index];
 
   /* Otherwise, generate a new expression.  */
   pre_stats.exprs_generated++;
@@ -1238,19 +1285,19 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
   create_stmt_ann (stmt_copy);
   modify_stmt (stmt_copy);
   get_stmt_operands (stmt_copy);
-  generate_expr_as_of_bb (stmt_copy, j->index, bb);
+  generate_expr_as_of_bb (stmt_copy, pred, bb);
   set_bb_for_stmt (stmt_copy, bb);
   modify_stmt (stmt_copy);
   get_stmt_operands (stmt_copy);
 
   /* If we have vuses on the original statement, and we still have
-     use_ops on the generated expr, we need to copy the vuses.  */
+     use_ops on the generated expr, we need to copy the vuses.  */ 
+  
   if (ei->loadpre_cand
       && NUM_VUSES (STMT_VUSE_OPS (Z)) != 0
       && NUM_USES (STMT_USE_OPS (stmt_copy)) != 0)
     {
       vuse_optype vuses = STMT_VUSE_OPS (Z);
-
       remove_vuses (stmt_copy);
 
       start_ssa_stmt_operands (stmt_copy);
@@ -1258,7 +1305,7 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
         add_vuse (VUSE_OP (vuses, i), stmt_copy);
       finalize_ssa_stmt_operands (stmt_copy);
 
-      generate_vops_as_of_bb (stmt_copy, j->index, bb);
+      generate_vops_as_of_bb (stmt_copy, pred, bb);
     }
   else
     {
@@ -1266,21 +1313,27 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
       remove_vdefs (stmt_copy);
     }
 
-  if (j->index < n_phi_preds)
-    phi_pred_cache[j->index] = stmt_copy;
+  if (pred->index < n_phi_preds)
+    phi_pred_cache[pred->index] = stmt_copy;
   return stmt_copy;
 }
 
-static inline
-bool same_e_version_real_occ_phi_opnd (struct expr_info *ei, tree def,
+/* Determine if def and use_tree should have the same e-version.  We do
+   this by simply determining if something modifies the expression
+   between DEF and USE_TREE.  USE_TREE was generated from the OPND_NUM'th
+   operand of the EPHI in USE_BB.  If it is modified, we determine if
+   it is simply injured, and thus, okay.  */
+
+static inline bool 
+same_e_version_real_occ_phi_opnd (struct expr_info *ei, tree def,
 				       basic_block use_bb, int opnd_num,
-				       tree use_cr, bool *injured)
+				       tree use_tree, bool *injured)
 {
   bool not_mod = true;
   *injured = false;
   
   if (load_modified_real_occ_real_occ (EREF_STMT (def), 
-				       use_cr))
+				       use_tree))
     not_mod = false;
   
   if (not_mod)
@@ -1293,9 +1346,10 @@ bool same_e_version_real_occ_phi_opnd (struct expr_info *ei, tree def,
   return false;
 }
 
-
-static inline 
-bool injured_real_occ_phi_opnd (struct expr_info *ei ATTRIBUTE_UNUSED,
+/* Determine whether the OPND_NUM'th operand of USE_BB's EPHI is an
+   injured version of DEF.  */
+static inline bool 
+injured_real_occ_phi_opnd (struct expr_info *ei ATTRIBUTE_UNUSED,
 				tree def ATTRIBUTE_UNUSED,
 				basic_block use_bb ATTRIBUTE_UNUSED, 
 				int opnd_num ATTRIBUTE_UNUSED)
@@ -1304,8 +1358,10 @@ bool injured_real_occ_phi_opnd (struct expr_info *ei ATTRIBUTE_UNUSED,
   return false;
 }
 
-static inline
-bool load_modified_real_occ_real_occ (tree def, tree use)
+/* Determine whether the expression is modified between DEF and USE,
+   by comparing the hash values of the two expressions.  */
+static inline bool 
+load_modified_real_occ_real_occ (tree def, tree use)
 {
   hashval_t expr1val;
   hashval_t expr2val;
@@ -1336,46 +1392,55 @@ bool load_modified_real_occ_real_occ (tree def, tree use)
   return expr1val != expr2val;
 }
 
-
-static
-bool load_modified_phi_result (basic_block bb, tree cr)
+/* Determine if the expression is modified between the start of BB,
+   and the use at USE, ignoring phis.  We do this by simple
+   domination, because of the properties of SSA.  */
+static bool 
+load_modified_phi_result (basic_block bb, tree use)
 {
-  basic_block defbb = bb_for_stmt (SSA_NAME_DEF_STMT (cr));
+  basic_block defbb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
   if (defbb != bb)
     {
       /* This guards against moving around undefined variables.
 	 However, PARM_DECL is special because it *IS* live on entry,
 	 so it's not really undefined.  */
-      if (!defbb && TREE_CODE (SSA_NAME_VAR (cr)) != PARM_DECL)
+      if (!defbb && TREE_CODE (SSA_NAME_VAR (use)) != PARM_DECL)
 	return true;
-      else if (!defbb && TREE_CODE (SSA_NAME_VAR (cr)) == PARM_DECL)
+      else if (!defbb && TREE_CODE (SSA_NAME_VAR (use)) == PARM_DECL)
         return false;
       if (dominated_by_p (CDI_DOMINATORS, bb, defbb))
 	return false;
     }
   else
     {
-      if (TREE_CODE (SSA_NAME_DEF_STMT (cr)) == PHI_NODE)
+      if (TREE_CODE (SSA_NAME_DEF_STMT (use)) == PHI_NODE)
         return false;
     }
   return true;
 }
-			  
-static 
-bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
+
+/* Determine if the variables in EXP are modified between DEF and
+   USE.  If they are, we have to give a new e-version to the result. 
+   For load PRE, we have to check the vuses too.  For strength
+   reduction, we need to check whether the modification is a simple
+   injury.  */
+
+static bool 
+same_e_version_phi_result (struct expr_info *ei, tree def, tree exp,
 				tree use)
 {
   bool not_mod = true;
   size_t i;
-  use_optype real_cruses = STMT_USE_OPS (cr);
-  vuse_optype cruses;
+  use_optype real_expuses = STMT_USE_OPS (exp);
+  vuse_optype expuses;
+  
 
-  if (NUM_USES (real_cruses) == 0)
+  if (NUM_USES (real_expuses) == 0)
     return false;
   
-  for (i = 0; i < NUM_USES (real_cruses) && not_mod; i++)
+  for (i = 0; i < NUM_USES (real_expuses) && not_mod; i++)
     {
-      tree *use1p = USE_OP_PTR (real_cruses, i);
+      tree *use1p = USE_OP_PTR (real_expuses, i);
       tree use1;  
       if (!use1p)
 	continue;
@@ -1386,11 +1451,11 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
   
   if (not_mod && ei->loadpre_cand)
     {
-      cruses = STMT_VUSE_OPS (cr);
+      expuses = STMT_VUSE_OPS (exp);
       
-      for (i = 0; i < NUM_VUSES (cruses) && not_mod; i++)
+      for (i = 0; i < NUM_VUSES (expuses) && not_mod; i++)
 	{
-	  tree use1 = VUSE_OP (cruses, i);
+	  tree use1 = VUSE_OP (expuses, i);
 	  if (load_modified_phi_result (bb_for_stmt (def), use1))
 	    not_mod = false;
 	}
@@ -1400,7 +1465,7 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
     return true;  
   else if (ei->strred_cand)
     {
-      if (injured_phi_result_real_occ (ei, def, cr, bb_for_stmt (use)))
+      if (injured_phi_result_real_occ (ei, def, exp, bb_for_stmt (use)))
 	{
 	  EREF_INJURED (use) = true;
 	  return true;
@@ -1410,17 +1475,24 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
   return false;
 }
 
+/* Determine whether USE_TREE is an injured version of DEF.  */
+
 static inline bool
 injured_phi_result_real_occ (struct expr_info *ei ATTRIBUTE_UNUSED, 
 			     tree def ATTRIBUTE_UNUSED, 
-			     tree use_cr ATTRIBUTE_UNUSED,
+			     tree use_tree ATTRIBUTE_UNUSED,
 			     basic_block use_bb ATTRIBUTE_UNUSED)
 {
   /* XXX: Implement.  */
   return false;
 }
 
-/* Delayed rename handling is done like open64 does it.  Basically,
+/* Delayed renaming checks to make sure the optimistic assumptions
+   about ephi operand versions in rename_1 actually turned out to be
+   true.  This requires generating the expressions for each ephi
+   operand, and comparing them to the versions of the occurrence it is
+   defined by.  
+   Delayed rename handling is done like open64 does it.  Basically,
    like the delayed renaming is described in the paper, with
    extensions for strength reduction.  */
 
@@ -1429,23 +1501,34 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 {
   tree exp_phi = use;
   int opnd_num = 0;
+
+  /* We only care about operands we actually have DELAYED_RENAME set
+     on.  */
   for (opnd_num = 0; opnd_num < EPHI_NUM_ARGS (exp_phi); opnd_num++)
     {
       tree opnd = EPHI_ARG_DEF (exp_phi, opnd_num);
       if (EPHI_ARG_DELAYED_RENAME (exp_phi, opnd_num))
 	{
 	  tree def;
-	  tree newcr;
+	  tree newexp;
+
+	  /* Mark it as being processed, then generate the ephi
+	     operand expression.  */
 	  EPHI_ARG_DELAYED_RENAME (exp_phi, opnd_num) = false;
 	  def = opnd;
-	  newcr = subst_phis (ei, real_occ,
+	  newexp = subst_phis (ei, real_occ,
 			      EPHI_ARG_EDGE (exp_phi, opnd_num)->src,
 			      bb_for_stmt (exp_phi));
+
+	  /* For operands defined by EPHIs, we need to compare the
+	     generated expression and the phi result.
+	     For operands defined by real occurrences, we simply compare
+	     the phi operand and the real occurrence.  */
 	  if (TREE_CODE (def) == EPHI_NODE)
 	    {
 	      tree tmp_use = EPHI_ARG_PRED (exp_phi, opnd_num);	     
-	      EREF_STMT (tmp_use) = newcr;
-	      if (same_e_version_phi_result (ei, def, newcr,
+	      EREF_STMT (tmp_use) = newexp;
+	      if (same_e_version_phi_result (ei, def, newexp,
 					     tmp_use))
 		{
 		  
@@ -1456,15 +1539,21 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 		    }
 		  if (EREF_STMT (def) == NULL) 
 		    {
+		      /* If it was injured, we need to make up a new
+			 phi result with the actually injured
+			 version.  */
 		      if (EPHI_ARG_INJURED (exp_phi, opnd_num))
 			{
 			  /* XXX: Allocate phi result with correct version.  */
 			  
 			}	
-		      EREF_STMT (def) = newcr;
-		      process_delayed_rename (ei, def, newcr);
+		      EREF_STMT (def) = newexp;
+		      process_delayed_rename (ei, def, newexp);
 		    }
 		}
+	      /* If it's not the same version, the defining ephi can't
+		 be downsafe, and the operand is not really defined by
+		 anything.  */
 	      else
 		{
 		  EPHI_DOWNSAFE (def) = false;
@@ -1476,7 +1565,7 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 	      bool injured = false;
 	      if (same_e_version_real_occ_phi_opnd (ei, def, 
 						    bb_for_stmt (use),
-						    opnd_num, newcr, &injured))
+						    opnd_num, newexp, &injured))
 		{
 		  tree tmp_use = EPHI_ARG_PRED (exp_phi, opnd_num);
 		  EPHI_ARG_HAS_REAL_USE (exp_phi, opnd_num) = true;
@@ -1501,17 +1590,17 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
     }
 }
 
-/* Renaming is done like Open64 does it.  Basically as the paper says, 
-   except that we try to use earlier defined occurrences if they are
-   available in order to keep the number of saves down.
-
-   For the uninitiated, the algorithm is a modified SSA renaming
+/* For the uninitiated, the algorithm is a modified SSA renaming
    algorithm (working on expressions rather than variables) .  We
    attempt to determine which expression occurrences have the same
-   ESSA version (we call it class, for equivalence class, which is
-   what the papers call it.  Open64 calls it e-version), and which
-   occurrences are actually operands for an EPHI (since this has to be
-   discovered from the program).  */
+   ESSA version (we call it class, for equivalence/redunancy class,
+   which is what the papers call it.  Open64 calls it e-version), and
+   which occurrences are actually operands for an EPHI (since this has
+   to be discovered from the program). 
+
+   Renaming is done like Open64 does it.  Basically as the paper says, 
+   except that we try to use earlier defined occurrences if they are
+   available in order to keep the number of saves down. */
 
 static void
 rename_1 (struct expr_info *ei)
@@ -1523,9 +1612,9 @@ rename_1 (struct expr_info *ei)
 
   VARRAY_GENERIC_PTR_NOGC_INIT (stack, 1, "Stack for renaming");
 
-  /* Start by inserting the occurrences in preorder, dominator tree
-     order.  */
-  insert_occ_in_preorder_dt_order (ei);
+  /* Start by creating and inserting the occurrences in preorder,
+     dominator tree into a list.  */
+  create_and_insert_occ_in_preorder_dt_order (ei);
   
   /* Walk the occurrences.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
@@ -1731,7 +1820,8 @@ reset_down_safe (tree currphi, int opnum)
     reset_down_safe (ephi, i);
 }
 
-/* Compute down_safety using a depth first search.  */
+/* Compute down_safety using a depth first search.
+   This propagates not fully anticipated phi assignments upwards.  */
 
 static void
 compute_down_safety (struct expr_info *ei)
@@ -1831,7 +1921,8 @@ compute_stops (struct expr_info *ei)
   do_ephi_df_search (ei, stops_search);
 }
 
-/* Compute will_be_avail.  */
+/* Compute will_be_avail property, which consists of cant_be_avail and
+   stops properties.  */
 
 static void
 compute_will_be_avail (struct expr_info *ei)
@@ -2052,7 +2143,9 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
 }
 
 /* First step of finalization.  Determine which expressions are being
-   saved and which are being deleted.  */
+   saved and which are being deleted.
+   This is done as a simple dominator based availabilty calculation,
+   using the e-versions/redundancy classes.  */
 
 static bool
 finalize_1 (struct expr_info *ei)
@@ -2435,7 +2528,10 @@ finalize_2 (struct expr_info *ei)
 	  set_save (ei, EUSE_DEF (ref));
 	}
     }
-  /* ESSA Minimization.  */
+
+  /* ESSA Minimization.  Determines which phis are identical to other
+     phis, and not strictly necessary.  */
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
       tree ephi = VARRAY_TREE (ei->euses_dt_order, i);
@@ -2905,7 +3001,10 @@ free_expr_info (struct expr_info *v1)
   VARRAY_FREE (e1->euses_dt_order);
 }
 
-/* Process left occurrences and kills due to EXPR.  */
+/* Process left occurrences and kills due to EXPR.
+   A left occurrence occurs wherever a variable in an expression we
+   are PRE'ing is stored to directly in a def, or indirectly because
+   of a VDEF of an expression that we VUSE.  */
 
 static void
 process_left_occs_and_kills (varray_type bexprs, tree expr)

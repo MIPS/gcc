@@ -7,6 +7,16 @@
 
 2004-01-27  Daniel Berlin  <dberlin@dberlin.org>
 	
+	* tree-ssa-pre.c:  Add more comments describing SSAPRE and
+	the various functions.
+	(generate_expr_as_of_bb): Use PRED, a basic block argument, instead of
+	j, the index of that bb.
+	(generate_vops_as_of_bb): Ditto.
+	(insert_occ_in_preorder_dt_order): Rename to
+	create_and_insert_occ_in_preorder_dt_order.
+
+2004-01-27  Daniel Berlin  <dberlin@dberlin.org>
+	
 	* tree-ssa-pre.c (rename_1): Add some more comments.
 
 2004-01-25  Andrew Pinski  <pinskia@physics.uc.edu>
