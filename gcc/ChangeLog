@@ -1,3 +1,8 @@
+2004-03-02  Ziemowit Laski  <zlaski@apple.com>
+
+	* gengtype.c (get_base_file_bitmap): Allow for file found
+	in a language subdirectory to also be used by other languages.
+
 2004-02-03  Ziemowit Laski  <zlaski@apple.com>
 
 	Sync up with HEAD:2004-02-02.

@@ -1154,6 +1154,10 @@ get_base_file_bitmap (const char *input_file)
   unsigned k;
   unsigned bitmap;
 
+  /* If the file resides in a language subdirectory (e.g., 'cp'), assume that
+     it belongs to the corresponding language.  The file may belong to other
+     languages as well (which is checked for below).  */
+
   if (slashpos)
     {
       size_t i;
@@ -1163,10 +1167,7 @@ get_base_file_bitmap (const char *input_file)
           {
             /* It's in a language directory, set that language.  */
             bitmap = 1 << i;
-            return bitmap;
           }
-
-      abort (); /* Should have found the language.  */
     }
 
   /* If it's in any config-lang.in, then set for the languages
