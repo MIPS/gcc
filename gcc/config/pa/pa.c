@@ -1990,9 +1990,12 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	{
 	  rtx insn, temp;
 	  rtx op1 = operand1;
-	  HOST_WIDE_INT value = INTVAL (operand1);
+	  HOST_WIDE_INT value = 0;
 	  HOST_WIDE_INT insv = 0;
 	  int insert = 0;
+
+	  if (GET_CODE (operand1) == CONST_INT)
+	    value = INTVAL (operand1);
 
 	  if (TARGET_64BIT
 	      && GET_CODE (operand1) == CONST_INT
@@ -5551,8 +5554,8 @@ emit_hpdiv_const (rtx *operands, int unsignedp)
 
       emit_move_insn (gen_rtx_REG (SImode, 26), operands[1]);
       emit
-	(gen_rtx
-	 (PARALLEL, VOIDmode,
+	(gen_rtx_PARALLEL
+	 (VOIDmode,
 	  gen_rtvec (6, gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, 29),
 				     gen_rtx_fmt_ee (unsignedp ? UDIV : DIV,
 						     SImode,
@@ -9093,12 +9096,16 @@ pa_globalize_label (FILE *stream, const char *name)
   }
 }
 
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
 static rtx
 pa_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 		     int incoming ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (Pmode, PA_STRUCT_VALUE_REGNUM);
 }
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 bool
 pa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)

@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -506,6 +506,19 @@ various prediction routines are in @file{predict.c}.
 The option @option{-dB} causes a debugging dump of the RTL code after
 this pass.  This dump file's name is made by appending @samp{.bbro} to
 the input file name.
+
+@cindex variable tracking
+@item
+Variable tracking.  This pass computes where the variables are stored at each
+position in code and generates notes describing the variable locations
+to RTL code.  The location lists are then generated according to these
+notes to debug information if the debugging information format supports
+location lists.
+
+@opindex dV
+The option @option{-dV} causes a debugging dump of the RTL code after
+this pass.  This dump file's name is made by appending @samp{.vartrack}
+to the input file name.
 
 @cindex delayed branch scheduling
 @cindex scheduling, delayed branch

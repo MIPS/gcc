@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -760,7 +760,7 @@ tinfo_base_init (tree desc, tree target)
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
     TREE_PUBLIC (name_decl) = 1;
-    comdat_linkage (name_decl);
+    import_export_tinfo (name_decl, target, typeinfo_in_lib_p (target));
     /* External name of the string containing the type's name has a
        special name.  */
     SET_DECL_ASSEMBLER_NAME (name_decl,

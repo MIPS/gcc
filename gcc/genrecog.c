@@ -90,6 +90,7 @@ struct decision_test
     {
       DT_mode, DT_code, DT_veclen,
       DT_elt_zero_int, DT_elt_one_int, DT_elt_zero_wide, DT_elt_zero_wide_safe,
+      DT_const_int,
       DT_veclen_ge, DT_dup, DT_pred, DT_c_test,
       DT_accept_op, DT_accept_insn
     } type;
@@ -231,7 +232,7 @@ static struct decision *new_decision
 static struct decision_test *new_decision_test
   (enum decision_type, struct decision_test ***);
 static rtx find_operand
-  (rtx, int);
+  (rtx, int, rtx);
 static rtx find_matching_operand
   (rtx, int);
 static void validate_pattern
@@ -345,15 +346,18 @@ new_decision_test (enum decision_type type, struct decision_test ***pplace)
   return test;
 }
 
-/* Search for and return operand N.  */
+/* Search for and return operand N, stop when reaching node STOP.  */
 
 static rtx
-find_operand (rtx pattern, int n)
+find_operand (rtx pattern, int n, rtx stop)
 {
   const char *fmt;
   RTX_CODE code;
   int i, j, len;
   rtx r;
+
+  if (pattern == stop)
+    return stop;
 
   code = GET_CODE (pattern);
   if ((code == MATCH_SCRATCH
@@ -371,7 +375,7 @@ find_operand (rtx pattern, int n)
       switch (fmt[i])
 	{
 	case 'e': case 'u':
-	  if ((r = find_operand (XEXP (pattern, i), n)) != NULL_RTX)
+	  if ((r = find_operand (XEXP (pattern, i), n, stop)) != NULL_RTX)
 	    return r;
 	  break;
 
@@ -382,7 +386,8 @@ find_operand (rtx pattern, int n)
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
-	    if ((r = find_operand (XVECEXP (pattern, i, j), n)) != NULL_RTX)
+	    if ((r = find_operand (XVECEXP (pattern, i, j), n, stop))
+		!= NULL_RTX)
 	      return r;
 	  break;
 
@@ -466,7 +471,17 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
     {
     case MATCH_SCRATCH:
       return;
-
+    case MATCH_DUP:
+    case MATCH_OP_DUP:
+    case MATCH_PAR_DUP:
+      if (find_operand (insn, XINT (pattern, 0), pattern) == pattern)
+	{
+	  message_with_line (pattern_lineno,
+			     "operand %i duplicated before defined",
+			     XINT (pattern, 0));
+          error_count++;
+	}
+      break;
     case MATCH_INSN:
     case MATCH_OPERAND:
     case MATCH_OPERATOR:
@@ -638,12 +653,12 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	if (GET_CODE (dest) == MATCH_DUP
 	    || GET_CODE (dest) == MATCH_OP_DUP
 	    || GET_CODE (dest) == MATCH_PAR_DUP)
-	  dest = find_operand (insn, XINT (dest, 0));
+	  dest = find_operand (insn, XINT (dest, 0), NULL);
 
 	if (GET_CODE (src) == MATCH_DUP
 	    || GET_CODE (src) == MATCH_OP_DUP
 	    || GET_CODE (src) == MATCH_PAR_DUP)
-	  src = find_operand (insn, XINT (src, 0));
+	  src = find_operand (insn, XINT (src, 0), NULL);
 
 	dmode = GET_MODE (dest);
 	smode = GET_MODE (src);
@@ -1981,6 +1996,11 @@ write_cond (struct decision_test *p, int depth,
       print_host_wide_int (p->u.intval);
       break;
 
+    case DT_const_int:
+      printf ("x%d == const_int_rtx[MAX_SAVED_CONST_INT + (%d)]",
+	      depth, (int) p->u.intval);
+      break;
+
     case DT_veclen_ge:
       printf ("XVECLEN (x%d, 0) >= %d", depth, p->u.veclen);
       break;
@@ -2143,6 +2163,23 @@ write_node (struct decision *p, int depth,
   struct decision_test *test, *last_test;
   int uncond;
 
+  /* Scan the tests and simplify comparisons against small
+     constants.  */
+  for (test = p->tests; test; test = test->next)
+    {
+      if (test->type == DT_code
+	  && test->u.code == CONST_INT
+	  && test->next
+	  && test->next->type == DT_elt_zero_wide_safe
+	  && -MAX_SAVED_CONST_INT <= test->next->u.intval
+	  && test->next->u.intval <= MAX_SAVED_CONST_INT)
+	{
+	  test->type = DT_const_int;
+	  test->u.intval = test->next->u.intval;
+	  test->next = test->next->next;
+	}
+    }
+
   last_test = test = p->tests;
   uncond = is_unconditional (test, subroutine_type);
   if (uncond == 0)
@@ -2152,11 +2189,8 @@ write_node (struct decision *p, int depth,
 
       while ((test = test->next) != NULL)
 	{
-	  int uncond2;
-
 	  last_test = test;
-	  uncond2 = is_unconditional (test, subroutine_type);
-	  if (uncond2 != 0)
+	  if (is_unconditional (test, subroutine_type))
 	    break;
 
 	  printf ("\n      && ");

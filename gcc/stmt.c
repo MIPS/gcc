@@ -58,6 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "optabs.h"
 #include "target.h"
+#include "regs.h"
 
 /* Functions and data structures for expanding case statements.  */
 
@@ -1101,8 +1102,7 @@ expand_asm (tree string, int vol)
   if (TREE_CODE (string) == ADDR_EXPR)
     string = TREE_OPERAND (string, 0);
 
-  body = gen_rtx_ASM_INPUT (VOIDmode,
-			    ggc_strdup (TREE_STRING_POINTER (string)));
+  body = gen_rtx_ASM_INPUT (VOIDmode, TREE_STRING_POINTER (string));
 
   MEM_VOLATILE_P (body) = vol;
 
@@ -1440,7 +1440,7 @@ decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
 
       for (regno = REGNO (reg);
 	   regno < (REGNO (reg)
-		    + HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg)));
+		    + hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
 	   regno++)
 	if (TEST_HARD_REG_BIT (clobbered_regs, regno))
 	  {
@@ -1691,7 +1691,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				: GET_MODE (output_rtx[0])),
-			       ggc_strdup (TREE_STRING_POINTER (string)),
+			       TREE_STRING_POINTER (string),
 			       empty_string, 0, argvec, constraintvec,
 			       locus.file, locus.line);
 
@@ -1772,8 +1772,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       ASM_OPERANDS_INPUT (body, i) = op;
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
-	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
-			     ggc_strdup (constraints[i + noutputs]));
+	= gen_rtx_ASM_INPUT (TYPE_MODE (type), constraints[i + noutputs]);
 
       if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
 	clobber_conflict_found = 1;
@@ -1814,7 +1813,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   if (noutputs == 1 && nclobbers == 0)
     {
-      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
+      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
       emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
@@ -1842,9 +1841,8 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 			   output_rtx[i],
 			   gen_rtx_ASM_OPERANDS
 			   (GET_MODE (output_rtx[i]),
-			    ggc_strdup (TREE_STRING_POINTER (string)),
-			    ggc_strdup (constraints[i]),
-			    i, argvec, constraintvec,
+			    TREE_STRING_POINTER (string),
+			    constraints[i], i, argvec, constraintvec,
 			    locus.file, locus.line));
 
 	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;

@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -631,15 +631,20 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   if (!nested_p && !flag_inline_trees)
     {
-      /* Stop pointing to the local nodes about to be freed.
-	 But DECL_INITIAL must remain nonzero so we know this
-	 was an actual function definition.
-	 For a nested function, this is done in c_pop_function_context.
-	 If rest_of_compilation set this to 0, leave it 0.  */
-      if (DECL_INITIAL (fndecl) != 0)
-	DECL_INITIAL (fndecl) = error_mark_node;
+      DECL_SAVED_TREE (fndecl) = NULL;
+      if (DECL_SAVED_INSNS (fndecl) == 0
+	  && !cgraph_node (fndecl)->origin)
+	{
+	  /* Stop pointing to the local nodes about to be freed.
+	     But DECL_INITIAL must remain nonzero so we know this
+	     was an actual function definition.
+	     For a nested function, this is done in c_pop_function_context.
+	     If rest_of_compilation set this to 0, leave it 0.  */
+	  if (DECL_INITIAL (fndecl) != 0)
+	    DECL_INITIAL (fndecl) = error_mark_node;
 
-      DECL_ARGUMENTS (fndecl) = 0;
+	  DECL_ARGUMENTS (fndecl) = 0;
+	}
     }
 
   input_location = saved_loc;

@@ -1,6 +1,7 @@
 ;; -*- Mode: Scheme -*-
 ;; GCC machine description for Ubicom IP2022 Communications Controller.
-;; Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+;; Copyright (C) 2000, 2001, 2002, 2004
+;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat, Inc and Ubicom, Inc.
 ;;
 ;; This file is part of GCC.
@@ -974,7 +975,7 @@
 		        0xff & ~mask);
 
 	  if (CONSTANT_P (operands[3]))
-	  /* Constant can just be or-ed in. */
+	  /* Constant can just be or-ed in.  */
 	    {
 	      p += sprintf (p, \"mov\\tw,#$%2.2x\;or\\t%%0,w\",
 		            (int) (INTVAL (operands[3]) << pos) & mask & 0xff);
@@ -983,7 +984,7 @@
 
 	  p += sprintf (p, \"mov\\tw,%%3\;\"); /* Value to deposit */
 
-	  /* Shift and mask the value before OR-ing into the destination. */
+	  /* Shift and mask the value before OR-ing into the destination.  */
 
           if (pos != 0)
 	    p += sprintf (p, \"mulu\\tw,#%d\;\", 1<<pos);
@@ -1083,10 +1084,10 @@
      {
        /* It is not impossible to wind up with two constants here.
           If we simply emit the ashl, we'll generate unrecognizable
-	  instructions. */
+	  instructions.  */
        if (! nonimmediate_operand (operands[1], HImode))
          operands[1] = copy_to_mode_reg (HImode, operands[1]);
-       emit_insn (gen_ashlhi3 (operands[0], operands[1], GEN_INT (1)));
+       emit_insn (gen_ashlhi3 (operands[0], operands[1], const1_rtx));
        DONE;
      }
   ")
@@ -3153,13 +3154,13 @@
     if (INTVAL (operands[2]) == 16)
       {
         emit_insn (gen_movhi (operands[3], operands[5]));
-        emit_insn (gen_movhi (operands[4], GEN_INT (0)));
+        emit_insn (gen_movhi (operands[4], const0_rtx));
       }
     else
       {
         operands[6] = GEN_INT (INTVAL (operands[2]) - 16);
 	emit_insn (gen_ashlhi3 (operands[3], operands[5], operands[6]));
-        emit_insn (gen_movhi (operands[4], GEN_INT (0)));
+        emit_insn (gen_movhi (operands[4], const0_rtx));
       }
   }")
 
@@ -3387,18 +3388,18 @@
 	emit_insn (gen_movhi (operands[7], operands[11]));
 	emit_insn (gen_movhi (operands[8], operands[12]));
 	emit_insn (gen_movhi (operands[9], operands[13]));
-	emit_insn (gen_movhi (operands[10], GEN_INT (0)));
+	emit_insn (gen_movhi (operands[10], const0_rtx));
       }
     else if (INTVAL (operands[2]) == 32)
       {
         emit_insn (gen_movsi (operands[3], operands[5]));
-        emit_insn (gen_movsi (operands[4], GEN_INT (0)));
+        emit_insn (gen_movsi (operands[4], const0_rtx));
       }
     else
       {
         operands[6] = GEN_INT (INTVAL (operands[2]) - 32);
 	emit_insn (gen_ashlsi3 (operands[3], operands[5], operands[6]));
-        emit_insn (gen_movsi (operands[4], GEN_INT (0)));
+        emit_insn (gen_movsi (operands[4], const0_rtx));
       }
   }")
 
@@ -3895,7 +3896,7 @@
         operands[6] = GEN_INT (INTVAL (operands[2]) - 8);
 	emit_insn (gen_lshrqi3 (operands[4], operands[5], operands[6]));
       }
-    emit_insn (gen_movqi (operands[3], GEN_INT (0)));
+    emit_insn (gen_movqi (operands[3], const0_rtx));
   }")
 
 (define_insn "lshrhi3" ;			      0   1   2  3   4
@@ -4026,7 +4027,7 @@
         operands[6] = GEN_INT (INTVAL (operands[2]) - 16);
 	emit_insn (gen_lshrhi3 (operands[4], operands[5], operands[6]));
       }
-    emit_insn (gen_movhi (operands[3], GEN_INT (0)));
+    emit_insn (gen_movhi (operands[3], const0_rtx));
   }")
 
 ;; This occurs frequently in supporting FP among other things,
@@ -4257,18 +4258,18 @@
 	emit_insn (gen_movhi (operands[10], operands[11]));
 	emit_insn (gen_movhi (operands[9], operands[12]));
 	emit_insn (gen_movhi (operands[8], operands[13]));
-	emit_insn (gen_movhi (operands[7], GEN_INT(0)));
+	emit_insn (gen_movhi (operands[7], const0_rtx));
       }
     else if (INTVAL (operands[2]) == 32)
       {
         emit_insn (gen_movsi (operands[4], operands[5]));
-        emit_insn (gen_movsi (operands[3], GEN_INT (0)));
+        emit_insn (gen_movsi (operands[3], const0_rtx));
       }
     else
       {
         operands[6] = GEN_INT (INTVAL (operands[2]) - 32);
 	emit_insn (gen_lshrsi3 (operands[4], operands[5], operands[6]));
-        emit_insn (gen_movsi (operands[3], GEN_INT (0)));
+        emit_insn (gen_movsi (operands[3], const0_rtx));
       }
   }")
 
@@ -4846,9 +4847,9 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "{
-    operands[2] = gen_rtx (reverse_condition (GET_CODE (operands[1])),
-	 		   GET_MODE (operands[1]),
-			   cc0_rtx, const0_rtx);
+    operands[2] = gen_rtx_fmt_ee (reverse_condition (GET_CODE (operands[1])),
+				  GET_MODE (operands[1]),
+				  cc0_rtx, const0_rtx);
    }")
 
 ;; This is a bit test and jump sequence.

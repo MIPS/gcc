@@ -807,8 +807,6 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY mips_return_in_memory
 #undef TARGET_RETURN_IN_MSB
@@ -1026,7 +1024,7 @@ mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode, int strict)
 	   stack pointer (which needs the restriction) or the hard frame
 	   pointer (which doesn't).
 
-     All in all, it seems more consitent to only enforce this restriction
+     All in all, it seems more consistent to only enforce this restriction
      during and after reload.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
     return !strict || GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
@@ -2909,13 +2907,13 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0,
   if (mode == VOIDmode)
     mode = GET_MODE (cmp1);
 
-  /* Eliminate simple branches */
+  /* Eliminate simple branches.  */
   branch_p = (result == 0);
   if (branch_p)
     {
       if (GET_CODE (cmp0) == REG || GET_CODE (cmp0) == SUBREG)
 	{
-	  /* Comparisons against zero are simple branches */
+	  /* Comparisons against zero are simple branches.  */
 	  if (GET_CODE (cmp1) == CONST_INT && INTVAL (cmp1) == 0
 	      && (! TARGET_MIPS16 || eqne_p))
 	    return 0;
@@ -3001,14 +2999,14 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0,
   else
     {
       reg = (invert || eqne_p) ? gen_reg_rtx (mode) : result;
-      convert_move (reg, gen_rtx (p_info->test_code, mode, cmp0, cmp1), 0);
+      convert_move (reg, gen_rtx_fmt_ee (p_info->test_code, mode, cmp0, cmp1), 0);
     }
 
   if (test == ITEST_NE)
     {
       if (! TARGET_MIPS16)
 	{
-	  convert_move (result, gen_rtx (GTU, mode, reg, const0_rtx), 0);
+	  convert_move (result, gen_rtx_GTU (mode, reg, const0_rtx), 0);
 	  if (p_invert != NULL)
 	    *p_invert = 0;
 	  invert = 0;
@@ -3016,7 +3014,7 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0,
       else
 	{
 	  reg2 = invert ? gen_reg_rtx (mode) : result;
-	  convert_move (reg2, gen_rtx (LTU, mode, reg, const1_rtx), 0);
+	  convert_move (reg2, gen_rtx_LTU (mode, reg, const1_rtx), 0);
 	  reg = reg2;
 	}
     }
@@ -3044,7 +3042,7 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0,
 	  reg = reg2;
 	  one = force_reg (mode, const1_rtx);
 	}
-      convert_move (result, gen_rtx (XOR, mode, reg, one), 0);
+      convert_move (result, gen_rtx_XOR (mode, reg, one), 0);
     }
 
   return result;
@@ -3124,7 +3122,7 @@ gen_conditional_branch (rtx *operands, enum rtx_code test_code)
 
       get_float_compare_codes (test_code, &cmp_code, &test_code);
       emit_insn (gen_rtx_SET (VOIDmode, reg,
-			      gen_rtx (cmp_code, CCmode, cmp0, cmp1)));
+			      gen_rtx_fmt_ee (cmp_code, CCmode, cmp0, cmp1)));
 
       mode = CCmode;
       cmp0 = reg;
@@ -3133,7 +3131,7 @@ gen_conditional_branch (rtx *operands, enum rtx_code test_code)
       break;
 
     default:
-      fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+      fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
     }
 
   /* Generate the branch.  */
@@ -3149,8 +3147,9 @@ gen_conditional_branch (rtx *operands, enum rtx_code test_code)
 
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx (test_code, mode,
-							      cmp0, cmp1),
+						     gen_rtx_fmt_ee (test_code,
+								     mode,
+								     cmp0, cmp1),
 						     label1, label2)));
 }
 
@@ -3230,13 +3229,13 @@ gen_conditional_move (rtx *operands)
 
   cmp_reg = gen_reg_rtx (cmp_mode);
   emit_insn (gen_rtx_SET (cmp_mode, cmp_reg,
-			  gen_rtx (cmp_code, cmp_mode, op0, op1)));
+			  gen_rtx_fmt_ee (cmp_code, cmp_mode, op0, op1)));
 
   emit_insn (gen_rtx_SET (op_mode, operands[0],
 			  gen_rtx_IF_THEN_ELSE (op_mode,
-						gen_rtx (move_code, VOIDmode,
-							 cmp_reg,
-							 CONST0_RTX (SImode)),
+						gen_rtx_fmt_ee (move_code, VOIDmode,
+								cmp_reg,
+								CONST0_RTX (SImode)),
 						operands[2], operands[3])));
 }
 
@@ -3275,7 +3274,8 @@ mips_gen_conditional_trap (rtx *operands)
     op1 = force_reg (mode, op1);
 
   emit_insn (gen_rtx_TRAP_IF (VOIDmode,
-			      gen_rtx (cmp_code, GET_MODE (operands[0]), op0, op1),
+			      gen_rtx_fmt_ee (cmp_code, GET_MODE (operands[0]),
+					      op0, op1),
 			      operands[1]));
 }
 
@@ -3795,7 +3795,7 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   if (type != 0
       && TREE_CODE (type) == RECORD_TYPE
-      && (mips_abi == ABI_N32 || mips_abi == ABI_64)
+      && TARGET_NEWABI
       && TYPE_SIZE_UNIT (type)
       && host_integerp (TYPE_SIZE_UNIT (type), 1)
       && named)
@@ -4002,7 +4002,7 @@ mips_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    }
 	}
     }
-  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+  if (TARGET_OLDABI)
     {
       /* No need for pretend arguments: the register parameter area was
 	 allocated by the caller.  */
@@ -4392,8 +4392,7 @@ mips_va_arg (tree valist, tree type)
 	 that alignments <= UNITS_PER_WORD are preserved by the va_arg
 	 increment mechanism.  */
 
-      if ((mips_abi == ABI_N32 || mips_abi == ABI_64)
-	  && TYPE_ALIGN (type) > 64)
+      if (TARGET_NEWABI && TYPE_ALIGN (type) > 64)
 	align = 16;
       else if (TARGET_64BIT)
 	align = 8;
@@ -4742,7 +4741,7 @@ override_options (void)
 	}
     }
 
-  if (mips_abi != ABI_32 && mips_abi != ABI_O64)
+  if (!TARGET_OLDABI)
     flag_pcc_struct_return = 0;
 
 #if defined(USE_COLLECT2)
@@ -5814,17 +5813,20 @@ mips_output_lineno (FILE *stream, int line)
     }
 }
 
-/* Output an ASCII string, in a space-saving way.  */
+/* Output an ASCII string, in a space-saving way.  PREFIX is the string
+   that should be written before the opening quote, such as "\t.ascii\t"
+   for real string data or "\t# " for a comment.  */
 
 void
-mips_output_ascii (FILE *stream, const char *string_param, size_t len)
+mips_output_ascii (FILE *stream, const char *string_param, size_t len,
+		   const char *prefix)
 {
   size_t i;
   int cur_pos = 17;
   register const unsigned char *string =
     (const unsigned char *)string_param;
 
-  fprintf (stream, "\t.ascii\t\"");
+  fprintf (stream, "%s\"", prefix);
   for (i = 0; i < len; i++)
     {
       register int c = string[i];
@@ -5884,7 +5886,7 @@ mips_output_ascii (FILE *stream, const char *string_param, size_t len)
       if (cur_pos > 72 && i+1 < len)
 	{
 	  cur_pos = 17;
-	  fprintf (stream, "\"\n\t.ascii\t\"");
+	  fprintf (stream, "\"\n%s\"", prefix);
 	}
     }
   fprintf (stream, "\"\n");
@@ -6422,7 +6424,7 @@ compute_frame_size (HOST_WIDE_INT size)
 
   /* Add in space reserved on the stack by the callee for storing arguments
      passed in registers.  */
-  if (mips_abi != ABI_32 && mips_abi != ABI_O64)
+  if (!TARGET_OLDABI)
     total_size += MIPS_STACK_ALIGN (current_function_pretend_args_size);
 
   /* Save other computed information.  */
@@ -6493,7 +6495,7 @@ mips_initial_elimination_offset (int from, int to)
 
     case ARG_POINTER_REGNUM:
       offset = cfun->machine->frame.total_size;
-      if (mips_abi == ABI_N32 || mips_abi == ABI_64)
+      if (TARGET_NEWABI)
 	offset -= current_function_pretend_args_size;
       break;
 
@@ -7050,10 +7052,10 @@ mips_expand_epilogue (int sibcall_p)
     {
       /* The mips16 loads the return address into $7, not $31.  */
       if (TARGET_MIPS16 && (cfun->machine->frame.mask & RA_MASK) != 0)
-	emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
+	emit_jump_insn (gen_return_internal (gen_rtx_REG (Pmode,
 						      GP_REG_FIRST + 7)));
       else
-	emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
+	emit_jump_insn (gen_return_internal (gen_rtx_REG (Pmode,
 						      GP_REG_FIRST + 31)));
     }
 }
@@ -7851,7 +7853,7 @@ mips16_fp_args (FILE *file, int fp_code, int from_fp_p)
   unsigned int f;
 
   /* This code only works for the original 32 bit ABI and the O64 ABI.  */
-  if (mips_abi != ABI_32 && mips_abi != ABI_O64)
+  if (!TARGET_OLDABI)
     abort ();
 
   if (from_fp_p)
@@ -8048,7 +8050,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 
   /* This code will only work for o32 and o64 abis.  The other ABI's
      require more sophisticated support.  */
-  if (mips_abi != ABI_32 && mips_abi != ABI_O64)
+  if (!TARGET_OLDABI)
     abort ();
 
   /* We can only handle SFmode and DFmode floating point return
@@ -8076,9 +8078,9 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 		: ""),
 	       fp_code);
       id = get_identifier (buf);
-      stub_fn = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (id));
+      stub_fn = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (id));
 
-      emit_move_insn (gen_rtx (REG, Pmode, 2), fn);
+      emit_move_insn (gen_rtx_REG (Pmode, 2), fn);
 
       if (retval == NULL_RTX)
 	insn = gen_call_internal (stub_fn, arg_size);
@@ -8090,9 +8092,9 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
       if (GET_CODE (insn) != CALL_INSN)
 	abort ();
       CALL_INSN_FUNCTION_USAGE (insn) =
-	gen_rtx (EXPR_LIST, VOIDmode,
-		 gen_rtx (USE, VOIDmode, gen_rtx (REG, Pmode, 2)),
-		 CALL_INSN_FUNCTION_USAGE (insn));
+	gen_rtx_EXPR_LIST (VOIDmode,
+			   gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 2)),
+			   CALL_INSN_FUNCTION_USAGE (insn));
 
       /* If we are handling a floating point return value, we need to
          save $18 in the function prologue.  Putting a note on the
@@ -8101,9 +8103,10 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
          code.  */
       if (fpret)
 	CALL_INSN_FUNCTION_USAGE (insn) =
-	  gen_rtx (EXPR_LIST, VOIDmode,
-		   gen_rtx (USE, VOIDmode, gen_rtx (REG, word_mode, 18)),
-		   CALL_INSN_FUNCTION_USAGE (insn));
+	  gen_rtx_EXPR_LIST (VOIDmode,
+			     gen_rtx_USE (VOIDmode,
+					  gen_rtx_REG (word_mode, 18)),
+			     CALL_INSN_FUNCTION_USAGE (insn));
 
       /* Return 1 to tell the caller that we've generated the call
          insn.  */
@@ -8292,9 +8295,9 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 	abort ();
 
       CALL_INSN_FUNCTION_USAGE (insn) =
-	gen_rtx (EXPR_LIST, VOIDmode,
-		 gen_rtx (USE, VOIDmode, gen_rtx (REG, word_mode, 18)),
-		 CALL_INSN_FUNCTION_USAGE (insn));
+	gen_rtx_EXPR_LIST (VOIDmode,
+			   gen_rtx_USE (VOIDmode, gen_rtx_REG (word_mode, 18)),
+			   CALL_INSN_FUNCTION_USAGE (insn));
 
       /* Return 1 to tell the caller that we've generated the call
          insn.  */
@@ -8473,7 +8476,7 @@ mips16_lay_out_constants (void)
     }
 
   /* Store the original value of insns_len in cfun->machine, so
-     that simple_memory_operand can look at it.  */
+     that m16_usym8_4 and m16_usym5_4 can look at it.  */
   cfun->machine->insns_len = insns_len;
 
   pool_size = get_pool_size ();
@@ -8556,12 +8559,12 @@ mips16_lay_out_constants (void)
 		 particular string constant.  */
 
 	      lab = add_constant (&constants, val, mode);
-	      newsrc = gen_rtx (MEM, mode,
-				gen_rtx (LABEL_REF, VOIDmode, lab));
+	      newsrc = gen_rtx_MEM (mode,
+				    gen_rtx_LABEL_REF (VOIDmode, lab));
 	      RTX_UNCHANGING_P (newsrc) = 1;
-	      PATTERN (insn) = gen_rtx (SET, VOIDmode,
-					SET_DEST (PATTERN (insn)),
-					newsrc);
+	      PATTERN (insn) = gen_rtx_SET (VOIDmode,
+					    SET_DEST (PATTERN (insn)),
+					    newsrc);
 	      INSN_CODE (insn) = -1;
 
 	      if (first_constant_ref < 0)
@@ -9353,7 +9356,7 @@ mips_hard_regno_nregs (int regno, enum machine_mode mode)
 static bool
 mips_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
 {
-  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+  if (TARGET_OLDABI)
     return (TYPE_MODE (type) == BLKmode);
   else
     return ((int_size_in_bytes (type) > (2 * UNITS_PER_WORD))
@@ -9363,7 +9366,7 @@ mips_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
 static bool
 mips_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
-  return (mips_abi != ABI_32 && mips_abi != ABI_O64);
+  return !TARGET_OLDABI;
 }
 
 static int

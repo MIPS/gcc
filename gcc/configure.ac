@@ -249,6 +249,15 @@ fi
 # Find C compiler
 # ---------------
 
+# If a non-executable a.out is present (e.g. created by GNU as above even if
+# invoked with -v only), the IRIX 6 native ld just overwrites the existing
+# file, even when creating an executable, so an execution test fails.
+# Remove possible default executable files to avoid this.
+#
+# FIXME: This really belongs into AC_PROG_CC and can be removed once
+# Autoconf includes it.
+rm -f a.out a.exe b.out
+
 # Find the native compiler
 AC_PROG_CC
 AC_PROG_CC_C_O
@@ -1136,11 +1145,13 @@ fi
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
-  AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
-  [Define if you want to use __cxa_atexit, rather than atexit, to
-   register C++ destructors for local statics and global objects.
-   This is essential for fully standards-compliant handling of
-   destructors, but requires __cxa_atexit in libc.])
+   AC_CHECK_FUNC(__cxa_atexit,
+	[AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
+   	[Define if you want to use __cxa_atexit, rather than atexit, to
+   	register C++ destructors for local statics and global objects.
+   	This is essential for fully standards-compliant handling of
+   	destructors, but requires __cxa_atexit in libc.])],
+	echo "__cxa_atexit can't be enabled on this target")
 fi
 
 # Look for a file containing extra machine modes.
@@ -2436,11 +2447,13 @@ changequote([,])dnl
 
   powerpc*-*-*)
     case $target in
-      *-*-aix) conftest_s='	.csect .text[PR]';;
-      *)       conftest_s='	.text';;
+      *-*-aix*) conftest_s='	.csect .text[[PR]]
+	mfcr 3,128';;
+      *-*-darwin*) conftest_s='	.text
+	mfcr r3,128';;
+      *)       conftest_s='	.text
+	mfcr 3,128';;
     esac
-    conftest_s="$conftest_s
-	mfcr 3,128"
 
     gcc_GAS_CHECK_FEATURE([mfcr field support],
       gcc_cv_as_powerpc_mfcrf, [2,14,0],,
@@ -2472,7 +2485,7 @@ case "$target" in
   | xstormy16*-*-* | cris-*-* | xtensa-*-*)
     insn="nop"
     ;;
-  ia64*-*-*)
+  ia64*-*-* | s390*-*-*)
     insn="nop 0"
     ;;
   mmix-*-*)

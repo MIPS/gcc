@@ -819,6 +819,7 @@ extern const char * const reg_note_name[];
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
 #define NOTE_PRECONDITIONED(INSN)   XCINT (INSN, 4, NOTE)
+#define NOTE_VAR_LOCATION(INSN)	XCEXP (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -834,6 +835,12 @@ extern const char * const reg_note_name[];
 #define NOTE_PREDICTION_FLAGS(INSN) (XCINT(INSN, 4, NOTE)&0xff)
 #define NOTE_PREDICT(ALG,FLAGS)     ((ALG<<8)+(FLAGS))
 
+/* Variable declaration and the location of a variable.  */
+#define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 4, NOTE), \
+						 0, VAR_LOCATION))
+#define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
+						1, VAR_LOCATION))
+  
 /* Codes that appear in the NOTE_LINE_NUMBER field
    for kinds of notes that are not line numbers.
 
@@ -916,6 +923,9 @@ enum insn_note
 
   /* Record a prediction.  Uses NOTE_PREDICTION.  */
   NOTE_INSN_PREDICTION,
+
+  /* The location of a variable.  */
+  NOTE_INSN_VAR_LOCATION,
 
   NOTE_INSN_MAX
 };
@@ -1445,7 +1455,6 @@ extern rtx plus_constant_for_output_wide (rtx, HOST_WIDE_INT);
 extern void optimize_save_area_alloca (rtx);
 
 /* In emit-rtl.c */
-extern rtx gen_rtx (enum rtx_code, enum machine_mode, ...);
 extern rtvec gen_rtvec (int, ...);
 extern rtx copy_insn_1 (rtx);
 extern rtx copy_insn (rtx);
@@ -1476,7 +1485,9 @@ extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
 extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
-extern rtx gen_lowpart (enum machine_mode, rtx);
+extern rtx gen_lowpart_general (enum machine_mode, rtx);
+extern rtx (*gen_lowpart) (enum machine_mode mode, rtx x);
+
 
 /* In cse.c */
 extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
@@ -1872,8 +1883,7 @@ extern GTY(()) rtx return_address_pointer_rtx;
 
 /* There are some RTL codes that require special attention; the
    generation functions included above do the raw handling.  If you
-   add to this list, modify special_rtx in gengenrtl.c as well.  You
-   should also modify gen_rtx to use the special function.  */
+   add to this list, modify special_rtx in gengenrtl.c as well.  */
 
 extern rtx gen_rtx_CONST_INT (enum machine_mode, HOST_WIDE_INT);
 extern rtx gen_rtx_CONST_VECTOR (enum machine_mode, rtvec);
@@ -1881,8 +1891,6 @@ extern rtx gen_raw_REG (enum machine_mode, int);
 extern rtx gen_rtx_REG (enum machine_mode, unsigned);
 extern rtx gen_rtx_SUBREG (enum machine_mode, rtx, int);
 extern rtx gen_rtx_MEM (enum machine_mode, rtx);
-
-extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 
 /* We need the cast here to ensure that we get the same result both with
    and without prototypes.  */
@@ -2092,6 +2100,7 @@ extern void delete_insn_chain (rtx, rtx);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
+extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 
 /* In combine.c */
 extern int combine_instructions (rtx, unsigned int);
@@ -2104,11 +2113,17 @@ extern void dump_combine_total_stats (FILE *);
 /* In web.c */
 extern void web_main (void);
 
-/* In sched.c.  */
+/* In sched-rgn.c.  */
 #ifdef BUFSIZ
 extern void schedule_insns (FILE *);
+#endif
+
+/* In sched-ebb.c.  */
+#ifdef BUFSIZ
 extern void schedule_ebbs (FILE *);
 #endif
+
+/* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);
 
 /* In print-rtl.c */
@@ -2336,5 +2351,8 @@ extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In tracer.c */
 extern void tracer (void);
+
+/* In var-tracking.c */
+extern void variable_tracking_main (void);
 
 #endif /* ! GCC_RTL_H */

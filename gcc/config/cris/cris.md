@@ -1,5 +1,6 @@
 ;; GCC machine description for CRIS cpu cores.
-;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+;; Free Software Foundation, Inc.
 ;; Contributed by Axis Communications.
 
 ;; This file is part of GCC.
@@ -4544,9 +4545,9 @@
   [(set (match_dup 5) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 1) (match_dup 8)]))]
-  "operands[8] = gen_rtx (GET_CODE (operands[7]), GET_MODE (operands[7]),
-			  replace_equiv_address (XEXP (operands[7], 0),
-						 operands[5]));")
+  "operands[8] = gen_rtx_fmt_e (GET_CODE (operands[7]), GET_MODE (operands[7]),
+				replace_equiv_address (XEXP (operands[7], 0),
+						       operands[5]));")
 
 ;; op(s|u).S1 [rx=rx+i],ry
 
@@ -4569,9 +4570,9 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 1) (match_dup 7)]))]
-  "operands[7] = gen_rtx (GET_CODE (operands[6]), GET_MODE (operands[6]),
-			  replace_equiv_address (XEXP (operands[6], 0),
-						 operands[4]));")
+  "operands[7] = gen_rtx_fmt_e (GET_CODE (operands[6]), GET_MODE (operands[6]),
+				replace_equiv_address (XEXP (operands[6], 0),
+						       operands[4]));")
 
 ;; op(s|u).S1 [rx=rx+rz.S2],ry (swapped, plus or bound)
 
@@ -4596,9 +4597,9 @@
   [(set (match_dup 5) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 8) (match_dup 1)]))]
-  "operands[8] = gen_rtx (GET_CODE (operands[6]), GET_MODE (operands[6]),
-			  replace_equiv_address (XEXP (operands[6], 0),
-						 operands[5]));")
+  "operands[8] = gen_rtx_fmt_e (GET_CODE (operands[6]), GET_MODE (operands[6]),
+				replace_equiv_address (XEXP (operands[6], 0),
+						       operands[5]));")
 
 ;; op(s|u).S1 [rx=rx+i],ry (swapped, plus or bound)
 
@@ -4620,9 +4621,9 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 7) (match_dup 1)]))]
-  "operands[7] = gen_rtx (GET_CODE (operands[5]), GET_MODE (operands[5]),
-			  replace_equiv_address (XEXP (operands[5], 0),
-						 operands[4]));")
+  "operands[7] = gen_rtx_fmt_e (GET_CODE (operands[5]), GET_MODE (operands[5]),
+				replace_equiv_address (XEXP (operands[5], 0),
+						       operands[4]));")
 
 ;; Splits for addressing prefixes that have no side-effects, so we can
 ;; fill a delay slot.  Never split if we lose something, though.

@@ -1,5 +1,5 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
    This file is part of GCC.
@@ -308,11 +308,6 @@ do {									\
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
    support 64 bit PowerPC either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
-
-/* Get HOST_WIDE_INT and CONST_INT to be 32 bits, for compile time
-   space/speed.  */
-#undef MAX_LONG_TYPE_SIZE
-#define MAX_LONG_TYPE_SIZE 32
 
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  */

@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "langhooks.h"
 #include "c-tree.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -2249,7 +2250,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = c_common_truthvalue_conversion (arg);
+      arg = (*lang_hooks.truthvalue_conversion) (arg);
       return invert_truthvalue (arg);
 
     case NOP_EXPR:
@@ -2616,7 +2617,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
 
-  ifexp = c_common_truthvalue_conversion (default_conversion (ifexp));
+  ifexp = (*lang_hooks.truthvalue_conversion) (default_conversion (ifexp));
 
   /* Promote both alternatives.  */
 
@@ -4096,6 +4097,9 @@ static int require_constant_elements;
    such as (struct foo) {...}.  */
 static tree constructor_decl;
 
+/* start_init saves the ASMSPEC arg here for really_start_incremental_init.  */
+static const char *constructor_asmspec;
+
 /* Nonzero if this is an initializer for a top-level decl.  */
 static int constructor_top_level;
 
@@ -4167,6 +4171,7 @@ struct initializer_stack
 {
   struct initializer_stack *next;
   tree decl;
+  const char *asmspec;
   struct constructor_stack *constructor_stack;
   struct constructor_range_stack *constructor_range_stack;
   tree elements;
@@ -4183,12 +4188,17 @@ struct initializer_stack *initializer_stack;
 /* Prepare to parse and output the initializer for variable DECL.  */
 
 void
-start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
+start_init (tree decl, tree asmspec_tree, int top_level)
 {
   const char *locus;
   struct initializer_stack *p = xmalloc (sizeof (struct initializer_stack));
+  const char *asmspec = 0;
+
+  if (asmspec_tree)
+    asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   p->decl = constructor_decl;
+  p->asmspec = constructor_asmspec;
   p->require_constant_value = require_constant_value;
   p->require_constant_elements = require_constant_elements;
   p->constructor_stack = constructor_stack;
@@ -4202,6 +4212,7 @@ start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
   initializer_stack = p;
 
   constructor_decl = decl;
+  constructor_asmspec = asmspec;
   constructor_designated = 0;
   constructor_top_level = top_level;
 
@@ -4258,6 +4269,7 @@ finish_init (void)
   free (spelling_base);
   
   constructor_decl = p->decl;
+  constructor_asmspec = p->asmspec;
   require_constant_value = p->require_constant_value;
   require_constant_elements = p->require_constant_elements;
   constructor_stack = p->constructor_stack;
@@ -6531,8 +6543,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = c_common_truthvalue_conversion (op0);
-	  op1 = c_common_truthvalue_conversion (op1);
+	  op0 = (*lang_hooks.truthvalue_conversion) (op0);
+	  op1 = (*lang_hooks.truthvalue_conversion) (op1);
 	  converted = 1;
 	}
       break;
@@ -6769,6 +6781,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     default:
       break;
     }
+
+  if (code0 == ERROR_MARK || code1 == ERROR_MARK)
+    return error_mark_node;
 
   if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE
        || code0 == VECTOR_TYPE)

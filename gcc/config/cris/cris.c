@@ -94,6 +94,9 @@ static struct machine_function * cris_init_machine_status (void);
 
 static rtx cris_struct_value_rtx (tree, int);
 
+static void cris_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree type, int *, int);
+
 static int cris_initial_frame_pointer_offset (void);
 
 static int saved_regs_mentioned (rtx);
@@ -183,6 +186,9 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS cris_setup_incoming_varargs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1302,7 +1308,7 @@ cris_print_operand (FILE *file, rtx x, int code)
   switch (code)
     {
     case 'b':
-      /* Print the unsigned supplied integer as if it was signed
+      /* Print the unsigned supplied integer as if it were signed
 	 and < 0, i.e print 255 or 65535 as -1, 254, 65534 as -2, etc.  */
       if (GET_CODE (x) != CONST_INT
 	  || ! CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
@@ -1728,7 +1734,7 @@ cris_initial_elimination_offset (int fromreg, int toreg)
     = regs_ever_live[CRIS_SRP_REGNUM]
     || cfun->machine->needs_return_address_on_stack != 0;
 
-  /* Here we act as if the frame-pointer is needed.  */
+  /* Here we act as if the frame-pointer were needed.  */
   int ap_fp_offset = 4 + (return_address_on_stack ? 4 : 0);
 
   if (fromreg == ARG_POINTER_REGNUM
@@ -3192,6 +3198,25 @@ cris_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 		       int incoming ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (Pmode, CRIS_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
+
+static void
+cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
+			     enum machine_mode mode ATTRIBUTE_UNUSED,
+			     tree type ATTRIBUTE_UNUSED,
+			     int *pretend_arg_size,
+			     int second_time)
+{
+  if (ca->regs < CRIS_MAX_ARGS_IN_REGS)
+    *pretend_arg_size = (CRIS_MAX_ARGS_IN_REGS - ca->regs) * 4;
+  if (TARGET_PDEBUG)
+    {
+      fprintf (asm_out_file,
+	       "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n",
+	       ca->regs, *pretend_arg_size, second_time);
+    }
 }
 
 #if 0

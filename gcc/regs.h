@@ -1,6 +1,6 @@
 /* Define per-register tables for data flow info and register allocation.
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -226,5 +226,8 @@ extern int caller_save_needed;
 
 /* Allocate reg_n_info tables */
 extern void allocate_reg_info (size_t, int, int);
+
+/* Specify number of hard registers given machine mode occupy.  */
+extern unsigned char hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
 
 #endif /* GCC_REGS_H */

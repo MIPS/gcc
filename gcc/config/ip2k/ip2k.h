@@ -90,7 +90,6 @@ extern int target_flags;
 
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 32
-#define MAX_LONG_TYPE_SIZE 32
 
 #undef LONG_LONG_TYPE_SIZE
 #define LONG_LONG_TYPE_SIZE	64
@@ -441,7 +440,7 @@ enum reg_class {
 
 #define CUMULATIVE_ARGS	int
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM) = 0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)
@@ -795,21 +794,6 @@ extern int ip2k_reorg_split_himode;
 extern int ip2k_reorg_merge_qimode;
 /* Flag to indicate that it's safe to merge QImode operands.  */
 
-#define GIV_SORT_CRITERION(X, Y)			\
-  do {							\
-    if (GET_CODE ((X)->add_val) == CONST_INT		\
-        && GET_CODE ((Y)->add_val) == CONST_INT)	\
-      return INTVAL ((X)->add_val) - INTVAL ((Y)->add_val); \
-  } while (0)
-
-/* In some cases, the strength reduction optimization pass can
-   produce better code if this is defined.  This macro controls the
-   order that induction variables are combined.  This macro is
-   particularly useful if the target has limited addressing modes.
-   For instance, the SH target has only positive offsets in
-   addresses.  Thus sorting to put the smallest address first allows
-   the most combinations to be found.  */
-
 #define TRAMPOLINE_TEMPLATE(FILE) abort ()
 
 #define TRAMPOLINE_SIZE 4
@@ -877,7 +861,7 @@ extern int ip2k_reorg_merge_qimode;
 
 #define DBX_REGISTER_NUMBER(REGNO)	(REGNO)
 
-/* Miscellaneous macros to describe machine specifics. */
+/* Miscellaneous macros to describe machine specifics.  */
 
 #define IS_PSEUDO_P(R)	(REGNO (R) >= FIRST_PSEUDO_REGISTER)
 

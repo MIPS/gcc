@@ -1,8 +1,541 @@
+2004-02-10  David Jee  <djee@redhat.com>
+
+	* java/awt/BorderLayout.java
+	(calcCompSize): Invisible components get zero dimensions.
+	* java/awt/Button.java
+	(setLabel): Set actionCommand.
+	* java/awt/Component.java
+	(show): Invalidate component and parent container.
+	(hide): Likewise.
+
+2004-02-10  David Jee  <djee@redhat.com>
+
+	* java/awt/GridBagLayout.java
+	(GridBagLayout): New private field, internalcomptable.
+	(lookupInternalConstraints): New method.
+	(ArrangeGrid): Use components' MINSIZE. Use internalcomptable.
+	(GetLayoutInfo): Reimplement.
+	(calcCellSizes): Ignore rows/columns with size 0.
+
+2004-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/EmbeddedWindow.java
+	(setHandle): Use java.awt.Component.getPeer() instead of
+	java.awt.Component.peer directly.
+
+2004-02-10  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java
+	(gtkSetLabel): New native method definition.
+	(setLabel): Use gtkSetLabel.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkSetLabel): New method.
+
+2004-02-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* include/powerpc-signal.h: Revert 2004-01-21 change.
+	(INIT_SEGV, INIT_FPE): Provide powerpc64 versions.  Check return
+	from syscall for ppc32 versions.
+
+2004-02-08  Per Bothner  <per@bothner.com>
+
+	* java/nio/ByteBuffer.java (shiftDown):  New helper method.
+	* java/nio/natDirectByteBufferImpl.cc (shiftDown):  New implementation.
+	* java/nio/ByteBufferImpl.java (compact):  Use new shiftDown method.
+	* sava/nio/ByteBufferHelper.java:  Remove redundant 'final' specifiers.
+	Pass ByteOrder parameter to most methods, since the underlying
+	ByteBuffer's order isn't always what we should use.
+	* java/nio/ByteBufferImpl.java:  Pass byte-order various places.
+	* java/nio/DirectByteBufferImpl.java:  Likewise.
+	Use ByteBufferHelper methods.
+	* java/nio/MappedByteBufferImpl.java:  Likewise.
+	(compact):  Use shiftDown.
+	* java/nio/CharViewBufferImpl.java (<init>):  Pass byte-order.
+	(get, put):  Use ByteBufferHelper.
+	(compact):  Use new shiftDown method.
+	(duplicate(boolean)):  New helper method.
+	(duplicate, asReadOnlyBuffer):  Use it.
+	(order):  Return endian field.
+	* java/nio/DoubleViewBufferImpl.java:  Likewise.
+	* java/nio/FloatViewBufferImpl.java:  Likewise.
+	* java/nio/IntViewBufferImpl.java:  Likewise.
+	* java/nio/LongViewBufferImpl.java:  Likewise.
+	* java/nio/ShortViewBufferImpl.java:  Likewise.
+	* java/nio/CharViewBufferImpl.java (subsequence):  Redundant test.
+	* java/nio/DirectByteBufferImpl.java (shiftDown):  New native method.
+	(compact):  Re-implement using shiftDown.
+
+2004-02-08  Andreas Jaeger  <aj@suse.de>
+
+	* include/x86_64-signal.h: Fix typo.
+
 2004-02-08  Diego Novillo  <dnovillo@redhat.com>
 
-	* include/i386-signal.h (MAKE_THROW_FRAME): Add volatile qualifier
-	to _regs.
+	* include/i386-signal.h (MAKE_THROW_FRAME): Add volatile
+	qualifier to _regs.
 	(HANDLE_DIVIDE_OVERFLOW): Likewise.
+
+2004-02-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java
+	(currentClassLoader): Reverted to old version of this method.
+
+2004-02-06  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java: Made all calls
+	to dumpElement[ln] conditional on dump flag. (readObject): Changed to
+	use cached info from ObjectStreamClass. (readClassDescriptor):
+	Cache more information in ObjectStreamClass. (processResolution,
+	readFields): Use cached info from ObjectStreamClass.
+	(newObject): Throw exception instead of returning null for failure.
+	(getField, getMethod, callReadMethod, setBooleanField, setByteField,
+	setCharField, setDoubleField, setFloatField, setIntField,
+	setLongField, setShortField, setObjectField, readObjectParams):
+	Removed. (dumpElement, dumpElementln): Removed dump flag condition
+	check.
+	* java/io/ObjectStreamField.java (hasReadMethod): Removed.
+	(setClass): Added call to cacheMethods() (findMethod): New method.
+	(cacheMethods): New method. (ObjectStreamClass): Added call to
+	cacheMethods(). (setFields): Cache fields. (getClassUID): Use
+	AccessController.doPrivileged to invoke setAccessible.
+	(readObjectMethod, readResolveMethod, realClassIsSerializable,
+	realClassIsExternalizable, fieldMapping, firstNonSerializableParent):
+	New fields.
+	* java/io/ObjectStreamField.java (ObjectStreamField): New constructor.
+	(ObjectStreamField): Removed FIXME workaround. (getTypeString,
+	isPrimitive): Made safe for cases where type == null.
+	(setBooleanField, setByteField, setCharField, setShortField,
+	setIntField, setLongField, setFloatField, setDoubleField,
+	setObjectField): New methods.
+
+2004-02-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Component.java (getFont): Return a default font
+	instead of null.
+
+	* java/awt/Scrollbar.java (next_scrollbar_number): New field.
+	(Scrollbar (int, int, int, int, int)): Make default page
+	increment 10.
+	(setValues): Only call peer.setValues if one of the values has
+	changed.
+	(generateName): New method.
+	(getUniqueLong): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.c
+	(range_scrollbar): Remove structure.
+	(post_adjustment_event): Remove function.
+	(post_change_event): Accept jobject argument.
+	(create): Cast jints to gdoubles.  Round scrollbar values to the
+	nearest integer.  Clamp min, max and value settings.
+	(connectJObject): Connect hook to widget->window.
+	(connectSignals): Remove range_scrollbar structure variables.
+	Remove "move-slider" connection.  Pass global peer reference to
+	"value-changed" callback.
+	(setLineIncrement): Cast jint value to gdouble.
+	(setPageIncrement): Likewise.
+	(setValues): Likewise.  Clamp min, max and value settings.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractCellEditor.java
+	(getCellEditorValue): Removed.
+	* javax/swing/Box.java: Reformated.
+	(serialVersionUID): New field.
+	* javax/swing/ButtonGroup.java:
+	Removed some weird whitespace.
+	* javax/swing/CellEditor.java: Reformated.
+	* javax/swing/CellRendererPane.java
+	(serialVersionUID): New field.
+	(AccessibleCellRendererPaneserialVersionUID): New field.
+	* javax/swing/DefaultListModel.java
+	(serialVersionUID): New field.
+	* javax/swing/JEditorPane.java
+	(serialVersionUID): New field.
+	(setPage): Throws IOException.
+	(addHyperlinkListener): Implemented.
+	(removeHyperlinkListener): Implemented.
+	(getHyperlinkListener): New method.
+	* javax/swing/JFileChooser.java
+	(serialVersionUID): New field.
+	(AccessibleJFileChooser.serialVersionUID): New field.
+	(addActionListener): Implemented.
+	(removeActionListener): Implemented.
+	(getActionListeners): New method.
+	* javax/swing/JFormattedTextField.java
+	(serialVersionUID): New field.
+	(AbstractFormatter.serialVersionUID): New field.
+	(clone): Throws CloneNotSupportedException
+	(setEditValid): Add missing argument.
+	(stringToValue): Throws ParseExcpetion.
+	(valueToString): Throws ParseException.
+	(commitEdit): Throws ParseException.
+	* javax/swing/JLabel.java
+	(serialVersionUID): New field.
+	* javax/swing/JList.java
+	(serialVersionUID): New field.
+	(addListSelectionListener): Reformated.
+	(removeListSelectionListener): Reformated.
+	(getListSelectionListeners): New method.
+	* javax/swing/colorchooser/AbstractColorChooserPanel.java:
+	Reformated.
+	(serialVersionUID): New field.
+	* javax/swing/table/AbstractTableModel.java
+	(getValueAt): Removed.
+	(getColumnCount): Removed.
+	(getRowCount): Removed.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/datatransfer/DataFlavor.java
+	(imageFlavor): Javadoc added.
+	(javaJVMLocalObjectType): Fixed.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Thread.java
+	(Thread): Reordered.
+	(setContextClassLoader): Fixed javadoc comment.
+	(setPriority): Reordered.
+	(yield): Reordered.
+	(initialize_native): Reordered.
+	(gen_name): Reordered.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Thread.java: Reordered fields, reformated much code,
+	no functional changes, some variables renamed, javadoc comments
+	merged.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/zip/Deflater.java,
+	java/util/zip/DeflaterOutputStream.java,
+	java/util/zip/GZIPInputStream.java:
+	Reformated and javadoc comments merged from classpath.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/NIOServerSocket.java
+	(impl): Unused, removed.
+	* gnu/java/nio/SocketChannelImpl.java
+	(finnishConnect): Don't throw NoConnectionPendingException if not
+	connected or no connection pending.
+
+2004-02-02  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/SwingUtilities.java: Many new functions.
+	* java/awt/Container.java (LightweightDispatcher): Reimplement.
+	* javax/swing/basic/BasicGraphicsUtils.java 
+	(getPreferredButtonSize): Start layout from top-left corner.
+
+2004-02-04  Olga Rodimina  <rodimina@redhat.com>
+
+	* java/awt/geom/AffineTransform.java: 
+	Corrected comments on the field definitions for
+	m11 and m10.
+	(shear): Fixed few errors that caused shear
+	transformation to be performed incorrectly.
+	(createInverse): Fixed to return correct
+	inverse of the given matrix.
+
+2004-02-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (startProcess): Handle case where
+	PATH or LD_LIBRARY_PATH is not set in parent environment.
+
+2004-02-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkListPeer.java,
+	java/awt/BorderLayout.java, java/awt/CardLayout.java,
+	java/awt/CheckboxGroup.java, java/awt/Choice.java,
+	java/awt/Component.java, java/awt/Container.java,
+	java/awt/FontMetrics.java, java/awt/GridBagLayout.java,
+	java/awt/LayoutManager2.java, java/awt/List.java,
+	java/awt/Menu.java, java/awt/MenuBar.java,
+	java/awt/MenuItem.java, java/awt/Polygon.java,
+	java/awt/Rectangle.java, java/awt/ScrollPane.java,
+	java/awt/Scrollbar.java, java/awt/TextArea.java,
+	java/awt/TextField.java,
+	java/awt/image/renderable/RenderContext.java,
+	javax/swing/JApplet.java: Fix handling of alias methods, where a
+	method has been deprecated in favour of a new one with the same
+	funtion but a different name.  Put the method implementation in
+	the deprecated method and have the new method call the
+	deprecated one.  Make all other code call the new method.
+
+2004-02-03  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(inChannelOperation): New field.
+	(isInChannelOperation): New accessor.
+	(setInChannelOperation): New modifier.
+	(receive): Use capacity() - position() of destination
+	buffer instead of remaining(). Set and reset our "in
+	channel operation indicator" before and after delegating
+	the receive to our datagram socket. Removed testing code.
+	Update destination buffer's current position if it is
+	backed by a byte array (hasArray() is true).
+	(send): Set and reset our "in channel operation indicator"
+	before and after delegating the send to our datagram socket.
+	Removed testing code. Update source buffer's current position
+	if it is backed by a byte array (hasArray() is true).
+	* gnu/java/nio/SocketChannelImpl.java (read(ByteBuffer)):
+	Use capacity() - position() of destination buffer instead
+	of remaining().
+	* java/net/DatagramSocket.java (receive): Don't throw an
+	IllegalBlockingModeException if we have a non-blocking
+	channel which initiated this operation.
+	(send): Likewise.
+
+2004-02-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.in: Add pkgconfig check for glib and gthread.
+	* configure: Regenerate.
+
+2004-02-01  Michael Koch  <konqueror@gmx.de>
+
+	* include/jvm.h (MAYBE_UNUSED): New macro tp mark probably unused
+	arguments.
+	* jni.cc (_Jv_LookupJNIMethod): Mark 'args_size' unused.
+	* verify.cc (debug_print): Mark 'fmt' unused.
+
+2004-01-30  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Use pkg-config to check for GTK 2.2 and libart 2.1.
+	* configure: Regenerated.
+	* glib-2.0.m4: Removed.
+	* gtk-2.0.m4: Removed.
+	* libart.m4: Removed.
+	* pkg.m4: New file.
+
+2004-01-30  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/net/PlainSocketImpl.java 
+	(inChannelOperation): New field.
+	(isInChannelOperation): New accessor.
+	(setInChannelOperation): New modifier.
+	* gnu/java/nio/ServerSocketChannelImpl.java
+	(accept): Set and reset our server socket's PlainSocketImpl's
+	"in channel operation" indicator before and after delegating
+	the accept to our server socket.
+	* gnu/java/nio/SocketChannelImpl.java
+	(connect): Set and reset our socket's PlainSocketImpl's "in channel
+	operation" indicator before and after delegating the operation to
+	our socket.
+	(read): Likewise.
+	(write): Likewise.
+	* java/net/ServerSocket.java (implAccept): Don't throw an
+	IllegalBlockingModeException if we have a non-blocking
+	channel which initiated this accept operation.
+	* java/net/Socket.java (connect): Don't throw an
+	IllegalBlockingModeException if we have a non-blocking
+	channel which initiated this connect operation.
+	* java/nio/channels/spi/AbstractSelectableChannel.java
+	(configureBlocking): Only call implConfigureBlocking() if
+	the desired blocking mode is different from our current one.
+
+2004-01-29  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/io/BufferedReader.java (sbuf): New field.
+	(readLine): Use String.valueOf instead of new String() as per
+	Per Bothner's suggestion. Use instance sbuf field instead of a
+	local StringBuffer instance.
+	* java/io/InputStreamReader.java (read(char[],int,int)): Pass the
+	caller's buffer to refill().
+	(read(void)): Pass our internal work buffer to refill if our
+	input queue is empty.
+	(refill): Changed return type to int. Use the specified buffer
+	instead of our work buffer as per Bryce McKinlay's suggestion.
+	Return the number of characters read or -1 for EOF.
+
+2004-01-29  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/xlib/XCanvasPeer.java (handleEvent): Implemented.
+
+2004-01-29  Scott Gilbertson  <scottg@mantatest.com>
+
+	* Makefile.am: Added gnu/awt/xlib/XFontPeer.java.
+	* Makefile.in: Re-generated.
+	* gnu/awt/xlib/XFontPeer.java: New file.
+	* gnu/awt/xlib/XGraphics.java (setFont): Test for null font.
+	(setClip): Commented out debug printout.
+	* gnu/awt/xlib/XToolkit.java: Change superclass to ClasspathToolkit.
+	(getFontPeer): Return XFontPeer.
+	(getLocalGraphicsEnvironment): New method.
+	(getClasspathFontPeer): New method.
+	(createFont): New method.
+
+2004-01-29  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/java/awt/peer/ClasspathFontPeer.java (getTransform): Never
+	return null. 
+
+2004-01-29  Kim Ho  <kho@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java
+	(gtkLayoutSetVisible): New method
+	(setMenuBar): Hide layout before setting MenuBar
+	and reshow it after.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(gtkLayoutSetVisible): Hide or show the Gtk Layout.
+
+2004-01-28  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/lang/ClassHelper.java
+	(getPackagePortion): Removed.
+
+2004-01-28  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JComponent.java
+	(listenerList): Initalize globally.
+	(ancestor_list): Removed.
+	(veto_list): Removed.
+	(change_list): Removed.
+	(get_veto_list): Removed.
+	(get_change_list): Removed.
+	(get_ancestor_list): Removed.
+	(removeAncestorListener): Reimplemented.
+	(removePropertyChangeListener): Likewise.
+	(removeVetoableChangeListener): Likewise.
+	(addAncestorListener): Likewise.
+	(addPropertyChangeListener): Likewise.
+	(addVetoableChangeListener): Likewise.
+	(getListeners): New method.
+	(getAncestorListeners): Likewise.
+	(getVetoableChangeListeners): Likewise.
+	(fireVetoableChange): Throws PropertyVetoException.
+	* javax/swing/JEditorPane.java
+	(JEditorPane): Throws IOException.
+
+2004-01-28  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java
+	(create): Set the default foreground color to
+	java.awt.SystemColor.windowText.
+
+2004-01-27  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java,
+	* gnu/java/awt/peer/gtk/GdkGlyphVector.java:
+	Reindented to merge with classpath.
+
+2004-01-27  David Jee  <djee@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(addExposeFilter): Handle GtkFramePeer separately.
+	(removeExposeFilter): Likewise.
+
+2004-01-27  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(getOutputStream): Fixed typo.
+
+2004-01-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Class.java
+	(getConstructor): Removed SecurityException from throws clause.
+	(_getConstructors): Likewise.
+	(getConstructors): Likewise.
+	(getDeclaredConstructor): Likewise.
+	(getDeclaredClasses): Likewise.
+	(getDeclaredConstructors): Likewise.
+	(getDeclaredField): Likewise.
+	(getDeclaredMethod): Likewise.
+	(getDeclaredMethods): Likewise.
+	(getField): Likewise.
+	(getMethod): Likewise.
+	(getMethods): Likewise.
+
+2004-01-27  Kim Ho  <kho@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java
+	(removeMenuBarPeer): Remove MenuBarPeer argument.
+	* gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java
+	(dispose): Call native method.
+	* java/awt/Frame.java (setMenuBar): Create and remove
+	MenuBar peers only if the Frame has a peer.
+	(addNotify): Create the MenuBar peer if one exists.
+	(removeNotify): Remove MenuBar peer if one exists.
+	* java/awt/Menu.java: Fix imports.
+	(addNotify): Don't use full class name.
+	(removeNotify): Call removeNotify on all children.
+	* java/awt/MenuBar.java (removeNotify): Call
+	removeNotify on all children.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(removeMenuBarPeer): Remove MenuBarPeer argument.
+	Iterate through children to find the Frame's MenuBar.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.c
+	New file.
+	(dispose): Remove references to the MenuComponent.
+
+2004-01-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractCellEditor.java: Reformated.
+	* javax/swing/DefaultListSelectionModel.java
+	(listenerList): Made protected.
+	(addListSelectionListener): Javadoc added.
+	(removeListSelectionListener): Likewise.
+	(getListeners): Likewise.
+	(getListSelectionListeners): Likewise.
+	* javax/swing/JComboBox.java: Merged copyright year.
+	* javax/swing/plaf/basic/BasicGraphicsUtils.java: Merged empty line.
+
+2004-01-26  Andrew Haley  <aph@redhat.com>
+
+	* javax/swing/table/JTableHeader.java: Extend JComponent
+
+2004-01-26  Kim Ho  <kho@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java (setMenuBar):
+	Fix spacing.
+
+2004-01-26  Kim Ho  <kho@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java (moveLayout): New
+	method.
+	(setMenuBar): Shift the Gtk layout up/down by the MenuBar
+	height and let the Layout Managers readjust anything that
+	needs to move.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(moveLayout): New method. Shift everything in the Gtk
+	layout in the Y direction by an offset.
+
+2004-01-26  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(handleEvent): Implemented. Handles PaintEvents.
+	(paint): Implemented. Use GTK native methods to queue updates
+        for this heavyweight peer.
+	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
+	(handleEvent): Removed.
+	* java/awt/Component.java
+	(paint): Implemented. Explictly paint the heavyweight peer.
+	(update): Clear the background for heavyweight components.
+	(paintAll): No need to call peer.paint() anymore.
+	(processEvent): Don't process PaintEvents here. It's now done in
+	the peer's handleEvent().
+	(processPaintEvent): Removed.
+	* java/awt/Container.java
+	(paint): No need to call super.paint(). Visit heavyweight
+	children as well.
+	(update): Don't clear the background here.  It's done in
+	Component.update().
+	(visitChildren): Added check to not recurse into Containers.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(filter_expose_event_handler): New method.  Filter unwanted
+	expose events while painting heavyweight peers.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_addExposeFilter):
+	New method. Connect filter and block pre_event_handler.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_removeExposeFilter):
+	New method. Disconnect filter and unblock pre_event_handler.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetQueueDrawArea):
+	New method. Invalidate and update given area.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(pre_event_handler): Add checks for unwanted expose events.
+
+2004-01-26  David Jee  <djee@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(find_bg_color_widget): For GtkButton, return its child.
 
 2004-01-26  Kim Ho  <kho@redhat.com>
 

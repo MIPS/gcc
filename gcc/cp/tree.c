@@ -991,7 +991,8 @@ build_exception_variant (tree type, tree raises)
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
     if (TYPE_QUALS (v) == type_quals
-        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
+        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1)
+	&& (*targetm.comp_type_attributes) (type, v))
       return v;
 
   /* Need to build a new variant.  */
@@ -1959,6 +1960,23 @@ make_ptrmem_cst (tree type, tree member)
   return ptrmem_cst;
 }
 
+/* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
+   return an existing type of an appropriate type already exists.  */
+
+tree
+cp_build_type_attribute_variant (tree type, tree attributes)
+{
+  tree new_type;
+
+  new_type = build_type_attribute_variant (type, attributes);
+  if (TREE_CODE (new_type) == FUNCTION_TYPE
+      && (TYPE_RAISES_EXCEPTIONS (new_type) 
+	  != TYPE_RAISES_EXCEPTIONS (type)))
+    new_type = build_exception_variant (new_type,
+					TYPE_RAISES_EXCEPTIONS (type));
+  return new_type;
+}
+
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
    traversal.  Called from walk_tree().  */
 
@@ -2066,8 +2084,12 @@ cp_cannot_inline_tree_fn (tree* fnp)
     return 1;
 
   /* Don't auto-inline anything that might not be bound within
-     this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+     this unit of translation.
+     Exclude comdat functions from this rule.  While they can be bound
+     to the other unit, they all must be the same.  This is especially
+     important so templates can inline.  */
+  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn)
+      && !DECL_COMDAT (fn))
     {
       DECL_UNINLINABLE (fn) = 1;
       return 1;

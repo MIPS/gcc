@@ -240,6 +240,9 @@ resize_phi_node (tree *phi, int len)
     abort ();
 #endif
                                                                                 
+  /* Note that OLD_SIZE is guaranteed to be smaller than SIZE.  */
+  old_size = (sizeof (struct tree_phi_node)
+	     + (PHI_ARG_CAPACITY (*phi) - 1) * sizeof (struct phi_arg_d));
   size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
 
   if (free_phinode_count)
@@ -252,24 +255,23 @@ resize_phi_node (tree *phi, int len)
       && PHI_ARG_CAPACITY (free_phinodes[bucket]) >= len)
     {
       free_phinode_count--;
-      old_size = (sizeof (struct tree_phi_node)
-		  + (PHI_ARG_CAPACITY (*phi) - 1) * sizeof (struct phi_arg_d));
       new_phi = free_phinodes[bucket];
       free_phinodes[bucket] = TREE_CHAIN (free_phinodes[bucket]);
-      memcpy (new_phi, *phi, old_size);
 #ifdef GATHER_STATISTICS
       phi_nodes_reused++;
 #endif
     }
   else
     {
-      new_phi = ggc_realloc (*phi, size);
+      new_phi = ggc_alloc (size);
 #ifdef GATHER_STATISTICS
       phi_nodes_created++;
       tree_node_counts[(int) phi_kind]++;
       tree_node_sizes[(int) phi_kind] += size;
 #endif
     }
+
+  memcpy (new_phi, *phi, old_size);
 
   old_len = PHI_ARG_CAPACITY (new_phi);
   PHI_ARG_CAPACITY (new_phi) = len;
@@ -279,7 +281,7 @@ resize_phi_node (tree *phi, int len)
       PHI_ARG_DEF (new_phi, i) = NULL_TREE;
       PHI_ARG_EDGE (new_phi, i) = NULL;
     }
-                                                                                
+
   *phi = new_phi;
 }
 

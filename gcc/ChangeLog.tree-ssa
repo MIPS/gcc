@@ -1,3 +1,8 @@
+2004-02-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-phinodes.c (resize_phi_node): Do not use ggc_realloc to
+	allocate a new PHI node.
+
 2004-02-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-flow.h (kill_redundant_phi_nodes): Remove declaration.
@@ -22,7 +27,7 @@
 	(GTFILES): Add tree-profile.c, rtl-profile.c.
 	* basic-block.h (flow_call_edges_add): Remove.
 	* cfganal.c (need_fake_edge_p): Move to cfgrtl.c.
-	(flow_call_edges_add): Move to cfgrtl.c (rtl_flow_call_edges_add).
+	(flow_call_edges_add): Move to cfgrtl.c.
 	* cfghooks.c: (block_ends_with_call_p): New.
 	(block_ends_with_condjump_p): New.
 	(flow_call_edges_add): New.

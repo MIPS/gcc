@@ -94,7 +94,7 @@ case "${host_cpu}" in
     try_cpu=sparc
     ;;
   *)
-    if test -d ${glibcxx_srcdir}/config/cpu/${host_cpu}; then
+    if test -f ${glibcxx_srcdir}/config/cpu/${host_cpu}/atomicity.h; then
       try_cpu=${host_cpu}
     else
       try_cpu=generic
@@ -185,6 +185,9 @@ case "${host_os}" in
     ;;
   solaris2.[789] | solaris2.1[0-9])
     os_include_dir="os/solaris/solaris2.7"
+    ;;
+  tpf)
+    os_include_dir="os/tpf"
     ;;
   vxworks)
     os_include_dir="os/vxworks"

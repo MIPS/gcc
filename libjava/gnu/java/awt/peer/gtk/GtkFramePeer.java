@@ -58,27 +58,44 @@ public class GtkFramePeer extends GtkWindowPeer
   native int getMenuBarHeight (MenuBarPeer bar);
 
   native void setMenuBarPeer (MenuBarPeer bar);
-  native void removeMenuBarPeer (MenuBarPeer bar);
+  native void removeMenuBarPeer ();
+  native void moveLayout (int offset);
+  native void gtkLayoutSetVisible (boolean vis);
 
   public void setMenuBar (MenuBar bar)
   {
-    if (bar == null && menuBar != null)
+    if (bar == null)
     {    
-      removeMenuBarPeer(menuBar); 
-      menuBar = null;
-      insets.top -= menuBarHeight;
-      menuBarHeight = 0;      
-      awtComponent.doLayout();
-    }
-    else if (bar != null)
-    {
       if (menuBar != null)
-        removeMenuBarPeer(menuBar);
+      {
+        gtkLayoutSetVisible(false);
+        removeMenuBarPeer(); 
+        menuBar = null;
+        moveLayout(menuBarHeight);
+        insets.top -= menuBarHeight;
+        menuBarHeight = 0;      
+        awtComponent.doLayout();
+        gtkLayoutSetVisible(true);
+      }
+    }
+    else
+    {
+      gtkLayoutSetVisible(false);
+      int oldHeight = 0;
+      if (menuBar != null)
+      {
+        removeMenuBarPeer();
+        oldHeight = menuBarHeight;
+        insets.top -= menuBarHeight;
+      }
       menuBar = (MenuBarPeer) ((MenuBar) bar).getPeer();
-      setMenuBarPeer(menuBar);      
+      setMenuBarPeer(menuBar);
       menuBarHeight = getMenuBarHeight (menuBar);
+      if (oldHeight != menuBarHeight)
+        moveLayout(oldHeight - menuBarHeight);
       insets.top += menuBarHeight;
       awtComponent.doLayout();
+      gtkLayoutSetVisible(true);
     }
   }
 
@@ -121,6 +138,7 @@ public class GtkFramePeer extends GtkWindowPeer
     // Create a normal decorated window.
     create (GDK_WINDOW_TYPE_HINT_NORMAL, true);
     setMenuBar(((Frame) awtComponent).getMenuBar());
+    awtComponent.setForeground(java.awt.SystemColor.windowText);
   }
 
   public void getArgs (Component component, GtkArgList args)

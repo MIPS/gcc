@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -941,7 +941,7 @@ dump_decl (tree t, int flags)
 
     default:
       pp_unsupported_tree (cxx_pp, t);
-      /* Fallthrough to error.  */
+      /* Fall through to error.  */
 
     case ERROR_MARK:
       pp_identifier (cxx_pp, "<declaration error>");

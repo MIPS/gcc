@@ -3238,9 +3238,9 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
 		    return true;
 		  }
 	      purge_addressof_replacements
-		= gen_rtx (EXPR_LIST, VOIDmode, XEXP (x, 0),
-			   gen_rtx_EXPR_LIST (VOIDmode, sub,
-					      purge_addressof_replacements));
+		= gen_rtx_EXPR_LIST (VOIDmode, XEXP (x, 0),
+				     gen_rtx_EXPR_LIST (VOIDmode, sub,
+							purge_addressof_replacements));
 	      return true;
 	    }
 	  goto restart;
@@ -4257,7 +4257,7 @@ aggregate_value_p (tree exp, tree fntype)
     return 0;
 
   regno = REGNO (reg);
-  nregs = HARD_REGNO_NREGS (regno, TYPE_MODE (type));
+  nregs = hard_regno_nregs[regno][TYPE_MODE (type)];
   for (i = 0; i < nregs; i++)
     if (! call_used_regs[regno + i])
       return 1;
@@ -4343,7 +4343,7 @@ assign_parms (tree fndecl)
 #ifdef INIT_CUMULATIVE_INCOMING_ARGS
   INIT_CUMULATIVE_INCOMING_ARGS (args_so_far, fntype, NULL_RTX);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, fndecl);
+  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, fndecl, -1);
 #endif
 
   /* We haven't yet found an argument that we must push and pretend the
@@ -4366,6 +4366,7 @@ assign_parms (tree fndecl)
       int in_regs;
       int partial = 0;
       int pretend_bytes = 0;
+      int loaded_in_reg = 0;
 
       /* Set LAST_NAMED if this is last named arg before last
 	 anonymous args.  */
@@ -4383,7 +4384,8 @@ assign_parms (tree fndecl)
       /* Set NAMED_ARG if this arg should be treated as a named arg.  For
 	 most machines, if this is a varargs/stdarg function, then we treat
 	 the last named arg as if it were anonymous too.  */
-      named_arg = targetm.calls.strict_argument_naming (&args_so_far) ? 1 : ! last_named;
+      named_arg = (targetm.calls.strict_argument_naming (&args_so_far)
+		   ? 1 : !last_named);
 
       if (TREE_TYPE (parm) == error_mark_node
 	  /* This can happen after weird syntax errors
@@ -4635,7 +4637,7 @@ assign_parms (tree fndecl)
 	entry_parm = stack_parm;
 
       /* Record permanently how this parm was passed.  */
-      DECL_INCOMING_RTL (parm) = entry_parm;
+      set_decl_incoming_rtl (parm, entry_parm);
 
       /* If there is actually space on the stack for this parm,
 	 count it in stack_args_size; otherwise set stack_parm to 0
@@ -4704,7 +4706,7 @@ assign_parms (tree fndecl)
 		&& INTVAL (XEXP (XVECEXP (entry_parm, 0, i), 1)) == 0)
 	      {
 		entry_parm = XEXP (XVECEXP (entry_parm, 0, i), 0);
-		DECL_INCOMING_RTL (parm) = entry_parm;
+		set_decl_incoming_rtl (parm, entry_parm);
 		break;
 	      }
 	}
@@ -4737,6 +4739,7 @@ assign_parms (tree fndecl)
 	      emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
 				int_size_in_bytes (TREE_TYPE (parm)));
 	      SET_DECL_RTL (parm, parmreg);
+	      loaded_in_reg = 1;
 
 	      if (regno >= max_parm_reg)
 		{
@@ -4768,7 +4771,8 @@ assign_parms (tree fndecl)
 	     Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
 	  if (GET_CODE (entry_parm) == REG
-	      || GET_CODE (entry_parm) == PARALLEL)
+	      || (GET_CODE (entry_parm) == PARALLEL
+		 && (!loaded_in_reg || !optimize)))
 	    {
 	      int size = int_size_in_bytes (TREE_TYPE (parm));
 	      int size_stored = CEIL_ROUND (size, UNITS_PER_WORD);
@@ -5213,20 +5217,22 @@ assign_parms (tree fndecl)
 	{
 	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
 	    {
+	      rtx tmp;
+
 	      SET_DECL_RTL (parm,
 			    gen_rtx_CONCAT (DECL_MODE (parm),
 					    DECL_RTL (fnargs),
 					    DECL_RTL (TREE_CHAIN (fnargs))));
-	      DECL_INCOMING_RTL (parm)
-		= gen_rtx_CONCAT (DECL_MODE (parm),
-				  DECL_INCOMING_RTL (fnargs),
-				  DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm),
+				    DECL_INCOMING_RTL (fnargs),
+				    DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      set_decl_incoming_rtl (parm, tmp);
 	      fnargs = TREE_CHAIN (fnargs);
 	    }
 	  else
 	    {
 	      SET_DECL_RTL (parm, DECL_RTL (fnargs));
-	      DECL_INCOMING_RTL (parm) = DECL_INCOMING_RTL (fnargs);
+	      set_decl_incoming_rtl (parm, DECL_INCOMING_RTL (fnargs));
 	    }
 	  fnargs = TREE_CHAIN (fnargs);
 	}
@@ -7429,8 +7435,8 @@ keep_stack_depressed (rtx insns)
 		    && !REGNO_REG_SET_P (EXIT_BLOCK_PTR->global_live_at_start,
 					 regno)
 		    && !refers_to_regno_p (regno,
-					   regno + HARD_REGNO_NREGS (regno,
-								     Pmode),
+					   regno + hard_regno_nregs[regno]
+								   [Pmode],
 					   info.equiv_reg_src, NULL)
 		    && info.const_equiv[regno] == 0)
 		  break;

@@ -69,7 +69,7 @@ namespace __gnu_norm
     reserve(size_type __n)
     {
       if (__n > this->max_size())
-	__throw_length_error("vector::reserve");
+	__throw_length_error(__N("vector::reserve"));
       if (this->capacity() < __n)
 	{
 	  const size_type __old_size = size();
@@ -84,7 +84,7 @@ namespace __gnu_norm
 	  this->_M_end_of_storage = this->_M_start + __n;
 	}
     }
-  
+
   template<typename _Tp, typename _Alloc>
     typename vector<_Tp,_Alloc>::iterator
     vector<_Tp,_Alloc>::
@@ -100,7 +100,7 @@ namespace __gnu_norm
         _M_insert_aux(__position, __x);
       return begin() + __n;
     }
-  
+
   template<typename _Tp, typename _Alloc>
     typename vector<_Tp,_Alloc>::iterator
     vector<_Tp,_Alloc>::
@@ -112,7 +112,7 @@ namespace __gnu_norm
       std::_Destroy(this->_M_finish);
       return __position;
     }
-  
+
   template<typename _Tp, typename _Alloc>
     typename vector<_Tp,_Alloc>::iterator
     vector<_Tp,_Alloc>::
@@ -123,7 +123,7 @@ namespace __gnu_norm
       this->_M_finish = this->_M_finish - (__last - __first);
       return __first;
     }
-  
+
   template<typename _Tp, typename _Alloc>
     vector<_Tp,_Alloc>&
     vector<_Tp,_Alloc>::
@@ -155,7 +155,7 @@ namespace __gnu_norm
       }
       return *this;
     }
-  
+
   template<typename _Tp, typename _Alloc>
     void
     vector<_Tp,_Alloc>::
@@ -175,7 +175,7 @@ namespace __gnu_norm
       else
         erase(fill_n(begin(), __n, __val), end());
     }
-  
+
   template<typename _Tp, typename _Alloc> template<typename _InputIterator>
     void
     vector<_Tp,_Alloc>::
@@ -189,7 +189,7 @@ namespace __gnu_norm
       else
         insert(end(), __first, __last);
     }
-  
+
   template<typename _Tp, typename _Alloc> template<typename _ForwardIterator>
     void
     vector<_Tp,_Alloc>::
@@ -197,7 +197,7 @@ namespace __gnu_norm
                   forward_iterator_tag)
     {
       size_type __len = std::distance(__first, __last);
-  
+
       if (__len > capacity())
       {
         pointer __tmp(_M_allocate_and_copy(__len, __first, __last));
@@ -221,7 +221,7 @@ namespace __gnu_norm
         this->_M_finish = std::uninitialized_copy(__mid, __last, this->_M_finish);
       }
     }
-  
+
   template<typename _Tp, typename _Alloc>
     void
     vector<_Tp,_Alloc>::
@@ -268,51 +268,7 @@ namespace __gnu_norm
         this->_M_end_of_storage = __new_start.base() + __len;
       }
     }
-  
-  #ifdef _GLIBCXX_DEPRECATED
-  template<typename _Tp, typename _Alloc>
-    void
-    vector<_Tp,_Alloc>::
-    _M_insert_aux(iterator __position)
-    {
-      if (_M_finish != _M_end_of_storage)
-      {
-        std::_Construct(_M_finish, *(_M_finish - 1));
-        ++_M_finish;
-        std::copy_backward(__position, iterator(_M_finish - 2),
-			   iterator(_M_finish - 1));
-        *__position = value_type();
-      }
-      else
-      {
-        const size_type __old_size = size();
-        const size_type __len = __old_size != 0 ? 2 * __old_size : 1;
-        pointer __new_start = _M_allocate(__len);
-        pointer __new_finish = __new_start;
-        try
-          {
-            __new_finish = std::uninitialized_copy(iterator(_M_start), __position,
-						   __new_start);
-            std::_Construct(__new_finish);
-            ++__new_finish;
-            __new_finish = std::uninitialized_copy(__position, iterator(_M_finish),
-						   __new_finish);
-          }
-        catch(...)
-          {
-            std::_Destroy(__new_start,__new_finish);
-            _M_deallocate(__new_start,__len);
-            __throw_exception_again;
-          }
-        std::_Destroy(begin(), end());
-        _M_deallocate(_M_start, _M_end_of_storage - _M_start);
-        _M_start = __new_start;
-        _M_finish = __new_finish;
-        _M_end_of_storage = __new_start + __len;
-      }
-    }
-  #endif
-  
+
   template<typename _Tp, typename _Alloc>
     void
     vector<_Tp,_Alloc>::
@@ -320,7 +276,7 @@ namespace __gnu_norm
     {
       if (__n != 0)
       {
-        if (size_type(this->_M_end_of_storage - this->_M_finish) >= __n) 
+        if (size_type(this->_M_end_of_storage - this->_M_finish) >= __n)
 	  {
            value_type __x_copy = __x;
 	   const size_type __elems_after = end() - __position;
@@ -356,7 +312,7 @@ namespace __gnu_norm
 		__new_finish = std::uninitialized_copy(begin(), __position,
 						       __new_start);
 		__new_finish = std::uninitialized_fill_n(__new_finish, __n, __x);
-		__new_finish = std::uninitialized_copy(__position, end(), 
+		__new_finish = std::uninitialized_copy(__position, end(),
 						       __new_finish);
 	      }
 	    catch(...)
@@ -374,7 +330,7 @@ namespace __gnu_norm
 	  }
       }
     }
-  
+
   template<typename _Tp, typename _Alloc> template<typename _InputIterator>
     void
     vector<_Tp,_Alloc>::
@@ -388,11 +344,11 @@ namespace __gnu_norm
         ++__pos;
       }
     }
-  
+
   template<typename _Tp, typename _Alloc> template<typename _ForwardIterator>
     void
     vector<_Tp,_Alloc>::
-    _M_range_insert(iterator __position,_ForwardIterator __first, 
+    _M_range_insert(iterator __position,_ForwardIterator __first,
 		    _ForwardIterator __last, forward_iterator_tag)
     {
       if (__first != __last)
@@ -432,7 +388,7 @@ namespace __gnu_norm
             {
               __new_finish = std::uninitialized_copy(iterator(this->_M_start),
 						     __position, __new_start);
-              __new_finish = std::uninitialized_copy(__first, __last, 
+              __new_finish = std::uninitialized_copy(__first, __last,
 						     __new_finish);
               __new_finish = std::uninitialized_copy(__position,
 						     iterator(this->_M_finish),

@@ -689,6 +689,10 @@ extern int flag_branch_target_load_optimize;
 
 extern int flag_branch_target_load_optimize2;
 
+/* For the bt-load pass, nonzero means don't re-use branch target registers 
+   in any basic block.  */
+extern int flag_btr_bb_exclusive;
+
 
 /* Nonzero means we should do dwarf2 duplicate elimination.  */
 
@@ -756,6 +760,9 @@ extern int flag_web;
 /* Nonzero means that we defer emitting functions until they are actually
    used.  */
 extern int flag_remove_unreachable_functions;
+
+/* Nonzero if we should track variables.  */
+extern int flag_var_tracking;
 
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */

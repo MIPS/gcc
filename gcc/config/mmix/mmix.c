@@ -246,7 +246,7 @@ mmix_init_machine_status (void)
 /* DATA_ALIGNMENT.
    We have trouble getting the address of stuff that is located at other
    than 32-bit alignments (GETA requirements), so try to give everything
-   at least 32-bit alignment. */
+   at least 32-bit alignment.  */
 
 int
 mmix_data_alignment (tree type ATTRIBUTE_UNUSED, int basic_align)
@@ -662,7 +662,7 @@ mmix_function_outgoing_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   vec[nregs - 1]
     = gen_rtx_EXPR_LIST (VOIDmode,
 			 gen_rtx_REG (cmode, first_val_regnum + nregs - 1),
-			 GEN_INT (0));
+			 const0_rtx);
 
   return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nregs, vec));
 }
@@ -792,9 +792,9 @@ mmix_asm_output_mi_thunk (FILE *stream,
 			  HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
 			  tree func)
 {
-  /* If you define STRUCT_VALUE to 0, rather than use STRUCT_VALUE_REGNUM,
-     (i.e. pass location of structure to return as invisible first
-     argument) you need to tweak this code too.  */
+  /* If you define TARGET_STRUCT_VALUE_RTX that returns 0 (i.e. pass
+     location of structure to return as invisible first argument), you
+     need to tweak this code too.  */
   const char *regname = reg_names[MMIX_FIRST_INCOMING_ARG_REGNUM];
 
   if (delta >= 0 && delta < 65536)
@@ -1269,7 +1269,7 @@ mmix_file_start (void)
 
   fputs ("! mmixal:= 8H LOC Data_Section\n", asm_out_file);
 
-  /* Make sure each file starts with the text section. */
+  /* Make sure each file starts with the text section.  */
   text_section ();
 }
 
@@ -1278,7 +1278,7 @@ mmix_file_start (void)
 static void
 mmix_file_end (void)
 {
-  /* Make sure each file ends with the data section. */
+  /* Make sure each file ends with the data section.  */
   data_section ();
 }
 
@@ -2455,7 +2455,7 @@ mmix_symbolic_or_address_operand (rtx op, enum machine_mode mode)
 	      || (GET_CODE (XEXP (op, 1)) == CONST_DOUBLE
 		  && GET_MODE (XEXP (op, 1)) == VOIDmode)))
 	return 1;
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:
       return address_operand (op, mode);
     }

@@ -260,7 +260,7 @@ in the following sections.
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
--ftest-coverage  -ftime-report @gol
+-ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -274,7 +274,8 @@ in the following sections.
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
--fbranch-target-load-optimize2 -fcaller-saves  -fcprop-registers @gol
+-fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
+-fcaller-saves  -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
@@ -369,15 +370,14 @@ in the following sections.
 @gccoptlist{-mcpu=@var{cpu-type} @gol
 -mtune=@var{cpu-type} @gol
 -mcmodel=@var{code-model} @gol
--m32  -m64 @gol
--mapp-regs  -mbroken-saverestore  -mcypress @gol
--mfaster-structs  -mflat @gol
--mfpu  -mhard-float  -mhard-quad-float @gol
--mimpure-text  -mlittle-endian  -mlive-g0  -mno-app-regs @gol
--mno-faster-structs  -mno-flat  -mno-fpu @gol
--mno-impure-text  -mno-stack-bias  -mno-unaligned-doubles @gol
--msoft-float  -msoft-quad-float  -msparclite  -mstack-bias @gol
--msupersparc  -munaligned-doubles  -mv8}
+-m32  -m64  -mapp-regs  -mno-app-regs @gol
+-mfaster-structs  -mno-faster-structs @gol
+-mfpu  -mno-fpu  -mhard-float  -msoft-float @gol
+-mhard-quad-float  -msoft-quad-float @gol
+-mimpure-text  -mno-impure-text  -mlittle-endian @gol
+-mstack-bias  -mno-stack-bias @gol
+-munaligned-doubles  -mno-unaligned-doubles @gol
+-mv8plus  -mno-v8plus  -mvis  -mno-vis}
 
 @emph{ARM Options}
 @gccoptlist{-mapcs-frame  -mno-apcs-frame @gol
@@ -388,9 +388,9 @@ in the following sections.
 -msched-prolog  -mno-sched-prolog @gol
 -mlittle-endian  -mbig-endian  -mwords-little-endian @gol
 -malignment-traps  -mno-alignment-traps @gol
--msoft-float  -mhard-float  -mfpe @gol
+-mfloat-abi=@var{name}  soft-float  -mhard-float  -mfpe @gol
 -mthumb-interwork  -mno-thumb-interwork @gol
--mcpu=@var{name}  -march=@var{name}  -mfpe=@var{name}  @gol
+-mcpu=@var{name}  -march=@var{name}  -mfpu=@var{name}  @gol
 -mstructure-size-boundary=@var{n} @gol
 -mabort-on-noreturn @gol
 -mlong-calls  -mno-long-calls @gol
@@ -523,16 +523,6 @@ in the following sections.
 -mschedule=@var{cpu-type}  -mspace-regs  -msio  -mwsio @gol
 -nolibdld  -static  -threads}
 
-@emph{Intel 960 Options}
-@gccoptlist{-m@var{cpu-type}  -masm-compat  -mclean-linkage @gol
--mcode-align  -mcomplex-addr  -mleaf-procedures @gol
--mic-compat  -mic2.0-compat  -mic3.0-compat @gol
--mintel-asm  -mno-clean-linkage  -mno-code-align @gol
--mno-complex-addr  -mno-leaf-procedures @gol
--mno-old-align  -mno-strict-align  -mno-tail-call @gol
--mnumerics  -mold-align  -msoft-float  -mstrict-align @gol
--mtail-call}
-
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
 -mieee  -mieee-with-inexact  -mieee-conformant @gol
@@ -617,10 +607,6 @@ in the following sections.
 -minline-int-divide-min-latency @gol
 -minline-int-divide-max-throughput  -mno-dwarf2-asm @gol
 -mfixed-range=@var{register-range}}
-
-@emph{D30V Options}
-@gccoptlist{-mextmem  -mextmemory  -monchip  -mno-asm-optimize @gol
--masm-optimize  -mbranch-cost=@var{n}  -mcond-exec=@var{n}}
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -3356,6 +3342,7 @@ Dump callgraph and unit-at-a-time optimization @file{@var{file}.00.unit}.
 @item V
 @opindex dV
 Dump after the value profile transformations, to @file{@var{file}.13.vpt}.
+Also dump after variable tracking, to @file{@var{file}.35.vartrack}.
 @item w
 @opindex dw
 Dump after the second flow pass, to @file{@var{file}.27.flow2}.
@@ -3607,6 +3594,16 @@ executing the program itself.  The second number is ``system time,''
 time spent executing operating system routines on behalf of the program.
 Both numbers are in seconds.
 
+@item -fvar-tracking
+@opindex fvar-tracking
+Run variable tracking pass. It computes where variables are stored at each
+position in code. Better debugging information is then generated
+(if the debugging information format supports this information).
+
+It is enabled by default when compiling with optimization (@option{-Os},
+@option{-O}, @option{-O2}, ...), debugging information (@option{-g}) and
+the debug info format supports it.
+
 @item -print-file-name=@var{library}
 @opindex print-file-name
 Print the full absolute name of the library file @var{library} that
@@ -3703,7 +3700,7 @@ Turning on optimization flags makes the compiler attempt to improve
 the performance and/or code size at the expense of compilation time
 and possibly the ability to debug the program.
 
-The compiler performs optimisation based on the knowledge it has of
+The compiler performs optimization based on the knowledge it has of
 the program.  Using the @option{-funit-at-a-time} flag will allow the
 compiler to consider information gained from later functions in the
 file when compiling a function.  Compiling multiple files at once to a
@@ -4864,6 +4861,11 @@ a separate optimization pass.
 Perform branch target register load optimization after prologue / epilogue
 threading.
 
+@item -fbtr-bb-exclusive
+@opindex fbtr-bb-exclusive
+WHen performing branch target register load optimization, don't reuse
+branch target registers in within any basic block.
+
 @item --param @var{name}=@var{value}
 @opindex param
 In some places, GCC uses various constants to control the amount of
@@ -4943,7 +4945,7 @@ This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 3000.
 
 @item large-function-growth
-Specifies maximal growth of large functtion caused by inlining in percents.
+Specifies maximal growth of large function caused by inlining in percents.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 200.
 
@@ -6090,7 +6092,6 @@ that macro, which enables you to change the defaults.
 * MIPS Options::
 * i386 and x86-64 Options::
 * HPPA Options::
-* Intel 960 Options::
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
 * H8/300 Options::
@@ -6103,7 +6104,6 @@ that macro, which enables you to change the defaults.
 * AVR Options::
 * MCore Options::
 * IA-64 Options::
-* D30V Options::
 * S/390 and zSeries Options::
 * CRIS Options::
 * MMIX Options::
@@ -6394,7 +6394,7 @@ Output code for g-format floating point numbers instead of d-format.
 @subsection SPARC Options
 @cindex SPARC options
 
-These @samp{-m} switches are supported on the SPARC:
+These @samp{-m} options are supported on the SPARC:
 
 @table @gcctabopt
 @item -mno-app-regs
@@ -6445,26 +6445,12 @@ Generate output containing library calls for quad-word (long double)
 floating point instructions.  The functions called are those specified
 in the SPARC ABI@.  This is the default.
 
-As of this writing, there are no sparc implementations that have hardware
+As of this writing, there are no SPARC implementations that have hardware
 support for the quad-word floating point instructions.  They all invoke
 a trap handler for one of these instructions, and then the trap handler
 emulates the effect of the instruction.  Because of the trap handler overhead,
 this is much slower than calling the ABI library routines.  Thus the
 @option{-msoft-quad-float} option is the default.
-
-@item -mno-flat
-@itemx -mflat
-@opindex mno-flat
-@opindex mflat
-With @option{-mflat}, the compiler does not generate save/restore instructions
-and will use a ``flat'' or single register window calling convention.
-This model uses %i7 as the frame pointer and is compatible with the normal
-register window model.  Code from either may be intermixed.
-The local registers and the input registers (0--5) are still treated as
-``call saved'' registers and will be saved on the stack as necessary.
-
-With @option{-mno-flat} (the default), the compiler emits save/restore
-instructions (except for leaf functions) and is the normal mode of operation.
 
 @item -mno-unaligned-doubles
 @itemx -munaligned-doubles
@@ -6508,49 +6494,12 @@ using @option{-mimpure-text}, you should compile all source code with
 
 This option is only available on SunOS and Solaris.
 
-@item -mv8
-@itemx -msparclite
-@opindex mv8
-@opindex msparclite
-These two options select variations on the SPARC architecture.
-
-By default (unless specifically configured for the Fujitsu SPARClite),
-GCC generates code for the v7 variant of the SPARC architecture.
-
-@option{-mv8} will give you SPARC v8 code.  The only difference from v7
-code is that the compiler emits the integer multiply and integer
-divide instructions which exist in SPARC v8 but not in SPARC v7.
-
-@option{-msparclite} will give you SPARClite code.  This adds the integer
-multiply, integer divide step and scan (@code{ffs}) instructions which
-exist in SPARClite but not in SPARC v7.
-
-These options are deprecated and will be deleted in a future GCC release.
-They have been replaced with @option{-mcpu=xxx}.
-
-@item -mcypress
-@itemx -msupersparc
-@opindex mcypress
-@opindex msupersparc
-These two options select the processor for which the code is optimized.
-
-With @option{-mcypress} (the default), the compiler optimizes code for the
-Cypress CY7C602 chip, as used in the SPARCStation/SPARCServer 3xx series.
-This is also appropriate for the older SPARCStation 1, 2, IPX etc.
-
-With @option{-msupersparc} the compiler optimizes code for the SuperSPARC cpu, as
-used in the SPARCStation 10, 1000 and 2000 series.  This flag also enables use
-of the full SPARC v8 instruction set.
-
-These options are deprecated and will be deleted in a future GCC release.
-They have been replaced with @option{-mcpu=xxx}.
-
 @item -mcpu=@var{cpu_type}
 @opindex mcpu
 Set the instruction set, register set, and instruction scheduling parameters
 for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{sparclite},
-@samp{hypersparc}, @samp{sparclite86x}, @samp{f930}, @samp{f934},
+@samp{f930}, @samp{f934}, @samp{hypersparc}, @samp{sparclite86x},
 @samp{sparclet}, @samp{tsc701}, @samp{v9}, @samp{ultrasparc}, and
 @samp{ultrasparc3}.
 
@@ -6569,6 +6518,41 @@ implementations.
     v9:             ultrasparc, ultrasparc3
 @end smallexample
 
+By default (unless configured otherwise), GCC generates code for the V7
+variant of the SPARC architecture.  With @option{-mcpu=cypress}, the compiler
+additionally optimizes it for the Cypress CY7C602 chip, as used in the
+SPARCStation/SPARCServer 3xx series.  This is also appropriate for the older
+SPARCStation 1, 2, IPX etc.
+
+With @option{-mcpu=v8}, GCC generates code for the V8 variant of the SPARC
+architecture.  The only difference from V7 code is that the compiler emits
+the integer multiply and integer divide instructions which exist in SPARC-V8
+but not in SPARC-V7.  With @option{-mcpu=supersparc}, the compiler additionally
+optimizes it for the SuperSPARC chip, as used in the SPARCStation 10, 1000 and
+2000 series.
+
+With @option{-mcpu=sparclite}, GCC generates code for the SPARClite variant of
+the SPARC architecture.  This adds the integer multiply, integer divide step
+and scan (@code{ffs}) instructions which exist in SPARClite but not in SPARC-V7.
+With @option{-mcpu=f930}, the compiler additionally optimizes it for the
+Fujitsu MB86930 chip, which is the original SPARClite, with no FPU.  With
+@option{-mcpu=f934}, the compiler additionally optimizes it for the Fujitsu
+MB86934 chip, which is the more recent SPARClite with FPU.
+
+With @option{-mcpu=sparclet}, GCC generates code for the SPARClet variant of
+the SPARC architecture.  This adds the integer multiply, multiply/accumulate,
+integer divide step and scan (@code{ffs}) instructions which exist in SPARClet
+but not in SPARC-V7.  With @option{-mcpu=tsc701}, the compiler additionally
+optimizes it for the TEMIC SPARClet chip.
+
+With @option{-mcpu=v9}, GCC generates code for the V9 variant of the SPARC
+architecture.  This adds 64-bit integer and floating-point move instructions,
+3 additional floating-point condition code registers and conditional move
+instructions.  With @option{-mcpu=ultrasparc}, the compiler additionally
+optimizes it for the Sun UltraSPARC I/II chips.  With
+@option{-mcpu=ultrasparc3}, the compiler additionally optimizes it for the
+Sun UltraSPARC III chip.
+
 @item -mtune=@var{cpu_type}
 @opindex mtune
 Set the instruction scheduling parameters for machine type
@@ -6582,36 +6566,25 @@ that select a particular cpu implementation.  Those are @samp{cypress},
 @samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc}, and
 @samp{ultrasparc3}.
 
+@item -mv8plus
+@itemx -mno-v8plus
+@opindex -mv8plus
+@opindex -mno-v8plus
+With @option{-mv8plus}, GCC generates code for the SPARC-V8+ ABI.  The
+difference from the V8 ABI is that the global and out registers are
+considered 64-bit wide.  This is enabled by default on Solaris in 32-bit
+mode for all SPARC-V9 processors.
+
+@item -mvis
+@itemx -mno-vis
+@opindex -mvis
+@opindex -mno-vis
+With @option{-mvis}, GCC generates code that takes advantage of the UltraSPARC
+Visual Instruction Set extensions.  The default is @option{-mno-vis}.
 @end table
 
-These @samp{-m} switches are supported in addition to the above
-on the SPARCLET processor.
-
-@table @gcctabopt
-@item -mlittle-endian
-@opindex mlittle-endian
-Generate code for a processor running in little-endian mode.
-
-@item -mlive-g0
-@opindex mlive-g0
-Treat register @code{%g0} as a normal register.
-GCC will continue to clobber it as necessary but will not assume
-it always reads as 0.
-
-@item -mbroken-saverestore
-@opindex mbroken-saverestore
-Generate code that does not use non-trivial forms of the @code{save} and
-@code{restore} instructions.  Early versions of the SPARCLET processor do
-not correctly handle @code{save} and @code{restore} instructions used with
-arguments.  They correctly handle them used without arguments.  A @code{save}
-instruction used without arguments increments the current window pointer
-but does not allocate a new stack frame.  It is assumed that the window
-overflow trap handler will properly handle this case as will interrupt
-handlers.
-@end table
-
-These @samp{-m} switches are supported in addition to the above
-on SPARC V9 processors in 64-bit environments.
+These @samp{-m} options are supported in addition to the above
+on SPARC-V9 processors in 64-bit environments:
 
 @table @gcctabopt
 @item -mlittle-endian
@@ -6662,7 +6635,7 @@ Programs are statically linked, PIC is not supported.
 @opindex mno-stack-bias
 With @option{-mstack-bias}, GCC assumes that the stack pointer, and
 frame pointer if present, are offset by @minus{}2047 which must be added back
-when making stack frame references.
+when making stack frame references.  This is the default in 64-bit mode.
 Otherwise, assume no such offset is present.
 @end table
 
@@ -6767,6 +6740,16 @@ this option.  In particular, you need to compile @file{libgcc.a}, the
 library that comes with GCC, with @option{-msoft-float} in order for
 this to work.
 
+@item -mfloat-abi=@var{name}
+@opindex mfloat-abi
+Specifies which ABI to use for floating point values.  Permissible values
+are: @samp{soft}, @samp{softfp} and @samp{hard}.
+
+@samp{soft} and @samp{hard} are equivalent to @option{-msoft-float}
+and @option{-mhard-float} respectively.  @samp{softfp} allows the generation
+of floating point instructions, but still uses the soft-float calling
+conventions.
+
 @item -mlittle-endian
 @opindex mlittle-endian
 Generate code for a processor running in little-endian mode.  This is
@@ -6865,16 +6848,23 @@ name to determine what kind of instructions it can emit when generating
 assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
-@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6j},
+@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6}, @samp{armv6j},
 @samp{iwmmxt}, @samp{ep9312}.
 
-@item -mfpe=@var{number}
+@item -mfpu=@var{name}
+@itemx -mfpe=@var{number}
 @itemx -mfp=@var{number}
+@opindex mfpu
 @opindex mfpe
 @opindex mfp
-This specifies the version of the floating point emulation available on
-the target.  Permissible values are 2 and 3.  @option{-mfp=} is a synonym
-for @option{-mfpe=}, for compatibility with older versions of GCC@.
+This specifies what floating point hardware (or hardware emulation) is
+available on the target.  Permissible names are: @samp{fpa}, @samp{fpe2},
+@samp{fpe3}, @samp{maverick}, @samp{vfp}.  @option{-mfp} and @option{-mfpe}
+are synonyms for @option{-mpfu}=@samp{fpe}@var{number}, for compatibility
+with older versions of GCC@.
+
+If @option{-msoft-float} is specified this specifies the format of
+floating point values.
 
 @item -mstructure-size-boundary=@var{n}
 @opindex mstructure-size-boundary
@@ -8428,7 +8418,7 @@ These synonyms are deprecated.
 
 @item -mfpmath=@var{unit}
 @opindex march
-generate floating point arithmetics for selected unit @var{unit}.  the choices
+Generate floating point arithmetics for selected unit @var{unit}.  The choices
 for @var{unit} are:
 
 @table @samp
@@ -8454,24 +8444,17 @@ For i387 you need to use @option{-march=@var{cpu-type}}, @option{-msse} or
 @option{-msse2} switches to enable SSE extensions and make this option
 effective.  For x86-64 compiler, these extensions are enabled by default.
 
-The resulting code should be considerably faster in majority of cases and avoid
+The resulting code should be considerably faster in the majority of cases and avoid
 the numerical instability problems of 387 code, but may break some existing
 code that expects temporaries to be 80bit.
 
-This is the default choice for x86-64 compiler.
-
-@item pni
-Use all SSE extensions enabled by @option{-msse2} as well as the new
-SSE extensions in Prescott New Instructions. @option{-mpni} also
-enables 2 builtin functions, @code{__builtin_ia32_monitor} and
-@code{__builtin_ia32_mwait}, for new instructions @code{monitor} and
-@code{mwait}.
+This is the default choice for the x86-64 compiler.
 
 @item sse,387
 Attempt to utilize both instruction sets at once.  This effectively double the
 amount of available registers and on chips with separate execution units for
 387 and SSE the execution resources too.  Use this option with care, as it is
-still experimental, because gcc register allocator does not model separate
+still experimental, because the gcc register allocator does not model separate
 functional units well resulting in instable performance.
 @end table
 
@@ -8562,10 +8545,10 @@ Notice that neither of these options enable any extra precision over the x87
 standard of 80 bits for a @code{long double}.
 
 @strong{Warning:} if you override the default value for your target ABI, the
-structures and arrays containing @code{long double} will change their size as
-well as function calling convention for function taking @code{long double}
-will be modified.  Hence they will not be binary compatible with arrays or
-structures in code compiled without that switch.
+structures and arrays containing @code{long double} variables will change
+their size as well as function calling convention for function taking
+@code{long double} will be modified.  Hence they will not be binary
+compatible with arrays or structures in code compiled without that switch.
 
 
 @item -msvr3-shlib
@@ -8659,7 +8642,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of built-in functions that allow
-direct access to the MMX, SSE and 3Dnow extensions of the instruction set.
+direct access to the MMX, SSE, SSE2, PNI and 3Dnow extensions of the
+instruction set.
 
 @xref{X86 Built-in Functions}, for details of the functions enabled
 and disabled by these switches.
@@ -8968,118 +8952,6 @@ adding these link options.
 Add support for multithreading with the @dfn{dce thread} library
 under HP-UX.  This option sets flags for both the preprocessor and
 linker.
-@end table
-
-@node Intel 960 Options
-@subsection Intel 960 Options
-
-These @samp{-m} options are defined for the Intel 960 implementations:
-
-@table @gcctabopt
-@item -m@var{cpu-type}
-@opindex mka
-@opindex mkb
-@opindex mmc
-@opindex mca
-@opindex mcf
-@opindex msa
-@opindex msb
-Assume the defaults for the machine type @var{cpu-type} for some of
-the other options, including instruction scheduling, floating point
-support, and addressing modes.  The choices for @var{cpu-type} are
-@samp{ka}, @samp{kb}, @samp{mc}, @samp{ca}, @samp{cf},
-@samp{sa}, and @samp{sb}.
-The default is
-@samp{kb}.
-
-@item -mnumerics
-@itemx -msoft-float
-@opindex mnumerics
-@opindex msoft-float
-The @option{-mnumerics} option indicates that the processor does support
-floating-point instructions.  The @option{-msoft-float} option indicates
-that floating-point support should not be assumed.
-
-@item -mleaf-procedures
-@itemx -mno-leaf-procedures
-@opindex mleaf-procedures
-@opindex mno-leaf-procedures
-Do (or do not) attempt to alter leaf procedures to be callable with the
-@code{bal} instruction as well as @code{call}.  This will result in more
-efficient code for explicit calls when the @code{bal} instruction can be
-substituted by the assembler or linker, but less efficient code in other
-cases, such as calls via function pointers, or using a linker that doesn't
-support this optimization.
-
-@item -mtail-call
-@itemx -mno-tail-call
-@opindex mtail-call
-@opindex mno-tail-call
-Do (or do not) make additional attempts (beyond those of the
-machine-independent portions of the compiler) to optimize tail-recursive
-calls into branches.  You may not want to do this because the detection of
-cases where this is not valid is not totally complete.  The default is
-@option{-mno-tail-call}.
-
-@item -mcomplex-addr
-@itemx -mno-complex-addr
-@opindex mcomplex-addr
-@opindex mno-complex-addr
-Assume (or do not assume) that the use of a complex addressing mode is a
-win on this implementation of the i960.  Complex addressing modes may not
-be worthwhile on the K-series, but they definitely are on the C-series.
-The default is currently @option{-mcomplex-addr} for all processors except
-the CB and CC@.
-
-@item -mcode-align
-@itemx -mno-code-align
-@opindex mcode-align
-@opindex mno-code-align
-Align code to 8-byte boundaries for faster fetching (or don't bother).
-Currently turned on by default for C-series implementations only.
-
-@ignore
-@item -mclean-linkage
-@itemx -mno-clean-linkage
-@opindex mclean-linkage
-@opindex mno-clean-linkage
-These options are not fully implemented.
-@end ignore
-
-@item -mic-compat
-@itemx -mic2.0-compat
-@itemx -mic3.0-compat
-@opindex mic-compat
-@opindex mic2.0-compat
-@opindex mic3.0-compat
-Enable compatibility with iC960 v2.0 or v3.0.
-
-@item -masm-compat
-@itemx -mintel-asm
-@opindex masm-compat
-@opindex mintel-asm
-Enable compatibility with the iC960 assembler.
-
-@item -mstrict-align
-@itemx -mno-strict-align
-@opindex mstrict-align
-@opindex mno-strict-align
-Do not permit (do permit) unaligned accesses.
-
-@item -mold-align
-@opindex mold-align
-Enable structure-alignment compatibility with Intel's gcc release version
-1.3 (based on gcc 1.37).  This option implies @option{-mstrict-align}.
-
-@item -mlong-double-64
-@opindex mlong-double-64
-Implement type @samp{long double} as 64-bit floating point numbers.
-Without the option @samp{long double} is implemented by 80-bit
-floating point numbers.  The only reason we have it because there is
-no 128-bit @samp{long double} support in @samp{fp-bit.c} yet.  So it
-is only useful for people using soft-float targets.  Otherwise, we
-should recommend against use of it.
-
 @end table
 
 @node DEC Alpha Options
@@ -10273,50 +10145,6 @@ instruction that triggered the stop bit.  This can improve instruction
 scheduling, but does not always do so.
 @end table
 
-@node D30V Options
-@subsection D30V Options
-@cindex D30V Options
-
-These @samp{-m} options are defined for D30V implementations:
-
-@table @gcctabopt
-@item -mextmem
-@opindex mextmem
-Link the @samp{.text}, @samp{.data}, @samp{.bss}, @samp{.strings},
-@samp{.rodata}, @samp{.rodata1}, @samp{.data1} sections into external
-memory, which starts at location @code{0x80000000}.
-
-@item -mextmemory
-@opindex mextmemory
-Same as the @option{-mextmem} switch.
-
-@item -monchip
-@opindex monchip
-Link the @samp{.text} section into onchip text memory, which starts at
-location @code{0x0}.  Also link @samp{.data}, @samp{.bss},
-@samp{.strings}, @samp{.rodata}, @samp{.rodata1}, @samp{.data1} sections
-into onchip data memory, which starts at location @code{0x20000000}.
-
-@item -mno-asm-optimize
-@itemx -masm-optimize
-@opindex mno-asm-optimize
-@opindex masm-optimize
-Disable (enable) passing @option{-O} to the assembler when optimizing.
-The assembler uses the @option{-O} option to automatically parallelize
-adjacent short instructions where possible.
-
-@item -mbranch-cost=@var{n}
-@opindex mbranch-cost
-Increase the internal costs of branches to @var{n}.  Higher costs means
-that the compiler will issue more instructions to avoid doing a branch.
-The default is 2.
-
-@item -mcond-exec=@var{n}
-@opindex mcond-exec
-Specify the maximum number of conditionally executed instructions that
-replace a branch.  The default is 4.
-@end table
-
 @node S/390 and zSeries Options
 @subsection S/390 and zSeries Options
 @cindex S/390 and zSeries Options
@@ -10340,8 +10168,9 @@ generates IEEE floating-point instructions.  This is the default.
 @opindex mno-backchain
 Generate (or do not generate) code which maintains an explicit
 backchain within the stack frame that points to the caller's frame.
-This is currently needed to allow debugging.  The default is to
-generate the backchain.
+This may be needed to allow debugging using tools that do not understand
+DWARF-2 call frame information.  The default is not to generate the
+backchain.
 
 @item -msmall-exec
 @itemx -mno-small-exec

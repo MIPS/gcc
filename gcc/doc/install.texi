@@ -293,15 +293,24 @@ systems' @command{tar} programs will also work, only try GNU
 Necessary when modifying @file{configure.in}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.13 (exactly), but @file{libiberty},
-@file{fastjar}, @file{libstdc++-v3}, and @file{gcc} require
-autoconf 2.57 (exactly).
+@file{fastjar}, @file{libstdc++-v3}, @file{libjava/libltdl}, and @file{gcc}
+require autoconf 2.57 (exactly).
 
-@item automake versions 1.4-p? and 1.7.?
+@item automake versions 1.4-gcj and 1.7.9
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
-associated @file{Makefile.in}.  Most directories require a 1.4 series
-automake; @file{libstdc++-v3} and @file{fastjar} requires a 1.7 series
-automake.
+associated @file{Makefile.in}.
+
+Much of GCC does not use automake, so directly edit the @file{Makefile.in}
+file.  Specifically this applies to the @file{gcc}, @file{intl},
+@file{libf2c}, @file{libiberty}, @file{libobjc} directories as well as any
+of their subdirectories.
+
+The @file{libstdc++-v3}, @file{libjava/libltdl}, and @file{fastjar}
+directories require automake 1.7.9.  However, the Java directories, which
+include @file{boehm-gc}, @file{libffi}, @file{libjava}, and @file{zlib},
+require a modified version of automake 1.4 downloadable from
+@uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
 
 @item gettext version 0.12 (or later)
 
@@ -327,7 +336,7 @@ Necessary to regenerate @file{fixinc/fixincl.x} from
 
 Necessary to run the @file{fixinc} @command{make check}.
 
-Necessary to regenerate the top level @file{Makefile.am} files from
+Necessary to regenerate the top level @file{Makefile.in} file from
 @file{Makefile.tpl} and @file{Makefile.def}.
 
 @item GNU Bison version 1.28 (or later)
@@ -530,7 +539,7 @@ provide a configure target when configuring a native compiler.
 @item
 @var{target} must be specified as @option{--target=@var{target}}
 when configuring a cross compiler; examples of valid targets would be
-i960-rtems, m68k-coff, sh-elf, etc.
+m68k-coff, sh-elf, etc.
 
 @item
 Specifying just @var{target} instead of @option{--target=@var{target}}
@@ -600,7 +609,7 @@ manual.)
 @item --with-gxx-include-dir=@var{dirname}
 Specify
 the installation directory for G++ header files.  The default is
-@file{@var{prefix}/include/g++-v3}.
+@file{@var{prefix}/include/c++/@var{version}}.
 
 @end table
 
@@ -926,18 +935,27 @@ and SPARC@.
 @itemx --with-arch=@var{cpu}
 @itemx --with-tune=@var{cpu}
 @itemx --with-abi=@var{abi}
+@itemx --with-fpu=@var{type}
 @itemx --with-float=@var{type}
 These configure options provide default values for the @option{-mschedule=},
-@option{-march=}, @option{-mtune=}, and @option{-mabi=} options and for
-@option{-mhard-float} or @option{-msoft-float}.  As with @option{--with-cpu},
-which switches will be accepted and acceptable values of the arguments depend
-on the target.
+@option{-march=}, @option{-mtune=}, @option{-mabi=}, and @option{-mfpu=}
+options and for @option{-mhard-float} or @option{-msoft-float}.  As with
+@option{--with-cpu}, which switches will be accepted and acceptable values
+of the arguments depend on the target.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
 option will adjust the ABI for AltiVec enhancements, as well as generate
 AltiVec code when appropriate.  This option is only available for
 PowerPC systems.
+
+@item --enable-__cxa_atexit
+Define if you want to use __cxa_atexit, rather than atexit, to
+register C++ destructors for local statics and global objects.
+This is essential for fully standards-compliant handling of
+destructors, but requires __cxa_atexit in libc. This option is currently
+only available on systems with GNU libc. When enabled, this will cause
+@option{-fuse-cxa-exit} to be passed by default.
 
 @item --enable-target-optspace
 Specify that target
@@ -1010,6 +1028,12 @@ If you do not pass this flag, all languages available in the @file{gcc}
 sub-tree will be configured.  Re-defining @code{LANGUAGES} when calling
 @samp{make bootstrap} @strong{does not} work anymore, as those
 language sub-directories might not have been configured!
+
+@item --disable-libada
+Specify that the run-time libraries and tools used by GNAT should not
+be built.  This can be useful for debugging, or for compatibility with
+previous Ada build procedures, when it was required to explicitely
+do a @samp{make -C gcc gnatlib_and_tools}.
 
 @item --disable-libgcj
 Specify that the run-time libraries
@@ -1430,30 +1454,14 @@ and has a sufficiently recent version; if too old a GNAT version is
 installed, the build will fail unless @option{--enable-languages} is
 used to disable building the Ada front end.
 
-At the moment, the GNAT library and several tools for GNAT are not built
-by @samp{make bootstrap}.  For a native build, you have to invoke
-@samp{make gnatlib_and_tools} in the @file{@var{objdir}/gcc}
-subdirectory before proceeding with the next steps.
-For a cross build, you need to invoke
-@samp{make gnatlib cross-gnattools ada.all.cross}.  For a canadian
-cross you only need to invoke @samp{make cross-gnattools}; the GNAT
-library would be the same as the one built for the cross compiler.
-
 For example, you can build a native Ada compiler by issuing the
 following commands (assuming @command{make} is GNU make):
 
 @smallexample
     cd @var{objdir}
     @var{srcdir}/configure --enable-languages=c,ada
-    cd @var{objdir}
     make bootstrap
-    cd gcc
-    make gnatlib_and_tools
-    cd ..
 @end smallexample
-
-Currently, when compiling the Ada front end, you cannot use the parallel
-build feature described in the previous section.
 
 @section Building with profile feedback
 
@@ -2002,8 +2010,6 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#dos,,DOS}
 @item
-@uref{#dsp16xx,,dsp16xx}
-@item
 @uref{#*-*-freebsd*,,*-*-freebsd*}
 @item
 @uref{#h8300-hms,,h8300-hms}
@@ -2013,8 +2019,6 @@ GNU Compiler Collection on your machine.
 @uref{#hppa*-hp-hpux10,,hppa*-hp-hpux10}
 @item
 @uref{#hppa*-hp-hpux11,,hppa*-hp-hpux11}
-@item
-@uref{#i370-*-*,,i370-*-*}
 @item
 @uref{#*-*-linux-gnu,,*-*-linux-gnu}
 @item
@@ -2396,12 +2400,6 @@ and includes all the necessary compilation tools and libraries.
 @html
 <hr />
 @end html
-@heading @anchor{dsp16xx}dsp16xx
-A port to the AT&T DSP1610 family of processors.
-
-@html
-<hr />
-@end html
 @heading @anchor{*-*-freebsd*}*-*-freebsd*
 
 The version of binutils installed in @file{/usr/bin} is known to work unless
@@ -2613,13 +2611,6 @@ The bundled compiler supports only traditional C; you will need
 either HP's unbundled compiler, or a binary distribution of GCC@.
 
 This port still is undergoing significant development.
-
-@html
-<hr />
-@end html
-@heading @anchor{i370-*-*}i370-*-*
-This port is very preliminary and has many known bugs.  We hope to
-have a higher-quality port for this machine soon.
 
 @html
 <hr />

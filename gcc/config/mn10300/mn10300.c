@@ -93,8 +93,6 @@ static rtx mn10300_builtin_saveregs (void);
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY mn10300_return_in_memory
 
@@ -366,7 +364,7 @@ print_operand (FILE *file, rtx x, int code)
       case 'A':
 	fputc ('(', file);
 	if (GET_CODE (XEXP (x, 0)) == REG)
-	  output_address (gen_rtx_PLUS (SImode, XEXP (x, 0), GEN_INT (0)));
+	  output_address (gen_rtx_PLUS (SImode, XEXP (x, 0), const0_rtx));
 	else
 	  output_address (XEXP (x, 0));
 	fputc (')', file);
@@ -1418,6 +1416,8 @@ initial_offset (int from, int to)
   abort ();
 }
 
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
 static bool
 mn10300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
@@ -1798,7 +1798,7 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  regy1 = force_reg (Pmode, force_operand (XEXP (y, 0), 0));
 	  regy2 = force_reg (Pmode, force_operand (XEXP (y, 1), 0));
 	  regx1 = force_reg (Pmode,
-			     gen_rtx (GET_CODE (y), Pmode, regx1, regy2));
+			     gen_rtx_fmt_ee (GET_CODE (y), Pmode, regx1, regy2));
 	  return force_reg (Pmode, gen_rtx_PLUS (Pmode, regx1, regy1));
 	}
     }

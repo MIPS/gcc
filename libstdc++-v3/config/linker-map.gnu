@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -150,6 +150,8 @@ GLIBCXX_3.4 {
     _ZTISt10__num_base;
     _ZTISt21__ctype_abstract_baseI[cw]E;
     _ZTISt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
+    _ZTIN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+    _ZTIN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # typeinfo name
     _ZTSNSt8ios_base7failureE;
@@ -161,6 +163,8 @@ GLIBCXX_3.4 {
     _ZTSSt10__num_base;
     _ZTSSt21__ctype_abstract_baseI[cw]E;
     _ZTSSt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
+    _ZTSN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+    _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # function-scope static objects requires a guard variable.
     _ZGVNSt*;
@@ -206,10 +210,6 @@ GLIBCXX_3.4 {
     __signbit;
     __signbitf;
     __signbitl;
-
-    # __gnu_cxx::__pool_alloc
-    _ZN9__gnu_cxx12__pool_allocILb1ELi0EE8allocateE[jm];
-    _ZN9__gnu_cxx12__pool_allocILb1ELi0EE10deallocateEPv[jm];
 
     # __gnu_cxx::stdio_sync_filebuf
     _ZTVN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;

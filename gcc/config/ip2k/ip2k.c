@@ -115,8 +115,6 @@ const struct attribute_spec ip2k_attribute_table[];
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS ip2k_init_libfuncs
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ip2k_return_in_memory
 
@@ -3761,7 +3759,7 @@ track_dp_reload (insn, dp_current, dp_current_ok, modifying)
 				+ GET_MODE_SIZE (GET_MODE (XEXP (set, 0))));
           *dp_current = gen_rtx_MEM (HImode,
 				     gen_rtx_PLUS (Pmode,
-				 	           gen_rtx_REG(HImode, REG_SP),
+				 	           gen_rtx_REG (HImode, REG_SP),
 						   GEN_INT (disp)));
 	  return 1;
 	}
@@ -4458,7 +4456,7 @@ mdr_try_propagate_clr_sequence (first_insn, regno)
 	      && GET_MODE_SIZE (GET_MODE (XEXP (set2, 1))) == 2
 	      && REGNO (XEXP (set2, 1)) == regno)
             {
-	      new_insn = gen_rtx_SET (VOIDmode, gen_rtx (CC0, VOIDmode),
+	      new_insn = gen_rtx_SET (VOIDmode, gen_rtx_CC0 (VOIDmode),
 				      gen_rtx_REG(QImode, regno + 1));
               new_insn = emit_insn_before (new_insn, try_insn);
 	    }
@@ -6196,11 +6194,21 @@ ip2k_unsigned_comparison_operator (rtx op, enum machine_mode mode)
           && unsigned_condition (GET_CODE (op)) == GET_CODE (op));
 }
 
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
 static bool
 ip2k_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
-  return (TYPE_MODE (type) == BLKmode) ? int_size_in_bytes (type) > 8 : 0;
+  if (TYPE_MODE (type) == BLKmode)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      return (size == -1 || size > 8);
+    }
+  else
+    return false;
 }
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
 ip2k_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,

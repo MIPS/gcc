@@ -492,7 +492,7 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
          If so, mark all of them just like the first.  */
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  int i = HARD_REGNO_NREGS (regno, GET_MODE (dest));
+	  int i = hard_regno_nregs[regno][GET_MODE (dest)];
 	  if (code == SET)
 	    {
 	      while (--i >= 0)
@@ -639,7 +639,7 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	int regno = REGNO (x);
 	if (regno < FIRST_PSEUDO_REGISTER)
 	  {
-	    int i = HARD_REGNO_NREGS (regno, GET_MODE (x));
+	    int i = hard_regno_nregs[regno][GET_MODE (x)];
 	    while (--i >= 0)
 	      SET_REGNO_REG_SET (reg_pending_uses, regno + i);
 	  }
@@ -1267,7 +1267,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
 	    rtx_region = GEN_INT (NOTE_EH_HANDLER (insn));
 	  else
-	    rtx_region = GEN_INT (0);
+	    rtx_region = const0_rtx;
 
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
 					rtx_region,

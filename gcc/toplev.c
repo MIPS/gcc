@@ -79,6 +79,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
+#include "alloc-pool.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -157,6 +158,7 @@ static void rest_of_handle_reorder_blocks (tree, rtx);
 #ifdef STACK_REGS
 static void rest_of_handle_stack_regs (tree, rtx);
 #endif
+static void rest_of_handle_variable_tracking (tree, rtx);
 static void rest_of_handle_machine_reorg (tree, rtx);
 #ifdef DELAY_SLOTS
 static void rest_of_handle_delay_slots (tree, rtx);
@@ -288,6 +290,7 @@ enum dump_file_index
   DFI_branch_target_load,
   DFI_sched2,
   DFI_stack,
+  DFI_vartrack,
   DFI_mach,
   DFI_dbr,
   DFI_MAX
@@ -339,6 +342,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
+  { "vartrack",	'V', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
 };
@@ -711,6 +715,11 @@ int flag_branch_target_load_optimize = 0;
 
 int flag_branch_target_load_optimize2 = 0;
 
+/* For the bt-load pass, nonzero means don't re-use branch target registers
+   in any basic block.  */
+
+int flag_btr_bb_exclusive;
+
 /* Nonzero means to rerun cse after loop optimization.  This increases
    compilation time about 20% and picks up a few more common expressions.  */
 
@@ -996,6 +1005,13 @@ int flag_tracer = 0;
 
 int flag_unit_at_a_time = 0;
 
+/* Nonzero if we should track variables.  When
+   flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
+   to optimize, debug_info_level and debug_hooks in process_options ().  */
+ 
+#define AUTODETECT_FLAG_VAR_TRACKING 2
+int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1101,6 +1117,7 @@ static const lang_independent_options f_options[] =
   {"gcse-las", &flag_gcse_las, 1 },
   {"branch-target-load-optimize", &flag_branch_target_load_optimize, 1 },
   {"branch-target-load-optimize2", &flag_branch_target_load_optimize2, 1 },
+  {"btr-bb-exclusive", &flag_btr_bb_exclusive, 1 },
   {"loop-optimize", &flag_loop_optimize, 1 },
   {"crossjumping", &flag_crossjumping, 1 },
   {"if-conversion", &flag_if_conversion, 1 },
@@ -1177,6 +1194,7 @@ static const lang_independent_options f_options[] =
   { "trapv", &flag_trapv, 1 },
   { "wrapv", &flag_wrapv, 1 },
   { "new-ra", &flag_new_regalloc, 1 },
+  { "var-tracking", &flag_var_tracking, 1},
   { "tree-gvn", &flag_tree_gvn, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
@@ -2201,6 +2219,18 @@ rest_of_handle_stack_regs (tree decl, rtx insns)
 }
 #endif
 
+/* Track the variables, ie. compute where the variable is stored at each position in function.  */
+static void
+rest_of_handle_variable_tracking (tree decl, rtx insns)
+{
+  timevar_push (TV_VAR_TRACKING);
+  open_dump_file (DFI_vartrack, decl);
+
+  variable_tracking_main ();
+
+  close_dump_file (DFI_vartrack, print_rtl_with_bb, insns);
+  timevar_pop (TV_VAR_TRACKING);
+}
 
 /* Machine independent reorg pass.  */
 static void
@@ -2384,7 +2414,7 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
      but should not be terribly bad.  */
   if (changed && HAVE_conditional_execution)
     update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		      PROP_DEATH_NOTES | PROP_REG_INFO);
+		      PROP_DEATH_NOTES);
   close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
 }
 
@@ -3354,6 +3384,9 @@ rest_of_compilation (tree decl)
 
       if (flag_loop_optimize)
 	rest_of_handle_loop_optimize (decl, insns);
+
+      if (flag_gcse)
+	rest_of_handle_jump_bypass (decl, insns);
     }
 
   timevar_push (TV_FLOW);
@@ -3384,16 +3417,11 @@ rest_of_compilation (tree decl)
   if (flag_tracer)
     rest_of_handle_tracer (decl, insns);
 
-  if (optimize > 0)
-    {
-      if (flag_unswitch_loops
+  if (optimize > 0
+      && (flag_unswitch_loops
 	  || flag_peel_loops
-	  || flag_unroll_loops)
-	rest_of_handle_loop2 (decl, insns);
-
-      if (flag_gcse)
-	rest_of_handle_jump_bypass (decl, insns);
-    }
+	  || flag_unroll_loops))
+    rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)
     rest_of_handle_web (decl, insns);
@@ -3603,6 +3631,9 @@ rest_of_compilation (tree decl)
 #endif
 
   compute_alignments ();
+
+  if (flag_var_tracking)
+    rest_of_handle_variable_tracking (decl, insns);
 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
@@ -4454,6 +4485,16 @@ process_options (void)
     error ("target system does not support the \"%s\" debug format",
 	   debug_type_names[write_symbols]);
 
+  /* Now we know which debug output will be used so we can set
+     flag_var_tracking if user has not specified it.  */
+  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+    {
+      /* User has not specified -f(no-)var-tracking so autodetect it.  */
+      flag_var_tracking
+	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
+	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
+    }
+
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
      all the other output files.  */
@@ -4640,6 +4681,7 @@ finalize (void)
       dump_tree_statistics ();
       dump_rtx_statistics ();
       dump_varray_statistics ();
+      dump_alloc_pool_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */

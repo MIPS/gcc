@@ -45,6 +45,7 @@ DEFTIMEVAR (TV_CGRAPHOPT             , "callgraph optimization")
 DEFTIMEVAR (TV_CFG                   , "cfg construction")
 /* Time spent by cleaning up CFG.  */
 DEFTIMEVAR (TV_CLEANUP_CFG           , "cfg cleanup")
+DEFTIMEVAR (TV_CFG_VERIFY            , "CFG verifier")
 DEFTIMEVAR (TV_DELETE_TRIVIALLY_DEAD , "trivially dead code")
 /* Time spent by life analysis.  */
 DEFTIMEVAR (TV_LIFE		     , "life analysis")
@@ -82,7 +83,6 @@ DEFTIMEVAR (TV_TREE_LOOP	     , "tree loop optimization")
 DEFTIMEVAR (TV_TREE_SSA_TO_NORMAL    , "tree SSA to normal")
 DEFTIMEVAR (TV_TREE_SSA_VERIFY       , "tree SSA verifier")
 DEFTIMEVAR (TV_TREE_STMT_VERIFY      , "tree STMT verifier")
-DEFTIMEVAR (TV_CFG_VERIFY            , "CFG verifier")
 DEFTIMEVAR (TV_CGRAPH_VERIFY         , "callgraph verifier")
 DEFTIMEVAR (TV_DOM_FRONTIERS         , "dominance frontiers")
 DEFTIMEVAR (TV_CONTROL_DEPENDENCES   , "control dependences")
@@ -121,6 +121,7 @@ DEFTIMEVAR (TV_SHORTEN_BRANCH        , "shorten branches")
 DEFTIMEVAR (TV_REG_STACK             , "reg stack")
 DEFTIMEVAR (TV_FINAL                 , "final")
 DEFTIMEVAR (TV_SYMOUT                , "symout")
+DEFTIMEVAR (TV_VAR_TRACKING          , "variable tracking")
 
 /* Everything else in rest_of_compilation not included above.  */
 DEFTIMEVAR (TV_REST_OF_COMPILATION   , "rest of compilation")

@@ -219,8 +219,7 @@ remove(MenuComponent menu)
 public int
 getMenuCount()
 {
-  // FIXME: How does the help menu fit in here?
-  return(menus.size());
+  return countMenus ();
 }
 
 /*************************************************************************/
@@ -235,7 +234,8 @@ getMenuCount()
 public int
 countMenus()
 {
-  return(getMenuCount());
+  // FIXME: How does the help menu fit in here?
+  return menus.size ();
 }
 
 /*************************************************************************/
@@ -279,6 +279,12 @@ addNotify()
 public void
 removeNotify()
 {
+  Enumeration e = menus.elements();
+  while (e.hasMoreElements())
+  {
+    Menu mi = (Menu) e.nextElement();
+    mi.removeNotify();
+  }
   super.removeNotify();
 }
 

@@ -1340,6 +1340,9 @@ available on some particular machines.
 @item f
 Floating-point register
 
+@item w
+VFP floating-point register
+
 @item F
 One of the floating-point constants 0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0
 or 10.0
@@ -1375,6 +1378,9 @@ An item in the constant pool
 @item S
 A symbol in the text segment of the current file
 @end table
+
+@item U
+A memory reference suitable for VFP load/store insns (reg+constant offset)
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -1604,36 +1610,6 @@ Constant in range @minus{}2147483648 to 2147483647 or symbolic reference known t
 
 @item G
 Standard 80387 floating point constant
-@end table
-
-@item Intel 960---@file{i960.h}
-@table @code
-@item f
-Floating point register (@code{fp0} to @code{fp3})
-
-@item l
-Local register (@code{r0} to @code{r15})
-
-@item b
-Global register (@code{g0} to @code{g15})
-
-@item d
-Any local or global register
-
-@item I
-Integers from 0 to 31
-
-@item J
-0
-
-@item K
-Integers from @minus{}31 to 0
-
-@item G
-Floating point 0
-
-@item H
-Floating point 1
 @end table
 
 @item Intel IA-64---@file{ia64.h}
@@ -4619,7 +4595,7 @@ Here is an example, taken from the 68000 machine description:
   "FP_REG_P (operands[0]) && ! FP_REG_P (operands[1])"
 @{
   rtx xoperands[2];
-  xoperands[1] = gen_rtx (REG, SImode, REGNO (operands[1]) + 1);
+  xoperands[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
 #ifdef MOTOROLA
   output_asm_insn ("move.l %1,(sp)", xoperands);
   output_asm_insn ("move.l %1,-(sp)", operands);

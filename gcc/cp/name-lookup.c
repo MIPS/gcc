@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "toplev.h"
 #include "diagnostic.h"
+#include "debug.h"
 
 static cxx_scope *innermost_nonclass_level (void);
 static tree select_decl (cxx_binding *, int);
@@ -42,7 +43,7 @@ static bool lookup_using_namespace (tree, cxx_binding *, tree,
 static bool qualified_lookup_using_namespace (tree, tree, cxx_binding *, int);
 static tree lookup_type_current_level (tree);
 static tree push_using_directive (tree);
-
+static void cp_emit_debug_info_for_using (tree, tree);
 
 /* The :: namespace.  */
 
@@ -936,15 +937,16 @@ pushdecl (tree x)
 		  /* ARM $8.3 */
 		  if (b->kind == sk_function_parms)
 		    {
-		      error ("declaration of `%#D' shadows a parameter",
-			     name);
+		      error ("declaration of '%#D' shadows a parameter", x);
 		      err = true;
 		    }
 		}
 
 	      if (warn_shadow && !err)
-		shadow_warning (SW_PARAM,
-				IDENTIFIER_POINTER (name), oldlocal);
+		{
+		  warning ("declaration of '%#D' shadows a parameter", x);
+		  warning ("%Jshadowed declaration is here", oldlocal);
+		}
 	    }
 
 	  /* Maybe warn if shadowing something else.  */
@@ -957,17 +959,25 @@ pushdecl (tree x)
 	      if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE
 		       && current_class_ptr
 		       && !TREE_STATIC (name))
-		warning ("declaration of `%s' shadows a member of `this'",
-			    IDENTIFIER_POINTER (name));
+		{
+		  /* Location of previous decl is not useful in this case.  */
+		  warning ("declaration of '%D' shadows a member of 'this'",
+			   x);
+		}
 	      else if (oldlocal != NULL_TREE
 		       && TREE_CODE (oldlocal) == VAR_DECL)
-		shadow_warning (SW_LOCAL,
-				IDENTIFIER_POINTER (name), oldlocal);
+		{
+		  warning ("declaration of '%D' shadows a previous local", x);
+		  warning ("%Jshadowed declaration is here", oldlocal);
+		}
 	      else if (oldglobal != NULL_TREE
 		       && TREE_CODE (oldglobal) == VAR_DECL)
 		/* XXX shadow warnings in outer-more namespaces */
-		shadow_warning (SW_GLOBAL,
-				IDENTIFIER_POINTER (name), oldglobal);
+		{
+		  warning ("declaration of '%D' shadows a global declaration",
+			   x);
+		  warning ("%Jshadowed declaration is here", oldglobal);
+		}
 	    }
 	}
 
@@ -2226,6 +2236,7 @@ void
 do_local_using_decl (tree decl, tree scope, tree name)
 {
   tree oldval, oldtype, newval, newtype;
+  tree orig_decl = decl;
 
   decl = validate_nonmember_using_decl (decl, scope, name);
   if (decl == NULL_TREE)
@@ -2264,6 +2275,10 @@ do_local_using_decl (tree decl, tree scope, tree name)
     }
   if (newtype)
     set_identifier_type_value (name, newtype);
+
+  /* Emit debug info.  */
+  if (!processing_template_decl)
+    cp_emit_debug_info_for_using (orig_decl, current_scope());
 }
 
 /* Return the type that should be used when TYPE's name is preceded
@@ -2829,6 +2844,15 @@ do_class_using_decl (tree decl)
   type = dependent_type_p (scope) ? NULL_TREE : void_type_node;
   value = build_lang_decl (USING_DECL, name, type);
   DECL_INITIAL (value) = scope;
+
+  if (scope && !processing_template_decl)
+    {
+      tree r;
+
+      r = lookup_qualified_name (scope, name, false, false);
+      if (r && TREE_CODE (r) != ERROR_MARK)
+	cp_emit_debug_info_for_using (r, scope);
+    }
   return value;
 }
 
@@ -3135,6 +3159,9 @@ do_namespace_alias (tree alias, tree namespace)
   DECL_NAMESPACE_ALIAS (alias) = namespace;
   DECL_EXTERNAL (alias) = 1;
   pushdecl (alias);
+
+  /* Emit debug info for namespace alias.  */
+  (*debug_hooks->global_decl) (alias);
 }
 
 /* Like pushdecl, only it places X in the current namespace,
@@ -3238,6 +3265,7 @@ void
 do_toplevel_using_decl (tree decl, tree scope, tree name)
 {
   tree oldval, oldtype, newval, newtype;
+  tree orig_decl = decl;
   cxx_binding *binding;
 
   decl = validate_nonmember_using_decl (decl, scope, name);
@@ -3250,6 +3278,10 @@ do_toplevel_using_decl (tree decl, tree scope, tree name)
   oldtype = binding->type;
 
   do_nonmember_using_decl (scope, name, oldval, oldtype, &newval, &newtype);
+
+  /* Emit debug info.  */
+  if (!processing_template_decl)
+    cp_emit_debug_info_for_using (orig_decl, current_namespace);
 
   /* Copy declarations found.  */
   if (newval)
@@ -3264,6 +3296,8 @@ do_toplevel_using_decl (tree decl, tree scope, tree name)
 void
 do_using_directive (tree namespace)
 {
+  tree context = NULL_TREE;
+
   if (building_stmt_tree ())
     add_stmt (build_stmt (USING_STMT, namespace));
   
@@ -3285,10 +3319,21 @@ do_using_directive (tree namespace)
     }
   namespace = ORIGINAL_NAMESPACE (namespace);
   if (!toplevel_bindings_p ())
-    push_using_directive (namespace);
+    {
+      push_using_directive (namespace);
+      context = current_scope ();
+    }
   else
-    /* direct usage */
-    add_using_namespace (current_namespace, namespace, 0);
+    {
+      /* direct usage */
+      add_using_namespace (current_namespace, namespace, 0);
+      if (current_namespace != global_namespace)
+	context = current_namespace;
+    }
+      
+  /* Emit debugging info.  */
+  if (!processing_template_decl)
+    (*debug_hooks->imported_module_or_decl) (namespace, context);
 }
 
 /* Deal with a using-directive seen by the parser.  Currently we only
@@ -4688,7 +4733,7 @@ store_bindings (tree names, cxx_saved_binding *old_bindings)
 }
 
 void
-maybe_push_to_top_level (int pseudo)
+push_to_top_level (void)
 {
   struct saved_scope *s;
   struct cp_binding_level *b;
@@ -4723,7 +4768,7 @@ maybe_push_to_top_level (int pseudo)
 	 inserted into namespace level, finish_file wouldn't find them
 	 when doing pending instantiations. Therefore, don't stop at
 	 namespace level, but continue until :: .  */
-      if (global_scope_p (b) || (pseudo && b->kind == sk_template_parms))
+      if (global_scope_p (b))
 	break;
 
       old_bindings = store_bindings (b->names, old_bindings);
@@ -4749,12 +4794,6 @@ maybe_push_to_top_level (int pseudo)
   current_lang_name = lang_name_cplusplus;
   current_namespace = global_namespace;
   timevar_pop (TV_NAME_LOOKUP);
-}
-
-void
-push_to_top_level (void)
-{
-  maybe_push_to_top_level (0);
 }
 
 void
@@ -4808,5 +4847,33 @@ pop_everything (void)
   if (ENABLE_SCOPE_CHECKING)
     verbatim ("XXX leaving pop_everything ()\n");
 }
+
+/* Emit debugging information for using declarations and directives.
+   If input tree is overloaded fn then emit debug info for all 
+   candidates.  */
+
+static void
+cp_emit_debug_info_for_using (tree t, tree context)
+{
+  /* Ignore this FUNCTION_DECL if it refers to a builtin declaration 
+     of a builtin function.  */
+  if (TREE_CODE (t) == FUNCTION_DECL 
+      && DECL_EXTERNAL (t)
+      && DECL_BUILT_IN (t))
+    return;
+
+  /* Do not supply context to imported_module_or_decl, if
+     it is a global namespace.  */
+  if (context == global_namespace)
+    context = NULL_TREE;
+  
+  if (BASELINK_P (t))
+    t = BASELINK_FUNCTIONS (t);
+  
+  /* FIXME: Handle TEMPLATE_DECLs.  */
+  for (t = OVL_CURRENT (t); t; t = OVL_NEXT (t))
+    if (TREE_CODE (t) != TEMPLATE_DECL)
+      (*debug_hooks->imported_module_or_decl) (t, context);
+  }
 
 #include "gt-cp-name-lookup.h"

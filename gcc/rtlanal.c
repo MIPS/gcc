@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "basic-block.h"
 #include "real.h"
+#include "regs.h"
 
 /* Forward declarations */
 static int global_reg_mentioned_p_1 (rtx *, void *);
@@ -1437,7 +1438,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 
       return (endregno > x_regno
 	      && regno < x_regno + (x_regno < FIRST_PSEUDO_REGISTER
-				    ? HARD_REGNO_NREGS (x_regno, GET_MODE (x))
+				    ? hard_regno_nregs[x_regno][GET_MODE (x)]
 			      : 1));
 
     case SUBREG:
@@ -1449,7 +1450,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
-			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
+			     ? hard_regno_nregs[inner_regno][GET_MODE (x)] : 1);
 
 	  return endregno > inner_regno && regno < inner_endregno;
 	}
@@ -1519,18 +1520,22 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 {
   unsigned int regno, endregno;
 
-  /* Overly conservative.  */
-  if (GET_CODE (x) == STRICT_LOW_PART
-      || GET_CODE (x) == ZERO_EXTRACT
-      || GET_CODE (x) == SIGN_EXTRACT)
-    x = XEXP (x, 0);
-
-  /* If either argument is a constant, then modifying X can not affect IN.  */
-  if (CONSTANT_P (x) || CONSTANT_P (in))
+  /* If either argument is a constant, then modifying X can not
+     affect IN.  Here we look at IN, we can profitably combine
+     CONSTANT_P (x) with the switch statement below.  */
+  if (CONSTANT_P (in))
     return 0;
 
+ recurse:
   switch (GET_CODE (x))
     {
+    case STRICT_LOW_PART:
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+      /* Overly conservative.  */
+      x = XEXP (x, 0);
+      goto recurse;
+
     case SUBREG:
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
@@ -1541,7 +1546,7 @@ reg_overlap_mentioned_p (rtx x, rtx in)
       regno = REGNO (x);
     do_reg:
       endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-			  ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
+			  ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
       return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
     case MEM:
@@ -1573,15 +1578,18 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 	for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
 	  if (XEXP (XVECEXP (x, 0, i), 0) != 0
 	      && reg_overlap_mentioned_p (XEXP (XVECEXP (x, 0, i), 0), in))
-	      return 1;
+	    return 1;
 	return 0;
       }
 
     default:
-      break;
-    }
+#ifdef ENABLE_CHECKING
+      if (!CONSTANT_P (x))
+	abort ();
+#endif
 
-  abort ();
+      return 0;
+    }
 }
 
 /* Return the last value to which REG was set prior to INSN.  If we can't
@@ -1794,7 +1802,7 @@ dead_or_set_p (rtx insn, rtx x)
 
   regno = REGNO (x);
   last_regno = (regno >= FIRST_PSEUDO_REGISTER ? regno
-		: regno + HARD_REGNO_NREGS (regno, GET_MODE (x)) - 1);
+		: regno + hard_regno_nregs[regno][GET_MODE (x)] - 1);
 
   for (i = regno; i <= last_regno; i++)
     if (! dead_or_set_regno_p (insn, i))
@@ -1844,7 +1852,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
 
       regno = REGNO (dest);
       endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-		  : regno + HARD_REGNO_NREGS (regno, GET_MODE (dest)));
+		  : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
 
       return (test_regno >= regno && test_regno < endregno);
     }
@@ -1875,7 +1883,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
 
 	      regno = REGNO (dest);
 	      endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-			  : regno + HARD_REGNO_NREGS (regno, GET_MODE (dest)));
+			  : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
 
 	      if (test_regno >= regno && test_regno < endregno)
 		return 1;
@@ -1927,8 +1935,8 @@ find_regno_note (rtx insn, enum reg_note kind, unsigned int regno)
 	&& REGNO (XEXP (link, 0)) <= regno
 	&& ((REGNO (XEXP (link, 0))
 	     + (REGNO (XEXP (link, 0)) >= FIRST_PSEUDO_REGISTER ? 1
-		: HARD_REGNO_NREGS (REGNO (XEXP (link, 0)),
-				    GET_MODE (XEXP (link, 0)))))
+		: hard_regno_nregs[REGNO (XEXP (link, 0))]
+				  [GET_MODE (XEXP (link, 0))]))
 	    > regno))
       return link;
   return 0;
@@ -1990,7 +1998,7 @@ find_reg_fusage (rtx insn, enum rtx_code code, rtx datum)
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
 	  unsigned int end_regno
-	    = regno + HARD_REGNO_NREGS (regno, GET_MODE (datum));
+	    = regno + hard_regno_nregs[regno][GET_MODE (datum)];
 	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
@@ -2025,7 +2033,7 @@ find_regno_fusage (rtx insn, enum rtx_code code, unsigned int regno)
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && GET_CODE (reg = XEXP (op, 0)) == REG
 	  && (regnote = REGNO (reg)) <= regno
-	  && regnote + HARD_REGNO_NREGS (regnote, GET_MODE (reg)) > regno)
+	  && regnote + hard_regno_nregs[regnote][GET_MODE (reg)] > regno)
 	return 1;
     }
 
@@ -3257,8 +3265,8 @@ subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
-  nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
-  nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+  nregs_xmode = hard_regno_nregs[xregno][xmode];
+  nregs_ymode = hard_regno_nregs[xregno][ymode];
 
   /* If this is a big endian paradoxical subreg, which uses more actual
      hard registers than the original register, we must return a negative
@@ -3300,8 +3308,8 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
-  nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
-  nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+  nregs_xmode = hard_regno_nregs[xregno][xmode];
+  nregs_ymode = hard_regno_nregs[xregno][ymode];
 
   /* paradoxical subregs are always valid.  */
   if (offset == 0
@@ -3513,7 +3521,7 @@ hoist_test_store (rtx x, rtx val, regset live)
   if (REGNO (x) < FIRST_PSEUDO_REGISTER)
     {
       int regno = REGNO (x);
-      int n = HARD_REGNO_NREGS (regno, GET_MODE (x));
+      int n = hard_regno_nregs[regno][GET_MODE (x)];
 
       if (!live)
 	return false;

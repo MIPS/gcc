@@ -1,6 +1,6 @@
 ;; Machine description for the TMS320C[34]x for GCC
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998,
-;; 1999, 2000, 2002 Free Software Foundation, Inc.
+;; 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
 ;;            and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl)
@@ -1022,8 +1022,7 @@
   "
 {
    /* Generate two's complement value of 16 MSBs.  */
-   operands[2] = gen_rtx (CONST_INT, VOIDmode,
-			  (((INTVAL (operands[1]) >> 16) & 0xffff)
+   operands[2] = GEN_INT ((((INTVAL (operands[1]) >> 16) & 0xffff)
 			   - 0x8000) ^ ~0x7fff);
    operands[3] = GEN_INT (INTVAL (operands[1]) & 0xffff);
    operands[4] = GEN_INT (16);
@@ -1043,8 +1042,7 @@
   "
 {
    /* Generate two's complement value of 16 MSBs.  */
-   operands[2] = gen_rtx (CONST_INT, VOIDmode,
-			  (((INTVAL (operands[1]) >> 16) & 0xffff)
+   operands[2] = GEN_INT ((((INTVAL (operands[1]) >> 16) & 0xffff)
 			   - 0x8000) ^ ~0x7fff);
    operands[3] = GEN_INT (INTVAL (operands[1]) & 0xffff);
    operands[4] = GEN_INT (16);
@@ -4249,8 +4247,8 @@
     if (ccreg == NULL_RTX) FAIL;
     emit_insn (gen_rtx_SET (QImode, operands[0],
                             gen_rtx_IF_THEN_ELSE (QImode,
-                                 gen_rtx (code, VOIDmode, ccreg, const0_rtx),
-                                          operands[2], operands[3])));
+                                 gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx),
+						 operands[2], operands[3])));
     DONE;}")
                       
 (define_insn "*ldf_conditional"
@@ -4293,8 +4291,8 @@
     if (ccreg == NULL_RTX) FAIL;
     emit_insn (gen_rtx_SET (QFmode, operands[0],
                             gen_rtx_IF_THEN_ELSE (QFmode,
-                                 gen_rtx (code, VOIDmode, ccreg, const0_rtx),
-                                          operands[2], operands[3])));
+                                 gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx),
+						 operands[2], operands[3])));
     DONE;}")
 
 (define_insn "*ldhf_conditional"
@@ -4336,8 +4334,8 @@
     if (ccreg == NULL_RTX) FAIL;
     emit_insn (gen_rtx_SET (HFmode, operands[0],
                             gen_rtx_IF_THEN_ELSE (HFmode,
-                                 gen_rtx (code, VOIDmode, ccreg, const0_rtx),
-                                          operands[2], operands[3])));
+                                 gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx),
+						 operands[2], operands[3])));
     DONE;}")
 
 (define_expand "seq"

@@ -584,7 +584,7 @@ standard_conversion (tree to, tree from, tree expr)
 		  (_class.member.lookup_) base class of D, a program
 		  that necessitates this conversion is ill-formed.  */
 	       /* Therefore, we use DERIVED_FROM_P, and not
-		  ACESSIBLY_UNIQUELY_DERIVED_FROM_P, in this test.  */
+		  ACCESSIBLY_UNIQUELY_DERIVED_FROM_P, in this test.  */
 	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
 	  from = 
@@ -828,15 +828,19 @@ convert_class_to_reference (tree t, tree s, tree expr)
 					   LOOKUP_NORMAL);
 	  
 	  if (cand)
-	    /* Build a standard conversion sequence indicating the
-	       binding from the reference type returned by the
-	       function to the desired REFERENCE_TYPE.  */
-	    cand->second_conv
-	      = (direct_reference_binding 
-		 (reference_type, 
-		  build1 (IDENTITY_CONV, 
-			  TREE_TYPE (TREE_TYPE (TREE_TYPE (cand->fn))),
-			  NULL_TREE)));
+	    {
+	      /* Build a standard conversion sequence indicating the
+		 binding from the reference type returned by the
+		 function to the desired REFERENCE_TYPE.  */
+	      cand->second_conv
+		= (direct_reference_binding 
+		   (reference_type, 
+		    build1 (IDENTITY_CONV, 
+			    TREE_TYPE (TREE_TYPE (TREE_TYPE (cand->fn))),
+			    NULL_TREE)));
+	      ICS_BAD_FLAG (cand->second_conv) 
+		|= ICS_BAD_FLAG (TREE_VEC_ELT (cand->convs, 0));
+	    }
 	}
       conversions = TREE_CHAIN (conversions);
     }
@@ -3896,7 +3900,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
   
   if (issue_conversion_warnings)
     expr = dubious_conversion_warnings
-             (totype, expr, "argument", fn, argnum);
+             (totype, expr, "converting", fn, argnum);
   switch (TREE_CODE (convs))
     {
     case USER_CONV:
@@ -4127,14 +4131,18 @@ convert_arg_to_ellipsis (tree arg)
 
   arg = require_complete_type (arg);
   
-  if (arg != error_mark_node && ! pod_type_p (TREE_TYPE (arg)))
+  if (arg != error_mark_node
+      && !pod_type_p (TREE_TYPE (arg)))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  We used to just warn
 	 here and do a bitwise copy, but now cp_expr_size will abort if we
-	 try to do that.  */
-      warning ("cannot pass objects of non-POD type `%#T' through `...'; \
-call will abort at runtime",
-	       TREE_TYPE (arg));
+	 try to do that. 
+	 If the call appears in the context of a sizeof expression, 
+	 there is no need to emit a warning, since the expression won't be 
+	 evaluated. We keep the builtin_trap just as a safety check.  */
+      if (!skip_evaluation)
+	warning ("cannot pass objects of non-POD type `%#T' through `...'; "
+	         "call will abort at runtime", TREE_TYPE (arg));
       arg = call_builtin_trap (TREE_TYPE (arg));
     }
 
@@ -4237,7 +4245,7 @@ type_passed_as (tree type)
   /* Pass classes with copy ctors by invisible reference.  */
   if (TREE_ADDRESSABLE (type))
     type = build_reference_type (type);
-  else if (PROMOTE_PROTOTYPES
+  else if (targetm.calls.promote_prototypes (type)
 	   && INTEGRAL_TYPE_P (type)
 	   && COMPLETE_TYPE_P (type)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
@@ -4257,7 +4265,7 @@ convert_for_arg_passing (tree type, tree val)
   /* Pass classes with copy ctors by invisible reference.  */
   else if (TREE_ADDRESSABLE (type))
     val = build1 (ADDR_EXPR, build_reference_type (type), val);
-  else if (PROMOTE_PROTOTYPES
+  else if (targetm.calls.promote_prototypes (type)
 	   && INTEGRAL_TYPE_P (type)
 	   && COMPLETE_TYPE_P (type)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
@@ -5512,7 +5520,7 @@ compare_ics (tree ics1, tree ics2)
 	   A& is better than binding an expression of type C to a
 	   reference of type A&, 
 
-	 --onversion of B to A is better than conversion of C to A  */
+	 --conversion of B to A is better than conversion of C to A  */
       if (is_properly_derived_from (from_type1, to)
 	  && is_properly_derived_from (from_type2, to))
 	{

@@ -448,7 +448,8 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
       /* Interpret "-" or a non-switch as a file name.  */
       if (opt[0] != '-' || opt[1] == '\0')
 	{
-	  main_input_filename = opt;
+	  if (main_input_filename == NULL)
+	    main_input_filename = opt;
 	  add_input_filename (opt);
 	  n = 1;
 	  continue;
@@ -906,6 +907,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fbranch_target_load_optimize2:
       flag_branch_target_load_optimize2 = value;
+      break;
+
+    case OPT_fbtr_bb_exclusive:
+      flag_btr_bb_exclusive = value;
       break;
 
     case OPT_fcall_used_:
@@ -1506,6 +1511,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_funwind_tables:
       flag_unwind_tables = value;
+      break;
+
+    case OPT_fvar_tracking:
+      flag_var_tracking = value;
       break;
 
     case OPT_fverbose_asm:

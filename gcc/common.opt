@@ -243,6 +243,10 @@ fbranch-target-load-optimize2
 Common
 Perform branch target load optimization after prologue / epilogue threading
 
+fbtr-bb-exclusive
+Common
+Restrict target load migration not to re-use registers in any basic block
+
 fcall-saved-
 Common Joined RejectNegative
 -fcall-saved-<register>	Mark <register> as being preserved across functions
@@ -769,6 +773,10 @@ Perform loop unswitching
 funwind-tables
 Common
 Just generate unwind tables for exception handling
+
+fvar-tracking
+Common
+Perform variable tracking
 
 fverbose-asm
 Common

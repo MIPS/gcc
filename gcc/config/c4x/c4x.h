@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -1114,7 +1114,7 @@ typedef struct c4x_args
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (c4x_init_cumulative_args (&CUM, FNTYPE, LIBNAME))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
@@ -1151,17 +1151,16 @@ CUMULATIVE_ARGS;
 /* How Scalar Function Values Are Returned.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-	gen_rtx(REG, TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
+	gen_rtx_REG (TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
 
 #define LIBCALL_VALUE(MODE) \
-	gen_rtx(REG, MODE, R0_REGNO)	/* Return in R0.  */
+	gen_rtx_REG (MODE, R0_REGNO)	/* Return in R0.  */
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) ((REGNO) == R0_REGNO)
 
 /* How Large Values Are Returned.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN	0
-#define STRUCT_VALUE_REGNUM		AR0_REGNO	/* AR0.  */
 
 /* Varargs handling.  */
 
@@ -1491,13 +1490,6 @@ fini_section ()							\
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
 c4x_external_ref (NAME)
 
-/* A C statement to output on FILE an assembler pseudo-op to
-   declare a library function named external.
-   (Only needed to keep asm30 happy for ___divqf3 etc.)  */
-
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
-c4x_external_ref (XSTR (FUN, 0))
-
 /* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
@@ -1785,33 +1777,33 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 0)), tmp1);	\
       tmp1 = expand_and (QImode, FNADDR, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 2)), tmp1);	\
       tmp1 = expand_shift (RSHIFT_EXPR, QImode, CXT,			\
 			   size_int (16), 0, 1);			\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 3)), tmp1);	\
       tmp1 = expand_and (QImode, CXT, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 6)), tmp1);	\
     }									\
   else									\
     {									\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (TRAMP, 8)), FNADDR); 	\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (TRAMP, 9)), CXT); 	\
     }									\
 }

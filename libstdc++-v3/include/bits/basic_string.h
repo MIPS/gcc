@@ -73,7 +73,7 @@ namespace std
    *                                        [_Rep]
    *                                        _M_length
    *   [basic_string<char_type>]            _M_capacity
-   *   _M_dataplus                          _M_state
+   *   _M_dataplus                          _M_refcount
    *   _M_p ---------------->               unnamed array of char_type
    *  @endcode
    *
@@ -111,20 +111,20 @@ namespace std
     {
       // Types:
     public:
-      typedef _Traits 					    traits_type;
-      typedef typename _Traits::char_type 		    value_type;
-      typedef _Alloc 					    allocator_type;
-      typedef typename _Alloc::size_type 		    size_type;
-      typedef typename _Alloc::difference_type 		    difference_type;
-      typedef typename _Alloc::reference 		    reference;
-      typedef typename _Alloc::const_reference 		    const_reference;
-      typedef typename _Alloc::pointer 			    pointer;
-      typedef typename _Alloc::const_pointer 	   	    const_pointer;
+      typedef _Traits					    traits_type;
+      typedef typename _Traits::char_type		    value_type;
+      typedef _Alloc					    allocator_type;
+      typedef typename _Alloc::size_type		    size_type;
+      typedef typename _Alloc::difference_type		    difference_type;
+      typedef typename _Alloc::reference		    reference;
+      typedef typename _Alloc::const_reference		    const_reference;
+      typedef typename _Alloc::pointer			    pointer;
+      typedef typename _Alloc::const_pointer		    const_pointer;
       typedef __gnu_cxx::__normal_iterator<pointer, basic_string>  iterator;
       typedef __gnu_cxx::__normal_iterator<const_pointer, basic_string>
                                                             const_iterator;
-      typedef std::reverse_iterator<const_iterator> 	const_reverse_iterator;
-      typedef std::reverse_iterator<iterator> 		    reverse_iterator;
+      typedef std::reverse_iterator<const_iterator>	const_reverse_iterator;
+      typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
     private:
       // _Rep: string representation
@@ -132,7 +132,7 @@ namespace std
       //   1. String really contains _M_length + 1 characters: due to 21.3.4
       //      must be kept null-terminated.
       //   2. _M_capacity >= _M_length
-      //      Allocated memory is always _M_capacity + (1 * sizeof(_CharT)).
+      //      Allocated memory is always (_M_capacity + 1) * sizeof(_CharT).
       //   3. _M_refcount has three states:
       //      -1: leaked, one reference, no ref-copies allowed, non-const.
       //       0: one reference, non-const.
@@ -143,8 +143,8 @@ namespace std
 
       struct _Rep_base
       {
-	size_type 		_M_length;
-	size_type 		_M_capacity;
+	size_type		_M_length;
+	size_type		_M_capacity;
 	_Atomic_word		_M_refcount;
       };
 
@@ -166,17 +166,17 @@ namespace std
 	// Solving for m:
 	// m = ((npos - sizeof(_Rep))/sizeof(CharT)) - 1
 	// In addition, this implementation quarters this amount.
-	static const size_type 	_S_max_size;
-	static const _CharT 	_S_terminal;
+	static const size_type	_S_max_size;
+	static const _CharT	_S_terminal;
 
 	// The following storage is init'd to 0 by the linker, resulting
         // (carefully) in an empty string with one reference.
         static size_type _S_empty_rep_storage[];
 
-        static _Rep& 
+        static _Rep&
         _S_empty_rep()
         { return *reinterpret_cast<_Rep*>(&_S_empty_rep_storage); }
- 
+
         bool
 	_M_is_leaked() const
         { return this->_M_refcount < 0; }
@@ -197,10 +197,6 @@ namespace std
 	_M_refdata() throw()
 	{ return reinterpret_cast<_CharT*>(this + 1); }
 
-	_CharT&
-	operator[](size_t __s) throw()
-	{ return _M_refdata() [__s]; }
-
 	_CharT*
 	_M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2)
 	{
@@ -210,7 +206,7 @@ namespace std
 
 	// Create & Destroy
 	static _Rep*
-	_S_create(size_t, const _Alloc&);
+	_S_create(size_type, size_type, const _Alloc&);
 
 	void
 	_M_dispose(const _Alloc& __a)
@@ -250,11 +246,11 @@ namespace std
       // size that the allocator can hold.
       /// @var
       /// Value returned by various member functions when they fail.
-      static const size_type 	npos = static_cast<size_type>(-1);
+      static const size_type	npos = static_cast<size_type>(-1);
 
     private:
       // Data Members (private):
-      mutable _Alloc_hider 	_M_dataplus;
+      mutable _Alloc_hider	_M_dataplus;
 
       _CharT*
       _M_data() const
@@ -381,7 +377,7 @@ namespace std
        *  @param  s  Source character array.
        *  @param  n  Number of characters to copy.
        *  @param  a  Allocator to use (default is default allocator).
-       *  
+       *
        *  NB: s must have at least n characters, '\0' has no special
        *  meaning.
        */
@@ -610,9 +606,9 @@ namespace std
        */
       const_reference
       operator[] (size_type __pos) const
-      { 
+      {
 	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
-	return _M_data()[__pos]; 
+	return _M_data()[__pos];
       }
 
       /**
@@ -735,9 +731,9 @@ namespace std
        */
       basic_string&
       append(const _CharT* __s)
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->append(__s, traits_type::length(__s)); 
+	return this->append(__s, traits_type::length(__s));
       }
 
       /**
@@ -823,9 +819,9 @@ namespace std
        */
       basic_string&
       assign(const _CharT* __s)
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->assign(__s, traits_type::length(__s)); 
+	return this->assign(__s, traits_type::length(__s));
       }
 
       /**
@@ -874,7 +870,7 @@ namespace std
        *  @brief  Insert a range of characters.
        *  @param p  Iterator referencing location in string to insert at.
        *  @param beg  Start of range.
-       *  @param end  End of range. 
+       *  @param end  End of range.
        *  @throw  std::length_error  If new length exceeds @c max_size().
        *
        *  Inserts characters in range [beg,end).  If adding characters causes
@@ -933,7 +929,7 @@ namespace std
        *  @return  Reference to this string.
        *  @throw  std::length_error  If new length exceeds @c max_size().
        *  @throw  std::out_of_range  If @a pos is beyond the end of this
-       *  string. 
+       *  string.
        *
        *  Inserts the first @a n characters of @a s starting at @a pos.  If
        *  adding characters causes the length to exceed max_size(),
@@ -961,9 +957,9 @@ namespace std
       */
       basic_string&
       insert(size_type __pos, const _CharT* __s)
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->insert(__pos, __s, traits_type::length(__s)); 
+	return this->insert(__pos, __s, traits_type::length(__s));
       }
 
       /**
@@ -1006,26 +1002,8 @@ namespace std
 	const size_type __pos = __p - _M_ibegin();
 	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
 	_M_rep()->_M_set_leaked();
- 	return this->_M_ibegin() + __pos;
+	return this->_M_ibegin() + __pos;
       }
-
-#ifdef _GLIBCXX_DEPRECATED
-      /**
-       *  @brief  Insert one default-constructed character.
-       *  @param p  Iterator referencing position in string to insert at.
-       *  @return  Iterator referencing newly inserted char.
-       *  @throw  std::length_error  If new length exceeds @c max_size().
-       *
-       *  Inserts a default-constructed character at position
-       *  referenced by @a p.  If adding character causes the length
-       *  to exceed max_size(), length_error is thrown.  If @a p is
-       *  beyond end of string, out_of_range is thrown.  The value of
-       *  the string doesn't change if an error is thrown.
-      */
-      iterator
-      insert(iterator __p)
-      { return this->insert(__p, _CharT()); }
-#endif /* _GLIBCXX_DEPRECATED */
 
       /**
        *  @brief  Remove characters.
@@ -1057,7 +1035,7 @@ namespace std
       iterator
       erase(iterator __position)
       {
-	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin() 
+	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin()
 				 && __position < _M_iend());
 	const size_type __pos = __position - _M_ibegin();
 	_M_replace_safe(__pos, size_type(1), NULL, size_type(0));
@@ -1092,7 +1070,7 @@ namespace std
        *  @param str  String to insert.
        *  @return  Reference to this string.
        *  @throw  std::out_of_range  If @a pos is beyond the end of this
-       *  string. 
+       *  string.
        *  @throw  std::length_error  If new length exceeds @c max_size().
        *
        *  Removes the characters in the range [pos,pos+n) from this string.
@@ -1114,7 +1092,7 @@ namespace std
        *  @param n2  Number of characters from str to use.
        *  @return  Reference to this string.
        *  @throw  std::out_of_range  If @a pos1 > size() or @a pos2 >
-       *  str.size(). 
+       *  str.size().
        *  @throw  std::length_error  If new length exceeds @c max_size().
        *
        *  Removes the characters in the range [pos1,pos1 + n) from this
@@ -1168,9 +1146,9 @@ namespace std
       */
       basic_string&
       replace(size_type __pos, size_type __n1, const _CharT* __s)
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->replace(__pos, __n1, __s, traits_type::length(__s)); 
+	return this->replace(__pos, __n1, __s, traits_type::length(__s));
       }
 
       /**
@@ -1229,7 +1207,7 @@ namespace std
       replace(iterator __i1, iterator __i2, const _CharT* __s, size_type __n)
       {
 	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				 && __i2 <= _M_iend());	
+				 && __i2 <= _M_iend());
 	return this->replace(__i1 - _M_ibegin(), __i2 - __i1, __s, __n);
       }
 
@@ -1248,9 +1226,9 @@ namespace std
       */
       basic_string&
       replace(iterator __i1, iterator __i2, const _CharT* __s)
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->replace(__i1, __i2, __s, traits_type::length(__s)); 
+	return this->replace(__i1, __i2, __s, traits_type::length(__s));
       }
 
       /**
@@ -1269,10 +1247,10 @@ namespace std
       */
       basic_string&
       replace(iterator __i1, iterator __i2, size_type __n, _CharT __c)
-      { 
+      {
 	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				 && __i2 <= _M_iend());
-	return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __c); 
+	return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __c);
       }
 
       /**
@@ -1293,40 +1271,40 @@ namespace std
         basic_string&
         replace(iterator __i1, iterator __i2,
 		_InputIterator __k1, _InputIterator __k2)
-        { 
+        {
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
 	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
-	  return _M_replace_dispatch(__i1, __i2, __k1, __k2, _Integral()); 
+	  return _M_replace_dispatch(__i1, __i2, __k1, __k2, _Integral());
 	}
 
       // Specializations for the common case of pointer and iterator:
       // useful to avoid the overhead of temporary buffering in _M_replace.
       basic_string&
         replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
-        { 
+        {
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
 	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1); 
+			       __k1, __k2 - __k1);
 	}
 
       basic_string&
-        replace(iterator __i1, iterator __i2, 
+        replace(iterator __i1, iterator __i2,
 		const _CharT* __k1, const _CharT* __k2)
-        { 
+        {
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
 	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1); 
+			       __k1, __k2 - __k1);
 	}
 
       basic_string&
         replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
-        { 
+        {
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
@@ -1335,9 +1313,9 @@ namespace std
 	}
 
       basic_string&
-        replace(iterator __i1, iterator __i2, 
+        replace(iterator __i1, iterator __i2,
 		const_iterator __k1, const_iterator __k2)
-        { 
+        {
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
@@ -1348,7 +1326,7 @@ namespace std
     private:
       template<class _Integer>
 	basic_string&
-	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n, 
+	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n,
 			    _Integer __val, __true_type)
         { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __val); }
 
@@ -1362,11 +1340,11 @@ namespace std
 		     _CharT __c)
       {
 	if (this->max_size() - (this->size() - __n1) < __n2)
-	  __throw_length_error("basic_string::_M_replace_aux");
+	  __throw_length_error(__N("basic_string::_M_replace_aux"));
 	_M_mutate(__pos1, __n1, __n2);
 	if (__n2)
 	  traits_type::assign(_M_data() + __pos1, __n2, __c);
-	return *this;	
+	return *this;
       }
 
       basic_string&
@@ -1376,15 +1354,15 @@ namespace std
 	_M_mutate(__pos1, __n1, __n2);
 	if (__n2)
 	  traits_type::copy(_M_data() + __pos1, __s, __n2);
-	return *this;	
+	return *this;
       }
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIter is an integral type
       template<class _InIterator>
         static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end, const _Alloc& __a,
-			 __false_type)
+        _S_construct_aux(_InIterator __beg, _InIterator __end,
+			 const _Alloc& __a, __false_type)
 	{
           typedef typename iterator_traits<_InIterator>::iterator_category _Tag;
           return _S_construct(__beg, __end, __a, _Tag());
@@ -1392,12 +1370,10 @@ namespace std
 
       template<class _InIterator>
         static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end, const _Alloc& __a,
-			 __true_type)
-	{
-	  return _S_construct(static_cast<size_type>(__beg),
-			      static_cast<value_type>(__end), __a);
-	}
+        _S_construct_aux(_InIterator __beg, _InIterator __end,
+			 const _Alloc& __a, __true_type)
+	{ return _S_construct(static_cast<size_type>(__beg),
+			      static_cast<value_type>(__end), __a); }
 
       template<class _InIterator>
         static _CharT*
@@ -1457,14 +1433,13 @@ namespace std
        *  happen.
       */
       const _CharT*
-      c_str() const
-      { return _M_data(); }
+      c_str() const { return _M_data(); }
 
       /**
        *  @brief  Return const pointer to contents.
        *
-       *  This is a handle to internal data.  It may not be null-terminated.
-       *  Do not modify or dire things may happen.
+       *  This is a handle to internal data.  Do not modify or dire things may
+       *  happen.
       */
       const _CharT*
       data() const { return _M_data(); }
@@ -1515,9 +1490,9 @@ namespace std
       */
       size_type
       find(const _CharT* __s, size_type __pos = 0) const
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->find(__s, __pos, traits_type::length(__s)); 
+	return this->find(__s, __pos, traits_type::length(__s));
       }
 
       /**
@@ -1573,9 +1548,9 @@ namespace std
       */
       size_type
       rfind(const _CharT* __s, size_type __pos = npos) const
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->rfind(__s, __pos, traits_type::length(__s)); 
+	return this->rfind(__s, __pos, traits_type::length(__s));
       }
 
       /**
@@ -1631,9 +1606,9 @@ namespace std
       */
       size_type
       find_first_of(const _CharT* __s, size_type __pos = 0) const
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->find_first_of(__s, __pos, traits_type::length(__s)); 
+	return this->find_first_of(__s, __pos, traits_type::length(__s));
       }
 
       /**
@@ -1692,9 +1667,9 @@ namespace std
       */
       size_type
       find_last_of(const _CharT* __s, size_type __pos = npos) const
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->find_last_of(__s, __pos, traits_type::length(__s)); 
+	return this->find_last_of(__s, __pos, traits_type::length(__s));
       }
 
       /**
@@ -1754,9 +1729,9 @@ namespace std
       */
       size_type
       find_first_not_of(const _CharT* __s, size_type __pos = 0) const
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->find_first_not_of(__s, __pos, traits_type::length(__s)); 
+	return this->find_first_not_of(__s, __pos, traits_type::length(__s));
       }
 
       /**
@@ -1813,9 +1788,9 @@ namespace std
       */
       size_type
       find_last_not_of(const _CharT* __s, size_type __pos = npos) const
-      { 
+      {
 	__glibcxx_requires_string(__s);
-	return this->find_last_not_of(__s, __pos, traits_type::length(__s)); 
+	return this->find_last_not_of(__s, __pos, traits_type::length(__s));
       }
 
       /**
@@ -1845,7 +1820,8 @@ namespace std
       */
       basic_string
       substr(size_type __pos = 0, size_type __n = npos) const
-      { return basic_string(*this, _M_check(__pos, "basic_string::substr"), __n); }
+      { return basic_string(*this,
+			    _M_check(__pos, "basic_string::substr"), __n); }
 
       /**
        *  @brief  Compare to a string.
@@ -1958,9 +1934,10 @@ namespace std
        *  at @a pos1.  Form a string from the first @a n2 characters of @a s.
        *  Returns an integer < 0 if this substring is ordered before the string
        *  from @a s, 0 if their values are equivalent, or > 0 if this substring
-       *  is ordered after the string from @a s. If the lengths of this substring
-       *  and @a n2 are different, the shorter one is ordered first.  If they are
-       *  the same, returns the result of traits::compare(substring.data(),s,size());
+       *  is ordered after the string from @a s. If the lengths of this
+       *  substring and @a n2 are different, the shorter one is ordered first.
+       *  If they are the same, returns the result of
+       *  traits::compare(substring.data(),s,size());
        *
        *  NB: s must have at least n2 characters, '\0' has no special
        *  meaning.
@@ -1982,7 +1959,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Last string.
    *  @return  New string with value of @a lhs followed by @a rhs.
-   */ 
+   */
  template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -1998,7 +1975,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Last string.
    *  @return  New string with value of @a lhs followed by @a rhs.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT,_Traits,_Alloc>
     operator+(const _CharT* __lhs,
@@ -2009,7 +1986,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Last string.
    *  @return  New string with @a lhs followed by @a rhs.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT,_Traits,_Alloc>
     operator+(_CharT __lhs, const basic_string<_CharT,_Traits,_Alloc>& __rhs);
@@ -2019,7 +1996,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Last string.
    *  @return  New string with @a lhs followed by @a rhs.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2035,12 +2012,12 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Last string.
    *  @return  New string with @a lhs followed by @a rhs.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs, _CharT __rhs)
     {
-      typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
+      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
       typedef typename __string_type::size_type		__size_type;
       __string_type __str(__lhs);
       __str.append(__size_type(1), __rhs);
@@ -2053,7 +2030,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *  @return  True if @a lhs.compare(@a rhs) == 0.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator==(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2065,7 +2042,7 @@ namespace std
    *  @param lhs  C string.
    *  @param rhs  String.
    *  @return  True if @a rhs.compare(@a lhs) == 0.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator==(const _CharT* __lhs,
@@ -2077,7 +2054,7 @@ namespace std
    *  @param lhs  String.
    *  @param rhs  C string.
    *  @return  True if @a lhs.compare(@a rhs) == 0.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator==(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2090,7 +2067,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *  @return  True if @a lhs.compare(@a rhs) != 0.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator!=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2102,7 +2079,7 @@ namespace std
    *  @param lhs  C string.
    *  @param rhs  String.
    *  @return  True if @a rhs.compare(@a lhs) != 0.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator!=(const _CharT* __lhs,
@@ -2114,7 +2091,7 @@ namespace std
    *  @param lhs  String.
    *  @param rhs  C string.
    *  @return  True if @a lhs.compare(@a rhs) != 0.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator!=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2127,7 +2104,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *  @return  True if @a lhs precedes @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator<(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2139,7 +2116,7 @@ namespace std
    *  @param lhs  String.
    *  @param rhs  C string.
    *  @return  True if @a lhs precedes @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator<(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2151,7 +2128,7 @@ namespace std
    *  @param lhs  C string.
    *  @param rhs  String.
    *  @return  True if @a lhs precedes @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator<(const _CharT* __lhs,
@@ -2164,7 +2141,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *  @return  True if @a lhs follows @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator>(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2176,7 +2153,7 @@ namespace std
    *  @param lhs  String.
    *  @param rhs  C string.
    *  @return  True if @a lhs follows @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator>(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2188,7 +2165,7 @@ namespace std
    *  @param lhs  C string.
    *  @param rhs  String.
    *  @return  True if @a lhs follows @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator>(const _CharT* __lhs,
@@ -2201,7 +2178,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *  @return  True if @a lhs doesn't follow @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator<=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2213,7 +2190,7 @@ namespace std
    *  @param lhs  String.
    *  @param rhs  C string.
    *  @return  True if @a lhs doesn't follow @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator<=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2225,7 +2202,7 @@ namespace std
    *  @param lhs  C string.
    *  @param rhs  String.
    *  @return  True if @a lhs doesn't follow @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator<=(const _CharT* __lhs,
@@ -2238,7 +2215,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *  @return  True if @a lhs doesn't precede @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator>=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2250,7 +2227,7 @@ namespace std
    *  @param lhs  String.
    *  @param rhs  C string.
    *  @return  True if @a lhs doesn't precede @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator>=(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
@@ -2262,7 +2239,7 @@ namespace std
    *  @param lhs  C string.
    *  @param rhs  String.
    *  @return  True if @a lhs doesn't precede @a rhs.  False otherwise.
-   */ 
+   */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline bool
     operator>=(const _CharT* __lhs,
@@ -2274,7 +2251,7 @@ namespace std
    *  @param lhs  First string.
    *  @param rhs  Second string.
    *
-   *  Exchanges the contents of @a lhs and @a rhs in constant time. 
+   *  Exchanges the contents of @a lhs and @a rhs in constant time.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline void

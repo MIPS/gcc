@@ -406,10 +406,8 @@ init_eh (void)
       tmp = build_int_2 (FIRST_PSEUDO_REGISTER + 2 - 1, 0);
 #endif
 #else
-      /* This is 2 for builtin_setjmp, plus whatever the target requires
-	 via STACK_SAVEAREA_MODE (SAVE_NONLOCAL).  */
-      tmp = build_int_2 ((GET_MODE_SIZE (STACK_SAVEAREA_MODE (SAVE_NONLOCAL))
-			  / GET_MODE_SIZE (Pmode)) + 2 - 1, 0);
+      /* builtin_setjmp takes a pointer to 5 words.  */
+      tmp = build_int_2 (5 * BITS_PER_WORD / POINTER_SIZE - 1, 0);
 #endif
       tmp = build_index_type (tmp);
       tmp = build_array_type (ptr_type_node, tmp);
@@ -3297,6 +3295,26 @@ expand_eh_return (void)
     }
 
   emit_label (around_label);
+}
+
+/* Convert a ptr_mode address ADDR_TREE to a Pmode address controlled by
+   POINTERS_EXTEND_UNSIGNED and return it.  */
+
+rtx
+expand_builtin_extend_pointer (tree addr_tree)
+{
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  int extend;
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+  extend = POINTERS_EXTEND_UNSIGNED;
+#else
+  /* The previous EH code did an unsigned extend by default, so we do this also
+     for consistency.  */
+  extend = 1;
+#endif
+
+  return convert_modes (word_mode, ptr_mode, addr, extend);
 }
 
 /* In the following functions, we represent entries in the action table

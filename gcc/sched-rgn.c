@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -1323,7 +1323,7 @@ check_live_1 (int src, rtx x)
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
 	  /* Check for hard registers.  */
-	  int j = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	  int j = hard_regno_nregs[regno][GET_MODE (reg)];
 	  while (--j >= 0)
 	    {
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
@@ -1397,7 +1397,7 @@ update_live_1 (int src, rtx x)
     {
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  int j = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	  int j = hard_regno_nregs[regno][GET_MODE (reg)];
 	  while (--j >= 0)
 	    {
 	      for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)

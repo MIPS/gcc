@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -6100,7 +6100,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
 	  (VOIDmode,
 	   gen_rtvec (2,
 		      gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_REG (cmode, 32),
-				         GEN_INT (0)),
+				         const0_rtx),
 		      gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_REG (cmode, 33),
 				         GEN_INT (GET_MODE_SIZE (cmode)))));
       }
@@ -6240,7 +6240,7 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   if (TARGET_ABI_UNICOSMK)
     std_expand_builtin_va_start (valist, nextarg);
 
-  /* For Unix, SETUP_INCOMING_VARARGS moves the starting address base
+  /* For Unix, TARGET_SETUP_INCOMING_VARARGS moves the starting address base
      up by 48, storing fp arg registers in the first 48 bytes, and the
      integer arg registers in the next 48 bytes.  This is only done,
      however, if any integer registers need to be stored.
@@ -6735,13 +6735,10 @@ alpha_sa_mask (unsigned long *imaskP, unsigned long *fmaskP)
   unsigned long fmask = 0;
   unsigned int i;
 
-  /* Irritatingly, there are two kinds of thunks -- those created with
-     TARGET_ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go
-     through the regular part of the compiler.  In the
-     TARGET_ASM_OUTPUT_MI_THUNK case we don't have valid register life
-     info, but assemble_start_function wants to output .frame and
-     .mask directives.  */
-  if (current_function_is_thunk && !no_new_pseudos)
+  /* When outputting a thunk, we don't have valid register life info,
+     but assemble_start_function wants to output .frame and .mask
+     directives.  */
+  if (current_function_is_thunk)
     {
       *imaskP = 0;
       *fmaskP = 0;
@@ -7845,7 +7842,7 @@ alpha_expand_epilogue (void)
 
 	  emit_insn (gen_blockage ());
 	  FRP (emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
-				      hard_frame_pointer_rtx, GEN_INT (-1))));
+				      hard_frame_pointer_rtx, constm1_rtx)));
         }
     }
 }
@@ -9685,7 +9682,7 @@ unicosmk_gen_dsib (unsigned long *imaskP)
          have a frame.  */
 
       FRP (emit_insn (gen_adddi3 (hard_frame_pointer_rtx,
-                                  hard_frame_pointer_rtx, GEN_INT (1))));
+                                  hard_frame_pointer_rtx, const1_rtx)));
     }
 }
 
@@ -10224,8 +10221,6 @@ alpha_init_libfuncs (void)
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY alpha_return_in_memory
 #undef TARGET_SETUP_INCOMING_VARARGS

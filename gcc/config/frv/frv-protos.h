@@ -1,5 +1,5 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -91,15 +91,6 @@ extern int frv_function_arg_pass_by_reference	(CUMULATIVE_ARGS *,
 extern int frv_function_arg_callee_copies	(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
-
-extern int frv_function_arg_keep_as_reference	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
-extern rtx frv_expand_builtin_saveregs		(void);
-extern void frv_setup_incoming_varargs		(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int *, int);
 
 extern void frv_expand_builtin_va_start		(tree, rtx);
 extern rtx frv_expand_builtin_va_arg		(tree, tree);

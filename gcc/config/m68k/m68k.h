@@ -1,7 +1,6 @@
-/* Definitions of target machine for GNU compiler.
-   Sun 68000/68020 version.
+/* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
    Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -587,7 +586,7 @@ extern int target_flags;
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define STRUCT_VALUE_REGNUM 9
+#define M68K_STRUCT_VALUE_REGNUM 9
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -901,7 +900,7 @@ enum reg_class {
 
    On the m68k, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -1369,9 +1368,6 @@ __transfer_from_trampoline ()					\
 
 #define STORE_FLAG_VALUE (-1)
 
-/* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES 1
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -1462,9 +1458,26 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
 #define REGISTER_NAMES \
-{"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",	\
- "a0", "a1", "a2", "a3", "a4", "a5", "a6", "sp",	\
- "fp0", "fp1", "fp2", "fp3", "fp4", "fp5", "fp6", "fp7", "argptr" }
+{REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\
+ REGISTER_PREFIX"d3", REGISTER_PREFIX"d4", REGISTER_PREFIX"d5",	\
+ REGISTER_PREFIX"d6", REGISTER_PREFIX"d7",			\
+ REGISTER_PREFIX"a0", REGISTER_PREFIX"a1", REGISTER_PREFIX"a2", \
+ REGISTER_PREFIX"a3", REGISTER_PREFIX"a4", REGISTER_PREFIX"a5", \
+ REGISTER_PREFIX"a6", REGISTER_PREFIX"sp",			\
+ REGISTER_PREFIX"fp0", REGISTER_PREFIX"fp1", REGISTER_PREFIX"fp2", \
+ REGISTER_PREFIX"fp3", REGISTER_PREFIX"fp4", REGISTER_PREFIX"fp5", \
+ REGISTER_PREFIX"fp6", REGISTER_PREFIX"fp7", REGISTER_PREFIX"argptr" }
+
+#define M68K_FP_REG_NAME REGISTER_PREFIX"fp"
+
+/* Return a register name by index, handling %fp nicely.
+   We don't replace %fp for targets that don't map it to %a6
+   since it may confuse GAS.  */
+#define M68K_REGNAME(r) ( \
+  ((FRAME_POINTER_REGNUM == 14) \
+    && ((r) == FRAME_POINTER_REGNUM) \
+    && frame_pointer_needed) ? \
+    M68K_FP_REG_NAME : reg_names[(r)])
 
 /* How to renumber registers for dbx and gdb.
    On the Sun-3, the floating point registers have numbers
@@ -1616,8 +1629,6 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
        sp@+, (sp)+ or (%sp)+ depending on the style of syntax.
    '@' for a reference to the top word on the stack:
        sp@, (sp) or (%sp) depending on the style of syntax.
-   '#' for an immediate operand prefix (# in MIT and Motorola syntax
-       but & in SGS syntax).
    '!' for the fpcr register (used in some float-to-fixed conversions).
    '$' for the letter `s' in an op code, but only on the 68040.
    '&' for the letter `d' in an op code, but only on the 68040.
@@ -1632,9 +1643,8 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
        or print pair of registers as rx:ry.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '.' || (CODE) == '#' || (CODE) == '-'			\
-   || (CODE) == '+' || (CODE) == '@' || (CODE) == '!'			\
-   || (CODE) == '$' || (CODE) == '&' || (CODE) == '/')
+  ((CODE) == '.' || (CODE) == '-' || (CODE) == '+' || (CODE) == '@'	\
+   || (CODE) == '!' || (CODE) == '$' || (CODE) == '&' || (CODE) == '/')
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand X.  X is an RTL

@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -976,7 +976,7 @@
 
 (define_insn "adddi3_internal_2"
   [(set (match_operand:DI 0 "register_operand" "=d,d,d")
-	(plus:DI (match_operand:DI 1 "register_operand" "%d,%d,%d")
+	(plus:DI (match_operand:DI 1 "register_operand" "%d,d,d")
 		 (match_operand:DI 2 "small_int" "P,J,N")))
    (clobber (match_operand:SI 3 "register_operand" "=d,d,d"))]
   "!TARGET_64BIT && !TARGET_DEBUG_G_MODE && !TARGET_MIPS16"
@@ -4417,7 +4417,7 @@ dsrl\t%3,%3,1\n\
   HOST_WIDE_INT val = INTVAL (operands[1]);
 
   if (val < 0)
-    operands[2] = GEN_INT (0);
+    operands[2] = const0_rtx;
   else if (val >= 32 * 8)
     {
       int off = val & 7;
@@ -4540,7 +4540,7 @@ dsrl\t%3,%3,1\n\
   HOST_WIDE_INT val = INTVAL (operands[1]);
 
   if (val < 0)
-    operands[2] = GEN_INT (0);
+    operands[2] = const0_rtx;
   else if (val >= 32 * 4)
     {
       int off = val & 3;
@@ -4839,7 +4839,7 @@ dsrl\t%3,%3,1\n\
   HOST_WIDE_INT val = INTVAL (operands[1]);
 
   if (val < 0)
-    operands[2] = GEN_INT (0);
+    operands[2] = const0_rtx;
   else if (val >= 32 * 2)
     {
       int off = val & 1;
@@ -4943,7 +4943,7 @@ dsrl\t%3,%3,1\n\
   HOST_WIDE_INT val = INTVAL (operands[1]);
 
   if (val < 0)
-    operands[2] = GEN_INT (0);
+    operands[2] = const0_rtx;
   else
     {
       operands[1] = GEN_INT (0x7f);
@@ -8318,7 +8318,7 @@ ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
 (define_insn "exception_receiver"
   [(set (reg:SI 28)
 	(unspec_volatile:SI [(const_int 0)] UNSPEC_EH_RECEIVER))]
-  "TARGET_ABICALLS && (mips_abi == ABI_32 || mips_abi == ABI_O64)"
+  "TARGET_ABICALLS && TARGET_OLDABI"
 {
   operands[0] = pic_offset_table_rtx;
   operands[1] = mips_gp_save_slot ();

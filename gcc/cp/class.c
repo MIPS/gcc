@@ -870,7 +870,7 @@ add_method (tree type, tree method, int error_p)
 	}
     }
       
-  if (template_class_depth (type))
+  if (processing_template_decl)
     /* TYPE is a template class.  Don't issue any errors now; wait
        until instantiation time to complain.  */
     ;
@@ -1201,7 +1201,7 @@ handle_using_decl (tree using_decl, tree t)
     alter_access (t, fdecl, access);
 }
 
-/* Run through the base clases of T, updating
+/* Run through the base classes of T, updating
    CANT_HAVE_DEFAULT_CTOR_P, CANT_HAVE_CONST_CTOR_P, and
    NO_CONST_ASN_REF_P.  Also set flag bits in T based on properties of
    the bases.  */
@@ -3877,8 +3877,8 @@ build_clone (tree fn, tree name)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
       TREE_TYPE (clone) 
-	= build_type_attribute_variant (TREE_TYPE (clone),
-					TYPE_ATTRIBUTES (TREE_TYPE (fn)));
+	= cp_build_type_attribute_variant (TREE_TYPE (clone),
+					   TYPE_ATTRIBUTES (TREE_TYPE (fn)));
     }
 
   /* Copy the function parameters.  But, DECL_ARGUMENTS on a TEMPLATE_DECL

@@ -151,6 +151,7 @@ static tree fold_trunc_transparent_mathfn (tree);
 static bool readonly_data_expr (tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_cabs (tree, rtx);
+static rtx expand_builtin_signbit (tree, rtx);
 static tree fold_builtin_cabs (tree, tree, tree);
 static tree fold_builtin_trunc (tree);
 static tree fold_builtin_floor (tree);
@@ -165,6 +166,7 @@ static tree fold_builtin_strncpy (tree);
 static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
+static tree fold_builtin_signbit (tree);
 
 static tree simplify_builtin_memcmp (tree);
 static tree simplify_builtin_strpbrk (tree);
@@ -967,7 +969,7 @@ apply_args_size (void)
 		 mode != VOIDmode;
 		 mode = GET_MODE_WIDER_MODE (mode))
 	      if (HARD_REGNO_MODE_OK (regno, mode)
-		  && HARD_REGNO_NREGS (regno, mode) == 1)
+		  && hard_regno_nregs[regno][mode] == 1)
 		best_mode = mode;
 
 	    if (best_mode == VOIDmode)
@@ -2167,7 +2169,10 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 	    }
 	}
     }
-  return expand_builtin_mathfn_2 (exp, target, NULL_RTX);
+
+  if (! flag_unsafe_math_optimizations)
+    return NULL_RTX;
+  return expand_builtin_mathfn_2 (exp, target, subtarget);
 }
 
 /* Expand expression EXP which is a call to the strlen builtin.  Return 0
@@ -4981,6 +4986,98 @@ expand_builtin_profile_func (bool exitp)
 
   return const0_rtx;
 }
+
+/* Expand a call to the built-in signbit, signbitf or signbitl function.
+   Return NULL_RTX if a normal call should be emitted rather than expanding
+   the function in-line.  EXP is the expression that is a call to the builtin
+   function; if convenient, the result should be placed in TARGET.  */
+
+static rtx
+expand_builtin_signbit (tree exp, rtx target)
+{
+  const struct real_format *fmt;
+  enum machine_mode fmode, imode, rmode;
+  HOST_WIDE_INT hi, lo;
+  tree arg, arglist;
+  int bitpos;
+  rtx temp;
+
+  arglist = TREE_OPERAND (exp, 1);
+  if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+  fmode = TYPE_MODE (TREE_TYPE (arg));
+  rmode = TYPE_MODE (TREE_TYPE (exp));
+  fmt = REAL_MODE_FORMAT (fmode);
+
+  /* For floating point formats without a sign bit, implement signbit
+     as "ARG < 0.0".  */
+  if (fmt->signbit < 0)
+  {
+    /* But we can't do this if the format supports signed zero.  */
+    if (fmt->has_signed_zero && HONOR_SIGNED_ZEROS (fmode))
+      return 0;
+
+    arg = fold (build (LT_EXPR, TREE_TYPE (exp), arg,
+		build_real (TREE_TYPE (arg), dconst0)));
+    return expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
+  }
+
+  imode = int_mode_for_mode (fmode);
+  if (imode == BLKmode)
+    return 0;
+
+  bitpos = fmt->signbit;
+  /* Handle targets with different FP word orders.  */
+  if (FLOAT_WORDS_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+    {
+      int nwords = GET_MODE_BITSIZE (fmode) / BITS_PER_WORD;
+      int word = nwords - (bitpos / BITS_PER_WORD) - 1;
+      bitpos = word * BITS_PER_WORD + bitpos % BITS_PER_WORD;
+    }
+
+  /* If the sign bit is not in the lowpart and the floating point format
+     is wider than an integer, check that is twice the size of an integer
+     so that we can use gen_highpart below.  */
+  if (bitpos >= GET_MODE_BITSIZE (rmode)
+      && GET_MODE_BITSIZE (imode) != 2 * GET_MODE_BITSIZE (rmode))
+    return 0;
+
+  temp = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+  temp = gen_lowpart (imode, temp);
+
+  if (GET_MODE_BITSIZE (imode) > GET_MODE_BITSIZE (rmode))
+    {
+      if (BITS_BIG_ENDIAN)
+	bitpos = GET_MODE_BITSIZE (imode) - 1 - bitpos;
+      temp = copy_to_mode_reg (imode, temp);
+      temp = extract_bit_field (temp, 1, bitpos, 1,
+				NULL_RTX, rmode, rmode,
+				GET_MODE_SIZE (imode));
+    }
+  else
+    {
+      if (GET_MODE_BITSIZE (imode) < GET_MODE_BITSIZE (rmode))
+	temp = gen_lowpart (rmode, temp);
+      if (bitpos < HOST_BITS_PER_WIDE_INT)
+	{
+	  hi = 0;
+	  lo = (HOST_WIDE_INT) 1 << bitpos;
+	}
+      else
+	{
+	  hi = (HOST_WIDE_INT) 1 << (bitpos - HOST_BITS_PER_WIDE_INT);
+	  lo = 0;
+	}
+
+      temp = force_reg (rmode, temp);
+      temp = expand_binop (rmode, and_optab, temp,
+			   immed_double_const (lo, hi, rmode),
+			   target, 1, OPTAB_LIB_WIDEN);
+    }
+  return temp;
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -5130,8 +5227,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_POW:
     case BUILT_IN_POWF:
     case BUILT_IN_POWL:
-      if (! flag_unsafe_math_optimizations)
-	break;
       target = expand_builtin_pow (exp, target, subtarget);
       if (target)
 	return target;
@@ -5484,6 +5579,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    case BUILT_IN_SIGNBIT:
+    case BUILT_IN_SIGNBITF:
+    case BUILT_IN_SIGNBITL:
+      target = expand_builtin_signbit (exp, target);
+      if (target)
+	return target;
+      break;
+
       /* Various hooks for the DWARF 2 __throw routine.  */
     case BUILT_IN_UNWIND_INIT:
       expand_builtin_unwind_init ();
@@ -5509,6 +5612,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EH_RETURN_DATA_REGNO:
       return expand_builtin_eh_return_data_regno (arglist);
 #endif
+    case BUILT_IN_EXTEND_POINTER:
+      return expand_builtin_extend_pointer (TREE_VALUE (arglist));
+
     case BUILT_IN_VA_START:
     case BUILT_IN_STDARG_START:
       return expand_builtin_va_start (arglist);
@@ -6643,6 +6749,44 @@ fold_builtin_strncmp (tree exp)
   return 0;
 }
 
+/* Fold function call to builtin signbit, signbitf or signbitl.  Return
+   NULL_TREE if no simplification can be made.  */
+
+static tree
+fold_builtin_signbit (tree exp)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg, temp;
+
+  if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return NULL_TREE;
+
+  arg = TREE_VALUE (arglist);
+
+  /* If ARG is a compile-time constant, determine the result.  */
+  if (TREE_CODE (arg) == REAL_CST
+      && !TREE_CONSTANT_OVERFLOW (arg))
+    {
+      REAL_VALUE_TYPE c;
+
+      c = TREE_REAL_CST (arg);
+      temp = REAL_VALUE_NEGATIVE (c) ? integer_one_node : integer_zero_node;
+      return convert (TREE_TYPE (exp), temp);
+    }
+
+  /* If ARG is non-negative, the result is always zero.  */
+  if (tree_expr_nonnegative_p (arg))
+    return omit_one_operand (TREE_TYPE (exp), integer_zero_node, arg);
+
+  /* If ARG's format doesn't have signed zeros, return "arg < 0.0".  */
+  if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg))))
+    return fold (build (LT_EXPR, TREE_TYPE (exp), arg,
+			build_real (TREE_TYPE (arg), dconst0)));
+
+  return NULL_TREE;
+}
+
+
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
 
@@ -7066,6 +7210,11 @@ fold_builtin_1 (tree exp)
 
     case BUILT_IN_STRNCMP:
       return fold_builtin_strncmp (exp);
+
+    case BUILT_IN_SIGNBIT:
+    case BUILT_IN_SIGNBITF:
+    case BUILT_IN_SIGNBITL:
+      return fold_builtin_signbit (exp);
 
     default:
       break;

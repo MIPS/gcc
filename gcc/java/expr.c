@@ -44,6 +44,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "except.h"
 #include "ggc.h"
 #include "tree-simple.h"
+#include "target.h"
 
 static void flush_quick_stack (void);
 static void push_value (tree);
@@ -1534,7 +1535,9 @@ build_field_ref (tree self_value, tree self_class, tree name)
 	  tree field_offset = 
 	    build (ARRAY_REF, integer_type_node, TYPE_OTABLE_DECL (output_class), 
 		   otable_index);
-	  tree address 
+	  tree address;
+	  field_offset = fold (convert (sizetype, field_offset));
+	  address 
 	    = fold (build (PLUS_EXPR, 
 			   build_pointer_type (TREE_TYPE (field_decl)),
 			   self_value, field_offset));
@@ -1719,7 +1722,7 @@ pop_arguments (tree arg_types)
       tree tail = pop_arguments (TREE_CHAIN (arg_types));
       tree type = TREE_VALUE (arg_types);
       tree arg = pop_value (type);
-      if (PROMOTE_PROTOTYPES
+      if (targetm.calls.promote_prototypes (type)
 	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
 	  && INTEGRAL_TYPE_P (type))
 	arg = convert (integer_type_node, arg);

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  
    Vitesse IQ2000 processors
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -155,10 +155,6 @@ extern int	target_flags;
       && GET_MODE_SIZE (MODE) < 4)		\
     (MODE) = SImode;
 
-#define PROMOTE_FUNCTION_ARGS
-
-#define PROMOTE_FUNCTION_RETURN
-
 #define PARM_BOUNDARY 32
 
 #define STACK_BOUNDARY 64
@@ -200,7 +196,6 @@ extern int	target_flags;
 #define DOUBLE_TYPE_SIZE 	64
 #define LONG_DOUBLE_TYPE_SIZE	64
 #define DEFAULT_SIGNED_CHAR	1
-#define MAX_WCHAR_TYPE_SIZE	32
 
 
 /* Register Basics.  */
@@ -427,8 +422,6 @@ enum reg_class
 
 /* Passing Function Arguments on the Stack.  */
 
-#define PROMOTE_PROTOTYPES 1
-
 /* #define PUSH_ROUNDING(BYTES) 0 */
 
 #define ACCUMULATE_OUTGOING_ARGS 1
@@ -472,7 +465,7 @@ typedef struct iq2000_args
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)		\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   init_cumulative_args (& CUM, FNTYPE, LIBNAME)				\
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
@@ -505,13 +498,12 @@ typedef struct iq2000_args
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)	iq2000_function_value (VALTYPE, FUNC)
 
-#define LIBCALL_VALUE(MODE)						\
-  gen_rtx (REG,								\
-	   ((GET_MODE_CLASS (MODE) != MODE_INT				\
-	     || GET_MODE_SIZE (MODE) >= 4)				\
-	    ? (MODE)							\
-	    : SImode),							\
-	   GP_RETURN)
+#define LIBCALL_VALUE(MODE)				\
+  gen_rtx_REG (((GET_MODE_CLASS (MODE) != MODE_INT	\
+		 || GET_MODE_SIZE (MODE) >= 4)		\
+		? (MODE)				\
+		: SImode),				\
+	       GP_RETURN)
 
 /* On the IQ2000, R2 and R3 are the only register thus used.  */
 
@@ -520,15 +512,7 @@ typedef struct iq2000_args
 
 /* How Large Values are Returned.  */
 
-#define RETURN_IN_MEMORY(TYPE)						 \
-  (((int_size_in_bytes (TYPE)						 \
-       > (2 * UNITS_PER_WORD)) 						 \
-      || (int_size_in_bytes (TYPE) == -1)))
-
 #define DEFAULT_PCC_STRUCT_RETURN 0
-
-#define STRUCT_VALUE 0
-
 
 /* Function Entry and Exit.  */
 
@@ -556,11 +540,6 @@ typedef struct iq2000_args
 
 
 /* Implementing the Varargs Macros.  */
-
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
-  iq2000_setup_incoming_varargs (CUM,MODE,TYPE,&PRETEND_SIZE,NO_RTL);
-
-#define STRICT_ARGUMENT_NAMING  1
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   iq2000_va_start (valist, nextarg)
@@ -660,7 +639,7 @@ typedef struct iq2000_args
     {									\
       X = gen_rtx_LO_SUM (Pmode,					\
 			  copy_to_mode_reg (Pmode,			\
-					    gen_rtx (HIGH, Pmode, X)),	\
+					    gen_rtx_HIGH (Pmode, X)),	\
 			  X);						\
       goto WIN;								\
     }									\

@@ -338,6 +338,9 @@ byte_reg (rtx x, int b)
     "r4l", "r4h", "r5l", "r5h", "r6l", "r6h", "r7l", "r7h"
   };
 
+  if (!REG_P (x))
+    abort ();
+
   return names_small[REGNO (x) * 2 + b];
 }
 
@@ -351,7 +354,7 @@ byte_reg (rtx x, int b)
        /* Save any call saved register that was used.  */		\
        || (regs_ever_live[regno] && !call_used_regs[regno])		\
        /* Save the frame pointer if it was used.  */			\
-       || (regno == FRAME_POINTER_REGNUM && regs_ever_live[regno])	\
+       || (regno == HARD_FRAME_POINTER_REGNUM && regs_ever_live[regno])	\
        /* Save any register used in an interrupt handler.  */		\
        || (h8300_current_function_interrupt_function_p ()		\
 	   && regs_ever_live[regno])					\
@@ -411,7 +414,7 @@ compute_saved_regs (void)
   int regno;
 
   /* Construct a bit vector of registers to be pushed/popped.  */
-  for (regno = 0; regno <= FRAME_POINTER_REGNUM; regno++)
+  for (regno = 0; regno <= HARD_FRAME_POINTER_REGNUM; regno++)
     {
       if (WORD_REG_USED (regno))
 	saved_regs |= 1 << regno;
@@ -419,7 +422,7 @@ compute_saved_regs (void)
 
   /* Don't push/pop the frame pointer as it is treated separately.  */
   if (frame_pointer_needed)
-    saved_regs &= ~(1 << FRAME_POINTER_REGNUM);
+    saved_regs &= ~(1 << HARD_FRAME_POINTER_REGNUM);
 
   return saved_regs;
 }
@@ -501,12 +504,10 @@ h8300_expand_prologue (void)
   if (frame_pointer_needed)
     {
       /* Push fp.  */
-      push (FRAME_POINTER_REGNUM);
-      emit_insn (gen_rtx_SET (Pmode, frame_pointer_rtx, stack_pointer_rtx));
+      push (HARD_FRAME_POINTER_REGNUM);
+      emit_insn (gen_rtx_SET (Pmode, hard_frame_pointer_rtx,
+			      stack_pointer_rtx));
     }
-
-  /* Leave room for locals.  */
-  h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()));
 
   /* Push the rest of the registers in ascending order.  */
   saved_regs = compute_saved_regs ();
@@ -556,6 +557,9 @@ h8300_expand_prologue (void)
 	    }
 	}
     }
+
+  /* Leave room for locals.  */
+  h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()));
 }
 
 int
@@ -580,6 +584,9 @@ h8300_expand_epilogue (void)
     /* OS_Task epilogues are nearly naked -- they just have an
        rts instruction.  */
     return;
+
+  /* Deallocate locals.  */
+  h8300_emit_stack_adjustment (1, round_frame_size (get_frame_size ()));
 
   /* Pop the saved registers in descending order.  */
   saved_regs = compute_saved_regs ();
@@ -630,12 +637,9 @@ h8300_expand_epilogue (void)
 	}
     }
 
-  /* Deallocate locals.  */
-  h8300_emit_stack_adjustment (1, round_frame_size (get_frame_size ()));
-
   /* Pop frame pointer if we had one.  */
   if (frame_pointer_needed)
-    pop (FRAME_POINTER_REGNUM);
+    pop (HARD_FRAME_POINTER_REGNUM);
 }
 
 /* Return nonzero if the current function is an interrupt
@@ -1579,33 +1583,59 @@ h8300_expand_movsi (rtx operands[])
 int
 h8300_initial_elimination_offset (int from, int to)
 {
-  int offset = 0;
   /* The number of bytes that the return address takes on the stack.  */
   int pc_size = POINTER_SIZE / BITS_PER_UNIT;
 
-  if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
-    offset = pc_size + frame_pointer_needed * UNITS_PER_WORD;
-  else if (from == RETURN_ADDRESS_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
-    offset = frame_pointer_needed * UNITS_PER_WORD;
-  else
+  /* The number of bytes that the saved frame pointer takes on the stack.  */
+  int fp_size = frame_pointer_needed * UNITS_PER_WORD;
+
+  /* The number of bytes that the saved registers, excluding the frame
+     pointer, take on the stack.  */
+  int saved_regs_size = 0;
+
+  /* The number of bytes that the locals takes on the stack.  */
+  int frame_size = round_frame_size (get_frame_size ());
+
+  int regno;
+
+  for (regno = 0; regno <= HARD_FRAME_POINTER_REGNUM; regno++)
+    if (WORD_REG_USED (regno))
+      saved_regs_size += UNITS_PER_WORD;
+
+  /* Adjust saved_regs_size because the above loop took the frame
+     pointer int account.  */
+  saved_regs_size -= fp_size;
+
+  if (to == HARD_FRAME_POINTER_REGNUM)
     {
-      int regno;
-
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-	if (WORD_REG_USED (regno))
-	  offset += UNITS_PER_WORD;
-
-      /* See the comments for get_frame_size.  We need to round it up to
-	 STACK_BOUNDARY.  */
-
-      offset += round_frame_size (get_frame_size ());
-
-      if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-	/* Skip saved PC.  */
-	offset += pc_size;
+      switch (from)
+	{
+	case ARG_POINTER_REGNUM:
+	  return pc_size + fp_size;
+	case RETURN_ADDRESS_POINTER_REGNUM:
+	  return fp_size;
+	case FRAME_POINTER_REGNUM:
+	  return -saved_regs_size;
+	default:
+	  abort ();
+	}
     }
-
-  return offset;
+  else if (to == STACK_POINTER_REGNUM)
+    {
+      switch (from)
+	{
+	case ARG_POINTER_REGNUM:
+	  return pc_size + saved_regs_size + frame_size;
+	case RETURN_ADDRESS_POINTER_REGNUM:
+	  return saved_regs_size + frame_size;
+	case FRAME_POINTER_REGNUM:
+	  return frame_size;
+	default:
+	  abort ();
+	}
+    }
+  else
+    abort ();
 }
 
 rtx
@@ -2706,8 +2736,8 @@ expand_a_shift (enum machine_mode mode, int code, rtx operands[])
 	     (VOIDmode,
 	      gen_rtvec (2,
 			 gen_rtx_SET (VOIDmode, operands[0],
-				      gen_rtx (code, mode, operands[0],
-					       operands[2])),
+				      gen_rtx_fmt_ee (code, mode,
+						      operands[0], operands[2])),
 			 gen_rtx_CLOBBER (VOIDmode,
 					  gen_rtx_SCRATCH (QImode)))));
 }
@@ -3840,7 +3870,7 @@ expand_a_rotate (enum rtx_code code, rtx operands[])
 
       /* If the rotate amount is less than or equal to 0,
 	 we go out of the loop.  */
-      emit_cmp_and_jump_insns (rotate_amount, GEN_INT (0), LE, NULL_RTX,
+      emit_cmp_and_jump_insns (rotate_amount, const0_rtx, LE, NULL_RTX,
 			       QImode, 0, end_label);
 
       /* Initialize the loop counter.  */
@@ -3849,16 +3879,16 @@ expand_a_rotate (enum rtx_code code, rtx operands[])
       emit_label (start_label);
 
       /* Rotate by one bit.  */
-      tmp = gen_rtx (code, mode, dst, GEN_INT (1));
+      tmp = gen_rtx_fmt_ee (code, mode, dst, const1_rtx);
       emit_insn (gen_rtx_SET (mode, dst, tmp));
 
       /* Decrement the counter by 1.  */
-      tmp = gen_rtx_PLUS (QImode, counter, GEN_INT (-1));
+      tmp = gen_rtx_PLUS (QImode, counter, constm1_rtx);
       emit_insn (gen_rtx_SET (VOIDmode, counter, tmp));
 
       /* If the loop counter is nonzero, we go back to the beginning
 	 of the loop.  */
-      emit_cmp_and_jump_insns (counter, GEN_INT (0), NE, NULL_RTX, QImode, 1,
+      emit_cmp_and_jump_insns (counter, const0_rtx, NE, NULL_RTX, QImode, 1,
 			       start_label);
 
       emit_label (end_label);
@@ -3866,7 +3896,7 @@ expand_a_rotate (enum rtx_code code, rtx operands[])
   else
     {
       /* Rotate by AMOUNT bits.  */
-      tmp = gen_rtx (code, mode, dst, rotate_amount);
+      tmp = gen_rtx_fmt_ee (code, mode, dst, rotate_amount);
       emit_insn (gen_rtx_SET (mode, dst, tmp));
     }
 
@@ -4074,7 +4104,8 @@ fix_bit_operand (rtx *operands, int what, enum rtx_code type)
   {
     rtx res = gen_reg_rtx (QImode);
     emit_insn (gen_rtx_SET (VOIDmode, res,
-			    gen_rtx (type, QImode, operands[1], operands[2])));
+			    gen_rtx_fmt_ee (type, QImode,
+					    operands[1], operands[2])));
     emit_insn (gen_rtx_SET (VOIDmode, operands[0], res));
   }
   return 1;
@@ -4391,7 +4422,7 @@ h8300_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
 int
 h8300_eightbit_constant_address_p (rtx x)
 {
-  /* The ranges of the 8-bit area. */
+  /* The ranges of the 8-bit area.  */
   const unsigned HOST_WIDE_INT n1 = trunc_int_for_mode (0xff00, HImode);
   const unsigned HOST_WIDE_INT n2 = trunc_int_for_mode (0xffff, HImode);
   const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00ffff00, SImode);
@@ -4434,21 +4465,30 @@ h8300_tiny_constant_address_p (rtx x)
 
   unsigned HOST_WIDE_INT addr;
 
-  /* We accept symbols declared with tiny_data.  */
-  if (GET_CODE (x) == SYMBOL_REF)
-    return (SYMBOL_REF_FLAGS (x) & SYMBOL_FLAG_TINY_DATA) != 0;
+  switch (GET_CODE (x))
+    {
+    case SYMBOL_REF:
+      /* In the normal mode, any symbol fits in the 16-bit absolute
+	 address range.  We also accept symbols declared with
+	 tiny_data.  */
+      return (TARGET_NORMAL_MODE
+	      || (SYMBOL_REF_FLAGS (x) & SYMBOL_FLAG_TINY_DATA) != 0);
 
-  if (GET_CODE (x) != CONST_INT)
-    return 0;
+    case CONST_INT:
+      addr = INTVAL (x);
+      return (TARGET_NORMAL_MODE
+	      || (TARGET_H8300H
+		  && (IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4)))
+	      || (TARGET_H8300S
+		  && (IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4))));
 
-  addr = INTVAL (x);
+    case CONST:
+      return TARGET_NORMAL_MODE;
 
-  return (0
-	  || TARGET_NORMAL_MODE
-	  || (TARGET_H8300H
-	      && (IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4)))
-	  || (TARGET_H8300S
-	      && (IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4))));
+    default:
+      return 0;
+    }
+
 }
 
 int
@@ -4534,6 +4574,37 @@ same_cmp_following_p (rtx i1)
 
   return (INSN_P (i3) && rtx_equal_p (PATTERN (i1), PATTERN (i3))
 	  && any_condjump_p (i2) && onlyjump_p (i2));
+}
+
+/* Return nonzero if OPERANDS are valid for stm (or ldm) that pushes
+   (or pops) N registers.  OPERANDS are asssumed to be an array of
+   registers.  */
+
+int
+h8300_regs_ok_for_stm (int n, rtx operands[])
+{
+  switch (n)
+    {
+    case 2:
+      return ((REGNO (operands[0]) == 0 && REGNO (operands[1]) == 1)
+	      || (REGNO (operands[0]) == 2 && REGNO (operands[1]) == 3)
+	      || (REGNO (operands[0]) == 4 && REGNO (operands[1]) == 5));
+    case 3:
+      return ((REGNO (operands[0]) == 0
+	       && REGNO (operands[1]) == 1
+	       && REGNO (operands[2]) == 2)
+	      || (REGNO (operands[0]) == 4
+		  && REGNO (operands[1]) == 5
+		  && REGNO (operands[2]) == 6));
+
+    case 4:
+      return (REGNO (operands[0]) == 0
+	      && REGNO (operands[1]) == 1
+	      && REGNO (operands[2]) == 2
+	      && REGNO (operands[3]) == 3);
+    }
+
+  abort ();
 }
 
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
@@ -4643,8 +4714,6 @@ h8300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS h8300_init_libfuncs
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY h8300_return_in_memory
 

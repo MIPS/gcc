@@ -1,6 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1574,13 +1574,13 @@ delete_prior_computation (rtx note, rtx insn)
 	      int dest_endregno
 		= (dest_regno
 		   + (dest_regno < FIRST_PSEUDO_REGISTER
-		      ? HARD_REGNO_NREGS (dest_regno,
-					  GET_MODE (SET_DEST (pat))) : 1));
+		      ? hard_regno_nregs[dest_regno]
+					[GET_MODE (SET_DEST (pat))] : 1));
 	      int regno = REGNO (reg);
 	      int endregno
 		= (regno
 		   + (regno < FIRST_PSEUDO_REGISTER
-		      ? HARD_REGNO_NREGS (regno, GET_MODE (reg)) : 1));
+		      ? hard_regno_nregs[regno][GET_MODE (reg)] : 1));
 
 	      if (dest_regno >= regno
 		  && dest_endregno <= endregno)

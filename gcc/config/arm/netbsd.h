@@ -1,5 +1,6 @@
 /* NetBSD/arm a.out version.
-   Copyright (C) 1993, 1994, 1997, 1998, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1997, 1998, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Mark Brinicombe (amb@physig.ph.kcl.ac.uk)
 
    This file is part of GCC.
@@ -146,9 +147,9 @@
 #undef  INITIALIZE_TRAMPOLINE
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)                      \
 {                                                                      \
-  emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 8)),   \
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),   \
                  (CXT));                                               \
-  emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 12)),  \
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 12)),  \
                  (FNADDR));                                            \
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),      \
                     0, VOIDmode, 2, TRAMP, Pmode,                      \

@@ -328,8 +328,6 @@ extern void (*lang_expand_function_end) (void);
 extern int (*lang_missing_noreturn_ok_p) (tree);
 
 extern int yyparse (void);
-extern void free_parser_stacks (void);
-
 extern stmt_tree current_stmt_tree (void);
 extern tree *current_scope_stmt_stack (void);
 extern void begin_stmt_tree (tree *);
@@ -345,8 +343,6 @@ extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
 
-enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
-extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
@@ -1291,5 +1287,6 @@ extern void objc_mark_locals_volatile (void *);
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
+extern void pp_dir_change (cpp_reader *, const char *);
 
 #endif /* ! GCC_C_COMMON_H */

@@ -84,17 +84,17 @@ extern int target_flags;
 
 #define MASK_INLINE_FLOAT_DIV_THR 0x00001000 /* inline div, max throughput.  */
 
-#define MASK_INLINE_INT_DIV_LAT   0x00000800 /* inline div, min latency.  */
+#define MASK_INLINE_INT_DIV_LAT   0x00002000 /* inline div, min latency.  */
 
-#define MASK_INLINE_INT_DIV_THR   0x00001000 /* inline div, max throughput.  */
+#define MASK_INLINE_INT_DIV_THR   0x00004000 /* inline div, max throughput.  */
 
-#define MASK_INLINE_SQRT_LAT      0x00002000 /* inline sqrt, min latency.  */
+#define MASK_INLINE_SQRT_LAT      0x00008000 /* inline sqrt, min latency.  */
 
-#define MASK_INLINE_SQRT_THR      0x00004000 /* inline sqrt, max throughput. */
+#define MASK_INLINE_SQRT_THR      0x00010000 /* inline sqrt, max throughput.  */
 
-#define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
+#define MASK_DWARF2_ASM 0x00020000	/* test dwarf2 line info via gas.  */
 
-#define MASK_EARLY_STOP_BITS 0x00002000 /* tune stop bits for the model.  */
+#define MASK_EARLY_STOP_BITS 0x00040000 /* tune stop bits for the model.  */
 
 #define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
 
@@ -251,7 +251,7 @@ extern const char *ia64_tls_size_string;
 
 enum processor_type
 {
-  PROCESSOR_ITANIUM,			/* Original Itanium. */
+  PROCESSOR_ITANIUM,			/* Original Itanium.  */
   PROCESSOR_ITANIUM2,
   PROCESSOR_max
 };
@@ -428,8 +428,6 @@ while (0)
 #define SHORT_TYPE_SIZE 16
 
 #define LONG_TYPE_SIZE (TARGET_ILP32 ? 32 : 64)
-
-#define MAX_LONG_TYPE_SIZE 64
 
 #define LONG_LONG_TYPE_SIZE 64
 
@@ -1338,7 +1336,7 @@ typedef struct ia64_args
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 do {									\
   (CUM).words = 0;							\
   (CUM).int_regs = 0;							\
@@ -1421,9 +1419,6 @@ do {									\
 
 
 /* How Large Values are Returned */
-
-/* If you define this macro to be 0, then the conventions used for structure
-   and union return values are decided by the `RETURN_IN_MEMORY' macro.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 

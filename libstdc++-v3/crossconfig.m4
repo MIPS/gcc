@@ -134,7 +134,13 @@ case "${host}" in
 
     # For LFS.
     AC_DEFINE(HAVE_INT64_T)
-    AC_DEFINE(_GLIBCXX_USE_LFS)
+    case "$target" in
+      *-uclinux*)
+        # Don't enable LFS with uClibc
+        ;;
+      *)
+        AC_DEFINE(_GLIBCXX_USE_LFS)
+    esac
 
     # For showmanyc_helper().
     AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h)
@@ -335,6 +341,33 @@ case "${host}" in
     AC_DEFINE(HAVE_ISNANF)
     AC_DEFINE(HAVE_MODFF)
     AC_DEFINE(HAVE_HYPOT)
+    ;;
+  *-tpf)
+    AC_CHECK_HEADERS([nan.h endian.h machine/endian.h  \
+      sys/param.h sys/types.h locale.h float.h inttypes.h])
+    SECTION_FLAGS='-ffunction-sections -fdata-sections'
+    AC_SUBST(SECTION_FLAGS)
+    GLIBCXX_CHECK_LINKER_FEATURES
+    GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
+    GLIBCXX_CHECK_WCHAR_T_SUPPORT
+    AC_DEFINE(HAVE_COPYSIGN)
+    AC_DEFINE(HAVE_COPYSIGNF)
+    AC_DEFINE(HAVE_FINITE)
+    AC_DEFINE(HAVE_FINITEF)
+    AC_DEFINE(HAVE_FREXPF)
+    AC_DEFINE(HAVE_HYPOTF)
+    AC_DEFINE(HAVE_ISINF)
+    AC_DEFINE(HAVE_ISINFF)
+    AC_DEFINE(HAVE_ISNAN)
+    AC_DEFINE(HAVE_ISNANF)
+    AC_DEFINE(HAVE_SINCOS)
+    AC_DEFINE(HAVE_SINCOSF)
+    if test x"long_double_math_on_this_cpu" = x"yes"; then
+      AC_DEFINE(HAVE_FINITEL)
+      AC_DEFINE(HAVE_HYPOTL)
+      AC_DEFINE(HAVE_ISINFL)
+      AC_DEFINE(HAVE_ISNANL)
+    fi
     ;;
   *-vxworks)
     AC_DEFINE(HAVE_MMAP)

@@ -1,5 +1,5 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
@@ -200,6 +200,8 @@ static void c4x_globalize_label (FILE *, const char *);
 static bool c4x_rtx_costs (rtx, int, int, int *);
 static int c4x_address_cost (rtx);
 static void c4x_init_libfuncs (void);
+static void c4x_external_libcall (rtx);
+static rtx c4x_struct_value_rtx (tree, int);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -214,6 +216,9 @@ static void c4x_init_libfuncs (void);
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END c4x_file_end
+
+#undef TARGET_ASM_EXTERNAL_LIBCALL
+#define TARGET_ASM_EXTERNAL_LIBCALL c4x_external_libcall
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE c4x_attribute_table
@@ -243,6 +248,9 @@ static void c4x_init_libfuncs (void);
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS c4x_init_libfuncs
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX c4x_struct_value_rtx
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1069,7 +1077,7 @@ c4x_expand_epilogue(void)
 					 gen_rtx_PLUS 
 					 (QImode, gen_rtx_REG (QImode,
 							       AR3_REGNO),
-					  GEN_INT(-1)))));
+					  constm1_rtx))));
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      
 	      /* We already have the return value and the fp,
@@ -1382,13 +1390,13 @@ c4x_emit_libcall (rtx libcall, enum rtx_code code,
     case 2:
       ret = emit_library_call_value (libcall, NULL_RTX, 1, dmode, 1,
 				     operands[1], smode);
-      equiv = gen_rtx (code, dmode, operands[1]);
+      equiv = gen_rtx_fmt_e (code, dmode, operands[1]);
       break;
 
     case 3:
       ret = emit_library_call_value (libcall, NULL_RTX, 1, dmode, 2,
 				     operands[1], smode, operands[2], smode);
-      equiv = gen_rtx (code, dmode, operands[1], operands[2]);
+      equiv = gen_rtx_fmt_ee (code, dmode, operands[1], operands[2]);
       break;
 
     default:
@@ -1423,8 +1431,8 @@ c4x_emit_libcall_mulhi (rtx libcall, enum rtx_code code,
   equiv = gen_rtx_TRUNCATE (mode,
                    gen_rtx_LSHIFTRT (HImode,
                             gen_rtx_MULT (HImode,
-                                     gen_rtx (code, HImode, operands[1]),
-                                     gen_rtx (code, HImode, operands[2])),
+                                     gen_rtx_fmt_e (code, HImode, operands[1]),
+                                     gen_rtx_fmt_e (code, HImode, operands[2])),
                                      GEN_INT (32)));
   insns = get_insns ();
   end_sequence ();
@@ -2351,8 +2359,8 @@ c4x_rptb_insert (rtx insn)
     {
       /* We can not use the rptb insn.  Replace it so reorg can use
          the delay slots of the jump insn.  */
-      emit_insn_before (gen_addqi3 (count_reg, count_reg, GEN_INT (-1)), insn);
-      emit_insn_before (gen_cmpqi (count_reg, GEN_INT (0)), insn);
+      emit_insn_before (gen_addqi3 (count_reg, count_reg, constm1_rtx), insn);
+      emit_insn_before (gen_cmpqi (count_reg, const0_rtx), insn);
       emit_insn_before (gen_bge (start_label), insn);
       LABEL_NUSES (start_label)++;
       delete_insn (insn);
@@ -3467,7 +3475,7 @@ c4x_S_address_parse (rtx op, int *base, int *incdec, int *index, int *disp)
 	    return;
 	  }
       }
-      /* Fallthrough.  */
+      /* Fall through.  */
 
     default:
       fatal_insn ("invalid indirect (S) memory address", op);
@@ -3984,7 +3992,7 @@ legitimize_operands (enum rtx_code code, rtx *operands, enum machine_mode mode)
   /* When the shift count is greater than 32 then the result 
      can be implementation dependent.  We truncate the result to
      fit in 5 bits so that we do not emit invalid code when
-     optimising---such as trying to generate lhu2 with 20021124-1.c.  */
+     optimizing---such as trying to generate lhu2 with 20021124-1.c.  */
   if (((code == ASHIFTRT || code == LSHIFTRT || code == ASHIFT)
       && (GET_CODE (operands[2]) == CONST_INT))
       && INTVAL (operands[2]) > (GET_MODE_BITSIZE (mode) - 1))
@@ -5016,4 +5024,22 @@ c4x_rtx_costs (rtx x, int code, int outer_code, int *total)
     default:
       return false;
     }
+}
+
+/* Worker function for TARGET_ASM_EXTERNAL_LIBCALL.  */
+
+static void
+c4x_external_libcall (rtx fun)
+{
+  /* This is only needed to keep asm30 happy for ___divqf3 etc.  */
+  c4x_external_ref (XSTR (fun, 0));
+}
+
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+c4x_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		      int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, AR0_REGNO);
 }

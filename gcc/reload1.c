@@ -534,7 +534,7 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
 	 }
        else
 	 {
-	   nregs = HARD_REGNO_NREGS (r, PSEUDO_REGNO_MODE (regno));
+	   nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
 	   while (nregs-- > 0)
 	     SET_HARD_REG_BIT (*to, r + nregs);
 	 }
@@ -1572,7 +1572,7 @@ count_pseudo (int reg)
 
   spill_add_cost[r] += freq;
 
-  nregs = HARD_REGNO_NREGS (r, PSEUDO_REGNO_MODE (reg));
+  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (reg)];
   while (nregs-- > 0)
     spill_cost[r + nregs] += freq;
 }
@@ -1634,7 +1634,7 @@ static void
 count_spilled_pseudo (int spilled, int spilled_nregs, int reg)
 {
   int r = reg_renumber[reg];
-  int nregs = HARD_REGNO_NREGS (r, PSEUDO_REGNO_MODE (reg));
+  int nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (reg)];
 
   if (REGNO_REG_SET_P (&spilled_pseudos, reg)
       || spilled + spilled_nregs <= r || r + nregs <= spilled)
@@ -1685,7 +1685,7 @@ find_reg (struct insn_chain *chain, int order)
 	{
 	  int this_cost = spill_cost[regno];
 	  int ok = 1;
-	  unsigned int this_nregs = HARD_REGNO_NREGS (regno, rl->mode);
+	  unsigned int this_nregs = hard_regno_nregs[regno][rl->mode];
 
 	  for (j = 1; j < this_nregs; j++)
 	    {
@@ -1724,7 +1724,7 @@ find_reg (struct insn_chain *chain, int order)
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Using reg %d for reload %d\n", best_reg, rnum);
 
-  rl->nregs = HARD_REGNO_NREGS (best_reg, rl->mode);
+  rl->nregs = hard_regno_nregs[best_reg][rl->mode];
   rl->regno = best_reg;
 
   EXECUTE_IF_SET_IN_REG_SET
@@ -1772,7 +1772,7 @@ find_reload_regs (struct insn_chain *chain)
 	  int regno = REGNO (chain->rld[i].reg_rtx);
 	  chain->rld[i].regno = regno;
 	  chain->rld[i].nregs
-	    = HARD_REGNO_NREGS (regno, GET_MODE (chain->rld[i].reg_rtx));
+	    = hard_regno_nregs[regno][GET_MODE (chain->rld[i].reg_rtx)];
 	}
       else
 	chain->rld[i].regno = -1;
@@ -2062,7 +2062,7 @@ mark_home_live (int regno)
   i = reg_renumber[regno];
   if (i < 0)
     return;
-  lim = i + HARD_REGNO_NREGS (i, PSEUDO_REGNO_MODE (regno));
+  lim = i + hard_regno_nregs[i][PSEUDO_REGNO_MODE (regno)];
   while (i < lim)
     regs_ever_live[i++] = 1;
 }
@@ -2307,7 +2307,7 @@ eliminate_regs (rtx x, enum machine_mode mem_mode, rtx insn)
        and require special code to handle code a reloaded PLUS operand.
 
        Also consider backends where the flags register is clobbered by a
-       MINUS, but we can emit a PLUS that does not clobber flags (ia32,
+       MINUS, but we can emit a PLUS that does not clobber flags (IA-32,
        lea instruction comes to mind).  If we try to reload a MINUS, we
        may kill the flags register that was holding a useful value.
 
@@ -2834,7 +2834,7 @@ check_eliminable_occurrences (rtx x)
       struct elim_table *ep;
 
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	if (ep->from_rtx == x && ep->can_eliminate)
+	if (ep->from_rtx == x)
 	  ep->can_eliminate = 0;
       return;
     }
@@ -2879,6 +2879,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx orig_operand[MAX_RECOG_OPERANDS];
   struct elim_table *ep;
+  rtx plus_src;
 
   if (! insn_is_asm && icode < 0)
     {
@@ -2982,17 +2983,40 @@ eliminate_regs_in_insn (rtx insn, int replace)
     }
 
   /* We allow one special case which happens to work on all machines we
-     currently support: a single set with the source being a PLUS of an
-     eliminable register and a constant.  */
-  if (old_set
-      && GET_CODE (SET_DEST (old_set)) == REG
-      && GET_CODE (SET_SRC (old_set)) == PLUS
-      && GET_CODE (XEXP (SET_SRC (old_set), 0)) == REG
-      && GET_CODE (XEXP (SET_SRC (old_set), 1)) == CONST_INT
-      && REGNO (XEXP (SET_SRC (old_set), 0)) < FIRST_PSEUDO_REGISTER)
+     currently support: a single set with the source or a REG_EQUAL
+     note being a PLUS of an eliminable register and a constant.  */
+  plus_src = 0;
+  if (old_set && GET_CODE (SET_DEST (old_set)) == REG)
     {
-      rtx reg = XEXP (SET_SRC (old_set), 0);
-      HOST_WIDE_INT offset = INTVAL (XEXP (SET_SRC (old_set), 1));
+      /* First see if the source is of the form (plus (reg) CST).  */
+      if (GET_CODE (SET_SRC (old_set)) == PLUS
+	  && GET_CODE (XEXP (SET_SRC (old_set), 0)) == REG
+	  && GET_CODE (XEXP (SET_SRC (old_set), 1)) == CONST_INT
+	  && REGNO (XEXP (SET_SRC (old_set), 0)) < FIRST_PSEUDO_REGISTER)
+	plus_src = SET_SRC (old_set);
+      else if (GET_CODE (SET_SRC (old_set)) == REG)
+	{
+	  /* Otherwise, see if we have a REG_EQUAL note of the form
+	     (plus (reg) CST).  */
+	  rtx links;
+	  for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
+	    {
+	      if (REG_NOTE_KIND (links) == REG_EQUAL
+		  && GET_CODE (XEXP (links, 0)) == PLUS
+		  && GET_CODE (XEXP (XEXP (links, 0), 0)) == REG
+		  && GET_CODE (XEXP (XEXP (links, 0), 1)) == CONST_INT
+		  && REGNO (XEXP (XEXP (links, 0), 0)) < FIRST_PSEUDO_REGISTER)
+		{
+		  plus_src = XEXP (links, 0);
+		  break;
+		}
+	    }
+	}
+    }
+  if (plus_src)
+    {
+      rtx reg = XEXP (plus_src, 0);
+      HOST_WIDE_INT offset = INTVAL (XEXP (plus_src, 1));
 
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == reg && ep->can_eliminate)
@@ -3022,7 +3046,12 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		if (INSN_CODE (insn) < 0)
 		  abort ();
 	      }
-	    else
+	    /* If we have a nonzero offset, and the source is already
+	       a simple REG, the following transformation would
+	       increase the cost of the insn by replacing a simple REG
+	       with (plus (reg sp) CST).  So try only when plus_src
+	       comes from old_set proper, not REG_NOTES.  */
+	    else if (SET_SRC (old_set) == plus_src)
 	      {
 		new_body = old_body;
 		if (! replace)
@@ -3037,6 +3066,9 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		XEXP (SET_SRC (old_set), 0) = ep->to_rtx;
 		XEXP (SET_SRC (old_set), 1) = GEN_INT (offset);
 	      }
+	    else
+	      break;
+
 	    val = 1;
 	    /* This can't have an effect on elimination offsets, so skip right
 	       to the end.  */
@@ -3068,7 +3100,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		 eliminate this reg.  */
 	      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 		   ep++)
-		if (ep->from_rtx == orig_operand[i] && ep->can_eliminate)
+		if (ep->from_rtx == orig_operand[i])
 		  ep->can_eliminate = 0;
 	    }
 
@@ -3477,8 +3509,8 @@ init_elim_table (void)
 #endif
 
   /* Count the number of eliminable registers and build the FROM and TO
-     REG rtx's.  Note that code in gen_rtx will cause, e.g.,
-     gen_rtx (REG, Pmode, STACK_POINTER_REGNUM) to equal stack_pointer_rtx.
+     REG rtx's.  Note that code in gen_rtx_REG will cause, e.g.,
+     gen_rtx_REG (Pmode, STACK_POINTER_REGNUM) to equal stack_pointer_rtx.
      We depend on this.  */
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
@@ -3516,8 +3548,8 @@ spill_hard_reg (unsigned int regno, int cant_eliminate)
     if (reg_renumber[i] >= 0
 	&& (unsigned int) reg_renumber[i] <= regno
 	&& ((unsigned int) reg_renumber[i]
-	    + HARD_REGNO_NREGS ((unsigned int) reg_renumber[i],
-				PSEUDO_REGNO_MODE (i))
+	    + hard_regno_nregs[(unsigned int) reg_renumber[i]]
+			      [PSEUDO_REGNO_MODE (i)]
 	    > regno))
       SET_REGNO_REG_SET (&spilled_pseudos, i);
 }
@@ -3932,8 +3964,9 @@ reload_as_needed (int live_known)
 			  if (n == 1)
 			    {
 			      n = validate_replace_rtx (reload_reg,
-							gen_rtx (code, mode,
-								 reload_reg),
+							gen_rtx_fmt_e (code,
+								       mode,
+								       reload_reg),
 							p);
 
 			      /* We must also verify that the constraints
@@ -3948,8 +3981,9 @@ reload_as_needed (int live_known)
 				 undo the replacement.  */
 			      if (!n)
 				{
-				  validate_replace_rtx (gen_rtx (code, mode,
-								 reload_reg),
+				  validate_replace_rtx (gen_rtx_fmt_e (code,
+								       mode,
+								       reload_reg),
 							reload_reg, p);
 				  break;
 				}
@@ -4059,7 +4093,7 @@ forget_old_reloads_1 (rtx x, rtx ignored ATTRIBUTE_UNUSED,
     {
       unsigned int i;
 
-      nr = HARD_REGNO_NREGS (regno, GET_MODE (x));
+      nr = hard_regno_nregs[regno][GET_MODE (x)];
       /* Storing into a spilled-reg invalidates its contents.
 	 This can happen if a block-local pseudo is allocated to that reg
 	 and it wasn't spilled because this block's total need is 0.
@@ -4133,7 +4167,7 @@ static void
 mark_reload_reg_in_use (unsigned int regno, int opnum, enum reload_type type,
 			enum machine_mode mode)
 {
-  unsigned int nregs = HARD_REGNO_NREGS (regno, mode);
+  unsigned int nregs = hard_regno_nregs[regno][mode];
   unsigned int i;
 
   for (i = regno; i < nregs + regno; i++)
@@ -4195,7 +4229,7 @@ static void
 clear_reload_reg_in_use (unsigned int regno, int opnum,
 			 enum reload_type type, enum machine_mode mode)
 {
-  unsigned int nregs = HARD_REGNO_NREGS (regno, mode);
+  unsigned int nregs = hard_regno_nregs[regno][mode];
   unsigned int start_regno, end_regno, r;
   int i;
   /* A complication is that for some reload types, inheritance might
@@ -4279,7 +4313,7 @@ clear_reload_reg_in_use (unsigned int regno, int opnum,
 	      unsigned int conflict_start = true_regnum (rld[i].reg_rtx);
 	      unsigned int conflict_end
 		= (conflict_start
-		   + HARD_REGNO_NREGS (conflict_start, rld[i].mode));
+		   + hard_regno_nregs[conflict_start][rld[i].mode]);
 
 	      /* If there is an overlap with the first to-be-freed register,
 		 adjust the interval start.  */
@@ -4316,6 +4350,7 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       /* In use for anything means we can't use it for RELOAD_OTHER.  */
       if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno))
 	return 0;
 
@@ -4494,6 +4529,7 @@ reload_reg_reaches_end_p (unsigned int regno, int opnum, enum reload_type type)
 	  return 0;
 
       return (! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used, regno));
 
@@ -4772,7 +4808,7 @@ reload_reg_free_for_value_p (int start_regno, int regno, int opnum,
       rtx reg = rld[i].reg_rtx;
       if (reg && GET_CODE (reg) == REG
 	  && ((unsigned) regno - true_regnum (reg)
-	      <= HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg)) - (unsigned) 1)
+	      <= hard_regno_nregs[REGNO (reg)][GET_MODE (reg)] - (unsigned) 1)
 	  && i != reloadnum)
 	{
 	  rtx other_input = rld[i].in;
@@ -4928,7 +4964,7 @@ free_for_value_p (int regno, enum machine_mode mode, int opnum,
 		  enum reload_type type, rtx value, rtx out, int reloadnum,
 		  int ignore_address_reloads)
 {
-  int nregs = HARD_REGNO_NREGS (regno, mode);
+  int nregs = hard_regno_nregs[regno][mode];
   while (nregs-- > 0)
     if (! reload_reg_free_for_value_p (regno, regno + nregs, opnum, type,
 				       value, out, reloadnum,
@@ -5101,7 +5137,7 @@ allocate_reload_reg (struct insn_chain *chain ATTRIBUTE_UNUSED, int r,
 		      && ! TEST_HARD_REG_BIT (reload_reg_used_for_inherit,
 					      regnum))))
 	    {
-	      int nr = HARD_REGNO_NREGS (regnum, rld[r].mode);
+	      int nr = hard_regno_nregs[regnum][rld[r].mode];
 	      /* Avoid the problem where spilling a GENERAL_OR_FP_REG
 		 (on 68000) got us two FP regs.  If NR is 1,
 		 we would reject both of them.  */
@@ -5434,7 +5470,7 @@ choose_reload_regs (struct insn_chain *chain)
 		    {
 		      /* If a group is needed, verify that all the subsequent
 			 registers still have their values intact.  */
-		      int nr = HARD_REGNO_NREGS (i, rld[r].mode);
+		      int nr = hard_regno_nregs[i][rld[r].mode];
 		      int k;
 
 		      for (k = 1; k < nr; k++)
@@ -5667,7 +5703,7 @@ choose_reload_regs (struct insn_chain *chain)
 		  && (regno != HARD_FRAME_POINTER_REGNUM
 		      || !frame_pointer_needed))
 		{
-		  int nr = HARD_REGNO_NREGS (regno, rld[r].mode);
+		  int nr = hard_regno_nregs[regno][rld[r].mode];
 		  int k;
 		  rld[r].reg_rtx = equiv;
 		  reload_inherited[r] = 1;
@@ -5882,14 +5918,14 @@ choose_reload_regs (struct insn_chain *chain)
 	  int nr = 1;
 
 	  if (nregno < FIRST_PSEUDO_REGISTER)
-	    nr = HARD_REGNO_NREGS (nregno, rld[r].mode);
+	    nr = hard_regno_nregs[nregno][rld[r].mode];
 
 	  while (--nr >= 0)
 	    reg_has_output_reload[nregno + nr] = 1;
 
 	  if (i >= 0)
 	    {
-	      nr = HARD_REGNO_NREGS (i, rld[r].mode);
+	      nr = hard_regno_nregs[i][rld[r].mode];
 	      while (--nr >= 0)
 		SET_HARD_REG_BIT (reg_is_output_reload, i + nr);
 	    }
@@ -7030,7 +7066,7 @@ emit_reload_insns (struct insn_chain *chain)
 
       if (i >= 0 && rld[r].reg_rtx != 0)
 	{
-	  int nr = HARD_REGNO_NREGS (i, GET_MODE (rld[r].reg_rtx));
+	  int nr = hard_regno_nregs[i][GET_MODE (rld[r].reg_rtx)];
 	  int k;
 	  int part_reaches_end = 0;
 	  int all_reaches_end = 1;
@@ -7074,8 +7110,8 @@ emit_reload_insns (struct insn_chain *chain)
 /* AUTO_INC */		     : XEXP (rld[r].in_reg, 0));
 		  int nregno = REGNO (out);
 		  int nnr = (nregno >= FIRST_PSEUDO_REGISTER ? 1
-			     : HARD_REGNO_NREGS (nregno,
-						 GET_MODE (rld[r].reg_rtx)));
+			     : hard_regno_nregs[nregno]
+					       [GET_MODE (rld[r].reg_rtx)]);
 
 		  spill_reg_store[i] = new_spill_reg_store[i];
 		  spill_reg_stored_to[i] = out;
@@ -7135,8 +7171,8 @@ emit_reload_insns (struct insn_chain *chain)
 		  nregno = REGNO (in);
 
 		  nnr = (nregno >= FIRST_PSEUDO_REGISTER ? 1
-			 : HARD_REGNO_NREGS (nregno,
-					     GET_MODE (rld[r].reg_rtx)));
+			 : hard_regno_nregs[nregno]
+					   [GET_MODE (rld[r].reg_rtx)]);
 
 		  reg_last_reload_reg[nregno] = rld[r].reg_rtx;
 
@@ -7236,7 +7272,7 @@ emit_reload_insns (struct insn_chain *chain)
 		  && REGNO (src_reg) < FIRST_PSEUDO_REGISTER)
 		{
 		  int src_regno = REGNO (src_reg);
-		  int nr = HARD_REGNO_NREGS (src_regno, rld[r].mode);
+		  int nr = hard_regno_nregs[src_regno][rld[r].mode];
 		  /* The place where to find a death note varies with
 		     PRESERVE_DEATH_INFO_REGNO_P .  The condition is not
 		     necessarily checked exactly in the code that moves
@@ -7267,7 +7303,7 @@ emit_reload_insns (struct insn_chain *chain)
 	    }
 	  else
 	    {
-	      int num_regs = HARD_REGNO_NREGS (nregno, GET_MODE (rld[r].out));
+	      int num_regs = hard_regno_nregs[nregno][GET_MODE (rld[r].out)];
 
 	      while (num_regs-- > 0)
 		reg_last_reload_reg[nregno + num_regs] = 0;
@@ -7592,7 +7628,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
     }
 
   /* We will be deleting the insn.  Remove the spill reg information.  */
-  for (k = HARD_REGNO_NREGS (last_reload_reg, GET_MODE (reg)); k-- > 0; )
+  for (k = hard_regno_nregs[last_reload_reg][GET_MODE (reg)]; k-- > 0; )
     {
       spill_reg_store[last_reload_reg + k] = 0;
       spill_reg_stored_to[last_reload_reg + k] = 0;

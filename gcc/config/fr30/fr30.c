@@ -1,5 +1,6 @@
 /* FR30 specific functions.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GCC.
@@ -102,16 +103,16 @@ struct rtx_def * fr30_compare_op1;
    save masks, and offsets for the current function.  */
 struct fr30_frame_info
 {
-  unsigned int total_size;	/* # Bytes that the entire frame takes up. */
-  unsigned int pretend_size;	/* # Bytes we push and pretend caller did. */
-  unsigned int args_size;	/* # Bytes that outgoing arguments take up. */
-  unsigned int reg_size;	/* # Bytes needed to store regs. */
-  unsigned int var_size;	/* # Bytes that variables take up. */
+  unsigned int total_size;	/* # Bytes that the entire frame takes up.  */
+  unsigned int pretend_size;	/* # Bytes we push and pretend caller did.  */
+  unsigned int args_size;	/* # Bytes that outgoing arguments take up.  */
+  unsigned int reg_size;	/* # Bytes needed to store regs.  */
+  unsigned int var_size;	/* # Bytes that variables take up.  */
   unsigned int frame_size;      /* # Bytes in current frame.  */
-  unsigned int gmask;		/* Mask of saved registers. */
-  unsigned int save_fp;		/* Nonzero if frame pointer must be saved. */
-  unsigned int save_rp;		/* Nonzero if return pointer must be saved. */
-  int          initialised;	/* Nonzero if frame size already calculated. */
+  unsigned int gmask;		/* Mask of saved registers.  */
+  unsigned int save_fp;		/* Nonzero if frame pointer must be saved.  */
+  unsigned int save_rp;		/* Nonzero if return pointer must be saved.  */
+  int          initialised;	/* Nonzero if frame size already calculated.  */
 };
 
 /* Current frame information calculated by fr30_compute_frame_size().  */
@@ -120,6 +121,8 @@ static struct fr30_frame_info 	current_frame_info;
 /* Zero structure to initialize current_frame_info.  */
 static struct fr30_frame_info 	zero_frame_info;
 
+static void fr30_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree, int *, int);
 static rtx fr30_pass_by_reference (tree, tree);
 static rtx fr30_pass_by_value (tree, tree);
 
@@ -147,6 +150,12 @@ static rtx fr30_pass_by_value (tree, tree);
 #define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS fr30_setup_incoming_varargs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -417,11 +426,12 @@ fr30_setup_incoming_varargs (CUMULATIVE_ARGS arg_regs_used_so_far,
   if (mode == BLKmode)
     abort ();
 
-#if STRICT_ARGUMENT_NAMING
-  /* If STRICT_ARGUMENT_NAMING is true then the last named
-     arg must not be treated as an anonymous arg. */
-  arg_regs_used_so_far += fr30_num_arg_regs (int_mode, type);
-#endif
+  /* ??? This run-time test as well as the code inside the if
+     statement is probably unnecessary.  */
+  if (targetm.calls.strict_argument_naming (&arg_regs_used_so_far))
+    /* If TARGET_STRICT_ARGUMENT_NAMING returns true, then the last named
+       arg must not be treated as an anonymous arg.  */
+    arg_regs_used_so_far += fr30_num_arg_regs (int_mode, type);
   
   size = FR30_NUM_ARG_REGS - arg_regs_used_so_far;
 
@@ -657,9 +667,8 @@ fr30_print_operand (FILE *file, rtx x, int code)
 /* Compute the number of word sized registers needed to hold a
    function argument of mode INT_MODE and tree type TYPE.  */
 int
-fr30_num_arg_regs (int int_mode, tree type)
+fr30_num_arg_regs (enum machine_mode mode, tree type)
 {
-  enum machine_mode mode = (enum machine_mode) int_mode;
   int size;
 
   if (MUST_PASS_IN_STACK (mode, type))
@@ -682,7 +691,7 @@ fr30_num_arg_regs (int int_mode, tree type)
    parameters to the function.  */
 
 int
-fr30_function_arg_partial_nregs (CUMULATIVE_ARGS cum, int int_mode,
+fr30_function_arg_partial_nregs (CUMULATIVE_ARGS cum, enum machine_mode mode,
 				 tree type, int named)
 {
   /* Unnamed arguments, ie those that are prototyped as ...
@@ -697,7 +706,7 @@ fr30_function_arg_partial_nregs (CUMULATIVE_ARGS cum, int int_mode,
      are needed because the parameter must be passed on the stack)
      then return zero, as this parameter does not require partial
      register, partial stack stack space.  */
-  if (cum + fr30_num_arg_regs (int_mode, type) <= FR30_NUM_ARG_REGS)
+  if (cum + fr30_num_arg_regs (mode, type) <= FR30_NUM_ARG_REGS)
     return 0;
   
   /* Otherwise return the number of registers that would be used.  */
