@@ -1839,7 +1839,8 @@ estimate_num_insns (tree expr)
 	       !bsi_end_p (bsi);
 	       bsi_next (&bsi))
 	    {
-	      (void)walk_tree (bsi_stmt_ptr (bsi), estimate_num_insns_1, &num, visited_nodes);
+	      walk_tree (bsi_stmt_ptr (bsi), estimate_num_insns_1,
+			 &num, visited_nodes);
 	    }
 	}
       pointer_set_destroy (visited_nodes);

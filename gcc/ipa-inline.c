@@ -78,6 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "fibheap.h"
 #include "intl.h"
 #include "tree-pass.h"
+#include "coverage.h"
 
 #define INSNS_PER_CALL 10
 
@@ -96,9 +97,10 @@ static int
 cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
-  /* Avoid negative size estimates when (what->global_insns < INSNS_PER_CALL).  */
-  /* ??? FIXME: This should never happen, add gcc_abort here.  */
-  return MAX (what->global.insns - INSNS_PER_CALL, 0) * times + to->global.insns;
+  int size;
+  size = (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
+  gcc_assert (size >= 0);
+  return size;
 }
 
 /* E is expected to be an edge being inlined.  Clone destination node of
@@ -407,6 +409,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 
   /* Make sure that function is small enough to be considered for inlining.  */
   if (!max_depth
+      || node->global.insns < INSNS_PER_CALL
       || cgraph_estimate_size_after_inlining (1, node, node)  >= limit)
     return;
   lookup_recursive_calls (node, node, &first_call, &last_call);
@@ -481,6 +484,17 @@ cgraph_set_inline_failed (struct cgraph_node *node, const char *reason)
       e->inline_failed = reason;
 }
 
+/* Return true if the call can be hot.  */
+static bool
+cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
+{
+  if (profile_info && flag_branch_probabilities
+      && (edge->count
+	  < profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
+    return false;
+  return true;
+}
+
 /* Given a call graph edge EDGE, return the "desirability" for inlining
    the callee into the caller.
    The desirability of a function body or a CALL_EXPR is a unit-less
@@ -501,11 +515,11 @@ cgraph_desirability (struct cgraph_edge *edge)
   
   /* FIXME: Ideally we'd replace this with a more sophisticated
      "temperature" sort of metric.  */
-  denominator = callee->local.self_insns + callee->insn_growth;
-  if (denominator)
-    desire = edge->count / denominator;
+  denominator = edge->callee->global.insns - INSNS_PER_CALL;
+  if (denominator > 0)
+    desire = cgraph_maybe_hot_edge_p (edge) ? edge->count / denominator : 0;
   else
-    desire = 0;
+    desire = profile_info->sum_max;
   return desire;
 }
 
@@ -525,7 +539,7 @@ cgraph_pick_most_desirable_edge (struct cgraph_node *node)
        step_edge;
        step_edge = step_edge->next_callee)
     {
-      if (step_edge->inline_failed
+      if (step_edge->inline_failed && !step_edge->undesirable
 	  && (step_edge->desirability > highest_desire))
 	{
 	  highest_desire = step_edge->desirability;
@@ -595,6 +609,8 @@ cgraph_profile_driven_inlining (void)
 	      && cgraph_check_inline_limits (e->caller, e->callee,
 			  		     &e->inline_failed))
 	    cgraph_mark_inline_edge (e);
+	  else
+	    e->undesirable = true;
 	  most_desirable_node->most_desirable = cgraph_pick_most_desirable_edge (most_desirable_node);
 	}
       else
@@ -900,7 +916,7 @@ cgraph_analyze_function_inlinability (struct cgraph_node *node)
   struct cgraph_edge *e;
 
   node->local.inlinable = tree_inlinable_function_p (decl);
-  node->local.self_insns = estimate_num_insns (DECL_SAVED_TREE (decl));
+  node->local.self_insns = estimate_num_insns (decl);
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = lang_hooks.tree_inlining.disregard_inline_limits (decl);

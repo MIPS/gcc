@@ -1,3 +1,20 @@
+2004-12-01  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_node): Kill unused fileds brought by cfg inliner
+	patch.
+	(cgraph_edge): Add undesirable field.
+	* cgraphunit.c: Include coverage.h
+	(cgraph_estimate_size_after_inlining): Rever hack brought by cfg
+	inliner patch; add sanity check.
+	(cgraph_decide_recursive_inlining): Don't work hard if function
+	has no uninlined callees.
+	(cgraph_maybe_hot_edge_p): New predicate.
+	(cgraph_desirability): Compute something nonzero.
+	(cgraph_pick_most_desirable_edge): Don't inline already inlined;
+	don't bypass inline limits.
+	(cgraph_analyze_function_inlinability): Compute nonzero function sizes.
+	* tree-inline.c (estimate_num_insns): Kill bogus void cast.
+
 2004-11-30  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (ipa.o,ipa-inline.o): New.

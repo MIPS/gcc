@@ -167,10 +167,6 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool output;
   /* Used only while constructing the callgraph.  */
   basic_block current_basic_block;
-  /* Estimated size of this function, with no inlining, in insns.  */
-  gcov_type insn_size;
-  /* Estimated growth of this function due to inlining, in insns.  */
-  gcov_type insn_growth;
   /* The CALL within this function that we'd like to inline next.  */
   struct cgraph_edge *most_desirable;
 };
@@ -191,6 +187,7 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   /* Desirability of this edge for inlining.  Higher numbers are more
      likely to be inlined.  */
   gcov_type desirability;
+  bool undesirable;
 };
 
 /* The cgraph_varpool data structure.
