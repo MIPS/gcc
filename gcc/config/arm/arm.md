@@ -1,6 +1,6 @@
 ;;- Machine description for ARM for GNU compiler
 ;;  Copyright 1991, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000,
-;;  2001, 2002, 2003  Free Software Foundation, Inc.
+;;  2001, 2002, 2003, 2004  Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
 ;;  More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -1984,11 +1984,11 @@
 )
 
 (define_insn "andsi_not_shiftsi_si"
-  [(set (match_operand:SI                   0 "s_register_operand" "=r")
-	(and:SI (not:SI (match_operator:SI  4 "shift_operator"
-			 [(match_operand:SI 2 "s_register_operand"  "r")
-			  (match_operand:SI 3 "arm_rhs_operand"     "rM")]))
-		(match_operand:SI           1 "s_register_operand"  "r")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(and:SI (not:SI (match_operator:SI 4 "shift_operator"
+			 [(match_operand:SI 2 "s_register_operand" "r")
+			  (match_operand:SI 3 "arm_rhs_operand" "rM")]))
+		(match_operand:SI 1 "s_register_operand" "r")))]
   "TARGET_ARM"
   "bic%?\\t%0, %1, %2%S4"
   [(set_attr "predicable" "yes")
@@ -3145,49 +3145,35 @@
 	  rather than an LDR instruction, so we cannot get an unaligned
 	  word access.  */
 	emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-				gen_rtx_ZERO_EXTEND (SImode,
-						     operands[1])));
+				gen_rtx_ZERO_EXTEND (SImode, operands[1])));
 	DONE;
       }
+
     if (TARGET_ARM && TARGET_MMU_TRAPS && GET_CODE (operands[1]) == MEM)
       {
 	emit_insn (gen_movhi_bytes (operands[0], operands[1]));
 	DONE;
       }
-    if (arm_emit_extendsi (ZERO_EXTEND, operands[0], operands[1]))
-      DONE;
+
     if (!s_register_operand (operands[1], HImode))
       operands[1] = copy_to_mode_reg (HImode, operands[1]);
+
+    if (arm_arch6j)
+      {
+	emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+				gen_rtx_ZERO_EXTEND (SImode, operands[1])));
+	DONE;
+      }
+
     operands[1] = gen_lowpart (SImode, operands[1]);
     operands[2] = gen_reg_rtx (SImode);
-	    
-    if (TARGET_THUMB)
-      {
-	rtx ops[3];
-	
-	ops[0] = operands[2];
-	ops[1] = operands[1];
-	ops[2] = GEN_INT (16);
-	
-	emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-				gen_rtx_ASHIFT (SImode, ops[1], ops[2])));
-
-	ops[0] = operands[0];
-	ops[1] = operands[2];
-	ops[2] = GEN_INT (16);
-
-	emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-				gen_rtx_LSHIFTRT (SImode, ops[1],
-						  ops[2])));
-	DONE; 
-      }
   }"
 )
 
 (define_insn "*thumb_zero_extendhisi2"
-  [(set (match_operand:SI                 0 "register_operand" "=l")
-	(zero_extend:SI (match_operand:HI 1 "memory_operand"    "m")))]
-  "TARGET_THUMB"
+  [(set (match_operand:SI 0 "register_operand" "=l")
+	(zero_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
+  "TARGET_THUMB && !arm_arch6j"
   "*
   rtx mem = XEXP (operands[1], 0);
 
@@ -3226,10 +3212,57 @@
    (set_attr "pool_range" "60")]
 )
 
+(define_insn "*thumb_zero_extendhisi2_v6"
+  [(set (match_operand:SI 0 "register_operand" "=l,l")
+	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "l,m")))]
+  "TARGET_THUMB && arm_arch6j"
+  "*
+  rtx mem;
+
+  if (which_alternative == 0)
+    return \"uxth\\t%0, %1\";
+
+  mem = XEXP (operands[1], 0);
+
+  if (GET_CODE (mem) == CONST)
+    mem = XEXP (mem, 0);
+    
+  if (GET_CODE (mem) == LABEL_REF)
+    return \"ldr\\t%0, %1\";
+    
+  if (GET_CODE (mem) == PLUS)
+    {
+      rtx a = XEXP (mem, 0);
+      rtx b = XEXP (mem, 1);
+
+      /* This can happen due to bugs in reload.  */
+      if (GET_CODE (a) == REG && REGNO (a) == SP_REGNUM)
+        {
+          rtx ops[2];
+          ops[0] = operands[0];
+          ops[1] = a;
+      
+          output_asm_insn (\"mov	%0, %1\", ops);
+
+          XEXP (mem, 0) = operands[0];
+       }
+
+      else if (   GET_CODE (a) == LABEL_REF
+	       && GET_CODE (b) == CONST_INT)
+        return \"ldr\\t%0, %1\";
+    }
+    
+  return \"ldrh\\t%0, %1\";
+  "
+  [(set_attr "length" "2,4")
+   (set_attr "type" "alu_shift,load_byte")
+   (set_attr "pool_range" "*,60")]
+)
+
 (define_insn "*arm_zero_extendhisi2"
-  [(set (match_operand:SI                 0 "s_register_operand" "=r")
-	(zero_extend:SI (match_operand:HI 1 "memory_operand"      "m")))]
-  "TARGET_ARM && arm_arch4"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
+  "TARGET_ARM && arm_arch4 && !arm_arch6j"
   "ldr%?h\\t%0, %1"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
@@ -3237,21 +3270,27 @@
    (set_attr "neg_pool_range" "244")]
 )
 
-(define_insn "*arm_zero_extendhisi2_reg"
-  [(set (match_operand:SI		  0 "s_register_operand" "=r")
-	(zero_extend:SI (subreg:HI
-	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
-  "TARGET_EITHER && arm_arch6j"
-  "uxth%?\\t%0, %1"
+(define_insn "*arm_zero_extendhisi2_v6"
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
+	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+  "TARGET_ARM && arm_arch6j"
+  "@
+   uxth%?\\t%0, %1
+   ldr%?h\\t%0, %1"
+  [(set_attr "type" "alu_shift,load_byte")
+   (set_attr "predicable" "yes")
+   (set_attr "pool_range" "*,256")
+   (set_attr "neg_pool_range" "*,244")]
 )
 
 (define_insn "*arm_zero_extendhisi2addsi"
-  [(set (match_operand:SI	    0 "s_register_operand" "=r")
-	(plus:SI (zero_extend:SI (subreg:HI
-		  (match_operand:SI 1 "s_register_operand" "r") 0))
-		(match_operand:SI   2 "s_register_operand" "r")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(plus:SI (zero_extend:SI (match_operand:HI 1 "s_register_operand" "r"))
+		 (match_operand:SI 2 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch6j"
   "uxtah%?\\t%0, %2, %1"
+  [(set_attr "type" "alu_shift")
+   (set_attr "predicable" "yes")]
 )
 
 (define_split
@@ -3289,9 +3328,7 @@
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "")))]
   "TARGET_EITHER"
   "
-  if (arm_emit_extendsi (ZERO_EXTEND, operands[0], operands[1]))
-    DONE;
-  if (GET_CODE (operands[1]) != MEM)
+  if (!arm_arch6j && GET_CODE (operands[1]) != MEM)
     {
       if (TARGET_ARM)
         {
@@ -3327,19 +3364,31 @@
 )
 
 (define_insn "*thumb_zero_extendqisi2"
-  [(set (match_operand:SI                 0 "register_operand" "=l")
-	(zero_extend:SI (match_operand:QI 1 "memory_operand"    "m")))]
-  "TARGET_THUMB"
+  [(set (match_operand:SI 0 "register_operand" "=l")
+	(zero_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
+  "TARGET_THUMB && !arm_arch6j"
   "ldrb\\t%0, %1"
   [(set_attr "length" "2")
    (set_attr "type" "load_byte")
    (set_attr "pool_range" "32")]
 )
 
+(define_insn "*thumb_zero_extendqisi2_v6"
+  [(set (match_operand:SI 0 "register_operand" "=l,l")
+	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "l,m")))]
+  "TARGET_THUMB && arm_arch6j"
+  "@
+   uxtb\\t%0, %1
+   ldrb\\t%0, %1"
+  [(set_attr "length" "2,2")
+   (set_attr "type" "alu_shift,load_byte")
+   (set_attr "pool_range" "*,32")]
+)
+
 (define_insn "*arm_zero_extendqisi2"
-  [(set (match_operand:SI                 0 "s_register_operand" "=r")
-	(zero_extend:SI (match_operand:QI 1 "memory_operand"      "m")))]
-  "TARGET_ARM"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
+  "TARGET_ARM && !arm_arch6j"
   "ldr%?b\\t%0, %1\\t%@ zero_extendqisi2"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
@@ -3347,21 +3396,27 @@
    (set_attr "neg_pool_range" "4084")]
 )
 
-(define_insn "*arm_zero_extendqisi2_reg"
-  [(set (match_operand:SI		  0 "s_register_operand" "=r")
-	(zero_extend:SI (subreg:QI
-	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
-  "TARGET_EITHER && arm_arch6j"
-  "uxtb%?\\t%0, %1"
+(define_insn "*arm_zero_extendqisi2_v6"
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
+	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+  "TARGET_ARM && arm_arch6j"
+  "@
+   uxtb%?\\t%0, %1
+   ldr%?b\\t%0, %1\\t%@ zero_extendqisi2"
+  [(set_attr "type" "alu_shift,load_byte")
+   (set_attr "predicable" "yes")
+   (set_attr "pool_range" "*,4096")
+   (set_attr "neg_pool_range" "*,4084")]
 )
 
 (define_insn "*arm_zero_extendqisi2addsi"
-  [(set (match_operand:SI	    0 "s_register_operand" "=r")
-	(plus:SI (zero_extend:SI (subreg:QI
-		  (match_operand:SI 1 "s_register_operand" "r") 0))
-		(match_operand:SI   2 "s_register_operand" "r")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(plus:SI (zero_extend:SI (match_operand:QI 1 "s_register_operand" "r"))
+		 (match_operand:SI 2 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch6j"
   "uxtab%?\\t%0, %2, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "alu_shift")]
 )
 
 (define_split
@@ -3393,15 +3448,23 @@
   "TARGET_EITHER"
   "
   {
-    if (TARGET_ARM && arm_arch4 && GET_CODE (operands[1]) == MEM)
+    if (GET_CODE (operands[1]) == MEM)
       {
-       /* Note: We do not have to worry about TARGET_MMU_TRAPS
-	  here because the insn below will generate an LDRH instruction
-	  rather than an LDR instruction, so we cannot get an unaligned
-	  word access.  */
-        emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-		   gen_rtx_SIGN_EXTEND (SImode, operands[1])));
-        DONE;
+	if (TARGET_THUMB)
+	  {
+	    emit_insn (gen_thumb_extendhisi2 (operands[0], operands[1]));
+	    DONE;
+          }
+	else if (arm_arch4)
+	  {
+	    /* Note: We do not have to worry about TARGET_MMU_TRAPS
+	       here because the insn below will generate an LDRH instruction
+	       rather than an LDR instruction, so we cannot get an unaligned
+	       word access.  */
+	    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+		       gen_rtx_SIGN_EXTEND (SImode, operands[1])));
+	    DONE;
+	  }
       }
 
     if (TARGET_ARM && TARGET_MMU_TRAPS && GET_CODE (operands[1]) == MEM)
@@ -3409,41 +3472,31 @@
         emit_insn (gen_extendhisi2_mem (operands[0], operands[1]));
         DONE;
       }
-      if (arm_emit_extendsi (SIGN_EXTEND, operands[0], operands[1]))
-	DONE;
+
     if (!s_register_operand (operands[1], HImode))
       operands[1] = copy_to_mode_reg (HImode, operands[1]);
-    operands[1] = gen_lowpart (SImode, operands[1]);
-    operands[2] = gen_reg_rtx (SImode);
 
-    if (TARGET_THUMB)
+    if (arm_arch6j)
       {
-	rtx ops[3];
-	
-	ops[0] = operands[2];
-	ops[1] = operands[1];
-	ops[2] = GEN_INT (16);
-	
-        emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-				gen_rtx_ASHIFT (SImode, ops[1], ops[2])));
-	    
-	ops[0] = operands[0];
-	ops[1] = operands[2];
-	ops[2] = GEN_INT (16);
-	
-        emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-				gen_rtx_ASHIFTRT (SImode, ops[1], ops[2])));
-	
+	if (TARGET_THUMB)
+	  emit_insn (gen_thumb_extendhisi2 (operands[0], operands[1]));
+	else
+	  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+		     gen_rtx_SIGN_EXTEND (SImode, operands[1])));
+
 	DONE;
       }
+
+    operands[1] = gen_lowpart (SImode, operands[1]);
+    operands[2] = gen_reg_rtx (SImode);
   }"
 )
 
-(define_insn "*thumb_extendhisi2_insn"
-  [(set (match_operand:SI                 0 "register_operand" "=l")
-	(sign_extend:SI (match_operand:HI 1 "memory_operand"    "m")))
-   (clobber (match_scratch:SI             2                   "=&l"))]
-  "TARGET_THUMB"
+(define_insn "thumb_extendhisi2"
+  [(set (match_operand:SI 0 "register_operand" "=l")
+	(sign_extend:SI (match_operand:HI 1 "memory_operand" "m")))
+   (clobber (match_scratch:SI 2 "=&l"))]
+  "TARGET_THUMB && !arm_arch6j"
   "*
   {
     rtx ops[4];
@@ -3497,6 +3550,79 @@
    (set_attr "pool_range" "1020")]
 )
 
+;; We used to have an early-clobber on the scratch register here.
+;; However, there's a bug somewhere in reload which means that this
+;; can be partially ignored during spill allocation if the memory
+;; address also needs reloading; this causes an abort later on when
+;; we try to verify the operands.  Fortunately, we don't really need
+;; the early-clobber: we can always use operand 0 if operand 2
+;; overlaps the address.
+(define_insn "*thumb_extendhisi2_insn_v6"
+  [(set (match_operand:SI 0 "register_operand" "=l,l")
+	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "l,m")))
+   (clobber (match_scratch:SI 2 "=X,l"))]
+  "TARGET_THUMB && arm_arch6j"
+  "*
+  {
+    rtx ops[4];
+    rtx mem;
+
+    if (which_alternative == 0)
+      return \"sxth\\t%0, %1\";
+
+    mem = XEXP (operands[1], 0);
+
+    /* This code used to try to use 'V', and fix the address only if it was
+       offsettable, but this fails for e.g. REG+48 because 48 is outside the
+       range of QImode offsets, and offsettable_address_p does a QImode
+       address check.  */
+       
+    if (GET_CODE (mem) == CONST)
+      mem = XEXP (mem, 0);
+    
+    if (GET_CODE (mem) == LABEL_REF)
+      return \"ldr\\t%0, %1\";
+    
+    if (GET_CODE (mem) == PLUS)
+      {
+        rtx a = XEXP (mem, 0);
+        rtx b = XEXP (mem, 1);
+
+        if (GET_CODE (a) == LABEL_REF
+	    && GET_CODE (b) == CONST_INT)
+          return \"ldr\\t%0, %1\";
+
+        if (GET_CODE (b) == REG)
+          return \"ldrsh\\t%0, %1\";
+	  
+        ops[1] = a;
+        ops[2] = b;
+      }
+    else
+      {
+        ops[1] = mem;
+        ops[2] = const0_rtx;
+      }
+      
+    if (GET_CODE (ops[1]) != REG)
+      {
+        debug_rtx (ops[1]);
+        abort ();
+      }
+
+    ops[0] = operands[0];
+    if (reg_mentioned_p (operands[2], ops[1]))
+      ops[3] = ops[0];
+    else
+      ops[3] = operands[2];
+    output_asm_insn (\"mov\\t%3, %2\;ldrsh\\t%0, [%1, %3]\", ops);
+    return \"\";
+  }"
+  [(set_attr "length" "2,4")
+   (set_attr "type" "alu_shift,load_byte")
+   (set_attr "pool_range" "*,1020")]
+)
+
 (define_expand "extendhisi2_mem"
   [(set (match_dup 2) (zero_extend:SI (match_operand:HI 1 "" "")))
    (set (match_dup 3)
@@ -3534,10 +3660,10 @@
   }"
 )
 
-(define_insn "*arm_extendhisi_insn"
-  [(set (match_operand:SI                 0 "s_register_operand" "=r")
-	(sign_extend:SI (match_operand:HI 1 "memory_operand"      "m")))]
-  "TARGET_ARM && arm_arch4"
+(define_insn "*arm_extendhisi2"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
+  "TARGET_ARM && arm_arch4 && !arm_arch6j"
   "ldr%?sh\\t%0, %1"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
@@ -3545,19 +3671,23 @@
    (set_attr "neg_pool_range" "244")]
 )
 
-(define_insn "*arm_extendhisi2_reg"
-  [(set (match_operand:SI		  0 "s_register_operand" "=r")
-	(sign_extend:SI (subreg:HI
-	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
-  "TARGET_EITHER && arm_arch6j"
-  "sxth%?\\t%0, %1"
+(define_insn "*arm_extendhisi2_v6"
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
+	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+  "TARGET_ARM && arm_arch6j"
+  "@
+   sxth%?\\t%0, %1
+   ldr%?sh\\t%0, %1"
+  [(set_attr "type" "alu_shift,load_byte")
+   (set_attr "predicable" "yes")
+   (set_attr "pool_range" "*,256")
+   (set_attr "neg_pool_range" "*,244")]
 )
 
 (define_insn "*arm_extendhisi2addsi"
-  [(set (match_operand:SI	    0 "s_register_operand" "=r")
-	(plus:SI (sign_extend:SI (subreg:HI
-		  (match_operand:SI 1 "s_register_operand" "r") 0))
-		(match_operand:SI   2 "s_register_operand" "r")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(plus:SI (sign_extend:SI (match_operand:HI 1 "s_register_operand" "r"))
+		 (match_operand:SI 2 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch6j"
   "sxtah%?\\t%0, %2, %1"
 )
@@ -3679,49 +3809,34 @@
   "TARGET_EITHER"
   "
   {
-    if (TARGET_ARM && arm_arch4 && GET_CODE (operands[1]) == MEM)
+    if ((TARGET_THUMB || arm_arch4) && GET_CODE (operands[1]) == MEM)
       {
-        emit_insn (gen_rtx_SET (VOIDmode,
-			        operands[0],
+        emit_insn (gen_rtx_SET (VOIDmode, operands[0],
 			        gen_rtx_SIGN_EXTEND (SImode, operands[1])));
         DONE;
       }
-    if (arm_emit_extendsi (SIGN_EXTEND, operands[0], operands[1]))
-      DONE;
+
     if (!s_register_operand (operands[1], QImode))
       operands[1] = copy_to_mode_reg (QImode, operands[1]);
+
+    if (arm_arch6j)
+      {
+        emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			        gen_rtx_SIGN_EXTEND (SImode, operands[1])));
+        DONE;
+      }
+
     operands[1] = gen_lowpart (SImode, operands[1]);
     operands[2] = gen_reg_rtx (SImode);
-    
-    if (TARGET_THUMB)
-      {
-	rtx ops[3];
-	
-	ops[0] = operands[2];
-	ops[1] = operands[1];
-	ops[2] = GEN_INT (24);
-	
-        emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-		   gen_rtx_ASHIFT (SImode, ops[1], ops[2])));
-
-	ops[0] = operands[0];
-	ops[1] = operands[2];
-	ops[2] = GEN_INT (24);
-	
-        emit_insn (gen_rtx_SET (VOIDmode, ops[0],
-		   gen_rtx_ASHIFTRT (SImode, ops[1], ops[2])));
-	
-	DONE;
-      }
   }"
 )
 
 ; Rather than restricting all byte accesses to memory addresses that ldrsb
 ; can handle, we fix up the ones that ldrsb can't grok with a split.
-(define_insn "*arm_extendqisi_insn"
-  [(set (match_operand:SI                 0 "s_register_operand" "=r")
-	(sign_extend:SI (match_operand:QI 1 "memory_operand"      "m")))]
-  "TARGET_ARM && arm_arch4"
+(define_insn "*arm_extendqisi"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
+  "TARGET_ARM && arm_arch4 && !arm_arch6j"
   "*
   /* If the address is invalid, this will split the instruction into two.  */
   if (bad_signed_byte_operand (operands[1], VOIDmode))
@@ -3735,21 +3850,35 @@
    (set_attr "neg_pool_range" "244")]
 )
 
-(define_insn "*arm_extendqisi2_reg"
-  [(set (match_operand:SI		  0 "s_register_operand" "=r")
-	(sign_extend:SI (subreg:QI
-	    (match_operand:SI 1 "s_register_operand" "r") 0)))]
-  "TARGET_EITHER && arm_arch6j"
-  "sxtb%?\\t%0, %1"
+(define_insn "*arm_extendqisi_v6"
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
+	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+  "TARGET_ARM && arm_arch6j"
+  "*
+  if (which_alternative == 0)
+    return \"sxtb%?\\t%0, %1\";
+
+  /* If the address is invalid, this will split the instruction into two.  */
+  if (bad_signed_byte_operand (operands[1], VOIDmode))
+    return \"#\";
+
+  return \"ldr%?sb\\t%0, %1\";
+  "
+  [(set_attr "type" "alu_shift,load_byte")
+   (set_attr "predicable" "yes")
+   (set_attr "length" "4,8")
+   (set_attr "pool_range" "*,256")
+   (set_attr "neg_pool_range" "*,244")]
 )
 
 (define_insn "*arm_extendqisi2addsi"
-  [(set (match_operand:SI	    0 "s_register_operand" "=r")
-	(plus:SI (sign_extend:SI (subreg:QI
-		  (match_operand:SI 1 "s_register_operand" "r") 0))
-		(match_operand:SI   2 "s_register_operand" "r")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(plus:SI (sign_extend:SI (match_operand:QI 1 "s_register_operand" "r"))
+		 (match_operand:SI 2 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch6j"
   "sxtab%?\\t%0, %2, %1"
+  [(set_attr "type" "alu_shift")
+   (set_attr "predicable" "yes")]
 )
 
 (define_split
@@ -3785,10 +3914,10 @@
   }"
 )
 
-(define_insn "*thumb_extendqisi2_insn"
-  [(set (match_operand:SI                 0 "register_operand" "=l,l")
-	(sign_extend:SI (match_operand:QI 1 "memory_operand"    "V,m")))]
-  "TARGET_THUMB"
+(define_insn "*thumb_extendqisi2"
+  [(set (match_operand:SI 0 "register_operand" "=l,l")
+	(sign_extend:SI (match_operand:QI 1 "memory_operand" "V,m")))]
+  "TARGET_THUMB && !arm_arch6j"
   "*
   {
     rtx ops[3];
@@ -3862,6 +3991,87 @@
   [(set_attr "length" "2,6")
    (set_attr "type" "load_byte,load_byte")
    (set_attr "pool_range" "32,32")]
+)
+
+(define_insn "*thumb_extendqisi2_v6"
+  [(set (match_operand:SI 0 "register_operand" "=l,l,l")
+	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "l,V,m")))]
+  "TARGET_THUMB && arm_arch6j"
+  "*
+  {
+    rtx ops[3];
+    rtx mem;
+
+    if (which_alternative == 0)
+      return \"sxtb\\t%0, %1\";
+
+    mem = XEXP (operands[1], 0);
+    
+    if (GET_CODE (mem) == CONST)
+      mem = XEXP (mem, 0);
+    
+    if (GET_CODE (mem) == LABEL_REF)
+      return \"ldr\\t%0, %1\";
+
+    if (GET_CODE (mem) == PLUS
+        && GET_CODE (XEXP (mem, 0)) == LABEL_REF)
+      return \"ldr\\t%0, %1\";
+      
+    if (which_alternative == 0)
+      return \"ldrsb\\t%0, %1\";
+      
+    ops[0] = operands[0];
+    
+    if (GET_CODE (mem) == PLUS)
+      {
+        rtx a = XEXP (mem, 0);
+	rtx b = XEXP (mem, 1);
+	
+        ops[1] = a;
+        ops[2] = b;
+
+        if (GET_CODE (a) == REG)
+	  {
+	    if (GET_CODE (b) == REG)
+              output_asm_insn (\"ldrsb\\t%0, [%1, %2]\", ops);
+            else if (REGNO (a) == REGNO (ops[0]))
+	      {
+                output_asm_insn (\"ldrb\\t%0, [%1, %2]\", ops);
+		output_asm_insn (\"sxtb\\t%0, %0\", ops);
+	      }
+	    else
+              output_asm_insn (\"mov\\t%0, %2\;ldrsb\\t%0, [%1, %0]\", ops);
+	  }
+        else if (GET_CODE (b) != REG)
+	  abort ();
+	else
+          {
+            if (REGNO (b) == REGNO (ops[0]))
+	      {
+                output_asm_insn (\"ldrb\\t%0, [%2, %1]\", ops);
+		output_asm_insn (\"sxtb\\t%0, %0\", ops);
+	      }
+	    else
+              output_asm_insn (\"mov\\t%0, %2\;ldrsb\\t%0, [%1, %0]\", ops);
+          }
+      }
+    else if (GET_CODE (mem) == REG && REGNO (ops[0]) == REGNO (mem))
+      {
+        output_asm_insn (\"ldrb\\t%0, [%0, #0]\", ops);
+	output_asm_insn (\"sxtb\\t%0, %0\", ops);
+      }
+    else
+      {
+        ops[1] = mem;
+        ops[2] = const0_rtx;
+	
+        output_asm_insn (\"mov\\t%0, %2\;ldrsb\\t%0, [%1, %0]\", ops);
+      }
+    return \"\";
+  }"
+  [(set_attr "length" "2,2,4")
+   (set_attr "type" "alu_shift,load_byte,load_byte")
+   (set_attr "pool_range" "*,32,32")]
 )
 
 (define_expand "extendsfdf2"

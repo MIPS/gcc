@@ -1,3 +1,24 @@
+2004-01-07  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_emit_extendsi): Delete.
+	* arm-protos.h (arm_emit_extendsi): Delete.
+	* arm.md (zero_extendhisi2): Also handle zero-extension of 
+	non-subregs.
+	(zero_extendqisi2, extendhisi2, extendqisi2): Likewise.
+	(thumb_zero_extendhisi2): Only match if not v6.
+	(arm_zero_extendhisi2, thumb_zero_extendqisi2, arm_zero_extendqisi2)
+	(thumb_extendhisi2, arm_extendhisi2, arm_extendqisi)
+	(thumb_extendqisi2): Likewise.
+	(thumb_zero_extendhisi2_v6, arm_zero_extendhisi2_v6): New patterns.
+	(thumb_zero_extendqisi2_v6, arm_zero_extendqisi2_v6): New patterns.
+	(thumb_extendhisi2_insn_v6, arm_extendhisi2_v6): New patterns.
+	(thumb_extendqisi2_v6, arm_extendqisi_v6): New patterns.
+	(arm_zero_extendhisi2_reg, arm_zero_extendqisi2_reg): Delete.
+	(arm_extendhisi2_reg, arm_extendqisi2_reg): Delete.
+	(arm_zero_extendhisi2addsi): Remove subreg.  Add attributes.
+	(arm_zero_extendqisi2addsi, arm_extendhisi2addsi): Likewise.
+	(arm_extendqisi2addsi): Likewise.
+
 2003-12-31  Mark Mitchell  <mark@codesourcery.com>
 
 	* diagnostic.c (bug_report_request): Use email form.

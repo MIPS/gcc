@@ -1,6 +1,6 @@
 /* Output routines for GCC for ARM.
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
-   Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -13481,40 +13481,6 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       fputc ('\n', file);
     }
 }
-
-/* Emit RTL for a sign/zero extend insn.  */
-int
-arm_emit_extendsi (enum rtx_code code, rtx op0, rtx op1)
-{
-  rtx tmp;
-  rtx *p;
-
-  if (GET_CODE (op1) != SUBREG
-      || !arm_arch6j)
-    return 0;
-
-  p = &XEXP (op1, 0);
-  if (GET_CODE (*p) != REG)
-    return 0;
-
-  if (XINT (op1, 1) != 0)
-    return 0;
-
-  /* Put the low part of multiword regs into an SImode reg so we only
-     have to deal with subregs of SImode regs.  */
-  if (GET_MODE (*p) != SImode)
-    {
-      tmp = gen_reg_rtx (SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, tmp,
-		 gen_lowpart (SImode, *p)));
-      *p = tmp;
-    }
-
-  emit_insn (gen_rtx_SET (VOIDmode, op0,
-	     gen_rtx_fmt_e (code, SImode, op1)));
-  return 1;
-}
-
 
 int
 arm_emit_vector_const (FILE *file, rtx x)
