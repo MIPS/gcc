@@ -1200,25 +1200,6 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
     fprintf (dump_file, ")\n");
 }
 
-/* Return value of a constant X.  
-   Borrowed from tree-ssa-loop-ivopts.c
-   XXX: Move this into tree.c and remove from both files.  */
-
-static HOST_WIDE_INT
-int_cst_value (tree x)
-{
-  unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
-  unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
-  bool negative = ((val >> (bits - 1)) & 1) != 0;
-
-  if (negative)
-    val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
-  else
-    val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
-
-  return val;
-}
-
 /* Compute the classic per loop distance vector.  */
 
 static void

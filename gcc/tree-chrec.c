@@ -1884,6 +1884,7 @@ evolution_function_is_affine_multivariate_p (tree chrec)
       else
 	{
 	  if (evolution_function_is_constant_p (CHREC_RIGHT (chrec))
+	      && TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
 	      && CHREC_VARIABLE (CHREC_LEFT (chrec)) != CHREC_VARIABLE (chrec)
 	      && evolution_function_is_affine_multivariate_p 
 	      (CHREC_LEFT (chrec)))

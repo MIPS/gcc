@@ -1,3 +1,31 @@
+2004-04-27  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* lambda-code.c (build_int_cst): Moved...
+	* tree-data-ref.c (int_cst_value): Moved...
+	* tree-ssa-loop-ivopts.c (int_cst_value, build_int_cst): Moved...
+	* tree.c (int_cst_value, build_int_cst): ...here.
+	* tree.h (int_cst_value, build_int_cst): Declare.
+
+	* tree-chrec.h (is_chrec, symbolic_parameter_expr_p): Removed. 
+
+	* tree-chrec.c (evolution_function_is_affine_multivariat): Check that 
+	the left part is a polynomial before taking its variable.
+
+	* tree-elim-check.c (prove_truth_value): Update the use of 
+	tree_is_* functions.
+	* tree-fold-const.h (tree_is_ge, tree_is_gt, tree_is_le, tree_is_lt, 
+	tree_is_eq, tree_is_ne): Return true when decidable, and use a
+	parameter for returning the result.
+
+	* tree-scalar-evolution.c (types_forbid_solutions_p): Removed.
+	(first_iteration_non_satisfying_noev_noev, 
+	first_iteration_non_satisfying_noev_ev, 
+	first_iteration_non_satisfying_ev_noev): Update the use of 
+	tree_is_* functions.  Use no_evolution_in_loop_p instead of 
+	evolution_function_is_constant_p.  Extends the analyzer to
+	symbolic loop counts.
+	(first_iteration_non_satisfying): Factorize code.
+
 2004-04-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* config/rs6000/altivec.md: Fix merge problem.

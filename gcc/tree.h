@@ -3517,6 +3517,8 @@ extern void init_ttree (void);
 extern void build_common_tree_nodes (int);
 extern void build_common_tree_nodes_2 (int);
 extern tree build_range_type (tree, tree, tree);
+extern HOST_WIDE_INT int_cst_value (tree);
+extern tree build_int_cst (tree, unsigned HOST_WIDE_INT);
 
 /* In function.c */
 extern void setjmp_protect_args (void);
