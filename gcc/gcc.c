@@ -2678,7 +2678,7 @@ pexecute_server_wait (int sock)
       return W_EXITCODE (buf[0], 0);
     }
 
-  fprintf (stderr, "(no exist code from server! BAD)\n");
+  fprintf (stderr, "(no exit code from server! BAD)\n");
   close (sock);
 
   /* If we miss the return code, assume it failed.  */
