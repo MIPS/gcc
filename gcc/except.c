@@ -132,17 +132,7 @@ struct eh_region GTY(())
   bitmap aka;
 
   /* Each region does exactly one thing.  */
-  enum eh_region_type
-  {
-    ERT_UNKNOWN = 0,
-    ERT_CLEANUP,
-    ERT_TRY,
-    ERT_CATCH,
-    ERT_ALLOWED_EXCEPTIONS,
-    ERT_MUST_NOT_THROW,
-    ERT_THROW,
-    ERT_FIXUP
-  } type;
+  enum eh_region_type type;
 
   /* Holds the action to perform based on the preceding type.  */
   union eh_region_u {
@@ -538,9 +528,7 @@ void
 expand_eh_handler (handler)
      tree handler;
 {
-  tree inner = handler;
-  while (TREE_CODE (inner) == COMPOUND_EXPR)
-    inner = TREE_OPERAND (inner, 0);
+  tree inner = expr_first (handler);
 
   switch (TREE_CODE (inner))
     {

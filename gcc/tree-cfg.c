@@ -100,6 +100,7 @@ static void make_case_label_edges (basic_block);
 
 /* Various helpers.  */
 static basic_block successor_block (basic_block);
+static basic_block last_exec_block (tree *);
 static tree *first_exec_stmt (tree *);
 static basic_block switch_parent (basic_block);
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -107,7 +108,6 @@ static inline bool stmt_ends_bb_p (tree);
 static void find_contained_blocks_and_edge_targets
 		(tree *, bitmap, bitmap, tree **);
 static void compute_reachable_eh (tree);
-static int could_trap_p (tree);
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks (void);
@@ -131,6 +131,7 @@ static void replace_stmt (tree *, tree *);
 static void merge_tree_blocks (basic_block, basic_block);
 static bool remap_stmts (basic_block, basic_block, tree *);
 static tree *handle_switch_split (basic_block, basic_block);
+static enum eh_region_type get_eh_region_type (tree);
 
 /* Block iterator helpers.  */
 
@@ -439,7 +440,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 /* Return 1 if the expr can trap, as in dereferencing an
    invalid pointer location.  */
 
-static int
+int
 could_trap_p (tree expr)
 {
   return (TREE_CODE (expr) == INDIRECT_REF
@@ -528,6 +529,25 @@ make_cond_expr_blocks (tree *cond_p, tree next_block_link,
   make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL);
 }
 
+/* Derive an exception handling region type from STMT.  */
+
+static enum eh_region_type
+get_eh_region_type (tree stmt)
+{
+  if (TREE_CODE (stmt) == TRY_FINALLY_EXPR)
+    return ERT_CLEANUP;
+  if (TREE_CODE (stmt) == TRY_CATCH_EXPR)
+    {
+      tree handler = TREE_OPERAND (stmt, 1);
+      if (TREE_CODE (expr_first (handler)) == CATCH_EXPR)
+	return ERT_TRY;
+      if (TREE_CODE (handler) == EH_FILTER_EXPR)
+	return ERT_ALLOWED_EXCEPTIONS;
+      return ERT_CLEANUP;
+    }
+  abort ();
+}
+
 /* Create the blocks for the TRY_CATCH_EXPR or TRY_FINALLY_EXPR node
    pointed by expr_p.  */
 
@@ -552,10 +572,9 @@ make_try_expr_blocks (tree *expr_p, tree next_block_link,
 
   STRIP_CONTAINERS (expr);
 
-  /* We need to keep a stack of the handler expressions of TRY_CATCH_EXPR
-     and TRY_FINALLY nodes so that we know when throwing statements should
-     end a basic block.  */
-  VARRAY_PUSH_TREE (eh_stack, TREE_OPERAND (expr, 1));
+  /* We need to keep a stack of the TRY_CATCH_EXPR and TRY_FINALLY nodes
+     so that we know when throwing statements should end a basic block.  */
+  VARRAY_PUSH_TREE (eh_stack, expr);
 
   /* Make blocks for the TRY block.  */
   make_blocks (&TREE_OPERAND (expr, 0), next_block_link, expr, NULL);
@@ -565,6 +584,16 @@ make_try_expr_blocks (tree *expr_p, tree next_block_link,
 
   /* Make blocks for the handler itself.  */
   make_blocks (&TREE_OPERAND (expr, 1), next_block_link, expr, NULL);
+
+  /* If this is a cleanup, then record which cleanup higher in the
+     stack it can directly reach.  */
+  if (get_eh_region_type (expr) == ERT_CLEANUP
+      && VARRAY_ACTIVE_SIZE (eh_stack))
+    {
+      tree region = VARRAY_TOP_TREE (eh_stack);
+      if (get_eh_region_type (region) == ERT_CLEANUP)
+	stmt_ann (expr)->reachable_exception_handlers = TREE_OPERAND (region, 1);
+    }
 }
 
 /* Create the blocks for the CATCH_EXPR node pointed to by expr_p.  */
@@ -865,7 +894,6 @@ make_edges (void)
       int bb;
       bitmap try_blocks = BITMAP_XMALLOC ();
       bitmap try_targets = BITMAP_XMALLOC ();
-      bitmap dummy_bitmap = BITMAP_XMALLOC ();
 
       /* Get bitmaps for the basic blocks within the TRY block as
 	 well as bitmap for the blocks which the TRY block can
@@ -897,17 +925,17 @@ make_edges (void)
       /* We need to know the last statement in the FINALLY so that
 	 we know where to wire up the additional outgoing edges from
 	 the FINALLY block.  */
-      finally_last_p = NULL;
-      find_contained_blocks_and_edge_targets (&TREE_OPERAND (try_finally, 1),
-		      			      dummy_bitmap,
-					      dummy_bitmap,
-					      &finally_last_p);
-
-      last_bb = bb_for_stmt (*finally_last_p);
+      last_bb = last_exec_block (&TREE_OPERAND (try_finally, 1));
 
       /* Find edges which exited the TRY block.  For each of those
 	 edges, we want to create a new edge from the FINALLY block
-	 to the destination of the edge out of the TRY block.  */
+	 to the destination of the edge out of the TRY block.
+
+	 Note that we need to create the edges as abnormal edges until
+	 such time as these transfers of control appear more directly
+	 in the tree nodes.  Otherwise out of SSA may try to insert
+	 a copy of one of these edges and we do not know how to
+	 actually perform such as insertion.  */
       if (last_bb)
 	EXECUTE_IF_AND_COMPL_IN_BITMAP (try_targets, try_blocks, 0, bb,
 	  {
@@ -923,7 +951,6 @@ make_edges (void)
 	      make_edge (last_bb, b, EDGE_ABNORMAL);
 	  });
 
-      BITMAP_XFREE (dummy_bitmap);
       BITMAP_XFREE (try_targets);
       BITMAP_XFREE (try_blocks);
     }
@@ -1087,6 +1114,15 @@ make_ctrl_stmt_edges (basic_block bb)
     case TRY_CATCH_EXPR:
       make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 0)), EDGE_FALLTHRU);
       make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+
+      /* Make an edge to the next cleanup if applicable.  */
+      if (stmt_ann (last)->reachable_exception_handlers)
+	{
+	  tree handler  = stmt_ann (last)->reachable_exception_handlers;
+	  basic_block target_bb = last_exec_block (&TREE_OPERAND (last, 1));
+	  make_edge (target_bb, bb_for_stmt (handler), 0);
+	}
+
       break;
 
     case CATCH_EXPR:
@@ -2929,6 +2965,21 @@ first_stmt (basic_block bb)
   return (!bsi_end_p (i)) ? bsi_stmt (i) : NULL_TREE;
 }
 
+/* Return the last basic block with executable statements in it, starting
+   at ENTRY_P.  */
+
+static basic_block
+last_exec_block (entry_p)
+     tree *entry_p;
+{
+  bitmap dummy_bitmap = BITMAP_XMALLOC ();
+  tree *last_p = NULL;
+  find_contained_blocks_and_edge_targets (entry_p, dummy_bitmap, dummy_bitmap,
+					  &last_p);
+  BITMAP_XFREE (dummy_bitmap);
+  return bb_for_stmt (*last_p);
+}
+
 
 /* Return the last statement in basic block BB, stripped of any NOP
    containers.
@@ -4361,14 +4412,14 @@ compute_reachable_eh (tree stmt)
      on a list and added to the statement's annotation.  */
   for (i = VARRAY_ACTIVE_SIZE (eh_stack) - 1; i >= 0; i--)
     {
-      tree handler = VARRAY_TREE (eh_stack, i);
-      tree tp_node;
+      tree region = VARRAY_TREE (eh_stack, i);
+      tree handler, tp_node;
 
-      if (TREE_CODE (handler) == CATCH_EXPR
-	  || (TREE_CODE (handler) == COMPOUND_EXPR
-	      && TREE_CODE (TREE_OPERAND (handler, 0)) == CATCH_EXPR))
+      switch (get_eh_region_type (region))
 	{
-	  for (si = tsi_start (&handler); !tsi_end_p (si); tsi_next (&si))
+	case ERT_TRY:
+	  for (si = tsi_start (&TREE_OPERAND (region, 1));
+	       !tsi_end_p (si); tsi_next (&si))
 	    {
 	      tree types;
 
@@ -4408,12 +4459,14 @@ compute_reachable_eh (tree stmt)
 				     reachable_handlers);
 		    }
 		}
-
-	      skip_cleanups = 0;
 	    }
-	}
-      else if (TREE_CODE (handler) == EH_FILTER_EXPR)
-	{
+
+	  skip_cleanups = 0;
+	  break;
+	  
+	case ERT_ALLOWED_EXCEPTIONS:
+	  handler = TREE_OPERAND (region, 1);
+
 	  /* This is an exception specification.  If it has
 	     no types, then it ends our search.  */
 	  if (EH_FILTER_TYPES (handler) == NULL_TREE)
@@ -4432,20 +4485,25 @@ compute_reachable_eh (tree stmt)
 					  reachable_handlers);
 
 	  skip_cleanups = 0;
-	}
-      else if (!skip_cleanups)
-	{
+	  break;
+
+	case ERT_CLEANUP:
+	  if (skip_cleanups)
+	    break;
+
+	  handler = TREE_OPERAND (region, 1);
+
 	  /* This is a cleanup and is reachable.  It does not
 	     stop our search; however, we can skip other
 	     cleanups until we run into something else.  */
 	  reachable_handlers = tree_cons (void_type_node,
 					  handler,
 					  reachable_handlers);
-#if 0
-	  /* Actually, we can't.  At least not until we build edges from
-	     one cleanup to the next.  */
 	  skip_cleanups = 1;
-#endif
+	  break;
+
+	default:
+	  abort ();
 	}
     }
 

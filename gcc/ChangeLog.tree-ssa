@@ -1,3 +1,24 @@
+2003-06-16  Jeff Law  <law@redhat.com>
+            Jason Merrill  <jason@redhat.com>
+ 
+	* except.c (enum eh_region_type): Don't declare the enumeration
+	members here.  Instead do it in except.h.
+	(expand_eh_hander): Use expr_first instead of open-coding it.
+	* except.h (enum eh_region_type): Define the enumeration memebers
+	here.
+	* tree-cfg.c (last_exec_block): Break out from make_edges.
+	(could_trap_p): No longer static.
+	(get_eh_region_type): New function.
+	(make_try_expr_blocks): Keep the whole TRY_CATCH_EXPR or
+	TRY_FINALLY_EXPR instead of just the handler part in the
+	EH_STACK varray.  For a cleanup, record which cleanup higher
+	in the EH_STACK it can reach.
+	(make_edges): Use last_exec_block.
+	(make_ctrl_stmt_edges): Thread cleanups as needed. 
+	(compute_reachable_eh):  Use get_eh_region_type.  Properly
+	track when we can skip cleanups.  Skip cleanups when possible.
+	* tree-flow.h (could_trap_p): Prototype.
+
 2003-06-16  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-cfg.c (find_insert_location): Check for control_altering stmts,

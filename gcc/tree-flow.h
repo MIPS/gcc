@@ -427,6 +427,7 @@ extern basic_block is_latch_block_for (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
 extern int remove_useless_stmts_and_vars (tree *);
+extern int could_trap_p (tree);
 
 /* In tree-dfa.c  */
 extern void get_stmt_operands (tree);

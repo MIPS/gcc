@@ -32,6 +32,17 @@ struct eh_status;
 /* Internal structure describing a region.  */
 struct eh_region;
 
+enum eh_region_type {
+  ERT_UNKNOWN = 0,
+  ERT_CLEANUP,
+  ERT_TRY,
+  ERT_CATCH,
+  ERT_ALLOWED_EXCEPTIONS,
+  ERT_MUST_NOT_THROW,
+  ERT_THROW,
+  ERT_FIXUP
+};
+
 /* Test: is exception handling turned on?  */
 extern int doing_eh			        PARAMS ((int));
 
