@@ -1,3 +1,8 @@
+2000-01-31  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c (output_thumb_prologue): Fix bug generating
+	thumb stack frame.
+
 2000-01-13  Richard Earnshaw (rearnsha@arm.com)
 
 	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000113 

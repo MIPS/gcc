@@ -8559,6 +8559,7 @@ output_thumb_prologue (f)
     {
       int    offset;
       int    work_register = 0;
+      int    wr;
       
       /* We have been asked to create a stack backtrace structure.
          The code looks like this:
@@ -8605,9 +8606,9 @@ output_thumb_prologue (f)
       if (live_regs_mask)
 	thumb_pushpop (f, live_regs_mask, 1);
       
-      for (offset = 0, work_register = 1 << 15; work_register != 0;
-	   work_register >>= 1)
-	if (work_register & live_regs_mask)
+      for (offset = 0, wr = 1 << 15; wr != 0;
+	   wr >>= 1)
+	if (wr & live_regs_mask)
 	  offset += 4;
       
       asm_fprintf (f, "\tadd\t%r, %r, #%d\n", work_register, SP_REGNUM,
