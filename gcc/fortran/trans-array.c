@@ -1933,14 +1933,9 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
       switch (ss->type)
 	{
 	case GFC_SS_SECTION:
-	  loop->dimen = ss->data.info.dimen;
-	  break;
-
 	case GFC_SS_CONSTRUCTOR:
-	  loop->dimen = ss->data.info.dimen;
-	  break;
-
 	case GFC_SS_FUNCTION:
+	  loop->dimen = ss->data.info.dimen;
 	  break;
 
 	default:
@@ -1966,6 +1961,7 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	  break;
 
 	case GFC_SS_CONSTRUCTOR:
+	case GFC_SS_FUNCTION:
 	  for (n = 0; n < ss->data.info.dimen; n++)
 	    {
 	      ss->data.info.start[n] = integer_zero_node;
@@ -4116,6 +4112,7 @@ gfc_walk_function_expr (gfc_ss * ss, gfc_expr * expr)
       newss->type = GFC_SS_FUNCTION;
       newss->expr = expr;
       newss->next = ss;
+      newss->data.info.dimen = expr->rank;
       return newss;
     }
 

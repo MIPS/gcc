@@ -2484,6 +2484,7 @@ gfc_walk_intrinsic_libfunc (gfc_ss * ss, gfc_expr * expr)
   newss->type = GFC_SS_FUNCTION;
   newss->expr = expr;
   newss->next = ss;
+  newss->data.info.dimen = expr->rank;
 
   return newss;
 }

@@ -1,5 +1,11 @@
 2003-08-10  Paul Brook  <paul@nowt.org>
 
+	* trans-array.c (gfc_conv_ss_startstride): Handle functions.
+	(walk_function_expr): Set section rank.
+	* trans-intrinsic.c (gfc_walk_intrinsic_libfunc): Ditto.
+
+2003-08-10  Paul Brook  <paul@nowt.org>
+
 	* intrinsic.c (add_sym): Prefix names with correct string.
 	(add_sym_0s): New function.
 	(add_subroutines): Register abort.
