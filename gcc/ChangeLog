@@ -1,3 +1,8 @@
+2002-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (force_to_mode): Only replace with (not Y) if all bits in fuller_mask
+	(not just mask) are set in C.
+
 Sat Nov 16 02:54:29 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* jump.c (tablejump_p): New.
