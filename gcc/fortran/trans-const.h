@@ -39,6 +39,9 @@ tree gfc_build_string_const (int, const char *);
 /* Translate a string constant for a static initializer.  */
 tree gfc_conv_string_init (tree, gfc_expr *);
 
+/* Create a tree node for the string length if it is constant.  */
+void gfc_conv_const_charlen (gfc_charlen *);
+
 /* Initialise the nodes for constants.  */
 void gfc_init_constants (void);
 

@@ -394,11 +394,11 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
     {
       msg =
         gfc_build_string_const (37, "Assigned label is not a format label");
-      tmp = GFC_DECL_STRING_LENGTH (se.expr);
+      tmp = GFC_DECL_STRING_LEN (se.expr);
       tmp = build (LE_EXPR, boolean_type_node, tmp, integer_minus_one_node);
       gfc_trans_runtime_check (tmp, msg, &se.pre);
       gfc_add_modify_expr (&se.pre, io, GFC_DECL_ASSIGN_ADDR (se.expr));
-      gfc_add_modify_expr (&se.pre, len, GFC_DECL_STRING_LENGTH (se.expr));
+      gfc_add_modify_expr (&se.pre, len, GFC_DECL_STRING_LEN (se.expr));
     }
   else
     {

@@ -1,3 +1,56 @@
+2003-04-05  Paul Brook  <paul@codesourcery.com>
+
+	PR 13252
+	PR 14081
+	* f95-lang.c (gfc_init_builtin_functions): Add stack_alloc, stack_save
+	and stack_restore.
+	* gfortran.h (struct gfc_charlen): Add backend_decl.
+	* trans-array.c (gfc_trans_allocate_temp_array,
+	gfc_conv_temp_array_ref, gfc_conv_resolve_dependencies,
+	(gfc_conv_loop_setup, gfc_array_allocate, gfc_conv_array_init_size):
+	Remove old, broken string handling.
+	(gfc_trans_auto_array_allocation, gfc_trans_g77_array,
+	gfc_trans_dummy_array_bias, gfc_conv_expr_descriptor,
+	gfc_trans_deferred_array): Handle character arrays.
+	* trans-const.c (gfc_conv_const_charlen): New function.
+	* trans-const.h (gfc_conv_const_charlen): Add prototype.
+	* trans-decl.c (gfc_finish_var_decl): Don't mark automatic variables
+	as static.
+	(gfc_build_dummy_array_decl): Handle arrays with unknown element size.
+	(gfc_create_string_length): New function.
+	(gfc_get_symbol_decl): Create lengths for character variables.
+	(gfc_get_fake_result_decl): Ditto.
+	(gfc_build_function_decl): Only set length for assumed length
+	character arguments.
+	(gfc_trans_dummy_character): New function.
+	(gfc_trans_auto_character_variable): Rewrite.
+	(gfc_trans_deferred_vars): Handle more types of character variable.
+	(gfc_create_module_variable): String lengths have moved.
+	(gfc_generate_function_code): Initialize deferred var chain earlier.
+	* trans-expr.c (gfc_conv_init_string_length): Rename ...
+	(gfc_trans_init_string_length):  ... to this.
+	(gfc_conv_component_ref, gfc_conv_variable, gfc_conv_concat_op,
+	gfc_conv_function_call): Update to new format for character variables.
+	(gfc_conv_string_length): Remove.
+	(gfc_conv_string_parameter): Update assertion.
+	* trans-intrinsic.c (gfc_conv_intrinsic_len): Use new location.
+	* trans-io.c (set_string): Use new macro names.
+	* trans-stmt.c (gfc_trans_label_assign. gfc_trans_goto): Ditto.
+	* trans-types.c (gfc_get_character_type): Use existing length expr.
+	(gfc_is_nodesc_array): Make public.
+	(gfc_get_dtype_cst): Rename ...
+	(gfc_get_dtype): ... to this.  Handle unknown size arrays.
+	(gfc_get_nodesc_array_type): Use new name.
+	(gfc_sym_type): New character variable code.
+	(gfc_get_derived_type): Ditto.
+	(gfc_get_function_type): Evaluate character variable lengths.
+	* trans-types.h (gfc_strlen_kind): Define.
+	(gfc_is_nodesc_array): Add prototype.
+	* trans.h: Update prototypes.
+	(struct lang_type): Update comments.
+	(GFC_DECL_STRING_LEN): New name for GFC_DECL_STRING_LENGTH.
+	(GFC_KNOWN_SIZE_STRING_TYPE): Remove.
+
 2004-04-04  Paul Brook  <paul@codesourcery.com>
 
 	* gfortran.h (struct gfc_option_t): Remove flag_g77_calls.

@@ -1878,7 +1878,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
 	      decl = gfc_get_fake_result_decl (sym);
 
 	    assert (GFC_DECL_STRING (decl));
-	    len = GFC_DECL_STRING_LENGTH (decl);
+	    len = sym->ts.cl->backend_decl;
 	    assert (len);
 	  }
 	else

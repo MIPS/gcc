@@ -826,6 +826,22 @@ gfc_init_builtin_functions (void)
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
 		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, size_type_node, voidchain);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
+		      "stack_alloc", false);
+
+  /* The stack_save and stack_restore builtins aren't used directly.  They
+     are inserted during gimplification to implement stack_alloc calls.  */
+  ftype = build_function_type (pvoid_type_node, voidchain);
+  gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
+		      "stack_save", false);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  ftype = build_function_type (void_type_node, tmp);
+  gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
+		      "stack_restore", false);
 }
 
 #undef DEFINE_MATH_BUILTIN

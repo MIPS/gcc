@@ -1,3 +1,13 @@
+2003-04-04  Paul Brook  <paul@codesourcery.com>
+
+	PR 13252
+	PR 14081
+	* gfortran.fortran-torture/execute/strarray_1.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_2.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_3.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_4.f90: New test.
+	* gfortran.fortran-torture/execute/strcommon_1.f90: New test.
+
 2004-04-04  Paul Brook  <paul@codesourcery.com>
 
 	* lib/fortran-torture.exp (TORTURE_OPTIONS): Remove -fg77-calls.

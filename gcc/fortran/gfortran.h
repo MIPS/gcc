@@ -480,6 +480,7 @@ typedef struct gfc_charlen
 {
   struct gfc_expr *length;
   struct gfc_charlen *next;
+  tree backend_decl;
 }
 gfc_charlen;
 

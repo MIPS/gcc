@@ -121,6 +121,22 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
   return str;
 }
 
+
+/* Create a tree node for the string length if it is constant.  */
+
+void
+gfc_conv_const_charlen (gfc_charlen * cl)
+{
+  if (cl->backend_decl)
+    return;
+
+  if (cl->length && cl->length->expr_type == EXPR_CONSTANT)
+    {
+      cl->backend_decl = gfc_conv_mpz_to_tree (cl->length->value.integer,
+					       cl->length->ts.kind);
+    }
+}
+
 void
 gfc_init_constants (void)
 {
