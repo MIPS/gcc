@@ -2254,7 +2254,7 @@ choose_ready (ready)
   else
     {
       /* Try to choose the better insn.  */
-      int index, i;
+      int index = 0, i;
       rtx insn;
 
       if (cached_first_cycle_multipass_dfa_lookahead != lookahead)
@@ -2434,9 +2434,7 @@ schedule_block (b, rgn_n_insns)
 
       /* Allow the target to reorder the list, typically for
 	 better instruction bundling.  */
-      if (sort_p && targetm.sched.reorder
-	  && (ready.n_ready == 0
-	      || !SCHED_GROUP_P (ready_element (&ready, 0))))
+      if (targetm.sched.reorder)
 	can_issue_more =
 	  (*targetm.sched.reorder) (sched_dump, sched_verbose,
 				    ready_lastpos (&ready),
@@ -2621,11 +2619,14 @@ schedule_block (b, rgn_n_insns)
 	next:
 	  first_cycle_insn_p = 0;
 
+          /* Sort the ready list based on priority.  This must be
+             redone here, as schedule_insn may have readied additional
+             insns that will not be sorted correctly.  */
+          if (ready.n_ready > 0)
+            ready_sort (&ready);
+
 	  if (targetm.sched.reorder2)
 	    {
-	      /* Sort the ready list based on priority.  */
-	      if (ready.n_ready > 0)
-		ready_sort (&ready);
 	      can_issue_more =
 		(*targetm.sched.reorder2) (sched_dump,sched_verbose,
 					   ready.n_ready

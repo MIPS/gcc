@@ -1,3 +1,15 @@
+2004-02-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* haifa-sched.c (schedule_block): Revert to old behavior: Always
+	invoke targetm.sched.reorder.
+
+	Backport from mainline:
+	* haifa-sched.c (schedule_block): Always invoke ready_sort after
+	scheduling instructions.
+
+	2003-10-21  Jan Hubicka  <jh@suse.cz>
+	* haifa-sched.c (choose_ready): Initialize index.
+
 2004-02-07  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c: Fix comment typos.
