@@ -1,3 +1,16 @@
+2002-11-23  H.J. Lu <hjl@gnu.org>
+
+	* aclocal.m4: Include ../config/accross.m4.
+	(gcc_AC_COMPILE_CHECK_SIZEOF): Removed.
+	(gcc_AC_C_COMPILE_ENDIAN): Removed.
+	(gcc_AC_C_FLOAT_FORMAT): Check $ac_cv_c_bigendian
+	instead of $ac_cv_c_compile_endian.
+
+	* configure.in: Replace gcc_AC_COMPILE_CHECK_SIZEOF with
+	AC_COMPILE_CHECK_SIZEOF.
+	Replace gcc_AC_C_COMPILE_ENDIAN with AC_C_BIGENDIAN_CROSS.
+	* configure: Rebuild.
+
 2002-11-21  Douglas B Rupp  <rupp@gnat.com>
 
 	* alpha.md (movstrdi, clrstrdi): New VMS patterns.

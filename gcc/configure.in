@@ -453,14 +453,14 @@ gcc_AC_C_LONG_LONG
 gcc_AC_C__BOOL
 
 # sizeof(char) is 1 by definition.
-gcc_AC_COMPILE_CHECK_SIZEOF(short)
-gcc_AC_COMPILE_CHECK_SIZEOF(int)
-gcc_AC_COMPILE_CHECK_SIZEOF(long)
+AC_COMPILE_CHECK_SIZEOF(short)
+AC_COMPILE_CHECK_SIZEOF(int)
+AC_COMPILE_CHECK_SIZEOF(long)
 if test $ac_cv_c_long_long = yes; then
-  gcc_AC_COMPILE_CHECK_SIZEOF(long long)
+  AC_COMPILE_CHECK_SIZEOF(long long)
 fi
 if test $ac_cv_c___int64 = yes; then
-  gcc_AC_COMPILE_CHECK_SIZEOF(__int64)
+  AC_COMPILE_CHECK_SIZEOF(__int64)
 fi
 
 gcc_AC_C_CHARSET
@@ -556,7 +556,7 @@ AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 
 # These tests can't be done till we know if we have limits.h.
 gcc_AC_C_CHAR_BIT
-gcc_AC_C_COMPILE_ENDIAN
+AC_C_BIGENDIAN_CROSS
 gcc_AC_C_FLOAT_FORMAT
 
 # See if we have the mktemp command.
