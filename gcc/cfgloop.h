@@ -248,6 +248,7 @@ extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
+extern unsigned get_loop_level (const struct loop *);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
@@ -418,3 +419,4 @@ enum
 };
 
 extern void unroll_and_peel_loops (struct loops *, int);
+extern void doloop_optimize_loops (struct loops *);

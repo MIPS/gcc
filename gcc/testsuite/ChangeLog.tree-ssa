@@ -1,3 +1,62 @@
+2004-03-26  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-1.c: New test.
+
+2004-03-24  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/csqrt_1.f90: Use f95 style
+	comments.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14334
+	* gfortran.fortran-torture/execute/write_logical_1.f90: New test.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 13919
+	* gfortran.fortran-torture/execute/read_eof.f90: New test.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14396
+	* gfortran.fortran-torture/execute/csqrt_1.f90: New test.
+
+2004-02-24  Paul Brook  <paul@codesourcery.com>
+
+	PR 14055
+	* gfortran.fortran-torture/execute/plusconst_1.f90: New test.
+
+2004-03-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/20040420-1.c: Move and rename ...
+	* gcc.c-torture/compile/20040220-1.c ... here.
+
+2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/20040211-1.c: Update outcome.
+	* gcc.dg/tree-ssa/ssa-dce-3.c: New test.
+
+2004-03-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14643
+	* gcc.dg/tree-ssa/20040319-1.c: New test.
+
+2004-03-19  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/20040319-1.c: New test.
+
+2004-03-17  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040317-1.c: New test.
+	* gcc.c-torture/compile/20040317-2.c: New test.
+	* gcc.c-torture/compile/20040317-3.c: New test.
+
+2004-03-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14511
+	* g++.dg/tree-ssa/20040317-1.C: New test.
+
 2004-03-13  Diego Novillo  <dnovillo@redhat.com>
 
 	PR optimization/14553

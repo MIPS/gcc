@@ -351,9 +351,9 @@ substitute_single_use_vars (varray_type forwprop_data)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "  Replaced '");
-	      print_generic_expr (dump_file, cond, 0);
+	      print_generic_expr (dump_file, cond, dump_flags);
 	      fprintf (dump_file, "' with '");
-	      print_generic_expr (dump_file, new_cond, 0);
+	      print_generic_expr (dump_file, new_cond, dump_flags);
 	      fprintf (dump_file, "'\n");
 	    }
 

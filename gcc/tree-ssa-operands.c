@@ -769,9 +769,9 @@ get_stmt_operands (tree stmt)
 	    get_expr_operands (stmt, &TREE_VALUE (link), 0, &prev_vops);
 	  }
 
+	/* Clobber memory for asm ("" : : : "memory");  */
 	for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
-	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory")
-	      && bitmap_first_set_bit (call_clobbered_vars) >= 0)
+	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory"))
 	    add_call_clobber_ops (stmt, &prev_vops);
       }
       break;
@@ -933,9 +933,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 		    {
 		      fprintf (dump_file,
 			  "NOTE: no flow-sensitive alias info for ");
-		      print_generic_expr (dump_file, ptr, 0);
+		      print_generic_expr (dump_file, ptr, dump_flags);
 		      fprintf (dump_file, " in ");
-		      print_generic_stmt (dump_file, stmt, 0);
+		      print_generic_stmt (dump_file, stmt, dump_flags);
 		    }
 
 		  if (TREE_CODE (ptr) == SSA_NAME)

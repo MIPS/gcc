@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce a configure script.
-#   Copyright (C) 1995, 1997, 1998, 1999, 2002, 2003
+#   Copyright (C) 1995, 1997, 1998, 1999, 2002, 2003, 2004
 #   Free Software Foundation, Inc.
 #   Contributed by Dave Love (d.love@dl.ac.uk).
 #
@@ -59,6 +59,12 @@ else
 fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+
+dnl we need the following definitions because AC_PROG_LIBTOOL relies on them
+PACKAGE=libobjc
+dnl version is pulled out to make it a bit easier to change using sed.
+VERSION=1:0:0
+AC_SUBST(VERSION)
 
 dnl Checks for header files.
 # Sanity check for the cross-compilation case:

@@ -55,6 +55,7 @@ extern int lhd_unsafe_for_reeval (tree);
 extern void lhd_clear_binding_stack (void);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
+extern int lhd_types_compatible_p (tree, tree);
 extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 extern int lhd_expand_decl (tree);
 extern void lhd_print_error_function (struct diagnostic_context *,
@@ -128,6 +129,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_GET_CALLEE_FNDECL	lhd_return_null_tree
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
+#define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
@@ -232,6 +234,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
+#define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
@@ -242,7 +245,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
   LANG_HOOKS_TYPE_PROMOTES_TO, \
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
-  LANG_HOOKS_INCOMPLETE_TYPE_ERROR \
+  LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
+  LANG_HOOKS_HASH_TYPES \
 }
 
 /* Declaration hooks.  */
@@ -309,6 +313,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_PRINT_TYPE, \
   LANG_HOOKS_PRINT_IDENTIFIER, \
   LANG_HOOKS_DECL_PRINTABLE_NAME, \
+  LANG_HOOKS_TYPES_COMPATIBLE_P, \
   LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \

@@ -601,6 +601,20 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
+   after VA_ARG_EXPRs are properly lowered.  */
+
+static tree
+mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		       void *data ATTRIBUTE_UNUSED)
+{
+  if (SSA_VAR_P (*tp))
+    TREE_THIS_VOLATILE (*tp) = 1;
+
+  return NULL_TREE;
+}
+
+
 /* Callback for walk_tree to unshare most of the shared trees rooted at
    *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
    then *TP is deep copied by calling copy_tree_r.
@@ -622,9 +636,18 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       *walk_subtrees = 0;
     }
   else
+    {
     /* Otherwise, mark the tree as visited and keep looking.  */
     TREE_VISITED (*tp) = 1;
-
+      if (TREE_CODE (*tp) == VA_ARG_EXPR)
+	{
+	  /* Mark any _DECL inside the operand as volatile to avoid the
+	     optimizers messing around with it. FIXME: Remove this once
+	     VA_ARG_EXPRs are properly lowered.  */
+	  walk_tree (&TREE_OPERAND (*tp, 0), mark_decls_volatile_r,
+		     NULL, NULL);
+	}
+    }
   return NULL_TREE;
 }
 
@@ -1464,13 +1487,13 @@ canonicalize_addr_expr (tree* expr_p)
   /* Both cast and addr_expr types should address the same object type.  */
   dctype = TREE_TYPE (ctype);
   ddatype = TREE_TYPE (datype);
-  if (TYPE_MAIN_VARIANT (ddatype) != TYPE_MAIN_VARIANT (dctype))
+  if (!lang_hooks.types_compatible_p (ddatype, dctype))
     return;
 
   /* The addr_expr and the object type should match.  */
   obj_expr = TREE_OPERAND (addr_expr, 0);
   otype = TREE_TYPE (obj_expr);
-  if (TYPE_MAIN_VARIANT (otype) != TYPE_MAIN_VARIANT (datype))
+  if (!lang_hooks.types_compatible_p (otype, datype))
     return;
 
   /* All checks succeeded.  Build a new node to merge the cast.  */
@@ -2929,20 +2952,6 @@ gimplify_to_stmt_list (tree *stmt_p)
 }
 
 
-/* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
-   after VA_ARG_EXPRs are properly lowered.  */
-
-static tree
-mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		       void *data ATTRIBUTE_UNUSED)
-{
-  if (SSA_VAR_P (*tp))
-    TREE_THIS_VOLATILE (*tp) = 1;
-
-  return NULL_TREE;
-}
-
-
 /*  Gimplifies the expression tree pointed by EXPR_P.  Return 0 if
     gimplification failed.
 
@@ -3510,7 +3519,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 static bool
 cpt_same_type (tree a, tree b)
 {
-  if (TYPE_MAIN_VARIANT (a) == TYPE_MAIN_VARIANT (b))
+  if (lang_hooks.types_compatible_p (a, b))
     return true;
 
   /* ??? The C++ FE decomposes METHOD_TYPES to FUNCTION_TYPES and doesn't

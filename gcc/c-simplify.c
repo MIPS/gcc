@@ -923,6 +923,12 @@ gimplify_compound_literal_expr (tree *expr_p)
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_STMT_DECL (decl_s);
 
+  /* This decl isn't mentioned in the enclosing block, so add it to the
+     list of temps.  FIXME it seems a bit of a kludge to say that
+     anonymous artificial vars aren't pushed, but everything else is.  */
+  if (DECL_NAME (decl) == NULL_TREE)
+    gimple_add_tmp_var (decl);
+
   gimplify_decl_stmt (&decl_s);
   *expr_p = decl_s ? decl_s : decl;
   return GS_OK;

@@ -261,6 +261,8 @@ static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
+static void ia64_init_libfuncs (void)
+     ATTRIBUTE_UNUSED;
 static void ia64_hpux_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static void ia64_vms_init_libfuncs (void)
@@ -713,7 +715,6 @@ int
 gr_reg_or_5bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 32)
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -723,7 +724,6 @@ int
 gr_reg_or_6bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -733,7 +733,6 @@ int
 gr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -743,7 +742,6 @@ int
 grfr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || grfr_register_operand (op, mode));
 }
 
@@ -754,7 +752,6 @@ int
 gr_reg_or_8bit_adjusted_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_L (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -768,7 +765,6 @@ gr_reg_or_8bit_and_adjusted_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op))
 	   && CONST_OK_FOR_L (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -778,7 +774,6 @@ int
 gr_reg_or_14bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_I (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -788,7 +783,6 @@ int
 gr_reg_or_22bit_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_J (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || gr_register_operand (op, mode));
 }
 
@@ -797,8 +791,7 @@ gr_reg_or_22bit_operand (rtx op, enum machine_mode mode)
 int
 shift_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+  return (GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)));
 }
 
 /* Return 1 if OP is a 5 bit immediate operand.  */
@@ -806,9 +799,8 @@ shift_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 shift_32bit_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  return ((GET_CODE (op) == CONST_INT
-	   && (INTVAL (op) >= 0 && INTVAL (op) < 32))
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+  return (GET_CODE (op) == CONST_INT
+	   && (INTVAL (op) >= 0 && INTVAL (op) < 32));
 }
 
 /* Return 1 if OP is a 2, 4, 8, or 16 immediate operand.  */
@@ -8747,11 +8739,25 @@ ia64_hpux_file_end (void)
   extern_func_head = 0;
 }
 
+/* Set SImode div/mod functions, init_integral_libfuncs only initializes
+   modes of word_mode and larger.  */
+
+static void
+ia64_init_libfuncs (void)
+{
+  set_optab_libfunc (sdiv_optab, SImode, "__divsi3");
+  set_optab_libfunc (udiv_optab, SImode, "__udivsi3");
+  set_optab_libfunc (smod_optab, SImode, "__modsi3");
+  set_optab_libfunc (umod_optab, SImode, "__umodsi3");
+}
+
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */
 
 static void
 ia64_hpux_init_libfuncs (void)
 {
+  ia64_init_libfuncs ();
+
   set_optab_libfunc (add_optab, TFmode, "_U_Qfadd");
   set_optab_libfunc (sub_optab, TFmode, "_U_Qfsub");
   set_optab_libfunc (smul_optab, TFmode, "_U_Qfmpy");

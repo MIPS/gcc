@@ -216,8 +216,8 @@ lhd_can_use_bit_fields_p (void)
 void
 lhd_clear_binding_stack (void)
 {
-  while (! (*lang_hooks.decls.global_bindings_p) ())
-    poplevel (0, 0, 0);
+  while (! lang_hooks.decls.global_bindings_p ())
+    lang_hooks.decls.poplevel (0, 0, 0);
 }
 
 /* Type promotion for variable arguments.  */
@@ -292,6 +292,16 @@ const char *
 lhd_decl_printable_name (tree decl, int verbosity ATTRIBUTE_UNUSED)
 {
   return IDENTIFIER_POINTER (DECL_NAME (decl));
+}
+
+/* This compares two types for equivalence ("compatible" in C-based languages).
+   This routine should only return 1 if it is sure.  It should not be used
+   in contexts where erroneously returning 0 causes problems.  */
+
+int
+lhd_types_compatible_p (tree x, tree y)
+{
+  return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
 /* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
@@ -510,7 +520,7 @@ write_global_declarations (void)
      Really output inline functions that must actually be callable
      and have not been output so far.  */
 
-  tree globals = (*lang_hooks.decls.getdecls) ();
+  tree globals = lang_hooks.decls.getdecls ();
   int len = list_length (globals);
   tree *vec = xmalloc (sizeof (tree) * len);
   int i;
@@ -555,11 +565,11 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
 	    pp_printf
 	      (context->printer, "In member function `%s':",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	  else
 	    pp_printf
 	      (context->printer, "In function `%s':",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	}
 
       diagnostic_set_last_function (context);

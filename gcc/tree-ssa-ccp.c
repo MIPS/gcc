@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "errors.h"
 #include "ggc.h"
 #include "tree.h"
+#include "langhooks.h"
 
 /* These RTL headers are needed for basic-block.h.  */
 #include "rtl.h"
@@ -309,7 +310,7 @@ simulate_stmt (tree use_stmt)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
-      print_generic_stmt (dump_file, use_stmt, 0);
+      print_generic_stmt (dump_file, use_stmt, dump_flags);
     }
 
   if (TREE_CODE (use_stmt) == PHI_NODE)
@@ -424,7 +425,7 @@ visit_phi_node (tree phi)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting PHI node: ");
-      print_generic_expr (dump_file, phi, 0);
+      print_generic_expr (dump_file, phi, dump_flags);
     }
 
   curr_val = get_value (PHI_RESULT (phi));
@@ -492,7 +493,7 @@ visit_phi_node (tree phi)
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
 		fprintf (dump_file, "\t");
-		print_generic_expr (dump_file, rdef, 0);
+		print_generic_expr (dump_file, rdef, dump_flags);
 		dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
 		fprintf (dump_file, "\n");
 	      }
@@ -974,7 +975,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
       break;
     case CONSTANT:
       fprintf (outf, "%sCONSTANT ", prefix);
-      print_generic_expr (outf, val.const_val, 0);
+      print_generic_expr (outf, val.const_val, dump_flags);
       break;
     default:
       abort ();
@@ -1434,7 +1435,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
   elt_type = TREE_TYPE (array_type);
-  if (TYPE_MAIN_VARIANT (orig_type) != TYPE_MAIN_VARIANT (elt_type))
+  if (!lang_hooks.types_compatible_p (orig_type, elt_type))
     return NULL_TREE;
 	
   /* Whee.  Ignore indexing of variable sized types.  */
@@ -1487,7 +1488,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
     return NULL_TREE;
 
   /* Short-circuit silly cases.  */
-  if (TYPE_MAIN_VARIANT (record_type) == TYPE_MAIN_VARIANT (orig_type))
+  if (lang_hooks.types_compatible_p (record_type, orig_type))
     return NULL_TREE;
 
   tail_array_field = NULL_TREE;
@@ -1544,7 +1545,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
       /* Here we exactly match the offset being checked.  If the types match,
 	 then we can return that field.  */
-      else if (TYPE_MAIN_VARIANT (orig_type) == TYPE_MAIN_VARIANT (field_type))
+      else if (lang_hooks.types_compatible_p (orig_type, field_type))
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
@@ -1806,6 +1807,44 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
 
       t = maybe_fold_stmt_plus (expr);
+      break;
+
+    case COMPONENT_REF:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+  return t;
+      *walk_subtrees = 0;
+
+      /* Make sure the FIELD_DECL is actually a field in the type on
+   the lhs.  In cases with IMA it is possible that it came
+   from another, equivalent type at this point.  We have
+   already checked the equivalence in this case.
+   Match on type plus offset, to allow for unnamed fields.
+   We won't necessarily get the corresponding field for
+   unions; this is believed to be harmless.  */
+
+      if ((current_file_decl && TREE_CHAIN (current_file_decl))
+    && (DECL_FIELD_CONTEXT (TREE_OPERAND (expr, 1)) !=
+        TREE_TYPE (TREE_OPERAND (expr, 0))))
+  {
+    tree f;
+    tree orig_field = TREE_OPERAND (expr, 1);
+    tree orig_type = TREE_TYPE (orig_field);
+    for (f = TYPE_FIELDS (TREE_TYPE (TREE_OPERAND (expr, 0)));
+         f; f = TREE_CHAIN (f))
+      {
+        if (lang_hooks.types_compatible_p (TREE_TYPE (f), orig_type)
+  && tree_int_cst_compare (DECL_FIELD_BIT_OFFSET (f),
+	       DECL_FIELD_BIT_OFFSET (orig_field)) == 0
+  && tree_int_cst_compare (DECL_FIELD_OFFSET (f),
+	       DECL_FIELD_OFFSET (orig_field)) == 0)
+{
+  TREE_OPERAND (expr, 1) = f;
+  break;
+}
+      }
+    /* Fall through is an error; it will be detected in tree-sra. */
+  }
       break;
 
     default:
@@ -2277,7 +2316,7 @@ execute_fold_all_builtins (void)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Simplified\n  ");
-	      print_generic_stmt (dump_file, *stmtp, 0);
+	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
 	  set_rhs (stmtp, result);
@@ -2286,7 +2325,7 @@ execute_fold_all_builtins (void)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "to\n  ");
-	      print_generic_stmt (dump_file, *stmtp, 0);
+	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
 	}

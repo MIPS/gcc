@@ -1,3 +1,7 @@
+2004-03-31  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa (tree-profiling-merge-20030330)
+
 2004-03-18  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (tree_estimate_probability): Temporarily disable return

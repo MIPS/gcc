@@ -544,7 +544,7 @@ gfc_trans_open (gfc_code * code)
     set_string (&block, &post_block, ioparm_form, ioparm_form_len, p->form);
 
   if (p->recl)
-    set_parameter_ref (&block, ioparm_recl_in, p->recl);
+    set_parameter_value (&block, ioparm_recl_in, p->recl);
 
   if (p->blank)
     set_string (&block, &post_block, ioparm_blank, ioparm_blank_len,

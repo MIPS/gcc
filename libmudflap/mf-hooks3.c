@@ -4,8 +4,31 @@
    and Graydon Hoare <graydon@redhat.com>
 
 This file is part of GCC.
-XXX: libgcc license?
-*/
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
 
 #include "config.h"
 
@@ -314,7 +337,7 @@ __mf_pthread_spawner (void *arg)
 #if PIC
 /* A special bootstrap variant. */
 int
-__mf_0fn_pthread_create (pthread_t *thr, pthread_attr_t *attr, 
+__mf_0fn_pthread_create (pthread_t *thr, const pthread_attr_t *attr, 
 			 void * (*start) (void *), void *arg)
 {
   return -1;
@@ -407,17 +430,18 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 #endif
       override_stacksize = max (PTHREAD_STACK_MIN, __mf_opts.thread_stack * 1024);
 
-      override_stack = CALL_REAL (mmap, NULL, override_stacksize, 
-				  PROT_READ|PROT_WRITE, 
-				  MAP_PRIVATE
+
 #if defined(MAP_ANONYMOUS)
-				  |MAP_ANONYMOUS
+#define MF_MAP_ANON MAP_ANONYMOUS
 #elif defined(MAP_ANON)
-				  |MAP_ANON
+#define MF_MAP_ANON MAP_ANON
 #else
 #error "Cannot mmap anonymous memory."
 #endif
-				  ,
+
+      override_stack = CALL_REAL (mmap, NULL, override_stacksize, 
+				  PROT_READ|PROT_WRITE, 
+				  MAP_PRIVATE|MF_MAP_ANON,
 				  0, 0);
       if (override_stack == 0 || override_stack == MAP_FAILED)
 	{

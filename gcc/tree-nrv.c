@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
+#include "langhooks.h"
 
 /* This file implements return value optimizations for functions which
    return aggregate types.
@@ -156,8 +157,8 @@ tree_nrv (void)
 	      || TREE_STATIC (found)
 	      || TREE_ADDRESSABLE (found)
 	      || DECL_ALIGN (found) > DECL_ALIGN (result)
-	      || (TYPE_MAIN_VARIANT (TREE_TYPE (found))
-		  != TYPE_MAIN_VARIANT (result_type)))
+              || !lang_hooks.types_compatible_p (TREE_TYPE (found), 
+ 		 result_type))
 	    return;
 	}
     }
@@ -169,9 +170,9 @@ tree_nrv (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "NRV Replaced: ");
-      print_generic_expr (dump_file, found, 0);
+      print_generic_expr (dump_file, found, dump_flags);
       fprintf (dump_file, "  with: ");
-      print_generic_expr (dump_file, result, 0);
+      print_generic_expr (dump_file, result, dump_flags);
       fprintf (dump_file, "\n");
     }
 

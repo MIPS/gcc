@@ -462,7 +462,7 @@ cris_mem_call_operand (rtx op, enum machine_mode mode)
   return cris_general_operand_or_symbol (xmem, GET_MODE (op));
 }
 
-/* The CONDITIONAL_REGISTER_USAGE worker.   */
+/* The CONDITIONAL_REGISTER_USAGE worker.  */
 
 void
 cris_conditional_register_usage (void)
@@ -2488,7 +2488,6 @@ cris_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2550,7 +2549,6 @@ cris_gotless_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2595,7 +2593,6 @@ cris_got_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:

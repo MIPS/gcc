@@ -94,7 +94,6 @@ static rtx expand_builtin_classify_type (tree);
 static void expand_errno_check (tree, rtx);
 static rtx expand_builtin_mathfn (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_2 (tree, rtx, rtx);
-static rtx expand_builtin_constant_p (tree, enum machine_mode);
 static rtx expand_builtin_args_info (tree);
 static rtx expand_builtin_next_arg (tree);
 static rtx expand_builtin_va_start (tree);
@@ -277,7 +276,7 @@ c_strlen (tree src, int only_value)
 
       len1 = c_strlen (TREE_OPERAND (src, 1), only_value);
       len2 = c_strlen (TREE_OPERAND (src, 2), only_value);
-      if (tree_int_cst_equal (len1, len2))      
+      if (tree_int_cst_equal (len1, len2))
 	return len1;
     }
 
@@ -1008,42 +1007,8 @@ apply_args_size (void)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (FUNCTION_ARG_REGNO_P (regno))
 	  {
-	    /* Search for the proper mode for copying this register's
-	       value.  I'm not sure this is right, but it works so far.  */
-	    enum machine_mode best_mode = VOIDmode;
+	    mode = reg_raw_mode[regno];
 
-	    for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-		 mode != VOIDmode;
-		 mode = GET_MODE_WIDER_MODE (mode))
-	      if (HARD_REGNO_MODE_OK (regno, mode)
-		  && hard_regno_nregs[regno][mode] == 1)
-		best_mode = mode;
-
-	    if (best_mode == VOIDmode)
-	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-		   mode != VOIDmode;
-		   mode = GET_MODE_WIDER_MODE (mode))
-		if (HARD_REGNO_MODE_OK (regno, mode)
-		    && have_insn_for (SET, mode))
-		  best_mode = mode;
-
-	    if (best_mode == VOIDmode)
-	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
-		   mode != VOIDmode;
-		   mode = GET_MODE_WIDER_MODE (mode))
-		if (HARD_REGNO_MODE_OK (regno, mode)
-		    && have_insn_for (SET, mode))
-		  best_mode = mode;
-
-	    if (best_mode == VOIDmode)
-	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
-		   mode != VOIDmode;
-		   mode = GET_MODE_WIDER_MODE (mode))
-		if (HARD_REGNO_MODE_OK (regno, mode)
-		    && have_insn_for (SET, mode))
-		  best_mode = mode;
-
-	    mode = best_mode;
 	    if (mode == VOIDmode)
 	      abort ();
 
@@ -1081,41 +1046,8 @@ apply_result_size (void)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (FUNCTION_VALUE_REGNO_P (regno))
 	  {
-	    /* Search for the proper mode for copying this register's
-	       value.  I'm not sure this is right, but it works so far.  */
-	    enum machine_mode best_mode = VOIDmode;
+	    mode = reg_raw_mode[regno];
 
-	    for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-		 mode != TImode;
-		 mode = GET_MODE_WIDER_MODE (mode))
-	      if (HARD_REGNO_MODE_OK (regno, mode))
-		best_mode = mode;
-
-	    if (best_mode == VOIDmode)
-	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-		   mode != VOIDmode;
-		   mode = GET_MODE_WIDER_MODE (mode))
-		if (HARD_REGNO_MODE_OK (regno, mode)
-		    && have_insn_for (SET, mode))
-		  best_mode = mode;
-
-	    if (best_mode == VOIDmode)
-	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
-		   mode != VOIDmode;
-		   mode = GET_MODE_WIDER_MODE (mode))
-		if (HARD_REGNO_MODE_OK (regno, mode)
-		    && have_insn_for (SET, mode))
-		  best_mode = mode;
-
-	    if (best_mode == VOIDmode)
-	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
-		   mode != VOIDmode;
-		   mode = GET_MODE_WIDER_MODE (mode))
-		if (HARD_REGNO_MODE_OK (regno, mode)
-		    && have_insn_for (SET, mode))
-		  best_mode = mode;
-
-	    mode = best_mode;
 	    if (mode == VOIDmode)
 	      abort ();
 
@@ -1213,7 +1145,7 @@ expand_builtin_apply_args_1 (void)
 		     NULL_RTX);
 #endif
   emit_move_insn (adjust_address (registers, Pmode, 0), tem);
-  
+
   size = GET_MODE_SIZE (Pmode);
 
   /* Save the structure value address unless this is passed as an
@@ -1526,32 +1458,6 @@ expand_builtin_classify_type (tree arglist)
   return GEN_INT (no_type_class);
 }
 
-/* Expand expression EXP, which is a call to __builtin_constant_p.  */
-
-static rtx
-expand_builtin_constant_p (tree arglist, enum machine_mode target_mode)
-{
-  rtx tmp;
-
-  if (arglist == 0)
-    return const0_rtx;
-  arglist = TREE_VALUE (arglist);
-
-  /* We have taken care of the easy cases during constant folding.  This
-     case is not obvious, so emit (constant_p_rtx (ARGLIST)) and let CSE
-     get a chance to see if it can deduce whether ARGLIST is constant.
-     If CSE isn't going to run, of course, don't bother waiting.  */
-
-  if (cse_not_expected)
-    return const0_rtx;
-
-  current_function_calls_constant_p = 1;
-
-  tmp = expand_expr (arglist, NULL_RTX, VOIDmode, 0);
-  tmp = gen_rtx_CONSTANT_P_RTX (target_mode, tmp);
-  return tmp;
-}
-
 /* This helper macro, meant to be used in mathfn_built_in below,
    determines which among a set of three builtin math functions is
    appropriate for a given type mode.  The `F' and `L' cases are
@@ -1740,6 +1646,17 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_EXPF:
     case BUILT_IN_EXPL:
       errno_set = true; builtin_optab = exp_optab; break;
+    case BUILT_IN_EXP10:
+    case BUILT_IN_EXP10F:
+    case BUILT_IN_EXP10L:
+    case BUILT_IN_POW10:
+    case BUILT_IN_POW10F:
+    case BUILT_IN_POW10L:
+      errno_set = true; builtin_optab = exp10_optab; break;
+    case BUILT_IN_EXP2:
+    case BUILT_IN_EXP2F:
+    case BUILT_IN_EXP2L:
+      errno_set = true; builtin_optab = exp2_optab; break;
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
@@ -1995,7 +1912,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
    multiplications to inline before calling the system library's pow
    function.  powi(x,n) requires at worst 2*bits(n)-2 multiplications,
    so this default never requires calling pow, powf or powl.  */
- 
+
 #ifndef POWI_MAX_MULTS
 #define POWI_MAX_MULTS  (2*HOST_BITS_PER_WIDE_INT-2)
 #endif
@@ -2112,7 +2029,7 @@ powi_cost (HOST_WIDE_INT n)
 	  result++;
 	}
     }
-  
+
   return result + powi_lookup_cost (val, cache);
 }
 
@@ -2161,7 +2078,7 @@ expand_powi_1 (enum machine_mode mode, unsigned HOST_WIDE_INT n, rtx *cache)
 /* Expand the RTL to evaluate powi(x,n) in mode MODE.  X is the
    floating point operand in mode MODE, and N is the exponent.  This
    function needs to be kept in sync with powi_cost above.  */
-   
+
 static rtx
 expand_powi (rtx x, enum machine_mode mode, HOST_WIDE_INT n)
 {
@@ -2722,7 +2639,7 @@ expand_builtin_mempcpy (tree arglist, rtx target, enum machine_mode mode,
       /* If LEN is not constant, call the normal function.  */
       if (! host_integerp (len, 1))
 	return 0;
-  
+
       /* If the LEN parameter is zero, return DEST.  */
       if (tree_low_cst (len, 1) == 0)
 	{
@@ -3295,7 +3212,7 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
       insn_mode = insn_data[(int) CODE_FOR_cmpstrsi].operand[0].mode;
     else
 #endif
-      return 0;     
+      return 0;
 
     /* If we don't have POINTER_TYPE, call the function.  */
     if (arg1_align == 0 || arg2_align == 0)
@@ -3697,7 +3614,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
                  pieces into (dst + strlen(dst)).  */
 	      tree newdst, arglist,
 		strlen_fn = implicit_built_in_decls[BUILT_IN_STRLEN];
-	      
+
 	      /* This is the length argument.  */
 	      arglist = build_tree_list (NULL_TREE,
 					 fold (size_binop (PLUS_EXPR,
@@ -3705,7 +3622,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
 							   ssize_int (1))));
 	      /* Prepend src argument.  */
 	      arglist = tree_cons (NULL_TREE, src, arglist);
-	      
+
 	      /* We're going to use dst more than once.  */
 	      dst = builtin_save_expr (dst);
 
@@ -3719,7 +3636,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
 
 	      /* Prepend the new dst argument.  */
 	      arglist = tree_cons (NULL_TREE, newdst, arglist);
-	      
+
 	      /* We don't want to get turned into a memcpy if the
                  target is const0_rtx, i.e. when the return value
                  isn't used.  That would produce pessimized code so
@@ -4190,7 +4107,7 @@ expand_builtin_va_arg (tree valist, tree type)
 
   /* Generate a diagnostic for requesting data of a type that cannot
      be passed through `...' due to type promotion at the call site.  */
-  else if ((promoted_type = (*lang_hooks.types.type_promotes_to) (type))
+  else if ((promoted_type = lang_hooks.types.type_promotes_to (type))
 	   != type)
     {
       const char *name = "<anonymous type>", *pname = 0;
@@ -4745,7 +4662,7 @@ build_string_literal (int len, const char *str)
 /* Expand a call to printf or printf_unlocked with argument list ARGLIST.
    Return 0 if a normal call should be emitted rather than transforming
    the function inline.  If convenient, the result should be placed in
-   TARGET with mode MODE.  UNLOCKED indicates this is a printf_unlocked 
+   TARGET with mode MODE.  UNLOCKED indicates this is a printf_unlocked
    call.  */
 static rtx
 expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
@@ -4824,7 +4741,7 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
-	      char *newstr = (char *) alloca (len);
+	      char *newstr = alloca (len);
 	      memcpy (newstr, fmt_str, len - 1);
 	      newstr[len - 1] = 0;
 
@@ -4848,7 +4765,7 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
 /* Expand a call to fprintf or fprintf_unlocked with argument list ARGLIST.
    Return 0 if a normal call should be emitted rather than transforming
    the function inline.  If convenient, the result should be placed in
-   TARGET with mode MODE.  UNLOCKED indicates this is a fprintf_unlocked 
+   TARGET with mode MODE.  UNLOCKED indicates this is a fprintf_unlocked
    call.  */
 static rtx
 expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
@@ -5240,7 +5157,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   emit_queue ();
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
-    return (*targetm.expand_builtin) (exp, target, subtarget, mode, ignore);
+    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */
@@ -5330,6 +5247,15 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EXP:
     case BUILT_IN_EXPF:
     case BUILT_IN_EXPL:
+    case BUILT_IN_EXP10:
+    case BUILT_IN_EXP10F:
+    case BUILT_IN_EXP10L:
+    case BUILT_IN_POW10:
+    case BUILT_IN_POW10F:
+    case BUILT_IN_POW10L:
+    case BUILT_IN_EXP2:
+    case BUILT_IN_EXP2F:
+    case BUILT_IN_EXP2L:
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
@@ -5445,7 +5371,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return expand_builtin_classify_type (arglist);
 
     case BUILT_IN_CONSTANT_P:
-      return expand_builtin_constant_p (arglist, target_mode);
+      return const0_rtx;
 
     case BUILT_IN_FRAME_ADDRESS:
     case BUILT_IN_RETURN_ADDRESS:
@@ -6063,6 +5989,9 @@ integer_valued_real_p (tree t)
 	case BUILT_IN_NEARBYINT:
 	case BUILT_IN_NEARBYINTF:
 	case BUILT_IN_NEARBYINTL:
+	case BUILT_IN_RINT:
+	case BUILT_IN_RINTF:
+	case BUILT_IN_RINTL:
 	case BUILT_IN_ROUND:
 	case BUILT_IN_ROUNDF:
 	case BUILT_IN_ROUNDL:
@@ -6474,7 +6403,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
       tree type = TREE_TYPE (TREE_TYPE (fndecl));
       tree arg = TREE_VALUE (arglist);
       const enum built_in_function fcode = builtin_mathfn_code (arg);
-	
+
       /* Optimize logN(1.0) = 0.0.  */
       if (real_onep (arg))
 	return build_real (type, dconst0);
@@ -6489,7 +6418,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
 	  if (real_dconstp (arg, &value_truncate))
 	    return build_real (type, dconst1);
 	}
-      
+
       /* Special case, optimize logN(expN(x)) = x.  */
       if (flag_unsafe_math_optimizations
 	  && ((value == &dconste
@@ -6509,7 +6438,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
       if (flag_unsafe_math_optimizations)
         {
 	  tree exponent = 0, x = 0;
-	  
+
 	  switch (fcode)
 	  {
 	  case BUILT_IN_EXP:
@@ -6576,7 +6505,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
 
   return 0;
 }
-	  
+
 /* A subroutine of fold_builtin to fold the various exponent
    functions.  EXP is the CALL_EXPR of a call to a builtin function.
    VALUE is the value which will be raised to a power.  */
@@ -7147,7 +7076,7 @@ fold_builtin_1 (tree exp)
 	      REAL_VALUE_TYPE cst;
 
 	      real_convert (&cst, TYPE_MODE (type), &dconstpi);
-	      cst.exp -= 2;
+	      SET_REAL_EXP (&cst, REAL_EXP (&cst) - 2);
 	      return build_real (type, cst);
 	    }
 	}
@@ -7315,6 +7244,9 @@ fold_builtin_1 (tree exp)
     case BUILT_IN_NEARBYINT:
     case BUILT_IN_NEARBYINTF:
     case BUILT_IN_NEARBYINTL:
+    case BUILT_IN_RINT:
+    case BUILT_IN_RINTF:
+    case BUILT_IN_RINTL:
       return fold_trunc_transparent_mathfn (exp);
 
     case BUILT_IN_FFS:
@@ -7461,31 +7393,6 @@ default_expand_builtin (tree exp ATTRIBUTE_UNUSED,
 			int ignore ATTRIBUTE_UNUSED)
 {
   return NULL_RTX;
-}
-
-/* Instantiate all remaining CONSTANT_P_RTX nodes.  */
-
-void
-purge_builtin_constant_p (void)
-{
-  rtx insn, set, arg, new, note;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-	&& (set = single_set (insn)) != NULL_RTX
-	&& (GET_CODE (arg = SET_SRC (set)) == CONSTANT_P_RTX
-	    || (GET_CODE (arg) == SUBREG
-		&& (GET_CODE (arg = SUBREG_REG (arg))
-		    == CONSTANT_P_RTX))))
-      {
-	arg = XEXP (arg, 0);
-	new = CONSTANT_P (arg) ? const1_rtx : const0_rtx;
-	validate_change (insn, &SET_SRC (set), new, 0);
-
-	/* Remove the REG_EQUAL note from the insn.  */
-	if ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0)
-	  remove_note (insn, note);
-      }
 }
 
 /* Returns true is EXP represents data that would potentially reside

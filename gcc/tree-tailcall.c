@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "tree-pass.h"
 #include "flags.h"
+#include "langhooks.h"
 
 /* The file implements the tail recursion elimination.  It is also used to
    analyse the tail calls in general, passing the results to the rtl level
@@ -406,10 +407,18 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       for (param = DECL_ARGUMENTS (func), args = TREE_OPERAND (call, 1);
 	   param && args;
 	   param = TREE_CHAIN (param), args = TREE_CHAIN (args))
-	if (param != TREE_VALUE (args)
-	    /* Make sure there are no problems with copying.  */
-	    && !is_gimple_reg_type (TREE_TYPE (param)))
-	  break;
+	{
+	  tree arg = TREE_VALUE (args);
+	  if (param != arg
+	      /* Make sure there are no problems with copying.  Note we must
+	         have a copyable type and the two arguments must have reasonably
+	         equivalent types.  The latter requirement could be relaxed if
+	         we emitted a suitable type conversion statement.  */
+	      && (!is_gimple_reg_type (TREE_TYPE (param))
+		  || !lang_hooks.types_compatible_p (TREE_TYPE (param),
+						     TREE_TYPE (arg))))
+	    break;
+	}
       if (!args && !param)
 	tail_recursion = true;
     }
@@ -746,7 +755,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
 	  fprintf (dump_file, "Found tail call ");
-	  print_generic_expr (dump_file, stmt, 0);
+	  print_generic_expr (dump_file, stmt, dump_flags);
 	  fprintf (dump_file, " in bb %i\n", t->call_block->index);
 	}
     }

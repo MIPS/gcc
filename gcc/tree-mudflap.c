@@ -998,9 +998,9 @@ mudflap_enqueue_decl (tree obj)
       if (dump_file)
         {
           fprintf (dump_file, "enqueue_decl obj=`");
-          print_generic_expr (dump_file, obj, 0);
+          print_generic_expr (dump_file, obj, dump_flags);
           fprintf (dump_file, "' size=");
-          print_generic_expr (dump_file, object_size, 0);
+          print_generic_expr (dump_file, object_size, dump_flags);
           fprintf (dump_file, "\n");
         }
 
@@ -1047,9 +1047,9 @@ mudflap_enqueue_constant (tree obj)
   if (dump_file)
     {
       fprintf (dump_file, "enqueue_constant obj=`");
-      print_generic_expr (dump_file, obj, 0);
+      print_generic_expr (dump_file, obj, dump_flags);
       fprintf (dump_file, "' size=");
-      print_generic_expr (dump_file, object_size, 0);
+      print_generic_expr (dump_file, object_size, dump_flags);
       fprintf (dump_file, "\n");
     }
 

@@ -477,7 +477,6 @@ dump_flow_info (FILE *file)
 
   if (reg_n_info)
     {
-      int max_regno = max_reg_num ();
       fprintf (file, "%d registers.\n", max_regno);
       for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
 	if (REG_N_REFS (i))

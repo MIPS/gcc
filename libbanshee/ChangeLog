@@ -1,3 +1,8 @@
+2004-03-26  Andreas Jaeger  <aj@suse.de>
+
+        * configure.in: Remove GCC_NO_EXECUTABLES.
+        * configure: Regenerated.
+
 2004-03-07  Daniel Berlin  <dberlin@dberlin.org>
 
 	* engine/Makefile.am (AM_CFLAGS): Add -I$(top_srcddir)/../include, so we
@@ -34,7 +39,7 @@
 	* engine/setif-var.h: Ditto.
 	* engine/setst-var.c: Ditto.
 	* engine/setst-var.h: Ditto.
-	* engine/stamp.c (stamp_string): Use long, not int.  
+	* engine/stamp.c (stamp_string): Use long, not int.
 	Cast through char *.
 	* engine/stamp.h (stamp): Long, not int.
 	* engine/term-sort.c (term_print_stats): Mark argument unused.
@@ -64,7 +69,7 @@
 	* libcompat/radix-tree.c: Include <stdlib.h> for calloc.
 
 2004-02-03  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	Fix PR other/12220
 	* engine/Makefile.am: Remove -fno-strict-aliasing.
 	* libcompat/Makefile.am: Ditto.
@@ -75,7 +80,7 @@
 	* engine/Makefile.am: Ditto.
 	* libcompat/Makefile.am: Ditto.
 	* points-to/Makefile.am: Ditto.
-	
+
 2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
 
 	* acinclude.m4: New, copy the bool tests from gcc.
@@ -88,12 +93,12 @@
 	bool type handling.
 
 2002-12-26  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* Makefile.am: Use the same flag passing hack all other subdirs use.
-	
+
 	* */Makefile.am: Use -fno-strict-aliasing till i get rid of the
 	type-punning.
-	
+
 	* Regenerate configure and Makefiles.
 
 	* engine/setst-*.c: Remove nested functions.
@@ -113,5 +118,3 @@
 2002-10-31  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Autoconf'ed, automak'ed, de-nested functified, etc.
-	
-

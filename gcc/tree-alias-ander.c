@@ -652,7 +652,7 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
     {
       fprintf (dump_file, "Op assignment %s = ",
 	       alias_get_name (ALIAS_VAR_DECL (lhs)));
-      print_generic_stmt (dump_file, operation, 0);
+      print_generic_stmt (dump_file, operation, dump_flags);
       fprintf (dump_file, "\n");
     }
   

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARC using a.out.
-   Copyright (C) 1994, 1996, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1996, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
 
 This file is part of GCC.
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
  (DEFAULT_WORD_SWITCH_TAKES_ARG (STR)				\
   || !strcmp (STR, "target") || !strcmp (STR, "assert"))
 
-#define TARGET_ASM_SELECT_SECTION  sparc_aout_select_section
 #define TARGET_ASM_SELECT_RTX_SECTION  sparc_aout_select_rtx_section
 
 /* Output the label for a function definition.  */

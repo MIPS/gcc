@@ -55,7 +55,6 @@ Boston, MA 02111-1307, USA.  */
  */
 
 unit_t *current_unit;
-
 static int sf_seen_eor = 0;
 
 char scratch[SCRATCH_SIZE];
@@ -1001,13 +1000,13 @@ data_transfer_init (int read_flag)
 
   if (ioparm.rec != NULL)
     {
-      if (*ioparm.rec <= 0)
+      if (ioparm.rec <= 0)
 	{
 	  generate_error (ERROR_BAD_OPTION, "Record number must be positive");
 	  return;
 	}
 
-      if (*ioparm.rec >= current_unit->maxrec)
+      if (ioparm.rec >= current_unit->maxrec)
 	{
 	  generate_error (ERROR_BAD_OPTION, "Record number too large");
 	  return;
@@ -1016,7 +1015,7 @@ data_transfer_init (int read_flag)
       /* Position the file */
 
       if (sseek (current_unit->s,
-		 (*ioparm.rec - 1) * current_unit->recl) == FAILURE)
+               (ioparm.rec - 1) * current_unit->recl) == FAILURE)
 	generate_error (ERROR_OS, NULL);
     }
 
@@ -1294,6 +1293,13 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+
+  if (setjmp (g.eof_jump))
+    {
+       generate_error (ERROR_END, NULL);
+       return;
+    }
+
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)

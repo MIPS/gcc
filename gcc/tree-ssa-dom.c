@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "tree-pass.h"
 #include "flags.h"
-
+#include "langhooks.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -254,6 +254,9 @@ static void remove_local_expressions_from_table (varray_type locals,
 static void restore_vars_to_original_value (varray_type locals,
 					    unsigned limit, 
 					    varray_type table);
+static void restore_currdefs_to_original_value (varray_type locals,
+						unsigned limit,
+						varray_type table);
 static void register_definitions_for_stmt (tree, varray_type *);
 static void redirect_edges_and_update_ssa_graph (varray_type);
 
@@ -700,6 +703,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       tree src = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
       tree dst = PHI_RESULT (phi);
       record_const_or_copy (dst, src, &bd->const_and_copies);
+      register_new_def (dst, &bd->block_defs, currdefs);
     }
 
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
@@ -814,6 +818,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 the result of this statement is used later we can copy propagate
 	 suitably.  */
       record_const_or_copy (lhs, cached_lhs, &bd->const_and_copies);
+      register_new_def (lhs, &bd->block_defs, currdefs);
     }
 
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
@@ -1063,6 +1068,37 @@ restore_vars_to_original_value (varray_type locals,
     }
 }
 
+/* Similar to restore_vars_to_original_value, except that it restores 
+   CURRDEFS to its original value.  */
+static void
+restore_currdefs_to_original_value (varray_type locals,
+				    unsigned limit,
+				    varray_type table)
+{
+  if (!locals)
+    return;
+
+  /* Restore CURRDEFS to its original state.  */
+  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+    {
+      tree var;
+      tree saved_def = VARRAY_TOP_TREE (locals);
+      VARRAY_POP (locals);
+ 
+      /* If SAVED_DEF is NULL, then the next slot in the stack contains
+	 the variable associated with SAVED_DEF.  */
+     if (saved_def == NULL_TREE)
+	{
+	  var = VARRAY_TOP_TREE (locals);
+	  VARRAY_POP (locals);
+	}
+      else
+	var = SSA_NAME_VAR (saved_def);
+
+      set_value_for (var, saved_def, table);
+    }
+}
+
 /* We have finished processing the dominator children of BB, perform
    any finalization actions in preparation for leaving this node in
    the dominator tree.  */
@@ -1117,6 +1153,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  unsigned true_limit;
 	  unsigned false_limit;
 	  unsigned const_and_copies_limit;
+	  unsigned currdefs_limit;
 
 	  true_limit
 	    = bd->true_exprs ? VARRAY_ACTIVE_SIZE (bd->true_exprs) : 0;
@@ -1125,6 +1162,8 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  const_and_copies_limit
 	    = bd->const_and_copies ? VARRAY_ACTIVE_SIZE (bd->const_and_copies)
 				   : 0;
+	  currdefs_limit
+	    = bd->block_defs ? VARRAY_ACTIVE_SIZE (bd->block_defs) : 0;
 
 	  /* Record any equivalences created by following this edge.  */
 	  if (TREE_CODE_CLASS (cond_code) == '<')
@@ -1150,6 +1189,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  restore_vars_to_original_value (bd->const_and_copies,
 					  const_and_copies_limit,
 					  const_and_copies);
+	  restore_currdefs_to_original_value (bd->block_defs,
+					      currdefs_limit,
+					      currdefs);
 	}
 
       /* Similarly for the ELSE arm.  */
@@ -1179,26 +1221,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
   remove_local_expressions_from_table (bd->avail_exprs, 0, avail_exprs);
   restore_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
   restore_vars_to_original_value (bd->const_and_copies, 0, const_and_copies);
-
-  /* Restore CURRDEFS to its original state.  */
-  while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
-    {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
-      VARRAY_POP (bd->block_defs);
- 
-      /* If SAVED_DEF is NULL, then the next slot in the stack contains
-	 the variable associated with SAVED_DEF.  */
-     if (saved_def == NULL_TREE)
-	{
-	  var = VARRAY_TOP_TREE (bd->block_defs);
-	  VARRAY_POP (bd->block_defs);
-	}
-      else
-	var = SSA_NAME_VAR (saved_def);
-
-      set_value_for (var, saved_def, currdefs);
-    }
+  restore_currdefs_to_original_value (bd->block_defs, 0, currdefs);
 
   /* Remove VRP records associated with this basic block.  They are no
      longer valid.
@@ -1299,8 +1322,7 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 	  && may_propagate_copy (lhs, rhs))
 	set_value_for (lhs, rhs, const_and_copies);
 
-      register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
-			&bd->block_defs, currdefs);
+      register_new_def (lhs, &bd->block_defs, currdefs);
     }
 }
 
@@ -1794,7 +1816,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
 	  if (! dummy_cond)
 	    {
-	      dummy_cond = build (GT_EXPR, boolean_type_node,
+	      dummy_cond = build (LT_EXPR, boolean_type_node,
 				  op, integer_zero_node);
 	      dummy_cond = build (COND_EXPR, void_type_node,
 				  dummy_cond, NULL, NULL);
@@ -1817,7 +1839,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	{
 	  tree t;
 
-	  if (val && integer_onep (val))
+	  if (integer_onep (val))
 	    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
 	  else
 	    t = op;
@@ -2269,9 +2291,9 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  Replaced redundant expr '");
-	  print_generic_expr (dump_file, *expr_p, 0);
+	  print_generic_expr (dump_file, *expr_p, dump_flags);
 	  fprintf (dump_file, "' with '");
-	  print_generic_expr (dump_file, cached_lhs, 0);
+	  print_generic_expr (dump_file, cached_lhs, dump_flags);
 	   fprintf (dump_file, "'\n");
 	}
 
@@ -3090,8 +3112,8 @@ avail_expr_eq (const void *p1, const void *p2)
      same VUSE operands.  */
   if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
       && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
+          || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), 
+	        TREE_TYPE (rhs2)))
       && operand_equal_p (rhs1, rhs2, 0))
     {
       vuse_optype ops1 = STMT_VUSE_OPS (s1);
@@ -3150,7 +3172,7 @@ register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (def), def, block_defs_p, currdefs);
+      register_new_def (def, block_defs_p, currdefs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -3159,8 +3181,7 @@ register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
     {
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)),
-			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
+      register_new_def (VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
     }
 }
 

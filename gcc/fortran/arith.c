@@ -2426,9 +2426,15 @@ gfc_expr *
 gfc_convert_integer (const char *buffer, int kind, int radix, locus * where)
 {
   gfc_expr *e;
+  const char *t;
 
   e = gfc_constant_result (BT_INTEGER, kind, where);
-  mpz_set_str (e->value.integer, buffer, radix);
+  /* a leading plus is allowed, but not by mpz_set_str */
+  if (buffer[0] == '+')
+    t = buffer + 1;
+  else
+    t = buffer;
+  mpz_set_str (e->value.integer, t, radix);
 
   return e;
 }
@@ -2440,9 +2446,15 @@ gfc_expr *
 gfc_convert_real (const char *buffer, int kind, locus * where)
 {
   gfc_expr *e;
+  const char *t;
 
   e = gfc_constant_result (BT_REAL, kind, where);
-  mpf_set_str (e->value.real, buffer, 10);
+  /* a leading plus is allowed, but not by mpf_set_str */
+  if (buffer[0] == '+')
+    t = buffer + 1;
+  else
+    t = buffer;
+  mpf_set_str (e->value.real, t, 10);
 
   return e;
 }

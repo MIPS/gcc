@@ -345,7 +345,7 @@ named_section_flags (const char *name, unsigned int flags)
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      (*targetm.asm_out.named_section) (name, flags);
+      targetm.asm_out.named_section (name, flags);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -372,7 +372,7 @@ named_section (tree decl, const char *name, int reloc)
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
-  flags = (* targetm.section_type_flags) (decl, name, reloc);
+  flags = targetm.section_type_flags (decl, name, reloc);
 
   /* Sanity check user variables for flag changes.  Non-user
      section flag changes will abort in named_section_flags.
@@ -399,7 +399,7 @@ resolve_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED,
       && targetm.have_named_sections
       && (flag_function_or_data_sections
 	  || DECL_ONE_ONLY (decl)))
-    (*targetm.asm_out.unique_section) (decl, reloc);
+    targetm.asm_out.unique_section (decl, reloc);
 }
 
 #ifdef BSS_SECTION_ASM_OP
@@ -429,7 +429,7 @@ asm_output_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 		unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
 		unsigned HOST_WIDE_INT rounded)
 {
-  (*targetm.asm_out.globalize_label) (file, name);
+  targetm.asm_out.globalize_label (file, name);
   bss_section ();
 #ifdef ASM_DECLARE_OBJECT_NAME
   last_assemble_variable_decl = decl;
@@ -496,7 +496,7 @@ variable_section (tree decl, int reloc)
   if (IN_NAMED_SECTION (decl))
     named_section (decl, NULL, reloc);
   else
-    (*targetm.asm_out.select_section) (decl, reloc, DECL_ALIGN (decl));
+    targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
 }
 
 /* Tell assembler to switch to the section for string merging.  */
@@ -724,7 +724,7 @@ make_decl_rtl (tree decl, const char *asmspec)
       /* Let the target reassign the RTL if it wants.
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
-      (* targetm.encode_section_info) (decl, DECL_RTL (decl), false);
+      targetm.encode_section_info (decl, DECL_RTL (decl), false);
 
       /* Make this function static known to the mudflap runtime.  */
       if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
@@ -829,7 +829,7 @@ make_decl_rtl (tree decl, const char *asmspec)
      such as that it is a function name.
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
-  (* targetm.encode_section_info) (decl, DECL_RTL (decl), true);
+  targetm.encode_section_info (decl, DECL_RTL (decl), true);
 
   /* Make this function static known to the mudflap runtime.  */
   if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
@@ -1019,7 +1019,7 @@ notice_global_symbol (tree decl)
       char *name;
       rtx decl_rtl = DECL_RTL (decl);
 
-      p = (* targetm.strip_name_encoding) (XSTR (XEXP (decl_rtl, 0), 0));
+      p = targetm.strip_name_encoding (XSTR (XEXP (decl_rtl, 0), 0));
       name = xstrdup (p);
 
       *type = name;
@@ -1303,7 +1303,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   rtx decl_rtl;
 
   if (lang_hooks.decls.prepare_assemble_variable)
-    (*lang_hooks.decls.prepare_assemble_variable) (decl);
+    lang_hooks.decls.prepare_assemble_variable (decl);
 
   last_assemble_variable_decl = 0;
 
@@ -1616,7 +1616,7 @@ assemble_external_libcall (rtx fun)
   if (! SYMBOL_REF_USED (fun))
     {
       SYMBOL_REF_USED (fun) = 1;
-      (*targetm.asm_out.external_libcall) (fun);
+      targetm.asm_out.external_libcall (fun);
     }
 }
 
@@ -1663,7 +1663,7 @@ assemble_name (FILE *file, const char *name)
   const char *real_name;
   tree id;
 
-  real_name = (* targetm.strip_name_encoding) (name);
+  real_name = targetm.strip_name_encoding (name);
 
   id = maybe_get_identifier (real_name);
   if (id)
@@ -1752,7 +1752,7 @@ assemble_trampoline_template (void)
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
-  (*targetm.asm_out.internal_label) (asm_out_file, "LTRAMP", 0);
+  targetm.asm_out.internal_label (asm_out_file, "LTRAMP", 0);
   TRAMPOLINE_TEMPLATE (asm_out_file);
 
   /* Record the rtl to refer to it.  */
@@ -1847,7 +1847,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
   aligned_p = (align >= MIN (size * BITS_PER_UNIT, BIGGEST_ALIGNMENT));
 
   /* See if the target hook can handle this kind of object.  */
-  if ((*targetm.asm_out.integer) (x, size, aligned_p))
+  if (targetm.asm_out.integer (x, size, aligned_p))
     return true;
 
   /* If the object is a multi-byte one, try splitting it up.  Split
@@ -2264,8 +2264,8 @@ compare_constant (const tree t1, const tree t2)
     default:
       {
 	tree nt1, nt2;
-	nt1 = (*lang_hooks.expand_constant) (t1);
-	nt2 = (*lang_hooks.expand_constant) (t2);
+	nt1 = lang_hooks.expand_constant (t1);
+	nt2 = lang_hooks.expand_constant (t2);
 	if (nt1 != t1 || nt2 != t2)
 	  return compare_constant (nt1, nt2);
 	else
@@ -2336,7 +2336,7 @@ copy_constant (tree exp)
     default:
       {
 	tree t;
-	t = (*lang_hooks.expand_constant) (exp);
+	t = lang_hooks.expand_constant (exp);
 	if (t != exp)
 	  return copy_constant (t);
 	else
@@ -2389,7 +2389,7 @@ build_constant_desc (tree exp)
      information.  This call might invalidate our local variable
      SYMBOL; we can't use it afterward.  */
 
-  (*targetm.encode_section_info) (exp, rtl, true);
+  targetm.encode_section_info (exp, rtl, true);
 
   desc->rtl = rtl;
 
@@ -2492,7 +2492,7 @@ output_constant_def_contents (rtx symbol)
   if (IN_NAMED_SECTION (exp))
     named_section (exp, NULL, reloc);
   else
-    (*targetm.asm_out.select_section) (exp, reloc, align);
+    targetm.asm_out.select_section (exp, reloc, align);
 
   if (align > BITS_PER_UNIT)
     {
@@ -2734,7 +2734,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   void **slot;
 
   /* If we're not allowed to drop X into the constant pool, don't.  */
-  if ((*targetm.cannot_force_const_mem) (x))
+  if (targetm.cannot_force_const_mem (x))
     return NULL_RTX;
 
   /* Lookup the value in the hashtable.  */
@@ -2756,7 +2756,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
   {
-    tree type = (*lang_hooks.types.type_for_mode) (mode, 0);
+    tree type = lang_hooks.types.type_for_mode (mode, 0);
     if (type != NULL_TREE)
       align = CONSTANT_ALIGNMENT (make_tree (type, x), align);
   }
@@ -2800,7 +2800,7 @@ force_const_mem (enum machine_mode mode, rtx x)
 
   /* Construct the MEM.  */
   desc->mem = def = gen_rtx_MEM (mode, symbol);
-  set_mem_attributes (def, (*lang_hooks.types.type_for_mode) (mode, 0), 1);
+  set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
 
   /* If we're dropping a label to the constant pool, make sure we
@@ -2975,7 +2975,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
     }
 
   /* First switch to correct section.  */
-  (*targetm.asm_out.select_rtx_section) (desc->mode, x, desc->align);
+  targetm.asm_out.select_rtx_section (desc->mode, x, desc->align);
 
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
   ASM_OUTPUT_SPECIAL_POOL_ENTRY (asm_out_file, x, desc->mode,
@@ -2985,7 +2985,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
   assemble_align (desc->align);
 
   /* Output the label.  */
-  (*targetm.asm_out.internal_label) (asm_out_file, "LC", desc->labelno);
+  targetm.asm_out.internal_label (asm_out_file, "LC", desc->labelno);
 
   /* Output the data.  */
   output_constant_pool_2 (desc->mode, x, desc->align);
@@ -3124,7 +3124,7 @@ compute_reloc_for_constant (tree exp)
 
   /* Give the front-end a chance to convert VALUE to something that
      looks more like a constant to the back-end.  */
-  exp = (*lang_hooks.expand_constant) (exp);
+  exp = lang_hooks.expand_constant (exp);
 
   switch (TREE_CODE (exp))
     {
@@ -3188,7 +3188,7 @@ output_addressed_constants (tree exp)
 
   /* Give the front-end a chance to convert VALUE to something that
      looks more like a constant to the back-end.  */
-  exp = (*lang_hooks.expand_constant) (exp);
+  exp = lang_hooks.expand_constant (exp);
 
   switch (TREE_CODE (exp))
     {
@@ -3244,7 +3244,7 @@ initializer_constant_valid_p (tree value, tree endtype)
 {
   /* Give the front-end a chance to convert VALUE to something that
      looks more like a constant to the back-end.  */
-  value = (*lang_hooks.expand_constant) (value);
+  value = lang_hooks.expand_constant (value);
 
   switch (TREE_CODE (value))
     {
@@ -3472,7 +3472,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   /* Some front-ends use constants other than the standard language-independent
      varieties, but which may still be output directly.  Give the front-end a
      chance to convert EXP to a language-independent representation.  */
-  exp = (*lang_hooks.expand_constant) (exp);
+  exp = lang_hooks.expand_constant (exp);
 
   if (size == 0 || flag_syntax_only)
     return;
@@ -4115,9 +4115,12 @@ globalize_decl (tree decl)
 	}
       return;
     }
+#elif defined(ASM_MAKE_LABEL_LINKONCE)
+  if (DECL_ONE_ONLY (decl))
+    ASM_MAKE_LABEL_LINKONCE (asm_out_file, name);
 #endif
 
-  (*targetm.asm_out.globalize_label) (asm_out_file, name);
+  targetm.asm_out.globalize_label (asm_out_file, name);
 }
 
 /* Emit an assembler directive to make the symbol for DECL an alias to
@@ -4212,7 +4215,7 @@ maybe_assemble_visibility (tree decl)
   enum symbol_visibility vis = DECL_VISIBILITY (decl);
 
   if (vis != VISIBILITY_DEFAULT)
-    (* targetm.asm_out.visibility) (decl, vis);
+    targetm.asm_out.visibility (decl, vis);
 }
 
 /* Returns 1 if the target configuration supports defining public symbols
@@ -4239,16 +4242,16 @@ make_decl_one_only (tree decl)
 
   TREE_PUBLIC (decl) = 1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
-    DECL_COMMON (decl) = 1;
-  else if (SUPPORTS_ONE_ONLY)
+  if (SUPPORTS_ONE_ONLY)
     {
 #ifdef MAKE_DECL_ONE_ONLY
       MAKE_DECL_ONE_ONLY (decl);
 #endif
       DECL_ONE_ONLY (decl) = 1;
     }
+  else if (TREE_CODE (decl) == VAR_DECL
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    DECL_COMMON (decl) = 1;
   else if (SUPPORTS_WEAK)
     DECL_WEAK (decl) = 1;
   else
@@ -4291,7 +4294,7 @@ decl_tls_model (tree decl)
       return kind;
     }
 
-  is_local = (*targetm.binds_local_p) (decl);
+  is_local = targetm.binds_local_p (decl);
   if (!flag_pic)
     {
       if (is_local)
@@ -4599,7 +4602,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     }
 
   /* If the target uses small data sections, select it.  */
-  else if ((*targetm.in_small_data_p) (decl))
+  else if (targetm.in_small_data_p (decl))
     {
       if (ret == SECCAT_BSS)
 	ret = SECCAT_SBSS;
@@ -4767,7 +4770,7 @@ default_unique_section_1 (tree decl, int reloc, int shlib)
   plen = strlen (prefix);
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  name = (* targetm.strip_name_encoding) (name);
+  name = targetm.strip_name_encoding (name);
   nlen = strlen (name);
 
   string = alloca (nlen + plen + 1);
@@ -4841,9 +4844,9 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   flags = 0;
   if (TREE_CODE (decl) == FUNCTION_DECL)
     flags |= SYMBOL_FLAG_FUNCTION;
-  if ((*targetm.binds_local_p) (decl))
+  if (targetm.binds_local_p (decl))
     flags |= SYMBOL_FLAG_LOCAL;
-  if ((*targetm.in_small_data_p) (decl))
+  if (targetm.in_small_data_p (decl))
     flags |= SYMBOL_FLAG_SMALL;
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     flags |= decl_tls_model (decl) << SYMBOL_FLAG_TLS_SHIFT;
@@ -4932,6 +4935,16 @@ default_globalize_label (FILE * stream, const char *name)
   putc ('\n', stream);
 }
 #endif /* GLOBAL_ASM_OP */
+
+/* Default function to output a label for unwind information.  The
+   default is to do nothing.  A target that needs nonlocal labels for
+   unwind information must provide its own function to do this. */
+void
+default_emit_unwind_label (FILE * stream ATTRIBUTE_UNUSED,
+			   tree decl ATTRIBUTE_UNUSED,
+			   int empty ATTRIBUTE_UNUSED)
+{ 
+}
 
 /* This is how to output an internal numbered label where PREFIX is
    the class of label and LABELNO is the number within the class.  */

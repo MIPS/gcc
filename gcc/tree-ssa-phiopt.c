@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#include "langhooks.h"
 
 static void tree_ssa_phiopt (void);
 static bool conditional_replacement (basic_block bb, tree phi, tree arg0,
@@ -177,15 +178,13 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   cond = COND_EXPR_COND (last_stmt (cond_block));
   result = PHI_RESULT (phi);
   if (TREE_CODE (cond) != SSA_NAME
-      && (TYPE_MAIN_VARIANT (TREE_TYPE (cond))
-          != TYPE_MAIN_VARIANT (TREE_TYPE (result))))
+      && !lang_hooks.types_compatible_p (TREE_TYPE (cond), TREE_TYPE (result)))
     return false;
   
   /* If the condition was a naked SSA_NAME and the type is not the
       same as the type of the result, then convert the type of the
       condition.  */
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (cond))
-      != TYPE_MAIN_VARIANT (TREE_TYPE (result)))
+  if (!lang_hooks.types_compatible_p (TREE_TYPE (cond), TREE_TYPE (result)))
     cond = convert (TREE_TYPE (result), cond);
   
   /* We need to know which is the true edge and which is the false

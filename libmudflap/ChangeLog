@@ -1,3 +1,14 @@
+2004-03-25  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-impl.h: Added libgcc license header.
+
+2004-03-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks[123].c, mf-runtime.c, mf-heuristics.c:
+	Added libgcc license header.
+	* mf-hooks3.c (__mf_0fn_pthread_create): Correct arg constness.
+	(pthread_create): Simplify stack allocation syntax.
+
 2004-03-08  Loren J. Rittle  <ljrittle@acm.org>
 
 	* mf-hooks2.c: Support FreeBSD.

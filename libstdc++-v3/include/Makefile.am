@@ -202,6 +202,7 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/bitmap_allocator.h \
 	${ext_srcdir}/debug_allocator.h \
 	${ext_srcdir}/demangle.h \
 	${ext_srcdir}/enc_filebuf.h \
@@ -350,6 +351,7 @@ host_headers_noinst = \
 host_headers_extra = \
 	${host_builddir}/basic_file.h \
 	${host_builddir}/c++config.h \
+	${host_builddir}/c++allocator.h \
 	${host_builddir}/c++io.h \
 	${host_builddir}/c++locale.h \
 	${host_builddir}/messages_members.h \
@@ -479,6 +481,7 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  (cd ${host_builddir} ;\
 	  $(LN_S) ${host_headers} . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(ALLOCATOR_H) c++allocator.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_H) c++locale.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\

@@ -436,9 +436,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
 
-extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg_annotations (void);
-extern void delete_tree_cfg (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
@@ -452,7 +450,6 @@ extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
-extern void tree_cfg2dot (FILE *);
 extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_tree_cfg (void);
@@ -468,11 +465,9 @@ extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
-extern void bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
-extern bool verify_stmt (tree);
 extern void verify_stmts (void);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern void tree_expand_cfg (void);
@@ -538,7 +533,6 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (void);
 extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
@@ -554,8 +548,11 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, tree, varray_type *, varray_type);
+extern void register_new_def (tree, varray_type *, varray_type);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+
+/* In tree-into-ssa.c  */
+extern void rewrite_into_ssa (void);
 
 extern unsigned int highest_ssa_version;
 

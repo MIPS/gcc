@@ -36,6 +36,26 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "flags.h"
 
+/* Verify that there is exactly single jump instruction since last and attach
+   REG_BR_PROB note specifying probability.
+   ??? We really ought to pass the probability down to RTL expanders and let it
+   re-distribute it when the conditional expands into multiple coniditionals.
+   This is however dificult to do.  */
+static void
+add_reg_br_prob_note (rtx last, int probability)
+{
+  for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
+    if (GET_CODE (last) == JUMP_INSN)
+      return;
+  if (!last || GET_CODE (last) != JUMP_INSN || !any_condjump_p (last))
+      return;
+  if (find_reg_note (last, REG_BR_PROB, 0))
+    abort ();
+  REG_NOTES (last)
+    = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			 GEN_INT (probability), REG_NOTES (last));
+}
+
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
@@ -109,6 +129,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	    tree pred = COND_EXPR_COND (stmt);
 	    tree then_exp = COND_EXPR_THEN (stmt);
 	    tree else_exp = COND_EXPR_ELSE (stmt);
+	    rtx last = get_last_insn ();
 
 	    extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 	    if (EXPR_LOCUS (stmt))
@@ -129,12 +150,14 @@ expand_block (basic_block bb, FILE * dump_file)
 		&& TREE_CODE (else_exp) == NOP_EXPR)
 	      {
 		jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+		add_reg_br_prob_note (last, true_edge->probability);
 		break;
 	      }
 	    if (TREE_CODE (else_exp) == GOTO_EXPR
 		&& TREE_CODE (then_exp) == NOP_EXPR)
 	      {
 		jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
+		add_reg_br_prob_note (last, false_edge->probability);
 		break;
 	      }
 	    if (TREE_CODE (then_exp) != GOTO_EXPR
@@ -142,6 +165,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	      abort ();
 
 	    jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+	    add_reg_br_prob_note (last, true_edge->probability);
 	    last = get_last_insn ();
 	    expand_expr (else_exp, const0_rtx, VOIDmode, 0);
 
@@ -305,7 +329,7 @@ construct_exit_block (void)
   expand_end_bindings (BIND_EXPR_VARS (bind_expr), 1, 0);
   
   /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.end) ();
+  lang_hooks.rtl_expand.end ();
 
   /* Generate rtl for function exit.  */
   expand_function_end ();

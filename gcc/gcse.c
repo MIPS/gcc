@@ -568,6 +568,7 @@ static void hash_scan_set (rtx, rtx, struct hash_table *);
 static void hash_scan_clobber (rtx, rtx, struct hash_table *);
 static void hash_scan_call (rtx, rtx, struct hash_table *);
 static int want_to_gcse_p (rtx);
+static bool can_assign_to_reg_p (rtx);
 static bool gcse_constant_p (rtx);
 static int oprs_unchanged_p (rtx, rtx, int);
 static int oprs_anticipatable_p (rtx, rtx);
@@ -1269,13 +1270,9 @@ static basic_block current_bb;
 /* See whether X, the source of a set, is something we want to consider for
    GCSE.  */
 
-static GTY(()) rtx test_insn;
 static int
 want_to_gcse_p (rtx x)
 {
-  int num_clobbers = 0;
-  int icode;
-
   switch (GET_CODE (x))
     {
     case REG:
@@ -1284,12 +1281,24 @@ want_to_gcse_p (rtx x)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case CALL:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
-      break;
+      return can_assign_to_reg_p (x);
     }
+}
+
+/* Used internally by can_assign_to_reg_p.  */
+
+static GTY(()) rtx test_insn;
+
+/* Return true if we can assign X to a pseudo register.  */
+
+static bool
+can_assign_to_reg_p (rtx x)
+{
+  int num_clobbers = 0;
+  int icode;
 
   /* If this is a valid operand, we are OK.  If it's VOIDmode, we aren't.  */
   if (general_operand (x, GET_MODE (x)))
@@ -2130,9 +2139,6 @@ gcse_constant_p (rtx x)
       && ! FLOAT_MODE_P (GET_MODE (XEXP (x, 0)))
       && ! FLOAT_MODE_P (GET_MODE (XEXP (x, 1))))
     return true;
-
-  if (GET_CODE (x) == CONSTANT_P_RTX)
-    return false;
 
   return CONSTANT_P (x);
 }
@@ -6838,7 +6844,7 @@ compute_ld_motion_mems (void)
 			  && GET_CODE (src) != ASM_OPERANDS
 			  /* Check for REG manually since want_to_gcse_p
 			     returns 0 for all REGs.  */
-			  && (REG_P (src) || want_to_gcse_p (src)))
+			  && can_assign_to_reg_p (src))
 			ptr->stores = alloc_INSN_LIST (insn, ptr->stores);
 		      else
 			ptr->invalid = 1;
@@ -8319,10 +8325,12 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
 
   pat = PATTERN (insn);
   dest = SET_DEST (pat);
-  /* Check if the loaded register is not used nor killed from the beginning
-     of the block.  */
+  /* Check that the loaded register is not used, set, or killed from the
+     beginning of the block.  */
   if (reg_used_between_after_reload_p (dest,
-				       PREV_INSN (BB_HEAD (bb)), insn))
+                                       PREV_INSN (BB_HEAD (bb)), insn)
+      || reg_set_between_after_reload_p (dest,
+                                         PREV_INSN (BB_HEAD (bb)), insn))
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
@@ -8364,7 +8372,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
 	  ok_count += pred->count;
           if (EDGE_CRITICAL_P (pred))
             critical_count += pred->count;
-	  occr = (struct unoccr *) gmalloc (sizeof (struct unoccr));
+	  occr = gmalloc (sizeof (struct unoccr));
 	  occr->insn = avail_insn;
 	  occr->pred = pred;
 	  occr->next = avail_occrs;
@@ -8375,7 +8383,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
 	  not_ok_count += pred->count;
           if (EDGE_CRITICAL_P (pred))
             critical_count += pred->count;
-	  unoccr = (struct unoccr *) gmalloc (sizeof (struct unoccr));
+	  unoccr = gmalloc (sizeof (struct unoccr));
 	  unoccr->insn = NULL_RTX;
 	  unoccr->pred = pred;
 	  unoccr->next = unavail_occrs;
@@ -8614,8 +8622,7 @@ compute_hash_table_after_reload (struct hash_table *table)
   clear_modify_mem_tables ();
 
   /* Some working arrays used to track first and last set in each block.  */
-  reg_avail_info = (struct reg_avail_info*)
-		   gmalloc (max_gcse_regno * sizeof (struct reg_avail_info));
+  reg_avail_info = gmalloc (max_gcse_regno * sizeof (struct reg_avail_info));
 
   for (i = 0; i < max_gcse_regno; ++i)
     reg_avail_info[i].last_bb = NULL;

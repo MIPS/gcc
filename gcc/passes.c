@@ -270,7 +270,7 @@ open_dump_file (enum dump_file_index index, tree decl)
 
   if (decl)
     fprintf (dump_file, "\n;; Function %s%s\n\n",
-	     (*lang_hooks.decl_printable_name) (decl, 2),
+	     lang_hooks.decl_printable_name (decl, 2),
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
 	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
@@ -557,7 +557,7 @@ rest_of_handle_machine_reorg (tree decl, rtx insns)
   timevar_push (TV_MACH_DEP);
   open_dump_file (DFI_mach, decl);
 
-  (*targetm.machine_dependent_reorg) ();
+  targetm.machine_dependent_reorg ();
 
   close_dump_file (DFI_mach, print_rtl, insns);
   timevar_pop (TV_MACH_DEP);
@@ -1191,10 +1191,6 @@ rest_of_handle_gcse (tree decl, rtx insns)
   save_cfj = flag_cse_follow_jumps;
   flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
-  /* Instantiate any remaining CONSTANT_P_RTX nodes.  */
-  if (current_function_calls_constant_p)
-    purge_builtin_constant_p ();
-
   /* If -fexpensive-optimizations, re-run CSE to clean up things done
      by gcse.  */
   if (flag_expensive_optimizations)
@@ -1279,7 +1275,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
       reg_scan (insns, max_reg_num (), 1);
     }
   cleanup_barriers ();
-  loop_optimize (insns, dump_file, do_unroll | LOOP_BCT | do_prefetch);
+  loop_optimize (insns, dump_file, do_unroll | do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (insns, max_reg_num ());
@@ -1298,6 +1294,12 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 {
   struct loops *loops;
   basic_block bb;
+
+  if (!flag_unswitch_loops
+      && !flag_peel_loops
+      && !flag_unroll_loops
+      && !flag_branch_on_count_reg)
+    return;
 
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
@@ -1320,6 +1322,11 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 			       (flag_peel_loops ? UAP_PEEL : 0) |
 			       (flag_unroll_loops ? UAP_UNROLL : 0) |
 			       (flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+
+#ifdef HAVE_doloop_end
+      if (flag_branch_on_count_reg && HAVE_doloop_end)
+	doloop_optimize_loops (loops);
+#endif /* HAVE_doloop_end */
 
       loop_optimizer_finalize (loops, dump_file);
     }
@@ -1378,6 +1385,10 @@ rest_of_compilation (tree decl)
     }
   else
     finalize_block_changes ();
+
+  /* Dump the rtl code if we are dumping rtl.  */
+  if (open_dump_file (DFI_rtl, decl))
+    close_dump_file (DFI_rtl, print_rtl, get_insns ());
 
   /* Convert from NOTE_INSN_EH_REGION style notes, and do other
      sorts of eh initialization.  Delay this until after the
@@ -1497,7 +1508,7 @@ rest_of_compilation (tree decl)
 
 #ifdef SETJMP_VIA_SAVE_AREA
   /* This must be performed before virtual register instantiation.
-     Please be aware the everything in the compiler that can look
+     Please be aware that everything in the compiler that can look
      at the RTL up to this point must understand that REG_SAVE_AREA
      is just like a use of the REG contained inside.  */
   if (current_function_calls_alloca)
@@ -1604,10 +1615,7 @@ rest_of_compilation (tree decl)
   if (flag_tracer)
     rest_of_handle_tracer (decl, insns);
 
-  if (optimize > 0
-      && (flag_unswitch_loops
-	  || flag_peel_loops
-	  || flag_unroll_loops))
+  if (optimize > 0)
     rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)
@@ -1906,7 +1914,7 @@ rest_of_compilation (tree decl)
 
   timevar_pop (TV_FINAL);
 
-  if ((*targetm.binds_local_p) (current_function_decl))
+  if (targetm.binds_local_p (current_function_decl))
     {
       int pref = cfun->preferred_stack_boundary;
       if (cfun->recursive_call_emit

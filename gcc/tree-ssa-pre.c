@@ -612,7 +612,7 @@ factor_through_injuries (struct expr_info *ei, tree start, tree var,
       if (dump_file)
 	{
 	  fprintf (dump_file, "Found a real injury:");
-	  print_generic_stmt (dump_file, SSA_NAME_DEF_STMT (end), 0);
+	  print_generic_stmt (dump_file, SSA_NAME_DEF_STMT (end), dump_flags);
 	  fprintf (dump_file, "\n");
 	}
       if (injured)
@@ -735,7 +735,7 @@ set_var_phis (struct expr_info *ei, tree phi)
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "After factoring through injuries:");
-		  print_generic_stmt (dump_file, phi_operand, 0);
+		  print_generic_stmt (dump_file, phi_operand, dump_flags);
 		  fprintf (dump_file, "\n");
 		}
 	    }
@@ -1219,7 +1219,7 @@ generate_expr_as_of_bb (tree expr, basic_block pred, basic_block bb)
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
-	  if (names_match_p (PHI_RESULT (phi), v))
+	  if (PHI_RESULT (phi) ==  v)
 	    {
 	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
@@ -1254,7 +1254,7 @@ generate_vops_as_of_bb (tree expr, basic_block pred, basic_block bb)
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
-	  if (names_match_p (PHI_RESULT (phi), v))
+	  if (PHI_RESULT (phi) == v)
 	    {
 	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
@@ -1739,7 +1739,7 @@ rename_1 (struct expr_info *ei)
     {
       size_t i;
       fprintf (dump_file, "Occurrences for expression ");
-      print_generic_expr (dump_file, ei->expr, 0);
+      print_generic_expr (dump_file, ei->expr, dump_flags);
       fprintf (dump_file, " after Rename 1\n");
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
 	{
@@ -2084,6 +2084,8 @@ static void
 insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx, 
 		    tree x, edge succ, tree **avdefsp)
 {
+  /* FIXME.  pre_insert_on_edge should probably disappear.  */
+  extern void pre_insert_on_edge (edge, tree);
   tree expr;
   tree temp = ei->temp;
   tree copy;
@@ -2102,9 +2104,9 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   if (dump_file)
     {
       fprintf (dump_file, "In BB %d, insert save of ", bb->index);
-      print_generic_expr (dump_file, expr, 0);
+      print_generic_expr (dump_file, expr, dump_flags);
       fprintf (dump_file, " to ");
-      print_generic_expr (dump_file, newtemp, 0);
+      print_generic_expr (dump_file, newtemp, dump_flags);
       fprintf (dump_file, " after ");
       print_generic_stmt (dump_file, last_stmt (bb), dump_flags);
       fprintf (dump_file, " (on edge), because of EPHI");
@@ -2112,11 +2114,11 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
     }
 		      
   /* Do the insertion.  */
-  /* ??? Previously we did bizzare searching, presumably to get
+  /* ??? Previously we did bizarre searching, presumably to get
      around bugs elsewhere in the infrastructure.  I'm not sure
-     if we really should be using bsi_insert_on_edge_immediate,
+     if we really should be using pre_insert_on_edge
      or just bsi_insert_after at the end of BB.  */
-  bsi_insert_on_edge_immediate (succ, expr);
+  pre_insert_on_edge (succ, expr);
 
   EPHI_ARG_DEF (ephi, opnd_indx)
     = create_expr_ref (ei, ei->expr, EUSE_NODE, bb, 0);
@@ -2773,11 +2775,11 @@ code_motion (struct expr_info *ei)
 	    {
 	      fprintf (dump_file, "In BB %d, insert save of ",
 		       usebb->index);
-	      print_generic_expr (dump_file, copy, 0);
+	      print_generic_expr (dump_file, copy, dump_flags);
 	      fprintf (dump_file, " to ");
-	      print_generic_expr (dump_file, newtemp, 0);
+	      print_generic_expr (dump_file, newtemp, dump_flags);
 	      fprintf (dump_file, " before statement ");
-	      print_generic_expr (dump_file, use_stmt, 0);
+	      print_generic_expr (dump_file, use_stmt, dump_flags);
 	      fprintf (dump_file, "\n");
 	      if (EXPR_LOCUS (use_stmt))
 		fprintf (dump_file, " on line %d\n",
@@ -2807,9 +2809,9 @@ code_motion (struct expr_info *ei)
 	      print_generic_expr (dump_file,
 				  TREE_OPERAND (use_stmt, 1), 0);
 	      fprintf (dump_file, " from ");
-	      print_generic_expr (dump_file, newtemp, 0);
+	      print_generic_expr (dump_file, newtemp, dump_flags);
 	      fprintf (dump_file, " in statement ");
-	      print_generic_stmt (dump_file, use_stmt, 0);
+	      print_generic_stmt (dump_file, use_stmt, dump_flags);
 	      fprintf (dump_file, "\n");
 	      if (EXPR_LOCUS (use_stmt))
 		fprintf (dump_file, " on line %d\n",
@@ -3104,7 +3106,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
     {
       size_t i;
       fprintf (dump_file, "Occurrences for expression ");
-      print_generic_expr (dump_file, ei->expr, 0);
+      print_generic_expr (dump_file, ei->expr, dump_flags);
       fprintf (dump_file, " after Rename 2\n");
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
 	{
@@ -3120,7 +3122,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "EPHI's for expression ");
-      print_generic_expr (dump_file, ei->expr, 0);
+      print_generic_expr (dump_file, ei->expr, dump_flags);
       fprintf (dump_file,
 	       " after down safety and will_be_avail computation\n");
       FOR_EACH_BB (bb)

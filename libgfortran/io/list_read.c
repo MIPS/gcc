@@ -20,7 +20,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
-#include <setjmp.h>
 #include <string.h>
 #include <ctype.h>
 #include "libgfortran.h"
@@ -48,7 +47,6 @@ static int comma_flag, namelist_mode;
 static char last_char, *saved_string;
 static bt saved_type;
 
-static jmp_buf eof_jump;
 
 
 /* Storage area for values except for strings.  Must be large enough
@@ -145,7 +143,7 @@ next_char (void)
     }
 
   if (length == 0)
-    longjmp (eof_jump, 1);
+    longjmp (g.eof_jump, 1);
   c = *p;
 
 done:
@@ -1227,7 +1225,7 @@ list_formatted_read (bt type, void *p, int len)
 
   namelist_mode = 0;
 
-  if (setjmp (eof_jump))
+  if (setjmp (g.eof_jump))
     {
       generate_error (ERROR_END, NULL);
       return;
@@ -1413,7 +1411,7 @@ namelist_read (void)
 
   namelist_mode = 1;
 
-  if (setjmp (eof_jump))
+  if (setjmp (g.eof_jump))
     {
       generate_error (ERROR_END, NULL);
       return;

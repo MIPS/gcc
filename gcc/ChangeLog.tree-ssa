@@ -1,3 +1,298 @@
+2004-03-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* configure.ac: Emit confirmation messages for libbanshee.
+	* configure: Regenerate.
+
+2004-03-29  Jan Hubicka  <jh@suse.cz>
+
+	PR 14756
+	* cgraphunit.c (cgraph_decide_inlining): Rewrite handling of
+	always_inline functions.
+
+2004-03-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (expand_call_inline):  Remove fixme introduced by
+	nested function patch.
+
+2004-03-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-operands.c (get_stmt_operands): Remove always-true
+	predicate.
+
+	* tree-ssa-alias.c (maybe_create_global_var): Create
+	.GLOBAL_VAR if there are no call-clobbered variables.
+	* tree-ssa-operands.c (get_stmt_operands): Add call-clobbering
+	VDEFs for asm ("":::"memory") if there are call-clobbered
+	variables or if .GLOBAL_VAR has been created.
+
+
+2004-03-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* passes.c (rest_of_compilation): Re-enable .01.rtl
+	dumps.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node) <WITH_RECORD_EXPR>: Remove.
+	* tree-inline.c (estimate_num_insns_1) <WITH_RECORD_EXPR>: Remove.
+	* fold-const.c (fold_relational_hi_lo): Change type of argument
+	'type_p' to const tree and rename it to 'type'.  Update
+	all callers.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Remove c-call-graph.o
+	(c-call-graph.o): Remove.
+	* c-call-graph.c: Remove.
+	* c-tree.h (print_call_graph): Remove.
+	(debug_call_graph): Remove.
+	* tree-cfg.c: Update/add comments everywhere.
+	(pre_insert_on_edge): Rename from bsi_insert_on_edge_immediate.
+	* tree-flow.h (build_tree_cfg): Make static.
+	(tree_cfg2dot): Likewise.
+	(verify_stmt): Likewise.
+	* tree-ssa-pre.c (insert_one_operand): Call pre_insert_on_edge.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (struct alias_info): Change type of field
+	'num_references' to varray_type.  Update all users.
+
+2004-03-24  Jeff Law  <law@redhat.com>
+
+	* c-mudflap (mflang_flush_calls): Use push_scope/pop_scope instead
+	of pushlevel and poplevel.
+
+2004-03-23  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14694
+	* c-common.c (handle_alias_attribute): Mark aliased variables
+	to be TREE_STATIC.
+
+2004-03-23  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (register_new_def): Lose unnecessary VAR argument,
+	instead derive VAR from DEF argument.
+	(rewrite_initialize_block, rewrite_stmt, rewrite_operand): Corresponding
+	changes.
+	* tree-ssa-dom.c (register_definitions_for_stmt): Corresponding changes.
+	(record_equivalences_from_phis): Likewise.
+	(restore_currdefs_to_original_value): New, extracted from ...
+	(dom_opt_finalize_block): Use restore_currdefs_to_original_value.
+	Restore currdefs after threading across a true edge.
+	(thread_across_edge): Register new defintions when we walk through
+	a PHI node or real statement.
+	* tree-flow.h (register_new_def): Updated.
+
+2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-dce.c (find_obviously_necessary_stmts,
+	perform_tree_ssa_dce): Do not remove loops.
+
+2004-03-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14643
+	* tree-ssa-alias.c (group_aliases_into): Don't add a variable
+	to its own may-alias set.
+	(create_alias_map_for): New.
+	(setup_pointers_and_addressables): Call it.
+	Fix allocation of AI->ADDRESSABLE_VARS and AI->POINTERS.
+	If there are no addressable variables and more than one
+	dereferenced pointers, add type tags to the ADDRESSABLE_VARS
+	array.
+	(get_tmt_for): Add comment about using alias set equality when
+	checking for existing tags.
+
+2004-03-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* fold-const.c (fold_relational_const): Remove dead code.
+
+2004-03-19  Dale Johannesen  <dalej@apple.com>
+
+	* tree-ssa-dse.c (dse_optimize_stmt):  Redirect uses feeding into
+	a deleted store correctly.
+
+2004-03-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Fix typo.
+        Eliminate unnecessary test of VAL.
+
+	* tree-dfa.c (find_hidden_use_vars): Also look inside the
+	PENDING_SIZES list for hidden uses.
+	* tree-optimize.c (tree_rest_of_compilation): Expand used variables
+	before setting up parameters.
+	* tree-ssa-copyrename.c (rename_ssa_copies): Do nothing for copies
+	where the LHS has a hidden use.
+
+2004-03-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Reformat.
+	(OBJS-common): Add tree-into-ssa.o and tree-outof-ssa.o.
+	(tree-ssa.o): Remove dependency on domwalk.h and tree-ssa-live.h
+	(tree-into-ssa.o): New.
+	(tree-outof-ssa.o): New.
+	(GTFILES): Remove tree-ssa.c.
+	(gt-tree-ssa.h): Remove.
+	* tree-into-ssa.c: New file.
+	Move all the functions used to rename into SSA from tree-ssa.c.
+	Update/add comments.
+	Remove unused variables and structures.
+	Don't use GGC for memory allocation.
+	* tree-outof-ssa.c: New file.
+	Move all the functions used to rename out of SSA from
+	tree-ssa.c.
+	Update/add comments.
+	* tree-ssa-alias.c (compute_points_to_and_addr_escape): Add
+	bibliographic reference.
+
+2004-03-18  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (tree-tailcall.o): Depend on langhooks.h.
+	* tree-tailcall.c: Include langhooks.h.
+	(find_tail_calls): Use types_compatible_p langhook instead of
+	equality test of TYPE_MAIN_VARIANT.
+ 
+	* tree-nested.c (get_chain_decl): Mark the chain decl with
+	TREE_NO_WARNING.
+
+2004-03-18  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-live.c (new_tree_live_info): Set num_blocks to 
+	last_basic_block instead of n_basic_blocks.
+	(calculate_live_on_entry): Use last_basic_block instead of
+	n_basic_blocks.
+	(calculate_live_on_exit): Same.
+
+2004-03-17  Jeff Law  <law@redhat.com>
+
+	* tree-tailcall.c (find_tail_calls): Tighten test for tail recursion.
+
+2004-03-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14511
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing): Do not
+	ignore read-only variables.
+	(may_alias_p): Fix pointer-to-var calculation when 'var' is an
+	array.
+
+2004-03-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa.c (rewrite_into_ssa, compute_global_livein): Fix.
+
+2004-03-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	* builtins.c (expand_builtin_constant_p,
+	purge_builtin_constant_p): Remove.
+	(expand_builtin): Expand __builtin_constant_p to zero.
+	* function.c (struct function): Remove calls_constant_p.
+	(current_function_calls_constant_p): Remove.
+	* passes.c (rest_of_handle_gcse): Do not run
+	purge_builtin_constant_p.
+	* rtl.def (CONSTANT_P_RTX): Die die die.
+
+	* cse.c (fold_rtx): Do not handle CONSTANT_P_RTX.
+	* expr.c (emit_move_insn): Likewise.
+	* gcse.c (want_to_gcse_p, gcse_constant_p): Likewise.
+	* genrecog.c (validate_pattern): Likewise.
+	* recog.c (immediate_operand): Likewise.
+	* rtl.h (CONSTANT_P): Likewise.
+	* simplify-rtx.c (simplify_rtx): Likewise.
+	* config/alpha/alpha.c (input_operand): Likewise.
+	* config/arm/arm.c (THUMB_LEGITIMATE_CONSTANT_P): Likewise.
+	* config/c4x/c4x.c (const_operand): Likewise.
+	* config/cris/cris.c (cris_gotless_symbol,
+	cris_got_symbol): Likewise.
+	* config/frv/frv.h (LEGITIMATE_PIC_OPERAND_P): Likewise.
+	* config/ia64/ia64.c (gr_reg_or_5bit_operand,
+	gr_reg_or_6bit_operand, gr_reg_or_8bit_operand,
+	gr_reg_or_8bit_adjusted_operand,
+	gr_reg_or_8bit_and_adjusted_operand,
+	gr_reg_or_14bit_operand, gr_reg_or_22bit_operand,
+	shift_count_operand, shift_32bit_count_operand): Likewise.
+	* config/m32r/m32r.c (move_src_operand): Likewise.
+	* config/mips/mips.c (mips_const_insns): Likewise.
+	* config/mmix/mmix.c (mmix_constant_address_p): Likewise.
+	* config/pa/pa.c (move_src_operand): Likewise.
+	* config/rs6000/rs6000.c (input_operand): Likewise.
+	* config/sparc/sparc.c (input_operand): Likewise.
+	* config/v850/v850.c (movsi_source_operand): Likewise.
+	* config/xtensa/xtensa.c (move_operand,
+	xtensa_emit_move_sequence): Likewise.
+	* config/ia64/ia64.h (PREDICATE_CODES): Do not mention CONSTANT_P_RTX.
+	* config/pa/pa.h (PREDICATE_CODES): Likewise.
+
+2004-03-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dump.c (struct dump_option_value_info): Add TDF_UID.
+	* tree.h (TDF_UID): Define.
+	* doc/invoke.texi: Document -ftree-dump-...-uid.
+	* tree-pretty-print.c (debug_generic_expr): Add TDF_UID.
+	(debug_generic_stmt): Likewise.
+	(dump_decl_name): New function.
+	(dump_generic_node): Call it.
+	(print_declaration): Add new argument 'flags'.  Update all users.
+	(print_struct_decl): Likewise.
+	* tree-alias-ander.c, tree-cfg.c, tree-dfa.c, tree-mudflap.c,
+	tree-nrv.c, tree-sra.c, tree-ssa-alias.c, tree-ssa-ccp.c,
+	tree-ssa-copy.c, tree-ssa-dom.c, tree-ssa-dse.c,
+	tree-ssa-forwprop.c, tree-ssa-operands.c, tree-ssa-pre.c,
+	tree-ssa.c, tree-tail-call.c: Call print_generic_* with
+	'dump_flags'.
+
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in (tree-ssa-phiopt.o): add langhooks.h dependency.
+	(tree-nrv.o): Ditto.
+	(tree-ssa-copy.o): Ditto.
+	(tree-ssa-dom.o): Ditto.
+	(tree-ssa-ccp.o): Ditto.
+	* c-common.c: Add #include hashtab.h.
+	(c_type_hash): New.
+	(c_common_get_alias_set): Handle multiple type nodes referring
+	to "the same" type, currently for C90 only.
+	* c-decl.c (current_file_decl): Move to toplev.c.
+	* c-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Define to 
+	c_types_compatible_p.
+	(c_types_compatible_p): New.
+	* c-tree.h (c_types_compatible_p): New declaration.
+	* c-typeck.c (tagged_types_tu_compatible_p): Allow for 
+	compiler-generated TYPE_DECLs without a DECL_ORIGINAL_TYPE.
+	* gimplify.c (canonicalize_addr_expr): Use types_compatible_p langhook.
+	(cpt_same_type): Ditto.
+	* langhooks-def.h (lhd_types_compatible_p): New declaration.
+	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
+	* langhooks.c (lhd_types_compatible_p): New.
+	* langhooks.h (struct lang_hooks): Add types_compatible_p.
+	* stmt.c (tail_recursion_args): Use types_compatible_p langhook.
+	* toplev.c (current_file_decl): New, moved from c-decl.c.
+	* tree-nrv.c: Include langhooks.h.
+	(tree_nrv): Use types_compatible_p langhook.
+	* tree-ssa-ccp.c: Include langhooks.h.
+	(maybe_fold_offset_to_array_ref): Use types_compatible_p langhook.
+	(maybe_fold_offset_to_component_ref): Ditto (2 places).
+	(fold_stmt_r): Make sure rhs of COMPONENT_REF is in lhs type.
+	* tree-ssa-copy.c: Include langhooks.h.
+	(cprop_into_stmt): Use types_compatible_p langhook.
+	* tree-ssa-dom.c: Include langhooks.h.
+	(avail_expr_p): Use types_compatible_p langhook.
+	* tree-ssa-phiopt.c: Include langhooks.h.
+	(conditional_replacement): Use types_compatible_p langhook.
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): Use 
+	types_compatible_p langhook.
+	* tree.h (current_file_decl): New declaration.
+
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	PR optimization/14498
+	* gimplify.c (copy_if_shared_r): Mark VA_ARGS_EXPRs as volatile.
+	(mark_decls_volatile_r): Moved higher in file (unchanged).
+
+2004-03-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	PR optimization/14562
+	* tree-ssa-pre.c (generate_expr_as_of_bb): Don't use names_match_p.
+	(generate_vops_as_of_bb): Ditto.
+
 2004-03-12  Diego Novillo  <dnovillo@redhat.com>
 
 	PR optimization/14553
