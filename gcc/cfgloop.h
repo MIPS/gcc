@@ -285,6 +285,10 @@ struct loops
    allocating/freeing it.  */
 extern rtx *iv_register_values;
 
+/* Sbitmap of registers that are interesting for induction variable
+   analysis.  */
+extern sbitmap iv_interesting_reg;
+
 /* The induction variables at loop entries.  */
 extern rtx **loop_entry_values;
 
@@ -440,25 +444,10 @@ extern void iv_load_used_values		PARAMS ((rtx, rtx *));
 extern rtx get_def_value		PARAMS ((rtx, unsigned));
 extern rtx get_use_value		PARAMS ((rtx, unsigned));
 
-/* Flags for substitute_into_expr.  */
-enum
-{
-  SIE_SIMPLIFY = 1,	/* Simplify the resulting expression.  */
-  SIE_ONLY_SIMPLE = 2	/* Only substitute the simple expressions.  */
-};
-extern rtx substitute_into_expr		PARAMS ((rtx, rtx *, int));
-extern rtx iv_simplify_subreg		PARAMS ((rtx, enum machine_mode,
-						 enum machine_mode));
-extern rtx iv_simplify_rtx		PARAMS ((rtx));
-extern rtx simplify_iv_using_values	PARAMS ((rtx, rtx *));
+/* Some functions to manipulate iv rtxes.  */
 extern rtx iv_simplify_using_initial_values PARAMS ((enum rtx_code, rtx,
 						     struct loop *));
-
 extern rtx iv_omit_initial_values	PARAMS ((rtx));
-extern void iv_split			PARAMS ((rtx, rtx *, rtx *));
-extern rtx iv_base			PARAMS ((rtx));
-extern rtx iv_step			PARAMS ((rtx));
-extern bool iv_simple_p			PARAMS ((rtx));
 
 /* Functions to alter insns while keeping the iv information up-to-date.  */
 extern void iv_emit_insn_before		PARAMS ((rtx, rtx));

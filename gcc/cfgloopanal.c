@@ -28,6 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "expr.h"
 #include "output.h"
+#include "algebraic.h"
 
 struct unmark_altered_insn_data;
 static void unmark_altered	 PARAMS ((rtx, rtx, regset));
@@ -857,7 +858,8 @@ iv_simple_condition_p (loop, condition, values, desc)
      rtx *values;
      struct loop_desc *desc;
 {
-  rtx scond = substitute_into_expr (condition, values, SIE_SIMPLIFY);
+  rtx scond = substitute_into_expr (condition, iv_interesting_reg,
+				    values, SIE_SIMPLIFY);
   rtx op0, op1, tmp, delta, base0, step0, base1, step1, step, bound, may_xform;
   rtx assumption;
   enum rtx_code cond;
@@ -951,14 +953,16 @@ iv_simple_condition_p (loop, condition, values, desc)
 
   if (extend_mode != mode)
     {
-      op0 = iv_simplify_subreg (op0, mode, extend_mode);
-      op1 = iv_simplify_subreg (op1, mode, extend_mode);
+      op0 = simplify_alg_expr_subreg (op0, mode, extend_mode);
+      op1 = simplify_alg_expr_subreg (op1, mode, extend_mode);
     }
   mode = extend_mode;
   desc->mode = mode;
 
-  op0 = simplify_iv_using_values (op0, initial_values [loop->num]);
-  op1 = simplify_iv_using_values (op1, initial_values [loop->num]);
+  op0 = simplify_alg_expr_using_values (op0, iv_interesting_reg,
+					initial_values [loop->num]);
+  op1 = simplify_alg_expr_using_values (op1, iv_interesting_reg,
+					initial_values [loop->num]);
   if (!op0 || !op1)
     return false;
  
@@ -1042,7 +1046,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 			alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
 		return true;
 	      }
-	    base0 = iv_simplify_rtx (gen_rtx_fmt_ee (PLUS, mode,
+	    base0 = simplify_alg_expr (gen_rtx_fmt_ee (PLUS, mode,
 						     base0, const1_rtx));
 	  }
 	else
@@ -1058,7 +1062,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 			alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
 		return true;
 	      }
-	    base1 = iv_simplify_rtx (gen_rtx_fmt_ee (PLUS, mode,
+	    base1 = simplify_alg_expr (gen_rtx_fmt_ee (PLUS, mode,
 						     base1, constm1_rtx));
 	  }
 	desc->noloop_assumptions =
@@ -1109,7 +1113,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	step = step0;
       delta = gen_rtx_fmt_ee (MINUS, mode, copy_rtx (base1), copy_rtx (base0));
       delta = gen_rtx_fmt_ee (UMOD, mode, delta, step);
-      delta = iv_simplify_rtx (delta);
+      delta = simplify_alg_expr (delta);
       may_xform = const0_rtx;
 
       if (GET_CODE (delta) == CONST_INT)
@@ -1131,7 +1135,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	    {
 	      bound = gen_rtx_fmt_ee (PLUS, mode, mmin, step);
 	      bound = gen_rtx_fmt_ee (MINUS, mode, bound, delta);
-	      bound = iv_simplify_rtx (bound);
+	      bound = simplify_alg_expr (bound);
 	      may_xform = simplify_gen_relational (cond, SImode, mode,
 						   bound, copy_rtx (base0));
 	    }
@@ -1139,7 +1143,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	    {
 	      bound = gen_rtx_fmt_ee (MINUS, mode, mmax, step);
 	      bound = gen_rtx_fmt_ee (PLUS, mode, bound, delta);
-	      bound = iv_simplify_rtx (bound);
+	      bound = simplify_alg_expr (bound);
 	      may_xform = simplify_gen_relational (cond, SImode, mode,
 						   copy_rtx (base1), bound);
 	    }
@@ -1165,13 +1169,13 @@ iv_simple_condition_p (loop, condition, values, desc)
 	    {
 	      base0 = gen_rtx_fmt_ee (PLUS, mode, base0, delta);
 	      base0 = gen_rtx_fmt_ee (MINUS, mode, base0, step);
-	      base0 = iv_simplify_rtx (base0);
+	      base0 = simplify_alg_expr (base0);
 	    }
 	  else
 	    {
 	      base1 = gen_rtx_fmt_ee (MINUS, mode, base1, delta);
 	      base1 = gen_rtx_fmt_ee (PLUS, mode, base1, step);
-	      base1 = iv_simplify_rtx (base1);
+	      base1 = simplify_alg_expr (base1);
 	    }
 	}
     }
@@ -1192,7 +1196,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	  step0 = simplify_gen_unary (NEG, mode, step0, mode);
 	  base1 = gen_rtx_fmt_e (NEG, mode, base1);
 	}
-      base1 = iv_simplify_rtx (base1);
+      base1 = simplify_alg_expr (base1);
 
       /* Let nsd (s, size of mode) = d.  If d does not divide c, the loop
 	 is infinite.  Otherwise, the number of iterations is
@@ -1205,7 +1209,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	  size--;
 	}
       bound = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << (size - 1 ) << 1) - 1);
-      tmp = iv_simplify_rtx (gen_rtx_fmt_ee (UMOD, mode,
+      tmp = simplify_alg_expr (gen_rtx_fmt_ee (UMOD, mode,
 					     copy_rtx (base1),
 					     GEN_INT (d)));
       desc->infinite = simplify_gen_relational (NE, SImode, mode,
@@ -1213,7 +1217,7 @@ iv_simple_condition_p (loop, condition, values, desc)
       tmp = gen_rtx_fmt_ee (UDIV, mode, base1, GEN_INT (d));
       tmp = gen_rtx_fmt_ee (MULT, mode,
 			    tmp, GEN_INT (inverse (s, size)));
-      desc->niter_expr = iv_simplify_rtx (gen_rtx_fmt_ee (AND, mode,
+      desc->niter_expr = simplify_alg_expr (gen_rtx_fmt_ee (AND, mode,
 							  tmp, bound));
     }
   else
@@ -1253,7 +1257,7 @@ iv_simple_condition_p (loop, condition, values, desc)
       delta = gen_rtx_fmt_ee (MINUS, mode, base1, base0);
       delta = gen_rtx_fmt_ee (UDIV, mode, delta, step);
       delta = gen_rtx_fmt_ee (PLUS, mode, delta, const1_rtx);
-      desc->niter_expr = iv_simplify_rtx (delta);
+      desc->niter_expr = simplify_alg_expr (delta);
     }
 
   /* Attempt to make all the assumptions and other expressions simpler using

@@ -78,6 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "vpt.h"
 #include "hosthooks.h"
 #include "cgraph.h"
+#include "algebraic.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -5625,6 +5626,7 @@ backend_init ()
   init_reload ();
   init_function_once ();
   init_varasm_once ();
+  init_algebraic ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

@@ -1,3 +1,41 @@
+2003-05-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* algebraic.c, algebraic.h: New files.
+	* Makefile.in (algebraic.o): New.
+	(toplev.o, cfgloopanal.o, loop-iv.o): Add algebraic.h dependency.
+	* cfgloop.h (iv_interesting_reg): Declare.
+	(substitute_into_expr, iv_simplify_subreg, iv_simplify_rtx,
+	simplify_iv_using_values, iv_split): Declarations moved to
+	algebraic.h.
+	(iv_base, iv_step, iv_simple_p): Removed.
+	* cfgloopanal.c: Include algebraic.h.
+	(iv_simple_condition_p): Call renamed functions from algebraic.h.
+	* loop-iv.c: Include algebraic.h.
+	(block_dominance_order): New static variable.
+	(interesting_reg): Renamed to ...
+	(iv_interesting_reg): ... new.
+	(iteration_rtx, suitable_code, gen_iteration, straighten_ops,
+	sort_ops, iv_compare_rtx, use_distributive_law, iv_simplify_mult,
+	combine_constants, iv_simplify_plus, compare_with_mode_bounds,
+	iv_simplify_relational): Moved to algebraic.c.
+	(simple_expr_p, good_constant_p):  Moved to algebraic.h.
+	(expr_mentions_iteration_p, expr_mentions_initial_value_p):
+	Merged, renamed to fast_expr_mentions_code_p and moved to algebraic.h.
+	(init_suitable_codes): Renamed to init_algebraic and moved to
+	algebraic.c.
+	(dump_equations, dump_insn_ivs, invariant_wrto_ivs_p, simulate_set,
+	simplify_ivs_using_values, iv_simplify_using_initial_values,
+	simplify_reg_values, fill_loop_rd_in_for_def, initialize_iv_analysis,
+	finalize_iv_analysis, iv_make_initial_value, compute_initial_values,
+	record_iv_occurences_1, record_iv_occurences,
+	iv_new_insn_changes_commit, analyse_induction_variables): Altered due to
+	calls to functions and use of variables with changed names.
+	(get_reg_value_at, compute_reg_values, compute_register_values,
+	fill_loops_dominance_order): Pass blocks in dominance order to
+	avoid recursion.
+	* toplev.c: Include algebraic.h.
+	(backend_init): Call init_algebraic.
+
 2003-05-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.h (struct loop_desc): Add mode and signed_p fields.

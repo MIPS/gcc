@@ -797,8 +797,8 @@ C_OBJS = c-parse.o c-lang.o c-pretty-print.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 
-OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
- cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
+OBJS = algebraic.o alias.o bb-reorder.o bitmap.o builtins.o caller-save.o  \
+ calls.o cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o	   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
  debug.o df.o diagnostic.o dojump.o doloop.o dominance.o loop-iv.o	   \
@@ -1468,7 +1468,7 @@ diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
    input.h toplev.h intl.h langhooks.h $(LANGHOOKS_DEF_H)
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
    function.h flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
-   debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
+   debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h algebraic.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
    ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
@@ -1681,7 +1681,7 @@ cfgcleanup.o : cfgcleanup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(PARAMS_H)
 cfgloop.o : cfgloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h flags.h
-cfgloopanal.o : cfgloopanal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
+cfgloopanal.o : cfgloopanal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) algebraic.h \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h $(EXPR_H) coretypes.h $(TM_H)
 cfgloopmanip.o : cfgloopmanip.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h output.h coretypes.h $(TM_H)
@@ -1693,7 +1693,9 @@ loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H)
 loop-iv.o : loop-iv.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
-   output.h $(EXPR_H) coretypes.h $(TM_H) function.h df.h
+   output.h $(EXPR_H) coretypes.h $(TM_H) function.h df.h algebraic.h
+algebraic.o : algebraic.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
+   $(EXPR_H) coretypes.h $(TM_H) algebraic.h sbitmap.h
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_H)
