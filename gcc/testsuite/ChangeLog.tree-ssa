@@ -1,3 +1,8 @@
+2004-02-07  Bud Davis  <bdavis9659@comcast.net>
+
+	PR libfortran/14038
+	* gfortran.fortran-torture/execute/holletith.f90: New test.
+
 2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR middle-end/13127
