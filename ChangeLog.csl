@@ -1,3 +1,12 @@
+2004-10-12  Mark Mitchell <mark@codesourcery.com>
+
+	Revert:
+	* gcc/config/i386/sol2-10.h (LIBGCC_SPEC): Add support for -nolibgcc.
+
+	* gcc/config.gcc: Do not build crt1.o, crti.o, crtn.o, gcrt1.o.
+
+	* gcc/fixinc/inclhack.def (solaris_stdio_tag): Add bypass.
+
 2004-09-24  Mark Mitchell <mark@codesourcery.com>
 
 	Revert:
