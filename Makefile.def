@@ -29,10 +29,10 @@ AutoGen definitions Makefile.tpl;
 // indicates options to be passed on the 'make' command line.
 
 build_modules= { module= libiberty; };
-build_modules= { module= gcc; 
-                 configure_options="";
-	         make_options="LANGUAGES=\"$(BOOT_LANGUAGES)\" CFLAGS=\"$(STAGE1_CFLAGS)\" COVERAGE_FLAGS= ";
-               };
+// build_modules= { module= gcc; 
+//                 configure_options="";
+//	         make_options="LANGUAGES=\"$(BOOT_LANGUAGES)\" CFLAGS=\"$(STAGE1_CFLAGS)\" COVERAGE_FLAGS= ";
+//               };
 
 host_modules= { module= ash; };
 host_modules= { module= autoconf; };

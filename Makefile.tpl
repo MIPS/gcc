@@ -1199,66 +1199,6 @@ all-gcc: configure-gcc
 	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
 	fi
 
-# Building GCC uses some tools for rebuilding "source" files
-# like texinfo, bison/byacc, etc.  So we must depend on those.
-#
-# While building GCC, it may be necessary to run various target
-# programs like the assembler, linker, etc.  So we depend on
-# those too.
-#
-# In theory, on an SMP all those dependencies can be resolved
-# in parallel.
-#
-GCC_STRAP_TARGETS = bootstrap bootstrap-lean bootstrap2 bootstrap2-lean bootstrap3 bootstrap3-lean bootstrap4 bootstrap4-lean bubblestrap quickstrap cleanstrap restrap
-.PHONY: $(GCC_STRAP_TARGETS)
-$(GCC_STRAP_TARGETS): all-bootstrap configure-gcc
-	@r=`${PWD}`; export r; \
-	s=`cd $(srcdir); ${PWD}`; export s; \
-	$(SET_LIB_PATH) \
-	echo "Bootstrapping the compiler"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $@
-	@r=`${PWD}`; export r; \
-	s=`cd $(srcdir); ${PWD}`; export s; \
-	case "$@" in \
-	  *bootstrap4-lean ) \
-	    msg="Comparing stage3 and stage4 of the compiler"; \
-	    compare=compare3-lean ;; \
-	  *bootstrap4 ) \
-	    msg="Comparing stage3 and stage4 of the compiler"; \
-	    compare=compare3 ;; \
-	  *-lean ) \
-	    msg="Comparing stage2 and stage3 of the compiler"; \
-	    compare=compare-lean ;; \
-	  * ) \
-	    msg="Comparing stage2 and stage3 of the compiler"; \
-	    compare=compare ;; \
-	esac; \
-	$(SET_LIB_PATH) \
-	echo "$$msg"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $$compare
-	@r=`${PWD}`; export r; \
-	s=`cd $(srcdir); ${PWD}` ; export s; \
-	$(SET_LIB_PATH) \
-	echo "Building runtime libraries"; \
-	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
-
-profiledbootstrap: all-bootstrap configure-gcc
-	@r=`${PWD}`; export r; \
-	s=`cd $(srcdir); ${PWD}`; export s; \
-	$(SET_LIB_PATH) \
-	echo "Bootstrapping the compiler"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
-	@r=`${PWD}`; export r; \
-	s=`cd $(srcdir); ${PWD}` ; export s; \
-	$(SET_LIB_PATH) \
-	echo "Building runtime libraries and training compiler"; \
-	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
-	@r=`${PWD}`; export r; \
-	s=`cd $(srcdir); ${PWD}`; export s; \
-	$(SET_LIB_PATH) \
-	echo "Building feedback based compiler"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
-
 .PHONY: cross
 cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
 	@r=`${PWD}`; export r; \
@@ -1332,6 +1272,104 @@ gcc-no-fixedincludes:
 	  rm -rf gcc/include; \
 	  mv gcc/tmp-include gcc/include 2>/dev/null; \
 	else true; fi
+
+# ---------------------
+# GCC bootstrap support
+# ---------------------
+
+# 'touch' doesn't work right on some platforms.
+STAMP = echo timestamp >
+
+# Only build the C compiler for stage1, because that is the only one that
+# we can guarantee will build with the native compiler, and also it is the
+# only thing useful for building stage2. STAGE1_CFLAGS (via CFLAGS),
+# MAKEINFO and MAKEINFOFLAGS are explicitly passed here to make them
+# overrideable (for a bootstrap build stage1 also builds gcc.info).
+
+STAGE1_CFLAGS=@stage1_cflags@
+
+stage1_build: all-bootstrap
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	$(MAKE) configure-gcc
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	cd gcc && \
+	$(MAKE) $(GCC_FLAGS_TO_PASS) \
+                LANGUAGES="@stage1_languages@" \
+		CFLAGS="$(STAGE1_CFLAGS)" \
+		COVERAGE_FLAGS=
+	$(STAMP) stage1_build
+	echo stage1_build > stage_last
+
+stage1_copy: stage1_build
+	mv gcc stage1-gcc
+	$(STAMP) stage1_copy
+	echo stage2_build > stage_last
+
+# Flags to pass to stage2 and later makes.
+BOOT_CFLAGS= -g -O2
+POSTSTAGE1_FLAGS_TO_PASS = \
+	CFLAGS="$(BOOT_CFLAGS)" \
+	ADAC="\$$(CC)" \
+	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
+	STRICT_WARN="\$$(STRICT2_WARN)" \
+	OUTPUT_OPTION="-o \$$@" \
+	WERROR="@WERROR@"
+
+stage2_build: stage1_copy
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	$(MAKE) configure-gcc
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	cd gcc && \
+	$(MAKE) $(GCC_FLAGS_TO_PASS) \
+		CC="$(STAGE_CC_WRAPPER) ../stage1-gcc/xgcc$(exeext) -B../stage1-gcc/ -B$(build_tooldir)/bin/" \
+		BUILD_CC="$(STAGE_CC_WRAPPER) ../stage1-gcc/xgcc$(exeext) -B../stage1-gcc/ -B$(build_tooldir)/bin/" \
+		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) ../stage1-gcc/xgcc$(exeext) -B../stage1-gcc/ -B$(build_tooldir)/bin/" \
+		STAGE_PREFIX=../stage1-gcc/ \
+		$(POSTSTAGE1_FLAGS_TO_PASS)
+	$(STAMP) stage2_build
+	echo stage2_build > stage_last
+
+stage2_copy: stage2_build
+	mv gcc stage2-gcc
+	$(STAMP) stage2_copy
+	echo stage3_build > stage_last
+
+stage3_build: stage2_copy
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	$(MAKE) configure-gcc
+	r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	cd gcc && \
+	$(MAKE) $(GCC_FLAGS_TO_PASS) \
+		CC="$(STAGE_CC_WRAPPER) ../stage2-gcc/xgcc$(exeext) -B../stage2-gcc/ -B$(build_tooldir)/bin/" \
+		BUILD_CC="$(STAGE_CC_WRAPPER) ../stage2-gcc/xgcc$(exeext) -B../stage2-gcc/ -B$(build_tooldir)/bin/" \
+		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) ../stage2-gcc/xgcc$(exeext) -B../stage2-gcc/ -B$(build_tooldir)/bin/" \
+		STAGE_PREFIX=../stage2-gcc/ \
+		$(POSTSTAGE1_FLAGS_TO_PASS)
+	$(STAMP) stage3_build
+	echo stage3_build > stage_last
+
+compare: stage3_build
+	-rm -f .bad_compare
+	cd gcc ; \
+	for file in *$(objext); do \
+	  cmp --ignore-initial=16 $$file ../stage2-gcc/$$file > /dev/null 2>&1; \
+	  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
+	done
+	if [ -f .bad_compare ]; then \
+	  echo "Bootstrap comparison failure!"; \
+	  cat .bad_compare; \
+	  exit 1; \
+	else \
+	  true; \
+	fi
+
+bootstrap: compare
 
 # --------------------------------------
 # Dependencies between different modules

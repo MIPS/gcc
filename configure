@@ -3894,6 +3894,32 @@ else
 fi	
 MAINT=$MAINTAINER_MODE_TRUE
 
+# ---------------------
+# GCC bootstrap support
+# ---------------------
+
+# Stage specific cflags for build.
+stage1_cflags="-g"
+case $build in
+  vax-*-*)
+    case ${GCC} in
+      yes) stage1_cflags="-g -Wa,-J" ;;
+      *) stage1_cflags="-g -J" ;;
+    esac ;;
+  powerpc-*-darwin*)
+    # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
+    # sources; use -no-cpp-precomp to get to GNU cpp.
+    # Apple's GCC has bugs in designated initializer handling, so disable
+    # that too.
+    stage1_cflags="-g -no-cpp-precomp -DHAVE_DESIGNATED_INITIALIZERS=0"
+    ;;
+esac
+
+
+# FIXME: This needs to be done much better.  Sadly, that's hairy.
+stage1_languages="c ada"
+
+
 trap '' 1 2 15
 cat > confcache <<\EOF
 # This file is a shell script that caches the results of configure
@@ -4142,6 +4168,8 @@ s%@RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@%$RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE
 s%@MAINTAINER_MODE_TRUE@%$MAINTAINER_MODE_TRUE%g
 s%@MAINTAINER_MODE_FALSE@%$MAINTAINER_MODE_FALSE%g
 s%@MAINT@%$MAINT%g
+s%@stage1_cflags@%$stage1_cflags%g
+s%@stage1_languages@%$stage1_languages%g
 
 CEOF
 EOF
