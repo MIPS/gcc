@@ -1,3 +1,18 @@
+2005-01-02  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/pr12092-1.c: Do not run on x86_64.
+
+2005-01-02  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR rtl-optimization/12092
+	* gcc.dg/pr12092-1.c: New test case.
+
+2004-12-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/18384, c++/18327
+	* g++.dg/init/array18.C: New test.
+
 2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR target/16819

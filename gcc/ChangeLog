@@ -1,3 +1,72 @@
+2005-01-02  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+	    James E. Wilson  <wilson@specifixinc.com>
+
+	PR rtl-optimization/12092
+	* loop.c (emit_prefetch_instructions): Do nothing if PREFETCH_BLOCK
+	is zero.
+
+2004-12-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19175
+	* loop-unroll.c (expand_bct): Pass the code_label to the function
+	do_compare_rtx_and_jump, not the label ref.  Clean-up style issues.
+
+2004-12-27 John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* vax.c (vax_address_cost, vax_rtx_cost): Correct casts.
+	(vax_rtx_cost): Handle small offsets for both PLUS and MINUS.
+
+2004-12-27  Steven Bosscher  <stevenb@suse.de>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	rtl-optimization/12863
+        * config/vax/vax.h (CASE_DROPS_THROUGH): Don't define.
+        * config/vax/vax.md (casesi): Emit a test-and-branch to make sure
+        that the case is in range, to make sure the casesi insn is always
+        in range and never falls through.
+        (casesi1): Add comment to explain why casesi never falls through.
+        Remove the unnamed special case casesi pattern.
+
+2004-12-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR c++/14607.
+	Backported from main.
+	* configure.ac (HAVE_GAS_NSUBSPA_COMDAT): Add check for .NSUBSPA
+	COMDAT support.
+	* configure. config.in: Rebuilt.
+	* config/pa/pa-protos.h (som_text_section_asm_op,
+	som_readonly_data_section, som_one_only_readonly_data_section,
+	som_one_only_data_section, forget_section): Declare.
+	* pa.c (override_options): Set init_machine_status to
+	pa_init_machine_status.
+	(pa_init_machine_status): New function.
+	(pa_output_function_epilogue): Call forget_section if TARGET_SOM and
+	TARGET_GAS.
+	(pa_asm_output_mi_thunk): Likewise.
+	(som_text_section_asm_op): New function.
+	(pa_select_section): Call som_one_only_readonly_data_section and
+	som_one_only_data_section when appropriate.
+	* pa.h (struct machine_function): Define.
+	(EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS,
+	SOM_READONLY_DATA_SECTION_FUNCTION,
+	SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION
+	SOM_ONE_ONLY_DATA_SECTION_FUNCTION, FORGET_SECTION_FUNCTION): New
+	macros.
+	* som.h (ASM_OUTPUT_FUNCTION_PREFIX): Delete.
+	(TEXT_SECTION_ASM_OP): Call som_text_section_asm_op.
+	(READONLY_DATA_ASM_OP, EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS): Delete.
+	(READONLY_DATA_SECTION): Call som_readonly_data_section when not PIC.
+	(SUPPORTS_SOM_COMDAT): New define.
+	(SUPPORTS_ONE_ONLY): True if SUPPORTS_WEAK or SUPPORTS_SOM_COMDAT.
+	(MAKE_DECL_ONE_ONLY): Rework common support.
+
+2004-12-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/17643
+	* pa.c (pa_function_ok_for_sibcall): Sibcalls are not ok when
+	generating code for the portable runtime.
+
 2004-12-25  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/19147
