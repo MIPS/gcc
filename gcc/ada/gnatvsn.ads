@@ -37,7 +37,7 @@
 
 package Gnatvsn is
 
-   Gnat_Version_String : constant String := "3.2.2 20030309 (3.2.2-8)";
+   Gnat_Version_String : constant String := "3.2.2 20030313 (3.2.2-10)";
    --  Version output when GNAT (compiler), or its related tools, including
    --  GNATBIND, GNATCHOP, GNATFIND, GNATLINK, GNATMAKE, GNATXREF, are run
    --  (with appropriate verbose option switch set).

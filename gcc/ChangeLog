@@ -1,3 +1,59 @@
+2003-03-12  Richard Henderson  <rth@redhat.com>
+
+        PR opt/8178
+        * config/i386/i386.md (ffssi2): Tighten op1 predicate to
+        the requirements of the output insns.
+
+2003-03-12  Andrew Lewycky  <andrew@mxc.ca>
+
+	PR c++/7050
+	* expr.c (store_expr): Don't attempt to store void-typed trees,
+	just evaluate them for side effects.
+
+2003-03-12  Bob Wilson  <bob.wilson@acm.org>
+
+	Backport from mainline:
+	2003-03-12  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.md (adddi3): Don't clobber source operand used
+	to detect carry.
+	(subdi3): Reorder emitted instructions.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/9928
+	* c-decl.c (duplicate_decls): Discard the initializer of the new decl
+	only if it is a VAR_DECL.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/9888
+	* config/i386/i386.md (jcc_1): Fix range.
+	(jcc_2): Likewise.
+	(jump): LIkewise.
+	(doloop_end_internal): Likewise.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/9888
+	Backport patch from mainline:
+
+	Tue Nov 19 23:50:56 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (length_immediate): Do not refer to insn address.
+	(jcc*, jmp patterns): Compute length explicitly.
+	(doloop_end_internal pattern): Unconditionally set the type to "ibr".
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/9888
+	* config/i386/i386.md (movsi_1): Remove special alternatives
+	for %eax register.
+	(movhi_1): Likewise.
+	* config/i386/i386.c (memory_address_length): Do not use
+	short displacement when there is no base.
+	(ix86_attr_length_address_default): Handle LEA instructions.
+
 2003-03-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* stmt.c (expand_start_case): Call emit_queue ().

@@ -1,3 +1,20 @@
+2003-03-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9420
+	* search.c (lookup_conversions): Call complete_type here.
+	* call.c (implicit_conversion): Not here.
+
+2003-03-12  Andrew Lewycky  <andrew@mxc.ca>
+
+	PR c++/7050
+	* expr.c (cxx_expand_expr): Return const0_rtx for throw
+	expressions.
+
+2003-03-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9798
+	* decl.c (push_using_directive): Push before recursing.
+
 2003-02-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/9602
