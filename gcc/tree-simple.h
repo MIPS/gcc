@@ -115,7 +115,6 @@ void gimple_add_tmp_var (tree);
 tree gimple_current_bind_expr (void);
 void gimple_push_bind_expr (tree);
 void gimple_pop_bind_expr (void);
-void mark_not_gimple (tree *);
 void unshare_all_trees (tree);
 tree voidify_wrapper_expr (tree);
 tree gimple_build_eh_filter (tree, tree, tree);

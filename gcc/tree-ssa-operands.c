@@ -685,13 +685,6 @@ get_stmt_operands (tree stmt)
      optimizers.  */
   ann->has_volatile_ops = false;
 
-  /* Non-GIMPLE statements are just marked unmodified.  */
-  if (TREE_NOT_GIMPLE (stmt))
-    {
-      ann->modified = 0;
-      return;
-    }
-
   /* Remove any existing operands as they will be scanned again.  */
   free_defs (&(ann->def_ops), true);
   free_uses (&(ann->use_ops), true);
@@ -823,12 +816,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
   if (expr == NULL || expr == error_mark_node)
     return;
-
-#if defined ENABLE_CHECKING
-  /* non-GIMPLE expressions should not appear here.  */
-  if (TREE_NOT_GIMPLE (expr))
-    abort ();
-#endif
 
   code = TREE_CODE (expr);
   class = TREE_CODE_CLASS (code);

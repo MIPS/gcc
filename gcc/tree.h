@@ -142,7 +142,7 @@ struct tree_common GTY(())
   unsigned readonly_flag : 1;
   unsigned unsigned_flag : 1;
   unsigned asm_written_flag: 1;
-  unsigned not_gimple_flag : 1;
+  unsigned : 1;
 
   unsigned used_flag : 1;
   unsigned nothrow_flag : 1;
@@ -728,9 +728,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
-
-/* Nonzero if the node is not in GIMPLE form.  */
-#define TREE_NOT_GIMPLE(NODE) ((NODE)->common.not_gimple_flag)
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function

@@ -663,12 +663,6 @@ unshare_expr (tree expr)
   return expr;
 }
 
-void
-mark_not_gimple (tree *expr_p)
-{
-  TREE_NOT_GIMPLE (*expr_p) = 1;
-}
-
 /* A terser interface for building a representation of a exception
    specification.  */
 
@@ -1875,19 +1869,6 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
   if (decl && DECL_BUILT_IN (decl))
     {
       tree new;
-
-      /* Some builtins cannot be gimplified because the require specific
-	 arguments (e.g., MD builtins).  */
-      if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD
-	  /* But we don't care if the call has no arguments.  */
-	  && TREE_OPERAND (*expr_p, 1) != NULL_TREE)
-	{
-	  /* Mark the CALL_EXPR not gimplifiable so that optimizers don't
-	     assume anything about it.  FIXME: Maybe we should add a target
-	     hook for allowing this in the future?  */
-	  mark_not_gimple (expr_p);
-	  return GS_ALL_DONE;
-	}
 
       /* If it is allocation of stack, record the need to restore the memory
 	 when the enclosing bind_expr is exited.  */

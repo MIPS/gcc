@@ -97,9 +97,6 @@ struct walk_state
   /* Nonzero if the walker is inside an ASM_EXPR node.  */
   int is_asm_expr : 1;
 
-  /* Nonzero if the walker is inside a non-GIMPLE expression.  */
-  int is_not_gimple : 1;
-
   /* Hash table used to avoid adding the same variable more than once.  */
   htab_t vars_found;
 
@@ -201,32 +198,7 @@ find_referenced_vars (void)
     for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	tree *stmt_p = bsi_stmt_ptr (si);
-
-	/* Propagate non-GIMPLE attribute into the statement.  FIXME:
-	   The only statements that are not in GIMPLE form are calls to MD
-	   builtins.  Propagate the non-GIMPLE attribute from the RHS of
-	   assignments into the statement, if needed.  */
-	if (TREE_CODE (*stmt_p) == MODIFY_EXPR
-	    && TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR
-	    && TREE_NOT_GIMPLE (TREE_OPERAND (*stmt_p, 1)))
-	  mark_not_gimple (stmt_p);
-
-	/* A CALL_EXPR may also appear inside a RETURN_EXPR.  */
-	if (TREE_CODE (*stmt_p) == RETURN_EXPR)
-	  {
-	    tree expr = TREE_OPERAND (*stmt_p, 0);
-	    if (expr
-		&& TREE_CODE (expr) == MODIFY_EXPR
-		&& TREE_CODE (TREE_OPERAND (expr, 1)) == CALL_EXPR
-		&& TREE_NOT_GIMPLE (TREE_OPERAND (expr, 1)))
-	      mark_not_gimple (stmt_p);
-	  }
-
-	if (TREE_NOT_GIMPLE (*stmt_p))
-	  walk_state.is_not_gimple = 1;
-
 	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
-	walk_state.is_not_gimple = 0;
       }
 
   /* Determine whether to use .GLOBAL_VAR to model call clobber semantics.
@@ -1720,11 +1692,6 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   tree t = *tp;
   struct walk_state *walk_state = (struct walk_state *)data;
 
-#if defined ENABLE_CHECKING
-  if (TREE_NOT_GIMPLE (*tp) && walk_state->is_not_gimple == 0)
-    abort ();
-#endif
-
   /* Type and constant nodes have no interesting children.  Ignore them.  */
   if (TYPE_P (t) || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
     {
@@ -1801,7 +1768,7 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   /* A function call that receives pointer arguments may dereference them.
      For every pointer 'p' in the argument to the function call, add a
      reference to '*p'.  */
-  if (TREE_CODE (t) == CALL_EXPR && walk_state->is_not_gimple == 0)
+  if (TREE_CODE (t) == CALL_EXPR)
     {
       tree op;
 
@@ -1901,13 +1868,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
      stores to keep track of.  */
   if (walk_state->is_store)
     v_ann->is_stored = 1;
-
-  /* If VAR is being referenced inside a non-GIMPLE tree, mark it as having
-     hidden uses.  Currently, this is used for MD built-ins, which are not
-     gimplified and cannot be optimized.  FIXME: long term all trees must
-     be in GIMPLE form.  */
-  if (walk_state->is_not_gimple)
-    v_ann->has_hidden_use = 1;
 
   /* If the variable is a pointer being clobbered by an ASM_EXPR, the
      pointer may end up pointing to global memory.  */
