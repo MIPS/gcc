@@ -167,17 +167,17 @@ extern int darwin_running_cxx;
    but there are no more bits in rs6000 TARGET_SWITCHES.  Note
    that this switch has no "no-" variant. */
 extern const char *darwin_one_byte_bool;
-
+  
 extern int darwin_fix_and_continue;
 extern const char *darwin_fix_and_continue_switch;
 
-#undef  SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS						\
-   {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
-   {"fix-and-continue", &darwin_fix_and_continue_switch,		\
-    N_("Generate code suitable for fast turn around debugging"), 0},	\
-   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
+#undef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS \
+  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
+  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
+   N_("Generate code suitable for fast turn around debugging"), 0},	\
+  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
+   N_("Don't generate code suitable for fast turn around debugging"), 0}, \
 /* APPLE LOCAL begin constant cfstrings */ \
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
@@ -968,10 +968,8 @@ objc_section_init (void)			\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%ld", PREFIX, (long)(NUM))
 
-/* APPLE LOCAL begin 3739318 FSF candidate.  */
 #undef TARGET_ASM_MARK_DECL_PRESERVED
 #define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
-/* APPLE LOCAL end 3739318 FSF candidate.  */
 
 /* Since we have a separate readonly data section, define this so that
    jump tables end up in text rather than data.  */
@@ -1082,9 +1080,7 @@ enum machopic_addr_class {
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
 
 #define EH_FRAME_SECTION_NAME   "__TEXT"
-/* APPLE LOCAL begin dead code stripping radar 3739315 */
 #define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms+live_support"
-/* APPLE LOCAL end dead code stripping radar 3739315 */
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
@@ -1226,7 +1222,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 #define ADJUST_VTABLE_INDEX(IDX, VTBL)					\
     do {								\
       if (POSSIBLY_COMPILING_APPLE_KEXT_P () && flag_apple_kext)	\
-	(IDX) = fold (build (PLUS_EXPR, TREE_TYPE (IDX), IDX, size_int (2))); \
+	(IDX) = fold (build2 (PLUS_EXPR, TREE_TYPE (IDX), IDX, size_int (2))); \
     } while (0)
 /* APPLE LOCAL end double destructor 20020214 --turly  */
 

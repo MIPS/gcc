@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "regs.h"
+#include "params.h"
 
 /* Set to one when set_sizetype has been called.  */
 static int sizetype_set;
@@ -1936,12 +1937,12 @@ initialize_sizetypes (void)
   TYPE_MODE (t) = SImode;
   TYPE_ALIGN (t) = GET_MODE_ALIGNMENT (SImode);
   TYPE_USER_ALIGN (t) = 0;
+  TYPE_IS_SIZETYPE (t) = 1;
   TYPE_SIZE (t) = build_int_cst (t, GET_MODE_BITSIZE (SImode), 0);
   TYPE_SIZE_UNIT (t) = build_int_cst (t, GET_MODE_SIZE (SImode), 0);
   TYPE_UNSIGNED (t) = 1;
   TYPE_PRECISION (t) = GET_MODE_BITSIZE (SImode);
   TYPE_MIN_VALUE (t) = build_int_cst (t, 0, 0);
-  TYPE_IS_SIZETYPE (t) = 1;
 
   /* 1000 avoids problems with possible overflow and is certainly
      larger than any size value we'd want to be storing.  */
@@ -1951,6 +1952,8 @@ initialize_sizetypes (void)
      size_int_wide.  */
   sizetype = t;
   bitsizetype = copy_node (t);
+  TYPE_CACHED_VALUES (bitsizetype) = NULL_TREE;
+  TYPE_CACHED_VALUES_P (bitsizetype) = 0;
 }
 
 /* Set sizetype to TYPE, and initialize *sizetype accordingly.
@@ -1974,7 +1977,9 @@ set_sizetype (tree type)
 
   /* Make copies of nodes since we'll be setting TYPE_IS_SIZETYPE.  */
   sizetype = copy_node (type);
-  TYPE_ORIG_SIZE_TYPE (sizetype) = type;
+  TYPE_CACHED_VALUES (sizetype) = make_tree_vec (INTEGER_SHARE_LIMIT);
+  TYPE_CACHED_VALUES_P (sizetype) = 1;
+  TREE_TYPE (TYPE_CACHED_VALUES (sizetype)) = type;
   TYPE_IS_SIZETYPE (sizetype) = 1;
   bitsizetype = make_node (INTEGER_TYPE);
   TYPE_NAME (bitsizetype) = TYPE_NAME (type);
@@ -2121,6 +2126,8 @@ fixup_unsigned_type (tree type)
   if (precision > HOST_BITS_PER_WIDE_INT * 2)
     precision = HOST_BITS_PER_WIDE_INT * 2;
 
+  TYPE_UNSIGNED (type) = 1;
+  
   set_min_and_max_values_for_integral_type (type, precision, 
 					    /*is_unsigned=*/true);
 

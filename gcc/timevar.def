@@ -88,7 +88,9 @@ DEFTIMEVAR (TV_TREE_LOOP_IVOPTS	     , "tree iv optimization")
 DEFTIMEVAR (TV_MARK_MILOOPS	     , "mark maybe infinite loops")
 DEFTIMEVAR (TV_TREE_PREFETCH	     , "tree prefetching")
 DEFTIMEVAR (TV_TREE_LOOP_IVCANON     , "tree canonical iv creation")
+/* APPLE LOCAL end lno */
 DEFTIMEVAR (TV_TREE_VECTORIZATION    , "tree loop vectorization")
+/* APPLE LOCAL begin lno */
 DEFTIMEVAR (TV_TREE_ELIM_CHECKS      , "chrec eliminate checks")
 DEFTIMEVAR (TV_DEP_GRAPH             , "data dependences graph")
 /* APPLE LOCAL end lno */
@@ -135,6 +137,7 @@ DEFTIMEVAR (TV_SCHED                 , "scheduling")
 DEFTIMEVAR (TV_LOCAL_ALLOC           , "local alloc")
 DEFTIMEVAR (TV_GLOBAL_ALLOC          , "global alloc")
 DEFTIMEVAR (TV_RELOAD_CSE_REGS       , "reload CSE regs")
+DEFTIMEVAR (TV_GCSE_AFTER_RELOAD      , "load CSE after reload")
 DEFTIMEVAR (TV_FLOW2                 , "flow 2")
 DEFTIMEVAR (TV_IFCVT2		     , "if-conversion 2")
 DEFTIMEVAR (TV_PEEPHOLE2             , "peephole 2")

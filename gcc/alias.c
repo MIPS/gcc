@@ -118,7 +118,7 @@ static int nonoverlapping_memrefs_p (rtx, rtx);
 static int overlapping_memrefs_p (rtx, rtx);
 /* APPLE LOCAL end */
 
-static int write_dependence_p (rtx, rtx, int, int);
+static int write_dependence_p (rtx, rtx, int);
 
 static int nonlocal_mentioned_p_1 (rtx *, void *);
 static int nonlocal_mentioned_p (rtx);
@@ -309,28 +309,6 @@ alias_sets_might_conflict_p (HOST_WIDE_INT set1, HOST_WIDE_INT set2)
 }
 
 
-/* Return 1 if TYPE is a RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE and has
-   has any readonly fields.  If any of the fields have types that
-   contain readonly fields, return true as well.  */
-
-int
-readonly_fields_p (tree type)
-{
-  tree field;
-
-  if (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE
-      && TREE_CODE (type) != QUAL_UNION_TYPE)
-    return 0;
-
-  for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
-    if (TREE_CODE (field) == FIELD_DECL
-	&& (TREE_READONLY (field)
-	    || readonly_fields_p (TREE_TYPE (field))))
-      return 1;
-
-  return 0;
-}
-
 /* Return 1 if any MEM object of type T1 will always conflict (using the
    dependency routines in this file) with any MEM object of type T2.
    This is used when allocating temporary storage.  If T1 and/or T2 are
@@ -345,14 +323,6 @@ objects_must_conflict_p (tree t1, tree t2)
      because we may be using them to store objects of various types, for
      example the argument and local variables areas of inlined functions.  */
   if (t1 == 0 && t2 == 0)
-    return 0;
-
-  /* If one or the other has readonly fields or is readonly,
-     then they may not conflict.  */
-  if ((t1 != 0 && readonly_fields_p (t1))
-      || (t2 != 0 && readonly_fields_p (t2))
-      || (t1 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t1))
-      || (t2 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t2)))
     return 0;
 
   /* If they are the same type, they must conflict.  */
@@ -2237,17 +2207,10 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
-  /* Unchanging memory can't conflict with non-unchanging memory.
-     A non-unchanging read can conflict with a non-unchanging write.
-     An unchanging read can conflict with an unchanging write since
-     there may be a single store to this address to initialize it.
-     Note that an unchanging store can conflict with a non-unchanging read
-     since we have to make conservative assumptions when we have a
-     record with readonly fields and we are copying the whole thing.
-     Just fall through to the code below to resolve potential conflicts.
-     This won't handle all cases optimally, but the possible performance
-     loss should be negligible.  */
-  if (RTX_UNCHANGING_P (x) && ! RTX_UNCHANGING_P (mem))
+  /* Read-only memory is by definition never modified, and therefore can't
+     conflict with anything.  We don't expect to find read-only set on MEM,
+     but stupid user tricks can produce them, so don't abort.  */
+  if (MEM_READONLY_P (x))
     return 0;
 
   if (nonoverlapping_memrefs_p (mem, x))
@@ -2322,14 +2285,10 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
-  /* If X is an unchanging read, then it can't possibly conflict with any
-     non-unchanging store.  It may conflict with an unchanging write though,
-     because there may be a single store to this address to initialize it.
-     Just fall through to the code below to resolve the case where we have
-     both an unchanging read and an unchanging write.  This won't handle all
-     cases optimally, but the possible performance loss should be
-     negligible.  */
-  if (RTX_UNCHANGING_P (x) && ! RTX_UNCHANGING_P (mem))
+  /* Read-only memory is by definition never modified, and therefore can't
+     conflict with anything.  We don't expect to find read-only set on MEM,
+     but stupid user tricks can produce them, so don't abort.  */
+  if (MEM_READONLY_P (x))
     return 0;
 
   if (nonoverlapping_memrefs_p (x, mem))
@@ -2368,11 +2327,10 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 }
 
 /* Returns nonzero if a write to X might alias a previous read from
-   (or, if WRITEP is nonzero, a write to) MEM.  If CONSTP is nonzero,
-   honor the RTX_UNCHANGING_P flags on X and MEM.  */
+   (or, if WRITEP is nonzero, a write to) MEM.  */
 
 static int
-write_dependence_p (rtx mem, rtx x, int writep, int constp)
+write_dependence_p (rtx mem, rtx x, int writep)
 {
   rtx x_addr, mem_addr;
   rtx fixed_scalar;
@@ -2404,18 +2362,9 @@ write_dependence_p (rtx mem, rtx x, int writep, int constp)
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
-  if (constp)
-    {
-      /* Unchanging memory can't conflict with non-unchanging memory.  */
-      if (RTX_UNCHANGING_P (x) != RTX_UNCHANGING_P (mem))
-	return 0;
-
-      /* If MEM is an unchanging read, then it can't possibly conflict with
-	 the store to X, because there is at most one store to MEM, and it
-	 must have occurred somewhere before MEM.  */
-      if (! writep && RTX_UNCHANGING_P (mem))
-	return 0;
-    }
+  /* A read from read-only memory can't conflict with read-write memory.  */
+  if (!writep && MEM_READONLY_P (mem))
+    return 0;
 
   if (nonoverlapping_memrefs_p (x, mem))
     return 0;
@@ -2456,7 +2405,7 @@ write_dependence_p (rtx mem, rtx x, int writep, int constp)
 int
 anti_dependence (rtx mem, rtx x)
 {
-  return write_dependence_p (mem, x, /*writep=*/0, /*constp*/1);
+  return write_dependence_p (mem, x, /*writep=*/0);
 }
 
 /* Output dependence: X is written after store in MEM takes place.  */
@@ -2464,16 +2413,7 @@ anti_dependence (rtx mem, rtx x)
 int
 output_dependence (rtx mem, rtx x)
 {
-  return write_dependence_p (mem, x, /*writep=*/1, /*constp*/1);
-}
-
-/* Unchanging anti dependence: Like anti_dependence but ignores
-   the UNCHANGING_RTX_P property on const variable references.  */
-
-int
-unchanging_anti_dependence (rtx mem, rtx x)
-{
-  return write_dependence_p (mem, x, /*writep=*/0, /*constp*/0);
+  return write_dependence_p (mem, x, /*writep=*/1);
 }
 
 /* A subroutine of nonlocal_mentioned_p, returns 1 if *LOC mentions

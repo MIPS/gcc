@@ -1704,10 +1704,9 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
-	case NOTE_DISABLE_SCHED_OF_BLOCK:
+	case NOTE_INSN_DISABLE_SCHED_OF_BLOCK:
 	  break;
 
-	/* APPLE LOCAL begin hot/cold partitioning  */
 	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
 
 	  /* The presence of this note indicates that this basic block
@@ -1731,7 +1730,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if (flag_reorder_blocks_and_partition
 	      && !scan_ahead_for_unlikely_executed_note (insn))
 	    function_section (current_function_decl);
-	  /* APPLE LOCAL end hot/cold partitioning  */
 
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
@@ -1920,11 +1918,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
 
-      /* APPLE LOCAL begin hot/cold partitioning  */
       /* If we are doing the optimization that partitions hot & cold
 	 basic blocks into separate sections of the .o file, we need
 	 to ensure the jump table ends up in the correct section...  */
-
+      
       if (flag_reorder_blocks_and_partition
 	  && targetm.have_named_sections)
 	{
@@ -1936,10 +1933,9 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    }
 	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
 	    unlikely_text_section ();
-	  else
+	  else if (in_unlikely_text_section ())
 	    function_section (current_function_decl);
 	}
-      /* APPLE LOCAL end hot/cold partitioning  */
 
       if (app_on)
 	{

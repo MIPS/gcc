@@ -38,8 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "flags.h"
 #include "tree-inline.h"
-/* APPLE LOCAL begin lno */
 #include "tree-scalar-evolution.h"
+/* APPLE LOCAL begin lno */
 #include "tree-data-ref.h"
 #include "tree-vectorizer.h"
 #include "function.h"
@@ -113,12 +113,11 @@ struct tree_opt_pass pass_loop =
 static void
 tree_ssa_loop_init (void)
 {
-  /* APPLE LOCAL begin lno */
+  /* APPLE LOCAL lno */
   current_loops = tree_loop_optimizer_init (dump_file, true);
   if (!current_loops)
     return;
   scev_initialize (current_loops);
-  /* APPLE LOCAL end lno */
 }
 
 struct tree_opt_pass pass_loop_init = 
@@ -134,7 +133,7 @@ struct tree_opt_pass pass_loop_init =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  TODO_dump_func			/* todo_flags_finish */
 };
 
 /* Loop invariant motion pass.  */
@@ -367,8 +366,9 @@ struct tree_opt_pass pass_elim_checks =
   0,					/* todo_flags_start */
   TODO_dump_func                	/* todo_flags_finish */
 };
+/* APPLE LOCAL end lno */
 
-/* Vectorizer.  */
+/* Loop autovectorization.  */
 
 static void
 tree_vectorize (void)
@@ -386,22 +386,31 @@ gate_tree_vectorize (void)
   return flag_tree_vectorize != 0;
 }
 
-struct tree_opt_pass pass_vectorize = 
+struct tree_opt_pass pass_vectorize =
 {
-  "vect",				/* name */
-  gate_tree_vectorize,			/* gate */
-  tree_vectorize,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_VECTORIZATION,		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
+  "vect",                               /* name */
+  gate_tree_vectorize,                  /* gate */
+  tree_vectorize,                       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_TREE_VECTORIZATION,                /* tv_id */
+  PROP_cfg | PROP_ssa,                  /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  /* APPLE LOCAL begin lno */
+  /* MERGE FIXME, which one is right? */
+#if 1
+  TODO_dump_func			/* todo_flags_finish */
+#else
+  /* This version aborts in FAIL: gcc.dg/tree-ssa-vect/tree-ssa-vect-49.c (test for excess errors) */
   TODO_dump_func | TODO_write_loop_closed  /* todo_flags_finish */
+#endif
+  /* APPLE LOCAL end lno */
 };
 
+/* APPLE LOCAL begin lno */
 /* Complete unrolling of loops.  */
 
 static void
@@ -543,10 +552,9 @@ tree_ssa_loop_done (void)
   if (!current_loops)
     return;
 
-  /* APPLE LOCAL begin lno */
+  /* APPLE LOCAL lno */
   free_numbers_of_iterations_estimates (current_loops);
   scev_finalize ();
-  /* APPLE LOCAL end lno */
 
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
@@ -571,6 +579,6 @@ struct tree_opt_pass pass_loop_done =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  TODO_dump_func			/* todo_flags_finish */
 };
 

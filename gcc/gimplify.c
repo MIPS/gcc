@@ -128,8 +128,13 @@ push_gimplify_context (void)
 void
 pop_gimplify_context (tree body)
 {
+  tree t;
+
   if (!gimplify_ctxp || gimplify_ctxp->current_bind_expr)
     abort ();
+
+  for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
+    DECL_GIMPLE_FORMAL_TEMP_P (t) = 0;
 
   if (body)
     declare_tmp_vars (gimplify_ctxp->temps, body);
@@ -402,8 +407,10 @@ create_tmp_from_val (tree val)
 static tree
 lookup_tmp_var (tree val, bool is_formal)
 {
+  tree ret;
+
   if (!is_formal || TREE_SIDE_EFFECTS (val))
-    return create_tmp_from_val (val);
+    ret = create_tmp_from_val (val);
   else
     {
       elt_t elt, *elt_p;
@@ -415,15 +422,20 @@ lookup_tmp_var (tree val, bool is_formal)
 	{
 	  elt_p = xmalloc (sizeof (*elt_p));
 	  elt_p->val = val;
-	  elt_p->temp = create_tmp_from_val (val);
-	  TREE_READONLY (elt_p->temp) = 1;
+	  elt_p->temp = ret = create_tmp_from_val (val);
 	  *slot = (void *) elt_p;
 	}
       else
-	elt_p = (elt_t *) *slot;
-
-      return elt_p->temp;
+	{
+	  elt_p = (elt_t *) *slot;
+          ret = elt_p->temp;
+	}
     }
+
+  if (is_formal)
+    DECL_GIMPLE_FORMAL_TEMP_P (ret) = 1;
+
+  return ret;
 }
 
 /* Returns a formal temporary variable initialized with VAL.  PRE_P is as
@@ -444,7 +456,7 @@ internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
   tree t, mod;
   char class;
 
-  gimplify_expr (&val, pre_p, post_p, is_gimple_tmp_rhs, fb_rvalue);
+  gimplify_expr (&val, pre_p, post_p, is_gimple_formal_tmp_rhs, fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
 
@@ -1450,34 +1462,6 @@ gimplify_conversion (tree *expr_p)
   return GS_OK;
 }
 
-/* Reduce MIN/MAX_EXPR to a COND_EXPR for further gimplification.  */
-
-static enum gimplify_status
-gimplify_minimax_expr (tree *expr_p, tree *pre_p, tree *post_p)
-{
-  tree op1 = TREE_OPERAND (*expr_p, 0);
-  tree op2 = TREE_OPERAND (*expr_p, 1);
-  enum tree_code code;
-  enum gimplify_status r0, r1;
-
-  if (TREE_CODE (*expr_p) == MIN_EXPR)
-    code = LE_EXPR;
-  else
-    code = GE_EXPR;
-
-  r0 = gimplify_expr (&op1, pre_p, post_p, is_gimple_val, fb_rvalue);
-  r1 = gimplify_expr (&op2, pre_p, post_p, is_gimple_val, fb_rvalue);
-
-  *expr_p = build (COND_EXPR, TREE_TYPE (*expr_p),
-		   build (code, boolean_type_node, op1, op2),
-		   op1, op2);
-
-  if (r0 == GS_ERROR || r1 == GS_ERROR)
-    return GS_ERROR;
-  else
-    return GS_OK;
-}
-
 /* Subroutine of gimplify_compound_lval.
    Converts an ARRAY_REF to the equivalent *(&array + offset) form.  */
 
@@ -1607,7 +1591,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 		{
 	          TREE_OPERAND (t, 2) = low;
 		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p, post_p,
-					is_gimple_tmp_reg, fb_rvalue);
+					is_gimple_formal_tmp_reg, fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
 	    }
@@ -1626,7 +1610,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 		{
 	          TREE_OPERAND (t, 3) = elmt_size;
 		  tret = gimplify_expr (&TREE_OPERAND (t, 3), pre_p, post_p,
-					is_gimple_tmp_reg, fb_rvalue);
+					is_gimple_formal_tmp_reg, fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
 	    }
@@ -1648,7 +1632,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 		{
 	          TREE_OPERAND (t, 2) = offset;
 		  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p, post_p,
-					is_gimple_tmp_reg, fb_rvalue);
+					is_gimple_formal_tmp_reg, fb_rvalue);
 		  ret = MIN (ret, tret);
 		}
 	    }
@@ -1679,7 +1663,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	  if (!is_gimple_min_invariant (TREE_OPERAND (t, 1)))
 	    {
 	      tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
-				    is_gimple_tmp_reg, fb_rvalue);
+				    is_gimple_formal_tmp_reg, fb_rvalue);
 	      ret = MIN (ret, tret);
 	    }
 	}
@@ -2780,7 +2764,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    ctor = build (COMPLEX_EXPR, type, r, i);
 	    TREE_OPERAND (*expr_p, 1) = ctor;
 	    ret = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-				 is_gimple_tmp_rhs, fb_rvalue);
+				 rhs_predicate_for (TREE_OPERAND (*expr_p, 0)),
+				 fb_rvalue);
 	  }
       }
       break;
@@ -2802,7 +2787,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    {
 	      enum gimplify_status tret;
 	      tret = gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
-				    is_gimple_constructor_elt, fb_rvalue);
+				    is_gimple_val, fb_rvalue);
 	      if (tret == GS_ERROR)
 		ret = GS_ERROR;
 	    }
@@ -2973,19 +2958,14 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	}
     }
 
-  /* If the destination is already simple, nothing else needed.  */
-  if (is_gimple_tmp_var (*to_p) || !want_value)
-    ret = GS_ALL_DONE;
-  else
-    ret = GS_OK;
-
   if (want_value)
     {
       append_to_statement_list (*expr_p, pre_p);
       *expr_p = *to_p;
+      return GS_OK;
     }
 
-  return ret;
+  return GS_ALL_DONE;
 }
 
 /*  Gimplify a comparison between two variable-sized objects.  Do this
@@ -3131,7 +3111,7 @@ gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
   /* If the operand is already a GIMPLE temporary, just re-write the
      SAVE_EXPR node.  */
-  if (is_gimple_tmp_var (val))
+  if (TREE_CODE (val) == VAR_DECL && DECL_GIMPLE_FORMAL_TEMP_P (val))
     *expr_p = val;
   /* The operand may be a void-valued expression such as SAVE_EXPRs
      generated by the Java frontend for class initialization.  It is
@@ -3144,8 +3124,11 @@ gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
       *expr_p = NULL;
     }
   else
-    *expr_p = TREE_OPERAND (*expr_p, 0)
-      = get_initialized_tmp_var (val, pre_p, post_p);
+    {
+      val = get_initialized_tmp_var (val, pre_p, post_p);
+      DECL_GIMPLE_FORMAL_TEMP_P (val) = 1;
+      *expr_p = TREE_OPERAND (*expr_p, 0) = val;
+    }
 
   return ret;
 }
@@ -3915,11 +3898,6 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  }
 	  break;
 
-	case MIN_EXPR:
-	case MAX_EXPR:
-	  ret = gimplify_minimax_expr (expr_p, pre_p, post_p);
-	  break;
-
 	case LABEL_DECL:
 	  /* We get here when taking the address of a label.  We mark
 	     the label as "forced"; meaning it can never be removed and
@@ -4136,7 +4114,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       gimplify_expr (&tmp, pre_p, post_p, is_gimple_reg, fb_rvalue);
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
     }
-  else if ((fallback & fb_rvalue) && is_gimple_tmp_rhs (*expr_p))
+  else if ((fallback & fb_rvalue) && is_gimple_formal_tmp_rhs (*expr_p))
     {
 #if defined ENABLE_CHECKING
       if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
@@ -4153,6 +4131,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	*expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
       else
 	*expr_p = get_formal_tmp_var (*expr_p, pre_p);
+      DECL_GIMPLE_FORMAL_TEMP_P (*expr_p) = 1;
     }
   else if (fallback & fb_mayfail)
     {

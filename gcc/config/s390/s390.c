@@ -204,6 +204,16 @@ const char *s390_arch_string;		/* for -march=<xxx> */
 const char *s390_backchain_string = ""; /* "" no-backchain ,"1" backchain,
 					   "2" kernel-backchain */
 
+const char *s390_warn_framesize_string;
+const char *s390_warn_dynamicstack_string;
+const char *s390_stack_size_string;
+const char *s390_stack_guard_string;
+
+HOST_WIDE_INT s390_warn_framesize = 0;
+bool s390_warn_dynamicstack_p = 0;
+HOST_WIDE_INT s390_stack_size = 0;
+HOST_WIDE_INT s390_stack_guard = 0;
+
 /* The following structure is embedded in the machine 
    specific part of struct function.  */
 
@@ -1147,6 +1157,44 @@ override_options (void)
     error ("z/Architecture mode not supported on %s.", s390_arch_string);
   if (TARGET_64BIT && !TARGET_ZARCH)
     error ("64-bit ABI not supported in ESA/390 mode.");
+
+  if (s390_warn_framesize_string)
+    {
+      if (sscanf (s390_warn_framesize_string, HOST_WIDE_INT_PRINT_DEC,
+		  &s390_warn_framesize) != 1)
+	error ("invalid value for -mwarn-framesize");
+    }
+
+  if (s390_warn_dynamicstack_string)
+    s390_warn_dynamicstack_p = 1;
+  
+  if (s390_stack_size_string)
+    {
+      if (sscanf (s390_stack_size_string, HOST_WIDE_INT_PRINT_DEC, 
+		  &s390_stack_size) != 1)
+	error ("invalid value for -mstack-size");
+      
+      if (exact_log2 (s390_stack_size) == -1)
+	error ("stack size must be an exact power of 2");
+      
+      if (s390_stack_guard_string)
+	{
+	  if (sscanf (s390_stack_guard_string, HOST_WIDE_INT_PRINT_DEC, 
+		      &s390_stack_guard) != 1)
+	    error ("invalid value for -mstack-guard");
+	  
+	  if (s390_stack_guard >= s390_stack_size)
+	    error ("stack size must be greater than the stack guard value");
+ 
+	  if (exact_log2 (s390_stack_guard) == -1)
+	    error ("stack guard value must be an exact power of 2");
+	}
+      else
+	error ("-mstack-size implies use of -mstack-guard");
+    }
+  
+  if (s390_stack_guard_string && !s390_stack_size_string)
+    error ("-mstack-guard implies use of -mstack-size"); 
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -2495,14 +2543,22 @@ legitimate_la_operand_p (register rtx op)
   return FALSE;
 }
 
-/* Return 1 if OP is a valid operand for the LA instruction,
-   and we prefer to use LA over addition to compute it.  */
+/* Return 1 if it is valid *and* preferrable to use LA to
+   compute the sum of OP1 and OP2.  */
 
 int
-preferred_la_operand_p (register rtx op)
+preferred_la_operand_p (rtx op1, rtx op2)
 {
   struct s390_address addr;
-  if (!s390_decompose_address (op, &addr))
+
+  if (op2 != const0_rtx)
+    op1 = gen_rtx_PLUS (Pmode, op1, op2);
+
+  if (!s390_decompose_address (op1, &addr))
+    return FALSE;
+  if (addr.base && !REG_OK_FOR_BASE_STRICT_P (addr.base))
+    return FALSE;
+  if (addr.indx && !REG_OK_FOR_INDEX_STRICT_P (addr.indx))
     return FALSE;
 
   if (!TARGET_64BIT && !addr.pointer)
@@ -2604,8 +2660,7 @@ legitimize_pic_address (rtx orig, rtx reg)
           new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
           new = gen_rtx_CONST (Pmode, new);
           new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
-          new = gen_rtx_MEM (Pmode, new);
-          RTX_UNCHANGING_P (new) = 1;
+          new = gen_const_mem (Pmode, new);
           emit_move_insn (reg, new);
           new = reg;
         }
@@ -2620,8 +2675,7 @@ legitimize_pic_address (rtx orig, rtx reg)
           new = gen_rtx_CONST (Pmode, new);
           emit_move_insn (temp, new);
 
-          new = gen_rtx_MEM (Pmode, temp);
-          RTX_UNCHANGING_P (new) = 1;
+          new = gen_const_mem (Pmode, temp);
           emit_move_insn (reg, new);
           new = reg;
         }
@@ -2641,8 +2695,7 @@ legitimize_pic_address (rtx orig, rtx reg)
           emit_move_insn (temp, addr);
 
           new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, temp);
-          new = gen_rtx_MEM (Pmode, new);
-          RTX_UNCHANGING_P (new) = 1;
+          new = gen_const_mem (Pmode, new);
           emit_move_insn (reg, new);
           new = reg;
         }
@@ -2932,8 +2985,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	    new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTNTPOFF);
 	    new = gen_rtx_CONST (Pmode, new);
 	    new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
-	    new = gen_rtx_MEM (Pmode, new);
-	    RTX_UNCHANGING_P (new) = 1;
+	    new = gen_const_mem (Pmode, new);
 	    temp = gen_reg_rtx (Pmode);
 	    emit_move_insn (temp, new);
 	  }
@@ -2947,8 +2999,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	    temp = gen_reg_rtx (Pmode);
 	    emit_move_insn (temp, new);
 
-	    new = gen_rtx_MEM (Pmode, temp);
-	    RTX_UNCHANGING_P (new) = 1;
+	    new = gen_const_mem (Pmode, temp);
 	    temp = gen_reg_rtx (Pmode);
 	    emit_move_insn (temp, new);
 	  }
@@ -2967,8 +3018,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	    emit_move_insn (temp, new);
 
             new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, temp);
-	    new = gen_rtx_MEM (Pmode, new);
-	    RTX_UNCHANGING_P (new) = 1;
+	    new = gen_const_mem (Pmode, new);
 
 	    new = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, new, addr), UNSPEC_TLS_LOAD);
 	    temp = gen_reg_rtx (Pmode);
@@ -2986,9 +3036,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 	    emit_move_insn (temp, new);
 
 	    new = temp;
-	    new = gen_rtx_MEM (Pmode, new);
-	    RTX_UNCHANGING_P (new) = 1;
-
+	    new = gen_const_mem (Pmode, new);
 	    new = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, new, addr), UNSPEC_TLS_LOAD);
 	    temp = gen_reg_rtx (Pmode);
 	    emit_insn (gen_rtx_SET (Pmode, temp, new));
@@ -6268,6 +6316,33 @@ s390_emit_prologue (void)
   if (cfun_frame_layout.frame_size > 0)
     {
       rtx frame_off = GEN_INT (-cfun_frame_layout.frame_size);
+
+      if (s390_stack_size)
+  	{
+	  HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
+					    & ~(s390_stack_guard - 1));
+	  rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
+			       GEN_INT (stack_check_mask));
+
+	  if (TARGET_64BIT)
+	    gen_cmpdi (t, const0_rtx);
+	  else
+	    gen_cmpsi (t, const0_rtx);
+
+	  emit_insn (gen_conditional_trap (gen_rtx_EQ (CCmode, 
+						       gen_rtx_REG (CCmode, 
+								    CC_REGNUM),
+						       const0_rtx),
+					   const0_rtx));
+  	}
+
+      if (s390_warn_framesize > 0 
+	  && cfun_frame_layout.frame_size >= s390_warn_framesize)
+	warning ("frame size of `%s' is " HOST_WIDE_INT_PRINT_DEC " bytes", 
+		 current_function_name (), cfun_frame_layout.frame_size);
+
+      if (s390_warn_dynamicstack_p && cfun->calls_alloca)
+	warning ("`%s' uses dynamic stack allocation", current_function_name ());
 
       /* Save incoming stack pointer into temp reg.  */
       if (cfun_frame_layout.save_backchain_p || next_fpr)

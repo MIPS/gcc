@@ -1013,15 +1013,13 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		      gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
 				    gen_rtx_HIGH (word_mode, orig)));
       pic_ref
-	= gen_rtx_MEM (Pmode,
-		       gen_rtx_LO_SUM (Pmode, tmp_reg,
-				       gen_rtx_UNSPEC (Pmode,
-						       gen_rtvec (1, orig),
-						       UNSPEC_DLTIND14R)));
+	= gen_const_mem (Pmode,
+		         gen_rtx_LO_SUM (Pmode, tmp_reg,
+				         gen_rtx_UNSPEC (Pmode,
+						         gen_rtvec (1, orig),
+						         UNSPEC_DLTIND14R)));
 
       current_function_uses_pic_offset_table = 1;
-      MEM_NOTRAP_P (pic_ref) = 1;
-      RTX_UNCHANGING_P (pic_ref) = 1;
       mark_reg_pointer (reg, BITS_PER_UNIT);
       insn = emit_move_insn (reg, pic_ref);
 
@@ -9238,27 +9236,18 @@ cmpib_comparison_operator (rtx op, enum machine_mode mode)
 	      || GET_CODE (op) == LEU));
 }
 
-#ifndef ONE_ONLY_TEXT_SECTION_ASM_OP
-#define ONE_ONLY_TEXT_SECTION_ASM_OP ""
-#endif
-
-#ifndef NEW_TEXT_SECTION_ASM_OP
-#define NEW_TEXT_SECTION_ASM_OP ""
-#endif
-
-#ifndef DEFAULT_TEXT_SECTION_ASM_OP
-#define DEFAULT_TEXT_SECTION_ASM_OP ""
-#endif
-
-/* Select and return a TEXT_SECTION_ASM_OP for the current function.
+/* Return a string to output before text in the current function.
 
    This function is only used with SOM.  Because we don't support
    named subspaces, we can only create a new subspace or switch back
-   into the default text subspace.  */
+   to the default text subspace.  */
 const char *
 som_text_section_asm_op (void)
 {
-  if (TARGET_SOM && TARGET_GAS)
+  if (!TARGET_SOM)
+    return "";
+
+  if (TARGET_GAS)
     {
       if (cfun && !cfun->machine->in_nsubspa)
 	{
@@ -9271,9 +9260,10 @@ som_text_section_asm_op (void)
 	  if (cfun->decl
 	      && DECL_ONE_ONLY (cfun->decl)
 	      && !DECL_WEAK (cfun->decl))
-	    return ONE_ONLY_TEXT_SECTION_ASM_OP;
+	    return
+ "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,SORT=24,COMDAT";
 
-	  return NEW_TEXT_SECTION_ASM_OP;
+	  return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
 	}
       else
 	{
@@ -9281,13 +9271,13 @@ som_text_section_asm_op (void)
 	     function has been completed.  So, we are changing to the
 	     text section to output debugging information.  Do this in
 	     the default text section.  We need to forget that we are
-	     in the text section so that text_section will call us the
-	     next time around.  */
+	     in the text section so that the function text_section in
+	     varasm.c will call us the next time around.  */
 	  forget_section ();
 	}
     }
 
-  return DEFAULT_TEXT_SECTION_ASM_OP;
+  return "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$";
 }
 
 /* On hpux10, the linker will give an error if we have a reference
@@ -9310,7 +9300,7 @@ pa_select_section (tree exp, int reloc,
       if (TARGET_SOM
 	  && DECL_ONE_ONLY (exp)
 	  && !DECL_WEAK (exp))
-	one_only_readonly_data_section ();
+	som_one_only_readonly_data_section ();
       else
 	readonly_data_section ();
     }
@@ -9322,7 +9312,7 @@ pa_select_section (tree exp, int reloc,
 	   && DECL_ONE_ONLY (exp)
 	   && !DECL_WEAK (exp)
 	   && DECL_INITIAL (exp))
-    one_only_data_section ();
+    som_one_only_data_section ();
   else
     data_section ();
 }

@@ -36,7 +36,7 @@ AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
 # Determine the noncanonical target name, for directory use.
-_GCC_TOPLEV_NONCANONICAL_TARGET
+ACX_NONCANONICAL_TARGET
 
 # Determine the target- and build-specific subdirectories
 GCC_TOPLEV_SUBDIRS
@@ -531,7 +531,7 @@ fi
 # Enable code coverage collection
 AC_ARG_ENABLE(coverage,
 [  --enable-coverage[=LEVEL]
-			  enable compiler\'s code coverage collection.
+			  enable compiler's code coverage collection.
 			  Use to measure compiler performance and locate
 			  unused parts of the compiler. With LEVEL, specify
 			  optimization. Values are opt, noopt,
@@ -759,56 +759,45 @@ gcc_AC_PROG_CMP_IGNORE_INITIAL
 # See if we have the mktemp command.
 AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 
-# Do we have a single-tree copy of texinfo?
-if test -f $srcdir/../texinfo/Makefile.in; then
-  MAKEINFO='$(objdir)/../texinfo/makeinfo/makeinfo'
-  gcc_cv_prog_makeinfo_modern=yes
-  AC_MSG_RESULT([Using makeinfo from the unified source tree.])
-else
-  # See if makeinfo has been installed and is modern enough
-  # that we can use it.
-  gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
+
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
   [4.[2-9]*])
-fi
-
 if test $gcc_cv_prog_makeinfo_modern = no; then
+  MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
 *** Info documentation will not be built.])
   BUILD_INFO=
 else
-  BUILD_INFO=info		AC_SUBST(BUILD_INFO)
+  BUILD_INFO=info
 fi
+AC_SUBST(BUILD_INFO)
 
 # Is pod2man recent enough to regenerate manpages?
 AC_MSG_CHECKING([for recent Pod::Man])
 if (perl -e 'use 1.10 Pod::Man') >/dev/null 2>&1; then
   AC_MSG_RESULT(yes)
-  GENERATED_MANPAGES=generated-manpages		AC_SUBST(GENERATED_MANPAGES)
+  GENERATED_MANPAGES=generated-manpages
 else
   AC_MSG_RESULT(no)
   GENERATED_MANPAGES=
 fi
+AC_SUBST(GENERATED_MANPAGES)
 
 # How about lex?
 dnl Don't use AC_PROG_LEX; we insist on flex.
 dnl LEXLIB is not useful in gcc.
-if test x${build} = x${host} && test -f $srcdir/../flex/skel.c \
-  && test -d ../flex ; then
-  FLEX='$(objdir)/../flex/flex'
-else
-  AC_CHECK_PROG(FLEX, flex, flex, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing flex)
-fi
+AC_CHECK_PROGS([FLEX], flex, [$MISSING flex])
 
 # Bison?
-# The -L switch is so bison can find its skeleton file.
-if test x${build} = x${host} && test -f $srcdir/../bison/bison.simple \
-  && test -d ../bison ; then
-  BISON='$(objdir)/../bison/bison -L $(srcdir)/../bison/'
-else
-  AC_CHECK_PROG(BISON, bison, bison, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing bison)
-fi
+AC_CHECK_PROGS([BISON], bison, [$MISSING bison])
+
+# Binutils are not build modules, unlike bison/flex/makeinfo.  So we
+# check for build == host before using them.
 
 # NM
 if test x${build} = x${host} && test -f $srcdir/../binutils/nm.c \
@@ -1656,11 +1645,8 @@ AC_SUBST(inhibit_libc)
 # Also, we cannot run fixincludes or fix-header.
 
 # These are the normal (build=host) settings:
-BUILD_PREFIX=			AC_SUBST(BUILD_PREFIX)
-BUILD_PREFIX_1=ignore-		AC_SUBST(BUILD_PREFIX_1)
 CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
-
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
 # Possibly disable fixproto, on a per-target basis.
@@ -1677,8 +1663,6 @@ AC_SUBST(STMP_FIXPROTO)
 # And these apply if build != host, or we are generating coverage data
 if test x$build != x$host || test "x$coverage_flags" != x
 then
-    BUILD_PREFIX=build-
-    BUILD_PREFIX_1=build-
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
@@ -2693,6 +2677,15 @@ foo:	nop
        else target_cpu_default="($target_cpu_default)|MASK_EXPLICIT_RELOCS"
        fi])
 
+    if test x$gas_flag = xyes \
+       || test x"$host" != x"$build" \
+       || test ! -x "$gcc_cv_as" \
+       || "$gcc_cv_as" -v < /dev/null 2>&1 | grep GNU > /dev/null; then
+      :
+    else
+      echo "*** This configuration requires the GNU assembler" >&2
+      exit 1
+    fi
     ;;
 esac
 # ??? Not all targets support dwarf2 debug_line, even within a version
@@ -2863,6 +2856,47 @@ if test x"$gcc_cv_ld_as_needed" = xyes; then
 	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
 [Define if your linker supports --as-needed and --no-as-needed options.])
 fi
+
+case "$target" in
+  powerpc64*-*-linux*)
+    AC_CACHE_CHECK(linker support for omitting dot symbols,
+    gcc_cv_ld_no_dot_syms,
+    [gcc_cv_ld_no_dot_syms=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2; then
+        gcc_cv_ld_no_dot_syms=yes
+      fi
+    elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
+      cat > conftest1.s <<EOF
+	.text
+	bl .foo
+EOF
+      cat > conftest2.s <<EOF
+	.section ".opd","aw"
+	.align 3
+	.globl foo
+	.type foo,@function
+foo:
+	.quad .LEfoo,.TOC.@tocbase,0
+	.text
+.LEfoo:
+	blr
+	.size foo,.-.LEfoo
+EOF
+      if $gcc_cv_as -a64 -o conftest1.o conftest1.s > /dev/null 2>&1 \
+         && $gcc_cv_as -a64 -o conftest2.o conftest2.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -melf64ppc -o conftest conftest1.o conftest2.o > /dev/null 2>&1; then
+        gcc_cv_ld_no_dot_syms=yes
+      fi
+      rm -f conftest conftest1.o conftest2.o conftest1.s conftest2.s
+    fi
+    ])
+    if test x"$gcc_cv_ld_no_dot_syms" = xyes; then
+      AC_DEFINE(HAVE_LD_NO_DOT_SYMS, 1,
+    [Define if your PowerPC64 linker only needs function descriptor syms.])
+    fi
+    ;;
+esac
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
@@ -3202,7 +3236,6 @@ AC_SUBST(tm_p_include_list)
 AC_SUBST(xm_file_list)
 AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
-AC_SUBST(target_noncanonical)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)

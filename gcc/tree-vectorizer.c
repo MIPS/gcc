@@ -200,7 +200,7 @@ static bool vect_get_array_first_index (tree, int *);
 static bool vect_force_dr_alignment_p (struct data_reference *);
 static bool vect_analyze_loop_with_symbolic_num_of_iters 
 		(tree *, struct loop *);
-static struct data_reference * vect_analyze_pointer_ref_access (tree, tree);
+static struct data_reference * vect_analyze_pointer_ref_access (tree, tree, bool);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -3353,6 +3353,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 				  struct data_reference *drb, 
 				  struct loop *loop)
 {
+  bool differ_p;
   tree refa = DR_REF (dra);
   tree refb = DR_REF (drb);
   tree ptra = TREE_OPERAND (refa, 0);
@@ -3370,7 +3371,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 	  || (TREE_CODE (ptrb) == COMPONENT_REF 
 	      && TREE_CODE (TREE_OPERAND (ptrb, 0)) == VAR_DECL)))
     {
-      if (array_base_name_differ_p (dra, drb))
+      if (array_base_name_differ_p (dra, drb, &differ_p))
 	return false;
       else
 	{
@@ -3926,7 +3927,7 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
    that represents it (DR). Otherwise - return NULL.   */
 
 static struct data_reference *
-vect_analyze_pointer_ref_access (tree memref, tree stmt)
+vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
@@ -4004,7 +4005,7 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
       fprintf (dump_file, "Access function of ptr indx: ");
       print_generic_expr (dump_file, indx_access_fn, TDF_SLIM);
     }
-  dr = init_data_ref (stmt, memref, init, indx_access_fn);
+  dr = init_data_ref (stmt, memref, init, indx_access_fn, is_read);
   return dr;
 }
 
@@ -4092,7 +4093,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 	  if (TREE_CODE (memref) == INDIRECT_REF)
             {
-              dr = vect_analyze_pointer_ref_access (memref, stmt);
+              dr = vect_analyze_pointer_ref_access (memref, stmt, is_read);
               if (! dr)
                 return false; 
 	      symbl = DR_BASE_NAME (dr);	

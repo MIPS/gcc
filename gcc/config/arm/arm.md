@@ -449,7 +449,7 @@
     {
       arm_split_constant (PLUS, SImode, NULL_RTX,
 	                  INTVAL (operands[2]), operands[0], operands[1],
-			  (no_new_pseudos ? 0 : preserve_subexpressions_p ()));
+			  optimize && !no_new_pseudos);
       DONE;
     }
   "
@@ -935,9 +935,7 @@
         {
           arm_split_constant (MINUS, SImode, NULL_RTX,
 	                      INTVAL (operands[1]), operands[0],
-	  		      operands[2],
-			      (no_new_pseudos ? 0
-			       :  preserve_subexpressions_p ()));
+	  		      operands[2], optimize && !no_new_pseudos);
           DONE;
 	}
       else /* TARGET_THUMB */
@@ -1512,9 +1510,8 @@
         {
           arm_split_constant (AND, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0],
-			      operands[1],
-			      (no_new_pseudos
-			       ? 0 : preserve_subexpressions_p ()));
+			      operands[1], optimize && !no_new_pseudos);
+
           DONE;
         }
     }
@@ -2167,8 +2164,7 @@
         {
           arm_split_constant (IOR, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0], operands[1],
-			      (no_new_pseudos
-			      ? 0 : preserve_subexpressions_p ()));
+			      optimize && !no_new_pseudos);
           DONE;
 	}
       else /* TARGET_THUMB */
@@ -4256,8 +4252,7 @@
         {
            arm_split_constant (SET, SImode, NULL_RTX,
 	                       INTVAL (operands[1]), operands[0], NULL_RTX,
-			      (no_new_pseudos ? 0
-			       : preserve_subexpressions_p ()));
+			       optimize && !no_new_pseudos);
           DONE;
         }
     }
@@ -4653,7 +4648,7 @@
 	      emit_insn (gen_movsi (reg, GEN_INT (val)));
 	      operands[1] = gen_lowpart (HImode, reg);
 	    }
-	  else if (arm_arch4 && !no_new_pseudos && optimize > 0
+	  else if (arm_arch4 && optimize && !no_new_pseudos
 		   && GET_CODE (operands[1]) == MEM)
 	    {
 	      rtx reg = gen_reg_rtx (SImode);
@@ -5249,7 +5244,9 @@
                           (match_operand:SI 1 "" ""))
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
-  "
+{
+  HOST_WIDE_INT offset = 0;
+
   /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
@@ -5263,11 +5260,8 @@
   operands[3]
     = arm_gen_load_multiple (REGNO (operands[0]), INTVAL (operands[2]),
 			     force_reg (SImode, XEXP (operands[1], 0)),
-			     TRUE, FALSE, RTX_UNCHANGING_P(operands[1]),
-			     MEM_IN_STRUCT_P(operands[1]),
-	                     MEM_SCALAR_P (operands[1]));
-  "
-)
+			     TRUE, FALSE, operands[1], &offset);
+})
 
 ;; Load multiple with write-back
 
@@ -5371,7 +5365,9 @@
                           (match_operand:SI 1 "" ""))
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
-  "
+{
+  HOST_WIDE_INT offset = 0;
+
   /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
@@ -5385,11 +5381,8 @@
   operands[3]
     = arm_gen_store_multiple (REGNO (operands[1]), INTVAL (operands[2]),
 			      force_reg (SImode, XEXP (operands[0], 0)),
-			      TRUE, FALSE, RTX_UNCHANGING_P (operands[0]),
-			      MEM_IN_STRUCT_P(operands[0]), 
-	                      MEM_SCALAR_P (operands[0]));
-  "
-)
+			      TRUE, FALSE, operands[0], &offset);
+})
 
 ;; Store multiple with write-back
 
@@ -6442,10 +6435,10 @@
        case 1:
 	 output_asm_insn (\"cmn\t%1, %2\", operands);
 	 break;
-       case 3:
+       case 2:
 	 output_asm_insn (\"add\t%0, %1, %2\", operands);
 	 break;
-       case 4:
+       case 3:
 	 output_asm_insn (\"add\t%0, %0, %2\", operands);
 	 break;
        }

@@ -381,6 +381,11 @@ int predictive_compilation = -1;
    to optimize, debug_info_level and debug_hooks in process_options ().  */
 int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
 
+/* True if the user has tagged the function with the 'section'
+   attribute.  */
+
+bool user_defined_section_attribute = false;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power

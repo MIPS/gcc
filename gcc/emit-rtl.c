@@ -607,6 +607,17 @@ gen_rtx_MEM (enum machine_mode mode, rtx addr)
   return rt;
 }
 
+/* Generate a memory referring to non-trapping constant memory.  */
+
+rtx
+gen_const_mem (enum machine_mode mode, rtx addr)
+{
+  rtx mem = gen_rtx_MEM (mode, addr);
+  MEM_READONLY_P (mem) = 1;
+  MEM_NOTRAP_P (mem) = 1;
+  return mem;
+}
+
 rtx
 gen_rtx_SUBREG (enum machine_mode mode, rtx reg, int offset)
 {
@@ -1538,10 +1549,6 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 
   MEM_VOLATILE_P (ref) |= TYPE_VOLATILE (type);
   MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
-  RTX_UNCHANGING_P (ref)
-    |= ((lang_hooks.honor_readonly
-	 && (TYPE_READONLY (type) || (t != type && TREE_READONLY (t))))
-	|| (! TYPE_P (t) && TREE_CONSTANT (t)));
   MEM_POINTER (ref) = POINTER_TYPE_P (type);
   MEM_NOTRAP_P (ref) = TREE_THIS_NOTRAP (t);
 
@@ -1563,7 +1570,12 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
      the expression.  */
   if (! TYPE_P (t))
     {
-      maybe_set_unchanging (ref, t);
+      tree base = get_base_address (t);
+      if (base && DECL_P (base)
+	  && TREE_READONLY (base)
+	  && (TREE_STATIC (base) || DECL_EXTERNAL (base)))
+	MEM_READONLY_P (ref) = 1;
+
       if (TREE_THIS_VOLATILE (t))
 	MEM_VOLATILE_P (ref) = 1;
 

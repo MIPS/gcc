@@ -26,16 +26,19 @@
 /* Assume that AAPCS ABIs should adhere to the full BPABI.  */ 
 #define TARGET_BPABI (TARGET_AAPCS_BASED)
 
+/* Section 4.1 of the AAPCS requires the use of VFP format.  */
+#define FPUTYPE_DEFAULT FPUTYPE_VFP
+
 /* The ARM BPABI functions return a boolean; they use no special
    calling convention.  */
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) TARGET_BPABI
 
-/* Do not generate calls to any of the standard GCC functions in
-   libgcc when generating BPABI code.  */
-#define TARGET_LIBGCC_LIBFUNCS !TARGET_BPABI
-
 /* The BPABI integer comparision routines return { -1, 0, 1 }.  */
 #define TARGET_LIB_INT_CMP_BIASED !TARGET_BPABI
+
+/* Tell the assembler to build BPABI binaries.  */
+#undef SUBTARGET_EXTRA_ASM_SPEC
+#define SUBTARGET_EXTRA_ASM_SPEC "-meabi=3"
 
 /* The generic link spec in elf.h does not support shared libraries.  */
 #undef LINK_SPEC
@@ -43,7 +46,7 @@
   "%{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic} "	\
   "-X"
 
-#if defined (__thumb__) && !defined (__THUMB_INTERWORD) 
+#if defined (__thumb__) && !defined (__THUMB_INTERWORK) 
 #define RENAME_LIBRARY_SET ".thumb_set"
 #else
 #define RENAME_LIBRARY_SET ".set"

@@ -143,9 +143,8 @@ bool
 probably_never_executed_bb_p (basic_block bb)
 {
   if (profile_info && flag_branch_probabilities)
-    /* APPLE LOCAL begin hot/cold partitioning */
+    /* APPLE LOCAL hot/cold partitioning */
     return (bb->count == 0);
-    /* APPLE LOCAL end hot/cold partitioning */
   return false;
 }
 
@@ -1449,12 +1448,11 @@ choose_function_section (void)
       || DECL_ONE_ONLY (current_function_decl))
     return;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   /* If we are doing the partitioning optimization, let the optimization
      choose the correct section into which to put things.  */
+
   if (flag_reorder_blocks_and_partition)
     return;
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   if (cfun->function_frequency == FUNCTION_FREQUENCY_HOT)
     DECL_SECTION_NAME (current_function_decl) =

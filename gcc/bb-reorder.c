@@ -193,31 +193,30 @@ static bool
 push_to_next_round_p (basic_block bb, int round, int number_of_rounds,
 		      int exec_th, gcov_type count_th)
 {
-  /* APPLE LOCAL begin hot/cold partitioning  */
-  bool next_round_is_last;
   bool there_exists_another_round;
+  bool cold_block;
   bool block_not_hot_enough;
+  bool next_round_is_last;
 
   there_exists_another_round = round < number_of_rounds - 1;
-
-  /* APPLE LOCAL hot/cold partitioning */
   next_round_is_last = round + 1 == number_of_rounds - 1;
+
+  cold_block = (flag_reorder_blocks_and_partition 
+		&& bb->partition == COLD_PARTITION);
 
   block_not_hot_enough = (bb->frequency < exec_th 
 			  || bb->count < count_th
 			  || probably_never_executed_bb_p (bb));
 
-  /* When partitioning, save last round for cold blocks only.  */
-
   if (flag_reorder_blocks_and_partition
       && next_round_is_last
       && bb->partition != COLD_PARTITION)
     return false;
-  else if (there_exists_another_round && block_not_hot_enough)
+  else if (there_exists_another_round
+      && (cold_block || block_not_hot_enough))
     return true;
   else 
     return false;
-  /* APPLE LOCAL end hot/cold partitioning */
 }
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
@@ -389,7 +388,9 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 
 	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
-	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0))
+	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0)
+		  && !find_reg_note (BB_END (header), REG_CROSSING_JUMP, 
+				     NULL_RTX))
 		{
 		  copy_bb (header, prev_bb->succ, prev_bb, trace_n);
 		}
@@ -686,7 +687,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			&& !(e->flags & EDGE_COMPLEX)
 			&& !e->dest->rbi->visited
 			&& !e->dest->pred->pred_next
-			&& !e->crossing_edge
+			&& !(e->flags & EDGE_CROSSING)
 			&& e->dest->succ
 			&& (e->dest->succ->flags & EDGE_CAN_FALLTHRU)
 			&& !(e->dest->succ->flags & EDGE_COMPLEX)
@@ -756,6 +757,8 @@ copy_bb (basic_block old_bb, edge e, basic_block bb, int trace)
   basic_block new_bb;
 
   new_bb = duplicate_block (old_bb, e);
+  new_bb->partition = old_bb->partition;
+
   if (e->dest != new_bb)
     abort ();
   if (e->dest->rbi->visited)
@@ -876,8 +879,8 @@ better_edge_p (basic_block bb, edge e, int prob, int freq, int best_prob,
   if (!is_better_edge
       && flag_reorder_blocks_and_partition 
       && cur_best_edge 
-      && cur_best_edge->crossing_edge
-      && !e->crossing_edge)
+      && (cur_best_edge->flags & EDGE_CROSSING)
+      && !(e->flags & EDGE_CROSSING))
     is_better_edge = true;
 
   return is_better_edge;
@@ -1242,6 +1245,8 @@ add_unlikely_executed_notes (void)
 {
   basic_block bb;
 
+  /* Add the UNLIKELY_EXECUTED_NOTES to each cold basic block.  */
+
   FOR_EACH_BB (bb)
     if (bb->partition == COLD_PARTITION)
       mark_bb_for_unlikely_executed_section (bb);
@@ -1257,7 +1262,6 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 						      int *max_idx)
 {
   basic_block bb;
-  /* APPLE LOCAL hot/cold partitioning */
   bool has_hot_blocks = false;
   edge e;
   int i;
@@ -1269,19 +1273,16 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
       if (probably_never_executed_bb_p (bb))
 	bb->partition = COLD_PARTITION;
       else
-	/* APPLE LOCAL begin hot/cold partitioning */
 	{
 	  bb->partition = HOT_PARTITION;
 	  has_hot_blocks = true;
 	}
-	/* APPLE LOCAL end hot/cold partitioning */
     }
 
-  /* APPLE LOCAL begin hot/cold partitioning */
   /* Since all "hot" basic blocks will eventually be scheduled before all
      cold basic blocks, make *sure* the real function entry block is in
-     the hot partition.  */
-
+     the hot partition (if there is one).  */
+  
   if (has_hot_blocks)
     for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
       if (e->dest->index >= 0)
@@ -1302,7 +1303,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 		&& e->dest != EXIT_BLOCK_PTR
 		&& e->src->partition != e->dest->partition)
 	      {
-		e->crossing_edge = true;
+		e->flags |= EDGE_CROSSING;
 		if (i == *max_idx)
 		  {
 		    *max_idx *= 2;
@@ -1312,11 +1313,9 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 		crossing_edges[i++] = e;
 	      }
 	    else
-	      e->crossing_edge = false;
+	      e->flags &= ~EDGE_CROSSING;
 	  }
-
     }
-  /* APPLE LOCAL end hot/cold partitioning */
   *n_crossing_edges = i;
 }
 
@@ -1331,32 +1330,28 @@ mark_bb_for_unlikely_executed_section (basic_block bb)
   rtx insert_insn = NULL;
   rtx new_note;
   
-  /* Find first non-note instruction and insert new NOTE before it (as
-     long as new NOTE is not first instruction in basic block).  */
-  
-  for (cur_insn = BB_HEAD (bb); cur_insn != NEXT_INSN (BB_END (bb)); 
+  /* Insert new NOTE immediately after  BASIC_BLOCK note.  */
+
+  for (cur_insn = BB_HEAD (bb); cur_insn != NEXT_INSN (BB_END (bb));
        cur_insn = NEXT_INSN (cur_insn))
-    if (!NOTE_P (cur_insn)
-	&& !LABEL_P (cur_insn))
+    if (GET_CODE (cur_insn) == NOTE
+	&& NOTE_LINE_NUMBER (cur_insn) == NOTE_INSN_BASIC_BLOCK)
       {
 	insert_insn = cur_insn;
 	break;
       }
-  
+    
+  /* If basic block does not contain a NOTE_INSN_BASIC_BLOCK, there is
+     a major problem.  */
+
+  if (!insert_insn)
+    abort ();
+
   /* Insert note and assign basic block number to it.  */
   
-  if (insert_insn) 
-    {
-      new_note = emit_note_before (NOTE_INSN_UNLIKELY_EXECUTED_CODE, 
- 				   insert_insn);
-      NOTE_BASIC_BLOCK (new_note) = bb;
-    }
-  else
-    {
-      new_note = emit_note_after (NOTE_INSN_UNLIKELY_EXECUTED_CODE,
-				  BB_END (bb));
-      NOTE_BASIC_BLOCK (new_note) = bb;
-    }
+  new_note = emit_note_after (NOTE_INSN_UNLIKELY_EXECUTED_CODE, 
+			      insert_insn);
+  NOTE_BASIC_BLOCK (new_note) = bb;
 }
 
 /* If any destination of a crossing edge does not have a label, add label;
@@ -1476,7 +1471,7 @@ fix_up_fall_thru_edges (void)
   	{
   	  /* Check to see if the fall-thru edge is a crossing edge.  */
 	
-	  if (fall_thru->crossing_edge)
+	  if (fall_thru->flags & EDGE_CROSSING)
   	    {
 	      /* The fall_thru edge crosses; now check the cond jump edge, if
 	         it exists.  */
@@ -1489,7 +1484,7 @@ fix_up_fall_thru_edges (void)
 	      
  	      if (cond_jump)
  		{
-		  if (!cond_jump->crossing_edge)
+		  if (!(cond_jump->flags & EDGE_CROSSING))
  		    cond_jump_crosses = false;
 		  
  		  /* We know the fall-thru edge crosses; if the cond
@@ -1517,8 +1512,8 @@ fix_up_fall_thru_edges (void)
  			  e = fall_thru;
  			  fall_thru = cond_jump;
  			  cond_jump = e;
-			  cond_jump->crossing_edge = true;
-			  fall_thru->crossing_edge = false;
+			  cond_jump->flags |= EDGE_CROSSING;
+			  fall_thru->flags &= ~EDGE_CROSSING;
  			}
  		    }
  		}
@@ -1541,7 +1536,7 @@ fix_up_fall_thru_edges (void)
 			 partition as bb it's falling through from.  */
  		      
 		      new_bb->partition = cur_bb->partition;
-		      new_bb->succ->crossing_edge = true;
+		      new_bb->succ->flags |= EDGE_CROSSING;
  		    }
 		  
  		  /* Add barrier after new jump */
@@ -1578,7 +1573,7 @@ find_jump_block (basic_block jump_dest)
   rtx insn;
 
   for (e = jump_dest->pred; e; e = e->pred_next)
-    if (e->crossing_edge)
+    if (e->flags & EDGE_CROSSING)
       {
 	basic_block src = e->src;
 	
@@ -1647,9 +1642,9 @@ fix_crossing_conditional_branches (void)
       /* We already took care of fall-through edges, so only one successor
 	 can be a crossing edge.  */
       
-      if (succ1 && succ1->crossing_edge)
+      if (succ1 && (succ1->flags & EDGE_CROSSING))
 	crossing_edge = succ1;
-      else if (succ2 && succ2->crossing_edge)
+      else if (succ2 && (succ2->flags & EDGE_CROSSING))
  	crossing_edge = succ2;
       
       if (crossing_edge) 
@@ -1762,8 +1757,8 @@ fix_crossing_conditional_branches (void)
 	      else
 		new_edge = new_bb->succ;
 	      
-	      crossing_edge->crossing_edge = false;
-	      new_edge->crossing_edge = true;
+	      crossing_edge->flags &= ~EDGE_CROSSING;
+	      new_edge->flags |= EDGE_CROSSING;
 	    }
  	}
     }
@@ -1784,7 +1779,7 @@ fix_crossing_unconditional_branches (void)
   rtx new_reg;
   rtx cur_insn;
   edge succ;
-  
+
   FOR_EACH_BB (cur_bb)
     {
       last_insn = BB_END (cur_bb);
@@ -1794,7 +1789,7 @@ fix_crossing_unconditional_branches (void)
          this point, no crossing jumps should be conditional.  */
 
       if (JUMP_P (last_insn)
-	  && succ->crossing_edge)
+	  && (succ->flags & EDGE_CROSSING))
 	{
 	  rtx label2, table;
 
@@ -1862,7 +1857,7 @@ add_reg_crossing_jump_notes (void)
 
   FOR_EACH_BB (bb)
     for (e = bb->succ; e; e = e->succ_next)
-      if (e->crossing_edge
+      if ((e->flags & EDGE_CROSSING)
 	  && JUMP_P (BB_END (e->src)))
 	REG_NOTES (BB_END (e->src)) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP, 
 							 NULL_RTX, 
@@ -1915,8 +1910,7 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
      thru dest).  */
   
   fix_up_fall_thru_edges ();
-
-  /* APPLE LOCAL begin hot/cold partitioning */
+  
   /* Only do the parts necessary for writing separate sections if
      the target architecture has the ability to write separate sections
      (i.e. it has named sections).  Otherwise, the hot/cold partitioning
@@ -1926,14 +1920,13 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
 
   if (targetm.have_named_sections)
     {
-  /* APPLE LOCAL end hot/cold partitioning */
       /* If the architecture does not have conditional branches that can
 	 span all of memory, convert crossing conditional branches into
 	 crossing unconditional branches.  */
-      
+  
       if (!HAS_LONG_COND_BRANCH)
 	fix_crossing_conditional_branches ();
-      
+  
       /* If the architecture does not have unconditional branches that
 	 can span all of memory, convert crossing unconditional branches
 	 into indirect jumps.  Since adding an indirect jump also adds
@@ -1943,13 +1936,11 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
       if (!HAS_LONG_UNCOND_BRANCH)
 	{
 	  fix_crossing_unconditional_branches ();
-	  /* APPLE LOCAL hot/cold partitioning */
 	  reg_scan (get_insns(), max_reg_num (), 1);
-	/* APPLE LOCAL hot/cold partitioning */
 	}
-    }
 
-  add_reg_crossing_jump_notes ();
+      add_reg_crossing_jump_notes ();
+    }
 }
 
 /* Reorder basic blocks.  The main entry point to this file.  FLAGS is
@@ -2001,11 +1992,9 @@ reorder_basic_blocks (unsigned int flags)
   if (dump_file)
     dump_flow_info (dump_file);
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (flag_reorder_blocks_and_partition
       && targetm.have_named_sections)
     add_unlikely_executed_notes ();
-  /* APPLE LOCAL end hot/cold partitioning  */
   cfg_layout_finalize ();
 
   timevar_pop (TV_REORDER_BLOCKS);

@@ -89,6 +89,8 @@ extern bool legitimate_constant_pool_address_p (rtx);
 extern int expand_block_clear (rtx[]);
 extern int expand_block_move (rtx[]);
 extern int load_multiple_operation (rtx, enum machine_mode);
+extern int save_world_operation (rtx, enum machine_mode);
+extern int restore_world_operation (rtx, enum machine_mode);
 extern const char * rs6000_output_load_multiple (rtx[]);
 extern int store_multiple_operation (rtx, enum machine_mode);
 extern int branch_comparison_operator (rtx, enum machine_mode);
@@ -111,6 +113,7 @@ extern enum reg_class secondary_reload_class (enum reg_class,
 extern int ccr_bit (rtx, int);
 extern int extract_MB (rtx);
 extern int extract_ME (rtx);
+extern void rs6000_output_function_entry (FILE *, const char *);
 extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
 extern enum rtx_code rs6000_reverse_condition (enum machine_mode,

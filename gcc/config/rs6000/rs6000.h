@@ -43,6 +43,10 @@
 #define TARGET_AIX 0
 #endif
 
+/* Control whether function entry points use a "dot" symbol when
+   ABI_AIX.  */
+#define DOT_SYMBOLS 1
+
 /* Default string to use for cpu if not specified.  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT ((char *)0)
@@ -946,6 +950,10 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define SPE_ACC_REGNO		111
 #define SPEFSCR_REGNO		112
 
+#define FIRST_SAVED_ALTIVEC_REGNO (FIRST_ALTIVEC_REGNO+20)
+#define FIRST_SAVED_FP_REGNO    (14+32)
+#define FIRST_SAVED_GP_REGNO 13
+
 /* List the order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.
 
@@ -1061,10 +1069,8 @@ extern const char *rs6000_warn_altivec_long_switch;
         ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
 	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
 
-/* APPLE LOCAL begin lno */
-#define UNITS_PER_SIMD_WORD 	\
-	(TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
-/* APPLE LOCAL end lno */
+#define UNITS_PER_SIMD_WORD     \
+        (TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */
@@ -2164,7 +2170,7 @@ do {								\
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Define if loading short immediate values into registers sign extends.  */
@@ -2277,9 +2283,9 @@ extern int toc_initialized;
   do									\
     {									\
       fputs ("\t.weak\t", (FILE));					\
-      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
+      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 				\
       if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TARGET_XCOFF)						\
 	    fputs ("[DS]", (FILE));					\
@@ -2291,7 +2297,7 @@ extern int toc_initialized;
 	{								\
 	  ASM_OUTPUT_DEF ((FILE), (NAME), (VAL));			\
 	  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL		\
-	      && DEFAULT_ABI == ABI_AIX)				\
+	      && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	    {								\
 	      fputs ("\t.set\t.", (FILE));				\
 	      RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
@@ -2312,7 +2318,7 @@ extern int toc_initialized;
       const char *alias = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		\
       const char *name = IDENTIFIER_POINTER (TARGET);			\
       if (TREE_CODE (DECL) == FUNCTION_DECL				\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TREE_PUBLIC (DECL))					\
 	    {								\
@@ -2625,6 +2631,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"lmw_operation", {PARALLEL}},					   \
   {"stmw_operation", {PARALLEL}},					   \
   {"vrsave_operation", {PARALLEL}},					   \
+  {"save_world_operation", {PARALLEL}},                                    \
+  {"restore_world_operation", {PARALLEL}},                                 \
   {"mfcr_operation", {PARALLEL}},					   \
   {"mtcrf_operation", {PARALLEL}},					   \
   {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \

@@ -62,6 +62,9 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer is dereferenced.  */
   unsigned int is_dereferenced : 1;
 
+  /* Nonzero if this pointer points to a global variable.  */
+  unsigned int pt_global_mem : 1;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -492,7 +495,6 @@ extern void bsi_commit_edge_inserts (int *);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
-extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
@@ -637,6 +639,12 @@ struct tree_niter_desc
 			   is eliminated (by looking at the guard on entry of
 			   the loop), then the information would be lost.  */
 };
+
+/* In tree-vectorizer.c */
+void vectorize_loops (struct loops *);
+
+/* In tree-ssa-phiopt.c */
+bool empty_block_p (basic_block);
 
 /* In tree-ssa-loop*.c  */
 

@@ -120,7 +120,9 @@ extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_mark_maybe_inf_loops;
 extern struct tree_opt_pass pass_elim_checks;
+/* APPLE LOCAL end lno */
 extern struct tree_opt_pass pass_vectorize;
+/* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_complete_unroll;
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_iv_optimize;

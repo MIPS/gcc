@@ -1,3 +1,8 @@
+2004-08-23  Mike Stump  <mrs@apple.com>
+
+	* Merge in changes from mainline, from apple-ppc-mergepoint-20040816
+	to apple-ppc-merge-20040821.
+
 2004-08-19  Geoffrey Keating  <geoffk@apple.com>
 
 	* more-hdrs/stdint.h: Correct some typos in comments.

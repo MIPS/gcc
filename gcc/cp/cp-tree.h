@@ -126,7 +126,7 @@ struct diagnostic_context;
      of the base class.
 
      The BV_VCALL_INDEX of each node, if non-NULL, gives the vtable
-     index of the vcall offset for this entry.  
+     index of the vcall offset for this entry.
 
      The BV_FN is the declaration for the virtual function itself.
 
@@ -293,8 +293,8 @@ struct tree_overload GTY(())
    a TEMPLATE_DECL, an OVERLOAD, or a TEMPLATE_ID_EXPR.  */
 #define BASELINK_FUNCTIONS(NODE) \
   (((struct tree_baselink*) BASELINK_CHECK (NODE))->functions)
-/* The BINFO in which the search for the functions indicated by this baselink 
-   began.  This base is used to determine the accessibility of functions 
+/* The BINFO in which the search for the functions indicated by this baselink
+   began.  This base is used to determine the accessibility of functions
    selected by overload resolution.  */
 #define BASELINK_ACCESS_BINFO(NODE) \
   (((struct tree_baselink*) BASELINK_CHECK (NODE))->access_binfo)
@@ -1007,7 +1007,7 @@ struct lang_type_header GTY(())
 struct lang_type_class GTY(())
 {
   struct lang_type_header h;
-  
+
   unsigned char align;
 
   unsigned has_mutable : 1;
@@ -1081,7 +1081,7 @@ struct lang_type_ptrmem GTY(())
 
 struct lang_type GTY(())
 {
-  union lang_type_u 
+  union lang_type_u
   {
     struct lang_type_header GTY((skip (""))) h;
     struct lang_type_class  GTY((tag ("1"))) c;
@@ -1326,7 +1326,7 @@ struct lang_type GTY(())
 #define CLASSTYPE_ALIGN_UNIT(NODE) \
   (CLASSTYPE_ALIGN (NODE) / BITS_PER_UNIT)
 
-/* True if this a Java interface type, declared with 
+/* True if this a Java interface type, declared with
    '__attribute__ ((java_interface))'.  */
 #define TYPE_JAVA_INTERFACE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->java_interface)
 
@@ -1606,13 +1606,13 @@ struct lang_decl GTY(())
 
   union lang_decl_u4
     {
-      struct full_lang_decl 
+      struct full_lang_decl
       {
 	/* For a non-thunk function decl, this is a tree list of
   	   friendly classes. For a thunk function decl, it is the
   	   thunked to function decl.  */
 	tree befriending_classes;
-	
+
 	/* For a non-virtual FUNCTION_DECL, this is
 	   DECL_FRIEND_CONTEXT.  For a virtual FUNCTION_DECL for which
 	   DECL_THIS_THUNK_P does not hold, this is DECL_THUNKS. Both
@@ -1623,7 +1623,7 @@ struct lang_decl GTY(())
 
 	/* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
 	tree cloned_function;
-	
+
 	/* In a FUNCTION_DECL for which THUNK_P holds, this is
 	   THUNK_FIXED_OFFSET.  */
 	HOST_WIDE_INT fixed_offset;
@@ -1634,13 +1634,13 @@ struct lang_decl GTY(())
 
 	unsigned u3sel : 1;
 	unsigned pending_inline_p : 1;
-	
+
 	union lang_decl_u3
 	{
-	  struct sorted_fields_type * GTY ((tag ("0"), reorder ("resort_sorted_fields"))) 
+	  struct sorted_fields_type * GTY ((tag ("0"), reorder ("resort_sorted_fields")))
 	       sorted_fields;
  	  struct cp_token_cache * GTY ((tag ("2"))) pending_inline_info;
-	  struct language_function * GTY ((tag ("1"))) 
+	  struct language_function * GTY ((tag ("1")))
 	       saved_language_function;
 	} GTY ((desc ("%1.u3sel + %1.pending_inline_p"))) u;
       } GTY ((tag ("1"))) f;
@@ -1666,7 +1666,7 @@ struct lang_decl GTY(())
    declaration.  Some entities (like a member function in a local
    class, or a local variable) do not have linkage at all, and this
    macro should not be used in those cases.
-   
+
    Implementation note: A FUNCTION_DECL without DECL_LANG_SPECIFIC was
    created by language-independent code, and has C linkage.  Most
    VAR_DECLs have C++ linkage, and do not have DECL_LANG_SPECIFIC, but
@@ -1750,7 +1750,7 @@ struct lang_decl GTY(())
 
 /* Perform an action for each clone of FN, if FN is a function with
    clones.  This macro should be used like:
-   
+
       FOR_EACH_CLONE (clone, fn)
         { ... }
 
@@ -1844,14 +1844,14 @@ struct lang_decl GTY(())
   (TREE_LANG_FLAG_2 (VAR_DECL_CHECK (NODE)))
 
 /* Nonzero for a VAR_DECL that can be used in an integral constant
-   expression.    
+   expression.
 
       [expr.const]
 
       An integral constant-expression can only involve ... const
       variables of static or enumeration types initialized with
       constant expressions ...
-  
+
    The standard does not require that the expression be non-volatile.
    G++ implements the proposed correction in DR 457.  */
 #define DECL_INTEGRAL_CONSTANT_VAR_P(NODE)		\
@@ -2844,7 +2844,7 @@ struct lang_decl GTY(())
    function, (or be implemented via passing some invisible parameter
    to the thunked function, which is modified to perform the
    adjustment just before returning).
-   
+
    A thunk may perform either, or both, of the following operations:
 
    o Adjust the this or result pointer by a constant offset.
@@ -2927,7 +2927,7 @@ struct lang_decl GTY(())
 #define ELSE_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 2)
 
 /* An enumeration of the kind of tags that C++ accepts.  */
-enum tag_types { 
+enum tag_types {
   none_type = 0, /* Not a tag type.  */
   record_type,   /* "struct" types.  */
   class_type,    /* "class" types.  */
@@ -2992,8 +2992,8 @@ typedef enum special_function_kind {
   sfk_conversion           /* A conversion operator.  */
 } special_function_kind;
 
-/* The various kinds of linkage.  From [basic.link], 
-   
+/* The various kinds of linkage.  From [basic.link],
+
       A name is said to have linkage when it might denote the same
       object, reference, function, type, template, namespace or value
       as a name introduced in another scope:
@@ -3738,7 +3738,7 @@ extern tree poplevel				(int, int, int);
 extern void insert_block			(tree);
 extern tree pushdecl				(tree);
 extern void cxx_init_decl_processing		(void);
-enum cp_tree_node_structure_enum cp_tree_node_structure 
+enum cp_tree_node_structure_enum cp_tree_node_structure
   (union lang_tree_node *);
 extern bool cxx_mark_addressable		(tree);
 extern void cxx_push_function_context		(struct function *);
@@ -4023,7 +4023,7 @@ extern void maybe_process_partial_specialization (tree);
 extern void maybe_check_template_type           (tree);
 extern tree most_specialized_instantiation      (tree);
 extern void print_candidates                    (tree);
-extern int instantiate_pending_templates        (void);
+extern void instantiate_pending_templates       (int);
 extern tree tsubst_default_argument             (tree, tree, tree);
 extern tree tsubst_copy_and_build               (tree, tree, tsubst_flags_t, tree, bool);
 extern tree most_general_template		(tree);
@@ -4199,10 +4199,10 @@ extern tree finish_template_type                (tree, tree, int);
 extern tree finish_base_specifier               (tree, tree, bool);
 extern void finish_member_declaration           (tree);
 extern void check_multiple_declarators          (void);
-extern void qualified_name_lookup_error		(tree, tree);
+extern void qualified_name_lookup_error		(tree, tree, tree);
 extern tree finish_id_expression                (tree, tree, tree,
 						 cp_id_kind *, tree *,
-						 bool, bool, bool *, 
+						 bool, bool, bool *,
 						 const char **);
 extern tree finish_typeof			(tree);
 extern void finish_decl_cleanup                 (tree, tree);
@@ -4225,7 +4225,6 @@ extern void lang_check_failed			(const char *, int,
 extern tree stabilize_expr			(tree, tree *);
 extern void stabilize_call			(tree, tree *);
 extern bool stabilize_init			(tree, tree *);
-extern tree cxx_unsave_expr_now			(tree);
 extern tree cxx_maybe_build_cleanup		(tree);
 extern void init_tree			        (void);
 extern int pod_type_p				(tree);
@@ -4279,7 +4278,6 @@ extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
-extern tree build_shared_int_cst                (int);
 extern special_function_kind special_function_p (tree);
 extern bool name_p                              (tree);
 extern int count_trees                          (tree);
@@ -4325,7 +4323,7 @@ extern tree build_indirect_ref			(tree, const char *);
 extern tree build_array_ref			(tree, tree);
 extern tree get_member_function_from_ptrfunc	(tree *, tree);
 extern tree convert_arguments			(tree, tree, tree, int);
-extern tree build_x_binary_op			(enum tree_code, tree, tree, 
+extern tree build_x_binary_op			(enum tree_code, tree, tree,
 						 bool *);
 extern tree build_x_unary_op			(enum tree_code, tree);
 extern tree unary_complex_lvalue		(enum tree_code, tree);

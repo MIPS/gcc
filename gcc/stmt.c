@@ -1491,16 +1491,6 @@ warn_if_unused_value (tree exp, location_t locus)
       return 1;
     }
 }
-
-/* Return nonzero if we should preserve sub-expressions as separate
-   pseudos.  We never do so if we aren't optimizing.  We always do so
-   if -fexpensive-optimizations.  */
-
-int
-preserve_subexpressions_p (void)
-{
-  return optimize && (cfun || flag_expensive_optimizations);
-}
 
 
 /* Generate RTL to return from the current function, with no value.
@@ -1966,8 +1956,6 @@ expand_decl (tree decl)
 	    mark_reg_pointer (DECL_RTL (decl),
 			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
 	}
-
-      maybe_set_unchanging (DECL_RTL (decl), decl);
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST

@@ -88,6 +88,37 @@ enum darwin_builtins
    the code that handles @code{static} data indirection.  */
 
 
+/* Darwin supports a feature called fix-and-continue, which is used
+   for rapid turn around debugging.  When code is compiled with the
+   -mfix-and-continue flag, two changes are made to the generated code
+   that allow the system to do things that it would normally not be
+   able to do easily.  These changes allow gdb to load in
+   recompilation of a translation unit that has been changed into a
+   running program and replace existing functions and methods of that
+   translation unit with with versions of those functions and methods
+   from the newly compiled translation unit.  The new functions access
+   the existing static data from the old translation unit, if the data
+   existed in the unit to be replaced, and from the new translation
+   unit, for new data.
+
+   The changes are to insert 4 nops at the beginning of all functions
+   and to use indirection to get at static duration data.  The 4 nops
+   are required by consumers of the generated code.  Currently, gdb
+   uses this to patch in a jump to the overriding function, this
+   allows all uses of the old name to forward to the replacement,
+   including existing function poiinters and virtual methods.  See
+   rs6000_emit_prologue for the code that handles the nop insertions.
+ 
+   The added indirection allows gdb to redirect accesses to static
+   duration data from the newly loaded translation unit to the
+   existing data, if any.  @code{static} data is special and is
+   handled by setting the second word in the .non_lazy_symbol_pointer
+   data structure to the address of the data.  See indirect_data for
+   the code that handles the extra indirection, and
+   machopic_output_indirection and its use of MACHO_SYMBOL_STATIC for
+   the code that handles @code{static} data indirection.  */
+
+
 /* Nonzero if the user passes the -mone-byte-bool switch, which forces
    sizeof(bool) to be 1. */
 const char *darwin_one_byte_bool = 0;
@@ -572,15 +603,13 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  return orig;
 	}
 
-      ptr_ref = (gen_rtx_SYMBOL_REF 
+      ptr_ref = (gen_rtx_SYMBOL_REF
 		 (Pmode, 
 		  machopic_indirection_name (orig, /*stub_p=*/false)));
 
       SYMBOL_REF_DECL (ptr_ref) = SYMBOL_REF_DECL (orig);
 
-      ptr_ref = gen_rtx_MEM (Pmode, ptr_ref);
-      RTX_UNCHANGING_P (ptr_ref) = 1;
-      /* APPLE LOCAL x86 bootstrap fix should go away soon via x86-pic diffs from mrs to FSF */
+      ptr_ref = gen_const_mem (Pmode, ptr_ref);
       machopic_define_symbol (ptr_ref);
 
       return ptr_ref;
@@ -665,7 +694,8 @@ machopic_indirect_call_target (rtx target)
       
       XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
       SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
-      RTX_UNCHANGING_P (target) = 1;
+      MEM_READONLY_P (target) = 1;
+      MEM_NOTRAP_P (target) = 1;
     }
 
   return target;
@@ -725,14 +755,11 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
-	      /* APPLE LOCAL begin 64-bit */
 	      emit_insn (mode == DImode
 			 ? gen_macho_high_di (temp_reg, asym)
 			 : gen_macho_high (temp_reg, asym));
-	      /* APPLE LOCAL end 64-bit */
-	      mem = gen_rtx_MEM (GET_MODE (orig),
-				 gen_rtx_LO_SUM (Pmode, temp_reg, asym));
-	      RTX_UNCHANGING_P (mem) = 1;
+	      mem = gen_const_mem (GET_MODE (orig),
+				   gen_rtx_LO_SUM (Pmode, temp_reg, asym));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other platform that can use dynamic-no-pic  */
@@ -763,10 +790,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      emit_insn (gen_rtx_SET (Pmode, hi_sum_reg, sum));
 
-	      mem = gen_rtx_MEM (GET_MODE (orig),
-				 gen_rtx_LO_SUM (Pmode, 
-						 hi_sum_reg, offset));
-	      RTX_UNCHANGING_P (mem) = 1;
+	      mem = gen_const_mem (GET_MODE (orig),
+				  gen_rtx_LO_SUM (Pmode, 
+						  hi_sum_reg, offset));
 	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, pic_ref, 
 						    REG_NOTES (insn));
@@ -813,9 +839,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 #if !defined (TARGET_TOC)
 	  emit_move_insn (reg, pic_ref);
-	  pic_ref = gen_rtx_MEM (GET_MODE (orig), reg);
+	  pic_ref = gen_const_mem (GET_MODE (orig), reg);
 #endif
-	  RTX_UNCHANGING_P (pic_ref) = 1;
 	}
       else
 	{
@@ -835,7 +860,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  if (reload_in_progress)
 		    abort ();
 		  else
-		    /* APPLE LOCAL 64-bit */
 		    reg = gen_reg_rtx (Pmode);
 		}
 
@@ -852,7 +876,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 				      gen_rtx_LO_SUM (Pmode,
 						      hi_sum_reg, offset)));
 	      pic_ref = reg;
-	      RTX_UNCHANGING_P (pic_ref) = 1;
 #else
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_HIGH (Pmode, offset)));
@@ -860,7 +883,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 				      gen_rtx_LO_SUM (Pmode, reg, offset)));
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic_offset_table_rtx, reg);
-	      RTX_UNCHANGING_P (pic_ref) = 1;
 #endif
 	    }
 	  else
@@ -934,9 +956,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       else
 	pic_ref = gen_rtx_PLUS (Pmode, base, orig);
 
-      if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
-	RTX_UNCHANGING_P (pic_ref) = 1;
-
       /* APPLE LOCAL begin gen ADD */
 #ifdef MASK_80387
       {
@@ -990,15 +1009,14 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
   else if (GET_CODE (orig) == MEM
 	   && GET_CODE (XEXP (orig, 0)) == SYMBOL_REF)
     {
-      /* APPLE LOCAL use new pseudo for temp; reusing reg confuses PRE */
+      /* APPLE LOCAL begin use new pseudo for temp; reusing reg confuses PRE */
       rtx tempreg = reg;
       rtx addr;
       if ( !no_new_pseudos )
 	tempreg = gen_reg_rtx (Pmode);
       addr = machopic_legitimize_pic_address (XEXP (orig, 0), Pmode, tempreg);
-
-      addr = gen_rtx_MEM (GET_MODE (orig), addr);
-      RTX_UNCHANGING_P (addr) = RTX_UNCHANGING_P (orig);
+      /* APPLE LOCAL end use new pseudo for temp; reusing reg confuses PRE */
+      addr = replace_equiv_address (orig, addr);
       emit_move_insn (reg, addr);
       pic_ref = reg;
     }
@@ -1189,7 +1207,6 @@ darwin_make_decl_one_only (tree decl)
   DECL_SECTION_NAME (decl) = build_string (strlen (sec), sec);
 }
 
-/* APPLE LOCAL begin 3739318 FSF candidate.  */
 void
 darwin_mark_decl_preserved (const char *name)
 {
@@ -1197,7 +1214,6 @@ darwin_mark_decl_preserved (const char *name)
   assemble_name (asm_out_file, name);
   fputc ('\n', asm_out_file);
 }
-/* APPLE LOCAL end 3739318 FSF candidate.  */
 
 void
 machopic_select_section (tree exp, int reloc,
@@ -1725,10 +1741,17 @@ darwin_file_end (void)
       destructor_section ();
       ASM_OUTPUT_ALIGN (asm_out_file, 1);
     }
-  /* APPLE LOCAL begin dead code stripping radar 3739328 */
   fprintf (asm_out_file, "\t.subsections_via_symbols\n");
-  /* APPLE LOCAL end dead code stripping radar 3739328 */
 }
+
+/* True, iff we're generating fast turn around debugging code.  When
+   true, we arrange for function prologues to start with 4 nops so
+   that gdb may insert code to redirect them, and for data to accessed
+   indirectly.  The runtime uses this indirection to forward
+   references for data to the original instance of that data.  */
+
+int darwin_fix_and_continue;
+const char *darwin_fix_and_continue_switch;
 
 /* APPLE LOCAL begin constant cfstrings */
 int darwin_constant_cfstrings = 0;

@@ -6766,7 +6766,7 @@
   PUT_MODE (gotsym, Pmode);
   insn = emit_insn (gen_symGOT_load (operands[0], gotsym));
 
-  RTX_UNCHANGING_P (SET_SRC (PATTERN (insn))) = 1;
+  MEM_READONLY_P (SET_SRC (PATTERN (insn))) = 1;
 
   DONE;
 }")
@@ -7311,7 +7311,7 @@ mov.l\\t1f,r0\\n\\
     {
       rtx r18 = gen_rtx_REG (DImode, PR_MEDIA_REG);
 
-      if (! call_used_regs[TR0_REG] || fixed_regs[TR0_REG])
+      if (! call_really_used_regs[TR0_REG] || fixed_regs[TR0_REG])
 	abort ();
       tr_regno = TR0_REG;
       tr = gen_rtx_REG (DImode, tr_regno);

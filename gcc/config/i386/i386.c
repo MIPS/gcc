@@ -2721,17 +2721,18 @@ function_arg (CUMULATIVE_ARGS *cum,	/* current arg information */
       && GET_MODE_CLASS (TYPE_MODE (type)) != MODE_VECTOR_FLOAT)
     {
       enum machine_mode innermode = TYPE_MODE (TREE_TYPE (type));
-      mode = TREE_CODE (TREE_TYPE (type)) == REAL_TYPE
-	     ? MIN_MODE_VECTOR_FLOAT : MIN_MODE_VECTOR_INT;
+      enum machine_mode newmode
+	= TREE_CODE (TREE_TYPE (type)) == REAL_TYPE
+	  ? MIN_MODE_VECTOR_FLOAT : MIN_MODE_VECTOR_INT;
 
       /* Get the mode which has this inner mode and number of units.  */
-      while (GET_MODE_NUNITS (mode) != TYPE_VECTOR_SUBPARTS (type)
-	     || GET_MODE_INNER (mode) != innermode)
-	{
-	  mode = GET_MODE_WIDER_MODE (mode);
-	  if (mode == VOIDmode)
-	    abort ();
-	}
+      for (; newmode != VOIDmode; newmode = GET_MODE_WIDER_MODE (newmode))
+	if (GET_MODE_NUNITS (newmode) == TYPE_VECTOR_SUBPARTS (type)
+	    && GET_MODE_INNER (newmode) == innermode)
+	  {
+	    mode = newmode;
+	    break;
+	  }
     }
 
   /* Handle a hidden AL argument containing number of registers for varargs
@@ -4845,6 +4846,28 @@ ix86_find_base_term (rtx x)
 
   return term;
 }
+
+/* Allow {LABEL | SYMBOL}_REF - SYMBOL_REF-FOR-PICBASE for Mach-O as
+   this is used for to form addresses to local data when -fPIC is in
+   use.  */
+
+static bool
+darwin_local_data_pic (rtx disp)
+{
+  if (GET_CODE (disp) == MINUS)
+    {
+      if (GET_CODE (XEXP (disp, 0)) == LABEL_REF
+          || GET_CODE (XEXP (disp, 0)) == SYMBOL_REF)
+        if (GET_CODE (XEXP (disp, 1)) == SYMBOL_REF)
+          {
+            const char *sym_name = XSTR (XEXP (disp, 1), 0);
+            if (! strcmp (sym_name, "<pic base>"))
+              return true;
+          }
+    }
+
+  return false;
+}
 
 /* Determine if a given RTX is a valid constant.  We already know this
    satisfies CONSTANT_P.  */
@@ -4871,11 +4894,17 @@ legitimate_constant_p (rtx x)
 	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
 	return false;
 
-      if (GET_CODE (inner) == PLUS
-/* APPLE LOCAL begin quick hack around 15717 breakage --bowdidge */
-	  || (GET_CODE (inner) == MINUS
-	      && GET_CODE (XEXP (inner, 0)) == CONST_INT))
-/* APPLE LOCAL end quick hack around 15717 breakage --bowdidge */
+      if (GET_CODE (inner) == PLUS)
+	{
+	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
+	    return false;
+	  inner = XEXP (inner, 0);
+	}
+
+      if (TARGET_MACHO && darwin_local_data_pic (inner))
+	return true;
+
+      if (GET_CODE (inner) == MINUS)
 	{
 	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
 	    return false;
@@ -5023,18 +5052,8 @@ legitimate_pic_address_disp_p (rtx disp)
       saw_plus = true;
     }
 
-  /* Allow {LABEL | SYMBOL}_REF - SYMBOL_REF-FOR-PICBASE for Mach-O.  */
-  if (TARGET_MACHO && GET_CODE (disp) == MINUS)
-    {
-      if (GET_CODE (XEXP (disp, 0)) == LABEL_REF
-          || GET_CODE (XEXP (disp, 0)) == SYMBOL_REF)
-        if (GET_CODE (XEXP (disp, 1)) == SYMBOL_REF)
-          {
-            const char *sym_name = XSTR (XEXP (disp, 1), 0);
-            if (! strcmp (sym_name, "<pic base>"))
-              return 1;
-          }
-    }
+  if (TARGET_MACHO && darwin_local_data_pic (disp))
+    return 1;
 
   if (GET_CODE (disp) != UNSPEC)
     return 0;
@@ -5363,8 +5382,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	{
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
 	  new = gen_rtx_CONST (Pmode, new);
-	  new = gen_rtx_MEM (Pmode, new);
-	  RTX_UNCHANGING_P (new) = 1;
+	  new = gen_const_mem (Pmode, new);
 	  set_mem_alias_set (new, ix86_GOT_alias_set ());
 
 	  if (reg == 0)
@@ -5385,8 +5403,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
-	  new = gen_rtx_MEM (Pmode, new);
-	  RTX_UNCHANGING_P (new) = 1;
+	  new = gen_const_mem (Pmode, new);
 	  set_mem_alias_set (new, ix86_GOT_alias_set ());
 
 	  if (reg == 0)
@@ -5565,8 +5582,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
       off = gen_rtx_CONST (Pmode, off);
       if (pic)
 	off = gen_rtx_PLUS (Pmode, pic, off);
-      off = gen_rtx_MEM (Pmode, off);
-      RTX_UNCHANGING_P (off) = 1;
+      off = gen_const_mem (Pmode, off);
       set_mem_alias_set (off, ix86_GOT_alias_set ());
 
       if (TARGET_64BIT || TARGET_GNU_TLS)
@@ -6084,7 +6100,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, int reverse,
     {
       enum rtx_code second_code, bypass_code;
       ix86_fp_comparison_codes (code, &bypass_code, &code, &second_code);
-      if (bypass_code != NIL || second_code != NIL)
+      if (bypass_code != UNKNOWN || second_code != UNKNOWN)
 	abort ();
       code = ix86_fp_compare_code_to_integer (code);
       mode = CCmode;
@@ -8029,7 +8045,7 @@ ix86_fp_compare_code_to_integer (enum rtx_code code)
 /* Split comparison code CODE into comparisons we can do using branch
    instructions.  BYPASS_CODE is comparison code for branch that will
    branch around FIRST_CODE and SECOND_CODE.  If some of branches
-   is not required, set value to NIL.
+   is not required, set value to UNKNOWN.
    We never require more than two branches.  */
 
 void
@@ -8038,8 +8054,8 @@ ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *bypass_code,
 			  enum rtx_code *second_code)
 {
   *first_code = code;
-  *bypass_code = NIL;
-  *second_code = NIL;
+  *bypass_code = UNKNOWN;
+  *second_code = UNKNOWN;
 
   /* The fcomi comparison sets flags as follows:
 
@@ -8089,8 +8105,8 @@ ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *bypass_code,
     }
   if (!TARGET_IEEE_FP)
     {
-      *second_code = NIL;
-      *bypass_code = NIL;
+      *second_code = UNKNOWN;
+      *bypass_code = UNKNOWN;
     }
 }
 
@@ -8142,7 +8158,7 @@ ix86_fp_comparison_fcomi_cost (enum rtx_code code)
   if (!TARGET_CMOVE)
     return 1024;
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
-  return (bypass_code != NIL || second_code != NIL) + 2;
+  return (bypass_code != UNKNOWN || second_code != UNKNOWN) + 2;
 }
 
 /* Return cost of comparison done using sahf operation.
@@ -8156,7 +8172,7 @@ ix86_fp_comparison_sahf_cost (enum rtx_code code)
   if (!TARGET_USE_SAHF && !optimize_size)
     return 1024;
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
-  return (bypass_code != NIL || second_code != NIL) + 3;
+  return (bypass_code != UNKNOWN || second_code != UNKNOWN) + 3;
 }
 
 /* Compute cost of the comparison done using any method.
@@ -8200,8 +8216,8 @@ ix86_expand_fp_compare (enum rtx_code code, rtx op0, rtx op1, rtx scratch,
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
 
   /* Do fcomi/sahf based test when profitable.  */
-  if ((bypass_code == NIL || bypass_test)
-      && (second_code == NIL || second_test)
+  if ((bypass_code == UNKNOWN || bypass_test)
+      && (second_code == UNKNOWN || second_test)
       && ix86_fp_comparison_arithmetics_cost (code) > cost)
     {
       if (TARGET_CMOVE)
@@ -8224,11 +8240,11 @@ ix86_expand_fp_compare (enum rtx_code code, rtx op0, rtx op1, rtx scratch,
       /* The FP codes work out to act like unsigned.  */
       intcmp_mode = fpcmp_mode;
       code = first_code;
-      if (bypass_code != NIL)
+      if (bypass_code != UNKNOWN)
 	*bypass_test = gen_rtx_fmt_ee (bypass_code, VOIDmode,
 				       gen_rtx_REG (intcmp_mode, FLAGS_REG),
 				       const0_rtx);
-      if (second_code != NIL)
+      if (second_code != UNKNOWN)
 	*second_test = gen_rtx_fmt_ee (second_code, VOIDmode,
 				       gen_rtx_REG (intcmp_mode, FLAGS_REG),
 				       const0_rtx);
@@ -8394,7 +8410,7 @@ ix86_fp_jump_nontrivial_p (enum rtx_code code)
   if (!TARGET_CMOVE)
     return true;
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
-  return bypass_code != NIL || second_code != NIL;
+  return bypass_code != UNKNOWN || second_code != UNKNOWN;
 }
 
 void
@@ -8431,7 +8447,7 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 	/* Check whether we will use the natural sequence with one jump.  If
 	   so, we can expand jump early.  Otherwise delay expansion by
 	   creating compound insn to not confuse optimizers.  */
-	if (bypass_code == NIL && second_code == NIL
+	if (bypass_code == UNKNOWN && second_code == UNKNOWN
 	    && TARGET_CMOVE)
 	  {
 	    ix86_split_fp_branch (code, ix86_compare_op0, ix86_compare_op1,
@@ -8544,8 +8560,8 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 	  case LEU:  code1 = LTU; code2 = GTU; break;
 	  case GEU:  code1 = GTU; code2 = LTU; break;
 
-	  case EQ:   code1 = NIL; code2 = NE;  break;
-	  case NE:   code2 = NIL; break;
+	  case EQ:   code1 = UNKNOWN; code2 = NE;  break;
+	  case NE:   code2 = UNKNOWN; break;
 
 	  default:
 	    abort ();
@@ -8562,16 +8578,16 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 	ix86_compare_op0 = hi[0];
 	ix86_compare_op1 = hi[1];
 
-	if (code1 != NIL)
+	if (code1 != UNKNOWN)
 	  ix86_expand_branch (code1, label);
-	if (code2 != NIL)
+	if (code2 != UNKNOWN)
 	  ix86_expand_branch (code2, label2);
 
 	ix86_compare_op0 = lo[0];
 	ix86_compare_op1 = lo[1];
 	ix86_expand_branch (code3, label);
 
-	if (code2 != NIL)
+	if (code2 != UNKNOWN)
 	  emit_label (label2);
 	return;
       }
@@ -9036,7 +9052,7 @@ ix86_expand_int_movcc (rtx operands[])
 	    }
 	}
 
-      compare_code = NIL;
+      compare_code = UNKNOWN;
       if (GET_MODE_CLASS (GET_MODE (ix86_compare_op0)) == MODE_INT
 	  && GET_CODE (ix86_compare_op1) == CONST_INT)
 	{
@@ -9053,7 +9069,7 @@ ix86_expand_int_movcc (rtx operands[])
 	}
 
       /* Optimize dest = (op0 < 0) ? -1 : cf.  */
-      if (compare_code != NIL
+      if (compare_code != UNKNOWN
 	  && GET_MODE (ix86_compare_op0) == GET_MODE (out)
 	  && (cf == -1 || ct == -1))
 	{
@@ -9181,12 +9197,12 @@ ix86_expand_int_movcc (rtx operands[])
 	      else
 		{
 		  code = reverse_condition (code);
-		  if (compare_code != NIL)
+		  if (compare_code != UNKNOWN)
 		    compare_code = reverse_condition (compare_code);
 		}
 	    }
 
-	  if (compare_code != NIL)
+	  if (compare_code != UNKNOWN)
 	    {
 	      /* notl op1	(if needed)
 		 sarl $31, op1
@@ -9620,7 +9636,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 
   /* Optimize constant pool reference to immediates.  This is used by fp
      moves, that force all constants to memory to allow combining.  */
-  if (GET_CODE (operand) == MEM && RTX_UNCHANGING_P (operand))
+  if (GET_CODE (operand) == MEM && MEM_READONLY_P (operand))
     {
       rtx tmp = maybe_get_pool_constant (operand);
       if (tmp)

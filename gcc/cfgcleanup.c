@@ -50,9 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "regs.h"
 #include "cfglayout.h"
-/* APPLE LOCAL begin hot/cold partitioning  */
 #include "cfglayout.h"
-/* APPLE LOCAL end hot/cold partitioning  */
 #include "emit-rtl.h"
 
 /* cleanup_cfg maintains following flags for each basic block.  */
@@ -157,7 +155,7 @@ try_simplify_condjump (basic_block cbranch_block)
 
   if (flag_reorder_blocks_and_partition
       && (jump_block->partition != jump_dest_block->partition
-	  || cbranch_jump_edge->crossing_edge))
+	  || (cbranch_jump_edge->flags & EDGE_CROSSING)))
     return false;
 
   /* The conditional branch must target the block after the
@@ -449,16 +447,13 @@ try_forward_edges (int mode, basic_block b)
       target = first = e->dest;
       counter = 0;
 
-      /* APPLE LOCAL begin hot/cold partitioning  */
-      /* If we are partitioning hot/cold basic blocks, we don't want to mess
+      /* If we are partitioning hot/cold basic_blocks, we don't want to mess
 	 up jumps that cross between hot/cold sections.  */
-      
+
       if (flag_reorder_blocks_and_partition
 	  && first != EXIT_BLOCK_PTR
 	  && find_reg_note (BB_END (first), REG_CROSSING_JUMP, NULL_RTX))
 	return false;
-
-      /* APPLE LOCAL end hot/cold partitioning  */
 
       while (counter < n_basic_blocks)
 	{
@@ -467,9 +462,7 @@ try_forward_edges (int mode, basic_block b)
 	  may_thread |= target->flags & BB_DIRTY;
 
 	  if (FORWARDER_BLOCK_P (target)
-	      /* APPLE LOCAL begin hot/cold partitioning */
-	      && !target->succ->crossing_edge
-	      /* APPLE LOCAL end hot/cold partitioning */
+	      && !(target->succ->flags & EDGE_CROSSING)
 	      && target->succ->dest != EXIT_BLOCK_PTR)
 	    {
 	      /* Bypass trivial infinite loops.  */
@@ -1476,14 +1469,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   rtx newpos1, newpos2;
   edge s;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
-  /* If we have partitioned hot/cold basic blocks, it is a bad idea
-     to try this optimization.  */
-
-  if (flag_reorder_blocks_and_partition && no_new_pseudos)
-    return false;
-  /* APPLE LOCAL end hot/cold partitioning  */
-
   newpos1 = newpos2 = NULL_RTX;
 
   /* If we have partitioned hot/cold basic blocks, it is a bad idea
@@ -1690,7 +1675,7 @@ try_crossjump_bb (int mode, basic_block bb)
   
   if (flag_reorder_blocks_and_partition
       && (bb->pred->src->partition != bb->pred->pred_next->src->partition
-	  || bb->pred->crossing_edge))
+	  || (bb->pred->flags & EDGE_CROSSING)))
     return false;
 
   /* It is always cheapest to redirect a block that ends in a branch to

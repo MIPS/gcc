@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -871,7 +871,7 @@ Optional Features:
 			  tree,valgrind; default is gc,misc,rtlflag,tree
   --enable-mapped-location   location_t is fileline integer cookie
   --enable-coverage=LEVEL
-			  enable compiler\'s code coverage collection.
+			  enable compiler's code coverage collection.
 			  Use to measure compiler performance and locate
 			  unused parts of the compiler. With LEVEL, specify
 			  optimization. Values are opt, noopt,
@@ -1505,6 +1505,8 @@ esac
   "") target_noncanonical=${host_noncanonical} ;;
   *) target_noncanonical=${target_alias} ;;
 esac
+
+
 
 
 # Determine the target- and build-specific subdirectories
@@ -5365,16 +5367,11 @@ echo "${ECHO_T}no" >&6
 fi
 
 
-# Do we have a single-tree copy of texinfo?
-if test -f $srcdir/../texinfo/Makefile.in; then
-  MAKEINFO='$(objdir)/../texinfo/makeinfo/makeinfo'
-  gcc_cv_prog_makeinfo_modern=yes
-  echo "$as_me:$LINENO: result: Using makeinfo from the unified source tree." >&5
-echo "${ECHO_T}Using makeinfo from the unified source tree." >&6
-else
-  # See if makeinfo has been installed and is modern enough
-  # that we can use it.
-  # Extract the first word of "makeinfo", so it can be a program name with args.
+MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
+
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+# Extract the first word of "makeinfo", so it can be a program name with args.
 set dummy makeinfo; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
 echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
@@ -5418,7 +5415,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:5269: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:5266: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -5433,9 +5430,8 @@ else
   gcc_cv_prog_makeinfo_modern=no
 fi
 
-fi
-
 if test $gcc_cv_prog_makeinfo_modern = no; then
+  MAKEINFO="$MISSING makeinfo"
   { echo "$as_me:$LINENO: WARNING:
 *** Makeinfo is missing or too old.
 *** Info documentation will not be built." >&5
@@ -5446,6 +5442,7 @@ echo "$as_me: WARNING:
 else
   BUILD_INFO=info
 fi
+
 
 # Is pod2man recent enough to regenerate manpages?
 echo "$as_me:$LINENO: checking for recent Pod::Man" >&5
@@ -5460,13 +5457,12 @@ echo "${ECHO_T}no" >&6
   GENERATED_MANPAGES=
 fi
 
+
 # How about lex?
-if test x${build} = x${host} && test -f $srcdir/../flex/skel.c \
-  && test -d ../flex ; then
-  FLEX='$(objdir)/../flex/flex'
-else
-  # Extract the first word of "flex", so it can be a program name with args.
-set dummy flex; ac_word=$2
+for ac_prog in flex
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
 echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_FLEX+set}" = set; then
@@ -5482,14 +5478,13 @@ do
   test -z "$as_dir" && as_dir=.
   for ac_exec_ext in '' $ac_executable_extensions; do
   if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_FLEX="flex"
+    ac_cv_prog_FLEX="$ac_prog"
     echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
 done
 done
 
-  test -z "$ac_cv_prog_FLEX" && ac_cv_prog_FLEX="${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing flex"
 fi
 fi
 FLEX=$ac_cv_prog_FLEX
@@ -5501,16 +5496,16 @@ else
 echo "${ECHO_T}no" >&6
 fi
 
-fi
+  test -n "$FLEX" && break
+done
+test -n "$FLEX" || FLEX="$MISSING flex"
+
 
 # Bison?
-# The -L switch is so bison can find its skeleton file.
-if test x${build} = x${host} && test -f $srcdir/../bison/bison.simple \
-  && test -d ../bison ; then
-  BISON='$(objdir)/../bison/bison -L $(srcdir)/../bison/'
-else
-  # Extract the first word of "bison", so it can be a program name with args.
-set dummy bison; ac_word=$2
+for ac_prog in bison
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
 echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_BISON+set}" = set; then
@@ -5526,14 +5521,13 @@ do
   test -z "$as_dir" && as_dir=.
   for ac_exec_ext in '' $ac_executable_extensions; do
   if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_BISON="bison"
+    ac_cv_prog_BISON="$ac_prog"
     echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
 done
 done
 
-  test -z "$ac_cv_prog_BISON" && ac_cv_prog_BISON="${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing bison"
 fi
 fi
 BISON=$ac_cv_prog_BISON
@@ -5545,7 +5539,13 @@ else
 echo "${ECHO_T}no" >&6
 fi
 
-fi
+  test -n "$BISON" && break
+done
+test -n "$BISON" || BISON="$MISSING bison"
+
+
+# Binutils are not build modules, unlike bison/flex/makeinfo.  So we
+# check for build == host before using them.
 
 # NM
 if test x${build} = x${host} && test -f $srcdir/../binutils/nm.c \
@@ -7572,7 +7572,8 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   cat conftest.err >&5
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"			 || test ! -s conftest.err'
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
@@ -10192,11 +10193,8 @@ fi
 # Also, we cannot run fixincludes or fix-header.
 
 # These are the normal (build=host) settings:
-BUILD_PREFIX=
-BUILD_PREFIX_1=ignore-
 CC_FOR_BUILD='$(CC)'
 BUILD_CFLAGS='$(ALL_CFLAGS)'
-
 STMP_FIXINC=stmp-fixinc
 
 # Possibly disable fixproto, on a per-target basis.
@@ -10213,8 +10211,6 @@ esac
 # And these apply if build != host, or we are generating coverage data
 if test x$build != x$host || test "x$coverage_flags" != x
 then
-    BUILD_PREFIX=build-
-    BUILD_PREFIX_1=build-
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
@@ -11941,6 +11937,15 @@ if test $gcc_cv_as_mips_explicit_relocs = yes; then
        fi
 fi
 
+    if test x$gas_flag = xyes \
+       || test x"$host" != x"$build" \
+       || test ! -x "$gcc_cv_as" \
+       || "$gcc_cv_as" -v < /dev/null 2>&1 | grep GNU > /dev/null; then
+      :
+    else
+      echo "*** This configuration requires the GNU assembler" >&2
+      exit 1
+    fi
     ;;
 esac
 # ??? Not all targets support dwarf2 debug_line, even within a version
@@ -12253,6 +12258,56 @@ _ACEOF
 
 fi
 
+case "$target" in
+  powerpc64*-*-linux*)
+    echo "$as_me:$LINENO: checking linker support for omitting dot symbols" >&5
+echo $ECHO_N "checking linker support for omitting dot symbols... $ECHO_C" >&6
+if test "${gcc_cv_ld_no_dot_syms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_ld_no_dot_syms=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2; then
+        gcc_cv_ld_no_dot_syms=yes
+      fi
+    elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
+      cat > conftest1.s <<EOF
+	.text
+	bl .foo
+EOF
+      cat > conftest2.s <<EOF
+	.section ".opd","aw"
+	.align 3
+	.globl foo
+	.type foo,@function
+foo:
+	.quad .LEfoo,.TOC.@tocbase,0
+	.text
+.LEfoo:
+	blr
+	.size foo,.-.LEfoo
+EOF
+      if $gcc_cv_as -a64 -o conftest1.o conftest1.s > /dev/null 2>&1 \
+         && $gcc_cv_as -a64 -o conftest2.o conftest2.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -melf64ppc -o conftest conftest1.o conftest2.o > /dev/null 2>&1; then
+        gcc_cv_ld_no_dot_syms=yes
+      fi
+      rm -f conftest conftest1.o conftest2.o conftest1.s conftest2.s
+    fi
+
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_ld_no_dot_syms" >&5
+echo "${ECHO_T}$gcc_cv_ld_no_dot_syms" >&6
+    if test x"$gcc_cv_ld_no_dot_syms" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LD_NO_DOT_SYMS 1
+_ACEOF
+
+    fi
+    ;;
+esac
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
 
@@ -12554,7 +12609,6 @@ objdir=`${PWDCMD-pwd}`
 
 
 # Substitute configuration variables
-
 
 
 
@@ -13297,6 +13351,7 @@ s,@target@,$target,;t t
 s,@target_cpu@,$target_cpu,;t t
 s,@target_vendor@,$target_vendor,;t t
 s,@target_os@,$target_os,;t t
+s,@target_noncanonical@,$target_noncanonical,;t t
 s,@build_subdir@,$build_subdir,;t t
 s,@host_subdir@,$host_subdir,;t t
 s,@target_subdir@,$target_subdir,;t t
@@ -13372,8 +13427,6 @@ s,@CROSS@,$CROSS,;t t
 s,@ALL@,$ALL,;t t
 s,@SYSTEM_HEADER_DIR@,$SYSTEM_HEADER_DIR,;t t
 s,@inhibit_libc@,$inhibit_libc,;t t
-s,@BUILD_PREFIX@,$BUILD_PREFIX,;t t
-s,@BUILD_PREFIX_1@,$BUILD_PREFIX_1,;t t
 s,@CC_FOR_BUILD@,$CC_FOR_BUILD,;t t
 s,@BUILD_CFLAGS@,$BUILD_CFLAGS,;t t
 s,@STMP_FIXINC@,$STMP_FIXINC,;t t
@@ -13452,7 +13505,6 @@ s,@tm_p_include_list@,$tm_p_include_list,;t t
 s,@xm_file_list@,$xm_file_list,;t t
 s,@xm_include_list@,$xm_include_list,;t t
 s,@xm_defines@,$xm_defines,;t t
-s,@target_noncanonical@,$target_noncanonical,;t t
 s,@c_target_objs@,$c_target_objs,;t t
 s,@cxx_target_objs@,$cxx_target_objs,;t t
 s,@target_cpu_default@,$target_cpu_default,;t t

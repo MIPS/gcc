@@ -1,3 +1,75 @@
+2004-08-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* expr.c (build_java_arrayaccess): Use convert to change
+	len's type.
+
+2004-08-19  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* class.c (make_local_function_alias): Allocate extra space for 'L'
+	in name buffer. Reported by Thomas Neumann.
+
+2004-08-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parse.h (JAVA_RADIX10_FLAG): Rename to ...
+	(JAVA_NOT_RADIX10_FLAG): ... here.  Invert meaning.
+	* lex.c (do_java_lex): Adjust.
+	(error_if_numeric_overflow): Likewise.
+
+2004-08-18  Andrew Pinski  <apinski@apple.com>
+
+	* class.c (make_local_function_alias): Only make a new decl if we
+	support alias attribute on all decls.
+
+2004-08-18  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* class.c (make_local_function_alias): New function. Create local
+	alias for public method DECL.
+	(make_method_value): Use make_local_function_alias.
+	* parse.y (craft_constructor): Don't special-case anonymous classes.
+	Always set ctor_name to init_identifier_node.
+	(lookup_method_invoke): Call layout_class_method when creating
+	anonymous class constructor.
+
+2004-08-18  Richard Henderson  <rth@redhat.com>
+
+	* java-gimplify.c (java_gimplify_expr): Move '2' handling into
+	default case.  Treat '<' similarly.  Update for
+	is_gimple_formal_tmp_var name change.
+
+2004-08-17  Andrew Haley  <aph@redhat.com>
+
+	* lang.c (lang_printable_name): Obey verbose flag.
+	* parse.y (constructor_circularity_msg): Set VERBOSE arg for
+	lang_printable_name().
+	(verify_constructor_circularity, get_printable_method_name,
+	check_abstract_method_definitions, java_check_regular_methods,
+	java_check_abstract_methods, check_inner_class_access,
+	fix_constructors, patch_method_invocation, patch_return):
+	Likewise.
+	* expr.c (pop_type_0): Likewise.
+
+	* java-tree.h (lang_printable_name_wls): Delete.
+
+2004-08-16  Tom Tromey  <tromey@redhat.com>
+
+	PR java/8473:
+	* parse.y (primary): Changed for initialized and uninitialized
+	array creations.
+	(array_access): Handle array_creation_initialized.
+	(array_creation_expression): Split into
+	array_creation_initialized and array_creation_uninitialized.
+
+2004-08-16  Andrew Haley  <aph@redhat.com>
+
+	* jcf-write.c (find_constant_index): Canonicalize NaNs when
+	generating bytecode.
+
+2004-08-16  Elliot Lee <sopwith@redhat.com>
+
+	PR java/9677
+	* jcf-parse.c (java_parse_file): Handle filenames with embedded
+	spaces, and quoted filelists.
+
 2004-08-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* boehm.c (get_boehm_type_descriptor): Use build_int_cst.
@@ -8520,7 +8592,7 @@
 	properly initialize `finished_label'. Don't emit gotos for empty
 	try statements.
 
-2000-03-19  Martin v. LÃ¶wis  <loewis@informatik.hu-berlin.de>
+2000-03-19  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
 
 	* except.c (emit_handlers): Clear catch_clauses_last.
 

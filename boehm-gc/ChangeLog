@@ -1,3 +1,37 @@
+2004-08-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	misc.c (GC_init): Replace lhs cast with rhs cast.
+
+2004-08-16  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* specific.c: Check GC_LINUX_THREADS before including 
+	private/specific.h. From Richard Earnshaw.
+
+2004-08-16  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* aclocal.m4: Remove obsolete construct for old automake.
+	* acinclude.m4: Regenerate with aclocal 1.9.1.
+	* configure.ac:  Remove duplicate AC_WITH calls.  Replace
+	AC_CANONICAL_SYSTEM with AC_CANONICAL_HOST, AC_CANONICAL_TARGET.
+	Replace _GCC_TOPLEV_NONCANONICAL calls with ACX_NONCANONICAL_TARGET.
+	Remove now-redundant subst of target_noncanonical.  Remove
+	now-gratuitous m4 quoting around $.  Replace AM_PROG_LIBTOOL with
+	AC_PROG_LIBTOOL and remove second, redundant AC_PROG_LIBTOOL.
+	Use slightly more modern form of AC_INIT.
+	* configure: Rebuild with autoconf 2.59.
+	* Makefile.in, include/Makefile.in: Rebuild with automake 1.9.1.
+
+2004-08-16  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* solaris_threads.c: Remove ifdef around #include "private/gc_priv.h"
+	since they're not known at this time.
+	* solaris_pthreads.c: Likewise.
+
+2004-08-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR target/14931
+	* powerpc_darwin_mach_dep.s (_GC_push_regs): Change to new stub style.
+
 2004-08-13  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* configure.ac (gc_cflags): Add -Iinclude.

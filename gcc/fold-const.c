@@ -268,18 +268,21 @@ force_fit_type (tree t, int overflowable,
   if (overflowed || overflowed_const
       || low != TREE_INT_CST_LOW (t) || high != TREE_INT_CST_HIGH (t))
     {
+      t = build_int_cst (TREE_TYPE (t), low, high);
+      
       if (overflowed
 	  || overflowable < 0
 	  || (overflowable > 0 && sign_extended_type))
 	{
+	  t = copy_node (t);
 	  TREE_OVERFLOW (t) = 1;
 	  TREE_CONSTANT_OVERFLOW (t) = 1;
 	}
       else if (overflowed_const)
-	TREE_CONSTANT_OVERFLOW (t) = 1;
-      
-      TREE_INT_CST_LOW (t) = low;
-      TREE_INT_CST_HIGH (t) = high;
+	{
+	  t = copy_node (t);
+	  TREE_CONSTANT_OVERFLOW (t) = 1;
+	}
     }
   
   return t;
@@ -1409,27 +1412,23 @@ int_const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       abort ();
     }
 
-  /* If this is for a sizetype, can be represented as one (signed)
-     HOST_WIDE_INT word, and doesn't overflow, use size_int since it caches
-     constants.  */
-  if (is_sizetype
-      && ((hi == 0 && (HOST_WIDE_INT) low >= 0)
-	  || (hi == -1 && (HOST_WIDE_INT) low < 0))
-      && overflow == 0 && ! TREE_OVERFLOW (arg1) && ! TREE_OVERFLOW (arg2))
-    return size_int_type (low, type);
-  else
-    t = build_int_cst (TREE_TYPE (arg1), low, hi);
+  t = build_int_cst (TREE_TYPE (arg1), low, hi);
 
   if (notrunc)
     {
       /* Propagate overflow flags ourselves.  */
       if (((!uns || is_sizetype) && overflow)
 	  | TREE_OVERFLOW (arg1) | TREE_OVERFLOW (arg2))
-	TREE_OVERFLOW (t) = 1;
-
-      if (TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg1)
-	  | TREE_CONSTANT_OVERFLOW (arg2))
-	TREE_CONSTANT_OVERFLOW (t) = 1;
+	{
+	  t = copy_node (t);
+	  TREE_OVERFLOW (t) = 1;
+	  TREE_CONSTANT_OVERFLOW (t) = 1;
+	}
+      else if (TREE_CONSTANT_OVERFLOW (arg1) | TREE_CONSTANT_OVERFLOW (arg2))
+	{
+	  t = copy_node (t);
+	  TREE_CONSTANT_OVERFLOW (t) = 1;
+	}
     }
   else
     t = force_fit_type (t, 1,
@@ -1774,13 +1773,6 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 	     leave the conversion unfolded.  */
 	  if (TYPE_PRECISION (type) > 2 * HOST_BITS_PER_WIDE_INT)
 	    return NULL_TREE;
-
-	  /* If we are trying to make a sizetype for a small integer, use
-	     size_int to pick up cached types to reduce duplicate nodes.  */
-	  if (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type)
-	      && !TREE_CONSTANT_OVERFLOW (arg1)
-	      && compare_tree_int (arg1, 10000) < 0)
-	    return size_int_type (TREE_INT_CST_LOW (arg1), type);
 
 	  /* Given an integer constant, make new constant with new type,
 	     appropriately sign-extended or truncated.  */
@@ -8995,6 +8987,7 @@ fold (tree expr)
 	  tree tem = TREE_OPERAND (arg0, 0);
 	  STRIP_NOPS (tem);
 	  if (TREE_CODE (tem) == RSHIFT_EXPR
+              && TREE_CODE (TREE_OPERAND (tem, 1)) == INTEGER_CST
               && (unsigned HOST_WIDE_INT) tree_log2 (arg1) ==
 	         TREE_INT_CST_LOW (TREE_OPERAND (tem, 1)))
 	    return fold (build2 (BIT_AND_EXPR, type,
@@ -10804,30 +10797,39 @@ fold_ignored_result (tree t)
 tree
 round_up (tree value, int divisor)
 {
-  tree div, t;
+  tree div = NULL_TREE;
 
-  if (divisor == 0)
+  if (divisor <= 0)
     abort ();
   if (divisor == 1)
     return value;
 
-  div = size_int_type (divisor, TREE_TYPE (value));
-
   /* See if VALUE is already a multiple of DIVISOR.  If so, we don't
-     have to do anything.  */
-  if (multiple_of_p (TREE_TYPE (value), value, div))
-    return value;
+     have to do anything.  Only do this when we are not given a const,
+     because in that case, this check is more expensive than just
+     doing it. */
+  if (TREE_CODE (value) != INTEGER_CST)
+    {
+      div = size_int_type (divisor, TREE_TYPE (value));
+
+      if (multiple_of_p (TREE_TYPE (value), value, div))
+	return value;
+    }
 
   /* If divisor is a power of two, simplify this to bit manipulation.  */
   if (divisor == (divisor & -divisor))
     {
-      t = size_int_type (divisor - 1, TREE_TYPE (value));
+      tree t;
+      
+      t = build_int_cst (TREE_TYPE (value), divisor - 1, 0);
       value = size_binop (PLUS_EXPR, value, t);
-      t = size_int_type (-divisor, TREE_TYPE (value));
+      t = build_int_cst (TREE_TYPE (value), -divisor, -1);
       value = size_binop (BIT_AND_EXPR, value, t);
     }
   else
     {
+      if (!div)
+	div = size_int_type (divisor, TREE_TYPE (value));
       value = size_binop (CEIL_DIV_EXPR, value, div);
       value = size_binop (MULT_EXPR, value, div);
     }
@@ -10840,9 +10842,9 @@ round_up (tree value, int divisor)
 tree
 round_down (tree value, int divisor)
 {
-  tree div, t;
+  tree div = NULL_TREE;
 
-  if (divisor == 0)
+  if (divisor <= 0)
     abort ();
   if (divisor == 1)
     return value;
@@ -10850,18 +10852,29 @@ round_down (tree value, int divisor)
   div = size_int_type (divisor, TREE_TYPE (value));
 
   /* See if VALUE is already a multiple of DIVISOR.  If so, we don't
-     have to do anything.  */
-  if (multiple_of_p (TREE_TYPE (value), value, div))
-    return value;
+     have to do anything.  Only do this when we are not given a const,
+     because in that case, this check is more expensive than just
+     doing it. */
+  if (TREE_CODE (value) != INTEGER_CST)
+    {
+      div = size_int_type (divisor, TREE_TYPE (value));
+
+      if (multiple_of_p (TREE_TYPE (value), value, div))
+	return value;
+    }
 
   /* If divisor is a power of two, simplify this to bit manipulation.  */
   if (divisor == (divisor & -divisor))
     {
-      t = size_int_type (-divisor, TREE_TYPE (value));
+      tree t;
+      
+      t = build_int_cst (TREE_TYPE (value), -divisor, -1);
       value = size_binop (BIT_AND_EXPR, value, t);
     }
   else
     {
+      if (!div)
+	div = size_int_type (divisor, TREE_TYPE (value));
       value = size_binop (FLOOR_DIV_EXPR, value, div);
       value = size_binop (MULT_EXPR, value, div);
     }

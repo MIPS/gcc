@@ -750,6 +750,8 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
 
   if (packed < 3 || !known_stride)
     {
+      /* For dummy arrays and automatic (heap allocated) arrays we
+	 want a pointer to the array.  */
       type = build_pointer_type (type);
       GFC_ARRAY_TYPE_P (type) = 1;
       TYPE_LANG_SPECIFIC (type) = TYPE_LANG_SPECIFIC (TREE_TYPE (type));
@@ -972,7 +974,14 @@ gfc_sym_type (gfc_symbol * sym)
      See f95_get_function_decl.  For dummy function parameters return the
      function type.  */
   if (byref)
-    type = build_reference_type (type);
+    {
+      /* We must use pointer types for potentially absent variables.  The
+	 optimizers assume a reference type argument is never NULL.  */
+      if (sym->attr.optional || sym->ns->proc_name->attr.entry_master)
+	type = build_pointer_type (type);
+      else
+	type = build_reference_type (type);
+    }
 
   return (type);
 }
@@ -1155,6 +1164,13 @@ gfc_get_function_type (gfc_symbol * sym)
   nstr = 0;
   alternate_return = 0;
   typelist = NULL_TREE;
+
+  if (sym->attr.entry_master)
+    {
+      /* Additional parameter for selecting an entry point.  */
+      typelist = gfc_chainon_list (typelist, gfc_array_index_type);
+    }
+
   /* Some functions we use an extra parameter for the return value.  */
   if (gfc_return_by_reference (sym))
     {

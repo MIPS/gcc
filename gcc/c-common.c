@@ -3130,9 +3130,8 @@ c_common_nodes_and_builtins (void)
 
   record_builtin_type (RID_VOID, NULL, void_type_node);
 
+  /* This node must not be shared. */
   void_zero_node = make_node (INTEGER_CST);
-  TREE_INT_CST_LOW (void_zero_node) = 0;
-  TREE_INT_CST_HIGH (void_zero_node) = 0;
   TREE_TYPE (void_zero_node) = void_type_node;
 
   void_list_node = build_void_list_node ();
@@ -4215,7 +4214,6 @@ handle_used_attribute (tree *pnode, tree name, tree ARG_UNUSED (args),
       || (TREE_CODE (node) == VAR_DECL && TREE_STATIC (node)))
     {
       TREE_USED (node) = 1;
-      /* APPLE LOCAL 3739318 FSF candidate.  */
       DECL_PRESERVE_P (node) = 1;
     }
   else
@@ -4495,6 +4493,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
   if (targetm.have_named_sections)
     {
+      user_defined_section_attribute = true;
+
       if ((TREE_CODE (decl) == FUNCTION_DECL
 	   || TREE_CODE (decl) == VAR_DECL)
 	  && TREE_CODE (TREE_VALUE (args)) == STRING_CST)

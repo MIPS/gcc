@@ -1,3 +1,84 @@
+2004-08-21  Andreas Tobler  <a.tobler@schweiz.ch>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (lib_gnu_java_awt_peer_gtk_la_LINK): Added.
+	* Makefile.in: Regenerated.
+
+2004-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* configure.ac: Replaced all AC_TRY_COMPILE macros with
+	AC_COMPILE_IFELSE macros.
+
+2004-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Renamed to configure.ac.
+	* configure.ac: New file.
+	* configure, Makefile.in, gcj/Makefile.in, include/Makefile.in
+	include/config.h.in, testsuite/Makefile.in: Regenerated.
+
+2004-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Rewrote some obsolete stuff for autoconf 2.59.
+	* aclocal.m4, configure: Regenerated.
+
+2004-08-19  Thomas Fitzsimmons  <fitzsim@redhat.com>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* configure.in,	Makefile.am: Ported to automake 1.9.
+	* Makefile.in, aclocal.m4, configure, gcj/Makefile.in, 
+	include/Makefile.in, testsuite/Makefile.in, include/config.h.in:
+	Regenerated.
+
+2004-08-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/DatagramSocket.java: Fixed typo.
+
+2004-08-18  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/17081
+	* java/net/URI.java (string): New field. Make all other fields
+	transient.
+	(readObject): Implemented.
+	(writeObject): Implemented.
+	(URI): Set 'string'.
+
+2004-08-18  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/17079
+	* java/util/logging/Handler.java (isLoggable): Accept record if its
+	log level equals the threshold level. From Robin Green.
+
+2004-08-18  David Daney  <ddaney@avtrex.com>
+
+	* java/lang/natPosixProcess.cc (waitForSignal): Use sigsuspend 
+	instead of sigwait.
+
+2004-08-17  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (AM_CXXFLAGS): Reformatted to make it more ease to read.
+	* Makefile.in: Regenerated.
+
+2004-08-16  Tom Tromey  <tromey@redhat.com>
+
+	PR java/8473:
+	* testsuite/libjava.jacks/jacks.xfail: Removed passing test.
+
+2004-08-16  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(math_c_files): Renamed from c_files.
+	(math_c_source_files): Renamed from c_source_files.
+	* Makefile.in,
+	gcj/Makefile.in,
+	include/Makefile.in,
+	testsuite/Makefile.in: Regenerated.
+
+2004-08-16  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.in (AC_CONF_SUBDIRS): Use literal for ltdl directory
+	to avoid autoconf warning.
+	* configure: Rebuilt.
+
 2004-08-14  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* java/net/natInetAddressPosix.cc (lookup): Reflect rename of 

@@ -35,11 +35,9 @@
 #define TARGET_TOC 0
 #define TARGET_NO_TOC 1
 
-/* APPLE LOCAL begin 64-bit */
 /* Override the default rs6000 definition.  */
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
-/* APPLE LOCAL end 64-bit */
 
 /* Darwin switches.  */
 /* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
@@ -98,6 +96,7 @@ do {									\
         warning ("-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
+									\
     /* Handle -mfix-and-continue.  */					\
     if (darwin_fix_and_continue_switch)					\
       {									\
@@ -112,13 +111,11 @@ do {									\
     if (rs6000_long_double_size_string == 0)				\
       rs6000_long_double_type_size = 128;				\
   }									\
-  /* APPLE LOCAL begin 64-bit */					\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
       target_flags |= MASK_POWERPC64;					\
       warning ("-m64 requires PowerPC64 architecture, enabling");	\
     }									\
-  /* APPLE LOCAL end 64-bit */						\
 } while(0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
@@ -245,6 +242,8 @@ do {									\
 #define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
                               "__TEXT,__unlikely,regular,pure_instructions"
+
+/* APPLE LOCAL begin long call hot cold */
 /* The following is used by hot/cold partitioning to determine whether to
    unconditional branches are "long enough" to span the distance between
    hot and cold sections  (otherwise we have to use indirect jumps).  It 
@@ -252,6 +251,7 @@ do {									\
    If -mlongcall is set, we use the indirect jumps (the macro below gets '0');
    otherwise we use unconditional branches (the macro below gets '1').  */
 #define HAS_LONG_UNCOND_BRANCH (TARGET_LONG_BRANCH ? 0 : 1)
+/* APPLE LOCAL end long call hot cold */
 
 /* APPLE LOCAL begin long-branch */
 /* Define cutoff for using external functions to save floating point.
@@ -356,14 +356,12 @@ do {									\
 
 #define RS6000_MCOUNT "*mcount"
 
-/* APPLE LOCAL begin 64-bit */
 /* Default processor: G4, and G5 for 64-bit.  */
 
 #undef PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
 #undef PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64  PROCESSOR_POWER4
-/* APPLE LOCAL end 64-bit */
 
 /* Default target flag settings.  Despite the fact that STMW/LMW
    serializes, it's still a big code size win to use them.  Use FSEL by

@@ -183,11 +183,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_EXTERNAL_LIBCALL default_external_libcall
 #endif
 
-/* APPLE LOCAL begin 3739318 FSF Candidate.  */
 #ifndef TARGET_ASM_MARK_DECL_PRESERVED
 #define TARGET_ASM_MARK_DECL_PRESERVED hook_void_constcharptr
 #endif
-/* APPLE LOCAL end 3739318 FSF Candidate.  */
 
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
@@ -230,7 +228,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_FILE_START,                  \
                         TARGET_ASM_FILE_END,			\
 			TARGET_ASM_EXTERNAL_LIBCALL,            \
-                        /* APPLE LOCAL 3739318 FSF Candidate.  */ \
                         TARGET_ASM_MARK_DECL_PRESERVED}
 
 /* Scheduler hooks.  All of these default to null pointers, which
@@ -319,6 +316,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* APPLE LOCAL end AV vector_init --haifa  */
 /* APPLE LOCAL end AV if-conversion --dpatel  */
 /* APPLE LOCAL end AV misaligned --haifa  */
+
+/* In except.c */
+#define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
 
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
@@ -508,6 +508,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 {						\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
+  TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\

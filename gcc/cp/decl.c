@@ -4589,7 +4589,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
     check_for_uninitialized_const_var (decl);
 
   if (init && init != error_mark_node)
-    init_code = build (INIT_EXPR, type, decl, init);
+    init_code = build2 (INIT_EXPR, type, decl, init);
 
   return init_code;
 }
@@ -5256,7 +5256,7 @@ expand_static_init (tree decl, tree init)
       && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
     return;
 
-  if (! toplevel_bindings_p ())
+  if (DECL_FUNCTION_SCOPE_P (decl))
     {
       /* Emit code to perform this initialization but once.  */
       tree if_stmt;
@@ -5365,7 +5365,7 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	{
 	  tree elts = CONSTRUCTOR_ELTS (initial_value);
 
-	  maxindex = ssize_int (-1);
+	  maxindex = build_int_cst (ssizetype, -1, -1);
 	  for (; elts; elts = TREE_CHAIN (elts))
 	    {
 	      if (TREE_PURPOSE (elts))
@@ -9488,16 +9488,6 @@ finish_enum (tree enumtype)
 	    maxnode = value;
 	  else if (tree_int_cst_lt (value, minnode))
 	    minnode = value;
-
-	  /* Set the TREE_TYPE for the values as well.  That's so that when
-	     we call decl_constant_value we get an entity of the right type
-	     (but with the constant value).  But first make a copy so we
-	     don't clobber shared INTEGER_CSTs.  */
-	  if (TREE_TYPE (value) != enumtype)
-	    {
-	      value = DECL_INITIAL (decl) = copy_node (value);
-	      TREE_TYPE (value) = enumtype;
-	    }
 	}
     }
   else
@@ -9582,6 +9572,10 @@ finish_enum (tree enumtype)
       decl = TREE_VALUE (values);
       value = perform_implicit_conversion (underlying_type,
 					   DECL_INITIAL (decl));
+
+      /* Do not clobber shared ints.  */
+      value = copy_node (value);
+      
       TREE_TYPE (value) = enumtype;
       DECL_INITIAL (decl) = value;
       TREE_VALUE (values) = value;
@@ -10268,8 +10262,8 @@ finish_constructor_body (void)
       add_stmt (build_stmt (LABEL_EXPR, cdtor_label));
 
       val = DECL_ARGUMENTS (current_function_decl);
-      val = build (MODIFY_EXPR, TREE_TYPE (val),
-		   DECL_RESULT (current_function_decl), val);
+      val = build2 (MODIFY_EXPR, TREE_TYPE (val),
+		    DECL_RESULT (current_function_decl), val);
       /* Return the address of the object.  */
       exprstmt = build_stmt (RETURN_EXPR, val);
       add_stmt (exprstmt);
@@ -10352,9 +10346,9 @@ finish_destructor_body (void)
 	 /*global_p=*/false, NULL_TREE);
 
       if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
-				  current_in_charge_parm,
-				  integer_one_node),
+      finish_if_stmt_cond (build2 (BIT_AND_EXPR, integer_type_node,
+				   current_in_charge_parm,
+				   integer_one_node),
 			   if_stmt);
       finish_expr_stmt (exprstmt);
       finish_then_clause (if_stmt);
@@ -10366,8 +10360,8 @@ finish_destructor_body (void)
       tree val;
 
       val = DECL_ARGUMENTS (current_function_decl);
-      val = build (MODIFY_EXPR, TREE_TYPE (val),
-		   DECL_RESULT (current_function_decl), val);
+      val = build2 (MODIFY_EXPR, TREE_TYPE (val),
+		    DECL_RESULT (current_function_decl), val);
       /* Return the address of the object.  */
       exprstmt = build_stmt (RETURN_EXPR, val);
       add_stmt (exprstmt);

@@ -346,16 +346,16 @@ build_base_path (enum tree_code code,
 	  t = TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived)));
 	  t = build_pointer_type (t);
 	  v_offset = convert (t, current_vtt_parm);
-	  v_offset = build (PLUS_EXPR, t, v_offset,
-			    BINFO_VPTR_INDEX (derived));
+	  v_offset = build2 (PLUS_EXPR, t, v_offset,
+			     BINFO_VPTR_INDEX (derived));
 	  v_offset = build_indirect_ref (v_offset, NULL);
 	}
       else
 	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
 				     TREE_TYPE (TREE_TYPE (expr)));
       
-      v_offset = build (PLUS_EXPR, TREE_TYPE (v_offset),
-			v_offset,  BINFO_VPTR_FIELD (v_binfo));
+      v_offset = build2 (PLUS_EXPR, TREE_TYPE (v_offset),
+			 v_offset,  BINFO_VPTR_FIELD (v_binfo));
       v_offset = build1 (NOP_EXPR, 
 			 build_pointer_type (ptrdiff_type_node),
 			 v_offset);
@@ -368,17 +368,17 @@ build_base_path (enum tree_code code,
 						BINFO_OFFSET (v_binfo)));
 
       if (!integer_zerop (offset))
-	v_offset = build (code, ptrdiff_type_node, v_offset, offset);
+	v_offset = build2 (code, ptrdiff_type_node, v_offset, offset);
 
       if (fixed_type_p < 0)
 	/* Negative fixed_type_p means this is a constructor or destructor;
 	   virtual base layout is fixed in in-charge [cd]tors, but not in
 	   base [cd]tors.  */
-	offset = build (COND_EXPR, ptrdiff_type_node,
-			build (EQ_EXPR, boolean_type_node,
-			       current_in_charge_parm, integer_zero_node),
-			v_offset,
-			BINFO_OFFSET (binfo));
+	offset = build3 (COND_EXPR, ptrdiff_type_node,
+			 build2 (EQ_EXPR, boolean_type_node,
+				 current_in_charge_parm, integer_zero_node),
+			 v_offset,
+			 BINFO_OFFSET (binfo));
       else
 	offset = v_offset;
     }
@@ -394,7 +394,7 @@ build_base_path (enum tree_code code,
   expr = build1 (NOP_EXPR, ptr_target_type, expr);
 
   if (!integer_zerop (offset))
-    expr = build (code, ptr_target_type, expr, offset);
+    expr = build2 (code, ptr_target_type, expr, offset);
   else
     null_test = NULL;
   
@@ -487,8 +487,8 @@ convert_to_base_statically (tree expr, tree base)
       pointer_type = build_pointer_type (expr_type);
       expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
       if (!integer_zerop (BINFO_OFFSET (base)))
-	  expr = build (PLUS_EXPR, pointer_type, expr, 
-			build_nop (pointer_type, BINFO_OFFSET (base)));
+	  expr = build2 (PLUS_EXPR, pointer_type, expr, 
+			 build_nop (pointer_type, BINFO_OFFSET (base)));
       expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
       expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
     }
@@ -566,7 +566,7 @@ build_vfn_ref (tree instance_ptr, tree idx)
 		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
 
   /* Remember this as a method reference, for later devirtualization.  */
-  aref = build (OBJ_TYPE_REF, TREE_TYPE (aref), aref, instance_ptr, idx);
+  aref = build3 (OBJ_TYPE_REF, TREE_TYPE (aref), aref, instance_ptr, idx);
 
   return aref;
 }
@@ -5274,7 +5274,7 @@ finish_struct_1 (tree t)
 	       thunk base function.  */
 	    DECL_VINDEX (fndecl) = NULL_TREE;
 	  else if (TREE_CODE (DECL_VINDEX (fndecl)) != INTEGER_CST)
-	    DECL_VINDEX (fndecl) = build_shared_int_cst (vindex);
+	    DECL_VINDEX (fndecl) = build_int_cst (NULL_TREE, vindex, 0);
 	}
     }
 
@@ -6219,8 +6219,8 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	if (addr != error_mark_node
 	    && TREE_SIDE_EFFECTS (TREE_OPERAND (rhs, 0)))
 	  /* Do not lose object's side effects.  */
-	  addr = build (COMPOUND_EXPR, TREE_TYPE (addr),
-			TREE_OPERAND (rhs, 0), addr);
+	  addr = build2 (COMPOUND_EXPR, TREE_TYPE (addr),
+			 TREE_OPERAND (rhs, 0), addr);
 	return addr;
       }
 
@@ -7425,7 +7425,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
 #endif
       /* APPLE LOCAL end double destructor  20020301 --turly  */
 
-      vtbl = build (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
+      vtbl = build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
     }
 
   if (ctor_vtbl_p)
@@ -7489,7 +7489,8 @@ build_vtbl_initializer (tree binfo,
   vid.ctor_vtbl_p = !same_type_p (BINFO_TYPE (rtti_binfo), t);
   vid.generate_vcall_entries = true;
   /* The first vbase or vcall offset is at index -3 in the vtable.  */
-  vid.index = ssize_int (-3 * TARGET_VTABLE_DATA_ENTRY_DISTANCE);
+  vid.index = build_int_cst (ssizetype,
+			     -3 * TARGET_VTABLE_DATA_ENTRY_DISTANCE, -1);
 
   /* Add entries to the vtable for RTTI.  */
   build_rtti_vtbl_entries (binfo, &vid);
@@ -7613,9 +7614,9 @@ build_vtbl_initializer (tree binfo,
 	  else
 	    for (i = 0; i < TARGET_VTABLE_USES_DESCRIPTORS; ++i)
 	      {
-		tree fdesc = build (FDESC_EXPR, vfunc_ptr_type_node,
-				    TREE_OPERAND (init, 0),
-				    build_int_cst (NULL_TREE, i, 0));
+		tree fdesc = build2 (FDESC_EXPR, vfunc_ptr_type_node,
+				     TREE_OPERAND (init, 0),
+				     build_int_cst (NULL_TREE, i, 0));
 		TREE_CONSTANT (fdesc) = 1;
 		TREE_INVARIANT (fdesc) = 1;
 

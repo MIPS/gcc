@@ -118,12 +118,8 @@ char *unlikely_section_label = NULL;
 
 char *unlikely_text_section_name = NULL;
 
-/* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
-   So giving constant the alias set for the type will allow such
-   initializations to appear to conflict with the load of the constant.  We
-   avoid this by giving all constants an alias set for just constants.
-   Since there will be no stores to that alias set, nothing will ever
-   conflict with them.  */
+/* We give all constants their own alias set.  Perhaps redundant with
+   MEM_READONLY_P, but pre-dates it.  */
 
 static HOST_WIDE_INT const_alias_set;
 
@@ -226,7 +222,6 @@ text_section (void)
 void
 unlikely_text_section (void)
 {
-  /* APPLE LOCAL begin hot/cold partitioning  */
   const char *name;
   int len;
 
@@ -240,7 +235,8 @@ unlikely_text_section (void)
 					   (current_function_decl)),
 		      UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
 	{
-	  name = TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
+	  name = TREE_STRING_POINTER (DECL_SECTION_NAME 
+				                   (current_function_decl));
 	  len = strlen (name);
 	  unlikely_text_section_name = xmalloc ((len + 10) * sizeof (char));
 	  strcpy (unlikely_text_section_name, name);
@@ -250,7 +246,8 @@ unlikely_text_section (void)
 	{
 	  len = strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
 	  unlikely_text_section_name = xmalloc (len+1 * sizeof (char));
-	  strcpy (unlikely_text_section_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+	  strcpy (unlikely_text_section_name, 
+		  UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
 	}
     }
 
@@ -267,7 +264,6 @@ unlikely_text_section (void)
 	  unlikely_section_label_printed = true;
 	}
     }
-  /* APPLE LOCAL end hot/cold partitioning  */
 }
 
 /* Tell assembler to switch to data section.  */
@@ -312,7 +308,6 @@ in_text_section (void)
   return in_section == in_text;
 }
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* Determine if we're in the unlikely-to-be-executed text section.  */
 
 int
@@ -327,7 +322,6 @@ in_unlikely_text_section (void)
 
   return ret_val;
 }
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Determine if we're in the data section.  */
 
@@ -460,17 +454,19 @@ named_section (tree decl, const char *name, int reloc)
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0
       && !unlikely_text_section_name)
     {
       unlikely_text_section_name = xmalloc 
-	     ((strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME) + 1) * sizeof (char));
-      strcpy (unlikely_text_section_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+      /* APPLE LOCAL begin hot/cold partitioning  */
+      /* MERGE FIXME put into FSF, or remove sizeof (char) as it _is_ 1 */
+	     ((strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME) + 1)
+	      * sizeof (char));
+      strcpy (unlikely_text_section_name, 
+	      UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
     }
 
-  flags = (* targetm.section_type_flags) (decl, name, reloc);
-  /* APPLE LOCAL end hot/cold partitioning  */
+  flags = targetm.section_type_flags (decl, name, reloc);
 
   /* Sanity check user variables for flag changes.  Non-user
      section flag changes will abort in named_section_flags.
@@ -580,14 +576,11 @@ function_section (tree decl)
 {
   if (scan_ahead_for_unlikely_executed_note (get_insns()))
     unlikely_text_section ();
+  else if (decl != NULL_TREE
+	   && DECL_SECTION_NAME (decl) != NULL_TREE)
+    named_section (decl, (char *) 0, 0);
   else
-    {
-      if (decl != NULL_TREE
-	  && DECL_SECTION_NAME (decl) != NULL_TREE)
-	named_section (decl, (char *) 0, 0);
-      else
-	text_section (); 
-    }
+    text_section (); 
 }
 
 /* Switch to read-only data section associated with function DECL.  */
@@ -788,7 +781,7 @@ set_user_assembler_name (tree decl, const char *name)
 int
 decode_reg_name (const char *asmspec)
 {
-  if (asmspec != 0)
+  if (asmspec != 0 && strlen (asmspec) != 0)
     {
       int i;
 
@@ -1202,7 +1195,7 @@ assemble_start_function (tree decl, const char *fnname)
     free (unlikely_section_label);
   unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
   sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
-
+  
   /* The following code does not need preprocessing in the assembler.  */
 
   app_disable ();
@@ -1267,10 +1260,8 @@ assemble_start_function (tree decl, const char *fnname)
       maybe_assemble_visibility (decl);
     }
 
-  /* APPLE LOCAL begin 3739318 FSF candidate.  */
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (fnname);
-  /* APPLE LOCAL end 3739318 FSF candidate.  */
 
   /* Do any machine/system dependent processing of the function name.  */
 #ifdef ASM_DECLARE_FUNCTION_NAME
@@ -1585,9 +1576,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   /* Some object file formats have a maximum alignment which they support.
      In particular, a.out format supports a maximum alignment of 4.  */
-#ifndef MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
-#endif
   if (align > MAX_OFILE_ALIGNMENT)
     {
       warning ("%Jalignment of '%D' is greater than maximum object "
@@ -1616,10 +1604,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (TREE_PUBLIC (decl))
     maybe_assemble_visibility (decl);
 
-  /* APPLE LOCAL begin 3739318 FSF candidate.  */
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (name);
-  /* APPLE LOCAL end 3739318 FSF candidate.  */
 
   /* Output any data that we will need to use the address of.  */
   if (DECL_INITIAL (decl) == error_mark_node)
@@ -3044,11 +3030,8 @@ force_const_mem (enum machine_mode mode, rtx x)
   *slot = desc;
 
   /* Construct the MEM.  */
-  desc->mem = def = gen_rtx_MEM (mode, symbol);
+  desc->mem = def = gen_const_mem (mode, symbol);
   set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
-  RTX_UNCHANGING_P (def) = 1;
-  /* APPLE LOCAL lno */
-  MEM_NOTRAP_P (def) = 1;
 
   /* If we're dropping a label to the constant pool, make sure we
      don't delete it.  */
@@ -4598,11 +4581,9 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
     flags = SECTION_CODE;
   else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
-  /* APPLE LOCAL begin hot/cold partitioning  */
   else if (unlikely_text_section_name
 	   && strcmp (name, unlikely_text_section_name) == 0)
     flags = SECTION_CODE;
-  /* APPLE LOCAL end hot/cold partitioning  */
   else
     flags = SECTION_WRITE;
 

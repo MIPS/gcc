@@ -1841,7 +1841,7 @@ static void cp_parser_label_declaration
 /* Utility Routines */
 
 static tree cp_parser_lookup_name
-  (cp_parser *, tree, bool, bool, bool, bool);
+  (cp_parser *, tree, bool, bool, bool, bool, bool *);
 static tree cp_parser_lookup_name_simple
   (cp_parser *, tree);
 static tree cp_parser_maybe_treat_template_as_class
@@ -2049,6 +2049,13 @@ cp_parser_name_lookup_error (cp_parser* parser,
 	       parser->scope, name);
       else if (parser->scope == global_namespace)
 	error ("`::%D' has not been declared", name);
+      else if (parser->object_scope 
+	       && !CLASS_TYPE_P (parser->object_scope))
+	error ("request for member `%D' in non-class type `%T'",
+	       name, parser->object_scope);
+      else if (parser->object_scope)
+	error ("`%T::%D' has not been declared", 
+	       parser->object_scope, name);
       else
 	error ("`%D' has not been declared", name);
     }
@@ -2951,7 +2958,18 @@ cp_parser_primary_expression (cp_parser *parser,
 	/* Look up the name.  */
 	else
 	  {
-	    decl = cp_parser_lookup_name_simple (parser, id_expression);
+	    bool ambiguous_p;
+
+	    decl = cp_parser_lookup_name (parser, id_expression,
+					  /*is_type=*/false,
+					  /*is_template=*/false,
+					  /*is_namespace=*/false,
+					  /*check_dependency=*/true,
+					  &ambiguous_p);
+	    /* If the lookup was ambiguous, an error will already have
+	       been issued.  */
+	    if (ambiguous_p)
+	      return error_mark_node;
 	    /* If name lookup gives us a SCOPE_REF, then the
 	       qualifying scope was dependent.  Just propagate the
 	       name.  */
@@ -4523,6 +4541,9 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
 {
   bool nested_name_specifier_p;
 
+  /* Assume that things will not work out.  */
+  *type = error_mark_node;
+
   /* Look for the optional `::' operator.  */
   cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/true);
   /* Look for the optional nested-name-specifier.  */
@@ -4555,17 +4576,18 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
       /* Look for the type-name.  */
       *scope = TREE_TYPE (cp_parser_type_name (parser));
 
-      /* If we didn't get an aggregate type, or we don't have ::~,
-	 then something has gone wrong.  Since the only caller of this
-	 function is looking for something after `.' or `->' after a
-	 scalar type, most likely the program is trying to get a
-	 member of a non-aggregate type.  */
-      if (*scope == error_mark_node
-	  || cp_lexer_next_token_is_not (parser->lexer, CPP_SCOPE)
+      if (*scope == error_mark_node)
+	return;
+
+      /* If we don't have ::~, then something has gone wrong.  Since
+	 the only caller of this function is looking for something
+	 after `.' or `->' after a scalar type, most likely the
+	 program is trying to get a member of a non-aggregate
+	 type.  */
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_SCOPE)
 	  || cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_COMPL)
 	{
 	  cp_parser_error (parser, "request for member of non-aggregate type");
-	  *type = error_mark_node;
 	  return;
 	}
 
@@ -8429,7 +8451,8 @@ cp_parser_type_parameter (cp_parser* parser)
 					/*is_type=*/false,
 					/*is_template=*/is_template,
 					/*is_namespace=*/false,
-					/*check_dependency=*/true);
+					/*check_dependency=*/true,
+					/*ambiguous_p=*/NULL);
 	    /* See if the default argument is valid.  */
 	    default_argument
 	      = check_template_template_default_arg (default_argument);
@@ -8808,7 +8831,8 @@ cp_parser_template_name (cp_parser* parser,
 				/*is_type=*/false,
 				/*is_template=*/false,
 				/*is_namespace=*/false,
-				check_dependency_p);
+				check_dependency_p,
+				/*ambiguous_p=*/NULL);
   decl = maybe_get_template_decl_from_type_decl (decl);
 
   /* If DECL is a template, then the name was a template-name.  */
@@ -8998,7 +9022,8 @@ cp_parser_template_argument (cp_parser* parser)
 					  /*is_type=*/false,
 					  /*is_template=*/template_p,
 					  /*is_namespace=*/false,
-					  /*check_dependency=*/true);
+					  /*check_dependency=*/true,
+					  /*ambiguous_p=*/NULL);
       if (TREE_CODE (argument) != TEMPLATE_DECL
 	  && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
@@ -9851,7 +9876,8 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 					/*is_type=*/true,
 					/*is_template=*/false,
 					/*is_namespace=*/false,
-					/*check_dependency=*/true);
+					/*check_dependency=*/true,
+					/*ambiguous_p=*/NULL);
 
 	  /* If we are parsing friend declaration, DECL may be a
 	     TEMPLATE_DECL tree node here.  However, we need to check
@@ -10127,7 +10153,8 @@ cp_parser_namespace_name (cp_parser* parser)
 					  /*is_type=*/false,
 					  /*is_template=*/false,
 					  /*is_namespace=*/true,
-					  /*check_dependency=*/true);
+					  /*check_dependency=*/true,
+					  /*ambiguous_p=*/NULL);
   /* If it's not a namespace, issue an error.  */
   if (namespace_decl == error_mark_node
       || TREE_CODE (namespace_decl) != NAMESPACE_DECL)
@@ -12375,7 +12402,8 @@ cp_parser_class_name (cp_parser *parser,
 					type_p,
 					/*is_template=*/false,
 					/*is_namespace=*/false,
-					check_dependency_p);
+					check_dependency_p,
+					/*ambiguous_p=*/NULL);
 	}
     }
   else
@@ -14257,15 +14285,23 @@ cp_parser_label_declaration (cp_parser* parser)
    are ignored.
 
    If CHECK_DEPENDENCY is TRUE, names are not looked up in dependent
-   types.  */
+   types.  
+
+   If AMBIGUOUS_P is non-NULL, it is set to true if name-lookup
+   results in an ambiguity, and false otherwise.  */
 
 static tree
 cp_parser_lookup_name (cp_parser *parser, tree name,
 		       bool is_type, bool is_template, bool is_namespace,
-		       bool check_dependency)
+		       bool check_dependency,
+		       bool *ambiguous_p)
 {
   tree decl;
   tree object_type = parser->context->object_type;
+
+  /* Assume that the lookup will be unambiguous.  */
+  if (ambiguous_p)
+    *ambiguous_p = false;
 
   /* Now that we have looked up the name, the OBJECT_TYPE (if any) is
      no longer valid.  Note that if we are parsing tentatively, and
@@ -14414,6 +14450,8 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
   if (TREE_CODE (decl) == TREE_LIST)
     {
+      if (ambiguous_p)
+	*ambiguous_p = true;
       /* The error message we have to print is too complicated for
 	 cp_parser_error, so we incorporate its actions directly.  */
       if (!cp_parser_simulate_error (parser))
@@ -14455,7 +14493,8 @@ cp_parser_lookup_name_simple (cp_parser* parser, tree name)
 				/*is_type=*/false,
 				/*is_template=*/false,
 				/*is_namespace=*/false,
-				/*check_dependency=*/true);
+				/*check_dependency=*/true,
+				/*ambiguous_p=*/NULL);
 }
 
 /* If DECL is a TEMPLATE_DECL that can be treated like a TYPE_DECL in

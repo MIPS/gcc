@@ -1359,16 +1359,6 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
-  /* If we are initializing a readonly value, show the above call clobbered
-     it. Otherwise, a load from it may erroneously be hoisted from a loop, or
-     the delay slot scheduler might overlook conflicts and take nasty
-     decisions.  */
-  if (RTX_UNCHANGING_P (dst))
-    add_function_usage_to
-      (last_call_insn (), gen_rtx_EXPR_LIST (VOIDmode,
-					     gen_rtx_CLOBBER (VOIDmode, dst),
-					     NULL_RTX));
-
   return retval;
 }
 
@@ -2453,12 +2443,6 @@ clear_storage_via_libcall (rtx object, rtx size)
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
-  /* If we are initializing a readonly value, show the above call
-     clobbered it.  Otherwise, a load from it may erroneously be
-     hoisted from a loop.  */
-  if (RTX_UNCHANGING_P (object))
-    emit_insn (gen_rtx_CLOBBER (VOIDmode, object));
-
   return retval;
 }
 
@@ -3466,16 +3450,12 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 static rtx
 get_subtarget (rtx x)
 {
-  return ((x == 0
+  return (optimize
+          || x == 0
 	   /* Only registers can be subtargets.  */
 	   || !REG_P (x)
-	   /* If the register is readonly, it can't be set more than once.  */
-	   || RTX_UNCHANGING_P (x)
 	   /* Don't use hard regs to avoid extending their life.  */
 	   || REGNO (x) < FIRST_PSEUDO_REGISTER
-	   /* Avoid subtargets inside loops,
-	      since they hide some invariant expressions.  */
-	   || preserve_subexpressions_p ())
 	  ? 0 : x);
 }
 
@@ -3578,18 +3558,6 @@ expand_assignment (tree to, tree from, int want_value)
 	  if (to_rtx == orig_to_rtx)
 	    to_rtx = copy_rtx (to_rtx);
 	  MEM_VOLATILE_P (to_rtx) = 1;
-	}
-
-      if (TREE_CODE (to) == COMPONENT_REF
-	  && TREE_READONLY (TREE_OPERAND (to, 1))
-	  /* We can't assert that a MEM won't be set more than once
-	     if the component is not addressable because another
-	     non-addressable component may be referenced by the same MEM.  */
-	  && ! (MEM_P (to_rtx) && ! can_address_p (to)))
-	{
-	  if (to_rtx == orig_to_rtx)
-	    to_rtx = copy_rtx (to_rtx);
-	  RTX_UNCHANGING_P (to_rtx) = 1;
 	}
 
       if (MEM_P (to_rtx) && ! can_address_p (to))
@@ -4492,15 +4460,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		   || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
 		       == size)))
 	{
-	  rtx xtarget = target;
-
-	  if (readonly_fields_p (type))
-	    {
-	      xtarget = copy_rtx (xtarget);
-	      RTX_UNCHANGING_P (xtarget) = 1;
-	    }
-
-	  clear_storage (xtarget, GEN_INT (size));
+	  clear_storage (target, GEN_INT (size));
 	  cleared = 1;
 	}
 
@@ -4571,14 +4531,6 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
 	      to_rtx = offset_address (to_rtx, offset_rtx,
 				       highest_pow2_factor (offset));
-	    }
-
-	  if (TREE_READONLY (field))
-	    {
-	      if (MEM_P (to_rtx))
-		to_rtx = copy_rtx (to_rtx);
-
-	      RTX_UNCHANGING_P (to_rtx) = 1;
 	    }
 
 #ifdef WORD_REGISTER_OPERATIONS
@@ -6691,12 +6643,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  orig = exp;
 	set_mem_attributes (temp, orig, 0);
 	/* APPLE LOCAL end lno */
-
-	/* If we are writing to this object and its type is a record with
-	   readonly fields, we must mark it as readonly so it will
-	   conflict with readonly references to those fields.  */
-	if (modifier == EXPAND_WRITE && readonly_fields_p (type))
-	  RTX_UNCHANGING_P (temp) = 1;
 
 	return temp;
       }
@@ -8826,9 +8772,7 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
 #endif
     index = memory_address_noforce (CASE_VECTOR_MODE, index);
   temp = gen_reg_rtx (CASE_VECTOR_MODE);
-  vector = gen_rtx_MEM (CASE_VECTOR_MODE, index);
-  RTX_UNCHANGING_P (vector) = 1;
-  MEM_NOTRAP_P (vector) = 1;
+  vector = gen_const_mem (CASE_VECTOR_MODE, index);
   convert_move (temp, vector, 0);
 
   emit_jump_insn (gen_tablejump (temp, table_label));

@@ -1079,8 +1079,8 @@ register_specialization (tree spec, tree tmpl, tree args)
 	 more convenient to simply allow this than to try to prevent it.  */
       if (fn == spec)
 	return spec;
-      else if (comp_template_args (TREE_PURPOSE (s), args)
-	       && DECL_TEMPLATE_SPECIALIZATION (spec))
+      else if (DECL_TEMPLATE_SPECIALIZATION (spec)
+	       && comp_template_args (TREE_PURPOSE (s), args))
 	{
 	  if (DECL_TEMPLATE_INSTANTIATION (fn))
 	    {
@@ -2875,19 +2875,35 @@ push_template_decl_real (tree decl, int is_friend)
       else if (TREE_CODE (decl) == TYPE_DECL 
 	       && ANON_AGGRNAME_P (DECL_NAME (decl))) 
 	error ("template class without a name");
-      else if (TREE_CODE (decl) == FUNCTION_DECL
-	       && DECL_DESTRUCTOR_P (decl))
+      else if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
-	  /* [temp.mem]
-	     
-	      A destructor shall not be a member template.  */
-	  error ("destructor `%D' declared as member template", decl);
-	  return error_mark_node;
+	  if (DECL_DESTRUCTOR_P (decl))
+	    {
+	      /* [temp.mem]
+		 
+	         A destructor shall not be a member template.  */
+	      error ("destructor `%D' declared as member template", decl);
+	      return error_mark_node;
+	    }
+	  if (NEW_DELETE_OPNAME_P (DECL_NAME (decl))
+	      && (!TYPE_ARG_TYPES (TREE_TYPE (decl))
+		  || TYPE_ARG_TYPES (TREE_TYPE (decl)) == void_list_node
+		  || !TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl)))
+		  || (TREE_CHAIN (TYPE_ARG_TYPES ((TREE_TYPE (decl))))
+		      == void_list_node)))
+	    {
+	      /* [basic.stc.dynamic.allocation] 
+
+	         An allocation function can be a function
+		 template. ... Template allocation functions shall
+		 have two or more parameters.  */
+	      error ("invalid template declaration of `%D'", decl);
+	      return decl;
+	    }
 	}
       else if ((DECL_IMPLICIT_TYPEDEF_P (decl)
 		&& CLASS_TYPE_P (TREE_TYPE (decl)))
-	       || (TREE_CODE (decl) == VAR_DECL && ctx && CLASS_TYPE_P (ctx))
-	       || TREE_CODE (decl) == FUNCTION_DECL)
+	       || (TREE_CODE (decl) == VAR_DECL && ctx && CLASS_TYPE_P (ctx)))
 	/* OK */;
       else
 	{
@@ -4147,10 +4163,10 @@ lookup_template_function (tree fns, tree arglist)
 
   if (BASELINK_P (fns))
     {
-      BASELINK_FUNCTIONS (fns) = build (TEMPLATE_ID_EXPR,
-					unknown_type_node,
-					BASELINK_FUNCTIONS (fns),
-					arglist);
+      BASELINK_FUNCTIONS (fns) = build2 (TEMPLATE_ID_EXPR,
+					 unknown_type_node,
+					 BASELINK_FUNCTIONS (fns),
+					 arglist);
       return fns;
     }
 
@@ -4158,7 +4174,7 @@ lookup_template_function (tree fns, tree arglist)
   if (TREE_CODE (fns) == OVERLOAD || !type)
     type = unknown_type_node;
   
-  return build (TEMPLATE_ID_EXPR, type, fns, arglist);
+  return build2 (TEMPLATE_ID_EXPR, type, fns, arglist);
 }
 
 /* Within the scope of a template class S<T>, the name S gets bound
@@ -7161,7 +7177,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (e1 == error_mark_node || e2 == error_mark_node)
 	  return error_mark_node;
 
-	return fold (build (TREE_CODE (t), TREE_TYPE (t), e1, e2));
+	return fold (build2 (TREE_CODE (t), TREE_TYPE (t), e1, e2));
       }
 
     case NEGATE_EXPR:
@@ -7171,7 +7187,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (e == error_mark_node)
 	  return error_mark_node;
 
-	return fold (build (TREE_CODE (t), TREE_TYPE (t), e));
+	return fold (build1 (TREE_CODE (t), TREE_TYPE (t), e));
       }
 
     case TYPENAME_TYPE:
@@ -7396,18 +7412,28 @@ tsubst_qualified_id (tree qualified_id, tree args,
     }
   
   if (DECL_P (expr))
-    check_accessibility_of_qualified_id (expr, /*object_type=*/NULL_TREE,
-					 scope);
-  
-  /* Remember that there was a reference to this entity.  */
-  if (DECL_P (expr))
-    mark_used (expr);
+    {
+      check_accessibility_of_qualified_id (expr, /*object_type=*/NULL_TREE,
+					   scope);
+      /* Remember that there was a reference to this entity.  */
+      mark_used (expr);
+    }
+
+  if (expr == error_mark_node || TREE_CODE (expr) == TREE_LIST)
+    {
+      if (complain & tf_error)
+	qualified_name_lookup_error (scope, 
+				     TREE_OPERAND (qualified_id, 1),
+				     expr);
+      return error_mark_node;
+    }
 
   if (is_template)
     expr = lookup_template_function (expr, template_args);
 
   if (expr == error_mark_node && complain & tf_error)
-    qualified_name_lookup_error (scope, TREE_OPERAND (qualified_id, 1));
+    qualified_name_lookup_error (scope, TREE_OPERAND (qualified_id, 1),
+				 expr);
   else if (TYPE_P (scope))
     {
       expr = (adjust_result_of_qualified_name_lookup 
@@ -7657,6 +7683,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  (code, tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
 	   tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl),
 	   tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl));
+	TREE_NO_WARNING (r) = TREE_NO_WARNING (t);
 	return r;
       }
 
@@ -7855,8 +7882,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    decl = lookup_qualified_name (scope, name,
 					  /*is_type_p=*/false,
 					  /*complain=*/false);
-	    if (decl == error_mark_node)
-	      qualified_name_lookup_error (scope, name);
+	    if (decl == error_mark_node || TREE_CODE (decl) == TREE_LIST)
+	      qualified_name_lookup_error (scope, name, decl);
 	    else
 	      do_local_using_decl (decl, scope, name);
 	  }
@@ -8175,8 +8202,8 @@ tsubst_copy_and_build (tree t,
 	template = lookup_template_function (template, targs);
 	
 	if (object)
-	  return build (COMPONENT_REF, TREE_TYPE (template), 
-			object, template, NULL_TREE);
+	  return build3 (COMPONENT_REF, TREE_TYPE (template), 
+			 object, template, NULL_TREE);
 	else
 	  return template;
       }
@@ -8321,10 +8348,21 @@ tsubst_copy_and_build (tree t,
 	return cxx_sizeof_or_alignof_expr (op1, TREE_CODE (t));
 
     case MODOP_EXPR:
-      return build_x_modify_expr
-	(RECUR (TREE_OPERAND (t, 0)),
-	 TREE_CODE (TREE_OPERAND (t, 1)),
-	 RECUR (TREE_OPERAND (t, 2)));
+      {
+	tree r = build_x_modify_expr
+	  (RECUR (TREE_OPERAND (t, 0)),
+	   TREE_CODE (TREE_OPERAND (t, 1)),
+	   RECUR (TREE_OPERAND (t, 2)));
+	/* TREE_NO_WARNING must be set if either the expression was
+	   parenthesized or it uses an operator such as >>= rather
+	   than plain assignment.  In the former case, it was already
+	   set and must be copied.  In the latter case,
+	   build_x_modify_expr sets it and it must not be reset
+	   here.  */
+	if (TREE_NO_WARNING (t))
+	  TREE_NO_WARNING (r) = TREE_NO_WARNING (t);
+	return r;
+      }
 
     case ARROW_EXPR:
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
@@ -8510,7 +8548,8 @@ tsubst_copy_and_build (tree t,
 			    args);
 	    else
 	      {
-		qualified_name_lookup_error (TREE_TYPE (object), tmpl);
+		qualified_name_lookup_error (TREE_TYPE (object), tmpl,
+					     member);
 		return error_mark_node;
 	      }
 	  }
@@ -9630,14 +9669,7 @@ check_cv_quals_for_unify (int strict, tree arg, tree parm)
        qualified at this point.
      UNIFY_ALLOW_OUTER_LESS_CV_QUAL:
        This is the outermost level of a deduction, and PARM can be less CV
-       qualified at this point.
-     UNIFY_ALLOW_MAX_CORRECTION:
-       This is an INTEGER_TYPE's maximum value.  Used if the range may
-       have been derived from a size specification, such as an array size.
-       If the size was given by a nontype template parameter N, the maximum
-       value will have the form N-1.  The flag says that we can (and indeed
-       must) unify N with (ARG + 1), an exception to the normal rules on
-       folding PARM.  */
+       qualified at this point.  */
 
 static int
 unify (tree tparms, tree targs, tree parm, tree arg, int strict)
@@ -9691,7 +9723,6 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
   strict &= ~UNIFY_ALLOW_DERIVED;
   strict &= ~UNIFY_ALLOW_OUTER_MORE_CV_QUAL;
   strict &= ~UNIFY_ALLOW_OUTER_LESS_CV_QUAL;
-  strict &= ~UNIFY_ALLOW_MAX_CORRECTION;
   
   switch (TREE_CODE (parm))
     {
@@ -9853,7 +9884,10 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       else if ((strict & UNIFY_ALLOW_INTEGER)
 	       && (TREE_CODE (tparm) == INTEGER_TYPE
 		   || TREE_CODE (tparm) == BOOLEAN_TYPE))
-	/* OK */;
+	/* Convert the ARG to the type of PARM; the deduced non-type
+	   template argument must exactly match the types of the
+	   corresponding parameter.  */
+	arg = fold (build_nop (TREE_TYPE (parm), arg));
       else if (uses_template_parms (tparm))
 	/* We haven't deduced the type of this parameter yet.  Try again
 	   later.  */
@@ -9921,10 +9955,29 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if ((TYPE_DOMAIN (parm) == NULL_TREE)
 	  != (TYPE_DOMAIN (arg) == NULL_TREE))
 	return 1;
-      if (TYPE_DOMAIN (parm) != NULL_TREE
-	  && unify (tparms, targs, TYPE_DOMAIN (parm),
-		    TYPE_DOMAIN (arg), UNIFY_ALLOW_NONE) != 0)
-	return 1;
+      if (TYPE_DOMAIN (parm) != NULL_TREE)
+	{
+	  tree parm_max;
+	  tree arg_max;
+
+	  parm_max = TYPE_MAX_VALUE (TYPE_DOMAIN (parm));
+	  arg_max = TYPE_MAX_VALUE (TYPE_DOMAIN (arg));
+
+	  /* Our representation of array types uses "N - 1" as the
+	     TYPE_MAX_VALUE for an array with "N" elements, if "N" is
+	     not an integer constant.  */
+	  if (TREE_CODE (parm_max) == MINUS_EXPR)
+	    {
+	      arg_max = fold (build2 (PLUS_EXPR, 
+				      integer_type_node,
+				      arg_max,
+				      TREE_OPERAND (parm_max, 1)));
+	      parm_max = TREE_OPERAND (parm_max, 0);
+	    }
+
+	  if (unify (tparms, targs, parm_max, arg_max, UNIFY_ALLOW_INTEGER))
+	    return 1;
+	}
       return unify (tparms, targs, TREE_TYPE (parm), TREE_TYPE (arg),
 		    strict & UNIFY_ALLOW_MORE_CV_QUAL);
 
@@ -9936,23 +9989,10 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case VOID_TYPE:
       if (TREE_CODE (arg) != TREE_CODE (parm))
 	return 1;
-
-      if (TREE_CODE (parm) == INTEGER_TYPE
-	  && TREE_CODE (TYPE_MAX_VALUE (parm)) != INTEGER_CST)
-	{
-	  if (TYPE_MIN_VALUE (parm) && TYPE_MIN_VALUE (arg)
-	      && unify (tparms, targs, TYPE_MIN_VALUE (parm),
-			TYPE_MIN_VALUE (arg), UNIFY_ALLOW_INTEGER))
-	    return 1;
-	  if (TYPE_MAX_VALUE (parm) && TYPE_MAX_VALUE (arg)
-	      && unify (tparms, targs, TYPE_MAX_VALUE (parm),
-			TYPE_MAX_VALUE (arg),
-			UNIFY_ALLOW_INTEGER | UNIFY_ALLOW_MAX_CORRECTION))
-	    return 1;
-	}
+      
       /* We have already checked cv-qualification at the top of the
 	 function.  */
-      else if (!same_type_ignoring_top_level_qualifiers_p (arg, parm))
+      if (!same_type_ignoring_top_level_qualifiers_p (arg, parm))
 	return 1;
 
       /* As far as unification is concerned, this wins.	 Later checks
@@ -10077,27 +10117,6 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case TEMPLATE_DECL:
       /* Matched cases are handled by the ARG == PARM test above.  */
       return 1;
-
-    case MINUS_EXPR:
-      if (tree_int_cst_equal (TREE_OPERAND (parm, 1), integer_one_node)
-	  && (strict_in & UNIFY_ALLOW_MAX_CORRECTION))
-	{
-	  /* We handle this case specially, since it comes up with
-	     arrays.  In particular, something like:
-
-	     template <int N> void f(int (&x)[N]);
-
-	     Here, we are trying to unify the range type, which
-	     looks like [0 ... (N - 1)].  */
-	  tree t, t1, t2;
-	  t1 = TREE_OPERAND (parm, 0);
-	  t2 = TREE_OPERAND (parm, 1);
-
-	  t = fold (build (PLUS_EXPR, integer_type_node, arg, t2));
-
-	  return unify (tparms, targs, t1, t, strict);
-	}
-      /* Else fall through.  */
 
     default:
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (parm))))
@@ -11272,17 +11291,30 @@ out:
 }
 
 /* Run through the list of templates that we wish we could
-   instantiate, and instantiate any we can.  */
+   instantiate, and instantiate any we can.  RETRIES is the
+   number of times we retry pending template instantiation.  */
 
-int
-instantiate_pending_templates (void)
+void
+instantiate_pending_templates (int retries)
 {
   tree *t;
   tree last = NULL_TREE;
-  int instantiated_something = 0;
   int reconsider;
   location_t saved_loc = input_location;
-  
+
+  /* Instantiating templates may trigger vtable generation.  This in turn
+     may require further template instantiations.  We place a limit here
+     to avoid infinite loop.  */
+  if (pending_templates && retries >= max_tinst_depth)
+    {
+      cp_error_at ("template instantiation depth exceeds maximum of %d"
+		   " (use -ftemplate-depth-NN to increase the maximum)"
+		   " instantiating `%+D', possibly from virtual table"
+		   " generation",
+		   max_tinst_depth, TREE_VALUE (pending_templates));
+      return;
+    }
+
   do 
     {
       reconsider = 0;
@@ -11309,10 +11341,7 @@ instantiate_pending_templates (void)
 			instantiate_decl (fn, /*defer_ok=*/0,
 					  /*undefined_ok=*/0);
 		  if (COMPLETE_TYPE_P (instantiation))
-		    {
-		      instantiated_something = 1;
-		      reconsider = 1;
-		    }
+		    reconsider = 1;
 		}
 
 	      if (COMPLETE_TYPE_P (instantiation))
@@ -11334,10 +11363,7 @@ instantiate_pending_templates (void)
 						    /*defer_ok=*/0,
 						    /*undefined_ok=*/0);
 		  if (DECL_TEMPLATE_INSTANTIATED (instantiation))
-		    {
-		      instantiated_something = 1;
-		      reconsider = 1;
-		    }
+		    reconsider = 1;
 		}
 
 	      if (DECL_TEMPLATE_SPECIALIZATION (instantiation)
@@ -11359,7 +11385,6 @@ instantiate_pending_templates (void)
   while (reconsider);
 
   input_location = saved_loc;
-  return instantiated_something;
 }
 
 /* Substitute ARGVEC into T, which is a list of initializers for
@@ -12036,8 +12061,9 @@ dependent_template_p (tree tmpl)
   if (DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)
       || TREE_CODE (tmpl) == TEMPLATE_TEMPLATE_PARM)
     return true;
-  /* So are qualified names that have not been looked up.  */
-  if (TREE_CODE (tmpl) == SCOPE_REF)
+  /* So are names that have not been looked up.  */
+  if (TREE_CODE (tmpl) == SCOPE_REF
+      || TREE_CODE (tmpl) == IDENTIFIER_NODE)
     return true;
   /* So are member templates of dependent classes.  */
   if (TYPE_P (CP_DECL_CONTEXT (tmpl)))
@@ -12173,19 +12199,19 @@ build_non_dependent_expr (tree expr)
     return expr;
 
   if (TREE_CODE (expr) == COND_EXPR)
-    return build (COND_EXPR,
-		  TREE_TYPE (expr),
-		  TREE_OPERAND (expr, 0),
-		  (TREE_OPERAND (expr, 1) 
-		   ? build_non_dependent_expr (TREE_OPERAND (expr, 1))
-		   : build_non_dependent_expr (TREE_OPERAND (expr, 0))),
-		  build_non_dependent_expr (TREE_OPERAND (expr, 2)));
+    return build3 (COND_EXPR,
+		   TREE_TYPE (expr),
+		   TREE_OPERAND (expr, 0),
+		   (TREE_OPERAND (expr, 1) 
+		    ? build_non_dependent_expr (TREE_OPERAND (expr, 1))
+		    : build_non_dependent_expr (TREE_OPERAND (expr, 0))),
+		   build_non_dependent_expr (TREE_OPERAND (expr, 2)));
   if (TREE_CODE (expr) == COMPOUND_EXPR
       && !COMPOUND_EXPR_OVERLOADED (expr))
-    return build (COMPOUND_EXPR,
-		  TREE_TYPE (expr),
-		  TREE_OPERAND (expr, 0),
-		  build_non_dependent_expr (TREE_OPERAND (expr, 1)));
+    return build2 (COMPOUND_EXPR,
+		   TREE_TYPE (expr),
+		   TREE_OPERAND (expr, 0),
+		   build_non_dependent_expr (TREE_OPERAND (expr, 1)));
       
   /* Otherwise, build a NON_DEPENDENT_EXPR.  
 

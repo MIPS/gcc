@@ -309,11 +309,6 @@ struct lang_hooks
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
 
-  /* Reset argument so that it can be expanded again.
-     Modify it in-place so that all the evaluate only once
-     things are cleared out.  */
-  tree (*unsave_expr_now) (tree);
-
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set
      DECL_ASSEMBLER_NAME to an appropriate IDENTIFIER_NODE.
@@ -328,9 +323,6 @@ struct lang_hooks
   /* Nonzero if operations on types narrower than their mode should
      have their results reduced to the precision of the type.  */
   bool reduce_bit_field_operations;
-
-  /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
-  bool honor_readonly;
 
   /* Nonzero if this front end does not generate a dummy BLOCK between
      the outermost scope of the function and the FUNCTION_DECL.  See

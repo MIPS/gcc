@@ -389,8 +389,8 @@ static GTY(()) tree static_dtors;
 /* Forward declarations.  */
 static tree lookup_name_in_scope (tree, struct c_scope *);
 static tree c_make_fname_decl (tree, int);
-static tree grokdeclarator (tree, tree, enum decl_context, int, tree *);
-static tree grokparms (tree, int);
+static tree grokdeclarator (tree, tree, enum decl_context, bool, tree *);
+static tree grokparms (tree, bool);
 static void layout_array_type (tree);
 /* APPLE LOCAL begin loop transposition */
 static void loop_transpose (tree);
@@ -2718,17 +2718,18 @@ shadow_tag_warned (tree declspecs, int warned)
 /* Construct an array declarator.  EXPR is the expression inside [], or
    NULL_TREE.  QUALS are the type qualifiers inside the [] (to be applied
    to the pointer to which a parameter array is converted).  STATIC_P is
-   nonzero if "static" is inside the [], zero otherwise.  VLA_UNSPEC_P
-   is nonzero is the array is [*], a VLA of unspecified length which is
+   true if "static" is inside the [], false otherwise.  VLA_UNSPEC_P
+   is true if the array is [*], a VLA of unspecified length which is
    nevertheless a complete type (not currently implemented by GCC),
-   zero otherwise.  The declarator is constructed as an ARRAY_REF
+   false otherwise.  The declarator is constructed as an ARRAY_REF
    (to be decoded by grokdeclarator), whose operand 0 is what's on the
-   left of the [] (filled by in set_array_declarator_type) and operand 1
+   left of the [] (filled by in set_array_declarator_inner) and operand 1
    is the expression inside; whose TREE_TYPE is the type qualifiers and
    which has TREE_STATIC set if "static" is used.  */
 
 tree
-build_array_declarator (tree expr, tree quals, int static_p, int vla_unspec_p)
+build_array_declarator (tree expr, tree quals, bool static_p,
+			bool vla_unspec_p)
 {
   tree decl;
   decl = build_nt (ARRAY_REF, NULL_TREE, expr, NULL_TREE, NULL_TREE);
@@ -2748,13 +2749,13 @@ build_array_declarator (tree expr, tree quals, int static_p, int vla_unspec_p)
 
 /* Set the type of an array declarator.  DECL is the declarator, as
    constructed by build_array_declarator; TYPE is what appears on the left
-   of the [] and goes in operand 0.  ABSTRACT_P is nonzero if it is an
-   abstract declarator, zero otherwise; this is used to reject static and
+   of the [] and goes in operand 0.  ABSTRACT_P is true if it is an
+   abstract declarator, false otherwise; this is used to reject static and
    type qualifiers in abstract declarators, where they are not in the
    C99 grammar.  */
 
 tree
-set_array_declarator_type (tree decl, tree type, int abstract_p)
+set_array_declarator_inner (tree decl, tree type, bool abstract_p)
 {
   TREE_OPERAND (decl, 0) = type;
   if (abstract_p && (TREE_TYPE (decl) != NULL_TREE || TREE_STATIC (decl)))
@@ -2774,7 +2775,7 @@ groktypename (tree type_name)
 
   split_specs_attrs (TREE_PURPOSE (type_name), &specs, &attrs);
 
-  type_name = grokdeclarator (TREE_VALUE (type_name), specs, TYPENAME, 0,
+  type_name = grokdeclarator (TREE_VALUE (type_name), specs, TYPENAME, false,
 			     NULL);
 
   /* Apply attributes.  */
@@ -2792,7 +2793,7 @@ groktypename_in_parm_context (tree type_name)
     return type_name;
   return grokdeclarator (TREE_VALUE (type_name),
 			 TREE_PURPOSE (type_name),
-			 PARM, 0, NULL);
+			 PARM, false, NULL);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -2811,7 +2812,7 @@ groktypename_in_parm_context (tree type_name)
    grokfield and not through here.  */
 
 tree
-start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
+start_decl (tree declarator, tree declspecs, bool initialized, tree attributes)
 {
   tree decl;
   tree tem;
@@ -3285,7 +3286,7 @@ push_parm_decl (tree parm)
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
 			 TREE_PURPOSE (TREE_PURPOSE (parm)),
-			 PARM, 0, NULL);
+			 PARM, false, NULL);
   decl_attributes (&decl, TREE_VALUE (parm), 0);
 
   decl = pushdecl (decl);
@@ -3568,7 +3569,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
      TYPENAME if for a typename (in a cast or sizeof).
       Don't make a DECL node; just return the ..._TYPE node.
      FIELD for a struct or union field; make a FIELD_DECL.
-   INITIALIZED is 1 if the decl has an initializer.
+   INITIALIZED is true if the decl has an initializer.
    WIDTH is non-NULL for bit-fields, and is a pointer to an INTEGER_CST node
    representing the width of the bit-field.
 
@@ -3581,7 +3582,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
 
 static tree
 grokdeclarator (tree declarator, tree declspecs,
-		enum decl_context decl_context, int initialized, tree *width)
+		enum decl_context decl_context, bool initialized, tree *width)
 {
   int specbits = 0;
   /* APPLE LOCAL CW asm blocks */
@@ -4326,12 +4327,17 @@ grokdeclarator (tree declarator, tree declspecs,
 	}
       else if (TREE_CODE (declarator) == CALL_EXPR)
 	{
-	  /* Say it's a definition only for the CALL_EXPR closest to
-	     the identifier.  */
-	  bool really_funcdef = (funcdef_flag
-				 && (TREE_CODE (TREE_OPERAND (declarator, 0))
-				     == IDENTIFIER_NODE));
+	  /* Say it's a definition only for the declarator closest to
+	     the identifier, apart possibly from some attributes.  */
+	  bool really_funcdef = false;
 	  tree arg_types;
+	  if (funcdef_flag)
+	    {
+	      tree t = TREE_OPERAND (declarator, 0);
+	      while (TREE_CODE (t) == TREE_LIST)
+		t = TREE_VALUE (t);
+	      really_funcdef = (TREE_CODE (t) == IDENTIFIER_NODE);
+	    }
 
 	  /* Declaring a function type.
 	     Make sure we have a valid type for the function to return.  */
@@ -4905,12 +4911,12 @@ grokdeclarator (tree declarator, tree declspecs,
 
    Return a list of arg types to use in the FUNCTION_TYPE for this function.
 
-   FUNCDEF_FLAG is nonzero for a function definition, 0 for
+   FUNCDEF_FLAG is true for a function definition, false for
    a mere declaration.  A nonempty identifier-list gets an error message
-   when FUNCDEF_FLAG is zero.  */
+   when FUNCDEF_FLAG is false.  */
 
 static tree
-grokparms (tree arg_info, int funcdef_flag)
+grokparms (tree arg_info, bool funcdef_flag)
 {
   tree arg_types = ARG_INFO_TYPES (arg_info);
 
@@ -5311,7 +5317,7 @@ grokfield (tree declarator, tree declspecs, tree width)
 	}
     }
 
-  value = grokdeclarator (declarator, declspecs, FIELD, 0,
+  value = grokdeclarator (declarator, declspecs, FIELD, false,
 			  width ? &width : NULL);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
@@ -5902,7 +5908,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
      error message in c_finish_bc_stmt.  */
   c_break_label = c_cont_label = size_zero_node;
 
-  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
+  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, true, NULL);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -6834,6 +6840,34 @@ build_void_list_node (void)
   return t;
 }
 
+/* Return a structure for a parameter with the given SPECS, ATTRS and
+   DECLARATOR.  */
+
+tree
+build_c_parm (tree specs, tree attrs, tree declarator)
+{
+  return build_tree_list (build_tree_list (specs, declarator), attrs);
+}
+
+/* Return a declarator with nested attributes.  TARGET is the inner
+   declarator to which these attributes apply.  ATTRS are the
+   attributes.  */
+
+tree
+build_attrs_declarator (tree attrs, tree target)
+{
+  return tree_cons (attrs, target, NULL_TREE);
+}
+
+/* Return a declarator for a function with arguments specified by ARGS
+   and return type specified by TARGET.  */
+
+tree
+build_function_declarator (tree args, tree target)
+{
+  return build_nt (CALL_EXPR, target, args, NULL_TREE);
+}
+
 /* Return something to represent absolute declarators containing a *.
    TARGET is the absolute declarator that the * contains.
    TYPE_QUALS_ATTRS is a list of modifiers such as const or volatile
@@ -6850,7 +6884,7 @@ make_pointer_declarator (tree type_quals_attrs, tree target)
   tree itarget = target;
   split_specs_attrs (type_quals_attrs, &quals, &attrs);
   if (attrs != NULL_TREE)
-    itarget = tree_cons (attrs, target, NULL_TREE);
+    itarget = build_attrs_declarator (attrs, target);
   return build1 (INDIRECT_REF, quals, itarget);
 }
 

@@ -56,7 +56,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "cfglayout.h"
 #include "expr.h"
-/* APPLE LOCAL hot/cold partitioning --ctice */
 #include "target.h"
 
 
@@ -490,6 +489,7 @@ rtl_split_block (basic_block bb, void *insnp)
 
   /* Create the new basic block.  */
   new_bb = create_basic_block (NEXT_INSN (insn), BB_END (bb), bb);
+  new_bb->partition = bb->partition;
   BB_END (bb) = insn;
 
   /* Redirect the outgoing edges.  */
@@ -681,14 +681,10 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
      mess up unconditional or indirect jumps that cross between hot
      and cold sections.  */
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (flag_reorder_blocks_and_partition
       && (find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)
 	  || (src->partition != target->partition)))
-    {
-      return NULL;
-    }
-  /* APPLE LOCAL end hot/cold partitioning  */
+    return NULL;
 
   /* Verify that all targets will be TARGET.  */
   for (tmp = src->succ; tmp; tmp = tmp->succ_next)
@@ -1099,9 +1095,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 
       jump_block->partition = e->src->partition;
       if (flag_reorder_blocks_and_partition
-      /* APPLE LOCAL begin hot/cold partitioning  */
 	  && targetm.have_named_sections)
-      /* APPLE LOCAL end hot/cold partitioning  */
 	{
 	  if (e->src->partition == COLD_PARTITION)
 	    {
@@ -1119,7 +1113,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	    }
 	  if (JUMP_P (BB_END (jump_block))
 	      && !any_condjump_p (BB_END (jump_block))
-	      && jump_block->succ->crossing_edge )
+	      && (jump_block->succ->flags & EDGE_CROSSING))
 	    REG_NOTES (BB_END (jump_block)) = gen_rtx_EXPR_LIST 
 	      (REG_CROSSING_JUMP, NULL_RTX, 
 	       REG_NOTES (BB_END (jump_block)));
@@ -1359,9 +1353,13 @@ rtl_split_edge (edge edge_in)
 	  && NOTE_LINE_NUMBER (before) == NOTE_INSN_LOOP_END)
 	before = NEXT_INSN (before);
       bb = create_basic_block (before, NULL, edge_in->src);
+      bb->partition = edge_in->src->partition;
     }
   else
-    bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+    {
+      bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+      bb->partition = edge_in->dest->partition;
+    }
 
   /* ??? This info is likely going to be out of date very soon.  */
   if (edge_in->dest->global_live_at_start)
@@ -1599,16 +1597,11 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	  bb = split_edge (e);
 	  after = BB_END (bb);
 
-	  /* If we are partitioning hot/cold basic blocks, we must make sure
-	     that the new basic block ends up in the correct section.  */
-
-	  bb->partition = e->src->partition;
 	  if (flag_reorder_blocks_and_partition
-	  /* APPLE LOCAL begin hot/cold partitioning  */
 	      && targetm.have_named_sections
-	  /* APPLE LOCAL end hot/cold partitioning  */
 	      && e->src != ENTRY_BLOCK_PTR
-	      && e->src->partition == COLD_PARTITION)
+	      && e->src->partition == COLD_PARTITION
+	      && !(e->flags & EDGE_CROSSING))
 	    {
 	      rtx bb_note, new_note, cur_insn;
 
@@ -1627,7 +1620,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	      NOTE_BASIC_BLOCK (new_note) = bb;
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && bb->succ->crossing_edge )
+		  && (bb->succ->flags & EDGE_CROSSING))
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	      if (after == bb_note)
@@ -1992,8 +1985,11 @@ rtl_verify_flow_info_1 (void)
 	  if (e->flags & EDGE_FALLTHRU)
 	    {
 	      n_fallthru++, fallthru = e;
-	      if (e->crossing_edge)
-		{ 
+	      if ((e->flags & EDGE_CROSSING)
+		  || (e->src->partition != e->dest->partition
+		      && e->src != ENTRY_BLOCK_PTR
+		      && e->dest != EXIT_BLOCK_PTR))
+	    { 
 		  error ("Fallthru edge crosses section boundary (bb %i)",
 			 e->src->index);
 		  err = 1;

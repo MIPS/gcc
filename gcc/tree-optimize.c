@@ -374,7 +374,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_test);
   NEXT_PASS (pass_elim_checks);
   NEXT_PASS (pass_mark_maybe_inf_loops);
+  /* APPLE LOCAL end lno */
   NEXT_PASS (pass_vectorize);
+  /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_loop_prefetch);

@@ -177,11 +177,9 @@ struct gcc_target
        external.  */
     void (*external_libcall) (rtx);
 
-    /* APPLE LOCAL begin 3739318 FSF candidate.  */
      /* Output an assembler directive to mark decl live. This instructs
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
-    /* APPLE LOCAL end 3739318 FSF candidate.  */
 
   } asm_out;
 
@@ -286,6 +284,9 @@ struct gcc_target
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
+
+  /* Return machine mode for filter value. */
+  enum machine_mode (* eh_return_filter_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);

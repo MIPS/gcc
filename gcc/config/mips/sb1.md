@@ -411,7 +411,7 @@
 		 (eq_attr "sb1_fp_pipes" "two"))))
   "sb1_fp1 | sb1_fp0")
 
-(define_insn_reservation "ir_sb1_divsf_1pipes" 24
+(define_insn_reservation "ir_sb1_divsf_1pipe" 24
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "fdiv")
 	    (and (eq_attr "mode" "SF")
@@ -431,6 +431,40 @@
 (define_insn_reservation "ir_sb1_divdf_1pipe" 32
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "fdiv")
+	    (and (eq_attr "mode" "DF")
+		 (eq_attr "sb1_fp_pipes" "one"))))
+  "sb1_fp1")
+
+;; ??? Can deliver at most 1 result per every 3 cycles because of issue
+;; restrictions.
+
+(define_insn_reservation "ir_sb1_recipsf_2pipes" 12
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
+	    (and (eq_attr "mode" "SF")
+		 (eq_attr "sb1_fp_pipes" "two"))))
+  "sb1_fp1 | sb1_fp0")
+
+(define_insn_reservation "ir_sb1_recipsf_1pipe" 12
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
+	    (and (eq_attr "mode" "SF")
+		 (eq_attr "sb1_fp_pipes" "one"))))
+  "sb1_fp1")
+
+;; ??? Can deliver at most 1 result per every 5 cycles because of issue
+;; restrictions.
+
+(define_insn_reservation "ir_sb1_recipdf_2pipes" 20
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
+	    (and (eq_attr "mode" "DF")
+		 (eq_attr "sb1_fp_pipes" "two"))))
+  "sb1_fp1 | sb1_fp0")
+
+(define_insn_reservation "ir_sb1_recipdf_1pipe" 20
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
 	    (and (eq_attr "mode" "DF")
 		 (eq_attr "sb1_fp_pipes" "one"))))
   "sb1_fp1")
