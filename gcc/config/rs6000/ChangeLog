@@ -1,5 +1,13 @@
 2000-01-19  Geoff Keating  <geoffk@cygnus.com>
 
+	* rs6000.md (movsi_got): 'unspec 8' returns a SImode result,
+	at present.
+	(movsi_got_internal): Likewise.
+	(movsi_got_internal+1): Likewise.
+	(set_sp): 'unspec 7' does a SImode clobber.
+
+2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
 	* rs6000.md (floatsidf2): Don't use the fpmem "register", just
 	allocate a stack temporary.
 	(floatsidf2_internal): Likewise.
@@ -23,12 +31,6 @@
 	(fix_truncdfsi2_store): Delete.
 	(fix_truncdfsi2_load): Delete.
 	(fctiwz): Produce gen_fctiwz.
-
-	* rs6000.md (movsi_got): 'unspec 8' returns a SImode result,
-	at present.
-	(movsi_got_internal): Likewise.
-	(movsi_got_internal+1): Likewise.
-	(set_sp): 'unspec 7' does a SImode clobber.
 
 2000-01-19  Geoffrey Keating  <geoffk@cygnus.com>
 
