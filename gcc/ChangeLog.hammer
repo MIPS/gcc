@@ -1,3 +1,7 @@
+2004-06-09  Michael Matz  <matz@suse.de>
+
+	* config/rs6000/altivec.h: Update from mainline.
+	
 2004-06-07  Josef Zlomek  <zlomekj@suse.cz>
 
 	* Makefile.in: Added regparam.o.
