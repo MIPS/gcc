@@ -1,3 +1,14 @@
+2002-12-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c: Undo previous change:
+
+	    2002-12-11  Diego Novillo  <dnovillo@redhat.com>
+
+		* gimplify.c (simplify_return_expr): return statements should
+		  only have a GIMPLE value as argument.
+
+	* tree-simple.c: Fix grammar for return statements.
+
 2002-12-20  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_init_extern_trees): Rewrite last change

@@ -92,8 +92,8 @@ Boston, MA 02111-1307, USA.  */
 	      : BREAK ';'
 	      | CONTINUE ';'
 	      | RETURN ';'
-	      | RETURN val ';'
-	      | RETURN '(' val ')' ';'
+	      | RETURN rhs ';'
+	      | RETURN '(' rhs ')' ';'
 
       casestmts
 	      : '{' cases default'}'
