@@ -1513,7 +1513,6 @@ extern void start_sequence (void);
 extern void push_to_sequence (rtx);
 extern void end_sequence (void);
 extern void push_to_full_sequence (rtx, rtx);
-extern void end_full_sequence (rtx*, rtx*);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
 
@@ -2062,7 +2061,6 @@ extern void init_emit (void);
 extern void init_emit_once (int);
 extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
-extern int subreg_realpart_p (rtx);
 extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
 extern void set_new_last_label_num (int);
@@ -2076,7 +2074,6 @@ extern void add_insn (rtx);
 extern void add_insn_before (rtx, rtx);
 extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
-extern void reorder_insns_with_line_notes (rtx, rtx, rtx);
 extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
 extern enum rtx_code classify_insn (rtx);
 extern rtx emit (rtx);
@@ -2346,5 +2343,19 @@ extern void tracer (void);
 
 /* In var-tracking.c */
 extern void variable_tracking_main (void);
+
+/* In stor-layout.c.  */
+extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
+
+/* In loop-unswitch.c  */
+extern rtx reversed_condition (rtx);
+extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
+
+/* In loop-iv.c  */
+extern rtx canon_condition (rtx);
+extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+
+/* In ra.c.  */
+extern void reg_alloc (void);
 
 #endif /* ! GCC_RTL_H */

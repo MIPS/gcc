@@ -601,6 +601,8 @@ package body ALI is
    --  Start of processing for Scan_ALI
 
    begin
+      First_Sdep_Entry := Sdep.Last + 1;
+
       --  Acquire lines to be ignored
 
       if Read_Xref then
@@ -990,10 +992,6 @@ package body ALI is
                      Fatal_Error;
                end case;
             end loop;
-
-            --  Skip separating space
-
-            Checkc (' ');
 
             --  Acquire information for parameter restrictions
 

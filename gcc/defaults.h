@@ -695,4 +695,17 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
 
+/* Register mappings for target machines without register windows.  */
+#ifndef INCOMING_REGNO
+#define INCOMING_REGNO(N) (N)
+#endif
+
+#ifndef OUTGOING_REGNO
+#define OUTGOING_REGNO(N) (N)
+#endif
+
+#ifndef SHIFT_COUNT_TRUNCATED
+#define SHIFT_COUNT_TRUNCATED 0
+#endif
+
 #endif  /* ! GCC_DEFAULTS_H */

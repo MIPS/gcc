@@ -121,7 +121,7 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_PNI		0x00010000	/* Support PNI regs/builtins */
+#define MASK_SSE3		0x00010000	/* Support SSE3 regs/builtins */
 #define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
 #define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
@@ -293,6 +293,7 @@ extern int x86_prefetch_sse;
 #define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
 #define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & TUNEMASK)
 #define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
+#define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -303,7 +304,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
-#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
+#define TARGET_SSE3 ((target_flags & MASK_SSE3) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -399,10 +400,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
-  { "pni",			 MASK_PNI,				      \
-    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
-  { "no-pni",			 -MASK_PNI,				      \
-    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
+  { "sse3",			 MASK_SSE3,				      \
+    N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
+  { "no-sse3",			 -MASK_SSE3,				      \
+    N_("Do not support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -616,8 +617,8 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
-      if (TARGET_PNI)						\
-	builtin_define ("__PNI__");				\
+      if (TARGET_SSE3)						\
+	builtin_define ("__SSE3__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -690,11 +691,15 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
 #define TARGET_CPU_DEFAULT_k8 13
+#define TARGET_CPU_DEFAULT_pentium_m 14
+#define TARGET_CPU_DEFAULT_prescott 15
+#define TARGET_CPU_DEFAULT_nocona 15
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4", "k8"}
+				  "athlon", "athlon-4", "k8", \
+				  "pentium-m", "prescott", "nocona"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -2514,12 +2519,6 @@ enum ix86_builtins
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (!TARGET_64BIT || flag_pic ? SImode : DImode)
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1

@@ -317,11 +317,6 @@ extern int flag_cse_skip_blocks;
    perform miscellaneous relatively-expensive optimizations.  */
 extern int flag_expensive_optimizations;
 
-/* Nonzero for -fwritable-strings:
-   store string constants in data segment and don't uniquize them.  */
-
-extern int flag_writable_strings;
-
 /* Nonzero means don't put addresses of constant functions in registers.
    Used for compiling the Unix kernel, where strange substitutions are
    done on the assembly output.  */
@@ -405,6 +400,7 @@ extern int flag_really_no_inline;
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
 extern int flag_syntax_only;
+extern int rtl_dump_and_exit;
 
 /* Nonzero means we should save auxiliary info into a .X file.  */
 
@@ -745,6 +741,9 @@ extern int flag_tree_loop;
 /* Enable scalar replacement of aggregates.  */
 extern int flag_tree_sra;
 
+/* Enable copy rename optimization.  */
+extern int flag_tree_copyrename;
+
 /* Enable points-to analysis on trees.  */
 enum pta_type
   {
@@ -774,6 +773,27 @@ extern int flag_var_tracking;
    to make it really random.  */
 
 extern const char *flag_random_seed;
+
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    0: The version of the ABI believed most conformant with the 
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+extern int flag_abi_version;
+
+/* Returns TRUE if generated code should match ABI version N or
+   greater is in use.  */
+
+#define abi_version_at_least(N) \
+  (flag_abi_version == 0 || flag_abi_version >= (N))
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

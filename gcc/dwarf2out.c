@@ -3249,6 +3249,7 @@ static void dwarf2out_begin_block (unsigned, unsigned);
 static void dwarf2out_end_block (unsigned, unsigned);
 static bool dwarf2out_ignore_block (tree);
 static void dwarf2out_global_decl (tree);
+static void dwarf2out_type_decl (tree, int);
 static void dwarf2out_imported_module_or_decl (tree, tree);
 static void dwarf2out_abstract_function (tree);
 static void dwarf2out_var_location (rtx);
@@ -3275,6 +3276,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   debug_nothing_int,		/* end_function */
   dwarf2out_decl,		/* function_decl */
   dwarf2out_global_decl,
+  dwarf2out_type_decl,		/* type_decl */
   dwarf2out_imported_module_or_decl,
   debug_nothing_tree,		/* deferred_inline_function */
   /* The DWARF 2 backend tries to reduce debugging bloat by not
@@ -3590,12 +3592,12 @@ static GTY(()) unsigned ranges_table_in_use;
 /* Whether we have location lists that need outputting */
 static GTY(()) unsigned have_location_lists;
 
+/* Unique label counter.  */
+static GTY(()) unsigned int loclabel_num;
+
 #ifdef DWARF2_DEBUGGING_INFO
 /* Record whether the function being analyzed contains inlined functions.  */
 static int current_function_has_inlines;
-
-/* Unique label counter.  */
-static unsigned int loclabel_num = 0;
 #endif
 #if 0 && defined (MIPS_DEBUGGING_INFO)
 static int comp_unit_has_inlines;
@@ -6642,18 +6644,6 @@ output_loc_list (dw_loc_list_ref list_head)
 
   ASM_OUTPUT_LABEL (asm_out_file, list_head->ll_symbol);
 
-  /* ??? This shouldn't be needed now that we've forced the
-     compilation unit base address to zero when there is code
-     in more than one section.  */
-  if (strcmp (curr->section, ".text") == 0)
-    {
-      /* dw2_asm_output_data will mask off any extra bits in the ~0.  */
-      dw2_asm_output_data (DWARF2_ADDR_SIZE, ~(unsigned HOST_WIDE_INT) 0,
-			   "Location list base address specifier fake entry");
-      dw2_asm_output_offset (DWARF2_ADDR_SIZE, curr->section,
-			     "Location list base address specifier base");
-    }
-
   /* Walk the location list, and output each range + expression.  */
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
@@ -9677,7 +9667,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 	  secname = TREE_STRING_POINTER (sectree);
 	}
       else
-	secname = TEXT_SECTION_NAME;
+	secname = text_section_label;
 
       /* Now that we know what section we are using for a base,
          actually construct the list of locations.
@@ -9881,7 +9871,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	  || (bound_attr == DW_AT_lower_bound
 	      && (((is_c_family () || is_java ()) &&  integer_zerop (bound))
 		  || (is_fortran () && integer_onep (bound)))))
-	/* use the default */
+	/* Use the default.  */
 	;
       else
 	add_AT_unsigned (subrange_die, bound_attr, tree_low_cst (bound, 0));
@@ -12519,6 +12509,15 @@ dwarf2out_global_decl (tree decl)
     dwarf2out_decl (decl);
 }
 
+/* Output debug information for type decl DECL.  Called from toplev.c
+   and from language front ends (to record built-in types).  */
+static void
+dwarf2out_type_decl (tree decl, int local)
+{
+  if (!local)
+    dwarf2out_decl (decl);
+}
+
 /* Output debug information for imported module or decl.  */ 
  
 static void
@@ -12893,7 +12892,7 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 	  (*targetm.asm_out.internal_label) (asm_out_file, SEPARATE_LINE_CODE_LABEL,
 				     separate_line_info_table_in_use);
 
-	  /* expand the line info table if necessary */
+	  /* Expand the line info table if necessary.  */
 	  if (separate_line_info_table_in_use
 	      == separate_line_info_table_allocated)
 	    {

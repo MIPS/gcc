@@ -257,7 +257,7 @@ static void ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
 static unsigned int ia64_rwreloc_section_type_flags (tree, const char *, int)
      ATTRIBUTE_UNUSED;
 
-static void ia64_hpux_add_extern_decl (const char *name)
+static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
@@ -3786,21 +3786,34 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
      named, and in a GR register when unnamed.  */
   else if (cum->prototype)
     {
-      if (! named)
-	return gen_rtx_REG (mode, basereg + cum->words + offset);
-      else
+      if (named)
 	return gen_rtx_REG (mode, FR_ARG_FIRST + cum->fp_regs);
+      /* In big-endian mode, an anonymous SFmode value must be represented
+         as (parallel:SF [(expr_list (reg:DI n) (const_int 0))]) to force
+	 the value into the high half of the general register.  */
+      else if (BYTES_BIG_ENDIAN && mode == SFmode)
+	return gen_rtx_PARALLEL (mode,
+		 gen_rtvec (1,
+                   gen_rtx_EXPR_LIST (VOIDmode,
+		     gen_rtx_REG (DImode, basereg + cum->words + offset),
+				      const0_rtx)));
+      else
+	return gen_rtx_REG (mode, basereg + cum->words + offset);
     }
   /* If there is no prototype, then FP values go in both FR and GR
      registers.  */
   else
     {
+      /* See comment above.  */
+      enum machine_mode inner_mode =
+	(BYTES_BIG_ENDIAN && mode == SFmode) ? DImode : mode;
+
       rtx fp_reg = gen_rtx_EXPR_LIST (VOIDmode,
 				      gen_rtx_REG (mode, (FR_ARG_FIRST
 							  + cum->fp_regs)),
 				      const0_rtx);
       rtx gr_reg = gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (mode,
+				      gen_rtx_REG (inner_mode,
 						   (basereg + cum->words
 						    + offset)),
 				      const0_rtx);
@@ -4627,7 +4640,7 @@ ia64_asm_output_external (FILE *file, tree decl, const char *name)
     return;
 
   if (TARGET_HPUX_LD)
-    ia64_hpux_add_extern_decl (name);
+    ia64_hpux_add_extern_decl (decl);
   else
     {
       /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
@@ -4738,20 +4751,53 @@ ia64_override_options (void)
 
   if (TARGET_INLINE_FLOAT_DIV_LAT && TARGET_INLINE_FLOAT_DIV_THR)
     {
-      warning ("cannot optimize floating point division for both latency and throughput");
-      target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+      if ((target_flags_explicit & MASK_INLINE_FLOAT_DIV_LAT)
+	   && (target_flags_explicit & MASK_INLINE_FLOAT_DIV_THR))
+	{
+	  warning ("cannot optimize floating point division for both latency and throughput");
+	  target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+	}
+      else 
+	{
+	  if (target_flags_explicit & MASK_INLINE_FLOAT_DIV_THR)
+	    target_flags &= ~MASK_INLINE_FLOAT_DIV_LAT;
+	  else
+	    target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+	}
     }
 
   if (TARGET_INLINE_INT_DIV_LAT && TARGET_INLINE_INT_DIV_THR)
     {
-      warning ("cannot optimize integer division for both latency and throughput");
-      target_flags &= ~MASK_INLINE_INT_DIV_THR;
+      if ((target_flags_explicit & MASK_INLINE_INT_DIV_LAT)
+	   && (target_flags_explicit & MASK_INLINE_INT_DIV_THR))
+	{
+	  warning ("cannot optimize integer division for both latency and throughput");
+	  target_flags &= ~MASK_INLINE_INT_DIV_THR;
+	}
+      else 
+	{
+	  if (target_flags_explicit & MASK_INLINE_INT_DIV_THR)
+	    target_flags &= ~MASK_INLINE_INT_DIV_LAT;
+	  else
+	    target_flags &= ~MASK_INLINE_INT_DIV_THR;
+	}
     }
 
   if (TARGET_INLINE_SQRT_LAT && TARGET_INLINE_SQRT_THR)
     {
-      warning ("cannot optimize square root for both latency and throughput");
-      target_flags &= ~MASK_INLINE_SQRT_THR;
+      if ((target_flags_explicit & MASK_INLINE_SQRT_LAT)
+	   && (target_flags_explicit & MASK_INLINE_SQRT_THR))
+	{
+	  warning ("cannot optimize square root for both latency and throughput");
+	  target_flags &= ~MASK_INLINE_SQRT_THR;
+	}
+      else 
+	{
+	  if (target_flags_explicit & MASK_INLINE_SQRT_THR)
+	    target_flags &= ~MASK_INLINE_SQRT_LAT;
+	  else
+	    target_flags &= ~MASK_INLINE_SQRT_THR;
+	}
     }
 
   if (TARGET_INLINE_SQRT_LAT)
@@ -7088,7 +7134,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  ia64_emit_insn_before (b, insn);
 	  b = PREV_INSN (insn);
 	  insn = b;
-	  /* See comment above in analogous place for emiting nops
+	  /* See comment above in analogous place for emitting nops
 	     after the insn.  */
 	  template0 = template1;
 	  template1 = -1;
@@ -7105,7 +7151,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	    abort ();
 	  if (pos % 3 == 0)
 	    {
-	      /* See comment above in analogous place for emiting nops
+	      /* See comment above in analogous place for emitting nops
 		 after the insn.  */
 	      if (template0 < 0)
 		abort ();
@@ -7594,7 +7640,7 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      schedule_ebbs (rtl_dump_file);
+      schedule_ebbs (dump_file);
       finish_bundle_states ();
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
@@ -7602,13 +7648,13 @@ ia64_reorg (void)
 	  free (clocks);
 	}
       free (stops_p);
-      emit_insn_group_barriers (rtl_dump_file);
+      emit_insn_group_barriers (dump_file);
 
       ia64_final_schedule = 0;
       timevar_pop (TV_SCHED2);
     }
   else
-    emit_all_insn_group_barriers (rtl_dump_file);
+    emit_all_insn_group_barriers (dump_file);
 
   /* A call must not be the last instruction in a function, so that the
      return address is still within the function, so that unwinding works
@@ -8653,20 +8699,20 @@ ia64_hpux_function_arg_padding (enum machine_mode mode, tree type)
    We output the name if and only if TREE_SYMBOL_REFERENCED is set in
    order to avoid putting out names that are never really used.  */
 
-struct extern_func_list
+struct extern_func_list GTY(())
 {
-  struct extern_func_list *next; /* next external */
-  char *name;                    /* name of the external */
-} *extern_func_head = 0;
+  struct extern_func_list *next;
+  tree decl;
+};
+
+static GTY(()) struct extern_func_list *extern_func_head;
 
 static void
-ia64_hpux_add_extern_decl (const char *name)
+ia64_hpux_add_extern_decl (tree decl)
 {
-  struct extern_func_list *p;
+  struct extern_func_list *p = ggc_alloc (sizeof (struct extern_func_list));
 
-  p = (struct extern_func_list *) xmalloc (sizeof (struct extern_func_list));
-  p->name = xmalloc (strlen (name) + 1);
-  strcpy(p->name, name);
+  p->decl = decl;
   p->next = extern_func_head;
   extern_func_head = p;
 }
@@ -8676,29 +8722,29 @@ ia64_hpux_add_extern_decl (const char *name)
 static void
 ia64_hpux_file_end (void)
 {
-  while (extern_func_head)
+  struct extern_func_list *p;
+
+  for (p = extern_func_head; p; p = p->next)
     {
-      const char *real_name;
-      tree decl;
+      tree decl = p->decl;
+      tree id = DECL_NAME (decl);
 
-      real_name = (* targetm.strip_name_encoding) (extern_func_head->name);
-      decl = maybe_get_identifier (real_name);
+      if (!id)
+	abort ();
 
-      if (!decl
-	  || (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl)))
+      if (!TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (id))
         {
-	  if (decl)
-	    TREE_ASM_WRITTEN (decl) = 1;
-	  (*targetm.asm_out.globalize_label) (asm_out_file,
-					      extern_func_head->name);
+	  const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+
+	  TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (asm_out_file, name);
 	  fputs (TYPE_ASM_OP, asm_out_file);
-	  assemble_name (asm_out_file, extern_func_head->name);
-	  putc (',', asm_out_file);
-	  fprintf (asm_out_file, TYPE_OPERAND_FMT, "function");
-	  putc ('\n', asm_out_file);
+	  assemble_name (asm_out_file, name);
+	  fprintf (asm_out_file, "," TYPE_OPERAND_FMT "\n", "function");
         }
-      extern_func_head = extern_func_head->next;
     }
+
+  extern_func_head = 0;
 }
 
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */
@@ -8802,6 +8848,27 @@ ia64_rwreloc_section_type_flags (tree decl, const char *name, int reloc)
   return default_section_type_flags_1 (decl, name, reloc, true);
 }
 
+/* Returns true if FNTYPE (a FUNCTION_TYPE or a METHOD_TYPE) returns a
+   structure type and that the address of that type should be passed
+   in out0, rather than in r8.  */
+
+static bool
+ia64_struct_retval_addr_is_first_parm_p (tree fntype)
+{
+  tree ret_type = TREE_TYPE (fntype);
+
+  /* The Itanium C++ ABI requires that out0, rather than r8, be used
+     as the structure return address parameter, if the return value
+     type has a non-trivial copy constructor or destructor.  It is not
+     clear if this same convention should be used for other
+     programming languages.  Until G++ 3.4, we incorrectly used r8 for
+     these return values.  */
+  return (abi_version_at_least (2)
+	  && ret_type
+	  && TYPE_MODE (ret_type) == BLKmode 
+	  && TREE_ADDRESSABLE (ret_type)
+	  && strcmp (lang_hooks.name, "GNU C++") == 0);
+}
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for
@@ -8815,6 +8882,8 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 		      tree function)
 {
   rtx this, insn, funexp;
+  unsigned int this_parmno;
+  unsigned int this_regno;
 
   reload_completed = 1;
   epilogue_completed = 1;
@@ -8828,16 +8897,23 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   current_frame_info.n_input_regs = 1;
   current_frame_info.need_regstk = (TARGET_REG_NAMES != 0);
 
-  if (!TARGET_REG_NAMES)
-    reg_names[IN_REG (0)] = ia64_reg_numbers[0];
-
   /* Mark the end of the (empty) prologue.  */
   emit_note (NOTE_INSN_PROLOGUE_END);
 
-  this = gen_rtx_REG (Pmode, IN_REG (0));
+  /* Figure out whether "this" will be the first parameter (the
+     typical case) or the second parameter (as happens when the
+     virtual function returns certain class objects).  */
+  this_parmno
+    = (ia64_struct_retval_addr_is_first_parm_p (TREE_TYPE (thunk))
+       ? 1 : 0);
+  this_regno = IN_REG (this_parmno);
+  if (!TARGET_REG_NAMES)
+    reg_names[this_regno] = ia64_reg_numbers[this_parmno];
+
+  this = gen_rtx_REG (Pmode, this_regno);
   if (TARGET_ILP32)
     {
-      rtx tmp = gen_rtx_REG (ptr_mode, IN_REG (0));
+      rtx tmp = gen_rtx_REG (ptr_mode, this_regno);
       REG_POINTER (tmp) = 1;
       if (delta && CONST_OK_FOR_I (delta))
 	{
@@ -8945,9 +9021,11 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 /* Worker function for TARGET_STRUCT_VALUE_RTX.  */
 
 static rtx
-ia64_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+ia64_struct_value_rtx (tree fntype,
 		       int incoming ATTRIBUTE_UNUSED)
 {
+  if (fntype && ia64_struct_retval_addr_is_first_parm_p (fntype))
+    return NULL_RTX;
   return gen_rtx_REG (Pmode, GR_REG (8));
 }
 

@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file contains definitions used
    internally in the scheduler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -381,7 +381,6 @@ extern void rm_other_notes (rtx, rtx);
 extern int insn_issue_delay (rtx);
 extern int set_priorities (rtx, rtx);
 
-extern rtx sched_emit_insn (rtx);
 extern void schedule_block (int, int);
 extern void sched_init (FILE *);
 extern void sched_finish (void);

@@ -372,8 +372,6 @@ extern void record_alias_subset (HOST_WIDE_INT, HOST_WIDE_INT);
 extern HOST_WIDE_INT new_alias_set (void);
 extern int can_address_p (tree);
 extern tree simplify_builtin_fputs (tree, int, int, tree);
-extern tree simplify_builtin_strcmp (tree, tree, tree);
-extern tree simplify_builtin_strncmp (tree, tree, tree);
 extern tree simplify_builtin_strcpy (tree, tree);
 extern tree simplify_builtin_strncpy (tree, tree);
 

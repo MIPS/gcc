@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
+#include "target.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -547,6 +548,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_pre = 1;
       flag_tree_ter = 1;
       flag_tree_sra = 1;
+      flag_tree_copyrename = 1;
 
       if (!optimize_size)
 	{
@@ -611,10 +613,8 @@ decode_options (unsigned int argc, const char **argv)
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
-#ifdef DEFAULT_SHORT_ENUMS
   /* Initialize how much space enums occupy, by default.  */
-  flag_short_enums = DEFAULT_SHORT_ENUMS;
-#endif
+  flag_short_enums = targetm.default_short_enums ();
 
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
@@ -848,6 +848,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fPIE:
       flag_pie = value + value;
+      break;
+
+    case OPT_fabi_version_:
+      flag_abi_version = value;
       break;
 
     case OPT_falign_functions:
@@ -1470,6 +1474,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_tree_dom = value;
       break;
 
+    case OPT_ftree_copyrename:
+      flag_tree_copyrename = value;
+      break;
+
     case OPT_ftree_ch:
       flag_tree_ch = value;
       break;
@@ -1545,10 +1553,6 @@ common_handle_option (size_t scode, const char *arg,
       
     case OPT_fwrapv:
       flag_wrapv = value;
-      break;
-
-    case OPT_fwritable_strings:
-      flag_writable_strings = value;
       break;
 
     case OPT_fzero_initialized_in_bss:

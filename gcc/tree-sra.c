@@ -226,7 +226,10 @@ lookup_scalar (struct sra_elt *key, tree type)
 	      free (name);
 	    }
 	}
+
       DECL_SOURCE_LOCATION (res->replace) = DECL_SOURCE_LOCATION (key->base);
+      TREE_NO_WARNING (res->replace) = TREE_NO_WARNING (key->base);
+      DECL_ARTIFICIAL (res->replace) = DECL_ARTIFICIAL (key->base);
     }
 
   return res->replace;
@@ -287,22 +290,22 @@ can_be_scalarized_p (tree var)
 
   if (!is_gimple_non_addressable (var))
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (tree_dump_file, var, 0);	 
-	  fprintf (tree_dump_file, " because it must live in memory\n");
+	  fprintf (dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (dump_file, var, 0);	 
+	  fprintf (dump_file, " because it must live in memory\n");
 	}
       return false;
     }
 
   if (TREE_THIS_VOLATILE (var))
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (tree_dump_file, var, 0);	 
-	  fprintf (tree_dump_file, " because it is declared volatile\n");
+	  fprintf (dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (dump_file, var, 0);	 
+	  fprintf (dump_file, " because it is declared volatile\n");
 	}
       return false;
     }
@@ -322,14 +325,14 @@ can_be_scalarized_p (tree var)
 	 scalarize the fields at the leaves.  */
       if (AGGREGATE_TYPE_P (TREE_TYPE (field)))
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (tree_dump_file, var, 0);	 
-	      fprintf (tree_dump_file,
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);	 
+	      fprintf (dump_file,
 		       " because it contains an aggregate type field, ");
-	      print_generic_expr (tree_dump_file, field, 0);
-	      fprintf (tree_dump_file, "\n");
+	      print_generic_expr (dump_file, field, 0);
+	      fprintf (dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -340,14 +343,14 @@ can_be_scalarized_p (tree var)
 	 testsuite: 26_numerics/complex_inserters_extractors.cc.  */
       if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (tree_dump_file, var, 0);
-	      fprintf (tree_dump_file,
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);
+	      fprintf (dump_file,
 		       " because it contains a __complex__ field, ");
-	      print_generic_expr (tree_dump_file, field, 0);
-	      fprintf (tree_dump_file, "\n");
+	      print_generic_expr (dump_file, field, 0);
+	      fprintf (dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -358,14 +361,14 @@ can_be_scalarized_p (tree var)
 	 to mask them properly.  */
       if (DECL_BIT_FIELD (field))
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (tree_dump_file, var, 0);	 
-	      fprintf (tree_dump_file,
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);	 
+	      fprintf (dump_file,
 		       " because it contains a bit-field, ");
-	      print_generic_expr (tree_dump_file, field, 0);
-	      fprintf (tree_dump_file, "\n");
+	      print_generic_expr (dump_file, field, 0);
+	      fprintf (dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -373,11 +376,11 @@ can_be_scalarized_p (tree var)
       nfields++;
       if (nfields > MAX_NFIELDS_FOR_SRA)
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (tree_dump_file, var, 0);	 
-	      fprintf (tree_dump_file,
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);	 
+	      fprintf (dump_file,
 		       " because it contains more than %d fields\n", 
 		       MAX_NFIELDS_FOR_SRA);
 	    }
@@ -443,8 +446,24 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
     abort ();
 #endif
 
-  /* Remove unnecessary casts from RHS.  */
-  STRIP_USELESS_TYPE_CONVERSION (rhs);
+  /* Remove all type casts from RHS.  This may seem heavy handed but
+     it's actually safe and it is necessary in the presence of C++
+     reinterpret_cast<> where structure assignments of different
+     structures will be present in the IL.  This was the case of PR
+     13347 (http://gcc.gnu.org/bugzilla/show_bug.cgi?id=13347) which
+     had something like this:
+
+	struct A f;
+     	struct B g;
+	f = (struct A)g;
+
+     Both 'f' and 'g' were scalarizable, but the presence of the type
+     cast was causing SRA to not replace the RHS of the assignment
+     with g's scalar replacements.  Furthermore, the fact that this
+     assignment reached this point without causing syntax errors means
+     that the type cast is safe and that a field-by-field assignment
+     from 'g' into 'f' is the right thing to do.  */
+  STRIP_NOPS (rhs);
 
   lhs_ann = DECL_P (lhs) ? var_ann (lhs) : NULL;
   rhs_ann = DECL_P (rhs) ? var_ann (rhs) : NULL;
@@ -1068,16 +1087,16 @@ dump_sra_map_trav (void **slot, void *data)
     {
     case REALPART_EXPR:
       fputs ("__real__ ", f);
-      print_generic_expr (tree_dump_file, e->base, 0);
+      print_generic_expr (dump_file, e->base, 0);
       fprintf (f, " -> %s\n", get_name (e->replace));
       break;
     case IMAGPART_EXPR:
       fputs ("__imag__ ", f);
-      print_generic_expr (tree_dump_file, e->base, 0);
+      print_generic_expr (dump_file, e->base, 0);
       fprintf (f, " -> %s\n", get_name (e->replace));
       break;
     case COMPONENT_REF:
-      print_generic_expr (tree_dump_file, e->base, 0);
+      print_generic_expr (dump_file, e->base, 0);
       fprintf (f, ".%s -> %s\n", get_name (e->field), get_name (e->replace));
       break;
     default:
@@ -1140,8 +1159,8 @@ tree_sra (void)
 
   scalarize_structures ();
 
-  if (tree_dump_file)
-    dump_sra_map (tree_dump_file);
+  if (dump_file)
+    dump_sra_map (dump_file);
 
   /* Free allocated memory.  */
   htab_delete (sra_map);

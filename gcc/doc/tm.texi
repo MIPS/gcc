@@ -293,6 +293,18 @@ If this macro is not defined, the GCC driver provides a default that
 passes the string @option{-lgcc} to the linker.
 @end defmac
 
+@defmac REAL_LIBGCC_SPEC
+By default, if @code{ENABLE_SHARED_LIBGCC} is defined, the
+@code{LIBGCC_SPEC} is not directly used by the driver program but is
+instead modified to refer to different versions of @file{libgcc.a}
+depending on the values of the command line flags @code{-static},
+@code{-shared}, @code{-static-libgcc}, and @code{-shared-libgcc}.  On
+targets where these modifications are inappropriate, define
+@code{REAL_LIBGCC_SPEC} instead.  @code{REAL_LIBGCC_SPEC} tells the
+driver how to place a reference to @file{libgcc} on the link command
+line, but, unlike @code{LIBGCC_SPEC}, it is used unmodified.
+@end defmac
+
 @defmac STARTFILE_SPEC
 Another C string constant used much like @code{LINK_SPEC}.  The
 difference between the two is that @code{STARTFILE_SPEC} is used at
@@ -1593,14 +1605,14 @@ always override this default with the options @option{-fsigned-char}
 and @option{-funsigned-char}.
 @end defmac
 
-@defmac DEFAULT_SHORT_ENUMS
-A C expression to determine whether to give an @code{enum} type
-only as many bytes as it takes to represent the range of possible values
-of that type.  A nonzero value means to do that; a zero value means all
+@deftypefn {Target Hook} bool TARGET_DEFAULT_SHORT_ENUMS (void)
+This target hook should return true if the compiler should give an
+@code{enum} type only as many bytes as it takes to represent the range
+of possible values of that type.  It should return false if all
 @code{enum} types should be allocated like @code{int}.
 
-If you don't define the macro, the default is 0.
-@end defmac
+The default is to return false.
+@end deftypefn
 
 @defmac SIZE_TYPE
 A C expression for a string describing the name of the data type to use
@@ -3442,33 +3454,6 @@ which.
 @end defmac
 @c above is overfull.  not sure what to do.  --mew 5feb93  did
 @c something, not sure if it looks good.  --mew 10feb93
-
-@defmac MAYBE_REG_PARM_STACK_SPACE
-@defmacx FINAL_REG_PARM_STACK_SPACE (@var{const_size}, @var{var_size})
-Define these macros in addition to the one above if functions might
-allocate stack space for arguments even when their values are passed
-in registers.  These should be used when the stack space allocated
-for arguments in registers is not a simple constant independent of the
-function declaration.
-
-The value of the first macro is the size, in bytes, of the area that
-we should initially assume would be reserved for arguments passed in registers.
-
-The value of the second macro is the actual size, in bytes, of the area
-that will be reserved for arguments passed in registers.  This takes two
-arguments: an integer representing the number of bytes of fixed sized
-arguments on the stack, and a tree representing the number of bytes of
-variable sized arguments on the stack.
-
-When these macros are defined, @code{REG_PARM_STACK_SPACE} will only be
-called for libcall functions, the current function, or for a function
-being called when it is known that such stack space must be allocated.
-In each case this value can be easily computed.
-
-When deciding whether a called function needs such stack space, and how
-much space to reserve, GCC uses these two macros instead of
-@code{REG_PARM_STACK_SPACE}.
-@end defmac
 
 @defmac OUTGOING_REG_PARM_STACK_SPACE
 Define this if it is the responsibility of the caller to allocate the area
@@ -5557,6 +5542,19 @@ cleanup of any actions done by the other scheduling hooks.  @var{file}
 is either a null pointer, or a stdio stream to write any debug output
 to.  @var{verbose} is the verbose level provided by
 @option{-fsched-verbose-@var{n}}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_GLOBAL (FILE *@var{file}, int @var{verbose}, int @var{old_max_uid})
+This hook is executed by the scheduler after function level initializations.
+@var{file} is either a null pointer, or a stdio stream to write any debug output to.
+@var{verbose} is the verbose level provided by @option{-fsched-verbose-@var{n}}.
+@var{old_max_uid} is the maximum insn uid when scheduling begins.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_FINISH_GLOBAL (FILE *@var{file}, int @var{verbose})
+This is the cleanup hook corresponding to TARGET_SCHED_INIT_GLOBAL.
+@var{file} is either a null pointer, or a stdio stream to write any debug output to.
+@var{verbose} is the verbose level provided by @option{-fsched-verbose-@var{n}}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE (void)

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-forwprop1-details -fdump-tree-cddce" } */
+/* { dg-options "-O2 -fdump-tree-cddce" } */
   
 
  
@@ -34,10 +34,6 @@ com (rtx insn, int blah)
   if (!can_move_up (insn, blah))
     foo ();
 }
-
-/* We should replace one expression within an IF statement with the
-   statement that feeds the IF statement.  */
-/* { dg-final { scan-tree-dump-times "Replaced" 1 "forwprop1"} } */
 
 /* After cddce we should have no IF statements remaining since this
    whole function collapses down to a simple return.  */

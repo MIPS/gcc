@@ -73,11 +73,6 @@ enum internal_test {
   ITEST_MAX
 };
 
-/* Return true if it is likely that the given mode will be accessed
-   using only a single instruction.  */
-#define SINGLE_WORD_MODE_P(MODE) \
-  ((MODE) != BLKmode && GET_MODE_SIZE (MODE) <= UNITS_PER_WORD)
-
 /* True if X is an unspec wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
   (GET_CODE (X) == UNSPEC					\
@@ -203,7 +198,6 @@ static rtx mips_force_temporary (rtx, rtx);
 static rtx mips_split_symbol (rtx, rtx);
 static rtx mips_unspec_address (rtx, enum mips_symbol_type);
 static rtx mips_unspec_offset_high (rtx, rtx, rtx, enum mips_symbol_type);
-static rtx mips_load_got (rtx, rtx, enum mips_symbol_type);
 static rtx mips_add_offset (rtx, HOST_WIDE_INT);
 static unsigned int mips_build_shift (struct mips_integer_op *, HOST_WIDE_INT);
 static unsigned int mips_build_lower (struct mips_integer_op *,
@@ -541,9 +535,6 @@ char mips_print_operand_punct[256];
 
 /* Map GCC register number to debugger register number.  */
 int mips_dbx_regno[FIRST_PSEUDO_REGISTER];
-
-/* An alias set for the GOT.  */
-static GTY(()) int mips_got_alias_set;
 
 /* A copy of the original flag_delayed_branch: see override_options.  */
 static int mips_flag_delayed_branch;
@@ -1243,8 +1234,13 @@ mips_address_insns (rtx x, enum machine_mode mode)
   struct mips_address_info addr;
   int factor;
 
-  /* Each word of a multi-word value will be accessed individually.  */
-  factor = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  if (mode == BLKmode)
+    /* BLKmode is used for single unaligned loads and stores.  */
+    factor = 1;
+  else
+    /* Each word of a multi-word value will be accessed individually.  */
+    factor = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+
   if (mips_classify_address (&addr, x, mode, false))
     switch (addr.type)
       {
@@ -1749,24 +1745,12 @@ mips_unspec_offset_high (rtx temp, rtx base, rtx addr,
 }
 
 
-/* Return a memory reference for the GOT slot whose offset is given by
-   mips_unspec_address (ADDR, SYMBOL_TYPE).  Register BASE contains the
-   high part of the offset plus $gp.  */
+/* Return the offset of a GOT page entry for local address ADDR.  */
 
-static rtx
-mips_load_got (rtx base, rtx addr, enum mips_symbol_type symbol_type)
+rtx
+mips_gotoff_page (rtx addr)
 {
-  rtx mem, offset;
-
-  offset = mips_unspec_address (addr, symbol_type);
-  mem = gen_rtx_MEM (ptr_mode, gen_rtx_LO_SUM (Pmode, base, offset));
-  set_mem_alias_set (mem, mips_got_alias_set);
-
-  /* GOT entries are constant and references to them can't trap.  */
-  RTX_UNCHANGING_P (mem) = 1;
-  MEM_NOTRAP_P (mem) = 1;
-
-  return mem;
+  return mips_unspec_address (addr, SYMBOL_GOTOFF_PAGE);
 }
 
 
@@ -1777,25 +1761,6 @@ rtx
 mips_gotoff_global (rtx addr)
 {
   return mips_unspec_address (addr, SYMBOL_GOTOFF_GLOBAL);
-}
-
-
-/* Fetch the high part of local_got_operand ADDR from the GOT.  */
-
-rtx
-mips_load_got_page (rtx addr)
-{
-  return mips_load_got (pic_offset_table_rtx, addr, SYMBOL_GOTOFF_PAGE);
-}
-
-
-/* Fetch the address of global_got_operand ADDR from the GOT.  BASE is a
-   register that holds the address _gp + %got_hi(ADDR).  */
-
-rtx
-mips_load_got_global (rtx base, rtx addr)
-{
-  return mips_load_got (base, addr, SYMBOL_GOTOFF_GLOBAL);
 }
 
 
@@ -2999,7 +2964,8 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0,
   else
     {
       reg = (invert || eqne_p) ? gen_reg_rtx (mode) : result;
-      convert_move (reg, gen_rtx_fmt_ee (p_info->test_code, mode, cmp0, cmp1), 0);
+      convert_move (reg, gen_rtx_fmt_ee (p_info->test_code,
+					 mode, cmp0, cmp1), 0);
     }
 
   if (test == ITEST_NE)
@@ -3131,7 +3097,8 @@ gen_conditional_branch (rtx *operands, enum rtx_code test_code)
       break;
 
     default:
-      fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
+      fatal_insn ("bad test",
+		  gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
     }
 
   /* Generate the branch.  */
@@ -3145,12 +3112,12 @@ gen_conditional_branch (rtx *operands, enum rtx_code test_code)
       label1 = pc_rtx;
     }
 
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx_fmt_ee (test_code,
-								     mode,
-								     cmp0, cmp1),
-						     label1, label2)));
+  emit_jump_insn
+    (gen_rtx_SET (VOIDmode, pc_rtx,
+		  gen_rtx_IF_THEN_ELSE (VOIDmode,
+					gen_rtx_fmt_ee (test_code, mode,
+							cmp0, cmp1),
+					label1, label2)));
 }
 
 /* Emit the common code for conditional moves.  OPERANDS is the array
@@ -3233,9 +3200,10 @@ gen_conditional_move (rtx *operands)
 
   emit_insn (gen_rtx_SET (op_mode, operands[0],
 			  gen_rtx_IF_THEN_ELSE (op_mode,
-						gen_rtx_fmt_ee (move_code, VOIDmode,
+						gen_rtx_fmt_ee (move_code,
+								VOIDmode,
 								cmp_reg,
-								CONST0_RTX (SImode)),
+								const0_rtx),
 						operands[2], operands[3])));
 }
 
@@ -3607,23 +3575,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 {
   static CUMULATIVE_ARGS zero_cum;
   tree param, next_param;
-
-  if (TARGET_DEBUG_E_MODE)
-    {
-      fprintf (stderr,
-	       "\ninit_cumulative_args, fntype = 0x%.8lx", (long)fntype);
-
-      if (!fntype)
-	fputc ('\n', stderr);
-
-      else
-	{
-	  tree ret_type = TREE_TYPE (fntype);
-	  fprintf (stderr, ", fntype code = %s, ret code = %s\n",
-		   tree_code_name[(int)TREE_CODE (fntype)],
-		   tree_code_name[(int)TREE_CODE (ret_type)]);
-	}
-    }
 
   *cum = zero_cum;
   cum->prototype = (fntype && TYPE_ARG_TYPES (fntype));
@@ -4480,7 +4431,7 @@ mips_get_unaligned_mem (rtx *op, unsigned int width, int bitpos,
   first = adjust_address (*op, QImode, 0);
   last = adjust_address (*op, QImode, width / BITS_PER_UNIT - 1);
 
-  /* Allocate to LEFT and RIGHT according to endiannes.  LEFT should
+  /* Allocate to LEFT and RIGHT according to endianness.  LEFT should
      be the upper word and RIGHT the lower word.  */
   if (TARGET_BIG_ENDIAN)
     *left = first, *right = last;
@@ -5098,9 +5049,6 @@ override_options (void)
 
   /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;
-
-  /* Create a unique alias set for GOT references.  */
-  mips_got_alias_set = new_alias_set ();
 
   if (TARGET_EXPLICIT_RELOCS || mips_split_addresses)
     {
@@ -6022,17 +5970,63 @@ mips_file_end (void)
     }
 }
 
+/* Implement ASM_OUTPUT_ALIGNED_DECL_COMMON.  This is usually the same as
+   the elfos.h version, but we also need to handle -muninit-const-in-rodata
+   and the limitations of the SGI o32 assembler.  */
+
+void
+mips_output_aligned_decl_common (FILE *stream, tree decl, const char *name,
+				 unsigned HOST_WIDE_INT size,
+				 unsigned int align)
+{
+  /* If the target wants uninitialized const declarations in
+     .rdata then don't put them in .comm.   */
+  if (TARGET_EMBEDDED_DATA && TARGET_UNINIT_CONST_IN_RODATA
+      && TREE_CODE (decl) == VAR_DECL && TREE_READONLY (decl)
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    {
+      if (TREE_PUBLIC (decl) && DECL_NAME (decl))
+	targetm.asm_out.globalize_label (stream, name);
+
+      readonly_data_section ();
+      ASM_OUTPUT_ALIGN (stream, floor_log2 (align / BITS_PER_UNIT));
+      mips_declare_object (stream, name, "",
+			   ":\n\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED "\n",
+			   size);
+    }
+  else if (TARGET_SGI_O32_AS)
+    {
+      /* The SGI o32 assembler doesn't accept an alignment, so round up
+	 the size instead.  */
+      size += (align / BITS_PER_UNIT) - 1;
+      size -= size % (align / BITS_PER_UNIT);
+      mips_declare_object (stream, name, "\n\t.comm\t",
+			   "," HOST_WIDE_INT_PRINT_UNSIGNED "\n", size);
+    }
+  else
+    mips_declare_object (stream, name, "\n\t.comm\t",
+			 "," HOST_WIDE_INT_PRINT_UNSIGNED ",%u\n",
+			 size, align / BITS_PER_UNIT);
+}
+
 /* Emit either a label, .comm, or .lcomm directive.  When using assembler
    macros, mark the symbol as written so that mips_file_end won't emit an
-   .extern for it.  */
+   .extern for it.  STREAM is the output file, NAME is the name of the
+   symbol, INIT_STRING is the string that should be written before the
+   symbol and FINAL_STRING is the string that should be written after it.
+   FINAL_STRING is a printf() format that consumes the remaining arguments.  */
 
 void
 mips_declare_object (FILE *stream, const char *name, const char *init_string,
-		     const char *final_string, int size)
+		     const char *final_string, ...)
 {
-  fputs (init_string, stream);		/* "", "\t.comm\t", or "\t.lcomm\t" */
+  va_list ap;
+
+  fputs (init_string, stream);
   assemble_name (stream, name);
-  fprintf (stream, final_string, size);	/* ":\n", ",%u\n", ",%u\n" */
+  va_start (ap, final_string);
+  vfprintf (stream, final_string, ap);
+  va_end (ap);
 
   if (!TARGET_EXPLICIT_RELOCS)
     {
@@ -6871,7 +6865,6 @@ mips_expand_prologue (void)
    and regs.  */
 
 #define RA_MASK BITMASK_HIGH	/* 1 << 31 */
-#define PIC_OFFSET_TABLE_MASK (1 << (PIC_OFFSET_TABLE_REGNUM - GP_REG_FIRST))
 
 static void
 mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
@@ -7053,10 +7046,10 @@ mips_expand_epilogue (int sibcall_p)
       /* The mips16 loads the return address into $7, not $31.  */
       if (TARGET_MIPS16 && (cfun->machine->frame.mask & RA_MASK) != 0)
 	emit_jump_insn (gen_return_internal (gen_rtx_REG (Pmode,
-						      GP_REG_FIRST + 7)));
+							  GP_REG_FIRST + 7)));
       else
 	emit_jump_insn (gen_return_internal (gen_rtx_REG (Pmode,
-						      GP_REG_FIRST + 31)));
+							  GP_REG_FIRST + 31)));
     }
 }
 
@@ -7290,8 +7283,7 @@ mips_select_section (tree decl, int reloc,
 		     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
   if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)
-      && TREE_CODE (decl) == STRING_CST
-      && !flag_writable_strings)
+      && TREE_CODE (decl) == STRING_CST)
     /* For embedded position independent code, put constant strings in the
        text section, because the data section is limited to 64K in size.
        For mips16 code, put strings in the text section so that a PC
@@ -7373,7 +7365,6 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
   if (TARGET_MIPS16)
     {
       if (first && TREE_CODE (decl) == STRING_CST
-          && ! flag_writable_strings
           /* If this string is from a function, and the function will
              go in a gnu linkonce section, then we can't directly
              access the string.  This gets an assembler error
@@ -7400,8 +7391,7 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
         SYMBOL_REF_FLAG (symbol) = 1;
       else if (TREE_CODE (decl) == FUNCTION_DECL)
         SYMBOL_REF_FLAG (symbol) = 0;
-      else if (TREE_CODE (decl) == STRING_CST
-               && ! flag_writable_strings)
+      else if (TREE_CODE (decl) == STRING_CST)
         SYMBOL_REF_FLAG (symbol) = 0;
       else
         SYMBOL_REF_FLAG (symbol) = 1;
@@ -8760,7 +8750,7 @@ mips_reorg (void)
   else if (TARGET_EXPLICIT_RELOCS)
     {
       if (mips_flag_delayed_branch)
-	dbr_schedule (get_insns (), rtl_dump_file);
+	dbr_schedule (get_insns (), dump_file);
       mips_avoid_hazards ();
     }
 }

@@ -1,3 +1,34 @@
+2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/tailrecursion-5.c: New test.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/gcc.dg/tree-ssa/20030815-1.c: Expect 1 type cast.
+	* testsuite/gcc.dg/tree-ssa/ssa-dce-1.c: Check after aliasing.
+	* testsuite/gcc.dg/tree-ssa/ssa-dce-2.c: Likewise.
+	* testsuite/gcc.dg/tree-ssa/ssa-dom-cse-1.c: Likewise.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040302-1.c: New test.
+
+2004-02-10  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040211-1.c: Update slightly.
+
+2004-02-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/warn-1.c: Update warning line.
+	* gcc.dg/tree-ssa/20030730-1.c: Declare ggc_alloc.
+	* gcc.dg/tree-ssa/20030730-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030917-2.c: Fix int->pointer cast.
+	* gcc.dg/tree-ssa/20030922-2.c: XFAIL.
+
+2004-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/tailcall-2.c: New test.
+
 2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcc.dg/tree-ssa/copy-headers.c: New test.

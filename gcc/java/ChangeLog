@@ -1,3 +1,33 @@
+2004-02-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* java/parse.h: Update copyright.
+
+2004-02-26  Andrew Haley  <aph@redhat.com>
+
+	PR java/14231:
+	* parse.y (check_interface_throws_clauses): Check for
+	!METHOD_INVISIBLE (iface_method).
+	* class.c (layout_class_methods): Check for CLASS_INTERFACE as
+	well as CLASS_ABSTRACT.
+	
+2004-02-25  Per Bothner  <per@bothner.com>
+
+	* parse.y (build_assertion):  If we're in an inner class, create the
+	class$ helper routine in the outer class.
+
+2004-02-19  Richard Henderson  <rth@redhat.com>
+
+	* parse.y (switch_label): Use make_node for DEFAULT_EXPR.
+
+2004-02-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (java.install-man): Add extra dependencies.
+
+2004-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in: Install man pages under the same names
+	(possibly transformed) as the program they document.
+
 2004-02-10  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* gjavah.c: Include "intl.h".
@@ -285,26 +315,6 @@
 	* Make-lang.in: (java.install-common) Add
 	symlink for $(target_noncanonical)-gcjh for
 	native builds.
-
-2003-11-28  Andrew Haley  <aph@redhat.com>
-
-	* expr.c (java_stack_swap): Rewrite to use trees, not RTL.
-	(java_stack_dup): Fix layout only.
-	(expand_iinc): Call update_aliases.
-	(STORE_INTERNAL): Call update_aliases.
-	(lookup_label): Don't call label_rtx().
-	(expand_load_internal): Don't set DECL_CONTEXT and
-	VAR_LANG_DECL_SPECIFIC.
-	(expand_byte_code): Set input_location.line.
-	* decl.c (push_jvm_slot): Remove unused var rtl.
-	(update_aliases): New function.
-	(push_jvm_slot): Instead of sharing RTL between decls, set a new
-	decl to the value of whatever is in this slot beforehand.
-	(start_java_method): Don't call back end expanders.
-	(end_java_method): Force flag_unit_at_a_time to 0.
-	(java_add_local_var): Set DECL_CONTEXT and VAR_LANG_DECL_SPECIFIC
-	of the new decl.
-	* java-tree.h (update_aliases): Declare.
 
 2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
 

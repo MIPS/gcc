@@ -2256,133 +2256,6 @@ stabilize_reference_1 (tree e)
 
 /* Low-level constructors for expressions.  */
 
-/* Build an expression of code CODE, data type TYPE,
-   and operands as specified by the arguments ARG1 and following arguments.
-   Expressions and reference nodes can be created this way.
-   Constants, decls, types and misc nodes cannot be.  */
-
-tree
-build (enum tree_code code, tree tt, ...)
-{
-  tree t;
-  int length;
-  int i;
-  int fro;
-  bool constant, invariant;
-  va_list p;
-  tree node;
-
-  va_start (p, tt);
-
-  t = make_node (code);
-  length = TREE_CODE_LENGTH (code);
-  TREE_TYPE (t) = tt;
-
-  /* FIXME maybe give expr a locus here?  */
-
-  /* Below, we automatically set TREE_SIDE_EFFECTS and TREE_READONLY for the
-     result based on those same flags for the arguments.  But if the
-     arguments aren't really even `tree' expressions, we shouldn't be trying
-     to do this.  */
-  fro = first_rtl_op (code);
-
-  /* Expressions without side effects may be constant if their
-     arguments are as well.  */
-  constant = (TREE_CODE_CLASS (code) == '<'
-	      || TREE_CODE_CLASS (code) == '1'
-	      || TREE_CODE_CLASS (code) == '2'
-	      || TREE_CODE_CLASS (code) == 'c');
-  invariant = constant;
-
-  if (length == 2)
-    {
-      /* This is equivalent to the loop below, but faster.  */
-      tree arg0 = va_arg (p, tree);
-      tree arg1 = va_arg (p, tree);
-
-      TREE_OPERAND (t, 0) = arg0;
-      TREE_OPERAND (t, 1) = arg1;
-      TREE_READONLY (t) = 1;
-      if (arg0 && fro > 0)
-	{
-	  if (TREE_SIDE_EFFECTS (arg0))
-	    TREE_SIDE_EFFECTS (t) = 1;
-	  if (!TREE_READONLY (arg0))
-	    TREE_READONLY (t) = 0;
-	  if (!TREE_CONSTANT (arg0))
-	    constant = 0;
-	  if (!TREE_INVARIANT (arg0))
-	    invariant = 0;
-	}
-
-      if (arg1 && fro > 1)
-	{
-	  if (TREE_SIDE_EFFECTS (arg1))
-	    TREE_SIDE_EFFECTS (t) = 1;
-	  if (!TREE_READONLY (arg1))
-	    TREE_READONLY (t) = 0;
-	  if (!TREE_CONSTANT (arg1))
-	    constant = 0;
-	  if (!TREE_INVARIANT (arg1))
-	    invariant = 0;
-	}
-    }
-  else if (length == 1)
-    {
-      tree arg0 = va_arg (p, tree);
-
-      /* The only one-operand cases we handle here are those with side-effects.
-	 Others are handled with build1.  So don't bother checked if the
-	 arg has side-effects since we'll already have set it.
-
-	 ??? This really should use build1 too.  */
-      if (TREE_CODE_CLASS (code) != 's')
-	abort ();
-      TREE_OPERAND (t, 0) = arg0;
-    }
-  else
-    {
-      for (i = 0; i < length; i++)
-	{
-	  tree operand = va_arg (p, tree);
-
-	  TREE_OPERAND (t, i) = operand;
-	  if (operand && fro > i)
-	    {
-	      if (TREE_SIDE_EFFECTS (operand))
-		TREE_SIDE_EFFECTS (t) = 1;
-	      if (!TREE_CONSTANT (operand))
-		constant = 0;
-	      if (!TREE_INVARIANT (operand))
-		invariant = 0;
-	    }
-	}
-    }
-  va_end (p);
-
-  TREE_CONSTANT (t) = constant;
-  TREE_INVARIANT (t) = invariant;
-  
-  if (code == CALL_EXPR && !TREE_SIDE_EFFECTS (t))
-    {
-      /* Calls have side-effects, except those to const or
-	 pure functions.  */
-      i = call_expr_flags (t);
-      if (!(i & (ECF_CONST | ECF_PURE)))
-	TREE_SIDE_EFFECTS (t) = 1;
-
-      /* And even those have side-effects if their arguments do.  */
-      else for (node = TREE_OPERAND (t, 1); node; node = TREE_CHAIN (node))
-	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
-	  {
-	    TREE_SIDE_EFFECTS (t) = 1;
-	    break;
-	  }
-    }
-
-  return t;
-}
-
 /* A helper function for build1 and constant folders.
    Set TREE_CONSTANT and TREE_INVARIANT for an ADDR_EXPR.  */
 
@@ -2420,9 +2293,30 @@ recompute_tree_invarant_for_addr_expr (tree t)
   TREE_INVARIANT (t) = ti;
 }
 
-/* Same as above, but only builds for unary operators.
-   Saves lions share of calls to `build'; cuts down use
-   of varargs, which is expensive for RISC machines.  */
+/* Build an expression of code CODE, data type TYPE, and operands as
+   specified.  Expressions and reference nodes can be created this way.
+   Constants, decls, types and misc nodes cannot be.
+
+   We define 5 non-variadic functions, from 0 to 4 arguments.  This is
+   enough for all extant tree codes.  These functions can be called 
+   directly (preferably!), but can also be obtained via GCC preprocessor
+   magic within the build macro.  */
+
+tree
+build0 (enum tree_code code, tree tt)
+{
+  tree t;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 0)
+    abort ();
+#endif
+
+  t = make_node (code);
+  TREE_TYPE (t) = tt;
+
+  return t;
+}
 
 tree
 build1 (enum tree_code code, tree type, tree node)
@@ -2452,9 +2346,7 @@ build1 (enum tree_code code, tree type, tree node)
 #endif
 
 #ifdef ENABLE_CHECKING
-  if (TREE_CODE_CLASS (code) == '2'
-      || TREE_CODE_CLASS (code) == '<'
-      || TREE_CODE_LENGTH (code) != 1)
+  if (TREE_CODE_LENGTH (code) != 1)
     abort ();
 #endif /* ENABLE_CHECKING */
 
@@ -2465,7 +2357,6 @@ build1 (enum tree_code code, tree type, tree node)
   TREE_SET_CODE (t, code);
 
   TREE_TYPE (t) = type;
-  /* FIXME maybe give expr a locus here?  */
   SET_EXPR_LOCUS (t, NULL);
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
@@ -2532,6 +2423,185 @@ build1 (enum tree_code code, tree type, tree node)
 	TREE_INVARIANT (t) = 1;
       break;
     }
+
+  return t;
+}
+
+#define PROCESS_ARG(N)			\
+  do {					\
+    TREE_OPERAND (t, N) = arg##N;	\
+    if (arg##N && fro > N)		\
+      {					\
+        if (TREE_SIDE_EFFECTS (arg##N))	\
+	  side_effects = 1;		\
+        if (!TREE_READONLY (arg##N))	\
+	  read_only = 0;		\
+        if (!TREE_CONSTANT (arg##N))	\
+	  constant = 0;			\
+	if (!TREE_INVARIANT (arg##N))	\
+	  invariant = 0;		\
+      }					\
+  } while (0)
+
+tree
+build2 (enum tree_code code, tree tt, tree arg0, tree arg1)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+  int fro;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 2)
+    abort ();
+#endif
+
+  t = make_node (code);
+  TREE_TYPE (t) = tt;
+
+  /* Below, we automatically set TREE_SIDE_EFFECTS and TREE_READONLY for the
+     result based on those same flags for the arguments.  But if the
+     arguments aren't really even `tree' expressions, we shouldn't be trying
+     to do this.  */
+  fro = first_rtl_op (code);
+
+  /* Expressions without side effects may be constant if their
+     arguments are as well.  */
+  constant = (TREE_CODE_CLASS (code) == '<'
+	      || TREE_CODE_CLASS (code) == '2');
+  read_only = 1;
+  side_effects = TREE_SIDE_EFFECTS (t);
+  invariant = constant;
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+
+  TREE_READONLY (t) = read_only;
+  TREE_CONSTANT (t) = constant;
+  TREE_INVARIANT (t) = invariant;
+  TREE_SIDE_EFFECTS (t) = side_effects;  
+
+  return t;
+}
+
+tree
+build3 (enum tree_code code, tree tt, tree arg0, tree arg1, tree arg2)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+  int fro;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 3)
+    abort ();
+#endif
+
+  t = make_node (code);
+  TREE_TYPE (t) = tt;
+
+  fro = first_rtl_op (code);
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+  PROCESS_ARG(2);
+
+  if (code == CALL_EXPR && !side_effects)
+    {
+      tree node;
+      int i;
+
+      /* Calls have side-effects, except those to const or
+	 pure functions.  */
+      i = call_expr_flags (t);
+      if (!(i & (ECF_CONST | ECF_PURE)))
+	side_effects = 1;
+
+      /* And even those have side-effects if their arguments do.  */
+      else for (node = arg1; node; node = TREE_CHAIN (node))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
+	  {
+	    side_effects = 1;
+	    break;
+	  }
+    }
+
+  TREE_SIDE_EFFECTS (t) = side_effects;  
+
+  return t;
+}
+
+tree
+build4 (enum tree_code code, tree tt, tree arg0, tree arg1,
+	tree arg2, tree arg3)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+  int fro;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE_LENGTH (code) != 4)
+    abort ();
+#endif
+
+  t = make_node (code);
+  TREE_TYPE (t) = tt;
+
+  fro = first_rtl_op (code);
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+  PROCESS_ARG(2);
+  PROCESS_ARG(3);
+
+  TREE_SIDE_EFFECTS (t) = side_effects;  
+
+  return t;
+}
+
+/* Backup definition for non-gcc build compilers.  */
+
+tree
+(build) (enum tree_code code, tree tt, ...)
+{
+  tree t, arg0, arg1, arg2, arg3;
+  int length = TREE_CODE_LENGTH (code);
+  va_list p;
+
+  va_start (p, tt);
+  switch (length)
+    {
+    case 0:
+      t = build0 (code, tt);
+      break;
+    case 1:
+      arg0 = va_arg (p, tree);
+      t = build1 (code, tt, arg0);
+      break;
+    case 2:
+      arg0 = va_arg (p, tree);
+      arg1 = va_arg (p, tree);
+      t = build2 (code, tt, arg0, arg1);
+      break;
+    case 3:
+      arg0 = va_arg (p, tree);
+      arg1 = va_arg (p, tree);
+      arg2 = va_arg (p, tree);
+      t = build3 (code, tt, arg0, arg1, arg2);
+      break;
+    case 4:
+      arg0 = va_arg (p, tree);
+      arg1 = va_arg (p, tree);
+      arg2 = va_arg (p, tree);
+      arg3 = va_arg (p, tree);
+      t = build4 (code, tt, arg0, arg1, arg2, arg3);
+      break;
+    default:
+      abort ();
+    }
+  va_end (p);
 
   return t;
 }
@@ -2919,6 +2989,19 @@ set_type_quals (tree type, int type_quals)
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
 }
 
+/* Returns true iff cand is equivalent to base with type_quals.  */
+
+bool
+check_qualified_type (tree cand, tree base, int type_quals)
+{
+  return (TYPE_QUALS (cand) == type_quals
+	  && TYPE_NAME (cand) == TYPE_NAME (base)
+	  /* Apparently this is needed for Objective-C.  */
+	  && TYPE_CONTEXT (cand) == TYPE_CONTEXT (base)
+	  && attribute_list_equal (TYPE_ATTRIBUTES (cand),
+				   TYPE_ATTRIBUTES (base)));
+}
+
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2928,13 +3011,14 @@ get_qualified_type (tree type, int type_quals)
 {
   tree t;
 
+  if (TYPE_QUALS (type) == type_quals)
+    return type;
+
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
-        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
-	&& attribute_list_equal (TYPE_ATTRIBUTES (t), TYPE_ATTRIBUTES (type)))
+    if (check_qualified_type (t, type, type_quals))
       return t;
 
   return NULL_TREE;
@@ -3571,10 +3655,7 @@ associative_tree_code (enum tree_code code)
     case BIT_AND_EXPR:
     case BIT_XOR_EXPR:
     case PLUS_EXPR:
-    case MINUS_EXPR:
     case MULT_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
       return true;

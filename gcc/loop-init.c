@@ -1,5 +1,5 @@
 /* Loop optimizer initialization routines.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -84,8 +84,14 @@ loop_optimizer_init (FILE *dumpfile)
 void
 loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 {
+  unsigned i;
+
   if (!loops)
     return;
+
+  for (i = 1; i < loops->num; i++)
+    if (loops->parray[i])
+      free_simple_loop_desc (loops->parray[i]);
 
   /* Another dump.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);

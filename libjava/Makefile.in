@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -478,10 +478,14 @@ ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
+	java/nio/channels/Pipe$$SinkChannel.h \
+	java/nio/channels/Pipe$$SourceChannel.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
 	java/lang/reflect/Proxy$$ProxyType.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
-	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h
+	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
+	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
+	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
 
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
@@ -992,14 +996,15 @@ javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
+javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
-javax/swing/plaf/basic/BasicDefaults.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
+javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
@@ -1121,7 +1126,6 @@ javax/swing/Scrollable.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
-javax/swing/ToggleButtonModel.java \
 javax/swing/UIDefaults.java \
 javax/swing/UIManager.java \
 javax/swing/UnsupportedLookAndFeelException.java \
@@ -4368,9 +4372,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/SingleSelectionModel.P \
 .deps/javax/swing/SizeRequirements.P .deps/javax/swing/SizeSequence.P \
 .deps/javax/swing/SwingConstants.P .deps/javax/swing/SwingUtilities.P \
-.deps/javax/swing/Timer.P .deps/javax/swing/ToggleButtonModel.P \
-.deps/javax/swing/ToolTipManager.P .deps/javax/swing/UIDefaults.P \
-.deps/javax/swing/UIManager.P \
+.deps/javax/swing/Timer.P .deps/javax/swing/ToolTipManager.P \
+.deps/javax/swing/UIDefaults.P .deps/javax/swing/UIManager.P \
 .deps/javax/swing/UnsupportedLookAndFeelException.P \
 .deps/javax/swing/ViewportLayout.P .deps/javax/swing/WindowConstants.P \
 .deps/javax/swing/border/AbstractBorder.P \
@@ -4466,9 +4469,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/ToolTipUI.P .deps/javax/swing/plaf/TreeUI.P \
 .deps/javax/swing/plaf/UIResource.P .deps/javax/swing/plaf/ViewportUI.P \
 .deps/javax/swing/plaf/basic/BasicBorders.P \
+.deps/javax/swing/plaf/basic/BasicButtonListener.P \
 .deps/javax/swing/plaf/basic/BasicButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicCheckBoxUI.P \
-.deps/javax/swing/plaf/basic/BasicDefaults.P \
 .deps/javax/swing/plaf/basic/BasicGraphicsUtils.P \
 .deps/javax/swing/plaf/basic/BasicIconFactory.P \
 .deps/javax/swing/plaf/basic/BasicLabelUI.P \
@@ -4477,6 +4480,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicOptionPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicPanelUI.P \
 .deps/javax/swing/plaf/basic/BasicRadioButtonUI.P \
+.deps/javax/swing/plaf/basic/BasicRootPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicScrollPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicSplitPaneDivider.P \
 .deps/javax/swing/plaf/basic/BasicSplitPaneUI.P \
@@ -4652,8 +4656,7 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ configure.in  acinclude.m4 \
-		./acinclude.m4 ./aclocal.m4 ./glib-2.0.m4 ./gtk-2.0.m4 \
-		./libart.m4
+		./acinclude.m4 ./aclocal.m4 ./pkg.m4
 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 
 config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
@@ -4887,7 +4890,7 @@ uninstall-toolexecmainlibDATA:
 all-recursive install-data-recursive install-exec-recursive \
 installdirs-recursive install-recursive uninstall-recursive  \
 check-recursive installcheck-recursive info-recursive dvi-recursive:
-	@set fnord $(MAKEFLAGS); amf=$$2; \
+	@set fnord $$MAKEFLAGS; amf=$$2; \
 	dot_seen=no; \
 	target=`echo $@ | sed s/-recursive//`; \
 	list='$(SUBDIRS)'; for subdir in $$list; do \
@@ -4907,11 +4910,11 @@ check-recursive installcheck-recursive info-recursive dvi-recursive:
 
 mostlyclean-recursive clean-recursive distclean-recursive \
 maintainer-clean-recursive:
-	@set fnord $(MAKEFLAGS); amf=$$2; \
+	@set fnord $$MAKEFLAGS; amf=$$2; \
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \
-	  test "$$subdir" = "." && dot_seen=yes; \
+	  test "$$subdir" != "." || dot_seen=yes; \
 	done; \
 	test "$$dot_seen" = "no" && rev=". $$rev"; \
 	target=`echo $@ | sed s/-recursive//`; \
@@ -5365,6 +5368,14 @@ java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
 
+java/nio/channels/Pipe$$SinkChannel.h: java/nio/channels/Pipe.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/nio/channels/Pipe$$SinkChannel'
+
+java/nio/channels/Pipe$$SourceChannel.h: java/nio/channels/Pipe.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/nio/channels/Pipe$$SourceChannel'
+
 gnu/java/net/PlainSocketImpl$$SocketInputStream.h: gnu/java/net/PlainSocketImpl.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'gnu/java/net/PlainSocketImpl$$SocketInputStream'
@@ -5372,6 +5383,14 @@ gnu/java/net/PlainSocketImpl$$SocketInputStream.h: gnu/java/net/PlainSocketImpl.
 gnu/java/net/PlainSocketImpl$$SocketOutputStream.h: gnu/java/net/PlainSocketImpl.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'gnu/java/net/PlainSocketImpl$$SocketOutputStream'
+
+gnu/java/nio/PipeImpl$$SinkChannelImpl.h: gnu/java/nio/PipeImpl.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'gnu/java/nio/PipeImpl$$SinkChannelImpl'
+
+gnu/java/nio/PipeImpl$$SourceChannelImpl.h: gnu/java/nio/PipeImpl.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'gnu/java/nio/PipeImpl$$SourceChannelImpl'
 
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
@@ -5393,13 +5412,17 @@ install-data-local:
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
+	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(includedir)/java/io/
 	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(includedir)/java/io/
+	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(includedir)/java/nio/channels/
+	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(includedir)/java/nio/channels/
 	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(includedir)/java/lang/reflect/
 	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(includedir)/java/lang/reflect/
 	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
 	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
-	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
+	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(includedir)/gnu/java/nio/
+	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(includedir)/gnu/java/nio/
 
 maintainer-check: libgcj.la
 	$(NM) .libs/libgcj.a | grep ' T ' \

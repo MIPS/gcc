@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for PowerPC machines running Linux.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
@@ -91,6 +91,8 @@
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+#define TARGET_HAS_F_SETLKW
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
@@ -174,3 +176,5 @@ enum { SIGNAL_FRAMESIZE = 64 };
     goto SUCCESS;							\
   } while (0)
 
+
+#define OS_MISSING_POWERPC64 1

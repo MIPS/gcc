@@ -24,8 +24,8 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_TREE_PASS_H 1
 
 /* Global variables used to communicate with passes.  */
-extern FILE *tree_dump_file;
-extern int tree_dump_flags;
+extern FILE *dump_file;
+extern int dump_flags;
 
 extern struct bitmap_head_def *vars_to_rename;
 
@@ -122,6 +122,9 @@ extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
+extern struct tree_opt_pass pass_nrv;
+extern struct tree_opt_pass pass_remove_useless_vars;
+extern struct tree_opt_pass pass_rename_ssa_copies;
 
 
 #endif /* GCC_TREE_PASS_H */

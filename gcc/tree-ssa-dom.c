@@ -88,8 +88,6 @@ struct opt_stats_d
 {
   long num_stmts;
   long num_exprs_considered;
-  long num_const_prop;
-  long num_copy_prop;
   long num_re;
 };
 
@@ -237,7 +235,6 @@ static tree simplify_switch_and_lookup_avail_expr (tree, varray_type *,
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type *);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
-static bool cprop_into_stmt (tree);
 static void record_equivalences_from_phis (struct dom_walk_data *, basic_block);
 static void record_equivalences_from_incoming_edge (struct dom_walk_data *,
 						    basic_block);
@@ -259,7 +256,6 @@ static void restore_vars_to_original_value (varray_type locals,
 					    varray_type table);
 static void register_definitions_for_stmt (tree, varray_type *);
 static void redirect_edges_and_update_ssa_graph (varray_type);
-static void propagate_copy (tree *, tree);
 
 /* Local version of fold that doesn't introduce cruft.  */
 
@@ -275,23 +271,6 @@ local_fold (tree t)
   STRIP_USELESS_TYPE_CONVERSION (t);
 
   return t;
-}
-
-/* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
-   into the operand pointed by OP_P.  */
-
-void
-propagate_value (tree *op_p, tree val)
-{
-  if (TREE_CODE (val) == SSA_NAME)
-    {
-      if (TREE_CODE (*op_p) == SSA_NAME)
-	propagate_copy (op_p, val);
-      else
-	*op_p = val;
-    }
-  else
-    *op_p = lhd_unsave_expr_now (val);
 }
 
 /* Return the value associated with variable VAR in TABLE.  */
@@ -514,8 +493,8 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "  Threaded jump %d --> %d to %d\n",
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		 e->src->index, e->dest->index, tgt->index);
 
       src = e->src;
@@ -526,9 +505,9 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       /* Updating the dominance information would be nontrivial.  */
       free_dominance_info (CDI_DOMINATORS);
       
-      if ((tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if ((dump_file && (dump_flags & TDF_DETAILS))
 	  && e->src != src)
-	fprintf (tree_dump_file, "    basic block %d created\n",
+	fprintf (dump_file, "    basic block %d created\n",
 		 e->src->index);
 
       cfg_altered = true;
@@ -665,8 +644,8 @@ tree_ssa_dominator_optimize (void)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
-    dump_dominator_optimization_stats (tree_dump_file);
+  if (dump_file && (dump_flags & TDF_STATS))
+    dump_dominator_optimization_stats (dump_file);
 
   htab_delete (avail_exprs);
   htab_delete (true_exprs);
@@ -1031,8 +1010,8 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 static void
 dom_opt_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
   record_equivalences_from_incoming_edge (walk_data, bb);
 
@@ -1457,12 +1436,6 @@ dump_dominator_optimization_stats (FILE *file)
   if (n_exprs == 0)
     n_exprs = 1;
 
-  fprintf (file, "    Constants propagated:                     %6ld (%.0f%%)\n",
-           opt_stats.num_const_prop, PERCENT (opt_stats.num_const_prop,
-	                                      n_exprs));
-  fprintf (file, "    Copies propagated:                        %6ld (%.0f%%)\n",
-	   opt_stats.num_copy_prop, PERCENT (opt_stats.num_copy_prop,
-					     n_exprs));
   fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
 	   opt_stats.num_re, PERCENT (opt_stats.num_re,
 				      n_exprs));
@@ -1681,10 +1654,10 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
   /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
      If OP is associative, create and fold (y OP C2) OP C1 which
      should result in (y OP C3), use that as the RHS for the
-     assignment.  */
-  if (associative_tree_code (rhs_code)
+     assignment.  Add minus to this, as we handle it specially below.  */
+  if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && TREE_CONSTANT (TREE_OPERAND (rhs, 1)))
+      && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
@@ -1703,14 +1676,30 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
 	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
 		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-		  && TREE_CONSTANT (def_stmt_op1))
+		  && is_gimple_min_invariant (def_stmt_op1))
 		{
 		  tree outer_const = TREE_OPERAND (rhs, 1);
 		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
 		  tree t;
 
-		  /* Build and fold (Y OP C2) OP C1.  */
-		  t = build (rhs_code, type, rhs_def_rhs, outer_const);
+		  /* Ho hum.  So fold will only operate on the outermost
+		     thingy that we give it, so we have to build the new
+		     expression in two pieces.  This requires that we handle
+		     combinations of plus and minus.  */
+		  if (rhs_def_code != rhs_code)
+		    {
+		      if (rhs_def_code == MINUS_EXPR)
+		        t = build (MINUS_EXPR, type, outer_const, def_stmt_op1);
+		      else
+		        t = build (MINUS_EXPR, type, def_stmt_op1, outer_const);
+		      rhs_code = PLUS_EXPR;
+		    }
+		  else if (rhs_def_code == MINUS_EXPR)
+		    t = build (PLUS_EXPR, type, def_stmt_op1, outer_const);
+		  else
+		    t = build (rhs_def_code, type, def_stmt_op1, outer_const);
+		  t = local_fold (t);
+		  t = build (rhs_code, type, def_stmt_op0, t);
 		  t = local_fold (t);
 
 		  /* If the result is a suitable looking gimple expression,
@@ -1721,7 +1710,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 		      || ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 			   || TREE_CODE_CLASS (TREE_CODE (t)) == '<')
 			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && TREE_CONSTANT (TREE_OPERAND (t, 1))))
+			  && is_gimple_val (TREE_OPERAND (t, 1))))
 		    result = update_rhs_and_lookup_avail_expr
 		      (stmt, t, &bd->avail_exprs, ann, insert);
 		}
@@ -1738,25 +1727,34 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
     {
       tree val;
       tree op = TREE_OPERAND (rhs, 0);
-      tree dummy_cond = walk_data->global_data;
 
-      if (! dummy_cond)
+      if (TREE_UNSIGNED (TREE_TYPE (op)))
 	{
-	  dummy_cond = build (GT_EXPR, boolean_type_node,
-			      op, integer_zero_node);
-	  dummy_cond = build (COND_EXPR, void_type_node,
-			      dummy_cond, NULL, NULL);
-	  walk_data->global_data = dummy_cond;
+	  val = integer_one_node;
 	}
       else
 	{
-	  TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GT_EXPR);
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1) = integer_zero_node;
+	  tree dummy_cond = walk_data->global_data;
+
+	  if (! dummy_cond)
+	    {
+	      dummy_cond = build (GT_EXPR, boolean_type_node,
+				  op, integer_zero_node);
+	      dummy_cond = build (COND_EXPR, void_type_node,
+				  dummy_cond, NULL, NULL);
+	      walk_data->global_data = dummy_cond;
+	    }
+          else
+	    {
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GT_EXPR);
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+		= integer_zero_node;
+	    }
+	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
+						     &bd->avail_exprs,
+						     NULL, false);
 	}
-      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
-						 &bd->avail_exprs,
-						 NULL, false);
 
       if (val && integer_onep (val))
 	{
@@ -1785,32 +1783,41 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree val;
       tree op = TREE_OPERAND (rhs, 0);
       tree type = TREE_TYPE (op);
-      tree dummy_cond = walk_data->global_data;
 
-      if (! dummy_cond)
+      if (TREE_UNSIGNED (type))
 	{
-	  dummy_cond = build (GT_EXPR, boolean_type_node,
-			      op, integer_zero_node);
-	  dummy_cond = build (COND_EXPR, void_type_node,
-			      dummy_cond, NULL, NULL);
-	  walk_data->global_data = dummy_cond;
+	  val = integer_zero_node;
 	}
       else
 	{
-	  TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LT_EXPR);
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
-	    = convert (type, integer_zero_node);
-	}
-      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
-						 &bd->avail_exprs,
-						 NULL, false);
+	  tree dummy_cond = walk_data->global_data;
 
-      if (val && (integer_onep (val) || integer_zerop (val)))
+	  if (! dummy_cond)
+	    {
+	      dummy_cond = build (GT_EXPR, boolean_type_node,
+				  op, integer_zero_node);
+	      dummy_cond = build (COND_EXPR, void_type_node,
+				  dummy_cond, NULL, NULL);
+	      walk_data->global_data = dummy_cond;
+	    }
+	  else
+	    {
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LT_EXPR);
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+		= convert (type, integer_zero_node);
+	    }
+	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
+						     &bd->avail_exprs,
+						     NULL, false);
+	}
+
+      if (val
+	  && (integer_onep (val) || integer_zerop (val)))
 	{
 	  tree t;
 
-	  if (integer_onep (val))
+	  if (val && integer_onep (val))
 	    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
 	  else
 	    t = op;
@@ -2172,218 +2179,14 @@ simplify_switch_and_lookup_avail_expr (tree stmt,
   return 0;
 }
 
-/* Const/copy propagate into STMT's USES, VUSES, and the RHS of VDEFs. 
-
-   Return nonzero if new symbols may have been exposed.  */
-
-static bool
-cprop_into_stmt (tree stmt)
-{
-  size_t i, table_size[3];
-  vuse_optype vuses;
-  vdef_optype vdefs;
-  use_optype uses;
-  bool may_have_exposed_new_symbols = false;
-  stmt_ann_t ann = stmt_ann (stmt);
-  int table_index;
-
-  uses = USE_OPS (ann);
-  vuses = VUSE_OPS (ann);
-  vdefs = VDEF_OPS (ann);
-
-  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
-  table_size[0] = NUM_USES (uses);
-  table_size[1] = NUM_VUSES (vuses);
-  table_size[2] = NUM_VDEFS (vdefs);
-  for (table_index = 0; table_index < 3; table_index++)
-    {
-      for (i = 0; i < table_size[table_index]; i++)
-	{
-	  tree val;
-	  tree *op_p;
-
-	  switch (table_index)
-	  {
-	    case 0:
-	      op_p = USE_OP_PTR (uses, i);
-	      break;
-	    case 1:
-	      op_p = VUSE_OP_PTR (vuses, i);
-	      break;
-	    case 2:
-	      op_p = VDEF_OP_PTR (vdefs, i);
-	      break;
-	    default:
-	      abort();
-	  }
-
-	  /* If the operand is not an ssa variable, then there is nothing
-	     to do.  */
-	  if (TREE_CODE (*op_p) != SSA_NAME)
-	    continue;
-
-	  /* If the operand has a known constant value or it is known to be a
-	     copy of some other variable, use the value or copy stored in
-	     CONST_AND_COPIES.  */
-	  opt_stats.num_exprs_considered++;
-	  val = get_value_for (*op_p, const_and_copies);
-	  if (val)
-	    {
-	      tree op_type, val_type;
-
-	      /* Do not change the base variable in the virtual operand
-		 tables.  That would make it impossible to reconstruct
-		 the renamed virtual operand if we later modify this
-		 statement.  Also only allow the new value to be an SSA_NAME
-		 for propagation into virtual operands.  */
-	      if (table_index > 0
-		  && (get_virtual_var (val) != get_virtual_var (*op_p)
-		      || TREE_CODE (val) != SSA_NAME))
-		continue;
-
-	      /* Get the toplevel type of each operand.  */
-	      op_type = TREE_TYPE (*op_p);
-	      val_type = TREE_TYPE (val);
-
-	      /* Make sure underlying types match before propagating a
-		 constant by converting the constant to the proper type.  Note
-		 that convert may return a non-gimple expression, in which case
-		 we ignore this propagation opportunity.  */
-	      if (TYPE_MAIN_VARIANT (op_type) != TYPE_MAIN_VARIANT (val_type)
-		  && TREE_CODE (val) != SSA_NAME)
-		{
-		  val = convert (TREE_TYPE (*op_p), val);
-		  if (!is_gimple_min_invariant (val)
-		      && TREE_CODE (val) != SSA_NAME)
-		    continue;
-		}
-
-	      /* Certain operands are not allowed to be copy propagated due
-		 to their interaction with exception handling and some
-		 GCC extensions.  */
-	      if (TREE_CODE (val) == SSA_NAME
-		  && !may_propagate_copy (*op_p, val))
-		continue;
-
-	      /* Gather statistics.  */
-	      if (is_gimple_min_invariant (val))
-		opt_stats.num_const_prop++;
-	      else
-		opt_stats.num_copy_prop++;
-
-	      /* Dump details.  */
-	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-		{
-		  fprintf (tree_dump_file, "  Replaced '");
-		  print_generic_expr (tree_dump_file, *op_p, 0);
-		  fprintf (tree_dump_file, "' with %s '",
-			   (TREE_CODE (val) != SSA_NAME
-			      ? "constant" : "variable"));
-		  print_generic_expr (tree_dump_file, val, 0);
-		  fprintf (tree_dump_file, "'\n");
-		}
-
-	      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
-		 that we may need to have a second SSA pass to rename
-		 variables exposed by the folding of *&VAR expressions.  */
-	      if (TREE_CODE (val) == ADDR_EXPR
-		  || (POINTER_TYPE_P (TREE_TYPE (*op_p))
-		      && is_gimple_min_invariant (val)))
-		may_have_exposed_new_symbols = true;
-
-	      propagate_value (op_p, val);
-
-	      /* And note that we modified this statement.  This is now
-		 safe, even if we changed virtual operands since we will
-		 rescan the statement and rewrite its operands again.  */
-	      ann->modified = 1;
-	  }
-	}
-    }
-
-  return may_have_exposed_new_symbols;
-}
-
-/* Propagate known constants/copies into PHI nodes.  */
+/* Propagate known constants/copies into PHI nodes of BB's successor
+   blocks.  */
 
 static void
 cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		 basic_block bb)
 {
-  edge e;
-
-  /* This can get rather expensive if the implementation is naive in
-     how it finds the phi alternative associated with a particular edge.  */
-  for (e = bb->succ; e; e = e->succ_next)
-    {
-      tree phi;
-      int phi_num_args;
-      int hint;
-
-      /* If this is an abnormal edge, then we do not want to copy propagate
-	 into the PHI alternative associated with this edge.  */
-      if (e->flags & EDGE_ABNORMAL)
-	continue;
-
-      phi = phi_nodes (e->dest);
-      if (! phi)
-	continue;
-
-      /* There is no guarantee that for any two PHI nodes in a block that
-	 the phi alternative associated with a particular edge will be
-	 at the same index in the phi alternative array.
-
-	 However, it is very likely they will be the same.  So we keep
-	 track of the index of the alternative where we found the edge in
-	 the previous phi node and check that index first in the next
-	 phi node.  If that hint fails, then we actually search all
-	 the entries.  */
-      phi_num_args = PHI_NUM_ARGS (phi);
-      hint = phi_num_args;
-      for ( ; phi; phi = TREE_CHAIN (phi))
-	{
-	  int i;
-	  tree new;
-	  tree *orig_p;
-
-	  /* If the hint is valid (!= phi_num_args), see if it points
-	     us to the desired phi alternative.  */
-	  if (hint != phi_num_args && PHI_ARG_EDGE (phi, hint) == e)
-	    ;
-	  else
-	    {
-	      /* The hint was either invalid or did not point to the
-		 correct phi alternative.  Search all the alternatives
-		 for the correct one.  Update the hint.  */
-	      for (i = 0; i < phi_num_args; i++)
-		if (PHI_ARG_EDGE (phi, i) == e)
-		  break;
-	      hint = i;
-	    }
-
-#ifdef ENABLE_CHECKING
-	  /* If we did not find the proper alternative, then something is
-	     horribly wrong.  */
-	  if (hint == phi_num_args)
-	    abort ();
-#endif
-
-	  /* The alternative may be associated with a constant, so verify
-	     it is an SSA_NAME before doing anything with it.  */
-	  orig_p = &PHI_ARG_DEF (phi, hint);
-	  if (TREE_CODE (*orig_p) != SSA_NAME)
-	    continue;
-
-	  /* If we have *ORIG_P in our constant/copy table, then replace
-	     ORIG_P with its value in our constant/copy table.  */
-	  new = get_value_for (*orig_p, const_and_copies);
-	  if (new
-	      && (TREE_CODE (new) == SSA_NAME
-		  || is_gimple_min_invariant (new))
-	      && may_propagate_copy (*orig_p, new))
-	    propagate_value (orig_p, new);
-	}
-    }
+  cprop_into_successor_phis (bb, const_and_copies);
 }
 
 /* Search for redundant computations in STMT.  If any are found, then
@@ -2463,13 +2266,13 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       && (TREE_CODE (cached_lhs) != SSA_NAME
 	  || may_propagate_copy (cached_lhs, *expr_p)))
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  Replaced redundant expr '");
-	  print_generic_expr (tree_dump_file, *expr_p, 0);
-	  fprintf (tree_dump_file, "' with '");
-	  print_generic_expr (tree_dump_file, cached_lhs, 0);
-	   fprintf (tree_dump_file, "'\n");
+	  fprintf (dump_file, "  Replaced redundant expr '");
+	  print_generic_expr (dump_file, *expr_p, 0);
+	  fprintf (dump_file, "' with '");
+	  print_generic_expr (dump_file, cached_lhs, 0);
+	   fprintf (dump_file, "'\n");
 	}
 
       opt_stats.num_re++;
@@ -2672,14 +2475,14 @@ optimize_stmt (struct dom_walk_data *walk_data,
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Optimizing statement ");
-      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "Optimizing statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
     }
 
   /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
-  may_have_exposed_new_symbols = cprop_into_stmt (stmt);
+  may_have_exposed_new_symbols = cprop_into_stmt (stmt, const_and_copies);
 
   /* If the statement has been modified with constant replacements,
      fold its RHS before checking for redundant computations.  */
@@ -2692,10 +2495,10 @@ optimize_stmt (struct dom_walk_data *walk_data,
 	  stmt = bsi_stmt (si);
 	  ann = stmt_ann (stmt);
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "  Folded to: ");
-	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "  Folded to: ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 	}
 
@@ -3162,8 +2965,8 @@ get_eq_expr_value (tree if_stmt,
   return retval;
 }
 
-/* Hashing for expressions which are going to be entered into the true/false
-   hash tables.  */
+/* Hashing for relational expressions which are going to be entered into the
+   true/false hash tables.  */
 
 static hashval_t
 true_false_expr_hash (const void *p)
@@ -3172,8 +2975,10 @@ true_false_expr_hash (const void *p)
   return iterative_hash_expr (rhs, 0);
 }
 
-/* Given two expressions from the true/false hash tables, return nonzero
-   if they are equivalent.  */
+/* Given two relational expressions from the true/false hash tables, return
+   nonzero if they are equivalent.   Note that since we are working with
+   nodes which are known to be relational expressions we can be a little
+   more lenient in regards to type checking.  */
 
 static int
 true_false_expr_eq (const void *p1, const void *p2)
@@ -3185,11 +2990,20 @@ true_false_expr_eq (const void *p1, const void *p2)
   if (rhs1 == rhs2)
     return true;
 
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
-      && operand_equal_p (rhs1, rhs2, 0))
+  /* If the codes are not the same, then they clearly can not be equal.  */
+  if (TREE_CODE (rhs1) != TREE_CODE (rhs2))
+    return false;
+
+  /* We know both expressions are relationals.  Just check their operands
+     for equality.  If the operator is commutative, then check the
+     operands in reverse order as well.  */
+  if ((operand_equal_p (TREE_OPERAND (rhs1, 0), TREE_OPERAND (rhs2, 0), 0)
+       && operand_equal_p (TREE_OPERAND (rhs1, 1), TREE_OPERAND (rhs2, 1), 0))
+      || (commutative_tree_code (TREE_CODE (rhs1))
+	  && operand_equal_p (TREE_OPERAND (rhs1, 0),
+			      TREE_OPERAND (rhs2, 1), 0)
+	  && operand_equal_p (TREE_OPERAND (rhs1, 1),
+			      TREE_OPERAND (rhs2, 0), 0)))
     {
 #ifdef ENABLE_CHECKING
 	  if (true_false_expr_hash (rhs1) != true_false_expr_hash (rhs2))
@@ -3315,43 +3129,6 @@ avail_expr_eq (const void *p1, const void *p2)
     }
 
   return false;
-}
-
-/* Replace the operand pointed to by OP_P with variable VAR.  If *OP_P is a
-   pointer, copy the memory tag used originally by *OP_P into VAR.  This is
-   needed in cases where VAR had never been dereferenced in the program.  */
-   
-static void
-propagate_copy (tree *op_p, tree var)
-{
-#if defined ENABLE_CHECKING
-  if (!may_propagate_copy (*op_p, var))
-    abort ();
-#endif
-
-  /* If VAR doesn't have a memory tag, copy the one from the original
-     operand.  Also copy the dereferenced flags.  */
-  if (POINTER_TYPE_P (TREE_TYPE (*op_p)))
-    {
-      var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
-      var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
-
-      /* Merge the dereferenced attributes for the replacement variable.
-	 Note that we cannot just copy them.  Otherwise, we would mess
-	 things up if the original variable wasn't dereferenced but the
-	 replacement was.  */
-      new_ann->is_dereferenced_store |= orig_ann->is_dereferenced_store;
-      new_ann->is_dereferenced_load |= orig_ann->is_dereferenced_load;
-
-      if (new_ann->type_mem_tag == NULL_TREE)
-	new_ann->type_mem_tag = orig_ann->type_mem_tag;
-      else if (orig_ann->type_mem_tag == NULL_TREE)
-	orig_ann->type_mem_tag = new_ann->type_mem_tag;
-      else if (new_ann->type_mem_tag != orig_ann->type_mem_tag)
-	abort ();
-    }
-
-  *op_p = var;
 }
 
 /* Given STMT and a pointer to the block local defintions BLOCK_DEFS_P,

@@ -600,23 +600,6 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    2: The version of the ABI first used in G++ 3.4.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-int flag_abi_version = 2;
-
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
 
@@ -1191,7 +1174,7 @@ fix_string_type (tree value)
      -Wwrite-strings says make the string constant an array of const char
      so that copying it to a non-const pointer will get a warning.
      For C++, this is the standard behavior.  */
-  if (flag_const_strings && ! flag_writable_strings)
+  if (flag_const_strings)
     {
       tree elements
 	= build_type_variant (wide_flag ? wchar_type_node : char_type_node,
@@ -1207,7 +1190,7 @@ fix_string_type (tree value)
 
   TREE_CONSTANT (value) = 1;
   TREE_INVARIANT (value) = 1;
-  TREE_READONLY (value) = ! flag_writable_strings;
+  TREE_READONLY (value) = 1;
   TREE_STATIC (value) = 1;
   return value;
 }
@@ -4904,7 +4887,13 @@ handle_alias_attribute (tree *node, tree name, tree args,
       error ("%J'%D' defined both normally and as an alias", decl, decl);
       *no_add_attrs = true;
     }
-  else if (decl_function_context (decl) == 0)
+
+  /* Note that the very first time we process a nested declaration,
+     decl_function_context will not be set.  Indeed, *would* never
+     be set except for the DECL_INITIAL/DECL_EXTERNAL frobbery that
+     we do below.  After such frobbery, pushdecl would set the context.
+     In any case, this is never what we want.  */
+  else if (decl_function_context (decl) == 0 && current_function_decl == NULL)
     {
       tree id;
 
@@ -5830,7 +5819,7 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	*count += 10;
 	break;
       }
-    /* Few special cases of expensive operations.  This is usefull
+    /* Few special cases of expensive operations.  This is useful
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:

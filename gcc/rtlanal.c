@@ -134,10 +134,14 @@ rtx_unstable_p (rtx x)
 int
 rtx_varies_p (rtx x, int for_alias)
 {
-  RTX_CODE code = GET_CODE (x);
+  RTX_CODE code;
   int i;
   const char *fmt;
 
+  if (!x)
+    return 0;
+
+  code = GET_CODE (x);
   switch (code)
     {
     case MEM:
@@ -2711,7 +2715,6 @@ int
 replace_label (rtx *x, void *data)
 {
   rtx l = *x;
-  rtx tmp;
   rtx old_label = ((replace_label_data *) data)->r1;
   rtx new_label = ((replace_label_data *) data)->r2;
   bool update_label_nuses = ((replace_label_data *) data)->update_label_nuses;
@@ -2719,12 +2722,10 @@ replace_label (rtx *x, void *data)
   if (l == NULL_RTX)
     return 0;
 
-  if (GET_CODE (l) == MEM
-      && (tmp = XEXP (l, 0)) != NULL_RTX
-      && GET_CODE (tmp) == SYMBOL_REF
-      && CONSTANT_POOL_ADDRESS_P (tmp))
+  if (GET_CODE (l) == SYMBOL_REF
+      && CONSTANT_POOL_ADDRESS_P (l))
     {
-      rtx c = get_pool_constant (tmp);
+      rtx c = get_pool_constant (l);
       if (rtx_referenced_p (old_label, c))
 	{
 	  rtx new_c, new_l;
@@ -2740,7 +2741,7 @@ replace_label (rtx *x, void *data)
 
 	  /* Add the new constant NEW_C to constant pool and replace
 	     the old reference to constant by new reference.  */
-	  new_l = force_const_mem (get_pool_mode (tmp), new_c);
+	  new_l = XEXP (force_const_mem (get_pool_mode (l), new_c), 0);
 	  *x = replace_rtx (l, l, new_l);
 	}
       return 0;
@@ -3029,35 +3030,48 @@ regno_use_in (unsigned int regno, rtx x)
 int
 commutative_operand_precedence (rtx op)
 {
+  enum rtx_code code = GET_CODE (op);
+  char class;
+  
   /* Constants always come the second operand.  Prefer "nice" constants.  */
-  if (GET_CODE (op) == CONST_INT)
+  if (code == CONST_INT)
     return -7;
-  if (GET_CODE (op) == CONST_DOUBLE)
+  if (code == CONST_DOUBLE)
     return -6;
   op = avoid_constant_pool_reference (op);
-  if (GET_CODE (op) == CONST_INT)
+  if (code == CONST_INT)
     return -5;
-  if (GET_CODE (op) == CONST_DOUBLE)
+  if (code == CONST_DOUBLE)
     return -4;
   if (CONSTANT_P (op))
     return -3;
 
   /* SUBREGs of objects should come second.  */
-  if (GET_CODE (op) == SUBREG
+  if (code == SUBREG
       && GET_RTX_CLASS (GET_CODE (SUBREG_REG (op))) == 'o')
     return -2;
 
-  /* If only one operand is a `neg', `not',
-    `mult', `plus', or `minus' expression, it will be the first
-    operand.  */
-  if (GET_CODE (op) == NEG || GET_CODE (op) == NOT
-      || GET_CODE (op) == MULT || GET_CODE (op) == PLUS
-      || GET_CODE (op) == MINUS)
+  class = GET_RTX_CLASS (code);
+
+  /* Prefer operands that are themselves commutative to be first.
+     This helps to make things linear.  In particular,
+     (and (and (reg) (reg)) (not (reg))) is canonical.  */
+  if (class == 'c')
+    return 4;
+
+  /* If only one operand is a binary expression, it will be the first
+     operand.  In particular,  (plus (minus (reg) (reg)) (neg (reg)))
+     is canonical, although it will usually be further simplified.  */
+  if (class == '2')
     return 2;
+  
+  /* Then prefer NEG and NOT.  */
+  if (code == NEG || code == NOT)
+    return 1;
 
   /* Complex expressions should be the first, so decrease priority
      of objects.  */
-  if (GET_RTX_CLASS (GET_CODE (op)) == 'o')
+  if (GET_RTX_CLASS (code) == 'o')
     return -1;
   return 0;
 }
@@ -3311,7 +3325,7 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
   nregs_xmode = hard_regno_nregs[xregno][xmode];
   nregs_ymode = hard_regno_nregs[xregno][ymode];
 
-  /* paradoxical subregs are always valid.  */
+  /* Paradoxical subregs are always valid.  */
   if (offset == 0
       && nregs_ymode > nregs_xmode
       && (GET_MODE_SIZE (ymode) > UNITS_PER_WORD

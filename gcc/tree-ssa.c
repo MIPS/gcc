@@ -459,10 +459,10 @@ rewrite_into_ssa (void)
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
+  if (dump_file && (dump_flags & TDF_STATS))
     {
-      dump_dfa_stats (tree_dump_file);
-      dump_tree_ssa_stats (tree_dump_file);
+      dump_dfa_stats (dump_file);
+      dump_tree_ssa_stats (dump_file);
     }
 
   /* Free allocated memory.  */
@@ -863,8 +863,8 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -997,14 +997,14 @@ insert_copy_on_edge (edge e, tree dest, tree src)
   if (TREE_CODE (src) == VAR_DECL || TREE_CODE (src) == PARM_DECL)
     set_is_used (src);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file,
+      fprintf (dump_file,
 	       "Inserting a copy on edge BB%d->BB%d :",
 	       e->src->index,
 	       e->dest->index);
-      print_generic_expr (tree_dump_file, copy, tree_dump_flags);
-      fprintf (tree_dump_file, "\n");
+      print_generic_expr (dump_file, copy, dump_flags);
+      fprintf (dump_file, "\n");
     }
 
   bsi_insert_on_edge (e, copy);
@@ -1442,10 +1442,10 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 		    /* Now map the partitions back to their real variables.  */
 		    var = partition_to_var (map, x);
 		    tmp = partition_to_var (map, y);
-		    if (tree_dump_file 
-			&& (tree_dump_flags & TDF_DETAILS))
+		    if (dump_file 
+			&& (dump_flags & TDF_DETAILS))
 		      {
-			print_exprs_edge (tree_dump_file, e, "ABNORMAL: Coalescing ",
+			print_exprs_edge (dump_file, e, "ABNORMAL: Coalescing ",
 					  var, " and ", tmp);
 		      }
 		    if (var_union (map, var, tmp) == NO_PARTITION)
@@ -1556,18 +1556,18 @@ coalesce_ssa_name (var_map map, int flags)
 
   if (cl)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "Before sorting:\n");
-	  dump_coalesce_list (tree_dump_file, cl);
+	  fprintf (dump_file, "Before sorting:\n");
+	  dump_coalesce_list (dump_file, cl);
 	}
 
       sort_coalesce_list (cl);
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "\nAfter sorting:\n");
-	  dump_coalesce_list (tree_dump_file, cl);
+	  fprintf (dump_file, "\nAfter sorting:\n");
+	  dump_coalesce_list (dump_file, cl);
 	}
     }
 
@@ -1611,9 +1611,9 @@ coalesce_ssa_name (var_map map, int flags)
 	      abort ();
 	    }
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      print_exprs (tree_dump_file, "Must coalesce ", 
+	      print_exprs (dump_file, "Must coalesce ", 
 			   partition_to_var (map, x),
 			   " with the root variable ", var, ".\n");
 	    }
@@ -1627,21 +1627,21 @@ coalesce_ssa_name (var_map map, int flags)
   /* Coalesce partitions live across abnormal edges.  */
   coalesce_abnormal_edges (map, graph, rv);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      dump_var_map (tree_dump_file, map);
+      dump_var_map (dump_file, map);
     }
 
   /* Coalesce partitions.  */
   if (flags & SSANORM_USE_COALESCE_LIST)
     coalesce_tpa_members (rv, graph, map, cl, 
-			  ((tree_dump_flags & TDF_DETAILS) ? tree_dump_file 
+			  ((dump_flags & TDF_DETAILS) ? dump_file 
 							   : NULL));
 
   
   if (flags & SSANORM_COALESCE_PARTITIONS)
     coalesce_tpa_members (rv, graph, map, NULL, 
-			  ((tree_dump_flags & TDF_DETAILS) ? tree_dump_file 
+			  ((dump_flags & TDF_DETAILS) ? dump_file 
 							   : NULL));
   if (cl)
     delete_coalesce_list (cl);
@@ -1679,11 +1679,11 @@ assign_vars (var_map map)
 	     the variable as assigned.  */
 	  ann = var_ann (var);
 	  ann->out_of_ssa_tag = 1;
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "partition %d has variable ", x);
-	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
-	      fprintf (tree_dump_file, " assigned to it.\n");
+	      fprintf (dump_file, "partition %d has variable ", x);
+	      print_generic_expr (dump_file, var, TDF_SLIM);
+	      fprintf (dump_file, " assigned to it.\n");
 	    }
 
 	}
@@ -1707,25 +1707,25 @@ assign_vars (var_map map)
 	  
 	  if (!ann->out_of_ssa_tag)
 	    {
-	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-		print_exprs (tree_dump_file, "", t, "  --> ", var, "\n");
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		print_exprs (dump_file, "", t, "  --> ", var, "\n");
 	      change_partition_var (map, var, rep);
 	      continue;
 	    }
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    print_exprs (tree_dump_file, "", t, " not coalesced with ", var, 
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    print_exprs (dump_file, "", t, " not coalesced with ", var, 
 			 "");
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, rep);
 	  ann = var_ann (var);
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, " -->  New temp:  '");
-	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
-	      fprintf (tree_dump_file, "'\n");
+	      fprintf (dump_file, " -->  New temp:  '");
+	      print_generic_expr (dump_file, var, TDF_SLIM);
+	      fprintf (dump_file, "'\n");
 	    }
 	}
     }
@@ -1868,44 +1868,44 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
   /* Re-calculate live on exit info.  */
   calculate_live_on_exit (liveinfo);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Live range info for variable memory coalescing.\n");
-      dump_live_info (tree_dump_file, liveinfo, LIVEDUMP_ALL);
+      fprintf (dump_file, "Live range info for variable memory coalescing.\n");
+      dump_live_info (dump_file, liveinfo, LIVEDUMP_ALL);
 
-      fprintf (tree_dump_file, "Coalesce list from phi nodes:\n");
-      dump_coalesce_list (tree_dump_file, cl);
+      fprintf (dump_file, "Coalesce list from phi nodes:\n");
+      dump_coalesce_list (dump_file, cl);
     }
 
 
   tv = type_var_init (map);
-  if (tree_dump_file)
-    type_var_dump (tree_dump_file, tv);
+  if (dump_file)
+    type_var_dump (dump_file, tv);
   type_var_compact (tv);
-  if (tree_dump_file)
-    type_var_dump (tree_dump_file, tv);
+  if (dump_file)
+    type_var_dump (dump_file, tv);
 
   graph = build_tree_conflict_graph (liveinfo, tv, cl);
 
   type_var_decompact (tv);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "type var list now looks like:n");
-      type_var_dump (tree_dump_file, tv);
+      fprintf (dump_file, "type var list now looks like:n");
+      type_var_dump (dump_file, tv);
 
-      fprintf (tree_dump_file, "Coalesce list after conflict graph build:\n");
-      dump_coalesce_list (tree_dump_file, cl);
+      fprintf (dump_file, "Coalesce list after conflict graph build:\n");
+      dump_coalesce_list (dump_file, cl);
     }
 
   sort_coalesce_list (cl);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Coalesce list after sorting:\n");
-      dump_coalesce_list (tree_dump_file, cl);
+      fprintf (dump_file, "Coalesce list after sorting:\n");
+      dump_coalesce_list (dump_file, cl);
     }
 
   coalesce_tpa_members (tv, graph, map, cl, 
-			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
+			((dump_flags & TDF_DETAILS) ? dump_file : NULL));
 
   type_var_delete (tv);
   delete_coalesce_list (cl);
@@ -2397,7 +2397,13 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	{
 	  def = USE_OP (uses, i);
 	  if (tab->version_info[SSA_NAME_VERSION (def)])
-	    mark_replaceable (tab, def);
+	    {
+	      /* Mark expression as replaceable unless stmt is volatile.  */
+	      if (!ann->has_volatile_ops)
+		mark_replaceable (tab, def);
+	      else
+		finish_expr (tab, SSA_NAME_VERSION (def), false);
+	    }
 	}
       
       /* Next, see if this stmt kills off an active expression.  */
@@ -2412,7 +2418,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	}
 
       /* Now see if we are creating a new expression or not.  */
-      check_replaceable (tab, stmt);
+      if (!ann->has_volatile_ops)
+	check_replaceable (tab, stmt);
 
       /* Free any unused dependancy lists.  */
       while ((p = tab->pending_dependence))
@@ -2588,8 +2595,8 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   FILE *save;
   tree *values = NULL;
 
-  save = tree_dump_file;
-  tree_dump_file = dump;
+  save = dump_file;
+  dump_file = dump;
 
   /* If we are not combining temps, dont calculate live ranges fo variables
      with only one SSA version.  */
@@ -2598,8 +2605,8 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   else
     compact_var_map (map, VARMAP_NORMAL);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_var_map (tree_dump_file, map);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_var_map (dump_file, map);
 
   liveinfo = coalesce_ssa_name (map, flags);
 
@@ -2607,35 +2614,35 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   if ((flags & SSANORM_COMBINE_TEMPS) == 0)
     compact_var_map (map, VARMAP_NORMAL);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "After Coalescing:\n");
-      dump_var_map (tree_dump_file, map);
+      fprintf (dump_file, "After Coalescing:\n");
+      dump_var_map (dump_file, map);
     }
 
   if (flags & SSANORM_PERFORM_TER)
     {
       values = find_replaceable_exprs (map);
-      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (tree_dump_file, values);
+      if (values && dump_file && (dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (dump_file, values);
     }
 
   /* Assign real variables to the partitions now.  */
   assign_vars (map);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "After Root variable replacement:\n");
-      dump_var_map (tree_dump_file, map);
+      fprintf (dump_file, "After Root variable replacement:\n");
+      dump_var_map (dump_file, map);
     }
 
   if ((flags & SSANORM_COMBINE_TEMPS) && liveinfo)
     {
       coalesce_vars (map, liveinfo);
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "After variable memory coalescing:\n");
-	  dump_var_map (tree_dump_file, map);
+	  fprintf (dump_file, "After variable memory coalescing:\n");
+	  dump_var_map (dump_file, map);
 	}
     }
   
@@ -2659,7 +2666,7 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 	}
     }
 
-  tree_dump_file = save;
+  dump_file = save;
 }
 
 /* Take a subset of the variables (VARS) in the current function out of SSA
@@ -2761,7 +2768,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
       ssa_flags = SSANORM_COALESCE_PARTITIONS;
       if (flag_tree_combine_temps)
 	ssa_flags |= SSANORM_COMBINE_TEMPS;
-      remove_ssa_form (tree_dump_file, map, ssa_flags);
+      remove_ssa_form (dump_file, map, ssa_flags);
 
       /* And finally, reset the out_of_ssa flag for each of the vars
 	 we just took out of SSA form.  */
@@ -2775,7 +2782,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
 /* Take function FNDECL out of SSA form.
 
-   PHASE indicates which dump file from the TREE_DUMP_FILES array to use when
+   PHASE indicates which dump file from the DUMP_FILES array to use when
    dumping debugging information.  */
 
 static void
@@ -2788,8 +2795,8 @@ rewrite_out_of_ssa (void)
 
   eliminate_virtual_phis ();
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
   /* We cannot allow unssa to un-gimplify trees before we instrument them.  */
   if (flag_tree_ter && !flag_mudflap)
@@ -2802,17 +2809,14 @@ rewrite_out_of_ssa (void)
   if (flag_tree_ter && !flag_mudflap)
     ssa_flags |= SSANORM_PERFORM_TER;
 
-  remove_ssa_form (tree_dump_file, map, ssa_flags);
+  remove_ssa_form (dump_file, map, ssa_flags);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
   cfg_remove_useless_stmts ();
-
-  /* Remove unnecessary variables.  */
-  remove_useless_vars ();
 
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
@@ -3374,11 +3378,11 @@ rewrite_stmt (struct dom_walk_data *walk_data,
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Renaming statement ");
-      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Renaming statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
 
 #if defined ENABLE_CHECKING
@@ -3624,6 +3628,8 @@ get_def_blocks_for (tree var)
   dm.var = var;
   return (struct def_blocks_d *) htab_find (def_blocks, &dm);
 }
+
+
 /* Return true if EXPR is a useless type conversion, otherwise return
    false.  */
 
@@ -3637,41 +3643,46 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
       || TYPE_MAIN_VARIANT (inner_type) == TYPE_MAIN_VARIANT (outer_type))
     return true;
 
-  /* If the outer type is a (void *), then we can enter the
-     equivalence into the table.  The opposite is not true since
-     that conversion would result in a loss of information if
-     the equivalence was used.  Consider an indirect function call
-     where we need to know the exact type of the function to
-     correctly implement the ABI.  */
-  else if (POINTER_TYPE_P (inner_type) && POINTER_TYPE_P (outer_type)
+  /* If both types are pointers and the outer type is a (void *), then
+     the conversion is not necessary.  The opposite is not true since
+     that conversion would result in a loss of information if the
+     equivalence was used.  Consider an indirect function call where
+     we need to know the exact type of the function to correctly
+     implement the ABI.  */
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
   /* Pointers and references are equivalent once we get to GENERIC,
      so strip conversions that just switch between them.  */
-  else if (POINTER_TYPE_P (inner_type) && POINTER_TYPE_P (outer_type)
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
 	   && (TYPE_MAIN_VARIANT (TREE_TYPE (inner_type))
 	       == TYPE_MAIN_VARIANT (TREE_TYPE (outer_type))))
     return true;
 
-  /* If both the inner and outer types are integral types, then
-     we can enter the equivalence if they have the same mode
-     and signedness and precision (The type _Bool can have size of 4
-     (only happens on powerpc-darwin right now but can happen on any 
+  /* If both the inner and outer types are integral types, then the
+     conversion is not necessary if they have the same mode and
+     signedness and precision.  Note that type _Bool can have size of
+     4 (only happens on powerpc-darwin right now but can happen on any
      target that defines BOOL_TYPE_SIZE to be INT_TYPE_SIZE) and a
-     precision of 1 while unsigned int is the same expect for a 
-     precision of 4 so testing of precision is necessary).  */
-  else if (INTEGRAL_TYPE_P (inner_type) && INTEGRAL_TYPE_P (outer_type)
+     precision of 1 while unsigned int is the same expect for a
+     precision of 4 so testing of precision is necessary.  */
+  else if (INTEGRAL_TYPE_P (inner_type)
+           && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     return true;
+
   /* Recurse for complex types.  */
   else if (TREE_CODE (inner_type) == COMPLEX_TYPE
 	   && TREE_CODE (outer_type) == COMPLEX_TYPE
 	   && tree_ssa_useless_type_conversion_1 (TREE_TYPE (outer_type),
 						  TREE_TYPE (inner_type)))
     return true;
+
   return false;
 }
 
@@ -3699,14 +3710,14 @@ tree_ssa_useless_type_conversion (tree expr)
    described in walk_use_def_chains.  VISITED is a bitmap used to mark
    visited SSA_NAMEs to avoid infinite loops.  */
 
-static void
+static bool
 walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
 		       bitmap visited)
 {
   tree def_stmt;
 
   if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
-    return;
+    return false;
 
   bitmap_set_bit (visited, SSA_NAME_VERSION (var));
 
@@ -3715,7 +3726,7 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
   if (TREE_CODE (def_stmt) != PHI_NODE)
     {
       /* If we reached the end of the use-def chain, call FN.  */
-      (*fn) (var, def_stmt, data);
+      return (*fn) (var, def_stmt, data);
     }
   else
     {
@@ -3726,11 +3737,15 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
       for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	{
 	  tree arg = PHI_ARG_DEF (def_stmt, i);
-	  if (TREE_CODE (arg) == SSA_NAME)
-	    walk_use_def_chains_1 (arg, fn, data, visited);
-	  (*fn) (arg, def_stmt, data);
+	  if (TREE_CODE (arg) == SSA_NAME
+	      && walk_use_def_chains_1 (arg, fn, data, visited))
+	    return true;
+	  
+	  if ((*fn) (arg, def_stmt, data))
+	    return true;
 	}
     }
+  return false;
 }
   
 
@@ -3738,7 +3753,9 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
 /* Walk use-def chains starting at the SSA variable VAR.  Call function FN
    at each reaching definition found.  FN takes three arguments: VAR, its
    defining statement (DEF_STMT) and a generic pointer to whatever state
-   information that FN may want to maintain (DATA).
+   information that FN may want to maintain (DATA).  FN is able to stop the 
+   walk by returning true, otherwise in order to continue the walk, FN 
+   should return false.  
 
    Note, that if DEF_STMT is a PHI node, the semantics are slightly
    different.  For each argument ARG of the PHI node, this function will:

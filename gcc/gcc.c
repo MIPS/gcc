@@ -345,7 +345,7 @@ static int execute (void);
 static void alloc_args (void);
 static void clear_args (void);
 static void fatal_error (int);
-#ifdef ENABLE_SHARED_LIBGCC
+#if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
 static void init_gcc_specs (struct obstack *, const char *, const char *,
 			    const char *);
 #endif
@@ -612,7 +612,9 @@ proper position among the other output files.  */
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
-#if defined(LINK_LIBGCC_SPECIAL) || defined(LINK_LIBGCC_SPECIAL_1)
+#if defined(REAL_LIBGCC_SPEC)
+#define LIBGCC_SPEC REAL_LIBGCC_SPEC
+#elif defined(LINK_LIBGCC_SPECIAL) || defined(LINK_LIBGCC_SPECIAL_1)
 /* Have gcc do the search for libgcc.a.  */
 #define LIBGCC_SPEC "libgcc.a%s"
 #else
@@ -1545,7 +1547,7 @@ static int processing_spec_function;
 /* Add appropriate libgcc specs to OBSTACK, taking into account
    various permutations of -shared-libgcc, -shared, and such.  */
 
-#ifdef ENABLE_SHARED_LIBGCC
+#if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
 static void
 init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		const char *static_name, const char *eh_name)
@@ -1612,7 +1614,7 @@ init_spec (void)
       next = sl;
     }
 
-#ifdef ENABLE_SHARED_LIBGCC
+#if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
   /* ??? If neither -shared-libgcc nor --static-libgcc was
      seen, then we should be making an educated guess.  Some proposed
      heuristics for ELF include:
@@ -3370,8 +3372,8 @@ process_command (int argc, const char *const *argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  fputs ("Copyright (C) 2004 Free Software Foundation, Inc.\n",
-		 stdout);
+	  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n",
+		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 		 stdout);
@@ -6514,7 +6516,7 @@ lookup_compiler (const char *name, size_t length, const char *language)
     }
 
 #if defined (OS2) ||defined (HAVE_DOS_BASED_FILE_SYSTEM)
-  /* look again, but case-insensitively this time.  */
+  /* Look again, but case-insensitively this time.  */
   if (cp < compilers)
     for (cp = compilers + n_compilers - 1; cp >= compilers; cp--)
       {

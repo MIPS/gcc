@@ -201,12 +201,8 @@ struct tree_common GTY(())
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        TREE_VIA_PUBLIC in
            TREE_LIST or TREE_VEC
-       EXPR_WFL_EMIT_LINE_NOTE in
-           EXPR_WITH_FILE_LOCATION
        ASM_VOLATILE_P in
            ASM_EXPR
-       EXPR_WFL_EMIT_LINE_NOTE in
-           EXPR_WITH_FILE_LOCATION
 
    private_flag:
 
@@ -514,7 +510,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	     == TREE_TYPE (TREE_OPERAND (EXP, 0))))		\
     (EXP) = TREE_OPERAND (EXP, 0)
 
-/* Remove unnecessary type conversions according to tree_ssa_useless_type_conversion.  */
+/* Remove unnecessary type conversions according to
+   tree_ssa_useless_type_conversion.  */
 
 #define STRIP_USELESS_TYPE_CONVERSION(EXP)				\
       while (tree_ssa_useless_type_conversion (EXP))			\
@@ -2522,7 +2519,7 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
-extern tree frame_base_decl;
+extern GTY(()) tree frame_base_decl;
 extern tree decl_assembler_name (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2598,13 +2595,30 @@ extern tree maybe_get_identifier (const char *);
 extern tree build (enum tree_code, tree, ...);
 extern tree build_nt (enum tree_code, ...);
 
+#if GCC_VERSION >= 3000 || __STDC_VERSION__ >= 199901L
+/* Use preprocessor trickery to map "build" to "buildN" where N is the
+   expected number of arguments.  This is used for both efficiency (no
+   varargs), and checking (verifying number of passed arguments).  */
+#define build(code, ...) \
+  _buildN1(build, _buildC1(__VA_ARGS__))(code, __VA_ARGS__)
+#define _buildN1(BASE, X)	_buildN2(BASE, X)
+#define _buildN2(BASE, X)	BASE##X
+#define _buildC1(...)		_buildC2(__VA_ARGS__,9,8,7,6,5,4,3,2,1,0,0)
+#define _buildC2(x,a1,a2,a3,a4,a5,a6,a7,a8,a9,c,...) c
+#endif
+
+extern tree build0 (enum tree_code, tree);
+extern tree build1 (enum tree_code, tree, tree);
+extern tree build2 (enum tree_code, tree, tree, tree);
+extern tree build3 (enum tree_code, tree, tree, tree, tree);
+extern tree build4 (enum tree_code, tree, tree, tree, tree, tree);
+
 extern tree build_int_2_wide (unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
 extern tree build_constructor (tree, tree);
 extern tree build_real_from_int_cst (tree, tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_string (int, const char *);
-extern tree build1 (enum tree_code, tree, tree);
 extern tree build_tree_list (tree, tree);
 extern tree build_decl (enum tree_code, tree, tree);
 extern tree build_block (tree, tree, tree, tree, tree);
@@ -2775,6 +2789,11 @@ extern tree merge_attributes (tree, tree);
 extern tree merge_dllimport_decl_attributes (tree, tree);
 #endif
 
+/* Check whether CAND is suitable to be returned from get_qualified_type
+   (BASE, TYPE_QUALS).  */
+
+extern bool check_qualified_type (tree, tree, int);
+
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2937,7 +2956,6 @@ extern tree size_int_type_wide (HOST_WIDE_INT, tree);
 extern tree round_up (tree, int);
 extern tree round_down (tree, int);
 extern tree get_pending_sizes (void);
-extern int is_pending_size (tree);
 extern void put_pending_size (tree);
 extern void put_pending_sizes (tree);
 
@@ -3406,7 +3424,6 @@ extern void indent_to (FILE *, int);
 #endif
 
 /* In expr.c */
-extern int apply_args_register_offset (int);
 extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
 extern void check_max_integer_computation_mode (tree);
 
@@ -3504,7 +3521,6 @@ extern void expand_decl (tree);
 extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);
 extern void expand_anon_union_decl (tree, tree, tree);
-extern void expand_start_case_dummy (void);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In gimplify.c.  */

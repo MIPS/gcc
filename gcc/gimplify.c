@@ -2798,7 +2798,7 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
    is the cleanup action required.  */
 
 static void
-gimple_push_cleanup (tree cleanup, tree *pre_p)
+gimple_push_cleanup (tree var, tree cleanup, tree *pre_p)
 {
   tree wce;
 
@@ -2842,6 +2842,11 @@ gimple_push_cleanup (tree cleanup, tree *pre_p)
       append_to_statement_list (ffalse, &gimplify_ctxp->conditional_cleanups);
       append_to_statement_list (wce, &gimplify_ctxp->conditional_cleanups);
       append_to_statement_list (ftrue, pre_p);
+
+      /* Because of this manipulation, and the EH edges that jump
+	 threading cannot redirect, the temporary (VAR) will appear
+	 to be used uninitialized.  Don't warn.  */
+      TREE_NO_WARNING (var) = 1;
     }
   else
     {
@@ -2881,7 +2886,7 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
       if (TARGET_EXPR_CLEANUP (targ))
 	{
 	  gimplify_stmt (&TARGET_EXPR_CLEANUP (targ));
-	  gimple_push_cleanup (TARGET_EXPR_CLEANUP (targ), pre_p);
+	  gimple_push_cleanup (temp, TARGET_EXPR_CLEANUP (targ), pre_p);
 	}
 
       /* Only expand this once.  */

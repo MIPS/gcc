@@ -331,8 +331,8 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
   bool first_match = false;
   bool found = false;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Predictions for insn %i bb %i\n", INSN_UID (insn),
+  if (dump_file)
+    fprintf (dump_file, "Predictions for insn %i bb %i\n", INSN_UID (insn),
 	     bb->index);
 
   /* We implement "first match" heuristics and use probability guessed
@@ -368,19 +368,19 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
     first_match = true;
 
   if (!found)
-    dump_prediction (rtl_dump_file, PRED_NO_PREDICTION,
+    dump_prediction (dump_file, PRED_NO_PREDICTION,
 		     combined_probability, bb, true);
   else
     {
-      dump_prediction (rtl_dump_file, PRED_DS_THEORY, combined_probability,
+      dump_prediction (dump_file, PRED_DS_THEORY, combined_probability,
 		       bb, !first_match);
-      dump_prediction (rtl_dump_file, PRED_FIRST_MATCH, best_probability,
+      dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability,
 		       bb, first_match);
     }
 
   if (first_match)
     combined_probability = best_probability;
-  dump_prediction (rtl_dump_file, PRED_COMBINED, combined_probability, bb, true);
+  dump_prediction (dump_file, PRED_COMBINED, combined_probability, bb, true);
 
   while (*pnote)
     {
@@ -389,7 +389,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 	  int predictor = INTVAL (XEXP (XEXP (*pnote, 0), 0));
 	  int probability = INTVAL (XEXP (XEXP (*pnote, 0), 1));
 
-	  dump_prediction (rtl_dump_file, predictor, probability, bb,
+	  dump_prediction (dump_file, predictor, probability, bb,
 			   !first_match || best_predictor == predictor);
 	  *pnote = XEXP (*pnote, 1);
 	}
@@ -625,6 +625,8 @@ estimate_probability (struct loops *loops_info)
   calculate_dominance_info (CDI_POST_DOMINATORS);
 
   predict_loops (loops_info, true);
+
+  iv_analysis_done ();
 
   /* Attempt to predict conditional jumps using a number of heuristics.  */
   FOR_EACH_BB (bb)
@@ -914,8 +916,8 @@ tree_estimate_probability (void)
   struct loops loops_info;
 
   flow_loops_find (&loops_info, LOOP_TREE);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    flow_loops_dump (&loops_info, tree_dump_file, NULL, 0);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    flow_loops_dump (&loops_info, dump_file, NULL, 0);
 
   connect_infinite_loops_to_exit ();
   calculate_dominance_info (CDI_DOMINATORS);
@@ -973,14 +975,14 @@ tree_estimate_probability (void)
       tree_predict_by_opcode (bb);
     }
   FOR_EACH_BB (bb)
-    combine_predictions_for_bb (tree_dump_file, bb);
+    combine_predictions_for_bb (dump_file, bb);
 
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_edges ();
   flow_loops_free (&loops_info);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_tree_cfg (tree_dump_file, tree_dump_flags);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, dump_flags);
 }
 
 /* __builtin_expect dropped tokens into the insn stream describing expected
@@ -1270,8 +1272,8 @@ propagate_freq (struct loop *loop)
 	    if (BLOCK_INFO (e->src)->tovisit && !(e->flags & EDGE_DFS_BACK))
 	      count++;
 	    else if (BLOCK_INFO (e->src)->tovisit
-		     && rtl_dump_file && !EDGE_INFO (e)->back_edge)
-	      fprintf (rtl_dump_file,
+		     && dump_file && !EDGE_INFO (e)->back_edge)
+	      fprintf (dump_file,
 		       "Irreducible region hit, ignoring edge to %i->%i\n",
 		       e->src->index, bb->index);
 	  BLOCK_INFO (bb)->npredecessors = count;

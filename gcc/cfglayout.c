@@ -54,7 +54,6 @@ static void change_scope (rtx, tree, tree);
 void verify_insn_chain (void);
 static void fixup_fallthru_exit_predecessor (void);
 static rtx duplicate_insn_chain (rtx, rtx);
-static void break_superblocks (void);
 static tree insn_scope (rtx);
 
 rtx
@@ -174,8 +173,8 @@ label_for_bb (basic_block bb)
 
   if (GET_CODE (label) != CODE_LABEL)
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Emitting label for block %d\n", bb->index);
+      if (dump_file)
+	fprintf (dump_file, "Emitting label for block %d\n", bb->index);
 
       label = block_label (bb);
     }
@@ -783,20 +782,23 @@ fixup_reorder_chain (void)
 
   /* Put basic_block_info in the new order.  */
 
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file, "Reordered sequence:\n");
-      for (bb = ENTRY_BLOCK_PTR->next_bb, index = 0; bb; bb = bb->rbi->next, index ++)
+      fprintf (dump_file, "Reordered sequence:\n");
+      for (bb = ENTRY_BLOCK_PTR->next_bb, index = 0;
+	   bb;
+	   bb = bb->rbi->next, index++)
 	{
-	  fprintf (rtl_dump_file, " %i ", index);
+	  fprintf (dump_file, " %i ", index);
 	  if (bb->rbi->original)
-	    fprintf (rtl_dump_file, "duplicate of %i ",
+	    fprintf (dump_file, "duplicate of %i ",
 		     bb->rbi->original->index);
-	  else if (forwarder_block_p (bb) && GET_CODE (BB_HEAD (bb)) != CODE_LABEL)
-	    fprintf (rtl_dump_file, "compensation ");
+	  else if (forwarder_block_p (bb)
+		   && GET_CODE (BB_HEAD (bb)) != CODE_LABEL)
+	    fprintf (dump_file, "compensation ");
 	  else
-	    fprintf (rtl_dump_file, "bb %i ", bb->index);
-	  fprintf (rtl_dump_file, " [%i]\n", bb->frequency);
+	    fprintf (dump_file, "bb %i ", bb->index);
+	  fprintf (dump_file, " [%i]\n", bb->frequency);
 	}
     }
 
@@ -1084,23 +1086,22 @@ cfg_layout_initialize (void)
 }
 
 /* Splits superblocks.  */
-static void
+void
 break_superblocks (void)
 {
   sbitmap superblocks;
-  int i, need;
+  bool need = false;
+  basic_block bb;
 
-  superblocks = sbitmap_alloc (n_basic_blocks);
+  superblocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (superblocks);
 
-  need = 0;
-
-  for (i = 0; i < n_basic_blocks; i++)
-    if (BASIC_BLOCK(i)->flags & BB_SUPERBLOCK)
+  FOR_EACH_BB (bb)
+    if (bb->flags & BB_SUPERBLOCK)
       {
-	BASIC_BLOCK(i)->flags &= ~BB_SUPERBLOCK;
-	SET_BIT (superblocks, i);
-	need = 1;
+	bb->flags &= ~BB_SUPERBLOCK;
+	SET_BIT (superblocks, bb->index);
+	need = true;
       }
 
   if (need)

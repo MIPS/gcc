@@ -73,7 +73,6 @@ static int s390_adjust_priority (rtx, int);
 static int s390_issue_rate (void);
 static int s390_use_dfa_pipeline_interface (void);
 static int s390_first_cycle_multipass_dfa_lookahead (void);
-static int s390_sched_reorder2 (FILE *, int, rtx *, int *, int);
 static bool s390_rtx_costs (rtx, int, int, int *);
 static int s390_address_cost (rtx);
 static void s390_reorg (void);
@@ -132,8 +131,6 @@ static tree s390_build_builtin_va_list (void);
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE s390_use_dfa_pipeline_interface
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD s390_first_cycle_multipass_dfa_lookahead
-#undef TARGET_SCHED_REORDER2
-#define TARGET_SCHED_REORDER2 s390_sched_reorder2
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS s390_rtx_costs
@@ -3304,98 +3301,63 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   return 0;
 }
 
-/* Output symbolic constant X in assembler syntax to
-   stdio stream FILE.  */
+/* Output machine-dependent UNSPECs occurring in address constant X 
+   in assembler syntax to stdio stream FILE.  Returns true if the
+   constant X could be recognized, false otherwise.  */
 
-void
-s390_output_symbolic_const (FILE *file, rtx x)
+bool
+s390_output_addr_const_extra (FILE *file, rtx x)
 {
-  switch (GET_CODE (x))
-    {
-    case CONST:
-    case ZERO_EXTEND:
-    case SIGN_EXTEND:
-      s390_output_symbolic_const (file, XEXP (x, 0));
-      break;
+  if (GET_CODE (x) == UNSPEC && XVECLEN (x, 0) == 1)
+    switch (XINT (x, 1))
+      {
+      case UNSPEC_GOTENT:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@GOTENT");
+	return true;
+      case UNSPEC_GOT:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@GOT");
+	return true;
+      case UNSPEC_GOTOFF:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@GOTOFF");
+	return true;
+      case UNSPEC_PLT:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@PLT");
+	return true;
+      case UNSPEC_PLTOFF:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@PLTOFF");
+	return true;
+      case UNSPEC_TLSGD:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@TLSGD");
+	return true;
+      case UNSPEC_TLSLDM:
+	assemble_name (file, get_some_local_dynamic_name ());
+	fprintf (file, "@TLSLDM");
+	return true;
+      case UNSPEC_DTPOFF:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@DTPOFF");
+	return true;
+      case UNSPEC_NTPOFF:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@NTPOFF");
+	return true;
+      case UNSPEC_GOTNTPOFF:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@GOTNTPOFF");
+	return true;
+      case UNSPEC_INDNTPOFF:
+	output_addr_const (file, XVECEXP (x, 0, 0));
+	fprintf (file, "@INDNTPOFF");
+	return true;
+      }
 
-    case PLUS:
-      s390_output_symbolic_const (file, XEXP (x, 0));
-      fprintf (file, "+");
-      s390_output_symbolic_const (file, XEXP (x, 1));
-      break;
-
-    case MINUS:
-      s390_output_symbolic_const (file, XEXP (x, 0));
-      fprintf (file, "-");
-      s390_output_symbolic_const (file, XEXP (x, 1));
-      break;
-
-    case CONST_INT:
-    case LABEL_REF:
-    case CODE_LABEL:
-    case SYMBOL_REF:
-      output_addr_const (file, x);
-      break;
-
-    case UNSPEC:
-      if (XVECLEN (x, 0) != 1)
-        output_operand_lossage ("invalid UNSPEC as operand (1)");
-      switch (XINT (x, 1))
-        {
-	case UNSPEC_GOTENT:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@GOTENT");
-	  break;
-	case UNSPEC_GOT:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@GOT");
-	  break;
-	case UNSPEC_GOTOFF:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@GOTOFF");
-	  break;
-	case UNSPEC_PLT:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@PLT");
-	  break;
-	case UNSPEC_PLTOFF:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@PLTOFF");
-	  break;
-	case UNSPEC_TLSGD:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@TLSGD");
-	  break;
-	case UNSPEC_TLSLDM:
-	  assemble_name (file, get_some_local_dynamic_name ());
-	  fprintf (file, "@TLSLDM");
-	  break;
-	case UNSPEC_DTPOFF:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@DTPOFF");
-	  break;
-	case UNSPEC_NTPOFF:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@NTPOFF");
-	  break;
-	case UNSPEC_GOTNTPOFF:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@GOTNTPOFF");
-	  break;
-	case UNSPEC_INDNTPOFF:
-	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-	  fprintf (file, "@INDNTPOFF");
-	  break;
-	default:
-	  output_operand_lossage ("invalid UNSPEC as operand (2)");
-	  break;
-        }
-      break;
-
-    default:
-      fatal_insn ("UNKNOWN in s390_output_symbolic_const !?", x);
-      break;
-    }
+  return false;
 }
 
 /* Output address operand ADDR in assembler syntax to
@@ -3412,7 +3374,7 @@ print_operand_address (FILE *file, rtx addr)
     output_operand_lossage ("Cannot decompose address.");
 
   if (ad.disp)
-    s390_output_symbolic_const (file, ad.disp);
+    output_addr_const (file, ad.disp);
   else
     fprintf (file, "0");
 
@@ -3486,7 +3448,7 @@ print_operand (FILE *file, rtx x, int code)
           abort ();
 
         if (ad.disp)
-          s390_output_symbolic_const (file, ad.disp);
+          output_addr_const (file, ad.disp);
         else
           fprintf (file, "0");
       }
@@ -3546,7 +3508,7 @@ print_operand (FILE *file, rtx x, int code)
     case CODE_LABEL:
     case LABEL_REF:
     case SYMBOL_REF:
-      s390_output_symbolic_const (file, x);
+      output_addr_const (file, x);
       break;
 
     case CONST_INT:
@@ -3823,19 +3785,6 @@ static int
 s390_first_cycle_multipass_dfa_lookahead (void)
 {
   return s390_use_dfa_pipeline_interface () ? 4 : 0;
-}
-
-/* Called after issuing each insn.
-   Triggers default sort algorithm to better slot instructions.  */
-
-static int
-s390_sched_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
-		     int sched_verbose ATTRIBUTE_UNUSED,
-		     rtx *ready ATTRIBUTE_UNUSED,
-		     int *pn_ready ATTRIBUTE_UNUSED,
-		     int clock_var ATTRIBUTE_UNUSED)
-{
-    return s390_issue_rate();
 }
 
 
@@ -4424,6 +4373,10 @@ s390_mainpool_start (void)
 
   if (pool->size >= 4096)
     {
+      /* We're going to chunkify the pool, so remove the main
+	 pool placeholder insn.  */
+      remove_insn (pool->pool_insn);
+
       s390_free_pool (pool);
       pool = NULL;
     }
@@ -4931,12 +4884,10 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
 }
 
 
-/* Output to FILE the constant pool entry EXP in mode MODE
-   with alignment ALIGN.  */
+/* Output the constant pool entry EXP in mode MODE with alignment ALIGN.  */
 
 void
-s390_output_pool_entry (FILE *file, rtx exp, enum machine_mode mode, 
-			unsigned int align)
+s390_output_pool_entry (rtx exp, enum machine_mode mode, unsigned int align)
 {
   REAL_VALUE_TYPE r;
 
@@ -4951,18 +4902,7 @@ s390_output_pool_entry (FILE *file, rtx exp, enum machine_mode mode,
       break;
 
     case MODE_INT:
-      if (GET_CODE (exp) == CONST
-	  || GET_CODE (exp) == SYMBOL_REF
-	  || GET_CODE (exp) == LABEL_REF)
-	{
-	  fputs (integer_asm_op (GET_MODE_SIZE (mode), TRUE), file);
-	  s390_output_symbolic_const (file, exp);
-	  fputc ('\n', file);
-	}
-      else
-	{
-	  assemble_integer (exp, GET_MODE_SIZE (mode), align, 1);
-	}
+      assemble_integer (exp, GET_MODE_SIZE (mode), align, 1);
       break;
 
     default:

@@ -256,13 +256,13 @@ substitute_single_use_vars (varray_type forwprop_data)
 	    }
 
 	  /* Dump details.  */
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "  Replaced '");
-	      print_generic_expr (tree_dump_file, cond, 0);
-	      fprintf (tree_dump_file, "' with '");
-	      print_generic_expr (tree_dump_file, new_cond, 0);
-	      fprintf (tree_dump_file, "'\n");
+	      fprintf (dump_file, "  Replaced '");
+	      print_generic_expr (dump_file, cond, 0);
+	      fprintf (dump_file, "' with '");
+	      print_generic_expr (dump_file, new_cond, 0);
+	      fprintf (dump_file, "'\n");
 	    }
 
 	  /* Replace the condition.  */

@@ -1,3 +1,240 @@
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileLockImpl.java
+	(finalize): Made protected.
+	* java/nio/channels/FileChannel.java
+	(MapMode.READ_ONLY): Made final.
+	(MapMode.READ_WRITE): Made final.
+	(MapMode.PRIVATE): Made final.
+	* java/nio/channels/SocketChannel.java
+	(open): Simplified code.
+	* java/nio/channels/spi/AbstractSelectableChannel.java
+	(registered): Unused, removed.
+	(keyFor): Check channel is open, only locate key
+	and not add a new one.
+	(register): Don't delete attachments.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/ComponentDataBlitOp.java
+	(INSTANCE): Made final.
+	* gnu/java/awt/image/ImageDecoder.java:
+	Reworked imports.
+	(cm): Unused, removed.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(send): Check if target address is resolved.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Generate and install headers for inner classes in
+	java.nio.channels.Pipe and gnu.java.nio.PipeImpl.
+	* Makefile.in: Regenerated.
+2004-02-24  Anthony Green  <green@redhat.com>
+
+	* java/lang/StringBuffer.java: No need to NULL out remainder of
+	buffer since ensureCapacity_unsynchronized will have done this for
+	us.
+
+2004-02-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/jar/Handler.java
+	(): Removed unneeded check for file != null. java.net.URL.getFile()
+	returns an empty string but never null.
+
+2004-02-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/gcj/convert/Convert.java
+	(main): Use equals() to compare strings.
+
+2004-02-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractButton.java: Made several constants final.
+	(getRolloverSelectedIcon): Made public.
+	(getSelectedIcon): Made public.
+
+2004-02-16  Per Bothner  <per@bothner.com>
+
+	* java/nio/CharBufferImpl.java:  Inline super constructor.
+	* java/nio/DoubleBufferImpl.java:  Likewise.
+	* java/nio/FloatBufferImpl.java:  Likewise.
+	* java/nio/IntBufferImpl.java:  Likewise.
+	* java/nio/LongBufferImpl.java:  Likewise.
+	* java/nio/ShortBufferImpl.java:  Likewise.
+	* java/nio/CharBuffer.java:  Remove unused constructor.
+	* java/nio/DoubleBuffer.java:  Likewise.
+	* java/nio/FloatBuffer.java:  Likewise.
+	* java/nio/IntBuffer.java:  Likewise.
+	* java/nio/LongBuffer.java:  Likewise.
+	* java/nio/ShortBuffer.java:  Likewise.
+	* java/nio/CharViewBufferImpl.java:  New convenience constructor.
+	Fix buggy call to super constructor.
+	* java/nio/DoubleViewBufferImpl.java:  Likewise.
+	* java/nio/FloatViewBufferImpl.java:  Likewise.
+	* java/nio/IntViewBufferImpl.java:  Likewise.
+	* java/nio/LongViewBufferImpl.java:  Likewise.
+	* java/nio/ShortViewBufferImpl.java:  Likewise.
+	
+	* java/nio/ByteBuffer.java (endian):  Make non-private so other
+	java.nio classes can inherit it.
+	(<init>):  Don't bother clearing array_offset.
+	* java/nio/ByteBuffer.java (allocate):  Re-implement using wrap.
+	* java/nio/ByteBuffer.java (get(byte[],int,int)):  Check underflow.
+	Remove redundant test.
+
+	* java/nio/ByteBufferImpl.java (asCharBuffer, asShortBuffer,
+	asIntBuffer, asLongBuffer, asFloatBuffer, asDoubleBuffer):
+	Use new XxxViewBufferImpl constructors.
+	* java/nio/MappedByteBufferImpl.java:  Likewise.
+	* java/nio/DirectByteBufferImpl.java:  Likewise.
+
+	* java/nio/ByteBufferImpl.java:  Remove one constructor.
+	Inline super in remaining constructor.
+	* java/nio/ByteBuffer.java:  Remove unused constructor.
+
+	* java/nio/ByteBufferImpl.java (shiftDown):  New optimized method.
+
+	* java/nio/ByteBufferImpl.java (get, put):  Add array_offset.
+	* java/nio/DirectByteBufferImpl.java (owner):  New field.
+	(offset):  Remove unused field.
+	(<init>):  Modify one and add another constructor.  Change callers.
+	(allocateDirect):  Removed - not used.
+	(getImpl, putImpl):  Make static and pass address explicitly,
+	to make them useful for MappedByteBufferImpl.
+	(get, put):  Check for underflow.  Modify for new getImpl.
+	(getImpl):  New native method where target is array.
+	(get(byte[],int,int)):  Use the above.
+	(adjustAddress):  New static native method.
+	(slice, duplicate, asReadOnly):  New implementations.
+	* java/nio/natDirectByteBufferImpl.cc (getImpl, putImpl, shiftDown,
+	adjustAddress):  New or updated native methods.
+
+2004-02-15  Ito Kazumitsu  <kaz@maczuka.gcd.org>
+
+	* java/io/ObjectInputStream.java (readClassDescriptor): Avoid the
+        overflow of fieldmapping.
+
+2004-02-14  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/UndoManager.java: Re-written from scratch.
+
+2004-02-14  Per Bothner  <per@bothner.com>
+
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java (close):
+	Set closed before calling implCloseChannel, as in the spec.
+
+2004-02-09  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/ToggleButtonModel.java: Remove dead class.
+	* javax/swing/plaf/basic/BasicDefaults.java: Remove dead class.
+	* javax/swing/plaf/basic/BasicButtonListener.java: New class.
+	* javax/swing/plaf/basic/BasicRootPaneUI.java: New class.
+	* Makefile.am: Update for new and removed files.
+	* Makefile.in: Regenerate.
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: Initialize default hints.
+	* javax/swing/AbstractButton.java 
+	(AbstractButton): Initialize fields correctly in ctor.
+	* javax/swing/JCheckbox.java 
+	(JCheckBox): Override painting flags.
+	* javax/swing/DefaultButtonModel.java: Conform to sun.
+	* javax/swing/JComponent.java (paint): Fill with background color
+	if available.
+	(processComponentKeyEvent)
+	(processFocusEvent)
+	(processKeyEvent)
+	(processMouseMotionEvent): Remove event-consuming empty methods.
+	(getUIClassID): Return "ComponentUI" not "JComponent"
+	* javax/swing/JFrame.java: Remove some debugging chatter.
+	(JFrame): Subscribe to window events.
+	* javax/swing/JRadioButton.java 
+	(JRadioButton): Override painting flags.
+	* javax/swing/JRootPane.java 
+	(JRootPane): Set background from UIDefaults.
+	* javax/swing/JToggleButton.java 
+	(ToggleButtonModel): New inner class.
+	(JToggleButton): Override layout alighment.
+	* javax/swing/SwingUtilities.java:
+	(getLocalBounds): Return width and height, not x and y.
+	(calculateInnerArea): Use local bounds, not bounds.
+	(layoutCompoundLabel): Provide overridden form.
+	(layoutCompoundLabel): Correct bugs.
+	* javax/swing/UIDefaults.java: Correct comment.
+	* javax/swing/plaf/basic/BasicButtonUI.java: 
+	Move most logic into defaults, external listener.
+	(paintIcon): Implement icon painting.
+	(paint): Fix state painting to conform to changes in model.
+	* javax/swing/plaf/basic/BasicCheckBoxUI.java:
+	Remove most dead/wrong methods.
+	(getDefaultIcon): Return defaults.getIcon("CheckBox.icon").
+	* javax/swing/plaf/basic/BasicIconFactory.java:
+	(DummyIcon): New class.
+	(getMenuItemCheckIcon)
+	(getMenuItemArrowIcon) 
+	(getMenuArrowIcon)
+	(getCheckBoxMenuItemIcon)
+	(getRadioButtonMenuItemIcon)
+	(createEmptyFrameIcon): Return DummyIcons, not null.
+	(getCheckBoxIcon): Implement an icon that looks like sun's.
+	(getRadioButtonIcon): Implement an icon that looks like sun's.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java 
+	(initComponentDefaults): Fix impossible values, add some missing.
+	* javax/swing/plaf/basic/BasicPanelUI.java (gap): Remove field.
+	* javax/swing/plaf/basic/BasicRadioButtonUI.java:
+	Remove most dead/wrong methods.
+	(icon): New field.
+	(getDefaultIcon): New method.
+	* javax/swing/plaf/basic/BasicToggleButtonUI.java:
+	Remove most dead/wrong methods.
+	* javax/swing/plaf/metal/MetalLookAndFeel.java
+	(getDefaults): Return super.getDefaults(), not BasicDefaults.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics_clearRect):
+	Implement "clearing" as drawing, when on pixmap drawables.
+
+	* javax/swing/JButton.java (getUIClassID): 
+	* javax/swing/JCheckBox.java (getUIClassID):
+	* javax/swing/JEditorPane.java (getUIClassID):
+	* javax/swing/JLabel.java (getUIClassID): 
+	* javax/swing/JList.java (getUIClassID): 
+	* javax/swing/JOptionPane.java (getUIClassID): 
+	* javax/swing/JPanel.java (getUIClassID): 
+	* javax/swing/JPasswordField.java (uiClassID): 
+	* javax/swing/JRadioButton.java (getUIClassID): 
+	* javax/swing/JRootPane.java (getUIClassID): 
+	* javax/swing/JScrollPane.java (getUIClassID): 
+	* javax/swing/JTabbedPane.java (getUIClassID): 
+	* javax/swing/JToggleButton.java (getUIClassID): 
+	* javax/swing/JTree.java (getUIClassID): 
+	* javax/swing/JViewport.java (getUIClassID): 
+	* javax/swing/text/JTextComponent.java (getUIClassID):
+	Return "fooUI" not "Jfoo"
+
+2004-02-11  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(setReuseAddress): Use Boolean.valueOf() instead of creating a new
+	Boolean object.
+	(setBroadcast): Likewise.
+	* java/net/MulticastSocket.java
+	(setLoopbackMode): Likewise.
+	* java/net/ServerSocket.java
+	(setReuseAddress): Likewise.
+	* java/net/Socket.java
+	(setTcpNoDelay): Likewise.
+	(setSoLinger): Likewise.
+	(setOOBInline): Likewise.
+	(setKeepAlive): Likewise.
+	(setReuseAddress): Likewise.
+	* java/net/URLConnection.java
+	(setContentHandler): Replace == with equals().
+	* java/net/URLStreamHandler.java
+	(hostSEquals): Fix checking host addresses.
+	(toExternalForm): Dont check protocol for null. We know already its
+	not null.
+
 2004-02-10  David Jee  <djee@redhat.com>
 
 	* java/awt/BorderLayout.java

@@ -1,3 +1,265 @@
+2004-02-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14278
+	* parser.c (cp_parser_parameter_declaration_list): Commit
+	to fewer tentative parses.
+
+2004-02-26  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14284
+	* pt.c (dependent_type_p_r): A template template parameter is a
+	dependent type.
+
+2004-02-26  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14246
+	* mangle.c (write_template_arg_literal): Don't rely on identity for
+	boolean constants.
+
+2004-02-24  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (build_exception_variant): Use check_qualified_type.
+
+2004-02-23  Zack Weinberg  <zack@codesourcery.com>
+	    Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl.c (cxx_init_decl_processing): Don't check
+	flag_writable_strings.
+
+2004-02-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/14156
+	* typeck.c (maybe_warn_about_returning_address_of_location):
+	Change check for VAR_DECL to use DECL_P instead.
+
+2004-02-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14250
+	* cvt.c (build_expr_type_conversion): Type must be complete before
+	looking up for conversions.
+
+2004-02-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14143
+	* name-lookup.c	(arg_assoc_class): Don't look into template 
+	arguments if it is not a primary template.
+
+2004-02-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR c++/12007
+	* method.c (use_thunk): Always clone function argument tree.
+
+2004-02-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14199
+	* pt.c (tsubst_copy): Call mark_used for a PARM_DECL.
+
+	PR c++/14173
+	* semantics.c (begin_class_definition): Set TYPE_PACKED correctly
+	for all type variants.
+
+2004-02-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13927
+	* decl.c (duplicate_decls): Return error_mark_node for invalid
+	redeclarations.
+	* name-lookup.c (push_namespace): Ignore the return value from
+	pushdecl.
+	* pt.c (push_template_decl_real): Robustify.
+
+	PR c++/14186
+	* name-lookup.c (push_class_level_binding): Do not complain about
+	adding a binding for a member whose name is the same as the
+	enclosing class if the member is located in a base class of the
+	current class.
+
+2004-02-19  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14181
+	* parser.c (cp_parser_new_expression): Parse an ill-formed 
+	direct-new-declarator after a parenthesized type-id to emit good
+	diagnostic.
+
+2004-02-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.def, cvt.c: Update copyright.
+
+2004-02-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11326
+	* cp-tree.h (abi_version_at_least): Remove.
+	* mangle.c: Include flags.h.
+
+2004-02-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13971
+	* call.c (build_conditional_expr): Handle conversions between
+	class types which result in differently cv-qualified type
+	variants.
+
+	PR c++/14086
+	* class.c (delete_duplicate_fields_1): Remove.
+	(delete_duplicate_fields): Likewise.
+	(finish_struct_anon): Remove check for members with the same name
+	as their enclosing class.
+	(check_field_decls): Do not call duplicate_fields.
+	* decl.c (grokdeclarator): Remove check for static data members
+	with the same name as their enclosing class.
+	* name-lookup.c (push_class_level_binding): Check for members with
+	the same name as their enclosing class.
+
+2004-02-15  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/14085
+	* error.c (dump_decl): Handle TEMPLATE_TYPE_PARM.
+
+2004-02-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13635
+	* pt.c (push_template_decl_real): Make sure DECL_TI_ARGS of DECL
+	has full set of arguments.
+
+2004-02-13  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/13927
+	* error.c (dump_decl) <ALIAS_DECL>: Dump as simple declarations.
+
+2004-02-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14122
+	* cp-tree.h (delete_sanity): Change prototype.
+	* decl2.c (delete_sanity): Make doing_vec a bool, not an int.
+	Remove dead code.  Adjust code to warn about deleting an array.
+	* typekc.c (decay_conversion): Use build_address and build_nop.
+
+	PR c++/14108
+	* search.c (accessible_p): Do not check access in thunks.
+
+	PR c++/14083
+	* call.c (build_conditional_expr): Call force_rvalue on the
+	non-void operand in the case that one result is a throw-expression
+	and the other is not.
+
+2004-02-13  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	PR c++/9851
+	* parser.c (cp_parser_pseudo_destructor_name): Check for errors on
+	the type name and look ahead for ::~, and bail out early with a
+	better error message if the parse is going to fail.
+
+2004-02-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (conversion_kind): New type.
+	(conversion_rank): Likewise.
+	(conversion): Likewise.
+	(CONVERSION_RANK): New macro.
+	(conversion_obstack): New variable.
+	(obstack_initialized): Likewise.
+	(z_candidate): Change type of convs and second_conv.
+	(candidate_warning): New type.
+	(IDENTITY_RANK): Remove.
+	(EXACT_RANK): Likewise.
+	(PROMO_RANK): Likewise.
+	(STD_RANK): Likewise.
+	(PBOOL_RANK): Likewise.
+	(USER_RANK): Likewise.
+	(ELLIPSIS_RANK): Likewise.
+	(BAD_RANK): Likewise.
+	(ICS_RANK): Likewise.
+	(ICS_STD_RANK): Likewise.
+	(ICS_USER_FLAG): Likewise.
+	(ICS_ELLIPSIS_FLAG): Likewise.
+	(ICS_THIS_FLAG): Likewise.
+	(ICS_BAD_FLAG): Likewise.
+	(NEED_TEMPORARY_P): Likewise.
+	(CHECK_COPY_CONSTRUCTOR_P): Likewise.
+	(USER_CONV_CAND): Likewise.
+	(USER_CONV_FN): Likewise.
+	(conversion_obstack_alloc): New function.
+	(alloc_conversion): Likewise.
+	(validate_conversion_obstack): Likewise.
+	(alloc_conversions): Likewise.
+	(build_conv): Adjust to deal with new conversion data structures.
+	(build_identity_conv): New function.
+	(build_ambiguous_conv): Likewise.
+	(standard_conversion): Adjust to deal with new conversion data
+	structures.
+	(convert_class_to_reference): Likewise.
+	(direct_reference_binding): Likewise.
+	(reference_binding): Likewise.
+	(implicit_conversion): Likewise.
+	(add_candidate): Likewise.
+	(add_function_candidate): Likewise.
+	(add_conv_candidate): Likewise.
+	(build_builtin_candidate): Likewise.
+	(print_z_candidate): Likewise.
+	(merge_conversion_sequences): Likewise.
+	(build_user_type_conversion_1): Likewise.
+	(build_user_type_conversion): Likewise.
+	(build_new_function_call): Likewise.
+	(build_object_call): Likewise.
+	(conditional_conversion): Likewise.
+	(build_conditional_expr): Likewise.
+	(build_new_op): Likewise.
+	(build_op_delete_call): Likewise.
+	(convert_like_real): Likewise.
+	(build_over_call): Likewise.
+	(build_new_method_call): Likewise.
+	(is_subseq): Likewise.
+	(maybe_handle_implicit_object): Likewise.
+	(maybe_handle_ref_bind): Likewise.
+	(compare_ics): Likewise.
+	(source_type): Likewise.
+	(add_warning): Likewise.
+	(joust): Likewise.
+	(can_convert_arg): Likewise.
+	(can_convert_arg_bad): Likewise.
+	(perform_implicit_conversion): Likewise.
+	(perform_direct_initialization_if_possible): Likewise.
+	(initialize_reference): Likewise.
+	* cp-lang.c (cp_tree_size): Do not handle WRAPPER.
+	* cp-tree.def (WRAPPER): Likewise.
+	(IDENTITY_CONV): Remove.
+	(LVALUE_CONV): Likewise.
+	(QUAL_CONV): Likewise.
+	(STD_CONV): Likewise.
+	(PTR_CONV): Likewise.
+	(PMEM_CONV): Likewise.
+	(BASE_CONV): Likewise.
+	(REF_BIND): Likewise.
+	(USER_CONV): Likewise.
+	(AMBIG_CONV): Likewise.
+	(RVALUE_CONV): Likewise.
+	* cp-tree.h (tree_wrapper): Remove.
+	(WRAPPER_ZC): Remove.
+	(lang_tree_node): Remove wrapper.
+	(LOOKUP_SPECULATIVELY): Remove.
+	(build_op_delete_call): Adjust prototype.
+	(validate_conversion_obstack): Declare.
+	(build_zc_wrapper): Remove.
+	* cvt.c (convert_to_reference): Remove dead code.
+	(ocp_convert): Likewise.
+	* decl.c (redeclaration_error_message): Correct handling of
+	templates.
+	(finish_destructor_body): Do not use LOOKUP_SPECULATIVELY.
+	(cp_tree_node_structure): Remove WRAPPER case.
+	* decl2.c (finish_file): Call validate_conversion_obstack.
+	* init.c (build_new_1): Remove use of LOOKUP_SPECULATIVELY.
+	(build_op_delete_call): Likewise.
+	(build_x_delete): Likewise.
+	(build_delete): Adjust call to build_op_delete_call.
+	* pt.c (tsubst_friend_declaration): Adjust code to determine
+	whether or not a friend template is a definition.
+	(tsubst_decl): Clear DECL_INITIAL for new FUNCTION_DECLs.
+	* tree.c (build_zc_wrapper): Remove.
+	
+2004-02-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* cp-lang.c: Don't define LANG_HOOKS_BUILTIN_TYPE_DECLS.
+	* cp-tree.h: Don't declare cxx_builtin_type_decls.
+	* decl.c (builtin_type_decls, cxx_builtin_type_decls): Delete.
+	(record_builtin_type): Call debug_hooks->type_decl on the TYPE_DECL.
+
 2004-02-10  Mark Mitchell  <mark@codesourcery.com>
 
 	* typeck.c (lookup_destructor): Fix typo in error message.
@@ -387,7 +649,7 @@
 	PR c++/13710
 	* pt.c (tsubst): Use finish_typeof.
 
-2004-01-16  Jason Merrill  <jason@redhat.com>
+2004-01-18  Jason Merrill  <jason@redhat.com>
 
 	PR c++/11725
 	* except.c (build_throw): In a template, set

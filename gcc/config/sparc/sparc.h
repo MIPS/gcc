@@ -1467,17 +1467,6 @@ extern char leaf_reg_remap[];
 
 /* Stack layout; function entry, exit and calling.  */
 
-/* Define the number of register that can hold parameters.
-   This macro is only used in other macro definitions below and in sparc.c.
-   MODE is the mode of the argument.
-   !v9: All args are passed in %o0-%o5.
-   v9: %o0-%o5 and %f0-%f31 are cumulatively used to pass values.
-   See the description in sparc.c.  */
-#define NPARM_REGS(MODE) \
-(TARGET_ARCH64 \
- ? (GET_MODE_CLASS (MODE) == MODE_FLOAT ? 32 : 6) \
- : 6)
-
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
@@ -1564,22 +1553,6 @@ extern char leaf_reg_remap[];
    SIZE is the number of bytes of arguments passed on the stack.  */
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) 0
-
-/* Some subroutine macros specific to this machine.
-   When !TARGET_FPU, put float return values in the general registers,
-   since we don't have any fp registers.  */
-#define BASE_RETURN_VALUE_REG(MODE)	\
-  (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)
-
-#define BASE_OUTGOING_VALUE_REG(MODE)	\
-  (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 24)
-
-#define BASE_PASSING_ARG_REG(MODE)				\
-  (TARGET_ARCH64 && TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)
-
-/* ??? FIXME -- seems wrong for v9 structure passing...  */
-#define BASE_INCOMING_ARG_REG(MODE)				\
-  (TARGET_ARCH64 && TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 24)
 
 /* Define this macro if the target machine has "register windows".  This
    C expression returns the register number as seen by the called function
@@ -2217,28 +2190,12 @@ do {                                                                    \
 (! TARGET_PTR64 ? SImode : flag_pic ? DImode : TARGET_CM_MEDLOW ? SImode : DImode)
 #endif
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX 8
-
-#if 0 /* Sun 4 has matherr, so this is no good.  */
-/* This is the value of the error code EDOM for this machine,
-   used by the sqrt instruction.  */
-#define TARGET_EDOM 33
-
-/* This is how to refer to the variable errno.  */
-#define GEN_ERRNO_RTX \
-  gen_rtx_MEM (SImode, gen_rtx_SYMBOL_REF (Pmode, "errno"))
-#endif /* 0 */
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */

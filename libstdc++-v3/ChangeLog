@@ -1,3 +1,401 @@
+2004-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int, money_get<>::_M_extract): If appropriate,
+	call reserve on the __tmp_gruping string.
+	(num_get<>::_M_extract_float): Don't append unnecessarily a
+	char() to the returned string.
+	* include/bits/locale_facets.tcc: Trivial reformattings.
+
+2004-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (money_get<>::_M_extract):
+	Change signature: now takes a plain string&.
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Update consistently the definition; use the moneypunct cache
+	to parse the value; use swap to change __units.
+	(money_get<>::do_get(long double&)): Update call of _M_extract,
+	avoid ctype::narrow, not correct wrt the standard.
+	(money_get<>::do_get(string_type&)): Likewise, update call
+	of _M_extract, use ctype::widen.
+	* src/locale-inst.cc: Tweak instantiations of _M_extract.
+
+2004-02-26  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* testsuite/demangle/abi_examples/01.cc: Expect error -2.
+	* testsuite/demangle/abi_examples/02.cc: Likewise.
+	* testsuite/demangle/regression/cw-11.cc: Likewise.
+	* testsuite/demangle/regression/cw-16.cc: Change two expected
+	results to match libiberty demangler output.
+
+2004-02-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/10246
+        * libsupc++/Makefile.am: Use libiberty demangler.
+        (c_sources): Add cp-demangle.c.
+        * libsupc++/Makefile.in: Regenerate.
+        * src/Makefile.am (sources): Remove demangle.cc.
+        * src/Makefile.in: Regenerate.
+        * include/Makefile.am (bits_headers): Move demangle.h.
+	(ext_headers): ...here.
+        * include/Makefile.in: Regenerate.
+        * include/bits/demangle.h: Move...
+	* include/ext/demangle.h: ...here.
+        * src/demangle.cc: Remove.
+
+2004-02-26  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+        * include/bits/demangle.h: Add type template parameter to all
+        templates with just an Allocator template parameter.
+ 
+2004-02-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/atomicity.h: New, forward declarations for __atomic_add
+	and __exchange_and_add.
+	* config/cpu/generic/atomic_word.h: New, typdef for atomic word.
+	* config/cpu/cris/atomic_word.h: Same.
+	* config/cpu/sparc/atomic_word.h: Same.
+	* include/bits/ios_base.h (_Callback_list::_M_remove_reference):
+	Qualifiy with __gnu_cxx.
+	(_Callback_list::_M_add_reference): Same.
+	* include/bits/locale_classes.h (locale::facet::_M_add_reference): Add.
+	(locale::facet::_M_remove_reference): Same.
+	(locale::_Impl::_M_add_reference): Add.
+	(locale::_Impl::_M_remove_reference): Same.
+	* include/bits/basic_string.h (basic_string::_Rep::_M_refcopy): Same.
+	(basic_string::_Rep::_M_dispose): Same.
+	* src/ios.cc (ios_base::xalloc): Same.
+	* src/ios_init.cc (ios_base::Init::Init): Same.
+	(ios_base::Init::~Init): Same.
+	* src/locale.cc (locale::id::_M_id): Same.
+	* config/cpu/i486/atomicity.h: Use __gnu_cxx namespace. Remove
+	static, and inline keyworks.
+	* config/cpu/alpha/atomicity.h: Same.
+	* config/cpu/cris/atomicity.h: Same.
+	* config/cpu/generic/atomicity.h: Same.
+	* config/cpu/hppa/atomicity.h: Same.
+	* config/cpu/i386/atomicity.h: Same.
+	* config/cpu/ia64/atomicity.h: Same.
+	* config/cpu/m68k/atomicity.h: Same.
+	* config/cpu/mips/atomicity.h: Same.
+	* config/cpu/powerpc/atomicity.h: Same.
+	* config/cpu/s390/atomicity.h: Same.
+	* config/cpu/sparc/atomicity.h: Same.
+	
+	* src/Makefile.am (host_sources): Add atomicity.cc.
+	(atomicity.cc): New rule.
+	* src/Makefile.in: Regenerate.
+	* include/Makefile.am (host_headers): Remove host atomicity.h.
+	(host_headers): Add atomic_word.h.
+	(bits_headers): Add bits atomicity.h.
+	Change ATOMICITY_INC_SRCDIR to ATOMICITY_SRCDIR.
+	* include/Makefile.in: Regenerate.
+	* configure.host (atomic_word_dir): Add.
+	* configure.ac: Substitute ATOMIC_WORD_SRCDIR. Change
+	ATOMICITY_INC_SRCDIR to ATOMICITY_SRCDIR.
+	* configure: Regenerate.
+	* config/linker-map.gnu: Export __exchange_and_add, and __atomic_add.
+
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust line numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Same.	
+	
+2004-02-25  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/20_util/howto.html, docs/html/20_util/allocator.html,
+	docs/html/ext/howto.html, docs/html/ext/mt_allocator.html:
+	Fix markup, more <link> tags.
+
+2004-02-25  Carlo Wood  <carlo@alinoe.com>
+
+	* bits/demangle.h
+	namespace __gnu_cxx::demangler
+	(session<Allocator>::qualifier_list_Allocator): Add
+	(session<Allocator>::M_qualifier_list_alloc): Add
+	(session<Allocator>::decode_type_with_postfix):
+	Use M_qualifier_list_alloc instead of calling operator new/delete.
+
+2004-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14252
+	* include/bits/postypes.h (class streamoff): Add operator++(),
+	operator++(int), operator--() and operator--(int).
+	* testsuite/27_io/fpos/14252.cc: New.
+
+2004-02-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_int): Fix bounds
+	error in handling of hex constants.
+
+2004-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Prefer basic_string::append to operator+= and a temporary.
+
+2004-02-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/vterminate.cc (__gnu_cxx::__verbose_terminate_handler):
+	Only use fputs, not write.
+	
+2004-02-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/malloc_allocator.h: Add operators ==, !=.
+	* include/ext/new_allocator.h: Add operators ==, !=.
+	* include/ext/mt_allocator.h (__mt_alloc::tune): New.
+	(__mt_alloc::_S_get_options): New.
+	(__mt_alloc::_S_set_options): New.	
+	(__mt_alloc::_S_thread_key_destr): To _S_destroy_thread_key.
+	(__mt_alloc::_S_no_of_bins): To _S_bin_size.
+	Move functions out of line, simplify, format.
+	* src/allocator.cc: Simplify explicit instantiations.
+	* include/bits/allocator.h: Tweak.
+	
+2004-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Restructure formatting of value component, first dealing with
+	the non-decimal digits; use reserve.
+
+2004-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class money_get): Inherit
+	from money_base too; tweak declaration of _M_extract, now
+	parameterized on _Intl too.
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Update definition to use the cache; call reserve on __res to
+	avoid multiple reallocations; fix parsing of sign component
+	according to 22.2.6.1.2, p3.
+	(money_get<>::do_get(long double&),
+	money_get<>::do_get(string_type&)): Update calls of _M_extract.	
+	* src/locale-inst.cc:  Add instantiations of
+	money_get::_M_extract<false> and money_get::_M_extract<true>.
+	* testsuite/22_locale/money_get/get/char/14.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/14.cc: Ditto.
+	
+2004-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/vterminate.cc
+	(__gnu_cxx::__verbose_terminate_handler): Guard against recursive
+	calls to terminate.
+	* src/demangle.cc (__cxa_demangle): Wrap in try-catch block.
+
+	* testsuite/testsuite_hooks.cc (__gnu_test::set_memory_limits): Do
+	not set RLIMIT_AS on HP-UX.
+
+2004-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/testsuite_hooks.cc (__gnu_test::set_memory_limits): Do
+	not set RLIMIT_AS on HP-UX.
+
+2004-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class money_base): Add { _S_minus,
+	_S_zero, _S_end } enum, _S_atoms.
+	(struct __moneypunct_cache<>): Parameterize on _Intl too; add
+	_M_grouping_size, _M_curr_symbol_size, _M_positive_sign_size,
+	_M_negative_sign_size, _M_atoms; tweak constructor consistently.
+	(__moneypunct_cache<>::~__moneypunct_cache): Update.
+	(__moneypunct_cache<>::_M_cache): Fill the cache.
+	(class moneypunct): Tweak __cache_type typedef.
+	(class money_put): Inherit from money_base too; tweak declaration
+	of _M_insert, now parameterized on _Intl.
+	* include/bits/locale_facets.tcc
+	(struct __use_cache<__moneypunct_cache<_CharT, _Intl> >): New.
+	(money_put<>::_M_insert): Update definition to use the cache;
+	call reserve on __res to avoid multiple reallocations.
+	(money_put<>::do_put(long double),
+	money_put<>::do_put(const string_type&): Update calls of _M_insert.
+	* config/locale/generic/monetary_members.cc
+	(moneypunct<char, true>::_M_initialize_moneypunct,
+	moneypunct<char, false>::_M_initialize_moneypunct,
+	moneypunct<wchar_t, true>::_M_initialize_moneypunct,
+	moneypunct<wchar_t, false>::_M_initialize_moneypunct): Update.
+	* config/locale/gnu/monetary_members.cc: Likewise.
+	* config/locale/gnu/monetary_members.cc
+	(moneypunct<wchar_t, true>::~moneypunct(),
+	moneypunct<wchar_t, false>::~moneypunct()): Likewise.
+	* src/globals_locale.cc: Tweak fake_money_cache_c.
+	* src/locale-inst.cc: Add instantiations for
+	money_put::_M_insert<false> and money_put::_M_insert<true> and
+	__moneypunct_cache<C, false>, __moneypunct_cache<C, true>.
+	* src/locale_facets.cc: Define money_base::_S_atoms.
+	* src/locale_init.cc: Update placement new of
+	__moneypunct_cache<char, false>, __moneypunct_cache<char, true>,
+	__moneypunct_cache<wchar_t, false>, __moneypunct_cache<wchar_T, true>.
+
+	* config/locale/generic/numeric_members.cc: Clean up.
+	* config/locale/gnu/numeric_members.cc: Likewise.
+	* testsuite/22_locale/money_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/money_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/money_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/3.cc: Likewise.
+
+2004-02-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/27_io/basic_filebuf/showmanyc/char/9533-1.cc: Open
+	FIFO for writing with ios_base::in|ios_base::out.
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
+	* testsuite/27_io/objects/char/7.cc: Likewise.
+	* testsuite/27_io/objects/char/9661-1.cc: Open FIFO for writing
+	with "r+".
+
+2004-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* 22_locale/collate/compare/wchar_t/2.cc: Change input-charset
+	from iso-8859-1 to ISO8859-1.
+	* 22_locale/collate/compare/wchar_t/wrapped_env.cc: Same.
+	* 22_locale/collate/compare/wchar_t/wrapped_locale.cc: Same.
+	* 22_locale/collate/hash/wchar_t/2.cc: Same.
+	* 22_locale/collate/hash/wchar_t/wrapped_env.cc: Same.
+	* 22_locale/collate/hash/wchar_t/wrapped_locale.cc: Same.
+	* 22_locale/collate/transform/wchar_t/2.cc: Same.
+	* 22_locale/collate/transform/wchar_t/wrapped_env.cc: Same.
+	* 22_locale/collate/transform/wchar_t/wrapped_locale.cc: Same.
+
+2004-02-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (money_get<>::_M_extract):
+	New, helper for do_get.
+	(money_put<>::_M_insert): Likewise, for do_put.
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract,
+	money_put<>::_M_insert): Define.
+	(money_get<>::do_get(long double&), money_get<>::do_get(
+	string_type&), money_put::do_put(long double),
+	money_put::do_put(const string_type&)): Use the helpers.
+
+2004-02-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/io/basic_file_stdio.cc (__gnu_internal::xwritev):
+	Rewrite, avoiding recursion.
+	(__gnu_internal::xwrite): Minor tweaks.
+
+2004-02-17  Stefan Olsson  <stefan@xapa.se>
+
+	* include/ext/mt_allocator.h: Removed the last
+	pointer. Deallocated blocks are now added to the front of
+	freelists as proposed by Felix Yen.  This gives roughly 10%
+	performance boost and saves some memory.
+	* docs/html/ext/mt_allocator.html: Change due to that deallocated
+	blocks now are added to the front of freelists. The reason to this
+	approach is also explained.
+
+2004-02-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int, money_get<>::do_get): Simplify
+	grouping fidelity conditional.
+
+2004-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_filebuf/overflow/char/13858.cc:
+	Qualify exception with std::.
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/overflow/wchar_t/13858.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Ditto.
+
+2004-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/enc_filebuf/char/13189.cc: Don't check
+	for now that the catch block is not reached.
+	* testsuite/ext/enc_filebuf/wchar_t/13189.cc: Likewise.
+
+2004-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(string_type&)):
+	Fix parsing of the remaining sign characters.
+	* 22_locale/money_get/get/char/2.cc: Tweak: now, correctly,
+	the input is scanned 'til eof.
+	* 22_locale/money_get/get/char/4.cc: Likewise.
+	* 22_locale/money_get/get/wchar_t/2.cc: Likewise.
+	* 22_locale/money_get/get/wchar_t/4.cc: Likewise.
+	* 22_locale/money_get/get/char/8.cc: Tweak: override do_neg_format,
+	not do_pos_format: the former is the only one that matters during
+	input.
+	* 22_locale/money_get/get/wchar_t/8.cc: Likewise.
+
+	* 22_locale/money_get/get/char/6.cc: Minor tweak.
+	* 22_locale/money_get/get/wchar_t/6.cc: Likewise.
+
+2004-02-15  David Asher  <david.asher@cavium.com>
+
+	PR libstdc++/11352
+	* include/bits/locale_facets.tcc (__pad<>::_S_pad): Don't
+	access __olds beyond __oldlen.
+
+2004-02-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Make
+	sure the exception is actually thrown.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Ditto.
+
+2004-02-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13858
+	* include/bits/fstream.tcc (basic_filebuf<>::_M_convert_to_external):
+	In case of conversion errors, throw ios_failure; simplify.
+	* testsuite/27_io/basic_filebuf/overflow/char/13858.cc: New.
+	* testsuite/27_io/basic_filebuf/overflow/wchar_t/13858.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Tweak,
+	previously we didn't throw in case of conversion errors, instead
+	just returned eof().
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Ditto.
+
+	* include/bits/fstream.tcc (basic_filebuf<>::overflow):
+	Trivial simplification of a conditional.
+
+2004-02-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13731 (final part: writev)
+	* config/io/basic_file_stdio.cc (__gnu_internal::xwritev):
+	New, a wrapper around writev() handling partial writes.
+	(__basic_file<char>::xwrite): Move to __gnu_internal and make
+	static.
+	(__basic_file<char>::xsputn): Update call.
+	(__basic_file<char>::xsputn_2): Likewise.	
+	* config/io/basic_file_stdio.h (__basic_file<char>::xwrite):
+	Don't declare, now static.
+
+2004-02-11  Stefan Olsson  <stefan@xapa.se>
+
+	* docs/html/ext/mt_allocator.html: New.
+
+2004-02-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/20_util/allocator.html: New file, consolidate
+	allocator information here. Revamp.
+	* docs/html/documentation.html: Change links.
+	* docs/html/20_util/howto.html: Same.
+	* docs/html/ext/howto.html: Same.
+
+2004-02-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13731 (first part: write)
+	* config/io/basic_file_stdio.h (__basic_file<char>::xwrite):
+	New, declare.
+	* config/io/basic_file_stdio.cc (__basic_file<char>::xwrite):
+	Define it: a wrapper around write() handling partial write.
+	(__basic_file<char>::xsputn): Use it.
+	(__basic_file<char>::xsputn_2): Likewise.
+
+2004-02-11  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/14078
+	* include/std/std_istream.h (operator>>(__istream_type& (*)
+	(__istream_type&)), operator>>(__ios_type& (*)(__ios_type&)),
+	operator>>(ios_base& (*)(ios_base&))): Declare inline.
+	* include/std/std_ostream.h (operator<<(__ostream_type& (*)
+	(__ostream_type&)), operator<<(__ios_type& (*)(__ios_type&)),
+	operator<<(ios_base& (*) (ios_base&))): Likewise.
+	* testsuite/performance/27_io/fmtflags_manipulators.cc: New.
+
 2004-02-10  Loren J. Rittle  <ljrittle@acm.org>
 
 	PR libstdc++/14098
@@ -494,11 +892,11 @@
 2004-01-29  Stephen M. Webb  <stephen.webb@bregmasoft.com>
 
 	* config/local/generic/c_locale.h: Change ::malloc() to new char[].
-  	* config/local/gnu/c_locale.h: Change ::malloc() to new char[].
-  	* include/bits/stl_tempbuf.h: Convert _Temporary_buffer to use
+	* config/local/gnu/c_locale.h: Change ::malloc() to new char[].
+	* include/bits/stl_tempbuf.h: Convert _Temporary_buffer to use
 	std::get_temporary_buffer() instead of duplicating its code.
 	Update to C++STYLE conventions.
-  	* include/std/std_memory.h (get_temporary_buffer): Use ::operator
+	* include/std/std_memory.h (get_temporary_buffer): Use ::operator
 	new() instead of std::malloc().
 	(return_temporary_buffer): Use ::operator delete() instead of
 	std::free().

@@ -1,3 +1,307 @@
+2004-02-25  Robert Dewar  <dewar@gnat.com>
+
+	* 51osinte.ads, 52osinte.ads, 53osinte.ads, 54osinte.ads,
+	55osinte.ads, 56osinte.ads, 5aosinte.ads, 5bosinte.ads,
+	5cosinte.ads, 5fosinte.ads, 5gosinte.ads, 5hosinte.ads,
+	5iosinte.ads, 5losinte.ads, 5nosinte.ads, 5oosinte.ads,
+	5posinte.ads, 5sosinte.ads, 5tosinte.ads, 5vosinte.ads,
+	5wosinte.ads, 5zosinte.ads: Move instances of Unchecked_Conversion to
+	the defining instance of the type to avoid aliasing problems.
+	Fix copyright header.  Fix bad comments in package header.
+
+	* exp_util.adb, prj-part.adb, prj-part.adb: Minor reformatting
+
+2004-02-25  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch2.adb (Param_Entity): Handle properly formals that have been
+	rewritten as references when aliased through an address clause.
+
+	* sem_ch4.adb (Try_Indirect_Call): Normalize actuals before checking
+	whether call can be interpreted as an indirect call to the result of a
+	parameterless function call returning an access subprogram.
+
+2004-02-25  Arnaud Charlet  <charlet@act-europe.fr>
+
+	Code clean up:
+	* exp_ch7.adb (Make_Clean): Remove generation of calls to
+	Unlock[_Entries], since this is now done by Service_Entries directly.
+
+	* exp_ch9.adb (Build_Protected_Subprogram_Body): ditto.
+
+	* s-tpobop.ads, s-tpobop.adb (PO_Service_Entries): New nested procedure
+	Requeue_Call for better code readability. Change spec and update calls:
+	PO_Service_Entries now unlock the PO on exit.
+	(Protected_Entry_Call, Timed_Protected_Entry_Call): Update calls to
+	PO_Service_Entries.
+
+	* s-tposen.ads, s-tposen.adb (Service_Entry): Now unlock the PO on exit.
+
+	* s-taenca.adb, s-tasren.adb: Update calls to PO_Service_Entries.
+
+2004-02-25  Sergey Rybin  <rybin@act-europe.fr>
+
+	* exp_ch9.adb (Build_Simple_Entry_Call): Prevent expanding the
+	protected subprogram call and analyzing the result of such expanding
+	in case when the called protected subprogram is eliminated.
+
+	* sem_elim.adb (Check_Eliminated): Skip blocks when comparing scope
+	names.
+
+2004-02-25  Jerome Guitton  <guitton@act-europe.fr>
+
+	* Makefile.in: Clean ups.
+
+2004-02-23  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch6.adb (Expand_N_Subprogram_Declaration): Do not create
+	protected operations if original subprogram is flagged as eliminated.
+	(Expand_N_Subprogram_Body): For a protected operation, create
+	discriminals for next operation before checking whether the operation
+	is eliminated.
+
+	* exp_ch9.adb (Expand_N_Protected_Body,
+	Expand_N_Protected_Type_Declaration): Do not generate specs and bodies
+	for internal protected operations if the original subprogram is
+	eliminated.
+
+	* sem_elim.adb (Check_Eliminated): Handle properly protected operations
+	declared in a single protected object.
+
+2004-02-23  Vincent Celier  <celier@gnat.com>
+
+	* prj-attr.adb: Make attribute Builder'Executable an associative array,
+	case insensitive if file names are case insensitive, instead of a
+	standard associative array.
+
+	* prj-attr.adb (Initialize): For 'b' associative arrays, do not set
+	them as case insensitive on platforms where the file names are case
+	sensitive.
+
+	* prj-part.adb (Parse_Single_Project): Make sure, when checking if
+	project file has already been parsed that canonical path are compared.
+
+2004-02-23  Robert Dewar  <dewar@gnat.com>
+
+	* sinput-c.ads: Correct bad unit title in header
+
+	* freeze.adb: Minor reformatting
+
+2004-02-23  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* trans.c (tree_transform, case N_Procedure_Call_Statement): For
+	nonaddressable COMPONENT_REF that is removing padding that we are
+	taking the address of, take the address of the padded record instead
+	if item is variable size.
+
+2004-02-20  Robert Dewar  <dewar@gnat.com>
+
+	* bld.adb, exp_util.adb, gprcmd.adb: Minor reformatting
+
+2004-02-20  Ed Schonberg  <schonberg@gnat.com>
+
+	* freeze.adb (Freeze_Record_Type): Generalize mechanism that generates
+	itype references for the constrained designated type of a component
+	whose base type is already frozen.
+
+2004-02-20  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* init.c (__gnat_error_handler [tru64]): Rewrite previous change to
+	avoid GCC warnings.
+
+2004-02-20  Sergey Rybin  <rybin@act-europe.fr>
+
+	* sem_ch12.adb (Analyze_Formal_Package): Create a new defining
+	identifier for a phantom package that rewrites the formal package
+	declaration with a box. The Add semantic decorations for the defining
+	identifier from the original node (that represents the formal package).
+
+2004-02-19  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Make-lang.in (ada/stamp-sdefault): Use the top level
+	move-if-change.
+
+2004-02-19  Richard Henderson  <rth@redhat.com>
+
+	* misc.c (record_code_position): Add third build arg for RTL_EXPR.
+
+2004-02-18  Emmanuel Briot  <briot@act-europe.fr>
+
+	* ali.ads, ali.adb (First_Sdep_Entry): No longer a constant, so that
+	Scan_ALI can be used for multiple ALI files without reinitializing
+	between calls.
+
+2004-02-18  Robert Dewar  <dewar@gnat.com>
+
+	* debug.adb: Minor reformatting.
+
+2004-02-18  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* decl.c (gnat_to_gnu_entity, case object): Set DECL_POINTER_ALIAS_SET
+	to zero if there is an address clause.
+
+2004-02-18  Thomas Quinot  <quinot@act-europe.fr>
+
+	* exp_util.adb (Side_Effect_Free): Any literal is side effects free.
+
+2004-02-18  Gary Dismukes  <dismukes@gnat.com>
+
+	* layout.adb (Layout_Component_List): Revise generation of call to
+	discriminant-checking function to pass selections of all of the type's
+	discriminants rather than just the variant-controlling discriminant.
+
+2004-02-18  Olivier Hainque  <hainque@act-europe.fr>
+
+	* 5gmastop.adb (Pop_Frame): Do not call exc_unwind, which is bound to
+	fail in the current setup and triggers spurious system error messages.
+	Pretend it occurred and failed instead.
+
+2004-02-18  Vincent Celier  <celier@gnat.com>
+
+	* bld.adb: Mark FLDFLAGS as saved
+	(Process_Declarative_Items): Add Linker'Linker_Options to FLDFLAGS when
+	it is not the root project.  Put each directory to be
+	extended between double quotes to prevent it to be expanded on Windows.
+	(Recursive_Process): Reset CFLAGS/CXXFLAGS to nothing before processing
+	the project file. Set them back to their initial values if they have not
+	been set in the project file.
+
+	* gprcmd.adb: (Gprdebug, Debug): New global variables
+	(Display_Command): New procedure
+	(Usage): Document new command "linkopts"
+	Call Display_Command when env var GPRDEBUG has the value "TRUE"
+	Implement new command "linkopts"
+	Remove quotes that may be around arguments for "extend"
+	Always call Normalize_Pathname with arguments formatted for the platform
+
+	* Makefile.generic: Link C/C++ mains with $(FLDFLAGS)
+	Change @echo to @$(display) in target clean to be able to clean silently
+
+	* Makefile.prolog: Save FLDFLAGS and give it an initial empty value
+
+	* prj-part.adb (Project_Path_Name_Of): Do not put final result in
+	canonical case.
+
+	* prj-part.adb (Parse_Single_Project): Always call with From_Extended
+	= Extending_All when current project is an extending all project.
+
+	* vms_conv.adb (Output_File_Expected): New Boolean global variable,
+	set to True only for LINK command, after Unix switch -o.
+	(Process_Arguments): Set Output_File_Expected to True for LINK command
+	after Unix switch -o. When Output_File_Expected is True, never add an
+	extension to a file name.
+
+	* 5vml-tgt.adb (Build_Dynamic_Library): Do not append "/OPTIONS" to the
+	option file name, only to the --for-linker= switch.
+	(Option_File_Name): If option file name do not end with ".opt", append
+	"/OPTIONS".
+
+2004-02-18  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2004-02-17  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Make-lang.in (stamp-sdefault): Do not depend on
+	move-if-change.
+
+2004-02-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* config-lang.in: Disable Ada by default until probe logic for
+	a bootstrap Ada compiler can be moved to the top level configure
+	script.
+
+2004-02-12  Olivier Hainque  <hainque@act-europe.fr>
+
+	* decl.c (components_to_record): Don't claim that the internal fields
+	we make to hold the variant parts are semantically addressable, because
+	they are not.
+
+	* exp_pakd.adb (Create_Packed_Array_Type): Rename Esiz into PASize and
+	adjust the comment describing the modular type form when we can use it.
+	(Install_PAT): Account for the Esiz renaming.
+
+	* init.c (__gnat_error_handler for alpha-tru64): Arrange to clear the
+	sc_onstack context indication before raising the exception to which
+	the signal is mapped. Allows better handling of later signals possibly
+	triggered by the resumed user code if the exception is handled.
+
+2004-02-12  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* 5zinit.adb: Removed, no longer used.
+
+2004-02-12  Robert Dewar  <dewar@gnat.com>
+
+	* ali.adb: Remove separating space between parameters on R line. Makes
+	format consistent with format used by the binder for Set_Globals call.
+
+	* atree.ads, atree.adb: Minor reformatting (new function header format)
+
+	* bindgen.adb: Add Run-Time Globals documentation section containing
+	detailed documentation of the globals passed from the binder file to
+	the run time.
+
+	* gnatls.adb: Minor reformatting
+
+	* init.c (__gnat_set_globals): Add note pointing to documentation in
+	bindgen.
+
+	* lib-writ.ads, lib-writ.adb: Remove separating space between
+	parameters on R line.
+	Makes format consistent with format used by the binder for Set_Globals
+	call.
+
+	* osint.ads: Add 2004 to copyright notice
+	Minor reformatting
+
+	* snames.ads: Correct capitalization of FIFO_Within_Priorities
+	Noticed during code reading, documentation issue only
+
+	* usage.adb: Remove junk line for obsolete C switch
+	Noticed during code reading
+
+2004-02-12  Vincent Celier  <celier@gnat.com>
+
+	* bld.adb (Process_Declarative_Items): For Source_Dirs call gprcmd
+	extend for each directory, so that multiple /** directories are
+	extended individually.
+	(Recursive_Process): Set the default for LANGUAGES to ada
+
+	* gprcmd.adb: Define new command "ignore", to do nothing.
+	Implement new comment "path".
+
+	* Makefile.generic: Suppress output when SILENT is set
+	Make sure that when compiler for C/C++ is gcc, the correct -x switch is
+	used, so that the correct compiler is invoked.
+	When compiler is gcc/g++, put search path in env vars C_INCLUDE_PATH/
+	CXX_INCLUDE_PATH, to avoid failure with too long command lines.
+
+2004-02-12  Jerome Guitton  <guitton@act-europe.fr>
+
+	* Makefile.in: Clean ups and remove obsolete targets.
+
+2004-02-12  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch5.adb: Remove Possible_Unligned_Slice, in favor of the similar
+	predicate declared in exp_util.
+
+	* exp_util.adb: Add comments.
+
+	* sem_ch10.adb (Analyze_Subunit): Remove ultimate parent unit from
+	visibility before compiling context of the subunit.
+
+	* sem_res.adb (Check_Parameterless_Call): If the context expects a
+	value but the name is a procedure, do not attempt to analyze as a call,
+	in order to obtain more telling diagnostics.
+
+	* sem_util.adb (Wrong_Type): Further enhancement to diagnose missing
+	'Access on parameterless function calls.
+	(Normalize_Actuals): For a parameterless function call with missing
+	actuals, defer diagnostic until resolution of enclosing call.
+
+	* sem_util.adb (Wrong_Type): If the context type is an access to
+	subprogram and the expression is a procedure name, suggest a missing
+	'attribute.
+
 2004-02-10  Arnaud Charlet  <charlet@act-europe.fr>,
 	    Nathanael Nerode  <neroden@gcc.gnu.org>
 

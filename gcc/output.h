@@ -413,7 +413,7 @@ extern int current_function_uses_only_leaf_regs;
 /* Default file in which to dump debug output.  */
 
 #ifdef BUFSIZ
-extern FILE *rtl_dump_file;
+extern FILE *dump_file;
 #endif
 
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
@@ -426,6 +426,11 @@ extern rtx current_output_insn;
    This means that inconsistencies are the user's fault, so don't abort.
    The precise value is the insn being output, to pass to error_for_asm.  */
 extern rtx this_is_asm_operands;
+
+/* Carry information from ASM_DECLARE_OBJECT_NAME
+   to ASM_FINISH_DECLARE_OBJECT.  */
+extern int size_directive_output;
+extern tree last_assemble_variable_decl;
 
 /* Decide whether DECL needs to be in a writable section.
    RELOC is the same as for SELECT_SECTION.  */

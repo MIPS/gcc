@@ -2211,7 +2211,7 @@ long
 compute_frame_size (int size)
 {
   /* Add space for the incoming static chain value.  */
-  if (current_function_needs_context)
+  if (cfun->static_chain_decl != NULL)
     size += (1 * UNITS_PER_WORD);
 
   xtensa_current_frame_size =

@@ -1,3 +1,20 @@
+2004-02-29  Andreas Jaeger  <aj@suse.de>
+
+	* configure.in: Set ac_libbanshee_warn_cflags for GCC.
+	* configure: Regenerated.
+
+	* libcompat/Makefile.am (AM_CFLAGS): Add
+	ac_libbanshee_warn_cflags.
+	* engine/Makefile.am (AM_CFLAGS): Likewise.
+	* points-to/Makefile.am (AM_CFLAGS): Likewise.
+
+	* libcompat/Makefile.in: Regenerated.
+	* engine/Makefile.in: Regenerated.
+	* points-to/Makefile.in: Regenerated.
+	* Makefile.in: Regenerated.
+
+	* libcompat/radix-tree.c: Include <stdlib.h> for calloc.
+
 2004-02-03  Daniel Berlin  <dberlin@dberlin.org>
 	
 	Fix PR other/12220

@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -282,7 +282,7 @@ _cpp_process_line_notes (cpp_reader *pfile, int in_comment)
 	    }
 
 	  buffer->line_base = note->pos;
-	  pfile->line++;
+	  CPP_INCREMENT_LINE (pfile, 0);
 	}
       else if (_cpp_trigraph_map[note->type])
 	{
@@ -349,12 +349,16 @@ _cpp_skip_block_comment (cpp_reader *pfile)
 	}
       else if (c == '\n')
 	{
+	  unsigned int cols;
 	  buffer->cur = cur - 1;
 	  _cpp_process_line_notes (pfile, true);
 	  if (buffer->next_line >= buffer->rlimit)
 	    return true;
 	  _cpp_clean_line (pfile);
-	  pfile->line++;
+
+	  cols = buffer->next_line - buffer->line_base;
+	  CPP_INCREMENT_LINE (pfile, cols);
+
 	  cur = buffer->cur;
 	}
     }
@@ -680,8 +684,7 @@ _cpp_temp_token (cpp_reader *pfile)
     }
 
   result = pfile->cur_token++;
-  result->line = old->line;
-  result->col = old->col;
+  result->src_loc = old->src_loc;
   return result;
 }
 
@@ -744,6 +747,8 @@ _cpp_lex_token (cpp_reader *pfile)
 bool
 _cpp_get_fresh_line (cpp_reader *pfile)
 {
+  int return_at_eof;
+
   /* We can't get a new line until we leave the current directive.  */
   if (pfile->state.in_directive)
     return false;
@@ -772,13 +777,14 @@ _cpp_get_fresh_line (cpp_reader *pfile)
 	{
 	  /* Only warn once.  */
 	  buffer->next_line = buffer->rlimit;
-	  cpp_error_with_line (pfile, CPP_DL_PEDWARN, pfile->line - 1,
+	  cpp_error_with_line (pfile, CPP_DL_PEDWARN, pfile->line,
 			       CPP_BUF_COLUMN (buffer, buffer->cur),
 			       "no newline at end of file");
 	}
- 
+
+      return_at_eof = buffer->return_at_eof;
       _cpp_pop_buffer (pfile);
-      if (pfile->buffer == NULL)
+      if (pfile->buffer == NULL || return_at_eof)
 	return false;
     }
 }
@@ -822,7 +828,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  if (!pfile->state.in_directive)
 	    {
 	      /* Tell the compiler the line number of the EOF token.  */
-	      result->line = pfile->line;
+	      result->src_loc = pfile->line;
 	      result->flags = BOL;
 	    }
 	  return result;
@@ -839,17 +845,19 @@ _cpp_lex_direct (cpp_reader *pfile)
     }
   buffer = pfile->buffer;
  update_tokens_line:
-  result->line = pfile->line;
+  result->src_loc = pfile->line;
 
  skipped_white:
   if (buffer->cur >= buffer->notes[buffer->cur_note].pos
       && !pfile->overlaid_buffer)
     {
       _cpp_process_line_notes (pfile, false);
-      result->line = pfile->line;
+      result->src_loc = pfile->line;
     }
   c = *buffer->cur++;
-  result->col = CPP_BUF_COLUMN (buffer, buffer->cur);
+
+  result->src_loc = linemap_position_for_column (pfile->line_table,
+						 CPP_BUF_COLUMN (buffer, buffer->cur));
 
   switch (c)
     {
@@ -859,7 +867,8 @@ _cpp_lex_direct (cpp_reader *pfile)
       goto skipped_white;
 
     case '\n':
-      pfile->line++;
+      if (buffer->cur < buffer->rlimit)
+	CPP_INCREMENT_LINE (pfile, 0);
       buffer->need_line = true;
       goto fresh_line;
 
@@ -916,7 +925,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 	    cpp_error (pfile, CPP_DL_ERROR, "unterminated comment");
 	}
       else if (c == '/' && (CPP_OPTION (pfile, cplusplus_comments)
-			    || CPP_IN_SYSTEM_HEADER (pfile)))
+			    || cpp_in_system_header (pfile)))
 	{
 	  /* Warn about comments only if pedantically GNUC89, and not
 	     in system headers.  */

@@ -137,7 +137,7 @@ static void delete_alias_info (struct alias_info *);
 static void compute_points_to_and_addr_escape (struct alias_info *);
 static void compute_flow_sensitive_aliasing (struct alias_info *);
 static void setup_pointers_and_addressables (struct alias_info *);
-static void collect_points_to_info_r (tree, tree, void *);
+static bool collect_points_to_info_r (tree, tree, void *);
 static bool is_escape_site (tree, size_t *);
 static void add_pointed_to_var (struct alias_info *, tree, tree);
 static void add_pointed_to_expr (tree, tree);
@@ -272,21 +272,10 @@ tree global_var;
    inserted in the code.  Resulting in increased memory consumption and
    compilation time.
 
-   When the set of may aliases for a pointer grows beyond a certain number of
-   elements (configurable with --param max-alias-set-size), instead of adding
-   new variables to the may-alias set, the new variables are made to share the
-   same alias set as the original pointer.  For instance, suppose that pointer
-   'p' may point to variables 'a', 'b', 'c', 'd', 'e', 'f' and 'g'. After alias
-   analysis, the alias sets will be as follows:
-
-	may-alias(p) = { a, b, c, d, e }
-	may-alias(f) = { a, b, c, d, e }
-	may-alias(g) = { a, b, c, d, e }
-
-   Notice that this grouping causes variables 'f' and 'g' to be aliased to
-   variables they can't possibly alias to.  This causes loss of precision,
-   but prevents excessive compile times by reducing the number of virtual
-   operands.  */
+   When the number of virtual operands needed to represent aliased
+   loads and stores grows too large (configurable with @option{--param
+   max-aliased-vops}), alias sets are grouped to avoid severe
+   compile-time slow downs and memory consumption.  See group_aliases.  */
 
 static void
 compute_may_aliases (void)
@@ -328,12 +317,13 @@ compute_may_aliases (void)
   maybe_create_global_var (ai);
 
   /* Debugging dumps.  */
-  if (tree_dump_file)
+  if (dump_file)
     {
-      if (tree_dump_flags & TDF_STATS)
-	dump_alias_stats (tree_dump_file);
-      dump_points_to_info (tree_dump_file);
-      dump_alias_info (tree_dump_file);
+      dump_referenced_vars (dump_file);
+      if (dump_flags & TDF_STATS)
+	dump_alias_stats (dump_file);
+      dump_points_to_info (dump_file);
+      dump_alias_info (dump_file);
     }
 
   /* Deallocate memory used by aliasing data structures.  */
@@ -511,6 +501,21 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
 	  if (stmt_escapes_p)
 	    block_ann->has_escape_site = 1;
+
+	  /* Special case for silly ADDR_EXPR tricks.  If this
+	     statement is an assignment to a non-pointer variable and
+	     the RHS takes the address of a variable, assume that the
+	     variable on the RHS is call-clobbered.  We could add the
+	     LHS to the list of "pointers" and follow it to see if it
+	     really escapes, but it's not worth the pain.  */
+	  if (addr_taken
+	      && TREE_CODE (stmt) == MODIFY_EXPR
+	      && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 0))))
+	    EXECUTE_IF_SET_IN_BITMAP (addr_taken, 0, i,
+		{
+		  tree var = referenced_var (i);
+		  mark_call_clobbered (var);
+		});
 
 	  ann = stmt_ann (stmt);
 	  uses = USE_OPS (ann);
@@ -722,8 +727,8 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	}
     }
 
-  if (tree_dump_file)
-    fprintf (tree_dump_file, "%s: Total number of aliased vops: %ld\n",
+  if (dump_file)
+    fprintf (dump_file, "%s: Total number of aliased vops: %ld\n",
 	     get_name (current_function_decl),
 	     ai->total_alias_vops);
 
@@ -958,8 +963,8 @@ group_aliases (struct alias_info *ai)
 
   sbitmap_free (res);
 
-  if (tree_dump_file)
-    fprintf (tree_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "%s: Total number of aliased vops after grouping: %ld%s\n",
 	     get_name (current_function_decl),
 	     ai->total_alias_vops,
@@ -1364,17 +1369,17 @@ add_pointed_to_expr (tree ptr, tree value)
   else
     ann->pt_anything = 1;
 
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "Pointer ");
-      print_generic_expr (tree_dump_file, ptr, 0);
-      fprintf (tree_dump_file, " points to ");
+      fprintf (dump_file, "Pointer ");
+      print_generic_expr (dump_file, ptr, 0);
+      fprintf (dump_file, " points to ");
       if (ann->pt_malloc)
-	fprintf (tree_dump_file, "malloc space: ");
+	fprintf (dump_file, "malloc space: ");
       else
-	fprintf (tree_dump_file, "an arbitrary address: ");
-      print_generic_expr (tree_dump_file, value, 0);
-      fprintf (tree_dump_file, "\n");
+	fprintf (dump_file, "an arbitrary address: ");
+      print_generic_expr (dump_file, value, 0);
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -1423,16 +1428,16 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 
    DATA is a pointer to a structure of type ALIAS_INFO.  */
 
-static void
+static bool
 collect_points_to_info_r (tree var, tree stmt, void *data)
 {
   struct alias_info *ai = (struct alias_info *) data;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Visiting use-def links for ");
-      print_generic_expr (tree_dump_file, var, 0);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Visiting use-def links for ");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, "\n");
     }
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -1504,6 +1509,8 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
     }
   else
     abort ();
+
+  return false;
 }
 
 
@@ -1706,6 +1713,7 @@ create_global_var (void)
   TREE_ADDRESSABLE (global_var) = 0;
 
   add_referenced_tmp_var (global_var);
+  bitmap_set_bit (vars_to_rename, var_ann (global_var)->uid);
 }
 
 

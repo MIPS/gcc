@@ -289,7 +289,7 @@ extern int target_flags;
      NULL }}
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY)
+#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY | MASK_BIG_SWITCH)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -541,10 +541,11 @@ do {								\
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 29
 
-/* Register which holds offset table for position-independent
+/* Register used to address the offset table for position-independent
    data references.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (flag_pic ? (TARGET_64BIT ? 27 : 19) : INVALID_REGNUM)
 
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? 27 : 19)
 #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
 /* Function to return the rtx used to save the pic offset table register
@@ -1665,8 +1666,7 @@ do { 									\
        && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
        && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
        && !flag_pic)							\
-   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'			\
-       && !(TREE_CODE (DECL) == STRING_CST && flag_writable_strings)))
+   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'))
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 

@@ -1371,14 +1371,9 @@ decay_conversion (tree exp)
 
       if (TREE_CODE (exp) == VAR_DECL)
 	{
-	  /* ??? This is not really quite correct
-	     in that the type of the operand of ADDR_EXPR
-	     is not the target type of the type of the ADDR_EXPR itself.
-	     Question is, can this lossage be avoided?  */
-	  adr = build1 (ADDR_EXPR, ptrtype, exp);
 	  if (!cxx_mark_addressable (exp))
 	    return error_mark_node;
-	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
+	  adr = build_nop (ptrtype, build_address (exp));
 	  return adr;
 	}
       /* This way is better for a COMPONENT_REF since it can
@@ -5868,7 +5863,7 @@ maybe_warn_about_returning_address_of_local (tree retval)
 	}
     }
 
-  if (TREE_CODE (whats_returned) == VAR_DECL
+  if (DECL_P (whats_returned)
       && DECL_NAME (whats_returned)
       && DECL_FUNCTION_SCOPE_P (whats_returned)
       && !(TREE_STATIC (whats_returned)

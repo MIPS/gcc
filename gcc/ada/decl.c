@@ -1048,6 +1048,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	DECL_BY_REF_P (gnu_decl) = used_by_ref;
 	DECL_POINTS_TO_READONLY_P (gnu_decl) = used_by_ref && inner_const_flag;
 
+	/* If we have an address clause and we've made this indirect, it's
+	   not enough to merely mark the type as volatile since volatile
+	   references only conflict with other volatile references while this
+	   reference must conflict with all other references.  So ensure that
+	   the dereferenced value has alias set 0.  */
+	if (Present (Address_Clause (gnat_entity)) && used_by_ref)
+	  DECL_POINTER_ALIAS_SET (gnu_decl) = 0;
+
 	if (definition && DECL_SIZE (gnu_decl) != 0
 	    && gnu_block_stack != 0
 	    && TREE_VALUE (gnu_block_stack) != 0
@@ -5366,7 +5374,7 @@ components_to_record (tree gnu_record_type,
 					  ? TYPE_SIZE (gnu_record_type) : 0),
 					 (all_rep_and_size
 					  ? bitsize_zero_node : 0),
-					 1);
+					 0);
 
 	  DECL_INTERNAL_P (gnu_field) = 1;
 	  DECL_QUALIFIER (gnu_field) = gnu_qual;
@@ -5397,7 +5405,7 @@ components_to_record (tree gnu_record_type,
 	    = create_field_decl (gnu_var_name, gnu_union_type, gnu_record_type,
 				 packed,
 				 all_rep ? TYPE_SIZE (gnu_union_type) : 0,
-				 all_rep ? bitsize_zero_node : 0, 1);
+				 all_rep ? bitsize_zero_node : 0, 0);
 
 	  DECL_INTERNAL_P (gnu_union_field) = 1;
 	  TREE_CHAIN (gnu_union_field) = gnu_field_list;

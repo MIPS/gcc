@@ -990,9 +990,8 @@ build_exception_variant (tree type, tree raises)
   int type_quals = TYPE_QUALS (type);
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
-    if (TYPE_QUALS (v) == type_quals
-        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1)
-	&& (*targetm.comp_type_attributes) (type, v))
+    if (check_qualified_type (v, type, type_quals)
+        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
       return v;
 
   /* Need to build a new variant.  */
@@ -1639,17 +1638,6 @@ cp_tree_equal (tree t1, tree t2)
 
   my_friendly_assert (0, 20030617);
   return false;
-}
-
-/* Build a wrapper around a 'struct z_candidate' so we can use it as a
-   tree.  */
-
-tree
-build_zc_wrapper (struct z_candidate* ptr)
-{
-  tree t = make_node (WRAPPER);
-  WRAPPER_ZC (t) = ptr;
-  return t;
 }
 
 /* The type of ARG when used as an lvalue.  */
@@ -2456,7 +2444,9 @@ stabilize_call (tree call, tree *initp)
       {
 	tree init;
 	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
-	if (inits)
+	if (!init)
+	  /* Nothing.  */;
+	else if (inits)
 	  inits = build (COMPOUND_EXPR, void_type_node, inits, init);
 	else
 	  inits = init;

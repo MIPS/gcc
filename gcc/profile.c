@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -153,8 +153,8 @@ instrument_edges (struct edge_list *el)
 	    {
 	      if (e->flags & EDGE_ABNORMAL)
 		abort ();
-	      if (profile_dump_file())
-		fprintf (profile_dump_file(), "Edge %d to %d instrumented%s\n",
+	      if (dump_file)
+		fprintf (dump_file, "Edge %d to %d instrumented%s\n",
 			 e->src->index, e->dest->index,
 			 EDGE_CRITICAL_P (e) ? " (and split)" : "");
 	      (profile_hooks->gen_edge_profiler) (num_instr_edges++, e);
@@ -163,8 +163,8 @@ instrument_edges (struct edge_list *el)
     }
 
   total_num_blocks_created += num_edges;
-  if (profile_dump_file())
-    fprintf (profile_dump_file(), "%d edges instrumented\n", num_instr_edges);
+  if (dump_file)
+    fprintf (dump_file, "%d edges instrumented\n", num_instr_edges);
   return num_instr_edges;
 }
 
@@ -249,8 +249,8 @@ get_exec_counts (void)
   if (!counts)
     return NULL;
 
-  if (profile_dump_file() && profile_info)
-    fprintf(profile_dump_file(), "Merged %u profiles with maximal count %u.\n",
+  if (dump_file && profile_info)
+    fprintf(dump_file, "Merged %u profiles with maximal count %u.\n",
 	    profile_info->runs, (unsigned) profile_info->sum_max);
 
   return counts;
@@ -337,18 +337,18 @@ compute_branch_probabilities (void)
 	    EDGE_INFO (e)->count_valid = 1;
 	    BB_INFO (bb)->succ_count--;
 	    BB_INFO (e->dest)->pred_count--;
-	    if (profile_dump_file())
+	    if (dump_file)
 	      {
-		fprintf (profile_dump_file(), "\nRead edge from %i to %i, count:",
+		fprintf (dump_file, "\nRead edge from %i to %i, count:",
 			 bb->index, e->dest->index);
-		fprintf (profile_dump_file(), HOST_WIDEST_INT_PRINT_DEC,
+		fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
 			 (HOST_WIDEST_INT) e->count);
 	      }
 	  }
     }
 
-  if (profile_dump_file())
-    fprintf (profile_dump_file(), "\n%d edge counts read\n", num_edges);
+  if (dump_file)
+    fprintf (dump_file, "\n%d edge counts read\n", num_edges);
 
   /* For every block in the file,
      - if every exit/entrance edge has a known count, then set the block count
@@ -460,12 +460,12 @@ compute_branch_probabilities (void)
 	    }
 	}
     }
-  if (profile_dump_file())
-    dump_flow_info (profile_dump_file());
+  if (dump_file)
+    dump_flow_info (dump_file);
 
   total_num_passes += passes;
-  if (profile_dump_file())
-    fprintf (profile_dump_file(), "Graph solving took %d passes.\n\n", passes);
+  if (dump_file)
+    fprintf (dump_file, "Graph solving took %d passes.\n\n", passes);
 
   /* If the graph has been correctly solved, every block will have a
      succ and pred count of zero.  */
@@ -592,14 +592,14 @@ compute_branch_probabilities (void)
 	}
     }
 
-  if (profile_dump_file())
+  if (dump_file)
     {
-      fprintf (profile_dump_file(), "%d branches\n", num_branches);
-      fprintf (profile_dump_file(), "%d branches never executed\n",
+      fprintf (dump_file, "%d branches\n", num_branches);
+      fprintf (dump_file, "%d branches never executed\n",
 	       num_never_executed);
       if (num_branches)
 	for (i = 0; i < 10; i++)
-	  fprintf (profile_dump_file(), "%d%% branches in range %d-%d%%\n",
+	  fprintf (dump_file, "%d%% branches in range %d-%d%%\n",
 		   (hist_br_prob[i] + hist_br_prob[19-i]) * 100 / num_branches,
 		   5 * i, 5 * i + 5);
 
@@ -608,8 +608,8 @@ compute_branch_probabilities (void)
       for (i = 0; i < 20; i++)
 	total_hist_br_prob[i] += hist_br_prob[i];
 
-      fputc ('\n', profile_dump_file());
-      fputc ('\n', profile_dump_file());
+      fputc ('\n', dump_file);
+      fputc ('\n', dump_file);
     }
 
   free_aux_for_blocks ();
@@ -750,15 +750,15 @@ branch_prob (void)
 
       if (need_exit_edge && !have_exit_edge)
 	{
-	  if (profile_dump_file())
-	    fprintf (profile_dump_file(), "Adding fake exit edge to bb %i\n",
+	  if (dump_file)
+	    fprintf (dump_file, "Adding fake exit edge to bb %i\n",
 		     bb->index);
 	  make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 	}
       if (need_entry_edge && !have_entry_edge)
 	{
-	  if (profile_dump_file())
-	    fprintf (profile_dump_file(), "Adding fake entry edge to bb %i\n",
+	  if (dump_file)
+	    fprintf (dump_file, "Adding fake entry edge to bb %i\n",
 		     bb->index);
 	  make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FAKE);
 	}
@@ -815,16 +815,16 @@ branch_prob (void)
     }
 
   total_num_blocks += n_basic_blocks + 2;
-  if (profile_dump_file())
-    fprintf (profile_dump_file(), "%d basic blocks\n", n_basic_blocks);
+  if (dump_file)
+    fprintf (dump_file, "%d basic blocks\n", n_basic_blocks);
 
   total_num_edges += num_edges;
-  if (profile_dump_file())
-    fprintf (profile_dump_file(), "%d edges\n", num_edges);
+  if (dump_file)
+    fprintf (dump_file, "%d edges\n", num_edges);
 
   total_num_edges_ignored += ignored_edges;
-  if (profile_dump_file())
-    fprintf (profile_dump_file(), "%d ignored edges\n", ignored_edges);
+  if (dump_file)
+    fprintf (dump_file, "%d ignored edges\n", ignored_edges);
 
   /* Write the data from which gcov can reconstruct the basic block
      graph.  */
@@ -1072,8 +1072,8 @@ find_spanning_tree (struct edge_list *el)
 	  && !EDGE_INFO (e)->ignore
 	  && (find_group (e->src) != find_group (e->dest)))
 	{
-	  if (profile_dump_file())
-	    fprintf (profile_dump_file(), "Abnormal edge %d to %d put to tree\n",
+	  if (dump_file)
+	    fprintf (dump_file, "Abnormal edge %d to %d put to tree\n",
 		     e->src->index, e->dest->index);
 	  EDGE_INFO (e)->on_tree = 1;
 	  union_groups (e->src, e->dest);
@@ -1087,8 +1087,8 @@ find_spanning_tree (struct edge_list *el)
       if (EDGE_CRITICAL_P (e) && !EDGE_INFO (e)->ignore
 	  && find_group (e->src) != find_group (e->dest))
 	{
-	  if (profile_dump_file())
-	    fprintf (profile_dump_file(), "Critical edge %d to %d put to tree\n",
+	  if (dump_file)
+	    fprintf (dump_file, "Critical edge %d to %d put to tree\n",
 		     e->src->index, e->dest->index);
 	  EDGE_INFO (e)->on_tree = 1;
 	  union_groups (e->src, e->dest);
@@ -1102,8 +1102,8 @@ find_spanning_tree (struct edge_list *el)
       if (!EDGE_INFO (e)->ignore
 	  && find_group (e->src) != find_group (e->dest))
 	{
-	  if (profile_dump_file())
-	    fprintf (profile_dump_file(), "Normal edge %d to %d put to tree\n",
+	  if (dump_file)
+	    fprintf (dump_file, "Normal edge %d to %d put to tree\n",
 		     e->src->index, e->dest->index);
 	  EDGE_INFO (e)->on_tree = 1;
 	  union_groups (e->src, e->dest);
@@ -1140,34 +1140,34 @@ init_branch_prob (void)
 void
 end_branch_prob (void)
 {
-  if (profile_dump_file())
+  if (dump_file)
     {
-      fprintf (profile_dump_file(), "\n");
-      fprintf (profile_dump_file(), "Total number of blocks: %d\n",
+      fprintf (dump_file, "\n");
+      fprintf (dump_file, "Total number of blocks: %d\n",
 	       total_num_blocks);
-      fprintf (profile_dump_file(), "Total number of edges: %d\n", total_num_edges);
-      fprintf (profile_dump_file(), "Total number of ignored edges: %d\n",
+      fprintf (dump_file, "Total number of edges: %d\n", total_num_edges);
+      fprintf (dump_file, "Total number of ignored edges: %d\n",
 	       total_num_edges_ignored);
-      fprintf (profile_dump_file(), "Total number of instrumented edges: %d\n",
+      fprintf (dump_file, "Total number of instrumented edges: %d\n",
 	       total_num_edges_instrumented);
-      fprintf (profile_dump_file(), "Total number of blocks created: %d\n",
+      fprintf (dump_file, "Total number of blocks created: %d\n",
 	       total_num_blocks_created);
-      fprintf (profile_dump_file(), "Total number of graph solution passes: %d\n",
+      fprintf (dump_file, "Total number of graph solution passes: %d\n",
 	       total_num_passes);
       if (total_num_times_called != 0)
-	fprintf (profile_dump_file(), "Average number of graph solution passes: %d\n",
+	fprintf (dump_file, "Average number of graph solution passes: %d\n",
 		 (total_num_passes + (total_num_times_called  >> 1))
 		 / total_num_times_called);
-      fprintf (profile_dump_file(), "Total number of branches: %d\n",
+      fprintf (dump_file, "Total number of branches: %d\n",
 	       total_num_branches);
-      fprintf (profile_dump_file(), "Total number of branches never executed: %d\n",
+      fprintf (dump_file, "Total number of branches never executed: %d\n",
 	       total_num_never_executed);
       if (total_num_branches)
 	{
 	  int i;
 
 	  for (i = 0; i < 10; i++)
-	    fprintf (profile_dump_file(), "%d%% branches in range %d-%d%%\n",
+	    fprintf (dump_file, "%d%% branches in range %d-%d%%\n",
 		     (total_hist_br_prob[i] + total_hist_br_prob[19-i]) * 100
 		     / total_num_branches, 5*i, 5*i+5);
 	}

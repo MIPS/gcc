@@ -506,7 +506,6 @@ do_allocate_exception (tree type)
 					     NULL_TREE));
 }
 
-#if 0
 /* Call __cxa_free_exception from a cleanup.  This is never invoked
    directly, but see the comment for stabilize_throw_expr.  */
 
@@ -525,7 +524,6 @@ do_free_exception (tree ptr)
 
   return build_function_call (fn, tree_cons (NULL_TREE, ptr, NULL_TREE));
 }
-#endif
 
 /* Wrap all cleanups for TARGET_EXPRs in MUST_NOT_THROW_EXPR.
    Called from build_throw via walk_tree_without_duplicates.  */
@@ -610,6 +608,7 @@ build_throw (tree exp)
       tree object, ptr;
       tree tmp;
       tree temp_expr, allocate_expr;
+      bool elided;
 
       fn = get_identifier ("__cxa_throw");
       if (!get_global_value_if_present (fn, &fn))
@@ -657,6 +656,8 @@ build_throw (tree exp)
       object = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (exp)), ptr);
       object = build_indirect_ref (object, NULL);
 
+      elided = (TREE_CODE (exp) == TARGET_EXPR);
+
       /* And initialize the exception object.  */
       exp = build_init (object, exp, LOOKUP_ONLYCONVERTING);
       if (exp == error_mark_node)
@@ -669,17 +670,23 @@ build_throw (tree exp)
 	 the space first we would have to deal with cleaning it up if
 	 evaluating this expression throws.
 
-	 The case where EXP the initializer is a call to a function
-	 returning a class is a bit of a grey area in the standard; it's
-	 unclear whether or not it should be allowed to throw.  I'm going
-	 to say no, as that allows us to optimize this case without
-	 worrying about deallocating the exception object if it does.  The
-	 alternatives would be either not optimizing this case, or wrapping
-	 the initialization in a TRY_CATCH_EXPR to call do_free_exception
-	 rather than in a MUST_NOT_THROW_EXPR, for this case only.  */
+	 The case where EXP the initializer is a call to a constructor or a
+	 function returning a class is a bit of a grey area in the
+	 standard; it's unclear whether or not it should be allowed to
+	 throw.  We used to say no, as that allowed us to optimize this
+	 case without worrying about deallocating the exception object if
+	 it does.  But that conflicted with expectations (PR 13944) and the
+	 EDG compiler; now we wrap the initialization in a TRY_CATCH_EXPR
+	 to call do_free_exception rather than in a MUST_NOT_THROW_EXPR,
+	 for this case only.  */
       stabilize_init (exp, &temp_expr);
 
-      exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
+      if (elided)
+	exp = build (TRY_CATCH_EXPR, void_type_node, exp,
+		     do_free_exception (ptr));
+      else
+	exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
+
       /* Prepend the allocation.  */
       exp = build (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
       if (temp_expr)

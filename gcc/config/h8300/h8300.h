@@ -288,8 +288,9 @@ extern int target_flags;
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.  */
 
-#define FIXED_REGISTERS \
-  { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1}
+#define FIXED_REGISTERS				\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap fp */	\
+  { 0, 0, 0, 0, 0, 0, 0, 1,  0, 1,  1, 1 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -301,11 +302,13 @@ extern int target_flags;
 
    H8 destroys r0,r1,r2,r3.  */
 
-#define CALL_USED_REGISTERS \
-  { 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1 }
+#define CALL_USED_REGISTERS			\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap fp */	\
+  { 1, 1, 1, 1, 0, 0, 0, 1,  1, 1,  1, 1 }
 
-#define REG_ALLOC_ORDER \
-  { 2, 3, 0, 1, 4, 5, 6, 8, 7, 9, 10}
+#define REG_ALLOC_ORDER				\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap  fp */	\
+  { 2, 3, 0, 1, 4, 5, 6, 8,  7, 9, 10, 11 }
 
 #define CONDITIONAL_REGISTER_USAGE			\
 {							\
@@ -313,29 +316,11 @@ extern int target_flags;
     fixed_regs[MAC_REG] = call_used_regs[MAC_REG] = 1;	\
 }
 
-/* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
+#define HARD_REGNO_NREGS(REGNO, MODE)		\
+  h8300_hard_regno_nregs ((REGNO), (MODE))
 
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.
-
-   We pretend the MAC register is 32bits -- we don't have any data
-   types on the H8 series to handle more than 32bits.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
-   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
-/* Value is 1 if hard register REGNO can hold a value of machine-mode
-   MODE.
-
-   H8/300: If an even reg, then anything goes. Otherwise the mode must be QI
-           or HI.
-   H8/300H: Anything goes.  */
-
-#define HARD_REGNO_MODE_OK(REGNO, MODE)					\
-  (TARGET_H8300								\
-   ? ((((REGNO) & 1) == 0) || ((MODE) == HImode) || ((MODE) == QImode))	\
-   : (REGNO) == MAC_REG ? (MODE) == SImode : 1)
+#define HARD_REGNO_MODE_OK(REGNO, MODE)		\
+  h8300_hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -429,9 +414,9 @@ enum reg_class {
 
 #define REG_CLASS_CONTENTS			\
 {      {0},		/* No regs      */	\
-   {0x6ff},		/* GENERAL_REGS */	\
+   {0xeff},		/* GENERAL_REGS */	\
    {0x100},		/* MAC_REGS */	\
-   {0x7ff},		/* ALL_REGS	*/	\
+   {0xfff},		/* ALL_REGS	*/	\
 }
 
 /* The same information, inverted:
@@ -930,12 +915,6 @@ struct cum_arg
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define this as 1 if `char' should by default be signed; else as 0.
 

@@ -9,7 +9,9 @@
    indicating whether or not TARGET_C99_FUNCTIONS is set, but it does
    not presently do that.)  */
 
-#if defined(sun)
+#if defined(__hppa) && defined(__hpux)
+/* PA HP-UX doesn't have the entire C99 runtime.  */
+#elif defined(sun)
 /* Solaris doesn't have the entire C99 runtime.  */
 #else
 /* Newlib has the "f" variants of the math functions, but not the "l"

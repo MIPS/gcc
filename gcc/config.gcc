@@ -84,6 +84,9 @@
 #			the compiler proper (cc1, cc1obj, cc1plus)
 #			depending on target.
 #
+#  extra_gcc_objs	List of extra objects that should be linked into
+#			the compiler driver (gcc) depending on target.
+#
 #  extra_headers	List of used header files from the directory
 #			config/${cpu_type}.
 #
@@ -420,7 +423,7 @@ case ${target} in
 *-*-linux*libc1* | *-*-linux*aout*)
   # Avoid the generic linux case.
   ;;
-*-*-linux*)
+*-*-linux* | frv-*-*linux*)
   # Must come before *-*-gnu* (because of *-*-linux-gnu* systems).
   extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
   gas=yes
@@ -718,6 +721,11 @@ frv-*-elf)
 	tmake_file=frv/t-frv
 	use_fixproto=yes
 	;;
+frv-*-*linux*)
+	tm_file="dbxelf.h elfos.h svr4.h ${tm_file} \
+	         linux.h frv/linux.h frv/frv-abi.h"
+	tmake_file="t-slibgcc-elf-ver t-linux frv/t-frv frv/t-linux"
+	;;
 h8300-*-rtems*)
 	tmake_file="h8300/t-h8300 t-rtems"
 	tm_file="h8300/h8300.h dbxcoff.h h8300/coff.h h8300/rtems.h rtems.h"
@@ -732,7 +740,7 @@ h8300-*-*)
 	use_fixproto=yes
 	;;
 hppa*64*-*-linux* | parisc*64*-*-linux*)
-	target_cpu_default="(MASK_PA_11 | MASK_PA_20)"
+	target_cpu_default="(MASK_PA_11 | MASK_PA_20 | MASK_BIG_SWITCH)"
 	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h svr4.h linux.h \
 		 pa/pa-linux.h pa/pa64-regs.h pa/pa-64.h pa/pa64-linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux pa/t-linux64"
@@ -740,39 +748,44 @@ hppa*64*-*-linux* | parisc*64*-*-linux*)
 	need_64bit_hwint=yes
 	;;
 hppa*-*-linux* | parisc*-*-linux*)
-	target_cpu_default="MASK_PA_11 | MASK_NO_SPACE_REGS"
+	target_cpu_default="(MASK_PA_11 | MASK_NO_SPACE_REGS | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux pa/t-linux"
+	# if not configured with --enable-sjlj-exceptions, bump the
+	# libgcc version number
+	if test x$sjlj != x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	fi
 	;;
 # port not yet contributed.
 #hppa*-*-openbsd*)
-#	target_cpu_default="MASK_PA_11"
+#	target_cpu_default="(MASK_PA_11 | MASK_BIG_SWITCH)"
 #	;;
 hppa1.1-*-pro*)
-	target_cpu_default="(MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT)"
+	target_cpu_default="(MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h elfos.h pa/elf.h pa/pa-pro-end.h libgloss.h"
 	tmake_file="pa/t-pro"
 	;;
 hppa1.1-*-osf*)
-	target_cpu_default="MASK_PA_11"
+	target_cpu_default="(MASK_PA_11 | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h pa/som.h pa/pa-osf.h"
 	tmake_file="pa/t-pa"
 	use_collect2=yes
 	;;
 hppa1.1-*-rtems*)
-	target_cpu_default="(MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT)"
+	target_cpu_default="(MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h elfos.h pa/elf.h pa/pa-pro-end.h libgloss.h pa/rtems.h rtems.h"
 	tmake_file="pa/t-pro t-rtems"
 	;;
 hppa1.1-*-bsd*)
+	target_cpu_default="(MASK_PA_11 | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h pa/som.h"
-	target_cpu_default="MASK_PA_11"
 	tmake_file="pa/t-pa"
 	use_collect2=yes
 	;;
 hppa1.1-*-hpux10* | hppa2*-*-hpux10*)
-	target_cpu_default="MASK_PA_11"
+	target_cpu_default="(MASK_PA_11 | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h pa/som.h pa/pa-hpux.h pa/pa-hpux10.h"
 	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
 	if test x$enable_threads = x; then
@@ -801,6 +814,12 @@ hppa1.0-*-hpux10*)
 	use_fixproto=yes
 	;;
 hppa*64*-*-hpux11*)
+	if test x$gnu_ld = xyes
+	then
+		target_cpu_default="(MASK_PA_11 | MASK_PA_20 | MASK_GAS | MASK_GNU_LD | MASK_BIG_SWITCH)"
+	else
+		target_cpu_default="(MASK_PA_11 | MASK_PA_20 | MASK_GAS | MASK_BIG_SWITCH)"
+	fi
 	if test x$gas = xyes
 	then
 		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h  \
@@ -813,12 +832,7 @@ hppa*64*-*-hpux11*)
 	fi
 	need_64bit_hwint=yes
 	tmake_file="pa/t-pa64 pa/t-pa-hpux"
-	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
-	if test x$gnu_ld = xyes
-	then
-		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
-	fi
 	case x${enable_threads} in
 	xyes | xposix )
 		thread_file=posix 
@@ -826,7 +840,7 @@ hppa*64*-*-hpux11*)
 	esac
 	;;
 hppa1.1-*-hpux11* | hppa2*-*-hpux11*)
-	target_cpu_default="MASK_PA_11"
+	target_cpu_default="(MASK_PA_11 | MASK_BIG_SWITCH)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h pa/som.h pa/pa-hpux.h pa/pa-hpux11.h"
 	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
 	case x${enable_threads} in
@@ -1014,10 +1028,11 @@ i[4567]86-wrs-vxworks)
 i[34567]86-*-pe | i[34567]86-*-cygwin*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/cygwin.h"
 	xm_file=i386/xm-cygwin.h
-	tmake_file="i386/t-cygming i386/t-cygwin"
+	tmake_file="i386/t-cygwin i386/t-cygming"
 	extra_objs=winnt.o
 	c_target_objs=cygwin2.o
 	cxx_target_objs=cygwin2.o
+	extra_gcc_objs=cygwin1.o
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
@@ -1201,6 +1216,14 @@ m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 		;;
 	esac
 	;;
+m68k*-*-openbsd*)
+	# needed to unconfuse gdb
+	tm_defines="OBSD_OLD_GAS TARGET_DEFAULT=(MASK_68020|MASK_68881|MASK_BITFIELD)"
+	tm_file="m68k/m68k.h openbsd.h m68k/openbsd.h"
+	tmake_file="t-libc-ok t-openbsd m68k/t-openbsd"
+	# we need collect2 until our bug is fixed...
+	use_collect2=yes
+	;;
 m68k-*-uclinux*)		# Motorola m68k/ColdFire running uClinux with uClibc
 	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/uclinux.h"
  	tm_defines="MOTOROLA USE_GAS"
@@ -1213,6 +1236,11 @@ m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 	tm_file="m68k/m68k.h dbxelf.h elfos.h svr4.h linux.h m68k/linux.h"
 	tm_defines="MOTOROLA USE_GAS"
 	tmake_file="t-slibgcc-elf-ver t-linux"
+	# if not configured with --enable-sjlj-exceptions, bump the
+	# libgcc version number
+	if test x$sjlj != x1; then
+	    tmake_file="$tmake_file m68k/t-slibgcc-elf-ver"
+	fi
 	;;
 m68k-*-rtems*)
 	tmake_file="m68k/t-m68kbare m68k/t-crtstuff t-rtems m68k/t-rtems"
@@ -1240,7 +1268,7 @@ mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	if test "x$gnu_ld" = xyes
 	then
 		tm_file="${tm_file} mips/iris6gld.h"
-		tmake_file="$tmake_file mips/t-iris6gld"
+		tmake_file="$tmake_file mips/t-irix-gld"
 	fi
 	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
@@ -1280,11 +1308,19 @@ mips-sgi-irix5*)		# SGI System V.4., IRIX 5
 	else
 		tmake_file=mips/t-iris5-as
 	fi
+	if test "x$gnu_ld" = xyes
+	then
+		tm_file="${tm_file} mips/iris5gld.h"
+		tmake_file="$tmake_file mips/t-irix-gld"
+	fi
 	tmake_file="${tmake_file} mips/t-iris mips/t-iris5-6"
 	target_cpu_default="MASK_ABICALLS"
 	# mips-tfile doesn't work yet
 	# See comment in mips/iris5.h file.
-	use_collect2=yes
+	if test x$gas = xno
+	then
+		use_collect2=yes
+	fi
 #	if test x$enable_threads = xyes; then
 #		thread_file='irix'
 #	fi
@@ -2104,11 +2140,20 @@ if test x$with_cpu = x ; then
         pentium2-*)
           with_cpu=pentium2
           ;;
-        pentium3-*)
+        pentium3-*|pentium3m-*)
           with_cpu=pentium3
           ;;
-        pentium4-*)
+        pentium4-*|pentium4m-*)
           with_cpu=pentium4
+          ;;
+        prescott-*)
+          with_cpu=prescott
+          ;;
+        nocona-*)
+          with_cpu=nocona
+          ;;
+        pentium_m-*)
+          with_cpu=pentium-m
           ;;
         *)
           with_cpu=pentiumpro
@@ -2132,6 +2177,9 @@ if test x$with_cpu = x ; then
       ;;
     alphaev5*-*-*)
       with_cpu=ev5
+      ;;
+    frv-*-*linux*)
+      with_cpu=fr400
       ;;
     sparc*-*-*)
       with_cpu="`echo ${target} | sed 's/-.*$//'`"
@@ -2243,6 +2291,17 @@ fi
 		fi
 		;;
 
+	fr*-*-*linux*)
+		supported_defaults=cpu
+		case "$with_cpu" in
+		fr400) ;;
+		*)
+			echo "Unknown cpu used in --with-cpu=$with_cpu" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+
 	hppa*-*-* | parisc*-*-*)
 		supported_defaults="arch schedule"
 
@@ -2277,7 +2336,8 @@ fi
 			| c3 | c3-2 | i686 | pentiumpro | pentium2 | pentium3 \
 			| pentium4 | k6 | k6-2 | k6-3 | athlon | athlon-tbird \
 			| athlon-4 | athlon-xp | athlon-mp | k8 | opteron \
-			| athlon64 | athlon-fx)
+			| athlon64 | athlon-fx | prescott | pentium-m \
+			| pentium4m | pentium3m| nocona)
 				# OK
 				;;
 			*)

@@ -1,3 +1,16 @@
+2004-03-03  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa (tree-profilng-merge-20040303)
+
+2004-02-25  Stuart Hastings  <stuart@apple.com>
+
+	* gimple-low.c (expand_var_p) Remove redundant call.
+	
+2004-02-25  Stuart Hastings  <stuart@apple.com>
+
+	* tree-optimize.c (execute_inline) New.
+	Make inliner into a PASS, move after first gimplification step.
+	
 2004-02-22  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from tree-ssa (tree-profilng-merge-20040222)

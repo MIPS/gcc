@@ -1061,7 +1061,7 @@ arm_compute_func_type (void)
       && TREE_THIS_VOLATILE (current_function_decl))
     type |= ARM_FT_VOLATILE;
   
-  if (current_function_needs_context)
+  if (cfun->static_chain_decl != NULL)
     type |= ARM_FT_NESTED;
 
   attr = DECL_ATTRIBUTES (current_function_decl);
@@ -2979,8 +2979,10 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, int strict_p)
      load, but that has a restricted addressing range and we are unable
      to tell here whether that is the case.  To be safe we restrict all
      loads to that range.  */
-  range = ((mode) == HImode || (mode) == QImode)
-    ? (arm_arch4 ? 256 : 4095) : 4096;
+  if (arm_arch4)
+    range = (mode == HImode || mode == QImode) ? 256 : 4096;
+  else
+    range = (mode == HImode) ? 4095 : 4096;
 
   return (code == CONST_INT
 	  && INTVAL (index) < range
@@ -3215,6 +3217,74 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 
       if (xop0 != XEXP (x, 0) || xop1 != XEXP (x, 1))
 	x = gen_rtx_MINUS (SImode, xop0, xop1);
+    }
+
+  if (flag_pic)
+    {
+      /* We need to find and carefully transform any SYMBOL and LABEL
+	 references; so go back to the original address expression.  */
+      rtx new_x = legitimize_pic_address (orig_x, mode, NULL_RTX);
+
+      if (new_x != orig_x)
+	x = new_x;
+    }
+
+  return x;
+}
+
+
+/* Try machine-dependent ways of modifying an illegitimate Thumb address
+   to be legitimate.  If we find one, return the new, valid address.  */
+rtx
+thumb_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
+{
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && (INTVAL (XEXP (x, 1)) >= 32 * GET_MODE_SIZE (mode)
+	  || INTVAL (XEXP (x, 1)) < 0))
+    {
+      rtx xop0 = XEXP (x, 0);
+      rtx xop1 = XEXP (x, 1);
+      HOST_WIDE_INT offset = INTVAL (xop1);
+
+      /* Try and fold the offset into a biasing of the base register and
+	 then offsetting that.  Don't do this when optimizing for space
+	 since it can cause too many CSEs.  */
+      if (optimize_size && offset >= 0
+	  && offset < 256 + 31 * GET_MODE_SIZE (mode))
+	{
+	  HOST_WIDE_INT delta;
+
+	  if (offset >= 256)
+	    delta = offset - (256 - GET_MODE_SIZE (mode));
+	  else if (offset < 32 * GET_MODE_SIZE (mode) + 8)
+	    delta = 31 * GET_MODE_SIZE (mode);
+	  else
+	    delta = offset & (~31 * GET_MODE_SIZE (mode));
+
+	  xop0 = force_operand (plus_constant (xop0, offset - delta),
+				NULL_RTX);
+	  x = plus_constant (xop0, delta);
+	}
+      else if (offset < 0 && offset > -256)
+	/* Small negative offsets are best done with a subtract before the
+	   dereference, forcing these into a register normally takes two
+	   instructions.  */
+	x = force_operand (x, NULL_RTX);
+      else
+	{
+	  /* For the remaining cases, force the constant into a register.  */
+	  xop1 = force_reg (SImode, xop1);
+	  x = gen_rtx_PLUS (SImode, xop0, xop1);
+	}
+    }
+  else if (GET_CODE (x) == PLUS
+	   && s_register_operand (XEXP (x, 1), SImode)
+	   && !s_register_operand (XEXP (x, 0), SImode))
+    {
+      rtx xop0 = force_operand (XEXP (x, 0), NULL_RTX);
+
+      x = gen_rtx_PLUS (SImode, xop0, XEXP (x, 1));
     }
 
   if (flag_pic)
@@ -5051,7 +5121,6 @@ load_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       /* Now check it more carefully.  */
       if (GET_CODE (SET_DEST (elt)) != REG
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != REG
-          || REGNO (XEXP (SET_SRC (elt), 0)) != REGNO (SET_DEST (elt))
           || GET_CODE (XEXP (SET_SRC (elt), 1)) != CONST_INT
           || INTVAL (XEXP (SET_SRC (elt), 1)) != (count - 1) * 4)
         return 0;
@@ -5111,7 +5180,6 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       /* Now check it more carefully.  */
       if (GET_CODE (SET_DEST (elt)) != REG
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != REG
-          || REGNO (XEXP (SET_SRC (elt), 0)) != REGNO (SET_DEST (elt))
           || GET_CODE (XEXP (SET_SRC (elt), 1)) != CONST_INT
           || INTVAL (XEXP (SET_SRC (elt), 1)) != (count - 1) * 4)
         return 0;
@@ -7105,8 +7173,8 @@ dump_minipool (rtx scan)
 	  break;
 	}
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     ";; Emitting minipool after insn %u; address %ld; align %d (bytes)\n",
 	     INSN_UID (scan), (unsigned long) minipool_barrier->address, align64 ? 8 : 4);
 
@@ -7118,14 +7186,14 @@ dump_minipool (rtx scan)
     {
       if (mp->refcount > 0)
 	{
-	  if (rtl_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (rtl_dump_file, 
+	      fprintf (dump_file, 
 		       ";;  Offset %u, min %ld, max %ld ",
 		       (unsigned) mp->offset, (unsigned long) mp->min_address,
 		       (unsigned long) mp->max_address);
-	      arm_print_value (rtl_dump_file, mp->value);
-	      fputc ('\n', rtl_dump_file);
+	      arm_print_value (dump_file, mp->value);
+	      fputc ('\n', dump_file);
 	    }
 
 	  switch (mp->fix_size)
@@ -7346,15 +7414,15 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
   if (TARGET_REALLY_IWMMXT && fix->fix_size == 8)
     fix->forwards -= 4;
 
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file,
+      fprintf (dump_file,
 	       ";; %smode fixup for i%d; addr %lu, range (%ld,%ld): ",
 	       GET_MODE_NAME (mode),
 	       INSN_UID (insn), (unsigned long) address, 
 	       -1 * (long)fix->backwards, (long)fix->forwards);
-      arm_print_value (rtl_dump_file, fix->value);
-      fprintf (rtl_dump_file, "\n");
+      arm_print_value (dump_file, fix->value);
+      fprintf (dump_file, "\n");
     }
 
   /* Add it to the chain of fixes.  */
@@ -9816,7 +9884,7 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	    return 0;
 	  /* FIXME:  Not sure about this.  Maybe we should always return 0 ?  */
 	  return (frame_pointer_needed
-		  && current_function_needs_context
+		  && cfun->static_chain_decl != NULL
 		  && ! cfun->machine->uses_anonymous_args) ? 4 : 0;
 
 	case STACK_POINTER_REGNUM:
@@ -11360,8 +11428,8 @@ static const struct builtin_description bdesc_2arg[] =
   IWMMXT_BUILTIN (ussubv4hi3, "wsubhus", WSUBUSH)
   IWMMXT_BUILTIN (ussubv2si3, "wsubwus", WSUBUSW)
   IWMMXT_BUILTIN (mulv4hi3, "wmulul", WMULUL)
-  IWMMXT_BUILTIN (smulv4hi3_highpart, "wmulsh", WMULSH)
-  IWMMXT_BUILTIN (umulv4hi3_highpart, "wmuluh", WMULUH)
+  IWMMXT_BUILTIN (smulv4hi3_highpart, "wmulsm", WMULSM)
+  IWMMXT_BUILTIN (umulv4hi3_highpart, "wmulum", WMULUM)
   IWMMXT_BUILTIN (eqv8qi3, "wcmpeqb", WCMPEQB)
   IWMMXT_BUILTIN (eqv4hi3, "wcmpeqh", WCMPEQH)
   IWMMXT_BUILTIN (eqv2si3, "wcmpeqw", WCMPEQW)
@@ -11991,9 +12059,9 @@ arm_expand_builtin (tree exp,
     case ARM_BUILTIN_SETWCX:
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = force_reg (SImode, expand_expr (arg1, NULL_RTX, VOIDmode, 0));
-      emit_insn (gen_iwmmxt_tmcr (op0, op1));
+      op0 = force_reg (SImode, expand_expr (arg0, NULL_RTX, VOIDmode, 0));
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      emit_insn (gen_iwmmxt_tmcr (op1, op0));
       return 0;
 
     case ARM_BUILTIN_GETWCX:
@@ -13950,8 +14018,7 @@ arm_encode_section_info (tree decl, rtx rtl, int first)
   /* This doesn't work with AOF syntax, since the string table may be in
      a different AREA.  */
 #ifndef AOF_ASSEMBLER
-  if (optimize > 0 && TREE_CONSTANT (decl)
-      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
+  if (optimize > 0 && TREE_CONSTANT (decl))
     SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
 #endif
 

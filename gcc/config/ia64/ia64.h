@@ -203,14 +203,21 @@ extern int ia64_tls_size;
       N_("Generate inline floating point division, optimize for latency") },\
   { "inline-float-divide-max-throughput", MASK_INLINE_FLOAT_DIV_THR,	\
       N_("Generate inline floating point division, optimize for throughput") },\
+  { "no-inline-float-divide", 						\
+      -(MASK_INLINE_FLOAT_DIV_LAT|MASK_INLINE_FLOAT_DIV_THR),		\
+      N_("Do not inline floating point division") },			\
   { "inline-int-divide-min-latency", MASK_INLINE_INT_DIV_LAT,		\
       N_("Generate inline integer division, optimize for latency") },	\
   { "inline-int-divide-max-throughput", MASK_INLINE_INT_DIV_THR,	\
       N_("Generate inline integer division, optimize for throughput") },\
+  { "no-inline-int-divide", -(MASK_INLINE_INT_DIV_LAT|MASK_INLINE_INT_DIV_THR),	\
+      N_("Do not inline integer division") },				\
   { "inline-sqrt-min-latency", MASK_INLINE_SQRT_LAT,			\
       N_("Generate inline square root, optimize for latency") },	\
   { "inline-sqrt-max-throughput", MASK_INLINE_SQRT_THR,			\
       N_("Generate inline square root, optimize for throughput") },     \
+  { "no-inline-sqrt", -(MASK_INLINE_SQRT_LAT|MASK_INLINE_SQRT_THR),	\
+      N_("Do not inline square root") },				\
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
       N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
@@ -227,7 +234,7 @@ extern int ia64_tls_size;
 /* Default target_flags if no switches are specified  */
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT MASK_DWARF2_ASM
+#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_INLINE_FLOAT_DIV_THR)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -831,6 +838,13 @@ while (0)
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
    && (((MODE1) == XFmode) == ((MODE2) == XFmode))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
+
+/* Specify the modes required to caller save a given hard regno.
+   We need to ensure floating pt regs are not saved as DImode.  */
+
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+   : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
 

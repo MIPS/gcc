@@ -1,3 +1,33 @@
+2004-02-24  Michael Matz  <matz@suse.de>
+
+	* Make-lang.in (sta.o-warn): Delete.
+	* sta.c (ffesta_save_): Don't break aliasing rules.
+
+2004-02-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* Make-lang.in (g77spec.o): Depend on intl.h.
+	* g77spec.c: Include intl.h.
+	(lang_specific_driver): Allow translation of the copyright
+	symbol but not the rest of the copyright message.  Allow
+	translation of the message about warranty.
+
+2004-02-19  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Make-lang.in (f/stamp-1t, f/stamp-2t, f/stamp-fo)
+	(f/stamp-io, f/stamp-nq, f/stamp-op, f/stamp-ot): Use the top
+	level move-if-change.
+
+2004-02-15  Roger Sayle  <roger@eyesopen.com>
+
+	* lex.c (ffelex_get_directive_line): Provide a more descriptive
+	comment.  Remove reference to non-existant get_directive_line.
+
+2004-02-15  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/14129
+	* lex.c (ffelex_cfelex_): Avoid calling xrealloc on a local stack
+	allocated array.
+
 2004-02-03  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* com.c (ffecom_member_phase2_): Use gen_rtx_MEM instead of

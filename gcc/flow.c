@@ -490,10 +490,10 @@ verify_wide_reg (int regno, basic_block bb)
       head = NEXT_INSN (head);
     }
 
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file, "Register %d died unexpectedly.\n", regno);
-      dump_bb (bb, rtl_dump_file, 0);
+      fprintf (dump_file, "Register %d died unexpectedly.\n", regno);
+      dump_bb (bb, dump_file, 0);
     }
   abort ();
 }
@@ -510,14 +510,14 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	 registers.  The regsets should exactly match.  */
       if (! REG_SET_EQUAL_P (new_live_at_start, bb->global_live_at_start))
 	{
-	  if (rtl_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (rtl_dump_file,
+	      fprintf (dump_file,
 		       "live_at_start mismatch in bb %d, aborting\nNew:\n",
 		       bb->index);
-	      debug_bitmap_file (rtl_dump_file, new_live_at_start);
-	      fputs ("Old:\n", rtl_dump_file);
-	      dump_bb (bb, rtl_dump_file, 0);
+	      debug_bitmap_file (dump_file, new_live_at_start);
+	      fputs ("Old:\n", dump_file);
+	      dump_bb (bb, dump_file, 0);
 	    }
 	  abort ();
 	}
@@ -534,11 +534,11 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	  /* No registers should die.  */
 	  if (REGNO_REG_SET_P (bb->global_live_at_start, i))
 	    {
-	      if (rtl_dump_file)
+	      if (dump_file)
 		{
-		  fprintf (rtl_dump_file,
+		  fprintf (dump_file,
 			   "Register %d died unexpectedly.\n", i);
-		  dump_bb (bb, rtl_dump_file, 0);
+		  dump_bb (bb, dump_file, 0);
 		}
 	      abort ();
 	    }
@@ -719,8 +719,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
     }
   timevar_pop ((extent == UPDATE_LIFE_LOCAL || blocks)
 	       ? TV_LIFE_UPDATE : TV_LIFE);
-  if (ndead && rtl_dump_file)
-    fprintf (rtl_dump_file, "deleted %i dead insns\n", ndead);
+  if (ndead && dump_file)
+    fprintf (dump_file, "deleted %i dead insns\n", ndead);
   return ndead;
 }
 
@@ -824,8 +824,8 @@ delete_noop_moves (rtx f ATTRIBUTE_UNUSED)
 	    }
 	}
     }
-  if (nnoops && rtl_dump_file)
-    fprintf (rtl_dump_file, "deleted %i noop moves", nnoops);
+  if (nnoops && dump_file)
+    fprintf (dump_file, "deleted %i noop moves", nnoops);
   return nnoops;
 }
 
@@ -846,8 +846,8 @@ delete_dead_jumptables (void)
 	  && (GET_CODE (PATTERN (next)) == ADDR_VEC
 	      || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
 	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Dead jumptable %i removed\n", INSN_UID (insn));
+	  if (dump_file)
+	    fprintf (dump_file, "Dead jumptable %i removed\n", INSN_UID (insn));
 	  delete_insn (NEXT_INSN (insn));
 	  delete_insn (insn);
 	  next = NEXT_INSN (next);
@@ -2220,14 +2220,22 @@ insn_dead_p (struct propagate_block_info *pbi, rtx x, int call_ok,
     }
 
   /* A CLOBBER of a pseudo-register that is dead serves no purpose.  That
-     is not necessarily true for hard registers.  */
-  else if (code == CLOBBER && GET_CODE (XEXP (x, 0)) == REG
-	   && REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER
-	   && ! REGNO_REG_SET_P (pbi->reg_live, REGNO (XEXP (x, 0))))
-    return 1;
+     is not necessarily true for hard registers until after reload.  */
+  else if (code == CLOBBER)
+    {
+      if (GET_CODE (XEXP (x, 0)) == REG
+	  && (REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER
+	      || reload_completed)
+	  && ! REGNO_REG_SET_P (pbi->reg_live, REGNO (XEXP (x, 0))))
+	return 1;
+    }
 
-  /* We do not check other CLOBBER or USE here.  An insn consisting of just
-     a CLOBBER or just a USE should not be deleted.  */
+  /* ??? A base USE is a historical relic.  It ought not be needed anymore.
+     Instances where it is still used are either (1) temporary and the USE
+     escaped the pass, (2) cruft and the USE need not be emitted anymore,
+     or (3) hiding bugs elsewhere that are not properly representing data
+     flow.  */
+
   return 0;
 }
 
@@ -4187,7 +4195,10 @@ void
 recompute_reg_usage (rtx f ATTRIBUTE_UNUSED, int loop_step ATTRIBUTE_UNUSED)
 {
   allocate_reg_life_data ();
-  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO);
+  /* distribute_notes in combiner fails to convert some of the REG_UNUSED notes
+   to REG_DEAD notes.  This causes CHECK_DEAD_NOTES in sched1 to abort.  To 
+   solve this update the DEATH_NOTES here.  */
+  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
 }
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
