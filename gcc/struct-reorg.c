@@ -985,6 +985,7 @@ build_child_struct (struct struct_tree_list *struct_list, int count,
   tree new_struct;
   tree field_list = NULL;
   tree tmp_node;
+  tree last_field = NULL;
   char *new_name = NULL;
   char *orig_name;
   int num_fields = 0;
@@ -1017,8 +1018,11 @@ build_child_struct (struct struct_tree_list *struct_list, int count,
   for (current = struct_list; current; current = current->next)
     {
       tmp_node = make_new_field_decl (current->data);
-      TREE_CHAIN (tmp_node) = field_list;
-      field_list = tmp_node;
+      if (!field_list)
+	field_list = tmp_node;
+      else
+	TREE_CHAIN (last_field) = tmp_node;
+      last_field = tmp_node;
       num_fields++;
     }
 
@@ -1085,6 +1089,7 @@ create_and_assemble_new_types (struct data_structure *struct_data,
   struct field_map *tmp_map;
   int i;
   int k;
+  tree last_field = NULL;
   tree new_decl;
   char *new_name;
   char *old_name;
@@ -1154,8 +1159,11 @@ create_and_assemble_new_types (struct data_structure *struct_data,
 	struct_data->fields[i].new_mapping = NULL;
 	new_types->num_fields++;
 
-	TREE_CHAIN (new_decl) = new_types->field_list;
-	new_types->field_list = new_decl;
+	if (!new_types->field_list)
+	  new_types->field_list = new_decl;
+	else
+	  TREE_CHAIN (last_field) = new_decl;
+	last_field = new_decl;
       }
 
   if (child_struct)
