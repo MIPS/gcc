@@ -741,30 +741,32 @@ try_remove_path (loops, loop, e)
 {
   edge ae;
   basic_block *rem_bbs, *dom_bbs, from, *border_bbs;
-  int i, nrem, n_dom_bbs, n_border_bbs;
+  int i, j, nrem, n_dom_bbs, n_border_bbs;
 
   /* First identify the branch.  */
   nrem = find_branch (e, loops->cfg.dom, loop, &rem_bbs);
 
-  /* Check whether we would not create unreachable blocks and whether
-     we would be able to recount dominators. Also remember border blocks.  */
+  /* Check whether we would not create unreachable blocks.  */
+  for (i = 0; i < nrem; i++)
+    {
+      n_dom_bbs = get_dominated_by (loops->cfg.dom, from, &dom_bbs);
+      for (j = 0; j < n_dom_bbs; j++)
+        if (!flow_bb_inside_loop_p (loop, dom_bbs[j]))
+	  {
+	    free (dom_bbs);
+	    free (rem_bbs);
+	    return 0;
+	  }
+      free (dom_bbs);
+    }
+
+  /* Remember border blocks.  */
   border_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
   n_border_bbs = 0;
   for (i = 0; i < nrem; i++)
     for (ae = rem_bbs[i]->succ; ae; ae = ae->succ_next)
-      {
-	basic_block dom_bb;
-	if (flow_bb_inside_loop_p (loop, ae->dest))
-	  continue;
+      if (!flow_bb_inside_loop_p (loop, ae->dest))
 	border_bbs[n_border_bbs++] = ae->dest;
-	dom_bb = get_immediate_dominator (loops->cfg.dom, ae->dest);
-	if (flow_bb_inside_loop_p (loop, dom_bb))
-	  {
-	    free (rem_bbs);
-	    free (border_bbs);
-	    return 0;
-	  }
-      }
 
   /* OK. Remove the path.  */
   from = e->src;
