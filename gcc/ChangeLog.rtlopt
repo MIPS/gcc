@@ -1,3 +1,7 @@
+2003-07-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* stmt.c (expand_end_loop): Fix.
+
 2003-07-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* toplev.c (rest_of_compilation): Disable var tracking.

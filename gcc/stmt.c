@@ -2644,6 +2644,9 @@ expand_end_loop ()
 	  && XEXP (condjump_label (cond), 0) == end_label)
 	break;
 
+      if (GET_CODE (cond) != NOTE)
+	continue;
+
       /* At the same time, scan for EH region notes, as we don't want
 	 to scrog region nesting.  This shouldn't happen, but...  */
       if (NOTE_LINE_NUMBER (cond) == NOTE_INSN_EH_REGION_BEG)
