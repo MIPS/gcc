@@ -1859,6 +1859,7 @@ tree_perform_ssapre ()
      pre_part_1_trav (VARRAY_GENERIC_PTR (bexprs, j), pre_dfs);
   /*  simplify_stmt (fn, NULL_TREE); */
   /* Debugging dump after SSA PRE */
+  dump_file = dump_begin (TDI_ssa_pre, &dump_flags);
   if (dump_file)
     {
       fprintf (dump_file, "%s()\n",
