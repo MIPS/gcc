@@ -310,7 +310,7 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
--ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
+-ftree-pre  -ftree-ccp  -ftree-dce  @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs @gol
 --param @var{name}=@var{value}
@@ -3531,11 +3531,6 @@ Dump each function after CCP.  The file name is made by appending
 Dump trees after partial redundancy elimination.  The file name is made
 by appending @file{.pre} to the source file name.
 
-@item copyprop
-@opindex fdump-tree-copyprop
-Dump trees after copy propagation pass.  The file name is made by
-appending @file{.copyprop} to the source file name.
-
 @item dce
 @opindex fdump-tree-dce
 Dump each function after dead code elimination.  The file name is made by
@@ -4330,12 +4325,8 @@ those which have no call-preserved registers to use instead.
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -ftree-pre
-Perform Partial Redundancy Elimination (PRE) on trees.  @emph{Note:} This
-feature is under development and should not be used in this version of GCC.
-
-@item -ftree-copyprop
-Perform copy propagation on trees.  This flag is enabled by default at -O
-and higher.
+Perform Partial Redundancy Elimination (PRE) on trees.  This flag is
+enabled by default at -O and higher.
 
 @item -ftree-ccp
 Perform sparse conditional constant propagation (CCP) on trees.  This flag
