@@ -1001,7 +1001,7 @@ unroll_or_peel_loop (loops, loop, flags)
   ninsns = num_loop_insns (loop);
 
   /* npeel = number of iterations to peel. */
-  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / ninsns - 1;
+  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / ninsns;
   if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
     npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
 
