@@ -936,6 +936,22 @@ DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", tcc_expression, 3)
  */
 DEFTREECODE (SAT_MINUS_EXPR, "sat_minus_expr", tcc_binary, 2)
 
+
+/* Reduction operations.
+   Operations that takes a vector of elements and "reduce" it to a scalar
+   result (e.g. summing the elements of the vector, finding the minimum over
+   the vector elements, etc).  */
+
+/* summation reduction.
+   Operand 0 is a vector; the first element in the vactor has the result.
+   Operand 1 is a vector.  */
+DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
+
+/* saturating summation reduction.
+   Operand 0 is a vector; the last element in the vactor has the result.
+   Operand 1 is a vector.  */
+DEFTREECODE (SAT_REDUC_PLUS_EXPR, "sat_reduc_plus_expr", tcc_unary, 1)
+
 /*
 Local variables:
 mode:c

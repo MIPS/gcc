@@ -300,6 +300,12 @@ optab_for_tree_code (enum tree_code code, tree type)
     case SAT_MINUS_EXPR:
       return TYPE_UNSIGNED (type) ? usat_sub_optab : ssat_sub_optab;
 
+    case REDUC_PLUS_EXPR:
+      return reduc_plus_optab;
+
+    case SAT_REDUC_PLUS_EXPR:
+      return sat_reduc_plus_optab;
+
     default:
       break;
     }
@@ -4786,6 +4792,9 @@ init_optabs (void)
   cmov_optab = init_optab (UNKNOWN);
   cstore_optab = init_optab (UNKNOWN);
   push_optab = init_optab (UNKNOWN);
+
+  reduc_plus_optab = init_optab (UNKNOWN);
+  sat_reduc_plus_optab = init_optab (UNKNOWN);
 
   vec_extract_optab = init_optab (UNKNOWN);
   vec_set_optab = init_optab (UNKNOWN);

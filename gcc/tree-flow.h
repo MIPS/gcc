@@ -594,6 +594,7 @@ extern void register_new_def (tree, VEC (tree_on_heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
 extern bool stmt_references_memory_p (tree);
+extern void replace_immediate_uses (tree, tree);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);

@@ -1032,7 +1032,7 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
 
 /* Replaces immediate uses of VAR by REPL.  */
 
-static void
+/*static*/ void
 replace_immediate_uses (tree var, tree repl)
 {
   int i, j, n;

@@ -39,7 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
   vect_simple_var,
-  vect_pointer_var
+  vect_pointer_var,
+  vect_scalar_var
 };
 
 /* Defines type of operation: unary or binary.  */
@@ -219,6 +220,10 @@ typedef struct _stmt_vec_info {
 
   /* Classify the def of this stmt.  */
   enum vect_def_type def_type;
+
+  /* The loop-closed-form loop-exit phi for after-the-loop-uses of 
+     this stmt's def, if exist.  */
+  tree after_loop_use;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -234,6 +239,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_RELATED_STMT(S)        (S)->related_stmt
 #define STMT_VINFO_SAME_ALIGN_REFS(S)	  (S)->same_align_refs
 #define STMT_VINFO_DEF_TYPE(S)            (S)->def_type
+#define STMT_VINFO_EXTERNAL_USE(S)	  (S)->after_loop_use
 
 static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);

@@ -1,3 +1,43 @@
+2005-02-22  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree.def (REDUC_PLUS_EXPR, SAT_REDUC_PLUS_EXPR): New.
+	* expr.c (expand_expr_real_1): Added new cases SAT_REDUC_PLUS_EXPR and
+	REDUC_PLUS_EXPR.
+	* tree-pretty-print.c (dump_generic_node, op_prio, op_symbol): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* optabs.c (optab_for_tree_code): Likewise.
+	(init_optabs): Initialize new optabs reduc_plus_optab and 
+	sat_reduc_plus_optab.
+	* genopinit.c (reduc_plus_optab, sat_reduc_plus_optab): New optabs.
+	* optabs.h (OTI_reduc_plus, OTI_sat_reduc_plus): New.
+	(reduc_plus_optab, sat_reduc_plus_optab) New.
+	* tree-flow.h (replace_immediate_uses): Add declaration.
+	* tree-ssa.c (replace_immediate_uses): Externalize.
+	* tree-vectorizer.h (vect_scalar_var): New value for enum vect_var_kind.
+	(after_loop_use): New filed in _stmt_vec_info.
+	(STMT_VINFO_EXTERNAL_USE): New access macro.
+	* tree-vectorizer.c (vectorizable_reduction): New. 
+	Call replace_immediate_uses.
+	(vect_is_simple_reduction): New.
+	(reduction_code_for_scalar_code): New.
+	(vect_get_vec_def_for_operand): Handle vect_reduction_def case.
+	(vect_transform_stmt): Handle reduc_vec_info_type case.
+	(vect_is_simple_use): Don't fail on vect_reduction_def.
+	(vect_determine_vectorization_factor): Check if vect_reduction_def.
+	(vect_analyze_operations): Call vectorizable_reduction.
+	(vect_analyze_scalar_cycles): Call vect_is_simple_reduction.
+	(vect_transform_loop): Check STMT_VINFO_LIVE_P.
+	(vectorizable_assignment): Check STMT_VINFO_RELEVANT_P and
+	STMT_VINFO_DEF_TYPE.
+	(vectorizable_operation, vectorizable_load, vectorizable_select): 
+	Likewise.
+	(vect_stmt_relevant_p): Set STMT_VINFO_EXTERNAL_USE.
+	(new_stmt_vec_info): Initialize new field STMT_VINFO_EXTERNAL_USE.
+	(vect_get_new_vect_var): Handle new vect_scalar_var case.
+	(vect_create_destination_var): Likewise.
+	* config/rs6000/altivec.md (sat_reduc_plus_v4si): New define_expand.
+	(reduc_plus_v4si, reduc_plus_v4sf): New define_expand.
+
 2005-02-22  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (array_base_name_differ_p): Remove gcc_assert.
