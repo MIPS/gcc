@@ -1,3 +1,17 @@
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty.h (pmkpipe): New function.
+	(pexec): Likewise.
+	(pexec_set_program_name): Likewise.
+	(WIFSIGNALED): Define.
+	(WTERMSIG): Likewise.
+	(WIFEXITED): Likewise.
+	(WEXITSTATUS): Likewise.
+	(WSTOPSIG): Likewise.
+	(WCOREDUMP): Likewise.
+
 2003-10-22  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* obstack.h: Merge the following change from gnulib:

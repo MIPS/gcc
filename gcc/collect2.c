@@ -30,23 +30,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include <signal.h>
-#if ! defined( SIGCHLD ) && defined( SIGCLD )
-#  define SIGCHLD SIGCLD
-#endif
-
-#ifdef vfork /* Autoconf may define this to fork for us.  */
-# define VFORK_STRING "fork"
+#ifdef _WIN32
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
 #else
-# define VFORK_STRING "vfork"
-#endif
-#ifdef HAVE_VFORK_H
-#include <vfork.h>
-#endif
-#ifdef VMS
-#define vfork() (decc$$alloc_vfork_blocks() >= 0 ? \
-               lib$get_current_invo_context(decc$$get_vfork_jmpbuf()) : -1)
-#endif /* VMS */
+# include <signal.h>
+# if ! defined( SIGCHLD ) && defined( SIGCLD )
+#  define SIGCHLD SIGCLD
+# endif
+#endif 
 
 #ifndef LIBRARY_PATH_ENV
 #define LIBRARY_PATH_ENV "LIBRARY_PATH"
@@ -249,7 +241,17 @@ static struct path_prefix *libpaths[3] = {&cmdline_lib_dirs,
 static const char *const libexts[3] = {"a", "so", NULL};  /* possible library extensions */
 #endif
 
-static void handler (int);
+static void clean_up_temp_files	(void);
+#ifdef _WIN32
+static BOOL WINAPI handler	(DWORD);
+static LONG unhanded_filter	(LPEXCEPTION_POINTERS);
+#else
+static void handler		(int);
+#endif
+static void install_handlers	(void);
+static void disable_break	(void);
+static void enable_break	(void);
+
 static int is_ctor_dtor (const char *);
 static char *find_a_file (struct path_prefix *, const char *);
 static void add_prefix (struct path_prefix *, const char *);
@@ -289,26 +291,6 @@ static void write_aix_file (FILE *, struct id *);
 static char *resolve_lib_name (const char *);
 #endif
 static char *extract_string (const char **);
-
-#ifndef HAVE_DUP2
-static int
-dup2 (int oldfd, int newfd)
-{
-  int fdtmp[256];
-  int fdx = 0;
-  int fd;
-
-  if (oldfd == newfd)
-    return oldfd;
-  close (newfd);
-  while ((fd = dup (oldfd)) != newfd && fd >= 0) /* good enough for low fd's */
-    fdtmp[fdx++] = fd;
-  while (fdx > 0)
-    close (fdtmp[--fdx]);
-
-  return fd;
-}
-#endif /* ! HAVE_DUP2 */
 
 /* Delete tempfiles and exit function.  */
 
@@ -407,7 +389,7 @@ fancy_abort (void)
 }
 
 static void
-handler (int signo)
+clean_up_temp_files (void)
 {
   if (c_file != 0 && c_file[0])
     maybe_unlink (c_file);
@@ -422,10 +404,116 @@ handler (int signo)
   if (export_file != 0 && export_file[0])
     maybe_unlink (export_file);
 #endif
+}  
 
+/* Signal handling needs to be drastically different between Windows
+   and Unix.  */
+#ifdef _WIN32
+  
+static BOOL WINAPI
+handler (DWORD signo ATTRIBUTE_UNUSED)
+{
+  clean_up_temp_files ();
+  return FALSE; /* not handled - default handler will terminate process */
+}
+
+static LONG
+unhandled_filter (LPEXCEPTION_POINTERS pointers ATTRIBUTE_UNUSED)
+{
+  clean_up_temp_files ();
+  return EXCEPTION_CONTINUE_SEARCH;   /* carry on and terminate process */
+}
+
+
+static void
+install_handlers (void)
+{
+  SetConsoleCtrlHandler (handler, TRUE);
+  /* This is not really the right way to do this; in fact I'm not
+     sure it will work.  But it might.  */
+  SetUnhandledExceptionFilter (unhandled_filter);
+}
+
+static void
+disable_break (void)
+{
+  /* This only works on Windows NT, and only disables CTRL-C;
+     CTRL-BREAK is not disabled (but does get caught by the handler).  */
+  if (!(GetVersion() & 0x80000000))
+    SetConsoleCtrlHandler (NULL, TRUE);
+}
+
+static void
+enable_break (void)
+{
+  if (!(GetVersion() & 0x80000000))
+    SetConsoleCtrlHandler (NULL, FALSE);
+}
+
+#else /* not _WIN32 */
+
+static void
+handler (int signo)
+{
+  clean_up_temp_files ();
   signal (signo, SIG_DFL);
   kill (getpid (), signo);
 }
+
+static void
+install_handlers ()
+{
+#ifdef SIGQUIT
+  if (signal (SIGQUIT, SIG_IGN) != SIG_IGN)
+    signal (SIGQUIT, handler);
+#endif
+  if (signal (SIGINT, SIG_IGN) != SIG_IGN)
+    signal (SIGINT, handler);
+#ifdef SIGALRM
+  if (signal (SIGALRM, SIG_IGN) != SIG_IGN)
+    signal (SIGALRM, handler);
+#endif
+#ifdef SIGHUP
+  if (signal (SIGHUP, SIG_IGN) != SIG_IGN)
+    signal (SIGHUP, handler);
+#endif
+  if (signal (SIGSEGV, SIG_IGN) != SIG_IGN)
+    signal (SIGSEGV, handler);
+#ifdef SIGBUS
+  if (signal (SIGBUS, SIG_IGN) != SIG_IGN)
+    signal (SIGBUS, handler);
+#endif
+#ifdef SIGCHLD
+  /* We *MUST* set SIGCHLD to SIG_DFL so that the wait4() call will
+     receive the signal.  A different setting is inheritable */
+  signal (SIGCHLD, SIG_DFL);
+#endif
+}
+
+static void (*int_handler) PARAMS ((int));
+#ifdef SIGQUIT
+static void (*quit_handler) PARAMS ((int));
+#endif
+
+static void
+disable_break ()
+{
+  int_handler  = (void (*) PARAMS ((int))) signal (SIGINT,  SIG_IGN);
+#ifdef SIGQUIT
+  quit_handler = (void (*) PARAMS ((int))) signal (SIGQUIT, SIG_IGN);
+#endif
+}
+
+static void
+enable_break ()
+{
+  signal (SIGINT,  int_handler);
+#ifdef SIGQUIT
+  signal (SIGQUIT, quit_handler);
+#endif
+}
+
+#endif /* not _WIN32 */
 
 
 int
@@ -821,6 +909,8 @@ main (int argc, char **argv)
   int first_file;
   int num_c_args	= argc+9;
 
+  pexec_set_program_name (argv[0]);
+
   no_demangle = !! getenv ("COLLECT_NO_DEMANGLE");
 
   /* Suppress demangling by the real linker, which may be broken.  */
@@ -829,12 +919,6 @@ main (int argc, char **argv)
 #if defined (COLLECT2_HOST_INITIALIZATION)
   /* Perform system dependent initialization, if necessary.  */
   COLLECT2_HOST_INITIALIZATION;
-#endif
-
-#ifdef SIGCHLD
-  /* We *MUST* set SIGCHLD to SIG_DFL so that the wait4() call will
-     receive the signal.  A different setting is inheritable */
-  signal (SIGCHLD, SIG_DFL);
 #endif
 
   gcc_init_libintl ();
@@ -892,26 +976,7 @@ main (int argc, char **argv)
   if (argc < 2)
     fatal ("no arguments");
 
-#ifdef SIGQUIT
-  if (signal (SIGQUIT, SIG_IGN) != SIG_IGN)
-    signal (SIGQUIT, handler);
-#endif
-  if (signal (SIGINT, SIG_IGN) != SIG_IGN)
-    signal (SIGINT, handler);
-#ifdef SIGALRM
-  if (signal (SIGALRM, SIG_IGN) != SIG_IGN)
-    signal (SIGALRM, handler);
-#endif
-#ifdef SIGHUP
-  if (signal (SIGHUP, SIG_IGN) != SIG_IGN)
-    signal (SIGHUP, handler);
-#endif
-  if (signal (SIGSEGV, SIG_IGN) != SIG_IGN)
-    signal (SIGSEGV, handler);
-#ifdef SIGBUS
-  if (signal (SIGBUS, SIG_IGN) != SIG_IGN)
-    signal (SIGBUS, handler);
-#endif
+  install_handlers ();
 
   /* Extract COMPILER_PATH and PATH into our prefix list.  */
   prefix_from_env ("COMPILER_PATH", &cpath);
@@ -1492,11 +1557,7 @@ do_wait (const char *prog)
 void
 collect_execute (const char *prog, char **argv, const char *redir)
 {
-  char *errmsg_fmt;
-  char *errmsg_arg;
   int redir_handle = -1;
-  int stdout_save = -1;
-  int stderr_save = -1;
 
   if (vflag || debug)
     {
@@ -1514,9 +1575,6 @@ collect_execute (const char *prog, char **argv, const char *redir)
       fprintf (stderr, "\n");
     }
 
-  fflush (stdout);
-  fflush (stderr);
-
   /* If we cannot find a program we need, complain error.  Do this here
      since we might not end up needing something that we could not find.  */
 
@@ -1524,39 +1582,12 @@ collect_execute (const char *prog, char **argv, const char *redir)
     fatal ("cannot find `%s'", prog);
 
   if (redir)
-    {
-      /* Open response file.  */
-      redir_handle = open (redir, O_WRONLY | O_TRUNC | O_CREAT);
+    redir_handle = open (redir, O_WRONLY | O_TRUNC | O_CREAT);
 
-      /* Duplicate the stdout and stderr file handles
-	 so they can be restored later.  */
-      stdout_save = dup (STDOUT_FILENO);
-      if (stdout_save == -1)
-	fatal_perror ("redirecting stdout: %s", redir);
-      stderr_save = dup (STDERR_FILENO);
-      if (stderr_save == -1)
-	fatal_perror ("redirecting stdout: %s", redir);
+  pid = pexec (argv[0], argv, 1, -1, redir_handle, -1);
 
-      /* Redirect stdout & stderr to our response file.  */
-      dup2 (redir_handle, STDOUT_FILENO);
-      dup2 (redir_handle, STDERR_FILENO);
-    }
-
-  pid = pexecute (argv[0], argv, argv[0], NULL, &errmsg_fmt, &errmsg_arg,
-		  (PEXECUTE_FIRST | PEXECUTE_LAST | PEXECUTE_SEARCH));
-
-  if (redir)
-    {
-      /* Restore stdout and stderr to their previous settings.  */
-      dup2 (stdout_save, STDOUT_FILENO);
-      dup2 (stderr_save, STDERR_FILENO);
-
-      /* Close response file.  */
-      close (redir_handle);
-    }
-
- if (pid == -1)
-   fatal_perror (errmsg_fmt, errmsg_arg);
+  if (pid == -1)
+   fatal_perror ("pexec");
 }
 
 static void
@@ -1984,8 +2015,6 @@ write_aix_file (FILE *stream, struct id *list)
 static void
 scan_prog_file (const char *prog_name, enum pass which_pass)
 {
-  void (*int_handler) (int);
-  void (*quit_handler) (int);
   char *real_nm_argv[4];
   const char **nm_argv = (const char **) real_nm_argv;
   int argc = 0;
@@ -2007,7 +2036,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
   nm_argv[argc++] = prog_name;
   nm_argv[argc++] = (char *) 0;
 
-  if (pipe (pipe_fd) < 0)
+  if (pmkpipe (pipe_fd) < 0)
     fatal_perror ("pipe");
 
   inf = fdopen (pipe_fd[0], "r");
@@ -2026,38 +2055,14 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
       fprintf (stderr, "\n");
     }
 
-  fflush (stdout);
-  fflush (stderr);
-
   /* Spawn child nm on pipe.  */
-  pid = vfork ();
+  pid = pexec (nm_file_name, real_nm_argv, 0, -1, pipe_fd[1], -1);
+  
   if (pid == -1)
-    fatal_perror (VFORK_STRING);
-
-  if (pid == 0)			/* child context */
-    {
-      /* setup stdout */
-      if (dup2 (pipe_fd[1], 1) < 0)
-	fatal_perror ("dup2 %d 1", pipe_fd[1]);
-
-      if (close (pipe_fd[0]) < 0)
-	fatal_perror ("close %d", pipe_fd[0]);
-
-      if (close (pipe_fd[1]) < 0)
-	fatal_perror ("close %d", pipe_fd[1]);
-
-      execv (nm_file_name, real_nm_argv);
-      fatal_perror ("execv %s", nm_file_name);
-    }
-
+    fatal_perror ("pexec");
+  
   /* Parent context from here on.  */
-  int_handler  = (void (*) (int)) signal (SIGINT,  SIG_IGN);
-#ifdef SIGQUIT
-  quit_handler = (void (*) (int)) signal (SIGQUIT, SIG_IGN);
-#endif
-
-  if (close (pipe_fd[1]) < 0)
-    fatal_perror ("close %d", pipe_fd[1]);
+  disable_break ();
 
   if (debug)
     fprintf (stderr, "\nnm output with constructors/destructors.\n");
@@ -2136,10 +2141,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 
   do_wait (nm_file_name);
 
-  signal (SIGINT,  int_handler);
-#ifdef SIGQUIT
-  signal (SIGQUIT, quit_handler);
-#endif
+  enable_break ();
 }
 
 #if SUNOS4_SHARED_LIBRARIES
@@ -2416,8 +2418,6 @@ scan_libraries (const char *prog_name)
 {
   static struct head libraries;		/* list of shared libraries found */
   struct id *list;
-  void (*int_handler) (int);
-  void (*quit_handler) (int);
   char *real_ldd_argv[4];
   const char **ldd_argv = (const char **) real_ldd_argv;
   int argc = 0;
@@ -2436,7 +2436,7 @@ scan_libraries (const char *prog_name)
   ldd_argv[argc++] = prog_name;
   ldd_argv[argc++] = (char *) 0;
 
-  if (pipe (pipe_fd) < 0)
+  if (pmkpipe (pipe_fd) < 0)
     fatal_perror ("pipe");
 
   inf = fdopen (pipe_fd[0], "r");
@@ -2455,38 +2455,14 @@ scan_libraries (const char *prog_name)
       fprintf (stderr, "\n");
     }
 
-  fflush (stdout);
-  fflush (stderr);
-
   /* Spawn child ldd on pipe.  */
-  pid = vfork ();
-  if (pid == -1)
-    fatal_perror (VFORK_STRING);
-
-  if (pid == 0)			/* child context */
-    {
-      /* setup stdout */
-      if (dup2 (pipe_fd[1], 1) < 0)
-	fatal_perror ("dup2 %d 1", pipe_fd[1]);
-
-      if (close (pipe_fd[0]) < 0)
-	fatal_perror ("close %d", pipe_fd[0]);
-
-      if (close (pipe_fd[1]) < 0)
-	fatal_perror ("close %d", pipe_fd[1]);
-
-      execv (ldd_file_name, real_ldd_argv);
-      fatal_perror ("execv %s", ldd_file_name);
-    }
+  pexecute_pid = pexec (ldd_file_name, real_ldd_argv, 0, -1, infpipe[1], -1);
+  
+  if (pexecute_pid == -1)
+    fatal_perror ("pexec");
 
   /* Parent context from here on.  */
-  int_handler  = (void (*) (int))) signal (SIGINT,  SIG_IGN;
-#ifdef SIGQUIT
-  quit_handler = (void (*) (int))) signal (SIGQUIT, SIG_IGN;
-#endif
-
-  if (close (pipe_fd[1]) < 0)
-    fatal_perror ("close %d", pipe_fd[1]);
+  disable_break ();
 
   if (debug)
     notice ("\nldd output with constructors/destructors.\n");
@@ -2529,11 +2505,7 @@ scan_libraries (const char *prog_name)
 
   do_wait (ldd_file_name);
 
-  signal (SIGINT,  int_handler);
-#ifdef SIGQUIT
-  signal (SIGQUIT, quit_handler);
-#endif
-
+  enable_break ();
   /* now iterate through the library list adding their symbols to
      the list.  */
   for (list = libraries.first; list; list = list->next)

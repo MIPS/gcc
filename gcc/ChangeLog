@@ -1,3 +1,19 @@
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* collect2.c (windows.h): Include.
+	(dup2): Remove.
+	(handler): Change prototype.
+	(unhandled_filter): New funciton.
+	(install_handlers): Likewise.
+	(disable_break): Likewise.
+	(enable_break): Likewise.
+	(main): Call install_handlers rather than signal directly.
+	(collect_execute): Use pexec.
+	(scan_prog_file): Likewise.
+	(scan_libraries): Likewise.
+
 2003-12-19  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.md: Add load1 and load_byte "type" attrs.  Modify
