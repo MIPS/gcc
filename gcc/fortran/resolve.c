@@ -2941,7 +2941,7 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
       if (stack == NULL)
 	gfc_notify_std (GFC_STD_F95_DEL,
 			"Obsolete: GOTO at %L jumps to END of construct at %L",
-			&found->loc, &code->loc);
+			&code->loc, &found->loc);
     }
 }
 

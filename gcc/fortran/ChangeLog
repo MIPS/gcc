@@ -1,3 +1,7 @@
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* resolve.c (resolve_branch): Get error message right way round.
+
 2004-01-10  Canqun Yang <canqun@nudt.edu.cn>
 
 	* trans-array (gfc_conv_loop_setup): Adjust comment to track
