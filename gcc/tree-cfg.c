@@ -1179,7 +1179,9 @@ static void
 cleanup_switch_expr_graph (switch_bb)
      basic_block switch_bb;
 {
+#if defined ENABLE_CHECKING
   tree switch_expr = first_stmt (switch_bb);
+#endif
   edge e;
 
 #if defined ENABLE_CHECKING

@@ -1,5 +1,8 @@
 2003-01-21  Jeff Law <law@redhat.com>
 
+	* tree-cfg.c (cleanup_switch_expr_graph): Wrap declaration of
+	switch_expr with ENABLE_CHECKING block.
+
 	* c-simplify.c (is_last_stmt_of_scope): Wrap definition and
 	declaration inside and ENABLE_CHECKING block.
 
