@@ -6421,49 +6421,73 @@ simplify_builtin (tree exp, int ignore)
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+  tree val;
+
   switch (fcode)
     {
     case BUILT_IN_FPUTS:
-      return simplify_builtin_fputs (arglist, ignore, 0, NULL_TREE);
+      val = simplify_builtin_fputs (arglist, ignore, 0, NULL_TREE);
+      break;
     case BUILT_IN_FPUTS_UNLOCKED:
-      return simplify_builtin_fputs (arglist, ignore, 1, NULL_TREE);
+      val = simplify_builtin_fputs (arglist, ignore, 1, NULL_TREE);
+      break;
     case BUILT_IN_STRSTR:
-      return simplify_builtin_strstr (arglist);
+      val = simplify_builtin_strstr (arglist);
+      break;
     case BUILT_IN_STRCAT:
-      return simplify_builtin_strcat (arglist);
+      val = simplify_builtin_strcat (arglist);
+      break;
     case BUILT_IN_STRNCAT:
-      return simplify_builtin_strncat (arglist);
+      val = simplify_builtin_strncat (arglist);
+      break;
     case BUILT_IN_STRSPN:
-      return simplify_builtin_strspn (arglist);
+      val = simplify_builtin_strspn (arglist);
+      break;
     case BUILT_IN_STRCSPN:
-      return simplify_builtin_strcspn (arglist);
+      val = simplify_builtin_strcspn (arglist);
+      break;
     case BUILT_IN_STRCHR:
     case BUILT_IN_INDEX:
-      return simplify_builtin_strchr (arglist);
+      val = simplify_builtin_strchr (arglist);
+      break;
     case BUILT_IN_STRRCHR:
     case BUILT_IN_RINDEX:
-      return simplify_builtin_strrchr (arglist);
+      val = simplify_builtin_strrchr (arglist);
+      break;
     case BUILT_IN_STRCPY:
-      return simplify_builtin_strcpy (arglist);
+      val = simplify_builtin_strcpy (arglist);
+      break;
     case BUILT_IN_STRNCPY:
-      return simplify_builtin_strncpy (arglist);
+      val = simplify_builtin_strncpy (arglist);
+      break;
     case BUILT_IN_STRCMP:
-      return simplify_builtin_strcmp (arglist);
+      val = simplify_builtin_strcmp (arglist);
+      break;
     case BUILT_IN_STRNCMP:
-      return simplify_builtin_strncmp (arglist);
+      val = simplify_builtin_strncmp (arglist);
+      break;
     case BUILT_IN_STRPBRK:
-      return simplify_builtin_strpbrk (arglist);
+      val = simplify_builtin_strpbrk (arglist);
+      break;
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
-      return simplify_builtin_memcmp (arglist);
+      val = simplify_builtin_memcmp (arglist);
+      break;
     case BUILT_IN_VA_START:
       simplify_builtin_va_start (arglist);
-      return NULL_TREE;
+      val = NULL_TREE;
+      break;
     case BUILT_IN_SPRINTF:
-      return simplify_builtin_sprintf (arglist, ignore);
+      val = simplify_builtin_sprintf (arglist, ignore);
+      break;
     default:
-      return NULL_TREE;
+      val = NULL_TREE;
+      break;
     }
+
+  if (val)
+    val = convert (TREE_TYPE (exp), val);
+  return val;
 }
 
 /* Simplify a call to the strstr builtin.
@@ -6696,7 +6720,8 @@ simplify_builtin_strpbrk (tree arglist)
 	  /* strpbrk(x, "") == NULL.
 	     Evaluate and ignore the arguments in case they had
 	     side-effects.  */
-	  return build (COMPOUND_EXPR, void_type_node, s1, integer_zero_node);
+	  return build (COMPOUND_EXPR, integer_type_node, s1,
+			integer_zero_node);
 	}
 
       if (p2[1] != '\0')
@@ -6791,7 +6816,7 @@ simplify_builtin_strncpy (tree arglist)
 	{
 	  /* Evaluate and ignore the src argument in case it has
 	     side-effects and return the dst parameter.  */
-	  return build (COMPOUND_EXPR, void_type_node,
+	  return build (COMPOUND_EXPR, TREE_TYPE (TREE_VALUE (arglist)),
 			TREE_VALUE (TREE_CHAIN (arglist)),
 			TREE_VALUE (arglist));
 	}
@@ -6851,8 +6876,8 @@ simplify_builtin_memcmp (tree arglist)
     {
       /* Evaluate and ignore arg1 and arg2 in case they have
          side-effects.  */
-      return build (COMPOUND_EXPR, void_type_node, arg1,
-		    build (COMPOUND_EXPR, void_type_node,
+      return build (COMPOUND_EXPR, integer_type_node, arg1,
+		    build (COMPOUND_EXPR, integer_type_node,
 			   arg2, integer_zero_node));
     }
 
@@ -7030,8 +7055,8 @@ simplify_builtin_strncmp (tree arglist)
     {
       /* Evaluate and ignore arg1 and arg2 in case they have
 	 side-effects.  */
-      return build (COMPOUND_EXPR, void_type_node, arg1,
-		    build (COMPOUND_EXPR, void_type_node,
+      return build (COMPOUND_EXPR, integer_type_node, arg1,
+		    build (COMPOUND_EXPR, integer_type_node,
 			   arg2, integer_zero_node));
     }
 
@@ -7165,16 +7190,16 @@ simplify_builtin_strncat (tree arglist)
     return 0;
   else
     {
-      tree dst = TREE_VALUE (arglist),
-	src = TREE_VALUE (TREE_CHAIN (arglist)),
-	len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      tree dst = TREE_VALUE (arglist);
+      tree src = TREE_VALUE (TREE_CHAIN (arglist));
+      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
       const char *p = c_getstr (src);
 
       /* If the requested length is zero, or the src parameter string
           length is zero, return the dst parameter.  */
       if (integer_zerop (len) || (p && *p == '\0'))
-	return build (COMPOUND_EXPR, void_type_node, src,
-		      build (COMPOUND_EXPR, void_type_node, len, dst));
+	return build (COMPOUND_EXPR, TREE_TYPE (dst), src,
+		      build (COMPOUND_EXPR, integer_type_node, len, dst));
 
       /* If the requested len is greater than or equal to the string
          length, call strcat.  */
@@ -7235,8 +7260,8 @@ simplify_builtin_strspn (tree arglist)
 	{
 	  /* Evaluate and ignore both arguments in case either one has
 	     side-effects.  */
-	  return build (COMPOUND_EXPR, void_type_node, s1,
-			build (COMPOUND_EXPR, void_type_node,
+	  return build (COMPOUND_EXPR, integer_type_node, s1,
+			build (COMPOUND_EXPR, integer_type_node,
 			       s2, integer_zero_node));
 	}
       return 0;
@@ -7282,7 +7307,7 @@ simplify_builtin_strcspn (tree arglist)
 	{
 	  /* Evaluate and ignore argument s2 in case it has
 	     side-effects.  */
-	  return build (COMPOUND_EXPR, void_type_node,
+	  return build (COMPOUND_EXPR, integer_type_node,
 			s2, integer_zero_node);
 	}
 
@@ -7354,7 +7379,7 @@ simplify_builtin_fputs (tree arglist, int ignore, int unlocked, tree known_len)
     {
     case -1: /* length is 0, delete the call entirely .  */
       {
-	return build (COMPOUND_EXPR, void_type_node,
+	return build (COMPOUND_EXPR, integer_type_node,
 		      TREE_VALUE (TREE_CHAIN (arglist)), integer_zero_node);
       }
     case 0: /* length is 1, call fputc.  */
@@ -7515,10 +7540,12 @@ simplify_builtin_sprintf (tree arglist, int ignored)
     }
 
   if (call && retval)
-    return build (COMPOUND_EXPR,
-	          TREE_TYPE (implicit_built_in_decls[BUILT_IN_SPRINTF]),
-		  call,
-		  retval);
+    {
+      retval = convert
+	(TREE_TYPE (TREE_TYPE (implicit_built_in_decls[BUILT_IN_SPRINTF])),
+	 retval);
+      return build (COMPOUND_EXPR, TREE_TYPE (retval), call, retval);
+    }
   else
     return call;
 }

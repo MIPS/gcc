@@ -1,3 +1,13 @@
+2003-08-29  Jason Merrill  <jason@redhat.com>
+
+	* builtins.c (simplify_builtin): Make sure that the replacement
+	has the same type as the original expression.
+	(simplify_builtin_strpbrk): Fix type of COMPOUND_EXPR.
+	(simplify_builtin_strncpy, simplify_builtin_memcmp): Likewise.
+	(simplify_builtin_strncmp, simplify_builtin_strncat): Likewise.
+	(simplify_builtin_strspn, simplify_builtin_strcspn): Likewise.
+	(simplify_builtin_fputs, simplify_builtin_sprintf): Likewise.
+
 2003-08-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* builtins.c (expand_builtin): Expand BUILT_IN_STACK_SAVE and
