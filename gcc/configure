@@ -41,7 +41,7 @@ ac_help="$ac_help
                           install the user visible C preprocessor in DIR
                           (relative to PREFIX) as well as PREFIX/bin."
 ac_help="$ac_help
-  --enable-cpplib         use cpplib for the C preprocessor."
+  --disable-cpplib        use the old isolated C preprocessor."
 ac_help="$ac_help
   --enable-c-cpplib       link cpplib directly into C and C++ compilers
                           (EXPERIMENTAL) (implies --enable-cpplib)."
@@ -846,12 +846,12 @@ fi
 
 
 # Use cpplib+cppmain for the preprocessor, but don't link it with the compiler.
-cpp_main=cccp
+cpp_main=cppmain
 # Check whether --enable-cpplib or --disable-cpplib was given.
 if test "${enable_cpplib+set}" = set; then
   enableval="$enable_cpplib"
-  if test x$enable_cpplib != xno; then
-  cpp_main=cppmain
+  if test x$enable_cpplib = xno; then
+  cpp_main=cccp
 fi
 fi
 
@@ -3434,11 +3434,11 @@ for machine in $build $host $target; do
 		    install_headers_dir=install-headers-cpio
 		    ;;
 		  *-*-osf5*)
-		    tm_file="${tm_file} alpha/osf.h"
+		    tm_file="${tm_file} alpha/osf.h alpha/osf5.h"
 		    ;;
 		esac
 		case $machine in
-		  *-*-osf4.0[b-z] | *-*-osf4.[1-9]*)
+		  *-*-osf4.0[b-z] | *-*-osf4.[1-9]* | *-*-osf5*)
 		    target_cpu_default=MASK_SUPPORT_ARCH
 		    ;;
 		esac
