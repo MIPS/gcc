@@ -1,3 +1,25 @@
+2000-02-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.c (reg_or_u_cint_operand): New function.
+	(logical_operand): Handle 64-bit hosts.
+	(logical_u_operand): New function.
+	(non_logical_cint_operand): Handle 64-bit hosts.
+	(non_logical_u_cint_operand): New function.
+	* rs6000.h (DATA_SECTION_ASM_OP): Add tab.
+	(PREDICATE_CODES): Define new functions.
+	* rs6000-protos.h: Declare new functions.
+	* rs6000.md (iordi3, xordi3): Constant int must be unsigned 32-bits.
+	(movdi_64): Bracket code intended for 64-bit hosts.  Create
+	CONST_DOUBLE for 32-bit values.
+	(scc insns): Generate DImode compares.
+	(mfcr insns): Create DImode versions.
+	(sge matchers): New patterns.
+	
+2000-02-15  Gabriel Paubert  <paubert@iram.es>
+
+	* rs6000.md: Correct instructions length attributes and
+	constraints on unsigned compare instructions.
+
 2000-02-11  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.c (output_function_profiler): Use .long for a 32-bit
