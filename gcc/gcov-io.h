@@ -186,6 +186,7 @@ typedef long long gcov_type;
 #define GCOV_TAG_LOOP_HISTOGRAMS ((unsigned)0x01a30000)
 #define GCOV_TAG_VALUE_HISTOGRAMS ((unsigned)0x01a50000)
 #define GCOV_TAG_SAME_VALUE_HISTOGRAMS ((unsigned)0x01a70000)
+#define GCOV_TAG_CONST_DELTA_HISTOGRAMS ((unsigned)0x01a90000)
 #define GCOV_TAG_OBJECT_SUMMARY  ((unsigned)0xa1000000)
 #define GCOV_TAG_PROGRAM_SUMMARY ((unsigned)0xa3000000)
 #define GCOV_TAG_PLACEHOLDER_SUMMARY ((unsigned)0xa5000000)
@@ -317,6 +318,8 @@ static int gcov_write_length PARAMS((FILE *, long))
 	fseek (STREAM, (LENGTH) + 4 - ((LENGTH) & 3), SEEK_CUR)
 typedef int (*merger_function) PARAMS ((FILE *, gcov_type *, unsigned));
 static int same_value_histograms_merger PARAMS ((FILE *, gcov_type *, unsigned))
+     ATTRIBUTE_UNUSED;
+static int const_delta_histograms_merger PARAMS ((FILE *, gcov_type *, unsigned))
      ATTRIBUTE_UNUSED;
 static merger_function profile_merger_for_tag PARAMS ((unsigned))
      ATTRIBUTE_UNUSED;
@@ -471,6 +474,41 @@ same_value_histograms_merger (da_file, counters, n_counters)
   return 0;
 }
 
+static int
+const_delta_histograms_merger (da_file, counters, n_counters)
+     FILE *da_file;
+     gcov_type *counters;
+     unsigned n_counters;
+{
+  unsigned i, n_measures;
+  gcov_type last, value, counter, all;
+
+  if (n_counters % 4)
+    return 1;
+
+  n_measures = n_counters / 4;
+  for (i = 0; i < n_measures; i++, counters += 4)
+    {
+      if (gcov_read_counter (da_file, &last, 1)
+	  || gcov_read_counter (da_file, &value, 1)
+	  || gcov_read_counter (da_file, &counter, 0)
+	  || gcov_read_counter (da_file, &all, 0))
+	return 1;
+
+      if (counters[1] == value)
+	counters[2] += counter;
+      else if (counter > counters[2])
+	{
+	  counters[1] = value;
+	  counters[2] = counter - counters[2];
+	}
+      else
+	counters[2] -= counter;
+      counters[3] += all;
+    }
+  return 0;
+}
+
 static merger_function
 profile_merger_for_tag (tag)
      unsigned tag;
@@ -479,6 +517,8 @@ profile_merger_for_tag (tag)
     {
     case GCOV_TAG_SAME_VALUE_HISTOGRAMS:
       return same_value_histograms_merger;
+    case GCOV_TAG_CONST_DELTA_HISTOGRAMS:
+      return const_delta_histograms_merger;
     default:
       return 0;
     }

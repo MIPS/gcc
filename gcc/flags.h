@@ -649,6 +649,11 @@ extern int flag_gcse_lm;
 
 extern int flag_gcse_sm;
 
+/* Nonzero if value histograms should be used to optimize code.  */
+extern int flag_value_profile_transformations;
+
+/* Nonzero if they should be used for a speculative prefetching.  */
+extern int flag_speculative_prefetching;
 
 /* Nonzero means we should do dwarf2 duplicate elimination.  */
 

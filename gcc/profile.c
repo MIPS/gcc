@@ -134,11 +134,19 @@ static GTY(()) rtx profiler_label;
 /* The name of the loop histograms table.  */
 static GTY(()) rtx loop_histograms_label;
 
-/* The name of the value histograms table.  */
-static GTY(()) rtx value_histograms_label;
-
-/* The name of the same value histograms table.  */
-static GTY(()) rtx same_value_histograms_label;
+/* Tags for different value histogram sections.  */
+#define TAG_INDEX(TAG)					\
+  (TAG) == HIST_TYPE_ONE_VALUE ? 1			\
+  : (TAG) == HIST_TYPE_CONST_DELTA ? 2			\
+  : 0
+static unsigned value_tags[] =
+{
+  GCOV_TAG_VALUE_HISTOGRAMS,
+  GCOV_TAG_SAME_VALUE_HISTOGRAMS,
+  GCOV_TAG_CONST_DELTA_HISTOGRAMS
+};
+#define N_VALUE_TAGS (sizeof (value_tags) / sizeof (unsigned))
+static GTY(()) rtx value_histograms_label[N_VALUE_TAGS];
 
 /* Collect statistics on the performance of this pass for the entire source
    file.  */
@@ -161,6 +169,7 @@ static rtx gen_interval_profiler PARAMS ((struct histogram_value *, rtx, int));
 static rtx gen_range_profiler PARAMS ((struct histogram_value *, rtx, int));
 static rtx gen_pow2_profiler PARAMS ((struct histogram_value *, rtx, int));
 static rtx gen_one_value_profiler PARAMS ((struct histogram_value *, rtx, int));
+static rtx gen_const_delta_profiler PARAMS ((struct histogram_value *, rtx, int));
 static void instrument_edges PARAMS ((struct edge_list *));
 static void instrument_loops PARAMS ((struct loops *));
 static void instrument_values PARAMS ((unsigned, struct histogram_value *));
@@ -331,62 +340,69 @@ instrument_values (n_values, values)
      struct histogram_value *values;
 {
   rtx sequence;
-  unsigned i;
+  unsigned i, t;
   edge e;
-  int n_histogram_counters = 0, n_sv_histogram_counters = 0;
-  struct section_info *section_info, *sv_section_info;
+  int n_histogram_counters[N_VALUE_TAGS];
+  struct section_info *section_info[N_VALUE_TAGS];
+  for (t = 0; t < N_VALUE_TAGS; t++)
+    {
+      n_histogram_counters[t] = 0;
+      section_info[t] = find_counters_section (value_tags[t]);
+    }
  
-  sv_section_info = find_counters_section (GCOV_TAG_SAME_VALUE_HISTOGRAMS);
-  section_info = find_counters_section (GCOV_TAG_VALUE_HISTOGRAMS);
-
   /* Emit code to generate the histograms before the insns.  */
 
   for (i = 0; i < n_values; i++)
     {
       e = split_block (BLOCK_FOR_INSN (values[i].insn),
 		       PREV_INSN (values[i].insn));
+      t = TAG_INDEX (values[i].type);
 
       switch (values[i].type)
 	{
 	case HIST_TYPE_INTERVAL:
 	  sequence = 
-	      gen_interval_profiler (values + i, value_histograms_label,
-			section_info->n_counters + n_histogram_counters);
-	  n_histogram_counters += values[i].n_counters;
+	      gen_interval_profiler (values + i, value_histograms_label[t],
+			section_info[t]->n_counters + n_histogram_counters[t]);
 	  break;
 
 	case HIST_TYPE_RANGE:
 	  sequence = 
-	      gen_range_profiler (values + i, value_histograms_label,
-			section_info->n_counters + n_histogram_counters);
-	  n_histogram_counters += values[i].n_counters;
+	      gen_range_profiler (values + i, value_histograms_label[t],
+			section_info[t]->n_counters + n_histogram_counters[t]);
 	  break;
 
 	case HIST_TYPE_POW2:
 	  sequence = 
-	      gen_pow2_profiler (values + i, value_histograms_label,
-			section_info->n_counters + n_histogram_counters);
-	  n_histogram_counters += values[i].n_counters;
+	      gen_pow2_profiler (values + i, value_histograms_label[t],
+			section_info[t]->n_counters + n_histogram_counters[t]);
 	  break;
 
 	case HIST_TYPE_ONE_VALUE:
 	  sequence = 
-	      gen_one_value_profiler (values + i, same_value_histograms_label,
-			sv_section_info->n_counters + n_sv_histogram_counters);
-	  n_sv_histogram_counters += values[i].n_counters;
+	      gen_one_value_profiler (values + i, value_histograms_label[t],
+			section_info[t]->n_counters + n_histogram_counters[t]);
+	  break;
+
+	case HIST_TYPE_CONST_DELTA:
+	  sequence = 
+	      gen_const_delta_profiler (values + i, value_histograms_label[t],
+			section_info[t]->n_counters + n_histogram_counters[t]);
 	  break;
 
 	default:
 	  abort ();
 	}
+      n_histogram_counters[t] += values[i].n_counters;
 
       insert_insn_on_edge (sequence, e);
     }
 
-  section_info->n_counters_now = n_histogram_counters;
-  section_info->n_counters += n_histogram_counters;
-  sv_section_info->n_counters_now = n_sv_histogram_counters;
-  sv_section_info->n_counters += n_sv_histogram_counters;
+  for (t = 0; t < N_VALUE_TAGS; t++)
+    {
+      section_info[t]->n_counters_now = n_histogram_counters[t];
+      section_info[t]->n_counters += n_histogram_counters[t];
+    }
 }
 
 struct section_reference
@@ -864,45 +880,36 @@ compute_value_histograms (n_values, values)
      unsigned n_values;
      struct histogram_value *values;
 {
-  unsigned i, j, n_histogram_counters, n_sv_histogram_counters;
-  gcov_type *histogram_counts, *act_count;
-  gcov_type *sv_histogram_counts, *sv_act_count;
+  unsigned i, j, t, any;
+  unsigned n_histogram_counters[N_VALUE_TAGS];
+  gcov_type *histogram_counts[N_VALUE_TAGS], *act_count[N_VALUE_TAGS];
   gcov_type *aact_count;
-  
-  n_histogram_counters = 0;
-  n_sv_histogram_counters = 0;
-  for (i = 0; i < n_values; i++)
-    {
-      if (values[i].type == HIST_TYPE_ONE_VALUE)
-	n_sv_histogram_counters += values[i].n_counters;
-      else
-	n_histogram_counters += values[i].n_counters;
-    }
+ 
+  for (t = 0; t < N_VALUE_TAGS; t++)
+    n_histogram_counters[t] = 0;
 
-  histogram_counts = get_histogram_counts (GCOV_TAG_VALUE_HISTOGRAMS,
-					   n_histogram_counters);
-  sv_histogram_counts = get_histogram_counts (GCOV_TAG_SAME_VALUE_HISTOGRAMS,
-   					      n_sv_histogram_counters);
-  if (!histogram_counts && !sv_histogram_counts)
+  for (i = 0; i < n_values; i++)
+    n_histogram_counters[TAG_INDEX (values[i].type)] += values[i].n_counters;
+
+  any = 0;
+  for (t = 0; t < N_VALUE_TAGS; t++)
+    {
+      histogram_counts[t] = get_histogram_counts (value_tags[t],
+						  n_histogram_counters[t]);
+      if (histogram_counts[t])
+	any = 1;
+      act_count[t] = histogram_counts[t];
+    }
+  if (!any)
     return;
 
-  act_count = histogram_counts;
-  sv_act_count = sv_histogram_counts;
   for (i = 0; i < n_values; i++)
     {
       rtx hist_list = NULL_RTX;
+      t = TAG_INDEX (values[i].type);
 
-      
-      if (values[i].type == HIST_TYPE_ONE_VALUE)
-	{
-	  aact_count = sv_act_count;
-	  sv_act_count += values[i].n_counters;
-	}
-      else
-	{
-	  aact_count = act_count;
-	  act_count += values[i].n_counters;
-	}
+      aact_count = act_count[t];
+      act_count[t] += values[i].n_counters;
       for (j = values[i].n_counters; j > 0; j--)
 	hist_list = alloc_EXPR_LIST (0, GEN_INT (aact_count[j - 1]), hist_list);
       hist_list = alloc_EXPR_LIST (0, copy_rtx (values[i].value), hist_list);
@@ -912,10 +919,11 @@ compute_value_histograms (n_values, values)
 			       REG_NOTES (values[i].insn));
     }
 
-  free (histogram_counts);
-  free (sv_histogram_counts);
-  find_counters_section (GCOV_TAG_VALUE_HISTOGRAMS)->present = 1;
-  find_counters_section (GCOV_TAG_SAME_VALUE_HISTOGRAMS)->present = 1;
+  for (t = 0; t < N_VALUE_TAGS; t++)
+    {
+      free (histogram_counts[t]);
+      find_counters_section (value_tags[t])->present = 1;
+    }
 }
 
 /* Compute the branch probabilities for the various branches.
@@ -1351,7 +1359,6 @@ branch_prob ()
     {
       int need_exit_edge = 0, need_entry_edge = 0;
       int have_exit_edge = 0, have_entry_edge = 0;
-      rtx insn;
       edge e;
 
       /* Functions returning multiple times are not handled by extra edges.
@@ -1842,6 +1849,7 @@ init_branch_prob (filename)
     {
       /* Generate and save a copy of this so it can be shared.  */
       char buf[20];
+      unsigned t;
       
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
       profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
@@ -1849,11 +1857,12 @@ init_branch_prob (filename)
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 3);
       loop_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 4);
-      value_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 5);
-      same_value_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+      for (t = 0; t < N_VALUE_TAGS; t++)
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 4 + t);
+	  value_histograms_label[t] =
+		  gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+	}
     }
   
   total_num_blocks = 0;
@@ -1988,9 +1997,11 @@ label_for_tag (tag)
     case GCOV_TAG_LOOP_HISTOGRAMS:
       return loop_histograms_label;
     case GCOV_TAG_VALUE_HISTOGRAMS:
-      return value_histograms_label;
+      return value_histograms_label[0];
     case GCOV_TAG_SAME_VALUE_HISTOGRAMS:
-      return same_value_histograms_label;
+      return value_histograms_label[1];
+    case GCOV_TAG_CONST_DELTA_HISTOGRAMS:
+      return value_histograms_label[2];
     default:
       abort ();
     }
@@ -2917,6 +2928,52 @@ gen_one_value_profiler (value, base_label, base)
 
   if (tmp != all_ref)
     emit_move_insn (copy_rtx (all_ref), tmp);
+  sequence = get_insns ();
+  end_sequence ();
+  rebuild_jump_labels (sequence);
+  return sequence;
+}
+
+/* Output instructions as RTL for code to find the most common value of
+   a difference between two evaluations of an expression.
+   VALUE is the expression whose value is profiled.  BASE_LABEL is the base
+   of histogram counters, BASE is offset from this position.  */
+
+static rtx
+gen_const_delta_profiler (value, base_label, base)
+     struct histogram_value *value;
+     rtx base_label;
+     int base;
+{
+  struct histogram_value one_value_delta;
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  rtx stored_value_ref, stored_value, tmp, uval;
+  rtx sequence;
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
+
+  start_sequence ();
+
+  if (value->seq)
+    emit_insn (value->seq);
+
+  tmp = force_reg (Pmode, base_label);
+  stored_value = plus_constant (tmp, per_counter * base);
+  stored_value_ref = validize_mem (gen_rtx_MEM (mode, stored_value));
+
+  uval = gen_reg_rtx (mode);
+  convert_move (uval, copy_rtx (value->value), 0);
+  tmp = expand_simple_binop (mode, MINUS,
+			     copy_rtx (uval), copy_rtx (stored_value_ref),
+			     NULL_RTX, 0, OPTAB_WIDEN);
+
+  one_value_delta.value = tmp;
+  one_value_delta.mode = mode;
+  one_value_delta.seq = NULL_RTX;
+  one_value_delta.insn = value->insn;
+  one_value_delta.type = HIST_TYPE_ONE_VALUE;
+  emit_insn (gen_one_value_profiler (&one_value_delta, base_label, base + 1));
+
+  emit_move_insn (copy_rtx (stored_value_ref), uval);
   sequence = get_insns ();
   end_sequence ();
   rebuild_jump_labels (sequence);

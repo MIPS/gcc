@@ -1,3 +1,35 @@
+2003-06-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (vpt.o): Add flags.h, $(RECOG_H), insn-config.h
+	and $(OPTABS_H) dependency.
+	* cfgloopanal.c (count_strange_loop_iterations): New static function.
+	(constant_iterations, count_loop_iterations, simple_loop_exit_p):
+	Handle strange loops.
+	* flags.h (flag_value_profile_transformations,
+	flag_speculative_prefetching): Declare.
+	* gcov-io.h (GCOV_TAG_CONST_DELTA_HISTOGRAMS): New.
+	(const_delta_histograms_merger): New function.
+	(profile_merger_for_tag): Add GCOV_TAG_CONST_DELTA_HISTOGRAMS merger.
+	* profile.c (TAG_INDEX, value_tags, N_VALUE_TAGS,
+	value_histograms_label): New.
+	(gen_const_delta_profiler, label_for_tag): New profiler.
+	(instrument_values, compute_value_histograms, branch_prob,
+	init_branch_prob): Make more generic.
+	* profile.h (MAX_COUNTER_SECTIONS): Change to 5.
+	* toplev.c (flag_speculative_prefetching, lang_independent_options,
+	process_options): New flag.
+	(rest_of_compilation): Add speculative prefetching.
+	* vpt.c: Include flags.h, insn-config.h, recog.h and optabs.h.
+	(insn_divmod_values_to_profile, insn_prefetch_values_to_profile,
+	find_mem_reference_1, find_mem_reference_2, find_mem_reference,
+	gen_speculative_prefetch, speculative_prefetching_transform): New
+	functions.
+	(insn_values_to_profile): Use insn_divmod_values_to_profile and
+	insn_prefetch_values_to_profile.
+	(find_values_to_profile, value_profile_transformations): Add
+	speculative prefetching.
+	* vpt.h (HIST_TYPE_CONST_DELTA): New.
+
 Wed Jun 11 20:53:03 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge (hammer-3_3-merge-20030611)

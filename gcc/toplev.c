@@ -402,6 +402,9 @@ int flag_value_histograms = 0;
 /* Nonzero if value histograms should be used to optimize code.  */
 int flag_value_profile_transformations = 0;
 
+/* Nonzero if they should be used for a speculative prefetching.  */
+int flag_speculative_prefetching = 0;
+
 /* Nonzero if basic blocks should be reordered.  */
 
 int flag_reorder_blocks = 0;
@@ -1151,6 +1154,8 @@ static const lang_independent_options f_options[] =
    N_("Insert code to measure value histograms and/or use them") },
   {"value-profile-transformations", &flag_value_profile_transformations, 1,
    N_("Use value histograms to optimize code") },
+  {"speculative-prefetching", &flag_speculative_prefetching, 1,
+   N_("Use value histograms for a speculative prefetching") },
   {"profile", &profile_flag, 1,
    N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
@@ -3072,7 +3077,8 @@ rest_of_compilation (decl)
   if (optimize > 0
       && flag_branch_probabilities
       && flag_value_histograms
-      && flag_value_profile_transformations)
+      && (flag_value_profile_transformations
+	  || flag_speculative_prefetching))
     {
       open_dump_file (DFI_vpt, decl);
 
@@ -5350,11 +5356,21 @@ process_options ()
       warning ("-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
+  if (flag_speculative_prefetching)
+    {
+      warning ("-fspeculative-prefetching not supported for this target");
+      flag_speculative_prefetching = 0;
+    }
 #else
   if (flag_prefetch_loop_arrays && !HAVE_prefetch)
     {
       warning ("-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
+    }
+  if (flag_speculative_prefetching && !HAVE_prefetch)
+    {
+      warning ("-fspeculative-prefetching not supported for this target (try -march switches)");
+      flag_speculative_prefetching = 0;
     }
 #endif
 

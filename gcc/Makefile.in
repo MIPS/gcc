@@ -1542,7 +1542,8 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(TARGET_H) langhooks.h profile.h libfuncs.h gt-profile.h cfgloop.h \
    params.h $(HASHTAB_H) vpt.h
 vpt.o : vpt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(BASIC_BLOCK_H) profile.h \
-   hard-reg-set.h vpt.h $(EXPR_H) output.h
+   hard-reg-set.h vpt.h $(EXPR_H) output.h flags.h $(RECOG_H) insn-config.h \
+   $(OPTABS_H)
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \

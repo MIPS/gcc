@@ -27,8 +27,10 @@ enum hist_type
   HIST_TYPE_RANGE,	/* Histogram of membership into one of specified
 			   ranges.  */
   HIST_TYPE_POW2,	/* Histogram of power of 2 values.  */
-  HIST_TYPE_ONE_VALUE	/* Tries to identify the value that is (almost)
+  HIST_TYPE_ONE_VALUE,	/* Tries to identify the value that is (almost)
 			   always constant.  */
+  HIST_TYPE_CONST_DELTA	/* Tries to identify the (almost) always constant
+			   difference between two evaluations of a value.  */
 };
 
 /* The value to measure.  */
