@@ -1,5 +1,9 @@
 2003-10-18  Jan Hubicka  <jh@suse.cz>
 
+	* integrate.c (copy_decl_for_inlinig): Fix copying of copies.
+
+2003-10-18  Jan Hubicka  <jh@suse.cz>
+
 	* cgraphunit.c (cgraph_analyze_function):  Fix call of estimate_num_insns.
 
 2003-10-17  Kazu Hirata  <kazu@cs.umass.edu>
