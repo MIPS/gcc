@@ -1,5 +1,13 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/BorderUIResource.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/undo/CompoundEdit.java,
+	javax/swing/undo/StateEdit.java:
+	Fixed javadocs all over.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/DefaultButtonModel.java
 	(ARMED): Made public final, fixed value.
 	(ENABLED): Likewise.
