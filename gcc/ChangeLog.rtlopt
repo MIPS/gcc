@@ -1,3 +1,14 @@
+2003-04-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from mainline:
+
+	Tue Apr  8 11:12:07 CEST 2003  Jan Hubicka  <jh@suse.cz>
+		* i386.c (legitimate_pic_address_disp_p): Do not accept PLUS in the
+		GOTOFF operand.
+		(legitimize_pic_address): Move plus outside the unspec.
+		(legitimate_constant_p):  Check (CONST (PLUS (UNSPEC ...
+		for validity.
+
 2003-04-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (loop-reroll.o): New.
