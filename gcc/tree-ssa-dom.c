@@ -2169,6 +2169,19 @@ cprop_into_stmt (tree stmt)
 		      || TREE_CODE (val) != SSA_NAME))
 		continue;
 
+	      /* Make sure basic types match before propagating a constant by
+		 converting the constant to the proper type.  Note that
+		 convert may return a non-gimple expression, in which case
+		 we ignore this propagation opportunity.  */
+	      if (TREE_TYPE (*op_p) != TREE_TYPE (val)
+		  && TREE_CODE (val) != SSA_NAME)
+		{
+		  val = convert (TREE_TYPE (*op_p), val);
+		  if (!is_gimple_min_invariant (val)
+		      && TREE_CODE (val) != SSA_NAME)
+		    continue;
+		}
+
 	      /* Certain operands are not allowed to be copy propagated due
 		 to their interaction with exception handling and some
 		 GCC extensions.  */

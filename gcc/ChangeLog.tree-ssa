@@ -1,3 +1,8 @@
+2004-01-21  Dale Johannesen  <dalej@apple.com>
+
+	* tree-ssa-dom.c (cprop_into_stmt):  Add convert call
+	to prevent type mismatches.
+
 2004-01-21  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-pre.c (load_modified_phi_result): PARM_DECL is okay
