@@ -183,7 +183,7 @@ in the following sections.
 -fno-nonansi-builtins  -fno-operator-names @gol
 -fno-optional-diags  -fpermissive @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
--fuse-cxa-atexit  -fvtable-gc  -fno-weak  -nostdinc++ @gol
+-fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -Wabi  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
 -Weffc++  -Wno-deprecated @gol
@@ -233,7 +233,8 @@ in the following sections.
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
 -Wmissing-prototypes  -Wnested-externs @gol
--Wstrict-prototypes  -Wtraditional}
+-Wstrict-prototypes  -Wtraditional @gol
+-Wdeclaration-after-statement}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -300,7 +301,8 @@ in the following sections.
 -include @var{file}  -imacros @var{file} @gol
 -iprefix @var{file}  -iwithprefix @var{dir} @gol
 -iwithprefixbefore @var{dir}  -isystem @var{dir} @gol
--M  -MM  -MF  -MG  -MP  -MQ  -MT  -nostdinc  -P  -remap @gol
+-M  -MM  -MF  -MG  -MP  -MQ  -MT  -nostdinc  @gol
+-P  -fworking-directory  -remap @gol
 -trigraphs  -undef  -U@var{macro}  -Wp,@var{option} @gol
 -Xpreprocessor @var{option}}
 
@@ -1455,17 +1457,6 @@ This option is required for fully standards-compliant handling of static
 destructors, but will only work if your C library supports
 @code{__cxa_atexit}.
 
-@item -fvtable-gc
-@opindex fvtable-gc
-Emit special relocations for vtables and virtual function references
-so that the linker can identify unused virtual functions and zero out
-vtable slots that refer to them.  This is most useful with
-@option{-ffunction-sections} and @option{-Wl,--gc-sections}, in order to
-also discard the functions themselves.
-
-This optimization requires GNU as and GNU ld.  Not all systems support
-this option.  @option{-Wl,--gc-sections} is ignored without @option{-static}.
-
 @item -fno-weak
 @opindex fno-weak
 Do not use weak symbol support, even if it is provided by the linker.
@@ -2608,6 +2599,13 @@ libiberty's traditional C compatibility macros, @code{PARAMS} and
 because that feature is already a gcc extension and thus not relevant to
 traditional C compatibility.
 @end itemize
+
+@item -Wdeclaration-after-statement @r{(C only)}
+@opindex Wdeclaration-after-statement
+Warn when a declaration is found after a statement in a block.  This
+construct, known from C++, was introduced with ISO C99 and is by default
+allowed in GCC@.  It is not supported by ISO C90 and was not supported by
+GCC versions before GCC 3.0.  @xref{Mixed Declarations}.
 
 @item -Wundef
 @opindex Wundef
@@ -4358,6 +4356,10 @@ exactly determine which path is taken more often.
 If combined with @option{-fprofile-arcs}, it adds code so that some
 data about values of expressions in the program is gathered.
 
+With @option{-fbranch-probabilities}, it reads back the data gathered
+from profiling values of expressions and adds @samp{REG_VALUE_PROFILE}
+notes to instructions for their later usage in optimizations.
+
 @item -fnew-ra
 @opindex fnew-ra
 Use a graph coloring register allocator.  Currently this option is meant
@@ -5075,7 +5077,7 @@ without @samp{@var{machine}/@var{version}/} (@pxref{Target Options}).
 For each subprogram to be run, the compiler driver first tries the
 @option{-B} prefix, if any.  If that name is not found, or if @option{-B}
 was not specified, the driver tries two standard prefixes, which are
-@file{/usr/lib/gcc/} and @file{/usr/local/lib/gcc-lib/}.  If neither of
+@file{/usr/lib/gcc/} and @file{/usr/local/lib/gcc/}.  If neither of
 those results in a file name that is found, the unmodified program
 name is searched for using the directories specified in your
 @env{PATH} environment variable.
@@ -11429,7 +11431,7 @@ If GCC cannot find the subprogram using the specified prefix, it
 tries looking in the usual places for the subprogram.
 
 The default value of @env{GCC_EXEC_PREFIX} is
-@file{@var{prefix}/lib/gcc-lib/} where @var{prefix} is the value
+@file{@var{prefix}/lib/gcc/} where @var{prefix} is the value
 of @code{prefix} when you ran the @file{configure} script.
 
 Other prefixes specified with @option{-B} take precedence over this prefix.
@@ -11439,7 +11441,7 @@ used for linking.
 
 In addition, the prefix is used in an unusual way in finding the
 directories to search for header files.  For each of the standard
-directories whose name normally begins with @samp{/usr/local/lib/gcc-lib}
+directories whose name normally begins with @samp{/usr/local/lib/gcc}
 (more precisely, with the value of @env{GCC_INCLUDE_DIR}), GCC tries
 replacing that beginning with the specified prefix to produce an
 alternate directory name.  Thus, with @option{-Bfoo/}, GCC will search

@@ -37,6 +37,8 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "diagnostic.h"
 #include "intl.h"
+#include "target.h"
+#include "convert.h"
 
 static tree build_field_call (tree, tree, tree);
 static struct z_candidate * tourney (struct z_candidate *);
@@ -567,7 +569,7 @@ strip_top_quals (tree t)
 {
   if (TREE_CODE (t) == ARRAY_TYPE)
     return t;
-  return TYPE_MAIN_VARIANT (t);
+  return cp_build_qualified_type (t, 0);
 }
 
 /* Returns the standard conversion path (see [conv]) from type FROM to type
@@ -653,8 +655,7 @@ standard_conversion (tree to, tree from, tree expr)
       conv = build_conv (STD_CONV, to, conv);
       ICS_BAD_FLAG (conv) = 1;
     }
-  else if (tcode == ENUMERAL_TYPE && fcode == INTEGER_TYPE
-	   && TYPE_PRECISION (to) == TYPE_PRECISION (from))
+  else if (tcode == ENUMERAL_TYPE && fcode == INTEGER_TYPE)
     {
       /* For backwards brain damage compatibility, allow interconversion of
 	 enums and integers with a pedwarn.  */
@@ -715,8 +716,8 @@ standard_conversion (tree to, tree from, tree expr)
 	}
       else
 	{
-	  to_pointee = to;
-	  from_pointee = from;
+	  to_pointee = TYPE_PTRMEM_POINTED_TO_TYPE (to);
+	  from_pointee = TYPE_PTRMEM_POINTED_TO_TYPE (from);
 	}
 
       if (same_type_p (from, to))
@@ -792,6 +793,10 @@ standard_conversion (tree to, tree from, tree expr)
 	  && ICS_STD_RANK (TREE_OPERAND (conv, 0)) <= PROMO_RANK)
 	ICS_STD_RANK (conv) = PROMO_RANK;
     }
+  else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
+      && ((*targetm.vector_opaque_p) (from)
+	  || (*targetm.vector_opaque_p) (to)))
+    return build_conv (STD_CONV, to, conv);
   else if (IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
 	   && is_properly_derived_from (from, to))
     {
@@ -4128,7 +4133,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
 		  error ("cannot bind packed field `%E' to `%T'",
 			 expr, ref_type);
 		else
-		  my_friendly_assert (0, 20030715);
+		  error ("cannot bind rvalue `%E' to `%T'", expr, ref_type);
 		return error_mark_node;
 	      }
 	    expr = build_target_expr_with_type (expr, type);
@@ -4201,7 +4206,7 @@ convert_arg_to_ellipsis (tree arg)
   if (TREE_CODE (TREE_TYPE (arg)) == REAL_TYPE
       && (TYPE_PRECISION (TREE_TYPE (arg))
 	  < TYPE_PRECISION (double_type_node)))
-    arg = cp_convert (double_type_node, arg);
+    arg = convert_to_real (double_type_node, arg);
   else if (INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (arg)))
     arg = perform_integral_promotions (arg);
 

@@ -3849,6 +3849,11 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	validate_change (insn, &SET_SRC (set), src, 0);
     }
 
+  /* If there is already a NOTE, update the expression in it with our
+     replacement.  */
+  if (note != 0)
+    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
+
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -3868,11 +3873,6 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	  && GET_CODE (XEXP (set, 0)) != SIGN_EXTRACT)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
-
-  /* If there is already a NOTE, update the expression in it with our
-     replacement.  */
-  else if (note != 0)
-    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
 
   /* REG_EQUAL may get simplified into register.
      We don't allow that. Remove that note. This code ought
@@ -7495,6 +7495,9 @@ insert_store (struct ls_expr * expr, edge e)
   if (expr->reaching_reg == NULL_RTX)
     return 0;
 
+  if (e->flags & EDGE_FAKE)
+    return 0;
+
   reg = expr->reaching_reg;
   insn = gen_move_insn (copy_rtx (expr->pattern), reg);
 
@@ -7503,13 +7506,14 @@ insert_store (struct ls_expr * expr, edge e)
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
   for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
-    {
-      int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
-      if (index == EDGE_INDEX_NO_EDGE)
-	abort ();
-      if (! TEST_BIT (pre_insert_map[index], expr->index))
-	break;
-    }
+    if (!(tmp->flags & EDGE_FAKE))
+      {
+	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
+	if (index == EDGE_INDEX_NO_EDGE)
+	  abort ();
+	if (! TEST_BIT (pre_insert_map[index], expr->index))
+	  break;
+      }
 
   /* If tmp is NULL, we found an insertion on every edge, blank the
      insertion vector for these edges, and insert at the start of the BB.  */

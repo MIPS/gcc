@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "assert.h"
 #include "toplev.h"
+#include "convert.h"
 
 /* C++ returns type information to the user in struct type_info
    objects. We also use type information to implement dynamic_cast and
@@ -119,7 +120,7 @@ init_rtti_processing (void)
   push_namespace (std_identifier);
   type_info_type_node 
     = xref_tag (class_type, get_identifier ("type_info"),
-		/*attributes=*/NULL_TREE, 1);
+		/*attributes=*/NULL_TREE, true, false);
   pop_namespace ();
   const_type_info_type = build_qualified_type (type_info_type_node, 
 					       TYPE_QUAL_CONST);
@@ -159,8 +160,8 @@ build_headof (tree exp)
 
   type = build_qualified_type (ptr_type_node, 
 			       cp_type_quals (TREE_TYPE (exp)));
-  return build (PLUS_EXPR, type, exp,
-		cp_convert (ptrdiff_type_node, offset));
+  return build (PLUS_EXPR, type, exp, 
+		convert_to_integer (ptrdiff_type_node, offset));
 }
 
 /* Get a bad_cast node for the program to throw...
@@ -638,7 +639,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
 				    /*attributes=*/NULL_TREE,
-				    1);
+				    true, false);
 	      
 	      tinfo_ptr = build_pointer_type
 		(build_qualified_type
@@ -773,7 +774,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
-			    /*attributes=*/NULL_TREE, 1);
+			    /*attributes=*/NULL_TREE, true, false);
       pop_nested_namespace (abi_node);
   
       if (!COMPLETE_TYPE_P (real_type))
@@ -1370,7 +1371,7 @@ emit_support_tinfos (void)
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
 			/*attributes=*/NULL_TREE,
-			1);
+			true, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))
     return;

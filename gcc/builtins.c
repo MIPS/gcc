@@ -2170,10 +2170,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
 
-  if (flag_unsafe_math_optimizations
-      && ! flag_errno_math
-      && ! optimize_size
-      && TREE_CODE (arg1) == REAL_CST
+  if (TREE_CODE (arg1) == REAL_CST
       && ! TREE_CONSTANT_OVERFLOW (arg1))
     {
       REAL_VALUE_TYPE cint;
@@ -2183,13 +2180,21 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
       c = TREE_REAL_CST (arg1);
       n = real_to_integer (&c);
       real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
-      if (real_identical (&c, &cint)
-	  && powi_cost (n) <= POWI_MAX_MULTS)
+      if (real_identical (&c, &cint))
 	{
-          enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-          rtx op = expand_expr (arg0, subtarget, VOIDmode, 0);
-          op = force_reg (mode, op);
-          return expand_powi (op, mode, n);
+	  /* If the exponent is -1, 0, 1 or 2, then expand_powi is exact.
+	     Otherwise, check the number of multiplications required.
+	     Note that pow never sets errno for an integer exponent.  */
+	  if ((n >= -1 && n <= 2)
+	      || (flag_unsafe_math_optimizations
+		  && ! optimize_size
+		  && powi_cost (n) <= POWI_MAX_MULTS))
+	    {
+	      enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+	      rtx op = expand_expr (arg0, subtarget, VOIDmode, 0);
+	      op = force_reg (mode, op);
+	      return expand_powi (op, mode, n);
+	    }
 	}
     }
   return expand_builtin_mathfn_2 (exp, target, NULL_RTX);
@@ -3572,9 +3577,52 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
 	src = TREE_VALUE (TREE_CHAIN (arglist));
       const char *p = c_getstr (src);
 
-      /* If the string length is zero, return the dst parameter.  */
-      if (p && *p == '\0')
-	return expand_expr (dst, target, mode, EXPAND_NORMAL);
+      if (p)
+	{
+	  /* If the string length is zero, return the dst parameter.  */
+	  if (*p == '\0')
+	    return expand_expr (dst, target, mode, EXPAND_NORMAL);
+	  else if (!optimize_size)
+	    {
+	      /* Otherwise if !optimize_size, see if we can store by
+                 pieces into (dst + strlen(dst)).  */
+	      tree newdst, arglist,
+		strlen_fn = implicit_built_in_decls[BUILT_IN_STRLEN];
+	      
+	      /* This is the length argument.  */
+	      arglist = build_tree_list (NULL_TREE,
+					 fold (size_binop (PLUS_EXPR,
+							   c_strlen (src, 0),
+							   ssize_int (1))));
+	      /* Prepend src argument.  */
+	      arglist = tree_cons (NULL_TREE, src, arglist);
+	      
+	      /* We're going to use dst more than once.  */
+	      dst = save_expr (dst);
+
+	      /* Create strlen (dst).  */
+	      newdst =
+		fold (build_function_call_expr (strlen_fn,
+						build_tree_list (NULL_TREE,
+								 dst)));
+	      /* Create (dst + strlen (dst)).  */
+	      newdst = fold (build (PLUS_EXPR, TREE_TYPE (dst), dst, newdst));
+
+	      /* Prepend the new dst argument.  */
+	      arglist = tree_cons (NULL_TREE, newdst, arglist);
+	      
+	      /* We don't want to get turned into a memcpy if the
+                 target is const0_rtx, i.e. when the return value
+                 isn't used.  That would produce pessimized code so
+                 pass in a target of zero, it should never actually be
+                 used.  If this was successful return the original
+                 dst, not the result of mempcpy.  */
+	      if (expand_builtin_mempcpy (arglist, /*target=*/0, mode, /*endp=*/0))
+		return expand_expr (dst, target, mode, EXPAND_NORMAL);
+	      else
+		return 0;
+	    }
+	}
 
       return 0;
     }
@@ -4874,7 +4922,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   enum machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
 
-  /* Perform postincrements before expanding builtin functions.  */
+  /* Perform postincrements before expanding builtin functions.  */
   emit_queue ();
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
@@ -4882,96 +4930,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */
-  if (!optimize && !CALLED_AS_BUILT_IN (fndecl))
-    switch (fcode)
-      {
-      case BUILT_IN_SQRT:
-      case BUILT_IN_SQRTF:
-      case BUILT_IN_SQRTL:
-      case BUILT_IN_SIN:
-      case BUILT_IN_SINF:
-      case BUILT_IN_SINL:
-      case BUILT_IN_COS:
-      case BUILT_IN_COSF:
-      case BUILT_IN_COSL:
-      case BUILT_IN_EXP:
-      case BUILT_IN_EXPF:
-      case BUILT_IN_EXPL:
-      case BUILT_IN_LOG:
-      case BUILT_IN_LOGF:
-      case BUILT_IN_LOGL:
-      case BUILT_IN_TAN:
-      case BUILT_IN_TANF:
-      case BUILT_IN_TANL:
-      case BUILT_IN_ATAN:
-      case BUILT_IN_ATANF:
-      case BUILT_IN_ATANL:
-      case BUILT_IN_POW:
-      case BUILT_IN_POWF:
-      case BUILT_IN_POWL:
-      case BUILT_IN_ATAN2:
-      case BUILT_IN_ATAN2F:
-      case BUILT_IN_ATAN2L:
-      case BUILT_IN_MEMSET:
-      case BUILT_IN_MEMCPY:
-      case BUILT_IN_MEMCMP:
-      case BUILT_IN_MEMPCPY:
-      case BUILT_IN_MEMMOVE:
-      case BUILT_IN_BCMP:
-      case BUILT_IN_BZERO:
-      case BUILT_IN_BCOPY:
-      case BUILT_IN_INDEX:
-      case BUILT_IN_RINDEX:
-      case BUILT_IN_SPRINTF:
-      case BUILT_IN_STPCPY:
-      case BUILT_IN_STRCHR:
-      case BUILT_IN_STRRCHR:
-      case BUILT_IN_STRLEN:
-      case BUILT_IN_STRCPY:
-      case BUILT_IN_STRNCPY:
-      case BUILT_IN_STRNCMP:
-      case BUILT_IN_STRSTR:
-      case BUILT_IN_STRPBRK:
-      case BUILT_IN_STRCAT:
-      case BUILT_IN_STRNCAT:
-      case BUILT_IN_STRSPN:
-      case BUILT_IN_STRCSPN:
-      case BUILT_IN_STRCMP:
-      case BUILT_IN_FFS:
-      case BUILT_IN_PUTCHAR:
-      case BUILT_IN_PUTS:
-      case BUILT_IN_PRINTF:
-      case BUILT_IN_FPUTC:
-      case BUILT_IN_FPUTS:
-      case BUILT_IN_FWRITE:
-      case BUILT_IN_FPRINTF:
-      case BUILT_IN_PUTCHAR_UNLOCKED:
-      case BUILT_IN_PUTS_UNLOCKED:
-      case BUILT_IN_PRINTF_UNLOCKED:
-      case BUILT_IN_FPUTC_UNLOCKED:
-      case BUILT_IN_FPUTS_UNLOCKED:
-      case BUILT_IN_FWRITE_UNLOCKED:
-      case BUILT_IN_FPRINTF_UNLOCKED:
-      case BUILT_IN_FLOOR:
-      case BUILT_IN_FLOORF:
-      case BUILT_IN_FLOORL:
-      case BUILT_IN_CEIL:
-      case BUILT_IN_CEILF:
-      case BUILT_IN_CEILL:
-      case BUILT_IN_TRUNC:
-      case BUILT_IN_TRUNCF:
-      case BUILT_IN_TRUNCL:
-      case BUILT_IN_ROUND:
-      case BUILT_IN_ROUNDF:
-      case BUILT_IN_ROUNDL:
-      case BUILT_IN_NEARBYINT:
-      case BUILT_IN_NEARBYINTF:
-      case BUILT_IN_NEARBYINTL:
-	return expand_call (exp, target, ignore);
-
-      default:
-	break;
-      }
+  if (!optimize
+      && !CALLED_AS_BUILT_IN (fndecl)
+      && DECL_ASSEMBLER_NAME_SET_P (fndecl)
+      && fcode != BUILT_IN_ALLOCA)
+    return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
      to determine whether the function's result will be ignored.  */
@@ -6244,28 +6207,6 @@ fold_builtin (tree exp)
 		return fold (build (RDIV_EXPR, type,
 				    build_real (type, dconst1),
 				    arg0));
-
-	      /* Optimize pow(x,2.0) = x*x.  */
-	      if (REAL_VALUES_EQUAL (c, dconst2)
-		  && (*lang_hooks.decls.global_bindings_p) () == 0
-		  && ! CONTAINS_PLACEHOLDER_P (arg0))
-		{
-		  arg0 = save_expr (arg0);
-		  return fold (build (MULT_EXPR, type, arg0, arg0));
-		}
-
-	      /* Optimize pow(x,-2.0) = 1.0/(x*x).  */
-	      if (flag_unsafe_math_optimizations
-		  && REAL_VALUES_EQUAL (c, dconstm2)
-		  && (*lang_hooks.decls.global_bindings_p) () == 0
-		  && ! CONTAINS_PLACEHOLDER_P (arg0))
-		{
-		  arg0 = save_expr (arg0);
-		  return fold (build (RDIV_EXPR, type,
-				      build_real (type, dconst1),
-				      fold (build (MULT_EXPR, type,
-						   arg0, arg0))));
-		}
 
 	      /* Optimize pow(x,0.5) = sqrt(x).  */
 	      if (flag_unsafe_math_optimizations

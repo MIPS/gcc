@@ -1,3 +1,462 @@
+2003-08-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11789
+	* cp-tree.h (get_vbase): Remove.
+	(get_vbase_types): Remove.
+	* init.c (expand_member_init): Correct logic for looking up base
+	classes.
+
+2003-08-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* error.c (dump_expr): Tidy.
+	* cxx-pretty-print.c (pp_cxx_nonconsecutive_character): New.
+	(pp_cxx_begin_template_argument_list): Likewise.
+	(pp_cxx_end_template_argument_list): Likewise.
+	(is_destructor_name): Likewise.
+	(pp_cxx_unqualified_id): Likewise.
+	(pp_cxx_qualified_id): Likewise.
+	(pp_cxx_id_expression): Likewise.
+	(pp_cxx_new_expression): Likewise.
+	(pp_cxx_delete_expression): Likewise.
+	(pp_cxx_pm_expression): Likewise.
+	(pp_cxx_type_specifier): Rework.
+	(pp_cxx_type_id): Likewise.
+	(pp_cxx_primary_expression): Likewise.
+	(pp_cxx_postfix_expression): Likewise.
+	(pp_cxx_unary_expression): Likewise.
+	(pp_cxx_multiplicative_expression): Likewise.
+	(pp_cxx_conditional_expression): Likewise.
+	(pp_cxx_assignment_expression): Likewise.
+	(pp_cxx_pretty_printer_init): Tidy.
+
+2003-08-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (TMPL_ARGS_HAVE_MULTIPLE_LEVELS): non-NULL
+	NODE is always a TREE_VEC of non-zero size.
+	(NUM_TMPL_ARGS): NODE is always a TREE_VEC.
+	* decl2.c (arg_assoc): Template args will be a vec.
+	* error.c (dump_decl) <TEMPLATE_ID_EXPR case>: Call
+	dump_template_argument_list.
+	(dump_template_parms): Args will be a vec.
+	* parser.c (cp_parser_template_argument_list): Produce a
+	vector, not a list.
+	* pt.c (coerce_template_parms): Args are always vectors.
+	(mangle_class_name_for_template): Likewise.
+	(lookup_template_function): Likewise.
+	(lookup_template_class): Likewise.
+	(tsubst_template_args): Likewise.
+	(tsubst_baselink): Use tsubst_template_args.
+	(tsubst_qualified_id): Likewise.
+	(tsubst_copy) <TEMPLATE_ID_EXPR case>: Likewise.
+	(tsubst_copy_and_build) <TEMPLATE_ID_EXPR case>: Likewise.
+	(any_dependent_template_args_p):  Args are always vectors.
+	* tree.c (cp_tree_equal): Add TEMPLATE_ID_EXPR case.
+
+	PR c++/11670
+	* call.c (convert_like_real): Add rvalue binding error message.
+	* error.c (dump_expr) <NOP_EXPR case>: Detect when the no expr is
+	really a cast.
+	
+	PR c++/10530
+	* pt.c (dependent_type_p_r): A dependent template-id is a class
+	type with dependent template arguments, or a bound template
+	template parameter.
+	(type_dependent_expression_p): A template function decl cannot
+	have a dependent context.
+
+2003-08-07  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/5767
+	* parser.c (cp_parser_class_name): Return immediately when scope
+	is error_mark_node.
+
+2003-08-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp/Make-lang.in (cp/call.o): Add dependency for target.h.
+
+	* cp/call.c (standard_conversion): Support opaque types.
+	Include target.h.
+	(strip_top_quals): Use cp_build_qualified_type instead of
+	TYPE_MAIN_VARIANT.
+
+	* cp/typeck.c (convert_for_assignment): Support opaque types.
+
+	* testsuite/g++.dg/other/opaque-1.C: New.
+
+	* testsuite/g++.dg/other/opaque-2.C: New.
+
+2003-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* decl.c (grokparms): Use cp_build_qualified_type instead
+	TYPE_MAIN_VARIANT.
+
+2003-08-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cxx-pretty-print.h: New file.
+	* cxx-pretty-print.c: Likewise.
+	* error.c (scratch_pretty_printer): Change type.
+	(init_error): Tidy.
+	(dump_aggr_type): Likewise.
+	(dump_global_iord): Likewise.
+	(dump_expr): Likewise.
+	(dump_char): Remove.
+	* cp-lang.c (LANG_HOOKS_INITIALIZE_DIAGNOSTITCS): Define.
+	(cxx_initialize_diagnostics): New function.
+	* Make-lang.in (CXX_OBJS): Add cp/cxx-pretty-print.o
+	(CXX_PRETTY_PRINT_H): New variable.
+	(cp/cxx-pretty-print.o): New rule.
+	(cp/cp-lang.o): Update dependence.
+	(cp/error.o): Likewise.
+
+2003-08-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cp-tree.h (struct lang_decl): Don't include c_lang_decl.
+	(DECL_DECLARED_INLINE_P): Remove.
+	* decl2.c (import_export_decl): Only look at DECL_DECLARED_INLINE_P
+	if decl is a FUNCTION_DECL.  This never made sense, but now it is
+	required to avoid a tree check failure.
+	* decl.c (grokfndecl): Don't touch DID_INLINE_FUNC.
+	* optimize.c (maybe_clone_body): Likewise.
+
+2003-08-04  Roger Sayle  <roger@eyesopen.com>
+
+	* decl.c (cxx_insert_default_attributes): Delete.
+	* cp-tree.h (cxx_insert_default_attributes): Don't prototype.
+	* cp-lang.c (LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES): Don't define.
+
+2003-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11704
+	* pt.c (type_dependent_expression_p): Cope with COMPONENT_REF with
+	unknown type.
+
+	PR c++/11766
+	* typeck.c (comp_ptr_ttypes_real): Don't loop on pointers to
+	member functions.
+
+2003-08-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9447
+	* cp-tree.def (USING_DECL): Document its type.
+	* class.c (pushclass): If we're entering a template, push any
+	dependent using decls it has.
+	* decl2.c (do_class_using_decl): Refactor. Type is NULL iff it is
+	a dependent scope.
+	* pt.c (tsubst_decl) <USING_DECL case>: Set type.
+	(tsubst): Remove USING_DECL checks.
+	(type_dependent_expression_p): Remove USING_DECL case.
+	* semantics.c (finish_member_declaration): A USING_DECL's type
+	indicates whether it is dependent.
+
+2003-08-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (pushclass): Remove unneeded parameter.
+	* class.c (pushclass): Remove unneeded MODIFY parm. Adjust.
+	(push_nested_class): Adjust pushclass call.
+	* pt.c (instantiate_class_template): Likewise.
+	* semantics.c (begin_class_definition): Likewise.
+
+2003-08-01  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* typeck2.c (add_exception_specifier): Use 'bool' where appropriate.
+
+2003-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11697
+	* decl.c (decls_match): Don't ignore the types of template
+	classes.
+
+	PR c++/11744
+	* pt.c (tsubst_copy_and_build): Refine Koenig lookup logic.
+
+2003-08-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8442, c++/8806
+	* decl.c (qualify_lookup): Accept TEMPLATE_DECL if types are
+	preferred.
+	(check_elaborated_type_specifier): Add allow_template_p
+	parameter.  Check tag mismatch and class template.
+	(xref_tag): Add template_header_p parameter.  Add assertion
+	that name is an IDENTIFIER_NODE.  Remove implicit typename
+	warning.  Simplify lookup process if globalize is true.
+	(cxx_init_decl_processing): Adjust call to xref_tag.
+	(xref_tag_from_type): Likewise.
+	* decl2.c (handle_class_head): Likewise.
+	* parser.c (cp_parser_elaborated_type_specifier,
+	cp_parser_class_head): Likewise.
+	* rtti.c (init_rtti_processing, build_dynamic_cast1,
+	tinfo_base_init, emit_support_tinfos): Likewise.
+	* class.c (is_base_of_enclosing_class): Remove.
+	* pt.c (convert_template_argument): Don't accept RECORD_TYPE as
+	template template argument.
+	* cp-tree.h (xref_tag): Adjust declaration.
+	(is_base_of_enclosing_class): Remove.
+	* NEWS: Document template template argument change.
+
+2003-08-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_parser_init_declarator,
+	cp_paser_member_declaration): Reformat.
+	* pt.c (lookup_template_class, type_unification_real, unify,
+	type_dependent_expression_p): Reformat.
+
+	PR c++/11295
+	* cp-tree.h (tubst_flags_t): Add tf_stmt_expr_cmpd,
+	tf_stmt_expr_body.
+	(finish_stmt_expr_expr): Declare.
+	* parser.c (cp_parser_primary_expression): Tell
+	cp_parser_compount_statement that it is a statement expression.
+	(cp_parser_statement, cp_parser_labeled_statement,
+	cp_parser_compound_statement, cp_parser_statement_seq_opt): Add
+	in_statement_expr_p parameter.
+	(cp_parser_expression_statement): Likewise. Call
+	finish_stmt_expr_expr for final expression of a statement
+	expression.
+	(cp_parser_for_init_statement,
+	cp_parser_implicitly_scoped_statement,
+	cp_parser_already_scoped_statement, cp_parser_function_definition,
+	cp_parser_try_block, cp_parser_handled): Adjust.
+	* pt.c (tsubst_copy) <STMT_EXPR case>: Pass tf_stmt_expr.
+	(tsubst_expr): Process tf_stmt_expr and tf_stmt_exprs flags.
+	(tsubst_expr) <EXPR_STMT case>: Check tf_stmt_exprs flag.
+	* semantics.c (finish_expr_stmt): Do not deal with statement
+	expressions.
+	(begin_stmt_expr): Clear last_expr_type.
+	(finish_stmt_expr_expr): New.
+	(finish_stmt_expr): Process the value expression.
+	
+	* typeck.c (build_compound_expr): If RHS is a TARGET_EXPR, put the
+	compound expr inside the target's initializer.
+	
+	PR c++/11525
+	* parser.c (cp_parser_primary_expression): Do not set
+	non-constant-p merely because it is a dependent scope.
+
+	PR c++/9447
+	* decl2.c (do_class_using_decl): Set type to NULL_TREE.
+	* semantics.c (finish_expr_stmt): Do not convert to void in a
+	template.
+
+2003-07-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (coerce_template_parms): Refactor.
+	(fn_type_unification): Increment processing_template_decl when
+	tsubsting an incomplete set of explicit args.
+
+	PR c++/11347
+	* pt.c (instantiate_class_template): Increment
+	processing_template_decl around the tsubst of a template member
+	class.
+	(tsubst_qualified_id): Assert we do not have a dependent scope.
+
+	* pt.c (coerce_template_template_parms, lookup_template_class,
+	can_complete_type_without_circularity, instantiate_class_template,
+	tsubst_decl, unify): Reformat.
+
+Thu Jul 31 01:07:41 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (maybe_make_one_only): Use mark_referenced.
+	* method.c (use_thunk): Likewsie.
+
+Wed Jul 30 19:12:48 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* class.c (build_vtable_entry_ref): Kill.
+	(build_vtbl_ref_1): Do not call build_vtable_entry_ref.
+	(build_vfn_ref): Do not call build_vtable_entry_ref.
+	* cp-lang.c (LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE): Kill.
+	* cp-tree.h (prepare_assemble_variable): Kill.
+	* cp-decl.c (prepare_assemble_variable): Kill.
+
+2003-07-29  Geoffrey Keating  <geoffk@apple.com>
+
+	* parser.c (cp_lexer_new_main): Use c_common_no_more_pch instead
+	of setting valid_pch by hand.
+
+2003-07-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* decl.c (finish_enum): Initialize underlying_type.
+
+2003-07-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9447
+	* decl.c (add_binding): Add bval local variable.
+	(push_class_level_binding): Likewise. Allow a USING_DECL to be
+	pushed.
+	* decl2.c (do_class_using_decl):  The type of a using decl is
+	unknown.
+	* parser.c (cp_parser_postfix_expression): Refactor unqualified-id
+	function call lookup code.
+	* pt.c (tsubst): A USING_DECL will have unknown type.
+	(tsubst_copy_and_build): Allow a using decl.
+	(type_dependent_expression_p): A USING_DECL will make it
+	dependent.
+	* semantics.c (finish_member_declaration): Push a dependent using
+	declaration.
+
+2003-07-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11530
+	* parser.c (cp_parser_postfix_expression): Do not call mark_used.
+	* semantics.c (finish_id_expression): Call mark_used for all
+	declarations.
+
+2003-07-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11667
+	* call.c (standard_conversion): Allow all integral->enumeral
+	conversions, after marking them as bad.
+	* decl.c (finish_enum): Make sure that all enumerators are
+	properly converted to the underlying type.
+	(build_enumerator): Set DECL_CONTEXT for namespace-scope
+	enumeration types.
+	* pt.c (tsubst_copy): Adjust handling of CONST_DECLs accordingly.
+	(tsubst_enum): Tidy.
+
+	* Make-lang.in (typeck.o): Depend on convert.h.
+	(class.o): Likewise.
+	(rtti.o): Likewise.
+	* call.c: Include convert.h.
+	(convert_arg_to_ellipsis): Use convert_to_real.
+	* class.c: Include convert.h.
+	(build_base_path): Use convert_to_integer.
+	* rtti.c: Include convert.h.
+	(build_headof): Use convert_to_integer.
+	* typeck.c: Include convert.h.
+	(decay_conversion): Use convert_to_integer.
+	(build_unary_op): Use build_nop.
+	(get_delta_difference): Use convert_to_integer.
+	(build_ptrmemfunc): Avoid unncessary conversions.
+
+Mon Jul 28 23:55:10 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (mark_member_pointers): Verify that member pointer points to
+	the function.
+
+2003-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (begin_compound_stmt): No scope arg is a bool.
+	(finish_compound_stmt): Remove no scope arg.
+	* decl.c (register_dtor_fn): Adjust begin_compound_stmt and
+	end_compound_stmt calls.
+	(expand_static_init, begin_destructor_body, begin_function_body,
+	finish_function_body): Likewise.
+	* decl2.c (start_objects, finish_objects,
+	start_static_storage_duration_function,
+	finish_static_storage_duration_function): Likewise.
+	* init.c (begin_init_stmts, finish_init_stmts,
+	construct_virtual_base, build_vec_init): Likewise.
+	* method.c (do_build_assign_ref, synthesize_method): Likewise.
+	* parser.c (cp_parser_compound_statement,
+	cp_parser_implicitly_scoped_statement,
+	cp_parser_already_scoped_statement): Likewise.
+	* pt.c (tsubst_expr): Likewise.
+	* semantics.c (begin_compound_stmt): No scope arg is a bool.
+	(finish_compound_stmt): Remove no scope arg.
+
+	* error.c (dump_expr) <COMPOUND_EXPR case>: A compound expr is
+	always dyadic.
+
+2003-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (standard_conversion): Tweak handling of
+	pointer-to-member types.
+	* pt.c (tsubst): Correctly qualify pointers-to-data member types.
+	* typeck.c (comp_ptr_ttypes_real): Check qualifiers on
+	pointer-to-data member types.
+
+2003-07-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_parser_type_parameter): Reformat.
+	(cp_parser_parameter_declaration): Deprecate default args where
+	not allowed.
+
+2003-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cfns.h: Rebuilt.
+
+	* cp-tree.h (begin_init_stmts, finish_init_stmts): Remove.
+	(begin_global_stmt_expr, finish_global_stmt_expr): Remove.
+	* init.c (begin_init_stmts): Make static. Return is_global
+	value. Always call begin_stmt_expr.
+	(finish_init_stmts): Make static. Add is_global parm. Always
+	building a stmt tree.
+	(build_aggr_init): Adjust begin_init_stmts, finish_init_stmts calls.
+	(build_vec_init): Likewise. Always building a stmt tree.
+	(expand_default_init): Always building a stmt tree.
+	(get_temp_regvar): Likewise.
+	* semantics.c (begin_global_stmt_expr,
+	finish_global_stmt_expr): Remove.
+
+2003-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (build_compound_expr): Take LHS & RHS args.
+	(build_x_compound_expr_from_list): Declare.
+	* typeck.c (build_x_compound_expr_from_list): New.
+	(build_x_compound_expr): Adjust.
+	(build_compound_expr): Remove unreachable code. Take two
+	parameters, adjust.
+	* decl.c (grok_reference_init): Use
+	build_x_compound_expr_from_list.
+	(expand_static_init): Adjust build_compound_expr call.
+	(cxx_maybe_build_cleanup): Likewise.
+	* init.c (perform_member_init): Use
+	build_x_compound_expr_from_list.
+	(build_new_1): Likewise.
+	(build_vec_delete): Adjust build_compound_expr calls.
+	(build_vbase_delete): Likewise.
+	* typeck2.c (store_init_value): Use
+	build_x_compound_expr_from_list.
+	(build_functional_cast): Likewise.
+
+2003-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (enum tsubst_flags_t): Add tf_user.
+	* decl.c (make_typename_type): Pass it.
+	* pt.c (lookup_template_class): Use it.
+	(resolve_typename_type): Pass it.
+	* semantics.c (finish_template_type): Pass it.
+
+2003-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11617
+	* cp-tree.h (qualified_name_lookup_error): Declare.
+	* pt.c (tsubst_qualified_id): Use qualified_name_lookup_error for
+	errors.
+	(tsubst_expr) <DECL_STMT case>: Likewise.
+	(tsubst_copy_and_build) <COMPONENT_REF case>: Likewise.
+	* semantics.c (qualified_name_lookup_error): New, broken out of ...
+	(finish_id_expression): ... here. Use it.
+
+2003-07-25  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	* cfns.gperf: Add '%%' delimiter to placate gperf 3.0.
+
+2003-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11596
+	* pt.c (maybe_fold_nontype_arg, maybe_fold_nontype_args): Remove.
+	(tsubst_template_arg): New.
+	(tsubst_template_arg_vector): Rename to ...
+	(tsubst_template_args): ... this. Accept a TREE_LIST form. Use
+	tsubst_template_arg.
+	(coerce_template_parms): Use tsubst_template_arg for default
+	value.
+	(tsubst_template_parms): Likewise.
+	(tsubst_aggr_type): Adjust.
+	(tsubst_decl): Likewise.
+	(tsubst): Use tsubst_template_arg for a DOMAIN. Adjust.
+	(tsubst_copy) <TEMPLATE_ID_EXPR case>: Use tsubst_template_args.
+
+2003-07-25 Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* Make-lang.in (cp/error.o): Depend on DIAGNOSTIC_H.
+	* error.c: Use the new pretty-printer framework.
+
+2003-07-24  Per Bothner  <pbothner@apple.com>
+
+	* decl.c (pushdecl_class_level): Don't use push_srcloc/pop_srcloc
+	which causes errors messages to incorrectly mention included files.
+
 2003-07-24  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (convert_to_base_statically): Declare.

@@ -21,13 +21,11 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
 # Cross compiler and multilib support.
-CXX = @glibcxx_CXX@
 glibcxx_srcdir=@glibcxx_srcdir@
 glibcxx_builddir=@glibcxx_builddir@
 
@@ -397,7 +395,7 @@ stamp-bits: ${bits_headers}
 	  echo `date` > stamp-bits ;\
 	fi
 
-stamp-c_base: ${c_base_headers} ${c_base_headers_extra} 
+stamp-c_base: stamp-bits ${c_base_headers} ${c_base_headers_extra} 
 	@if [ ! -d "${c_base_builddir}" ]; then \
 	  mkdir -p ${c_base_builddir} ;\
 	fi ;\

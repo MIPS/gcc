@@ -42,6 +42,8 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
+import java.security.PrivilegedAction;
+import java.security.AccessController;
 import java.util.Hashtable;
 
 import gnu.java.io.ObjectIdentityWrapper;
@@ -240,10 +242,11 @@ public class ObjectOutputStream extends OutputStream
 		    try
 		      {
 			Class classArgs[] = {};
-			m = obj.getClass ().getDeclaredMethod ("writeReplace",
-							       classArgs);
-			// m can't be null by definition since an exception would
-			// have been thrown so a check for null is not needed.
+			m = getMethod(obj.getClass(), "writeReplace",
+				      classArgs);
+			// m can't be null by definition since an
+			// exception would have been thrown so a check
+			// for null is not needed.
 			obj = m.invoke (obj, new Object[] {});
 		      }
 		    catch (NoSuchMethodException ignore)
@@ -993,7 +996,8 @@ public class ObjectOutputStream extends OutputStream
 	private void checkType (ObjectStreamField field, char type)
 	  throws IllegalArgumentException
 	{
-	  if (TypeSignature.getEncodingOfClass (field.getType ()).charAt (0) != type)
+	  if (TypeSignature.getEncodingOfClass (field.getType ()).charAt (0)
+	      != type)
 	    throw new IllegalArgumentException ();
 	}
       };
@@ -1193,17 +1197,20 @@ public class ObjectOutputStream extends OutputStream
   }
 
 
-  private void callWriteMethod (Object obj, ObjectStreamClass osc) throws IOException
+  private void callWriteMethod (Object obj, ObjectStreamClass osc)
+    throws IOException
   {
     Class klass = osc.forClass();
     try
       {
 	Class classArgs[] = {ObjectOutputStream.class};
 	Method m = getMethod (klass, "writeObject", classArgs);
-	if (m == null)
-	  return;
 	Object args[] = {this};
 	m.invoke (obj, args);	
+      }
+    catch (NoSuchMethodException nsme)
+      {
+	// Nothing.
       }
     catch (InvocationTargetException x)
       {
@@ -1214,13 +1221,19 @@ public class ObjectOutputStream extends OutputStream
 	if (exception instanceof IOException)
 	  throw (IOException) exception;
 
-	throw new IOException ("Exception thrown from writeObject() on " +
-			       klass + ": " + exception.getClass().getName());
+	IOException ioe
+	  = new IOException ("Exception thrown from writeObject() on " +
+			     klass + ": " + exception.getClass().getName());
+	ioe.initCause(exception);
+	throw ioe;
       }
     catch (Exception x)
       {
-	throw new IOException ("Failure invoking writeObject() on " +
-			       klass + ": " + x.getClass().getName());
+	IOException ioe
+	  = new IOException ("Failure invoking writeObject() on " +
+			     klass + ": " + x.getClass().getName());
+	ioe.initCause(x);
+	throw ioe;
       }
   }
 
@@ -1239,7 +1252,8 @@ public class ObjectOutputStream extends OutputStream
       }    
   }
 
-  private byte getByteField (Object obj, Class klass, String field_name) throws IOException
+  private byte getByteField (Object obj, Class klass, String field_name)
+    throws IOException
   {
     try
       {
@@ -1253,7 +1267,8 @@ public class ObjectOutputStream extends OutputStream
       }    
   }
 
-  private char getCharField (Object obj, Class klass, String field_name) throws IOException
+  private char getCharField (Object obj, Class klass, String field_name)
+    throws IOException
   {
     try
       {
@@ -1297,7 +1312,8 @@ public class ObjectOutputStream extends OutputStream
       }    
   }
 
-  private int getIntField (Object obj, Class klass, String field_name) throws IOException
+  private int getIntField (Object obj, Class klass, String field_name)
+    throws IOException
   {
     try
       {
@@ -1311,7 +1327,8 @@ public class ObjectOutputStream extends OutputStream
       }    
   }
 
-  private long getLongField (Object obj, Class klass, String field_name) throws IOException
+  private long getLongField (Object obj, Class klass, String field_name)
+    throws IOException
   {
     try
       {
@@ -1359,13 +1376,31 @@ public class ObjectOutputStream extends OutputStream
   private static Field getField (Class klass, String name)
     throws java.lang.NoSuchFieldException
   {
-    return klass.getDeclaredField(name);
+    final Field f = klass.getDeclaredField(name);
+    AccessController.doPrivileged(new PrivilegedAction()
+      {
+	public Object run()
+	{
+	  f.setAccessible(true);
+	  return null;
+	}
+      });
+    return f;
   }
 
   private static Method getMethod (Class klass, String name, Class[] args)
     throws java.lang.NoSuchMethodException
   {
-    return klass.getDeclaredMethod(name, args);
+    final Method m = klass.getDeclaredMethod(name, args);
+    AccessController.doPrivileged(new PrivilegedAction()
+      {
+	public Object run()
+	{
+	  m.setAccessible(true);
+	  return null;
+	}
+      });
+    return m;
   }
 
   // this value comes from 1.2 spec, but is used in 1.1 as well

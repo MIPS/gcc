@@ -30,6 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "diagnostic.h"
+#include "c-pretty-print.h"
+
+static void c_initialize_diagnostics (diagnostic_context *);
 
 enum c_language_kind c_language = clk_c;
 
@@ -43,10 +47,10 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
+#undef LANG_HOOKS_INITIALIZE_DIAGNOSTITCS
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTITCS c_initialize_diagnostics
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
-#undef LANG_HOOKS_HANDLE_FILENAME
-#define LANG_HOOKS_HANDLE_FILENAME c_common_handle_filename
 #undef LANG_HOOKS_MISSING_ARGUMENT
 #define LANG_HOOKS_MISSING_ARGUMENT c_common_missing_argument
 #undef LANG_HOOKS_POST_OPTIONS
@@ -63,8 +67,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
-#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
-#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES c_insert_default_attributes
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL
@@ -221,5 +223,19 @@ finish_file (void)
 {
   c_objc_common_finish_file ();
 }
+
+static void
+c_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  c_pretty_printer pp = xmalloc (sizeof *pp);
+  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  pp_c_pretty_printer_init (pp);
+  context->printer = (pretty_printer *) pp;
+
+  /* It is safe to free this object because it was previously malloc()'d.  */
+  free (base);
+}
+
 
 #include "gtype-c.h"

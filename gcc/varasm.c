@@ -432,7 +432,8 @@ named_section (tree decl, const char *name, int reloc)
     {
       flags = get_named_section_flags (name);
       if ((flags & SECTION_OVERRIDE) == 0)
-	error_with_decl (decl, "%s causes a section type conflict");
+	error ("%H%D causes a section type conflict",
+               &DECL_SOURCE_LOCATION (decl), decl);
     }
 
   named_section_flags (name, flags);
@@ -802,15 +803,17 @@ make_decl_rtl (tree decl, const char *asmspec)
     {
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
-	error_with_decl (decl, "register name not specified for `%s'");
+	error ("%Hregister name not specified for '%D'",
+               &DECL_SOURCE_LOCATION (decl), decl);
       else if (reg_number < 0)
-	error_with_decl (decl, "invalid register name for `%s'");
+	error ("%Hinvalid register name for '%D'",
+               &DECL_SOURCE_LOCATION (decl), decl);
       else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
-	error_with_decl (decl,
-			 "data type of `%s' isn't suitable for a register");
+	error ("%Hdata type of '%D' isn't suitable for a register",
+               &DECL_SOURCE_LOCATION (decl), decl);
       else if (! HARD_REGNO_MODE_OK (reg_number, TYPE_MODE (TREE_TYPE (decl))))
-	error_with_decl (decl,
-			 "register specified for `%s' isn't suitable for data type");
+	error ("%Hregister specified for '%D' isn't suitable for data type",
+               &DECL_SOURCE_LOCATION (decl), decl);
       /* Now handle properly declared static register variables.  */
       else
 	{
@@ -854,8 +857,8 @@ make_decl_rtl (tree decl, const char *asmspec)
      Also handle vars declared register invalidly.  */
 
   if (reg_number >= 0 || reg_number == -3)
-    error_with_decl (decl,
-		     "register name given for non-register variable `%s'");
+    error ("%Hregister name given for non-register variable '%D'",
+           &DECL_SOURCE_LOCATION (decl), decl);
 
   /* Specifying a section attribute on a variable forces it into a
      non-.bss section, and thus it cannot be common.  */
@@ -1391,7 +1394,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (! dont_output_data
       && ! host_integerp (DECL_SIZE_UNIT (decl), 1))
     {
-      error_with_decl (decl, "size of variable `%s' is too large");
+      error ("%Hsize of variable '%D' is too large",
+             &DECL_SOURCE_LOCATION (decl), decl);
       return;
     }
 
@@ -1429,9 +1433,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 #endif
   if (align > MAX_OFILE_ALIGNMENT)
     {
-      warning_with_decl (decl,
-	"alignment of `%s' is greater than maximum object file alignment. Using %d",
-			 MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+      warning ("%Halignment of '%D' is greater than maximum object "
+               "file alignment.  Using %d", &DECL_SOURCE_LOCATION (decl),
+               decl, MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
     }
 
@@ -1497,8 +1501,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN (decl) / BITS_PER_UNIT > rounded)
-	warning_with_decl
-	  (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
+	warning ("%Hrequested alignment for '%D' is greater than "
+                 "implemented alignment of %d", &DECL_SOURCE_LOCATION (decl),
+                 decl, rounded);
 #endif
 
       /* If the target cannot output uninitialized but not common global data
@@ -2542,6 +2547,7 @@ output_constant_def_contents (rtx symbol)
 {
   tree exp = SYMBOL_REF_DECL (symbol);
   const char *label = XSTR (symbol, 0);
+  HOST_WIDE_INT size;
 
   /* Make sure any other constants whose addresses appear in EXP
      are assigned label numbers.  */
@@ -2566,17 +2572,20 @@ output_constant_def_contents (rtx symbol)
       ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
     }
 
-  /* Output the label itself.  */
+  size = int_size_in_bytes (TREE_TYPE (exp));
+  if (TREE_CODE (exp) == STRING_CST)
+    size = MAX (TREE_STRING_LENGTH (exp), size);
+
+  /* Do any machine/system dependent processing of the constant.  */
+#ifdef ASM_DECLARE_CONSTANT_NAME
+  ASM_DECLARE_CONSTANT_NAME (asm_out_file, label, exp, size);
+#else
+  /* Standard thing is just output label for the constant.  */
   ASM_OUTPUT_LABEL (asm_out_file, label);
+#endif /* ASM_DECLARE_CONSTANT_NAME */
 
   /* Output the value of EXP.  */
-  output_constant (exp,
-		   (TREE_CODE (exp) == STRING_CST
-		    ? MAX (TREE_STRING_LENGTH (exp),
-			   int_size_in_bytes (TREE_TYPE (exp)))
-		    : int_size_in_bytes (TREE_TYPE (exp))),
-		   align);
-
+  output_constant (exp, size, align);
 }
 
 /* A constant which was deferred in its original location has been
@@ -2586,6 +2595,21 @@ void
 notice_rtl_inlining_of_deferred_constant (void)
 {
   n_deferred_constants++;
+}
+
+/* Look up EXP in the table of constant descriptors.  Return the rtl
+   if it has been emitted, else null.  */
+
+rtx
+lookup_constant_def (tree exp)
+{
+  struct constant_descriptor_tree *desc;
+  struct constant_descriptor_tree key;
+
+  key.value = exp;
+  desc = htab_find (const_desc_htab, &key);
+
+  return (desc ? desc->rtl : NULL_RTX);
 }
 
 /* Used in the hash tables to avoid outputting the same constant
@@ -4169,15 +4193,17 @@ merge_weak (tree newdecl, tree olddecl)
 	 declare_weak because the NEWDECL and OLDDECL was not yet
 	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
       if (TREE_ASM_WRITTEN (olddecl))
-	error_with_decl (newdecl,
-			 "weak declaration of `%s' must precede definition");
+	error ("%Hweak declaration of '%D' must precede definition",
+               &DECL_SOURCE_LOCATION (newdecl), newdecl);
 
       /* If we've already generated rtl referencing OLDDECL, we may
 	 have done so in a way that will not function properly with
 	 a weak symbol.  */
       else if (TREE_USED (olddecl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
-	warning_with_decl (newdecl, "weak declaration of `%s' after first use results in unspecified behavior");
+	warning ("%Hweak declaration of '%D' after first use results "
+                 "in unspecified behavior",
+                 &DECL_SOURCE_LOCATION (newdecl), newdecl);
 
       if (SUPPORTS_WEAK)
 	{
@@ -4210,16 +4236,19 @@ void
 declare_weak (tree decl)
 {
   if (! TREE_PUBLIC (decl))
-    error_with_decl (decl, "weak declaration of `%s' must be public");
+    error ("%Hweak declaration of '%D' must be public",
+           &DECL_SOURCE_LOCATION (decl), decl);
   else if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
-    error_with_decl (decl, "weak declaration of `%s' must precede definition");
+    error ("%Hweak declaration of '%D' must precede definition",
+           &DECL_SOURCE_LOCATION (decl), decl);
   else if (SUPPORTS_WEAK)
     {
       if (! DECL_WEAK (decl))
 	weak_decls = tree_cons (NULL, decl, weak_decls);
     }
   else
-    warning_with_decl (decl, "weak declaration of `%s' not supported");
+    warning ("%Hweak declaration of '%D' not supported",
+             &DECL_SOURCE_LOCATION (decl), decl);
 
   mark_weak (decl);
 }
@@ -4641,30 +4670,6 @@ default_pe_asm_named_section (const char *name, unsigned int flags)
       fprintf (asm_out_file, "\t.linkonce %s\n",
 	       (flags & SECTION_CODE ? "discard" : "same_size"));
     }
-}
-
-/* Used for vtable gc in GNU binutils.  Record that the pointer at OFFSET
-   from SYMBOL is used in all classes derived from SYMBOL.  */
-
-void
-assemble_vtable_entry (rtx symbol, HOST_WIDE_INT offset)
-{
-  fputs ("\t.vtable_entry ", asm_out_file);
-  output_addr_const (asm_out_file, symbol);
-  fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_DEC "\n", offset);
-}
-
-/* Used for vtable gc in GNU binutils.  Record the class hierarchy by noting
-   that the vtable symbol CHILD is derived from the vtable symbol PARENT.  */
-
-void
-assemble_vtable_inherit (rtx child, rtx parent)
-{
-  fputs ("\t.vtable_inherit ", asm_out_file);
-  output_addr_const (asm_out_file, child);
-  fputs (", ", asm_out_file);
-  output_addr_const (asm_out_file, parent);
-  fputc ('\n', asm_out_file);
 }
 
 /* The lame default section selector.  */

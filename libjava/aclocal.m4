@@ -118,12 +118,6 @@ version=0.0.7
 dnl Still use "libjava" here to placate dejagnu.
 AM_INIT_AUTOMAKE(libjava, $version)
 
-# AC_CHECK_TOOL does AC_REQUIRE (AC_CANONICAL_BUILD).  If we don't
-# run it explicitly here, it will be run implicitly before
-# LIBGCJ_CONFIGURE, which doesn't work because that means that it will
-# be run before AC_CANONICAL_HOST.
-AC_CANONICAL_BUILD
-
 AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
@@ -878,7 +872,10 @@ AC_ARG_ENABLE(libarttest, [  --disable-libarttest       Do not try to compile an
      fi
   fi
 
-  AC_PATH_PROG(LIBART_CONFIG, libart-config, no)
+  AC_PATH_PROG(LIBART_CONFIG, libart2-config, no)
+  if test "$LIBART_CONFIG" = "no" ; then
+    AC_PATH_PROG(LIBART_CONFIG, libart-config, no)
+  fi
   min_libart_version=ifelse([$1], ,0.2.5,$1)
   AC_MSG_CHECKING(for LIBART - version >= $min_libart_version)
   no_libart=""

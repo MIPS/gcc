@@ -8558,6 +8558,24 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	return 0;
       break;
 
+    case CONSTRUCTOR:
+      {
+	/* Get an RTL for this, if something has been emitted.  */
+	rtx rtl = lookup_constant_def (loc);
+	enum machine_mode mode;
+
+	if (GET_CODE (rtl) != MEM)
+	  return 0;
+	mode = GET_MODE (rtl);
+	rtl = XEXP (rtl, 0);
+
+	rtl = (*targetm.delegitimize_address) (rtl);
+
+	indirect_p = 1;
+	ret = mem_loc_descriptor (rtl, mode);
+	break;
+      }
+
     case TRUTH_AND_EXPR:
     case TRUTH_ANDIF_EXPR:
     case BIT_AND_EXPR:
@@ -9488,7 +9506,7 @@ add_name_attribute (dw_die_ref die, const char *name_string)
 static void
 add_comp_dir_attribute (dw_die_ref die)
 {
-  const char *wd = getpwd ();
+  const char *wd = get_src_pwd ();
   if (wd != NULL)
     add_AT_string (die, DW_AT_comp_dir, wd);
 }

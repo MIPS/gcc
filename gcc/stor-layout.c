@@ -515,10 +515,11 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning_with_decl (decl, "size of `%s' is %d bytes", size_as_int);
+	    warning ("%Hsize of '%D' is %d bytes",
+                     &DECL_SOURCE_LOCATION (decl), decl, size_as_int);
 	  else
-	    warning_with_decl (decl, "size of `%s' is larger than %d bytes",
-			       larger_than_size);
+	    warning ("size of '%D' is larger than %d bytes",
+                     &DECL_SOURCE_LOCATION (decl), decl, larger_than_size);
 	}
     }
 
@@ -883,9 +884,11 @@ place_field (record_layout_info rli, tree field)
 	  if (TYPE_ALIGN (type) > desired_align)
 	    {
 	      if (STRICT_ALIGNMENT)
-		warning_with_decl (field, "packed attribute causes inefficient alignment for `%s'");
+		warning ("%Hpacked attribute causes inefficient alignment "
+                         "for '%D'", &DECL_SOURCE_LOCATION (field), field);
 	      else
-		warning_with_decl (field, "packed attribute is unnecessary for `%s'");
+		warning ("%Hpacked attribute is unnecessary for '%D'",
+                         &DECL_SOURCE_LOCATION (field), field);
 	    }
 	}
       else
@@ -900,7 +903,8 @@ place_field (record_layout_info rli, tree field)
 	 Bump the cumulative size to multiple of field alignment.  */
 
       if (warn_padded)
-	warning_with_decl (field, "padding struct to align `%s'");
+	warning ("%Hpadding struct to align '%D'",
+                 &DECL_SOURCE_LOCATION (field), field);
 
       /* If the alignment is still within offset_align, just align
 	 the bit position.  */
@@ -1953,6 +1957,58 @@ set_sizetype (tree type)
   sizetype_set = 1;
 }
 
+/* TYPE is an integral type, i.e., an INTEGRAL_TYPE, ENUMERAL_TYPE,
+   BOOLEAN_TYPE, or CHAR_TYPE.  Set TYPE_MIN_VALUE and TYPE_MAX_VALUE
+   for TYPE, based on the PRECISION and whether or not the TYPE
+   IS_UNSIGNED.  PRECISION need not correspond to a width supported
+   natively by the hardware; for example, on a machine with 8-bit,
+   16-bit, and 32-bit register modes, PRECISION might be 7, 23, or
+   61.  */
+
+void
+set_min_and_max_values_for_integral_type (tree type,
+					  int precision,
+					  bool is_unsigned)
+{
+  tree min_value;
+  tree max_value;
+
+  if (is_unsigned)
+    {
+      min_value = build_int_2 (0, 0);
+      max_value 
+	= build_int_2 (precision - HOST_BITS_PER_WIDE_INT >= 0
+		       ? -1 : ((HOST_WIDE_INT) 1 << precision) - 1,
+		       precision - HOST_BITS_PER_WIDE_INT > 0
+		       ? ((unsigned HOST_WIDE_INT) ~0
+			  >> (HOST_BITS_PER_WIDE_INT
+			      - (precision - HOST_BITS_PER_WIDE_INT)))
+		       : 0);
+    }
+  else
+    {
+      min_value 
+	= build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
+			? 0 : (HOST_WIDE_INT) (-1) << (precision - 1)),
+		       (((HOST_WIDE_INT) (-1)
+			 << (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
+			     ? precision - HOST_BITS_PER_WIDE_INT - 1
+			     : 0))));    
+      max_value
+	= build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
+			? -1 : ((HOST_WIDE_INT) 1 << (precision - 1)) - 1),
+		       (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
+			? (((HOST_WIDE_INT) 1
+			    << (precision - HOST_BITS_PER_WIDE_INT - 1))) - 1
+			: 0));
+    }
+
+  TREE_TYPE (min_value) = type;
+  TREE_TYPE (max_value) = type;
+  TYPE_MIN_VALUE (type) = min_value;
+  TYPE_MAX_VALUE (type) = max_value;
+}
+
 /* Set the extreme values of TYPE based on its precision in bits,
    then lay it out.  Used when make_signed_type won't do
    because the tree code is not INTEGER_TYPE.
@@ -1969,23 +2025,8 @@ fixup_signed_type (tree type)
   if (precision > HOST_BITS_PER_WIDE_INT * 2)
     precision = HOST_BITS_PER_WIDE_INT * 2;
 
-  TYPE_MIN_VALUE (type)
-    = build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
-		    ? 0 : (HOST_WIDE_INT) (-1) << (precision - 1)),
-		   (((HOST_WIDE_INT) (-1)
-		     << (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
-			 ? precision - HOST_BITS_PER_WIDE_INT - 1
-			 : 0))));
-  TYPE_MAX_VALUE (type)
-    = build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
-		    ? -1 : ((HOST_WIDE_INT) 1 << (precision - 1)) - 1),
-		   (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
-		    ? (((HOST_WIDE_INT) 1
-			<< (precision - HOST_BITS_PER_WIDE_INT - 1))) - 1
-		    : 0));
-
-  TREE_TYPE (TYPE_MIN_VALUE (type)) = type;
-  TREE_TYPE (TYPE_MAX_VALUE (type)) = type;
+  set_min_and_max_values_for_integral_type (type, precision, 
+					    /*is_unsigned=*/false);
 
   /* Lay out the type: set its alignment, size, etc.  */
   layout_type (type);
@@ -2006,17 +2047,8 @@ fixup_unsigned_type (tree type)
   if (precision > HOST_BITS_PER_WIDE_INT * 2)
     precision = HOST_BITS_PER_WIDE_INT * 2;
 
-  TYPE_MIN_VALUE (type) = build_int_2 (0, 0);
-  TYPE_MAX_VALUE (type)
-    = build_int_2 (precision - HOST_BITS_PER_WIDE_INT >= 0
-		   ? -1 : ((HOST_WIDE_INT) 1 << precision) - 1,
-		   precision - HOST_BITS_PER_WIDE_INT > 0
-		   ? ((unsigned HOST_WIDE_INT) ~0
-		      >> (HOST_BITS_PER_WIDE_INT
-			  - (precision - HOST_BITS_PER_WIDE_INT)))
-		   : 0);
-  TREE_TYPE (TYPE_MIN_VALUE (type)) = type;
-  TREE_TYPE (TYPE_MAX_VALUE (type)) = type;
+  set_min_and_max_values_for_integral_type (type, precision, 
+					    /*is_unsigned=*/true);
 
   /* Lay out the type: set its alignment, size, etc.  */
   layout_type (type);

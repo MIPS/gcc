@@ -1622,14 +1622,32 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	     has already loaded the register for us.  In all other cases,
 	     load the register(s) from memory.  */
 
-	  else if (nregs == -1
+	  else if (nregs == -1)
+	    {
+	      emit_move_insn (reg, args[i].value);
 #ifdef BLOCK_REG_PADDING
-		   && !(size < UNITS_PER_WORD
-			&& (args[i].locate.where_pad
-			    == (BYTES_BIG_ENDIAN ? upward : downward)))
+	      /* Handle case where we have a value that needs shifting
+		 up to the msb.  eg. a QImode value and we're padding
+		 upward on a BYTES_BIG_ENDIAN machine.  */
+	      if (size < UNITS_PER_WORD
+		  && (args[i].locate.where_pad
+		      == (BYTES_BIG_ENDIAN ? upward : downward)))
+		{
+		  rtx x;
+		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+
+		  /* Assigning REG here rather than a temp makes CALL_FUSAGE
+		     report the whole reg as used.  Strictly speaking, the
+		     call only uses SIZE bytes at the msb end, but it doesn't
+		     seem worth generating rtl to say that.  */
+		  reg = gen_rtx_REG (word_mode, REGNO (reg));
+		  x = expand_binop (word_mode, ashl_optab, reg,
+				    GEN_INT (shift), reg, 1, OPTAB_WIDEN);
+		  if (x != reg)
+		    emit_move_insn (reg, x);
+		}
 #endif
-		   )
-	    emit_move_insn (reg, args[i].value);
+	    }
 
 	  /* If we have pre-computed the values to put in the registers in
 	     the case of non-aligned structures, copy them in now.  */
@@ -1644,23 +1662,9 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	      rtx mem = validize_mem (args[i].value);
 
 #ifdef BLOCK_REG_PADDING
-	      /* Handle case where we have a value that needs shifting
-		 up to the msb.  eg. a QImode value and we're padding
-		 upward on a BYTES_BIG_ENDIAN machine.  */
-	      if (nregs == -1)
-		{
-		  rtx ri = gen_rtx_REG (word_mode, REGNO (reg));
-		  rtx x;
-		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
-		  x = expand_binop (word_mode, ashl_optab, mem,
-				    GEN_INT (shift), ri, 1, OPTAB_WIDEN);
-		  if (x != ri)
-		    emit_move_insn (ri, x);
-		}
-
 	      /* Handle a BLKmode that needs shifting.  */
-	      else if (nregs == 1 && size < UNITS_PER_WORD
-		       && args[i].locate.where_pad == downward)
+	      if (nregs == 1 && size < UNITS_PER_WORD
+		  && args[i].locate.where_pad == downward)
 		{
 		  rtx tem = operand_subword_force (mem, 0, args[i].mode);
 		  rtx ri = gen_rtx_REG (word_mode, REGNO (reg));
@@ -1808,7 +1812,8 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
   if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
       && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
     {
-      warning_with_decl (fndecl, "inlining failed in call to `%s'");
+      warning ("%Hinlining failed in call to '%F'",
+               &DECL_SOURCE_LOCATION (fndecl), fndecl);
       warning ("called from here");
     }
   (*lang_hooks.mark_addressable) (fndecl);
@@ -2147,7 +2152,8 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
 	      && optimize > 0)
 	    {
-	      warning_with_decl (fndecl, "can't inline call to `%s'");
+	      warning ("%Hcan't inline call to '%F'",
+                       &DECL_SOURCE_LOCATION (fndecl), fndecl);
 	      warning ("called from here");
 	    }
 	  (*lang_hooks.mark_addressable) (fndecl);

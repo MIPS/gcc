@@ -1,3 +1,455 @@
+2003-08-11  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/EventQueue.java (currentEvent, lastWhen): New fields.
+	(postEvent): Removed FIXME comment.
+	(isDispatchThread): Documented.
+	(getCurrentEvent): New method.
+	(dispatchEvent): Set currentEvent and lastWhen.
+	(getMostRecentEventTime): Rewrote.
+	(invokeLater): Documented.
+
+2003-08-10  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/io/PrintStream.java (print): Always flush if auto_flush is
+	set. Don't check for newline characters.
+	(write (int)): Implement without using a temporary array.
+	(write (byte[], int, int): Always flush if auto_flush is set. Don't
+	check for newline characters.
+	Fixes PR libgcj/11778.
+
+2003-08-08  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am (AM_CXXFLAGS): Define BOOT_CLASS_PATH.
+	* Makefile.in: Rebuild.
+	* java/lang/natRuntime.cc (insertSystemProperties): Add
+	"sun.boot.class.path".
+
+2003-08-07  Andrew Haley  <aph@redhat.com>
+
+	* java/io/PrintStream.java: Don't crash on a null string.
+	
+2003-08-07  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Don't initialize GCINCS to boehm-gc/include.
+	* configure: Regenerate.
+
+2003-08-07  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/net/Socket.java (Socket (SocketImpl)): Don't allow null
+	SocketImpl. Update Javadoc.
+	(bind): Call close() not impl.close() in event of exception.
+	(connect): Likewise.
+	Remove superfluous null checks throughout.
+	* java/net/ServerSocket.java (ServerSocket (int, int, InetAddress)):
+	Don't create an extra socket. Fix for PR libgcj/10868.
+	(bind): Clean up exception handling.
+	Remove superfluous null checks throughout.
+
+2003-08-07  Jacob Gladish <gladish@spinnakernet.com>
+            Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/net/natPlainSocketImplPosix.cc (connect): Pass the FD as a
+	ready-to-write argument to _Jv_Select. Reset the socket back to 
+	non-blocking state after connecting.
+	(accept): Pass the FD as a ready-to-write argument to _Jv_Select.
+	Throw SocketTimeoutException not InterruptedIOException.
+	(read): Throw SocketTimeoutException not InterruptedIOException.
+
+2003-08-07  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/lang/Thread.java (Thread): Check for null "name" from
+	start of private constructor, not after calling the private
+	constructor.
+
+2003-08-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/FilePermission.java (equals): Use correct index for
+	last character of path.
+
+2003-08-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* acinclude.m4 (LIBGCJ_CONFIGURE): Remove AC_CANONICAL_BUILD.
+	* configure.in: Compare with_cross_host to build_alias, not build.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2003-08-05  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/11779:
+	* java/lang/reflect/natField.cc (getAddr): Skip frames in Field
+	class.
+
+	* java/lang/reflect/Method.java: Updated status comment.
+	Imported javadoc from Classpath and re-ordered methods.
+	* java/lang/reflect/Constructor.java: Reindented.  Updated
+	status comment.  Imported javadoc from Classpath and re-ordered
+	methods.
+
+2003-08-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java (postKeyEvent):
+	Add keyLocation parameter.
+	* java/awt/event/KeyEvent.java (getKeyText): Fix "NumPad-"
+	string.
+	(paramString): Generate keyChar string according to keyChar, not
+	keyCode.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(state_to_awt_mods): Handle ALT key.
+	(keyevent_state_to_awt_mods): New function.
+	(get_first_keyval_from_keymap): New function.
+	(keysym_to_awt_keycode): Get virtual key code from keymap.
+	Handle missing VK_ values.
+	(keysym_to_awt_keylocation): New function.
+	(keyevent_to_awt_keychar): New function.
+	(generates_key_typed_event): Handle non-text-component case.
+	Handle GDK_KP_Delete and GDK_KP_Enter.
+	(awt_event_handler): Call new functions to get postKeyEvent
+	parameters.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c (gtkInit):
+	Update postKeyEvent method signature.
+	* jni/gtk-peer/gtkpeer.h: Add KEY_LOCATION defines.  Add missing
+	VK_ defines.
+
+2003-08-05  Matthias Klose  <doko@debian.org>
+
+	* aclocal.m4: check for libart-config binary
+	  under the name libart2-config as well.
+	* configure: regenerated.
+
+2003-08-04  David P Grove  <groved@us.ibm.com>
+
+	* java/text/DecimalFormat.java (format): avoid ArithmeticException
+	when groupingSize is 0.
+	(parse): Likewise.
+
+2003-08-04  Matthias Klose  <doko@debian.org>
+
+	* libart.m4: check for libart-config binary
+	  under the name libart2-config as well.
+	* configure, aclocal.m4: regenerated.
+
+2003-08-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBufferImpl.java
+	(getChar): Check remaining bytes, fixed comment about endianess.
+	(putChar): Likewise.
+	(getShort): Likewise.
+	(putShort): Likewise.
+	(getInt): Check remaining bytes, fixed conversion, fixed comment about
+	endianess.
+	(putInt): Likewise.
+	(getLong): Likewise.
+	(putLong): Likewise.
+	(getFloat): Likewise.
+	(putFloat): Likewise.
+	(getDouble): Likewise.
+	(putDouble): Likewise.
+	* java/nio/DirectByteBufferImpl.java
+	(getChar): Wrapped code, fixed comment about endianess.
+	(putchar): Likewise.
+	(getShort): Likewise.
+	(putShort): Likewise.
+	(getInt): Fixed conversion, fixed comment about endianess.
+	(putInt): Likewise.
+	(getLong): Likewise.
+	(putLong): Likewise.
+	(getFloat): Likewise.
+	(putFloat): Likewise.
+	(getDouble): Likewise.
+	(putDouble): Likewise.
+	* java/nio/MappedByteBufferImpl.java
+	(compact): Implemented.
+	(getChar): Implemented.
+	(putChar): Implemented.
+	(getDouble): Implemented.
+	(putdouble): Implemented.
+	(getFloat): Implemented.
+	(putFloat): Implemented.
+	(getInt): Implemented.
+	(putInt): Implemented.
+	(getLong): Implemented.
+	(putLong): Implemented.
+	(getShort): Implemented.
+	(putShort): Implemented.
+	* java/nio/channels/FileChannelImpl.java
+	(read): Set position where to access file.
+	(write): Likewise.
+	(transferTo): Flip buffer after read and before write.
+	(transferFrom): Likewise.
+
+2003-08-02  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/lang/ArrayHelper.java
+	(equalsArray): Reformated, added method documentation.
+
+2003-08-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java
+	(URL): Added paragraph about the
+	gnu.java.net.nocache_protocol_handlers property.
+	(ph_cache): Renamed from handlers to match classpath's implementation.
+	Reordered it with factory and serialVersionUID member variables.
+	(cache_handlers): New member variable.
+	(static): New static initializer to initialize cache_handlers from
+	gnu.java.net.nocache_protocol_handlers property.
+	(URL): Use ph_cache instead of handlers, reformatted some code to
+	match classpath's implementation.
+
+2003-08-01  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/11241:
+	* java/util/WeakHashMap.java (WeakHashMap(int,float)): If
+	initialCapacity is 0, set it to 1.
+
+2003-08-01  Stephen Crawley <crawley@dstc.edu.au>
+
+	* java/net/SocketImpl.java (toString): Display the remote address
+	of an unconnected server socket as "0.0.0.0/0.0.0.0".
+
+2003-08-01  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/border/BevelBorder.java,
+	javax/swing/border/EtchedBorder.java,
+	javax/swing/border/LineBorder.java,
+	javax/swing/border/MatteBorder.java,
+	javax/swing/border/SoftBevelBorder.java,
+	javax/swing/plaf/BorderUIResource.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/plaf/TreeUI.java,
+	javax/swing/plaf/basic/BasicBorders.java,
+	javax/swing/plaf/basic/BasicGraphicsUtils.java,
+	javax/swing/plaf/basic/BasicTreeUI.java:
+	Prepend "doc-files" to all paths to embedded Javadoc images, so
+	that the generated documentation contains the correct URL.
+
+2003-08-01  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in (tool_include_dir): Redefine to match gcc.
+
+2003-08-01  Jerry Quinn  <jlquinn@optonline.net>
+            Mark Wielaard  <mark@klomp.org>
+	    
+	* java/math/BigDecimal (divide): Correctly handle
+	ROUND_HALF_EVEN when amount is greater than 0.5.
+	Simplify and optimize code.
+
+2003-07-31  Tom Tromey  <tromey@redhat.com>
+
+	More for PR libgcj/11737:
+	* java/io/ObjectInputStream.java (processResolution): Use
+	getMethod.
+	(getMethod): Make method accessible.
+	(getField): Make field accessible.
+	(setBooleanField): Don't call setAccessible here.
+	(setByteField, setCharField, setDoubleField, setFloatField,
+	setIntField, setLongField, setShortField, setObjectField):
+	Likewise.
+	(callReadMethod): Don't check whether method is null.  Catch
+	NoSuchMethodException.
+	* java/io/ObjectOutputStream.java (callWriteMethod): Initialize
+	cause on thrown exceptions.
+
+2003-07-31  Stepan Koltsov  <yozh@mx1.ru>
+
+	Fix for PR libgcj/11728:
+	* java/util/HashMap.java (readObject): Set size.
+
+2003-07-31  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/11737:
+	* java/io/ObjectOutputStream.java (getMethod): Make method
+	accessible.
+	(getField): Likewise.
+	(writeObject): Use getMethod.
+	Import PrivilegedAction and AccessController.
+	(callWriteMethod): Don't check whether m is null.  Catch
+	NoSuchMethodException.
+
+	* java/awt/geom/Arc2D.java (getBounds2D): Implement.
+	(containsAngle): Likewise.
+	(getStartPoint): Rewrote.
+	(getEndPoint): Likewise.
+	(setAngleStart(Point2D)): Likewise.
+
+2003-07-31  Roger Sayle  <roger@eyesopen.com>
+	    Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Add new THREADCXXFLAGS variable.
+  	Handle POSIX threads on alpha*-dec-osf*.
+	* configure: Regenerate.
+	* Makefile.am: Add THREADCXXFLAGS to AM_CXXFLAGS.
+	* Makefile.in: Regenerate.
+
+2003-07-08  Andrew Haley  <aph@redhat.com>
+
+        * include/i386-signal.h (RESTORE): New.
+        (INIT_SEGV): Set restorer.
+        (INIT_FPE): Likewise.
+
+2003-07-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java: Call getName rather
+	than getXLFD.
+	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java: Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
+	(gtkSetFont): Scale size parameter by PANGO_SCALE.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c:
+	Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c:
+	Likewise.
+
+2003-07-29  Tom Tromey  <tromey@redhat.com>
+
+	* defineclass.cc (handleField): Throw exception if field name is
+	duplicated.
+	(handleMethod): Throw exception for duplicate method.
+
+2003-07-29  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/convert/natIconv.cc (write): Handle case where
+	output buffer is too small.
+
+2003-07-28  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (init(gnu.gcj.runtime.StringBuffer)):
+	New method.
+	Include gnu/gcj/runtime/StringBuffer.h.
+	* java/lang/String.java (init(gnu.gcj.runtime.StringBuffer)): New
+	native method.
+	(String(gnu.gcj.runtime.StringBuffer)): Use it.
+
+2003-07-27  Anthony Green  <green@redhat.com>
+
+	* configure.in: Fix newlib check.
+	* configure: Rebuilt.
+
+2003-07-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c:
+	Create vbox and layout for GtkPlug.
+
+2003-07-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Window.java
+	(Window): Removed now unused constructor. It became oboslete with the
+	new embedded window patch.
+
+2003-07-27  Thomas Fitzsimmons <fitzsim@redhat.com.h> 
+	    Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/EmbeddedWindow.java
+	(EmbeddedWindow): Extends Frame instead of Window.
+	(window_id): New member variable to store the native window handle.
+	(create): Removed.
+	(EmbeddedWindow): New constructor.
+	(addNotify): New method.
+	(getHandler): Likewise.
+	(setWindowPeer): New native method.
+	* gnu/java/awt/EmbeddedWindowSupport.java
+	(EmbeddedWindowSupport): Fixed documentation.
+	(createEmbeddedWindow): Return EmbeddedWindowPeer instead of
+	WindowPeer, give it an EmbeddedWindow instance instead of the raw
+	window data.
+	* gnu/java/awt/natEmbeddedWindow.cc
+	(create): Removed.
+	(setWindowPeer): New method.
+	* gnu/java/awt/peer/EmbeddedWindowPeer.java,
+	gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c:
+	New files
+	* gnu/java/awt/peer/gtk/GtkToolkit.java
+	(GtkToolkit): Implements EmbeddedWindowSupport.
+	(createEmbeddedWindow): New method.
+	* java/awt/Window.java
+	(Window): Removed.
+	* Makefile.am
+	(java_source_files): Added EmbeddedWindowPeer.java.
+	(gtk_awt_peer_sources): Added GtkEmbeddedWindowPeer.java.
+	(gtk_c_source_files): Added gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c.
+	* Makefile.in: Regenerated.
+
+2003-07-26  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/lang/Win32Process.java (ConcreteProcess): Surround
+	a command line element with quotes if it contains an
+	embedded space or tab.
+	* java/lang/natWin32Process.cc (startProcess): Do not
+	surround command line elements with quotes here.
+
+	* configure.host: Use -fcheck-references and 
+	-fuse-divide-subroutine for MinGW until we fix
+	win32_exception_handler( ) in win32.cc w.r.t. Win32 
+	Structured Exception Handling (SEH).
+
+	* win32.cc (_Jv_platform_initProperties): Use generic names
+	like "x86" for the "os.arch" property to be consistent with
+	what Sun's JDK produces. Use the wProcessorArchitecture
+	member of the Win32 SYSTEM_INFO structure, filled in a call 
+	to GetSystemInfo( ), instead of dwProcessorType.
+
+2003-07-26  Mohan Embar  <gnustuff@thisiscool.com>
+	    Ranjit Mathew  <rmathew@hotmail.com>
+
+	* Makefile.am: Use cross-compiling gcjh from the path for
+	a crossed-native build.
+	* Makefile.in: Rebuilt.
+	* configure.in: Include libltdl in non-newlib builds.
+	Moved determination of gcj used to build libraries to
+	its own section. Fixed cross-compilation issues for
+	non-newlib builds.
+	* configure: Rebuilt.
+
+2003-07-25  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileDescriptorPosix.cc (write): Try again on EINTR.
+	(write): Likewise.
+	(read): Likewise.
+	(read): Likewise.
+
+2003-07-25  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/natRuntime.cc (_load): Add library name to
+	UnsatisfiedLinkError when thrown.
+
+2003-07-25  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (awt_java_source_files): java/awt/GridBagLayoutInfo.java
+	added.
+	* Makefile.in: Likewise.
+
+2003-07-25  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/awt/Component.java
+	(getPreferredSize): Call preferredSize.
+	(preferredSize): Moved body of getPreferredSize here.
+	(getMinimumSize): Call minimumSize.
+	(minimumSize): Moved body of getMinimumSize here.
+	(prepareImage): Fall back on Toolkit.prepareImage if there is no peer
+	(checkImage(Image,ImageObserver)): Don't call getWidth/getHeight, but
+	pass -1
+	* java/awt/Container.java
+	(validate): Don't validate if there is no peer.
+	(update): Clear background before calling paint.
+	* java/awt/GridBagLayout.java
+	Completed the implementation and fixed several bugs.
+	* java/awt/MediaTracker.java
+	(MediaEntry.imageUpdate): Fixed typo. & instead of | was used to
+	combine flags.
+	* java/awt/Window.java
+	(Window): Don't call setVisible(false). Windows are invisible by
+	default and calling virtual methods from constructor causes
+	compatibility problems (e.g. subclasses may assume that the peer
+	already exists).
+
+2003-07-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/GridBagLayout.java:
+	Totally reworked and partly implemented.
+	* java/awt/GridBagLayoutInfo.java:
+	New file.
+
 2003-07-24  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c (create):

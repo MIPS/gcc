@@ -187,10 +187,6 @@ tree c_global_trees[CTI_MAX];
    langhook should take care of initialization of this array.  */
 
 bool statement_code_p[MAX_TREE_CODES];
-
-/* Nonzero if we can read a PCH file now.  */
-
-int allow_pch = 1;
 
 /* Switches common to the C front ends.  */
 
@@ -376,11 +372,6 @@ int flag_isoc99;
 
 int flag_hosted = 1;
 
-/* Nonzero means add default format_arg attributes for functions not
-   in ISO C.  */
-
-int flag_noniso_default_format_attributes = 1;
-
 /* Nonzero means warn when casting a function call to a type that does
    not match the return type (e.g. (float)sqrt() or (anything*)malloc()
    when there is no previous declaration of sqrt or malloc.  */
@@ -390,6 +381,10 @@ int warn_bad_function_cast;
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 int warn_traditional;
+
+/* Nonzero means warn for a declaration found after a statement.  */
+
+int warn_declaration_after_statement;
 
 /* Nonzero means warn for non-prototype function decls
    or non-prototyped defs without previous prototype.  */
@@ -564,14 +559,17 @@ int flag_new_for_scope = 1;
 
 int flag_weak = 1;
 
+/* 0 means we want the preprocessor to not emit line directives for
+   the current working directory.  1 means we want it to do it.  -1
+   means we should decide depending on whether debugging information
+   is being emitted or not.  */
+
+int flag_working_directory = -1;
+
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
 
 int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
-
-/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
-
-int flag_vtable_gc;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -2210,10 +2208,12 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
       type = c_common_signed_or_unsigned_type (unsignedp0,
 					       TREE_TYPE (primop0));
 
-      /* If TYPE is an enumeration, then we need to get its min/max
-	 values from it's underlying integral type, not the enumerated
-	 type itself.  */
-      if (TREE_CODE (type) == ENUMERAL_TYPE)
+      /* In C, if TYPE is an enumeration, then we need to get its
+	 min/max values from it's underlying integral type, not the
+	 enumerated type itself.  In C++, TYPE_MAX_VALUE and
+	 TYPE_MIN_VALUE have already been set correctly on the
+	 enumeration type.  */
+      if (!c_dialect_cxx() && TREE_CODE (type) == ENUMERAL_TYPE)
 	type = c_common_type_for_size (TYPE_PRECISION (type), unsignedp0);
 
       maxval = TYPE_MAX_VALUE (type);
@@ -2959,19 +2959,15 @@ enum built_in_attribute
 #define DEF_ATTR_INT(ENUM, VALUE) ENUM,
 #define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
-#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No entry needed in enum.  */
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
-#undef DEF_FN_ATTR
   ATTR_LAST
 };
 
 static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
-
-static bool c_attrs_initialized = false;
 
 static void c_init_attributes (void);
 
@@ -3350,8 +3346,7 @@ c_common_nodes_and_builtins (void)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_POINTER_TYPE
 
-  if (!c_attrs_initialized)
-    c_init_attributes ();
+  c_init_attributes ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE,			\
 		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT)	\
@@ -4178,40 +4173,11 @@ c_init_attributes (void)
     = tree_cons (built_in_attributes[(int) PURPOSE],	\
 		 built_in_attributes[(int) VALUE],	\
 		 built_in_attributes[(int) CHAIN]);
-#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No initialization needed.  */
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
-#undef DEF_FN_ATTR
-  c_attrs_initialized = true;
-}
-
-/* Depending on the name of DECL, apply default attributes to it.  */
-
-void
-c_common_insert_default_attributes (tree decl)
-{
-  tree name = DECL_NAME (decl);
-
-  if (!c_attrs_initialized)
-    c_init_attributes ();
-
-#define DEF_ATTR_NULL_TREE(ENUM) /* Nothing needed after initialization.  */
-#define DEF_ATTR_INT(ENUM, VALUE)
-#define DEF_ATTR_IDENT(ENUM, STRING)
-#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)
-#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE)			\
-  if ((PREDICATE) && name == built_in_attributes[(int) NAME])	\
-    decl_attributes (&decl, built_in_attributes[(int) ATTRS],	\
-		     ATTR_FLAG_BUILT_IN);
-#include "builtin-attrs.def"
-#undef DEF_ATTR_NULL_TREE
-#undef DEF_ATTR_INT
-#undef DEF_ATTR_IDENT
-#undef DEF_ATTR_TREE_LIST
-#undef DEF_FN_ATTR
 }
 
 /* Output a -Wshadow warning MSGCODE about NAME, and give the location
