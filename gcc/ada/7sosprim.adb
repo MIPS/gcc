@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1.16.1 $
+--                             $Revision: 1.1.16.2 $
 --                                                                          --
 --          Copyright (C) 1998-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -49,11 +49,11 @@ package body System.OS_Primitives is
    pragma Convention (C, struct_timezone);
    type struct_timezone_ptr is access all struct_timezone;
 
-   type time_t is new Integer;
+   type time_t is new Long_Integer;
 
    type struct_timeval is record
       tv_sec       : time_t;
-      tv_usec      : Integer;
+      tv_usec      : Long_Integer;
    end record;
    pragma Convention (C, struct_timeval);
 
