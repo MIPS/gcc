@@ -1292,12 +1292,6 @@ rest_of_handle_loop2 (tree decl, rtx insns)
   struct loops *loops;
   basic_block bb;
 
-  if (!flag_unswitch_loops
-      && !flag_peel_loops
-      && !flag_unroll_loops
-      && !flag_branch_on_count_reg)
-    return;
-
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
   if (dump_file)
