@@ -1,3 +1,298 @@
+2004-03-11  Richard Henderson  <rth@redhat.com>
+
+	PR target/14539
+	* config/alpha/alpha.h (STACK_BOUNDARY): Set to 128.
+
+2004-03-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/14289
+	* c-typeck.c (c_mark_addressable): A register variable should
+	be considered global if its not automatic, i.e. TREE_PUBLIC,
+	TREE_STATIC or DECL_EXTERNAL.
+	* function.c (put_var_into_stack): Call abort when placing a
+	hard register into the stack, if x_parm_reg_stack_loc is NULL.
+
+2004-03-10  Andrew Haley  <aph@redhat.com>
+
+	PR optimization/14381
+	* function.c (expand_function_end): Emit a blockage insn before
+	the epilogue when -fnon-call-exceptions is used.
+
+2004-03-10  Joel Sherrill  <joel@oarcorp.com>
+
+	PR target/14480
+	* config.gcc (powerpc*-*-rtems*): Use rs6000/t-rtems.
+
+2004-03-07  Aldy Hernandez  <aldyh@redhat.com>
+ 
+        * config/rs6000/rs6000.md (ashrdi3): Do not call ashrdi3_no_power
+        for little endian.
+        ("ashrdi3_no_power"): Disable for little endian.
+	(ashrdi3): Same.
+
+2004-03-07  Richard Henderson  <rth@redhat.com>
+
+        * config/alpha/alpha.h (MASK_LONG_DOUBLE_128): New.
+        (TARGET_LONG_DOUBLE_128): New.
+        (TARGET_SWITCHES): Add long-double-{128,64}.
+        (TARGET_HAS_XFLOATING_LIBS): Default to TARGET_LONG_DOUBLE_128.
+        (LONG_DOUBLE_TYPE_SIZE): Honor TARGET_LONG_DOUBLE_128.
+        (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): New.
+        (WIDEST_HARDWARE_FP_SIZE): New.
+        (TARGET_CPU_CPP_BUILTINS): Define __LONG_DOUBLE_128__.
+        * config/alpha/alpha.c (override_options): Clear MASK_LONG_DOUBLE_128
+        if TARGET_VAX_FLOAT.
+        * config/alpha/osf5.h (LONG_DOUBLE_TYPE_SIZE): Remove.
+        (TARGET_DEFAULT): Set MASK_LONG_DOUBLE_128.
+
+2004-03-08  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/14471
+	* doc/invoke.texi (CRIS Options): Document -mmul-bug-workaround
+	and -mno-mul-bug-workaround.
+	* config/cris/cris.md ("smulsi3_highpart", "umulsi3_highpart")
+	("mulsidi3", "umulsidi3"): Prefix output template with "%!".
+	("umulhisi3", "umulqihi3", "mulsi3", "mulqihi3", "mulhisi3"):
+	Ditto.  Make attribute "slottable" dependent on TARGET_MUL_BUG.
+	* config/cris/mulsi3.asm (__Mul) [__CRIS_arch_version >= 10]: Make
+	sure mulu.d is not last on cache-line.
+	* config/cris/cris.h (ASM_SPEC): Translate -mno-mul-bug-workaround
+	into -no-mul-bug-abort depending on HAVE_AS_MUL_BUG_ABORT_OPTION.
+	(TARGET_MASK_MUL_BUG, TARGET_MUL_BUG): New macros.
+	(TARGET_SWITCHES): New options -mmul-bug-workaround and
+	-mno-mul-bug-workaround.
+	(TARGET_DEFAULT): Include TARGET_MASK_MUL_BUG.
+	(PRINT_OPERAND_PUNCT_VALID_P): Include '!'.
+	* config/cris/cris.c (cris_operand_extend_operator): Clarify
+	relation to MULT in head comment.
+	(cris_op_str): Abort for MULT.
+	(cris_print_operand) <case '!'>: New case.
+
+2004-03-06  Richard Henderson  <rth@redhat.com>
+
+        * config/alpha/alpha.c (alpha_in_small_data_p): False for functions.
+
+2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("load_multiple", "*load_multiple_di",
+	"*load_multiple_si"): Allow only if reload_completed.
+	("store_multiple", "*store_multiple_di", "*store_multiple_si"):
+	Likewise.
+
+2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_movstr): Clobber double-word
+	register before initializing high and low parts separately.
+	(s390_expand_clrstr): Likewise.
+	(s390_expand_cmpstr): Likewise.
+
+2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR optimization/12147
+	* reload1.c (reload_reg_free_p): RELOAD_OTHER conflicts with
+	RELOAD_FOR_OPADDR_ADDR.
+	(reload_reg_reaches_end_p): A RELOAD_FOR_OTHER_ADDRESS register
+	might be reused as RELOAD_FOR_OPADDR_ADDR register.
+
+2004-03-05  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	PR target/1532
+	Backport from mainline:
+
+	2004-02-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cse.c (cse_change_cc_mode_insns): Stop at any instruction
+	which modifies NEWREG.
+	(cse_condition_code_reg): Update the mode of CC_REG in
+	CC_SRC_INSN on our own.
+
+	2004-02-11  Richard Henderson  <rth@redhat.com>
+
+	* flow.c (insn_dead_p): A clobber of a dead hard register is a
+	dead insn after reload.
+
+	2004-01-24  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* cse.c (cse_cc_succs): Change the mode of the source expression
+	as soon as decide we need a new mode.  Don't permit changing modes
+	if we found a match in a successor block.
+	(cse_condition_code_reg): Save original mode of source expression
+	so that we know whether we have to change the mode in other
+	insns.
+
+	2004-01-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* cse.c: (cse_cc_succs) Fix comparison warning.
+
+	2004-01-23  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* cse.c: Include "target.h".
+	(cse_change_cc_mode): New static function.
+	(cse_change_cc_mode_insns, cse_cc_succs): Likewise.
+	(cse_condition_code_reg): New function.
+	(default_cc_modes_compatible): New function.
+	* rtl.h (cse_condition_code_reg): Declare.
+	(default_cc_modes_compatible): Declare.
+	* toplev.c (rest_of_compilation): Call cse_condition_code_reg.
+	* target.h (struct gcc_target): Add fixed_condition_code_regs and
+	cc_modes_compatible.
+	* target-def.h (TARGET_FIXED_CONDITION_CODE_REGS): Define.
+	(TARGET_CC_MODES_COMPATIBLE): Define.
+	(TARGET_INITIALIZER): Add new initializers.
+	* targhooks.c (default_cc_modes_compatible): Declare.
+	* hooks.c (hook_bool_intp_intp_false): New function.
+	* hooks.h (hook_bool_intp_intp_false): Declare.
+	* config/i386/i386.c (TARGET_FIXED_CONDITION_CODE_REGS): Define.
+	(TARGET_CC_MODES_COMPATIBLE): Define.
+	(ix86_fixed_condition_code_regs): New static function.
+	(ix86_cc_modes_compatible): Likewise.
+	* doc/gccint.texi: Add copyright 2004.
+	* doc/tm.texi (Condition Code): Document new hooks.
+	* Makefile.in (cse.o): Depend upon $(TARGET_H).
+
+	PR inline-asm/6162
+	* reload.c (find_reloads): Only support one pair of commutative
+	operands.
+
+2004-03-02  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/11767
+        * optabs.c (prepare_cmp_insn): Force trapping memories to registers
+        before the compare, if flag_non_call_exceptions.
+
+2004-03-02  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/14327
+        * stmt.c (expand_computed_goto): Do do_pending_stack_adjust before
+        emitting the label, not after.
+
+2004-03-02  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* cppinit.c (init_standard_includes): Check that sysroot
+	string is not empty.
+
+2004-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport from 3.4.0:
+	2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+	PR debug/14328
+	* dwarf2out.c (gen_enumeration_type_die): Output all enumeration
+	constants as signed values.
+
+	2004-01-16  J"orn Rennecke <joern.rennecke@superh.com>
+        PR optimization/11864
+        * reload1.c (reload_cse_simplify_operands): Don't remove
+        implicit extension from LOAD_EXTEND_OP.
+
+2004-02-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/14346
+	* config/cris/cris.c (cris_asm_output_mi_thunk): For PIC, prepend
+	TAB to jumping "add.d" insn.  Avoid PLT indirection by equating a
+	local symbol and jumping through it.
+
+2004-02-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport from mainline:
+	2004-01-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	PR target/10904
+	PR target/13058
+	* config/sparc/sparc.h (CANNOT_CHANGE_MODE_CLASS): New.
+	Forbid mode changes from SImode for lower FP regs if ARCH64.
+
+2004-02-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.h (TRAMPOLINE_TEMPLATE, TRAMPOLINE_SIZE, TRAMPOLINE_CODE_SIZE,
+	MIN_CACHELINE_SIZE, INITIALIZE_TRAMPOLINE): Backport fixes from 3.5.
+	* pa.md (anddi3, dcacheflush, icacheflush): Likewise.
+
+	* pa64-hpux.h (LIB_SPEC): Fix linking under HP-UX 11.00 with -p and -pg.
+
+2004-02-27  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	PR optimization/7871
+	* flow.c (mark_set_1): Don't add LOG_LINKS for global registers
+	from or to call insns.	
+
+2004-02-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/7871
+	* flow.c (propagate_one_insn): Interpret calls as setting global
+	registers, not merely clobbering them.
+
+2004-02-26  Richard Earnshaw  <rearnsha@arm.com>
+	Daniel Jacobowitz  <drow@mvista.com>
+
+	PR target/14302
+	* arm.h (ARM_GO_IF_LEGITIMATE_ADDRESS): Don't check the mode
+	size for minipool references.
+
+2004-02-25  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/14166
+	* arm.h (THUMB_GO_IF_LEGITIMATE_ADDRESS): Only allow constant pool 
+	references from SImode.
+	* arm.md (thumb_movhi_insn): Don't allow minipool references.
+
+2004-02-24  Bob Wilson  <bob.wilson@acm.org>
+
+	Backport from mainline (changes to xtensa_expand_prologue go into
+	xtensa_reorg instead; remove irrelevant portions of the patch)
+
+	2004-02-09  Bob Wilson  <bob.wilson@acm.org>:
+
+	* config/xtensa/xtensa-protos.h (xtensa_copy_incoming_a7): Update.
+	(init_cumulative_args): Likewise.
+	(a7_overlap_mentioned_p): Delete prototype.
+	* config/xtensa/xtensa.c (struct machine_function): Replace
+	incoming_a7_copied field with need_a7_copy and vararg_a7 flags.
+	Add set_frame_ptr_insn field.
+	(xtensa_emit_move_sequence): Update call to xtensa_copy_incoming_a7.
+	(xtensa_copy_incoming_a7): Rewrite to check need_a7_copy flag and check
+	if the operand is an argument in a7.  If so, copy a7 to a new pseudo
+	at the function entry and replace the operand with the pseudo.
+	(init_cumulative_args): Remove unused arguments.  Add new "incoming"
+	argument and record this flag in CUMULATIVE_ARGS.
+	(function_arg): Remove result_mode and special-case code to handle
+	arguments in a7.  Instead, set need_a7_copy flag when there is an
+	incoming argument in a7.
+	(xtensa_expand_prologue): Remove code to search for set_frame_ptr insn
+	and use the value recorded in cfun->machine->set_frame_ptr_insn.
+	(xtensa_builtin_saveregs): Check for negative gp_left value.  Set
+	need_a7_copy and vararg_a7 flags.  Use move_block_from_reg instead of
+	special-case code.
+	(a7_overlap_mentioned_p): Delete.
+	* config/xtensa/xtensa.h (CUMULATIVE_ARGS): Add "incoming" flag.
+	(INIT_CUMULATIVE_ARGS, INIT_CUMULATIVE_INCOMING_ARGS): Remove useless
+	arguments to init_cumulative_args and pass "incoming" flag instead.
+	(BLOCK_REG_PADDING): Delete.
+	* config/xtensa/xtensa.md (movdi, movsf, movdf): Remove unnecessary
+	checks for reload_in_progress and reload_completed.  Update calls to
+	xtensa_copy_incoming_a7.
+	(ashlsi3): Rename existing insn to ashlsi3_internal.  Add expander
+	to call xtensa_copy_incoming_a7.
+
+2004-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (override_options): Don't imply 3DNow! for -m64
+	by default.
+
+2004-02-22  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/13918
+	* sched-ebb.c (ebb_sched_info): Disable use of cselib.
+
+2004-02-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/14209
+	* config/cris/cris.md ("*andsi_movu", "*andhi_movu"): Tweak
+	constraints to not match postincrement.  Adjust the predicate to
+	exclude a volatile memory reference.
+	("*andsi_clear"): Tweak constraints to not match postincrement.
+	Adjust the predicate to exclude a volatile memory reference.
+	("*andhi_clear"): Ditto.  Rename from "*andhi_clear_signed".
+	("*andhi_clear_unsigned"): Remove, non-matching pattern.
+
 2004-01-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (ix86_constant_alignment): Decrease alignment
