@@ -1583,6 +1583,8 @@ ix86_comp_type_attributes (type1, type2)
   if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
       != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
     return 0;
+  if (ix86_fntype_regparm (type1) != ix86_fntype_regparm (type2))
+    return 0;
   return 1;
 }
 
