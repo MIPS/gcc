@@ -273,7 +273,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_setChars
   
   pango_context_set_font_description (vec->ctx, vec->desc);
 
-  items = pango_itemize (vec->ctx, str, 0, len, attrs, NULL);
+  if (vec->glyphitems != NULL)
+    items = pango_itemize (vec->ctx, str, 0, len, attrs, NULL);
   if (items != NULL)
     {
       
@@ -303,12 +304,15 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGlyphVector_setChars
 	  gi->glyphs = pango_glyph_string_new ();
 	  g_assert (gi->glyphs != NULL);
 	  
-	  pango_shape (str + gi->item->offset, 
-		       gi->item->length, 
-		       &(gi->item->analysis), 
-		       gi->glyphs);
-	  
-	  vec->glyphitems = g_list_append (vec->glyphitems, gi);
+	  if (gi->glyphs->num_glyphs > 0)
+	    {
+	      pango_shape (str + gi->item->offset, 
+			   gi->item->length, 
+			   &(gi->item->analysis), 
+			   gi->glyphs);
+	      
+	      vec->glyphitems = g_list_append (vec->glyphitems, gi);
+	    }
 	}
       
       /* 
