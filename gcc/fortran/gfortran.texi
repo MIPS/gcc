@@ -405,7 +405,7 @@ unlikley that OS distributor will provide it.
 @node Precompiled Binaries
 @section Precompiled Binaries
 
-Precompiled binaries for i686-linux in rpm format are available from
+Precompiled binaries for i686-pc-linux-gnu in rpm format are available from
 @uref{http://people.redhat.com/dnovillo/pub/tree-ssa/snapshot/}
 
 @node General notes about compiling GFORTRAN

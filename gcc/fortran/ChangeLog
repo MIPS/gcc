@@ -1,5 +1,9 @@
 2004-04-11  Paul Brook  <paul@codesourcery.com>
 
+	* gfortran.texi: Use full target triplet.
+
+2004-04-11  Paul Brook  <paul@codesourcery.com>
+
 	* Make-lang.in (GFORTRAN_TEXI): Set it.
 	(fortran/dfortran.dvi): Use it.  Add fortran to include paths.
 	(fortran/gfortran.info): Ditto. 
