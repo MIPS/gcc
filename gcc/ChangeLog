@@ -1,3 +1,8 @@
+2001-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.c (frame_state_296): New type.
+	(__frame_state_for): Add compatibility code with early gcc-2.96-RH.
+
 2004-04-18  Release Manager
 
 	* GCC 3.4.0 released.
