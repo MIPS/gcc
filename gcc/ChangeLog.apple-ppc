@@ -1,3 +1,9 @@
+2004-12-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3926488
+        * tree-ssa-loop-ivopts.c (contains_abnormal_ssa_name_p):  Don't
+        reference operand 1 of ADDR_EXPRs.
+
 2004-12-20  Devang Patel  <dpatel@apple.com>
 
 	Backport vectorizatin patches from Mainline.
