@@ -5599,10 +5599,11 @@ fold (tree expr)
 	      && ! VOID_TYPE_P (TREE_OPERAND (t, 2))
 	      && (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (t, 1), 0))
 		  == TREE_TYPE (TREE_OPERAND (TREE_OPERAND (t, 2), 0)))
-	      && ! (INTEGRAL_TYPE_P (TREE_TYPE (t))
-		    && (INTEGRAL_TYPE_P
-			(TREE_TYPE (TREE_OPERAND (TREE_OPERAND (t, 1), 0))))
-		    && TYPE_PRECISION (TREE_TYPE (t)) <= BITS_PER_WORD))
+	      && (! (INTEGRAL_TYPE_P (TREE_TYPE (t))
+		     && (INTEGRAL_TYPE_P
+			 (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (t, 1), 0))))
+		     && TYPE_PRECISION (TREE_TYPE (t)) <= BITS_PER_WORD)
+		  || flag_syntax_only))
 	    t = build1 (code, type,
 			build (COND_EXPR,
 			       TREE_TYPE (TREE_OPERAND
