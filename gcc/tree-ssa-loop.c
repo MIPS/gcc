@@ -110,6 +110,10 @@ tree_ssa_loop_init (void)
   current_loops = tree_loop_optimizer_init (dump_file, true);
   if (!current_loops)
     return;
+      
+  /* Find the loops that are exitted just through a single edge.  */
+  mark_single_exit_loops (current_loops);
+      
   scev_initialize (current_loops);
 }
 

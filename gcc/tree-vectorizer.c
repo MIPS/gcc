@@ -1573,12 +1573,12 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
   edge latch = loop_latch_edge (loop);
   tree phi;
   block_stmt_iterator interm_bb_last_bsi;
-  basic_block intermediate_bb = loop->exit_edges[0]->dest;
+  basic_block intermediate_bb = loop->single_exit->dest;
   edge inter_bb_true_edge;
   basic_block exit_bb;
 
   /* Find edge from intermediate bb to new loop header.  */
-  pe = find_edge (loop->exit_edges[0]->dest, new_loop_header);
+  pe = find_edge (loop->single_exit->dest, new_loop_header);
   inter_bb_true_edge = find_edge (intermediate_bb, new_loop_exit->dest);
   exit_bb = new_loop_exit->dest;
   
@@ -1735,7 +1735,7 @@ static void
 vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  edge exit_edge = loop->exit_edges[0];
+  edge exit_edge = loop->single_exit;
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
   tree indx_before_incr, indx_after_incr;
   tree orig_cond_expr;
@@ -1844,13 +1844,13 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	LOOP_VINFO_LOOP (loop_vinfo)->pre_header->loop_father;
 
       /* Remember exit bb before duplication.  */
-      exit_bb = loop->exit_edges[0]->dest;
+      exit_bb = loop->single_exit->dest;
 
       /* Duplicate loop. 
 	 New (epilog) loop is concatenated to the exit of original loop.  */
       tree_duplicate_loop_to_exit (loop, loops);
 
-      new_loop_header = loop->exit_edges[0]->dest;
+      new_loop_header = loop->single_exit->dest;
       
       /* Generate the following variables on the preheader of original loop:
 	 
@@ -1876,10 +1876,10 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	 
 	 if ( ni_name == ratio_mult_vf_name ) skip epilog loop.  */
       inter_bb = vect_gen_if_guard 
-	(loop->exit_edges[0], cond, exit_bb, exit_ep);
+	(loop->single_exit, cond, exit_bb, exit_ep);
       add_bb_to_loop (inter_bb, outer_loop);
 
-      loop->exit_edges[0] = inter_bb->pred;
+      loop->single_exit = inter_bb->pred;
 
       /* Build conditional expr before loop to be vectorized.  */
       vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);

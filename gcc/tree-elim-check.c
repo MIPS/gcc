@@ -469,8 +469,8 @@ eliminate_redundant_checks (void)
 	  /* Don't try to prove anything about the loop exit
 	     conditions: avoid the block that contains the condition
 	     that guards the exit of the loop.  */
-	  if (!loop->exit_edges
-	      || loop->exit_edges[0]->src == bb)
+	  if (!loop->single_exit
+	      || loop->single_exit->src == bb)
 	    continue;
 	  
 	  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))

@@ -824,6 +824,31 @@ can_duplicate_loop_p (struct loop *loop)
   return ret;
 }
 
+/* The NBBS blocks in BBS will get duplicated and the copies will be placed
+   to LOOP.  Update the single_exit information in superloops of LOOP.  */
+
+static void
+update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
+				       struct loop *loop)
+{
+  unsigned i;
+
+  for (i = 0; i < nbbs; i++)
+    bbs[i]->rbi->duplicated = 1;
+
+  for (; loop->outer; loop = loop->outer)
+    {
+      if (!loop->single_exit)
+	continue;
+
+      if (loop->single_exit->src->rbi->duplicated)
+	loop->single_exit = NULL;
+    }
+
+  for (i = 0; i < nbbs; i++)
+    bbs[i]->rbi->duplicated = 0;
+}
+
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
    LOOPS structure and dominators.  E's destination must be LOOP header for
@@ -966,6 +991,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       memcpy (first_active, bbs, n * sizeof (basic_block));
       first_active_latch = latch;
     }
+
+  /* Update the information about single exits.  */
+  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
+    update_single_exits_after_duplication (bbs, n, target);
 
   /* Record exit edge in original loop body.  */
   if (orig && TEST_BIT (wont_exit, 0))
@@ -1344,4 +1373,89 @@ create_loop_notes (void)
       free (stack);
     }
   flow_loops_free (&loops);
+}
+
+/* The structure of LOOPS might have changed.  Some loops might get removed
+   (and their headers and latches were set to NULL), loop exists might get
+   removed (thus the loop nesting may be wrong), and some blocks and edges
+   were changed (so the information about bb --> loop mapping does not have
+   to be correct).  But still for the remaining loops the header dominates
+   the latch, and loops did not get new subloobs (new loops might possibly
+   get created, but we are not interested in them).  Fix up the mess.  */
+
+void
+fix_loop_structure (struct loops *loops)
+{
+  basic_block bb;
+  struct loop *loop, *ploop;
+  unsigned i;
+
+  /* Remove the old bb -> loop mapping.  */
+  FOR_EACH_BB (bb)
+    {
+      bb->loop_father = loops->tree_root;
+    }
+
+  /* Remove the dead loops from structures.  */
+  loops->tree_root->num_nodes = n_basic_blocks + 2;
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      loop->num_nodes = 0;
+      if (loop->header)
+	continue;
+
+      while (loop->inner)
+	{
+	  ploop = loop->inner;
+	  flow_loop_tree_node_remove (ploop);
+	  flow_loop_tree_node_add (loop->outer, ploop);
+	}
+
+      /* Remove the loop and free its data.  */
+      flow_loop_tree_node_remove (loop);
+      loops->parray[loop->num] = NULL;
+      flow_loop_free (loop);
+    }
+
+  /* Rescan the bodies of loops, starting from the outermost.  */
+  loop = loops->tree_root;
+  while (1)
+    {
+      if (loop->inner)
+	loop = loop->inner;
+      else
+	{
+	  while (!loop->next
+		 && loop != loops->tree_root)
+	    loop = loop->outer;
+	  if (loop == loops->tree_root)
+	    break;
+
+	  loop = loop->next;
+	}
+
+      loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
+    }
+
+  /* Now fix the loop nesting.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      bb = loop_preheader_edge (loop)->src;
+      if (bb->loop_father != loop->outer)
+	{
+	  flow_loop_tree_node_remove (loop);
+	  flow_loop_tree_node_add (bb->loop_father, loop);
+	}
+    }
+
+  mark_single_exit_loops (loops);
+  mark_irreducible_loops (loops);
 }

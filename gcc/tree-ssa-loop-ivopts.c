@@ -124,9 +124,6 @@ struct version_info
 /* Information attached to loop.  */
 struct loop_data
 {
-  unsigned n_exits;	/* Number of exit edges.  */
-  edge single_exit;	/* The exit edge in case there is exactly one and
-			   its source dominates the loops latch.  */
   struct tree_niter_desc niter;
 			/* Number of iterations.  */
 
@@ -281,6 +278,22 @@ static inline struct loop_data *
 loop_data (struct loop *loop)
 {
   return loop->aux;
+}
+
+/* The single loop exit if it dominates the latch, NULL otherwise.  */
+
+static edge
+single_dom_exit (struct loop *loop)
+{
+  edge exit = loop->single_exit;
+
+  if (!exit)
+    return NULL;
+
+  if (!just_once_each_iteration_p (loop, exit->src))
+    return NULL;
+
+  return exit;
 }
 
 /* Dumps information about the induction variable IV to FILE.  */
@@ -758,40 +771,6 @@ array2ptr (tree type)
   return build_pointer_type (TREE_TYPE (type));
 }
 
-/* Sets single_exit field for loops.  */
-
-static void
-find_exit_edges (void)
-{
-  basic_block bb;
-  edge e;
-  struct loop *src, *dest;;
-
-  FOR_EACH_BB (bb)
-    {
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  src = e->src->loop_father;
-	  dest = find_common_loop (src, e->dest->loop_father);
-
-	  for (; src != dest; src = src->outer)
-	    {
-	      loop_data (src)->n_exits++;
-	      if (loop_data (src)->n_exits > 1)
-		{
-		  loop_data (src)->single_exit = NULL;
-		  continue;
-		}
-
-	      if (!dominated_by_p (CDI_DOMINATORS, src->latch, e->src))
-		continue;
-
-	      loop_data (src)->single_exit = e;
-	    }
-	}
-    }
-}
-
 /* Returns the basic block in that statements should be emitted for IP_END
    position in LOOP.  */
 
@@ -940,8 +919,6 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
       loops->parray[i]->aux = xcalloc (1, sizeof (struct loop_data));
-
-  find_exit_edges ();
 
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_uses, 20, "iv_uses");
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_candidates, 20, "iv_candidates");
@@ -1231,7 +1208,7 @@ static void
 determine_number_of_iterations (struct ivopts_data *data)
 {
   struct loop *loop = data->current_loop;
-  edge exit = loop_data (loop)->single_exit;
+  edge exit = single_dom_exit (loop);
 
   if (!exit)
     return;
@@ -2021,7 +1998,7 @@ add_iv_outer_candidates (struct ivopts_data *data, struct iv_use *use)
   struct loop *loop = data->current_loop;
 
   /* We must know where we exit the loop and how many times does it roll.  */
-  if (!loop_data (loop)->single_exit)
+  if (!single_dom_exit (loop))
     return;
 
   niter = &loop_data (loop)->niter;
@@ -3232,7 +3209,7 @@ may_eliminate_iv (struct loop *loop,
   /* For now just very primitive -- we work just for the single exit condition,
      and are quite conservative about the possible overflows.  TODO -- both of
      these can be improved.  */
-  exit = loop_data (loop)->single_exit;
+  exit = single_dom_exit (loop);
   if (!exit)
     return false;
   if (use->stmt != last_stmt (exit->src))
@@ -3325,7 +3302,7 @@ may_replace_final_value (struct loop *loop, struct iv_use *use, tree *value)
   edge exit;
   struct tree_niter_desc *niter;
 
-  exit = loop_data (loop)->single_exit;
+  exit = single_dom_exit (loop);
   if (!exit)
     return false;
 
@@ -3373,7 +3350,7 @@ determine_use_iv_cost_outer (struct ivopts_data *data,
       return;
     }
 
-  exit = loop_data (loop)->single_exit;
+  exit = single_dom_exit (loop);
   if (exit)
     {
       /* If there is just a single exit, we may use value of the candidate
@@ -4462,7 +4439,7 @@ rewrite_use_outer (struct ivopts_data *data,
     tgt = TREE_OPERAND (use->stmt, 0);
   else
     abort ();
-  exit = loop_data (data->current_loop)->single_exit;
+  exit = single_dom_exit (data->current_loop);
 
   if (exit)
     {
@@ -4675,22 +4652,23 @@ tree_ssa_iv_optimize_loop (struct ivopts_data *data, struct loop *loop)
 {
   bool changed = false;
   bitmap iv_set;
+  edge exit;
 
   data->current_loop = loop;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Processing loop %d\n", loop->num);
-      fprintf (dump_file, "  %d exits\n", loop_data (loop)->n_exits);
-      if (loop_data (loop)->single_exit)
+      
+      exit = single_dom_exit (loop);
+      if (exit)
 	{
-	  edge ex = loop_data (loop)->single_exit;
-
 	  fprintf (dump_file, "  single exit %d -> %d, exit condition ",
-		   ex->src->index, ex->dest->index);
-	  print_generic_expr (dump_file, last_stmt (ex->src), TDF_SLIM);
+		   exit->src->index, exit->dest->index);
+	  print_generic_expr (dump_file, last_stmt (exit->src), TDF_SLIM);
 	  fprintf (dump_file, "\n");
 	}
+
       fprintf (dump_file, "\n");
     }
 

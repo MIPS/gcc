@@ -75,7 +75,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static struct loop *tree_unswitch_loop (struct loops *, struct loop *, basic_block,
 				   tree);
-static void tree_unswitch_single_loop (struct loops *, struct loop *, int);
+static bool tree_unswitch_single_loop (struct loops *, struct loop *, int);
 static tree tree_may_unswitch_on (basic_block, struct loop *);
 
 /* Main entry point.  Perform loop unswitching on all suitable LOOPS.  */
@@ -85,6 +85,7 @@ tree_ssa_unswitch_loops (struct loops *loops)
 {
   int i, num;
   struct loop *loop;
+  bool changed = false;
 
   /* Go through inner loops (only original ones).  */
   num = loops->num;
@@ -99,12 +100,15 @@ tree_ssa_unswitch_loops (struct loops *loops)
       if (loop->inner)
 	continue;
 
-      tree_unswitch_single_loop (loops, loop, 0);
+      changed |= tree_unswitch_single_loop (loops, loop, 0);
 #ifdef ENABLE_CHECKING
       verify_dominators (CDI_DOMINATORS);
       verify_loop_structure (loops);
 #endif
     }
+
+  if (changed)
+    cleanup_tree_cfg_loop ();
 }
 
 /* Checks whether we can unswitch LOOP on condition at end of BB -- one of its
@@ -178,20 +182,21 @@ simplify_using_entry_checks (struct loop *loop, tree cond)
    it to grow too much, it is too easy to create example on that the code would
    grow exponentially.  */
 
-static void
+static bool
 tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
 {
   basic_block *bbs;
   struct loop *nloop;
   unsigned i;
   tree cond = NULL_TREE, stmt;
+  bool changed = false;
 
   /* Do not unswitch too much.  */
   if (num > PARAM_VALUE (PARAM_MAX_UNSWITCH_LEVEL))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, ";; Not unswitching anymore, hit max level\n");
-      return;
+      return false;
     }
 
   /* Only unswitch innermost loops.  */
@@ -199,7 +204,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, ";; Not unswitching, not innermost loop\n");
-      return;
+      return false;
     }
 
   /* The loop should not be too large, to limit code growth.  */
@@ -208,7 +213,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, ";; Not unswitching, loop too big\n");
-      return;
+      return false;
     }
 
   i = 0;
@@ -224,7 +229,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
       if (i == loop->num_nodes)
 	{
 	  free (bbs);
-	  return;
+	  return changed;
 	}
 
       cond = simplify_using_entry_checks (loop, cond);
@@ -233,11 +238,13 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
 	{
 	  /* Remove false path.  */
 	  COND_EXPR_COND (stmt) = boolean_true_node;
+	  changed = true;
 	}
       else if (integer_zerop (cond))
 	{
 	  /* Remove true path.  */
 	  COND_EXPR_COND (stmt) = boolean_false_node;
+	  changed = true;
 	}
       else
 	break;
@@ -252,11 +259,12 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
   /* Unswitch the loop on this condition.  */
   nloop = tree_unswitch_loop (loops, loop, bbs[i], cond);
   if (!nloop)
-    return;
+    return changed;
 
   /* Invoke itself on modified loops.  */
   tree_unswitch_single_loop (loops, nloop, num + 1);
   tree_unswitch_single_loop (loops, loop, num + 1);
+  return true;
 }
 
 /* Unswitch a LOOP w.r. to given basic block UNSWITCH_ON.  We only support

@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void flow_loops_cfg_dump (const struct loops *, FILE *);
 static void flow_loop_entry_edges_find (struct loop *);
 static void flow_loop_exit_edges_find (struct loop *);
-static int flow_loop_nodes_find (basic_block, struct loop *);
 static void flow_loop_pre_header_scan (struct loop *);
 static basic_block flow_loop_pre_header_find (basic_block);
 static int flow_loop_level_compute (struct loop *);
@@ -328,7 +327,7 @@ flow_loop_exit_edges_find (struct loop *loop)
 /* Find the nodes contained within the LOOP with header HEADER.
    Return the number of nodes within the loop.  */
 
-static int
+int
 flow_loop_nodes_find (basic_block header, struct loop *loop)
 {
   basic_block *stack;
@@ -371,6 +370,63 @@ flow_loop_nodes_find (basic_block header, struct loop *loop)
       free (stack);
     }
   return num_nodes;
+}
+
+/* For each loop in the lOOPS tree that has just a single exit
+   record the exit edge.  */
+
+void
+mark_single_exit_loops (struct loops *loops)
+{
+  basic_block bb;
+  edge e;
+  struct loop *loop;
+  unsigned i;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (loop)
+	loop->single_exit = NULL;
+    }
+
+  FOR_EACH_BB (bb)
+    {
+      if (bb->loop_father == loops->tree_root)
+	continue;
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    continue;
+
+	  if (flow_bb_inside_loop_p (bb->loop_father, e->dest))
+	    continue;
+
+	  for (loop = bb->loop_father;
+	       loop != e->dest->loop_father;
+	       loop = loop->outer)
+	    {
+	      /* If we have already seen an exit, mark this by the edge that
+		 surely does not occur as any exit.  */
+	      if (loop->single_exit)
+		loop->single_exit = ENTRY_BLOCK_PTR->succ;
+	      else
+		loop->single_exit = e;
+	    }
+	}
+    }
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      if (loop->single_exit == ENTRY_BLOCK_PTR->succ)
+	loop->single_exit = NULL;
+    }
+
+  loops->state |= LOOPS_HAVE_MARKED_SINGLE_EXITS;
 }
 
 /* Find the root node of the loop pre-header extended basic block and
@@ -1259,8 +1315,6 @@ verify_loop_structure (struct loops *loops)
 	}
     }
 
-  free (sizes);
-
   /* Check get_loop_body.  */
   for (i = 1; i < loops->num; i++)
     {
@@ -1381,8 +1435,71 @@ verify_loop_structure (struct loops *loops)
       free (irreds);
     }
 
+  /* Check the single_exit.  */
+  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
+    {
+      memset (sizes, 0, sizeof (unsigned) * loops->num);
+      FOR_EACH_BB (bb)
+	{
+	  if (bb->loop_father == loops->tree_root)
+	    continue;
+	  for (e = bb->succ; e; e = e->succ_next)
+	    {
+	      if (e->dest == EXIT_BLOCK_PTR)
+		continue;
+
+	      if (flow_bb_inside_loop_p (bb->loop_father, e->dest))
+		continue;
+
+	      for (loop = bb->loop_father;
+		   loop != e->dest->loop_father;
+		   loop = loop->outer)
+		{
+		  sizes[loop->num]++;
+		  if (loop->single_exit
+		      && loop->single_exit != e)
+		    {
+		      error ("Wrong single exit %d->%d recorded for loop %d.",
+			     loop->single_exit->src->index,
+			     loop->single_exit->dest->index,
+			     loop->num);
+		      error ("Right exit is %d->%d.",
+			     e->src->index, e->dest->index);
+		      err = 1;
+		    }
+		}
+	    }
+	}
+
+      for (i = 1; i < loops->num; i++)
+	{
+	  loop = loops->parray[i];
+	  if (!loop)
+	    continue;
+
+	  if (sizes[i] == 1
+	      && !loop->single_exit)
+	    {
+	      error ("Single exit not recorded for loop %d.", loop->num);
+	      err = 1;
+	    }
+
+	  if (sizes[i] != 1
+	      && loop->single_exit)
+	    {
+	      error ("Loop %d should not have single exit (%d -> %d).",
+		     loop->num,
+		     loop->single_exit->src->index,
+		     loop->single_exit->dest->index);
+	      err = 1;
+	    }
+	}
+    }
+
   if (err)
     abort ();
+
+  free (sizes);
 }
 
 /* Returns latch edge of LOOP.  */

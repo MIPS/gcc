@@ -185,6 +185,10 @@ struct loop
 
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
+
+  /* If not NULL, loop has just single exit edge stored here (edges to the
+     EXIT_BLOCK_PTR do not count.  */
+  edge single_exit;
 };
 
 /* Flags for state of loop structure.  */
@@ -192,7 +196,8 @@ enum
 {
   LOOPS_HAVE_PREHEADERS = 1,
   LOOPS_HAVE_SIMPLE_LATCHES = 2,
-  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4
+  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
+  LOOPS_HAVE_MARKED_SINGLE_EXITS = 8
 };
 
 /* Structure to hold CFG information about natural loops within a function.  */
@@ -257,8 +262,11 @@ extern void flow_loop_dump (const struct loop *, FILE *,
 			    void (*)(const struct loop *, FILE *, int), int);
 extern int flow_loop_scan (struct loop *, int);
 extern void flow_loop_free (struct loop *);
-void mark_irreducible_loops (struct loops *);
+extern int flow_loop_nodes_find (basic_block, struct loop *);
+void fix_loop_structure (struct loops *);
+void mark_single_exit_loops (struct loops *);
 extern void create_loop_notes (void);
+extern void mark_irreducible_loops (struct loops *loops);
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);

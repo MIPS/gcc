@@ -1,3 +1,47 @@
+2004-07-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.c (flow_loop_nodes_find): Export.
+	(mark_single_exit_loops): New functions.
+	(verify_loop_structure): Verify single_exit.
+	* cfgloop.h (struct loop): Add single_exit field.
+	(LOOPS_HAVE_MARKED_SINGLE_EXITS): New constant.
+	(flow_loop_nodes_find, fix_loop_structure, mark_single_exit_loops):
+	Declare.
+	* cfgloopmanip.c (update_single_exits_after_duplication,
+	fix_loop_structure): New functions.
+	(duplicate_loop_to_header_edge): Use
+	update_single_exits_after_duplication.
+	* tree-cfg.c (cleanup_tree_cfg_loop): New function.
+	(tree_can_merge_blocks_p, remove_bb, thread_jumps): Respect loop
+	structure.
+	* tree-elim-check.c (eliminate_redundant_checks): Use single_exit.
+	* tree-flow.h (cleanup_tree_cfg_loop): Declare.
+	* tree-scalar-evolution.c (get_loop_exit_condition,
+	get_exit_conditions_rec, number_of_iterations_in_loop): Use
+	single_exit.
+	(scev_initialize): Do not call flow_loop_scan.
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables):
+	Indicate whether cfg has changed.
+	(tree_unroll_loops_completely): Call cleanup_tree_cfg_loop.
+	* tree-ssa-loop-ivopts.c (struct loop_data): Remove n_exits
+	and single_exit fields.
+	(find_exit_edges): Removed.
+	(tree_ssa_iv_optimize_init): Do not call find_exit_edges.
+	(single_dom_exit): New function.
+	(determine_number_of_iterations, add_iv_outer_candidates,
+	may_eliminate_iv, may_replace_final_value,
+	determine_use_iv_cost_outer, rewrite_use_outer,
+	tree_ssa_iv_optimize_loop): Use single_dom_exit.
+	* tree-ssa-loop-manip.c (tree_ssa_loop_version): Update single_exit.
+	(tree_duplicate_loop_to_exit_cfg): Use single_exit.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Indicate
+	whether something have changed.
+	(tree_ssa_unswitch_loops): Call cleanup_tree_cfg_loop.
+	* tree-ssa-loop.c (tree_ssa_loop_init): Call mark_single_exit_loops.
+	* tree-vectorizer.c
+	(vect_update_initial_conditions_of_duplicacted_loop,
+	vect_transform_loop_bound, vect_transform_loop): Use single_exit.
+
 2004-07-20  Dorit Naishlos  <dorit@il.ibm.com>
 
         * tree-data-ref.h (init_data_ref): Additional argument is_read.

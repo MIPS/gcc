@@ -750,6 +750,25 @@ cleanup_tree_cfg (void)
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
 
+/* Cleanup cfg and repair loop structures.  */
+
+void
+cleanup_tree_cfg_loop (void)
+{
+  cleanup_tree_cfg ();
+
+  fix_loop_structure (current_loops);
+
+  /* This usually does nothing.  But sometimes parts of cfg that originally
+     were inside a loop get out of it due to edge removal (since they
+     become unreachable by back edges from latch).  */
+  rewrite_into_loop_closed_ssa ();
+
+#ifdef ENABLE_CHECKING
+  verify_loop_structure (current_loops);
+#endif
+}
+
 
 /* Cleanup useless labels in basic blocks.  This is something we wish
    to do early because it allows us to group case labels before creating
@@ -1062,6 +1081,11 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
       if (!DECL_ARTIFICIAL (LABEL_EXPR_LABEL (stmt)))
 	return false;
     }
+
+  /* Protect the loop latches.  */
+  if (current_loops
+      && b->loop_father->latch == b)
+    return false;
 
   return true;
 }
@@ -1807,6 +1831,20 @@ remove_bb (basic_block bb)
 	{
 	  dump_bb (bb, dump_file, 0);
 	  fprintf (dump_file, "\n");
+	}
+    }
+
+  /* If we remove the header or the latch of a loop, mark the loop for
+     removal by setting its header and latch to NULL.  */
+  if (current_loops)
+    {
+      struct loop *loop = bb->loop_father;
+
+      if (loop->latch == bb
+	  || loop->header == bb)
+	{
+	  loop->latch = NULL;
+	  loop->header = NULL;
 	}
     }
 
@@ -3961,6 +3999,19 @@ thread_jumps (void)
 	  break;
 
       bb_ann (bb)->forwardable = (e == NULL);
+
+      if (!current_loops)
+	continue;
+	  
+      /* Protect loop latches and preheaders.  */
+      if (!bb->succ
+	  || bb->succ->succ_next
+	  || bb->succ->dest == EXIT_BLOCK_PTR)
+	continue;
+
+      dest = bb->succ->dest;
+      if (dest->loop_father->header == dest)
+	bb_ann (bb)->forwardable = 0;
     }
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)

@@ -596,7 +596,7 @@ struct loop *
 tree_ssa_loop_version (struct loops *loops, struct loop * loop, 
 		       tree cond_expr, basic_block *condition_bb)
 {
-  edge entry, latch_edge;
+  edge entry, latch_edge, exit;
   basic_block first_head, second_head;
   int irred_flag;
   struct loop *nloop;
@@ -635,6 +635,10 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
 		   loop->header->rbi->copy->pred,
 		   *condition_bb,
 		   false /* Do not redirect all edges.  */);
+
+  exit = loop->single_exit;
+  if (exit)
+    nloop->single_exit = find_edge (exit->src->rbi->copy, exit->dest);
 
   /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
   lv_update_pending_stmts (latch_edge);
@@ -1056,9 +1060,18 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
   unsigned i; 
   unsigned  n = loop->num_nodes;
   struct loop *new_loop;
-  basic_block exit_dest = loop->exit_edges[0]->dest;
+  basic_block exit_dest;
   bool was_imm_dom;
   
+  if (!loop->single_exit)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,
+		   "Loop does not have a single exit.\n");
+      return false;
+    }
+
+  exit_dest = loop->single_exit->dest;
   was_imm_dom = (get_immediate_dominator 
 		       (CDI_DOMINATORS, exit_dest) == loop->header ? 
 		       true : false);
@@ -1115,6 +1128,7 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
       return false;
 
     }
+
   /* FIXME: Should we copy contents of the loop structure
      to the new loop?  */
 
@@ -1123,21 +1137,13 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
     new_bbs[i]->rbi->copy_number = 1;
 
   /* Redirect the special edges.  */
-  if(!exit_dest)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file,
-		   "First exit basic block of loop is NULL.\n");
-      return false;
-    }
-    
-  
-  redirect_edge_and_branch_force (loop->exit_edges[0],
-				  new_bbs[0]);
-  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], loop->exit_edges[0]->src); 
+  exit_dest = loop->single_exit->dest;
+
+  redirect_edge_and_branch_force (loop->single_exit, new_bbs[0]);
+  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], loop->single_exit->src); 
   if (was_imm_dom)
     set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
-  
+
   free (new_bbs);
   free (bbs);
 

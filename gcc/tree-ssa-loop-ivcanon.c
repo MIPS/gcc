@@ -179,9 +179,9 @@ try_unroll_loop_completely (struct loops *loops, struct loop *loop,
    tree.  CREATE_IV is true if we may create a new iv.  COMPLETELY_UNROLL is
    true if we should do complete unrolling even if it may cause the code
    growth.  If TRY_EVAL is true, we try to determine the number of iterations
-   of a loop by direct evaluation.  */
+   of a loop by direct evaluation.  Returns true if cfg is changed.  */
 
-static void
+static bool
 canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 				       bool create_iv, bool completely_unroll,
 				       bool try_eval)
@@ -192,9 +192,9 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   niter = number_of_iterations_in_loop (loop);
   if (TREE_CODE (niter) == INTEGER_CST)
     {
-      exit = loop->exit_edges[0];
+      exit = loop->single_exit;
       if (!just_once_each_iteration_p (loop, exit->src))
-	return;
+	return false;
 
       /* The result of number_of_iterations_in_loop is by one higher than
 	 we expect (i.e. it returns number of executions of the exit
@@ -208,7 +208,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 
   if (chrec_contains_undetermined (niter)
       || TREE_CODE (niter) != INTEGER_CST)
-    return;
+    return false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -218,10 +218,12 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
     }
 
   if (try_unroll_loop_completely (loops, loop, exit, niter, completely_unroll))
-    return;
+    return true;
 
   if (create_iv)
     create_canonical_iv (loop, exit, niter);
+
+  return false;
 }
 
 /* The main entry point of the pass.  Adds canonical induction variables
@@ -249,13 +251,20 @@ tree_unroll_loops_completely (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
+  bool changed = false;
 
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
 
-      if (loop)
-	canonicalize_loop_induction_variables (loops, loop, false, true,
-					       !flag_ivcanon);
+      if (!loop)
+	continue;
+
+      changed |= canonicalize_loop_induction_variables (loops, loop,
+							false, true,
+							!flag_ivcanon);
     }
+
+  if (changed)
+    cleanup_tree_cfg_loop ();
 }
