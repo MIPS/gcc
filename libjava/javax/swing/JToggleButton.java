@@ -111,7 +111,9 @@ public class JToggleButton extends AbstractButton implements Accessible
   }
 
   /**
-   * Gets the AccessibleContext associated with this JToggleButton.
+   * Gets the AccessibleContext associated with this <code>JToggleButton</code>.
+   *
+   * @return the associated context
    */
   public AccessibleContext getAccessibleContext()
   {

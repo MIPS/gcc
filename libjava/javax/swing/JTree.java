@@ -147,31 +147,59 @@ public class JTree extends JComponent
     return null;
   }
 
+  /**
+   * Return the UI associated with this <code>JTree</code> object.
+   *
+   * @return the associated <code>TreeUI</code> object
+   */
   public TreeUI getUI()
   {
     return (TreeUI) ui;
   }
 
+  /**
+   * Sets the UI associated with this <code>JTree</code> object.
+   *
+   * @param ui the <code>TreeUI</code> to associate
+   */
   public void setUI(TreeUI ui)
   {
     super.setUI(ui);
   }
 
+  /**
+   * This method resets the UI used to the Look and Feel defaults..
+   */
   public void updateUI()
   {
     setUI((TreeUI) UIManager.getUI(this));
   }
 
+  /**
+   * This method returns the String ID of the UI class of  Separator.
+   *
+   * @return The UI class' String ID.
+   */
   public String getUIClassID()
   {
     return "TreeUI";
   }
 
+  /**
+   * Gets the AccessibleContext associated with this <code>JToggleButton</code>.
+   *
+   * @return the associated context
+   */
   public AccessibleContext getAccessibleContext()
   {
     return null;
   }
 
+  /**
+   * Returns the preferred viewport size..
+   *
+   * @return the preferred size
+   */
   public Dimension getPreferredScrollableViewportSize()
   {
     return null;

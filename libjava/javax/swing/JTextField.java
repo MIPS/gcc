@@ -37,6 +37,9 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -238,5 +241,30 @@ public class JTextField extends JTextComponent
     invalidate();
     repaint();
     firePropertyChange("horizontalAlignment", oldAlign, newAlign);
+  }
+
+  public void setFont(Font newFont)
+  {
+    super.setFont(newFont);
+    revalidate();
+  }
+
+  public Dimension getPreferredSize()
+  {
+    Dimension size;
+    FontMetrics fm = getFontMetrics(getFont());
+    int fontHeight = fm.getMaxAscent() + fm.getMaxDescent();
+    int columnWidth = fm.charWidth('m');
+    
+    if (columns != 0)
+      {
+	size = new Dimension(columns * columnWidth + 4, fontHeight + 4);
+      }
+    else
+      {
+	size = new Dimension(10, 10);
+      }
+
+    return size;
   }
 }

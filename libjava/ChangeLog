@@ -1,5 +1,23 @@
 2004-07-20  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JFormattedTextField.java
+	(setDocument): Implemented.
+	* javax/swing/JRootPane.java:
+	Fixed javadocs.
+	* javax/swing/JTable.java
+	(getDefaultRenderer): New method.
+	* javax/swing/JTextField.java
+	(setFont): Likewise.
+	(getPreferredSize): Likewise.
+	* javax/swing/JToggleButton.java
+	(getAccessibleContext): Fix javadoc.
+	* javax/swing/JTree.java:
+	Add some javadocs.
+	* javax/swing/JViewport.java:
+	Likewise.
+
+2004-07-20  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTable.java
 	(autoCreateColumnsFromModel): New field.
 	(autoResizeMode): Likewise.

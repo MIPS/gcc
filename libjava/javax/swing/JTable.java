@@ -384,4 +384,10 @@ public class JTable extends JComponent
     
     return renderer;
   }
+
+  public TableCellRenderer getDefaultRenderer(Class columnClass)
+  {
+    // FIXME:
+    return null;
+  }
 }

@@ -56,7 +56,7 @@ import javax.swing.plaf.RootPaneUI;
  * plane()) each on top of the others where you can add components to.
  * (getContentPane(), getGlassPane(), getLayeredPane())
  *
- * @author Ronald Veldema (rveldema at cs.vu.nl)
+ * @author Ronald Veldema (rveldema@cs.vu.nl)
  */
 public class JRootPane extends JComponent
 {
@@ -67,7 +67,7 @@ public class JRootPane extends JComponent
     private static final long serialVersionUID = 1082432482784468088L;
 
     /**
-     * Creates a new AccessibleJRootPane object.
+     * Creates a new <code>AccessibleJRootPane</code> object.
      */
     protected AccessibleJRootPane()
     {
@@ -92,7 +92,7 @@ public class JRootPane extends JComponent
     private static final long serialVersionUID = -4100116998559815027L;
 
     /**
-     * Creates a new RootLayout object.
+     * Creates a new <code>RootLayout</code> object.
      */
     protected RootLayout()
     {
@@ -440,7 +440,7 @@ public class JRootPane extends JComponent
   }
 
   /**
-   * Creates a new JRootPane object.
+   * Creates a new <code>JRootPane</code> object.
    */
   public JRootPane()
   {

@@ -214,9 +214,15 @@ public class JFormattedTextField extends JTextField
     throw new InternalError ("not implemented");
   }
 
-  public void setDocument (Document document)
+  public void setDocument(Document newdoc)
   {
-    throw new InternalError ("not implemented");
+    Document document = getDocument();
+
+    if (document == newdoc)
+      return;
+    
+    setDocument(newdoc);
+    firePropertyChange("document", document, newdoc);
   }
 
   public void setLostFocusBehavior (int behavior)
