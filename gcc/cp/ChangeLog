@@ -1,3 +1,7 @@
+2003-11-10  Richard Henderson  <rth@redhat.com>
+
+	* cvt.c (convert_to_void): Use void_zero_node after overload failure.
+
 2003-10-26  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/10371
