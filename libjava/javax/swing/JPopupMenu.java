@@ -71,7 +71,7 @@ import javax.swing.plaf.PopupMenuUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.3.8.7 $
+ * @version $Revision: 1.3.8.8 $
  */
 public class JPopupMenu extends JComponent implements Accessible, MenuElement
 {
@@ -458,7 +458,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public void addSeparator()
   {
-    // FIXME: Need to implement
+    // insert separator at the end of the list of menu items    
+    this.insert(new Separator(), -1);
   }
 
   /**
@@ -1038,7 +1039,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
     public String getUIClassID()
     {
-      return null;
+      return "PopupMenuSeparatorUI";
     }
   }
 

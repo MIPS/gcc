@@ -966,6 +966,7 @@ javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
 javax/swing/plaf/basic/BasicPopupMenuUI.java \
+javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
 javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
@@ -3020,6 +3021,7 @@ javax/swing/plaf/basic/BasicMenuItemUI.lo \
 javax/swing/plaf/basic/BasicOptionPaneUI.lo \
 javax/swing/plaf/basic/BasicPanelUI.lo \
 javax/swing/plaf/basic/BasicPopupMenuUI.lo \
+javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.lo \
 javax/swing/plaf/basic/BasicProgressBarUI.lo \
 javax/swing/plaf/basic/BasicRootPaneUI.lo \
 javax/swing/plaf/basic/BasicRadioButtonUI.lo \
@@ -5120,6 +5122,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicMenuUI.P \
 .deps/javax/swing/plaf/basic/BasicOptionPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicPanelUI.P \
+.deps/javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.P \
 .deps/javax/swing/plaf/basic/BasicPopupMenuUI.P \
 .deps/javax/swing/plaf/basic/BasicProgressBarUI.P \
 .deps/javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.P \

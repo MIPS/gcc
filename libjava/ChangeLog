@@ -1,3 +1,17 @@
+2004-06-17  Olga Rodimina  <rodimina@redhat.coom>
+
+	* Makefile.am: Added new file.
+	* Makefile.in: Re-generate.
+	* javax/swing/JMenu.java:
+	(insertSeparator): Implemented.
+	* javax/swing/JPopupMenu.java:
+	(JPopupMenu.Separator): Implemented.
+	* javax/swing/MenuSelectionManager.java:
+	(processMouseEvent): Use java.awt.Component 
+	for event source instead of javax.swing.JComponent. 
+	* javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java:
+	New File. Implemented.
+	
 2004-06-16  David Jee  <djee@redhat.com>
 
 	* java/awt/GridBagLayout.java

@@ -209,7 +209,7 @@ public class MenuSelectionManager
    */
   public void processMouseEvent(MouseEvent event)
   {
-    JComponent c = ((JComponent) event.getSource());
+    Component c = ((Component) event.getSource());
 
     MenuElement[] path = getPath(c);
     ((MenuElement) c).processMouseEvent(event, path, manager);

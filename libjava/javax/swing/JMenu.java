@@ -461,9 +461,10 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
    */
   public void insertSeparator(int index)
   {
-    // Insert a horizontal separator at the position specified by the 
-    // integer index. The index must be positive, or the method 
-    // throws an IllegalArgumentException.
+    if (index < 0)
+      throw new IllegalArgumentException("index less than 0");
+
+    getPopupMenu().insert(new JPopupMenu.Separator(), index);
   }
 
   /**
