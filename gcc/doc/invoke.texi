@@ -406,9 +406,7 @@ in the following sections.
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
-@c APPLE LOCAL begin framework headers
-@gccoptlist{-B@var{prefix}  -I@var{dir}  -I-  -L@var{dir} @gol
--specs=@var{file} -F@var{dir} (APPLE ONLY)}
+@gccoptlist{-B@var{prefix}  -I@var{dir}  -iquote@var{dir}  -L@var{dir}  -specs=@var{file}  -I-}
 
 @item Target Options
 @c I wrote this xref this way to avoid overfull hbox. -- rms
@@ -5834,50 +5832,17 @@ the ordering for the include_next directive are not inadvertently changed.
 If you really need to change the search order for system directories,
 use the @option{-nostdinc} and/or @option{-isystem} options.
 
-@item -I-
-@opindex I-
-Any directories you specify with @option{-I} options before the @option{-I-}
-option are searched only for the case of @samp{#include "@var{file}"};
-they are not searched for @samp{#include <@var{file}>}.
-
-If additional directories are specified with @option{-I} options after
-the @option{-I-}, these directories are searched for all @samp{#include}
-directives.  (Ordinarily @emph{all} @option{-I} directories are used
-this way.)
-
-In addition, the @option{-I-} option inhibits the use of the current
-directory (where the current input file came from) as the first search
-directory for @samp{#include "@var{file}"}.  There is no way to
-override this effect of @option{-I-}.  With @option{-I.} you can specify
-searching the directory which was current when the compiler was
-invoked.  That is not exactly the same as what the preprocessor does
-by default, but it is often satisfactory.
-
-@option{-I-} does not inhibit the use of the standard system directories
-for header files.  Thus, @option{-I-} and @option{-nostdinc} are
-independent.
+@item -iquote@var{dir}
+@opindex iquote
+Add the directory @var{dir} to the head of the list of directories to
+be searched for header files only for the case of @samp{#include
+"@var{file}"}; they are not searched for @samp{#include <@var{file}>},
+otherwise just like @option{-I}.
 
 @item -L@var{dir}
 @opindex L
 Add directory @var{dir} to the list of directories to be searched
 for @option{-l}.
-
-@c APPLE LOCAL begin framework headers
-@item -F@var{dir}
-@opindex F
-In Apple's version of GCC only, add the directory @var{dir} to the head
-of the list of directories to be searched for frameworks.
-
-The framework search algorithm is, for an inclusion of
-@samp{<Fmwk/Header.h>}, to look for files named
-@file{@var{path}/Fmwk.framework/Headers/Header.h} or
-@file{@var{path}/Fmwk.framework/PrivateHeaders/Header.h} where
-@var{path} includes @file{/System/Library/Frameworks/}
-@file{/Library/Frameworks/}, and @file{/Local/Library/Frameworks/}, plus
-any additional paths specified by @option{-F}.
-
-All the @option{-F} options are also passed to the linker.
-@c APPLE LOCAL end framework headers
 
 @item -B@var{prefix}
 @opindex B
@@ -5930,6 +5895,31 @@ program uses when determining what switches to pass to @file{cc1},
 @file{cc1plus}, @file{as}, @file{ld}, etc.  More than one
 @option{-specs=@var{file}} can be specified on the command line, and they
 are processed in order, from left to right.
+
+@item -I-
+@opindex I-
+This option has been deprecated.  Please use @option{-iquote} instead for
+@option{-I} directories before the @option{-I-} and remove the @option{-I-}.
+Any directories you specify with @option{-I} options before the @option{-I-}
+option are searched only for the case of @samp{#include "@var{file}"};
+they are not searched for @samp{#include <@var{file}>}.
+
+If additional directories are specified with @option{-I} options after
+the @option{-I-}, these directories are searched for all @samp{#include}
+directives.  (Ordinarily @emph{all} @option{-I} directories are used
+this way.)
+
+In addition, the @option{-I-} option inhibits the use of the current
+directory (where the current input file came from) as the first search
+directory for @samp{#include "@var{file}"}.  There is no way to
+override this effect of @option{-I-}.  With @option{-I.} you can specify
+searching the directory which was current when the compiler was
+invoked.  That is not exactly the same as what the preprocessor does
+by default, but it is often satisfactory.
+
+@option{-I-} does not inhibit the use of the standard system directories
+for header files.  Thus, @option{-I-} and @option{-nostdinc} are
+independent.
 @end table
 
 @c man end
@@ -8282,6 +8272,34 @@ These options are defined for all architectures running the Darwin operating
 system.  They are useful for compatibility with other Mac OS compilers.
 
 @table @gcctabopt
+@item -F@var{dir}
+@opindex F
+Add the framework directory @var{dir} to the head of the list of
+directories to be searched for header files.  These directories are
+interleaved with those specified by @option{-I} options and are
+scanned in a left-to-right order.
+
+A framework directory is a directory with frameworks in it.  A
+framework is a directory with a @samp{"Headers"} and/or
+@samp{"PrivateHeaders"} directory contained directly in it that ends
+in @samp{".framework"}.  The name of a framework is the name of this
+directory excluding the @samp{".framework"}.  Headers associated with
+the framework are found in one of those two directories, with
+@samp{"Headers"} being searched first.  A subframework is a framework
+directory that is in a framework's @samp{"Frameworks"} directory.
+Includes of subframework headers can only appear in a header of a
+framework that contains the subframework, or in a sibling subframework
+header.  Two subframeworks are siblings if they occur in the same
+framework.  A subframework should not have the same name as a
+framework, a warning will be issued if this is violated.  Currently a
+subframework cannot have subframeworks, in the future, the mechanism
+may be extended to support this.  The standard frameworks can be found
+in @samp{"/System/Library/Frameworks"}, @samp{"/Library/Frameworks"}
+and @samp{"/Local/Library/Frameworks"}.  An example include looks like
+@code{#include <Framework/header.h>}, where @samp{Framework} denotes
+the name of the framework and header.h is found in the
+@samp{"PrivateHeaders"} or @samp{"Headers"} directory.
+
 @item -all_load
 @opindex all_load
 Loads all members of static archive libraries.

@@ -52,8 +52,9 @@ struct spec_function
   || !strcmp (STR, "imacros") || !strcmp (STR, "aux-info") \
   || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
   || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
-  || !strcmp (STR, "isystem") || !strcmp (STR, "-param") \
-  || !strcmp (STR, "save-repository") || !strcmp (STR, "specs") \
+  || !strcmp (STR, "iquote") || !strcmp (STR, "isystem") \
+  || !strcmp (STR, "-param") || !strcmp (STR, "specs") \
+  || !strcmp (STR, "save-repository") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
 
 
