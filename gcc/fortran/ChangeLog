@@ -1,3 +1,7 @@
+2004-04-24  Paul Brook  <paul@codesourcery.com>
+
+	* Make-lang.in (gfortranspec.o): Add dependency on $(TM_H).
+
 2004-04-24  Feng Wang  <fengwang@nudt.edu.cn>
 
 	PR 14817
