@@ -1069,6 +1069,19 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
     abort ();
 #endif
 
+  /* If VAR is a pointer with the same alias set as PTR, then dereferencing
+     PTR can't possibly affect VAR.  Note, that we are specifically testing
+     for PTR's alias set here, not its pointed-to type.  We also can't
+     do this check with relaxed aliasing enabled.  */
+  if (POINTER_TYPE_P (TREE_TYPE (var))
+      && var_alias_set != 0)
+    {
+      HOST_WIDE_INT ptr_alias_set = get_alias_set (ptr);
+      if (ptr_alias_set == var_alias_set)
+	return false;
+    }
+
+
   /* If the alias sets don't conflict then MEM cannot alias VAR.  */
   if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
     {
@@ -1580,7 +1593,10 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 }
 
 
-/* Return the memory tag associated to pointer PTR.  */
+/* Return the memory tag associated to pointer PTR.  A memory tag is an
+   artificial variable that represents the memory location pointed-to by
+   PTR.  It is used to model the effects of pointer de-references on
+   addressable variables.  */
 
 static tree
 get_memory_tag_for (tree ptr)
@@ -1590,15 +1606,12 @@ get_memory_tag_for (tree ptr)
   tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
   HOST_WIDE_INT tag_set = get_alias_set (tag_type);
 
-  /* See if PTR may alias any of the existing pointers.  Note that we can't
-     use may_alias_p here because we have not created a memory tag for PTR
-     yet.  */
+  /* To avoid creating unnecessary memory tags, only create one memory tag
+     per alias set class.  */
   for (i = 0, tag = NULL_TREE; i < VARRAY_ACTIVE_SIZE (pointers); i++)
     {
       struct alias_map_d *curr = VARRAY_GENERIC_PTR (pointers, i);
-      if (alias_sets_conflict_p (curr->set, tag_set)
-	  && (flag_tree_points_to == PTA_NONE
-	      || same_points_to_set (ptr, curr->var)))
+      if (tag_set == curr->set)
 	{
 	  tag = var_ann (curr->var)->mem_tag;
 	  break;

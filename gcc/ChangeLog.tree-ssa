@@ -1,3 +1,12 @@
+2003-12-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (may_alias_p): If VAR and PTR are pointers with the
+	same alias set, return false.
+	(get_memory_tag_for): Group based on alias set classes, not on
+	conflicting alias sets.
+	* tree-must-alias.c (promote_var): Don't bring aliases over when
+	all the may-aliases of a non-promotable variable are promoted.
+
 2003-12-16  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-flow-inline.h (free_vuse, free_vdefs): Moved to 

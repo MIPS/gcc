@@ -246,32 +246,6 @@ promote_var (tree var, bitmap vars_to_rename)
 	      remove_element_from (aliases, (size_t) ix);
 	      bitmap_set_bit (vars_to_rename, aliased_ann->uid);
 
-	      /* If ALIASED_VAR cannot be promoted, bring over the
-		 may-alias from VAR.  */
-	      if (ann->may_aliases
-		  && !can_be_promoted (aliased_var))
-		{
-		  size_t j;
-
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    {
-		      fprintf (dump_file, "%s: Variable ",
-				get_name (current_function_decl));
-		      print_generic_expr (dump_file, aliased_var, 0);
-		      fprintf (dump_file, " cannot be promoted. ");
-		      fprintf (dump_file, "Copying aliases from ");
-		      print_generic_expr (dump_file, var, 0);
-		      fprintf (dump_file, ".\n");
-		    }
-
-		  for (j = 0; j < VARRAY_ACTIVE_SIZE (ann->may_aliases); j++)
-		    {
-		      tree t = VARRAY_TREE (ann->may_aliases, j);
-		      if (!can_be_promoted (t))
-			VARRAY_PUSH_TREE (aliases, t);
-		    }
-		}
-
 	      /* Completely remove the may-alias array if it's empty.  */
 	      if (VARRAY_ACTIVE_SIZE (aliases) == 0)
 		aliased_ann->may_aliases = NULL;
