@@ -1,0 +1,4 @@
+2005-02-22  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dfp.exp: New test driver.
+

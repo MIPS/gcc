@@ -1,0 +1,311 @@
+# Copyright 2005 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# DejaGnu test driver around Mike Cowlishaw's testsuite for decimal
+# decimal arithmetic.  See:
+#    <http://www2.hursley.ibm.com/decimal/dectest.html>.
+#
+# Contributed by Ben Elliston <bje@au.ibm.com>.
+
+# Override torture options for now (-O0 will do just fine).
+set TORTURE_OPTIONS [list {-O0}]
+
+# Load support procs (borrow these from c-torture).
+load_lib c-torture.exp
+
+# The list format is [coefficient, max-exponent, min-exponent].
+set properties(_Decimal32) [list 7 96 -95]
+set properties(_Decimal64) [list 16 384 -383]
+set properties(_Decimal128) [list 34 6144 -6143]
+
+# Operations implemented by the compiler.
+set operators(add) {+}
+set operators(compare) {==}
+set operators(divide) {/}
+set operators(multiply) {*}
+set operators(subtract) {-}
+set operators(minus) {-}
+set operators(plus) {+}
+
+# Operations imlemented by the library.
+set libfuncs(abs) fabsl
+set libfuncs(squareroot) sqrtl
+set libfuncs(max) fmaxl
+set libfuncs(min) fminl
+set libfuncs(quantize) quantize
+set libfuncs(samequantum) samequantum
+set libfuncs(power) powl
+set libfuncs(toSci) ???
+set libfuncs(toEng) ???
+set libfuncs(divideint) ???
+set libfuncs(rescale) ???
+set libfuncs(remainder) ???
+set libfuncs(remaindernear) ???
+set libfuncs(normalize) ???
+set libfuncs(tointegral) ???
+set libfuncs(trim) ???
+
+# Run all of the tests listed in TESTCASES by invoking df-run-test on
+# each.  Skip tests that not included by the user invoking runtest
+# with the foo.exp=test.c syntax.
+
+proc dfp-run-tests { testcases } {
+    global runtests
+    foreach test $testcases {
+	# If we're only testing specific files and this isn't one of
+	# them, skip it.
+	if ![runtest_file_p $runtests $test] continue
+	dfp-run-test $test
+    }
+}
+
+# Run a single test case named by TESTCASE.
+# Called for each test by dfp-run-tests.
+
+proc dfp-run-test { testcase } {
+    set fd [open $testcase r]
+    while {[gets $fd line] != -1} {
+	switch -regexp -- $line {
+	    {^[ \t]*--.*$} {
+		# Ignore comments.
+	    }
+	    {^[ \t]*$} {
+		# Ignore blank lines.
+	    }
+	    {^[ \t]*[^:]*:[^:]*} {
+		process-directive $line
+	    }
+	    default {
+		process-test-case $testcase $line
+	    }
+	}
+    }
+    close $fd
+}
+
+# Return the appropriate constant from <fenv.h> for MODE.
+
+proc c-rounding-mode { mode } { 
+    switch [string tolower $mode] {
+	"ceiling"	{ return "FE_DEC_UPWARD" }
+	"down"		{ return "FE_DEC_TOWARDZERO" }
+	"floor"		{ return "FE_DEC_DOWNWARD" }
+	"half_even"	{ return "FE_DEC_TONEARESTFROMZERO" }
+	"half_up"	{ return "FE_DEC_TONEAREST" }
+    }
+    error "unsupported rounding mode"
+}
+
+# Return a string of C code that forms the preamble to perform the
+# test named ID.
+
+proc c-test-preamble { id } {
+    append result "/* Machine generated test case for $id */\n"
+    append result "\n"
+    append result "\#include <assert.h>\n"
+    append result "\#include <fenv.h>\n"
+    append result "\n"
+    append result "int main ()\n"
+    append result "\{"
+    return $result
+}
+
+# Return a string of C code that forms the postable to the test named ID.
+
+proc c-test-postamble { id } {
+    return "\}"
+}
+
+# Generate a C unary expression that applies OPERATION to OP.
+
+proc c-unary-expression {operation op} {
+    global operators
+    global libfuncs
+    if [catch {set result "$operators($operation) $op"}] {
+	# If operation isn't in the operators or libfuncs arrays,
+	# we'll throw an error.  That's what we want.
+	set result "$libfuncs($operation) ($op)"
+    }
+    return $result
+}
+
+# Generate a C binary expression that applies OPERATION to OP1 and OP2.
+
+proc c-binary-expression {operation op1 op2} {
+    global operators
+    global libfuncs
+    if [catch {set result "$op1 $operators($operation) $op2"}] {
+	# If operation isn't in the operators or libfuncs arrays,
+	# we'll throw an error.  That's what we want.
+	set result "$libfuncs($operation) ($op1, $op2)"
+    }
+    return $result
+}
+
+# Create a C program file (named using ID) containing a test for a
+# binary OPERATION on OP1 and OP2 that expects RESULT and CONDITIONS.
+
+proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
+    global directives
+    set filename [file rootname $testcase]-${id}.c
+    set outfd [open $filename w]
+
+#     puts $outfd [c-test-preamble $id]
+#     puts $outfd "  _Decimal32 d;"
+#     puts $outfd ""
+#     puts $outfd "  /* Set the rounding mode.  */"
+#     puts $outfd "  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);"
+#     puts $outfd ""
+#     if {[string compare $op2 NONE] == 0} {
+# 	puts $outfd "  d = [c-unary-expression $operation $op1];"
+#     } else {
+# 	puts $outfd "  d = [c-binary-expression $operation $op1 $op2];"
+#     }
+#     puts $outfd "  return (d == $result);"
+#     puts $outfd [c-test-postamble $id]
+    puts $outfd "int main () \{ return 0; \}"
+    close $outfd
+    return $filename
+}
+
+# Is the test supported for this target?
+
+proc is-supported-p { } {
+    global directives
+    if [catch {c-rounding-mode $directives(rounding)}] {
+	# Unsupported rounding mode.
+	return false
+    }
+    return true
+}
+
+# Break LINE into a list of tokens.  Be sensitive to quoting.
+# There has to be a better way to do this :-|
+
+proc tokenize { line } {
+    set quoting 0
+    set tokens [list]
+
+    foreach char [split $line {}] {
+	if {!$quoting} {
+	    if { [info exists token] && $char == " " } {
+		if {[string compare "$token" "--"] == 0} {
+		    # Only comments remain.
+		    return $tokens
+		}
+		lappend tokens $token
+		unset token
+	    } else {
+		if {![info exists token] && $char == "'" } {
+		    set quoting 1
+		} else {
+		    if { $char != " " } {
+			append token $char
+		    }
+		}
+	    }
+	} else {
+	    # Quoting.
+	    if { $char == "'" } {
+		set quoting 0
+		if [info exists token] {
+		    lappend tokens $token
+		    unset token
+		} else {
+		    lappend tokens {}
+		}
+	    } else {
+		append token $char
+	    }
+	}
+    }
+    # Flush any residual token.
+    if {[info exists token] && [string compare $token "--"]} {
+	lappend tokens $token
+    }
+    return $tokens
+}
+
+# Process a directive in LINE.
+
+proc process-directive { line } {
+    global directives
+    set keyword [string tolower [string trim [lindex [split $line :] 0]]]
+    set value [string tolower [string trim [lindex [split $line :] 1]]]
+    set directives($keyword) $value
+}
+
+# Process an arithmetic test in LINE from TESTCASE.
+
+proc process-test-case { testcase line } {
+    set testfile [file tail $testcase]
+
+    # Compress multiple spaces down to one.
+    set line [regsub -all {  *} $line { }]
+
+    set args [tokenize $line]
+    if {[llength $args] < 5} {
+	error "Skipping invalid test: $line"
+	return
+    }
+    
+    set id [string trim [lindex $args 0]]
+    set operation [string trim [lindex $args 1]]
+    set operand1 [string trim [lindex $args 2]]
+    
+    if { [string compare [lindex $args 3] -> ] == 0 } {
+	# Unary operation.
+	set operand2 NONE
+	set result_index 4
+	set cond_index 5
+    } else {
+	# Binary operation.
+	set operand2 [string trim [lindex $args 3]]
+	if { [string compare [lindex $args 4] -> ] != 0 } {
+	    warning "Skipping invalid test: $line"
+	    return
+	}
+	set result_index 5
+	set cond_index 6
+    }
+
+    set result [string trim [lindex $args $result_index]]
+    set conditions [list]
+    for { set i $cond_index } { $i < [llength $args] } { incr i } {
+	lappend conditions [string tolower [lindex $args $i]]
+    }
+    
+    # If this test is unsupported, say so.
+    if ![is-supported-p] {
+	unsupported "$testfile ($id)"
+	return
+    }
+
+    # Construct a C program and then compile/execute it on the target.
+    # Grab some stuff from the c-torture.exp test driver for this.
+
+    set cprog [make-c-test $testfile $id $operation $result $conditions $operand1 $operand2]
+    c-torture-execute $cprog
+}
+
+### Script mainline:
+
+if [catch {set testdir $env(DECTEST)}] {
+    # If $DECTEST is unset, skip this test driver altogether.
+    return
+}
+dfp-run-tests [lsort [glob -nocomplain $testdir/*.decTest]]
+unset testdir
