@@ -19,14 +19,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* The Solaris 2.10 headers expect _LONGLONG_TYPE to be defined if
-  "long long" is recognized by the compiler.  */
-#undef TARGET_SUB_OS_CPP_BUILTINS
-#define TARGET_SUB_OS_CPP_BUILTINS()		\
-  do {						\
-    builtin_define ("_LONGLONG_TYPE");		\
-  } while (0)
-
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START "/"
 
@@ -89,6 +81,9 @@ Boston, MA 02111-1307, USA.  */
 #undef LINK_ARCH_SPEC
 #define LINK_ARCH_SPEC TARGET_LD_EMULATION \
 		       "%{m64:" LINK_ARCH64_SPEC "}%{!m64:" LINK_ARCH32_SPEC "}"
+
+/* We do not need to search a special directory for startup files.  */
+#undef MD_STARTFILE_PREFIX
 
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION i386_solaris_elf_named_section
