@@ -87,6 +87,7 @@ int main()
   return 0;
 }
 
+__attribute__ ((noinline))
 static char *
 rindex (const char *s, int c)
 {

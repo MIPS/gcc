@@ -35,7 +35,7 @@ int main()
 
   return 0;
 }
-
+__attribute__ ((noinline))
 static char *
 index (const char *s, int c)
 {
