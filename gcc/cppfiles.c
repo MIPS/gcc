@@ -545,7 +545,9 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
     {
       /*size = strlen (file->name);
       if (size > 2 && file->name[size-1] != 'c')  FIXME */
-      if (pfile->buffer != NULL)
+      if (pfile->buffer != NULL
+	  || CPP_OPTION (pfile, lang) == CLK_GNUCXX
+	  || CPP_OPTION (pfile, lang) == CLK_CXX98)
 	{
 	  cpp_fragment *fragment;
 	  purge_fragments (file);
@@ -734,6 +736,10 @@ stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 
   /* Generate the call back.  */
   _cpp_do_file_change (pfile, LC_ENTER, file->path, 1, sysp);
+
+  if (CPP_OPTION (pfile, lang) == CLK_GNUCXX
+      || CPP_OPTION (pfile, lang) == CLK_CXX98)
+    _cpp_start_fragment (pfile);
 
   return true;
 }

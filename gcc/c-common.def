@@ -29,8 +29,6 @@ DEFTREECODE (SIZEOF_EXPR, "sizeof_expr", '1', 1)
 DEFTREECODE (ARROW_EXPR, "arrow_expr", 'e', 1)
 DEFTREECODE (ALIGNOF_EXPR, "alignof_expr", '1', 1)
 
-DEFTREECODE (INCLUDE_FRAGMENT, "include_fragment", 'x', 2)
-
 /* Used to represent an expression statement.  Use `EXPR_STMT_EXPR' to
    obtain the expression.  */
 DEFTREECODE (EXPR_STMT, "expr_stmt", 'e', 1)

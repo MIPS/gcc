@@ -847,6 +847,9 @@ DEFTREECODE (SWITCH_EXPR, "switch_expr", 'e', 2)
 /* The exception object from the runtime.  */
 DEFTREECODE (EXC_PTR_EXPR, "exc_ptr_expr", 'e', 0)
 
+/* An include fragment.  */
+DEFTREECODE (INCLUDE_FRAGMENT, "include_fragment", 'x', 0)
+
 /*
 Local variables:
 mode:c

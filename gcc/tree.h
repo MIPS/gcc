@@ -1615,6 +1615,10 @@ struct tree_type GTY(())
 #define DECL_ESTIMATED_INSNS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
+/* Set the fragment that contains the definition of DECL. */
+#define SET_DECL_FRAGMENT(DECL, FRAGMENT) \
+  (DECL_CHECK (DECL)->decl.defining_fragment = (tree) (FRAGMENT))
+
 struct function;
 
 struct tree_decl GTY(())
@@ -1721,6 +1725,27 @@ struct tree_decl GTY(())
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
+
+/* This contains language-specific information correspodniong to
+   a given cpp_fragment. */
+
+struct c_include_fragment GTY(())
+{
+  struct tree_common common;
+  const char *name;
+  /* Value of c_timestamp when this fragment was last read (parsed). */
+  int read_timestamp;
+  /* Value of c_timestamp when this fragment was last logically included. */
+  int include_timestamp;
+  /* True if a declaration in this fragmemt was used in current_c_fragment. */
+  unsigned used_in_current : 1;
+  unsigned valid : 1;
+  /* A TREE_VEC whose members are other c_include_fragments.  An element is in
+    uses_fragments iff the current fragments uses (references) a declartion
+    in that element. */
+  tree uses_fragments;
+  tree bindings;
+};
 
 enum tree_node_structure_enum {
   TS_COMMON,
@@ -1736,6 +1761,7 @@ enum tree_node_structure_enum {
   TS_VEC,
   TS_EXP,
   TS_BLOCK,
+  TS_FRAGMENT,
   LAST_TS_ENUM
 };
 
@@ -1759,6 +1785,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
+  struct c_include_fragment GTY ((tag ("TS_FRAGMENT"))) fragment;
  };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -2817,6 +2844,7 @@ extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
+extern int get_next_decl_uid (void);
 
 extern int real_onep (tree);
 extern int real_twop (tree);

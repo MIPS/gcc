@@ -1,3 +1,125 @@
+2003-09-29  Mike Stump  <mrs@apple.com>
+
+	* toplev.c (server_loop): Add load balancing server front end.
+	(get_request_from_load_balancer): Add.
+	(get_job): Add.
+	(send_fd): Add.
+
+	* toplev.c (get_fd): Fix typo.
+
+	* objc/lang-specs.h: Don't include -server in name.
+
+	* toplev.c (server_loop): Add multiple CPU, multiple server support.
+
+	* gcc.c (get_server_socket): Get an ACK from the server on session start.
+	(delete_temp_files): Don't use global server_socket.
+
+	* toplev.c (server_loop): Listen for one client at a time.  Write
+	an ACK to the client on session bring up.  Used to delay pipeline
+	processing until the server commits to servicing us.
+
+	* gcc.c (get_server_socket): Arrange to close server socket on exec.
+
+	* tree.c (get_next_decl_uid): Add.
+	* tree.h (get_next_decl_uid): Add.
+
+	* toplev.c (do_compile): Add output fragment so that different
+	translation units can have different builtins.
+	(server_loop): Quit the server when we encouter errors.
+
+	* langhooks.h (struct lang_hooks): Add uses_conditional_symtab,
+	init_output_fragment, create_output_fragment,
+	end_output_fragment): Add.
+	* langhooks-def.h (LANG_HOOKS_USES_CONDITIONAL_SYMTAB): Add.
+	(LANG_HOOKS_INIT_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_CREATE_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_END_OUTPUT_FRAGMENT): Add.
+
+	* expr.c (expand_expr): Hack around hard error for now...
+
+	* dbxout.c (dbxout_init): Manage debugging information across
+	multiple translation units.  We use different files for each
+	translation unit.
+
+	* cppfiles.c (stack_file): Create fragments more often for C++, as
+	they are the only way to turn off definitions and macros.
+	(read_file_guts): Likewise.
+
+	* toplev.c (server_loop): Remove output from server channel, use a
+	single byte to indicate exit status.
+	* gcc.c: Add hadling for --kill-servercp.
+	(delete_temp_files): Likewise.
+	(pexecute_server_wait): Add.
+	(pexecute_server): Add.  Split out from execute and add support
+	for piping.
+	(execute): Add support for arbitrarily many servers, and add
+	support for piping by splitting out waiting from starting jobs.
+	(process_command): Remove disabling of -pipe when compile servers
+	are used, it now works.  Fix --kill-server and -kill-server so
+	that they work.
+	(write_switch_fds_request): Add support for piping.
+	(main): Allow --kill-server{,cp} to not have input files.
+
+	* config/darwin.h (FIXPROTO_IGNORE_LIST): Add.
+
+	* c-objc-common.c (init_c_objc_common_once): Remove redundant
+	setting of do_note_macros.
+
+	* c-common.c (c_tree_size): Add.
+	(dont_defeat_good_checking): Add.
+	(cb_enter_fragment): Don't alter timestamp of a reused fragment,
+	as decls in the symbol table of a conditional symbol table
+	language still refer to the old fragment, and need to not have
+	their timestamp changed.  Chain together fragments for the same
+	cpp_fragment so that we can reuse them later.  Add more verbose
+	debugging output.  Temporarily reuse fragments rather than
+	reparsing them.
+	(output_c_fragment): Add.
+	(output_fragment): Add.
+	(create_output_fragment): Add.
+	(end_output_fragment): Add.
+	(init_output_fragment): Add.
+	(activate_output_fragment): Add.
+	(c_print_decl): Add.
+	* c-common.h (c_tree_size): Add.
+	(DECL_FRAGMENTT): Add.
+	(init_output_fragment): Add.
+	(create_output_fragment): Add.
+	(end_output_fragment): Add.
+	(activate_output_fragment): Add.
+	(c_print_decl): Add.
+	* c-lang.c (LANG_HOOKS_TREE_SIZE): Add.
+	(LANG_HOOKS_PRINT_DECL): Add.
+	(LANG_HOOKS_INIT_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_CREATE_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_END_OUTPUT_FRAGMENT): Add.
+
+	* c-common.h (SET_DECL_FRAGMENT): To ensure we always set the
+	defining fragment for created decls, move ...
+	* tree.h (SET_DECL_FRAGMENT): ... to here.
+	* tree.c (build_decl): Set the fragment for conditional symbol
+	table languages.
+	
+	Allow for improved garbage collection of include_fragments.
+
+	* tree.c (tree_node_structure): Handle INCLUDE_FRAGMENTs.
+	* c-common.c (current_c_fragment): Move ...
+	* tree.c (current_c_fragment): ... to here.
+	* c-common.c (alloc_include_fragment): Move ...
+	* c-common.h (current_c_fragment): ... to here.
+	* c-common.def (INCLUDE_FRAGMENT): Move ...
+	* tree.def (INCLUDE_FRAGMENT): ... to here.
+	* c-common.h (struct c_include_fragment): Move ...
+	* tree.h (struct c_include_fragment): ... to here.
+	(enum tree_node_structure): Add TS_FRAGMENT.
+	(union tree_node): Add fragment.
+	
+	* toplev.c (server_loop): Use stderr instead of the socket for output.
+	* gcc.c (execute): If the compile server fails to write out a
+	return code, set rcode to 1 so that the compile will fail.  Remove
+	extra code to handle output, as now we write to the output
+	directly.
+
 2003-09-26  Per Bothner  <pbothner@apple.com>
 
 	* dbxout.c (dbxout_typedefs):  Output typedefs in forward order.

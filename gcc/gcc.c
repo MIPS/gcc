@@ -233,6 +233,7 @@ static int use_pipes;
 #ifdef ENABLE_SERVER
 static int use_server;
 static int kill_server;
+static int kill_servercp;
 #endif
 
 struct infile
@@ -370,12 +371,10 @@ static void alloc_args (void);
 static void clear_args (void);
 static void fatal_error (int);
 #ifdef ENABLE_SERVER
-static int server_socket = -1;
-static const char *server_socket_name = NULL;
-static int get_server_socket (const char *);
+static int get_server_socket (const char *, bool);
 static void write_input_request (const char *, int, int);
 static void write_input_requests (int);
-static void write_switch_fds_request (int);
+static void write_switch_fds_request (int, int, int);
 static void write_output_request (const char *, int);
 #endif
 #ifdef ENABLE_SHARED_LIBGCC
@@ -1067,6 +1066,7 @@ static const struct option_map option_map[] =
    {"--include-with-prefix-before", "-iwithprefixbefore", "a"},
    {"--include-with-prefix-after", "-iwithprefix", "a"},
    {"--kill-server", "-kill-server", 0},
+   {"--kill-server", "-kill-servercp", 0},
    {"--language", "-x", "a"},
    {"--library-directory", "-L", "a"},
    {"--machine", "-m", "aj"},
@@ -2281,22 +2281,32 @@ delete_if_ordinary (const char *name)
 static void
 delete_temp_files (void)
 {
-  struct temp_file *temp;
+  int sock;
 
-  for (temp = always_delete_queue; temp; temp = temp->next)
-    delete_if_ordinary (temp->name);
-  always_delete_queue = 0;
+  for (; always_delete_queue; always_delete_queue = always_delete_queue->next)
+    delete_if_ordinary (always_delete_queue->name);
 
 #ifdef ENABLE_SERVER
   if (kill_server)
     {
       static char kill_request[5] = "T'0'\n";
-      get_server_socket (".cc1-server"); /* FIXME */
-      if (write (server_socket, kill_request, 5) != 5)
+      kill_server = 0;
+      sock = get_server_socket ("cc1", true); /* FIXME */
+      if (write (sock, kill_request, 5) != 5)
 	pfatal_with_name ("(socket write)");
     }
-  if (server_socket >= 0)
-    close (server_socket);
+  if (sock >= 0)
+    close (sock);
+  if (kill_servercp)
+    {
+      static char kill_request[5] = "T'0'\n";
+      kill_servercp = 0;
+      sock = get_server_socket ("cc1plus", true); /* FIXME */
+      if (write (sock, kill_request, 5) != 5)
+	pfatal_with_name ("(socket write)");
+    }
+  if (sock >= 0)
+    close (sock);
 #endif
 }
 
@@ -2646,6 +2656,113 @@ add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
 	      require_machine_suffix, warn, os_multilib);
 }
 
+#ifdef ENABLE_SERVER
+#define STDIN_FILE_NO 0
+#define STDOUT_FILE_NO 1
+#define READ_PORT 0
+#define WRITE_PORT 1
+
+int pexecute_server_wait (int);
+
+/* Return a wait style status.  */
+
+int
+pexecute_server_wait (int sock)
+{
+  unsigned char buf[1];
+
+  if (read (sock, buf, sizeof (buf)) == 1)
+    {
+      fprintf (stderr, "(got %d from server)\n", buf[0]);
+      close (sock);
+      return W_EXITCODE (buf[0], 0);
+    }
+
+  fprintf (stderr, "(no exist code from server! BAD)\n");
+  close (sock);
+
+  /* If we miss the return code, assume it failed.  */
+  return W_EXITCODE (MIN_FATAL_STATUS, 0);
+}
+
+int
+pexecute_server (const char *string,
+		 const char **argv,
+		 int *server_socketp,
+		 char **errmsg_fmt,
+		 char **errmsg_arg,
+		 int flags);
+
+/* Execute a command on the server.  */
+
+int
+pexecute_server (const char *string,
+		 const char **argv,
+		 int *server_socketp,
+		 char **errmsg_fmt,
+		 char **errmsg_arg,
+		 int flags)
+{
+  int sock = get_server_socket (string, false);
+  int pdes[2];
+  const char *asm_name = "-";
+  void *base;
+  int argc, j, wlen, input_desc, output_desc;
+
+  for (argc = 0; argv[argc] != NULL; argc++)
+    ;
+
+  if (flags & PEXECUTE_FIRST)
+    set_last_pipe_input (STDIN_FILE_NO);
+  input_desc = get_last_pipe_input ();
+  
+  if (! (flags & PEXECUTE_LAST))
+    {
+      if (pipe (pdes) < 0)
+	{
+	  *errmsg_fmt = (char *)"pipe";
+	  *errmsg_arg = NULL;
+	  return -1;
+	}
+      output_desc = pdes[WRITE_PORT];
+      set_last_pipe_input (pdes[READ_PORT]);
+    }
+  else
+    {
+      output_desc = STDOUT_FILE_NO;
+      set_last_pipe_input (STDIN_FILE_NO);
+    }
+
+  write_switch_fds_request (sock, input_desc, output_desc);
+
+  /* Send flags to server. */
+  obstack_1grow (&obstack, 'F');
+  for (j = 1;  j < argc;  j++)
+    {
+      const char *arg = argv[j];
+      if (strcmp (arg, "-o") == 0 && j+1 < argc)
+	{
+	  asm_name = argv[j+1];
+	  ++j;
+	  continue;
+	}
+      obstack_1grow (&obstack, '\000');
+      obstack_grow (&obstack, arg, strlen (arg) + 1);
+    }
+  obstack_1grow (&obstack, '\n');
+  base = obstack_base (&obstack);
+  wlen = obstack_object_size (&obstack);
+  if (write (sock, base, wlen) != wlen)
+    pfatal_with_name ("(socket write)");
+  obstack_free (&obstack, base);
+
+  write_input_requests (sock);
+  write_output_request (asm_name, sock);
+  *server_socketp = sock;
+  return 0;
+}
+#endif
+
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
    with `|' between them.
@@ -2656,17 +2773,18 @@ static int
 execute (void)
 {
   int i;
-  int n_commands;		/* # of command.  */
+  int n_commands;	/* # of command.  */
   char *string;
   int ret_code = 0;
   struct command
   {
-    const char *prog;		/* program name.  */
-    const char **argv;		/* vector of args.  */
-    int pid;			/* pid of process for this command.  */
+    const char *prog;	/* program name.  */
+    const char **argv;	/* vector of args.  */
+    int pid;		/* pid of process for this command, -1 for servers.  */
+    int server_socket;	/* server fd, else -1.  */
   };
 
-  struct command *commands;	/* each command buffer with above info.  */
+  struct command *commands; /* each command buffer with above info.  */
 
   if (processing_spec_function)
     abort ();
@@ -2794,80 +2912,23 @@ execute (void)
     {
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
+      static int server_pid = 0;
 
+      commands[i].server_socket = -1;
 #ifdef ENABLE_SERVER
       if (use_server && string[0] == '@' && string[1] == '.')
 	{
-	  int sock = get_server_socket (string + 1);
-	  char buf[1024];
-	  const char *asm_name = "-";
-	  int argc;
-	  int n_read;
-	  int rcode = 0;
-	  void *base;
-	  int wlen;
+	  if (pexecute_server (string + 2,
+			       commands[i].argv,
+			       &commands[i].server_socket,
+			       &errmsg_fmt, &errmsg_arg,
+			       ((i == 0) ? PEXECUTE_FIRST : 0)
+			       | (i + 1 == n_commands ? PEXECUTE_LAST : 0)
+			       | (verbose_flag ? PEXECUTE_VERBOSE : 0)))
+	    ret_code = -1;
 
-	  for (argc = 0; commands[i].argv[argc] != NULL; argc++) ;
-	  write_switch_fds_request (sock);
-
-	  { /* Send flags to server. */
-	    int j;
-	    obstack_1grow (&obstack, 'F');
-	    for (j = 1;  j < argc;  j++)
-	      {
-		char *arg = commands[i].argv[j];
-		if (strcmp (arg, "-o") == 0 && j+1 < argc)
-		  {
-		    asm_name = commands[i].argv[j+1];
-		    ++j;
-		    continue;
-		  }
-		obstack_1grow (&obstack, '\000');
-		obstack_grow (&obstack, arg, strlen (arg) + 1);
-	      }
-	    obstack_1grow (&obstack, '\n');
-	    base = obstack_base (&obstack);
-	    wlen = obstack_object_size (&obstack);
-	    if (write (sock, base, wlen) != wlen)
-	      pfatal_with_name ("(socket write)");
-	    obstack_free (&obstack, base);
-	  }
-
-	  write_input_requests (sock);
-	  write_output_request (asm_name, sock);
-	  for (;;)
-	    {
-	      int j;
-	      n_read = read (sock, buf, sizeof(buf));
-	      if (n_read <= 0)
-		break; /* FIXME */
-	      for (j = 0;  j < n_read;  j++)
-		{
-		  char c = buf[j];
-		  if (c == 1)
-		    {
-		      j++;
-		      if (j == n_read)
-			{
-			  n_read = read (sock, buf, 1);
-			  j = 0;
-			}
-		      rcode = buf[j];
-		      goto close_socket;
-		    }
-		  putc (c, stderr);
-		}
-	    }
-	close_socket:
-	  /*close (sock);*/
-	  fprintf (stderr, "server's return code: %d\n", rcode);
-	  if (rcode >= MIN_FATAL_STATUS)
-	    {
-	      if (rcode > greatest_status)
-		greatest_status = rcode;
-	      ret_code = -1;
-	    }
-	  commands[i].pid = -1;
+	  /* We allocate negative ids to server processes.  */
+	  commands[i].pid = --server_pid;
 	}
       else
 #endif
@@ -2912,16 +2973,15 @@ execute (void)
 	int pid = commands[i].pid;;
 
 #ifdef ENABLE_SERVER
-	if (pid == -1)
-	  {
-	    i++;
-	    continue;
-	  }
+	if (pid < 0 && commands[i].server_socket > -1)
+	  status = pexecute_server_wait (commands[i].server_socket);
+	else
 #endif
-
-	pid = pwait (pid, &status, 0);
-	if (pid < 0)
-	  abort ();
+	  {
+	    pid = pwait (pid, &status, 0);
+	    if (pid < 0)
+	      abort ();
+	  }
 
 #ifdef HAVE_GETRUSAGE
 	if (report_times)
@@ -3647,9 +3707,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	{
 	  /* -pipe has to go into the switches array as well as
 	     setting a flag.  */
-	  /* -pipe doesn't work with server yet.  */
-	  if (use_server == 0)
-	    use_pipes = 1;
+	  use_pipes = 1;
 	  n_switches++;
 	}
 #ifdef ENABLE_SERVER
@@ -3658,9 +3716,16 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  use_server = 1;
 	  n_switches++;
 	}
-      else if (strcmp (argv[i], "-kill-server") == 0)
+      else if (strcmp (argv[i], "-kill-server") == 0
+	       || strcmp (argv[i], "-fkill-server") == 0)
 	{
 	  kill_server = 1;
+	  n_switches++;
+	}
+      else if (strcmp (argv[i], "-kill-servercp") == 0
+	       || strcmp (argv[i], "-fkill-servercp") == 0)
+	{
+	  kill_servercp = 1;
 	  n_switches++;
 	}
 #endif
@@ -3864,7 +3929,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
   combine_inputs = (have_c && have_o && lang_n_infiles > 1);
 
-  if ((save_temps_flag || report_times || use_server) && use_pipes)
+  if ((save_temps_flag || report_times) && use_pipes)
     {
       /* -save-temps overrides -pipe, so that temp files are produced */
       if (save_temps_flag)
@@ -4012,8 +4077,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-ftarget-help"))
 	;
-      else if (! strcmp (argv[i], "-fkill-server"))
-	switches[n_switches++].validated = 1;
       else if (! strcmp (argv[i], "-fhelp"))
 	;
       else if (argv[i][0] == '+' && argv[i][1] == 'e')
@@ -4077,6 +4140,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strncmp (argv[i], "-specs=", 7) == 0)
 	;
       else if (strcmp (argv[i], "-time") == 0)
+	;
+      else if (strcmp (argv[i], "-kill-server") == 0)
+	;
+      else if (strcmp (argv[i], "-fkill-server") == 0)
+	;
+      else if (strcmp (argv[i], "-kill-servercp") == 0)
+	;
+      else if (strcmp (argv[i], "-fkill-servercp") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
 	;
@@ -5797,42 +5868,48 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
 }
 
 #ifdef ENABLE_SERVER
+/* Contact a compile server.  If loadbalancer is true, then contact
+   the load balancer instead.  */
+
 static int
-get_server_socket (const char *socket_name)
+get_server_socket (const char *prog, bool loadbalancer)
 {
   struct sockaddr_un server;
-  if (server_socket >= 0
-      && server_socket_name != NULL
-      && strcmp (server_socket_name, socket_name) != 0)
-    {
-      free ((PTR) server_socket_name);
-      server_socket_name = NULL;
-      close (server_socket);
-      server_socket = -1;
-    }
-  if (server_socket < 0)
-    {
-      server_socket = socket (AF_UNIX, SOCK_STREAM, 0);
-      if (server_socket < 0)
-	fatal ("can't create socket");
-      server.sun_family = AF_UNIX;
-      fprintf (stderr, "created socket: %d path:%s max:%d\n", server_socket,
-	      socket_name, (int) sizeof(server.sun_path));
-      sprintf (server.sun_path, "%.*s", (int) sizeof (server.sun_path)-1,
-	      socket_name);
-      server_socket_name = xstrdup (socket_name);
+  char buf[1];
+  int sock;
 
-      if (connect (server_socket, (struct sockaddr *) &server, sizeof(struct sockaddr_un)) < 0)
-	{
+  sock = socket (AF_UNIX, SOCK_STREAM, 0);
+  if (sock < 0)
+    pfatal_with_name ("can't create socket");
+  server.sun_family = AF_UNIX;
+  sprintf (server.sun_path, ".%s-server", prog);
+
+  if (connect (sock,
+	       (struct sockaddr *) &server,
+	       sizeof(struct sockaddr_un)) < 0)
+    {
 #if 0
-	  ... try starting server ...;
+      ... try starting server ...;
 #endif
-	  close (server_socket);
-	  perror ("connecting stream socket");
-	  exit (1);
-	}
+      close (sock);
+      pfatal_with_name ("connecting stream socket");
     }
-  return server_socket;
+  if (loadbalancer)
+    buf[0] = 'L';
+  else
+    buf[0] = 'C';
+  if (write (sock, buf, 1) != 1)
+    pfatal_with_name ("write");
+  if (read (sock, buf, 1) != 1
+      || buf[0] != 42)
+    {
+      pfatal_with_name ("read");
+    }
+  if (fcntl (sock, F_SETFD, FD_CLOEXEC) == -1)
+    {
+      pfatal_with_name ("fcntl of server socket");
+    }
+  return sock;
 }
 
 static void
@@ -5845,6 +5922,8 @@ write_input_request (const char *filename, int filename_length, int fd)
   obstack_grow (&obstack, "\000\n", 2);
   base = obstack_base (&obstack);
   wlen = obstack_object_size (&obstack);
+  if (((char*)base)[0] == 0)
+    pfatal_with_name ("bad write, was 0");
   if (write (fd, base, wlen) != wlen)
     pfatal_with_name ("(socket write)");
   obstack_free (&obstack, base);
@@ -5890,11 +5969,11 @@ send_fd (int fd, int sock)
   char controlmsg[CMSG_SPACE(sizeof (fd))];
   struct cmsghdr *cmsg;
   struct iovec vec;
-  char *str = "x";
+  const char *str = "x";
   
   msg.msg_name = 0;
   msg.msg_namelen = 0;
-  vec.iov_base = str;
+  vec.iov_base = (char *)str;
   vec.iov_len = 1;
   msg.msg_iov = &vec;
   msg.msg_iovlen = 1;
@@ -5913,14 +5992,28 @@ send_fd (int fd, int sock)
 }
 
 static void
-write_switch_fds_request (int sock)
+xread (int fd, char *buf, size_t len)
 {
-  static char req[2] = "D\n";
-  if (write (sock, req, 2) != 2)
+  if ((size_t)read (fd, buf, len) != len)
+    pfatal_with_name ("read");
+}
+
+static void
+write_switch_fds_request (int sock, int input_desc, int output_desc)
+{
+  char buf[1];
+  if (write (sock, "D\n", 2) != 2)
     pfatal_with_name ("(socket write)");
-  send_fd (0, sock);
-  send_fd (1, sock);
+  xread (sock, buf, 1);
+  if (buf[0] != 'G')
+    pfatal_with_name ("nope");
+  send_fd (input_desc, sock);
+  send_fd (output_desc, sock);
   send_fd (2, sock);
+  if (input_desc != STDIN_FILE_NO)
+    close (input_desc);
+  if (output_desc != STDOUT_FILE_NO)
+    close (output_desc);
 }
 #endif
 
@@ -6562,7 +6655,8 @@ main (int argc, const char *const *argv)
 	return (0);
     }
 
-  if (n_infiles == added_libraries)
+  if (n_infiles == added_libraries
+      && !(kill_servercp || kill_server))
     fatal ("no input files");
 
   /* Make a place to record the compiler output file names

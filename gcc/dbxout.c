@@ -177,7 +177,7 @@ static GTY(()) int typevec_len;
    This is the number for the next type output.
    The number, once assigned, is in the TYPE_SYMTAB_ADDRESS field.  */
 
-static GTY(()) int next_type_number;
+static GTY(()) int next_type_number = 1;
 
 enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
 
@@ -458,8 +458,11 @@ dbxout_init (const char *input_file_name)
 
   asmfile = asm_out_file;
 
-  typevec_len = 100;
-  typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
+  if (typevec_len == 0)
+    {
+      typevec_len = 100;
+      typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
+    }
 
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
@@ -511,14 +514,11 @@ dbxout_init (const char *input_file_name)
 
   base_input_file = lastfile = input_file_name;
 
-  next_type_number = 1;
-
 #ifdef DBX_USE_BINCL
   current_file = ggc_alloc (sizeof *current_file);
   current_file->next = NULL;
-  current_file->file_number = 0;
-  current_file->next_type_number = 1;
-  next_file_number = 1;
+  current_file->file_number = next_file_number++;
+  current_file->next_type_number = next_type_number;
   current_file->prev = NULL;
   current_file->bincl_status = BINCL_NOT_REQUIRED;
   current_file->pending_bincl_name = NULL;

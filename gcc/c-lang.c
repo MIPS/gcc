@@ -41,6 +41,8 @@ enum c_language_kind c_language = clk_c;
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
+#undef LANG_HOOKS_TREE_SIZE
+#define LANG_HOOKS_TREE_SIZE c_tree_size
 #undef LANG_HOOKS_INIT_ONCE
 #define LANG_HOOKS_INIT_ONCE init_c_objc_common_once
 #undef LANG_HOOKS_INIT
@@ -85,12 +87,20 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL c_warn_unused_global_decl
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER c_print_identifier
+#undef LANG_HOOKS_PRINT_DECL
+#define LANG_HOOKS_PRINT_DECL c_print_decl
 #undef LANG_HOOKS_FUNCTION_ENTER_NESTED
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
 #undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
+#undef LANG_HOOKS_INIT_OUTPUT_FRAGMENT
+#define LANG_HOOKS_INIT_OUTPUT_FRAGMENT init_output_fragment
+#undef LANG_HOOKS_CREATE_OUTPUT_FRAGMENT
+#define LANG_HOOKS_CREATE_OUTPUT_FRAGMENT create_output_fragment
+#undef LANG_HOOKS_END_OUTPUT_FRAGMENT
+#define LANG_HOOKS_END_OUTPUT_FRAGMENT end_output_fragment
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

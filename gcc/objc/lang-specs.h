@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 	%{save-temps|no-integrated-cpp:cc1obj -E %(cpp_options) -o %{save-temps:%b.mi} %{!save-temps:%g.mi} \n\
 	    cc1obj -fpreprocessed %{save-temps:%b.mi} %{!save-temps:%g.mi} %(cc1_options) %{gen-decls}}\
 	%{!save-temps:%{!no-integrated-cpp:\
-	    %{!server:cc1obj} %{server:@.cc1obj-server} %(cpp_unique_options) %(cc1_options) %{gen-decls}}}\
+	    %{!server:cc1obj} %{server:@.cc1obj} %(cpp_unique_options) %(cc1_options) %{gen-decls}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {".mi", "@objc-cpp-output", 0},
   {"@objc-cpp-output",

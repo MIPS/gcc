@@ -178,38 +178,20 @@ struct c_common_identifier GTY(())
   struct cpp_hashnode node;
 };
 
+extern size_t c_tree_size (enum tree_code code);
+
 /* Get the fragment that contains the definition of DECL. */
 #define DECL_FRAGMENT(DECL) \
   ((struct c_include_fragment *) DECL_CHECK (DECL)->decl.defining_fragment)
 
-/* Set the fragment that contains the definition of DECL. */
-#define SET_DECL_FRAGMENT(DECL, FRAGMENT) \
-  (DECL_CHECK (DECL)->decl.defining_fragment = (tree) (FRAGMENT))
+/* We hsould convert uses of the above, into the below and remove the
+   above and rename.  */
+#define DECL_FRAGMENTT(DECL) \
+  (DECL_CHECK (DECL)->decl.defining_fragment)
 
 /* Get the c_include_fragment corresponding to a cpp_fragment. */
 #define C_FRAGMENT(FRAG) \
   (* (struct c_include_fragment **) &(FRAG)->start_marker)
-
-/* This contaisn language-specific information correspodniong to
-   a given cpp_fragment. */
-
-struct c_include_fragment GTY(())
-{
-  struct tree_common common;
-  const char *name;
-  /* Value of c_timestamp when this fragment was last read (parsed). */
-  int read_timestamp;
-  /* Value of c_timestamp when this fragment was last logically included. */
-  int include_timestamp;
-  /* True if a declaration in this fragmemt was used in current_c_fragment. */
-  unsigned used_in_current : 1;
-  unsigned valid : 1;
-  /* A TREE_VEC whose members are other c_include_fragments.  An element is in
-    uses_fragments iff the current fragments uses (references) a declartion
-    in that element. */
-  tree uses_fragments;
-  tree bindings;
-};
 
 extern int main_timestamp;
 extern int c_timestamp;
@@ -220,7 +202,6 @@ extern int currently_nested;
 
 extern void restore_fragment (cpp_fragment *);
 extern void register_decl_dependency (tree);
-extern struct c_include_fragment * alloc_include_fragment (void);
 extern void reset_hashnode (cpp_hashnode*);
 extern void reset_cpp_hashnodes (void);
 extern int lang_clear_identifier (cpp_reader*, cpp_hashnode*, void*);
@@ -240,6 +221,12 @@ extern void process_undo_buffer (void);
 extern tree save_fragment_bindings (void);
 extern bool cb_enter_fragment (cpp_reader*, cpp_fragment*, const char*, int);
 extern void cb_exit_fragment (cpp_reader*, cpp_fragment*);
+void init_output_fragment (void);
+extern void create_output_fragment (void);
+extern void end_output_fragment (void);
+extern void activate_output_fragment (void);
+extern void c_print_decl (FILE *, tree, int);
+
 
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
@@ -1359,5 +1346,13 @@ extern int c_estimate_num_insns (tree decl);
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
+
+static inline struct c_include_fragment *alloc_include_fragment (void);
+
+static inline struct c_include_fragment *
+alloc_include_fragment ()
+{
+  return (struct c_include_fragment *) make_node (INCLUDE_FRAGMENT);
+}
 
 #endif /* ! GCC_C_COMMON_H */

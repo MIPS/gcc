@@ -79,6 +79,9 @@ static GTY(()) int next_decl_uid;
 /* Unique id for next type created.  */
 static GTY(()) int next_type_uid = 1;
 
+/* The c_include_fragment for the fragment we're currently parsing. */
+struct c_include_fragment *current_c_fragment;
+
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
@@ -123,6 +126,12 @@ init_ttree (void)
 }
 
 
+int
+get_next_decl_uid ()
+{
+  return next_decl_uid;
+}
+
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
@@ -1497,6 +1506,7 @@ tree_node_structure (tree t)
     case TREE_LIST:		return TS_LIST;
     case TREE_VEC:		return TS_VEC;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
+    case INCLUDE_FRAGMENT:	return TS_FRAGMENT;
 
     default:
       abort ();
@@ -2517,6 +2527,9 @@ build_decl (enum tree_code code, tree name, tree type)
     layout_decl (t, 0);
   else if (code == FUNCTION_DECL)
     DECL_MODE (t) = FUNCTION_MODE;
+
+  if (lang_hooks.uses_conditional_symtab)
+    SET_DECL_FRAGMENT (t, current_c_fragment);
 
   return t;
 }

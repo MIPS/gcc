@@ -6733,6 +6733,14 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case PARM_DECL:
       if (!DECL_RTL_SET_P (exp))
 	{
+	  /* Hack around for hard bug...  FIXME */
+	  if (server_mode == 2)
+	    {
+	      warning ("%Hprior parameter's size depends on '%D'",
+		       &DECL_SOURCE_LOCATION (exp), exp);
+	      return CONST0_RTX (mode);
+	    }
+	  
 	  error ("%Hprior parameter's size depends on '%D'",
                  &DECL_SOURCE_LOCATION (exp), exp);
 	  return CONST0_RTX (mode);

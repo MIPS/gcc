@@ -4151,21 +4151,31 @@ boolean_increment (enum tree_code code, tree arg)
   TREE_SIDE_EFFECTS (val) = 1;
   return val;
 }
+
+/* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */
+size_t
+c_tree_size (enum tree_code code)
+{
+  switch (code)
+    {
+    case INCLUDE_FRAGMENT:  return sizeof (struct c_include_fragment);
+    default:
+      abort ();
+    }
+  /* NOTREACHED */
+}
 
 /* A stack of include fragments that are used by current_c_fragment
    or other not-yet popped headers.  The ones in current_c_fragment
-   are whose at index from 0    to current_fragment_deps_end (exclusive). */
+   are whose at index from 0 to current_fragment_deps_end (exclusive). */
 static GTY (()) tree current_fragment_deps_stack;
 /* The number of elements in current_include_deps_stack that are in use. */
 static int current_fragment_deps_end;
 
-/* The c_include_fragmet for the fragment we're currently parsing. */
-struct c_include_fragment *current_c_fragment;
-
 /* Special pseudo-fragment providing the <built-in> declarations. */
 struct cpp_fragment *builtins_fragment;
 
-/* The c_include_frgment corresponding to builtins_fragment.
+/* The c_include_fragment corresponding to builtins_fragment.
    Equivalent to C_FRAGMENT (builtins_fragment), but we need this for gc. */
 struct c_include_fragment *builtins_c_fragment;
 
@@ -4377,16 +4387,6 @@ int c_timestamp;
 /* Inside an incomplete enum, for example. */
 int currently_nested;
 
-struct c_include_fragment *
-alloc_include_fragment ()
-{
-  int length = sizeof (struct c_include_fragment);
-  tree t = ggc_alloc_tree (length);
-  memset ((PTR) t, 0, length);
-  TREE_SET_CODE (t, INCLUDE_FRAGMENT);
-  return (struct c_include_fragment *) t;
-}
-
 void
 reset_hashnode (node)
      cpp_hashnode *node;
@@ -4422,13 +4422,25 @@ restore_fragment (cpp_fragment *fragment)
   restore_fragment_bindings (C_FRAGMENT (fragment)->bindings);
 }
 
+/* FIXME - This is to work around header file bugs that prevent good
+   timing of Finder_FE_v3.  Remove for production use and replace with
+   true.  */
+
+static inline bool
+dont_defeat_good_checking (void);
+static inline bool
+dont_defeat_good_checking ()
+{
+  return !lang_hooks.uses_conditional_symtab;
+}
+
+#define warn_fragment_invalidation (! quiet_flag)
+
 /* Called from cpp at the start of a new fragment.
    Check if the fragment has been seen before and we can re-use the
    previously-seen bindings.  If so restore them and return true
    (so cpp can skip to the end of the fragment).  Otherwise, sets things
    up so we can remember new bindings as we see them. */
-
-#define warn_fragment_invalidation (! quiet_flag)
 
 bool
 cb_enter_fragment (reader, fragment, name, line)
@@ -4438,12 +4450,15 @@ cb_enter_fragment (reader, fragment, name, line)
      int line;
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
-  bool valid;
+  bool valid = 0;
   if (st == NULL)
     {
-      st = alloc_include_fragment ();
-      st->name = name;
-      st->valid = valid = 0;
+      if (!lang_hooks.uses_conditional_symtab)
+	{
+	  st = alloc_include_fragment ();
+	  st->name = name;
+	  st->valid = 0;
+	}
     }
   else
     {
@@ -4457,7 +4472,9 @@ cb_enter_fragment (reader, fragment, name, line)
 	    warning ("invalidating cached fragment %s:%d because inside declaration", name, line);
 	}
 
-      if (st->include_timestamp >= main_timestamp && valid)
+      if (st->include_timestamp >= main_timestamp
+	  && valid
+	  && dont_defeat_good_checking ())
 	{
 	  /* This fragment has already been included for this main file.
 	     Perhaps there are missing header guards.  Easiest way to get
@@ -4465,6 +4482,18 @@ cb_enter_fragment (reader, fragment, name, line)
 	  valid = 0;
 	  if (warn_fragment_invalidation)
 	    warning ("invalidating cached fragment %s:%d because already included", name, line);
+	}
+
+      if (warn_fragment_invalidation)
+	{
+	  if (! st->valid)
+	    fprintf (stderr, "(invalidating cached fragment %s:%d as base frag invalid)\n", name, line);
+	  else if (! (st->include_timestamp < main_timestamp)
+		   && ! lang_hooks.uses_conditional_symtab)
+	    fprintf (stderr, "(invalidating cached fragment %s:%d as include %d out of date wrt mainfile %d)\n",
+		     name, line, st->include_timestamp, main_timestamp);
+	  else if (! ! currently_nested)
+	    fprintf (stderr, "(invalidating cached fragment %s:%d as it's nested)\n", name, line);
 	}
 
       if (valid)
@@ -4480,13 +4509,25 @@ cb_enter_fragment (reader, fragment, name, line)
 		 On the other hand if USES has been re-read more recently than ST
 		 it presumably was because USES was invalid, which means the
 		 remembered definitions of ST are also invalid. */
-	      if (uses->include_timestamp < main_timestamp
+	      if ((uses->include_timestamp < main_timestamp
+		   && dont_defeat_good_checking ())
 		  || uses->read_timestamp == 0
 		  || uses->read_timestamp > st->read_timestamp)
 		{
 		  valid = 0;
-	  if (warn_fragment_invalidation)
-	    warning ("invalidating cached fragment %s:%d because of %s", name, line, uses->name);
+		  if (warn_fragment_invalidation)
+		    {
+		      if (uses->include_timestamp < main_timestamp
+			  && ! lang_hooks.uses_conditional_symtab)
+			fprintf (stderr, "(invalidating cached fragment %s:%d as uses out of date wrt mainfile)\n", name, line);
+		      else if (uses->read_timestamp == 0)
+			fprintf (stderr, "(invalidating cached fragment %s:%d as it's unread)\n",
+				 name, line);
+		      else if (uses->read_timestamp > st->read_timestamp)
+			fprintf (stderr, "(invalidating cached fragment %s:%d as uses reread)\n", name, line);
+		    }
+		  if (warn_fragment_invalidation)
+		    warning ("invalidating cached fragment %s:%d because of %s", name, line, uses->name);
 		  break;
 		}
 	    }
@@ -4498,15 +4539,25 @@ cb_enter_fragment (reader, fragment, name, line)
 	}
       else
 	{
-	  if (! quiet_flag)
+	  if (warn_fragment_invalidation)
 	    fprintf (stderr, "(reusing cached fragment %s:%d)\n", name, line);
 	  restore_fragment (fragment);
 	}
     }
-  st->include_timestamp = ++c_timestamp;
+  if (! lang_hooks.uses_conditional_symtab)
+    st->include_timestamp = ++c_timestamp;
   if (! valid)
     {
-      st->read_timestamp = 0;
+      if (lang_hooks.uses_conditional_symtab)
+	{
+	  st = alloc_include_fragment ();
+	  st->name = name;
+	  st->valid = 0;
+	  st->include_timestamp = ++c_timestamp;
+	  /* Save other fragments so we can reuse them.  */
+	  TREE_CHAIN (st) = (tree)C_FRAGMENT (fragment);
+	  C_FRAGMENT (fragment) = st;
+	}
       st->uses_fragments = NULL_TREE;
       st->bindings = NULL_TREE;
       /*st->used_in_current = 0;*/
@@ -4607,6 +4658,74 @@ cb_exit_fragment (reader, fragment)
 	  current_fragment_deps_start, current_fragment_deps_end, st->name,
 	  (st ? "non-null":"null"));
 #endif
+}
+
+/* These are used to track builtin decls for an output fragment.  */
+
+static struct c_include_fragment *output_c_fragment;
+static cpp_fragment* output_fragment;
+
+/* Create a fragment used for the per output file <built-in> declarations. */
+
+void
+create_output_fragment (void)
+{
+  struct c_include_fragment* st;
+  cpp_fragment *fragment;
+  fragment = xcalloc (1, sizeof (cpp_fragment));
+  fragment->name = "<built-in>";
+  parse_in->current_fragment = fragment;
+  st = alloc_include_fragment ();
+  C_FRAGMENT (fragment) = st;
+  st->valid = 1;
+  st->include_timestamp = main_timestamp;
+  current_c_fragment = st;
+  output_fragment = fragment;
+  output_c_fragment = st;
+  parse_in->do_note_macros = 1;
+}
+
+/* End the output fragment.  */
+
+void
+end_output_fragment (void)
+{
+  /* Fold these into cb_exit_fragment as well?!  */
+  if (C_FRAGMENT (output_fragment) != current_c_fragment)
+    abort ();
+  if (output_fragment != parse_in->current_fragment)
+    abort();
+  cb_exit_fragment (parse_in, output_fragment);
+  /* This should be folded into cb_exit_fragment?!  */
+  parse_in->current_fragment = NULL;
+}
+
+void init_output_fragment ()
+{
+  output_fragment = 0;
+  output_c_fragment = 0;
+}
+
+/* Update the output fragment timestamp so that it is valid for this
+   translation unit.  */
+
+void
+activate_output_fragment (void)
+{
+  output_c_fragment->include_timestamp = main_timestamp;
+}
+
+/* Handle extra debugging of C tree nodes.  */
+
+void
+c_print_decl (FILE *file, tree node, int indent)
+{
+  char class;
+
+  class = TREE_CODE_CLASS (TREE_CODE (node));
+
+  if (class == 'd')
+    print_node (file, "fragment", DECL_FRAGMENTT (node), indent + 4);
 }
 
 /* Built-in macros for stddef.h, that require macros defined in this

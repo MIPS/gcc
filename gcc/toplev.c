@@ -4449,7 +4449,11 @@ do_compile (void)
     timevar_init ();
   timevar_start (TV_TOTAL);
 
+  lang_hooks.init_output_fragment ();
+  lang_hooks.create_output_fragment ();
   lang_dependent_init ();
+  lang_hooks.end_output_fragment ();
+
   for (i = 0;  i < num_in_fnames;  i++)
     {
       const char *filename = in_fnames[i];
@@ -4478,9 +4482,12 @@ do_compile (void)
 	  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 	}
     }
+
+  lang_hooks.create_output_fragment ();
   if (! no_backend)
     compile_file_finish ();
   finalize ();
+  lang_hooks.end_output_fragment ();
 
   /* Stop timing and print the times.  */
   timevar_stop (TV_TOTAL);
@@ -4539,6 +4546,14 @@ server_get_command (int fd, char **bufp, int *posp, int *limp, int *blenp)
 	      return -1;
 	    }
 	  limit += count;
+	  {
+	    if (buf[0] == 0)
+	      {
+		/* This looks to be a kernel bug with Jaguar.  */
+		fprintf (stderr, "bad read, got 0, assuming I\n");
+		buf[0] = 'I';
+	      }
+	  }
 	}
       ch = buf[pos++];
       if ((ch == '\r' || ch == '\n') && ! in_quote)
@@ -4554,6 +4569,35 @@ server_get_command (int fd, char **bufp, int *posp, int *limp, int *blenp)
       if (ch == quote)
 	in_quote = 1 - in_quote;
     }
+}
+
+static void
+send_fd (int fd, int sock)
+{
+  struct msghdr msg;
+  char controlmsg[CMSG_SPACE(sizeof (fd))];
+  struct cmsghdr *cmsg;
+  struct iovec vec;
+  const char *str = "x";
+  
+  msg.msg_name = 0;
+  msg.msg_namelen = 0;
+  vec.iov_base = (char *)str;
+  vec.iov_len = 1;
+  msg.msg_iov = &vec;
+  msg.msg_iovlen = 1;
+  msg.msg_control = controlmsg;
+  msg.msg_controllen = sizeof (controlmsg);
+  cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = CMSG_LEN(sizeof (fd));
+  *(int*)CMSG_DATA(cmsg) = fd;
+  msg.msg_controllen = cmsg->cmsg_len;
+  msg.msg_flags = 0;
+
+  if (sendmsg (sock, &msg, 0) == -1)
+    abort ();
 }
 
 static int
@@ -4582,34 +4626,59 @@ get_fd (int sock)
   }
 
   cmsg = CMSG_FIRSTHDR(&msg);
-  if (!cmsg->cmsg_type == SCM_RIGHTS) {
-    /* fprintf (stderr, "bad type for control message: %d\n", cmsg->cmsg_type); */
-    return -1;
-  }
+
+  if (cmsg->cmsg_type != SCM_RIGHTS)
+    {
+      fprintf (stderr, "bad type for control message: %d\n", cmsg->cmsg_type);
+      return -1;
+    }
+  if (*(int*)CMSG_DATA(cmsg) < 3)
+    {
+      fprintf (stderr, "bad value for control message: %d\n", *(int*)CMSG_DATA(cmsg));
+    }    
   return *(int*)CMSG_DATA(cmsg);
 } 
 
-static int old_fd[3] = { -1, -1, -1 };
+static void
+xwrite (int fd, const char *buf, size_t len)
+{
+  if ((size_t)write (fd, buf, len) != len)
+    fatal_error ("write: %m");
+}
+
+static void
+xread (int fd, char *buf, size_t len)
+{
+  if ((size_t)read (fd, buf, len) != len)
+    fatal_error ("read: %m");
+}
 
 static int xdup (int fd)
 {
   int i;
   if ((i = dup (fd)) == -1)
-    fatal_error ("dup");
+    fatal_error ("dup: %m");
   return i;
 }
 
 static void xdup2 (int fd1, int fd2)
 {
   if (dup2 (fd1, fd2) == -1)
-    fatal_error ("dup2");
+    fatal_error ("dup2: %m");
 }
 
 static void xclose (int fd)
 {
+  static volatile int i = 1;
   if (close (fd) == -1)
-    fatal_error ("close");
+    {
+      fatal_error ("close: %m");
+      while (i)
+	pause ();
+    }
 }
+
+static int old_fd[3] = { -1, -1, -1 };
 
 static void
 push_to_fd (int fd0, int fd1, int fd2)
@@ -4627,8 +4696,10 @@ push_to_fd (int fd0, int fd1, int fd2)
   xdup2 (fd1, 1);
   xdup2 (fd2, 2);
   xclose (fd0);
-  xclose (fd1);
-  xclose (fd2);
+  if (fd1 != fd0)
+    xclose (fd1);
+  if (fd2 != fd0 && fd2 != fd1)
+    xclose (fd2);
 }
 
 static void
@@ -4651,6 +4722,161 @@ pop_fd (void)
   old_fd[1] = -1;
   old_fd[2] = -1;
 }
+
+#ifdef ENABLE_SERVER
+static int
+get_job (const char *);
+
+/* Get a job from the load balancer.  */
+
+static int
+get_job (const char *prog)
+{
+  int sock;
+  char buf[1];
+  struct sockaddr_un server;
+
+  /* This is a load balanced server that is ready to start a
+     new job, register readiness with the load balancer.  */
+
+  server.sun_family = AF_UNIX;
+  sprintf (server.sun_path, ".%s-server", prog);
+
+  sock = socket (AF_UNIX, SOCK_STREAM, 0);
+  if (sock < 1)
+    fatal_error ("can't create server socket: %m");
+  
+  server.sun_family = AF_UNIX;
+  if (connect (sock,
+	       (struct sockaddr *) &server,
+	       sizeof(struct sockaddr_un)) < 0)
+    {
+      fatal_error ("connecting stream socket: %m");
+    }
+  xwrite (sock, "S", 1);
+
+  /* Wait here until the load balancer says go.  */
+  xread (sock, buf, 1);
+  if (buf[0] == 'G')
+    {
+      int fd;
+      fprintf(stderr, "About to get socket from load balancer\n");
+      fd = get_fd (sock);
+      fprintf(stderr, "got socket from load balancer\n");
+      close (sock);
+      fprintf(stderr, "and socket to load balancer is closed\n");
+      return fd;
+    }
+  /* If we are requested to quit.  */
+  if (buf[0] == 'T')
+    return -1;
+
+  /* Unknown request, kill us.  */
+  return -1;
+}
+
+#define SERVER_MAX 200
+
+static int
+get_request_from_load_balancer (int *sockp)
+{
+  static int idle_servers[SERVER_MAX];
+  static int nservers = 0;
+  /* For debugging, turn this off.  */
+  static int do_load_balancing = 1;
+  int fd;
+  char xbuf[1];
+
+  while (1)
+    {
+      fprintf(stderr, "finding next bit of work\n");
+      do {
+	fd = accept (*sockp, 0, 0);
+      } while (fd < 0 && errno == EINTR);
+      if (fd < 0)
+	fatal_error ("can't connect to client socket: %m");
+      xread (fd, xbuf, 1);
+
+      switch (xbuf[0])
+	{
+	case 'S':
+	  {
+	    if (nservers >= SERVER_MAX)
+	      {
+		/* Reject registration of server.  */
+		close (fd);
+	      }
+	    else
+	      idle_servers[nservers++] = fd;
+	    fprintf(stderr, "\t\t\tserver ready and now idle\t\tXXX - %d servers\n", nservers);
+	    continue;
+	  }
+	case 'C':
+	  break;
+	case 'L':
+	  {
+	    char xbuf[1];
+	    int i;
+	    fprintf(stderr, "Got load balancer kill\n");
+	    /* Kill all servers  */
+	    for (i=0; i<nservers; ++i)
+	      {
+		xwrite (idle_servers[i], "T", 1);
+		close (idle_servers[i]);
+	      }
+	    nservers = 0;
+	    xbuf[0] = 42;
+	    xwrite (fd, xbuf, 1);
+	    fprintf(stderr, "all done load balancer kill\n");
+	    return -1;
+	  }
+	default:
+	  close (fd);
+	  continue;
+	}
+      if (do_load_balancing)
+	{
+	  if (nservers > 0)
+	    {
+	      fprintf(stderr, "reusing idle server from ready list\n");
+	      /* If there is an idle server, prefer it over starting a
+		 new one.  */
+	      xwrite (idle_servers[--nservers], "G", 1);
+	      fprintf(stderr, "giving client fd to reused server\t\t\t XXX now %d servers\n", nservers);
+	      send_fd (fd, idle_servers[nservers]);
+	      close (idle_servers[nservers]);
+	      close (fd);
+	      fprintf(stderr, "passed off request to reused server %d %d \n",
+		      fd, idle_servers[nservers]);
+	      continue;
+	    }
+	  else
+	    /* If there aren't any idle servers, start a new one.  */
+	    switch (fork())
+	      {
+	      case -1:
+		fatal_error ("can't fork: %m");
+	      default:
+		{
+		  int i;
+		  fprintf(stderr, "New server created\n");
+		  for (i=0; i<nservers; ++i)
+		    close (idle_servers[i]);
+		  close (*sockp);
+		  *sockp = -1;
+		}
+		break;
+
+	      case 0:
+		fprintf(stderr, "Creating new server\n");
+		close (fd);
+		continue;
+	      }
+	}
+      return fd;
+    }
+}
+#endif
 
 /* How long server should  wait for request, in milliseconds. */
 
@@ -4675,6 +4901,7 @@ server_loop ()
   int limit = 0;
   int command;
   int omask;
+  int done = 0;
 #ifdef ENABLE_SERVER
   struct sockaddr_un server;
   int sock = socket (AF_UNIX, SOCK_STREAM, 0);
@@ -4682,7 +4909,7 @@ server_loop ()
   if (sock < 0)
     fatal_error ("can't create server socket: %m");
   server.sun_family = AF_UNIX;
-  sprintf (server.sun_path, "./.%s-server", progname);
+  sprintf (server.sun_path, ".%s-server", progname);
 
   /* We tighten down the compile server to the current user.  */
   omask = umask (0077);
@@ -4694,31 +4921,44 @@ server_loop ()
       if (errno == EADDRINUSE)
 	{
 	  close (sock);
-	  return;
+	  fatal_error ("can't bind server socket %s: %m", server.sun_path);
 	}
 	
       fatal_error ("can't bind server socket %s: %m", server.sun_path);
     }
-  listen (sock, 5);
+
+  listen (sock, SERVER_MAX);
   umask (omask);
   fd = -1;
 #endif /* ENABLE_SERVER */
-  for (;;)
+  while (!done)
     {
 #ifdef ENABLE_SERVER
+
       if (fd < 0)
 	{
-	  do {
-	    fd = accept (sock, 0, 0);
-	  } while (fd < 0 && errno == EINTR);
+	  char xbuf[1];
+	  if (sock == -1)
+	    fd = get_job (progname);
+	  else
+	    {
+	      /* This starts up a load balancer, forks and the children
+	         return fds to do...  */
+	      fd = get_request_from_load_balancer (&sock);
+	    }
 	  if (fd < 0)
-	    fatal_error("can't connect to client socket: %m");
+	    break;
+	  xbuf[0] = 42;
+	  xwrite (fd, xbuf, 1);
+	  fprintf(stderr, "doing go ahead for client\n");
+	  if (pos != limit)
+	    fatal_error ("bad pos %d or limit %d\n", pos, limit);
 	}
 #endif /* ENABLE_SERVER */
-      /* dup2 (fd, 2); */
       command = server_get_command (fd, &command_buffer, &pos, &limit, &blen);
       if (command < 0)
 	{
+	  fprintf(stderr, "end of server connection from client\n");
 #ifdef ENABLE_SERVER
 	  close (fd);
 	  fd = -1;
@@ -4732,7 +4972,7 @@ server_loop ()
       if (command == 'O') /* "output" */
 	{
 	  int i;
-	  char xbuf[100];
+	  char xbuf[1];
 	  int asm_name_length = pos - 4;
 	  char *abuf = xmalloc (asm_name_length+1);
 	  char *fname = command_buffer + 2;
@@ -4752,14 +4992,17 @@ server_loop ()
 	    }
 	  in_fnames = NULL;
 	  num_in_fnames = 0;
-	  sprintf (xbuf, "(done compiling)\n");
-	  write (fd, xbuf, strlen (xbuf));
-	  xbuf[0] = 1;
-	  xbuf[1] = (errorcount || sorrycount ? FATAL_EXIT_CODE
-		     : SUCCESS_EXIT_CODE);
-	  write (fd, xbuf, 2);
 	  if (old_fd[0] != -1)
 	    pop_fd ();
+	  fprintf (stderr, "(done compiling %d)\n", errorcount || sorrycount);
+	  xbuf[0] = (errorcount || sorrycount ? FATAL_EXIT_CODE
+		     : SUCCESS_EXIT_CODE);
+	  xwrite (fd, xbuf, 1);
+	  /* This is for testing, to get the server to stop with each
+	     error that should not be an error.  Eventually, this
+	     should be removed when the server works well.  */
+	  if (1 && (errorcount || sorrycount))
+	    done = 1;
 	}
       else if (command == 'I') /* "input" */
 	{
@@ -4828,6 +5071,7 @@ server_loop ()
 	{
 	  char *num = command_buffer + 1;
 	  char first = *num;
+	  fprintf(stderr, "server requested to terminate\n");
 	  if (first < '0' || first > '9')  num++;
 	  server_timeout = atol (num);
 	  if (server_timeout == 0)
@@ -4836,17 +5080,27 @@ server_loop ()
 	}
       else if (command == 'D')
 	{
-	  int fd0 = get_fd (fd);
-	  int fd1 = get_fd (fd);
-	  int fd2 = get_fd (fd);
+	  int fd0, fd1, fd2;
+	  xwrite (fd, "G", 1);
+	  fd0 = get_fd (fd);
+	  fd1 = get_fd (fd);
+	  fd2 = get_fd (fd);
 	  push_to_fd (fd0, fd1, fd2);
 	}
       else
 	fatal_error ("server received uncognized command");
     }
 #ifdef ENABLE_SERVER
-  close (sock);
-  unlink (server.sun_path);
+  /* When we are using load balancing, don't allow children to manage the
+     front end interface.  */
+  if (sock != -1)
+    {
+      fprintf(stderr, "load balancer done\n");
+      close (sock);
+      unlink (server.sun_path);
+    }
+  else
+      fprintf(stderr, "server done\n");
 #endif
 }
 

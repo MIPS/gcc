@@ -830,3 +830,6 @@ void add_framework_path (char *);
 
 void darwin_init (void);
 #define TARGET_C_INIT darwin_init ()
+
+/* scan-decls.c does the wrong thing with tachyon/10.3's stdlib.h. */
+#define FIXPROTO_IGNORE_LIST "stdlib.h", "stdio.h",

@@ -391,6 +391,12 @@ struct lang_hooks
 
   struct lang_hooks_for_types types;
 
+  bool uses_conditional_symtab;
+
+  void (*init_output_fragment)(void);
+  void (*create_output_fragment)(void);
+  void (*end_output_fragment)(void);
+  
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */
 };

@@ -255,8 +255,12 @@ init_c_objc_common_once ()
   init_c_common_once ();
   if (parse_in->do_note_macros)
     {
+#if 0
+      /* Redundant with cb_exit_fragment */
       parse_in->do_note_macros = 0;
+#endif
       cb_exit_fragment (parse_in, builtins_fragment);
+      /* This should be folded into cb_exit_fragment?!  */
       parse_in->current_fragment = NULL;
     }
 }
