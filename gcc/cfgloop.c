@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void flow_loops_cfg_dump (const struct loops *, FILE *);
 static void flow_loop_entry_edges_find (struct loop *);
 static void flow_loop_exit_edges_find (struct loop *);
-static int flow_loop_nodes_find (basic_block, struct loop *);
 static void flow_loop_pre_header_scan (struct loop *);
 static basic_block flow_loop_pre_header_find (basic_block);
 static int flow_loop_level_compute (struct loop *);
@@ -329,7 +328,7 @@ flow_loop_exit_edges_find (struct loop *loop)
 /* Find the nodes contained within the LOOP with header HEADER.
    Return the number of nodes within the loop.  */
 
-static int
+int
 flow_loop_nodes_find (basic_block header, struct loop *loop)
 {
   basic_block *stack;

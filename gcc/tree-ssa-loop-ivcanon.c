@@ -263,12 +263,6 @@ canonicalize_induction_variables (struct loops *loops)
   /* Clean up the information about numbers of iterations, since brute force
      evaluation could reveal new information.  */
   scev_reset ();
-
-#if 0
-  /* The necessary infrastructure is not in yet.  */
-  if (changed)
-    cleanup_tree_cfg_loop ();
-#endif
 }
 
 /* Unroll LOOPS completely if they iterate just few times.  */
@@ -278,7 +272,6 @@ tree_unroll_loops_completely (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
-  bool changed = false;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -287,18 +280,11 @@ tree_unroll_loops_completely (struct loops *loops)
       if (!loop)
 	continue;
 
-      changed |= canonicalize_loop_induction_variables (loops, loop,
-							false, true,
-							!flag_tree_loop_ivcanon);
+      canonicalize_loop_induction_variables (loops, loop,false, true,
+					     !flag_tree_loop_ivcanon);
     }
 
   /* Clean up the information about numbers of iterations, since complete
      unrolling might have invalidated it.  */
   scev_reset ();
-
-#if 0
-  /* The necessary infrastructure is not in yet.  */
-  if (changed)
-    cleanup_tree_cfg_loop ();
-#endif
 }

@@ -40,7 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* The loop tree currently optimized.  */
 
-struct loops *current_loops;
+struct loops *current_loops = NULL;
 
 /* Initializes the loop structures.  DUMP is the file to that the details
    about the analysis should be dumped.  */
@@ -188,7 +188,7 @@ struct tree_opt_pass pass_unswitch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_func,    /* todo_flags_finish */
   0					/* letter */
 };
 
@@ -292,7 +292,7 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_func,    /* todo_flags_finish */
   0					/* letter */
 };
 
@@ -355,7 +355,7 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_func,                	/* todo_flags_finish */
   0					/* letter */
 };
 

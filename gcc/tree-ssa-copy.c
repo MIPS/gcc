@@ -841,7 +841,6 @@ fini_copy_prop (void)
     }
 
   substitute_and_fold (copy_of);
-  cleanup_tree_cfg ();
 
   free (copy_of);
 }
@@ -984,7 +983,8 @@ struct tree_opt_pass pass_copy_prop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
+  TODO_cleanup_cfg
+    | TODO_dump_func
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_rename_vars,			/* todo_flags_finish */

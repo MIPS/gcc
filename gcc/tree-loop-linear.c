@@ -264,7 +264,7 @@ linear_transform_loops (struct loops *loops)
                 ...
                }
            } */
-      if (!loop_nest->inner)
+      if (!loop_nest || !loop_nest->inner)
 	continue;
       depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
