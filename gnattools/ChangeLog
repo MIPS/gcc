@@ -1,6 +1,7 @@
 2004-02-11  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.ac: Merge changes from mainline gcc/ada/Makefile.in.
+	* configure: Regenerate.
 
 	* Make-tools.in: Merge changes from mainline gcc/ada/Makefile.in.
 
