@@ -1,3 +1,18 @@
+2004-03-01  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in (tree-ssa-copyrename.o): New object.
+	* timevar.def (TV_TREE_COPY_RENAME): New time variable.
+	* tree-optimize.c (init_tree_optimization_passes): Add copy rename 
+	pass.
+	* tree-pass.h (pass_rename_ssa_copies): New pass structure.
+	* tree-sra.c (lookup_scalar): Copy DECL_ARITIFICIAL flag from base.
+	* tree-ssa-copyrename.c : New file.
+	(copy_rename_partition_coalesce): Coalesce partitions for renaming.
+	(rename_ssa_copies): Find renamable copies.
+	(pass_rename_ssa_copies): Initialize.
+	* tree-ssa-live.c (register_ssa_partition): Move to tree-ssa-live.h.
+	* tree-ssa-live.h (register_ssa_partition): Moved from tree-ssa-live.c.
+
 2004-02-29  David Edelsohn  <edelsohn@gnu.org>
 
 	* doloop.c (doloop_optimize): Increment n_iterations if loop->top

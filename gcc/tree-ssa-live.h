@@ -79,6 +79,7 @@ static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
 static inline tree version_to_var (var_map, int);
 static inline int version_ref_count (var_map, tree);
+static inline void register_ssa_partition (var_map, tree, bool);
 
 #define SSA_VAR_MAP_REF_COUNT	 0x01
 extern var_map create_ssa_var_map (int);
@@ -166,6 +167,36 @@ var_to_partition_to_var (var_map map, tree var)
     return NULL_TREE;
   return partition_to_var (map, part);
 }
+
+/* This routine registers an SSA versioned variable with the partition
+   manager. Any unregistered partitions may be compacted out later.  */
+
+static inline void
+register_ssa_partition (var_map map, tree ssa_var, bool is_use)
+{
+  int version;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (ssa_var) != SSA_NAME)
+    abort ();
+
+  if (!is_gimple_reg (SSA_NAME_VAR (ssa_var)))
+    {
+      fprintf (stderr, "Illegally registering a virtual SSA name :");
+      print_generic_expr (stderr, ssa_var, TDF_SLIM);
+      fprintf (stderr, " in the SSA->Normal phase.\n");
+      abort();
+    }
+#endif
+
+  version = SSA_NAME_VERSION (ssa_var);
+  if (is_use && map->ref_count)
+    map->ref_count[version]++;
+
+  if (map->partition_to_var[version] == NULL_TREE)
+    map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
+}
+
 
 /*  ---------------- live on entry/exit info ------------------------------  
 

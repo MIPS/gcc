@@ -868,7 +868,7 @@ OBJS-common = \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-simple.o  \
  tree-alias-type.o gimplify.o tree-pretty-print.o                          \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
- tree-ssa-copy.o tree-nrv.o 						   \
+ tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o			   \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
  tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
@@ -1587,6 +1587,10 @@ tree-ssa-live.o : tree-ssa-live.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h
+tree-ssa-copyrename.o : tree-ssa-copyrename.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
+   diagnostic.h errors.h toplev.h function.h $(TIMEVAR_H) tree-pass.h \
+   tree-alias-common.h $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h toplev.h $(TIMEVAR_H) \

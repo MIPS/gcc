@@ -229,6 +229,7 @@ lookup_scalar (struct sra_elt *key, tree type)
 
       DECL_SOURCE_LOCATION (res->replace) = DECL_SOURCE_LOCATION (key->base);
       TREE_NO_WARNING (res->replace) = TREE_NO_WARNING (key->base);
+      DECL_ARTIFICIAL (res->replace) = DECL_ARTIFICIAL (key->base);
     }
 
   return res->replace;

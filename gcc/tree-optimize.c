@@ -279,6 +279,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
@@ -292,6 +293,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
+  NEXT_PASS (DUP_PASS (pass_rename_ssa_copies));
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (DUP_PASS (pass_dce));

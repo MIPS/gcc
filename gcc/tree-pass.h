@@ -124,6 +124,7 @@ extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
+extern struct tree_opt_pass pass_rename_ssa_copies;
 
 
 #endif /* GCC_TREE_PASS_H */
