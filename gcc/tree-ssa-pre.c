@@ -65,7 +65,7 @@ Boston, MA 02111-1307, USA.  */
    expression at a time, and doesn't use bitvectors or iterative dataflow.
    
    To be able to do this, we need an SSA form for expressions.
-   If you are alread confused, you likely think an expression, as
+   If you are already confused, you likely think an expression, as
    used here, is something like "b_3 = a_2 + 5".  It's not. It's "a +
    5". "a_2 + 5" is an *occurrence* of the expression "a + 5".  Just
    like PRE, it's lexical equivalence that matters.
