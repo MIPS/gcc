@@ -1,3 +1,28 @@
+2002-09-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/ia64/ia64.md: Add Itanium1 DFA description.
+	(itanium_class): Add `nop' and `pre_cycle'.  Add
+	define_function_unit for `nop'.
+	(nop): Change attribute `itanium_class'.
+	(pre_cycle): New define_insn.
+
+	* config/ia64/ia64-protos.h (bundling_p): New external variable.
+	(ia64_st_address_bypass_p, ia64_ld_address_bypass_p,
+	ia64_produce_address_p): New function prototypes.
+
+	* config/ia64/ia64.c (bundling_p): New global variable.
+	(ia64_use_dfa_pipeline_interface,
+	ia64_first_cycle_multipass_dfa_lookahead,
+	ia64_init_dfa_pre_cycle_insn, ia64_dfa_pre_cycle_insn): New
+	functions.
+	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,
+	TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,
+	TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,
+	TARGET_SCHED_DFA_PRE_CYCLE_INSN): New macros.
+	(ia64_sched_init, ia64_sched_reorder, ia64_sched_reorder2,
+	ia64_variable_issue, ia64_sched_finish): Do nothing before reload.
+	(dfa_pre_cycle_insn): New variable.
+	
 2002-09-20  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* rtl.def (FINAL_PRESENCE_SET, FINAL_ABSENCE_SET): New

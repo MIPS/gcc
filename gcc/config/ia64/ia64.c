@@ -109,7 +109,16 @@ static int ia64_flag_schedule_insns2;
    sections.  */
 
 unsigned int ia64_section_threshold;
+
+/* The following variable is used by the DFA insn scheduler.  The value is
+   TRUE if we do insn bundling instead of insn scheduling.  */
+int bundling_p = 0;
+
 
+static int ia64_use_dfa_pipeline_interface PARAMS ((void));
+static int ia64_first_cycle_multipass_dfa_lookahead PARAMS ((void));
+static void ia64_init_dfa_pre_cycle_insn PARAMS ((void));
+static rtx ia64_dfa_pre_cycle_insn PARAMS ((void));
 static rtx gen_tls_get_addr PARAMS ((void));
 static rtx gen_thread_pointer PARAMS ((void));
 static int find_gr_spill PARAMS ((int));
@@ -238,6 +247,17 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SCHED_REORDER ia64_sched_reorder
 #undef TARGET_SCHED_REORDER2
 #define TARGET_SCHED_REORDER2 ia64_sched_reorder2
+
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE ia64_use_dfa_pipeline_interface
+
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD ia64_first_cycle_multipass_dfa_lookahead
+
+#undef TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN
+#define TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN ia64_init_dfa_pre_cycle_insn
+#undef TARGET_SCHED_DFA_PRE_CYCLE_INSN
+#define TARGET_SCHED_DFA_PRE_CYCLE_INSN ia64_dfa_pre_cycle_insn
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
@@ -5164,6 +5184,7 @@ emit_all_insn_group_barriers (dump, insns)
 	}
     }
 }
+
 
 static int errata_find_address_regs PARAMS ((rtx *, void *));
 static void errata_emit_nops PARAMS ((rtx));
@@ -5882,6 +5903,9 @@ ia64_sched_init (dump, sched_verbose, max_ready)
 {
   static int initialized = 0;
 
+  if (!reload_completed)
+    return;
+
   if (! initialized)
     {
       int b1, b2, i;
@@ -6553,6 +6577,8 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready, clock_var)
      int *pn_ready;
      int clock_var;
 {
+  if (!reload_completed)
+    return 1;
   return ia64_internal_sched_reorder (dump, sched_verbose, ready,
 				      pn_ready, 0, clock_var);
 }
@@ -6568,6 +6594,9 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
      int *pn_ready;
      int clock_var;
 {
+  if (!reload_completed)
+    return 1;
+
   if (sched_data.last_was_stop)
     return 0;
 
@@ -6697,6 +6726,9 @@ ia64_variable_issue (dump, sched_verbose, insn, can_issue_more)
 {
   enum attr_type t = ia64_safe_type (insn);
 
+  if (!reload_completed)
+    return 1;
+
   if (sched_data.last_was_stop)
     {
       int t = sched_data.first_slot;
@@ -6755,10 +6787,116 @@ ia64_sched_finish (dump, sched_verbose)
 {
   if (sched_verbose)
     fprintf (dump, "// Finishing schedule.\n");
+  if (!reload_completed)
+    return;
   rotate_two_bundles (NULL);
   free (sched_types);
   free (sched_ready);
 }
+
+
+
+/* If the following function returns TRUE, we will use the the DFA
+   insn scheduler.  */
+static int
+ia64_use_dfa_pipeline_interface ()
+{
+  return !reload_completed;
+}
+
+/* If the following function returns TRUE, we will use the the DFA
+   insn scheduler.  */
+static int
+ia64_first_cycle_multipass_dfa_lookahead ()
+{
+  return (!reload_completed ? 4 : 0);
+}
+
+/* The following variable value is pseudo-insn used by the DFA insn
+   scheduler to change the DFA state when the simulated clock is
+   increased.  */
+static GTY (()) rtx dfa_pre_cycle_insn;
+
+/* The following function initiates variable `dfa_pre_cycle_insn'.  */
+static void
+ia64_init_dfa_pre_cycle_insn ()
+{
+  dfa_pre_cycle_insn = make_insn_raw (gen_pre_cycle ());
+  PREV_INSN (dfa_pre_cycle_insn) = NEXT_INSN (dfa_pre_cycle_insn) = NULL_RTX;
+  recog_memoized (dfa_pre_cycle_insn);
+}
+
+/* The following function returns the pseudo insn DFA_PRE_CYCLE_INSN
+   used by the DFA insn scheduler.  */
+static rtx
+ia64_dfa_pre_cycle_insn ()
+{
+  return dfa_pre_cycle_insn;
+}
+
+/* The following function returns TRUE if PRODUCER (of type ilog or
+   ld) produces address for CONSUMER (of type st or stf). */
+int
+ia64_st_address_bypass_p (producer, consumer)
+     rtx producer;
+     rtx consumer;
+{
+  rtx dest, reg, mem;
+
+  if (producer == NULL_RTX || consumer == NULL_RTX)
+    abort ();
+  dest = ia64_single_set (producer);
+  if (dest == NULL_RTX || (reg = SET_DEST (dest)) == NULL_RTX
+      || (GET_CODE (reg) != REG && GET_CODE (reg) != SUBREG))
+    abort ();
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+  dest = ia64_single_set (consumer);
+  if (dest == NULL_RTX || (mem = SET_DEST (dest)) == NULL_RTX
+      || GET_CODE (mem) != MEM)
+    abort ();
+  return reg_mentioned_p (reg, mem);
+}
+
+/* The following function returns TRUE if PRODUCER (of type ilog or
+   ld) produces address for CONSUMER (of type ld or fld). */
+int
+ia64_ld_address_bypass_p (producer, consumer)
+     rtx producer;
+     rtx consumer;
+{
+  rtx dest, src, reg, mem;
+
+  if (producer == NULL_RTX || consumer == NULL_RTX)
+    abort ();
+  dest = ia64_single_set (producer);
+  if (dest == NULL_RTX || (reg = SET_DEST (dest)) == NULL_RTX
+      || (GET_CODE (reg) != REG && GET_CODE (reg) != SUBREG))
+    abort ();
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+  src = ia64_single_set (consumer);
+  if (src == NULL_RTX || (mem = SET_SRC (src)) == NULL_RTX)
+    abort ();
+  if (GET_CODE (mem) == UNSPEC && XVECLEN (mem, 0) > 0)
+    mem = XVECEXP (mem, 0, 0);
+  while (GET_CODE (mem) == SUBREG || GET_CODE (mem) == ZERO_EXTEND)
+    mem = XEXP (mem, 0);
+  if (GET_CODE (mem) != MEM)
+    abort ();
+  return reg_mentioned_p (reg, mem);
+}
+
+/* The following function returns TRUE if INSN produces address for a
+   load/store insn.  We will place such insns into M slot because it
+   decreases its latency time. */
+int
+ia64_produce_address_p (insn)
+     rtx insn;
+{
+  return insn->call;
+}
+
 
 /* Emit pseudo-ops for the assembler to describe predicate relations.
    At present this assumes that we only consider predicate pairs to
