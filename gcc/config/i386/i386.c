@@ -3129,7 +3129,9 @@ x86_64_nonmemory_operand (op, mode)
   return x86_64_sign_extended_value (op);
 }
 
-/* Return nonzero if OP is nonmemory operand acceptable by movabs patterns.  */
+/* Return nonzero if OP is nonmemory operand acceptable by movabs patterns.  
+   The predicate must accept only constants as otherwise reload may in-place
+   modify shared memory references in movabs* patterns.  */
 
 int
 x86_64_movabs_operand (op, mode)
@@ -3137,9 +3139,7 @@ x86_64_movabs_operand (op, mode)
      enum machine_mode mode;
 {
   if (!TARGET_64BIT || !flag_pic)
-    return nonmemory_operand (op, mode);
-  if (register_operand (op, mode) || x86_64_sign_extended_value (op))
-    return 1;
+    return immediate_operand (op, mode);
   if (CONSTANT_P (op) && !symbolic_reference_mentioned_p (op))
     return 1;
   return 0;
