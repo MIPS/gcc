@@ -4412,13 +4412,15 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 
       case EDGE_INSERT_LOCATION_BEFORE:
       case EDGE_INSERT_LOCATION_AFTER:
-	/* The container for the head of the dest block has been changed.
-	   (we've linked a new stmt in front of it.)  */
-
 	tsi_next (&tsi);
-	if (dest->end_tree_p == dest->head_tree_p)
-	  dest->end_tree_p = tsi_container (tsi);
-	dest->head_tree_p = tsi_container (tsi);
+	if (!tsi_end_p (tsi))
+	  {
+	    /* The container for the head of the dest block has been
+	       changed. (we've linked a new stmt in front of it.)  */
+	    if (dest->end_tree_p == dest->head_tree_p)
+	      dest->end_tree_p = tsi_container (tsi);
+	    dest->head_tree_p = tsi_container (tsi);
+	  }
 	break;
 
       case EDGE_INSERT_LOCATION_NEW_ELSE:
