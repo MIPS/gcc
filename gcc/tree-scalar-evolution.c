@@ -465,7 +465,7 @@ loop_phi_node_p (tree phi)
    | i_1 = i_0 + 20
    
    This overall effect of the loop is obtained by passing in the
-   parameters: LOOP = 1, EVOLUTION_FN {i_0, +, 1}_1.
+   parameters: LOOP = 1, EVOLUTION_FN {i_0, +, 2}_1.
 */
  
 static tree 

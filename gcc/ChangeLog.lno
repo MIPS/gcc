@@ -1,3 +1,14 @@
+2004-04-22  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-elim-check.c (prove_truth_value_gt, prove_truth_value_lt, 
+	prove_truth_value_le, prove_truth_value_ge, prove_truth_value_eq, 
+	prove_truth_value_ne): Resurrect.
+	(prove_truth_value_symbolic): New.  Disabled for the moment.
+	(prove_truth_value): Use it when this function fails on unknown.
+	(try_eliminate_check): Factorize the code.
+	* tree-scalar-evolution.c (compute_scalar_evolution_after_loop):
+	Fix the description comment.
+
 2004-04-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-flow.h (linear_transform_loops): Prototype changed.

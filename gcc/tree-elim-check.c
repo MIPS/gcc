@@ -69,6 +69,142 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "flags.h"
 
+
+/* Determines whether "CHREC0 (x) > CHREC1 (x)" for all the integers x
+   such that "0 <= x < nb_iter".  When this property is statically
+   computable, set VALUE and return true.  */
+
+static inline bool
+prove_truth_value_gt (tree type, tree chrec0, tree chrec1, bool *value)
+{
+  tree diff = chrec_fold_minus (type, chrec0, chrec1);
+  return chrec_is_positive (diff, value);
+}
+
+/* Determines whether "CHREC0 (x) < CHREC1 (x)" for all the integers
+   x such that "x >= 0".  When this property is statically computable,
+   set VALUE and return true.  */
+
+static inline bool
+prove_truth_value_lt (tree type, tree chrec0, tree chrec1, bool *value)
+{
+  return prove_truth_value_gt (type, chrec1, chrec0, value);
+}
+
+/* Determines whether "CHREC0 (x) <= CHREC1 (x)" for all the integers
+   x such that "x >= 0".  When this property is statically computable,
+   set VALUE and return true.  */
+
+static inline bool
+prove_truth_value_le (tree type, tree chrec0, tree chrec1, bool *value)
+{
+  if (prove_truth_value_gt (type, chrec0, chrec1, value))
+    {
+      *value = !*value;
+      return true;
+    }
+  
+  return false;
+}
+
+/* Determines whether "CHREC0 (x) >= CHREC1 (x)" for all the integers
+   x such that "x >= 0".  When this property is statically computable,
+   set VALUE and return true.  */
+
+static inline bool
+prove_truth_value_ge (tree type, tree chrec0, tree chrec1, bool *value)
+{
+  if (prove_truth_value_gt (type, chrec1, chrec0, value))
+    {
+      *value = !*value;
+      return true;
+    }
+  
+  return false;
+}
+
+/* Determines whether "CHREC0 (x) == CHREC1 (x)" for all the integers
+   x such that "x >= 0".  When this property is statically computable,
+   set VALUE and return true.  */
+
+static inline bool
+prove_truth_value_eq (tree type, tree chrec0, tree chrec1, bool *value)
+{
+  tree diff = chrec_fold_minus (integer_type_node, chrec0, chrec1);
+  
+  if (TREE_CODE (diff) == INTEGER_CST)
+    {
+      if (integer_zerop (diff))
+	*value = true;
+      
+      else
+	*value = false;
+      
+      return true;
+    }
+  
+  else
+    return false;  
+}
+
+/* Determines whether "CHREC0 (x) != CHREC1 (x)" for all the integers
+   x such that "x >= 0".  When this property is statically computable,
+   set VALUE and return true.  */
+
+static inline bool
+prove_truth_value_ne (tree type, tree chrec0, tree chrec1, bool *value)
+{
+  if (prove_truth_value_eq (type, chrec0, chrec1, value))
+    {
+      *value = !*value;
+      return true;
+    }
+  
+  return false;
+}
+
+/* Try to determine whether "CHREC0 (x) CODE CHREC1 (x)", using
+   symbolic computations.  When this property is computable, set VALUE
+   and return true.  */
+
+static bool
+prove_truth_value_symbolic (enum tree_code code, tree chrec0, tree chrec1, 
+			    bool *value)
+{
+  tree type0 = chrec_type (chrec0);
+  tree type1 = chrec_type (chrec1);
+
+  /* Disabled for the moment.  */
+  return false;
+
+  if (type0 != type1)
+    return false;
+
+  switch (code)
+    {
+    case EQ_EXPR:
+      return prove_truth_value_eq (type1, chrec0, chrec1, value);
+
+    case NE_EXPR:
+      return prove_truth_value_ne (type1, chrec0, chrec1, value);
+
+    case LT_EXPR:
+      return prove_truth_value_lt (type1, chrec0, chrec1, value);
+
+    case LE_EXPR:
+      return prove_truth_value_le (type1, chrec0, chrec1, value);
+
+    case GT_EXPR:
+      return prove_truth_value_gt (type1, chrec0, chrec1, value);
+
+    case GE_EXPR:
+      return prove_truth_value_ge (type1, chrec0, chrec1, value);
+      
+    default:
+      return false;
+    }
+}
+
 /* Return the negation of the comparison code.  */
 
 static inline enum tree_code
@@ -107,20 +243,9 @@ prove_truth_value (enum tree_code code,
 		   bool *value)
 {
   tree nb_iters_in_then, nb_iters_in_else;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "  (nb_iters_in_loop = ");
-      print_generic_expr (dump_file, nb_iters_in_loop, 0);
-      fprintf (dump_file, ")\n  (chrec0 = ");
-      print_generic_expr (dump_file, chrec0, 0);
-      fprintf (dump_file, ")\n  (chrec1 = ");
-      print_generic_expr (dump_file, chrec1, 0);
-      fprintf (dump_file, ")\n");
-    }
-  
+
   if (automatically_generated_chrec_p (nb_iters_in_loop))
-    return false;
+    return prove_truth_value_symbolic (code, chrec0, chrec1, value);
   
   /* Compute the number of iterations that fall in the THEN clause,
      and the number of iterations that fall in the ELSE clause.  */
@@ -131,7 +256,9 @@ prove_truth_value (enum tree_code code,
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "  (nb_iters_in_then = ");
+      fprintf (dump_file, "  (nb_iters_in_loop = ");
+      print_generic_expr (dump_file, nb_iters_in_loop, 0);
+      fprintf (dump_file, ")\n  (nb_iters_in_then = ");
       print_generic_expr (dump_file, nb_iters_in_then, 0);
       fprintf (dump_file, ")\n  (nb_iters_in_else = ");
       print_generic_expr (dump_file, nb_iters_in_else, 0);
@@ -140,7 +267,7 @@ prove_truth_value (enum tree_code code,
   
   if (nb_iters_in_then == chrec_top
       || nb_iters_in_else == chrec_top)
-    return false;
+    return prove_truth_value_symbolic (code, chrec0, chrec1, value);
   
   if (nb_iters_in_then == chrec_bot
       && integer_zerop (nb_iters_in_else))
@@ -160,23 +287,21 @@ prove_truth_value (enum tree_code code,
       && TREE_CODE (nb_iters_in_else) == INTEGER_CST)
     {
       if (integer_zerop (nb_iters_in_then)
-	  && tree_is_gt (nb_iters_in_else, nb_iters_in_loop))
+	  && tree_is_ge (nb_iters_in_else, nb_iters_in_loop))
 	{
 	  *value = false;
 	  return true;
 	}
       
       if (integer_zerop (nb_iters_in_else)
-	  && tree_is_gt (nb_iters_in_then, nb_iters_in_loop))
+	  && tree_is_ge (nb_iters_in_then, nb_iters_in_loop))
 	{
 	  *value = true;
 	  return true;
 	}
-      
-      return false;
     }
-  
-  return false;
+
+  return prove_truth_value_symbolic (code, chrec0, chrec1, value);
 }
 
 /* Remove the check by setting the condition COND to VALUE.  */
@@ -209,6 +334,7 @@ try_eliminate_check (tree cond)
   tree chrec0, chrec1;
   struct loop *loop = loop_of_stmt (cond);
   tree nb_iters = number_of_iterations_in_loop (loop);
+  enum tree_code code;
 
   if (automatically_generated_chrec_p (nb_iters))
     return;
@@ -220,33 +346,21 @@ try_eliminate_check (tree cond)
       print_generic_expr (dump_file, cond, 0);
       fprintf (dump_file, ")\n");
     }
-  
+
   test = COND_EXPR_COND (cond);
-  switch (TREE_CODE (test))
+  code = TREE_CODE (test);
+  switch (code)
     {
     case SSA_NAME:
       /* Matched "if (opnd0)" ie, "if (opnd0 != 0)".  */
       opnd0 = test;
-      chrec0 = analyze_scalar_evolution (loop, opnd0);
+      chrec0 = instantiate_parameters 
+	(loop, analyze_scalar_evolution (loop, opnd0));
       if (chrec_contains_undetermined (chrec0))
-	break;
-      chrec0 = instantiate_parameters (loop, chrec0);
-      
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "  (test = ");
-	  print_generic_expr (dump_file, test, 0);
-	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop->num);
-	  fprintf (dump_file, "  (nb_iters = ");
-	  print_generic_expr (dump_file, nb_iters, 0);
-	  fprintf (dump_file, ")\n  (chrec0 = ");
-	  print_generic_expr (dump_file, chrec0, 0);
-	  fprintf (dump_file, ")\n");
-	}
-      
-      if (prove_truth_value (NE_EXPR, loop->num, chrec0, integer_zero_node, 
-			     nb_iters, &value))
-	remove_redundant_check (cond, value);
+	goto end;
+
+      chrec1 = convert (TREE_TYPE (opnd0), integer_zero_node);
+      code = NE_EXPR;
       break;
 
     case LT_EXPR:
@@ -257,40 +371,40 @@ try_eliminate_check (tree cond)
     case NE_EXPR:
       opnd0 = TREE_OPERAND (test, 0);
       opnd1 = TREE_OPERAND (test, 1);
-      chrec0 = analyze_scalar_evolution (loop, opnd0);
-      if (chrec_contains_undetermined (chrec0))
-	break;
-      
-      chrec1 = analyze_scalar_evolution (loop, opnd1);
-      if (chrec_contains_undetermined (chrec1))
-	break;
-      
-      chrec0 = instantiate_parameters (loop, chrec0);
-      chrec1 = instantiate_parameters (loop, chrec1);
-      
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "  (test = ");
-	  print_generic_expr (dump_file, test, 0);
-	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop->num);
-	  fprintf (dump_file, "  (nb_iters = ");
-	  print_generic_expr (dump_file, nb_iters, 0);
-	  fprintf (dump_file, ")\n  (chrec0 = ");
-	  print_generic_expr (dump_file, chrec0, 0);
-	  fprintf (dump_file, ")\n  (chrec1 = ");
-	  print_generic_expr (dump_file, chrec1, 0);
-	  fprintf (dump_file, ")\n");
-	}
-      
-      if (prove_truth_value (TREE_CODE (test), loop->num, chrec0, chrec1, 
-			     nb_iters, &value))
-	remove_redundant_check (cond, value);
+
+      chrec0 = instantiate_parameters 
+	(loop, analyze_scalar_evolution (loop, opnd0));
+      chrec1 = instantiate_parameters 
+	(loop, analyze_scalar_evolution (loop, opnd1));
+
+      if (chrec_contains_undetermined (chrec0)
+	  || chrec_contains_undetermined (chrec1))
+	goto end;
+
       break;
-      
+
     default:
-      break;
+      goto end;
     }
-  
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "  (test = ");
+      print_generic_expr (dump_file, test, 0);
+      fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop->num);
+      fprintf (dump_file, "  (nb_iters = ");
+      print_generic_expr (dump_file, nb_iters, 0);
+      fprintf (dump_file, ")\n  (chrec0 = ");
+      print_generic_expr (dump_file, chrec0, 0);
+      fprintf (dump_file, ")\n  (chrec1 = ");
+      print_generic_expr (dump_file, chrec1, 0);
+      fprintf (dump_file, ")\n");
+    }
+
+  if (prove_truth_value (code, loop->num, chrec0, chrec1, nb_iters, &value))
+    remove_redundant_check (cond, value);
+
+ end:;
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
 }
