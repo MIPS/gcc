@@ -13,6 +13,13 @@ AC_PROG_RANLIB
 # FIXME: Replace `main' with a function in `-lm':
 #AC_CHECK_LIB([m], [main])
 
+GCC_NO_EXECUTABLES
+
+if test x$GCC = xyes; then
+  ac_libbanshee_warn_cflags='-W -Wall -pedantic -Wwrite-strings  -Wstrict-prototypes -Wmissing-prototypes'
+fi
+AC_SUBST(ac_libbanshee_warn_cflags)
+
 AM_MAINTAINER_MODE
 # Checks for header files.
 AC_HEADER_STDC
