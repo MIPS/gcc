@@ -438,97 +438,97 @@ show_signal (variable * v)
 
 
 static variable variable_table[] = {
-  {"G95_STDIN_UNIT", 5, &options.stdin_unit, init_integer, show_integer,
+  {"GFORTRAN_STDIN_UNIT", 5, &options.stdin_unit, init_integer, show_integer,
    "Unit number that will be preconnected to standard input\n"
    "(No preconnection if negative)"},
 
-  {"G95_STDOUT_UNIT", 6, &options.stdout_unit, init_integer,
+  {"GFORTRAN_STDOUT_UNIT", 6, &options.stdout_unit, init_integer,
    show_integer,
    "Unit number that will be preconnected to standard output\n"
    "(No preconnection if negative)"},
 
-  {"G95_USE_STDERR", 1, &options.use_stderr, init_boolean,
+  {"GFORTRAN_USE_STDERR", 1, &options.use_stderr, init_boolean,
    show_boolean,
    "Sends library output to standard error instead of standard output."},
 
-  {"G95_TMPDIR", 0, NULL, init_string, show_string,
+  {"GFORTRAN_TMPDIR", 0, NULL, init_string, show_string,
    "Directory for scratch files.  Overrides the TMP environment variable\n"
    "If TMP is not set " DEFAULT_TEMPDIR " is used."},
 
-  {"G95_UNBUFFERED_ALL", 0, &options.all_unbuffered, init_boolean,
+  {"GFORTRAN_UNBUFFERED_ALL", 0, &options.all_unbuffered, init_boolean,
    show_boolean,
    "If TRUE, all output is unbuffered.  This will slow down large writes "
    "but can be\nuseful for forcing data to be displayed immediately."},
 
-  {"G95_SHOW_LOCUS", 1, &options.locus, init_boolean, show_boolean,
+  {"GFORTRAN_SHOW_LOCUS", 1, &options.locus, init_boolean, show_boolean,
    "If TRUE, print filename and line number where runtime errors happen."},
 
-/* G95_NAME_xx (where xx is a unit number) gives the names of files
+/* GFORTRAN_NAME_xx (where xx is a unit number) gives the names of files
  * preconnected to those units. */
 
-/* G95_UNBUFFERED_xx (where xx is a unit number) gives a boolean that is used
+/* GFORTRAN_UNBUFFERED_xx (where xx is a unit number) gives a boolean that is used
  * to turn off buffering for that unit. */
 
-  {"G95_OPTIONAL_PLUS", 0, &options.optional_plus, init_boolean, show_boolean,
+  {"GFORTRAN_OPTIONAL_PLUS", 0, &options.optional_plus, init_boolean, show_boolean,
    "Print optional plus signs in numbers where permitted.  Default FALSE."},
 
-  {"G95_DEFAULT_RECL", DEFAULT_RECL, &options.default_recl,
+  {"GFORTRAN_DEFAULT_RECL", DEFAULT_RECL, &options.default_recl,
    init_integer, show_integer,
    "Default maximum record length for sequential files.  Most useful for\n"
    "adjusting line length of preconnected units.  Default "
    stringize (DEFAULT_RECL)},
 
-  {"G95_LIST_SEPARATOR", 0, NULL, init_sep, show_sep,
+  {"GFORTRAN_LIST_SEPARATOR", 0, NULL, init_sep, show_sep,
    "Separatator to use when writing list output.  May contain any number of "
    "spaces\nand at most one comma.  Default is a single space."},
 
   /* Memory related controls */
 
-  {"G95_MEM_INIT", 0, NULL, init_mem, show_mem,
+  {"GFORTRAN_MEM_INIT", 0, NULL, init_mem, show_mem,
    "How to initialize allocated memory.  Default value is NONE for no "
    "initialization\n(faster), NAN for a Not-a-Number with the mantissa "
    "0x40f95 or a custom\nhexadecimal value"},
 
-  {"G95_MEM_CHECK", 0, &options.mem_check, init_boolean, show_boolean,
+  {"GFORTRAN_MEM_CHECK", 0, &options.mem_check, init_boolean, show_boolean,
    "Whether memory still allocated will be reported when the program ends."},
 
   /* Signal handling (Unix).  */
 
-  {"G95_SIGHUP", 0, &options.sighup, init_signal, show_signal,
+  {"GFORTRAN_SIGHUP", 0, &options.sighup, init_signal, show_signal,
    "Whether the program will IGNORE or ABORT on SIGHUP."},
 
-  {"G95_SIGINT", 0, &options.sigint, init_signal, show_signal,
+  {"GFORTRAN_SIGINT", 0, &options.sigint, init_signal, show_signal,
    "Whether the program will IGNORE or ABORT on SIGINT."},
 
   /* Floating point control */
 
-  {"G95_FPU_ROUND", 0, &options.fpu_round, init_round, show_round,
+  {"GFORTRAN_FPU_ROUND", 0, &options.fpu_round, init_round, show_round,
    "Set floating point rounding.  Values are NEAREST, UP, DOWN, ZERO."},
 
-  {"G95_FPU_PRECISION", 0, &options.fpu_precision, init_precision,
+  {"GFORTRAN_FPU_PRECISION", 0, &options.fpu_precision, init_precision,
    show_precision,
    "Precision of intermediate results.  Values are 24, 53 and 64."},
 
-  {"G95_FPU_INVALID", 1, &options.fpu_invalid, init_boolean,
+  {"GFORTRAN_FPU_INVALID", 1, &options.fpu_invalid, init_boolean,
    show_boolean,
    "Raise a floating point exception on invalid FP operation."},
 
-  {"G95_FPU_DENORMAL", 1, &options.fpu_denormal, init_boolean,
+  {"GFORTRAN_FPU_DENORMAL", 1, &options.fpu_denormal, init_boolean,
    show_boolean,
    "Raise a floating point exception when denormal numbers are encountered."},
 
-  {"G95_FPU_ZERO", 0, &options.fpu_zerodiv, init_boolean, show_boolean,
+  {"GFORTRAN_FPU_ZERO", 0, &options.fpu_zerodiv, init_boolean, show_boolean,
    "Raise a floating point exception when dividing by zero."},
 
-  {"G95_FPU_OVERFLOW", 0, &options.fpu_overflow, init_boolean,
+  {"GFORTRAN_FPU_OVERFLOW", 0, &options.fpu_overflow, init_boolean,
    show_boolean,
    "Raise a floating point exception on overflow."},
 
-  {"G95_FPU_UNDERFLOW", 0, &options.fpu_underflow, init_boolean,
+  {"GFORTRAN_FPU_UNDERFLOW", 0, &options.fpu_underflow, init_boolean,
    show_boolean,
    "Raise a floating point exception on underflow."},
 
-  {"G95_FPU_PRECISION", 0, &options.fpu_precision_loss, init_boolean,
+  {"GFORTRAN_FPU_PRECISION", 0, &options.fpu_precision_loss, init_boolean,
    show_boolean,
    "Raise a floating point exception on precision loss."},
 
@@ -563,7 +563,7 @@ check_buffered (int n)
   if (options.all_unbuffered)
     return 0;
 
-  strcpy (name, "G95_UNBUFFERED_");
+  strcpy (name, "GFORTRAN_UNBUFFERED_");
   strcat (name, itoa (n));
 
   v.name = name;
@@ -616,7 +616,7 @@ show_variables (void)
   variable *v;
   int n;
 /* TODO: print version number.  */
-  st_printf ("G95 fortran runtime library version "
+  st_printf ("GNU Fortran 95 runtime library version "
 	     "UNKNOWN" "\n\n");
 
   st_printf ("Environment variables:\n");
@@ -638,24 +638,24 @@ show_variables (void)
       st_printf ("%s\n\n", v->desc);
     }
 
-  st_printf ("\nDefault unit names (G95_NAME_x):\n");
+  st_printf ("\nDefault unit names (GFORTRAN_NAME_x):\n");
 
   for (e = environ; *e; e++)
     {
-      p = pattern_scan (*e, "G95_NAME_", &n);
+      p = pattern_scan (*e, "GFORTRAN_NAME_", &n);
       if (p == NULL)
 	continue;
-      st_printf ("G95_NAME_%d         %s\n", n, p);
+      st_printf ("GFORTRAN_NAME_%d         %s\n", n, p);
     }
 
-  st_printf ("\nUnit buffering overrides (G95_UNBUFFERED_x):\n");
+  st_printf ("\nUnit buffering overrides (GFORTRAN_UNBUFFERED_x):\n");
   for (e = environ; *e; e++)
     {
-      p = pattern_scan (*e, "G95_UNBUFFERED_", &n);
+      p = pattern_scan (*e, "GFORTRAN_UNBUFFERED_", &n);
       if (p == NULL)
 	continue;
 
-      st_printf ("G95_UNBUFFERED_%d = %s\n", n, p);
+      st_printf ("GFORTRAN_UNBUFFERED_%d = %s\n", n, p);
     }
 
   /* System error codes */

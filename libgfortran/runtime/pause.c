@@ -43,7 +43,7 @@ do_pause (void)
 
 /* A numeric or blank STOP statement.  */
 void
-pause_numeric (G95_INTEGER_4 code)
+pause_numeric (GFC_INTEGER_4 code)
 {
   show_locus ();
 
@@ -57,7 +57,7 @@ pause_numeric (G95_INTEGER_4 code)
 
 
 void
-pause_string (char *string, G95_INTEGER_4 len)
+pause_string (char *string, GFC_INTEGER_4 len)
 {
   show_locus ();
 

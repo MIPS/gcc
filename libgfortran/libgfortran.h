@@ -72,16 +72,16 @@ typedef off_t offset_t;
 #define IMAGPART(z) (__imag__(z))
 #define COMPLEX_ASSIGN(z_, r_, i_) {__real__(z_) = (r_); __imag__(z_) = (i_);}
 
-typedef int32_t G95_INTEGER_4;
-typedef int64_t G95_INTEGER_8;
-typedef uint32_t G95_UINTEGER_4;
-typedef uint64_t G95_UINTEGER_8;
-typedef G95_INTEGER_4 G95_LOGICAL_4;
-typedef G95_INTEGER_8 G95_LOGICAL_8;
-typedef float G95_REAL_4;
-typedef double G95_REAL_8;
-typedef complex float G95_COMPLEX_4;
-typedef complex double G95_COMPLEX_8;
+typedef int32_t GFC_INTEGER_4;
+typedef int64_t GFC_INTEGER_8;
+typedef uint32_t GFC_UINTEGER_4;
+typedef uint64_t GFC_UINTEGER_8;
+typedef GFC_INTEGER_4 GFC_LOGICAL_4;
+typedef GFC_INTEGER_8 GFC_LOGICAL_8;
+typedef float GFC_REAL_4;
+typedef double GFC_REAL_8;
+typedef complex float GFC_COMPLEX_4;
+typedef complex double GFC_COMPLEX_8;
 
 typedef size_t index_type;
 
@@ -90,17 +90,17 @@ typedef size_t index_type;
 extern int l8_to_l4_offset;
 
 #define GFOR_POINTER_L8_TO_L4(p8) \
-  (l8_to_l4_offset + (G95_LOGICAL_4 *)(p8))
+  (l8_to_l4_offset + (GFC_LOGICAL_4 *)(p8))
 
-#define G95_INTEGER_4_HUGE \
-  (G95_INTEGER_4)((((G95_UINTEGER_4)1) << 31) - 1)
-#define G95_INTEGER_8_HUGE \
-  (G95_INTEGER_8)((((G95_UINTEGER_8)1) << 63) - 1)
-#define G95_REAL_4_HUGE FLT_MAX
-#define G95_REAL_8_HUGE DBL_MAX
+#define GFC_INTEGER_4_HUGE \
+  (GFC_INTEGER_4)((((GFC_UINTEGER_4)1) << 31) - 1)
+#define GFC_INTEGER_8_HUGE \
+  (GFC_INTEGER_8)((((GFC_UINTEGER_8)1) << 63) - 1)
+#define GFC_REAL_4_HUGE FLT_MAX
+#define GFC_REAL_8_HUGE DBL_MAX
 
-#ifndef G95_MAX_DIMENSIONS
-#define G95_MAX_DIMENSIONS 7
+#ifndef GFC_MAX_DIMENSIONS
+#define GFC_MAX_DIMENSIONS 7
 #endif
 
 typedef struct descriptor_dimension
@@ -111,7 +111,7 @@ typedef struct descriptor_dimension
 }
 descriptor_dimension;
 
-#define G95_ARRAY_DESCRIPTOR(r, type) \
+#define GFC_ARRAY_DESCRIPTOR(r, type) \
 struct {\
   type *data;\
   type *base;\
@@ -120,40 +120,40 @@ struct {\
 }
 
 /* Commonly used array descriptor types.  */
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, void) g95_array_void;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, char) g95_array_char;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_INTEGER_4) g95_array_i4;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_INTEGER_8) g95_array_i8;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_REAL_4) g95_array_r4;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_REAL_8) g95_array_r8;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_COMPLEX_4) g95_array_c4;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_COMPLEX_8) g95_array_c8;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_LOGICAL_4) g95_array_l4;
-typedef G95_ARRAY_DESCRIPTOR (G95_MAX_DIMENSIONS, G95_LOGICAL_8) g95_array_l8;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) gfc_array_void;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, char) gfc_array_char;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_4) gfc_array_r4;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_8) gfc_array_r8;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_4) gfc_array_c4;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_8) gfc_array_c8;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_4) gfc_array_l4;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_8) gfc_array_l8;
 
-#define G95_DTYPE_RANK_MASK 0x07
-#define G95_DTYPE_TYPE_SHIFT 3
-#define G95_DTYPE_TYPE_MASK 0x38
-#define G95_DTYPE_SIZE_SHIFT 6
+#define GFC_DTYPE_RANK_MASK 0x07
+#define GFC_DTYPE_TYPE_SHIFT 3
+#define GFC_DTYPE_TYPE_MASK 0x38
+#define GFC_DTYPE_SIZE_SHIFT 6
 
 enum
 {
-  G95_DTYPE_UNKNOWN = 0,
-  G95_DTYPE_INTEGER,
+  GFC_DTYPE_UNKNOWN = 0,
+  GFC_DTYPE_INTEGER,
   /* TODO: recognize logical types.  */
-  G95_DTYPE_LOGICAL,
-  G95_DTYPE_REAL,
-  G95_DTYPE_COMPLEX,
-  G95_DTYPE_DERIVED,
-  G95_DTYPE_CHARACTER
+  GFC_DTYPE_LOGICAL,
+  GFC_DTYPE_REAL,
+  GFC_DTYPE_COMPLEX,
+  GFC_DTYPE_DERIVED,
+  GFC_DTYPE_CHARACTER
 };
 
-#define G95_DESCRIPTOR_RANK(desc) ((desc)->dtype & G95_DTYPE_RANK_MASK)
-#define G95_DESCRIPTOR_TYPE(desc) (((desc)->dtype & G95_DTYPE_TYPE_MASK) \
-                                   >> G95_DTYPE_TYPE_SHIFT)
-#define G95_DESCRIPTOR_SIZE(desc) ((desc)->dtype >> G95_DTYPE_SIZE_SHIFT)
-#define G95_DESCRIPTOR_DATA(desc) ((desc)->data)
-#define G95_DESCRIPTOR_DTYPE(desc) ((desc)->dtype)
+#define GFC_DESCRIPTOR_RANK(desc) ((desc)->dtype & GFC_DTYPE_RANK_MASK)
+#define GFC_DESCRIPTOR_TYPE(desc) (((desc)->dtype & GFC_DTYPE_TYPE_MASK) \
+                                   >> GFC_DTYPE_TYPE_SHIFT)
+#define GFC_DESCRIPTOR_SIZE(desc) ((desc)->dtype >> GFC_DTYPE_SIZE_SHIFT)
+#define GFC_DESCRIPTOR_DATA(desc) ((desc)->data)
+#define GFC_DESCRIPTOR_DTYPE(desc) ((desc)->dtype)
 
 /* Runtime library include.  */
 #define stringize(x) expand_macro(x)
@@ -306,10 +306,10 @@ void free_mem (void *);
 void internal_malloc_size (void **, size_t);
 
 #define internal_malloc	prefix(internal_malloc)
-void internal_malloc (void **, G95_INTEGER_4);
+void internal_malloc (void **, GFC_INTEGER_4);
 
 #define internal_malloc64 prefix(internal_malloc64)
-void internal_malloc64 (void **, G95_INTEGER_8);
+void internal_malloc64 (void **, GFC_INTEGER_8);
 
 #define internal_free	prefix(internal_free)
 void internal_free (void **);
@@ -321,13 +321,13 @@ void push_context (void);
 void pop_context (void);
 
 #define allocate	prefix(allocate)
-void allocate (void **, G95_INTEGER_4, G95_INTEGER_4 *);
+void allocate (void **, GFC_INTEGER_4, GFC_INTEGER_4 *);
 
 #define allocate64	prefix(allocate64)
-void allocate64 (void **, G95_INTEGER_8, G95_INTEGER_4 *);
+void allocate64 (void **, GFC_INTEGER_8, GFC_INTEGER_4 *);
 
 #define deallocate	prefix(deallocate)
-void deallocate (void **, G95_INTEGER_4 *);
+void deallocate (void **, GFC_INTEGER_4 *);
 
 
 /* environ.c */
@@ -366,7 +366,7 @@ void close_units (void);
 
 /* stop.c */
 #define stop_numeric prefix(stop_numeric)
-void stop_numeric (G95_INTEGER_4);
+void stop_numeric (GFC_INTEGER_4);
 
 /* reshape_packed.c */
 #define reshape_packed prefix(reshape_packed)
@@ -375,28 +375,28 @@ void reshape_packed (char *, index_type, const char *, index_type,
 
 /* Repacking functions.  */
 #define internal_pack prefix(internal_pack)
-void *internal_pack (g95_array_char *);
+void *internal_pack (gfc_array_char *);
 
 #define internal_unpack prefix(internal_unpack)
-void internal_unpack (g95_array_char *, const void *);
+void internal_unpack (gfc_array_char *, const void *);
 
 #define internal_pack_4 prefix(internal_pack_4)
-G95_INTEGER_4 *internal_pack_4 (g95_array_i4 *);
+GFC_INTEGER_4 *internal_pack_4 (gfc_array_i4 *);
 
 #define internal_pack_8 prefix(internal_pack_8)
-G95_INTEGER_8 *internal_pack_8 (g95_array_i8 *);
+GFC_INTEGER_8 *internal_pack_8 (gfc_array_i8 *);
 
 #define internal_unpack_4 prefix(internal_unpack_4)
-void internal_unpack_4 (g95_array_i4 *, const G95_INTEGER_4 *);
+void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 
 #define internal_unpack_8 prefix(internal_unpack_8)
-void internal_unpack_8 (g95_array_i8 *, const G95_INTEGER_8 *);
+void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 
 /* string_intrinsics.c */
 
 #define compare_string prefix(compare_string)
-G95_INTEGER_4 compare_string (G95_INTEGER_4, const char *,
-			      G95_INTEGER_4, const char *);
+GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
+			      GFC_INTEGER_4, const char *);
 
 #endif
 

@@ -28,18 +28,18 @@ Boston, MA 02111-1307, USA.  */
 /* Allocates a block of memory with internal_malloc if the array needs
    repacking.  */
 
-G95_INTEGER_4 *
-internal_pack_4 (g95_array_i4 * source)
+GFC_INTEGER_4 *
+internal_pack_4 (gfc_array_i4 * source)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type stride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
   index_type stride0;
   index_type dim;
   index_type ssize;
-  const G95_INTEGER_4 *src;
-  G95_INTEGER_4 *dest;
-  G95_INTEGER_4 *destptr;
+  const GFC_INTEGER_4 *src;
+  GFC_INTEGER_4 *dest;
+  GFC_INTEGER_4 *destptr;
   int n;
   int packed;
 
@@ -49,7 +49,7 @@ internal_pack_4 (g95_array_i4 * source)
       return source->data;
     }
 
-  dim = G95_DESCRIPTOR_RANK (source);
+  dim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
   packed = 1;
   for (n = 0; n < dim; n++)

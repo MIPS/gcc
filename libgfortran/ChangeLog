@@ -1,3 +1,7 @@
+2003-09-19  Paul Brook  <paul@nowt.org>
+
+	* All: rename g95->gfc.
+
 2003-09-18  XiaoQiang Zhang  <zhangapache@yahoo.com>
 
 	* io/write.c (output_float): Fix bug of FMT_E, Add comments.

@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -55,8 +55,8 @@ void
   index_type count;
   index_type n;
 
-  assert (G95_DESCRIPTOR_RANK (a) == 2
-          || G95_DESCRIPTOR_RANK (b) == 2);
+  assert (GFC_DESCRIPTOR_RANK (a) == 2
+          || GFC_DESCRIPTOR_RANK (b) == 2);
   abase = a->data;
   bbase = b->data;
   dest = retarray->data;
@@ -70,7 +70,7 @@ void
 
 sinclude(`matmul_asm_'rtype_code`.m4')dnl
 
-  if (G95_DESCRIPTOR_RANK (retarray) == 1)
+  if (GFC_DESCRIPTOR_RANK (retarray) == 1)
     {
       rxstride = retarray->dim[0].stride;
       rystride = rxstride;
@@ -83,7 +83,7 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 
   /* If we have rank 1 parameters, zero the absent stride, and set the size to
      one.  */
-  if (G95_DESCRIPTOR_RANK (a) == 1)
+  if (GFC_DESCRIPTOR_RANK (a) == 1)
     {
       astride = a->dim[0].stride;
       count = a->dim[0].ubound + 1 - a->dim[0].lbound;
@@ -98,7 +98,7 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       xstride = a->dim[0].stride;
       xcount = a->dim[0].ubound + 1 - a->dim[0].lbound;
     }
-  if (G95_DESCRIPTOR_RANK (b) == 1)
+  if (GFC_DESCRIPTOR_RANK (b) == 1)
     {
       bstride = b->dim[0].stride;
       assert(count == b->dim[0].ubound + 1 - b->dim[0].lbound);

@@ -26,17 +26,17 @@ Boston, MA 02111-1307, USA.  */
 enum { FALSE = 0, TRUE = 1 };
 
 
-G95_LOGICAL_4
-associated (const g95_array_void *pointer, const g95_array_void *target)
+GFC_LOGICAL_4
+associated (const gfc_array_void *pointer, const gfc_array_void *target)
 {
   int n, rank;
 
-  if (G95_DESCRIPTOR_DATA (pointer) != G95_DESCRIPTOR_DATA (target))
+  if (GFC_DESCRIPTOR_DATA (pointer) != GFC_DESCRIPTOR_DATA (target))
     return FALSE;
-  if (G95_DESCRIPTOR_DTYPE (pointer) != G95_DESCRIPTOR_DTYPE (target))
+  if (GFC_DESCRIPTOR_DTYPE (pointer) != GFC_DESCRIPTOR_DTYPE (target))
     return FALSE;
 
-  rank = G95_DESCRIPTOR_RANK (pointer);
+  rank = GFC_DESCRIPTOR_RANK (pointer);
   for (n = 0; n < rank; n++)
     {
       if (pointer->dim[n].stride != target->dim[n].stride)

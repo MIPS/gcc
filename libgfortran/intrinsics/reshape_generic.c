@@ -25,8 +25,8 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
-typedef G95_ARRAY_DESCRIPTOR(1, index_type) shape_type;
-typedef G95_ARRAY_DESCRIPTOR(G95_MAX_DIMENSIONS, char) parray;
+typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
+typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) parray;
 
 
 /* The shape parameter is ignored. We can currently deduce the shape from the
@@ -37,25 +37,25 @@ __reshape (parray * ret, parray * source, shape_type * shape,
            parray * pad, shape_type * order)
 {
   /* r.* indicates the return array.  */
-  index_type rcount[G95_MAX_DIMENSIONS - 1];
-  index_type rextent[G95_MAX_DIMENSIONS - 1];
-  index_type rstride[G95_MAX_DIMENSIONS - 1];
+  index_type rcount[GFC_MAX_DIMENSIONS - 1];
+  index_type rextent[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type rdim;
   index_type rsize;
   char *rptr;
   /* s.* indicates the source array.  */
-  index_type scount[G95_MAX_DIMENSIONS - 1];
-  index_type sextent[G95_MAX_DIMENSIONS - 1];
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
+  index_type scount[GFC_MAX_DIMENSIONS - 1];
+  index_type sextent[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   index_type sdim;
   index_type ssize;
   const char *sptr;
   /* p.* indicates the pad array.  */
-  index_type pcount[G95_MAX_DIMENSIONS - 1];
-  index_type pextent[G95_MAX_DIMENSIONS - 1];
-  index_type pstride[G95_MAX_DIMENSIONS - 1];
+  index_type pcount[GFC_MAX_DIMENSIONS - 1];
+  index_type pextent[GFC_MAX_DIMENSIONS - 1];
+  index_type pstride[GFC_MAX_DIMENSIONS - 1];
   index_type pdim;
   index_type psize;
   const char *pptr;
@@ -65,7 +65,7 @@ __reshape (parray * ret, parray * source, shape_type * shape,
   int dim;
   int size;
 
-  size = G95_DESCRIPTOR_SIZE (ret);
+  size = GFC_DESCRIPTOR_SIZE (ret);
   if (ret->dim[0].stride == 0)
     ret->dim[0].stride = 1;
   if (source->dim[0].stride == 0)
@@ -77,7 +77,7 @@ __reshape (parray * ret, parray * source, shape_type * shape,
   if (order && order->dim[0].stride == 0)
     order->dim[0].stride = 1;
 
-  rdim = G95_DESCRIPTOR_RANK (ret);
+  rdim = GFC_DESCRIPTOR_RANK (ret);
   rsize = 1;
   for (n = 0; n < rdim; n++)
     {
@@ -101,7 +101,7 @@ __reshape (parray * ret, parray * source, shape_type * shape,
         return;
     }
 
-  sdim = G95_DESCRIPTOR_RANK (source);
+  sdim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
   for (n = 0; n < sdim; n++)
     {
@@ -121,7 +121,7 @@ __reshape (parray * ret, parray * source, shape_type * shape,
     {
       if (pad->dim[0].stride == 0)
         pad->dim[0].stride = 1;
-      pdim = G95_DESCRIPTOR_RANK (pad);
+      pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
       for (n = 0; n < pdim; n++)
         {

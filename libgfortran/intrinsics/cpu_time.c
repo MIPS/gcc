@@ -103,12 +103,12 @@ __cpu_time_1 (long *sec, long *usec)
 
 #undef CPU_TIME
 #define CPU_TIME(KIND)						\
-void prefix(cpu_time_##KIND) (G95_REAL_##KIND *__time)		\
+void prefix(cpu_time_##KIND) (GFC_REAL_##KIND *__time)		\
 {								\
   long sec, usec;						\
   __cpu_time_1 (&sec, &usec);					\
-  *__time = (G95_REAL_##KIND) sec +				\
-		((G95_REAL_##KIND) usec) * 1.e-6;		\
+  *__time = (GFC_REAL_##KIND) sec +				\
+		((GFC_REAL_##KIND) usec) * 1.e-6;		\
 }
 
 CPU_TIME(4)

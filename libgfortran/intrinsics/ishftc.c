@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -22,16 +22,16 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 #define ishftc4 prefix(ishftc4)
-G95_INTEGER_4 ishftc4 (G95_INTEGER_4, G95_INTEGER_4, G95_INTEGER_4);
+GFC_INTEGER_4 ishftc4 (GFC_INTEGER_4, GFC_INTEGER_4, GFC_INTEGER_4);
 
 #define ishftc8 prefix(ishftc8)
-G95_INTEGER_8 ishftc8 (G95_INTEGER_8, G95_INTEGER_8, G95_INTEGER_8);
+GFC_INTEGER_8 ishftc8 (GFC_INTEGER_8, GFC_INTEGER_8, GFC_INTEGER_8);
 
-G95_INTEGER_4
-ishftc4 (G95_INTEGER_4 i, G95_INTEGER_4 shift, G95_INTEGER_4 size)
+GFC_INTEGER_4
+ishftc4 (GFC_INTEGER_4 i, GFC_INTEGER_4 shift, GFC_INTEGER_4 size)
 {
-  G95_INTEGER_4 mask;
-  G95_UINTEGER_4 bits;
+  GFC_INTEGER_4 mask;
+  GFC_UINTEGER_4 bits;
 
   if (shift < 0)
     shift = shift + size;
@@ -39,17 +39,17 @@ ishftc4 (G95_INTEGER_4 i, G95_INTEGER_4 shift, G95_INTEGER_4 size)
   if (shift == 0 || shift == size)
     return i;
 
-  mask = (~(G95_INTEGER_4)0) << size;
+  mask = (~(GFC_INTEGER_4)0) << size;
   bits = i & ~mask;
   return (i & mask) | (bits >> (size - shift)) | ((i << shift) & ~mask);
 }
 
 
-G95_INTEGER_8
-ishftc8 (G95_INTEGER_8 i, G95_INTEGER_8 shift, G95_INTEGER_8 size)
+GFC_INTEGER_8
+ishftc8 (GFC_INTEGER_8 i, GFC_INTEGER_8 shift, GFC_INTEGER_8 size)
 {
-  G95_INTEGER_8 mask;
-  G95_UINTEGER_8 bits;
+  GFC_INTEGER_8 mask;
+  GFC_UINTEGER_8 bits;
 
   if (shift < 0)
     shift = shift + size;
@@ -57,7 +57,7 @@ ishftc8 (G95_INTEGER_8 i, G95_INTEGER_8 shift, G95_INTEGER_8 size)
   if (shift == 0 || shift == size)
     return i;
 
-  mask = (~(G95_INTEGER_8)0) << size;
+  mask = (~(GFC_INTEGER_8)0) << size;
   bits = i & ~mask;
   return (i & mask) | (bits >> (size - shift)) | ((i << shift) & ~mask);
 }

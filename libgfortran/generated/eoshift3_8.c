@@ -29,52 +29,52 @@ static const char zeros[16] =
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 void
-__eoshift3_8 (g95_array_char * ret, g95_array_char * array,
-    g95_array_i8 * h, const g95_array_char * bound, G95_INTEGER_8 * pwhich)
+__eoshift3_8 (gfc_array_char * ret, gfc_array_char * array,
+    gfc_array_i8 * h, const gfc_array_char * bound, GFC_INTEGER_8 * pwhich)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[G95_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* h.* indicates the shift array.  */
-  index_type hstride[G95_MAX_DIMENSIONS - 1];
+  index_type hstride[GFC_MAX_DIMENSIONS - 1];
   index_type hstride0;
-  const G95_INTEGER_8 *hptr;
+  const GFC_INTEGER_8 *hptr;
   /* b.* indicates the bound array.  */
-  index_type bstride[G95_MAX_DIMENSIONS - 1];
+  index_type bstride[GFC_MAX_DIMENSIONS - 1];
   index_type bstride0;
   const char *bptr;
 
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
   index_type dim;
   index_type size;
   index_type len;
   index_type n;
   int which;
-  G95_INTEGER_8 sh;
-  G95_INTEGER_8 delta;
+  GFC_INTEGER_8 sh;
+  GFC_INTEGER_8 delta;
 
   if (pwhich)
     which = *pwhich - 1;
   else
     which = 0;
 
-  size = G95_DESCRIPTOR_SIZE (ret);
+  size = GFC_DESCRIPTOR_SIZE (ret);
 
   extent[0] = 1;
   count[0] = 0;
-  size = G95_DESCRIPTOR_SIZE (array);
+  size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
-  for (dim = 0; dim < G95_DESCRIPTOR_RANK (array); dim++)
+  for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
       if (dim == which)
         {
@@ -110,7 +110,7 @@ __eoshift3_8 (g95_array_char * ret, g95_array_char * array,
   if (bound && bstride[0] == 0)
     bstride[0] = size;
 
-  dim = G95_DESCRIPTOR_RANK (array);
+  dim = GFC_DESCRIPTOR_RANK (array);
   rstride0 = rstride[0];
   sstride0 = sstride[0];
   hstride0 = hstride[0];

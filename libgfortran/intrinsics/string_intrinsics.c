@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -36,40 +36,40 @@ Boston, MA 02111-1307, USA.  */
 /* String functions.  */
 
 #define copy_string prefix(copy_string)
-void copy_string (G95_INTEGER_4, char *, G95_INTEGER_4, const char *);
+void copy_string (GFC_INTEGER_4, char *, GFC_INTEGER_4, const char *);
 
 #define concat_string prefix(concat_string)
-void concat_string (G95_INTEGER_4, char *,
-		    G95_INTEGER_4, const char *,
-		    G95_INTEGER_4, const char *);
+void concat_string (GFC_INTEGER_4, char *,
+		    GFC_INTEGER_4, const char *,
+		    GFC_INTEGER_4, const char *);
 
 #define string_len_trim prefix(string_len_trim)
-G95_INTEGER_4 string_len_trim (G95_INTEGER_4, const char *);
+GFC_INTEGER_4 string_len_trim (GFC_INTEGER_4, const char *);
 
 #define adjustl prefix(adjustl)
-void adjustl (char *, G95_INTEGER_4, const char *);
+void adjustl (char *, GFC_INTEGER_4, const char *);
 
 #define adjustr prefix(adjustr)
-void adjustr (char *, G95_INTEGER_4, const char *);
+void adjustr (char *, GFC_INTEGER_4, const char *);
 
 #define string_index prefix(string_index)
-G95_INTEGER_4 string_index (G95_INTEGER_4, const char *, G95_INTEGER_4,
-			    const char *, G95_LOGICAL_4);
+GFC_INTEGER_4 string_index (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
+			    const char *, GFC_LOGICAL_4);
 
 #define string_scan prefix(string_scan)
-G95_INTEGER_4 string_scan (G95_INTEGER_4, const char *, G95_INTEGER_4,
-                           const char *, G95_LOGICAL_4);
+GFC_INTEGER_4 string_scan (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
+                           const char *, GFC_LOGICAL_4);
 
 #define string_verify prefix(string_verify)
-G95_INTEGER_4 string_verify (G95_INTEGER_4, const char *, G95_INTEGER_4,
-                             const char *, G95_LOGICAL_4);
+GFC_INTEGER_4 string_verify (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
+                             const char *, GFC_LOGICAL_4);
 
 
 /* The two areas may overlap so we use memmove.  */
 
 void
-copy_string (G95_INTEGER_4 destlen, char * dest,
-	     G95_INTEGER_4 srclen, const char * src)
+copy_string (GFC_INTEGER_4 destlen, char * dest,
+	     GFC_INTEGER_4 srclen, const char * src)
 {
   if (srclen >= destlen)
     {
@@ -89,9 +89,9 @@ copy_string (G95_INTEGER_4 destlen, char * dest,
 
 /* Strings of unequal length are extended with pad characters.  */
 
-G95_INTEGER_4
-compare_string (G95_INTEGER_4 len1, const char * s1,
-		G95_INTEGER_4 len2, const char * s2)
+GFC_INTEGER_4
+compare_string (GFC_INTEGER_4 len1, const char * s1,
+		GFC_INTEGER_4 len2, const char * s2)
 {
   int res;
   const char *s;
@@ -136,9 +136,9 @@ compare_string (G95_INTEGER_4 len1, const char * s1,
 /* The destination and source should not overlap.  */
 
 void
-concat_string (G95_INTEGER_4 destlen, char * dest,
-	       G95_INTEGER_4 len1, const char * s1,
-	       G95_INTEGER_4 len2, const char * s2)
+concat_string (GFC_INTEGER_4 destlen, char * dest,
+	       GFC_INTEGER_4 len1, const char * s1,
+	       GFC_INTEGER_4 len2, const char * s2)
 {
   if (len1 >= destlen)
     {
@@ -162,8 +162,8 @@ concat_string (G95_INTEGER_4 destlen, char * dest,
 
 /* The length of a string not including trailing blanks.  */
 
-G95_INTEGER_4
-string_len_trim (G95_INTEGER_4 len, const char * s)
+GFC_INTEGER_4
+string_len_trim (GFC_INTEGER_4 len, const char * s)
 {
   int i;
 
@@ -178,9 +178,9 @@ string_len_trim (G95_INTEGER_4 len, const char * s)
 
 /* Find a substring within a string.  */
 
-G95_INTEGER_4
-string_index (G95_INTEGER_4 slen, const char * str, G95_INTEGER_4 sslen,
-	      const char * sstr, G95_LOGICAL_4 back)
+GFC_INTEGER_4
+string_index (GFC_INTEGER_4 slen, const char * str, GFC_INTEGER_4 sslen,
+	      const char * sstr, GFC_LOGICAL_4 back)
 {
   int start;
   int last;
@@ -221,7 +221,7 @@ string_index (G95_INTEGER_4 slen, const char * str, G95_INTEGER_4 sslen,
    should not overlap.  */
 
 void
-adjustl (char *dest, G95_INTEGER_4 len, const char *src)
+adjustl (char *dest, GFC_INTEGER_4 len, const char *src)
 {
   int i;
 
@@ -239,7 +239,7 @@ adjustl (char *dest, G95_INTEGER_4 len, const char *src)
 /* Remove trailing blanks from a string.  */
 
 void
-adjustr (char *dest, G95_INTEGER_4 len, const char *src)
+adjustr (char *dest, GFC_INTEGER_4 len, const char *src)
 {
   int i;
 
@@ -256,9 +256,9 @@ adjustr (char *dest, G95_INTEGER_4 len, const char *src)
 
 /* Scan a string for any one of the characters in a set of characters.  */
 
-G95_INTEGER_4
-string_scan (G95_INTEGER_4 slen, const char * str, G95_INTEGER_4 setlen,
-             const char * set, G95_LOGICAL_4 back)
+GFC_INTEGER_4
+string_scan (GFC_INTEGER_4 slen, const char * str, GFC_INTEGER_4 setlen,
+             const char * set, GFC_LOGICAL_4 back)
 {
   int start;
   int last;
@@ -299,9 +299,9 @@ string_scan (G95_INTEGER_4 slen, const char * str, G95_INTEGER_4 setlen,
    string by indentifying the position of the first character in a
    characters that dose not appear in a given set of characters.  */
 
-G95_INTEGER_4
-string_verify (G95_INTEGER_4 slen, const char * str, G95_INTEGER_4 setlen,
-               const char * set, G95_LOGICAL_4 back)
+GFC_INTEGER_4
+string_verify (GFC_INTEGER_4 slen, const char * str, GFC_INTEGER_4 setlen,
+               const char * set, GFC_LOGICAL_4 back)
 {
   int start;
   int last;

@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-__transpose (g95_array_char * ret, g95_array_char * source)
+__transpose (gfc_array_char * ret, gfc_array_char * source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
@@ -39,10 +39,10 @@ __transpose (g95_array_char * ret, g95_array_char * source)
   index_type x, y;
   index_type size;
 
-  assert (G95_DESCRIPTOR_RANK (source) == 2
-          && G95_DESCRIPTOR_RANK (ret) == 2);
+  assert (GFC_DESCRIPTOR_RANK (source) == 2
+          && GFC_DESCRIPTOR_RANK (ret) == 2);
 
-  size = G95_DESCRIPTOR_SIZE (source);
+  size = GFC_DESCRIPTOR_SIZE (source);
   sxstride = source->dim[0].stride * size;
   if (sxstride == 0)
     sxstride = size;

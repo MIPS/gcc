@@ -21,10 +21,10 @@ define(START_ARRAY_FUNCTION,
 `void
 `__'name`'rtype_qual`_'type_code (rtype * retarray, atype *array, index_type *pdim)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
-  index_type dstride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type dstride[GFC_MAX_DIMENSIONS - 1];
   type_name *base;
   rtype_name *dest;
   index_type rank;
@@ -35,8 +35,8 @@ define(START_ARRAY_FUNCTION,
 
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
-  rank = G95_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == G95_DESCRIPTOR_RANK (retarray));
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
+  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
   if (retarray->dim[0].stride == 0)
@@ -117,16 +117,16 @@ define(FINISH_ARRAY_FUNCTION,
 }')dnl
 define(START_MASKED_ARRAY_FUNCTION,
 `void
-`__m'name`'rtype_qual`_'type_code (rtype * retarray, atype * array, index_type *pdim, g95_array_l4 * mask)
+`__m'name`'rtype_qual`_'type_code (rtype * retarray, atype * array, index_type *pdim, gfc_array_l4 * mask)
 {
-  index_type count[G95_MAX_DIMENSIONS - 1];
-  index_type extent[G95_MAX_DIMENSIONS - 1];
-  index_type sstride[G95_MAX_DIMENSIONS - 1];
-  index_type dstride[G95_MAX_DIMENSIONS - 1];
-  index_type mstride[G95_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type dstride[GFC_MAX_DIMENSIONS - 1];
+  index_type mstride[GFC_MAX_DIMENSIONS - 1];
   rtype_name *dest;
   type_name *base;
-  G95_LOGICAL_4 *mbase;
+  GFC_LOGICAL_4 *mbase;
   int rank;
   int dim;
   index_type n;
@@ -135,8 +135,8 @@ define(START_MASKED_ARRAY_FUNCTION,
   index_type mdelta;
 
   dim = (*pdim) - 1;
-  rank = G95_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == G95_DESCRIPTOR_RANK (retarray));
+  rank = GFC_DESCRIPTOR_RANK (array) - 1;
+  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
   if (retarray->dim[0].stride == 0)
@@ -174,10 +174,10 @@ define(START_MASKED_ARRAY_FUNCTION,
   base = array->data;
   mbase = mask->data;
 
-  if (G95_DESCRIPTOR_SIZE (mask) != 4)
+  if (GFC_DESCRIPTOR_SIZE (mask) != 4)
     {
       /* This allows the same loop to be used for all logical types.  */
-      assert (G95_DESCRIPTOR_SIZE (mask) == 8);
+      assert (GFC_DESCRIPTOR_SIZE (mask) == 8);
       for (n = 0; n < rank; n++)
         mstride[n] <<= 1;
       mdelta <<= 1;
@@ -187,7 +187,7 @@ define(START_MASKED_ARRAY_FUNCTION,
   while (base)
     {
       type_name *src;
-      G95_LOGICAL_4 *msrc;
+      GFC_LOGICAL_4 *msrc;
       rtype_name result;
       src = base;
       msrc = mbase;

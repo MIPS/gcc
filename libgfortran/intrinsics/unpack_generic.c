@@ -26,36 +26,36 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-__unpack1 (const g95_array_char * ret, const g95_array_char * vector,
-    const g95_array_l4 * mask, const g95_array_char * field)
+__unpack1 (const gfc_array_char * ret, const gfc_array_char * vector,
+    const gfc_array_l4 * mask, const gfc_array_char * field)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[G95_MAX_DIMENSIONS];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   char *rptr;
   /* v.* indicates the vector array.  */
   index_type vstride0;
   char *vptr;
   /* f.* indicates the field array.  */
-  index_type fstride[G95_MAX_DIMENSIONS];
+  index_type fstride[GFC_MAX_DIMENSIONS];
   index_type fstride0;
   const char *fptr;
   /* m.* indicates the mask array.  */
-  index_type mstride[G95_MAX_DIMENSIONS];
+  index_type mstride[GFC_MAX_DIMENSIONS];
   index_type mstride0;
-  const G95_LOGICAL_4 *mptr;
+  const GFC_LOGICAL_4 *mptr;
 
-  index_type count[G95_MAX_DIMENSIONS];
-  index_type extent[G95_MAX_DIMENSIONS];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type n;
   index_type dim;
   index_type size;
   index_type fsize;
 
-  size = G95_DESCRIPTOR_SIZE (ret);
+  size = GFC_DESCRIPTOR_SIZE (ret);
   /* A field element size of 0 actually means this is a scalar.  */
-  fsize = G95_DESCRIPTOR_SIZE (field);
-  dim = G95_DESCRIPTOR_RANK (ret);
+  fsize = GFC_DESCRIPTOR_SIZE (field);
+  dim = GFC_DESCRIPTOR_RANK (ret);
   for (n = 0; n < dim; n++)
     {
       count[n] = 0;
@@ -84,9 +84,9 @@ __unpack1 (const g95_array_char * ret, const g95_array_char * vector,
 
 
   /* Use the same loop for both logical types. */
-  if (G95_DESCRIPTOR_SIZE (mask) != 4)
+  if (GFC_DESCRIPTOR_SIZE (mask) != 4)
     {
-      if (G95_DESCRIPTOR_SIZE (mask) != 8)
+      if (GFC_DESCRIPTOR_SIZE (mask) != 8)
         runtime_error ("Funny sized logical array");
       for (n = 0; n < dim; n++)
         mstride[n] <<= 1;
@@ -142,10 +142,10 @@ __unpack1 (const g95_array_char * ret, const g95_array_char * vector,
 }
 
 void
-__unpack0 (const g95_array_char * ret, const g95_array_char * vector,
-    const g95_array_l4 * mask, char * field)
+__unpack0 (const gfc_array_char * ret, const gfc_array_char * vector,
+    const gfc_array_l4 * mask, char * field)
 {
-  g95_array_char tmp;
+  gfc_array_char tmp;
 
   tmp.dtype = 0;
   tmp.data = field;

@@ -4,12 +4,12 @@
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-GNU G95 is free software; you can redistribute it and/or
+Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2.1 of the License, or (at your option) any later version.
 
-GNU G95 is distributed in the hope that it will be useful,
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
@@ -24,17 +24,17 @@ Boston, MA 02111-1307, USA.  */
 
 /* z = a + ib  */
 /* Absolute value.  */
-G95_REAL_4
-cabsf (G95_COMPLEX_4 z)
+GFC_REAL_4
+cabsf (GFC_COMPLEX_4 z)
 {
   return hypotf (REALPART (z), IMAGPART (z));
 }
 
 /* Complex argument.  The angle made with the +ve real axis.  Range 0-2pi.  */
-G95_REAL_4
-cargf (G95_COMPLEX_4 z)
+GFC_REAL_4
+cargf (GFC_COMPLEX_4 z)
 {
-  G95_REAL_4 arg;
+  GFC_REAL_4 arg;
 
   arg = atan2f (IMAGPART (z), REALPART (z));
   if (arg < 0)
@@ -44,12 +44,12 @@ cargf (G95_COMPLEX_4 z)
 }
 
 /* exp(z) = exp(a)*(cos(b) + isin(b))  */
-G95_COMPLEX_4
-cexpf (G95_COMPLEX_4 z)
+GFC_COMPLEX_4
+cexpf (GFC_COMPLEX_4 z)
 {
-  G95_REAL_4 a;
-  G95_REAL_4 b;
-  G95_COMPLEX_4 v;
+  GFC_REAL_4 a;
+  GFC_REAL_4 b;
+  GFC_COMPLEX_4 v;
 
   a = REALPART (z);
   b = IMAGPART (z);
@@ -58,39 +58,39 @@ cexpf (G95_COMPLEX_4 z)
 }
 
 /* log(z) = log (cabs(z)) + i*carg(z)  */
-G95_COMPLEX_4
-clogf (G95_COMPLEX_4 z)
+GFC_COMPLEX_4
+clogf (GFC_COMPLEX_4 z)
 {
-  G95_COMPLEX_4 v;
+  GFC_COMPLEX_4 v;
 
   COMPLEX_ASSIGN (v, logf (cabsf (z)), cargf (z));
   return v;
 }
 
 /* log10(z) = log10 (cabs(z)) + i*carg(z)  */
-G95_COMPLEX_4
-clog10f (G95_COMPLEX_4 z)
+GFC_COMPLEX_4
+clog10f (GFC_COMPLEX_4 z)
 {
-  G95_COMPLEX_4 v;
+  GFC_COMPLEX_4 v;
 
   COMPLEX_ASSIGN (v, log10f (cabsf (z)), cargf (z));
   return v;
 }
 
 /* pow(base, power) = cexp (power * clog (base))  */
-G95_COMPLEX_4
-cpowf (G95_COMPLEX_4 base, G95_COMPLEX_4 power)
+GFC_COMPLEX_4
+cpowf (GFC_COMPLEX_4 base, GFC_COMPLEX_4 power)
 {
   return cexpf (power * clogf (base));
 }
 
 /* sqrt(z).  Algorithm pulled from glibc.  */
-G95_COMPLEX_4
-csqrtf (G95_COMPLEX_4 z)
+GFC_COMPLEX_4
+csqrtf (GFC_COMPLEX_4 z)
 {
-  G95_REAL_4 re;
-  G95_REAL_4 im;
-  G95_COMPLEX_4 v;
+  GFC_REAL_4 re;
+  GFC_REAL_4 im;
+  GFC_COMPLEX_4 v;
 
   re = REALPART (re);
   im = IMAGPART (im);
@@ -108,7 +108,7 @@ csqrtf (G95_COMPLEX_4 z)
     }
   else if (re == 0.0)
     {
-      G95_REAL_4 r;
+      GFC_REAL_4 r;
 
       r = sqrtf (0.5 * fabs (im));
 
@@ -116,7 +116,7 @@ csqrtf (G95_COMPLEX_4 z)
     }
   else
     {
-      G95_REAL_4 d, r, s;
+      GFC_REAL_4 d, r, s;
 
       d = hypotf (re, im);
       /* Use the identity   2  Re res  Im res = Im x

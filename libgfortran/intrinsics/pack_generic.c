@@ -26,30 +26,30 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 void
-__pack (const g95_array_char * ret, const g95_array_char * array,
-    const g95_array_l4 * mask, const g95_array_char * vector)
+__pack (const gfc_array_char * ret, const gfc_array_char * array,
+    const gfc_array_l4 * mask, const gfc_array_char * vector)
 {
   /* r.* indicates the return array.  */
   index_type rstride0;
   char *rptr;
   /* s.* indicates the source array.  */
-  index_type sstride[G95_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   const char *sptr;
   /* m.* indicates the mask array.  */
-  index_type mstride[G95_MAX_DIMENSIONS];
+  index_type mstride[GFC_MAX_DIMENSIONS];
   index_type mstride0;
-  const G95_LOGICAL_4 *mptr;
+  const GFC_LOGICAL_4 *mptr;
 
-  index_type count[G95_MAX_DIMENSIONS];
-  index_type extent[G95_MAX_DIMENSIONS];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type n;
   index_type dim;
   index_type size;
   index_type nelem;
 
-  size = G95_DESCRIPTOR_SIZE (array);
-  dim = G95_DESCRIPTOR_RANK (array);
+  size = GFC_DESCRIPTOR_SIZE (array);
+  dim = GFC_DESCRIPTOR_RANK (array);
   for (n = 0; n < dim; n++)
     {
       count[n] = 0;
@@ -72,9 +72,9 @@ __pack (const g95_array_char * ret, const g95_array_char * array,
   mptr = mask->data;
 
   /* Use the same loop for both logical types. */
-  if (G95_DESCRIPTOR_SIZE (mask) != 4)
+  if (GFC_DESCRIPTOR_SIZE (mask) != 4)
     {
-      if (G95_DESCRIPTOR_SIZE (mask) != 8)
+      if (GFC_DESCRIPTOR_SIZE (mask) != 8)
         runtime_error ("Funny sized logical array");
       for (n = 0; n < dim; n++)
         mstride[n] <<= 1;

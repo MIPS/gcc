@@ -23,15 +23,15 @@ Boston, MA 02111-1307, USA.  */
 #include <stdlib.h>
 #include "libgfortran.h"
 
-/* If G95_CLEAR_MEMORY is defined, the memory allocation routines will
+/* If GFC_CLEAR_MEMORY is defined, the memory allocation routines will
    return memory that is guaranteed to be set to zero.  This can have
    a severe efficiency penalty, so it should never be set if good
    performance is desired, but it can help when you're debugging code.  */
-#define G95_CLEAR_MEMORY
+#define GFC_CLEAR_MEMORY
 
-/* If G95_CHECK_MEMORY is defined, we do some sanity checks at runtime.
+/* If GFC_CHECK_MEMORY is defined, we do some sanity checks at runtime.
    This causes small overhead, but again, it also helps debugging.  */
-#define G95_CHECK_MEMORY
+#define GFC_CHECK_MEMORY
 
 /* We use a double linked list of these structures to keep track of
    the memory we allocate internally.  We could also use this for user
@@ -51,7 +51,7 @@ malloc_t;
 
 /* We try to make sure we don't get memory corruption by checking for
    a magic number.  */
-#define G95_MALLOC_MAGIC 0x4d353941	/* "G95M" */
+#define GFC_MALLOC_MAGIC 0x4d353941	/* "G95M" */
 
 #define HEADER_SIZE offsetof (malloc_t, data)
 #define DATA_POINTER(pheader) (&((pheader)->data))
@@ -92,7 +92,7 @@ get_mem (size_t n)
 {
   void *p;
 
-#ifdef G95_CLEAR_MEMORY
+#ifdef GFC_CLEAR_MEMORY
   p = (void *) calloc (n, 1);
 #else
 #define temp malloc
@@ -130,7 +130,7 @@ malloc_with_header (size_t n)
 
   if (newmem)
     {
-      newmem->magic = G95_MALLOC_MAGIC;
+      newmem->magic = GFC_MALLOC_MAGIC;
       newmem->marker = 0;
     }
 
@@ -145,7 +145,7 @@ internal_malloc_size (void **mem, size_t size)
 {
   malloc_t *newmem;
 
-#ifdef G95_CHECK_MEMORY
+#ifdef GFC_CHECK_MEMORY
   if (!mem)
     runtime_error ("Internal error: NULL mem pointer");
 #endif
@@ -166,9 +166,9 @@ internal_malloc_size (void **mem, size_t size)
 
 
 void
-internal_malloc (void **mem, G95_INTEGER_4 size)
+internal_malloc (void **mem, GFC_INTEGER_4 size)
 {
-#ifdef G95_CHECK_MEMORY
+#ifdef GFC_CHECK_MEMORY
   /* Under normal circumstances, this is _never_ going to happen!  */
   if (size <= 0)
     runtime_error ("Attempt to allocate a non-positive amount of memory.");
@@ -179,9 +179,9 @@ internal_malloc (void **mem, G95_INTEGER_4 size)
 
 
 void
-internal_malloc64 (void **mem, G95_INTEGER_8 size)
+internal_malloc64 (void **mem, GFC_INTEGER_8 size)
 {
-#ifdef G95_CHECK_MEMORY
+#ifdef GFC_CHECK_MEMORY
   /* Under normal circumstances, this is _never_ going to happen!  */
   if (size <= 0)
     runtime_error ("Attempt to allocate a non-positive amount of memory.");
@@ -208,7 +208,7 @@ internal_free (void **mem)
 
   m = DATA_HEADER (*mem);
 
-  if (m->magic != G95_MALLOC_MAGIC)
+  if (m->magic != GFC_MALLOC_MAGIC)
     runtime_error ("Internal: No magic memblock marker.  "
 		   "Possible memory corruption");
 
@@ -263,7 +263,7 @@ pop_context (void)
    ALLOCATE statement. */
 
 static void
-allocate_size (void **mem, size_t size, G95_INTEGER_4 * stat)
+allocate_size (void **mem, size_t size, GFC_INTEGER_4 * stat)
 {
   malloc_t *newmem;
 
@@ -302,7 +302,7 @@ allocate_size (void **mem, size_t size, G95_INTEGER_4 * stat)
 
 
 void
-allocate (void **mem, G95_INTEGER_4 size, G95_INTEGER_4 * stat)
+allocate (void **mem, GFC_INTEGER_4 size, GFC_INTEGER_4 * stat)
 {
 
   if (size < 0)
@@ -317,7 +317,7 @@ allocate (void **mem, G95_INTEGER_4 size, G95_INTEGER_4 * stat)
 
 
 void
-allocate64 (void **mem, G95_INTEGER_8 size, G95_INTEGER_4 * stat)
+allocate64 (void **mem, GFC_INTEGER_8 size, GFC_INTEGER_4 * stat)
 {
 
   if (size < 0)
@@ -335,7 +335,7 @@ allocate64 (void **mem, G95_INTEGER_8 size, G95_INTEGER_4 * stat)
 /* User-deallocate; pointer is NULLified. */
 
 void
-deallocate (void **mem, G95_INTEGER_4 * stat)
+deallocate (void **mem, GFC_INTEGER_4 * stat)
 {
 
   if (!mem)
