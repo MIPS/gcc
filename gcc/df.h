@@ -157,10 +157,11 @@ struct df_map
 #define DF_REF_REAL_REG(REF) (GET_CODE ((REF)->reg) == SUBREG \
 				? SUBREG_REG ((REF)->reg) : ((REF)->reg))
 #define DF_REF_REGNO(REF) REGNO (DF_REF_REAL_REG (REF))
+#define DF_REF_REAL_LOC(REF) (GET_CODE ((REF)->reg) == SUBREG \
+			        ? &SUBREG_REG ((REF)->reg) : ((REF)->loc))
 #ifdef OLD_DF_INTERFACE
 #define DF_REF_REG(REF) DF_REF_REAL_REG(REF)
-#define DF_REF_LOC(REF) (GET_CODE ((REF)->reg) == SUBREG \
-			   ? &SUBREG_REG((REF)->reg) : ((REF)->loc))
+#define DF_REF_LOC(REF) DF_REF_REAL_LOC(REF)
 #else
 #define DF_REF_REG(REF) ((REF)->reg)
 #define DF_REF_LOC(REF) ((REF)->loc)

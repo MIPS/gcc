@@ -1085,7 +1085,11 @@ df_uses_record (df, loc, ref_type, bb, insn)
 	  }
 	if (GET_CODE (dst) == SUBREG)
 	  {
-	    use_dst = 1;
+	    /* Paradoxical or too small subreg's are read-mod-write.  */
+            if (GET_MODE_SIZE (GET_MODE (dst)) < GET_MODE_SIZE (word_mode)
+                || GET_MODE_SIZE (GET_MODE (dst))
+	           >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (dst))))
+	      use_dst = 1;
 	  }
 	/* In the original code also some SUBREG rtx's were considered
 	   read-modify-write (those with

@@ -1,3 +1,48 @@
+2001-06-20  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	subreg handling
+	
+	* df.c (df_uses_record): case SET, GET_CODE(dst)==SUBREG: don't
+	add a use for the def, if it's wider than word, and the subreg isn't
+	paradoxical.
+
+	* df.h (DF_REF_REAL_LOC): New.
+	(DF_REF_LOC): Define with help from above.
+
+	* ra.c : Don't define OLD_DF_INTERFACE, #include "tm_p.h".
+	(struct tagged_conflict): New.
+	(struct web_part): Delete conflicts, add sub_conflicts (of the
+	above type).  Adjust users of that field.
+	(struct web): Add has_sub_conflicts, artificial.
+	(struct conflict_link): New.
+	(union_web_part_roots): Use them.
+	(rtx_to_bits, find_sub_conflicts, get_sub_conflicts,
+	undef_to_bitmap): New.
+	(regs_overlap_p): Rename to...
+	(defuse_overlap_p): this.
+	(live_out_1): Use them.
+	(find_subweb_2, add_subweb_2, find_web_for_subweb,
+	regs_overlap_p): New.
+	(add_conflict_edge): Breakout from ...
+	(record_conflict): here.
+	(sup_igraph): New, (de)allocate where also igraph is (de)allocated.
+	(struct visit_trace, num_subwebs, SUBWEB_P, BYTE_BEGIN,
+	BYTE_LENGTH): New.
+	(add_conflict_edge): Add a fake conflict (->s==NULL).
+	Set sup_igraph bit.
+	(parts_to_webs): Create needed artificial webs.
+	(conflicts_between_webs): Create conflict lists out of sub_conflicts.
+	(remember_web_was_spilled, simplify, ok, conservative, combine,
+	colorize_one_web): Deal with fake conflicts.
+	(coalesce): Use sup_igraph instead igraph to prevent coalescing.
+	(detect_spill_temps, build_worklists, emit_colors): Only deal with
+	full webs.
+	(colorize_one_web): Also try to spill smaller already colored
+	neighbors in case we happen to spill a spill-temp.
+	(rewrite_program): Only load or store the part which really is needed
+	by the insn (i.e. subreg).
+	(vim:): modeline adjusted ;-)
+	
 2001-04-29  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	Infrastructure for subreg handling.
