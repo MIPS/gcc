@@ -1,3 +1,10 @@
+2004-06-14  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Button.java (next_button_number): New field.
+	(paramString): Change output.
+	(generateName): New method.
+	(getUniqueLong): New method.
+
 2004-06-14  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/JTabbedPane.java:
