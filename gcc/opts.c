@@ -591,6 +591,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
       flag_web = 1;
+      flag_gcse_after_reload = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -1057,6 +1058,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_gcse_sm = value;
       break;
 
+    case OPT_fgcse_after_reload:
+      flag_gcse_after_reload = value;
+      break;
+
     case OPT_fgcse_las:
       flag_gcse_las = value;
       break;
@@ -1234,8 +1239,8 @@ common_handle_option (size_t scode, const char *arg,
         flag_peel_loops = value;
       if (!flag_tracer_set)
         flag_tracer = value;
-      if (!flag_value_profile_transformations_set)
-        flag_value_profile_transformations = value;
+      /*if (!flag_value_profile_transformations_set)
+        flag_value_profile_transformations = value;*/
       break;
 
     case OPT_fprofile_generate:
@@ -1243,8 +1248,8 @@ common_handle_option (size_t scode, const char *arg,
         profile_arc_flag = value;
       /*if (!flag_profile_values_set)
         flag_profile_values = value;*/
-      if (!flag_value_profile_transformations_set)
-        flag_value_profile_transformations = value;
+      /*if (!flag_value_profile_transformations_set)
+        flag_value_profile_transformations = value;*/
       break;
 
     case OPT_fprofile_values:
