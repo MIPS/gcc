@@ -1,3 +1,12 @@
+2004-05-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c (determine_max_iter, shorten_into_mode,
+	iv_number_of_iterations): Handle constants correctly.
+	* rtl.h (get_mode_bounds): Declaration changed.  Duplicate declaration
+	removed.
+	* stor-layout.c (get_mode_bounds): Return a constant suitable for
+	a target mode.
+
 2004-05-06  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-chrec.h (build_chrec_top_type): Check that the type has 

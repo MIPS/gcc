@@ -2453,7 +2453,8 @@ extern bool expensive_function_p (int);
 extern void tracer (void);
 
 /* In stor-layout.c.  */
-extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
+extern void get_mode_bounds (enum machine_mode, int, enum machine_mode,
+			     rtx *, rtx *);
 
 /* In loop-unswitch.c  */
 extern rtx reversed_condition (rtx);
@@ -2465,9 +2466,6 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
 /* In var-tracking.c */
 extern void variable_tracking_main (void);
-
-/* In stor-layout.c.  */
-extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
 
 /* In loop-unswitch.c  */
 extern rtx reversed_condition (rtx);
