@@ -1,4 +1,5 @@
 EXTRA_GCC_OBJS = cygwin1.o
+EXTRA_CPP0_OBJS = cygwin2.o
 
 # If we are building next to winsup, this will let us find the real
 # limits.h when building libgcc2.  Otherwise, winsup must be installed

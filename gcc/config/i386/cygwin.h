@@ -157,11 +157,14 @@ char cygwin_tool_include_dir[sizeof (TOOL_INCLUDE_DIR) + 1] = TOOL_INCLUDE_DIR;
 #undef TOOL_INCLUDE_DIR
 #define TOOL_INCLUDE_DIR ((const char *) cygwin_tool_include_dir)
 
+#ifndef CROSS_COMPILE
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR "/usr/include"
 char cygwin_standard_include_dir[sizeof (STANDARD_INCLUDE_DIR) + 1] = STANDARD_INCLUDE_DIR;
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR ((const char *) cygwin_standard_include_dir)
+#endif
+
 #ifndef GEN_CVT_ARRAY
 #define GEN_CVT_ARRAY
 #endif

@@ -1,3 +1,18 @@
+2002-07-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (add_method): Correct handling of conversion operators.
+
+2002-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7224
+	* class.c (add_method): Simplify.
+
+2002-07-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/7279
+	* tree.c (cp_copy_res_decl_for_inlining): Also copy
+	TREE_ADDRESSABLE.
+
 2002-07-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/6255

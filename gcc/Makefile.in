@@ -415,6 +415,8 @@ LIB2FUNCS_EXTRA =
 # Assembler files should have names ending in `.asm'.
 LIB2FUNCS_STATIC_EXTRA =
 
+EXTRA_CPP0_OBJS=
+
 # Handle cpp installation.
 INSTALL_CPP=
 UNINSTALL_CPP=
@@ -1975,9 +1977,9 @@ libcpp.a: $(LIBCPP_OBJS)
 	$(AR) $(AR_FLAGS) libcpp.a $(LIBCPP_OBJS)
 	-$(RANLIB) libcpp.a
 
-cpp0$(exeext): cppmain.o intl.o libcpp.a $(LIBDEPS)
+cpp0$(exeext): cppmain.o intl.o $(EXTRA_CPP0_OBJS) libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cpp0$(exeext) cppmain.o \
-	intl.o libcpp.a $(LIBS)
+	intl.o $(EXTRA_CPP0_OBJS) libcpp.a $(LIBS)
 
 cppmain.o:  cppmain.c  $(CONFIG_H) $(CPPLIB_H) intl.h $(SYSTEM_H)
 
