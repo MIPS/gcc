@@ -1,5 +1,8 @@
 2004-12-01  Stan Shebs  <shebs@apple.com>
 
+	* config/rs6000/rs6000.c (rs6000_override_options): Make 64-bit
+	Darwin default to one-byte bools.
+
 	* config/darwin.c (machopic_select_rtx_section): Don't put relocatable
 	expressions in the .literal8 section.
 
