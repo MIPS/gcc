@@ -359,6 +359,7 @@ dump_type (tree t, int flags)
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       {
 	tree args = TYPE_TI_ARGS (t);
+	dump_qualifiers (t, after);
 	pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
 	pp_template_argument_list_start (cxx_pp);
         dump_template_argument_list (args, flags);
@@ -814,9 +815,7 @@ dump_decl (tree t, int flags)
       break;
 
     case SCOPE_REF:
-      dump_decl (TREE_OPERAND (t, 0), flags & ~TFF_DECL_SPECIFIERS);
-      pp_colon_colon (cxx_pp); 
-      dump_decl (TREE_OPERAND (t, 1), flags);
+      pp_expression (cxx_pp, t);
       break;
 
     case ARRAY_REF:
@@ -1735,9 +1734,7 @@ dump_expr (tree t, int flags)
       break;
 
     case SCOPE_REF:
-      dump_type (TREE_OPERAND (t, 0), flags);
-      pp_colon_colon (cxx_pp);
-      dump_expr (TREE_OPERAND (t, 1), flags | TFF_EXPR_IN_PARENS);
+      pp_expression (cxx_pp, t);
       break;
 
     case CAST_EXPR:

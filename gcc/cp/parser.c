@@ -8871,6 +8871,7 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
   if (!(flags & CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES)) 
     {
       bool qualified_p;
+      bool global_p;
 
       /* Don't gobble tokens or issue error messages if this is an
 	 optional type-specifier.  */
@@ -8878,8 +8879,10 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
 	cp_parser_parse_tentatively (parser);
 
       /* Look for the optional `::' operator.  */
-      cp_parser_global_scope_opt (parser,
-				  /*current_scope_valid_p=*/false);
+      global_p
+	= (cp_parser_global_scope_opt (parser,
+				       /*current_scope_valid_p=*/false)
+	   != NULL_TREE);
       /* Look for the nested-name specifier.  */
       qualified_p
 	= (cp_parser_nested_name_specifier_opt (parser,
@@ -8911,6 +8914,7 @@ cp_parser_simple_type_specifier (cp_parser* parser, cp_parser_flags flags,
 	type = cp_parser_type_name (parser);
       /* Keep track of all name-lookups performed in class scopes.  */
       if (type  
+	  && !global_p
 	  && !qualified_p
 	  && TREE_CODE (type) == TYPE_DECL 
 	  && TREE_CODE (DECL_NAME (type)) == IDENTIFIER_NODE)
@@ -9761,25 +9765,18 @@ cp_parser_asm_definition (cp_parser* parser)
       /* If the next token is `::', there are no outputs, and the
 	 next token is the beginning of the inputs.  */
       else if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
-	{
-	  /* Consume the `::' token.  */
-	  cp_lexer_consume_token (parser->lexer);
-	  /* The inputs are coming next.  */
-	  inputs_p = true;
-	}
+	/* The inputs are coming next.  */
+	inputs_p = true;
 
       /* Look for inputs.  */
       if (inputs_p
 	  || cp_lexer_next_token_is (parser->lexer, CPP_COLON))
 	{
-	  if (!inputs_p)
-	    /* Consume the `:'.  */
-	    cp_lexer_consume_token (parser->lexer);
+	  /* Consume the `:' or `::'.  */
+	  cp_lexer_consume_token (parser->lexer);
 	  /* Parse the output-operands.  */
 	  if (cp_lexer_next_token_is_not (parser->lexer, 
 					  CPP_COLON)
-	      && cp_lexer_next_token_is_not (parser->lexer,
-					     CPP_SCOPE)
 	      && cp_lexer_next_token_is_not (parser->lexer,
 					     CPP_CLOSE_PAREN))
 	    inputs = cp_parser_asm_operand_list (parser);
@@ -9792,9 +9789,8 @@ cp_parser_asm_definition (cp_parser* parser)
       if (clobbers_p 
 	  || cp_lexer_next_token_is (parser->lexer, CPP_COLON))
 	{
-	  if (!clobbers_p)
-	    /* Consume the `:'.  */
-	    cp_lexer_consume_token (parser->lexer);
+	  /* Consume the `:' or `::'.  */
+	  cp_lexer_consume_token (parser->lexer);
 	  /* Parse the clobbers.  */
 	  if (cp_lexer_next_token_is_not (parser->lexer,
 					  CPP_CLOSE_PAREN))
@@ -11738,6 +11734,7 @@ cp_parser_class_specifier (cp_parser* parser)
   bool nested_name_specifier_p;
   unsigned saved_num_template_parameter_lists;
   bool pop_p = false;
+  tree scope = NULL_TREE;
 
   push_deferring_access_checks (dk_no_deferred);
 
@@ -11773,7 +11770,10 @@ cp_parser_class_specifier (cp_parser* parser)
 
   /* Start the class.  */
   if (nested_name_specifier_p)
-    pop_p = push_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (type)));
+    {
+      scope = CP_DECL_CONTEXT (TYPE_MAIN_DECL (type));
+      pop_p = push_scope (scope);
+    }
   type = begin_class_definition (type);
   if (type == error_mark_node)
     /* If the type is erroneous, skip the entire body of the class.  */
@@ -11796,7 +11796,7 @@ cp_parser_class_specifier (cp_parser* parser)
   if (type != error_mark_node)
     type = finish_struct (type, attributes);
   if (pop_p)
-    pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (type)));
+    pop_scope (scope);
   /* If this class is not itself within the scope of another class,
      then we need to parse the bodies of all of the queued function
      definitions.  Note that the queued functions defined in a class

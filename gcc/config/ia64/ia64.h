@@ -43,8 +43,13 @@ do {						\
 	  builtin_define("__BIG_ENDIAN__");	\
 } while (0)
 
+#ifndef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS
+#endif
+
 #define EXTRA_SPECS \
-  { "asm_extra", ASM_EXTRA_SPEC },
+  { "asm_extra", ASM_EXTRA_SPEC }, \
+  SUBTARGET_EXTRA_SPECS
 
 #define CC1_SPEC "%(cc1_cpu) "
 
@@ -838,6 +843,13 @@ while (0)
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
    && (((MODE1) == XFmode) == ((MODE2) == XFmode))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
+
+/* Specify the modes required to caller save a given hard regno.
+   We need to ensure floating pt regs are not saved as DImode.  */
+
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+   : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
 

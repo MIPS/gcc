@@ -1,3 +1,84 @@
+2004-08-13  Paolo Carlini  <pcarlini@suse.de>
+	
+	* src/debug.cc (_Error_formatter::_M_print_string): Fix thinko,
+	memmove is not needed, memcpy suffices.
+
+2004-08-12  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/16959
+	* src/ios_init.cc (ios_base::sync_with_stdio): Make sure the
+	standard streams are constructed.
+	* testsuite/27_io/ios_base/sync_with_stdio/16959.cc: New.
+
+2004-08-08  Jonathan Wakely  <redi@gcc.gnu.org>
+	    Paolo Carlini  <pcarlini@suse.de>
+	
+	* src/debug.cc (_Error_formatter::_M_print_string): In order
+	to print individual words from __string, _M_format_word can't
+	be called since may be just sprintf, thus ignoring completely
+	__n: instead, use memmove and append '\0' by hand.
+
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/12658 (continued)
+	* src/locale_init.cc (locale::locale, locale::global): Use
+	a single locale_mutex instead of two separate mutexes.
+
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/locale/cons/12658_thread.cc: Xfail: due to
+	a bug in glibcs older than 2004-07-16, it can unpredictably fail
+	irrespective of the correctness of libstdc++.
+
+2004-07-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/locale_init.cc: Use __gnu_cxx::lock.
+
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_put/put/char/14220.cc: Increase the value
+	of precision: 10 is too small to actually trigger the bug.
+	* testsuite/22_locale/num_put/put/wchar_t/14220.c: Likewise.
+
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 31.
+
+2004-07-29  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16813
+	* include/debug/map.h (insert(_InputIterator, _InputIterator)):
+	Fix typo.
+	* testsuite/23_containers/map/insert/16813.cc: New.
+
+2004-07-20  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* include/c_std/std_cwchar.h (wcsstr): Correct signature.
+
+2004-07-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15488
+	* testsuite/lib/libstdc++.exp (v3-copy-files): Revert.
+	
+2004-07-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR bootstrap/16469
+	* scripts/create_testsuite_files: Pass -print to find.
+
+2004-07-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 30.
+	* docs/html/ext/howto.html: Tweak entries for DRs 167/253/389/402.
+
+2004-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/14697
+	* acinclude.m4 (glibcxx_shared_libgcc): Correct
+	glibcxx_shared_libgcc test for multilibs.
+	* configure: Rebuilt.
+
 2004-07-14  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (time_get<>::do_get_time,

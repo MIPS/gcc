@@ -1,3 +1,112 @@
+2004-08-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16273
+	* class.c (count_depth_data): New type.
+	(dfs_depth_post): New function.
+	(dfs_depth_q): Likewise.
+	(find_final_overrider_data_s): Change type of vpath.
+	Add vpath_list.
+	(dfs_find_final_overrider_1): New function.
+	(dfs_find_final_overrider): Use it.
+	(dfs_find_final_overrider_q): Adjust use of vpath.
+	(dfs_find_final_overrider_post): Likewise.
+	(find_final_overrider): Use dfs_depth.  Allocate and deallocate
+	vpath_list.
+
+2004-08-12 Jan Beulich <jbeulich@novell.com>
+
+	* parser.c (cp_parser_asm_definition): Properly consume scope operator
+	tokens preceding the clobbers. Don't check for scope operator
+	following inputs. Simplify inputs handling to match that now used for
+	clobbers.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16698
+	* except.c (build_throw): Allocate cleanup_type and the function
+	for __cxa_throw separately.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16717
+	* semantics.c (expand_body): Do not update static_ctors and
+	static_dtors here.
+	(expand_or_defer_fn): Do it here, instead.
+
+	PR c++/16853
+	* call.c (standard_conversion): Do not accept conversions between
+	pointers to members if the class types are unrelated.
+
+	PR c++/16870
+	* pt.c (tsubst): Just return the unknown_type_node.
+
+	PR c++/16964
+	* parser.c (cp_parser_class_specifier): Robustify.
+
+	PR c++/16904
+	* pt.c (tsubst_copy_and_build): Complain about invalid
+	qualification.
+
+	PR c++/16929
+	* pt.c (tsubst_default_argument): Clear out current_class_ptr and
+	current_class_ref while tsubsting.
+	
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16224
+	* name-lookup.c (decl_namespace): Remove.
+	(current_decl_namespace): Use decl_namespace_context instead of
+	decl_namespace.
+	(push_decl_namespace): Likewise.
+	(arg_assoc_class): Likewise.
+	(arg_assoc_type): Likewise.
+	* pt.c (check_specialization_namespace): New function.
+	(maybe_process_partial_specialization): Use it.
+	(register_specialization): Likewise.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16489
+	* cp-tree.h (DECL_INTEGRAL_CONSTANT_VAR_P): New macro.
+	* call.c (null_ptr_cst_p): Handle variables with constant
+	initializers.
+	* pt.c (convert_nontype_argument): Use
+	DECL_INTEGRAL_CONSTANT_VAR_P.
+	* semantics.c (finish_id_expression): Likewise.
+
+	PR c++/16529
+	* decl.c (duplicate_decls): Reject duplicate namespace
+	declarations.
+
+	PR c++/16810
+	* typeck.c (build_ptrmemfunc): Loosen assertion.
+
+2004-07-28  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* init.c (build_offset_ref): Build SCOPE_REF with non-null
+	TREE_TYPE for non-dependent names.
+	* typeck.c (build_x_unary_op): Handle non-dependent SCOPE_REF.
+	* pt.c (type_dependent_expression_p): Handle SCOPE_REF with
+	unknown_type_node as its TREE_TYPE.
+	* cxx-pretty_print.c (pp_cxx_unqualified_id): Handle BASELINK.
+	* error.c (dump_decl) <SCOPE_REF case>: Use pp_expression.
+	(dump_expr) <SCOPE_REF case>: Likewise.
+
+2004-07-21  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16175
+	* error.c (dump_type) <BOUND_TEMPLATE_TEMPLATE_PARM case>: Output
+	cv qualifier.
+
+2004-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	(cp_parser_simple_type_specifier): Fix typo.
+	
+	PR c++/16637
+	* parser.c (cp_parser_simple_type_specifier): Do not record usage
+	of globally-qualified names.
+
 2004-07-12  Andrew Pinski  <apinski@apple.com>
 
 	PR c++/16475

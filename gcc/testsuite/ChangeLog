@@ -1,3 +1,117 @@
+2004-08-12 Jan Beulich <jbeulich@novell.com>
+
+	* g++.dg/ext/asm5.C: New.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16698
+	* g++.dg/eh/crash1.C: New test.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16717
+	* g++.dg/ext/construct1.C: New test.
+
+	PR c++/16853
+	* g++.dg/init/ptrmem1.C: New test.
+
+	PR c++/16618
+	* g++.dg/parse/offsetof5.C: New test.
+
+	PR c++/16870
+	* g++.dg/template/overload3.C: New test.
+
+	PR c++/16964
+	* g++.dg/parse/error16.C: New test.
+
+	PR c++/16904
+	* g++.dg/template/error14.C: New test.
+
+	PR c++/16929
+	* g++.dg/template/error15.C: New test.
+
+2004-08-07  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/16790
+	* gcc.c-torture/execute/pr16790-1.c: New test case.
+
+2004-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/null1.C: Fix PR number.
+	* g++.dg/parse/namespace10.C: Likewise.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16224
+	* g++.dg/template/spec17.C: New test.
+	* g++.old-deja/g++.ns/template13.C: Remove XFAIL.
+	* g++.old-deja/g++.pt/lookup10.C: Add dg-error marker.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16489
+	* g++.dg/init/null1.C: New test.
+	* g++.dg/tc1/dr76.C: Adjust error marker.
+	
+	PR c++/16529
+	* g++.dg/parse/namespace10.C: New test.
+	
+	PR c++/16810
+	* g++.dg/inherit/ptrmem2.C: New test.
+
+2004-07-28  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* g++.dg/template/non-dependent7.C: New test.
+	* g++.dg/template/non-dependent8.C: Likewise.
+	* g++.dg/template/non-dependent9.C: Likewise.
+	* g++.dg/template/non-dependent10.C: Likewise.
+
+2004-07-27  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/rtti/tinfo1.C: Correct the xfail.
+
+2004-07-26  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/rtti/tinfo1.C: Xfail.
+
+2004-07-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040726-1.c: New test.
+
+2004-07-24  Alexander Kabaev  <kan@freebsd.org>
+	    Zack Weinberg  <zack@codesourcery.com
+
+	PR 16684
+	* gcc.dg/Wredundant-decls-1.c: New test case.
+
+2004-07-21  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16175
+	* g++.dg/template/ttp10.C: New test.
+
+2004-07-21  Jakub Jelinek  <jakub@redhat.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/15345
+	PR c/16450
+	* gcc.dg/torture/nested-fn-1.c: New test.
+
+2004-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16637
+	* g++.dg/parse/lookup4.C: New test.
+
+2004-07-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR rtl-optimization/16536
+	* gcc.c-torture/execute/restrict-1.c: New test.
+
+2004-07-14  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/16325
+	* gcc.dg/profile-generate-1.c: New.
+
 2004-07-13  Richard Sandiford  <rsandifo@redhat.com>
 
 	Brought in from mainline:
@@ -17,7 +131,7 @@
 	* gcc.dg/range-test-1.c: New test.
 	* g++.dg/opt/range-test-1.C: New test.
 
-2004-07-09  Loren James Rittle  <ljrittle@acm.org> 
+2004-07-09  Loren James Rittle  <ljrittle@acm.org>
 
 	* gcc.dg/builtins-config.h: Handle FreeBSD.
 
