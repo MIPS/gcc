@@ -58,6 +58,7 @@ const struct attribute_spec v850_attribute_table[];
 static tree v850_handle_interrupt_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree v850_handle_data_area_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static void v850_insert_attributes   PARAMS ((tree, tree *));
+static void v850_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 
 /* True if the current function has anonymous arguments.  */
 int current_function_anonymous_args;
@@ -95,6 +96,9 @@ static int v850_interrupt_p = FALSE;
 
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES v850_insert_attributes
+
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  v850_select_section
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1442,14 +1446,11 @@ compute_register_save_size (p_reg_saved)
 	 need to cover the possibility that such a helper function will
 	 be used, despite the fact that there might be gaps in the list of
 	 registers that need to be saved.  To detect this we note that the
-	 helper functions always push at least register r29 if the link
-	 register is not used, and at least registers r27 - r31 if the
-	 link register is used (and provided that the function is not an
-	 interrupt handler).  */
+	 helper functions always push at least register r29 (provided
+	 that the function is not an interrupt handler).  */
 	 
       if (TARGET_PROLOG_FUNCTION
-	  && (i == 2 || i >= 20)
-	  && regs_ever_live[LINK_POINTER_REGNUM] ? (i < 28) : (i < 30))
+          && (i == 2 || ((i >= 20) && (i < 30))))
 	{
 	  if (i == 2)
 	    {
@@ -2847,4 +2848,61 @@ v850_return_addr (count)
     return const0_rtx;
 
   return get_hard_reg_initial_val (Pmode, LINK_POINTER_REGNUM);
+}
+
+static void
+v850_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (exp) == VAR_DECL)
+    {
+      int is_const;
+      if (!TREE_READONLY (exp)
+	  || TREE_SIDE_EFFECTS (exp)
+	  || !DECL_INITIAL (exp)
+	  || (DECL_INITIAL (exp) != error_mark_node
+	      && !TREE_CONSTANT (DECL_INITIAL (exp))))
+        is_const = FALSE;
+      else
+        is_const = TRUE;
+
+      switch (v850_get_data_area (exp))
+        {
+        case DATA_AREA_ZDA:
+	  if (is_const)
+	    rozdata_section ();
+	  else
+	    zdata_section ();
+	  break;
+
+        case DATA_AREA_TDA:
+	  tdata_section ();
+	  break;
+
+        case DATA_AREA_SDA:
+	  if (is_const)
+	    rosdata_section ();
+	  else
+	    sdata_section ();
+	  break;
+
+        default:
+          if (is_const)
+	    const_section ();
+	  else
+	    data_section ();
+	  break;
+        }
+    }
+  else if (TREE_CODE (exp) == STRING_CST)
+    {
+      if (! flag_writable_strings)
+	const_section ();
+      else
+	data_section ();
+    }
+  else
+    const_section ();
 }

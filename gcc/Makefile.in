@@ -112,6 +112,11 @@ AR_FLAGS = rc
 DLLTOOL = dlltool
 RANLIB = @RANLIB@
 SHELL = /bin/sh
+# pwd command to use.  Allow user to override default by setting PWDCMD in
+# the environment to account for automounters.  The make variable must not
+# be called PWDCMD, otherwise the value set here is passed to make
+# subprocesses and overrides the setting from the user's environment.
+PWD = $${PWDCMD-pwd}
 # on sysV, define this as cp.
 INSTALL = @INSTALL@
 # Some systems may be missing symbolic links, regular links, or both.
@@ -344,14 +349,6 @@ LIBICONV = @LIBICONV@
 # List of internationalization subdirectories.
 INTL_SUBDIRS = intl
 
-# Change this to a null string if obstacks are installed in the
-# system library.
-OBSTACK=obstack.o
-
-# The following object files is used by genautomata.
-GETRUNTIME = getruntime.o
-HASHTAB = hashtab.o
-
 # The GC method to be used on this system.
 GGC=@GGC@.o
 
@@ -483,12 +480,6 @@ HOST_CFLAGS= @HOST_CFLAGS@ -DGENERATOR_FILE
 # Native linker and preprocessor flags.  For x-fragment overrides.
 HOST_LDFLAGS=$(LDFLAGS)
 HOST_CPPFLAGS=$(ALL_CPPFLAGS)
-HOST_OBSTACK=$(OBSTACK)
-HOST_VFPRINTF=$(VFPRINTF)
-HOST_DOPRINT=$(DOPRINT)
-HOST_GETRUNTIME=$(GETRUNTIME)
-HOST_HASHTAB=$(HASHTAB)
-HOST_STRSTR=$(STRSTR)
 
 # Actual name to use when installing a native compiler.
 GCC_INSTALL_NAME = `echo gcc|sed '$(program_transform_name)'`
@@ -612,17 +603,8 @@ ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
 LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = @FORBUILD@/libiberty/libiberty.a
 
-USE_HOST_OBSTACK= ` case "${HOST_OBSTACK}" in ?*) echo ${HOST_PREFIX}${HOST_OBSTACK} ;; esac `
-USE_HOST_VFPRINTF= ` case "${HOST_VFPRINTF}" in ?*) echo ${HOST_PREFIX}${HOST_VFPRINTF} ;; esac `
-USE_HOST_DOPRINT= ` case "${HOST_DOPRINT}" in ?*) echo ${HOST_PREFIX}${HOST_DOPRINT} ;; esac `
-USE_HOST_GETRUNTIME= ` case "${HOST_GETRUNTIME}" in ?*) echo ${HOST_PREFIX}${HOST_GETRUNTIME} ;; esac `
-USE_HOST_HASHTAB= ` case "${HOST_HASHTAB}" in ?*) echo ${HOST_PREFIX}${HOST_HASHTAB} ;; esac `
-USE_HOST_STRSTR= ` case "${HOST_STRSTR}" in ?*) echo ${HOST_PREFIX}${HOST_STRSTR} ;; esac `
-
-# Dependency on the intl, portability libraries, obstack or whatever
-# library facilities are not installed in the system libraries.
-# We don't use USE_* because backquote expansion doesn't work in deps.
-LIBDEPS= $(INTLLIBS) $(LIBIBERTY) $(OBSTACK) $(VFPRINTF) $(DOPRINT) $(STRSTR)
+# Dependencies on the intl and portability libraries.
+LIBDEPS= $(INTLDEPS) $(LIBIBERTY)
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
@@ -1030,6 +1012,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	SHLIB_MKMAP_OPTS='$(SHLIB_MKMAP_OPTS)' \
 	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
 	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
+	SHLIB_SLIBDIR_SUFFIXES='$(SHLIB_SLIBDIR_SUFFIXES)' \
 	mkinstalldirs='$(SHELL) $(srcdir)/mkinstalldirs' \
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
 	mv tmp-libgcc.mk libgcc.mk
@@ -1241,7 +1224,7 @@ s-under: $(GCC_PASSES)
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h tree-inline.h gt-c-common.h
+	diagnostic.h tree-inline.h except.h gt-c-common.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1254,7 +1237,7 @@ c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) langhooks.h \
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
 	c-lex.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
-	$(EXPR_H)
+	$(EXPR_H) $(PREDICT_H)
 
 # Language-independent files.
 
@@ -1351,17 +1334,6 @@ line-map.o: line-map.c line-map.h intl.h $(CONFIG_H) $(SYSTEM_H)
 ggc-none.o: ggc-none.c $(GCONFIG_H) $(SYSTEM_H) $(GGC_H)
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
-obstack.o: $(srcdir)/../libiberty/obstack.c $(GCONFIG_H)
-	rm -f obstack.c
-	$(LN_S) $(srcdir)/../libiberty/obstack.c obstack.c
-	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) \
-		obstack.c $(OUTPUT_OPTION)
-
-getruntime.o: $(srcdir)/../libiberty/getruntime.c $(CONFIG_H)
-	rm -f getruntime.c
-	$(LN_S) $(srcdir)/../libiberty/getruntime.c getruntime.c
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) getruntime.c
-
 prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) Makefile prefix.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	-DPREFIX=\"$(prefix)\" \
@@ -1432,7 +1404,7 @@ function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h  \
    insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
    $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
-   langhooks.h gt-stmt.h
+   langhooks.h $(PREDICT_H) gt-stmt.h
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    except.h function.h $(EXPR_H) libfuncs.h integrate.h langhooks.h \
    insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
@@ -1528,7 +1500,7 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
    gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TARGET_H) \
-   langhooks.h gt-profile.h
+   langhooks.h profile.h libfuncs.h gt-profile.h
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
@@ -1609,10 +1581,10 @@ sched-ebb.o : sched-ebb.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
 sched-vis.o : sched-vis.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(INSN_ATTR_H) $(REGS_H) $(TM_P_H) \
-   $(TARGET_H)
+   $(TARGET_H) real.h
 final.o : final.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h intl.h \
    $(REGS_H) $(RECOG_H) conditions.h insn-config.h $(INSN_ATTR_H) function.h \
-   real.h output.h hard-reg-set.h except.h debug.h xcoffout.h \
+   real.h output.h hard-reg-set.h except.h debug.h xcoffout.h profile.h \
    toplev.h reload.h dwarf2out.h $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H) $(EXPR_H)
 recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) function.h $(BASIC_BLOCK_H) \
    $(REGS_H) $(RECOG_H) $(EXPR_H) hard-reg-set.h flags.h insn-config.h \
@@ -1622,7 +1594,8 @@ reg-stack.o : reg-stack.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(RECOG_H) 
    varray.h function.h $(TM_P_H)
 predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
-   $(RECOG_H) function.h except.h $(EXPR_H) $(TM_P_H) $(PREDICT_H) real.h
+   $(RECOG_H) function.h except.h $(EXPR_H) $(TM_P_H) $(PREDICT_H) real.h \
+   $(PARAMS_H) $(TARGET_H)
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H)
@@ -1943,9 +1916,12 @@ genattr$(build_exeext) : genattr.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HO
 genattr.o : genattr.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattr.c $(OUTPUT_OPTION)
 
-genattrtab$(build_exeext) : genattrtab.o genautomata.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(HOST_PREFIX)$(HOST_GETRUNTIME) $(HOST_LIBDEPS)
+genattrtab$(build_exeext) : genattrtab.o genautomata.o \
+  $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genattrtab.o genautomata.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(USE_HOST_GETRUNTIME) $(HOST_LIBS) -lm
+	 genattrtab.o genautomata.o \
+	 $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) \
+	 $(HOST_LIBS) -lm
 
 genattrtab.o : genattrtab.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
   $(SYSTEM_H) errors.h $(GGC_H) gensupport.h genattrtab.h
@@ -2027,46 +2003,18 @@ $(HOST_PREFIX_1)bitmap.o: $(srcdir)/bitmap.c $(HCONFIG_H) $(SYSTEM_H) \
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/bitmap.c > $(HOST_PREFIX)bitmap.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)bitmap.c $(OUTPUT_OPTION)
 
-$(HOST_PREFIX_1)obstack.o: $(srcdir)/../libiberty/obstack.c $(HCONFIG_H)
-	rm -f $(HOST_PREFIX)obstack.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/obstack.c > $(HOST_PREFIX)obstack.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)obstack.c $(OUTPUT_OPTION)
-
-$(HOST_PREFIX_1)getruntime.o: $(srcdir)/../libiberty/getruntime.c
-	rm -f $(HOST_PREFIX)getruntime.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/getruntime.c > $(HOST_PREFIX)getruntime.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)getruntime.c $(OUTPUT_OPTION)
-
-$(HOST_PREFIX_1)hashtab.o: $(srcdir)/../libiberty/hashtab.c
-	rm -f $(HOST_PREFIX)hashtab.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/hashtab.c > $(HOST_PREFIX)hashtab.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)hashtab.c $(OUTPUT_OPTION)
-
-$(HOST_PREFIX_1)vfprintf.o: $(srcdir)/../libiberty/vfprintf.c $(HCONFIG_H)
-	rm -f $(HOST_PREFIX)vfprintf.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/vfprintf.c > $(HOST_PREFIX)vfprintf.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)vfprintf.c $(OUTPUT_OPTION)
-
-$(HOST_PREFIX_1)doprint.o: doprint.c $(HCONFIG_H)
-	rm -f $(HOST_PREFIX)doprint.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/doprint.c > $(HOST_PREFIX)doprint.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)doprint.c $(OUTPUT_OPTION)
-
-$(HOST_PREFIX_1)strstr.o: $(srcdir)/../libiberty/strstr.c $(HCONFIG_H)
-	rm -f $(HOST_PREFIX)strstr.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/strstr.c > $(HOST_PREFIX)strstr.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)strstr.c $(OUTPUT_OPTION)
-
 $(HOST_PREFIX_1)errors.o: errors.c $(HCONFIG_H) $(SYSTEM_H) errors.h
 	rm -f $(HOST_PREFIX)errors.c
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/errors.c > $(HOST_PREFIX)errors.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)errors.c $(OUTPUT_OPTION)
 
-
-# This satisfies the dependency that we get if you cross-compile a compiler
-# that does not need to compile doprint or whatever.
-$(HOST_PREFIX_1):
-	$(STAMP) $(HOST_PREFIX_1)
+$(HOST_PREFIX_1)varray.o: varray.c $(HCONFIG_H) $(SYSTEM_H) varray.h $(RTL_H) \
+  $(TREE_H) bitmap.h errors.h
+	rm -f $(HOST_PREFIX)varray.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/varray.c > \
+		$(HOST_PREFIX)varray.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
+		$(HOST_PREFIX)varray.c $(OUTPUT_OPTION)
 
 $(HOST_PREFIX_1)ggc-none.o: ggc-none.c $(HCONFIG_H) $(SYSTEM_H) $(GCC_H)
 	rm -f $(HOST_PREFIX)ggc-none.c
@@ -2135,7 +2083,7 @@ cpplib.o:   cpplib.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(CONFIG_H) $(LIBCPP_DEPS)
 cppfiles.o: cppfiles.c $(CONFIG_H) $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
 cppinit.o:  cppinit.c  $(CONFIG_H) $(LIBCPP_DEPS) cppdefault.h \
-		mkdeps.h prefix.h version.h except.h
+		mkdeps.h prefix.h version.h
 
 cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) cppdefault.h Makefile
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
@@ -2286,7 +2234,7 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 	$(FIXINCSRCDIR)/procopen.c $(FIXINCSRCDIR)/gnu-regex.c \
 	$(FIXINCSRCDIR)/server.c $(FIXINCSRCDIR)/gnu-regex.h \
 	$(FIXINCSRCDIR)/server.h $(FIXINCSRCDIR)/inclhack.def specs.ready
-	(MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc && pwd` ; \
+	(MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc && ${PWD}` ; \
 	CC="$(HOST_CC)"; CFLAGS="$(HOST_CFLAGS)"; LDFLAGS="$(HOST_LDFLAGS)"; \
 	WARN_CFLAGS="$(WARN_CFLAGS)"; \
 	export MAKE srcdir CC CFLAGS LDFLAGS WARN_CFLAGS; cd ./fixinc && \
@@ -2296,10 +2244,10 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 stmp-fixinc: fixinc.sh gsyslimits.h
 	rm -rf include; mkdir include
 	-chmod a+rx include
-	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); pwd`; \
+	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD}`; \
 	SHELL='$(SHELL)' ;\
 	export TARGET_MACHINE srcdir SHELL ; \
-	$(SHELL) ./fixinc.sh `pwd`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS); \
+	$(SHELL) ./fixinc.sh `${PWD}`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS); \
 	rm -f include/syslimits.h; \
 	if [ -f include/limits.h ]; then \
 	  mv include/limits.h include/syslimits.h; \
@@ -2910,7 +2858,7 @@ install-headers: $(INSTALL_HEADERS_DIR)
 # Don't need to use LN_S here since we really do need ln -s and no substitutes.
 	-files=`cd $(libsubdir)/include; find . -type l -print 2>/dev/null`; \
 	if [ $$? -eq 0 ]; then \
-	  dir=`cd include; pwd`; \
+	  dir=`cd include; ${PWD}`; \
 	  for i in $$files; do \
 	    dest=`ls -ld $(libsubdir)/include/$$i | sed -n 's/.*-> //p'`; \
 	    if expr "$$dest" : "$$dir.*" > /dev/null; then \
@@ -2932,7 +2880,7 @@ install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # Unless a full pathname is provided, some shells would print the new CWD,
 # found in CDPATH, corrupting the output.  We could just redirect the
 # output of `cd', but some shells lose on redirection within `()'s
-	(cd `pwd`/include ; \
+	(cd `${PWD}`/include ; \
 	 tar -cf - .; exit 0) | (cd $(libsubdir)/include; tar xpf - )
 # /bin/sh on some systems returns the status of the first tar,
 # and that can lose with GNU tar which always writes a full block.
@@ -2941,7 +2889,7 @@ install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # Install the include directory using cpio.
 install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # See discussion about the use of `pwd` above
-	cd `pwd`/include ; \
+	cd `${PWD}`/include ; \
 	find . -print | cpio -pdum $(libsubdir)/include
 
 # Install the include directory using cp.
@@ -2986,8 +2934,8 @@ site.exp: ./config.status Makefile
 	@echo "## these variables are automatically generated by make ##" > ./tmp0
 	@echo "# Do not edit here. If you wish to override these values" >> ./tmp0
 	@echo "# add them to the last section" >> ./tmp0
-	@echo "set rootme \"`pwd`\"" >> ./tmp0
-	@echo "set srcdir \"`cd ${srcdir}; pwd`\"" >> ./tmp0
+	@echo "set rootme \"`${PWD}`\"" >> ./tmp0
+	@echo "set srcdir \"`cd ${srcdir}; ${PWD}`\"" >> ./tmp0
 	@echo "set host_triplet $(host_canonical)" >> ./tmp0
 	@echo "set build_triplet $(build_canonical)" >> ./tmp0
 	@echo "set target_triplet $(target)" >> ./tmp0
@@ -3055,52 +3003,52 @@ $(TESTSUITEDIR)/site.exp: site.exp
 	sed '/set tmpdir/ s|testsuite|$(TESTSUITEDIR)|' < site.exp > $@
 
 check-g++: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	    export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool g++ $(RUNTESTFLAGS))
 
 check-gcc: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool gcc $(RUNTESTFLAGS))
 
 check-g77: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool g77 $(RUNTESTFLAGS))
 
 check-objc: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	    export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool objc $(RUNTESTFLAGS))
 
 check-consistency: testsuite/site.exp
-	-rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd testsuite; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool consistency $(RUNTESTFLAGS)
 

@@ -145,6 +145,7 @@ extern int regno_uninitialized		PARAMS ((unsigned int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
 extern bool cleanup_cfg			PARAMS ((int));
+extern bool delete_unreachable_blocks	PARAMS ((void));
 extern void check_function_return_warnings PARAMS ((void));
 #endif
 
@@ -356,11 +357,6 @@ extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
 #endif
 #endif
 
-/* At the end of a function, forget the memory-constants
-   previously made for CONST_DOUBLEs.  Mark them as not on real_constant_chain.
-   Also clear out real_constant_chain and clear out all the chain-pointers.  */
-extern void clear_const_double_mem	PARAMS ((void));
-
 /* Start deferring output of subconstants.  */
 extern void defer_addressed_constants	PARAMS ((void));
 
@@ -546,6 +542,12 @@ extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							       int));
 extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							      int));
+
+extern void default_select_section PARAMS ((tree, int,
+					    unsigned HOST_WIDE_INT));
+extern void default_elf_select_section PARAMS ((tree, int,
+						unsigned HOST_WIDE_INT));
+extern void default_unique_section PARAMS ((tree, int));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));

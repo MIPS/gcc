@@ -242,8 +242,16 @@ libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
 
 libgcjx_la_LINK = $(LIBLINK)
 
+all_java_source_files = \
+    $(java_source_files) \
+    $(built_java_source_files) \
+    $(x_java_source_files)
+
+
+all_java_class_files = $(all_java_source_files:.java=.class)
+
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
-CLEANFILES = tmp-list libgcj-@gcc_version@.jar
+CLEANFILES = libgcj-@gcc_version@.jar
 
 SUFFIXES = .class .java .h
 
@@ -274,7 +282,7 @@ jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 
 jv_convert_LINK = $(GCJLINK)
-jv_convert_LDADD = libgcj.la -L$(here)/.libs
+jv_convert_LDADD = -L$(here)/.libs libgcj.la
 jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
 	libgcj.la libgcj.spec
 
@@ -282,7 +290,7 @@ jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
 gij_SOURCES = gij.cc
 gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
-gij_LDADD = libgcj.la -L$(here)/.libs
+gij_LDADD = -L$(here)/.libs libgcj.la
 gij_DEPENDENCIES = libgcj.la libgcj.spec
 
 rmic_SOURCES = 
@@ -291,7 +299,7 @@ rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 
 rmic_LINK = $(GCJLINK)
-rmic_LDADD = libgcj.la -L$(here)/.libs
+rmic_LDADD = -L$(here)/.libs libgcj.la
 rmic_DEPENDENCIES = libgcj.la libgcj.spec
 
 rmiregistry_SOURCES = 
@@ -300,7 +308,7 @@ rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 
 rmiregistry_LINK = $(GCJLINK)
-rmiregistry_LDADD = libgcj.la -L$(here)/.libs
+rmiregistry_LDADD = -L$(here)/.libs libgcj.la
 rmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 
 gen_from_JIS_SOURCES = 
@@ -1551,6 +1559,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/text/natCollator.cc \
+java/util/natTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 
@@ -1701,8 +1710,8 @@ java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
 java/lang/reflect/natConstructor.lo java/lang/reflect/natField.lo \
 java/lang/reflect/natMethod.lo java/net/natInetAddress.lo \
 java/net/natPlainDatagramSocketImpl.lo java/net/natPlainSocketImpl.lo \
-java/text/natCollator.lo java/util/zip/natDeflater.lo \
-java/util/zip/natInflater.lo
+java/text/natCollator.lo java/util/natTimeZone.lo \
+java/util/zip/natDeflater.lo java/util/zip/natInflater.lo
 libgcjx_la_OBJECTS =  gnu/gcj/xlib/natClip.lo \
 gnu/gcj/xlib/natColormap.lo gnu/gcj/xlib/natDisplay.lo \
 gnu/gcj/xlib/natDrawable.lo gnu/gcj/xlib/natFont.lo \
@@ -2555,8 +2564,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/util/jar/JarException.P .deps/java/util/jar/JarFile.P \
 .deps/java/util/jar/JarInputStream.P \
 .deps/java/util/jar/JarOutputStream.P .deps/java/util/jar/Manifest.P \
-.deps/java/util/zip/Adler32.P .deps/java/util/zip/CRC32.P \
-.deps/java/util/zip/CheckedInputStream.P \
+.deps/java/util/natTimeZone.P .deps/java/util/zip/Adler32.P \
+.deps/java/util/zip/CRC32.P .deps/java/util/zip/CheckedInputStream.P \
 .deps/java/util/zip/CheckedOutputStream.P \
 .deps/java/util/zip/Checksum.P \
 .deps/java/util/zip/DataFormatException.P \
@@ -3230,22 +3239,12 @@ install-exec-hook:
 	  $(LN_S) libgcjx.la gnu-awt-xlib.la; \
 	fi
 
-$(built_java_source_files:.java=.class): libgcj-@gcc_version@.jar
-$(java_source_files:.java=.class): libgcj-@gcc_version@.jar
+.java.class:
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) \
+             -d $(here) $<
 
-$(x_java_source_files:.java=.class): libgcj-@gcc_version@.jar
-
-libgcj-@gcc_version@.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
-	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
-	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
-	javac="$(JAVAC)"; \
-	cat tmp-list | (while read f; do \
-	  echo $$javac $(JCFLAGS) -classpath \'\' -bootclasspath $(here):$(srcdir) -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $$f \
-	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
-	done; \
-	test "$$fail" = no)
-	-@rm -f tmp-list libgcj-@gcc_version@.jar
+libgcj-@gcc_version@.jar: $(all_java_class_files)
+	-@rm -f libgcj-@gcc_version@.jar
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@

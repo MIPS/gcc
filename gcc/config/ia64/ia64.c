@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "expr.h"
 #include "optabs.h"
-#include "obstack.h"
 #include "except.h"
 #include "function.h"
 #include "ggc.h"
@@ -123,6 +122,7 @@ static struct machine_function * ia64_init_machine_status PARAMS ((void));
 static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_predicate_relation_info PARAMS ((void));
+static bool ia64_in_small_data_p PARAMS ((tree));
 static void process_epilogue PARAMS ((void));
 static int process_set PARAMS ((FILE *, rtx));
 
@@ -149,8 +149,12 @@ static int ia64_internal_sched_reorder PARAMS ((FILE *, int, rtx *,
 static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
-static rtx ia64_cycle_display PARAMS ((int, rtx));
 
+static void ia64_aix_select_section PARAMS ((tree, int,
+					     unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_aix_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -194,6 +198,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ia64_output_function_epilogue
 
+#undef TARGET_IN_SMALL_DATA_P
+#define TARGET_IN_SMALL_DATA_P  ia64_in_small_data_p
+
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST ia64_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
@@ -208,8 +215,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SCHED_REORDER ia64_sched_reorder
 #undef TARGET_SCHED_REORDER2
 #define TARGET_SCHED_REORDER2 ia64_sched_reorder2
-#undef TARGET_SCHED_CYCLE_DISPLAY
-#define TARGET_SCHED_CYCLE_DISPLAY ia64_cycle_display
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4538,8 +4543,8 @@ rtx_needs_barrier (x, flags, pred)
     case UNSPEC:
       switch (XINT (x, 1))
 	{
-	case 1: /* st8.spill */
-	case 2: /* ld8.fill */
+	case UNSPEC_GR_SPILL:
+	case UNSPEC_GR_RESTORE:
 	  {
 	    HOST_WIDE_INT offset = INTVAL (XVECEXP (x, 0, 1));
 	    HOST_WIDE_INT bit = (offset >> 3) & 63;
@@ -4551,32 +4556,31 @@ rtx_needs_barrier (x, flags, pred)
 	    break;
 	  }
 	  
-	case 3: /* stf.spill */
-	case 4: /* ldf.spill */
-	case 8: /* popcnt */
+	case UNSPEC_FR_SPILL:
+	case UNSPEC_FR_RESTORE:
+	case UNSPEC_POPCNT:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  break;
 
-	case 7: /* pred_rel_mutex */
-	case 9: /* pic call */
-        case 12: /* mf */
-        case 19: /* fetchadd_acq */
-	case 20: /* mov = ar.bsp */
-	case 21: /* flushrs */
-	case 22: /* bundle selector */
-	case 23: /* cycle display */
+	case UNSPEC_PRED_REL_MUTEX:
+	case UNSPEC_PIC_CALL:
+        case UNSPEC_MF:
+        case UNSPEC_FETCHADD_ACQ:
+	case UNSPEC_BSP_VALUE:
+	case UNSPEC_FLUSHRS:
+	case UNSPEC_BUNDLE_SELECTOR:
           break;
 
-        case 24: /* addp4 */
+        case UNSPEC_ADDP4:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  break;
 
-	case 5: /* recip_approx */
+	case UNSPEC_FR_RECIP_APPROX:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
 
-        case 13: /* cmpxchg_acq */
+        case UNSPEC_CMPXCHG_ACQ:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 2), flags, pred);
 	  break;
@@ -4589,7 +4593,7 @@ rtx_needs_barrier (x, flags, pred)
     case UNSPEC_VOLATILE:
       switch (XINT (x, 1))
 	{
-	case 0: /* alloc */
+	case UNSPECV_ALLOC:
 	  /* Alloc must always be the first instruction of a group.
 	     We force this by always returning true.  */
 	  /* ??? We might get better scheduling if we explicitly check for
@@ -4603,17 +4607,15 @@ rtx_needs_barrier (x, flags, pred)
 	  rws_access_regno (REG_AR_CFM, new_flags, pred);
 	  return 1;
 
-	case 1: /* blockage */
-	case 2: /* insn group barrier */
-	  return 0;
-
-	case 5: /* set_bsp  */
+	case UNSPECV_SET_BSP:
 	  need_barrier = 1;
           break;
 
-	case 7: /* pred.rel.mutex */
-	case 8: /* safe_across_calls all */
-	case 9: /* safe_across_calls normal */
+	case UNSPECV_BLOCKAGE:
+	case UNSPECV_INSN_GROUP_BARRIER:
+	case UNSPECV_BREAK:
+	case UNSPECV_PSAC_ALL:
+	case UNSPECV_PSAC_NORMAL:
 	  return 0;
 
 	default:
@@ -4840,7 +4842,7 @@ emit_insn_group_barriers (dump, insns)
 	}
       else if (GET_CODE (insn) == INSN
 	       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	       && XINT (PATTERN (insn), 1) == 2)
+	       && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
 	{
 	  init_insn_group_barriers ();
 	  last_label = 0;
@@ -5444,18 +5446,13 @@ insn_matches_slot (p, itype, slot, insn)
   return 0;
 }
 
-/* Like emit_insn_before, but skip cycle_display insns.  This makes the
-   assembly output a bit prettier.  */
+/* Like emit_insn_before, but skip cycle_display notes.
+   ??? When cycle display notes are implemented, update this.  */
 
 static void
 ia64_emit_insn_before (insn, before)
      rtx insn, before;
 {
-  rtx prev = PREV_INSN (before);
-  if (prev && GET_CODE (prev) == INSN
-      && GET_CODE (PATTERN (prev)) == UNSPEC
-      && XINT (PATTERN (prev), 1) == 23)
-    before = prev;
   emit_insn_before (insn, before);
 }
 
@@ -6350,9 +6347,11 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
 	    abort ();
 	  insn_code = recog_memoized (stop);
 
-	  /* Ignore cycle displays and .pred.rel.mutex.  */
-	  if (insn_code == CODE_FOR_cycle_display
-	      || insn_code == CODE_FOR_pred_rel_mutex
+	  /* Ignore .pred.rel.mutex.
+
+	     ??? Update this to ignore cycle display notes too
+	     ??? once those are implemented  */
+	  if (insn_code == CODE_FOR_pred_rel_mutex
 	      || insn_code == CODE_FOR_prologue_use)
 	    continue;
 
@@ -6506,17 +6505,6 @@ ia64_sched_finish (dump, sched_verbose)
   free (sched_types);
   free (sched_ready);
 }
-
-static rtx
-ia64_cycle_display (clock, last)
-     int clock;
-     rtx last;
-{
-  if (ia64_final_schedule)
-    return emit_insn_after (gen_cycle_display (GEN_INT (clock)), last);
-  else
-    return last;
-}
 
 /* Emit pseudo-ops for the assembler to describe predicate relations.
    At present this assumes that we only consider predicate pairs to
@@ -6623,7 +6611,7 @@ ia64_emit_nops ()
       pat = INSN_P (insn) ? PATTERN (insn) : const0_rtx;
       if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
 	continue;
-      if ((GET_CODE (pat) == UNSPEC && XINT (pat, 1) == 22)
+      if ((GET_CODE (pat) == UNSPEC && XINT (pat, 1) == UNSPEC_BUNDLE_SELECTOR)
 	  || GET_CODE (insn) == CODE_LABEL)
 	{
 	  if (b)
@@ -6639,7 +6627,8 @@ ia64_emit_nops ()
 	  bundle_pos = 0;
 	  continue;
 	}
-      else if (GET_CODE (pat) == UNSPEC_VOLATILE && XINT (pat, 1) == 2)
+      else if (GET_CODE (pat) == UNSPEC_VOLATILE
+	       && XINT (pat, 1) == UNSPECV_INSN_GROUP_BARRIER)
 	{
 	  int t = INTVAL (XVECEXP (pat, 0, 0));
 	  if (b)
@@ -6692,15 +6681,16 @@ void
 ia64_reorg (insns)
      rtx insns;
 {
-  /* If optimizing, we'll have split before scheduling.  */
-  if (optimize == 0)
-    split_all_insns_noflow ();
-
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn (get_max_uid ());
-  /* update_life_info_in_dirty_blocks should be enought here.  */
-  life_analysis (insns, NULL, PROP_DEATH_NOTES);
+
+  /* If optimizing, we'll have split before scheduling.  */
+  if (optimize == 0)
+    split_all_insns (0);
+
+  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+				    PROP_DEATH_NOTES);
 
   if (ia64_flag_schedule_insns2)
     {
@@ -6731,7 +6721,7 @@ ia64_reorg (insns)
         insn = prev_active_insn (insn);
       if (GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	  && XINT (PATTERN (insn), 1) == 2)
+	  && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
 	{
 	  saw_stop = 1;
 	  insn = prev_active_insn (insn);
@@ -6836,11 +6826,32 @@ ia64_eh_uses (regno)
    code faster because there is one less load.  This also includes incomplete
    types which can't go in sdata/sbss.  */
 
-/* ??? See select_section.  We must put short own readonly variables in
-   sdata/sbss instead of the more natural rodata, because we can't perform
-   the DECL_READONLY_SECTION test here.  */
+static bool
+ia64_in_small_data_p (exp)
+     tree exp;
+{
+  if (TARGET_NO_SDATA)
+    return false;
 
-extern struct obstack * saveable_obstack;
+  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+    {
+      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      if (strcmp (section, ".sdata") == 0
+	  || strcmp (section, ".sbss") == 0)
+	return true;
+    }
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+
+      /* If this is an incomplete type with size 0, then we can't put it
+	 in sdata because it might be too big when completed.  */
+      if (size > 0 && size <= ia64_section_threshold)
+	return true;
+    }
+
+  return false;
+}
 
 void
 ia64_encode_section_info (decl, first)
@@ -6848,6 +6859,8 @@ ia64_encode_section_info (decl, first)
      int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
+  bool is_local, is_small;
+  rtx symbol;
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -6860,76 +6873,64 @@ ia64_encode_section_info (decl, first)
       || GET_CODE (DECL_RTL (decl)) != MEM
       || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
     return;
-    
-  symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
 
-  /* We assume that -fpic is used only to create a shared library (dso).
-     With -fpic, no global data can ever be sdata.
-     Without -fpic, global common uninitialized data can never be sdata, since
-     it can unify with a real definition in a dso.  */
-  /* ??? Actually, we can put globals in sdata, as long as we don't use gprel
-     to access them.  The linker may then be able to do linker relaxation to
-     optimize references to them.  Currently sdata implies use of gprel.  */
-  /* We need the DECL_EXTERNAL check for C++.  static class data members get
-     both TREE_STATIC and DECL_EXTERNAL set, to indicate that they are
-     statically allocated, but the space is allocated somewhere else.  Such
-     decls can not be own data.  */
-  if (! TARGET_NO_SDATA
-      && ((TREE_STATIC (decl) && ! DECL_EXTERNAL (decl)
-	   && ! (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-	   && ! (TREE_PUBLIC (decl)
-		 && (flag_pic
-		     || (DECL_COMMON (decl)
-			 && (DECL_INITIAL (decl) == 0
-			     || DECL_INITIAL (decl) == error_mark_node)))))
-	  || MODULE_LOCAL_P (decl))
-      /* Either the variable must be declared without a section attribute,
-	 or the section must be sdata or sbss.  */
-      && (DECL_SECTION_NAME (decl) == 0
-	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-		       ".sdata")
-	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-		       ".sbss")))
+  symbol = XEXP (DECL_RTL (decl), 0);
+  symbol_str = XSTR (symbol, 0);
+
+  /* A variable is considered "local" if it is defined by this module.  */
+
+  if (MODULE_LOCAL_P (decl))
+    is_local = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (decl))
+    is_local = false;
+  /* Linkonce and weak data are never local.  */
+  else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
+    is_local = false;
+  /* Static variables are always local.  */
+  else if (! TREE_PUBLIC (decl))
+    is_local = true;
+  /* If PIC, then assume that any global name can be overridden by
+     symbols resolved from other modules.  */
+  else if (flag_pic)
+    is_local = false;
+  /* Uninitialized COMMON variable may be unified with symbols
+     resolved from other modules.  */
+  else if (DECL_COMMON (decl)
+	   && (DECL_INITIAL (decl) == NULL
+	       || DECL_INITIAL (decl) == error_mark_node))
+    is_local = false;
+  /* Otherwise we're left with initialized (or non-common) global data
+     which is of necessity defined locally.  */
+  else
+    is_local = true;
+
+  /* Determine if DECL will wind up in .sdata/.sbss.  */
+  is_small = ia64_in_small_data_p (decl);
+
+  /* Finally, encode this into the symbol string.  */
+  if (is_local && is_small)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
+      char *newstr;
+      size_t len;
 
-      /* If the variable has already been defined in the output file, then it
-	 is too late to put it in sdata if it wasn't put there in the first
-	 place.  The test is here rather than above, because if it is already
-	 in sdata, then it can stay there.  */
+      if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
+	return;
 
-      if (TREE_ASM_WRITTEN (decl))
-	;
+      len = strlen (symbol_str) + 1;
+      newstr = alloca (len + 1);
+      newstr[0] = SDATA_NAME_FLAG_CHAR;
+      memcpy (newstr + 1, symbol_str, len);
 
-      /* If this is an incomplete type with size 0, then we can't put it in
-	 sdata because it might be too big when completed.
-	 Objects bigger than threshold should have SDATA_NAME_FLAG_CHAR
-	 added if they are in .sdata or .sbss explicitely.  */
-      else if (((size > 0
-		 && size <= (HOST_WIDE_INT) ia64_section_threshold)
-		|| DECL_SECTION_NAME (decl))
-	       && symbol_str[0] != SDATA_NAME_FLAG_CHAR)
-	{
-	  size_t len = strlen (symbol_str);
-	  char *newstr = alloca (len + 1);
-	  const char *string;
-
-	  *newstr = SDATA_NAME_FLAG_CHAR;
-	  memcpy (newstr + 1, symbol_str, len + 1);
-	  
-	  string = ggc_alloc_string (newstr, len + 1);
-	  XSTR (XEXP (DECL_RTL (decl), 0), 0) = string;
-	}
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, len);
     }
-  /* This decl is marked as being in small data/bss but it shouldn't
-     be; one likely explanation for this is that the decl has been
-     moved into a different section from the one it was in when
-     ENCODE_SECTION_INFO was first called.  Remove the '@'.  */
+
+  /* This decl is marked as being in small data/bss but it shouldn't be;
+     one likely explanation for this is that the decl has been moved into
+     a different section from the one it was in when ENCODE_SECTION_INFO
+     was first called.  Remove the '@'.  */
   else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
-    {
-      XSTR (XEXP (DECL_RTL (decl), 0), 0)
-	= ggc_strdup (symbol_str + 1);
-    }
+    XSTR (symbol, 0) = ggc_strdup (symbol_str + 1);
 }
 
 /* Output assembly directives for prologue regions.  */
@@ -6973,7 +6974,7 @@ process_set (asm_out_file, pat)
 
   /* Look for the ALLOC insn.  */
   if (GET_CODE (src) == UNSPEC_VOLATILE
-      && XINT (src, 1) == 0
+      && XINT (src, 1) == UNSPECV_ALLOC
       && GET_CODE (dest) == REG)
     {
       dest_regno = REGNO (dest);
@@ -7202,7 +7203,7 @@ process_for_unwind_directive (asm_out_file, insn)
 	    }
 	}
 
-      if (! RTX_FRAME_RELATED_P (insn))
+      if (GET_CODE (insn) == NOTE || ! RTX_FRAME_RELATED_P (insn))
 	return;
 
       pat = find_reg_note (insn, REG_FRAME_RELATED_EXPR, NULL_RTX);
@@ -7799,4 +7800,30 @@ ia64_hpux_function_arg_padding (mode, type)
           && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
        : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
       ? downward : upward);
+}
+
+/* It is illegal to have relocations in shared segments on AIX.
+   Pretend flag_pic is always set.  */
+
+static void
+ia64_aix_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  int save_pic = flag_pic;
+  flag_pic = 1;
+  default_elf_select_section (exp, reloc, align);
+  flag_pic = save_pic;
+}
+
+static void
+ia64_aix_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  int save_pic = flag_pic;
+  flag_pic = 1;
+  default_unique_section (decl, reloc);
+  flag_pic = save_pic;
 }

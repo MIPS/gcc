@@ -171,7 +171,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define SIZE_TYPE "unsigned int"
 #define PTRDIFF_TYPE "int"
-#define WCHAR_UNSIGNED 1
 #define WCHAR_TYPE_SIZE 16
 #define WCHAR_TYPE "short unsigned int"
 
@@ -349,7 +348,7 @@ do {							\
 #define MULTIPLE_SYMBOL_SPACES
 
 extern void i386_pe_unique_section PARAMS ((TREE, int));
-#define UNIQUE_SECTION(DECL,RELOC) i386_pe_unique_section (DECL, RELOC)
+#define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
 
 #define SUPPORTS_ONE_ONLY 1
 

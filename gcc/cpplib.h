@@ -153,7 +153,7 @@ enum cpp_ttype
 
 /* C language kind, used when calling cpp_reader_init.  */
 enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
-	     CLK_GNUCXX, CLK_CXX98, CLK_OBJC, CLK_OBJCXX, CLK_ASM};
+	     CLK_GNUCXX, CLK_CXX98, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
 struct cpp_string
@@ -190,9 +190,23 @@ struct cpp_token
   } val;
 };
 
-/* A standalone character.  It is unsigned for the same reason we use
-   unsigned char - to avoid signedness issues.  */
-typedef unsigned int cppchar_t;
+/* A type wide enough to hold any multibyte source character.
+   cpplib's character constant interpreter requires an unsigned type.
+   Also, a typedef for the signed equivalent.  */
+#ifndef MAX_WCHAR_TYPE_SIZE
+# define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
+#endif
+#if CHAR_BIT * SIZEOF_INT >= MAX_WCHAR_TYPE_SIZE
+# define CPPCHAR_SIGNED_T int
+#else
+# if CHAR_BIT * SIZEOF_LONG >= MAX_WCHAR_TYPE_SIZE || !HAVE_LONG_LONG
+#  define CPPCHAR_SIGNED_T long
+# else
+#  define CPPCHAR_SIGNED_T long long
+# endif
+#endif
+typedef unsigned CPPCHAR_SIGNED_T cppchar_t;
+typedef CPPCHAR_SIGNED_T cppchar_signed_t;
 
 /* Values for opts.dump_macros.
   dump_only means inhibit output of the preprocessed text
@@ -234,17 +248,11 @@ struct cpp_options
   const char *include_prefix;
   unsigned int include_prefix_len;
 
-  /* -fleading_underscore sets this to "_".  */
-  const char *user_label_prefix;
-
   /* The language we're preprocessing.  */
   enum c_lang lang;
 
   /* Non-0 means -v, so print the full set of include dirs.  */
   unsigned char verbose;
-
-  /* Nonzero means chars are signed.  */
-  unsigned char signed_char;
 
   /* Nonzero means use extra default include directories for C++.  */
   unsigned char cplusplus;
@@ -252,7 +260,8 @@ struct cpp_options
   /* Nonzero means handle cplusplus style comments */
   unsigned char cplusplus_comments;
 
-  /* Nonzero means handle #import, for objective C.  */
+  /* Nonzero means define __OBJC__, treat @ as a special token, and
+     use the OBJC[PLUS]_INCLUDE_PATH environment variable.  */
   unsigned char objc;
 
   /* Nonzero means don't copy comments into the output file.  */
@@ -310,6 +319,9 @@ struct cpp_options
 
   /* Nonzero means warn if #import is used.  */
   unsigned char warn_import;
+
+  /* Nonzero means warn about multicharacter charconsts.  */
+  unsigned char warn_multichar;
 
   /* Nonzero means warn about various incompatibilities with
      traditional C.  */
@@ -374,6 +386,18 @@ struct cpp_options
      options.  Stand-alone CPP should then bail out after option
      parsing; drivers might want to continue printing help.  */
   unsigned char help_only;
+
+  /* Target-specific features set by the front end or client.  */
+
+  /* Precision for target CPP arithmetic, target characters, target
+     ints and target wide characters, respectively.  */
+  size_t precision, char_precision, int_precision, wchar_precision;
+
+  /* Nonzero means chars (wide chars) are unsigned.  */
+  unsigned char unsigned_char, unsigned_wchar;
+
+  /* Nonzero means __STDC__ should have the value 0 in system headers.  */
+  unsigned char stdc_0_in_system_headers;
 };
 
 /* Call backs.  */
@@ -388,6 +412,9 @@ struct cpp_callbacks
   void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
   void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));
   void (*def_pragma) PARAMS ((cpp_reader *, unsigned int));
+  /* Called when the client has a chance to properly register
+     built-ins with cpp_define() and cpp_assert().  */
+  void (*register_builtins) PARAMS ((cpp_reader *));
 };
 
 #define CPP_FATAL_LIMIT 1000
@@ -535,10 +562,12 @@ extern const unsigned char *cpp_macro_definition PARAMS ((cpp_reader *,
 extern void _cpp_backup_tokens PARAMS ((cpp_reader *, unsigned int));
 
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
-extern HOST_WIDE_INT
+extern cppchar_t
 cpp_interpret_charconst PARAMS ((cpp_reader *, const cpp_token *,
-				 int, unsigned int *));
+				 unsigned int *, int *));
 
+/* Used to register builtins during the register_builtins callback.
+   The text is the same as the command line argument.  */
 extern void cpp_define PARAMS ((cpp_reader *, const char *));
 extern void cpp_assert PARAMS ((cpp_reader *, const char *));
 extern void cpp_undef  PARAMS ((cpp_reader *, const char *));
@@ -600,10 +629,15 @@ extern int cpp_ideq			PARAMS ((const cpp_token *,
 extern void cpp_output_line		PARAMS ((cpp_reader *, FILE *));
 extern void cpp_output_token		PARAMS ((const cpp_token *, FILE *));
 extern const char *cpp_type2name	PARAMS ((enum cpp_ttype));
-extern unsigned int cpp_parse_escape	PARAMS ((cpp_reader *,
-						 const unsigned char **,
-						 const unsigned char *,
-						 unsigned HOST_WIDE_INT));
+/* Returns the value of an escape sequence, truncated to the correct
+   target precision.  PSTR points to the input pointer, which is just
+   after the backslash.  LIMIT is how much text we have.  WIDE is true
+   if the escape sequence is part of a wide character constant or
+   string literal.  Handles all relevant diagnostics.  */
+extern cppchar_t cpp_parse_escape	PARAMS ((cpp_reader *,
+						 const unsigned char ** pstr,
+						 const unsigned char *limit,
+						 int wide));
 
 /* In cpphash.c */
 

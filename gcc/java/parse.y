@@ -11776,7 +11776,17 @@ java_complete_lhs (node)
 	      if (TREE_CODE (nn) != EXIT_EXPR)
 		{
 		  SET_WFL_OPERATOR (wfl_operator, node, wfl_op2);
-		  parse_error_context (wfl_operator, "Unreachable statement");
+		  if (SUPPRESS_UNREACHABLE_ERROR (nn))
+		    {
+		      /* Perhaps this warning should have an
+			 associated flag.  The code being compiled is
+			 pedantically correct, but useless.  */
+		      parse_warning_context (wfl_operator,
+					     "Unreachable statement");
+		    }
+		  else
+		    parse_error_context (wfl_operator,
+					 "Unreachable statement");
 		}
 	    }
 	  TREE_OPERAND (node, 1) = java_complete_tree (TREE_OPERAND (node, 1));
@@ -13768,8 +13778,8 @@ build_string_concatenation (op1, op2)
     op2 = patch_string_cst (op2);
 
   /* If either one of the constant is null and the other non null
-     operand is a String object, return it. */
-  if (JSTRING_TYPE_P (TREE_TYPE (op1)) && !op2)
+     operand is a String constant, return it. */
+  if ((TREE_CODE (op1) == STRING_CST) && !op2)
     return op1;
 
   /* If OP1 isn't already a StringBuffer, create and
@@ -14915,7 +14925,22 @@ finish_for_loop (location, condition, update, body)
   /* Put the condition and the loop body in place */
   tree loop = finish_loop_body (location, condition, body, 0);
   /* LOOP is the current loop which has been now popped of the loop
-     stack. Install the update block */
+     stack.  Mark the update block as reachable and install it.  We do
+     this because the (current interpretation of the) JLS requires
+     that the update expression be considered reachable even if the
+     for loop's body doesn't complete normally.  */
+  if (update != NULL_TREE && update != empty_stmt_node)
+    {
+      tree up2 = update;
+      if (TREE_CODE (up2) == EXPR_WITH_FILE_LOCATION)
+	up2 = EXPR_WFL_NODE (up2);
+      /* Try to detect constraint violations.  These would be
+	 programming errors somewhere.  */
+      if (! IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (up2)))
+	  || TREE_CODE (up2) == LOOP_EXPR)
+	abort ();
+      SUPPRESS_UNREACHABLE_ERROR (up2) = 1;
+    }
   LOOP_EXPR_BODY_UPDATE_BLOCK (LOOP_EXPR_BODY (loop)) = update;
   return loop;
 }

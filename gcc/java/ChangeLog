@@ -100,6 +100,51 @@
 	* parse.y: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
 	Include gtype-java.h.
 
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Make-lang.in: Allow for PWDCMD to override hardcoded pwd.
+
+2002-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* jcf-write.c (write_classfile): Unlink the temporary file if it
+	cannot be renamed.  Use concat to build up the name of the
+	temporary file.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* jcf-write.c (write_classfile): Write the file to a 
+	temporary file and then rename it.
+
+2002-05-07  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (throwable_p): Use xstrdup, not strdup.
+
+	Fix for PR java/1200:
+	* gjavah.c (throwable_p): New function.
+	(decode_signature_piece): Use it.  A `WeakReference' isn't the
+	same as a `jweak'.
+	Include hashtab.h.
+	(gcjh_streq): New function.
+
+2002-05-07  Andreas Jaeger  <aj@suse.de>
+
+        * parse.y (finish_for_loop): Fix if statement.
+
+2002-05-06  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/5941:
+	* parse.y (finish_for_loop): Set SUPPRESS_UNREACHABLE_ERROR for
+	loop update expression.
+	(java_complete_lhs): Use SUPPRESS_UNREACHABLE_ERROR.
+	* java-tree.h (SUPPRESS_UNREACHABLE_ERROR): New macro.
+
+2002-05-04  Mark Wielaard  <mark@klomp.org>
+
+	For PR java/6519:
+	* parse.y (build_string_concatenation): Return just op1 only when op2
+	is null and op1 is a STRING_CST, otherwise always construct a
+	StringBuffer.
+
 2002-04-27  Tom Tromey  <tromey@redhat.com>
 
 	For PR java/6382:
@@ -172,7 +217,7 @@
 	Fix for PR java/6294:
 	* parse.h (INNER_INTERFACE_MODIFIERS): Allow ACC_PRIVATE for inner
 	interfaces.
-	
+
 2002-04-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	Fix for PR java/6085:
@@ -319,7 +364,7 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Fix for PR java/5993:
 	* parse.y (resolve_package): Return the decl if resolution was
-	successful. Don't special case "java.lang" and "java.lang.reflect" 
+	successful. Don't special case "java.lang" and "java.lang.reflect"
 	packages. Set type_name to the merged identifier.
 	(resolved_qualified_expression_name): Print error using "name" if
 	resolve_package returns NULL_TREE.
@@ -397,7 +442,7 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-03-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
 
-       	* gcj.texi: @code{gcj} becomes @command{gcj}.
+	* gcj.texi: @code{gcj} becomes @command{gcj}.
 	@code{gcc} becomes @command{gcc}.
 	GcjRaw changed to gnu.gcc.RawData.
 

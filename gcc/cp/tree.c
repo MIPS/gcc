@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -495,14 +495,16 @@ build_cplus_array_type (elt_type, index_type)
 {
   tree t;
   int type_quals = cp_type_quals (elt_type);
+  int cv_quals = type_quals & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE);
+  int other_quals = type_quals & ~(TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE);
 
-  if (type_quals != TYPE_UNQUALIFIED)
-    elt_type = cp_build_qualified_type (elt_type, TYPE_UNQUALIFIED);
+  if (cv_quals)
+    elt_type = cp_build_qualified_type (elt_type, other_quals);
 
   t = build_cplus_array_type_1 (elt_type, index_type);
 
-  if (type_quals != TYPE_UNQUALIFIED)
-    t = cp_build_qualified_type (t, type_quals);
+  if (cv_quals)
+    t = cp_build_qualified_type (t, cv_quals);
 
   return t;
 }
@@ -1886,6 +1888,27 @@ pod_type_p (t)
     return 0; /* other non-class type (reference or function) */
   if (CLASSTYPE_NON_POD_P (t))
     return 0;
+  return 1;
+}
+
+/* Returns 1 iff zero initialization of type T means actually storing
+   zeros in it.  */
+
+int
+zero_init_p (t)
+     tree t;
+{
+  t = strip_array_types (t);
+
+  /* NULL pointers to data members are initialized with -1.  */
+  if (TYPE_PTRMEM_P (t))
+    return 0;
+
+  /* Classes that contain types that can't be zero-initialized, cannot
+     be zero-initialized themselves.  */
+  if (CLASS_TYPE_P (t) && CLASSTYPE_NON_ZERO_INIT_P (t))
+    return 0;
+
   return 1;
 }
 

@@ -140,46 +140,6 @@ do {									\
   emit_safe_across_calls (STREAM);					\
 } while (0)
 
-/* We override svr4.h so that we can support the sdata section.  */
-
-#undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	mergeable_string_section ((DECL), (ALIGN), 0);			\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if (XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0]			\
-	  == SDATA_NAME_FLAG_CHAR)					\
-        sdata_section ();						\
-      /* ??? We need the extra RELOC check, because the default is to	\
-	 only check RELOC if flag_pic is set, and we don't set flag_pic \
-	 (yet?).  */							\
-      else if (!DECL_READONLY_SECTION (DECL, RELOC) || (RELOC))		\
-	data_section ();						\
-      else if (flag_merge_constants < 2)				\
-	/* C and C++ don't allow different variables to share		\
-	   the same location.  -fmerge-all-constants allows		\
-	   even that (at the expense of not conforming).  */		\
-	const_section ();						\
-      else if (TREE_CODE (DECL_INITIAL (DECL)) == STRING_CST)		\
-	mergeable_string_section (DECL_INITIAL (DECL), (ALIGN), 0);	\
-      else								\
-	mergeable_constant_section (DECL_MODE (DECL), (ALIGN), 0);	\
-    }									\
-  /* This could be a CONSTRUCTOR containing ADDR_EXPR of a VAR_DECL,	\
-     in which case we can't put it in a shared library rodata.  */	\
-  else if (flag_pic && (RELOC))						\
-    data_section ();							\
-  else									\
-    const_section ();							\
-}
-
 /* Similarly for constant pool data.  */
 
 extern unsigned int ia64_section_threshold;

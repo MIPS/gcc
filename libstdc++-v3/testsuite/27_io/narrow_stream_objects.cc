@@ -165,6 +165,33 @@ void test06()
     cerr << "i == " << i << endl;
 }
 
+// libstdc++/6548
+void test07()
+{
+  bool test = true;
+  std::cout << "Please, enter 'test':";
+  std::string s;
+  std::getline(std::cin, s, '\n');
+  VERIFY( s == "test" );
+}
+
+// libstdc++/6648
+// Interactive tests: each one (run alone) must terminate upon a single '\n'.
+void test08()
+{
+  bool test = true;
+  char buff[2048];
+  std::cout << "Enter name: ";
+  std::cin.getline(buff, 2048);
+}
+
+void test09()
+{
+  bool test = true;
+  std::cout << "Enter name: ";
+  std::cin.ignore(2048, '\n');
+}
+
 int 
 main()
 {
@@ -175,5 +202,8 @@ main()
   // test04();
   // test05();
   // test06();
+  // test07();
+  // test08();
+  // test09();
   return 0;
 }

@@ -87,7 +87,10 @@ can_fallthru (src, target)
   rtx insn = src->end;
   rtx insn2 = target->head;
 
-  if (src->index + 1 == target->index && !active_insn_p (insn2))
+  if (src->index + 1 != target->index)
+    return 0;
+
+  if (!active_insn_p (insn2))
     insn2 = next_active_insn (insn2);
 
   /* ??? Later we may add code to move jump tables offline.  */
@@ -184,6 +187,36 @@ mark_dfs_back_edges ()
   sbitmap_free (visited);
 
   return found;
+}
+
+/* Set the flag EDGE_CAN_FALLTHRU for edges that can be fallthru.  */
+
+void
+set_edge_can_fallthru_flag ()
+{
+  int i;
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      edge e;
+
+      /* The FALLTHRU edge is also CAN_FALLTHRU edge.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->flags & EDGE_FALLTHRU)
+	  e->flags |= EDGE_CAN_FALLTHRU;
+
+      /* If the BB ends with an invertable condjump all (2) edges are
+	 CAN_FALLTHRU edges.  */
+      if (!bb->succ || !bb->succ->succ_next || bb->succ->succ_next->succ_next)
+	continue;
+      if (!any_condjump_p (bb->end))
+	continue;
+      if (!invert_jump (bb->end, JUMP_LABEL (bb->end), 0))
+	continue;
+      invert_jump (bb->end, JUMP_LABEL (bb->end), 0);
+      bb->succ->flags |= EDGE_CAN_FALLTHRU;
+      bb->succ->succ_next->flags |= EDGE_CAN_FALLTHRU;
+    }
 }
 
 /* Return true if we need to add fake edge to exit.
@@ -323,9 +356,12 @@ flow_call_edges_add (blocks)
 
 	      /* Note that the following may create a new basic block
 		 and renumber the existing basic blocks.  */
-	      e = split_block (bb, split_at_insn);
-	      if (e)
-		blocks_split++;
+	      if (split_at_insn != bb->end)
+		{
+		  e = split_block (bb, split_at_insn);
+		  if (e)
+		    blocks_split++;
+		}
 
 	      make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 	    }

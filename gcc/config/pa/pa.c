@@ -60,6 +60,33 @@ hppa_use_dfa_pipeline_interface ()
   return 1;
 }
 
+/* Return nonzero if there is a bypass for the output of 
+   OUT_INSN and the fp store IN_INSN.  */
+int
+hppa_fpstore_bypass_p (out_insn, in_insn)
+     rtx out_insn, in_insn;
+{
+  enum machine_mode store_mode;
+  enum machine_mode other_mode;
+  rtx set;
+
+  if (recog_memoized (in_insn) < 0
+      || get_attr_type (in_insn) != TYPE_FPSTORE
+      || recog_memoized (out_insn) < 0)
+    return 0;
+
+  store_mode = GET_MODE (SET_SRC (PATTERN (in_insn)));
+
+  set = single_set (out_insn);
+  if (!set)
+    return 0;
+
+  other_mode = GET_MODE (SET_SRC (set));
+
+  return (GET_MODE_SIZE (store_mode) == GET_MODE_SIZE (other_mode));
+}
+  
+
 #ifndef DO_FRAME_NOTES
 #ifdef INCOMING_RETURN_ADDR_RTX
 #define DO_FRAME_NOTES 1
@@ -85,6 +112,8 @@ static void pa_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int pa_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int pa_adjust_priority PARAMS ((rtx, int));
 static int pa_issue_rate PARAMS ((void));
+static void pa_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -222,6 +251,14 @@ override_options ()
     {
       warning ("unknown -march= option (%s).\nValid options are 1.0, 1.1, and 2.0\n", pa_arch_string);
     }
+
+  /* Unconditional branches in the delay slot are not compatible with dwarf2
+     call frame information.  There is no benefit in using this optimization
+     on PA8000 and later processors.  */
+  if (pa_cpu >= PROCESSOR_8000
+      || (! USING_SJLJ_EXCEPTIONS && flag_exceptions)
+      || flag_unwind_tables)
+    target_flags &= ~MASK_JUMP_IN_DELAY;
 
   if (flag_pic && TARGET_PORTABLE_RUNTIME)
     {
@@ -3699,24 +3736,7 @@ hppa_profile_hook (label_no)
     ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
     count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
 
-    if (flag_pic)
-      {
-	rtx tmpreg;
-
-	current_function_uses_pic_offset_table = 1;
-	tmpreg = gen_rtx_REG (Pmode, 1);
-	emit_move_insn (tmpreg,
-			gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
-				      gen_rtx_HIGH (Pmode, count_label_rtx)));
-	addr = gen_rtx_MEM (Pmode,
-			    gen_rtx_LO_SUM (Pmode, tmpreg, count_label_rtx));
-      }
-    else
-      {
-	rtx tmpreg = gen_rtx_REG (Pmode, 1);
-	emit_move_insn (tmpreg, gen_rtx_HIGH (Pmode, count_label_rtx));
-	addr = gen_rtx_LO_SUM (Pmode, tmpreg, count_label_rtx);
-      }
+    addr = force_reg (Pmode, count_label_rtx);
     r24 = gen_rtx_REG (Pmode, 24);
     emit_move_insn (r24, addr);
 
@@ -3904,8 +3924,9 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 {
   enum attr_type attr_type;
 
-  /* Don't adjust costs for a pa8000 chip.  */
-  if (pa_cpu >= PROCESSOR_8000)
+  /* Don't adjust costs for a pa8000 chip, also do not adjust any
+     true dependencies as they are described with bypasses now.  */
+  if (pa_cpu >= PROCESSOR_8000 || REG_NOTE_KIND (link) == 0)
     return cost;
 
   if (! recog_memoized (insn))
@@ -3913,65 +3934,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 
   attr_type = get_attr_type (insn);
 
-  if (REG_NOTE_KIND (link) == 0)
-    {
-      /* Data dependency; DEP_INSN writes a register that INSN reads some
-	 cycles later.  */
-
-      if (attr_type == TYPE_FPSTORE)
-	{
-	  rtx pat = PATTERN (insn);
-	  rtx dep_pat = PATTERN (dep_insn);
-	  if (GET_CODE (pat) == PARALLEL)
-	    {
-	      /* This happens for the fstXs,mb patterns.  */
-	      pat = XVECEXP (pat, 0, 0);
-	    }
-	  if (GET_CODE (pat) != SET || GET_CODE (dep_pat) != SET)
-	    /* If this happens, we have to extend this to schedule
-	       optimally.  Return 0 for now.  */
-	  return 0;
-
-	  if (rtx_equal_p (SET_DEST (dep_pat), SET_SRC (pat)))
-	    {
-	      if (! recog_memoized (dep_insn))
-		return 0;
-	      /* DEP_INSN is writing its result to the register
-		 being stored in the fpstore INSN.  */
-	      switch (get_attr_type (dep_insn))
-		{
-		case TYPE_FPLOAD:
-		  /* This cost 3 cycles, not 2 as the md says for the
-		     700 and 7100, 7100lc, 7200 and 7300.  */
-		  return cost + 1;
-
-		case TYPE_FPALU:
-		case TYPE_FPMULSGL:
-		case TYPE_FPMULDBL:
-		case TYPE_FPDIVSGL:
-		case TYPE_FPDIVDBL:
-		case TYPE_FPSQRTSGL:
-		case TYPE_FPSQRTDBL:
-		  /* In these important cases, we save one cycle compared to
-		     when flop instruction feed each other.  */
-		  return cost - 1;
-
-		default:
-		  return cost;
-		}
-	    }
-
-	  /* A flop-flop true depenendency where the sizes of the operand
-	     carrying the dependency is difference causes an additional
-	     cycle stall on the 7100lc, 7200, and 7300.   Similarly for
-	     a fpload-flop true dependency.  */
-	}
-
-      /* For other data dependencies, the default cost specified in the
-	 md is correct.  */
-      return cost;
-    }
-  else if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
+  if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
     {
       /* Anti dependency; DEP_INSN reads a register that INSN writes some
 	 cycles later.  */
@@ -4007,10 +3970,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding arithmetic operation has finished if
 		     the target of the fpload is any of the sources
 		     (or destination) of the arithmetic operation.  */
-		  if (hppa_use_dfa_pipeline_interface ())
-		    return insn_default_latency (dep_insn) - 1;
-		  else
-		    return cost - 1;
+		  return insn_default_latency (dep_insn) - 1;
 
 		default:
 		  return 0;
@@ -4045,10 +4005,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding divide or sqrt operation has finished if
 		     the target of the ALU flop is any of the sources
 		     (or destination) of the divide or sqrt operation.  */
-		  if (hppa_use_dfa_pipeline_interface ())
-		    return insn_default_latency (dep_insn) - 2;
-		  else
-		    return cost - 2;
+		  return insn_default_latency (dep_insn) - 2;
 
 		default:
 		  return 0;
@@ -4098,10 +4055,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     Exception: For PA7100LC, PA7200 and PA7300, the cost
 		     is 3 cycles, unless they bundle together.   We also
 		     pay the penalty if the second insn is a fpload.  */
-		  if (hppa_use_dfa_pipeline_interface ())
-		    return insn_default_latency (dep_insn) - 1;
-		  else
-		    return cost - 1;
+		  return insn_default_latency (dep_insn) - 1;
 
 		default:
 		  return 0;
@@ -4136,10 +4090,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding divide or sqrt operation has finished if
 		     the target of the ALU flop is also the target of
 		     the divide or sqrt operation.  */
-		  if (hppa_use_dfa_pipeline_interface ())
-		    return insn_default_latency (dep_insn) - 2;
-		  else
-		    return cost - 2;
+		  return insn_default_latency (dep_insn) - 2;
 
 		default:
 		  return 0;
@@ -6433,17 +6384,13 @@ output_call (insn, call_dest, sibcall)
   distance = INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
 	       - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8;
 
-  /* If the branch was too far away, emit a normal call followed
-     by a nop, followed by the unconditional branch.  We also don't
-     adjust %r2 when generating dwarf2 frame or unwind info since
-     the adjustment confuses the dwarf2 output.
-
-     If the branch is close, then adjust %r2 from within the
-     call's delay slot.  */
+  /* If the branch is too far away, emit a normal call followed
+     by a nop, followed by the unconditional branch.  If the branch
+     is close, then adjust %r2 in the call's delay slot.  */
 
   xoperands[0] = call_dest;
   xoperands[1] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
-  if (DO_FRAME_NOTES || ! VAL_14_BITS_P (distance))
+  if (! VAL_14_BITS_P (distance))
     output_asm_insn ("{bl|b,l} %0,%%r2\n\tnop\n\tb,n %1", xoperands);
   else
     {
@@ -6819,22 +6766,20 @@ output_parallel_addb (operands, length)
     }
 }
 
-/* Return nonzero if INSN (a jump insn) immediately follows a call to
-   a named function.  This is used to discourage creating parallel movb/addb
-   insns since a jump which immediately follows a call can execute in the
-   delay slot of the call.
-
-   It is also used to avoid filling the delay slot of a jump which
-   immediately follows a call since the jump can usually be eliminated
-   completely by modifying RP in the delay slot of the call.  */
+/* Return nonzero if INSN (a jump insn) immediately follows a call
+   to a named function.  This is used to avoid filling the delay slot
+   of the jump since it can usually be eliminated by modifying RP in
+   the delay slot of the call.  */
 
 int
 following_call (insn)
      rtx insn;
 {
-  /* We do not parallel movb,addb or place jumps into call delay slots when
-     optimizing for the PA8000.  */
-  if (pa_cpu != PROCESSOR_8000)
+  /* We do not place jumps into call delay slots when optimizing for the
+     PA8000 processor or when generating dwarf2 call frame information.  */
+  if (pa_cpu >= PROCESSOR_8000
+      || (! USING_SJLJ_EXCEPTIONS && flag_exceptions)
+      || flag_unwind_tables)
     return 0;
 
   /* Find the previous real insn, skipping NOTEs.  */
@@ -7594,6 +7539,33 @@ cmpib_comparison_operator (op, mode)
 	      || GET_CODE (op) == LT
 	      || GET_CODE (op) == LE
 	      || GET_CODE (op) == LEU));
+}
+
+/* On hpux10, the linker will give an error if we have a reference
+   in the read-only data section to a symbol defined in a shared
+   library.  Therefore, expressions that might require a reloc can
+   not be placed in the read-only data section.  */
+
+static void
+pa_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_READONLY (exp)
+      && !TREE_THIS_VOLATILE (exp)
+      && DECL_INITIAL (exp)
+      && (DECL_INITIAL (exp) == error_mark_node
+          || TREE_CONSTANT (DECL_INITIAL (exp)))
+      && !reloc)
+    readonly_data_section ();
+  else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
+	   && !(TREE_CODE (exp) == STRING_CST && flag_writable_strings)
+	   && !reloc)
+    readonly_data_section ();
+  else
+    data_section ();
 }
 
 #include "gt-pa.h"

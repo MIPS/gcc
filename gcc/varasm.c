@@ -94,10 +94,6 @@ struct varasm_status GTY(())
   /* Current offset in constant pool (does not include any machine-specific
      header).  */
   HOST_WIDE_INT x_pool_offset;
-
-  /* Chain of all CONST_DOUBLE rtx's constructed for the current function.
-     They are chained through the CONST_DOUBLE_CHAIN.  */
-  rtx x_const_double_chain;
 };
 
 #define const_rtx_hash_table (cfun->varasm->x_const_rtx_hash_table)
@@ -105,7 +101,6 @@ struct varasm_status GTY(())
 #define first_pool (cfun->varasm->x_first_pool)
 #define last_pool (cfun->varasm->x_last_pool)
 #define pool_offset (cfun->varasm->x_pool_offset)
-#define const_double_chain (cfun->varasm->x_const_double_chain)
 
 /* Number for making the label on the next
    constant that is stored in memory.  */
@@ -178,7 +173,8 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
 static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
 static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
-static void resolve_unique_section	PARAMS ((tree, int));
+static void resolve_unique_section	PARAMS ((tree, int, int));
+static void mark_weak                   PARAMS ((tree));
 
 static enum in_section { no_section, in_text, in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
@@ -258,6 +254,7 @@ data_section ()
       in_section = in_data;
     }
 }
+
 /* Tell assembler to ALWAYS switch to data section, in case
    it's not sure where it is.  */
 
@@ -329,7 +326,7 @@ get_named_section_flags (section)
 {
   struct in_named_entry **slot;
 
-  slot = (struct in_named_entry**)
+  slot = (struct in_named_entry **)
     htab_find_slot_with_hash (in_named_htab, section,
 			      htab_hash_string (section), NO_INSERT);
 
@@ -337,7 +334,7 @@ get_named_section_flags (section)
 }
 
 /* Returns true if the section has been declared before.   Sets internal
-   flag on this section in in_named_hash so subsequent calls on this 
+   flag on this section in in_named_hash so subsequent calls on this
    section will return false.  */
 
 bool
@@ -346,15 +343,15 @@ named_section_first_declaration (name)
 {
   struct in_named_entry **slot;
 
-  slot = (struct in_named_entry**)
-    htab_find_slot_with_hash (in_named_htab, name, 
+  slot = (struct in_named_entry **)
+    htab_find_slot_with_hash (in_named_htab, name,
 			      htab_hash_string (name), NO_INSERT);
   if (! (*slot)->declared)
     {
       (*slot)->declared = true;
       return true;
     }
-  else 
+  else
     {
       return false;
     }
@@ -371,7 +368,7 @@ set_named_section_flags (section, flags)
 {
   struct in_named_entry **slot, *entry;
 
-  slot = (struct in_named_entry**)
+  slot = (struct in_named_entry **)
     htab_find_slot_with_hash (in_named_htab, section,
 			      htab_hash_string (section), INSERT);
   entry = *slot;
@@ -402,7 +399,7 @@ named_section_flags (name, flags)
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      (* targetm.asm_out.named_section) (name, flags);
+      (*targetm.asm_out.named_section) (name, flags);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -452,15 +449,16 @@ named_section (decl, name, reloc)
 /* If required, set DECL_SECTION_NAME to a unique name.  */
 
 static void
-resolve_unique_section (decl, reloc)
+resolve_unique_section (decl, reloc, flag_function_or_data_sections)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
+     int flag_function_or_data_sections;
 {
   if (DECL_SECTION_NAME (decl) == NULL_TREE
-      && (flag_function_sections
-	  || (targetm.have_named_sections
-	      && DECL_ONE_ONLY (decl))))
-    UNIQUE_SECTION (decl, reloc);
+      && targetm.have_named_sections
+      && (flag_function_or_data_sections
+	  || DECL_ONE_ONLY (decl)))
+    (*targetm.asm_out.unique_section) (decl, reloc);
 }
 
 #ifdef BSS_SECTION_ASM_OP
@@ -559,9 +557,8 @@ function_section (decl)
     text_section ();
 }
 
-/* Switch to section for variable DECL.
-
-   RELOC is the `reloc' argument to SELECT_SECTION.  */
+/* Switch to section for variable DECL.  RELOC is the same as the
+   argument to SELECT_SECTION.  */
 
 void
 variable_section (decl, reloc)
@@ -571,29 +568,7 @@ variable_section (decl, reloc)
   if (IN_NAMED_SECTION (decl))
     named_section (decl, NULL, reloc);
   else
-    {
-      /* C++ can have const variables that get initialized from constructors,
-	 and thus can not be in a readonly section.  We prevent this by
-	 verifying that the initial value is constant for objects put in a
-	 readonly section.
-
-	 error_mark_node is used by the C front end to indicate that the
-	 initializer has not been seen yet.  In this case, we assume that
-	 the initializer must be constant.
-
-	 C++ uses error_mark_node for variables that have complicated
-	 initializers, but these variables go in BSS so we won't be called
-	 for them.  */
-
-#ifdef SELECT_SECTION
-      SELECT_SECTION (decl, reloc, DECL_ALIGN (decl));
-#else
-      if (DECL_READONLY_SECTION (decl, reloc))
-	readonly_data_section ();
-      else
-	data_section ();
-#endif
-    }
+    (*targetm.asm_out.select_section) (decl, reloc, DECL_ALIGN (decl));
 }
 
 /* Tell assembler to switch to the section for the exception handling
@@ -614,9 +589,9 @@ default_exception_section ()
 
 void
 mergeable_string_section (decl, align, flags)
-  tree decl ATTRIBUTE_UNUSED;
-  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
-  unsigned int flags ATTRIBUTE_UNUSED;
+     tree decl ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_GAS_SHF_MERGE
   if (flag_merge_constants
@@ -647,7 +622,7 @@ mergeable_string_section (decl, align, flags)
 	  for (i = 0; i < len; i += unit)
 	    {
 	      for (j = 0; j < unit; j++)
-		if (str [i + j] != '\0')
+		if (str[i + j] != '\0')
 		  break;
 	      if (j == unit)
 		break;
@@ -683,15 +658,15 @@ mergeable_string_section (decl, align, flags)
     }
 #endif
   readonly_data_section ();
-}  
+}
 
 /* Tell assembler to switch to the section for constant merging.  */
 
 void
 mergeable_constant_section (mode, align, flags)
-  enum machine_mode mode ATTRIBUTE_UNUSED;
-  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
-  unsigned int flags ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_GAS_SHF_MERGE
   unsigned int modesize = GET_MODE_BITSIZE (mode);
@@ -710,7 +685,7 @@ mergeable_constant_section (mode, align, flags)
       flags |= (align / 8) | SECTION_MERGE;
       named_section_flags (name, flags);
       return;
-    }            
+    }
 #endif
   readonly_data_section ();
 }
@@ -719,7 +694,7 @@ mergeable_constant_section (mode, align, flags)
 
 static const char *
 strip_reg_name (name)
-  const char *name;
+     const char *name;
 {
 #ifdef REGISTER_PREFIX
   if (!strncmp (name, REGISTER_PREFIX, strlen (REGISTER_PREFIX)))
@@ -740,7 +715,7 @@ strip_reg_name (name)
 
 int
 decode_reg_name (asmspec)
-  const char *asmspec;
+     const char *asmspec;
 {
   if (asmspec != 0)
     {
@@ -1176,7 +1151,7 @@ assemble_start_function (decl, fnname)
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
 
-  resolve_unique_section (decl, 0);
+  resolve_unique_section (decl, 0, flag_function_sections);
   function_section (decl);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
@@ -1189,11 +1164,12 @@ assemble_start_function (decl, fnname)
   /* Handle a user-specified function alignment.
      Note that we still need to align to FUNCTION_BOUNDARY, as above,
      because ASM_OUTPUT_MAX_SKIP_ALIGN might not do any alignment at all.  */
-  if (align_functions_log > align)
+  if (align_functions_log > align
+      && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
       ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file,
-				 align_functions_log, align_functions-1);
+				 align_functions_log, align_functions - 1);
 #else
       ASM_OUTPUT_ALIGN (asm_out_file, align_functions_log);
 #endif
@@ -1363,7 +1339,7 @@ assemble_string (p, size)
 static void
 asm_emit_uninitialised (decl, name, size, rounded)
      tree decl;
-     const char * name;
+     const char *name;
      int size ATTRIBUTE_UNUSED;
      int rounded ATTRIBUTE_UNUSED;
 {
@@ -1387,7 +1363,7 @@ asm_emit_uninitialised (decl, name, size, rounded)
 
   if (destination == asm_dest_bss)
     globalize_decl (decl);
-  resolve_unique_section (decl, 0);
+  resolve_unique_section (decl, 0, flag_data_sections);
 
   if (flag_shared_data)
     {
@@ -1588,7 +1564,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
   else if (DECL_INITIAL (decl))
     reloc = output_addressed_constants (DECL_INITIAL (decl));
-  resolve_unique_section (decl, reloc);
+  resolve_unique_section (decl, reloc, flag_data_sections);
 
   /* Handle uninitialized definitions.  */
 
@@ -2090,190 +2066,6 @@ assemble_real (d, mode, align)
     default:
       abort ();
     }
-}
-
-/* Here we combine duplicate floating constants to make
-   CONST_DOUBLE rtx's, and force those out to memory when necessary.  */
-
-/* Return a CONST_DOUBLE or CONST_INT for a value specified as a pair of ints.
-   For an integer, I0 is the low-order word and I1 is the high-order word.
-   For a real number, I0 is the word with the low address
-   and I1 is the word with the high address.  */
-
-rtx
-immed_double_const (i0, i1, mode)
-     HOST_WIDE_INT i0, i1;
-     enum machine_mode mode;
-{
-  rtx r;
-
-  if (GET_MODE_CLASS (mode) == MODE_INT
-      || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-    {
-      /* We clear out all bits that don't belong in MODE, unless they and our
-	 sign bit are all one.  So we get either a reasonable negative value
-	 or a reasonable unsigned value for this mode.  */
-      int width = GET_MODE_BITSIZE (mode);
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && ((i0 & ((HOST_WIDE_INT) (-1) << (width - 1)))
-	      != ((HOST_WIDE_INT) (-1) << (width - 1))))
-	i0 &= ((HOST_WIDE_INT) 1 << width) - 1, i1 = 0;
-      else if (width == HOST_BITS_PER_WIDE_INT
-	       && ! (i1 == ~0 && i0 < 0))
-	i1 = 0;
-      else if (width > 2 * HOST_BITS_PER_WIDE_INT)
-	/* We cannot represent this value as a constant.  */
-	abort ();
-
-      /* If this would be an entire word for the target, but is not for
-	 the host, then sign-extend on the host so that the number will look
-	 the same way on the host that it would on the target.
-
-	 For example, when building a 64 bit alpha hosted 32 bit sparc
-	 targeted compiler, then we want the 32 bit unsigned value -1 to be
-	 represented as a 64 bit value -1, and not as 0x00000000ffffffff.
-	 The later confuses the sparc backend.  */
-
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && (i0 & ((HOST_WIDE_INT) 1 << (width - 1))))
-	i0 |= ((HOST_WIDE_INT) (-1) << width);
-
-      /* If MODE fits within HOST_BITS_PER_WIDE_INT, always use a CONST_INT.
-
-	 ??? Strictly speaking, this is wrong if we create a CONST_INT
-	 for a large unsigned constant with the size of MODE being
-	 HOST_BITS_PER_WIDE_INT and later try to interpret that constant in a
-	 wider mode.  In that case we will mis-interpret it as a negative
-	 number.
-
-	 Unfortunately, the only alternative is to make a CONST_DOUBLE
-	 for any constant in any mode if it is an unsigned constant larger
-	 than the maximum signed integer in an int on the host.  However,
-	 doing this will break everyone that always expects to see a CONST_INT
-	 for SImode and smaller.
-
-	 We have always been making CONST_INTs in this case, so nothing new
-	 is being broken.  */
-
-      if (width <= HOST_BITS_PER_WIDE_INT)
-	i1 = (i0 < 0) ? ~(HOST_WIDE_INT) 0 : 0;
-
-      /* If this integer fits in one word, return a CONST_INT.  */
-      if ((i1 == 0 && i0 >= 0)
-	  || (i1 == ~0 && i0 < 0))
-	return GEN_INT (i0);
-
-      /* We use VOIDmode for integers.  */
-      mode = VOIDmode;
-    }
-
-  /* Search the chain for an existing CONST_DOUBLE with the right value.
-     If one is found, return it.  */
-  if (cfun != 0)
-    for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (CONST_DOUBLE_LOW (r) == i0 && CONST_DOUBLE_HIGH (r) == i1
-	  && GET_MODE (r) == mode)
-	return r;
-
-  /* No; make a new one and add it to the chain.  */
-  r = gen_rtx_CONST_DOUBLE (mode, i0, i1);
-
-  /* Don't touch const_double_chain if not inside any function.  */
-  if (current_function_decl != 0)
-    {
-      CONST_DOUBLE_CHAIN (r) = const_double_chain;
-      const_double_chain = r;
-    }
-
-  return r;
-}
-
-/* Return a CONST_DOUBLE for a specified `double' value
-   and machine mode.  */
-
-rtx
-immed_real_const_1 (d, mode)
-     REAL_VALUE_TYPE d;
-     enum machine_mode mode;
-{
-  rtx r;
-
-  /* Detect special cases.  Check for NaN first, because some ports
-     (specifically the i386) do not emit correct ieee-fp code by default, and
-     thus will generate a core dump here if we pass a NaN to REAL_VALUES_EQUAL
-     and if REAL_VALUES_EQUAL does a floating point comparison.  */
-  if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_IDENTICAL (dconst0, d))
-    return CONST0_RTX (mode);
-  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst1, d))
-    return CONST1_RTX (mode);
-  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst2, d))
-    return CONST2_RTX (mode);
-
-  if (sizeof (REAL_VALUE_TYPE) == sizeof (HOST_WIDE_INT))
-    return immed_double_const (d.r[0], 0, mode);
-  if (sizeof (REAL_VALUE_TYPE) == 2 * sizeof (HOST_WIDE_INT))
-    return immed_double_const (d.r[0], d.r[1], mode);
-
-  /* The rest of this function handles the case where
-     a float value requires more than 2 ints of space.
-     It will be deleted as dead code on machines that don't need it.  */
-
-  /* Search the chain for an existing CONST_DOUBLE with the right value.
-     If one is found, return it.  */
-  if (cfun != 0)
-    for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (! memcmp ((char *) &CONST_DOUBLE_LOW (r), (char *) &d, sizeof d)
-	  && GET_MODE (r) == mode)
-	return r;
-
-  /* No; make a new one and add it to the chain.
-
-     We may be called by an optimizer which may be discarding any memory
-     allocated during its processing (such as combine and loop).  However,
-     we will be leaving this constant on the chain, so we cannot tolerate
-     freed memory.  */
-  r = rtx_alloc (CONST_DOUBLE);
-  PUT_MODE (r, mode);
-  memcpy ((char *) &CONST_DOUBLE_LOW (r), (char *) &d, sizeof d);
-
-  /* If we aren't inside a function, don't put r on the
-     const_double_chain.  */
-  if (current_function_decl != 0)
-    {
-      CONST_DOUBLE_CHAIN (r) = const_double_chain;
-      const_double_chain = r;
-    }
-  else
-    CONST_DOUBLE_CHAIN (r) = NULL_RTX;
-
-  return r;
-}
-
-/* Return a CONST_DOUBLE rtx for a value specified by EXP,
-   which must be a REAL_CST tree node.  */
-
-rtx
-immed_real_const (exp)
-     tree exp;
-{
-  return immed_real_const_1 (TREE_REAL_CST (exp), TYPE_MODE (TREE_TYPE (exp)));
-}
-
-/* At the end of a function, forget the memory-constants
-   previously made for CONST_DOUBLEs.  Mark them as not on real_constant_chain.
-   Also clear out real_constant_chain and clear out all the chain-pointers.  */
-
-void
-clear_const_double_mem ()
-{
-  rtx r, next;
-
-  for (r = const_double_chain; r; r = next)
-    {
-      next = CONST_DOUBLE_CHAIN (r);
-      CONST_DOUBLE_CHAIN (r) = 0;
-    }
-  const_double_chain = 0;
 }
 
 /* Given an expression EXP with a constant value,
@@ -3046,18 +2838,7 @@ output_constant_def_contents (exp, reloc, labelno)
   if (IN_NAMED_SECTION (exp))
     named_section (exp, NULL, reloc);
   else
-    {
-      /* First switch to text section, except for writable strings.  */
-#ifdef SELECT_SECTION
-      SELECT_SECTION (exp, reloc, align);
-#else
-      if (((TREE_CODE (exp) == STRING_CST) && flag_writable_strings)
-	  || (flag_pic && reloc))
-	data_section ();
-      else
-	readonly_data_section ();
-#endif
-    }
+    (*targetm.asm_out.select_section) (exp, reloc, align);
 
   if (align > BITS_PER_UNIT)
     {
@@ -3141,7 +2922,6 @@ init_varasm_status (f)
 
   p->x_first_pool = p->x_last_pool = 0;
   p->x_pool_offset = 0;
-  p->x_const_double_chain = 0;
 }
 
 
@@ -3241,16 +3021,16 @@ decode_rtx_const (mode, x, value)
 
   if (value->kind == RTX_INT && value->un.addr.base != 0
       && GET_CODE (value->un.addr.base) == UNSPEC)
-    {      
+    {
       /* For a simple UNSPEC, the base is set to the
 	 operand, the kind field is set to the index of
-	 the unspec expression. 
+	 the unspec expression.
 	 Together with the code below, in case that
-	 the operand is a SYMBOL_REF or LABEL_REF, 
-	 the address of the string or the code_label 
+	 the operand is a SYMBOL_REF or LABEL_REF,
+	 the address of the string or the code_label
 	 is taken as base.  */
       if (XVECLEN (value->un.addr.base, 0) == 1)
-        {
+	{
 	  value->kind = RTX_UNSPEC + XINT (value->un.addr.base, 1);
 	  value->un.addr.base = XVECEXP (value->un.addr.base, 0, 0);
 	}
@@ -3369,7 +3149,7 @@ mem_for_const_double (x)
 
   return 0;
 }
-  
+
 /* Given a constant rtx X, make (or find) a memory constant for its value
    and return a MEM rtx to refer to it in memory.  */
 
@@ -3398,7 +3178,7 @@ force_const_mem (mode, x)
   desc = record_constant_rtx (mode, x);
   desc->next = const_rtx_hash_table[hash];
   const_rtx_hash_table[hash] = desc;
-  
+
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
@@ -3427,7 +3207,7 @@ force_const_mem (mode, x)
     first_pool = pool;
   else
     last_pool->next = pool;
-  
+
   last_pool = pool;
   pool_offset += GET_MODE_SIZE (mode);
 
@@ -3545,8 +3325,8 @@ get_pool_size ()
 
 void
 output_constant_pool (fnname, fndecl)
-  const char *fnname ATTRIBUTE_UNUSED;
-  tree fndecl ATTRIBUTE_UNUSED;
+     const char *fnname ATTRIBUTE_UNUSED;
+     tree fndecl ATTRIBUTE_UNUSED;
 {
   struct pool_constant *pool;
   rtx x;
@@ -3656,7 +3436,7 @@ output_constant_pool (fnname, fndecl)
 	  }
 	  break;
 
-        case MODE_VECTOR_INT:
+	case MODE_VECTOR_INT:
 	  {
 	    int i, units;
 	    rtx elt;
@@ -3803,10 +3583,11 @@ mark_constant (current_rtx, data)
       if (CONSTANT_POOL_ADDRESS_P (x))
 	{
 	  struct pool_constant *pool = find_pool_constant (cfun, x);
-	  if (pool->mark == 0) {
-	    pool->mark = 1;
-	    for_each_rtx (&(pool->constant), &mark_constant, NULL);
-	  }
+	  if (pool->mark == 0)
+	    {
+	      pool->mark = 1;
+	      for_each_rtx (&(pool->constant), &mark_constant, NULL);
+	    }
 	  else
 	    return -1;
 	}
@@ -3880,7 +3661,7 @@ output_addressed_constants (exp)
     case CONSTRUCTOR:
       for (tem = CONSTRUCTOR_ELTS (exp); tem; tem = TREE_CHAIN (tem))
 	if (TREE_VALUE (tem) != 0)
-	    reloc |= output_addressed_constants (TREE_VALUE (tem));
+	  reloc |= output_addressed_constants (TREE_VALUE (tem));
 
       break;
 
@@ -3998,7 +3779,7 @@ initializer_constant_valid_p (value, endtype)
     case PLUS_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
 	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
-        {
+	{
 	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
 						      endtype);
 	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
@@ -4008,7 +3789,7 @@ initializer_constant_valid_p (value, endtype)
 	    return valid1;
 	  if (valid1 == null_pointer_node)
 	    return valid0;
-        }
+	}
       break;
 
     case MINUS_EXPR:
@@ -4215,7 +3996,7 @@ output_constant (exp, size, align)
       if (TREE_CODE (exp) == INTEGER_CST)
 	assemble_integer (expand_expr (exp, NULL_RTX,
 				       VOIDmode, EXPAND_INITIALIZER),
-			 thissize, align, 1);
+			  thissize, align, 1);
       else if (TREE_CODE (exp) == CONSTRUCTOR)
 	{
 	  unsigned char *buffer = (unsigned char *) alloca (thissize);
@@ -4257,7 +4038,7 @@ array_size_for_constructor (val)
     return TREE_STRING_LENGTH (val);
 
   max_index = NULL_TREE;
-  for (i = CONSTRUCTOR_ELTS (val); i ; i = TREE_CHAIN (i))
+  for (i = CONSTRUCTOR_ELTS (val); i; i = TREE_CHAIN (i))
     {
       tree index = TREE_PURPOSE (i);
 
@@ -4592,6 +4373,21 @@ output_constructor (exp, size, align)
    to be emitted.  */
 static GTY(()) tree weak_decls;
 
+/* Mark DECL as weak.  */
+
+static void
+mark_weak (decl)
+     tree decl;
+{
+  DECL_WEAK (decl) = 1;
+
+  if (DECL_RTL_SET_P (decl)
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && XEXP (DECL_RTL (decl), 0)
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
+    SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+ 
 /* Merge weak status between NEWDECL and OLDDECL.  */
 
 void
@@ -4599,22 +4395,53 @@ merge_weak (newdecl, olddecl)
      tree newdecl;
      tree olddecl;
 {
-  tree decl;
-
   if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
     return;
 
-  decl = DECL_WEAK (olddecl) ? newdecl : olddecl;
+  if (DECL_WEAK (newdecl))
+    {
+      tree wd;
+      
+      /* NEWDECL is weak, but OLDDECL is not.  */
 
-  if (SUPPORTS_WEAK
-      && DECL_EXTERNAL (newdecl) && DECL_EXTERNAL (olddecl)
-      && (TREE_CODE (decl) != VAR_DECL
-	  || ! TREE_STATIC (decl))
-      && TREE_USED (decl)
-      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning_with_decl (decl, "weak declaration of `%s' after first use results in unspecified behavior");
+      /* If we already output the OLDDECL, we're in trouble; we can't
+	 go back and make it weak.  This error cannot caught in
+	 declare_weak because the NEWDECL and OLDDECL was not yet
+	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
+      if (TREE_ASM_WRITTEN (olddecl))
+	error_with_decl (newdecl, 
+			 "weak declaration of `%s' must precede definition");
 
-  declare_weak (decl);
+      /* If we've already generated rtl referencing OLDDECL, we may
+	 have done so in a way that will not function properly with
+	 a weak symbol.  */
+      else if (TREE_USED (olddecl)
+	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
+	warning_with_decl (newdecl, "weak declaration of `%s' after first use results in unspecified behavior");
+
+      if (SUPPORTS_WEAK)
+	{
+	  /* We put the NEWDECL on the weak_decls list at some point.
+	     Replace it with the OLDDECL.  */
+	  for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
+	    if (TREE_VALUE (wd) == newdecl)
+	      {
+		TREE_VALUE (wd) = olddecl;
+		break;
+	      }
+	  /* We may not find the entry on the list.  If NEWDECL is a
+	     weak alias, then we will have already called
+	     globalize_decl to remove the entry; in that case, we do
+	     not need to do anything.  */
+	}
+
+      /* Make the OLDDECL weak; it's OLDDECL that we'll be keeping.  */
+      mark_weak (olddecl);
+    }
+  else
+    /* OLDDECL was weak, but NEWDECL was not explicitly marked as
+       weak.  Just update NEWDECL to indicate that it's weak too.  */
+    mark_weak (newdecl);
 }
 
 /* Declare DECL to be a weak symbol.  */
@@ -4635,13 +4462,7 @@ declare_weak (decl)
   else
     warning_with_decl (decl, "weak declaration of `%s' not supported");
 
-  DECL_WEAK (decl) = 1;
-
-  if (DECL_RTL_SET_P (decl)
-      && GET_CODE (DECL_RTL (decl)) == MEM
-      && XEXP (DECL_RTL (decl), 0)
-      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
-    SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
+  mark_weak (decl);
 }
 
 /* Emit any pending weak declarations.  */
@@ -4651,7 +4472,7 @@ weak_finish ()
 {
   tree t;
 
-  for (t = weak_decls; t ; t = TREE_CHAIN (t))
+  for (t = weak_decls; t; t = TREE_CHAIN (t))
     {
       tree decl = TREE_VALUE (t);
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -4695,12 +4516,13 @@ globalize_decl (decl)
 
       /* Remove this function from the pending weak list so that
 	 we do not emit multiple .weak directives for it.  */
-      for (p = &weak_decls; (t = *p) ; p = &TREE_CHAIN (t))
-	if (TREE_VALUE (t) == decl)
-	  {
+      for (p = &weak_decls; (t = *p) ; )
+	{
+	  if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
 	    *p = TREE_CHAIN (t);
-	    break;
-	  }
+	  else
+	    p = &TREE_CHAIN (t);
+	}
       return;
     }
 #endif
@@ -4737,7 +4559,6 @@ assemble_alias (decl, target)
 #else
   ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));
 #endif
-  TREE_ASM_WRITTEN (decl) = 1;
 #else /* !ASM_OUTPUT_DEF */
 #if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
   if (! DECL_WEAK (decl))
@@ -4748,11 +4569,14 @@ assemble_alias (decl, target)
 #else
   ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
 #endif
-  TREE_ASM_WRITTEN (decl) = 1;
 #else
   warning ("alias definitions not supported in this configuration; ignored");
 #endif
 #endif
+
+  TREE_USED (decl) = 1;
+  TREE_ASM_WRITTEN (decl) = 1;
+  TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
 }
 
 /* Emit an assembler directive to set symbol for DECL visibility to
@@ -4991,6 +4815,270 @@ assemble_vtable_inherit (child, parent)
   fputs (", ", asm_out_file);
   output_addr_const (asm_out_file, parent);
   fputc ('\n', asm_out_file);
+}
+
+/* The lame default section selector.  */
+
+void
+default_select_section (decl, reloc, align)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  bool readonly = false;
+
+  if (DECL_P (decl))
+    {
+      if (DECL_READONLY_SECTION (decl, reloc))
+	readonly = true;
+    }
+  else if (TREE_CODE (decl) == CONSTRUCTOR)
+    {
+      if (! ((flag_pic && reloc)
+	     || !TREE_READONLY (decl)
+	     || TREE_SIDE_EFFECTS (decl)
+	     || !TREE_CONSTANT (decl)))
+	readonly = true;
+    }
+  else if (TREE_CODE (decl) == STRING_CST)
+    readonly = !flag_writable_strings;
+  else if (! (flag_pic && reloc))
+    readonly = true;
+
+  if (readonly)
+    readonly_data_section ();
+  else
+    data_section ();
+}
+
+/* A helper function for default_elf_select_section and
+   default_elf_unique_section.  Categorizes the DECL.  */
+
+enum section_category
+{
+  SECCAT_TEXT,
+
+  SECCAT_RODATA,
+  SECCAT_RODATA_MERGE_STR,
+  SECCAT_RODATA_MERGE_STR_INIT,
+  SECCAT_RODATA_MERGE_CONST,
+
+  SECCAT_DATA,
+
+  /* To optimize loading of shared programs, define following subsections
+     of data section:
+	_REL	Contains data that has relocations, so they get grouped
+		together and dynamic linker will visit fewer pages in memory.
+	_RO	Contains data that is otherwise read-only.  This is useful
+		with prelinking as most relocations won't be dynamically
+		linked and thus stay read only.
+	_LOCAL	Marks data containing relocations only to local objects.
+		These relocations will get fully resolved by prelinking.  */
+  SECCAT_DATA_REL,
+  SECCAT_DATA_REL_LOCAL,
+  SECCAT_DATA_REL_RO,
+  SECCAT_DATA_REL_RO_LOCAL,
+
+  SECCAT_SDATA,
+  SECCAT_TDATA,
+
+  SECCAT_BSS,
+  SECCAT_SBSS,
+  SECCAT_TBSS
+};
+
+static enum section_category categorize_decl_for_section PARAMS ((tree, int));
+
+static enum section_category
+categorize_decl_for_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  enum section_category ret;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    return SECCAT_TEXT;
+  else if (TREE_CODE (decl) == STRING_CST)
+    {
+      if (flag_writable_strings)
+	return SECCAT_DATA;
+      else
+	return SECCAT_RODATA_MERGE_STR;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      if (DECL_INITIAL (decl) == NULL
+	  || DECL_INITIAL (decl) == error_mark_node)
+	ret = SECCAT_BSS;
+      else if (! TREE_READONLY (decl)
+	       || TREE_SIDE_EFFECTS (decl)
+	       || ! TREE_CONSTANT (DECL_INITIAL (decl)))
+	{
+	  if (flag_pic && (reloc & 2))
+	    ret = SECCAT_DATA_REL;
+	  else if (flag_pic && reloc)
+	    ret = SECCAT_DATA_REL_LOCAL;
+	  else
+	    ret = SECCAT_DATA;
+	}
+      else if (flag_pic && (reloc & 2))
+	ret = SECCAT_DATA_REL_RO;
+      else if (flag_pic && reloc)
+	ret = SECCAT_DATA_REL_RO_LOCAL;
+      else if (flag_merge_constants < 2)
+	/* C and C++ don't allow different variables to share the same
+	   location.  -fmerge-all-constants allows even that (at the
+	   expense of not conforming).  */
+	ret = SECCAT_RODATA;
+      else if (TREE_CODE (DECL_INITIAL (decl)) == STRING_CST)
+	ret = SECCAT_RODATA_MERGE_STR_INIT;
+      else
+	ret = SECCAT_RODATA_MERGE_CONST;
+    }
+  else if (TREE_CODE (decl) == CONSTRUCTOR)
+    {
+      if ((flag_pic && reloc)
+	  || TREE_SIDE_EFFECTS (decl)
+	  || ! TREE_CONSTANT (decl))
+	ret = SECCAT_DATA;
+      else
+	ret = SECCAT_RODATA;
+    }
+  else
+    ret = SECCAT_RODATA;
+
+  /* If the target uses small data sections, select it.  */
+  if ((*targetm.in_small_data_p) (decl))
+    {
+      if (ret == SECCAT_BSS)
+	ret = SECCAT_SBSS;
+      else
+	ret = SECCAT_SDATA;
+    }
+
+  return ret;
+}
+
+/* Select a section based on the above categorization.  */
+
+void
+default_elf_select_section (decl, reloc, align)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  switch (categorize_decl_for_section (decl, reloc))
+    {
+    case SECCAT_TEXT:
+      /* We're not supposed to be called on FUNCTION_DECLs.  */
+      abort ();
+    case SECCAT_RODATA:
+      readonly_data_section ();
+      break;
+    case SECCAT_RODATA_MERGE_STR:
+      mergeable_string_section (decl, align, 0);
+      break;
+    case SECCAT_RODATA_MERGE_STR_INIT:
+      mergeable_string_section (DECL_INITIAL (decl), align, 0);
+      break;
+    case SECCAT_RODATA_MERGE_CONST:
+      mergeable_constant_section (DECL_MODE (decl), align, 0);
+      break;
+    case SECCAT_DATA:
+      data_section ();
+      break;
+    case SECCAT_DATA_REL:
+      named_section (NULL_TREE, ".data.rel", reloc);
+      break;
+    case SECCAT_DATA_REL_LOCAL:
+      named_section (NULL_TREE, ".data.rel.local", reloc);
+      break;
+    case SECCAT_DATA_REL_RO:
+      named_section (NULL_TREE, ".data.rel.ro", reloc);
+      break;
+    case SECCAT_DATA_REL_RO_LOCAL:
+      named_section (NULL_TREE, ".data.rel.ro.local", reloc);
+      break;
+    case SECCAT_SDATA:
+      named_section (NULL_TREE, ".sdata", reloc);
+      break;
+    case SECCAT_TDATA:
+      named_section (NULL_TREE, ".tdata", reloc);
+      break;
+    case SECCAT_BSS:
+#ifdef BSS_SECTION_ASM_OP
+      bss_section ();
+#else
+      named_section (NULL_TREE, ".bss", reloc);
+#endif
+      break;
+    case SECCAT_SBSS:
+      named_section (NULL_TREE, ".sbss", reloc);
+      break;
+    case SECCAT_TBSS:
+      named_section (NULL_TREE, ".tbss", reloc);
+      break;
+    default:
+      abort ();
+    }
+}
+
+/* Construct a unique section name based on the decl name and the 
+   categorization performed above.  */
+
+void
+default_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  bool one_only = DECL_ONE_ONLY (decl);
+  const char *prefix, *name;
+  size_t nlen, plen;
+  char *string;
+
+  switch (categorize_decl_for_section (decl, reloc))
+    {
+    case SECCAT_TEXT:
+      prefix = one_only ? ".gnu.linkonce.t." : ".text.";
+      break;
+    case SECCAT_RODATA:
+    case SECCAT_RODATA_MERGE_STR:
+    case SECCAT_RODATA_MERGE_STR_INIT:
+    case SECCAT_RODATA_MERGE_CONST:
+      prefix = one_only ? ".gnu.linkonce.r." : ".rodata.";
+      break;
+    case SECCAT_DATA:
+    case SECCAT_DATA_REL:
+    case SECCAT_DATA_REL_LOCAL:
+    case SECCAT_DATA_REL_RO:
+    case SECCAT_DATA_REL_RO_LOCAL:
+      prefix = one_only ? ".gnu.linkonce.d." : ".data.";
+      break;
+    case SECCAT_SDATA:
+      prefix = one_only ? ".gnu.linkonce.s." : ".sdata.";
+      break;
+    case SECCAT_BSS:
+      prefix = one_only ? ".gnu.linkonce.b." : ".bss.";
+      break;
+    case SECCAT_SBSS:
+      prefix = one_only ? ".gnu.linkonce.sb." : ".sbss.";
+      break;
+    case SECCAT_TDATA:
+    case SECCAT_TBSS:
+    default:
+      abort ();
+    }
+  plen = strlen (prefix);
+
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  STRIP_NAME_ENCODING (name, name);
+  nlen = strlen (name);
+
+  string = alloca (nlen + plen + 1);
+  memcpy (string, prefix, plen);
+  memcpy (string + plen, name, nlen + 1);
+
+  DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
 }
 
 #include "gt-varasm.h"

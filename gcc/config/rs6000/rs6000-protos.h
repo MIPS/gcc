@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -18,6 +18,9 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
+
+#ifndef GCC_RS6000_PROTOS_H
+#define GCC_RS6000_PROTOS_H
 
 /* Declare functions in rs6000.c */
 
@@ -145,8 +148,6 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern void output_mi_thunk PARAMS ((FILE *, tree, int, tree));
 extern void rs6000_encode_section_info PARAMS ((tree, int));
-extern void rs6000_select_section PARAMS ((tree, int));
-extern void rs6000_unique_section PARAMS ((tree, int));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
@@ -157,8 +158,6 @@ extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
 extern void optimization_options PARAMS ((int, int));
 extern void rs6000_override_options PARAMS ((const char *));
 extern void rs6000_file_start PARAMS ((FILE *, const char *));
-extern struct rtx_def *rs6000_float_const PARAMS ((const char *,
-						   enum machine_mode));
 extern int direct_return PARAMS ((void));
 extern union tree_node *rs6000_build_va_list PARAMS ((void));
 extern int first_reg_to_save PARAMS ((void));
@@ -186,3 +185,9 @@ extern void rs6000_emit_epilogue PARAMS ((int));
 extern void debug_stack_info PARAMS ((rs6000_stack_t *));
 
 extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
+
+#ifdef GCC_CPPLIB_H
+extern void rs6000_pragma_longcall PARAMS ((cpp_reader *));
+#endif
+
+#endif  /* rs6000-protos.h */

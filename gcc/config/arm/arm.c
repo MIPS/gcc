@@ -2543,7 +2543,8 @@ arm_rtx_costs (x, code, outer)
 	  /* Memory costs quite a lot for the first word, but subsequent words
 	     load at the equivalent of a single insn each.  */
 	  return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
-		  + (CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
+		  + ((GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
+		     ? 4 : 0));
 
 	case IF_THEN_ELSE:
 	  /* XXX a guess. */
@@ -2591,7 +2592,8 @@ arm_rtx_costs (x, code, outer)
       /* Memory costs quite a lot for the first word, but subsequent words
 	 load at the equivalent of a single insn each.  */
       return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
-	      + (CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
+	      + (GET_CODE (x) == SYMBOL_REF
+		 && CONSTANT_POOL_ADDRESS_P (x) ? 4 : 0));
 
     case DIV:
     case MOD:
@@ -2899,16 +2901,16 @@ arm_adjust_cost (insn, link, dep, cost)
       && (d_pat = single_set (dep)) != NULL
       && GET_CODE (SET_DEST (d_pat)) == MEM)
     {
+      rtx src_mem = XEXP (SET_SRC (i_pat), 0);
       /* This is a load after a store, there is no conflict if the load reads
 	 from a cached area.  Assume that loads from the stack, and from the
 	 constant pool are cached, and that others will miss.  This is a 
 	 hack.  */
       
-      if (CONSTANT_POOL_ADDRESS_P (XEXP (SET_SRC (i_pat), 0))
-	  || reg_mentioned_p (stack_pointer_rtx, XEXP (SET_SRC (i_pat), 0))
-	  || reg_mentioned_p (frame_pointer_rtx, XEXP (SET_SRC (i_pat), 0))
-	  || reg_mentioned_p (hard_frame_pointer_rtx, 
-			      XEXP (SET_SRC (i_pat), 0)))
+      if ((GET_CODE (src_mem) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (src_mem))
+	  || reg_mentioned_p (stack_pointer_rtx, src_mem)
+	  || reg_mentioned_p (frame_pointer_rtx, src_mem)
+	  || reg_mentioned_p (hard_frame_pointer_rtx, src_mem))
 	return 1;
     }
 
@@ -7826,7 +7828,6 @@ emit_multi_reg_push (mask)
   
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs));
   dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (num_dwarf_regs + 1));
-  RTX_FRAME_RELATED_P (dwarf) = 1;
   dwarf_par_index = 1;
 
   for (i = 0; i <= LAST_ARM_REGNUM; i++)

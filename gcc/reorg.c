@@ -617,7 +617,9 @@ delete_from_delay_slot (insn)
      annul flag.  */
   if (delay_list)
     trial = emit_delay_sequence (trial, delay_list, XVECLEN (seq, 0) - 2);
-  else
+  else if (GET_CODE (trial) == JUMP_INSN
+	   || GET_CODE (trial) == CALL_INSN
+	   || GET_CODE (trial) == INSN)
     INSN_ANNULLED_BRANCH_P (trial) = 0;
 
   INSN_FROM_TARGET_P (insn) = 0;

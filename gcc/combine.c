@@ -1460,10 +1460,10 @@ cant_combine_insn_p (insn)
   if (! INSN_P (insn))
     return 1;
 
-  /* Never combine loads and stores involving hard regs.  The register
-     allocator can usually handle such reg-reg moves by tying.  If we allow
-     the combiner to make substitutions of hard regs, we risk aborting in
-     reload on machines that have SMALL_REGISTER_CLASSES.
+  /* Never combine loads and stores involving hard regs that are likely
+     to be spilled.  The register allocator can usually handle such
+     reg-reg moves by tying.  If we allow the combiner to make 
+     substitutions of likely-spilled regs, we may abort in reload.
      As an exception, we allow combinations involving fixed regs; these are
      not available to the register allocator so there's no risk involved.  */
 
@@ -1478,9 +1478,11 @@ cant_combine_insn_p (insn)
     dest = SUBREG_REG (dest);
   if (REG_P (src) && REG_P (dest)
       && ((REGNO (src) < FIRST_PSEUDO_REGISTER
-	   && ! fixed_regs[REGNO (src)])
+	   && ! fixed_regs[REGNO (src)]
+	   && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (src))))
 	  || (REGNO (dest) < FIRST_PSEUDO_REGISTER
-	      && ! fixed_regs[REGNO (dest)])))
+	      && ! fixed_regs[REGNO (dest)]
+	      && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (dest))))))
     return 1;
 
   return 0;
@@ -3773,7 +3775,8 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  if (temp == const0_rtx)
 	    temp = CONST0_RTX (mode);
 	  else
-	    temp = immed_real_const_1 (FLOAT_STORE_FLAG_VALUE (mode), mode);
+	    temp = CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE (mode),
+						 mode);
 	}
 #endif
       break;
@@ -5600,7 +5603,7 @@ expand_compound_operation (x)
 
       len = GET_MODE_BITSIZE (GET_MODE (XEXP (x, 0)));
       /* If the inner object has VOIDmode (the only way this can happen
-	 is if it is a ASM_OPERANDS), we can't do anything since we don't
+	 is if it is an ASM_OPERANDS), we can't do anything since we don't
 	 know how much masking to do.  */
       if (len == 0)
 	return x;
@@ -7076,7 +7079,7 @@ force_to_mode (x, mode, mask, reg, just_select)
 	    }
 	}
 
-      /* If MASK is 1, convert this to a LSHIFTRT.  This can be done
+      /* If MASK is 1, convert this to an LSHIFTRT.  This can be done
 	 even if the shift count isn't a constant.  */
       if (mask == 1)
 	x = gen_binary (LSHIFTRT, GET_MODE (x), XEXP (x, 0), XEXP (x, 1));
@@ -7884,7 +7887,7 @@ simplify_and_const_int (x, mode, varop, constop)
     return const0_rtx;
 
   /* If VAROP is a NEG of something known to be zero or 1 and CONSTOP is
-     a power of two, we can replace this with a ASHIFT.  */
+     a power of two, we can replace this with an ASHIFT.  */
   if (GET_CODE (varop) == NEG && nonzero_bits (XEXP (varop, 0), mode) == 1
       && (i = exact_log2 (constop)) >= 0)
     return simplify_shift_const (NULL_RTX, ASHIFT, mode, XEXP (varop, 0), i);
@@ -9054,8 +9057,8 @@ simplify_shift_const (x, code, result_mode, varop, orig_count)
 
       /* We simplify the tests below and elsewhere by converting
 	 ASHIFTRT to LSHIFTRT if we know the sign bit is clear.
-	 `make_compound_operation' will convert it to a ASHIFTRT for
-	 those machines (such as VAX) that don't have a LSHIFTRT.  */
+	 `make_compound_operation' will convert it to an ASHIFTRT for
+	 those machines (such as VAX) that don't have an LSHIFTRT.  */
       if (GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
 	  && code == ASHIFTRT
 	  && ((nonzero_bits (varop, shift_mode)
@@ -9228,7 +9231,7 @@ simplify_shift_const (x, code, result_mode, varop, orig_count)
 
 	      /* If this was (ashiftrt (ashift foo C1) C2) and FOO has more
 		 than C1 high-order bits equal to the sign bit, we can convert
-		 this to either an ASHIFT or a ASHIFTRT depending on the
+		 this to either an ASHIFT or an ASHIFTRT depending on the
 		 two counts.
 
 		 We cannot do this if VAROP's mode is not SHIFT_MODE.  */
@@ -9628,7 +9631,7 @@ simplify_shift_const (x, code, result_mode, varop, orig_count)
     x = simplify_shift_const (x, code, shift_mode, XEXP (x, 0),
 			      INTVAL (XEXP (x, 1)));
 
-  /* If we were doing a LSHIFTRT in a wider mode than it was originally,
+  /* If we were doing an LSHIFTRT in a wider mode than it was originally,
      turn off all the bits that the shift would have turned off.  */
   if (orig_code == LSHIFTRT && result_mode != shift_mode)
     x = simplify_and_const_int (NULL_RTX, shift_mode, x,

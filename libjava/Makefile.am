@@ -165,45 +165,26 @@ install-exec-hook:
 	  $(LN_S) libgcjx.la gnu-awt-xlib.la; \
 	fi
 
-## Make the .class files depend on the .zip file.  This seems
-## backwards, but is right.  This doesn't catch all the .class files,
-## but that is ok, because the ones it fails to pick up are defined in
-## a .java file with some other class which is caught.  Note that we
-## only want to create headers for those files which do not have
-## hand-maintained headers.
-$(built_java_source_files:.java=.class): libgcj-@gcc_version@.jar
-$(java_source_files:.java=.class): libgcj-@gcc_version@.jar
+all_java_source_files = \
+    $(java_source_files) \
+    $(built_java_source_files) \
+    $(x_java_source_files)
 
-## The .class files for X will not be included in libgcj.jar, but the
-## rule for libgcj.jar will cause all out-of-date .class files to be
-## built. We need this to generate headers for the nat-files.
-$(x_java_source_files:.java=.class): libgcj-@gcc_version@.jar
+all_java_class_files = $(all_java_source_files:.java=.class)
 
-## We have the zip file depend on the java sources and not the class
-## files, because we don't know the names of all the class files.
-## FIXME: this method fails in a peculiar case: if libgcj.jar is
-## up-to-date, and foo.class is removed, and bar.java is touched, then
-## `make libgcj.jar' will not rebuilt foo.class.  That's because
-## libgcj.jar is not out-of-date with respect to foo.java.
-libgcj-@gcc_version@.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
-## Create a list of all Java sources, without exceeding any shell limits.
-	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
-	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
-	javac="$(JAVAC)"; \
-	cat tmp-list | (while read f; do \
-	  echo $$javac $(JCFLAGS) -classpath \'\' -bootclasspath $(here):$(srcdir) -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $$f \
-	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
-	done; \
-	test "$$fail" = no)
-	-@rm -f tmp-list libgcj-@gcc_version@.jar
+.java.class:
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) \
+             -d $(here) $<
+
+libgcj-@gcc_version@.jar: $(all_java_class_files)
+	-@rm -f libgcj-@gcc_version@.jar
 ## Note that we explicitly want to include directory information.
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
-CLEANFILES = tmp-list libgcj-@gcc_version@.jar
+CLEANFILES = libgcj-@gcc_version@.jar
 
 clean-local:
 ## We just remove every .class file that was created.
@@ -434,12 +415,14 @@ EXTRA_jv_convert_SOURCES = $(convert_source_files)
 jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 jv_convert_LINK = $(GCJLINK)
-## We explicitly link in the libraries we need.  This way we don't
-## need -nodefaultlibs, so we can still rely on gcj picking up the
-## system libraries we need (via the specs file).
-## We need the -L so that gcj can find libgcj with `-lgcj'.
-## FIXME: should be _libs on some systems.
-jv_convert_LDADD = libgcj.la -L$(here)/.libs
+## We don't explicitly link in the libraries we need; libgcj.la brings
+## in all dependencies.  We need the -L so that gcj can find libgcj
+## with `-lgcj', but it must come first, otherwise the -L flags
+## brought in from libgcj.la would cause the install directories to be
+## searched before the build-tree ones, and we'd get errors because of
+## different libraries with the same SONAME from picky linkers such as
+## Solaris'.  FIXME: should be _libs on some systems.
+jv_convert_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
@@ -451,12 +434,8 @@ gij_SOURCES = gij.cc
 ## `.la' file.
 gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
-## We explicitly link in the libraries we need.  This way we don't
-## need -nodefaultlibs, so we can still rely on gcj picking up the
-## system libraries we need (via the specs file).
-## We need the -L so that gcj can find libgcj with `-lgcj'.
-## FIXME: should be _libs on some systems.
-gij_LDADD = libgcj.la -L$(here)/.libs
+## See jv_convert_LDADD.
+gij_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 gij_DEPENDENCIES = libgcj.la libgcj.spec
@@ -467,12 +446,8 @@ EXTRA_rmic_SOURCES = $(rmi_java_source_files)
 rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 rmic_LINK = $(GCJLINK)
-## We explicitly link in the libraries we need.  This way we don't
-## need -nodefaultlibs, so we can still rely on gcj picking up the
-## system libraries we need (via the specs file).
-## We need the -L so that gcj can find libgcj with `-lgcj'.
-## FIXME: should be _libs on some systems.
-rmic_LDADD = libgcj.la -L$(here)/.libs
+## See jv_convert_LDADD.
+rmic_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 rmic_DEPENDENCIES = libgcj.la libgcj.spec
@@ -483,12 +458,8 @@ EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
 rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 rmiregistry_LINK = $(GCJLINK)
-## We explicitly link in the libraries we need.  This way we don't
-## need -nodefaultlibs, so we can still rely on gcj picking up the
-## system libraries we need (via the specs file).
-## We need the -L so that gcj can find libgcj with `-lgcj'.
-## FIXME: should be _libs on some systems.
-rmiregistry_LDADD = libgcj.la -L$(here)/.libs
+## See jv_convert_LDADD.
+rmiregistry_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 rmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
@@ -1812,6 +1783,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/text/natCollator.cc \
+java/util/natTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 

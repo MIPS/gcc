@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha
    running Windows/NT.
-   Copyright (C) 1995, 1996, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1999, 2000, 2002 Free Software Foundation, Inc.
 
    Donn Terry, Softway Systems, Inc.
    From code
@@ -25,15 +25,18 @@ Boston, MA 02111-1307, USA.  */
 
 /* cpp handles __STDC__ */
 /* The three "Alpha" defines on the first such line are from the CLAXP spec */
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES " \
-  -D__INTERIX \
-  -D__OPENNT \
-  -D__Alpha_AXP -D_M_ALPHA -D_ALPHA_  \
-  -D__alpha -D__alpha__\
-  -D__stdcall= \
-  -D__cdecl= \
-  -Asystem=unix -Asystem=interix -Acpu=alpha -Amachine=alpha"
+#define TARGET_OS_CPP_BUILTINS()				\
+    do {							\
+	builtin_define ("__INTERIX");				\
+	builtin_define ("__OPENNT");				\
+	builtin_define ("__Alpha_AXP");				\
+	builtin_define ("_M_ALPHA");				\
+	builtin_define ("_ALPHA_");				\
+	builtin_define ("__stdcall=");				\
+	builtin_define ("__cdecl=");				\
+	builtin_assert ("system=unix");				\
+	builtin_assert ("system=interix");			\
+    } while (0)
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
@@ -64,13 +67,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The following are needed for C++, but also needed for profiling */
 
-/* Support const sections and the ctors and dtors sections for g++.
-   Note that there appears to be two different ways to support const
-   sections at the moment.  You can either #define the symbol
-   READONLY_DATA_SECTION (giving it some code which switches to the
-   readonly data section) or else you can #define the symbols
-   EXTRA_SECTIONS, EXTRA_SECTION_FUNCTIONS, SELECT_SECTION, and
-   SELECT_RTX_SECTION.  We do both here just to be on the safe side.  */
+/* Support const sections and the ctors and dtors sections for g++.  */
 
 #define USE_CONST_SECTION	1
 

@@ -25,11 +25,9 @@ Boston, MA 02111-1307, USA.  */
    deal with the Alpha's FP issues.  */
 
 #undef  CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu) %(cpp_subtarget)				\
+#define CPP_SPEC "%(cpp_subtarget)					\
   %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__}		\
-  %{posix:-D_POSIX_SOURCE}						\
-  %{mieee:-D_IEEE_FP}							\
-  %{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT}"
+  %{posix:-D_POSIX_SOURCE}"
 
 #define LINK_SPEC "%{G*} %{relax:-relax}				\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)}			\
@@ -52,9 +50,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* alpha.h gets this wrong for FreeBSD.  We use the GCC defaults instead.  */
 #undef WCHAR_TYPE
-
-#undef  WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED	0
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE	32

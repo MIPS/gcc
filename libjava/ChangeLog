@@ -1,3 +1,152 @@
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* acinclude.m4: Allow for PWDCMD to override hardcoded pwd.
+	* configure.in: Likewise.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2002-05-13  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc: Don't include sys/time.h and time.h.
+	* java/util/natTimeZone.cc: Include sys/time.h and time.h here.
+	Include platform.h.
+
+	Fixes PR libgcj/6389:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Added natTimeZone.cc.
+	* java/util/natTimeZone.cc: New file.
+	* java/util/TimeZone.java (getDefaultTimeZoneId): New method.
+	* java/lang/System.java: Merged with Classpath.
+	* java/lang/Runtime.java: Merged with Classpath.
+	* java/lang/natSystem.cc (setErr0): Renamed from setErr; don't run
+	security check.
+	(setIn0): Renamed from setIn; don't run security check.
+	(setOut0): Renamed from setOut; don't run security check.
+	(file_encoding, getpwuid_adaptor, getSystemTimeZone,
+	init_properties): Moved to natRuntime.cc.
+	Moved many includes to natRuntime.cc.
+	(isWordsBigEndian): New method.
+	* java/lang/natRuntime.cc: Include Long.h, also other includes
+	previously in natSystem.cc.
+	(maxMemory): New function.
+	(exitInternal): Renamed from `_exit'.
+	(exit): Removed.
+	(init): Don't set finalize_on_exit.
+	(exitInternal): Use `finalizeOnExit'.
+	(file_encoding, getpwuid_adaptor): New functions from
+	natSystem.cc.
+	(insertSystemProperties): New method, renamed from
+	System::init_properties.  Don't set user.timezone.
+	(_load): Don't call checkLink.
+	(execInternal): New method.
+	(availableProcessors): Likewise.
+	(nativeGetLibname): Likewise.
+
+2002-05-11  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/text/SentenceBreakIterator.java (next): Skip all java white
+	space characters.
+	(previous_internal): Likewise.
+
+2002-05-09  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNIFunctions): Fixed typo.
+
+	* java/util/ResourceBundle.java: New version from Classpath.
+	* java/util/Locale.java: Likewise.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Append all
+	multilib dirs containing libgcc_s*.so.1 below gcc object dir to
+	LD_LIBRARY_PATH.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* libjava/Makefile.am (all_java_source_files): New variable.
+	(all_java_class_files): Likewise.
+	.java.class: New rule.
+	(CLEANFILES): Remove tmp-list.
+	* libjava/Makefile.in: Regenerated.
+	
+2002-05-09  David.Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_javac):
+	Append .exe to executable names.  Fix for cygwin.
+
+2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at
+	script entry, and set LD to it when configuring multilibs.
+	* configure: Rebuilt.
+
+2002-05-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (unintern): Fixed typo.
+
+2002-05-06  David.Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Don't link
+	with -no-install on *-*-cygwin*.
+
+2002-05-06  David.Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_source):
+	Add comment explaining last patch
+
+2002-05-04  David Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_source):
+	Append .exe to executable names.  If no suffix is present,
+	then ".exe" is added by default on win32.  Harmless
+	elsewhere so always do it.
+
+2002-05-03  David Billinghurst  <David.Billinghurst@riotinto.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natSystem.cc (getSystemTimeZone): Use
+	HAVE_UNDERSCORE_TIMEZONE.
+	* include/config.h.in: Rebuilt.
+	* acconfig.h (HAVE_UNDERSCORE_TIMEZONE, HAVE_BACKTRACE): Undef.
+	* aclocal.m4, configure: Rebuilt.
+	* acinclude.m4: Run AC_EXEEXT.
+	* configure.in: Adjust test for `timezone' so it fails on Cygwin.
+	Add test for `_timezone'.
+
+2002-05-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	Suggested by Rainer Orth <ro@TechFak.Uni-Bielefeld.DE>
+	* Makefile.am (jv_convert_LDADD): Bring -L.libs to the front.
+	(gij_LDADD, rmic_LDADD, rmiregistry_LDADD): Likewise.
+	* Makefile.in: Rebuilt.
+
+2002-05-02  Hans Boehm  <Hans_Boehm@hp.com>
+
+	* include/dwarf2-signal.h (INIT_SEGV, INIT_FPE for ia64):
+	use sigaction instead of __libc_sigaction.
+
+2002-05-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libjava.exp (libjava_find_spec): New function.
+	(libjava_init): Use it to find libgcj.spec.
+	(libjava_arguments): Likewise.
+
+2002-05-02  David S. Miller  <davem@redhat.com>
+
+	PR bootstrap/6525
+	* include/dwarf2-signal.h (INIT_SEGV, INIT_FPE): Don't use
+	__libc_sigaction on Sparc.
+
+2002-05-02  Jerome Marc  <marcjero@yahoo.com>
+
+	* java/net/natPlainSocketImpl.cc: Include sys/ioctl.h and
+	sys/filio.h, if present.
+
+2002-04-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/BufferedReader.java (fill): Handle case where markPos
+	point to ignored \n.  Fixes PR libgcj/6301.
+
 2002-04-29  Gerhard Tonn  <GerhardTonn@swol.de>
 
 	* java/lang/ieeefp.h: Define __IEEE_BIG_ENDIAN for S/390.

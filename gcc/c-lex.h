@@ -35,4 +35,24 @@ extern int indent_level;
 struct cpp_reader;
 extern struct cpp_reader* parse_in;
 
+#define builtin_define(TXT) cpp_define (parse_in, TXT)
+#define builtin_assert(TXT) cpp_assert (parse_in, TXT)
+
+/* Pass an object-like macro.  If it doesn't lie in the user's
+   namespace, defines it unconditionally.  Otherwise define a version
+   with two leading underscores, and another version with two leading
+   and trailing underscores, and define the original only if an ISO
+   standard was not nominated.
+
+   e.g. passing "unix" defines "__unix", "__unix__" and possibly
+   "unix".  Passing "_mips" defines "__mips", "__mips__" and possibly
+   "_mips".  */
+extern void builtin_define_std PARAMS ((const char *));
+
+/* Pass an object-like macro and a value to define it to.  The third
+   parameter says whether or not to turn the value into a string
+   constant.  */
+extern void builtin_define_with_value PARAMS ((const char *, const char *,
+					       int));
+
 #endif /* ! GCC_C_LEX_H */

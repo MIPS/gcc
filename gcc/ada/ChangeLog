@@ -41,6 +41,29 @@
 	* trans.c: Use gengtype for roots.
 	* utils.c: Use gengtype for roots, marking.  Include gtype-ada.h.
 
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.adalib: Allow for PWDCMD to override hardcoded pwd.
+	* Makefile.in: Likewise.
+
+2002-05-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Make-lang.in (gnat1$(exeext), gnatbind$(exeext), gnattools):
+	Restore $(CONFIG_H) and prefix.o dependencies.
+	(ada.stage[1-4]): Depend on stage?-start.
+
+	* Makefile.in (b_gnatb.c): Depend on interfac.o.
+
+2002-05-02  Jim Wilson  <wilson@redhat.com>
+
+	* utils.c (finish_record_type): Change record_size to record_type.
+
+2001-05-02  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* ada/Makefile.in (X_ADA_CFLAGS, T_ADA_CFLAGS): New fragment overrides.
+	(ALL_ADA_CFLAGS): Define.  Replace ADA_CFLAGS with ALL_ADA_CFLAGS in
+	ALL_ADAFLAGS, MOST_ADAFLAGS, and all compilations using CC.
+ 
 2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* misc.c (gnat_parse_file): Update.

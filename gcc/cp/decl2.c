@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "cpplib.h"
 #include "target.h"
+#include "c-common.h"
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -134,12 +135,6 @@ int flag_no_gnu_keywords;
 /* Nonzero means to treat bitfields as unsigned unless they say `signed'.  */
 
 int flag_signed_bitfields = 1;
-
-/* Nonzero means enable obscure standard features and disable GNU
-   extensions that might cause standard-compliant code to be
-   miscompiled.  */
-
-int flag_ansi;
 
 /* Nonzero means do emit exported implementations of functions even if
    they can be inlined.  */
@@ -287,10 +282,6 @@ int warn_old_style_cast;
 /* Warn about #pragma directives that are not recognised.  */      
 
 int warn_unknown_pragmas; /* Tri state variable.  */  
-
-/* Nonzero means warn about use of multicharacter literals.  */
-
-int warn_multichar = 1;
 
 /* Nonzero means warn when non-templatized friend functions are
    declared within a template */
@@ -702,8 +693,10 @@ cxx_decode_option (argc, argv)
     }
   else if (!strcmp (p, "-E"))
     flag_preprocess_only = 1;
+  else if (!strcmp (p, "-undef"))
+    flag_undef = 1;
   else if (!strcmp (p, "-ansi"))
-    flag_no_nonansi_builtin = 1, flag_ansi = 1,
+    flag_no_nonansi_builtin = 1, flag_iso = 1,
     flag_noniso_default_format_attributes = 0, flag_no_gnu_keywords = 1;
 #ifdef SPEW_DEBUG
   /* Undocumented, only ever used when you're invoking cc1plus by hand, since
@@ -2516,6 +2509,11 @@ import_export_decl (decl)
     }
   else if (tinfo_decl_p (decl, 0))
     {
+      /* Here, we only decide whether or not the tinfo node should be
+	 emitted with the vtable.  The decl we're considering isn't
+	 actually the one which gets emitted; that one is generated in
+	 create_real_tinfo_var.  */
+
       tree ctype = TREE_TYPE (DECL_NAME (decl));
 
       if (IS_AGGR_TYPE (ctype))
@@ -2535,20 +2533,14 @@ import_export_decl (decl)
 	  && same_type_p (ctype, TYPE_MAIN_VARIANT (ctype)))
 	{
 	  DECL_NOT_REALLY_EXTERN (decl)
-	    = ! (CLASSTYPE_INTERFACE_ONLY (ctype)
-		 || (DECL_DECLARED_INLINE_P (decl) 
-		     && ! flag_implement_inlines
-		     && !DECL_VINDEX (decl)));
-
-	  /* Always make artificials weak.  */
-	  if (flag_weak)
-	    comdat_linkage (decl);
+	    = ! CLASSTYPE_INTERFACE_ONLY (ctype);
+	  DECL_COMDAT (decl) = 0;
 	}
-      else if (TYPE_BUILT_IN (ctype) 
-	       && same_type_p (ctype, TYPE_MAIN_VARIANT (ctype)))
-	DECL_NOT_REALLY_EXTERN (decl) = 0;
       else
-	comdat_linkage (decl);
+	{
+	  DECL_NOT_REALLY_EXTERN (decl) = 1;
+	  DECL_COMDAT (decl) = 1;
+	}
     } 
   else
     comdat_linkage (decl);

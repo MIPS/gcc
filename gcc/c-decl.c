@@ -426,10 +426,6 @@ int warn_sign_compare = -1;
 
 int warn_float_equal = 0;
 
-/* Nonzero means warn about use of multicharacter literals.  */
-
-int warn_multichar = 1;
-
 /* Nonzero means `$' can be in an identifier.  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
@@ -545,6 +541,7 @@ c_decode_option (argc, argv)
 	  flag_no_nonansi_builtin = 1;
 	  flag_noniso_default_format_attributes = 0;
 	  flag_isoc99 = 0;
+	  flag_iso = 1;
 	}
       else if (!strcmp (argstart, "iso9899:199409"))
 	{
@@ -562,6 +559,7 @@ c_decode_option (argc, argv)
 	  flag_noniso_default_format_attributes = 0;
 	  flag_isoc99 = 1;
 	  flag_isoc94 = 1;
+	  flag_iso = 1;
 	}
       else if (!strcmp (argstart, "gnu89"))
 	{
@@ -640,6 +638,8 @@ c_decode_option (argc, argv)
     ;
   else if (!strcmp (p, "-ansi"))
     goto iso_1990;
+  else if (!strcmp (p, "-undef"))
+    flag_undef = 1;
   else if (!strcmp (p, "-Werror-implicit-function-declaration"))
     mesg_implicit_function_declaration = 2;
   else if (!strncmp (p, "-Wformat=", 9))
@@ -2886,8 +2886,7 @@ c_init_decl_processing ()
   boolean_true_node = integer_one_node;
   boolean_false_node = integer_zero_node;
 
-  /* With GCC, C99's _Bool is always of size 1.  */
-  c_bool_type_node = make_unsigned_type (CHAR_TYPE_SIZE);
+  c_bool_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
   TREE_SET_CODE (c_bool_type_node, BOOLEAN_TYPE);
   TYPE_MAX_VALUE (c_bool_type_node) = build_int_2 (1, 0);
   TREE_TYPE (TYPE_MAX_VALUE (c_bool_type_node)) = c_bool_type_node;

@@ -755,7 +755,7 @@ extern int current_function_anonymous_args;
 #define TRAMPOLINE_TEMPLATE(FILE)			\
   do {							\
     fprintf (FILE, "\tjarl .+4,r12\n");			\
-    fprintf (FILE, "\tld.w 12[r12],r5\n");		\
+    fprintf (FILE, "\tld.w 12[r12],r20\n");		\
     fprintf (FILE, "\tld.w 16[r12],r12\n");		\
     fprintf (FILE, "\tjmp [r12]\n");			\
     fprintf (FILE, "\tnop\n");				\
@@ -1118,71 +1118,6 @@ zbss_section ()								\
 #define SCOMMON_ASM_OP 	       "\t.scomm\t"
 #define ZCOMMON_ASM_OP 	       "\t.zcomm\t"
 #define TCOMMON_ASM_OP 	       "\t.tcomm\t"
-
-/* A C statement or statements to switch to the appropriate section
-   for output of EXP.  You can assume that EXP is either a `VAR_DECL'
-   node or a constant of some sort.  RELOC indicates whether the
-   initial value of EXP requires link-time relocations.  Select the
-   section by calling `text_section' or one of the alternatives for
-   other sections.
-
-   Do not define this macro if you put all read-only variables and
-   constants in the read-only data section (usually the text section).  */
-#undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC, ALIGN)				\
-do {									\
-  if (TREE_CODE (EXP) == VAR_DECL)					\
-    {									\
-      int is_const;							\
-      if (!TREE_READONLY (EXP)						\
-	  || TREE_SIDE_EFFECTS (EXP)					\
-	  || !DECL_INITIAL (EXP)					\
-	  || (DECL_INITIAL (EXP) != error_mark_node			\
-	      && !TREE_CONSTANT (DECL_INITIAL (EXP))))			\
-        is_const = FALSE;						\
-      else								\
-        is_const = TRUE;						\
-									\
-      switch (v850_get_data_area (EXP))					\
-        {								\
-        case DATA_AREA_ZDA:						\
-	  if (is_const)	        					\
-	    rozdata_section ();						\
-	  else								\
-	    zdata_section ();						\
-	  break;							\
-									\
-        case DATA_AREA_TDA:						\
-	  tdata_section ();						\
-	  break;							\
-									\
-        case DATA_AREA_SDA:						\
-	  if (is_const)		                        		\
-	    rosdata_section ();						\
-	  else								\
-	    sdata_section ();						\
-	  break;							\
-									\
-        default:							\
-          if (is_const)							\
-	    const_section ();						\
-	  else								\
-	    data_section ();						\
-	  break;							\
-        }								\
-    }									\
-  else if (TREE_CODE (EXP) == STRING_CST)				\
-    {									\
-      if (! flag_writable_strings)					\
-	const_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-									\
-  else									\
-    const_section ();							\
-									\
-} while (0)
 
 /* A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some

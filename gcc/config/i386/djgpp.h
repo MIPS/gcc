@@ -159,9 +159,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Definitions for types and sizes. Wide characters are 16-bits long so
    Win32 compiler add-ons will be wide character compatible.  */
-#undef WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED 1
-
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 16
 
@@ -207,37 +204,3 @@ while (0)
 /* Support for C++ templates.  */
 #undef MAKE_DECL_ONE_ONLY
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-
-#undef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC)				\
-do {								\
-  int len;							\
-  const char *name, *prefix;					\
-  char *string;							\
-								\
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
-  /* Strip off any encoding in fnname.  */                      \
-  STRIP_NAME_ENCODING (name, name);                             \
-								\
-  if (! DECL_ONE_ONLY (DECL))					\
-    {								\
-      if (TREE_CODE (DECL) == FUNCTION_DECL)			\
-	prefix = ".text.";					\
-      else if (DECL_READONLY_SECTION (DECL, RELOC))		\
-	prefix = ".rodata.";					\
-      else							\
-	prefix = ".data.";					\
-    }								\
-  else if (TREE_CODE (DECL) == FUNCTION_DECL)			\
-    prefix = ".gnu.linkonce.t.";				\
-  else if (DECL_READONLY_SECTION (DECL, RELOC))			\
-    prefix = ".gnu.linkonce.r.";				\
-  else								\
-    prefix = ".gnu.linkonce.d.";				\
-								\
-  len = strlen (name) + strlen (prefix);			\
-  string = alloca (len + 1);					\
-  sprintf (string, "%s%s", prefix, name);			\
-								\
-  DECL_SECTION_NAME (DECL) = build_string (len, string);	\
-} while (0)

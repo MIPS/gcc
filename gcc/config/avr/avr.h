@@ -1791,17 +1791,6 @@ progmem_section (void)							      \
    If these items should be placed in the text section, this macro
    should not be defined.  */
 
-/* `SELECT_SECTION (EXP, RELOC, ALIGN)'
-   A C statement or statements to switch to the appropriate section
-   for output of EXP.  You can assume that EXP is either a `VAR_DECL'
-   node or a constant of some sort.  RELOC indicates whether the
-   initial value of EXP requires link-time relocations.  Select the
-   section by calling `text_section' or one of the alternatives for
-   other sections.
-
-   Do not define this macro if you put all read-only variables and
-   constants in the read-only data section (usually the text section).  */
-
 /* `SELECT_RTX_SECTION (MODE, RTX, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
@@ -1841,14 +1830,6 @@ progmem_section (void)							      \
    Decode SYM_NAME and store the real name part in VAR, sans the
    characters that encode section info.  Define this macro if
    `ENCODE_SECTION_INFO' alters the symbol's name string.  */
-
-#define UNIQUE_SECTION(DECL, RELOC) unique_section (DECL, RELOC)
-/* `UNIQUE_SECTION (DECL, RELOC)'
-   A C statement to build up a unique section name, expressed as a
-   STRING_CST node, and assign it to `DECL_SECTION_NAME (DECL)'.
-   RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  If you do not define this macro, GNU CC
-   will use the symbol name prefixed by `.' as the section name.  */
 
 #define ASM_FILE_START(STREAM) asm_file_start (STREAM)
 /* A C expression which outputs to the stdio stream STREAM some
@@ -2618,6 +2599,7 @@ extern int avr_case_values_threshold;
 %{mmcu=at90s2333:%(cpp_avr2) -D__AVR_AT90S2333__} \
 %{mmcu=at90s2343:%(cpp_avr2) -D__AVR_AT90S2343__} \
 %{mmcu=attiny22: %(cpp_avr2) -D__AVR_ATtiny22__} \
+%{mmcu=attiny26: %(cpp_avr2) -D__AVR_ATtiny26__} \
 %{mmcu=at90s4433:%(cpp_avr2) -D__AVR_AT90S4433__} \
 %{mmcu=at90s4414:%(cpp_avr2) -D__AVR_AT90S4414__} \
 %{mmcu=at90s4434:%(cpp_avr2) -D__AVR_AT90S4434__} \
@@ -2628,20 +2610,22 @@ extern int avr_case_values_threshold;
 %{mmcu=atmega603:%(cpp_avr3) -D__AVR_ATmega603__} \
 %{mmcu=atmega103:%(cpp_avr3) -D__AVR_ATmega103__} \
 %{mmcu=at43usb320:%(cpp_avr3) -D__AVR_AT43USB320__} \
+%{mmcu=at43usb355:%(cpp_avr3) -D__AVR_AT43USB355__} \
 %{mmcu=at76c711: %(cpp_avr3) -D__AVR_AT76C711__} \
 %{mmcu=avr4:%(cpp_avr4)} \
 %{mmcu=atmega8:  %(cpp_avr4) -D__AVR_ATmega8__} \
 %{mmcu=atmega83: %(cpp_avr4) -D__AVR_ATmega83__} \
 %{mmcu=atmega85: %(cpp_avr4) -D__AVR_ATmega85__} \
+%{mmcu=atmega8515: %(cpp_avr4) -D__AVR_ATmega8515__} \
 %{mmcu=avr5:%(cpp_avr5)} \
 %{mmcu=atmega16: %(cpp_avr5) -D__AVR_ATmega16__} \
 %{mmcu=atmega161:%(cpp_avr5) -D__AVR_ATmega161__} \
+%{mmcu=atmega162:%(cpp_avr5) -D__AVR_ATmega162__} \
 %{mmcu=atmega163:%(cpp_avr5) -D__AVR_ATmega163__} \
 %{mmcu=atmega32: %(cpp_avr5) -D__AVR_ATmega32__} \
 %{mmcu=atmega323:%(cpp_avr5) -D__AVR_ATmega323__} \
 %{mmcu=atmega64: %(cpp_avr5) -D__AVR_ATmega64__} \
 %{mmcu=atmega128:%(cpp_avr5) -D__AVR_ATmega128__} \
-%{mmcu=at43usb355:%(cpp_avr5) -D__AVR_AT43USB355__} \
 %{mmcu=at94k:    %(cpp_avr5) -D__AVR_AT94K__} \
 %{mmcu=avr1:%(cpp_avr1)} \
 %{mmcu=at90s1200:%(cpp_avr1) -D__AVR_AT90S1200__} \
@@ -2650,32 +2634,14 @@ extern int avr_case_values_threshold;
 %{mmcu=attiny15: %(cpp_avr1) -D__AVR_ATtiny15__} \
 %{mmcu=attiny28: %(cpp_avr1) -D__AVR_ATtiny28__} \
 %{mno-interrupts:-D__NO_INTERRUPTS__} \
-%{mint8:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long -D__INT_MAX__=127} \
-%{!mint*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int -D__INT_MAX__=32767} \
+%{mint8:-D__INT_MAX__=127} \
+%{!mint*:-D__INT_MAX__=32767} \
 %{posix:-D_POSIX_SOURCE}"
 /* A C string constant that tells the GNU CC driver program options to
    pass to CPP.  It can also specify how to translate options you
    give to GNU CC into options for GNU CC to pass to the CPP.
 
    Do not define this macro if it does not need to do anything.  */
-
-#define NO_BUILTIN_SIZE_TYPE
-/* If this macro is defined, the preprocessor will not define the
-   builtin macro `__SIZE_TYPE__'.  The macro `__SIZE_TYPE__' must
-   then be defined by `CPP_SPEC' instead.
-
-   This should be defined if `SIZE_TYPE' depends on target dependent
-   flags which are not accessible to the preprocessor.  Otherwise, it
-   should not be defined.  */
-
-#define NO_BUILTIN_PTRDIFF_TYPE
-/* If this macro is defined, the preprocessor will not define the
-   builtin macro `__PTRDIFF_TYPE__'.  The macro `__PTRDIFF_TYPE__'
-   must then be defined by `CPP_SPEC' instead.
-
-   This should be defined if `PTRDIFF_TYPE' depends on target
-   dependent flags which are not accessible to the preprocessor.
-   Otherwise, it should not be defined.  */
 
 #define CC1_SPEC "%{profile:-p}"
 /* A C string constant that tells the GNU CC driver program options to
@@ -2705,26 +2671,29 @@ extern int avr_case_values_threshold;
 %{mmcu=atmega603:-m avrmega603} \
 %{mmcu=atmega103:-m avrmega103} \
 %{mmcu=at43usb320:-m avr3} \
+%{mmcu=at43usb355:-m avr3} \
 %{mmcu=at76c711:-m avr3} \
 %{mmcu=atmega16:-m avrmega161} \
 %{mmcu=atmega161:-m avrmega161} \
+%{mmcu=atmega162:-m avr5 -Tdata 0x800100} \
 %{mmcu=atmega163:-m avrmega161} \
 %{mmcu=atmega32:-m avr5} \
 %{mmcu=atmega323:-m avr5} \
-%{mmcu=atmega64:-m avr5} \
-%{mmcu=atmega128:-m avr5} \
-%{mmcu=at43usb355:-m avr5} \
+%{mmcu=atmega64:-m avr5 -Tdata 0x800100} \
+%{mmcu=atmega128:-m avr5 -Tdata 0x800100} \
 %{mmcu=at94k:-m avr5} \
 %{mmcu=atmega8:-m avr4} \
 %{mmcu=atmega83:-m avr4} \
 %{mmcu=atmega85:-m avr4} \
+%{mmcu=atmega8515:-m avr4} \
 %{mmcu=at90s1200|mmcu=attiny1*:-m avr1200} \
 %{mmcu=attiny28:-m avr1} \
 %{mmcu=at90s2313:-m avr23xx} \
 %{mmcu=at90s2323:-m avr23xx} \
-%{mmcu=attiny22:-m avr23xx} \
 %{mmcu=at90s2333:-m avr23xx} \
 %{mmcu=at90s2343:-m avr23xx} \
+%{mmcu=attiny22:-m avr23xx} \
+%{mmcu=attiny26:-m avr23xx} \
 %{mmcu=at90s4433:-m avr4433} \
 %{mmcu=at90s4414:-m avr44x4} \
 %{mmcu=at90s4434:-m avr44x4} \
@@ -2782,9 +2751,10 @@ extern int avr_case_values_threshold;
 %{!mmcu*|mmcu=at90s8515|mmcu=avr2:crts8515.o%s} \
 %{mmcu=at90s2313:crts2313.o%s} \
 %{mmcu=at90s2323:crts2323.o%s} \
-%{mmcu=attiny22:crttn22.o%s} \
 %{mmcu=at90s2333:crts2333.o%s} \
 %{mmcu=at90s2343:crts2343.o%s} \
+%{mmcu=attiny22:crttn22.o%s} \
+%{mmcu=attiny26:crttn26.o%s} \
 %{mmcu=at90s4433:crts4433.o%s} \
 %{mmcu=at90s4414:crts4414.o%s} \
 %{mmcu=at90s4434:crts4434.o%s} \
@@ -2793,18 +2763,20 @@ extern int avr_case_values_threshold;
 %{mmcu=atmega103|mmcu=avr3:crtm103.o%s} \
 %{mmcu=atmega603:crtm603.o%s} \
 %{mmcu=at43usb320:crt43320.o%s} \
+%{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s } \
 %{mmcu=atmega8:crtm8.o%s} \
 %{mmcu=atmega83|mmcu=avr4:crtm83.o%s} \
 %{mmcu=atmega85:crtm85.o%s} \
+%{mmcu=atmega8515:crtm8515.o%s} \
 %{mmcu=atmega16:crtm16.o%s} \
 %{mmcu=atmega161|mmcu=avr5:crtm161.o%s} \
+%{mmcu=atmega162:crtm162.o%s} \
 %{mmcu=atmega163:crtm163.o%s} \
 %{mmcu=atmega32:crtm32.o%s} \
 %{mmcu=atmega323:crtm323.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega128:crtm128.o%s} \
-%{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at94k:crtat94k.o%s}"
 
 #define CPP_AVR1_SPEC "-D__AVR_ARCH__=1 -D__AVR_ASM_ONLY__ "

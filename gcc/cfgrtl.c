@@ -89,7 +89,8 @@ can_delete_note_p (note)
      rtx note;
 {
   return (NOTE_LINE_NUMBER (note) == NOTE_INSN_DELETED
-	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_BASIC_BLOCK);
+	  || NOTE_LINE_NUMBER (note) == NOTE_INSN_BASIC_BLOCK
+          || NOTE_LINE_NUMBER (note) == NOTE_INSN_PREDICTION);
 }
 
 /* True if a given label can be deleted.  */
@@ -374,6 +375,16 @@ flow_delete_block_noexpunge (b)
      We need to remove the label from the exception_handler_label list
      and remove the associated NOTE_INSN_EH_REGION_BEG and
      NOTE_INSN_EH_REGION_END notes.  */
+
+  /* Get rid of all NOTE_INSN_PREDICTIONs hanging before the block.  */
+  
+  for (insn = PREV_INSN (b->head); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) != NOTE)
+        break;
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
+        NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+    }
 
   insn = b->head;
 
@@ -713,7 +724,7 @@ try_redirect_by_replacing_jump (e, target)
   basic_block src = e->src;
   rtx insn = src->end, kill_from;
   edge tmp;
-  rtx set;
+  rtx set, table;
   int fallthru = 0;
 
   /* Verify that all targets will be TARGET.  */
@@ -722,6 +733,12 @@ try_redirect_by_replacing_jump (e, target)
       break;
 
   if (tmp || !onlyjump_p (insn))
+    return false;
+  if (reload_completed && JUMP_LABEL (insn)
+      && (table = NEXT_INSN (JUMP_LABEL (insn))) != NULL_RTX
+      && GET_CODE (table) == JUMP_INSN
+      && (GET_CODE (PATTERN (table)) == ADDR_VEC
+	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
     return false;
 
   /* Avoid removing branch with side effects.  */
@@ -1765,6 +1782,7 @@ verify_flow_info ()
 
       if (INSN_P (bb->end)
 	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX))
+	  && bb->succ && bb->succ->succ_next
 	  && any_condjump_p (bb->end))
 	{
 	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability)
@@ -2113,19 +2131,29 @@ purge_dead_edges (bb)
 	remove_note (insn, note);
     }
 
-  /* Cleanup abnormal edges caused by throwing insns that have been
-     eliminated.  */
-  if (! can_throw_internal (bb->end))
-    for (e = bb->succ; e; e = next)
-      {
-	next = e->succ_next;
-	if (e->flags & EDGE_EH)
-	  {
-	    remove_edge (e);
-	    bb->flags |= BB_DIRTY;
-	    purged = true;
-	  }
-      }
+  /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
+  for (e = bb->succ; e; e = next)
+    {
+      next = e->succ_next;
+      if (e->flags & EDGE_EH)
+	{
+	  if (can_throw_internal (bb->end))
+	    continue;
+	}
+      else if (e->flags & EDGE_ABNORMAL_CALL)
+	{
+	  if (GET_CODE (bb->end) == CALL_INSN
+	      && (! (note = find_reg_note (insn, REG_EH_REGION, NULL))
+		  || INTVAL (XEXP (note, 0)) >= 0))
+	    continue;
+	}
+      else
+	continue;
+
+      remove_edge (e);
+      bb->flags |= BB_DIRTY;
+      purged = true;
+    }
 
   if (GET_CODE (insn) == JUMP_INSN)
     {
@@ -2158,17 +2186,26 @@ purge_dead_edges (bb)
  
 	  e->flags &= ~EDGE_ABNORMAL;
 
-	  /* Check purposes we can have edge.  */
-	  if ((e->flags & EDGE_FALLTHRU)
-	      && any_condjump_p (insn))
+	  /* See if this edge is one we should keep.  */
+	  if ((e->flags & EDGE_FALLTHRU) && any_condjump_p (insn))
+	    /* A conditional jump can fall through into the next
+	       block, so we should keep the edge.  */
 	    continue;
 	  else if (e->dest != EXIT_BLOCK_PTR
 		   && e->dest->head == JUMP_LABEL (insn))
+	    /* If the destination block is the target of the jump,
+	       keep the edge.  */
 	    continue;
-	  else if (e->dest == EXIT_BLOCK_PTR
-		   && returnjump_p (insn))
+	  else if (e->dest == EXIT_BLOCK_PTR && returnjump_p (insn))
+	    /* If the destination block is the exit block, and this
+	       instruction is a return, then keep the edge.  */
+	    continue;
+	  else if ((e->flags & EDGE_EH) && can_throw_internal (insn))
+	    /* Keep the edges that correspond to exceptions thrown by
+	       this instruction.  */
 	    continue;
 
+	  /* We do not need this edge.  */
 	  bb->flags |= BB_DIRTY;
 	  purged = true;
 	  remove_edge (e);

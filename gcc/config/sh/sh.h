@@ -56,8 +56,6 @@ extern int code_for_indirect_jump_scratch;
 %{m4-single:-D__SH4_SINGLE__} \
 %{m4-nofpu:-D__sh3__ -D__SH4_NOFPU__} \
 %{m4:-D__SH4__} \
-%{m1|m2|m3*|m4*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{m5*:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
 %{!m1:%{!m2:%{!m3*:%{!m4*:%{!m5*:%(cpp_default_cpu_spec)}}}}} \
 %{mhitachi:-D__HITACHI__} \
 %(subtarget_cpp_spec) \
@@ -72,8 +70,7 @@ extern int code_for_indirect_jump_scratch;
 #endif
 
 #ifndef CPP_DEFAULT_CPU_SPEC
-#define CPP_DEFAULT_CPU_SPEC \
-  "-D__sh1__ -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int"
+#define CPP_DEFAULT_CPU_SPEC "-D__sh1__"
 #endif
 
 
@@ -2509,20 +2506,14 @@ while (0)
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
 
-/* We -Define SIZE_TYPE in CPP_SPEC.  */
-#define NO_BUILTIN_SIZE_TYPE 1
-
 /* The type of size_t unsigned int.  */
 #define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
-
-#define NO_BUILTIN_PTRDIFF_TYPE 1
 
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_SH5 ? "long int" : "int")
 
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-#define WCHAR_UNSIGNED 1
 
 #define SH_ELF_WCHAR_TYPE "long int"
 
@@ -2694,6 +2685,7 @@ do								\
 								\
 	SYMBOL_REF_FLAG (XEXP (rtl, 0)) =			\
 	  (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
+	   || MODULE_LOCAL_P (DECL)				\
 	   || ! TREE_PUBLIC (DECL));				\
       }								\
     if (TARGET_SH5)						\

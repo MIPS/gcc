@@ -3,6 +3,7 @@
 
 /* COFF does not support weak, and dg doesn't support UNSUPPORTED.  */
 /* { dg-do compile { xfail *-*-coff i?86-pc-cygwin h8300-*-hms } } */
+/* { dg-excess-errors "COFF does not support weak symbols" { target *-*-coff i?86-pc-cygwin h8300-*-hms } } */
 
 /* { dg-final { global target_triplet } } */
 /* { dg-final { if [string match h8300-*-hms $target_triplet ] {return} } } */
@@ -39,12 +40,12 @@ void * foo1b (void)
 }
 
 
-extern int vfoo1c;  /* { dg-warning "weak declaration" "weak declaration" } */
+extern int vfoo1c;  
 void * foo1c (void)
 {
   return (void *)&vfoo1c;
 }
-extern int vfoo1c __attribute__((weak));
+extern int vfoo1c __attribute__((weak)); /* { dg-warning "unspecified behavior" } */
 
 
 extern int vfoo1d __attribute__((weak));
@@ -68,7 +69,7 @@ void * foo1f (void)
 {
   return (void *)&vfoo1f;
 }
-extern int vfoo1f __attribute__((weak));
+extern int vfoo1f __attribute__((weak)); /* { dg-warning "unspecified behavior" } */
 
 
 extern int vfoo1g;
@@ -76,7 +77,7 @@ void * foo1g (void)
 {
   return (void *)&vfoo1g;
 }
-int vfoo1g __attribute__((weak));
+int vfoo1g __attribute__((weak)); /* { dg-warning "unspecified behavior" } */
 
 
 extern int vfoo1h __attribute__((weak));
@@ -111,6 +112,4 @@ int vfoo1k = 1;
 
 
 int vfoox1l = 1;
-extern int vfoo1l __attribute__((alias ("vfoox1l")));
 extern int vfoo1l __attribute__((weak, alias ("vfoox1l")));
-

@@ -50,11 +50,6 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 
-#ifndef BOOL_TYPE_SIZE
-/* `bool' has size and alignment `1', on all platforms.  */
-#define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
-#endif
-
 static tree grokparms				PARAMS ((tree));
 static const char *redeclaration_error_message	PARAMS ((tree, tree));
 
@@ -7473,7 +7468,13 @@ obscure_complex_init (decl, init)
 				 NULL_TREE);
   else
 #endif
-    DECL_INITIAL (decl) = error_mark_node;
+    {
+      if (zero_init_p (TREE_TYPE (decl)))
+	DECL_INITIAL (decl) = error_mark_node;
+      /* Otherwise, force_store_init_value will have already stored a
+	 zero-init initializer in DECL_INITIAL, that should be
+	 retained.  */
+    }
 
   return init;
 }
@@ -7719,8 +7720,16 @@ check_initializer (decl, init)
       if (init)
 	init = obscure_complex_init (decl, init);
     }
+  else if (!DECL_EXTERNAL (decl) && !zero_init_p (type))
+    {
+      force_store_init_value (decl, build_forced_zero_init (type));
+
+      if (init)
+	goto process_init;
+    }
   else if (init)
     {
+    process_init:
       if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
 	{
 	  if (TREE_CODE (type) == ARRAY_TYPE)

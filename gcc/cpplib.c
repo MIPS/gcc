@@ -726,23 +726,15 @@ dequote_string (pfile, str, len)
   uchar *result = _cpp_unaligned_alloc (pfile, len + 1);
   uchar *dst = result;
   const uchar *limit = str + len;
-  unsigned int c;
-  unsigned HOST_WIDE_INT mask;
+  cppchar_t c;
 
-  /* We need the mask to match the host's 'unsigned char', not the
-     target's.  */
-  if (CHAR_BIT < HOST_BITS_PER_WIDE_INT)
-    mask = ((unsigned HOST_WIDE_INT) 1 << CHAR_BIT) - 1;
-  else
-    mask = ~(unsigned HOST_WIDE_INT)0;
-  
   while (str < limit)
     {
       c = *str++;
       if (c != '\\')
 	*dst++ = c;
       else
-	*dst++ = cpp_parse_escape (pfile, (const uchar **)&str, limit, mask);
+	*dst++ = cpp_parse_escape (pfile, &str, limit, 0);
     }
   *dst++ = '\0';
   return result;
@@ -1057,7 +1049,6 @@ _cpp_init_internal_pragmas (pfile)
      cpp_reader *pfile;
 {
   /* Pragmas in the global namespace.  */
-  cpp_register_pragma (pfile, 0, "poison", do_pragma_poison);
   cpp_register_pragma (pfile, 0, "once", do_pragma_once);
 
   /* New GCC-specific pragmas should be put in the GCC namespace.  */
@@ -1130,8 +1121,8 @@ do_pragma_once (pfile)
   check_eol (pfile);
 }
 
-/* Handle #pragma poison, to poison one or more identifiers so that
-   the lexer produces a hard error for each subsequent usage.  */
+/* Handle #pragma GCC poison, to poison one or more identifiers so
+   that the lexer produces a hard error for each subsequent usage.  */
 static void
 do_pragma_poison (pfile)
      cpp_reader *pfile;

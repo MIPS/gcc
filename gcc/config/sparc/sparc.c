@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -80,12 +80,10 @@ rtx sparc_compare_op0, sparc_compare_op1;
    sparc_nonflat_function_epilogue.  */
 bool sparc_emitting_epilogue;
 
-#ifdef LEAF_REGISTERS
-
 /* Vector to say how input registers are mapped to output registers.
    HARD_FRAME_POINTER_REGNUM cannot be remapped by this function to
    eliminate it.  You must use -fomit-frame-pointer to get that.  */
-const char leaf_reg_remap[] =
+char leaf_reg_remap[] =
 { 0, 1, 2, 3, 4, 5, 6, 7,
   -1, -1, -1, -1, -1, -1, 14, -1,
   -1, -1, -1, -1, -1, -1, -1, -1,
@@ -118,8 +116,6 @@ char sparc_leaf_regs[] =
   1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1};
-
-#endif
 
 /* Name of where we pretend to think the frame pointer points.
    Normally, this is "%fp", but if we are in a leaf procedure,
@@ -160,13 +156,15 @@ static void sparc_nonflat_function_prologue PARAMS ((FILE *, HOST_WIDE_INT,
 #ifdef OBJECT_FORMAT_ELF
 static void sparc_elf_asm_named_section PARAMS ((const char *, unsigned int));
 #endif
+static void sparc_aout_select_section PARAMS ((tree, int,
+					       unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
 
 static int sparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sparc_issue_rate PARAMS ((void));
 static void sparc_sched_init PARAMS ((FILE *, int, int));
 static int sparc_use_dfa_pipeline_interface PARAMS ((void));
 static int sparc_use_sched_lookahead PARAMS ((void));
-static rtx sparc_cycle_display PARAMS ((int, rtx));
 
 static void emit_soft_tfmode_libcall PARAMS ((const char *, int, rtx *));
 static void emit_soft_tfmode_binop PARAMS ((enum rtx_code, rtx *));
@@ -232,8 +230,6 @@ enum processor_type sparc_cpu;
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE sparc_use_dfa_pipeline_interface
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD sparc_use_sched_lookahead
-#undef TARGET_SCHED_CYCLE_DISPLAY
-#define TARGET_SCHED_CYCLE_DISPLAY sparc_cycle_display
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -470,6 +466,16 @@ reg_or_0_operand (op, mode)
   if (fp_zero_operand (op, mode))
     return 1;
   return 0;
+}
+
+/* Return non-zero only if OP is const1_rtx.  */
+
+int
+const1_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return op == const1_rtx;
 }
 
 /* Nonzero if OP is a floating point value with value 0.0.  */
@@ -1372,9 +1378,8 @@ sparc_emit_set_const32 (op0, op1)
 	  && (INTVAL (op1) & 0x80000000) != 0)
 	emit_insn (gen_rtx_SET
 		   (VOIDmode, temp,
-		    gen_rtx_CONST_DOUBLE (VOIDmode,
-					  INTVAL (op1) & ~(HOST_WIDE_INT)0x3ff,
-					  0)));
+		    immed_double_const (INTVAL (op1) & ~(HOST_WIDE_INT)0x3ff,
+					0, DImode)));
       else
 	emit_insn (gen_rtx_SET (VOIDmode, temp,
 				GEN_INT (INTVAL (op1)
@@ -1552,11 +1557,10 @@ static rtx gen_safe_XOR64 PARAMS ((rtx, HOST_WIDE_INT));
 #define GEN_INT64(__x)			GEN_INT (__x)
 #else
 #define GEN_HIGHINT64(__x) \
-	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & ~(HOST_WIDE_INT)0x3ff, 0)
+	immed_double_const ((__x) & ~(HOST_WIDE_INT)0x3ff, 0, DImode)
 #define GEN_INT64(__x) \
-	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & 0xffffffff, \
-			      ((__x) & 0x80000000 \
-			       ? -1 : 0))
+	immed_double_const ((__x) & 0xffffffff, \
+			    ((__x) & 0x80000000 ? -1 : 0), DImode)
 #endif
 
 /* The optimizer is not to assume anything about exactly
@@ -2126,9 +2130,9 @@ sparc_emit_set_const64 (op0, op1)
 	  negated_const = GEN_INT (((~low_bits) & 0xfffffc00) |
 				   (((HOST_WIDE_INT)((~high_bits) & 0xffffffff))<<32));
 #else
-	  negated_const = gen_rtx_CONST_DOUBLE (DImode,
-						(~low_bits) & 0xfffffc00,
-						(~high_bits) & 0xffffffff);
+	  negated_const = immed_double_const ((~low_bits) & 0xfffffc00,
+					      (~high_bits) & 0xffffffff,
+					      DImode);
 #endif
 	  sparc_emit_set_const64 (temp, negated_const);
 	}
@@ -2483,9 +2487,17 @@ emit_soft_tfmode_libcall (func_name, nargs, operands)
       /* TFmode arguments and return values are passed by reference.  */
       if (GET_MODE (this_arg) == TFmode)
 	{
-	  if (GET_CODE (this_arg) == MEM)
+	  int force_stack_temp;
+
+	  force_stack_temp = 0;
+	  if (TARGET_BUGGY_QP_LIB && i == 0)
+	    force_stack_temp = 1;
+
+	  if (GET_CODE (this_arg) == MEM
+	      && ! force_stack_temp)
 	    this_arg = XEXP (this_arg, 0);
-	  else if (CONSTANT_P (this_arg))
+	  else if (CONSTANT_P (this_arg)
+		   && ! force_stack_temp)
 	    {
 	      this_slot = force_const_mem (TFmode, this_arg);
 	      this_arg = XEXP (this_slot, 0);
@@ -7686,86 +7698,6 @@ sparc_use_sched_lookahead ()
   return 0;
 }
 
-static rtx
-sparc_cycle_display (clock, last)
-     int clock;
-     rtx last;
-{
-  if (reload_completed)
-    return emit_insn_after (gen_cycle_display (GEN_INT (clock)), last);
-  else
-    return last;
-}
-
-/* Make sure that the dependency between OUT_INSN and
-   IN_INSN (a store) is on the store data not the address
-   operand(s) of the store.  */
-
-int
-ultrasparc_store_bypass_p (out_insn, in_insn)
-     rtx out_insn, in_insn;
-{
-  rtx out_pat, in_pat;
-  unsigned int regno;
-
-  if (recog_memoized (in_insn) < 0)
-    return 0;
-
-  if (get_attr_type (in_insn) != TYPE_STORE
-      && get_attr_type (in_insn) != TYPE_FPSTORE)
-    abort ();
-
-  out_pat = PATTERN (out_insn);
-  in_pat = PATTERN (in_insn);
-
-  if ((GET_CODE (out_pat) != SET
-       && GET_CODE (out_pat) != PARALLEL)
-      || GET_CODE (in_pat) != SET)
-    abort ();
-
-  if (GET_CODE (SET_SRC (in_pat)) == REG)
-    {
-      regno = REGNO (SET_SRC (in_pat));
-    }
-  else if (GET_CODE (SET_SRC (in_pat)) == SUBREG)
-    {
-      regno = REGNO (SUBREG_REG (SET_SRC (in_pat)));
-    }
-  else
-    return 0;
-
-  if (GET_CODE (out_pat) == PARALLEL)
-    {
-      int i;
-
-      for (i = 0; i < XVECLEN (out_pat, 0); i++)
-	{
-	  rtx exp = XVECEXP (out_pat, 0, i);
-
-	  if (GET_CODE (exp) != SET)
-	    return 0;
-
-	  if (GET_CODE (SET_DEST (exp)) == REG
-	      && regno == REGNO (SET_DEST (exp)))
-	    return 1;
-
-	  if (GET_CODE (SET_DEST (exp)) == SUBREG
-	      && regno == REGNO (SUBREG_REG (SET_DEST (exp))))
-	    return 1;
-	}
-    }
-  else if (GET_CODE (SET_DEST (out_pat)) == REG)
-    {
-      return regno == REGNO (SET_DEST (out_pat));
-    }
-  else if (GET_CODE (SET_DEST (out_pat)) == SUBREG)
-    {
-      return regno == REGNO (SUBREG_REG (SET_DEST (out_pat)));
-    }
-
-  return 0;
-}
-
 static int
 sparc_issue_rate ()
 {
@@ -8093,6 +8025,19 @@ sparc_elf_asm_named_section (name, flags)
 }
 #endif /* OBJECT_FORMAT_ELF */
 
+/* ??? Similar to the standard section selection, but force reloc-y-ness
+   if SUNOS4_SHARED_LIBRARIES.  Unclear why this helps (as opposed to
+   pretending PIC always on), but that's what the old code did.  */
+
+static void
+sparc_aout_select_section (t, reloc, align)
+     tree t;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  default_select_section (t, reloc | SUNOS4_SHARED_LIBRARIES, align);
+}
+
 int
 sparc_extra_constraint_check (op, c, strict)
      rtx op;
@@ -8153,6 +8098,325 @@ sparc_extra_constraint_check (op, c, strict)
     }
 
   return reload_ok_mem;
+}
+
+/* ??? This duplicates information provided to the compiler by the
+   ??? scheduler description.  Some day, teach genautomata to output
+   ??? the latencies and then CSE will just use that.  */
+
+int
+sparc_rtx_costs (x, code, outer_code)
+     rtx x;
+     enum rtx_code code, outer_code;
+{
+  switch (code)
+    {
+    case PLUS: case MINUS: case ABS: case NEG:
+    case FLOAT: case UNSIGNED_FLOAT:
+    case FIX: case UNSIGNED_FIX:
+    case FLOAT_EXTEND: case FLOAT_TRUNCATE:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	    case PROCESSOR_ULTRASPARC3:
+	      return COSTS_N_INSNS (4);
+
+	    case PROCESSOR_SUPERSPARC:
+	      return COSTS_N_INSNS (3);
+
+	    case PROCESSOR_CYPRESS:
+	      return COSTS_N_INSNS (5);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	    default:
+	      return COSTS_N_INSNS (1);
+	    }
+	}
+
+      return COSTS_N_INSNS (1);
+
+    case SQRT:
+      switch (sparc_cpu)
+	{
+	case PROCESSOR_ULTRASPARC:
+	  if (GET_MODE (x) == SFmode)
+	    return COSTS_N_INSNS (13);
+	  else
+	    return COSTS_N_INSNS (23);
+
+	case PROCESSOR_ULTRASPARC3:
+	  if (GET_MODE (x) == SFmode)
+	    return COSTS_N_INSNS (20);
+	  else
+	    return COSTS_N_INSNS (29);
+
+	case PROCESSOR_SUPERSPARC:
+	  return COSTS_N_INSNS (12);
+
+	case PROCESSOR_CYPRESS:
+	  return COSTS_N_INSNS (63);
+
+	case PROCESSOR_HYPERSPARC:
+	case PROCESSOR_SPARCLITE86X:
+	  return COSTS_N_INSNS (17);
+
+	default:
+	  return COSTS_N_INSNS (30);
+	}
+
+    case COMPARE:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	    case PROCESSOR_ULTRASPARC3:
+	      return COSTS_N_INSNS (1);
+
+	    case PROCESSOR_SUPERSPARC:
+	      return COSTS_N_INSNS (3);
+
+	    case PROCESSOR_CYPRESS:
+	      return COSTS_N_INSNS (5);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	    default:
+	      return COSTS_N_INSNS (1);
+	    }
+	}
+
+      /* ??? Maybe mark integer compares as zero cost on
+	 ??? all UltraSPARC processors because the result
+	 ??? can be bypassed to a branch in the same group.  */
+
+      return COSTS_N_INSNS (1);
+
+    case MULT:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	    case PROCESSOR_ULTRASPARC3:
+	      return COSTS_N_INSNS (4);
+
+	    case PROCESSOR_SUPERSPARC:
+	      return COSTS_N_INSNS (3);
+
+	    case PROCESSOR_CYPRESS:
+	      return COSTS_N_INSNS (7);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	      return COSTS_N_INSNS (1);
+
+	    default:
+	      return COSTS_N_INSNS (5);
+	    }
+	}
+
+      /* The latency is actually variable for Ultra-I/II
+	 And if one of the inputs have a known constant
+	 value, we could calculate this precisely.
+
+	 However, for that to be useful we would need to
+	 add some machine description changes which would
+	 make sure small constants ended up in rs1 of the
+	 multiply instruction.  This is because the multiply
+	 latency is determined by the number of clear (or
+	 set if the value is negative) bits starting from
+	 the most significant bit of the first input.
+
+	 The algorithm for computing num_cycles of a multiply
+	 on Ultra-I/II is:
+
+	 	if (rs1 < 0)
+			highest_bit = highest_clear_bit(rs1);
+		else
+			highest_bit = highest_set_bit(rs1);
+		if (num_bits < 3)
+			highest_bit = 3;
+		num_cycles = 4 + ((highest_bit - 3) / 2);
+
+	 If we did that we would have to also consider register
+	 allocation issues that would result from forcing such
+	 a value into a register.
+
+	 There are other similar tricks we could play if we
+	 knew, for example, that one input was an array index.
+
+	 Since we do not play any such tricks currently the
+	 safest thing to do is report the worst case latency.  */
+      if (sparc_cpu == PROCESSOR_ULTRASPARC)
+	return (GET_MODE (x) == DImode ?
+		COSTS_N_INSNS (34) : COSTS_N_INSNS (19));
+
+      /* Multiply latency on Ultra-III, fortunately, is constant.  */
+      if (sparc_cpu == PROCESSOR_ULTRASPARC3)
+	return COSTS_N_INSNS (6);
+
+      if (sparc_cpu == PROCESSOR_HYPERSPARC
+	  || sparc_cpu == PROCESSOR_SPARCLITE86X)
+	return COSTS_N_INSNS (17);
+
+      return (TARGET_HARD_MUL
+	      ? COSTS_N_INSNS (5)
+	      : COSTS_N_INSNS (25));
+
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (13);
+	      else
+		return COSTS_N_INSNS (23);
+
+	    case PROCESSOR_ULTRASPARC3:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (17);
+	      else
+		return COSTS_N_INSNS (20);
+
+	    case PROCESSOR_SUPERSPARC:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (6);
+	      else
+		return COSTS_N_INSNS (9);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (8);
+	      else
+		return COSTS_N_INSNS (12);
+
+	    default:
+	      return COSTS_N_INSNS (7);
+	    }
+	}
+
+      if (sparc_cpu == PROCESSOR_ULTRASPARC)
+	return (GET_MODE (x) == DImode ?
+		COSTS_N_INSNS (68) : COSTS_N_INSNS (37));
+      if (sparc_cpu == PROCESSOR_ULTRASPARC3)
+	return (GET_MODE (x) == DImode ?
+		COSTS_N_INSNS (71) : COSTS_N_INSNS (40));
+      return COSTS_N_INSNS (25);
+
+    case IF_THEN_ELSE:
+      /* Conditional moves. */
+      switch (sparc_cpu)
+	{
+	case PROCESSOR_ULTRASPARC:
+	  return COSTS_N_INSNS (2);
+
+	case PROCESSOR_ULTRASPARC3:
+	  if (FLOAT_MODE_P (GET_MODE (x)))
+	    return COSTS_N_INSNS (3);
+	  else
+	    return COSTS_N_INSNS (2);
+
+	default:
+	  return COSTS_N_INSNS (1);
+	}
+
+    case MEM:
+      /* If outer-code is SIGN/ZERO extension we have to subtract
+	 out COSTS_N_INSNS (1) from whatever we return in determining
+	 the cost.  */
+      switch (sparc_cpu)
+	{
+	case PROCESSOR_ULTRASPARC:
+	  if (outer_code == ZERO_EXTEND)
+	    return COSTS_N_INSNS (1);
+	  else
+	    return COSTS_N_INSNS (2);
+
+	case PROCESSOR_ULTRASPARC3:
+	  if (outer_code == ZERO_EXTEND)
+	    {
+	      if (GET_MODE (x) == QImode
+		  || GET_MODE (x) == HImode
+		  || outer_code == SIGN_EXTEND)
+		return COSTS_N_INSNS (2);
+	      else
+		return COSTS_N_INSNS (1);
+	    }
+	  else
+	    {
+	      /* This handles sign extension (3 cycles)
+		 and everything else (2 cycles).  */
+	      return COSTS_N_INSNS (2);
+	    }
+
+	case PROCESSOR_SUPERSPARC:
+	  if (FLOAT_MODE_P (GET_MODE (x))
+	      || outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (0);
+	  else
+	    return COSTS_N_INSNS (1);
+
+	case PROCESSOR_TSC701:
+	  if (outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (2);
+	  else
+	    return COSTS_N_INSNS (3);
+	  
+	case PROCESSOR_CYPRESS:
+	  if (outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (1);
+	  else
+	    return COSTS_N_INSNS (2);
+	  
+	case PROCESSOR_HYPERSPARC:
+	case PROCESSOR_SPARCLITE86X:
+	default:
+	  if (outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (0);
+	  else
+	    return COSTS_N_INSNS (1);
+	}
+
+    case CONST_INT:
+      if (INTVAL (x) < 0x1000 && INTVAL (x) >= -0x1000)
+	return 0;
+
+    /* fallthru */
+    case HIGH:
+      return 2;
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      return 4;
+
+    case CONST_DOUBLE:
+      if (GET_MODE (x) == DImode)
+	if ((XINT (x, 3) == 0
+	     && (unsigned) XINT (x, 2) < 0x1000)
+	    || (XINT (x, 3) == -1
+		&& XINT (x, 2) < 0
+		&& XINT (x, 2) >= -0x1000))
+	  return 0;
+      return 8;
+
+    default:
+      abort();
+    };
 }
 
 #include "gt-sparc.h"

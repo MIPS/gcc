@@ -338,8 +338,7 @@ void dump_flow_info			PARAMS ((FILE *));
 void debug_flow_info			PARAMS ((void));
 static void add_to_mem_set_list		PARAMS ((struct propagate_block_info *,
 						 rtx));
-static void invalidate_mems_from_autoinc PARAMS ((struct propagate_block_info *,
-						  rtx));
+static int invalidate_mems_from_autoinc PARAMS ((rtx *, void *));
 static void invalidate_mems_from_set	PARAMS ((struct propagate_block_info *,
 						 rtx));
 static void clear_log_links		PARAMS ((sbitmap));
@@ -593,7 +592,7 @@ verify_local_live_at_start (new_live_at_start, bb)
 
       EXECUTE_IF_SET_IN_REG_SET (new_live_at_start, 0, i,
 	{
-          /* No registers should die.  */
+	  /* No registers should die.  */
 	  if (REGNO_REG_SET_P (bb->global_live_at_start, i))
 	    {
 	      if (rtl_dump_file)
@@ -605,7 +604,7 @@ verify_local_live_at_start (new_live_at_start, bb)
 	      abort ();
 	    }
 
-          /* Verify that the now-live register is wider than word_mode.  */
+	  /* Verify that the now-live register is wider than word_mode.  */
 	  verify_wide_reg (i, bb);
 	});
     }
@@ -990,7 +989,7 @@ mark_regs_live_at_end (set)
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
       /* If they are different, also mark the hard frame pointer as live.  */
       if (! LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
-        SET_REGNO_REG_SET (set, HARD_FRAME_POINTER_REGNUM);
+	SET_REGNO_REG_SET (set, HARD_FRAME_POINTER_REGNUM);
 #endif
     }
 
@@ -1715,8 +1714,9 @@ propagate_one_insn (pbi, insn)
     /* We have an insn to pop a constant amount off the stack.
        (Such insns use PLUS regardless of the direction of the stack,
        and any insn to adjust the stack by a constant is always a pop.)
-       These insns, if not dead stores, have no effect on life.  */
-    ;
+       These insns, if not dead stores, have no effect on life, though
+       they do have an effect on the memory stores we are tracking.  */
+    invalidate_mems_from_set (pbi, stack_pointer_rtx);
   else
     {
       rtx note;
@@ -1741,12 +1741,16 @@ propagate_one_insn (pbi, insn)
 	  if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	    cond = COND_EXEC_TEST (PATTERN (insn));
 
-	  /* Non-constant calls clobber memory.  */
+	  /* Non-constant calls clobber memory, constant calls do not
+	     clobber memory, though they may clobber outgoing arguments
+	     on the stack.  */
 	  if (! CONST_OR_PURE_CALL_P (insn))
 	    {
 	      free_EXPR_LIST_list (&pbi->mem_set_list);
 	      pbi->mem_set_list_len = 0;
 	    }
+	  else
+	    invalidate_mems_from_set (pbi, stack_pointer_rtx);
 
 	  /* There may be extra registers to be clobbered.  */
 	  for (note = CALL_INSN_FUNCTION_USAGE (insn);
@@ -2415,15 +2419,21 @@ add_to_mem_set_list (pbi, mem)
    Find any entries on the mem_set_list that need to be invalidated due
    to an address change.  */
 
-static void
-invalidate_mems_from_autoinc (pbi, insn)
-     struct propagate_block_info *pbi;
-     rtx insn;
+static int
+invalidate_mems_from_autoinc (px, data)
+     rtx *px;
+     void *data;
 {
-  rtx note = REG_NOTES (insn);
-  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
-    if (REG_NOTE_KIND (note) == REG_INC)
-      invalidate_mems_from_set (pbi, XEXP (note, 0));
+  rtx x = *px;
+  struct propagate_block_info *pbi = data;
+
+  if (GET_RTX_CLASS (GET_CODE (x)) == 'a')
+    {
+      invalidate_mems_from_set (pbi, XEXP (x, 0));
+      return -1;
+    }
+
+  return 0;
 }
 
 /* EXP is a REG.  Remove any dependent entries from pbi->mem_set_list.  */
@@ -2645,16 +2655,12 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	 address modes.  Then we may need to kill some entries on the
 	 memory set list.  */
       if (insn && GET_CODE (reg) == MEM)
-	invalidate_mems_from_autoinc (pbi, insn);
+	for_each_rtx (&PATTERN (insn), invalidate_mems_from_autoinc, pbi);
 
       if (GET_CODE (reg) == MEM && ! side_effects_p (reg)
 	  /* ??? With more effort we could track conditional memory life.  */
-	  && ! cond
-	  /* There are no REG_INC notes for SP, so we can't assume we'll see
-	     everything that invalidates it.  To be safe, don't eliminate any
-	     stores though SP; none of them should be redundant anyway.  */
-	  && ! reg_mentioned_p (stack_pointer_rtx, reg))
-        add_to_mem_set_list (pbi, canon_rtx (reg));
+	  && ! cond)
+	add_to_mem_set_list (pbi, canon_rtx (reg));
     }
 
   if (GET_CODE (reg) == REG
@@ -3780,12 +3786,12 @@ mark_used_regs (pbi, x, cond, insn)
 	     address modes.  Then we may need to kill some entries on the
 	     memory set list.  */
 	  if (insn)
-	    invalidate_mems_from_autoinc (pbi, insn);
+	    for_each_rtx (&PATTERN (insn), invalidate_mems_from_autoinc, pbi);
 	}
 
 #ifdef AUTO_INC_DEC
       if (flags & PROP_AUTOINC)
-        find_auto_inc (pbi, x, insn);
+	find_auto_inc (pbi, x, insn);
 #endif
       break;
 

@@ -270,7 +270,15 @@ open_file (pfile, filename)
      Special case: the empty string is translated to stdin.  */
 
   if (filename[0] == '\0')
-    file->fd = 0;
+    {
+      file->fd = 0;
+#ifdef __DJGPP__
+      /* For DJGPP redirected input is opened in text mode. Change it
+         to binary mode.  */
+      if (! isatty (file->fd))
+        setmode (file->fd, O_BINARY);
+#endif
+    }
   else
     file->fd = open (file->name, O_RDONLY | O_NOCTTY | O_BINARY, 0666);
 
@@ -658,30 +666,7 @@ handle_missing_header (pfile, fname, angle_brackets)
   int print_dep = CPP_PRINT_DEPS(pfile) > (angle_brackets || pfile->map->sysp);
 
   if (CPP_OPTION (pfile, print_deps_missing_files) && print_dep)
-    {
-      if (!angle_brackets || IS_ABSOLUTE_PATHNAME (fname))
-	deps_add_dep (pfile->deps, fname);
-      else
-	{
-	  /* If requested as a system header, assume it belongs in
-	     the first system header directory.  */
-	  struct search_path *ptr = CPP_OPTION (pfile, bracket_include);
-	  char *p;
-	  int len = 0, fname_len = strlen (fname);
-
-	  if (ptr)
-	    len = ptr->len;
-
-	  p = (char *) alloca (len + fname_len + 2);
-	  if (len)
-	    {
-	      memcpy (p, ptr->name, len);
-	      p[len++] = '/';
-	    }
-	  memcpy (p + len, fname, fname_len + 1);
-	  deps_add_dep (pfile->deps, p);
-	}
-    }
+    deps_add_dep (pfile->deps, fname);
   /* If -M was specified, then don't count this as an error, because
      we can still produce correct output.  Otherwise, we can't produce
      correct output, because there may be dependencies we need inside

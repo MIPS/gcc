@@ -38,7 +38,7 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
   # These need to be absolute paths, yet at the same time need to
   # canonicalize only relative paths, because then amd will not unmount
   # drives. Thus the use of PWDCMD: set it to 'pawd' or 'amq -w' if using amd.
-  glibcpp_builddir=`pwd`
+  glibcpp_builddir=`${PWDCMD-pwd}`
   case $srcdir in
   [\\/$]* | ?:[\\/]*) glibcpp_srcdir=${srcdir} ;;
   *) glibcpp_srcdir=`cd "$srcdir" && ${PWDCMD-pwd} || echo "$srcdir"` ;;
@@ -2120,7 +2120,7 @@ enable_symvers=GLIBCPP_ENABLE_SYMVERS_DEFAULT)dnl
 # If we never went through the GLIBCPP_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks... 
 if test x$enable_shared = xno || 
-	test x$LD = x || 
+	test "x$LD" = x || 
 	test x$glibcpp_gnu_ld_version = x; then
   enable_symvers=no
 fi

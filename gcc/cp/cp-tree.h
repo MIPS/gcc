@@ -1035,12 +1035,6 @@ extern int interface_only, interface_unknown;
 
 extern int flag_elide_constructors;
 
-/* Nonzero means enable obscure standard features and disable GNU
-   extensions that might cause standard-compliant code to be
-   miscompiled.  */
-
-extern int flag_ansi;
-
 /* Nonzero means that member functions defined in class scope are
    inline by default.  */
 
@@ -1270,6 +1264,8 @@ struct lang_type_class GTY(())
   unsigned java_interface : 1;
 
   unsigned anon_aggr : 1;
+  unsigned non_zero_init : 1;
+
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
      so, make sure to copy it in instantiate_class_template!  */
@@ -1277,7 +1273,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 7;
+  unsigned dummy : 6;
 
   int vsize;
 
@@ -1569,8 +1565,14 @@ struct lang_type GTY(())
 #define CLASSTYPE_HAS_MUTABLE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
 
-/*  Nonzero means that this class type is a non-POD class.  */
+/* Nonzero means that this class type is a non-POD class.  */
 #define CLASSTYPE_NON_POD_P(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->non_pod_class)
+
+/* Nonzero means that this class contains pod types whose default
+   initialization is not a zero initialization (namely, pointers to
+   data members).  */
+#define CLASSTYPE_NON_ZERO_INIT_P(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->non_zero_init)
 
 /* Nonzero if this class is "nearly empty", i.e., contains only a
    virtual function table pointer.  */
@@ -3206,9 +3208,6 @@ extern int flag_ms_extensions;
    type signature of any virtual function in the base class.  */
 extern int warn_overloaded_virtual;
 
-/* Nonzero means warn about use of multicharacter literals.  */
-extern int warn_multichar;
-
 /* Set by add_implicitly_declared_members() to keep those members from
    being flagged as deprecated or reported as using deprecated
    types.  */
@@ -4011,6 +4010,7 @@ extern tree build_init				PARAMS ((tree, tree, int));
 extern int is_aggr_type				PARAMS ((tree, int));
 extern tree get_aggr_from_typedef		PARAMS ((tree, int));
 extern tree get_type_value			PARAMS ((tree));
+extern tree build_forced_zero_init		PARAMS ((tree));
 extern tree build_member_call			PARAMS ((tree, tree, tree));
 extern tree build_offset_ref			PARAMS ((tree, tree));
 extern tree resolve_offset_ref			PARAMS ((tree));
@@ -4327,6 +4327,7 @@ extern tree cxx_unsave_expr_now			PARAMS ((tree));
 extern tree cxx_maybe_build_cleanup		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
+extern int zero_init_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));
 extern int member_p				PARAMS ((tree));
@@ -4473,6 +4474,7 @@ extern int abstract_virtuals_error		PARAMS ((tree, tree));
 #define my_friendly_assert(EXP, N) (void) \
  (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
+extern tree force_store_init_value		PARAMS ((tree, tree));
 extern tree store_init_value			PARAMS ((tree, tree));
 extern tree digest_init				PARAMS ((tree, tree, tree *));
 extern tree build_scoped_ref			PARAMS ((tree, tree, tree *));

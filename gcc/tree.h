@@ -667,7 +667,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 
 #define TREE_BOUNDED(NODE) ((NODE)->common.bounded_flag)
 
-/* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
+/* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
 
@@ -852,7 +852,7 @@ struct tree_vec GTY(())
 #define LABELED_BLOCK_BODY(NODE) \
   TREE_OPERAND (LABELED_BLOCK_EXPR_CHECK (NODE), 1)
 
-/* In a EXIT_BLOCK_EXPR node.  */
+/* In an EXIT_BLOCK_EXPR node.  */
 #define EXIT_BLOCK_LABELED_BLOCK(NODE) \
   TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 0)
 #define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 1)
@@ -860,7 +860,7 @@ struct tree_vec GTY(())
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND (LOOP_EXPR_CHECK (NODE), 0)
 
-/* In a EXPR_WITH_FILE_LOCATION node.  */
+/* In an EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
   (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
 #define EXPR_WFL_NODE(NODE) \
@@ -1333,7 +1333,7 @@ struct tree_type GTY(())
    base.  The actual contents are language-dependent.  Under the old
    ABI, the C++ front-end uses a FIELD_DECL whose contents are a
    pointer to the virtual base; under the new ABI this field is
-   instead a INTEGER_CST giving an offset into the vtable where the
+   instead an INTEGER_CST giving an offset into the vtable where the
    offset to the virtual base can be found.  */
 #define BINFO_VPTR_FIELD(NODE) TREE_VEC_ELT (NODE, 5)
 
@@ -2110,9 +2110,7 @@ extern size_t tree_size			PARAMS ((tree));
 
 extern tree make_node			PARAMS ((enum tree_code));
 
-/* Make a copy of a node, with all the same contents except
-   for TREE_PERMANENT.  (The copy is permanent
-   iff nodes being made now are permanent.)  */
+/* Make a copy of a node, with all the same contents.  */
 
 extern tree copy_node			PARAMS ((tree));
 
@@ -2291,6 +2289,8 @@ extern void default_set_default_type_attributes PARAMS ((tree));
 extern void default_insert_attributes PARAMS ((tree, tree *));
 extern bool default_function_attribute_inlinable_p PARAMS ((tree));
 extern bool default_ms_bitfield_layout_p PARAMS ((tree));
+struct cpp_reader;
+extern void default_register_cpp_builtins PARAMS ((struct cpp_reader *));
 
 /* Split a list of declspecs and attributes into two.  */
 
@@ -2856,9 +2856,6 @@ extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
 extern int tree_log2			PARAMS ((tree));
 extern int tree_floor_log2		PARAMS ((tree));
-extern void preserve_data		PARAMS ((void));
-extern int object_permanent_p		PARAMS ((tree));
-extern int type_precision		PARAMS ((tree));
 extern int simple_cst_equal		PARAMS ((tree, tree));
 extern int compare_tree_int		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT));

@@ -1,3 +1,131 @@
+2002-05-16  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/weak-3.c: Add dg-excess-error comment for
+	cygwin, coff and h8300-*-hms targets
+	* gcc.dg/weak-5.c: Likewise
+	* gcc.dg/weak-7.c: Likewise
+
+2002-05-16  Jason Merrill  <jason@redhat.com>
+
+	* lib/scanasm.exp (scan-assembler): Use upvar, not uplevel.
+	(scan-assembler-not, scan-assembler-dem): Likewise.
+	(scan-assembler-dem-not): Likewise.
+
+2002-05-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/weak-5.c (vfoo1c, vfoo1g): Warn here.
+
+2002-05-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/weak-5.c (vfoo1c): No warning here.
+	(vfoo1f): Warning here.
+	(vfoo1l): Don't redefine the alias.
+
+2002-05-14  Jason Merrill  <jason@redhat.com>, Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/init/pm1.C: New test.
+
+2002-05-12  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/conversion.c (ldnear): Use long double
+	types.
+
+2002-05-10  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020510-1.c: New test case.
+
+2002-05-10  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/conversion.c: Test long double too.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/g77.exp (g77_link_flags): Append all multilib dirs containing
+	libgcc_s*.so.1 below gcc object dir to LD_LIBRARY_PATH.
+	* lib/g++.exp (g++_link_flags): Likewise.
+	* lib/objc.exp (objc_target_compile): Likewise.
+
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/poison.c: Update.
+	* gcc.dg/cpp/20000625-2.c: Remove.
+	* gcc.dg/cpp/direct2s.c: Remove final test.
+
+2002-05-08  Tom Rix  <trix@redhat.com>
+
+	* gcc.c-torture/execute/20020508-1.c: New test.
+	* gcc.c-torture/execute/20020508-2.c: New test.
+	* gcc.c-torture/execute/20020508-3.c: New test.
+
+2002-05-08  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-4.c: More tests.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c/6569
+	* gcc.dg/weak-3.c: Update location of warning messages.
+	* gcc.dg/weak-5.c: Likewise.
+
+2002-05-06  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020506-1.c: New test case.
+
+2002-05-07  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-3.c: Correct tests accordingly.
+
+2002-05-06  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-3.c: Run, don't compile.
+
+2002-05-06  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-3.c: New test.
+
+2002-05-05  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst.c: Update tests.
+
+2002-05-05  Tim Josling  <tej@melbpc.org.au>
+
+	* treelang: Added directory for new sample language treelang. Also
+	lib/treelang.exp: New file to signal treelang should be tested. 
+
+2002-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cpp/cmdlne-dM-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dD-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dN-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dI-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dI-M.h: New aux file.
+	* gcc.dg/cpp/cmdlne-dD-dM.c: New test.
+	* gcc.dg/cpp/cmdlne-dM-dD.c: New test.
+
+2002-05-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format/xopen-2.c: New test.
+
+2002-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020503-1.c: New test.
+
+2002-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/dtor1.C: Make it tougher.
+
+2002-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/dtor1.C: New test.
+
+2002-05-02  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-8.c: New.
+
+2002-05-01  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-7.c: New.
+
 2002-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/parse/typedef1.C: New test.
@@ -411,6 +539,10 @@ Wed Apr 24 21:38:36 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* gcc.dg/weak-1.c: Fix typo in scan-assembler pattern.
 
 	* g++.old-deja/g++.law/bit-fields2.C: Skip on mmix-knuth-mmixware.
+
+Thu Mar 28 16:38:09 2002  Jeffrey A Law  (law@redhat.com)
+
+	* gcc.c-torture/execute/20020328-1.c: New test.
 
 2002-03-27  Richard Henderson  <rth@redhat.com>
 

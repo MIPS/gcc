@@ -2,4 +2,3 @@ lex.c
 parse.c
 parse.h
 parse.output
-*.info*

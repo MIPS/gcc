@@ -134,6 +134,7 @@ static void store_by_pieces_1	PARAMS ((struct store_by_pieces *,
 static void store_by_pieces_2	PARAMS ((rtx (*) (rtx, ...),
 					 enum machine_mode,
 					 struct store_by_pieces *));
+static rtx compress_float_constant PARAMS ((rtx, rtx));
 static rtx get_subtarget	PARAMS ((rtx));
 static int is_zeros_p		PARAMS ((tree));
 static int mostly_zeros_p	PARAMS ((tree));
@@ -147,6 +148,7 @@ static rtx store_field		PARAMS ((rtx, HOST_WIDE_INT,
 					 int));
 static rtx var_rtx		PARAMS ((tree));
 static HOST_WIDE_INT highest_pow2_factor PARAMS ((tree));
+static HOST_WIDE_INT highest_pow2_factor_for_type PARAMS ((tree, tree));
 static int is_aligning_offset	PARAMS ((tree, tree));
 static rtx expand_increment	PARAMS ((tree, int, int));
 static void do_jump_by_parts_greater PARAMS ((tree, int, rtx, rtx));
@@ -165,6 +167,10 @@ static void do_tablejump PARAMS ((rtx, enum machine_mode, rtx, rtx, rtx));
 
 static char direct_load[NUM_MACHINE_MODES];
 static char direct_store[NUM_MACHINE_MODES];
+
+/* Record for each mode whether we can float-extend from memory.  */
+
+static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
    move-instruction sequences, we will do a movstr or libcall instead.  */
@@ -262,6 +268,28 @@ init_expr_once ()
 	    if (recog (pat, insn, &num_clobbers) >= 0)
 	      direct_store[(int) mode] = 1;
 	  }
+    }
+
+  mem = gen_rtx_MEM (VOIDmode, gen_rtx_raw_REG (Pmode, 10000));
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      enum machine_mode srcmode;
+      for (srcmode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); srcmode != mode;
+           srcmode = GET_MODE_WIDER_MODE (srcmode))
+	{
+	  enum insn_code ic;
+
+	  ic = can_extend_p (mode, srcmode, 0);
+	  if (ic == CODE_FOR_nothing)
+	    continue;
+
+	  PUT_MODE (mem, srcmode);
+	  
+	  if ((*insn_data[ic].operand[1].predicate) (mem, srcmode))
+	    float_extend_from_mem[mode][srcmode] = true;
+	}
     }
 
   end_sequence ();
@@ -2752,10 +2780,18 @@ emit_move_insn (x, y)
   /* Never force constant_p_rtx to memory.  */
   if (GET_CODE (y) == CONSTANT_P_RTX)
     ;
-  else if (CONSTANT_P (y) && ! LEGITIMATE_CONSTANT_P (y))
+  else if (CONSTANT_P (y))
     {
-      y_cst = y;
-      y = force_const_mem (mode, y);
+      if (optimize
+	  && FLOAT_MODE_P (GET_MODE (x))
+	  && (last_insn = compress_float_constant (x, y)))
+	return last_insn;
+
+      if (!LEGITIMATE_CONSTANT_P (y))
+	{
+	  y_cst = y;
+	  y = force_const_mem (mode, y);
+	}
     }
 
   /* If X or Y are memory references, verify that their addresses are valid
@@ -3080,6 +3116,64 @@ emit_move_insn_1 (x, y)
     }
   else
     abort ();
+}
+
+/* If Y is representable exactly in a narrower mode, and the target can
+   perform the extension directly from constant or memory, then emit the
+   move as an extension.  */
+
+static rtx
+compress_float_constant (x, y)
+     rtx x, y;
+{
+  enum machine_mode dstmode = GET_MODE (x);
+  enum machine_mode orig_srcmode = GET_MODE (y);
+  enum machine_mode srcmode;
+  REAL_VALUE_TYPE r;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (r, y);
+
+  for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
+       srcmode != orig_srcmode;
+       srcmode = GET_MODE_WIDER_MODE (srcmode))
+    {
+      enum insn_code ic;
+      rtx trunc_y, last_insn;
+
+      /* Skip if the target can't extend this way.  */
+      ic = can_extend_p (dstmode, srcmode, 0);
+      if (ic == CODE_FOR_nothing)
+	continue;
+
+      /* Skip if the narrowed value isn't exact.  */
+      if (! exact_real_truncate (srcmode, &r))
+	continue;
+
+      trunc_y = CONST_DOUBLE_FROM_REAL_VALUE (r, srcmode);
+
+      if (LEGITIMATE_CONSTANT_P (trunc_y))
+	{
+	  /* Skip if the target needs extra instructions to perform
+	     the extension.  */
+	  if (! (*insn_data[ic].operand[1].predicate) (trunc_y, srcmode))
+	    continue;
+	}
+      else if (float_extend_from_mem[dstmode][srcmode])
+	trunc_y = validize_mem (force_const_mem (srcmode, trunc_y));
+      else
+	continue;
+
+      emit_unop_insn (ic, x, trunc_y, UNKNOWN);
+      last_insn = get_last_insn ();
+
+      if (GET_CODE (x) == REG)
+	REG_NOTES (last_insn)
+	  = gen_rtx_EXPR_LIST (REG_EQUAL, y, REG_NOTES (last_insn));
+
+      return last_insn;
+    }
+
+  return NULL_RTX;
 }
 
 /* Pushing data onto the stack.  */
@@ -3689,7 +3783,8 @@ expand_assignment (to, from, want_value, suggest_reg)
 	    }
 
 	  to_rtx = offset_address (to_rtx, offset_rtx,
-				   highest_pow2_factor (offset));
+				   highest_pow2_factor_for_type (TREE_TYPE (to),
+								 offset));
 	}
 
       if (GET_CODE (to_rtx) == MEM)
@@ -5414,16 +5509,13 @@ rtx
 force_operand (value, target)
      rtx value, target;
 {
-  optab binoptab = 0;
-  /* Use a temporary to force order of execution of calls to
-     `force_operand'.  */
-  rtx tmp;
-  rtx op2;
+  rtx op1, op2;
   /* Use subtarget as the target for operand 0 of a binary operation.  */
   rtx subtarget = get_subtarget (target);
+  enum rtx_code code = GET_CODE (value);
 
   /* Check for a PIC address load.  */
-  if ((GET_CODE (value) == PLUS || GET_CODE (value) == MINUS)
+  if ((code == PLUS || code == MINUS)
       && XEXP (value, 0) == pic_offset_table_rtx
       && (GET_CODE (XEXP (value, 1)) == SYMBOL_REF
 	  || GET_CODE (XEXP (value, 1)) == LABEL_REF
@@ -5435,60 +5527,88 @@ force_operand (value, target)
       return subtarget;
     }
 
-  if (GET_CODE (value) == PLUS)
-    binoptab = add_optab;
-  else if (GET_CODE (value) == MINUS)
-    binoptab = sub_optab;
-  else if (GET_CODE (value) == MULT)
+  if (code == ZERO_EXTEND || code == SIGN_EXTEND)
     {
-      op2 = XEXP (value, 1);
-      if (!CONSTANT_P (op2)
-	  && !(GET_CODE (op2) == REG && op2 != subtarget))
-	subtarget = 0;
-      tmp = force_operand (XEXP (value, 0), subtarget);
-      return expand_mult (GET_MODE (value), tmp,
-			  force_operand (op2, NULL_RTX),
-			  target, 1);
+      if (!target)
+	target = gen_reg_rtx (GET_MODE (value));
+      convert_move (target, force_operand (XEXP (value, 0), NULL),
+		    code == ZERO_EXTEND);
+      return target;
     }
 
-  if (binoptab)
+  if (GET_RTX_CLASS (code) == '2' || GET_RTX_CLASS (code) == 'c')
     {
       op2 = XEXP (value, 1);
-      if (!CONSTANT_P (op2)
-	  && !(GET_CODE (op2) == REG && op2 != subtarget))
+      if (!CONSTANT_P (op2) && !(GET_CODE (op2) == REG && op2 != subtarget))
 	subtarget = 0;
-      if (binoptab == sub_optab && GET_CODE (op2) == CONST_INT)
+      if (code == MINUS && GET_CODE (op2) == CONST_INT)
 	{
-	  binoptab = add_optab;
+	  code = PLUS;
 	  op2 = negate_rtx (GET_MODE (value), op2);
 	}
 
       /* Check for an addition with OP2 a constant integer and our first
-	 operand a PLUS of a virtual register and something else.  In that
-	 case, we want to emit the sum of the virtual register and the
-	 constant first and then add the other value.  This allows virtual
-	 register instantiation to simply modify the constant rather than
-	 creating another one around this addition.  */
-      if (binoptab == add_optab && GET_CODE (op2) == CONST_INT
+         operand a PLUS of a virtual register and something else.  In that
+         case, we want to emit the sum of the virtual register and the
+         constant first and then add the other value.  This allows virtual
+         register instantiation to simply modify the constant rather than
+         creating another one around this addition.  */
+      if (code == PLUS && GET_CODE (op2) == CONST_INT
 	  && GET_CODE (XEXP (value, 0)) == PLUS
 	  && GET_CODE (XEXP (XEXP (value, 0), 0)) == REG
 	  && REGNO (XEXP (XEXP (value, 0), 0)) >= FIRST_VIRTUAL_REGISTER
 	  && REGNO (XEXP (XEXP (value, 0), 0)) <= LAST_VIRTUAL_REGISTER)
 	{
-	  rtx temp = expand_binop (GET_MODE (value), binoptab,
-				   XEXP (XEXP (value, 0), 0), op2,
-				   subtarget, 0, OPTAB_LIB_WIDEN);
-	  return expand_binop (GET_MODE (value), binoptab, temp,
-			       force_operand (XEXP (XEXP (value, 0), 1), 0),
-			       target, 0, OPTAB_LIB_WIDEN);
+	  rtx temp = expand_simple_binop (GET_MODE (value), code,
+					  XEXP (XEXP (value, 0), 0), op2,
+					  subtarget, 0, OPTAB_LIB_WIDEN);
+	  return expand_simple_binop (GET_MODE (value), code, temp,
+				      force_operand (XEXP (XEXP (value,
+								 0), 1), 0),
+				      target, 0, OPTAB_LIB_WIDEN);
 	}
 
-      tmp = force_operand (XEXP (value, 0), subtarget);
-      return expand_binop (GET_MODE (value), binoptab, tmp,
-			   force_operand (op2, NULL_RTX),
-			   target, 0, OPTAB_LIB_WIDEN);
-      /* We give UNSIGNEDP = 0 to expand_binop
-	 because the only operations we are expanding here are signed ones.  */
+      op1 = force_operand (XEXP (value, 0), subtarget);
+      op2 = force_operand (op2, NULL_RTX);
+      switch (code)
+	{
+	case MULT:
+	  return expand_mult (GET_MODE (value), op1, op2, target, 1);
+	case DIV:
+	  if (!INTEGRAL_MODE_P (GET_MODE (value)))
+	    return expand_simple_binop (GET_MODE (value), code, op1, op2,
+					target, 1, OPTAB_LIB_WIDEN);
+	  else
+	    return expand_divmod (0,
+				  FLOAT_MODE_P (GET_MODE (value))
+				  ? RDIV_EXPR : TRUNC_DIV_EXPR,
+				  GET_MODE (value), op1, op2, target, 0);
+	  break;
+	case MOD:
+	  return expand_divmod (1, TRUNC_MOD_EXPR, GET_MODE (value), op1, op2,
+				target, 0);
+	  break;
+	case UDIV:
+	  return expand_divmod (0, TRUNC_DIV_EXPR, GET_MODE (value), op1, op2,
+				target, 1);
+	  break;
+	case UMOD:
+	  return expand_divmod (1, TRUNC_MOD_EXPR, GET_MODE (value), op1, op2,
+				target, 1);
+	  break;
+	case ASHIFTRT:
+	  return expand_simple_binop (GET_MODE (value), code, op1, op2,
+				      target, 0, OPTAB_LIB_WIDEN);
+	  break;
+	default:
+	  return expand_simple_binop (GET_MODE (value), code, op1, op2,
+				      target, 1, OPTAB_LIB_WIDEN);
+	}
+    }
+  if (GET_RTX_CLASS (code) == '1')
+    {
+      op1 = force_operand (XEXP (value, 0), NULL_RTX);
+      return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
     }
 
 #ifdef INSN_SCHEDULING
@@ -5890,6 +6010,21 @@ highest_pow2_factor (exp)
     }
 
   return 1;
+}
+
+/* Similar, except that it is known that the expression must be a multiple
+   of the alignment of TYPE.  */
+
+static HOST_WIDE_INT
+highest_pow2_factor_for_type (type, exp)
+     tree type;
+     tree exp;
+{
+  HOST_WIDE_INT type_align, factor;
+
+  factor = highest_pow2_factor (exp);
+  type_align = TYPE_ALIGN (type) / BITS_PER_UNIT;
+  return MAX (factor, type_align);
 }
 
 /* Return an object on the placeholder list that matches EXP, a
@@ -6333,7 +6468,8 @@ expand_expr (exp, target, tmode, modifier)
 	 many insns, so we'd end up copying it to a register in any case.
 
 	 Now, we do the copying in expand_binop, if appropriate.  */
-      return immed_real_const (exp);
+      return CONST_DOUBLE_FROM_REAL_VALUE (TREE_REAL_CST (exp),
+					   TYPE_MODE (TREE_TYPE (exp)));
 
     case COMPLEX_CST:
     case STRING_CST:
@@ -8888,7 +9024,7 @@ is_aligning_offset (offset, exp)
 		      == TREE_TYPE (exp)))));
 }
 
-/* Return the tree node if a ARG corresponds to a string constant or zero
+/* Return the tree node if an ARG corresponds to a string constant or zero
    if it doesn't.  If we return non-zero, set *PTR_OFFSET to the offset
    in bytes within the string that ARG is accessing.  The type of the
    offset will be `sizetype'.  */

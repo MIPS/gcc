@@ -283,10 +283,10 @@ eval_token (pfile, token)
      const cpp_token *token;
 {
   unsigned int temp;
+  int unsignedp = 0;
   struct op op;
 
   op.op = CPP_NUMBER;
-  op.unsignedp = 0;
 
   switch (token->type)
     {
@@ -294,9 +294,17 @@ eval_token (pfile, token)
       return parse_number (pfile, token);
 
     case CPP_WCHAR:
-      op.unsignedp = WCHAR_UNSIGNED;
-    case CPP_CHAR:		/* Always unsigned.  */
-      op.value = cpp_interpret_charconst (pfile, token, 1, &temp);
+    case CPP_CHAR:
+      {
+	cppchar_t result = cpp_interpret_charconst (pfile, token,
+						    &temp, &unsignedp);
+	op.value = result;
+	/* Sign-extend the result if necessary.  */
+	if (!unsignedp && (cppchar_signed_t) result < 0
+	    && sizeof (HOST_WIDEST_INT) > sizeof (cppchar_t))
+	  op.value |= ~(((unsigned HOST_WIDEST_INT) 1 << BITS_PER_CPPCHAR_T)
+			- 1);
+      }
       break;
 
     case CPP_NAME:
@@ -331,6 +339,7 @@ eval_token (pfile, token)
       op.value = temp;
     }
 
+  op.unsignedp = unsignedp;
   return op;
 }
 
@@ -815,10 +824,12 @@ struct op *
 _cpp_expand_op_stack (pfile)
      cpp_reader *pfile;
 {
-  size_t n = (size_t) (pfile->op_limit - pfile->op_stack);
+  size_t old_size = (size_t) (pfile->op_limit - pfile->op_stack);
+  size_t new_size = old_size * 2 + 20;
 
   pfile->op_stack = (struct op *) xrealloc (pfile->op_stack,
-					    (n * 2 + 20) * sizeof (struct op));
+					    new_size * sizeof (struct op));
+  pfile->op_limit = pfile->op_stack + new_size;
 
-  return pfile->op_stack + n;
+  return pfile->op_stack + old_size;
 }
