@@ -174,8 +174,7 @@ yacc_ids: /* empty */
 	  p->opt = xmalloc (sizeof (*(p->opt)));
 	  p->opt->name = "tag";
 	  p->opt->next = NULL;
-	  p->opt->info = xmalloc (3 + strlen ($2));
-	  sprintf (p->opt->info, "'%s'", $2);
+	  p->opt->info = xasprintf ("'%s'", $2);
 	  $$ = p;
 	}
      ;

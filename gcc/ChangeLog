@@ -1,5 +1,8 @@
 2002-07-04  Geoffrey Keating  <geoffk@redhat.com>
 
+	* gengtype.h: Make `info' a pointer-to-const.
+	* gengtype-yacc.y (yacc_ids): Use xasprintf.
+
 	* gengtype.c (write_gc_structure_fields): Remove implementation
 	of `always' option, add `default' option.
 	* doc/gty.texi (GTY Options): Remove documentation of `always',

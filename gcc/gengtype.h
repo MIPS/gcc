@@ -41,7 +41,7 @@ enum typekind {
 typedef struct options {
   struct options *next;
   const char *name;
-  void *info;
+  const void *info;
 } *options_p;
 
 typedef struct pair *pair_p;
