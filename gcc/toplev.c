@@ -4851,19 +4851,11 @@ parse_options_and_default_flags (argc, argv)
 	}
     }
 
-  /* All command line options have been parsed; allow the front end to
-     perform consistency checks, etc.  */
-  (*lang_hooks.post_options) ();
-}
-
-/* Process the options that have been parsed.  */
-static void
-process_options ()
-{
-  /* Checker uses the frame pointer.  */
-  if (flag_check_memory_usage)
-    flag_omit_frame_pointer = 0;
-
+  /* Set flag_no_inline before the post_options () hook.  The C front
+     ends use it to determine tree inlining defaults.  FIXME: such
+     code should be lang-independent when all front ends use tree
+     inlining, in which case it, and this condition, should be moved
+     to the top of process_options() instead.  */
   if (optimize == 0)
     {
       /* Inlining does not work if not optimizing,
