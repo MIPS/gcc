@@ -1,3 +1,47 @@
+2003-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+	
+        PR c++/10047
+        * decl2.c (finish_file): Don't warn about explicitly instantiated
+        inline decls.
+
+2003-03-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/10158
+	* spew.c (snarf_method):Set DECL_INITIALIZED_IN_CLASS for
+	members.
+	* pt.c (instantiate_decl): Only reduce the template args for
+	friends that are not defined in class.
+
+2003-03-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9898, PR c++/383, DR 322
+	* pt.c (maybe_adjust_types_for_deduction) [DEDUCE_CONV]: Look
+	through reference types on both PARM and ARG.
+
+	PR c++/10199
+	* call.c (build_method_call): Deal with LOOKUP_EXPR.
+	* semantics.c (finish_object_call_expr): Use build_method_call
+	when in a template decl.
+
+2003-03-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7086
+	* semantics.c (genrtl_named_return_value): Adjust calls to
+	put_var_into_stack.
+	* typeck.c (cxx_mark_addressable): Likewise.
+	
+2003-03-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6412
+	* cp/decl2.c (arg_assoc_class): Correct check for namespace-scope
+	friends.
+	* cp/pt.c (instantiate_class_template): Fix formatting.
+
+2003-03-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8316, c++/9315, c++/10136
+	* call.c (joust): Improve wording.
+
 2003-03-18  Roger Sayle  <roger@eyesopen.com>
 
 	PR c++/10031

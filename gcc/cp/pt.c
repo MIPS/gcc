@@ -5573,12 +5573,8 @@ instantiate_class_template (type)
 		--processing_template_decl;
 	    }
 	  else
-	    {
-	      /* Build new DECL_FRIENDLIST.  */
-
-	      add_friend (type, 
-			  tsubst_friend_function (t, args));
-	    }
+	    /* Build new DECL_FRIENDLIST.  */
+	    add_friend (type, tsubst_friend_function (t, args));
 	}
     }
 
@@ -8216,6 +8212,12 @@ maybe_adjust_types_for_deduction (strict, parm, arg)
       *parm = TREE_TYPE (*parm);
       result |= UNIFY_ALLOW_OUTER_MORE_CV_QUAL;
     }
+
+  /* DR 322. For conversion deduction, remove a reference type on parm
+     too (which has been swapped into ARG).  */
+  if (strict == DEDUCE_CONV && TREE_CODE (*arg) == REFERENCE_TYPE)
+    *arg = TREE_TYPE (*arg);
+  
   return result;
 }
 
@@ -10229,12 +10231,14 @@ instantiate_decl (d, defer_ok)
 
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
-  /* In the case of a friend template whose definition is provided
-     outside the class, we may have too many arguments.  Drop the ones
-     we don't need.  */
-  args = get_innermost_template_args (gen_args,
-				      TMPL_PARMS_DEPTH 
-				      (DECL_TEMPLATE_PARMS (td)));
+  if (DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
+    /* In the case of a friend template whose definition is provided
+       outside the class, we may have too many arguments.  Drop the
+       ones we don't need.  */
+    args = get_innermost_template_args
+      (gen_args, TMPL_PARMS_DEPTH  (DECL_TEMPLATE_PARMS (td)));
+  else
+    args = gen_args;
 
   if (TREE_CODE (d) == FUNCTION_DECL)
     pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE);

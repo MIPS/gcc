@@ -551,6 +551,8 @@ build_method_call (instance, name, parms, basetype_path, flags)
     }
   if (TREE_CODE (name) == OVERLOAD)
     name = DECL_NAME (get_first_fn (name));
+  else if (TREE_CODE (name) == LOOKUP_EXPR)
+    name = TREE_OPERAND (name, 0);
   else if (DECL_P (name))
     name = DECL_NAME (name);
   if (has_template_args)
@@ -5817,11 +5819,9 @@ tweak:
       if (winner)
         {
 	  if (warn)
-	    {
-	      pedwarn ("choosing `%D' over `%D'", w->fn, l->fn);
-	      pedwarn (
-"  because worst conversion for the former is better than worst conversion for the latter");
-	    }
+	    pedwarn ("ISO C++ says that `%D' and `%D' are ambiguous \
+even though the worst conversion for the former is better than the worst \
+conversion for the latter", w->fn, l->fn);
 	  else
 	    add_warning (w, l);
           return winner;

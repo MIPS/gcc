@@ -1,3 +1,40 @@
+2003-03-25  Paolo Carlini  <pcarlini@unitus.it>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/10097
+	* src/fstream.cc (basic_filebuf<char>::_M_underflow_common,
+	basic_filebuf<wchar_t>::_M_underflow_common):
+	if (gptr() < egptr()) return *gptr().
+	* testsuite/27_io/filebuf_virtuals.cc (test15): Add.
+
+	* testsuite/27_io/filebuf_members.cc (test_04): Minor
+	changes: unlink fifo before making it, fix spelling error.
+
+2003-03-22  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/os/hpux/ctype_noninline.h (ctype<char>::classic_table):
+	Correct return value.
+
+2003-03-21  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/5730
+	* include/bits/c++config (_GLIBCPP_FAST_MATH): Define.
+        * include/std/std_complex.h (norm):  Use faster,
+        less accurate computation for builtin float types under --fast-math.
+
+2003-03-21  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/10167
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h
+	(do_out, do_unshift, do_in): qualify 'ok', 'error', 'partial',
+	'noconv' with codecvt_base::.
+
+2003-03-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* src/strstream.cc (strstreambuf::overflow): Make sure operands of
+	min and max have the same type.
+	* include/bits/basic_string.tcc (append, rfind, compare): Likewise.
+
 2003-03-17  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/Makefile.am (CLEANFILES): Add tmp*.

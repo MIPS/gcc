@@ -682,7 +682,7 @@ try_redirect_by_replacing_jump (e, target)
 
   if (tmp || !onlyjump_p (insn))
     return false;
-  if (reload_completed && JUMP_LABEL (insn)
+  if (flow2_completed && JUMP_LABEL (insn)
       && (table = NEXT_INSN (JUMP_LABEL (insn))) != NULL_RTX
       && GET_CODE (table) == JUMP_INSN
       && (GET_CODE (PATTERN (table)) == ADDR_VEC
@@ -937,6 +937,34 @@ force_nonfallthru_and_redirect (e, target)
   rtx note;
   edge new_edge;
   int abnormal_edge_flags = 0;
+
+  /* In the case the last instruction is conditional jump to the next
+     instruction, first redirect the jump itself and then continue
+     by creating an basic block afterwards to redirect fallthru edge.  */
+  if (e->src != ENTRY_BLOCK_PTR && e->dest != EXIT_BLOCK_PTR
+      && any_condjump_p (e->src->end)
+      && JUMP_LABEL (e->src->end) == e->dest->head)
+    {
+      rtx note;
+      edge b = make_edge (e->src, target, 0);
+
+      if (!redirect_jump (e->src->end, block_label (target), 0))
+	abort ();
+      note = find_reg_note (e->src->end, REG_BR_PROB, NULL_RTX);
+      if (note)
+	{
+	  int prob = INTVAL (XEXP (note, 0));
+
+	  b->probability = prob;
+	  b->count = e->count * prob / REG_BR_PROB_BASE;
+	  e->probability -= e->probability;
+	  e->count -= b->count;
+	  if (e->probability < 0)
+	    e->probability = 0;
+	  if (e->count < 0)
+	    e->count = 0;
+	}
+    }
 
   if (e->flags & EDGE_ABNORMAL)
     {

@@ -541,10 +541,23 @@ expand_computed_goto (exp)
 #endif
 
   emit_queue ();
-  do_pending_stack_adjust ();
-  emit_indirect_jump (x);
 
-  current_function_has_computed_jump = 1;
+  if (! cfun->computed_goto_common_label)
+    {
+      cfun->computed_goto_common_reg = copy_to_mode_reg (Pmode, x);
+      cfun->computed_goto_common_label = gen_label_rtx ();
+      emit_label (cfun->computed_goto_common_label);
+  
+      do_pending_stack_adjust ();
+      emit_indirect_jump (cfun->computed_goto_common_reg);
+
+      current_function_has_computed_jump = 1;
+    }
+  else
+    {
+      emit_move_insn (cfun->computed_goto_common_reg, x);
+      emit_jump (cfun->computed_goto_common_label);
+    }
 }
 
 /* Handle goto statements and the labels that they can go to.  */
@@ -3936,7 +3949,7 @@ expand_decl (decl)
 
       /* If something wants our address, try to use ADDRESSOF.  */
       if (TREE_ADDRESSABLE (decl))
-	put_var_into_stack (decl);
+	put_var_into_stack (decl, /*rescan=*/false);
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -4442,6 +4455,7 @@ expand_start_case (exit_flag, expr, type, printname)
   nesting_stack = thiscase;
 
   do_pending_stack_adjust ();
+  emit_queue ();
 
   /* Make sure case_stmt.start points to something that won't
      need any transformation before expand_end_case.  */

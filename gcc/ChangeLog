@@ -1,3 +1,408 @@
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/10067
+	* config/sparc/sparc.md (jump pattern): Correct order
+	when issuing the annuling marker.
+
+2003-03-28  Alan Modra  <amodra@bigpond.net.au>
+
+	* loop.c: (find_mem_in_note_1, find_mem_in_note): New functions.
+	(replace_loop_mems): Add "written" param.  Remove invalid REG_EQUAL
+	notes after hoisting.
+	(load_mems): Adjust replace_loop_mems call.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8281
+	* config/sparc/sparc.md (movdi_insn_sp32_v9): Remove 'f-f' alternative.
+	(movdi reg/reg split): Match only on sparc32, and v9 when int regs.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Richard Henderson  <rth@redhat.com>
+
+	PR target/10114 and PR target/10084
+	* dwarf2out.c (mem_loc_descriptor): Handle LO_SUM.
+
+2003-03-27  Olivier Hainque  <hainque@act-europe.fr>
+
+	PR ada/9953
+	* ada/Makefile.in (gnatlib configuration for HPUX): Split
+	the general section for HPUX into specific sections for
+	HPUX 10 and HPUX 11. Fix the setting of TGT_LIB in the HPUX
+	11 case.
+
+2003-03-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_optimize_prolog): Do not save/restore
+	registers used for global asm variables.
+	(s390_frame_info, s390_arg_frame_offset): Likewise.
+	(s390_emit_prologue, s390_emit_epilogue): Likewise.
+
+2003-03-26  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Update Janis Johnson.
+
+2003-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.c (ia64_expand_op_and_fetch): Fix comment.
+	(ia64_expand_compare_and_swap): Use always DImode ar.ccv,
+	zero extend old to it.
+	* config/ia64/ia64.md (cmpxchg_acq_si): Remove mode from ccv
+	operand.
+
+2003-03-26  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/7784
+	* reload.c (find_reloads_address): Handle
+	(PLUS (PLUS (REG) (REG)) (CONST_INT)) form for
+	all base registers.
+
+2003-03-25  Marcelo Abreu  <mmabreu@inf.ufrgs.br>
+
+	PR other/10203
+	* version.c: Reference the GCC web site in the URL.
+
+Tue Mar 25 20:48:05 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/10056
+	* cfglayout.c (fixup_reorder_chain):  Fix dealing with the conditional
+	jump jumping to the next instruction.
+	* cfgrtl.c (force_nonfallthru_and_redirect):  Likewise.
+	* cfg.c (unchecked_make_edge): New.
+	* basic-block.h (unchecked_make_edge): Declare.
+
+2003-03-25  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/10171
+	* unroll.c (unroll_loop): Don't delete the jump at the end unless
+	we also delete a jump at the beginning.
+
+2003-03-25  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* doc/contrib.texi (Contributors): Mention self as 68HC11/68HC12
+	contributor.
+
+2003-03-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/passes.texi (Passes): Properly document that we do not
+	perform jump2 any longer; remove command-line option -dJ.
+
+2003-03-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8746
+	* config/i386/i386.md (and promoting splitters): Disable HImode to
+	SImode promoting when the sign bit matters and is not preserved, or
+	when TARGET_FAST_PREFIX is true. Disable promoting when optimizing
+	for size.
+
+2003-03-24  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/t-m68hc11-gas (LIB1ASMFUNCS): Add _call_far and
+	_return_far
+	(MULTILIB_OPTIONS): Don't multilib on -mlong-calls.
+	(MULTILIB_EXCEPTIONS): Likewise.
+	* config/m68hc11/m68hc11.md ("call"): Support far calls for 68HC11
+	by calling some board support routine.
+	("call_value"): Likewise.
+	("*return_void"): Likewise for return.
+	("*return_16bit"): Likewise.
+	("*return_32bit"): Likewise.
+	* config/m68hc11/m68hc11.h (ASM_DECLARE_FUNCTION_NAME): Generate .far
+	for 68HC11 too.
+	(DWARF2_ADDR_SIZE): Use 4 so that addresses can 
+	* config/m68hc11/m68hc11.c (m68hc11_override_options): Accept
+	-mlong-calls for 68HC11.
+	* config/m68hc11/larith.asm (declare_near): New macro.
+	(__premain, ___negsi2, ___one_cmplsi2, ___ashlsi3): Use it.
+	(___ashrsi3, ___lshrsi3, ___lshrhi3, ___lshlhi3): Likewise.
+	(___rotrhi3, ___rotlhi3, ___ashrhi3, ___ashrqi3): Likewise.
+	(___lshlqi3, __divmodhi4, ___mulqi3, ___mulhi3): Likewise.
+	(__mulhi32): Likewise.
+	(ret): Update macro for 68HC11.
+	(__far_trampoline): Implement for 68HC11.
+	(__call_a16, __call_a32, __return_void, __return_16): New support
+	routines for 68HC11 memory bank switching calling support.
+	(__return_32): Likewise.
+
+2003-03-21  Glen Nakamura  <glen@imodulo.com>
+
+	PR opt/10087
+	* loop.c (loop_givs_reduce): Skip bivs with duplicate locations
+	while incrementing giv.
+	(record_biv): Check for duplicate biv locations and
+	set (struct induction *) v->same if found.
+
+2003-03-24  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (Testing): Mention test result links from build
+	status pages.
+
+2003-03-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* function.c (put_var_into_stack): Change bool parameter to int.
+	(gen_mem_addressof): Likewise.
+	* rtl.h (gen_mem_addressof): Likewise.
+	* tree.h (put_var_into_stack): Likewise.
+	* config/alpha/alpha.c (alpha_gp_save_rtx): Adjust call to
+	gen_mem_addressof or put_var_into_stack.
+	* config/c4x/c4x.c (c4x_expand_builtin): Likewise.
+
+2003-03-24  Andreas Schwab  <schwab@suse.de>
+
+	* config/ia64/ia64.c (spill_tfmode_operand): Adjust calls to
+	gen_mem_addressof.
+
+2003-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (do_jump): Handle UNSAVE_EXPR specially.
+
+2003-03-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/10072
+	* combine.c (simplify_if_then_else): Check that the mode
+	has MODE_INT class before applying the (OP Z (mult COND C2))
+	transformation.
+
+2003-03-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/9414
+	* config/sparc/sparc.md (widening peepholes): Use
+	widen_memory_access instead of change_address.
+
+2003-03-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7086
+	* c-typeck.c (c_mark_addressable): Adjust calls to
+	put_var_into_stack.
+	* expr.c (expand_expr): Likewise.
+	* function.c (put_var_into_stack): Add rescan parameter.  Do not
+	call fixup_var_refs when rescan is false.
+	(gen_mem_addressof): Likewise.
+	(assign_parms): Adjust calls to put_var_into_stack.
+	(setjmp_protect): Likewise.
+	(setjmp_protect_args): Likewise.
+	* rtl.h (gen_mem_addressof): Change prototype.
+	* stmt.c (expand_decl): Adjust calls to put_var_into_stack.
+	* tree.h (put_var_into_stack): Change prototype.
+
+2003-03-23  Arpad Beszedes <beszedes@cc.u-szeged.hu>
+
+	PR middle-end/9967
+	* builtins.c (expand_builtin_fputs): When optimizing for size,
+	don't transform fputs into fwrite.
+
+2003-03-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/sysv4.h (ASM_OUTPUT_ALIGNED_BSS): Remove unnecessary
+	globalize_label.
+
+	Merge from mainline.
+	2003-01-13  Andreas Schwab  <schwab@suse.de>
+	* config/rs6000/sysv4.h (ASM_OUTPUT_ALIGNED_LOCAL): Output type
+	directive.
+
+2003-03-23  Glen Nakamura <glen@imodulo.com>
+
+	PR c/8224
+	* fold-const.c (extract_muldiv_1): Don't pass through type conversions
+	when signedness changes for division or modulus.
+
+2003-03-23  Richard Henderson  <rth@redhat.com>
+     
+        * cfgcleanup.c (try_optimize_cfg): Allow merging of tablejumps
+        before flow2.
+        * cfgrtl.c (try_redirect_by_replacing_jump): Similarly.
+
+2003-03-23  Richard Henderson  <rth@redhat.com>
+
+        PR opt/10116
+        * ifcvt.c (find_if_block): Disallow tablejump insns outgoing
+        from then_bb or else_bb after flow2.
+	* jump.c (tablejump_p): New.
+	* rtl.h: Declare it.
+
+2003-03-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_cbranch): Fix typo in comment.
+
+2003-03-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_cbranch, output_bb, output_bvb): Output nop for
+	conditional branch to the following instruction.  Use next_real_insn
+	instead of next_active_insn.
+	(output_dbra, output_movb, jump_in_call_delay): Use next_real_insn
+	instead of next_active_insn.
+
+2003-03-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("movti", "*movdi_31", "*movdf_31"): Use 'o' instead
+	of 'm' constraint in forced-split alternatives.
+	("*adddi3_31", "*subdi3_31"): Likewise.  Also, pass 0 instead of 1 as
+	VALIDATE_ADDRESS parameter to operand_subword.
+
+2003-03-22  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config/c4x/t-c4x (MULTILIB_MATCHES): Make gcc recognize a c33 as
+	a c30 instead of a c40 processor.
+	
+2003-03-21  Richard Henderson  <rth@redhat.com>
+
+	PR opt/2001
+        * bb-reorder.c (maybe_duplicate_computed_goto_succ): New.
+        (make_reorder_chain_1): Call it.
+
+        * function.h (struct function): Add computed_goto_common_label,
+        computed_goto_common_reg.
+        * function.c (free_after_compilation): Zap them.
+        * stmt.c (expand_computed_goto): Use them to produce one
+        indirect branch per function.
+
+2003-03-22  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("call_value"): Fix trap check.
+
+2003-03-22  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (ASM_DECLARE_FUNCTION_NAME): Fix typo in
+	writing .interrupt command.
+	* config/m68hc11/m68hc11.md ("call"): Look at the symbol to see
+	if it's a far or near function.
+	("call_value"): Likewise.
+	* config/m68hc11/m68hc11.c (m68hc11_attribute_table): Add far and
+	near attributes.
+	(m68hc11_handle_fntype_attribute): Accept attributes on methods.
+	(m68hc11_override_options): Ignore -mlong-calls for 68HC11.
+	(m68hc11_initial_elimination_offset): Set current_function_far
+	according to attributes.
+	(expand_prologue): Likewise.
+	(trap_handler_symbol): New global to keep track of trap handlers.
+	(m68hc11_encode_section_info): Mark symbol as far if needed; set
+	trap symbol.
+	(m68hc11_is_far_symbol): New function.
+	(m68hc11_is_trap_symbol): New function.
+	* config/m68hc11/m68hc11-protos.h (m68hc11_is_far_symbol): Declare.
+	(m68hc11_is_trap_symbol): Declare.
+
+Fri Mar 21 23:14:11 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR inline-asm/7916
+
+	* function.c (instantiate_virtual_regs_lossage): New function.
+	(instantiate_virtual_regs_1): Use it.
+	(instantiate_virtual_regs): Do not continue in substition when insn has
+	been deleted.
+
+2003-03-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.h: Do not include fixdfdi.h on s390x.
+	(TARGET_64BIT): Define as compile-time constant when IN_LIBGCC2.
+	(MIN_UNITS_PER_WORD): Do not define when IN_LIBGCC2.
+
+2003-03-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR doc-bug/9813
+	* doc/extend.texi: Move misplaced paragraph about underscores in
+	variables in macros.
+
+2003-03-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* doc/invoke.texi: Fix table environment.
+
+2003-03-21 Richard Earnshaw  <rearnsha@arm.com>
+
+	* ifcvt.c (find_if_case_1): If we add a new bb, update the dominance
+	information.
+
+2003-03-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Richard Henderson  <rth@redhat.com>
+
+	PR optimization/8366
+	* config/sparc/sparc.h: (SYMBOLIC_CONST): New macro.
+	(GO_IF_LEGITIMATE_ADDRESS): Use it. Reject the form
+	PIC+SYMBOLIC_CONST in other modes than Pmode.
+	(GO_IF_MODE_DEPENDENT_ADDRESS): Use it. Mark
+	the form PIC+SYMBOLIC_CONST as mode dependent.
+
+2003-03-20  Richard Henderson  <rth@redhat.com>
+
+        * fold-const.c (extract_muldiv_1): Revert changing order of
+        operands in case MULT_EXPR of 2003-02-16 patch.
+
+2003-03-20  Richard Henderson  <rth@redhat.com>
+
+        PR c/8602
+        * integrate.c (output_inline_function): Reset input_filename
+        and lineno from the decl before rest_of_compilation.
+
+2003-03-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR 10066
+	* arm.md (UNSPEC_PIC_BASE): New constant.
+	(pic_add_dot_plus_four): Wrap with unspec.
+	(pic_add_dot_plus_eight): Likewise.
+
+2003-03-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_preferred_reload_class): Do not
+	force constants to the pool unless necessary.
+	(s390_decompose_address): Prefer to use pointer as base,
+	not index register.
+	* config/s390/s390.md ("*tsthiCCT_only"): Remove '?' from
+	Q alternative.
+	("*movdi_64", "*movsi", "movhi", "movqi_64", "movqi", 
+	"*movdf_64", "*movsf"): Add '?' to Q->Q alternatives.
+	("*extractqi", "*extracthi", "*zero_extendhisi2_31",
+	"*zero_extendqisi2_31", "*zero_extendqihi2_31",
+	"*adddi3_31", "*subdi3_31"): Do not set "type" attribute.
+
+2003-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_load_toc_table): Don't call
+	rs6000_maybe_dead if !fromprolog.
+
+2003-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* ifcvt.c (dead_or_predicable): Fail if there are any references
+	to tablejump in merge_bb other than the final JUMP_INSN.
+
+2003-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* stmt.c (expand_start_case): Call emit_queue ().
+
+2003-03-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR 10062
+	* config/pa/pa-hpux.h (TARGET_HPUX_UNWIND_LIBRARY): Redefine.
+	* pa-protos.h (output_lbranch): New prototype.
+	* pa.c (compute_frame_size): Change size of the frame marker on the
+	64-bit ports to 48 bytes.
+	(pa_output_function_prologue): Document why SAVE_SP is set.
+	(hppa_expand_prologue): Save previous stack pointer into frame marker
+	on targets which use the hpux unwind library.
+	(output_cbranch): Use output_lbranch.
+	(output_lbranch): New function to output long unconditional branches.
+	* pa.h (TARGET_HPUX_UNWIND_LIBRARY): Define.
+	(STACK_POINTER_OFFSET): Update offset for 48-byte frame marker on
+	64-bit ports.
+	* pa.md (jump): Use output_lbranch.
+	(allocate_stack): New expander for dynamic stack allocation.
+
+2003-03-18  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (independent_decode_option): Return success for --help,
+	--target-help and --version.
+
+2003-03-19  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/10073
+	* combine.c (force_to_mode <NOT>): Use gen_int_mode.
+
+2003-03-18  Andreas Schwab  <schwab@suse.de>
+
+	PR target/7248
+	* config/m68k/m68k.md (iordi3): Fix setting low half to -1.  From
+	martin@blom.org.
+
 2003-03-17  Jason Merrill  <jason@redhat.com>
 
 	PR c++/10091

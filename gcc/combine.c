@@ -1,6 +1,6 @@
 /* Optimize by combining instructions for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4983,7 +4983,9 @@ simplify_if_then_else (x)
      neither 1 or -1, but it isn't worth checking for.  */
 
   if ((STORE_FLAG_VALUE == 1 || STORE_FLAG_VALUE == -1)
-      && comparison_p && mode != VOIDmode && ! side_effects_p (x))
+      && comparison_p
+      && GET_MODE_CLASS (mode) == MODE_INT
+      && ! side_effects_p (x))
     {
       rtx t = make_compound_operation (true_rtx, SET);
       rtx f = make_compound_operation (false_rtx, SET);
@@ -7372,7 +7374,8 @@ force_to_mode (x, mode, mask, reg, just_select)
 	      < GET_MODE_BITSIZE (GET_MODE (x)))
 	  && INTVAL (XEXP (XEXP (x, 0), 1)) < HOST_BITS_PER_WIDE_INT)
 	{
-	  temp = GEN_INT (mask << INTVAL (XEXP (XEXP (x, 0), 1)));
+	  temp = gen_int_mode (mask << INTVAL (XEXP (XEXP (x, 0), 1)),
+			       GET_MODE (x));
 	  temp = gen_binary (XOR, GET_MODE (x), XEXP (XEXP (x, 0), 0), temp);
 	  x = gen_binary (LSHIFTRT, GET_MODE (x), temp, XEXP (XEXP (x, 0), 1));
 

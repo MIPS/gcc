@@ -2994,7 +2994,11 @@ finish_file ()
       tree decl = VARRAY_TREE (deferred_fns, i);
 
       if (TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
-	  && !(TREE_ASM_WRITTEN (decl) || DECL_SAVED_TREE (decl)))
+	  && !(TREE_ASM_WRITTEN (decl) || DECL_SAVED_TREE (decl)
+	       /* An explicit instantiation can be used to specify
+		  that the body is in another unit. It will have
+		  already verified there was a definition.  */
+	       || DECL_EXPLICIT_INSTANTIATION (decl)))
 	cp_warning_at ("inline function `%D' used but never defined", decl);
     }
   
@@ -4245,7 +4249,7 @@ arg_assoc_class (k, type)
 	/* Only interested in global functions with potentially hidden
            (i.e. unqualified) declarations.  */
 	if (TREE_PURPOSE (friends) == error_mark_node && TREE_VALUE (friends)
-	    && decl_namespace (TREE_VALUE (friends)) == context)
+	    && CP_DECL_CONTEXT (TREE_VALUE (friends)) == context)
 	  if (add_function (k, TREE_VALUE (friends)))
 	    return 1;
 

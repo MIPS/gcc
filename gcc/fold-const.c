@@ -4117,7 +4117,12 @@ extract_muldiv_1 (t, c, code, wide_type)
 	      /* ... or its type is larger than ctype,
 		 then we cannot pass through this truncation.  */
 	      || (GET_MODE_SIZE (TYPE_MODE (ctype))
-		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))))
+		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))
+	      /* ... or signedness changes for division or modulus,
+		 then we cannot pass through this conversion.  */
+	      || (code != MULT_EXPR
+		  && (TREE_UNSIGNED (ctype)
+		      != TREE_UNSIGNED (TREE_TYPE (op0))))))
 	break;
 
       /* Pass the constant down and see if we can make a simplification.  If
@@ -4277,14 +4282,6 @@ extract_muldiv_1 (t, c, code, wide_type)
 	  && TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
 	  && integer_zerop (const_binop (TRUNC_MOD_EXPR, op1, c, 0)))
 	return omit_one_operand (type, integer_zero_node, op0);
-
-      /* Arrange for the code below to simplify two constants first.  */
-      if (TREE_CODE (op1) == INTEGER_CST && TREE_CODE (op0) != INTEGER_CST)
-	{
-	  tree tmp = op0;
-	  op0 = op1;
-	  op1 = tmp;
-	}
 
       /* ... fall through ...  */
 

@@ -1,3 +1,7 @@
+Fri Mar 28 12:37:47 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from 3.3-branch (hammer-3_3-merge-20030328)
+
 Wed Mar 26 00:37:13 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md: New splitters to canonicalize order of arguments for AND.

@@ -1,3 +1,34 @@
+2003-03-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/9793
+	* target.h (ffetarget_divide_integer1): Perform division by -1
+	using negation to prevent possible overflow trap on the host.
+
+2003-03-25  Marcelo Abreu  <mmabreu@inf.ufrgs.br>
+
+	PR fortran/10204
+	* ffe.texi: Reference the GCC web site in the URL.
+
+2003-03-24  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/10197
+	* news.texi: Document PR fortran/10197 fixed.
+
+Sun Mar 23 23:43:45 2003  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7086
+	* com.c (ffecom_sym_transform_): Adjust calls to
+	put_var_into_stack.
+	(ffe_mark_addressable): Likewise.
+
+2003-03-22  Bud Davis  <bdavis9659@comcast.net>
+
+	* com.c (ffecom_constantunion_with_type): New function.
+	* com.h (ffecom_constantunion_with_type): Declare.
+	* stc.c (ffestc_R810): Check for kind type.
+	* ste.c (ffeste_R810): Use ffecom_constantunion_with_type
+	to discern SELECT CASE variables.
+
 2003-03-15  Andreas Jaeger  <aj@suse.de>
 
 	* g77spec.c (DEFAULT_SWITCH_TAKES_ARG): Remove.

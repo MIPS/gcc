@@ -1,3 +1,112 @@
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp8.c: New test.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp7.c: New test.
+
+2003-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/10047
+	* g++.dg/template/inline1.C: New test.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-dwarf2.c: New test.
+
+2003-03-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/10158
+	* g++.dg/template/friend18.C: New test.
+
+2003-03-26  Roger Sayle  <roger@eyesopen.com>
+
+	* g77.f-torture/compile/20030326-1.f: New test case.
+
+2003-03-26  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.c-torture/execute/20020227-1.x: Don't XFAIL for powerpc64.
+
+	* gcc.c-torture/compile/simd-5.x: Expect XFAIL for powerpc64.
+
+2003-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/ia64-sync-3.c: New test.
+
+2003-03-26  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp6.c: New test.
+
+2003-03-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-signbit-1.c: New test.
+	* gcc.dg/i386-signbit-2.c: New test.
+	* gcc.dg/i386-signbit-3.c: New test.
+
+2003-03-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp5.c: Fix options.
+
+2003-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/10197
+	* g77.f-torture/execute/10197.f: New test.
+
+2003-03-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp5.c: Fix comment.
+
+2003-03-24  Glen Nakamura  <glen@imodulo.com>
+
+	PR opt/10087
+	* gcc.dg/20030324-1.c: New test.
+
+2003-03-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9898, c++/383
+	* g++.dg/template/conv6.C: New test.
+
+	PR c++/10199
+	* g++.dg/lookup/template1.C: New test.
+
+2003-03-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp5.c: New test.
+
+2003-03-23  Arpad Beszedes <beszedes@cc.u-szeged.hu>
+
+	PR middle-end/9967
+	* gcc.c-torture/execute/stdio-opt-1.c: Adjust test for change to
+	builtin fputs.
+
+2003-03-23  Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+
+	PR c/8224
+	* gcc.dg/20030323-1.c: New test.
+
+2003-03-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030321-1.c: New test.
+
+2003-03-22  Bud Davis  <bdavis9659@comcast.net>
+
+	* g77.f-torture/execute/select.f: New test.
+	* g77.f-torture/noncompile/select_no_compile.f: New test.
+
+2003-03-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6412
+	* g++.dg/template/friend17.C: New test.
+
+2003-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030309-1.c: New test.
+
+2003-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20030313-1.c: New test.
+
 2003-03-17  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/9629
