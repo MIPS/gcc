@@ -351,6 +351,7 @@ dchain_build_scope (stmt_p)
   }
 }
 
+#if 0
 /* Declares all the variables in VARS in SCOPE for the double linked chain. 
    Returns the last DECL_STMT emitted.  */
 
@@ -371,6 +372,7 @@ dchain_declare_tmp_vars (vars, scope)
   
   return last;
 }
+#endif
 
 /* Delete all LABEL_STMTs from the statement STMT.  */
 

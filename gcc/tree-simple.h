@@ -29,12 +29,14 @@ extern tree create_tmp_var             PARAMS ((tree, const char *));
 extern tree create_tmp_alias_var       PARAMS ((tree, const char *));
 extern bool is_simple_tmp_var	       PARAMS ((tree));
 extern tree get_initialized_tmp_var    PARAMS ((tree, tree *));
-extern tree declare_tmp_vars           PARAMS ((tree, tree));
+extern void declare_tmp_vars           PARAMS ((tree, tree));
 extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
+
 extern tree rationalize_compound_expr  PARAMS ((tree));
 extern tree right_assocify_expr		PARAMS ((tree));
+extern void wrap_all_with_wfl PARAMS ((tree *, const char *, int));
 
 /* Validation of SIMPLE expressions.  */
 int is_simple_expr                     PARAMS ((tree));
@@ -67,6 +69,9 @@ int is_simple_stmt                     PARAMS ((tree));
 
 void recalculate_side_effects		PARAMS ((tree));
 
+typedef void foreach_stmt_fn PARAMS ((tree *));
+void foreach_stmt PARAMS ((tree *, foreach_stmt_fn *));
+
 /* FIXME this needs a better name.  */
 tree add_tree			       PARAMS ((tree, tree *));
 /* FIXME we should deduce this from the predicate.  */
@@ -83,5 +88,13 @@ int simplify_stmt		       PARAMS ((tree *));
 
 /* Miscellaneous helpers.  */
 tree get_base_symbol                   PARAMS ((tree));
+
+void gimple_add_tmp_var			PARAMS ((tree));
+tree gimple_current_bind_expr	        PARAMS ((void));
+void gimple_push_bind_expr	        PARAMS ((tree));
+void gimple_pop_bind_expr	        PARAMS ((void));
+void mark_not_simple			PARAMS ((tree *));
+void unshare_all_trees        PARAMS ((tree));
+
 
 #endif /* _TREE_SIMPLE_H */

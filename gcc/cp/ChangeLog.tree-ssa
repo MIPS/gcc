@@ -1,3 +1,7 @@
+2002-10-04  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Add gimplify.o.
+
 2002-09-24  Jason Merrill  <jason@redhat.com>
 
 	* parse.y (parse_asm_stmt): New fn.

@@ -81,7 +81,7 @@ g++-cross$(exeext): g++$(exeext)
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
  c-dump.o $(CXX_TARGET_OBJS) c-opts.o \
   tree-cfg.o tree-dfa.o tree-optimize.o tree-ssa.o tree-ssa-pre.o \
-  c-simplify.o c-pretty-print.o tree-simple.o tree-alias-steen.o \
+  c-simplify.o gimplify.o c-pretty-print.o tree-simple.o tree-alias-steen.o \
   tree-alias-ecr.o tree-alias-type.o disjoint-set.o tree-ssa-ccp.o \
   tree-dchain.o tree-alias-common.o tree-ssa-dce.o old-tree-inline.o
 

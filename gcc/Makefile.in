@@ -729,7 +729,7 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o \
   c-simplify.o c-call-graph.o tree-simple.o simple-break-elim.o \
   simple-goto-elim.o tree-dchain.o tree-ssa-pre.o tree-alias-type.o \
-  tree-mudflap.o \
+  tree-mudflap.o gimplify.o \
   tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o \
   disjoint-set.o tree-ssa-ccp.o tree-ssa-dce.o
 
@@ -1405,6 +1405,8 @@ tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
    langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H) langhooks-def.h
+gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
+   diagnostic.h tree-simple.h tree-inline.h varray.h langhooks.h langhooks-def.h
 simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-dchain.h
 simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \

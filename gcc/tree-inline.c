@@ -107,7 +107,7 @@ static int inlinable_function_p PARAMS ((tree, inline_data *));
 static tree remap_decl PARAMS ((tree, inline_data *));
 static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree, tree));
 static tree add_stmt_to_compound PARAMS ((tree, tree, tree));
-static void remap_block PARAMS ((tree *, tree, inline_data *));
+static void remap_block PARAMS ((tree *, inline_data *));
 static void copy_bind_expr PARAMS ((tree *, int *, inline_data *));
 
 /* The approximate number of instructions per statement.  This number
@@ -189,18 +189,49 @@ remap_decl (decl, id)
   return (tree) n->value;
 }
 
+static tree
+remap_decls (decls, id)
+     tree decls;
+     inline_data *id;
+{
+  tree old_var;
+  tree new_decls = NULL_TREE;
+
+  /* Remap its variables.  */
+  for (old_var = decls; old_var; old_var = TREE_CHAIN (old_var))
+    {
+      tree new_var;
+
+      /* Remap the variable.  */
+      new_var = remap_decl (old_var, id);
+
+      /* If we didn't remap this variable, so we can't mess with
+	 its TREE_CHAIN.  If we remapped this variable to
+	 something other than a declaration (say, if we mapped it
+	 to a constant), then we must similarly omit any mention
+	 of it here.  */
+      if (!new_var || !DECL_P (new_var))
+	;
+      else
+	{
+	  TREE_CHAIN (new_var) = new_decls;
+	  new_decls = new_var;
+	}
+    }
+
+  return nreverse (new_decls);
+}
+
 /* Copy the BLOCK to contain remapped versions of the variables
    therein.  And hook the new block into the block-tree.  */
 
 static void
-remap_block (block, decls, id)
+remap_block (block, id)
      tree *block;
-     tree decls;
      inline_data *id;
 {
   tree old_block;
   tree new_block;
-  tree old_var;
   tree fn;
 
   /* Make the new block.  */
@@ -211,30 +242,8 @@ remap_block (block, decls, id)
   *block = new_block;
 
   /* Remap its variables.  */
-  for (old_var = decls ? decls : BLOCK_VARS (old_block);
-       old_var;
-       old_var = TREE_CHAIN (old_var))
-    {
-      tree new_var;
+  BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block), id);
 
-      /* Remap the variable.  */
-      new_var = remap_decl (old_var, id);
-      /* If we didn't remap this variable, so we can't mess with
-	 its TREE_CHAIN.  If we remapped this variable to
-	 something other than a declaration (say, if we mapped it
-	 to a constant), then we must similarly omit any mention
-	 of it here.  */
-      if (!new_var || !DECL_P (new_var))
-	;
-      else
-	{
-	  TREE_CHAIN (new_var) = BLOCK_VARS (new_block);
-	  BLOCK_VARS (new_block) = new_var;
-	}
-    }
-
-  /* We put the BLOCK_VARS in reverse order; fix that now.  */
-  BLOCK_VARS (new_block) = nreverse (BLOCK_VARS (new_block));
   fn = VARRAY_TREE (id->fns, 0);
 #if 1
   /* FIXME!  It shouldn't be so hard to manage blocks.  Rebuilding them in
@@ -275,12 +284,14 @@ copy_bind_expr (tp, walk_subtrees, id)
   copy_tree_r (tp, walk_subtrees, NULL);
   if (block)
     {
-      remap_block (&block, NULL_TREE, id);
+      remap_block (&block, id);
       BIND_EXPR_BLOCK (*tp) = block;
-      BIND_EXPR_VARS (*tp) = BLOCK_VARS (block);
     }
-  else if (BIND_EXPR_VARS (*tp))
-    abort ();
+
+  if (BIND_EXPR_VARS (*tp))
+    /* This will remap a lot of the same decls again, but this should be
+       harmless.  */
+    BIND_EXPR_VARS (*tp) = remap_decls (BIND_EXPR_VARS (*tp), id);
 }
 
 /* Called from copy_body via walk_tree.  DATA is really an

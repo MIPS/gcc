@@ -1,3 +1,27 @@
+2002-10-04  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (declare_tmp_vars): Don't add temps to block vars.
+	* tree-inline.c (remap_decls): Split out from remap_block.
+	(copy_bind_expr): Remap BIND_EXPR_VARS separately from block vars.
+
+	* c-simplify.c (simplify_expr_stmt): Call set_file_and_line_for_stmt.
+
+	* gimplify.c: New file.
+	(push_gimplify_context, pop_gimplify_context): New fns.
+	(gimple_push_bind_expr, gimple_pop_bind_expr): New fns.
+	(simplify_bind_expr): Use them.
+	(gimple_current_bind_expr, gimple_add_tmp_var): New fn.
+	(foreach_stmt): Recurse if necessary.
+	(various): Use generic interfaces instead of c-specific ones.
+	* c-simplify.c: Move language-independent code to gimplify.c.
+	(simplify_c_loop): Use add_tree instead of add_stmt_to_compound.
+	(various): Use new *_bind_expr interfaces.
+	* Makefile.in (C_AND_OBJC_OBJS): Add gimplify.o.
+	(gimplify.o): New rule.
+
+	* c-decl.c (c_expand_body): Dump trees here.
+	* c-simplify.c (simplify_function_body): Not here.
+
 2002-10-03  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_offset_expr_of_array_ref): Don't emit

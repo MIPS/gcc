@@ -6447,19 +6447,32 @@ c_expand_body (fndecl, nested_p, can_defer_p)
      int nested_p, can_defer_p;
 {
   int uninlinable = 1;
+  FILE *dump_file;
+  int dump_flags;
 
   /* Dump the function call graph.  */
-  {  
-    FILE *dumpfile;
-    int dump_flags;
-    dumpfile = dump_begin (TDI_xml, &dump_flags);
-    if (dumpfile)
-      {
-	/* Dump the function call graph.  */
-	print_call_graph (dumpfile, fndecl);
-	dump_end (TDI_xml, dumpfile);
-      }
-  }
+  dump_file = dump_begin (TDI_xml, &dump_flags);
+  if (dump_file)
+    {
+      /* Dump the function call graph.  */
+      print_call_graph (dump_file, fndecl);
+      dump_end (TDI_xml, dump_file);
+    }
+
+  /* And the unoptimized tree IR.  */
+  dump_file = dump_begin (TDI_original, &dump_flags);
+  if (dump_file)
+    {
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      if (dump_flags & TDF_RAW)
+	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
+      fprintf (dump_file, "\n");
+
+      dump_end (TDI_original, dump_file);
+    }
 
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
@@ -6527,6 +6540,21 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (!flag_disable_simple
       && simplify_function_tree (fndecl))
     {
+      /* Debugging dump after simplification.  */
+      dump_file = dump_begin (TDI_simple, &dump_flags);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+	  if (dump_flags & TDF_RAW)
+	    dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
+	  else
+	    print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
+	  fprintf (dump_file, "\n");
+
+	  dump_end (TDI_simple, dump_file);
+	}
+
 #if 0
       if (flag_mudflap)
 	{
