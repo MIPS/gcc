@@ -1,3 +1,12 @@
+2002-12-13  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppinit.c (path_include): Take an environment variable name.
+	Tidy up.
+	(init_standard_includes): Simplify environment handling, and
+	move to ...
+	(cpp_read_main_file): ...here as -nostdinc should not affect
+	environment variable paths.
+
 2002-12-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* hooks.h (hook_tree_tree_bool_false): Declare
