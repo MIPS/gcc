@@ -1,3 +1,8 @@
+2003-09-23  Mike Stump  <mrs@apple.com>
+
+	* pex-unix.c (set_last_pipe_input, get_last_pipe_input): Add hooks
+	into piping internals.
+
 2003-07-05  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* pex-win32.c (pexecute): Mark parameters this_pname and
