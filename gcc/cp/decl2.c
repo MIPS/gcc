@@ -3028,7 +3028,7 @@ finish_file ()
 	     there's already a body for it, create RTL for it now.
 	     (There might be no body if this is a method we haven't
 	     gotten around to synthesizing yet.)  */
-	  if (!DECL_EXTERNAL (decl)
+	  if ((!DECL_EXTERNAL (decl) || flag_unit_at_a_time)
 	      && DECL_NEEDED_P (decl)
 	      && DECL_SAVED_TREE (decl)
 	      && !TREE_ASM_WRITTEN (decl)

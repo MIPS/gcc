@@ -1,3 +1,7 @@
+2004-01-13  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (finish_file):  Fnalize external functions.
+
 2004-01-13  Andreas Schwab  <schwab@suse.de>
 
 	Backport from mainline:
