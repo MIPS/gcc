@@ -1,3 +1,16 @@
+2004-09-28   Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/plaf/basic/BasicComboPopup.java:
+	Added javadocs for undocumented fields.
+	(show): scroll down to the selected item and 
+	highlight selected item.
+	(startAutoScrolling): Implemented.
+	(stopAutoScrolling): Implemented.
+	(autoScrollUp): Implemented.
+	(autoScrollDown): Implemented.
+	(InvocationMouseHandler.mouseReleased): Implemented.
+	(InvocationMouseMotionHandler.mouseDragged): Implemented.
+
 2004-09-28  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/RescaleOp.java: Implement.
