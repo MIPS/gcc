@@ -468,6 +468,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	case VECTOR_CST:
 	  break;
 
+	case CONST_DECL:
+	  *expr_p = DECL_INITIAL (*expr_p);
+	  break;
+
 	  /* FIXME make this a decl.  */
 	case EXC_PTR_EXPR:
 	  break;
