@@ -1,3 +1,11 @@
+2002-04-18  Sebastian Pop  <s.pop@laposte.net>
+
+	* c-pretty-print.c (PRINT_FUNCTION_NAME): Define.
+	(dump_c_node): Call pretty_print_string to print string.
+	Call print_call_name to print function names.
+	(pretty_print_string): New function.
+	(print_call_name): New function.
+
 2002-04-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (simplify_do_stmt): Call is_simple_condexpr to test

@@ -35,13 +35,20 @@ extern void print_declaration PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
 extern void print_function_decl PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
 extern void print_struct_decl PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
 
-static int op_prio PARAMS ((tree));
-static const char *op_symbol PARAMS ((tree));
+static int op_prio              PARAMS ((tree));
+static const char *op_symbol    PARAMS ((tree));
+static void pretty_print_string PARAMS ((output_buffer *, const char*));
+static void print_call_name     PARAMS ((output_buffer *, tree));
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
 #define NIY do { \
   debug_output_buffer (buffer); debug_tree (node); abort (); } while (0)
+
+#define PRINT_FUNCTION_NAME(NODE)  output_printf             \
+  (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
+   IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (NODE, 0))) : \
+   IDENTIFIER_POINTER (DECL_NAME (NODE)))
 
 
 
@@ -329,53 +336,10 @@ dump_c_node (buffer, node, spc)
       NIY;
 
     case STRING_CST:
-      {
-	const char *str = TREE_STRING_POINTER (node);
-
-	output_add_string (buffer, "\"");
-	while (*str)
-	  {
-	    if (*str >= ' ')
-	      output_add_character (buffer, *str);
-	    else if (*str == '\n')
-	      output_add_string (buffer, "\\n");
-	    else if (*str == '\t')
-	      output_add_string (buffer, "\\t");
-	    else if (*str == '\"')
-	      output_add_string (buffer, "\\\"");
-	    else if (*str == '\'')
-	      output_add_string (buffer, "\\'");
-	    else if (*str == '\b')
-	      output_add_string (buffer, "\\b");
-	    else if (*str == '\f')
-	      output_add_string (buffer, "\\f");
-	    else if (*str == '\r')
-	      output_add_string (buffer, "\\r");
-	    else if (*str == '\v')
-	      output_add_string (buffer, "\\v");
-	    else if (*str == '\0')
-	      output_add_string (buffer, "\\0");
-	    else if (*str == '\1')
-	      output_add_string (buffer, "\\1");
-	    else if (*str == '\2')
-	      output_add_string (buffer, "\\2");
-	    else if (*str == '\3')
-	      output_add_string (buffer, "\\3");
-	    else if (*str == '\4')
-	      output_add_string (buffer, "\\4");
-	    else if (*str == '\5')
-	      output_add_string (buffer, "\\5");
-	    else if (*str == '\6')
-	      output_add_string (buffer, "\\6");
-	    else if (*str == '\7')
-	      output_add_string (buffer, "\\7");
-	    else
-	      output_add_character (buffer, *str);
-	    str++;
-	  }
-	output_add_string (buffer, "\"");
-	break;
-      }
+      output_add_string (buffer, "\"");
+      pretty_print_string (buffer, TREE_STRING_POINTER (node));
+      output_add_string (buffer, "\"");
+      break;
 
     case FUNCTION_DECL:
       if (!DECL_INITIAL (node))
@@ -596,9 +560,9 @@ dump_c_node (buffer, node, spc)
       NIY;
 
     case CALL_EXPR:
-      output_add_string (buffer, 
-	                 IDENTIFIER_POINTER (DECL_NAME 
-			   (TREE_OPERAND (TREE_OPERAND (node, 0), 0))));
+      print_call_name (buffer, node);
+
+      /* Print parameters.  */
       output_add_space (buffer);
       output_add_character (buffer, '(');
       op1 = TREE_OPERAND (node, 1);
@@ -1534,3 +1498,150 @@ op_symbol (op)
     }
 }
 
+/* Prints the name of a CALL_EXPR.  */
+
+static void 
+print_call_name (buffer, node)
+     output_buffer *buffer;
+     tree node;
+{
+  tree op0;
+
+  if (TREE_CODE (node) != CALL_EXPR)
+    abort ();
+
+  op0 = TREE_OPERAND (node, 0);
+
+  if (TREE_CODE (op0) == NON_LVALUE_EXPR)
+    op0 = TREE_OPERAND (op0, 0);
+
+  switch (TREE_CODE (op0))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+      PRINT_FUNCTION_NAME (op0);
+      break;
+      
+    case ADDR_EXPR:
+    case INDIRECT_REF:
+    case NOP_EXPR:
+      PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+      break;
+      
+    case COND_EXPR:
+      PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 1));
+      PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 2));
+      break;
+      
+    case COMPONENT_REF:
+      /* The function is a pointer contained in a structure.  */
+      if (TREE_CODE (TREE_OPERAND (op0, 0)) == INDIRECT_REF ||
+	  TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
+	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+      /* else
+	 We can have several levels of structures and a function 
+	 pointer inside.  This is not implemented yet...  */
+      //		  NIY;
+      break;
+      
+    case ARRAY_REF:
+      if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
+	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+      else
+	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+      break;
+      
+    default:
+      NIY;
+    }
+}
+
+/* Parses the string STR and replaces new-lines by '\n', tabs by '\t', ...  */
+
+static void 
+pretty_print_string (buffer, str) 
+     output_buffer *buffer;
+     const char *str;
+{
+  if (str == NULL)
+    return;
+
+  while (*str)
+    {
+      switch (str[0])
+	{
+	case '\b':
+	  output_add_string (buffer, "\\b");
+	  break;
+	  
+	case '\f':
+	  output_add_string (buffer, "\\f");
+	  break;
+	  
+	case '\n':
+	  output_add_string (buffer, "\\n");
+	  break;
+	  
+	case '\r':
+	  output_add_string (buffer, "\\r");
+	  break;
+	  
+	case '\t':
+	  output_add_string (buffer, "\\t");
+	  break;
+	  
+	case '\v':
+	  output_add_string (buffer, "\\v");
+	  break;
+	  
+	case '\\':
+	  output_add_string (buffer, "\\\\");
+	  break;
+
+	case '\"':
+	  output_add_string (buffer, "\\\"");
+	  break;
+
+	case '\'':
+	  output_add_string (buffer, "\\'");
+	  break;
+
+	case '\0':
+	  output_add_string (buffer, "\\0");
+	  break;
+
+	case '\1':
+	  output_add_string (buffer, "\\1");
+	  break;
+
+	case '\2':
+	  output_add_string (buffer, "\\2");
+	  break;
+
+	case '\3':
+	  output_add_string (buffer, "\\3");
+	  break;
+
+	case '\4':
+	  output_add_string (buffer, "\\4");
+	  break;
+
+	case '\5':
+	  output_add_string (buffer, "\\5");
+	  break;
+
+	case '\6':
+	  output_add_string (buffer, "\\6");
+	  break;
+
+	case '\7':
+	  output_add_string (buffer, "\\7");
+	  break;
+
+	default:
+	  output_add_character (buffer, str[0]);
+	  break;
+	}
+      str++;
+    }
+}
