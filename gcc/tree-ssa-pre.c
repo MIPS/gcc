@@ -772,27 +772,21 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	{
 	  tree *killexpr  = VARRAY_GENERIC_PTR (ei->kills, i);
 	  
-	  newref = create_ref (*killexpr,
-			       E_KILL, 0, block, killexpr,
-			       killexpr, NULL, true);
+	  newref = create_ref (*killexpr, E_KILL, 0, block, killexpr, 1);
 	  VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
 	  fibheap_insert (fh, preorder_count++, newref);
 	}
       else if (VARRAY_GENERIC_PTR (ei->lefts, i) != NULL)
 	{
 	  tree *leftexpr = VARRAY_GENERIC_PTR (ei->lefts, i);
-	  newref = create_ref (*leftexpr, 
-			       E_LEFT, 0, block, leftexpr,
-			       leftexpr, NULL, true);
+	  newref = create_ref (*leftexpr, E_LEFT, 0, block, leftexpr, 1);
 	  VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
 	  fibheap_insert (fh, preorder_count++, newref);
 	}
       else
 	{
 	  tree *occurexpr = VARRAY_GENERIC_PTR (ei->occurs, i);
-	  newref = create_ref (*occurexpr,
-				  E_USE, 0, block, occurexpr, 
-				  occurexpr, NULL, true);
+	  newref = create_ref (*occurexpr, E_USE, 0, block, occurexpr, 1);
 	  VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
 	  set_expruse_def (newref, NULL);
 	  set_exprref_class (newref, 0);
@@ -812,8 +806,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
         {
           if (phi_at_block (ei, succ->dest) != NULL)
             {
-              tree_ref newref = create_ref (NULL, E_USE, 0, block, 0, 
-					    0, 0, true);
+              tree_ref newref = create_ref (NULL, E_USE, 0, block, 0, 1);
               tree_ref phi = phi_at_block (ei, succ->dest);
 	      VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
               set_expruse_def (newref, NULL);
@@ -837,8 +830,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	  if (preorder_count != 0)
 	    {
 	      tree_ref newref;
-	      newref = create_ref (NULL, E_EXIT, 0, block, 
-				   NULL, NULL, NULL, true);
+	      newref = create_ref (NULL, E_EXIT, 0, block, NULL, 1);
 	      VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
 	      fibheap_insert (fh, preorder_count++, newref);
 	    }
@@ -1564,10 +1556,7 @@ temp_fix_refs (lookin, lookfor, replacewith)
     {
       tree_ref ref = rli_ref (rli);
       if (ref_stmt (ref) == lookfor)
-	{
-	  ref->common.stmt_p = replacewith;
-	  ref->common.expr_p = replacewith;
-	}
+	ref->common.stmt_p = replacewith;
     }
 }
 
@@ -1820,10 +1809,8 @@ done:
                     expruse_def (X) = new occurrence. 
 		  */		  
 
-		  set_expruse_def (X,create_ref (expr, E_USE, 0,
-						 ref_bb (X), newexprplace,
-						 newexprplace, newexprplace, 
-						 true));
+		  set_expruse_def (X,create_ref (expr, E_USE, 0, ref_bb (X),
+			                         newexprplace, 1));
 		  set_bb_for_stmt (*newexprplace, ref_bb (X));
 		  
 		  VARRAY_PUSH_GENERIC_PTR (ei->erefs, expruse_def (X));
@@ -1920,9 +1907,7 @@ expr_phi_insertion (dfs, ei)
 
   EXECUTE_IF_SET_IN_SBITMAP(dfphis, 0, i, 
   {
-    tree_ref ref = create_ref (ei->expr, E_PHI, 0,
-                                BASIC_BLOCK (i), 
-                                NULL, NULL, NULL, true);
+    tree_ref ref = create_ref (ei->expr, E_PHI, 0, BASIC_BLOCK (i), NULL, 1);
     VARRAY_PUSH_GENERIC_PTR (ei->erefs, ref);
     set_exprref_processed (ref, false);
     set_exprref_processed2 (ref, false);
@@ -2730,7 +2715,6 @@ code_motion (ei, temp)
 
 	      
 	      use->common.stmt_p = &TREE_OPERAND (newstmt, 1);
-	      use->common.expr_p = &TREE_OPERAND (newstmt, 1);
 
 	      /* REMOVE AFTER DFA UPDATE */
 	      temp_fix_refs (use_stmt, newstmt, &TREE_OPERAND (newstmt, 1));

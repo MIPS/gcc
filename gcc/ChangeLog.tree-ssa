@@ -1,3 +1,59 @@
+2002-11-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa-ccp.o): Add dependency on tree-inline.h
+	* tree-cfg.c (find_taken_edge): New function.
+	(cleanup_cond_expr_graph): Call it.
+	(disconnect_unreachable_case_labels): Call it.
+
+	* tree-dfa.c (struct clobber_data_d): Remove field
+	parent_expr_p.  Update all users.
+	(find_refs_in_expr): Remove argument parent_expr_p.  Update all users.
+	(create_ref): Remove arguments parent_expr_p and operand_p.  Update
+	all users.
+	(replace_ref_in): Rename from replace_ref_operand_with.  Update all
+	users.  Find the operand in the statement and replace it with a new
+	operand.
+	(replace_ref_r): New local function.
+	(is_killing_def): Also handle V_PHI references.
+	(output_ref): Move from tree-flow-inline.h
+
+	* tree-flow-inline.h (ref_expr): Remove.  Update all users.
+	(restore_ref_operand): Remove.  Update all users.
+	(set_output_ref): Remove.  Update all users.
+	(is_assignment_stmt): New function.
+	(is_may_def, is_may_use, is_partial_def, is_partial_use,
+	is_volatile_def, is_volatile_use, is_default_def,
+	is_clobbering_def, is_initializing_def, is_relocating_def,
+	is_addressof_use, is_pure_use): Check reference type first.
+	(is_pure_def): New function.
+
+	* tree-flow.h (struct tree_ref_common): Remove fields expr_p,
+	operand_p and orig_operand.  Update all users.
+	(struct tree_ann_d): Remove field output_ref.  Update all users.
+
+	* tree-ssa-ccp.c: Include tree-inline.h.
+	(simulate_block): Simulate every statement in the block, not its
+	references
+	(simulate_def_use_chains): Simulate statements containing uses
+	reached by the definition.
+	(substitute_and_fold): Traverse statements, not references.
+	Call fold_stmt.
+	(visit_phi_node): If PHI node is marked volatile, assume varying.
+	(visit_stmt): Rename from visit_expression_for.  Work on a
+	statement, not a reference.
+	(visit_assignment): Rename from visit_assignment_for.  Work on a
+	statement, not a reference.
+	(visit_cond_stmt): Rename from visit_condexpr_for.  Work on a
+	statement, not a reference.
+	(evaluate_stmt): Rename from evaluate_expr.  Work on a statement,
+	not a reference.
+	(initialize): Initialize special definitions to varying.
+	(replace_uses_in): Work on a statement, not an expression.
+	(fold_stmt): Rename from ccp_fold.  Work on a statement, not an
+	expression.
+	(get_rhs): New local function.
+	(set_rhs): New local function.
+
 2002-11-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow.h: Prototype set_bb_for_stmt, last_stmt_ptr,

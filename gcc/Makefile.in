@@ -1567,7 +1567,7 @@ ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h \
     errors.h $(GGC_H) df.h function.h
 tree-ssa-ccp.o : tree-ssa-ccp.c $(CONFIG_H) system.h errors.h $(TREE_H) \
-    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h
+    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h tree-inline.h
 df.o : df.c $(CONFIG_H) system.h $(RTL_H) insn-config.h $(RECOG_H) \
    function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h \
    $(FIBHEAP_H)

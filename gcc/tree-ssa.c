@@ -808,7 +808,7 @@ add_phi_node (bb, var)
 	 first executable statement.  This is for debugging convenience.
 	 This way, the PHI node will have line number information.  */
       stmt_p = !bb_empty_p (bb) ? bb->head_tree_p : NULL;
-      phi = create_ref (var, V_PHI, 0, bb, stmt_p, NULL, NULL, false);
+      phi = create_ref (var, V_PHI, 0, bb, stmt_p, 0);
       add_ref_to_list_begin (bb_refs (bb), phi);
 
       VARRAY_TREE (added, bb->index) = var;
@@ -951,7 +951,7 @@ create_default_def (var)
     mod = TRM_DEFAULT;
 
   /* Create a default definition and set it to be CURRDEF(var).  */
-  def = create_ref (var, V_DEF, mod, decl_bb, NULL, NULL, NULL, false);
+  def = create_ref (var, V_DEF, mod, decl_bb, NULL, 0);
   add_ref_to_list_begin (bb_refs (decl_bb), def);
   set_currdef_for (var, def);
 

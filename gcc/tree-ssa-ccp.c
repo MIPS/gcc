@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "diagnostic.h"
+#include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
 
@@ -88,27 +89,28 @@ static struct edge_list *edges;
    nodes that need to be visited are accessed using imm_uses (D).  */
 ref_list ssa_edges;
 
-static void initialize                 PARAMS ((void));
-static void finalize                   PARAMS ((void));
-static void visit_phi_node             PARAMS ((tree_ref));
-static value cp_lattice_meet           PARAMS ((value, value));
-static void visit_expression_for       PARAMS ((tree_ref));
-static void visit_condexpr_for         PARAMS ((tree_ref));
-static void visit_assignment_for       PARAMS ((tree_ref));
-static void add_outgoing_control_edges PARAMS ((basic_block));
-static void add_control_edge           PARAMS ((edge));
-static void def_to_undefined           PARAMS ((tree_ref));
-static void def_to_varying             PARAMS ((tree_ref));
-static void set_lattice_value          PARAMS ((tree_ref, value));
-static void simulate_block             PARAMS ((basic_block));
-static void simulate_def_use_chains    PARAMS ((tree_ref));
-static void substitute_and_fold        PARAMS ((void));
-static value evaluate_expr             PARAMS ((tree));
-static void dump_lattice_value         PARAMS ((FILE *, const char *, value));
-static tree widen_bitfield             PARAMS ((tree, tree, tree));
-static void replace_uses_in            PARAMS ((tree));
-static void restore_expr               PARAMS ((tree));
-static tree ccp_fold                   PARAMS ((tree));
+static void initialize			PARAMS ((void));
+static void finalize			PARAMS ((void));
+static void visit_phi_node		PARAMS ((tree_ref));
+static value cp_lattice_meet		PARAMS ((value, value));
+static void visit_stmt			PARAMS ((tree));
+static void visit_cond_stmt		PARAMS ((tree));
+static void visit_assignment		PARAMS ((tree));
+static void add_outgoing_control_edges	PARAMS ((basic_block));
+static void add_control_edge		PARAMS ((edge));
+static void def_to_undefined		PARAMS ((tree_ref));
+static void def_to_varying		PARAMS ((tree_ref));
+static void set_lattice_value		PARAMS ((tree_ref, value));
+static void simulate_block		PARAMS ((basic_block));
+static void simulate_def_use_chains	PARAMS ((tree_ref));
+static void substitute_and_fold		PARAMS ((void));
+static value evaluate_stmt		PARAMS ((tree));
+static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
+static tree widen_bitfield		PARAMS ((tree, tree, tree));
+static bool replace_uses_in		PARAMS ((tree));
+static void fold_stmt			PARAMS ((tree));
+static tree get_rhs			PARAMS ((tree));
+static void set_rhs			PARAMS ((tree, tree));
 
 
 /* Debugging dumps.  */
@@ -137,7 +139,6 @@ tree_ssa_ccp (fndecl)
 	{
 	  /* Pull the next block to simulate off the worklist.  */
 	  basic_block dest_block;
-
 	  dest_block = ((edge)VARRAY_TOP_GENERIC_PTR (edge_info))->dest;
 	  VARRAY_POP (edge_info);
 	  simulate_block (dest_block);
@@ -177,7 +178,7 @@ tree_ssa_ccp (fndecl)
 }
 
 
-/* Simulate the execution of BLOCK.  Evaluate the expression associated
+/* Simulate the execution of BLOCK.  Evaluate the statement associated
    with each variable reference inside the block.  */
 
 static void
@@ -191,53 +192,43 @@ simulate_block (block)
   if (block == EXIT_BLOCK_PTR)
     return;
 
-  /* Similarly, if the block contains no references, we have nothing to do.  */
-  blockrefs = bb_refs (block);
-  if (blockrefs == NULL)
-    return;
+#if defined ENABLE_CHECKING
+  if (block->index < 0 || block->index > last_basic_block)
+    abort ();
+#endif
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nSimulating block %d\n", block->index);
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  Note that all PHI nodes are consecutive within a block.  */
+  blockrefs = bb_refs (block);
   for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
     if (ref_type (rli_ref (i)) == V_PHI)
       visit_phi_node (rli_ref (i));
 
-#if defined ENABLE_CHECKING
-  if (block->index < 0 || block->index > last_basic_block)
-    abort ();
-#endif
-
   /* If this is the first time we've simulated this block, then we
-     must simulate each of its insns.  */
+     must simulate each of its statements.  */
   if (!TEST_BIT (executable_blocks, block->index))
     {
-      edge succ_edge = block->succ;
+      gimple_stmt_iterator j;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
 
-      for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
-	{
-	  /* Simulate each reference within the block.  */
-	  if (ref_type (rli_ref (i)) != V_PHI)
-	    visit_expression_for (rli_ref (i));
-	} 
+      for (j = gsi_start_bb (block); !gsi_after_end (j); gsi_step_bb (&j))
+	visit_stmt (gsi_stmt (j));
 
-      /* If we haven't looked at the next block, and it has a
-	 single successor, add it onto the worklist.  This is because
-	 if we only have one successor, we know it gets executed,
-	 so we don't have to wait for cprop to tell us. */
-      if (succ_edge && succ_edge->succ_next == NULL)
-	add_control_edge (succ_edge);
+      /* If the block has a single successor, it will always get executed.
+	 Add it to the worklist.  */
+      if (block->succ && block->succ->succ_next == NULL)
+	add_control_edge (block->succ);
     }
 }
 
 
 /* Follow the def-use chains for definition DEF and simulate all the
-   expressions reached by it.  */
+   statements reached by it.  */
 
 static void
 simulate_def_use_chains (def)
@@ -253,11 +244,13 @@ simulate_def_use_chains (def)
     {
       tree_ref ref = rli_ref (i);
 
-      /* Note that we only visit unmodified V_USE references.  We don't
-	 want to deal with any modifiers here.  */
+      /* Visit the statement containing the use reached by DEF, only if the
+	 destination block is marked executable.  Note that we only visit
+	 unmodified V_USE references.  We don't want to deal with any
+	 modifiers here.  */
       if (is_pure_use (ref)
 	  && TEST_BIT (executable_blocks, ref_bb (ref)->index))
-	visit_expression_for (ref);
+	visit_stmt (ref_stmt (ref));
 
       /* PHI nodes are always visited, regardless of whether or not the
 	 destination block is executable.  */
@@ -275,52 +268,40 @@ substitute_and_fold ()
   basic_block bb;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nSubstituing constants and folding expressions\n\n");
+    fprintf (dump_file, "\nSubstituing constants and folding statements\n\n");
 
-  /* Substitute constants in every expression of every basic block.  */
+  /* Substitute constants in every statement of every basic block.  */
   FOR_EACH_BB (bb)
     {
-      tree new_expr;
-      ref_list_iterator i;
+      gimple_stmt_iterator i;
 
-      for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
+      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
 	{
-	  tree_ref ref = rli_ref (i);
-	  tree expr = ref_expr (ref);
-	  tree stmt = ref_stmt (ref);
-
-	  /* Skip references not attached to statements and expressions.  */
-	  if (expr == NULL_TREE)
-	    continue;
-
-	  /* We are only interested in expressions that contain unmodified
-	     V_USE references.  */
-	  if (!is_pure_use (ref))
-	    continue;
+	  tree stmt = gsi_stmt (i);
 
 	  /* Skip statements that have been folded already.  */
-	  if (tree_flags (stmt) & TF_FOLDED)
+	  if (tree_flags (stmt) & TF_FOLDED
+	      || !is_exec_stmt (stmt))
 	    continue;
 
-	  /* Replace the expression with its folded version in the statement
-	     and mark it folded.  Note that in the case of assignment
-	     expressions, we fold their RHS (fold() does not handle
-	     assignments).  */
+	  /* Replace the statement with its folded version and mark it
+	     folded.  */
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Line %d: replaced ", get_lineno (expr));
-	      print_generic_stmt (dump_file, expr, TDF_SLIM);
+	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 
-	  replace_uses_in (expr);
-	  new_expr = ccp_fold (expr);
-	  replace_ref_expr_with (ref, new_expr);
-	  set_tree_flag (stmt, TF_FOLDED);
+	  if (replace_uses_in (stmt))
+	    {
+	      fold_stmt (stmt);
+	      set_tree_flag (stmt, TF_FOLDED);
+	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, new_expr, TDF_SLIM);
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	      fprintf (dump_file, "\n");
 	    }
 	}
@@ -346,41 +327,55 @@ visit_phi_node (phi_node)
   phi_val.lattice_val = UNDEFINED;
   phi_val.const_value = NULL_TREE;
 
-  /* Compute the meet operator over all the PHI arguments. */
-  for (i = 0; i < num_phi_args (phi_node); i++)
-    {
-      phi_node_arg arg = phi_arg (phi_node, i);
-      edge e = phi_arg_edge (arg);
+  if (!is_volatile_ref (phi_node))
+    for (i = 0; i < num_phi_args (phi_node); i++)
+      {
+	/* Compute the meet operator over all the PHI arguments. */
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
-	           i, e->src->index, e->dest->index,
-		   (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
-	}
+	phi_node_arg arg = phi_arg (phi_node, i);
+	edge e = phi_arg_edge (arg);
 
-      /* If the incoming edge is executable, Compute the meet operator for
-	 the existing value of the PHI node and the current PHI argument.  */
-      if (e->flags & EDGE_EXECUTABLE)
-	{
-	  tree_ref rdef;
-	  value rdef_val;
-	  
-	  rdef = phi_arg_def (arg);
-	  rdef_val = values[ref_id (rdef)];
-	  phi_val = cp_lattice_meet (phi_val, rdef_val);
+	if (dump_file && (dump_flags & TDF_DETAILS))
+	  {
+	    fprintf (dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
+		    i, e->src->index, e->dest->index,
+		    (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
+	  }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      dump_ref (dump_file, "\t", phi_arg_def (arg), 0, 0);
-	      dump_lattice_value (dump_file, "\tValue: ", rdef_val);
-	      fprintf (dump_file, "\n");
-	    }
+	/* If the incoming edge is executable, Compute the meet operator for
+	   the existing value of the PHI node and the current PHI argument.  */
+	if (e->flags & EDGE_EXECUTABLE)
+	  {
+	    tree_ref rdef;
+	    value rdef_val;
+	    
+	    rdef = phi_arg_def (arg);
 
-	  if (phi_val.lattice_val == VARYING)
-	    break;
-	}
-    }
+	    if (is_killing_def (rdef, phi_node))
+	      {
+		rdef_val = values[ref_id (rdef)];
+		phi_val = cp_lattice_meet (phi_val, rdef_val);
+	      }
+	    else
+	      {
+		/* If RDEF is a non-killing definition, we cannot assume
+		   anything about this PHI's node value.  In that case, set
+		   its value to VARYING.  */
+		phi_val.lattice_val = VARYING;
+		phi_val.const_value = NULL_TREE;
+	      }
+
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      {
+		dump_ref (dump_file, "\t", phi_arg_def (arg), 0, 0);
+		dump_lattice_value (dump_file, "\tValue: ", rdef_val);
+		fprintf (dump_file, "\n");
+	      }
+
+	    if (phi_val.lattice_val == VARYING)
+	      break;
+	  }
+      }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -436,99 +431,73 @@ cp_lattice_meet (val1, val2)
 }
 
 
-/* Evaluate the expression associated with REF.  If the expression produces
-   an output value and its evaluation changes the lattice value of its
-   output, do the following:
+/* Evaluate statement STMT.  If the statement produces an output value and
+   its evaluation changes the lattice value of its output, do the following:
 
-   - If the expression is an assignment, add all the SSA edges starting at
+   - If the statement is an assignment, add all the SSA edges starting at
      this definition.
 
-   - If the expression controls a conditional branch:
-   	. If the expression evaluates to non-constant, add all edges to
+   - If the statement is a conditional branch:
+   	. If the statement evaluates to non-constant, add all edges to
 	  worklist.
-	. If the expression is constant, add the edge executed as the
+	. If the statement is constant, add the edge executed as the
 	  result of the branch.  */
 
 static void
-visit_expression_for (ref)
-     tree_ref ref;
+visit_stmt (stmt)
+     tree stmt;
 {
-  tree expr;
-
-#if defined ENABLE_CHECKING
-  /* PHI references should be handled by visit_phi_node.  */
-  if (ref_type (ref) == V_PHI)
-    abort ();
-#endif
-
-  /* First examine the reference to see if it's a special definition
-     (clobbering, partial or may-def), mark it varying and add SSA edges
-     that may be coming out of it.  */
-  if (is_clobbering_def (ref)
-      || is_partial_def (ref)
-      || is_may_def (ref)
-      || is_relocating_def (ref))
-    def_to_varying (ref);
-
-  expr = ref_expr (ref);
-  
-  /* No need to do anything if the reference is not associated with an
-     expression.  */
-  if (expr == NULL)
+  /* FIXME: This is lame.  All statements should be in GIMPLE form.  */
+  if (TREE_NOT_GIMPLE (stmt))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting expression: ");
-      print_generic_expr (dump_file, expr, 0);
-      dump_ref (dump_file, "\nfor reference: ", ref, 0, 0);
+      fprintf (dump_file, "\nVisiting statement: ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
   
-  /* Now examine the expression.  If the expression produces an output
-     value, evaluate the expression to see if the lattice value of its
-     output has changed.  */
-  if (output_ref (expr))
-    visit_assignment_for (ref);
+  /* Now examine the statement.  If the statement produces an output
+     value, evaluate it to see if the lattice value of its output has
+     changed.  */
+  if (is_assignment_stmt (stmt))
+    visit_assignment (stmt);
 
-  /* If the expression is the predicate of a control statement, see if we
-     can determine which branch will be taken.  */
-  else if (is_simple_condexpr (expr) && ref_bb (ref)->flags & BB_CONTROL_EXPR)
-    visit_condexpr_for (ref);
+  /* If STMT is a control statement, see if we can determine which branch
+     will be taken.  */
+  else if (is_ctrl_stmt (stmt))
+    visit_cond_stmt (stmt);
 
-  /* If the expression is a computed goto, mark all the output edges
+  /* If STMT is a computed goto, mark all the output edges
      executable.  */
-  else if (is_computed_goto (ref_stmt (ref)))
-    add_outgoing_control_edges (ref_bb (ref));
+  else if (is_computed_goto (stmt))
+    add_outgoing_control_edges (bb_for_stmt (stmt));
 }
 
 
-/* Visit the assignment expression holding reference REF.  */
+/* Visit the assignment statement STMT.  Set the value of its LHS to the
+   value computed by the RHS.  */
 
 static void
-visit_assignment_for (ref)
-     tree_ref ref;
+visit_assignment (stmt)
+     tree stmt;
 {
-  tree expr;
   value val;
 
-  expr = ref_expr (ref);
-  STRIP_WFL (expr);
-  STRIP_NOPS (expr);
-
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (expr) != MODIFY_EXPR
-      && TREE_CODE (expr) != INIT_EXPR)
+  if (!is_assignment_stmt (stmt))
     abort ();
 #endif
 
-  /* Evaluate the expression.  */
-  val = evaluate_expr (expr);
+  /* Evaluate the statement.  */
+  val = evaluate_stmt (stmt);
 
   /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree lhs = TREE_OPERAND (expr, 0);
+    tree lhs = TREE_OPERAND (stmt, 0);
     if (val.lattice_val == CONSTANT
 	&& TREE_CODE (lhs) == COMPONENT_REF
 	&& DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
@@ -543,55 +512,44 @@ visit_assignment_for (ref)
 	    val.const_value = NULL;
 	  }
       }
-    }
+  }
 
-  /* Set the lattice value of the expression's output.  */
-  set_lattice_value (output_ref (expr), val);
+  /* Set the lattice value of the statement's output.  */
+  set_lattice_value (output_ref (stmt), val);
 }
 
 
-/* Visit the conditional expression that contains reference REF.  If it
-   evaluates to a constant value, mark outgoing edges appropriately.  */
+/* Visit the conditional statement STMT.  If it evaluates to a constant value,
+   mark outgoing edges appropriately.  */
 
 static void
-visit_condexpr_for (ref)
-     tree_ref ref;
+visit_cond_stmt (stmt)
+     tree stmt;
 {
-  edge curredge;
+  edge e;
   value val;
-  basic_block block = ref_bb (ref);
-  tree expr = ref_expr (ref);
+  basic_block block;
 
-  val = evaluate_expr (expr);
+#if defined ENABLE_CHECKING
+  if (!is_ctrl_stmt (stmt))
+    abort ();
+#endif
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      tree t = ref_stmt (ref);
-      STRIP_WFL (t);
-      STRIP_NOPS (t);
-      fprintf (dump_file, "Predicate is for a control statement: %s\n",
-	       tree_code_name[TREE_CODE (t)]);
-      dump_lattice_value (dump_file, "value: ", val);
-      fprintf (dump_file, "\n");
-    }
+  block = bb_for_stmt (stmt);
+  val = evaluate_stmt (stmt);
 
-  /* Mark successor blocks on executable edges as executable (if they
-     have not already been marked).   */
-  for (curredge = block->succ; curredge; curredge = curredge->succ_next)
-    {
-      /* If this is an edge for TRUE values but the predicate is false,
-	 then skip it.  */
-      if ((curredge->flags & EDGE_TRUE_VALUE)
-	  && simple_cst_equal (val.const_value, integer_zero_node) == 1)
-	continue;
+  /* If the predicate is undefined, do nothing.  */
+  if (val.lattice_val == UNDEFINED)
+    return;
 
-      /* Similarly for FALSE edges.  */
-      if ((curredge->flags & EDGE_FALSE_VALUE)
-	  && simple_cst_equal (val.const_value, integer_one_node) == 1)
-	continue;
-
-      add_control_edge (curredge);
-    }
+  /* Find which edge out of the conditional block will be taken and add it
+     to the worklist.  If no single edge can be determined statically, add
+     all outgoing edges from BLOCK.  */
+  e = find_taken_edge (block, val.const_value);
+  if (e)
+    add_control_edge (e);
+  else
+    add_outgoing_control_edges (block);
 }
 
 
@@ -627,38 +585,28 @@ add_control_edge (e)
 }
 
 
-/* Evaluate the expression EXPR.  */
+/* Evaluate statement STMT.  */
 
 static value
-evaluate_expr (expr)
-     tree expr;
+evaluate_stmt (stmt)
+     tree stmt;
 {
   value val;
-  tree simplified;
-
-#if defined ENABLE_CHECKING
-  /* FIXME: This test is lame.  All expressions should be in GIMPLE form.  */
-  if (TREE_NOT_GIMPLE (expr))
-    abort ();
-#endif
+  tree simplified, copy;
 
   val.lattice_val = VARYING;
   val.const_value = NULL_TREE;
-  simplified = NULL_TREE;
 
-  /* Replace all V_USE references in the expression with their immediate
-     reaching definition.  */
-  replace_uses_in (expr);
+  /* Evaluate a copy of the original statement.  */
+  STRIP_WFL (stmt);
+  STRIP_NOPS (stmt);
+  copy = stmt;
+  walk_tree (&copy, copy_tree_r, NULL, NULL);
+  if (replace_uses_in (copy))
+    fold_stmt (copy);
 
-  /* Fold the expression.  */
-  simplified = ccp_fold (deep_copy_node (expr));
-
-  STRIP_WFL (simplified);
-  STRIP_NOPS (simplified);
-  if (TREE_CODE (simplified) == INIT_EXPR
-      || TREE_CODE (simplified) == MODIFY_EXPR)
-    simplified = TREE_OPERAND (simplified, 1);
-
+  /* Extract the folded value from the statement.  */
+  simplified = get_rhs (copy);
   if (simplified && really_constant_p (simplified))
     {
       val.lattice_val = CONSTANT;
@@ -668,8 +616,8 @@ evaluate_expr (expr)
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Expression evaluates to ");
-      print_generic_expr (dump_file, expr, 0);
+      fprintf (dump_file, "Statement evaluates to ");
+      print_generic_stmt (dump_file, copy, TDF_SLIM);
       fprintf (dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
@@ -684,7 +632,6 @@ evaluate_expr (expr)
       fprintf (dump_file, "\n");
     }
 
-  restore_expr (expr);
 
   return val;
 }
@@ -822,6 +769,14 @@ initialize ()
 		  values[id].const_value = DECL_INITIAL (var);
 		}
 	    }
+
+	  /* Special definitions (clobbering, partial or may-def) are all
+	     considered VARYING.  */
+	  else if (!is_pure_def (r))
+	    {
+	      values[id].lattice_val = VARYING;
+	      values[id].const_value = NULL_TREE;
+	    }
 	}
     }
 
@@ -929,14 +884,15 @@ set_lattice_value (def, val)
 }
 
 
-/* Replace USE reference in the expression EXPR with their immediate reaching
-   definition.  */
+/* Replace USE references in statement STMT with their immediate reaching
+   definition.  Return true if at least one reference was replaced.  */
 
-static void
-replace_uses_in (expr)
-     tree expr;
+static bool
+replace_uses_in (stmt)
+     tree stmt;
 {
-  ref_list refs = tree_refs (expr);
+  bool replaced = false;
+  ref_list refs = tree_refs (stmt);
   ref_list_iterator i;
 
   for (i = rli_start (refs); !rli_after_end (i); rli_step (&i))
@@ -949,8 +905,8 @@ replace_uses_in (expr)
       if (!is_pure_use (use))
 	continue;
 
-      /* The lattice value of a USE reference is the value of its
-	 immediately reaching definition.  */
+      /* The lattice value of a USE reference is the value of its immediately
+	 reaching definition.  */
       rdef = imm_reaching_def (use);
 
       /* We are only interested in killing definitions.  If we are reached
@@ -962,74 +918,78 @@ replace_uses_in (expr)
       rdef_id = ref_id (rdef);
       if (values[rdef_id].lattice_val == CONSTANT)
 	{
-#if defined ENABLE_CHECKING
-	  if (values[rdef_id].const_value == NULL_TREE)
-	    abort ();
-#endif
-	  /* The reference is a constant, substitute it into the
-	     expression.  */
-	  replace_ref_operand_with (use, values[rdef_id].const_value);
-	}
-      else
-	{
-	  /* The reference is not a constant, restore its original value.  */
-	  restore_ref_operand (use);
+	  replace_ref_in (stmt, use, values[rdef_id].const_value);
+	  replaced = true;
 	}
     }
+
+  return replaced;
 }
 
 
-/* Restore expression EXPR to its original form.  */
+/* Fold statement STMT.  */
 
 static void
-restore_expr (expr)
-     tree expr;
+fold_stmt (stmt)
+     tree stmt;
 {
-  ref_list refs = tree_refs (expr);
-  ref_list_iterator i;
+  tree rhs, result;
 
-  for (i = rli_start (refs); !rli_after_end (i); rli_step (&i))
+  STRIP_WFL (stmt);
+  STRIP_NOPS (stmt);
+  rhs = get_rhs (stmt);
+  if (rhs)
     {
-      /* Only restore pure V_USE references (those are the only types
-	 of references changed by replace_uses_in.  */
-      if (is_pure_use (rli_ref (i)))
-	restore_ref_operand (rli_ref (i));
+      result = fold (rhs);
+      set_rhs (stmt, result);
     }
 }
 
 
-/* Fold EXPR.  If EXPR is an assignment, fold its RHS and return a new
-   assignment with the folded RHS (fold does not handle assignment
-   expressions).  */
+/* Get the main expression from statement STMT.  */
 
 static tree
-ccp_fold (expr)
+get_rhs (stmt)
+     tree stmt;
+{
+  enum tree_code code = TREE_CODE (stmt);
+
+  if (code == MODIFY_EXPR || code == INIT_EXPR)
+    return TREE_OPERAND (stmt, 1);
+  if (code == COND_EXPR)
+    return COND_EXPR_COND (stmt);
+  else if (code == SWITCH_EXPR)
+    return SWITCH_COND (stmt);
+  else if (code == RETURN_EXPR)
+    return TREE_OPERAND (stmt, 0);
+  else if (code == GOTO_EXPR)
+    return GOTO_DESTINATION (stmt);
+  else if (code == LABEL_EXPR)
+    return LABEL_EXPR_LABEL (stmt);
+  else
+    return stmt;
+}
+
+
+/* Set the main expression of STMT to EXPR.  */
+
+static void
+set_rhs (stmt, expr)
+     tree stmt;
      tree expr;
 {
-  tree result, to_fold, w_expr;
+  enum tree_code code = TREE_CODE (stmt);
 
-  /* If the expression is an assignment, get its RHS.  */
-  w_expr = expr;
-  STRIP_WFL (w_expr);
-  STRIP_NOPS (w_expr);
-  if (TREE_CODE (w_expr) == MODIFY_EXPR
-      || TREE_CODE (w_expr) == INIT_EXPR)
-    to_fold = TREE_OPERAND (w_expr, 1);
-  else
-    to_fold = expr;
-
-  result = fold (to_fold);
-
-  /* If we folded the RHS of the original expression, store the folded
-     expression there and return the original expression (which will have
-     the new folded RHS).  */
-  if (TREE_CODE (w_expr) == MODIFY_EXPR
-      || TREE_CODE (w_expr) == INIT_EXPR)
-    {
-      TREE_OPERAND (w_expr, 1) = result;
-      return expr;
-    }
-  else
-    /* Otherwise, return the folded expression.  */
-    return result;
+  if (code == MODIFY_EXPR || code == INIT_EXPR)
+    TREE_OPERAND (stmt, 1) = expr;
+  if (code == COND_EXPR)
+    COND_EXPR_COND (stmt) = expr;
+  else if (code == SWITCH_EXPR)
+    SWITCH_COND (stmt) = expr;
+  else if (code == RETURN_EXPR)
+    TREE_OPERAND (stmt, 0) = expr;
+  else if (code == GOTO_EXPR)
+    GOTO_DESTINATION (stmt) = expr;
+  else if (code == LABEL_EXPR)
+    LABEL_EXPR_LABEL (stmt) = expr;
 }

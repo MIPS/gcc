@@ -1074,6 +1074,7 @@ cleanup_cond_expr_graph (bb)
 {
   tree cond_expr = first_stmt (bb);
   tree val;
+  edge taken_edge;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (cond_expr) != COND_EXPR)
@@ -1081,30 +1082,10 @@ cleanup_cond_expr_graph (bb)
 #endif
 
   val = COND_EXPR_COND (cond_expr);
-  if (really_constant_p (val))
+  taken_edge = find_taken_edge (bb, val);
+  if (taken_edge)
     {
-      bool always_false;
-      edge e, taken_edge, next;
-
-      /* Determine which branch of the if() will be taken.  */
-      taken_edge = NULL;
-      always_false = (simple_cst_equal (val, integer_zero_node) == 1);
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  if (((e->flags & EDGE_TRUE_VALUE) && !always_false)
-	      || ((e->flags & EDGE_FALSE_VALUE) && always_false))
-	    {
-	      taken_edge = e;
-	      break;
-	    }
-	}
-
-      if (taken_edge == NULL)
-	{
-	  /* If E is not going to the THEN nor the ELSE clause, then it's
-	     the fallthru edge to the successor block of the if() block.  */
-	  taken_edge = find_edge (bb, successor_block (bb));
-	}
+      edge e, next;
 
       /* Remove all the edges except the one that is always executed.  */
       for (e = bb->succ; e; e = next)
@@ -1162,52 +1143,17 @@ static void
 disconnect_unreachable_case_labels (bb)
      basic_block bb;
 {
-  edge e, default_edge, taken_edge;
+  edge taken_edge;
   tree switch_val;
 
-  default_edge = NULL;
-  taken_edge = NULL;
-
   switch_val = SWITCH_COND (first_stmt (bb));
-  if (!really_constant_p (switch_val))
-    return;
-
-  /* See if the switch() value matches one of the case labels.  */
-  for (e = bb->succ; e; e = e->succ_next)
-    {
-      tree val;
-      edge dest_edge = e;
-      tree dest_t = first_stmt (dest_edge->dest);
-
-      if (TREE_CODE (dest_t) != CASE_LABEL_EXPR)
-	continue;
-
-      val = CASE_LOW (dest_t);
-      if (val == NULL_TREE)
-	{
-	  /* Remember that we found a default label, just in case no other
-	     label matches the switch() value.  */
-	  default_edge = dest_edge;
-	}
-      else if (simple_cst_equal (val, switch_val) == 1)
-	{
-	  /* We found the unique label that will be taken by the switch.
-	     No need to keep looking.  All the other labels are never
-	     reached directly from the switch().  */
-	  taken_edge = dest_edge;
-	  break;
-	}
-    }
-
-  /* If no case exists for the value used in the switch(), we use the
-     default label.  */
-  if (taken_edge == NULL)
-    taken_edge = default_edge;
-
-  /* Remove all the edges that go to case labels that will never be taken.  */
+  taken_edge = find_taken_edge (bb, switch_val);
   if (taken_edge)
     {
-      edge next;
+      edge e, next;
+
+      /* Remove all the edges that go to case labels that will never
+	 be taken.  */
       for (e = bb->succ; e; e = next)
 	{
 	  next = e->succ_next;
@@ -1217,6 +1163,114 @@ disconnect_unreachable_case_labels (bb)
     }
 }
 
+
+/* Given a control block BB and a constant value VAL, return the edge
+   that will be taken out of BLOCK.  If VAL does not match a unique edge,
+   NULL is returned.  */
+
+edge
+find_taken_edge (bb, val)
+     basic_block bb;
+     tree val;
+{
+  tree stmt;
+  edge e, taken_edge;
+
+  stmt = first_stmt (bb);
+
+#if defined ENABLE_CHECKING
+  if (!is_ctrl_stmt (stmt))
+    abort ();
+#endif
+
+  /* If VAL is not a constant, we can't determine which edge might
+     be taken.  */
+  if (val == NULL || !really_constant_p (val))
+    return NULL;
+
+  taken_edge = NULL;
+  if (TREE_CODE (stmt) == COND_EXPR)
+    {
+      bool always_false;
+      bool always_true;
+
+      /* Determine which branch of the if() will be taken.  */
+      always_false = (simple_cst_equal (val, integer_zero_node) == 1);
+      always_true = (simple_cst_equal (val, integer_one_node) == 1);
+
+      /* If VAL is a constant but it can't be reduced to a 0 or a 1, then
+	 we don't really know which edge will be taken at runtime.  This
+	 may happen when comparing addresses (e.g., if (&var1 == 4))  */
+      if (!always_false && !always_true)
+	return NULL;
+
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (((e->flags & EDGE_TRUE_VALUE) && always_true)
+	      || ((e->flags & EDGE_FALSE_VALUE) && always_false))
+	    {
+	      taken_edge = e;
+	      break;
+	    }
+	}
+
+      if (taken_edge == NULL)
+	{
+	  /* If E is not going to the THEN nor the ELSE clause, then it's
+	     the fallthru edge to the successor block of the if() block.  */
+	  taken_edge = find_edge (bb, successor_block (bb));
+	}
+    }
+  else if (TREE_CODE (stmt) == SWITCH_EXPR)
+    {
+      edge default_edge = NULL;
+
+      /* See if the switch() value matches one of the case labels.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  tree label_val;
+	  edge dest_edge = e;
+	  tree dest_t = first_stmt (dest_edge->dest);
+
+	  /* Remember the edge out of the switch() just in case there is no
+	     matching label in the body.  */
+	  if (TREE_CODE (dest_t) != CASE_LABEL_EXPR)
+	    continue;
+
+	  label_val = CASE_LOW (dest_t);
+	  if (label_val == NULL_TREE)
+	    {
+	      /* Remember that we found a default label, just in case no other
+	         label matches the switch() value.  */
+	      default_edge = dest_edge;
+	    }
+	  else if (simple_cst_equal (label_val, val) == 1)
+	    {
+	      /* We found the unique label that will be taken by the switch.
+	         No need to keep looking.  All the other labels are never
+	         reached directly from the switch().  */
+	      taken_edge = dest_edge;
+	      break;
+	    }
+	}
+
+      /* If no case exists for the value used in the switch(), we use the
+         default label.  If the switch() has no label, we use the edge
+	 going out of the switch() body.  */
+      if (taken_edge == NULL)
+	taken_edge = default_edge 
+		     ? default_edge
+		     : find_edge (bb, successor_block (bb));
+    }
+  else
+    {
+      /* LOOP_EXPR nodes are always followed by their successor block.  */
+      taken_edge = bb->succ;
+    }
+
+
+  return taken_edge;
+}
 
 
 /*---------------------------------------------------------------------------

@@ -47,13 +47,6 @@ ref_bb (ref)
 }
 
 static inline tree
-ref_expr (ref)
-     tree_ref ref;
-{
-  return ref->common.expr_p ? *(ref->common.expr_p) : NULL_TREE;
-}
-
-static inline tree
 ref_stmt (ref)
      tree_ref ref;
 {
@@ -176,14 +169,6 @@ set_phi_arg (phi, i, arg)
   VARRAY_GENERIC_PTR (phi->vphi.phi_args, i) = (PTR)arg;
 }
 
-static inline void
-restore_ref_operand (ref)
-     tree_ref ref;
-{
-  if (ref->common.operand_p)
-    *(ref->common.operand_p) = ref->common.orig_operand;
-}
-  
 static inline tree_ann
 tree_annotation (t)
      tree t;
@@ -323,32 +308,6 @@ get_filename (expr)
     return EXPR_WFL_FILENAME (expr);
   else
     return "???";
-}
-
-static inline tree_ref
-output_ref (t)
-     tree t;
-{
-  return tree_annotation (t) ? tree_annotation (t)->output_ref : NULL;
-}
-
-static inline void
-set_output_ref (t, def)
-     tree t;
-     tree_ref def;
-{
-  tree_ann ann;
-#if defined ENABLE_CHECKING
-  {
-    tree w = t;
-    STRIP_WFL (w);
-    STRIP_NOPS (w);
-    if (TREE_CODE (w) != MODIFY_EXPR && TREE_CODE (w) != INIT_EXPR)
-      abort ();
-  }
-#endif
-  ann = tree_annotation (t) ? tree_annotation (t) : create_tree_ann (t);
-  ann->output_ref = def;
 }
 
 static inline void
@@ -772,6 +731,15 @@ is_exec_stmt (t)
 }
 
 static inline bool
+is_assignment_stmt (t)
+     tree t;
+{
+  STRIP_WFL (t);
+  STRIP_NOPS (t);
+  return (TREE_CODE (t) == MODIFY_EXPR || TREE_CODE (t) == INIT_EXPR);
+}
+
+static inline bool
 is_may_ref (ref)
      tree_ref ref;
 {
@@ -782,14 +750,14 @@ static inline bool
 is_may_def (ref)
      tree_ref ref;
 {
-  return is_may_ref (ref) && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && is_may_ref (ref);
 }
 
 static inline bool
 is_may_use (ref)
      tree_ref ref;
 {
-  return is_may_ref (ref) && ref_type (ref) == V_USE;
+  return ref_type (ref) == V_USE && is_may_ref (ref);
 }
 
 static inline bool
@@ -803,14 +771,14 @@ static inline bool
 is_partial_def (ref)
      tree_ref ref;
 {
-  return is_partial_ref (ref) && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && is_partial_ref (ref);
 }
 
 static inline bool
 is_partial_use (ref)
      tree_ref ref;
 {
-  return is_partial_ref (ref) && ref_type (ref) == V_USE;
+  return ref_type (ref) == V_USE && is_partial_ref (ref);
 }
 
 static inline bool
@@ -824,60 +792,74 @@ static inline bool
 is_volatile_def (ref)
      tree_ref ref;
 {
-  return is_volatile_ref (ref) && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && is_volatile_ref (ref);
 }
 
 static inline bool
 is_volatile_use (ref)
      tree_ref ref;
 {
-  return is_volatile_ref (ref) && ref_type (ref) == V_USE;
+  return ref_type (ref) == V_USE && is_volatile_ref (ref);
 }
 
 static inline bool
 is_default_def (ref)
      tree_ref ref;
 {
-  return ref->vdef.m_default && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && ref->vdef.m_default;
 }
 
 static inline bool
 is_clobbering_def (ref)
      tree_ref ref;
 {
-  return ref->vdef.m_clobber && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && ref->vdef.m_clobber;
 }
 
 static inline bool
 is_initializing_def (ref)
      tree_ref ref;
 {
-  return ref->vdef.m_initial && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && ref->vdef.m_initial;
 }
 
 static inline bool
 is_relocating_def (ref)
      tree_ref ref;
 {
-  return ref->vdef.m_relocate && ref_type (ref) == V_DEF;
+  return ref_type (ref) == V_DEF && ref->vdef.m_relocate;
 }
 
 static inline bool
 is_addressof_use (ref)
      tree_ref ref;
 {
-  return ref->vuse.m_addressof && ref_type (ref) == V_USE;
+  return ref_type (ref) == V_USE && ref->vuse.m_addressof;
 }
 
 static inline bool
 is_pure_use (ref)
      tree_ref ref;
 {
-  return !ref->vuse.m_addressof
+  return ref_type (ref) == V_USE
+	 && !ref->vuse.m_addressof
          && !is_may_ref (ref)
 	 && !is_partial_ref (ref)
-	 && !is_volatile_ref (ref)
-	 && ref_type (ref) == V_USE;
+	 && !is_volatile_ref (ref);
+}
+
+static inline bool
+is_pure_def (ref)
+     tree_ref ref;
+{
+  return ref_type (ref) == V_DEF
+	 && !ref->vdef.m_default
+	 && !ref->vdef.m_clobber
+	 && !ref->vdef.m_initial
+	 && !ref->vdef.m_relocate
+         && !is_may_ref (ref)
+	 && !is_partial_ref (ref)
+	 && !is_volatile_ref (ref);
 }
 
 /* Return TRUE if we reached the end of the list with iterator I.  */

@@ -46,11 +46,7 @@ enum tree_ref_type {
      represents a killing definition of the associated variable via an
      assignment expression (i.e., all the bits of the variable are
      modified).  Note that unmodified V_DEF references are only allowed for
-     MODIFY_EXPR and INIT_EXPR expressions.
-
-     In this case, this reference will represent the output value of the
-     associated expression.  For instance, 'a = 3' creates a V_DEF
-     reference for 'a' and calling output_ref('a = 3') returns this V_DEF.  */
+     MODIFY_EXPR and INIT_EXPR expressions.  */
   V_DEF,
 
   /* A V_USE reference represents a read operation from the associated
@@ -120,27 +116,13 @@ struct tree_ref_common GTY(())
   /* Reference type.  */
   enum tree_ref_type type;
 
-  /* Variable being referenced.  This may be a _DECL or an INDIRECT_REF
-     node.  */
+  /* Variable being referenced.  This may be a _DECL, an INDIRECT_REF
+     node or an expression (in the case of E_* references).  */
   tree var;
 
   /* Statement containing the reference.  Maybe NULL for special references
      (e.g., default definitions inserted at the start of every function).  */
   tree * GTY((skip (""))) stmt_p;
-
-  /* Expression tree containing the reference.  Maybe NULL for special
-     references (e.g., default definitions inserted at the start of every
-     function).  */
-  tree * GTY((skip (""))) expr_p;
-
-  /* Pointer to operand of EXPR containing VAR.  Used when substituting the
-     operand with some other value in transformations like constant
-     propagation.  Maybe NULL for special references (e.g., default
-     definitions inserted at the start of every function).  */
-  tree * GTY((skip (""))) operand_p;
-
-  /* Original value stored in *OPERAND_P.  Used by restore_ref_operand.  */
-  tree orig_operand;
 
   /* Basic block containing the reference.  */
   basic_block GTY((skip (""))) bb;
@@ -395,12 +377,9 @@ typedef union tree_ref_d *tree_ref;
 static inline enum tree_ref_type ref_type	PARAMS ((tree_ref));
 static inline tree ref_var			PARAMS ((tree_ref));
 static inline tree ref_stmt			PARAMS ((tree_ref));
-static inline tree ref_expr			PARAMS ((tree_ref));
 static inline basic_block ref_bb		PARAMS ((tree_ref));
 static inline unsigned long ref_id		PARAMS ((tree_ref));
-static inline void restore_ref_operand		PARAMS ((tree_ref));
-extern void replace_ref_operand_with		PARAMS ((tree_ref, tree));
-extern void replace_ref_expr_with		PARAMS ((tree_ref, tree));
+extern void replace_ref_in			PARAMS ((tree, tree_ref, tree));
 extern void replace_ref_stmt_with		PARAMS ((tree_ref, tree));
 
 
@@ -433,6 +412,7 @@ static inline bool is_initializing_def		PARAMS ((tree_ref));
 static inline bool is_relocating_def		PARAMS ((tree_ref));
 static inline bool is_addressof_use		PARAMS ((tree_ref));
 static inline bool is_pure_use			PARAMS ((tree_ref));
+static inline bool is_pure_def			PARAMS ((tree_ref));
 
 /* For phi_node_arg.  */
 static inline edge phi_arg_edge			PARAMS ((phi_node_arg));
@@ -511,10 +491,6 @@ struct tree_ann_d GTY(())
   /* Flags used to mark optimization-dependent state.  See TF_* below.  */
   HOST_WIDE_INT flags;
 
-  /* Output reference.  This is the V_DEF reference at the LHS of
-     assignments (MODIFY_EXPR and INIT_EXPR).  */
-  tree_ref output_ref;
-
   /* Set of variables that may be aliases of this variable.  */
   varray_type may_aliases;
 };
@@ -546,8 +522,6 @@ static inline void set_tree_flag	PARAMS ((tree, enum tree_flags));
 static inline void clear_tree_flag	PARAMS ((tree, enum tree_flags));
 static inline enum tree_flags tree_flags PARAMS ((tree));
 static inline void reset_tree_flags	PARAMS ((tree));
-static inline tree_ref output_ref	PARAMS ((tree));
-static inline void set_output_ref	PARAMS ((tree, tree_ref));
 static inline tree indirect_var		PARAMS ((tree));
 static inline void set_indirect_var	PARAMS ((tree, tree));
 static inline tree may_alias		PARAMS ((tree, size_t));
@@ -555,6 +529,7 @@ static inline size_t num_may_alias	PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
 static inline const char *get_filename	PARAMS ((tree));
 static inline bool is_exec_stmt		PARAMS ((tree));
+static inline bool is_assignment_stmt	PARAMS ((tree));
 
 
 /*---------------------------------------------------------------------------
@@ -679,6 +654,7 @@ extern tree last_stmt			PARAMS ((basic_block));
 extern tree *last_stmt_ptr			PARAMS ((basic_block));
 extern basic_block latch_block		PARAMS ((basic_block));
 extern bool is_latch_block		PARAMS ((basic_block));
+extern edge find_taken_edge		PARAMS ((basic_block, tree));
 
 
 /* In tree-dfa.c  */
@@ -687,7 +663,7 @@ extern void find_refs_in_stmt           PARAMS ((tree *, basic_block));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, enum tree_ref_type,
       						 unsigned, basic_block, tree *,
-						 tree *, tree *, int));
+						 int));
 extern void debug_ref			PARAMS ((tree_ref));
 extern void dump_ref			PARAMS ((FILE *, const char *, tree_ref,
       						 int, int));
@@ -726,8 +702,9 @@ extern bool ref_defines			PARAMS ((tree_ref, tree));
 extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
 extern int get_alias_index		PARAMS ((tree, tree));
 extern enum tree_ref_structure_enum tree_ref_structure PARAMS ((tree_ref));
-void remove_decl			PARAMS ((tree));
-tree * find_decl_location		PARAMS ((tree, tree));
+extern void remove_decl			PARAMS ((tree));
+extern tree * find_decl_location	PARAMS ((tree, tree));
+extern tree_ref output_ref		PARAMS ((tree));
 
 
 /* In tree-ssa.c  */
