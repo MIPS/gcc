@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-ssa -fdump-tree-optimized" } */
     
 union tree_node;
 typedef union tree_node *tree;
@@ -22,7 +22,7 @@ blah (decl, set)
      tree decl;
      long set;
 {
-  decl->decl.pointer_alias_set = oof ();;
+  decl->decl.pointer_alias_set = oof();
   if (tree_code_type[decl->common.code] != 'd')
     abort ();
   record_alias_subset (decl->decl.pointer_alias_set);
@@ -34,3 +34,7 @@ blah (decl, set)
 /* There should be precisely one reference to pointer_alias_set.  If there is
    more than one, then the dominator optimizations failed.  */
 /* { dg-final { scan-tree-dump-times "pointer_alias_set" 1 "ssa"} } */
+
+/* The assignment set = -1 in the ELSE clause of the last IF
+   statement should be removed by the final cleanup phase.  */
+/* { dg-final { scan-tree-dump-times "set = -1" 0 "optimized"} } */

@@ -1,3 +1,9 @@
+2003-08-15  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030814-4.c: Test optimized output to verify
+	useless statement created by out-of-ssa pass is removed.
+	* gcc.dg/tree-ssa/20030814-5.c: Similarly.
+
 2003-08-14  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture/compile/allocate.f90: Also test scalars.
