@@ -1,3 +1,22 @@
+2004-03-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Makefile.in: Add lambda-mat.o, lambda-code.o, and tree-loop-linear.o.
+	* common.opt: Add -ftree-loop-linear.
+	* flags.h: Add flag_tree_loop_linear.
+	* opts.c: Handle tree-loop-linear option.
+	* timevar.def (TV_TREE_LINEAR_TRANSFORM): New.
+	* tree-flow.h (linear_transform_loops): New prototype.
+	* tree-optimize.c (pass_scev_linear_transform): New.
+	* tree-pass.h (pass_scev_linear_transform): Ditto.
+	* tree-scalar-evolution.c (scev_linear_transform): Ditto.
+	(gate_scev): Add check for flag_tree_loop_linear.
+	(gate_scev_linear_transform): New.
+	* lambda-code.c: New file.
+	* lambda-mat.c: New file.
+	* lambda-trans.c: New file.
+	* lambda.h: New file.
+	* tree-loop-linear.c: New file.
+
 2004-03-09  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa-phiopt.c (conditional_replacement):

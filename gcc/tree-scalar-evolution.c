@@ -2768,6 +2768,14 @@ scev_elim_checks (void)
   eliminate_redundant_checks ();
 }
 
+/* Runs the linear loop transformations.  */
+
+static void
+scev_linear_transform (void)
+{
+  linear_transform_loops (current_loops, *scalar_evolution_info);
+}
+
 /* Runs the vectorization pass.  */
 
 static void
@@ -2800,7 +2808,8 @@ gate_scev (void)
   return (flag_scalar_evolutions != 0
 	  || flag_tree_vectorize != 0
 	  || flag_all_data_deps != 0
-	  || flag_tree_elim_checks != 0);
+	  || flag_tree_elim_checks != 0
+	  || flag_tree_loop_linear != 0);
 }
 
 static bool
@@ -2820,6 +2829,13 @@ gate_scev_elim_checks (void)
 {
   return current_loops && flag_tree_elim_checks != 0;
 }
+
+static bool
+gate_scev_linear_transform (void)
+{
+  return current_loops && flag_tree_loop_linear != 0;
+}
+
 
 static bool
 gate_scev_vectorize (void)
@@ -2906,6 +2922,23 @@ struct tree_opt_pass pass_scev_vectorize =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
 };
+
+struct tree_opt_pass pass_scev_linear_transform =
+{
+  "ltrans",				/* name */
+  gate_scev_linear_transform,		/* gate */
+  scev_linear_transform,       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LINEAR_TRANSFORM,  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func                	/* todo_flags_finish */
+};
+
 
 struct tree_opt_pass pass_scev_elim_checks = 
 {

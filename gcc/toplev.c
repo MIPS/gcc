@@ -986,6 +986,9 @@ int flag_ddg = 0;
 /* Enable the elimination of checks on trees.  */
 int flag_tree_elim_checks = 0;
 
+/* Enable linear loop transforms on trees.  */
+int flag_tree_loop_linear = 0;
+
 /* Enable loop vectorization on trees */
 int flag_tree_vectorize = 0;
 
@@ -1219,6 +1222,7 @@ static const lang_independent_options f_options[] =
   { "tree-ter", &flag_tree_ter, 1 },
   { "tree-ch", &flag_tree_ch, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 },
+  { "tree-loop-linear", &flag_tree_loop_linear, 1},
   { "tree-vectorize", &flag_tree_vectorize, 1}
 };
 

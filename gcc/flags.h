@@ -718,6 +718,9 @@ extern int flag_scalar_evolutions;
 /* Enable the analysis of all the data dependences.  */
 extern int flag_all_data_deps;
 
+/* Enable linear loop transforms on trees. */
+extern int flag_tree_loop_linear;
+
 /* Enable the elimination of checks on trees.  */
 extern int flag_tree_elim_checks;
 

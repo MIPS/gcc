@@ -1467,6 +1467,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_all_data_deps = value;
       break;
 
+    case OPT_ftree_loop_linear:
+      flag_tree_loop_linear = value;
+      break;
+
     case OPT_ftree_elim_checks:
       flag_tree_elim_checks = value;
       break;
