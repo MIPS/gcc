@@ -1,3 +1,9 @@
+2005-02-02  Mike Stump  <mrs@apple.com>
+
+	Radar 3981486
+	* objcp/lang-specs.h ("@objc++-cpp-output"): Add support for 3.3
+	language name for distributed builds.
+
 2005-02-02  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3984134
@@ -10,7 +16,6 @@
 2005-02-01  Devang Patel  <dpatel@apple.com>
 
 	Radar 3983593
-
 	* c-pch.c (pch_matching[]): Add -faltivec.
 	* c.opt (faltivec): Use flag_altivec as variable.
 	* toplev.c (flag_disable_opts_for_faltivec): New.
@@ -24,11 +29,11 @@
 
 2004-01-31  Devang Patel  <dpatel@apple.com>
 
-        Radar 3978580
-        * varasm.c (const_hash_1): Check constant cfstring.
-        (compare_constant): Same.
-        * config/darwin-protos.h (darwin_constant_cfstring_p): New.
-        * config/darwin.c (darwin_constant_cfstring_p): New.
+	Radar 3978580
+	* varasm.c (const_hash_1): Check constant cfstring.
+	(compare_constant): Same.
+	* config/darwin-protos.h (darwin_constant_cfstring_p): New.
+	* config/darwin.c (darwin_constant_cfstring_p): New.
 
 2005-01-31  Roger Sayle  <roger@eyesopen.com>
 	    Dale Johannesen  <dalej@apple.com>
@@ -49,11 +54,10 @@
 
 	* cp/typeck2.c (digest_init): Convert AltiVec-style
 	vector constant to its internal tree representation.
- 
+
 2005-01-28  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3967653
-
 	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute):
 	Diagnose 'long long' and 64bit 'long' vector declarations.
 
@@ -115,8 +119,8 @@
 
 2005-01-24  Stuart Hastings  <stuart@apple.com>
 
-        Radar 3939078
-        * gcc/cgraphunit.c (cgraph_build_static_cdtor) Don't set DECL_IGNORED_P.
+	Radar 3939078
+	* gcc/cgraphunit.c (cgraph_build_static_cdtor) Don't set DECL_IGNORED_P.
 
 2005-01-24  Ziemowit Laski  <zlaski@apple.com>
 
@@ -149,12 +153,13 @@
 	INDIRECT_REFs after their argument is gimplified.
 
 2005-01-19 Robert Bowdidge <bowdidge@apple.com>
-        * config/darwin.h (SUBSUBTARGET_OVERRIDE_OPTIONS) Turn off
-          -fweak whenever we're building kexts.
-        * Makefile.in: Add -fno-non-call-exceptions to flags passed when
-          building files for libcc_kext.a
-        * mklibgcc: Move -fexception and -fnon-call-exceptions to start of
-          command line so multilib machinery can override
+
+	* config/darwin.h (SUBSUBTARGET_OVERRIDE_OPTIONS) Turn off
+	  -fweak whenever we're building kexts.
+	* Makefile.in: Add -fno-non-call-exceptions to flags passed when
+	  building files for libcc_kext.a
+	* mklibgcc: Move -fexception and -fnon-call-exceptions to start of
+	  command line so multilib machinery can override
 
 2005-01-20  Dale Johannesen  <dalej@apple.com>
 	
@@ -229,14 +234,14 @@
 
 2005-01-13  Stuart Hastings  <stuart@apple.com>
 
-        Radar 3236762
-        * gcc/config/i386/darwin.h (SUBTARGET_EXTRA_SPECS): Revert Mach-O arch back to i386,
+	Radar 3236762
+	* gcc/config/i386/darwin.h (SUBTARGET_EXTRA_SPECS): Revert Mach-O arch back to i386,
 	regardless of -force_cpusubtype_ALL.
 
 2005-01-11  Stuart Hastings  <stuart@apple.com>
 
-        Radar 3943021
-        * gcc/config/rs6000/rs6000.md (maxsf3, minsf3, split, maxdf3, mindf3, split):
+	Radar 3943021
+	* gcc/config/rs6000/rs6000.md (maxsf3, minsf3, split, maxdf3, mindf3, split):
 	disable when -flag-trapping-math.
 	* gcc/config/rs6000/rs6000.c (rs6000_emit_minmax): Don't abort
 	when #pragma fenv (-ftrapping-math) causes failure.
@@ -269,8 +274,8 @@
 
 2005-01-10  Stuart Hastings  <stuart@apple.com>
 
-        Radar 3236762
-        * gcc/config/i386/darwin.h (SUBTARGET_EXTRA_SPECS): Revert Mach-O arch back to i386.
+	Radar 3236762
+	* gcc/config/i386/darwin.h (SUBTARGET_EXTRA_SPECS): Revert Mach-O arch back to i386.
 
 2005-01-09  Dale Johannesen  <dalej@apple.com>
 
@@ -437,18 +442,18 @@
        (rs6000_emit_epilogue): Similarly for restoring r31.
 
 2005-01-06  Andrew Pinski  <pinskia@physics.uc.edu>
-            Stuart Hastings  <stuart@apple.com>
+	    Stuart Hastings  <stuart@apple.com>
 
-        Radar 3830232
-        * gcc/testsuite/gcc.apple/notailcall-1.c: New testcase.
+	Radar 3830232
+	* gcc/testsuite/gcc.apple/notailcall-1.c: New testcase.
 
 2005-01-06  Stuart Hastings  <stuart@apple.com>
 
-        Radar 3941684
-        * gcc/c-common.c (print_cw_asm_operand): Casts for long long format.
-        * gcc/gcc.c (process_command): Malloc overflowing static char array.
-        * gcc/config/i386/dariwn.h (ASM_SPEC): Revert to i386.
-        * gcc/config/i386/i386.h (STACK_BOUNDARY): Must be of indeterminate signedness.
+	Radar 3941684
+	* gcc/c-common.c (print_cw_asm_operand): Casts for long long format.
+	* gcc/gcc.c (process_command): Malloc overflowing static char array.
+	* gcc/config/i386/dariwn.h (ASM_SPEC): Revert to i386.
+	* gcc/config/i386/i386.h (STACK_BOUNDARY): Must be of indeterminate signedness.
 
 2005-01-06  Mike Stump  <mrs@apple.com>
 
@@ -458,7 +463,7 @@
 2005-01-04  Devang Patel  <dpatel@apple.com>
 
 	Radar 3886137 Part 2.
-	* cppdefault.c (INCLUDE_DEFAULTS): Enable isysroot override by default 
+	* cppdefault.c (INCLUDE_DEFAULTS): Enable isysroot override by default
 	for all include paths.
 
 2005-01-03  Fariborz Jahanian <fjahanian@apple.com>
@@ -480,7 +485,7 @@
 	* config/darwin-protos.h:  Declare it.
 	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS):  Register it.
 	* config/t-darwin: Add new dependency.
-	* config/rs6000/rs6000.c (optimization_options): 
+	* config/rs6000/rs6000.c (optimization_options):
 	Default trapping-math off.
 	* config/i386/i386.c (optimization_options):  Ditto.
 	* fixincludes/inclhack.def:  Add #pragma GCC fenv to <fenv.h>.
@@ -492,17 +497,17 @@
 
 	Radar 3926600
 	Following patches brought in from mainline
-        * tree.c (iterative_hash_expr):  Canonicalize builtins.
-        PR tree-opt/16951
-        * tree-inline.c (setup_one_parameter): Don't directly map a
-        parameter to the address of another variable of the same
-        function.
+	* tree.c (iterative_hash_expr):  Canonicalize builtins.
+	PR tree-opt/16951
+	* tree-inline.c (setup_one_parameter): Don't directly map a
+	parameter to the address of another variable of the same
+	function.
 
 2004-12-22  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3765572
 	* expr.c (emit_push_insn): Remove unnecessary apple
-	local stuff which previously handled partial 
+	local stuff which previously handled partial
 	arguments in mixed mode.
 
 2004-12-20  Dale Johannesen  <dalej@apple.com>
@@ -515,7 +520,7 @@
 
 2004-12-20  Matt Austern  <austern@apple.com>
 
-        Radar 3845716
+	Radar 3845716
 	PR c++/19044
 	* c-common.c (set_builtin_user_assembler_name): New.
 	* c-common.h (set_builtin_user_assembler_name): Declare.
@@ -524,224 +529,224 @@
 2004-12-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3926488
-        * tree-ssa-loop-ivopts.c (contains_abnormal_ssa_name_p):  Don't
-        reference operand 1 of ADDR_EXPRs.
+	* tree-ssa-loop-ivopts.c (contains_abnormal_ssa_name_p):  Don't
+	reference operand 1 of ADDR_EXPRs.
 
 2004-12-20  Devang Patel  <dpatel@apple.com>
 
 	Backport vectorizatin patches from Mainline.
 	Radar 3907012 3917979 3917991 3917994 3917999
 
-        PR tree-optimization/18009
+	PR tree-optimization/18009
 	2004-11-03  Dorit Naishlos  <dorit@il.ibm.com>
 	
-        * tree-vectorizer.h (enum dr_alignment_support): New type.
-        (MAX_NUMBER_OF_UNALIGNED_DATA_REFS): Removed.
-        (LOOP_UNALIGNED_DR): replaced with LOOP_VINFO_UNALIGNED_DR and holds a
-        single data_reference (instead of a varray of references).
-        * tree-vectorizer.c (new_loop_vec_info): Likewise.
-        (vect_gen_niters_for_prolog_loop): Likewise.
-        (vect_update_inits_of_drs): Likewise.
-	        
-        (vect_update_inits_of_drs): Setting of DR_MISALIGNMENT moved to
-        vect_enhance_data_refs_alignment.
-        (vect_do_peeling_for_alignment): Likewise.
-        (vect_enhance_data_refs_alignment): Decide if and by how much to peel;
-        this functionality used to be in vect_analyze_data_refs_alignment.
-        Also update DR_MISALIGNMENT due to peeling; this functionality used to
-        be in vect_update_inits_of_drs and vect_do_peeling_for_alignment).
-        (vect_analyze_data_refs_alignment): Decision on whether and by how much
-        to peel moved to vect_enhance_data_refs_alignment. Call
-        vect_supportable_dr_alignment.
-	        
-        (vect_compute_data_ref_alignment): Set STMT_VINFO_VECTYPE.
-        (vect_compute_data_refs_alignment): Return bool. Consider return value
-        of vect_compute_data_ref_alignment and return true/false accordingly.
-        (vect_enhance_data_refs_alignment): Consider return value of
-        vect_compute_data_refs_alignment and return true/false accordingly.
-	        
-        (vect_supportable_dr_alignment): New function.
-        (vectorizable_store): Call vect_supportable_dr_alignment.
-        (vectorizable_load): Call vect_supportable_dr_alignment. Alignment
-        support checks moved from here to vect_supportable_dr_alignment.
-	        
-        (vect_transform_loop): Avoid 80 columns overflow.
+	* tree-vectorizer.h (enum dr_alignment_support): New type.
+	(MAX_NUMBER_OF_UNALIGNED_DATA_REFS): Removed.
+	(LOOP_UNALIGNED_DR): replaced with LOOP_VINFO_UNALIGNED_DR and holds a
+	single data_reference (instead of a varray of references).
+	* tree-vectorizer.c (new_loop_vec_info): Likewise.
+	(vect_gen_niters_for_prolog_loop): Likewise.
+	(vect_update_inits_of_drs): Likewise.
+	
+	(vect_update_inits_of_drs): Setting of DR_MISALIGNMENT moved to
+	vect_enhance_data_refs_alignment.
+	(vect_do_peeling_for_alignment): Likewise.
+	(vect_enhance_data_refs_alignment): Decide if and by how much to peel;
+	this functionality used to be in vect_analyze_data_refs_alignment.
+	Also update DR_MISALIGNMENT due to peeling; this functionality used to
+	be in vect_update_inits_of_drs and vect_do_peeling_for_alignment).
+	(vect_analyze_data_refs_alignment): Decision on whether and by how much
+	to peel moved to vect_enhance_data_refs_alignment. Call
+	vect_supportable_dr_alignment.
+	
+	(vect_compute_data_ref_alignment): Set STMT_VINFO_VECTYPE.
+	(vect_compute_data_refs_alignment): Return bool. Consider return value
+	of vect_compute_data_ref_alignment and return true/false accordingly.
+	(vect_enhance_data_refs_alignment): Consider return value of
+	vect_compute_data_refs_alignment and return true/false accordingly.
+	
+	(vect_supportable_dr_alignment): New function.
+	(vectorizable_store): Call vect_supportable_dr_alignment.
+	(vectorizable_load): Call vect_supportable_dr_alignment. Alignment
+	support checks moved from here to vect_supportable_dr_alignment.
+	
+	(vect_transform_loop): Avoid 80 columns overflow.
 
-        2004-11-11  Dorit Naishlos  <dorit@il.ibm.com>
-	        
-        * tree-vectorizer.c (update_phi_nodes_for_guard): Call reverse_phis.
-        (vect_update_ivs_after_vectorizer): Update function documentation.
-        Avoid quadratic behavior and direct write to PHI_ARG_DEF.
-
-        2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
-        Andrew Pinski  <pinskia@physics.uc.edu>
-	        
-        PR tree-opt/18425
-        * tree-vectorize.c (vect_build_loop_niters): Do not insert
-        NULL into the instruction stream. Initialize new_bb to NULL.
-        (vect_update_ivs_after_vectorizer): Likewise.
-        (vect_gen_niters_for_prolog_loop): Likewise.
-
-        PR tree-opt/18400
-        * tree-vectorizer.c (make_loop_iterate_ntimes): Set loop->nb_iterations.
-        (vect_transform_loop_bound): Set loop->nb_iterations.
-
-        2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
-	        
-        PR tree-opt/18400
-        * gcc.dg/vect/pr18400.c: New test.
-	        
-        2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
-        Andrew Pinski  <pinskia@physics.uc.edu>
-	        
-        PR tree-opt/18425
-        * gcc.dg/vect/pr18425.c: New test.
+	2004-11-11  Dorit Naishlos  <dorit@il.ibm.com>
+	
+	* tree-vectorizer.c (update_phi_nodes_for_guard): Call reverse_phis.
+	(vect_update_ivs_after_vectorizer): Update function documentation.
+	Avoid quadratic behavior and direct write to PHI_ARG_DEF.
 
 	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
-	 
+	Andrew Pinski  <pinskia@physics.uc.edu>
+	
+	PR tree-opt/18425
+	* tree-vectorize.c (vect_build_loop_niters): Do not insert
+	NULL into the instruction stream. Initialize new_bb to NULL.
+	(vect_update_ivs_after_vectorizer): Likewise.
+	(vect_gen_niters_for_prolog_loop): Likewise.
+
+	PR tree-opt/18400
+	* tree-vectorizer.c (make_loop_iterate_ntimes): Set loop->nb_iterations.
+	(vect_transform_loop_bound): Set loop->nb_iterations.
+
+	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+	
+	PR tree-opt/18400
+	* gcc.dg/vect/pr18400.c: New test.
+	
+	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+	Andrew Pinski  <pinskia@physics.uc.edu>
+	
+	PR tree-opt/18425
+	* gcc.dg/vect/pr18425.c: New test.
+
+	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+	
 	* gcc.dg/vect/vect-78.c: Now vectorized on powerpc*.
 
 	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
 
-        * tree-vectorizer.c (slpeel_tree_peel_loop_to_edge): New name for
-        function previously called tree_duplicate_loop_to_edge.
-        (slpeel_tree_duplicate_loop_to_edge_cfg): New name for function
-        previously called tree_duplicate_loop_to_edge_cfg.
-        (slpeel_update_phis_for_duplicate_loop): Prefix 'slpeel' added to
-        function name.
-        (slpeel_update_phi_nodes_for_guard): Likewise.
-        (slpeel_make_loop_iterate_ntimes): Likewise.
-        (slpeel_add_loop_guard): Likewise.
-        (allocate_new_names, free_new_names): Function declaration moved to top
-        of file.
-        (rename_use_op, rename_def_op): Likewise.
-        (rename_variables_in_bb, rename_variables_in_loop): Likewise.
-        (vect_generate_tmps_on_preheader): Function declaration moved.
-        (vect_transform_for_unknown_loop_bound): Added missing function
-        declaration.
+	* tree-vectorizer.c (slpeel_tree_peel_loop_to_edge): New name for
+	function previously called tree_duplicate_loop_to_edge.
+	(slpeel_tree_duplicate_loop_to_edge_cfg): New name for function
+	previously called tree_duplicate_loop_to_edge_cfg.
+	(slpeel_update_phis_for_duplicate_loop): Prefix 'slpeel' added to
+	function name.
+	(slpeel_update_phi_nodes_for_guard): Likewise.
+	(slpeel_make_loop_iterate_ntimes): Likewise.
+	(slpeel_add_loop_guard): Likewise.
+	(allocate_new_names, free_new_names): Function declaration moved to top
+	of file.
+	(rename_use_op, rename_def_op): Likewise.
+	(rename_variables_in_bb, rename_variables_in_loop): Likewise.
+	(vect_generate_tmps_on_preheader): Function declaration moved.
+	(vect_transform_for_unknown_loop_bound): Added missing function
+	declaration.
 
 	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>	
 
-        * tree-vectorizer.c (slpeel_can_duplicate_loop_p): New name for function
-        previously called verify_loop_for_duplication. All conditions compacted
-        into one compound condition. Removed debug dumps.
-        (vect_analyze_loop_with_symbolic_num_of_iters): Removed. Some of the
-        functionality moved to vect_can_advance_ivs_p, and some to
-        vect_analyze_loop_form.
-        (vect_can_advance_ivs_p): New function. Contains functionality that was
-        taken out of vect_analyze_loop_with_symbolic_num_of_iters.
-        (slpeel_tree_peel_loop_to_edge): Call slpeel_can_duplicate_loop_p.
-        (vect_analyze_operations): Call vect_can_advance_ivs_p and
-        slpeel_can_duplicate_loop_p.
-        (vect_get_loop_niters): Added documentation.
-        (vect_analyze_loop_form): Check the loop entry always - not only in case
-        of unknown loop bound. Create preheader and exit bb if necessary. Apply
-        a check that used to take place in
-        vect_analyze_loop_with_symbolic_num_of_iters.
-        (vectorize_loops): Call verify_loop_closed_ssa under ENABLE_CHECKING.
-        Remove redundant call to rewrite_into_loop_closed_ssa.
-        (vect_compute_data_refs_alignment): Removed obsolete comment.
+	* tree-vectorizer.c (slpeel_can_duplicate_loop_p): New name for function
+	previously called verify_loop_for_duplication. All conditions compacted
+	into one compound condition. Removed debug dumps.
+	(vect_analyze_loop_with_symbolic_num_of_iters): Removed. Some of the
+	functionality moved to vect_can_advance_ivs_p, and some to
+	vect_analyze_loop_form.
+	(vect_can_advance_ivs_p): New function. Contains functionality that was
+	taken out of vect_analyze_loop_with_symbolic_num_of_iters.
+	(slpeel_tree_peel_loop_to_edge): Call slpeel_can_duplicate_loop_p.
+	(vect_analyze_operations): Call vect_can_advance_ivs_p and
+	slpeel_can_duplicate_loop_p.
+	(vect_get_loop_niters): Added documentation.
+	(vect_analyze_loop_form): Check the loop entry always - not only in case
+	of unknown loop bound. Create preheader and exit bb if necessary. Apply
+	a check that used to take place in
+	vect_analyze_loop_with_symbolic_num_of_iters.
+	(vectorize_loops): Call verify_loop_closed_ssa under ENABLE_CHECKING.
+	Remove redundant call to rewrite_into_loop_closed_ssa.
+	(vect_compute_data_refs_alignment): Removed obsolete comment.
 
 
-	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com> 
+	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
 	
-        * tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Last two
-        arguments removed.
-        (slpeel_tree_peel_loop_to_edge): Call slpeel_make_loop_iterate_ntimes
-        without last two arguments. Update single_exit of loops.
-        (vect_update_niters_after_peeling): Removed. Its functionality was
-        moved to vect_do_peeling_for_alignment.
-        (vect_do_peeling_for_loop_bound): New name for function previously
-        called vect_transform_for_unknown_loop_bound.
-        (vect_transform_loop_bound): Call slpeel_make_loop_iterate_ntimes
-        instead of code that duplicates the same functionality.
-        (vect_do_peeling_for_alignment): Functionality of
-        vect_update_niters_after_peeling moved here.
-        (vect_transform_loop): Unify call to vect_do_peeling_for_loop_bound -
-        previously named vect_transform_for_unknown_loop_bound - for both known
-        and unknown loop bound cases.
+	* tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Last two
+	arguments removed.
+	(slpeel_tree_peel_loop_to_edge): Call slpeel_make_loop_iterate_ntimes
+	without last two arguments. Update single_exit of loops.
+	(vect_update_niters_after_peeling): Removed. Its functionality was
+	moved to vect_do_peeling_for_alignment.
+	(vect_do_peeling_for_loop_bound): New name for function previously
+	called vect_transform_for_unknown_loop_bound.
+	(vect_transform_loop_bound): Call slpeel_make_loop_iterate_ntimes
+	instead of code that duplicates the same functionality.
+	(vect_do_peeling_for_alignment): Functionality of
+	vect_update_niters_after_peeling moved here.
+	(vect_transform_loop): Unify call to vect_do_peeling_for_loop_bound -
+	previously named vect_transform_for_unknown_loop_bound - for both known
+	and unknown loop bound cases.
 
-        2004-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
-	        
-        * tree-vectorizer.c (slpeel_verify_cfg_after_peeling): Define only
-        if checking is enabled.
+	2004-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+	
+	* tree-vectorizer.c (slpeel_verify_cfg_after_peeling): Define only
+	if checking is enabled.
 
 	2004-11-22  Dorit Naishlos  <dorit@il.ibm.com>
 	
-        PR tree-opt/18544
-        * tree-vectorizer.c (vect_analyze_data_refs): Fail if memtag not found.
+	PR tree-opt/18544
+	* tree-vectorizer.c (vect_analyze_data_refs): Fail if memtag not found.
 
 	2004-11-22  Dorit Naishlos  <dorit@il.ibm.com>
 
-        PR tree-opt/18536
-        * tree-vectorizer.c (make_loop_iterate_ntimes): Use type of niters when
-        creating iv instead of integer_type.
-        (vect_build_loop_niters): Remove redundant code.
-        (vect_transform_loop_bound): Removed (duplicates functionality of
-        make_loop_iterate_ntimes.
-        (vect_gen_niters_for_prolog_loop): Add documentation. Call
-        lang_hooks.types.type_for_size to create a type of the required size.
-        Use that type instead of integer_type. Remove redundant code.
-        (vect_update_niters_after_peeling): Use type of niters instead of
-        integer_type.
-        (vect_transform_loop): Unify handling of known and unknown loop bound
-        cases. Call make_loop_iterate_ntimes instead of
-        vect_transform_loop_bound.
+	PR tree-opt/18536
+	* tree-vectorizer.c (make_loop_iterate_ntimes): Use type of niters when
+	creating iv instead of integer_type.
+	(vect_build_loop_niters): Remove redundant code.
+	(vect_transform_loop_bound): Removed (duplicates functionality of
+	make_loop_iterate_ntimes.
+	(vect_gen_niters_for_prolog_loop): Add documentation. Call
+	lang_hooks.types.type_for_size to create a type of the required size.
+	Use that type instead of integer_type. Remove redundant code.
+	(vect_update_niters_after_peeling): Use type of niters instead of
+	integer_type.
+	(vect_transform_loop): Unify handling of known and unknown loop bound
+	cases. Call make_loop_iterate_ntimes instead of
+	vect_transform_loop_bound.
 
 	2004-11-23  Dorit Naishlos  <dorit@il.ibm.com>
 	
-        PR tree-opt/18403
-        PR tree-opt/18505
-        * tree-vectorizer.c (vect_create_data_ref_ptr): Use
-        lang_hooks.types.type_for_size instead of integer_type_node for the
-        type of ptr_update.
+	PR tree-opt/18403
+	PR tree-opt/18505
+	* tree-vectorizer.c (vect_create_data_ref_ptr): Use
+	lang_hooks.types.type_for_size instead of integer_type_node for the
+	type of ptr_update.
 
-	2004-11-23  Dorit Naishlos  <dorit@il.ibm.com> 
-        * tree-vectorizer.c (vect_analyze_operations): Don't vectorize if
-        the vectorization factor is greater than the iteration count.
-        (vect_gen_niters_for_prolog_loop): No need to calculate min if the
-        iteration count is known.
-        
-        (vect_build_symbol_bound): Removed. Its functionality moved to
-        vect_generate_tmps_on_preheader.
-        (vect_generate_tmps_on_preheader): Moved content of
-        vect_build_symbol_bound here instead of calling it.  Changed some
-        variables names.
-        
-        (vect_build_loop_niters): We don't expect a new_bb to be generated -
-        use gcc_assert.
-        (vect_gen_niters_for_prolog_loop): Likewise.
-        (vect_gen_niters_for_prolog_loo): Likewise.
-	        
-        (slpeel_make_loop_iterate_ntimes): Use buildN instead of build.
-        (slpeel_add_loop_guard): Likewise.
-        (slpeel_tree_peel_loop_to_edge): Likewise.
-        (vect_do_peeling_for_alignment): Likewise.
-	        
-        (vect_get_first_index): Missing space.
+	2004-11-23  Dorit Naishlos  <dorit@il.ibm.com>
+	* tree-vectorizer.c (vect_analyze_operations): Don't vectorize if
+	the vectorization factor is greater than the iteration count.
+	(vect_gen_niters_for_prolog_loop): No need to calculate min if the
+	iteration count is known.
+
+	(vect_build_symbol_bound): Removed. Its functionality moved to
+	vect_generate_tmps_on_preheader.
+	(vect_generate_tmps_on_preheader): Moved content of
+	vect_build_symbol_bound here instead of calling it.  Changed some
+	variables names.
+
+	(vect_build_loop_niters): We don't expect a new_bb to be generated -
+	use gcc_assert.
+	(vect_gen_niters_for_prolog_loop): Likewise.
+	(vect_gen_niters_for_prolog_loo): Likewise.
+	
+	(slpeel_make_loop_iterate_ntimes): Use buildN instead of build.
+	(slpeel_add_loop_guard): Likewise.
+	(slpeel_tree_peel_loop_to_edge): Likewise.
+	(vect_do_peeling_for_alignment): Likewise.
+	
+	(vect_get_first_index): Missing space.
 
 	2004-11-30  Dorit Naishlos  <dorit@il.ibm.com>
 	PR tree-opt/18173
 
-        * tree-vectorizer.c (vect_can_force_dr_alignment_p): Return false for
-        decls that are assembled before vectorization takes place.
-        (vect_compute_data_ref_alignment): Set DECL_USER_ALIGN to 1.
+	* tree-vectorizer.c (vect_can_force_dr_alignment_p): Return false for
+	decls that are assembled before vectorization takes place.
+	(vect_compute_data_ref_alignment): Set DECL_USER_ALIGN to 1.
 
 	2004-11-30  Dorit Naishlos  <dorit@il.ibm.com>
-        * tree-vectorizer.c (vect_gen_niters_for_prolog_loop): Use
-        tree_low_cst instead of TREE_INT_CST_LOW.
+	* tree-vectorizer.c (vect_gen_niters_for_prolog_loop): Use
+	tree_low_cst instead of TREE_INT_CST_LOW.
 
-        2004-11-30  Ira Rosen  <irar@il.ibm.com>
-	        
-        PR tree-opt/18607
-        * tree-vectorizer.c (vect_analyze_data_refs): Use temporary
-        variable for data_reference when looking for memtag.
+	2004-11-30  Ira Rosen  <irar@il.ibm.com>
+	
+	PR tree-opt/18607
+	* tree-vectorizer.c (vect_analyze_data_refs): Use temporary
+	variable for data_reference when looking for memtag.
 
 	2004-12-02  Dorit Naishlos  <dorit@il.ibm.com>
 
-        PR tree-opt/18716
-        * tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Properly set
-        then and else labels.
+	PR tree-opt/18716
+	* tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Properly set
+	then and else labels.
 
 2004-12-17  Mike Stump  <mrs@apple.com>
 
@@ -756,7 +761,7 @@
 
 2004-12-17  Fariborz Jahanian <fjahanian@apple.com>
 
-        Radar 3914905
+	Radar 3914905
 	* c-typeck.c (digest_init): Handle case of vector literal
 	initializer initializing a const variable.
 	* convert.c (build_compound_literal_vector): New routine to generate a
@@ -810,7 +815,7 @@
 	'-m(no-)pim-altivec'; add in '-m(no-)altivec'.
 	(rs6000_altivec_switch): New forward declaration.
 	* doc/invoke.texi: Rename '-m(no-)altivec-pim' to
-        '-m(no-)pim-altivec'; move description of disabled
+	'-m(no-)pim-altivec'; move description of disabled
 	optimizations from '-faltivec' to '-mpim-altivec'.
 
 2004-12-14  Stuart Hastings <stuart@apple.com>
@@ -826,16 +831,16 @@
 	below.
 
 2004-12-11  David Edelsohn  <edelsohn@gnu.org>
-            Ulrich Weigand  <uweigand@de.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
 
-        PR target/18641
-        * config/rs6000/darwin.h (PREFERRED_RELOAD_CLASS): Reload all
-        constants into all register classes intersecting with FLOAT_REGS
-        via memory.
-        * config/rs6000/rs6000.h (PREFERRED_RELOAD_CLASS): Same.
-        * config/rs6000/rs6000.md (movdi_internal32): Ignore FPRs when
-        choosing register preferences.
-        (movdi_internal64): Same.
+	PR target/18641
+	* config/rs6000/darwin.h (PREFERRED_RELOAD_CLASS): Reload all
+	constants into all register classes intersecting with FLOAT_REGS
+	via memory.
+	* config/rs6000/rs6000.h (PREFERRED_RELOAD_CLASS): Same.
+	* config/rs6000/rs6000.md (movdi_internal32): Ignore FPRs when
+	choosing register preferences.
+	(movdi_internal64): Same.
 
 2004-12-13  Mike Stump  <mrs@apple.com>
 
@@ -893,7 +898,7 @@
 	(enum pim_flags, struct altivec_pim_info): New data types.
 	(altivec_pim_table): New global variable.
 	(def_pim_builtin): New macro.
-	(altivec_init_builtins): If '-maltivec-pim' was specified, define 
+	(altivec_init_builtins): If '-maltivec-pim' was specified, define
 	AltiVec PIM operations and predicates as built-ins.
 	(rs6000_handle_altivec_attribute): Add handling for 'element__'
 	argument, which returns the element type of the vector type passed in.
@@ -962,9 +967,9 @@
 
 2004-11-11  Zdenek Dvorak  <dvorakz@suse.cz>
 
-        PR tree-optimization/17742
-        * tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Handle
-        MINUS_EXPR correctly.
+	PR tree-optimization/17742
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Handle
+	MINUS_EXPR correctly.
 
 2004-12-03  Dale Johannesen  <dalej@apple.com>
 
@@ -979,7 +984,7 @@
 	(TARGET_OPTIONS): Add -mlong-branch as a synonym for -mlongcall.
 
 2004-12-03  Caroline Tice  <ctice@apple.com>
-            Andrew Pinski  <pinskia@physics.uc.edu>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	Radar 3469752 (Adding loops-to-memset optimization)
 	* Makefile.in (OBJS-common): Add tree-ssa-loo-memset.o to list
@@ -1066,7 +1071,7 @@
 2004-11-21  Dale Johannesen  <dalej@apple.com>
 
 	* config/darwin.h (JUMP_TABLES_IN_TEXT_SECTION):  Define.
-        (TARGET_TERMINATE_DW2_EH_FRAME_INFO):  Remove dup definition.
+	(TARGET_TERMINATE_DW2_EH_FRAME_INFO):  Remove dup definition.
 
 2004-11-18  Dale Johannese  <dalej@apple.com>
 
@@ -1099,8 +1104,8 @@
 
 	2004-11-12  Sebastian Pop  <pop@cri.ensmp.fr>
 
-        * tree-data-ref.c (analyze_subscript_affine_affine): Correctly
-        compute the first overlapping iterations.
+	* tree-data-ref.c (analyze_subscript_affine_affine): Correctly
+	compute the first overlapping iterations.
 
 	2004-11-12  Devang Patel  <dpatel@apple.com>
 
@@ -1165,8 +1170,8 @@
 
 2004-11-16  Caroline Tice  <ctice@apple.com>
 
-        * varasm.c (assemble_start_function):  Don't print out section label
-        when aligning cold section.
+	* varasm.c (assemble_start_function):  Don't print out section label
+	when aligning cold section.
 
 2004-11-16  Dale Johannesen  <dalej@apple.com>
 
@@ -1280,7 +1285,7 @@
 2004-11-05  Stuart Hastings <stuart@apple.com>
 
 	Radar 3848818
-        * gcc/cfgcleanup.c(merge_memattrs): copied from FSF mainline.
+	* gcc/cfgcleanup.c(merge_memattrs): copied from FSF mainline.
 
 2004-11-04  Dale Johannesen  <dalej@apple.com>
 
@@ -1487,33 +1492,33 @@
 
 2004-10-18  Devang Patel  <dpatel@apple.com>
 
-        Radar 3753408
-        * Makefile.in (GTFILES): Remove APPLE LOCAL comments.
-        * target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
-        TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Remove #defines.
-        (TARGET_VECT): Remove vector select and compare members.
-        * target.h (struct gcc_target): Remove vector select and
-        compare members.
-        * tree-dfa.c (dump_immediate_uses_for): Do not print block number.
-        * tree-gimple.c (is_gimple_stmt): Handle COND_EXPR properly.
-        * tree-ssa-operands.c (add_vdef): Remove.
-        (build_ssa_operands): Remove local patch to handle COND_EXPR inside
-        MODIFY_EXPR case.
-        (get_expr_operands): Same.
-        * tree.c (get_array_base): Remove.
-        * config/rs6000/rs6000.c (rs6000_vector_compare_p,
-        rs6000_vector_compare_for_p, rs6000_vector_compare_stmt,
-        rs6000_vector_select_p, rs6000_vector_select_for_p,
-        rs6000_vector_select_stmt, get_vector_compare_for,
-        get_vector_select_for): Remove.
-        (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_FOR_P,
-        TARGET_VECTOR_SELECT_STMT): Remove #defines.
+	Radar 3753408
+	* Makefile.in (GTFILES): Remove APPLE LOCAL comments.
+	* target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+	TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
+	TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Remove #defines.
+	(TARGET_VECT): Remove vector select and compare members.
+	* target.h (struct gcc_target): Remove vector select and
+	compare members.
+	* tree-dfa.c (dump_immediate_uses_for): Do not print block number.
+	* tree-gimple.c (is_gimple_stmt): Handle COND_EXPR properly.
+	* tree-ssa-operands.c (add_vdef): Remove.
+	(build_ssa_operands): Remove local patch to handle COND_EXPR inside
+	MODIFY_EXPR case.
+	(get_expr_operands): Same.
+	* tree.c (get_array_base): Remove.
+	* config/rs6000/rs6000.c (rs6000_vector_compare_p,
+	rs6000_vector_compare_for_p, rs6000_vector_compare_stmt,
+	rs6000_vector_select_p, rs6000_vector_select_for_p,
+	rs6000_vector_select_stmt, get_vector_compare_for,
+	get_vector_select_for): Remove.
+	(TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+	TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_FOR_P,
+	TARGET_VECTOR_SELECT_STMT): Remove #defines.
 
 2004-10-16  Dale Johannesen  <dalej@apple.com>
 
-        * c-common.c (c_common_get_alias_set):  Use GGC for type_hash_table.
+	* c-common.c (c_common_get_alias_set):  Use GGC for type_hash_table.
 
 2004-10-15  Dale Johannesen  <dalej@apple.com>
 
@@ -1525,17 +1530,17 @@
 
 2004-10-15  Stuart Hastings <stuart@apple.com>
 
-        * gcc/simplify-rtx.c(simplify_relational_operation): copied from FSF mainline.
+	* gcc/simplify-rtx.c(simplify_relational_operation): copied from FSF mainline.
 
 2004-10-15  Stuart Hastings <stuart@apple.com>
 
-        * gcc/c-common.c(print_cw_asm_operand): proper casting.
-        * gcc/expr.c(expand_expr_addr_expr): delete problematic assertions.
+	* gcc/c-common.c(print_cw_asm_operand): proper casting.
+	* gcc/expr.c(expand_expr_addr_expr): delete problematic assertions.
 
 2004-10-14  Robert Bowdidge <bowdidge@apple.com>
 
-        * config/darwin-driver.c: Remove off-by-one error in QA_OVERIDE...
-          machinery.
+	* config/darwin-driver.c: Remove off-by-one error in QA_OVERIDE...
+	  machinery.
 
 2004-10-15  Fariborz Jahanian <fjahanian@apple.com>
 
@@ -1569,8 +1574,8 @@
 2004-09-27  Robert Bowdidge  <bowdidge@apple.com>
 
 	* opts.c: Remove QA_OVERRIDE_GCC3_OPTIONS machinery.
-        * config/darwin-driver.c: Reimplement QA_OVERRIDE_GCC3_OPTIONS in
-        driver-driver.
+	* config/darwin-driver.c: Reimplement QA_OVERRIDE_GCC3_OPTIONS in
+	driver-driver.
 
 2004-09-27  Dale Johannesen  <dalej@apple.com>
 
@@ -1667,8 +1672,8 @@
 
 2004-09-07  Caroline Tice  <ctice@apple.com>
 
-        * cfgrtl.c (rtl_verify_flow_info_1):  Add new edge flag,
-        EDGE_CROSSING, to flags test case.
+	* cfgrtl.c (rtl_verify_flow_info_1):  Add new edge flag,
+	EDGE_CROSSING, to flags test case.
 
 2004-08-31  Devang Patel  <dpatel@apple.com>
 
@@ -1715,7 +1720,7 @@
 	* config.in: Regenerate.
 
 2004-08-23  Richard Henderson  <rth@redhat.com>
-            Andrew Pinski  <apinski@apple.com>
+	    Andrew Pinski  <apinski@apple.com>
 
 	* gimplify.c (gimplify_array_ref_to_plus): Delete.
 	(gimplify_addr_expr): Do not call gimplify_array_ref_to_plus
@@ -1807,7 +1812,7 @@
 2004-08-16  Caroline Tice  <ctice@apple.com>
 
 	Add hot/cold partitioning update that was accepted in FSF Mainline.
-        * varasm.c (text_section): Remove alignment statement.
+	* varasm.c (text_section): Remove alignment statement.
 	(assemble_start_function): Remove APPLE LOCAL markers from code
 	added to FSF mainline;  Add code to properly align cold section at
 	start of function.
@@ -1817,23 +1822,23 @@
 	Merge from mainlne.
 	2004-08-16  Devang Patel  <dpatel@apple.com>
 
-        * c-common.c (handle_used_attribute): Set DECL_PRESERVE_P.
-        * print-tree.c (print_node): Print DECL_PRESERVE_P.
-        * target-def.h (TARGET_ASM_MARK_DECL_PRESERVED): New #define.
-        (TARGET_ASM_OUT): New member, TARGET_ASM_MARK_DECL_PRESERVED
-        * target.h (struct gcc_target): New member, mark_decl_preserved.
-        * hooks.c (hook_void_charptr): Rename to ...
-        (hook_void_constcharptr): ... new name.
-        * hooks.h (hook_void_charptr): Rename to ..
-        (hook_void_constcharptr): ... new name.
-        * tree.h (DECL_PRESERVE_P): New #define.
-        (struct tree_decl): New member, preserve_flag.
-        * varasm.c (assemble_start_function): Mark decl preserved.
-        (assemble_variable): Same.
-        * darwin.c (darwin_mark_decl_preserved): New function.
-        * darwin.h (TARGET_ASM_MARK_DECL_preserved): New #define.
-        * darwin-protos.h (darwin_mark_decl_preserved): New decl.
-        * doc/tm.texi (TARGET_ASM_MARK_DECL_PRESERVED): Document.
+	* c-common.c (handle_used_attribute): Set DECL_PRESERVE_P.
+	* print-tree.c (print_node): Print DECL_PRESERVE_P.
+	* target-def.h (TARGET_ASM_MARK_DECL_PRESERVED): New #define.
+	(TARGET_ASM_OUT): New member, TARGET_ASM_MARK_DECL_PRESERVED
+	* target.h (struct gcc_target): New member, mark_decl_preserved.
+	* hooks.c (hook_void_charptr): Rename to ...
+	(hook_void_constcharptr): ... new name.
+	* hooks.h (hook_void_charptr): Rename to ..
+	(hook_void_constcharptr): ... new name.
+	* tree.h (DECL_PRESERVE_P): New #define.
+	(struct tree_decl): New member, preserve_flag.
+	* varasm.c (assemble_start_function): Mark decl preserved.
+	(assemble_variable): Same.
+	* darwin.c (darwin_mark_decl_preserved): New function.
+	* darwin.h (TARGET_ASM_MARK_DECL_preserved): New #define.
+	* darwin-protos.h (darwin_mark_decl_preserved): New decl.
+	* doc/tm.texi (TARGET_ASM_MARK_DECL_PRESERVED): Document.
 
 2004-08-13  Matt Austern  <austern@apple.com>
 
@@ -1907,41 +1912,41 @@
 
 2004-08-10  Devang Patel  <dpatel@apple.com>
 
-        Remove Symbol Separation.
+	Remove Symbol Separation.
 	Radar 3555440. Reviewed by Mike Stump.
-        * c-common.c (cb_restore_write_symbols, cb_clear_write_symbols,
-        cb_start_symbol_repository, cb_end_symbol_repository,
-        cb_is_builtin_identifier). Remove.
-        (debug.h): Do not include.
-        * c-common.h  (dbg_dir): Remove.
-        (dbg_ss_init, c_common_write_context, cb_clear_write_sybols,
-        cb_restor_write_symbols, cb_start_symbol_repository, c_valid_cinfo,
-        cb_end_symbol_repository, cb_is_builtin_identifier): Remove extern
-        decls.
-        * c-lex.c (init_c_lex): Do not set up symbol separation call backs.
-        (c_common_write_context): Remove.
-        * c-objc-common.c (c_objc_common_finish_file): Do not write context.
-        * c-opts.c (dbg_dir): Remove.
-        (c_common_handle_option): Remove symbol separation option handling.
-        (c_common_parse_file): Do not initialize symbol repository.
-        * c.opt (Winvalid-sr, fsave-repository=): Remove.
+	* c-common.c (cb_restore_write_symbols, cb_clear_write_symbols,
+	cb_start_symbol_repository, cb_end_symbol_repository,
+	cb_is_builtin_identifier). Remove.
+	(debug.h): Do not include.
+	* c-common.h  (dbg_dir): Remove.
+	(dbg_ss_init, c_common_write_context, cb_clear_write_sybols,
+	cb_restor_write_symbols, cb_start_symbol_repository, c_valid_cinfo,
+	cb_end_symbol_repository, cb_is_builtin_identifier): Remove extern
+	decls.
+	* c-lex.c (init_c_lex): Do not set up symbol separation call backs.
+	(c_common_write_context): Remove.
+	* c-objc-common.c (c_objc_common_finish_file): Do not write context.
+	* c-opts.c (dbg_dir): Remove.
+	(c_common_handle_option): Remove symbol separation option handling.
+	(c_common_parse_file): Do not initialize symbol repository.
+	* c.opt (Winvalid-sr, fsave-repository=): Remove.
 	* dbxout.c (dbxout_restore_write_symbols, dbxout_clear_write_symbols,
-        dbxout_start_symbol_repository, dbxout_end_symbol_repository) Remove.
-        (dbx_debug_h): Remove symbol separation hoooks.
-        (xcoff_debug): Same.
-        * debug.c (do_nothing_): Remove symbol separation hooks.
-        * debug.h (gcc_debug_hooks): Same.
-        * dwarf2out.c (dwarf2_debug): Same.
-        * flags.h (orig_write_symbols, flag_grepository): Same.
-        * gcc.c (pch): Remove fsave-repository support.
-        (cc1_options): Same.
-        (asm_options): Same.
-        (default_compilers): Same.
-        (option_map): Same.
-        (dbg_ss): Remove.
-        (static_specs): Remove dbg_ss.
-        * opts.c (orig_write_symbols, flag_grepository): Remove.
-        (set_debug_level): Remove symbol separation support.
+	dbxout_start_symbol_repository, dbxout_end_symbol_repository) Remove.
+	(dbx_debug_h): Remove symbol separation hoooks.
+	(xcoff_debug): Same.
+	* debug.c (do_nothing_): Remove symbol separation hooks.
+	* debug.h (gcc_debug_hooks): Same.
+	* dwarf2out.c (dwarf2_debug): Same.
+	* flags.h (orig_write_symbols, flag_grepository): Same.
+	* gcc.c (pch): Remove fsave-repository support.
+	(cc1_options): Same.
+	(asm_options): Same.
+	(default_compilers): Same.
+	(option_map): Same.
+	(dbg_ss): Remove.
+	(static_specs): Remove dbg_ss.
+	* opts.c (orig_write_symbols, flag_grepository): Remove.
+	(set_debug_level): Remove symbol separation support.
 	* doc/invoke.texi: Remove symbol separation documentation.
 
 2004-08-09  Geoffrey Keating  <geoffk@apple.com>
@@ -2051,28 +2056,28 @@
 
 2004-08-01  Devang Patel  <dpatel@apple.com>
 
-         Re-implement -fwritable-strings support.
-         Radar : 3699482
+	 Re-implement -fwritable-strings support.
+	 Radar : 3699482
 
-        * c-common.c (fix_string_type): Check flag_writable_strings.
-        (fix_string_type): Likewise.
-        * c-opts.c (set_std_c89): Initialize flag_writable_strings.
-        (set_std_c99): Likewise.
-        * common.opt (fwritable-strings): Add.
-        * flags.h: Add the external declaration of
-        flag_writable_strings.
-        * opts.c (common_handle_option) <OPT_fwritable_strings>:
-        Add.
-        * toplev.c (flag_writable_strings): Add.
-        (f_options): Add an entry for writable-strings.
-        * varasm.c (const_hash_1) <STRING_CST>: Check
-        flag_writable_strings.
-        (compare_constant) <STRING_CST>: Likewise.
-        (build_constant_desc): Likewise.
-        * config/darwin.c (machopic_select_section): Likewise.
-        * doc/invoke.texi (-fwritable-strings): Add.
-        (-fno-const-strings): Document -fwritable-strings.
-        * doc/trouble.texi: Document -fwritable-strings.
+	* c-common.c (fix_string_type): Check flag_writable_strings.
+	(fix_string_type): Likewise.
+	* c-opts.c (set_std_c89): Initialize flag_writable_strings.
+	(set_std_c99): Likewise.
+	* common.opt (fwritable-strings): Add.
+	* flags.h: Add the external declaration of
+	flag_writable_strings.
+	* opts.c (common_handle_option) <OPT_fwritable_strings>:
+	Add.
+	* toplev.c (flag_writable_strings): Add.
+	(f_options): Add an entry for writable-strings.
+	* varasm.c (const_hash_1) <STRING_CST>: Check
+	flag_writable_strings.
+	(compare_constant) <STRING_CST>: Likewise.
+	(build_constant_desc): Likewise.
+	* config/darwin.c (machopic_select_section): Likewise.
+	* doc/invoke.texi (-fwritable-strings): Add.
+	(-fno-const-strings): Document -fwritable-strings.
+	* doc/trouble.texi: Document -fwritable-strings.
 
 2004-08-01  Geoffrey Keating  <geoffk@apple.com>
 
@@ -2108,53 +2113,53 @@
 
 2004-07-30  Matt Austern  <austern@apple.com>
 
-        * config/darwin-c.c (darwin_pragma_call_on_load): Deprecate.
+	* config/darwin-c.c (darwin_pragma_call_on_load): Deprecate.
 	(darwin_pragma_call_on_unload): Likewise.
 
 2004-07-15  Devang Patel  <dpatel@apple.com>
 
-        * tree-if-conv.c: Add brief description at the beginning.
-        (is_appropriate_for_if_conv): Rename to ..
-        (if_convertable_loop_p): ... new name.
-        (bb_with_exit_edge): Rename to ..
-        (bb_with_exit_edge_p): ... new name.
-        (make_cond_modify_expr): Update comment before function body.
-        (replace_phi_with_cond_modify_expr): Same.
-        (tree_if_convert_stmt): Same. Use new fn name, bb_with_exit_edge_p.
-        (if_convertable_loop_p): New function name. Remove some dead code.
-        (collapse_blocks): Update comment before function body. Format code.
-        Use bb_with_exit_edge_p.
-        (tree_if_conversion): Move this function body at the end of file.
-        (handle_siblint_pattern): Update comment before function body.
-        (fold_sibling_stmts): Same. Update dump info.
+	* tree-if-conv.c: Add brief description at the beginning.
+	(is_appropriate_for_if_conv): Rename to ..
+	(if_convertable_loop_p): ... new name.
+	(bb_with_exit_edge): Rename to ..
+	(bb_with_exit_edge_p): ... new name.
+	(make_cond_modify_expr): Update comment before function body.
+	(replace_phi_with_cond_modify_expr): Same.
+	(tree_if_convert_stmt): Same. Use new fn name, bb_with_exit_edge_p.
+	(if_convertable_loop_p): New function name. Remove some dead code.
+	(collapse_blocks): Update comment before function body. Format code.
+	Use bb_with_exit_edge_p.
+	(tree_if_conversion): Move this function body at the end of file.
+	(handle_siblint_pattern): Update comment before function body.
+	(fold_sibling_stmts): Same. Update dump info.
 
 2004-07-14  Devang Patel  <dpatel@apple.com>
 
-        * target.h (gcc_target): Additional parameter for
-        support_vector_compare_for_p.
-        * tree-if-conv.c (handle_sibling_pattern): New.
-        (fold_sibling_stmts): New.
-        (make_cond_modify_expr): Dump debugging info.
-        (tree_if_convert_stmt): Same.
-        (is_appropriate_for_if_conv): Remove filters that eliminated
-        loops becase of memory tags and difficult dominance relation.
-        (collapse_blocks): Handle memory tags.
-        (tree_if_conversion): Optimize sibling statements.
-        * tree-vectorizer.c (vect_init_vector): Additional parameter.
-        (vect_get_vec_def_for_operand): Supply vectype to vect_init_vector().
-        (vect_init_vecotr): Use input parameter vectype.
-        (vect_transform_compare): Fix type in dump info.
-        (vect_transform_select): Handle ARRAY_REF as scalar dest. Handle
-        NOP_EXPR as an operand.
-        (vect_is_supportable_compare): Use operand's type to decide
-        second vector type for support_vector_compare_for_p().
-        (vect_is_supportable_select): Fix typo. Allow SSA_NAME as 2nd
-        operand.
-        (exist_non_indexing_operands_for_use_p): Handle conditional modify
-        expr.
-        config/rs6000/rs6000.c (rs6000_vector_compare_for_p): New parameter.
-        (get_vector_compare_for): New parameter. Use it to find appropriate
-        builtin.
+	* target.h (gcc_target): Additional parameter for
+	support_vector_compare_for_p.
+	* tree-if-conv.c (handle_sibling_pattern): New.
+	(fold_sibling_stmts): New.
+	(make_cond_modify_expr): Dump debugging info.
+	(tree_if_convert_stmt): Same.
+	(is_appropriate_for_if_conv): Remove filters that eliminated
+	loops becase of memory tags and difficult dominance relation.
+	(collapse_blocks): Handle memory tags.
+	(tree_if_conversion): Optimize sibling statements.
+	* tree-vectorizer.c (vect_init_vector): Additional parameter.
+	(vect_get_vec_def_for_operand): Supply vectype to vect_init_vector().
+	(vect_init_vecotr): Use input parameter vectype.
+	(vect_transform_compare): Fix type in dump info.
+	(vect_transform_select): Handle ARRAY_REF as scalar dest. Handle
+	NOP_EXPR as an operand.
+	(vect_is_supportable_compare): Use operand's type to decide
+	second vector type for support_vector_compare_for_p().
+	(vect_is_supportable_select): Fix typo. Allow SSA_NAME as 2nd
+	operand.
+	(exist_non_indexing_operands_for_use_p): Handle conditional modify
+	expr.
+	config/rs6000/rs6000.c (rs6000_vector_compare_for_p): New parameter.
+	(get_vector_compare_for): New parameter. Use it to find appropriate
+	builtin.
 
 2004-06-26  Fariborz Jahanian <fjahanian@apple.com>
 
@@ -2310,43 +2315,43 @@
 
 2004-06-22  Devang Patel  <dpatel@apple.com>
 
-        PR 16105
-        * tree-vectorizer.c (vect_analyze_operations): Type of MODIFY_EXPR is
-        not reliable. Use LHS's type.
+	PR 16105
+	* tree-vectorizer.c (vect_analyze_operations): Type of MODIFY_EXPR is
+	not reliable. Use LHS's type.
 
 2004-06-21  Dorit Naishlos  <DORIT@il.ibm.com>
 
-        * tree.def (MULT_UCH_EXPR): New tree code.
-        * tree-vectorizer.h (stmt_vec_info): New fields part_of_pattern,
-        related_stmt, v.vect_target_hook_for_pattern, and v.vectorized_stmt.
-        (STMT_VINFO_IN_PATTERN_P): New macro.
-        (STMT_VINFO_VEC_HOOK): New macro.
-        (STMT_VINFO_RELATED_STMT): New macro.
-        * tree-vectorizer.c (vect_pattern_recog): New function.
-        (vect_recog_mul_uch_to_uch): New function.
-        (vect_recog_mul_uch_to_uch1): New function.
-        (new_stmt_vec_info): Initialize new fields in stmt_vec_info.
-        (vect_transform_op): Call target hook recorded in STMT_VINFO_VEC_HOOK.
-        (vect_is_supportable_op): Use new field STMT_VINFO_VEC_HOOK to record
-        target support for the "mul_uch" pattern.
-        (vect_mark_relevant): Don't mark stmts involved in a pattern as
-        relevant.
-        (vect_mark_stmts_to_be_vectorized): Likewise.
-        (vect_create_data_ref): Fix alias-sets bug.
-        (vect_get_vec_def_for_operand): Call new hook support_vector_init_p.
-        * target.h (support_vmul_uch_p): New entry for target hook.
-        (build_vmul_uch): New entry for target hook.
-        (support_vector_init_p): New entry for target hook.
-        (build_vector_init): New entry for target hook.
-        * target-def.h (TARGET_VECT_SUPPORT_VMUL_UCH_P): New target hook.
-        (TARGET_VECT_BUILD_VMUL_UCH): New target hook.
-        (TARGET_VECT_SUPPORT_VECTOR_INIT_P): New target hook.
-        (TARGET_VECT_BUILD_VECTOR_INIT): New target hook.
-        * config/rs6000/rs6000.c (rs6000_support_vmul_uch_p): New function.
-        (rs6000_build_vmul_uch) New function.
-        (rs6000_support_vector_init_p) New function.
-        (get_vector_init_fns_for_type) New function.
-        (rs6000_build_vector_init) New function.
+	* tree.def (MULT_UCH_EXPR): New tree code.
+	* tree-vectorizer.h (stmt_vec_info): New fields part_of_pattern,
+	related_stmt, v.vect_target_hook_for_pattern, and v.vectorized_stmt.
+	(STMT_VINFO_IN_PATTERN_P): New macro.
+	(STMT_VINFO_VEC_HOOK): New macro.
+	(STMT_VINFO_RELATED_STMT): New macro.
+	* tree-vectorizer.c (vect_pattern_recog): New function.
+	(vect_recog_mul_uch_to_uch): New function.
+	(vect_recog_mul_uch_to_uch1): New function.
+	(new_stmt_vec_info): Initialize new fields in stmt_vec_info.
+	(vect_transform_op): Call target hook recorded in STMT_VINFO_VEC_HOOK.
+	(vect_is_supportable_op): Use new field STMT_VINFO_VEC_HOOK to record
+	target support for the "mul_uch" pattern.
+	(vect_mark_relevant): Don't mark stmts involved in a pattern as
+	relevant.
+	(vect_mark_stmts_to_be_vectorized): Likewise.
+	(vect_create_data_ref): Fix alias-sets bug.
+	(vect_get_vec_def_for_operand): Call new hook support_vector_init_p.
+	* target.h (support_vmul_uch_p): New entry for target hook.
+	(build_vmul_uch): New entry for target hook.
+	(support_vector_init_p): New entry for target hook.
+	(build_vector_init): New entry for target hook.
+	* target-def.h (TARGET_VECT_SUPPORT_VMUL_UCH_P): New target hook.
+	(TARGET_VECT_BUILD_VMUL_UCH): New target hook.
+	(TARGET_VECT_SUPPORT_VECTOR_INIT_P): New target hook.
+	(TARGET_VECT_BUILD_VECTOR_INIT): New target hook.
+	* config/rs6000/rs6000.c (rs6000_support_vmul_uch_p): New function.
+	(rs6000_build_vmul_uch) New function.
+	(rs6000_support_vector_init_p) New function.
+	(get_vector_init_fns_for_type) New function.
+	(rs6000_build_vector_init) New function.
 
 
 2004-06-17  Jon Ziegler  <jonz@apple.com>
@@ -2366,40 +2371,40 @@
 
 2004-06-15  Dorit Naishlos  <DORIT@il.ibm.com>
 
-        Radar 3619941
+	Radar 3619941
  	* tree-data-ref.c (init_data_ref): New function.
-        * tree-data-ref.h (init_data_ref): New function.
-        * tree-vectorizer.c (vect_get_array_first_index): Return index instead
-        of success status, and support pointers.
-        (vect_create_index_for_array_ref): Remove ARRAY_REF restriction, and
-        change call to vect_get_array_first_index.
-        (vect_create_data_ref): Handle INDIRECT_REFs.
-        (vect_is_supportable_store): Handle INDIRECT_REFs.
-        (vect_is_supportable_load): Handle INDIRECT_REFs.
-        (vect_analyze_data_ref_dependence): Handle INDIRECT_REFs.
-        (vect_analyze_data_ref_dependences): Remove usage of variable 'ok'.
-        (get_array_base): Removed (not used anymore).
-        (vect_force_dr_alignment_p): Use DR_BASE_NAME instead of
-        get_array_base.
-        (vect_align_data_ref): Likewise.
-        (vect_transform_store): Remove ARRAY_REF restriction.
-        (vect_transform_load): Remove ARRAY_REF restriction.
-        (vect_compute_data_ref_alignment): Support pointers.
-        (vect_analyze_data_refs): Support pointers.
-        (vect_debug_stats): New Function.
-        (vect_debug_details): New Function.
-        (vect_transform_loop): Use vect_debug_stats and vec_debug_details.
-        (vect_analyze_loop): Use vect_debug_details.
-        (vect_analyze_scalar_cycles): Use vect_debug_stats.
-        (vect_analyze_data_ref_dependence): Likewse.
-        (vect_analyze_data_refs_alignment): Likewise.
-        (vect_analyze_data_ref_accesses): Likewise.
-        (vect_analyze_data_refs): Likewise.
-        (vect_analyze_loop_form): Likewise.
-        (vect_gen_if_guard): Formatting fixes (avoid 80 column overflow).
-        (vect_update_initial_conditions_of_duplicatd_loop): Likewise.
-        (vect_transform_loop): Likewise.
-        (vect_analyze_loop_form): Likewise.
+	* tree-data-ref.h (init_data_ref): New function.
+	* tree-vectorizer.c (vect_get_array_first_index): Return index instead
+	of success status, and support pointers.
+	(vect_create_index_for_array_ref): Remove ARRAY_REF restriction, and
+	change call to vect_get_array_first_index.
+	(vect_create_data_ref): Handle INDIRECT_REFs.
+	(vect_is_supportable_store): Handle INDIRECT_REFs.
+	(vect_is_supportable_load): Handle INDIRECT_REFs.
+	(vect_analyze_data_ref_dependence): Handle INDIRECT_REFs.
+	(vect_analyze_data_ref_dependences): Remove usage of variable 'ok'.
+	(get_array_base): Removed (not used anymore).
+	(vect_force_dr_alignment_p): Use DR_BASE_NAME instead of
+	get_array_base.
+	(vect_align_data_ref): Likewise.
+	(vect_transform_store): Remove ARRAY_REF restriction.
+	(vect_transform_load): Remove ARRAY_REF restriction.
+	(vect_compute_data_ref_alignment): Support pointers.
+	(vect_analyze_data_refs): Support pointers.
+	(vect_debug_stats): New Function.
+	(vect_debug_details): New Function.
+	(vect_transform_loop): Use vect_debug_stats and vec_debug_details.
+	(vect_analyze_loop): Use vect_debug_details.
+	(vect_analyze_scalar_cycles): Use vect_debug_stats.
+	(vect_analyze_data_ref_dependence): Likewse.
+	(vect_analyze_data_refs_alignment): Likewise.
+	(vect_analyze_data_ref_accesses): Likewise.
+	(vect_analyze_data_refs): Likewise.
+	(vect_analyze_loop_form): Likewise.
+	(vect_gen_if_guard): Formatting fixes (avoid 80 column overflow).
+	(vect_update_initial_conditions_of_duplicatd_loop): Likewise.
+	(vect_transform_loop): Likewise.
+	(vect_analyze_loop_form): Likewise.
 
 2004-06-14  Caroline Tice <ctice@apple.com>
 
@@ -2426,79 +2431,79 @@
 
 2004-06-14  Fariborz Jahanian <fjahanian@apple.com>
 
-        * version.c: Remove word tree-ssa from version string.
+	* version.c: Remove word tree-ssa from version string.
 
 2004-06-12  Devang Patel  <dpatel@apple.com>
 
-        * Makefile.in (OBJS-common): Add tree-if-conv.o.
-        (tree-if-conv.o): New rule.
-        * target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
-        TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): New.
-        (TARGET_INITIALIZER): New members.
-        * target.h (tree.h): Include.
-        (struct gcc_target.vect): New members - support_vector_compare_p,
-        support_vector_compare_for_p, vector_compare_stmt, support_vector_select_p,
-        support_vector_select_for_p, vector_select_stmt.
-        * tree-dfa.c (dump_immediate_uses_for): Print block index.
-        * tree-flow.h (enum  move_pos): Move from ...
-        * tree-ssa-loop-im.c (enum move_pos): here.
-        * tree-if-conv.c: New file.
-        * tree-simple.c (is_gimple_stmt): Make COND_EXPR valid gimple.
-        * tree-ssa-dce.c (mark_control_dependent_edges_necessary): Check t.
+	* Makefile.in (OBJS-common): Add tree-if-conv.o.
+	(tree-if-conv.o): New rule.
+	* target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+	TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
+	TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): New.
+	(TARGET_INITIALIZER): New members.
+	* target.h (tree.h): Include.
+	(struct gcc_target.vect): New members - support_vector_compare_p,
+	support_vector_compare_for_p, vector_compare_stmt, support_vector_select_p,
+	support_vector_select_for_p, vector_select_stmt.
+	* tree-dfa.c (dump_immediate_uses_for): Print block index.
+	* tree-flow.h (enum  move_pos): Move from ...
+	* tree-ssa-loop-im.c (enum move_pos): here.
+	* tree-if-conv.c: New file.
+	* tree-simple.c (is_gimple_stmt): Make COND_EXPR valid gimple.
+	* tree-ssa-dce.c (mark_control_dependent_edges_necessary): Check t.
        * tree-ssa-live.c (debug_var_map): New function.
-        * tree-ssa-live.h (debug_var_map): New function declaration.
-        * tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variable): Add
-        flow_loop_scan() call.
-        * tree-ssa-operands (get_stmt_operands): Handle MODIFY_EXPR when COND_EXPR
-        is RHS.
-        (get_expr_operands): Same.
-        * tree-ssanames.c (make_ssa_name): Do not use free_ssanames.
-        (release_ssa_name): Same.
-        * tree-vectorizer.c (vect_transform_select): New function.
-        (vect_transform_compare): New function
-        (vect_is_supportable_operation): New function.
-        (vect_is_supportable_compare): New function.
-        (vect_is_supportable_select): New function.
-        (get_array_base): Move into tree.c.
-        (vect_loop_version): New function.
-        (second_loop_vers_available): New variable.
-        (default_vector_compare_p): New function.
-        (default_vector_compare_for_p): New function.
-        (default_vector_comapre_stmt): New function.
-        (default_vector_select_p): New function.
-        (default_vector_select_for_p): New function.
-        (default_vector_select_stmt): New function.
-        (vect_transform_stmt): Handle select_vec_info_type and
-        compare_vec_info_type.
-        (vect_is_supportable_op): Use vect_is_supportable_operation.
-        (vect_analyze_operations): Check select and compare support.
-        (vect_analyze_data_refs_alignment): Print data reference in dump file.
-        (vect_analyze_loop_form): Use if-conversion and update loop->num_nodes
-        check.
-        (vectorize_loops): Use vect_loop_version. Handle second loop version.
-        * tree-vectorizer.h (struct _stmt_vec_info): New members -
-        select_vec_info_type and compare_vec_info_type.
-        (default_vector_compare_p): New function decl.
-        (default_vector_compare_for_p): New function decl.
-        (default_vector_comapre_stmt): New function decl.
-        (default_vector_select_p): New function decl.
-        (default_vector_select_for_p): New function decl.
-        (default_vector_select_stmt): New function decl.
-        * tree.c (get_array_base): Move from tree-vectorizer to here.
-        * tree.h (get_array_base): New function decl.
-        * config/rs6000 (vector_builtin_fns): New.
-        (rs6000_vector_compare_p): New function.
-        (rs6000_vector_compare_for_p): New function.
-        (rs6000_vector_compare_stmt): New function.
-        (rs6000_vector_select_p): New function.
-        (rs6000_vector_select_for_p): New function.
-        (rs6000_vector_select_stmt): New function.
-        (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
-        TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Define.
-        (def_builtin): Record builtin fn node in vector_builtin_fns.
-        * rs6000.h (enum rs6000_builtins):  New entry - RS6000_BUILTIN_MAX.
+	* tree-ssa-live.h (debug_var_map): New function declaration.
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variable): Add
+	flow_loop_scan() call.
+	* tree-ssa-operands (get_stmt_operands): Handle MODIFY_EXPR when COND_EXPR
+	is RHS.
+	(get_expr_operands): Same.
+	* tree-ssanames.c (make_ssa_name): Do not use free_ssanames.
+	(release_ssa_name): Same.
+	* tree-vectorizer.c (vect_transform_select): New function.
+	(vect_transform_compare): New function
+	(vect_is_supportable_operation): New function.
+	(vect_is_supportable_compare): New function.
+	(vect_is_supportable_select): New function.
+	(get_array_base): Move into tree.c.
+	(vect_loop_version): New function.
+	(second_loop_vers_available): New variable.
+	(default_vector_compare_p): New function.
+	(default_vector_compare_for_p): New function.
+	(default_vector_comapre_stmt): New function.
+	(default_vector_select_p): New function.
+	(default_vector_select_for_p): New function.
+	(default_vector_select_stmt): New function.
+	(vect_transform_stmt): Handle select_vec_info_type and
+	compare_vec_info_type.
+	(vect_is_supportable_op): Use vect_is_supportable_operation.
+	(vect_analyze_operations): Check select and compare support.
+	(vect_analyze_data_refs_alignment): Print data reference in dump file.
+	(vect_analyze_loop_form): Use if-conversion and update loop->num_nodes
+	check.
+	(vectorize_loops): Use vect_loop_version. Handle second loop version.
+	* tree-vectorizer.h (struct _stmt_vec_info): New members -
+	select_vec_info_type and compare_vec_info_type.
+	(default_vector_compare_p): New function decl.
+	(default_vector_compare_for_p): New function decl.
+	(default_vector_comapre_stmt): New function decl.
+	(default_vector_select_p): New function decl.
+	(default_vector_select_for_p): New function decl.
+	(default_vector_select_stmt): New function decl.
+	* tree.c (get_array_base): Move from tree-vectorizer to here.
+	* tree.h (get_array_base): New function decl.
+	* config/rs6000 (vector_builtin_fns): New.
+	(rs6000_vector_compare_p): New function.
+	(rs6000_vector_compare_for_p): New function.
+	(rs6000_vector_compare_stmt): New function.
+	(rs6000_vector_select_p): New function.
+	(rs6000_vector_select_for_p): New function.
+	(rs6000_vector_select_stmt): New function.
+	(TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+	TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
+	TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Define.
+	(def_builtin): Record builtin fn node in vector_builtin_fns.
+	* rs6000.h (enum rs6000_builtins):  New entry - RS6000_BUILTIN_MAX.
 
 2004-06-12  Devang Patel  <dpatel@apple.com>
 
@@ -2564,7 +2569,7 @@
 2004-06-08 Robert Bowdidge <bowdidge@apple.com>
 
 	* config/darwin.c (machopic_indirect_call_target): Added patch from
-        PR/15720 (function marked inline which is called directly isn't
+	PR/15720 (function marked inline which is called directly isn't
 	emitted).
 
 2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
@@ -2575,7 +2580,7 @@
 
 2004-06-08  Caroline Tice  <ctice@apple.com>
 
-        * common.opt (fcreate-profile):  Add new command line option.
+	* common.opt (fcreate-profile):  Add new command line option.
 	(fuse-profile): Likewise.
 	* gcc.c (LINK_COMMAND_SPEC):  Add fcreate-profile to list of flags
 	that causes "-lgcov" to be included in link command.
@@ -2679,8 +2684,8 @@
 
 2004-05-28  Fariborz Jahanian <fjahanian@apple.com>
 
-        * explow.c (copy_to_mode_reg): For PARALLEL patterns, copy
-        to reg via a temprary.
+	* explow.c (copy_to_mode_reg): For PARALLEL patterns, copy
+	to reg via a temprary.
 
 2004-05-27  Dale Johannesen  <dalej@apple.com>
 
@@ -2877,7 +2882,7 @@
 
 2004-05-13  Caroline Tice  <ctice@apple.com>
 
-        * c-common.c (builtin_function_disabled_p):  Remove "static" from
+	* c-common.c (builtin_function_disabled_p):  Remove "static" from
 	function declaration and definition.
 	* c-common.h (builtin_function_disabled_p):  Add extern function
 	definition.
@@ -2977,14 +2982,14 @@
 
 2004-04-30  Caroline Tice  <ctice@apple.com>
 
-        * varasm.c (unlikely_section_label): New global variable.
-        (unlikely_text_section): Change variable name from
-        'unlikely_section_name' to 'unlikely_section_label', make it a global
-        variable, and move the code to generate its value to
-        assemble_start_function.
-        (assemble_start_function):  Add code to generate *correct* value for
-        'unlikely_section_label'.  Now makes use of value from 'fnname'
-        parameter.
+	* varasm.c (unlikely_section_label): New global variable.
+	(unlikely_text_section): Change variable name from
+	'unlikely_section_name' to 'unlikely_section_label', make it a global
+	variable, and move the code to generate its value to
+	assemble_start_function.
+	(assemble_start_function):  Add code to generate *correct* value for
+	'unlikely_section_label'.  Now makes use of value from 'fnname'
+	parameter.
 
 2004-04-29  Devang Patel  <dpatel@apple.com>
 
@@ -3236,13 +3241,13 @@
 
 2004-04-01  Caroline Tice  <ctice@apple.com>
 
-        * basic-block.h (struct edge_def):  Add new field, crossing_edge.
+	* basic-block.h (struct edge_def):  Add new field, crossing_edge.
 	(struct basic_block_def):  Add new field, partition.
 	(UNPARTITIONED, HOT_PARTITION, COLD_PARTITION):  New constant macro
 	definitions.
 	(partition_hot_cold_basic_blocks): Add extern function
 	declaration.
-        * bb-reorder.c (function.h, obstack.h, expr.h, regs.h):  Add four new
+	* bb-reorder.c (function.h, obstack.h, expr.h, regs.h):  Add four new
 	include	statements.
 	(N_ROUNDS): Increase the maximum number of rounds by 1.
 	(branch_threshold): Add array value for new round.
@@ -3288,15 +3293,15 @@
 	(try_optimize_cfg): Likewise.
 	* cfghooks.c (tidy_fallthru_edges): Modify to not remove indirect
 	jumps that cross section boundaries.
-        * cfglayout.c (flags.h): Add new include statement.
+	* cfglayout.c (flags.h): Add new include statement.
 	(update_unlikely_executed_notes):  New function.
 	(fixup_reorder_chain):  Add code so when a new jumping basic block is
-        added, it's UNLIKELY_EXECUTED_CODE and REG_CROSSING_JUMP notes are
+	added, it's UNLIKELY_EXECUTED_CODE and REG_CROSSING_JUMP notes are
 	updated appropriately.
 	(duplicate_insn_chain):  Add code to duplicate the new NOTE insn
 	introduced by this optimization.
-        * cfglayout.h (scan_ahead_for_unlikely_executed_note):  Add new
-        extern function declaration.
+	* cfglayout.h (scan_ahead_for_unlikely_executed_note):  Add new
+	extern function declaration.
 	* cfgrtl.c (can_delete_note_p):  Add NOTE_INSN_UNLIKELY_EXECUTED_CODE to
 	list of notes that can be deleted.
 	(create_basic_block_structure):  Add initialization for partition field.
@@ -3313,14 +3318,14 @@
 	cross section boundaries.
 	(force_nonfallthru_and_redirect): Modify to make sure new basic block
 	ends up in correct section, with correct notes attached.
-        * common.opt (freorder-blocks-and-partition):  Add new flag for this
-        optimization.
-        * dbxout.c (dbx_function_end):  Add code to make sure scope labels at
-        the end of functions are written into the correct (hot or cold)
-        section.
+	* common.opt (freorder-blocks-and-partition):  Add new flag for this
+	optimization.
+	* dbxout.c (dbx_function_end):  Add code to make sure scope labels at
+	the end of functions are written into the correct (hot or cold)
+	section.
 	(dbx_source_file): Add code so writing debug file information
 	doesn't incorrectly change sections.
-        * defaults.h (NORMAL_TEXT_SECTION_NAME): New constant macro, for use
+	* defaults.h (NORMAL_TEXT_SECTION_NAME): New constant macro, for use
 	in partitioning hot/cold basic blocks into separate sections.
 	(SECTION_FORMAT_STRING): New constant macro, for linux/i386 hot/cold
 	section partitioning.
@@ -3328,24 +3333,24 @@
 	conditional branches can span all of memory.
 	(HAS_LONG_UNCOND_BRANCH): New constant macro, indicationg whether or not
 	unconditional branches can span all of memory.
-        * final.c (scan_ahead_for_unlikely_executed_note):  New function.
+	* final.c (scan_ahead_for_unlikely_executed_note):  New function.
 	(final_scan_insn):  Add code to check for NOTE instruction indicating
-        whether basic block belongs in hot or cold section, and to make sure
-        the current basic block is being written to the appropriate section.
-        Also added code to ensure that jump table basic blocks end up in the
-        correct section.
-        * flags.h (flag_reorder_blocks_and_partition):  New flag.
+	whether basic block belongs in hot or cold section, and to make sure
+	the current basic block is being written to the appropriate section.
+	Also added code to ensure that jump table basic blocks end up in the
+	correct section.
+	* flags.h (flag_reorder_blocks_and_partition):  New flag.
 	* ifcvt.c (find_if_case_1):  Modify to not attempt if conversion if
 	one of the branches has a jump that crosses between sections.
 	(find_if_case_2): Likewise.
 	(ifcvt): Modify to not attempt to mark loop exit edges after
 	hot/cold partitioning has occurred.
-        * opts.c (decode_options): Code to handle new flag,
-        flag_reorder_blocks_and_partition; also to turn it off if
+	* opts.c (decode_options): Code to handle new flag,
+	flag_reorder_blocks_and_partition; also to turn it off if
 	flag_exceptions is on.
 	(common_handle_option): Code to handle new flag,
-        flag_reorder_blocks_and_partition.
-        * output.h (unlikely_text_section): New extern function declaration.
+	flag_reorder_blocks_and_partition.
+	* output.h (unlikely_text_section): New extern function declaration.
 	(in_unlikely_text_section): New extern function declaration.
 	* passes.c (rest_of_handle_stack_regs):  Add
 	flag_reorder_blocks_and_partition as an 'or' condition for calling
@@ -3353,57 +3358,57 @@
 	(rest_of_handle_reorder_blocks):  Add flag_reorder_blocks_and_partition
 	as an 'or' condition for calling reorder_basic_blocks.
 	(rest_of_compilation):  Add call to partition_hot_cold_basic_blocks.
-        * print-rtl.c (print_rtx): Add code for handling new note,
-        NOTE_INSN_UNLIKELY_EXECUTED_CODE
-        * rtl.c  (NOTE_INSN_UNLIKELY_EXECUTED_CODE): New note insn (see below).
+	* print-rtl.c (print_rtx): Add code for handling new note,
+	NOTE_INSN_UNLIKELY_EXECUTED_CODE
+	* rtl.c  (NOTE_INSN_UNLIKELY_EXECUTED_CODE): New note insn (see below).
 	(REG_CROSSING_JUMP): New kind of reg_note, to mark jumps that
 	cross between section boundaries.
-        * rtl.h (NOTE_INSN_UNLIKELY_EXECUTED_CODE):  New note instruction,
-        indicating the basic block containing it belongs in the cold section.
+	* rtl.h (NOTE_INSN_UNLIKELY_EXECUTED_CODE):  New note instruction,
+	indicating the basic block containing it belongs in the cold section.
 	(REG_CROSSING_JUMP): New type of reg_note, to mark jumps that cross
 	between hot and cold sections.
-        * toplev.c (flag_reorder_blocks_and_partition):  Add code to
-        initialize this flag, and to tie it to the command-line option
-        freorder-blocks-and-partition.
-        * varasm.c (cfglayout.h):  Add new include statement.
+	* toplev.c (flag_reorder_blocks_and_partition):  Add code to
+	initialize this flag, and to tie it to the command-line option
+	freorder-blocks-and-partition.
+	* varasm.c (cfglayout.h):  Add new include statement.
 	(unlikely_section_label_printed):  New global variable, used for
-        determining when to output section name labels for cold sections.
+	determining when to output section name labels for cold sections.
 	(in_section):  Add in_unlikely_executed_text to enum data structure.
 	(text_section):  Modify code to use SECTION_FORMAT_STRING and
 	NORMAL_TEXT_SECTION_NAME macros.
 	(unlikely_text_section):  New function.
 	(in_unlikely_text_section):  New function.
 	(function_section):  Add code to make sure beginning of function is
-        written into correct section (hot or cold).
+	written into correct section (hot or cold).
 	(assemble_start_function):  Add code to make sure stuff is written to
-        the correct section.
+	the correct section.
 	(assemble_zeros):  Add in_unlikely_text_section as an 'or' condition
-        to an if statement that was checking 'in_text_section'.
+	to an if statement that was checking 'in_text_section'.
 	(assemble_variable):  Add 'in_unlikely_text_section' as an 'or'
-        condition to an if statement that was checking 'in_text_section'.
-        (default_section_type_flags_1):  Add check: if in cold section
-        flags = SECTION_CODE.
+	condition to an if statement that was checking 'in_text_section'.
+	(default_section_type_flags_1):  Add check: if in cold section
+	flags = SECTION_CODE.
 	* config/darwin.c (darwin_asm_named_section):  Modify to use
 	SECTION_FORMAT_STRING if we are partitioning hot/cold blocks.
 	* config/i386/i386.h (HAS_LONG_COND_BRANCH): Defined this macro
 	specifically for the i386.
 	(HAS_LONG_UNCOND_BRANCH):  Defined this macro specifically for the i386.
-        * config/rs6000/darwin.h (UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Change
+	* config/rs6000/darwin.h (UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Change
 	text string to something more informative.
 	(NORMAL_TEXT_SECTION_NAME): Add new definition.
 	(SECTION_FORMAT_STRING):  Add new definition.
-        * config/rs6000/rs6000.c (rs6000_assemble_integer):  Add
-        '!in_unlikely_text_section' as an 'and' condition to an if statement
-        that was already checking '!in_text_section'.
+	* config/rs6000/rs6000.c (rs6000_assemble_integer):  Add
+	'!in_unlikely_text_section' as an 'and' condition to an if statement
+	that was already checking '!in_text_section'.
 	(rs6000_override_options):  Turn on flag_reorder_blocks_and_partition
 	with "-fast".
-        * config/rs6000/sysv4.h (HOT_TEXT_SECTION_NAME,NORMAL_TEXT_SECTION_NAME,
-        UNLIKELY_EXECUTED_TEXT_SECTION_NAME,SECTION_FORMAT_STRING): Make
-        sure these are properly defined for linux on ppc.
-        * doc/invoke.texi  (freorder-blocks-and-partition): Add documentation
-        for this new flag.
+	* config/rs6000/sysv4.h (HOT_TEXT_SECTION_NAME,NORMAL_TEXT_SECTION_NAME,
+	UNLIKELY_EXECUTED_TEXT_SECTION_NAME,SECTION_FORMAT_STRING): Make
+	sure these are properly defined for linux on ppc.
+	* doc/invoke.texi  (freorder-blocks-and-partition): Add documentation
+	for this new flag.
 	* doc/rtl.texi (REG_CROSSING_JUMP):  Add documentation for new
 	reg_note.
-        * doc/tm.texi (NORMAL_TEXT_SECTION_NAME, SECTION_FORMAT_STRING,
+	* doc/tm.texi (NORMAL_TEXT_SECTION_NAME, SECTION_FORMAT_STRING,
 	HAS_LONG_COND_BRANCH, HAS_LONG_UNCOND_BRANCH): Add documentation for
 	these new macros.

@@ -55,3 +55,7 @@ Boston, MA 02111-1307, USA.  */
    "%{!M:%{!MM:%{!E:\
     cc1objplus -fpreprocessed %i %(cc1_options) %2 %{+e*}\
     %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
+  {"@objc++-cpp-output",
+   "%{!M:%{!MM:%{!E:\
+    cc1objplus -fpreprocessed %i %(cc1_options) %2 %{+e*}\
+    %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
