@@ -1098,8 +1098,8 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
         }
       else
         {
-          // We generated this event after Java processed the
-          // corresponding event on the window.
+          /* We generated this event after Java processed the
+             corresponding event on the window. */
           if (event->key.send_event)
             return FALSE;
         }

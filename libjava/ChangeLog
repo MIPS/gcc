@@ -1,5 +1,9 @@
 2004-04-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c: Change
+	new C++-style comments to C-style comments.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c: Likewise.
+
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
 	(handleEvent): Dispatch key press and key release events to

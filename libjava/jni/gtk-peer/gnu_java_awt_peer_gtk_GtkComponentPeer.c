@@ -160,18 +160,18 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
 
   ptr = NSA_GET_PTR (env, obj);
 
-  // FIXME: need to flesh this out.
-  // Translate
+  /* FIXME: need to flesh this out. */
+  /* Translate */
   if (id == AWT_KEY_PRESSED)
     event->type = GDK_KEY_PRESS;
   else if (id == AWT_KEY_RELEASED)
     event->type = GDK_KEY_RELEASE;
   else
-    // Don't send AWT KEY_TYPED events to GTK.
+    /* Don't send AWT KEY_TYPED events to GTK. */
     return;
 
-  // FIXME: this won't work for TextAreas or Lists, which are packed
-  // in GtkScrolledWindows.
+  /* FIXME: this won't work for TextAreas or Lists, which are packed
+     in GtkScrolledWindows. */
   if (GTK_IS_BUTTON (ptr))
     event->key.window = GTK_BUTTON (ptr)->event_window;
   else
@@ -180,12 +180,12 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
   event->key.send_event = TRUE;
 
   event->key.time = (guint32) when;
-  // Translate state
+  /* Translate state */
   event->key.state = 0;
-  // Translate keyval
+  /* Translate keyval */
   event->key.keyval = keyCode;
   event->key.length = 1;
-  // Translate keyChar
+  /* Translate keyChar */
   event->key.string = g_strdup ("a");
   event->key.hardware_keycode = 0;
   event->key.group = 0;
