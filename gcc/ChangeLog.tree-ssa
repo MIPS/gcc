@@ -1,3 +1,7 @@
+2003-09-27  Graham Stott  <graham.stott@btinternet.com>
+
+	* expr.c (expand_expr)[CATCH_EXPR]: Fix bogus return value. 
+
 2003-09-26  Andrew MacLeod  <amacloeod@redhat.com>
 
 	* tree-ssa-dom.c (struct var_value_d): Remove.

@@ -9646,7 +9646,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       expand_start_catch (CATCH_TYPES (exp));
       expand_expr (CATCH_BODY (exp), const0_rtx, VOIDmode, 0);
       expand_end_catch ();
-      return op0;
+      return const0_rtx;
 
     case EH_FILTER_EXPR:
       /* Should have been handled in expand_eh_handler.  */
