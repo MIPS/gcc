@@ -131,7 +131,11 @@ cxx_abi::build_field_reference (tree_builtins *builtins,
   if (field->static_p ())
     {
       assert (obj == NULL_TREE);
-      // FIXME: initialize class.
+
+      result
+	= build2 (COMPOUND_EXPR, TREE_TYPE (result),
+		  builtins->build_class_init (field->get_declaring_class ()),
+		  result);
     }
   else
     {

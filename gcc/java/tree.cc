@@ -112,7 +112,20 @@ tree_generator::visit_method (model_method *meth,
       BLOCK_SUPERCONTEXT (current_block) = method_tree;
       DECL_INITIAL (method_tree) = current_block;
 
+      tree statements = alloc_stmt_list ();
+      tree_stmt_iterator out = tsi_start (statements);
+
+      if (meth->static_p ())
+	{
+	  tree init
+	    = gcc_builtins->build_class_init (meth->get_declaring_class ());
+	  tsi_link_after (&out, init, TSI_CONTINUE_LINKING);
+	}
+
       block->visit (this);
+      tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+      current = statements;
+
       // Handle synchronized methods.  This isn't done for JNI
       // methods, since such synchronization is handled by the VM.
       if ((meth->get_modifiers () & ACC_SYNCHRONIZED) != 0)

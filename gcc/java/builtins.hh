@@ -128,6 +128,9 @@ public:
 
   /// Return the decl for a given class' constant pool.
   tree get_constant_pool_decl (model_class *);
+
+  /// Return some code to initialize a class.
+  tree build_class_init (model_class *);
 };
 
 #endif // GCC_TREE_BUILTINS_HH

@@ -1,5 +1,12 @@
 2005-02-26  Tom Tromey  <tromey@redhat.com>
 
+	* abi.cc (build_field_reference): Initialize class.
+	* builtins.cc (build_class_init): New method.
+	* builtins.hh (tree_builtins::build_class_init): Declare.
+	* tree.cc (visit_method): Initialize class.
+
+2005-02-26  Tom Tromey  <tromey@redhat.com>
+
 	* tree.hh (tree_generator::build_ref_from_constant_pool):
 	Updated.
 	* tree.cc (build_ref_from_constant_pool): Added 'type' argument.

@@ -640,3 +640,22 @@ tree_builtins::get_symbol ()
   ++symbol_count;
   return get_identifier (buf);
 }
+
+tree
+tree_builtins::build_class_init (model_class *klass)
+{
+  aot_class *wrapper = get_class (klass);
+  gcj_abi *abi = find_abi ();
+  tree ref = abi->build_class_reference (this, wrapper, klass);
+
+  tree result
+    = build3 (CALL_EXPR, void_type_node,
+	      builtin_Jv_InitClass,
+	      build_tree_list (NULL_TREE,
+			       // FIXME: why do we declare this
+			       // function with the wrong argument
+			       // type?
+			       build1 (NOP_EXPR, ptr_type_node, ref)),
+	      NULL_TREE);
+  return result;
+}
