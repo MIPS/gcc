@@ -1,3 +1,8 @@
+2004-12-16  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-forwprop.c (replacable_use_in_cond_expr): Add SSA_NAME check
+	for operands.
+
 2004-12-15  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.h (same_align_refs): New field in struct 

@@ -515,13 +515,15 @@ replacable_use_in_cond_expr (tree stmt, tree def_stmt, tree *new_stmt)
   op0 = TREE_OPERAND (stmt, 0);
   op1 = TREE_OPERAND (stmt, 1);
 
-  if (SSA_NAME_DEF_STMT (op0) == def_stmt
+  if (TREE_CODE (op0) == SSA_NAME
+      && SSA_NAME_DEF_STMT (op0) == def_stmt
       && is_gimple_min_invariant (op1))
     {
       candidate_op = op0;
       other_op = op1;
     }
-  else if (SSA_NAME_DEF_STMT (op1) == def_stmt
+  else if (TREE_CODE (op1) == SSA_NAME
+	   && SSA_NAME_DEF_STMT (op1) == def_stmt
 	   && is_gimple_min_invariant (op0))
     {
       candidate_op = op1;
