@@ -1,3 +1,7 @@
+2004-04-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* doc/passes.texi: Add blurb about PRE.
+	
 2004-04-19  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa-phiopt.c (conditional_replacement):
