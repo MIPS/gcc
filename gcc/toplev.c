@@ -4973,10 +4973,10 @@ parse_options_and_default_flags (argc, argv)
     }
   if (!flag_branch_probabilities && flag_new_unroll_loops == 2)
     flag_new_unroll_loops = 0;
-  if (!flag_branch_probabilities && flag_new_unswitch_loops == 2)
-    flag_new_unswitch_loops = 0;
-  if (!flag_branch_probabilities && flag_new_peel_loops == 2)
-    flag_new_peel_loops = 0;
+  if (!flag_branch_probabilities && flag_unswitch_loops == 2)
+    flag_unswitch_loops = 0;
+  if (!flag_branch_probabilities && flag_peel_loops == 2)
+    flag_peel_loops = 0;
 
   /* Set flag_no_inline before the post_options () hook.  The C front
      ends use it to determine tree inlining defaults.  FIXME: such
