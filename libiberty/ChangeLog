@@ -1,3 +1,8 @@
+2004-04-13  Jeff Law  <law@redhat.com>
+ 
+	* hashtab.c (htab_remove_elt_with_hash): New function.
+	(htab_remove_elt): Implement in terms of htab_remove_elt_with_hash.
+
 2004-03-17  Ian Lance Taylor  <ian@wasabisystems.com>
 
 	* pex-unix.c (pexecute): Use vfork instead of fork, with
