@@ -250,6 +250,27 @@ duplicate_blocks (varray_type bbs_to_duplicate)
     }
 }
 
+/* Checks whether LOOP is a do-while style loop.  */
+
+static bool
+do_while_loop_p (struct loop *loop)
+{
+  tree stmt = last_stmt (loop->latch);
+
+  /* If the latch of the loop is not empty, it is not a do-while loop.  */
+  if (stmt
+      && TREE_CODE (stmt) != LABEL_EXPR)
+    return false;
+
+  /* If the header contains just a condition, it is not a do-while loop.  */
+  stmt = last_and_only_stmt (loop->header);
+  if (stmt
+      && TREE_CODE (stmt) == COND_EXPR)
+    return false;
+
+  return true;
+}
+
 /* For all loops, copy the condition at the end of the loop body in front
    of the loop.  This is beneficial since it increases effectivity of
    code motion optimizations.  It also saves one jump on entry to the loop.  */
@@ -289,6 +310,13 @@ copy_loop_headers (void)
       loop = loops->parray[i];
       preheader_edge = loop_preheader_edge (loop);
       header = preheader_edge->dest;
+
+      /* If the loop is already a do-while style one (either because it was
+	 written as such, or because jump threading transformed it into one),
+	 we might be in fact peeling the first iteration of the loop.  This
+	 in general is not a good idea.  */
+      if (do_while_loop_p (loop))
+	continue;
 
       /* Iterate the header copying up to limit; this takes care of the cases
 	 like while (a && b) {...}, where we want to have both of the conditions
