@@ -112,9 +112,8 @@ spill_coalescing (coalesce, spilled)
 	    || (TEST_BIT (spilled, t->id) && TEST_BIT (coalesce, s->id)))
 	  {
 	    struct conflict_link *wl;
-	    if (TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-		|| TEST_BIT (sup_igraph, t->id * num_webs + s->id)
-		|| s->pattern || t->pattern)
+	    if (s->pattern || t->pattern
+		|| !non_conflicting_for_combine (s, t))
 	      continue;
 
 	    deleted_move_insns++;
@@ -205,8 +204,7 @@ spill_prop_savings (web, spilled)
 	    t = h;
 	  }
 	if (s != web || !TEST_BIT (spilled, t->id) || t->pattern
-	    || TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-	    || TEST_BIT (sup_igraph, t->id * num_webs + s->id))
+	    || !non_conflicting_for_combine (s, t))
 	  continue;
 	savings += BLOCK_FOR_INSN (m->insn)->frequency * cost;
       }

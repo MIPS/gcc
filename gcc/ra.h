@@ -617,6 +617,7 @@ extern void dump_static_insn_cost PARAMS ((FILE *, const char *,
 					   const char *));
 extern void dump_web_conflicts PARAMS ((struct web *));
 extern void dump_web_insns PARAMS ((struct web*));
+extern int non_conflicting_for_combine PARAMS ((struct web *, struct web *));
 extern int web_conflicts_p PARAMS ((struct web *, struct web *));
 extern void debug_hard_reg_set PARAMS ((HARD_REG_SET));
 extern void debug_web_insns PARAMS ((struct web *));

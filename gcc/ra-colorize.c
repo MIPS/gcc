@@ -75,7 +75,6 @@ static void calculate_dont_begin PARAMS ((struct web *, HARD_REG_SET *));
 static int proper_hard_reg_subset_p PARAMS ((HARD_REG_SET, HARD_REG_SET));
 static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
-
 static void try_recolor_web PARAMS ((struct web *));
 static void insert_coalesced_conflicts PARAMS ((void));
 static void recolor_spills PARAMS ((void));
@@ -89,7 +88,7 @@ static void init_web_pairs PARAMS ((void));
 static void add_web_pair_cost PARAMS ((struct web *, struct web *,
 			               unsigned HOST_WIDE_INT, unsigned int));
 static int comp_web_pairs PARAMS ((const void *, const void *));
-
+static int enough_free_p PARAMS ((struct web *, struct web *));
 static void sort_and_combine_web_pairs PARAMS ((int));
 static void aggressive_coalesce PARAMS ((void));
 static void extended_coalesce_2 PARAMS ((void));
@@ -2676,6 +2675,85 @@ comp_web_pairs (w1, w2)
     return 0;
 }
 
+/* Return 1 if the intersection of the usable_regs of WEB1 and WEB2
+   has enough consecutive hardregs free for the maximum number of needed
+   hardregs (as per web->add_hardregs).  This can be called only if
+   the hardregs intersect at all.  */
+
+static int
+enough_free_p (web1, web2)
+     struct web *web1, *web2;
+{
+  int max_hr = MAX (web1->add_hardregs, web2->add_hardregs);
+  int i;
+  HARD_REG_SET r;
+  if (max_hr < 1)
+    return 1;
+  COPY_HARD_REG_SET (r, web1->usable_regs);
+  AND_HARD_REG_SET (r, web2->usable_regs);
+  /* Quick check if we have at _least_ as much hardregs as we'll need.  */
+  if (hard_regs_count (r) <= max_hr)
+    return 0;
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (TEST_HARD_REG_BIT (r, i))
+      {
+	int j;
+	for (j = 1; j <= max_hr; j++)
+	  if (!TEST_HARD_REG_BIT (r, i + j))
+	    break;
+	if (j == max_hr + 1)
+	  return 1;
+      }
+  return 0;
+}
+
+/* Return nonzero if the webs W1 and W2 could be combined as far as their
+   conflicts are concerned.  I.e. if they either have no conflicts at all,
+   or the conflicts are non-care if the webs get the same color.
+   The latter is usually the case for webs, where only subwebs of different
+   begin byte conflict (like e.g. the high part of one DImode web with
+   the low part of another DImode web).  */
+
+int
+non_conflicting_for_combine (w1, w2)
+     struct web *w1, *w2;
+{
+  struct web *ow2;
+  /* If the superwebs don't conflict, well, then the webs don't conflict.  */
+  if (!TEST_BIT (sup_igraph, w1->id * num_webs + w2->id)
+      && !TEST_BIT (sup_igraph, w2->id * num_webs + w1->id))
+    return 1;
+  /* Don't call us with subwebs.  */
+  if (w1->parent_web || w2->parent_web)
+    abort ();
+
+  /* We know that the webs have at least some conflicts.  Now check
+     if we can coalesce them anyway.  We can do this if by coalescing
+     the conflicting parts don't overlap.  */
+
+  /* Early out if we have no subwebs.  */
+  if (!w1->subreg_next || !w2->subreg_next)
+    return 0;
+  ow2 = w2;
+  for (; w1; w1 = w1->subreg_next)
+    for (w2 = ow2; w2; w2 = w2->subreg_next)
+      if (TEST_BIT (igraph, igraph_index (w1->id, w2->id)))
+	{
+	  rtx r1 = w1->orig_x, r2 = w2->orig_x;
+	  /* If there's a conflict with a whole REG this isn't combinable.  */
+	  if (REG_P (r1) || REG_P (r2))
+	    return 0;
+	  /* If the conflicting subregs would overlap (if given the same
+	     base color), we also can't combine both webs.  */
+	  if (SUBREG_BYTE (r1) < (SUBREG_BYTE (r2)
+				  + GET_MODE_SIZE (GET_MODE (r2)))
+	      && SUBREG_BYTE (r2) < (SUBREG_BYTE (r1)
+				     + GET_MODE_SIZE (GET_MODE (r1))))
+	    return 0;
+	}
+  return 1;
+}
+
 /* Given the list of web pairs, begin to combine them from the one
    with the most savings.  */
 
@@ -2713,13 +2791,13 @@ sort_and_combine_web_pairs (for_move)
 	  w2 = h;
 	}
       if (w1 != w2
-	  && !TEST_BIT (sup_igraph, w1->id * num_webs + w2->id)
-	  && !TEST_BIT (sup_igraph, w2->id * num_webs + w1->id)
 	  && w2->type != PRECOLORED
-	  && hard_regs_combinable_p (w1, w2))
+	  && hard_regs_combinable_p (w1, w2)
+	  && non_conflicting_for_combine (w1, w2))
 	  {
-	    if (w1->type != PRECOLORED
-		|| (w1->type == PRECOLORED && ok (w2, w1)))
+	    if ((w1->type != PRECOLORED
+		 || (w1->type == PRECOLORED && ok (w2, w1)))
+		&& enough_free_p (w1, w2))
 	      combine (w1, w2);
 	    else if (w1->type == PRECOLORED)
 	      SET_HARD_REG_BIT (w2->prefer_colors, w1->color);
@@ -2750,8 +2828,7 @@ aggressive_coalesce ()
 	  }
 	if (s != t
 	    && t->type != PRECOLORED
-	    && !TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-	    && !TEST_BIT (sup_igraph, t->id * num_webs + s->id))
+	    && non_conflicting_for_combine (s, t))
 	  {
 	    if ((s->type == PRECOLORED && ok (t, s))
 		|| s->type != PRECOLORED)
@@ -2810,8 +2887,8 @@ aggressive_coalesce_fast ()
 	  && t->type != PRECOLORED
 	  && ((s->type == PRECOLORED && ok (t, s))
 	      || s->type != PRECOLORED)
-	  && !TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-	  && !TEST_BIT (sup_igraph, t->id * num_webs + s->id))
+	  && non_conflicting_for_combine (s, t)
+	  && enough_free_p (s, t))
 	{
 	  put_move (m, MV_COALESCED);
 	  combine (s, t);
@@ -2863,8 +2940,7 @@ extended_coalesce (void)
 	  EXECUTE_IF_SET_IN_BITMAP (uses, 0, j,
 	    {
 	      if (i != j
-		  && !TEST_BIT (sup_igraph, i * num_webs + j)
-		  && !TEST_BIT (sup_igraph, j * num_webs + i))
+		  && non_conflicting_for_combine (dest, ID2WEB (j)))
 	        {
 		  struct web *source = id2web[j];
 		  if (GET_MODE (source->orig_x) == GET_MODE (dest->orig_x)
@@ -2956,11 +3032,8 @@ extended_coalesce_2 ()
 			 emit_colors().  So we can only coalesce something
 			 of equal modes.  */
 		      && GET_MODE (source->orig_x) == GET_MODE (dest->orig_x)
-		      && !TEST_BIT (sup_igraph,
-				    dest->id * num_webs + source->id)
-		      && !TEST_BIT (sup_igraph,
-				    source->id * num_webs + dest->id)
-		      && hard_regs_combinable_p (dest, source))
+		      && hard_regs_combinable_p (dest, source)
+		      && non_conflicting_for_combine (source, dest))
 		    add_web_pair_cost (dest, source,
 				       BLOCK_FOR_INSN (insn)->frequency,
 				       dest->num_conflicts
@@ -2997,8 +3070,7 @@ check_uncoalesced_moves ()
 	    && t->type != PRECOLORED
 	    && ((s->type == PRECOLORED && ok (t, s))
 		|| s->type != PRECOLORED)
-	    && !TEST_BIT (sup_igraph, s->id * num_webs + t->id)
-	    && !TEST_BIT (sup_igraph, t->id * num_webs + s->id))
+	    && non_conflicting_for_combine (s, t))
 	  abort ();
       }
 }

@@ -2746,6 +2746,14 @@ static void
 determine_web_costs ()
 {
   struct dlist *d;
+  rtx temp_mem;
+
+  /* Create a template memory rtx, which looks like the stackslots we
+     will use to spill pseudos.  This is because we want to use copy_cost()
+     instead of directly MEMORY_MOVE_COST, because the former handles also
+     costs for secondary reloads.  */
+  temp_mem = gen_rtx_MEM (VOIDmode,
+			  gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (0)));
   for (d = WEBS(INITIAL); d; d = d->next)
     {
       unsigned int i, num_loads;
@@ -2767,23 +2775,46 @@ determine_web_costs ()
 	     at the point of the load not all needed resources are
 	     available, in which case we emit a stack-based load, for
 	     which we in turn need the according stores.  */
-	  load_cost = 1 + rtx_cost (web->pattern, 0);
+	  if (GET_CODE (web->pattern) == REG)
+	    /* Huh?  A register as source?  Anyway, the X for copy_cost()
+	       may not be a register, so simply check this here.  */
+	    load_cost = 1;
+	  else
+	    {
+	      enum machine_mode mode = GET_MODE (web->orig_x);
+	      load_cost = 1 + copy_cost (web->pattern, mode,
+				         web->regclass, 1);
+	    }
 	  store_cost = 0;
 	}
       else
 	{
-	  load_cost = 1 + MEMORY_MOVE_COST (GET_MODE (web->orig_x),
-					    web->regclass, 1);
-	  store_cost = 1 + MEMORY_MOVE_COST (GET_MODE (web->orig_x),
-					     web->regclass, 0);
+	  enum machine_mode mode = GET_MODE (web->orig_x);
+	  PUT_MODE (temp_mem, mode);
+	  load_cost = 1 + copy_cost (temp_mem, mode, web->regclass, 1);
+	  store_cost = 1 + copy_cost (temp_mem, mode, web->regclass, 0);
 	}
-      /* We create only loads at deaths, whose number is in span_deaths.  */
-      num_loads = MIN (web->span_deaths, web->num_uses);
+      /* For non-spill webs we create only loads at deaths, whose number
+	 is in span_deaths.  For spill temps we reload every use.  */
+      if (!web->spill_temp)
+	num_loads = MIN (web->span_deaths, web->num_uses);
+      else
+	num_loads = web->num_uses;
       for (w = 0, i = 0; i < web->num_uses; i++)
-	if (DF_REF_FLAGS (web->uses[i]) & DF_REF_MEM_OK)
-	  w += DF_REF_BB (web->uses[i])->frequency + 1;
-	else
-	  w += 2 * (DF_REF_BB (web->uses[i])->frequency + 1);
+	{
+	  /* Avoid zero frequency.  */
+	  int freq = DF_REF_BB (web->uses[i])->frequency + 1;
+	  if (DF_REF_FLAGS (web->uses[i]) & DF_REF_MEM_OK)
+	    w += freq;
+	  else
+	    w += (4 * freq) / 3;
+	  /* Add half of the frequency to the cost if this use is in a compare
+	     context.  A jump probably depends on this, and if we spill this
+	     the jump will be more costly.  XXX Should be reformulated into
+	     real costs.  */
+	  if (DF_REF_FLAGS (web->uses[i]) & DF_REF_COMPARE_RELATED)
+	    w += 1 + freq / 5;
+	}
 #if 0
       for (i = 0; i < web->num_defs; i++)
 	w += DF_REF_BB (web->defs[i])->frequency /*+ 1*/;
@@ -2800,7 +2831,7 @@ determine_web_costs ()
 	    if (DF_REF_FLAGS (web->defs[i]) & DF_REF_MEM_OK)
 	      w += DF_REF_BB (web->defs[i])->frequency + 1;
 	    else
-	      w += 2 * (DF_REF_BB (web->defs[i])->frequency + 1);
+	      w += (4 * (DF_REF_BB (web->defs[i])->frequency + 1)) / 3;
 	  web->spill_cost += w * store_cost;
 	}
 #endif
@@ -2844,116 +2875,125 @@ select_regclass ()
     {
       int i;
       struct web *web = DLIST_WEB (d);
-      struct web *supweb = web;
+      struct web *sweb;
+      unsigned int found_size = 0;
+
       d_next = d->next;
-      if (flag_ra_pre_reload && web->type != PRECOLORED)
+
+      if (web->regno < FIRST_PSEUDO_REGISTER)
+	continue;
+      
+      if (flag_ra_pre_reload)
 	{
 	  web_class (web);
 	  if (WEBS (SPILLED))
 	    continue;
 	}
-      
-      do
+      else
 	{
-	  unsigned int found_size = 0;
-
-	  if (web->regno < FIRST_PSEUDO_REGISTER)
-	    continue;
-	  
-	  if (flag_ra_pre_reload)
+	  if ((web->spill_temp == 1 || web->spill_temp == 2)
+	      && ! web->changed)
 	    {
-	      if (web->parent_web)
+	      if (SPILL_SLOT_P (web->regno))
 		{
-		  web->regclass = supweb->regclass;
-		  COPY_HARD_REG_SET (web->usable_regs, supweb->usable_regs);
-		}
-	    }
-	  else
-	    {
-	      if ((web->spill_temp == 1 || web->spill_temp == 2)
-		  && ! web->changed)
-		{
-		  if (SPILL_SLOT_P (web->regno))
-		    {
-		      COPY_HARD_REG_SET (web->usable_regs,
-					 reg_class_contents
-					 [reg_preferred_class (web->regno)]);
-		      IOR_HARD_REG_SET (web->usable_regs,
-					reg_class_contents
-					[reg_alternate_class (web->regno)]);
-		    }
-		  else
-		    COPY_HARD_REG_SET (web->usable_regs,
-				       reg_class_contents[(int) ALL_REGS]);
-		}
-	      else
-		{
-		  web->regclass = reg_preferred_class (web->regno);
-		  if (web->regclass == NO_REGS)
-		    abort ();
 		  COPY_HARD_REG_SET (web->usable_regs,
-				     reg_class_contents[web->regclass]);
+				     reg_class_contents
+				     [reg_preferred_class (web->regno)]);
 		  IOR_HARD_REG_SET (web->usable_regs,
 				    reg_class_contents
 				    [reg_alternate_class (web->regno)]);
 		}
+	      else
+		COPY_HARD_REG_SET (web->usable_regs,
+				   reg_class_contents[(int) ALL_REGS]);
 	    }
-	  /* add_hardregs is wrong in multi-length classes, e.g.
-	     using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
-	     where, if it finally is allocated to GENERAL_REGS it needs two,
-	     if allocated to FLOAT_REGS only one hardreg.  XXX */
-	  AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
-	  prune_hardregs_for_mode (&web->usable_regs,
-				   PSEUDO_REGNO_MODE (web->regno));
+	  else
+	    {
+	      web->regclass = reg_preferred_class (web->regno);
+	      if (web->regclass == NO_REGS)
+		abort ();
+	      COPY_HARD_REG_SET (web->usable_regs,
+				 reg_class_contents[web->regclass]);
+	      IOR_HARD_REG_SET (web->usable_regs,
+				reg_class_contents
+				[reg_alternate_class (web->regno)]);
+	    }
+	}
+      /* add_hardregs is wrong in multi-length classes, e.g.
+	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
+	 where, if it finally is allocated to GENERAL_REGS it needs two,
+	 if allocated to FLOAT_REGS only one hardreg.  XXX */
+      AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
+      prune_hardregs_for_mode (&web->usable_regs,
+			       PSEUDO_REGNO_MODE (web->regno));
 #ifdef CLASS_CANNOT_CHANGE_MODE
-	  if (web->mode_changed)
-	    AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents
-				    [(int) CLASS_CANNOT_CHANGE_MODE]);
+      if (web->mode_changed)
+	AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents
+				[(int) CLASS_CANNOT_CHANGE_MODE]);
 #endif
 
-	  if ((web->spill_temp == 1 || web->spill_temp == 2)
-	      && ! web->changed
-	      && ! flag_ra_pre_reload)
+      if ((web->spill_temp == 1 || web->spill_temp == 2)
+	  && ! web->changed
+	  && ! flag_ra_pre_reload)
+	{
+	  /* Now look for a class, which is subset of our constraints, to
+	     setup add_hardregs, and regclass for debug output.  */
+	  web->regclass = NO_REGS;
+	  for (i = (int) ALL_REGS - 1; i > 0; i--)
 	    {
-	      /* Now look for a class, which is subset of our constraints, to
-		 setup add_hardregs, and regclass for debug output.  */
-	      web->regclass = NO_REGS;
-	      for (i = (int) ALL_REGS - 1; i > 0; i--)
+	      unsigned int size;
+	      HARD_REG_SET test;
+	      COPY_HARD_REG_SET (test, reg_class_contents[i]);
+	      AND_COMPL_HARD_REG_SET (test, never_use_colors);
+	      GO_IF_HARD_REG_SUBSET (test, web->usable_regs, found);
+	      continue;
+found:
+	      /* Measure the actual number of bits which really are
+		 overlapping the target regset, not just the
+		 reg_class_size.  */
+	      size = hard_regs_count (test);
+	      if (found_size < size)
 		{
-		  unsigned int size;
-		  HARD_REG_SET test;
-		  COPY_HARD_REG_SET (test, reg_class_contents[i]);
-		  AND_COMPL_HARD_REG_SET (test, never_use_colors);
-		  GO_IF_HARD_REG_SUBSET (test, web->usable_regs, found);
-		  continue;
-		found:
-		  /* Measure the actual number of bits which really are
-		     overlapping the target regset, not just the
-		     reg_class_size.  */
-		  size = hard_regs_count (test);
-		  if (found_size < size)
-		    {
-		      web->regclass = (enum reg_class) i;
-		      found_size = size;
-		    }
+		  web->regclass = (enum reg_class) i;
+		  found_size = size;
 		}
 	    }
-
-	  web->add_hardregs
-	    = CLASS_MAX_NREGS (web->regclass,
-			       web->parent_web
-			       ? GET_MODE (web->orig_x)
-			       : PSEUDO_REGNO_MODE (web->regno)) - 1;
-	  
-	  web->num_conflicts = 0 * web->add_hardregs;
-	  web->num_freedom = hard_regs_count (web->usable_regs);
-	  web->num_freedom -= web->add_hardregs;
-	  if (!web->num_freedom)
-	    abort();
-
-	  COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
 	}
-      while ((web = web->subreg_next));
+
+      web->add_hardregs
+	  = CLASS_MAX_NREGS (web->regclass,
+			     web->parent_web
+			     ? GET_MODE (web->orig_x)
+			     : PSEUDO_REGNO_MODE (web->regno)) - 1;
+
+      web->num_conflicts = 0 * web->add_hardregs;
+      web->num_freedom = hard_regs_count (web->usable_regs);
+      web->num_freedom -= web->add_hardregs;
+      if (web->num_freedom <= 0 && !SPILL_SLOT_P (web->regno)
+	  && !web->crosses_call && !web->live_over_abnormal)
+	abort();
+      /* XXX hack for some situations.  Clear usable_regs if freedom
+	 is zero or smaller.  This happens, when usable_regs contains
+	 less hardregs than this web would need.  And to make coalescing
+	 not think it can coalesce something to this web we simply
+	 clear the hard regs.  */
+      if (web->num_freedom <= 0)
+	{
+	  web->num_freedom = 0;
+	  CLEAR_HARD_REG_SET (web->usable_regs);
+	}
+
+      COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
+
+      for (sweb = web->subreg_next; sweb; sweb = sweb->subreg_next)
+	{
+	  sweb->regclass = web->regclass;
+	  sweb->add_hardregs = web->add_hardregs;
+	  sweb->num_conflicts = web->num_conflicts;
+	  sweb->num_freedom = web->num_freedom;
+	  COPY_HARD_REG_SET (sweb->usable_regs, web->usable_regs);
+	  COPY_HARD_REG_SET (sweb->orig_usable_regs, web->orig_usable_regs);
+	}
     }
 }  
 

@@ -1,4 +1,20 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-build.c (determine_web_costs): Use copy_cost instead assuming
+	memory move cost or constant cost.  Adjust heuristics to deal with
+	spill temps and zero frequencies.  Penalize webs used in compares.
+	(select_regclass): Reorder loops to first go over all full webs,
+	and fill subwebs from them separately.  Accept empty usable regs
+	for special webs.
+	* ra-colorize.c (enough_free_p): New.
+	(non_conflicting_for_combine): New.
+	(sort_and_combine_web_pairs): Call both.
+	(aggressive_coalesce, aggressive_coalesce_fast, extended_coalesce,
+	extended_coalesce_2, check_uncoalesced_moves): Ditto.
+	* ra-rewrite.c (spill_coalescing): Call non_conflicting_for_combine.
+	(spill_prop_savings): Ditto.
+	* ra.h (non_conflicting_for_combine): Declare.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	Don't recursively recolor the same webs.
 
 	* ra-colorize.c (webs_in_recoloring): New.
