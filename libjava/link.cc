@@ -112,9 +112,7 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	  found = _Jv_FindClass (name, klass->loader);
 
 	if (! found)
-	  {
-	    throw new java::lang::NoClassDefFoundError (name->toString());
-	  }
+	  throw new java::lang::NoClassDefFoundError (name->toString());
 
 	// Check accessibility, but first strip array types as
 	// _Jv_ClassNameSamePackage can't handle arrays.
@@ -131,7 +129,13 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	    pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
 	  }
 	else
-	  throw new java::lang::IllegalAccessError (found->getName());
+	  {
+	    java::lang::StringBuffer *sb = new java::lang::StringBuffer ();
+	    sb->append(klass->getName());
+	    sb->append(JvNewStringLatin1(" can't access class "));
+	    sb->append(found->getName());
+	    throw new java::lang::IllegalAccessError(sb->toString());
+	  }
       }
       break;
 
@@ -1427,26 +1431,37 @@ _Jv_Linker::ensure_class_linked (jclass klass)
 
       _Jv_Constants *pool = &klass->constants;
 
-      // Resolve class constants first, since other constant pool
-      // entries may rely on these.
-      for (int index = 1; index < pool->size; ++index)
+      // Compiled classes require that their class constants be
+      // resolved here.  However, interpreted classes need their
+      // constants to be resolved lazily.  If we resolve an
+      // interpreted class' constants eagerly, we can end up with
+      // spurious IllegalAccessErrors when the constant pool contains
+      // a reference to a class we can't access.  This can validly
+      // occur in an obscure case involving the InnerClasses
+      // attribute.
+      if (! _Jv_IsInterpretedClass (klass))
 	{
-	  if (pool->tags[index] == JV_CONSTANT_Class)
-	    resolve_pool_entry (klass, index);
+	  // Resolve class constants first, since other constant pool
+	  // entries may rely on these.
+	  for (int index = 1; index < pool->size; ++index)
+	    {
+	      if (pool->tags[index] == JV_CONSTANT_Class)
+		resolve_pool_entry (klass, index);
+	    }
 	}
 
 #if 0  // Should be redundant now
       // If superclass looks like a constant pool entry,
       // resolve it now.
       if ((uaddr) klass->superclass < (uaddr) pool->size)
-	klass->superclass = pool->data[(int) klass->superclass].clazz;
+	klass->superclass = pool->data[(uaddr) klass->superclass].clazz;
 
       // Likewise for interfaces.
       for (int i = 0; i < klass->interface_count; i++)
 	{
 	  if ((uaddr) klass->interfaces[i] < (uaddr) pool->size)
 	    klass->interfaces[i]
-	      = pool->data[(int) klass->interfaces[i]].clazz;
+	      = pool->data[(uaddr) klass->interfaces[i]].clazz;
 	}
 #endif
 
@@ -1556,6 +1571,7 @@ _Jv_Linker::add_miranda_methods (jclass base, jclass iface_class)
 	    }
 	}
 
+      wait_for_state (interface, JV_STATE_LOADED);
       add_miranda_methods (base, interface);
     }
 }

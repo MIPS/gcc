@@ -1,3 +1,10 @@
+2004-10-27  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (ensure_class_linked): Only resolve classes for
+	compiled classes.
+	(add_miranda_methods): Ensure interface supers are installed.
+	(resolve_pool_entry): Better error message.
+
 2004-10-25  Tom Tromey  <tromey@redhat.com>
 
 	* boehm.cc (_Jv_MarkObj): Test aux_info before dereferencing it.
