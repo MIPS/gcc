@@ -3157,7 +3157,7 @@ typedef struct mips_args {
    between pointers and any other objects of this machine mode.  */
 
 #ifndef Pmode
-#define Pmode (TARGET_64BIT ? DImode : SImode)
+#define Pmode (TARGET_64BIT && TARGET_LONG64 ? DImode : SImode)
 #endif
 
 /* Give call MEMs SImode since it is the "most permissive" mode

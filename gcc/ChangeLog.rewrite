@@ -1,3 +1,15 @@
+2003-01-24  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.md: Rewrite zero_extend* and extend*
+	patterns. Use explicit instructions and split after reload
+	for register extensions.
+	(ashlsi3_internal1_extend): New combiner pattern for
+	shift and extend combinations.
+	* config/mips/mips.h: Change Pmode back to ptr_mode
+	for performance enhancement.
+	* combine.c (expand_compound_operation): Make sure
+	that zero_extend operation is profitable.
+
 2003-01-14  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips.h (TRAMPOLINE_TEMPLATE): Make size of stored

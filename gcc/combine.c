@@ -1671,7 +1671,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	    abort ();
 
 	  lo &= ~(UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD (1) - 1);
-	  lo |= (INTVAL (SET_SRC (PATTERN (i3))) 
+	  lo |= (INTVAL (SET_SRC (PATTERN (i3)))
 		 & (UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD (1) - 1));
 	}
       else if (HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
@@ -2838,7 +2838,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	    || GET_CODE (temp) != BARRIER)
 	  emit_barrier_after (undobuf.other_insn);
       }
-	
+
     /* An NOOP jump does not need barrier, but it does need cleaning up
        of CFG.  */
     if (GET_CODE (newpat) == SET
@@ -4021,7 +4021,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  return gen_binary (MINUS, mode, temp, XEXP (XEXP (x, 0), 1));
 	}
 
-      /* (neg (mult A B)) becomes (mult (neg A) B).  
+      /* (neg (mult A B)) becomes (mult (neg A) B).
          This works even for floating-point values.  */
       if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
@@ -4219,11 +4219,11 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
     case PLUS:
       /* Canonicalize (plus (mult (neg B) C) A) to (minus A (mult B C)).
        */
-      if (GET_CODE (XEXP (x, 0)) == MULT 
+      if (GET_CODE (XEXP (x, 0)) == MULT
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == NEG)
 	{
 	  rtx in1, in2;
-	 
+
 	  in1 = XEXP (XEXP (XEXP (x, 0), 0), 0);
 	  in2 = XEXP (XEXP (x, 0), 1);
 	  return gen_binary (MINUS, mode, XEXP (x, 1),
@@ -4338,24 +4338,24 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 
       /* Canonicalize (minus A (mult (neg B) C)) to (plus (mult B C) A).
        */
-      if (GET_CODE (XEXP (x, 1)) == MULT 
+      if (GET_CODE (XEXP (x, 1)) == MULT
 	  && GET_CODE (XEXP (XEXP (x, 1), 0)) == NEG)
 	{
 	  rtx in1, in2;
-	 
+
 	  in1 = XEXP (XEXP (XEXP (x, 1), 0), 0);
 	  in2 = XEXP (XEXP (x, 1), 1);
 	  return gen_binary (PLUS, mode, gen_binary (MULT, mode, in1, in2),
 			     XEXP (x, 0));
 	}
 
-       /* Canonicalize (minus (neg A) (mult B C)) to 
+       /* Canonicalize (minus (neg A) (mult B C)) to
 	  (minus (mult (neg B) C) A). */
-      if (GET_CODE (XEXP (x, 1)) == MULT 
+      if (GET_CODE (XEXP (x, 1)) == MULT
 	  && GET_CODE (XEXP (x, 0)) == NEG)
 	{
 	  rtx in1, in2;
-	 
+
 	  in1 = simplify_gen_unary (NEG, mode, XEXP (XEXP (x, 1), 0), mode);
 	  in2 = XEXP (XEXP (x, 1), 1);
 	  return gen_binary (MINUS, mode, gen_binary (MULT, mode, in1, in2),
@@ -5238,7 +5238,7 @@ simplify_set (x)
 #ifdef CANNOT_CHANGE_MODE_CLASS
       && ! (GET_CODE (dest) == REG && REGNO (dest) < FIRST_PSEUDO_REGISTER
 	    && REG_CANNOT_CHANGE_MODE_P (REGNO (dest),
-					 GET_MODE (src), 
+					 GET_MODE (src),
 					 GET_MODE (SUBREG_REG (src))))
 #endif
       && (GET_CODE (dest) == REG
@@ -5777,7 +5777,15 @@ expand_compound_operation (x)
 	       == 0)))
     {
       rtx temp = gen_rtx_ZERO_EXTEND (GET_MODE (x), XEXP (x, 0));
-      return expand_compound_operation (temp);
+      rtx temp2 = expand_compound_operation (temp);
+
+      /* Make sure this is a profitable operation.  */
+      if (rtx_cost (x, SET) > rtx_cost (temp2, SET))
+	return temp2;
+      else if (rtx_cost (x, SET) > rtx_cost (temp, SET))
+	return temp;
+      else
+	return x;
     }
 
   /* We can optimize some special cases of ZERO_EXTEND.  */
@@ -5825,7 +5833,6 @@ expand_compound_operation (x)
 	  && ((HOST_WIDE_INT) STORE_FLAG_VALUE
 	      & ~GET_MODE_MASK (GET_MODE (XEXP (x, 0)))) == 0)
 	return SUBREG_REG (XEXP (x, 0));
-
     }
 
   /* If we reach here, we want to return a pair of shifts.  The inner
