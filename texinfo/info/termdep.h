@@ -33,11 +33,6 @@
 
 #ifdef HAVE_TERMIOS_H
 #  include <termios.h>
- /*
-    POSIX does not mandate that we have these and it may, in fact, be only
-    partially implemented.
-  */
-#  undef TIOCGETC
 #else
 #  if defined (HAVE_TERMIO_H)
 #    include <termio.h>
