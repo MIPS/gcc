@@ -666,8 +666,11 @@ extern int flag_disable_simple;
 /* Enable the SSA tree optimizer.  */
 extern int flag_tree_ssa;
 
-/* Enable the SSA-PRE on trees. */
+/* Enable the SSA-PRE on trees.  */
 extern int flag_tree_ssa_pre;
+
+/* Enable SSA-CCP on trees.  */
+extern int flag_tree_ssa_ccp;
 
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;

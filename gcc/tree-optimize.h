@@ -27,4 +27,10 @@ Boston, MA 02111-1307, USA.  */
 void optimize_function_tree PARAMS ((tree));
 void build_tree_ssa PARAMS ((tree));
 
+/* Functions in tree-ssa-pre.c  */
+extern void tree_perform_ssapre PARAMS ((void));
+
+/* Functions in tree-ssa-ccp.c  */
+void tree_ssa_ccp PARAMS ((tree));
+
 #endif /* _TREE_OPTIMIZE_H */

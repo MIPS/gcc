@@ -61,8 +61,13 @@ optimize_function_tree (fndecl)
 
   /* Begin optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
-    if (flag_tree_ssa_pre)
-      tree_perform_ssapre ();
+    {
+      if (flag_tree_ssa_pre)
+	tree_perform_ssapre ();
+
+      if (flag_tree_ssa_ccp)
+	tree_ssa_ccp (fndecl);
+    }
 
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();

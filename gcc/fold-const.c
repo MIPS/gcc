@@ -77,7 +77,6 @@ static enum tree_code compcode_to_comparison PARAMS ((int));
 static int truth_value_p	PARAMS ((enum tree_code));
 static int operand_equal_for_comparison_p PARAMS ((tree, tree, tree));
 static int twoval_comparison_p	PARAMS ((tree, tree *, tree *, int *));
-static tree eval_subst		PARAMS ((tree, tree, tree, tree, tree));
 static tree omit_one_operand	PARAMS ((tree, tree, tree));
 static tree pedantic_omit_one_operand PARAMS ((tree, tree, tree));
 static tree distribute_bit_expr PARAMS ((enum tree_code, tree, tree, tree));
@@ -2120,7 +2119,7 @@ twoval_comparison_p (arg, cval1, cval2, save_p)
    any occurrence of OLD0 as an operand of a comparison and likewise for
    NEW1 and OLD1.  */
 
-static tree
+tree
 eval_subst (arg, old0, new0, old1, new1)
      tree arg;
      tree old0, new0, old1, new1;

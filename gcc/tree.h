@@ -2860,6 +2860,7 @@ extern int objects_must_conflict_p		PARAMS ((tree, tree));
 struct obstack;
 
 /* In tree.c */
+extern int next_decl_uid;
 extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
 extern int tree_log2			PARAMS ((tree));
@@ -2994,6 +2995,7 @@ extern int div_and_round_double		PARAMS ((enum tree_code, int,
 						 HOST_WIDE_INT *,
 						 unsigned HOST_WIDE_INT *,
 						 HOST_WIDE_INT *));
+extern tree eval_subst			PARAMS ((tree, tree, tree, tree, tree));
 
 /* In stmt.c */
 extern void emit_nop			PARAMS ((void));
@@ -3076,7 +3078,10 @@ enum tree_dump_index
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
-  TDI_ssa_pre,                  /* dump SSA pre information for each function.  */
+  TDI_ssa_pre,                  /* dump SSA PRE information for each
+				   function.  */
+  TDI_ccp,			/* dump SSA CCP information for each
+				   function.  */
   TDI_ssa,			/* dump SSA information for each function.  */
   TDI_simple,			/* dump each function before and after 
 				   simplifying it.  */

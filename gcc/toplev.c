@@ -874,6 +874,9 @@ int flag_tree_ssa = 0;
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_ssa_pre = 0;
 
+/* Enable SSA-CCP on trees.  */
+int flag_tree_ssa_ccp = 0;
+
 /* Nonzero if we perform superblock formation.  */
 
 int flag_tracer = 0;
@@ -1188,6 +1191,8 @@ static const lang_independent_options f_options[] =
    N_("Enable SSA optimizations on trees") },
   { "tree-ssa-pre", &flag_tree_ssa_pre, 1,
    N_("Enable SSA-PRE optimization on trees") },
+  { "tree-ssa-ccp", &flag_tree_ssa_ccp, 1,
+   N_("Enable SSA-CCP optimization on trees") },
 };
 
 /* Table of language-specific options.  */

@@ -1,3 +1,23 @@
+2002-07-10  Daniel Berlin  <dberlin@dberlin.org>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Add tree-ssa-ccp.o
+	* flags.h (flag_tree_ssa_ccp): Declare.
+	* fold-const.c (eval_subst): Make extern.
+	* toplev.c (flag_tree_ssa_ccp): Define.
+	(f_options): Document -ftree-ssa-ccp.
+	* tree-dump.c (dump_files): Add -fdump-tree-ccp.
+	* tree-flow.h (tree_perform_ssapre): Move declaration ...
+	* tree-optimize.h: ... here.
+	(tree_ssa_ccp): Declare.
+	* tree-optimize.c (optimize_function_tree): Call tree_ssa_ccp.
+	* tree-ssa-ccp.c: New file.
+	* tree.c (next_decl_uid): Remove static declaration.
+	* tree.h (next_decl_uid): Declare.
+	(tree_dump_index): Add TDI_ccp.
+	* cp/Make-lang.in (CXX_C_OBJS): Add tree-ssa-ccp.o.
+	* doc/invoke.texi: Document -ftree-ssa-pre and -ftree-ssa-ccp.
+
 2002-07-09  Daniel Berlin  <dberlin@dberlin.org>
 
 	s/varrays of refs/ref_list of refs/g

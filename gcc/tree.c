@@ -100,7 +100,7 @@ static const char * const tree_node_kind_names[] = {
 #endif /* GATHER_STATISTICS */
 
 /* Unique id for next decl created.  */
-static int next_decl_uid;
+int next_decl_uid;
 /* Unique id for next type created.  */
 static int next_type_uid = 1;
 

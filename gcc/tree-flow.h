@@ -427,12 +427,6 @@ extern void get_fcalls PARAMS ((varray_type *, unsigned));
 extern basic_block find_declaration PARAMS ((tree));
 
 
-/* Functions in tree-ssa-pre.c */
-
-extern void tree_perform_ssapre PARAMS ((void));
-
-
-
 /* Functions in tree-ssa.c  */
 
 extern void tree_build_ssa PARAMS ((void));
