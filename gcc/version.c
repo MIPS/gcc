@@ -15,7 +15,8 @@
    - There are other scripts that search for first word of the string
      to get version number string. Do not use new line.
 */
-const char version_string[] = "3.5.0-tree-ssa 20040321 (merged 20040529) (Apple Computer, Inc. build 1764)"; /* APPLE LOCAL end Apple version */
+const char version_string[] = "3.5.0-tree-ssa 20040321 (merged 20040529) (Apple Computer, Inc. build 1765)";
+/* APPLE LOCAL end Apple version */
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,
