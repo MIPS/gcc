@@ -1,3 +1,112 @@
+2004-02-14  Release Manager
+
+	* GCC 3.3.3 Released.
+
+2004-02-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/14113
+	Backport from mainline:
+
+	2004-02-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.md (call followed by jump define_peephole's):
+	Delete.
+
+2004-02-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Mention SSE2 and SSE3.
+
+	* config/i386/i386.h: Deprecate -mpni/-mno-pni.
+
+2004-02-06  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* config/i386/i386.c: Rename pni to sse3.
+	* config/i386/i386.h: Likewise.
+        * config/i386/i386.md: Likewise.
+	* config/i386/pmmintrin.h: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2004-02-03  Wolfgang Bangerth  <bangerth@dealii.org>
+
+	PR other/14003
+	* doc/invoke.texi (x86 options): Fix spelling/wording.
+
+2004-02-01  Geoffrey Keating  <geoffk@apple.com>
+
+	PR bootstrap/13960
+	* config/rs6000/rs6000.h (LEGITIMATE_LO_SUM_ADDRESS_P): Accept
+	lo_sum addresses on Darwin.
+
+2004-01-30  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c: Update copyright.
+	* config/sparc/sparc.h: Likewise.
+	* config/sparc/sparc.md: Likewise.
+
+2004-01-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR java/13824
+	* tree.c (unsafe_for_reeval): Handle EXIT_BLOCK_EXPR nodes specially
+	as their EXIT_BLOCK_LABELED_BLOCK operands can lead to unbounded
+	recursion.
+
+2004-01-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Remove the pni option from -mfpmath=.
+
+2004-01-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport from mainline
+	
+	2004-01-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR optimization/12440
+	* loop.c: Include ggc.h.
+	(loop_optimize): Run garbage collector between optimization of loops.
+	* Makefile.in (loop.o): Add GGC_H dependency.
+
+2004-01-24  Matthias Klose  <doko@debian.org>
+
+	* objc/objc-act.c (is_public): Fix typo in message.
+
+2004-01-23  Richard Henderson  <rth@redhat.com>
+
+        PR opt/12941
+        * combine.c (SHIFT_COUNT_TRUNCATED): Provide default value.
+        (simplify_comparison): Don't simplify (eq (zero_extract c 1 r) 0)
+        if SHIFT_COUNT_TRUNCATED is set.
+
+2004-01-23  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* doc/invoke.texi (Optimize Options): Note that --param arguments
+	are subject to change without notice.
+
+2004-01-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* reload.c (can_reload_into): Add prototype and K&R style function
+	declaration.
+
+2004-01-21  Andreas Jaeger  <aj@suse.de>
+	    Michael Matz  <matz@suse.de>
+
+	* doc/extend.texi (Extended Asm): Clarify memory clobber.
+
+2004-01-21  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
+
+	PR target/13073
+        * config/h8300/t-rtems (h8300-*-rtems*): New.
+        * config.gcc: Use config/h8300/t-rtems.
+	
+2004-01-20  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+        Backport from mainline
+
+        2004-01-10  Jan Hubicka  <jh@suse.cz>
+        PR opt/12826
+        * loop.c (insert_loop_mem): Prefer VOLATILE memory references to be
+        stored. 
+        
 2004-01-16  Jan Hubicka  <jh@suse.cz>
 
 	PR opt/13608

@@ -1,3 +1,33 @@
+2004-02-14  Release Manager
+
+	* GCC 3.3.3 Released.
+
+2004-02-05  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/13086
+	* g++.dg/warn/incomplete1.C: Remove xfail.
+
+2004-02-03  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/eh/forced1.C, g++.dg/eh/forced2.C, g++.dg/eh/forced3.C
+	* g++.dg/eh/forced4.C: XFAIL ia64-hp-hpux11.*.
+	* g++.dg/eh/ia64-1.C: Test branch regs only #ifdef __LP64__.
+	* gcc.dg/cleanup-5.c: Run only on Linux targets.
+
+2004-01-30  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/13683
+	* g++.dg/template/sizeof6.C: New test.
+
+2004-01-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13797
+	* g++.dg/template/nontype4.C: New test.
+	* g++.dg/template/nontype5.C: Likewise.
+
+	PR c++/10555, c++/10576
+	* g++.dg/template/memclass1.C: New test.
+
 2004-01-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/13392
@@ -12,7 +42,7 @@
 
 	Backport from mainline:
 	2003-12-28  Mark Mitchell  <mark@codesourcery.com>
- 
+
 	PR c++/13081
 	* g++.dg/opt/inline6.C: New test.
 

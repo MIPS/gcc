@@ -1,6 +1,6 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002  Free Software Foundation, Inc.
+   2001, 2002, 2004  Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -4255,6 +4255,15 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	      tree a = coerce_template_parms (TREE_VALUE (t),
 					      arglist, template,
 	                                      complain, /*require_all_args=*/1);
+
+	      /* Don't process further if one of the levels fails.  */
+	      if (a == error_mark_node)
+		{
+		  /* Restore the ARGLIST to its full size.  */
+		  TREE_VEC_LENGTH (arglist) = saved_depth;
+		  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
+		}
+	      
 	      SET_TMPL_ARGS_LEVEL (bound_args, i, a);
 
 	      /* We temporarily reduce the length of the ARGLIST so
@@ -5462,7 +5471,9 @@ instantiate_class_template (type)
 	      tree newtag;
 
 	      newtag = tsubst (tag, args, tf_error, NULL_TREE);
-	      my_friendly_assert (newtag != error_mark_node, 20010206);
+	      if (newtag == error_mark_node)
+		continue;
+
 	      if (TREE_CODE (newtag) != ENUMERAL_TYPE)
 		{
 		  if (TYPE_LANG_SPECIFIC (tag) && CLASSTYPE_IS_TEMPLATE (tag))
@@ -6001,6 +6012,9 @@ tsubst_decl (t, args, type, complain)
 	if (TREE_CODE (decl) == TYPE_DECL)
 	  {
 	    tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	    if (new_type == error_mark_node)
+	      return error_mark_node;
+
 	    TREE_TYPE (r) = new_type;
 	    CLASSTYPE_TI_TEMPLATE (new_type) = r;
 	    DECL_TEMPLATE_RESULT (r) = TYPE_MAIN_DECL (new_type);
@@ -10449,6 +10463,10 @@ instantiate_decl (d, defer_ok)
   if (need_push)
     push_to_top_level ();
 
+  /* Mark D as instantiated so that recursive calls to
+     instantiate_decl do not try to instantiate it again.  */
+  DECL_TEMPLATE_INSTANTIATED (d) = 1;
+
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
@@ -10485,13 +10503,14 @@ instantiate_decl (d, defer_ok)
 	     instantiation.  There, we cannot implicitly instantiate a
 	     defined static data member in more than one translation
 	     unit, so import_export_decl marks the declaration as
-	     external; we must rely on explicit instantiation.  */
+	     external; we must rely on explicit instantiation.
+
+	     Reset instantiated marker to make sure that later
+	     explicit instantiation will be processed.  */
+	  DECL_TEMPLATE_INSTANTIATED (d) = 0;
 	}
       else
 	{
-	  /* Mark D as instantiated so that recursive calls to
-	     instantiate_decl do not try to instantiate it again.  */
-	  DECL_TEMPLATE_INSTANTIATED (d) = 1;
 	  /* This is done in analogous to `start_decl'.  It is
 	     required for correct access checking.  */
 	  push_nested_class (DECL_CONTEXT (d), 2);
@@ -10511,10 +10530,6 @@ instantiate_decl (d, defer_ok)
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
       htab_t saved_local_specializations;
-
-      /* Mark D as instantiated so that recursive calls to
-	 instantiate_decl do not try to instantiate it again.  */
-      DECL_TEMPLATE_INSTANTIATED (d) = 1;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
