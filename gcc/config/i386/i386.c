@@ -923,7 +923,7 @@ static tree ix86_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static int extended_reg_mentioned_1 (rtx *, void *);
 static bool ix86_rtx_costs (rtx, int, int, int *);
 static int min_insn_size (rtx);
-static tree ix86_md_asm_clobbers (tree clobbers);
+static tree ix86_md_asm_clobbers (tree outputs, tree inputs, tree clobbers);
 static bool ix86_must_pass_in_stack (enum machine_mode mode, tree type);
 static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
@@ -7287,6 +7287,7 @@ output_fix_trunc (rtx insn, rtx *operands, int fisttp)
 {
   int stack_top_dies = find_regno_note (insn, REG_DEAD, FIRST_STACK_REG) != 0;
   int dimode_p = GET_MODE (operands[0]) == DImode;
+  int round_mode = get_attr_i387_cw (insn);
 
   /* Jump through a hoop or two for DImode, since the hardware has no
      non-popping instruction.  We used to do this a different way, but
@@ -7304,12 +7305,14 @@ output_fix_trunc (rtx insn, rtx *operands, int fisttp)
       output_asm_insn ("fisttp%z0\t%0", operands);
   else
     {
-      output_asm_insn ("fldcw\t%3", operands);
+      if (round_mode != I387_CW_ANY)
+	output_asm_insn ("fldcw\t%3", operands);
       if (stack_top_dies || dimode_p)
 	output_asm_insn ("fistp%z0\t%0", operands);
       else
 	output_asm_insn ("fist%z0\t%0", operands);
-      output_asm_insn ("fldcw\t%2", operands);
+      if (round_mode != I387_CW_ANY)
+	output_asm_insn ("fldcw\t%2", operands);
     }
 
   return "";
@@ -16880,7 +16883,9 @@ ix86_vector_mode_supported_p (enum machine_mode mode)
    with the old cc0-based compiler.  */
 
 static tree
-ix86_md_asm_clobbers (tree clobbers)
+ix86_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
+		      tree inputs ATTRIBUTE_UNUSED,
+		      tree clobbers)
 {
   clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),
 			clobbers);

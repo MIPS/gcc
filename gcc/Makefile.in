@@ -2028,7 +2028,8 @@ rtl-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    toplev.h $(BASIC_BLOCK_H) $(COVERAGE_H) $(TREE_FLOW_H) value-prof.h $(GGC_H)
 value-prof.o : value-prof.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h value-prof.h $(EXPR_H) output.h $(FLAGS_H) \
-   $(RECOG_H) insn-config.h $(OPTABS_H) $(REGS_H) $(GGC_H)
+   $(RECOG_H) insn-config.h $(OPTABS_H) $(REGS_H) $(GGC_H) $(DIAGNOSTIC_H) \
+   $(TREE_H) $(COVERAGE_H)
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h $(CFGLOOP_H) \
@@ -2232,11 +2233,13 @@ mips-tdump.o : mips-tdump.c $(CONFIG_H) $(RTL_H) $(SYSTEM_H) coretypes.h $(TM_H)
 # FIXME: writing proper dependencies for this is a *LOT* of work.
 libbackend.o : $(OBJS-common:.o=.c) $(out_file) \
   insn-config.h insn-flags.h insn-codes.h insn-constants.h \
-  insn-attr.h
+  insn-attr.h  $(DATESTAMP) $(BASEVER) $(DEVPHASE)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -DLOCALEDIR=\"$(localedir)\" \
-	  -c $(filter %.c,$^) -o $@ -combine
+	  -c $(filter %.c,$^) -o $@  \
+	  -DBASEVER=$(BASEVER_s) -DDATESTAMP=$(DATESTAMP_s) \
+	  -DDEVPHASE=$(DEVPHASE_s) -combine
 
 #
 # Generate header and source files from the machine description,

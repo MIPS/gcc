@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C.
-   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2003, 2004
+   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "convert.h"
 #include "c-common.h"
+#include "c-tree.h"
 #include "langhooks.h"
 #include "toplev.h"
 
@@ -95,7 +96,7 @@ convert (tree type, tree expr)
     return fold (convert_to_integer (type, e));
   if (code == BOOLEAN_TYPE)
     {
-      tree t = lang_hooks.truthvalue_conversion (expr);
+      tree t = c_objc_common_truthvalue_conversion (expr);
       if (TREE_CODE (t) == ERROR_MARK)
 	return t;
 

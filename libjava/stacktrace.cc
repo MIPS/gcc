@@ -35,11 +35,6 @@ using namespace java::lang::reflect;
 using namespace java::util;
 using namespace gnu::gcj::runtime;
 
-struct _Jv_FindCallingClassState: _Jv_UnwindState
-{
-  jclass result;
-};
-
 // Maps ncode values to their containing native class.
 // NOTE: Currently this Map contradicts class GC for native classes. This map
 // (and the "new class stack") will need to use WeakReferences in order to 
@@ -500,7 +495,7 @@ _Jv_StackTrace::non_system_trace_fn (_Jv_UnwindState *state)
     {
       classLoader = frame->klass->getClassLoaderInternal();
 #ifdef INTERPRETER
-      if (classLoader != NULL && classLoader != ClassLoader::systemClassLoader)
+      if (classLoader != NULL)
         {
           state->trace_data = (void *) classLoader;
 	  return _URC_NORMAL_STOP;

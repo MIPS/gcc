@@ -1,3 +1,213 @@
+2005-03-26  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/promotion.f90:  New test.
+
+2005-03-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/20491
+	* gcc.dg/torture/asm-subreg-1.c: New test.
+
+2005-03-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/20672
+	* gcc.dg/pr20672-1.c: New test.
+
+2005-03-29  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect: New directory.
+	* gfortran.dg/vect/vect.exp: New.
+	* gfortran.dg/vect/vect-1.f90: New test.
+	* gfortran.dg/vect/vect-2.f90: New test.
+	* gfortran.dg/vect/vect-3.f90: New test.
+	* gfortran.dg/vect/vect-4.f90: New test.
+	* gfortran.dg/vect/vect-5.f90: New test.
+
+2005-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/20622
+	* gcc.dg/alias-7.c: New test.
+
+2005-03-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-reg-1.c: New test.
+
+2005-03-28  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/19890
+	* gcc.dg/20020219-1.c: Skip on IA64 HP-UX in ILP32 mode.
+
+2005-03-29  Dale Ranta  <dir@lanl.gov>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20163
+	* gfortran.dg/pr20163-2.f: New test.
+
+2005-03-28  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/20635
+	* compile/gcc.c-torture/compile/20050328-1.c: New testcase made
+	by Jakub Jelinek.
+
+2005-03-27  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-optimization/20626
+	* gcc.dg/vect/vect-80.c: Add xfail for no_align targets.
+	* gcc.dg/vect/vect-96.c: Add xfail for no_align targets.
+
+2005-03-26  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/underflow.f90:  New test.
+	* gfortran.dg/g77/20030326-1.f: Fix illegal code.
+
+2005-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/nonnull-3.c: Also test __builtin_strndup.
+
+2005-03-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/g++.exp (g++_link_flags): Use gcc-set-multilib-library-path.
+	(g++_init): Make sure that CXXFLAGS is set.
+	* lib/gcc-defs.exp (gcc-set-multilib-library-path): New function.
+	* lib/gcc-dg.exp: Use gcc-set-multilib-library-path.
+	* lib/gfortran.exp (gfortran_link_flags): Likewise. 
+	* lib/objc.exp (objc_init): Likewise.
+	* lib/treelang.exp (treelang_init): Likewise.
+
+2005-03-25  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR tree-optimization/20470
+	* gcc.dg/tree-ssa/pr20470.c: New test.
+
+2005-03-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/ppc-stfiwx.c: New.
+
+2005-03-25  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/19888
+	* g++.old-deja/g++.eh/badalloc1.C: increase arena_size on hpux.
+
+2005-03-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/20050325-1.c: Fix a typo.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19678
+	PR libfortran/19679
+	* gfortran.dg/dos_eol.f: New test.
+
+2005-03-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/20249
+	* gcc.dg/20050325-1.c: New test.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/15332
+	* gfortran.dg/pr15332.f: New test.
+
+2005-03-24  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20020919-1.c:  Fix for x86 Darwin.
+
+2005-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/visibility/pragma-override1.C: Mark as requiring
+	'internal' visibility.
+	* g++.dg/ext/visibility/pragma-override2.C: Likewise.
+	* g++.dg/ext/visibility/visibility-7.C: Mark as requiring
+	'protected' visibility.
+	* gcc.dg/visibility-7.c: Likewise.
+	* lib/target-supports.exp (check_visibility_available): Take
+	a parameter, the kind of visibility to check for.
+	* lib/target-supports-dg.exp (dg-require-visibility): Pass parameter
+	to check_visibility_available.
+
+	* g++.dg/expr/cast3.C: New.
+
+2005-03-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.c-torture/execute/20020720-1.x: XFAIL for all powerpc and
+	rs6000.
+
+2005-03-24  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/20095
+	* gcc.dg/cleanup-5.c: skip if ia64-hp-hpux11.*
+
+2005-03-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/badshift.c: Renamed to...
+	* gcc.dg/torture/badshift.c: ... this.  Remove explicit -O1.
+
+	* gcc.target/i386/badshift.c: Renamed to...
+	* gcc.dg/badshift.c: ... this.  Fix typo.  Use -march=i386 on i?86
+	only.
+
+	PR rtl-optimization/20532
+	* gcc.target/i386/badshift.c: New.
+
+2005-03-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/pr18025.f90: New test.
+
+2005-03-23  Dale Johannesen  <dalej@apple.com>
+	
+	* gcc.dg/20020312-2.c:  Fix for non-PowerPC Darwin.
+
+2005-03-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.warn/compare1.C: Run with -Wno-deprecated.
+
+	* lib/target-supports.exp (check_iconv_available): Default
+	libiconv to -liconv, if there is no definition.
+
+2005-03-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/torture/cris-asm-mof-1.c: New test.
+
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/max1.C: Run with -Wno-deprecated.
+	* g++.dg/opt/pr7503-2.C: Likewise.
+	* g++.dg/opt/pr7503-3.C: Likewise.
+	* g++.dg/opt/pr7503-4.C: Likewise.
+	* g++.dg/opt/pr7503-5.C: Likewise.
+	* g++.dg/warn/minmax.C: New test.
+
+2005-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/g77_intrinsics_funcs.f: New test.
+	* gfortran.dg/g77_intrinsics_sub.f: New test.
+
+2005-03-22  Richard Guenther <rguenth@tat.physik.uni-tuebingen.de>
+	    Jan Hubicka  <jh@suse.cz>
+	    Steven Bosscher <stevenb@suse.de
+
+	* gcc.dg/winline-6.c: Modify so inlined function have nonzero cost.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19980
+	* g++.dg/template/redecl3.C: New test.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20499
+	* g++.dg/parse/error16.C: Tweak error markers.
+
+2005-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/20561
+	* gcc.dg/20050321-2.c: New test.
+
+2005-03-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20465
+	PR c++/20381
+	* g++.dg/template/ptrmem12.C: New.
+
 2005-03-22  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR rtl-optimization/20527
@@ -73,12 +283,12 @@
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20257
-	* pr20257.f90: New test.
+	* gfortran.dg/pr20257.f90: New test.
 
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20480
-	* pr20480.f90: New test.
+	* gfortran.dg/pr20480.f90: New test.
 
 2005-03-16  Richard Henderson  <rth@redhat.com>
 

@@ -268,7 +268,7 @@ enum insn_code reload_out_optab[NUM_MACHINE_MODES];
 /* This obstack is used for allocation of rtl during register elimination.
    The allocated storage can be freed once find_reloads has processed the
    insn.  */
-struct obstack reload_obstack;
+static struct obstack reload_obstack;
 
 /* Points to the beginning of the reload_obstack.  All insn_chain structures
    are allocated first.  */
@@ -1173,6 +1173,19 @@ reload (rtx first, int global)
 	if (GET_CODE (PATTERN (insn)) == CLOBBER)
 	  replace_pseudos_in (& XEXP (PATTERN (insn), 0),
 			      VOIDmode, PATTERN (insn));
+
+	/* Discard obvious no-ops, even without -O.  This optimization
+	   is fast and doesn't interfere with debugging.  */
+	if (NONJUMP_INSN_P (insn)
+	    && GET_CODE (PATTERN (insn)) == SET
+	    && REG_P (SET_SRC (PATTERN (insn)))
+	    && REG_P (SET_DEST (PATTERN (insn)))
+	    && (REGNO (SET_SRC (PATTERN (insn)))
+		== REGNO (SET_DEST (PATTERN (insn)))))
+	  {
+	    delete_insn (insn);
+	    continue;
+	  }
 
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)

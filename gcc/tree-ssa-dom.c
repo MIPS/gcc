@@ -2791,24 +2791,7 @@ record_equivalences_from_stmt (tree stmt,
 	      || is_gimple_min_invariant (rhs)))
 	SSA_NAME_VALUE (lhs) = rhs;
 
-      /* alloca never returns zero and the address of a non-weak symbol
-	 is never zero.  NOP_EXPRs and CONVERT_EXPRs can be completely
-	 stripped as they do not affect this equivalence.  */
-      while (TREE_CODE (rhs) == NOP_EXPR
-	     || TREE_CODE (rhs) == CONVERT_EXPR)
-        rhs = TREE_OPERAND (rhs, 0);
-
-      if (alloca_call_p (rhs)
-          || (TREE_CODE (rhs) == ADDR_EXPR
-	      && DECL_P (TREE_OPERAND (rhs, 0))
-	      && ! DECL_WEAK (TREE_OPERAND (rhs, 0))))
-	record_var_is_nonzero (lhs);
-
-      /* IOR of any value with a nonzero value will result in a nonzero
-	 value.  Even if we do not know the exact result recording that
-	 the result is nonzero is worth the effort.  */
-      if (TREE_CODE (rhs) == BIT_IOR_EXPR
-	  && integer_nonzerop (TREE_OPERAND (rhs, 1)))
+      if (expr_computes_nonzero (rhs))
 	record_var_is_nonzero (lhs);
     }
 

@@ -3973,7 +3973,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = lang_hooks.truthvalue_conversion (off);
+      t = build (NE_EXPR, boolean_type_node, off,
+		 build_int_cst (TREE_TYPE (off), 0));
       addr = build (COND_EXPR, ptr_type_node, t, NULL, NULL);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
@@ -9193,7 +9194,7 @@ mips_matching_cpu_name_p (const char *canonical, const char *given)
 
 
 /* Return the mips_cpu_info entry for the processor or ISA given
-   by CPU_STRING.  Return null if the string isn't recognised.
+   by CPU_STRING.  Return null if the string isn't recognized.
 
    A similar function exists in GAS.  */
 

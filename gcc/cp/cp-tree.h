@@ -3787,7 +3787,7 @@ extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, 
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
-extern int complete_array_type			(tree, tree, int);
+extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type                   (tree, tree);
 /* the grokdeclarator prototype is in decl.h */
@@ -4283,7 +4283,7 @@ extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, bool);
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			(tree);
 extern tree decay_conversion			(tree);
-extern tree perform_integral_promotions         (tree);
+extern tree default_conversion                  (tree);
 extern tree build_class_member_access_expr      (tree, tree, tree, bool);
 extern tree finish_class_member_access_expr     (tree, tree);
 extern tree build_x_indirect_ref		(tree, const char *);

@@ -378,7 +378,6 @@ extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
-extern int  complete_array_type (tree, tree, int);
 extern void declare_parm_level (void);
 extern void undeclared_variable (tree, location_t);
 extern tree declare_label (tree);
@@ -460,6 +459,7 @@ extern int comptypes (tree, tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
 extern tree c_type_promotes_to (tree);
+extern tree default_conversion (tree);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);

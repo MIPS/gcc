@@ -1427,15 +1427,14 @@ check_case_value (tree value)
       value = fold (value);
     }
 
-  if (TREE_CODE (value) != INTEGER_CST
-      && value != error_mark_node)
+  if (TREE_CODE (value) == INTEGER_CST)
+    /* Promote char or short to int.  */
+    value = perform_integral_promotions (value);
+  else if (value != error_mark_node)
     {
       error ("case label does not reduce to an integer constant");
       value = error_mark_node;
     }
-  else
-    /* Promote char or short to int.  */
-    value = default_conversion (value);
 
   constant_expression_warning (value);
 
@@ -2314,7 +2313,9 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
-   or validate its data type for an `if' or `while' statement or ?..: exp.
+   or for an `if' or `while' statement or ?..: exp.  It should already
+   have been validated to be of suitable type; otherwise, a bad
+   diagnostic may result.
 
    This preparation consists of taking the ordinary
    representation of an expression expr and producing a valid tree
@@ -2346,14 +2347,14 @@ c_common_truthvalue_conversion (tree expr)
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
       return build2 (TREE_CODE (expr), truthvalue_type_node,
-		 lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		 lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 1)));
+		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)),
+		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)));
 
     case TRUTH_NOT_EXPR:
       if (TREE_TYPE (expr) == truthvalue_type_node)
 	return expr;
       return build1 (TREE_CODE (expr), truthvalue_type_node,
-		 lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		 c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)));
 
     case ERROR_MARK:
       return expr;
@@ -2401,15 +2402,15 @@ c_common_truthvalue_conversion (tree expr)
     case COMPLEX_EXPR:
       return build_binary_op ((TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
 			       ? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-		lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 1)),
+		c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)),
+		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
 			      0);
 
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
-      return lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0));
+      return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
@@ -2418,16 +2419,16 @@ c_common_truthvalue_conversion (tree expr)
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build2 (COMPOUND_EXPR, truthvalue_type_node,
 		       TREE_OPERAND (expr, 1),
-		       lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		       c_common_truthvalue_conversion (TREE_OPERAND (expr, 0)));
       else
-	return lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold (build3 (COND_EXPR, truthvalue_type_node,
 		TREE_OPERAND (expr, 0),
-		lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 1)),
-		lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 2))));
+		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
     case CONVERT_EXPR:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -2440,7 +2441,7 @@ c_common_truthvalue_conversion (tree expr)
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-	return lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
       break;
 
     case MINUS_EXPR:
@@ -2489,8 +2490,8 @@ c_common_truthvalue_conversion (tree expr)
       return (build_binary_op
 	      ((TREE_SIDE_EFFECTS (expr)
 		? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-	lang_hooks.truthvalue_conversion (build_unary_op (REALPART_EXPR, t, 0)),
-	lang_hooks.truthvalue_conversion (build_unary_op (IMAGPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion (build_unary_op (REALPART_EXPR, t, 0)),
+	c_common_truthvalue_conversion (build_unary_op (IMAGPART_EXPR, t, 0)),
 	       0));
     }
 
@@ -3514,7 +3515,10 @@ c_add_case_label (splay_tree cases, tree cond, tree orig_type,
        && POINTER_TYPE_P (TREE_TYPE (low_value)))
       || (high_value && TREE_TYPE (high_value)
 	  && POINTER_TYPE_P (TREE_TYPE (high_value))))
-    error ("pointers are not permitted as case values");
+    {
+      error ("pointers are not permitted as case values");
+      goto error_out;
+    }
 
   /* Case ranges are a GNU extension.  */
   if (high_value && pedantic)
@@ -5751,6 +5755,95 @@ lvalue_error (enum lvalue_use use)
     default:
       gcc_unreachable ();
     }
+}
+
+/* *PTYPE is an incomplete array.  Complete it with a domain based on
+   INITIAL_VALUE.  If INITIAL_VALUE is not present, use 1 if DO_DEFAULT
+   is true.  Return 0 if successful, 1 if INITIAL_VALUE can't be deciphered,
+   2 if INITIAL_VALUE was NULL, and 3 if INITIAL_VALUE was empty.  */
+
+int
+complete_array_type (tree *ptype, tree initial_value, bool do_default)
+{
+  tree maxindex, type, main_type, elt, unqual_elt;
+  int failure = 0, quals;
+
+  maxindex = size_zero_node;
+  if (initial_value)
+    {
+      if (TREE_CODE (initial_value) == STRING_CST)
+	{
+	  int eltsize
+	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
+	  maxindex = size_int (TREE_STRING_LENGTH (initial_value)/eltsize - 1);
+	}
+      else if (TREE_CODE (initial_value) == CONSTRUCTOR)
+	{
+	  tree elts = CONSTRUCTOR_ELTS (initial_value);
+
+	  if (elts == NULL)
+	    {
+	      if (pedantic)
+		failure = 3;
+	      maxindex = integer_minus_one_node;
+	    }
+	  else
+	    {
+	      tree curindex;
+
+	      if (TREE_PURPOSE (elts))
+		maxindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+	      curindex = maxindex;
+
+	      for (elts = TREE_CHAIN (elts); elts; elts = TREE_CHAIN (elts))
+		{
+		  if (TREE_PURPOSE (elts))
+		    curindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+		  else
+		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
+
+		  if (tree_int_cst_lt (maxindex, curindex))
+		    maxindex = curindex;
+		}
+	    }
+	}
+      else
+	{
+	  /* Make an error message unless that happened already.  */
+	  if (initial_value != error_mark_node)
+	    failure = 1;
+	}
+    }
+  else
+    {
+      failure = 2;
+      if (!do_default)
+	return failure;
+    }
+
+  type = *ptype;
+  elt = TREE_TYPE (type);
+  quals = TYPE_QUALS (strip_array_types (elt));
+  if (quals == 0)
+    unqual_elt = elt;
+  else
+    unqual_elt = c_build_qualified_type (elt, TYPE_UNQUALIFIED);
+
+  /* Using build_distinct_type_copy and modifying things afterward instead
+     of using build_array_type to create a new type preserves all of the
+     TYPE_LANG_FLAG_? bits that the front end may have set.  */
+  main_type = build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+  TREE_TYPE (main_type) = unqual_elt;
+  TYPE_DOMAIN (main_type) = build_index_type (maxindex);
+  layout_type (main_type);
+
+  if (quals == 0)
+    type = main_type;
+  else
+    type = c_build_qualified_type (main_type, quals);
+
+  *ptype = type;
+  return failure;
 }
 
 #include "gt-c-common.h"

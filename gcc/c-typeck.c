@@ -1352,6 +1352,55 @@ default_function_array_conversion (tree exp)
   return exp;
 }
 
+
+/* EXP is an expression of integer type.  Apply the integer promotions
+   to it and return the promoted value.  */
+
+tree
+perform_integral_promotions (tree exp)
+{
+  tree type = TREE_TYPE (exp);
+  enum tree_code code = TREE_CODE (type);
+
+  gcc_assert (INTEGRAL_TYPE_P (type));
+
+  /* Normally convert enums to int,
+     but convert wide enums to something wider.  */
+  if (code == ENUMERAL_TYPE)
+    {
+      type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
+					  TYPE_PRECISION (integer_type_node)),
+				     ((TYPE_PRECISION (type)
+				       >= TYPE_PRECISION (integer_type_node))
+				      && TYPE_UNSIGNED (type)));
+
+      return convert (type, exp);
+    }
+
+  /* ??? This should no longer be needed now bit-fields have their
+     proper types.  */
+  if (TREE_CODE (exp) == COMPONENT_REF
+      && DECL_C_BIT_FIELD (TREE_OPERAND (exp, 1))
+      /* If it's thinner than an int, promote it like a
+	 c_promoting_integer_type_p, otherwise leave it alone.  */
+      && 0 > compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)),
+			       TYPE_PRECISION (integer_type_node)))
+    return convert (integer_type_node, exp);
+
+  if (c_promoting_integer_type_p (type))
+    {
+      /* Preserve unsignedness if not really getting any wider.  */
+      if (TYPE_UNSIGNED (type)
+	  && TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
+	return convert (unsigned_type_node, exp);
+
+      return convert (integer_type_node, exp);
+    }
+
+  return exp;
+}
+
+
 /* Perform default promotions for C data used in expressions.
    Arrays and functions are converted to pointers;
    enumeral types or short or char, to int.
@@ -1387,36 +1436,8 @@ default_conversion (tree exp)
   if (TREE_NO_WARNING (orig_exp))
     TREE_NO_WARNING (exp) = 1;
 
-  /* Normally convert enums to int,
-     but convert wide enums to something wider.  */
-  if (code == ENUMERAL_TYPE)
-    {
-      type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
-					  TYPE_PRECISION (integer_type_node)),
-				     ((TYPE_PRECISION (type)
-				       >= TYPE_PRECISION (integer_type_node))
-				      && TYPE_UNSIGNED (type)));
-
-      return convert (type, exp);
-    }
-
-  if (TREE_CODE (exp) == COMPONENT_REF
-      && DECL_C_BIT_FIELD (TREE_OPERAND (exp, 1))
-      /* If it's thinner than an int, promote it like a
-	 c_promoting_integer_type_p, otherwise leave it alone.  */
-      && 0 > compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)),
-			       TYPE_PRECISION (integer_type_node)))
-    return convert (integer_type_node, exp);
-
-  if (c_promoting_integer_type_p (type))
-    {
-      /* Preserve unsignedness if not really getting any wider.  */
-      if (TYPE_UNSIGNED (type)
-	  && TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
-	return convert (unsigned_type_node, exp);
-
-      return convert (integer_type_node, exp);
-    }
+  if (INTEGRAL_TYPE_P (type))
+    return perform_integral_promotions (exp);
 
   if (code == VOID_TYPE)
     {
@@ -2540,6 +2561,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case TRUTH_NOT_EXPR:
+      /* ??? Why do most validation here but that for non-lvalue arrays
+	 in c_objc_common_truthvalue_conversion?  */
       if (typecode != INTEGER_TYPE
 	  && typecode != REAL_TYPE && typecode != POINTER_TYPE
 	  && typecode != COMPLEX_TYPE
@@ -2549,7 +2572,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = lang_hooks.truthvalue_conversion (arg);
+      arg = c_objc_common_truthvalue_conversion (arg);
       return invert_truthvalue (arg);
 
     case NOP_EXPR:
@@ -2904,8 +2927,6 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   enum tree_code code2;
   tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
-
-  ifexp = lang_hooks.truthvalue_conversion (default_conversion (ifexp));
 
   /* Promote both alternatives.  */
 
@@ -7295,8 +7316,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = lang_hooks.truthvalue_conversion (op0);
-	  op1 = lang_hooks.truthvalue_conversion (op1);
+	  op0 = c_common_truthvalue_conversion (op0);
+	  op1 = c_common_truthvalue_conversion (op1);
 	  converted = 1;
 	}
       break;
@@ -7775,4 +7796,35 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       result = convert (final_type, result);
     return result;
   }
+}
+
+
+/* Convert EXPR to be a truth-value, validating its type for this
+   purpose.  Passes EXPR to default_function_array_conversion.  */
+
+tree
+c_objc_common_truthvalue_conversion (tree expr)
+{
+  expr = default_function_array_conversion (expr);
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case ARRAY_TYPE:
+      error ("used array that cannot be converted to pointer where scalar is required");
+      return error_mark_node;
+
+    case RECORD_TYPE:
+      error ("used struct type value where scalar is required");
+      return error_mark_node;
+
+    case UNION_TYPE:
+      error ("used union type value where scalar is required");
+      return error_mark_node;
+
+    default:
+      break;
+    }
+
+  /* ??? Should we also give an error for void and vectors rather than
+     leaving those to give errors later?  */
+  return c_common_truthvalue_conversion (expr);
 }

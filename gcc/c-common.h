@@ -808,7 +808,7 @@ extern tree build_break_stmt (void);
 
 extern tree build_unary_op (enum tree_code, tree, int);
 extern tree build_binary_op (enum tree_code, tree, tree, int);
-extern tree default_conversion (tree);
+extern tree perform_integral_promotions (tree);
 
 /* Given two integer or real types, return the type for their sum.
    Given two compatible ANSI C types, returns the merged type.  */
@@ -887,6 +887,8 @@ enum lvalue_use {
 };
 
 extern void lvalue_error (enum lvalue_use);
+
+extern int complete_array_type (tree *, tree, bool);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

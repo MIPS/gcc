@@ -783,6 +783,8 @@ wrapup_global_declarations (tree *vec, int len)
 
 	      if (flag_unit_at_a_time && node->finalized)
 		needed = 0;
+	      else if (node->alias)
+		needed = 0;
 	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
@@ -1772,9 +1774,6 @@ process_options (void)
   if (flag_delayed_branch)
     warning ("this target machine does not have delayed branches");
 #endif
-
-  if (flag_tree_based_profiling && flag_profile_values)
-    sorry ("value-based profiling not yet implemented in trees.");
 
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)

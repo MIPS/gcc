@@ -337,6 +337,12 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
+
+  /* Linked list of histograms for value-based profiling.  This is really a
+     struct histogram_value*.  We use void* to avoid having to export that
+     everywhere, and to avoid having to put it in GC memory.  */
+  
+  void * GTY ((skip (""))) histograms;
 };
 
 union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
@@ -648,16 +654,18 @@ extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
 
 /* In tree-into-ssa.c  */
-extern void update_ssa (bool);
-extern void register_new_name_mapping (tree, tree);
-extern tree create_new_def_for (tree, tree, def_operand_p);
-extern bool need_ssa_update_p (void);
-extern bool name_registered_for_update_p (tree);
-extern void release_ssa_name_after_update_ssa (tree name);
-extern void dump_repl_tbl (FILE *);
-extern void debug_repl_tbl (void);
-extern void dump_names_replaced_by (FILE *, unsigned);
-extern void debug_names_replaced_by (unsigned);
+void update_ssa (bool);
+void register_new_name_mapping (tree, tree);
+tree create_new_def_for (tree, tree, def_operand_p);
+bool need_ssa_update_p (void);
+bool name_registered_for_update_p (tree);
+void delete_update_ssa (void);
+bitmap ssa_names_to_replace (void);
+void release_ssa_name_after_update_ssa (tree name);
+void dump_repl_tbl (FILE *);
+void debug_repl_tbl (void);
+void dump_names_replaced_by (FILE *, tree);
+void debug_names_replaced_by (tree);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 void mark_sym_for_renaming (tree);
@@ -674,6 +682,7 @@ void dump_value_range (FILE *, value_range *);
 void debug_value_range (value_range *);
 void dump_all_value_ranges (FILE *);
 void debug_all_value_ranges (void);
+bool expr_computes_nonzero (tree);
 
 /* FIXME.  Move these to tree-ssa-propagate.[ch].  */
 

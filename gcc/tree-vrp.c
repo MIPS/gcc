@@ -1,4 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
+   Copyright (C) 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>.
 
 This file is part of GCC.
@@ -196,22 +197,33 @@ symbolic_range_p (value_range *vr)
 }
 
 
-/* Return true if EXPR computes a non-NULL pointer value.  */
+/* Return true if EXPR computes a non-zero value.  */
 
-static inline bool
-expr_computes_nonnull (tree expr)
+bool
+expr_computes_nonzero (tree expr)
 {
   /* Type casts won't change anything, so just strip it.  */
   STRIP_NOPS (expr);
 
-  /* Taking the address of a non-weak symbol or calling alloca,
-     guarantees that the value is non-NULL.  */
-  return (alloca_call_p (expr)
-          || (TREE_CODE (expr) == ADDR_EXPR
-              && DECL_P (TREE_OPERAND (expr, 0))
-	      && !DECL_WEAK (TREE_OPERAND (expr, 0)))
-	  || (TREE_CODE (expr) == ADDR_EXPR
-	      && REFERENCE_CLASS_P (TREE_OPERAND (expr, 0))));
+  /* Calling alloca, guarantees that the value is non-NULL.  */
+  if (alloca_call_p (expr))
+    return true;
+
+  /* The address of a non-weak symbol is never NULL, unless the user
+     has requested not to remove NULL pointer checks.  */
+  if (flag_delete_null_pointer_checks
+      && TREE_CODE (expr) == ADDR_EXPR
+      && DECL_P (TREE_OPERAND (expr, 0))
+      && !DECL_WEAK (TREE_OPERAND (expr, 0)))
+    return true;
+
+  /* IOR of any value with a nonzero value will result in a nonzero
+     value.  */
+  if (TREE_CODE (expr) == BIT_IOR_EXPR
+      && integer_nonzerop (TREE_OPERAND (expr, 1)))
+    return true;
+
+  return false;
 }
 
 
@@ -758,7 +770,7 @@ extract_range_from_unary_expr (value_range *vr, tree expr)
      determining if it evaluates to NULL [0, 0] or non-NULL (~[0, 0]).  */
   if (POINTER_TYPE_P (TREE_TYPE (expr)) || POINTER_TYPE_P (TREE_TYPE (op0)))
     {
-      if (range_is_nonnull (&vr0) || expr_computes_nonnull (expr))
+      if (range_is_nonnull (&vr0) || expr_computes_nonzero (expr))
 	set_value_range_to_nonnull (vr, TREE_TYPE (expr));
       else if (range_is_null (&vr0))
 	set_value_range_to_null (vr, TREE_TYPE (expr));
@@ -816,7 +828,7 @@ extract_range_from_expr (value_range *vr, tree expr)
     extract_range_from_binary_expr (vr, expr);
   else if (TREE_CODE_CLASS (code) == tcc_unary)
     extract_range_from_unary_expr (vr, expr);
-  else if (expr_computes_nonnull (expr))
+  else if (expr_computes_nonzero (expr))
     set_value_range_to_nonnull (vr, TREE_TYPE (expr));
   else
     set_value_range (vr, VR_VARYING, NULL_TREE, NULL_TREE);
@@ -1274,8 +1286,10 @@ infer_value_range (tree stmt, tree op)
       unsigned num_uses, num_derefs;
 
       count_uses_and_derefs (op, stmt, &num_uses, &num_derefs, &is_store);
-      if (num_derefs > 0)
+      if (num_derefs > 0 && flag_delete_null_pointer_checks)
 	{
+	  /* We can only assume that a pointer dereference will yield
+	     non-NULL if -fdelete-null-pointer-checks is enabled.  */
 	  tree null = build_int_cst (TREE_TYPE (op), 0);
 	  tree t = build (NE_EXPR, boolean_type_node, op, null);
 	  return t;
@@ -2220,7 +2234,6 @@ execute_vrp (void)
   cfg_loops = loop_optimizer_init (NULL);
   if (cfg_loops)
     scev_initialize (cfg_loops);
-
 
   if (vrp_initialize ())
     {

@@ -1534,6 +1534,11 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 		}
 	      emit_move_insn (target_piece, newx);
 	    }
+	  else
+	    {
+	      if (x != target_piece)
+		emit_move_insn (target_piece, x);
+	    }
 
 	  carry_in = carry_out;
 	}
@@ -5034,7 +5039,6 @@ init_optabs (void)
   nearbyint_optab = init_optab (UNKNOWN);
   rint_optab = init_optab (UNKNOWN);
   lrint_optab = init_optab (UNKNOWN);
-  llrint_optab = init_optab (UNKNOWN);
   sincos_optab = init_optab (UNKNOWN);
   sin_optab = init_optab (UNKNOWN);
   asin_optab = init_optab (UNKNOWN);

@@ -1,3 +1,41 @@
+2005-04-01  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from mainline (tree-cleanup-merge-20050329).
+
+2005-04-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (expr_computes_nonzero): Declare.
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Call it.
+	* tree-vrp.c (expr_computes_nonzero): Rename from
+	expr_computes_nonnull.  Update all users.
+	Honor -fdelete-null-pointer-checks.
+	Do not assume that &PTR->FIELD yields non-NULL.
+	(infer_value_range): Honor -fdelete-null-pointer-checks.
+
+2005-03-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (delete_update_ssa): Declare extern.
+	(ssa_names_to_replace): Declare.
+	* tree-into-ssa.c (block_defs_stack): Update documentation.
+	(old_virtual_ssa_names): New local variable.
+	(add_new_name_mapping): If OLD is a virtual SSA name, add it
+	to OLD_VIRTUAL_SSA_NAMES.
+	Set NEED_TO_UPDATE_VOPS_P if necessary.
+	(mark_def_interesting): Only accept DECLs if they are
+	virtuals.
+	(mark_use_interesting): Likewise.
+	(prepare_def_site_for): Change first argument type to 'tree'.
+	(dump_names_replaced_by): Don't handle virtual names.
+	(dump_repl_tbl): Show contents of OLD_VIRTUAL_SSA_NAMES.
+	(delete_update_ssa): Make extern.
+	(mark_sym_for_renaming): Set NEED_TO_UPDATE_VOPS_P.
+	(mark_set_for_renaming): Likewise.
+	(ssa_names_to_replace): New function.
+	(update_ssa): Only compute dominance frontiers if INSERT_PHI_P
+	is true.
+	Check for a non-empty SYMS_TO_RENAME when computing the start
+	of the region to update.
+
 2005-03-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (prepare_def_sites): If a new name has been

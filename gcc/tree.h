@@ -2064,8 +2064,8 @@ struct tree_binfo GTY (())
 #define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
 				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
 
-/* Nonzero if a _DECL means that the name of this decl should be ignored
-   for symbolic debug purposes.  */
+/* Nonzero for a given ..._DECL node means that the name of this node should
+   be ignored for symbolic debug purposes.  */ 
 #define DECL_IGNORED_P(NODE) (DECL_CHECK (NODE)->decl.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
@@ -2076,8 +2076,8 @@ struct tree_binfo GTY (())
    any code or allocate any data space for such instances.  */
 #define DECL_ABSTRACT(NODE) (DECL_CHECK (NODE)->decl.abstract_flag)
 
-/* Nonzero if a _DECL means that no warnings should be generated just
-   because this decl is unused.  */
+/* Nonzero for a given ..._DECL node means that no warnings should be
+   generated just because this node is unused.  */
 #define DECL_IN_SYSTEM_HEADER(NODE) \
   (DECL_CHECK (NODE)->decl.in_system_header_flag)
 
@@ -2806,6 +2806,7 @@ extern void init_ssanames (void);
 extern void fini_ssanames (void);
 extern tree make_ssa_name (tree, tree);
 extern tree duplicate_ssa_name (tree, tree);
+extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);
 extern void release_defs (tree);
 extern void replace_ssa_name_symbol (tree, tree);
@@ -3458,8 +3459,6 @@ extern GTY(()) const char * current_function_func_begin_label;
 extern unsigned crc32_string (unsigned, const char *);
 extern void clean_symbol_name (char *);
 extern tree get_file_function_name_long (const char *);
-extern tree get_set_constructor_bits (tree, char *, int);
-extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
 extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
@@ -3493,6 +3492,9 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
+extern tree fold_build1 (enum tree_code, tree, tree);
+extern tree fold_build2 (enum tree_code, tree, tree, tree);
+extern tree fold_build3 (enum tree_code, tree, tree, tree, tree);
 extern tree fold_initializer (tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
@@ -3751,6 +3753,10 @@ extern tree resolve_asm_operand_names (tree, tree, tree);
 extern void expand_case (tree);
 extern void expand_decl (tree);
 extern void expand_anon_union_decl (tree, tree, tree);
+#ifdef HARD_CONST
+/* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
+extern bool decl_overlaps_hard_reg_set_p (tree, const HARD_REG_SET);
+#endif
 
 /* In gimplify.c.  */
 extern tree create_artificial_label (void);

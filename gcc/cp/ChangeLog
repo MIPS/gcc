@@ -1,3 +1,68 @@
+2005-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR c/20519
+	* decl.c (cp_complete_array_type): Rename from complete_array_type.
+	Use the new complete_array_type in c-common.c.  Update all callers.
+	* cp-tree.h (cp_complete_array_type): Update to match.
+
+2005-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* typeck.c (build_static_cast_1): Allow scalar_cast between
+	any integral, floating, or enumeration type.
+
+2005-03-24  Steven Bosscher  <stevenb@suse.de>
+
+	* typeck.c (comptypes): First determine if the types are compatible
+	from a target-independent point of view.  Check target attributes
+	last.
+
+	* class.c (build_base_path):
+	(build_vbase_offset_vtbl_entries):
+	(add_vcall_offset): Replace fold (buildN (...)) with fold_buildN.
+	* error.c (dump_expr): Likewise.
+	* init.c (build_zero_init, expand_cleanup_for_base,
+	build_vec_delete_1): Likewise.
+	* mangle.c (write_integer_cst): Likewise.
+	* method.c (thunk_adjust): Likewise.
+	* pt.c (convert_nontype_argument, tsubst, unify): Likewise.
+	* tree.c (cxx_print_statistics, array_type_nelts_total): Likewise.
+	* typeck.c (build_ptrmemfunc_access_expr,
+	(get_member_function_from_ptrfunc): Likewise.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_TRUTHVALUE_CONVERSION): Remove.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-tree.h (perform_integral_promotions): Remove.
+	(default_conversion): Add.
+
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_warn_min_max): New function.
+	(cp_parser_binary_expression): Use it.
+	(cp_parser_assignment_operator_opt): Likewise.
+	(cp_parser_operator): Likewise.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19980
+	* decl.c (start_preparsed_function): Robustify.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20499
+	* parser.c (cp_parser_class_head): Return NULL_TREE when
+	encountering a redefinition.
+
+2005-03-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20465
+	PR c++/20381
+	* typeck.c (build_ptrmemfunc): Allow OFFSET_REF when processing a
+	template.
+
 2005-03-21  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/20461
@@ -256,7 +321,7 @@
 	Add qualifiers when declaring a typedef of a function type.
 	Member function pointers pick up the qualifiers of the typedef
 	used to declare them.
-        Don't complain about creating cv-qualified function types.
+	Don't complain about creating cv-qualified function types.
 	Complain about qualified function typedefs that are used to
 	declare non-static member functions or free functions.
 	Use cp_apply_type_quals_to_decl.
