@@ -224,7 +224,7 @@ block_fallthru (bb)
 
 static int
 cond_exec_process_insns (ce_info, start, end, test, prob_val, mod_ok)
-     ce_if_block_t *ce_info;	/* if block information */
+     ce_if_block_t *ce_info ATTRIBUTE_UNUSED;	/* if block information */
      rtx start;			/* first insn to look at */
      rtx end;			/* last insn to look at */
      rtx test;			/* conditional execution test */
@@ -2769,7 +2769,7 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 	     test_bb->index, else_bb->index);
 
   /* ELSE is small.  */
-  if (count_bb_insns (then_bb) > BRANCH_COST)
+  if (count_bb_insns (else_bb) > BRANCH_COST)
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */

@@ -1,3 +1,549 @@
+2002-08-10  Ziemowit Laski  <zlaski@apple.com>
+
+	* config/alpha/alpha.h (TARGET_CPU_CPP_BUILTINS): Replace
+	reference to clk_objective_c with flag_objc.
+	* config/i386/i386-interix.h (TARGET_OS_CPP_BUILTINS):
+	Likewise.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Likewise.
+
+2002-08-10  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (set_std_cxx98, set_std_c89): New.
+	(COMMAND_LINE_OPTIONS): Move more from cppinit.c.
+	(c_common_decode_option): Handle new switches from cppinit.c.
+	Add -std=gnu++98.
+	* cppinit.c (set_lang): Rename cpp_set_lang.  Export.
+	(no_arg, no_num): Remove.
+	(COMMAND_LINE_OPTIONS): Move more to c-opts.c.  Drop all lang-
+	switches apart from -lang-objc and lang-asm.
+	(cpp_handle_option): Similarly.
+	* cpplib.h (cpp_set_lang): New.
+	* doc/cppopts.texi, doc/invoke.texi: Document -std=c++98,
+	-std=gnu++98.
+	* objc/lang-specs.h: Remove -ansi.
+
+Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
+			       Graham Stott
+
+	* cfg.c (redirect_edge_succ_nodup): Avoid overflows due to roundoff
+	errors.
+
+2002-08-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* emit-rtl.c (emit_jump_insn_before, emit_call_insn_before,
+	emit_jump_insn): Fix uninitialized variable.
+	* gcov.c (init_line_info): Likewise.
+	* genautomata.c (transform_3): Add braces around ambiguous
+	else.
+	* ifcvt.c (cond_exec_process_insns): Mark parameter with
+	ATTRIBUTE_UNUSED.
+	* ra-build.c (parts_to_webs_1): Fix uninitialized variable.
+	* regrename.c (copyprop_hardreg_forward): Fix uninitialized
+	variable.
+
+	* gengtype.c (write_gc_structure_fields): Avoid signed/unsigned
+	warnings in output files.
+
+2002-08-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-common.c (flag_objc): New.
+	* c-common.h (c_language_kind): Get rid of clk_objective_c
+	enum value.
+	(flag_objc): New extern declaration.
+	* c-decl.c (implicitly_declare): Call objc_check_decl
+	instead of maybe_objc_check_decl.
+	(finish_decl): Likewise.
+	(grokfield): Likewise.
+	(finish_struct): Likewise.
+	* c-lang.c (maybe_objc_check_decl): Rename to objc_check_decl.
+	(maybe_objc_comptypes): Rename to objc_comptypes.
+	(maybe_building_objc_message_expr): Rename to 
+	objc_message_selector.
+	* c-lex.c (lex_charconst): Remove uses of clk_objective_c,
+	replace with flag_objc as needed.
+	* c-opts.c (c_common_init_options): Likewise.
+	(c_common_decode_option): Likewise.
+	* c-parse.in (init_reswords): Likewise.
+	* c-tree.h (maybe_objc_check_decl): Rename to objc_check_decl.
+	(maybe_objc_comptypes): Rename to objc_comptypes.
+	(maybe_building_objc_message_expr): Rename to       
+	objc_message_selector.
+	* c-typeck.c (comptypes): Call objc_comptypes instead of
+	maybe_objc_comptypes, and/or objc_message_selector instead of
+	maybe_building_objc_message_expr.
+	(comp_target_types): Likewise.
+	(convert_for_assignment): Likewise.
+	(warn_for_assignment): Likewise.
+	* cppinit.c (init_builtins): Set __OBJC__ manifest constant
+	independently of those for other languages.
+	* objc/objc-act.c (maybe_objc_comptypes): Delete.
+	(maybe_objc_check_decl): Delete.
+	(maybe_building_objc_message_expr): Rename to 
+	objc_message_selector.
+	* objc/objc-lang.c (objc_init_options): Use clk_c instead of
+	clk_objective_c; set flag_objc flag.
+
+2002-08-09  Toshiyasu Morita  <toshiyasu.morita@hsa.hitachi.com>
+
+	* ifcvt.c (find_if_case_2): Test correct basic block for size.
+
+2002-08-09  Dale Johannesen  <dalej@apple.com>
+
+	* config/rs6000/rs6000.md: Add sibcall patterns.
+	* config/rs6000/rs6000.h (FUNCTION_OK_FOR_SIBCALL):  Define.
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed):
+	Rewritten to handle sibcalls.
+	* config/rs6000/rs6000.c (function_ok_for_sibcall):  New.
+	* config/rs6000/rs6000-protos.h (function_ok_for_sibcall):  New.
+
+2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* profile.c (da_file_name): New static var.
+	(init_branch_prob): Initialize it.
+	(end_branch_prob): Remove da file.
+
+	* Makefile.in (stage1_build): Pass empty COVERAGE_FLAGS.
+	* configure.in (coverage_flags) default to nothing.
+	* configure: Rebuilt.
+
+2002-08-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Makefile.in (c-opts.o): Update
+	* c-opts.c: Include intl.h.
+	(print_help): Move from cppinit.c.  Remove unused options.
+	(COMMAND_LINE_OPTIONS): Move more from cppinit.c.
+	(missing_arg): Complain for switches without an argument.
+	(c_common_decode_option): Reject missing joined arguments.
+	Handle new switches from cppinit.c.
+	* cppinit.c (COMMAND_LINE_OPTIONS): Move some switches to c-opts.c.
+	(cpp_handle_option): Similarly.
+	(print_help): Moved to c-opts.c.
+	* cpplib.h (struct cpp_options): Remove help_only.
+	* gcc.c (cpp_unique_options): Remove -$.
+	* doc/cppopts.texi: Undocument -h.
+
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (legitimate_constant_p): UNSPEC_TP is not
+	legitimate constant.
+	(legitimate_pic_operand_p): Neither pic operand.
+	(legitimate_address_p): But legitimate address.
+	(get_thread_pointer): Generate MEM/u instead of CONST around
+	UNSPEC_TP.
+	(print_operand): Remove printing of UNSPEC_TP.
+	(print_operand_address): And print it here.
+
+2002-08-08  Devang Patel  <dpatel@apple.com>
+
+	* objc/objc-act.c (build_selector_translation_table): Issue warning, 
+	when  -Wselector is used,if method for which selector is being 
+	created does not exist.
+	
+2002-08-08  Stephen Clarke <stephen.clarke@superh.com>
+
+	* config/sh/sh.c (prepare_move_operands): Only call
+	target_reg_operand if TARGET_SHMEDIA.
+	
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.h, config/rs6000/aix.h,
+	config/rs6000/darwin.h, config/rs6000/linux64.h: Revert last
+	two patches.
+	* config/rs6000/sysv4.h: Likewise, remove #undef ADJUST_FIELD_ALIGN.
+
+2002-08-08  Lars Brinkhoff  <lars@nocrew.org>
+	    Richard Henderson  <rth@redhat.com>
+
+	* emit-rtl.c (gen_rtx_REG): After reload, only return
+	frame_pointer_rtx or hard_frame_pointer_rtx if frame_pointer_needed.
+
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_field_alignment): Remove.
+	* config/rs6000/rs6000.c (rs6000_field_alignment): Move...
+	* config/rs6000/rs6000.h (ADJUST_FIELD_ALIGN): ...inline into the
+	macro.
+
+2002-08-08  Adam Nemet  <anemet@lnxw.com>
+
+	* config/arm/arm.c (thumb_unexpanded_epilogue): Stack the PIC
+	register.
+	(thumb_expand_prologue): Likewise.
+	(thumb_output_function_prologue): Likewise.
+	* config/arm/arm.h (THUMB_INITIAL_ELIMINATION_OFFSET): Account for
+	the additional push of the PIC register.
+
+2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (enable_coverage): New enable switch.
+	* configure: Rebuilt.
+	* Makefile.in (COVERAGE_FLAGS, coverageexts): New variables.
+	(INTERNAL_CFLAGS): Append COVERAGE_FLAGS.
+	(ALL_FLAGS): Reorder so INTERNAL_CFLAGS comes after CFLAGS.
+	(mostlyclean): Remove coverage files.
+	* doc/install.texi: Document enable_coverage.
+
+	* cp/Make-lang.in (c++.mostlyclean): Remove coverage files.
+	* ada/Make-lang.in (ada.mostlyclean): Remove coverage files.
+	* f/Make-lang.in (f.mostlyclean): Remove coverage files.
+	* java/Make-lang.in (java.mostlyclean): Remove coverage files.
+	* objc/Make-lang.in (objc.mostlyclean): Remove coverage files.
+	* treelang/Make-lang.in (treelang.mostlyclean): Remove coverage
+	files.
+	
+2002-08-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (cpp_opts): New.
+	(COMMAND_LINE_OPTIONS): Add switches from cppinit.c.
+	(c_common_decode_options): Handle cpplib switches.
+	(c_common_init_options): Set cpp_opts.
+	* cppinit.c (COMMAND_LINE_OPTIONS): Move some switches to c-opts.c.
+	(cpp_handle_option): Similarly.
+
+2002-08-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix.h (TARGET_ALTIVEC): Define to 0.
+	(TARGET_ALTIVEC_ABI): Same.
+	(TARGET_ALTIVEC_VRSAVE): Same.
+
+	* config/rs6000/rs6000.c (rs6000_expand_ternop_builtin): Check
+	icode not CODE_FOR_nothing.  Change switch to if.
+
+2002-08-08  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Pass -mpower4 when cpu=power4.
+
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* stor-layout.c (place_union_field): For bitfields if
+	PCC_BITFIELD_TYPE_MATTERS and TYPE_USER_ALIGN, set record's
+	TYPE_USER_ALIGN.
+
+2002-08-07  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.c (struct deferred_plabel): Constify name field.
+
+2002-08-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppmacro.c (_cpp_builtin_macro_text): Remove unused variable.
+
+2002-08-07  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* configure.in (PREFIX_INCLUDE_DIR): Don't define if prefix and
+	local_prefix are the same.
+	* configure: Rebuilt.
+
+2002-08-07  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* stor-layout.c (place_union_field): Apply ADJUST_FIELD_ALIGN
+	to type_align when PCC_BITFIELD_TYPE_MATTERS.  Only apply
+	ADJUST_FIELD_ALIGN if not DECL_USER_ALIGN resp. TYPE_USER_ALIGN.
+	(place_field): Likewise.
+	* config/i386/i386.c (x86_field_alignment): Don't check
+	DECL_USER_ALIGN here.
+	* config/rs6000/rs6000.c (rs6000_field_alignment): New.
+	* config/rs6000/rs6000-protos.h (rs6000_field_alignment): New
+	prototype.
+	* config/rs6000/rs6000.h (ADJUST_FIELD_ALIGN): Define.
+	* config/rs6000/aix.h (ADJUST_FIELD_ALIGN): Remove.
+	* config/rs6000/darwin.h (ADJUST_FIELD_ALIGN): Remove.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Remove.
+	* config/rs6000/sysv4.h (ADJUST_FIELD_ALIGN): Remove.
+	* doc/tm.texi (ADJUST_FIELD_ALIGN): Update description.
+
+2002-08-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Makefile.in (c-opts.o, c-common.o, C_AND_OBJC_OBJS): Update.
+	* c-common.c: Don't include tree-inline.h.
+	(c_common_init_options, c_common_post_options): Move to c-opts.c.
+	* c-common.h (c_common_decode_option): New.
+	* c-decl.c (c_decode_option): Remove.
+	* c-lang.c (LANG_HOOKS_DECODE_OPTION): Use c_common_decode_option.
+	* c-opts.c: New file.
+	* c-tree.h (c_decode_option): Remove.
+	* doc/passes.texi: Update.
+	* objc/objc-act.c (objc_decode_option): Remove.
+	* objc/objc-act.h (objc_decode_option): Remove.
+	* objc/ojbc-lang.c (LANG_HOOKS_DECODE_OPTION): Use
+	c_common_decode_option.
+
+2002-08-07  Chris Demetriou  <cgd@broadcom.com>
+
+	* config/mips/mips.md (sunlt_sf, suneq_sf, sunle_sf): Remove
+	dependency on TARGET_DOUBLE_FLOAT.
+
+2002-08-07  Stephen Clarke <stephen.clarke@superh.com>
+
+	* config/sh/lib1funcs.asm (GCC_shcompact_incoming_args): Don't
+	overwrite callee-save registers.  Fix comment.
+
+2002-08-06  Chris Demetriou  <cgd@broadcom.com>
+
+	* config/mips/mips.c (override_options): Set MASK_BRANCHLIKELY
+	in target_flags based on ISA, if it was not set on the command
+	line.  Warn if MASK_BRANCHLIKLEY is set but the ISA does not
+	support Branch Likely instructions.
+	* config/mips/mips.h (MASK_BRANCHLIKLEY): New macro.
+	(TARGET_BRANCHLIKELY): Likewise.
+	(TARGET_SWITCHES): Add -mbranch-likely and -mno-branch-likely.
+	(GENERATE_BRANCHLIKELY): Use TARGET_BRANCHLIKELY rather than
+	ISA_HAS_BRANCHLIKELY.
+	(ISA_HAS_BRANCHLIKELY): Do not include MIPS16 check.
+	* doc/invoke.texi: Document new MIPS -mbranch-likely and
+	-mno-branch-likely options.
+
+2002-08-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ip2k.c (ip2k_set_compare): Add missing iteration variable.
+
+	* Makefile.in (dummy-conditions.o): Depend on $(HCONFIG_H) not
+	$(GCONFIG_H).
+
+2002-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+        * c-decl.c (duplicate_decls): Error out for incompatible TLS
+        declarations.
+
+        * testsuite/gcc.dg/tls/diag-3.c: New.
+
+2002-08-06  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (c_expand_expr) [STMT_EXPR]: If the last expression is
+	a VAR_DECL with RTL that matches the target, just return that RTL.
+
+2002-08-06  Dale Johannesen  <dalej@apple.com>
+	* c-common.c (fname_decl): Use line number 0 for
+        __func__, to avoid confusing debuggers.
+
+2002-08-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcov.c: Tidy.
+	(struct line_info, struct coverage): New structures.
+	(gcov_file_name, gcov_file): Remove globals.
+	(output_data): Take source file parameter. Fix memory leak. Break
+	up into ...
+	(init_line_info, output_line_info, make_gcov_file_name,
+	accumulate_branch_counts): ... here.
+	(calculate_branch_probs, function_summary): Adjust.
+	(main): Adjust.
+	(function_*): Remove global variables.
+
+2002-08-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* dwarf2out.c: Remove unused macros.
+
+2002-08-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* function.c (TRAMPOLINE_ALIGNMENT): Always defined.
+
+2002-08-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppinit.c (struct lang_flags): Rename trigraphs std.
+	(set_lang): Update.
+	* cpplib.h (struct cpp_options): New member std.
+	* cppmacro.c (_cpp_builtin_macro_text): Use std.
+	(collect_args): Flag whether to swallow a possible future
+	comma pasted with varargs.
+	(replace_args): Use this flag.
+	* doc/cpp.texi: Update varargs extension documentation.
+
+2002-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/mmintrin.h (__m64): Make the type 64-bit aligned.
+
+2002-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (x86_field_alignment): Apply min for all MODE_INT
+	and MODE_CLASS_INT modes.
+
+2002-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc (*-*-linux*): Default to --enable-threads=posix if no
+	--{enable,disable}-threads is given to configure.
+	(alpha*-*-linux*, hppa*-*-linux*, i[34567]86-*-linux*,
+	x86_64-*-linux*, ia64*-*-linux*, m68k-*-linux*, mips*-*-linux*,
+	powerpc-*-linux-gnualtivec*, powerpc-*-linux*, s390-*-linux*,
+	s390x-*-linux*, sh-*-linux*, sparc-*-linux*, sparc64-*-linux*):
+	Remove thread_file setting here.
+
+2002-08-06  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/install.texi (Binaries): Update Bull Freeware URL.
+
+2002-08-06  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/gcc.texi (Top): Rename Index to Keyword Index.
+
+2002-08-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcov.c (output_data): Round to % to nearest, tweak formatting.
+
+2002-08-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (associate_trees): Only optimize NEGATE_EXPR in one
+	of the operands into MINUS_EXPR if code is PLUS_EXPR.
+
+2002-08-05  Douglas B Rupp  <rupp@gnat.com>
+
+	* config.gcc (i[34567]86-*-interix*): Replace interix.o with winnt.o
+	* config/i386/i386-interix.h (TARGET_NOP_FUN_DLLIMPORT,
+	drectve_section): Define.
+	* config/i386/t-interix: Replace interix.o rule with winnt.o.
+	* config/i386/interix.c: Remove.
+
+2002-08-05  Geoffrey Keating  <geoffk@redhat.com>
+
+	* attribs.c: Don't include obstack.h.
+	* builtins.c: Likewise.
+	* cfganal.c: Likewise.
+	* cfgbuild.c: Likewise.
+	* cfgcleanup.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* loop.c: Likewise.
+	* stmt.c: Likewise.
+
+	* Makefile.in (s-gtype): Re-add dependency on $(GTFILES).
+
+2002-08-05  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* doc/c-tree.texi (Expression trees): Document VA_ARG_EXPR
+
+2002-08-04  Chris Demetriou  <cgd@broadcom.com>
+
+	* doc/invoke.texi: Remove duplicated paragraph describing
+	TARGET_SWITCHES.
+
+2002-08-04  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (sdbout.o): Doesn't need $(OBSTACK_H).
+	* collect2.h (permanent_obstack): Delete declaration.
+	* collect2.c (permanent_obstack): Delete definition.
+	(main): Don't initialise permanent_obstack.  Use xstrdup instead.
+	* expr.c: Don't include obstack.h.
+	(permanent_obstack): Delete declaration.
+	* function.c: Don't include obstack.h.
+	(permanent_obstack): Delete declaration.
+	* integrate.c: Don't include obstack.h.
+	(function_maybepermanent_obstack): Delete declaration.
+	* print-tree.c (debug_tree): Use x*alloc not permalloc.
+	* sdbout.c (gen_fake_label): Use x*alloc not permalloc.
+	* tlink.c (pfgets): Use xstrdup not permanent_obstack.
+	* toplev.c (lang_independent_init): Rename init_obstacks to init_ttree.
+	* tree.h: Rename init_obstacks to init_ttree.  Remove declarations
+	of permalloc, expralloc, perm_calloc.
+	* tree.c (permanent_obstack): Delete definition.
+	(init_ttree): Rename from init_obstacks.
+	(permalloc): Delete.
+	(perm_calloc): Delete.
+	(dump_tree_statistics): Don't print information about
+	permanent_obstack.
+	* varasm.c (assemble_start_function): Use xstrdup instead of
+	permalloc/strcpy.
+	(assemble_variable): Likewise.
+	* config/alpha/alpha.c (unicosmk_need_dex): Use xmalloc instead of
+	permalloc.
+	(unicosmk_add_extern): Likewise.
+	* config/c4x/c4x.c (c4x_external_ref): Likewise.
+	(c4x_global_label): Likewise.
+	* config/frv/frv.c (frv_encode_section_info): Likewise.
+	* config/i386/winnt.c (i386_pe_record_external_function): Likewise.
+	(i386_pe_record_exported_symbol): Likewise.
+	* config/mips/mips.c (mips_output_external): Likewise.
+	(mips_output_external_libcall): Likewise.
+	* config/pa/pa.c: (permanent_obstack): Delete declaration.
+	(output_call): Use ggc_strdup instead of allocating on
+	permanent_obstack.
+	* config/romp/romp.c: Include ggc.h.
+	(get_symref): Don't declare permanent_obstack, use ggc_strdup
+	intead of permanent_obstack.
+	* config/rs6000/aix31.h (ASM_OUTPUT_EXTERNAL): Use concat
+	instead of permalloc.
+	* config/rs6000/rs6000.c (rs6000_gen_section_name): Use xmalloc
+	instead of permalloc
+	* config/rs6000/xcoff.h (ASM_OUTPUT_EXTERNAL): Use concat
+	instead of permalloc.
+	* config/vax/vax.c (vms_check_external): Use xmalloc instead of
+	permalloc.
+
+2002-08-04  Bernd Schmidt  <bernds@redhat.com>
+
+	Contribute a port developed primarily by Michael Meissner,
+	Catherine Moore, and Richard Sandiford <rsandifo@redhat.com>.
+	* config.gcc: Add frv-elf target.
+	* config/frv/cmovd.c: New file.
+	* config/frv/cmovh.c: New file.
+	* config/frv/cmovw.c: New file.
+	* config/frv/frv-abi.h: New file.
+	* config/frv/frv-asm.h: New file.
+	* config/frv/frv-modes.def: New file.
+	* config/frv/frv-protos.h: New file.
+	* config/frv/frv.c: New file.
+	* config/frv/frv.h: New file.
+	* config/frv/frv.md: New file.
+	* config/frv/frvbegin.c: New file.
+	* config/frv/frvend.c: New file.
+	* config/frv/lib1funcs.asm: New file.
+	* config/frv/media.h: New file.
+	* config/frv/modi.c: New file.
+	* config/frv/t-frv: New file.
+	* config/frv/uitod.c: New file.
+	* config/frv/uitof.c: New file.
+	* config/frv/ulltod.c: New file.
+	* config/frv/ulltof.c: New file.
+	* config/frv/umodi.c: New file.
+	* config/frv/xm-frv.h: New file.
+
+	* config/frv/media.h: Removed again.
+
+2002-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcov.c (bb_file_time): New static variable.
+	(object_directory): May also be object file.
+	(preserve_paths): New static variable.
+	(print_usage): Adjust.
+	(options): Adjust.
+	(process_args): Adjust.
+	(open_files): Simplify. Cope when OBJECT_DIRECTORY is an object
+	file. Find modification date on bb file.
+	(read_profile): Don't rewind a NULL file.
+	(format_hwint): New static function.
+	(function_summary): Use format_hwint.
+	(output_data): SOURCE_FILE_NAME is never relative to
+	OBJECT_DIRECTORY. Use format_hwint. Adjust gcov file name
+	mangling. Adjust output format to make it more machine readable.
+	* doc/gcov.texi: Document & clarify semantics.
+	
+2002-08-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/gcc-common.texi (version-GCC): Increase to 3.3.
+
+2002-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.c (cc1_options): Pass output file as auxbase when
+	appropriate.
+	* profile.c (init_branch_prob): FILENAME has already had ending
+	stripped.
+	* final.c (end_final): Likewise.
+	* toplev.c (aux_base_name): New global.
+	(compile_file): Pass aux_base_name to init init_branch_prob and
+	end_final.
+	(independent_decode_option, case 'a'): New auxinfo options.
+	(case 'd'): Protect against mising basename.
+	(do_compile): Initialize aux_base_name.
+	* toplev.h (aux_base_name): New global.
+	* doc/invoke.texi: Adjust documentation.
+
+2002-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/i386/i386.c (x86_field_alignment): Remove duplicate test
+	of TARGET_ALIGN_DOUBLE.
+
+2002-08-04  Gabriel Dos Reis  <gdr@nerim.net>
+	
+	* diagnostic.c (inform): New function.
+	* diagnostic.h (inform): Declare.
+	
 2002-08-03  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/rs6000.md (movsi_internal1): Add nop mnemonic.

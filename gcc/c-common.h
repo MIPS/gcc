@@ -240,8 +240,7 @@ typedef enum c_language_kind
 {
   clk_c,           /* A dialect of C: K&R C, ANSI/ISO C89, C2000,
 		       etc.  */
-  clk_cplusplus,   /* ANSI/ISO C++ */
-  clk_objective_c  /* Objective C */
+  clk_cplusplus   /* ANSI/ISO C++ */
 }
 c_language_kind;
 
@@ -367,7 +366,6 @@ struct c_lang_decl GTY(()) {
 
 extern c_language_kind c_language;
 
-
 /* Switches common to the C front ends.  */
 
 /* Nonzero if prepreprocessing only.  */
@@ -376,6 +374,9 @@ extern int flag_preprocess_only;
 /* Nonzero if an ISO standard was selected.  It rejects macros in the
    user's namespace.  */
 extern int flag_iso;
+
+/* Nonzero whenever Objective-C functionality is being used.  */
+extern int flag_objc;
 
 /* Nonzero if -undef was given.  It suppresses target built-in macros
    and assertions.  */
@@ -794,9 +795,6 @@ extern int warn_deprecated;
 
 extern int max_tinst_depth;
 
-
-
-
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -851,6 +849,7 @@ extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
 extern tree handle_format_arg_attribute		PARAMS ((tree *, tree, tree,
 							 int, bool *));
 extern void c_common_insert_default_attributes	PARAMS ((tree));
+extern int c_common_decode_option		PARAMS ((int, char **));
 extern tree c_common_type_for_mode		PARAMS ((enum machine_mode,
 							 int));
 extern tree c_common_type_for_size		PARAMS ((unsigned int, int));

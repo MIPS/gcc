@@ -168,6 +168,10 @@ int input_file_stack_tick;
 
 const char *dump_base_name;
 
+/* Name to use as a base for auxiliary output files.  */
+
+const char *aux_base_name;
+
 /* Format to use to print dumpfile index value */
 #ifndef DUMPFILE_FORMAT
 #define DUMPFILE_FORMAT ".%02d."
@@ -2151,7 +2155,7 @@ compile_file ()
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
-  init_branch_prob (dump_base_name);
+  init_branch_prob (aux_base_name);
 
   timevar_push (TV_PARSE);
 
@@ -2224,7 +2228,7 @@ compile_file ()
 
   dw2_output_indirect_constants ();
 
-  end_final (dump_base_name);
+  end_final (aux_base_name);
 
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -4331,7 +4335,9 @@ independent_decode_option (argc, argv)
 	  if (argc == 1)
 	    return 0;
 
-	  dump_base_name = argv[1];
+	  if (argv[1][0])
+	    dump_base_name = argv[1];
+	  
 	  return 2;
 	}
       else
@@ -4403,6 +4409,30 @@ independent_decode_option (argc, argv)
 	    }
 	  else
 	    return 0;
+	}
+      else if (!strcmp (arg, "auxbase"))
+	{
+	  if (argc == 1)
+	    return 0;
+
+	  if (argv[1][0])
+	    aux_base_name = argv[1];
+	  
+	  return 2;
+	}
+      else if (!strcmp (arg, "auxbase-strip"))
+	{
+	  if (argc == 1)
+	    return 0;
+
+	  if (argv[1][0])
+	    {
+	      strip_off_ending (argv[1], strlen (argv[1]));
+	      if (argv[1][0])
+		aux_base_name = argv[1];
+	    }
+	  
+	  return 2;
 	}
       else
 	return 0;
@@ -5175,7 +5205,7 @@ lang_independent_init (no_backend)
   init_ggc ();
 
   init_stringpool ();
-  init_obstacks ();
+  init_ttree ();
 
   if (no_backend)
     return;
@@ -5214,7 +5244,7 @@ lang_dependent_init (name)
 {
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
-
+  
   /* Front-end initialization.  This hook can assume that GC,
      identifier hashes etc. are set up, but debug initialization is
      not done yet.  This routine must return the original filename
@@ -5324,6 +5354,19 @@ do_compile (no_backend)
 {
   /* The bulk of command line switch processing.  */
   process_options ();
+
+  if (aux_base_name)
+    /*NOP*/;
+  else if (filename)
+    {
+      char *name = xstrdup (lbasename (filename));
+      
+      aux_base_name = name;
+      strip_off_ending (name, strlen (name));
+    }
+  
+  else
+    aux_base_name = "gccaux";
 
   /* We cannot start timing until after options are processed since that
      says if we run timers or not.  */

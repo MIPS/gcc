@@ -1,3 +1,35 @@
+2002-08-09  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/deque.tcc, include/bits/list.tcc,
+	include/bits/stl_deque.h, include/bits/stl_iterator_base_funcs.h,
+	include/bits/stl_list.h, include/bits/stl_map.h,
+	include/bits/stl_multimap.h, include/bits/stl_queue.h,
+	include/bits/stl_stack.h, include/bits/stl_vector.h,
+	include/bits/vector.tcc:  Re-indent contents of namespace std,
+	re-wrap comment lines as necessary.
+
+2002-08-08  Danny Smith  <dannysmith@users.sourceforge.net>
+            Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/bits/istream.tcc (basic_istream::ignore): Use sbumpc,
+	not snextc.
+	* testsuite/27_io/narrow_stream_objects.cc (test10): Add.
+	
+2002-08-07  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* libsupc++/Makefile.am (LTCOMPILE): Add LIBSUPCXX_PICFLAGS.
+	* libsupc++/Makefile.in: Regenerate.
+
+2002-08-05  Gabriel Dos Reis  <gdr@nerim.net>
+
+	PR/7491
+	* include/bits/slice_array.h(_DEFINE_VALARRAY_OPERATOR):
+	Instantiate with new function objects. 
+	* include/bits/mask_array.h (_DEFINE_VALARRAY_OPERATOR): Likewise.
+	Reformat.  Uglify.
+	* include/bits/gslice_array.h: Likewise.
+	* include/bits/indirect_array.h: Likewise.
+
 2002-08-03  Gabriel Dos Reis  <gdr@nerim.net>
 
 	* testsuite/26_numerics/valarray_name_lookup.cc: Rename from

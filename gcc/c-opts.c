@@ -33,15 +33,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static cpp_options *cpp_opts;
 
-/* Filename and stream for preprocessed output.  */
-static const char *out_fname;
-static FILE *out_stream;
-
-/* Append dependencies to deps_file.  */
-static bool deps_append;
-
 static void missing_arg PARAMS ((size_t));
-static size_t find_opt PARAMS ((const char *, int));
+static size_t parse_option PARAMS ((const char *, int));
 static void set_Wimplicit PARAMS ((int));
 static void complain_wrong_lang PARAMS ((size_t));
 static void write_langs PARAMS ((char *, int));
@@ -49,8 +42,6 @@ static void print_help PARAMS ((void));
 static void handle_OPT_d PARAMS ((const char *));
 static void set_std_cxx98 PARAMS ((int));
 static void set_std_c89 PARAMS ((int, int));
-static void set_std_c99 PARAMS ((int));
-static void check_deps_environment_vars PARAMS ((void));
 
 #define CL_C_ONLY	(1 << 0) /* Only C.  */
 #define CL_OBJC_ONLY	(1 << 1) /* Only ObjC.  */
@@ -225,11 +216,10 @@ static void check_deps_environment_vars PARAMS ((void));
   OPT("lang-objc",              CL_ALL,   OPT_lang_objc)		     \
   OPT("nostdinc",               CL_ALL,   OPT_nostdinc)			     \
   OPT("nostdinc++",             CL_ALL,   OPT_nostdincplusplus)		     \
-  OPT("o",			CL_ALL | CL_ARG, OPT_o)                      \
   OPT("pedantic",		CL_ALL,   OPT_pedantic)			     \
   OPT("pedantic-errors",	CL_ALL,   OPT_pedantic_errors)		     \
   OPT("print-objc-runtime-info", CL_OBJC, OPT_print_objc_runtime_info)	     \
-  OPT("remap",			CL_ALL,   OPT_remap)                         \
+  OPT("std=",			CL_ALL | CL_JOINED, OPT_std_bad)	     \
   OPT("std=c++98",		CL_CXX,	  OPT_std_cplusplus98)		     \
   OPT("std=c89",		CL_C,     OPT_std_c89)			     \
   OPT("std=c99",		CL_C,     OPT_std_c99)			     \
@@ -304,16 +294,13 @@ missing_arg (opt_index)
     case OPT_fname_mangling:
     case OPT_ftabstop:
     case OPT_ftemplate_depth:
+    case OPT_std_bad:
     default:
       error ("missing argument to \"-%s\"", cl_options[opt_index].opt_text);
       break;
 
     case OPT_fconstant_string_class:
       error ("no class name specified with -fconstant-string-class=");
-      break;
-
-    case OPT_o:
-      error ("missing filename after \"-%s\"", cl_options[opt_index].opt_text);
       break;
     }
 }
@@ -327,7 +314,7 @@ missing_arg (opt_index)
    and -pedantic-errors.  Also, some options are only accepted by some
    languages.  */
 static size_t
-find_opt (input, lang_flag)
+parse_option (input, lang_flag)
      const char *input;
      int lang_flag;
 {
@@ -448,32 +435,32 @@ c_common_decode_option (argc, argv)
      int argc;
      char **argv;
 {
-  static int lang_flags[] = {CL_C_ONLY, CL_C, CL_CXX_ONLY, CL_CXX};
   size_t opt_index;
   const char *opt, *arg = 0;
   char *dup = 0;
   bool on = true;
-  int result;
+  int result, lang_flag;
   const struct cl_option *option;
   enum opt_code code;
 
+  result = cpp_handle_option (parse_in, argc, argv);
   opt = argv[0];
 
-  /* Interpret "-" or a non-switch as a file name.  */
+  /* Until handling CPP stuff, ignore non-switches.  */
   if (opt[0] != '-' || opt[1] == '\0')
-    {
-      if (!cpp_opts->in_fname)
-	cpp_opts->in_fname = opt;
-      else if (!out_fname)
-	out_fname = opt;
-      else
-	{
-	  error ("too many filenames given.  Type %s --help for usage",
-		 progname);
-	  return argc;
-	}
+    return result;
 
-      return 1;
+  switch (c_language)
+    {
+    case clk_c:			lang_flag = (flag_objc
+					     ? CL_C
+					     : CL_C_ONLY);
+				break;
+    case clk_cplusplus:		lang_flag = (flag_objc
+					     ? CL_CXX
+					     : CL_CXX_ONLY);
+				break;
+    default:			abort ();
     }
 
   /* Drop the "no-" from negative switches.  */
@@ -490,10 +477,8 @@ c_common_decode_option (argc, argv)
       on = false;
     }
 
-  result = cpp_handle_option (parse_in, argc, argv);
-
   /* Skip over '-'.  */
-  opt_index = find_opt (opt + 1, lang_flags[(c_language << 1) + flag_objc]);
+  opt_index = parse_option (opt + 1, lang_flag);
   if (opt_index == N_OPTS)
     goto done;
 
@@ -1117,16 +1102,6 @@ c_common_decode_option (argc, argv)
       cpp_opts->no_standard_cplusplus_includes = 1;
       break;
 
-    case OPT_o:
-      if (!out_fname)
-	out_fname = arg;
-      else
-	{
-	  error ("output filename specified twice");
-	  result = argc;
-	}
-      break;
-
       /* We need to handle the -pedantic switches here, rather than in
 	 c_common_post_options, so that a subsequent -Wno-endif-labels
 	 is not overridden.  */
@@ -1142,19 +1117,29 @@ c_common_decode_option (argc, argv)
       print_struct_values = 1;
       break;
 
-    case OPT_remap:
-      cpp_opts->remap = 1;
+    case OPT_std_bad:
+      error ("unknown standard \"%s\"", arg);
       break;
+
+      /* Language standards.  We currently recognize:
+	 -std=iso9899:1990	same as -ansi
+	 -std=iso9899:199409	ISO C as modified in amend. 1
+	 -std=iso9899:1999	ISO C 99
+	 -std=c89		same as -std=iso9899:1990
+	 -std=c99		same as -std=iso9899:1999
+	 -std=gnu89		default, iso9899:1990 + gnu extensions
+	 -std=gnu99		iso9899:1999 + gnu extensions
+      */
 
     case OPT_std_cplusplus98:
     case OPT_std_gnuplusplus98:
-      set_std_cxx98 (code == OPT_std_cplusplus98 /* ISO */);
+      set_std_cxx98 (code == OPT_std_cplusplus98);
       break;
 
+    case OPT_std_iso9899_199409:
     case OPT_std_c89:
     case OPT_std_iso9899_1990:
-    case OPT_std_iso9899_199409:
-      set_std_c89 (code == OPT_std_iso9899_199409 /* c94 */, true /* ISO */);
+      set_std_c89 (code == OPT_std_iso9899_199409, true);
       break;
 
     case OPT_std_gnu89:
@@ -1165,12 +1150,25 @@ c_common_decode_option (argc, argv)
     case OPT_std_c9x:
     case OPT_std_iso9899_1999:
     case OPT_std_iso9899_199x:
-      set_std_c99 (true /* ISO */);
+      cpp_set_lang (parse_in, CLK_STDC99);
+      flag_writable_strings = 0;
+      flag_no_asm = 1;
+      flag_no_nonansi_builtin = 1;
+      flag_noniso_default_format_attributes = 0;
+      flag_isoc99 = 1;
+      flag_isoc94 = 1;
+      flag_iso = 1;
       break;
 
     case OPT_std_gnu99:
     case OPT_std_gnu9x:
-      set_std_c99 (false /* ISO */);
+      cpp_set_lang (parse_in, CLK_GNUC99);
+      flag_writable_strings = 0;
+      flag_no_asm = 0;
+      flag_no_nonansi_builtin = 0;
+      flag_noniso_default_format_attributes = 1;
+      flag_isoc99 = 1;
+      flag_isoc94 = 1;
       break;
 
     case OPT_trigraphs:
@@ -1204,21 +1202,6 @@ c_common_decode_option (argc, argv)
 bool
 c_common_post_options ()
 {
-  /* Canonicalize the output filename.  */
-  if (out_fname == NULL || !strcmp (out_fname, "-"))
-    out_fname = "";
-
-  if (cpp_opts->print_deps == 0)
-    check_deps_environment_vars ();
-
-  /* If we're not outputting dependencies, complain if other -M
-     options have been given.  */
-  if (!cpp_opts->print_deps
-      && (cpp_opts->print_deps_missing_files
-	  || cpp_opts->deps_file
-	  || cpp_opts->deps_phony_targets))
-      error ("you must additionally specify either -M or -MM");
-
   cpp_post_options (parse_in);
 
   flag_inline_trees = 1;
@@ -1262,58 +1245,8 @@ c_common_post_options ()
   return flag_preprocess_only;
 }
 
-/* Preprocess the input file to out_stream.  */
-void
-preprocess_file ()
-{
-  /* Open the output now.  We must do so even if no_output is on,
-     because there may be other output than from the actual
-     preprocessing (e.g. from -dM).  */
-  if (out_fname[0] == '\0')
-    out_stream = stdout;
-  else
-    out_stream = fopen (out_fname, "w");
-
-  if (out_stream == NULL)
-    fatal_io_error ("opening output file %s", out_fname);
-  else
-    cpp_preprocess_file (parse_in, out_stream);
-}
-
-/* Common finish hook for the C, ObjC and C++ front ends.  */
-void
-c_common_finish ()
-{
-  FILE *deps_stream = NULL;
-
-  if (cpp_opts->print_deps)
-    {
-      /* If -M or -MM was seen without -MF, default output to the
-	 output stream.  */
-      if (!cpp_opts->deps_file)
-	deps_stream = out_stream;
-      else
-	{
-	  deps_stream = fopen (cpp_opts->deps_file, deps_append ? "a": "w");
-	  if (!deps_stream)
-	    fatal_io_error ("opening dependency file %s", cpp_opts->deps_file);
-	}
-    }
-
-  /* For performance, avoid tearing down cpplib's internal structures
-     with cpp_destroy ().  */
-  errorcount += cpp_finish (parse_in, deps_stream);
-
-  if (deps_stream && deps_stream != out_stream
-      && (ferror (deps_stream) || fclose (deps_stream)))
-    fatal_io_error ("closing dependency file %s", cpp_opts->deps_file);
-
-  if (out_stream && (ferror (out_stream) || fclose (out_stream)))
-    fatal_io_error ("when writing output to %s", out_fname);
-}
-
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU
-   extensions if ISO).  There is no concept of gnu94.  */
+   extensions if ISO).  */
 static void
 set_std_c89 (c94, iso)
      int c94, iso;
@@ -1326,61 +1259,6 @@ set_std_c89 (c94, iso)
   flag_noniso_default_format_attributes = !iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
-  flag_writable_strings = 0;
-}
-
-/* Either of two environment variables can specify output of
-   dependencies.  Their value is either "OUTPUT_FILE" or "OUTPUT_FILE
-   DEPS_TARGET", where OUTPUT_FILE is the file to write deps info to
-   and DEPS_TARGET is the target to mention in the deps.  They also
-   result in dependency information being appended to the output file
-   rather than overwriting it.  */
-static void
-check_deps_environment_vars ()
-{
-  char *spec;
-
-  GET_ENVIRONMENT (spec, "DEPENDENCIES_OUTPUT");
-  if (spec)
-    cpp_opts->print_deps = 1;
-  else
-    {
-      GET_ENVIRONMENT (spec, "SUNPRO_DEPENDENCIES");
-      if (spec)
-	cpp_opts->print_deps = 2;
-    }
-
-  if (spec)
-    {
-      /* Find the space before the DEPS_TARGET, if there is one.  */
-      char *s = strchr (spec, ' ');
-      if (s)
-	{
-	  /* Let the caller perform MAKE quoting.  */
-	  cpp_add_dependency_target (parse_in, s + 1, 0);
-	  *s = '\0';
-	}
-
-      /* Command line -MF overrides environment variables and default.  */
-      if (!cpp_opts->deps_file)
-	cpp_opts->deps_file = spec;
-
-      cpp_opts->print_deps_append = 1;
-    }
-}
-
-/* Set the C 99 standard (without GNU extensions if ISO).  */
-static void
-set_std_c99 (iso)
-     int iso;
-{
-  cpp_set_lang (parse_in, iso ? CLK_STDC99: CLK_GNUC99);
-  flag_no_asm = iso;
-  flag_no_nonansi_builtin = iso;
-  flag_noniso_default_format_attributes = !iso;
-  flag_iso = iso;
-  flag_isoc99 = 1;
-  flag_isoc94 = 1;
   flag_writable_strings = 0;
 }
 

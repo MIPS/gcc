@@ -59,7 +59,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=power: -mpwr} \
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -m604} \
-%{mcpu=power4: -m604} \
+%{mcpu=power4: -mpower4} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -1797,6 +1797,10 @@ typedef struct rs6000_args
 /* Define this macro to be a nonzero value if the location where a function
    argument is passed depends on whether or not it is a named argument.  */
 #define STRICT_ARGUMENT_NAMING 1
+
+/* We do not allow indirect calls to be optimized into sibling calls, nor
+   do we allow calls with vector parameters.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) function_ok_for_sibcall ((DECL))
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */

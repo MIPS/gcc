@@ -47,8 +47,6 @@ Boston, MA 02111-1307, USA.  */
    returning an int.  */
 typedef int (*tree_fn_t) PARAMS ((tree, void*));
 
-extern struct obstack permanent_obstack;
-
 /* The PENDING_TEMPLATES is a TREE_LIST of templates whose
    instantiations have been deferred, either because their definitions
    were not yet available, or because we were putting off doing the
@@ -587,7 +585,7 @@ begin_template_parm_list ()
 }
 
 /* This routine is called when a specialization is declared.  If it is
-   illegal to declare a specialization here, an error is reported.  */
+   invalid to declare a specialization here, an error is reported.  */
 
 static void
 check_specialization_scope ()
@@ -1013,7 +1011,7 @@ determine_specialization (template_id, decl, targs_out,
 	     For example,
 	       template <class T> void f(int i = 0);
 	       template <> void f<int>();
-	     The specialization f<int> is illegal but is not caught
+	     The specialization f<int> is invalid but is not caught
 	     by get_bindings below.  */
 
 	  if (list_length (TYPE_ARG_TYPES (TREE_TYPE (fn)))
@@ -1112,7 +1110,7 @@ determine_specialization (template_id, decl, targs_out,
 	      template. 
 
 	 So, we do use the partial ordering rules, at least for now.
-	 This extension can only serve to make illegal programs legal,
+	 This extension can only serve to make invalid programs valid,
 	 so it's safe.  And, there is strong anecdotal evidence that
 	 the committee intended the partial ordering rules to apply;
 	 the EDG front-end has that behavior, and John Spicer claims
@@ -1317,7 +1315,7 @@ copy_default_args_to_explicit_spec (decl)
      template <> void S<int>::f();
 
    the TEMPLATE_COUNT would be 0.  (Note that this declaration is
-   illegal; there should be no template <>.)
+   invalid; there should be no template <>.)
 
    If the function is a specialization, it is marked as such via
    DECL_TEMPLATE_SPECIALIZATION.  Furthermore, its DECL_TEMPLATE_INFO
@@ -1418,7 +1416,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	       template <class T> struct S { void f(); };
 	       void S<int>::f() {} // Missing template <>
 
-	     That used to be legal C++.  */
+	     That used to be valid C++.  */
 	  if (pedantic)
 	    pedwarn
 	      ("explicit specialization not preceded by `template <>'");
@@ -1500,13 +1498,13 @@ check_explicit_specialization (declarator, decl, template_count, flags)
       if (ctype != NULL_TREE && TYPE_BEING_DEFINED (ctype))
 	{
 	  if (!explicit_instantiation)
-	    /* A specialization in class scope.  This is illegal,
+	    /* A specialization in class scope.  This is invalid,
 	       but the error will already have been flagged by
 	       check_specialization_scope.  */
 	    return error_mark_node;
 	  else
 	    {
-	      /* It's not legal to write an explicit instantiation in
+	      /* It's not valid to write an explicit instantiation in
 		 class scope, e.g.:
 
 	           class C { template void f(); }
@@ -1516,7 +1514,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	       
 		   template class C { void f(); };
 
-		   (which is illegal) we can get here.  The error will be
+		   (which is invalid) we can get here.  The error will be
 		   issued later.  */
 	      ;
 	    }
@@ -1736,7 +1734,7 @@ maybe_check_template_type (type)
 	       struct I {};
 	     }; 
 
-	   is illegal, but:
+	   is invalid, but:
 
 	     template <class T> struct S {
 	       template <class U> struct I;
@@ -2222,7 +2220,7 @@ process_partial_specialization (decl)
 	  struct S2<T>;
        };
 
-     The S2<T> declaration is actually illegal; it is a
+     The S2<T> declaration is actually invalid; it is a
      full-specialization.  Of course, 
 
 	  template <class U>
@@ -2461,7 +2459,7 @@ check_default_tmpl_args (decl, parms, is_primary, is_partial)
     /* If we're inside a class definition, there's no need to
        examine the parameters to the class itself.  On the one
        hand, they will be checked when the class is defined, and,
-       on the other, default arguments are legal in things like:
+       on the other, default arguments are valid in things like:
          template <class T = double>
          struct S { template <class U> void f(U); };
        Here the default argument for `S' has no bearing on the
@@ -2617,7 +2615,7 @@ push_template_decl_real (decl, is_friend)
 	{
 	  /* Since a template declaration already existed for this
 	     class-type, we must be redeclaring it here.  Make sure
-	     that the redeclaration is legal.  */
+	     that the redeclaration is valid.  */
 	  redeclare_class_template (TREE_TYPE (decl),
 				    current_template_parms);
 	  /* We don't need to create a new TEMPLATE_DECL; just use the
@@ -3325,7 +3323,7 @@ convert_template_argument (parm, arg, args, complain, i, in_decl)
     {  
       /* The template argument was the name of some
 	 member function.  That's usually
-	 illegal, but static members are OK.  In any
+	 invalid, but static members are OK.  In any
 	 case, grab the underlying fields/functions
 	 and issue an error later if required.  */
       arg = TREE_VALUE (arg);
@@ -3491,7 +3489,7 @@ convert_template_argument (parm, arg, args, complain, i, in_decl)
 	   extension, since deciding whether or not these
 	   conversions can occur is part of determining which
 	   function template to call, or whether a given explicit
-	   argument specification is legal.  */
+	   argument specification is valid.  */
 	val = convert_nontype_argument (t, arg);
       else
 	val = arg;
@@ -3835,9 +3833,19 @@ lookup_template_function (fns, arglist)
 
   my_friendly_assert (TREE_CODE (fns) == TEMPLATE_DECL
 		      || TREE_CODE (fns) == OVERLOAD
+		      || BASELINK_P (fns)
 		      || TREE_CODE (fns) == IDENTIFIER_NODE
 		      || TREE_CODE (fns) == LOOKUP_EXPR,
 		      20020730);
+
+  if (BASELINK_P (fns))
+    {
+      BASELINK_FUNCTIONS (fns) = build (TEMPLATE_ID_EXPR,
+					unknown_type_node,
+					BASELINK_FUNCTIONS (fns),
+					arglist);
+      return fns;
+    }
 
   type = TREE_TYPE (fns);
   if (TREE_CODE (fns) == OVERLOAD || !type)
@@ -8195,8 +8203,8 @@ resolve_overloaded_unification (tparms, targs, parm, arg, strict,
     arg = TREE_OPERAND (arg, 1);
 
   /* Strip baselink information.  */
-  while (TREE_CODE (arg) == TREE_LIST)
-    arg = TREE_VALUE (arg);
+  if (BASELINK_P (arg))
+    arg = BASELINK_FUNCTIONS (arg);
 
   if (TREE_CODE (arg) == TEMPLATE_ID_EXPR)
     {
@@ -8406,7 +8414,7 @@ try_class_unification (tparms, targs, parm, arg)
 
      Now, by the time we consider the unification involving `s2', we
      already know that we must have `f<0, 0, 0>'.  But, even though
-     `S<0, 1, 2>' is derived from `S<0, 0, 0>', the code is not legal
+     `S<0, 1, 2>' is derived from `S<0, 0, 0>', the code is invalid
      because there are two ways to unify base classes of S<0, 1, 2>
      with S<I, I, I>.  If we kept the already deduced knowledge, we
      would reject the possibility I=1.  */
@@ -9249,7 +9257,7 @@ get_bindings_real (fn, decl, explicit_args, check_rettype, deduce, len)
       if (DECL_TEMPLATE_INFO (decl))
 	tmpl = DECL_TI_TEMPLATE (decl);
       else
-	/* We can get here for some illegal specializations.  */
+	/* We can get here for some invalid specializations.  */
 	return NULL_TREE;
 
       converted_args
@@ -9563,7 +9571,7 @@ do_decl_instantiation (tree decl, tree storage)
     result = decl;
 
   /* Check for various error cases.  Note that if the explicit
-     instantiation is legal the RESULT will currently be marked as an
+     instantiation is valid the RESULT will currently be marked as an
      *implicit* instantiation; DECL_EXPLICIT_INSTANTIATION is not set
      until we get here.  */
 

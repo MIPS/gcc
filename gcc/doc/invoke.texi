@@ -482,7 +482,8 @@ in the following sections.
 -m4650  -msingle-float  -mmad @gol
 -mstats  -EL  -EB  -G @var{num}  -nocpp @gol
 -mabi=32  -mabi=n32  -mabi=64  -mabi=eabi @gol
--mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func}
+-mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func
+-mbranch-likely -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{
@@ -1013,8 +1014,8 @@ affected.
 @item -std=
 @opindex std
 Determine the language standard.  This option is currently only
-supported when compiling C@.  A value for this option must be provided;
-possible values are
+supported when compiling C or C++.  A value for this option must be
+provided; possible values are
 
 @table @samp
 @item c89
@@ -1040,6 +1041,12 @@ Default, ISO C90 plus GNU extensions (including some C99 features).
 ISO C99 plus GNU extensions.  When ISO C99 is fully implemented in GCC,
 this will become the default.  The name @samp{gnu9x} is deprecated.
 
+@item c++98
+The 1998 ISO C++ standard plus amendments.
+
+@item gnu++98
+The same as @option{-std=c++98} plus GNU extensions.  This is the
+default for C++ code.
 @end table
 
 Even when this option is not specified, you can still use some of the
@@ -2823,11 +2830,16 @@ allocation when it finishes.
 
 @item -fprofile-arcs
 @opindex fprofile-arcs
-Instrument @dfn{arcs} during compilation to generate coverage data
-or for profile-directed block ordering.  During execution the program
+Instrument @dfn{arcs} during compilation to generate coverage data or
+for profile-directed block ordering.  During execution the program
 records how many times each branch is executed and how many times it is
 taken.  When the compiled program exits it saves this data to a file
-called @file{@var{sourcename}.da} for each source file.
+called @file{@var{auxname}.da} for each source file.  @var{auxname} is
+generated from the name of the output file, if explicitly specified and
+it is not the final executable, otherwise it is the basename of the
+source file. In both cases any suffix is removed (e.g.  @file{foo.da}
+for input file @file{dir/foo.c}, or @file{dir/foo.da} for output file
+specified as @option{-o dir/foo.o}).
 
 For profile-directed block ordering, compile the program with
 @option{-fprofile-arcs} plus optimization and code generation options,
@@ -2868,19 +2880,19 @@ information to estimate all branch probabilities.
 @item -ftest-coverage
 @opindex ftest-coverage
 Create data files for the @code{gcov} code-coverage utility
-(@pxref{Gcov,, @code{gcov}: a GCC Test Coverage Program}).
-The data file names begin with the name of your source file:
+(@pxref{Gcov,, @code{gcov}: a GCC Test Coverage Program}).  See
+@option{-fprofile-arcs} option above for a description of @var{auxname}.
 
 @table @gcctabopt
-@item @var{sourcename}.bb
+@item @var{auxname}.bb
 A mapping from basic blocks to line numbers, which @code{gcov} uses to
 associate basic block execution counts with line numbers.
 
-@item @var{sourcename}.bbg
+@item @var{auxname}.bbg
 A list of all arcs in the program flow graph.  This allows @code{gcov}
 to reconstruct the program flow graph, so that it can compute all basic
 block and arc execution counts from the information in the
-@code{@var{sourcename}.da} file.
+@file{@var{auxname}.da} file.
 @end table
 
 Use @option{-ftest-coverage} with @option{-fprofile-arcs}; the latter
@@ -2888,9 +2900,9 @@ option adds instrumentation to the program, which then writes
 execution counts to another data file:
 
 @table @gcctabopt
-@item @var{sourcename}.da
+@item @var{auxname}.da
 Runtime arc execution counts, used in conjunction with the arc
-information in the file @code{@var{sourcename}.bbg}.
+information in the file @file{@var{auxname}.bbg}.
 @end table
 
 Coverage data will map better to the source files if
@@ -2901,8 +2913,12 @@ Coverage data will map better to the source files if
 Says to make debugging dumps during compilation at times specified by
 @var{letters}.  This is used for debugging the compiler.  The file names
 for most of the dumps are made by appending a pass number and a word to
-the source file name (e.g.  @file{foo.c.00.rtl} or @file{foo.c.01.sibling}).
-Here are the possible letters for use in @var{letters}, and their meanings:
+the @var{dumpname}. @var{dumpname} is generated from the name of the
+output file, if explicitly specified and it is not an executable,
+otherwise it is the basename of the source file. In both cases any
+suffix is removed (e.g.  @file{foo.00.rtl} or @file{foo.01.sibling}).
+Here are the possible letters for use in @var{letters}, and their
+meanings:
 
 @table @samp
 @item A
@@ -7425,12 +7441,19 @@ memory range for which the cache is being flushed, the size of the
 memory range, and the number 3 (to flush both caches).  The default
 depends on the target gcc was configured for, but commonly is either
 @samp{_flush_func} or @samp{__cpu_flush}.
-@end table
 
-These options are defined by the macro
-@code{TARGET_SWITCHES} in the machine description.  The default for the
-options is also defined by that macro, which enables you to change the
-defaults.
+@item -mbranch-likely
+@itemx -mno-branch-likely
+@opindex mbranch-likely
+@opindex mno-branch-likely
+Enable or disable use of Branch Likely instructions, regardless of the
+default for the selected architecture.  By default, Branch Likely
+instructions may be generated if they are supported by the selected
+architecture.  An exception is for the MIPS32 and MIPS64 architectures
+and processors which implement those architectures; for those, Branch
+Likely instructions will not be generated by default because the MIPS32
+and MIPS64 architectures specifically deprecate their use.
+@end table
 
 @node i386 and x86-64 Options
 @subsection Intel 386 and AMD x86-64 Options

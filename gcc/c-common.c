@@ -31,7 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "expr.h"
 #include "c-common.h"
-#include "tree-inline.h"
 #include "diagnostic.h"
 #include "tm_p.h"
 #include "obstack.h"
@@ -200,6 +199,9 @@ int flag_preprocess_only;
 /* Nonzero if an ISO standard was selected.  It rejects macros in the
    user's namespace.  */
 int flag_iso;
+
+/* Nonzero whenever Objective-C functionality is being used.  */
+int flag_objc;
 
 /* Nonzero if -undef was given.  It suppresses target built-in macros
    and assertions.  */
@@ -1102,6 +1104,13 @@ fname_decl (rid, id)
   if (!decl)
     {
       tree saved_last_tree = last_tree;
+      /* If a tree is built here, it would normally have the lineno of
+	 the current statement.  Later this tree will be moved to the
+	 beginning of the function and this line number will be wrong.
+	 To avoid this problem set the lineno to 0 here; that prevents
+	 it from appearing in the RTL. */
+      int saved_lineno = lineno;
+      lineno = 0;
       
       decl = (*make_fname_decl) (id, fname_vars[ix].pretty);
       if (last_tree != saved_last_tree)
@@ -1117,6 +1126,7 @@ fname_decl (rid, id)
 						 saved_function_name_decls);
 	}
       *fname_vars[ix].decl = decl;
+      lineno = saved_lineno;
     }
   if (!ix && !current_function_decl)
     pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
@@ -4177,6 +4187,7 @@ c_expand_expr (exp, target, tmode, modifier)
 	tree rtl_expr;
 	rtx result;
 	bool preserve_result = false;
+	bool return_target = false;
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
@@ -4204,8 +4215,20 @@ c_expand_expr (exp, target, tmode, modifier)
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
 	      {
-	        TREE_ADDRESSABLE (expr) = 1;
-		preserve_result = true;
+		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
+		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
+		  /* If the last expression is a variable whose RTL is the
+		     same as our target, just return the target; if it
+		     isn't valid expanding the decl would produce different
+		     RTL, and store_expr would try to do a copy.  */
+		  return_target = true;
+		else
+		  {
+		    /* Otherwise, note that we want the value from the last
+		       expression.  */
+		    TREE_ADDRESSABLE (expr) = 1;
+		    preserve_result = true;
+		  }
 	      }
 	  }
 
@@ -4213,7 +4236,9 @@ c_expand_expr (exp, target, tmode, modifier)
 	expand_end_stmt_expr (rtl_expr);
 
 	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (preserve_result && GET_CODE (result) == MEM)
+	if (return_target)
+	  result = target;
+	else if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
 	      result = copy_to_reg (result);
@@ -4646,73 +4671,6 @@ boolean_increment (code, arg)
   return val;
 }
 
-/* Common initialization before parsing options.  */
-void
-c_common_init_options (lang)
-     enum c_language_kind lang;
-{
-  c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c || lang == clk_objective_c
-				? CLK_GNUC89 : CLK_GNUCXX);
-  if (lang == clk_objective_c)
-    cpp_get_options (parse_in)->objc = 1;
-
-  flag_const_strings = (lang == clk_cplusplus);
-  warn_pointer_arith = (lang == clk_cplusplus);
-  if (lang == clk_c)
-    warn_sign_compare = -1;
-
-  /* Mark as "unspecified" (see c_common_post_options).  */
-  flag_bounds_check = -1;
-}
-
-/* Post-switch processing.  */
-bool
-c_common_post_options ()
-{
-  cpp_post_options (parse_in);
-
-  flag_inline_trees = 1;
-
-  /* Use tree inlining if possible.  Function instrumentation is only
-     done in the RTL level, so we disable tree inlining.  */
-  if (! flag_instrument_function_entry_exit)
-    {
-      if (!flag_no_inline)
-	flag_no_inline = 1;
-      if (flag_inline_functions)
-	{
-	  flag_inline_trees = 2;
-	  flag_inline_functions = 0;
-	}
-    }
-
-  /* If still "unspecified", make it match -fbounded-pointers.  */
-  if (flag_bounds_check == -1)
-    flag_bounds_check = flag_bounded_pointers;
-
-  /* Special format checking options don't work without -Wformat; warn if
-     they are used.  */
-  if (warn_format_y2k && !warn_format)
-    warning ("-Wformat-y2k ignored without -Wformat");
-  if (warn_format_extra_args && !warn_format)
-    warning ("-Wformat-extra-args ignored without -Wformat");
-  if (warn_format_zero_length && !warn_format)
-    warning ("-Wformat-zero-length ignored without -Wformat");
-  if (warn_format_nonliteral && !warn_format)
-    warning ("-Wformat-nonliteral ignored without -Wformat");
-  if (warn_format_security && !warn_format)
-    warning ("-Wformat-security ignored without -Wformat");
-  if (warn_missing_format_attribute && !warn_format)
-    warning ("-Wmissing-format-attribute ignored without -Wformat");
-
-  /* If an error has occurred in cpplib, note it so we fail
-     immediately.  */
-  errorcount += cpp_errors (parse_in);
-
-  return flag_preprocess_only;
-}
-
 /* Hook that registers front end and target-specific built-ins.  */
 static void
 cb_register_builtins (pfile)

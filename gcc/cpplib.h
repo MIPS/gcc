@@ -367,6 +367,9 @@ struct cpp_options
   /* Nonzero for the 1999 C Standard, including corrigenda and amendments.  */
   unsigned char c99;
 
+  /* Nonzero if we are conforming to a specific C or C++ standard.  */
+  unsigned char std;
+
   /* Nonzero means give all the error messages the ANSI standard requires.  */
   unsigned char pedantic;
 
@@ -391,11 +394,6 @@ struct cpp_options
 
   /* Nonzero means handle C++ alternate operator names.  */
   unsigned char operator_names;
-
-  /* True if --help, --version or --target-help appeared in the
-     options.  Stand-alone CPP should then bail out after option
-     parsing; drivers might want to continue printing help.  */
-  unsigned char help_only;
 
   /* True for traditional preprocessing.  */
   unsigned char traditional;
@@ -505,6 +503,10 @@ struct cpp_hashnode
 
 /* Call this first to get a handle to pass to other functions.  */
 extern cpp_reader *cpp_create_reader PARAMS ((enum c_lang));
+
+/* Call this to change the selected language standard (e.g. because of
+   command line options).  */
+extern void cpp_set_lang PARAMS ((cpp_reader *, enum c_lang));
 
 /* Call these to get pointers to the options and callback structures
    for a given reader.  These pointers are good until you call

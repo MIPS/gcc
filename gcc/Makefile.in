@@ -69,6 +69,13 @@ CFLAGS = -g
 STAGE1_CFLAGS = -g @stage1_cflags@
 BOOT_CFLAGS = -g -O2
 
+# Flags to determine code coverage. When coverage is disabled, this will
+# contain the optimization flags, as you normally want code coverage
+# without optimization. The -dumpbase $@ makes sure that the auxilary
+# files end up near the object files.
+COVERAGE_FLAGS = @coverage_flags@
+coverageexts = .{da,bb,bbg}
+
 # The warning flags are separate from BOOT_CFLAGS because people tend to
 # override optimization flags and we'd like them to still have warnings
 # turned on.  These flags are also used to pass other stage dependent
@@ -587,13 +594,13 @@ all.indirect: $(ALL)
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
 # autoconf inserts -DCROSS_COMPILE if we are building a cross compiler.
-INTERNAL_CFLAGS = -DIN_GCC @CROSS@
+INTERNAL_CFLAGS = -DIN_GCC @CROSS@ $(COVERAGE_FLAGS)
 
 # This is the variable actually used when we compile.
 # If you change this line, you probably also need to change the definition
 # of HOST_CFLAGS in build-make to match.
-ALL_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) \
-  $(CFLAGS) $(WARN_CFLAGS) $(XCFLAGS) @DEFS@
+ALL_CFLAGS = $(X_CFLAGS) $(T_CFLAGS) \
+  $(CFLAGS) $(INTERNAL_CFLAGS) $(WARN_CFLAGS) $(XCFLAGS) @DEFS@
 
 # Likewise.
 ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
@@ -714,7 +721,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
-  c-convert.o c-aux-info.o c-common.o c-format.o c-semantics.o \
+  c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
   c-objc-common.o c-dump.o libcpp.a $(C_TARGET_OBJS) \
   tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o \
   c-simplify.o c-call-graph.o tree-simple.o simple-break-elim.o \
@@ -1235,7 +1242,11 @@ s-under: $(GCC_PASSES)
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h tree-inline.h except.h gt-c-common.h real.h langhooks.h
+	diagnostic.h except.h gt-c-common.h real.h langhooks.h
+
+c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_COMMON_H) \
+        c-pragma.h flags.h toplev.h langhooks.h tree-inline.h diagnostic.h \
+	intl.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1491,7 +1502,7 @@ dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    function.h $(EXPR_H) output.h hard-reg-set.h $(REGS_H) real.h \
-   insn-config.h $(OBSTACK_H) xcoffout.h c-pragma.h ggc.h \
+   insn-config.h xcoffout.h c-pragma.h ggc.h \
    sdbout.h toplev.h $(TM_P_H) except.h debug.h langhooks.h gt-sdbout.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
    flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
@@ -1753,7 +1764,7 @@ insn-conditions.o : insn-conditions.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) \
   hard-reg-set.h resource.h toplev.h reload.h gensupport.h insn-constants.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) insn-conditions.c
 
-dummy-conditions.o : dummy-conditions.c $(GCONFIG_H) $(SYSTEM_H) gensupport.h
+dummy-conditions.o : dummy-conditions.c $(HCONFIG_H) $(SYSTEM_H) gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	    $(srcdir)/dummy-conditions.c $(OUTPUT_OPTION)
 
@@ -1946,7 +1957,7 @@ gtyp-gen.h: Makefile
 	echo "NULL};" >> tmp-gtyp.h
 	$(SHELL) $(srcdir)/move-if-change tmp-gtyp.h gtyp-gen.h 
 
-s-gtype: gengtype$(build_exeext)
+s-gtype: gengtype$(build_exeext) $(GTFILES)
 	./gengtype
 	$(STAMP) s-gtype
 
@@ -2652,6 +2663,7 @@ $(docdir)/fsf-funding.7: $(docdir)/include/funding.texi
 INTL_MOSTLYCLEAN = intl.mostlyclean
 mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f $(STAGESTUFF)
+	-rm -f *$(coverageexts)
 	-rm -rf libgcc
 # Delete the temporary source copies for cross compilation.
 	-rm -f $(BUILD_PREFIX_1)rtl.c $(BUILD_PREFIX_1)print-rtl.c
@@ -3361,7 +3373,7 @@ STAGE2_FLAGS_TO_PASS = \
 stage1_build:
 	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)" \
 		CFLAGS="$(STAGE1_CFLAGS)" MAKEINFO="$(MAKEINFO)" \
-		MAKEINFOFLAGS="$(MAKEINFOFLAGS)"
+		MAKEINFOFLAGS="$(MAKEINFOFLAGS)" COVERAGE_FLAGS=
 	$(STAMP) stage1_build
 	echo stage1_build > stage_last
 

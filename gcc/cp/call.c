@@ -106,21 +106,18 @@ tree
 build_vfield_ref (datum, type)
      tree datum, type;
 {
-  tree rval;
-
   if (datum == error_mark_node)
     return error_mark_node;
 
   if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
     datum = convert_from_reference (datum);
 
-  if (! TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type))
-    rval = build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
-		  datum, TYPE_VFIELD (type));
-  else
-    rval = build_component_ref (datum, DECL_NAME (TYPE_VFIELD (type)), NULL_TREE, 0);
+  if (TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
+      && !same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
+    datum = convert_to_base (datum, type, /*check_access=*/false);
 
-  return rval;
+  return build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
+		datum, TYPE_VFIELD (type));
 }
 
 /* Build a call to a member of an object.  I.e., one that overloads
@@ -139,7 +136,9 @@ build_field_call (tree instance_ptr, tree decl, tree parms)
       /* If it's a field, try overloading operator (),
 	 or calling if the field is a pointer-to-function.  */
       instance = build_indirect_ref (instance_ptr, NULL);
-      instance = build_component_ref_1 (instance, decl, 0);
+      instance = build_class_member_access_expr (instance, decl, 
+						 /*access_path=*/NULL_TREE,
+						 /*preserve_reference=*/false);
 
       if (instance == error_mark_node)
 	return error_mark_node;
@@ -839,8 +838,7 @@ standard_conversion (to, from, expr)
 		  (TREE_TYPE (TREE_TYPE (from)),
 		   TREE_TYPE (TREE_TYPE (to)))))
 	    {
-	      from = build_offset_type (tbase, TREE_TYPE (TREE_TYPE (from)));
-	      from = build_pointer_type (from);
+	      from = build_ptrmem_type (tbase, TREE_TYPE (TREE_TYPE (from)));
 	      conv = build_conv (PMEM_CONV, from, conv);
 	    }
 	}
@@ -2021,7 +2019,7 @@ add_builtin_candidate (candidates, code, code2, fnname, type1, type2,
 	 types are TYPE2.  */
 	break;
 
-      /* These arguments do not make for a legal overloaded operator.  */
+      /* These arguments do not make for a valid overloaded operator.  */
       return candidates;
 
     default:
@@ -2071,7 +2069,7 @@ type_decays_to (type)
    Here we generate a superset of the possible candidates for this particular
    case.  That is a subset of the full set the standard defines, plus some
    other cases which the standard disallows. add_builtin_candidate will
-   filter out the illegal set.  */
+   filter out the invalid set.  */
 
 static struct z_candidate *
 add_builtin_candidates (candidates, code, code2, fnname, args, flags)
@@ -2500,7 +2498,7 @@ build_user_type_conversion_1 (totype, expr, flags)
     {
       tree t;
 
-      ctors = TREE_VALUE (ctors);
+      ctors = BASELINK_FUNCTIONS (ctors);
 
       t = build_int_2 (0, 0);
       TREE_TYPE (t) = build_pointer_type (totype);
@@ -2796,10 +2794,10 @@ build_object_call (obj, args)
 
   if (fns)
     {
-      tree base = BINFO_TYPE (TREE_PURPOSE (fns));
+      tree base = BINFO_TYPE (BASELINK_BINFO (fns));
       mem_args = tree_cons (NULL_TREE, build_this (obj), args);
 
-      for (fns = TREE_VALUE (fns); fns; fns = OVL_NEXT (fns))
+      for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)

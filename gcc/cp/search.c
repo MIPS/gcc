@@ -300,8 +300,10 @@ lookup_base_r (binfo, base, access, within_current_scope,
    canonical).  If KIND_PTR is non-NULL, fill with information about
    what kind of base we discovered.
 
-   If ba_quiet bit is set in ACCESS, then do not issue an error, and
-   return NULL_TREE for failure.  */
+   If the base is inaccessible, or ambiguous, and the ba_quiet bit is
+   not set in ACCESS, then an error is issued and error_mark_node is
+   returned.  If the ba_quiet bit is set, then no error is issued and
+   NULL_TREE is returned.  */
 
 tree
 lookup_base (t, base, access, kind_ptr)
@@ -1385,9 +1387,10 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
 		      || TREE_CODE (functions) == OVERLOAD,
 		      20020730);
   my_friendly_assert (!optype || TYPE_P (optype), 20020730);
+  my_friendly_assert (TREE_TYPE (functions), 20020805);
 
-  baselink = build_tree_list (NULL_TREE, NULL_TREE);
-  SET_BASELINK_P (baselink);
+  baselink = build (BASELINK, TREE_TYPE (functions), NULL_TREE,
+		    NULL_TREE, NULL_TREE);
   BASELINK_BINFO (baselink) = binfo;
   BASELINK_ACCESS_BINFO (baselink) = access_binfo;
   BASELINK_FUNCTIONS (baselink) = functions;
@@ -1522,7 +1525,7 @@ lookup_field (xbasetype, name, protect, want_type)
   tree rval = lookup_member (xbasetype, name, protect, want_type);
   
   /* Ignore functions.  */
-  if (rval && TREE_CODE (rval) == TREE_LIST)
+  if (rval && BASELINK_P (rval))
     return NULL_TREE;
 
   return rval;
@@ -1539,7 +1542,7 @@ lookup_fnfields (xbasetype, name, protect)
   tree rval = lookup_member (xbasetype, name, protect, /*want_type=*/0);
 
   /* Ignore non-functions.  */
-  if (rval && TREE_CODE (rval) != TREE_LIST)
+  if (rval && !BASELINK_P (rval))
     return NULL_TREE;
 
   return rval;
@@ -1637,6 +1640,50 @@ lookup_fnfields_1 (type, name)
 
   return -1;
 }
+
+/* DECL is the result of a qualified name lookup.  QUALIFYING_CLASS
+   was the class used to qualify the name.  CONTEXT_CLASS is the class
+   corresponding to the object in which DECL will be used.  Return a
+   possibly modified version of DECL that takes into account the
+   CONTEXT_CLASS.
+
+   In particular, consider an expression like `B::m' in the context of
+   a derived class `D'.  If `B::m' has been resolved to a BASELINK,
+   then the most derived class indicated by the BASELINK_BINFO will be
+   `B', not `D'.  This function makes that adjustment.  */
+
+tree
+adjust_result_of_qualified_name_lookup (tree decl, 
+					tree qualifying_class,
+					tree context_class)
+{
+  my_friendly_assert (CLASS_TYPE_P (qualifying_class), 20020808);
+  my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
+
+  if (BASELINK_P (decl) 
+      && DERIVED_FROM_P (qualifying_class, context_class))
+    {
+      tree base;
+
+      /* Look for the QUALIFYING_CLASS as a base of the
+	 CONTEXT_CLASS.  If QUALIFYING_CLASS is ambiguous, we cannot
+	 be sure yet than an error has occurred; perhaps the function
+	 chosen by overload resolution will be static.  */
+      base = lookup_base (context_class, qualifying_class,
+			  ba_ignore | ba_quiet, NULL);
+      if (base)
+	{
+	  BASELINK_ACCESS_BINFO (decl) = base;
+	  BASELINK_BINFO (decl) 
+	    = lookup_base (base, BINFO_TYPE (BASELINK_BINFO (decl)),
+			   ba_ignore | ba_quiet,
+			   NULL);
+	}
+    }
+
+  return decl;
+}
+
 
 /* Walk the class hierarchy dominated by TYPE.  FN is called for each
    type in the hierarchy, in a breadth-first preorder traversal.
@@ -2436,7 +2483,7 @@ setup_class_bindings (name, type_binding_p)
 	{
 	  if (BASELINK_P (value_binding))
 	    /* NAME is some overloaded functions.  */
-	    value_binding = TREE_VALUE (value_binding);
+	    value_binding = BASELINK_FUNCTIONS (value_binding);
 	  pushdecl_class_level (value_binding);
 	}
     }

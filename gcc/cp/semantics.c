@@ -1400,7 +1400,10 @@ finish_object_call_expr (fn, object, args)
 	}
     }
   
-  return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
+  if (name_p (fn))
+    return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
+  else
+    return build_new_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
 }
 
 /* Finish a qualified member function call using OBJECT and ARGS as
@@ -1548,7 +1551,7 @@ reset_type_access_control ()
 
 /* Begin a function definition declared with DECL_SPECS, ATTRIBUTES,
    and DECLARATOR.  Returns non-zero if the function-declaration is
-   legal.  */
+   valid.  */
 
 int
 begin_function_definition (decl_specs, attributes, declarator)
@@ -1874,7 +1877,7 @@ finish_member_declaration (decl)
 	   struct S { enum E { }; int E } s;
 	   s.E = 3;
 
-	 is legal.  In addition, the FIELD_DECLs must be maintained in
+	 is valid.  In addition, the FIELD_DECLs must be maintained in
 	 declaration order so that class layout works as expected.
 	 However, we don't need that order until class layout, so we
 	 save a little time by putting FIELD_DECLs on in reverse order
@@ -2091,7 +2094,7 @@ check_multiple_declarators ()
      contain at most one declarator.  
 
      We don't just use PROCESSING_TEMPLATE_DECL for the first
-     condition since that would disallow the perfectly legal code, 
+     condition since that would disallow the perfectly valid code, 
      like `template <class T> struct S { int i, j; };'.  */
   if (at_function_scope_p ())
     /* It's OK to write `template <class T> void f() { int i, j;}'.  */

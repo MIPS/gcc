@@ -415,6 +415,7 @@ case "${target}" in
   hppa*-*-*elf* | \
   parisc*-*-linux* | hppa*-*-linux* | \
   hppa*-*-lites* | \
+  hppa*-*-openbsd* | \
   hppa*64*-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     # Do configure ld/binutils/gas for this case.
@@ -581,7 +582,6 @@ case "${target}" in
    ;;
   mips*-*-linux*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
-    noconfigdirs="$noconfigdirs target-libffi"
     ;;
   mips*-*-*)
     noconfigdirs="$noconfigdirs gprof ${libgcj}"

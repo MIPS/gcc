@@ -127,6 +127,7 @@ static FILE *bbg_file;
 /* Name and file pointer of the input file for the arc count data.  */
 
 static FILE *da_file;
+static char *da_file_name;
 
 /* Pointer of the output file for the basic block/line number map.  */
 static FILE *bb_file;
@@ -1185,18 +1186,16 @@ void
 init_branch_prob (filename)
   const char *filename;
 {
-  long len;
+  int len = strlen (filename);
   int i;
 
   if (flag_test_coverage)
     {
-      int len = strlen (filename);
       char *data_file, *bbg_file_name;
 
       /* Open an output file for the basic block/line number map.  */
       data_file = (char *) alloca (len + 4);
       strcpy (data_file, filename);
-      strip_off_ending (data_file, len);
       strcat (data_file, ".bb");
       if ((bb_file = fopen (data_file, "wb")) == 0)
 	fatal_io_error ("can't open %s", data_file);
@@ -1204,7 +1203,6 @@ init_branch_prob (filename)
       /* Open an output file for the program flow graph.  */
       bbg_file_name = (char *) alloca (len + 5);
       strcpy (bbg_file_name, filename);
-      strip_off_ending (bbg_file_name, len);
       strcat (bbg_file_name, ".bbg");
       if ((bbg_file = fopen (bbg_file_name, "wb")) == 0)
 	fatal_io_error ("can't open %s", bbg_file_name);
@@ -1214,16 +1212,14 @@ init_branch_prob (filename)
       last_bb_file_name = 0;
     }
 
+  da_file_name = (char *) xmalloc (len + 4);
+  strcpy (da_file_name, filename);
+  strcat (da_file_name, ".da");
+  
   if (flag_branch_probabilities)
     {
-      char *da_file_name;
-
-      len = strlen (filename);
-      da_file_name = (char *) alloca (len + 4);
-      strcpy (da_file_name, filename);
-      strip_off_ending (da_file_name, len);
-      strcat (da_file_name, ".da");
-      if ((da_file = fopen (da_file_name, "rb")) == 0)
+      da_file = fopen (da_file_name, "rb");
+      if (!da_file)
 	warning ("file %s not found, execution counts assumed to be zero",
 		 da_file_name);
     }
@@ -1254,6 +1250,7 @@ end_branch_prob ()
     {
       fclose (bb_file);
       fclose (bbg_file);
+      unlink (da_file_name);
     }
 
   if (flag_branch_probabilities && da_file)

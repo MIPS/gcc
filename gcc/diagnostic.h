@@ -325,6 +325,7 @@ extern void output_verbatim		PARAMS ((output_buffer *, const char *,
 extern void verbatim			PARAMS ((const char *, ...))
      ATTRIBUTE_PRINTF_1;
 extern char *file_name_as_prefix	PARAMS ((const char *));
+extern void inform     PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 
 extern void debug_output_buffer		PARAMS ((output_buffer *));
 

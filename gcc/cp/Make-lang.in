@@ -96,7 +96,7 @@ $(DEMANGLER_PROG): cxxmain.o underscore.o $(LIBDEPS)
 # The compiler itself.
 # Shared with C front end:
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
- c-dump.o $(CXX_TARGET_OBJS) \
+ c-dump.o $(CXX_TARGET_OBJS) c-opts.o \
   tree-cfg.o tree-dfa.o tree-optimize.o tree-ssa.o tree-ssa-pre.o \
   c-simplify.o c-pretty-print.o tree-simple.o tree-alias-steen.o \
   tree-alias-ecr.o tree-alias-type.o disjoint-set.o tree-ssa-ccp.o
@@ -228,6 +228,7 @@ c++.uninstall:
 
 c++.mostlyclean:
 	-rm -f cp/*$(objext) $(DEMANGLER_PROG)
+	-rm -f cp/*$(coverageexts)
 c++.clean:
 c++.distclean:
 	-rm -f cp/config.status cp/Makefile

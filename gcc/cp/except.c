@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "libfuncs.h"
 #include "cp-tree.h"
 #include "flags.h"
-#include "obstack.h"
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
@@ -175,17 +174,13 @@ static int
 dtor_nothrow (type)
      tree type;
 {
-  tree fn;
-
   if (type == NULL_TREE)
     return 0;
 
   if (! TYPE_HAS_DESTRUCTOR (type))
     return 1;
 
-  fn = lookup_member (type, dtor_identifier, 0, 0);
-  fn = TREE_VALUE (fn);
-  return TREE_NOTHROW (fn);
+  return TREE_NOTHROW (CLASSTYPE_DESTRUCTORS (type));
 }
 
 /* Build up a call to __cxa_end_catch, to destroy the exception object
@@ -754,7 +749,7 @@ build_throw (exp)
 	{
 	  cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
 				     complete_dtor_identifier, 0);
-	  cleanup = TREE_VALUE (cleanup);
+	  cleanup = BASELINK_FUNCTIONS (cleanup);
 	  mark_used (cleanup);
 	  cxx_mark_addressable (cleanup);
 	  /* Pretend it's a normal function.  */

@@ -1211,8 +1211,7 @@ assemble_start_function (decl, fnname)
 	  char *name;
 
 	  p = (* targetm.strip_name_encoding) (fnname);
-	  name = permalloc (strlen (p) + 1);
-	  strcpy (name, p);
+	  name = xstrdup (p);
 
 	  if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
 	    first_global_object_name = name;
@@ -1535,8 +1534,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       char *xname;
 
       p = (* targetm.strip_name_encoding) (name);
-      xname = permalloc (strlen (p) + 1);
-      strcpy (xname, p);
+      xname = xstrdup (p);
       first_global_object_name = xname;
     }
 

@@ -1,3 +1,83 @@
+2002-08-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/bitfld-4.c: Add blank options.
+
+2002-08-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/crash1.C: New test.
+
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-2.c: New test.
+
+2002-08-08  Devang Patel  <dpatel@apple.com>
+
+	* objc.dg/selector-1.m : New test
+	
+2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/bitfield4.C: New test.
+	* gcc.dg/bitfld-4.c: New test.
+
+2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/packed1.C: New test.
+
+2002-08-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/offsetof.C: Tweak error messages.
+	* g++.old-deja/g++.mike/p10769a.C: Likewise.
+	
+2002-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/bitfld-3.c: New test.
+
+2002-08-07  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/i386-bitfield1.c: New test.
+	* g++.dg/abi/bitfield3.C: Update.
+
+2002-08-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* objc.dg/const-str-2.m: Update.
+	* gcc.dg/cpp/c++98.c: Change to C extension.
+	* gcc.dg/cpp/c++98-pedantic.c: Similarly.
+	* gcc.dg/cpp/cpp.exp: Process .C extensions too.
+
+2002-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+        * testsuite/gcc.dg/tls/diag-3.c: New.
+
+2002-08-07  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* g++.dg/README (Subdirectories): Document new subdir expr.
+	* g++.dg/expr/pmf-1.C: New test.
+
+2002-08-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/vararg3.c, gcc.dg/cpp/vararg4.c: New tests.
+
+2002-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/abi/bitfield3.C: New test.
+
+2002-08-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lib/gcov.exp: Tweak expected line formats.
+	* gcc.misc-tests/gcov8.c: New test.
+	* gcc.misc-tests/gcov8.x: New flags.
+
+2002-08-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* consistency.vlad/layout/endian.c: Include string.h.
+
+	* gcc.c-torture/execute/20020805-1.c: New test.
+
+2002-08-04  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* g++.dg/other/conversion1.C: New test.
+
 2002-08-03  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/builtins-1.c: New testcase.

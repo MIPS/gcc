@@ -709,7 +709,7 @@ current_tmpl_spec_kind (n_class_scopes)
 
 	    template <class T> template <> ...
 
-	 which is always illegal since [temp.expl.spec] forbids the
+	 which is always invalid since [temp.expl.spec] forbids the
 	 specialization of a class member template if the enclosing
 	 class templates are not explicitly specialized as well.  */
       if (b->template_spec_p)
@@ -746,7 +746,7 @@ current_tmpl_spec_kind (n_class_scopes)
 
          template <class T> void R<T>::S<T>::f(int);
 
-       This is illegal; there needs to be one set of template
+       This is invalid; there needs to be one set of template
        parameters for each class.  */
     return tsk_insufficient_parms;
   else if (n_template_parm_scopes == n_class_scopes)
@@ -932,7 +932,7 @@ push_binding (id, decl, level)
    stat' hack whereby a non-typedef class-name or enum-name can be
    bound at the same level as some other kind of entity.  It's the
    responsibility of the caller to check that inserting this name is
-   legal here.  Returns nonzero if the new binding was successful.  */
+   valid here.  Returns nonzero if the new binding was successful.  */
 static int
 add_binding (id, decl)
      tree id;
@@ -1069,7 +1069,7 @@ push_class_binding (id, decl)
   tree context;
 
   /* Note that we declared this value so that we can issue an error if
-     this an illegal redeclaration of a name already used for some
+     this is an invalid redeclaration of a name already used for some
      other purpose.  */
   note_name_declared_in_class (id, decl);
 
@@ -3213,7 +3213,7 @@ duplicate_decls (newdecl, olddecl)
        specialization, and the other is an instantiation of the same
        template, that we do not exit at this point.  That situation
        can occur if we instantiate a template class, and then
-       specialize one of its methods.  This situation is legal, but
+       specialize one of its methods.  This situation is valid, but
        the declarations must be merged in the usual way.  */
     return 0;
   else if (TREE_CODE (newdecl) == FUNCTION_DECL
@@ -7615,7 +7615,7 @@ layout_var_decl (decl)
   /* If we haven't already layed out this declaration, do so now.
      Note that we must not call complete type for an external object
      because it's type might involve templates that we are not
-     supposed to isntantiate yet.  (And it's perfectly legal to say
+     supposed to isntantiate yet.  (And it's perfectly valid to say
      `extern X x' for some incomplete type `X'.)  */
   if (!DECL_EXTERNAL (decl))
     complete_type (type);
@@ -9117,7 +9117,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 	    decl = DECL_TEMPLATE_RESULT (decl);
 
 	  /* Attempt to merge the declarations.  This can fail, in
-	     the case of some illegal specialization declarations.  */
+	     the case of some invalid specialization declarations.  */
 	  if (!duplicate_decls (decl, old_decl))
 	    error ("no `%#D' member function declared in class `%T'",
 		      decl, ctype);
@@ -9137,64 +9137,68 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
   return decl;
 }
 
+/* Create a VAR_DECL named NAME with the indicated TYPE.  
+
+   If SCOPE is non-NULL, it is the class type or namespace containing
+   the variable.  If SCOPE is NULL, the variable should is created in
+   the innermost enclosings scope.  */
+
 static tree
-grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
+grokvardecl (type, name, specbits_in, initialized, constp, scope)
      tree type;
-     tree declarator;
+     tree name;
      RID_BIT_TYPE *specbits_in;
      int initialized;
      int constp;
-     tree in_namespace;
+     tree scope;
 {
   tree decl;
   RID_BIT_TYPE specbits;
 
+  my_friendly_assert (!name || TREE_CODE (name) == IDENTIFIER_NODE, 
+		      20020808);
+
   specbits = *specbits_in;
 
-  if (TREE_CODE (type) == OFFSET_TYPE)
+  /* Compute the scope in which to place the variable.  */
+  if (!scope)
     {
-      /* If you declare a static member so that it
-	 can be initialized, the code will reach here.  */
-      tree basetype = TYPE_OFFSET_BASETYPE (type);
-      type = TREE_TYPE (type);
-      decl = build_lang_decl (VAR_DECL, declarator, type);
-      DECL_CONTEXT (decl) = basetype;
+      /* An explicit "extern" specifier indicates a namespace-scope
+	 variable.  */
+      if (RIDBIT_SETP (RID_EXTERN, specbits))
+	scope = current_namespace;
+      else if (!at_function_scope_p ())
+	{
+	  scope = current_scope ();
+	  if (!scope)
+	    scope = current_namespace;
+	}
     }
+
+  if (scope
+      && (/* If the variable is a namespace-scope variable declared in a
+	     template, we need DECL_LANG_SPECIFIC.  */
+	  (TREE_CODE (scope) == NAMESPACE_DECL && processing_template_decl)
+	  /* Similarly for namespace-scope variables with language linkage
+	     other than C++.  */
+	  || (TREE_CODE (scope) == NAMESPACE_DECL 
+	      && current_lang_name != lang_name_cplusplus)
+	  /* Similarly for static data members.  */
+	  || TYPE_P (scope)))
+    decl = build_lang_decl (VAR_DECL, name, type);
   else
-    {
-      tree context;
+    decl = build_decl (VAR_DECL, name, type);
 
-      if (in_namespace)
-	context = in_namespace;
-      else if (namespace_bindings_p () || RIDBIT_SETP (RID_EXTERN, specbits))
-	context = current_namespace;
-      else
-	context = NULL_TREE;
+  if (scope && TREE_CODE (scope) == NAMESPACE_DECL)
+    set_decl_namespace (decl, scope, 0);
+  else
+    DECL_CONTEXT (decl) = scope;
 
-      /* For namespace-scope variables, declared in a template, we
-	 need the full lang_decl.  The same is true for
-	 namespace-scope variables that do not have C++ language
-	 linkage.  */
-      if (context 
-	  && (processing_template_decl 
-	      || current_lang_name != lang_name_cplusplus))
-	decl = build_lang_decl (VAR_DECL, declarator, type);
-      else
-	decl = build_decl (VAR_DECL, declarator, type);
-
-      if (context)
-	set_decl_namespace (decl, context, 0);
-
-      context = DECL_CONTEXT (decl);
-      if (declarator && context && current_lang_name != lang_name_c)
-	/* We can't mangle lazily here because we don't have any
-	   way to recover whether or not a variable was `extern
-	   "C"' later.  */
-	mangle_decl (decl);
-    }
-
-  if (in_namespace)
-    set_decl_namespace (decl, in_namespace, 0);
+  if (name && scope && current_lang_name != lang_name_c)
+    /* We can't mangle lazily here because we don't have any
+       way to recover whether or not a variable was `extern
+       "C"' later.  */
+    mangle_decl (decl);
 
   if (RIDBIT_SETP (RID_EXTERN, specbits))
     {
@@ -9318,6 +9322,14 @@ build_ptrmemfunc_type (type)
   CLASSTYPE_GOT_SEMICOLON (t) = 1;
 
   return t;
+}
+
+/* Create and return a pointer to data member type.  */
+
+tree
+build_ptrmem_type (tree class_type, tree member_type)
+{
+  return build_pointer_type (build_offset_type (class_type, member_type));
 }
 
 /* DECL is a VAR_DECL defined in-class, whose TYPE is also given.
@@ -9811,6 +9823,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 		tree attributes;
 
+		if (decl_context != NORMAL)
+		  {
+		    error ("variable declaration is not allowed here");
+		    return error_mark_node;
+		  }
+
 		*next = TREE_OPERAND (decl, 0);
 		init = CALL_DECLARATOR_PARMS (decl);
 
@@ -9835,7 +9853,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  }
 		else
 		  error ("invalid declarator");
-		return 0;
+		return NULL_TREE;
 	      }
 	    innermost_code = TREE_CODE (decl);
 	    if (decl_context == FIELD && ctype == NULL_TREE)
@@ -10001,6 +10019,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    next = 0;
 	    break;
 
+	  case BASELINK:
+	    next = &BASELINK_FUNCTIONS (decl);
+	    break;
+	    
 	  default:
 	    internal_error ("`%D' as declarator", decl);
 	  }
@@ -10576,7 +10598,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
   /* Now figure out the structure of the declarator proper.
      Descend through it, creating more complex types, until we reach
-     the declared identifier (or NULL_TREE, in an absolute declarator).  */
+     the declared identifier (or NULL_TREE, in an abstract declarator).  */
 
   while (declarator && TREE_CODE (declarator) != IDENTIFIER_NODE
 	 && TREE_CODE (declarator) != TEMPLATE_ID_EXPR)
@@ -10888,9 +10910,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      continue;
 	    }
 
-	  if (TREE_CODE (type) == OFFSET_TYPE
-	      && (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE
-		  || TREE_CODE (TREE_TYPE (type)) == REFERENCE_TYPE))
+	  if (ctype
+	      && (TREE_CODE (type) == VOID_TYPE
+		  || TREE_CODE (type) == REFERENCE_TYPE))
 	    {
 	      error ("cannot declare pointer to `%#T' member",
 			TREE_TYPE (type));
@@ -10913,6 +10935,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    }
 	  else if (TREE_CODE (type) == METHOD_TYPE)
 	    type = build_ptrmemfunc_type (build_pointer_type (type));
+	  else if (ctype)
+	    type = build_ptrmem_type (ctype, type);
 	  else
 	    type = build_pointer_type (type);
 
@@ -11098,7 +11122,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 				  ctype, name, current_class_type);
 			return void_type_node;
 		      }
-		    type = build_offset_type (ctype, type);
 		  }
 		else
 	          {
@@ -11117,20 +11140,19 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		if (declarator && TREE_CODE (declarator) == CALL_EXPR)
 		  /* In this case, we will deal with it later.  */
 		  ;
-		else
-		  {
-		    if (TREE_CODE (type) == FUNCTION_TYPE)
-		      type = build_cplus_method_type (ctype, TREE_TYPE (type),
-						      TYPE_ARG_TYPES (type));
-		    else
-		      type = build_offset_type (ctype, type);
-		  }
+		else if (TREE_CODE (type) == FUNCTION_TYPE)
+		  type = build_cplus_method_type (ctype, TREE_TYPE (type),
+						  TYPE_ARG_TYPES (type));
 	      }
 	  }
 	  break;
 
 	case BIT_NOT_EXPR:
 	  declarator = TREE_OPERAND (declarator, 0);
+	  break;
+
+	case BASELINK:
+	  declarator = BASELINK_FUNCTIONS (declarator);
 	  break;
 
 	case RECORD_TYPE:
@@ -11807,23 +11829,23 @@ friend declaration requires class-key, i.e. `friend %#T'",
 
 	if (staticp == 1)
 	  {
-	    int illegal_static = 0;
+	    int invalid_static = 0;
 
 	    /* Don't allow a static member function in a class, and forbid
 	       declaring main to be static.  */
 	    if (TREE_CODE (type) == METHOD_TYPE)
 	      {
 		pedwarn ("cannot declare member function `%D' to have static linkage", decl);
-		illegal_static = 1;
+		invalid_static = 1;
 	      }
 	    else if (current_function_decl)
 	      {
 		/* FIXME need arm citation */
 		error ("cannot declare static function inside another function");
-		illegal_static = 1;
+		invalid_static = 1;
 	      }
 
-	    if (illegal_static)
+	    if (invalid_static)
 	      {
 		staticp = 0;
 		RIDBIT_RESET (RID_STATIC, specbits);
@@ -11838,7 +11860,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	decl = grokvardecl (type, declarator, &specbits,
 			    initialized,
 			    (type_quals & TYPE_QUAL_CONST) != 0,
-			    in_namespace);
+			    ctype ? ctype : in_namespace);
 	bad_specifiers (decl, "variable", virtualp, quals != NULL_TREE,
 			inlinep, friendp, raises != NULL_TREE);
 
@@ -11981,7 +12003,7 @@ local_variable_p_walkfn (tp, walk_subtrees, data)
 }
 
 /* Check that ARG, which is a default-argument expression for a
-   parameter DECL, is legal.  Returns ARG, or ERROR_MARK_NODE, if
+   parameter DECL, is valid.  Returns ARG, or ERROR_MARK_NODE, if
    something goes wrong.  DECL may also be a _TYPE node, rather than a
    DECL, if there is no DECL available.  */
 

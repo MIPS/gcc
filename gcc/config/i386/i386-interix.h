@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 	     builtin_define_std ("LANGUAGE_C");				\
 	     if (c_language == clk_cplusplus)				\
 	       builtin_define_std ("LANGUAGE_C_PLUS_PLUS");		\
-	     else if (c_language == clk_objective_c)			\
+	     if (flag_objc)						\
 	       builtin_define_std ("LANGUAGE_OBJECTIVE_C");		\
 	  } 								\
     }									\
@@ -236,6 +236,12 @@ Boston, MA 02111-1307, USA.  */
 #undef HAS_INIT_SECTION
 #undef LD_INIT_SWITCH
 #undef LD_FINI_SWITCH
+
+/* The following are needed for us to be able to use winnt.c, but are not
+   otherwise meaningful to Interix.  (The functions that use these are
+   never called because we don't do DLLs.) */
+#define TARGET_NOP_FUN_DLLIMPORT 1
+#define drectve_section()  /* nothing */
 
 #define EH_FRAME_IN_DATA_SECTION
 

@@ -495,47 +495,6 @@ finish_file ()
   if (gen_declaration_file)
     fclose (gen_declaration_file);
 }
-
-int
-objc_decode_option (argc, argv)
-     int argc;
-     char **argv;
-{
-  const char *p = argv[0];
-
-  if (!strcmp (p, "-gen-decls"))
-    flag_gen_declaration = 1;
-  else if (!strcmp (p, "-Wselector"))
-    warn_selector = 1;
-  else if (!strcmp (p, "-Wno-selector"))
-    warn_selector = 0;
-  else if (!strcmp (p, "-Wprotocol"))
-    warn_protocol = 1;
-  else if (!strcmp (p, "-Wno-protocol"))
-    warn_protocol = 0;
-  else if (!strcmp (p, "-fgnu-runtime"))
-    flag_next_runtime = 0;
-  else if (!strcmp (p, "-fno-next-runtime"))
-    flag_next_runtime = 0;
-  else if (!strcmp (p, "-fno-gnu-runtime"))
-    flag_next_runtime = 1;
-  else if (!strcmp (p, "-fnext-runtime"))
-    flag_next_runtime = 1;
-  else if (!strcmp (p, "-print-objc-runtime-info"))
-    print_struct_values = 1;
-#define CSTSTRCLASS "-fconstant-string-class="
-  else if (!strncmp (p, CSTSTRCLASS, sizeof(CSTSTRCLASS) - 2)) {
-    if (strlen (argv[0]) <= strlen (CSTSTRCLASS))
-      error ("no class name specified as argument to -fconstant-string-class");
-    constant_string_class_name = xstrdup(argv[0] + sizeof(CSTSTRCLASS) - 1);
-  }
-#undef CSTSTRCLASS
-  else
-    return c_decode_option (argc, argv);
-
-  return 1;
-}
-
 
 static tree
 define_decl (declarator, declspecs)
@@ -558,14 +517,6 @@ define_decl (declarator, declspecs)
    `a' is of type "id",
    `a' and `b' are the same class type, or
    `a' and `b' are of class types A and B such that B is a descendant of A.  */
-
-int
-maybe_objc_comptypes (lhs, rhs, reflexive)
-     tree lhs, rhs;
-     int reflexive;
-{
-  return objc_comptypes (lhs, rhs, reflexive);
-}
 
 static tree
 lookup_method_in_protocol_list (rproto_list, sel_name, class_meth)
@@ -803,13 +754,6 @@ objc_check_decl (decl)
       && TREE_STATIC_TEMPLATE (type)
       && type != constant_string_type)
     error_with_decl (decl, "`%s' cannot be statically allocated");
-}
-
-void
-maybe_objc_check_decl (decl)
-     tree decl;
-{
-  objc_check_decl (decl);
 }
 
 /* Implement static typing.  At this point, we know we have an interface.  */
@@ -1926,6 +1870,32 @@ build_selector_translation_table ()
   for (chain = sel_ref_chain; chain; chain = TREE_CHAIN (chain))
     {
       tree expr;
+
+      if (warn_selector && objc_implementation_context)
+      {
+        tree method_chain;
+        bool found = false;
+        for (method_chain = meth_var_names_chain;
+             method_chain;
+             method_chain = TREE_CHAIN (method_chain))
+          {
+            if (TREE_VALUE (method_chain) == TREE_VALUE (chain))
+              {
+                found = true;
+                break;
+              }
+          }
+        if (!found)
+          {
+            /* Adjust line number for warning message.  */
+            int save_lineno = lineno;
+            if (flag_next_runtime && TREE_PURPOSE (chain))
+              lineno = DECL_SOURCE_LINE (TREE_PURPOSE (chain));
+            warning ("creating selector for non existant method %s",
+                     IDENTIFIER_POINTER (TREE_VALUE (chain)));
+            lineno = save_lineno;
+          }
+      }
 
       expr = build_selector (TREE_VALUE (chain));
 
@@ -4705,7 +4675,7 @@ receiver_is_class_object (receiver)
 static tree building_objc_message_expr = 0;
 
 tree
-maybe_building_objc_message_expr ()
+objc_message_selector ()
 {
   return building_objc_message_expr;
 }

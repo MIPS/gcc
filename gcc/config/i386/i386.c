@@ -4850,8 +4850,6 @@ legitimate_constant_p (x)
 	  {
 	  case UNSPEC_TPOFF:
 	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
-	  case UNSPEC_TP:
-	    return true;
 	  default:
 	    return false;
 	  }
@@ -4914,8 +4912,6 @@ legitimate_pic_operand_p (x)
 	  {
 	  case UNSPEC_TPOFF:
 	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
-	  case UNSPEC_TP:
-	    return true;
 	  default:
 	    return false;
 	  }
@@ -5052,6 +5048,13 @@ legitimate_address_p (mode, addr, strict)
 	       "\n======\nGO_IF_LEGITIMATE_ADDRESS, mode = %s, strict = %d\n",
 	       GET_MODE_NAME (mode), strict);
       debug_rtx (addr);
+    }
+
+  if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_TP)
+    {
+      if (TARGET_DEBUG_ADDR)
+	fprintf (stderr, "Success.\n");
+      return TRUE;
     }
 
   if (ix86_decompose_address (addr, &parts) <= 0)
@@ -5521,7 +5524,9 @@ get_thread_pointer ()
   rtx tp;
 
   tp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx), UNSPEC_TP);
-  tp = gen_rtx_CONST (Pmode, tp);
+  tp = gen_rtx_MEM (Pmode, tp);
+  RTX_UNCHANGING_P (tp) = 1;
+  set_mem_alias_set (tp, ix86_GOT_alias_set ());
   tp = force_reg (Pmode, tp);
 
   return tp;
@@ -6611,17 +6616,6 @@ print_operand (file, x, code)
       fprintf (file, "%s", dstr);
     }
 
-  else if (GET_CODE (x) == CONST
-	   && GET_CODE (XEXP (x, 0)) == UNSPEC
-	   && XINT (XEXP (x, 0), 1) == UNSPEC_TP)
-    {
-      if (ASSEMBLER_DIALECT == ASM_INTEL)
-	fputs ("DWORD PTR ", file);
-      if (ASSEMBLER_DIALECT == ASM_ATT || USER_LABEL_PREFIX[0] == 0)
-	putc ('%', file);
-      fputs ("gs:0", file);
-    }
-
   else
     {
       if (code != 'P')
@@ -6659,6 +6653,16 @@ print_operand_address (file, addr)
   struct ix86_address parts;
   rtx base, index, disp;
   int scale;
+
+  if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_TP)
+    {
+      if (ASSEMBLER_DIALECT == ASM_INTEL)
+	fputs ("DWORD PTR ", file);
+      if (ASSEMBLER_DIALECT == ASM_ATT || USER_LABEL_PREFIX[0] == 0)
+	putc ('%', file);
+      fputs ("gs:0", file);
+      return;
+    }
 
   if (! ix86_decompose_address (addr, &parts))
     abort ();
@@ -13818,13 +13822,15 @@ x86_field_alignment (field, computed)
      int computed;
 {
   enum machine_mode mode;
-  if (TARGET_64BIT || DECL_USER_ALIGN (field) || TARGET_ALIGN_DOUBLE)
+  tree type = TREE_TYPE (field);
+
+  if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
-  mode = TYPE_MODE (TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE
-		    ? get_inner_array_type (field) : TREE_TYPE (field));
-  if ((mode == DFmode || mode == DCmode
-      || mode == DImode || mode == CDImode)
-      && !TARGET_ALIGN_DOUBLE)
+  mode = TYPE_MODE (TREE_CODE (type) == ARRAY_TYPE
+		    ? get_inner_array_type (type) : type);
+  if (mode == DFmode || mode == DCmode
+      || GET_MODE_CLASS (mode) == MODE_INT
+      || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
     return MIN (32, computed);
   return computed;
 }
