@@ -1,3 +1,97 @@
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* Makefile.in (c-parse.o): Depend on $(C_COMMON_H).
+	* c-common.h (lookup_interface): Remove prototype.
+	(is_class_name): Rename to objc_is_class_name.
+	(lookup_objc_ivar): Rename to objc_lookup_ivar.
+	(get_current_scope): Rename to objc_get_current_scope.
+	(objc_is_reserved_word, objc_lookup_ivar, objc_declare_alias,
+	objc_declare_class, objc_declare_protocols, objc_method_ellipsis,
+	objc_is_public, objc_build_message_expr, objc_finish_message_expr,
+	objc_build_selector_expr, objc_build_protocol_expr,
+	objc_build_encode_expr, objc_build_string_object, 
+	objc_get_static_reference, objc_get_object_reference,
+	objc_get_class_reference, objc_get_class_ivars,
+	objc_start_class_interface, objc_start_category_interface,
+	objc_start_protocol, objc_continue_interface, 
+	objc_finish_interface, objc_start_class_implementation,
+	objc_start_category_implementation, objc_continue_implementation,
+	objc_finish_implementation, objc_set_visibility,
+	objc_set_method_type, objc_build_method_signature,
+	objc_add_method_declaration, objc_start_method_definition,
+	objc_continue_method_definition, objc_finish_method_definition,
+	objc_add_instance_variable, objc_clear_super_receiver,
+	objc_build_keyword_decl, objc_build_throw_stmt, 
+	objc_build_try_prologue, objc_build_try_epilogue,
+	objc_build_catch_stmt, objc_build_catch_epilogue,
+	objc_build_finally_prologue, objc_build_synchronized_prologue,
+	objc_build_synchronized_epilogue,
+	objc_build_try_catch_finally_stmt): New prototypes.
+	* c-decl.c (get_current_scope): Rename to objc_get_current_scope.
+	* c-lex.c (c_lex_with_flags): Call objc_is_reserved_word()
+	instead of using macros.
+	* c-parse.in: Include c-common.h instead of objc-act.h.
+	(methodtype): Specify %type; remove (explicit) semantic actions.
+	(objc_inherit_code, objc_public_flag): Remove.
+	(primary): Call objc_is_public() instead of is_public(),
+	objc_build_message_expr() instead of build_message_expr(),
+	objc_build_selector_expr() instead of build_selector_expr(),
+	objc_build_protocol_expr() instead of build_protocol_expr(),
+	objc_build_encode_expr() instead of build_encode_expr(),
+	objc_build_string_object() instead of build_objc_string_object().
+	(typespec_nonreserved_nonattr): Call objc_get_static_reference()
+	instead of get_static_reference(), objc_get_object_reference()
+	instead of get_object_reference().
+	(component_decl_list2): Call objc_get_class_ivars() instead of
+	get_class_ivars_from_name().
+	(objcdef): Move semantic action to objc_finish_implementation(),
+	and call it.
+	(classdef): Move semantic actions to objc_start_class_interface(),
+	objc_continue_interface(), objc_finish_interface(),
+	objc_start_class_implementation(), objc_continue_implementation(),
+	objc_start_category_interface() and objc_start_category_implementation()
+	and call them.
+	(protocoldef): Move semantic actions to objc_start_protocol() and
+	objc_finish_interface() and call them.
+	(visibility_spec): Move semantic actions to objc_set_visibility() and
+	call it.
+	(ivar_declarator): Call objc_add_instance_variable() instead of
+	add_instance_variable().
+	(methoddef): Move semantic actions to objc_set_method_type() and
+	objc_start_method_definition(), objc_continue_method_definition()
+	and objc_finish_method_definition() and call them.
+	(methodproto): Move semantic actions to objc_set_method_type() and
+	objc_add_method_declaration() and call them.
+	(methoddecl): Call objc_build_method_signature() instead of
+	build_method_decl().
+	(optparmlist): Call objc_method_ellipsis().
+	(keyworddecl): Call objc_build_keyword_decl() instead of
+	build_keyword_decl().
+	(receiver): Call objc_get_class_reference() instead of 
+	get_class_reference().
+	(yylexname): Call objc_is_class_name() instead of is_class_name().
+	* c-typeck.c (build_external_ref): Call objc_lookup_ivar() instead of
+	lookup_objc_ivar().
+	* gengtype.c (get_file_basename): Actually check lang subdirectory
+	name instead of merely its length.
+	* stub-objc.c (lookup_interface): Remove stub.
+	(is_class_name): Rename to objc_is_class_name.
+	(lookup_objc_ivar): Rename to objc_lookup_ivar.
+	(objc_is_reserved_word, objc_declare_alias, objc_declare_class,
+	objc_declare_protocols, objc_start_protocol, objc_method_ellipsis,
+	objc_start_class_interface, objc_start_category_interface,
+	objc_continue_interface, objc_finish_interface,
+	objc_add_instance_variable, objc_set_visibility,
+	objc_set_method_type, objc_start_class_implementation,
+	objc_start_category_implementation, objc_continue_implementation,
+	objc_finish_implementation, objc_add_method_declaration,
+	objc_start_method_definition, objc_continue_method_definition,
+	objc_finish_method_definition, objc_build_keyword_decl,
+	objc_build_method_signature, objc_build_encode_expr, objc_build_protocol_expr,
+	objc_build_selector_expr, objc_build_message_expr,
+	objc_build_string_object, objc_get_class_reference, objc_get_object_reference,
+	objc_get_static_reference): New stubs.
+
 2004-03-02  Ziemowit Laski  <zlaski@apple.com>
 
 	* gengtype.c (get_base_file_bitmap): Allow for file found

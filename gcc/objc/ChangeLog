@@ -1,3 +1,85 @@
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (objc/objc-parse.o): Depend on $(C_COMMON_H)
+	instead of objc/objc-act.h.
+	* objc-act.c (lookup_interface, start_class, continue_class,
+	finish_class, start_method_def, start_protocol, build_method_decl,
+	objc_add_method, add_instance_variable, build_ivar_reference,
+	is_ivar, is_private, get_super_receiver,
+	objc_build_finally_epilogue): Make into static functions.
+	(objc_inherit_code, objc_public_flag): New variables.
+	(objc_start_class_interface, objc_start_category_interface,
+	objc_start_protocol, objc_continue_interface, objc_finish_interface,
+	objc_start_class_implementation, objc_start_category_implementation,
+	objc_continue_implementation, objc_finish_implementation,
+	objc_set_visibility, objc_set_method_type, objc_method_ellipsis,
+	objc_build_method_signature, objc_add_method_declaration,
+	objc_start_method_definition, objc_add_instance_variable,
+	objc_is_reserved_word): New functions.
+	(objc_check_decl): Call objc_is_class_name() instead of
+	is_class_name().
+	(get_static_reference): Rename to objc_get_static_reference().
+	(get_object_reference): Rename to objc_get_object_reference().
+	(build_objc_string_object): Rename to objc_build_string_object();
+	set DECL_THIS_STATIC in Objective-C++ mode.
+	(forward_declare_categories, build_class_reference_decl):
+	Set DECL_THIS_STATIC in Objective-C++ mode.
+	(get_class_reference): Rename to objc_get_class_reference;
+	call objc_is_class_name() instead of is_class_name();
+	set DECL_THIS_STATIC in Objective-C++ mode.
+	(objc_declare_alias): Call objc_is_class_name() instead of
+	is_class_name().
+	(is_class_name): Rename to objc_is_class_name().
+	(get_class_ivars_from_name): Rename to objc_get_class_ivars.
+	(objc_build_try_prologue): Call objc_get_current_scope()
+	instead of get_current_scope().
+	(objc_build_catch_stmt): Call objc_get_class_reference()
+	instead of get_class_reference().
+	(build_super_template): Name field 'super_class' instead
+	of 'class' in Objective-C++ mode.
+	(build_keyword_decl): Rename to objc_build_keyword_decl.
+	(build_method_decl): Tweak ObjC++ additional argument handling.
+	(build_message_expr): Rename to objc_build_message_expr;
+	tweak ObjC++ message argument handling; call
+	objc_finish_message_expr() instead of finish_message_expr().
+	(finish_message_expr): Rename to objc_finish_message_expr.
+	(build_protocol_expr): Rename to objc_build_protocol_expr.
+	(build_selector_expr): Rename to objc_build_selector_expr.
+	(build_encode_expr): Rename to objc_build_encode_expr.
+	(is_public): Rename to objc_is_public.
+	(start_class): Call objc_is_class_name() instead of
+	is_class_name().
+	(finish_protocol, objc_expand_function_end): Remove.
+	(start_method_def): Tweak ObjC++ additional argument
+	handling.
+	(continue_method_def): Rename to objc_continue_method_definition();
+	do not call poplevel() in ObjC++ mode.
+	(get_super_receiver): Call objc_get_current_scope() instead of
+	get_current_scope(); reference 'super_class' field (instead of
+	'class') in ObjC++; call objc_get_class_reference() instead of
+	get_class_reference().
+	(finish_method_def): Rename to objc_finish_method_definition and
+	add a function decl parameter; move method encoding call from
+	objc_expand_function_end.
+	(lookup_objc_ivar): Rename to objc_lookup_ivar.
+	* objc-act.h (finish_file, start_class, continue_class, finish_class,
+	start_method_def, continue_method_def, finish_method_def, 
+	start_protocol, finish_protocol, objc_build_throw_stmt,
+	objc_build_try_catch_finally_stmt, objc_build_synchronized_prologue,
+	objc_build_synchronized_epilogue, objc_build_try_prologue,
+	objc_build_try_epilogue, objc_build_catch_stmt, objc_build_catch_epilogue,
+	objc_build_finally_prologue, objc_build_finally_epilogue,
+	is_ivar, is_private, is_public, add_instance_variable, objc_add_method,
+	get_super_receiver, objc_clear_super_receiver, get_class_ivars_from_name,
+	get_class_reference, get_static_reference, get_object_reference,
+	build_message_expr, finish_message_expr, build_selector_expr,
+	build_ivar_reference, build_keyword_decl, build_method_decl,
+	build_protocol_expr, build_objc_string_object, objc_declare_alias,
+	objc_declare_class, objc_declare_protocols, objc_comptypes,
+	objc_check_decl, build_encode_expr): Remove prototypes.
+	(imp_count, cat_count): Make GGC-aware.
+	(objc_inherit_code, objc_public_flag): New, moved from c-parse.in.
+	
 2004-02-03  Ziemowit Laski  <zlaski@apple.com>
 
         Sync up with HEAD:2004-02-02.

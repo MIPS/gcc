@@ -1,3 +1,15 @@
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (lang_checks): Rename 'check-objc++' to
+	'check-obj-c++'.
+	* objcp-decl.c (objcp_start_struct): Mimic what the C++ front-end
+	does when starting a struct declaration.
+	(objcp_finish_struct): Mimic what the C++ front-end does when
+	finish a struct declaration.
+	(objcp_xref_tag): Remove redundant test.
+	(objcp_lookup_identifier): Call objc_lookup_ivar() instead
+	of lookup_objc_ivar().
+	
 2004-02-03  Ziemowit Laski  <zlaski@apple.com>
 
         * Make-lang.in (objc++.info, objc++.srcinfo, objc++.srcextra,

@@ -34,6 +34,7 @@
 #include "diagnostic.h"
 #include "toplev.h"
 #include "output.h"
+#include "c-common.h"
 
 
 /* The lexer.  */
@@ -631,6 +632,23 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	 corresponding IDENTIFIER_NODE.  For example, `__const' is
 	 mapped to `const'.  */
       token->value = ridpointers[token->keyword];
+    }
+  /* Handle Objective-C++ keywords.  */
+  else if (token->type == CPP_AT_NAME)
+    {
+      token->type = CPP_KEYWORD;
+      switch (C_RID_CODE (token->value))
+	{
+	/* Map 'class' to '@class', 'private' to '@private', etc.  */
+	case RID_CLASS: token->keyword = RID_AT_CLASS; break;
+	case RID_PRIVATE: token->keyword = RID_AT_PRIVATE; break;
+	case RID_PROTECTED: token->keyword = RID_AT_PROTECTED; break;
+	case RID_PUBLIC: token->keyword = RID_AT_PUBLIC; break;
+	case RID_THROW: token->keyword = RID_AT_THROW; break;
+	case RID_TRY: token->keyword = RID_AT_TRY; break;
+	case RID_CATCH: token->keyword = RID_AT_CATCH; break;
+	default: token->keyword = C_RID_CODE (token->value);
+	}
     }
   else
     token->keyword = RID_MAX;
@@ -1625,6 +1643,65 @@ static bool cp_parser_extension_opt
 static void cp_parser_label_declaration
   (cp_parser *);
 
+/* Objective-C++ Extensions */
+
+static tree cp_parser_objc_message_receiver
+  (cp_parser *);
+static tree cp_parser_objc_message_args
+  (cp_parser *);
+static tree cp_parser_objc_message_expression
+  (cp_parser *);
+static tree cp_parser_objc_literal_expression
+  (cp_parser *);
+static tree cp_parser_objc_encode_expression
+  (cp_parser *);
+static tree cp_parser_objc_protocol_expression
+  (cp_parser *);
+static tree cp_parser_objc_selector_expression
+  (cp_parser *);
+static tree cp_parser_objc_expression
+  (cp_parser *);
+static void cp_parser_objc_visibility_spec
+  (cp_parser *);
+static void cp_parser_objc_method_type
+  (cp_parser *);
+static tree cp_parser_objc_typename
+  (cp_parser *);
+static bool cp_parser_objc_selector_p
+  (enum cpp_ttype);
+static tree cp_parser_objc_selector
+  (cp_parser *);
+static tree cp_parser_objc_method_keyword_params
+  (cp_parser *);
+static tree cp_parser_objc_method_tail_params_opt
+  (cp_parser *);
+static tree cp_parser_objc_method_signature
+  (cp_parser *);
+static void cp_parser_objc_method_prototype_list
+  (cp_parser *);
+static void cp_parser_objc_method_definition_list
+  (cp_parser *);
+static void cp_parser_objc_class_ivars
+  (cp_parser *);
+static tree cp_parser_objc_identifier_list
+  (cp_parser *);
+static void cp_parser_objc_alias_declaration
+  (cp_parser *);
+static void cp_parser_objc_class_declaration
+  (cp_parser *);
+static void cp_parser_objc_protocol_declaration
+  (cp_parser *);
+static void cp_parser_objc_superclass_or_category
+  (cp_parser *, tree *, tree *);
+static void cp_parser_objc_class_interface
+  (cp_parser *);
+static void cp_parser_objc_class_implementation
+  (cp_parser *);
+static void cp_parser_objc_end_implementation
+  (cp_parser *);
+static void cp_parser_objc_declaration
+  (cp_parser *);
+
 /* Utility Routines */
 
 static tree cp_parser_lookup_name
@@ -2549,6 +2626,12 @@ cp_parser_primary_expression (cp_parser *parser,
 	    return expression;
 	  }
 
+	/* Objective-C++ expressions.  */
+	case RID_AT_ENCODE:
+	case RID_AT_PROTOCOL:
+	case RID_AT_SELECTOR:
+	  return cp_parser_objc_expression (parser);
+
 	default:
 	  cp_parser_error (parser, "expected primary-expression");
 	  return error_mark_node;
@@ -2636,6 +2719,11 @@ cp_parser_primary_expression (cp_parser *parser,
 
       /* Anything else is an error.  */
     default:
+      /* ...unless we have an Objective-C++ message or string literal, that is.  */
+      if (c_dialect_objc () 
+	  && (token->type == CPP_OPEN_SQUARE || token->type == CPP_OBJC_STRING))
+	return cp_parser_objc_expression (parser);
+
       cp_parser_error (parser, "expected primary-expression");
       return error_mark_node;
     }
@@ -6295,6 +6383,9 @@ cp_parser_declaration (cp_parser* parser)
 	       /* An unnamed namespace definition.  */
 	       || token2.type == CPP_OPEN_BRACE))
     cp_parser_namespace_definition (parser);
+  /* Objective-C++ declaration/definition.  */
+  else if (c_dialect_objc () && OBJC_IS_AT_KEYWORD (token1.keyword))
+    cp_parser_objc_declaration (parser);
   /* We must have either a block declaration or a function
      definition.  */
   else
@@ -10981,7 +11072,9 @@ cp_parser_parameter_declaration_list (cp_parser* parser)
 
       /* Peek at the next token.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN)
-	  || cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	  || cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
 	/* The parameter-declaration-list is complete.  */
 	break;
       else if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
@@ -15203,6 +15296,675 @@ static bool
 cp_parser_allow_gnu_extensions_p (cp_parser* parser)
 {
   return parser->allow_gnu_extensions_p;
+}
+
+/******** OBJECTIVE-C++ PRODUCTIONS ********/
+
+static tree
+cp_parser_objc_message_receiver (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  if(token->type == CPP_NAME && objc_is_class_name (token->value))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      return objc_get_class_reference (token->value);
+    }
+
+  return cp_parser_expression (parser);
+}
+
+static tree
+cp_parser_objc_message_args (cp_parser* parser)
+{
+  tree sel_args = NULL_TREE, addl_args = NULL_TREE;
+  bool maybe_unary_selector_p = true;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON)
+    {
+      tree selector = NULL_TREE, arg;
+
+      if (token->type != CPP_COLON)
+	selector = cp_parser_objc_selector (parser);
+
+      /* Detect if we have a unary selector.  */
+      if (maybe_unary_selector_p
+	  && cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
+	return build_tree_list (selector, NULL_TREE);
+
+      maybe_unary_selector_p = false;
+      cp_parser_require (parser, CPP_COLON, "`:'");
+      arg = cp_parser_assignment_expression (parser);
+
+      sel_args
+	= chainon (sel_args,
+		   build_tree_list (selector, arg));
+
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  /* Handle non-selector arguments, if any. */
+  while (token->type == CPP_COMMA)
+    {
+      tree arg;
+
+      cp_lexer_consume_token (parser->lexer);
+      arg = cp_parser_assignment_expression (parser);
+
+      addl_args
+	= chainon (addl_args,
+		   build_tree_list (NULL_TREE, arg));
+
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  return build_tree_list (sel_args, addl_args);
+}
+
+static tree
+cp_parser_objc_message_expression (cp_parser* parser)
+{
+  tree receiver, messageargs;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '['.  */
+  receiver = cp_parser_objc_message_receiver (parser);
+  messageargs = cp_parser_objc_message_args (parser);
+  cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+
+  return objc_build_message_expr (build_tree_list (receiver, messageargs));
+}
+
+static tree
+cp_parser_objc_literal_expression (cp_parser* parser)
+{
+  return objc_build_string_object
+	 (cp_lexer_consume_token (parser->lexer)->value);
+}
+
+static tree
+cp_parser_objc_encode_expression (cp_parser* parser)
+{
+  tree type;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@encode'.  */
+  type = cp_parser_objc_typename (parser);
+
+  if (!type)
+    {
+      error ("`@encode' must specify a type as an argument");
+      return error_mark_node;
+    }
+
+  return objc_build_encode_expr (type);
+}
+
+static tree
+cp_parser_objc_protocol_expression (cp_parser* parser)
+{
+  tree proto;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@protocol'.  */
+  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  proto = cp_parser_identifier (parser);
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+
+  return objc_build_protocol_expr (proto);
+}
+
+static tree
+cp_parser_objc_selector_expression (cp_parser* parser)
+{
+  tree sel_seq = NULL_TREE;
+  bool maybe_unary_selector_p = true;
+  cp_token *token;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@selector'.  */
+  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  token = cp_lexer_peek_token (parser->lexer);
+
+  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON)
+    {
+      tree selector = NULL_TREE;
+
+      if (token->type != CPP_COLON)
+	selector = cp_parser_objc_selector (parser);
+
+      /* Detect if we have a unary selector.  */
+      if (maybe_unary_selector_p
+	  && cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
+	{
+	  sel_seq = selector;
+	  goto finish_selector;
+	}
+
+      maybe_unary_selector_p = false;
+      cp_parser_require (parser, CPP_COLON, "`:'");
+
+      sel_seq
+	= chainon (sel_seq,
+		   build_tree_list (selector, NULL_TREE));
+
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+ finish_selector:
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+
+  return objc_build_selector_expr (sel_seq);
+}
+
+static tree
+cp_parser_objc_expression (cp_parser* parser)
+{
+  /* Try to figure out what kind of declaration is present.  */
+  cp_token *kwd = cp_lexer_peek_token (parser->lexer);
+
+  switch (kwd->type)
+    {
+    case CPP_OPEN_SQUARE:
+      return cp_parser_objc_message_expression (parser);
+    case CPP_OBJC_STRING:
+      return cp_parser_objc_literal_expression (parser);
+    case CPP_NAME:
+      switch (kwd->keyword)
+	{
+	case RID_AT_ENCODE:
+	  return cp_parser_objc_encode_expression (parser);
+	case RID_AT_PROTOCOL:
+	  return cp_parser_objc_protocol_expression (parser);
+	case RID_AT_SELECTOR:
+	  return cp_parser_objc_selector_expression (parser);
+	default:
+	  break;
+	}
+    default:
+      error ("misplaced `@%D' Objective-C++ construct", kwd->value);
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+    }
+
+  return error_mark_node;
+}
+
+static tree
+cp_parser_objc_identifier_list (cp_parser* parser)
+{
+  tree list = build_tree_list (NULL_TREE, cp_parser_identifier (parser));
+  cp_token *sep = cp_lexer_peek_token (parser->lexer);
+
+  while (sep->type == CPP_COMMA)
+    {
+      cp_lexer_consume_token (parser->lexer);  /* Eat ','.  */
+      list = chainon (list, 
+		      build_tree_list (NULL_TREE,
+				       cp_parser_identifier (parser)));
+      sep = cp_lexer_peek_token (parser->lexer);
+    }
+    
+  return list;
+}
+
+static void
+cp_parser_objc_alias_declaration (cp_parser* parser)
+{
+  tree alias, orig;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@compatibility_alias'.  */
+  alias = cp_parser_identifier (parser);
+  orig = cp_parser_identifier (parser);
+  objc_declare_alias (alias, orig);
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+}
+
+static void
+cp_parser_objc_class_declaration (cp_parser* parser)
+{
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@class'.  */
+  objc_declare_class (cp_parser_objc_identifier_list (parser));
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+}
+
+static tree
+cp_parser_objc_protocol_refs (cp_parser* parser)
+{
+  tree protorefs = NULL_TREE;
+
+  if(cp_lexer_next_token_is (parser->lexer, CPP_LESS))
+    {
+      cp_lexer_consume_token (parser->lexer);  /* Eat '<'.  */
+      protorefs = cp_parser_objc_identifier_list (parser);
+      cp_parser_require (parser, CPP_GREATER, "`>'");
+    }
+
+  return protorefs;
+}
+
+static void
+cp_parser_objc_visibility_spec (cp_parser* parser)
+{
+  cp_token *vis = cp_lexer_peek_token (parser->lexer);
+
+  switch (vis->keyword)
+    {
+    case RID_AT_PRIVATE:
+      objc_set_visibility (2);
+      break;
+    case RID_AT_PROTECTED:
+      objc_set_visibility (0);
+      break;
+    case RID_AT_PUBLIC:
+      objc_set_visibility (1);
+      break;
+    default:
+      return;
+    }
+
+  /* Eat '@private'/'@protected'/'@public'.  */
+  cp_lexer_consume_token (parser->lexer);
+}
+
+static void
+cp_parser_objc_method_type (cp_parser* parser)
+{
+  objc_set_method_type
+   (cp_lexer_consume_token (parser->lexer)->type == CPP_PLUS
+    ? PLUS_EXPR
+    : MINUS_EXPR);
+}
+
+static tree
+cp_parser_objc_typename (cp_parser* parser)
+{
+  tree typename = NULL_TREE;
+
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
+    {
+      tree typespecs, absdecl;
+
+      cp_lexer_consume_token (parser->lexer);  /* Eat '('.  */
+      typespecs = cp_parser_type_specifier_seq (parser);
+      cp_parser_parse_tentatively (parser);
+      absdecl = cp_parser_declarator (parser,
+				      CP_PARSER_DECLARATOR_ABSTRACT,
+				      NULL, NULL);
+
+      /* Check to see if there really was a declarator.  */
+      if (!cp_parser_parse_definitely (parser))
+	absdecl = NULL_TREE;
+
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      typename = build_tree_list (typespecs, absdecl);
+    }
+
+  return typename;
+}
+
+static bool
+cp_parser_objc_selector_p (enum cpp_ttype type)
+{
+  return (type == CPP_NAME || type == CPP_KEYWORD);
+}
+
+static tree
+cp_parser_objc_selector (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_consume_token (parser->lexer);
+  
+  if (!cp_parser_objc_selector_p (token->type))
+    {
+      error ("invalid Objective-C++ selector name");
+      return error_mark_node;
+    }
+  
+  return token->value;
+}
+
+static tree
+cp_parser_objc_method_keyword_params (cp_parser* parser)
+{
+  tree params = NULL_TREE;
+  bool maybe_unary_selector_p = true;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON)
+    {
+      tree selector = NULL_TREE, typename, identifier;
+
+      if (token->type != CPP_COLON)
+	selector = cp_parser_objc_selector (parser);
+
+      /* Detect if we have a unary selector.  */
+      if (maybe_unary_selector_p
+	  && cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
+	return selector;
+
+      maybe_unary_selector_p = false;
+      cp_parser_require (parser, CPP_COLON, "`:'");
+      typename = cp_parser_objc_typename (parser);
+      identifier = cp_parser_identifier (parser);
+
+      params
+	= chainon (params,
+		   objc_build_keyword_decl (selector, 
+					    typename,
+					    identifier));
+
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  return params;
+}
+
+static tree
+cp_parser_objc_method_tail_params_opt (cp_parser* parser)
+{
+  tree params;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  if (token->type != CPP_COMMA)
+    return NULL_TREE;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat ','.  */
+  params = cp_parser_parameter_declaration_clause (parser);
+
+  if (!params)
+    params = objc_method_ellipsis ();
+
+  return params;
+}
+
+static tree
+cp_parser_objc_method_signature (cp_parser* parser)
+{
+  tree rettype, kwdparms, optparms;
+
+  cp_parser_objc_method_type (parser);
+  rettype = cp_parser_objc_typename (parser);
+  kwdparms = cp_parser_objc_method_keyword_params (parser);
+  optparms = cp_parser_objc_method_tail_params_opt (parser);
+
+  return objc_build_method_signature (rettype, kwdparms, optparms);
+}
+
+static void
+cp_parser_objc_method_prototype_list (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  while (token->keyword != RID_AT_END)
+    {
+      if (token->type == CPP_PLUS || token->type == CPP_MINUS)
+	{
+	  objc_add_method_declaration
+	   (cp_parser_objc_method_signature (parser));
+	  cp_parser_consume_semicolon_at_end_of_statement (parser);
+	}
+
+      else
+	/* Try to parse a block-declaration, or a function-definition.  */
+	cp_parser_block_declaration (parser, /*statement_p=*/false);
+
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@end'.  */
+  objc_finish_interface ();
+}
+
+static void
+cp_parser_objc_method_definition_list (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  while (token->keyword != RID_AT_END)
+    {
+      tree meth;
+
+      if (token->type == CPP_PLUS || token->type == CPP_MINUS)
+	{
+	  push_deferring_access_checks (dk_deferred);
+	  objc_start_method_definition
+	   (cp_parser_objc_method_signature (parser));
+
+	  /* For historical reasons, we accept an optional semicolon.  */
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+	    cp_lexer_consume_token (parser->lexer);
+
+	  perform_deferred_access_checks ();
+	  objc_continue_method_definition ();
+	  stop_deferring_access_checks ();
+	  meth = cp_parser_function_definition_after_declarator (parser,
+								 false);
+	  pop_deferring_access_checks ();
+	  objc_finish_method_definition (meth);
+	}
+
+      else
+	/* Try to parse a block-declaration, or a function-definition.  */
+	cp_parser_block_declaration (parser, /*statement_p=*/false);
+
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@end'.  */
+  objc_finish_implementation ();
+}
+
+static void
+cp_parser_objc_class_ivars (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  if (token->type != CPP_OPEN_BRACE)
+    return;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '{'.  */
+  token = cp_lexer_peek_token (parser->lexer);
+
+  while (token->type != CPP_CLOSE_BRACE)
+    {
+      tree declspecs, attributes;
+      int decl_class_or_enum_p;
+
+      cp_parser_objc_visibility_spec (parser);
+      declspecs = cp_parser_decl_specifier_seq (parser,
+						CP_PARSER_FLAGS_OPTIONAL,
+						&attributes,
+						&decl_class_or_enum_p);
+
+      /* Keep going until we hit the `;' at the end of the
+	 declaration.  */
+      while (true)
+	{
+	  tree width = NULL_TREE, declarator = NULL_TREE;
+	  int ctor_dtor_or_conv_p;
+
+	  /* Check for a (possibly unnamed) bitfield declaration.  */
+	  token = cp_lexer_peek_token (parser->lexer);
+	  if (token->type == CPP_COLON)
+	    goto eat_colon;
+
+	  if (token->type == CPP_NAME
+	      && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+		  == CPP_COLON))
+	    {
+	      /* Get the name of the bitfield.  */
+	      declarator = cp_parser_identifier (parser);
+
+	     eat_colon:
+	      cp_lexer_consume_token (parser->lexer);  /* Eat ':'.  */
+	      /* Get the width of the bitfield.  */
+	      width
+		= cp_parser_constant_expression (parser,
+						 /*allow_non_constant=*/false,
+						 NULL);
+	    }
+	  else
+	    {
+	      /* Parse the declarator.  */
+	      declarator 
+		= cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
+					&ctor_dtor_or_conv_p,
+					/*parenthesized_p=*/NULL);
+	    }
+
+	  /* Add the instance variable.  */
+	  objc_add_instance_variable (declarator, declspecs, width);
+	  token = cp_lexer_peek_token (parser->lexer);
+
+	  if (token->type == CPP_COMMA)
+	    {
+	      cp_lexer_consume_token (parser->lexer);  /* Eat ','.  */
+	      continue;
+	    }
+	  break;
+	}
+
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '}'.  */
+}
+
+static void
+cp_parser_objc_protocol_declaration (cp_parser* parser)
+{
+  tree proto, protorefs;
+  cp_token *tok;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@protocol'.  */
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
+    {
+      error ("identifier expected after `@protocol'");
+      goto finish;
+    }
+
+  /* See if we have a foward declaration or a definition.  */
+  tok = cp_lexer_peek_nth_token (parser->lexer, 2);
+  
+  /* Try a forward declaration first.  */
+  if (tok->type == CPP_COMMA || tok->type == CPP_SEMICOLON)
+    {
+      objc_declare_protocols (cp_parser_objc_identifier_list (parser));
+     finish: 
+      cp_parser_consume_semicolon_at_end_of_statement (parser);
+    } 
+
+  /* Ok, we got a full-fledged definition (or at least should).  */
+  else
+    {
+      proto = cp_parser_identifier (parser);
+      protorefs = cp_parser_objc_protocol_refs (parser);
+      objc_start_protocol (proto, protorefs);
+      cp_parser_objc_method_prototype_list (parser);
+    }
+}
+
+static void
+cp_parser_objc_superclass_or_category (cp_parser *parser, tree *super,
+							  tree *categ)
+{
+  cp_token *next = cp_lexer_peek_token (parser->lexer);
+
+  *super = *categ = NULL_TREE;
+  if (next->type == CPP_COLON)
+    {
+      cp_lexer_consume_token (parser->lexer);  /* Eat ':'.  */
+      *super = cp_parser_identifier (parser);
+    }
+  else if (next->type == CPP_OPEN_PAREN)
+    {
+      cp_lexer_consume_token (parser->lexer);  /* Eat '('.  */
+      *categ = cp_parser_identifier (parser);
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+    }
+}
+
+static void
+cp_parser_objc_class_interface (cp_parser* parser)
+{
+  tree name, super, categ, protos;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@interface'.  */
+  name = cp_parser_identifier (parser);
+  cp_parser_objc_superclass_or_category (parser, &super, &categ);
+  protos = cp_parser_objc_protocol_refs (parser);
+
+  /* We have either a class or a category on our hands.  */
+  if (categ)
+    objc_start_category_interface (name, categ, protos);
+  else
+    {
+      objc_start_class_interface (name, super, protos);
+      /* Handle instance variable declarations, if any.  */
+      cp_parser_objc_class_ivars (parser);
+      objc_continue_interface ();
+    }
+
+  cp_parser_objc_method_prototype_list (parser);
+}
+
+static void
+cp_parser_objc_class_implementation (cp_parser* parser)
+{
+  tree name, super, categ;
+
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@implementation'.  */
+  name = cp_parser_identifier (parser);
+  cp_parser_objc_superclass_or_category (parser, &super, &categ);
+
+  /* We have either a class or a category on our hands.  */
+  if (categ)
+    objc_start_category_implementation (name, categ);
+  else
+    {
+      objc_start_class_implementation (name, super);
+      /* Handle instance variable declarations, if any.  */
+      cp_parser_objc_class_ivars (parser);
+      objc_continue_implementation ();
+    }
+
+  cp_parser_objc_method_definition_list (parser);
+}
+
+static void
+cp_parser_objc_end_implementation (cp_parser* parser)
+{
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@end'.  */
+  objc_finish_implementation ();
+}
+
+static void
+cp_parser_objc_declaration (cp_parser* parser)
+{
+  /* Try to figure out what kind of declaration is present.  */
+  cp_token *kwd = cp_lexer_peek_token (parser->lexer);
+
+  switch (kwd->keyword)
+    {
+    case RID_AT_ALIAS:
+      cp_parser_objc_alias_declaration (parser);
+      break;
+    case RID_AT_CLASS:
+      cp_parser_objc_class_declaration (parser);
+      break;
+    case RID_AT_PROTOCOL:
+      cp_parser_objc_protocol_declaration (parser);
+      break;
+    case RID_AT_INTERFACE:
+      cp_parser_objc_class_interface (parser);
+      break;
+    case RID_AT_IMPLEMENTATION:
+      cp_parser_objc_class_implementation (parser);
+      break;
+    case RID_AT_END:
+      cp_parser_objc_end_implementation (parser);
+      break;
+    default:
+      error ("misplaced `@%D' Objective-C++ construct", kwd->value);
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+    }
 }
 
 

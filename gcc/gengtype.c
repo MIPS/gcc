@@ -1125,7 +1125,7 @@ get_file_basename (const char *f)
       s2 = lang_dir_names [i];
       l1 = strlen (s1);
       l2 = strlen (s2);
-      if (s1 > f && s1[-1] == '/')
+      if (l1 >= l2 && s1[-1] == '/' && !memcmp (s1, s2, l2))
         {
           basename -= l2 + 1;
           if ((basename - f - 1) != srcdir_len)

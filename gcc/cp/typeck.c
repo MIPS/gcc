@@ -923,6 +923,8 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 bool
 comptypes (tree t1, tree t2, int strict)
 {
+  int retval;
+
   if (t1 == t2)
     return true;
 
@@ -1006,6 +1008,11 @@ comptypes (tree t1, tree t2, int strict)
       /* Fall through.  */
 
     case RECORD_TYPE:
+      /* We may be dealing with Objective-C instances...  */
+      if (c_dialect_objc () && (retval = objc_comptypes (t1, t2, 0) >= 0))
+         return retval;
+      /* ...but fall through if we are not. */
+
     case UNION_TYPE:
       if (TYPE_TEMPLATE_INFO (t1) && TYPE_TEMPLATE_INFO (t2)
 	  && (TYPE_TI_TEMPLATE (t1) == TYPE_TI_TEMPLATE (t2)

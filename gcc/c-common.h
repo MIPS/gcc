@@ -1323,22 +1323,69 @@ extern int c_estimate_num_insns (tree decl);
 extern bool c_decl_uninit (tree t);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
-/* The following have been moved here from c-tree.h, since they're needed
-   in the ObjC++ world, too.  What is more, stub-objc.c could use a few
-   prototypes.  */
-extern tree lookup_interface (tree);
-extern tree is_class_name (tree);
-extern tree objc_is_object_ptr (tree);
-extern void objc_check_decl (tree);
-extern int objc_comptypes (tree, tree, int);
-extern tree objc_message_selector (void);
-extern tree lookup_objc_ivar (tree);
-extern void *get_current_scope (void);
-extern void objc_mark_locals_volatile (void *);
-
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
+
+/****** OBJECTIVE-C / OBJECTIVE-C++ ENTRY POINTS ******/
+
+/* The following ObjC/ObjC++ functions are called by the C and/or C++
+   front-ends; they all must have corresponding stubs in stub-objc.c.  */
+extern tree objc_is_class_name (tree);
+extern tree objc_is_object_ptr (tree);
+extern void objc_check_decl (tree);
+extern int objc_is_reserved_word (tree);
+extern int objc_comptypes (tree, tree, int);
+extern tree objc_message_selector (void);
+extern tree objc_lookup_ivar (tree);
+extern void objc_declare_alias (tree, tree);
+extern void objc_declare_class (tree);
+extern void objc_declare_protocols (tree);
+extern tree objc_method_ellipsis (void);
+extern int objc_is_public (tree, tree);
+extern tree objc_build_message_expr (tree);
+extern tree objc_finish_message_expr (tree, tree, tree);
+extern tree objc_build_selector_expr (tree);
+extern tree objc_build_protocol_expr (tree);
+extern tree objc_build_encode_expr (tree);
+extern tree objc_build_string_object (tree);
+extern tree objc_get_static_reference (tree, tree);
+extern tree objc_get_object_reference (tree);
+extern tree objc_get_class_reference (tree);
+extern tree objc_get_class_ivars (tree);
+extern void objc_start_class_interface (tree, tree, tree);
+extern void objc_start_category_interface (tree, tree, tree);
+extern void objc_start_protocol (tree, tree);
+extern void objc_continue_interface (void);
+extern void objc_finish_interface (void);
+extern void objc_start_class_implementation (tree, tree);
+extern void objc_start_category_implementation (tree, tree);
+extern void objc_continue_implementation (void);
+extern void objc_finish_implementation (void);
+extern void objc_set_visibility (int);
+extern void objc_set_method_type (enum tree_code);
+extern tree objc_build_method_signature (tree, tree, tree);
+extern void objc_add_method_declaration (tree);
+extern void objc_start_method_definition (tree);
+extern void objc_continue_method_definition (void);
+extern void objc_finish_method_definition (tree);
+extern tree objc_add_instance_variable (tree, tree, tree);
+extern void objc_clear_super_receiver (void);
+extern tree objc_build_keyword_decl (tree, tree, tree);
+extern tree objc_build_throw_stmt (tree);
+extern tree objc_build_try_prologue (void);
+extern void objc_build_try_epilogue (int);
+extern void objc_build_catch_stmt (tree);
+extern void objc_build_catch_epilogue (void);
+extern tree objc_build_finally_prologue (void);
+extern void objc_build_synchronized_prologue (tree);
+extern tree objc_build_synchronized_epilogue (void);
+extern tree objc_build_try_catch_finally_stmt (int, int);
+
+/* The following are provided by the C and C++ front-ends, and called by
+   ObjC/ObjC++.  */
+extern void *objc_get_current_scope (void);
+extern void objc_mark_locals_volatile (void *);
 
 #endif /* ! GCC_C_COMMON_H */

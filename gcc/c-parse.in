@@ -49,10 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
-
-@@ifobjc
-#include "objc-act.h"
-@@end_ifobjc
+#include "c-common.h"
 
 /* Like YYERROR but do call yyerror.  */
 #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
@@ -239,6 +236,7 @@ do {									\
 
 %type <ttype> ivar_decl_list ivar_decls ivar_decl ivars ivar_declarator
 %type <ttype> methoddecl unaryselector keywordselector selector
+%type <code> methodtype
 %type <ttype> keyworddecl receiver objcmessageexpr messageargs
 %type <ttype> keywordexpr keywordarglist keywordarg
 %type <ttype> myparms myparm optparmlist reservedwords objcselectorexpr
@@ -312,8 +310,7 @@ static GTY(()) tree declspec_stack;
 @@ifobjc
 /* Objective-C specific parser/lexer information */
 
-static enum tree_code objc_inherit_code;
-static int objc_pq_context = 0, objc_public_flag = 0;
+static int objc_pq_context = 0;
 
 /* The following flag is needed to contextualize ObjC lexical analysis.
    In some cases (e.g., 'int NSObject;'), it is undesirable to bind
@@ -712,7 +709,7 @@ primary:
 	| primary '.' identifier
 		{
 @@ifobjc
-		    if (!is_public ($1, $3))
+		    if (!objc_is_public ($1, $3))
 		      $$ = error_mark_node;
 		    else
 @@end_ifobjc
@@ -723,7 +720,7 @@ primary:
                   tree expr = build_indirect_ref ($1, "->");
 
 @@ifobjc
-		      if (!is_public (expr, $3))
+		      if (!objc_is_public (expr, $3))
 			$$ = error_mark_node;
 		      else
 @@end_ifobjc
@@ -735,15 +732,15 @@ primary:
 		{ $$ = build_unary_op (POSTDECREMENT_EXPR, $1, 0); }
 @@ifobjc
 	| objcmessageexpr
-		{ $$ = build_message_expr ($1); }
+		{ $$ = objc_build_message_expr ($1); }
 	| objcselectorexpr
-		{ $$ = build_selector_expr ($1); }
+		{ $$ = objc_build_selector_expr ($1); }
 	| objcprotocolexpr
-		{ $$ = build_protocol_expr ($1); }
+		{ $$ = objc_build_protocol_expr ($1); }
 	| objcencodeexpr
-		{ $$ = build_encode_expr ($1); }
+		{ $$ = objc_build_encode_expr ($1); }
 	| OBJC_STRING
-		{ $$ = build_objc_string_object ($1); }
+		{ $$ = objc_build_string_object ($1); }
 @@end_ifobjc
 	;
 
@@ -1361,14 +1358,14 @@ typespec_nonreserved_nonattr:
 		  $$ = lookup_name ($1); }
 @@ifobjc
 	| CLASSNAME protocolrefs
-		{ $$ = get_static_reference ($1, $2); }
+		{ $$ = objc_get_static_reference ($1, $2); }
 	| OBJECTNAME protocolrefs
-		{ $$ = get_object_reference ($2); }
+		{ $$ = objc_get_object_reference ($2); }
 
 /* Make "<SomeProtocol>" equivalent to "id <SomeProtocol>"
    - nisse@lysator.liu.se */
         | non_empty_protocolrefs
-                { $$ = get_object_reference ($1); }
+                { $$ = objc_get_object_reference ($1); }
 @@end_ifobjc
 	| typeof '(' expr ')'
 		{ skip_evaluation--;
@@ -1816,7 +1813,7 @@ component_decl_list2:	/* empty */
 @@ifobjc
 	/* foo(sizeof(struct{ @defs(ClassName)})); */
 	| DEFS '(' CLASSNAME ')'
-		{ $$ = nreverse (get_class_ivars_from_name ($3)); }
+		{ $$ = nreverse (objc_get_class_ivars ($3)); }
 @@end_ifobjc
 	;
 
@@ -2728,14 +2725,7 @@ objcdef:
 	| methoddef
 	| END
 		{
-		  if (objc_implementation_context)
-                    {
-		      finish_class (objc_implementation_context);
-		      objc_ivar_chain = NULL_TREE;
-		      objc_implementation_context = NULL_TREE;
-		    }
-		  else
-		    warning ("`@end' must appear in an implementation context");
+		  objc_finish_implementation ();
 		}
 	;
 
@@ -2774,50 +2764,38 @@ class_ivars:
 classdef:
 	  INTERFACE identifier superclass protocolrefs
 		{
-		  objc_interface_context = objc_ivar_context
-		    = start_class (CLASS_INTERFACE_TYPE, $2, $3, $4);
-                  objc_public_flag = 0;
+		  objc_start_class_interface ($2, $3, $4);
 		}
 	  class_ivars
 		{
-                  continue_class (objc_interface_context);
+		  objc_continue_interface ();
 		}
 	  methodprotolist END
 		{
-		  finish_class (objc_interface_context);
-		  objc_interface_context = NULL_TREE;
+		  objc_finish_interface ();
 		}
 
 	| IMPLEMENTATION identifier superclass
 		{
-		  objc_implementation_context = objc_ivar_context
-		    = start_class (CLASS_IMPLEMENTATION_TYPE, $2, $3, NULL_TREE);
-                  objc_public_flag = 0;
+		  objc_start_class_implementation ($2, $3);
 		}
 	  class_ivars
 		{
-                  objc_ivar_chain
-		    = continue_class (objc_implementation_context);
+		  objc_continue_implementation ();
 		}
 
 	| INTERFACE identifier '(' identifier ')' protocolrefs
 		{
-		  objc_interface_context
-		    = start_class (CATEGORY_INTERFACE_TYPE, $2, $4, $6);
-                  continue_class (objc_interface_context);
+		  objc_start_category_interface ($2, $4, $6);
 		}
 	  methodprotolist END
 		{
-		  finish_class (objc_interface_context);
-		  objc_interface_context = NULL_TREE;
+		  objc_finish_interface ();
 		}
 
 	| IMPLEMENTATION identifier '(' identifier ')'
 		{
-		  objc_implementation_context
-		    = start_class (CATEGORY_IMPLEMENTATION_TYPE, $2, $4, NULL_TREE);
-                  objc_ivar_chain
-		    = continue_class (objc_implementation_context);
+		  objc_start_category_implementation ($2, $4);
 		}
 	;
 
@@ -2825,14 +2803,12 @@ protocoldef:
 	  PROTOCOL identifier protocolrefs
 		{
 		  objc_pq_context = 1;
-		  objc_interface_context
-		    = start_protocol(PROTOCOL_INTERFACE_TYPE, $2, $3);
+		  objc_start_protocol ($2, $3);
 		}
 	  methodprotolist END
 		{
 		  objc_pq_context = 0;
-		  finish_protocol(objc_interface_context);
-		  objc_interface_context = NULL_TREE;
+		  objc_finish_interface ();
 		}
 	/* The @protocol forward-declaration production introduces a
 	   reduce/reduce conflict on ';', which should be resolved in
@@ -2867,9 +2843,9 @@ ivar_decl_list:
         ;
 
 visibility_spec:
-	  PRIVATE { objc_public_flag = 2; }
-	| PROTECTED { objc_public_flag = 0; }
-	| PUBLIC { objc_public_flag = 1; }
+	  PRIVATE { objc_set_visibility (2); }
+	| PROTECTED { objc_set_visibility (0); }
+	| PUBLIC { objc_set_visibility (1); }
 	;
 
 ivar_decls:
@@ -2916,55 +2892,44 @@ ivars:
 ivar_declarator:
 	  declarator
 		{
-		  $$ = add_instance_variable (objc_ivar_context,
-					      objc_public_flag,
-					      $1, current_declspecs,
-					      NULL_TREE);
+		  $$ = objc_add_instance_variable ($1, current_declspecs,
+						   NULL_TREE);
                 }
 	| declarator ':' expr_no_commas
 		{
-		  $$ = add_instance_variable (objc_ivar_context,
-					      objc_public_flag,
-					      $1, current_declspecs, $3);
+		  $$ = objc_add_instance_variable ($1, current_declspecs,
+						   $3);
                 }
 	| ':' expr_no_commas
 		{
-		  $$ = add_instance_variable (objc_ivar_context,
-					      objc_public_flag,
-					      NULL_TREE,
-					      current_declspecs, $2);
+		  $$ = objc_add_instance_variable (NULL_TREE,
+						   current_declspecs, $2);
                 }
 	;
 
 methodtype:
 	  '+'
-		{ objc_inherit_code = CLASS_METHOD_DECL; }
 	| '-'
-		{ objc_inherit_code = INSTANCE_METHOD_DECL; }
 	;
 
 methoddef:
 	  methodtype
 		{
+		  objc_set_method_type ($1);
 		  objc_pq_context = 1;
-		  if (!objc_implementation_context)
-		    fatal_error ("method definition not in class context");
 		}
 	  methoddecl
 		{
 		  objc_pq_context = 0;
-		  objc_add_method (objc_implementation_context,
-				   $3,
-				   objc_inherit_code == CLASS_METHOD_DECL);
-		  start_method_def ($3);
+		  objc_start_method_definition ($3);
 		}
 	  optarglist
 		{
-		  continue_method_def ();
+		  objc_continue_method_definition ();
 		}
 	  compstmt_or_error
 		{
-		  finish_method_def ();
+		  objc_finish_method_definition (current_function_decl);
 		}
 	;
 
@@ -2986,6 +2951,7 @@ semi_or_error:
 methodproto:
 	  methodtype
 		{
+		  objc_set_method_type ($1);
 		  /* Remember protocol qualifiers in prototypes.  */
 		  objc_pq_context = 1;
 		}
@@ -2993,9 +2959,7 @@ methodproto:
 		{
 		  /* Forget protocol qualifiers here.  */
 		  objc_pq_context = 0;
-		  objc_add_method (objc_interface_context,
-				   $3,
-				   objc_inherit_code == CLASS_METHOD_DECL);
+		  objc_add_method_declaration ($3);
 		}
 	  semi_or_error
 	;
@@ -3003,22 +2967,22 @@ methodproto:
 methoddecl:
 	  '(' typename ')' unaryselector
 		{
-		  $$ = build_method_decl (objc_inherit_code, $2, $4, NULL_TREE);
+		  $$ = objc_build_method_signature ($2, $4, NULL_TREE);
 		}
 
 	| unaryselector
 		{
-		  $$ = build_method_decl (objc_inherit_code, NULL_TREE, $1, NULL_TREE);
+		  $$ = objc_build_method_signature (NULL_TREE, $1, NULL_TREE);
 		}
 
 	| '(' typename ')' keywordselector optparmlist
 		{
-		  $$ = build_method_decl (objc_inherit_code, $2, $4, $5);
+		  $$ = objc_build_method_signature ($2, $4, $5);
 		}
 
 	| keywordselector optparmlist
 		{
-		  $$ = build_method_decl (objc_inherit_code, NULL_TREE, $1, $2);
+		  $$ = objc_build_method_signature (NULL_TREE, $1, $2);
 		}
 	;
 
@@ -3085,7 +3049,7 @@ optparmlist:
 	| ',' ELLIPSIS
 		{
 		  /* oh what a kludge! */
-		  $$ = objc_ellipsis_node;
+		  $$ = objc_method_ellipsis ();
 		}
 	| ','
 		{
@@ -3130,22 +3094,22 @@ reservedwords:
 keyworddecl:
 	  selector ':' '(' typename ')' identifier
 		{
-		  $$ = build_keyword_decl ($1, $4, $6);
+		  $$ = objc_build_keyword_decl ($1, $4, $6);
 		}
 
 	| selector ':' identifier
 		{
-		  $$ = build_keyword_decl ($1, NULL_TREE, $3);
+		  $$ = objc_build_keyword_decl ($1, NULL_TREE, $3);
 		}
 
 	| ':' '(' typename ')' identifier
 		{
-		  $$ = build_keyword_decl (NULL_TREE, $3, $5);
+		  $$ = objc_build_keyword_decl (NULL_TREE, $3, $5);
 		}
 
 	| ':' identifier
 		{
-		  $$ = build_keyword_decl (NULL_TREE, NULL_TREE, $2);
+		  $$ = objc_build_keyword_decl (NULL_TREE, NULL_TREE, $2);
 		}
 	;
 
@@ -3190,11 +3154,11 @@ receiver:
 	  expr
 	| CLASSNAME
 		{
-		  $$ = get_class_reference ($1);
+		  $$ = objc_get_class_reference ($1);
 		}
 	| TYPENAME
 		{
-		  $$ = get_class_reference ($1);
+		  $$ = objc_get_class_reference ($1);
 		}
 	;
 
@@ -3596,7 +3560,7 @@ yylexname (void)
 @@ifobjc
   else
     {
-      tree objc_interface_decl = is_class_name (yylval.ttype);
+      tree objc_interface_decl = objc_is_class_name (yylval.ttype);
       /* ObjC class names are in the same namespace as variables and
 	 typedefs, and hence are shadowed by local declarations.  */
       if (objc_interface_decl

@@ -414,7 +414,7 @@ pop_scope (void)
 /* The Objective-C front-end often needs to determine the current scope.  */
 
 void *
-get_current_scope (void)
+objc_get_current_scope (void)
 {
   return current_scope;
 }

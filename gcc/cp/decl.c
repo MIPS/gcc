@@ -411,7 +411,7 @@ pop_labels (tree block)
    The binding level is purposely treated as an opaque type.  */
 
 void *
-get_current_scope (void)
+objc_get_current_scope (void)
 {
   return current_binding_level;
 }

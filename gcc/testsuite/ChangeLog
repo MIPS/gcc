@@ -1,3 +1,10 @@
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* lib/obj-c++-dg.exp: New file.
+	* lib/obj-c++.exp: New file.
+	* obj-c++.dg/basic.mm: New test case.
+	* obj-c++.dg/dg.exp: New file.
+
 2004-02-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/13957

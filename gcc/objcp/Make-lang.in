@@ -98,7 +98,7 @@ objc++.tags: force
 	cd $(srcdir)/objcp; etags -o TAGS.sub *.y *.c *.h; \
 	etags --include TAGS.sub --include ../TAGS.sub
 
-lang_checks += check-objc++
+lang_checks += check-obj-c++
 
 #
 # Install hooks:

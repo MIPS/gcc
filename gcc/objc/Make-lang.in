@@ -66,7 +66,7 @@ objc/objc-lang.o : objc/objc-lang.c \
 
 objc/objc-parse.o : objc/objc-parse.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
-   toplev.h $(GGC_H) c-pragma.h input.h flags.h output.h objc/objc-act.h
+   toplev.h $(GGC_H) c-pragma.h input.h flags.h output.h $(C_COMMON_H)
 
 objc/objc-act.o : objc/objc-act.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) $(TM_P_H) \

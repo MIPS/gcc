@@ -145,8 +145,21 @@ static tree build_objc_method_call (int, tree, tree, tree, tree);
 static void generate_strings (void);
 static tree get_proto_encoding (tree);
 static void build_selector_translation_table (void);
-
+static tree lookup_interface (tree);
 static tree objc_add_static_instance (tree, tree);
+
+static tree start_class (enum tree_code, tree, tree, tree);
+static tree continue_class (tree);
+static void finish_class (tree);
+static void start_method_def (tree);
+static tree start_protocol (enum tree_code, tree, tree);
+static tree build_method_decl (enum tree_code, tree, tree, tree);
+static tree objc_add_method (tree, tree, int);
+static tree add_instance_variable (tree, int, tree, tree, tree);
+static tree build_ivar_reference (tree);
+static tree is_ivar (tree, tree);
+static int is_private (tree);
+static tree get_super_receiver (void);
 
 static void build_objc_exception_stuff (void);
 static tree objc_declare_variable (enum rid, tree, tree, tree);
@@ -156,6 +169,7 @@ static void objc_build_try_enter_fragment (void);
 static void objc_build_try_exit_fragment (void);
 static void objc_build_extract_fragment (void);
 static tree objc_build_extract_expr (void);
+static tree objc_build_finally_epilogue (void);
 
 static tree build_ivar_template (void);
 static tree build_method_template (void);
@@ -184,7 +198,6 @@ static void generate_static_references (void);
 static int check_methods_accessible (tree, tree, int);
 static void encode_aggregate_within (tree, int, int, int, int);
 static const char *objc_demangle (const char *);
-static void objc_expand_function_end (void);
 
 /* Hash tables to manage the global pool of method prototypes.  */
 
@@ -406,6 +419,9 @@ static void handle_impent (struct imp_entry *);
 struct imp_entry *imp_list = 0;
 int imp_count = 0;	/* `@implementation' */
 int cat_count = 0;	/* `@category' */
+
+enum tree_code objc_inherit_code;
+int objc_public_flag;
 
 /* Use to generate method labels.  */
 static int method_slot = 0;
@@ -648,6 +664,157 @@ lookup_protocol_in_reflist (tree rproto_list, tree lproto)
     }
 
   return 0;
+}
+
+void
+objc_start_class_interface (tree class, tree super_class, tree protos)
+{
+  objc_interface_context
+    = objc_ivar_context
+    = start_class (CLASS_INTERFACE_TYPE, class, super_class, protos);
+  objc_public_flag = 0;
+}
+
+void
+objc_start_category_interface (tree class, tree categ, tree protos)
+{
+  objc_interface_context
+    = start_class (CATEGORY_INTERFACE_TYPE, class, categ, protos);
+  objc_ivar_chain
+    = continue_class (objc_interface_context);
+}
+
+void
+objc_start_protocol (tree name, tree protos)
+{
+  objc_interface_context
+    = start_protocol (PROTOCOL_INTERFACE_TYPE, name, protos);
+}
+
+void
+objc_continue_interface (void)
+{
+  objc_ivar_chain
+    = continue_class (objc_interface_context);
+}
+
+void
+objc_finish_interface (void)
+{
+  finish_class (objc_interface_context);
+  objc_interface_context = NULL_TREE;
+}
+
+void
+objc_start_class_implementation (tree class, tree super_class)
+{
+  objc_implementation_context
+    = objc_ivar_context
+    = start_class (CLASS_IMPLEMENTATION_TYPE, class, super_class, NULL_TREE);
+  objc_public_flag = 0;
+}
+
+void
+objc_start_category_implementation (tree class, tree categ)
+{
+  objc_implementation_context
+    = start_class (CATEGORY_IMPLEMENTATION_TYPE, class, categ, NULL_TREE);
+  objc_ivar_chain
+    = continue_class (objc_implementation_context);
+}
+
+void
+objc_continue_implementation (void)
+{
+  objc_ivar_chain
+    = continue_class (objc_implementation_context);
+}
+
+void
+objc_finish_implementation (void)
+{
+  if (objc_implementation_context)
+    {
+      finish_class (objc_implementation_context);
+      objc_ivar_chain = NULL_TREE;
+      objc_implementation_context = NULL_TREE;
+    }
+  else
+    warning ("`@end' must appear in an @implementation context");
+}
+
+void
+objc_set_visibility (int visibility)
+{
+  objc_public_flag = visibility;
+}
+
+void
+objc_set_method_type (enum tree_code type)
+{
+  objc_inherit_code = (type == PLUS_EXPR
+		       ? CLASS_METHOD_DECL
+		       : INSTANCE_METHOD_DECL);
+}
+
+tree
+objc_method_ellipsis (void)
+{
+  return objc_ellipsis_node;
+}
+
+tree
+objc_build_method_signature (tree rettype, tree selector, tree optparms)
+{
+  return build_method_decl (objc_inherit_code, rettype, selector, optparms);
+}
+
+void
+objc_add_method_declaration (tree decl)
+{
+  if (!objc_interface_context)
+    fatal_error ("method declaration not in @interface context");
+
+  objc_add_method (objc_interface_context,
+		   decl,
+		   objc_inherit_code == CLASS_METHOD_DECL);
+}
+
+void
+objc_start_method_definition (tree decl)
+{
+  if (!objc_implementation_context)
+    fatal_error ("method definition not in @implementation context");
+
+  objc_add_method (objc_implementation_context,
+		   decl,
+		   objc_inherit_code == CLASS_METHOD_DECL);
+  start_method_def (decl);
+}
+
+tree
+objc_add_instance_variable (tree decl, tree declspecs, tree width)
+{
+  return add_instance_variable (objc_ivar_context,
+				objc_public_flag,
+				decl, declspecs, width);
+}
+
+/* Return 1 if IDENT is an ObjC/ObjC++ reserved keyword in the context of
+   an '@'.  */
+
+int
+objc_is_reserved_word (tree ident)
+{
+  unsigned char code = C_RID_CODE (ident);
+
+  return (OBJC_IS_AT_KEYWORD (code)
+#ifdef OBJCPLUS
+	  || code == RID_CLASS || code == RID_PUBLIC
+	  || code == RID_PROTECTED || code == RID_PRIVATE
+	  || code == RID_TRY || code == RID_THROW || code == RID_CATCH
+#endif
+	    );
 }
 
 /* Return 1 if LHS and RHS are compatible types for assignment or
@@ -969,7 +1136,7 @@ objc_check_decl (tree decl)
 
   if (TREE_CODE (type) != RECORD_TYPE)
     return;
-  if (OBJC_TYPE_NAME (type) && (type = is_class_name (OBJC_TYPE_NAME (type))))
+  if (OBJC_TYPE_NAME (type) && (type = objc_is_class_name (OBJC_TYPE_NAME (type))))
     error ("statically allocated instance of Objective-C class `%s'",
 	   IDENTIFIER_POINTER (type));
 }
@@ -977,7 +1144,7 @@ objc_check_decl (tree decl)
 /* Implement static typing.  At this point, we know we have an interface.  */
 
 tree
-get_static_reference (tree interface, tree protocols)
+objc_get_static_reference (tree interface, tree protocols)
 {
   tree type = xref_tag (RECORD_TYPE, interface);
 
@@ -1008,7 +1175,7 @@ get_static_reference (tree interface, tree protocols)
 }
 
 tree
-get_object_reference (tree protocols)
+objc_get_object_reference (tree protocols)
 {
   tree type_decl = lookup_name (objc_id_id);
   tree type;
@@ -1423,7 +1590,7 @@ my_build_string (int len, const char *str)
    NXConstantString class object.  */
 
 tree
-build_objc_string_object (tree string)
+objc_build_string_object (tree string)
 {
   tree initlist, constructor, constant_string_class;
   int length;
@@ -1747,6 +1914,9 @@ build_metadata_decl (const char *name, tree type)
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   TREE_PUBLIC (decl) = 0;
+#ifdef OBJCPLUS
+  DECL_THIS_STATIC (decl) = 1; /* squash redeclaration errors */
+#endif  
   return decl;
 }
 
@@ -1767,7 +1937,7 @@ forward_declare_categories (void)
 	  objc_implementation_context = impent->imp_context;
 	  /* extern struct objc_category _OBJC_CATEGORY_<name>; */
 	  impent->class_decl = build_metadata_decl ("_OBJC_CATEGORY",
-						    objc_category_template);			
+						    objc_category_template);
 	}
     }
   objc_implementation_context = sav;
@@ -2163,6 +2333,9 @@ build_selector_reference_decl (void)
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_CONTEXT (decl) = 0;
+#ifdef OBJCPLUS
+  DECL_THIS_STATIC (decl) = 1; /* squash redeclaration errors */
+#endif  
 
   make_decl_rtl (decl, 0);
   pushdecl_top_level (decl);
@@ -2370,6 +2543,9 @@ build_class_reference_decl (void)
   TREE_USED (decl) = 1;
   DECL_CONTEXT (decl) = 0;
   DECL_ARTIFICIAL (decl) = 1;
+#ifdef OBJCPLUS
+  DECL_THIS_STATIC (decl) = 1; /* squash redeclaration errors */
+#endif  
 
   make_decl_rtl (decl, 0);
   pushdecl_top_level (decl);
@@ -2409,7 +2585,7 @@ add_class_reference (tree ident)
    reference variable.  */
 
 tree
-get_class_reference (tree ident)
+objc_get_class_reference (tree ident)
 {
   tree orig_ident;
 
@@ -2422,7 +2598,7 @@ get_class_reference (tree ident)
 #endif
   orig_ident = ident;
 
-  if (!(ident = is_class_name (ident)))
+  if (!(ident = objc_is_class_name (ident)))
     {
       error ("`%s' is not an Objective-C class name or alias",
 	     IDENTIFIER_POINTER (orig_ident));
@@ -2520,6 +2696,9 @@ build_objc_string_decl (enum string_section section)
   TREE_CONSTANT (decl) = 1;
   DECL_CONTEXT (decl) = 0;
   DECL_ARTIFICIAL (decl) = 1;
+#ifdef OBJCPLUS
+  DECL_THIS_STATIC (decl) = 1; /* squash redeclaration errors */
+#endif  
 
   make_decl_rtl (decl, 0);
   pushdecl_top_level (decl);
@@ -2539,9 +2718,9 @@ objc_declare_alias (tree alias_ident, tree class_ident)
   }
 #endif /* OBJCPLUS */
 
-  if (!(underlying_class = is_class_name (class_ident)))
+  if (!(underlying_class = objc_is_class_name (class_ident)))
     warning ("cannot find class `%s'", IDENTIFIER_POINTER (class_ident));
-  else if (is_class_name (alias_ident))
+  else if (objc_is_class_name (alias_ident))
     warning ("class `%s' already exists", IDENTIFIER_POINTER (alias_ident));
   else
     alias_chain = tree_cons (underlying_class, alias_ident, alias_chain);
@@ -2561,7 +2740,7 @@ objc_declare_class (tree ident_list)
     {
       tree ident = TREE_VALUE (list);
 
-      if (! is_class_name (ident))
+      if (! objc_is_class_name (ident))
 	{
 	  tree record = lookup_name (ident);
 	
@@ -2581,7 +2760,7 @@ objc_declare_class (tree ident_list)
 }
 
 tree
-is_class_name (tree ident)
+objc_is_class_name (tree ident)
 {
   tree chain;
 
@@ -2634,10 +2813,10 @@ objc_is_object_ptr (tree type)
       && (IS_ID (type)
 	  || TREE_TYPE (type) == TREE_TYPE (objc_class_type)))
     return type;
-  return is_class_name (OBJC_TYPE_NAME (TREE_TYPE (type)));
+  return objc_is_class_name (OBJC_TYPE_NAME (TREE_TYPE (type)));
 }
 
-tree
+static tree
 lookup_interface (tree ident)
 {
   tree chain;
@@ -2657,7 +2836,7 @@ lookup_interface (tree ident)
 /* Implement @defs (<classname>) within struct bodies.  */
 
 tree
-get_class_ivars_from_name (tree class_name)
+objc_get_class_ivars (tree class_name)
 {
   tree interface = lookup_interface (class_name);
   tree field, fields = NULL_TREE;
@@ -2981,7 +3160,7 @@ objc_build_try_prologue (void)
 				      objc_rethrow_exception);
 
   try_catch_block = objc_enter_block ();
-  val_stack_push (&exc_binding_stack, (long) get_current_scope ());
+  val_stack_push (&exc_binding_stack, (long) objc_get_current_scope ());
   objc_build_try_enter_fragment ();
 
   return try_catch_block;
@@ -3095,7 +3274,7 @@ objc_build_catch_stmt (tree catch_expr)
     cond = integer_one_node;
   else
     {
-      cond = get_class_reference (OBJC_TYPE_NAME (var_type));
+      cond = objc_get_class_reference (OBJC_TYPE_NAME (var_type));
 	
       func_params
 	= tree_cons (NULL_TREE, cond,
@@ -3191,7 +3370,7 @@ objc_build_finally_prologue (void)
   return blk;
 }
 
-tree
+static tree
 objc_build_finally_epilogue (void)
 {
   /*    if (_rethrowException) {
@@ -4381,11 +4560,19 @@ build_super_template (void)
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   field_decl_chain = field_decl;
 
+#ifdef OBJCPLUS
+  /* struct objc_class *super_class; */
+#else
   /* struct objc_class *class; */
+#endif
 
   decl_specs = get_identifier (UTAG_CLASS);
   decl_specs = build_tree_list (NULL_TREE, xref_tag (RECORD_TYPE, decl_specs));
+#ifdef OBJCPLUS
+  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("super_class"));
+#else
   field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("class"));
+#endif
 
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   chainon (field_decl_chain, field_decl);
@@ -5367,7 +5554,7 @@ adjust_type_for_id_default (tree type)
      Out:	an instance of "keyword_decl".  */
 
 tree
-build_keyword_decl (tree key_name, tree arg_type, tree arg_name)
+objc_build_keyword_decl (tree key_name, tree arg_type, tree arg_name)
 {
   tree keyword_decl;
 
@@ -5438,7 +5625,7 @@ build_keyword_selector (tree selector)
 
 /* Used for declarations and definitions.  */
 
-tree
+static tree
 build_method_decl (enum tree_code code, tree ret_type, tree selector,
 		   tree add_args)
 {
@@ -5514,9 +5701,21 @@ get_arg_type_list (tree meth, int context, int superflag)
     ;
   else if (METHOD_ADD_ARGS (meth))
     {
+#ifdef OBJCPLUS
+      /* In Objective-C++, the additional arguments are still in their
+	 "raw" declspecs-declarator format.  */
+      for (akey = METHOD_ADD_ARGS (meth); akey; akey = TREE_CHAIN (akey))
+	{
+	  tree arg_type = groktypename (TREE_VALUE (akey));
+
+	  chainon (arglist, build_tree_list (NULL_TREE, arg_type));
+	}
+#else
       /* we have a variable length selector */
       tree add_arg_list = TREE_CHAIN (METHOD_ADD_ARGS (meth));
+
       chainon (arglist, add_arg_list);
+#endif
     }
   else
     /* finalize the arglist...simulate get_parm_info (1) */
@@ -5562,7 +5761,7 @@ check_duplicates (hash hsh, int methods, int is_class)
 }
 
 /* If RECEIVER is a class reference, return the identifier node for
-   the referenced class.  RECEIVER is created by get_class_reference,
+   the referenced class.  RECEIVER is created by objc_get_class_reference,
    so we check the exact form created depending on which runtimes are
    used.  */
 
@@ -5638,11 +5837,15 @@ objc_message_selector (void)
    (*(<abstract_decl>(*)())_msgSuper)(receiver, selTransTbl[n], ...);  */
 
 tree
-build_message_expr (tree mess)
+objc_build_message_expr (tree mess)
 {
   tree receiver = TREE_PURPOSE (mess);
   tree sel_name;
+#ifdef OBJCPLUS
+  tree args = TREE_PURPOSE (TREE_VALUE (mess));
+#else
   tree args = TREE_VALUE (mess);
+#endif
   tree method_params = NULL_TREE;
 
   if (TREE_CODE (receiver) == ERROR_MARK)
@@ -5659,6 +5862,9 @@ build_message_expr (tree mess)
 
   /* Build the parameter list to give to the method.  */
   if (TREE_CODE (args) == TREE_LIST)
+#ifdef OBJCPLUS
+    method_params = chainon (args, TREE_VALUE (TREE_VALUE (mess)));
+#else
     {
       tree chain = args, prev = NULL_TREE;
 
@@ -5680,6 +5886,7 @@ build_message_expr (tree mess)
         }
       method_params = args;
     }
+#endif
 
 #ifdef OBJCPLUS
   if (processing_template_decl)
@@ -5688,7 +5895,7 @@ build_message_expr (tree mess)
 			 method_params);
 #endif
 
-  return finish_message_expr (receiver, sel_name, method_params);
+  return objc_finish_message_expr (receiver, sel_name, method_params);
 }
 
 /* Look up method SEL_NAME that would be suitable for receiver
@@ -5714,13 +5921,13 @@ lookup_method_in_hash_lists (tree sel_name, int is_class)
   return check_duplicates (method_prototype, 1, is_class);
 }
 
-/* The 'finish_message_expr' routine is called from within
-   'build_message_expr' for non-template functions.  In the case of
+/* The 'objc_finish_message_expr' routine is called from within
+   'objc_build_message_expr' for non-template functions.  In the case of
    C++ template functions, it is called from 'build_expr_from_tree'
    (in decl2.c) after RECEIVER and METHOD_PARAMS have been expanded.  */
 
 tree
-finish_message_expr (tree receiver, tree sel_name, tree method_params)
+objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 {
   tree method_prototype = NULL_TREE, rprotos = NULL_TREE, rtype;
   tree selector, retval, is_class;
@@ -6014,7 +6221,7 @@ build_protocol_reference (tree p)
 /* This function is called by the parser when (and only when) a
    @protocol() expression is found, in order to compile it.  */
 tree
-build_protocol_expr (tree protoname)
+objc_build_protocol_expr (tree protoname)
 {
   tree expr;
   tree p = lookup_protocol (protoname);
@@ -6084,7 +6291,7 @@ build_protocol_expr (tree protoname)
    is found, in order to compile it.  It is only called by the parser
    and only to compile a @selector().  */
 tree
-build_selector_expr (tree selnamelist)
+objc_build_selector_expr (tree selnamelist)
 {
   tree selname;
 
@@ -6130,7 +6337,7 @@ build_selector_expr (tree selnamelist)
 }
 
 tree
-build_encode_expr (tree type)
+objc_build_encode_expr (tree type)
 {
   tree result;
   const char *string;
@@ -6146,7 +6353,7 @@ build_encode_expr (tree type)
   return result;
 }
 
-tree
+static tree
 build_ivar_reference (tree id)
 {
   if (TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
@@ -6337,7 +6544,7 @@ add_method_to_hash_list (hash *hash_list, tree method)
     }
 }
 
-tree
+static tree
 objc_add_method (tree class, tree method, int is_class)
 {
   tree mth;
@@ -6423,7 +6630,7 @@ add_category (tree class, tree category)
 
    PUBLIC is 1 for public, 0 for protected, and 2 for private.  */
 
-tree
+static tree
 add_instance_variable (tree class, int public, tree declarator,
 		       tree declspecs, tree width)
 {
@@ -6512,7 +6719,7 @@ add_instance_variable (tree class, int public, tree declarator,
   return class;
 }
 
-tree
+static tree
 is_ivar (tree decl_chain, tree ident)
 {
   for ( ; decl_chain; decl_chain = TREE_CHAIN (decl_chain))
@@ -6523,7 +6730,7 @@ is_ivar (tree decl_chain, tree ident)
 
 /* True if the ivar is private and we are not in its implementation.  */
 
-int
+static int
 is_private (tree decl)
 {
   if (TREE_PRIVATE (decl)
@@ -6540,7 +6747,7 @@ is_private (tree decl)
 /* We have an instance variable reference;, check to see if it is public.  */
 
 int
-is_public (tree expr, tree identifier)
+objc_is_public (tree expr, tree identifier)
 {
   tree basetype = TREE_TYPE (expr);
   enum tree_code code = TREE_CODE (basetype);
@@ -6800,7 +7007,7 @@ check_protocols (tree proto_list, const char *type, const char *name)
    It can be CLASS_INTERFACE_TYPE, CLASS_IMPLEMENTATION_TYPE,
    CATEGORY_INTERFACE_TYPE, or CATEGORY_IMPLEMENTATION_TYPE.  */
 
-tree
+static tree
 start_class (enum tree_code code, tree class_name, tree super_name,
 	     tree protocol_list)
 {
@@ -6827,7 +7034,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
   CLASS_SUPER_NAME (class) = super_name;
   CLASS_CLS_METHODS (class) = NULL_TREE;
 
-  if (! is_class_name (class_name)
+  if (! objc_is_class_name (class_name)
       && (decl = lookup_name (class_name)))
     {
       error ("`%s' redeclared as different kind of symbol",
@@ -6947,7 +7154,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
   return class;
 }
 
-tree
+static tree
 continue_class (tree class)
 {
   if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE
@@ -7025,7 +7232,7 @@ continue_class (tree class)
 
 /* This is called once we see the "@end" in an interface/implementation.  */
 
-void
+static void
 finish_class (tree class)
 {
   if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
@@ -7136,7 +7343,7 @@ objc_declare_protocols (tree names)
     }
 }
 
-tree
+static tree
 start_protocol (enum tree_code code, tree name, tree list)
 {
   tree protocol;
@@ -7180,11 +7387,6 @@ start_protocol (enum tree_code code, tree name, tree list)
 	       IDENTIFIER_POINTER (name));
     }
   return protocol;
-}
-
-void
-finish_protocol (tree protocol ATTRIBUTE_UNUSED)
-{
 }
 
 
@@ -7599,15 +7801,17 @@ synth_self_and_ucmd_args (void)
 /* Transform a method definition into a function definition as follows:
    - synthesize the first two arguments, "self" and "_cmd".  */
 
-void
+static void
 start_method_def (tree method)
 {
   /* Required to implement _msgSuper.  */
   objc_method_context = method;
   UOBJC_SUPER_decl = NULL_TREE;
 
+#ifndef OBJCPLUS
   /* Must be called BEFORE start_function.  */
   pushlevel (0);
+#endif
 
   /* Generate prototype declarations for arguments..."new-style".  */
   synth_self_and_ucmd_args ();
@@ -7626,6 +7830,7 @@ start_method_def (tree method)
 	      tree last_expr = objc_expr_last (arg_decl);
 
 	      /* Unite the abstract decl with its name.  */
+	      /* (e.g., '(const char *) msg' -> 'const char *msg') */
 	      TREE_OPERAND (last_expr, 0) = KEYWORD_ARG_NAME (arglist);
 	      push_parm_decl (build_tree_list
 			      (build_tree_list (arg_spec, arg_decl),
@@ -7651,6 +7856,21 @@ start_method_def (tree method)
   if (METHOD_ADD_ARGS (method) != NULL_TREE
       && METHOD_ADD_ARGS (method) != objc_ellipsis_node)
     {
+#ifdef OBJCPLUS
+      /* In Objective-C++, the additional arguments are still in their
+	 "raw" declspecs-declarator format.  */
+      tree akey;
+
+      for (akey = METHOD_ADD_ARGS (method); akey; akey = TREE_CHAIN (akey))
+	{
+	  tree arg_spec = TREE_PURPOSE (TREE_VALUE (akey));
+	  tree arg_decl = TREE_VALUE (TREE_VALUE (akey));
+
+	  push_parm_decl (build_tree_list
+			  (build_tree_list (arg_spec, arg_decl),
+			   NULL_TREE));
+	}
+#else
       /* We have a variable length selector - in "prototype" format.  */
       tree akey = TREE_PURPOSE (METHOD_ADD_ARGS (method));
       while (akey)
@@ -7661,6 +7881,7 @@ start_method_def (tree method)
 	  pushdecl (akey);
 	  akey = nextkey;
 	}
+#endif
     }
 }
 
@@ -7870,7 +8091,7 @@ really_start_method (tree method, tree parmlist)
    - a:a b:b // prototype  ; id c; id d; // old-style.  */
 
 void
-continue_method_def (void)
+objc_continue_method_definition (void)
 {
   tree parmlist;
 
@@ -7884,9 +8105,9 @@ continue_method_def (void)
   /* Set self_decl from the first argument...this global is used by
      build_ivar_reference calling build_indirect_ref.  */
   self_decl = TREE_PURPOSE (parmlist);
+  poplevel (0, 0, 0);
 #endif /* !OBJCPLUS */
 
-  poplevel (0, 0, 0);
   really_start_method (objc_method_context, parmlist);
   store_parm_decls ();
 }
@@ -7899,7 +8120,7 @@ static void *UOBJC_SUPER_scope = 0;
        _msgSuper ((_S.self = self, _S.class = _cls, &_S), ...);
      }  */
 
-tree
+static tree
 get_super_receiver (void)
 {
   if (objc_method_context)
@@ -7919,7 +8140,7 @@ get_super_receiver (void)
 	TREE_USED (UOBJC_SUPER_decl) = 1;
 	DECL_ARTIFICIAL (UOBJC_SUPER_decl) = 1;
 
-	UOBJC_SUPER_scope = get_current_scope ();
+	UOBJC_SUPER_scope = objc_get_current_scope ();
       }
 
       /* Set receiver to self.  */
@@ -7928,8 +8149,13 @@ get_super_receiver (void)
       super_expr_list = build_tree_list (NULL_TREE, super_expr);
 
       /* Set class to begin searching.  */
+#ifdef OBJCPLUS
+      super_expr = build_component_ref (UOBJC_SUPER_decl,
+					get_identifier ("super_class"));
+#else
       super_expr = build_component_ref (UOBJC_SUPER_decl,
 					get_identifier ("class"));
+#endif
 
       if (TREE_CODE (objc_implementation_context) == CLASS_IMPLEMENTATION_TYPE)
 	{
@@ -7959,7 +8185,7 @@ get_super_receiver (void)
 
 	  if (flag_next_runtime && !flag_zero_link)
 	    {
-	      super_class = get_class_reference (super_name);
+	      super_class = objc_get_class_reference (super_name);
 	      if (TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
 		/* If we are in a class method, we must retrieve the
 		   _metaclass_ for the current class, pointed at by
@@ -8012,39 +8238,29 @@ void
 objc_clear_super_receiver (void)
 {
   if (objc_method_context
-      && UOBJC_SUPER_scope == get_current_scope ()) {
+      && UOBJC_SUPER_scope == objc_get_current_scope ()) {
     UOBJC_SUPER_decl = 0;
     UOBJC_SUPER_scope = 0;
   }
 }
 
-static void
-objc_expand_function_end (void)
-{
-  /* This routine may also get called for C functions, including those
-     nested within ObjC methods.  In such cases, method encoding is
-     meaningless.  */
-  if (objc_method_context == NULL_TREE
-      || DECL_INITIAL (objc_method_context) != current_function_decl)
-    return;
-
-  METHOD_ENCODING (objc_method_context)
-    = encode_method_prototype (objc_method_context);
-}
-
 void
-finish_method_def (void)
+objc_finish_method_definition (tree fndecl)
 {
-  lang_expand_function_end = objc_expand_function_end;
   /* We cannot validly inline ObjC methods, at least not without a language
      extension to declare that a method need not be dynamically
      dispatched, so suppress all thoughts of doing so.  */
-  DECL_INLINE (current_function_decl) = 0;
-  DECL_UNINLINABLE (current_function_decl) = 1;
-  current_function_cannot_inline = "methods cannot be inlined";
+  DECL_INLINE (fndecl) = 0;
+  DECL_UNINLINABLE (fndecl) = 1;
 
+#ifndef OBJCPLUS
+  /* The C++ front-end will have called finish_function() for us.  */
+  current_function_cannot_inline = "methods cannot be inlined";
   finish_function ();
-  lang_expand_function_end = NULL;
+#endif
+
+  METHOD_ENCODING (objc_method_context)
+    = encode_method_prototype (objc_method_context);
 
   /* Required to implement _msgSuper. This must be done AFTER finish_function,
      since the optimizer may find "may be used before set" errors.  */
@@ -9118,7 +9334,7 @@ generate_objc_image_info (void)
 /* Look up ID as an instance variable.  */
 
 tree
-lookup_objc_ivar (tree id)
+objc_lookup_ivar (tree id)
 {
   tree decl;
 

@@ -49,17 +49,17 @@ static GTY(()) tree objcp_parmlist = NULL_TREE;
 
 tree 
 objcp_start_struct (enum tree_code code ATTRIBUTE_UNUSED, tree name)
-{ 
-  tree h, s;
+{
+  tree s;
   /* The idea here is to mimic the actions that the C++ parser takes when
      constructing 'extern "C" struct NAME {'.  */
   push_lang_context (lang_name_c);
   if (!name)
     name = make_anon_name ();
-  h = xref_tag (record_type, name, NULL_TREE, true, false);
-  s = begin_class_definition (TREE_TYPE (h));
+  s = xref_tag (record_type, name, NULL_TREE, true, 0);
+  CLASSTYPE_DECLARED_CLASS (s) = 0;  /* this is a 'struct', not a 'class' */
 
-  return s;	
+  return begin_class_definition (s);
 }
 
 tree 
@@ -72,8 +72,9 @@ objcp_finish_struct (tree t, tree fieldlist, tree attributes ATTRIBUTE_UNUSED)
     next_field = TREE_CHAIN (field);      /* insert one field at a time;  */
     TREE_CHAIN (field) = NULL_TREE;       /* otherwise, grokfield croaks. */
     finish_member_declaration (field);
-  } 
-  pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
+  }
+  TYPE_ATTRIBUTES (t) = NULL_TREE;
+  t = finish_struct (t, NULL_TREE);
   pop_lang_context ();
 
   return t;
@@ -81,7 +82,7 @@ objcp_finish_struct (tree t, tree fieldlist, tree attributes ATTRIBUTE_UNUSED)
 
 int
 objcp_start_function (tree declspecs, tree declarator, tree attributes)
-{ 
+{
   return start_function (declspecs, declarator, attributes, 0);
 }
 
@@ -130,7 +131,7 @@ objcp_push_parm_decl (tree parm)
   return objcp_parmlist;
 }
 
-tree 
+tree
 objcp_get_parm_info (int void_at_end)
 {
   tree parm_info = finish_parmlist (objcp_parmlist, !void_at_end);
@@ -157,11 +158,9 @@ objcp_build_function_call (tree function, tree args)
 }
 
 tree
-objcp_xref_tag (enum tree_code code, tree name)
+objcp_xref_tag (enum tree_code code ATTRIBUTE_UNUSED, tree name)
 {
-  if (code != RECORD_TYPE)
-    abort ();   /* this is sheer laziness... */
-  return xref_tag (record_type, name, NULL_TREE, true, false);
+  return xref_tag (record_type, name, NULL_TREE, true, 0);
 }
 
 tree
@@ -232,15 +231,15 @@ objcp_builtin_function (const char *name, tree type, int code,
 int
 objcp_lookup_identifier (tree token, tree *id, int check_conflict)
 {
-  tree objc_id = lookup_objc_ivar (token);
+  tree objc_id = objc_lookup_ivar (token);
   
   if (!check_conflict || (objc_id && IS_SUPER (objc_id)))
     *id = objc_id;
   else if (objc_id && *id && IDENTIFIER_BINDING (token)) 
     warning ("local declaration of `%s' hides instance variable",
 	     IDENTIFIER_POINTER (token));
-	     
+
   return (objc_id != NULL_TREE);
-}  
+}
 
 #include "gt-objcp-objcp-decl.h"
