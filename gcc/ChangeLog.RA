@@ -1,3 +1,7 @@
+2001-01-20  Richard Henderson  <rth@redhat.com>
+
+	* new-regalloc.c: Canonicalize formatting.
+
 2001-01-29  Daniel Berlin  <dberlin@redhat.com>
 
 	* ssa.c  (mark_phi_and_copy_regs): Test rtx against 0, not NULL,
@@ -18,8 +22,6 @@
 	(rewrite_program): Change call to reload to tell it we are calling
 	from the global register allocator, now that it calls the right
 	retry routine.
-	
-		
 
 2001-01-29  Daniel Berlin  <dberlin@redhat.com>
 
