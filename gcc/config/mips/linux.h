@@ -200,8 +200,6 @@ typedef struct _sig_ucontext {
     sigset_t      uc_sigmask;
 } _sig_ucontext_t;
 
-#endif /* IN_LIBGCC2  */
-
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)            \
   do {                                                               \
     u_int32_t *pc_ = (u_int32_t *) (CONTEXT)->ra;                \
@@ -253,4 +251,5 @@ typedef struct _sig_ucontext {
                                                                      \
     goto SUCCESS;                                                    \
   } while (0)
-#endif
+#endif /* IN_LIBGCC2  */
+#endif /* inhibit_libc */

@@ -1,3 +1,12 @@
+2005-01-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/gcc/config.gcc (mips-wrs-linux-gnu): New triplet.
+	* config/mips/wrs-linux.h: New file.
+	* config/mips/t-wrs-linux: New file.
+	* config/mips/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Define
+	only in libgcc and when inhibit_libc is not defined.
+	* gcc.c (init_spec): Handle SYSROOT_SUFFIX_LINK_SPEC.
+
 2004-12-20  Mark Mitchell  <mark@codesourcery.com>
 
 	* config.gcc (powerpc-wrs-linux-gnu): Set target_cpu_default.
