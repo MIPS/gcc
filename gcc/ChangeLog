@@ -5,6 +5,9 @@
 
 	* fixinc/server.c:  Removed the process open code
 	* fixinc/procopen.c: New file containing the proc open code
+	* fixinc/inclhack.tpl: Added code to bypass a readability test
+	when a file is not present.  A problem on some systems.
+	* fixinc/inclhack.sh, fixinc/fixincl.sh:  regenerated
 
 1999-01-15  Manfred Hollstein  <manfred@s-direktnet.de>
 
