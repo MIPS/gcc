@@ -1,3 +1,8 @@
+1999-12-17  Geoff Keating  <geoffk@cygnus.com>
+
+	* tramp.asm (__trampoline_size): Delete CYGNUS LOCAL comment,
+	since patently it's not.
+
 1999-12-08  Geoff Keating  <geoffk@cygnus.com>
 
 	* config/rs6000/rs6000.md (nonlocal_goto_receiver): Turn into

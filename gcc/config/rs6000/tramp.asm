@@ -117,4 +117,4 @@ FUNC_START(__trampoline_setup)
 .Labort:
 	bl	abort
 FUNC_END(__trampoline_setup)
-/* END CYGNUS LOCAL -- waiting for FSF sources to be restored/meissner */
+
