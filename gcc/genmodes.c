@@ -446,7 +446,12 @@ make_complex_modes (enum mode_class cl,
 	  if (p != 0)
 	    *p = 'C';
 	  else
-	    snprintf (buf, sizeof buf, "C%s", m->name);
+	    /* FIXME: The decimal float modes are causing assert failure
+	       in expr.c::convert_move() where to_mode and from_mode have
+	       same precision.  For now, just don't create complex modes
+	       for the decimal floats (and not part of C extension).  */
+	    /* snprintf (buf, sizeof buf, "C%s", m->name); */
+	    continue; 
 	}
       else
 	snprintf (buf, sizeof buf, "C%s", m->name);
