@@ -1,3 +1,11 @@
+2005-01-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/rs6000/rs6000.h (TARGET_SPE_ABI): Make it dynamic.
+	(TARGET_SPE): Likeiwse.
+	(TARGET_E500): Likewise.
+	(TARGET_ISEL): Likewise.
+	(TARGET_FPRS): Likewise.
+
 2005-01-16  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/gcc/config.gcc (mips-wrs-linux-gnu): New triplet.

@@ -559,11 +559,11 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
 #define TARGET_ALTIVEC_VRSAVE rs6000_altivec_vrsave
 
-#define TARGET_SPE_ABI 0
-#define TARGET_SPE 0
-#define TARGET_E500 0
-#define TARGET_ISEL 0
-#define TARGET_FPRS 1
+#define TARGET_SPE_ABI rs6000_spe_abi
+#define TARGET_SPE rs6000_spe
+#define TARGET_E500 (rs6000_cpu == PROCESSOR_PPC8540)
+#define TARGET_ISEL rs6000_isel
+#define TARGET_FPRS (!rs6000_float_gprs)
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
