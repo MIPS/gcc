@@ -1,3 +1,8 @@
+2003-02-13  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cfgcleanup.c (outgoing_edges_match): When there is single outgoing
+	edge and block ends with a jump insn it must be simple jump.
+
 Wed Feb 12 16:58:29 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (estimate_probability):  Fix roundoff error.
