@@ -1,5 +1,26 @@
 2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-flow.h (tree_ssa_dce_no_cfg_changes): Declaration removed.
+	* tree-ssa-dce.c (remove_dead_stmt): Invalidate dominators if we
+	thread the edge.
+	(tree_ssa_dce_no_cfg_changes): Removed.
+	(perform_tree_ssa_dce, tree_ssa_dce, perform_tree_ssa_dce): Remove
+	no cfg changes mode.
+	* tree-ssa-loop-ivopts.c (force_gimple_operand): Handle overflowed
+	constants.
+	(find_interesting_uses_outer_or_nonlin): New.
+	(find_interesting_uses_op, find_interesting_uses_outer): Use it.
+	(find_interesting_uses_cond, idx_record_use,
+	find_interesting_uses_stmt): Changed due to find_interesting_uses_op
+	change.
+	(create_new_iv, remove_statement, rewrite_use_nonlinear_expr,
+	rewrite_use_outer, tree_ssa_iv_optimize): Handle direct removal of
+	unused ivs.
+	(remove_unused_ivs): New.
+	(tree_ssa_iv_optimize_loop): Call it.
+
+2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* Makefile.in (SCEV_H): New.
 	(tree-ssa-loop-ivcanon.o, tree-ssa-loop-ivopts.o,
 	tree-scalar-evolution.o, tree-data-ref.o, tree-dg.o,

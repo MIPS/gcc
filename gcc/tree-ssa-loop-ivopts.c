@@ -761,8 +761,10 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
       break;
     }
 
-  if (TREE_CODE (expr) == ADDR_EXPR)
+  /* Some specially handled codes:  */
+  switch (TREE_CODE (expr))
     {
+    case ADDR_EXPR:
       stmt = build (MODIFY_EXPR, void_type_node, var, expr);
       name = make_ssa_name (var, stmt);
       TREE_OPERAND (stmt, 0) = name;
@@ -778,9 +780,23 @@ force_gimple_operand (tree expr, tree *stmts, tree var, bool simple)
       update_addressable_flag (TREE_OPERAND (stmt, 1));
 
       return name;
-    }
 
-  abort ();
+    case INTEGER_CST:
+      if (!TREE_OVERFLOW (expr))
+	abort ();
+
+      stmt = build (MODIFY_EXPR, void_type_node, var, expr);
+      name = make_ssa_name (var, stmt);
+      TREE_OPERAND (stmt, 0) = name;
+
+      *stmts = alloc_stmt_list ();
+      tsi = tsi_last (*stmts);
+      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
+      return name;
+
+    default:
+      abort ();
+    }
 }
 
 /* If TYPE is an array type, corresponding pointer type is returned,
@@ -1884,87 +1900,77 @@ record_invariant (struct ivopts_data *data, tree op, bool nonlinear_use)
   bitmap_set_bit (data->relevant, SSA_NAME_VERSION (op));
 }
 
-/* Checks whether the use *OP_P is interesting and if so, records it.  */
+/* Checks whether the use OP is interesting and if so, records it
+   as TYPE.  */
 
-static void
-find_interesting_uses_op (struct ivopts_data *data, tree *op_p)
+static struct iv_use *
+find_interesting_uses_outer_or_nonlin (struct ivopts_data *data, tree op,
+				       enum use_type type)
 {
   struct iv *iv;
   struct iv *civ;
+  tree stmt, *op_p;
+  struct iv_use *use;
 
-  if (TREE_CODE (*op_p) != SSA_NAME)
-    return;
+  if (TREE_CODE (op) != SSA_NAME)
+    return NULL;
 
-  iv = get_iv (data, *op_p);
+  iv = get_iv (data, op);
   if (!iv)
-    return;
+    return NULL;
   
   if (iv->have_use_for)
     {
-      struct iv_use *use = iv_use (data, iv->use_id);
+      use = iv_use (data, iv->use_id);
 
       if (use->type != USE_NONLINEAR_EXPR
 	  && use->type != USE_OUTER)
 	abort ();
 
-      use->type = USE_NONLINEAR_EXPR;
-      return;
+      if (type == USE_NONLINEAR_EXPR)
+	use->type = USE_NONLINEAR_EXPR;
+      return use;
     }
 
   if (zero_p (iv->step))
     {
-      record_invariant (data, *op_p, true);
-      return;
+      record_invariant (data, op, true);
+      return NULL;
     }
   iv->have_use_for = true;
 
   civ = xmalloc (sizeof (struct iv));
   *civ = *iv;
 
-  iv->use_id = record_use (data, op_p, civ, SSA_NAME_DEF_STMT (*op_p),
-			   USE_NONLINEAR_EXPR)->id;
+  stmt = SSA_NAME_DEF_STMT (op);
+  if (TREE_CODE (stmt) == PHI_NODE)
+    op_p = &PHI_RESULT (stmt);
+  else if (TREE_CODE (stmt) == MODIFY_EXPR)
+    op_p = &TREE_OPERAND (stmt, 0);
+  else
+    abort ();
+
+  use = record_use (data, op_p, civ, stmt, type);
+  iv->use_id = use->id;
+
+  return use;
 }
 
-/* Records a definition of induction variable *OP_P that is used outside of the
+/* Checks whether the use OP is interesting and if so, records it.  */
+
+static struct iv_use *
+find_interesting_uses_op (struct ivopts_data *data, tree op)
+{
+  return find_interesting_uses_outer_or_nonlin (data, op, USE_NONLINEAR_EXPR);
+}
+
+/* Records a definition of induction variable OP that is used outside of the
    loop.  */
 
-static void
-find_interesting_uses_outer (struct ivopts_data *data, tree *op_p)
+static struct iv_use *
+find_interesting_uses_outer (struct ivopts_data *data, tree op)
 {
-  struct iv *iv;
-  struct iv *civ;
-  tree stmt;
-
-  if (TREE_CODE (*op_p) != SSA_NAME)
-    abort ();
-
-  iv = get_iv (data, *op_p);
-  if (!iv)
-    abort ();
-  
-  if (iv->have_use_for)
-    {
-      struct iv_use *use = iv_use (data, iv->use_id);
-
-      if (use->type != USE_NONLINEAR_EXPR
-	  && use->type != USE_OUTER)
-	abort ();
-
-      return;
-    }
-
-  if (zero_p (iv->step))
-    {
-      record_invariant (data, *op_p, true);
-      return;
-    }
-  iv->have_use_for = true;
-
-  civ = xmalloc (sizeof (struct iv));
-  *civ = *iv;
-
-  stmt = SSA_NAME_DEF_STMT (*op_p);
-  iv->use_id = record_use (data, op_p, civ, stmt, USE_OUTER)->id;
+  return find_interesting_uses_outer_or_nonlin (data, op, USE_OUTER);
 }
 
 /* Checks whether the condition *COND_P in STMT is interesting
@@ -2013,8 +2019,8 @@ find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
 	 ??? TODO -- it is not really important to handle this case.  */
       || (!zero_p (iv0->step) && !zero_p (iv1->step)))
     {
-      find_interesting_uses_op (data, op0_p);
-      find_interesting_uses_op (data, op1_p);
+      find_interesting_uses_op (data, *op0_p);
+      find_interesting_uses_op (data, *op1_p);
       return;
     }
 
@@ -2082,7 +2088,7 @@ static bool
 idx_record_use (tree base ATTRIBUTE_UNUSED, tree *idx,
 		void *data)
 {
-  find_interesting_uses_op (data, idx);
+  find_interesting_uses_op (data, *idx);
   return true;
 }
 
@@ -2180,7 +2186,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 
 	  iv = get_iv (data, lhs);
 
-	  if (iv)
+	  if (iv && !zero_p (iv->step))
 	    {
 	      /* If the variable is used outside of the loop, we must either
 		 preserve it or express the final value in other way.  */
@@ -2188,7 +2194,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 	      if (loop
 		  && loop != data->current_loop
 		  && !flow_loop_nested_p (data->current_loop, loop))
-		find_interesting_uses_outer (data, &TREE_OPERAND (stmt, 0));
+		find_interesting_uses_outer (data, lhs);
 
 	      return;
 	    }
@@ -2202,6 +2208,8 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 
 	case 'r':
 	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 1));
+	  if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+	    find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
 	  return;
 
 	default: ;
@@ -2210,7 +2218,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
 	{
 	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
-	  find_interesting_uses_op (data, &TREE_OPERAND (stmt, 1));
+	  find_interesting_uses_op (data, rhs);
 	  return;
 	}
     }
@@ -2221,7 +2229,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       lhs = PHI_RESULT (stmt);
       iv = get_iv (data, lhs);
 
-      if (iv)
+      if (iv && !zero_p (iv->step))
 	{
 	  /* If the variable is used outside of the loop, we must preserve it
 	     or express the final value in other way.  */
@@ -2230,7 +2238,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 	  if (loop
 	      && loop != data->current_loop
 	      && !flow_loop_nested_p (data->current_loop, loop))
-	    find_interesting_uses_outer (data, &PHI_RESULT (stmt));
+	    find_interesting_uses_outer (data, lhs);
 
 	  return;
 	}
@@ -2258,7 +2266,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       if (!iv)
 	continue;
 
-      find_interesting_uses_op (data, op_p);
+      find_interesting_uses_op (data, *op_p);
     }
 }
 
@@ -4474,6 +4482,10 @@ create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
       /* Mark that the iv is preserved.  */
       name_info (data, cand->var_before)->preserve_biv = true;
       name_info (data, cand->var_after)->preserve_biv = true;
+
+      /* Rewrite the increment so that it uses var_before directly.  */
+      find_interesting_uses_op (data, cand->var_after)->selected = cand;
+      
       return;
     }
  
@@ -4501,15 +4513,19 @@ create_new_ivs (struct ivopts_data *data, bitmap set)
     });
 }
 
-/* Removes statement STMT (real or a phi node).  */
+/* Removes statement STMT (real or a phi node).  If INCLUDING_DEFINED_NAME
+   is true, remove also the ssa name defined by the statement.  */
 
 static void
-remove_statement (tree stmt)
+remove_statement (tree stmt, bool including_defined_name)
 {
   if (TREE_CODE (stmt) == PHI_NODE)
     {
-      /* Prevent the ssa name defined by the statement from being removed.  */
-      PHI_RESULT (stmt) = NULL;
+      if (!including_defined_name)
+	{
+	  /* Prevent the ssa name defined by the statement from being removed.  */
+	  PHI_RESULT (stmt) = NULL;
+	}
       remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
     }
   else
@@ -4562,7 +4578,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
       ass = build (MODIFY_EXPR, TREE_TYPE (tgt), tgt, op);
       bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
-      remove_statement (use->stmt);
+      remove_statement (use->stmt, false);
       SSA_NAME_DEF_STMT (tgt) = ass;
     }
   else
@@ -4709,7 +4725,7 @@ rewrite_use_outer (struct ivopts_data *data,
 	bsi_insert_on_edge (exit, stmts);
       ass = build (MODIFY_EXPR, type, tgt, op);
       bsi_insert_on_edge (exit, ass);
-      remove_statement (use->stmt);
+      remove_statement (use->stmt, false);
       SSA_NAME_DEF_STMT (tgt) = ass;
       return;
     }
@@ -4766,6 +4782,27 @@ rewrite_uses (struct ivopts_data *data)
 
       rewrite_use (data, use, cand);
     }
+}
+
+/* Removes the ivs that are not used after rewriting.  */
+
+static void
+remove_unused_ivs (struct ivopts_data *data)
+{
+  unsigned j;
+
+  EXECUTE_IF_SET_IN_BITMAP (data->relevant, 0, j,
+    {
+      struct version_info *info;
+
+      info = ver_info (data, j);
+      if (info->iv
+	  && !zero_p (info->iv->step)
+	  && !info->inv_id
+	  && !info->iv->have_use_for
+	  && !info->preserve_biv)
+	remove_statement (SSA_NAME_DEF_STMT (info->iv->ssa_name), true);
+    });
 }
 
 /* Frees data allocated by the optimization of a single loop.  */
@@ -4909,6 +4946,10 @@ tree_ssa_iv_optimize_loop (struct ivopts_data *data, struct loop *loop)
   
   /* Rewrite the uses (item 4, part 2).  */
   rewrite_uses (data);
+
+  /* Remove the ivs that are unused after rewriting.  */
+  remove_unused_ivs (data);
+
   loop_commit_inserts ();
 
   BITMAP_XFREE (iv_set);
@@ -4923,7 +4964,6 @@ finish:
 void
 tree_ssa_iv_optimize (struct loops *loops)
 {
-  bool run_dce = false;
   struct loop *loop;
   struct ivopts_data data;
 
@@ -4938,7 +4978,12 @@ tree_ssa_iv_optimize (struct loops *loops)
   /* Scan the loops, inner ones first.  */
   while (loop != loops->tree_root)
     {
-      run_dce |= tree_ssa_iv_optimize_loop (&data, loop);
+      if (tree_ssa_iv_optimize_loop (&data, loop))
+	{
+#ifdef ENABLE_CHECKING
+	  verify_ssa ();
+#endif
+	}
 
       if (loop->next)
 	{
@@ -4951,10 +4996,6 @@ tree_ssa_iv_optimize (struct loops *loops)
     }
 
   tree_ssa_iv_optimize_finalize (loops, &data);
-
-  /* Cleanup the now unused variables.  */
-  if (run_dce)
-    tree_ssa_dce_no_cfg_changes ();
 
   timevar_pop (TV_TREE_LOOP_IVOPTS);
 }

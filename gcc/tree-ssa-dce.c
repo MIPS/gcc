@@ -697,6 +697,9 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       redirect_edge_and_branch (bb->succ, post_dom_bb);
       PENDING_STMT (bb->succ) = NULL;
 
+      /* Dominators are wrong now.  */
+      free_dominance_info (CDI_DOMINATORS);
+
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */
       bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
@@ -798,8 +801,6 @@ tree_dce_done (bool aggressive)
    In aggressive mode, control dependences are taken into account, which
    results in more dead code elimination, but at the cost of some time.
 
-   If NO_CFG_CHANGES is true, avoid changing cfg.
-
    FIXME: Aggressive mode before PRE doesn't work currently because
 	  the dominance info is not invalidated after DCE1.  This is
 	  not an issue right now because we only run aggressive DCE
@@ -807,12 +808,9 @@ tree_dce_done (bool aggressive)
 	  start experimenting with pass ordering.  */
 
 static void
-perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
+perform_tree_ssa_dce (bool aggressive)
 {
   struct edge_list *el = NULL;
-
-  if (no_cfg_changes && aggressive)
-    abort ();
 
   tree_dce_init (aggressive);
 
@@ -835,8 +833,7 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
 
-  if (!no_cfg_changes)
-    cleanup_tree_cfg ();
+  cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -848,25 +845,17 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
   tree_dce_done (aggressive);
 }
 
-/* Cleanup the dead code, but avoid cfg changes.  */
-
-void
-tree_ssa_dce_no_cfg_changes (void)
-{
-  perform_tree_ssa_dce (false, true);
-}
-
 /* Pass entry points.  */
 static void
 tree_ssa_dce (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/false, false);
+  perform_tree_ssa_dce (/*aggressive=*/false);
 }
 
 static void
 tree_ssa_cd_dce (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/optimize >= 2, false);
+  perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
 }
 
 static bool

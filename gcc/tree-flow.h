@@ -590,9 +590,6 @@ extern void replace_exp (tree *, tree);
 extern bool cprop_into_stmt (tree, varray_type);
 extern void cprop_into_successor_phis (basic_block, varray_type);
 
-/* In tree-ssa-dce.c.  */
-void tree_ssa_dce_no_cfg_changes (void);
-
 /* In tree-ssa-loop*.c  */
 struct loops *tree_loop_optimizer_init (FILE *);
 void tree_ssa_lim (struct loops *loops);
