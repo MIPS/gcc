@@ -1,3 +1,7 @@
+2003-05-01  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/20030501-1.c: New test for tree-ssa bug.
+
 2003-04-16  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/compile/20030416-1.c: New test from Diego.
