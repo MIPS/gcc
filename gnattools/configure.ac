@@ -35,32 +35,16 @@ AC_ARG_ENABLE([maintainer-mode],
   [MAINT='#'])
 AC_SUBST([MAINT])dnl
 
-AC_ARG_ENABLE([shared],
-[AC_HELP_STRING([--disable-shared],
-                [don't provide a shared libgnat])],
-[
-case $enable_shared in
-  yes | no) ;;
-  *)
-    enable_shared=no
-    IFS="${IFS=         }"; ac_save_ifs="$IFS"; IFS="${IFS}:,"
-    for pkg in $enableval; do
-      case $pkg in
-        ada | libada)
-          enable_shared=yes ;;
-      esac
-    done
-    IFS="$ac_save_ifs"
-    ;;
-esac
-], [enable_shared=yes])
-AC_SUBST([enable_shared])
-
 # Start of actual configure tests
+
+AC_PROG_INSTALL
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
+
+sinclude(../config/acx.m4)
+ACX_NONCANONICAL_TARGET
 
 # Need to pass this down for now :-P
 AC_PROG_LN_S
@@ -72,15 +56,14 @@ case $host in
 esac
 AC_SUBST([x_ada_cflags])
 
-# Determine what to build for 'gnatlib'
-if test $build = $target \
-   && test ${enable_shared} = yes ; then
+# Determine what to build for 'gnattools'
+if test $build = $target ; then
   # Note that build=target is almost certainly the wrong test; FIXME
-  default_gnatlib_target="gnatlib-shared"
+  default_gnattools_target="gnattools-native"
 else
-  default_gnatlib_target="gnatlib-plain"
+  default_gnattools_target="gnattools-cross"
 fi
-AC_SUBST([default_gnatlib_target])
+AC_SUBST([default_gnattools_target])
 
 # Output: create a Makefile.
 AC_CONFIG_FILES([Makefile])

@@ -1,0 +1,18 @@
+2004-08-16  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.ac: Replace AC_CANONICAL_SYSTEM with _BUILD, _HOST,
+	_TARGET.  Replace _GCC_TOPLEV_NONCANONICAL_TARGET with
+	ACX_NONCANONICAL_TARGET, and replace now-redundant AC_SUBST.
+	* configure: Regenerate.
+
+2004-07-18  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in, configure.ac: Remove libada-specific targets and
+	variables.
+	* configure: Regenerate.
+	* New directory, cloned from libada.
+
+Copyright 2004 Free Software Foundation, Inc.
+
+This ChangeLog is free software; the Free Software Foundation gives
+unlimited permission to copy, distribute, and modify it.
