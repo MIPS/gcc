@@ -1,3 +1,7 @@
+2004-02-09  Andreas Schwab  <schwab@suse.de>
+
+	* sched-deps.c (add_dependence): Fix missing return value.
+
 2004-02-09  Jan Hubicka  <jh@suse.cz>
 
 	* alias.c (find_base_term, get_addr):  Do not dereference NULL

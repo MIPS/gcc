@@ -241,7 +241,7 @@ add_dependence (insn, elem, dep_type)
 
       /* Again, don't depend an insn on itself.  */
       if (insn == next)
-	return;
+	return 0;
 
       /* Make the dependence to NEXT, the last insn of the group, instead
          of the original ELEM.  */
