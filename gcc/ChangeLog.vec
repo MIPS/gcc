@@ -1,6 +1,11 @@
+2004-08-31  Steven Bosscher  <stevenb@suse.de>
+
+	* gcse.c (remove_reachable_equiv_notes): Use an edge_stack.
+
 2004-08-29  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with edge-vector-mergepoint-20040829.
+	Note: edge-vector-mergepoint-20040827 was skipped over.
 
 2004-08-27  Steven Bosscher  <stevenb@suse.de>
 
