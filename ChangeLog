@@ -1,3 +1,8 @@
+2002-12-08  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.tpl (all-sim): Depend on maybe-configure-gdb.
+	* Makefile.in (all-sim): Ditto.
+
 2002-12-06  DJ Delorie  <dj@redhat.com>
 
 	* Makefile.tpl: Change configure dependencies to not have real
