@@ -1701,7 +1701,9 @@ simplify_cond_expr (expr_p, pre_p, target)
   /* Rewrite "if (a); else b" to "if (!a) b"  */
   if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
     {
-      TREE_OPERAND (expr, 0) = invert_truthvalue (TREE_OPERAND (expr, 0));
+      /* Make sure the condition is something invert_truthvalue will accept. */
+      tree cond = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (expr, 0));
+      TREE_OPERAND (expr, 0) = invert_truthvalue (cond);
       tmp = TREE_OPERAND (expr, 1);
       TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 2);
       TREE_OPERAND (expr, 2) = tmp;
