@@ -1,3 +1,7 @@
+2003-10-13  Paul Brook  <paul@nowt.org>
+
+	* gfortran.fortran-torture/execute/retarray_2.f90: New test.
+
 2003-10-12  Feng Wang  <wf_cs@yahoo.com>
 
 	* gfortran.fortran-torture/execute/intrinsic_cshift.f90: New test.

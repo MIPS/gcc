@@ -60,9 +60,14 @@ resolve_formal_arglist (gfc_symbol * proc)
 
   /* TODO: Procedures whose return character length parameter is not constant
      or assumed must also have explicit interfaces.  */
+  if (proc->result != NULL)
+    sym = proc->result;
+  else
+    sym = proc;
+
   if (gfc_elemental (proc)
-      || proc->attr.pointer || proc->attr.allocatable
-      || (proc->as && proc->as->rank > 0))
+      || sym->attr.pointer || sym->attr.allocatable
+      || (sym->as && sym->as->rank > 0))
     proc->attr.always_explicit = 1;
 
   for (f = proc->formal; f; f = f->next)
