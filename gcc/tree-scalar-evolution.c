@@ -3340,6 +3340,7 @@ initialize_scalar_evolutions_analyzer (void)
 void
 scev_initialize (struct loops *loops)
 {
+  unsigned i;
   current_loops = loops;
 
   VARRAY_GENERIC_PTR_INIT (scalar_evolution_info, 100, 
@@ -3348,6 +3349,10 @@ scev_initialize (struct loops *loops)
 		    "already_instantiated");
   
   initialize_scalar_evolutions_analyzer ();
+
+  for (i = 1; i < loops->num; i++)
+    if (loops->parray[i])
+      flow_loop_scan (loops->parray[i], LOOP_EXIT_EDGES);
 }
 
 /* Initialize the analysis of scalar evolutions.  */

@@ -1286,6 +1286,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
 /* Perform loop optimizations.  It might be better to do them a bit
    sooner, but we want the profile feedback to work more
    efficiently.  */
+
 static void
 rest_of_handle_loop2 (tree decl, rtx insns)
 {
@@ -1599,9 +1600,7 @@ rest_of_compilation (tree decl)
     rest_of_handle_tracer (decl, insns);
 
   if (optimize > 0
-      && (flag_unswitch_loops
-	  || flag_peel_loops
-	  || flag_unroll_loops))
+      && flag_loop_optimize2)
     rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)
