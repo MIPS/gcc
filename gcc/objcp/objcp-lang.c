@@ -100,6 +100,33 @@ const char *const tree_code_name[] = {
 /* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
    there should be very few (if any) routines below.  */
 
+tree
+objcp_tsubst_copy_and_build (tree t, tree args, tsubst_flags_t complain, 
+			     tree in_decl, bool function_p ATTRIBUTE_UNUSED)
+{
+#define RECUR(NODE) \
+  tsubst_copy_and_build (NODE, args, complain, in_decl, /*function_p=*/false)
+
+  /* The following two can only occur in Objective-C++.  */
+
+  switch (TREE_CODE (t))
+    {
+    case MESSAGE_SEND_EXPR:
+      return objc_finish_message_expr
+	(RECUR (TREE_OPERAND (t, 0)),
+	 TREE_OPERAND (t, 1),  /* No need to expand the selector.  */
+	 RECUR (TREE_OPERAND (t, 2)));
+
+    case CLASS_REFERENCE_EXPR:
+      return objc_get_class_reference
+	(RECUR (TREE_OPERAND (t, 0)));
+    }
+
+  return NULL_TREE;
+
+#undef RECUR
+}
+
 void
 finish_file (void)
 {

@@ -1,3 +1,17 @@
+2004-06-07  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (cp/pt.o): Depend on cp/cp-objcp-common.h;
+	$(CXX_TREE_H) already subsumes c-common.h which we also need.
+	* cp-lang.c (objcp_tsubst_copy_and_build): New stub function.
+	* cp-objcp-common.h (objcp_tsubst_copy_and_build): New prototype.
+	* parser.c (cp_parser_objc_message_receiver): Attempt to parse
+	the receiver as a type, and backtrack if that fails.
+	* pt.c: Include c-common.h and cp-objcp-common.h.
+	(template_args_equal): Ensure that a symmetric comparison is performed
+	for Objective-C types.
+	(tsubst_copy_and_build): In Objective-C++ mode, call
+	objcp_tsubst_copy_and_build() for unhandled constructs.
+	
 2004-05-24  Ziemowit Laski  <zlaski@apple.com>
 
 	* cvt.c (convert_to_pointer_force): Always retain the NOP_EXPR

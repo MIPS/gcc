@@ -33,7 +33,9 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "tree.h"
 #include "flags.h"
+#include "c-common.h"
 #include "cp-tree.h"
+#include "cp-objcp-common.h"
 #include "tree-inline.h"
 #include "decl.h"
 #include "lex.h"
@@ -3883,7 +3885,18 @@ template_args_equal (tree ot, tree nt)
   if (TREE_CODE (nt) == TREE_VEC)
     /* For member templates */
     return TREE_CODE (ot) == TREE_VEC && comp_template_args (ot, nt);
-  else if (TYPE_P (nt))
+  else if (c_dialect_objc ())
+    {
+      int c1, c2;
+
+      /* We must call objc_comptypes() twice, since
+	 its comparisons are _not_ symmetric.  */
+      if ((c1 = objc_comptypes (ot, nt, 0)) >= 0
+	  && (c2 = objc_comptypes (nt, ot, 0)) >= 0)
+	return (c1 && c2);
+    }
+
+  if (TYPE_P (nt))
     return TYPE_P (ot) && same_type_p (ot, nt);
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
@@ -8578,6 +8591,17 @@ tsubst_copy_and_build (tree t,
 					  in_decl));
 
     default:
+      /* Handle Objective-C++ constructs, if appropriate.  */
+      if (c_dialect_objc ())
+	{
+	  tree subst
+	    = objcp_tsubst_copy_and_build (t, args, complain,
+					   in_decl, /*function_p=*/false);
+
+	  if (subst)
+	    return subst;
+	}
+
       return tsubst_copy (t, args, complain, in_decl);
     }
 

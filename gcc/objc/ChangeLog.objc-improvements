@@ -1,8 +1,13 @@
+2004-06-07  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_finish_file): Instantiate templates before calling
+	finish_objc().	
+
 2004-06-02  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c. (generate_static_references): Mark the
 	OBJC_STATIC_INSTANCES_n declarations as referenced, so that
-	they don't disappear at higher optimization levels.
+	they do not disappear at higher optimization levels.
 
 2004-04-01  Ziemowit Laski  <zlaski@apple.com>
 

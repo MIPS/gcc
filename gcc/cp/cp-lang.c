@@ -102,6 +102,17 @@ static int cxx_types_compatible_p (tree x, tree y)
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
+/* The following function does something real, but only in Objective-C++.  */
+
+tree
+objcp_tsubst_copy_and_build (tree t ATTRIBUTE_UNUSED, tree args ATTRIBUTE_UNUSED, 
+			     tsubst_flags_t complain ATTRIBUTE_UNUSED, 
+			     tree in_decl ATTRIBUTE_UNUSED,
+			     bool function_p ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 void
 finish_file (void)
 {

@@ -580,6 +580,12 @@ objc_finish_file (void)
 {
   mark_referenced_methods ();
 
+#ifdef OBJCPLUS
+  /* We need to instantiate templates before we emit ObjC metadata;
+     if we do not, some metadata (such as selectors) may go missing.  */
+  instantiate_pending_templates ();
+#endif
+
   /* Finalize Objective-C runtime data.  No need to generate tables
      and code if only checking syntax.  */
   if (!flag_syntax_only)

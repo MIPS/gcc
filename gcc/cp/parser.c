@@ -15463,13 +15463,13 @@ cp_parser_allow_gnu_extensions_p (cp_parser* parser)
 static tree
 cp_parser_objc_message_receiver (cp_parser* parser)
 {
-  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  tree rcv;
 
-  if(token->type == CPP_NAME && objc_is_class_name (token->value))
-    {
-      cp_lexer_consume_token (parser->lexer);
-      return objc_get_class_reference (token->value);
-    }
+  cp_parser_parse_tentatively (parser);
+  rcv = cp_parser_type_name (parser);
+
+  if (cp_parser_parse_definitely (parser))
+    return objc_get_class_reference (rcv);
 
   return cp_parser_expression (parser);
 }

@@ -22,14 +22,20 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_CP_OBJCP_COMMON
 #define GCC_CP_OBJCP_COMMON
 
-/* In cp-objcp-common.c.  */
+/* In cp/cp-objcp-common.c.  */
+
 extern HOST_WIDE_INT cxx_get_alias_set (tree);
 extern bool cxx_warn_unused_global_decl (tree);
 extern tree cp_expr_size (tree);
 extern size_t cp_tree_size (enum tree_code);
 extern bool cp_var_mod_type_p (tree);
 extern int cp_expand_decl (tree);
-extern void cxx_initialize_diagnostics (diagnostic_context *);
+extern void cxx_initialize_diagnostics (struct diagnostic_context *);
+
+/* In cp/cp-lang.c and objcp/objcp-lang.c.  */
+
+extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t, 
+					 tree, bool);
 
 /* Lang hooks that are shared between C++ and ObjC++ are defined here.  Hooks
    specific to C++ or ObjC++ go in cp/cp-lang.c and objcp/objcp-lang.c,
