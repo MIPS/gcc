@@ -3715,8 +3715,8 @@ finish_decl (decl, init, asmspec_tree)
 
   if (TREE_CODE (decl) == VAR_DECL && ! DECL_ARTIFICIAL (decl)
       && TREE_STATIC (decl) && DECL_INITIAL (decl)
-      && variable_extent_p (TREE_TYPE (decl)))
-    assemble_extent (decl);
+      && variable_high_bound_p (TREE_TYPE (decl)))
+    assemble_high_bound (decl);
 
   if (TREE_CODE (decl) == TYPE_DECL)
     {

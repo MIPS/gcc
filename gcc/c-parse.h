@@ -34,8 +34,8 @@ typedef union {long itype; tree ttype; enum tree_code code;
 #define	IMAGPART	288
 #define	VA_ARG	289
 #define	PTR_VALUE	290
-#define	PTR_BASE	291
-#define	PTR_EXTENT	292
+#define	PTR_LOW_BOUND	291
+#define	PTR_HIGH_BOUND	292
 #define	END_OF_LINE	293
 #define	ASSIGN	294
 #define	OROR	295

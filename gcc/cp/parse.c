@@ -39,8 +39,8 @@
 #define	IMAGPART	289
 #define	VA_ARG	290
 #define	PTR_VALUE	291
-#define	PTR_BASE	292
-#define	PTR_EXTENT	293
+#define	PTR_LOW_BOUND	292
+#define	PTR_HIGH_BOUND	293
 #define	AGGR	294
 #define	VISSPEC	295
 #define	DELETE	296
@@ -837,7 +837,7 @@ static const char * const yytname[] = {   "$","error","$undefined.","IDENTIFIER"
 "STRING","ELLIPSIS","SIZEOF","ENUM","IF","ELSE","WHILE","DO","FOR","SWITCH",
 "CASE","DEFAULT","BREAK","CONTINUE","RETURN_KEYWORD","GOTO","ASM_KEYWORD","TYPEOF",
 "ALIGNOF","SIGOF","ATTRIBUTE","EXTENSION","LABEL","REALPART","IMAGPART","VA_ARG",
-"PTR_VALUE","PTR_BASE","PTR_EXTENT","AGGR","VISSPEC","DELETE","NEW","THIS","OPERATOR",
+"PTR_VALUE","PTR_LOW_BOUND","PTR_HIGH_BOUND","AGGR","VISSPEC","DELETE","NEW","THIS","OPERATOR",
 "CXX_TRUE","CXX_FALSE","NAMESPACE","TYPENAME_KEYWORD","USING","LEFT_RIGHT","TEMPLATE",
 "TYPEID","DYNAMIC_CAST","STATIC_CAST","REINTERPRET_CAST","CONST_CAST","SCOPE",
 "EMPTY","PTYPENAME","NSNAME","'{'","','","';'","THROW","':'","ASSIGN","'='",
@@ -5560,11 +5560,11 @@ case 240:
     break;}
 case 241:
 #line 1252 "parse.y"
-{ yyval.ttype = build_bounded_ptr_base_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_low_bound_ref (yyvsp[0].ttype); ;
     break;}
 case 242:
 #line 1254 "parse.y"
-{ yyval.ttype = build_bounded_ptr_extent_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_high_bound_ref (yyvsp[0].ttype); ;
     break;}
 case 243:
 #line 1256 "parse.y"

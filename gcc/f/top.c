@@ -955,10 +955,10 @@ build_bounded_ptr_constructor_2 (addr, bounds)
 }
 
 tree
-build_bounded_ptr_constructor_3 (addr, base, extent)
+build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
      tree addr;
-     tree base;
-     tree extent;
+     tree low_bound;
+     tree high_bound;
 {
   return build_bounded_ptr_constructor (addr);
 }

@@ -1026,11 +1026,11 @@ decl_attributes (node, attributes, prefix_attributes)
 	      assemble_alias (decl, id);
 	      if (target && TREE_CODE (target) == VAR_DECL && DECL_ARGUMENTS (target))
 		{
-		  tree target_extent = DECL_ARGUMENTS (target);
-		  tree decl_extent = get_extent_decl (decl);
+		  tree target_high_bound = DECL_ARGUMENTS (target);
+		  tree decl_high_bound = get_high_bound_decl (decl);
 		  if (DECL_WEAK (decl))
-		    declare_weak (decl_extent);
-		  assemble_alias (decl_extent, DECL_ASSEMBLER_NAME (target_extent));
+		    declare_weak (decl_high_bound);
+		  assemble_alias (decl_high_bound, DECL_ASSEMBLER_NAME (target_high_bound));
 		}
 	    }
 	  else

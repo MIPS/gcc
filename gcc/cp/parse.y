@@ -271,7 +271,7 @@ cp_parse_init ()
 %token SIGOF
 %token ATTRIBUTE EXTENSION LABEL
 %token REALPART IMAGPART VA_ARG
-%token PTR_VALUE PTR_BASE PTR_EXTENT
+%token PTR_VALUE PTR_LOW_BOUND PTR_HIGH_BOUND
 
 /* the reserved words... C++ extensions */
 %token <ttype> AGGR
@@ -1248,10 +1248,10 @@ unary_expr:
 	| PTR_VALUE cast_expr %prec UNARY
 		{ $$ = (TREE_BOUNDED ($2)
 			? build_bounded_ptr_value_ref ($2) : $2); }
-	| PTR_BASE cast_expr %prec UNARY
-		{ $$ = build_bounded_ptr_base_ref ($2); }
-	| PTR_EXTENT cast_expr %prec UNARY
-		{ $$ = build_bounded_ptr_extent_ref ($2); }
+	| PTR_LOW_BOUND cast_expr %prec UNARY
+		{ $$ = build_low_bound_ref ($2); }
+	| PTR_HIGH_BOUND cast_expr %prec UNARY
+		{ $$ = build_high_bound_ref ($2); }
 	| VA_ARG '(' expr_no_commas ',' type_id ')'
 		{ $$ = build_x_va_arg ($3, groktypename ($5.t));
 		  check_for_new_type ("__builtin_va_arg", $5); }

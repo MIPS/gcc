@@ -4050,13 +4050,13 @@ build_qualified_type (type, type_quals)
     {
       tree subtype = build_qualified_type (type, type_quals & ~TYPE_QUAL_BOUNDED);
       tree value = build_decl (FIELD_DECL, get_identifier ("value"), subtype);
-      tree base = build_decl (FIELD_DECL, get_identifier ("base"), subtype);
-      tree extent = build_decl (FIELD_DECL, get_identifier ("extent"), subtype);
+      tree low_bound = build_decl (FIELD_DECL, get_identifier ("low_bound"), subtype);
+      tree high_bound = build_decl (FIELD_DECL, get_identifier ("high_bound"), subtype);
       t = build_type_copy (type);
       TREE_SET_CODE (t, RECORD_TYPE);
       TYPE_SIZE (t) = NULL_TREE;
       TYPE_SIZE_UNIT (t) = NULL_TREE;
-      TYPE_FIELDS (t) = chainon (value, chainon (base, extent));
+      TYPE_FIELDS (t) = chainon (value, chainon (low_bound, high_bound));
       layout_type (t);
     }
   else if (BOUNDED_INDIRECT_TYPE_P (type) && !(type_quals & TYPE_QUAL_BOUNDED))
@@ -4780,12 +4780,12 @@ build_null_pointer_node (type)
   tree null = build_int_2 (0, 0);
   if (BOUNDED_POINTER_TYPE_P (type))
     {
-      tree value = build_tree_list (TYPE_BOUNDED_VALUE (type), null);
-      tree base = build_tree_list (TYPE_BOUNDED_BASE (type), null);
-      tree extent = build_tree_list (TYPE_BOUNDED_EXTENT (type), null);
+      tree value = build_tree_list (TYPE_BOUNDED_VALUE_FIELD (type), null);
+      tree low_bound = build_tree_list (TYPE_LOW_BOUND_FIELD (type), null);
+      tree high_bound = build_tree_list (TYPE_HIGH_BOUND_FIELD (type), null);
       TREE_TYPE (null) = TYPE_BOUNDED_SUBTYPE (type);
       null = build (CONSTRUCTOR, type, NULL_TREE,
-		    chainon (value, chainon (base, extent)));
+		    chainon (value, chainon (low_bound, high_bound)));
       TREE_CONSTANT (null) = 1;
       TREE_BOUNDED (null) = 1;
     }

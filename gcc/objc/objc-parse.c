@@ -38,8 +38,8 @@
 #define	IMAGPART	288
 #define	VA_ARG	289
 #define	PTR_VALUE	290
-#define	PTR_BASE	291
-#define	PTR_EXTENT	292
+#define	PTR_LOW_BOUND	291
+#define	PTR_HIGH_BOUND	292
 #define	END_OF_LINE	293
 #define	ASSIGN	294
 #define	OROR	295
@@ -537,7 +537,7 @@ static const char * const yytname[] = {   "$","error","$undefined.","IDENTIFIER"
 "TYPENAME","SCSPEC","TYPESPEC","TYPE_QUAL","CONSTANT","STRING","ELLIPSIS","SIZEOF",
 "ENUM","STRUCT","UNION","IF","ELSE","WHILE","DO","FOR","SWITCH","CASE","DEFAULT",
 "BREAK","CONTINUE","RETURN","GOTO","ASM_KEYWORD","TYPEOF","ALIGNOF","ATTRIBUTE",
-"EXTENSION","LABEL","REALPART","IMAGPART","VA_ARG","PTR_VALUE","PTR_BASE","PTR_EXTENT",
+"EXTENSION","LABEL","REALPART","IMAGPART","VA_ARG","PTR_VALUE","PTR_LOW_BOUND","PTR_HIGH_BOUND",
 "END_OF_LINE","ASSIGN","'='","'?'","':'","OROR","ANDAND","'|'","'^'","'&'","EQCOMPARE",
 "ARITHCOMPARE","LSHIFT","RSHIFT","'+'","'-'","'*'","'/'","'%'","UNARY","PLUSPLUS",
 "MINUSMINUS","HYPERUNARY","POINTSAT","'.'","'('","'['","INTERFACE","IMPLEMENTATION",
@@ -2595,11 +2595,11 @@ case 63:
     break;}
 case 64:
 #line 508 "objc-parse.y"
-{ yyval.ttype = build_bounded_ptr_base_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_low_bound_ref (yyvsp[0].ttype); ;
     break;}
 case 65:
 #line 510 "objc-parse.y"
-{ yyval.ttype = build_bounded_ptr_extent_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_high_bound_ref (yyvsp[0].ttype); ;
     break;}
 case 66:
 #line 512 "objc-parse.y"

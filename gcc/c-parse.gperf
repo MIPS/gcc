@@ -44,10 +44,10 @@ __inline__, SCSPEC, RID_INLINE
 __iterator, SCSPEC, RID_ITERATOR
 __iterator__, SCSPEC, RID_ITERATOR
 __label__, LABEL, NORID
-__ptrbase, PTR_BASE, NORID
-__ptrbase__, PTR_BASE, NORID
-__ptrextent, PTR_EXTENT, NORID
-__ptrextent__, PTR_EXTENT, NORID
+__ptrhigh, PTR_HIGH_BOUND, NORID
+__ptrhigh__, PTR_HIGH_BOUND, NORID
+__ptrlow, PTR_LOW_BOUND, NORID
+__ptrlow__, PTR_LOW_BOUND, NORID
 __ptrvalue, PTR_VALUE, NORID
 __ptrvalue__, PTR_VALUE, NORID
 __real, REALPART, NORID

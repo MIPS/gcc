@@ -29,10 +29,10 @@ __inline, SCSPEC, RID_INLINE
 __inline__, SCSPEC, RID_INLINE
 __label__, LABEL, RID_UNUSED
 __null, CONSTANT, RID_NULL
-__ptrbase, PTR_BASE, RID_UNUSED
-__ptrbase__, PTR_BASE, RID_UNUSED
-__ptrextent, PTR_EXTENT, RID_UNUSED
-__ptrextent__, PTR_EXTENT, RID_UNUSED
+__ptrhigh, PTR_HIGH_BOUND, RID_UNUSED
+__ptrhigh__, PTR_HIGH_BOUND, RID_UNUSED
+__ptrlow, PTR_LOW_BOUND, RID_UNUSED
+__ptrlow__, PTR_LOW_BOUND, RID_UNUSED
 __ptrvalue, PTR_VALUE, RID_UNUSED
 __ptrvalue__, PTR_VALUE, RID_UNUSED
 __real, REALPART, RID_UNUSED

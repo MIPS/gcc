@@ -1055,12 +1055,12 @@ struct tree_block
    of such chains is always the unbounded type.  */
 
 /* Access the field decls of a bounded-pointer type.  */
-#define TYPE_BOUNDED_VALUE(TYPE) TYPE_FIELDS (TYPE)
-#define TYPE_BOUNDED_BASE(TYPE) TREE_CHAIN (TYPE_BOUNDED_VALUE (TYPE))
-#define TYPE_BOUNDED_EXTENT(TYPE) TREE_CHAIN (TYPE_BOUNDED_BASE (TYPE))
+#define TYPE_BOUNDED_VALUE_FIELD(TYPE) TYPE_FIELDS (TYPE)
+#define TYPE_LOW_BOUND_FIELD(TYPE) TREE_CHAIN (TYPE_BOUNDED_VALUE_FIELD (TYPE))
+#define TYPE_HIGH_BOUND_FIELD(TYPE) TREE_CHAIN (TYPE_LOW_BOUND_FIELD (TYPE))
 
 /* Access the simple-pointer subtype of a bounded-pointer type.  */
-#define TYPE_BOUNDED_SUBTYPE(TYPE) TREE_TYPE (TYPE_BOUNDED_VALUE (TYPE))
+#define TYPE_BOUNDED_SUBTYPE(TYPE) TREE_TYPE (TYPE_BOUNDED_VALUE_FIELD (TYPE))
 
 /* Find the unbounded counterpart to a type, or return TYPE if it is
    already unbounded.  */
@@ -1939,8 +1939,8 @@ extern tree build_bounded_ptr_constructor_2 PARAMS ((tree, tree));
 extern tree build_bounded_ptr_constructor_3 PARAMS ((tree, tree, tree));
 extern tree build_bounded_ptr_field_ref PARAMS ((tree, int));
 #define build_bounded_ptr_value_ref(T) build_bounded_ptr_field_ref ((T), 0)
-#define build_bounded_ptr_base_ref(T) build_bounded_ptr_field_ref ((T), 1)
-#define build_bounded_ptr_extent_ref(T) build_bounded_ptr_field_ref ((T), 2)
+#define build_low_bound_ref(T) build_bounded_ptr_field_ref ((T), 1)
+#define build_high_bound_ref(T) build_bounded_ptr_field_ref ((T), 2)
 extern tree build_bounded_ptr_check PARAMS ((tree, tree));
 
 extern tree make_signed_type		PARAMS ((int));
@@ -2851,8 +2851,8 @@ extern tree bounded_pointer_thunk_decls;
 
 extern int mark_addressable		PARAMS ((tree));
 extern void incomplete_type_error	PARAMS ((tree, tree));
-extern tree get_extent_decl		PARAMS ((tree));
-extern int variable_extent_p		PARAMS ((tree));
+extern tree get_high_bound_decl		PARAMS ((tree));
+extern int variable_high_bound_p		PARAMS ((tree));
 extern void print_lang_statistics	PARAMS ((void));
 extern tree truthvalue_conversion	PARAMS ((tree));
 extern void split_specs_attrs		PARAMS ((tree, tree *, tree *));

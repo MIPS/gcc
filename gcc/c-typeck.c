@@ -61,7 +61,7 @@ static tree lookup_field		PARAMS ((tree, tree, tree *));
 static tree convert_arguments		PARAMS ((tree, tree, tree, tree, tree));
 static tree pointer_int_sum		PARAMS ((enum tree_code, tree, tree));
 static tree pointer_diff		PARAMS ((tree, tree));
-static tree build_bounded_ptr_extent	PARAMS ((tree));
+static tree build_high_bound	PARAMS ((tree));
 static tree unary_complex_lvalue	PARAMS ((enum tree_code, tree));
 static void pedantic_lvalue_warning	PARAMS ((enum tree_code));
 static tree internal_build_compound_expr PARAMS ((tree, int));
@@ -1233,7 +1233,7 @@ build_bounded_ptr_field_ref (bp, field_number)
     {
       if (field_number)
 	error ("can't take __ptr%s of unbounded pointer",
-	       ((field_number == 1) ? "base" : "extent"));
+	       ((field_number == 1) ? "low_bound" : "high_bound"));
       return bp;
     }
   if (! BOUNDED_POINTER_TYPE_P (TREE_TYPE (bp)))
@@ -1295,22 +1295,23 @@ build_bounded_ptr_field_ref (bp, field_number)
 
 /* This is just like build_bounded_ptr_value_ref except with the
    side-effect of generating bounds checks.  Strip away bounds, check
-   pointer value against base & extent, then return a COMPONENT_REF to
-   the pointer value, or return the pointer value itself if we can.
+   pointer value against low_bound & high_bound, then return a
+   COMPONENT_REF to the pointer value, or return the pointer value
+   itself if we can.
 
    BP is the bounded pointer to check and extract the value ref.
 
    LENGTH is the number of bytes the user wishes to operate upon, and
    is supplied when expanding builtin mem & str functions.  When we
-   get a valid LENGTH, we check BP.value against BP.base, and
-   BP.value+LENGTH against BP.extent.  */
+   get a valid LENGTH, we check BP.value against BP.low_bound, and
+   BP.value+LENGTH against BP.high_bound.  */
 
 tree
 build_bounded_ptr_check (bp, length)
      tree bp;
      tree length;
 {
-  tree value, base, extent, compare;
+  tree value, low_bound, high_bound, compare;
 
   if (!TREE_BOUNDED (bp))
     abort ();
@@ -1322,18 +1323,18 @@ build_bounded_ptr_check (bp, length)
     bp = save_expr (bp);
 
   value = build_bounded_ptr_value_ref (bp);
-  base = build_bounded_ptr_base_ref (bp);
-  extent = build_bounded_ptr_extent_ref (bp);
+  low_bound = build_low_bound_ref (bp);
+  high_bound = build_high_bound_ref (bp);
 
   if (TREE_CODE (bp) == CONSTRUCTOR)
     {
       if (TREE_SIDE_EFFECTS (value))
 	value = save_expr (value);
 #if 0
-      if (TREE_SIDE_EFFECTS (base))
-	base = save_expr (base);
-      if (TREE_SIDE_EFFECTS (extent))
-	extent = save_expr (extent);
+      if (TREE_SIDE_EFFECTS (low_bound))
+	low_bound = save_expr (low_bound);
+      if (TREE_SIDE_EFFECTS (high_bound))
+	high_bound = save_expr (high_bound);
 #endif
     }
 
@@ -1341,8 +1342,8 @@ build_bounded_ptr_check (bp, length)
      the form (a >= (a + i)) ==> 0, where `a' is an address and `i' is
      a positive integer.  */
   compare = fold (build_binary_op (TRUTH_ORIF_EXPR,
-				   fold (build_binary_op (LT_EXPR, value, base, 1)),
-				   fold (build_binary_op (GE_EXPR, value, extent, 1)), 1));
+				   fold (build_binary_op (LT_EXPR, value, low_bound, 1)),
+				   fold (build_binary_op (GE_EXPR, value, high_bound, 1)), 1));
   if (integer_zerop (compare))
     return value;
   else
@@ -3282,11 +3283,11 @@ build_unary_op (code, xarg, noconvert)
 	  TREE_OPERAND (ref, 0) = rec;
 	  expr = build_unary_op (code, ref, noconvert);
 	  val = build (CONSTRUCTOR, argtype, NULL_TREE,
-		       tree_cons (TYPE_BOUNDED_VALUE (argtype), expr,
-				  tree_cons (TYPE_BOUNDED_BASE (argtype),
-					     build_bounded_ptr_base_ref (arg),
-					     tree_cons (TYPE_BOUNDED_EXTENT (argtype),
-							build_bounded_ptr_extent_ref (arg),
+		       tree_cons (TYPE_BOUNDED_VALUE_FIELD (argtype), expr,
+				  tree_cons (TYPE_LOW_BOUND_FIELD (argtype),
+					     build_low_bound_ref (arg),
+					     tree_cons (TYPE_HIGH_BOUND_FIELD (argtype),
+							build_high_bound_ref (arg),
 							NULL_TREE))));
 	  TREE_THIS_VOLATILE (val) = TREE_THIS_VOLATILE (expr);
 	  TREE_SIDE_EFFECTS (val) = TREE_SIDE_EFFECTS (expr);
@@ -3510,7 +3511,7 @@ build_unary_op (code, xarg, noconvert)
 
       {
 	tree addr;
-	tree extent = NULL_TREE;
+	tree high_bound = NULL_TREE;
 
 	if (TREE_CODE (arg) == COMPONENT_REF)
 	  {
@@ -3533,12 +3534,12 @@ build_unary_op (code, xarg, noconvert)
 	    if (TREE_BOUNDED (addr))
 	      {
 		/* If the final field has array type, it might have
-		   variable length, so we must preserve the extent of
-		   the entire record as the extent of the field.  */
+		   variable length, so we must preserve the high_bound of
+		   the entire record as the high_bound of the field.  */
 		/* GKM FIXME: is this test sufficent to identify the
                    final field?  */
 		if (FINAL_FIELD_P (field))
-		  extent = build_bounded_ptr_extent_ref (addr);
+		  high_bound = build_high_bound_ref (addr);
 		addr = build_bounded_ptr_value_ref (addr);
 	      }
 
@@ -3564,8 +3565,8 @@ build_unary_op (code, xarg, noconvert)
 		  && TREE_CODE (addr) == INTEGER_CST)
 	    && TREE_CODE (arg) != FUNCTION_DECL)
 	  {
-	    if (extent)
-	      addr = build_bounded_ptr_constructor_3 (addr, addr, extent);
+	    if (high_bound)
+	      addr = build_bounded_ptr_constructor_3 (addr, addr, high_bound);
 	    else
 	      addr = build_bounded_ptr_constructor (addr);
 	  }
@@ -3585,9 +3586,9 @@ build_unary_op (code, xarg, noconvert)
 /* Build a CONSTRUCTOR node containing the three components of a bounded
    pointer, built from the bare-pointer ADDR.  This function is sometimes
    called on the result of a build_unary_op (ADDR_EXPR ...).  if BP is
-   non-NULL, it is a bounded pointer from which to take the base and
-   extent.  Otherwise, if BP is NULL, we use ADDR for the base, and
-   construct extent as the sum of the base and the sizeof ADDR.  */
+   non-NULL, it is a bounded pointer from which to take the low_bound and
+   high_bound.  Otherwise, if BP is NULL, we use ADDR for the low_bound, and
+   construct high_bound as the sum of the low_bound and the sizeof ADDR.  */
 
 tree
 build_bounded_ptr_constructor (addr)
@@ -3615,16 +3616,16 @@ build_bounded_ptr_constructor (addr)
     addr = stabilize_reference (addr);
 
   return build_bounded_ptr_constructor_3 (addr, addr,
-					  build_bounded_ptr_extent (addr));
+					  build_high_bound (addr));
 }
 
 /* Return nonzero if type is an array type, or is a struct or union
    type (possibly nested) that possesses a final member of array type.
    An array, or a struct with a final array member migth have variable
-   length, so we must refer to its bounds-checking extent symbolically.  */
+   length, so we must refer to its bounds-checking high_bound symbolically.  */
 
 int
-variable_extent_p (type)
+variable_high_bound_p (type)
      tree type;
 {
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3637,14 +3638,14 @@ variable_extent_p (type)
 	return 0;
       while (TREE_CHAIN (field))
 	field = TREE_CHAIN (field);
-      return variable_extent_p (TREE_TYPE (field));
+      return variable_high_bound_p (TREE_TYPE (field));
     }
   else
     return 0;
 }
 
 static tree
-build_bounded_ptr_extent (addr)
+build_high_bound (addr)
      tree addr;
 {
   tree deep = addr;
@@ -3653,29 +3654,29 @@ build_bounded_ptr_extent (addr)
     {
       tree datum = TREE_OPERAND (deep, 0);
       if (TREE_CODE (datum) == FUNCTION_DECL)
-	return build_bounded_ptr_extent_ref (permissive_null_bounded_ptr_node);
+	return build_high_bound_ref (permissive_null_bounded_ptr_node);
       if (TREE_CODE (datum) == VAR_DECL && DECL_EXTERNAL (datum)
-	  && variable_extent_p (TREE_TYPE (datum)))
+	  && variable_high_bound_p (TREE_TYPE (datum)))
 	{
-	  tree extent = get_extent_decl (datum);
-	  TREE_USED (extent) = 1;
-	  return build1 (ADDR_EXPR, TREE_TYPE (addr), extent);
+	  tree high_bound = get_high_bound_decl (datum);
+	  TREE_USED (high_bound) = 1;
+	  return build1 (ADDR_EXPR, TREE_TYPE (addr), high_bound);
 	}
       if (TREE_CODE (datum) == STRING_CST)
 	{
 	  if (TREE_TYPE (addr) != TREE_TYPE (deep))
 	    abort ();
 	}
-      else if (DECL_EXTERNAL (datum) && variable_extent_p (TREE_TYPE (datum)))
+      else if (DECL_EXTERNAL (datum) && variable_high_bound_p (TREE_TYPE (datum)))
 	abort ();
     }
   return build_binary_op (PLUS_EXPR, addr, integer_one_node, 0);
 #if 0
   {
-    ... if (variable_extent_p (TREE_TYPE (datum)))
+    ... if (variable_high_bound_p (TREE_TYPE (datum)))
   }
-  warning ("unknown extent for bounded pointer");
-  return build_bounded_ptr_extent_ref (permissive_null_bounded_ptr_node);
+  warning ("unknown high_bound for bounded pointer");
+  return build_high_bound_ref (permissive_null_bounded_ptr_node);
 #endif
 }
 
@@ -3683,10 +3684,10 @@ build_bounded_ptr_extent (addr)
    GKM FIXME: We should The linker should synthesize a definition if none exists.  */
 
 tree
-get_extent_decl (decl)
+get_high_bound_decl (decl)
      tree decl;
 {
-  tree extent, ext_id;
+  tree high_bound, ext_id;
   char const *var_name;
   char *ext_name;
 
@@ -3697,20 +3698,20 @@ get_extent_decl (decl)
     return DECL_ARGUMENTS (decl);
 
   var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  ext_name = alloca (strlen (var_name) + sizeof (".extent"));
-  sprintf (ext_name, "%s%s", var_name, ".extent");
+  ext_name = alloca (strlen (var_name) + sizeof (".high_bound"));
+  sprintf (ext_name, "%s%s", var_name, ".high_bound");
   ext_id = get_identifier (ext_name);
 
-  extent = copy_node (decl);
-  TREE_USED (extent) = 0;
+  high_bound = copy_node (decl);
+  TREE_USED (high_bound) = 0;
   /* GKM FIXME: this doesn't handle local scope statics */
-  DECL_ARGUMENTS (decl) = extent;
-  DECL_NAME (extent) = DECL_ASSEMBLER_NAME (extent) = ext_id;
-  DECL_RTL (extent)
+  DECL_ARGUMENTS (decl) = high_bound;
+  DECL_NAME (high_bound) = DECL_ASSEMBLER_NAME (high_bound) = ext_id;
+  DECL_RTL (high_bound)
     = gen_rtx_MEM (VOIDmode,
 		   gen_rtx (SYMBOL_REF, Pmode,
-			    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (extent))));
-  return extent;
+			    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (high_bound))));
+  return high_bound;
 }
 
 tree
@@ -3718,7 +3719,7 @@ build_bounded_ptr_constructor_2 (addr, bounds)
      tree addr;
      tree bounds;
 {
-  tree base, extent;
+  tree low_bound, high_bound;
 
   if (TREE_BOUNDED (addr) || BOUNDED_POINTER_TYPE_P (TREE_TYPE (addr)))
     abort ();
@@ -3728,19 +3729,19 @@ build_bounded_ptr_constructor_2 (addr, bounds)
       || !default_pointer_boundedness)
     return addr;
 
-  base = build_bounded_ptr_base_ref (bounds);
-  extent = build_bounded_ptr_extent_ref (bounds);
-  return build_bounded_ptr_constructor_3 (addr, base, extent);
+  low_bound = build_low_bound_ref (bounds);
+  high_bound = build_high_bound_ref (bounds);
+  return build_bounded_ptr_constructor_3 (addr, low_bound, high_bound);
 }
 
 tree
-build_bounded_ptr_constructor_3 (addr, base, extent)
+build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
      tree addr;
-     tree base;
-     tree extent;
+     tree low_bound;
+     tree high_bound;
 {
   tree type = (TREE_CODE (TREE_TYPE (addr)) == POINTER_TYPE
-	       ? TREE_TYPE (addr) : TREE_TYPE (base));
+	       ? TREE_TYPE (addr) : TREE_TYPE (low_bound));
   tree bptype = build_qualified_type (type, TYPE_QUALS (type) | TYPE_QUAL_BOUNDED);
   tree value, result;
 
@@ -3754,18 +3755,18 @@ build_bounded_ptr_constructor_3 (addr, base, extent)
 
   if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     {
-      base = build_bounded_ptr_base_ref (strict_null_bounded_ptr_node);
-      extent = build_bounded_ptr_extent_ref (strict_null_bounded_ptr_node);
+      low_bound = build_low_bound_ref (strict_null_bounded_ptr_node);
+      high_bound = build_high_bound_ref (strict_null_bounded_ptr_node);
     }
 
-  value = build_tree_list (TYPE_BOUNDED_VALUE (bptype), addr);
-  base = build_tree_list (TYPE_BOUNDED_BASE (bptype),
-			  convert (type, base));
-  extent = build_tree_list (TYPE_BOUNDED_EXTENT (bptype),
-			    convert (type, extent));
+  value = build_tree_list (TYPE_BOUNDED_VALUE_FIELD (bptype), addr);
+  low_bound = build_tree_list (TYPE_LOW_BOUND_FIELD (bptype),
+			  convert (type, low_bound));
+  high_bound = build_tree_list (TYPE_HIGH_BOUND_FIELD (bptype),
+			    convert (type, high_bound));
 
   result  = build (CONSTRUCTOR, bptype, NULL_TREE,
-		   chainon (value, chainon (base, extent)));
+		   chainon (value, chainon (low_bound, high_bound)));
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (addr);
   TREE_SIDE_EFFECTS (result) = TREE_SIDE_EFFECTS (addr);
   TREE_CONSTANT (result) = TREE_CONSTANT (addr);
@@ -6230,7 +6231,7 @@ pop_init_level (implicit)
      excess array elements.  */
   if (constructor_decl && constructor_depth == 2
       && constructor_fields && FINAL_FIELD_P (constructor_fields)
-      && constructor_index && variable_extent_p (constructor_type))
+      && constructor_index && variable_high_bound_p (constructor_type))
     {
       tree eltype = TREE_TYPE (constructor_type);
       tree size = size_binop (MULT_EXPR, TYPE_SIZE (eltype), constructor_index);

@@ -4850,15 +4850,15 @@ assemble_alias (decl, target)
 }
 
 void
-assemble_extent (decl)
+assemble_high_bound (decl)
      tree decl;
 {
-  tree extent = get_extent_decl (decl);
-  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (extent));
+  tree high_bound = get_high_bound_decl (decl);
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (high_bound));
   if (TREE_PUBLIC (decl))
     assemble_global (name);
   if (TREE_PUBLIC (decl) || TREE_USED (decl))
-    ASM_DECLARE_EXTENT (asm_out_file, decl);
+    ASM_DECLARE_HIGH_BOUND (asm_out_file, decl);
 }
 
 /* This determines whether or not we support link-once semantics.  */

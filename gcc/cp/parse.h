@@ -41,8 +41,8 @@ typedef union {
 #define	IMAGPART	289
 #define	VA_ARG	290
 #define	PTR_VALUE	291
-#define	PTR_BASE	292
-#define	PTR_EXTENT	293
+#define	PTR_LOW_BOUND	292
+#define	PTR_HIGH_BOUND	293
 #define	AGGR	294
 #define	VISSPEC	295
 #define	DELETE	296

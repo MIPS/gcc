@@ -104,7 +104,7 @@ const char * const language_string = "GNU C";
 %token BREAK CONTINUE RETURN GOTO ASM_KEYWORD TYPEOF ALIGNOF
 %token ATTRIBUTE EXTENSION LABEL
 %token REALPART IMAGPART VA_ARG
-%token PTR_VALUE PTR_BASE PTR_EXTENT
+%token PTR_VALUE PTR_LOW_BOUND PTR_HIGH_BOUND
 
 /* Used in c-lex.c for parsing pragmas.  */
 %token END_OF_LINE
@@ -473,10 +473,10 @@ unary_expr:
 		{ $$ = build_unary_op (IMAGPART_EXPR, $2, 0); }
 	| PTR_VALUE cast_expr %prec UNARY
 		{ $$ = build_bounded_ptr_value_ref ($2); }
-	| PTR_BASE cast_expr %prec UNARY
-		{ $$ = build_bounded_ptr_base_ref ($2); }
-	| PTR_EXTENT cast_expr %prec UNARY
-		{ $$ = build_bounded_ptr_extent_ref ($2); }
+	| PTR_LOW_BOUND cast_expr %prec UNARY
+		{ $$ = build_low_bound_ref ($2); }
+	| PTR_HIGH_BOUND cast_expr %prec UNARY
+		{ $$ = build_high_bound_ref ($2); }
 	| VA_ARG '(' expr_no_commas ',' typename ')'
 		{ $$ = build_va_arg ($3, groktypename ($5)); }
 	;

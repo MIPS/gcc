@@ -652,15 +652,15 @@ dtors_section ()						\
   while (0)
 #endif
 
-/* Output a set directive to define <declname>.extent.  */
-#define ASM_DECLARE_EXTENT(FILE, DECL)							\
+/* Output a set directive to define <declname>.high_bound.  */
+#define ASM_DECLARE_HIGH_BOUND(FILE, DECL)						\
   do											\
     {											\
       if (DECL_ARGUMENTS (DECL))							\
 	{										\
-	  tree extent = DECL_ARGUMENTS (DECL);						\
+	  tree high_bound = DECL_ARGUMENTS (DECL);					\
 	  fprintf (FILE, "\t%s\t ", SET_ASM_OP);					\
-	  assemble_name (FILE, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (extent)));	\
+	  assemble_name (FILE, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (high_bound)));	\
 	  fprintf (FILE, ",");								\
 	  assemble_name (FILE, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL)));	\
 	  fprintf (FILE, "+");								\

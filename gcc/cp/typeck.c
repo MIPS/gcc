@@ -4797,9 +4797,9 @@ build_unary_op (code, xarg, noconvert)
 /* Build a CONSTRUCTOR node containing the three components of a bounded
    pointer, built from the bare-pointer ADDR.  This function is sometimes
    called on the result of a build_unary_op (ADDR_EXPR ...).  if BP is
-   non-NULL, it is a bounded pointer from which to take the base and
-   extent.  Otherwise, if BP is NULL, we use ADDR for the base, and
-   construct extent as the sum of the base and the sizeof ADDR.  */
+   non-NULL, it is a bounded pointer from which to take the low_bound and
+   high_bound.  Otherwise, if BP is NULL, we use ADDR for the low_bound, and
+   construct high_bound as the sum of the low_bound and the sizeof ADDR.  */
 
 tree
 build_bounded_ptr_constructor (addr)
@@ -4819,10 +4819,10 @@ build_bounded_ptr_constructor_2 (addr, bounds)
 }
 
 tree
-build_bounded_ptr_constructor_3 (addr, base, extent)
+build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
      tree addr;
-     tree base;
-     tree extent;
+     tree low_bound;
+     tree high_bound;
 {
   return build_bounded_ptr_constructor (addr);
 }

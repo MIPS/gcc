@@ -546,8 +546,8 @@ expand_name_space (list, len)
 	  {
 	    list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
 #if __BOUNDED_POINTERS__
-	    __ptrbase list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
-	    __ptrextent list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+	    __ptrlow list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+	    __ptrhigh list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
 #endif
 	  }
     }
@@ -713,8 +713,8 @@ _cpp_squeeze_toklist (list)
 	  {
 	    list->tokens[i].val.name.text += delta;
 #if __BOUNDED_POINTERS__
-	    __ptrbase list->tokens[i].val.name.text += delta;
-	    __ptrextent list->tokens[i].val.name.text += delta;
+	    __ptrlow list->tokens[i].val.name.text += delta;
+	    __ptrhigh list->tokens[i].val.name.text += delta;
 #endif
 	  }
     }

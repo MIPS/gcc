@@ -1436,9 +1436,9 @@ bounded_ptr_dest (dest, dest_addr, target)
      rtx dest_addr;
      rtx target;
 {
-  rtx base_rtx = expand_expr (build_bounded_ptr_base_ref (dest),
+  rtx low_bound_rtx = expand_expr (build_low_bound_ref (dest),
 			      NULL_RTX, Pmode, 0);
-  rtx extent_rtx = expand_expr (build_bounded_ptr_extent_ref (dest),
+  rtx high_bound_rtx = expand_expr (build_high_bound_ref (dest),
 				NULL_RTX, Pmode, 0);
   if (!target)
     target = assign_temp (TREE_TYPE (dest), 1, 0, 0);
@@ -1448,11 +1448,11 @@ bounded_ptr_dest (dest, dest_addr, target)
   emit_move_insn (change_address (target, ptr_mode,
 				  plus_constant (XEXP (target, 0),
 						 GET_MODE_SIZE (ptr_mode))),
-		  base_rtx);
+		  low_bound_rtx);
   emit_move_insn (change_address (target, ptr_mode,
 				  plus_constant (XEXP (target, 0),
 						 2 * GET_MODE_SIZE (ptr_mode))),
-		  extent_rtx);
+		  high_bound_rtx);
   return target;
 }
 
