@@ -1,3 +1,9 @@
+2004-08-25  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicTableHeaderUI.java,
+	javax/swing/plaf/basic/BasicTableUI.java:
+	Added copyright notice.
+
 2004-08-25  Olga Rodimina  <rodimina@redhat.com>
 
 	* Makefile.am: Added new files.
