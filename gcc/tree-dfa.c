@@ -2054,12 +2054,29 @@ may_alias_p (v1, v2)
      locals that have had their address taken, unless points-to analysis is
      done.  This is because points-to is supposed to handle this case, and
      thus, can give a more accurate answer.   */
-  if (flag_tree_points_to == PTA_NONE
-      && ptr_sym == global_var
+  if (ptr_sym == global_var
       && (TREE_ADDRESSABLE (var_sym)
 	  || TREE_CODE (var) == INDIRECT_REF
 	  || decl_function_context (var_sym) == NULL))
-    return true;
+    {
+      if (flag_tree_points_to == PTA_NONE)	 
+	return true;
+      else
+	{
+	  /* Right now, it's just not worth the time/space to make
+	     points-to handle the global variables seperately (in
+	     intraprocedural mode, anyway).  */	     
+	  if (decl_function_context (var_sym) == NULL)
+	    return true;
+	  
+	  /* For global_var, we want to see if the variable aliases
+	     global_var, not if global_var aliases the variable (since
+	     the points-to sets are possibly directional, and
+	     global_var never gets assigned to, only assigned from). */ 
+	  if (ptr_may_alias_var (var_sym, ptr_sym))
+	    return true;  
+	}
+    }
 
   /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
      each other.  */

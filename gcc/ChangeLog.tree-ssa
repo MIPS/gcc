@@ -1,3 +1,7 @@
+2002-12-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (may_alias_p): Fix global variables and points-to.
+
 2002-12-03  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa.c (delete_tree_ssa):  Move call to delete_alias_vars
