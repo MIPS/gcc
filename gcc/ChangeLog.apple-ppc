@@ -1,3 +1,7 @@
+2005-01-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.c (macosx_version_min_required): Make static.
+
 2005-01-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3953308

@@ -1,3 +1,8 @@
+2005-01-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++spec.c: Remove APPLE LOCAL changes involving
+	macosx_version_min_required.
+
 2005-01-14  Ziemowit Laski  <zlaski@apple.com>
 
 	* parser.c (cp_parser_cw_identifier): Add a default:

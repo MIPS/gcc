@@ -250,7 +250,7 @@ static int use_constant_cfstrings = 0;
 /* The deployment target (i.e., the minimum version of MacOS X that
    the binary is expected to be used on).  */
 static const char *macosx_deployment_target = 0;
-unsigned int macosx_version_min_required = 0;
+static unsigned int macosx_version_min_required = 0;
 
 /* The following table should be NULL-terminated and kept in 
    lexicographic order. */
