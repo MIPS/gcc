@@ -1,3 +1,14 @@
+2005-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc (arm-wrs-linux-gnu): Use wrs-linux.h and t-wrs-linux.
+	(i?86-wrs-linux-gnu): Likewise.
+	(mips-wrs-linux-gnu): Likewise.
+	(powerpc-wrs-linux-gnu): Likewise.
+	* config/t-wrs-linux: New file.
+	* config/wrs-linux.h: Likewise.
+	* config/arm/wrs-linux.h: Adjust location of GLIBC.
+	* config/mips/wrs-linux.h: Likewise.
+
 2005-01-20  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_compute_func_type): Use TREE_NOTHROW, not

@@ -28,8 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #undef CC1_SPEC
 #define CC1_SPEC "				\
  %{tarm926ej-s:	-mcpu=arm926ej-s ;		\
-   tiwmmxt:     -mcpu=iwmmxt -mbig-endian ; 	\
-          : }					\
+   tiwmmxt:     -mcpu=iwmmxt -mbig-endian } 	\
  %{profile:-p}"
 
 /* Since the ARM926EJ-S is the default processor, we do not need to
@@ -48,11 +47,15 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_EXTRA_LINK_SPEC \
   "%{tiwmmxt:-m armelfb_linux_eabi ; : -m armelf_linux_eabi}"
 
+#undef STANDARD_INCLUDE_DIR
+#define STANDARD_INCLUDE_DIR "/" WRS_TARGET_SUBDIR "/libc/usr/include"
+
 /* When using -tiwmmxt, search the "tiwmmxt" subdirectory.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
-  "%{tiwmmxt:/tiwmmxt}"
+  "/" WRS_TARGET_SUBDIR "/libc%{tiwmmxt:/tiwmmxt}"
 #undef SYSROOT_SUFFIX_LINK_SPEC
 #define SYSROOT_SUFFIX_LINK_SPEC \
-  "%{tiwmmxt:--sysroot-suffix /tiwmmxt} "
+  "--sysroot-suffix /" WRS_TARGET_SUBDIR "/libc%{tiwmmxt:/tiwmmxt} "
+
 

@@ -19,10 +19,16 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Look for little-endian libraries in the "mel" subdirectory.  */
+/* The GLIBC header files are installed in this subdirectory of the
+   installation root.  */
+#undef STANDARD_INCLUDE_DIR
+#define STANDARD_INCLUDE_DIR "/" WRS_TARGET_SUBDIR "/libc/usr/include"
+
+/* The GLIBC library files are installed in this subdirectory of the
+   installation root.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
-  "/" WRS_TARGET_SUBDIR "/libc%{mel:/mel}"
+  "/" WRS_TARGET_SUBDIR "/libc"
 #undef SYSROOT_SUFFIX_LINK_SPEC
 #define SYSROOT_SUFFIX_LINK_SPEC \
-  "--sysroot-suffix /" WRS_TARGET_SUBDIR "/libc%{mel:/mel} "
+  "--sysroot-suffix /" WRS_TARGET_SUBDIR "/libc "
