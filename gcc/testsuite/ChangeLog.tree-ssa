@@ -1,3 +1,8 @@
+2003-12-12  Jeff Law  <law@redhat.com>
+
+	* ssa-dom-thread-1.c: Update now that jump threading pass is
+	no longer separate from the dominator optimizer.
+
 2003-12-12  Huang Chun <chunhuang73@hotmail.com>
 
 	* gfortran.fortran-torture/execute/intrinsic_len.f90: Fix.
