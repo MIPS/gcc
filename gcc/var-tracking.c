@@ -2694,6 +2694,9 @@ vt_finalize ()
 void
 variable_tracking_main ()
 {
+  if (n_basic_blocks > 500 && n_edges / n_basic_blocks >= 20)
+    return;
+
   mark_dfs_back_edges ();
   vt_initialize ();
   if (!frame_pointer_needed)

@@ -1,5 +1,10 @@
 2004-01-15  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (variable_tracking_main): Do not run variable tracking
+	on large dense flow graph.
+
+2004-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
 	Backport from mainline.
 	2003-10-03  Jeff Sturm  <jsturm@one-point.com>
 		    Roger Sayle  <roger@eyesopen.com>
