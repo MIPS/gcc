@@ -156,6 +156,7 @@ convert_to_integer (type, expr)
 
       if (TREE_CODE_CLASS (ex_form) == '<')
 	{
+	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
 	  return expr;
 	}
@@ -164,6 +165,7 @@ convert_to_integer (type, expr)
 	       || ex_form == TRUTH_OR_EXPR || ex_form == TRUTH_ORIF_EXPR
 	       || ex_form == TRUTH_XOR_EXPR)
 	{
+	  expr = copy_node (expr);
 	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_OPERAND (expr, 1) = convert (type, TREE_OPERAND (expr, 1));
 	  TREE_TYPE (expr) = type;
@@ -172,6 +174,7 @@ convert_to_integer (type, expr)
 
       else if (ex_form == TRUTH_NOT_EXPR)
 	{
+	  expr = copy_node (expr);
 	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_TYPE (expr) = type;
 	  return expr;
