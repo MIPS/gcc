@@ -684,45 +684,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	     bypass the conditional at our original destination.   */
 	  if (dest)
 	    {
-	      int edge_frequency = EDGE_FREQUENCY (e);
-	      edge c;
-	      int prob;
-
-	      e->dest->count -= e->count;
-	      if (e->dest->count < 0)
-		e->dest->count = 0;
-
-	      /* Compute the probability of TAKEN_EDGE being reached via E.
-		 Watch for overflows.  */
-	      if (e->dest->frequency)
-		prob = edge_frequency * REG_BR_PROB_BASE / e->dest->frequency;
-	      else
-		prob = 0;
-	      if (prob > taken_edge->probability)
-		prob = taken_edge->probability;
-
-	      /* Now rescale the probabilities.  */
-	      taken_edge->probability -= prob;
-	      prob = REG_BR_PROB_BASE - prob;
-	      if (prob <= 0)
-		{
-		  e->dest->succ->probability = REG_BR_PROB_BASE;
-		  for (c = e->dest->succ->succ_next; c; c = c->succ_next)
-		    c->probability = 0;
-		}
-	      else
-		for (c = e->dest->succ; c; c = c->succ_next)
-		  c->probability = ((c->probability * REG_BR_PROB_BASE)
-				    / (double) prob);
-	      e->dest->frequency -= edge_frequency;
-	      if (e->dest->frequency < 0)
-		e->dest->frequency = 0;
-
-	      if (e->dest != taken_edge->src)
-		abort ();
-	      taken_edge->count -= e->count;
-	      if (taken_edge->count < 0)
-		taken_edge->count = 0;
+	      update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
+					       e->count, taken_edge);
 	      e->aux = taken_edge;
 	      bb_ann (e->dest)->incoming_edge_threaded = true;
 	    }
