@@ -789,7 +789,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  specs collect2$(exeext) $(USE_COLLECT2) \
- gcov-iov$(exeext) gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
+ gcov-iov$(build_exeext) gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
 
 # Library members defined in libgcc2.c.
@@ -2337,9 +2337,9 @@ test-protoize-simple: ./protoize ./unprotoize $(GCC_PASSES)
 
 # gcov-iov.c is run on the build machine to generate gcov-iov.h from version.c
 gcov-iov.o: gcov-iov.c version.c $(HCONFIG_H) $(SYSTEM_H)
-	$(CC) -c $(ALL_CFLAGS) $(INCLUDES) $(srcdir)/gcov-iov.c $(OUTPUT_OPTION)
-gcov-iov$(exeext): gcov-iov.o
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) gcov-iov.o -o $@
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/gcov-iov.c $(OUTPUT_OPTION)
+gcov-iov$(build_exeext): gcov-iov.o
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) gcov-iov.o -o $@
 gcov-iov.h: gcov-iov$(build_exeext)
 	./$< > $@
 

@@ -1,3 +1,9 @@
+2003-09-02  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in (STAGESTUFF): Use build_ext gcov_iov.
+	(gcov-iov.o): Fix for canadian-cross build.
+	(gcov-iov$(build_exeext)): Rename from gcov-iov$(exeext).
+
 2003-08-30  Josef Zlomek  <zlomekj@suse.cz>
 
 	* fold-const.c (fold) [BIT_ANDTC_EXPR]: Fix thinko.
