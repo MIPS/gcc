@@ -1583,7 +1583,16 @@ build_addr_expr_with_type (tree t, tree ptrtype)
 	t = build1 (NOP_EXPR, ptrtype, t);
     }
   else
-    t = build1 (ADDR_EXPR, ptrtype, t);
+    {
+      tree base = t;
+      while (TREE_CODE (base) == COMPONENT_REF
+	     || TREE_CODE (base) == ARRAY_REF)
+	base = TREE_OPERAND (base, 0);
+      if (DECL_P (base))
+	TREE_ADDRESSABLE (base) = 1;
+
+      t = build1 (ADDR_EXPR, ptrtype, t);
+    }
 
   return t;
 }
@@ -2364,7 +2373,6 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
   return ret;
 }
 
-
 /*  Gimplify the MODIFY_EXPR node pointed by EXPR_P.
 
       modify_expr
@@ -2448,6 +2456,30 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	  || (is_gimple_reg_type (TREE_TYPE (*from_p))
 	      && !is_gimple_reg (*to_p)))
 	gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
+
+      /* If the value being copied is of variable width, expose the length
+	 if the copy by converting the whole thing to a memcpy.  */
+      if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p))) != INTEGER_CST)
+	{
+	  tree args, t, dest;
+
+	  t = TYPE_SIZE_UNIT (TREE_TYPE (*to_p));
+	  args = tree_cons (NULL, t, NULL);
+	  t = build_addr_expr (*from_p);
+	  args = tree_cons (NULL, t, args);
+	  dest = build_addr_expr (*to_p);
+	  args = tree_cons (NULL, dest, args);
+	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  t = build_function_call_expr (t, args);
+	  if (want_value)
+	    {
+	      t = build1 (NOP_EXPR, TREE_TYPE (dest), t);
+	      t = build1 (INDIRECT_REF, TREE_TYPE (*to_p), t);
+	    }
+	  *expr_p = t;
+
+	  return GS_OK;
+	}
 
       ret = want_value ? GS_OK : GS_ALL_DONE;
     }

@@ -897,7 +897,10 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 
     default:
       if (!DECL_P (t) && !TYPE_P (t))
-	*walk_subtrees = 1;
+	{
+	  *walk_subtrees = 1;
+	  wi->val_only = true;
+	}
       break;
     }
 
