@@ -465,28 +465,14 @@ __objc_update_dispatch_table_for_class (Class class)
 
    This one is only called for categories. Class objects have their
    methods installed right away, and their selectors are made into
-   SEL's by the function __objc_register_selectors_from_class. */ 
+   SEL's by the function __objc_register_selectors_from_class. */
 void
 class_add_method_list (Class class, MethodList_t list)
 {
-  int i;
-
   /* Passing of a linked list is not allowed.  Do multiple calls.  */
   assert (! list->method_next);
 
-  /* Check for duplicates.  */
-  for (i = 0; i < list->method_count; ++i)
-    {
-      Method_t method = &list->method_list[i];
-
-      if (method->method_name)  /* Sometimes these are NULL */
-	{
-	  /* This is where selector names are transmogrified to SEL's */
-	  method->method_name = 
-	    sel_register_typed_name ((const char *) method->method_name,
-				     method->method_types);
-	}
-    }
+  __objc_register_selectors_from_list(list);
 
   /* Add the methods to the class's method list.  */
   list->method_next = class->methods;
