@@ -135,16 +135,28 @@ java_gimplify_default_expr (tree expr ATTRIBUTE_UNUSED)
 /* Gimplify BLOCK into a BIND_EXPR.  */
 
 static tree
-java_gimplify_block (tree block)
+java_gimplify_block (tree java_block)
 {
-  tree decls = BLOCK_VARS (block);
-  tree body = BLOCK_EXPR_BODY (block);
+  tree decls = BLOCK_VARS (java_block);
+  tree body = BLOCK_EXPR_BODY (java_block);
+  tree outer = gimple_current_bind_expr ();
+  tree block;
 
   /* Don't bother with empty blocks.  */
   if (IS_EMPTY_STMT (body))
     return body;
 
-  return build (BIND_EXPR, TREE_TYPE (block), decls, body, block);
+  /* Make a proper block.  Java blocks are unsuitable for BIND_EXPR
+     because they use BLOCK_SUBBLOCKS for another purpose.  */
+  block = make_node (BLOCK);
+  BLOCK_VARS (block) = decls;
+  if (outer != NULL_TREE)
+    {
+      outer = BIND_EXPR_BLOCK (outer);
+      BLOCK_SUBBLOCKS (outer) = chainon (BLOCK_SUBBLOCKS (outer), block);
+    }
+
+  return build (BIND_EXPR, TREE_TYPE (java_block), decls, body, block);
 }
 
 /* Gimplify a NEW_ARRAY_INIT node into array/element assignments.  */

@@ -525,9 +525,6 @@ java_init (void)
       && force_align_functions_log < 1)
     force_align_functions_log = 1;
 
-  /* FIXME: Remove this once the gimplifier is ready.  */
-  flag_disable_gimple = 1;
-
   jcf_path_init ();
   jcf_path_seal (version_flag);
 
