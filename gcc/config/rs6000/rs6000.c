@@ -1556,9 +1556,11 @@ rs6000_override_options (const char *default_cpu)
     rs6000_sched_restricted_insns_priority =
       atoi (rs6000_sched_restricted_insns_priority_str);
 
+  /* APPLE LOCAL begin only consider true dependency for grouping */
   /* Handle -msched-costly-dep option.  */
   rs6000_sched_costly_dep
-    = (rs6000_sched_groups ? store_to_load_dep_costly : no_dep_costly);
+    = (rs6000_sched_groups ? true_store_to_load_dep_costly : no_dep_costly);
+  /* APPLE LOCAL end only consider true dependency for grouping */
   if (rs6000_sched_costly_dep_str)
     {
       if (! strcmp (rs6000_sched_costly_dep_str, "no"))  
