@@ -1,3 +1,8 @@
+2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/20040415-1.c: New test.
+	* gcc.c-torture/compile/20040415-2.c: New test.
+
 2004-04-11  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/14904
