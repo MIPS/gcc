@@ -490,6 +490,11 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, show_column) = 1;
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
+#if DEFAULT_SIGNED_CHAR
+  CPP_OPTION (pfile, signed_char) = 1;
+#else
+  CPP_OPTION (pfile, signed_char) = 0;
+#endif
 
   CPP_OPTION (pfile, pending) =
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
@@ -760,6 +765,9 @@ init_builtins (pfile)
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199409L");
   else if (CPP_OPTION (pfile, c99))
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199901L");
+
+  if (CPP_OPTION (pfile, signed_char) == 0)
+    _cpp_define_builtin (pfile, "__CHAR_UNSIGNED__ 1");
 
   if (CPP_OPTION (pfile, lang) == CLK_STDC89
       || CPP_OPTION (pfile, lang) == CLK_STDC94
@@ -1186,7 +1194,9 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("fno-show-column",          0,      OPT_fno_show_column)            \
   DEF_OPT("fpreprocessed",            0,      OPT_fpreprocessed)              \
   DEF_OPT("fshow-column",             0,      OPT_fshow_column)               \
+  DEF_OPT("fsigned-char",             0,      OPT_fsigned_char)               \
   DEF_OPT("ftabstop=",                no_num, OPT_ftabstop)                   \
+  DEF_OPT("funsigned-char",           0,      OPT_funsigned_char)             \
   DEF_OPT("h",                        0,      OPT_h)                          \
   DEF_OPT("idirafter",                no_dir, OPT_idirafter)                  \
   DEF_OPT("imacros",                  no_fil, OPT_imacros)                    \
@@ -1317,12 +1327,14 @@ parse_option (input)
 
 /* Handle one command-line option in (argc, argv).
    Can be called multiple times, to handle multiple sets of options.
+   If ignore is non-zero, this will ignore unrecognized -W* options.
    Returns number of strings consumed.  */
 int
-cpp_handle_option (pfile, argc, argv)
+cpp_handle_option (pfile, argc, argv, ignore)
      cpp_reader *pfile;
      int argc;
      char **argv;
+     int ignore;
 {
   int i = 0;
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
@@ -1392,6 +1404,12 @@ cpp_handle_option (pfile, argc, argv)
 	  break;
 	case OPT_fno_show_column:
 	  CPP_OPTION (pfile, show_column) = 0;
+	  break;
+	case OPT_fsigned_char:
+	  CPP_OPTION (pfile, signed_char) = 1;
+	  break;
+	case OPT_funsigned_char:
+	  CPP_OPTION (pfile, signed_char) = 0;
 	  break;
 	case OPT_ftabstop:
 	  /* Silently ignore empty string, non-longs and silly values.  */
@@ -1733,6 +1751,8 @@ cpp_handle_option (pfile, argc, argv)
 	    CPP_OPTION (pfile, warnings_are_errors) = 0;
 	  else if (!strcmp (argv[i], "-Wno-system-headers"))
 	    CPP_OPTION (pfile, warn_system_headers) = 0;
+	  else if (! ignore)
+	    return i;
 	  break;
  	}
     }
@@ -1754,7 +1774,7 @@ cpp_handle_options (pfile, argc, argv)
 
   for (i = 0; i < argc; i += strings_processed)
     {
-      strings_processed = cpp_handle_option (pfile, argc - i, argv + i);
+      strings_processed = cpp_handle_option (pfile, argc - i, argv + i, 1);
       if (strings_processed == 0)
 	break;
     }

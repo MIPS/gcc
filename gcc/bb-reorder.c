@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -36,6 +36,7 @@
 #include "output.h"
 #include "cfglayout.h"
 #include "fibheap.h"
+#include "target.h"
 
 /* The number of rounds.  */
 #define N_ROUNDS 4
@@ -607,6 +608,9 @@ reorder_basic_blocks ()
   if (n_basic_blocks <= 1)
     return;
 
+  if ((* targetm.cannot_modify_jumps_p) ())
+    return;
+
   cfg_layout_initialize (NULL);
 
   copy_bb_p_visited_size = MAX (4 * n_basic_blocks / 3, 10);
@@ -617,6 +621,8 @@ reorder_basic_blocks ()
   set_edge_can_fallthru_flag ();
   uncond_jump_length = get_uncond_jump_length ();
   find_traces ();
+
+  cfg_layout_initialize ();
 
   free (copy_bb_p_visited);
 

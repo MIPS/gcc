@@ -2760,15 +2760,12 @@ expand_mult_highpart (mode, op0, cnst1, target, unsignedp, max_cost)
 
   op1 = GEN_INT (trunc_int_for_mode (cnst1, mode));
 
-  if (GET_MODE_BITSIZE (wider_mode) <= HOST_BITS_PER_INT)
-    wide_op1 = op1;
-  else
-    wide_op1
-      = immed_double_const (cnst1,
-			    (unsignedp
-			     ? (HOST_WIDE_INT) 0
-			     : -(cnst1 >> (HOST_BITS_PER_WIDE_INT - 1))),
-			    wider_mode);
+  wide_op1
+    = immed_double_const (cnst1,
+			  (unsignedp
+			   ? (HOST_WIDE_INT) 0
+			   : -(cnst1 >> (HOST_BITS_PER_WIDE_INT - 1))),
+			  wider_mode);
 
   /* expand_mult handles constant multiplication of word_mode
      or narrower.  It does a poor job for large modes.  */
@@ -4197,6 +4194,10 @@ emit_store_flag (target, code, op0, op1, mode, unsignedp, normalizep)
   rtx tem;
   rtx last = get_last_insn ();
   rtx pattern, comparison;
+
+  /* ??? Ok to do this and then fail? */
+  op0 = protect_from_queue (op0, 0);
+  op1 = protect_from_queue (op1, 0);
 
   if (unsignedp)
     code = unsigned_condition (code);

@@ -68,18 +68,18 @@ int cpu_type;
 
 /* True if the current function is an interrupt handler
    (either via #pragma or an attribute specification).  */
-int interrupt_handler;
+static int interrupt_handler;
 
 /* True if the current function is an OS Task
    (via an attribute specification).  */
-int os_task;
+static int os_task;
 
 /* True if the current function is a monitor
    (via an attribute specification).  */
-int monitor;
+static int monitor;
 
 /* True if a #pragma saveall has been seen for the current function.  */
-int pragma_saveall;
+static int pragma_saveall;
 
 static const char *const names_big[] =
 { "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7" };
@@ -95,10 +95,6 @@ static const char *const names_upper_extended[] =
 const char * const *h8_reg_names;
 
 /* Various operations needed by the following, indexed by CPU_TYPE.  */
-
-static const char *const h8_push_ops[2] = { "push", "push.l" };
-static const char *const h8_pop_ops[2] = { "pop", "pop.l" };
-static const char *const h8_mov_ops[2] = { "mov.w", "mov.l" };
 
 const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 
@@ -121,6 +117,10 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 void
 h8300_init_once ()
 {
+  static const char *const h8_push_ops[2] = { "push" , "push.l" };
+  static const char *const h8_pop_ops[2]  = { "pop"  , "pop.l"  };
+  static const char *const h8_mov_ops[2]  = { "mov.w", "mov.l"  };
+
   if (TARGET_H8300)
     {
       cpu_type = (int) CPU_H8300;
@@ -148,30 +148,31 @@ byte_reg (x, b)
      rtx x;
      int b;
 {
-  static const char *const names_small[] =
-  {"r0l", "r0h", "r1l", "r1h", "r2l", "r2h", "r3l", "r3h",
-   "r4l", "r4h", "r5l", "r5h", "r6l", "r6h", "r7l", "r7h"};
+  static const char *const names_small[] = {
+    "r0l", "r0h", "r1l", "r1h", "r2l", "r2h", "r3l", "r3h",
+    "r4l", "r4h", "r5l", "r5h", "r6l", "r6h", "r7l", "r7h"
+  };
 
   return names_small[REGNO (x) * 2 + b];
 }
 
 /* REGNO must be saved/restored across calls if this macro is true.  */
 
-#define WORD_REG_USED(regno)					\
-  (regno < 7							\
-   /* No need to save registers if this function will not return.  */\
-   && ! TREE_THIS_VOLATILE (current_function_decl)		\
-   && (pragma_saveall						\
-       /* Save any call saved register that was used.  */	\
-       || (regs_ever_live[regno] && !call_used_regs[regno])	\
-       /* Save the frame pointer if it was used.  */		\
-       || (regno == FRAME_POINTER_REGNUM && regs_ever_live[regno])\
-       /* Save any register used in an interrupt handler.  */	\
-       || (interrupt_handler && regs_ever_live[regno])		\
-       /* Save call clobbered registers in non-leaf interrupt	\
-	  handlers.  */						\
-       || (interrupt_handler					\
-	   && call_used_regs[regno]				\
+#define WORD_REG_USED(regno)						\
+  (regno < 7								\
+   /* No need to save registers if this function will not return.  */	\
+   && ! TREE_THIS_VOLATILE (current_function_decl)			\
+   && (pragma_saveall							\
+       /* Save any call saved register that was used.  */		\
+       || (regs_ever_live[regno] && !call_used_regs[regno])		\
+       /* Save the frame pointer if it was used.  */			\
+       || (regno == FRAME_POINTER_REGNUM && regs_ever_live[regno])	\
+       /* Save any register used in an interrupt handler.  */		\
+       || (interrupt_handler && regs_ever_live[regno])			\
+       /* Save call clobbered registers in non-leaf interrupt		\
+	  handlers.  */							\
+       || (interrupt_handler						\
+	   && call_used_regs[regno]					\
 	   && !current_function_is_leaf)))
 
 /* Output assembly language to FILE for the operation OP with operand size
@@ -631,12 +632,11 @@ two_insn_adds_subs_operand (op, mode)
 	}
       else
 	{
-	  /* A constant addition/subtraction takes 2 states in
-	     QImode. It takes 6 states in HImode, requiring the
-	     constant to be loaded to a register first, and a lot more
-	     in SImode.  Thus the only case we can win is when either
-	     HImode or SImode is used.  */
-	  if (mode != QImode
+	  /* We do not profit directly by splitting addition or
+	     subtraction of 3 and 4.  However, since these are
+	     implemented as a sequence of adds or subs, they do not
+	     clobber (cc0) unlike a sequence of add.b and add.x.  */
+	  if (mode == HImode
 	      && (value == 2 + 1
 		  || value == 2 + 2))
 	    return 1;
@@ -793,26 +793,6 @@ h8300_pr_saveall (pfile)
   pragma_saveall = 1;
 }
 
-static const char *const hand_list[] =
-{
-  "__main",
-  "__cmpsi2",
-  "__divhi3",
-  "__modhi3",
-  "__udivhi3",
-  "__umodhi3",
-  "__divsi3",
-  "__modsi3",
-  "__udivsi3",
-  "__umodsi3",
-  "__mulhi3",
-  "__mulsi3",
-  "__reg_memcpy",
-  "__reg_memset",
-  "__ucmpsi2",
-  0,
-};
-
 /* If the next function argument with MODE and TYPE is to be passed in
    a register, return a reg RTX for the hard register in which to pass
    the argument.  CUM represents the state after the last argument.
@@ -825,6 +805,25 @@ function_arg (cum, mode, type, named)
      tree type;
      int named;
 {
+  static const char *const hand_list[] = {
+    "__main",
+    "__cmpsi2",
+    "__divhi3",
+    "__modhi3",
+    "__udivhi3",
+    "__umodhi3",
+    "__divsi3",
+    "__modsi3",
+    "__udivsi3",
+    "__umodsi3",
+    "__mulhi3",
+    "__mulsi3",
+    "__reg_memcpy",
+    "__reg_memset",
+    "__ucmpsi2",
+    0,
+  };
+
   rtx result = NULL_RTX;
   const char *fname;
   int regpass = 0;
@@ -861,24 +860,9 @@ function_arg (cum, mode, type, named)
       else
 	size = GET_MODE_SIZE (mode);
 
-      if (size + cum->nbytes <= regpass * UNITS_PER_WORD)
-	{
-	  switch (cum->nbytes / UNITS_PER_WORD)
-	    {
-	    case 0:
-	      result = gen_rtx_REG (mode, 0);
-	      break;
-	    case 1:
-	      result = gen_rtx_REG (mode, 1);
-	      break;
-	    case 2:
-	      result = gen_rtx_REG (mode, 2);
-	      break;
-	    case 3:
-	      result = gen_rtx_REG (mode, 3);
-	      break;
-	    }
-	}
+      if (size + cum->nbytes <= regpass * UNITS_PER_WORD
+	  && cum->nbytes / UNITS_PER_WORD <= 3)
+	result = gen_rtx_REG (mode, cum->nbytes / UNITS_PER_WORD);
     }
 
   return result;
@@ -927,7 +911,6 @@ const_costs (r, c)
 
 /* Documentation for the machine specific operand escapes:
 
-   'A' print rn in H8/300 mode, erN in H8/300H mode
    'E' like s but negative.
    'F' like t but negative.
    'G' constant just the negative
@@ -935,7 +918,6 @@ const_costs (r, c)
        'X' handling.
    'S' print operand as a long word
    'T' print operand as a word
-   'U' if operand is incing/decing sp, print l, otherwise nothing.
    'V' find the set bit, and print its number.
    'W' find the clear bit, and print its number.
    'X' print operand as a byte
@@ -999,20 +981,11 @@ print_operand (file, x, code)
      rtx x;
      int code;
 {
-  /* This is used for communication between the 'P' and 'U' codes.  */
-  static const char *last_p;
-
   /* This is used for communication between codes V,W,Z and Y.  */
   static int bitint;
 
   switch (code)
     {
-    case 'A':
-      if (GET_CODE (x) == REG)
-	fprintf (file, "%s", h8_reg_names[REGNO (x)]);
-      else
-	goto def;
-      break;
     case 'E':
       switch (GET_CODE (x))
 	{
@@ -1055,9 +1028,6 @@ print_operand (file, x, code)
 	fprintf (file, "%s", names_big[REGNO (x)]);
       else
 	goto def;
-      break;
-    case 'U':
-      fprintf (file, "%s%s", names_big[REGNO (x)], last_p);
       break;
     case 'V':
       bitint = exact_log2 (INTVAL (x));
@@ -2460,8 +2430,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 /* Emit the assembler code for doing shifts.  */
 
 const char *
-output_a_shift (insn, operands)
-     rtx insn ATTRIBUTE_UNUSED;
+output_a_shift (operands)
      rtx *operands;
 {
   static int loopend_lab;
@@ -2546,18 +2515,15 @@ output_a_shift (insn, operands)
 	  n = info.remainder;
 
 	  /* Emit two bit shifts first.  */
-	  while (n > 1 && info.shift2 != NULL)
+	  if (info.shift2 != NULL)
 	    {
-	      output_asm_insn (info.shift2, operands);
-	      n -= 2;
+	      for (; n > 1; n -= 2)
+		output_asm_insn (info.shift2, operands);
 	    }
 
 	  /* Now emit one bit shifts for any residual.  */
-	  while (n > 0)
-	    {
-	      output_asm_insn (info.shift1, operands);
-	      n -= 1;
-	    }
+	  for (; n > 0; n--)
+	    output_asm_insn (info.shift1, operands);
 
 	  /* Keep track of CC.  */
 	  if (info.cc_valid_p)
@@ -2571,8 +2537,8 @@ output_a_shift (insn, operands)
 	  {
 	    int m = GET_MODE_BITSIZE (mode) - n;
 	    int mask = (shift_type == SHIFT_ASHIFT
-			? ((1 << (GET_MODE_BITSIZE (mode) - n)) - 1) << n
-			: (1 << (GET_MODE_BITSIZE (mode) - n)) - 1);
+			? ((1 << m) - 1) << n
+			: (1 << m) - 1);
 	    char insn_buf[200];
 
 	    /* Not all possibilities of rotate are supported.  They shouldn't
@@ -2581,18 +2547,15 @@ output_a_shift (insn, operands)
 	      abort ();
 
 	    /* Emit two bit rotates first.  */
-	    while (m > 1 && info.shift2 != NULL)
+	    if (info.shift2 != NULL)
 	      {
-		output_asm_insn (info.shift2, operands);
-		m -= 2;
+		for (; m > 1; m -= 2)
+		  output_asm_insn (info.shift2, operands);
 	      }
 
 	    /* Now single bit rotates for any residual.  */
-	    while (m > 0)
-	      {
-		output_asm_insn (info.shift1, operands);
-		m -= 1;
-	      }
+	    for (; m > 0; m--)
+	      output_asm_insn (info.shift1, operands);
 
 	    /* Now mask off the high bits.  */
 	    if (TARGET_H8300)
@@ -2608,10 +2571,8 @@ output_a_shift (insn, operands)
 		    sprintf (insn_buf, "and\t#%d,%%s0\n\tand\t#%d,%%t0",
 			     mask & 255, mask >> 8);
 		    break;
-		  case SImode:
-		    abort ();
 		  default:
-		    break;
+		    abort ();
 		  }
 	      }
 	    else
@@ -2664,7 +2625,7 @@ output_a_shift (insn, operands)
 
 int
 expand_a_rotate (code, operands)
-     int code;
+     enum rtx_code code;
      rtx operands[];
 {
   rtx dst = operands[0];
@@ -2721,7 +2682,7 @@ expand_a_rotate (code, operands)
 
 const char *
 emit_a_rotate (code, operands)
-     int code;
+     enum rtx_code code;
      rtx *operands;
 {
   rtx dst = operands[0];
@@ -3090,9 +3051,8 @@ h8300_encode_label (decl)
 }
 
 const char *
-output_simode_bld (bild, log2, operands)
+output_simode_bld (bild, operands)
      int bild;
-     int log2;
      rtx operands[];
 {
   /* Clear the destination register.  */
@@ -3100,10 +3060,6 @@ output_simode_bld (bild, log2, operands)
     output_asm_insn ("sub.l\t%S0,%S0", operands);
   else
     output_asm_insn ("sub.w\t%e0,%e0\n\tsub.w\t%f0,%f0", operands);
-
-  /* Get the bit number we want to load.  */
-  if (log2)
-    operands[2] = GEN_INT (exact_log2 (INTVAL (operands[2])));
 
   /* Now output the bit load or bit inverse load, and store it in
      the destination.  */
@@ -3126,20 +3082,18 @@ h8300_adjust_insn_length (insn, length)
      rtx insn;
      int length ATTRIBUTE_UNUSED;
 {
-  rtx pat;
+  rtx pat = PATTERN (insn);
 
   /* We must filter these out before calling get_attr_adjust_length.  */
-  if (GET_CODE (PATTERN (insn)) == USE
-      || GET_CODE (PATTERN (insn)) == CLOBBER
-      || GET_CODE (PATTERN (insn)) == SEQUENCE
-      || GET_CODE (PATTERN (insn)) == ADDR_VEC
-      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
+  if (GET_CODE (pat) == USE
+      || GET_CODE (pat) == CLOBBER
+      || GET_CODE (pat) == SEQUENCE
+      || GET_CODE (pat) == ADDR_VEC
+      || GET_CODE (pat) == ADDR_DIFF_VEC)
     return 0;
 
   if (get_attr_adjust_length (insn) == ADJUST_LENGTH_NO)
     return 0;
-
-  pat = PATTERN (insn);
 
   /* Adjust length for reg->mem and mem->reg copies.  */
   if (GET_CODE (pat) == SET

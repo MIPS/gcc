@@ -801,6 +801,8 @@ struct saved_scope
 
 extern struct saved_scope *scope_chain;
 
+struct unparsed_text;
+
 /* Global state pertinent to the current function.  */
 
 struct cp_language_function
@@ -819,6 +821,7 @@ struct cp_language_function
 
   int returns_value;
   int returns_null;
+  int returns_abnormally;
   int in_function_try_handler;
   int x_expanding_p;
 
@@ -828,6 +831,7 @@ struct cp_language_function
   varray_type x_local_names;
 
   const char *cannot_inline;
+  struct unparsed_text *unparsed_inlines;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -880,6 +884,12 @@ struct cp_language_function
 
 #define current_function_returns_null cp_function_chain->returns_null
 
+/* Set to 0 at beginning of a function definition, set to 1 if
+   a call to a noreturn function is seen.  */
+
+#define current_function_returns_abnormally \
+  cp_function_chain->returns_abnormally
+
 /* Non-zero if we should generate RTL for functions that we process.
    When this is zero, we just accumulate tree structure, without
    interacting with the back end.  */
@@ -921,10 +931,6 @@ extern int flag_no_gnu_keywords;
 /* Nonzero means recognize the named operators from C++98.  */
 
 extern int flag_operator_names;
-
-/* For cross referencing.  */
-
-extern int flag_gnu_xref;
 
 /* For environments where you can use GNU binutils (as, ld in particular).  */
 
@@ -1780,8 +1786,6 @@ struct lang_decl_flags
     tree vcall_offset;
   } u2;
 };
-
-struct unparsed_text;
 
 struct lang_decl
 {
@@ -3059,13 +3063,16 @@ typedef enum linkage_kind {
   lk_external              /* External linkage.  */
 } linkage_kind;
 
-/* Bitmask flags to pass to instantiate_type.  */
-typedef enum instantiate_type_flags {
-  itf_none = 0,               /* nothing special */
-  itf_complain = 1 << 0,      /* complain about errors */
-  itf_no_attributes = 1 << 1, /* ignore attributes on comparisons */
-  itf_ptrmem_ok = 1 << 2,     /* pointers to member ok (internal use) */
-} instantiate_type_flags;
+/* Bitmask flags to control type substitution.  */
+typedef enum tsubst_flags_t {
+  tf_none = 0,               /* nothing special */
+  tf_error = 1 << 0,         /* give error messages  */
+  tf_warning = 1 << 1,       /* give warnings too  */
+  tf_no_attributes = 1 << 2, /* ignore attributes on comparisons
+				(instantiate_type use) */
+  tf_ptrmem_ok = 1 << 3      /* pointers to member ok (internal
+				instantiate_type use) */
+} tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy. */
 typedef enum base_access {
@@ -3594,7 +3601,7 @@ extern void pop_nested_class			PARAMS ((void));
 extern int current_lang_depth			PARAMS ((void));
 extern void push_lang_context			PARAMS ((tree));
 extern void pop_lang_context			PARAMS ((void));
-extern tree instantiate_type			PARAMS ((tree, tree, enum instantiate_type_flags));
+extern tree instantiate_type			PARAMS ((tree, tree, tsubst_flags_t));
 extern void print_class_statistics              PARAMS ((void));
 extern void cxx_print_statistics		PARAMS ((void));
 extern void cxx_print_xnode			PARAMS ((FILE *, tree, int));
@@ -3968,9 +3975,9 @@ extern int maybe_clone_body                     PARAMS ((tree));
 extern void init_pt                             PARAMS ((void));
 extern void check_template_shadow		PARAMS ((tree));
 extern tree get_innermost_template_args         PARAMS ((tree, int));
-extern tree tsubst				PARAMS ((tree, tree, int, tree));
-extern tree tsubst_expr				PARAMS ((tree, tree, int, tree));
-extern tree tsubst_copy				PARAMS ((tree, tree, int, tree));
+extern tree tsubst				PARAMS ((tree, tree, tsubst_flags_t, tree));
+extern tree tsubst_expr				PARAMS ((tree, tree, tsubst_flags_t, tree));
+extern tree tsubst_copy				PARAMS ((tree, tree, tsubst_flags_t, tree));
 extern void maybe_begin_member_template_processing PARAMS ((tree));
 extern void maybe_end_member_template_processing PARAMS ((void));
 extern tree finish_member_template_decl         PARAMS ((tree));
@@ -3988,7 +3995,7 @@ extern tree current_template_args		PARAMS ((void));
 extern tree push_template_decl			PARAMS ((tree));
 extern tree push_template_decl_real             PARAMS ((tree, int));
 extern void redeclare_class_template            PARAMS ((tree, tree));
-extern tree lookup_template_class		PARAMS ((tree, tree, tree, tree, int, int));
+extern tree lookup_template_class		PARAMS ((tree, tree, tree, tree, int, tsubst_flags_t));
 extern tree lookup_template_function            PARAMS ((tree, tree));
 extern int uses_template_parms			PARAMS ((tree));
 extern tree instantiate_class_template		PARAMS ((tree));
@@ -3999,7 +4006,7 @@ extern void mark_decl_instantiated		PARAMS ((tree, int));
 extern int more_specialized			PARAMS ((tree, tree, int, int));
 extern void mark_class_instantiated		PARAMS ((tree, int));
 extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
-extern void do_type_instantiation		PARAMS ((tree, tree, int));
+extern void do_type_instantiation		PARAMS ((tree, tree, tsubst_flags_t));
 extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
 extern int push_tinst_level			PARAMS ((tree));
@@ -4193,6 +4200,7 @@ extern tree finish_global_stmt_expr             PARAMS ((tree));
 
 /* in spew.c */
 extern void init_spew				PARAMS ((void));
+extern void mark_pending_inlines		PARAMS ((PTR));
 extern int peekyylex				PARAMS ((void));
 extern tree arbitrate_lookup			PARAMS ((tree, tree, tree));
 extern tree frob_opname                         PARAMS ((tree));
@@ -4257,9 +4265,9 @@ extern tree maybe_dummy_object			PARAMS ((tree, tree *));
 extern int is_dummy_object			PARAMS ((tree));
 extern const struct attribute_spec cp_attribute_table[];
 extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
-extern tree cp_build_qualified_type_real        PARAMS ((tree, int, int));
+extern tree cp_build_qualified_type_real        PARAMS ((tree, int, tsubst_flags_t));
 #define cp_build_qualified_type(TYPE, QUALS) \
-  cp_build_qualified_type_real ((TYPE), (QUALS), /*complain=*/1)
+  cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
 extern tree build_shared_int_cst                PARAMS ((int));
 extern special_function_kind special_function_p PARAMS ((tree));
 extern int count_trees                          PARAMS ((tree));
@@ -4347,14 +4355,9 @@ extern tree error_not_base_type			PARAMS ((tree, tree));
 extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));
 extern int abstract_virtuals_error		PARAMS ((tree, tree));
-extern void friendly_abort			PARAMS ((int, const char *,
-							 int, const char *))
-  ATTRIBUTE_NORETURN;
 
-#define my_friendly_abort(N) \
-  friendly_abort (N, __FILE__, __LINE__, __FUNCTION__)
 #define my_friendly_assert(EXP, N) (void) \
- (((EXP) == 0) ? (friendly_abort (N, __FILE__, __LINE__, __FUNCTION__), 0) : 0)
+ (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
 extern tree store_init_value			PARAMS ((tree, tree));
 extern tree digest_init				PARAMS ((tree, tree, tree *));
@@ -4365,20 +4368,6 @@ extern tree build_functional_cast		PARAMS ((tree, tree));
 extern void check_for_new_type			PARAMS ((const char *, flagged_type_tree));
 extern tree add_exception_specifier             PARAMS ((tree, tree, int));
 extern tree merge_exception_specifiers          PARAMS ((tree, tree));
-
-/* in xref.c */
-extern void GNU_xref_begin			PARAMS ((const char *));
-extern void GNU_xref_end			PARAMS ((int));
-extern void GNU_xref_file			PARAMS ((const char *));
-extern void GNU_xref_start_scope		PARAMS ((HOST_WIDE_INT));
-extern void GNU_xref_end_scope			PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT, int, int));
-extern void GNU_xref_ref			PARAMS ((tree, const char *));
-extern void GNU_xref_decl			PARAMS ((tree, tree));
-extern void GNU_xref_call			PARAMS ((tree, const char *));
-extern void GNU_xref_function			PARAMS ((tree, tree));
-extern void GNU_xref_assign			PARAMS ((tree));
-extern void GNU_xref_hier			PARAMS ((tree, tree, int, int, int));
-extern void GNU_xref_member			PARAMS ((tree, tree));
 
 /* in mangle.c */
 extern void init_mangle                         PARAMS ((void));

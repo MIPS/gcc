@@ -762,6 +762,9 @@ scan_loop (loop, flags)
       if (GET_CODE (p) == INSN
 	  && (set = single_set (p))
 	  && GET_CODE (SET_DEST (set)) == REG
+#ifdef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
+	  && SET_DEST (set) != pic_offset_table_rtx
+#endif
 	  && ! regs->array[REGNO (SET_DEST (set))].may_not_optimize)
 	{
 	  int tem1 = 0;
@@ -3227,7 +3230,7 @@ loop_invariant_p (loop, x)
 	 since the reg might be set by initialization within the loop.  */
 
       if ((x == frame_pointer_rtx || x == hard_frame_pointer_rtx
-	   || x == arg_pointer_rtx)
+	   || x == arg_pointer_rtx || x == pic_offset_table_rtx)
 	  && ! current_function_has_nonlocal_goto)
 	return 1;
 
@@ -3680,6 +3683,7 @@ remove_constant_addition (x)
   HOST_WIDE_INT addval = 0;
   rtx exp = *x;
 
+  /* Avoid clobbering a shared CONST expression.  */
   if (GET_CODE (exp) == CONST)
     {
       if (GET_CODE (XEXP (exp, 0)) == PLUS
@@ -3689,9 +3693,9 @@ remove_constant_addition (x)
 	  *x = XEXP (XEXP (exp, 0), 0);
 	  return INTVAL (XEXP (XEXP (exp, 0), 1));
 	}
-      /* Avoid clobbering of shared CONST expression.  */
       return 0;
     }
+
   if (GET_CODE (exp) == CONST_INT)
     {
       addval = INTVAL (exp);
@@ -4033,7 +4037,8 @@ emit_prefetch_instructions (loop)
 
 	      /* Make sure the address operand is valid for prefetch.  */
 	      if (! (*insn_data[(int)CODE_FOR_prefetch].operand[0].predicate)
-		    (loc, Pmode))
+		    (loc,
+		     insn_data[(int)CODE_FOR_prefetch].operand[0].mode))
 		loc = force_reg (Pmode, loc);
 	      emit_insn_before (gen_prefetch (loc, GEN_INT (info[i].write),
 		                              GEN_INT (3)),
@@ -5138,6 +5143,11 @@ strength_reduce (loop, flags)
 	    fprintf (loop_dump_stream, "Reg %d: biv eliminated\n",
 		     bl->regno);
 	}
+      /* See above note wrt final_value.  But since we couldn't eliminate
+	 the biv, we must set the value after the loop instead of before.  */
+      else if (bl->final_value && ! bl->reversed)
+	loop_insn_sink (loop, gen_move_insn (bl->biv->dest_reg,
+					     bl->final_value));
     }
 
   /* Go through all the instructions in the loop, making all the
@@ -7632,9 +7642,9 @@ loop_regs_update (loop, seq)
     }
   else
     {
-      rtx set = single_set (seq);
-      if (set && GET_CODE (SET_DEST (set)) == REG)
-	record_base_value (REGNO (SET_DEST (set)), SET_SRC (set), 0);
+      if (GET_CODE (seq) == SET
+	  && GET_CODE (SET_DEST (seq)) == REG)
+	record_base_value (REGNO (SET_DEST (seq)), SET_SRC (seq), 0);
     }
 }
 
@@ -7660,7 +7670,7 @@ loop_iv_add_mult_emit_before (loop, b, m, a, reg, before_bb, before_insn)
     }
 
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
-  seq = gen_add_mult (copy_rtx (b), m, copy_rtx (a), reg);
+  seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
   /* Increase the lifetime of any invariants moved further in code.  */
   update_reg_last_use (a, before_insn);
@@ -7688,7 +7698,7 @@ loop_iv_add_mult_sink (loop, b, m, a, reg)
   rtx seq;
 
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
-  seq = gen_add_mult (copy_rtx (b), m, copy_rtx (a), reg);
+  seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
   /* Increase the lifetime of any invariants moved further in code.
      ???? Is this really necessary?  */
@@ -7717,7 +7727,7 @@ loop_iv_add_mult_hoist (loop, b, m, a, reg)
   rtx seq;
 
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
-  seq = gen_add_mult (copy_rtx (b), m, copy_rtx (a), reg);
+  seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
   loop_insn_hoist (loop, seq);
 

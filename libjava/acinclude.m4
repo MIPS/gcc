@@ -1,3 +1,29 @@
+AC_DEFUN([AC_COMPILE_CHECK_SIZEOF],
+[changequote(<<, >>)dnl
+dnl The name to #define.
+define(<<AC_TYPE_NAME>>, translit(sizeof_$1, [a-z *], [A-Z_P]))dnl
+dnl The cache variable name.
+define(<<AC_CV_NAME>>, translit(ac_cv_sizeof_$1, [ *], [_p]))dnl
+changequote([, ])dnl
+AC_MSG_CHECKING(size of $1)
+AC_CACHE_VAL(AC_CV_NAME,
+[for ac_size in 4 8 1 2 16 12 $2 ; do # List sizes in rough order of prevalence.
+  AC_TRY_COMPILE([#include "confdefs.h"
+#include <sys/types.h>
+$2
+], [switch (0) case 0: case (sizeof ($1) == $ac_size):;], AC_CV_NAME=$ac_size)
+  if test x$AC_CV_NAME != x ; then break; fi
+done
+])
+if test x$AC_CV_NAME = x ; then
+  AC_MSG_ERROR([cannot determine a size for $1])
+fi
+AC_MSG_RESULT($AC_CV_NAME)
+AC_DEFINE_UNQUOTED(AC_TYPE_NAME, $AC_CV_NAME, [The number of bytes in type $1])
+undefine([AC_TYPE_NAME])dnl
+undefine([AC_CV_NAME])dnl
+])
+
 AC_DEFUN(LIBGCJ_CONFIGURE,
 [
 dnl Default to --enable-multilib
@@ -131,11 +157,12 @@ AC_DEFUN([AM_ICONV],
   dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
   dnl those with the standalone portable GNU libiconv installed).
 
+  am_cv_lib_iconv_ldpath=
   AC_ARG_WITH([libiconv-prefix],
 [  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [
     for dir in `echo "$withval" | tr : ' '`; do
       if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
-      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
+      if test -d $dir/lib; then am_cv_lib_iconv_ldpath="-L$dir/lib"; fi
     done
    ])
 
@@ -150,7 +177,7 @@ AC_DEFUN([AM_ICONV],
       am_cv_func_iconv=yes)
     if test "$am_cv_func_iconv" != yes; then
       am_save_LIBS="$LIBS"
-      LIBS="$LIBS -liconv"
+      LIBS="$LIBS $am_cv_libiconv_ldpath -liconv"
       AC_TRY_LINK([#include <stdlib.h>
 #include <iconv.h>],
         [iconv_t cd = iconv_open("","");
@@ -187,7 +214,7 @@ size_t iconv();
   fi
   LIBICONV=
   if test "$am_cv_lib_iconv" = yes; then
-    LIBICONV="-liconv"
+    LIBICONV="$am_cv_lib_iconv_ldpath -liconv"
   fi
   AC_SUBST(LIBICONV)
 ])

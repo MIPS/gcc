@@ -301,7 +301,7 @@ cp_parse_init ()
 %nonassoc IF
 %nonassoc ELSE
 
-%left IDENTIFIER PFUNCNAME TYPENAME SELFNAME PTYPENAME SCSPEC TYPESPEC CV_QUALIFIER ENUM AGGR ELLIPSIS TYPEOF SIGOF OPERATOR NSNAME TYPENAME_KEYWORD
+%left IDENTIFIER PFUNCNAME TYPENAME SELFNAME PTYPENAME SCSPEC TYPESPEC CV_QUALIFIER ENUM AGGR ELLIPSIS TYPEOF SIGOF OPERATOR NSNAME TYPENAME_KEYWORD ATTRIBUTE
 
 %left '{' ',' ';'
 
@@ -1592,7 +1592,7 @@ primary:
 		    pedwarn ("ISO C++ forbids braced-groups within expressions");  
 		  $<ttype>$ = begin_stmt_expr (); 
 		}
-	  compstmt ')'
+	  compstmt_or_stmtexpr ')'
                { $$ = finish_stmt_expr ($<ttype>2); }
         /* Koenig lookup support
            We could store lastiddecl in $1 to avoid another lookup,
@@ -1650,7 +1650,7 @@ primary:
 	| TYPEID '(' type_id ')'
 		{ tree type = groktypename ($3.t);
 		  check_for_new_type ("typeid", $3);
-		  $$ = get_typeid (TYPE_MAIN_VARIANT (type)); }
+		  $$ = get_typeid (type); }
 	| global_scope IDENTIFIER
 		{ $$ = do_scoped_id ($2, 1); }
 	| global_scope template_id
@@ -1717,7 +1717,7 @@ primary_no_id:
 		      YYERROR;
 		    }
 		  $<ttype>$ = expand_start_stmt_expr (); }
-	  compstmt ')'
+	  compstmt_or_stmtexpr ')'
 		{ if (pedantic)
 		    pedwarn ("ISO C++ forbids braced-groups within expressions");
 		  $$ = expand_end_stmt_expr ($<ttype>2); }
@@ -1938,11 +1938,6 @@ declmods:
 		}
 	| declmods attributes
 		{ $$.t = hash_tree_cons ($2, NULL_TREE, $1.t); }
-	| attributes  %prec EMPTY
-		{
-		  $$.t = hash_tree_cons ($1, NULL_TREE, NULL_TREE);
-		  $$.new_type_flag = 0; $$.lookups = NULL_TREE;
-		}
 	;
 
 /* Used instead of declspecs where storage classes are not allowed
@@ -2819,6 +2814,12 @@ nonempty_cv_qualifiers:
 	| nonempty_cv_qualifiers CV_QUALIFIER
 		{ $$.t = hash_tree_cons (NULL_TREE, $2, $1.t); 
 		  $$.new_type_flag = $1.new_type_flag; }
+	| attributes %prec EMPTY
+		{ $$.t = hash_tree_cons ($1, NULL_TREE, NULL_TREE); 
+		  $$.new_type_flag = 0; }
+	| nonempty_cv_qualifiers attributes %prec EMPTY
+		{ $$.t = hash_tree_cons ($2, NULL_TREE, $1.t); 
+		  $$.new_type_flag = $1.new_type_flag; }
 	;
 
 /* These rules must follow the rules for function declarations
@@ -3323,12 +3324,17 @@ label_decl:
 		}
 	;
 
-compstmt:
+compstmt_or_stmtexpr:
 	  save_lineno '{'
                 { $<ttype>$ = begin_compound_stmt (0); }
 	  compstmtend 
                 { STMT_LINENO ($<ttype>3) = $1;
 		  finish_compound_stmt (0, $<ttype>3); }
+	;
+
+compstmt:
+	  compstmt_or_stmtexpr
+		{ last_expr_type = NULL_TREE; }
 	;
 
 simple_if:
@@ -3505,6 +3511,15 @@ try_block:
 handler_seq:
 	  handler
 	| handler_seq handler
+	| /* empty */
+		{ /* Generate a fake handler block to avoid later aborts. */
+		  tree fake_handler = begin_handler ();
+		  finish_handler_parms (NULL_TREE, fake_handler);
+		  finish_handler (fake_handler);
+		  $<ttype>$ = fake_handler;
+
+		  error ("must have at least one catch per try block");
+		}
 	;
 
 handler:
@@ -3709,9 +3724,8 @@ named_parm:
 	/* Here we expand typed_declspecs inline to avoid mis-parsing of
 	   TYPESPEC IDENTIFIER.  */
 	  typed_declspecs1 declarator
-		{ tree specs = strip_attrs ($1.t);
-		  $$.new_type_flag = $1.new_type_flag;
-		  $$.t = build_tree_list (specs, $2); }
+		{ $$.new_type_flag = $1.new_type_flag;
+		  $$.t = build_tree_list ($1.t, $2); }
 	| typed_typespecs declarator
 		{ $$.t = build_tree_list ($1.t, $2); 
 		  $$.new_type_flag = $1.new_type_flag; }
@@ -3720,16 +3734,13 @@ named_parm:
 					  $2); 
 		  $$.new_type_flag = $1.new_type_flag; }
 	| typed_declspecs1 absdcl
-		{ tree specs = strip_attrs ($1.t);
-		  $$.t = build_tree_list (specs, $2);
+		{ $$.t = build_tree_list ($1.t, $2);
 		  $$.new_type_flag = $1.new_type_flag; }
 	| typed_declspecs1  %prec EMPTY
-		{ tree specs = strip_attrs ($1.t);
-		  $$.t = build_tree_list (specs, NULL_TREE); 
+		{ $$.t = build_tree_list ($1.t, NULL_TREE); 
 		  $$.new_type_flag = $1.new_type_flag; }
 	| declmods notype_declarator
-		{ tree specs = strip_attrs ($1.t);
-		  $$.t = build_tree_list (specs, $2); 
+		{ $$.t = build_tree_list ($1.t, $2); 
 		  $$.new_type_flag = 0; }
 	;
 
@@ -3809,6 +3820,8 @@ ansi_raise_identifier:
 		  check_for_new_type ("exception specifier", $1);
 		  $$ = groktypename ($1.t);
 		}
+	  | error
+		{ $$ = error_mark_node; }
 	;
 
 ansi_raise_identifiers:

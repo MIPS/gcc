@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -1363,8 +1363,11 @@ cris_print_operand (file, x, code)
       switch (GET_CODE (operand))
 	{
 	case CONST_INT:
-	  /* Sign-extension from a normal int to a long long.  */
-	  fprintf (file, INTVAL (operand) < 0 ? "-1" : "0");
+	  if (HOST_BITS_PER_WIDE_INT == 32)
+	    /* Sign-extension from a normal int to a long long.  */
+	    fprintf (file, INTVAL (operand) < 0 ? "-1" : "0");
+	  else
+	    fprintf (file, "0x%x", (unsigned int)(INTVAL (x) >> 31 >> 1));
 	  return;
 
 	case CONST_DOUBLE:
@@ -1447,8 +1450,13 @@ cris_print_operand (file, x, code)
 	  fprintf (file, "0x%x", CONST_DOUBLE_LOW (x));
 	  return;
 	}
-      /* If not a CONST_DOUBLE, the least significant part equals the
-	 normal part, so handle it normally.  */
+      else if (HOST_BITS_PER_WIDE_INT > 32 && GET_CODE (operand) == CONST_INT)
+	{
+	  fprintf (file, "0x%x", (unsigned int)(INTVAL (x) & 0xffffffff));
+	  return;
+	}
+      /* Otherwise the least significant part equals the normal part,
+	 so handle it normally.  */
       break;
 
     case 'A':

@@ -577,9 +577,9 @@ extern void		sbss_section PARAMS ((void));
 
 #ifndef ENDIAN_SPEC
 #if TARGET_ENDIAN_DEFAULT == 0
-#define ENDIAN_SPEC "%{!EB:%{!meb:-EL}} %{EL} %{EB}"
+#define ENDIAN_SPEC "%{!EB:%{!meb:-EL}} %{EB|meb:-EB}"
 #else
-#define ENDIAN_SPEC "%{!EL:%{!mel:-EB}} %{EB} %{EL}"
+#define ENDIAN_SPEC "%{!EL:%{!mel:-EB}} %{EL|mel:-EL}"
 #endif
 #endif
 
@@ -1369,7 +1369,7 @@ extern int mips_abi;
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (VOIDmode, GP_REG_FIRST + 31)
 
 /* Describe how we implement __builtin_eh_return.  */
-#define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + GP_ARG_FIRST : INVALID_REGNUM)
+#define EH_RETURN_DATA_REGNO(N) ((N) < (TARGET_MIPS16 ? 2 : 4) ? (N) + GP_ARG_FIRST : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, GP_REG_FIRST + 3)
 
 /* Offsets recorded in opcodes are a multiple of this alignment factor.
@@ -1646,7 +1646,9 @@ do {							\
 #define POINTER_BOUNDARY (Pmode == DImode ? 64 : 32)
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
-#define PARM_BOUNDARY (TARGET_64BIT ? 64 : 32)
+#define PARM_BOUNDARY ((mips_abi == ABI_O64 || mips_abi == ABI_N32 \
+			|| mips_abi == ABI_64 \
+			|| (mips_abi == ABI_EABI && TARGET_64BIT)) ? 64 : 32)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -2867,18 +2869,16 @@ typedef struct mips_args {
 {									\
   if (TARGET_MIPS16)							\
     sorry ("mips16 function profiling");				\
-  fprintf (FILE, "\t.set\tnoreorder\n");				\
   fprintf (FILE, "\t.set\tnoat\n");					\
   fprintf (FILE, "\tmove\t%s,%s\t\t# save current return address\n",	\
 	   reg_names[GP_REG_FIRST + 1], reg_names[GP_REG_FIRST + 31]);	\
-  fprintf (FILE, "\tjal\t_mcount\n");					\
   fprintf (FILE,							\
 	   "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n",	\
 	   TARGET_64BIT ? "dsubu" : "subu",				\
 	   reg_names[STACK_POINTER_REGNUM],				\
 	   reg_names[STACK_POINTER_REGNUM],				\
 	   Pmode == DImode ? 16 : 8);					\
-  fprintf (FILE, "\t.set\treorder\n");					\
+  fprintf (FILE, "\tjal\t_mcount\n");                                   \
   fprintf (FILE, "\t.set\tat\n");					\
 }
 

@@ -2736,6 +2736,16 @@ default_function_attribute_inlinable_p (fndecl)
   return false;
 }
 
+/* Default value of targetm.ms_bitfield_layout_p that always returns
+   false.  */
+bool
+default_ms_bitfield_layout_p (record)
+     tree record ATTRIBUTE_UNUSED;
+{
+  /* By default, GCC does not use the MS VC++ bitfield layout rules.  */
+  return false;
+}
+
 /* Return non-zero if IDENT is a valid name for attribute ATTR,
    or zero if not.
 
@@ -3633,7 +3643,7 @@ simple_cst_equal (t1, t2)
 int
 compare_tree_int (t, u)
      tree t;
-     unsigned int u;
+     unsigned HOST_WIDE_INT u;
 {
   if (tree_int_cst_sgn (t) < 0)
     return -1;
@@ -4897,6 +4907,7 @@ build_common_tree_nodes_2 (short_double)
   unsigned_V16QI_type_node
     = make_vector (V16QImode, unsigned_intQI_type_node, 1);
 
+  V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);

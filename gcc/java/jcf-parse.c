@@ -793,7 +793,7 @@ init_outgoing_cpool ()
 static void
 parse_class_file ()
 {
-  tree method;
+  tree method, field;
   const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
@@ -808,8 +808,13 @@ parse_class_file ()
      compiling from class files.  */
   always_initialize_class_p = 1;
 
-  for ( method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
-	method != NULL_TREE; method = TREE_CHAIN (method))
+  for (field = TYPE_FIELDS (CLASS_TO_HANDLE_TYPE (current_class));
+       field != NULL_TREE; field = TREE_CHAIN (field))
+    if (FIELD_STATIC (field))
+      DECL_EXTERNAL (field) = 0;
+
+  for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+       method != NULL_TREE; method = TREE_CHAIN (method))
     {
       JCF *jcf = current_jcf;
 
@@ -911,13 +916,11 @@ parse_source_file_1 (file, finput)
   /* There's no point in trying to find the current encoding unless we
      are going to do something intelligent with it -- hence the test
      for iconv.  */
-#ifdef HAVE_ICONV
-#ifdef HAVE_NL_LANGINFO
+#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_NL_LANGINFO)
   setlocale (LC_CTYPE, "");
   if (current_encoding == NULL)
     current_encoding = nl_langinfo (CODESET);
-#endif /* HAVE_NL_LANGINFO */
-#endif /* HAVE_ICONV */
+#endif 
   if (current_encoding == NULL || *current_encoding == '\0')
     current_encoding = DEFAULT_ENCODING;
 

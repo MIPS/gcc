@@ -488,11 +488,15 @@ named_section (decl, name, reloc)
   flags = (* targetm.section_type_flags) (decl, name, reloc);
 
   /* Sanity check user variables for flag changes.  Non-user
-     section flag changes will abort in named_section_flags.  */
+     section flag changes will abort in named_section_flags.
+     However, don't complain if SECTION_OVERRIDE is set.
+     We trust that the setter knows that it is safe to ignore
+     the default flags for this decl.  */
   if (decl && ! set_named_section_flags (name, flags))
     {
-      error_with_decl (decl, "%s causes a section type conflict");
       flags = get_named_section_flags (name);
+      if ((flags & SECTION_OVERRIDE) == 0)
+	error_with_decl (decl, "%s causes a section type conflict");
     }
 
   named_section_flags (name, flags);
@@ -2436,7 +2440,7 @@ decode_addr_const (exp, value)
   value->offset = offset;
 }
 
-enum kind { RTX_DOUBLE, RTX_INT };
+enum kind { RTX_UNKNOWN, RTX_DOUBLE, RTX_INT, RTX_UNSPEC };
 struct rtx_const
 {
   ENUM_BITFIELD(kind) kind : 16;
@@ -3664,10 +3668,28 @@ decode_rtx_const (mode, x, value)
       break;
 
     default:
-      abort ();
+      value->kind = RTX_UNKNOWN;
+      break;
     }
 
-  if (value->kind == RTX_INT && value->un.addr.base != 0)
+  if (value->kind == RTX_INT && value->un.addr.base != 0
+      && GET_CODE (value->un.addr.base) == UNSPEC)
+    {      
+      /* For a simple UNSPEC, the base is set to the
+	 operand, the kind field is set to the index of
+	 the unspec expression. 
+	 Together with the code below, in case that
+	 the operand is a SYMBOL_REF or LABEL_REF, 
+	 the address of the string or the code_label 
+	 is taken as base.  */
+      if (XVECLEN (value->un.addr.base, 0) == 1)
+        {
+	  value->kind = RTX_UNSPEC + XINT (value->un.addr.base, 1);
+	  value->un.addr.base = XVECEXP (value->un.addr.base, 0, 0);
+	}
+    }
+
+  if (value->kind > RTX_DOUBLE && value->un.addr.base != 0)
     switch (GET_CODE (value->un.addr.base))
       {
       case SYMBOL_REF:
@@ -3697,8 +3719,11 @@ simplify_subtraction (x)
   decode_rtx_const (GET_MODE (x), XEXP (x, 0), &val0);
   decode_rtx_const (GET_MODE (x), XEXP (x, 1), &val1);
 
-  if (val0.un.addr.base == val1.un.addr.base)
+  if (val0.kind > RTX_DOUBLE
+      && val0.kind == val1.kind
+      && val0.un.addr.base == val1.un.addr.base)
     return GEN_INT (val0.un.addr.offset - val1.un.addr.offset);
+
   return x;
 }
 
@@ -4406,8 +4431,37 @@ initializer_constant_valid_p (value, endtype)
 	  tree op0, op1;
 	  op0 = TREE_OPERAND (value, 0);
 	  op1 = TREE_OPERAND (value, 1);
-	  STRIP_NOPS (op0);
-	  STRIP_NOPS (op1);
+
+	  /* Like STRIP_NOPS except allow the operand mode to widen.
+	     This works around a feature of fold that simplfies
+	     (int)(p1 - p2) to ((int)p1 - (int)p2) under the theory
+	     that the narrower operation is cheaper.  */
+
+	  while (TREE_CODE (op0) == NOP_EXPR
+		 || TREE_CODE (op0) == CONVERT_EXPR
+		 || TREE_CODE (op0) == NON_LVALUE_EXPR)
+	    {
+	      tree inner = TREE_OPERAND (op0, 0);
+	      if (inner == error_mark_node
+	          || ! INTEGRAL_MODE_P (TYPE_MODE (TREE_TYPE (inner)))
+		  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))
+		      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
+		break;
+	      op0 = inner;
+	    }
+
+	  while (TREE_CODE (op1) == NOP_EXPR
+		 || TREE_CODE (op1) == CONVERT_EXPR
+		 || TREE_CODE (op1) == NON_LVALUE_EXPR)
+	    {
+	      tree inner = TREE_OPERAND (op1, 0);
+	      if (inner == error_mark_node
+	          || ! INTEGRAL_MODE_P (TYPE_MODE (TREE_TYPE (inner)))
+		  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))
+		      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
+		break;
+	      op1 = inner;
+	    }
 
 	  if (TREE_CODE (op0) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL

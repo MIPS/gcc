@@ -140,8 +140,7 @@ dump_scope (scope, flags)
      tree scope;
      int flags;
 {
-  int f = ~TFF_RETURN_TYPE & (TFF_DECL_SPECIFIERS
-                              | (flags & (TFF_SCOPE | TFF_CHASE_TYPEDEF)));
+  int f = ~TFF_RETURN_TYPE & (flags & (TFF_SCOPE | TFF_CHASE_TYPEDEF));
 
   if (scope == NULL_TREE)
     return;
@@ -383,7 +382,14 @@ dump_type (t, flags)
 
     case VECTOR_TYPE:
       output_add_string (scratch_buffer, "vector ");
-      dump_type (TREE_TYPE (t), flags);
+      {
+	/* The subtype of a VECTOR_TYPE is something like intQI_type_node,
+	   which has no name and is not very useful for diagnostics.  So
+	   look up the equivalent C type and print its name.  */
+	tree elt = TREE_TYPE (t);
+	elt = type_for_mode (TYPE_MODE (elt), TREE_UNSIGNED (elt));
+	dump_type (elt, flags);
+      }
       break;
 
     case INTEGER_TYPE:
@@ -803,7 +809,7 @@ dump_global_iord (t)
   else if (DECL_GLOBAL_DTOR_P (t))
     p = "destructors";
   else
-    my_friendly_abort (352);
+    abort ();
 
   output_printf (scratch_buffer, "(static %s for %s)", p, input_filename);
 }
@@ -910,7 +916,7 @@ dump_decl (t, flags)
       break;
 
     case TYPE_EXPR:
-      my_friendly_abort (69);
+      abort ();
       break;
 
       /* These special cases are duplicated here so that other functions
@@ -1050,7 +1056,7 @@ dump_template_decl (t, flags)
   else if (TREE_CODE (DECL_TEMPLATE_RESULT (t)) == VAR_DECL)
     dump_decl (DECL_TEMPLATE_RESULT (t), flags | TFF_TEMPLATE_NAME);
   else if (TREE_TYPE (t) == NULL_TREE)
-    my_friendly_abort (353);
+    abort ();
   else
     switch (NEXT_CODE (t))
     {
@@ -1137,7 +1143,7 @@ dump_function_decl (t, flags)
 
   dump_function_name (t, flags);
 
-  if (flags & TFF_DECL_SPECIFIERS) 
+  if (1)
     {
       dump_parameters (parmtypes, flags);
 
@@ -2272,7 +2278,7 @@ language_to_string (c, v)
       return "Java";
 
     default:
-      my_friendly_abort (355);
+      abort ();
       return 0;
     }
 }

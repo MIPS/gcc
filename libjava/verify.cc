@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 2001  Free Software Foundation
+/* Copyright (C) 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -31,18 +31,6 @@ details.  */
 #include <stdio.h>
 #endif /* VERIFY_DEBUG */
 
-// TO DO
-// * read more about when classes must be loaded
-// * class loader madness
-// * Lots and lots of debugging and testing
-// * type representation is still ugly.  look for the big switches
-// * at least one GC problem :-(
-
-
-// This is global because __attribute__ doesn't seem to work on static
-// methods.
-static void verify_fail (char *msg, jint pc = -1)
-  __attribute__ ((__noreturn__));
 
 static void debug_print (const char *fmt, ...)
   __attribute__ ((format (printf, 1, 2)));
@@ -68,6 +56,7 @@ private:
   struct state;
   struct type;
   struct subr_info;
+  struct subr_entry_info;
   struct linked_utf8;
 
   // The current PC.
@@ -95,6 +84,11 @@ private:
   // subroutine.  FIXME: this is inefficient.  We keep a linked list
   // of all calling `jsr's at at each jsr target.
   subr_info **jsr_ptrs;
+
+  // We keep a linked list of entries which map each `ret' instruction
+  // to its unique subroutine entry point.  We expect that there won't
+  // be many `ret' instructions, so a linked list is ok.
+  subr_entry_info *entry_points;
 
   // The current top of the stack, in terms of slots.
   int stacktop;
@@ -180,7 +174,7 @@ private:
 
   // Return the type_val corresponding to a primitive signature
   // character.  For instance `I' returns `int.class'.
-  static type_val get_type_val_for_signature (jchar sig)
+  type_val get_type_val_for_signature (jchar sig)
   {
     type_val rt;
     switch (sig)
@@ -219,7 +213,7 @@ private:
   }
 
   // Return the type_val corresponding to a primitive class.
-  static type_val get_type_val_for_signature (jclass k)
+  type_val get_type_val_for_signature (jclass k)
   {
     return get_type_val_for_signature ((jchar) k->method_count);
   }
@@ -261,7 +255,9 @@ private:
 		if (is_assignable_from_slow (target, source->interfaces[i]))
 		    return true;
 	      }
-	    return false;
+	    source = source->getSuperclass ();
+	    if (source == NULL)
+	      return false;
 	  }
 	else if (target == &java::lang::Object::class$)
 	  return true;
@@ -281,6 +277,18 @@ private:
     int pc;
     // Link.
     subr_info *next;
+  };
+
+  // This is used to keep track of which subroutine entry point
+  // corresponds to which `ret' instruction.
+  struct subr_entry_info
+  {
+    // PC of the subroutine entry point.
+    int pc;
+    // PC of the `ret' instruction.
+    int ret_pc;
+    // Link.
+    subr_entry_info *next;
   };
 
   // The `type' class is used to represent a single type in the
@@ -388,35 +396,36 @@ private:
     }
 
     // If *THIS is an unresolved reference type, resolve it.
-    void resolve ()
+    void resolve (_Jv_BytecodeVerifier *verifier)
     {
       if (key != unresolved_reference_type
 	  && key != uninitialized_unresolved_reference_type)
 	return;
 
-      // FIXME: class loader
       using namespace java::lang;
+      java::lang::ClassLoader *loader
+	= verifier->current_class->getClassLoader();
       // We might see either kind of name.  Sigh.
       if (data.name->data[0] == 'L'
 	  && data.name->data[data.name->length - 1] == ';')
-	data.klass = _Jv_FindClassFromSignature (data.name->data, NULL);
+	data.klass = _Jv_FindClassFromSignature (data.name->data, loader);
       else
 	data.klass = Class::forName (_Jv_NewStringUtf8Const (data.name),
-				     false, NULL);
+				     false, loader);
       key = (key == unresolved_reference_type
 	     ? reference_type
 	     : uninitialized_reference_type);
     }
 
     // Mark this type as the uninitialized result of `new'.
-    void set_uninitialized (int npc)
+    void set_uninitialized (int npc, _Jv_BytecodeVerifier *verifier)
     {
       if (key == reference_type)
 	key = uninitialized_reference_type;
       else if (key == unresolved_reference_type)
 	key = uninitialized_unresolved_reference_type;
       else
-	verify_fail ("internal error in type::uninitialized");
+	verifier->verify_fail ("internal error in type::uninitialized");
       pc = npc;
     }
 
@@ -439,7 +448,7 @@ private:
     // of type *THIS.  Handle various special cases too.  Might modify
     // *THIS or K.  Note however that this does not perform numeric
     // promotion.
-    bool compatible (type &k)
+    bool compatible (type &k, _Jv_BytecodeVerifier *verifier)
     {
       // Any type is compatible with the unsuitable type.
       if (key == unsuitable_type)
@@ -480,8 +489,8 @@ private:
 	return true;
 
       // We must resolve both types and check assignability.
-      resolve ();
-      k.resolve ();
+      resolve (verifier);
+      k.resolve (verifier);
       return is_assignable_from_slow (data.klass, k.data.klass);
     }
 
@@ -513,17 +522,22 @@ private:
       return false;
     }
 
-    bool isinterface ()
+    bool isnull () const
     {
-      resolve ();
+      return key == null_type;
+    }
+
+    bool isinterface (_Jv_BytecodeVerifier *verifier)
+    {
+      resolve (verifier);
       if (key != reference_type)
 	return false;
       return data.klass->isInterface ();
     }
 
-    bool isabstract ()
+    bool isabstract (_Jv_BytecodeVerifier *verifier)
     {
-      resolve ();
+      resolve (verifier);
       if (key != reference_type)
 	return false;
       using namespace java::lang::reflect;
@@ -531,34 +545,34 @@ private:
     }
 
     // Return the element type of an array.
-    type element_type ()
+    type element_type (_Jv_BytecodeVerifier *verifier)
     {
       // FIXME: maybe should do string manipulation here.
-      resolve ();
+      resolve (verifier);
       if (key != reference_type)
-	verify_fail ("programmer error in type::element_type()");
+	verifier->verify_fail ("programmer error in type::element_type()", -1);
 
       jclass k = data.klass->getComponentType ();
       if (k->isPrimitive ())
-	return type (get_type_val_for_signature (k));
+	return type (verifier->get_type_val_for_signature (k));
       return type (k);
     }
 
     // Return the array type corresponding to an initialized
     // reference.  We could expand this to work for other kinds of
     // types, but currently we don't need to.
-    type to_array ()
+    type to_array (_Jv_BytecodeVerifier *verifier)
     {
       // Resolving isn't ideal, because it might force us to load
       // another class, but it's easy.  FIXME?
       if (key == unresolved_reference_type)
-	resolve ();
+	resolve (verifier);
 
       if (key == reference_type)
 	return type (_Jv_GetArrayClass (data.klass,
 					data.klass->getClassLoader ()));
       else
-	verify_fail ("internal error in type::to_array()");
+	verifier->verify_fail ("internal error in type::to_array()");
     }
 
     bool isreference () const
@@ -585,7 +599,7 @@ private:
 	      || key == uninitialized_reference_type);
     }
 
-    void verify_dimensions (int ndims)
+    void verify_dimensions (int ndims, _Jv_BytecodeVerifier *verifier)
     {
       // The way this is written, we don't need to check isarray().
       if (key == reference_type)
@@ -606,11 +620,12 @@ private:
 	}
 
       if (ndims > 0)
-	verify_fail ("array type has fewer dimensions than required");
+	verifier->verify_fail ("array type has fewer dimensions than required");
     }
 
     // Merge OLD_TYPE into this.  On error throw exception.
-    bool merge (type& old_type, bool local_semantics = false)
+    bool merge (type& old_type, bool local_semantics,
+		_Jv_BytecodeVerifier *verifier)
     {
       bool changed = false;
       bool refo = old_type.isreference ();
@@ -625,7 +640,7 @@ private:
 	      changed = true;
 	    }
 	  else if (isinitialized () != old_type.isinitialized ())
-	    verify_fail ("merging initialized and uninitialized types");
+	    verifier->verify_fail ("merging initialized and uninitialized types");
 	  else
 	    {
 	      if (! isinitialized ())
@@ -635,7 +650,7 @@ private:
 		  else if (old_type.pc == UNINIT)
 		    ;
 		  else if (pc != old_type.pc)
-		    verify_fail ("merging different uninitialized types");
+		    verifier->verify_fail ("merging different uninitialized types");
 		}
 
 	      if (! isresolved ()
@@ -646,8 +661,8 @@ private:
 		}
 	      else
 		{
-		  resolve ();
-		  old_type.resolve ();
+		  resolve (verifier);
+		  old_type.resolve (verifier);
 
 		  jclass k = data.klass;
 		  jclass oldk = old_type.data.klass;
@@ -673,8 +688,9 @@ private:
 		    {
 		      while (arraycount > 0)
 			{
-			  // FIXME: Class loader.
-			  k = _Jv_GetArrayClass (k, NULL);
+			  java::lang::ClassLoader *loader
+			    = verifier->current_class->getClassLoader();
+			  k = _Jv_GetArrayClass (k, loader);
 			  --arraycount;
 			}
 		      data.klass = k;
@@ -706,7 +722,7 @@ private:
 		}
 	    }
 	  else
-	    verify_fail ("unmergeable type");
+	    verifier->verify_fail ("unmergeable type");
 	}
       return changed;
     }
@@ -880,11 +896,23 @@ private:
       // FIXME: subroutine handling?
     }
 
+    // Modify this state to reflect entry into a subroutine.
+    void enter_subroutine (int npc, int max_locals)
+    {
+      subroutine = npc;
+      // Mark all items as unchanged.  Each subroutine needs to keep
+      // track of its `changed' state independently.  In the case of
+      // nested subroutines, this information will be merged back into
+      // parent by the `ret'.
+      for (int i = 0; i < max_locals; ++i)
+	local_changed[i] = false;
+    }
+
     // Merge STATE_OLD into this state.  Destructively modifies this
     // state.  Returns true if the new state was in fact changed.
     // Will throw an exception if the states are not mergeable.
     bool merge (state *state_old, bool ret_semantics,
-		int max_locals)
+		int max_locals, _Jv_BytecodeVerifier *verifier)
     {
       bool changed = false;
 
@@ -893,9 +921,9 @@ private:
       if (this_type.isinitialized ())
 	this_type = state_old->this_type;
 
-      // Merge subroutine states.  *THIS and *STATE_OLD must be in the
-      // same subroutine.  Also, recursive subroutine calls must be
-      // avoided.
+      // Merge subroutine states.  Here we just keep track of what
+      // subroutine we think we're in.  We only check for a merge
+      // (which is invalid) when we see a `ret'.
       if (subroutine == state_old->subroutine)
 	{
 	  // Nothing.
@@ -906,23 +934,33 @@ private:
 	  changed = true;
 	}
       else
-	verify_fail ("subroutines merged");
+	{
+	  // If the subroutines differ, indicate that the state
+	  // changed.  This is needed to detect when subroutines have
+	  // merged.
+	  changed = true;
+	}
 
       // Merge stacks.
       if (state_old->stacktop != stacktop)
-	verify_fail ("stack sizes differ");
+	verifier->verify_fail ("stack sizes differ");
       for (int i = 0; i < state_old->stacktop; ++i)
 	{
-	  if (stack[i].merge (state_old->stack[i]))
+	  if (stack[i].merge (state_old->stack[i], false, verifier))
 	    changed = true;
 	}
 
       // Merge local variables.
       for (int i = 0; i < max_locals; ++i)
 	{
-	  if (! ret_semantics || local_changed[i])
+	  // If we're not processing a `ret', then we merge every
+	  // local variable.  If we are processing a `ret', then we
+	  // only merge locals which changed in the subroutine.  When
+	  // processing a `ret', STATE_OLD is the state at the point
+	  // of the `ret', and THIS is the state just after the `jsr'.
+	  if (! ret_semantics || state_old->local_changed[i])
 	    {
-	      if (locals[i].merge (state_old->locals[i], true))
+	      if (locals[i].merge (state_old->locals[i], true, verifier))
 		{
 		  changed = true;
 		  note_variable (i);
@@ -943,27 +981,28 @@ private:
     // whether we're using backwards-branch or exception-handing
     // semantics.
     void check_no_uninitialized_objects (int max_locals,
+					 _Jv_BytecodeVerifier *verifier,
 					 bool exception_semantics = false)
     {
       if (! exception_semantics)
 	{
 	  for (int i = 0; i < stacktop; ++i)
 	    if (stack[i].isreference () && ! stack[i].isinitialized ())
-	      verify_fail ("uninitialized object on stack");
+	      verifier->verify_fail ("uninitialized object on stack");
 	}
 
       for (int i = 0; i < max_locals; ++i)
 	if (locals[i].isreference () && ! locals[i].isinitialized ())
-	  verify_fail ("uninitialized object in local variable");
+	  verifier->verify_fail ("uninitialized object in local variable");
 
-      check_this_initialized ();
+      check_this_initialized (verifier);
     }
 
     // Ensure that `this' has been initialized.
-    void check_this_initialized ()
+    void check_this_initialized (_Jv_BytecodeVerifier *verifier)
     {
       if (this_type.isreference () && ! this_type.isinitialized ())
-	verify_fail ("`this' is uninitialized");
+	verifier->verify_fail ("`this' is uninitialized");
     }
 
     // Set type of `this'.
@@ -1014,7 +1053,11 @@ private:
       debug_print ("    [local] ");
       for (i = 0; i < max_locals; ++i)
 	locals[i].print ();
-      debug_print ("   | %p\n", this);
+      if (subroutine == 0)
+	debug_print ("   | None");
+      else
+	debug_print ("   | %4d", subroutine);
+      debug_print (" | %p\n", this);
     }
 #else
     inline void print (const char *, int, int, int) const
@@ -1026,7 +1069,7 @@ private:
   type pop_raw ()
   {
     if (current_state->stacktop <= 0)
-      verify_fail ("stack empty", start_PC);
+      verify_fail ("stack empty");
     type r = current_state->stack[--current_state->stacktop];
     current_state->stackdepth -= r.depth ();
     if (current_state->stackdepth < 0)
@@ -1038,7 +1081,7 @@ private:
   {
     type r = pop_raw ();
     if (r.iswide ())
-      verify_fail ("narrow pop of wide type", start_PC);
+      verify_fail ("narrow pop of wide type");
     return r;
   }
 
@@ -1046,7 +1089,7 @@ private:
   {
     type r = pop_raw ();
     if (! r.iswide ())
-      verify_fail ("wide pop of narrow type", start_PC);
+      verify_fail ("wide pop of narrow type");
     return r;
   }
 
@@ -1054,8 +1097,8 @@ private:
   {
     match.promote ();
     type t = pop_raw ();
-    if (! match.compatible (t))
-      verify_fail ("incompatible type on stack", start_PC);
+    if (! match.compatible (t, this))
+      verify_fail ("incompatible type on stack");
     return t;
   }
 
@@ -1064,7 +1107,7 @@ private:
   {
     type t = pop_raw ();
     if (! t.isreference () && t.key != return_address_type)
-      verify_fail ("expected reference or return address on stack", start_PC);
+      verify_fail ("expected reference or return address on stack");
     return t;
   }
 
@@ -1107,14 +1150,14 @@ private:
   {
     int depth = t.depth ();
     if (index > current_method->max_locals - depth)
-      verify_fail ("invalid local variable", start_PC);
-    if (! t.compatible (current_state->locals[index]))
-      verify_fail ("incompatible type in local variable", start_PC);
+      verify_fail ("invalid local variable");
+    if (! t.compatible (current_state->locals[index], this))
+      verify_fail ("incompatible type in local variable");
     if (depth == 2)
       {
 	type t (continuation_type);
-	if (! current_state->locals[index + 1].compatible (t))
-	  verify_fail ("invalid local variable", start_PC);
+	if (! current_state->locals[index + 1].compatible (t, this))
+	  verify_fail ("invalid local variable");
       }
     return current_state->locals[index];
   }
@@ -1123,11 +1166,17 @@ private:
   // compatible with type ELEMENT.  Returns the actual element type.
   type require_array_type (type array, type element)
   {
+    // An odd case.  Here we just pretend that everything went ok.  If
+    // the requested element type is some kind of reference, return
+    // the null type instead.
+    if (array.isnull ())
+      return element.isreference () ? type (null_type) : element;
+
     if (! array.isarray ())
       verify_fail ("array required");
 
-    type t = array.element_type ();
-    if (! element.compatible (t))
+    type t = array.element_type (this);
+    if (! element.compatible (t, this))
       {
 	// Special case for byte arrays, which must also be boolean
 	// arrays.
@@ -1135,7 +1184,7 @@ private:
 	if (element.key == byte_type)
 	  {
 	    type e2 (boolean_type);
-	    ok = e2.compatible (t);
+	    ok = e2.compatible (t, this);
 	  }
 	if (! ok)
 	  verify_fail ("incompatible array element type");
@@ -1215,7 +1264,7 @@ private:
 	states[npc]->print (" To", npc, current_method->max_stack,
 			    current_method->max_locals);
 	changed = states[npc]->merge (nstate, ret_semantics,
-				      current_method->max_locals);
+				      current_method->max_locals, this);
 	states[npc]->print ("New", npc, current_method->max_stack,
 			    current_method->max_locals);
       }
@@ -1233,16 +1282,18 @@ private:
   {
     int npc = compute_jump (offset);
     if (npc < PC)
-      current_state->check_no_uninitialized_objects (current_method->max_locals);
+      current_state->check_no_uninitialized_objects (current_method->max_locals, this);
     push_jump_merge (npc, current_state);
   }
 
   void push_exception_jump (type t, int pc)
   {
     current_state->check_no_uninitialized_objects (current_method->max_locals,
-						  true);
+						   this, true);
     state s (current_state, current_method->max_stack,
 	     current_method->max_locals);
+    if (current_method->max_stack < 1)
+      verify_fail ("stack overflow at exception handler");
     s.set_exception (t, current_method->max_stack);
     push_jump_merge (pc, &s);
   }
@@ -1328,13 +1379,31 @@ private:
     if (csub == 0)
       verify_fail ("no subroutine");
 
+    // Check to see if we've merged subroutines.
+    subr_entry_info *entry;
+    for (entry = entry_points; entry != NULL; entry = entry->next)
+      {
+	if (entry->ret_pc == start_PC)
+	  break;
+      }
+    if (entry == NULL)
+      {
+	entry = (subr_entry_info *) _Jv_Malloc (sizeof (subr_entry_info));
+	entry->pc = csub;
+	entry->ret_pc = start_PC;
+	entry->next = entry_points;
+	entry_points = entry;
+      }
+    else if (entry->pc != csub)
+      verify_fail ("subroutines merged");
+
     for (subr_info *subr = jsr_ptrs[csub]; subr != NULL; subr = subr->next)
       {
 	// Temporarily modify the current state so it looks like we're
 	// in the enclosing context.
 	current_state->subroutine = get_subroutine (subr->pc);
 	if (subr->pc < PC)
-	  current_state->check_no_uninitialized_objects (current_method->max_locals);
+	  current_state->check_no_uninitialized_objects (current_method->max_locals, this);
 	push_jump_merge (subr->pc, current_state, true);
       }
 
@@ -1359,21 +1428,22 @@ private:
     int npc = compute_jump (offset);
 
     if (npc < PC)
-      current_state->check_no_uninitialized_objects (current_method->max_locals);
+      current_state->check_no_uninitialized_objects (current_method->max_locals, this);
     check_nonrecursive_call (current_state->subroutine, npc);
 
-    // Temporarily modify the current state so that it looks like we are
-    // in the subroutine.
+    // Create a new state and modify it as appropriate for entry into
+    // a subroutine.  We're writing this in a weird way because,
+    // unfortunately, push_type only works on the current state.
     push_type (return_address_type);
-    int save = current_state->subroutine;
-    current_state->subroutine = npc;
-
-    // Merge into the subroutine.
     push_jump_merge (npc, current_state);
-
-    // Undo our modifications.
-    current_state->subroutine = save;
+    // Clean up the weirdness.
     pop_type (return_address_type);
+
+    // On entry to the subroutine, the subroutine number must be set
+    // and the locals must be marked as cleared.  We do this after
+    // merging state so that we don't erroneously "notice" a variable
+    // change merely on entry.
+    states[npc]->enter_subroutine (npc, current_method->max_locals);
   }
 
   jclass construct_primitive_array_type (type_val prim)
@@ -1897,8 +1967,8 @@ private:
   void check_return_type (type onstack)
   {
     type rt = compute_return_type (current_method->self->signature);
-    if (! rt.compatible (onstack))
-      verify_fail ("incompatible return type", start_PC);
+    if (! rt.compatible (onstack, this))
+      verify_fail ("incompatible return type");
   }
 
   // Initialize the stack for the new method.  Returns true if this
@@ -1914,7 +1984,7 @@ private:
 	type kurr (current_class);
 	if (_Jv_equalUtf8Consts (current_method->self->name, gcj::init_name))
 	  {
-	    kurr.set_uninitialized (type::SELF);
+	    kurr.set_uninitialized (type::SELF, this);
 	    is_init = true;
 	  }
 	set_variable (0, kurr);
@@ -1995,7 +2065,7 @@ private:
 		current_state->print ("Cur", PC, current_method->max_stack,
 				      current_method->max_locals);
 		if (! current_state->merge (states[PC], false,
-					    current_method->max_locals)
+					    current_method->max_locals, this)
 		    && ! states[PC]->is_unmerged_ret_state (current_method->max_locals))
 		  {
 		    debug_print ("== Fall through optimization\n");
@@ -2314,6 +2384,8 @@ private:
 		  push_type (t);
 		  push_type (t2);
 		}
+	      else
+		push_type (t);
 	      push_type (t);
 	    }
 	    break;
@@ -2336,7 +2408,6 @@ private:
 	    break;
 	  case op_dup2_x2:
 	    {
-	      // FIXME
 	      type t1 = pop_raw ();
 	      if (t1.iswide ())
 		{
@@ -2608,7 +2679,7 @@ private:
 	    // We only need to check this when the return type is
 	    // void, because all instance initializers return void.
 	    if (this_is_init)
-	      current_state->check_this_initialized ();
+	      current_state->check_this_initialized (this);
 	    check_return_type (void_type);
 	    invalidate_pc ();
 	    break;
@@ -2637,7 +2708,7 @@ private:
 	      // `this' has not yet been initialized.
 	      if (! current_state->this_type.isinitialized ()
 		  && current_state->this_type.pc == type::SELF)
-		klass.set_uninitialized (type::SELF);
+		klass.set_uninitialized (type::SELF, this);
 	      pop_type (klass);
 	    }
 	    break;
@@ -2653,19 +2724,15 @@ private:
 					 opcode == op_invokeinterface,
 					 &method_name,
 					 &method_signature);
-	      int arg_count = _Jv_count_arguments (method_signature);
+	      // NARGS is only used when we're processing
+	      // invokeinterface.  It is simplest for us to compute it
+	      // here and then verify it later.
+	      int nargs = 0;
 	      if (opcode == op_invokeinterface)
 		{
-		  int nargs = get_byte ();
-		  if (nargs == 0)
-		    verify_fail ("too few arguments to invokeinterface",
-				 start_PC);
+		  nargs = get_byte ();
 		  if (get_byte () != 0)
-		    verify_fail ("invokeinterface dummy byte is wrong",
-				 start_PC);
-		  if (nargs - 1 != arg_count)
-		    verify_fail ("wrong argument count for invokeinterface",
-				 start_PC);
+		    verify_fail ("invokeinterface dummy byte is wrong");
 		}
 
 	      bool is_init = false;
@@ -2673,17 +2740,26 @@ private:
 		{
 		  is_init = true;
 		  if (opcode != op_invokespecial)
-		    verify_fail ("can't invoke <init>", start_PC);
+		    verify_fail ("can't invoke <init>");
 		}
 	      else if (method_name->data[0] == '<')
-		verify_fail ("can't invoke method starting with `<'",
-			     start_PC);
+		verify_fail ("can't invoke method starting with `<'");
 
 	      // Pop arguments and check types.
+	      int arg_count = _Jv_count_arguments (method_signature);
 	      type arg_types[arg_count];
 	      compute_argument_types (method_signature, arg_types);
 	      for (int i = arg_count - 1; i >= 0; --i)
-		pop_type (arg_types[i]);
+		{
+		  // This is only used for verifying the byte for
+		  // invokeinterface.
+		  nargs -= arg_types[i].depth ();
+		  pop_type (arg_types[i]);
+		}
+
+	      if (opcode == op_invokeinterface
+		  && nargs != 1)
+		verify_fail ("wrong argument count for invokeinterface");
 
 	      if (opcode != op_invokestatic)
 		{
@@ -2691,7 +2767,7 @@ private:
 		  if (is_init)
 		    {
 		      // In this case the PC doesn't matter.
-		      t.set_uninitialized (type::UNINIT);
+		      t.set_uninitialized (type::UNINIT, this);
 		    }
 		  t = pop_type (t);
 		  if (is_init)
@@ -2708,10 +2784,9 @@ private:
 	  case op_new:
 	    {
 	      type t = check_class_constant (get_ushort ());
-	      if (t.isarray () || t.isinterface () || t.isabstract ())
-		verify_fail ("type is array, interface, or abstract",
-			     start_PC);
-	      t.set_uninitialized (start_PC);
+	      if (t.isarray () || t.isinterface (this) || t.isabstract (this))
+		verify_fail ("type is array, interface, or abstract");
+	      t.set_uninitialized (start_PC, this);
 	      push_type (t);
 	    }
 	    break;
@@ -2729,13 +2804,13 @@ private:
 	    break;
 	  case op_anewarray:
 	    pop_type (int_type);
-	    push_type (check_class_constant (get_ushort ()).to_array ());
+	    push_type (check_class_constant (get_ushort ()).to_array (this));
 	    break;
 	  case op_arraylength:
 	    {
 	      type t = pop_type (reference_type);
-	      if (! t.isarray ())
-		verify_fail ("array type expected", start_PC);
+	      if (! t.isarray () && ! t.isnull ())
+		verify_fail ("array type expected");
 	      push_type (int_type);
 	    }
 	    break;
@@ -2810,7 +2885,7 @@ private:
 	      int dim = get_byte ();
 	      if (dim < 1)
 		verify_fail ("too few dimensions to multianewarray", start_PC);
-	      atype.verify_dimensions (dim);
+	      atype.verify_dimensions (dim, this);
 	      for (int i = 0; i < dim; ++i)
 		pop_type (int_type);
 	      push_type (atype);
@@ -2837,6 +2912,34 @@ private:
       }
   }
 
+  __attribute__ ((__noreturn__)) void verify_fail (char *s, jint pc = -1)
+  {
+    using namespace java::lang;
+    StringBuffer *buf = new StringBuffer ();
+
+    buf->append (JvNewStringLatin1 ("verification failed"));
+    if (pc == -1)
+      pc = start_PC;
+    if (pc != -1)
+      {
+	buf->append (JvNewStringLatin1 (" at PC "));
+	buf->append (pc);
+      }
+
+    _Jv_InterpMethod *method = current_method;
+    buf->append (JvNewStringLatin1 (" in "));
+    buf->append (current_class->getName());
+    buf->append ((jchar) ':');
+    buf->append (JvNewStringUTF (method->get_method()->name->data));
+    buf->append ((jchar) '(');
+    buf->append (JvNewStringUTF (method->get_method()->signature->data));
+    buf->append ((jchar) ')');
+
+    buf->append (JvNewStringLatin1 (": "));
+    buf->append (JvNewStringLatin1 (s));
+    throw new java::lang::VerifyError (buf->toString ());
+  }
+
 public:
 
   void verify_instructions ()
@@ -2861,6 +2964,7 @@ public:
     flags = NULL;
     jsr_ptrs = NULL;
     utf8_list = NULL;
+    entry_points = NULL;
   }
 
   ~_Jv_BytecodeVerifier ()
@@ -2869,14 +2973,38 @@ public:
       _Jv_Free (states);
     if (flags)
       _Jv_Free (flags);
+
     if (jsr_ptrs)
-      _Jv_Free (jsr_ptrs);
+      {
+	for (int i = 0; i < current_method->code_length; ++i)
+	  {
+	    if (jsr_ptrs[i] != NULL)
+	      {
+		subr_info *info = jsr_ptrs[i];
+		while (info != NULL)
+		  {
+		    subr_info *next = info->next;
+		    _Jv_Free (info);
+		    info = next;
+		  }
+	      }
+	  }
+	_Jv_Free (jsr_ptrs);
+      }
+
     while (utf8_list != NULL)
       {
 	linked_utf8 *n = utf8_list->next;
 	_Jv_Free (utf8_list->val);
 	_Jv_Free (utf8_list);
 	utf8_list = n;
+      }
+
+    while (entry_points != NULL)
+      {
+	subr_entry_info *next = entry_points->next;
+	_Jv_Free (entry_points);
+	entry_points = next;
       }
   }
 };
@@ -2887,23 +3015,4 @@ _Jv_VerifyMethod (_Jv_InterpMethod *meth)
   _Jv_BytecodeVerifier v (meth);
   v.verify_instructions ();
 }
-
-// FIXME: add more info, like PC, when required.
-static void
-verify_fail (char *s, jint pc)
-{
-  using namespace java::lang;
-  StringBuffer *buf = new StringBuffer ();
-
-  buf->append (JvNewStringLatin1 ("verification failed"));
-  if (pc != -1)
-    {
-      buf->append (JvNewStringLatin1 (" at PC "));
-      buf->append (pc);
-    }
-  buf->append (JvNewStringLatin1 (": "));
-  buf->append (JvNewStringLatin1 (s));
-  throw new java::lang::VerifyError (buf->toString ());
-}
-
 #endif	/* INTERPRETER */

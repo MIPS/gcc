@@ -1,3 +1,63 @@
+2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Add a short debugging session
+	as an example to the documentation of -g.
+
+2002-02-06  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/4730 fortran/5473
+	* com.c (ffecom_expr_): Deal with %VAL constructs.
+	* intrin.c (ffeintrin_check_): Handle 'N' constraints for intrinsics,
+	to indicate "no larger than default kind" integers and logicals.
+	* intrin.def: Use 'N' constraints in table of intrinsics.
+	* intdoc.c: Document this constraint.
+	* intdoc.texi: Regenerated.
+	
+2002-02-04  Philipp Thomas  <pthomas@suse.de>
+
+	* implic.c lex.c stb.c ste.c stu.c: Update copyright dates.
+
+2002-02-04  Philipp Thomas  <pthomas@suse.de>
+
+	* bad.def com.c expr.c implic.c lex.c stb.c ste.c stu.c:
+	Insert comments to mark messages as not being printf style
+	where appropriate.
+
+2002-02-03  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* expr.c (ffeexpr_sym_impdoitem_): Allow other than
+	default INTEGER implied-do loop counts.
+
+2002-02-01  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* bad.def: Remove non-historical reference to version 0.6.
+	* bugs.texi: Ditto.
+	* com.c: Ditto.
+	* ffe.texi: Ditto.
+	* proj.h: Ditto.
+	* g77.texi: Ditto.
+
+2002-01-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g77spec.c (lang_specific_driver): Follow GNU Coding Standards
+	for --version.
+
+2002-01-30  Richard Henderson  <rth@redhat.com>
+
+	* ste.c (ffeste_begin_iterdo_): Use expand_exit_loop_top_cond.
+	(ffeste_R819B): Likewise.
+
+2002-01-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* intrin.c (upcasecmp_): New function.
+	(ffeintrin_cmp_name_): Use it to correctly compare name
+	and table entry for bsearch.
+
+2002-01-26  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* intrin.c (ffeintrin_cmp_name_): Correct comparison
+	for intrinsics in intrinsic table (intrin.def).
+
 2002-01-22  Zack Weinberg  <zack@codesourcery.com>
 
 	* bad.c: Include intl.h.

@@ -1408,6 +1408,8 @@ type_for_mode (mode, unsignedp)
 	  return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
 	case V8QImode:
 	  return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
+	case V16SFmode:
+	  return V16SF_type_node;
 	case V4SFmode:
 	  return V4SF_type_node;
 	case V2SFmode:
@@ -3557,8 +3559,10 @@ int
 c_unsafe_for_reeval (exp)
      tree exp;
 {
-  /* Statement expressions may not be reevaluated.  */
-  if (TREE_CODE (exp) == STMT_EXPR)
+  /* Statement expressions may not be reevaluated, likewise compound
+     literals.  */
+  if (TREE_CODE (exp) == STMT_EXPR
+      || TREE_CODE (exp) == COMPOUND_LITERAL_EXPR)
     return 2;
 
   /* Walk all other expressions.  */

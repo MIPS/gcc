@@ -172,9 +172,9 @@ public class GridLayout implements LayoutManager, Serializable
 
     // Compute width and height of each cell in the grid.
     int tw = d.width - ins.left - ins.right;
-    tw = (tw - (real_rows - 1) * hgap) / real_rows;
+    tw = (tw - (real_cols - 1) * hgap) / real_cols;
     int th = d.height - ins.top - ins.bottom;
-    th = (th - (real_cols - 1) * vgap) / real_cols;
+    th = (th - (real_rows - 1) * vgap) / real_rows;
 
     // If the cells are too small, still try to do something.
     if (tw < 0)
@@ -320,8 +320,8 @@ public class GridLayout implements LayoutManager, Serializable
     Insets ins = parent.getInsets ();
     // We subtract out an extra gap here because the gaps are only
     // between cells.
-    w = ins.left + ins.right + real_rows * (w + hgap) - hgap;
-    h = ins.top + ins.bottom + real_cols * (h + vgap) - vgap;
+    w = ins.left + ins.right + real_cols * (w + hgap) - hgap;
+    h = ins.top + ins.bottom + real_rows * (h + vgap) - vgap;
     return new Dimension (w, h);
   }
 

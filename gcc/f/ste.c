@@ -1,5 +1,5 @@
 /* ste.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 2000, 2002 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -706,7 +706,7 @@ ffeste_begin_iterdo_ (ffestw block, tree *xtvar, tree *xtincr,
 		   convert (TREE_TYPE (niters),
 			    ffecom_integer_zero_node)));
 
-      expand_exit_loop_if_false (0, expr);
+      expand_exit_loop_top_cond (0, expr);
     }
 
   if (block)
@@ -2632,6 +2632,7 @@ ffeste_R809 (ffestw block, ffebld expr)
     {
       /* ~~~Someday handle CHARACTER*1, CHARACTER*N */
 
+      /* xgettext:no-c-format */
       ffebad_start_msg ("SELECT CASE on CHARACTER type (at %0) not supported -- sorry",
 			FFEBAD_severityFATAL);
       ffebad_here (0, ffestw_line (block), ffestw_col (block));
@@ -2816,7 +2817,7 @@ ffeste_R819B (ffestw block, ffelab label UNUSED, ffebld expr)
       ffeste_end_stmt_ ();
 
       ffestw_set_do_hook (block, loop);
-      expand_exit_loop_if_false (0, result);
+      expand_exit_loop_top_cond (0, result);
     }
   else
     ffestw_set_do_hook (block, expand_start_loop (1));

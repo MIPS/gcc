@@ -93,7 +93,7 @@ require_complete_type (value)
 {
   tree type = TREE_TYPE (value);
 
-  if (TREE_CODE (value) == ERROR_MARK)
+  if (value == error_mark_node || type == error_mark_node)
     return error_mark_node;
 
   /* First, detect a valid value with a complete type.  */
@@ -1546,6 +1546,9 @@ build_function_call (function, params)
       error ("called object is not a function");
       return error_mark_node;
     }
+
+  if (fundecl && TREE_THIS_VOLATILE (fundecl))
+    current_function_returns_abnormally = 1;
 
   /* fntype now gets the type of function pointed to.  */
   fntype = TREE_TYPE (fntype);
@@ -3819,7 +3822,8 @@ build_c_cast (type, expr)
 	{
 	  tree in_type = type;
 	  tree in_otype = otype;
-	  int warn = 0;
+	  int added = 0;
+	  int discarded = 0;
 
 	  /* Check that the qualifiers on IN_TYPE are a superset of
 	     the qualifiers of IN_OTYPE.  The outermost level of
@@ -3829,12 +3833,24 @@ build_c_cast (type, expr)
 	    {
 	      in_otype = TREE_TYPE (in_otype);
 	      in_type = TREE_TYPE (in_type);
-	      warn |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
+
+	      /* GNU C allows cv-qualified function types.  'const'
+		 means the function is very pure, 'volatile' means it
+		 can't return.  We need to warn when such qualifiers
+		 are added, not when they're taken away.  */
+	      if (TREE_CODE (in_otype) == FUNCTION_TYPE
+		  && TREE_CODE (in_type) == FUNCTION_TYPE)
+		added |= (TYPE_QUALS (in_type) & ~TYPE_QUALS (in_otype));
+	      else
+		discarded |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
 	    }
 	  while (TREE_CODE (in_type) == POINTER_TYPE
 		 && TREE_CODE (in_otype) == POINTER_TYPE);
 
-	  if (warn)
+	  if (added)
+	    warning ("cast adds new qualifiers to function type");
+
+	  if (discarded)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
 	    warning ("cast discards qualifiers from pointer target type");
@@ -7071,6 +7087,7 @@ c_expand_return (retval)
       tree res = DECL_RESULT (current_function_decl);
       tree inner;
 
+      current_function_returns_value = 1;
       if (t == error_mark_node)
 	return NULL_TREE;
 
@@ -7128,7 +7145,6 @@ c_expand_return (retval)
 	}
 
       retval = build (MODIFY_EXPR, TREE_TYPE (res), res, t);
-      current_function_returns_value = 1;
     }
 
  return add_stmt (build_return_stmt (retval));
@@ -7163,15 +7179,15 @@ c_start_case (exp)
      tree exp;
 {
   enum tree_code code;
-  tree type;
+  tree type, orig_type = error_mark_node;
   struct c_switch *cs;
 
   if (exp != error_mark_node)
     {
       code = TREE_CODE (TREE_TYPE (exp));
-      type = TREE_TYPE (exp);
+      orig_type = TREE_TYPE (exp);
 
-      if (! INTEGRAL_TYPE_P (type)
+      if (! INTEGRAL_TYPE_P (orig_type)
 	  && code != ERROR_MARK)
 	{
 	  error ("switch quantity not an integer");
@@ -7193,7 +7209,7 @@ c_start_case (exp)
 
   /* Add this new SWITCH_STMT to the stack.  */
   cs = (struct c_switch *) xmalloc (sizeof (*cs));
-  cs->switch_stmt = build_stmt (SWITCH_STMT, exp, NULL_TREE, NULL_TREE);
+  cs->switch_stmt = build_stmt (SWITCH_STMT, exp, NULL_TREE, orig_type);
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
   cs->next = switch_stack;
   switch_stack = cs;

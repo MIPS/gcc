@@ -207,13 +207,13 @@ public class FlowLayout implements LayoutManager, Serializable
 	else
 	  x = d.width - new_w;
 
-	for (int k = i; i < j; ++k)
+	for (int k = i; k < j; ++k)
 	  {
-	    if (comps[i].visible)
+	    if (comps[k].visible)
 	      {
-		Dimension c = comps[i].getPreferredSize ();
-		comps[i].setLocation (x, y);
-		x += c.width + vgap;
+		Dimension c = comps[k].getPreferredSize ();
+		comps[k].setBounds (x, y, c.width, new_h);
+		x += c.width + hgap;
 	      }
 	  }
 

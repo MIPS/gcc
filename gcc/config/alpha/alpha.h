@@ -43,12 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_SUBTARGET_SPEC ""
 #endif
 
-/* Set the spec to use for signed char.  The default tests the above macro
-   but DEC's compiler can't handle the conditional in a "constant"
-   operand.  */
-
-#define SIGNED_CHAR_SPEC "%{funsigned-char:-D__CHAR_UNSIGNED__}"
-
 #define WORD_SWITCH_TAKES_ARG(STR)		\
  (!strcmp (STR, "rpath") || DEFAULT_WORD_SWITCH_TAKES_ARG(STR))
 
@@ -2242,3 +2236,8 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
+
+/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
+   Used for C++ multiple inheritance.  */
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+  alpha_output_mi_thunk_osf (FILE, THUNK_FNDECL, DELTA, FUNCTION)

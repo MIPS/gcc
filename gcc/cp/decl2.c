@@ -493,7 +493,7 @@ cxx_decode_option (argc, argv)
   int strings_processed;
   const char *p = argv[0];
 
-  strings_processed = cpp_handle_option (parse_in, argc, argv);
+  strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
 
   if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     /* ignore */;
@@ -1420,6 +1420,10 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
       VARRAY_PUSH_TREE (pending_statics, decl);
     }
 
+  if (LOCAL_CLASS_P (current_class_type))
+    pedwarn ("local class `%#T' shall not have static data member `%#D'",
+	     current_class_type, decl);
+
   /* Static consts need not be initialized in the class definition.  */
   if (init != NULL_TREE && TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
     {
@@ -1653,7 +1657,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       DECL_IN_AGGR_P (value) = 1;
       return value;
     }
-  my_friendly_abort (21);
+  abort ();
   /* NOTREACHED */
   return NULL_TREE;
 }
@@ -1697,8 +1701,6 @@ grokbitfield (declarator, declspecs, width)
 		  DECL_CONTEXT (value));
       return void_type_node;
     }
-
-  GNU_xref_member (current_class_name, value);
 
   if (TREE_STATIC (value))
     {
@@ -2383,7 +2385,7 @@ output_vtable_inherit (vars)
       parent_rtx = XEXP (DECL_RTL (parent), 0);  /* strip the mem ref  */
     }
   else
-    my_friendly_abort (980826);
+    abort ();
 
   assemble_vtable_inherit (child_rtx, parent_rtx);
 }
@@ -2833,7 +2835,7 @@ start_static_storage_duration_function ()
       /* Overflow occurred.  That means there are at least 4 billion
 	 initialization functions.  */
       sorry ("too many initialization functions required");
-      my_friendly_abort (19990430);
+      abort ();
     }
 
   /* Create the parameters.  */
@@ -3620,7 +3622,7 @@ reparse_absdcl_as_casts (decl, expr)
       decl = TREE_OPERAND (decl, 0);
 
       if (processing_template_decl)
-	expr = build_min (CONSTRUCTOR, type, decl, CONSTRUCTOR_ELTS (expr));
+	TREE_TYPE (expr) = type;
       else
 	{
 	  expr = digest_init (type, expr, (tree *) 0);
@@ -3804,7 +3806,7 @@ build_expr_from_tree (t)
 	return build_x_compound_expr
 	  (build_expr_from_tree (TREE_OPERAND (t, 0)));
       else
-	my_friendly_abort (42);
+	abort ();
 
     case METHOD_CALL_EXPR:
       if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
@@ -3938,17 +3940,35 @@ build_expr_from_tree (t)
     case CONSTRUCTOR:
       {
 	tree r;
+	tree elts;
+	tree type = TREE_TYPE (t);
+	bool purpose_p;
 
 	/* digest_init will do the wrong thing if we let it.  */
-	if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
+	if (type && TYPE_PTRMEMFUNC_P (type))
 	  return t;
 
-	r = build_nt (CONSTRUCTOR, NULL_TREE,
-		      build_expr_from_tree (CONSTRUCTOR_ELTS (t)));
+	r = NULL_TREE;
+	/* We do not want to process the purpose of aggregate
+	   initializers as they are identifier nodes which will be
+	   looked up by digest_init.  */
+	purpose_p = !(type && IS_AGGR_TYPE (type));
+	for (elts = CONSTRUCTOR_ELTS (t); elts; elts = TREE_CHAIN (elts))
+	  {
+	    tree purpose = TREE_PURPOSE (elts);
+	    tree value = TREE_VALUE (elts);
+	    
+	    if (purpose && purpose_p)
+	      purpose = build_expr_from_tree (purpose);
+	    value = build_expr_from_tree (value);
+	    r = tree_cons (purpose, value, r);
+	  }
+	
+	r = build_nt (CONSTRUCTOR, NULL_TREE, nreverse (r));
 	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
 
-	if (TREE_TYPE (t))
-	  return digest_init (TREE_TYPE (t), r, 0);
+	if (type)
+	  return digest_init (type, r, 0);
 	return r;
       }
 
@@ -4022,7 +4042,7 @@ finish_decl_parsing (decl)
     case TEMPLATE_ID_EXPR:
       return decl;
     default:
-      my_friendly_abort (5);
+      abort ();
       return NULL_TREE;
     }
 }
@@ -4670,7 +4690,7 @@ arg_assoc_type (k, type)
 	return 0;
       /* else fall through */
     default:
-      my_friendly_abort (390);
+      abort ();
     }
   return 0;
 }
@@ -4865,7 +4885,7 @@ validate_nonmember_using_decl (decl, scope, name)
       return NULL_TREE;
     }
   else
-    my_friendly_abort (382);
+    abort ();
   if (DECL_P (*name))
     *name = DECL_NAME (*name);
   /* Make a USING_DECL. */
@@ -5238,7 +5258,9 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
 	 is different to the current scope.  */
       tree context = CP_DECL_CONTEXT (decl);
 
-      *new_type_p = current != context;
+      *new_type_p = (current != context
+		     && TREE_CODE (context) != TEMPLATE_TYPE_PARM
+		     && TREE_CODE (context) != BOUND_TEMPLATE_TEMPLATE_PARM);
       if (*new_type_p)
 	push_scope (context);
   

@@ -1,6 +1,6 @@
 // prims.cc - Code for core of runtime environment.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,15 +9,7 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
-
-#ifdef USE_WIN32_SIGNALLING
-#include <windows.h>
-#endif /* USE_WIN32_SIGNALLING */
-
-#ifdef USE_WINSOCK
-#undef __INSIDE_CYGWIN__
-#include <winsock.h>
-#endif /* USE_WINSOCK */
+#include <platform.h>
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -730,32 +722,6 @@ _Jv_ThisExecutable (const char *name)
     }
 }
 
-#ifdef USE_WIN32_SIGNALLING
-
-extern "C" int* win32_get_restart_frame (void *);
-
-LONG CALLBACK
-win32_exception_handler (LPEXCEPTION_POINTERS e)
-{
-  int* setjmp_buf;
-  if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION)   
-    setjmp_buf = win32_get_restart_frame (nullp);
-  else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
-    setjmp_buf = win32_get_restart_frame (arithexception);
-  else
-    return EXCEPTION_CONTINUE_SEARCH;
-
-  e->ContextRecord->Ebp = setjmp_buf[0];
-  // FIXME: Why does i386-signal.h increment the PC here, do we need to do it?
-  e->ContextRecord->Eip = setjmp_buf[1];
-  // FIXME: Is this the stack pointer? Do we need it?
-  e->ContextRecord->Esp = setjmp_buf[2];
-
-  return EXCEPTION_CONTINUE_EXECUTION;
-}
-
-#endif
-
 #ifndef DISABLE_GETENV_PROPERTIES
 
 static char *
@@ -962,26 +928,7 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   LTDL_SET_PRELOADED_SYMBOLS ();
 #endif
 
-#ifdef USE_WINSOCK
-  // Initialise winsock for networking
-  WSADATA data;
-  if (WSAStartup (MAKEWORD (1, 1), &data))
-      MessageBox (NULL, "Error initialising winsock library.", "Error", MB_OK | MB_ICONEXCLAMATION);
-#endif /* USE_WINSOCK */
-
-#ifdef USE_WIN32_SIGNALLING
-  // Install exception handler
-  SetUnhandledExceptionFilter (win32_exception_handler);
-#elif defined(HAVE_SIGACTION)
-  // We only want this on POSIX systems.
-  struct sigaction act;
-  act.sa_handler = SIG_IGN;
-  sigemptyset (&act.sa_mask);
-  act.sa_flags = 0;
-  sigaction (SIGPIPE, &act, NULL);
-#else
-  signal (SIGPIPE, SIG_IGN);
-#endif
+  _Jv_platform_initialize ();
 
   _Jv_JNI_Init ();
 
@@ -1012,13 +959,18 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 
   java::lang::Runtime *runtime = NULL;
 
+
+#ifdef DISABLE_MAIN_ARGS
+  _Jv_ThisExecutable ("[Embedded App]");
+#else
 #ifdef HAVE_PROC_SELF_EXE
   char exec_name[20];
   sprintf (exec_name, "/proc/%d/exe", getpid ());
   _Jv_ThisExecutable (exec_name);
 #else
   _Jv_ThisExecutable (argv[0]);
-#endif
+#endif /* HAVE_PROC_SELF_EXE */
+#endif /* DISABLE_MAIN_ARGS */
 
   try
     {
@@ -1032,7 +984,11 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
       // for `main'; that way it will be set up if `main' is a JNI method.
       runtime = java::lang::Runtime::getRuntime ();
 
+#ifdef DISABLE_MAIN_ARGS
+      arg_vec = JvConvertArgv (0, 0);
+#else      
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
+#endif
 
       using namespace gnu::gcj::runtime;
       if (klass)

@@ -252,8 +252,6 @@ make_friend_class (type, friend_type)
       return;
     }
 
-  GNU_xref_hier (type, friend_type, 0, 0, 1);
-
   if (is_template_friend)
     friend_type = CLASSTYPE_TI_TEMPLATE (friend_type);
 
@@ -323,7 +321,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
     }
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
-    my_friendly_abort (990513);
+    abort ();
 
   is_friend_template = PROCESSING_REAL_TEMPLATE_DECL_P ();
 

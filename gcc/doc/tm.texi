@@ -216,16 +216,6 @@ This should be defined if @code{WINT_TYPE} depends on target dependent flags
 which are not accessible to the preprocessor.  Otherwise, it should not
 be defined.
 
-@findex SIGNED_CHAR_SPEC
-@item SIGNED_CHAR_SPEC
-A C string constant that tells the GCC driver program options to
-pass to CPP@.  By default, this macro is defined to pass the option
-@option{-D__CHAR_UNSIGNED__} to CPP if @code{char} will be treated as
-@code{unsigned char} by @code{cc1}.
-
-Do not define this macro unless you need to override the default
-definition.
-
 @findex CC1_SPEC
 @item CC1_SPEC
 A C string constant that tells the GCC driver program options to
@@ -1209,8 +1199,8 @@ get from @code{PCC_BITFIELD_TYPE_MATTERS}.
 
 @findex BITFIELD_NBYTES_LIMITED
 @item BITFIELD_NBYTES_LIMITED
-Like PCC_BITFIELD_TYPE_MATTERS except that its effect is limited to
-aligning a bit-field within the structure.
+Like @code{PCC_BITFIELD_TYPE_MATTERS} except that its effect is limited
+to aligning a bit-field within the structure.
 
 @findex MEMBER_TYPE_FORCES_BLK
 @item MEMBER_TYPE_FORCES_BLK (@var{field})
@@ -1313,7 +1303,7 @@ need to define this macro when the format is IEEE@.
 
 @findex VAX_FLOAT_FORMAT
 @item VAX_FLOAT_FORMAT
-This code indicates the peculiar format used on the VAX.
+This code indicates the ``D float'' format used on the VAX@.
 
 @findex IBM_FLOAT_FORMAT
 @item IBM_FLOAT_FORMAT
@@ -1328,16 +1318,30 @@ This code indicates the format used on the TMS320C3x/C4x.
 This code indicates any other format.
 @end table
 
-The value of this macro is compared with @code{HOST_FLOAT_FORMAT}
-(@pxref{Config}) to determine whether the target machine has the same
-format as the host machine.  If any other formats are actually in use on
-supported machines, new codes should be defined for them.
+The value of this macro is compared with @code{HOST_FLOAT_FORMAT}, which
+is defined by the @command{configure} script, to determine whether the
+target machine has the same format as the host machine.  If any other
+formats are actually in use on supported machines, new codes should be
+defined for them.
 
 The ordering of the component words of floating point values stored in
-memory is controlled by @code{FLOAT_WORDS_BIG_ENDIAN} for the target
-machine and @code{HOST_FLOAT_WORDS_BIG_ENDIAN} for the host.
+memory is controlled by @code{FLOAT_WORDS_BIG_ENDIAN}.
 
 @end table
+
+@deftypefn {Target Hook} bool TARGET_MS_BITFIELD_LAYOUT_P (tree @var{record_type})
+This target hook returns @code{true} if bit-fields in the given
+@var{record_type} are to be laid out following the rules of Microsoft
+Visual C/C++, namely: (i) a bit-field won't share the same storage
+unit with the previous bit-field if their underlying types have
+different sizes, and the bit-field will be aligned to the highest
+alignment of the underlying types of itself and of the previous
+bit-field; (ii) a zero-sized bit-field will affect the alignment of
+the whole enclosing structure, even if it is unnamed; except that
+(iii) a zero-sized bit-field will be disregarded unless it follows
+another bit-field of non-zero size.  If this hook returns @code{true},
+other macros that control bit-field layout are ignored.
+@end deftypefn
 
 @node Type Layout
 @section Layout of Source Language Data Types
@@ -1953,25 +1957,6 @@ allocation.
 Define this macro if the compiler should avoid copies to/from @code{CCmode}
 registers.  You should only define this macro if support for copying to/from
 @code{CCmode} is incomplete.
-
-@findex SUBREG_REGNO_OFFSET
-@item SUBREG_REGNO_OFFSET
-Define this macro if the compiler needs to handle subregs in a non-standard
-way.  The macro returns the correct regno offset for mode @code{YMODE} given
-a subreg of type @code{XMODE}.
-This macro takes 4 parameters:
-@table @code
-@item XREGNO
-A regno of an inner hard subreg_reg (or what will become one).
-@item XMODE
-The mode of xregno.
-@item OFFSET
-The byte offset.
-@item YMODE
-The mode of a top level SUBREG (or what may become one).
-@end table
-The default function can be found in @file{rtlanal.c}, function
-@code{subreg_regno_offset}.  Normally this does not need to be defined.
 @end table
 
 @node Leaf Functions
@@ -3281,6 +3266,22 @@ arguments pop them but other functions (such as @code{printf}) pop
 nothing (the caller pops all).  When this convention is in use,
 @var{funtype} is examined to determine whether a function takes a fixed
 number of arguments.
+
+@findex CALL_POPS_ARGS
+@item   CALL_POPS_ARGS (@var{cum})
+A C expression that should indicate the number of bytes a call sequence
+pops off the stack.  It is added to the value of @code{RETURN_POPS_ARGS}
+when compiling a function call.
+
+@var{cum} is the variable in which all arguments to the called function
+have been accumulated.
+
+On certain architectures, such as the SH5, a call trampoline is used
+that pops certain registers off the stack, depending on the arguments
+that have been passed to the function.  Since this is a property of the
+call site, not of the called function, @code{RETURN_POPS_ARGS} is not
+appropriate.
+
 @end table
 
 @node Register Arguments
@@ -5458,15 +5459,23 @@ finalization code.  If not defined, GCC will assume such a section does
 not exist.
 
 @findex CRT_CALL_STATIC_FUNCTION
-@item CRT_CALL_STATIC_FUNCTION
-If defined, a C statement that calls the function named as the sole
-argument of this macro.  This is used in @file{crtstuff.c} if
-@code{INIT_SECTION_ASM_OP} or @code{FINI_SECTION_ASM_OP} to calls to
-initialization and finalization functions from the init and fini
-sections.  By default, this macro is a simple function call.  Some
+@item CRT_CALL_STATIC_FUNCTION (@var{section_op}, @var{function})
+If defined, an ASM statement that switches to a different section
+via @var{section_op}, calls @var{function}, and switches back to
+the text section.  This is used in @file{crtstuff.c} if
+@code{INIT_SECTION_ASM_OP} or @code{FINI_SECTION_ASM_OP} to calls
+to initialization and finalization functions from the init and fini
+sections.  By default, this macro uses a simple function call.  Some
 ports need hand-crafted assembly code to avoid dependencies on
 registers initialized in the function prologue or to ensure that
 constant pools don't end up too far way in the text section.
+
+@findex FORCE_CODE_SECTION_ALIGN
+@item FORCE_CODE_SECTION_ALIGN
+If defined, an ASM statement that aligns a code section to some
+arbitrary boundary.  This is used to force all fragments of the
+@code{.init} and @code{.fini} sections to have to same alignment
+and thus prevent the linker from having to add any padding.
 
 @findex EXTRA_SECTIONS
 @findex in_text
@@ -5595,7 +5604,8 @@ processor's ``application binary interface'' (ABI)@.  When this macro
 is defined, RTL is generated for this register once, as with the stack
 pointer and frame pointer registers.  If this macro is not defined, it
 is up to the machine-dependent files to allocate such a register (if
-necessary).
+necessary).  Note that this register must be fixed when in use (e.g.@:
+when @code{flag_pic} is true).
 
 @findex PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
 @item PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
@@ -8600,4 +8610,40 @@ You may use @code{current_function_leaf_function} in the definition of the
 macro, functions that use @code{REG_N_SETS}, to determine if the hard
 register in question will not be clobbered.
 
+@findex TARGET_OBJECT_SUFFIX
+@item TARGET_OBJECT_SUFFIX
+Define this macro to be a C string representing the suffix for object
+files on your target machine.  If you do not define this macro, GCC will
+use @samp{.o} as the suffix for object files.
+
+@findex TARGET_EXECUTABLE_SUFFIX
+@item TARGET_EXECUTABLE_SUFFIX
+Define this macro to be a C string representing the suffix to be
+automatically added to executable files on your target machine.  If you
+do not define this macro, GCC will use the null string as the suffix for
+executable files.
+
+@findex COLLECT_EXPORT_LIST
+@item COLLECT_EXPORT_LIST
+If defined, @code{collect2} will scan the individual object files
+specified on its command line and create an export list for the linker.
+Define this macro for systems like AIX, where the linker discards
+object files that are not referenced from @code{main} and uses export
+lists.
+
 @end table
+
+@deftypefn {Target Hook} bool TARGET_CANNOT_MODIFY_JUMPS_P (void)
+This target hook returns @code{true} past the point in which new jump
+instructions could be created.  On machines that require a register for
+every jump such as the SHmedia ISA of SH5, this point would typically be
+reload, so this target hook should be defined to a function such as:
+
+@smallexample
+static bool
+cannot_modify_jumps_past_reload_p ()
+@{
+  return (reload_completed || reload_in_progress);
+@}
+@end smallexample
+@end deftypefn

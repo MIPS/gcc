@@ -243,7 +243,7 @@ ia64-*-*)
 hppa*-*-* | parisc*-*-*)
 	cpu_type=pa
 	;;
-m680[02]0-*-*)
+m680[012]0-*-*)
 	cpu_type=m68k
 	extra_headers=math-68881.h
 	;;
@@ -263,6 +263,9 @@ powerpc*-*-*)
 sparc*-*-*)
 	cpu_type=sparc
 	;;
+sh64-*-*)
+	cpu_type=sh
+	;;
 esac
 
 tm_file=${cpu_type}/${cpu_type}.h
@@ -270,6 +273,13 @@ if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-protos.h
 then
 	tm_p_file=${cpu_type}/${cpu_type}-protos.h
 fi
+
+case $machine in
+x86_64-*-*)
+	tm_file="i386/biarch64.h ${tm_file}"
+	;;
+esac
+
 # On a.out targets, we need to use collect2.
 case $machine in
 *-*-*aout*)
@@ -454,7 +464,8 @@ alpha*-*-linux*ecoff*)
 alpha*-*-linux*libc1*)
 	tm_file="${tm_file} alpha/elf.h alpha/linux.h alpha/linux-elf.h"
 	target_cpu_default="MASK_GAS"
-	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1 alpha/t-alpha alpha/t-crtbe alpha/t-crtfm alpha/t-ieee"
+	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1 alpha/t-alpha alpha/t-crtfm alpha/t-ieee"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	gas=yes gnu_ld=yes
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
@@ -463,7 +474,8 @@ alpha*-*-linux*libc1*)
 alpha*-*-linux*)
 	tm_file="${tm_file} alpha/elf.h alpha/linux.h alpha/linux-elf.h"
 	target_cpu_default="MASK_GAS"
-	tmake_file="t-slibgcc-elf-ver t-linux alpha/t-crtbe alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
+	tmake_file="t-slibgcc-elf-ver t-linux alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	gas=yes gnu_ld=yes
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
@@ -472,12 +484,14 @@ alpha*-*-linux*)
 alpha*-*-freebsd*)
 	tm_file="${tm_file} ${fbsd_tm_file} alpha/elf.h alpha/freebsd.h"
 	target_cpu_default="MASK_GAS"
-	tmake_file="${tmake_file} alpha/t-crtbe alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
+	tmake_file="${tmake_file} alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	;;
 alpha*-*-netbsd*)
 	tm_file="${tm_file} netbsd.h alpha/elf.h netbsd-elf.h alpha/netbsd.h"
 	target_cpu_default="MASK_GAS"
-	tmake_file="${tmake_file} alpha/t-alpha alpha/t-crtbe alpha/t-ieee"
+	tmake_file="${tmake_file} alpha/t-alpha alpha/t-ieee"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	;;
 
 alpha*-*-openbsd*)
@@ -550,6 +564,7 @@ alpha64-dec-*vms*)
 		  | sed 's/.*-.*-\(.*\)$/\1/' | sed 's/\./_/g'`
 		;;
 	esac
+	install_headers_dir=install-headers-cp
 	prefix=/gnu
 	local_prefix=/gnu
 	;;
@@ -567,6 +582,7 @@ alpha*-dec-*vms*)
 		  | sed 's/.*-.*-\(.*\)$/\1/' | sed 's/\./_/g'`
 		;;
 	esac
+	install_headers_dir=install-headers-cp
 	prefix=/gnu
 	local_prefix=/gnu
 	;;
@@ -615,6 +631,9 @@ arm-semi-aof | armel-semi-aof)
 arm*-*-freebsd*|strongarm*-*-freebsd*)
 	tm_file="dbxelf.h elfos.h ${fbsd_tm_file} arm/elf.h arm/aout.h arm/freebsd.h arm/arm.h"
 	tmake_file="${tmake_file} arm/t-strongarm-elf"
+	;;
+arm*-*-netbsdelf*)
+	echo "GCC does not yet support the ${machine} target"; exit 1
 	;;
 arm*-*-netbsd*)
 	tm_file="arm/aout.h arm/arm.h netbsd.h netbsd-aout.h arm/netbsd.h"
@@ -1125,7 +1144,10 @@ i[34567]86-*-freebsd[12] | i[34567]86-*-freebsd[12].* | i[34567]86-*-freebsd*aou
 	tmake_file=t-freebsd
 	;;
 i[34567]86-*-freebsd*)
-	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h svr4.h ${fbsd_tm_file} i386/freebsd.h"
+	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h ${fbsd_tm_file} i386/freebsd.h"
+	;;
+x86_64-*-freebsd*)
+	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h ${fbsd_tm_file} i386/x86-64.h i386/freebsd.h i386/freebsd64.h"
 	;;
 i[34567]86-*-netbsdelf*)
 	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/netbsd-elf.h"
@@ -1137,7 +1159,7 @@ i[34567]86-*-netbsd*)
 	use_collect2=yes
 	;;
 x86_64-*-netbsd*)
-	tm_file="i386/biarch64.h i386/i386.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
+	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
 	float_format=i386
 	;;
 i[34567]86-*-openbsd*)
@@ -1203,9 +1225,9 @@ i[34567]86-*-linux*)	# Intel 80386's running GNU/Linux
 	fi
 	;;
 x86_64-*-linux*)
-	tm_file="i386/biarch64.h i386/i386.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \
+	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h svr4.h linux.h \
 		 i386/x86-64.h i386/linux64.h"
-	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff"
+	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff i386/t-linux64"
 	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	gnu_ld=yes
 	float_format=i386
@@ -1916,6 +1938,18 @@ m68k-*-lynxos*)
 	tmake_file=m68k/t-lynx
 	float_format=m68k
 	;;
+m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
+	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h m68k/netbsd-elf.h"
+	case $machine in
+	m68010*)
+		target_cpu_default="0"
+		;;
+	*)
+		target_cpu_default="MASK_68020|MASK_68881|MASK_BITFIELD"
+		;;
+	esac
+	float_format=m68k
+	;;
 m68k*-*-netbsd*)
 	tm_file=m68k/netbsd.h
 	tmake_file=t-netbsd
@@ -2586,6 +2620,9 @@ ns32k-pc532-minix*)
 	xm_defines='POSIX HZ=60'
 	use_collect2=yes
 	;;
+ns32k-*-netbsdelf*)
+	echo "GCC does not yet support the ${machine} target"; exit 1
+	;;
 ns32k-*-netbsd*)
 	tm_file=ns32k/netbsd.h
 	# On NetBSD, the headers are already okay, except for math.h.
@@ -2836,11 +2873,11 @@ s390-*-linux*)
 	fi
 	;;
 s390x-*-linux*)
-	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h s390/linux64.h"
+	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
 	tm_p_file=s390/s390-protos.h
 	md_file=s390/s390.md
 	out_file=s390/s390.c
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux s390/t-linux64"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
@@ -2850,6 +2887,16 @@ sh-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
 	tm_file="${tm_file} sh/elf.h"
 	float_format=sh
+	;;
+sh64-*-elf*)
+	tmake_file="sh/t-sh sh/t-elf sh/t-sh64"
+	tm_file="${tm_file} sh/sh.h sh/elf.h sh/sh64.h"
+	float_format=sh
+	extra_headers="../../config/sh/shmedia.h ../../config/sh/ushmedia.h ../../config/sh/sshmedia.h"
+	# Not strictly necessary to check this, but a good idea anyway.
+	if test $machine = $target; then
+		target_requires_64bit_host_wide_int=yes
+	fi
 	;;
 sh-*-rtemself*)
 	tmake_file="sh/t-sh sh/t-elf t-rtems"
@@ -2884,7 +2931,7 @@ sparc-tti-*)
 	xm_defines=POSIX
 	;;
 sparc64-wrs-vxworks*)
-        tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/sol2.h sparc/elf.h sparc/sparc_bi.h gofast.h sparc/vxsparc64.h"
+        tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/sol2.h sparc/elf.h sparc/biarch64.h gofast.h sparc/vxsparc64.h"
         tmake_file=sparc/t-vxsparc64
         use_collect2=yes
         ;;
@@ -2897,6 +2944,9 @@ sparc-wrs-vxworks* | sparclite-wrs-vxworks*)
 sparc-*-aout*)
 	tmake_file=sparc/t-sparcbare
 	tm_file="sparc/sparc.h aoutos.h sparc/aout.h libgloss.h"
+	;;
+sparc-*-netbsdelf*)
+	echo "GCC does not yet support the ${machine} target"; exit 1
 	;;
 sparc-*-netbsd*)
 	tm_file="${tm_file} sparc/aout.h netbsd.h netbsd-aout.h sparc/netbsd.h"
@@ -3147,7 +3197,7 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 	;;
 sparc64-*-linux*)		# 64-bit Sparc's running GNU/Linux
 	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-linux64"
-	tm_file="sparc/sparc_bi.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
+	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
 	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	gnu_ld=yes
 	if test x$enable_threads = xyes; then
@@ -3212,6 +3262,9 @@ vax-*-sysv*)			# VAXen running system V
 	xm_defines=POSIX
 	float_format=vax
 	;;
+vax-*-netbsdelf*)
+	echo "GCC does not yet support the ${machine} target"; exit 1
+	;;
 vax-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h vax/netbsd.h"
 	tmake_file=t-netbsd
@@ -3259,6 +3312,22 @@ xstormy16-*-elf)
 	out_file=stormy16/stormy16.c
 	tmake_file="stormy16/t-stormy16"
 	extra_parts="crtbegin.o crtend.o"
+	;;
+xtensa-*-elf*)
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h xtensa/elf.h"
+	with_newlib=yes
+	tmake_file=xtensa/t-xtensa
+	extra_parts="crtbegin.o crtend.o"
+	fixincludes=Makefile.in # newlib headers should be OK
+	;;
+xtensa-*-linux*)
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h xtensa/linux.h"
+	tmake_file="t-linux xtensa/t-xtensa"
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+	gas=yes gnu_ld=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
 	;;
 *)
 	echo "Configuration $machine not supported" 1>&2
