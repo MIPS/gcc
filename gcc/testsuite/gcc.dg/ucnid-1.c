@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
 /* { dg-do run } */
 /* { dg-options "-std=c99" } */
 void abort (void);
@@ -23,3 +24,4 @@ int main (void)
   
   return 0;
 }
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */

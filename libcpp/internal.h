@@ -593,12 +593,42 @@ extern uchar *_cpp_copy_replacement_text (const cpp_macro *, uchar *);
 extern size_t _cpp_replacement_text_len (const cpp_macro *);
 
 /* In cppcharset.c.  */
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+
+/* The normalization state at this point in the sequence.
+   It starts initialized to all zeros, and at the end
+   'level' is the normalization level of the sequence.  */
+
+struct normalize_state 
+{
+  /* The previous character.  */
+  cppchar_t previous;
+  /* The combining class of the previous character.  */
+  unsigned char prev_class;
+  /* The lowest normalization level so far.  */
+  enum cpp_normalize_level level;
+};
+#define INITIAL_NORMALIZE_STATE { 0, 0, normalized_KC }
+#define NORMALIZE_STATE_RESULT(st) ((st)->level)
+
+/* We saw a character that matches ISIDNUM(), update a
+   normalize_state appropriately.  */
+#define NORMALIZE_STATE_UPDATE_IDNUM(st) \
+  ((st)->previous = 0, (st)->prev_class = 0)
+
 extern cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **,
-				 const uchar *, int);
+				 const unsigned char *, int,
+				 struct normalize_state *state);
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 extern void _cpp_destroy_iconv (cpp_reader *);
 extern uchar *_cpp_convert_input (cpp_reader *, const char *, uchar *,
 				  size_t, size_t, off_t *);
 extern const char *_cpp_default_encoding (void);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+extern cpp_hashnode * _cpp_interpret_identifier (cpp_reader *pfile,
+						 const unsigned char *id,
+						 size_t len);
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1
