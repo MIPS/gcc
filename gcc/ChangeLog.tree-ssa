@@ -1,3 +1,8 @@
+2003-08-11  Jeff Law  <law@redhat.com>
+
+	* gimplify.c (gimplify_expr, case INDIRECT_REF): Copy the base
+	object into a temporary if it's in static memory or is addressable.
+
 2003-08-11  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-alias-common.h (struct tree_alias_ops): Add a semicolon, fix

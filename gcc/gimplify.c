@@ -499,6 +499,19 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case INDIRECT_REF:
 	  gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			 is_gimple_id, fb_rvalue);
+
+	  /* If we are indirecting a variable in memory, load the
+	     variable into a temporary and indirect the temporary.  */
+	  tmp = TREE_OPERAND (*expr_p, 0);
+	  if (DECL_P (tmp)
+	      && (decl_function_context (tmp) == NULL
+		  || TREE_STATIC (tmp)
+		  || TREE_ADDRESSABLE (tmp)))
+	    {
+	      tmp = get_formal_tmp_var (tmp, pre_p);
+	      TREE_OPERAND (*expr_p, 0) = tmp;
+	    }
+
 	  recalculate_side_effects (*expr_p);
 	  break;
 
