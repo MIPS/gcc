@@ -1,4 +1,4 @@
 #include "ansidecl.h"
 #include "version.h"
 
-const char *const version_string = "ast-optimizer-branch (experimental)";
+const char *const version_string = "3.1 (ast-optimizer-branch)";
