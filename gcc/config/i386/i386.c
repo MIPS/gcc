@@ -1089,6 +1089,8 @@ override_options ()
 				   | PTA_3DNOW_A},
       {"athlon-tbird", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE
 					 | PTA_3DNOW | PTA_3DNOW_A},
+      {"x86-64", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_SSE
+					 | PTA_64BIT},
       {"athlon-4", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				    | PTA_3DNOW_A | PTA_SSE},
       {"athlon-xp", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
@@ -1136,7 +1138,7 @@ override_options ()
   if (!ix86_cpu_string)
     ix86_cpu_string = cpu_names [TARGET_CPU_DEFAULT];
   if (!ix86_arch_string)
-    ix86_arch_string = TARGET_64BIT ? "k8" : "i386";
+    ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
 
   if (ix86_cmodel_string != 0)
     {
