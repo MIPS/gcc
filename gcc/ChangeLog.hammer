@@ -1,3 +1,8 @@
+Thu Mar 20 13:36:00 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* callgraph.c (known_fns): make extern.
+	* function.c (known_fns): make global; fix GTY marker.
+
 Tue Mar 18 21:05:45 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (hammer-3_3-merge-20030318)

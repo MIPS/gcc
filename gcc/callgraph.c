@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    since it would make it dificult to extend it into untramodule
    optimizer later, so we store the references into the array to avoid
    garbage collector from doing it's job.  */
-GTY(()) varray_type known_fns;
+extern varray_type known_fns;
 
 /* The cgraph data strutcture.
    Each function decl has assigned cgraph_node listing calees and callers.  */
