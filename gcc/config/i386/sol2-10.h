@@ -86,6 +86,15 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_LD_EMULATION ""
 #endif
 
+/* On, Solaris 2.10 some of the system utilities are built with GCC.
+   Sun does not want these utilities should not be linked with libgcc
+   because a future installation of GCC in /usr/local might then
+   result in the base system utilities picking up a new version of
+   libgcc.  */
+#undef LIBGCC_SPEC
+#define LIBGCC_SPEC \
+  "%{!nolibgcc:-lgcc}"
+
 #undef LINK_ARCH_SPEC
 #define LINK_ARCH_SPEC TARGET_LD_EMULATION \
 		       "%{m64:" LINK_ARCH64_SPEC "}%{!m64:" LINK_ARCH32_SPEC "}"
@@ -102,12 +111,3 @@ Boston, MA 02111-1307, USA.  */
    : (TYPE_MODE (TYPE) == BLKmode		\
       || (VECTOR_MODE_P (TYPE_MODE (TYPE)) 	\
 	  && int_size_in_bytes (TYPE) == 8)))
-
-/* The following can use target preprocessor macros, because it is only used
-   by crtstuff.c.  */
-
-/* If the Solaris dynamic linker will automatically register .eh_frame_hdr
-   from the program header, we can define this to avoid duplicate
-   registration.  */
-/* #define USE_PT_GNU_EH_FRAME */
-

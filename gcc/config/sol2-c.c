@@ -43,6 +43,7 @@ static const format_length_info cmn_err_length_specs[] =
 
 static const format_flag_spec cmn_err_flag_specs[] =
 {
+  { '#',  0, 0, N_("`#' flag"),        N_("the `#' cmn_err flag"),              STD_C89 },
   { 'w',  0, 0, N_("field width"),     N_("field width in printf format"),     STD_C89 },
   { 'L',  0, 0, N_("length modifier"), N_("length modifier in printf format"), STD_C89 },
   { 0, 0, 0, NULL, NULL, 0 }
@@ -61,7 +62,7 @@ static const format_char_info cmn_err_char_table[] =
 {
   /* C89 conversion specifiers.  */
   { "dD",  0, STD_C89, { T89_I,   BADLEN,  BADLEN,  T89_L,   T9L_LL,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
-  { "oOxX",0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
+  { "oOxX",0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w#", "",   NULL },
   { "u",   0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
   { "c",   0, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
   { "p",   1, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w", "c",  NULL },
@@ -71,7 +72,7 @@ static const format_char_info cmn_err_char_table[] =
 };
 
 const format_kind_info solaris_format_types[] = {
-  { "cmn_err",  cmn_err_length_specs,  cmn_err_char_table, "", NULL,
+  { "cmn_err",  cmn_err_length_specs,  cmn_err_char_table, "#", NULL,
     cmn_err_flag_specs, cmn_err_flag_pairs,
     FMT_FLAG_ARG_CONVERT|FMT_FLAG_EMPTY_PREC_OK,
     'w', 0, 0, 0, 'L',
