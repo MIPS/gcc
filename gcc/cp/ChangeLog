@@ -1,3 +1,27 @@
+2004-09-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (cp/typeck.o): Depend on c-common.h.
+	* typeck.c: Include c-common.h.
+	(comptypes): For RECORD_TYPEs, call objc_comptypes() and
+	return the result if nonnegative.
+
+2004-09-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl2.c (import_export_class)
+	* lex.c (handle_pragma_interface):
+	Test MULTIPLE_SYMBOL_SPACES with if, not #ifdef.
+
+2004-09-08  Ziemowit Laski  <zlaski@apple.com>
+
+	* Make-lang.in (cp/semantics.o): Depend on c-common.h.
+	* semantics.c: Include c-common.h.
+	(finish_compound_stmt): Call objc_clear_super_receiver().
+
+2004-09-08  Ziemowit Laski  <zlaski@apple.com>
+
+	* cp-tree.h (do_poplevel): New prototype.
+	* semantics.c (do_poplevel): Make externally visible.
+
 2004-09-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* cp-tree.h (tree_pair_s): Define a GC'd vector.

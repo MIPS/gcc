@@ -1,3 +1,52 @@
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/ProtectionDomain.java,
+	* java/util/PropertyPermissionCollection.java:
+	Fixed javadocs all over.
+
+2004-09-09  Sven de Marothy  <sven@physto.se>
+
+	Patch from David Gilbert <david.gilbert@object-refinery.com>
+	* java/lang/Comparable.java: Fixed documentation errors.
+	* java/util/Arrays.java: Likewise.
+
+2004-09-09  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* java/net/Inet4Address.java
+	(Inet4Address): Added comment to serialization UID.
+	* java/text/Format.java
+	(Format): Added comment to serialization UID.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/System.java
+	(err): Fixed javadoci to point to setErr() and not setOut().
+
+2004-09-09  Jeroen Frijters  <jeroen@frijters.net>
+
+	(normalizePath): Added special case for windows systems.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/File.java
+	(dupSeparator): Made private.
+	(File(URI)): New constructor.
+	(getParentFile): Fixed javadoc.
+	(createTempFile): Reformated.
+	(setReadOnly): Added comment.
+	(deleteOnExit): Merged javadoc with classpath version.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Don't try to include deps.mk.
+	* Makefile.in: Regenerated.
+
+2004-09-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.ac (AC_CONFIG_COMMANDS): Don't create subdirectories and
+	.d files.
+	* configure: Rebuilt.
+
 2004-09-04  Mohan Embar  <gnustuff@thisiscool.com>
 
 	* java/net/natNetworkInterfaceWin32.cc (getRealNetworkInterfaces):

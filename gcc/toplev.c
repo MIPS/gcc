@@ -74,7 +74,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "cfglayout.h"
-#include "tree-alias-common.h" 
 #include "cfgloop.h"
 #include "hosthooks.h"
 #include "cgraph.h"
@@ -331,9 +330,6 @@ rtx stack_limit_rtx;
    unused UIDs if there are a lot of instructions.  If greater than
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
-
-/* Enable points-to analysis on trees.  */
-enum pta_type flag_tree_points_to = PTA_NONE;
 
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
@@ -840,6 +836,7 @@ check_global_declarations (tree *vec, int len)
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
 	  && ! DECL_ARTIFICIAL (decl)
+	  && ! TREE_NO_WARNING (decl)
 	  && ! TREE_PUBLIC (decl)
 	  && (warn_unused_function
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
@@ -1501,7 +1498,7 @@ default_pch_valid_p (const void *data_p, size_t len)
 	      goto make_message;
 	    }
 	}
-      abort ();
+      gcc_unreachable ();
     }
   data += sizeof (target_flags);
   len -= sizeof (target_flags);

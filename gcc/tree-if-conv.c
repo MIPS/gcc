@@ -117,9 +117,9 @@ static void add_to_predicate_list (basic_block, tree);
 static tree add_to_dst_predicate_list (struct loop * loop, tree, tree, tree,
 				       block_stmt_iterator *);
 static void clean_predicate_lists (struct loop *loop);
-static bool find_phi_replacement_condition (basic_block, tree *,
-                                            block_stmt_iterator *);
-static void replace_phi_with_cond_modify_expr (tree, tree, bool,
+static basic_block find_phi_replacement_condition (basic_block, tree *,
+						   block_stmt_iterator *);
+static void replace_phi_with_cond_modify_expr (tree, tree, basic_block,
                                                block_stmt_iterator *);
 static void process_phi_nodes (struct loop *);
 static void combine_blocks (struct loop *);
@@ -257,8 +257,7 @@ tree_if_convert_stmt (struct loop *  loop, tree t, tree cond,
       break;
 
     default:
-      abort ();
-      break;
+      gcc_unreachable ();
     }
   return cond;
 }
@@ -275,10 +274,7 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
   tree then_clause, else_clause, c, new_cond;
   new_cond = NULL_TREE;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (stmt) != COND_EXPR)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (stmt) == COND_EXPR);
 
   c = TREE_OPERAND (stmt, 0);
   then_clause = TREE_OPERAND (stmt, 1);
@@ -640,10 +636,7 @@ add_to_dst_predicate_list (struct loop * loop, tree dst,
   basic_block bb;
   tree new_cond = NULL_TREE;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (dst) != GOTO_EXPR)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (dst) == GOTO_EXPR);
   bb = label_to_block (TREE_OPERAND (dst, 0));
   if (!flow_bb_inside_loop_p (loop, bb))
     return NULL_TREE;
@@ -677,28 +670,28 @@ clean_predicate_lists (struct loop *loop)
 }
 
 /* Basic block BB has two predecessors. Using predecessor's aux field, set
-   appropriate condition COND for the PHI node replacement. Return true if
-   phi arguments are condition is selected from second predecessor.  */
+   appropriate condition COND for the PHI node replacement. Return true block
+   whose phi arguments are selected when cond is true.  */
 
-static bool
+static basic_block
 find_phi_replacement_condition (basic_block bb, tree *cond,
                                 block_stmt_iterator *bsi)
 {
   edge e;
   basic_block p1 = NULL;
   basic_block p2 = NULL;
-  bool switch_args = false;
+  basic_block true_bb = NULL; 
   tree tmp_cond;
 
   FOR_EACH_EDGE (e, bb->preds)
     {
       if (p1 == NULL)
 	  p1 = e->src;
-      else if (p2 == NULL)
-	p2 = e->src;
-      else
-	/* More than two predecessors. This is not expected.  */
-	abort ();
+      else 
+	{
+	  gcc_assert (!p2);
+	  p2 = e->src;
+	}
     }
   END_FOR_EACH_EDGE;
 
@@ -707,12 +700,12 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
   if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
     {
       *cond  = p2->aux;
-      switch_args = true;
+      true_bb = p2;
     }
   else
     {
       *cond  = p1->aux;
-      switch_args = false;
+      true_bb = p1;
     }
 
   /* Create temp. for the condition. Vectorizer prefers to have gimple
@@ -729,12 +722,9 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
       *cond = TREE_OPERAND (new_stmt, 0);
     }
 
-#ifdef ENABLE_CHECKING
-  if (*cond == NULL_TREE)
-    abort ();
-#endif
+  gcc_assert (*cond);
 
-  return switch_args;
+  return true_bb;
 }
 
 
@@ -745,11 +735,11 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
    is converted into,
      S2: A = cond ? x1 : x2;
    S2 is inserted at the top of basic block's statement list.
-   PHI arguments are switched if SWITCH_ARGS is true.
+   When COND is true, phi arg from TRUE_BB is selected.
 */
 
 static void
-replace_phi_with_cond_modify_expr (tree phi, tree cond, bool switch_args,
+replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
                                    block_stmt_iterator *bsi)
 {
   tree new_stmt;
@@ -757,14 +747,10 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, bool switch_args,
   tree rhs;
   tree arg_0, arg_1;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (phi) != PHI_NODE)
-    abort ();
-
+  gcc_assert (TREE_CODE (phi) == PHI_NODE);
+  
   /* If this is not filtered earlier, then now it is too late.  */
-  if (PHI_NUM_ARGS (phi) != 2)
-     abort ();
-#endif
+  gcc_assert (PHI_NUM_ARGS (phi) == 2);
 
   /* Find basic block and initialize iterator.  */
   bb = bb_for_stmt (phi);
@@ -774,7 +760,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, bool switch_args,
   arg_1 = NULL_TREE;
 
   /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
-  if (switch_args)
+  if (PHI_ARG_EDGE(phi, 1)->src == true_bb)
     {
       arg_0 = PHI_ARG_DEF (phi, 1);
       arg_1 = PHI_ARG_DEF (phi, 0);
@@ -827,7 +813,7 @@ process_phi_nodes (struct loop *loop)
     {
       tree phi, cond;
       block_stmt_iterator bsi;
-      bool switch_args = false;
+      basic_block true_bb = NULL;
       bb = ifc_bbs[i];
 
       if (bb == loop->header || bb == loop->latch)
@@ -839,12 +825,12 @@ process_phi_nodes (struct loop *loop)
       /* BB has two predecessors. Using predecessor's aux field, set
 	 appropriate condition for the PHI node replacement.  */
       if (phi)
-	switch_args = find_phi_replacement_condition (bb, &cond, &bsi);
+	true_bb = find_phi_replacement_condition (bb, &cond, &bsi);
 
       while (phi)
 	{
 	  tree next = TREE_CHAIN (phi);
-	  replace_phi_with_cond_modify_expr (phi, cond, switch_args, &bsi);
+	  replace_phi_with_cond_modify_expr (phi, cond, true_bb, &bsi);
 	  release_phi_node (phi);
 	  phi = next;
 	}
@@ -1003,11 +989,8 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   unsigned int index = 0;
   unsigned int visited_count = 0;
 
-  if (!loop->num_nodes)
-    abort ();
-
-  if (loop->latch == EXIT_BLOCK_PTR)
-    abort ();
+  gcc_assert (loop->num_nodes);
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
   visited = BITMAP_XMALLOC ();

@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -850,10 +849,7 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
 {
   tree def_stmt;
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
 
   def_stmt = SSA_NAME_DEF_STMT (var);
 
@@ -1052,8 +1048,7 @@ check_phi_redundancy (tree phi, tree *eq_to)
 
   /* At least one of the arguments should not be equal to the result, or
      something strange is happening.  */
-  if (!val)
-    abort ();
+  gcc_assert (val);
 
   if (get_eq_name (eq_to, res) == val)
     return;

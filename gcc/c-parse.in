@@ -99,7 +99,10 @@ do {									\
 
 %start program
 
-%union {long itype; tree ttype; struct c_expr exprtype; enum tree_code code;
+%union {long itype; tree ttype; void *otype; struct c_expr exprtype;
+	struct c_arg_info *arginfotype; struct c_declarator *dtrtype;
+	struct c_type_name *typenametype; struct c_parm *parmtype;
+	struct c_declspecs *dsptype; enum tree_code code;
 	location_t location; }
 
 /* All identifiers that are not reserved words
@@ -188,18 +191,19 @@ do {									\
 %type <ttype> identifier IDENTIFIER TYPENAME CONSTANT STRING FUNC_NAME
 %type <ttype> nonnull_exprlist exprlist
 %type <exprtype> expr expr_no_commas cast_expr unary_expr primary
-%type <ttype> declspecs_nosc_nots_nosa_noea declspecs_nosc_nots_nosa_ea
-%type <ttype> declspecs_nosc_nots_sa_noea declspecs_nosc_nots_sa_ea
-%type <ttype> declspecs_nosc_ts_nosa_noea declspecs_nosc_ts_nosa_ea
-%type <ttype> declspecs_nosc_ts_sa_noea declspecs_nosc_ts_sa_ea
-%type <ttype> declspecs_sc_nots_nosa_noea declspecs_sc_nots_nosa_ea
-%type <ttype> declspecs_sc_nots_sa_noea declspecs_sc_nots_sa_ea
-%type <ttype> declspecs_sc_ts_nosa_noea declspecs_sc_ts_nosa_ea
-%type <ttype> declspecs_sc_ts_sa_noea declspecs_sc_ts_sa_ea
-%type <ttype> declspecs_ts declspecs_nots
-%type <ttype> declspecs_ts_nosa declspecs_nots_nosa
-%type <ttype> declspecs_nosc_ts declspecs_nosc_nots declspecs_nosc declspecs
-%type <ttype> maybe_type_quals_attrs typespec_nonattr typespec_attr
+%type <dsptype> declspecs_nosc_nots_nosa_noea declspecs_nosc_nots_nosa_ea
+%type <dsptype> declspecs_nosc_nots_sa_noea declspecs_nosc_nots_sa_ea
+%type <dsptype> declspecs_nosc_ts_nosa_noea declspecs_nosc_ts_nosa_ea
+%type <dsptype> declspecs_nosc_ts_sa_noea declspecs_nosc_ts_sa_ea
+%type <dsptype> declspecs_sc_nots_nosa_noea declspecs_sc_nots_nosa_ea
+%type <dsptype> declspecs_sc_nots_sa_noea declspecs_sc_nots_sa_ea
+%type <dsptype> declspecs_sc_ts_nosa_noea declspecs_sc_ts_nosa_ea
+%type <dsptype> declspecs_sc_ts_sa_noea declspecs_sc_ts_sa_ea
+%type <dsptype> declspecs_ts declspecs_nots
+%type <dsptype> declspecs_ts_nosa declspecs_nots_nosa
+%type <dsptype> declspecs_nosc_ts declspecs_nosc_nots declspecs_nosc declspecs
+%type <dsptype> maybe_type_quals_attrs
+%type <ttype> typespec_nonattr typespec_attr
 %type <ttype> typespec_reserved_nonattr typespec_reserved_attr
 %type <ttype> typespec_nonreserved_nonattr
 %type <ttype> offsetof_member_designator
@@ -217,11 +221,11 @@ do {									\
 
 %type <ttype> c99_block_start c99_block_lineno_labeled_stmt
 %type <ttype> if_statement_1 if_statement_2
-%type <ttype> declarator
-%type <ttype> notype_declarator after_type_declarator
-%type <ttype> parm_declarator
-%type <ttype> parm_declarator_starttypename parm_declarator_nostarttypename
-%type <ttype> array_declarator
+%type <dtrtype> declarator
+%type <dtrtype> notype_declarator after_type_declarator
+%type <dtrtype> parm_declarator
+%type <dtrtype> parm_declarator_starttypename parm_declarator_nostarttypename
+%type <dtrtype> array_declarator
 
 %type <ttype> structsp_attr structsp_nonattr
 %type <ttype> component_decl_list component_decl_list2
@@ -229,18 +233,22 @@ do {									\
 %type <ttype> component_notype_declarator
 %type <ttype> enumlist enumerator
 %type <ttype> struct_head union_head enum_head
-%type <ttype> typename absdcl absdcl1 absdcl1_ea absdcl1_noea
-%type <ttype> direct_absdcl1 absdcl_maybe_attribute
+%type <typenametype> typename
+%type <dtrtype> absdcl absdcl1 absdcl1_ea absdcl1_noea direct_absdcl1
+%type <parmtype> absdcl_maybe_attribute
 %type <ttype> condition xexpr for_cond_expr for_incr_expr
-%type <ttype> parms parm firstparm identifiers
+%type <parmtype> parm firstparm
+%type <ttype> identifiers
 
-%type <ttype> parmlist parmlist_1 parmlist_2
-%type <ttype> parmlist_or_identifiers parmlist_or_identifiers_1
+%type <arginfotype> parms parmlist parmlist_1 parmlist_2
+%type <arginfotype> parmlist_or_identifiers parmlist_or_identifiers_1
 %type <ttype> identifiers_or_typenames
 
 %type <itype> setspecs setspecs_fp extension
 
 %type <location> save_location
+
+%type <otype> save_obstack_position
 
 @@ifobjc
 /* the Objective-C nonterminals */
@@ -260,8 +268,8 @@ do {									\
 @@end_ifobjc
 
 %{
-/* List of types and structure classes of the current declaration.  */
-static GTY(()) tree current_declspecs;
+/* Declaration specifiers of the current declaration.  */
+static struct c_declspecs *current_declspecs;
 static GTY(()) tree prefix_attributes;
 
 /* List of all the attributes applying to the identifier currently being
@@ -269,29 +277,44 @@ static GTY(()) tree prefix_attributes;
    just after a comma.  */
 static GTY(()) tree all_prefix_attributes;
 
+/* Structure to save declaration specifiers.  */
+struct c_declspec_stack {
+  /* Saved value of current_declspecs.  */
+  struct c_declspecs *current_declspecs;
+  /* Saved value of prefix_attributes.  */
+  tree prefix_attributes;
+  /* Saved value of all_prefix_attributes.  */
+  tree all_prefix_attributes;
+  /* Next level of stack.  */
+  struct c_declspec_stack *next;
+};
+
 /* Stack of saved values of current_declspecs, prefix_attributes and
    all_prefix_attributes.  */
-static GTY(()) tree declspec_stack;
+static struct c_declspec_stack *declspec_stack;
 
 /* INDIRECT_REF with a TREE_TYPE of the type being queried for offsetof.  */
 static tree offsetof_base;
 
 /* PUSH_DECLSPEC_STACK is called from setspecs; POP_DECLSPEC_STACK
    should be called from the productions making use of setspecs.  */
-#define PUSH_DECLSPEC_STACK						 \
-  do {									 \
-    declspec_stack = tree_cons (build_tree_list (prefix_attributes,	 \
-						 all_prefix_attributes), \
-				current_declspecs,			 \
-				declspec_stack);			 \
+#define PUSH_DECLSPEC_STACK						\
+  do {									\
+    struct c_declspec_stack *t = XOBNEW (&parser_obstack,		\
+					 struct c_declspec_stack);	\
+    t->current_declspecs = current_declspecs;				\
+    t->prefix_attributes = prefix_attributes;				\
+    t->all_prefix_attributes = all_prefix_attributes;			\
+    t->next = declspec_stack;						\
+    declspec_stack = t;							\
   } while (0)
 
 #define POP_DECLSPEC_STACK						\
   do {									\
-    current_declspecs = TREE_VALUE (declspec_stack);			\
-    prefix_attributes = TREE_PURPOSE (TREE_PURPOSE (declspec_stack));	\
-    all_prefix_attributes = TREE_VALUE (TREE_PURPOSE (declspec_stack));	\
-    declspec_stack = TREE_CHAIN (declspec_stack);			\
+    current_declspecs = declspec_stack->current_declspecs;		\
+    prefix_attributes = declspec_stack->prefix_attributes;		\
+    all_prefix_attributes = declspec_stack->all_prefix_attributes;	\
+    declspec_stack = declspec_stack->next;				\
   } while (0)
 
 /* For __extension__, save/restore the warning flags which are
@@ -357,11 +380,14 @@ program: /* empty */
 
 /* the reason for the strange actions in this rule
  is so that notype_initdecls when reached via datadef
- can find a valid list of type and sc specs in $0. */
+ can find valid declaration specifiers in $0. */
 
 extdefs:
-	{$<ttype>$ = NULL_TREE; } extdef
-	| extdefs {$<ttype>$ = NULL_TREE; ggc_collect(); } extdef
+	save_obstack_position { $<dsptype>$ = NULL; } extdef
+		{ obstack_free (&parser_obstack, $1); }
+	| extdefs save_obstack_position
+		{ $<dsptype>$ = NULL; ggc_collect(); } extdef
+		{ obstack_free (&parser_obstack, $2); }
 	;
 
 extdef:
@@ -373,6 +399,12 @@ extdef:
 @@ifobjc
 	| objcdef
 @@end_ifobjc
+	;
+
+/* Record the current position of parser_obstack before a
+   declaration to restore it afterwards.  */
+save_obstack_position:
+		{ $$ = obstack_alloc (&parser_obstack, 0); }
 	;
 
 datadef:
@@ -424,7 +456,7 @@ fndef:
 	| declspecs_nots setspecs notype_declarator error
 		{ POP_DECLSPEC_STACK; }
 	| setspecs notype_declarator
-		{ if (! start_function (NULL_TREE, $2,
+		{ if (! start_function (current_declspecs, $2,
 					all_prefix_attributes))
 		    YYERROR1;
 		}
@@ -506,21 +538,23 @@ unary_expr:
 		  $$.original_code = ERROR_MARK; }
 	| sizeof unary_expr  %prec UNARY
 		{ skip_evaluation--;
+		  in_sizeof--;
 		  if (TREE_CODE ($2.value) == COMPONENT_REF
 		      && DECL_C_BIT_FIELD (TREE_OPERAND ($2.value, 1)))
 		    error ("`sizeof' applied to a bit-field");
-		  $$.value = c_sizeof (TREE_TYPE ($2.value));
-		  $$.original_code = ERROR_MARK; }
+		  $$ = c_expr_sizeof_expr ($2); }
 	| sizeof '(' typename ')'  %prec HYPERUNARY
 		{ skip_evaluation--;
-		  $$.value = c_sizeof (groktypename ($3));
-		  $$.original_code = ERROR_MARK; }
+		  in_sizeof--;
+		  $$ = c_expr_sizeof_type ($3); }
 	| alignof unary_expr  %prec UNARY
 		{ skip_evaluation--;
+		  in_alignof--;
 		  $$.value = c_alignof_expr ($2.value);
 		  $$.original_code = ERROR_MARK; }
 	| alignof '(' typename ')'  %prec HYPERUNARY
 		{ skip_evaluation--;
+		  in_alignof--;
 		  $$.value = c_alignof (groktypename ($3));
 		  $$.original_code = ERROR_MARK; }
 	| REALPART cast_expr %prec UNARY
@@ -532,15 +566,15 @@ unary_expr:
 	;
 
 sizeof:
-	SIZEOF { skip_evaluation++; }
+	SIZEOF { skip_evaluation++; in_sizeof++; }
 	;
 
 alignof:
-	ALIGNOF { skip_evaluation++; }
+	ALIGNOF { skip_evaluation++; in_alignof++; }
 	;
 
 typeof:
-	TYPEOF { skip_evaluation++; }
+	TYPEOF { skip_evaluation++; in_typeof++; }
 	;
 
 cast_expr:
@@ -642,12 +676,12 @@ primary:
 		  $$.original_code = ERROR_MARK; }
 	| '(' typename ')' '{'
 		{ start_init (NULL_TREE, NULL, 0);
-		  $2 = groktypename ($2);
-		  really_start_incremental_init ($2); }
+		  $<ttype>$ = groktypename ($2);
+		  really_start_incremental_init ($<ttype>$); }
 	  initlist_maybe_comma '}'  %prec UNARY
 		{ struct c_expr init = pop_init_level (0);
 		  tree constructor = init.value;
-		  tree type = $2;
+		  tree type = $<ttype>5;
 		  finish_init ();
 		  maybe_warn_string_init (type, init);
 
@@ -823,8 +857,17 @@ lineno_decl:
 setspecs: /* empty */
 		{ pending_xref_error ();
 		  PUSH_DECLSPEC_STACK;
-		  split_specs_attrs ($<ttype>0,
-				     &current_declspecs, &prefix_attributes);
+		  if ($<dsptype>0)
+		    {
+		      prefix_attributes = $<dsptype>0->attrs;
+		      $<dsptype>0->attrs = NULL_TREE;
+		      current_declspecs = $<dsptype>0;
+		    }
+		  else
+		    {
+		      prefix_attributes = NULL_TREE;
+		      current_declspecs = build_null_declspecs ();
+		    }
 		  all_prefix_attributes = prefix_attributes; }
 	;
 
@@ -861,16 +904,6 @@ decl:
 
    - Attribute specifier lists (attributes).
 
-   These are stored as a TREE_LIST; the head of the list is the last
-   item in the specifier list.  Each entry in the list has either a
-   TREE_PURPOSE that is an attribute specifier list, or a TREE_VALUE that
-   is a single other specifier or qualifier; and a TREE_CHAIN that is the
-   rest of the list.  TREE_STATIC is set on the list if something other
-   than a storage class specifier or attribute has been seen; this is used
-   to warn for the obsolescent usage of storage class specifiers other than
-   at the start of the list.  (Doing this properly would require function
-   specifiers to be handled separately from storage class specifiers.)
-
    The various cases below are classified according to:
 
    (a) Whether a storage class specifier is included or not; some
@@ -899,334 +932,208 @@ decl:
 
 /* Declspecs which contain at least one type specifier or typedef name.
    (Just `const' or `volatile' is not enough.)
-   A typedef'd name following these is taken as a name to be declared.
-   Declspecs have a non-NULL TREE_VALUE, attributes do not.  */
+   A typedef'd name following these is taken as a name to be declared.  */
 
 declspecs_nosc_nots_nosa_noea:
 	  TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual (build_null_declspecs (), $1); }
 	| declspecs_nosc_nots_nosa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_nots_nosa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	;
 
 declspecs_nosc_nots_nosa_ea:
 	  declspecs_nosc_nots_nosa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	;
 
 declspecs_nosc_nots_sa_noea:
 	  declspecs_nosc_nots_sa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_nots_sa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	;
 
 declspecs_nosc_nots_sa_ea:
 	  attributes
-		{ $$ = tree_cons ($1, NULL_TREE, NULL_TREE);
-		  TREE_STATIC ($$) = 0; }
+		{ $$ = declspecs_add_attrs (build_null_declspecs (), $1); }
 	| declspecs_nosc_nots_sa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	;
 
 declspecs_nosc_ts_nosa_noea:
 	  typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type (build_null_declspecs (), $1); }
 	| declspecs_nosc_ts_nosa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_ts_nosa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_ts_nosa_noea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_ts_nosa_ea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_nosa_noea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_nosa_ea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	;
 
 declspecs_nosc_ts_nosa_ea:
 	  typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type (build_null_declspecs (), $1); }
 	| declspecs_nosc_ts_nosa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	| declspecs_nosc_ts_nosa_noea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_ts_nosa_ea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_nosa_noea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_nosa_ea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	;
 
 declspecs_nosc_ts_sa_noea:
 	  declspecs_nosc_ts_sa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_ts_sa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_ts_sa_noea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_ts_sa_ea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_sa_noea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_sa_ea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	;
 
 declspecs_nosc_ts_sa_ea:
 	  declspecs_nosc_ts_sa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	| declspecs_nosc_ts_sa_noea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_ts_sa_ea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_sa_noea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_nots_sa_ea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	;
 
 declspecs_sc_nots_nosa_noea:
 	  scspec
-		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE);
-		  TREE_STATIC ($$) = 0; }
+		{ $$ = declspecs_add_scspec (build_null_declspecs (), $1); }
 	| declspecs_sc_nots_nosa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_sc_nots_nosa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_nots_nosa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_nosc_nots_nosa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_nots_nosa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_nots_nosa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	;
 
 declspecs_sc_nots_nosa_ea:
 	  declspecs_sc_nots_nosa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	;
 
 declspecs_sc_nots_sa_noea:
 	  declspecs_sc_nots_sa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_sc_nots_sa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_nosc_nots_sa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_nosc_nots_sa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_nots_sa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_nots_sa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	;
 
 declspecs_sc_nots_sa_ea:
 	  declspecs_sc_nots_sa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	;
 
 declspecs_sc_ts_nosa_noea:
 	  declspecs_sc_ts_nosa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_sc_ts_nosa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_sc_ts_nosa_noea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_ts_nosa_ea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_nosa_noea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_nosa_ea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_ts_nosa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_nosc_ts_nosa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_ts_nosa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_ts_nosa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	;
 
 declspecs_sc_ts_nosa_ea:
 	  declspecs_sc_ts_nosa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	| declspecs_sc_ts_nosa_noea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_ts_nosa_ea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_nosa_noea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_nosa_ea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	;
 
 declspecs_sc_ts_sa_noea:
 	  declspecs_sc_ts_sa_noea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_sc_ts_sa_ea TYPE_QUAL
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_qual ($1, $2); }
 	| declspecs_sc_ts_sa_noea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_ts_sa_ea typespec_reserved_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_sa_noea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_sa_ea typespec_nonattr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_nosc_ts_sa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_nosc_ts_sa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_ts_sa_noea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	| declspecs_sc_ts_sa_ea scspec
-		{ if (extra_warnings && TREE_STATIC ($1))
-		    warning ("`%s' is not at beginning of declaration",
-			     IDENTIFIER_POINTER ($2));
-		  $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_scspec ($1, $2); }
 	;
 
 declspecs_sc_ts_sa_ea:
 	  declspecs_sc_ts_sa_noea attributes
-		{ $$ = tree_cons ($2, NULL_TREE, $1);
-		  TREE_STATIC ($$) = TREE_STATIC ($1); }
+		{ $$ = declspecs_add_attrs ($1, $2); }
 	| declspecs_sc_ts_sa_noea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_ts_sa_ea typespec_reserved_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_sa_noea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	| declspecs_sc_nots_sa_ea typespec_attr
-		{ $$ = tree_cons (NULL_TREE, $2, $1);
-		  TREE_STATIC ($$) = 1; }
+		{ $$ = declspecs_add_type ($1, $2); }
 	;
 
 /* Particular useful classes of declspecs.  */
@@ -1313,7 +1220,7 @@ declspecs:
 /* A (possibly empty) sequence of type qualifiers and attributes.  */
 maybe_type_quals_attrs:
 	  /* empty */
-		{ $$ = NULL_TREE; }
+		{ $$ = NULL; }
 	| declspecs_nosc_nots
 		{ $$ = $1; }
 	;
@@ -1337,7 +1244,7 @@ maybe_type_quals_attrs:
    or are such that any following attributes would
    be parsed as part of the specifier.
 
-   _nonattr: specifiers.  */
+   _nonattr: other specifiers not ending with attributes.  */
 
 typespec_nonattr:
 	  typespec_reserved_nonattr
@@ -1376,12 +1283,15 @@ typespec_nonreserved_nonattr:
 @@end_ifobjc
 	| typeof '(' expr ')'
 		{ skip_evaluation--;
+		  in_typeof--;
 		  if (TREE_CODE ($3.value) == COMPONENT_REF
 		      && DECL_C_BIT_FIELD (TREE_OPERAND ($3.value, 1)))
 		    error ("`typeof' applied to a bit-field");
-		  $$ = TREE_TYPE ($3.value); }
+		  $$ = TREE_TYPE ($3.value);
+		  pop_maybe_used (variably_modified_type_p ($$, NULL_TREE)); }
 	| typeof '(' typename ')'
-		{ skip_evaluation--; $$ = groktypename ($3); }
+		{ skip_evaluation--; in_typeof--; $$ = groktypename ($3);
+		  pop_maybe_used (variably_modified_type_p ($$, NULL_TREE)); }
 	;
 
 /* typespec_nonreserved_attr does not exist.  */
@@ -1637,8 +1547,10 @@ after_type_declarator:
 	| '*' maybe_type_quals_attrs after_type_declarator  %prec UNARY
 		{ $$ = make_pointer_declarator ($2, $3); }
 	| TYPENAME
+		{ $$ = build_id_declarator ($1); }
 @@ifobjc
 	| OBJECTNAME
+		{ $$ = build_id_declarator ($1); }
 @@end_ifobjc
 	;
 
@@ -1657,8 +1569,10 @@ parm_declarator_starttypename:
 	| parm_declarator_starttypename array_declarator  %prec '.'
 		{ $$ = set_array_declarator_inner ($2, $1, false); }
 	| TYPENAME
+		{ $$ = build_id_declarator ($1); }
 @@ifobjc
 	| OBJECTNAME
+		{ $$ = build_id_declarator ($1); }
 @@end_ifobjc
 	;
 
@@ -1688,6 +1602,7 @@ notype_declarator:
 	| notype_declarator array_declarator  %prec '.'
 		{ $$ = set_array_declarator_inner ($2, $1, false); }
 	| IDENTIFIER
+		{ $$ = build_id_declarator ($1); }
 	;
 
 struct_head:
@@ -1821,7 +1736,8 @@ component_decl:
 		  if (pedantic)
 		    pedwarn ("ISO C doesn't support unnamed structs/unions");
 
-		  $$ = grokfield(NULL, current_declspecs, NULL_TREE);
+		  $$ = grokfield (build_id_declarator (NULL_TREE),
+				  current_declspecs, NULL_TREE);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_nosc_nots setspecs components_notype
 		{ $$ = $3;
@@ -1860,7 +1776,8 @@ component_declarator:
 		  decl_attributes (&$$,
 				   chainon ($4, all_prefix_attributes), 0); }
 	| ':' expr_no_commas maybe_attribute
-		{ $$ = grokfield (NULL_TREE, current_declspecs, $2.value);
+		{ $$ = grokfield (build_id_declarator (NULL_TREE),
+				  current_declspecs, $2.value);
 		  decl_attributes (&$$,
 				   chainon ($3, all_prefix_attributes), 0); }
 	;
@@ -1875,7 +1792,8 @@ component_notype_declarator:
 		  decl_attributes (&$$,
 				   chainon ($4, all_prefix_attributes), 0); }
 	| ':' expr_no_commas maybe_attribute
-		{ $$ = grokfield (NULL_TREE, current_declspecs, $2.value);
+		{ $$ = grokfield (build_id_declarator (NULL_TREE),
+				  current_declspecs, $2.value);
 		  decl_attributes (&$$,
 				   chainon ($3, all_prefix_attributes), 0); }
 	;
@@ -1905,21 +1823,23 @@ enumerator:
 typename:
 	  declspecs_nosc
 		{ pending_xref_error ();
-		  $<ttype>$ = $1; }
+		  $<dsptype>$ = $1; }
 	  absdcl
-		{ $$ = build_tree_list ($<ttype>2, $3); }
+		{ $$ = XOBNEW (&parser_obstack, struct c_type_name);
+		  $$->specs = $<dsptype>2;
+		  $$->declarator = $3; }
 	;
 
 absdcl:   /* an absolute declarator */
 	/* empty */
-		{ $$ = NULL_TREE; }
+		{ $$ = build_id_declarator (NULL_TREE); }
 	| absdcl1
 	;
 
 absdcl_maybe_attribute:   /* absdcl maybe_attribute, but not just attributes */
 	/* empty */
 		{ $$ = build_c_parm (current_declspecs, all_prefix_attributes,
-				     NULL_TREE); }
+				     build_id_declarator (NULL_TREE)); }
 	| absdcl1
 		{ $$ = build_c_parm (current_declspecs, all_prefix_attributes,
 				     $1); }
@@ -1942,7 +1862,8 @@ absdcl1_noea:
 
 absdcl1_ea:
 	  '*' maybe_type_quals_attrs
-		{ $$ = make_pointer_declarator ($2, NULL_TREE); }
+		{ $$ = make_pointer_declarator
+		    ($2, build_id_declarator (NULL_TREE)); }
 	| '*' maybe_type_quals_attrs absdcl1_ea
 		{ $$ = make_pointer_declarator ($2, $3); }
 	;
@@ -1955,9 +1876,11 @@ direct_absdcl1:
 	| direct_absdcl1 array_declarator
 		{ $$ = set_array_declarator_inner ($2, $1, true); }
 	| '(' parmlist
-		{ $$ = build_function_declarator ($2, NULL_TREE); }
+		{ $$ = build_function_declarator
+		    ($2, build_id_declarator (NULL_TREE)); }
 	| array_declarator
-		{ $$ = set_array_declarator_inner ($1, NULL_TREE, true); }
+		{ $$ = set_array_declarator_inner
+		    ($1, build_id_declarator (NULL_TREE), true); }
 	;
 
 /* The [...] part of a declarator for an array type.  */
@@ -2503,17 +2426,28 @@ parmlist_1:
 	  parmlist_1
 		{ $$ = $6; }
 	| error ')'
-		{ $$ = make_node (TREE_LIST); }
+		{ $$ = XOBNEW (&parser_obstack, struct c_arg_info);
+		  $$->parms = 0;
+		  $$->tags = 0;
+		  $$->types = 0;
+		  $$->others = 0; }
 	;
 
 /* This is what appears inside the parens in a function declarator.
-   Is value is represented in the format that grokdeclarator expects.  */
+   Its value is represented in the format that grokdeclarator expects.  */
 parmlist_2:  /* empty */
-		{ $$ = make_node (TREE_LIST); }
+		{ $$ = XOBNEW (&parser_obstack, struct c_arg_info);
+		  $$->parms = 0;
+		  $$->tags = 0;
+		  $$->types = 0;
+		  $$->others = 0; }
 	| ELLIPSIS
-		{ $$ = make_node (TREE_LIST); 
+		{ $$ = XOBNEW (&parser_obstack, struct c_arg_info);
+		  $$->parms = 0;
+		  $$->tags = 0;
+		  $$->others = 0;
 		  /* Suppress -Wold-style-definition for this case.  */
-		  TREE_CHAIN ($$) = error_mark_node;
+		  $$->types = error_mark_node;
 		  error ("ISO C requires a named argument before `...'");
 		}
 	| parms
@@ -2598,7 +2532,11 @@ parmlist_or_identifiers:
 parmlist_or_identifiers_1:
 	  parmlist_1
 	| identifiers ')'
-		{ $$ = tree_cons (NULL_TREE, NULL_TREE, $1);
+		{ $$ = XOBNEW (&parser_obstack, struct c_arg_info);
+		  $$->parms = 0;
+		  $$->tags = 0;
+		  $$->types = $1;
+		  $$->others = 0;
 
 		  /* Make sure we have a parmlist after attributes.  */
 		  if ($<ttype>-1 != 0)

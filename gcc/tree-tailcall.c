@@ -237,8 +237,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	}
       END_FOR_EACH_EDGE;
 
-      if (!e)
-	abort ();
+      gcc_assert (e);
 
       expr = PHI_ARG_DEF_FROM_EDGE (at, e);
       if (TREE_CODE (expr) != SSA_NAME)
@@ -598,8 +597,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   block_stmt_iterator bsi = bsi_last (bb);
 
-  if (TREE_CODE (ret_stmt) != RETURN_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (ret_stmt) == RETURN_EXPR);
 
   ret_var = TREE_OPERAND (ret_stmt, 0);
   if (!ret_var)
@@ -697,8 +695,7 @@ eliminate_tail_call (struct tailcall *t)
 
   /* Replace the call by a jump to the start of function.  */
   e = redirect_edge_and_branch (EDGE_SUCC (t->call_block, 0), first);
-  if (!e)
-    abort ();
+  gcc_assert (e);
   PENDING_STMT (e) = NULL_TREE;
 
   /* Add phi node entries for arguments.  Not every PHI node corresponds to
@@ -757,8 +754,7 @@ eliminate_tail_call (struct tailcall *t)
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
 	     for the first time we eliminate the call.  */
-	  if (EDGE_COUNT (first->preds) > 2)
-	    abort ();
+	  gcc_assert (EDGE_COUNT (first->preds) <= 2);
 	}
 
       add_phi_arg (&phi, V_MAY_DEF_OP (v_may_defs, i), e);

@@ -1,8 +1,6 @@
 2004-09-10  Ben Elliston  <bje@au.ibm.com>
 
-	* cfgrtl.c (force_nonfallthru_and_redirect): Use VEC_safe_push
-	instead of VEC_safe_insert into element 0.
-	(unchecked_make_edge): Likewise.
+	* Merge with edge-vector-mergepoint-20040910.
 
 2004-09-09  Ben Elliston  <bje@au.ibm.com>
 

@@ -316,7 +316,7 @@ Objective-C and Objective-C++ Dialects}.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
--ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
+-ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
 --param @var{name}=@var{value}
@@ -422,6 +422,7 @@ Objective-C and Objective-C++ Dialects}.
 -private_bundle  -read_only_relocs  -sectalign @gol
 -sectobjectsymbols  -whyload  -seg1addr @gol
 -sectcreate  -sectobjectsymbols  -sectorder @gol
+-segaddr -segs_read_only_addr -segs_read_write_addr @gol
 -seg_addr_table  -seg_addr_table_filename  -seglinkedit @gol
 -segprot  -segs_read_only_addr  -segs_read_write_addr @gol
 -single_module  -static  -sub_library  -sub_umbrella @gol
@@ -450,8 +451,9 @@ Objective-C and Objective-C++ Dialects}.
 -malloc-cc  -mfixed-cc  -mdword  -mno-dword @gol
 -mdouble  -mno-double @gol
 -mmedia  -mno-media  -mmuladd  -mno-muladd @gol
--mfdpic -minline-plt -mgprel-ro -multilib-library-pic -mlinked-fp @gol
--mlibrary-pic  -macc-4 -macc-8 @gol
+-mfdpic  -minline-plt -mgprel-ro  -multilib-library-pic @gol
+-mlinked-fp  -mlong-calls  -malign-labels @gol
+-mlibrary-pic  -macc-4  -macc-8 @gol
 -mpack  -mno-pack  -mno-eflags  -mcond-move  -mno-cond-move @gol
 -mscc  -mno-scc  -mcond-exec  -mno-cond-exec @gol
 -mvliw-branch  -mno-vliw-branch @gol
@@ -4610,6 +4612,10 @@ usually increases code size.
 Perform loop optimizations on trees.  This flag is enabled by default at -O
 and higher.
 
+@item -ftree-loop-linear
+Perform linear loop transformations on tree. This flag can improve cache 
+performance and allow further loop optimizations to take place.
+
 @item -ftree-lim
 Perform loop invariant motion on trees.  This pass moves only invartiants that
 would be hard to handle on rtl level (function calls, operations that expand to
@@ -7271,6 +7277,9 @@ output file being linked. See man ld(1) for more information.
 @itemx -sectcreate
 @itemx -sectobjectsymbols
 @itemx -sectorder
+@itemx -segaddr
+@itemx -segs_read_only_addr
+@itemx -segs_read_write_addr
 @itemx -seg_addr_table
 @itemx -seg_addr_table_filename
 @itemx -seglinkedit
@@ -7330,6 +7339,9 @@ output file being linked. See man ld(1) for more information.
 @opindex sectcreate
 @opindex sectobjectsymbols
 @opindex sectorder
+@opindex segaddr
+@opindex segs_read_only_addr
+@opindex segs_read_write_addr
 @opindex seg_addr_table
 @opindex seg_addr_table_filename
 @opindex seglinkedit
@@ -7810,6 +7822,21 @@ Follow the EABI requirement of always creating a frame pointer whenever
 a stack frame is allocated.  This option is enabled by default and can
 be disabled with @option{-mno-linked-fp}.
 
+@item -mlong-calls
+@opindex mlong-calls
+
+Use indirect addressing to call functions outside the current
+compilation unit.  This allows the functions to be placed anywhere
+within the 32-bit address space.
+
+@item -malign-labels
+@opindex malign-labels
+
+Try to align labels to an 8-byte boundary by inserting nops into the
+previous packet.  This option only has an effect when VLIW packing
+is enabled.  It doesn't create new packets; it merely adds nops to
+existing ones.
+
 @item -mlibrary-pic
 @opindex mlibrary-pic
 
@@ -7946,8 +7973,8 @@ Cause gas to print out tomcat statistics.
 @opindex mcpu
 
 Select the processor type for which to generate code.  Possible values are
-@samp{simple}, @samp{tomcat}, @samp{fr500}, @samp{fr400}, @samp{fr300},
-@samp{frv}.
+@samp{frv}, @samp{fr550}, @samp{tomcat}, @samp{fr500}, @samp{fr450},
+@samp{fr405}, @samp{fr400}, @samp{fr300} and @samp{simple}.
 
 @end table
 
