@@ -82,11 +82,11 @@ ADA_TOOLS_FLAGS_TO_PASS=\
 	"GNATLINK=../../gnatlink"	\
 	"GNATBIND=../../gnatbind"
 
-gnat1$(exeext): prefix.o attribs.o $(LIBDEPS) $(BACKEND) force
+gnat1$(exeext): prefix.o attribs.o $(LIBDEPS) $(BACKEND) s-gtype force
 	$(MAKE) -C ada $(SUBDIR_FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnat1$(exeext)
 
-gnatbind$(exeext): force
+gnatbind$(exeext): $(CONFIG_H) force
 	$(MAKE) -C ada $(SUBDIR_FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatbind$(exeext)
 

@@ -2279,7 +2279,7 @@ cuintp.o : cuintp.c $(CONFIG_H) $(TREE_H) ada.h types.h uintp.h atree.h \
 decl.o : decl.c $(CONFIG_H) $(TREE_H) $(srcdir)/../flags.h \
    $(srcdir)/../toplev.h $(srcdir)/../convert.h ada.h types.h atree.h \
    nlists.h elists.h uintp.h sinfo.h einfo.h snames.h namet.h \
-   stringt.h repinfo.h fe.h $(ADA_TREE_H) gigi.h $(srcdir)/../gt-ada-decl.h
+   stringt.h repinfo.h fe.h $(ADA_TREE_H) gigi.h ../gt-ada-decl.h
 
 misc.o : misc.c $(CONFIG_H) $(TREE_H) $(RTL_H) $(srcdir)/../expr.h \
    ../insn-codes.h ../insn-flags.h ../insn-config.h $(srcdir)/../recog.h \
@@ -2297,13 +2297,12 @@ trans.o : trans.c $(CONFIG_H) $(TREE_H) $(RTL_H) $(srcdir)/../flags.h ada.h \
    $(srcdir)/../except.h \
    types.h atree.h nlists.h elists.h uintp.h sinfo.h einfo.h \
    namet.h snames.h stringt.h urealp.h fe.h $(ADA_TREE_H) gigi.h \
-   $(srcdir)/../gt-ada-trans.h
+   ../gt-ada-trans.h
 
 utils.o : utils.c $(CONFIG_H) $(TREE_H) $(srcdir)/../flags.h \
    $(srcdir)/../expr.h $(srcdir)/../convert.h $(srcdir)/../defaults.h ada.h \
    types.h atree.h nlists.h elists.h sinfo.h einfo.h namet.h stringt.h \
-   uintp.h fe.h $(ADA_TREE_H) gigi.h $(srcdir)/../gt-ada-utils.h \
-   $(srcdir)/../gtype-ada.h
+   uintp.h fe.h $(ADA_TREE_H) gigi.h ../gt-ada-utils.h ../gtype-ada.h
 
 utils2.o : utils2.c $(CONFIG_H) $(TREE_H) $(srcdir)/../flags.h ada.h types.h \
    atree.h nlists.h elists.h sinfo.h einfo.h namet.h snames.h stringt.h \

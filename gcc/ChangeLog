@@ -1,3 +1,22 @@
+2002-04-11  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gengtype.h (struct type): Add 'u.s.bitmap' field.
+	(find_structure): Add 'pos' parameter.
+	* gengtype-lex.l: Update callers to find_structure.
+	* gengtype-yacc.y: Likewise.
+	* gengtype.c (find_structure): Allow for structures to be defined
+	in multiple language backends.
+	(get_output_file_with_visibility): Include debug.h in gtype-desc.c.
+	(counter): Rename to gc_counter.
+	(write_gc_structure_fields): Fail when writing out fields for
+	an incomplete structure.  Ignore arrays of scalars.  Handle
+	'tree_vec' special.
+	(write_gc_types): Reset counter for each procedure written.
+
+	* stmt.c (add_case_node): Use GGC to allocate struct case_node.
+	(free_case_nodes): Delete.
+	(expand_end_case_type): Delete call to free_case_nodes.
+
 2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (cselib.o): Include gt-<filename>.h.

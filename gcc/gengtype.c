@@ -90,14 +90,22 @@ resolve_typedef (s, pos)
 }
 
 type_p
-find_structure (name, isunion)
+find_structure (name, isunion, pos)
      const char *name;
      int isunion;
+     struct fileloc *pos;
 {
   type_p s;
+  unsigned bitmap = get_base_file_bitmap (pos->file);
+
   for (s = structures; s != NULL; s = s->next)
-    if (strcmp (name, s->u.s.tag) == 0 && (s->kind == TYPE_UNION) == isunion)
-      return s;
+    if (strcmp (name, s->u.s.tag) == 0 
+	&& (s->kind == TYPE_UNION) == isunion
+	&& ((s->u.s.line.file != NULL && (s->u.s.bitmap & bitmap) == bitmap)
+	    || s->u.s.bitmap == bitmap))
+      {
+	return s;
+      }
   s = xcalloc (1, sizeof (struct type));
   s->kind = isunion ? TYPE_UNION : TYPE_STRUCT;
   s->next = structures;
@@ -105,6 +113,7 @@ find_structure (name, isunion)
   s->u.s.line.file = NULL;
   s->u.s.fields = NULL;
   s->u.s.opt = NULL;
+  s->u.s.bitmap = bitmap;
   structures = s;
   return s;
 }
@@ -439,6 +448,7 @@ get_output_file_with_visibility (input_file)
 	  fputs ("#include \"expr.h\"\n", fm->output);
 	  fputs ("#include \"optabs.h\"\n", fm->output);
 	  fputs ("#include \"libfuncs.h\"\n", fm->output);
+	  fputs ("#include \"debug.h\"\n", fm->output);
 	  fputs ("#include \"ggc.h\"\n", fm->output);
 	}
     }
@@ -535,7 +545,7 @@ static void write_gc_root PARAMS ((FILE *, pair_p, type_p, const char *, int,
 				   struct fileloc *));
 static void write_gc_roots PARAMS ((pair_p));
 
-static int counter = 0;
+static int gc_counter;
 
 static void
 write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
@@ -550,13 +560,16 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
   pair_p f;
   int tagcounter = -1;
 
+  if (! s->u.s.line.file)
+    error_at_line (line, "incomplete structure `%s'", s->u.s.tag);
+
   if (s->kind == TYPE_UNION)
     {
       const char *tagexpr = NULL;
       const char *p;
       options_p oo;
       
-      tagcounter = ++counter;
+      tagcounter = ++gc_counter;
       for (oo = opts; oo; oo = oo->next)
 	if (strcmp (oo->name, "desc") == 0)
 	  tagexpr = (const char *)oo->info;
@@ -584,11 +597,14 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
       const char *tagid = NULL;
       const char *length = NULL;
       const char *really = NULL;
+      const char *special = NULL;
       int skip_p = 0;
       int always_p = 0;
       options_p oo;
       
-      if (f->type->kind == TYPE_SCALAR)
+      if (f->type->kind == TYPE_SCALAR
+	  || (f->type->kind == TYPE_ARRAY 
+	      && f->type->u.a.p->kind == TYPE_SCALAR))
 	continue;
       
       for (oo = f->opt; oo; oo = oo->next)
@@ -598,6 +614,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  really = (const char *)oo->info;
 	else if (strcmp (oo->name, "tag") == 0)
 	  tagid = (const char *)oo->info;
+	else if (strcmp (oo->name, "special") == 0)
+	  special = (const char *)oo->info;
 	else if (strcmp (oo->name, "skip") == 0)
 	  skip_p = 1;
 	else if (strcmp (oo->name, "always") == 0)
@@ -671,7 +689,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  else
 	    {
 	      const char *p;
-	      int loopcounter = ++counter;
+	      int loopcounter = ++gc_counter;
 	      
 	      fprintf (of, "%*sif (%s.%s != NULL) {\n", indent, "",
 		       val, f->name);
@@ -753,7 +771,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 
 	case TYPE_ARRAY:
 	  {
-	    int loopcounter = ++counter;
+	    int loopcounter = ++gc_counter;
 	    type_p t;
 	    int i;
 
@@ -772,15 +790,29 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 
 	    fprintf (of, "%*s{\n", indent, "");
 	    indent += 2;
-	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
-	      fprintf (of, "%*ssize_t i%d_%d;\n", indent, "", loopcounter, i);
+
+	    if (special != NULL && strcmp (special, "tree_exp") == 0)
+	      {
+		const char *p;
+		fprintf (of, "%*sconst size_t tree_exp_size = (",
+                         indent, "");
+		for (p = length; *p; p++)
+		  if (*p != '%')
+		    fputc (*p, of);
+		  else
+		    fprintf (of, "(%s)", val);
+		fputs (");\n", of);
+
+		length = "first_rtl_op (TREE_CODE ((tree)&%))";
+	      }
+
 	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
 	      {
 		const char *p;
-		
-		fprintf (of, 
-			 "%*sfor (i%d_%d = 0; i%d_%d < (",
-			 indent, "", loopcounter, i, loopcounter, i);
+		fprintf (of, "%*ssize_t i%d_%d;\n", 
+			 indent, "", loopcounter, i);
+		fprintf (of, "%*sconst size_t ilimit%d_%d = (",
+			 indent, "", loopcounter, i);
 		if (i == 0 && length != NULL)
 		  {
 		    for (p = length; *p; p++)
@@ -791,51 +823,70 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		  }
 		else
 		  fputs (t->u.a.len, of);
-		fprintf (of, "); i%d_%d++) {\n", loopcounter, i);
+		fputs (");\n", of);
+	      }
+		
+	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
+	      {
+		fprintf (of, 
+		 "%*sfor (i%d_%d = 0; i%d_%d < ilimit%d_%d; i%d_%d++) {\n",
+			 indent, "", loopcounter, i, loopcounter, i,
+			 loopcounter, i, loopcounter, i);
 		indent += 2;
 	      }
 
-	      if (t->kind == TYPE_POINTER
-		  && (t->u.p->kind == TYPE_STRUCT
-		      || t->u.p->kind == TYPE_UNION))
-		{
-		  fprintf (of, "%*sgt_ggc_m_%s (%s.%s", 
-			   indent, "", t->u.p->u.s.tag, val, f->name);
-		  for (t = f->type, i=0; 
-		       t->kind == TYPE_ARRAY; 
-		       t = t->u.a.p, i++)
-		    fprintf (of, "[i%d_%d]", loopcounter, i);
-		  fputs (");\n", of);
-		}
-	      else if (t->kind == TYPE_STRUCT || t->kind == TYPE_UNION)
-		{
-		  char *newval;
-		  int len;
-		  
-		  len = strlen (val) + strlen (f->name) + 2;
-		  for (t = f->type; t->kind == TYPE_ARRAY; t = t->u.a.p)
-		    len += sizeof ("[i_]") + 2*6;
-		  
-		  newval = xmalloc (len);
-		  sprintf (newval, "%s.%s", val, f->name);
-		  for (t = f->type, i=0; 
-		       t->kind == TYPE_ARRAY; 
-		       t = t->u.a.p, i++)
-		    sprintf (newval + strlen (newval), "[i%d_%d]", 
-			     loopcounter, i);
-		  write_gc_structure_fields (of, f->type->u.p, newval, val,
-					     f->opt, indent, &f->line);
-		  free (newval);
-		}
-	      else
-		error_at_line (&f->line, 
-			       "field `%s' is array of unimplemented type",
-			       f->name);
+	    if (t->kind == TYPE_POINTER
+		&& (t->u.p->kind == TYPE_STRUCT
+		    || t->u.p->kind == TYPE_UNION))
+	      {
+		fprintf (of, "%*sgt_ggc_m_%s (%s.%s", 
+			 indent, "", t->u.p->u.s.tag, val, f->name);
+		for (t = f->type, i=0; 
+		     t->kind == TYPE_ARRAY; 
+		     t = t->u.a.p, i++)
+		  fprintf (of, "[i%d_%d]", loopcounter, i);
+		fputs (");\n", of);
+	      }
+	    else if (t->kind == TYPE_STRUCT || t->kind == TYPE_UNION)
+	      {
+		char *newval;
+		int len;
+		
+		len = strlen (val) + strlen (f->name) + 2;
+		for (t = f->type; t->kind == TYPE_ARRAY; t = t->u.a.p)
+		  len += sizeof ("[i_]") + 2*6;
+		
+		newval = xmalloc (len);
+		sprintf (newval, "%s.%s", val, f->name);
+		for (t = f->type, i=0; 
+		     t->kind == TYPE_ARRAY; 
+		     t = t->u.a.p, i++)
+		  sprintf (newval + strlen (newval), "[i%d_%d]", 
+			   loopcounter, i);
+		write_gc_structure_fields (of, f->type->u.p, newval, val,
+					   f->opt, indent, &f->line);
+		free (newval);
+	      }
+	    else
+	      error_at_line (&f->line, 
+			     "field `%s' is array of unimplemented type",
+			     f->name);
 	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
 	      {
 		indent -= 2;
 		fprintf (of, "%*s}\n", indent, "");
 	      }
+
+	    if (special != NULL && strcmp (special, "tree_exp") == 0)
+	      {
+		fprintf (of, 
+		 "%*sfor (; i%d_0 < tree_exp_size; i%d_0++)\n",
+			 indent, "", loopcounter, loopcounter);
+		fprintf (of, "%*s  gt_ggc_m_rtx_def (%s.%s[i%d_0]);\n",
+			 indent, "", val, f->name, loopcounter);
+		special = NULL;
+	      }
+
 	    indent -= 2;
 	    fprintf (of, "%*s}\n", indent, "");
 	    break;
@@ -853,6 +904,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	  indent -= 2;
 	  fprintf (of, "%*s}\n", indent, "");
 	}
+      if (special)
+	error_at_line (&f->line, "unhandled special `%s'", special);
     }
   if (s->kind == TYPE_UNION)
     {
@@ -892,6 +945,7 @@ write_gc_types PARAMS ((type_p structures))
 	fputs ("  if (! ggc_test_and_set_mark (x))\n", f);
 	fputs ("    return;\n", f);
 	
+	gc_counter = 0;
 	write_gc_structure_fields (f, s, "(*x)", "not valid postage",
 				   s->u.s.opt, 2, &s->u.s.line);
 	

@@ -1,3 +1,19 @@
+2002-04-11  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (decl.o): gt-ada-<filename.h> is in objdir, not srcdir.
+	(misc.o): Likewise.
+	(utils.o): Likewise; also gtype-ada.h.
+	* Make-lang.in (gnat1): Add dependency on s-gtype.
+	(gnatbind): Add dependency on $(CONFIG_H).
+	* utils.c: Correct last #include.
+	(stuct e_stack): Remove unnecessary 'static'.
+	(mark_e_stack): Remove unused prototype.
+
+	* scn-nlit.adb: Remove whitespace after version number to
+	keep lines under 80 chars.
+	* snames.adb: Likewise.
+	* treepr.ads: Likewise.
+	
 2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (decl.o): Include gt-ada-<filename>.h.

@@ -427,7 +427,6 @@ static void gt_ggc_mr_nesting_cond           PARAMS ((struct nesting *));
 static void gt_ggc_mr_nesting_loop           PARAMS ((struct nesting *));
 static void gt_ggc_mr_nesting_block          PARAMS ((struct nesting *));
 static void gt_ggc_mr_nesting_case_stmt           PARAMS ((struct nesting *));
-static void free_case_nodes             PARAMS ((case_node_ptr));
 
 void
 using_eh_for_cleanups ()
@@ -4608,7 +4607,7 @@ add_case_node (low, high, label, duplicate)
 
   /* Add this label to the chain, and succeed.  */
 
-  r = (struct case_node *) xmalloc (sizeof (struct case_node));
+  r = (struct case_node *) ggc_alloc (sizeof (struct case_node));
   r->low = low;
 
   /* If the bounds are equal, turn this into the one-value case.  */
@@ -5118,20 +5117,6 @@ check_for_full_enumeration_handling (type)
       }
 }
 
-/* Free CN, and its children.  */
-
-static void 
-free_case_nodes (cn)
-     case_node_ptr cn;
-{
-  if (cn) 
-    {
-      free_case_nodes (cn->left);
-      free_case_nodes (cn->right);
-      free (cn);
-    }
-}
-
 
 
 /* Terminate a case (Pascal) or switch (C) statement
@@ -5441,7 +5426,6 @@ expand_end_case_type (orig_index, orig_type)
   if (thiscase->exit_label)
     emit_label (thiscase->exit_label);
 
-  free_case_nodes (case_stack->data.case_stmt.case_list);
   POPSTACK (case_stack);
 
   free_temp_slots ();

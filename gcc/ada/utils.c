@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.8.6.1 $
+ *                            $Revision: 1.8.6.2 $
  *                                                                          *
  *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -81,7 +81,7 @@ static GTY(()) tree pending_elaborations;
 /* This stack allows us to momentarily switch to generating elaboration
    lists for an inner context.  */
 
-static struct e_stack GTY(()) {
+struct e_stack GTY(()) {
   struct e_stack *next; 
   tree elab_list; 
 };
@@ -147,7 +147,6 @@ static tree convert_to_fat_pointer	PARAMS ((tree, tree));
 static tree convert_to_thin_pointer	PARAMS ((tree, tree));
 static tree make_descriptor_field	PARAMS ((const char *,tree, tree,
 						 tree));
-static void mark_e_stack	  	PARAMS ((PTR));
 
 /* Initialize the association of GNAT nodes to GCC trees.  */
 
@@ -3341,4 +3340,5 @@ unchecked_convert (type, expr)
 }
 
 #include "gt-ada-utils.h"
-#include "gtype-ada.h'
+#include "gtype-ada.h"
+

@@ -161,7 +161,7 @@ type: SCALAR
          { $$ = create_pointer ($1); }
       | STRUCT ID '{' struct_fields '}'
          {
-	   type_p t = find_structure ($2, 0);
+	   type_p t = find_structure ($2, 0, &lexer_line);
 	   t->u.s.fields = $4;
 	   if (t->u.s.line.file)
 	     {
@@ -172,10 +172,10 @@ type: SCALAR
 	   $$ = t;
 	 }
       | STRUCT ID
-         { $$ = find_structure ($2, 0); }
+         { $$ = find_structure ($2, 0, &lexer_line); }
       | UNION ID '{' struct_fields '}'
          {
-	   type_p t = find_structure ($2, 1);
+	   type_p t = find_structure ($2, 1, &lexer_line);
 	   t->u.s.fields = $4;
 	   if (t->u.s.line.file)
 	     {
@@ -186,7 +186,7 @@ type: SCALAR
 	   $$ = t;
 	 }
       | UNION ID
-         { $$ = find_structure ($2, 1); }
+         { $$ = find_structure ($2, 1, &lexer_line); }
       | ENUM ID
          { $$ = create_scalar_type ($2, strlen ($2)); }
       | ENUM ID '{' enum_items '}'

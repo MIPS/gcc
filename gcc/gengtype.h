@@ -67,6 +67,7 @@ struct type {
       struct fileloc line;
       pair_p fields;
       options_p opt;
+      unsigned bitmap;
     } s;
     char *sc;
     struct {
@@ -90,7 +91,8 @@ extern void error_at_line
 /* Constructor routines for types.  */
 extern void do_typedef PARAMS ((const char *s, type_p t, struct fileloc *pos));
 extern type_p resolve_typedef PARAMS ((const char *s, struct fileloc *pos));
-extern type_p find_structure PARAMS ((const char *s, int isunion));
+extern type_p find_structure PARAMS ((const char *s, int isunion,
+				      struct fileloc *pos));
 extern type_p create_scalar_type PARAMS ((const char *name, size_t name_len));
 extern type_p create_pointer PARAMS ((type_p t));
 extern type_p create_varray PARAMS ((type_p t));
