@@ -1,3 +1,9 @@
+2005-02-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4014879
+	* config/rs6000/rs6000.md (call_nonlocal_sysv,
+	sibcall_symbolic): Add handling of ABSCALL annotations.
+
 2005-02-17  Devang Patel  <dpatel@apple.com>
 
 	Radar 3984893
