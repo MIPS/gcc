@@ -1,3 +1,9 @@
+Sat Dec 28 16:59:04 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* genautomata.c: Merge from itanium branch.
+
+	* toplev.c: Enable value profile transformations by default.
+
 2002-12-28  Andreas Jaeger  <aj@suse.de>
 
 	* Makefile.in (vpt.o, cfgloop.o, cfgloopanal.o, cfgloopmanip.o,

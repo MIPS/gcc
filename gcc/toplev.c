@@ -5006,6 +5006,8 @@ parse_options_and_default_flags (argc, argv)
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
       flag_web = 1;
+      flag_value_histograms = 1;
+      flag_value_profile_transformations = 1;
     }
 
   if (optimize >= 3)
