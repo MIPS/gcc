@@ -637,7 +637,7 @@ fixup_reorder_chain (void)
       basic_block old_bb;
       unsigned ix;
 
-      if (bb->succ == NULL)
+      if (EDGE_COUNT (bb->succ) == 0)
 	continue;
 
       /* Find the old fallthru edge, and another non-EH edge for

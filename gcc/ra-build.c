@@ -942,7 +942,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	  edge e = NULL;
 	  unsigned HOST_WIDE_INT undef = use->undefined;
 	  struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
-	  if (bb->pred == NULL)
+	  if (EDGE_COUNT (bb->pred) == 0)
 	    return;
 	  /* We now check, if we already traversed the predecessors of this
 	     block for the current pass and the current set of undefined

@@ -389,7 +389,7 @@ build_control_flow (struct edge_list *edge_list)
   unreachable = 0;
   FOR_EACH_BB (b)
     {
-      if (b->pred == NULL
+      if (EDGE_COUNT (b->pred) == 0
 	  || (EDGE_0 (b->pred)->src == b
 	      && EDGE_COUNT (b->pred) == 1))
 	unreachable = 1;

@@ -588,7 +588,7 @@ add_noreturn_fake_exit_edges (void)
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    if (bb->succ == NULL)
+    if (EDGE_COUNT (bb->succ) == 0)
       make_single_succ_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 }
 

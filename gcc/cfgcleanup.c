@@ -1801,7 +1801,7 @@ try_optimize_cfg (int mode)
 	      bool changed_here = false;
 
 	      /* Delete trivially dead basic blocks.  */
-	      while (b->pred == NULL)
+	      while (EDGE_COUNT (b->pred) == 0)
 		{
 		  c = b->prev_bb;
 		  if (dump_file)

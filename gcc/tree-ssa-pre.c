@@ -1151,7 +1151,7 @@ compute_antic_aux (basic_block block)
 
   /* If the block has no successors, ANTIC_OUT is empty, because it is
      the exit block.  */
-  if (block->succ == NULL);
+  if (EDGE_COUNT (block->succ) == 0);
 
   /* If we have one successor, we could have some phi nodes to
      translate through.  */
