@@ -2302,6 +2302,41 @@
 
 ;; Shift and rotation insns
 
+(define_expand "ashldi3"
+  [(set (match_operand:DI            0 "s_register_operand" "")
+        (ashift:DI (match_operand:DI 1 "s_register_operand" "")
+                   (match_operand:SI 2 "reg_or_int_operand" "")))]
+  "TARGET_ARM"
+  "
+  if (GET_CODE (operands[2]) == CONST_INT)
+    {
+      if ((HOST_WIDE_INT) INTVAL (operands[2]) == 1)
+        {
+          emit_insn (gen_arm_ashldi3_1bit (operands[0], operands[1]));
+          DONE;
+        }
+        /* Ideally we shouldn't fail here if we could know that operands[1] 
+           ends up already living in an iwmmxt register. Otherwise it's
+           cheaper to have the alternate code being generated than moving
+           values to iwmmxt regs and back. */
+        FAIL;
+    }
+  else if (!TARGET_REALLY_IWMMXT && !TARGET_CIRRUS)
+    FAIL;
+  "
+)
+
+(define_insn "arm_ashldi3_1bit"
+  [(set (match_operand:DI            0 "s_register_operand" "=&r,r")
+        (ashift:DI (match_operand:DI 1 "s_register_operand" "?r,0")
+                   (const_int 1)))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_ARM"
+  "movs\\t%Q0, %Q1, asl #1\;adc\\t%R0, %R1, %R1"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")]
+)
+
 (define_expand "ashlsi3"
   [(set (match_operand:SI            0 "s_register_operand" "")
 	(ashift:SI (match_operand:SI 1 "s_register_operand" "")
@@ -2326,6 +2361,41 @@
   [(set_attr "length" "2")]
 )
 
+(define_expand "ashrdi3"
+  [(set (match_operand:DI              0 "s_register_operand" "")
+        (ashiftrt:DI (match_operand:DI 1 "s_register_operand" "")
+                     (match_operand:SI 2 "reg_or_int_operand" "")))]
+  "TARGET_ARM"
+  "
+  if (GET_CODE (operands[2]) == CONST_INT)
+    {
+      if ((HOST_WIDE_INT) INTVAL (operands[2]) == 1)
+        {
+          emit_insn (gen_arm_ashrdi3_1bit (operands[0], operands[1]));
+          DONE;
+        }
+        /* Ideally we shouldn't fail here if we could know that operands[1] 
+           ends up already living in an iwmmxt register. Otherwise it's
+           cheaper to have the alternate code being generated than moving
+           values to iwmmxt regs and back. */
+        FAIL;
+    }
+  else if (!TARGET_REALLY_IWMMXT)
+    FAIL;
+  "
+)
+
+(define_insn "arm_ashrdi3_1bit"
+  [(set (match_operand:DI              0 "s_register_operand" "=&r,r")
+        (ashiftrt:DI (match_operand:DI 1 "s_register_operand" "?r,0")
+                     (const_int 1)))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_ARM"
+  "movs\\t%R0, %R1, asr #1\;mov\\t%Q0, %Q1, rrx"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")]
+)
+
 (define_expand "ashrsi3"
   [(set (match_operand:SI              0 "s_register_operand" "")
 	(ashiftrt:SI (match_operand:SI 1 "s_register_operand" "")
@@ -2345,6 +2415,41 @@
   "TARGET_THUMB"
   "asr\\t%0, %1, %2"
   [(set_attr "length" "2")]
+)
+
+(define_expand "lshrdi3"
+  [(set (match_operand:DI              0 "s_register_operand" "")
+        (lshiftrt:DI (match_operand:DI 1 "s_register_operand" "")
+                     (match_operand:SI 2 "reg_or_int_operand" "")))]
+  "TARGET_ARM"
+  "
+  if (GET_CODE (operands[2]) == CONST_INT)
+    {
+      if ((HOST_WIDE_INT) INTVAL (operands[2]) == 1)
+        {
+          emit_insn (gen_arm_lshrdi3_1bit (operands[0], operands[1]));
+          DONE;
+        }
+        /* Ideally we shouldn't fail here if we could know that operands[1] 
+           ends up already living in an iwmmxt register. Otherwise it's
+           cheaper to have the alternate code being generated than moving
+           values to iwmmxt regs and back. */
+        FAIL;
+    }
+  else if (!TARGET_REALLY_IWMMXT)
+    FAIL;
+  "
+)
+
+(define_insn "arm_lshrdi3_1bit"
+  [(set (match_operand:DI              0 "s_register_operand" "=&r,r")
+        (lshiftrt:DI (match_operand:DI 1 "s_register_operand" "?r,0")
+                     (const_int 1)))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_ARM"
+  "movs\\t%R0, %R1, lsr #1\;mov\\t%Q0, %Q1, rrx"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")]
 )
 
 (define_expand "lshrsi3"
@@ -2415,19 +2520,6 @@
   "TARGET_THUMB"
   "ror\\t%0, %0, %2"
   [(set_attr "length" "2")]
-)
-
-(define_expand "ashldi3"
-  [(set (match_operand:DI            0 "s_register_operand" "")
-	(ashift:DI (match_operand:DI 1 "general_operand"    "")
-		   (match_operand:SI 2 "general_operand"    "")))]
-  "TARGET_ARM && (TARGET_IWMMXT || TARGET_CIRRUS)"
-  "
-  if (! s_register_operand (operands[1], DImode))
-    operands[1] = copy_to_mode_reg (DImode, operands[1]);
-  if (! s_register_operand (operands[2], SImode))
-    operands[2] = copy_to_mode_reg (SImode, operands[2]);
-  "
 )
 
 (define_insn "*arm_shiftsi3"

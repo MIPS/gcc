@@ -1149,7 +1149,7 @@
   "wsrawg%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")])
 
-(define_insn "ashrdi3"
+(define_insn "ashrdi3_iwmmxt"
   [(set (match_operand:DI              0 "register_operand" "=y")
 	(ashiftrt:DI (match_operand:DI 1 "register_operand" "y")
 		   (match_operand:SI   2 "register_operand" "z")))]
@@ -1173,7 +1173,7 @@
   "wsrlwg%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")])
 
-(define_insn "lshrdi3"
+(define_insn "lshrdi3_iwmmxt"
   [(set (match_operand:DI              0 "register_operand" "=y")
 	(lshiftrt:DI (match_operand:DI 1 "register_operand" "y")
 		     (match_operand:SI 2 "register_operand" "z")))]

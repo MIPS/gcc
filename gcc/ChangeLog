@@ -1,3 +1,11 @@
+2003-11-15  Nicolas Pitre <nico@cam.org>
+
+	* config/arm/arm.md (ashldi3, arm_ashldi3_1bit, ashrdi3,
+	arm_ashrdi3_1bit, lshrdi3, arm_lshrdi3_1bit): New patterns.
+	* config/arm/iwmmxt.md (ashrdi3_iwmmxt): Renamed from ashrdi3.
+	(lshrdi3_iwmmxt): Renamed from lshrdi3.
+	* config/arm/arm.c (IWMMXT_BUILTIN2): Renamed argument accordingly.
+
 2003-11-12  Steve Woodford  <scw@wasabisystems.com>
 	    Ian Lance Taylor  <ian@wasabisystems.com>
 
