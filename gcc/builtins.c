@@ -1483,6 +1483,7 @@ expand_builtin_mathfn (exp, target, subtarget)
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
   enum machine_mode argmode;
+  bool errno_set = true;
 
   if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
     return 0;
@@ -1533,6 +1534,26 @@ expand_builtin_mathfn (exp, target, subtarget)
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
       builtin_optab = log_optab; break;
+    case BUILT_IN_FLOOR:
+    case BUILT_IN_FLOORF:
+    case BUILT_IN_FLOORL:
+      errno_set = false ; builtin_optab = floor_optab; break;
+    case BUILT_IN_CEIL:
+    case BUILT_IN_CEILF:
+    case BUILT_IN_CEILL:
+      errno_set = false ; builtin_optab = ceil_optab; break;
+    case BUILT_IN_TRUNC:
+    case BUILT_IN_TRUNCF:
+    case BUILT_IN_TRUNCL:
+      errno_set = false ; builtin_optab = trunc_optab; break;
+    case BUILT_IN_ROUND:
+    case BUILT_IN_ROUNDF:
+    case BUILT_IN_ROUNDL:
+      errno_set = false ; builtin_optab = round_optab; break;
+    case BUILT_IN_NEARBYINT:
+    case BUILT_IN_NEARBYINTF:
+    case BUILT_IN_NEARBYINTL:
+      errno_set = false ; builtin_optab = nearbyint_optab; break;
     default:
       abort ();
     }
@@ -1553,7 +1574,7 @@ expand_builtin_mathfn (exp, target, subtarget)
 
   /* If errno must be maintained, we must set it to EDOM for NaN results.  */
 
-  if (flag_errno_math && HONOR_NANS (argmode))
+  if (flag_errno_math && errno_set && HONOR_NANS (argmode))
     {
       rtx lab1;
 
@@ -3743,6 +3764,21 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       case BUILT_IN_FPUTC_UNLOCKED:
       case BUILT_IN_FPUTS_UNLOCKED:
       case BUILT_IN_FWRITE_UNLOCKED:
+      case BUILT_IN_FLOOR:
+      case BUILT_IN_FLOORF:
+      case BUILT_IN_FLOORL:
+      case BUILT_IN_CEIL:
+      case BUILT_IN_CEILF:
+      case BUILT_IN_CEILL:
+      case BUILT_IN_TRUNC:
+      case BUILT_IN_TRUNCF:
+      case BUILT_IN_TRUNCL:
+      case BUILT_IN_ROUND:
+      case BUILT_IN_ROUNDF:
+      case BUILT_IN_ROUNDL:
+      case BUILT_IN_NEARBYINT:
+      case BUILT_IN_NEARBYINTF:
+      case BUILT_IN_NEARBYINTL:
 	return expand_call (exp, target, ignore);
 
       default:
@@ -3793,6 +3829,21 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_SQRT:
     case BUILT_IN_SQRTF:
     case BUILT_IN_SQRTL:
+    case BUILT_IN_FLOOR:
+    case BUILT_IN_FLOORF:
+    case BUILT_IN_FLOORL:
+    case BUILT_IN_CEIL:
+    case BUILT_IN_CEILF:
+    case BUILT_IN_CEILL:
+    case BUILT_IN_TRUNC:
+    case BUILT_IN_TRUNCF:
+    case BUILT_IN_TRUNCL:
+    case BUILT_IN_ROUND:
+    case BUILT_IN_ROUNDF:
+    case BUILT_IN_ROUNDL:
+    case BUILT_IN_NEARBYINT:
+    case BUILT_IN_NEARBYINTF:
+    case BUILT_IN_NEARBYINTL:
       target = expand_builtin_mathfn (exp, target, subtarget);
       if (target)
 	return target;

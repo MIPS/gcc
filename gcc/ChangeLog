@@ -1,3 +1,24 @@
+Fri Nov  8 13:01:42 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (expand_builtin_mathfn): Handle floor/ceil/trunc/round/nearbyint
+	(expand_builtin): Likewise.
+	* builtins.def: Add
+	__builtin_floor, __builtin_floorf, __builtin_floorl
+	__builtin_ceil, __builtin_ceilf, __builtin_ceill
+	__builtin_round, __builtin_roundf, __builtin_roundl
+	__builtin_trunc, __builtin_truncf, __builtin_truncl
+	__builtin_nearbyint, __builtin_nearbyintf, __builtin_nearbyintl.
+	* genopinit.c (optabs): Initialize the new optabs.
+	* optab.c (init_optabs): Likewise.
+	* optabs.h (optab_index): Add OTI_floor, OTI_ceil, OTI_trunc,
+	OTI_round, OTI_nearbyint.
+	(floor_optab, ceil_optab, trunc_optab, round_optab, nearbyint_optab): New.
+	* doc/md.texi: Document new named patterns.
+	* doc/extend.texi (builtin functions)  Document
+	floor, floorf, floorl, ceil, ceilf,
+	ceill, round, roundf, roundl, trunc,
+	truncf, truncl, nearbyint, nearbyintf, nearbyintl.
+
 Fri Nov  8 11:36:11 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (sse_movdfcc, sse_movsfcc): Fix typo in previous patch.
