@@ -1,5 +1,10 @@
 2004-03-15  Jan Hubicka  <jh@suse.cz>
 
+	* cfgrtl.c (rtl_create_basic_block): Pre-allocate basic_block_info
+	array.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
 	* cfgexpand.c (tree_expand_cfg): Do not cleanup control flow.
 
 2004-03-15  Jan Hubicka  <jh@suse.cz>
