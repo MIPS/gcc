@@ -1,3 +1,7 @@
+2003-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* explow.c (round_push): Fix handling of large sizes.
+
 2004-01-02  Roger Sayle  <roger@eyesopen.com>
 
 	* tree.h (integer_nonzerop): Use PARAMS macro with prototype.
