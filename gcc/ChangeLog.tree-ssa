@@ -3,6 +3,9 @@
 	PR opt/13681
 	* tree-ssa-operands.c (get_expr_operands): Handle (&x + c).
 
+	* tree-ssa-ccp.c (maybe_fold_offset_to_component_ref): Handle
+	flexible array members and lookalikes.
+
 2004-01-21  Dale Johannesen  <dalej@apple.com>
 
 	* tree-ssa-dom.c (cprop_into_stmt):  Add convert call

@@ -1550,7 +1550,7 @@ static tree
 maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 				    tree orig_type, bool base_is_ptr)
 {
-  tree f, t;
+  tree f, t, field_type, tail_array_field;
 
   if (TREE_CODE (record_type) != RECORD_TYPE
       && TREE_CODE (record_type) != UNION_TYPE
@@ -1561,9 +1561,9 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
   if (TYPE_MAIN_VARIANT (record_type) == TYPE_MAIN_VARIANT (orig_type))
     return NULL_TREE;
 
+  tail_array_field = NULL_TREE;
   for (f = TYPE_FIELDS (record_type); f ; f = TREE_CHAIN (f))
     {
-      tree field_type = TREE_TYPE (f);
       int cmp;
 
       if (TREE_CODE (f) != FIELD_DECL)
@@ -1579,20 +1579,28 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       if (!DECL_FIELD_CONTEXT (f))
 	continue;
 
+      /* The previous array field isn't at the end.  */
+      tail_array_field = NULL_TREE;
+
       /* Check to see if this offset overlaps with the field.  */
       cmp = tree_int_cst_compare (DECL_FIELD_OFFSET (f), offset);
       if (cmp > 0)
 	continue;
+
+      field_type = TREE_TYPE (f);
       if (cmp < 0)
 	{
 	  /* Don't care about offsets into the middle of scalars.  */
 	  if (!AGGREGATE_TYPE_P (field_type))
 	    continue;
 
+	  /* Check for array at the end of the struct.  This is often
+	     used as for flexible array members.  We should be able to
+	     turn this into an array access anyway.  */
+	  if (TREE_CODE (field_type) == ARRAY_TYPE)
+	    tail_array_field = f;
+
 	  /* Check the end of the field against the offset.  */
-	  /* ??? Check for array at the end of the struct.  This is often
-	     used as for flexible array members.  We should be able to turn
-	     this into an array access anyway.  */
 	  if (!DECL_SIZE_UNIT (f)
 	      || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
 	    continue;
@@ -1619,20 +1627,27 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       else if (!AGGREGATE_TYPE_P (field_type))
 	return NULL_TREE;
 
-      /* If we get here, we've got an aggregate field, and a possibly 
-	 non-zero offset into them.  Recurse and hope for a valid match.  */
-      if (base_is_ptr)
-	base = build1 (INDIRECT_REF, record_type, base);
-      base = build (COMPONENT_REF, field_type, base, f);
-
-      t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
-      if (t)
-	return t;
-      return maybe_fold_offset_to_component_ref (field_type, base, offset,
-					         orig_type, false);
+      goto found;
     }
 
-  return NULL_TREE;
+  if (!tail_array_field)
+    return NULL_TREE;
+
+  f = tail_array_field;
+  field_type = TREE_TYPE (f);
+
+ found:
+  /* If we get here, we've got an aggregate field, and a possibly 
+     non-zero offset into them.  Recurse and hope for a valid match.  */
+  if (base_is_ptr)
+    base = build1 (INDIRECT_REF, record_type, base);
+  base = build (COMPONENT_REF, field_type, base, f);
+
+  t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
+  if (t)
+    return t;
+  return maybe_fold_offset_to_component_ref (field_type, base, offset,
+					     orig_type, false);
 }
 
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
