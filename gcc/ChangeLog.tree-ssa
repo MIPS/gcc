@@ -1,3 +1,8 @@
+2003-07-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (tree_perform_ssapre): Fix dom_children after DCE
+	breaks them.
+
 2003-07-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_vdef): Initialize variable 'vdef'.

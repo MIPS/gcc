@@ -3257,8 +3257,14 @@ tree_perform_ssapre (tree fndecl)
   
   /* Compute immediate dominators.  */
   pre_idom = calculate_dominance_info (CDI_DOMINATORS);
-  fixup_domchildren (pre_idom);
+  
+  /* DCE screws the dom_children up, without bothering to fix it. So fix it. */
   currbbs = n_basic_blocks;
+  for (i = 0; i < currbbs; i++)
+    if (dom_children (BASIC_BLOCK (i)))
+      bitmap_clear (dom_children (BASIC_BLOCK (i)));
+  fixup_domchildren (pre_idom);
+
   /* Compute dominance frontiers.  */
   pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
   for (i = 0; i < currbbs; i++)
