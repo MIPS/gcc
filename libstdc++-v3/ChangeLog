@@ -1,3 +1,8 @@
+2003-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/27_io/ios_base_storage.cc (main): Call
+	__set_testsuite_memlimit.
+
 2003-02-17  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/9169

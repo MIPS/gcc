@@ -93,6 +93,7 @@ void test02()
 
 int main(void)
 {
+  __set_testsuite_memlimit();
   test01();
   test02();
   return 0;
