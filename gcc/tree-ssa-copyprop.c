@@ -114,7 +114,9 @@ copyprop_stmt (stmt)
       tree *use_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
       tree orig = get_original (*use_p, &vuse);
 
-      if (orig)
+      if (orig
+	  && ! var_ann (SSA_NAME_VAR (*use_p))->occurs_in_abnormal_phi
+	  && ! var_ann (SSA_NAME_VAR (orig))->occurs_in_abnormal_phi)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -159,7 +161,9 @@ copyprop_phi (phi)
       tree arg = PHI_ARG_DEF (phi, i);
       tree orig = get_original (arg, &vuse);
 
-      if (orig)
+      if (orig
+	  && ! var_ann (SSA_NAME_VAR (arg))->occurs_in_abnormal_phi
+	  && ! var_ann (SSA_NAME_VAR (orig))->occurs_in_abnormal_phi)
 	{
 	  if (dump_file && dump_flags & TDF_DETAILS)
 	    {

@@ -937,6 +937,15 @@ add_phi_arg (phi, def, e)
   if (i >= PHI_ARG_CAPACITY (phi))
     abort ();
 #endif
+
+  /* Copy propagation needs to know what object occur in abnormal
+     PHI nodes.  This is a convenient place to record such information.  */
+  if (e->flags & EDGE_ABNORMAL)
+    {
+      var_ann (def)->occurs_in_abnormal_phi = 1;
+      var_ann (PHI_RESULT (phi))->occurs_in_abnormal_phi = 1;
+    }
+
   PHI_ARG_DEF (phi, i) = def;
   PHI_ARG_EDGE (phi, i) = e;
   PHI_NUM_ARGS (phi)++;

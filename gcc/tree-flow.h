@@ -93,8 +93,11 @@ struct var_ann_d GTY(())
   /* Used when building root_var structures in tree_ssa_live.[ch].  */
   unsigned root_var_processed : 1;
 
+  /* Nonzero if the variable occurs in an abnormal PHI.  */
+  unsigned occurs_in_abnormal_phi : 1;
+
   /* Unused bits.  */
-  unsigned unused : 24;
+  unsigned unused : 23;
 
   /* An INDIRECT_REF expression representing all the dereferences of this
      pointer.  Used to store aliasing information for pointer dereferences

@@ -226,7 +226,9 @@ static bool var_is_live			PARAMS ((tree, basic_block));
 	   && TREE_CODE (SSA_NAME_VAR (RHS)) == INDIRECT_REF)		\
      /* FIXME.  For now, don't propagate pointers if they haven't been	\
         dereferenced (see update_indirect_ref_vuses).  */		\
-     && (!POINTER_TYPE_P (TREE_TYPE (RHS)) || indirect_ref (RHS)))
+     && (!POINTER_TYPE_P (TREE_TYPE (RHS)) || indirect_ref (RHS))	\
+     && ! var_ann (SSA_NAME_VAR (LHS))->occurs_in_abnormal_phi		\
+     && ! var_ann (SSA_NAME_VAR (RHS))->occurs_in_abnormal_phi)
 
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
