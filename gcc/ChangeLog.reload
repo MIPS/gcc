@@ -1,3 +1,11 @@
+2005-04-07  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* reload.c (find_reloads): Remove RELOAD_REG_P argument.  All callers
+	changed.
+	* reload.h (find_reloads): Update prototype.
+	* reload1.c (n_spills, spill_reg_order, spill_regs): Delete variables.
+	(finish_spills): Don't set any of them.
+
 2005-03-20  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* reload1.c (usable_for_inheritance): Check usable_regs for 

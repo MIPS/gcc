@@ -1871,17 +1871,12 @@ static int address_changed;
    we are called from global_alloc but false when stupid register
    allocation has been done.
 
-   RELOAD_REG_P if nonzero is a vector indexed by hard reg number
-   which is nonnegative if the reg has been commandeered for reloading into.
-   It is copied into STATIC_RELOAD_REG_P and referenced from there
-   by various subroutines.
-
    Return TRUE if some operands need to be changed, because of swapping
    commutative operands, reg_equiv_address substitution, or whatever.  */
 
 int
 find_reloads (struct insn_chain *chain, rtx insn, int ind_levels,
-	      int live_known, short *reload_reg_p)
+	      int live_known)
 {
   int insn_code_number;
   int i, j;
@@ -2117,8 +2112,7 @@ find_reloads (struct insn_chain *chain, rtx insn, int ind_levels,
 		  || GET_CODE (recog_data.operand[i]) == PLUS))
 	    {
 	      INSN_CODE (insn) = -1;
-	      retval = find_reloads (chain, insn, ind_levels, live_known,
-				     reload_reg_p);
+	      retval = find_reloads (chain, insn, ind_levels, live_known);
 	      return retval;
 	    }
 

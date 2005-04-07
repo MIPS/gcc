@@ -353,7 +353,7 @@ extern void compute_use_by_pseudos (HARD_REG_SET *, regset);
 /* Search the body of INSN for values that need reloading and record them
    with push_reload.  REPLACE nonzero means record also where the values occur
    so that subst_reloads can be used.  */
-extern int find_reloads (struct insn_chain *, rtx, int, int, short *);
+extern int find_reloads (struct insn_chain *, rtx, int, int);
 
 #endif
 

@@ -118,22 +118,10 @@ static short *reg_old_renumber;
    call-saved.  */
 static HARD_REG_SET reg_reloaded_call_part_clobbered;
 
-/* Number of spill-regs so far; number of valid elements of spill_regs.  */
-static int n_spills;
-
-/* In parallel with spill_regs, contains REG rtx's for those regs.
-   Holds the last rtx used for any given reg, or 0 if it has never
+/* Holds the last rtx used for any given reg, or 0 if it has never
    been used for spilling yet.  This rtx is reused, provided it has
    the proper mode.  */
 static rtx spill_reg_rtx[FIRST_PSEUDO_REGISTER];
-
-/* This table is the inverse mapping of spill_regs:
-   indexed by hard reg number,
-   it contains the position of that reg in spill_regs,
-   or -1 for something that is not in spill_regs.
-
-   ?!?  This is no longer accurate.  */
-static short spill_reg_order[FIRST_PSEUDO_REGISTER];
 
 /* This reg set indicates registers that can't be used as spill registers for
    the currently processed insn.  These are the hard registers which are live
@@ -146,17 +134,6 @@ static HARD_REG_SET bad_spill_regs;
    we can't eliminate.  A register that appears in this set also can't be used
    to retry register allocation.  */
 static HARD_REG_SET bad_spill_regs_global;
-
-/* Describes order of use of registers for reloading
-   of spilled pseudo-registers.  `n_spills' is the number of
-   elements that are actually valid; new ones are added at the end.
-
-   Both spill_regs and spill_reg_order are used on two occasions:
-   once during find_reload_regs, where they keep track of the spill registers
-   for a single insn, but also during reload_as_needed where they show all
-   the registers ever used by reload.  For the latter case, the information
-   is calculated during finish_spills.  */
-static short spill_regs[FIRST_PSEUDO_REGISTER];
 
 /* This vector of reg sets indicates, for each pseudo, which hard registers
    may not be used for retrying global allocation because the register was
@@ -2379,7 +2356,7 @@ calculate_needs_all_insns (int global)
 
 	  /* Analyze the instruction.  */
 	  operands_changed = find_reloads (chain, copy, spill_indirect_levels,
-					   global, spill_reg_order);
+					   global);
 
 	  if (num_eliminable)
 	    update_eliminable_offsets ();
@@ -5711,18 +5688,13 @@ finish_spills (int global)
      register used by the call insn for the return PC is a call-used register,
      but must be saved by the prologue.  */
 
-  n_spills = 0;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (used_spill_regs, i))
       {
-	spill_reg_order[i] = n_spills;
-	spill_regs[n_spills++] = i;
 	if (num_eliminable && ! regs_ever_live[i])
 	  something_changed = 1;
 	regs_ever_live[i] = 1;
       }
-    else
-      spill_reg_order[i] = -1;
 
   EXECUTE_IF_SET_IN_REG_SET (&spilled_pseudos, FIRST_PSEUDO_REGISTER, i, rsi)
     {
@@ -5929,8 +5901,7 @@ reload_as_needed (int live_known)
 	     This info is returned in the tables reload_... (see reload.h).
 	     Also modify the body of INSN by substituting RELOAD
 	     rtx's for those pseudo regs.  */
-	    find_reloads (chain, insn, spill_indirect_levels, live_known,
-			  spill_reg_order);
+	    find_reloads (chain, insn, spill_indirect_levels, live_known);
 
 	  if (chain->n_reloads > 0)
 	    {
