@@ -1,3 +1,13 @@
+2005-04-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4063657 (part 2).
+	* c-common.c (cw_process_arg): Remove from 'uses' list any 
+	register which ends up on an output or input list.
+	(cw_asm_stmt): New 'uses' argument is passed to cw_process_arg.
+	'uses' list is added to 'clobber' list.
+	(print_cw_asm_operand): When building 'uses' list do not
+	duplicate a hard register on this list.
+
 2005-04-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 4069922

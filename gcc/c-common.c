@@ -6155,7 +6155,7 @@ cw_memory_clobber (const char *opcode)
 static void
 cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 		bool must_be_reg,
-		tree *outputsp, tree*inputsp)
+		tree *outputsp, tree*inputsp, tree*uses)
 {
   const char *s;
   bool was_output = true;
@@ -6193,6 +6193,33 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
     *outputsp = chainon (*outputsp, one);
   else
     *inputsp = chainon (*inputsp, one);
+  if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+    {
+       /* Remove from 'uses' list any hard register which is going to be on
+	  an input or output list. */
+       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (var));
+       int regno = decode_reg_name (name);
+       if (regno >= 0)
+	 {
+	   tree tail, pred;
+	   for (tail = *uses, pred = *uses; tail; tail = TREE_CHAIN (tail))
+	     {
+	      if (regno == decode_reg_name (TREE_STRING_POINTER (TREE_VALUE (tail))))
+		break;
+	      else
+		pred = tail;
+	     }
+	   if (tail)
+	     {
+	       if (tail == pred)
+		 *uses = TREE_CHAIN (tail);
+	       else
+		{
+		  TREE_CHAIN (pred) = TREE_CHAIN (tail);
+		}
+	     }
+	 }
+    }
 }
 
 /* CW identifier may include '.', '+' or '-'. Except that an operator
@@ -6339,9 +6366,10 @@ cw_asm_stmt (tree expr, tree args, int lineno)
       argnum >>= 1;
 
       cw_process_arg (opcodename, var, argnum,
-		      must_be_reg, &outputs, &inputs);
+		      must_be_reg, &outputs, &inputs, &uses);
     }
 
+  clobbers = uses;
   if (cw_memory_clobber (opcodename))
     {
       /* To not clobber all of memory, we would need to know what
@@ -6426,13 +6454,23 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case IDENTIFIER_NODE:
       strncat (buf, IDENTIFIER_POINTER (arg), IDENTIFIER_LENGTH (arg));
-      if (decode_reg_name (IDENTIFIER_POINTER (arg)) >= 0)
-	{
-          const char *id = IDENTIFIER_POINTER (arg);
-	  *uses = tree_cons (NULL_TREE,
-			     build_string (strlen (id), id),
-			     *uses);
-	}
+      {
+	int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
+        if (regno >= 0)
+	  {
+	    tree tail;
+	    for (tail = *uses; tail; tail = TREE_CHAIN (tail))
+	      if (regno == decode_reg_name (TREE_STRING_POINTER (TREE_VALUE (tail))))
+		break;
+	    if (!tail)
+	      {
+                const char *id = IDENTIFIER_POINTER (arg);
+	        *uses = tree_cons (NULL_TREE,
+			           build_string (strlen (id), id),
+			           *uses);
+	      }
+	  }
+      }
       break;
 
     case VAR_DECL:
