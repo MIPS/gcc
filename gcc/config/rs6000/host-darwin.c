@@ -142,7 +142,7 @@ darwin_rs6000_extra_signals (void)
     fatal_error ("While setting up signal handler: %m");
 }
 
-/* APPLE LOCAL begin mainline 2005-04-06 4071679 */
+/* APPLE LOCAL mainline 2005-04-06 4071679 */
 /* Delete PCH functions & macros */
 
 const struct host_hooks host_hooks = HOST_HOOKS_INITIALIZER;
