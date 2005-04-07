@@ -1293,6 +1293,14 @@ decide_block_copy (struct sra_elt *elt)
 	  fputc ('\n', dump_file);
 	}
 
+      /* APPLE LOCAL begin mainline and 4.0 branch 2005-03-31  */
+      /* Disable scalarization of sub-elements */
+      for (c = elt->children; c; c = c->sibling)
+	{
+	  c->cannot_scalarize = 1;
+	  decide_block_copy (c);
+	}
+      /* APPLE LOCAL end mainline and 4.0 branch 2005-03-31  */
       return false;
     }
 
