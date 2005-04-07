@@ -1,5 +1,5 @@
 /* APPLE LOCAL file CW asm blocks */
-/* { dg-do assemble } */
+/* { dg-do assemble { target powerpc*-*-* } } */
 /* { dg-options "-fasm-blocks" } */
 
 signed short foo(signed int a, signed short b)

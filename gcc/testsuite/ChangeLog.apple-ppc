@@ -1,3 +1,8 @@
+2005-04-07  Stuart Hastings  <stuart@apple.com>
+
+	* gcc.apple/asm-function-15.c: Mark powerpc only.
+	* gcc.apple/asm-function-16.c: Likewise.
+
 2005-04-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 4069922
