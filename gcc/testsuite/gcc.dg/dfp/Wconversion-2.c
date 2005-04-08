@@ -2,7 +2,7 @@
    pedwarns.  */
 /* Based on gcc.dg/Wconversion-2.c */
 /* { dg-do compile } */
-/* { dg-options "-std=c99 -pedantic-errors -Wconversion" } */
+/* { dg-options "-std=gnu99 -pedantic-errors -Wconversion" } */
 
 void fsi(signed int);
 void fd32(_Decimal32);
@@ -35,8 +35,8 @@ g (void)
   x.fd32(si); /* { dg-warning "warning: passing argument 1 of 'x.fd32' as floating rather than integer due to prototype" } */  
   fd64(ui); /* { dg-warning "warning: passing argument 1 of 'fd64' as floating rather than integer due to prototype" } */
   x.fd64(ui); /* { dg-warning "warning: passing argument 1 of 'x.fd64' as floating rather than integer due to prototype" } */
-  fd128(si); /* { dg-warning "warning: passing argument 1 of 'fd128' as floating \rather than integer due to prototype" } */
-  x.fd128(ui); /* { dg-warning "warning: passing argument 1 of 'x.fd128' as float\ing rather than integer due to prototype" } */  
+  fd128(si); /* { dg-warning "warning: passing argument 1 of 'fd128' as floating rather than integer due to prototype" } */
+  x.fd128(ui); /* { dg-warning "warning: passing argument 1 of 'x.fd128' as floating rather than integer due to prototype" } */  
   fd32(1.0); /* { dg-warning "warning: passing argument 1 of 'fd32' as '_Decimal32' rather than 'double' due to prototype" } */
   x.fd32(1.0); /* { dg-warning "warning: passing argument 1 of 'x.fd32' as '_Decimal32' rather than 'double' due to prototype" } */
   fd64(1.0); /* { dg-warning "warning: passing argument 1 of 'fd64' as '_Decimal64' rather than 'double' due to prototype" } */

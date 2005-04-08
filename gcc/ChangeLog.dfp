@@ -1,5 +1,10 @@
+2004-04-08  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-typeck.c (convert_arguments): Warn on conversion due to prototype.
+
 2005-04-08  Jon Grimm  <jgrimm2@us.ibm.com>
-	* config/dfp-bit.h: Remove extra "*/"
+
+	* config/dfp-bit.h: Remove extra "*/".
 
 2005-04-08  Ben Elliston  <bje@au.ibm.com>
 

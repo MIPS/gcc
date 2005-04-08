@@ -2209,12 +2209,12 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
 		    {
-		      /* Warn if any argument is passed as `float',
-			 since without a prototype it would be `double'.  */
-		      if (formal_prec == TYPE_PRECISION (float_type_node))
-			warning ("passing argument %d of %qE as %<float%> "
+		      /* Warn if argument is passed as different type, since
+			 without a protyotype it would be passed as double.  */
+		      if (type != TREE_TYPE(val))
+			warning ("passing argument %d of %qE as %qT "
 				 "rather than %<double%> due to prototype",
-				 argnum, rname);
+				 argnum, rname, type);
 		    }
 		  /* Detect integer changing in width or signedness.
 		     These warnings are only activated with
