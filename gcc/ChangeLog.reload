@@ -1,3 +1,8 @@
+2005-04-08  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* reload1.c (find_optional_reg, inherit_one_chain): Always use
+	set_reload_reg to assign a register to a reload.
+
 2005-04-07  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* reload.c (find_reloads): Remove RELOAD_REG_P argument.  All callers

@@ -149,7 +149,8 @@ static HARD_REG_SET *pseudo_previous_regs;
 static HARD_REG_SET *pseudo_forbidden_regs;
 
 /* All hard regs that have been used as spill registers for any insn are
-   marked in this set.  */
+   marked in this set.  This is used to update regs_ever_live in
+   finish_spills.  */
 static HARD_REG_SET used_spill_regs;
 
 /* Nonzero if indirect addressing is supported on the machine; this means
@@ -2916,11 +2917,7 @@ find_optional_reg (struct reload *rl, HARD_REG_SET *usable, int suggested,
       if (i == nregs)
 	{
 	  if (do_allocate)
-	    {
-	      rl->nregs = nregs;
-	      rl->reginfo.regno = suggested;
-	      rl->reginfo.allocated = 1;
-	    }
+	    set_reload_reg (rl, suggested);
 	  return 1;
 	}
     }
@@ -2945,11 +2942,8 @@ find_optional_reg (struct reload *rl, HARD_REG_SET *usable, int suggested,
     return 0;
 
   if (do_allocate)
-    {
-      rl->nregs = HARD_REGNO_NREGS (best_reg, rl->mode);
-      rl->reginfo.regno = best_reg;
-      rl->reginfo.allocated = 1;
-    }
+    set_reload_reg (rl, best_reg);
+
   return 1;
 }
 
@@ -3656,9 +3650,7 @@ inherit_one_chain (struct inherit_chain *head)
      as above.  */
 
   /* Change the head reload to use the inheritance register.  */
-  head_rl->nregs = HARD_REGNO_NREGS (best_reg, head_rl->mode);
-  head_rl->reginfo.regno = best_reg;
-  head_rl->reginfo.allocated = 1;
+  set_reload_reg (head_rl, best_reg);
 
   /* Extend lifetime of original reload.  Set the LIVE_UNTIL_END flag so
      that following calls to compute_birth_death will preserve this
