@@ -72,6 +72,7 @@ int preprocessed_output_request = 0;
 int ima_is_used = 0;
 int dash_dynamiclib_seen = 0;
 int verbose_flag = 0;
+int save_temps_seen = 0;
 
 /* Support at the max 10 arch. at a time. This is historical limit.  */
 #define MAX_ARCHES 10
@@ -1205,13 +1206,17 @@ main (int argc, const char **argv)
 	       || (! strcmp (argv[i], "-###"))
 	       || (! strcmp (argv[i], "-fconstant-cfstrings"))
 	       || (! strcmp (argv[i], "-fno-constant-cfstrings"))
-	       || (! strcmp (argv[i], "-save-temps"))
 	       || (! strcmp (argv[i], "-static-libgcc"))
 	       || (! strcmp (argv[i], "-shared-libgcc"))
 	       || (! strcmp (argv[i], "-pipe"))
 	       )
 	{
 	  new_argv[new_argc++] = argv[i];
+	}
+      else if (! strcmp (argv[i], "-save-temps"))
+	{
+	  new_argv[new_argc++] = argv[i];
+	  save_temps_seen = 1;
 	}
       else if ((! strcmp (argv[i], "-Xlinker"))
 	       || (! strcmp (argv[i], "-Xassembler"))
@@ -1289,9 +1294,10 @@ main (int argc, const char **argv)
   if (num_arches > 1)
     {
       if (preprocessed_output_request 
+	  || save_temps_seen
 	  || asm_output_request 
 	  || dash_capital_m_seen)
-	fatal ("-E, -S and -M options are not allowed with multiple -arch flags");
+	fatal ("-E, -S, -save-temps and -M options are not allowed with multiple -arch flags");
     }
   /* If -arch is not present OR Only one -arch <blah> is specified.  
      Invoke appropriate compiler driver.  FAT build is not required in this

@@ -1,3 +1,9 @@
+2005-04-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4044861
+	* config/darwin-drver.c (save_temps_seen): New.
+	(main): Reject -save-temps with multiple -arch options.
+
 2005-04-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4063657 (part 2).
