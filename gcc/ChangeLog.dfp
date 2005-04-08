@@ -1,4 +1,16 @@
+2005-04-08  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (D32PBIT_FUNCS): Define.
+	(D64PBIT_FUNCS): Likewise.
+	(D128PBIT_FUNCS): Likewise.
+	(libgcc.mk): Pass D32PBIT, D32PBIT_FUNCS, D64PBIT, D64PBIT_FUNCS,
+	D128PBIT and D128PBIT_FUNCS to mklibgcc.
+	* mklibgcc.in: Process D32PBIT, D64PBIT and D128PBIT variables.
+	* config/i386/t-linux64 (D32PBIT, D64PBIT, D128PBIT): Define.
+	(dfp32-bit.c, dfp64-bit.c dfp128-bit.c): New targets.
+
 2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
+
 	* Makefile.in: Remove HAVE_DECNUMBER scaffolding.
 	* c-cppbuiltin.c (builtin_define_decfloat_constants): New.
 	(c_cpp_builtins): Call builtin_define_decfloat_constants.
@@ -11,33 +23,33 @@
 
 	Change file preambles. Convert c++ style comments to c style comments.
 	* decContext.c (decContextStatusToString): Return const.
-	* decContext.h (decContextStatusToString): Return const.
+	* decContext.h (decContextStatusToString): Likewise.
 	* decDPD.h: Change preamble and comment cleanup.
 	* decNumber.c (decNumberVersion): Return const.
 	* decNumber.h (decNumberNegate): Add.
 	(decNumberVersion): Return const.
 	* decNumberLocal.h: Change preamble and comment cleanup.
-	* decimal128.c: Change preamble and comment cleanup.
-	* decimal128.h: Change preamble and comment cleanup.
-	* decimal32.c: Change preamble and comment cleanup.
-	* decimal32.h: Change preamble and comment cleanup.
-	* decimal64.c: Change preamble and comment cleanup.
-	* decimal64.h: Change preamble and comment cleanup.
+	* decimal128.c: Likewise.
+	* decimal128.h: Likewise.
+	* decimal32.c: Likewise.
+	* decimal32.h: Likewise.
+	* decimal64.c: Likewise.
+	* decimal64.h: Likewise.
 
 2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* decContext.c: New file.
-	* decContext.h: New file.
-	* decDPD.h: New file.
-	* decNumber.c: New file.
-	* decNumber.h: New file.
-	* decNumberLocal.h: New file.
-	* decimal128.c: New file.
-	* decimal128.h: New file.
-	* decimal32.c: New file.
-	* decimal32.h: New file.
-	* decimal64.c: New file.
-	* decimal64.h: New file.
+	* decContext.h: Likewise.
+	* decDPD.h: Likewise.
+	* decNumber.c: Likewise.
+	* decNumber.h: Likewise.
+	* decNumberLocal.h: Likewise.
+	* decimal128.c: Likewise.
+	* decimal128.h: Likewise.
+	* decimal32.c: Likewise.
+	* decimal32.h: Likewise.
+	* decimal64.c: Likewise.
+	* decimal64.h: Likewise.
 
 2005-04-04  Jon Grimm  <jgrimm2@us.ibm.com>
 
