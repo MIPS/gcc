@@ -2453,6 +2453,12 @@ build_function_call (tree function, tree params)
   int is_method;
   tree original = function;
 
+  /* APPLE LOCAL begin Radar 4055183 */
+  /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
+     expressions, like those used for ObjC messenger dispatches.  */
+  function = objc_rewrite_function_call (function, params);
+
+  /* APPLE LOCAL end Radar 4055183 */
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs, since FUNCTION is used in non-lvalue context.  */
   if (TREE_CODE (function) == NOP_EXPR

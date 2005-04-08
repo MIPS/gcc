@@ -992,6 +992,8 @@ extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
 extern int objc_comptypes (tree, tree, int);
+/* APPLE LOCAL Radar 4055183 */
+extern tree objc_rewrite_function_call (tree, tree);
 extern tree objc_message_selector (void);
 extern tree objc_lookup_ivar (tree, tree);
 extern void objc_clear_super_receiver (void);

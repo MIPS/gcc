@@ -9322,6 +9322,27 @@ objc_lookup_ivar (tree other, tree id)
   return build_ivar_reference (id);
 }
 
+/* APPLE LOCAL begin Radar 4055183 */
+/* Possibly rewrite a function CALL into an OBJ_TYPE_REF expression.  This
+   needs to be done if we are calling a function through a cast.  */
+
+tree
+objc_rewrite_function_call (tree function, tree params)
+{
+  if (TREE_CODE (function) == NOP_EXPR
+      && TREE_CODE (TREE_OPERAND (function, 0)) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (TREE_OPERAND (function, 0), 0))
+	 == FUNCTION_DECL)
+    {
+      function = build (OBJ_TYPE_REF, TREE_TYPE (function),
+			TREE_OPERAND (function, 0),
+			TREE_VALUE (params), size_zero_node);
+    }
+
+  return function;
+}
+
+/* APPLE LOCAL end Radar 4055183 */
 /* APPLE LOCAL begin Radar 4015820 FSF candidate */
 /* Look for the special case of OBJC_TYPE_REF with the address of
    a function in OBJ_TYPE_REF_EXPR (presumably objc_msgSend or one

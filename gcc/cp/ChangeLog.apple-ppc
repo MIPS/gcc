@@ -1,3 +1,9 @@
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* typeck.c (build_function_call): Call
+	objc_rewrite_function_call() to handle casts.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882

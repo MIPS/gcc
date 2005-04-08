@@ -1,3 +1,8 @@
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* objc-act.c (objc_rewrite_function_call): New function.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882

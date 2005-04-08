@@ -2038,6 +2038,12 @@ build_function_call (tree function, tree params)
   else
     function = default_conversion (function);
 
+  /* APPLE LOCAL begin Radar 4055183 */
+  /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
+     expressions, like those used for ObjC messenger dispatches.  */
+  function = objc_rewrite_function_call (function, params);
+
+  /* APPLE LOCAL end Radar 4055183 */
   fntype = TREE_TYPE (function);
 
   if (TREE_CODE (fntype) == ERROR_MARK)

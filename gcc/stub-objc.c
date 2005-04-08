@@ -70,6 +70,14 @@ objc_comptypes (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs),
   return -1;
 }
 
+/* APPLE LOCAL begin Radar 4055183 */
+tree
+objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
+{
+  return function;
+}
+
+/* APPLE LOCAL end Radar 4055183 */
 tree
 objc_message_selector (void)
 { 

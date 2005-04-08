@@ -1,3 +1,11 @@
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* obj-c++.dg/stubify-1.mm: New.
+	* obj-c++.dg/stubify-2.mm: New.
+	* objc.dg/stubify-1.m: Redact APPLE LOCAL marker.
+	* objc.dg/stubify-2.m: New.
+
 2005-04-07  Stuart Hastings  <stuart@apple.com>
 
 	* gcc.apple/asm-function-15.c: Mark powerpc only.

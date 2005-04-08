@@ -1,3 +1,11 @@
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* c-common.h (objc_rewrite_function_call): New prototype.
+	* c-typeck.c (build_function_call):
+	Call objc_rewrite_function_call() to handle casts.
+	* stub-objc.c (objc_rewrite_function_call): New stub.
+
 2005-04-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 4044861

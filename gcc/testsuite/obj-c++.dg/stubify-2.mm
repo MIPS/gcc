@@ -1,9 +1,8 @@
-/* APPLE LOCAL file Radar 4055183 */
-/* All calls must be properly stubified.  Complain about any "call
-   _objc_msgSend<end-of-line>" without the $stub suffix.  */
+/* APPLE LOCAL file Radar 4055183  */
+/* All calls must be properly stubified.  */
+/* Testcase extracted from TextEdit:Document.m.  */
 /* { dg-do compile { target *-*-darwin* } } */
-/* { dg-options "-Os -mdynamic-no-pic" } */
-
+/* { dg-options "-mdynamic-no-pic -fdump-rtl-expand" } */
 typedef struct objc_object { } *id ;
 int x = 41 ;
 extern id objc_msgSend(id self, char * op, ...);
@@ -26,8 +25,6 @@ extern int bogonic (int, int, int) ;
 }
 @end
 
-/* { dg-final { scan-assembler-not "\(bl|call\)\[ \t\]+_objc_msgSend\n" } } */
-/* { dg-final { scan-assembler     "\(bl|call\)\[ \t\]+L_objc_msgSend\\\$stub\n" } } */
-/* { dg-final { scan-assembler-not "\(bl|call\)\[ \t\]+_bogonic\n" } } */
-/* { dg-final { scan-assembler     "\(bl|call\)\[ \t\]+L_bogonic\\\$stub\n" } } */
-/* { dg-final { scan-assembler-not "\\\$non_lazy_ptr" } } */
+/* Any symbol_ref of an un-stubified objc_msgSend is an error; look
+   for "objc_msgSend" in quotes, without the $stub suffix.  */
+/* { dg-final { scan-file-not stubify-2.m.00.expand "symbol_ref.*\"objc_msgSend\"" } } */

@@ -2,12 +2,16 @@
 /* All calls must be properly stubified.  Complain about any "call
    _objc_msgSend<end-of-line>" without the $stub suffix.  */
 /* { dg-do compile { target *-*-darwin* } } */
-/* { dg-options "-Os -mdynamic-no-pic" } */
+/* { dg-options "-Os -mdynamic-no-pic -fno-exceptions" } */
 
 typedef struct objc_object { } *id ;
 int x = 41 ;
-extern id objc_msgSend(id self, char * op, ...);
-extern int bogonic (int, int, int) ;
+
+extern "C" {
+  extern id objc_msgSend(id self, char * op, ...);
+  extern int bogonic (int, int, int);
+}
+
 @interface Document {}
 - (Document *) window;
 - (Document *) class;

@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Radar  */
+/* APPLE LOCAL file Radar 4055183 */
 /* All calls must be properly stubified.  */
 /* Testcase extracted from TextEdit:Document.m.  */
 /* { dg-do compile { target *-*-darwin* } } */
