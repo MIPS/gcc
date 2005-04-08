@@ -1010,6 +1010,10 @@ TPBIT_FUNCS = _pack_tf _unpack_tf _addsub_tf _mul_tf _div_tf \
     _lt_tf _le_tf _unord_tf _si_to_tf _tf_to_si _negate_tf _make_tf \
     _tf_to_df _tf_to_sf _thenan_tf _tf_to_usi _usi_to_tf
 
+D32PBIT_FUNCS = _mul_sd
+D64PBIT_FUNCS = _mul_dd
+D128PBIT_FUNCS = _mul_td
+
 # These might cause a divide overflow trap and so are compiled with
 # unwinder info.
 LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
@@ -1250,6 +1254,12 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	DPBIT_FUNCS='$(DPBIT_FUNCS)' \
 	TPBIT='$(TPBIT)' \
 	TPBIT_FUNCS='$(TPBIT_FUNCS)' \
+	D32PBIT='$(D32PBIT)' \
+	D32PBIT_FUNCS='$(D32PBIT_FUNCS)' \
+	D64PBIT='$(D64PBIT)' \
+	D64PBIT_FUNCS='$(D64PBIT_FUNCS)' \
+	D128PBIT='$(D128PBIT)' \
+	D128PBIT_FUNCS='$(D128PBIT_FUNCS)' \
 	MULTILIBS=`$(GCC_FOR_TARGET) --print-multi-lib` \
 	EXTRA_MULTILIB_PARTS='$(EXTRA_MULTILIB_PARTS)' \
 	SHLIB_LINK='$(SHLIB_LINK)' \
