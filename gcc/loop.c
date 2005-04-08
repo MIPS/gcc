@@ -1890,7 +1890,10 @@ combine_movables (struct loop_movables *movables, struct loop_regs *regs)
 		    || (GET_MODE_CLASS (GET_MODE (m->set_dest)) == MODE_INT
 			&& GET_MODE_CLASS (GET_MODE (m1->set_dest)) == MODE_INT
 			&& (GET_MODE_BITSIZE (GET_MODE (m->set_dest))
-			    >= GET_MODE_BITSIZE (GET_MODE (m1->set_dest)))))
+			    >= GET_MODE_BITSIZE (GET_MODE (m1->set_dest)))
+			&& (TRULY_NOOP_TRUNCATION
+			    (GET_MODE_BITSIZE (GET_MODE (m1->set_dest)),
+			     GET_MODE_BITSIZE (GET_MODE (m->set_dest))))))
 		   /* See if the source of M1 says it matches M.  */
 		   && ((REG_P (m1->set_src)
 			&& matched_regs[REGNO (m1->set_src)])

@@ -1134,7 +1134,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (temp != 0)
 	{
-	  if (GET_MODE_CLASS (mode) == MODE_INT)
+	  if (GET_MODE_CLASS (mode) == MODE_INT
+	      && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+                                        GET_MODE_BITSIZE (GET_MODE (temp))))
 	    return gen_lowpart (mode, temp);
 	  else
 	    return convert_to_mode (mode, temp, unsignedp);
@@ -1181,7 +1183,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 				 unsignedp, OPTAB_DIRECT);
 	    if (temp)
 	      {
-		if (class != MODE_INT)
+		if (class != MODE_INT
+                    || !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+                                               GET_MODE_BITSIZE (wider_mode)))
 		  {
 		    if (target == 0)
 		      target = gen_reg_rtx (mode);
@@ -1709,7 +1713,9 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 				   unsignedp, methods);
 	      if (temp)
 		{
-		  if (class != MODE_INT)
+		  if (class != MODE_INT
+		      || !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+						 GET_MODE_BITSIZE (wider_mode)))
 		    {
 		      if (target == 0)
 			target = gen_reg_rtx (mode);
@@ -2952,6 +2958,31 @@ emit_unop_insn (int icode, rtx target, rtx op0, enum rtx_code code)
     emit_move_insn (target, temp);
 }
 
+struct no_conflict_data
+{
+  rtx target, insns, insn;
+  bool must_stay;
+};
+
+/* Called via note_stores by emit_no_conflict_block.  Set P->must_stay
+   if the currently examined clobber / store has to stay in the list of
+   insns that constitute the actual no_conflict block.  */
+static void
+no_conflict_move_test (rtx dest, rtx set, void *p0)
+{
+  struct no_conflict_data *p= p0;
+
+  if (reg_overlap_mentioned_p (p->target, dest)
+      || (p->insn != p->insns
+	  && (reg_mentioned_p (dest, PATTERN (p->insns))
+	      || reg_used_between_p (dest, p->insns, p->insn)
+	      || (GET_CODE (set) == SET
+		  && (modified_in_p (SET_SRC (set), p->insns)
+		      || modified_between_p (SET_SRC (set), p->insns,
+					     p->insn))))))
+    p->must_stay = true;
+}
+
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.
 
@@ -2997,8 +3028,8 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
      these from the list.  */
   for (insn = insns; insn; insn = next)
     {
-      rtx set = 0, note;
-      int i;
+      rtx note;
+      struct no_conflict_data data;
 
       next = NEXT_INSN (insn);
 
@@ -3009,23 +3040,12 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
 	remove_note (insn, note);
 
-      if (GET_CODE (PATTERN (insn)) == SET || GET_CODE (PATTERN (insn)) == USE
-	  || GET_CODE (PATTERN (insn)) == CLOBBER)
-	set = PATTERN (insn);
-      else if (GET_CODE (PATTERN (insn)) == PARALLEL)
-	{
-	  for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
-	    if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == SET)
-	      {
-		set = XVECEXP (PATTERN (insn), 0, i);
-		break;
-	      }
-	}
-
-      if (set == 0)
-	abort ();
-
-      if (! reg_overlap_mentioned_p (target, SET_DEST (set)))
+      data.target = target;
+      data.insns = insns;
+      data.insn = insn;
+      data.must_stay = 0;
+      note_stores (PATTERN (insn), no_conflict_move_test, &data);
+      if (! data.must_stay)
 	{
 	  if (PREV_INSN (insn))
 	    NEXT_INSN (PREV_INSN (insn)) = next;

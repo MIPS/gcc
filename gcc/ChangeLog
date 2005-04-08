@@ -1,3 +1,411 @@
+2005-04-06  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/20793:
+	* integrate.c (allocate_initial_values): Update register liveness
+	information.
+
+	PR rtl-optimization/20769:
+	* bt-load.c (compute_defs_uses_and_gen): Check for the blockage
+	pattern emitted by expand_nl_goto_receiver.
+
+	PR rtl-optimization/20756:
+	* basic-block.h (PROP_DEAD_INSN): Define.
+	* flow.c (propagate_one_insn): Set during mark_set_regs call
+	for a dead insn.
+
+	PR middle-end/20714
+	* optabs.c (no_conflict_data): New struct.
+	(no_conflict_move_test): New function.
+	(emit_no_conflict_block): Use it.
+
+	Workaround for PR rtl-optimization/20413:
+	* sh.md (blt_media_i32, blt_media_i32+1): New splitters.
+
+	Merge of SuperH / STM SH specific patches, including fix for
+	PR target/20695:
+	* config.gcc (sh*-superh-elf, sh*elf (newlib)): Use newlib.h
+	when building with libgloss.
+	(sh*elf): Implement --without-fp option.
+	(sh64-superh-linux*): Don't multilib.
+	(sh*-*-linux): Use sh3 as basic multilib.
+	* config/sh/crt1.asm (SHmedia start): Add code to enable the MMU,
+	and to set up vbr.  Enable FPU before calling set_fpscr.
+	Load atexit address just before use.  Use __SH_FPU_ANY__.
+	(SH3*/SH4* start): Add code to set up vbr.  Use __SH_FPU_ANY__.
+	Set DN bit in fpscr.
+	* config/sh/elf.h (SUBTARGET_ASM_ISA_SPEC): Merge into:
+	 config/sh/sh.h (SH_ASM_SPEC, SUBTARGET_ASM_ISA_SPEC): Here.
+	* config/sh/lib1funcs.asm (HIDDEN_FUNC, HIDDEN_ALIAS): Define.
+	(FMOVD_WORKS): Don't define for __SH5__.
+	(ashiftrt_r4_0, ashiftrt_r4_1, ashiftrt_r4_2, ashiftrt_r4_3): Hide.
+	(ashiftrt_r4_4, ashiftrt_r4_5, ashiftrt_r4_6, ashiftrt_r4_7): Hide.
+	(ashiftrt_r4_8, ashiftrt_r4_9, ashiftrt_r4_10, ashiftrt_r4_11): Hide.
+	(ashiftrt_r4_12, ashiftrt_r4_13, ashiftrt_r4_14, ashiftrt_r4_15): Hide.
+	(ashiftrt_r4_16, ashiftrt_r4_17, ashiftrt_r4_18, ashiftrt_r4_19): Hide.
+	(ashiftrt_r4_20, ashiftrt_r4_21, ashiftrt_r4_22, ashiftrt_r4_23): Hide.
+	(ashiftrt_r4_24, ashiftrt_r4_25, ashiftrt_r4_26, ashiftrt_r4_27): Hide.
+	(ashiftrt_r4_28, ashiftrt_r4_29, ashiftrt_r4_30, ashiftrt_r4_31): Hide.
+	(ashiftrt_r4_32, ashrsi3, ashlsi3, lshrsi3, movmem, movstr): Hide.
+	(movstrSI64, movmemSI64, movstrSI60, movmemSI60): Hide.
+	(movstrSI56, movmemSI56, movstrSI52, movmemSI52): Hide.
+	(movstrSI48, movmemSI48, movstrSI44, movmemSI44): Hide.
+	(movstrSI40, movmemSI40, movstrSI36, movmemSI36): Hide.
+	(movstrSI32, movmemSI32, movstrSI28, movmemSI28): Hide.
+	(movstrSI24, movmemSI24, movstrSI20, movmemSI20): Hide.
+	(movstrSI16,movmemSI16, movstrSI12,movmemSI12): Hide.
+	(movstrSI8,movmemSI8, movstrSI4,movmemSI4): Hide.
+	(movmemSI0, movstrSI0): Remove.
+	(movmemSI4): Schedule last store into rts delay slot.
+	(movmem): Shorten code.  Provide ENDFUNC.
+	(movmem_i4_even, movmem_i4_odd, movmemSI12_i4, mulsi3): Hide.
+	(mulsi3): Provide ENDFUNC.
+	(sdivsi3_i4, sdivsi3_i4, udivsi3_i4, udivsi3, set_fpscr): Hide.
+	(SH5 sdivsi3): Reimplement, using:
+	(div_table): New, linear approximation table lookup for division seed.
+	(sdivsi3_2): New SH5 entry point.
+	(divdi3): Use hidden alias for udivdi3.
+	(moddi3): Use hidden alias for umoddi3.
+	(init_trampoline): Hide.  Provide exact ENDFUNC.
+	(ic_invalidate): Hide.  Re-implement SH4 version, using
+	(ic_invalidate_array): New global.
+	(GCC_shcompact_return_trampoline, GCC_nested_trampoline): Hide.
+	(GCC_push_shmedia_regs_nofpu): Only provide for __SH4_NOFPU__.
+	(GCC_pop_shmedia_regs_nofpu): Likewise.
+	* config/sh/libgcc-excl.ver (__mulsi3): Add.
+	* config/sh/linux.h (TARGET_DEFAULT): Include TARGET_OPT_DEFAULT.
+	* config/sh/sh-protos.h (sh_function_kind): New enum.
+	(sh_gen_truncate, replace_n_hard_rtx): Declare.
+	(function_symbol): Update declaration.
+	(shmedia_cleanup_truncate, sh_contains_memref_p): Declare.
+	* sh.c (cfgloop.h): Include.
+	(TARGET_ADJUST_UNROLL_MAX): Redefine.
+	(print_operand): Add '>' and 'U' support.  Handle TRUNCATE and
+	SIGN_EXTEND.
+	(function_sybol): Add arguments for target and kind of symbol.
+	If not an ordinary function symbol, make sure the string becomes
+	unique.  For PIC, load appropriately depending on kind of symbol.
+	Changed all callers.
+	(prepare_move_operands): Dont copy R0 to a pseudo for SHmedia.
+	(multcosts): Check sh_multcost_str.  If not set, return 2 for
+	SHMEDIA TARGET_SMALLCODE.
+	(sh_rtx_costs): Lower some costs when outer_code is SET.  Add code
+	for CONST_VECTOR, MINUS and PARALLEL.
+	(gen_shifty_op): Don't emit nop.
+	(expand_ashiftrt): While expanding to rtl, do shift by 31 using a
+	register set to zero.
+	(gen_datalabel_ref): Make sure that the string is shared.
+	(MAX_POOL_SIZE): Define as 372.
+	(find_barrier): Remove spurious adjustment.
+	(sh_media_register_for_return): Return -1 for interrupt handlers.
+	(sh_pch_valid_p): Use a copy of TARGET_OPTIONS.
+	(general_movsrc_operand): Accept vector that match sh_rep_vec.
+	(general_movdst_operand): For SHmedia, recject paradoxical DImode
+	subregs before high_life / reload.
+	(arith_reg_operand): Allow no-op sign extensions.
+	(logical_reg_operand, fp_arith_reg_dest, xor_operand): New functions.
+	(cmp_operand, shift_operator, logical_operator): Likewise.
+	(minuend_operand, ua_address_operand, cache_address_operand): Likewise.
+	(ua_offset, shift_count_reg_operand, shift_count_operand): Likewise.
+	(sh_adjust_unroll_max, replace_n_hard_rtx, sh_gen_truncate): Likewise.
+	(shmedia_cleanup_truncate, sh_contains_memref_p_1): Likewise.
+	(sh_contains_memref_p): Likewise.
+	(shmedia_6bit_operand): Remove.
+	(arith_operand): Allow some TRUNCATEs.
+	(logical_operand): Disallow subregs <= SImode of >= DImode.
+	(greater_comparison_operator): Fix mode comparison.
+	(less_comparison_operator): Likewise.
+	(target_reg_operand, target_operand): Compare modes with Pmode.
+	(sh_adjust_cost): Consider the dependency between a target register
+	load and its use in a subsequent block.
+	Implement mac_media latency exception.
+	Before reload, anticipate floating point latencies to be at least four.
+	Give preference to the ptabs feeding a casesi_jump_media.
+	Handle UNSPEC in a CALL address.
+	(sh_optimize_target_register_callee_saved): Improve handling of
+	borderline cases.
+	(sh_function_ok_for_sibcall): Allow for non-pic, and also when we
+	will use the symbol with @GOTOFF addressing.
+	(SH_BLTIN_UDI): Remove.
+	(SH_BLTIN_LDUA_L64, SH_BLTIN_LDUA_Q64, SH_BLTIN_STUA_L64): New.
+	(SH_BLTIN_STUA_Q64): Likewise.
+	(signature_args, SH_BLTIN_NUM_SHARED_SIGNATURES): Update.
+	(SH_BLTIN_2, SH_BLTIN_SU, SH_BLTIN_3, SH_BLTIN_SUS): Renumber.
+	(SH_BLTIN_PSSV, SH_BLTIN_XXUU, SH_BLTIN_UUUU, SH_BLTIN_PV): Likewise.
+	(bdesc): Add entries for alloco, mac_media, sqrtdf2, sqrtsf2, fsrra_s,
+	{ld,st}{hi,lo}.[lq] and prefetch.
+	Change mextr entries to use SH_BLTIN_V8QI3.
+	(sh_media_init_builtins): Implement specific TARGET_SHMEDIA32 /
+	TARGET_SHMEDIA64 checks for pointer arguments.
+	(sh_expand_builtin): For pointer types, use ptr_mode / ptr_type_mode.
+	(sh_register_move_cost): Check sh_gettrcost_str.
+	(cmpsi_operand): T_REG is only allowed for TARGET_SH1.
+	(sh_output_mi_thunk): Make static.  Check that needed registers are
+	actually available.  Make sure that the sibcall won't go via the PLT.
+	(sh_multcost_str, sh_gettrcost_str, sh_div_str): New variables.
+	(cut2_workaround_str, sh_div_strategy, boardtype, osruntime): Likewise.
+	(arith_reg_dest): Allow paradoxical DImode subreg for ! TARGET_SHMEDIA.
+	* sh.h (TARGET_CPU_CPP_BUILTINS): Define __SH_FPU_ANY__ and
+	__SH_FPU_DOUBLE__.
+	(INDEXED_ADDRESS_BIT, ADJUST_UNROLL_BIT, TARGET_DIVIDE_INV): Define.
+	(TARGET_HARVARD): Also true for TARGET_SH5.
+	(TARGET_DIVIDE_FP, TARGET_DIVIDE_INV_FP, TARGET_DIVIDE_CALL2): Define.
+	(TARGET_DIVIDE_INV_MINLAT, TARGET_DIVIDE_INV20U): Define.
+	(TARGET_DIVIDE_INV20L, TARGET_DIVIDE_INV_CALL): Define.
+	(TARGET_DIVIDE_INV_CALL2, TARGET_ALLOW_INDEXED_ADDRESS): Define.
+	(TARGET_ADJUST_UNROLL, TARGET_OPT_DEFAULT, SUBTARGET_OPTIONS): Define.
+	(TARGET_SWITCHES): Removed excessive whitespace.  Added options
+	indexed-addressing, no-indexed-addressing, adjust-unroll and
+	no-adjust-unroll.
+	(TARGET_DEFAULT): Add TARGET_OPT_DEFAULT.
+	(TARGET_OPTIONS): Define.
+	(EXTRA_SPECS): Add subtarget_asm_spec.
+	(SH_ASM_SPEC): Pass cut2-workaround option.
+	(SUBTARGET_ASM_ISA_SPEC): Enforce STRICT_NOFPU for SH4 --without-fp.
+	(LINK_EMUL_PREFIX): If target defaults to little endian, default to shl.
+	(OPTIMIZATION_OPTIONS): Set sh_div_str.  If not using if not -mieee,
+	set flag_finite_math_only.
+	(sh_divide_strategy_e): New enum.
+	(sh_div_strategy): Declare.
+	(OVERRIDE_OPTIONS): Don't set FMOVD_BIT for TARGET_SHCOMPACT.
+	Clear flag_if_conversion2 for SHMEDIA.
+	Set sh_div_strategy.
+	Leave profile_flag and profile_arc_flag alone.
+	(LOOP_ALIGN): Replace TARGET_HARVARD test with TARGET_HARD_SH4 test.
+	(HARD_REGNO_MODE_OK): Allow TImode in aligned FP registers.
+	(MODES_TIEABLE_P): For TARGET_SHMEDIA, allow tying of integral modes
+	of the same size.
+	(CONST_OK_FOR_I): Fix detection of I06 constraint.
+	(PREFERRED_RELOAD_CLASS): Also choose GENERAL_REGS for
+	PIC_DIRECT_ADDR_P.
+	(SECONDARY_INPUT_RELOAD_CLASS): Fix parentheses.  For TARGET_SHMEDIA,
+	check for inqhi_operand, LABEL_REF and PIC_DIRECT_ADDR_P.
+	(FUNCTION_VALUE, PROMOTE_MODE): Don't promote from SImode.  For
+	TARGET_SHMEDIA32, promote to SImode.
+	(EXTRA_CONSTRAINT_C16): Allow SIGN_EXTEND to SImode.
+	(DATALABEL_REF_NO_CONST_P: Don't allow SYMBOL_REF.
+	(DATALABEL_REF_P): Don't define.
+	(NON_PIC_REFERENCE_P): Allow LABEL_REF and SYMBOL_REF directly inside
+	a CONST.  Don't allow DATALABEL_REF_NO_CONST_P outside of a CONST.
+	Allow a LABEL_REF in a sum.
+	(BASE_REGISTER_RTX_P): Check TRULY_NOOP_TRUNCATION.
+	(INDEX_REGISTER_RTX_P): Likewise.
+	(GO_IF_LEGITIMATE_INDEX): Check if pased the address of an unaligned
+	load / store.
+	(ALLOW_INDEXED_ADDRESS): Define.
+	(GO_IF_LEGITIMATE_ADDRESS): Use it.
+	(TRULY_NOOP_TRUNCATION): Don't allow no-op truncation from 64 bit or
+	beyond to less than 64 bit.
+	(PRINT_OPERAND_PUNCT_VALID_P): Allow '>'.
+	(rtx_equal_function_value_matters): Don't declare.
+	(arith_reg_operand): Allow sign_extend.
+	(PREDICATE_CODES): Allow SIGN_EXTEND in arith_reg_operand.  Add
+	any_arith_reg_dest, cache_address_operand, cmp_operand,
+	fp_arith_reg_dest, logical_operator, logical_reg_operand,
+	minuend_operand, shift_count_operand, shift_count_reg_operand,
+	shift_operator, ua_address_operand, ua_offset, unary_float_operator,
+	xor_operand.  Don't allow PARALLEL in sh_1el_vec and sh_rep_vec
+	Remove shmedia_6bit_operand.
+	(SPECIAL_MODE_PREDICATES): Add any-arith_reg_dest, target_operand
+	and target_reg_operand.
+	(SIDI_OFF, SIMULTANEOUS_PREFETCHES, high_life_started): Define.
+	(sh_multcost_str, sh_gettrcost_str, sh_div_str): Declare.
+	(cut2_workaround_str): Declare.
+	(INDEX_REG_CLASS): Is NO_REGS if ALLOW_INDEXED_ADDRESS is zero.
+	(LEGITIMIZE_RELOAD_ADDRESS): Check ALLOW_INDEXED_ADDRESS.
+	Substitute INDEX_REG_CLASS with R0_REGS.
+	* sh.md (UNSPEC_DIV_INV_M0, UNSPEC_DIV_INV_M1): New constants.
+	(UNSPEC_DIV_INV_M2, UNSPEC_DIV_INV_M3, UNSPEC_DIV_INV20): Likewise.
+	(UNSPEC_ASHIFTRT, UNSPEC_THUNK): Likewise.
+	(Attribute "length"): jump_media has length 8 if
+	TARGET_SH5_CUT2_WORKAROUND is true.
+	("highpart"): New attribute.
+	(cmpsi): Allow TARGET_SHMEDIA.
+	(cmpeqsi_media, cmpgtsi_media, cmpgtusi_media): New patterns.
+	(cmpsieqsi_media, cmpsieqdi_media, cmpsigtsi_media): Likewise.
+	(cmpsigtdi_media, cmpsigtusi_media, cmpsigtudi_media): Likewise.
+	(*cmpne0si_media, *cmpne0sisi_media, movdicc_true+1): Likewise.
+	(movdicc_true+2, movsicc_false, movsicc_true): Likewise.
+	(movsicc_true+1, movsicc_true+2, movsicc_true+3): Likewise.
+	(*movsicc_umin, movsicc, movqicc, *adddisi3_media): Likewise.
+	(addsidi3_media, subdisi3_media, mov_neg_si_t): Likewise.
+	(*subsi3_media+1, *subsi3_media+2, divsi3_media_2): Likewise.
+	(divsi_inv_call, *divsi_inv_call_combine, divsi_inv_m0): Likewise.
+	(divsi_inv_m1, divsi_inv_m2, divsi_inv_m3, divsi_inv_m1_3): Likewise.
+	(divsi_inv20, divsi_inv_fp, *divsi_inv_fp_combine, muldi3): Likewise.
+	(*andsi3_media, andcsi3): Likewise.
+	(cmpeqdi_media): Use cmp_operand operand predicate.
+	(*adddi3_media, adddi3z_media): Use arith_reg_dest operand predicate.
+	(adddi3_compact, adddi3_compact+1, addc, addc1): Likewise.
+	(addsi3_media, *addsi3_compact, *subdi3_media): Likewise.
+	(subdi3_compact, subdi3_compact+1, subc, subc1): Likewise.
+	(*subsi3_internal, *subsi3_media, udivsi3_sh2a, divsi3_sh2a): Likewise.
+	(mul_r, mulsidi3_media, mulsidi3_compact): Likewise.
+	(mulsidi3_compact+1, umulsidi3_media, umulsidi3_compact): Likewise.
+	(umulsidi3_compact+1, *andsi3_compact, anddi3, andcdi3): Likewise.
+	(*subsi3_media): Make define_insn_and_split.  Use minuend_operand
+	operand predicate.
+	(subsi3): Don't force operand 1 into a register if it is a SUBREG.
+	(udivsi3_i1_media, udivsi3): Use Pmode for function/target address.
+	(divsi3_i1_media, beq_media, *beq_media_i, bne_media): Likewise.
+	(bgt_media, bge_media, bgtu_media, bgeu_media, *bgt_media_i): Likewise.
+	(*blt_media_i, bunordered, jump_media, jump, call_media): Likewise.
+	(call_value_media, call, call_value, sibcall_media, sibcall): Likewise.
+	(indirect_jump, casesi_jump_media, GOTaddr2picreg, *ptb): Likewise.
+	(symGOT_load, casesi, casesi_shift_media, casesi_load_media): Likewise.
+	(return_media_i, return_media): Likewise.
+	(udivsi3_i1_media): Enable also for ! TARGET_DIVIDE_FP.
+	(divsi3_i1_media): Likewise.  Don't clobber R2 / R3 / TR1 / TR2.
+	(divsi3): Add support for division by multiplying with inverse.
+	(andsi3): Use logical_reg_operand predicate.  Add SHmedia support.
+	(iorsi3): Rename to:
+	(*iorsi3_compact).
+	(xorsi3): Rename to:
+	(*xorsi3_compact).
+	(iorsi3, *iorsi3_media, *logical_sidi3, xorsi3): New patterns.
+	(*logical_sidisi3, *logical_sidi3_2, rotrdi3_mextr+1): Likewise.
+	(ashrsi2_31+2, *ashlsi_c_void, *ashldisi3_media): Likewise.
+	(*lshrdisi3_media, *ashrdisi3_media, ashrdisi3_media_high): Likewise.
+	(ashrdisi3_media_opaque, one_cmpldi2+1, cneg, movsi_const): Likewise.
+	(movsi_const_16bit, *movdi_media_I16, *shori_media_si): Likewise.
+	(*beq_media_i32, *bgt_media_i32, *blt_media_i32): Likewise.
+	(bunordered+1, sibcalli_thunk, ptrel_si, cmpsieqsf_media): Likewise.
+	(cmpsieqdf_media, addv2hi3, ashlv2si3+1, subv2hi3, ldhi_l): Likewise.
+	(ldhi_q, *ldhi_q_comb0, *ldhi_q_comb1, ldlo_l, ldlo_q): Likewise.
+	(*ldlo_q_comb0, *ldlo_q_comb1, sthi_l, sthi_q): Likewise.
+	(*sthi_q_comb0, *sthi_q_comb1, stlo_l, stlo_q): Likewise.
+	(*stlo_q_comb0, *stlo_q_comb1, ldhi_l64, ldhi_q64, ldlo_l64): Likewise.
+	(ldlo_q64, sthi_l64, sthi_q64, stlo_l64, stlo_q64, alloco_i): Likewise.
+	(alloca_i+1): Likewise.
+	(prefetch_media): Inhibit generator function generation.
+	(prefetch_i4): Likewise.  Also enable for TARGET_SHCOMPACT.
+	(*iorsi3_compact, iordi3): Use arith_reg_dest operand predicate.
+	(*xorsi3_compact, xordi3, xordi3+1, rotlsi3_1, rotlsi3_31): Likewise.
+	(rotlsi3_16, rotlsi3, *rotlhi3_8, ashlsi3_sh2a, ashlsi3_std): Likewise.
+	(ashlhi3_k, ashlsi3_n, ashlsi3_n+1, ashlsi3_media): Likewise.
+	(*ashlhi3_n, ashlhi3+1, ashrsi3_sh2a, ashrsi3_k, ashrsi2_16): Likewise.
+	(ashrsi2_16+1, ashrsi2_31, ashrsi2_31+1, ashlsi_c): Likewise.
+	(ashrsi3_d, ashrsi3_media, lshrsi3_sh2a, lshrsi3_d): Likewise.
+	(lshrsi3_m, lshrsi3_k, lshrsi3_n, lshrsi3_n, lshrsi3_media): Likewise.
+	(lshrsi3, ashldi3_k, ashldi3_mediai, lshrdi3_k): Likewise.
+	(ashrdi3_k, xtrct_left, xtrct_right, negc, *negdi_media): Likewise.
+	(negsi2, one_cmplsi2, one_cmpldi2, zero_extendsidi2): Likewise.
+	(*zero_extendhisi2_compact, *zero_extendqisi2_compact): Likewise.
+	(zero_extendqihi2, extendhisi2, *extendhisi2_compact): Likewise.
+	(extendqisi2, *extendqisi2_compact, extendqihi2): Likewise.
+	(movsi_const_16bit+1, *movdi_media_I16+1): Likewise.
+	(movdf_media_nofpu+1, movsf_media_nofpu+1, dect, movt, seq): Likewise.
+	(movnegt+1, divsf3_i): Likewise.
+	(xordi3): Use xor_operand operand predicate.
+	(ashlsi3_media): Use shift_count_operand operand predicate.
+	(ashrsi3_media, lshrsi3_media, ashldi3_media, lshrdi3_media): Likewise.
+	(ashrdi3_media): Likewise.
+	(ashrsi2_31+1): Use mov_neg_si_t.
+	(lshrdi3_media, ashrdi3_media): Use ext_dest_operand predicate.
+	Make sure that either the destination is not a subreg, or that the
+	shift generates a sufficient number of sign bit copies.
+	(*loaddi_trunc): Use any_register_operand predicate.
+	(ic_invalidate_line_sh4a): Likewise.
+	(*zero_extendhisi2_media+1): Use simplify_gen_subreg.
+	(*extendhisi2_media+1i, *extendqisi2_media+1): Likewise.
+	(extendsidi2): Add fmov.sl alternative.
+	(load_ra): Add mode for operand 1.
+	(*movsi_media): Discourage the use of floating point registers.
+	Allow TRUNCATE.
+	(*movsi_media_nofpu): Ignore target register alternative for register
+	preferencing.  Allow TRUNCATE.
+	(movsi_const_16bit+1): Use gen_movsi_const, and add an REG_EQUAL note.
+	(*movqi_media): Use extend_reg_or_0_operand predicate.
+	(*movdi_media): Ignore target register alternative for register
+	preferencing.  Discourage the use of floating point registers.
+	(*movdi_media_nofpu): Ignore target register alternative for register
+	preferencing.
+	(movdi_const_16bit+1): If the source is subregged from SImode,
+	sign-extend highpart.  Use ext_dest_operand predicate.
+	(movdi_const_16bit+2, shori_media): Use ext_dest_operand predicate.
+	(reload_outdf+7, reload_outdf+8): Check ALLOW_INDEXED_ADDRESS.
+	(stuff_delay_slot): Add modes for operands 0 and 1.
+	(*beq_media_i, *bgt_media_i): Add '>' to output templates.
+	(*blt_media_i, jump_media): Likewise.
+	(beq, bne): Pass through SImode inputs, and I06 constants.
+	(bgt, blt, ble, bge, bgtu): Pass through SImode inputs, the constant 0.
+	(bltu, bgeu, bleu): Likewise.
+	(GOTaddr2picreg): Don't call gen_datalabel_ref.
+	(ptrel): Rename to:
+	(ptrel_di).
+	(tls_global_dynamic, tls_local_dynamic): Add mode for call.
+	(seq): Properly support input modes other than DImode.
+	(slt, sle, sgt, sge,sne): Properly support SImode.
+	(addsf3_i, negdf2_i, sqrtdf2_i, absdf2_i): Use fp_arith_reg_operand.
+	(mac_media) Enable generator function generation.
+	(fix_truncsfdi2): Use fp_arith_reg_dest operand predicate.
+	(fix_truncdfdi2): Likewise.
+	(movv8qi_i+3): Enable for CONST0_RTX too.
+	(movv2hi_i): Use add.l, not addz.l.
+	(ashlv2si3, ashlv4hi3, lshrv2si3): Use shift_count_reg_operand.
+	(lshrv4hi3): Likewise.
+	(ussubv8qi3): Allow zero for operand 1.
+	(prefetch): Allow any mode for operand 0.  Enable for SHCOMPACT.
+	Use force_reg.
+	* config/sh/shmedia.md: (shmedia): Remove automaton declaration.
+	(sh5inst_pipe, sh5fpu_pipe): New automatons.
+	(sh5issue): Use sh5inst_pipe.
+	(sh5fds): Use sh5fpu_pipe.
+	(shmedia_fdiv, shmedia_dfdiv): Also use sh5issue.
+	* config/sh/sshmedia.h (sh_media_GETCON, sh_media_PUTCON): Declare
+	with always_inline Attribute.
+	* t-sh64 (LIB1ASMFUNCS): Add _div_table.
+	* config/sh/ushmedia.h (sh_media_MABS_L): Use builtin function.
+	(sh_media_MABS_W, sh_media_MADD_L, sh_media_MADD_W): Likewise.
+	(sh_media_MADDS_L, sh_media_MADDS_UB, sh_media_MADDS_W): Likewise.
+	(sh_media_MCMPEQ_B, sh_media_MCMPEQ_L, sh_media_MCMPEQ_W): Likewise.
+	(sh_media_MCMPGT_UB, sh_media_MCMPGT_L, sh_media_MCMPGT_W): Likewise.
+	(sh_media_MCMV, sh_media_MCNVS_LW, sh_media_MCNVS_WB): Likewise.
+	(sh_media_MCNVS_WUB, sh_media_MEXTR1, sh_media_MEXTR2): Likewise.
+	(sh_media_MEXTR3, sh_media_MEXTR4, sh_media_MEXTR5): Likewise.
+	(sh_media_MEXTR6, sh_media_MEXTR7, sh_media_MMACFX_WL): Likewise.
+	(sh_media_MMACNFX_WL, sh_media_MMUL_L, sh_media_MMUL_W): Likewise.
+	(sh_media_MMULFX_L, sh_media_MMULFX_W, sh_media_MMULFXRP_W): Likewise.
+	(sh_media_MMULHI_WL, sh_media_MMULLO_WL): Likewise.
+	(sh_media_MMULSUM_WQ, sh_media_MPERM_W, sh_media_MSAD_UBQ): Likewise.
+	(sh_media_MSHALDS_L, sh_media_MSHALDS_W, sh_media_MSHARD_L): Likewise.
+	(sh_media_MSHARD_W, sh_media_MSHARDS_Q, sh_media_MSHFHI_B): Likewise.
+	(sh_media_MSHFHI_L, sh_media_MSHFHI_W, sh_media_MSHFLO_B): Likewise.
+	(sh_media_MSHFLO_L, sh_media_MSHFLO_W, sh_media_MSHLLD_L): Likewise.
+	(sh_media_MSHLLD_W, sh_media_MSHLRD_L, sh_media_MSHLRD_W): Likewise.
+	(sh_media_MSUB_L, sh_media_MSUB_W, sh_media_MSUBS_L): Likewise.
+	(sh_media_MSUBS_UB, sh_media_MSUBS_W, sh_media_FABS_D): Likewise.
+	(sh_media_FABS_S, sh_media_FCMPUN_D, sh_media_FCMPUN_S): Likewise.
+	(sh_media_FIPR_S, sh_media_FMAC_S, sh_media_FSQRT_D): Likewise.
+	(sh_media_FSQRT_S, sh_media_FTRV_S, sh_media_LDHI_L): Likewise.
+	(sh_media_LDHI_Q, sh_media_LDLO_L, sh_media_LDLO_Q): Likewise.
+	(sh_media_STHI_L, sh_media_STHI_Q, sh_media_STLO_L): Likewise.
+	(sh_media_STLO_Q, sh_media_NSB, sh_media_BYTEREV): Likewise.
+	(sh_media_PREFO, sh_media_ALLOCO): Likewise.
+	(sh_media_FCOSA_S, sh_media_FSINA_S): New function.
+	(sh_media_FMOV_DQ, sh_media_FMOV_LS): Use union assignment.
+	(sh_media_FMOV_QD, sh_media_FMOV_SL): Likewise.
+	(sh_media_CMVEQ): Use C code. Add attribute always_inline.
+	(sh_media_CMVNE): Likewise.
+	(sh_media_ADDZ_L): Use C code.
+	(sh_media_unaligned_LD_L): Use intrinsics directly.
+	(sh_media_unaligned_LD_Q, sh_media_unaligned_ST_L): Likewise.
+	(sh_media_unaligned_ST_Q): Likewise.
+	* config/sh/divtab.c: New file.
+
+2005-04-06  Andrew Stubbs <andrew.stubbs@superh.com>
+	    J"orn Rennecke <joern.rennecke@superh.com>
+
+	* config/sh/superh64.h, config/sh/superh.h: New files.
+	* config/sh/newlib.h, config/sh/t-superh: Likewise.
+	* config.gcc: Add support for sh*-superh-elf* and sh64-superh-linux*.
+
+2005-04-06  J"orn Rennecke <joern.rennecke@st.com>
+	    Richard Shann <rshann@superh.com>
+
+	PR middle-end/20396:
+	* loop.c (combine_movables): Take TRULY_NOOP_TRUNCATION into account.
+	* optabs.c (expand_binop): Likewise.
+
 2005-04-05  Paolo Bonzini  <bonzini@gnu.org>
 
 	* system.h: Fix typo.
