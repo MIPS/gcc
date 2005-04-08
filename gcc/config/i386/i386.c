@@ -4439,6 +4439,12 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
+/* APPLE LOCAL begin fix-and-continue x86 */
+#ifndef TARGET_FIX_AND_CONTINUE
+#define TARGET_FIX_AND_CONTINUE 0
+#endif
+/* APPLE LOCAL end fix-and-continue x86 */
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -4448,6 +4454,23 @@ ix86_expand_prologue (void)
   bool pic_reg_used;
   struct ix86_frame frame;
   HOST_WIDE_INT allocate;
+
+  /* APPLE LOCAL begin fix-and-continue x86 */
+  if (TARGET_FIX_AND_CONTINUE)
+    {
+      /* gdb on darwin arranges to forward a function from the old
+	 address by modifying the first 6 instructions of the function
+	 to branch to the overriding function.  This is necessary to
+	 permit function pointers that point to the old function to
+	 actually forward to the new function.  */
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+    }
+  /* APPLE LOCAL end fix-and-continue x86 */
 
   ix86_compute_frame_layout (&frame);
 

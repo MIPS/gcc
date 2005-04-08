@@ -213,5 +213,28 @@ extern void darwin_x86_file_end (void);
       { target_flags |= MASK_SSE2; ix86_fpmath_string = "sse"; } \
     if (!ix86_arch_string) ix86_arch_string = "pentium-m"; \
     if (!ix86_tune_string) ix86_tune_string = "pentium-m"; \
+									\
+    /* APPLE LOCAL begin fix-and-continue x86 */			\
+    /* Handle -mfix-and-continue.  */					\
+    if (darwin_fix_and_continue_switch)					\
+      {									\
+	const char *base = darwin_fix_and_continue_switch;		\
+	while (base[-1] != 'm') base--;					\
+									\
+	if (*darwin_fix_and_continue_switch != '\0')			\
+	  error ("invalid option %qs", base);				\
+	darwin_fix_and_continue = (base[0] != 'n');			\
+      }									\
+    /* APPLE LOCAL end fix-and-continue x86 */				\
   } while (0)
 /* APPLE LOCAL end default to pentium-m */
+
+/* APPLE LOCAL begin fix-and-continue x86 */
+/* True, iff we're generating fast turn around debugging code.  When
+   true, we arrange for function prologues to start with 6 nops so
+   that gdb may insert code to redirect them, and for data to be
+   accessed indirectly.  The runtime uses this indirection to forward
+   references for data to the original instance of that data.  */
+
+#define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
+/* APPLE LOCAL end fix-and-continue x86 */
