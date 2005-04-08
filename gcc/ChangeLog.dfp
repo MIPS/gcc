@@ -1,3 +1,6 @@
+2005-04-08  Jon Grimm  <jgrimm2@us.ibm.com>
+	* config/dfp-bit.h: Remove extra "*/"
+
 2005-04-08  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in (D32PBIT_FUNCS): Define.
@@ -8,6 +11,8 @@
 	* mklibgcc.in: Process D32PBIT, D64PBIT and D128PBIT variables.
 	* config/i386/t-linux64 (D32PBIT, D64PBIT, D128PBIT): Define.
 	(dfp32-bit.c, dfp64-bit.c dfp128-bit.c): New targets.
+	* config/dfp-bit.h: New file.
+	* config/dfp-bit.c: New file.
 
 2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
 
