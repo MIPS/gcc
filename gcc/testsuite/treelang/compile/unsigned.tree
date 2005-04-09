@@ -17,4 +17,3 @@ main
 	return +1;
 }
 // { dg-final { scan-tree-dump-not "\\\(int\\\)" "generic" } }
-// { dg-final { cleanup-tree-dump "generic" } }

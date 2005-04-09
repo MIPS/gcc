@@ -454,24 +454,12 @@ do {					\
 #define LIB_SPEC "%{!static:-lSystem}"
 #endif
 
-/* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
-#undef LIBGCC_SPEC
-#undef REAL_LIBGCC_SPEC
-/* APPLE LOCAL 64-bit bringup */
-#ifdef ENABLE_SHARED_LIBGCC
-#define REAL_LIBGCC_SPEC 					   \
-   "%{static:-lgcc_static}					   \
-    %{!static:%{static-libgcc:-lgcc -lgcc_eh}			   \
-	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
-			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
-#else
-#define REAL_LIBGCC_SPEC 					 \
-   "%{static:-lgcc_static}					 \
-    %{!static:%{static-libgcc:-lgcc}			         \
-	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	 \
-			       %{!shared-libgcc:-lgcc}}}"
-#endif /* ENABLE_SHARED_LIBGCC */
-/* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
+/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
+#define REAL_LIBGCC_SPEC \
+   "%{static|static-libgcc:-lgcc -lgcc_eh}\
+    %{!static:%{!static-libgcc:\
+      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}\
+      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 /* We don't want anything to do with crt2.o in the 64-bit case;

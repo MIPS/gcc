@@ -343,7 +343,7 @@ static void dbxout_handle_pch (unsigned);
 static void dbxout_source_line (unsigned int, const char *);
 static void dbxout_begin_prologue (unsigned int, const char *);
 static void dbxout_source_file (const char *);
-static void dbxout_function_end (void);
+static void dbxout_function_end (tree);
 static void dbxout_begin_function (tree);
 static void dbxout_begin_block (unsigned, unsigned);
 static void dbxout_end_block (unsigned, unsigned);
@@ -378,7 +378,8 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
-  debug_nothing_rtx		         /* var_location */
+  debug_nothing_rtx,		         /* var_location */
+  0                                      /* start_end_main_source_file */
 };
 #endif /* DBX_DEBUGGING_INFO  */
 
@@ -408,7 +409,8 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
-  debug_nothing_rtx		         /* var_location */
+  debug_nothing_rtx,		         /* var_location */
+  0                                      /* start_end_main_source_file */
 };
 #endif /* XCOFF_DEBUGGING_INFO  */
 
@@ -903,7 +905,7 @@ dbxout_finish_complex_stabs (tree sym, STAB_CODE_TYPE code,
 #if defined (DBX_DEBUGGING_INFO)
 
 static void
-dbxout_function_end (void)
+dbxout_function_end (tree decl)
 {
   char lscope_label_name[100];
 
@@ -923,7 +925,8 @@ dbxout_function_end (void)
      named sections.  */
   if (!use_gnu_debug_info_extensions
       || NO_DBX_FUNCTION_END
-      || !targetm.have_named_sections)
+      || !targetm.have_named_sections
+      || DECL_IGNORED_P (decl))
     return;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
@@ -1307,7 +1310,7 @@ dbxout_function_decl (tree decl)
   dbxout_begin_function (decl);
 #endif
   dbxout_block (DECL_INITIAL (decl), 0, DECL_ARGUMENTS (decl));
-  dbxout_function_end ();
+  dbxout_function_end (decl);
 }
 
 #endif /* DBX_DEBUGGING_INFO  */
@@ -3376,7 +3379,12 @@ dbxout_block (tree block, int depth, tree args)
 static void
 dbxout_begin_function (tree decl)
 {
-  int saved_tree_used1 = TREE_USED (decl);
+  int saved_tree_used1;
+
+  if (DECL_IGNORED_P (decl))
+    return;
+
+  saved_tree_used1 = TREE_USED (decl);
   TREE_USED (decl) = 1;
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
     {

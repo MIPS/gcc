@@ -57,7 +57,6 @@ static tree vect_get_vec_def_for_operand (tree, tree);
 static tree vect_init_vector (tree, tree);
 static void vect_finish_stmt_generation 
   (tree stmt, tree vec_stmt, block_stmt_iterator *bsi);
-static void update_vuses_to_preheader (tree, struct loop*);
 
 /* Utility function dealing with loop peeling (not peeling itself).  */
 static void vect_generate_tmps_on_preheader 
@@ -65,7 +64,7 @@ static void vect_generate_tmps_on_preheader
 static tree vect_build_loop_niters (loop_vec_info);
 static void vect_update_ivs_after_vectorizer (loop_vec_info, tree, edge); 
 static tree vect_gen_niters_for_prolog_loop (loop_vec_info, tree);
-static void vect_update_init_of_dr (struct data_reference *, tree niters);
+static void vect_update_inits_of_dr (struct data_reference *, tree niters);
 static void vect_update_inits_of_drs (loop_vec_info, tree);
 static void vect_do_peeling_for_alignment (loop_vec_info, struct loops *);
 static void vect_do_peeling_for_loop_bound 
@@ -83,12 +82,15 @@ static tree
 vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 {
   const char *prefix;
+  int prefix_len;
   tree new_vect_var;
 
   if (var_kind == vect_simple_var)
     prefix = "vect_"; 
   else
     prefix = "vect_p";
+
+  prefix_len = strlen (prefix);
 
   if (name)
     new_vect_var = create_tmp_var (type, concat (prefix, name, NULL));
@@ -305,6 +307,11 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   tree vect_ptr_type;
   tree vect_ptr;
   tree tag;
+  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+  vuse_optype vuses = STMT_VUSE_OPS (stmt);
+  int nvuses, nv_may_defs, nv_must_defs;
+  int i;
   tree new_temp;
   tree vec_stmt;
   tree new_stmt_list = NULL_TREE;
@@ -344,23 +351,36 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   add_referenced_tmp_var (vect_ptr);
   
   
-  /** (2) Add aliasing information to the new vector-pointer:
-          (The points-to info (SSA_NAME_PTR_INFO) may be defined later.)  **/
+  /** (2) Handle aliasing information of the new vector-pointer:  **/
   
   tag = STMT_VINFO_MEMTAG (stmt_info);
   gcc_assert (tag);
-
-  /* If the memory tag of the original reference was not a type tag or
-     if the pointed-to type of VECT_PTR has an alias set number
-     different than TAG's, then we need to create a new type tag for
-     VECT_PTR and add TAG to its alias set.  */
-  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG
-      || get_alias_set (tag) != get_alias_set (TREE_TYPE (vect_ptr_type)))
-    add_type_alias (vect_ptr, tag);
-  else
-    var_ann (vect_ptr)->type_mem_tag = tag;
+  get_var_ann (vect_ptr)->type_mem_tag = tag;
   
-  var_ann (vect_ptr)->subvars = STMT_VINFO_SUBVARS (stmt_info);
+  /* Mark for renaming all aliased variables
+     (i.e, the may-aliases of the type-mem-tag).  */
+  nvuses = NUM_VUSES (vuses);
+  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
+  for (i = 0; i < nvuses; i++)
+    {
+      tree use = VUSE_OP (vuses, i);
+      if (TREE_CODE (use) == SSA_NAME)
+        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
+    }
+  for (i = 0; i < nv_may_defs; i++)
+    {
+      tree def = V_MAY_DEF_RESULT (v_may_defs, i);
+      if (TREE_CODE (def) == SSA_NAME)
+        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
+    }
+  for (i = 0; i < nv_must_defs; i++)
+    {
+      tree def = V_MUST_DEF_RESULT (v_must_defs, i);
+      if (TREE_CODE (def) == SSA_NAME)
+        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
+    }
+
 
   /** (3) Calculate the initial address the vector-pointer, and set
           the vector-pointer to point to it before the loop:  **/
@@ -386,13 +406,7 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   /** (4) Handle the updating of the vector-pointer inside the loop: **/
 
   if (only_init) /* No update in loop is required.  */
-    {
-      /* Copy the points-to information if it exists. */
-      if (STMT_VINFO_PTR_INFO (stmt_info))
-        duplicate_ssa_name_ptr_info (vect_ptr_init,
-                                     STMT_VINFO_PTR_INFO (stmt_info));
-      return vect_ptr_init;
-    }
+    return vect_ptr_init;
 
   idx = vect_create_index_for_vector_ref (loop_vinfo);
 
@@ -423,9 +437,6 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
   data_ref_ptr = TREE_OPERAND (vec_stmt, 0);
 
-  /* Copy the points-to information if it exists. */
-  if (STMT_VINFO_PTR_INFO (stmt_info))
-    duplicate_ssa_name_ptr_info (data_ref_ptr, STMT_VINFO_PTR_INFO (stmt_info));
   return data_ref_ptr;
 }
 
@@ -650,7 +661,7 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
 #endif
 
 #ifdef USE_MAPPED_LOCATION
-  SET_EXPR_LOCATION (vec_stmt, EXPR_LOCATION (stmt));
+  SET_EXPR_LOCATION (vec_stmt, EXPR_LOCUS (stmt));
 #else
   SET_EXPR_LOCUS (vec_stmt, EXPR_LOCUS (stmt));
 #endif
@@ -855,8 +866,6 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum machine_mode vec_mode;
   tree dummy;
   enum dr_alignment_support alignment_support_cheme;
-  v_may_def_optype v_may_defs;
-  int nv_may_defs, i;
 
   /* Is vectorizable store? */
 
@@ -899,7 +908,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   alignment_support_cheme = vect_supportable_dr_alignment (dr);
   gcc_assert (alignment_support_cheme);
-  gcc_assert (alignment_support_cheme == dr_aligned);  /* FORNOW */
+  gcc_assert (alignment_support_cheme = dr_aligned);  /* FORNOW */
 
   /* Handle use - get the vectorized def from the defining stmt.  */
   vec_oprnd1 = vect_get_vec_def_for_operand (op, stmt);
@@ -913,20 +922,6 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Arguments are ready. create the new vector stmt.  */
   *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
-
-  /* Copy the V_MAY_DEFS representing the aliasing of the original array
-     element's definition to the vector's definition then update the
-     defining statement.  The original is being deleted so the same
-     SSA_NAMEs can be used.  */
-  copy_virtual_operands (*vec_stmt, stmt);
-  v_may_defs = STMT_V_MAY_DEF_OPS (*vec_stmt);
-  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-	    
-  for (i = 0; i < nv_may_defs; i++)
-    {
-      tree ssa_name = V_MAY_DEF_RESULT (v_may_defs, i);
-      SSA_NAME_DEF_STMT (ssa_name) = *vec_stmt;
-    }
 
   return true;
 }
@@ -1029,7 +1024,6 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       new_temp = make_ssa_name (vec_dest, new_stmt);
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
-      copy_virtual_operands (new_stmt, stmt);
     }
   else if (alignment_support_cheme == dr_unaligned_software_pipeline)
     {
@@ -1067,8 +1061,6 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
       gcc_assert (!new_bb);
       msq_init = TREE_OPERAND (new_stmt, 0);
-      copy_virtual_operands (new_stmt, stmt);
-      update_vuses_to_preheader (new_stmt, loop);
 
 
       /* <2> Create lsq = *(floor(p2')) in the loop  */ 
@@ -1083,7 +1075,6 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
       lsq = TREE_OPERAND (new_stmt, 0);
-      copy_virtual_operands (new_stmt, stmt);
 
 
       /* <3> */
@@ -1102,12 +1093,9 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  gcc_assert (!new_bb);
 	  magic = TREE_OPERAND (new_stmt, 0);
 
-	  /* The result of the CALL_EXPR to this builtin is determined from
-	     the value of the parameter and no global variables are touched
-	     which makes the builtin a "const" function.  Requiring the
-	     builtin to have the "const" attribute makes it unnecessary
-	     to call mark_call_clobbered_vars_to_rename.  */
-	  gcc_assert (TREE_READONLY (builtin_decl));
+	  /* Since we have just created a CALL_EXPR, we may need to
+	     rename call-clobbered variables.  */
+	  mark_call_clobbered_vars_to_rename ();
 	}
       else
 	{
@@ -1140,6 +1128,144 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   *vec_stmt = new_stmt;
   return true;
 }
+
+/* APPLE LOCAL begin AV cond expr. -dpatel */
+/* Patch is waiting FSF review since mid Sep,  2004.  */
+/* Function vect_is_simple_cond.
+  
+   Input:
+   LOOP - the loop that is being vectorized.
+   COND - Condition that is checked for simple use.
+
+   Returns whether a COND can be vectorized. Checkes whether
+   condition operands are supportable using vec_is_simple_use.  */
+
+static bool
+vect_is_simple_cond (tree cond, loop_vec_info loop_vinfo)
+{
+  tree lhs, rhs;
+
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) != tcc_comparison)
+    return false;
+
+  lhs = TREE_OPERAND (cond, 0);
+  rhs = TREE_OPERAND (cond, 1);
+
+  if (TREE_CODE (lhs) == SSA_NAME)
+    {
+      tree lhs_def_stmt = SSA_NAME_DEF_STMT (lhs);
+      if (!vect_is_simple_use (lhs, loop_vinfo, &lhs_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (lhs) != INTEGER_CST && TREE_CODE (lhs) != REAL_CST)
+    return false;
+
+  if (TREE_CODE (rhs) == SSA_NAME)
+    {
+      tree rhs_def_stmt = SSA_NAME_DEF_STMT (rhs);
+      if (!vect_is_simple_use (rhs, loop_vinfo, &rhs_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (rhs) != INTEGER_CST  && TREE_CODE (rhs) != REAL_CST)
+    return false;
+
+  return true;
+}
+
+/* vectorizable_select.
+
+   Check if STMT is conditional modify expression that can be vectorized. 
+   If VEC_STMT is also passed, vectorize the STMT: create a vectorized 
+   stmt using VEC_COND_EXPR  to replace it, put it in VEC_STMT, and insert it 
+   at BSI.
+
+   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+
+bool
+vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
+{
+  tree scalar_dest = NULL_TREE;
+  tree vec_dest = NULL_TREE;
+  tree op = NULL_TREE;
+  tree cond_expr, then_clause, else_clause;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree vec_cond_lhs, vec_cond_rhs, vec_then_clause, vec_else_clause;
+  tree vec_compare, vec_cond_expr;
+  tree new_temp;
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  enum machine_mode vec_mode;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  op = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (op) != COND_EXPR)
+    return false;
+
+  cond_expr = TREE_OPERAND (op, 0);
+  then_clause = TREE_OPERAND (op, 1);
+  else_clause = TREE_OPERAND (op, 2);
+
+  if (!vect_is_simple_cond (cond_expr, loop_vinfo))
+    return false;
+
+  if (TREE_CODE (then_clause) == SSA_NAME)
+    {
+      tree then_def_stmt = SSA_NAME_DEF_STMT (then_clause);
+      if (!vect_is_simple_use (then_clause, loop_vinfo, &then_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (then_clause) != INTEGER_CST 
+	   && TREE_CODE (then_clause) != REAL_CST)
+    return false;
+
+  if (TREE_CODE (else_clause) == SSA_NAME)
+    {
+      tree else_def_stmt = SSA_NAME_DEF_STMT (else_clause);
+      if (!vect_is_simple_use (else_clause, loop_vinfo, &else_def_stmt))
+	return false;
+    }
+  else if (TREE_CODE (else_clause) != INTEGER_CST 
+	   && TREE_CODE (else_clause) != REAL_CST)
+    return false;
+
+
+  vec_mode = TYPE_MODE (vectype);
+
+  if (!vec_stmt) 
+    {
+      STMT_VINFO_TYPE (stmt_info) = select_vec_info_type;
+      return expand_vec_cond_expr_p (op, vec_mode);
+    }
+
+  /* Transform */
+
+  /* Handle def.  */
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+  /* Handle cond expr.  */
+  vec_cond_lhs = vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 0), stmt);
+  vec_cond_rhs = vect_get_vec_def_for_operand (TREE_OPERAND (cond_expr, 1), stmt);
+  vec_then_clause = vect_get_vec_def_for_operand (then_clause, stmt);
+  vec_else_clause = vect_get_vec_def_for_operand (else_clause, stmt);
+
+  /* Arguments are ready. create the new vector stmt.  */
+  vec_compare = build2 (TREE_CODE (cond_expr), vectype, 
+			vec_cond_lhs, vec_cond_rhs);
+  vec_cond_expr = build (VEC_COND_EXPR, vectype, 
+			 vec_compare, vec_then_clause, vec_else_clause);
+
+  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_cond_expr);
+  new_temp = make_ssa_name (vec_dest, *vec_stmt);
+  TREE_OPERAND (*vec_stmt, 0) = new_temp;
+  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+  
+  return true;
+}
+/* APPLE LOCAL end AV cond expr. -dpatel */
 
 
 /* Function vect_transform_stmt.
@@ -1176,6 +1302,15 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
       gcc_assert (done);
       is_store = true;
       break;
+
+/* APPLE LOCAL begin AV cond expr. -dpatel */
+/* Patch is waiting FSF review since mid Sep, 2004.  */
+    case select_vec_info_type:
+      if (!vectorizable_select (stmt, bsi, &vec_stmt))
+	abort ();
+      break;
+/* APPLE LOCAL end AV cond expr. -dpatel */
+
     default:
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
         fprintf (vect_dump, "stmt not supported.");
@@ -1281,84 +1416,6 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
 }
 
 
-/* Function update_vuses_to_preheader.
-
-   Input:
-   STMT - a statement with potential VUSEs.
-   LOOP - the loop whose preheader will contain STMT.
-
-   It's possible to vectorize a loop even though an SSA_NAME from a VUSE
-   appears to be defined in a V_MAY_DEF in another statement in a loop.
-   One such case is when the VUSE is at the dereference of a __restricted__
-   pointer in a load and the V_MAY_DEF is at the dereference of a different
-   __restricted__ pointer in a store.  Vectorization may result in
-   copy_virtual_uses being called to copy the problematic VUSE to a new
-   statement that is being inserted in the loop preheader.  This procedure
-   is called to change the SSA_NAME in the new statement's VUSE from the
-   SSA_NAME updated in the loop to the related SSA_NAME available on the
-   path entering the loop.
-
-   When this function is called, we have the following situation:
-
-        # vuse <name1>
-        S1: vload
-    do {
-        # name1 = phi < name0 , name2>
-
-        # vuse <name1>
-        S2: vload
-
-        # name2 = vdef <name1>
-        S3: vstore
-
-    }while...
-
-   Stmt S1 was created in the loop preheader block as part of misaligned-load
-   handling. This function fixes the name of the vuse of S1 from 'name1' to
-   'name0'.  */
-
-static void
-update_vuses_to_preheader (tree stmt, struct loop *loop)
-{
-  basic_block header_bb = loop->header;
-  edge preheader_e = loop_preheader_edge (loop);
-  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses = NUM_VUSES (vuses);
-  int i;
-
-  for (i = 0; i < nvuses; i++)
-    {
-      tree ssa_name = VUSE_OP (vuses, i);
-      tree def_stmt = SSA_NAME_DEF_STMT (ssa_name);
-      tree name_var = SSA_NAME_VAR (ssa_name);
-      basic_block bb = bb_for_stmt (def_stmt);
-
-      /* For a use before any definitions, def_stmt is a NOP_EXPR.  */
-      if (!IS_EMPTY_STMT (def_stmt)
-	  && flow_bb_inside_loop_p (loop, bb))
-        {
-          /* If the block containing the statement defining the SSA_NAME
-             is in the loop then it's necessary to find the definition
-             outside the loop using the PHI nodes of the header.  */
-	  tree phi;
-	  bool updated = false;
-
-	  for (phi = phi_nodes (header_bb); phi; phi = TREE_CHAIN (phi))
-	    {
-	      if (SSA_NAME_VAR (PHI_RESULT (phi)) == name_var)
-		{
-		  SET_VUSE_OP (vuses, i, 
-			       PHI_ARG_DEF (phi, preheader_e->dest_idx));
-		  updated = true;
-		  break;
-		}
-	    }
-	  gcc_assert (updated);
-	}
-    }
-}
-
-
 /*   Function vect_update_ivs_after_vectorizer.
 
      "Advance" the induction variables of LOOP to the value they should take
@@ -1405,14 +1462,14 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 				  edge update_e)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  basic_block exit_bb = loop->single_exit->dest;
+  basic_block exit_bb = loop->exit_edges[0]->dest;
   tree phi, phi1;
   basic_block update_bb = update_e->dest;
 
   /* gcc_assert (vect_can_advance_ivs_p (loop_vinfo)); */
 
   /* Make sure there exists a single-predecessor exit bb:  */
-  gcc_assert (single_pred_p (exit_bb));
+  gcc_assert (EDGE_COUNT (exit_bb->preds) == 1);
 
   for (phi = phi_nodes (loop->header), phi1 = phi_nodes (update_bb); 
        phi && phi1; 
@@ -1462,6 +1519,8 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
         bsi_insert_before (&last_bsi, stmt, BSI_SAME_STMT);   
 
       /* Fix phi expressions in the successor bb.  */
+      gcc_assert (PHI_ARG_DEF_FROM_EDGE (phi1, update_e) ==
+                  PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0)));
       SET_PHI_ARG_DEF (phi1, update_e->dest_idx, ni_name);
     }
 }
@@ -1486,7 +1545,6 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *new_loop;
   edge update_e;
-  basic_block preheader;
 #ifdef ENABLE_CHECKING
   int loop_num;
 #endif
@@ -1502,10 +1560,14 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
   vect_generate_tmps_on_preheader (loop_vinfo, &ni_name,
 				   &ratio_mult_vf_name, ratio);
 
+  /* Update loop info.  */
+  loop->pre_header = loop_preheader_edge (loop)->src;
+  loop->pre_header_edges[0] = loop_preheader_edge (loop);
+
 #ifdef ENABLE_CHECKING
   loop_num  = loop->num; 
 #endif
-  new_loop = slpeel_tree_peel_loop_to_edge (loop, loops, loop->single_exit,
+  new_loop = slpeel_tree_peel_loop_to_edge (loop, loops, loop->exit_edges[0],
 					    ratio_mult_vf_name, ni_name, false);
 #ifdef ENABLE_CHECKING
   gcc_assert (new_loop);
@@ -1519,11 +1581,10 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
      is a bb after NEW_LOOP, where these IVs are not used.  Find the edge that
      is on the path where the LOOP IVs are used and need to be updated.  */
 
-  preheader = loop_preheader_edge (new_loop)->src;
-  if (EDGE_PRED (preheader, 0)->src == loop->single_exit->dest)
-    update_e = EDGE_PRED (preheader, 0);
+  if (EDGE_PRED (new_loop->pre_header, 0)->src == loop->exit_edges[0]->dest)
+    update_e = EDGE_PRED (new_loop->pre_header, 0);
   else
-    update_e = EDGE_PRED (preheader, 1);
+    update_e = EDGE_PRED (new_loop->pre_header, 1);
 
   /* Update IVs of original loop as if they were advanced 
      by ratio_mult_vf_name steps.  */
@@ -1540,16 +1601,14 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
 
    Set the number of iterations for the loop represented by LOOP_VINFO
    to the minimum between LOOP_NITERS (the original iteration count of the loop)
-   and the misalignment of DR - the data reference recorded in
+   and the misalignment of DR - the first data reference recorded in
    LOOP_VINFO_UNALIGNED_DR (LOOP_VINFO).  As a result, after the execution of 
    this loop, the data reference DR will refer to an aligned location.
 
    The following computation is generated:
 
-   If the misalignment of DR is known at compile time:
-     addr_mis = int mis = DR_MISALIGNMENT (dr);
-   Else, compute address misalignment in bytes:
-     addr_mis = addr & (vectype_size - 1)
+   compute address misalignment in bytes:
+   addr_mis = addr & (vectype_size - 1)
 
    prolog_niters = min ( LOOP_NITERS , (VF - addr_mis/elem_size)&(VF-1) )
    
@@ -1570,53 +1629,37 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   int vectype_align = TYPE_ALIGN (vectype) / BITS_PER_UNIT;
+  tree elem_misalign;
+  tree byte_misalign;
+  tree new_stmts = NULL_TREE;
+  tree start_addr = 
+	vect_create_addr_base_for_vector_ref (dr_stmt, &new_stmts, NULL_TREE);
+  tree ptr_type = TREE_TYPE (start_addr);
+  tree size = TYPE_SIZE (ptr_type);
+  tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
+  tree vectype_size_minus_1 = build_int_cst (type, vectype_align - 1);
   tree vf_minus_1 = build_int_cst (unsigned_type_node, vf - 1);
   tree niters_type = TREE_TYPE (loop_niters);
+  tree elem_size_log = 
+	build_int_cst (unsigned_type_node, exact_log2 (vectype_align/vf));
+  tree vf_tree = build_int_cst (unsigned_type_node, vf);
 
   pe = loop_preheader_edge (loop); 
+  new_bb = bsi_insert_on_edge_immediate (pe, new_stmts); 
+  gcc_assert (!new_bb);
 
-  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) > 0)
-    {
-      int byte_misalign = LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo);
-      int element_size = vectype_align/vf;
-      int elem_misalign = byte_misalign / element_size;
+  /* Create:  byte_misalign = addr & (vectype_size - 1)  */
+  byte_misalign = build2 (BIT_AND_EXPR, type, start_addr, vectype_size_minus_1);
 
-      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-        fprintf (vect_dump, "known alignment = %d.", byte_misalign);
-      iters = build_int_cst (niters_type, (vf - elem_misalign)&(vf-1));
-    }
-  else
-    {
-      tree new_stmts = NULL_TREE;
-      tree start_addr =
-        vect_create_addr_base_for_vector_ref (dr_stmt, &new_stmts, NULL_TREE);
-      tree ptr_type = TREE_TYPE (start_addr);
-      tree size = TYPE_SIZE (ptr_type);
-      tree type = lang_hooks.types.type_for_size (tree_low_cst (size, 1), 1);
-      tree vectype_size_minus_1 = build_int_cst (type, vectype_align - 1);
-      tree elem_size_log =
-        build_int_cst (unsigned_type_node, exact_log2 (vectype_align/vf));
-      tree vf_tree = build_int_cst (unsigned_type_node, vf);
-      tree byte_misalign;
-      tree elem_misalign;
-
-      new_bb = bsi_insert_on_edge_immediate (pe, new_stmts);
-      gcc_assert (!new_bb);
+  /* Create:  elem_misalign = byte_misalign / element_size  */
+  elem_misalign = 
+	build2 (RSHIFT_EXPR, unsigned_type_node, byte_misalign, elem_size_log);
   
-      /* Create:  byte_misalign = addr & (vectype_size - 1)  */
-      byte_misalign = 
-        build2 (BIT_AND_EXPR, type, start_addr, vectype_size_minus_1);
+  /* Create:  (niters_type) (VF - elem_misalign)&(VF - 1)  */
+  iters = build2 (MINUS_EXPR, unsigned_type_node, vf_tree, elem_misalign);
+  iters = build2 (BIT_AND_EXPR, unsigned_type_node, iters, vf_minus_1);
+  iters = fold_convert (niters_type, iters);
   
-      /* Create:  elem_misalign = byte_misalign / element_size  */
-      elem_misalign =
-        build2 (RSHIFT_EXPR, unsigned_type_node, byte_misalign, elem_size_log);
-
-      /* Create:  (niters_type) (VF - elem_misalign)&(VF - 1)  */
-      iters = build2 (MINUS_EXPR, unsigned_type_node, vf_tree, elem_misalign);
-      iters = build2 (BIT_AND_EXPR, unsigned_type_node, iters, vf_minus_1);
-      iters = fold_convert (niters_type, iters);
-    }
-
   /* Create:  prolog_loop_niters = min (iters, loop_niters) */
   /* If the loop bound is known at compile time we already verified that it is
      greater than vf; since the misalignment ('iters') is at most vf, there's
@@ -1624,17 +1667,12 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   if (TREE_CODE (loop_niters) != INTEGER_CST)
     iters = build2 (MIN_EXPR, niters_type, iters, loop_niters);
 
-  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-    {
-      fprintf (vect_dump, "niters for prolog loop: ");
-      print_generic_expr (vect_dump, iters, TDF_SLIM);
-    }
-
   var = create_tmp_var (niters_type, "prolog_loop_niters");
   add_referenced_tmp_var (var);
   iters_name = force_gimple_operand (iters, &stmt, false, var);
 
   /* Insert stmt on loop preheader edge.  */
+  pe = loop_preheader_edge (loop);
   if (stmt)
     {
       basic_block new_bb = bsi_insert_on_edge_immediate (pe, stmt);
@@ -1645,7 +1683,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
 }
 
 
-/* Function vect_update_init_of_dr
+/* Function vect_update_inits_of_dr
 
    NITERS iterations were peeled from LOOP.  DR represents a data reference
    in LOOP.  This function updates the information recorded in DR to
@@ -1653,7 +1691,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
    executed.  Specifically, it updates the OFFSET field of stmt_info.  */
 
 static void
-vect_update_init_of_dr (struct data_reference *dr, tree niters)
+vect_update_inits_of_dr (struct data_reference *dr, tree niters)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
   tree offset = STMT_VINFO_VECT_INIT_OFFSET (stmt_info);
@@ -1686,13 +1724,13 @@ vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
     {
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
-      vect_update_init_of_dr (dr, niters);
+      vect_update_inits_of_dr (dr, niters);
     }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
     {
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
-      vect_update_init_of_dr (dr, niters);
+      vect_update_inits_of_dr (dr, niters);
     }
 }
 
@@ -1730,8 +1768,8 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, struct loops *loops)
 
   /* Update number of times loop executes.  */
   n_iters = LOOP_VINFO_NITERS (loop_vinfo);
-  LOOP_VINFO_NITERS (loop_vinfo) = fold (build2 (MINUS_EXPR,
-		TREE_TYPE (n_iters), n_iters, niters_of_prolog_loop));
+  LOOP_VINFO_NITERS (loop_vinfo) =
+    build2 (MINUS_EXPR, TREE_TYPE (n_iters), n_iters, niters_of_prolog_loop);
 
   /* Update the init conditions of the access functions of all data refs.  */
   vect_update_inits_of_drs (loop_vinfo, niters_of_prolog_loop);
@@ -1768,7 +1806,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
 
-  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
+  if (LOOP_DO_PEELING_FOR_ALIGNMENT (loop_vinfo))
     vect_do_peeling_for_alignment (loop_vinfo, loops);
   
   /* If the loop has a symbolic number of iterations 'n' (i.e. it's not a

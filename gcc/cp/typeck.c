@@ -927,8 +927,6 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 bool
 comptypes (tree t1, tree t2, int strict)
 {
-  int retval;
-
   if (t1 == t2)
     return true;
 
@@ -991,9 +989,7 @@ comptypes (tree t1, tree t2, int strict)
       && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return true;
 
-  if (!(*targetm.comp_type_attributes) (t1, t2))
-    return false;
-
+  /* Compare the types.  Break out if they could be the same.  */
   switch (TREE_CODE (t1))
     {
     case TEMPLATE_TEMPLATE_PARM:
@@ -1006,7 +1002,7 @@ comptypes (tree t1, tree t2, int strict)
 	   DECL_TEMPLATE_PARMS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t2))))
 	return false;
       if (TREE_CODE (t1) == TEMPLATE_TEMPLATE_PARM)
-	return true;
+	break;
       /* Don't check inheritance.  */
       strict = COMPARE_STRICT;
       /* Fall through.  */
@@ -1017,18 +1013,17 @@ comptypes (tree t1, tree t2, int strict)
 	  && (TYPE_TI_TEMPLATE (t1) == TYPE_TI_TEMPLATE (t2)
 	      || TREE_CODE (t1) == BOUND_TEMPLATE_TEMPLATE_PARM)
 	  && comp_template_args (TYPE_TI_ARGS (t1), TYPE_TI_ARGS (t2)))
-	return true;
+	break;
       
       if ((strict & COMPARE_BASE) && DERIVED_FROM_P (t1, t2))
-	return true;
+	break;
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
-	return true;
+	break;
       
-      /* We may be dealing with Objective-C instances...  */
+      /* We may be dealing with Objective-C instances.  */
       if (TREE_CODE (t1) == RECORD_TYPE
-	  && ((retval = objc_comptypes (t1, t2, 0)) >= 0))
-         return retval;
-      /* ...but fall through if we are not.  */
+	  && objc_comptypes (t1, t2, 0) > 0)
+	break;
 
       return false;
 
@@ -1036,51 +1031,72 @@ comptypes (tree t1, tree t2, int strict)
       if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
 		      strict & ~COMPARE_REDECLARATION))
 	return false;
-      return same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+      if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	return false;
+      break;
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      return TYPE_MODE (t1) == TYPE_MODE (t2)
-	     && TYPE_REF_CAN_ALIAS_ALL (t1) == TYPE_REF_CAN_ALIAS_ALL (t2)
-	     && same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+      if (TYPE_MODE (t1) != TYPE_MODE (t2)
+	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2)
+	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	return false;
+      break;
 
     case METHOD_TYPE:
     case FUNCTION_TYPE:
       if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
-      return compparms (TYPE_ARG_TYPES (t1), TYPE_ARG_TYPES (t2));
+      if (!compparms (TYPE_ARG_TYPES (t1), TYPE_ARG_TYPES (t2)))
+	return false;
+      break;
 
     case ARRAY_TYPE:
       /* Target types must match incl. qualifiers.  */
-      return comp_array_types (t1, t2, !!(strict & COMPARE_REDECLARATION));
+      if (!comp_array_types (t1, t2, !!(strict & COMPARE_REDECLARATION)))
+	return false;
+      break;
 
     case TEMPLATE_TYPE_PARM:
-      return (TEMPLATE_TYPE_IDX (t1) == TEMPLATE_TYPE_IDX (t2)
-	      && TEMPLATE_TYPE_LEVEL (t1) == TEMPLATE_TYPE_LEVEL (t2));
+      if (TEMPLATE_TYPE_IDX (t1) != TEMPLATE_TYPE_IDX (t2)
+	  || TEMPLATE_TYPE_LEVEL (t1) != TEMPLATE_TYPE_LEVEL (t2))
+	return false;
+      break;
 
     case TYPENAME_TYPE:
       if (!cp_tree_equal (TYPENAME_TYPE_FULLNAME (t1),
 			  TYPENAME_TYPE_FULLNAME (t2)))
         return false;
-      return same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2));
+      if (!same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2)))
+	return false;
+      break;
 
     case UNBOUND_CLASS_TEMPLATE:
       if (!cp_tree_equal (TYPE_IDENTIFIER (t1), TYPE_IDENTIFIER (t2)))
         return false;
-      return same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2));
+      if (!same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2)))
+	return false;
+      break;
 
     case COMPLEX_TYPE:
-      return same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+      if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	return false;
+      break;
 
     case VECTOR_TYPE:
-      return TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2)
-	     && same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+      if (TYPE_VECTOR_SUBPARTS (t1) != TYPE_VECTOR_SUBPARTS (t2)
+	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+	return false;
       break;
 
     default:
-      break;
+      return false;
     }
-  return false;
+
+  /* If we get here, we know that from a target independent POV the
+     types are the same.  Make sure the target attributes are also
+     the same.  */
+  return targetm.comp_type_attributes (t1, t2);
 }
 
 /* Returns 1 if TYPE1 is at least as qualified as TYPE2.  */
@@ -3610,23 +3626,6 @@ build_x_unary_op (enum tree_code code, tree xarg)
       if (type_dependent_expression_p (xarg))
 	return build_min_nt (code, xarg, NULL_TREE);
 
-      /* For non-dependent pointer-to-member, the SCOPE_REF will be
-	 processed during template substitution.  Just compute the
-	 right type here and build an ADDR_EXPR around it for
-	 diagnostics.  */
-      if (code == ADDR_EXPR && TREE_CODE (xarg) == SCOPE_REF)
-	{
-	  tree type;
-	  if (TREE_TYPE (xarg) == unknown_type_node)
-	    type = unknown_type_node;
-	  else if (TREE_CODE (TREE_TYPE (xarg)) == FUNCTION_TYPE)
-	    type = build_pointer_type (TREE_TYPE (xarg));
-	  else
-	    type = build_ptrmem_type (TREE_OPERAND (xarg, 0),
-				      TREE_TYPE (xarg));
-	  return build_min (code, type, xarg, NULL_TREE);
-	}
-
       xarg = build_non_dependent_expr (xarg);
     }
 
@@ -3690,13 +3689,13 @@ build_x_unary_op (enum tree_code code, tree xarg)
       else if (TREE_CODE (xarg) == TARGET_EXPR)
 	warning ("taking address of temporary");
       exp = build_unary_op (ADDR_EXPR, xarg, 0);
-      if (TREE_CODE (exp) == ADDR_EXPR)
-	PTRMEM_OK_P (exp) = ptrmem;
     }
 
   if (processing_template_decl && exp != error_mark_node)
-    return build_min_non_dep (code, exp, orig_expr,
-			      /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+    exp = build_min_non_dep (code, exp, orig_expr,
+			     /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+  if (TREE_CODE (exp) == ADDR_EXPR)
+    PTRMEM_OK_P (exp) = ptrmem;
   return exp;
 }
 
@@ -4126,6 +4125,29 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  arg = OVL_CURRENT (arg);
 	  break;
 
+	case OFFSET_REF:
+	  /* Turn a reference to a non-static data member into a
+	     pointer-to-member.  */
+	  {
+	    tree type;
+	    tree t;
+
+	    if (!PTRMEM_OK_P (arg))
+	      return build_unary_op (code, arg, 0);
+	    
+	    t = TREE_OPERAND (arg, 1);
+	    if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+	      {
+		error ("cannot create pointer to reference member %qD", t);
+		return error_mark_node;
+	      }
+	    
+	    type = build_ptrmem_type (context_for_name_lookup (t), 
+				      TREE_TYPE (t));
+	    t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
+	    return t;
+	  }
+
 	default:
 	  break;
 	}
@@ -4139,6 +4161,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
+	       && TREE_CODE (arg) != OFFSET_REF
 	       /* APPLE LOCAL non-lvalue assign */
 	       && !lvalue_or_else (&arg, lv_addressof))
 	return error_mark_node;
@@ -4154,7 +4177,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	       expression so we can just form an ADDR_EXPR with the
 	       correct type.  */
 	    || processing_template_decl)
-	  addr = build_address (arg);
+	  {
+	    addr = build_address (arg);
+	    if (TREE_CODE (arg) == OFFSET_REF)
+	      PTRMEM_OK_P (addr) = PTRMEM_OK_P (arg);
+	  }
 	else if (TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
 	  {
 	    tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
@@ -4278,52 +4305,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
   if (TREE_CODE (TREE_TYPE (arg)) == FUNCTION_TYPE
       || TREE_CODE (TREE_TYPE (arg)) == METHOD_TYPE
       || TREE_CODE (arg) == OFFSET_REF)
-    {
-      tree t;
-
-      gcc_assert (TREE_CODE (arg) != SCOPE_REF);
-
-      if (TREE_CODE (arg) != OFFSET_REF)
-	return 0;
-
-      t = TREE_OPERAND (arg, 1);
-
-      /* Check all this code for right semantics.  */	
-      if (TREE_CODE (t) == FUNCTION_DECL)
-	{
-	  if (DECL_DESTRUCTOR_P (t))
-	    error ("taking address of destructor");
-	  return build_unary_op (ADDR_EXPR, t, 0);
-	}
-      if (TREE_CODE (t) == VAR_DECL)
-	return build_unary_op (ADDR_EXPR, t, 0);
-      else
-	{
-	  tree type;
-
-	  if (TREE_OPERAND (arg, 0)
-	      && ! is_dummy_object (TREE_OPERAND (arg, 0))
-	      && TREE_CODE (t) != FIELD_DECL)
-	    {
-	      error ("taking address of bound pointer-to-member expression");
-	      return error_mark_node;
-	    }
-	  if (!PTRMEM_OK_P (arg))
-	    return build_unary_op (code, arg, 0);
-	  
-	  if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
-	    {
-	      error ("cannot create pointer to reference member %qD", t);
-	      return error_mark_node;
-	    }
-
-	  type = build_ptrmem_type (context_for_name_lookup (t), 
-				    TREE_TYPE (t));
-	  t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
-	  return t;
-	}
-    }
-
+    return NULL_TREE;
   
   /* We permit compiler to make function calls returning
      objects of aggregate type look like lvalues.  */
@@ -4724,7 +4706,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
      promotions, floating point promotion, integral conversions,
      floating point conversions, floating-integral conversions,
      pointer conversions, and pointer to member conversions.  */
-/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
   /* DR 128
      
      A value of integral _or enumeration_ type can be explicitly
@@ -4734,7 +4715,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
      performed.  */
   if ((INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type))
       && (INTEGRAL_TYPE_P (intype) || SCALAR_FLOAT_TYPE_P (intype)))
-/* APPLE LOCAL end mainline 4.0 2005-03-25 */
     {
       expr = ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL);
 
@@ -5969,7 +5949,10 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
     return instantiate_type (type, pfn, tf_error | tf_warning);
 
   fn = TREE_OPERAND (pfn, 0);
-  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
+	      /* In a template, we will have preserved the
+		 OFFSET_REF.  */
+	      || (processing_template_decl && TREE_CODE (fn) == OFFSET_REF));
   return make_ptrmem_cst (to_type, fn);
 }
 
@@ -6655,6 +6638,47 @@ cp_has_mutable_p (tree type)
   type = strip_array_types (type);
 
   return CLASS_TYPE_P (type) && CLASSTYPE_HAS_MUTABLE (type);
+}
+
+/* Apply the TYPE_QUALS to the new DECL.  */
+void
+cp_apply_type_quals_to_decl (int type_quals, tree decl)
+{
+  tree type = TREE_TYPE (decl);
+
+  if (type == error_mark_node)
+    return;
+
+  if (TREE_CODE (type) == FUNCTION_TYPE 
+      && type_quals != TYPE_UNQUALIFIED)
+    {
+      /* This was an error in C++98 (cv-qualifiers cannot be added to
+         a function type), but DR 295 makes the code well-formed by
+         dropping the extra qualifiers. */
+      if (pedantic)
+        {
+          tree bad_type = build_qualified_type (type, type_quals);
+          pedwarn ("ignoring %qV qualifiers added to function type %qT",
+                   bad_type, type);
+        }
+
+      TREE_TYPE (decl) = TYPE_MAIN_VARIANT (type);
+      return;
+    }
+
+  /* Avoid setting TREE_READONLY incorrectly.  */
+  if (/* If the object has a constructor, the constructor may modify
+	 the object.  */
+      TYPE_NEEDS_CONSTRUCTING (type)
+      /* If the type isn't complete, we don't know yet if it will need
+	 constructing.  */
+      || !COMPLETE_TYPE_P (type) 
+      /* If the type has a mutable component, that component might be
+	 modified.  */
+      || TYPE_HAS_MUTABLE_P (type))
+    type_quals &= ~TYPE_QUAL_CONST;
+
+  c_apply_type_quals_to_decl (type_quals, decl);
 }
 
 /* Subroutine of casts_away_constness.  Make T1 and T2 point at

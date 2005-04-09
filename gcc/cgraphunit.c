@@ -1,5 +1,5 @@
 /* Callgraph based intraprocedural optimizations.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -304,7 +304,9 @@ cgraph_assemble_pending_functions (void)
 
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       n->next_needed = NULL;
-      if (!n->global.inlined_to && !DECL_EXTERNAL (n->decl))
+      if (!n->global.inlined_to
+	  && !n->alias
+	  && !DECL_EXTERNAL (n->decl))
 	{
 	  cgraph_expand_function (n);
 	  output = true;
@@ -350,8 +352,17 @@ cgraph_finalize_function (tree decl, bool nested)
       memset (&node->rtl, 0, sizeof (node->rtl));
       node->analyzed = false;
       node->local.redefined_extern_inline = true;
-      while (node->callees)
-	cgraph_remove_edge (node->callees);
+
+      if (!flag_unit_at_a_time)
+	{
+	  struct cgraph_node *n;
+
+	  for (n = cgraph_nodes; n; n = n->next)
+	    if (n->global.inlined_to == node)
+	      cgraph_remove_node (n);
+	}
+
+      cgraph_node_remove_callees (node);
 
       /* We may need to re-queue the node for assembling in case
          we already proceeded it and ignored as not needed.  */
@@ -718,6 +729,8 @@ cgraph_finalize_compilation_unit (void)
 {
   struct cgraph_node *node;
 
+  finish_aliases_1 ();
+
   if (!flag_unit_at_a_time)
     {
       cgraph_assemble_pending_functions ();
@@ -880,8 +893,7 @@ cgraph_expand_function (struct cgraph_node *node)
       DECL_INITIAL (node->decl) = error_mark_node;
       /* Eliminate all call edges.  This is important so the call_expr no longer
 	 points to the dead function body.  */
-      while (node->callees)
-	cgraph_remove_edge (node->callees);
+      cgraph_node_remove_callees (node);
     }
 }
 
@@ -1043,8 +1055,7 @@ cgraph_remove_unreachable_nodes (void)
 		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
 		      DECL_INITIAL (node->decl) = error_mark_node;
 		    }
-		  while (node->callees)
-		    cgraph_remove_edge (node->callees);
+		  cgraph_node_remove_callees (node);
 		  node->analyzed = false;
 		}
 	      else
@@ -1068,7 +1079,12 @@ static int
 cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
-  return (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
+  tree fndecl = what->decl;
+  tree arg;
+  int call_insns = PARAM_VALUE (PARAM_INLINE_CALL_COST);
+  for (arg = DECL_ARGUMENTS (fndecl); arg; arg = TREE_CHAIN (arg))
+    call_insns += estimate_move_cost (TREE_TYPE (arg));
+  return (what->global.insns - call_insns) * times + to->global.insns;
 }
 
 /* Estimate the growth caused by inlining NODE into all callees.  */
@@ -1188,7 +1204,8 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
       to->global.insns = new_insns;
     }
   gcc_assert (what->global.inlined_to == to);
-  overall_insns += new_insns - old_insns;
+  if (new_insns > old_insns)
+    overall_insns += new_insns - old_insns;
   ncalls_inlined++;
 }
 

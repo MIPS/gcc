@@ -251,6 +251,10 @@ rest_of_decl_compilation (tree decl,
       debug_hooks->type_decl (decl, !top_level);
       timevar_pop (TV_SYMOUT);
     }
+
+  /* Let cgraph know about the existance of variables.  */
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+    cgraph_varpool_node (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -571,6 +575,8 @@ rest_of_handle_partition_blocks (void)
 static void
 rest_of_handle_sms (void)
 {
+  sbitmap blocks;
+
   timevar_push (TV_SMS);
   open_dump_file (DFI_sms, current_function_decl);
 
@@ -583,10 +589,14 @@ rest_of_handle_sms (void)
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES
-				     | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_ones (blocks);
+  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		    (PROP_DEATH_NOTES
+		     | PROP_REG_INFO
+		     | PROP_KILL_DEAD_CODE
+		     | PROP_SCAN_DEAD_CODE));
+
   no_new_pseudos = 1;
 
   ggc_collect ();
@@ -895,6 +905,7 @@ rest_of_handle_combine (void)
       rebuild_jump_labels (get_insns ());
       timevar_pop (TV_JUMP);
 
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
     }
 
@@ -971,6 +982,9 @@ rest_of_handle_cse (void)
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
   cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
+  if (tem)
+    delete_dead_jumptables ();
+
   if (tem || optimize > 1)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
@@ -1006,6 +1020,7 @@ rest_of_handle_cse2 (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
@@ -1053,6 +1068,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       timevar_pop (TV_JUMP);
     }

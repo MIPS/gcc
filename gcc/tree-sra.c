@@ -1116,6 +1116,12 @@ instantiate_element (struct sra_elt *elt)
   DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (base);
   DECL_ARTIFICIAL (var) = 1;
 
+  if (TREE_THIS_VOLATILE (elt->type))
+    {
+      TREE_THIS_VOLATILE (var) = 1;
+      TREE_SIDE_EFFECTS (var) = 1;
+    }
+
   if (DECL_NAME (base) && !DECL_IGNORED_P (base))
     {
       char *pretty_name = build_element_name (elt);
@@ -1293,14 +1299,12 @@ decide_block_copy (struct sra_elt *elt)
 	  fputc ('\n', dump_file);
 	}
 
-      /* APPLE LOCAL begin mainline and 4.0 branch 2005-03-31  */
       /* Disable scalarization of sub-elements */
       for (c = elt->children; c; c = c->sibling)
 	{
 	  c->cannot_scalarize = 1;
 	  decide_block_copy (c);
 	}
-      /* APPLE LOCAL end mainline and 4.0 branch 2005-03-31  */
       return false;
     }
 
@@ -1642,10 +1646,31 @@ generate_element_init_1 (struct sra_elt *elt, tree init, tree *list_p)
     case CONSTRUCTOR:
       for (t = CONSTRUCTOR_ELTS (init); t ; t = TREE_CHAIN (t))
 	{
-	  sub = lookup_element (elt, TREE_PURPOSE (t), NULL, NO_INSERT);
-	  if (sub == NULL)
-	    continue;
-	  result &= generate_element_init_1 (sub, TREE_VALUE (t), list_p);
+	  tree purpose = TREE_PURPOSE (t);
+	  tree value = TREE_VALUE (t);
+
+	  if (TREE_CODE (purpose) == RANGE_EXPR)
+	    {
+	      tree lower = TREE_OPERAND (purpose, 0);
+	      tree upper = TREE_OPERAND (purpose, 1);
+
+	      while (1)
+		{
+	  	  sub = lookup_element (elt, lower, NULL, NO_INSERT);
+		  if (sub != NULL)
+		    result &= generate_element_init_1 (sub, value, list_p);
+		  if (tree_int_cst_equal (lower, upper))
+		    break;
+		  lower = int_const_binop (PLUS_EXPR, lower,
+					   integer_one_node, true);
+		}
+	    }
+	  else
+	    {
+	      sub = lookup_element (elt, purpose, NULL, NO_INSERT);
+	      if (sub != NULL)
+		result &= generate_element_init_1 (sub, value, list_p);
+	    }
 	}
       break;
 
@@ -2087,10 +2112,10 @@ tree_sra (void)
 {
   /* Initialize local variables.  */
   gcc_obstack_init (&sra_obstack);
-  sra_candidates = BITMAP_XMALLOC ();
-  needs_copy_in = BITMAP_XMALLOC ();
-  sra_type_decomp_cache = BITMAP_XMALLOC ();
-  sra_type_inst_cache = BITMAP_XMALLOC ();
+  sra_candidates = BITMAP_ALLOC (NULL);
+  needs_copy_in = BITMAP_ALLOC (NULL);
+  sra_type_decomp_cache = BITMAP_ALLOC (NULL);
+  sra_type_inst_cache = BITMAP_ALLOC (NULL);
   sra_map = htab_create (101, sra_elt_hash, sra_elt_eq, NULL);
 
   /* Scan.  If we find anything, instantiate and scalarize.  */
@@ -2104,10 +2129,10 @@ tree_sra (void)
   /* Free allocated memory.  */
   htab_delete (sra_map);
   sra_map = NULL;
-  BITMAP_XFREE (sra_candidates);
-  BITMAP_XFREE (needs_copy_in);
-  BITMAP_XFREE (sra_type_decomp_cache);
-  BITMAP_XFREE (sra_type_inst_cache);
+  BITMAP_FREE (sra_candidates);
+  BITMAP_FREE (needs_copy_in);
+  BITMAP_FREE (sra_type_decomp_cache);
+  BITMAP_FREE (sra_type_inst_cache);
   obstack_free (&sra_obstack, NULL);
 }
 

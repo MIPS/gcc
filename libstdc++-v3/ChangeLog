@@ -1,3 +1,512 @@
+2005-04-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/cpu/s390/atomicity.h (__exchange_and_add): Add "memory"
+	clobber to inline assembly statement.
+
+2005-04-05  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/memory, include/tr1/boost_shared_ptr.h: Use mutex
+	to make _Sp_counted_base::add_ref_lock() thread-safe. Check whether
+	to destroy resources by testing for equality, not inequality. Add
+	empty critical sections to solve memory visibility issues.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/auto_ptr_neg.cc: Use dg-excess-errors instead of
+	explicitly listing line numbers which need to be kept in sync.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_neg.cc: Same.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_rvalue_neg.cc: Same.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/weak_ptr_expired.cc: Make XFAIL for consistency when
+	-fno-exceptions.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: Add explanatory comments.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: Same.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: Same.
+
+2005-04-02  Douglas Gregor  <doug.gregor@gmail.com>
+	
+	* include/tr1/tuple_iterate.h (tuple_element): Use new macro
+	_GLIBCXX_T_NUM_ARGS_PLUS_1 because _T is a macro on Darwin.
+	* include/tr1/repeat.h (_GLIBCXX_T_NUM_ARGS_PLUS_1): Define for
+	each iteration.
+	* scripts/gen_includers.h: Define _GLIBCXX_T_NUM_ARGS_PLUS_1 for
+	each iteration.
+	
+2005-04-01  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1/functional (_Maybe_wrap_member_pointer): Wrap up
+	member pointers in _Mem_fn but let other function objects pass
+	through unchanged.
+	* include/tr1/functional_iterator (bind): Reduce number of bind()
+	overloads to two to eliminate ambiguities. Use
+	_Maybe_wrap_member_pointer to handle member pointers gracefully.
+	
+2005-03-31  Chris Jefferson  <chris@bubblescope.net>
+
+        * include/tr1/tuple: Support iteration via tuple_iterate.h.
+        * include/tr1/tuple_iterate.h: Iteration file for tuple.
+
+2005-03-31  Douglas Gregor  <doug.gregor@gmail.com>
+
+        * include/Makefile.am (tr1_headers): Add bind and mu repetition
+        headers and reference_wrapper<> forwarding header.
+        * include/Makefile.in: Regenerate.
+        * include/tr1/bind_iterate.h: Implementation of function call
+        operators for the function object returned from tr1::bind().
+        * include/tr1/bind_repeat.h: Bind-specific repetition header,
+        akin to include/tr1/repeat.h.
+        * include/tr1/functional (_Mem_fn): Bug fix: declare result member
+        template for use with result_of.
+        (is_bind_expression): New.
+        (is_placeholder): New.
+        (_Placeholder): New. Placeholder type for bind.
+        (_Mu): New. Implementation detail of bind.
+        (_Bind, _Bind_result): New. Function objects returned by bind.
+        (_GLIBCXX_JOIN): New. Required to create bind placeholders.
+        * include/tr1/functional_iterate.h (_Bind, _Bind_result, bind):
+        New. Implementation of tr1::bind.
+        * include/tr1/mu_iterate.h (_Mu): result template and operator()
+        for the _Mu helper to bind.
+        * include/tr1/ref_fwd.h (reference_wrapper): Forward declaration
+        used by tuple header.
+        (ref): Ditto.
+        (cref): Ditto.
+        * include/tr1/repeat.h: Add bind-specific repetition macros.
+        * include/tr1/tuple: Use reference_wrapper forwarding header for
+        initial definitions, then include <tr1/functional> at the end, to
+        make the circular dependencies work.
+        (tie): Support zero-argument tie() function.
+        * testsuite/tr1/3_function_objects/bind/all_bound.cc: New test of
+        bind() functionality with parameters bound.
+        * testsuite/tr1/3_function_objects/bind/nested.cc: New test of
+        nested bind() expressions.
+        * testsuite/tr1/3_function_objects/bind/placeholders.cc: New test
+        of bind() placeholders.
+        * testsuite/tr1/3_function_objects/bind/ref.cc: New test of bind()
+        with arguments bound via reference_wrapper<>.
+        * scripts/gen_includers.pl: Generate the repetitive part of
+	include/tr1/repeat.h.
+	* scripts/gen_bind_includers.pl: Generate the repetitive part of
+	include/tr1/bind_repeat.h. 
+	
+2005-03-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/memory: Forward to...
+	* include/tr1/boost_shared_ptr.h: ...here. Add Boost Software License.
+	* include/Makefile.am (tr1_headers): Add boost_shared_ptr.h.
+	* include/Makefile.in: Regenerate.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/cons/
+	auto_ptr_neg.cc: Adjust line numbers.
+
+2005-03-22  Chris Jefferson  <chris@bubblescope.net>
+
+	PR libstdc++/20577
+	* include/bits/stl_algobase.h (iter_swap): Only delegate iter_swap
+	to swap when the iterator's reference_type is a reference to its
+	value_type.
+	* testsuite/25_algorithms/iter_swap/20577.cc: New.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20352
+	* include/std/std_complex.h (pow(const complex<_Tp>&,
+	const _Tp&)): On non-c99 platforms, don't try to compute
+	log of complex zero.
+
+2005-03-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * testsuite/testsuite_abi.cc: Add CXXABI_1.3.1.
+
+2005-03-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (is_polymorphic): Don't forget
+	the virtual destructor, thus avoiding warnings.
+	* testsuite/testsuite_tr1.h (class AbstractClass,
+	class PolymorphicClass): Likewise.
+
+2005-03-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_complex.h (pow(const complex<_Tp>&,
+	const complex<_Tp>&)): Dispatch to either __complex_pow(__x.__rep(),
+	__y.__rep()) or __complex_pow(__x, __y) depending on the macro
+	_GLIBCXX_USE_C99_COMPLEX.
+
+2005-03-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_fstream.h (basic_fstream<>::open,
+	basic_ifstream<>::open, basic_ofstream<>::open): Implement the
+	resolution of DR 409 [Ready], call clear() on success.
+	* docs/html/ext/howto.html: Add an entry for DR 409.
+	* docs/html/faq/index.html (4_4): Clarify the new behavior.
+	* testsuite/27_io/basic_ifstream/open/char/1.cc: Adjust.
+	* testsuite/27_io/basic_ofstream/open/char/1.cc: Likewise.
+
+2005-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Add is_base_of.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_base_of/is_base_of.cc: New.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_base_of/typedefs.cc: Likewise.
+
+2005-03-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* testsuite/22_locale/collate/compare/wchar_t/2.cc,
+	testsuite/22_locale/collate/compare/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/compare/wchar_t/wrapped_locale.cc,
+	testsuite/22_locale/collate/hash/wchar_t/2.cc,
+	testsuite/22_locale/collate/hash/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/hash/wchar_t/wrapped_locale.cc,
+	testsuite/22_locale/collate/transform/wchar_t/2.cc,
+	testsuite/22_locale/collate/transform/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/transform/wchar_t/wrapped_locale.cc:
+	XFAIL on *-*-hpux11.23.
+
+2005-03-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_polymorphic.
+	(is_empty): Minor tweaks.
+	* testsuite/testsuite_tr1.h: Add test types.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_polymorphic/is_polymorphic.cc: New.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_polymorphic/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/is_union_or_class.cc: Add tests.
+
+2005-03-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/functional: Convert relative path.
+
+	* docs/doxygen/user.cfg.in: Add tr1 includes.
+
+2005-03-02  Jonathan Wakely  <redi@gcc.gnu.org>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/
+	cons/auto_ptr_neg.cc: Correct line numbers.
+
+2005-03-02  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/memory: Replace checked_deleter with (unchecked)
+	_Sp_deleter as GCC warns about delete on incomplete types anyway.
+
+2005-03-02  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/memory: Add missing "inline" to __throw_bad_weak_ptr.
+
+2005-03-02  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1/functional (_Has_result_type): Cleanup.
+	(_Result_of_impl): Handle member data pointers correctly.
+	(reference_wrapper): Support invocation.
+	Move repetition code into new file include/tr1/repeat.h.
+	* include/tr1/functional_iterate.h (reference_wrapper): Support
+	invocation.  Cleanup long lines.
+	* include/tr1/ref_wrap_iterate.h (reference_wrapper): Declare
+	invocation operators.
+	* include/tr1/repeat.h: Code repetition header.
+	* include/Makefile.am: Add ref_wrap_iterate.h, repeat.h.
+	* include/Makefile.in: Add ref_wrap_iterate.h, repeat.h.
+	* testsuite/tr1/3_function_objects/reference_wrapper/invoke.cc:
+	New test of reference_wrapper invocation.
+	* testsuite/tr1/3_function_objects/reference_wrapper/typedefs.cc:
+	New test of reference_wrapper typedefs and base classes.
+	* testsuite/tr1/3_function_objects/result_of.cc: Trivial cleanup
+	(e-mail address).
+
+2005-03-02  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1/function (result_of): New class template.
+	* include/tr1/functional/iterator.h: Implementation of TR1
+	result_of.
+	* testsuite/tr1/3_function_objects/result_of.cc: New test
+
+2005-03-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/19065
+	* config/cpu/cris/atomicity.h (__exchange_and_add): In asm, use
+	'Q' constraint, not 'm'.
+
+2005-02-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Add the trivial is_union and is_class;
+	add the __is_union_or_class extension.
+	(is_enum, is_empty): Use the latter.
+	* include/tr1/type_traits_fwd.h: Add __is_union_or_class.
+	* testsuite/testsuite_tr1.h: Add UnionType; trivial formatting
+	fixes.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/is_union_or_class.cc: New.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/typedefs.cc: Likewise.
+
+2005-02-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/tr1/6_containers/unordered/instantiate/hash.cc: Guard
+	wchar_t use with _GLIBCXX_USE_WCHAR_T.
+
+2005-02-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/std_complex.h: _GLIBCXX_USE_C99_COMPLEX_MATH to
+	_GLIBCXX_USE_C99_COMPLEX.
+	* acinclude.m4: Same.
+	* acconfig.h: Same.
+	* configure: Regenerate.
+	* config.h.in: Same.
+	
+2005-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional (mem_fn): Avoid _T, badname on
+	Darwin.
+
+2005-02-23  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1/functional (function): New class template.
+	(mem_fn): New function template.
+	Implementations of TR1 function and mem_fn facilities.
+	* include/tr1/functional_iterate.h: Implementations of TR1
+	function and mem_fn facilities. 
+	* testsuite/tr1/3_function_objects/function/1.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/2.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/3.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/4.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/5.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/6.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/7.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/8.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/9.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/mem_fn.cc: New test of
+	std::tr1::mem_fn. 
+	
+2005-02-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_convertible.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_convertible/is_convertible.cc: New.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_convertible/typedefs.cc: Likewise.
+	* testsuite/testsuite_tr1.h: Add class DerivedType.
+
+	* include/tr1/type_traits (is_function): Don't mistake references
+	to function types for function types.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_function/is_function.cc: Add testcase.
+
+2005-02-22  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* scripts/check_performance: Tweaks.
+
+	* testsuite/27_io/basic_ostream/inserters_other/wchar_t/2.cc: Name
+	output file with extension that clean rules can find.
+
+2005-02-22  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/20091
+	* libsupc++/eh_catch.cc (__cxa_begin_catch): Don't special case
+	decrement of uncaughtExceptions for rethrow.
+
+2005-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Fix License to GPL with exception.
+	* include/tr1/hashtable: Likewise.
+	* include/tr1/tuple: Likewise.
+	* include/tr1/type_traits: Likewise.
+	* include/tr1/type_traits_fwd.h: Likewise.
+	* include/tr1/unordered_map: Likewise.
+	* include/tr1/unordered_set: Likewise.
+	* include/tr1/utility: Likewise.
+
+2005-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/assign/
+	auto_ptr_neg.cc: Add missing dg-do compile directive.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/assign/
+	auto_ptr_rvalue_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/assign/
+	shared_ptr_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/cons/
+	auto_ptr_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	reset_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	swap_neg.cc: Likewise.
+
+2005-02-22  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/Makefile.am, include/Makefile.in: Fix accidental extra
+	change from previous commit.
+
+2005-02-21  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/memory: New file.
+	* include/Makefile.am, include/Makefile.in: Add new TR1 header.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/shared.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/still_shared.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/assign.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_rvalue_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/shared_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/shared_ptr_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/comparison/cmp.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/auto_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/auto_ptr_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/copy.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/default.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/pointer.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/weak_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/weak_ptr_expired.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/dest/dest.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/misc/io.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/misc/swap.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/reset.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/reset_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/swap.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/swap_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/bool_conv.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/get.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/unique.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/use_count.cc: New test.
+
+2005-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (is_member_function_pointer):
+	Remove ugly workaround for c++/19076.
+
+2005-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_Rep::_M_destroy): Don't
+	check for this == &_S_empty_rep, it's always false, here.
+
+2005-02-19  Matt Austern  <austern@gmail.com>
+
+	* include/tr1/functional (tr1_hashtable_define_trivial_hash): Make
+	hash<T>::operator() a const member function for T a fundamental type
+	* include/tr1/hashtable (extract1st::operator()): Declare const.
+	(hash_code_base): Declare all member functions const
+	(hashtable::find): fix call to this->bucket_count()
+	(hashtable::count): Likewise.
+	(hashtable::equal_range): m_incr_bucket applies to iterator, not node.
+	* testsuite/tr1/6_containers/unordered/find/set1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/map1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/multimap1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/multiset1.cc: New test.
+	
+2005-02-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR libstdc++/20071
+	* include/tr1/functional (hash<std::wstring>): Wrap in #ifdef
+	_GLIBCXX_USE_WCHAR_T.
+
+2005-02-18  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/10606
+	* config/linker-map.gnu (CXXABI_1.3.1): Add __cxa_get_exception_ptr.
+	* libsupc++/eh_alloc.cc (__cxa_allocate_exception): Increment
+	uncaughtExceptions here instead of ...
+	* libsupc++/eh_throw.cc (__cxa_throw) ... here.
+	(__cxa_rethrow): Increment uncaughtExceptions here instead of ...
+	* libsupc++/eh_catch.cc (__cxa_end_catch): ... here.
+	(__cxa_get_exception_ptr): New.
+	* libsupc++/unwind-cxx.h (__cxa_get_exception_ptr): Declare.
+
+2005-02-18  Matt Austern  <austern@apple.com>
+
+	* testsuite/tr1/6_containers/unordered/insert/array_syntax.cc: Fix
+	test case to use assignment instead of ==
+	* testsuite/tr1/6_containers/unordered/insert/map_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multimap_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multiset_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/set_range.cc: New test.
+	
+2005-02-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/thread/pthread1.cc: Do not invoke pthread_setconcurrency
+	on Solaris 2.6 and below.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+2005-02-17  Matt Austern  <austern@apple.com>
+
+	* include/tr1/functional (hash): New function object.
+	* include/tr1/hashtable: New file.
+	* include/tr1/unordered_set: New file.
+	* include/tr1/unordered_map: New file.
+	* include/Makefile.am: Add three new TR1 headers.
+	* include/Makefile.in: Likewise.
+	* testsuite/tr1/6_containers/unordered/insert/array_syntax.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/map_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multimap_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multiset_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/set_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/hash.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/map.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/multimap.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/multiset.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/set.cc: New test.
+	
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/23_containers/set/modifiers/16728.cc:
+	Remove redundant include <testsuite_performance.h>.
+
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/19829
+	* testsuite/21_strings/basic_string/find/char/3.cc: Fix the test
+	at line #66 to not access str_lit01 beyond its end.
+	* testsuite/21_strings/basic_string/find/wchar_t/3.cc: Likewise.
+
 2005-02-15  Paolo Carlini  <pcarlini@suse.de>
 	    Jon Grimm  <jgrimm2@us.ibm.com>
 	

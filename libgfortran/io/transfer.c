@@ -177,7 +177,7 @@ read_sf (int *length)
 	  return NULL;
 	}
 
-      if (readlen < 1 || *q == '\n')
+      if (readlen < 1 || *q == '\n' || *q == '\r')
 	{
 	  /* ??? What is this for?  */
           if (current_unit->unit_number == options.stdin_unit)
@@ -386,7 +386,7 @@ write_constant_string (fnode * f)
   for (; length > 0; length--)
     {
       c = *p++ = *q++;
-      if (c == delimiter && c != 'H')
+      if (c == delimiter && c != 'H' && c != 'h')
 	q++;			/* Skip the doubled delimiter.  */
     }
 }
@@ -935,6 +935,12 @@ data_transfer_init (int read_flag)
   current_unit = get_unit (read_flag);
   if (current_unit == NULL)
   {  /* Open the unit with some default flags.  */
+     if (ioparm.unit < 0)
+     {
+       generate_error (ERROR_BAD_OPTION, "Bad unit number in OPEN statement");
+       library_end ();
+       return;
+     }
      memset (&u_flags, '\0', sizeof (u_flags));
      u_flags.access = ACCESS_SEQUENTIAL;
      u_flags.action = ACTION_READWRITE;

@@ -1357,8 +1357,8 @@ determine_specialization (tree template_id,
   /* Count the number of template headers specified for this
      specialization.  */
   header_count = 0;
-  for (b = current_binding_level;
-       b->kind == sk_template_parms || b->kind == sk_template_spec;
+  for (b = current_binding_level; 
+       b->kind == sk_template_parms;
        b = b->level_chain)
     ++header_count;
 
@@ -1427,6 +1427,14 @@ determine_specialization (tree template_id,
 	  if (header_count && header_count != template_count + 1)
 	    continue;
 
+	  /* Check that the number of template arguments at the
+	     innermost level for DECL is the same as for FN.  */
+	  if (current_binding_level->kind == sk_template_parms
+	      && !current_binding_level->explicit_spec_p
+	      && (TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (fn))
+		  != TREE_VEC_LENGTH (TREE_VALUE (current_template_parms))))
+	    continue;
+ 
 	  /* See whether this function might be a specialization of this
 	     template.  */
 	  targs = get_bindings (fn, decl, explicit_targs);
@@ -6491,8 +6499,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  SET_DECL_TEMPLATE_PARM_P (r);
 
 	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	type = type_decays_to (type);
 	TREE_TYPE (r) = type;
-	c_apply_type_quals_to_decl (cp_type_quals (type), r);
+	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
 	if (DECL_INITIAL (r))
 	  {
@@ -6522,7 +6531,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (type == error_mark_node)
 	  return error_mark_node;
 	TREE_TYPE (r) = type;
-	c_apply_type_quals_to_decl (cp_type_quals (type), r);
+	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
 	/* We don't have to set DECL_CONTEXT here; it is set by
 	   finish_member_declaration.  */
@@ -6622,7 +6631,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
 	TREE_TYPE (r) = type;
-	c_apply_type_quals_to_decl (cp_type_quals (type), r);
+	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 	DECL_CONTEXT (r) = ctx;
 	/* Clear out the mangled name and RTL for the instantiation.  */
 	SET_DECL_ASSEMBLER_NAME (r, NULL_TREE);
@@ -7241,22 +7250,18 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	gcc_assert (TREE_CODE (type) != METHOD_TYPE);
 	if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
-	    /* This is really a method type. The cv qualifiers of the
-	       this pointer should _not_ be determined by the cv
-	       qualifiers of the class type.  They should be held
-	       somewhere in the FUNCTION_TYPE, but we don't do that at
-	       the moment.  Consider
-		  typedef void (Func) () const;
-
-		  template <typename T1> void Foo (Func T1::*);
-
-		*/
+            /* The type of the implicit object parameter gets its
+               cv-qualifiers from the FUNCTION_TYPE. */
 	    tree method_type;
-
-	    method_type = build_method_type_directly (TYPE_MAIN_VARIANT (r),
+            tree this_type = cp_build_qualified_type (TYPE_MAIN_VARIANT (r),
+                                                      cp_type_quals (type));
+            tree memptr;
+            method_type = build_method_type_directly (this_type,
 						      TREE_TYPE (type),
 						      TYPE_ARG_TYPES (type));
-	    return build_ptrmemfunc_type (build_pointer_type (method_type));
+            memptr = build_ptrmemfunc_type (build_pointer_type (method_type));
+            return cp_build_qualified_type_real (memptr, cp_type_quals (t),
+                                                 complain);
 	  }
 	else
 	  return cp_build_qualified_type_real (build_ptrmem_type (r, type),
@@ -10286,6 +10291,37 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 				    DEDUCE_EXACT, 0, -1);
 
     case OFFSET_TYPE:
+      /* Unify a pointer to member with a pointer to member function, which
+         deduces the type of the member as a function type. */
+      if (TYPE_PTRMEMFUNC_P (arg))
+        {
+          tree method_type;
+          tree fntype;
+          cp_cv_quals cv_quals;
+
+          /* Check top-level cv qualifiers */
+          if (!check_cv_quals_for_unify (UNIFY_ALLOW_NONE, arg, parm))
+            return 1;
+
+          if (unify (tparms, targs, TYPE_OFFSET_BASETYPE (parm),
+                     TYPE_PTRMEMFUNC_OBJECT_TYPE (arg), UNIFY_ALLOW_NONE))
+            return 1;
+
+          /* Determine the type of the function we are unifying against. */
+          method_type = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (arg));
+          fntype = 
+            build_function_type (TREE_TYPE (method_type),
+                                 TREE_CHAIN (TYPE_ARG_TYPES (method_type)));
+
+          /* Extract the cv-qualifiers of the member function from the
+             implicit object parameter and place them on the function
+             type to be restored later. */
+          cv_quals = 
+            cp_type_quals(TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (method_type))));
+          fntype = build_qualified_type (fntype, cv_quals);
+          return unify (tparms, targs, TREE_TYPE (parm), fntype, strict);
+        }
+
       if (TREE_CODE (arg) != OFFSET_TYPE)
 	return 1;
       if (unify (tparms, targs, TYPE_OFFSET_BASETYPE (parm),
@@ -11092,13 +11128,21 @@ regenerate_decl_from_template (tree decl, tree tmpl)
       while (decl_parm)
 	{
 	  tree parm_type;
+	  tree attributes;
 
 	  if (DECL_NAME (decl_parm) != DECL_NAME (pattern_parm))
 	    DECL_NAME (decl_parm) = DECL_NAME (pattern_parm);
 	  parm_type = tsubst (TREE_TYPE (pattern_parm), args, tf_error,
 			      NULL_TREE);
+	  parm_type = type_decays_to (parm_type);
 	  if (!same_type_p (TREE_TYPE (decl_parm), parm_type))
 	    TREE_TYPE (decl_parm) = parm_type;
+	  attributes = DECL_ATTRIBUTES (pattern_parm);
+	  if (DECL_ATTRIBUTES (decl_parm) != attributes)
+	    {
+	      DECL_ATTRIBUTES (decl_parm) = attributes;
+	      cplus_decl_attributes (&decl_parm, attributes, /*flags=*/0);
+	    }
 	  decl_parm = TREE_CHAIN (decl_parm);
 	  pattern_parm = TREE_CHAIN (pattern_parm);
 	}
@@ -12041,6 +12085,7 @@ value_dependent_expression_p (tree expression)
     {
       switch (TREE_CODE_CLASS (TREE_CODE (expression)))
 	{
+	case tcc_reference:
 	case tcc_unary:
 	  return (value_dependent_expression_p 
 		  (TREE_OPERAND (expression, 0)));
@@ -12064,7 +12109,6 @@ value_dependent_expression_p (tree expression)
 		return true;
 	    return false;
 	  }
-	case tcc_reference:
 	case tcc_statement:
 	  /* These cannot be value dependent.  */
 	  return false;
@@ -12384,7 +12428,8 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (inner_expr) == OVERLOAD 
       || TREE_CODE (inner_expr) == FUNCTION_DECL
       || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+      || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */
   if (TREE_CODE (expr) == VAR_DECL)

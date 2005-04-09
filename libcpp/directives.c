@@ -804,12 +804,10 @@ do_line (cpp_reader *pfile)
   const struct line_maps *line_table = pfile->line_table;
   const struct line_map *map = &line_table->maps[line_table->used - 1];
 
-  /* APPLE LOCAL begin mainline 2005-03-04 */
   /* skip_rest_of_line() may cause line table to be realloc()ed so note down
      sysp right now.  */
 
   unsigned char map_sysp = map->sysp;
-  /* APPLE LOCAL end mainline 2005-03-04 */
   const cpp_token *token;
   const char *new_file = map->to_file;
   unsigned long new_lineno;
@@ -851,7 +849,6 @@ do_line (cpp_reader *pfile)
 
   skip_rest_of_line (pfile);
   _cpp_do_file_change (pfile, LC_RENAME, new_file, new_lineno,
-		       /* APPLE LOCAL mainline 2005-03-04 */
 		       map_sysp);
 }
 

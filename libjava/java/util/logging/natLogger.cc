@@ -17,7 +17,7 @@ details.  */
 
 #include <gcj/cni.h>
 #include <jvm.h>
-#include <java-stack.h>
+
 
 #include <java/lang/Object.h>
 #include <java/lang/Class.h>
@@ -25,25 +25,31 @@ details.  */
 #include <java/lang/StackTraceElement.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 
-using namespace java::util::logging;
-
 java::lang::StackTraceElement* 
 java::util::logging::Logger::getCallerStackFrame ()
 {
-  jclass klass = NULL;
-  _Jv_Method *meth = NULL;
-  _Jv_StackTrace::GetCallerInfo (&Logger::class$, &klass, &meth);
+  gnu::gcj::runtime::StackTrace *t 
+    = new gnu::gcj::runtime::StackTrace(4);
+  java::lang::Class *klass = NULL;
+  int i = 2;
+  try
+    {
+      // skip until this class
+      while ((klass = t->classAt (i)) != getClass())
+	i++;
+      // skip the stackentries of this class
+      while ((klass = t->classAt (i)) == getClass() || klass == NULL)
+	i++;
+    }
+  catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+    {
+      // FIXME: RuntimeError
+    }
 
-  jstring meth_name = NULL;
-  jstring klass_name = NULL;
-  if (klass != NULL)
-    klass_name = klass->getName();
-  if (meth != NULL)
-    meth_name = _Jv_NewStringUtf8Const (meth->name);
-  
   java::lang::StackTraceElement *e 
     = new java::lang::StackTraceElement
-    (JvNewStringUTF (""), 0, klass_name, meth_name, false);
+    (JvNewStringUTF (""), 0, 
+     klass->getName(), t->methodAt(i), false);
 
   return e;
 }

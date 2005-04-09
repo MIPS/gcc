@@ -1,3 +1,44 @@
+2005-03-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (RPATH_ENVVAR): Set to DYLD_LIBRARY_PATH on Darwin.
+	* configure: Regenerate.
+
+2005-03-14  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-03  David Ayers  <d.ayers@inode.at>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR libgcj/20160
+	* ltmain.sh: Avoid creating archives with components that have
+	duplicate basenames.
+
+2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
+
+	* MAINTAINERS (Language Front Ends Maintainers): Add myself as
+	treelang maintainer.
+	(Write After Approval): Remove myself.
+
+2005-02-23  Paul Schlie  <schlie@comcast.net>
+
+	* configure.in: Allow darwin targeted ports to build tk, itcl and
+	libgui.
+	* configure: Regenerate.
+
+2005-02-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libgcj/10353
+	* configure.in (noconfigdirs) <sparc-*-solaris2.[0-6]>: Add libgcj.
+	* configure: Regenerate.
+
+2005-02-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2005-02-10  Ian Lance Taylor  <ian@airs.com>
 
 	* MAINTAINERS: Update my e-mail address.

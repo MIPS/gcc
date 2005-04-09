@@ -1073,6 +1073,11 @@ c_common_post_options (const char **pfilename)
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 
+  /* C99 requires special handling of complex multiplication and division;
+     -ffast-math and -fcx-limited-range are handled in process_options.  */
+  if (flag_isoc99)
+    flag_complex_method = 2;
+
   if (flag_preprocess_only)
     {
       /* Open the output now.  We must do so even if flag_no_output is
@@ -1179,13 +1184,18 @@ c_common_parse_file (int set_yydebug)
   i = 0;
   for (;;)
     {
+      /* Start the main input file, if the debug writer wants it.  */
+      if (debug_hooks->start_end_main_source_file)
+        (*debug_hooks->start_source_file) (0, this_input_filename);
       finish_options ();
       pch_init ();
       push_file_scope ();
       c_parse_file ();
       finish_file ();
       pop_file_scope ();
-
+      /* And end the main input file, if the debug writer wants it */
+      if (debug_hooks->start_end_main_source_file)
+        (*debug_hooks->end_source_file) (0);
       if (++i >= num_in_fnames)
 	break;
       cpp_undef_all (parse_in);

@@ -2060,8 +2060,10 @@ expand_call (tree exp, rtx target, int ignore)
 	    structure_value_addr = expand_expr (return_arg, NULL_RTX,
 						VOIDmode, EXPAND_NORMAL);
 	  }
+#if 0
 	else if (target && MEM_P (target))
 	  structure_value_addr = XEXP (target, 0);
+#endif
 	else
 	  {
 	    /* For variable-sized objects, we must be called with a target
@@ -2360,10 +2362,14 @@ expand_call (tree exp, rtx target, int ignore)
 	 Also, do all pending adjustments now if there is any chance
 	 this might be a call to alloca or if we are expanding a sibling
 	 call sequence or if we are calling a function that is to return
-	 with stack pointer depressed.  */
+	 with stack pointer depressed.
+	 Also do the adjustments before a throwing call, otherwise
+	 exception handling can fail; PR 19225. */
       if (pending_stack_adjust >= 32
 	  || (pending_stack_adjust > 0
 	      && (flags & (ECF_MAY_BE_ALLOCA | ECF_SP_DEPRESSED)))
+	  || (pending_stack_adjust > 0
+	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
 

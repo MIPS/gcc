@@ -1262,11 +1262,9 @@ void
 machopic_select_rtx_section (enum machine_mode mode, rtx x,
 			     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  /* APPLE LOCAL begin 64-bit mainline */
   if (GET_MODE_SIZE (mode) == 8
       && (GET_CODE (x) == CONST_INT
 	  || GET_CODE (x) == CONST_DOUBLE))
-    /* APPLE LOCAL end 64-bit mainline */
     literal8_section ();
   else if (GET_MODE_SIZE (mode) == 4
 	   && (GET_CODE (x) == CONST_INT

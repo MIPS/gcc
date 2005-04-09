@@ -1,5 +1,5 @@
-/* DomLSEx.java -- 
-   Copyright (C) 2004 Free Software Foundation, Inc.
+/* GdkScreenGraphicsDevice.java -- information about a screen device
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,41 +35,48 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-package gnu.xml.dom.ls;
 
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import org.w3c.dom.ls.LSException;
+package gnu.java.awt.peer.gtk;
 
-/**
- * A DOM LS exception incorporating a cause.
- *
- * @author <a href='mailto:dog@gnu.org'>Chris Burdess</a>
- */
-public class DomLSEx
-  extends LSException
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+
+public class GdkScreenGraphicsDevice extends GraphicsDevice
 {
+  GdkGraphicsEnvironment env;
 
-  private final Exception cause2;
-
-  public DomLSEx(short type, Exception cause)
+  public GtkToolkit getToolkit()
   {
-    super(type, cause.getMessage());
-    cause2 = cause;
+    return env.getToolkit();
   }
 
-  public void printStackTrace(PrintStream out)
-  {
-    super.printStackTrace(out);
-    out.print("caused by ");
-    cause2.printStackTrace(out);
+  public GdkScreenGraphicsDevice (GdkGraphicsEnvironment e)
+  {    
+    super ();
+    env = e;
   }
-  
-  public void printStackTrace(PrintWriter out)
+
+  public int getType ()
   {
-    super.printStackTrace(out);
-    out.print("caused by ");
-    cause2.printStackTrace(out);
+    return GraphicsDevice.TYPE_RASTER_SCREEN;
   }
-  
+
+  public String getIDstring ()
+  {
+    // FIXME: query X for this string
+    return "default GDK device ID string";
+  }
+
+  public GraphicsConfiguration[] getConfigurations ()
+  {
+    // FIXME: query X for the list of possible configurations
+    return new GraphicsConfiguration [] { new GdkGraphicsConfiguration(this) };
+  }
+
+  public GraphicsConfiguration getDefaultConfiguration ()
+  {
+    
+    // FIXME: query X for default configuration
+    return new GdkGraphicsConfiguration(this);
+  }
 }

@@ -100,10 +100,8 @@ extern void darwin_x86_file_end (void);
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
-/* APPLE LOCAL begin mainline 2005-03-23 long double & align double */
-/* MERGE FIXME: 0 & to make the build go */
+/* APPLE LOCAL MERGE FIXME: 0 & to make the build go */
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | (0 & MASK_128BIT_LONG_DOUBLE) | MASK_ALIGN_DOUBLE)
-/* APPLE LOCAL end mainline 2005-03-23 long double & align double */
 
 /* APPLE LOCAL begin dynamic-no-pic */
 /* Darwin switches.  */

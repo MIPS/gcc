@@ -497,6 +497,10 @@ namespace std
       {
 	if (!_M_filebuf.open(__s, __mode | ios_base::in))
 	  this->setstate(ios_base::failbit);
+	else
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 409. Closing an fstream should clear error state
+	  this->clear();
       }
 
       /**
@@ -625,6 +629,10 @@ namespace std
       {
 	if (!_M_filebuf.open(__s, __mode | ios_base::out))
 	  this->setstate(ios_base::failbit);
+	else
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 409. Closing an fstream should clear error state
+	  this->clear();
       }
 
       /**
@@ -751,6 +759,10 @@ namespace std
       {
 	if (!_M_filebuf.open(__s, __mode))
 	  this->setstate(ios_base::failbit);
+	else
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 409. Closing an fstream should clear error state
+	  this->clear();
       }
 
       /**

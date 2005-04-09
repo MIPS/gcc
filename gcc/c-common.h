@@ -760,6 +760,7 @@ extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
 extern tree strip_pointer_operator (tree);
+extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
 
 /* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
 extern bool builtin_function_disabled_p (const char *);
@@ -769,6 +770,7 @@ extern bool builtin_function_disabled_p (const char *);
 extern void c_parse_file (void);
 /* This is misnamed, it actually performs end-of-compilation processing.  */
 extern void finish_file	(void);
+
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
@@ -963,6 +965,8 @@ enum lvalue_use {
 
 /* APPLE LOCAL non-lvalue assign */
 extern int lvalue_or_else (tree *, enum lvalue_use);
+
+extern int complete_array_type (tree *, tree, bool);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

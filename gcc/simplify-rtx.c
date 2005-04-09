@@ -760,6 +760,7 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	    /* APPLE LOCAL mainline 2005-03-17 4050475 */
 	    break;
 	  }
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -1558,48 +1559,69 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	  if (! FLOAT_MODE_P (mode))
 	    {
-	      HOST_WIDE_INT coeff0 = 1, coeff1 = 1;
+	      HOST_WIDE_INT coeff0h = 0, coeff1h = 0;
+	      unsigned HOST_WIDE_INT coeff0l = 1, coeff1l = 1;
 	      rtx lhs = op0, rhs = op1;
 
 	      if (GET_CODE (lhs) == NEG)
-		coeff0 = -1, lhs = XEXP (lhs, 0);
+		{
+		  coeff0l = -1;
+		  coeff0h = -1;
+		  lhs = XEXP (lhs, 0);
+		}
 	      else if (GET_CODE (lhs) == MULT
 		       && GET_CODE (XEXP (lhs, 1)) == CONST_INT)
 		{
-		  coeff0 = INTVAL (XEXP (lhs, 1)), lhs = XEXP (lhs, 0);
+		  coeff0l = INTVAL (XEXP (lhs, 1));
+		  coeff0h = INTVAL (XEXP (lhs, 1)) < 0 ? -1 : 0;
+		  lhs = XEXP (lhs, 0);
 		}
 	      else if (GET_CODE (lhs) == ASHIFT
 		       && GET_CODE (XEXP (lhs, 1)) == CONST_INT
 		       && INTVAL (XEXP (lhs, 1)) >= 0
 		       && INTVAL (XEXP (lhs, 1)) < HOST_BITS_PER_WIDE_INT)
 		{
-		  coeff0 = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (lhs, 1));
+		  coeff0l = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (lhs, 1));
+		  coeff0h = 0;
 		  lhs = XEXP (lhs, 0);
 		}
 
 	      if (GET_CODE (rhs) == NEG)
-		coeff1 = -1, rhs = XEXP (rhs, 0);
+		{
+		  coeff1l = -1;
+		  coeff1h = -1;
+		  rhs = XEXP (rhs, 0);
+		}
 	      else if (GET_CODE (rhs) == MULT
 		       && GET_CODE (XEXP (rhs, 1)) == CONST_INT)
 		{
-		  coeff1 = INTVAL (XEXP (rhs, 1)), rhs = XEXP (rhs, 0);
+		  coeff1l = INTVAL (XEXP (rhs, 1));
+		  coeff1h = INTVAL (XEXP (rhs, 1)) < 0 ? -1 : 0;
+		  rhs = XEXP (rhs, 0);
 		}
 	      else if (GET_CODE (rhs) == ASHIFT
 		       && GET_CODE (XEXP (rhs, 1)) == CONST_INT
 		       && INTVAL (XEXP (rhs, 1)) >= 0
 		       && INTVAL (XEXP (rhs, 1)) < HOST_BITS_PER_WIDE_INT)
 		{
-		  coeff1 = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (rhs, 1));
+		  coeff1l = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (rhs, 1));
+		  coeff1h = 0;
 		  rhs = XEXP (rhs, 0);
 		}
 
 	      if (rtx_equal_p (lhs, rhs))
 		{
 		  rtx orig = gen_rtx_PLUS (mode, op0, op1);
-		  tem = simplify_gen_binary (MULT, mode, lhs,
-					     GEN_INT (coeff0 + coeff1));
+		  rtx coeff;
+		  unsigned HOST_WIDE_INT l;
+		  HOST_WIDE_INT h;
+
+		  add_double (coeff0l, coeff0h, coeff1l, coeff1h, &l, &h);
+		  coeff = immed_double_const (l, h, mode);
+
+		  tem = simplify_gen_binary (MULT, mode, lhs, coeff);
 		  return rtx_cost (tem, SET) <= rtx_cost (orig, SET)
-			 ? tem : 0;
+		    ? tem : 0;
 		}
 	    }
 
@@ -1713,46 +1735,69 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	  if (! FLOAT_MODE_P (mode))
 	    {
-	      HOST_WIDE_INT coeff0 = 1, coeff1 = 1;
+	      HOST_WIDE_INT coeff0h = 0, negcoeff1h = -1;
+	      unsigned HOST_WIDE_INT coeff0l = 1, negcoeff1l = -1;
 	      rtx lhs = op0, rhs = op1;
 
 	      if (GET_CODE (lhs) == NEG)
-		coeff0 = -1, lhs = XEXP (lhs, 0);
+		{
+		  coeff0l = -1;
+		  coeff0h = -1;
+		  lhs = XEXP (lhs, 0);
+		}
 	      else if (GET_CODE (lhs) == MULT
 		       && GET_CODE (XEXP (lhs, 1)) == CONST_INT)
 		{
-		  coeff0 = INTVAL (XEXP (lhs, 1)), lhs = XEXP (lhs, 0);
+		  coeff0l = INTVAL (XEXP (lhs, 1));
+		  coeff0h = INTVAL (XEXP (lhs, 1)) < 0 ? -1 : 0;
+		  lhs = XEXP (lhs, 0);
 		}
 	      else if (GET_CODE (lhs) == ASHIFT
 		       && GET_CODE (XEXP (lhs, 1)) == CONST_INT
 		       && INTVAL (XEXP (lhs, 1)) >= 0
 		       && INTVAL (XEXP (lhs, 1)) < HOST_BITS_PER_WIDE_INT)
 		{
-		  coeff0 = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (lhs, 1));
+		  coeff0l = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (lhs, 1));
+		  coeff0h = 0;
 		  lhs = XEXP (lhs, 0);
 		}
 
 	      if (GET_CODE (rhs) == NEG)
-		coeff1 = - 1, rhs = XEXP (rhs, 0);
+		{
+		  negcoeff1l = 1;
+		  negcoeff1h = 0;
+		  rhs = XEXP (rhs, 0);
+		}
 	      else if (GET_CODE (rhs) == MULT
 		       && GET_CODE (XEXP (rhs, 1)) == CONST_INT)
 		{
-		  coeff1 = INTVAL (XEXP (rhs, 1)), rhs = XEXP (rhs, 0);
+		  negcoeff1l = -INTVAL (XEXP (rhs, 1));
+		  negcoeff1h = INTVAL (XEXP (rhs, 1)) <= 0 ? 0 : -1;
+		  rhs = XEXP (rhs, 0);
 		}
 	      else if (GET_CODE (rhs) == ASHIFT
 		       && GET_CODE (XEXP (rhs, 1)) == CONST_INT
 		       && INTVAL (XEXP (rhs, 1)) >= 0
 		       && INTVAL (XEXP (rhs, 1)) < HOST_BITS_PER_WIDE_INT)
 		{
-		  coeff1 = ((HOST_WIDE_INT) 1) << INTVAL (XEXP (rhs, 1));
+		  negcoeff1l = -(((HOST_WIDE_INT) 1)
+				 << INTVAL (XEXP (rhs, 1)));
+		  negcoeff1h = -1;
 		  rhs = XEXP (rhs, 0);
 		}
 
 	      if (rtx_equal_p (lhs, rhs))
 		{
 		  rtx orig = gen_rtx_MINUS (mode, op0, op1);
-		  tem = simplify_gen_binary (MULT, mode, lhs,
-					     GEN_INT (coeff0 - coeff1));
+		  rtx coeff;
+		  unsigned HOST_WIDE_INT l;
+		  HOST_WIDE_INT h;
+
+		  add_double (coeff0l, coeff0h, negcoeff1l, negcoeff1h,
+			      &l, &h);
+		  coeff = immed_double_const (l, h, mode);
+
+		  tem = simplify_gen_binary (MULT, mode, lhs, coeff);
 		  return rtx_cost (tem, SET) <= rtx_cost (orig, SET)
 			 ? tem : 0;
 		}
@@ -1838,6 +1883,17 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	      && (width <= HOST_BITS_PER_WIDE_INT
 		  || val != HOST_BITS_PER_WIDE_INT - 1))
 	    return simplify_gen_binary (ASHIFT, mode, op0, GEN_INT (val));
+
+	  /* Likewise for multipliers wider than a word.  */
+	  else if (GET_CODE (trueop1) == CONST_DOUBLE
+		   && (GET_MODE (trueop1) == VOIDmode
+		       || GET_MODE_CLASS (GET_MODE (trueop1)) == MODE_INT)
+		   && GET_MODE (op0) == mode
+		   && CONST_DOUBLE_LOW (trueop1) == 0
+		   && (val = exact_log2 (CONST_DOUBLE_HIGH (trueop1))) >= 0)
+	    return simplify_gen_binary (ASHIFT, mode, op0,
+					GEN_INT (val
+						 + HOST_BITS_PER_WIDE_INT));
 
 	  /* x*2 is x+x and x*(-1) is -x */
 	  if (GET_CODE (trueop1) == CONST_DOUBLE
@@ -2862,7 +2918,7 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  /* If op0 is a comparison, extract the comparison arguments form it.  */
 	  if (code == NE)
 	    {
-	      if (GET_MODE (op0) == cmp_mode)
+	      if (GET_MODE (op0) == mode)
 		return simplify_rtx (op0);
 	      else
 		return simplify_gen_relational (GET_CODE (op0), mode, VOIDmode,
@@ -2899,6 +2955,8 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
       && op1 == const0_rtx
       && GET_MODE_CLASS (mode) == MODE_INT
       && cmp_mode != VOIDmode
+      /* ??? Work-around BImode bugs in the ia64 backend.  */
+      && mode != BImode
       && cmp_mode != BImode
       && nonzero_bits (op0, cmp_mode) == 1
       && STORE_FLAG_VALUE == 1)

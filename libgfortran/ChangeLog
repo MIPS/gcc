@@ -1,3 +1,145 @@
+2005-04-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20755
+	* write.c (write_float): A G edit descriptor may locally change
+	the scale factor, but it needs to be restored afterwards.
+
+2005-04-03  Dale Ranta  <dir@lanl.gov>
+            Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20068
+	PR libfortran/20125
+	PR libfortran/20156
+	PR libfortran/20471
+	* io/backspace.c (unformatted_backspace): Fix error in arithmetic.
+	(st_backspace): When in WRITING mode, we flush and falling back
+	into READING mode. In all cases, correctly position the stream.
+
+2005-03-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20660
+	* io/inquire.c (inquire_via_unit): Non-opened units should still be
+	reported by an INQUIRE statement as existing.
+	* io/transfer.c (data_transfer_init): Never accept negative units.
+
+2005-03-29  Dale Ranta  <dir@lanl.gov>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20163
+	* io/open.c (st_open): call library_end() before returning even if
+	an error arises.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19678
+	* list_read.c (next_char, eat_separator, finish_separator, read_real)
+	(namelist_read): Add support for '\r' as well as '\n' as EOL
+	character.
+
+	PR libfortran/19679
+	* list_read.c (read_sf): Add a '\r' in a test to support DOS
+	line-endings when line length is exceeded.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/15332
+	* io/format.c (parse_format_list): format node for colon edit
+	descriptor needs a repeat counter set to 1.
+	
+2005-02-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	* Makefile.in, config.h.in: Regenerate.
+
+2005-02-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/18025
+	* write.c (output_float): Handling the "F0.d" format similarly as
+	commercial compilers.
+
+2005-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerate.
+	* configure.ac: add checks for signal.h headers file, as well as
+	following functions: chdir, strerror, getlogin, gethostname, kill,
+	link, symlink, perror, sleep, time.
+	* configure: Regenerate.
+	* intrinsics/chdir.c, intrinsics/gerror.c, intrinsics/getlog.c,
+	intrinsics/hostnm.c, intrinsics/ierrno.c, intrinsics/kill.c,
+	intrinsics/link.c, intrinsics/perror.c, intrinsics/rename.c,
+	intrinsics/sleep.c, intrinsics/symlnk.c, intrinsics/time.c: Newly
+	implementend g77 intrinsics.
+
+2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20257
+	* open.c (new_unit): set record length to max_offset rather than
+	  using a hard-coded limit (which was too low).
+
+2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20480
+	* write.c (output_float): special check when writing 0.0 with
+	  EN and ES formats.
+
+2005-03-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20124
+	* write.c (output_float): Adds a nzero_real variable to store 
+	the number of leading zeros whatever the format width is. Corrects 
+	the rounding of numbers less than 10^(-width). Fixes typo in an 
+	error message. Updates copyright years
+
+2005-02-25  Peter O'Gorman  <peter@pogma.com>
+            Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR libgfortran/17748
+	* runtime/environ.c: Remove references to environ.
+	Update copyright years.
+	(show_variables): remove GFORTRAN_UNBUFFERED_* and 
+	GFORTRAN_NAME_* because they require environ.
+	(pattern_scan): Remove function.
+
+2005-02-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20101
+	* io/write.c (output_float): Added special check for value 0.0 in
+	PE format.
+
+2005-02-27  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io/write.c (output_float): Fix typo in condition.
+
+2005-02-22  Paul Thomas <paulthomas2@wannado.fr>
+	    Bud Davis  <bdavis@gfortran.org>
+
+	* io/list_read.c (read_real): Handle separators properly
+	in list directed read.
+
+2005-02-21  Bud Davis  <bdavis@gfortran.org>
+
+	PR fortran/20086
+	* io/transfer.c (write_constant_string): accept an 'h' as
+	the start of a hollerith format string.
+
+2005-02-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libfortran/19302
+	* intrinsics/c99_functions.c (nextafterf): Special-case infinite
+	numbers.
+
+2005-02-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* io/write.c (output_float):  Typo in error meesage.
+
+2005-02-20  Steven G. Kargl  <kargls@comcast.net>
+
+        PR 20085
+        * intrinsic/args.c (iargc): Off by 1.
+
+2005-02-19  Steven G. Kargl  <kargls@comcast.net>
+
+      *  intrinsic/date_and_time.c: Fix conformance problems.
+
 2005-02-01  Paul Thomas <paulthomas2@wanadoo.fr>
 
 	PR libgfortran/19363

@@ -3915,6 +3915,10 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 
 	  offset = 0;
 	  bytesize = int_size_in_bytes (valtype);
+	  /* An empty PARALLEL is invalid here, but the return value
+	     doesn't matter for empty structs.  */
+	  if (bytesize == 0)
+	    return gen_rtx_REG (mode, GR_RET_FIRST);
 	  for (i = 0; offset < bytesize; i++)
 	    {
 	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
@@ -5684,147 +5688,6 @@ emit_all_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 }
 
 
-static int errata_find_address_regs (rtx *, void *);
-static void errata_emit_nops (rtx);
-static void fixup_errata (void);
-
-/* This structure is used to track some details about the previous insns
-   groups so we can determine if it may be necessary to insert NOPs to
-   workaround hardware errata.  */
-static struct group
-{
-  HARD_REG_SET p_reg_set;
-  HARD_REG_SET gr_reg_conditionally_set;
-} last_group[2];
-
-/* Index into the last_group array.  */
-static int group_idx;
-
-/* Called through for_each_rtx; determines if a hard register that was
-   conditionally set in the previous group is used as an address register.
-   It ensures that for_each_rtx returns 1 in that case.  */
-static int
-errata_find_address_regs (rtx *xp, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *xp;
-  if (GET_CODE (x) != MEM)
-    return 0;
-  x = XEXP (x, 0);
-  if (GET_CODE (x) == POST_MODIFY)
-    x = XEXP (x, 0);
-  if (GET_CODE (x) == REG)
-    {
-      struct group *prev_group = last_group + (group_idx ^ 1);
-      if (TEST_HARD_REG_BIT (prev_group->gr_reg_conditionally_set,
-			     REGNO (x)))
-	return 1;
-      return -1;
-    }
-  return 0;
-}
-
-/* Called for each insn; this function keeps track of the state in
-   last_group and emits additional NOPs if necessary to work around
-   an Itanium A/B step erratum.  */
-static void
-errata_emit_nops (rtx insn)
-{
-  struct group *this_group = last_group + group_idx;
-  struct group *prev_group = last_group + (group_idx ^ 1);
-  rtx pat = PATTERN (insn);
-  rtx cond = GET_CODE (pat) == COND_EXEC ? COND_EXEC_TEST (pat) : 0;
-  rtx real_pat = cond ? COND_EXEC_CODE (pat) : pat;
-  enum attr_type type;
-  rtx set = real_pat;
-
-  if (GET_CODE (real_pat) == USE
-      || GET_CODE (real_pat) == CLOBBER
-      || GET_CODE (real_pat) == ASM_INPUT
-      || GET_CODE (real_pat) == ADDR_VEC
-      || GET_CODE (real_pat) == ADDR_DIFF_VEC
-      || asm_noperands (PATTERN (insn)) >= 0)
-    return;
-
-  /* single_set doesn't work for COND_EXEC insns, so we have to duplicate
-     parts of it.  */
-
-  if (GET_CODE (set) == PARALLEL)
-    {
-      int i;
-      set = XVECEXP (real_pat, 0, 0);
-      for (i = 1; i < XVECLEN (real_pat, 0); i++)
-	if (GET_CODE (XVECEXP (real_pat, 0, i)) != USE
-	    && GET_CODE (XVECEXP (real_pat, 0, i)) != CLOBBER)
-	  {
-	    set = 0;
-	    break;
-	  }
-    }
-
-  if (set && GET_CODE (set) != SET)
-    set = 0;
-
-  type  = get_attr_type (insn);
-
-  if (type == TYPE_F
-      && set && REG_P (SET_DEST (set)) && PR_REGNO_P (REGNO (SET_DEST (set))))
-    SET_HARD_REG_BIT (this_group->p_reg_set, REGNO (SET_DEST (set)));
-
-  if ((type == TYPE_M || type == TYPE_A) && cond && set
-      && REG_P (SET_DEST (set))
-      && GET_CODE (SET_SRC (set)) != PLUS
-      && GET_CODE (SET_SRC (set)) != MINUS
-      && (GET_CODE (SET_SRC (set)) != ASHIFT
-	  || !shladd_operand (XEXP (SET_SRC (set), 1), VOIDmode))
-      && (GET_CODE (SET_SRC (set)) != MEM
-	  || GET_CODE (XEXP (SET_SRC (set), 0)) != POST_MODIFY)
-      && GENERAL_REGNO_P (REGNO (SET_DEST (set))))
-    {
-      if (!COMPARISON_P (cond)
-	  || !REG_P (XEXP (cond, 0)))
-	abort ();
-
-      if (TEST_HARD_REG_BIT (prev_group->p_reg_set, REGNO (XEXP (cond, 0))))
-	SET_HARD_REG_BIT (this_group->gr_reg_conditionally_set, REGNO (SET_DEST (set)));
-    }
-  if (for_each_rtx (&real_pat, errata_find_address_regs, NULL))
-    {
-      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-      emit_insn_before (gen_nop (), insn);
-      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-      group_idx = 0;
-      memset (last_group, 0, sizeof last_group);
-    }
-}
-
-/* Emit extra nops if they are required to work around hardware errata.  */
-
-static void
-fixup_errata (void)
-{
-  rtx insn;
-
-  if (! TARGET_B_STEP)
-    return;
-
-  group_idx = 0;
-  memset (last_group, 0, sizeof last_group);
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (!INSN_P (insn))
-	continue;
-
-      if (ia64_safe_type (insn) == TYPE_S)
-	{
-	  group_idx ^= 1;
-	  memset (last_group + group_idx, 0, sizeof last_group[group_idx]);
-	}
-      else
-	errata_emit_nops (insn);
-    }
-}
-
 
 /* Instruction scheduling support.  */
 
@@ -6570,6 +6433,17 @@ issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
     }
   else
     {
+      /* If this is an insn that must be first in a group, then don't allow
+	 nops to be emitted before it.  Currently, alloc is the only such
+	 supported instruction.  */
+      /* ??? The bundling automatons should handle this for us, but they do
+	 not yet have support for the first_insn attribute.  */
+      if (before_nops_num > 0 && get_attr_first_insn (insn) == FIRST_INSN_YES)
+	{
+	  free_bundle_state (curr_state);
+	  return;
+	}
+
       state_transition (curr_state->dfa_state, dfa_pre_cycle_insn);
       state_transition (curr_state->dfa_state, NULL);
       curr_state->cost++;
@@ -7583,7 +7457,6 @@ ia64_reorg (void)
 	}
     }
 
-  fixup_errata ();
   emit_predicate_relation_info ();
 
   if (ia64_flag_var_tracking)
@@ -7726,7 +7599,8 @@ process_epilogue (void)
 
   if (!last_block)
     {
-      fprintf (asm_out_file, "\t.label_state 1\n");
+      fprintf (asm_out_file, "\t.label_state %d\n",
+	       ++cfun->machine->state_num);
       need_copy_state = true;
     }
 
@@ -7974,7 +7848,8 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 	  if (need_copy_state)
 	    {
 	      fprintf (asm_out_file, "\t.body\n");
-	      fprintf (asm_out_file, "\t.copy_state 1\n");
+	      fprintf (asm_out_file, "\t.copy_state %d\n",
+		       cfun->machine->state_num);
 	      need_copy_state = false;
 	    }
 	}

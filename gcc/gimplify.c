@@ -2159,7 +2159,8 @@ gimple_boolify (tree expr)
      *EXPR_P should be stored.  */
 
 static enum gimplify_status
-gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target)
+gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target,
+		    fallback_t fallback)
 {
   tree expr = *expr_p;
   tree tmp, tmp2, type;
@@ -2173,18 +2174,40 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target)
      the arms.  */
   else if (! VOID_TYPE_P (type))
     {
+      tree result;
+
       if (target)
 	{
 	  ret = gimplify_expr (&target, pre_p, post_p,
 			       is_gimple_min_lval, fb_lvalue);
 	  if (ret != GS_ERROR)
 	    ret = GS_OK;
-	  tmp = target;
+	  result = tmp = target;
 	  tmp2 = unshare_expr (target);
+	}
+      else if ((fallback & fb_lvalue) == 0)
+	{
+	  result = tmp2 = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	  ret = GS_ALL_DONE;
 	}
       else
 	{
-	  tmp2 = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	  tree type = build_pointer_type (TREE_TYPE (expr));
+
+	  if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
+	    TREE_OPERAND (expr, 1) =
+	      build_fold_addr_expr (TREE_OPERAND (expr, 1));
+
+	  if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
+	    TREE_OPERAND (expr, 2) =
+	      build_fold_addr_expr (TREE_OPERAND (expr, 2));
+	  
+	  tmp2 = tmp = create_tmp_var (type, "iftmp");
+
+	  expr = build (COND_EXPR, void_type_node, TREE_OPERAND (expr, 0),
+			TREE_OPERAND (expr, 1), TREE_OPERAND (expr, 2));
+
+	  result = build_fold_indirect_ref (tmp);
 	  ret = GS_ALL_DONE;
 	}
 
@@ -2205,7 +2228,7 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target)
       /* Move the COND_EXPR to the prequeue.  */
       gimplify_and_add (expr, pre_p);
 
-      *expr_p = tmp;
+      *expr_p = result;
       return ret;
     }
 
@@ -2943,7 +2966,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	if (!is_gimple_reg_type (TREE_TYPE (*from_p)))
 	  {
 	    *expr_p = *from_p;
-	    return gimplify_cond_expr (expr_p, pre_p, post_p, *to_p);
+	    return gimplify_cond_expr (expr_p, pre_p, post_p, *to_p,
+				       fb_rvalue);
 	  }
 	else
 	  ret = GS_UNHANDLED;
@@ -3366,16 +3390,81 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  char *p = xstrdup (constraint);
 	  p[0] = '=';
 	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (constraint_len, p);
-	  free (p);
 
 	  /* And add a matching input constraint.  */
 	  if (allows_reg)
 	    {
 	      sprintf (buf, "%d", i);
-	      input = build_string (strlen (buf), buf);
+
+	      /* If there are multiple alternatives in the constraint,
+		 handle each of them individually.  Those that allow register
+		 will be replaced with operand number, the others will stay
+		 unchanged.  */
+	      if (strchr (p, ',') != NULL)
+		{
+		  size_t len = 0, buflen = strlen (buf);
+		  char *beg, *end, *str, *dst;
+
+		  for (beg = p + 1;;)
+		    {
+		      end = strchr (beg, ',');
+		      if (end == NULL)
+			end = strchr (beg, '\0');
+		      if ((size_t) (end - beg) < buflen)
+			len += buflen + 1;
+		      else
+			len += end - beg + 1;
+		      if (*end)
+			beg = end + 1;
+		      else
+			break;
+		    }
+
+		  str = alloca (len);
+		  for (beg = p + 1, dst = str;;)
+		    {
+		      const char *tem;
+		      bool mem_p, reg_p, inout_p;
+
+		      end = strchr (beg, ',');
+		      if (end)
+			*end = '\0';
+		      beg[-1] = '=';
+		      tem = beg - 1;
+		      parse_output_constraint (&tem, i, 0, 0,
+					       &mem_p, &reg_p, &inout_p);
+		      if (dst != str)
+			*dst++ = ',';
+		      if (reg_p)
+			{
+			  memcpy (dst, buf, buflen);
+			  dst += buflen;
+			}
+		      else
+			{
+			  if (end)
+			    len = end - beg;
+			  else
+			    len = strlen (beg);
+			  memcpy (dst, beg, len);
+			  dst += len;
+			}
+		      if (end)
+			beg = end + 1;
+		      else
+			break;
+		    }
+		  *dst = '\0';
+		  input = build_string (dst - str, str);
+		}
+	      else
+		input = build_string (strlen (buf), buf);
 	    }
 	  else
 	    input = build_string (constraint_len - 1, constraint + 1);
+
+	  free (p);
+
 	  input = build_tree_list (build_tree_list (NULL_TREE, input),
 				   unshare_expr (TREE_VALUE (link)));
 	  ASM_INPUTS (expr) = chainon (ASM_INPUTS (expr), input);
@@ -3757,11 +3846,30 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case COND_EXPR:
-	  ret = gimplify_cond_expr (expr_p, pre_p, post_p, NULL_TREE);
+	  ret = gimplify_cond_expr (expr_p, pre_p, post_p, NULL_TREE,
+				    fallback);
+	  /* C99 code may assign to an array in a structure value of a
+	     conditional expression, and this has undefined behavior
+	     only on execution, so create a temporary if an lvalue is
+	     required.  */
+	  if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
 	  break;
 
 	case CALL_EXPR:
 	  ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
+	  /* C99 code may assign to an array in a structure returned
+	     from a function, and this has undefined behavior only on
+	     execution, so create a temporary if an lvalue is
+	     required.  */
+	  if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
 	  break;
 
 	case TREE_LIST:

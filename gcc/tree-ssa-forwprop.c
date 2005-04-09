@@ -1,5 +1,5 @@
 /* Forward propagation of single use variables.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -644,7 +644,7 @@ eliminate_unnecessary_casts (void)
   varray_type worklist;
 
   /* Memory allocation.  */
-  vars = BITMAP_XMALLOC ();
+  vars = BITMAP_ALLOC (NULL);
   VARRAY_TREE_INIT (worklist, 10, "worklist");
   FOR_EACH_BB (bb)
     {
@@ -694,7 +694,7 @@ eliminate_unnecessary_casts (void)
     }
   /* Cleanup */
   free_df ();
-  BITMAP_XFREE (vars);
+  BITMAP_FREE (vars);
 }
 
 /* APPLE LOCAL end cast removal.  */
@@ -711,7 +711,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
   eliminate_unnecessary_casts ();
   /* APPLE LOCAL end cast removal.  */
 
-  vars = BITMAP_XMALLOC ();
+  vars = BITMAP_ALLOC (NULL);
   VARRAY_TREE_INIT (vars_worklist, 10, "VARS worklist");
   VARRAY_TREE_INIT (cond_worklist, 10, "COND worklist");
 
@@ -753,7 +753,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
     }
 
   /* All done.  Clean up.  */
-  BITMAP_XFREE (vars);
+  BITMAP_FREE (vars);
 }
 
 

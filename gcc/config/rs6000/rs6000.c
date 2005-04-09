@@ -783,7 +783,6 @@ static int rs6000_get_some_local_dynamic_name_1 (rtx *, void *);
 static rtx rs6000_complex_function_value (enum machine_mode);
 static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree);
-/* APPLE LOCAL begin mainline */
 static void rs6000_darwin64_record_arg_advance_flush (CUMULATIVE_ARGS *,
 						      HOST_WIDE_INT);
 static void rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *,
@@ -795,7 +794,6 @@ static void rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *,
 					       tree, HOST_WIDE_INT,
 					       rtx[], int *);
 static rtx rs6000_darwin64_record_arg (CUMULATIVE_ARGS *, tree, int, bool);
-/* APPLE LOCAL end mainline */
 static rtx rs6000_mixed_function_arg (enum machine_mode, tree, int);
 static void rs6000_move_block_from_reg (int regno, rtx x, int nregs);
 static void setup_incoming_varargs (CUMULATIVE_ARGS *,
@@ -1276,9 +1274,8 @@ rs6000_override_options (const char *default_cpu)
     set_masks &= ~MASK_ALTIVEC;
 #endif
 
-  /* Don't override these by the processor default if given explicitly.  */
-  set_masks &= ~(target_flags_explicit
-		 & (MASK_MULTIPLE | MASK_STRING | MASK_SOFT_FLOAT));
+  /* Don't override by the processor default if given explicitly.  */
+  set_masks &= ~target_flags_explicit;
 
   /* Identify the processor type.  */
   rs6000_select[0].string = default_cpu;
@@ -1513,10 +1510,8 @@ rs6000_override_options (const char *default_cpu)
       /* APPLE LOCAL pragma reverse_bitfields */
       darwin_reverse_bitfields = 0;
 #endif
-      /* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
       /* Default to natural alignment, for better performance.  */
       rs6000_alignment_flags = MASK_ALIGN_NATURAL;
-      /* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
     }
 
   /* Handle -mabi= options.  */
@@ -1903,7 +1898,6 @@ rs6000_parse_alignment_option (void)
     }
   /* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
   else if (! strcmp (rs6000_alignment_string, "power"))
-  /* APPLE LOCAL begin mainline */
     {
       /* On 64-bit Darwin, power alignment is ABI-incompatible with
 	 some C library functions, so warn about it. The flag may be
@@ -1914,7 +1908,6 @@ rs6000_parse_alignment_option (void)
 		 " it is incompatible with the installed C and C++ libraries");
       rs6000_alignment_flags = MASK_ALIGN_POWER;
     }
-  /* APPLE LOCAL end mainline */
   else if (! strcmp (rs6000_alignment_string, "natural"))
     rs6000_alignment_flags = MASK_ALIGN_NATURAL;
   else
@@ -3943,21 +3936,16 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		rs6000_emit_move (got, gsym, Pmode);
 	      else
 		{
-		  char buf[30];
-		  static int tls_got_labelno = 0;
-		  rtx tempLR, lab, tmp3, mem;
+		  rtx tempLR, tmp3, mem;
 		  rtx first, last;
 
-		  ASM_GENERATE_INTERNAL_LABEL (buf, "LTLS", tls_got_labelno++);
-		  lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 		  tempLR = gen_reg_rtx (Pmode);
 		  tmp1 = gen_reg_rtx (Pmode);
 		  tmp2 = gen_reg_rtx (Pmode);
 		  tmp3 = gen_reg_rtx (Pmode);
 		  mem = gen_const_mem (Pmode, tmp1);
 
-		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, lab,
-							     gsym));
+		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, gsym));
 		  emit_move_insn (tmp1, tempLR);
 		  emit_move_insn (tmp2, mem);
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
@@ -4153,7 +4141,6 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
     }
 #endif
 
-  /* APPLE LOCAL begin mainline 2005-03-04 */
   /* Force ld/std non-word aligned offset into base register by wrapping
      in offset 0.  */
   if (GET_CODE (x) == PLUS
@@ -4173,7 +4160,6 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       *win = 1;
       return x;
     }
-  /* APPLE LOCAL end mainline 2005-03-04 */
 
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG
@@ -5061,7 +5047,6 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
   /* In the darwin64 abi, try to use registers for larger structs
      if possible.  */
-  /* APPLE LOCAL begin mainline */
   if (rs6000_darwin64_abi
       && TREE_CODE (type) == RECORD_TYPE
       && int_size_in_bytes (type) > 0)
@@ -5079,7 +5064,7 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 	return false;
       /* Otherwise fall through to more conventional ABI rules.  */
     }
-  /* APPLE LOCAL end mainline */
+
   if (AGGREGATE_TYPE_P (type)
       && (TARGET_AIX_STRUCT_RET
 	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
@@ -5269,11 +5254,9 @@ function_arg_boundary (enum machine_mode mode, tree type)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
 	       && int_size_in_bytes (type) >= 16))
     return 128;
-  /* APPLE LOCAL begin mainline */
   else if (rs6000_darwin64_abi && mode == BLKmode
 	   && type && TYPE_ALIGN (type) > 64)
     return 128;
-  /* APPLE LOCAL end mainline */
   else
     return PARM_BOUNDARY;
 }
@@ -5296,7 +5279,6 @@ rs6000_arg_size (enum machine_mode mode, tree type)
     return (size + 7) >> 3;
 }
 
-/* APPLE LOCAL begin mainline */
 /* Use this to flush pending int fields.  */
 
 static void
@@ -5376,7 +5358,6 @@ rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *cum,
 	  cum->intoffset = bitpos;
       }
 }
-/* APPLE LOCAL end mainline */
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -5390,10 +5371,8 @@ void
 function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		      tree type, int named, int depth)
 {
-/* APPLE LOCAL begin mainline */
   int size;
 
-/* APPLE LOCAL end mainline */
   /* Only tick off an argument if we're not recursing.  */
   if (depth == 0)
     cum->nargs_prototype--;
@@ -5455,7 +5434,6 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	   && cum->sysv_gregno <= GP_ARG_MAX_REG)
     cum->sysv_gregno++;
 
-  /* APPLE LOCAL begin mainline */
   else if (rs6000_darwin64_abi
 	   && mode == BLKmode
     	   && TREE_CODE (type) == RECORD_TYPE
@@ -5482,7 +5460,6 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 						    size * BITS_PER_UNIT);
 	}
     }
-  /* APPLE LOCAL end mainline */
   else if (DEFAULT_ABI == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
@@ -5641,7 +5618,6 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 }
 
-/* APPLE LOCAL begin mainline */
 /* A subroutine of rs6000_darwin64_record_arg.  Assign the bits of the
    structure between cum->intoffset and bitpos to integer registers.  */
 
@@ -5823,7 +5799,6 @@ rs6000_darwin64_record_arg (CUMULATIVE_ARGS *orig_cum, tree type,
   else
     return NULL_RTX;
 }
-/* APPLE LOCAL end mainline */
 
 /* Determine where to place an argument in 64-bit mode with 32-bit ABI.  */
 
@@ -5884,7 +5859,8 @@ rs6000_mixed_function_arg (enum machine_mode mode, tree type, int align_words)
     This is null for libcalls where that information may
     not be available.
    CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
+    the preceding args and about the function being called.  It is
+    not modified in this routine.
    NAMED is nonzero if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).
 
@@ -5932,7 +5908,6 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       return GEN_INT (cum->call_cookie);
     }
 
-  /* APPLE LOCAL begin mainline */
   if (rs6000_darwin64_abi && mode == BLKmode
       && TREE_CODE (type) == RECORD_TYPE)
     {
@@ -5941,7 +5916,6 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	return rslt;
       /* Else fall through to usual handling.  */
     }
-  /* APPLE LOCAL end mainline */
 
   if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
     if (TARGET_64BIT && ! cum->prototype)
@@ -6178,13 +6152,11 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       && cum->nargs_prototype >= 0)
     return 0;
 
-  /* APPLE LOCAL begin mainline */
   /* In this complicated case we just disable the partial_nregs code.  */
   if (rs6000_darwin64_abi && mode == BLKmode
       && TREE_CODE (type) == RECORD_TYPE
       && int_size_in_bytes (type) > 0)
     return 0;
-  /* APPLE LOCAL end mainline */
 
   align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
   parm_offset = TARGET_32BIT ? 2 : 0;
@@ -12277,8 +12249,7 @@ print_operand (FILE *file, rtx x, int code)
       /* Bit 1 is EQ bit.  */
       i = 4 * (REGNO (x) - CR0_REGNO) + 2;
 
-      /* If we want bit 31, write a shift count of zero, not 32.  */
-      fprintf (file, "%d", i == 31 ? 0 : i + 1);
+      fprintf (file, "%d", i);
       return;
 
     case 'E':
@@ -13083,7 +13054,7 @@ rs6000_generate_compare (enum rtx_code code)
   if ((TARGET_E500 && !TARGET_FPRS && TARGET_HARD_FLOAT)
       && rs6000_compare_fp_p)
     {
-      rtx cmp, or1, or2, or_result, compare_result2;
+      rtx cmp, or_result, compare_result2;
       enum machine_mode op_mode = GET_MODE (rs6000_compare_op0);
 
       if (op_mode == VOIDmode)
@@ -13157,9 +13128,6 @@ rs6000_generate_compare (enum rtx_code code)
 	    default: abort ();
 	    }
 
-	  or1 = gen_reg_rtx (SImode);
-	  or2 = gen_reg_rtx (SImode);
-	  or_result = gen_reg_rtx (CCEQmode);
 	  compare_result2 = gen_reg_rtx (CCFPmode);
 
 	  /* Do the EQ.  */
@@ -13178,14 +13146,10 @@ rs6000_generate_compare (enum rtx_code code)
 	  else abort ();
 	  emit_insn (cmp);
 
-	  or1 = gen_rtx_GT (SImode, compare_result, const0_rtx);
-	  or2 = gen_rtx_GT (SImode, compare_result2, const0_rtx);
-
 	  /* OR them together.  */
-	  cmp = gen_rtx_SET (VOIDmode, or_result,
-			     gen_rtx_COMPARE (CCEQmode,
-					      gen_rtx_IOR (SImode, or1, or2),
-					      const_true_rtx));
+	  or_result = gen_reg_rtx (CCFPmode);
+	  cmp = gen_e500_cr_ior_compare (or_result, compare_result,
+					   compare_result2);
 	  compare_result = or_result;
 	  code = EQ;
 	}
@@ -13295,9 +13259,9 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
 	abort ();
 
       if (cond_code == NE)
-	emit_insn (gen_e500_flip_eq_bit (t, t));
+	emit_insn (gen_e500_flip_gt_bit (t, t));
 
-      emit_insn (gen_move_from_CR_eq_bit (result, t));
+      emit_insn (gen_move_from_CR_gt_bit (result, t));
       return;
     }
 
@@ -13478,9 +13442,9 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
   return string;
 }
 
-/* Return the string to flip the EQ bit on a CR.  */
+/* Return the string to flip the GT bit on a CR.  */
 char *
-output_e500_flip_eq_bit (rtx dst, rtx src)
+output_e500_flip_gt_bit (rtx dst, rtx src)
 {
   static char string[64];
   int a, b;
@@ -13489,9 +13453,9 @@ output_e500_flip_eq_bit (rtx dst, rtx src)
       || GET_CODE (src) != REG || ! CR_REGNO_P (REGNO (src)))
     abort ();
 
-  /* EQ bit.  */
-  a = 4 * (REGNO (dst) - CR0_REGNO) + 2;
-  b = 4 * (REGNO (src) - CR0_REGNO) + 2;
+  /* GT bit.  */
+  a = 4 * (REGNO (dst) - CR0_REGNO) + 1;
+  b = 4 * (REGNO (src) - CR0_REGNO) + 1;
 
   sprintf (string, "crnot %d,%d", a, b);
   return string;
@@ -15094,11 +15058,10 @@ rs6000_emit_load_toc_table (int fromprolog)
       rtx temp0 = (fromprolog
 		   ? gen_rtx_REG (Pmode, 0)
 		   : gen_reg_rtx (Pmode));
-      rtx symF;
 
       if (fromprolog)
 	{
-	  rtx symL;
+	  rtx symF, symL;
 
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
 	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
@@ -15116,14 +15079,9 @@ rs6000_emit_load_toc_table (int fromprolog)
       else
 	{
 	  rtx tocsym;
-	  static int reload_toc_labelno = 0;
 
 	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
-
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
-	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-
-	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, symF, tocsym));
+	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, tocsym));
 	  emit_move_insn (dest, tempLR);
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
@@ -16209,6 +16167,7 @@ rs6000_emit_prologue (void)
 
 	  /* APPLE LOCAL reduce code size */
 	  RTVEC_ELT (p, count++) = gen_rtx_SET (VOIDmode, mem, reg);
+	  /* APPLE LOCAL too many changes confuse diff */
 	}
       /* APPLE LOCAL begin C++ EH and setjmp (radar 2866661) */
 #if TARGET_MACHO
@@ -20917,8 +20876,6 @@ rs6000_complex_function_value (enum machine_mode mode)
   return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
 }
 
-/* APPLE LOCAL begin mainline remove rs6000_darwin64_function_value */
-/* APPLE LOCAL end mainline remove rs6000_darwin64_function_value */
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
@@ -20936,7 +20893,6 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   unsigned int regno;
 
   /* Special handling for structs in darwin64.  */
-  /* APPLE LOCAL begin mainline */
   if (rs6000_darwin64_abi
       && TYPE_MODE (valtype) == BLKmode
       && TREE_CODE (valtype) == RECORD_TYPE
@@ -20955,7 +20911,7 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 	return valret;
       /* Otherwise fall through to standard ABI rules.  */
     }
-  /* APPLE LOCAL end mainline */
+
   if (TARGET_32BIT && TARGET_POWERPC64 && TYPE_MODE (valtype) == DImode)
     {
       /* Long long return value need be split in -mpowerpc64, 32bit ABI.  */

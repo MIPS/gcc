@@ -2098,14 +2098,17 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 	  tree thunk_binfo, base_binfo;
 
 	  /* Find the base binfo within the overriding function's
-	     return type.  */
+	     return type.  We will always find a thunk_binfo, except
+	     when the covariancy is invalid (which we will have
+	     already diagnosed).  */
 	  for (base_binfo = TYPE_BINFO (base_return),
 	       thunk_binfo = TYPE_BINFO (over_return);
-	       !SAME_BINFO_TYPE_P (BINFO_TYPE (thunk_binfo),
-				   BINFO_TYPE (base_binfo));
+	       thunk_binfo;
 	       thunk_binfo = TREE_CHAIN (thunk_binfo))
-	    continue;
-
+	    if (SAME_BINFO_TYPE_P (BINFO_TYPE (thunk_binfo),
+				   BINFO_TYPE (base_binfo)))
+	      break;
+	  
 	  /* See if virtual inheritance is involved.  */
 	  for (virtual_offset = thunk_binfo;
 	       virtual_offset;
@@ -2113,7 +2116,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 	    if (BINFO_VIRTUAL_P (virtual_offset))
 	      break;
 	  
-	  if (virtual_offset || !BINFO_OFFSET_ZEROP (thunk_binfo))
+	  if (virtual_offset
+	      || (thunk_binfo && !BINFO_OFFSET_ZEROP (thunk_binfo)))
 	    {
 	      tree offset = convert (ssizetype, BINFO_OFFSET (thunk_binfo));
 
@@ -3555,7 +3559,7 @@ layout_empty_base (tree binfo, tree eoc, splay_tree offsets)
   return atend;
 }
 
-/* Layout the the base given by BINFO in the class indicated by RLI.
+/* Layout the base given by BINFO in the class indicated by RLI.
    *BASE_ALIGN is a running maximum of the alignments of
    any base class.  OFFSETS gives the location of empty base
    subobjects.  T is the most derived type.  Return nonzero if the new
@@ -4094,7 +4098,7 @@ check_bases_and_members (tree t)
   /* Nonzero if the implicitly generated copy constructor should take
      a non-const reference argument.  */
   int cant_have_const_ctor;
-  /* Nonzero if the the implicitly generated assignment operator
+  /* Nonzero if the implicitly generated assignment operator
      should take a non-const reference argument.  */
   int no_const_asn_ref;
   tree access_decls;
@@ -5103,7 +5107,9 @@ finish_struct_1 (tree t)
   /* Build the VTT for T.  */
   build_vtt (t);
 
-  if (warn_nonvdtor && TYPE_POLYMORPHIC_P (t))
+  /* This warning does not make sense for Java classes, since they
+     cannot have destructors.  */
+  if (!TYPE_FOR_JAVA (t) && warn_nonvdtor && TYPE_POLYMORPHIC_P (t))
     {
       tree dtor;
 
@@ -5189,6 +5195,7 @@ finish_struct (tree t, tree attributes)
 
       finish_struct_methods (t);
       TYPE_SIZE (t) = bitsize_zero_node;
+      TYPE_SIZE_UNIT (t) = size_zero_node;
 
       /* We need to emit an error message if this type was used as a parameter
 	 and it is an abstract type, even if it is a template. We construct
@@ -7770,8 +7777,8 @@ build_rtti_vtbl_entries (tree binfo, vtbl_init_data* vid)
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
 
-  /* Add the offset-to-top entry.  It comes earlier in the vtable that
-     the the typeinfo entry.  Convert the offset to look like a
+  /* Add the offset-to-top entry.  It comes earlier in the vtable than
+     the typeinfo entry.  Convert the offset to look like a
      function pointer, so that we can put it in the vtable.  */
   init = build_nop (vfunc_ptr_type_node, offset);
   *vid->last_init = build_tree_list (NULL_TREE, init);

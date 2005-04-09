@@ -294,7 +294,7 @@ int flag_disable_opts_for_faltivec = 0;
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex multiply and divide.  */
 
-int flag_complex_method = 0;
+int flag_complex_method = 1;
 
 /* APPLE LOCAL begin -fobey-inline */
 /* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
@@ -841,6 +841,8 @@ wrapup_global_declarations (tree *vec, int len)
 
 	      if (flag_unit_at_a_time && node->finalized)
 		needed = 0;
+	      else if (node->alias)
+		needed = 0;
 	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
@@ -1107,8 +1109,8 @@ compile_file (void)
     return;
 
   lang_hooks.decls.final_write_globals ();
-
   cgraph_varpool_assemble_pending_decls ();
+  finish_aliases_2 ();
 
   /* This must occur after the loop to output deferred functions.
      Else the coverage initializer would not be emitted if all the
@@ -1142,9 +1144,6 @@ compile_file (void)
      assemble_external calls from the front end, but the RTL
      expander can also generate them.  */
   process_pending_assemble_externals ();
-
-  /* Flush any pending equate directives.  */
-  process_pending_assemble_output_defs ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
@@ -2085,14 +2084,16 @@ process_options (void)
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
+
+  /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
+  if (flag_cx_limited_range)
+    flag_complex_method = 0;
 }
 
 /* Initialize the compiler back end.  */
 static void
 backend_init (void)
 {
-  init_adjust_machine_modes ();
-
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -2231,6 +2232,11 @@ do_compile (void)
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)
     {
+      /* This must be run always, because it is needed to compute the FP
+	 predefined macros, such as __LDBL_MAX__, for targets using non
+	 default FP formats.  */
+      init_adjust_machine_modes ();
+
       /* Set up the back-end if requested.  */
       if (!no_backend)
 	backend_init ();

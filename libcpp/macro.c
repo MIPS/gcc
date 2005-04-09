@@ -904,7 +904,7 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro, macro_arg
 	{
 	  cpp_token *token = _cpp_temp_token (pfile);
 	  token->type = (*paste_flag)->type;
-	  token->val.str = (*paste_flag)->val.str;
+	  token->val = (*paste_flag)->val;
 	  if (src->flags & PASTE_LEFT)
 	    token->flags = (*paste_flag)->flags | PASTE_LEFT;
 	  else
@@ -1161,7 +1161,7 @@ cpp_get_token (cpp_reader *pfile)
 	  cpp_token *t = _cpp_temp_token (pfile);
 	  t->type = result->type;
 	  t->flags = result->flags | NO_EXPAND;
-	  t->val.str = result->val.str;
+	  t->val = result->val;
 	  result = t;
 	}
 
@@ -1486,8 +1486,39 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       macro->fun_like = 1;
     }
   else if (ctoken->type != CPP_EOF && !(ctoken->flags & PREV_WHITE))
-    cpp_error (pfile, CPP_DL_PEDWARN,
-	       "ISO C requires whitespace after the macro name");
+    {
+      /* While ISO C99 requires whitespace before replacement text
+	 in a macro definition, ISO C90 with TC1 allows there characters
+	 from the basic source character set.  */
+      if (CPP_OPTION (pfile, c99))
+	cpp_error (pfile, CPP_DL_PEDWARN,
+		   "ISO C99 requires whitespace after the macro name");
+      else
+	{
+	  int warntype = CPP_DL_WARNING;
+	  switch (ctoken->type)
+	    {
+	    case CPP_ATSIGN:
+	    case CPP_AT_NAME:
+	    case CPP_OBJC_STRING:
+	      /* '@' is not in basic character set.  */
+	      warntype = CPP_DL_PEDWARN;
+	      break;
+	    case CPP_OTHER:
+	      /* Basic character set sans letters, digits and _.  */
+	      if (strchr ("!\"#%&'()*+,-./:;<=>?[\\]^{|}~",
+			  ctoken->val.str.text[0]) == NULL)
+		warntype = CPP_DL_PEDWARN;
+	      break;
+	    default:
+	      /* All other tokens start with a character from basic
+		 character set.  */
+	      break;
+	    }
+	  cpp_error (pfile, warntype,
+		     "missing whitespace after the macro name");
+	}
+    }
 
   if (macro->fun_like)
     token = lex_expansion_token (pfile, macro);

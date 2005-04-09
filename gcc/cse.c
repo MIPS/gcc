@@ -864,10 +864,12 @@ init_cse_reg_info (unsigned int nregs)
 	}
 
       /* Reallocate the table with NEW_SIZE entries.  */
-      cse_reg_info_table = xrealloc (cse_reg_info_table,
-				     (sizeof (struct cse_reg_info)
-				      * new_size));
+      if (cse_reg_info_table)
+	free (cse_reg_info_table);
+      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
+				     * new_size);
       cse_reg_info_table_size = new_size;
+      cse_reg_info_table_first_uninitialized = 0;
     }
 
   /* Do we have all of the first NREGS entries initialized?  */
@@ -1232,7 +1234,24 @@ insert_regs (rtx x, struct table_elt *classp, int modified)
 	      if (REG_P (classp->exp)
 		  && GET_MODE (classp->exp) == GET_MODE (x))
 		{
-		  make_regs_eqv (regno, REGNO (classp->exp));
+		  unsigned c_regno = REGNO (classp->exp);
+
+		  gcc_assert (REGNO_QTY_VALID_P (c_regno));
+
+		  /* Suppose that 5 is hard reg and 100 and 101 are
+		     pseudos.  Consider
+
+		     (set (reg:si 100) (reg:si 5))
+		     (set (reg:si 5) (reg:si 100))
+		     (set (reg:di 101) (reg:di 5))
+
+		     We would now set REG_QTY (101) = REG_QTY (5), but the
+		     entry for 5 is in SImode.  When we use this later in
+		     copy propagation, we get the register in wrong mode.  */
+		  if (qty_table[REG_QTY (c_regno)].mode != GET_MODE (x))
+		    continue;
+
+		  make_regs_eqv (regno, c_regno);
 		  return 1;
 		}
 
@@ -3562,8 +3581,31 @@ fold_rtx (rtx x, rtx insn)
 		if (offset >= 0
 		    && (offset / GET_MODE_SIZE (GET_MODE (table))
 			< XVECLEN (table, 0)))
-		  return XVECEXP (table, 0,
-				  offset / GET_MODE_SIZE (GET_MODE (table)));
+		  {
+		    rtx label = XVECEXP
+		      (table, 0, offset / GET_MODE_SIZE (GET_MODE (table)));
+		    rtx set;
+
+		    /* If we have an insn that loads the label from
+		       the jumptable into a reg, we don't want to set
+		       the reg to the label, because this may cause a
+		       reference to the label to remain after the
+		       label is removed in some very obscure cases (PR
+		       middle-end/18628).  */
+		    if (!insn)
+		      return label;
+
+		    set = single_set (insn);
+
+		    if (! set || SET_SRC (set) != x)
+		      return x;
+
+		    /* If it's a jump, it's safe to reference the label.  */
+		    if (SET_DEST (set) == pc_rtx)
+		      return label;
+
+		    return x;
+		  }
 	      }
 	    if (table_insn && JUMP_P (table_insn)
 		&& GET_CODE (PATTERN (table_insn)) == ADDR_DIFF_VEC)
@@ -7354,8 +7396,9 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
   counts = xcalloc (nreg, sizeof (int));
-  for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
-    count_reg_usage (insn, counts, 1);
+  for (insn = insns; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      count_reg_usage (insn, counts, 1);
 
   /* Go from the last insn to the first and delete insns that only set unused
      registers or copy a register to itself.  As we delete an insn, remove
@@ -7364,15 +7407,13 @@ delete_trivially_dead_insns (rtx insns, int nreg)
      The first jump optimization pass may leave a real insn as the last
      insn in the function.   We must not skip that insn or we may end
      up deleting code that is not really dead.  */
-  insn = get_last_insn ();
-  if (! INSN_P (insn))
-    insn = prev_real_insn (insn);
-
-  for (; insn; insn = prev)
+  for (insn = get_last_insn (); insn; insn = prev)
     {
       int live_insn = 0;
 
-      prev = prev_real_insn (insn);
+      prev = PREV_INSN (insn);
+      if (!INSN_P (insn))
+	continue;
 
       /* Don't delete any insns that are part of a libcall block unless
 	 we can delete the whole libcall block.
@@ -7400,7 +7441,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 	  ndead++;
 	}
 
-      if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+      if (in_libcall && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
 	{
 	  in_libcall = 0;
 	  dead_libcall = 0;

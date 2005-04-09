@@ -1,5 +1,5 @@
-/* DomFragment.java -- 
-   Copyright (C) 1999,2000,2001,2004 Free Software Foundation, Inc.
+/* LayoutFocusTraversalPolicy.java --
+   Copyright (C) 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,42 +35,53 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-package gnu.xml.dom;
 
-import org.w3c.dom.DocumentFragment;
+package javax.swing;
+
+import java.awt.Component;
+import java.io.Serializable;
+import java.util.Comparator;
 
 /**
- * <p> "DocumentFragment" implementation.  </p>
- *
- * @author David Brownell 
- * @author <a href='mailto:dog@gnu.org'>Chris Burdess</a>
+ * @author Graydon Hoare
+ * @author Michael Koch
+ * 
+ * @since 1.4
  */
-public class DomFragment
-  extends DomNode
-  implements DocumentFragment
+public class LayoutFocusTraversalPolicy 
+  extends SortingFocusTraversalPolicy
+  implements Serializable
 {
-  
-  /**
-   * Constructs a DocumentFragment node associated with the
-   * specified document.
-   *
-   * <p>This constructor should only be invoked by a Document as part of
-   * its createDocumentFragment functionality, or through a subclass which
-   * is similarly used in a "Sub-DOM" style layer.
-   */
-  protected DomFragment(DomDocument owner)
+  private static class LayoutComparator
+    implements Comparator
   {
-    super(DOCUMENT_FRAGMENT_NODE, owner);
-  }
+    public LayoutComparator()
+    {
+      // Do nothing here.
+    }
+    
+    public int compare(Object o1, Object o2)
+    {
+      Component comp1 = (Component) o1;
+      Component comp2 = (Component) o2;
 
-  /**
-   * <b>DOM L1</b>
-   * Returns the string "#document-fragment".
-   */
-  final public String getNodeName()
-  {
-    return "#document-fragment";
+      int x1 = comp1.getX();
+      int y1 = comp1.getY();
+      int x2 = comp2.getX();
+      int y2 = comp2.getY();
+      
+      if (x1 == x2 && y1 == y2)
+	return 0;
+      
+      if ((y1 < y2) || ((y1 == y2) && (x1 < x2)))
+	return -1;
+
+      return 1;
+    }
   }
   
+  public LayoutFocusTraversalPolicy()
+  {
+    super(new LayoutComparator());
+  }
 }
-

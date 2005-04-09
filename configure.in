@@ -308,9 +308,6 @@ case "${host}" in
   powerpc-*-beos*)
     noconfigdirs="$noconfigdirs tk itcl libgui gdb dejagnu readline"
     ;;
-  *-*-darwin*)
-    noconfigdirs="$noconfigdirs tk itcl libgui"
-    ;;
 esac
 
 
@@ -756,6 +753,9 @@ case "${target}" in
            use_gnu_ld=no
     fi
     ;;
+  sparc-*-solaris2.[[0-6]] | sparc-*-solaris2.[[0-6]].*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
   sparc-*-solaris* | sparc64-*-solaris* | sparcv9-*-solaris*)
     ;;
   v810-*-*)
@@ -944,11 +944,11 @@ case "${host}" in
   powerpc-*-darwin*)
     host_makefile_frag="config/mh-ppc-darwin"
     ;;
-  /* APPLE LOCAL begin dynamic-no-pic  */
+  # APPLE LOCAL begin dynamic-no-pic
   i[[3456789]]86-*-darwin*)
     host_makefile_frag="config/mh-x86-darwin"
     ;;
-  /* APPLE LOCAL end dynamic-no-pic  */
+  # APPLE LOCAL end dynamic-no-pic
   *-*-lynxos*)
     # /bin/cc is less than useful for our purposes.  Always use GCC
     tentative_cc="/bin/gcc"
@@ -1674,6 +1674,7 @@ esac
 
 case "${host}" in
   *-*-hpux*) RPATH_ENVVAR=SHLIB_PATH ;;
+  *-*-darwin* | *-*-rhapsody* ) RPATH_ENVVAR=DYLD_LIBRARY_PATH ;;
   *) RPATH_ENVVAR=LD_LIBRARY_PATH ;;
 esac
 

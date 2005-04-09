@@ -126,8 +126,7 @@ static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool pa_scalar_mode_supported_p (enum machine_mode);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
-static struct deferred_plabel *get_plabel (const char *)
-     ATTRIBUTE_UNUSED;
+static struct deferred_plabel *get_plabel (rtx) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_level (void) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_space (int) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_file (int) ATTRIBUTE_UNUSED;
@@ -138,6 +137,9 @@ static void pa_linux_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_gas_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_hpas_file_start (void) ATTRIBUTE_UNUSED;
 static void output_deferred_plabels (void);
+#ifdef ASM_OUTPUT_EXTERNAL_REAL
+static void pa_hpux_file_end (void);
+#endif
 #ifdef HPUX_LONG_DOUBLE_LIBRARY
 static void pa_hpux_init_libfuncs (void);
 #endif
@@ -195,7 +197,7 @@ static int last_address;
 struct deferred_plabel GTY(())
 {
   rtx internal_label;
-  const char *name;
+  rtx symbol;
 };
 static GTY((length ("n_deferred_plabels"))) struct deferred_plabel *
   deferred_plabels;
@@ -245,7 +247,11 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 #undef TARGET_ASM_FILE_END
+#ifdef ASM_OUTPUT_EXTERNAL_REAL
+#define TARGET_ASM_FILE_END pa_hpux_file_end
+#else
 #define TARGET_ASM_FILE_END output_deferred_plabels
+#endif
 
 #if !defined(USE_COLLECT2)
 #undef TARGET_ASM_CONSTRUCTOR
@@ -3315,13 +3321,14 @@ output_64bit_ior (rtx *operands)
 }
 
 /* Target hook for assembling integer objects.  This code handles
-   aligned SI and DI integers specially, since function references must
-   be preceded by P%.  */
+   aligned SI and DI integers specially since function references
+   must be preceded by P%.  */
 
 static bool
 pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
-  if (size == UNITS_PER_WORD && aligned_p
+  if (size == UNITS_PER_WORD
+      && aligned_p
       && function_label_operand (x, VOIDmode))
     {
       fputs (size == 8? "\t.dword\tP%" : "\t.word\tP%", asm_out_file);
@@ -5429,10 +5436,10 @@ output_global_address (FILE *file, rtx x, int round_constant)
     x = XEXP (x, 0);
 
   if (GET_CODE (x) == SYMBOL_REF && read_only_operand (x, VOIDmode))
-    assemble_name (file, XSTR (x, 0));
+    output_addr_const (file, x);
   else if (GET_CODE (x) == SYMBOL_REF && !flag_pic)
     {
-      assemble_name (file, XSTR (x, 0));
+      output_addr_const (file, x);
       fputs ("-$global$", file);
     }
   else if (GET_CODE (x) == CONST)
@@ -5593,22 +5600,23 @@ pa_hpux64_hpas_file_start (void)
 #undef aputs
 
 static struct deferred_plabel *
-get_plabel (const char *fname)
+get_plabel (rtx symbol)
 {
+  const char *fname = XSTR (symbol, 0);
   size_t i;
 
   /* See if we have already put this function on the list of deferred
      plabels.  This list is generally small, so a liner search is not
      too ugly.  If it proves too slow replace it with something faster.  */
   for (i = 0; i < n_deferred_plabels; i++)
-    if (strcmp (fname, deferred_plabels[i].name) == 0)
+    if (strcmp (fname, XSTR (deferred_plabels[i].symbol, 0)) == 0)
       break;
 
   /* If the deferred plabel list is empty, or this entry was not found
      on the list, create a new entry on the list.  */
   if (deferred_plabels == NULL || i == n_deferred_plabels)
     {
-      const char *real_name;
+      tree id;
 
       if (deferred_plabels == 0)
 	deferred_plabels = (struct deferred_plabel *)
@@ -5621,12 +5629,13 @@ get_plabel (const char *fname)
 
       i = n_deferred_plabels++;
       deferred_plabels[i].internal_label = gen_label_rtx ();
-      deferred_plabels[i].name = ggc_strdup (fname);
+      deferred_plabels[i].symbol = symbol;
 
-      /* Gross.  We have just implicitly taken the address of this function,
-	 mark it as such.  */
-      real_name = (*targetm.strip_name_encoding) (fname);
-      TREE_SYMBOL_REFERENCED (get_identifier (real_name)) = 1;
+      /* Gross.  We have just implicitly taken the address of this
+	 function.  Mark it in the same manner as assemble_name.  */
+      id = maybe_get_identifier (targetm.strip_name_encoding (fname));
+      if (id)
+	mark_referenced (id);
     }
 
   return &deferred_plabels[i];
@@ -5650,7 +5659,7 @@ output_deferred_plabels (void)
     {
       (*targetm.asm_out.internal_label) (asm_out_file, "L",
 		 CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
-      assemble_integer (gen_rtx_SYMBOL_REF (Pmode, deferred_plabels[i].name),
+      assemble_integer (deferred_plabels[i].symbol,
 			TARGET_64BIT ? 8 : 4, TARGET_64BIT ? 64 : 32, 1);
     }
 }
@@ -7471,7 +7480,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 	  /* ??? As far as I can tell, the HP linker doesn't support the
 	     long pc-relative sequence described in the 64-bit runtime
 	     architecture.  So, we use a slightly longer indirect call.  */
-	  struct deferred_plabel *p = get_plabel (XSTR (call_dest, 0));
+	  struct deferred_plabel *p = get_plabel (call_dest);
 
 	  xoperands[0] = p->internal_label;
 	  xoperands[1] = gen_label_rtx ();
@@ -7600,7 +7609,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 		     essentially an inline implementation of $$dyncall.
 		     We don't actually try to call $$dyncall as this is
 		     as difficult as calling the function itself.  */
-		  struct deferred_plabel *p = get_plabel (XSTR (call_dest, 0));
+		  struct deferred_plabel *p = get_plabel (call_dest);
 
 		  xoperands[0] = p->internal_label;
 		  xoperands[1] = gen_label_rtx ();
@@ -7916,18 +7925,18 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 			HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
 			tree function)
 {
-  const char *fname = XSTR (XEXP (DECL_RTL (function), 0), 0);
-  const char *tname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
+  static unsigned int current_thunk_number;
   int val_14 = VAL_14_BITS_P (delta);
   int nbytes = 0;
-  static unsigned int current_thunk_number;
   char label[16];
+  rtx xoperands[4];
 
-  ASM_OUTPUT_LABEL (file, tname);
+  xoperands[0] = XEXP (DECL_RTL (function), 0);
+  xoperands[1] = XEXP (DECL_RTL (thunk_fndecl), 0);
+  xoperands[2] = GEN_INT (delta);
+
+  ASM_OUTPUT_LABEL (file, XSTR (xoperands[1], 0));
   fprintf (file, "\t.PROC\n\t.CALLINFO FRAME=0,NO_CALLS\n\t.ENTRY\n");
-
-  fname = (*targetm.strip_name_encoding) (fname);
-  tname = (*targetm.strip_name_encoding) (tname);
 
   /* Output the thunk.  We know that the function is in the same
      translation unit (i.e., the same space) as the thunk, and that
@@ -7959,18 +7968,19 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		       && last_address < 262132)))
 	      || (!targetm.have_named_sections && last_address < 262132))))
     {
+      if (!val_14)
+	output_asm_insn ("addil L'%2,%%r26", xoperands);
+
+      output_asm_insn ("b %0", xoperands);
+
       if (val_14)
 	{
-	  fprintf (file, "\tb %s\n\tldo " HOST_WIDE_INT_PRINT_DEC
-			 "(%%r26),%%r26\n", fname, delta);
+	  output_asm_insn ("ldo %2(%%r26),%%r26", xoperands);
 	  nbytes += 8;
 	}
       else
 	{
-	  fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
-			 ",%%r26\n", delta);
-	  fprintf (file, "\tb %s\n\tldo R'" HOST_WIDE_INT_PRINT_DEC
-			 "(%%r1),%%r26\n", fname, delta);
+	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
 	  nbytes += 12;
 	}
     }
@@ -7979,53 +7989,54 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
       /* We only have one call-clobbered scratch register, so we can't
          make use of the delay slot if delta doesn't fit in 14 bits.  */
       if (!val_14)
-	fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
-		       ",%%r26\n\tldo R'" HOST_WIDE_INT_PRINT_DEC
-		       "(%%r1),%%r26\n", delta, delta);
+	{
+	  output_asm_insn ("addil L'%2,%%r26", xoperands);
+	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
+	}
 
-      fprintf (file, "\tb,l .+8,%%r1\n");
+      output_asm_insn ("b,l .+8,%%r1", xoperands);
 
       if (TARGET_GAS)
 	{
-	  fprintf (file, "\taddil L'%s-$PIC_pcrel$0+4,%%r1\n", fname);
-	  fprintf (file, "\tldo R'%s-$PIC_pcrel$0+8(%%r1),%%r1\n", fname);
+	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
 	}
       else
 	{
-	  int off = val_14 ? 8 : 16;
-	  fprintf (file, "\taddil L'%s-%s-%d,%%r1\n", fname, tname, off);
-	  fprintf (file, "\tldo R'%s-%s-%d(%%r1),%%r1\n", fname, tname, off);
+	  xoperands[3] = GEN_INT (val_14 ? 8 : 16);
+	  output_asm_insn ("addil L'%0-%1-%3,%%r1", xoperands);
 	}
 
       if (val_14)
 	{
-	  fprintf (file, "\tbv %%r0(%%r1)\n\tldo ");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%%r26),%%r26\n", delta);
+	  output_asm_insn ("bv %%r0(%%r1)", xoperands);
+	  output_asm_insn ("ldo %2(%%r26),%%r26", xoperands);
 	  nbytes += 20;
 	}
       else
 	{
-	  fprintf (file, "\tbv,n %%r0(%%r1)\n");
+	  output_asm_insn ("bv,n %%r0(%%r1)", xoperands);
 	  nbytes += 24;
 	}
     }
   else if (TARGET_PORTABLE_RUNTIME)
     {
-      fprintf (file, "\tldil L'%s,%%r1\n", fname);
-      fprintf (file, "\tldo R'%s(%%r1),%%r22\n", fname);
+      output_asm_insn ("ldil L'%0,%%r1", xoperands);
+      output_asm_insn ("ldo R'%0(%%r1),%%r22", xoperands);
+
+      if (!val_14)
+	output_asm_insn ("addil L'%2,%%r26", xoperands);
+
+      output_asm_insn ("bv %%r0(%%r22)", xoperands);
 
       if (val_14)
 	{
-	  fprintf (file, "\tbv %%r0(%%r22)\n\tldo ");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%%r26),%%r26\n", delta);
+	  output_asm_insn ("ldo %2(%%r26),%%r26", xoperands);
 	  nbytes += 16;
 	}
       else
 	{
-	  fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
-			 ",%%r26\n", delta);
-	  fprintf (file, "\tbv %%r0(%%r22)\n\tldo ");
-	  fprintf (file, "R'" HOST_WIDE_INT_PRINT_DEC "(%%r1),%%r26\n", delta);
+	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
 	  nbytes += 20;
 	}
     }
@@ -8036,99 +8047,92 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 	 call the function directly with an indirect sequence similar to
 	 that used by $$dyncall.  This is possible because $$dyncall acts
 	 as the import stub in an indirect call.  */
-      const char *lab;
-
       ASM_GENERATE_INTERNAL_LABEL (label, "LTHN", current_thunk_number);
-      lab = (*targetm.strip_name_encoding) (label);
+      xoperands[3] = gen_rtx_SYMBOL_REF (Pmode, label);
+      output_asm_insn ("addil LT'%3,%%r19", xoperands);
+      output_asm_insn ("ldw RT'%3(%%r1),%%r22", xoperands);
+      output_asm_insn ("ldw 0(%%sr0,%%r22),%%r22", xoperands);
+      output_asm_insn ("bb,>=,n %%r22,30,.+16", xoperands);
+      output_asm_insn ("depi 0,31,2,%%r22", xoperands);
+      output_asm_insn ("ldw 4(%%sr0,%%r22),%%r19", xoperands);
+      output_asm_insn ("ldw 0(%%sr0,%%r22),%%r22", xoperands);
 
-      fprintf (file, "\taddil LT'%s,%%r19\n", lab);
-      fprintf (file, "\tldw RT'%s(%%r1),%%r22\n", lab);
-      fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
-      fprintf (file, "\tbb,>=,n %%r22,30,.+16\n");
-      fprintf (file, "\tdepi 0,31,2,%%r22\n");
-      fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
-      fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
       if (!val_14)
 	{
-	  fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
-			 ",%%r26\n", delta);
+	  output_asm_insn ("addil L'%2,%%r26", xoperands);
 	  nbytes += 4;
 	}
+
       if (TARGET_PA_20)
 	{
-          fprintf (file, "\tbve (%%r22)\n\tldo ");
+	  output_asm_insn ("bve (%%r22)", xoperands);
+	  nbytes += 36;
+	}
+      else if (TARGET_NO_SPACE_REGS)
+	{
+	  output_asm_insn ("be 0(%%sr4,%%r22)", xoperands);
 	  nbytes += 36;
 	}
       else
 	{
-	  if (TARGET_NO_SPACE_REGS)
-	    {
-	      fprintf (file, "\tbe 0(%%sr4,%%r22)\n\tldo ");
-	      nbytes += 36;
-	    }
-	  else
-	    {
-	      fprintf (file, "\tldsid (%%sr0,%%r22),%%r21\n");
-	      fprintf (file, "\tmtsp %%r21,%%sr0\n");
-	      fprintf (file, "\tbe 0(%%sr0,%%r22)\n\tldo ");
-	      nbytes += 44;
-	    }
+	  output_asm_insn ("ldsid (%%sr0,%%r22),%%r21", xoperands);
+	  output_asm_insn ("mtsp %%r21,%%sr0", xoperands);
+	  output_asm_insn ("be 0(%%sr0,%%r22)", xoperands);
+	  nbytes += 44;
 	}
 
       if (val_14)
-	fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%%r26),%%r26\n", delta);
+	output_asm_insn ("ldo %2(%%r26),%%r26", xoperands);
       else
-	fprintf (file, "R'" HOST_WIDE_INT_PRINT_DEC "(%%r1),%%r26\n", delta);
+	output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
     }
   else if (flag_pic)
     {
-      if (TARGET_PA_20)
-	fprintf (file, "\tb,l .+8,%%r1\n");
-      else
-	fprintf (file, "\tbl .+8,%%r1\n");
+      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 
       if (TARGET_SOM || !TARGET_GAS)
 	{
-	  fprintf (file, "\taddil L'%s-%s-8,%%r1\n", fname, tname);
-	  fprintf (file, "\tldo R'%s-%s-8(%%r1),%%r22\n", fname, tname);
+	  output_asm_insn ("addil L'%0-%1-8,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%0-%1-8(%%r1),%%r22", xoperands);
 	}
       else
 	{
-	  fprintf (file, "\taddil L'%s-$PIC_pcrel$0+4,%%r1\n", fname);
-	  fprintf (file, "\tldo R'%s-$PIC_pcrel$0+8(%%r1),%%r22\n", fname);
+	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r22", xoperands);
 	}
+
+      if (!val_14)
+	output_asm_insn ("addil L'%2,%%r26", xoperands);
+
+      output_asm_insn ("bv %%r0(%%r22)", xoperands);
 
       if (val_14)
 	{
-	  fprintf (file, "\tbv %%r0(%%r22)\n\tldo ");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%%r26),%%r26\n", delta);
+	  output_asm_insn ("ldo %2(%%r26),%%r26", xoperands);
 	  nbytes += 20;
 	}
       else
 	{
-	  fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
-			 ",%%r26\n", delta);
-	  fprintf (file, "\tbv %%r0(%%r22)\n\tldo ");
-	  fprintf (file, "R'" HOST_WIDE_INT_PRINT_DEC "(%%r1),%%r26\n", delta);
+	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
 	  nbytes += 24;
 	}
     }
   else
     {
       if (!val_14)
-	fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC ",%%r26\n", delta);
+	output_asm_insn ("addil L'%2,%%r26", xoperands);
 
-      fprintf (file, "\tldil L'%s,%%r22\n", fname);
-      fprintf (file, "\tbe R'%s(%%sr4,%%r22)\n\tldo ", fname);
+      output_asm_insn ("ldil L'%0,%%r22", xoperands);
+      output_asm_insn ("be R'%0(%%sr4,%%r22)", xoperands);
 
       if (val_14)
 	{
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%%r26),%%r26\n", delta);
+	  output_asm_insn ("ldo %2(%%r26),%%r26", xoperands);
 	  nbytes += 12;
 	}
       else
 	{
-	  fprintf (file, "R'" HOST_WIDE_INT_PRINT_DEC "(%%r1),%%r26\n", delta);
+	  output_asm_insn ("ldo R'%2(%%r1),%%r26", xoperands);
 	  nbytes += 16;
 	}
     }
@@ -8138,9 +8142,9 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
   if (TARGET_SOM && flag_pic && TREE_PUBLIC (function))
     {
       data_section ();
-      fprintf (file, "\t.align 4\n");
+      output_asm_insn (".align 4", xoperands);
       ASM_OUTPUT_LABEL (file, label);
-      fprintf (file, "\t.word P'%s\n", fname);
+      output_asm_insn (".word P'%0", xoperands);
     }
   else if (TARGET_SOM && TARGET_GAS)
     forget_section ();
@@ -9497,5 +9501,64 @@ pa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
   return (int_size_in_bytes (type) > (TARGET_64BIT ? 16 : 8)
 	  || int_size_in_bytes (type) <= 0);
 }
+
+/* Structure to hold declaration and name of external symbols that are
+   emitted by GCC.  We generate a vector of these symbols and output them
+   at the end of the file if and only if SYMBOL_REF_REFERENCED_P is true.
+   This avoids putting out names that are never really used.  */
+
+struct extern_symbol GTY(())
+{
+  tree decl;
+  const char *name;
+};
+typedef struct extern_symbol *extern_symbol;
+
+/* Define gc'd vector type for extern_symbol.  */
+DEF_VEC_GC_P(extern_symbol);
+
+/* Vector of extern_symbol pointers.  */
+static GTY(()) VEC(extern_symbol) *extern_symbols;
+
+#ifdef ASM_OUTPUT_EXTERNAL_REAL
+/* Mark DECL (name NAME) as an external reference (assembler output
+   file FILE).  This saves the names to output at the end of the file
+   if actually referenced.  */
+
+void
+pa_hpux_asm_output_external (FILE *file, tree decl, const char *name)
+{
+  extern_symbol p = ggc_alloc (sizeof (struct extern_symbol));
+
+  gcc_assert (file == asm_out_file);
+  p->decl = decl;
+  p->name = name;
+  VEC_safe_push (extern_symbol, extern_symbols, p);
+}
+
+/* Output text required at the end of an assembler file.
+   This includes deferred plabels and .import directives for
+   all external symbols that were actually referenced.  */
+
+static void
+pa_hpux_file_end (void)
+{
+  unsigned int i;
+  extern_symbol p;
+
+  output_deferred_plabels ();
+
+  for (i = 0; VEC_iterate (extern_symbol, extern_symbols, i, p); i++)
+    {
+      tree decl = p->decl;
+
+      if (!TREE_ASM_WRITTEN (decl)
+	  && SYMBOL_REF_REFERENCED_P (XEXP (DECL_RTL (decl), 0)))
+	ASM_OUTPUT_EXTERNAL_REAL (asm_out_file, decl, p->name);
+    }
+
+  extern_symbols = NULL;
+}
+#endif
 
 #include "gt-pa.h"

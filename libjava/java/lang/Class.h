@@ -228,14 +228,15 @@ void _Jv_InitNewClassFields (jclass klass);
 
 // Friend functions and classes in prims.cc
 void _Jv_InitPrimClass (jclass, char *, char, int);
-jstring _Jv_GetMethodString (jclass, _Jv_Utf8Const *);
+jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
 
 jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 			  jint flags);
 jclass _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
 jboolean _Jv_IsInterpretedClass (jclass);
+
+#ifdef INTERPRETER
 void _Jv_InitField (jobject, jclass, int);
 
 class _Jv_ClassReader;	
@@ -454,7 +455,7 @@ private:
   // in prims.cc
   friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Utf8Const *);
+  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
   friend jboolean (::_Jv_CheckAccess) (jclass self_klass, jclass other_klass,
 				   jint flags);
@@ -466,8 +467,9 @@ private:
   friend jclass (::_Jv_GetArrayClass) (jclass klass,
 				       java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
   friend jboolean (::_Jv_IsInterpretedClass) (jclass);
+
+#ifdef INTERPRETER
   friend void ::_Jv_InitField (jobject, jclass, int);
 
   friend class ::_Jv_ClassReader;	

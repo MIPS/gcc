@@ -437,8 +437,9 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 /* Make sure local alignments come from the type node, not the mode;
    mode-based alignments are wrong for vectors.  */
 #undef LOCAL_ALIGNMENT
-#define LOCAL_ALIGNMENT(TYPE, ALIGN)	(MAX ((unsigned) ALIGN,	\
-					      TYPE_ALIGN (TYPE)))
+#define LOCAL_ALIGNMENT(TYPE, ALIGN)			\
+  (MIN (BIGGEST_ALIGNMENT,				\
+	MAX ((unsigned) ALIGN, TYPE_ALIGN (TYPE))))
 /* APPLE LOCAL end alignment */
 
 /* Specify padding for the last element of a block move between
@@ -470,6 +471,15 @@ extern const char *darwin_one_byte_bool;
 
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
+
+/* APPLE LOCAL begin libgcc binary compatibility */
+#undef LIBGCC_SPEC
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						\
+   "%{static|static-libgcc:-lgcc -lgcc_eh;				\
+      :%{shared-libgcc|Zdynamiclib:%{m64:-lgcc_s_ppc64;:-lgcc_s} -lgcc;	\
+         :-lgcc -lgcc_eh}}"
+/* APPLE LOCAL end libgcc binary compatibility */
 
 #ifdef IN_LIBGCC2
 #include <stdbool.h>

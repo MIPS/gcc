@@ -272,7 +272,7 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
 {
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  if (sym->module[0] == 0)
+  if (sym->module == NULL)
     return gfc_sym_identifier (sym);
   else
     {
@@ -290,8 +290,8 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
   int has_underscore;
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  if (sym->module[0] == 0 || sym->attr.proc == PROC_EXTERNAL
-      || (sym->module[0] != 0 && sym->attr.if_source == IFSRC_IFBODY))
+  if (sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
+      || (sym->module != NULL && sym->attr.if_source == IFSRC_IFBODY))
     {
       if (strcmp (sym->name, "MAIN__") == 0
 	  || sym->attr.proc == PROC_INTRINSIC)
@@ -314,6 +314,32 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
       snprintf (name, sizeof name, "__%s__%s", sym->module, sym->name);
       return get_identifier (name);
     }
+}
+
+
+/* Returns true if a variable of specified size should go on the stack.  */
+
+int
+gfc_can_put_var_on_stack (tree size)
+{
+  unsigned HOST_WIDE_INT low;
+
+  if (!INTEGER_CST_P (size))
+    return 0;
+
+  if (gfc_option.flag_max_stack_var_size < 0)
+    return 1;
+
+  if (TREE_INT_CST_HIGH (size) != 0)
+    return 0;
+
+  low = TREE_INT_CST_LOW (size);
+  if (low > (unsigned HOST_WIDE_INT) gfc_option.flag_max_stack_var_size)
+    return 0;
+
+/* TODO: Set a per-function stack size limit.  */
+
+  return 1;
 }
 
 
@@ -404,7 +430,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       DECL_EXTERNAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
     }
-  else if (sym->module[0] && !sym->attr.result && !sym->attr.dummy)
+  else if (sym->module && !sym->attr.result && !sym->attr.dummy)
     {
       /* TODO: Don't set sym->module for result or dummy variables.  */
       gcc_assert (current_function_decl == NULL_TREE);
@@ -533,7 +559,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 
 
 /* For some dummy arguments we don't use the actual argument directly.
-   Instead we create a local decl and use that.  This allows us to preform
+   Instead we create a local decl and use that.  This allows us to perform
    initialization, and construct full type information.  */
 
 static tree
@@ -766,7 +792,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   /* Symbols from modules should have their assembler names mangled.
      This is done here rather than in gfc_finish_var_decl because it
      is different for string length variables.  */
-  if (sym->module[0])
+  if (sym->module)
     SET_DECL_ASSEMBLER_NAME (decl, gfc_sym_mangled_identifier (sym));
 
   if (sym->attr.dimension)
@@ -808,7 +834,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	{
 	  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
 
-	  if (sym->module[0])
+	  if (sym->module)
 	    {
 	      /* Also prefix the mangled name for symbols from modules.  */
 	      strcpy (&name[1], sym->name);

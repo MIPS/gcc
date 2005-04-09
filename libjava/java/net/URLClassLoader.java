@@ -332,7 +332,7 @@ public class URLClassLoader extends SecureClassLoader
 	  Manifest manifest;
 	  Attributes attributes;
 	  String classPathString;
-	  
+
 	  if ((manifest = jarfile.getManifest()) != null
 	      && (attributes = manifest.getMainAttributes()) != null
 	      && ((classPathString 
@@ -422,7 +422,11 @@ public class URLClassLoader extends SecureClassLoader
 
     Certificate[] getCertificates()
     {
-      return entry.getCertificates();
+      // We have to get the entry from the jar file again, because the
+      // certificates will not be available until the entire entry has
+      // been read.
+      return ((JarEntry) ((JarURLLoader) loader).jarfile.getEntry(name))
+        .getCertificates();
     }
 
     URL getURL()
@@ -543,7 +547,7 @@ public class URLClassLoader extends SecureClassLoader
     {
       super(classloader, url, overrideURL);
       helper = SharedLibHelper.findHelper(classloader, url.getFile(),
-					  noCertCodeSource);
+					  noCertCodeSource, true);
     }
 
     Class getClass(String className)
@@ -795,6 +799,9 @@ public class URLClassLoader extends SecureClassLoader
         if (newUrl == null)
           return; // Silently ignore...
 
+	// Reset the toString() value.
+	thisString = null;
+
         // Check global cache to see if there're already url loader
         // for this url.
         URLLoader loader = (URLLoader) urlloaders.get(newUrl);
@@ -977,9 +984,10 @@ public class URLClassLoader extends SecureClassLoader
 
         // And finally construct the class!
         SecurityManager sm = System.getSecurityManager();
+        Class result = null;
         if (sm != null && securityContext != null)
           {
-	    return (Class)AccessController.doPrivileged
+            result = (Class)AccessController.doPrivileged
               (new PrivilegedAction()
                 {
                   public Object run()
@@ -991,7 +999,10 @@ public class URLClassLoader extends SecureClassLoader
                 }, securityContext);
           }
         else
-	  return defineClass(className, classData, 0, classData.length, source);
+          result = defineClass(className, classData, 0, classData.length, source);
+
+        super.setSigners(result, resource.getCertificates());
+        return result;
       }
     catch (IOException ioe)
       {
@@ -1012,25 +1023,28 @@ public class URLClassLoader extends SecureClassLoader
    */
   public String toString()
   {
-    if (thisString == null)
+    synchronized (urlloaders)
       {
-	StringBuffer sb = new StringBuffer();
-	sb.append(this.getClass().getName());
-	sb.append("{urls=[" );
-	URL[] thisURLs = getURLs();
-	for (int i = 0; i < thisURLs.length; i++)
+	if (thisString == null)
 	  {
-	    sb.append(thisURLs[i]);
-	    if (i < thisURLs.length - 1)
-	      sb.append(',');
+	    StringBuffer sb = new StringBuffer();
+	    sb.append(this.getClass().getName());
+	    sb.append("{urls=[" );
+	    URL[] thisURLs = getURLs();
+	    for (int i = 0; i < thisURLs.length; i++)
+	      {
+		sb.append(thisURLs[i]);
+		if (i < thisURLs.length - 1)
+		  sb.append(',');
+	      }
+	    sb.append(']');
+	    sb.append(", parent=");
+	    sb.append(getParent());
+	    sb.append('}');
+	    thisString = sb.toString();
 	  }
-	sb.append(']');
-	sb.append(", parent=");
-	sb.append(getParent());
-	sb.append('}');
-	thisString = sb.toString();
+	return thisString;
       }
-    return thisString;
   }
 
   /**

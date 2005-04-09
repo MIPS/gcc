@@ -285,8 +285,7 @@ perform_deferred_access_checks (void)
 {
   tree deferred_check;
 
-  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
-			 ->deferred_access_checks);
+  for (deferred_check = get_deferred_access_checks ();
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -1527,6 +1526,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -1997,7 +1999,8 @@ finish_compound_literal (tree type, tree initializer_list)
 
 	 implies that the array has two elements.  */
       if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	complete_array_type (type, compound_literal, 1);
+	cp_complete_array_type (&TREE_TYPE (compound_literal),
+				compound_literal, 1);
     }
 
   return compound_literal;
@@ -2127,15 +2130,6 @@ begin_class_definition (tree t)
     {
       t = make_aggr_type (RECORD_TYPE);
       pushtag (make_anon_name (), t, 0);
-    }
-
-  /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (COMPLETE_TYPE_P (t))
-    {
-      error ("redefinition of %q#T", t);
-      cp_error_at ("previous definition of %q#T", t);
-      return error_mark_node;
     }
 
   /* Update the location of the decl.  */
@@ -2663,11 +2657,6 @@ finish_id_expression (tree id_expression,
 	     need.  */
 	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
 	    return id_expression;
-	  /* Since this name was dependent, the expression isn't
-	     constant -- yet.  No error is issued because it might be
-	     constant when things are instantiated.  */
-	  if (integral_constant_expression_p)
-	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
