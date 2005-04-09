@@ -2121,19 +2121,19 @@ GLOBAL(ic_invalidate):
 	mov.l	@(r0,r2),r1
 #endif
 	ocbwb	@r4
-	mov.l	(8,r1),r0
+	mov.l	@(8,r1),r0
 	sub	r1,r4
 	and	r4,r0
 	add	r1,r0
 	jmp	@r0
-	mov.l	(4,r1),r0
+	mov.l	@(4,r1),r0
 #ifndef __pic__
 0:	.long   GLOBAL(ic_invalidate_array)
 #else /* __pic__ */
 	.global GLOBAL(ic_invalidate_array)
 	/* ??? Why won't the assembler allow to add these two constants?  */
 0:	.long   _GLOBAL_OFFSET_TABLE_
-1:	.long   GLOABL(ic_invalidate_array)@GOT
+1:	.long   GLOBAL(ic_invalidate_array)@GOT
 	ENDFUNC(GLOBAL(ic_invalidate))
 #endif /* __pic__ */
 #endif /* SH4 */

@@ -1,3 +1,8 @@
+2005-04-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/lib1funcs.asm (ic_invalidate): Fix typos.
+	* config/sh/t-linux (LIB1ASMFUNCS_CACHE): Add _ic_invalidate_array.
+
 2005-04-06  J"orn Rennecke <joern.rennecke@st.com>
 
 	PR middle-end/20793:
