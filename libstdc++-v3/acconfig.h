@@ -4,11 +4,6 @@
 #undef PACKAGE
 #undef VERSION
 
-// Needed for gettext.
-#undef ENABLE_NLS
-#undef HAVE_CATGETS
-#undef HAVE_GETTEXT
-#undef HAVE_STPCPY
 
 // Define if code specialized for long long should be used.
 #undef _GLIBCXX_USE_LONG_LONG
@@ -61,92 +56,8 @@
 // Define if gthr-default.h exists (meaning that threading support is enabled).
 #undef HAVE_GTHR_DEFAULT
 
-// Define if the atan2f function exists.
-#undef HAVE_ATAN2F 
-
-// Define if the atan2l function exists.
-#undef HAVE_ATAN2L
-
-// Define if the tanl function exists.
-#undef HAVE_TANL
-
-// Define if the copysignf function exists.
-#undef HAVE_COPYSIGNF
-
-// Define if getpagesize exists.
-#undef HAVE_GETPAGESIZE
-
-// Define if setenv exists.
-#undef HAVE_SETENV
-
-// Define if sigsetjmp exists.
-#undef HAVE_SIGSETJMP
-
 // Define if mbstate_t exists in wchar.h.
 #undef HAVE_MBSTATE_T
-
-// Define if you have the modff function.
-#undef HAVE_MODFF
-
-// Define if you have the modfl function.
-#undef HAVE_MODFL
-
-// Define if you have the expf function.
-#undef HAVE_EXPF
-
-// Define if you have the expl function.
-#undef HAVE_EXPL
-
-// Define if you have the hypot function.
-#undef HAVE_HYPOT
-
-// Define if you have the hypotf function.
-#undef HAVE_HYPOTF
-
-// Define if you have the hypotl function.
-#undef HAVE_HYPOTL
-
-// Define if the compiler/host combination has __builtin_abs
-#undef HAVE___BUILTIN_ABS
-
-// Define if the compiler/host combination has __builtin_labs
-#undef HAVE___BUILTIN_LABS
-
-// Define if the compiler/host combination has __builtin_cos
-#undef HAVE___BUILTIN_COS
-
-// Define if the compiler/host combination has __builtin_cosf
-#undef HAVE___BUILTIN_COSF
-
-// Define if the compiler/host combination has __builtin_cosl
-#undef HAVE___BUILTIN_COSL
-
-// Define if the compiler/host combination has __builtin_fabs
-#undef HAVE___BUILTIN_FABS
-
-// Define if the compiler/host combination has __builtin_fabsf
-#undef HAVE___BUILTIN_FABSF
-
-// Define if the compiler/host combination has __builtin_fabsl
-#undef HAVE___BUILTIN_FABSL
-
-// Define if the compiler/host combination has __builtin_sin
-#undef HAVE___BUILTIN_SIN
-
-// Define if the compiler/host combination has __builtin_sinf
-#undef HAVE___BUILTIN_SINF
-
-// Define if the compiler/host combination has __builtin_sinl
-#undef HAVE___BUILTIN_SINL
-
-// Define if the compiler/host combination has __builtin_sqrt
-#undef HAVE___BUILTIN_SQRT
-
-// Define if the compiler/host combination has __builtin_sqrtf
-#undef HAVE___BUILTIN_SQRTF
-
-// Define if the compiler/host combination has __builtin_sqrtl
-#undef HAVE___BUILTIN_SQRTL
 
 // Define if poll is available in <poll.h>.
 #undef HAVE_POLL
@@ -168,9 +79,6 @@
 
 // Define if <float.h> exists.
 #undef HAVE_FLOAT_H
-
-// Define if modf is present in <math.h>
-#undef HAVE_MODF
 
 // @BOTTOM@
 //
@@ -418,8 +326,8 @@
 #endif
 
 #if defined (HAVE__TANL) && ! defined (HAVE_TANL)
-# define HAVE_TANF 1
-# define tanf _tanf
+# define HAVE_TANL 1
+# define tanl _tanl
 #endif
 
 #if defined (HAVE__STRTOF) && ! defined (HAVE_STRTOF)

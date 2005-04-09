@@ -2143,7 +2143,7 @@ remove_bb (basic_block bb)
      loop above, so the last statement we process is the first statement
      in the block.  */
 #ifdef USE_MAPPED_LOCATION
-  if (warn_notreached && loc != UNKNOWN_LOCATION)
+  if (warn_notreached && loc > BUILTINS_LOCATION)
     warning ("%Hwill never be executed", &loc);
 #else
   if (warn_notreached && loc)
@@ -3037,6 +3037,24 @@ bsi_for_stmt (tree stmt)
   gcc_unreachable ();
 }
 
+/* Mark statement T as modified, and update it.  */
+static inline void
+update_modified_stmts (tree t)
+{
+  if (TREE_CODE (t) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i;
+      tree stmt;
+      for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
+        {
+	  stmt = tsi_stmt (i);
+	  update_stmt_if_modified (stmt);
+	}
+    }
+  else
+    update_stmt_if_modified (t);
+}
+
 /* Insert statement (or statement list) T before the statement
    pointed-to by iterator I.  M specifies how to update iterator I
    after insertion (see enum bsi_iterator_update).  */
@@ -3045,8 +3063,8 @@ void
 bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
+  update_modified_stmts (t);
   tsi_link_before (&i->tsi, t, m);
-  modify_stmt (t);
 }
 
 
@@ -3058,8 +3076,8 @@ void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
+  update_modified_stmts (t);
   tsi_link_after (&i->tsi, t, m);
-  modify_stmt (t);
 }
 
 
@@ -3071,7 +3089,9 @@ bsi_remove (block_stmt_iterator *i)
 {
   tree t = bsi_stmt (*i);
   set_bb_for_stmt (t, NULL);
+  delink_stmt_imm_use (t);
   tsi_delink (&i->tsi);
+  mark_stmt_modified (t);
 }
 
 
@@ -3135,7 +3155,8 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
     }
 
   *bsi_stmt_ptr (*bsi) = stmt;
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
+  update_modified_stmts (stmt);
 }
 
 
@@ -5720,6 +5741,71 @@ tree_execute_on_shrinking_pred (edge e)
     remove_phi_args (e);
 }
 
+/*---------------------------------------------------------------------------
+  Helper functions for Loop versioning
+  ---------------------------------------------------------------------------*/
+
+/* Adjust phi nodes for 'first' basic block.  'second' basic block is a copy
+   of 'first'. Both of them are dominated by 'new_head' basic block. When
+   'new_head' was created by 'second's incoming edge it received phi arguments
+   on the edge by split_edge(). Later, additional edge 'e' was created to
+   connect 'new_head' and 'first'. Now this routine adds phi args on this 
+   additional edge 'e' that new_head to second edge received as part of edge 
+   splitting.
+*/
+
+static void
+tree_lv_adjust_loop_header_phi (basic_block first, basic_block second,
+				basic_block new_head, edge e)
+{
+  tree phi1, phi2;
+
+  /* Browse all 'second' basic block phi nodes and add phi args to
+     edge 'e' for 'first' head. PHI args are always in correct order.  */
+
+  for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
+       phi2 && phi1; 
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
+    {
+      edge e2 = find_edge (new_head, second);
+
+      if (e2)
+	{
+	  tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+	  add_phi_arg (phi1, def, e);
+	}
+    }
+}
+
+/* Adds a if else statement to COND_BB with condition COND_EXPR.  
+   SECOND_HEAD is the destination of the THEN and FIRST_HEAD is 
+   the destination of the ELSE part.  */
+static void
+tree_lv_add_condition_to_bb (basic_block first_head, basic_block second_head,
+                            basic_block cond_bb, void *cond_e)
+{
+  block_stmt_iterator bsi;
+  tree goto1 = NULL_TREE;
+  tree goto2 = NULL_TREE;
+  tree new_cond_expr = NULL_TREE;
+  tree cond_expr = (tree) cond_e;
+  edge e0;
+
+  /* Build new conditional expr */
+  goto1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (first_head));
+  goto2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (second_head));
+  new_cond_expr = build3 (COND_EXPR, void_type_node, cond_expr, goto1, goto2);
+
+  /* Add new cond in cond_bb.  */ 
+  bsi = bsi_start (cond_bb); 
+  bsi_insert_after (&bsi, new_cond_expr, BSI_NEW_STMT);
+  /* Adjust edges appropriately to connect new head with first head
+     as well as second head.  */
+  e0 = single_succ_edge (cond_bb);
+  e0->flags &= ~EDGE_FALLTHRU;
+  e0->flags |= EDGE_FALSE_VALUE;
+}
+
 struct cfg_hooks tree_cfg_hooks = {
   "tree",
   tree_verify_flow_info,
@@ -5744,6 +5830,11 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_flow_call_edges_add,     /* flow_call_edges_add */
   tree_execute_on_growing_pred,	/* execute_on_growing_pred */
   tree_execute_on_shrinking_pred, /* execute_on_shrinking_pred */
+  tree_duplicate_loop_to_header_edge, /* duplicate loop for trees */
+  tree_lv_add_condition_to_bb, /* lv_add_condition_to_bb */
+  tree_lv_adjust_loop_header_phi, /* lv_adjust_loop_header_phi*/
+  extract_true_false_edges_from_block, /* extract_cond_bb_edges */
+  flush_pending_stmts 		/* flush_pending_stmts */  
 };
 
 

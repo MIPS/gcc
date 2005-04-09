@@ -1049,6 +1049,7 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
 	{
 	  orig_stmt = tsi_stmt (tsi);
 	  copy_stmt = tsi_stmt (tsi_copy);
+	  update_stmt (copy_stmt);
 	  /* Do this before the possible split_block.  */
 	  tsi_next (&tsi_copy);
 

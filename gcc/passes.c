@@ -119,8 +119,7 @@ open_dump_file (enum tree_dump_index index, tree decl)
 
   timevar_push (TV_DUMP);
 
-  if (dump_file != NULL || dump_file_name != NULL)
-    abort ();
+  gcc_assert (!dump_file && !dump_file_name);
 
   dump_file_name = get_dump_file_name (index);
   initializing_dump = !dump_initialized_p (index);
@@ -284,11 +283,9 @@ rest_of_handle_final (void)
        different from the DECL_NAME name used in the source file.  */
 
     x = DECL_RTL (current_function_decl);
-    if (!MEM_P (x))
-      abort ();
+    gcc_assert (MEM_P (x));
     x = XEXP (x, 0);
-    if (GET_CODE (x) != SYMBOL_REF)
-      abort ();
+    gcc_assert (GET_CODE (x) == SYMBOL_REF);
     fnname = XSTR (x, 0);
 
     assemble_start_function (current_function_decl, fnname);
@@ -332,7 +329,10 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   if (unlikely_text_section_name)
-    free (unlikely_text_section_name);
+    {
+      free (unlikely_text_section_name);
+      unlikely_text_section_name = NULL;
+    }
   timevar_pop (TV_SYMOUT);
 
   ggc_collect ();
@@ -576,6 +576,7 @@ rest_of_handle_partition_blocks (void)
 static void
 rest_of_handle_sms (void)
 {
+  basic_block bb;
   sbitmap blocks;
 
   timevar_push (TV_SMS);
@@ -583,9 +584,10 @@ rest_of_handle_sms (void)
 
   /* We want to be able to create new pseudos.  */
   no_new_pseudos = 0;
+  /* Collect loop information to be used in SMS.  */
+  cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
   sms_schedule (dump_file);
   close_dump_file (DFI_sms, print_rtl, get_insns ());
-
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
@@ -600,6 +602,12 @@ rest_of_handle_sms (void)
 
   no_new_pseudos = 1;
 
+  /* Finalize layout changes.  */
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->rbi->next = bb->next_bb;
+  cfg_layout_finalize ();
+  free_dominance_info (CDI_DOMINATORS);
   ggc_collect ();
   timevar_pop (TV_SMS);
 }

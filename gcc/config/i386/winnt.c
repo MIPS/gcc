@@ -681,7 +681,7 @@ i386_pe_asm_named_section (const char *name, unsigned int flags,
       /* Functions may have been compiled at various levels of
 	 optimization so we can't use `same_size' here.
 	 Instead, have the linker pick one, without warning.
-	 If 'selectany' attibute has been specified,  MS compiler
+	 If 'selectany' attribute has been specified,  MS compiler
 	 sets 'discard' characteristic, rather than telling linker
 	 to warn of size or content mismatch, so do the same.  */ 
       bool discard = (flags & SECTION_CODE)
@@ -719,6 +719,7 @@ i386_pe_declare_function_type (FILE *file, const char *name, int public)
 struct extern_list GTY(())
 {
   struct extern_list *next;
+  tree decl;
   const char *name;
 };
 
@@ -731,12 +732,13 @@ static GTY(()) struct extern_list *extern_head;
    for it then.  */
 
 void
-i386_pe_record_external_function (const char *name)
+i386_pe_record_external_function (tree decl, const char *name)
 {
   struct extern_list *p;
 
   p = (struct extern_list *) ggc_alloc (sizeof *p);
   p->next = extern_head;
+  p->decl = decl;
   p->name = name;
   extern_head = p;
 }
@@ -785,10 +787,11 @@ i386_pe_file_end (void)
     {
       tree decl;
 
-      decl = get_identifier (p->name);
+      decl = p->decl;
 
       /* Positively ensure only one declaration for any given symbol.  */
-      if (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
+      if (! TREE_ASM_WRITTEN (decl)
+	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	{
 	  TREE_ASM_WRITTEN (decl) = 1;
 	  i386_pe_declare_function_type (asm_out_file, p->name,

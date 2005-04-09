@@ -1,3 +1,63 @@
+2005-04-05  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/memory, include/tr1/boost_shared_ptr.h: Use mutex
+	to make _Sp_counted_base::add_ref_lock() thread-safe. Check whether
+	to destroy resources by testing for equality, not inequality. Add
+	empty critical sections to solve memory visibility issues.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/auto_ptr_neg.cc: Use dg-excess-errors instead of
+	explicitly listing line numbers which need to be kept in sync.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_neg.cc: Same.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_rvalue_neg.cc: Same.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/weak_ptr_expired.cc: Make XFAIL for consistency when
+	-fno-exceptions.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: Add explanatory comments.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: Same.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: Same.
+
+2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acconfig.h: Delete macros already ACDEFINED.
+	* config.h.in: Regenerate.
+
+2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acconfig.h (HAVE_MODF): Remove.
+	* linkage.m4: Check for modf.
+	* config.h.in, configure: Regenerate.
+
+2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acconfig.h (ENABLE_NLS, HAVE_CATGETS): Remove.
+	(HAVE_GETTEXT, HAVE_STPCPY): Likewise.
+	* config.h.in: Regenerate.
+	
+2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* linkage.m4 (GLIBCXX_CHECK_BUILTIN_MATH_DEC): Use m4 translit macro 
+	to convert to uppercase instead of shelling out to tr.
+	* acconfig.h: Remove now redundant HAVE__BUILTINS_*.
+	* configure, config.h.in: Regenerate.
+
+2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acconfig.h (HAVE_TANL): Correct cut-and-paste typo.
+	* config.h.in: Regenerate.
+
+2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/Makefile.am (check-local): Remove.
+	(curent_symbols.txt): Likewise.
+	(check-abi): Do not depend on current_symbols.txt.
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/libstdc++-abi/abi.exp: Build current_symbols.txt.
+
 2005-04-02  Douglas Gregor  <doug.gregor@gmail.com>
 	
 	* include/tr1/tuple_iterate.h (tuple_element): Use new macro

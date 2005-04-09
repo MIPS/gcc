@@ -10378,7 +10378,7 @@ mark_decl_instantiated (tree result, int extern_p)
 
    The 1998 std underspecified function template partial ordering, and
    DR214 addresses the issue.  We take pairs of arguments, one from
-   each of the templates, and deduce them against eachother.  One of
+   each of the templates, and deduce them against each other.  One of
    the templates will be more specialized if all the *other*
    template's arguments deduce against its arguments and at least one
    of its arguments *does* *not* deduce against the other template's
@@ -10407,17 +10407,23 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   int better1 = 0;
   int better2 = 0;
 
+  /* If only one is a member function, they are unordered.  */
+  if (DECL_FUNCTION_MEMBER_P (decl1) != DECL_FUNCTION_MEMBER_P (decl2))
+    return 0;
+  
   /* Don't consider 'this' parameter.  */
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl1))
     args1 = TREE_CHAIN (args1);
-  
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
     args2 = TREE_CHAIN (args2);
 
+  /* If only one is a conversion operator, they are unordered.  */
+  if (DECL_CONV_FN_P (decl1) != DECL_CONV_FN_P (decl2))
+    return 0;
+  
   /* Consider the return type for a conversion function */
   if (DECL_CONV_FN_P (decl1))
     {
-      gcc_assert (DECL_CONV_FN_P (decl2));
       args1 = tree_cons (NULL_TREE, TREE_TYPE (TREE_TYPE (decl1)), args1);
       args2 = tree_cons (NULL_TREE, TREE_TYPE (TREE_TYPE (decl2)), args2);
       len++;
@@ -12393,7 +12399,7 @@ dependent_template_id_p (tree tmpl, tree args)
    can be found.  Note that this function peers inside uninstantiated
    templates and therefore should be used only in extremely limited
    situations.  ONLY_CURRENT_P restricts this peering to the currently
-   open classes heirarchy (which is required when comparing types).  */
+   open classes hierarchy (which is required when comparing types).  */
 
 tree
 resolve_typename_type (tree type, bool only_current_p)

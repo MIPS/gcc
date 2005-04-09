@@ -346,6 +346,19 @@ compute_may_aliases (void)
 
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
+
+  {
+    block_stmt_iterator bsi;
+    basic_block bb;
+    FOR_EACH_BB (bb)
+      {
+        for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+          {
+            update_stmt_if_modified (bsi_stmt (bsi));
+          }
+      }
+  }
+
 }
 
 struct tree_opt_pass pass_may_alias = 
@@ -770,7 +783,7 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	     need to re-scan most statements.  FIXME: Try to minimize the
 	     number of statements re-scanned.  It's not really necessary to
 	     re-scan *all* statements.  */
-	  modify_stmt (stmt);
+	  mark_stmt_modified (stmt);
 	}
     }
 
@@ -2137,8 +2150,7 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
   switch (TREE_CODE (stmt))
     {
     case RETURN_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) != MODIFY_EXPR)
-	abort ();
+      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR);
       stmt = TREE_OPERAND (stmt, 0);
       /* FALLTHRU  */
 

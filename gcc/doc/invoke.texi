@@ -288,7 +288,7 @@ Objective-C and Objective-C++ Dialects}.
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
 -fcaller-saves  -fcprop-registers  -fcse-follow-jumps @gol
--fcse-follow-jumps  -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
+-fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
@@ -323,7 +323,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
--ftree-salias @gol
+-ftree-salias -fweb @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -400,6 +400,11 @@ Objective-C and Objective-C++ Dialects}.
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu}  -msize  -minit-stack=@var{n}  -mno-interrupts @gol
 -mcall-prologues  -mno-tablejump  -mtiny-stack  -mint8}
+
+@emph{Blackfin Options}
+@gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer -mcsync @gol
+-mno-csync -mlow-64k -mno-low64k -mid-shared-library @gol
+-mno-id-shared-library -mshared-library-id=@var{n} @gol}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -4774,15 +4779,15 @@ at @option{-O} and higher.
 Perform linear loop transformations on tree.  This flag can improve cache
 performance and allow further loop optimizations to take place.
 
-@item -ftree-lim
-Perform loop invariant motion on trees.  This pass moves only invartiants that
+@item -ftree-loop-im
+Perform loop invariant motion on trees.  This pass moves only invariants that
 would be hard to handle on rtl level (function calls, operations that expand to
 nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
 operands of conditions that are invariant out of the loop, so that we can use
 just trivial invariantness analysis in loop unswitching.  The pass also includes
 store motion.
 
-@item -fivcanon
+@item -ftree-loop-ivcanon
 Create a canonical counter for number of iterations in the loop for that
 determining number of iterations requires complicated analysis.  Later
 optimizations then may determine the number easily.  Useful especially
@@ -6730,6 +6735,7 @@ that macro, which enables you to change the defaults.
 * ARC Options::
 * ARM Options::
 * AVR Options::
+* Blackfin Options::
 * CRIS Options::
 * Darwin Options::
 * DEC Alpha Options::
@@ -7179,6 +7185,57 @@ char will be 1 byte, an int will be 1 byte, an long will be 2 bytes
 and long long will be 4 bytes.  Please note that this option does not
 comply to the C standards, but it will provide you with smaller code
 size.
+@end table
+
+@node Blackfin Options
+@subsection Blackfin Options
+@cindex Blackfin Options
+
+@table @gcctabopt
+@item -momit-leaf-frame-pointer
+@opindex momit-leaf-frame-pointer
+Don't keep the frame pointer in a register for leaf functions.  This
+avoids the instructions to save, set up and restore frame pointers and
+makes an extra register available in leaf functions.  The option
+@option{-fomit-frame-pointer} removes the frame pointer for all functions
+which might make debugging harder.
+
+@item -mcsync
+@opindex mcsync
+When enabled, the compiler will ensure that the generated code does not
+contain speculative loads after jump instructions.  This option is enabled
+by default.
+
+@item -mno-csync
+@opindex mno-csync
+Don't generate extra code to prevent speculative loads from occurring.
+
+@item -mlow-64k
+@opindex
+When enabled, the compiler is free to take advantage of the knowledge that
+the entire program fits into the low 64k of memory.
+
+@item -mno-low-64k
+@opindex mno-low-64k
+Assume that the program is arbitrarily large.  This is the default.
+
+@item -mid-shared-library
+@opindex mid-shared-library
+Generate code that supports shared libraries via the library ID method.
+This allows for execute in place and shared libraries in an environment
+without virtual memory management.  This option implies @option{-fPIC}.
+
+@item -mno-id-shared-library
+@opindex mno-id-shared-library
+Generate code that doesn't assume ID based shared libraries are being used.
+This is the default.
+
+@item -mshared-library-id=n
+@opindex mshared-library-id
+Specified the identification number of the ID based shared library being
+compiled.  Specifying a value of 0 will generate more compact code, specifying
+other values will force the allocation of that number to the current
+library but is no more space or time efficient than omitting this option.
 @end table
 
 @node CRIS Options
@@ -11546,7 +11603,7 @@ on SPARC-V9 processors in 64-bit environments:
 @item -mlittle-endian
 @opindex mlittle-endian
 Generate code for a processor running in little-endian mode.  It is only
-available for a few configurations and most notably not on Solaris.
+available for a few configurations and most notably not on Solaris and Linux.
 
 @item -m32
 @itemx -m64

@@ -1,7 +1,886 @@
+2005-04-05  Andrew MacLeod  <amacleod@redhat.com>
+
+	* lambda-code.c (lambda_loopnest_to_gcc_loopnest): Use update_stmt.
+	Use immediate use iterator.
+	(stmt_is_bumper_for_loop): Use immediate use iterator.
+	* predict.c (strip_builtin_expect): Use update_stmt.
+	* tree-cfg.c (update_modified_stmts): New. Call update_stmt_if_modified
+	on all elements of a STATEMENT_LIST.
+	(bsi_insert_before, bsi_insert_after): Call update_modified_stmts.
+	(bsi_remove): Remove imm_use links and mark the stmt as modified.
+	(bsi_replace): Mark stmt as modified and the update it.
+	* tree-complex.c (update_complex_assignment): Call mark_stmt_modified.
+	(expand_complex_libcal): Call update_stmt.
+	(expand_complex_comparison): Call mark_stmt_modified.
+	(expand_complex_operations_1): Call update_stmt_if_modified.
+	(expand_vector_operations_1): Call mark_stmt_modified.
+	* tree-dfa.c (compute_immediate_uses, free_df_for_stmt, free_df,
+	compute_immediate_uses_for_phi, compute_immediate_uses_for_stmt,
+	add_immediate_use, redirect_immediate_use,
+	redirect_immediate_uses, dump_immediate_uses, debug_immediate_uses,
+	dump_immediate_uses_for, debug_immediate_uses_for): Delete.
+	(mark_new_vars_to_rename): Call update_stmt.
+	* tree-dump.c (dump_option_value_in): Add "stmtaddr".
+	* tree-flow-inline.h (modify_stmt): Rename to mark_stmt_modified.  
+	Ignore PHI nodes.
+	(unmodify_stmt): Delete.
+	(update_stmt): New.  Force an update of a stmt.
+	(update_stmt_if_modified): update a stmt if it is out of date.
+	(get_stmt_operands): Verify stmt is NOT modified. 
+	(stmt_modified_p): Update comment.
+	(delink_imm_use): Remove a use node from its immuse list.
+	(link_imm_use_to_list): Link a use node to a specific list.
+	(link_imm_use): Link a node to the correct list.
+	(set_ssa_use_from_ptr): Set a use node to a specific value, and insert
+	it in the correct list, if appropriate.
+	(link_imm_use_stmt): Link a use node, and set the stmt pointer.
+	(relink_imm_use): Link a use node in place of another node in a list.
+	(relink_imm_use_stmt): LInk a node in place of another node, and set
+	the stmt pointer.
+	(end_safe_imm_use_traverse): New.  Terminate a safe immuse iterator.
+	(end_safe_imm_use_p): New.  Check for the end of a safe immuse iterator.
+	(first_safe_imm_use): New.  Initialize a safe immuse iterator.
+	(next_safe_imm_use): New.  Proceed to next safe immuse iterator value.
+	(end_readonly_imm_use_p): New.  Check for end of a fast immuse iterator.
+	(first_readonly_imm_use): New.  Initialize a fast immuse iterator.
+	(next_readonly_imm_use): New.  Get the next fast immuse iterator value.
+	(has_zero_uses): New.  Return true if there are no uses of a var.
+	(has_single_use): New.  Return true if there is only a single use of a
+	variable.
+	(single_imm_use): New.  Return the simgle immediate use.
+	(num_imm_uses): New.  Return the number of immediate uses.
+	(get_v_must_def_ops): Use is now a pointer.
+	(use_operand_p, get_v_may_def_op_ptr, get_vuse_op_ptr,
+	get_v_must_def_kill_ptr, get_phi_arg_def_ptr): Return the address of 
+	the use node.
+	(get_immediate_uses, num_immediate_uses, immediate_use): Delete.
+	(delink_stmt_imm_use): Delink all immuses from a stmt.
+	(phi_arg_index_from_use): New.  Return a phi arg index for a use.
+	* tree-flow.h (struct dataflow_d): Delete.
+	(immediate_use_iterator_d): New.  Immediate use iterator struct.
+	(FOR_EACH_IMM_USE_FAST): New.  Macro for read only immuse iteration.
+	(FOR_EACH_IMM_USE_SAFE): New.  Macro for write-safe immuse iteration.
+	(BREAK_FROM_SAFE_IMM_USE): New.  Macro for earlyu exit from write-safe 
+	iteration.
+	(struct stmt_ann_d): Remove dataflow_t from struct.
+	* tree-if-conv.c (tree_if_conversion).  Don't call free_df.
+	(if_convertible_phi_p): Use FAST immuse iterator.
+	(if_convertible_loop_p): Don't call compute_immediate_uses.
+	(replace_phi_with_cond_modify_expr): Call update_stmt.
+	* tree-into-ssa.c (mark_def_sites, ssa_mark_def_sites): Call 
+	update_stmt_if_modified.
+	(rewrite_all_into_ssa): Initialize ssa operands.
+	* tree-loop-linear.c (linear_transform_loops): Don't call free_df or
+	compute_immediate_uses.
+	* tree-optimize.c (execute_todo): Call verify_ssa whenever the 
+	ssa_property is available.
+	(execute_one_pass):  Change parameters passed to execute_todo.
+	* tree-outof-ssa.c (rewrite_trees): Don't call modify_stmt.
+	(remove_ssa_form): Call fini_ssa_operands.
+	(insert_backedge_copies): Delete call to modify_stmt.
+	* tree-phinodes.c (make_phi_node): Initialize use nodes.
+	(release_phi_node): Delink any use nodes before releasing.
+	(resize_phi_node): Relink any use nodes.
+	(remove_phi_arg_num): Delink the use node.
+	(remove_phi_node): Release the ssa_name AFTER releasing the phi node.
+	(remove_all_phi_nodes_for): Release phi node first.
+	* tree-pretty-print.c (dump_generic_node): Print stmt address.
+	* tree-sra.c (mark_all_v_defs): Call update_stmt_if_modified.
+	(scalarize_use, scalarize_copy): Call update_stmt.
+	* tree-ssa-alias.c (compute_may_aliases): Update all modified stmts.
+	(compute_points_to_and_addr_escape): Call mark_stmt_modified.
+	* tree-ssa-cpp.c (need_imm_uses_for): Delete.
+	(ccp_initialize): Remove call to compute_immediate_uses.
+	(substitute_and_fold, execute_fold_all_builtins): Call update_stmt.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Update all modified 
+	stmts.
+	(simplify_cond_and_lookup_avail_expr): Call mark_stmt_modified.
+	(simplify_switch_and_lookup_avail_expr): Call mark_stmt_modified.
+	(eliminate_redundant_computations): Call mark_stmt_modified.
+	(cprop_operand): Call mark_stmt_modified.
+	(optimize_stmt): Call update_stmt_if_modified and mark_stmt_modified.
+	* tree-ssa-dse.c (fix_phi_uses, fix_stmt_v_may_defs): Delete.
+	(dse_optimize_stmt): Use new immuse interface.
+	(tree_ssa_dse): Remove calls to compute_immediate_uses and free_df.
+	* tree-ssa-forwprop.c (need_imm_uses_for): Delete.
+	(substitute_single_use_vars): Use new immuse interface.
+	(tree_ssa_forward_propagate_single_use_vars): Remove calls to free_df
+	and compute_immediate_uses.
+	* tree-ssa-loop-im.c (single_reachable_address): Use new immuse 
+	interface.
+	(rewrite_mem_refs): Call update_stmt.
+	(determine_lsm): Remove call to compute_imm_uses and free_df.
+	* tree-ssa-loop-ivcanon.c (create_canonical_iv): Call update_stmt.
+	(try_unroll_loop_completely): Call update_stmt.
+	* tree-ssa-loop-ivopts.c (rewrite_address_base): Call update_stmt.
+	(rewrite_use_compare): Call update_stmt.
+	(compute_phi_arg_on_exit): Insert each stmt before trying to process.
+	(rewrite_use) : Call update_stmt.
+	* tree-ssa-loop-manip.c (verify_loop_closed_ssa): Add arg to call.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Call 
+	update_stmt.
+	* tree-ssa-operands.c (NULL_USE_OPERAND_P): Remove declaration.
+	(allocate_use_optype, allocate_vuse_optype): Adjust allocation size.
+	(free_uses, free_vuses, free_v_may_defs, free_v_must_defs): Delink
+	use nodes.
+	(initialize_vuse_operand): New.  Initialize a vuse operand.
+	(initialize_v_may_def_operand): New.  Initialize a maydef operand.
+	(initialize_v_must_def_operand): New.  Initialize a mustdef operand.
+	(finalize_ssa_defs): Use stmt parameter.
+	(correct_use_link): Ensure a use node is in the correct list, and has
+	the correct stmt pointer.
+	(finalize_ssa_uses, finalize_ssa_v_may_defs, finalize_ssa_vuses,
+	finalize_ssa_v_must_defs): Also initialize use nodes.
+	(finalize_ssa_stmt_operands): Pass extra stmt operands.
+	(build_ssa_operands): Seperate parsing from final operand construction.
+	(parse_ssa_operands): New.  Parse entry point for operand building.
+	(swap_tree_operands): New.  Swap 2 tree operands.
+	(update_stmt_operands): Ranamed from get_stmt_operands.  Always builds
+	operands.
+	(get_expr_operands): Call swap_tree_operands when needed.
+	(copy_virtual_operands): Use initialize routines for virtual use ops.
+	(create_ssa_artficial_load_stmt): Add extra stmt parameter.
+	(verify_abort): New.  Issue imm_use error.
+	(verify_imm_links): New Verify imm_use links for a var.
+	(dump_immediate_uses_for): New.  Dump imm_uses for a var to file.
+	(dump_immediate_uses): New.  Dump imm_uses for all vars to file.
+	(debug_immediate_uses): New.  Dump imm_uses for all vars to stderr.
+	(debug_immediate_uses_for): New.  Dump imm_uses for a var to stderr.
+	* tree-ssa-operands.h (struct use_operand_ptr): Delete.
+	(NULL_USE_OPERAND_P) Define.
+	(use_optype_d, v_def_use_operand_type, vuse_optype_d): Add immediate
+	use node.
+	(struct vuse_operand_type): New struct.
+	(SET_USE): Call set_ssa_use_from_ptr.
+	(USE_STMT): Define.
+	(PHI_ARG_INDEX_FROM_USE): Define.
+	* tree-ssa-phiopt.c (replace_phi_edge_with_variable): Set the phi 
+	argument via SET_USE, not PHI_ARG_DEF_TREE.
+	* tree-ssa-pre.c (eliminate): Call update_stmt.
+	* tree-ssa-propagate.c (cfg_blocks_get): Use imm_use iterators.  Don't
+	call free_df.
+	* tree-ssa-sink.c (all_immediate_uses_same_place): Use imm_use iterator.
+	(nearest_common_dominator_of_uses): Use imm_use iterator.
+	(statement_sink_location): Use imm_use iterator and interface.
+	(execute_sink_code): Don't call compute_immediate_uses or free-df.
+	* tree-ssa-threadupdate.c (create_edge_and_update_destination_phis): Use
+	PHI_ARG_DEF, not PHI_ARG_DEF_TREE.
+	* tree-ssa.c (verify_use, verify_phi_args): Verify some imm_use info.
+	(verify_ssa): Ensure no stmt is marked modify after optimization pass
+	if new parameter is true.
+	(init_tree_ssa): Don't initialize operand cache here.
+	(delete_tree_ssa): Don't destroy operand cache here.
+	(propagate_into_addr): Pass in a use pointer, return true if anything
+	was changed.
+	(replace_immediate_uses): Use imm_use iterator, call update_stmt.
+	(check_phi_redundancy): Use imm_use iterator.
+	(kill_redundant_phi_nodes): Don't call compute_immediate_uses or 
+	free_df.
+	* tree-ssanames.c (make_ssa_name): Initialize imm_use node.
+	(release_ssa_name): Delink node and all elements in its imm_use list.
+	* tree-tailcall.c (adjust_return_value): Call update_stmt.
+	* tree-vect-analyze.c (vect_stmt_relevant_p): Use imm_use iterator.
+	* tree-vectorizer.c (need_imm_uses_for): Delete.
+	(vectorize_loops): Dont call compute_immediate_uses or free_df.
+	* tree.h (struct ssa_imm_use_d): Define.
+	(SSA_NAME_IMM_USE_NODE): Define.
+	(struct tree_ssa_name): Add imm_use node.
+	(PHI_DF): Delete.
+	(PHI_ARG_IMM_USE_NODE): Define.
+	(struct phi_arg_d): Add imm_use node.
+	(struct tree_phi_node): Remove struct dataflow_d element.
+	(TDF_STMTADDR): Define.
+
+2005-04-05  Dale Johannesen  <dalej@apple.com>
+
+	* doc/invoke.texi (Optimization Options):  Remove
+	duplicate -fcse-follow-jumps.  Add -fweb.
+	(-ftree-lim):  Fix spelling (-ftree-loop-im, invariants).
+	(-fivcanon):  Fix spelling (-ftree-loop-ivcanon).
+
+2005-04-05  Per Bothner  <per@bothner.com>
+
+	* tree-ssa.c (execute_early_warn_uninitialized): Pass context node
+	to talk_tree as 'data' parameter, rather than EXPR_LOCUS.
+	(warn_uninit): Get EXPR_LOCUS from context now instead.
+	This fixes a USE_MAPPED_LOCATION testsuite failure.
+
+	* tree-ssa.c (warn_uninitialized_var): Remove useless local.
+
+2005-04-05  Per Bothner  <per@bothner.com>
+
+	* c-decl.c (finish_function): If USE_MAPPED_LOCATION set the location
+	of the artification 'return 0' in main() to BUILTINS_LOCATION.
+	* tree-cfg.c (remove_bb): Check that location isn't BUILTINS_LOCATION
+	before warning.	
+
+2004-04-05  Devang Patel  <dpatel@apple.com>
+
+	* config/rs600/altivec.md (altivec_vsr<VI_char>): Rename to ..
+	(lhsr<mode>3): ... new name.
+	(altivec_vsra<VI_char>): Rename to ..
+	(ashr<mode>3): ... new name.
+	* config/rs6000/rs6000.c (builtin_description): Rename shift
+	operations.
+	
+2004-04-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* combine.c (RTL_HOOKS_GEN_LOWPART_NO_EMIT): Use
+	gen_lowpart_for_combine.
+	* cse.c (gen_lowpart_if_possible): Move...
+	* rtlhooks.c (gen_lowpart_if_possible): ... here.  Also try
+	gen_lowpart_SUBREG.
+	(gen_lowpart_no_emit_general): Use it.
+
+2005-04-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (TARGET_ASM_FILE_END): Undefine before
+	overriding.
+
+2005-04-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* system.h: Fix typo.
+
+2005-04-05  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin-modes.def: New file.
+	* config/bfin/bfin-protos.h: New file.
+	* config/bfin/bfin.c: New file.
+	* config/bfin/bfin.h: New file.
+	* config/bfin/bfin.md: New file.
+	* config/bfin/bfin.opt: New file.
+	* config/bfin/crti.s: New file.
+	* config/bfin/crtn.s: New file.
+	* config/bfin/elf.h: New file.
+	* config/bfin/lib1funcs.asm: New file.
+	* config/bfin/predicates.md: New file.
+	* config/bfin/t-bfin: New file.
+	* config/bfin/t-bfin-elf: New file.
+	* doc/extend.texi (exception_handler, kspisusp, nesting, nmi_handler):
+	Document new attributes.
+	(interrupt, interrupt_handler, saveall): Update documentation for
+	these attributes.
+	* doc/install.texi (Specific): Add entry for the Blackfin.
+	* doc/invoke.texi (Blackfin Options): New section.
+	* doc/md.texi (Blackfin family): New section to document constraints.
+	* config.gcc: Add bfin*-* and bfin*-elf configurations.
+
+2005-04-05  Olivier Hainque  <hainque@adacore.com>
+	
+	* config/mips/iris6.h (DWARF_FRAME_RETURN_COLUMN): Redefine to
+	match what the system unwinder expects.
+	* config/mips/mips.c (mips_frame_set): If we're saving the return
+	address register and the dwarf return address column number differs
+	from the hard register number, adjust the note reg to refer to the
+	former.
+
+2004-04-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mn10300/mn10300-protos.h (mn10300_override_options): Declare.
+	* config/mn10300/mn10300.h (target_flags, TARGET_MULT_BUG)
+	(TARGET_SWITCHES, TARGET_DEFAULT): Delete.
+	(processor_type): New enum.
+	(mn10300_processor): New variable.
+	(TARGET_AM33, TARGET_AM33_2): Redefine in terms of mn10300_processor.
+	(PROCESSOR_DEFAULT, OVERRIDE_OPTIONS): New macros.
+	* config/mn10300/linux.h (TARGET_SWITCHES, TARGET_DEFAULT): Delete.
+	(PROCESSOR_DEFAULT): New macro.
+	* config/mn10300/mn10300.c (mn10300_processor): New variable.
+	(TARGET_DEFAULT_TARGET_FLAGS, TARGET_HANDLE_OPTION): Override defaults.
+	(mn10300_handle_option, mn10300_override_options): New functions.
+	* config/mn10300/mn10300.opt: New file.
+
+2005-04-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Sebastian Pop <sebastian.pop@cri.ensmp.fr>
+
+	PR tree-optimization/19903
+	* tree-chrec.c (chrec_convert): Return chrec_dont_know for constants
+	that don't fit in their type after conversion.
+
+2005-04-05 Uros Bizjak <uros@kss-loka.si>
+
+	PR target/20421
+	* config/i386/i386.md (frndintxf2_floor, frndintxf2_ceil)
+	(frndintxf2_trunc, frndintxf2_mask_pm): Add FLAGS_REG clobber.
+	Allocate local stack slots here.  Set ix86_optimize_mode_switching.
+	flag here. Implement using define_insn_and_split.  
+	(frndintxf2_floor_i387, frndintxf2_ceil_i387, frndintxf2_trunc_i387)
+	(frndintxf2_mask_pm_i387): New insn patterns.
+	(floorsf2, floordf2, floorxf2): Remove local stack slot allocations.
+	Do not set ix86_optimize_mode_switching flag.
+	(ceilsf2, ceildf2, ceilxf2): Same.
+	(btruncsf2, btruncdf2, btruncxf2): Same.
+	(nearbyintsf2, nearbyintdf2, nearbyintxf2): Same.
+
+2005-04-05  Ian Lance Taylor  <ian@airs.com>
+
+	PR debug/9963
+	* config/i386/cygming.h (ASM_OUTPUT_EXTERNAL): Pass DECL to
+	i386_pe_record_external_function.
+	(i386_pe_record_external_function): Update declaration.
+	* config/i386/winnt.c (struct extern_list): Add decl field.
+	(i386_pe_record_external_function): Add decl parameter.
+	(i386_pe_file_end): Check TREE_ASM_WRITTEN on decl, not
+	identifier.
+	* config/i386/i386-protos.h (i386_pe_record_external_function):
+	Update declaration.
+
+2005-04-05  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/m68k/m68k-protos.h: Add a prototype for
+	valid_dbcc_comparison_p_2.
+	* config/m68k/m68k.c (not_sp_operand, symbolic_operand,
+	extend_operator, const_uint32_operand, const_sint32_operand,
+	general_src_operand, nonimmediate_src_operand,
+	memory_src_operand, post_inc_operand, pre_dec_operand,
+	pcrel_address): Move to predicates to predicates.md.
+	* config/m68k/m68k.h (PREDICATE_CODES): Remove.
+	* config/m68k/m68k.md: Include predicates.md.
+	* config/m68k/predicates.md: New.
+
+2005-04-04  Roger Sayle  <roger@eyesopen.com>
+
+	* config/i386/i386.md (*truncdfsf2_i387_1): New pattern.
+
+	* fold-const.c (maybe_lvalue_p): Delete orphaned comment.
+
+2005-04-04  Ian Lance Taylor  <ian@airs.com>
+
+	* c-typeck.c (struct c_switch): Rename switch_stmt field to
+	switch_expr.
+	(c_start_case): Build SWITCH_EXPR, not SWITCH_STMT.
+	(do_case): Use SWITCH_COND rather than SWITCH_STMT_COND.
+	(c_finish_case): Use SWITCH_BODY rather than SWITCH_STMT_BODY.
+	Call c_do_switch_expr_warnings rather than c_do_switch_warnings.
+	* c-common.c (c_do_switch_warnings_1): New static function broken
+	out of c_do_switch_warnings.
+	(c_do_switch_warnings): Call c_do_switch_warnings_1.
+	(c_do_switch_expr_warnings): New function.
+	* c-common.h (c_do_switch_expr_warnings): Declare.
+
+2005-04-04  David Edelsohn  <edelsohn@gnu.org>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* tree-eh.c (tree_could_trap_p): Allow non-constant floating point
+	trapping divide.
+	* rtlanal.c (may_trap_p): Same.
+
+2005-04-04  Dale Johannesen  <dalej@apple.com>
+
+	* ChangeLog:  remove reference to ChangeLog.12.
+
+2005-04-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	CRIS epilogue as RTL.
+	* config/cris/cris.md: Change all 0 in unspec 0 to
+	CRIS_UNSPEC_PLT.
+ 	(CRIS_UNSPEC_PLT, CRIS_UNSPEC_FRAME_DEALLOC): New constants.
+	("*cris_load_multiple", "cris_frame_deallocated_barrier"): New
+	patterns.
+	("return"): Change to define_expand.  Call cris_expand_return for
+	actual expansion.
+	("*return_expanded"): New pattern.
+	("epilogue"): New define_expand.
+	* config/cris/cris.h (PREDICATE_CODES): Add
+	cris_load_multiple_op.
+	* config/cris/cris.c (ASSERT_PLT_UNSPEC): Correct test for unspec
+	type.
+	(enum cris_retinsn_type): New.
+	(struct machine_function): New member return_type.
+	(TARGET_ASM_FUNCTION_EPILOGUE): Don't override.
+	(cris_target_asm_function_epilogue): Remove, moving RTLified
+	contents to...
+	(cris_expand_epilogue): New function.
+	(cris_reg_saved_in_regsave_area, cris_movem_load_rest_p,
+	(cris_gen_movem_load, cris_load_multiple_op)
+	(cris_return_address_on_stack_for_return, cris_expand_return): New
+	functions.
+	(cris_target_asm_function_prologue)
+	(cris_initial_frame_pointer_offset): Call
+	cris_reg_saved_in_regsave_area instead of complicated expression.
+	Call cris_return_address_on_stack instead of an expression.
+	(cris_print_operand) <case 'o', case 'O'>: New cases.
+	(cris_return_address_on_stack): Change return-type to bool.
+	(cris_simple_epilogue): Ditto.  Return false if registers are
+	saved.
+	* config/cris/cris-protos.h (cris_simple_epilogue)
+	(cris_return_address_on_stack): Adjust prototype return type.
+	(cris_gen_movem_load, cris_expand_epilogue, cris_expand_return)
+	(cris_return_address_on_stack_for_return): New prototypes.
+
+2005-04-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/frv/frv.h (PREDICATE_CODES): Add CONST to
+	gpr_or_int12_operand.
+
+	* config/frv/frv-protos.h: Add a prototype to
+	frv_legitimate_memory_operand and frv_const_unspec_p.
+	(frv_unspec): Move from frv.c.
+	* config/frv/frv.c (frv_unspec): Move to frv-protos.h.
+	(frv_const_unspec_p, frv_legitimate_memory_operand_): Export.
+	(ldd_address_operand, fdpic_fptr_operand, frv_load_operand,
+	gpr_or_fpr_operand, gpr_or_int12_operand,
+	gpr_fpr_or_int12_operand, fpr_or_int6_operand,
+	gpr_or_int10_operand, gpr_or_int_operand, int12_operand,
+	int6_operand, int5_operand, uint5_operand, uint4_operand,
+	uint1_operand, int_2word_operand, uint16_operand,
+	upper_int16_operand, integer_register_operand,
+	gpr_no_subreg_operand, fpr_operand, even_reg_operand,
+	odd_reg_operand, even_gpr_operand, odd_gpr_operand,
+	quad_fpr_operand, even_fpr_operand, odd_fpr_operand,
+	dbl_memory_one_insn_operand, dbl_memory_two_insn_operand,
+	move_destination_operand, movcc_fp_destination_operand,
+	frv_function_symbol_referenced_p, move_source_operand,
+	condexec_dest_operand, condexec_source_operand,
+	reg_or_0_operand, lr_operand, fdpic_operand, got12_operand,
+	const_unspec_operand, gpr_or_memory_operand,
+	gpr_or_memory_operand_with_scratch, fpr_or_memory_operand,
+	icc_operand, fcc_operand, cc_operand, icr_operand,
+	fcr_operand, cr_operand, call_operand, sibcall_operand,
+	symbolic_operand, relational_operator,
+	integer_relational_operator, float_relational_operator,
+	ccr_eqne_operator, minmax_operator,
+	condexec_si_binary_operator, condexec_si_media_operator,
+	condexec_si_divide_operator, condexec_si_unary_operator,
+	condexec_sf_conv_operator, condexec_sf_add_operator,
+	condexec_memory_operand, intop_compare_operator, acc_operand,
+	even_acc_operand, quad_acc_operand, accg_operand: Move to
+	predicates.md.
+	* config/frv/frv.h (PREDICATE_CODES): Remove.
+	* config/frv/frv.md: Include predicates.md.
+	* config/frv/predicates.md: New.
+
+2004-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/19537
+	* Makefile.in (tree-ssa-loop-ivopts.o): Depend on langhooks.h.
+	* tree-ssa-loop-ivopts.c: Include langhooks.h.
+	(add_standard_iv_candidates_for_size): New function, extracting code
+	from add_standard_iv_candidates and parameterizing it by type size.
+	(add_standard_iv_candidates): Use add_standard_iv_candidates_for_size.
+
+2004-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* system.h (GCOV_SIZE_TYPE): Unposion.
+	* gcov-io.h (GCOV_TYPE_NODE): Delete, replacing with...
+	(GCOV_TYPE_SIZE): ...this new macro.
+	* coverage.h (get_gcov_type, GCOV_TYPE_NODE): Declare.
+	* coverage.c (get_gcov_type, get_gcov_unsigned_t): New functions.
+	(rtl_coverage_counter_ref): Use GCOV_TYPE_SIZE.
+	(build_fn_info_type, build_fn_info_value, build_ctr_info_type)
+	(build_ctr_info_value, build_gcov_info): Use get_gcov_unsigned_t
+	instead of unsigned_intSI_type_node.
+	* rtl-profile.c (rtl_gen_interval_profiler, rtl_gen_pow2_profiler)
+	(rtl_gen_one_value_profiler_no_edge_manipulation)
+	(rtl_gen_const_delta_profiler): Use GCOV_TYPE_SIZE.
+	* value-prof.c: Include coverage.h.
+
+2005-04-02  Daniel Berlin  <dberlin@dberlin.org>
+	    Diego Novillo <dnovillo@redhat.com>
+	    
+	Fix PR tree-optimization/20703
+	Fix PR tree-optimization/20725
+	
+	* tree-ssa-pre.c (phi_translate): Handle tcc_comparison.
+	(create_expression_by_pieces): Ditto.
+	(valid_in_set): Ditto. Also handle tcc_declaration.
+	(find_or_generate_expression): Handle comparison class.
+	(insert_into_preds_of_block): Ditto.
+	(insert_aux): Ditto.
+	(create_value_expr_from): Handle comparison class, recursively
+	handle reference nodes.
+	(compute_avail): Handle comparison classes, rewrite a little cleaner.
+	(execute_pre): Fix spacing.
+	(do_fre): Renamed to execute_fre.
+
+2005-04-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/invoke.texi (SPARC options): Document that
+	-mlittle-endian is not supported on Linux either.
+
+2005-04-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/4198
+	PR target/12027
+	* config.gcc (Obsolete configurations): Remove
+	sparclite-*-coff*, sparclite-*-elf* and sparc86x-*-elf*.
+	(sparclite-*-coff*): Delete.
+	(sparclite-*-elf*): Likewise.
+	(sparc86x-*-elf*): Likewise.
+	(target_cpu_default) <sparc*-*-*>: Remove sparc86x.
+	* config/sparc/lite.h: Delete.
+	* config/sparc/litecoff.h: Likewise.
+	* config/sparc/liteelf.h: Likewise.
+	* config/sparc/sp86x-elf.h: Likewise.
+	* config/sparc/t-sparclite: Likewise.
+	* config/sparc/t-sp86x: Likewise.
+
+2005-04-04  Adrian Straetling  <straetling@de.ibm.com>
+
+	* config/s390/s390-protos.h: (s390_comparison,
+	s390_alc_comparison, s390_slb_comparison, const0_operand,
+	consttable_operand, larl_operand, s_operand,
+	shift_count_operand, bras_sym_operand, load_multiple_operation,
+	store_multiple_operation, s390_plus_operand): Remove prototypes.
+	(s390_legitimate_address_without_index_p): New prototype.
+	* config/s390/s390.c: (SYMBOL_FLAG_ALIGN1, DISP_IN_RANGE): Move
+	to s390.h.
+	(s390_comparison, s390_alc_comparison, s390_slb_comparison,
+	const0_operand, consttable_operand, larl_operand, s_operand,
+	shift_count_operand, bras_sym_operand, load_multiple_operation,
+	store_multiple_operation, s390_plus_operand): Move to
+	predicates.md.
+	(check_mode): Remove.
+	(s390_branch_condition_mask): Remove 'static'. Move prototype to
+	s390-protos.h.
+	(s390_legitimate_address_without_index_p): New.
+	* config/s390/s390.h (PREDICATE_CODES): Remove.
+	* config/s390/s390.md: Include predicates.md.
+	* config/s390/predicates.md: New.
+
+2005-04-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/20446
+	* config/sparc/sparc.h (NEED_INDICATE_EXEC_STACK): Define to 0.
+	* config/sparc/linux.h (TARGET_ASM_FILE_END): Delete.
+	(NEED_INDICATE_EXEC_STACK): Define to 1.
+	* config/sparc/linux64.h (TARGET_ASM_FILE_END): Delete.
+	(NEED_INDICATE_EXEC_STACK): Define to 1.
+	* config/sparc/sparc.c (TARGET_ASM_FILE_END): Set to sparc_file_end.
+	(add_pc_to_pic_symbol): Rename into pic_helper_symbol.
+	(add_pc_to_pic_symbol_name): Rename into pic_helper_symbol_name.
+	(pic_helper_emitted_p): New global.
+	(emit_pic_helper): New function extracted from...
+	(load_pic_register): ...here.  Add 'delay_pic_helper' parameter.
+	Do not call emit_pic_helper if delay_pic_helper is true.
+	(sparc_expand_prologue): Pass 'false' to load_pic_register.
+	(sparc_output_mi_thunk): Pass 'true' to load_pic_register.
+	(sparc_file_end): New function.
+
+2005-04-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/mcore/mcore-protos.h: Remove the prototypes for
+	mcore_arith_reg_operand, mcore_general_movsrc_operand,
+	mcore_general_movdst_operand, mcore_reload_operand,
+	mcore_arith_J_operand, mcore_arith_K_operand,
+	mcore_arith_K_operand_not_0, mcore_arith_M_operand,
+	mcore_arith_K_S_operand, mcore_arith_imm_operand,
+	mcore_arith_any_imm_operand, mcore_arith_O_operand,
+	mcore_literal_K_operand, mcore_addsub_operand,
+	mcore_compare_operand, mcore_load_multiple_operation,
+	mcore_store_multiple_operation, mcore_call_address_operand.
+	Add a prototype for const_ok_for_mcore.
+	* config/mcore/mcore.c (mcore_call_address_operand,
+	mcore_general_movsrc_operand, mcore_general_movdst_operand,
+	mcore_arith_reg_operand, mcore_reload_operand,
+	mcore_arith_J_operand, mcore_arith_K_operand,
+	mcore_arith_K_operand_not_0, mcore_arith_K_S_operand,
+	mcore_arith_M_operand, mcore_arith_imm_operand,
+	mcore_arith_any_imm_operand, mcore_arith_O_operand,
+	mcore_literal_K_operand, mcore_addsub_operand,
+	mcore_compare_operand, mcore_load_multiple_operation,
+	mcore_store_multiple_operation): Move to predicates.md.
+	(const_ok_for_mcore): Export.
+	* config/mcore/mcore.h (PREDICATE_CODES): Remove.
+	* config/mcore/mcore.md: Include predicates.md.
+	* config/mcore/predicates.md: New.
+
+	* config/mcore/predicates.md: Fix a comment typo.
+
+2005-04-04  Andreas Krebbel  <krebbel1@de.ibm.com>
+	    Adrian Straetling  <straetling@de.ibm.com>
+
+	* config/s390/2064.md ("z_mul", "z_inf"): New insn reservations.
+	* config/s390/2084.md ("x_mul_hi", "x_mul_sidi", "x_div"): Likewise.
+	* config/s390/s390.md ("imulhi", "imulsi", "imuldi"): Added to "type"
+	attribute.
+	("imul"): Removed from "type" attribute.
+	("*muldi3_sign", "muldi3"): Changed type to imuldi.
+	("mulsi3/1", "mulsi3/3", "mulsi/4", "mulsidi3", "umulsidi3"): 
+	Changed type to imulsi.
+	("*mulsi3_sign", "mulsi3/2"): Changed type to imulhi.
+
+2005-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mcore/mcore.h (target_flags, HARDLIT_BIT, ALIGN8_BIT, DIV_BIT)
+	(RELAX_IMM_BIT, W_FIELD_BIT, OVERALIGN_FUNC_BIT, CGDATA_BIT)
+	(SLOW_BYTES_BIT, LITTLE_END_BIT, M340_BIT, TARGET_HARDLIT)
+	(TARGET_DIV, TARGET_RELAX_IMM, TARGET_W_FIELD, TARGET_OVERALIGN_FUNC)
+	(TARGET_CG_DATA, TARGET_SLOW_BYTES, TARGET_LITTLE_END, TARGET_M340)
+	(TARGET_SWITCHES, mcore_stack_increment_string)
+	(TARGET_OPTIONS): Delete.
+	(TARGET_DEFAULT, OPTIMIZATION_OPTIONS): Use MASK_* constants rather
+	than *_BIT constants.
+	(TARGET_8ALIGN): #undef old definition before redefining to 1.
+	* config/mcore/mcore.c (mcore_stack_increment_string): Delete.
+	(TARGET_DEFAULT_TARGET_FLAGS): Override default to TARGET_DEFAULT.
+	(mcore_override_options): Delete mcore_stack_increment code.
+	Change use of M340_BIT to MASK_M340.
+	* config/mcore/mcore.opt: New file.
+
+2005-04-04  Ian Lance Taylor  <ian@airs.com>
+
+	* config/arm/arm.c (replace_symbols_in_block): Remove static
+	function.
+
+2005-04-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/fr30/fr30-protos.h: Remove the prototypes for
+	stack_add_operand, add_immediate_operand,
+	high_register_operand, low_register_operand, call_operand,
+	di_operand, and nonimmediate_di_operand.
+	* config/fr30/fr30.c (stack_add_operand,
+	add_immediate_operand, high_register_operand,
+	low_register_operand, call_operand, di_operand,
+	nonimmediate_di_operand): Move to predicates.md.
+	* config/fr30/fr30.h (PREDICATE_CODES): Remove.
+	* config/fr30/fr30.md: Include predicates.md.
+	* config/fr30/predicates.md: New.
+
+	* config/mcore/mcore.h (PREDICATE_CODES): Add SYMBOL_REF and
+	LABEL_REF to mcore_general_movsrc_operand.  Add SYMBOL_REF to
+	mcore_call_address_operand.
+
+	* config/sh/sh.h (PREDICATE_CODES): Add CONST to
+	general_movsrc_operand.
+
+2005-04-04  Alan Modra  <amodra@bigpond.net.au>
+
+	* passes.c (rest_of_handle_final): NULL unlikely_text_section_name
+	after freeing.
+
+2005-04-04  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	PR target/14812
+	* arm.c (arm_select_cc_mode): Return CC_Zmode when comparing against
+	a negated value.
+
+2005-04-04  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/16104
+	* fold-const.c (fold_unary): Fix folding of vector conversions.
+
+2005-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config.gcc (xstormy16-*-elf): Set extra_options.
+	* config/stormy16/stormy16.h (target_flags, TARGET_SWITCHES): Delete.
+	* config/stormy16/stormy16.opt: New file.
+
+2005-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/pdp11/pdp11.h (target_flags, TARGET_SWITCHES, TARGET_DEFAULT)
+	(TARGET_FPU, TARGET_SOFT_FLOAT, TARGET_AC0, TARGET_NO_AC0, TARGET_45)
+	(TARGET_BCOPY_BUILTIN, TARGET_INT16, TARGET_INT32, TARGET_FLOAT32)
+	(TARGET_FLOAT64, TARGET_ABSHI_BUILTIN, TARGET_BRANCH_EXPENSIVE)
+	(TARGET_BRANCH_CHEAP, TARGET_SPLIT, TARGET_NOSPLIT)
+	(TARGET_UNIX_ASM): Delete.
+	(TARGET_40_PLUS): Redefine in terms of TARGET_40 and TARGET_45.
+	* config/pdp11/2bsd.h (TARGET_UNIX_ASM_DEFAULT): Use MASK_UNIX_ASM.
+	* config/pdp11/pdp11.c (pdp11_handle_option): New function.
+	(TARGET_DEFAULT_TARGET_FLAGS, TARGET_HANDLE_OPTION): Override defaults.
+	* config/pdp11/pdp11.opt: New file.
+
+2005-04-03  Roger Sayle  <roger@eyesopen.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/19199
+	* fold-const.c (non_lvalue): Split tests into...
+	(maybe_lvalue_p): New function.
+	(fold_cond_expr_with_comparison): Preserve lvalue-ness for the
+	C++ front-end prior to lowering into gimple form.
+
+2005-04-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.def (BUILT_IN_STPNCPY, BUILT_IN_STRCASECMP,
+	BUILT_IN_STRNCASECMP): New.
+	* doc/extend.texi: Document stpncpy, strcasecmp, strncasecmp
+	and strndup.
+
+2005-04-03  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	PR target/14812
+	* arm.md (addsi3_compare0_for_combiner): Delete.
+	(addsi3_compare0_scratch_for_combiner): Delete.
+	(cmpsi_neg_shiftsi): Delete.
+	(compare_negsi_si): New pattern.
+	(cmpsi_negshiftsi_si): New pattern.
+	(negated_cbranchsi4): Restrict to equality_operator.
+	
+	* arm.md (movhi_insn_arch4): delete trailing white space from assembler
+	template.
+
+2005-04-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cfghooks.c, cfgrtl.c, modulo-sched.c, config/i386/winnt.c:
+	Fix comment typos.
+
+	* doc/install.texi: Fix a typo.
+
+2005-04-03  Steven Bosscher  <stevenb@suse.de>
+
+	PR middle-end/20648
+	* bb-reorder.c (duplicate_computed_gotos): Do not unfactor
+	a computed goto if the edge to the computed goto block has
+	incoming abnormal edges.  Clarify how the function works.
+
+2005-04-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* params.c (set_param_value): Use gcc_assert & gcc_unreachable.
+	* passes.c (open_dump_file, rest_of_handle_final): Likewise.
+	* postreload-gcse.c (expr_equiv_p, oprs_unchanged_p,
+	hash_scan_set, reg_set_between_after_reload_p,
+	reg_used_between_after_reload_p, get_avail_load_store_reg,
+	eliminate_partially_redundant_load): Likewise.
+	* postreload.c (reload_cse_simplify_set,
+	reload_combine_note_use): Likewise.
+	* predict.c (predict_insn, expected_value_to_br_prob,
+	propagate_freq, expensive_function_p): Likewise.
+	* print-rtl.c (print_rtx): Likewise.
+	* profile.c (instrument_edges, instrument_values,
+	compute_branch_probabilities, branch_prob, union_groups,
+	tree_register_profile_hooks, rtl_register_profile_hooks): Likewise.
+	* protoize.c (in_system_include_dir, file_could_be_converted,
+	file_normally_convertible, gen_aux_info_file, seek_to_line,
+	do_cleaning): Likewise.
+	* tree-ssa-alias.c (collect_points_to_info_r): Likewise.
+	* tree-ssa-ccp.c (execute_fold_all_builtins): Likewise.
+	* tree-ssa-loop-ivopts.c (produce_memory_decl_rtl): Likewise.
+
+2005-04-03 Mostafa Hagog <mustafa@il.ibm.com>
+
+	* cfg.c (clear_bb_flags): Don't clear BB_DISABLE_SCHEDULE.
+	* modulo-sched.c (undo_replace_buff_elem): New structure.
+	(kernel_number_of_cycles, ps_unschedule_node,
+	undo_generate_reg_moves,free_undo_replace_buff,
+	undo_permute_partial_schedule, 	loop_single_full_bb_p,
+	SIMPLE_SMS_LOOP_P, loop_canon_p, canon_loop,
+	build_loops_structure, get_sched_window): New.
+	(generate_reg_moves): Return undo_replace_buff_elem and other
+	fixes.
+	(generate_prolog_epilog): Remove old loop versioning.
+	(sms_schedule): Use loop information and loop_version.
+	(sms_schedule_by_order): Split part of it to get_sched_window.
+	* passes.c (rest_of_handle_sms): call cfg_layout_initialize
+	cfg_layout_finalize and free_dominance_info before/after SMS.
+
+2005-04-03 Mostafa Hagog <mustafa@il.ibm.com>
+
+	* cfghooks.c (lv_flush_pending_stmts,
+	cfg_hook_duplicate_loop_to_header_edge, extract_cond_bb_edges,
+	lv_adjust_loop_header_phi, lv_add_condition_to_bb): New.
+	* cfghooks.h (cfg_hook_duplicate_loop_to_header_edge,
+	lv_add_condition_to_bb,
+	lv_adjust_loop_header_phi, extract_cond_bb_edges,
+	flush_pending_stmts): New in cfg_hooks structure.
+	(cfg_hook_duplicate_loop_to_header_edge, lv_flush_pending_stmts,
+	extract_cond_bb_edges, lv_adjust_loop_header_phi,
+	lv_add_condition_to_bb): New declarations.
+	* cfgloop.h (duplicate_loop_to_header_edge): Change return type to
+	bool.
+	(loop_version): Declare.
+	* cfgloopmanip.c (cfghooks.h): Include.
+	(duplicate_loop_to_header_edge): Change return type to bool.
+	(loop_version, lv_adjust_loop_entry_edge): Move here.
+	* cfgrtl.c (cfgloop.h): Include.
+	(rtl_verify_flow_info_1): Fix.
+	(rtl_lv_add_condition_to_bb, rtl_extract_cond_bb_edges): New.
+	(rtl_cfg_hooks, cfg_layout_rtl_cfg_hook): Add hooks to
+	initialization.
+	* tree-cfg.c (tree_lv_adjust_loop_header_phi,
+	tree_lv_add_condition_to_bb): New.
+	(tree_cfg_hooks): Add new hooks to initialization.
+	* tree-ssa-loop-manip.c (lv_adjust_loop_header_phi,
+	lv_adjust_loop_entry_edge, tree_ssa_loop_version): Remove.
+
+2005-04-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/stormy16/stormy16.h (PREDICATE_CODES): Add SUBREG to
+	xstormy16_below100_or_register,
+	xstormy16_splittable_below100_or_register, and
+	nonimmediate_nonstack_operand.
+
+	* config/stormy16/stormy16-protos.h: Remove the prototypes for
+	xstormy16_ineqsi_operator, equality_operator,
+	inequality_operator, shift_operator,
+	xstormy16_below100_operand, xstormy16_below100_or_register,
+	xstormy16_splittable_below100_or_register,
+	xstormy16_onebit_set_operand, xstormy16_onebit_clr_operand.
+	* config/stormy16/stormy16.c (xstormy16_ineqsi_operator,
+	equality_operator, inequality_operator,
+	xstormy16_below100_operand, xstormy16_below100_or_register,
+	xstormy16_splittable_below100_or_register,
+	xstormy16_onebit_set_operand, xstormy16_onebit_clr_operand,
+	nonimmediate_nonstack_operand, shift_operator): Move to
+	predicates.md.
+	* config/stormy16/stormy16.h (PREDICATE_CODES): Remove.
+	* config/stormy16/stormy16.md: Include predicates.md.
+	* config/stormy16/predicates.md: New.
+
+2005-04-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/iq2000/iq2000.c (uns_arith_operand, arith_operand,
+	small_int, large_int, reg_or_0_operand, simple_memory_operand,
+	equality_op, cmp_op, pc_or_label_operand, call_insn_operand,
+	move_operand, power_of_2_operand): Move to predicates.md.
+	* config/iq2000/iq2000.h (SPECIAL_MODE_PREDICATES,
+	PREDICATE_CODE): Remove.
+	* config/iq2000/iq2000.md: Include predicates.md.
+	* config/iq2000/predicates.md: New.
+
+2005-04-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/m68hc11/m68hc11.h (target_flags, MASK_SHORT)
+	(MASK_AUTO_INC_DEC, MASK_M6811, MASK_M6812, MASK_M68S12)
+	(MASK_NO_DIRECT_MODE, MASK_MIN_MAX, MASK_LONG_CALLS)
+	(TARGET_SHORT, TARGET_M6811, TARGET_M6812, TARGET_M68S12)
+	(TARGET_AUTO_INC_DEC, TARGET_MIN_MAX, TARGET_NO_DIRECT_MODE)
+	(TARGET_LONG_CALLS, TARGET_SWITCHES, TARGET_OPTIONS)
+	(SUBTARGET_SWITCHES, SUBTARGET_OPTIONS, m68hc11_regparm_string)
+	(m68hc11_reg_alloc_order, m68hc11_soft_reg_count)
+	(TARGET_M68HC11): Delete.
+	(TARGET_DEFAULT): Change the default setting from MASK_M6811 to 0.
+	* config/m68hc11/m68hc12.h (TARGET_M68HC12): Delete.
+	* config/m68hc11/m68hc11.c (m68hc11_regparm_string)
+	(m68hc11_reg_alloc_order, m68hc11_soft_reg_count)
+	(nb_soft_regs): Delete.
+	(TARGET_DEFAULT_TARGET_FLAGS): Override default with TARGET_DEFAULT.
+	(m68hc11_override_options): Remove the code that caters for MASK_M6811
+	and MASK_M6812 being set simultaneously.  Change the code that sets
+	the default m68hc11_soft_reg_count to use integers instead of strings.
+	(m68hc11_conditional_register_usage, hard_regno_mode_ok): Use
+	m68hc11_soft_reg_count (which now has an int type) as the number
+	of soft registers.
+	* config/m68hc11/m68hc11.opt: New file.
+
 2005-04-02  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* config/fr30/fr30.h (PREDICATE_CODES): Remove
 	fp_displacement_operand, sp_displacement_operand.
+
+	* config/m68hc11/m68hc11-protos.h: Add a prototype for
+	m68hcc_auto_inc_p.
+	Remove the prototypes for tst_operand, cmp_operand,
+	stack_register_operand, d_register_operand,
+	hard_addr_reg_operand, splitable_operand,
+	m68hc11_logical_operator, m68hc11_arith_operator,
+	m68hc11_non_shift_operator, m68hc11_shift_operator,
+	m68hc11_unary_operator, m68hc11_eq_compare_operator,
+	non_push_operand, hard_reg_operand, and
+	reg_or_some_mem_operand.
+	* config/m68hc11/m68hc11.c (m68hcc_auto_inc_p): Make it
+	extern.
+	(tst_operand, cmp_operand, non_push_operand,
+	splitable_operand, reg_or_some_mem_operand,
+	stack_register_operand, d_register_operand,
+	hard_addr_reg_operand, hard_reg_operand,
+	m68hc11_eq_compare_operator, m68hc11_logical_operator,
+	m68hc11_arith_operator, m68hc11_non_shift_operator,
+	m68hc11_shift_operator, m68hc11_unary_operator): Move to
+	predicates.md.
+	* config/m68hc11/m68hc11.h (PREDICATE_CODES): Remove.
+	* config/m68hc11/m68hc11.md: Include predicates.md.
+	* config/m68hc11/predicates.md: New.
 
 2005-04-02  Alexandre Oliva  <aoliva@redhat.com>
 
@@ -422,7 +1301,7 @@
 	last_text_section_name as appropriate.
 	(function_section): Change test for 'unlikely' to depend on
 	first_function_block_is_cold (moved old test to 
-        current_function_section).
+	current_function_section).
 	(current_function_section): New function.
 	(assemble_start_function): Move code that frees 
 	unlikely_text_section_name; initialize hot_section_end_label; 
@@ -445,8 +1324,8 @@
 
 2005-03-31  Olivier Hainque  <hainque@adacore.com>
 
-        * dwarf2out.c (dwarf2out_frame_finish): Honor DWARF2_FRAME_INFO
-        defined and non-zero.
+	* dwarf2out.c (dwarf2out_frame_finish): Honor DWARF2_FRAME_INFO
+	defined and non-zero.
 
 2005-03-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
@@ -9566,5 +10445,3 @@
 	* tree-cfg.c (remove_useless_stmts_warn_notreached): Only warn if
 	the source line is greater than 0.
 	(remove_bb): Likewise.
-
-See ChangeLog.12 for earlier changes.

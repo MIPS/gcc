@@ -249,7 +249,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
       else
 	break;
 
-      modify_stmt (stmt);
+      update_stmt (stmt);
       i++;
     }
 
@@ -283,6 +283,6 @@ tree_unswitch_loop (struct loops *loops, struct loop *loop,
   gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
   gcc_assert (loop->inner == NULL);
 
-  return tree_ssa_loop_version (loops, loop, unshare_expr (cond), 
-				&condition_bb);
+  return loop_version (loops, loop, unshare_expr (cond), 
+		       &condition_bb);
 }

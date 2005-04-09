@@ -88,6 +88,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
 #include "params.h"
+#include "langhooks.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -1980,23 +1981,28 @@ add_candidate (struct ivopts_data *data,
     add_candidate_1 (data, base, step, important, IP_END, use, NULL_TREE);
 }
 
+/* Add a standard "0 + 1 * iteration" iv candidate for a
+   type with SIZE bits.  */
+
+static void
+add_standard_iv_candidates_for_size (struct ivopts_data *data,
+				     unsigned int size)
+{
+  tree type = lang_hooks.types.type_for_size (size, true);
+  add_candidate (data, build_int_cst (type, 0), build_int_cst (type, 1),
+		 true, NULL);
+}
+
 /* Adds standard iv candidates.  */
 
 static void
 add_standard_iv_candidates (struct ivopts_data *data)
 {
-  /* Add 0 + 1 * iteration candidate.  */
-  add_candidate (data,
-		 build_int_cst (unsigned_intSI_type_node, 0),
-      		 build_int_cst (unsigned_intSI_type_node, 1),
-		 true, NULL);
+  add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE);
 
-  /* The same for a long type if it is still fast enough.  */
-  if (BITS_PER_WORD > 32)
-    add_candidate (data,
-		   build_int_cst (unsigned_intDI_type_node, 0),
-		   build_int_cst (unsigned_intDI_type_node, 1),
-		   true, NULL);
+  /* The same for a double-integer type if it is still fast enough.  */
+  if (BITS_PER_WORD >= INT_TYPE_SIZE * 2)
+    add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE * 2);
 }
 
 
@@ -2348,8 +2354,8 @@ static rtx
 produce_memory_decl_rtl (tree obj, int *regno)
 {
   rtx x;
-  if (!obj)
-    abort ();
+  
+  gcc_assert (obj);
   if (TREE_STATIC (obj) || DECL_EXTERNAL (obj))
     {
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (obj));
@@ -4829,6 +4835,7 @@ rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
       new_name = make_ssa_name (new_var, copy);
     }
   TREE_OPERAND (copy, 0) = new_name;
+  update_stmt (copy);
   bsi_insert_before (bsi, copy, BSI_SAME_STMT);
   with = new_name;
 
@@ -4892,7 +4899,7 @@ rewrite_use_compare (struct ivopts_data *data,
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
       *use->op_p = build2 (compare, boolean_type_node, var, op);
-      modify_stmt (use->stmt);
+      update_stmt (use->stmt);
       return;
     }
 
@@ -4993,19 +5000,24 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
   if (!single_pred_p (exit->dest))
     split_loop_exit_edge (exit);
 
-  if (TREE_CODE (stmts) == STATEMENT_LIST)
-    {
-      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-	protect_loop_closed_ssa_form (exit, tsi_stmt (tsi));
-    }
-  else
-    protect_loop_closed_ssa_form (exit, stmts);
-
   /* Ensure there is label in exit->dest, so that we can
      insert after it.  */
   tree_block_label (exit->dest);
   bsi = bsi_after_labels (exit->dest);
-  bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
+
+  if (TREE_CODE (stmts) == STATEMENT_LIST)
+    {
+      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
+        {
+	  bsi_insert_after (&bsi, tsi_stmt (tsi), BSI_NEW_STMT);
+	  protect_loop_closed_ssa_form (exit, bsi_stmt (bsi));
+	}
+    }
+  else
+    {
+      bsi_insert_after (&bsi, stmts, BSI_NEW_STMT);
+      protect_loop_closed_ssa_form (exit, bsi_stmt (bsi));
+    }
 
   if (!op)
     return;
@@ -5124,7 +5136,7 @@ rewrite_use (struct ivopts_data *data,
       default:
 	gcc_unreachable ();
     }
-  modify_stmt (use->stmt);
+  update_stmt (use->stmt);
 }
 
 /* Rewrite the uses using the selected induction variables.  */

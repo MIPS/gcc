@@ -619,8 +619,12 @@ enum execute_pass_hook
 };
 
 static void
-execute_todo (int properties, unsigned int flags, enum execute_pass_hook hook)
+execute_todo (struct tree_opt_pass *pass, unsigned int flags,
+	      bool use_required, enum execute_pass_hook hook)
 {
+  int properties 
+    = use_required ? pass->properties_required : pass->properties_provided;
+
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
@@ -667,11 +671,15 @@ execute_todo (int properties, unsigned int flags, enum execute_pass_hook hook)
     }
 
   if (flags & TODO_ggc_collect)
-    ggc_collect ();
+    {
+      ggc_collect ();
+    }
 
 #ifdef ENABLE_CHECKING
-  if (flags & TODO_verify_ssa)
-    verify_ssa ();
+  if ((pass->properties_required & PROP_ssa)
+      && !(pass->properties_destroyed & PROP_ssa))
+    verify_ssa  (true);
+
   if (flags & TODO_verify_flow)
     verify_flow_info ();
   if (flags & TODO_verify_stmts)
@@ -696,7 +704,7 @@ execute_one_pass (struct tree_opt_pass *pass, enum execute_pass_hook hook,
   /* Run pre-pass verification.  */
   todo = pass->todo_flags_start & ~last_verified;
   if (todo)
-    execute_todo (pass->properties_required, todo, hook);
+    execute_todo (pass, todo, true, hook);
 
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
@@ -769,7 +777,7 @@ execute_one_pass (struct tree_opt_pass *pass, enum execute_pass_hook hook,
   todo = pass->todo_flags_finish;
   last_verified = todo & TODO_verify_all;
   if (todo)
-    execute_todo (pass->properties_provided, todo, hook);
+    execute_todo (pass, todo, false, hook);
 
   /* Flush and close dump file.  */
   if (dump_file_name)

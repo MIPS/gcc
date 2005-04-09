@@ -1,3 +1,87 @@
+2005-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20763
+	* g++.dg/ext/attrib21.C: New test.
+
+2004-04-05  Devang Patel  <dpatel@apple.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_shif): New.
+	* gcc.dg/vect/vect-shift-1.c: New test.
+	
+2005-04-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20755
+	* gfortran.dg/pr20755.f: New test.
+
+2005-04-05  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/pr15959.f90: New test.
+	* gfortran.dg/string_pad_trunc.f90: New test.
+
+2005-04-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/backspace.f, gfortran.dg/g77_intrinsics_funcs.f,
+	gfortran.dg/g77_intrinsics_sub.f, gfortran.dg/negative_unit.f,
+	gfortran.dg/pr18025.f90, gfortran.dg/g77/12002.f: Correct dejagnu
+	syntax.
+
+2005-04-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040323-1.c (_rtld_global): Set to 1.
+
+2005-04-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.c-torture/compile/20011119-1.c: Require weak and alias support.
+	* gcc.c-torture/compile/20011119-2.c: Likewise.
+	* gcc.c-torture/compile/981001-2.c: Likewise.
+
+2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20679
+	* g++.dg/template/overload4.C: New test.
+
+2005-04-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20746
+	* g++.dg/abi/covariant5.C: New.
+
+	PR debug/20505
+	* g++.dg/debug/const2.C: New.
+
+2005-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/16104
+	* gcc.c-torture/execute/20050316-1.c: New test.
+
+2005-04-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/spec23.C: Fix dg-error text.
+
+2005-04-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/19199
+	* g++.dg/expr/lval2.C: New.
+
+2005-04-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/nonnull-3.c: Also test __builtin_stpncpy,
+	__builtin_strcasecmp and __builtin_strncasecmp.
+
+2005-04-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20723
+	* g++.dg/template/spec22.C: New.
+	* g++.dg/template/spec23.C: New.
+
+2005-04-03  Dale Ranta  <dir@lanl.gov>
+            Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20068
+	PR libfortran/20125
+	PR libfortran/20156
+	PR libfortran/20471
+	* gfortran.dg/backspace.f: New test.
+
 2005-04-02  Daniel Berlin  <dberlin@dberlin.org>
 
 	* gcc.dg/pr19345.c: New test.
@@ -27542,7 +27626,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/compile/labels-2.c: New test.
 
-1999-12-27  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+1999-12-27  Martin von Lï¿½is  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991227-1.c: New test.
 
@@ -27550,7 +27634,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* g++.old-deja/g++.pt/instantiate6.C: Remove excess errors XFAIL.
 
-1999-12-21  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+1999-12-21  Martin von Lï¿½is  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991221-1.c: New test.
 
