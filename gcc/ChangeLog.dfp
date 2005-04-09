@@ -1,3 +1,8 @@
+2004-04-09  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-typeck.c (convert_arguments): More conservative check for
+	decimal float related prototype conversion warnings.
+
 2004-04-08  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-typeck.c (convert_arguments): Warn on conversion due to prototype.

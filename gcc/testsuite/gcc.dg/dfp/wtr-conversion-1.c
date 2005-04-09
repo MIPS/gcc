@@ -27,19 +27,20 @@ testfunc1 ()
   foo_i (d128); /* { dg-warning "as integer rather than floating" "prototype conversion warning" } */
   foo_d32 (i); /* { dg-warning "as floating rather than integer" "prototype conversion warning" } */
   foo_d32 (f); /* { dg-warning "as '_Decimal32' rather than 'float'" "prototype conversion warning" } */
-  foo_d32 (ld); /* { dg-warning "as '_Decimal32' rather than 'double'" "prototype conversion warning" } */
+  foo_d32 (ld); /* { dg-warning "as '_Decimal32' rather than 'long double'" "prototype conversion warning" } */
   foo_d32 (d64); /* { dg-warning "as '_Decimal32' rather than '_Decimal64'" "prototype conversion warning" } */
   foo_d32 (d128); /* { dg-warning "as '_Decimal32' rather than '_Decimal128'" "prototype conversion warning" } */
   foo_d64 (i); /* { dg-warning "as floating rather than integer" "prototype conversion warning" } */
   foo_d64 (f); /* { dg-warning "as '_Decimal64' rather than 'float'" "prototype conversion warning" } */
-  foo_d64 (ld); /* { dg-warning "as '_Decimal64' rather than 'double'" "prototype conversion warning" } */
-  foo_d32 (d32); /* { dg-warning "as '_Decimal64' rather than '_Decimal32'" "prototype conversion warning" } */
+  foo_d64 (ld); /* { dg-warning "as '_Decimal64' rather than 'long double'" "prototype conversion warning" } */
+  foo_d64 (d32); /* { dg-bogus "as '_Decimal64' rather than '_Decimal32'" "prototype conversion warning" } */
   foo_d64 (d128); /* { dg-warning "as '_Decimal64' rather than '_Decimal128'" "prototype conversion warning" } */
   foo_d128 (i); /* { dg-warning "as floating rather than integer" "prototype conversion warning" } */
   foo_d128 (f); /* { dg-warning "as '_Decimal128' rather than 'float'" "prototype conversion warning" } */
-  foo_d128 (ld); /* { dg-warning "as '_Decimal128' rather than 'double'" "prototype conversion warning" } */
-  foo_d128 (d32); /* { dg-warning "as '_Decimal128' rather than '_Decimal32'" "prototype conversion warning" } */
-  foo_d128 (d32); /* { dg-warning "as '_Decimal128' rather than '_Decimal64'" "prototype conversion warning" } */  
+  foo_d128 (ld); /* { dg-warning "as '_Decimal128' rather than 'long double'" "prototype conversion warning" } */
+  foo_d128 (d32); /* { dg-bogus "as '_Decimal128' rather than '_Decimal32'" "prototype conversion warning" } */
+  foo_d128 (d64); /* { dg-bogus "as '_Decimal128' rather than '_Decimal64'" "prototype conversion warning" } */
+  foo_d128 (d128); /* { dg-bogus "as '_Decimal128' rather than '_Decimal'" "prototype conversion warning" } */
 }
   
 # 54 "sys-header.h" 3

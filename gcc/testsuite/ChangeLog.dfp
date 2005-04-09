@@ -1,3 +1,8 @@
+2005-04-09  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/wtr-conversion-1 (testfunc1): Change tests which
+	widen type to dg-bogus.
+
 2005-04-08  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/Wconversion-2.c: Correct dg-options.

@@ -2209,12 +2209,39 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
 		    {
-		      /* Warn if argument is passed as different type, since
-			 without a protyotype it would be passed as double.  */
-		      if (type != TREE_TYPE(val))
-			warning ("passing argument %d of %qE as %qT "
+		      /* Warn if any argument is passed as `float',
+			 since without a prototype it would be `double'.  */
+		      if (formal_prec == TYPE_PRECISION (float_type_node)
+			  && type != dfloat32_type_node)
+			warning ("passing argument %d of %qE as %<float%> "
 				 "rather than %<double%> due to prototype",
-				 argnum, rname, type);
+				 argnum, rname);
+
+		      /* Warn if mismatch between argument and prototype
+			 for decimal float types.  Warn of conversions with
+			 binary float types and of precision narrowing due to
+			 prototype. */
+ 		      else if (type != TREE_TYPE (val)
+			       && (type == dfloat32_type_node
+				   || type == dfloat64_type_node
+				   || type == dfloat128_type_node 
+				   || TREE_TYPE (val) == dfloat32_type_node
+				   || TREE_TYPE (val) == dfloat64_type_node
+				   || TREE_TYPE (val) == dfloat128_type_node)
+			       && (formal_prec 
+				   <= TYPE_PRECISION (TREE_TYPE (val))
+				   || (type == dfloat128_type_node
+				       && (TREE_TYPE (val)
+					   != dfloat64_type_node 
+					   && (TREE_TYPE (val) 
+					       != dfloat32_type_node)))
+				   || (type == dfloat64_type_node
+				       && (TREE_TYPE (val)
+					   != dfloat32_type_node))))
+			warning ("passing argument %d of %qE as %qT "
+				 "rather than %qT due to prototype",
+				 argnum, rname, type, TREE_TYPE (val));
+		      
 		    }
 		  /* Detect integer changing in width or signedness.
 		     These warnings are only activated with
