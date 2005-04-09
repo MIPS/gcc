@@ -15786,13 +15786,12 @@ rs6000_emit_prologue (void)
 	 to branch to the overriding function.  This is necessary to
 	 permit function pointers that point to the old function to
 	 actually forward to the new function.  */
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
       /* APPLE LOCAL end mainline 5 nops */
-      emit_insn (gen_nop ());
-      emit_insn (gen_nop ());
-      emit_insn (gen_nop ());
-      emit_insn (gen_nop ());
-      /* APPLE LOCAL mainline 5 nops */
-      emit_insn (gen_nop ());
     }
 
   if (TARGET_SPE_ABI && info->spe_64bit_regs_used != 0)
@@ -16167,7 +16166,6 @@ rs6000_emit_prologue (void)
 
 	  /* APPLE LOCAL reduce code size */
 	  RTVEC_ELT (p, count++) = gen_rtx_SET (VOIDmode, mem, reg);
-	  /* APPLE LOCAL too many changes confuse diff */
 	}
       /* APPLE LOCAL begin C++ EH and setjmp (radar 2866661) */
 #if TARGET_MACHO
