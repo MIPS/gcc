@@ -6,7 +6,6 @@
 
 /* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "-std=gnu99" } */
-/* { dg-xfail-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 #pragma reverse_bitfields on
 #pragma reverse_bitfields reset

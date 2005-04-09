@@ -4,7 +4,6 @@
 
 /* This tests layout when the pragma is off, as a sanity check. */
 /* { dg-do run { target powerpc*-*-darwin* } } */
-/* { dg-xfail-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 #pragma reverse_bitfields off
 typedef struct

@@ -4,7 +4,6 @@
 
 /* This is the same data structure originally supplied by a user. */
 /* { dg-do run { target powerpc*-*-darwin* } } */
-/* { dg-xfail-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 /*
 	Fun with bitfields!

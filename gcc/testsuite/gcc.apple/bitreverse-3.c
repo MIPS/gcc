@@ -7,7 +7,6 @@
 .  Layout same as bitreverse-0.  */
 
 /* { dg-do run { target powerpc*-*-darwin* } } */
-/* { dg-xfail-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 #pragma reverse_bitfields on
 #pragma reverse_bitfields off

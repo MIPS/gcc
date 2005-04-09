@@ -7,7 +7,6 @@
    the requirement.  */
 
 /* { dg-do run { target powerpc*-*-darwin* } } */
-/* { dg-xfail-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 #pragma reverse_bitfields on
 typedef struct
