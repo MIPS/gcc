@@ -1,3 +1,8 @@
+2005-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_va_start): Setup overflow_arg_area
+	unconditionally.
+
 2005-04-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/20076

@@ -6191,13 +6191,6 @@ rs6000_va_start (tree valist, rtx nextarg)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
-  /* If there were no va_arg invocations, don't set up anything.  */
-  if (!cfun->va_list_gpr_size
-      && !cfun->va_list_fpr_size
-      && n_gpr < GP_ARG_NUM_REG
-      && n_fpr < FP_ARG_V4_MAX_REG)
-    return;
-
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
@@ -6206,6 +6199,13 @@ rs6000_va_start (tree valist, rtx nextarg)
   t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+  /* If there were no va_arg invocations, don't set up anything.  */
+  if (!cfun->va_list_gpr_size
+      && !cfun->va_list_fpr_size
+      && n_gpr < GP_ARG_NUM_REG
+      && n_fpr < FP_ARG_V4_MAX_REG)
+    return;
 
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
