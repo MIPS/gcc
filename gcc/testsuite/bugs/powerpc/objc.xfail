@@ -50,3 +50,7 @@
 #3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 25)
 #3753413: objc.dg/const-cfstring-2.m (test for excess errors)
 #3753413: objc.dg/const-str-5.m (test for excess errors)
+4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_objc_msgSend\\$stub\n
+4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_bogonic\\$stub\n
+4055183: objc.dg/stubify-1.m scan-assembler-not \\$non_lazy_ptr
+4055183: objc.dg/stubify-2.m scan-file-not symbol_ref.*"objc_msgSend"

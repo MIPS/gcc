@@ -10,7 +10,7 @@
 ### file and make sure the Radar is closed.
 ###
 ###------------------------------------------------------------------
-3220997: g++.dg/align-test-1.C execution test
+#3220997: g++.dg/align-test-1.C execution test
 #3665086: g++.dg/apple-altivec-1.C (test for excess errors)
 #3665086: g++.dg/altivec-3.C (test for excess errors)
 #3665127: g++.dg/altivec-5.C (test for excess errors)
@@ -184,7 +184,7 @@
 3843157: g++.dg/pascal-strings-2.C (test for excess errors)
 3845961: 102:is -:should be 1
 3845961: g++.dg/gcov/gcov-1.C gcov: 1 failures in line counts, 0 in branch percentages, 0 in return percentages
-3878577: g++.dg/expr/cast2.C  (test for errors, line 4)
+#3878577: g++.dg/expr/cast2.C  (test for errors, line 4)
 #3878578: g++.old-deja/g++.other/comdat4.C (test for excess errors)
 #3878580: g++.dg/parse/parse3.C (test for excess errors)
 #
@@ -211,17 +211,18 @@
 3904186: g++.dg/pch/uninst.C -g assembly comparison
 3904186: g++.dg/pch/uninst.C -O2 -g assembly comparison
 3904186: g++.dg/pch/uninst.C -O2 assembly comparison
-3973957: g++.dg/ext/visibility/fvisibility-inlines-hidden.C (test for excess errors)
-3973957: g++.dg/ext/visibility/fvisibility-inlines-hidden.C scan-hidden private_extern[ \t_]*_ZN3Foo6methodEv
+#3973957: g++.dg/ext/visibility/fvisibility-inlines-hidden.C (test for excess errors)
+#3973957: g++.dg/ext/visibility/fvisibility-inlines-hidden.C scan-hidden private_extern[ \t_]*_ZN3Foo6methodEv
+4079018: g++.dg/template/spec19.C (test for excess errors)
 #
-3961370: g++.dg/ext/visibility/fvisibility-override1.C (test for excess errors)
-3961370: g++.dg/ext/visibility/fvisibility-override1.C scan-assembler \\.internal.*Foo.methodEv
-3961370: g++.dg/ext/visibility/fvisibility-override2.C (test for excess errors)
-3961370: g++.dg/ext/visibility/fvisibility-override2.C scan-assembler \\.internal.*Foo.methodEv
-3961370: g++.dg/ext/visibility/pragma-override1.C (test for excess errors)
-3961370: g++.dg/ext/visibility/pragma-override1.C scan-assembler \\.internal.*Foo.methodEv
-3961370: g++.dg/ext/visibility/pragma-override2.C (test for excess errors)
-3961370: g++.dg/ext/visibility/pragma-override2.C scan-assembler \\.internal.*Foo.methodEv
+#3961370: g++.dg/ext/visibility/fvisibility-override1.C (test for excess errors)
+#3961370: g++.dg/ext/visibility/fvisibility-override1.C scan-assembler \\.internal.*Foo.methodEv
+#3961370: g++.dg/ext/visibility/fvisibility-override2.C (test for excess errors)
+#3961370: g++.dg/ext/visibility/fvisibility-override2.C scan-assembler \\.internal.*Foo.methodEv
+#3961370: g++.dg/ext/visibility/pragma-override1.C (test for excess errors)
+#3961370: g++.dg/ext/visibility/pragma-override1.C scan-assembler \\.internal.*Foo.methodEv
+#3961370: g++.dg/ext/visibility/pragma-override2.C (test for excess errors)
+#3961370: g++.dg/ext/visibility/pragma-override2.C scan-assembler \\.internal.*Foo.methodEv
 #
 # The following tests fail only when the c++ suite is run with -m64
 3965017: g++.dg/template/repo1.C (test for excess errors)
@@ -233,7 +234,7 @@
 3965017: g++.old-deja/g++.pt/repo2.C (test for excess errors)
 3965017: g++.old-deja/g++.pt/repo3.C (test for excess errors)
 3965017: g++.old-deja/g++.pt/repo4.C (test for excess errors)
-3953569: g++.old-deja/g++.law/profile1.C execution test
+#3953569: g++.old-deja/g++.law/profile1.C execution test
 3941491: g++.dg/debug/const1.C -gdwarf-21 (test for excess errors)
 3941491: g++.dg/debug/const1.C -gdwarf-21 -O2 (test for excess errors)
 3941491: g++.dg/debug/const1.C -gdwarf-21 -O3 (test for excess errors)
@@ -281,5 +282,8 @@
 3967626: g++.dg/eh/forced1.C execution test
 3967626: g++.old-deja/g++.eh/terminate2.C execution test
 #3968560: g++.dg/ext/label3.C (test for excess errors)
-3968612: g++.old-deja/g++.brendan/new3.C execution test
+#3968612: g++.old-deja/g++.brendan/new3.C execution test
 #
+# The following tests fail only when the c++ suite is run on i386
+4015570: g++.dg/align-test-1.C execution test
+4015840: g++.dg/eh/omit-frame-pointer2.C execution test
