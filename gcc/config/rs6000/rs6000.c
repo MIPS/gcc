@@ -15822,14 +15822,18 @@ rs6000_emit_prologue (void)
 
   if (TARGET_FIX_AND_CONTINUE)
     {
+      /* APPLE LOCAL begin mainline 5 nops */
       /* gdb on darwin arranges to forward a function from the old
-	 address by modifying the first 4 instructions of the function
+	 address by modifying the first 5 instructions of the function
 	 to branch to the overriding function.  This is necessary to
 	 permit function pointers that point to the old function to
 	 actually forward to the new function.  */
+      /* APPLE LOCAL end mainline 5 nops */
       emit_insn (gen_nop ());
       emit_insn (gen_nop ());
       emit_insn (gen_nop ());
+      emit_insn (gen_nop ());
+      /* APPLE LOCAL mainline 5 nops */
       emit_insn (gen_nop ());
     }
 

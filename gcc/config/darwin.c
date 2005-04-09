@@ -59,6 +59,7 @@ enum darwin_builtins
 };
 /* APPLE LOCAL end constant cfstrings */
 
+/* APPLE LOCAL begin mainline 5 nops */
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
    -mfix-and-continue flag, two changes are made to the generated code
@@ -72,8 +73,8 @@ enum darwin_builtins
    existed in the unit to be replaced, and from the new translation
    unit, for new data.
 
-   The changes are to insert 4 nops at the beginning of all functions
-   and to use indirection to get at static duration data.  The 4 nops
+   The changes are to insert 5 nops at the beginning of all functions
+   and to use indirection to get at static duration data.  The 5 nops
    are required by consumers of the generated code.  Currently, gdb
    uses this to patch in a jump to the overriding function, this
    allows all uses of the old name to forward to the replacement,
@@ -88,7 +89,7 @@ enum darwin_builtins
    the code that handles the extra indirection, and
    machopic_output_indirection and its use of MACHO_SYMBOL_STATIC for
    the code that handles @code{static} data indirection.  */
-
+/* APPLE LOCAL end mainline 5 nops */
 
 /* Nonzero if the user passes the -mone-byte-bool switch, which forces
    sizeof(bool) to be 1. */
