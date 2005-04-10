@@ -1,5 +1,6 @@
 /* Pipeline hazard description translator.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    Written by Vladimir Makarov <vmakarov@redhat.com>
 
@@ -6119,15 +6120,19 @@ copy_equiv_class (vla_ptr_t *to, const vla_ptr_t *from)
 static int
 first_cycle_unit_presence (state_t state, int unit_num)
 {
-  int presence_p;
+  alt_state_t alt_state;
 
   if (state->component_states == NULL)
-    presence_p = test_unit_reserv (state->reservs, 0, unit_num);
+    return test_unit_reserv (state->reservs, 0, unit_num);
   else
-    presence_p
-      = test_unit_reserv (state->component_states->state->reservs,
-			  0, unit_num);
-  return presence_p;
+    {
+      for (alt_state = state->component_states;
+	   alt_state != NULL;
+	   alt_state = alt_state->next_sorted_alt_state)
+	if (test_unit_reserv (alt_state->state->reservs, 0, unit_num))
+	  return true;
+    }
+  return false;
 }
 
 /* The function returns nonzero value if STATE is not equivalent to
@@ -8969,9 +8974,8 @@ output_get_cpu_unit_code_func (void)
   int i;
   unit_decl_t *units;
 
-  fprintf (output_file, "int\n%s (%s)\n\tconst char *%s;\n",
-	   GET_CPU_UNIT_CODE_FUNC_NAME, CPU_UNIT_NAME_PARAMETER_NAME,
-	   CPU_UNIT_NAME_PARAMETER_NAME);
+  fprintf (output_file, "int\n%s (const char *%s)\n",
+	   GET_CPU_UNIT_CODE_FUNC_NAME, CPU_UNIT_NAME_PARAMETER_NAME);
   fprintf (output_file, "{\n  struct %s {const char *%s; int %s;};\n",
 	   NAME_CODE_STRUCT_NAME, NAME_MEMBER_NAME, CODE_MEMBER_NAME);
   fprintf (output_file, "  int %s, %s, %s, %s;\n", CMP_VARIABLE_NAME,
@@ -9018,9 +9022,9 @@ output_cpu_unit_reservation_p (void)
 {
   automaton_t automaton;
 
-  fprintf (output_file, "int\n%s (%s, %s)\n\t%s %s;\n\tint %s;\n",
-	   CPU_UNIT_RESERVATION_P_FUNC_NAME, STATE_NAME,
-	   CPU_CODE_PARAMETER_NAME, STATE_TYPE_NAME, STATE_NAME,
+  fprintf (output_file, "int\n%s (%s %s, int %s)\n",
+	   CPU_UNIT_RESERVATION_P_FUNC_NAME,
+	   STATE_TYPE_NAME, STATE_NAME,
 	   CPU_CODE_PARAMETER_NAME);
   fprintf (output_file, "{\n  gcc_assert (%s >= 0 && %s < %d);\n",
 	   CPU_CODE_PARAMETER_NAME, CPU_CODE_PARAMETER_NAME,

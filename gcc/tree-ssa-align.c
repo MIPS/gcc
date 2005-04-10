@@ -85,7 +85,6 @@ static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
 static value *get_value (tree);
 static value get_default_value (tree);
-static bool need_imm_uses_for (tree var);
  
 /* Main entry point for SSA alignment analysis */
 
@@ -435,15 +434,6 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
     }
 }
 
-/* Function indicating whether we ought to include information for 'var'
-   when calculating immediate uses.  */
-
-static bool
-need_imm_uses_for (tree var ATTRIBUTE_UNUSED)
-{
-  return true;
-}
-
 /* Initialize local data structures and worklists for CCP.  */
 
 static void
@@ -453,9 +443,6 @@ initialize (void)
 
   value_vector = (value *) xmalloc (num_ssa_names * sizeof (value));
   memset (value_vector, 0, num_ssa_names * sizeof (value));
-
-  /* Compute immediate uses for variables we care about.  */
-  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
   FOR_EACH_BB (bb)
     {
@@ -482,7 +469,6 @@ finalize (void)
 {
 
   free (value_vector);
-  free_df ();
 }
 
 /* Set the lattice value for the variable VAR to KNOWN, {BITS PER

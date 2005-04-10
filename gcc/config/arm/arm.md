@@ -30,12 +30,15 @@
 
 ;; Register numbers
 (define_constants
-  [(IP_REGNUM	    12)		; Scratch register
+  [(R0_REGNUM        0)		; First CORE register
+   (IP_REGNUM	    12)		; Scratch register
    (SP_REGNUM	    13)		; Stack pointer
    (LR_REGNUM       14)		; Return address register
    (PC_REGNUM	    15)		; Program counter
    (CC_REGNUM       24)		; Condition code pseudo register
-   (LAST_ARM_REGNUM 15)
+   (LAST_ARM_REGNUM 15)		;
+   (FPA_F0_REGNUM   16)		; FIRST_FPA_REGNUM
+   (FPA_F7_REGNUM   23)		; LAST_FPA_REGNUM
   ]
 )
 ;; 3rd operand to select_dominance_cc_mode
@@ -568,32 +571,13 @@
   [(set_attr "conds" "set")]
 )
 
-;; These patterns are the same ones as the two regular addsi3_compare0
-;; patterns, except we write them slightly different - the combiner
-;; tends to generate them this way.
-(define_insn "*addsi3_compare0_for_combiner"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	 (match_operand:SI 1 "s_register_operand" "r,r")
-	 (neg:SI (match_operand:SI 2 "arm_add_operand" "rI,L"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(plus:SI (match_dup 1) (match_dup 2)))]
+(define_insn "*compare_negsi_si"
+  [(set (reg:CC_Z CC_REGNUM)
+	(compare:CC_Z
+	 (neg:SI (match_operand:SI 0 "s_register_operand" "r"))
+	 (match_operand:SI 1 "s_register_operand" "r")))]
   "TARGET_ARM"
-  "@
-   add%?s\\t%0, %1, %2
-   sub%?s\\t%0, %1, #%n2"
-  [(set_attr "conds" "set")]
-)
-
-(define_insn "*addsi3_compare0_scratch_for_combiner"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC
-	 (match_operand:SI 0 "s_register_operand" "r,r")
-	 (neg:SI (match_operand:SI 1 "arm_add_operand" "rI,L"))))]
-  "TARGET_ARM"
-  "@
-   cmn%?\\t%0, %1
-   cmp%?\\t%0, #%n1"
+  "cmn%?\\t%1, %0"
   [(set_attr "conds" "set")]
 )
 
@@ -2547,10 +2531,7 @@
 	    (match_operand:SI 3 "arm_rhs_operand" "rI,rI")])
 	  (match_operand:SI 1 "s_register_operand" "0,?r")]))
    (clobber (reg:CC CC_REGNUM))]
-  "TARGET_ARM
-   && (GET_CODE (operands[1]) != REG
-       || (REGNO(operands[1]) != FRAME_POINTER_REGNUM
-           && REGNO(operands[1]) != ARG_POINTER_REGNUM))"
+  "TARGET_ARM && !arm_eliminable_register (operands[1])"
   "*
   {
     enum rtx_code code = GET_CODE (operands[4]);
@@ -4861,7 +4842,7 @@
   "@
    mov%?\\t%0, %1\\t%@ movhi
    mvn%?\\t%0, #%B1\\t%@ movhi
-   str%?h\\t%1, %0\\t%@ movhi 
+   str%?h\\t%1, %0\\t%@ movhi
    ldr%?h\\t%0, %1\\t%@ movhi"
   [(set_attr "type" "*,*,store1,load1")
    (set_attr "predicable" "yes")
@@ -5216,6 +5197,16 @@
    (set_attr "pool_range" "*,*,*,1020,*,*")]
 )
 
+(define_expand "movxf"
+  [(set (match_operand:XF 0 "general_operand" "")
+	(match_operand:XF 1 "general_operand" ""))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  "
+  if (GET_CODE (operands[0]) == MEM)
+    operands[1] = force_reg (XFmode, operands[1]);
+  "
+)
+
 ;; Vector Moves
 (define_expand "movv2si"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "")
@@ -5286,6 +5277,24 @@
   "ldm%?ia\\t%1!, {%3, %4, %5, %6}"
   [(set_attr "type" "load4")
    (set_attr "predicable" "yes")]
+)
+
+(define_insn "*ldmsi_postinc4_thumb"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "s_register_operand" "=l")
+	  (plus:SI (match_operand:SI 2 "s_register_operand" "1")
+		   (const_int 16)))
+     (set (match_operand:SI 3 "arm_hard_register_operand" "")
+	  (mem:SI (match_dup 2)))
+     (set (match_operand:SI 4 "arm_hard_register_operand" "")
+	  (mem:SI (plus:SI (match_dup 2) (const_int 4))))
+     (set (match_operand:SI 5 "arm_hard_register_operand" "")
+	  (mem:SI (plus:SI (match_dup 2) (const_int 8))))
+     (set (match_operand:SI 6 "arm_hard_register_operand" "")
+	  (mem:SI (plus:SI (match_dup 2) (const_int 12))))])]
+  "TARGET_THUMB && XVECLEN (operands[0], 0) == 5"
+  "ldmia\\t%1!, {%3, %4, %5, %6}"
+  [(set_attr "type" "load4")]
 )
 
 (define_insn "*ldmsi_postinc3"
@@ -5407,6 +5416,24 @@
   "stm%?ia\\t%1!, {%3, %4, %5, %6}"
   [(set_attr "predicable" "yes")
    (set_attr "type" "store4")]
+)
+
+(define_insn "*stmsi_postinc4_thumb"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "s_register_operand" "=l")
+	  (plus:SI (match_operand:SI 2 "s_register_operand" "1")
+		   (const_int 16)))
+     (set (mem:SI (match_dup 2))
+	  (match_operand:SI 3 "arm_hard_register_operand" ""))
+     (set (mem:SI (plus:SI (match_dup 2) (const_int 4)))
+	  (match_operand:SI 4 "arm_hard_register_operand" ""))
+     (set (mem:SI (plus:SI (match_dup 2) (const_int 8)))
+	  (match_operand:SI 5 "arm_hard_register_operand" ""))
+     (set (mem:SI (plus:SI (match_dup 2) (const_int 12)))
+	  (match_operand:SI 6 "arm_hard_register_operand" ""))])]
+  "TARGET_THUMB && XVECLEN (operands[0], 0) == 5"
+  "stmia\\t%1!, {%3, %4, %5, %6}"
+  [(set_attr "type" "store4")]
 )
 
 (define_insn "*stmsi_postinc3"
@@ -5731,7 +5758,7 @@
 (define_insn "*negated_cbranchsi4"
   [(set (pc)
 	(if_then_else
-	 (match_operator 0 "arm_comparison_operator"
+	 (match_operator 0 "equality_operator"
 	  [(match_operand:SI 1 "s_register_operand" "l")
 	   (neg:SI (match_operand:SI 2 "s_register_operand" "l"))])
 	 (label_ref (match_operand 3 "" ""))
@@ -6678,19 +6705,19 @@
 		      (const_string "alu_shift_reg")))]
 )
 
-(define_insn "*cmpsi_neg_shiftsi"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC (match_operand:SI 0 "s_register_operand" "r")
-		    (neg:SI (match_operator:SI 3 "shift_operator"
-			     [(match_operand:SI 1 "s_register_operand" "r")
-			      (match_operand:SI 2 "arm_rhs_operand" "rM")]))))]
+(define_insn "*cmpsi_negshiftsi_si"
+  [(set (reg:CC_Z CC_REGNUM)
+	(compare:CC_Z
+	 (neg:SI (match_operator:SI 1 "shift_operator"
+		    [(match_operand:SI 2 "s_register_operand" "r")
+		     (match_operand:SI 3 "reg_or_int_operand" "rM")]))
+	 (match_operand:SI 0 "s_register_operand" "r")))]
   "TARGET_ARM"
-  "cmn%?\\t%0, %1%S3"
+  "cmn%?\\t%0, %2%S1"
   [(set_attr "conds" "set")
-   (set_attr "shift" "1")
-   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
-		      (const_string "alu_shift")
-		      (const_string "alu_shift_reg")))]
+   (set (attr "type") (if_then_else (match_operand 3 "const_int_operand" "")
+				    (const_string "alu_shift")
+				    (const_string "alu_shift_reg")))]
 )
 
 ;; Cirrus SF compare instruction
@@ -7560,7 +7587,7 @@
 )
 
 (define_insn "*call_value_symbol"
-  [(set (match_operand 0 "s_register_operand" "")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand:SI 1 "" ""))
 	(match_operand:SI 2 "" "")))
    (use (match_operand 3 "" ""))
@@ -7589,7 +7616,7 @@
 )
 
 (define_insn "*call_value_insn"
-  [(set (match_operand 0 "register_operand" "")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "" ""))
 	      (match_operand 2 "" "")))
    (use (match_operand 3 "" ""))
@@ -7617,7 +7644,7 @@
 )
 
 (define_expand "sibcall_value"
-  [(parallel [(set (match_operand 0 "register_operand" "")
+  [(parallel [(set (match_operand 0 "" "")
 		   (call (match_operand 1 "memory_operand" "")
 			 (match_operand 2 "general_operand" "")))
 	      (return)
@@ -7643,7 +7670,7 @@
 )
 
 (define_insn "*sibcall_value_insn"
- [(set (match_operand 0 "s_register_operand" "")
+ [(set (match_operand 0 "" "")
        (call (mem:SI (match_operand:SI 1 "" "X"))
 	     (match_operand 2 "" "")))
   (return)
@@ -7749,18 +7776,59 @@
 		    (const_int 0))
 	      (match_operand 1 "" "")
 	      (match_operand 2 "" "")])]
-  "TARGET_ARM"
+  "TARGET_EITHER"
   "
   {
     int i;
+    rtx par = gen_rtx_PARALLEL (VOIDmode,
+				rtvec_alloc (XVECLEN (operands[2], 0)));
+    rtx addr = gen_reg_rtx (Pmode);
+    rtx mem;
+    int size = 0;
 
-    emit_call_insn (GEN_CALL (operands[0], const0_rtx, NULL, const0_rtx));
+    emit_move_insn (addr, XEXP (operands[1], 0));
+    mem = change_address (operands[1], BLKmode, addr);
 
     for (i = 0; i < XVECLEN (operands[2], 0); i++)
       {
-	rtx set = XVECEXP (operands[2], 0, i);
+	rtx src = SET_SRC (XVECEXP (operands[2], 0, i));
 
-	emit_move_insn (SET_DEST (set), SET_SRC (set));
+	/* Default code only uses r0 as a return value, but we could
+	   be using anything up to 4 registers.  */
+	if (REGNO (src) == R0_REGNUM)
+	  src = gen_rtx_REG (TImode, R0_REGNUM);
+
+        XVECEXP (par, 0, i) = gen_rtx_EXPR_LIST (VOIDmode, src,
+						 GEN_INT (size));
+        size += GET_MODE_SIZE (GET_MODE (src));
+      }
+
+    emit_call_insn (GEN_CALL_VALUE (par, operands[0], const0_rtx, NULL,
+				    const0_rtx));
+
+    size = 0;
+
+    for (i = 0; i < XVECLEN (par, 0); i++)
+      {
+	HOST_WIDE_INT offset = 0;
+	rtx reg = XEXP (XVECEXP (par, 0, i), 0);
+
+	if (size != 0)
+	  emit_move_insn (addr, plus_constant (addr, size));
+
+	mem = change_address (mem, GET_MODE (reg), NULL);
+	if (REGNO (reg) == R0_REGNUM)
+	  {
+	    /* On thumb we have to use a write-back instruction.  */
+	    emit_insn (arm_gen_store_multiple (R0_REGNUM, 4, addr, TRUE,
+			TARGET_THUMB ? TRUE : FALSE, mem, &offset));
+	    size = TARGET_ARM ? 16 : 0;
+	  }
+	else
+	  {
+	    emit_move_insn (mem, reg);
+	    size = GET_MODE_SIZE (GET_MODE (reg));
+	  }
       }
 
     /* The optimizer does not know that the call sets the function value
@@ -7768,6 +7836,55 @@
        claiming that all hard registers are used and clobbered at this
        point.  */
     emit_insn (gen_blockage ());
+
+    DONE;
+  }"
+)
+
+(define_expand "untyped_return"
+  [(match_operand:BLK 0 "memory_operand" "")
+   (match_operand 1 "" "")]
+  "TARGET_EITHER"
+  "
+  {
+    int i;
+    rtx addr = gen_reg_rtx (Pmode);
+    rtx mem;
+    int size = 0;
+
+    emit_move_insn (addr, XEXP (operands[0], 0));
+    mem = change_address (operands[0], BLKmode, addr);
+
+    for (i = 0; i < XVECLEN (operands[1], 0); i++)
+      {
+	HOST_WIDE_INT offset = 0;
+	rtx reg = SET_DEST (XVECEXP (operands[1], 0, i));
+
+	if (size != 0)
+	  emit_move_insn (addr, plus_constant (addr, size));
+
+	mem = change_address (mem, GET_MODE (reg), NULL);
+	if (REGNO (reg) == R0_REGNUM)
+	  {
+	    /* On thumb we have to use a write-back instruction.  */
+	    emit_insn (arm_gen_load_multiple (R0_REGNUM, 4, addr, TRUE,
+			TARGET_THUMB ? TRUE : FALSE, mem, &offset));
+	    size = TARGET_ARM ? 16 : 0;
+	  }
+	else
+	  {
+	    emit_move_insn (reg, mem);
+	    size = GET_MODE_SIZE (GET_MODE (reg));
+	  }
+      }
+
+    /* Emit USE insns before the return.  */
+    for (i = 0; i < XVECLEN (operands[1], 0); i++)
+      emit_insn (gen_rtx_USE (VOIDmode,
+			      SET_DEST (XVECEXP (operands[1], 0, i))));
+
+    /* Construct the return.  */
+    expand_naked_return ();
 
     DONE;
   }"
@@ -9110,7 +9227,8 @@
   {
     rtx ldm[3];
     rtx arith[4];
-    int val1 = 0, val2 = 0;
+    rtx base_reg;
+    HOST_WIDE_INT val1 = 0, val2 = 0;
 
     if (REGNO (operands[0]) > REGNO (operands[4]))
       {
@@ -9122,12 +9240,21 @@
 	ldm[1] = operands[0];
 	ldm[2] = operands[4];
       }
-    if (GET_CODE (XEXP (operands[2], 0)) != REG)
-      val1 = INTVAL (XEXP (XEXP (operands[2], 0), 1));
-    if (GET_CODE (XEXP (operands[3], 0)) != REG)
+
+    base_reg = XEXP (operands[2], 0);
+
+    if (!REG_P (base_reg))
+      {
+	val1 = INTVAL (XEXP (base_reg, 1));
+	base_reg = XEXP (base_reg, 0);
+      }
+
+    if (!REG_P (XEXP (operands[3], 0)))
       val2 = INTVAL (XEXP (XEXP (operands[3], 0), 1));
+
     arith[0] = operands[0];
     arith[3] = operands[1];
+
     if (val1 < val2)
       {
 	arith[1] = ldm[1];
@@ -9138,21 +9265,30 @@
 	arith[1] = ldm[2];
 	arith[2] = ldm[1];
       }
-   if (val1 && val2)
+
+    ldm[0] = base_reg;
+    if (val1 !=0 && val2 != 0)
       {
-	rtx ops[3];
-	ldm[0] = ops[0] = operands[4];
-	ops[1] = XEXP (XEXP (operands[2], 0), 0);
-	ops[2] = XEXP (XEXP (operands[2], 0), 1);
-	output_add_immediate (ops);
-	if (val1 < val2)
-	  output_asm_insn (\"ldm%?ia\\t%0, {%1, %2}\", ldm);
+	if (val1 == 4 || val2 == 4)
+	  /* Other val must be 8, since we know they are adjacent and neither
+	     is zero.  */
+	  output_asm_insn (\"ldm%?ib\\t%0, {%1, %2}\", ldm);
 	else
-	  output_asm_insn (\"ldm%?da\\t%0, {%1, %2}\", ldm);
+	  {
+	    rtx ops[3];
+
+	    ldm[0] = ops[0] = operands[4];
+	    ops[1] = base_reg;
+	    ops[2] = GEN_INT (val1);
+	    output_add_immediate (ops);
+	    if (val1 < val2)
+	      output_asm_insn (\"ldm%?ia\\t%0, {%1, %2}\", ldm);
+	    else
+	      output_asm_insn (\"ldm%?da\\t%0, {%1, %2}\", ldm);
+	  }
       }
-    else if (val1)
+    else if (val1 != 0)
       {
-	ldm[0] = XEXP (operands[3], 0);
 	if (val1 < val2)
 	  output_asm_insn (\"ldm%?da\\t%0, {%1, %2}\", ldm);
 	else
@@ -9160,7 +9296,6 @@
       }
     else
       {
-	ldm[0] = XEXP (operands[2], 0);
 	if (val1 < val2)
 	  output_asm_insn (\"ldm%?ia\\t%0, {%1, %2}\", ldm);
 	else
@@ -9191,10 +9326,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "str%?b\\t%3, [%0, %2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9207,10 +9341,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(minus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "str%?b\\t%3, [%0, -%2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9223,10 +9356,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "ldr%?b\\t%3, [%0, %2]!"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
@@ -9239,10 +9371,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(minus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "ldr%?b\\t%3, [%0, -%2]!"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
@@ -9256,10 +9387,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "ldr%?b\\t%3, [%0, %2]!\\t%@ z_extendqisi"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
@@ -9273,10 +9403,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(minus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "ldr%?b\\t%3, [%0, -%2]!\\t%@ z_extendqisi"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
@@ -9289,10 +9418,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "str%?\\t%3, [%0, %2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9305,10 +9433,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(minus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "str%?\\t%3, [%0, -%2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9321,10 +9448,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "ldr%?\\t%3, [%0, %2]!"
   [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
@@ -9337,10 +9463,9 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(minus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && (GET_CODE (operands[2]) != REG
-       || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[2])"
   "ldr%?\\t%3, [%0, -%2]!"
   [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
@@ -9356,9 +9481,9 @@
 	(plus:SI (match_op_dup 2 [(match_dup 3)	(match_dup 4)])
 		 (match_dup 1)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "str%?b\\t%5, [%0, %3%S2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9374,9 +9499,9 @@
 	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
 						 (match_dup 4)])))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "str%?b\\t%5, [%0, -%3%S2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9392,9 +9517,9 @@
 	(plus:SI (match_op_dup 2 [(match_dup 3)	(match_dup 4)])
 		 (match_dup 1)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "ldr%?b\\t%5, [%0, %3%S2]!"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
@@ -9410,9 +9535,9 @@
 	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
 						 (match_dup 4)])))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "ldr%?b\\t%5, [%0, -%3%S2]!"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
@@ -9428,9 +9553,9 @@
 	(plus:SI (match_op_dup 2 [(match_dup 3)	(match_dup 4)])
 		 (match_dup 1)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "str%?\\t%5, [%0, %3%S2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9446,9 +9571,9 @@
 	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
 						 (match_dup 4)])))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "str%?\\t%5, [%0, -%3%S2]!"
   [(set_attr "type" "store1")
    (set_attr "predicable" "yes")]
@@ -9464,9 +9589,9 @@
 	(plus:SI (match_op_dup 2 [(match_dup 3) (match_dup 4)])
 		 (match_dup 1)))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "ldr%?\\t%5, [%0, %3%S2]!"
   [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
@@ -9482,9 +9607,9 @@
 	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
 						 (match_dup 4)])))]
   "TARGET_ARM
-   && REGNO (operands[0]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[1]) != FRAME_POINTER_REGNUM
-   && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
+   && !arm_eliminable_register (operands[0])
+   && !arm_eliminable_register (operands[1])
+   && !arm_eliminable_register (operands[3])"
   "ldr%?\\t%5, [%0, -%3%S2]!"
   [(set_attr "type" "load1")
    (set_attr "predicable" "yes")])

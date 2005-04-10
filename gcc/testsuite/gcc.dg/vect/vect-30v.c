@@ -60,10 +60,3 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
-
-/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail vect_no_align } } } */
-/* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 0 "vect" { xfail vect_no_align } } } */
-
-/*  { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" { target vect_no_align } } }
-/*  { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 2 "vect" { target vect_no_align } } } */
-

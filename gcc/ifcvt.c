@@ -110,38 +110,7 @@ static int dead_or_predicable (basic_block, basic_block, basic_block,
 			       basic_block, int);
 static void noce_emit_move_insn (rtx, rtx);
 static rtx block_has_only_trap (basic_block);
-static void mark_loop_exit_edges (void);
 
-/* Sets EDGE_LOOP_EXIT flag for all loop exits.  */
-static void
-mark_loop_exit_edges (void)
-{
-  struct loops loops;
-  basic_block bb;
-  edge e;
-  
-  flow_loops_find (&loops, LOOP_TREE);
-  free_dominance_info (CDI_DOMINATORS);
-  
-  if (loops.num > 1)
-    {
-      FOR_EACH_BB (bb)
-	{
-	  edge_iterator ei;
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (find_common_loop (bb->loop_father, e->dest->loop_father)
-		  != bb->loop_father)
-		e->flags |= EDGE_LOOP_EXIT;
-	      else
-		e->flags &= ~EDGE_LOOP_EXIT;
-	    }
-	}
-    }
-
-  flow_loops_free (&loops);
-}
-
 /* Count the number of non-jump active insns in BB.  */
 
 static int
@@ -714,7 +683,7 @@ noce_emit_store_flag (struct noce_if_info *if_info, rtx x, int reversep,
 static void
 noce_emit_move_insn (rtx x, rtx y)
 {
-  enum machine_mode outmode, inmode;
+  enum machine_mode outmode;
   rtx outer, inner;
   int bitpos;
 
@@ -727,7 +696,6 @@ noce_emit_move_insn (rtx x, rtx y)
   outer = XEXP (x, 0);
   inner = XEXP (outer, 0);
   outmode = GET_MODE (outer);
-  inmode = GET_MODE (inner);
   bitpos = SUBREG_BYTE (outer) * BITS_PER_UNIT;
   store_bit_field (inner, GET_MODE_BITSIZE (outmode), bitpos, outmode, y);
 }
@@ -2310,13 +2278,12 @@ merge_if_block (struct ce_if_block * ce_info)
 
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
-      if (EDGE_COUNT (combo_bb->succs) > 1
-	  || EDGE_SUCC (combo_bb, 0)->dest != join_bb)
-	abort ();
+      gcc_assert (single_succ_p (combo_bb)
+		  && single_succ (combo_bb) == join_bb);
 
       /* Remove the jump and cruft from the end of the COMBO block.  */
       if (join_bb != EXIT_BLOCK_PTR)
-	tidy_fallthru_edge (EDGE_SUCC (combo_bb, 0));
+	tidy_fallthru_edge (single_succ_edge (combo_bb));
     }
 
   num_updated_if_blocks++;
@@ -2488,10 +2455,10 @@ find_if_block (struct ce_if_block * ce_info)
      were && tests (which jump to the else block) or || tests (which jump to
      the then block).  */
   if (HAVE_conditional_execution && reload_completed
-      && EDGE_COUNT (test_bb->preds) == 1
-      && EDGE_PRED (test_bb, 0)->flags == EDGE_FALLTHRU)
+      && single_pred_p (test_bb)
+      && single_pred_edge (test_bb)->flags == EDGE_FALLTHRU)
     {
-      basic_block bb = EDGE_PRED (test_bb, 0)->src;
+      basic_block bb = single_pred (test_bb);
       basic_block target_bb;
       int max_insns = MAX_CONDITIONAL_EXECUTE;
       int n_insns;
@@ -2524,10 +2491,10 @@ find_if_block (struct ce_if_block * ce_info)
 	      total_insns += n_insns;
 	      blocks++;
 
-	      if (EDGE_COUNT (bb->preds) != 1)
+	      if (!single_pred_p (bb))
 		break;
 
-	      bb = EDGE_PRED (bb, 0)->src;
+	      bb = single_pred (bb);
 	      n_insns = block_jumps_and_fallthru_p (bb, target_bb);
 	    }
 	  while (n_insns >= 0 && (total_insns + n_insns) <= max_insns);
@@ -2562,8 +2529,8 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
   if (EDGE_COUNT (then_bb->succs) > 0
-      && (EDGE_COUNT (then_bb->succs) > 1
-          || (EDGE_SUCC (then_bb, 0)->flags & EDGE_COMPLEX)
+      && (!single_succ_p (then_bb)
+          || (single_succ_edge (then_bb)->flags & EDGE_COMPLEX)
 	  || (flow2_completed && tablejump_p (BB_END (then_bb), NULL, NULL))))
     return FALSE;
 
@@ -2575,7 +2542,7 @@ find_if_block (struct ce_if_block * ce_info)
      code processing.  ??? we should fix this in the future.  */
   if (EDGE_COUNT (then_bb->succs) == 0)
     {
-      if (EDGE_COUNT (else_bb->preds) == 1)
+      if (single_pred_p (else_bb))
 	{
 	  rtx last_insn = BB_END (then_bb);
 
@@ -2598,7 +2565,7 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* If the THEN block's successor is the other edge out of the TEST block,
      then we have an IF-THEN combo without an ELSE.  */
-  else if (EDGE_SUCC (then_bb, 0)->dest == else_bb)
+  else if (single_succ (then_bb) == else_bb)
     {
       join_bb = else_bb;
       else_bb = NULL_BLOCK;
@@ -2607,12 +2574,12 @@ find_if_block (struct ce_if_block * ce_info)
   /* If the THEN and ELSE block meet in a subsequent block, and the ELSE
      has exactly one predecessor and one successor, and the outgoing edge
      is not complex, then we have an IF-THEN-ELSE combo.  */
-  else if (EDGE_COUNT (else_bb->succs) == 1
-	   && EDGE_SUCC (then_bb, 0)->dest == EDGE_SUCC (else_bb, 0)->dest
-	   && EDGE_COUNT (else_bb->preds) == 1
-	   && ! (EDGE_SUCC (else_bb, 0)->flags & EDGE_COMPLEX)
+  else if (single_succ_p (else_bb)
+	   && single_succ (then_bb) == single_succ (else_bb)
+	   && single_pred_p (else_bb)
+	   && ! (single_succ_edge (else_bb)->flags & EDGE_COMPLEX)
 	   && ! (flow2_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
-    join_bb = EDGE_SUCC (else_bb, 0)->dest;
+    join_bb = single_succ (else_bb);
 
   /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */
   else
@@ -2898,24 +2865,25 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
      partition boundaries).  See  the comments at the top of 
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition
-      && ((BB_END (then_bb) 
-	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
-	  || (BB_END (else_bb)
-	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
-				NULL_RTX))))
+  if ((BB_END (then_bb) 
+       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (test_bb)
+	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (else_bb)
+	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
+			    NULL_RTX)))
     return FALSE;
 
   /* THEN has one successor.  */
-  if (EDGE_COUNT (then_bb->succs) != 1)
+  if (!single_succ_p (then_bb))
     return FALSE;
 
   /* THEN does not fall through, but is not strange either.  */
-  if (EDGE_SUCC (then_bb, 0)->flags & (EDGE_COMPLEX | EDGE_FALLTHRU))
+  if (single_succ_edge (then_bb)->flags & (EDGE_COMPLEX | EDGE_FALLTHRU))
     return FALSE;
 
   /* THEN has one predecessor.  */
-  if (EDGE_COUNT (then_bb->preds) != 1)
+  if (!single_pred_p (then_bb))
     return FALSE;
 
   /* THEN must do something.  */
@@ -2934,7 +2902,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* Registers set are dead, or are predicable.  */
   if (! dead_or_predicable (test_bb, then_bb, else_bb,
-			    EDGE_SUCC (then_bb, 0)->dest, 1))
+			    single_succ (then_bb), 1))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
@@ -3003,26 +2971,27 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
      partition boundaries).  See  the comments at the top of 
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition
-      && ((BB_END (then_bb)
-	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
-	  || (BB_END (else_bb) 
-	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
-				NULL_RTX))))
+  if ((BB_END (then_bb)
+       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (test_bb)
+	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (else_bb) 
+	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
+			    NULL_RTX)))
     return FALSE;
 
   /* ELSE has one successor.  */
-  if (EDGE_COUNT (else_bb->succs) != 1)
+  if (!single_succ_p (else_bb))
     return FALSE;
   else
-    else_succ = EDGE_SUCC (else_bb, 0);
+    else_succ = single_succ_edge (else_bb);
 
   /* ELSE outgoing edge is not complex.  */
   if (else_succ->flags & EDGE_COMPLEX)
     return FALSE;
 
   /* ELSE has one predecessor.  */
-  if (EDGE_COUNT (else_bb->preds) != 1)
+  if (!single_pred_p (else_bb))
     return FALSE;
 
   /* THEN is not EXIT.  */
@@ -3289,13 +3258,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      if (old_dest)
-	LABEL_NUSES (old_dest) -= 1;
-      if (new_label)
-	LABEL_NUSES (new_label) += 1;
-      JUMP_LABEL (jump) = new_label;
-      if (reversep)
-	invert_br_probabilities (jump);
+      redirect_jump_2 (jump, old_dest, new_label, -1, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
@@ -3356,7 +3319,14 @@ if_convert (int x_life_data_ok)
   if ((! targetm.cannot_modify_jumps_p ())
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
-    mark_loop_exit_edges ();
+    {
+      struct loops loops;
+
+      flow_loops_find (&loops);
+      mark_loop_exit_edges (&loops);
+      flow_loops_free (&loops);
+      free_dominance_info (CDI_DOMINATORS);
+    }
 
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution || life_data_ok)

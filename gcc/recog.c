@@ -294,11 +294,11 @@ num_changes_pending (void)
   return num_changes;
 }
 
-/* Apply a group of changes previously issued with `validate_change'.
+/* Tentatively apply the changes numbered NUM and up.
    Return 1 if all changes are valid, zero otherwise.  */
 
-int
-apply_change_group (void)
+static int
+verify_changes (int num)
 {
   int i;
   rtx last_validated = NULL_RTX;
@@ -312,7 +312,7 @@ apply_change_group (void)
      we also require that the operands meet the constraints for
      the insn.  */
 
-  for (i = 0; i < num_changes; i++)
+  for (i = num; i < num_changes; i++)
     {
       rtx object = changes[i].object;
 
@@ -376,17 +376,38 @@ apply_change_group (void)
       last_validated = object;
     }
 
-  if (i == num_changes)
+  return (i == num_changes);
+}
+
+/* A group of changes has previously been issued with validate_change and
+   verified with verify_changes.  Update the BB_DIRTY flags of the affected
+   blocks, and clear num_changes.  */
+
+void
+confirm_change_group (void)
+{
+  int i;
+  basic_block bb;
+
+  for (i = 0; i < num_changes; i++)
+    if (changes[i].object
+	&& INSN_P (changes[i].object)
+	&& (bb = BLOCK_FOR_INSN (changes[i].object)))
+      bb->flags |= BB_DIRTY;
+
+  num_changes = 0;
+}
+
+/* Apply a group of changes previously issued with `validate_change'.
+   If all changes are valid, call confirm_change_group and return 1,
+   otherwise, call cancel_changes and return 0.  */
+
+int
+apply_change_group (void)
+{
+  if (verify_changes (0))
     {
-      basic_block bb;
-
-      for (i = 0; i < num_changes; i++)
-	if (changes[i].object
-	    && INSN_P (changes[i].object)
-	    && (bb = BLOCK_FOR_INSN (changes[i].object)))
-	  bb->flags |= BB_DIRTY;
-
-      num_changes = 0;
+      confirm_change_group ();
       return 1;
     }
   else
@@ -395,6 +416,7 @@ apply_change_group (void)
       return 0;
     }
 }
+
 
 /* Return the number of changes so far in the current group.  */
 
@@ -2233,6 +2255,7 @@ constrain_operands (int strict)
 
   do
     {
+      int seen_earlyclobber_at = -1;
       int opno;
       int lose = 0;
       funny_match_index = 0;
@@ -2295,6 +2318,8 @@ constrain_operands (int strict)
 
 	      case '&':
 		earlyclobber[opno] = 1;
+		if (seen_earlyclobber_at < 0)
+		  seen_earlyclobber_at = opno;
 		break;
 
 	      case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2543,8 +2568,10 @@ constrain_operands (int strict)
 	  /* See if any earlyclobber operand conflicts with some other
 	     operand.  */
 
-	  if (strict > 0)
-	    for (eopno = 0; eopno < recog_data.n_operands; eopno++)
+	  if (strict > 0  && seen_earlyclobber_at >= 0)
+	    for (eopno = seen_earlyclobber_at;
+		 eopno < recog_data.n_operands;
+		 eopno++)
 	      /* Ignore earlyclobber operands now in memory,
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
@@ -3065,7 +3092,6 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  {
 			  case REG_NORETURN:
 			  case REG_SETJMP:
-			  case REG_ALWAYS_RETURN:
 			    REG_NOTES (new_insn)
 			      = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 						   XEXP (note, 0),

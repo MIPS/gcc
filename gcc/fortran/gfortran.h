@@ -181,7 +181,7 @@ extern mstring intrinsic_operators[];
 /* Arithmetic results.  */
 typedef enum
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
+  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
 }
 arith;
 
@@ -218,7 +218,7 @@ interface_type;
 
 /* Symbol flavors: these are all mutually exclusive.
    10 elements = 4 bits.  */
-typedef enum
+typedef enum sym_flavor
 {
   FL_UNKNOWN = 0, FL_PROGRAM, FL_BLOCK_DATA, FL_MODULE, FL_VARIABLE,
   FL_PARAMETER, FL_LABEL, FL_PROCEDURE, FL_DERIVED, FL_NAMELIST
@@ -226,27 +226,27 @@ typedef enum
 sym_flavor;
 
 /* Procedure types.  7 elements = 3 bits.  */
-typedef enum
+typedef enum procedure_type
 { PROC_UNKNOWN, PROC_MODULE, PROC_INTERNAL, PROC_DUMMY,
   PROC_INTRINSIC, PROC_ST_FUNCTION, PROC_EXTERNAL
 }
 procedure_type;
 
 /* Intent types.  */
-typedef enum
+typedef enum sym_intent
 { INTENT_UNKNOWN = 0, INTENT_IN, INTENT_OUT, INTENT_INOUT
 }
 sym_intent;
 
 /* Access types.  */
-typedef enum
-{ ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE, 
+typedef enum gfc_access
+{ ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE
 }
 gfc_access;
 
 /* Flags to keep track of where an interface came from.
    4 elements = 2 bits.  */
-typedef enum
+typedef enum ifsrc
 { IFSRC_UNKNOWN = 0, IFSRC_DECL, IFSRC_IFBODY, IFSRC_USAGE
 }
 ifsrc;
@@ -292,6 +292,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_BTEST,
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
+  GFC_ISYM_CHDIR,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_CONJG,
@@ -317,6 +318,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
   GFC_ISYM_GETUID,
+  GFC_ISYM_HOSTNM,
   GFC_ISYM_IACHAR,
   GFC_ISYM_IAND,
   GFC_ISYM_IARGC,
@@ -325,15 +327,18 @@ enum gfc_generic_isym_id
   GFC_ISYM_IBSET,
   GFC_ISYM_ICHAR,
   GFC_ISYM_IEOR,
+  GFC_ISYM_IERRNO,
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
+  GFC_ISYM_KILL,
   GFC_ISYM_LBOUND,
   GFC_ISYM_LEN,
   GFC_ISYM_LEN_TRIM,
+  GFC_ISYM_LINK,
   GFC_ISYM_LGE,
   GFC_ISYM_LGT,
   GFC_ISYM_LLE,
@@ -359,6 +364,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_PRODUCT,
   GFC_ISYM_RAND,
   GFC_ISYM_REAL,
+  GFC_ISYM_RENAME,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
   GFC_ISYM_RRSPACING,
@@ -378,9 +384,12 @@ enum gfc_generic_isym_id
   GFC_ISYM_SR_KIND,
   GFC_ISYM_STAT,
   GFC_ISYM_SUM,
+  GFC_ISYM_SYMLNK,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
   GFC_ISYM_TANH,
+  GFC_ISYM_TIME,
+  GFC_ISYM_TIME8,
   GFC_ISYM_TRANSFER,
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
@@ -408,7 +417,8 @@ typedef struct
 
   unsigned in_namelist:1, in_common:1;
   unsigned function:1, subroutine:1, generic:1;
-  unsigned implicit_type:1;	/* Type defined via implicit rules */
+  unsigned implicit_type:1;	/* Type defined via implicit rules.  */
+  unsigned untyped:1;           /* No implicit type could be found.  */
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
@@ -430,12 +440,12 @@ typedef struct
   unsigned referenced:1;
 
   /* Mutually exclusive multibit attributes.  */
-  gfc_access access:2;
-  sym_intent intent:2;
-  sym_flavor flavor:4;
-  ifsrc if_source:2;
+  ENUM_BITFIELD (gfc_access) access:2;
+  ENUM_BITFIELD (sym_intent) intent:2;
+  ENUM_BITFIELD (sym_flavor) flavor:4;
+  ENUM_BITFIELD (ifsrc) if_source:2;
 
-  procedure_type proc:3;
+  ENUM_BITFIELD (procedure_type) proc:3;
 
 }
 symbol_attribute;
@@ -539,7 +549,7 @@ gfc_array_spec;
 /* Components of derived types.  */
 typedef struct gfc_component
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   gfc_typespec ts;
 
   int pointer, dimension;
@@ -570,7 +580,7 @@ gfc_formal_arglist;
 /* The gfc_actual_arglist structure is for actual arguments.  */
 typedef struct gfc_actual_arglist
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   /* Alternate return label when the expr member is null.  */
   struct gfc_st_label *label;
 
@@ -635,7 +645,7 @@ gfc_interface;
 /* User operator nodes.  These are like stripped down symbols.  */
 typedef struct
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
 
   gfc_interface *operator;
   struct gfc_namespace *ns;
@@ -651,8 +661,8 @@ gfc_user_op;
 
 typedef struct gfc_symbol
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];	/* Primary name, before renaming */
-  char module[GFC_MAX_SYMBOL_LEN + 1];	/* Module this symbol came from */
+  const char *name;	/* Primary name, before renaming */
+  const char *module;	/* Module this symbol came from */
   locus declared_at;
 
   gfc_typespec ts;
@@ -743,7 +753,7 @@ gfc_entry_list;
 typedef struct gfc_symtree
 {
   BBT_HEADER (gfc_symtree);
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   int ambiguous;
   union
   {
@@ -1002,7 +1012,7 @@ gfc_resolve_f;
 
 typedef struct gfc_intrinsic_sym
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1], lib_name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name, *lib_name;
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
   int elemental, pure, generic, specific, actual_ok, standard;
@@ -1043,15 +1053,11 @@ typedef struct gfc_expr
   int rank;
   mpz_t *shape;		/* Can be NULL if shape is unknown at compile time */
 
-  gfc_intrinsic_op operator;
-
   /* Nonnull for functions and structure constructors */
   gfc_symtree *symtree;
 
-  gfc_user_op *uop;
   gfc_ref *ref;
 
-  struct gfc_expr *op1, *op2;
   locus where;
 
   union
@@ -1066,6 +1072,14 @@ typedef struct gfc_expr
       mpfr_t r, i;
     }
     complex;
+
+    struct
+    {
+      gfc_intrinsic_op operator;
+      gfc_user_op *uop;
+      struct gfc_expr *op1, *op2;
+    }
+    op;
 
     struct
     {
@@ -1388,6 +1402,9 @@ typedef struct
   int warn_surprising;
   int warn_unused_labels;
 
+  int flag_default_double;
+  int flag_default_integer;
+  int flag_default_real;
   int flag_dollar_ok;
   int flag_underscoring;
   int flag_second_underscore;
@@ -1399,9 +1416,7 @@ typedef struct
   int flag_repack_arrays;
 
   int q_kind;
-  int r8;
-  int i8;
-  int d8;
+
   int warn_std;
   int allow_std;
   int warn_nonstd_intrinsics;
@@ -1551,6 +1566,7 @@ void gfc_arith_done_1 (void);
 int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
+extern int gfc_max_integer_kind;
 extern int gfc_default_real_kind;
 extern int gfc_default_double_kind;
 extern int gfc_default_character_kind;
@@ -1573,32 +1589,33 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
 try gfc_add_allocatable (symbol_attribute *, locus *);
-try gfc_add_dimension (symbol_attribute *, locus *);
+try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
 try gfc_add_intrinsic (symbol_attribute *, locus *);
 try gfc_add_optional (symbol_attribute *, locus *);
 try gfc_add_pointer (symbol_attribute *, locus *);
-try gfc_add_result (symbol_attribute *, locus *);
-try gfc_add_save (symbol_attribute *, locus *);
+try gfc_add_result (symbol_attribute *, const char *, locus *);
+try gfc_add_save (symbol_attribute *, const char *, locus *);
 try gfc_add_saved_common (symbol_attribute *, locus *);
 try gfc_add_target (symbol_attribute *, locus *);
-try gfc_add_dummy (symbol_attribute *, locus *);
-try gfc_add_generic (symbol_attribute *, locus *);
+try gfc_add_dummy (symbol_attribute *, const char *, locus *);
+try gfc_add_generic (symbol_attribute *, const char *, locus *);
 try gfc_add_common (symbol_attribute *, locus *);
-try gfc_add_in_common (symbol_attribute *, locus *);
-try gfc_add_data (symbol_attribute *, locus *);
-try gfc_add_in_namelist (symbol_attribute *, locus *);
-try gfc_add_sequence (symbol_attribute *, locus *);
+try gfc_add_in_common (symbol_attribute *, const char *, locus *);
+try gfc_add_data (symbol_attribute *, const char *, locus *);
+try gfc_add_in_namelist (symbol_attribute *, const char *, locus *);
+try gfc_add_sequence (symbol_attribute *, const char *, locus *);
 try gfc_add_elemental (symbol_attribute *, locus *);
 try gfc_add_pure (symbol_attribute *, locus *);
 try gfc_add_recursive (symbol_attribute *, locus *);
-try gfc_add_function (symbol_attribute *, locus *);
-try gfc_add_subroutine (symbol_attribute *, locus *);
+try gfc_add_function (symbol_attribute *, const char *, locus *);
+try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 
-try gfc_add_access (symbol_attribute *, gfc_access, locus *);
-try gfc_add_flavor (symbol_attribute *, sym_flavor, locus *);
-try gfc_add_entry (symbol_attribute *, locus *);
-try gfc_add_procedure (symbol_attribute *, procedure_type, locus *);
+try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
+try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
+try gfc_add_entry (symbol_attribute *, const char *, locus *);
+try gfc_add_procedure (symbol_attribute *, procedure_type,
+		       const char *, locus *);
 try gfc_add_intent (symbol_attribute *, sym_intent, locus *);
 try gfc_add_explicit_interface (gfc_symbol *, ifsrc,
 				gfc_formal_arglist *, locus *);
@@ -1618,7 +1635,7 @@ void gfc_free_st_label (gfc_st_label *);
 void gfc_define_st_label (gfc_st_label *, gfc_sl_type, locus *);
 try gfc_reference_st_label (gfc_st_label *, gfc_sl_type);
 
-gfc_namespace *gfc_get_namespace (gfc_namespace *);
+gfc_namespace *gfc_get_namespace (gfc_namespace *, int);
 gfc_symtree *gfc_new_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_find_symtree (gfc_symtree *, const char *);
 gfc_user_op *gfc_get_uop (const char *);
@@ -1648,8 +1665,8 @@ void gfc_save_all (gfc_namespace *);
 
 void gfc_symbol_state (void);
 
-gfc_gsymbol *gfc_get_gsymbol (char *);
-gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, char *);
+gfc_gsymbol *gfc_get_gsymbol (const char *);
+gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, const char *);
 
 /* intrinsic.c */
 extern int gfc_init_expr;
@@ -1658,7 +1675,7 @@ extern int gfc_init_expr;
    by placing it into a special module that is otherwise impossible to
    read or write.  */
 
-#define gfc_intrinsic_symbol(SYM) strcpy (SYM->module, "(intrinsic)")
+#define gfc_intrinsic_symbol(SYM) SYM->module = gfc_get_string ("(intrinsic)")
 
 void gfc_intrinsic_init_1 (void);
 void gfc_intrinsic_done_1 (void);

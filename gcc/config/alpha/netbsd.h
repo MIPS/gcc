@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Alpha NetBSD systems.
-   Copyright (C) 1998, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,7 +20,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_FP | MASK_FPREGS | MASK_GAS)
+#define TARGET_DEFAULT (MASK_FPREGS | MASK_GAS)
 
 #define TARGET_OS_CPP_BUILTINS()		\
     do {					\

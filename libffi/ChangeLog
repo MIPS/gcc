@@ -1,3 +1,50 @@
+2005-03-30  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* src/ia64/ffitarget.h (ffi_arg): Use long long instead of DI.
+	
+2005-03-30  Steve Ellcey  <sje@cup.hp.com>
+
+	* src/ia64/ffitarget.h (ffi_arg) ADD DI attribute.
+	(ffi_sarg) Ditto.
+	* src/ia64/unix.S (ffi_closure_unix): Extend gp
+	to 64 bits in ILP32 mode.
+	Load 64 bits even for short data.
+
+2005-03-23  Mike Stump  <mrs@apple.com>
+
+	* src/powerpc/darwin.S: Update for -m64 multilib.
+	* src/powerpc/darwin_closure.S: Likewise.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Do not invoke TL_AC_GCC_VERSION.
+	Do not set tool_include_dir.
+	* aclocal.m4, configure, Makefile.in, testsuite/Makefile.in:
+	Regenerate.
+	* include/Makefile.am: Set gcc_version and toollibffidir.
+	* include/Makefile.in: Regenerate.
+
+2005-02-22  Andrew Haley  <aph@redhat.com>
+
+	* src/powerpc/ffi.c (ffi_prep_cif_machdep): Bump alignment to
+	odd-numbered register pairs for 64-bit integer types.
+
+2005-02-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR libffi/20104
+	* testsuite/libffi.call/return_ll1.c: New test case.
+
+2005-02-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/libffi.call/cls_align_longdouble.c: Remove dg-options.
+	* testsuite/libffi.call/float.c: Ditto.
+	* testsuite/libffi.call/float2.c: Ditto.
+	* testsuite/libffi.call/float3.c: Ditto.
+
+2005-02-08  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/frv/ffitarget.h: Remove PPC stuff which does not belong to frv.
+
 2005-01-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* testsuite/libffi.special/special.exp (cxx_options): Add
@@ -14,7 +61,7 @@
 
 	* src/types.c (FFI_TYPE_POINTER): Define with sizeof.
 	(FFI_TYPE_LONGDOUBLE): Fix for ia64.
-	* src/ia64/ffitarget.h (struct ffi_ia64_trampoline_struct): Move 
+	* src/ia64/ffitarget.h (struct ffi_ia64_trampoline_struct): Move
 	into ffi_prep_closure.
 	* src/ia64/ia64_flags.h, src/ia64/ffi.c, src/ia64/unix.S: Rewrite
 	from scratch.
@@ -291,7 +338,7 @@
 	integer (O32 ABI only).
 	(ffi_prep_closure): new function.
 	(ffi_closure_mips_inner_O32): new function.
-	* src/mips/ffitarget.h: Define `FFI_CLOSURES' and 
+	* src/mips/ffitarget.h: Define `FFI_CLOSURES' and
 	`FFI_TRAMPOLINE_SIZE' appropriately if the ABI is o32.
 	* src/mips/o32.S (ffi_call_O32): add labels for .eh_frame. Return
 	64 bit integers correctly.
@@ -371,7 +418,7 @@
 	* src/powerpc/darwin.S: Go through a non-lazy pointer for initial
 	FDE location.
 	* src/powerpc/darwin_closure.S: Likewise.
-	
+
 2004-04-24  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* testsuite/libffi.call/cls_multi_schar.c (main): Fix initialization
@@ -1181,7 +1228,7 @@
 
 2003-03-03  Andreas Tobler <a.tobler@schweiz.ch>
 
-        * src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
+	* src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
 
 2003-02-06  Andreas Tobler <a.tobler@schweiz.ch>
 
@@ -1200,12 +1247,12 @@
 2003-01-31  Christian Cornelssen  <ccorn@cs.tu-berlin.de>,
 	    Andreas Schwab  <schwab@suse.de>
 
-        * configure.in: Adjust command to source config-ml.in to account
+	* configure.in: Adjust command to source config-ml.in to account
 	for changes to the libffi_basedir definition.
 	(libffi_basedir): Remove ${srcdir} from value and include trailing
 	slash if nonempty.
 
-        * configure: Regenerate.
+	* configure: Regenerate.
 
 2003-01-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
@@ -1254,12 +1301,12 @@
 2003-01-13 Andreas Tobler <a.tobler@schweiz.ch>
 
 	* libffi/src/ffitest.c
-         add closure testcases
+	 add closure testcases
 
 2003-01-13 Kevin B. Hendricks <khendricks@ivey.uwo.ca>
 
 	* libffi/src/powerpc/ffi.c
-         fix alignment bug for float (4 byte aligned iso 8 byte)
+	 fix alignment bug for float (4 byte aligned iso 8 byte)
 
 2003-01-09  Geoffrey Keating  <geoffk@apple.com>
 

@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -346,9 +346,6 @@ void
 bitmap_copy (bitmap to, bitmap from)
 {
   bitmap_element *from_ptr, *to_ptr = 0;
-#if BITMAP_ELEMENT_WORDS != 2
-  unsigned i;
-#endif
 
   bitmap_clear (to);
 
@@ -358,14 +355,7 @@ bitmap_copy (bitmap to, bitmap from)
       bitmap_element *to_elt = bitmap_element_allocate (to);
 
       to_elt->indx = from_ptr->indx;
-
-#if BITMAP_ELEMENT_WORDS == 2
-      to_elt->bits[0] = from_ptr->bits[0];
-      to_elt->bits[1] = from_ptr->bits[1];
-#else
-      for (i = 0; i < BITMAP_ELEMENT_WORDS; i++)
-	to_elt->bits[i] = from_ptr->bits[i];
-#endif
+      memcpy (to_elt->bits, from_ptr->bits, sizeof (to_elt->bits));
 
       /* Here we have a special case of bitmap_element_link, for the case
 	 where we know the links are being entered in sequence.  */
@@ -700,14 +690,15 @@ bitmap_and_compl (bitmap dst, bitmap a, bitmap b)
     dst->indx = dst->current->indx;
 }
 
-/* A &= ~B */
+/* A &= ~B. Returns true if A changes */
 
-void
+bool
 bitmap_and_compl_into (bitmap a, bitmap b)
 {
   bitmap_element *a_elt = a->first;
   bitmap_element *b_elt = b->first;
   bitmap_element *next;
+  BITMAP_WORD changed = 0;
 
   gcc_assert (a != b);
   while (a_elt && b_elt)
@@ -724,9 +715,11 @@ bitmap_and_compl_into (bitmap a, bitmap b)
 
 	  for (ix = BITMAP_ELEMENT_WORDS; ix--;)
 	    {
-	      BITMAP_WORD r = a_elt->bits[ix] & ~b_elt->bits[ix];
+	      BITMAP_WORD cleared = a_elt->bits[ix] & b_elt->bits[ix];
+	      BITMAP_WORD r = a_elt->bits[ix] ^ cleared;
 
 	      a_elt->bits[ix] = r;
+	      changed |= cleared;
 	      ior |= r;
 	    }
 	  next = a_elt->next;
@@ -738,6 +731,7 @@ bitmap_and_compl_into (bitmap a, bitmap b)
     }
   gcc_assert (!a->current == !a->first);
   gcc_assert (!a->current || a->indx == a->current->indx);
+  return changed != 0;
 }
 
 /* DST = A | B.  Return true if DST changes.  */

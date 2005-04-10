@@ -392,7 +392,7 @@ namespace std
 
     protected:
       template<typename _Key_compare, 
-	       bool _Is_pod_comparator = std::__is_pod<_Key_compare>::_M_type>
+	       bool _Is_pod_comparator = std::__is_pod<_Key_compare>::__value>
         struct _Rb_tree_impl : public _Node_allocator
         {
 	  _Key_compare		_M_key_compare;
@@ -786,12 +786,11 @@ namespace std
     _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::
     _M_insert(_Base_ptr __x, _Base_ptr __p, const _Val& __v)
     {
-      _Link_type __z = _M_create_node(__v);
-      bool __insert_left;
+      bool __insert_left = (__x != 0 || __p == _M_end()
+			    || _M_impl._M_key_compare(_KeyOfValue()(__v), 
+						      _S_key(__p)));
 
-      __insert_left = (__x != 0 || __p == _M_end()
-		       || _M_impl._M_key_compare(_KeyOfValue()(__v), 
-						 _S_key(__p)));
+      _Link_type __z = _M_create_node(__v);
 
       _Rb_tree_insert_and_rebalance(__insert_left, __z, __p,  
 				    this->_M_impl._M_header);

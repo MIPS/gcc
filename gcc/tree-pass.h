@@ -78,6 +78,7 @@ struct dump_file_info
 {
   const char *suffix;           /* suffix to give output file.  */
   const char *swtch;            /* command line switch */
+  const char *glob;             /* command line glob  */
   int flags;                    /* user flags */
   int state;                    /* state of play */
   int num;                      /* dump file number */
@@ -165,9 +166,11 @@ extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
+extern struct tree_opt_pass pass_sink_code;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_elim_checks;
 extern struct tree_opt_pass pass_maybe_create_global_var;
+extern struct tree_opt_pass pass_create_structure_vars;
 
 #endif /* GCC_TREE_PASS_H */

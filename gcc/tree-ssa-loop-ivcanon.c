@@ -1,5 +1,5 @@
 /* Induction variable canonicalization.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -97,7 +97,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   COND_EXPR_COND (cond) = build2 (cmp, boolean_type_node,
 				  var,
 				  build_int_cst (type, 0));
-  modify_stmt (cond);
+  update_stmt (cond);
 }
 
 /* Computes an estimated number of insns in LOOP.  */
@@ -168,24 +168,22 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
     
   if (n_unroll)
     {
-      if (!flag_unroll_loops)
-	return false;
-
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
-      modify_stmt (cond);
+      update_stmt (cond);
 
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       loops, n_unroll, NULL,
 					       NULL, NULL, NULL, 0))
 	{
 	  COND_EXPR_COND (cond) = old_cond;
+	  update_stmt (cond);
 	  return false;
 	}
     }
   
   COND_EXPR_COND (cond) = do_exit;
-  modify_stmt (cond);
+  update_stmt (cond);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Unrolled loop %d completely.\n", loop->num);
@@ -220,12 +218,23 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
       niter = fold (build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
 			    build_int_cst (TREE_TYPE (niter), 1)));
     }
-  else if (try_eval)
-    niter = find_loop_niter_by_eval (loop, &exit);
+  else
+    {
+      /* If the loop has more than one exit, try checking all of them
+	 for # of iterations determinable through scev.  */
+      if (!loop->single_exit)
+	niter = find_loop_niter (loop, &exit);
 
-  if (chrec_contains_undetermined (niter)
-      || TREE_CODE (niter) != INTEGER_CST)
-    return false;
+      /* Finally if everything else fails, try brute force evaluation.  */
+      if (try_eval
+	  && (chrec_contains_undetermined (niter)
+	      || TREE_CODE (niter) != INTEGER_CST))
+	niter = find_loop_niter_by_eval (loop, &exit);
+
+      if (chrec_contains_undetermined (niter)
+	  || TREE_CODE (niter) != INTEGER_CST)
+	return false;
+    }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -251,24 +260,23 @@ canonicalize_induction_variables (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
+  bool changed = false;
   
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
 
       if (loop)
-	canonicalize_loop_induction_variables (loops, loop, true, false, true);
+	changed |= canonicalize_loop_induction_variables (loops, loop,
+							  true, false, true);
     }
 
   /* Clean up the information about numbers of iterations, since brute force
      evaluation could reveal new information.  */
   scev_reset ();
 
-#if 0
-  /* The necessary infrastructure is not in yet.  */
   if (changed)
     cleanup_tree_cfg_loop ();
-#endif
 }
 
 /* Unroll LOOPS completely if they iterate just few times.  */
@@ -296,9 +304,6 @@ tree_unroll_loops_completely (struct loops *loops)
      unrolling might have invalidated it.  */
   scev_reset ();
 
-#if 0
-  /* The necessary infrastructure is not in yet.  */
   if (changed)
     cleanup_tree_cfg_loop ();
-#endif
 }

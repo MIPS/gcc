@@ -1,6 +1,6 @@
 /* Output sdb-format symbol table information from GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -335,7 +335,9 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   sdbout_label,			         /* label */
   debug_nothing_int,		         /* handle_pch */
-  debug_nothing_rtx		         /* var_location */
+  debug_nothing_rtx,		         /* var_location */
+  debug_nothing_void,                    /* switch_text_section */
+  0                                      /* start_end_main_source_file */
 };
 
 /* Return a unique string to name an anonymous type.  */

@@ -1,5 +1,5 @@
 /* High-level loop manipulation functions.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -41,7 +41,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    It is expected that neither BASE nor STEP are shared with other expressions
    (unless the sharing rules allow this).  Use VAR as a base var_decl for it
    (if NULL, a new temporary will be created).  The increment will occur at
-   INCR_POS (after it if AFTER is true, before it otherwise).  The ssa versions
+   INCR_POS (after it if AFTER is true, before it otherwise).  INCR_POS and 
+   AFTER can be computed using standard_iv_increment_position.  The ssa versions
    of the variable before and after increment will be stored in VAR_BEFORE and
    VAR_AFTER (unless they are NULL).  */
 
@@ -158,10 +159,10 @@ add_exit_phis_var (tree var, bitmap livein, bitmap exits)
 
   bitmap_clear_bit (livein, def_bb->index);
 
-  def = BITMAP_XMALLOC ();
+  def = BITMAP_ALLOC (NULL);
   bitmap_set_bit (def, def_bb->index);
   compute_global_livein (livein, def);
-  BITMAP_XFREE (def);
+  BITMAP_FREE (def);
 
   EXECUTE_IF_AND_IN_BITMAP (exits, livein, 0, index, bi)
     {
@@ -190,7 +191,7 @@ add_exit_phis (bitmap names_to_rename, bitmap *use_blocks, bitmap loop_exits)
 static bitmap
 get_loops_exits (void)
 {
-  bitmap exits = BITMAP_XMALLOC ();
+  bitmap exits = BITMAP_ALLOC (NULL);
   basic_block bb;
   edge e;
   edge_iterator ei;
@@ -234,7 +235,7 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks)
     return;
 
   if (!use_blocks[ver])
-    use_blocks[ver] = BITMAP_XMALLOC ();
+    use_blocks[ver] = BITMAP_ALLOC (NULL);
   bitmap_set_bit (use_blocks[ver], bb->index);
 
   if (!flow_bb_inside_loop_p (def_loop, bb))
@@ -258,27 +259,52 @@ find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks)
     find_uses_to_rename_use (bb, var, use_blocks);
 }
 
-/* Marks names that are used outside of the loop they are defined in
-   for rewrite.  Records the set of blocks in that the ssa
+/* Marks names that are used in BB and outside of the loop they are
+   defined in for rewrite.  Records the set of blocks in that the ssa
    names are defined to USE_BLOCKS.  */
 
 static void
-find_uses_to_rename (bitmap *use_blocks)
+find_uses_to_rename_bb (basic_block bb, bitmap *use_blocks)
+{
+  block_stmt_iterator bsi;
+  edge e;
+  edge_iterator ei;
+  tree phi;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
+      find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (phi, e),
+			       use_blocks);
+ 
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    find_uses_to_rename_stmt (bsi_stmt (bsi), use_blocks);
+}
+     
+/* Marks names that are used outside of the loop they are defined in
+   for rewrite.  Records the set of blocks in that the ssa
+   names are defined to USE_BLOCKS.  If CHANGED_BBS is not NULL,
+   scan only blocks in this set.  */
+
+static void
+find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
-  tree phi;
-  unsigned i;
+  unsigned index;
+  bitmap_iterator bi;
 
-  FOR_EACH_BB (bb)
+  if (changed_bbs)
     {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  find_uses_to_rename_use (EDGE_PRED (bb, i)->src,
-				   PHI_ARG_DEF (phi, i), use_blocks);
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	find_uses_to_rename_stmt (bsi_stmt (bsi), use_blocks);
+      EXECUTE_IF_SET_IN_BITMAP (changed_bbs, 0, index, bi)
+	{
+	  find_uses_to_rename_bb (BASIC_BLOCK (index), use_blocks);
+	}
+    }
+  else
+    {
+      FOR_EACH_BB (bb)
+	{
+	  find_uses_to_rename_bb (bb, use_blocks);
+	}
     }
 }
 
@@ -306,10 +332,13 @@ find_uses_to_rename (bitmap *use_blocks)
 
       Looking from the outer loop with the normal SSA form, the first use of k
       is not well-behaved, while the second one is an induction variable with
-      base 99 and step 1.  */
+      base 99 and step 1.
+      
+      If CHANGED_BBS is not NULL, we look for uses outside loops only in
+      the basic blocks in this set.  */
 
 void
-rewrite_into_loop_closed_ssa (void)
+rewrite_into_loop_closed_ssa (bitmap changed_bbs)
 {
   bitmap loop_exits = get_loops_exits ();
   bitmap *use_blocks;
@@ -321,7 +350,14 @@ rewrite_into_loop_closed_ssa (void)
   use_blocks = xcalloc (num_ssa_names, sizeof (bitmap));
 
   /* Find the uses outside loops.  */
-  find_uses_to_rename (use_blocks);
+  find_uses_to_rename (changed_bbs, use_blocks);
+
+  if (!any_marked_for_rewrite_p ())
+    {
+      free (use_blocks);
+      BITMAP_FREE (loop_exits);
+      return;
+    }
 
   /* Add the phi nodes on exits of the loops for the names we need to
      rewrite.  */
@@ -329,10 +365,10 @@ rewrite_into_loop_closed_ssa (void)
   add_exit_phis (names_to_rename, use_blocks, loop_exits);
 
   for (i = 0; i < num_ssa_names; i++)
-    BITMAP_XFREE (use_blocks[i]);
+    BITMAP_FREE (use_blocks[i]);
   free (use_blocks);
-  BITMAP_XFREE (loop_exits);
-  BITMAP_XFREE (names_to_rename);
+  BITMAP_FREE (loop_exits);
+  BITMAP_FREE (names_to_rename);
 
   /* Do the rewriting.  */
   rewrite_ssa_into_ssa ();
@@ -379,7 +415,7 @@ verify_loop_closed_ssa (void)
   tree phi;
   unsigned i;
 
-  verify_ssa ();
+  verify_ssa (false);
 
   FOR_EACH_BB (bb)
     {
@@ -406,7 +442,7 @@ split_loop_exit_edge (edge exit)
 
   for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
-      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, EDGE_SUCC (bb, 0));
+      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (bb));
 
       name = USE_FROM_PTR (op_p);
 
@@ -470,10 +506,10 @@ ip_normal_pos (struct loop *loop)
   basic_block bb;
   edge exit;
 
-  if (EDGE_COUNT (loop->latch->preds) > 1)
+  if (!single_pred_p (loop->latch))
     return NULL;
 
-  bb = EDGE_PRED (loop->latch, 0)->src;
+  bb = single_pred (loop->latch);
   last = last_stmt (bb);
   if (TREE_CODE (last) != COND_EXPR)
     return NULL;
@@ -617,7 +653,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   definitions = marked_ssa_names ();
   rename_variables (first_new_block, definitions);
   unmark_all_for_rewrite ();
-  BITMAP_XFREE (definitions);
+  BITMAP_FREE (definitions);
 
   /* For some time we have the identical ssa names as results in multiple phi
      nodes.  When phi node is resized, it sets SSA_NAME_DEF_STMT of its result
@@ -640,5 +676,4 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
   return true;
 }
-
 

@@ -123,7 +123,8 @@ GNAT_ADA_OBJS = ada/ada.o ada/a-charac.o ada/a-chlat1.o ada/a-except.o \
  ada/exp_prag.o ada/exp_smem.o ada/exp_strm.o ada/exp_tss.o ada/exp_util.o \
  ada/exp_vfpt.o ada/expander.o ada/fname.o ada/fname-uf.o ada/fmap.o \
  ada/freeze.o ada/frontend.o ada/gnat.o ada/g-hesora.o ada/g-htable.o \
- ada/g-os_lib.o ada/g-speche.o ada/g-string.o ada/s-crc32.o ada/get_targ.o \
+ ada/g-os_lib.o ada/g-speche.o ada/g-string.o ada/g-utf_32.o \
+ ada/s-crc32.o ada/get_targ.o \
  ada/gnatvsn.o ada/hlo.o ada/hostparm.o ada/impunit.o ada/interfac.o \
  ada/itypes.o ada/inline.o ada/krunch.o ada/lib.o ada/layout.o ada/lib-load.o \
  ada/lib-util.o ada/lib-xref.o ada/lib-writ.o ada/live.o ada/namet.o \
@@ -146,7 +147,7 @@ GNAT_ADA_OBJS = ada/ada.o ada/a-charac.o ada/a-chlat1.o ada/a-except.o \
  ada/stylesw.o ada/validsw.o ada/system.o ada/table.o ada/targparm.o \
  ada/tbuild.o ada/tree_gen.o ada/tree_io.o ada/treepr.o ada/treeprs.o \
  ada/ttypef.o ada/ttypes.o ada/types.o ada/uintp.o ada/uname.o ada/urealp.o \
- ada/usage.o ada/widechar.o ada/s-crtl.o
+ ada/usage.o ada/widechar.o ada/s-crtl.o ada/seh_init.o
 
 # Object files for gnat executables
 GNAT1_ADA_OBJS = $(GNAT_ADA_OBJS) ada/back_end.o ada/gnat1drv.o
@@ -161,6 +162,7 @@ GNATBIND_OBJS = \
  ada/cstreams.o   \
  ada/final.o      \
  ada/init.o       \
+ ada/seh_init.o   \
  ada/link.o       \
  ada/raise.o      \
  ada/tracebak.o   \
@@ -191,6 +193,7 @@ GNATBIND_OBJS = \
  ada/g-htable.o   \
  ada/g-os_lib.o   \
  ada/g-string.o   \
+ ada/g-utf_32.o   \
  ada/gnat.o       \
  ada/gnatbind.o   \
  ada/gnatvsn.o    \
@@ -376,16 +379,18 @@ doc/gnat_ugn_unw.texi: $(srcdir)/ada/gnat_ugn.texi $(srcdir)/ada/ug_words
 	ada/doctools/xgnatugn unw $(srcdir)/ada/gnat_ugn.texi \
 	   $(srcdir)/ada/ug_words doc/gnat_ugn_unw.texi
 
-doc/gnat_ugn_unw.info: doc/gnat_ugn_unw.texi \
-   $(docdir)/include/fdl.texi $(docdir)/include/gcc-common.texi
+doc/gnat_ugn_unw.info: doc/gnat_ugn_unw.texi			\
+   $(docdir)/include/fdl.texi $(docdir)/include/gcc-common.texi	\
+   gcc-vers.texi
+
 	if [ x$(BUILD_INFO) = xinfo ]; then \
 	  rm -f $(@)*; \
 	  $(MAKEINFO) $(MAKEINFOFLAGS) -I$(docdir)/include \
             -I$(srcdir)/ada -o $@ $<; \
 	else true; fi
 
-doc/gnat_rm.info: ada/gnat_rm.texi $(docdir)/include/fdl.texi \
-   $(docdir)/include/gcc-common.texi
+doc/gnat_rm.info: ada/gnat_rm.texi $(docdir)/include/fdl.texi	\
+   $(docdir)/include/gcc-common.texi gcc-vers.texi
 	if [ x$(BUILD_INFO) = xinfo ]; then \
 	  rm -f $(@)*; \
 	  $(MAKEINFO) $(MAKEINFOFLAGS) -I$(docdir)/include \
@@ -414,12 +419,12 @@ install-info:: $(DESTDIR)$(infodir)/gnat_ugn_unw.info \
 dvi:: doc/gnat_ugn_unw.dvi \
       doc/gnat_rm.dvi doc/gnat-style.dvi
 
-doc/gnat_ugn_unw.dvi: doc/gnat_ugn_unw.texi \
-	$(docdir)/include/fdl.texi $(docdir)/include/gcc-common.texi
+doc/gnat_ugn_unw.dvi: doc/gnat_ugn_unw.texi $(docdir)/include/fdl.texi	\
+	$(docdir)/include/gcc-common.texi gcc-vers.texi
 	$(TEXI2DVI) -c -I $(abs_docdir)/include -o $@ $<
 
-doc/gnat_rm.dvi: ada/gnat_rm.texi \
-	$(docdir)/include/fdl.texi $(docdir)/include/gcc-common.texi
+doc/gnat_rm.dvi: ada/gnat_rm.texi $(docdir)/include/fdl.texi	\
+	$(docdir)/include/gcc-common.texi gcc-vers.texi
 	$(TEXI2DVI) -c -I $(abs_docdir)/include -o $@ $<
 
 doc/gnat-style.dvi: ada/gnat-style.texi $(docdir)/include/fdl.texi
@@ -877,29 +882,29 @@ ada/b_gnatb.c : $(GNATBIND_OBJS) ada/gnatbind.o ada/interfac.o
 ada/b_gnatb.o : ada/b_gnatb.c
 
 ada/treeprs.ads : ada/treeprs.adt ada/sinfo.ads ada/xtreeprs.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xtreeprs ; ./xtreeprs ../treeprs.ads )
+	-$(MKDIR) ada/bldtools/treeprs
+	$(CP) $^ ada/bldtools/treeprs
+	(cd ada/bldtools/treeprs; gnatmake -q xtreeprs ; ./xtreeprs ../../treeprs.ads )
 
 ada/einfo.h : ada/einfo.ads ada/einfo.adb ada/xeinfo.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xeinfo ; ./xeinfo ../einfo.h )
+	-$(MKDIR) ada/bldtools/einfo
+	$(CP) $^ ada/bldtools/einfo
+	(cd ada/bldtools/einfo; gnatmake -q xeinfo ; ./xeinfo ../../einfo.h )
 
 ada/sinfo.h : ada/sinfo.ads ada/xsinfo.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xsinfo ; ./xsinfo ../sinfo.h )
+	-$(MKDIR) ada/bldtools/sinfo
+	$(CP) $^ ada/bldtools/sinfo
+	(cd ada/bldtools/sinfo; gnatmake -q xsinfo ; ./xsinfo ../../sinfo.h )
 
 ada/nmake.adb : ada/sinfo.ads ada/nmake.adt ada/xnmake.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xnmake ; ./xnmake -b ../nmake.adb )
+	-$(MKDIR) ada/bldtools/nmake_b
+	$(CP) $^ ada/bldtools/nmake_b
+	(cd ada/bldtools/nmake_b; gnatmake -q xnmake ; ./xnmake -b ../../nmake.adb )
 
 ada/nmake.ads :  ada/sinfo.ads ada/nmake.adt ada/xnmake.adb ada/nmake.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xnmake ; ./xnmake -s ../nmake.ads )
+	-$(MKDIR) ada/bldtools/nmake_s
+	$(CP) $^ ada/bldtools/nmake_s
+	(cd ada/bldtools/nmake_s; gnatmake -q xnmake ; ./xnmake -s ../../nmake.ads )
 
 update-sources : ada/treeprs.ads ada/einfo.h ada/sinfo.h ada/nmake.adb \
 	ada/nmake.ads
@@ -2130,6 +2135,8 @@ ada/g-speche.o : ada/gnat.ads ada/g-speche.ads ada/g-speche.adb \
 
 ada/g-string.o : ada/gnat.ads ada/g-string.ads ada/g-string.adb \
    ada/system.ads ada/unchdeal.ads 
+
+ada/g-utf_32.o : ada/gnat.ads ada/g-utf_32.ads ada/g-utf_32.adb
 
 ada/get_targ.o : ada/get_targ.ads ada/get_targ.adb ada/system.ads \
    ada/s-exctab.ads ada/s-stalib.ads ada/s-unstyp.ads ada/types.ads \

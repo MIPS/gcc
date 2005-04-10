@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  IRIX version 6.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -36,6 +37,11 @@ Boston, MA 02111-1307, USA.  */
 /* Force the generation of dwarf .debug_frame sections even if not
    compiling -g.  This guarantees that we can unwind the stack.  */
 #define DWARF2_FRAME_INFO 1
+
+/* The system unwinder in libexc requires a specific dwarf return address
+   column to work.  */
+#undef  DWARF_FRAME_RETURN_COLUMN
+#define DWARF_FRAME_RETURN_COLUMN (FP_REG_LAST + 1)
 
 #undef MACHINE_TYPE
 #define MACHINE_TYPE "SGI running IRIX 6.x"
@@ -97,8 +103,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{!shared:%{mabi=n32|mabi=64:irix-csr.o%s}} \
-   crtend.o%s irix-crtn.o%s \
+  "crtend.o%s irix-crtn.o%s \
    %{!shared: \
      %{mabi=32:crtn.o%s}\
      %{mabi=n32:%{mips4:/usr/lib32/mips4/crtn.o%s}\

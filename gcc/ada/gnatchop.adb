@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1998-2004 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1998-2005 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,6 +34,8 @@ with GNAT.Table;
 
 with Gnatvsn;
 with Hostparm;
+
+with System.CRTL;       use System.CRTL;
 
 procedure Gnatchop is
 
@@ -182,7 +184,7 @@ procedure Gnatchop is
    --  Note that this function returns false for the last entry.
 
    procedure Sort_Units;
-   --  Sort units and set up sorted unit table.
+   --  Sort units and set up sorted unit table
 
    ----------------------
    -- File_Descriptors --
@@ -190,10 +192,6 @@ procedure Gnatchop is
 
    function dup  (handle   : File_Descriptor) return File_Descriptor;
    function dup2 (from, to : File_Descriptor) return File_Descriptor;
-   --  File descriptor based functions needed for redirecting stdin/stdout
-
-   pragma Import (C, dup, "dup");
-   pragma Import (C, dup2, "dup2");
 
    ---------------------
    -- Local variables --
@@ -331,6 +329,24 @@ procedure Gnatchop is
       TS_Time : OS_Time;
       Success : out Boolean);
    --  Write one compilation unit of the source to file
+
+   ---------
+   -- dup --
+   ---------
+
+   function dup  (handle   : File_Descriptor) return File_Descriptor is
+   begin
+      return File_Descriptor (System.CRTL.dup (int (handle)));
+   end dup;
+
+   ----------
+   -- dup2 --
+   ----------
+
+   function dup2 (from, to : File_Descriptor) return File_Descriptor is
+   begin
+      return File_Descriptor (System.CRTL.dup2 (int (from), int (to)));
+   end dup2;
 
    ---------------
    -- Error_Msg --
@@ -505,17 +521,19 @@ procedure Gnatchop is
 
    function Locate_Executable
      (Program_Name    : String;
-      Look_For_Prefix : Boolean := True)
-     return             String_Access
+      Look_For_Prefix : Boolean := True) return String_Access
    is
-      Current_Command : constant String := Command_Name;
-      End_Of_Prefix   : Natural  := Current_Command'First - 1;
-      Start_Of_Prefix : Positive := Current_Command'First;
+      Current_Command : constant String := Normalize_Pathname (Command_Name);
+      End_Of_Prefix   : Natural;
+      Start_Of_Prefix : Positive;
       Result          : String_Access;
 
    begin
+      Start_Of_Prefix := Current_Command'First;
+      End_Of_Prefix   := Start_Of_Prefix - 1;
 
       if Look_For_Prefix then
+
          --  Find Start_Of_Prefix
 
          for J in reverse Current_Command'Range loop
@@ -529,8 +547,6 @@ procedure Gnatchop is
          end loop;
 
          --  Find End_Of_Prefix
-
-         End_Of_Prefix := Start_Of_Prefix - 1;
 
          for J in reverse Start_Of_Prefix .. Current_Command'Last loop
             if Current_Command (J) = '-' then
@@ -1148,7 +1164,7 @@ procedure Gnatchop is
                Put_Line (Standard_Error, Gnatvsn.Gnat_Version_String);
                Put_Line
                  (Standard_Error,
-                  "Copyright 1998-2004, Ada Core Technologies Inc.");
+                  "Copyright 1998-2005, Ada Core Technologies Inc.");
 
             when 'w' =>
                Overwrite_Files := True;
@@ -1316,7 +1332,7 @@ procedure Gnatchop is
 
       Unit_Sort.Sort (Natural (Unit.Last));
 
-      --  Set the Sorted_Index fields in the unit tables.
+      --  Set the Sorted_Index fields in the unit tables
 
       for J in 1 .. SUnit_Num (Unit.Last) loop
          Unit.Table (Sorted_Units.Table (J)).Sorted_Index := J;

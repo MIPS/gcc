@@ -21,7 +21,6 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/Package.h>
-#include <gnu/gcj/runtime/StackTrace.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -212,6 +211,7 @@ class java::io::ObjectStreamClass;
 
 void _Jv_RegisterClassHookDefault (jclass klass);
 void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+void _Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
 void _Jv_UnregisterClass (jclass);
 jclass _Jv_FindClass (_Jv_Utf8Const *name,
 		      java::lang::ClassLoader *loader);
@@ -227,23 +227,24 @@ void _Jv_InitNewClassFields (jclass klass);
 
 // Friend functions and classes in prims.cc
 void _Jv_InitPrimClass (jclass, char *, char, int);
-jstring _Jv_GetMethodString (jclass, _Jv_Utf8Const *);
+jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
 
 jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 			  jint flags);
 jclass _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
 jboolean _Jv_IsInterpretedClass (jclass);
+
+#ifdef INTERPRETER
 void _Jv_InitField (jobject, jclass, int);
 
-class _Jv_ClassReader;	
+class _Jv_ClassReader;
 class _Jv_InterpClass;
 class _Jv_InterpMethod;
 #endif
 
+class _Jv_StackTrace;
 class _Jv_BytecodeVerifier;
-class gnu::gcj::runtime::StackTrace;
 class java::io::VMObjectStreamClass;
 
 void _Jv_sharedlib_register_hook (jclass klass);
@@ -436,6 +437,7 @@ private:
 					     size_t count);
   friend void ::_Jv_RegisterClassHookDefault (jclass klass);
   friend void ::_Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+  friend void ::_Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
   friend void ::_Jv_UnregisterClass (jclass);
   friend jclass (::_Jv_FindClass) (_Jv_Utf8Const *name,
 				   java::lang::ClassLoader *loader);
@@ -452,7 +454,7 @@ private:
   // in prims.cc
   friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Utf8Const *);
+  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
   friend jboolean (::_Jv_CheckAccess) (jclass self_klass, jclass other_klass,
 				   jint flags);
@@ -464,21 +466,22 @@ private:
   friend jclass (::_Jv_GetArrayClass) (jclass klass,
 				       java::lang::ClassLoader *loader);
 
-#ifdef INTERPRETER
   friend jboolean (::_Jv_IsInterpretedClass) (jclass);
+
+#ifdef INTERPRETER
   friend void ::_Jv_InitField (jobject, jclass, int);
 
   friend class ::_Jv_ClassReader;	
   friend class ::_Jv_InterpClass;
   friend class ::_Jv_InterpMethod;
 #endif
+  friend class ::_Jv_StackTrace;
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
 #endif
 
   friend class ::_Jv_BytecodeVerifier;
-  friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 
   friend class ::_Jv_Linker;

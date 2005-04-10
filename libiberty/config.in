@@ -181,6 +181,9 @@
 /* Define to 1 if you have the `strncasecmp' function. */
 #undef HAVE_STRNCASECMP
 
+/* Define to 1 if you have the `strndup' function. */
+#undef HAVE_STRNDUP
+
 /* Define to 1 if you have the `strrchr' function. */
 #undef HAVE_STRRCHR
 
@@ -297,6 +300,12 @@
 
 /* Define to 1 if you have the `vsprintf' function. */
 #undef HAVE_VSPRINTF
+
+/* Define to 1 if you have the `wait3' function. */
+#undef HAVE_WAIT3
+
+/* Define to 1 if you have the `wait4' function. */
+#undef HAVE_WAIT4
 
 /* Define to 1 if you have the `waitpid' function. */
 #undef HAVE_WAITPID

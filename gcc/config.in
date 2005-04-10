@@ -54,6 +54,9 @@
    that are supported for each access macro. This is relatively cheap. */
 #undef ENABLE_RTL_FLAG_CHECKING
 
+/* Define if you want runtime assertions enabled. This is a cheap check. */
+#undef ENABLE_RUNTIME_CHECKING
+
 /* Define if you want all operations on trees (the basic data structure of the
    front ends) to be checked for dynamic type safety at runtime. This is
    moderately expensive. The tree browser debugging routines will also be
@@ -64,8 +67,8 @@
    valgrind (a memory checker). This is extremely expensive. */
 #undef ENABLE_VALGRIND_CHECKING
 
-/* Define to 1 if installation paths should be looked up in Windows32
-   Registry. Ignored on non windows32 hosts. */
+/* Define to 1 if installation paths should be looked up in the Windows
+   Registry. Ignored on non-Windows hosts. */
 #undef ENABLE_WIN32_REGISTRY
 
 /* Define to the name of a file containing a list of extra machine modes for
@@ -78,6 +81,9 @@
 /* Define to the type of elements in the array set by `getgroups'. Usually
    this is either `int' or `gid_t'. */
 #undef GETGROUPS_T
+
+/* Define if the zone collector is in use */
+#undef GGC_ZONE
 
 /* Define to 1 if you have the `alphasort' function. */
 #undef HAVE_ALPHASORT
@@ -531,9 +537,6 @@
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 #undef NO_MINUS_C_MINUS_O
 
-/* The name of this program for internationalization purposes. */
-#undef PACKAGE
-
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -589,7 +592,10 @@
 /* Define if location_t is fileline integer cookie. */
 #undef USE_MAPPED_LOCATION
 
-/* Define to be the last portion of registry key on windows hosts. */
+/* Define to be the last component of the Windows registry key under which to
+   look for installation paths. The full key used will be
+   HKEY_LOCAL_MACHINE/SOFTWARE/Free Software Foundation/{WIN32_REGISTRY_KEY}.
+   The default is the GCC version number. */
 #undef WIN32_REGISTRY_KEY
 
 /* whether byteorder is bigendian */

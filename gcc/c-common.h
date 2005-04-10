@@ -688,11 +688,13 @@ extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
 extern tree strip_pointer_operator (tree);
+extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
 
 /* This is the basic parsing function.  */
 extern void c_parse_file (void);
 /* This is misnamed, it actually performs end-of-compilation processing.  */
 extern void finish_file	(void);
+
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
@@ -733,7 +735,9 @@ extern void finish_file	(void);
 #define FOR_EXPR(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 2)
 #define FOR_BODY(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 3)
 
-#define SWITCH_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
+#define SWITCH_STMT_COND(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 0)
+#define SWITCH_STMT_BODY(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 1)
+#define SWITCH_STMT_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
 
 /* STMT_EXPR accessor.  */
 #define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
@@ -804,8 +808,7 @@ extern tree build_break_stmt (void);
 
 extern tree build_unary_op (enum tree_code, tree, int);
 extern tree build_binary_op (enum tree_code, tree, tree, int);
-extern int lvalue_p (tree);
-extern tree default_conversion (tree);
+extern tree perform_integral_promotions (tree);
 
 /* Given two integer or real types, return the type for their sum.
    Given two compatible ANSI C types, returns the merged type.  */
@@ -822,6 +825,7 @@ extern int case_compare (splay_tree_key, splay_tree_key);
 extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
 
 extern void c_do_switch_warnings (splay_tree, tree);
+extern void c_do_switch_expr_warnings (splay_tree, tree);
 
 extern tree build_function_call (tree, tree);
 
@@ -873,7 +877,7 @@ extern void verify_sequence_points (tree);
 extern tree fold_offsetof (tree);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
-   Used to select diagnostic messages in lvalue_or_else and
+   Used to select diagnostic messages in lvalue_error and
    readonly_error.  */
 enum lvalue_use {
   lv_assign,
@@ -883,7 +887,9 @@ enum lvalue_use {
   lv_asm
 };
 
-extern int lvalue_or_else (tree, enum lvalue_use);
+extern void lvalue_error (enum lvalue_use);
+
+extern int complete_array_type (tree *, tree, bool);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

@@ -365,7 +365,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
                      "not vectorized: can't create epilog loop 1.");
           return false;
         }
-      if (!slpeel_can_duplicate_loop_p (loop, loop->exit_edges[0]))
+      if (!slpeel_can_duplicate_loop_p (loop, loop->single_exit))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
                                      LOOP_LOC (loop_vinfo)))
@@ -1464,19 +1464,21 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
   v_may_def_optype v_may_defs;
   v_must_def_optype v_must_defs;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  int i;
-  dataflow_t df;
-  int num_uses;
+  ssa_op_iter op_iter;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  tree var;
 
   *relevant_p = false;
   *live_p = false;
 
+  /* cond stmt other than loop exit cond.  */
+  if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
+    *relevant_p = true;
+
+  /* changing memory.  */
   if (TREE_CODE (stmt) != PHI_NODE)
     {
-      /* cond stmt other than loop exit cond.  */
-      if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
-        *relevant_p = true;
-
       /* changing memory.  */
       v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
       v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
@@ -1489,25 +1491,26 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
     }
 
   /* uses outside the loop.  */
-  df = get_immediate_uses (stmt);
-  num_uses = num_immediate_uses (df);
-  for (i = 0; i < num_uses; i++)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, op_iter, SSA_OP_DEF)
     {
-      tree use = immediate_use (df, i);
-      basic_block bb = bb_for_stmt (use);
-      if (!flow_bb_inside_loop_p (loop, bb))
-	{
-	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	    fprintf (vect_dump, "vec_stmt_relevant_p: used out of loop.");
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
+        {
+	  basic_block bb = bb_for_stmt (USE_STMT (use_p));
+	  if (!flow_bb_inside_loop_p (loop, bb))
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+		fprintf (vect_dump, "vec_stmt_relevant_p: used out of loop.");
 #ifdef ENABLE_CHECKING
-	  /* We expect all such uses to be in the loop exit phis
-	     (because of loop closed form)   */
-	  gcc_assert (TREE_CODE (use) == PHI_NODE);
-	  gcc_assert (bb == loop->single_exit->dest);
-	  gcc_assert (!STMT_VINFO_EXTERNAL_USE (vinfo_for_stmt (stmt)));
+  	      /* We expect all such uses to be in the loop exit phis
+	         (because of loop closed form)   */
+	      gcc_assert (TREE_CODE (USE_STMT (use_p)) == PHI_NODE);
+	      gcc_assert (bb == loop->single_exit->dest);
+	      gcc_assert (!STMT_VINFO_EXTERNAL_USE (vinfo_for_stmt (stmt)));
 #endif
-          STMT_VINFO_EXTERNAL_USE (vinfo_for_stmt (stmt)) = use;
-	  *live_p = true;
+              STMT_VINFO_EXTERNAL_USE (vinfo_for_stmt (stmt)) = 
+							USE_STMT (use_p);
+	      *live_p = true;
+	    }
 	}
     }
 
@@ -2204,7 +2207,6 @@ vect_analyze_loop_form (struct loop *loop)
   loop_vec_info loop_vinfo;
   tree loop_cond;
   tree number_of_iterations = NULL;
-  bool rescan = false;
   LOC loop_loc;
 
   loop_loc = find_loop_location (loop);
@@ -2221,8 +2223,7 @@ vect_analyze_loop_form (struct loop *loop)
   
   if (!loop->single_exit 
       || loop->num_nodes != 2
-      || EDGE_COUNT (loop->header->preds) != 2
-      || loop->num_entries != 1)
+      || EDGE_COUNT (loop->header->preds) != 2)
     {
       if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS, loop_loc))
         {
@@ -2232,8 +2233,6 @@ vect_analyze_loop_form (struct loop *loop)
             fprintf (vect_dump, "not vectorized: too many BBs in loop.");
           else if (EDGE_COUNT (loop->header->preds) != 2)
             fprintf (vect_dump, "not vectorized: too many incoming edges.");
-          else if (loop->num_entries != 1)
-            fprintf (vect_dump, "not vectorized: too many entries.");
         }
 
       return NULL;
@@ -2250,27 +2249,24 @@ vect_analyze_loop_form (struct loop *loop)
       return NULL;
     }
 
-  /* Make sure we have a preheader basic block.  */
-  if (!loop->pre_header)
-    {
-      rescan = true;
-      loop_split_edge_with (loop_preheader_edge (loop), NULL);
-    }
-    
   /* Make sure there exists a single-predecessor exit bb:  */
-  if (EDGE_COUNT (loop->exit_edges[0]->dest->preds) != 1)
+  if (!single_pred_p (loop->single_exit->dest))
     {
-      rescan = true;
-      loop_split_edge_with (loop->exit_edges[0], NULL);
+      edge e = loop->single_exit;
+      if (!(e->flags & EDGE_ABNORMAL))
+        {
+          split_loop_exit_edge (e);
+          if (vect_print_dump_info (REPORT_DETAILS, loop_loc))
+            fprintf (vect_dump, "split exit edge.");
+        }
+      else
+        {
+          if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS, loop_loc))
+            fprintf (vect_dump, "not vectorized: abnormal loop exit edge.");
+          return NULL;
+        }
     }
     
-  if (rescan)
-    {
-      flow_loop_scan (loop, LOOP_ALL);
-      /* Flow loop scan does not update loop->single_exit field.  */
-      loop->single_exit = loop->exit_edges[0];
-    }
-
   if (empty_block_p (loop->header))
     {
       if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS, loop_loc))

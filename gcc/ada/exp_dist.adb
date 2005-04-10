@@ -152,11 +152,6 @@ package body Exp_Dist is
    pragma Warnings (Off, Get_Subprogram_Id);
    --  One homonym only is unreferenced (specific to the GARLIC version)
 
-   function Get_PCS_Name return PCS_Names;
-   --  Return the name of a literal of type
-   --    System.Partition_Interface.DSA_Implementation_Type
-   --  indicating what PCS is currently in use.
-
    procedure Add_RAS_Dereference_TSS (N : Node_Id);
    --  Add a subprogram body for RAS Dereference TSS
 
@@ -266,7 +261,7 @@ package body Exp_Dist is
    procedure Set_Renaming_TSS
      (Typ     : Entity_Id;
       Nam     : Entity_Id;
-      TSS_Nam : Name_Id);
+      TSS_Nam : TSS_Name_Type);
    --  Create a renaming declaration of subprogram Nam,
    --  and register it as a TSS for Typ with name TSS_Nam.
 
@@ -358,7 +353,7 @@ package body Exp_Dist is
    --  Mapping between a RCI subprogram and the corresponding calling stubs
 
    procedure Add_Stub_Type
-     (Designated_Type    : Entity_Id;
+     (Designated_Type   : Entity_Id;
       RACW_Type         : Entity_Id;
       Decls             : List_Id;
       Stub_Type         : out Entity_Id;
@@ -439,11 +434,8 @@ package body Exp_Dist is
 
    procedure Specific_Add_RAST_Features
      (Vis_Decl : Node_Id;
-      RAS_Type : Entity_Id;
-      Decls    : List_Id);
-   --  Add declaration for TSSs for a given RAS type. The declarations are
-   --  added just after the declaration of the RAS type itself, while the
-   --  bodies are inserted at the end of Decls. PCS-specific ancillary
+      RAS_Type : Entity_Id);
+   --  Add declaration for TSSs for a given RAS type. PCS-specific ancillary
    --  subprogram for Add_RAST_Features.
 
    --  An RPC_Target record is used during construction of calling stubs
@@ -551,10 +543,18 @@ package body Exp_Dist is
    --  class-wide type before doing the real call using any of the RACW type
    --  pointing on the designated type.
 
+   procedure Specific_Add_Obj_RPC_Receiver_Completion
+     (Loc           : Source_Ptr;
+      Decls         : List_Id;
+      RPC_Receiver  : Entity_Id;
+      Stub_Elements : Stub_Structure);
+   --  Add the necessary code to Decls after the completion of generation
+   --  of the RACW RPC receiver described by Stub_Elements.
+
    procedure Specific_Add_Receiving_Stubs_To_Declarations
      (Pkg_Spec : Node_Id;
       Decls    : List_Id);
-   --  Add receiving stubs to the declarative part
+   --  Add receiving stubs to the declarative part of an RCI unit
 
    package GARLIC_Support is
 
@@ -573,8 +573,7 @@ package body Exp_Dist is
 
       procedure Add_RAST_Features
         (Vis_Decl : Node_Id;
-         RAS_Type : Entity_Id;
-         Decls    : List_Id);
+         RAS_Type : Entity_Id);
 
       procedure Build_General_Calling_Stubs
         (Decls                     : List_Id;
@@ -611,6 +610,12 @@ package body Exp_Dist is
          RACW_Type                : Entity_Id := Empty;
          Parent_Primitive         : Entity_Id := Empty) return Node_Id;
 
+      procedure Add_Obj_RPC_Receiver_Completion
+        (Loc           : Source_Ptr;
+         Decls         : List_Id;
+         RPC_Receiver  : Entity_Id;
+         Stub_Elements : Stub_Structure);
+
       procedure Add_Receiving_Stubs_To_Declarations
         (Pkg_Spec : Node_Id;
          Decls    : List_Id);
@@ -643,8 +648,7 @@ package body Exp_Dist is
 
       procedure Add_RAST_Features
         (Vis_Decl : Node_Id;
-         RAS_Type : Entity_Id;
-         Decls    : List_Id);
+         RAS_Type : Entity_Id);
 
       procedure Build_General_Calling_Stubs
         (Decls                     : List_Id;
@@ -679,6 +683,12 @@ package body Exp_Dist is
          Stub_Type                : Entity_Id := Empty;
          RACW_Type                : Entity_Id := Empty;
          Parent_Primitive         : Entity_Id := Empty) return Node_Id;
+
+      procedure Add_Obj_RPC_Receiver_Completion
+        (Loc           : Source_Ptr;
+         Decls         : List_Id;
+         RPC_Receiver  : Entity_Id;
+         Stub_Elements : Stub_Structure);
 
       procedure Add_Receiving_Stubs_To_Declarations
         (Pkg_Spec : Node_Id;
@@ -1108,6 +1118,7 @@ package body Exp_Dist is
       RPC_Receiver                   : Entity_Id;
       RPC_Receiver_Statements        : List_Id;
       RPC_Receiver_Case_Alternatives : constant List_Id := New_List;
+      RPC_Receiver_Elsif_Parts       : List_Id;
       RPC_Receiver_Request           : Entity_Id;
       RPC_Receiver_Subp_Id           : Entity_Id;
       RPC_Receiver_Subp_Index        : Entity_Id;
@@ -1145,6 +1156,20 @@ package body Exp_Dist is
            Subp_Index   => RPC_Receiver_Subp_Index,
            Stmts        => RPC_Receiver_Statements,
            Decl         => RPC_Receiver_Decl);
+
+         if Get_PCS_Name = Name_PolyORB_DSA then
+
+            --  For the case of PolyORB, we need to map a textual operation
+            --  name into a primitive index. Currently we do so using a
+            --  simple sequence of string comparisons.
+
+            RPC_Receiver_Elsif_Parts := New_List;
+            Append_To (RPC_Receiver_Statements,
+              Make_Implicit_If_Statement (Designated_Type,
+                Condition       => New_Occurrence_Of (Standard_False, Loc),
+                Then_Statements => New_List,
+                Elsif_Parts     => RPC_Receiver_Elsif_Parts));
+         end if;
       end if;
 
       --  Build callers, receivers for every primitive operations and a RPC
@@ -1238,6 +1263,26 @@ package body Exp_Dist is
 
                   --  Add a case alternative to the receiver
 
+                  if Get_PCS_Name = Name_PolyORB_DSA then
+                     Append_To (RPC_Receiver_Elsif_Parts,
+                       Make_Elsif_Part (Loc,
+                         Condition =>
+                           Make_Function_Call (Loc,
+                             Name =>
+                               New_Occurrence_Of (
+                                 RTE (RE_Caseless_String_Eq), Loc),
+                             Parameter_Associations => New_List (
+                               New_Occurrence_Of (RPC_Receiver_Subp_Id, Loc),
+                               Make_String_Literal (Loc, Subp_Str))),
+                         Then_Statements => New_List (
+                           Make_Assignment_Statement (Loc,
+                             Name => New_Occurrence_Of (
+                                       RPC_Receiver_Subp_Index, Loc),
+                             Expression =>
+                               Make_Integer_Literal (Loc,
+                                  Current_Primitive_Number)))));
+                  end if;
+
                   Append_To (RPC_Receiver_Case_Alternatives,
                     Make_Case_Statement_Alternative (Loc,
                       Discrete_Choices => New_List (
@@ -1275,21 +1320,8 @@ package body Exp_Dist is
              Alternatives => RPC_Receiver_Case_Alternatives));
 
          Append_To (Decls, RPC_Receiver_Decl);
-
-         --  The RPC receiver body should not be the completion of the
-         --  declaration recorded in the stub structure, because then the
-         --  occurrences of the formal parameters within the body should
-         --  refer to the entities from the declaration, not from the
-         --  completion, to which we do not have easy access. Instead, the
-         --  RPC receiver body acts as its own declaration, and the RPC
-         --  receiver declaration is completed by a renaming-as-body.
-
-         Append_To (Decls,
-           Make_Subprogram_Renaming_Declaration (Loc,
-             Specification =>
-               Copy_Specification (Loc,
-                 Specification (Stub_Elements.RPC_Receiver_Decl)),
-             Name          => New_Occurrence_Of (RPC_Receiver, Loc)));
+         Specific_Add_Obj_RPC_Receiver_Completion (Loc,
+           Decls, RPC_Receiver, Stub_Elements);
       end if;
 
       --  Do not analyze RPC receiver at this stage since it will otherwise
@@ -1674,20 +1706,10 @@ package body Exp_Dist is
    procedure Add_RAST_Features (Vis_Decl : Node_Id) is
       RAS_Type : constant Entity_Id :=
                    Equivalent_Type (Defining_Identifier (Vis_Decl));
-
-      Spec  : constant Node_Id :=
-                Specification (Unit (Enclosing_Lib_Unit_Node (Vis_Decl)));
-      Decls : List_Id := Private_Declarations (Spec);
-
    begin
       pragma Assert (No (TSS (RAS_Type, TSS_RAS_Access)));
-
-      if No (Decls) then
-         Decls := Visible_Declarations (Spec);
-      end if;
-
       Add_RAS_Dereference_TSS (Vis_Decl);
-      Specific_Add_RAST_Features (Vis_Decl, RAS_Type, Decls);
+      Specific_Add_RAST_Features (Vis_Decl, RAS_Type);
    end Add_RAST_Features;
 
    -------------------
@@ -1824,7 +1846,7 @@ package body Exp_Dist is
               Prefix =>
                 New_Occurrence_Of (Pointer, Loc),
               Selector_Name =>
-                New_Occurrence_Of (Tag_Component
+                New_Occurrence_Of (First_Tag_Component
                   (Designated_Type (Etype (Pointer))), Loc)),
           Expression =>
             Make_Attribute_Reference (Loc,
@@ -2170,7 +2192,12 @@ package body Exp_Dist is
       E   : Entity_Id) return Node_Id
    is
    begin
-      return Make_Integer_Literal (Loc, Get_Subprogram_Id (E));
+      case Get_PCS_Name is
+         when Name_PolyORB_DSA =>
+            return Make_String_Literal  (Loc, Get_Subprogram_Id (E));
+         when others =>
+            return Make_Integer_Literal (Loc, Get_Subprogram_Id (E));
+      end case;
    end Build_Subprogram_Id;
 
    ------------------------
@@ -2442,7 +2469,12 @@ package body Exp_Dist is
    begin
       if Nkind (Unit_Node) = N_Package_Declaration then
          Spec  := Specification (Unit_Node);
-         Decls := Visible_Declarations (Spec);
+         Decls := Private_Declarations (Spec);
+
+         if No (Decls) then
+            Decls := Visible_Declarations (Spec);
+         end if;
+
          New_Scope (Scope_Of_Spec (Spec));
          Specific_Add_Receiving_Stubs_To_Declarations (Spec, Decls);
 
@@ -2496,6 +2528,32 @@ package body Exp_Dist is
 
       procedure Add_RAS_Access_TSS (N : Node_Id);
       --  Add a subprogram body for RAS Access TSS
+
+      -------------------------------------
+      -- Add_Obj_RPC_Receiver_Completion --
+      -------------------------------------
+
+      procedure Add_Obj_RPC_Receiver_Completion
+        (Loc           : Source_Ptr;
+         Decls         : List_Id;
+         RPC_Receiver  : Entity_Id;
+         Stub_Elements : Stub_Structure) is
+      begin
+         --  The RPC receiver body should not be the completion of the
+         --  declaration recorded in the stub structure, because then the
+         --  occurrences of the formal parameters within the body should
+         --  refer to the entities from the declaration, not from the
+         --  completion, to which we do not have easy access. Instead, the
+         --  RPC receiver body acts as its own declaration, and the RPC
+         --  receiver declaration is completed by a renaming-as-body.
+
+         Append_To (Decls,
+           Make_Subprogram_Renaming_Declaration (Loc,
+             Specification =>
+               Copy_Specification (Loc,
+                 Specification (Stub_Elements.RPC_Receiver_Decl)),
+             Name          => New_Occurrence_Of (RPC_Receiver, Loc)));
+      end Add_Obj_RPC_Receiver_Completion;
 
       -----------------------
       -- Add_RACW_Features --
@@ -3193,11 +3251,10 @@ package body Exp_Dist is
 
       procedure Add_RAST_Features
         (Vis_Decl : Node_Id;
-         RAS_Type : Entity_Id;
-         Decls    : List_Id)
+         RAS_Type : Entity_Id)
       is
          pragma Warnings (Off);
-         pragma Unreferenced (RAS_Type, Decls);
+         pragma Unreferenced (RAS_Type);
          pragma Warnings (On);
       begin
          Add_RAS_Access_TSS (Vis_Decl);
@@ -4707,18 +4764,6 @@ package body Exp_Dist is
                Selector_Name => Make_Identifier (Loc, Selector_Name));
    end Make_Selected_Component;
 
-   ------------------
-   -- Get_PCS_Name --
-   ------------------
-
-   function Get_PCS_Name return PCS_Names is
-      PCS_Name : constant PCS_Names :=
-                   Chars (Entity (Expression
-                                    (Parent (RTE (RE_DSA_Implementation)))));
-   begin
-      return PCS_Name;
-   end Get_PCS_Name;
-
    -----------------------
    -- Get_Subprogram_Id --
    -----------------------
@@ -5033,23 +5078,63 @@ package body Exp_Dist is
          Declarations    : List_Id);
       --  Add the TypeCode TSS for this RACW type
 
-      procedure Add_RAS_From_Any
-        (RAS_Type     : Entity_Id;
-         Declarations : List_Id);
+      procedure Add_RAS_From_Any (RAS_Type : Entity_Id);
       --  Add the From_Any TSS for this RAS type
 
-      procedure Add_RAS_To_Any
-        (RAS_Type     : Entity_Id;
-         Declarations : List_Id);
+      procedure Add_RAS_To_Any   (RAS_Type : Entity_Id);
       --  Add the To_Any TSS for this RAS type
 
-      procedure Add_RAS_TypeCode
-        (RAS_Type     : Entity_Id;
-         Declarations : List_Id);
+      procedure Add_RAS_TypeCode (RAS_Type : Entity_Id);
       --  Add the TypeCode TSS for this RAS type
 
       procedure Add_RAS_Access_TSS (N : Node_Id);
       --  Add a subprogram body for RAS Access TSS
+
+      -------------------------------------
+      -- Add_Obj_RPC_Receiver_Completion --
+      -------------------------------------
+
+      procedure Add_Obj_RPC_Receiver_Completion
+        (Loc           : Source_Ptr;
+         Decls         : List_Id;
+         RPC_Receiver  : Entity_Id;
+         Stub_Elements : Stub_Structure)
+      is
+         Desig : constant Entity_Id :=
+           Etype (Designated_Type (Stub_Elements.RACW_Type));
+      begin
+         Append_To (Decls,
+           Make_Procedure_Call_Statement (Loc,
+              Name =>
+                New_Occurrence_Of (
+                  RTE (RE_Register_Obj_Receiving_Stub), Loc),
+
+                Parameter_Associations => New_List (
+
+               --  Name
+
+                Make_String_Literal (Loc,
+                  Full_Qualified_Name (Desig)),
+
+               --  Handler
+
+                Make_Attribute_Reference (Loc,
+                  Prefix =>
+                    New_Occurrence_Of (
+                      Defining_Unit_Name (Parent (RPC_Receiver)), Loc),
+                  Attribute_Name =>
+                    Name_Access),
+
+               --  Receiver
+
+                Make_Attribute_Reference (Loc,
+                  Prefix =>
+                    New_Occurrence_Of (
+                      Defining_Identifier (
+                        Stub_Elements.RPC_Receiver_Decl), Loc),
+                  Attribute_Name =>
+                    Name_Access))));
+      end Add_Obj_RPC_Receiver_Completion;
 
       -----------------------
       -- Add_RACW_Features --
@@ -5343,7 +5428,7 @@ package body Exp_Dist is
          Insert_After (Declaration_Node (RACW_Type), Func_Decl);
          Append_To (Declarations, Func_Body);
 
-         Set_Renaming_TSS (RACW_Type, Fnam, Name_uFrom_Any);
+         Set_Renaming_TSS (RACW_Type, Fnam, TSS_From_Any);
       end Add_RACW_From_Any;
 
       -----------------------------
@@ -5657,7 +5742,7 @@ package body Exp_Dist is
          Insert_After (Declaration_Node (RACW_Type), Func_Decl);
          Append_To (Declarations, Func_Body);
 
-         Set_Renaming_TSS (RACW_Type, Fnam, Name_uTo_Any);
+         Set_Renaming_TSS (RACW_Type, Fnam, TSS_To_Any);
       end Add_RACW_To_Any;
 
       -----------------------
@@ -5731,7 +5816,7 @@ package body Exp_Dist is
          Insert_After (Declaration_Node (RACW_Type), Func_Decl);
          Append_To (Declarations, Func_Body);
 
-         Set_Renaming_TSS (RACW_Type, Fnam, Name_uTypeCode);
+         Set_Renaming_TSS (RACW_Type, Fnam, TSS_TypeCode);
       end Add_RACW_TypeCode;
 
       ------------------------------
@@ -5833,18 +5918,17 @@ package body Exp_Dist is
 
       procedure Add_RAST_Features
         (Vis_Decl : Node_Id;
-         RAS_Type : Entity_Id;
-         Decls    : List_Id)
+         RAS_Type : Entity_Id)
       is
       begin
          Add_RAS_Access_TSS (Vis_Decl);
 
-         Add_RAS_From_Any (RAS_Type, Decls);
-         Add_RAS_TypeCode (RAS_Type, Decls);
+         Add_RAS_From_Any (RAS_Type);
+         Add_RAS_TypeCode (RAS_Type);
 
          --  To_Any uses TypeCode, and therefore needs to be generated last
 
-         Add_RAS_To_Any (RAS_Type, Decls);
+         Add_RAS_To_Any   (RAS_Type);
       end Add_RAST_Features;
 
       ------------------------
@@ -6182,18 +6266,13 @@ package body Exp_Dist is
       -- Add_RAS_From_Any --
       ----------------------
 
-      procedure Add_RAS_From_Any
-        (RAS_Type     : Entity_Id;
-         Declarations : List_Id)
-      is
+      procedure Add_RAS_From_Any (RAS_Type : Entity_Id) is
          Loc : constant Source_Ptr := Sloc (RAS_Type);
 
-         Fnam : constant Entity_Id :=
-                  Make_Defining_Identifier (Loc, New_Internal_Name ('F'));
+         Fnam : constant Entity_Id := Make_Defining_Identifier (Loc,
+                  Make_TSS_Name (RAS_Type, TSS_From_Any));
 
          Func_Spec : Node_Id;
-         Func_Decl : Node_Id;
-         Func_Body : Node_Id;
 
          Statements : List_Id;
 
@@ -6227,45 +6306,30 @@ package body Exp_Dist is
                    New_Occurrence_Of (RTE (RE_Any), Loc))),
              Subtype_Mark => New_Occurrence_Of (RAS_Type, Loc));
 
-         --  NOTE: The usage occurrences of RACW_Parameter must
-         --  refer to the entity in the declaration spec, not those
-         --  of the body spec.
-
-         Func_Decl := Make_Subprogram_Declaration (Loc, Func_Spec);
-
-         Func_Body :=
+         Discard_Node (
            Make_Subprogram_Body (Loc,
-             Specification              =>
-               Copy_Specification (Loc, Func_Spec),
+             Specification              => Func_Spec,
              Declarations               => No_List,
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
-                 Statements => Statements));
-
-         Insert_After (Declaration_Node (RAS_Type), Func_Decl);
-         Append_To (Declarations, Func_Body);
-
-         Set_Renaming_TSS (RAS_Type, Fnam, Name_uFrom_Any);
+                 Statements => Statements)));
+         Set_TSS (RAS_Type, Fnam);
       end Add_RAS_From_Any;
 
       --------------------
       -- Add_RAS_To_Any --
       --------------------
 
-      procedure Add_RAS_To_Any
-        (RAS_Type     : Entity_Id;
-         Declarations : List_Id)
-      is
+      procedure Add_RAS_To_Any (RAS_Type : Entity_Id) is
          Loc : constant Source_Ptr := Sloc (RAS_Type);
 
-         Fnam : Entity_Id;
+         Fnam : constant Entity_Id := Make_Defining_Identifier (Loc,
+                  Make_TSS_Name (RAS_Type, TSS_To_Any));
 
-         Decls : List_Id;
+         Decls      : List_Id;
          Statements : List_Id;
 
          Func_Spec : Node_Id;
-         Func_Decl : Node_Id;
-         Func_Body : Node_Id;
 
          Any            : constant Entity_Id :=
                             Make_Defining_Identifier (Loc,
@@ -6304,9 +6368,6 @@ package body Exp_Dist is
              Expression =>
                New_Occurrence_Of (Any, Loc)));
 
-         Fnam := Make_Defining_Identifier (
-           Loc, New_Internal_Name ('T'));
-
          Func_Spec :=
            Make_Function_Specification (Loc,
              Defining_Unit_Name =>
@@ -6319,42 +6380,27 @@ package body Exp_Dist is
                    New_Occurrence_Of (RAS_Type, Loc))),
              Subtype_Mark => New_Occurrence_Of (RTE (RE_Any), Loc));
 
-         --  NOTE: The usage occurrences of RAS_Parameter must
-         --  refer to the entity in the declaration spec, not in
-         --  the body spec.
-
-         Func_Decl := Make_Subprogram_Declaration (Loc, Func_Spec);
-
-         Func_Body :=
+         Discard_Node (
            Make_Subprogram_Body (Loc,
-             Specification              =>
-               Copy_Specification (Loc, Func_Spec),
+             Specification              => Func_Spec,
              Declarations               => Decls,
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
-                 Statements => Statements));
-
-         Insert_After (Declaration_Node (RAS_Type), Func_Decl);
-         Append_To (Declarations, Func_Body);
-
-         Set_Renaming_TSS (RAS_Type, Fnam, Name_uTo_Any);
+                 Statements => Statements)));
+         Set_TSS (RAS_Type, Fnam);
       end Add_RAS_To_Any;
 
       ----------------------
       -- Add_RAS_TypeCode --
       ----------------------
 
-      procedure Add_RAS_TypeCode
-        (RAS_Type     : Entity_Id;
-         Declarations : List_Id)
-      is
+      procedure Add_RAS_TypeCode (RAS_Type : Entity_Id) is
          Loc : constant Source_Ptr := Sloc (RAS_Type);
 
-         Fnam : Entity_Id;
+         Fnam : constant Entity_Id := Make_Defining_Identifier (Loc,
+                  Make_TSS_Name (RAS_Type, TSS_TypeCode));
 
          Func_Spec : Node_Id;
-         Func_Decl : Node_Id;
-         Func_Body : Node_Id;
 
          Decls : constant List_Id := New_List;
          Name_String, Repo_Id_String : String_Id;
@@ -6363,11 +6409,6 @@ package body Exp_Dist is
                            Make_Defining_Identifier (Loc, Name_R);
 
       begin
-
-         Fnam :=
-           Make_Defining_Identifier (Loc,
-             Chars => New_Internal_Name ('T'));
-
          --  The spec for this subprogram has a dummy 'access RAS'
          --  argument, which serves only for overloading purposes.
 
@@ -6384,19 +6425,12 @@ package body Exp_Dist is
                      Subtype_Mark => New_Occurrence_Of (RAS_Type, Loc)))),
              Subtype_Mark => New_Occurrence_Of (RTE (RE_TypeCode), Loc));
 
-         --  NOTE: The usage occurrences of RAS_Parameter must
-         --  refer to the entity in the declaration spec, not those
-         --  of the body spec.
-
-         Func_Decl := Make_Subprogram_Declaration (Loc, Func_Spec);
-
          PolyORB_Support.Helpers.Build_Name_And_Repository_Id
            (RAS_Type, Name_Str => Name_String, Repo_Id_Str => Repo_Id_String);
 
-         Func_Body :=
+         Discard_Node (
            Make_Subprogram_Body (Loc,
-             Specification              =>
-               Copy_Specification (Loc, Func_Spec),
+             Specification              => Func_Spec,
              Declarations               => Decls,
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
@@ -6421,12 +6455,8 @@ package body Exp_Dist is
                                      RTE (RE_TA_String), Loc),
                                    Parameter_Associations => New_List (
                                      Make_String_Literal (Loc,
-                                       Repo_Id_String)))))))))));
-
-         Insert_After (Declaration_Node (RAS_Type), Func_Decl);
-         Append_To (Declarations, Func_Body);
-
-         Set_Renaming_TSS (RAS_Type, Fnam, Name_uTypeCode);
+                                       Repo_Id_String))))))))))));
+         Set_TSS (RAS_Type, Fnam);
       end Add_RAS_TypeCode;
 
       -----------------------------------------
@@ -7975,13 +8005,6 @@ package body Exp_Dist is
          -- Local Subprograms --
          -----------------------
 
-         function Find_Inherited_TSS
-           (Typ : Entity_Id;
-            Nam : Name_Id) return Entity_Id;
-         --  A TSS reference for a representation aspect of a derived tagged
-         --  type must take into account inheritance of that aspect from
-         --  ancestor types. (copied from exp_attr.adb, should be shared???)
-
          function Find_Numeric_Representation
            (Typ : Entity_Id) return Entity_Id;
          --  Given a numeric type Typ, return the smallest integer or floarting
@@ -8112,7 +8135,7 @@ package body Exp_Dist is
             --  First simple case where the From_Any function is present
             --  in the type's TSS.
 
-            Fnam := Find_Inherited_TSS (U_Type, Name_uFrom_Any);
+            Fnam := Find_Inherited_TSS (U_Type, TSS_From_Any);
 
             if Sloc (U_Type) <= Standard_Location then
                U_Type := Base_Type (U_Type);
@@ -8136,6 +8159,9 @@ package body Exp_Dist is
 
             elsif U_Type = Standard_Wide_Character then
                Lib_RE := RE_FA_WC;
+
+            elsif U_Type = Standard_Wide_Wide_Character then
+               Lib_RE := RE_FA_WWC;
 
             --  Floating point types
 
@@ -8246,7 +8272,6 @@ package body Exp_Dist is
 
             pragma Assert
               (not (Is_Remote_Access_To_Class_Wide_Type (Typ)));
-
 
             if Is_Derived_Type (Typ)
               and then not Is_Tagged_Type (Typ)
@@ -8890,7 +8915,7 @@ package body Exp_Dist is
             --  First simple case where the To_Any function is present
             --  in the type's TSS.
 
-            Fnam := Find_Inherited_TSS (U_Type, Name_uTo_Any);
+            Fnam := Find_Inherited_TSS (U_Type, TSS_To_Any);
 
             --  Check first for Boolean and Character. These are enumeration
             --  types, but we treat them specially, since they may require
@@ -8914,6 +8939,9 @@ package body Exp_Dist is
 
             elsif U_Type = Standard_Wide_Character then
                Lib_RE := RE_TA_WC;
+
+            elsif U_Type = Standard_Wide_Wide_Character then
+               Lib_RE := RE_TA_WWC;
 
             --  Floating point types
 
@@ -9556,7 +9584,7 @@ package body Exp_Dist is
                --  First simple case where the TypeCode is present
                --  in the type's TSS.
 
-               Fnam := Find_Inherited_TSS (U_Type, Name_uTypeCode);
+               Fnam := Find_Inherited_TSS (U_Type, TSS_TypeCode);
 
                if Present (Fnam) then
 
@@ -9618,6 +9646,9 @@ package body Exp_Dist is
 
                elsif U_Type = Standard_Wide_Character then
                   Lib_RE := RE_TC_WC;
+
+               elsif U_Type = Standard_Wide_Wide_Character then
+                  Lib_RE := RE_TC_WWC;
 
                --  Floating point types
 
@@ -10213,52 +10244,6 @@ package body Exp_Dist is
                     Statements => Stms));
          end Build_TypeCode_Function;
 
-         ------------------------
-         -- Find_Inherited_TSS --
-         ------------------------
-
-         function Find_Inherited_TSS
-           (Typ : Entity_Id;
-            Nam : Name_Id) return Entity_Id
-         is
-            P_Type : Entity_Id := Typ;
-            Proc   : Entity_Id;
-
-         begin
-            Proc :=  TSS (Base_Type (Typ), Nam);
-
-            --  Check first if there is a TSS given for the type itself
-
-            if Present (Proc) then
-               return Proc;
-            end if;
-
-            --  If Typ is a derived type, it may inherit attributes from some
-            --  ancestor which is not the ultimate underlying one. If Typ is a
-            --  derived tagged type, The corresponding primitive operation has
-            --  been created explicitly.
-
-            if Is_Derived_Type (P_Type) then
-               if Is_Tagged_Type (P_Type) then
-                  return Find_Prim_Op (P_Type, Nam);
-               else
-                  while Is_Derived_Type (P_Type) loop
-                     Proc :=  TSS (Base_Type (Etype (Typ)), Nam);
-
-                     if Present (Proc) then
-                        return Proc;
-                     else
-                        P_Type := Base_Type (Etype (P_Type));
-                     end if;
-                  end loop;
-               end if;
-            end if;
-
-            --  If nothing else, use the TSS of the root type
-
-            return TSS (Base_Type (Underlying_Type (Typ)), Nam);
-         end Find_Inherited_TSS;
-
          ---------------------------------
          -- Find_Numeric_Representation --
          ---------------------------------
@@ -10501,7 +10486,6 @@ package body Exp_Dist is
                  Counter => Counter,
                  Datum   => New_Occurrence_Of (Inner_Any, Loc));
 
-
                Append_To (Stmts,
                  Make_Block_Statement (Loc,
                    Declarations =>
@@ -10636,7 +10620,7 @@ package body Exp_Dist is
    procedure Set_Renaming_TSS
      (Typ     : Entity_Id;
       Nam     : Entity_Id;
-      TSS_Nam : Name_Id)
+      TSS_Nam : TSS_Name_Type)
    is
       Loc  : constant Source_Ptr := Sloc (Nam);
       Spec : constant Node_Id := Parent (Nam);
@@ -10646,7 +10630,7 @@ package body Exp_Dist is
                      Specification =>
                        Copy_Specification (Loc,
                          Spec     => Spec,
-                         New_Name => TSS_Nam),
+                         New_Name => Make_TSS_Name (Typ, TSS_Nam)),
                        Name => New_Occurrence_Of (Nam, Loc));
 
       Snam : constant Entity_Id :=
@@ -10664,6 +10648,26 @@ package body Exp_Dist is
       Set_TSS (Typ, Snam);
    end Set_Renaming_TSS;
 
+   ----------------------------------------------
+   -- Specific_Add_Obj_RPC_Receiver_Completion --
+   ----------------------------------------------
+
+   procedure Specific_Add_Obj_RPC_Receiver_Completion
+     (Loc           : Source_Ptr;
+      Decls         : List_Id;
+      RPC_Receiver  : Entity_Id;
+      Stub_Elements : Stub_Structure) is
+   begin
+      case Get_PCS_Name is
+         when Name_PolyORB_DSA =>
+            PolyORB_Support.Add_Obj_RPC_Receiver_Completion (Loc,
+              Decls, RPC_Receiver, Stub_Elements);
+         when others =>
+            GARLIC_Support.Add_Obj_RPC_Receiver_Completion (Loc,
+              Decls, RPC_Receiver, Stub_Elements);
+      end case;
+   end Specific_Add_Obj_RPC_Receiver_Completion;
+
    --------------------------------
    -- Specific_Add_RACW_Features --
    --------------------------------
@@ -10674,8 +10678,7 @@ package body Exp_Dist is
       Stub_Type         : Entity_Id;
       Stub_Type_Access  : Entity_Id;
       RPC_Receiver_Decl : Node_Id;
-      Declarations      : List_Id)
-   is
+      Declarations      : List_Id) is
    begin
       case Get_PCS_Name is
          when Name_PolyORB_DSA =>
@@ -10703,17 +10706,13 @@ package body Exp_Dist is
 
    procedure Specific_Add_RAST_Features
      (Vis_Decl : Node_Id;
-      RAS_Type : Entity_Id;
-      Decls    : List_Id)
-   is
+      RAS_Type : Entity_Id) is
    begin
       case Get_PCS_Name is
          when Name_PolyORB_DSA =>
-            PolyORB_Support.Add_RAST_Features (
-              Vis_Decl, RAS_Type, Decls);
+            PolyORB_Support.Add_RAST_Features (Vis_Decl, RAS_Type);
          when others =>
-            GARLIC_Support.Add_RAST_Features (
-              Vis_Decl, RAS_Type, Decls);
+            GARLIC_Support.Add_RAST_Features (Vis_Decl, RAS_Type);
       end case;
    end Specific_Add_RAST_Features;
 

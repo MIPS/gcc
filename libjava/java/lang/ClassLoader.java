@@ -109,7 +109,7 @@ import java.util.Map;
  *
  * @author John Keiser
  * @author Mark Wielaard
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Class
  * @since 1.0
  * @status still missing 1.4 functionality
@@ -285,40 +285,27 @@ public abstract class ClassLoader
   {
     // Have we already loaded this class?
     Class c = findLoadedClass(name);
-    if (c != null)
-      return c;
-
-    ClassNotFoundException ex = null;
-
-    // Can the class be loaded by a parent?
-    try
+    if (c == null)
       {
-	if (parent == null)
+	// Can the class be loaded by a parent?
+	try
 	  {
-	    c = VMClassLoader.loadClass(name, resolve);
-	    if (c != null)
-	      return c;
+	    if (parent == null)
+	      {
+		c = VMClassLoader.loadClass(name, resolve);
+		if (c != null)
+		  return c;
+	      }
+	    else
+	      {
+		return parent.loadClass(name, resolve);
+	      }
 	  }
-	else
+	catch (ClassNotFoundException e)
 	  {
-	    return parent.loadClass(name, resolve);
 	  }
-      }
-    catch (ClassNotFoundException e)
-      {
-	ex = e;
-      }
-    // Still not found, we have to do it ourself.
-    try
-      {
+	// Still not found, we have to do it ourself.
 	c = findClass(name);
-      }
-    catch (ClassNotFoundException cause)
-      {
-	if (ex != null)
-	  throw new ClassNotFoundException(ex.toString(), cause);
-	else
-	  throw cause;
       }
     if (resolve)
       resolveClass(c);
@@ -499,7 +486,7 @@ public abstract class ClassLoader
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       {
-        Class c = VMSecurityManager.getClassContext()[1];
+        Class c = VMSecurityManager.getClassContext(ClassLoader.class)[1];
         ClassLoader cl = c.getClassLoader();
 	if (cl != null && ! cl.isAncestorOf(this))
           sm.checkPermission(new RuntimePermission("getClassLoader"));
@@ -742,7 +729,7 @@ public abstract class ClassLoader
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       {
-	Class c = VMSecurityManager.getClassContext()[1];
+	Class c = VMSecurityManager.getClassContext(ClassLoader.class)[1];
 	ClassLoader cl = c.getClassLoader();
 	if (cl != null && cl != systemClassLoader)
 	  sm.checkPermission(new RuntimePermission("getClassLoader"));

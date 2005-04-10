@@ -1,5 +1,5 @@
 /* Exception Handling interface routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
@@ -81,7 +81,6 @@ extern void expand_eh_return (void);
 extern rtx expand_builtin_extend_pointer (tree);
 extern rtx get_exception_pointer (struct function *);
 extern rtx get_exception_filter (struct function *);
-extern int check_handled (tree, tree);
 
 extern void sjlj_emit_function_exit_after (rtx);
 

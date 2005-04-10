@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom3" } */
+/* { dg-options "-O2 -fdump-tree-dom3" } */
   
 
 struct rtx_def;
@@ -65,3 +65,5 @@ get_alias_set (t,z)
 
 /* There should be one load of alias.  */
 /* { dg-final { scan-tree-dump-times "->alias" 1 "dom3"} } */
+
+/* { dg-final { cleanup-tree-dump "dom3" } } */

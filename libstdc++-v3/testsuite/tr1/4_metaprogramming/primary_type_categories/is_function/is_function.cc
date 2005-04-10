@@ -1,6 +1,6 @@
 // 2004-12-16  Paolo Carlini  <pcarlini@suse.de>
 //
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,6 +39,9 @@ void test01()
   VERIFY( (test_category<is_function, int&>(false)) );
   VERIFY( (test_category<is_function, void>(false)) );
   VERIFY( (test_category<is_function, const void>(false)) );
+
+  VERIFY( (test_category<is_function, AbstractClass>(false)) );
+  VERIFY( (test_category<is_function, int(&)(int)>(false)) );
   
   // Sanity check.
   VERIFY( (test_category<is_function, ClassType>(false)) );

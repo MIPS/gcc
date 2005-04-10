@@ -1,6 +1,6 @@
 /* CPP Library. (Directive handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -608,7 +608,8 @@ glue_header_name (cpp_reader *pfile)
       if (token->flags & PREV_WHITE)
 	buffer[total_len++] = ' ';
 
-      total_len = (cpp_spell_token (pfile, token, (uchar *) &buffer[total_len])
+      total_len = (cpp_spell_token (pfile, token, (uchar *) &buffer[total_len],
+				    true)
 		   - (uchar *) buffer);
     }
 
@@ -775,6 +776,11 @@ do_line (cpp_reader *pfile)
 {
   const struct line_maps *line_table = pfile->line_table;
   const struct line_map *map = &line_table->maps[line_table->used - 1];
+
+  /* skip_rest_of_line() may cause line table to be realloc()ed so note down
+     sysp right now.  */
+
+  unsigned char map_sysp = map->sysp;
   const cpp_token *token;
   const char *new_file = map->to_file;
   unsigned long new_lineno;
@@ -815,7 +821,7 @@ do_line (cpp_reader *pfile)
 
   skip_rest_of_line (pfile);
   _cpp_do_file_change (pfile, LC_RENAME, new_file, new_lineno,
-		       map->sysp);
+		       map_sysp);
 }
 
 /* Interpret the # 44 "file" [flags] notation, which has slightly

@@ -125,11 +125,6 @@ rtx branch_cmp[2];
 /* What type of branch to use.  */
 enum cmp_type branch_type;
 
-/* Strings to hold which cpu and instruction set architecture to use.  */
-const char * iq2000_cpu_string;	  /* For -mcpu=<xxx>.  */
-const char * iq2000_arch_string;  /* For -march=<xxx>.  */
-
-
 /* Local variables.  */
 
 /* The next branch instruction is a branch likely, not branch normal.  */
@@ -152,15 +147,13 @@ static rtx iq2000_load_reg2;
 static rtx iq2000_load_reg3;
 static rtx iq2000_load_reg4;
 
-/* The target cpu for code generation.  */
-static enum processor_type iq2000_arch;
-
 /* Mode used for saving/restoring general purpose registers.  */
 static enum machine_mode gpr_mode;
 
 
 /* Initialize the GCC target structure.  */
 static struct machine_function* iq2000_init_machine_status (void);
+static bool iq2000_handle_option      (size_t, const char *, int);
 static void iq2000_select_rtx_section (enum machine_mode, rtx, unsigned HOST_WIDE_INT);
 static void iq2000_init_builtins      (void);
 static rtx  iq2000_expand_builtin     (tree, rtx, rtx, enum machine_mode, int);
@@ -183,6 +176,8 @@ static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_EXPAND_BUILTIN 		iq2000_expand_builtin
 #undef  TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION	iq2000_select_rtx_section
+#undef  TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION		iq2000_handle_option
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS		iq2000_rtx_costs
 #undef  TARGET_ADDRESS_COST
@@ -213,217 +208,6 @@ static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Return 1 if OP can be used as an operand where a register or 16 bit unsigned
-   integer is needed.  */
-
-int
-uns_arith_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == CONST_INT && SMALL_INT_UNSIGNED (op))
-    return 1;
-
-  return register_operand (op, mode);
-}
-
-/* Return 1 if OP can be used as an operand where a 16 bit integer is needed.  */
-
-int
-arith_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == CONST_INT && SMALL_INT (op))
-    return 1;
-
-  return register_operand (op, mode);
-}
-
-/* Return 1 if OP is a integer which fits in 16 bits.  */
-
-int
-small_int (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT && SMALL_INT (op));
-}
-
-/* Return 1 if OP is a 32 bit integer which is too big to be loaded with one
-   instruction.  */
-
-int
-large_int (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  HOST_WIDE_INT value;
-
-  if (GET_CODE (op) != CONST_INT)
-    return 0;
-
-  value = INTVAL (op);
-
-  /* IOR reg,$r0,value.  */
-  if ((value & ~ ((HOST_WIDE_INT) 0x0000ffff)) == 0)
-    return 0;
-
-  /* SUBU reg,$r0,value.  */
-  if (((unsigned HOST_WIDE_INT) (value + 32768)) <= 32767)
-    return 0;
-
-  /* LUI reg,value >> 16.  */
-  if ((value & 0x0000ffff) == 0)
-    return 0;
-
-  return 1;
-}
-
-/* Return 1 if OP is a register or the constant 0.  */
-
-int
-reg_or_0_operand (rtx op, enum machine_mode mode)
-{
-  switch (GET_CODE (op))
-    {
-    case CONST_INT:
-      return INTVAL (op) == 0;
-
-    case CONST_DOUBLE:
-      return op == CONST0_RTX (mode);
-
-    case REG:
-    case SUBREG:
-      return register_operand (op, mode);
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-/* Return 1 if OP is a memory operand that fits in a single instruction
-   (i.e., register + small offset).  */
-
-int
-simple_memory_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  rtx addr, plus0, plus1;
-
-  /* Eliminate non-memory operations.  */
-  if (GET_CODE (op) != MEM)
-    return 0;
-
-  /* Dword operations really put out 2 instructions, so eliminate them.  */
-  if (GET_MODE_SIZE (GET_MODE (op)) > (unsigned) UNITS_PER_WORD)
-    return 0;
-
-  /* Decode the address now.  */
-  addr = XEXP (op, 0);
-  switch (GET_CODE (addr))
-    {
-    case REG:
-    case LO_SUM:
-      return 1;
-
-    case CONST_INT:
-      return SMALL_INT (addr);
-
-    case PLUS:
-      plus0 = XEXP (addr, 0);
-      plus1 = XEXP (addr, 1);
-      if (GET_CODE (plus0) == REG
-	  && GET_CODE (plus1) == CONST_INT && SMALL_INT (plus1)
-	  && SMALL_INT_UNSIGNED (plus1) /* No negative offsets.  */)
-	return 1;
-
-      else if (GET_CODE (plus1) == REG
-	       && GET_CODE (plus0) == CONST_INT && SMALL_INT (plus0)
-	       && SMALL_INT_UNSIGNED (plus1) /* No negative offsets.  */)
-	return 1;
-
-      else
-	return 0;
-
-    case SYMBOL_REF:
-      return 0;
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-/* Return nonzero if the code of this rtx pattern is EQ or NE.  */
-
-int
-equality_op (rtx op, enum machine_mode mode)
-{
-  if (mode != GET_MODE (op))
-    return 0;
-
-  return GET_CODE (op) == EQ || GET_CODE (op) == NE;
-}
-
-/* Return nonzero if the code is a relational operations (EQ, LE, etc).  */
-
-int
-cmp_op (rtx op, enum machine_mode mode)
-{
-  if (mode != GET_MODE (op))
-    return 0;
-
-  return COMPARISON_P (op);
-}
-
-/* Return nonzero if the operand is either the PC or a label_ref.  */
-
-int
-pc_or_label_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (op == pc_rtx)
-    return 1;
-
-  if (GET_CODE (op) == LABEL_REF)
-    return 1;
-
-  return 0;
-}
-
-/* Return nonzero if OP is a valid operand for a call instruction.  */
-
-int
-call_insn_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (CONSTANT_ADDRESS_P (op)
-	  || (GET_CODE (op) == REG && op != arg_pointer_rtx
-	      && ! (REGNO (op) >= FIRST_PSEUDO_REGISTER
-		    && REGNO (op) <= LAST_VIRTUAL_REGISTER)));
-}
-
-/* Return nonzero if OP is valid as a source operand for a move instruction.  */
-
-int
-move_operand (rtx op, enum machine_mode mode)
-{
-  /* Accept any general operand after reload has started; doing so
-     avoids losing if reload does an in-place replacement of a register
-     with a SYMBOL_REF or CONST.  */
-  return (general_operand (op, mode)
-	  && (! (iq2000_check_split (op, mode))
-	      || reload_in_progress || reload_completed));
-}
-
-/* Return nonzero if OP is a constant power of 2.  */
-
-int
-power_of_2_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  int intval;
-
-  if (GET_CODE (op) != CONST_INT)
-    return 0;
-  else
-    intval = INTVAL (op);
-
-  return ((intval & ((unsigned)(intval) - 1)) == 0);
-}
-
 /* Return nonzero if we split the address into high and low parts.  */
 
 int
@@ -1606,26 +1390,31 @@ iq2000_init_machine_status (void)
   return f;
 }
 
-static enum processor_type
-iq2000_parse_cpu (const char * cpu_string)
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+iq2000_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
 {
-  const char *p = cpu_string;
-  enum processor_type cpu;
-
-  cpu = PROCESSOR_DEFAULT;
-  switch (p[2])
+  switch (code)
     {
-    case '1':
-      if (!strcmp (p, "iq10"))
-	cpu = PROCESSOR_IQ10;
-      break;
-    case '2':
-      if (!strcmp (p, "iq2000"))
-	cpu = PROCESSOR_IQ2000;
-      break;
-    }
+    case OPT_mcpu_:
+      if (strcmp (arg, "iq10") == 0)
+	iq2000_tune = PROCESSOR_IQ10;
+      else if (strcmp (arg, "iq2000") == 0)
+	iq2000_tune = PROCESSOR_IQ2000;
+      else
+	return false;
+      return true;
 
-  return cpu;
+    case OPT_march_:
+      /* This option has no effect at the moment.  */
+      return (strcmp (arg, "default") == 0
+	      || strcmp (arg, "DEFAULT") == 0
+	      || strcmp (arg, "iq2000") == 0);
+
+    default:
+      return true;
+    }
 }
 
 /* Detect any conflicts in the switches.  */
@@ -1633,52 +1422,11 @@ iq2000_parse_cpu (const char * cpu_string)
 void
 override_options (void)
 {
-  enum processor_type iq2000_cpu;
-
   target_flags &= ~MASK_GPOPT;
 
   iq2000_isa = IQ2000_ISA_DEFAULT;
 
   /* Identify the processor type.  */
-
-  if (iq2000_cpu_string != 0)
-    {
-      iq2000_cpu = iq2000_parse_cpu (iq2000_cpu_string);
-      if (iq2000_cpu == PROCESSOR_DEFAULT)
-	{
-	  error ("bad value (%s) for -mcpu= switch", iq2000_arch_string);
-	  iq2000_cpu_string = "default";
-	}
-      iq2000_arch = iq2000_cpu;
-      iq2000_tune = iq2000_cpu;
-    }
-
-  if (iq2000_arch_string == 0
-      || ! strcmp (iq2000_arch_string, "default")
-      || ! strcmp (iq2000_arch_string, "DEFAULT"))
-    {
-      switch (iq2000_isa)
-	{
-	default:
-	  iq2000_arch_string = "iq2000";
-	  iq2000_arch = PROCESSOR_IQ2000;
-	  break;
-	}
-    }
-  else
-    {
-      iq2000_arch = iq2000_parse_cpu (iq2000_arch_string);
-      if (iq2000_arch == PROCESSOR_DEFAULT)
-	{
-	  error ("bad value (%s) for -march= switch", iq2000_arch_string);
-	  iq2000_arch_string = "default";
-	}
-      if (iq2000_arch == PROCESSOR_IQ10)
-	{
-	  error ("The compiler does not support -march=%s.", iq2000_arch_string);
-	  iq2000_arch_string = "default";
-	}
-    }
 
   iq2000_print_operand_punct['?'] = 1;
   iq2000_print_operand_punct['#'] = 1;

@@ -297,7 +297,7 @@ extern void i386_pe_unique_section (TREE, int);
   do									\
     {									\
       if (TREE_CODE (DECL) == FUNCTION_DECL)				\
-	i386_pe_record_external_function (NAME);			\
+	i386_pe_record_external_function ((DECL), (NAME));		\
     }									\
   while (0)
 
@@ -345,7 +345,7 @@ extern void i386_pe_unique_section (TREE, int);
 
 /* External function declarations.  */
 
-extern void i386_pe_record_external_function (const char *);
+extern void i386_pe_record_external_function (tree, const char *);
 extern void i386_pe_declare_function_type (FILE *, const char *, int);
 extern void i386_pe_record_exported_symbol (const char *, int);
 extern void i386_pe_file_end (void);
@@ -417,6 +417,10 @@ extern int i386_pe_dllimport_name_p (const char *);
    when constructing thunks.  */
 #undef TARGET_USE_LOCAL_THUNK_ALIAS_P
 #define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) (!DECL_ONE_ONLY (DECL))
+
+#define SUBTARGET_ATTRIBUTE_TABLE \
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
+  { "selectany", 0, 0, true, false, false, ix86_handle_selectany_attribute }
 
 #undef TREE
 

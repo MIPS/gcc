@@ -612,20 +612,22 @@ extern int current_function_outgoing_args_size;
    the argument area.  */
 #define FIRST_PARM_OFFSET(FNDECL) 0
 
+/* Defining this macro makes __builtin_frame_address(0) and 
+   __builtin_return_address(0) work with -fomit-frame-pointer.  */
+#define INITIAL_FRAME_ADDRESS_RTX                                             \
+  (TARGET_PACKED_STACK ?                                                      \
+   plus_constant (arg_pointer_rtx, -UNITS_PER_WORD) :                         \
+   plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET))
+
 /* The return address of the current frame is retrieved
    from the initial value of register RETURN_REGNUM.
    For frames farther back, we use the stack slot where
    the corresponding RETURN_REGNUM register was saved.  */
+#define DYNAMIC_CHAIN_ADDRESS(FRAME)                                          \
+  (TARGET_PACKED_STACK ?                                                      \
+   plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_WORD) : (FRAME))
 
-#define DYNAMIC_CHAIN_ADDRESS(FRAME)                                            \
-  (TARGET_PACKED_STACK ?                                                        \
-    ((FRAME) != hard_frame_pointer_rtx ?                                        \
-     plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_WORD) :           \
-     plus_constant (arg_pointer_rtx, -UNITS_PER_WORD)) :                        \
-     ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
-      plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET)))
-
-#define RETURN_ADDR_RTX(COUNT, FRAME)						\
+#define RETURN_ADDR_RTX(COUNT, FRAME)					      \
   s390_return_addr_rtx ((COUNT), DYNAMIC_CHAIN_ADDRESS ((FRAME)))
 
 /* In 31-bit mode, we need to mask off the high bit of return addresses.  */
@@ -1041,26 +1043,6 @@ do {									\
 
 /* Miscellaneous parameters.  */
 
-/* Define the codes that are matched by predicates in aux-output.c.  */
-#define PREDICATE_CODES							\
-  {"s_operand",       { SUBREG, MEM }},					\
-  {"shift_count_operand", { REG, SUBREG, PLUS, CONST_INT }},		\
-  {"bras_sym_operand",{ SYMBOL_REF, CONST }},				\
-  {"larl_operand",    { SYMBOL_REF, CONST, CONST_INT, CONST_DOUBLE }},	\
-  {"load_multiple_operation", {PARALLEL}},			        \
-  {"store_multiple_operation", {PARALLEL}},			        \
-  {"const0_operand",  { CONST_INT, CONST_DOUBLE }},			\
-  {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
-			   CONST_INT, CONST_DOUBLE }},			\
-  {"s390_plus_operand", { PLUS }},					\
-  {"s390_comparison",     { EQ, NE, LT, GT, LE, GE, LTU, GTU, LEU, GEU,	\
-			    UNEQ, UNLT, UNGT, UNLE, UNGE, LTGT,		\
-			    UNORDERED, ORDERED }},			\
-  {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
-			    LTU, GTU, LEU, GEU }},			\
-  {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\
-			    LTU, GTU, LEU, GEU }},
-
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_64BIT ? DImode : SImode)
@@ -1080,5 +1062,13 @@ do {									\
 /* A function address in a call instruction is a byte address (for
    indexing purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
+
+/* Machine-specific symbol_ref flags.  */
+#define SYMBOL_FLAG_ALIGN1	(SYMBOL_FLAG_MACH_DEP << 0)
+
+/* Check whether integer displacement is in range.  */
+#define DISP_IN_RANGE(d) \
+  (TARGET_LONG_DISPLACEMENT? ((d) >= -524288 && (d) <= 524287) \
+                           : ((d) >= 0 && (d) <= 4095))
 
 #endif

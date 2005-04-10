@@ -1,6 +1,6 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -275,7 +275,7 @@ static int pending_bincls = 0;
 static const char *base_input_file;
 
 #ifdef DEBUG_SYMS_TEXT
-#define FORCE_TEXT function_section (current_function_decl);
+#define FORCE_TEXT current_function_section (current_function_decl);
 #else
 #define FORCE_TEXT
 #endif
@@ -343,7 +343,7 @@ static void dbxout_handle_pch (unsigned);
 static void dbxout_source_line (unsigned int, const char *);
 static void dbxout_begin_prologue (unsigned int, const char *);
 static void dbxout_source_file (const char *);
-static void dbxout_function_end (void);
+static void dbxout_function_end (tree);
 static void dbxout_begin_function (tree);
 static void dbxout_begin_block (unsigned, unsigned);
 static void dbxout_end_block (unsigned, unsigned);
@@ -378,7 +378,9 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
-  debug_nothing_rtx		         /* var_location */
+  debug_nothing_rtx,		         /* var_location */
+  debug_nothing_void,                    /* switch_text_section */
+  0                                      /* start_end_main_source_file */
 };
 #endif /* DBX_DEBUGGING_INFO  */
 
@@ -408,7 +410,9 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
-  debug_nothing_rtx		         /* var_location */
+  debug_nothing_rtx,		         /* var_location */
+  debug_nothing_void,                    /* switch_text_section */
+  0                                      /* start_end_main_source_file */
 };
 #endif /* XCOFF_DEBUGGING_INFO  */
 
@@ -903,7 +907,7 @@ dbxout_finish_complex_stabs (tree sym, STAB_CODE_TYPE code,
 #if defined (DBX_DEBUGGING_INFO)
 
 static void
-dbxout_function_end (void)
+dbxout_function_end (tree decl)
 {
   char lscope_label_name[100];
 
@@ -923,7 +927,8 @@ dbxout_function_end (void)
      named sections.  */
   if (!use_gnu_debug_info_extensions
       || NO_DBX_FUNCTION_END
-      || !targetm.have_named_sections)
+      || !targetm.have_named_sections
+      || DECL_IGNORED_P (decl))
     return;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
@@ -931,9 +936,21 @@ dbxout_function_end (void)
 #ifdef DBX_OUTPUT_NFUN
   DBX_OUTPUT_NFUN (asm_out_file, lscope_label_name, current_function_decl);
 #else
-  dbxout_begin_empty_stabs (N_FUN);
-  dbxout_stab_value_label_diff (lscope_label_name,
-				XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
+  if (flag_reorder_blocks_and_partition)
+    {
+      dbxout_begin_empty_stabs (N_FUN);
+      dbxout_stab_value_label_diff (hot_section_end_label, hot_section_label);
+      dbxout_begin_empty_stabs (N_FUN);
+      dbxout_stab_value_label_diff (cold_section_end_label, 
+				    unlikely_section_label);
+    }
+  else
+    {
+      dbxout_begin_empty_stabs (N_FUN);
+      dbxout_stab_value_label_diff (lscope_label_name,
+				    XSTR (XEXP (DECL_RTL (current_function_decl), 
+						0), 0));
+    }
 				
 #endif
 
@@ -1296,7 +1313,7 @@ dbxout_function_decl (tree decl)
   dbxout_begin_function (decl);
 #endif
   dbxout_block (DECL_INITIAL (decl), 0, DECL_ARGUMENTS (decl));
-  dbxout_function_end ();
+  dbxout_function_end (decl);
 }
 
 #endif /* DBX_DEBUGGING_INFO  */
@@ -1929,11 +1946,6 @@ dbxout_type (tree type, int full)
 	stabstr_S ("eFalse:0,True:1,;");
       break;
 
-    case FILE_TYPE:
-      stabstr_C ('d');
-      dbxout_type (TREE_TYPE (type), 0);
-      break;
-
     case COMPLEX_TYPE:
       /* Differs from the REAL_TYPE by its new data type number.
 	 R3 is NF_COMPLEX.  We don't try to use any of the other NF_*
@@ -2348,7 +2360,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
     DBXOUT_DECR_NESTING_AND_RETURN (0);
 
   /* If we are to generate only the symbols actually used then such
-     symbol nodees are flagged with TREE_USED.  Ignore any that
+     symbol nodes are flagged with TREE_USED.  Ignore any that
      aren't flaged as TREE_USED.  */
 
   if (flag_debug_only_used_symbols
@@ -2428,6 +2440,9 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       /* Don't mention a nested function under its parent.  */
       context = decl_function_context (decl);
       if (context == current_function_decl)
+	break;
+      /* Don't mention an inline instance of a nested function.  */
+      if (context && DECL_FROM_INLINE (decl))
 	break;
       if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
@@ -2733,6 +2748,37 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 
 	  letter = decl_function_context (decl) ? 'V' : 'S';
 
+	  /* Some ports can transform a symbol ref into a label ref,
+	     because the symbol ref is too far away and has to be
+	     dumped into a constant pool.  Alternatively, the symbol
+	     in the constant pool might be referenced by a different
+	     symbol.  */
+	  if (GET_CODE (addr) == SYMBOL_REF
+	      && CONSTANT_POOL_ADDRESS_P (addr))
+	    {
+	      bool marked;
+	      rtx tmp = get_pool_constant_mark (addr, &marked);
+
+	      if (GET_CODE (tmp) == SYMBOL_REF)
+		{
+		  addr = tmp;
+		  if (CONSTANT_POOL_ADDRESS_P (addr))
+		    get_pool_constant_mark (addr, &marked);
+		  else
+		    marked = true;
+		}
+	      else if (GET_CODE (tmp) == LABEL_REF)
+		{
+		  addr = tmp;
+		  marked = true;
+		}
+
+	      /* If all references to the constant pool were optimized
+		 out, we just ignore the symbol.  */
+	      if (!marked)
+		return 0;
+	    }
+
 	  /* This should be the same condition as in assemble_variable, but
 	     we don't have access to dont_output_data here.  So, instead,
 	     we rely on the fact that error_mark_node initializers always
@@ -2747,37 +2793,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	    code = DBX_STATIC_CONST_VAR_CODE;
 	  else
 	    {
-	      /* Some ports can transform a symbol ref into a label ref,
-		 because the symbol ref is too far away and has to be
-		 dumped into a constant pool.  Alternatively, the symbol
-		 in the constant pool might be referenced by a different
-		 symbol.  */
-	      if (GET_CODE (addr) == SYMBOL_REF
-		  && CONSTANT_POOL_ADDRESS_P (addr))
-		{
-		  bool marked;
-		  rtx tmp = get_pool_constant_mark (addr, &marked);
-
-		  if (GET_CODE (tmp) == SYMBOL_REF)
-		    {
-		      addr = tmp;
-		      if (CONSTANT_POOL_ADDRESS_P (addr))
-		        get_pool_constant_mark (addr, &marked);
-		      else
-			marked = true;
-		    }
-		  else if (GET_CODE (tmp) == LABEL_REF)
-		    {
-		      addr = tmp;
-		      marked = true;
-		    }
-
-		   /* If all references to the constant pool were optimized
-		      out, we just ignore the symbol.  */
-		  if (!marked)
-		    return 0;
-		}
-
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
 	      data_section ();
@@ -3355,7 +3370,12 @@ dbxout_block (tree block, int depth, tree args)
 static void
 dbxout_begin_function (tree decl)
 {
-  int saved_tree_used1 = TREE_USED (decl);
+  int saved_tree_used1;
+
+  if (DECL_IGNORED_P (decl))
+    return;
+
+  saved_tree_used1 = TREE_USED (decl);
   TREE_USED (decl) = 1;
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
     {

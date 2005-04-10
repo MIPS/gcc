@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "cgraph.h"
 #include "graph.h"
+#include "cfgloop.h"
 
 
 /* Global variables used to communicate with passes.  */
@@ -212,7 +213,7 @@ static struct tree_opt_pass pass_init_datastructures =
 static void
 register_one_dump_file (struct tree_opt_pass *pass, int n)
 {
-  char *dot_name, *flag_name;
+  char *dot_name, *flag_name, *glob_name;
   char num[10];
 
   /* See below in next_pass_1.  */
@@ -225,13 +226,15 @@ register_one_dump_file (struct tree_opt_pass *pass, int n)
   if (pass->properties_provided & PROP_trees)
     {
       flag_name = concat ("tree-", pass->name, num, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name,
+      glob_name = concat ("tree-", pass->name, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
                                                 TDF_TREE, n + TDI_tree_all, 0);
     }
   else
     {
       flag_name = concat ("rtl-", pass->name, num, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name,
+      glob_name = concat ("rtl-", pass->name, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
                                                 TDF_RTL, n, pass->letter);
     }
 }
@@ -345,7 +348,7 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
-  NEXT_PASS (pass_maybe_create_global_var);
+  NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -362,6 +365,10 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_sra);
+  /* FIXME: SRA may generate arbitrary gimple code, exposing new
+     aliased and call-clobbered variables.  As mentioned below,
+     pass_may_alias should be a TODO item.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
@@ -379,6 +386,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
+  NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
@@ -432,8 +440,11 @@ static void execute_pass_list (struct tree_opt_pass *);
 static unsigned int last_verified;
 
 static void
-execute_todo (int properties, unsigned int flags)
+execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
 {
+  int properties 
+    = use_required ? pass->properties_required : pass->properties_provided;
+
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
@@ -446,7 +457,12 @@ execute_todo (int properties, unsigned int flags)
     }
 
   if (flags & TODO_cleanup_cfg)
-    cleanup_tree_cfg ();
+    {
+      if (current_loops)
+	cleanup_tree_cfg_loop ();
+      else
+	cleanup_tree_cfg ();
+    }
 
   if ((flags & TODO_dump_func) && dump_file)
     {
@@ -464,11 +480,15 @@ execute_todo (int properties, unsigned int flags)
     }
 
   if (flags & TODO_ggc_collect)
-    ggc_collect ();
+    {
+      ggc_collect ();
+    }
 
 #ifdef ENABLE_CHECKING
-  if (flags & TODO_verify_ssa)
-    verify_ssa ();
+  if ((pass->properties_required & PROP_ssa)
+      && !(pass->properties_destroyed & PROP_ssa))
+    verify_ssa  (true);
+
   if (flags & TODO_verify_flow)
     verify_flow_info ();
   if (flags & TODO_verify_stmts)
@@ -492,7 +512,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run pre-pass verification.  */
   todo = pass->todo_flags_start & ~last_verified;
   if (todo)
-    execute_todo (pass->properties_required, todo);
+    execute_todo (pass, todo, true);
 
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
@@ -542,7 +562,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   todo = pass->todo_flags_finish;
   last_verified = todo & TODO_verify_all;
   if (todo)
-    execute_todo (pass->properties_provided, todo);
+    execute_todo (pass, todo, false);
 
   /* Flush and close dump file.  */
   if (dump_file_name)
@@ -649,18 +669,27 @@ tree_rest_of_compilation (tree fndecl)
 	  timevar_pop (TV_INTEGRATION);
 	}
     }
-
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
   while (node->callees)
-    cgraph_remove_edge (node->callees);
+    {
+      /* In non-unit-at-a-time we must mark all referenced functions as needed.
+         */
+      if (node->callees->callee->analyzed && !flag_unit_at_a_time)
+        cgraph_mark_needed_node (node->callees->callee);
+      cgraph_remove_edge (node->callees);
+    }
+
+  /* We are not going to maintain the cgraph edges up to date.
+     Kill it so it won't confuse us.  */
+  cgraph_node_remove_callees (node);
 
 
   /* Initialize the default bitmap obstack.  */
   bitmap_obstack_initialize (NULL);
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
   
-  vars_to_rename = BITMAP_XMALLOC ();
+  vars_to_rename = BITMAP_ALLOC (NULL);
   
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
@@ -684,8 +713,7 @@ tree_rest_of_compilation (tree fndecl)
 	{
 	  struct cgraph_edge *e;
 
-	  while (node->callees)
-	    cgraph_remove_edge (node->callees);
+	  cgraph_node_remove_callees (node);
 	  node->callees = saved_node->callees;
 	  saved_node->callees = NULL;
 	  update_inlined_to_pointers (node, node);

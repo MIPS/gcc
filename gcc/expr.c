@@ -2877,19 +2877,14 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
   if (push_operand (x, mode))
     return emit_move_complex_push (mode, x, y);
 
-  /* For memory to memory moves, optimal behavior can be had with the
-     existing block move logic.  */
-  if (MEM_P (x) && MEM_P (y))
-    {
-      emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
-		       BLOCK_OP_NO_LIBCALL);
-      return get_last_insn ();
-    }
-
   /* See if we can coerce the target into moving both values at once.  */
 
+  /* Move floating point as parts.  */
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+      && mov_optab->handlers[GET_MODE_INNER (mode)].insn_code != CODE_FOR_nothing)
+    try_int = false;
   /* Not possible if the values are inherently not adjacent.  */
-  if (GET_CODE (x) == CONCAT || GET_CODE (y) == CONCAT)
+  else if (GET_CODE (x) == CONCAT || GET_CODE (y) == CONCAT)
     try_int = false;
   /* Is possible if both are registers (or subregs of registers).  */
   else if (register_operand (x, mode) && register_operand (y, mode))
@@ -2907,7 +2902,18 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 
   if (try_int)
     {
-      rtx ret = emit_move_via_integer (mode, x, y);
+      rtx ret;
+
+      /* For memory to memory moves, optimal behavior can be had with the
+	 existing block move logic.  */
+      if (MEM_P (x) && MEM_P (y))
+	{
+	  emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
+			   BLOCK_OP_NO_LIBCALL);
+	  return get_last_insn ();
+	}
+
+      ret = emit_move_via_integer (mode, x, y);
       if (ret)
 	return ret;
     }
@@ -3755,6 +3761,41 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
 	emit_move_insn (str_rtx, result);
       return true;
 
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+      if (TREE_CODE (op1) != INTEGER_CST)
+	break;
+      value = expand_expr (op1, NULL_RTX, GET_MODE (str_rtx), 0);
+      value = convert_modes (GET_MODE (str_rtx),
+			     TYPE_MODE (TREE_TYPE (op1)), value,
+			     TYPE_UNSIGNED (TREE_TYPE (op1)));
+
+      /* We may be accessing data outside the field, which means
+	 we can alias adjacent data.  */
+      if (MEM_P (str_rtx))
+	{
+	  str_rtx = shallow_copy_rtx (str_rtx);
+	  set_mem_alias_set (str_rtx, 0);
+	  set_mem_expr (str_rtx, 0);
+	}
+
+      binop = TREE_CODE (src) == BIT_IOR_EXPR ? ior_optab : xor_optab;
+      if (bitpos + bitsize != GET_MODE_BITSIZE (GET_MODE (str_rtx)))
+	{
+	  rtx mask = GEN_INT (((unsigned HOST_WIDE_INT) 1 << bitsize)
+			      - 1);
+	  value = expand_and (GET_MODE (str_rtx), value, mask,
+			      NULL_RTX);
+	}
+      value = expand_shift (LSHIFT_EXPR, GET_MODE (str_rtx), value,
+			    build_int_cst (NULL_TREE, bitpos),
+			    NULL_RTX, 1);
+      result = expand_binop (GET_MODE (str_rtx), binop, str_rtx,
+			     value, str_rtx, 1, OPTAB_WIDEN);
+      if (result != str_rtx)
+	emit_move_insn (str_rtx, result);
+      return true;
+
     default:
       break;
     }
@@ -3789,7 +3830,6 @@ expand_assignment (tree to, tree from)
     {
       enum machine_mode mode1;
       HOST_WIDE_INT bitsize, bitpos;
-      rtx orig_to_rtx;
       tree offset;
       int unsignedp;
       int volatilep = 0;
@@ -3802,7 +3842,7 @@ expand_assignment (tree to, tree from)
       /* If we are going to use store_bit_field and extract_bit_field,
 	 make sure to_rtx will be safe for multiple use.  */
 
-      orig_to_rtx = to_rtx = expand_expr (tem, NULL_RTX, VOIDmode, 0);
+      to_rtx = expand_expr (tem, NULL_RTX, VOIDmode, 0);
 
       if (offset != 0)
 	{
@@ -4272,12 +4312,15 @@ store_expr (tree exp, rtx target, int call_param_p)
    * how many scalar fields are set to non-constant values,
      and place it in  *P_NC_ELTS; and
    * how many scalar fields in total are in CTOR,
-     and place it in *P_ELT_COUNT.  */
+     and place it in *P_ELT_COUNT.
+   * if a type is a union, and the initializer from the constructor
+     is not the largest element in the union, then set *p_must_clear.  */
 
 static void
 categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 			    HOST_WIDE_INT *p_nc_elts,
-			    HOST_WIDE_INT *p_elt_count)
+			    HOST_WIDE_INT *p_elt_count,
+			    bool *p_must_clear)
 {
   HOST_WIDE_INT nz_elts, nc_elts, elt_count;
   tree list;
@@ -4307,11 +4350,11 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 	{
 	case CONSTRUCTOR:
 	  {
-	    HOST_WIDE_INT nz = 0, nc = 0, count = 0;
-	    categorize_ctor_elements_1 (value, &nz, &nc, &count);
+	    HOST_WIDE_INT nz = 0, nc = 0, ic = 0;
+	    categorize_ctor_elements_1 (value, &nz, &nc, &ic, p_must_clear);
 	    nz_elts += mult * nz;
 	    nc_elts += mult * nc;
-	    elt_count += mult * count;
+	    elt_count += mult * ic;
 	  }
 	  break;
 
@@ -4356,6 +4399,40 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 	}
     }
 
+  if (!*p_must_clear
+      && (TREE_CODE (TREE_TYPE (ctor)) == UNION_TYPE
+	  || TREE_CODE (TREE_TYPE (ctor)) == QUAL_UNION_TYPE))
+    {
+      tree init_sub_type;
+      bool clear_this = true;
+
+      list = CONSTRUCTOR_ELTS (ctor);
+      if (list)
+	{
+	  /* We don't expect more than one element of the union to be
+	     initialized.  Not sure what we should do otherwise... */
+          gcc_assert (TREE_CHAIN (list) == NULL);
+
+          init_sub_type = TREE_TYPE (TREE_VALUE (list));
+
+	  /* ??? We could look at each element of the union, and find the
+	     largest element.  Which would avoid comparing the size of the
+	     initialized element against any tail padding in the union.
+	     Doesn't seem worth the effort...  */
+	  if (simple_cst_equal (TYPE_SIZE (TREE_TYPE (ctor)), 
+				TYPE_SIZE (init_sub_type)) == 1)
+	    {
+	      /* And now we have to find out if the element itself is fully
+		 constructed.  E.g. for union { struct { int a, b; } s; } u
+		 = { .s = { .a = 1 } }.  */
+	      if (elt_count == count_type_elements (init_sub_type))
+		clear_this = false;
+	    }
+	}
+
+      *p_must_clear = clear_this;
+    }
+
   *p_nz_elts += nz_elts;
   *p_nc_elts += nc_elts;
   *p_elt_count += elt_count;
@@ -4364,12 +4441,15 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 void
 categorize_ctor_elements (tree ctor, HOST_WIDE_INT *p_nz_elts,
 			  HOST_WIDE_INT *p_nc_elts,
-			  HOST_WIDE_INT *p_elt_count)
+			  HOST_WIDE_INT *p_elt_count,
+			  bool *p_must_clear)
 {
   *p_nz_elts = 0;
   *p_nc_elts = 0;
   *p_elt_count = 0;
-  categorize_ctor_elements_1 (ctor, p_nz_elts, p_nc_elts, p_elt_count);
+  *p_must_clear = false;
+  categorize_ctor_elements_1 (ctor, p_nz_elts, p_nc_elts, p_elt_count,
+			      p_must_clear);
 }
 
 /* Count the number of scalars in TYPE.  Return -1 on overflow or
@@ -4442,7 +4522,6 @@ count_type_elements (tree type)
 
     case VOID_TYPE:
     case METHOD_TYPE:
-    case FILE_TYPE:
     case FUNCTION_TYPE:
     case LANG_TYPE:
     default:
@@ -4459,8 +4538,12 @@ mostly_zeros_p (tree exp)
 
     {
       HOST_WIDE_INT nz_elts, nc_elts, count, elts;
+      bool must_clear;
 
-      categorize_ctor_elements (exp, &nz_elts, &nc_elts, &count);
+      categorize_ctor_elements (exp, &nz_elts, &nc_elts, &count, &must_clear);
+      if (must_clear)
+	return 1;
+
       elts = count_type_elements (TREE_TYPE (exp));
 
       return nz_elts < elts / 4;
@@ -5175,7 +5258,27 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
 	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)), bitsize) != 0))
     {
-      rtx temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);
+      rtx temp;
+
+      /* If EXP is a NOP_EXPR of precision less than its mode, then that
+	 implies a mask operation.  If the precision is the same size as
+	 the field we're storing into, that mask is redundant.  This is
+	 particularly common with bit field assignments generated by the
+	 C front end.  */
+      if (TREE_CODE (exp) == NOP_EXPR)
+	{
+	  tree type = TREE_TYPE (exp);
+	  if (INTEGRAL_TYPE_P (type)
+	      && TYPE_PRECISION (type) < GET_MODE_BITSIZE (TYPE_MODE (type))
+	      && bitsize == TYPE_PRECISION (type))
+	    {
+	      type = TREE_TYPE (TREE_OPERAND (exp, 0));
+	      if (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) >= bitsize)
+		exp = TREE_OPERAND (exp, 0);
+	    }
+	}
+
+      temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);
 
       /* If BITSIZE is narrower than the size of the type of EXP
 	 we will be narrowing TEMP.  Normally, what's wanted are the
@@ -7781,9 +7884,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* If op1 was placed in target, swap op0 and op1.  */
       if (target != op0 && target == op1)
 	{
-	  rtx tem = op0;
+	  temp = op0;
 	  op0 = op1;
-	  op1 = tem;
+	  op1 = temp;
 	}
 
       /* We generate better code and avoid problems with op1 mentioning
@@ -7791,10 +7894,51 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (! CONSTANT_P (op1))
 	op1 = force_reg (mode, op1);
 
+#ifdef HAVE_conditional_move
+      /* Use a conditional move if possible.  */
+      if (can_conditionally_move_p (mode))
+	{
+	  enum rtx_code comparison_code;
+	  rtx insn;
+
+	  if (code == MAX_EXPR)
+	    comparison_code = unsignedp ? GEU : GE;
+	  else
+	    comparison_code = unsignedp ? LEU : LE;
+
+	  /* ??? Same problem as in expmed.c: emit_conditional_move
+	     forces a stack adjustment via compare_from_rtx, and we
+	     lose the stack adjustment if the sequence we are about
+	     to create is discarded.  */
+	  do_pending_stack_adjust ();
+
+	  start_sequence ();
+
+	  /* Try to emit the conditional move.  */
+	  insn = emit_conditional_move (target, comparison_code,
+					op0, op1, mode,
+					op0, op1, mode,
+					unsignedp);
+
+	  /* If we could do the conditional move, emit the sequence,
+	     and return.  */
+	  if (insn)
+	    {
+	      rtx seq = get_insns ();
+	      end_sequence ();
+	      emit_insn (seq);
+	      return target;
+	    }
+
+	  /* Otherwise discard the sequence and fall back to code with
+	     branches.  */
+	  end_sequence ();
+	}
+#endif
       if (target != op0)
 	emit_move_insn (target, op0);
 
-      op0 = gen_label_rtx ();
+      temp = gen_label_rtx ();
 
       /* If this mode is an integer too wide to compare properly,
 	 compare word by word.  Rely on cse to optimize constant cases.  */
@@ -7803,18 +7947,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	{
 	  if (code == MAX_EXPR)
 	    do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
-					  NULL_RTX, op0);
+					  NULL_RTX, temp);
 	  else
 	    do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
-					  NULL_RTX, op0);
+					  NULL_RTX, temp);
 	}
       else
 	{
 	  do_compare_rtx_and_jump (target, op1, code == MAX_EXPR ? GE : LE,
-				   unsignedp, mode, NULL_RTX, NULL_RTX, op0);
+				   unsignedp, mode, NULL_RTX, NULL_RTX, temp);
 	}
       emit_move_insn (target, op1);
-      emit_label (op0);
+      emit_label (temp);
       return target;
 
     case BIT_NOT_EXPR:

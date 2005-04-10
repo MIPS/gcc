@@ -1,5 +1,5 @@
 /* Loop unrolling and peeling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1043,11 +1043,11 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p, NULL_RTX);
 
-      swtch = loop_split_edge_with (EDGE_PRED (swtch, 0), branch_code);
+      swtch = loop_split_edge_with (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      EDGE_SUCC (swtch, 0)->probability = REG_BR_PROB_BASE - p;
+      single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
-		     EDGE_SUCC (swtch, 0)->flags & EDGE_IRREDUCIBLE_LOOP);
+		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->probability = p;
     }
 
@@ -1060,11 +1060,11 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p, NULL_RTX);
 
-      swtch = loop_split_edge_with (EDGE_SUCC (swtch, 0), branch_code);
+      swtch = loop_split_edge_with (single_succ_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      EDGE_SUCC (swtch, 0)->probability = REG_BR_PROB_BASE - p;
+      single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
-		     EDGE_SUCC (swtch, 0)->flags & EDGE_IRREDUCIBLE_LOOP);
+		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->probability = p;
     }
 
@@ -1648,7 +1648,6 @@ analyze_insns_in_loop (struct loop *loop)
   PTR *slot1;
   PTR *slot2;
   edge *edges = get_loop_exit_edges (loop, &n_edges);
-  basic_block preheader;
   bool can_apply = false;
   
   iv_analysis_loop_init (loop);
@@ -1662,15 +1661,14 @@ analyze_insns_in_loop (struct loop *loop)
   /* Record the loop exit bb and loop preheader before the unrolling.  */
   if (!loop_preheader_edge (loop)->src)
     {
-      preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+      loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
       opt_info->loop_preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
     }
   else
     opt_info->loop_preheader = loop_preheader_edge (loop)->src;
   
   if (n_edges == 1
-      && !(edges[0]->flags & EDGE_COMPLEX)
-      && (edges[0]->flags & EDGE_LOOP_EXIT))
+      && !(edges[0]->flags & EDGE_COMPLEX))
     {
       opt_info->loop_exit = loop_split_edge_with (edges[0], NULL_RTX);
       can_apply = true;
@@ -1893,8 +1891,7 @@ expand_var_during_unrolling (struct var_to_expand *ve, rtx insn)
   bool really_new_expansion = false;
   
   set = single_set (insn);
-  if (!set)
-    abort ();
+  gcc_assert (set);
   
   /* Generate a new register only if the expansion limit has not been
      reached.  Else reuse an already existing expansion.  */
@@ -2170,172 +2167,4 @@ free_opt_info (struct opt_info *opt_info)
       htab_delete (opt_info->insns_with_var_to_expand);
     }
   free (opt_info);
-}
-#define SIMPLE_LOOP_P(loop) ((loop->num_nodes < 3 )                     \
-                             && (EDGE_COUNT (loop->latch->preds) == 1) \
-                             && (EDGE_COUNT (loop->latch->succs) == 1))
-/* Return true if all the BBs of the loop are empty except the
-   loop header.  */
-static bool
-rtl_loop_single_full_bb_p (struct loop *loop)
-{
-  unsigned i;
-  basic_block *bbs = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes ; i++)
-    {
-      rtx head, tail;
-      bool empty_bb = true;
-      if (bbs[i] == loop->header)
-        continue;
-      /* Make sure that basic blocks other than the header
-         have only notes labels or jumps.  */
-      tail = BB_END (bbs[i]);
-      for (head = BB_HEAD (bbs[i]) ; head != NEXT_INSN (tail); head = NEXT_INSN (head))
-        {
-          if (NOTE_P (head) || LABEL_P (head)
- 	      || (INSN_P (head) && JUMP_P (head)))
- 	    continue;
- 	  empty_bb = false;
- 	  break;
-        }
-      if (! empty_bb)
-        {
-          free (bbs);
-          return false;
-        }
-    }
-  free (bbs);
-  return true;
-}
-static bool
-rtl_loop_ch_appropriate_p (struct loop *loop)
-{
-  unsigned nexits;
-  rtx head;
-  int n_insns = 0;
-  if (loop->inner || ! loop->outer)
-    return false;
-  get_loop_exit_edges (loop, &nexits);
-  if (nexits > 1)
-    return false;
-  if (! SIMPLE_LOOP_P (loop) || rtl_loop_single_full_bb_p (loop))
-    return false;
-  for (head = BB_HEAD (loop->header);
-       head != NEXT_INSN (BB_END (loop->header));
-       head = NEXT_INSN (head))
-     {
-        if (NOTE_P (head) || LABEL_P (head))
-	  continue;
-	n_insns++;
-     }
-  if (n_insns > LOOP_CH_MAX_SIZE)
-    return false;
-  return true;
-}
-/* The same tree_duplicate_sese_region but for RTL, no need to update ssa.  */
-static bool
-cfg_duplicate_sese_region (edge entry, edge exit,
-			   basic_block *region, unsigned n_region,
-			   basic_block *region_copy)
-{
-  unsigned i, n_doms;
-  bool free_region_copy = false, copying_header = false;
-  struct loop *loop = entry->dest->loop_father;
-  edge exit_copy;
-  basic_block *doms;
-  edge redirected;
-  if (!can_copy_bbs_p (region, n_region))
-    return false;
-  /* Some sanity checking.  Note that we do not check for all possible
-     missuses of the functions.  I.e. if you ask to copy something weird,
-     it will work, but the state of structures probably will not be
-     correct.  */
-  for (i = 0; i < n_region; i++)
-    {
-      /* We do not handle subloops, i.e. all the blocks must belong to the
-	 same loop.  */
-      if (region[i]->loop_father != loop)
-	return false;
-      if (region[i] != entry->dest
-	  && region[i] == loop->header)
-	return false;
-    }
-  loop->copy = loop;
-  /* In case the function is used for loop header copying (which is the primary
-     use), ensure that EXIT and its copy will be new latch and entry edges.  */
-  if (loop->header == entry->dest)
-    {
-      copying_header = true;
-      loop->copy = loop->outer;
-      if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
-	return false;
-      for (i = 0; i < n_region; i++)
-	if (region[i] != exit->src
-            && dominated_by_p (CDI_DOMINATORS, region[i], exit->src))
-          return false;
-    }
-  if (!region_copy)
-    {
-      region_copy = xmalloc (sizeof (basic_block) * n_region);
-      free_region_copy = true;
-    }
-  gcc_assert (!any_marked_for_rewrite_p ());
-  /* Record blocks outside the region that are duplicated by something
-     inside.  */
-  doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
-  copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
-  if (copying_header)
-    {
-      loop->header = exit->dest;
-      loop->latch = exit->src;
-    }
-  /* Redirect the entry and add the phi node arguments.  */
-  redirected = redirect_edge_and_branch (entry, entry->dest->rbi->copy);
-  gcc_assert (redirected != NULL);
-  /* Concerning updating of dominators:  We must recount dominators
-     for entry block and its copy.  Anything that is outside of the region, but
-     was dominated by something inside needs recounting as well.  */
-  set_immediate_dominator (CDI_DOMINATORS, entry->dest, entry->src);
-  doms[n_doms++] = entry->dest->rbi->original;
-  iterate_fix_dominators (CDI_DOMINATORS, doms, n_doms);
-  free (doms);
-  return true;
-}
-/* This is loop_copy_header does but in RTL level.
-   Having a loop that executes N times where the loop header
-   executes N times and the latch executes N - 1 times we transform
-   it to a loop that executes N - 1 times (both header and latch)
-   and a single iteration of the loop header to the entry of the
-   loop.  Thie perpose fromt this transformation is to make
-   the scheduling (and SMS) of loops more efficient.  */
-void
-rtl_loop_copy_header (struct loops *loops)
-{
-  unsigned i;
-  edge exit_e;
-  sbitmap wont_exit = sbitmap_alloc (2);
-  sbitmap_zero (wont_exit);
-  for (i = 0; i < loops->num; i++)
-    {
-      struct loop *loop = loops->parray[i];
-      edge e;
-      basic_block *bbs;
-      if (! rtl_loop_ch_appropriate_p (loop))
-	continue;
-      create_preheader (loop, CP_SIMPLE_PREHEADERS);
-      bbs = get_loop_body (loop);
-      if (EDGE_PRED (loop->header, 0)->src != loop->latch)
-	e = EDGE_PRED (loop->header, 0);
-      else
-	e = EDGE_PRED (loop->header, 1);
-      if (EDGE_SUCC (loop->header, 0)->dest == loop->latch)
-	exit_e = EDGE_SUCC (loop->header, 0);
-      else
-	exit_e = EDGE_SUCC (loop->header, 1);
-      if (!cfg_duplicate_sese_region (e, exit_e, bbs, 1, NULL) && dump_file)
-        fprintf (dump_file, "Duplication failed.\n");
-    }
-  free_dominance_info (CDI_DOMINATORS);
-  cleanup_cfg (CLEANUP_CFGLAYOUT);
 }

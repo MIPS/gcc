@@ -1,3 +1,135 @@
+2005-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/19475
+	* macro.c (create_iso_definition): For < ISO C99, don't
+	pedwarn if there is no whitespace between macro name and its
+	replacement, but the replacement starts with a basic character
+	set character.
+
+2005-03-28  Andreas Jaeger  <aj@suse.de>
+
+	* lex.c (warn_about_normalization): Cast field width to int to
+	avoid warning.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Consistently use solaris2.1[0-9]* instead of
+	solaris2.1[0-9].
+	* configure: Regenerate.
+
+2005-03-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* charset.c (_cpp_valid_ucn): In identifiers, reject a partial
+	UCN rather than printing an error.
+
+2005-03-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* lex.c (forms_identifier_p): Disable UCNs in C89 mode.
+
+2005-03-14  Geoffrey Keating  <geoffk@apple.com>
+	
+	* init.c (cpp_create_reader): Default warn_normalize to normalized_C.
+	* charset.c: Update for new format of ucnid.h.
+	(ucn_valid_in_identifier): Update for new format of ucnid.h.
+	Add NST parameter, and update it; update callers.
+	(cpp_valid_ucn): Add NST parameter, update callers.  Replace abort
+	with cpp_error.
+	(convert_ucn): Pass normalize_state to cpp_valid_ucn.
+	* internal.h (struct normalize_state): New.
+	(INITIAL_NORMALIZE_STATE): New.
+	(NORMALIZE_STATE_RESULT): New.
+	(NORMALIZE_STATE_UPDATE_IDNUM): New.
+	(_cpp_valid_ucn): New.
+	* lex.c (warn_about_normalization): New.
+	(forms_identifier_p): Add normalize_state parameter, update callers.
+	(lex_identifier): Add normalize_state parameter, update callers.  Keep
+	the state current.
+	(lex_number): Likewise.
+	(_cpp_lex_direct): Pass normalize_state to subroutines.  Check
+	it with warn_about_normalization.
+	* makeucnid.c: New.
+	* ucnid.h: Replace.
+	* ucnid.pl: Remove.
+	* ucnid.tab: Make appropriate for input to makeucnid.c.  Remove
+	comments about obsolete version of C++.
+	* include/cpplib.h (enum cpp_normalize_level): New.
+	(struct cpp_options): Add warn_normalize field.
+
+2005-03-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* directives.c (glue_header_name): Update call to cpp_spell_token.
+	* internal.h (_cpp_interpret_identifier): New.
+	* charset.c (_cpp_interpret_identifier): New.
+	(_cpp_valid_ucn): Allow UCN version of '$'.
+	* lex.c (lex_identifier): Add extra parameter to indicate if initial
+	character was '$' or '\'.  Support identifiers with UCNs.
+	(forms_identifier_p): Allow UCNs.
+	(_cpp_lex_direct): Pass extra parameter to lex_identifier.
+	(utf8_to_ucn): New.
+	(cpp_spell_token): Add FORSTRING parameter.  Use it.
+	(cpp_token_as_text): Update call to cpp_spell_token.
+	(cpp_output_token): Write UCNs back out.
+	(stringify_arg): Update call to cpp_spell_token.
+	(paste_tokens): Likewise.
+	(cpp_macro_definition): Likewise.
+	* macro.c (stringify_arg): Likewise.
+	(paste_tokens): Likewise.
+	(cpp_macro_definition): Likewise.
+	* include/cpplib.h: Add parameter to cpp_spell_token.
+
+2005-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/20282
+	PR bootstrap/20305
+	* macro.c (replace_args, cpp_get_token): Copy whole
+	cpp_token_u instead of just cpp_string field from it.
+
+2005-02-28  Devang Patel  <dpatel@apple.com>
+
+	* directives.c (do_line): Save sysp early before line table is
+	realloc'ed.
+	
+2005-02-20  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18785
+	* charset.c (LAST_POSSIBLY_BASIC_SOURCE_CHAR): New helper macro.
+	(cpp_host_to_exec_charset): New function.
+	* include/cpplib.h: Declare cpp_host_to_exec_charset.
+
+2005-02-19  Devang Patel  <dpatel@apple.com>
+
+	* charset.c (_cpp_convert_input): Check '\r' before inserting
+	'\n' at the end.
+
+2005-02-15  Eric Christopher  <echristo@redhat.com>
+
+	PR preprocessor/19077
+	* macro.c (cpp_macro_definition): Move handling of whitespace
+	to PREV_WHITE conditional. Remove overloading of len
+	variable.
+
+2005-02-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* directives.c, files.c, init.c, internal.h, macro.c, pch.c,
+	traditional.c: Update copyright.
+
+2005-02-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/19818
+	* configure.ac: Check for declaration of basename and getopt.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* internal.h (ustrcspn): New.
+	* macro.c (create_iso_definition): Fix allocation of memory.
+	(padding_token): Add cast to remove const-ness.
+	* pch.c (cpp_read_state): Use ustrcspn.
+
+2005-02-08  Mike Stump  <mrs@apple.com>
+
+	* files.c (pchf_adder): Remove.
+	(struct pchf_adder_info): Likewise.
+	(_cpp_save_file_entries): Write out all files so that #import works.
+
 2005-01-23  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* configure: Regenerate.
@@ -7,7 +139,7 @@
 	* include/cpplib.h (c_lang): Fix comment to say cpp_create_reader.
 
 	* include/cpplib.h: Also update copyright years.
-	
+
 2005-01-03  Geoffrey Keating  <geoffk@apple.com>
 
 	* files.c (_cpp_find_file): Add files found by search_path_exhausted
@@ -30,7 +162,7 @@
 
 2004-11-28  Nathanael Nerode  <neroden@gcc.gnu.org>
 
-	PR preprocessor/17610 
+	PR preprocessor/17610
 	* directives.c (do_include_common): Error out if an empty filename
 	is given for #include (or #include_next or #import).
 
@@ -53,7 +185,7 @@
 	* configure: Regenerate.
 
 2004-11-23  Daniel Jacobowitz  <dan@codesourcery.com>
-            Joseph Myers  <joseph@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
 
 	* internal.h (struct lexer_state): Add in_deferred_pragma.
 	* directives.c (struct pragma_entry): Add allow_expansion.
@@ -66,7 +198,7 @@
 	* include/cpplib.h (cpp_register_pragma): Update prototype.
 
 2004-11-18  Daniel Jacobowitz  <dan@codesourcery.com>
-            Mark Mitchell  <mark@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
 
 	* configure.ac (i[34567]86-*-solaris2.1[0-9]*): Set
 	need_64bit_hwint=yes.
@@ -81,7 +213,7 @@
 	Remove local srcdir path from generated file.
 
 2004-11-04  Zack Weinberg  <zack@codesourcery.com>
-            Gerald Pfeifer  <gerald@pfeifer.com>
+	    Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* internal.h (HAVE_ICONV): Undefine if we do not have HAVE_ICONV_H
 	as well.

@@ -50,7 +50,7 @@ using_eh_for_cleanups (void)
 /* Misc functions used in this file.  */
 
 /* Compare and hash for any structure which begins with a canonical
-   pointer.  Assumes all pointers are interchangable, which is sort
+   pointer.  Assumes all pointers are interchangeable, which is sort
    of already assumed by gcc elsewhere IIRC.  */
 
 static int
@@ -755,7 +755,7 @@ lower_try_finally_fallthru_label (struct leh_tf_state *tf)
    alternative considered below.  For the nonce, we always choose the first
    option.
 
-   THIS_STATE may be null if if this is a try-cleanup, not a try-finally.  */
+   THIS_STATE may be null if this is a try-cleanup, not a try-finally.  */
 
 static void
 honor_protect_cleanup_actions (struct leh_state *outer_state,
@@ -1719,7 +1719,7 @@ tree_could_trap_p (tree expr)
   bool honor_snans = false;
   bool fp_operation = false;
   bool honor_trapv = false;
-  tree t, base, idx;
+  tree t, base;
 
   if (TREE_CODE_CLASS (code) == tcc_comparison
       || TREE_CODE_CLASS (code) == tcc_unary
@@ -1759,7 +1759,6 @@ tree_could_trap_p (tree expr)
 
     case ARRAY_REF:
       base = TREE_OPERAND (expr, 0);
-      idx = TREE_OPERAND (expr, 1);
       if (tree_could_trap_p (base))
 	return true;
 
@@ -1788,8 +1787,8 @@ tree_could_trap_p (tree expr)
     case RDIV_EXPR:
       if (honor_snans || honor_trapv)
 	return true;
-      if (fp_operation && flag_trapping_math)
-	return true;
+      if (fp_operation)
+	return flag_trapping_math;
       t = TREE_OPERAND (expr, 1);
       if (!TREE_CONSTANT (t) || integer_zerop (t))
         return true;
@@ -1837,6 +1836,13 @@ tree_could_trap_p (tree expr)
       if (fp_operation && flag_trapping_math)
 	return true;
       if (honor_trapv)
+	return true;
+      return false;
+
+    case CALL_EXPR:
+      t = get_callee_fndecl (expr);
+      /* Assume that calls to weak functions may trap.  */
+      if (!t || !DECL_P (t) || DECL_WEAK (t))
 	return true;
       return false;
 

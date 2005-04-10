@@ -1,5 +1,5 @@
 /* Tree inlining hooks and declarations.
-   Copyright 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ bool tree_inlinable_function_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
 tree save_body (tree, tree *, tree *);
+int estimate_move_cost (tree type);
 int estimate_num_insns (tree expr);
 
 /* 0 if we should not perform inlining.

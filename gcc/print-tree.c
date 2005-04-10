@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,6 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "tree-iterator.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -79,6 +80,12 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -217,6 +224,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -252,6 +265,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" readonly", file);
   if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
+  else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
+    fputs (" sizes-gimplified", file);
+
   if (TREE_INVARIANT (node))
     fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
@@ -706,6 +722,28 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		indent_to (file, indent + 4);
 		print_node_brief (file, temp, TREE_VEC_ELT (node, i), 0);
 	      }
+	  break;
+
+    	case STATEMENT_LIST:
+	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
+		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
+	  {
+	    tree_stmt_iterator i;
+	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
+	      {
+		/* Not printing the addresses of the (not-a-tree)
+		   'struct tree_stmt_list_node's.  */
+		fprintf (file, " " HOST_PTR_PRINTF, (void *)tsi_stmt (i));
+	      }
+	    fprintf (file, "\n");
+	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
+	      {
+		/* Not printing the addresses of the (not-a-tree)
+		   'struct tree_stmt_list_node's.  */
+		print_node (file, "stmt", tsi_stmt (i), indent + 4);
+	      }
+	  }
+	  print_node (file, "chain", TREE_CHAIN (node), indent + 4);
 	  break;
 
 	case BLOCK:

@@ -1249,16 +1249,16 @@ write_integer_cst (const tree cst)
       if (sign < 0)
 	{
 	  write_char ('n');
-	  n = fold (build1 (NEGATE_EXPR, type, n));
+	  n = fold_build1 (NEGATE_EXPR, type, n);
 	}
       do
 	{
-	  tree d = fold (build2 (FLOOR_DIV_EXPR, type, n, base));
-	  tree tmp = fold (build2 (MULT_EXPR, type, d, base));
+	  tree d = fold_build2 (FLOOR_DIV_EXPR, type, n, base);
+	  tree tmp = fold_build2 (MULT_EXPR, type, d, base);
 	  unsigned c;
 
 	  done = integer_zerop (d);
-	  tmp = fold (build2 (MINUS_EXPR, type, n, tmp));
+	  tmp = fold_build2 (MINUS_EXPR, type, n, tmp);
 	  c = hwint_to_ascii (TREE_INT_CST_LOW (tmp), 10, ptr,
 			      done ? 1 : chunk_digits);
 	  ptr -= c;
@@ -2230,7 +2230,7 @@ write_template_arg (tree node)
   MANGLE_TRACE_TREE ("template-arg", node);
 
   /* A template template parameter's argument list contains TREE_LIST
-     nodes of which the value field is the the actual argument.  */
+     nodes of which the value field is the actual argument.  */
   if (code == TREE_LIST)
     {
       node = TREE_VALUE (node);

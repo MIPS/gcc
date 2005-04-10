@@ -414,7 +414,7 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
   gcc_assert (expr->ts.type != BT_CHARACTER);
   /* Initialize the operand.  */
   gfc_init_se (&operand, se);
-  gfc_conv_expr_val (&operand, expr->op1);
+  gfc_conv_expr_val (&operand, expr->value.op.op1);
   gfc_add_block_to_block (&se->pre, &operand.pre);
 
   type = gfc_typenode_for_spec (&expr->ts);
@@ -513,7 +513,7 @@ gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
       op1 = op0;
     }
 
-  tmp = fold (build2 (MULT_EXPR, TREE_TYPE (op0), op0, op1));
+  tmp = fold_build2 (MULT_EXPR, TREE_TYPE (op0), op0, op1);
   tmp = gfc_evaluate_now (tmp, &se->pre);
 
   if (n < POWI_TABLE_SIZE)
@@ -607,25 +607,25 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
   tree tmp;
 
   gfc_init_se (&lse, se);
-  gfc_conv_expr_val (&lse, expr->op1);
+  gfc_conv_expr_val (&lse, expr->value.op.op1);
   gfc_add_block_to_block (&se->pre, &lse.pre);
 
   gfc_init_se (&rse, se);
-  gfc_conv_expr_val (&rse, expr->op2);
+  gfc_conv_expr_val (&rse, expr->value.op.op2);
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
-  if (expr->op2->ts.type == BT_INTEGER
-	 && expr->op2->expr_type == EXPR_CONSTANT)
+  if (expr->value.op.op2->ts.type == BT_INTEGER
+	 && expr->value.op.op2->expr_type == EXPR_CONSTANT)
     if (gfc_conv_cst_int_power (se, lse.expr, rse.expr))
       return;        
 
   gfc_int4_type_node = gfc_get_int_type (4);
 
-  kind = expr->op1->ts.kind;
-  switch (expr->op2->ts.type)
+  kind = expr->value.op.op1->ts.kind;
+  switch (expr->value.op.op2->ts.type)
     {
     case BT_INTEGER:
-      ikind = expr->op2->ts.kind;
+      ikind = expr->value.op.op2->ts.kind;
       switch (ikind)
 	{
 	case 1:
@@ -648,7 +648,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	{
 	case 1:
 	case 2:
-	  if (expr->op1->ts.type == BT_INTEGER)
+	  if (expr->value.op.op1->ts.type == BT_INTEGER)
 	    lse.expr = convert (gfc_int4_type_node, lse.expr);
 	  else
 	    gcc_unreachable ();
@@ -666,7 +666,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	  gcc_unreachable ();
 	}
       
-      switch (expr->op1->ts.type)
+      switch (expr->value.op.op1->ts.type)
 	{
 	case BT_INTEGER:
 	  fndecl = gfor_fndecl_math_powi[kind][ikind].integer;
@@ -738,9 +738,8 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
   if (gfc_can_put_var_on_stack (len))
     {
       /* Create a temporary variable to hold the result.  */
-      tmp = fold (build2 (MINUS_EXPR, gfc_charlen_type_node, len,
-			  convert (gfc_charlen_type_node,
-				   integer_one_node)));
+      tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node, len,
+			 convert (gfc_charlen_type_node, integer_one_node));
       tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node, tmp);
       tmp = build_array_type (gfc_character1_type_node, tmp);
       var = gfc_create_var (tmp, "str");
@@ -780,14 +779,14 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   tree args;
   tree tmp;
 
-  gcc_assert (expr->op1->ts.type == BT_CHARACTER
-	  && expr->op2->ts.type == BT_CHARACTER);
+  gcc_assert (expr->value.op.op1->ts.type == BT_CHARACTER
+	  && expr->value.op.op2->ts.type == BT_CHARACTER);
 
   gfc_init_se (&lse, se);
-  gfc_conv_expr (&lse, expr->op1);
+  gfc_conv_expr (&lse, expr->value.op.op1);
   gfc_conv_string_parameter (&lse);
   gfc_init_se (&rse, se);
-  gfc_conv_expr (&rse, expr->op2);
+  gfc_conv_expr (&rse, expr->value.op.op2);
   gfc_conv_string_parameter (&rse);
 
   gfc_add_block_to_block (&se->pre, &lse.pre);
@@ -797,8 +796,8 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
   if (len == NULL_TREE)
     {
-      len = fold (build2 (PLUS_EXPR, TREE_TYPE (lse.string_length),
-			  lse.string_length, rse.string_length));
+      len = fold_build2 (PLUS_EXPR, TREE_TYPE (lse.string_length),
+			 lse.string_length, rse.string_length);
     }
 
   type = build_pointer_type (type);
@@ -846,10 +845,10 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
 
   checkstring = 0;
   lop = 0;
-  switch (expr->operator)
+  switch (expr->value.op.operator)
     {
     case INTRINSIC_UPLUS:
-      gfc_conv_expr (se, expr->op1);
+      gfc_conv_expr (se, expr->value.op.op1);
       return;
 
     case INTRINSIC_UMINUS:
@@ -951,19 +950,19 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
     }
 
   /* The only exception to this is **, which is handled separately anyway.  */
-  gcc_assert (expr->op1->ts.type == expr->op2->ts.type);
+  gcc_assert (expr->value.op.op1->ts.type == expr->value.op.op2->ts.type);
 
-  if (checkstring && expr->op1->ts.type != BT_CHARACTER)
+  if (checkstring && expr->value.op.op1->ts.type != BT_CHARACTER)
     checkstring = 0;
 
   /* lhs */
   gfc_init_se (&lse, se);
-  gfc_conv_expr (&lse, expr->op1);
+  gfc_conv_expr (&lse, expr->value.op.op1);
   gfc_add_block_to_block (&se->pre, &lse.pre);
 
   /* rhs */
   gfc_init_se (&rse, se);
-  gfc_conv_expr (&rse, expr->op2);
+  gfc_conv_expr (&rse, expr->value.op.op2);
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
   /* For string comparisons we generate a library call, and compare the return
@@ -990,11 +989,11 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   if (lop)
     {
       /* The result of logical ops is always boolean_type_node.  */
-      tmp = fold (build2 (code, type, lse.expr, rse.expr));
+      tmp = fold_build2 (code, type, lse.expr, rse.expr);
       se->expr = convert (type, tmp);
     }
   else
-    se->expr = fold (build2 (code, type, lse.expr, rse.expr));
+    se->expr = fold_build2 (code, type, lse.expr, rse.expr);
 
   /* Add the post blocks.  */
   gfc_add_block_to_block (&se->post, &rse.post);
@@ -1220,7 +1219,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
      something like
         x = f()
      where f is pointer valued, we have to dereference the result.  */
-  if (sym->attr.pointer && !se->want_pointer && !byref)
+  if (!se->want_pointer && !byref
+      && (sym->attr.pointer || (sym->result && sym->result->attr.pointer)))
     se->expr = gfc_build_indirect_ref (se->expr);
 
   /* A pure function may still have side-effects - it may modify its

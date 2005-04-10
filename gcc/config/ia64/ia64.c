@@ -98,21 +98,12 @@ static const char * const ia64_local_reg_names[80] =
 static const char * const ia64_output_reg_names[8] =
 { "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7" };
 
-/* String used with the -mfixed-range= option.  */
-const char *ia64_fixed_range_string;
-
 /* Determines whether we use adds, addl, or movl to generate our
    TLS immediate offsets.  */
 int ia64_tls_size = 22;
 
-/* String used with the -mtls-size= option.  */
-const char *ia64_tls_size_string;
-
 /* Which cpu are we scheduling for.  */
-enum processor_type ia64_tune;
-
-/* String used with the -tune= option.  */
-const char *ia64_tune_string;
+enum processor_type ia64_tune = PROCESSOR_ITANIUM2;
 
 /* Determines whether we run our final scheduling pass or not.  We always
    avoid the normal second scheduling pass.  */
@@ -197,6 +188,7 @@ static bool ia64_function_ok_for_sibcall (tree, tree);
 static bool ia64_return_in_memory (tree, tree);
 static bool ia64_rtx_costs (rtx, int, int, int *);
 static void fix_range (const char *);
+static bool ia64_handle_option (size_t, const char *, int);
 static struct machine_function * ia64_init_machine_status (void);
 static void emit_insn_group_barriers (FILE *);
 static void emit_all_insn_group_barriers (FILE *);
@@ -432,6 +424,11 @@ static const struct attribute_spec ia64_attribute_table[] =
    in an order different from the specified program order.  */
 #undef TARGET_RELAXED_ORDERING
 #define TARGET_RELAXED_ORDERING true
+
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | TARGET_CPU_DEFAULT)
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION ia64_handle_option
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3351,7 +3348,7 @@ hfa_element_mode (tree type, bool nested)
     case VOID_TYPE:	case INTEGER_TYPE:	case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:	case CHAR_TYPE:		case POINTER_TYPE:
     case OFFSET_TYPE:	case REFERENCE_TYPE:	case METHOD_TYPE:
-    case FILE_TYPE:	case LANG_TYPE:		case FUNCTION_TYPE:
+    case LANG_TYPE:		case FUNCTION_TYPE:
       return VOIDmode;
 
       /* Fortran complex types are supposed to be HFAs, so we need to handle
@@ -3915,6 +3912,10 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 
 	  offset = 0;
 	  bytesize = int_size_in_bytes (valtype);
+	  /* An empty PARALLEL is invalid here, but the return value
+	     doesn't matter for empty structs.  */
+	  if (bytesize == 0)
+	    return gen_rtx_REG (mode, GR_RET_FIRST);
 	  for (i = 0; offset < bytesize; i++)
 	    {
 	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
@@ -4595,10 +4596,60 @@ fix_range (const char *const_str)
     }
 }
 
-static struct machine_function *
-ia64_init_machine_status (void)
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+ia64_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  switch (code)
+    {
+    case OPT_mfixed_range_:
+      fix_range (arg);
+      return true;
+
+    case OPT_mtls_size_:
+      {
+	char *end;
+	unsigned long tmp = strtoul (arg, &end, 10);
+	if (*end || (tmp != 14 && tmp != 22 && tmp != 64))
+	  error ("bad value %<%s%> for -mtls-size= switch", arg);
+	else
+	  ia64_tls_size = tmp;
+	return true;
+      }
+
+    case OPT_mtune_:
+      {
+	static struct pta
+	  {
+	    const char *name;		/* processor name or nickname.  */
+	    enum processor_type processor;
+	  }
+	const processor_alias_table[] =
+	  {
+	    {"itanium", PROCESSOR_ITANIUM},
+	    {"itanium1", PROCESSOR_ITANIUM},
+	    {"merced", PROCESSOR_ITANIUM},
+	    {"itanium2", PROCESSOR_ITANIUM2},
+	    {"mckinley", PROCESSOR_ITANIUM2},
+	  };
+	int const pta_size = ARRAY_SIZE (processor_alias_table);
+	int i;
+
+	for (i = 0; i < pta_size; i++)
+	  if (!strcmp (arg, processor_alias_table[i].name))
+	    {
+	      ia64_tune = processor_alias_table[i].processor;
+	      break;
+	    }
+	if (i == pta_size)
+	  error ("bad value %<%s%> for -mtune= switch", arg);
+	return true;
+      }
+
+    default:
+      return true;
+    }
 }
 
 /* Handle TARGET_OPTIONS switches.  */
@@ -4606,108 +4657,14 @@ ia64_init_machine_status (void)
 void
 ia64_override_options (void)
 {
-  static struct pta
-    {
-      const char *const name;		/* processor name or nickname.  */
-      const enum processor_type processor;
-    }
-  const processor_alias_table[] =
-    {
-      {"itanium", PROCESSOR_ITANIUM},
-      {"itanium1", PROCESSOR_ITANIUM},
-      {"merced", PROCESSOR_ITANIUM},
-      {"itanium2", PROCESSOR_ITANIUM2},
-      {"mckinley", PROCESSOR_ITANIUM2},
-    };
-
-  int const pta_size = ARRAY_SIZE (processor_alias_table);
-  int i;
-
   if (TARGET_AUTO_PIC)
     target_flags |= MASK_CONST_GP;
 
-  if (TARGET_INLINE_FLOAT_DIV_LAT && TARGET_INLINE_FLOAT_DIV_THR)
-    {
-      if ((target_flags_explicit & MASK_INLINE_FLOAT_DIV_LAT)
-	   && (target_flags_explicit & MASK_INLINE_FLOAT_DIV_THR))
-	{
-	  warning ("cannot optimize floating point division for both latency and throughput");
-	  target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
-	}
-      else 
-	{
-	  if (target_flags_explicit & MASK_INLINE_FLOAT_DIV_THR)
-	    target_flags &= ~MASK_INLINE_FLOAT_DIV_LAT;
-	  else
-	    target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
-	}
-    }
-
-  if (TARGET_INLINE_INT_DIV_LAT && TARGET_INLINE_INT_DIV_THR)
-    {
-      if ((target_flags_explicit & MASK_INLINE_INT_DIV_LAT)
-	   && (target_flags_explicit & MASK_INLINE_INT_DIV_THR))
-	{
-	  warning ("cannot optimize integer division for both latency and throughput");
-	  target_flags &= ~MASK_INLINE_INT_DIV_THR;
-	}
-      else 
-	{
-	  if (target_flags_explicit & MASK_INLINE_INT_DIV_THR)
-	    target_flags &= ~MASK_INLINE_INT_DIV_LAT;
-	  else
-	    target_flags &= ~MASK_INLINE_INT_DIV_THR;
-	}
-    }
-
-  if (TARGET_INLINE_SQRT_LAT && TARGET_INLINE_SQRT_THR)
-    {
-      if ((target_flags_explicit & MASK_INLINE_SQRT_LAT)
-	   && (target_flags_explicit & MASK_INLINE_SQRT_THR))
-	{
-	  warning ("cannot optimize square root for both latency and throughput");
-	  target_flags &= ~MASK_INLINE_SQRT_THR;
-	}
-      else 
-	{
-	  if (target_flags_explicit & MASK_INLINE_SQRT_THR)
-	    target_flags &= ~MASK_INLINE_SQRT_LAT;
-	  else
-	    target_flags &= ~MASK_INLINE_SQRT_THR;
-	}
-    }
-
-  if (TARGET_INLINE_SQRT_LAT)
+  if (TARGET_INLINE_SQRT == INL_MIN_LAT)
     {
       warning ("not yet implemented: latency-optimized inline square root");
-      target_flags &= ~MASK_INLINE_SQRT_LAT;
+      TARGET_INLINE_SQRT = INL_MAX_THR;
     }
-
-  if (ia64_fixed_range_string)
-    fix_range (ia64_fixed_range_string);
-
-  if (ia64_tls_size_string)
-    {
-      char *end;
-      unsigned long tmp = strtoul (ia64_tls_size_string, &end, 10);
-      if (*end || (tmp != 14 && tmp != 22 && tmp != 64))
-	error ("bad value (%s) for -mtls-size= switch", ia64_tls_size_string);
-      else
-	ia64_tls_size = tmp;
-    }
-
-  if (!ia64_tune_string)
-    ia64_tune_string = "itanium2";
-
-  for (i = 0; i < pta_size; i++)
-    if (! strcmp (ia64_tune_string, processor_alias_table[i].name))
-      {
-	ia64_tune = processor_alias_table[i].processor;
-	break;
-      }
-
-  if (i == pta_size)
-    error ("bad value (%s) for -tune= switch", ia64_tune_string);
 
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
@@ -4720,6 +4677,12 @@ ia64_override_options (void)
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
+}
+
+static struct machine_function *
+ia64_init_machine_status (void)
+{
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 static enum attr_itanium_class ia64_safe_itanium_class (rtx);
@@ -5350,6 +5313,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 
 	case UNSPEC_FR_RECIP_APPROX:
 	case UNSPEC_SHRP:
+	case UNSPEC_COPYSIGN:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
@@ -5682,147 +5646,6 @@ emit_all_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
     }
 }
 
-
-static int errata_find_address_regs (rtx *, void *);
-static void errata_emit_nops (rtx);
-static void fixup_errata (void);
-
-/* This structure is used to track some details about the previous insns
-   groups so we can determine if it may be necessary to insert NOPs to
-   workaround hardware errata.  */
-static struct group
-{
-  HARD_REG_SET p_reg_set;
-  HARD_REG_SET gr_reg_conditionally_set;
-} last_group[2];
-
-/* Index into the last_group array.  */
-static int group_idx;
-
-/* Called through for_each_rtx; determines if a hard register that was
-   conditionally set in the previous group is used as an address register.
-   It ensures that for_each_rtx returns 1 in that case.  */
-static int
-errata_find_address_regs (rtx *xp, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *xp;
-  if (GET_CODE (x) != MEM)
-    return 0;
-  x = XEXP (x, 0);
-  if (GET_CODE (x) == POST_MODIFY)
-    x = XEXP (x, 0);
-  if (GET_CODE (x) == REG)
-    {
-      struct group *prev_group = last_group + (group_idx ^ 1);
-      if (TEST_HARD_REG_BIT (prev_group->gr_reg_conditionally_set,
-			     REGNO (x)))
-	return 1;
-      return -1;
-    }
-  return 0;
-}
-
-/* Called for each insn; this function keeps track of the state in
-   last_group and emits additional NOPs if necessary to work around
-   an Itanium A/B step erratum.  */
-static void
-errata_emit_nops (rtx insn)
-{
-  struct group *this_group = last_group + group_idx;
-  struct group *prev_group = last_group + (group_idx ^ 1);
-  rtx pat = PATTERN (insn);
-  rtx cond = GET_CODE (pat) == COND_EXEC ? COND_EXEC_TEST (pat) : 0;
-  rtx real_pat = cond ? COND_EXEC_CODE (pat) : pat;
-  enum attr_type type;
-  rtx set = real_pat;
-
-  if (GET_CODE (real_pat) == USE
-      || GET_CODE (real_pat) == CLOBBER
-      || GET_CODE (real_pat) == ASM_INPUT
-      || GET_CODE (real_pat) == ADDR_VEC
-      || GET_CODE (real_pat) == ADDR_DIFF_VEC
-      || asm_noperands (PATTERN (insn)) >= 0)
-    return;
-
-  /* single_set doesn't work for COND_EXEC insns, so we have to duplicate
-     parts of it.  */
-
-  if (GET_CODE (set) == PARALLEL)
-    {
-      int i;
-      set = XVECEXP (real_pat, 0, 0);
-      for (i = 1; i < XVECLEN (real_pat, 0); i++)
-	if (GET_CODE (XVECEXP (real_pat, 0, i)) != USE
-	    && GET_CODE (XVECEXP (real_pat, 0, i)) != CLOBBER)
-	  {
-	    set = 0;
-	    break;
-	  }
-    }
-
-  if (set && GET_CODE (set) != SET)
-    set = 0;
-
-  type  = get_attr_type (insn);
-
-  if (type == TYPE_F
-      && set && REG_P (SET_DEST (set)) && PR_REGNO_P (REGNO (SET_DEST (set))))
-    SET_HARD_REG_BIT (this_group->p_reg_set, REGNO (SET_DEST (set)));
-
-  if ((type == TYPE_M || type == TYPE_A) && cond && set
-      && REG_P (SET_DEST (set))
-      && GET_CODE (SET_SRC (set)) != PLUS
-      && GET_CODE (SET_SRC (set)) != MINUS
-      && (GET_CODE (SET_SRC (set)) != ASHIFT
-	  || !shladd_operand (XEXP (SET_SRC (set), 1), VOIDmode))
-      && (GET_CODE (SET_SRC (set)) != MEM
-	  || GET_CODE (XEXP (SET_SRC (set), 0)) != POST_MODIFY)
-      && GENERAL_REGNO_P (REGNO (SET_DEST (set))))
-    {
-      if (!COMPARISON_P (cond)
-	  || !REG_P (XEXP (cond, 0)))
-	abort ();
-
-      if (TEST_HARD_REG_BIT (prev_group->p_reg_set, REGNO (XEXP (cond, 0))))
-	SET_HARD_REG_BIT (this_group->gr_reg_conditionally_set, REGNO (SET_DEST (set)));
-    }
-  if (for_each_rtx (&real_pat, errata_find_address_regs, NULL))
-    {
-      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-      emit_insn_before (gen_nop (), insn);
-      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-      group_idx = 0;
-      memset (last_group, 0, sizeof last_group);
-    }
-}
-
-/* Emit extra nops if they are required to work around hardware errata.  */
-
-static void
-fixup_errata (void)
-{
-  rtx insn;
-
-  if (! TARGET_B_STEP)
-    return;
-
-  group_idx = 0;
-  memset (last_group, 0, sizeof last_group);
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (!INSN_P (insn))
-	continue;
-
-      if (ia64_safe_type (insn) == TYPE_S)
-	{
-	  group_idx ^= 1;
-	  memset (last_group + group_idx, 0, sizeof last_group[group_idx]);
-	}
-      else
-	errata_emit_nops (insn);
-    }
-}
 
 
 /* Instruction scheduling support.  */
@@ -6569,6 +6392,17 @@ issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
     }
   else
     {
+      /* If this is an insn that must be first in a group, then don't allow
+	 nops to be emitted before it.  Currently, alloc is the only such
+	 supported instruction.  */
+      /* ??? The bundling automatons should handle this for us, but they do
+	 not yet have support for the first_insn attribute.  */
+      if (before_nops_num > 0 && get_attr_first_insn (insn) == FIRST_INSN_YES)
+	{
+	  free_bundle_state (curr_state);
+	  return;
+	}
+
       state_transition (curr_state->dfa_state, dfa_pre_cycle_insn);
       state_transition (curr_state->dfa_state, NULL);
       curr_state->cost++;
@@ -6647,7 +6481,13 @@ get_max_pos (state_t state)
 
 /* The function returns code of a possible template for given position
    and state.  The function should be called only with 2 values of
-   position equal to 3 or 6.  */
+   position equal to 3 or 6.  We avoid generating F NOPs by putting
+   templates containing F insns at the end of the template search
+   because undocumented anomaly in McKinley derived cores which can
+   cause stalls if an F-unit insn (including a NOP) is issued within a
+   six-cycle window after reading certain application registers (such
+   as ar.bsp).  Furthermore, power-considerations also argue against
+   the use of F-unit instructions unless they're really needed.  */
 
 static int
 get_template (state_t state, int pos)
@@ -6655,22 +6495,22 @@ get_template (state_t state, int pos)
   switch (pos)
     {
     case 3:
-      if (cpu_unit_reservation_p (state, _0mii_))
-	return 0;
-      else if (cpu_unit_reservation_p (state, _0mmi_))
+      if (cpu_unit_reservation_p (state, _0mmi_))
 	return 1;
-      else if (cpu_unit_reservation_p (state, _0mfi_))
-	return 2;
-      else if (cpu_unit_reservation_p (state, _0mmf_))
-	return 3;
-      else if (cpu_unit_reservation_p (state, _0bbb_))
-	return 4;
-      else if (cpu_unit_reservation_p (state, _0mbb_))
-	return 5;
-      else if (cpu_unit_reservation_p (state, _0mib_))
-	return 6;
+      else if (cpu_unit_reservation_p (state, _0mii_))
+	return 0;
       else if (cpu_unit_reservation_p (state, _0mmb_))
 	return 7;
+      else if (cpu_unit_reservation_p (state, _0mib_))
+	return 6;
+      else if (cpu_unit_reservation_p (state, _0mbb_))
+	return 5;
+      else if (cpu_unit_reservation_p (state, _0bbb_))
+	return 4;
+      else if (cpu_unit_reservation_p (state, _0mmf_))
+	return 3;
+      else if (cpu_unit_reservation_p (state, _0mfi_))
+	return 2;
       else if (cpu_unit_reservation_p (state, _0mfb_))
 	return 8;
       else if (cpu_unit_reservation_p (state, _0mlx_))
@@ -6678,22 +6518,22 @@ get_template (state_t state, int pos)
       else
 	abort ();
     case 6:
-      if (cpu_unit_reservation_p (state, _1mii_))
-	return 0;
-      else if (cpu_unit_reservation_p (state, _1mmi_))
+      if (cpu_unit_reservation_p (state, _1mmi_))
 	return 1;
-      else if (cpu_unit_reservation_p (state, _1mfi_))
-	return 2;
-      else if (_1mmf_ >= 0 && cpu_unit_reservation_p (state, _1mmf_))
-	return 3;
-      else if (cpu_unit_reservation_p (state, _1bbb_))
-	return 4;
-      else if (cpu_unit_reservation_p (state, _1mbb_))
-	return 5;
-      else if (cpu_unit_reservation_p (state, _1mib_))
-	return 6;
+      else if (cpu_unit_reservation_p (state, _1mii_))
+	return 0;
       else if (cpu_unit_reservation_p (state, _1mmb_))
 	return 7;
+      else if (cpu_unit_reservation_p (state, _1mib_))
+	return 6;
+      else if (cpu_unit_reservation_p (state, _1mbb_))
+	return 5;
+      else if (cpu_unit_reservation_p (state, _1bbb_))
+	return 4;
+      else if (_1mmf_ >= 0 && cpu_unit_reservation_p (state, _1mmf_))
+	return 3;
+      else if (cpu_unit_reservation_p (state, _1mfi_))
+	return 2;
       else if (cpu_unit_reservation_p (state, _1mfb_))
 	return 8;
       else if (cpu_unit_reservation_p (state, _1mlx_))
@@ -7582,7 +7422,6 @@ ia64_reorg (void)
 	}
     }
 
-  fixup_errata ();
   emit_predicate_relation_info ();
 
   if (ia64_flag_var_tracking)
@@ -7725,7 +7564,8 @@ process_epilogue (void)
 
   if (!last_block)
     {
-      fprintf (asm_out_file, "\t.label_state 1\n");
+      fprintf (asm_out_file, "\t.label_state %d\n",
+	       ++cfun->machine->state_num);
       need_copy_state = true;
     }
 
@@ -7973,7 +7813,8 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 	  if (need_copy_state)
 	    {
 	      fprintf (asm_out_file, "\t.body\n");
-	      fprintf (asm_out_file, "\t.copy_state 1\n");
+	      fprintf (asm_out_file, "\t.copy_state %d\n",
+		       cfun->machine->state_num);
 	      need_copy_state = false;
 	    }
 	}
@@ -8983,7 +8824,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   insn = get_insns ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   reload_completed = 0;

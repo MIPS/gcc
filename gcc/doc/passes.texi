@@ -1,7 +1,7 @@
 @c markers: CROSSREF BUG TODO
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -349,6 +349,12 @@ in @file{tree-ssa-dse.c} and is described by @code{pass_dse}.
 
 This pass transforms tail recursion into a loop.  It is located in
 @file{tree-tailcall.c} and is described by @code{pass_tail_recursion}.
+
+@item Forward store motion
+
+This pass sinks stores and assignments down the flowgraph closer to it's
+use point.  The pass is located in @file{tree-ssa-sink.c} and is
+described by @code{pass_sink_code}
 
 @item Partial redundancy elimination
 

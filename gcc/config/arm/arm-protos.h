@@ -38,6 +38,7 @@ extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 							     unsigned int);
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
+extern unsigned int arm_dbx_register_number (unsigned int);
 
 #ifdef TREE_CODE
 extern int arm_return_in_memory (tree);
@@ -115,6 +116,7 @@ extern int    arm_emit_vector_const (FILE *, rtx);
 extern const char * arm_output_load_gr (rtx *);
 extern const char *vfp_output_fstmx (rtx *);
 extern void arm_set_return_address (rtx, rtx);
+extern int arm_eliminable_register (rtx);
 
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
@@ -122,6 +124,7 @@ extern void arm_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern bool arm_needs_doubleword_align (enum machine_mode, tree);
 extern rtx arm_function_value(tree, tree);
 #endif
+extern int arm_apply_result_size (void);
 
 #if defined AOF_ASSEMBLER
 extern rtx aof_pic_entry (rtx);

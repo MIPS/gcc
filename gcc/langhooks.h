@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -277,19 +277,6 @@ struct lang_hooks
      1 if handled, 0 otherwise.  */
   int (*expand_decl) (tree);
 
-  /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
-     operation.
-
-     This preparation consists of taking the ordinary representation
-     of an expression expr and producing a valid tree boolean
-     expression describing whether expr is nonzero.  We could simply
-     always do build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
-     but we optimize comparisons, &&, ||, and !.
-
-     The result should be an expression of boolean type (if not an
-     error_mark_node).  */
-  tree (*truthvalue_conversion) (tree);
-
   /* Hook called by safe_from_p for language-specific tree codes.  It is
      up to the language front-end to install a hook if it has any such
      codes that safe_from_p needs to know about.  Since same_from_p will
@@ -373,6 +360,15 @@ struct lang_hooks
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
+
+  /* Convert a character from the host's to the target's character
+     set.  The character should be in what C calls the "basic source
+     character set" (roughly, the set of characters defined by plain
+     old ASCII).  The default is to return the character unchanged,
+     which is correct in most circumstances.  Note that both argument
+     and result should be sign-extended under -fsigned-char,
+     zero-extended under -fno-signed-char.  */
+  HOST_WIDE_INT (*to_target_charset) (HOST_WIDE_INT);
 
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a

@@ -213,7 +213,8 @@ gfc_match_interface (void)
       if (gfc_get_symbol (name, NULL, &sym))
 	return MATCH_ERROR;
 
-      if (!sym->attr.generic && gfc_add_generic (&sym->attr, NULL) == FAILURE)
+      if (!sym->attr.generic 
+	  && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
       current_interface.sym = gfc_new_block = sym;
@@ -339,8 +340,9 @@ gfc_compare_types (gfc_typespec * ts1, gfc_typespec * ts2)
      true names and module names are the same and the module name is
      nonnull, then they are equal.  */
   if (strcmp (ts1->derived->name, ts2->derived->name) == 0
-      && ts1->derived->module[0] != '\0'
-      && strcmp (ts1->derived->module, ts2->derived->module) == 0)
+      && ((ts1->derived->module == NULL && ts2->derived->module == NULL)
+	  || (ts1->derived != NULL && ts2->derived != NULL
+	      && strcmp (ts1->derived->module, ts2->derived->module) == 0)))
     return 1;
 
   /* Compare type via the rules of the standard.  Both types must have
@@ -761,7 +763,7 @@ operator_correspondence (gfc_formal_arglist * f1, gfc_formal_arglist * f2)
 
 
 /* Perform the correspondence test in rule 2 of section 14.1.2.3.
-   Returns zero if no argument is found that satisifes rule 2, nonzero
+   Returns zero if no argument is found that satisfies rule 2, nonzero
    otherwise.
 
    This test is also not symmetric in f1 and f2 and must be called
@@ -1164,7 +1166,7 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 
   for (a = actual; a; a = a->next, f = f->next)
     {
-      if (a->name[0] != '\0')
+      if (a->name != NULL)
 	{
 	  i = 0;
 	  for (f = formal; f; f = f->next, i++)
@@ -1639,21 +1641,21 @@ gfc_extend_expr (gfc_expr * e)
   sym = NULL;
 
   actual = gfc_get_actual_arglist ();
-  actual->expr = e->op1;
+  actual->expr = e->value.op.op1;
 
-  if (e->op2 != NULL)
+  if (e->value.op.op2 != NULL)
     {
       actual->next = gfc_get_actual_arglist ();
-      actual->next->expr = e->op2;
+      actual->next->expr = e->value.op.op2;
     }
 
-  i = fold_unary (e->operator);
+  i = fold_unary (e->value.op.operator);
 
   if (i == INTRINSIC_USER)
     {
       for (ns = gfc_current_ns; ns; ns = ns->parent)
 	{
-	  uop = gfc_find_uop (e->uop->name, ns);
+	  uop = gfc_find_uop (e->value.op.uop->name, ns);
 	  if (uop == NULL)
 	    continue;
 
@@ -1686,6 +1688,8 @@ gfc_extend_expr (gfc_expr * e)
   e->expr_type = EXPR_FUNCTION;
   e->symtree = find_sym_in_symtree (sym);
   e->value.function.actual = actual;
+  e->value.function.esym = NULL;
+  e->value.function.isym = NULL;
 
   if (gfc_pure (NULL) && !gfc_pure (sym))
     {

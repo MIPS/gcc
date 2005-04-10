@@ -285,8 +285,7 @@ perform_deferred_access_checks (void)
 {
   tree deferred_check;
 
-  for (deferred_check = (VEC_last (deferred_access, deferred_access_stack)
-			 ->deferred_access_checks);
+  for (deferred_check = get_deferred_access_checks ();
        deferred_check;
        deferred_check = TREE_CHAIN (deferred_check))
     /* Check access.  */
@@ -858,7 +857,7 @@ begin_switch_stmt (void)
 
   scope = do_pushlevel (sk_block);
   TREE_CHAIN (r) = scope;
-  begin_cond (&SWITCH_COND (r));
+  begin_cond (&SWITCH_STMT_COND (r));
 
   return r;
 }
@@ -902,11 +901,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  finish_cond (&SWITCH_COND (switch_stmt), cond);
-  SWITCH_TYPE (switch_stmt) = orig_type;
+  finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
+  SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
   push_switch (switch_stmt);
-  SWITCH_BODY (switch_stmt) = push_stmt_list ();
+  SWITCH_STMT_BODY (switch_stmt) = push_stmt_list ();
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -917,7 +916,8 @@ finish_switch_stmt (tree switch_stmt)
 {
   tree scope;
 
-  SWITCH_BODY (switch_stmt) = pop_stmt_list (SWITCH_BODY (switch_stmt));
+  SWITCH_STMT_BODY (switch_stmt) =
+    pop_stmt_list (SWITCH_STMT_BODY (switch_stmt));
   pop_switch (); 
   finish_stmt ();
 
@@ -1523,6 +1523,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -1958,7 +1961,12 @@ finish_unary_op_expr (enum tree_code code, tree expr)
       && TREE_CODE (result) == INTEGER_CST
       && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
-    TREE_NEGATED_INT (result) = 1;
+    {
+      /* RESULT may be a cached INTEGER_CST, so we must copy it before
+	 setting TREE_NEGATED_INT.  */
+      result = copy_node (result);
+      TREE_NEGATED_INT (result) = 1;
+    }
   overflow_warning (result);
   return result;
 }
@@ -1988,7 +1996,8 @@ finish_compound_literal (tree type, tree initializer_list)
 
 	 implies that the array has two elements.  */
       if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	complete_array_type (type, compound_literal, 1);
+	cp_complete_array_type (&TREE_TYPE (compound_literal),
+				compound_literal, 1);
     }
 
   return compound_literal;
@@ -2117,16 +2126,7 @@ begin_class_definition (tree t)
   if (t == error_mark_node || ! IS_AGGR_TYPE (t))
     {
       t = make_aggr_type (RECORD_TYPE);
-      pushtag (make_anon_name (), t, 0);
-    }
-
-  /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (COMPLETE_TYPE_P (t))
-    {
-      error ("redefinition of %q#T", t);
-      cp_error_at ("previous definition of %q#T", t);
-      return error_mark_node;
+      pushtag (make_anon_name (), t, /*tag_scope=*/ts_current);
     }
 
   /* Update the location of the decl.  */
@@ -2135,7 +2135,7 @@ begin_class_definition (tree t)
   if (TYPE_BEING_DEFINED (t))
     {
       t = make_aggr_type (TREE_CODE (t));
-      pushtag (TYPE_IDENTIFIER (t), t, 0);
+      pushtag (TYPE_IDENTIFIER (t), t, /*tag_scope=*/ts_current);
     }
   maybe_process_partial_specialization (t);
   pushclass (t);
@@ -2624,11 +2624,6 @@ finish_id_expression (tree id_expression,
 	     need.  */
 	  if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
 	    return id_expression;
-	  /* Since this name was dependent, the expression isn't
-	     constant -- yet.  No error is issued because it might be
-	     constant when things are instantiated.  */
-	  if (integral_constant_expression_p)
-	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
@@ -2657,7 +2652,8 @@ finish_id_expression (tree id_expression,
          expression.  Enumerators and template parameters have already
          been handled above.  */
       if (integral_constant_expression_p
-	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
+	  && ! DECL_INTEGRAL_CONSTANT_VAR_P (decl)
+	  && ! builtin_valid_in_constant_expr_p (decl))
 	{
 	  if (!allow_non_integral_constant_expression_p)
 	    {

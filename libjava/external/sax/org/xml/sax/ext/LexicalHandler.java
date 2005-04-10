@@ -1,7 +1,7 @@
 // LexicalHandler.java - optional handler for lexical parse events.
 // http://www.saxproject.org
 // Public Domain: no warranty.
-// $Id: LexicalHandler.java,v 1.1 2004/12/23 22:38:42 mark Exp $
+// $Id: LexicalHandler.java,v 1.1 2005/02/02 00:41:52 tromey Exp $
 
 package org.xml.sax.ext;
 

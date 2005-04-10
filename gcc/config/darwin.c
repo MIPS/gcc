@@ -1016,12 +1016,17 @@ machopic_select_section (tree exp, int reloc,
   bool weak_p = DECL_P (exp) && DECL_WEAK (exp);
   static void (* const base_funs[][2])(void) = {
     { text_section, text_coal_section },
-    { text_unlikely_section, text_unlikely_coal_section },
+    { unlikely_text_section, text_unlikely_coal_section },
     { readonly_data_section, const_coal_section },
     { const_data_section, const_data_coal_section },
     { data_section, data_coal_section }
   };
 
+  if (reloc == 0
+      && (last_text_section == in_text_unlikely
+	  || last_text_section == in_text_unlikely_coal))
+    reloc = 1;
+    
   if (TREE_CODE (exp) == FUNCTION_DECL)
     base_function = base_funs[reloc][weak_p];
   else if (decl_readonly_section_1 (exp, reloc, MACHOPIC_INDIRECT))
@@ -1156,7 +1161,9 @@ void
 machopic_select_rtx_section (enum machine_mode mode, rtx x,
 			     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  if (GET_MODE_SIZE (mode) == 8)
+  if (GET_MODE_SIZE (mode) == 8
+      && (GET_CODE (x) == CONST_INT
+	  || GET_CODE (x) == CONST_DOUBLE))
     literal8_section ();
   else if (GET_MODE_SIZE (mode) == 4
 	   && (GET_CODE (x) == CONST_INT

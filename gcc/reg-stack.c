@@ -1,6 +1,6 @@
 /* Register to Stack convert for GNU compiler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -931,8 +931,6 @@ emit_swap_insn (rtx insn, stack regstack, rtx reg)
 	  if (LABEL_P (tmp)
 	      || CALL_P (tmp)
 	      || NOTE_INSN_BASIC_BLOCK_P (tmp)
-	      || (NOTE_P (tmp)
-		  && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
 	      || (NONJUMP_INSN_P (tmp)
 		  && stack_regs_mentioned (tmp)))
 	    {
@@ -1132,11 +1130,11 @@ move_for_stack_reg (rtx insn, stack regstack, rtx pat)
 	     available.  Push the source value here if the register
 	     stack is not full, and then write the value to memory via
 	     a pop.  */
-	  rtx push_rtx, push_insn;
+	  rtx push_rtx;
 	  rtx top_stack_reg = FP_MODE_REG (FIRST_STACK_REG, GET_MODE (src));
 
 	  push_rtx = gen_movxf (top_stack_reg, top_stack_reg);
-	  push_insn = emit_insn_before (push_rtx, insn);
+	  emit_insn_before (push_rtx, insn);
 	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_DEAD, top_stack_reg,
 						REG_NOTES (insn));
 	}
@@ -1308,11 +1306,9 @@ compare_for_stack_reg (rtx insn, stack regstack, rtx pat_src)
 {
   rtx *src1, *src2;
   rtx src1_note, src2_note;
-  rtx flags_user;
 
   src1 = get_true_reg (&XEXP (pat_src, 0));
   src2 = get_true_reg (&XEXP (pat_src, 1));
-  flags_user = next_flags_user (insn);
 
   /* ??? If fxch turns out to be cheaper than fstp, give priority to
      registers that die in this insn - move those to stack top first.  */
@@ -1674,6 +1670,27 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	  case UNSPEC:
 	    switch (XINT (pat_src, 1))
 	      {
+	      case UNSPEC_FIST:
+		/* These insns only operate on the top of the stack.  */
+
+		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
+		emit_swap_insn (insn, regstack, *src1);
+
+		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
+
+		if (STACK_REG_P (*dest))
+		  replace_reg (dest, FIRST_STACK_REG);
+
+		if (src1_note)
+		  {
+		    replace_reg (&XEXP (src1_note, 0), FIRST_STACK_REG);
+		    regstack->top--;
+		    CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (*src1));
+		  }
+
+		replace_reg (src1, FIRST_STACK_REG);
+		break;
+
 	      case UNSPEC_SIN:
 	      case UNSPEC_COS:
 	      case UNSPEC_FRNDINT:
@@ -2815,14 +2832,13 @@ convert_regs_1 (FILE *file, basic_block block)
 {
   struct stack_def regstack;
   block_info bi = BLOCK_INFO (block);
-  int deleted, inserted, reg;
+  int inserted, reg;
   rtx insn, next;
   edge e, beste = NULL;
   bool control_flow_insn_deleted = false;
   edge_iterator ei;
 
   inserted = 0;
-  deleted = 0;
   any_malformed_asm = false;
 
   /* Find the edge we will copy stack from.  It should be the most frequent

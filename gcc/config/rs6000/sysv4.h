@@ -1,6 +1,6 @@
 /* Target definitions for GNU compiler for PowerPC running System V.4
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004 Free Software Foundation, Inc.
+   2004, 2005 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
    This file is part of GCC.
@@ -1124,8 +1124,9 @@ extern int fixuplabelno;
 %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
 #endif
 
-#define	ENDFILE_LINUX_SPEC "%{!shared:crtend.o%s} %{shared:crtendS.o%s} \
-%{mnewlib: ecrtn.o%s} %{!mnewlib: crtn.o%s}"
+#define	ENDFILE_LINUX_SPEC "\
+%{shared|pie:crtendS.o%s;:crtend.o%s} \
+%{mnewlib:ecrtn.o%s;:crtn.o%s}"
 
 #define LINK_START_LINUX_SPEC ""
 

@@ -34,13 +34,4 @@ int main (void)
   return main1 (N);
 }
 
-/* Need misalignment support (or versioning), or cgraph to delay emitting the arrays until
-   after vectorization can force-align them.  */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-
-/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 1 "vect" { xfail vect_no_align } } } */
-/* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 0 "vect" { xfail vect_no_align } } } */
-
-/*  { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" { target vect_no_align } } }
-/*  { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 1 "vect" { target vect_no_align } } } */
-

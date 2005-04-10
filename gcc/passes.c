@@ -120,8 +120,7 @@ open_dump_file (enum tree_dump_index index, tree decl)
 
   timevar_push (TV_DUMP);
 
-  if (dump_file != NULL || dump_file_name != NULL)
-    abort ();
+  gcc_assert (!dump_file && !dump_file_name);
 
   dump_file_name = get_dump_file_name (index);
   initializing_dump = !dump_initialized_p (index);
@@ -225,7 +224,7 @@ rest_of_decl_compilation (tree decl,
 	 (see gcc.c-torture/compile/920624-1.c) */
       if ((at_end
 	   || !DECL_DEFER_OUTPUT (decl)
-	   || (flag_unit_at_a_time && DECL_INITIAL (decl)))
+	   || DECL_INITIAL (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
@@ -251,6 +250,10 @@ rest_of_decl_compilation (tree decl,
       debug_hooks->type_decl (decl, !top_level);
       timevar_pop (TV_SYMOUT);
     }
+
+  /* Let cgraph know about the existence of variables.  */
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+    cgraph_varpool_node (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -281,16 +284,14 @@ rest_of_handle_final (void)
        different from the DECL_NAME name used in the source file.  */
 
     x = DECL_RTL (current_function_decl);
-    if (!MEM_P (x))
-      abort ();
+    gcc_assert (MEM_P (x));
     x = XEXP (x, 0);
-    if (GET_CODE (x) != SYMBOL_REF)
-      abort ();
+    gcc_assert (GET_CODE (x) == SYMBOL_REF);
     fnname = XSTR (x, 0);
 
     assemble_start_function (current_function_decl, fnname);
     final_start_function (get_insns (), asm_out_file, optimize);
-    final (get_insns (), asm_out_file, optimize, 0);
+    final (get_insns (), asm_out_file, optimize);
     final_end_function ();
 
 #ifdef TARGET_UNWIND_INFO
@@ -328,6 +329,11 @@ rest_of_handle_final (void)
 
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
+  if (unlikely_text_section_name)
+    {
+      free (unlikely_text_section_name);
+      unlikely_text_section_name = NULL;
+    }
   timevar_pop (TV_SYMOUT);
 
   ggc_collect ();
@@ -572,6 +578,8 @@ static void
 rest_of_handle_sms (void)
 {
   basic_block bb;
+  sbitmap blocks;
+
   timevar_push (TV_SMS);
   open_dump_file (DFI_sms, current_function_decl);
 
@@ -585,11 +593,15 @@ rest_of_handle_sms (void)
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-  				    (PROP_DEATH_NOTES
-				     | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
-   no_new_pseudos = 1;
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_ones (blocks);
+  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		    (PROP_DEATH_NOTES
+		     | PROP_REG_INFO
+		     | PROP_KILL_DEAD_CODE
+		     | PROP_SCAN_DEAD_CODE));
+
+  no_new_pseudos = 1;
 
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)
@@ -789,7 +801,7 @@ rest_of_handle_branch_prob (void)
 
   /* Discover and record the loop depth at the head of each basic
      block.  The loop infrastructure does the real job for us.  */
-  flow_loops_find (&loops, LOOP_TREE);
+  flow_loops_find (&loops);
 
   if (dump_file)
     flow_loops_dump (&loops, dump_file, NULL, 0);
@@ -903,6 +915,7 @@ rest_of_handle_combine (void)
       rebuild_jump_labels (get_insns ());
       timevar_pop (TV_JUMP);
 
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
     }
 
@@ -979,6 +992,9 @@ rest_of_handle_cse (void)
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
   cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
+  if (tem)
+    delete_dead_jumptables ();
+
   if (tem || optimize > 1)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
@@ -1014,6 +1030,7 @@ rest_of_handle_cse2 (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
@@ -1056,24 +1073,14 @@ rest_of_handle_gcse (void)
     }
 
   /* If gcse or cse altered any jumps, rerun jump optimizations to clean
-     things up.  Then possibly re-run CSE again.  */
-  while (tem || tem2)
+     things up.  */
+  if (tem || tem2)
     {
-      tem = tem2 = 0;
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       timevar_pop (TV_JUMP);
-
-      if (flag_expensive_optimizations)
-	{
-	  timevar_push (TV_CSE);
-	  reg_scan (get_insns (), max_reg_num ());
-	  tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
-	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-	  timevar_pop (TV_CSE);
-	}
     }
 
   close_dump_file (DFI_gcse, print_rtl_with_bb, get_insns ());
@@ -1094,8 +1101,6 @@ rest_of_handle_loop_optimize (void)
   int do_prefetch;
 
   timevar_push (TV_LOOP);
-  delete_dead_jumptables ();
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
   open_dump_file (DFI_loop, current_function_decl);
 
   /* CFG is no longer maintained up-to-date.  */
@@ -1126,7 +1131,7 @@ rest_of_handle_loop_optimize (void)
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  find_basic_blocks (get_insns (), max_reg_num (), dump_file);
+  find_basic_blocks (get_insns ());
   close_dump_file (DFI_loop, print_rtl, get_insns ());
   timevar_pop (TV_LOOP);
 
@@ -1157,15 +1162,6 @@ rest_of_handle_loop2 (void)
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize (0);
 
-  if (flag_rtl_loop_hc)
-    {
-      loops = loop_optimizer_init (dump_file);
-      if (loops)
-	{
-	  rtl_loop_copy_header (loops);
-	  loop_optimizer_finalize (loops, dump_file);
-	}
-    }
   loops = loop_optimizer_init (dump_file);
 
   if (loops)
@@ -1669,7 +1665,7 @@ rest_of_compilation (void)
   /* Any of the several passes since flow1 will have munged register
      lifetime data a bit.  We need it to be up to date for scheduling
      (see handling of reg_known_equiv in init_alias_analysis).  */
-  recompute_reg_usage (get_insns (), !optimize_size);
+  recompute_reg_usage ();
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_modulo_sched)
@@ -1729,6 +1725,11 @@ rest_of_compilation (void)
 #endif
 
   compute_alignments ();
+
+  /* Aggressively duplicate basic blocks ending in computed gotos to the
+     tails of their predecessors, unless we are optimizing for size.  */
+  if (flag_expensive_optimizations && !optimize_size)
+    duplicate_computed_gotos ();
 
   if (flag_var_tracking)
     rest_of_handle_variable_tracking ();

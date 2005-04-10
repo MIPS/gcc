@@ -768,6 +768,9 @@
 ;; of memory unit collision in the same packet.  There's only one divide
 ;; unit too.
 
+(define_automaton "fr400_integer")
+(define_cpu_unit "fr400_mul" "fr400_integer")
+
 (define_insn_reservation "fr400_i1_int" 1
   (and (eq_attr "cpu" "fr400,fr405,fr450")
        (eq_attr "type" "int"))
@@ -788,18 +791,18 @@
 (define_insn_reservation "fr400_i1_mul" 3
   (and (eq_attr "cpu" "fr400,fr405")
        (eq_attr "type" "mul"))
-  "i0")
+  "i0 + fr400_mul")
 
 (define_insn_reservation "fr450_i1_mul" 2
   (and (eq_attr "cpu" "fr450")
        (eq_attr "type" "mul"))
-  "i0")
+  "i0 + fr400_mul")
 
 (define_bypass 1 "fr400_i1_macc" "fr400_i1_macc")
 (define_insn_reservation "fr400_i1_macc" 2
   (and (eq_attr "cpu" "fr405,fr450")
        (eq_attr "type" "macc"))
-  "i0|i1")
+  "(i0|i1) + fr400_mul")
 
 (define_insn_reservation "fr400_i1_scan" 1
   (and (eq_attr "cpu" "fr400,fr405,fr450")
@@ -809,7 +812,7 @@
 (define_insn_reservation "fr400_i1_cut" 2
   (and (eq_attr "cpu" "fr405,fr450")
        (eq_attr "type" "cut"))
-  "i0")
+  "i0 + fr400_mul")
 
 ;; 20 is for a write-after-write hazard.
 (define_insn_reservation "fr400_i1_div" 20
@@ -1203,7 +1206,7 @@
        (eq_attr "type" "sqrt_single"))
   "(f1|f0) + fr550_float")
 
-;; Synthetic units for enforcing media issue restructions.  Certain types
+;; Synthetic units for enforcing media issue restrictions.  Certain types
 ;; of insn in M2 conflict with certain types in M0:
 ;;
 ;;			     M2
@@ -1501,6 +1504,7 @@
 ;; )
 ;;
 
+(include "predicates.md")
 
 ;; ::::::::::::::::::::
 ;; ::
@@ -2423,7 +2427,7 @@
 ;; to make it conditional on reload.
 
 (define_expand "movcc_fp"
-  [(set (match_operand:CC_FP 0 "move_destination_operand" "")
+  [(set (match_operand:CC_FP 0 "movcc_fp_destination_operand" "")
 	(match_operand:CC_FP 1 "move_source_operand" ""))]
   "TARGET_HAS_FPRS"
   "
@@ -2433,7 +2437,7 @@
 }")
 
 (define_insn "*movcc_fp_internal"
-  [(set (match_operand:CC_FP 0 "move_destination_operand" "=d,d,d,m")
+  [(set (match_operand:CC_FP 0 "movcc_fp_destination_operand" "=d,d,d,m")
 	(match_operand:CC_FP 1 "move_source_operand" "u,d,m,d"))]
   "TARGET_HAS_FPRS && (reload_in_progress || reload_completed)"
   "@
@@ -2447,7 +2451,7 @@
 
 (define_expand "reload_incc_fp"
   [(match_operand:CC_FP 0 "fcc_operand" "=u")
-   (match_operand:CC_FP 1 "memory_operand" "m")
+   (match_operand:CC_FP 1 "gpr_or_memory_operand_with_scratch" "m")
    (match_operand:TI 2 "integer_register_operand" "=&d")]
   "TARGET_HAS_FPRS"
   "
@@ -2458,6 +2462,27 @@
   rtx temp2 = simplify_gen_subreg (SImode, operands[2], TImode, 8);
   int shift = CC_SHIFT_RIGHT (REGNO (operands[0]));
   HOST_WIDE_INT mask;
+
+  if (!gpr_or_memory_operand (operands[1], CC_FPmode))
+    {
+      rtx addr;
+      rtx temp3 = simplify_gen_subreg (SImode, operands[2], TImode, 12);
+
+      if (GET_CODE (operands[1]) != MEM)
+        abort ();
+
+      addr = XEXP (operands[1], 0);
+
+      if (GET_CODE (addr) != PLUS)
+        abort ();
+
+      emit_move_insn (temp3, XEXP (addr, 1));
+
+      operands[1] = replace_equiv_address (operands[1],
+					   gen_rtx_PLUS (GET_MODE (addr),
+							 XEXP (addr, 0),
+							 temp3));
+    }
 
   emit_insn (gen_movcc_fp (cc_op2, operands[1]));
   if (shift)
@@ -5889,7 +5914,7 @@
 ;; Called after register allocation to add any instructions needed for the
 ;; epilogue.  Using an epilogue insn is favored compared to putting all of the
 ;; instructions in the FUNCTION_EPILOGUE macro, since it allows the scheduler
-;; to intermix instructions with the restires of the caller saved registers.
+;; to intermix instructions with the restores of the caller saved registers.
 ;; In some cases, it might be necessary to emit a barrier instruction as the
 ;; first insn to prevent such scheduling.
 (define_expand "epilogue"
@@ -8179,25 +8204,42 @@
   [(set_attr "length" "4")
    (set_attr "type" "load_or_call")])
 
-;; Reads GR8 and GR9.
-;; Clobbers GR8.
-;; Modifies GR9.
-(define_insn "tls_indirect_call"
-  [(set (match_operand:SI 0 "register_operand" "=D09")
+;; We have to expand this like a libcall (it sort of actually is)
+;; because otherwise sched may move, for example, an insn that sets up
+;; GR8 for a subsequence call before the *tls_indirect_call insn, and
+;; then reload won't be able to fix things up.
+(define_expand "tls_indirect_call"
+  [(set (reg:DI GR8_REG)
+	(match_operand:DI 2 "register_operand" ""))
+   (parallel
+    [(set (reg:SI GR9_REG)
+	  (unspec:SI
+	   [(match_operand:SI 1 "symbolic_operand" "")
+	   (reg:DI GR8_REG)]
+	   UNSPEC_TLS_INDIRECT_CALL))
+    (clobber (reg:SI GR8_REG))
+    (clobber (reg:SI LRREG))
+    (use (match_operand:SI 3 "register_operand" ""))])
+   (set (match_operand:SI 0 "register_operand" "")
+	(reg:SI GR9_REG))]
+  "HAVE_AS_TLS")
+
+(define_insn "*tls_indirect_call"
+  [(set (reg:SI GR9_REG)
 	(unspec:SI
-	 [(match_operand:SI 1 "symbolic_operand" "")
-	  (match_operand:DI 2 "register_operand" "D89")]
+	 [(match_operand:SI 0 "symbolic_operand" "")
+	  (reg:DI GR8_REG)]
 	 UNSPEC_TLS_INDIRECT_CALL))
-   (clobber (match_operand:SI 3 "register_operand" "=D08"))
+   (clobber (reg:SI GR8_REG))
    (clobber (reg:SI LRREG))
    ;; If there was a way to represent the fact that we don't need GR9
    ;; or GR15 to be set before this instruction (it could be in
    ;; parallel), we could use it here.  This change wouldn't apply to
    ;; call_gettlsoff, thought, since the linker may turn the latter
    ;; into ldi @(gr15,offset),gr9.
-   (use (match_operand:SI 4 "register_operand" "D15"))]
+   (use (match_operand:SI 1 "register_operand" "D15"))]
   "HAVE_AS_TLS"
-  "calll #gettlsoff(%a1)@(%2,gr0)"
+  "calll #gettlsoff(%a0)@(gr8,gr0)"
   [(set_attr "length" "4")
    (set_attr "type" "jumpl")])
 

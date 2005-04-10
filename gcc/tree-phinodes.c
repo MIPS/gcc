@@ -1,5 +1,5 @@
 /* Generic routines for manipulating PHIs
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -206,7 +206,7 @@ static tree
 make_phi_node (tree var, int len)
 {
   tree phi;
-  int capacity;
+  int capacity, i;
 
   capacity = ideal_phi_node_len (len);
 
@@ -226,6 +226,15 @@ make_phi_node (tree var, int len)
   else
     SET_PHI_RESULT (phi, make_ssa_name (var, phi));
 
+  for (i = 0; i < capacity; i++)
+    {
+      ssa_imm_use_t * imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (phi, i));
+      imm->prev = NULL;
+      imm->next = NULL;
+      imm->stmt = phi;
+    }
   return phi;
 }
 
@@ -236,6 +245,14 @@ release_phi_node (tree phi)
 {
   int bucket;
   int len = PHI_ARG_CAPACITY (phi);
+  int x;
+
+  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+    {
+      ssa_imm_use_t * imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (phi, x));
+      delink_imm_use (imm);
+    }
 
   bucket = len > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : len;
   bucket -= 2;
@@ -250,7 +267,7 @@ release_phi_node (tree phi)
 static void
 resize_phi_node (tree *phi, int len)
 {
-  int old_size;
+  int old_size, i;
   tree new_phi;
 
   gcc_assert (len > PHI_ARG_CAPACITY (*phi));
@@ -265,7 +282,27 @@ resize_phi_node (tree *phi, int len)
 
   memcpy (new_phi, *phi, old_size);
 
+  for (i = 0; i < PHI_NUM_ARGS (new_phi); i++)
+    {
+      ssa_imm_use_t *imm, *old_imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
+      old_imm = &(PHI_ARG_IMM_USE_NODE (*phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
+      relink_imm_use_stmt (imm, old_imm, new_phi);
+    }
+
   PHI_ARG_CAPACITY (new_phi) = len;
+
+  for (i = PHI_NUM_ARGS (new_phi); i < len; i++)
+    {
+      ssa_imm_use_t * imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
+      imm->prev = NULL;
+      imm->next = NULL;
+      imm->stmt = new_phi;
+    }
+
 
   *phi = new_phi;
 }
@@ -372,6 +409,9 @@ remove_phi_arg_num (tree phi, int i)
 
   gcc_assert (i < num_elem);
 
+  /* Delink the last item, which is being removed.  */
+  delink_imm_use (&(PHI_ARG_IMM_USE_NODE (phi, num_elem - 1)));
+
   /* If we are not at the last element, switch the last element
      with the element we want to delete.  */
   if (i != num_elem - 1)
@@ -402,38 +442,29 @@ remove_phi_args (edge e)
    used as the node immediately before PHI in the linked list.  */
 
 void
-remove_phi_node (tree phi, tree prev, basic_block bb)
+remove_phi_node (tree phi, tree prev)
 {
+  tree *loc;
+
   if (prev)
     {
-      /* Rewire the list if we are given a PREV pointer.  */
-      PHI_CHAIN (prev) = PHI_CHAIN (phi);
-
-      /* If we are deleting the PHI node, then we should release the
-	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
-      release_phi_node (phi);
-    }
-  else if (phi == phi_nodes (bb))
-    {
-      /* Update the list head if removing the first element.  */
-      bb_ann (bb)->phi_nodes = PHI_CHAIN (phi);
-
-      /* If we are deleting the PHI node, then we should release the
-	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
-      release_phi_node (phi);
+      loc = &PHI_CHAIN (prev);
     }
   else
     {
-      /* Traverse the list looking for the node to remove.  */
-      tree prev, t;
-      prev = NULL_TREE;
-      for (t = phi_nodes (bb); t && t != phi; t = PHI_CHAIN (t))
-	prev = t;
-      if (t)
-	remove_phi_node (t, prev, bb);
+      for (loc = &(bb_ann (bb_for_stmt (phi))->phi_nodes);
+	   *loc != phi;
+	   loc = &PHI_CHAIN (*loc))
+	;
     }
+
+  /* Remove PHI from the chain.  */
+  *loc = PHI_CHAIN (phi);
+
+  /* If we are deleting the PHI node, then we should release the
+     SSA_NAME node so that it can be reused.  */
+  release_phi_node (phi);
+  release_ssa_name (PHI_RESULT (phi));
 }
 
 
@@ -470,8 +501,8 @@ remove_all_phi_nodes_for (bitmap vars)
 	    {
 	      /* If we are deleting the PHI node, then we should release the
 		 SSA_NAME node so that it can be reused.  */
-	      release_ssa_name (PHI_RESULT (phi));
 	      release_phi_node (phi);
+	      release_ssa_name (PHI_RESULT (phi));
 	    }
 	}
 

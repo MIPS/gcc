@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -93,7 +93,6 @@ extern int    __gnat_is_symbolic_link		   (char *name);
 extern int    __gnat_portable_spawn                (char *[]);
 extern int    __gnat_portable_no_block_spawn       (char *[]);
 extern int    __gnat_portable_wait                 (int *);
-extern int    __gnat_waitpid			   (int);
 extern char  *__gnat_locate_exec                   (char *, char *);
 extern char  *__gnat_locate_exec_on_path	   (char *);
 extern char  *__gnat_locate_regular_file           (char *, char *);
@@ -149,6 +148,7 @@ extern void   __gnat_set_binary_mode		   (int);
 extern void   __gnat_set_text_mode		   (int);
 extern char  *__gnat_ttyname			   (int);
 extern int    __gnat_lseek			   (int, long, int);
+extern int    __gnat_set_close_on_exec		   (int, int);
 extern int    __gnat_dup			   (int);
 extern int    __gnat_dup2			   (int, int);
 

@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -102,7 +102,7 @@ extern bool bitmap_intersect_compl_p (bitmap, bitmap);
 extern void bitmap_and (bitmap, bitmap, bitmap);
 extern void bitmap_and_into (bitmap, bitmap);
 extern void bitmap_and_compl (bitmap, bitmap, bitmap);
-extern void bitmap_and_compl_into (bitmap, bitmap);
+extern bool bitmap_and_compl_into (bitmap, bitmap);
 extern bool bitmap_ior (bitmap, bitmap, bitmap);
 extern bool bitmap_ior_into (bitmap, bitmap);
 extern void bitmap_xor (bitmap, bitmap, bitmap);
@@ -159,15 +159,9 @@ extern unsigned bitmap_first_set_bit (bitmap);
 /* Allocate a gc'd bitmap.  */
 #define BITMAP_GGC_ALLOC() bitmap_gc_alloc ()
 
-/* Allocate a bitmap with xmalloc.  */
-#define BITMAP_XMALLOC() BITMAP_ALLOC (NULL)
-
 /* Do any cleanup needed on a bitmap when it is no longer used.  */
 #define BITMAP_FREE(BITMAP)			\
       	((void)(bitmap_obstack_free (BITMAP), (BITMAP) = NULL))
-
-/* Do any cleanup needed on an xmalloced bitmap when it is no longer used.  */
-#define BITMAP_XFREE(BITMAP) BITMAP_FREE (BITMAP)
 
 /* Iterator for bitmaps.  */
 

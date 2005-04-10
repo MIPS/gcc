@@ -145,7 +145,8 @@ init_expmed (void)
   memset (&all, 0, sizeof all);
 
   PUT_CODE (&all.reg, REG);
-  REGNO (&all.reg) = 10000;
+  /* Avoid using hard regs in ways which may be unsupported.  */
+  REGNO (&all.reg) = LAST_VIRTUAL_REGISTER + 1;
 
   PUT_CODE (&all.plus, PLUS);
   XEXP (&all.plus, 0) = &all.reg;
@@ -337,8 +338,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 {
   unsigned int unit
     = (MEM_P (str_rtx)) ? BITS_PER_UNIT : BITS_PER_WORD;
-  unsigned HOST_WIDE_INT offset = bitnum / unit;
-  unsigned HOST_WIDE_INT bitpos = bitnum % unit;
+  unsigned HOST_WIDE_INT offset, bitpos;
   rtx op0 = str_rtx;
   int byte_offset;
   rtx orig_value;
@@ -352,11 +352,15 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	 meaningful at a much higher level; when structures are copied
 	 between memory and regs, the higher-numbered regs
 	 always get higher addresses.  */
-      offset += (SUBREG_BYTE (op0) / UNITS_PER_WORD);
-      /* We used to adjust BITPOS here, but now we do the whole adjustment
-	 right after the loop.  */
+      bitnum += SUBREG_BYTE (op0) * BITS_PER_UNIT;
       op0 = SUBREG_REG (op0);
     }
+
+  /* No action is needed if the target is a register and if the field
+     lies completely outside that register.  This can occur if the source
+     code contains an out-of-bounds access to a small array.  */
+  if (REG_P (op0) && bitnum >= GET_MODE_BITSIZE (GET_MODE (op0)))
+    return value;
 
   /* Use vec_set patterns for inserting parts of vectors whenever
      available.  */
@@ -419,6 +423,8 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      done with a simple store.  For targets that support fast unaligned
      memory, any naturally sized, unit aligned field can be done directly.  */
 
+  offset = bitnum / unit;
+  bitpos = bitnum % unit;
   byte_offset = (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
                 + (offset * UNITS_PER_WORD);
 
@@ -1064,8 +1070,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 {
   unsigned int unit
     = (MEM_P (str_rtx)) ? BITS_PER_UNIT : BITS_PER_WORD;
-  unsigned HOST_WIDE_INT offset = bitnum / unit;
-  unsigned HOST_WIDE_INT bitpos = bitnum % unit;
+  unsigned HOST_WIDE_INT offset, bitpos;
   rtx op0 = str_rtx;
   rtx spec_target = target;
   rtx spec_target_subreg = 0;
@@ -1080,14 +1085,15 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   while (GET_CODE (op0) == SUBREG)
     {
-      bitpos += SUBREG_BYTE (op0) * BITS_PER_UNIT;
-      if (bitpos > unit)
-	{
-	  offset += (bitpos / unit);
-	  bitpos %= unit;
-	}
+      bitnum += SUBREG_BYTE (op0) * BITS_PER_UNIT;
       op0 = SUBREG_REG (op0);
     }
+
+  /* If we have an out-of-bounds access to a register, just return an
+     uninitialized register of the required mode.  This can occur if the
+     source code contains an out-of-bounds access to a small array.  */
+  if (REG_P (op0) && bitnum >= GET_MODE_BITSIZE (GET_MODE (op0)))
+    return gen_reg_rtx (tmode);
 
   if (REG_P (op0)
       && mode == GET_MODE (op0)
@@ -1188,6 +1194,8 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      can also be extracted with a SUBREG.  For this, we need the
      byte offset of the value in op0.  */
 
+  bitpos = bitnum % unit;
+  offset = bitnum / unit;
   byte_offset = bitpos / BITS_PER_UNIT + offset * UNITS_PER_WORD;
 
   /* If OP0 is a register, BITPOS must count within a word.
@@ -2224,9 +2232,8 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	      tree type = TREE_TYPE (amount);
 	      tree new_amount = make_tree (type, op1);
 	      tree other_amount
-		= fold (build2 (MINUS_EXPR, type, convert
-				(type, build_int_cst
-				 (NULL_TREE, GET_MODE_BITSIZE (mode))),
+		= fold (build2 (MINUS_EXPR, type, 
+				build_int_cst (type, GET_MODE_BITSIZE (mode)),
 				amount));
 
 	      shifted = force_reg (mode, shifted);
@@ -3004,57 +3011,96 @@ rtx
 expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	     int unsignedp)
 {
-  rtx const_op1 = op1;
   enum mult_variant variant;
   struct algorithm algorithm;
+  int max_cost;
 
-  /* synth_mult does an `unsigned int' multiply.  As long as the mode is
-     less than or equal in size to `unsigned int' this doesn't matter.
-     If the mode is larger than `unsigned int', then synth_mult works only
-     if the constant value exactly fits in an `unsigned int' without any
-     truncation.  This means that multiplying by negative values does
-     not work; results are off by 2^32 on a 32 bit machine.  */
+  /* Handling const0_rtx here allows us to use zero as a rogue value for
+     coeff below.  */
+  if (op1 == const0_rtx)
+    return const0_rtx;
+  if (op1 == const1_rtx)
+    return op0;
+  if (op1 == constm1_rtx)
+    return expand_unop (mode,
+			GET_MODE_CLASS (mode) == MODE_INT
+			&& !unsignedp && flag_trapv
+			? negv_optab : neg_optab,
+			op0, target, 0);
 
-  /* If we are multiplying in DImode, it may still be a win
-     to try to work with shifts and adds.  */
-  if (GET_CODE (op1) == CONST_DOUBLE
-      && GET_MODE_CLASS (GET_MODE (op1)) == MODE_INT
-      && HOST_BITS_PER_INT >= BITS_PER_WORD
-      && CONST_DOUBLE_HIGH (op1) == 0)
-    const_op1 = GEN_INT (CONST_DOUBLE_LOW (op1));
-  else if (HOST_BITS_PER_INT < GET_MODE_BITSIZE (mode)
-	   && GET_CODE (op1) == CONST_INT
-	   && INTVAL (op1) < 0)
-    const_op1 = 0;
-
-  /* We used to test optimize here, on the grounds that it's better to
-     produce a smaller program when -O is not used.
-     But this causes such a terrible slowdown sometimes
-     that it seems better to use synth_mult always.  */
-
-  if (const_op1 && GET_CODE (const_op1) == CONST_INT
+  /* These are the operations that are potentially turned into a sequence
+     of shifts and additions.  */
+  if (GET_MODE_CLASS (mode) == MODE_INT
       && (unsignedp || !flag_trapv))
     {
-      HOST_WIDE_INT coeff = INTVAL (const_op1);
-      int mult_cost;
+      HOST_WIDE_INT coeff = 0;
 
-      /* Special case powers of two.  */
-      if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
+      /* synth_mult does an `unsigned int' multiply.  As long as the mode is
+	 less than or equal in size to `unsigned int' this doesn't matter.
+	 If the mode is larger than `unsigned int', then synth_mult works
+	 only if the constant value exactly fits in an `unsigned int' without
+	 any truncation.  This means that multiplying by negative values does
+	 not work; results are off by 2^32 on a 32 bit machine.  */
+
+      if (GET_CODE (op1) == CONST_INT)
 	{
-	  if (coeff == 0)
-	    return const0_rtx;
-	  if (coeff == 1)
-	    return op0;
-	  return expand_shift (LSHIFT_EXPR, mode, op0,
-			       build_int_cst (NULL_TREE, floor_log2 (coeff)),
-			       target, unsignedp);
+	  /* Attempt to handle multiplication of DImode values by negative
+	     coefficients, by performing the multiplication by a positive
+	     multiplier and then inverting the result.  */
+	  if (INTVAL (op1) < 0
+	      && GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT)
+	    {
+	      /* Its safe to use -INTVAL (op1) even for INT_MIN, as the
+		 result is interpreted as an unsigned coefficient.  */
+	      max_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET)
+			 - neg_cost[mode];
+	      if (max_cost > 0
+		  && choose_mult_variant (mode, -INTVAL (op1), &algorithm,
+					  &variant, max_cost))
+		{
+		  rtx temp = expand_mult_const (mode, op0, -INTVAL (op1),
+						NULL_RTX, &algorithm,
+						variant);
+		  return expand_unop (mode, neg_optab, temp, target, 0);
+		}
+	    }
+	  else coeff = INTVAL (op1);
 	}
+      else if (GET_CODE (op1) == CONST_DOUBLE)
+	{
+	  /* If we are multiplying in DImode, it may still be a win
+	     to try to work with shifts and adds.  */
+	  if (CONST_DOUBLE_HIGH (op1) == 0)
+	    coeff = CONST_DOUBLE_LOW (op1);
+	  else if (CONST_DOUBLE_LOW (op1) == 0
+		   && EXACT_POWER_OF_2_OR_ZERO_P (CONST_DOUBLE_HIGH (op1)))
+	    {
+	      int shift = floor_log2 (CONST_DOUBLE_HIGH (op1))
+			  + HOST_BITS_PER_WIDE_INT;
+	      return expand_shift (LSHIFT_EXPR, mode, op0,
+				   build_int_cst (NULL_TREE, shift),
+				   target, unsignedp);
+	    }
+	}
+        
+      /* We used to test optimize here, on the grounds that it's better to
+	 produce a smaller program when -O is not used.  But this causes
+	 such a terrible slowdown sometimes that it seems better to always
+	 use synth_mult.  */
+      if (coeff != 0)
+	{
+	  /* Special case powers of two.  */
+	  if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
+	    return expand_shift (LSHIFT_EXPR, mode, op0,
+				 build_int_cst (NULL_TREE, floor_log2 (coeff)),
+				 target, unsignedp);
 
-      mult_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET);
-      if (choose_mult_variant (mode, coeff, &algorithm, &variant,
-			       mult_cost))
-	return expand_mult_const (mode, op0, coeff, target,
-				  &algorithm, variant);
+	  max_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET);
+	  if (choose_mult_variant (mode, coeff, &algorithm, &variant,
+				   max_cost))
+	    return expand_mult_const (mode, op0, coeff, target,
+				      &algorithm, variant);
+	}
     }
 
   if (GET_CODE (op0) == CONST_DOUBLE)
@@ -3332,15 +3378,29 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
     }
 
   /* Try widening the mode and perform a non-widening multiplication.  */
-  moptab = smul_optab;
   if (smul_optab->handlers[wider_mode].insn_code != CODE_FOR_nothing
       && size - 1 < BITS_PER_WORD
       && mul_cost[wider_mode] + shift_cost[mode][size-1] < max_cost)
     {
-      tem = expand_binop (wider_mode, moptab, op0, op1, 0,
+      rtx insns, wop0, wop1;
+
+      /* We need to widen the operands, for example to ensure the
+	 constant multiplier is correctly sign or zero extended.
+	 Use a sequence to clean-up any instructions emitted by
+	 the conversions if things don't work out.  */
+      start_sequence ();
+      wop0 = convert_modes (wider_mode, mode, op0, unsignedp);
+      wop1 = convert_modes (wider_mode, mode, op1, unsignedp);
+      tem = expand_binop (wider_mode, smul_optab, wop0, wop1, 0,
 			  unsignedp, OPTAB_WIDEN);
+      insns = get_insns ();
+      end_sequence ();
+
       if (tem)
-	return extract_high_half (mode, tem);
+	{
+	  emit_insn (insns);
+	  return extract_high_half (mode, tem);
+	}
     }
 
   /* Try widening multiplication of opposite signedness, and adjust.  */
@@ -4850,17 +4910,15 @@ make_tree (tree type, rtx x)
 
     case LSHIFTRT:
       t = lang_hooks.types.unsigned_type (type);
-      return fold (convert (type,
-			    build2 (RSHIFT_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (type, XEXP (x, 1)))));
+      return fold_convert (type, build2 (RSHIFT_EXPR, t,
+			    		 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (type, XEXP (x, 1))));
 
     case ASHIFTRT:
       t = lang_hooks.types.signed_type (type);
-      return fold (convert (type,
-			    build2 (RSHIFT_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (type, XEXP (x, 1)))));
+      return fold_convert (type, build2 (RSHIFT_EXPR, t,
+					 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (type, XEXP (x, 1))));
 
     case DIV:
       if (TREE_CODE (type) != REAL_TYPE)
@@ -4868,22 +4926,20 @@ make_tree (tree type, rtx x)
       else
 	t = type;
 
-      return fold (convert (type,
-			    build2 (TRUNC_DIV_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (t, XEXP (x, 1)))));
+      return fold_convert (type, build2 (TRUNC_DIV_EXPR, t,
+				    	 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (t, XEXP (x, 1))));
     case UDIV:
       t = lang_hooks.types.unsigned_type (type);
-      return fold (convert (type,
-			    build2 (TRUNC_DIV_EXPR, t,
-				    make_tree (t, XEXP (x, 0)),
-				    make_tree (t, XEXP (x, 1)))));
+      return fold_convert (type, build2 (TRUNC_DIV_EXPR, t,
+				    	 make_tree (t, XEXP (x, 0)),
+				    	 make_tree (t, XEXP (x, 1))));
 
     case SIGN_EXTEND:
     case ZERO_EXTEND:
       t = lang_hooks.types.type_for_mode (GET_MODE (XEXP (x, 0)),
 					  GET_CODE (x) == ZERO_EXTEND);
-      return fold (convert (type, make_tree (t, XEXP (x, 0))));
+      return fold_convert (type, make_tree (t, XEXP (x, 0)));
 
     default:
       t = build_decl (VAR_DECL, NULL_TREE, type);

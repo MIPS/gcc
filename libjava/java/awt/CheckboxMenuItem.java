@@ -1,5 +1,5 @@
 /* CheckboxMenuItem.java -- A menu option with a checkbox on it.
-   Copyright (C) 1999, 2000, 2001, 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,14 +43,20 @@ import java.awt.event.ItemListener;
 import java.awt.peer.CheckboxMenuItemPeer;
 import java.util.EventListener;
 
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleAction;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleValue;
+
 /**
   * This class implements a menu item that has a checkbox on it indicating
   * the selected state of some option.
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @author Tom Tromey <tromey@redhat.com>
+  * @author Tom Tromey (tromey@redhat.com)
   */
-public class CheckboxMenuItem extends MenuItem implements ItemSelectable
+public class CheckboxMenuItem extends MenuItem
+  implements ItemSelectable, Accessible
 {
 
 /*
@@ -268,6 +274,14 @@ processItemEvent(ItemEvent event)
 void
 dispatchEventImpl(AWTEvent e)
 {
+  if (e instanceof ItemEvent)
+    {
+      synchronized (this)
+        {
+          state = (((ItemEvent) e).getStateChange() == ItemEvent.SELECTED);
+        }
+    }
+
   if (e.id <= ItemEvent.ITEM_LAST 
       && e.id >= ItemEvent.ITEM_FIRST
       && (item_listeners != null 
@@ -315,5 +329,27 @@ paramString()
   {
     return (ItemListener[]) getListeners (ItemListener.class);
   }
+
+
+  protected class AccessibleAWTCheckboxMenuItem extends AccessibleAWTMenuItem
+    implements AccessibleAction, AccessibleValue
+  {
+    // I think the base class provides the necessary implementation
+  }
+  
+  /**
+   * Gets the AccessibleContext associated with this <code>CheckboxMenuItem</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTCheckboxMenuItem();
+    return accessibleContext;
+  }
+
 } // class CheckboxMenuItem
 

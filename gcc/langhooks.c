@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -545,4 +545,10 @@ tree
 lhd_make_node (enum tree_code code)
 {
   return make_node (code);
+}
+
+HOST_WIDE_INT
+lhd_to_target_charset (HOST_WIDE_INT c)
+{
+  return c;
 }

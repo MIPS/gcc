@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -284,11 +284,19 @@ struct function GTY(())
   int no_debugging_symbols;
   rtvec original_arg_vector;
   tree original_decl_initial;
+
   /* Highest label number in current function.  */
   int inl_max_label_num;
 
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
+
+  /* For flow.c.  */
+
+  /* Highest loop depth seen so far in loop analysis.  Used in flow.c
+     for the "failure strategy" when doing liveness analysis starting
+     with non-empty initial sets.  */
+  int max_loop_depth;
 
   /* For md files.  */
 
@@ -375,9 +383,6 @@ struct function GTY(())
   /* Nonzero if function being compiled contains nested functions.  */
   unsigned int contains_functions : 1;
 
-  /* Nonzero if the function being compiled issues a computed jump.  */
-  unsigned int has_computed_jump : 1;
-
   /* Nonzero if the current function is a thunk, i.e., a lightweight
      function implemented by the output_mi_thunk hook) that just
      adjusts one of its arguments and forwards to another
@@ -447,7 +452,6 @@ extern int trampolines_created;
 #define current_function_calls_setjmp (cfun->calls_setjmp)
 #define current_function_calls_alloca (cfun->calls_alloca)
 #define current_function_calls_eh_return (cfun->calls_eh_return)
-#define current_function_has_computed_jump (cfun->has_computed_jump)
 #define current_function_contains_functions (cfun->contains_functions)
 #define current_function_is_thunk (cfun->is_thunk)
 #define current_function_args_info (cfun->args_info)
@@ -504,8 +508,6 @@ extern void free_block_changes (void);
    This size counts from zero.  It is not rounded to STACK_BOUNDARY;
    the caller may have to do that.  */
 extern HOST_WIDE_INT get_frame_size (void);
-/* Likewise, but for a different than the current function.  */
-extern HOST_WIDE_INT get_func_frame_size (struct function *);
 
 /* A pointer to a function to create target specific, per-function
    data structures.  */

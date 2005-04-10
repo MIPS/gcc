@@ -244,7 +244,6 @@ linear_transform_loops (struct loops *loops)
 {
   unsigned int i;
   
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
@@ -272,14 +271,13 @@ linear_transform_loops (struct loops *loops)
                 ...
                }
            } */
-      if (!loop_nest->inner)
+      if (!loop_nest || !loop_nest->inner)
 	continue;
       depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
-	  flow_loop_scan (temp, LOOP_ALL);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || temp->num_exits != 1)
+	  if (temp->next || !temp->single_exit)
 	    {
 	      problem = true;
 	      break;
@@ -372,9 +370,9 @@ linear_transform_loops (struct loops *loops)
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
-  free_df ();
   scev_reset ();
-  rewrite_into_loop_closed_ssa ();
+  rewrite_into_ssa (false);
+  rewrite_into_loop_closed_ssa (NULL);
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
 #endif

@@ -43,7 +43,7 @@
 @end ifset
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c Include everything if we're not making html
@@ -64,7 +64,7 @@
 @c Part 2 Summary Description and Copyright
 @copying
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -973,12 +973,6 @@ systems that support conditional traps).
 Division by zero checks use the break instruction.
 @end table
 
-@item --enable-altivec
-Specify that the target supports AltiVec vector enhancements.  This
-option will adjust the ABI for AltiVec enhancements, as well as generate
-AltiVec code when appropriate.  This option is only available for
-PowerPC systems.
-
 @item --enable-__cxa_atexit
 Define if you want to use __cxa_atexit, rather than atexit, to
 register C++ destructors for local statics and global objects.
@@ -1041,6 +1035,13 @@ particularly useful if you intend to use several versions of GCC in
 parallel.  This is currently supported by @samp{libgfortran},
 @samp{libjava}, @samp{libmudflap}, @samp{libstdc++}, and @samp{libobjc}.
 
+@item --with-java-home=@var{dirname}
+This @samp{libjava} option overrides the default value of the
+@samp{java.home} system property.  It is also used to set
+@samp{sun.boot.class.path} to @file{@var{dirname}/lib/rt.jar}.  By
+default @samp{java.home} is set to @file{@var{prefix}} and
+@samp{sun.boot.class.path} to
+@file{@var{datadir}/java/libgcj-@var{version}.jar}.
 
 @item --enable-languages=@var{lang1},@var{lang2},@dots{}
 Specify that only a particular subset of compilers and
@@ -1105,29 +1106,29 @@ controlled by the Makefiles.
 
 @item --enable-checking
 @itemx --enable-checking=@var{list}
-When you specify this option, the compiler is built to perform checking
-of tree node types when referencing fields of that node, and some other
-internal consistency checks.  This does not change the generated code,
-but adds error checking within the compiler.  This will slow down the
-compiler and may only work properly if you are building the compiler
-with GCC@.  This is on by default when building from CVS or snapshots,
-but off for releases.  More control over the checks may be had by
-specifying @var{list}; the categories of checks available are
-@samp{release}, @samp{assert}, @samp{misc}, @samp{tree}, @samp{gc},
-@samp{rtl}, @samp{rtlflag}, @samp{fold}, @samp{gcac} and
-@samp{valgrind}.  The @samp{release} category enables only those checks
-suitable for release builds, currently this is just @samp{assert}.  The
-check @samp{valgrind} requires the external @command{valgrind}
-simulator, available from @uref{http://valgrind.kde.org/}.  The checks
-@samp{rtl}, @samp{gcac} and @samp{valgrind} are very expensive.  The
-default when @var{list} is not specified is
-@samp{assert,misc,tree,gc,rtlflag}.  That is also the default for
-development builds, when @samp{--enable-checking} is not specified.  For
-release builds the default, when @samp{--enable-checking} is not given,
-is @samp{release}.  To disable all checking, @samp{--disable-checking}
-must be explicitly requested.  Disabling assertions will make the
-compiler slightly faster but increase the risk of undetected internal
-errors causing wrong code to be generated.
+When you specify this option, the compiler is built to perform internal
+consistency checks of the requested complexity.  This does not change the
+generated code, but adds error checking within the compiler.  This will
+slow down the compiler and may only work properly if you are building
+the compiler with GCC@.  This is @samp{yes} by default when building
+from CVS or snapshots, but @samp{release} for releases.  More control
+over the checks may be had by specifying @var{list}.  The categories of
+checks available are @samp{yes} (most common checks
+@samp{assert,misc,tree,gc,rtlflag,runtime}), @samp{no} (no checks at
+all), @samp{all} (all but @samp{valgrind}), @samp{release} (cheapest
+checks @samp{assert,runtime}) or @samp{none} (same as @samp{no}).
+Individual checks can be enabled with these flags @samp{assert},
+@samp{fold}, @samp{gc}, @samp{gcac} @samp{misc}, @samp{rtl},
+@samp{rtlflag}, @samp{runtime}, @samp{tree}, and @samp{valgrind}.
+
+The @samp{valgrind} check requires the external @command{valgrind}
+simulator, available from @uref{http://valgrind.kde.org/}.  The
+@samp{rtl}, @samp{gcac} and @samp{valgrind} checks are very expensive.
+To disable all checking, @samp{--disable-checking} or
+@samp{--enable-checking=none} must be explicitly requested.  Disabling
+assertions will make the compiler and runtime slightly faster but
+increase the risk of undetected internal errors causing wrong code to be
+generated.
 
 @item --enable-coverage
 @itemx --enable-coverage=@var{level}
@@ -1144,6 +1145,12 @@ without optimization.
 When this option is specified more detailed information on memory
 allocation is gathered.  This information is printed when using
 @option{-fmem-report}.
+
+@item --with-gc
+@itemx --with-gc=@var{choice}
+With this option you can specify the garbage collector implementation
+used during the compilation process.  @var{choice} can be one of
+@samp{page} and @samp{zone}, where @samp{page} is the default.
 
 @item --enable-nls
 @itemx --disable-nls
@@ -2114,7 +2121,7 @@ IRIX 6.5,
 Digital UNIX 4.0D and 5.1,
 GNU/Linux (i386),
 HP-UX 10.20, 11.00, and 11.11, and
-Solaris/SPARC 2.5.1, 2.6, 2.7, 8, and 9,
+Solaris/SPARC 2.5.1, 2.6, 7, 8, and 9.
 
 @item
 @uref{http://www.openpkg.org/,,OpenPKG} offers binaries for quite a
@@ -2176,6 +2183,8 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#avr,,avr}
 @item
+@uref{#bfin,,Blackfin}
+@item
 @uref{#c4x,,c4x}
 @item
 @uref{#dos,,DOS}
@@ -2232,7 +2241,7 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#powerpc-*-elf,,powerpc-*-elf, powerpc-*-sysv4}
 @item
-@uref{#powerpc-*-linux-gnu*,,powerpc-*-linux-gnu*}
+@uref{#powerpc*-*-linux-gnu*,,powerpc*-*-linux-gnu*}
 @item
 @uref{#powerpc-*-netbsd*,,powerpc-*-netbsd*}
 @item
@@ -2486,6 +2495,23 @@ The following error:
 @end smallexample
 
 indicates that you should upgrade to a newer version of the binutils.
+
+@html
+<hr />
+@end html
+@heading @anchor{bfin}Blackfin
+
+The Blackfin processor, an Analog Devices DSP.
+@ifnothtml
+@xref{Blackfin Options,, Blackfin Options, gcc, Using and Porting the GNU
+Compiler Collection (GCC)},
+@end ifnothtml
+@ifhtml
+See ``Blackfin Options'' in the main manual
+@end ifhtml
+
+More information, and a version of binutils with support for this processor,
+is available at @uref{http://blackfin.uclinux.org}
 
 @html
 <hr />
@@ -3362,7 +3388,7 @@ PowerPC running Darwin (Mac OS X kernel).
 Pre-installed versions of Mac OS X may not include any developer tools,
 meaning that you will not be able to build GCC from source.  Tool
 binaries are available at
-@uref{http://developer.apple.com/tools/compilers.html} (free
+@uref{http://developer.apple.com/darwin/projects/compiler/} (free
 registration required).
 
 This version of GCC requires at least cctools-528.
@@ -3380,10 +3406,10 @@ PowerPC system in big endian mode, running System V.4.
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-linux-gnu*}powerpc-*-linux-gnu*
+@heading @anchor{powerpc*-*-linux-gnu*}powerpc*-*-linux-gnu*
 
 You will need
-@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.13.90.0.10}
+@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.15}
 or newer for a working GCC@.
 
 @html
@@ -3595,6 +3621,14 @@ ld: warning: relocation error: R_SPARC_UA32: @dots{}
 
 To work around this problem, compile with @option{-gstabs+} instead of
 plain @option{-g}.
+
+When configuring the GNU Multiple Precision Library (GMP) on a Solaris 7
+or later system, the canonical target triplet must be specified as the
+@command{build} parameter on the configure line:
+
+@smallexample
+./configure --build=sparc-sun-solaris2.7 --prefix=xxx --enable-mpfr
+@end smallexample
 
 @html
 <hr />

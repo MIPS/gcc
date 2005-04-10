@@ -1367,6 +1367,12 @@ lookup_fnfields_1 (tree type, tree name)
       else if (name == ansi_assopname(NOP_EXPR)
 	       && CLASSTYPE_LAZY_ASSIGNMENT_OP (type))
 	lazily_declare_fn (sfk_assignment_operator, type);
+      else if ((name == dtor_identifier
+		|| name == base_dtor_identifier
+		|| name == complete_dtor_identifier
+		|| name == deleting_dtor_identifier)
+	       && CLASSTYPE_LAZY_DESTRUCTOR (type))
+	lazily_declare_fn (sfk_destructor, type);
     }
 
   method_vec = CLASSTYPE_METHOD_VEC (type);
@@ -1633,9 +1639,12 @@ tree
 dfs_walk_once (tree binfo, tree (*pre_fn) (tree, void *),
 	       tree (*post_fn) (tree, void *), void *data)
 {
+  static int active = 0;  /* We must not be called recursively. */
   tree rval;
 
   gcc_assert (pre_fn || post_fn);
+  gcc_assert (!active);
+  active++;
   
   if (!CLASSTYPE_DIAMOND_SHAPED_P (BINFO_TYPE (binfo)))
     /* We are not diamond shaped, and therefore cannot encounter the
@@ -1660,6 +1669,9 @@ dfs_walk_once (tree binfo, tree (*pre_fn) (tree, void *),
       else
 	dfs_unmark_r (binfo);
     }
+
+  active--;
+  
   return rval;
 }
 

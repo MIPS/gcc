@@ -1,5 +1,5 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -138,7 +138,7 @@ doloop_condition_get (rtx pattern)
    the use of special low-overhead looping instructions.  DESC
    describes the number of iterations of the loop.  */
 
-bool
+static bool
 doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 {
   basic_block *body = get_loop_body (loop), bb;
@@ -299,21 +299,17 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
     {
     case NE:
       /* Currently only NE tests against zero and one are supported.  */
-      if (XEXP (condition, 1) == const1_rtx)
+      noloop = XEXP (condition, 1);
+      if (noloop != const0_rtx)
 	{
+	  gcc_assert (noloop == const1_rtx);
 	  increment_count = true;
-	  noloop = const1_rtx;
 	}
-      else if (XEXP (condition, 1) == const0_rtx)
-       	noloop = const0_rtx;
-      else
-	abort ();
       break;
 
     case GE:
       /* Currently only GE tests against zero are supported.  */
-      if (XEXP (condition, 1) != const0_rtx)
-	abort ();
+      gcc_assert (XEXP (condition, 1) == const0_rtx);
 
       noloop = constm1_rtx;
 
@@ -330,7 +326,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 
       /* Abort if an invalid doloop pattern has been generated.  */
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (increment_count)
@@ -359,11 +355,11 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
       /* Expand the condition testing the assumptions and if it does not pass,
 	 reset the count register to 0.  */
       add_test (XEXP (ass, 0), preheader, set_zero);
-      EDGE_SUCC (preheader, 0)->flags &= ~EDGE_FALLTHRU;
-      cnt = EDGE_SUCC (preheader, 0)->count;
-      EDGE_SUCC (preheader, 0)->probability = 0;
-      EDGE_SUCC (preheader, 0)->count = 0;
-      irr = EDGE_SUCC (preheader, 0)->flags & EDGE_IRREDUCIBLE_LOOP;
+      single_succ_edge (preheader)->flags &= ~EDGE_FALLTHRU;
+      cnt = single_succ_edge (preheader)->count;
+      single_succ_edge (preheader)->probability = 0;
+      single_succ_edge (preheader)->count = 0;
+      irr = single_succ_edge (preheader)->flags & EDGE_IRREDUCIBLE_LOOP;
       te = make_edge (preheader, new_preheader, EDGE_FALLTHRU | irr);
       te->probability = REG_BR_PROB_BASE;
       te->count = cnt;
@@ -375,7 +371,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
       for (ass = XEXP (ass, 1); ass; ass = XEXP (ass, 1))
 	{
 	  bb = loop_split_edge_with (te, NULL_RTX);
-	  te = EDGE_SUCC (bb, 0);
+	  te = single_succ_edge (bb);
 	  add_test (XEXP (ass, 0), bb, set_zero);
 	  make_edge (bb, set_zero, irr);
 	}

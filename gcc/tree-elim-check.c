@@ -368,7 +368,7 @@ remove_redundant_check (tree cond, bool value)
   else
     COND_EXPR_COND (cond) = boolean_false_node;
   
-  modify_stmt (cond);
+  update_stmt (cond);
 }
 
 /* If the condition TEST is decidable at compile time, then eliminate
@@ -465,16 +465,11 @@ try_eliminate_check (tree cond)
    function.  */
 
 void 
-eliminate_redundant_checks (struct loops *loops)
+eliminate_redundant_checks (struct loops *loops ATTRIBUTE_UNUSED)
 {
   basic_block bb;
   block_stmt_iterator bsi;
-  unsigned i;
 
-  /* Scan the loops.  */
-  for (i = 1; i < loops->num; i++)
-    flow_loop_scan (loops->parray[i], LOOP_ALL);
-  
   bb = BASIC_BLOCK (0);
   if (bb && bb->loop_father)
     FOR_EACH_BB (bb)
@@ -484,8 +479,8 @@ eliminate_redundant_checks (struct loops *loops)
 	/* Don't try to prove anything about the loop exit
 	   conditions: avoid the block that contains the condition
 	   that guards the exit of the loop.  */
-	if (!loop->exit_edges
-	    || loop->exit_edges[0]->src == bb)
+	if (!loop->single_exit
+	    || loop->single_exit->src == bb)
 	  continue;
 	  
 	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))

@@ -1,5 +1,6 @@
 /* Various declarations for language-independent diagnostics subroutines.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -181,8 +182,6 @@ extern char *diagnostic_build_prefix (diagnostic_info *);
 /* Pure text formatting support functions.  */
 extern void verbatim (const char *, ...);
 extern char *file_name_as_prefix (const char *);
-
-extern void debug_output_buffer (pretty_printer *);
 
 /* In tree-pretty-print.c  */
 extern int dump_generic_node (pretty_printer *, tree, int, int, bool);

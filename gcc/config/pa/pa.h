@@ -1262,6 +1262,13 @@ extern int may_call_alloca;
 	     || cint_ok_for_move (INTVAL (X))))			\
    && !function_label_operand (X, VOIDmode))
 
+/* Target flags set on a symbol_ref.  */
+
+/* Set by ASM_OUTPUT_SYMBOL_REF when a symbol_ref is output.  */
+#define SYMBOL_FLAG_REFERENCED (1 << SYMBOL_FLAG_MACH_DEP_SHIFT)
+#define SYMBOL_REF_REFERENCED_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_REFERENCED) != 0)
+
 /* Subroutines for EXTRA_CONSTRAINT.
 
    Return 1 iff OP is a pseudo which did not get a hard register and
@@ -1532,7 +1539,12 @@ extern int may_call_alloca;
 	  && (TARGET_NO_SPACE_REGS					\
 	      ? (base && REG_P (index))					\
 	      : (base == XEXP (X, 1) && REG_P (index)			\
-		 && REG_POINTER (base) && !REG_POINTER (index)))	\
+		 && (reload_completed					\
+		     || (reload_in_progress && HARD_REGISTER_P (base))	\
+		     || REG_POINTER (base))				\
+		 && (reload_completed					\
+		     || (reload_in_progress && HARD_REGISTER_P (index))	\
+		     || !REG_POINTER (index))))				\
 	  && MODE_OK_FOR_UNSCALED_INDEXING_P (MODE)			\
 	  && REG_OK_FOR_INDEX_P (index)					\
 	  && borx_reg_operand (base, Pmode)				\
@@ -1949,6 +1961,14 @@ forget_section (void)							\
     fputs (xname, FILE);		\
   } while (0)
 
+/* This how we output the symbol_ref X.  */
+
+#define ASM_OUTPUT_SYMBOL_REF(FILE,X) \
+  do {                                                 \
+    SYMBOL_REF_FLAGS (X) |= SYMBOL_FLAG_REFERENCED;    \
+    assemble_name (FILE, XSTR (X, 0));                 \
+  } while (0)
+
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -2107,49 +2127,6 @@ forget_section (void)							\
 
 /* The number of Pmode words for the setjmp buffer.  */
 #define JMP_BUF_SIZE 50
-
-#define PREDICATE_CODES							\
-  {"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
-  {"call_operand_address", {LABEL_REF, SYMBOL_REF, CONST_INT,		\
-			    CONST_DOUBLE, CONST, HIGH}},		 \
-  {"indexed_memory_operand", {SUBREG, MEM}},				\
-  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
-  {"symbolic_memory_operand", {SUBREG, MEM}},				\
-  {"reg_before_reload_operand", {REG, MEM}},				\
-  {"reg_or_0_or_nonsymb_mem_operand", {SUBREG, REG, MEM, CONST_INT,	\
-				       CONST_DOUBLE}},			\
-  {"move_dest_operand", {SUBREG, REG, MEM}},				\
-  {"move_src_operand", {SUBREG, REG, CONST_INT, MEM}},			\
-  {"prefetch_cc_operand", {MEM}},					\
-  {"prefetch_nocc_operand", {MEM}},					\
-  {"reg_or_cint_move_operand", {SUBREG, REG, CONST_INT}},		\
-  {"pic_label_operand", {LABEL_REF, CONST}},				\
-  {"fp_reg_operand", {REG}},						\
-  {"arith_operand", {SUBREG, REG, CONST_INT}},				\
-  {"arith11_operand", {SUBREG, REG, CONST_INT}},			\
-  {"pre_cint_operand", {CONST_INT}},					\
-  {"post_cint_operand", {CONST_INT}},					\
-  {"arith_double_operand", {SUBREG, REG, CONST_DOUBLE}},		\
-  {"ireg_or_int5_operand", {CONST_INT, REG}},				\
-  {"int5_operand", {CONST_INT}},					\
-  {"uint5_operand", {CONST_INT}},					\
-  {"int11_operand", {CONST_INT}},					\
-  {"uint32_operand", {CONST_INT,					\
-   HOST_BITS_PER_WIDE_INT > 32 ? 0 : CONST_DOUBLE}},			\
-  {"arith5_operand", {SUBREG, REG, CONST_INT}},				\
-  {"and_operand", {SUBREG, REG, CONST_INT}},				\
-  {"ior_operand", {CONST_INT}},						\
-  {"lhs_lshift_cint_operand", {CONST_INT}},				\
-  {"lhs_lshift_operand", {SUBREG, REG, CONST_INT}},			\
-  {"arith32_operand", {SUBREG, REG, CONST_INT}},			\
-  {"pc_or_label_operand", {PC, LABEL_REF}},				\
-  {"plus_xor_ior_operator", {PLUS, XOR, IOR}},				\
-  {"shadd_operand", {CONST_INT}},					\
-  {"div_operand", {REG, CONST_INT}},					\
-  {"ireg_operand", {REG}},						\
-  {"cmpib_comparison_operator", {EQ, NE, LT, LE, LEU,			\
-   GT, GTU, GE}},							\
-  {"movb_comparison_operator", {EQ, NE, LT, GE}},
 
 /* We need a libcall to canonicalize function pointers on TARGET_ELF32.  */
 #define CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL \

@@ -1,5 +1,5 @@
 /* Message translation utilities.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,8 +51,8 @@ gcc_init_libintl (void)
   setlocale (LC_ALL, "");
 #endif
 
-  (void) bindtextdomain (PACKAGE, LOCALEDIR);
-  (void) textdomain (PACKAGE);
+  (void) bindtextdomain ("gcc", LOCALEDIR);
+  (void) textdomain ("gcc");
 
   /* Opening quotation mark.  */
   open_quote = _("`");

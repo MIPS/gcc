@@ -114,7 +114,6 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_POST_OPTIONS
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #undef LANG_HOOKS_PARSE_FILE
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #undef LANG_HOOKS_TYPE_FOR_SIZE
@@ -133,7 +132,6 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_POST_OPTIONS		gfc_post_options
 #define LANG_HOOKS_PRINT_IDENTIFIER     gfc_print_identifier
 #define LANG_HOOKS_PARSE_FILE           gfc_be_parse_file
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION   gfc_truthvalue_conversion
 #define LANG_HOOKS_MARK_ADDRESSABLE        gfc_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE           gfc_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE           gfc_type_for_size
@@ -506,7 +504,7 @@ pushdecl (tree decl)
   TREE_CHAIN (decl) = current_binding_level->names;
   current_binding_level->names = decl;
 
-  /* For the declartion of a type, set its name if it is not already set.  */
+  /* For the declaration of a type, set its name if it is not already set.  */
 
   if (TREE_CODE (decl) == TYPE_DECL && TYPE_NAME (TREE_TYPE (decl)) == 0)
     {
@@ -805,8 +803,7 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
 		      BUILT_IN_CABSF, "cabsf", true);
-		      
-  
+ 
   gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
 		      BUILT_IN_COPYSIGN, "copysign", true);
   gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
@@ -820,61 +817,28 @@ gfc_init_builtin_functions (void)
 
   /* Other builtin functions we use.  */
 
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ,
+		      "__builtin_clz", true);
+
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL,
+		      "__builtin_clzl", true);
+
+  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL,
+		      "__builtin_clzll", true);
+
   tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
   ftype = build_function_type (long_integer_type_node, tmp);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
 
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
-		      "memcpy", false);
-
-  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ, "clz", true);
-
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl", true);
-
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll", true);
-
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  ftype = build_function_type (void_type_node, tmp);
-  gfc_define_builtin ("__builtin_init_trampoline", ftype,
-		      BUILT_IN_INIT_TRAMPOLINE, "init_trampoline", false);
-
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
-		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
-
-  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
-     They are inserted during gimplification to implement variable sized
-     stack allocation.  */
-
-  ftype = build_function_type (pvoid_type_node, void_list_node);
-  gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
-		      "stack_save", false);
-
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  ftype = build_function_type (void_type_node, tmp);
-  gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
-		      "stack_restore", false);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-		      "alloca", false);
-
+  build_common_builtin_nodes ();
   targetm.init_builtins ();
 }
 

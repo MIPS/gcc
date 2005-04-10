@@ -215,6 +215,19 @@ lvalue_p (tree ref)
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1) != clk_none);
 }
 
+/* Test whether DECL is a builtin that may appear in a
+   constant-expression. */
+
+bool
+builtin_valid_in_constant_expr_p (tree decl)
+{
+  /* At present BUILT_IN_CONSTANT_P is the only builtin we're allowing
+     in constant-expressions.  We may want to add other builtins later. */
+  return TREE_CODE (decl) == FUNCTION_DECL
+    && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+    && DECL_FUNCTION_CODE (decl) == BUILT_IN_CONSTANT_P;
+}
+
 /* Build a TARGET_EXPR, initializing the DECL with the VALUE.  */
 
 static tree
@@ -486,11 +499,10 @@ cp_build_qualified_type_real (tree type,
       return build_ptrmemfunc_type (t);
     }
 
-  /* A reference, function or method type shall not be cv qualified.
+  /* A reference or method type shall not be cv qualified.
      [dcl.ref], [dct.fct]  */
   if (type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)
       && (TREE_CODE (type) == REFERENCE_TYPE
-	  || TREE_CODE (type) == FUNCTION_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
@@ -498,10 +510,11 @@ cp_build_qualified_type_real (tree type,
     }
 
   /* A restrict-qualified type must be a pointer (or reference)
-     to object or incomplete type.  */
+     to object or incomplete type, or a function type. */
   if ((type_quals & TYPE_QUAL_RESTRICT)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
       && TREE_CODE (type) != TYPENAME_TYPE
+      && TREE_CODE (type) != FUNCTION_TYPE
       && !POINTER_TYPE_P (type))
     {
       bad_quals |= TYPE_QUAL_RESTRICT;
@@ -1099,9 +1112,9 @@ cxx_print_statistics (void)
 tree
 array_type_nelts_top (tree type)
 {
-  return fold (build2 (PLUS_EXPR, sizetype,
-		       array_type_nelts (type),
-		       integer_one_node));
+  return fold_build2 (PLUS_EXPR, sizetype,
+		      array_type_nelts (type),
+		      integer_one_node);
 }
 
 /* Return, as an INTEGER_CST node, the number of elements for TYPE
@@ -1116,7 +1129,7 @@ array_type_nelts_total (tree type)
   while (TREE_CODE (type) == ARRAY_TYPE)
     {
       tree n = array_type_nelts_top (type);
-      sz = fold (build2 (MULT_EXPR, sizetype, sz, n));
+      sz = fold_build2 (MULT_EXPR, sizetype, sz, n);
       type = TREE_TYPE (type);
     }
   return sz;
@@ -1446,6 +1459,7 @@ cp_tree_equal (tree t1, tree t2)
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
     case IDENTIFIER_NODE:
+    case SSA_NAME:
       return false;
 
     case BASELINK:
@@ -2243,7 +2257,10 @@ stabilize_init (tree init, tree *initp)
       if (TREE_CODE (t) == COND_EXPR)
 	return false;
 
-      stabilize_call (t, initp);
+      /* The TARGET_EXPR might be initializing via bitwise copy from
+	 another variable; leave that alone.  */
+      if (TREE_SIDE_EFFECTS (t))
+	stabilize_call (t, initp);
     }
 
   return true;

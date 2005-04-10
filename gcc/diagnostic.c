@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -133,15 +133,18 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
 #undef DEFINE_DIAGNOSTIC_KIND
     "must-not-happen"
   };
+  const char *text = _(diagnostic_kind_text[diagnostic->kind]);
   expanded_location s = expand_location (diagnostic->location);
   gcc_assert (diagnostic->kind < DK_LAST_DIAGNOSTIC_KIND);
 
-  return s.file
-    ? build_message_string ("%s:%d: %s",
-                            s.file, s.line,
-                            _(diagnostic_kind_text[diagnostic->kind]))
-    : build_message_string ("%s: %s", progname,
-                            _(diagnostic_kind_text[diagnostic->kind]));
+  return
+    (s.file == NULL
+     ? build_message_string ("%s: %s", progname, text)
+#ifdef USE_MAPPED_LOCATION
+     : flag_show_column && s.column != 0
+     ? build_message_string ("%s:%d:%d: %s", s.file, s.line, s.column, text)
+#endif
+     : build_message_string ("%s:%d: %s", s.file, s.line, text));
 }
 
 /* Count a diagnostic.  Return true if the message should be printed.  */
@@ -300,7 +303,7 @@ default_diagnostic_starter (diagnostic_context *context,
 
 static void
 default_diagnostic_finalizer (diagnostic_context *context,
-			      diagnostic_info *diagnostic __attribute__((unused)))
+			      diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   pp_destroy_prefix (context->printer);
 }

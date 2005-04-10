@@ -117,7 +117,7 @@ extern void split_ti (rtx[], int, rtx[], rtx[]);
 extern const char *output_set_got (rtx);
 extern const char *output_387_binary_op (rtx, rtx*);
 extern const char *output_387_reg_move (rtx, rtx*);
-extern const char *output_fix_trunc (rtx, rtx*);
+extern const char *output_fix_trunc (rtx, rtx*, int);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
 
 extern void i386_output_dwarf_dtprel (FILE*, int, rtx);
@@ -136,8 +136,12 @@ extern void ix86_expand_binary_operator (enum rtx_code,
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+extern rtx ix86_build_signbit_mask (enum machine_mode, bool, bool);
 extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
 					    rtx[]);
+extern void ix86_expand_copysign (rtx []);
+extern void ix86_split_copysign_const (rtx []);
+extern void ix86_split_copysign_var (rtx []);
 extern int ix86_unary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern int ix86_match_ccmode (rtx, enum machine_mode);
 extern rtx ix86_expand_compare (enum rtx_code, rtx *, rtx *);
@@ -176,7 +180,8 @@ extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
 extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx,
 				  rtx, rtx, rtx, rtx);
-extern int ix86_hard_regno_mode_ok (int, enum machine_mode);
+extern bool ix86_hard_regno_mode_ok (int, enum machine_mode);
+extern bool ix86_modes_tieable_p (enum machine_mode, enum machine_mode);
 extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
 extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
@@ -199,7 +204,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
-extern rtx ix86_function_value (tree);
+extern rtx ix86_function_value (tree, tree);
 #endif
 
 #endif
@@ -211,6 +216,7 @@ extern int ix86_data_alignment (tree, int);
 extern int ix86_local_alignment (tree, int);
 extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
+extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *); 
 
 extern unsigned int i386_pe_section_type_flags (tree, const char *, int);
 extern void i386_pe_asm_named_section (const char *, unsigned int, tree);
@@ -228,7 +234,7 @@ extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);
 extern void i386_pe_unique_section (tree, int);
 extern void i386_pe_declare_function_type (FILE *, const char *, int);
-extern void i386_pe_record_external_function (const char *);
+extern void i386_pe_record_external_function (tree, const char *);
 extern void i386_pe_record_exported_symbol (const char *, int);
 extern void i386_pe_asm_file_end (FILE *);
 extern void i386_pe_encode_section_info (tree, rtx, int);

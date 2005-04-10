@@ -227,6 +227,9 @@ static int num_gfregs;
 /* The alias set for prologue/epilogue register save/restore.  */
 static GTY(()) int sparc_sr_alias_set;
 
+/* The alias set for the structure return value.  */
+static GTY(()) int struct_value_alias_set;
+
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
 rtx sparc_compare_op0, sparc_compare_op1;
@@ -311,7 +314,8 @@ static rtx sparc_builtin_saveregs (void);
 static int epilogue_renumber (rtx *, int);
 static bool sparc_assemble_integer (rtx, unsigned int, int);
 static int set_extends (rtx);
-static void load_pic_register (void);
+static void emit_pic_helper (void);
+static void load_pic_register (bool);
 static int save_or_restore_regs (int, int, rtx, int, int);
 static void emit_save_regs (void);
 static void emit_restore_regs (void);
@@ -359,6 +363,7 @@ static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree, bool);
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
+static void sparc_file_end (void);
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -500,6 +505,9 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_RELAXED_ORDERING
 #define TARGET_RELAXED_ORDERING SPARC_RELAXED_ORDERING
+
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END sparc_file_end
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -700,8 +708,9 @@ sparc_override_options (void)
   /* Do various machine dependent initializations.  */
   sparc_init_modes ();
 
-  /* Acquire a unique set number for our register saves and restores.  */
+  /* Acquire unique alias sets for our private stuff.  */
   sparc_sr_alias_set = new_alias_set ();
+  struct_value_alias_set = new_alias_set ();
 
   /* Set up function hooks.  */
   init_machine_status = sparc_init_machine_status;
@@ -3351,12 +3360,11 @@ sparc_cannot_force_const_mem (rtx x)
     }
 }
 
-/* The table we use to reference PIC data.  */
+/* PIC support.  */
+static GTY(()) char pic_helper_symbol_name[256];
+static GTY(()) rtx pic_helper_symbol;
+static GTY(()) bool pic_helper_emitted_p = false;
 static GTY(()) rtx global_offset_table;
-
-/* The function we use to get at it.  */
-static GTY(()) rtx add_pc_to_pic_symbol;
-static GTY(()) char add_pc_to_pic_symbol_name[256];
 
 /* Ensure that we are not using patterns that are not OK with PIC.  */
 
@@ -3947,46 +3955,57 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   return x;
 }
 
-/* Emit the special PIC prologue.  */
+/* Emit the special PIC helper function.  */
 
 static void
-load_pic_register (void)
+emit_pic_helper (void)
+{
+  const char *pic_name = reg_names[REGNO (pic_offset_table_rtx)];
+  int align;
+
+  text_section ();
+
+  align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
+  if (align > 0)
+    ASM_OUTPUT_ALIGN (asm_out_file, align);
+  ASM_OUTPUT_LABEL (asm_out_file, pic_helper_symbol_name);
+  if (flag_delayed_branch)
+    fprintf (asm_out_file, "\tjmp\t%%o7+8\n\t add\t%%o7, %s, %s\n",
+	    pic_name, pic_name);
+  else
+    fprintf (asm_out_file, "\tadd\t%%o7, %s, %s\n\tjmp\t%%o7+8\n\t nop\n",
+	    pic_name, pic_name);
+
+  pic_helper_emitted_p = true;
+}
+
+/* Emit code to load the PIC register.  */
+
+static void
+load_pic_register (bool delay_pic_helper)
 {
   int orig_flag_pic = flag_pic;
 
-  /* If we haven't emitted the special helper function, do so now.  */
-  if (add_pc_to_pic_symbol_name[0] == 0)
+  /* If we haven't initialized the special PIC symbols, do so now.  */
+  if (!pic_helper_symbol_name[0])
     {
-      const char *pic_name = reg_names[REGNO (pic_offset_table_rtx)];
-      int align;
-
-      ASM_GENERATE_INTERNAL_LABEL (add_pc_to_pic_symbol_name, "LADDPC", 0);
-      text_section ();
-
-      align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-      if (align > 0)
-	ASM_OUTPUT_ALIGN (asm_out_file, align);
-      ASM_OUTPUT_LABEL (asm_out_file, add_pc_to_pic_symbol_name);
-      if (flag_delayed_branch)
-	fprintf (asm_out_file, "\tjmp %%o7+8\n\t add\t%%o7, %s, %s\n",
-		 pic_name, pic_name);
-      else
-	fprintf (asm_out_file, "\tadd\t%%o7, %s, %s\n\tjmp %%o7+8\n\t nop\n",
-		 pic_name, pic_name);
+      ASM_GENERATE_INTERNAL_LABEL (pic_helper_symbol_name, "LADDPC", 0);
+      pic_helper_symbol = gen_rtx_SYMBOL_REF (Pmode, pic_helper_symbol_name);
+      global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
     }
 
-  /* Initialize every time through, since we can't easily
-     know this to be permanent.  */
-  global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  add_pc_to_pic_symbol = gen_rtx_SYMBOL_REF (Pmode, add_pc_to_pic_symbol_name);
+  /* If we haven't emitted the special PIC helper function, do so now unless
+     we are requested to delay it.  */
+  if (!delay_pic_helper && !pic_helper_emitted_p)
+    emit_pic_helper ();
 
   flag_pic = 0;
   if (TARGET_ARCH64)
     emit_insn (gen_load_pcrel_symdi (pic_offset_table_rtx, global_offset_table,
-				     add_pc_to_pic_symbol));
+				     pic_helper_symbol));
   else
     emit_insn (gen_load_pcrel_symsi (pic_offset_table_rtx, global_offset_table,
-				     add_pc_to_pic_symbol));
+				     pic_helper_symbol));
   flag_pic = orig_flag_pic;
 
   /* Need to emit this whether or not we obey regdecls,
@@ -4635,7 +4654,7 @@ sparc_expand_prologue (void)
 
   /* Load the PIC register if needed.  */
   if (flag_pic && current_function_uses_pic_offset_table)
-    load_pic_register ();
+    load_pic_register (false);
 }
  
 /* This function generates the assembly code for function entry, which boils
@@ -6086,12 +6105,17 @@ sparc_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED, int incoming)
     return 0;
   else
     {
+      rtx mem;
+
       if (incoming)
-	return gen_rtx_MEM (Pmode, plus_constant (frame_pointer_rtx,
-						  STRUCT_VALUE_OFFSET));
+	mem = gen_rtx_MEM (Pmode, plus_constant (frame_pointer_rtx,
+						 STRUCT_VALUE_OFFSET));
       else
-	return gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
-						  STRUCT_VALUE_OFFSET));
+	mem = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
+						 STRUCT_VALUE_OFFSET));
+
+      set_mem_alias_set (mem, struct_value_alias_set);
+      return mem;
     }
 }
 
@@ -7718,7 +7742,6 @@ sparc_type_code (register tree type)
 	case VECTOR_TYPE:
 	case CHAR_TYPE:		/* GNU Pascal CHAR type.  Not used in C.  */
 	case BOOLEAN_TYPE:	/* GNU Fortran BOOLEAN type.  */
-	case FILE_TYPE:		/* GNU Pascal FILE type.  */
 	case LANG_TYPE:		/* ? */
 	  return qualifiers;
   
@@ -8193,7 +8216,7 @@ sparc_output_deferred_case_vectors (void)
     return;
 
   /* Align to cache line in the function's code section.  */
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
 
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
   if (align > 0)
@@ -9052,7 +9075,9 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
         {
 	  spill_reg = gen_rtx_REG (word_mode, 15);  /* %o7 */
 	  start_sequence ();
-	  load_pic_register ();  /* clobbers %o7 */
+	  /* Delay emitting the PIC helper function because it needs to
+	     change the section and we are emitting assembly code.  */
+	  load_pic_register (true);  /* clobbers %o7 */
 	  scratch = legitimize_pic_address (funexp, Pmode, scratch);
 	  seq = get_insns ();
 	  end_sequence ();
@@ -9106,7 +9131,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn_locators_initialize ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   reload_completed = 0;
@@ -9201,6 +9226,17 @@ sparc_output_dwarf_dtprel (FILE *file, int size, rtx x)
     }
   output_addr_const (file, x);
   fputs (")", file);
+}
+
+static
+void sparc_file_end (void)
+{
+  /* If we haven't emitted the special PIC helper function, do so now.  */
+  if (pic_helper_symbol_name[0] && !pic_helper_emitted_p)
+    emit_pic_helper ();
+
+  if (NEED_INDICATE_EXEC_STACK)
+    file_end_indicate_exec_stack ();
 }
 
 #include "gt-sparc.h"

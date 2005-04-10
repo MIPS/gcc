@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004
+   Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -155,16 +155,18 @@ struct undo_replace_buff_elem
   struct undo_replace_buff_elem *next;
 };
 
+
+  
 partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
 void free_partial_schedule (partial_schedule_ptr);
 void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
 static int kernel_number_of_cycles (rtx first_insn, rtx last_insn);
-ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
-					 ddg_node_ptr node, int cycle,
-					 sbitmap must_precede,
-					 sbitmap must_follow);
-void rotate_partial_schedule (partial_schedule_ptr, int);
+static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
+						ddg_node_ptr node, int cycle,
+						sbitmap must_precede,
+						sbitmap must_follow);
+static void rotate_partial_schedule (partial_schedule_ptr, int);
 void set_row_column_for_ps (partial_schedule_ptr);
 static bool ps_unschedule_node (partial_schedule_ptr, ddg_node_ptr );
 
@@ -349,8 +351,10 @@ const_iteration_count (rtx count_reg, basic_block pre_header,
 {
   rtx insn;
   rtx head, tail;
+
   if (! pre_header)
     return NULL_RTX;
+
   get_block_head_tail (pre_header->index, &head, &tail);
 
   for (insn = tail; insn != PREV_INSN (head); insn = PREV_INSN (insn))
@@ -457,14 +461,6 @@ calculate_maxii (ddg_ptr g)
   return maxii;
 }
 
-
-/* Given the partial schedule, generate register moves when the length
-   of the register live range is more than ii; the number of moves is
-   determined according to the following equation:
-		SCHED_TIME (use) - SCHED_TIME (def)   { 1 broken loop-carried
-   nreg_moves = ----------------------------------- - {   dependence.
-			      ii		      { 0 if not.
-   This handles the modulo-variable-expansions (mve's) needed for the ps.  */
 /*
    Breaking intra-loop register anti-dependences:
    Each intra-loop register anti-dependence implies a cross-iteration true
@@ -472,9 +468,9 @@ calculate_maxii (ddg_ptr g)
    and figure out if the partial schedule broke them by checking if (for a
    true-dependence of distance 1): SCHED_TIME (def) < SCHED_TIME (use) and
    if so generate a register move.   The number of such moves is equal to:
-		SCHED_TIME (use) - SCHED_TIME (def)       { 0 broken
-   nreg_moves = ----------------------------------- + 1 - {   dependecnce.
-			      ii		          { 1 if not.
+              SCHED_TIME (use) - SCHED_TIME (def)       { 0 broken
+   nreg_moves = ----------------------------------- + 1 - {   dependence.
+                            ii                          { 1 if not.
 */
 static struct undo_replace_buff_elem *
 generate_reg_moves (partial_schedule_ptr ps)
@@ -502,6 +498,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 
             if (e->distance == 1)
               nreg_moves4e = (SCHED_TIME (e->dest) - SCHED_TIME (e->src) + ii) / ii;
+
 	    /* If dest precedes src in the schedule of the kernel, then dest
 	       will read before src writes and we can save one reg_copy.  */
 	    if (SCHED_ROW (e->dest) == SCHED_ROW (e->src)
@@ -527,6 +524,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 
 	    if (e->distance == 1)
 	      dest_copy = (SCHED_TIME (e->dest) - SCHED_TIME (e->src) + ii) / ii;
+
 	    if (SCHED_ROW (e->dest) == SCHED_ROW (e->src)
 		&& SCHED_COLUMN (e->dest) < SCHED_COLUMN (e->src))
 	      dest_copy--;
@@ -555,11 +553,13 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  EXECUTE_IF_SET_IN_SBITMAP (uses_of_defs[i_reg_move], 0, i_use,
 	    {
 	      struct undo_replace_buff_elem *rep;
+
 	      rep = (struct undo_replace_buff_elem *)
 		    xcalloc (1, sizeof (struct undo_replace_buff_elem));
 	      rep->insn = g->nodes[i_use].insn;
 	      rep->orig_reg = old_reg;
 	      rep->new_reg = new_reg;
+
 	      if (! reg_move_replaces)
 		reg_move_replaces = rep;
 	      else
@@ -567,6 +567,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 		  rep->next = reg_move_replaces;
 		  reg_move_replaces = rep;
 		}
+
 	      replace_rtx (g->nodes[i_use].insn, old_reg, new_reg);
 	    });
 
@@ -575,16 +576,23 @@ generate_reg_moves (partial_schedule_ptr ps)
     }
   return reg_move_replaces;
 }
+
+/* We call this when we want to undo the SMS schedule for a given loop.
+   One of the things that we do is to delete the register moves generated
+   for the sake of SMS; this function deletes the register move instructions
+   recorded in the undo buffer.  */
 static void
 undo_generate_reg_moves (partial_schedule_ptr ps,
 			 struct undo_replace_buff_elem *reg_move_replaces)
 {
   int i,j;
+
   for (i = 0; i < ps->g->num_nodes; i++)
     {
       ddg_node_ptr u = &ps->g->nodes[i];
       rtx prev;
       rtx crr = SCHED_FIRST_REG_MOVE (u);
+
       for (j = 0; j < SCHED_NREG_MOVES (u); j++)
 	{
 	  prev = PREV_INSN (crr);
@@ -592,19 +600,25 @@ undo_generate_reg_moves (partial_schedule_ptr ps,
 	  crr = prev;
 	}
     }
+
   while (reg_move_replaces)
     {
       struct undo_replace_buff_elem *rep = reg_move_replaces;
+
       reg_move_replaces = reg_move_replaces->next;
       replace_rtx (rep->insn, rep->new_reg, rep->orig_reg);
     }
 }
+
+/* Free memory allocated for the undo buffer.  */
 static void
 free_undo_replace_buff (struct undo_replace_buff_elem *reg_move_replaces)
 {
+
   while (reg_move_replaces)
     {
       struct undo_replace_buff_elem *rep = reg_move_replaces;
+
       reg_move_replaces = reg_move_replaces->next;
       free (rep);
     }
@@ -619,6 +633,7 @@ normalize_sched_times (partial_schedule_ptr ps)
   ddg_ptr g = ps->g;
   int amount = PS_MIN_CYCLE (ps);
   int ii = ps->ii;
+
   /* Don't include the closing branch assuming that it is the last node.  */
   for (i = 0; i < g->num_nodes - 1; i++)
     {
@@ -667,13 +682,16 @@ permute_partial_schedule (partial_schedule_ptr ps, rtx last)
 			    PREV_INSN (last));
 }
 
-/* Return to the original kernel of the loop, by undoing the
-   reordering of the instructions and deleting the register move
-   instructions.  */
+/* As part of undoing SMS we return to the original ordering of the
+   instructions inside the loop kernel.  Given the partial schedule PS, this
+   function returns the ordering of the instruction according to their CUID
+   in the DDG (PS->G), which is the original order of the instruction before
+   performing SMS.  */
 static void
 undo_permute_partial_schedule (partial_schedule_ptr ps, rtx last)
 {
   int i;
+
   for (i = 0 ; i < ps->g->num_nodes; i++)
     if (last == ps->g->nodes[i].insn
 	|| last == ps->g->nodes[i].first_note)
@@ -682,6 +700,7 @@ undo_permute_partial_schedule (partial_schedule_ptr ps, rtx last)
       reorder_insns_nobb (ps->g->nodes[i].first_note, ps->g->nodes[i].insn,
 			  PREV_INSN (last));
 }
+
 /* Used to generate the prologue & epilogue.  Duplicate the subset of
    nodes whose stages are between FROM_STAGE and TO_STAGE (inclusive
    of both), together with a prefix/suffix of their reg_moves.  */
@@ -753,13 +772,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
   int last_stage = PS_STAGE_COUNT (ps) - 1;
   edge e;
 
-  flow_loop_scan (loop, LOOP_ALL);
-
   /* Generate the prolog, inserting its insns on the loop-entry edge.  */
   start_sequence ();
 
-  /* Loop header edge.  */
-  e = loop->entry_edges[0];
   if (count_reg)
    /* Generate a subtract instruction at the beginning of the prolog to
       adjust the loop count by STAGE_COUNT.  */
@@ -769,8 +784,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
     duplicate_insns_of_cycles (ps, 0, i, 1);
 
   /* Put the prolog ,  on the one and only entry edge.  */
-  e = loop->entry_edges[0];
+  e = loop_preheader_edge (loop);
   loop_split_edge_with(e , get_insns());
+
   end_sequence ();
 
   /* Generate the epilog, inserting its insns on the loop-exit edge.  */
@@ -780,10 +796,10 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
     duplicate_insns_of_cycles (ps, i + 1, last_stage, 0);
 
   /* Put the epilogue on the one and only one exit edge.  */
-  e = loop->exit_edges[0];
+  gcc_assert (loop->single_exit);
+  e = loop->single_exit;
   loop_split_edge_with(e , get_insns());
   end_sequence ();
-
 }
 
 /* Return the line note insn preceding INSN, for debugging.  Taken from
@@ -806,12 +822,15 @@ loop_single_full_bb_p (struct loop *loop)
 {
   unsigned i;
   basic_block *bbs = get_loop_body (loop);
+
   for (i = 0; i < loop->num_nodes ; i++)
     {
       rtx head, tail;
       bool empty_bb = true;
+
       if (bbs[i] == loop->header)
         continue;
+
       /* Make sure that basic blocks other than the header
          have only notes labels or jumps.  */
       get_block_head_tail (bbs[i]->index, &head, &tail);
@@ -823,6 +842,7 @@ loop_single_full_bb_p (struct loop *loop)
  	  empty_bb = false;
  	  break;
         }
+
       if (! empty_bb)
         {
           free (bbs);
@@ -832,24 +852,28 @@ loop_single_full_bb_p (struct loop *loop)
   free (bbs);
   return true;
 }
+
+/* A simple loop from SMS point of view; it is a loop that is composed of
+   either a single basic block or two BBs - a header and a latch.  */
 #define SIMPLE_SMS_LOOP_P(loop) ((loop->num_nodes < 3 ) 		    \
 				  && (EDGE_COUNT (loop->latch->preds) == 1) \
                                   && (EDGE_COUNT (loop->latch->succs) == 1))
-/* Reshape the loop to have one block and one preheader block, and
-   check for single exit.  Return true if the loop is in its canonical
-   form and false if not.  */
+
+/* Return true if the loop is in its canonical form and false if not.
+   i.e. SIMPLE_SMS_LOOP_P and have one preheader block, and single exit.  */
 static bool
 loop_canon_p (struct loop *loop, FILE *dump_file)
 {
-  unsigned nexits;
+
   if (loop->inner || ! loop->outer)
     return false;
-  get_loop_exit_edges (loop, &nexits);
-  if (nexits > 1)
+
+  if (!loop->single_exit)
     {
       if (dump_file)
 	{
 	  rtx line_note = find_line_note (BB_END (loop->header));
+
 	  fprintf (dump_file, "SMS loop many exits ");
 	  if (line_note)
 	    {
@@ -861,11 +885,13 @@ loop_canon_p (struct loop *loop, FILE *dump_file)
 	}
       return false;
     }
+
   if (! SIMPLE_SMS_LOOP_P (loop) && ! loop_single_full_bb_p (loop))
     {
       if (dump_file)
 	{
 	  rtx line_note = find_line_note (BB_END (loop->header));
+
 	  fprintf (dump_file, "SMS loop many BBs. ");
 	  if (line_note)
 	    {
@@ -877,13 +903,10 @@ loop_canon_p (struct loop *loop, FILE *dump_file)
 	}
       return false;
     }
-#if 0
-  if (! loop->pre_header)
-    return false;
-  else
-#endif
+
     return true;
 }
+
 /* If there are more than one entry for the loop,
    make it one by splitting the first entry edge and
    redirecting the others to the new BB.  */
@@ -892,12 +915,13 @@ canon_loop (struct loop *loop)
 {
   edge e;
   edge_iterator i;
+
   /* Avoid annoying special cases of edges going to exit
      block.  */
   FOR_EACH_EDGE (e, i, EXIT_BLOCK_PTR->preds)
     if ((e->flags & EDGE_FALLTHRU) && (EDGE_COUNT (e->src->succs) > 1))
       loop_split_edge_with (e, NULL_RTX);
-  create_preheader (loop, CP_SIMPLE_PREHEADERS);
+
   if (loop->latch == loop->header
       || EDGE_COUNT (loop->latch->succs) > 1)
     {
@@ -907,34 +931,45 @@ canon_loop (struct loop *loop)
       loop_split_edge_with (e, NULL_RTX);
     }
 }
+
 /* Build the loop information without loop
    canonization, the loop canonization will
-   be perfromed if the loop is SMSable.  */
+   be performed if the loop is SMSable.  */
 static struct loops *
 build_loops_structure (FILE *dumpfile)
 {
   struct loops *loops = xcalloc (1, sizeof (struct loops));
+
   /* Find the loops.  */
-  if (flow_loops_find (loops, LOOP_ALL) <= 1)
+
+  if (flow_loops_find (loops) <= 1)
     {
       /* No loops.  */
       flow_loops_free (loops);
       free (loops);
+
       return NULL;
     }
+
   /* Not going to update these.  */
   free (loops->cfg.rc_order);
   loops->cfg.rc_order = NULL;
   free (loops->cfg.dfs_order);
   loops->cfg.dfs_order = NULL;
+
+  create_preheaders (loops, CP_SIMPLE_PREHEADERS);
+  mark_single_exit_loops (loops);
   /* Dump loops.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);
+
 #ifdef ENABLE_CHECKING
   verify_dominators (CDI_DOMINATORS);
   verify_loop_structure (loops);
 #endif
+
   return loops;
 }
+
 /* Main entry point, perform SMS scheduling on the loops of the function
    that consist of single basic blocks.  */
 void
@@ -953,15 +988,12 @@ sms_schedule (FILE *dump_file)
   /* vars to the versioning only if needed*/
   struct loop * nloop;
   basic_block condition_bb = NULL;
-  edge latch_edge, *exit_edges;
-  unsigned nexits;
+  edge latch_edge;
   gcov_type trip_count = 0;
+
   if (! (loops = build_loops_structure (dump_file)))
     return;  /* There is no loops to schedule.  */
-  /* Update the loop information.  */
-  if (loops->parray)
-    flow_loops_free (loops);
-  gcc_assert (flow_loops_find (loops, LOOP_ALL));
+
 
   stats_file = dump_file;
 
@@ -989,6 +1021,7 @@ sms_schedule (FILE *dump_file)
      We use loop->num as index into this array.  */
   g_arr = xcalloc (loops->num, sizeof (ddg_ptr));
 
+
   /* Build DDGs for all the relevant loops and hold them in G_ARR
      indexed by the loop index.  */
   for (i = 0; i < loops->num; i++)
@@ -1011,18 +1044,19 @@ sms_schedule (FILE *dump_file)
 
       if (! loop_single_full_bb_p (loop))
 	continue;
+
       bb = loop->header;
 
       get_block_head_tail (bb->index, &head, &tail);
       latch_edge = loop_latch_edge (loop);
-      exit_edges = get_loop_exit_edges (loop, &nexits);
-      gcc_assert (nexits <= 1);
-      if ( exit_edges[0]->count)
-      trip_count = latch_edge->count / exit_edges[0]->count;
+      gcc_assert (loop->single_exit);
+      if (loop->single_exit->count)
+	trip_count = latch_edge->count / loop->single_exit->count;
 
       /* Perfrom SMS only on loops that their average count is above threshold.  */
+
       if ( latch_edge->count
-          && (latch_edge->count < exit_edges[0]->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
+          && (latch_edge->count < loop->single_exit->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
 	{
 	  if (stats_file)
 	    {
@@ -1117,10 +1151,9 @@ sms_schedule (FILE *dump_file)
       get_block_head_tail (loop->header->index, &head, &tail);
 
       latch_edge = loop_latch_edge (loop);
-      exit_edges = get_loop_exit_edges (loop, &nexits);
-      gcc_assert (nexits <= 1);
-      if (exit_edges[0]->count)
-	trip_count = latch_edge->count / exit_edges[0]->count;
+      gcc_assert (loop->single_exit);
+      if (loop->single_exit->count)
+	trip_count = latch_edge->count / loop->single_exit->count;
 
       if (stats_file)
 	{
@@ -1158,6 +1191,7 @@ sms_schedule (FILE *dump_file)
       if ((count_reg = doloop_register_get (tail, &comp)))
 	{
 	  basic_block pre_header;
+
 	  pre_header = loop_preheader_edge (loop)->src;
 	  count_init = const_iteration_count (count_reg, pre_header,
 					      &loop_count);
@@ -1234,12 +1268,14 @@ sms_schedule (FILE *dump_file)
 	  normalize_sched_times (ps);
 	  rotate_partial_schedule (ps, PS_MIN_CYCLE (ps));
 	  set_columns_for_ps (ps);
+
 	  /* Generate the kernel just to be able to measure its cycles.  */
 	  permute_partial_schedule (ps, g->closing_branch->first_note);
 	  reg_move_replaces = generate_reg_moves (ps);
 
 	  /* Get the number of cycles the new kernel expect to execute in.  */
 	  new_cycles = kernel_number_of_cycles (BB_HEAD (g->bb), BB_END (g->bb));
+
 	  /* Get back to the original loop so we can do loop versioning.  */
 	  undo_permute_partial_schedule (ps, g->closing_branch->first_note);
 	  if (reg_move_replaces)
@@ -1251,29 +1287,36 @@ sms_schedule (FILE *dump_file)
 	         and return the kernel to its original state.  */
 	      if (dump_file)
 		fprintf (dump_file, "Undoing SMS becuase it is not profitable.\n");
+
 	    }
 	  else
 	    {
 	      canon_loop (loop);
+
               /* case the BCT count is not known , Do loop-versioning */
 	      if (count_reg && ! count_init)
 		{
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
 
-		  flow_loop_scan (loop, LOOP_ALL);
 		  nloop = loop_version (loops, loop, comp_rtx, &condition_bb);
 		}
+
 	      /* Set new iteration count of loop kernel.  */
               if (count_reg && count_init)
 		SET_SRC (single_set (count_init)) = GEN_INT (loop_count
 							     - stage_count + 1);
+
 	      /* Now apply the scheduled kernel to the RTL of the loop.  */
 	      permute_partial_schedule (ps, g->closing_branch->first_note);
+
               /* Mark this loop as software pipelined so the later
 	      scheduling passes doesn't touch it.  */
 	      if (! flag_resched_modulo_sched)
 		g->bb->flags |= BB_DISABLE_SCHEDULE;
+	      /* The life-info is not valid any more.  */
+	      g->bb->flags |= BB_DIRTY;
+
 	      reg_move_replaces = generate_reg_moves (ps);
 	      if (dump_file)
 		print_node_sched_params (dump_file, g->num_nodes);
@@ -1285,6 +1328,7 @@ sms_schedule (FILE *dump_file)
 	    }
 	  free_undo_replace_buff (reg_move_replaces);
 	}
+
       free_partial_schedule (ps);
       free (node_sched_params);
       free (node_order);
@@ -1372,16 +1416,18 @@ sms_schedule (FILE *dump_file)
    set to 0 to save compile time.  */
 #define DFA_HISTORY SMS_DFA_HISTORY
 
-/* Here we do the backtracking in SMS, in some special cases.
-   We have noticed that there are several cases i which we fail
-   to SMS the loop because the sched window of a node is empty
-   due to tight data-deps.  In such cases we want to unschedule
-   some of the predecssors/successors until we get non-empty
-   scheduling window.  It returns -1 if the scheduling window is
-   empty and zero otherwise.  */
+/* Given the partial schedule PS, this function calculates and returns the
+   cycles in which we can schedule the node with the given index I.
+   NOTE: Here we do the backtracking in SMS, in some special cases. We have
+   noticed that there are several cases in which we fail    to SMS the loop
+   because the sched window of a node is empty    due to tight data-deps. In
+   such cases we want to unschedule    some of the predecessors/successors
+   until we get non-empty    scheduling window.  It returns -1 if the
+   scheduling window is empty and zero otherwise.  */
+
 static int
-get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sched_nodes,
-		  int ii, int *start_p, int *step_p, int *end_p)
+get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
+		  sbitmap sched_nodes, int ii, int *start_p, int *step_p, int *end_p)
 {
   int start, step, end;
   ddg_edge_ptr e;
@@ -1393,14 +1439,17 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sche
   sbitmap u_node_succs = NODE_SUCCESSORS (u_node);
   int psp_not_empty;
   int pss_not_empty;
+
   /* 1. compute sched window for u (start, end, step).  */
   sbitmap_zero (psp);
   sbitmap_zero (pss);
   psp_not_empty = sbitmap_a_and_b_cg (psp, u_node_preds, sched_nodes);
   pss_not_empty = sbitmap_a_and_b_cg (pss, u_node_succs, sched_nodes);
+
   if (psp_not_empty && !pss_not_empty)
     {
       int early_start = INT_MIN;
+
       end = INT_MAX;
       for (e = u_node->in; e != 0; e = e->next_in)
 	{
@@ -1409,7 +1458,9 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sche
 	    {
 	      int node_st = SCHED_TIME (v_node)
 	      		    + e->latency - (e->distance * ii);
+
 	      early_start = MAX (early_start, node_st);
+
 	      if (e->data_type == MEM_DEP)
 		end = MIN (end, SCHED_TIME (v_node) + ii - 1);
 	    }
@@ -1418,9 +1469,11 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sche
       end = MIN (end, early_start + ii);
       step = 1;
     }
+
   else if (!psp_not_empty && pss_not_empty)
     {
       int late_start = INT_MAX;
+
       end = INT_MIN;
       for (e = u_node->out; e != 0; e = e->next_out)
 	{
@@ -1438,15 +1491,18 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sche
       end = MAX (end, late_start - ii);
       step = -1;
     }
+
   else if (psp_not_empty && pss_not_empty)
     {
       int early_start = INT_MIN;
       int late_start = INT_MAX;
+
       start = INT_MIN;
       end = INT_MAX;
       for (e = u_node->in; e != 0; e = e->next_in)
 	{
 	  ddg_node_ptr v_node = e->src;
+
 	  if (TEST_BIT (sched_nodes, v_node->cuid))
 	    {
 	      early_start = MAX (early_start,
@@ -1459,6 +1515,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sche
       for (e = u_node->out; e != 0; e = e->next_out)
 	{
 	  ddg_node_ptr v_node = e->dest;
+
 	  if (TEST_BIT (sched_nodes, v_node->cuid))
 	    {
 	      late_start = MIN (late_start,
@@ -1478,16 +1535,21 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i, sbitmap sche
       end = start + ii;
       step = 1;
     }
+
   *start_p = start;
   *step_p = step;
   *end_p = end;
   sbitmap_free (psp);
   sbitmap_free (pss);
+
   if ((start >= end && step == 1) || (start <= end && step == -1))
     return -1;
   else
     return 0;
 }
+
+/* This function implements the scheduling algorithm for SMS according to the
+   above algorithm.  */
 static partial_schedule_ptr
 sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *dump_file)
 {
@@ -1506,11 +1568,13 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 
   sbitmap_ones (tobe_scheduled);
   sbitmap_zero (sched_nodes);
+
   while ((! sbitmap_equal (tobe_scheduled, sched_nodes)
 	 || try_again_with_larger_ii ) && ii < maxii)
     {
       int j;
       bool unscheduled_nodes = false;
+
       if (dump_file)
 	fprintf(dump_file, "Starting with ii=%d\n", ii);
       if (try_again_with_larger_ii)
@@ -1613,6 +1677,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 	    }
 	  if (unscheduled_nodes)
 	    break;
+
 	  /* ??? If (success), check register pressure estimates.  */
 	} /* Continue with next node.  */
     } /* While try_again_with_larger_ii.  */
@@ -2302,13 +2367,16 @@ kernel_number_of_cycles (rtx first_insn, rtx last_insn)
   int cycles = 0;
   rtx insn;
   int can_issue_more = issue_rate;
+
   state_reset (curr_state);
+
   for (insn = first_insn;
        insn != NULL_RTX && insn != last_insn;
        insn = NEXT_INSN (insn))
     {
-      if (!INSN_P (insn))
+      if (! INSN_P (insn) || GET_CODE (PATTERN (insn)) == USE)
 	continue;
+
       /* Check if there is room for the current insn.  */
       if (!can_issue_more || state_dead_lock_p (curr_state))
 	{
@@ -2316,6 +2384,7 @@ kernel_number_of_cycles (rtx first_insn, rtx last_insn)
 	  advance_one_cycle ();
 	  can_issue_more = issue_rate;
 	}
+
 	/* Update the DFA state and return with failure if the DFA found
 	   recource conflicts.  */
       if (state_transition (curr_state, insn) >= 0)
@@ -2324,6 +2393,7 @@ kernel_number_of_cycles (rtx first_insn, rtx last_insn)
 	  advance_one_cycle ();
 	  can_issue_more = issue_rate;
 	}
+
       if (targetm.sched.variable_issue)
 	can_issue_more =
 	  (*targetm.sched.variable_issue) (sched_dump, sched_verbose,
@@ -2336,6 +2406,7 @@ kernel_number_of_cycles (rtx first_insn, rtx last_insn)
     }
   return cycles;
 }
+
 /* Checks if PS has resource conflicts according to DFA, starting from
    FROM cycle to TO cycle; returns true if there are conflicts and false
    if there are no conflicts.  Assumes DFA is being used.  */
@@ -2464,18 +2535,25 @@ rotate_partial_schedule (partial_schedule_ptr ps, int start_cycle)
   ps->min_cycle -= start_cycle;
 }
 
+/* Remove the node N from the partial schedule PS; because we restart the DFA
+   each time we want to check for resource conflicts; this is equivalent to
+   unscheduling the node N.  */
 static bool
 ps_unschedule_node (partial_schedule_ptr ps, ddg_node_ptr n)
 {
   ps_insn_ptr ps_i;
   int row = SMODULO (SCHED_TIME (n), ps->ii);
+
   if (row < 0 || row > ps->ii)
     return false;
+
   for (ps_i = ps->rows[row];
        ps_i &&  ps_i->node != n;
        ps_i = ps_i->next_in_row);
   if (!ps_i)
     return false;
+
   return remove_node_from_ps (ps, ps_i);
 }
 #endif /* INSN_SCHEDULING*/
+

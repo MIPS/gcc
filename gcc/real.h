@@ -138,8 +138,13 @@ struct real_format
   /* The maximum integer, x, such that b**(x-1) is representable.  */
   int emax;
 
-  /* The bit position of the sign bit, or -1 for a complex encoding.  */
-  int signbit;
+  /* The bit position of the sign bit, for determining whether a value
+     is positive/negative, or -1 for a complex encoding.  */
+  int signbit_ro;
+
+  /* The bit position of the sign bit, for changing the sign of a number,
+     or -1 for a complex encoding.  */
+  int signbit_rw;
 
   /* Properties of the format.  */
   bool has_nans;
@@ -156,6 +161,12 @@ extern const struct real_format *
   real_format_for_mode[MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1];
 
 #define REAL_MODE_FORMAT(MODE) (real_format_for_mode[(MODE) - MIN_MODE_FLOAT])
+
+/* The following macro determines whether the floating point format is
+   composite, i.e. may contain non-consecutive mantissa bits, in which
+   case compile-time FP overflow may not model run-time overflow.  */
+#define REAL_MODE_FORMAT_COMPOSITE_P(MODE) \
+	((REAL_MODE_FORMAT(MODE))->pnan < (REAL_MODE_FORMAT (MODE))->p)
 
 /* Declare functions in real.c.  */
 

@@ -101,8 +101,8 @@ static int n_useless_values;
    which the register was set; if the mode is unknown or the value is
    no longer valid in that mode, ELT will be NULL for the first
    element.  */
-struct elt_list **reg_values;
-unsigned int reg_values_size;
+static struct elt_list **reg_values;
+static unsigned int reg_values_size;
 #define REG_VALUES(i) reg_values[i]
 
 /* The largest number of hard regs used by any entry added to the
@@ -1380,7 +1380,10 @@ cselib_process_insn (rtx insn)
   if (CALL_P (insn))
     {
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (call_used_regs[i])
+	if (call_used_regs[i]
+	    || (REG_VALUES (i) && REG_VALUES (i)->elt
+		&& HARD_REGNO_CALL_PART_CLOBBERED (i, 
+		      GET_MODE (REG_VALUES (i)->elt->u.val_rtx))))
 	  cselib_invalidate_regno (i, reg_raw_mode[i]);
 
       if (! CONST_OR_PURE_CALL_P (insn))

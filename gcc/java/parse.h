@@ -1,5 +1,5 @@
 /* Language parser definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -739,10 +739,6 @@ typedef struct jdeplist_s jdeplist;
 /* Macro to access the osb (opening square bracket) count */
 #define CURRENT_OSB(C) (C)->osb_number [(C)->osb_depth]
 
-/* Macro for the xreferencer */
-#define DECL_END_SOURCE_LINE(DECL)       (DECL_CHECK (DECL)->decl.u1.i)
-#define DECL_INHERITED_SOURCE_LINE(DECL) (DECL_CHECK (DECL)->decl.u2.i)
-     
 /* Parser context data structure. */
 struct parser_ctxt GTY(()) {
   const char *filename;		     /* Current filename */

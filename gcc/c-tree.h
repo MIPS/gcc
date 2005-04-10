@@ -106,6 +106,17 @@ struct lang_type GTY(())
    sizeof and typeof it is set for other function decls as well.  */
 #define C_DECL_USED(EXP) DECL_LANG_FLAG_5 (EXP)
 
+/* Record whether a label was defined in a statement expression which
+   has finished and so can no longer be jumped to.  */
+#define C_DECL_UNJUMPABLE_STMT_EXPR(EXP)	\
+  DECL_LANG_FLAG_6 (LABEL_DECL_CHECK (EXP))
+
+/* Record whether a label was the subject of a goto from outside the
+   current level of statement expression nesting and so cannot be
+   defined right now.  */
+#define C_DECL_UNDEFINABLE_STMT_EXPR(EXP)	\
+  DECL_LANG_FLAG_7 (LABEL_DECL_CHECK (EXP))
+
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
    (but this is presently difficult because some of them need FILE*).  */
@@ -126,7 +137,7 @@ struct c_expr
   /* The value of the expression.  */
   tree value;
   /* Record the original binary operator of an expression, which may
-     have been changed by fold, STRING_CST for unparenthesised string
+     have been changed by fold, STRING_CST for unparenthesized string
      constants, or ERROR_MARK for other expressions (including
      parenthesized expressions).  */
   enum tree_code original_code;
@@ -205,6 +216,10 @@ struct c_declspecs {
   enum c_typespec_keyword typespec_word;
   /* The storage class specifier, or csc_none if none.  */
   enum c_storage_class storage_class;
+  /* Whether any declaration specifiers have been seen at all.  */
+  BOOL_BITFIELD declspecs_seen_p : 1;
+  /* Whether a type specifier has been seen.  */
+  BOOL_BITFIELD type_seen_p : 1;
   /* Whether something other than a storage class specifier or
      attribute has been seen.  This is used to warn for the
      obsolescent usage of storage class specifiers other than at the
@@ -283,6 +298,7 @@ struct c_declarator {
   enum c_declarator_kind kind;
   /* Except for cdk_id, the contained declarator.  For cdk_id, NULL.  */
   struct c_declarator *declarator;
+  location_t id_loc; /* Currently only set for cdk_id. */
   union {
     /* For identifiers, an IDENTIFIER_NODE or NULL_TREE if an abstract
        declarator.  */
@@ -345,8 +361,29 @@ struct language_function GTY(())
   int extern_inline;
 };
 
+/* Save lists of labels used or defined in particular statement
+   expression contexts.  Allocated on the parser obstack.  */
+
+struct c_label_list
+{
+  /* The label at the head of the list.  */
+  tree label;
+  /* The rest of the list.  */
+  struct c_label_list *next;
+};
+
+struct c_label_context
+{
+  /* The labels defined at this level of nesting.  */
+  struct c_label_list *labels_def;
+  /* The labels used at this level of nesting.  */
+  struct c_label_list *labels_used;
+  /* The next outermost context.  */
+  struct c_label_context *next;
+};
+
 
-/* in c-parse.in */
+/* in c-parser.c */
 extern void c_parse_init (void);
 
 /* in c-aux-info.c */
@@ -373,9 +410,8 @@ extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
-extern int  complete_array_type (tree, tree, int);
 extern void declare_parm_level (void);
-extern void undeclared_variable (tree);
+extern void undeclared_variable (tree, location_t);
 extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
@@ -448,6 +484,7 @@ extern int in_sizeof;
 extern int in_typeof;
 
 extern struct c_switch *c_switch_stack;
+extern struct c_label_context *label_context_stack;
 
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
@@ -455,11 +492,12 @@ extern int comptypes (tree, tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
 extern tree c_type_promotes_to (tree);
+extern tree default_conversion (tree);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
-extern tree build_external_ref (tree, int);
+extern tree build_external_ref (tree, int, location_t);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);

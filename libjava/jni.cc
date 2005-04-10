@@ -1,6 +1,6 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation
 
    This file is part of libgcj.
@@ -46,6 +46,7 @@ details.  */
 #include <java/nio/DirectByteBufferImpl$ReadWrite.h>
 #include <java/util/IdentityHashMap.h>
 #include <gnu/gcj/RawData.h>
+#include <java/lang/ClassNotFoundException.h>
 
 #include <gcj/method.h>
 #include <gcj/field.h>
@@ -1200,8 +1201,8 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
       for (int i = 0; i <= len; ++i)
 	s[i] = (sig[i] == '/') ? '.' : sig[i];
       jclass field_class = _Jv_FindClassFromSignature ((char *) s, NULL);
-
-      // FIXME: what if field_class == NULL?
+      if (! field_class)
+	throw new java::lang::ClassNotFoundException(JvNewStringUTF(s));
 
       java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
       while (clazz != NULL)
@@ -1880,7 +1881,8 @@ nathash_add (const JNINativeMethod *method)
     return;
   // FIXME
   slot->name = strdup (method->name);
-  slot->signature = strdup (method->signature);
+  // This was already strduped in _Jv_JNI_RegisterNatives.
+  slot->signature = method->signature;
   slot->fnPtr = method->fnPtr;
 }
 
@@ -1894,6 +1896,8 @@ _Jv_JNI_RegisterNatives (JNIEnv *env, jclass klass,
   // the nathash table.
   JvSynchronize sync (global_ref_table);
 
+  JNINativeMethod dottedMethod;
+
   // Look at each descriptor given us, and find the corresponding
   // method in the class.
   for (int j = 0; j < nMethods; ++j)
@@ -1905,15 +1909,28 @@ _Jv_JNI_RegisterNatives (JNIEnv *env, jclass klass,
 	{
 	  _Jv_Method *self = &imeths[i];
 
-	  if (! strcmp (self->name->chars (), methods[j].name)
-	      && ! strcmp (self->signature->chars (), methods[j].signature))
+	  // Copy this JNINativeMethod and do a slash to dot
+	  // conversion on the signature.
+	  dottedMethod.name = methods[j].name;
+	  dottedMethod.signature = strdup (methods[j].signature);
+	  dottedMethod.fnPtr = methods[j].fnPtr;
+	  char *c = dottedMethod.signature;
+	  while (*c)
+	    {
+	      if (*c == '/')
+		*c = '.';
+	      c++;
+	    }
+
+	  if (! strcmp (self->name->chars (), dottedMethod.name)
+	      && ! strcmp (self->signature->chars (), dottedMethod.signature))
 	    {
 	      if (! (self->accflags & java::lang::reflect::Modifier::NATIVE))
 		break;
 
 	      // Found a match that is native.
 	      found = true;
-	      nathash_add (&methods[j]);
+	      nathash_add (&dottedMethod);
 
 	      break;
 	    }
@@ -2482,55 +2499,22 @@ JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
 {
   JvAssert (! the_vm);
 
-  _Jv_CreateJavaVM (NULL);
+  jint version = * (jint *) args;
+  // We only support 1.2 and 1.4.
+  if (version != JNI_VERSION_1_2 && version != JNI_VERSION_1_4)
+    return JNI_EVERSION;
+
+  JvVMInitArgs* vm_args = reinterpret_cast<JvVMInitArgs *> (args);
+
+  jint result = _Jv_CreateJavaVM (vm_args);
+  if (result)
+    return result;
 
   // FIXME: synchronize
   JavaVM *nvm = (JavaVM *) _Jv_MallocUnchecked (sizeof (JavaVM));
   if (nvm == NULL)
     return JNI_ERR;
   nvm->functions = &_Jv_JNI_InvokeFunctions;
-
-  // Parse the arguments.
-  if (args != NULL)
-    {
-      jint version = * (jint *) args;
-      // We only support 1.2 and 1.4.
-      if (version != JNI_VERSION_1_2 && version != JNI_VERSION_1_4)
-	return JNI_EVERSION;
-      JavaVMInitArgs *ia = reinterpret_cast<JavaVMInitArgs *> (args);
-      for (int i = 0; i < ia->nOptions; ++i)
-	{
-	  if (! strcmp (ia->options[i].optionString, "vfprintf")
-	      || ! strcmp (ia->options[i].optionString, "exit")
-	      || ! strcmp (ia->options[i].optionString, "abort"))
-	    {
-	      // We are required to recognize these, but for now we
-	      // don't handle them in any way.  FIXME.
-	      continue;
-	    }
-	  else if (! strncmp (ia->options[i].optionString,
-			      "-verbose", sizeof ("-verbose") - 1))
-	    {
-	      // We don't do anything with this option either.  We
-	      // might want to make sure the argument is valid, but we
-	      // don't really care all that much for now.
-	      continue;
-	    }
-	  else if (! strncmp (ia->options[i].optionString, "-D", 2))
-	    {
-	      // FIXME.
-	      continue;
-	    }
-	  else if (ia->ignoreUnrecognized)
-	    {
-	      if (ia->options[i].optionString[0] == '_'
-		  || ! strncmp (ia->options[i].optionString, "-X", 2))
-		continue;
-	    }
-
-	  return JNI_ERR;
-	}
-    }
 
   jint r =_Jv_JNI_AttachCurrentThread (nvm, penv, NULL);
   if (r < 0)

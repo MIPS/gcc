@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -293,6 +293,16 @@ struct gcc_target
     void (* builtin_vect_pattern_recog) (tree);
   } vectorize;
 
+  /* The initial value of target_flags.  */
+  int default_target_flags;
+
+  /* Handle target switch CODE (an OPT_* value).  ARG is the argument
+     passed to the switch; it is NULL if no argument was.  VALUE is the
+     value of ARG if CODE specifies a UInteger option, otherwise it is
+     1 if the positive form of the switch was used and 0 if the negative
+     form was.  Return true if the switch was valid.  */
+  bool (* handle_option) (size_t code, const char *arg, int value);
+
   /* Return machine mode for filter value.  */
   enum machine_mode (* eh_return_filter_mode) (void);
 
@@ -336,7 +346,7 @@ struct gcc_target
 			  enum machine_mode mode, int ignore);
 
   /* Fold a target-specific builtin.  */
-  tree (* fold_builtin) (tree exp, bool ignore);
+  tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
 
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
@@ -479,8 +489,8 @@ struct gcc_target
   rtx (* builtin_setjmp_frame_value) (void);
 
   /* This target hook should add STRING_CST trees for any hard regs
-     the port wishes to automatically clobber for all asms.  */
-  tree (* md_asm_clobbers) (tree);
+     the port wishes to automatically clobber for an asm.  */
+  tree (* md_asm_clobbers) (tree, tree, tree);
 
   /* This target hook allows the backend to specify a calling convention
      in the debug information.  This function actually returns an
@@ -545,6 +555,11 @@ struct gcc_target
        in registers; the balance is therefore passed on the stack.  */
     int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			       tree type, bool named);
+
+    /* Return the diagnostic message string if function without a prototype
+       is not allowed for this 'val' argument; NULL otherwise. */
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist, 
+					     	    tree funcdecl, tree val);
   } calls;
 
   /* Functions specific to the C++ frontend.  */

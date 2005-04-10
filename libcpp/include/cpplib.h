@@ -236,6 +236,19 @@ typedef CPPCHAR_SIGNED_T cppchar_signed_t;
 /* Style of header dependencies to generate.  */
 enum cpp_deps_style { DEPS_NONE = 0, DEPS_USER, DEPS_SYSTEM };
 
+/* The possible normalization levels, from most restrictive to least.  */
+enum cpp_normalize_level {
+  /* In NFKC.  */
+  normalized_KC = 0,
+  /* In NFC.  */
+  normalized_C,
+  /* In NFC, except for subsequences where being in NFC would make
+     the identifier invalid.  */
+  normalized_identifier_C,
+  /* Not normalized at all.  */
+  normalized_none
+};
+
 /* This structure is nested inside struct cpp_reader, and
    carries all the options visible to the command line.  */
 struct cpp_options
@@ -372,6 +385,10 @@ struct cpp_options
 
   /* Holds the name of the input character set.  */
   const char *input_charset;
+
+  /* The minimum permitted level of normalization before a warning
+     is generated.  */
+  enum cpp_normalize_level warn_normalize;
 
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
@@ -637,7 +654,7 @@ extern unsigned int cpp_errors (cpp_reader *);
 extern unsigned int cpp_token_len (const cpp_token *);
 extern unsigned char *cpp_token_as_text (cpp_reader *, const cpp_token *);
 extern unsigned char *cpp_spell_token (cpp_reader *, const cpp_token *,
-				       unsigned char *);
+				       unsigned char *, bool);
 extern void cpp_register_pragma (cpp_reader *, const char *, const char *,
 				 void (*) (cpp_reader *), bool);
 extern void cpp_handle_deferred_pragma (cpp_reader *, const cpp_string *);
@@ -658,6 +675,9 @@ extern bool cpp_interpret_string (cpp_reader *,
 extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
 					      cpp_string *, bool);
+
+/* Convert a host character constant to the execution character set.  */
+extern cppchar_t cpp_host_to_exec_charset (cpp_reader *, cppchar_t);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
@@ -742,12 +762,6 @@ cpp_num cpp_num_sign_extend (cpp_num, size_t);
 /* Nonzero if a diagnostic level is one of the warnings.  */
 #define CPP_DL_WARNING_P(l)	(CPP_DL_EXTRACT (l) >= CPP_DL_WARNING \
 				 && CPP_DL_EXTRACT (l) <= CPP_DL_PEDWARN)
-
-/* N.B. The error-message-printer prototypes have not been nicely
-   formatted because exgettext needs to see 'msgid' on the same line
-   as the name of the function in order to work properly.  Only the
-   string argument gets a name in an effort to keep the lines from
-   getting ridiculously oversized.  */
 
 /* Output a diagnostic of some kind.  */
 extern void cpp_error (cpp_reader *, int, const char *msgid, ...)

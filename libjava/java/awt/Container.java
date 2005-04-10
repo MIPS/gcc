@@ -1,5 +1,5 @@
 /* Container.java -- parent container class in AWT
-   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -67,7 +67,7 @@ import javax.swing.SwingUtilities;
  * list or bottom of the stacking order.
  *
  * @author original author unknown
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  *
  * @since 1.0
  *
@@ -387,11 +387,14 @@ public class Container extends Component
               layoutMgr.addLayoutComponent(null, comp);
           }
 
-        // Post event to notify of adding the container.
-        ContainerEvent ce = new ContainerEvent(this,
-                                               ContainerEvent.COMPONENT_ADDED,
-                                               comp);
-        getToolkit().getSystemEventQueue().postEvent(ce);
+        if (isShowing ())
+          {
+            // Post event to notify of adding the component.
+            ContainerEvent ce = new ContainerEvent(this,
+                                                   ContainerEvent.COMPONENT_ADDED,
+                                                   comp);
+            getToolkit().getSystemEventQueue().postEvent(ce);
+          }
       }
   }
 
@@ -419,11 +422,14 @@ public class Container extends Component
 
         r.parent = null;
 
-        // Post event to notify of adding the container.
-        ContainerEvent ce = new ContainerEvent(this,
-                                               ContainerEvent.COMPONENT_REMOVED,
-                                               r);
-        getToolkit().getSystemEventQueue().postEvent(ce);
+        if (isShowing ())
+          {
+            // Post event to notify of removing the component.
+            ContainerEvent ce = new ContainerEvent(this,
+                                                   ContainerEvent.COMPONENT_REMOVED,
+                                                   r);
+            getToolkit().getSystemEventQueue().postEvent(ce);
+          }
       }
   }
 
@@ -1046,11 +1052,14 @@ public class Container extends Component
    */
   protected String paramString()
   {
-    String param = super.paramString();
-    if (layoutMgr != null)
-      param = param + ",layout=" + layoutMgr.getClass().getName();
+    if (layoutMgr == null)
+      return super.paramString();
 
-    return param;
+    StringBuffer sb = new StringBuffer();
+    sb.append(super.paramString());
+    sb.append(",layout=");
+    sb.append(layoutMgr.getClass().getName());
+    return sb.toString();
   }
 
   /**
@@ -1677,32 +1686,48 @@ public class Container extends Component
 
   static class GfxPaintVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.paint(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPaintVisitor();
+    
+    public void visit(Component c, Graphics gfx)
+    {
+      c.paint(gfx);
+    }
   }
 
   static class GfxPrintVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.print(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPrintVisitor();
+    
+    public void visit(Component c, Graphics gfx)
+    {
+      c.print(gfx);
+    }
   }
 
   static class GfxPaintAllVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.paintAll(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPaintAllVisitor();
+
+    public void visit(Component c, Graphics gfx)
+    {
+      c.paintAll(gfx);
+    }
   }
 
   static class GfxPrintAllVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.printAll(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPrintAllVisitor();
+
+    public void visit(Component c, Graphics gfx)
+    {
+      c.printAll(gfx);
+    }
   }
 
   /**
    * This class provides accessibility support for subclasses of container.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    *
    * @since 1.3
    */
@@ -1791,7 +1816,7 @@ public class Container extends Component
      * This class fires a <code>PropertyChange</code> listener, if registered,
      * when children are added or removed from the enclosing accessible object.
      *
-     * @author Eric Blake <ebb9@email.byu.edu>
+     * @author Eric Blake (ebb9@email.byu.edu)
      *
      * @since 1.3
      */

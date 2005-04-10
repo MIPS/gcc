@@ -88,6 +88,21 @@ int_or_real_check (gfc_expr * e, int n)
 }
 
 
+/* Check that an expression is real or complex.  */
+
+static try
+real_or_complex_check (gfc_expr * e, int n)
+{
+  if (e->ts.type != BT_REAL && e->ts.type != BT_COMPLEX)
+    {
+      must_be (e, n, "REAL or COMPLEX");
+      return FAILURE;
+    }
+
+  return SUCCESS;
+}
+
+
 /* Check that the expression is an optional constant integer
    and that it specifies a valid kind for that type.  */
 
@@ -386,6 +401,16 @@ gfc_check_abs (gfc_expr * a)
   return SUCCESS;
 }
 
+try
+gfc_check_achar (gfc_expr * a)
+{
+
+  if (type_check (a, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
 
 try
 gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
@@ -543,6 +568,35 @@ gfc_check_char (gfc_expr * i, gfc_expr * kind)
   if (type_check (i, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
   if (kind_check (kind, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_chdir (gfc_expr * dir)
+{
+  if (type_check (dir, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_chdir_sub (gfc_expr * dir, gfc_expr * status)
+{
+  if (type_check (dir, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 1) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -718,6 +772,42 @@ gfc_check_eoshift (gfc_expr * array, gfc_expr * shift, gfc_expr * boundary,
 }
 
 
+/* A single complex argument.  */
+
+try
+gfc_check_fn_c (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_COMPLEX) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single real argument.  */
+
+try
+gfc_check_fn_r (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_REAL) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single real or complex argument.  */
+
+try
+gfc_check_fn_rc (gfc_expr * a)
+{
+  if (real_or_complex_check (a, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
 try
 gfc_check_fnum (gfc_expr * unit)
 {
@@ -885,9 +975,17 @@ gfc_check_index (gfc_expr * string, gfc_expr * substring, gfc_expr * back)
 try
 gfc_check_int (gfc_expr * x, gfc_expr * kind)
 {
-  if (numeric_check (x, 0) == FAILURE
-      || kind_check (kind, 1, BT_INTEGER) == FAILURE)
+  if (numeric_check (x, 0) == FAILURE)
     return FAILURE;
+
+  if (kind != NULL)
+    {
+      if (type_check (kind, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+      if (scalar_check (kind, 1) == FAILURE)
+	return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -939,6 +1037,41 @@ gfc_check_ishftc (gfc_expr * i, gfc_expr * shift, gfc_expr * size)
 
 
 try
+gfc_check_kill (gfc_expr * pid, gfc_expr * sig)
+{
+  if (type_check (pid, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (sig, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_kill_sub (gfc_expr * pid, gfc_expr * sig, gfc_expr * status)
+{
+  if (type_check (pid, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (sig, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_kind (gfc_expr * x)
 {
   if (x->ts.type == BT_DERIVED)
@@ -965,6 +1098,76 @@ gfc_check_lbound (gfc_expr * array, gfc_expr * dim)
       if (dim_rank_check (dim, array, 1) == FAILURE)
 	return FAILURE;
     }
+  return SUCCESS;
+}
+
+
+try
+gfc_check_link (gfc_expr * path1, gfc_expr * path2)
+{
+  if (type_check (path1, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (path2, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_link_sub (gfc_expr * path1, gfc_expr * path2, gfc_expr * status)
+{
+  if (type_check (path1, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (path2, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_symlnk (gfc_expr * path1, gfc_expr * path2)
+{
+  if (type_check (path1, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (path2, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_symlnk_sub (gfc_expr * path1, gfc_expr * path2, gfc_expr * status)
+{
+  if (type_check (path1, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (path2, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
   return SUCCESS;
 }
 
@@ -1145,7 +1348,7 @@ gfc_check_minloc_maxloc (gfc_actual_arglist * ap)
   m = ap->next->next->expr;
 
   if (m == NULL && d != NULL && d->ts.type == BT_LOGICAL
-      && ap->next->name[0] == '\0')
+      && ap->next->name == NULL)
     {
       m = d;
       d = NULL;
@@ -1190,7 +1393,7 @@ check_reduction (gfc_actual_arglist * ap)
   m = ap->next->next->expr;
 
   if (m == NULL && d != NULL && d->ts.type == BT_LOGICAL
-      && ap->next->name[0] == '\0')
+      && ap->next->name == NULL)
     {
       m = d;
       d = NULL;
@@ -1385,6 +1588,41 @@ gfc_check_real (gfc_expr * a, gfc_expr * kind)
 
 
 try
+gfc_check_rename (gfc_expr * path1, gfc_expr * path2)
+{
+  if (type_check (path1, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (path2, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_rename_sub (gfc_expr * path1, gfc_expr * path2, gfc_expr * status)
+{
+  if (type_check (path1, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (path2, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_repeat (gfc_expr * x, gfc_expr * y)
 {
   if (type_check (x, 0, BT_CHARACTER) == FAILURE)
@@ -1485,6 +1723,20 @@ gfc_check_scan (gfc_expr * x, gfc_expr * y, gfc_expr * z)
 
 
 try
+gfc_check_selected_int_kind (gfc_expr * r)
+{
+
+  if (type_check (r, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (r, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_selected_real_kind (gfc_expr * p, gfc_expr * r)
 {
   if (p == NULL && r == NULL)
@@ -1569,6 +1821,19 @@ gfc_check_size (gfc_expr * array, gfc_expr * dim)
       if (dim_rank_check (dim, array, 0) == FAILURE)
 	return FAILURE;
     }
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_sleep_sub (gfc_expr * seconds)
+{
+  if (type_check (seconds, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (seconds, 0) == FAILURE)
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -2151,6 +2416,16 @@ gfc_check_etime_sub (gfc_expr * values, gfc_expr * time)
 
 
 try
+gfc_check_gerror (gfc_expr * msg)
+{
+  if (type_check (msg, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_getcwd_sub (gfc_expr * cwd, gfc_expr * status)
 {
   if (type_check (cwd, 0, BT_CHARACTER) == FAILURE)
@@ -2163,6 +2438,16 @@ gfc_check_getcwd_sub (gfc_expr * cwd, gfc_expr * status)
     return FAILURE;
 
   if (type_check (status, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_getlog (gfc_expr * msg)
+{
+  if (type_check (msg, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2195,6 +2480,45 @@ gfc_check_flush (gfc_expr * unit)
     return FAILURE;
 
   if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_hostnm (gfc_expr * name)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_hostnm_sub (gfc_expr * name, gfc_expr * status)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (scalar_check (status, 1) == FAILURE)
+    return FAILURE;
+
+  if (type_check (status, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_perror (gfc_expr * string)
+{
+  if (type_check (string, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

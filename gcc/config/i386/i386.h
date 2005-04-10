@@ -229,11 +229,11 @@ extern int target_flags;
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
-extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
+extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
-extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
-extern const int x86_use_cltd, x86_read_modify_write;
+extern const int x86_use_loop, x86_use_himode_fiop, x86_use_simode_fiop;
+extern const int x86_use_mov0, x86_use_cltd, x86_read_modify_write;
 extern const int x86_read_modify, x86_split_long_moves;
 extern const int x86_promote_QImode, x86_single_stringop, x86_fast_prefix;
 extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
@@ -258,6 +258,7 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
+#define TARGET_FISTTP (x86_fisttp & (1 << ix86_arch))
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
@@ -265,7 +266,8 @@ extern int x86_prefetch_sse;
 #define TARGET_MOVX (x86_movx & TUNEMASK)
 #define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
 #define TARGET_USE_LOOP (x86_use_loop & TUNEMASK)
-#define TARGET_USE_FIOP (x86_use_fiop & TUNEMASK)
+#define TARGET_USE_HIMODE_FIOP (x86_use_himode_fiop & TUNEMASK)
+#define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
 #define TARGET_USE_CLTD (x86_use_cltd & TUNEMASK)
 #define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & TUNEMASK)
@@ -967,10 +969,10 @@ extern int x86_prefetch_sse;
    and the register where structure-value addresses are passed.
    Aside from that, you can include as many other registers as you like.
 
-   The value is zero if the register is not fixed on either 32 or
-   64 bit targets, one if the register if fixed on both 32 and 64
-   bit targets, two if it is only fixed on 32bit targets and three
-   if its only fixed on 64bit targets.
+   The value is zero if the register is not call used on either 32 or
+   64 bit targets, one if the register if call used on both 32 and 64
+   bit targets, two if it is only call used on 32bit targets and three
+   if its only call used on 64bit targets.
    Proper values are computed in the CONDITIONAL_REGISTER_USAGE.
 */
 #define CALL_USED_REGISTERS					\
@@ -1107,11 +1109,6 @@ do {									\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
-/* Return true for modes passed in MMX registers.  */
-#define MMX_REG_MODE_P(MODE) \
- ((MODE) == V8QImode || (MODE) == V4HImode || (MODE) == V2SImode	\
-   || (MODE) == V2SFmode)
-
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)	\
@@ -1122,16 +1119,7 @@ do {									\
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
 
-#define MODES_TIEABLE_P(MODE1, MODE2)				\
-  ((MODE1) == (MODE2)						\
-   || (((MODE1) == HImode || (MODE1) == SImode			\
-	|| ((MODE1) == QImode					\
-	    && (TARGET_64BIT || !TARGET_PARTIAL_REG_STALL))	\
-        || ((MODE1) == DImode && TARGET_64BIT))			\
-       && ((MODE2) == HImode || (MODE2) == SImode		\
-	   || ((MODE2) == QImode				\
-	       && (TARGET_64BIT || !TARGET_PARTIAL_REG_STALL))	\
-	   || ((MODE2) == DImode && TARGET_64BIT))))
+#define MODES_TIEABLE_P(MODE1, MODE2)  ix86_modes_tieable_p (MODE1, MODE2)
 
 /* It is possible to write patterns to move flags; but until someone
    does it,  */
@@ -1190,7 +1178,7 @@ do {									\
    This is computed in `reload', in reload1.c.  */
 #define FRAME_POINTER_REQUIRED  ix86_frame_pointer_required ()
 
-/* Override this in other tm.h files to cope with various OS losage
+/* Override this in other tm.h files to cope with various OS lossage
    requiring a frame pointer.  */
 #ifndef SUBTARGET_FRAME_POINTER_REQUIRED
 #define SUBTARGET_FRAME_POINTER_REQUIRED 0
@@ -1705,7 +1693,7 @@ enum reg_class
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-   ix86_function_value (VALTYPE)
+   ix86_function_value (VALTYPE, FUNC)
 
 #define FUNCTION_VALUE_REGNO_P(N) \
   ix86_function_value_regno_p (N)
@@ -1735,7 +1723,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
-  int fastcall;		/* fastcall calling convention is used */
+  int fastcall;			/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
@@ -1745,6 +1733,8 @@ typedef struct ix86_args {
   int mmx_nregs;		/* # mmx registers available for passing */
   int mmx_regno;		/* next available mmx register number */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
+  int float_in_sse;		/* true if in 32-bit mode SFmode/DFmode should
+				   be passed in SSE registers.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS

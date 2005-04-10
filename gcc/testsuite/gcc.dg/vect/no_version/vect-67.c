@@ -11,8 +11,7 @@ int main1 (int a, int b)
   int ia[N][4][N+8];
 
   /* Multidimensional array. Aligned. The "inner" dimensions
-     are invariant in the inner loop. Store. 
-     Not vectorizable: unsupported operation. */
+     are invariant in the inner loop. Store.  */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -41,5 +40,5 @@ int main (void)
   return main1 (2 ,7);
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */

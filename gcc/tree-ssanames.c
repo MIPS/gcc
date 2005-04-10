@@ -1,5 +1,5 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
                                                                                 
 This file is part of GCC.
                                                                                 
@@ -118,7 +118,7 @@ unmark_all_for_rewrite (void)
 bitmap
 marked_ssa_names (void)
 {
-  bitmap ret = BITMAP_XMALLOC ();
+  bitmap ret = BITMAP_ALLOC (NULL);
 
   bitmap_copy (ret, ssa_names_to_rewrite);
 
@@ -138,7 +138,7 @@ init_ssanames (void)
      large.  */
   VARRAY_PUSH_TREE (ssa_names, NULL_TREE);
   free_ssanames = NULL;
-  ssa_names_to_rewrite = BITMAP_XMALLOC ();
+  ssa_names_to_rewrite = BITMAP_ALLOC (NULL);
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -146,7 +146,7 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
-  BITMAP_XFREE (ssa_names_to_rewrite);
+  BITMAP_FREE (ssa_names_to_rewrite);
   ggc_free (ssa_names);
   ssa_names = NULL;
   free_ssanames = NULL;
@@ -172,6 +172,7 @@ tree
 make_ssa_name (tree var, tree stmt)
 {
   tree t;
+  ssa_imm_use_t *imm;
 
   gcc_assert (DECL_P (var)
 	      || TREE_CODE (var) == INDIRECT_REF);
@@ -207,6 +208,11 @@ make_ssa_name (tree var, tree stmt)
   SSA_NAME_DEF_STMT (t) = stmt;
   SSA_NAME_PTR_INFO (t) = NULL;
   SSA_NAME_IN_FREE_LIST (t) = 0;
+  imm = &(SSA_NAME_IMM_USE_NODE (t));
+  imm->use = NULL;
+  imm->prev = imm;
+  imm->next = imm;
+  imm->stmt = t;
 
   return t;
 }
@@ -248,10 +254,26 @@ release_ssa_name (tree var)
     {
       tree saved_ssa_name_var = SSA_NAME_VAR (var);
       int saved_ssa_name_version = SSA_NAME_VERSION (var);
+      ssa_imm_use_t *imm = &(SSA_NAME_IMM_USE_NODE (var));
+
+#ifdef ENABLE_CHECKING
+      verify_imm_links (stderr, var);
+#endif
+      while (imm->next != imm)
+        {
+	  delink_imm_use (imm->next);
+	}
+#ifdef ENABLE_CHECKING
+      if (imm->next != imm)
+        abort();
+#endif
 
       VARRAY_TREE (ssa_names, SSA_NAME_VERSION (var)) = NULL;
       memset (var, 0, tree_size (var));
 
+      imm->prev = imm;
+      imm->next = imm;
+      imm->stmt = var;
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
       TREE_SET_CODE (var, SSA_NAME);

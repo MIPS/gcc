@@ -1,5 +1,5 @@
 /* Some code common to C and ObjC front ends.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -177,6 +177,17 @@ c_tree_printer (pretty_printer *pp, text_info *text)
   switch (*text->format_spec)
     {
     case 'D':
+      if (DECL_DEBUG_EXPR (t) && DECL_DEBUG_EXPR_IS_FROM (t))
+	{
+	  t = DECL_DEBUG_EXPR (t);
+	  if (!DECL_P (t))
+	    {
+	      pp_c_expression (cpp, t);
+	      return true;
+	    }
+	}
+      /* FALLTHRU */
+
     case 'F':
       if (DECL_NAME (t))
 	n = lang_hooks.decl_printable_name (t, 2);
@@ -217,34 +228,6 @@ c_tree_printer (pretty_printer *pp, text_info *text)
 
   pp_string (cpp, n);
   return true;
-}
-
-tree
-c_objc_common_truthvalue_conversion (tree expr)
-{
- retry:
-  switch (TREE_CODE (TREE_TYPE (expr)))
-    {
-    case ARRAY_TYPE:
-      expr = default_conversion (expr);
-      if (TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
-	goto retry;
-
-      error ("used array that cannot be converted to pointer where scalar is required");
-      return error_mark_node;
-
-    case RECORD_TYPE:
-      error ("used struct type value where scalar is required");
-      return error_mark_node;
-
-    case UNION_TYPE:
-      error ("used union type value where scalar is required");
-      return error_mark_node;
-    default:
-      break;
-    }
-
-  return c_common_truthvalue_conversion (expr);
 }
 
 /* In C and ObjC, all decls have "C" linkage.  */

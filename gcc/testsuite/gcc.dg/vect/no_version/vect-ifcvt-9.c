@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-O3 -funroll-loops -ftree-vectorize -fdump-tree-vect-stats -maltivec -fno-tree-vect-loop-version" { target powerpc*-*-* } } */
 
 
@@ -36,4 +36,4 @@ int main ()
 
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail 86_or_vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */

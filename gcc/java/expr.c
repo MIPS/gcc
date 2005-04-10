@@ -86,6 +86,7 @@ static void java_stack_pop (int);
 static tree build_java_throw_out_of_bounds_exception (tree); 
 static tree build_java_check_indexed_type (tree, tree); 
 static unsigned char peek_opcode_at_pc (struct JCF *, int, int);
+static void promote_arguments (void);
 
 static GTY(()) tree operand_type[59];
 
@@ -382,6 +383,10 @@ pop_type_0 (tree type, char **messagep)
  fail:
   {
     char *temp = xstrdup (lang_printable_name (type, 0));
+    /* If the stack contains a multi-word type, keep popping the stack until 
+       the real type is found.  */
+    while (t == void_type_node)
+      t = stack_type_map[--stack_pointer];
     *messagep = concat ("expected type '", temp,
 			"' but stack contains '", lang_printable_name (t, 0),
 			"'", NULL);
@@ -458,7 +463,7 @@ add_type_assertion (tree class, int assertion_code, tree op1, tree op2)
   as.op1 = op1;
   as.op2 = op2;
 
-  as_pp = htab_find_slot (assertions_htab, &as, true);
+  as_pp = htab_find_slot (assertions_htab, &as, INSERT);
 
   /* Don't add the same assertion twice.  */
   if (*as_pp)
@@ -812,15 +817,6 @@ build_java_array_length_access (tree node)
   tree type = TREE_TYPE (node);
   tree array_type = TREE_TYPE (type);
   HOST_WIDE_INT length;
-
-  /* JVM spec: If the arrayref is null, the arraylength instruction
-     throws a NullPointerException.  The only way we could get a node
-     of type ptr_type_node at this point is `aconst_null; arraylength'
-     or something equivalent.  */
-  if (!flag_new_verifier && type == ptr_type_node)
-    return build3 (CALL_EXPR, int_type_node, 
-		   build_address_of (soft_nullpointer_node),
-		   NULL_TREE, NULL_TREE);
 
   if (!is_array_type_p (type))
     {
@@ -1224,21 +1220,11 @@ expand_java_arrayload (tree lhs_type_node)
   index_node = save_expr (index_node);
   array_node = save_expr (array_node);
 
-  if (TREE_TYPE (array_node) == ptr_type_node)
-    /* The only way we could get a node of type ptr_type_node at this
-       point is `aconst_null; arraylength' or something equivalent, so
-       unconditionally throw NullPointerException.  */
-    load_node = build3 (CALL_EXPR, lhs_type_node, 
-			build_address_of (soft_nullpointer_node),
-			NULL_TREE, NULL_TREE);
-  else
-    {
-      lhs_type_node = build_java_check_indexed_type (array_node,
-						     lhs_type_node);
-      load_node = build_java_arrayaccess (array_node,
-					  lhs_type_node,
-					  index_node);
-    }
+  lhs_type_node = build_java_check_indexed_type (array_node,
+						 lhs_type_node);
+  load_node = build_java_arrayaccess (array_node,
+				      lhs_type_node,
+				      index_node);
   if (INTEGRAL_TYPE_P (lhs_type_node) && TYPE_PRECISION (lhs_type_node) <= 32)
     load_node = fold (build1 (NOP_EXPR, int_type_node, load_node));
   push_value (load_node);
@@ -2961,6 +2947,8 @@ expand_byte_code (JCF *jcf, tree method)
 	return;
     }
 
+  promote_arguments ();
+
   /* Translate bytecodes.  */
   linenumber_pointer = linenumber_table;
   for (PC = 0; PC < length;)
@@ -3588,7 +3576,7 @@ build_expr_wfl (tree node,
   EXPR_WFL_NODE (wfl) = node;
   if (node)
     {
-      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+      if (!TYPE_P (node))
 	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
     }
@@ -3624,7 +3612,7 @@ expr_add_location (tree node, source_location location, bool statement)
     EXPR_WFL_EMIT_LINE_NOTE (wfl) = 1;
   if (node)
     {
-      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+      if (!TYPE_P (node))
 	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
     }
@@ -3641,6 +3629,30 @@ build_java_empty_stmt (void)
   tree t = build_empty_stmt ();
   CAN_COMPLETE_NORMALLY (t) = 1;
   return t;
+}
+
+/* Promote all args of integral type before generating any code.  */
+
+static void
+promote_arguments (void)
+{
+  int i;
+  tree arg;
+  for (arg = DECL_ARGUMENTS (current_function_decl), i = 0;
+       arg != NULL_TREE;  arg = TREE_CHAIN (arg), i++)
+    {
+      tree arg_type = TREE_TYPE (arg);
+      if (INTEGRAL_TYPE_P (arg_type)
+	  && TYPE_PRECISION (arg_type) < 32)
+	{
+	  tree copy = find_local_variable (i, integer_type_node, -1);
+	  java_add_stmt (build2 (MODIFY_EXPR, integer_type_node,
+				 copy,
+				 fold_convert (integer_type_node, arg)));
+	}
+      if (TYPE_IS_WIDE (arg_type))
+	i++;
+    }
 }
 
 #include "gt-java-expr.h"

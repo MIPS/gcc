@@ -1,5 +1,5 @@
 /* Calculate (post)dominators in slightly super-linear time.
-   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Matz (matz@ifh.de).
 
    This file is part of GCC.
@@ -170,7 +170,7 @@ init_dom_info (struct dom_info *di, enum cdi_direction dir)
   di->dfsnum = 1;
   di->nodes = 0;
 
-  di->fake_exit_edge = dir ? BITMAP_XMALLOC () : NULL;
+  di->fake_exit_edge = dir ? BITMAP_ALLOC (NULL) : NULL;
 }
 
 #undef init_ar
@@ -191,7 +191,7 @@ free_dom_info (struct dom_info *di)
   free (di->set_child);
   free (di->dfs_order);
   free (di->dfs_to_bb);
-  BITMAP_XFREE (di->fake_exit_edge);
+  BITMAP_FREE (di->fake_exit_edge);
 }
 
 /* The nonrecursive variant of creating a DFS tree.  DI is our working
@@ -659,11 +659,11 @@ free_dominance_info (enum cdi_direction dir)
 
   FOR_ALL_BB (bb)
     {
-      delete_from_dominance_info (dir, bb);
+      et_free_tree_force (bb->dom[dir]);
+      bb->dom[dir] = NULL;
     }
 
-  /* If there are any nodes left, something is wrong.  */
-  gcc_assert (!n_bbs_in_dom_tree[dir]);
+  n_bbs_in_dom_tree[dir] = 0;
 
   dom_computed[dir] = DOM_NONE;
 }

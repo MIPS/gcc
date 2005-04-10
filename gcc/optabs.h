@@ -171,6 +171,8 @@ enum optab_index
   OTI_exp2,
   /* Exponential - 1*/
   OTI_expm1,
+  /* Load exponent of a floating point number */
+  OTI_ldexp,
   /* Radix-independent exponent */
   OTI_logb,
   OTI_ilogb,
@@ -189,10 +191,13 @@ enum optab_index
   OTI_round,
   OTI_nearbyint,
   OTI_rint,
+  OTI_lrint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
   OTI_atan,
+  /* Copy sign */
+  OTI_copysign,
 
   /* Compare insn; two operands.  */
   OTI_cmp,
@@ -243,6 +248,9 @@ enum optab_index
   /* Saturated arithmetic.  */
   OTI_ssat_sub,
   OTI_usat_sub,
+
+  /* Perform a raise to the power of integer.  */
+  OTI_powi,
 
   OTI_MAX
 };
@@ -308,6 +316,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define exp10_optab (optab_table[OTI_exp10])
 #define exp2_optab (optab_table[OTI_exp2])
 #define expm1_optab (optab_table[OTI_expm1])
+#define ldexp_optab (optab_table[OTI_ldexp])
 #define logb_optab (optab_table[OTI_logb])
 #define ilogb_optab (optab_table[OTI_ilogb])
 #define log_optab (optab_table[OTI_log])
@@ -320,8 +329,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
 #define rint_optab (optab_table[OTI_rint])
+#define lrint_optab (optab_table[OTI_lrint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
+#define copysign_optab (optab_table[OTI_copysign])
 
 #define cmp_optab (optab_table[OTI_cmp])
 #define ucmp_optab (optab_table[OTI_ucmp])
@@ -356,6 +367,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 
 #define ssat_sub_optab (optab_table[OTI_ssat_sub])
 #define usat_sub_optab (optab_table[OTI_usat_sub])
+
+#define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -469,6 +482,9 @@ extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 /* Expand the absolute value operation.  */
 extern rtx expand_abs_nojump (enum machine_mode, rtx, rtx, int);
 extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
+
+/* Expand the copysign operation.  */
+extern rtx expand_copysign (rtx, rtx, rtx);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */

@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -271,6 +271,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       && stmt_ann (node))
     dump_vops (buffer, node, spc, flags);
 
+  if (is_stmt && (flags & TDF_STMTADDR))
+    pp_printf (buffer, "<&%p> ", (void *)node);
+
   if (dumping_stmts
       && (flags & TDF_LINENO)
       && EXPR_HAS_LOCATION (node))
@@ -439,10 +442,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case METHOD_TYPE:
       dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)), flags);
       pp_string (buffer, "::");
-      break;
-
-    case FILE_TYPE:
-      NIY;
       break;
 
     case ARRAY_TYPE:

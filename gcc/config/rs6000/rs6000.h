@@ -251,6 +251,10 @@ extern int target_flags;
 #define HAVE_AS_TLS 0
 #endif
 
+/* Return 1 for a symbol ref for a thread-local storage symbol.  */
+#define RS6000_SYMBOL_REF_TLS_P(RTX) \
+  (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
+
 #ifdef IN_LIBGCC2
 /* For libgcc2 we make sure this is a compile time constant */
 #if defined (__64BIT__) || defined (__powerpc64__)
@@ -262,7 +266,7 @@ extern int target_flags;
 #define TARGET_POWERPC64	(target_flags & MASK_POWERPC64)
 #endif
 
-#define TARGET_XL_CALL 0
+#define TARGET_XL_COMPAT 0
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -940,29 +944,28 @@ extern const char *rs6000_warn_altivec_long_switch;
 	fp0		(not saved or used for anything)
 	fp13 - fp2	(not saved; incoming fp arg registers)
 	fp1		(not saved; return value)
- 	fp31 - fp14	(saved; order given to save least number)
+	fp31 - fp14	(saved; order given to save least number)
 	cr7, cr6	(not saved or special)
 	cr1		(not saved, but used for FP operations)
 	cr0		(not saved, but used for arithmetic operations)
 	cr4, cr3, cr2	(saved)
-        r0		(not saved; cannot be base reg)
+	r0		(not saved; cannot be base reg)
 	r9		(not saved; best for TImode)
 	r11, r10, r8-r4	(not saved; highest used first to make less conflict)
-	r3     		(not saved; return value register)
+	r3		(not saved; return value register)
 	r31 - r13	(saved; order given to save least number)
 	r12		(not saved; if used for DImode or DFmode would use r13)
 	mq		(not saved; best to use it if we can)
 	ctr		(not saved; when we have the choice ctr is better)
 	lr		(saved)
-        cr5, r1, r2, ap, xer, vrsave, vscr (fixed)
+	cr5, r1, r2, ap, xer (fixed)
+	v0 - v1		(not saved or used for anything)
+	v13 - v3	(not saved; incoming vector arg registers)
+	v2		(not saved; incoming vector arg reg; return value)
+	v19 - v14	(not saved or used for anything)
+	v31 - v20	(saved; order given to save least number)
+	vrsave, vscr	(fixed)
 	spe_acc, spefscr (fixed)
-
-	AltiVec registers:
-	v0 - v1         (not saved or used for anything)
-	v13 - v3        (not saved; incoming vector arg registers)
-	v2              (not saved; incoming vector arg reg; return value)
-	v19 - v14       (not saved or used for anything)
-	v31 - v20       (saved; order given to save least number)
 */
 
 #if FIXED_R2 == 1
@@ -973,28 +976,28 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define MAYBE_R2_FIXED
 #endif
 
-#define REG_ALLOC_ORDER					\
-  {32, 							\
-   45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34,	\
-   33,							\
-   63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51,	\
-   50, 49, 48, 47, 46, 					\
-   75, 74, 69, 68, 72, 71, 70,				\
-   0, MAYBE_R2_AVAILABLE				\
-   9, 11, 10, 8, 7, 6, 5, 4,				\
-   3,							\
-   31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19,	\
-   18, 17, 16, 15, 14, 13, 12,				\
-   64, 66, 65, 						\
-   73, 1, MAYBE_R2_FIXED 67, 76,			\
-   /* AltiVec registers.  */				\
-   77, 78,						\
-   90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80,		\
-   79,							\
-   96, 95, 94, 93, 92, 91,				\
-   108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98,	\
-   97, 109, 110						\
-   , 111, 112                                              \
+#define REG_ALLOC_ORDER						\
+  {32,								\
+   45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34,		\
+   33,								\
+   63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51,		\
+   50, 49, 48, 47, 46,						\
+   75, 74, 69, 68, 72, 71, 70,					\
+   0, MAYBE_R2_AVAILABLE					\
+   9, 11, 10, 8, 7, 6, 5, 4,					\
+   3,								\
+   31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19,		\
+   18, 17, 16, 15, 14, 13, 12,					\
+   64, 66, 65,							\
+   73, 1, MAYBE_R2_FIXED 67, 76,				\
+   /* AltiVec registers.  */					\
+   77, 78,							\
+   90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80,			\
+   79,								\
+   96, 95, 94, 93, 92, 91,					\
+   108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97,	\
+   109, 110,							\
+   111, 112							\
 }
 
 /* True if register is floating-point.  */
@@ -1354,6 +1357,7 @@ enum reg_class
    'U' is for V.4 small data references.
    'W' is a vector constant that can be easily generated (no mem refs).
    'Y' is a indexed or word-aligned displacement memory operand.
+   'Z' is an indexed or indirect memory operand.
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1369,6 +1373,7 @@ enum reg_class
 		   && !mask64_operand (OP, DImode))			\
    : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
    : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
+   : (C) == 'Z' ? (indexed_or_indirect_operand (OP, GET_MODE (OP)))	\
    : 0)
 
 /* Define which constraints are memory constraints.  Tell reload
@@ -1376,7 +1381,7 @@ enum reg_class
    memory address into a base register if required.  */
 
 #define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
-  ((C) == 'Q' || (C) == 'Y')
+  ((C) == 'Q' || (C) == 'Y' || (C) == 'Z')
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1696,6 +1701,9 @@ typedef struct rs6000_args
   int stdarg;			/* Whether function is a stdarg function.  */
   int call_cookie;		/* Do special things for this call */
   int sysv_gregno;		/* next available GP register */
+  int intoffset;		/* running offset in struct (darwin64) */
+  int use_stack;		/* any part of struct on stack (darwin64) */
+  int named;			/* false for varargs params */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -1930,6 +1938,9 @@ typedef struct rs6000_args
     || easy_fp_constant (X, GET_MODE (X))			\
     || easy_vector_constant (X, GET_MODE (X)))			\
    && !rs6000_tls_referenced_p (X))
+
+#define EASY_VECTOR_15(n) ((n) >= -16 && (n) <= 15)
+#define EASY_VECTOR_15_ADD_SELF(n) ((n) >= 0x10 && (n) <= 0x1e && !((n) & 1))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2537,87 +2548,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 /* Print a memory address as an operand to reference that memory location.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
-
-/* Define the codes that are matched by predicates in rs6000.c.  */
-
-#define PREDICATE_CODES							   \
-  {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		   \
-		   LABEL_REF, SUBREG, REG, MEM}},			   \
-  {"any_parallel_operand", {PARALLEL}},					   \
-  {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	   \
-		    LABEL_REF, SUBREG, REG, MEM}},			   \
-  {"short_cint_operand", {CONST_INT}},					   \
-  {"u_short_cint_operand", {CONST_INT}},				   \
-  {"non_short_cint_operand", {CONST_INT}},				   \
-  {"exact_log2_cint_operand", {CONST_INT}},				   \
-  {"gpc_reg_operand", {SUBREG, REG}},					   \
-  {"cc_reg_operand", {SUBREG, REG}},					   \
-  {"cc_reg_not_cr0_operand", {SUBREG, REG}},				   \
-  {"reg_or_short_operand", {SUBREG, REG, CONST_INT}},			   \
-  {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},		   \
-  {"reg_or_aligned_short_operand", {SUBREG, REG, CONST_INT}},		   \
-  {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
-  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
-  {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
-  {"reg_or_add_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
-  {"reg_or_sub_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
-  {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
-  {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
-  {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
-  {"easy_fp_constant", {CONST_DOUBLE}},					   \
-  {"easy_vector_constant", {CONST_VECTOR}},				   \
-  {"easy_vector_constant_add_self", {CONST_VECTOR}},			   \
-  {"zero_fp_constant", {CONST_DOUBLE}},					   \
-  {"reg_or_mem_operand", {SUBREG, MEM, REG}},				   \
-  {"lwa_operand", {SUBREG, MEM, REG}},					   \
-  {"volatile_mem_operand", {MEM}},					   \
-  {"offsettable_mem_operand", {MEM}},					   \
-  {"mem_or_easy_const_operand", {SUBREG, MEM, CONST_DOUBLE}},		   \
-  {"add_operand", {SUBREG, REG, CONST_INT}},				   \
-  {"non_add_cint_operand", {CONST_INT}},				   \
-  {"and_operand", {SUBREG, REG, CONST_INT}},				   \
-  {"and64_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		   \
-  {"and64_2_operand", {SUBREG, REG, CONST_INT}},			   \
-  {"logical_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		   \
-  {"non_logical_cint_operand", {CONST_INT, CONST_DOUBLE}},		   \
-  {"mask_operand", {CONST_INT}},					   \
-  {"mask_operand_wrap", {CONST_INT}},					   \
-  {"mask64_operand", {CONST_INT}},					   \
-  {"mask64_2_operand", {CONST_INT}},					   \
-  {"count_register_operand", {REG}},					   \
-  {"xer_operand", {REG}},						   \
-  {"symbol_ref_operand", {SYMBOL_REF}},					   \
-  {"rs6000_tls_symbol_ref", {SYMBOL_REF}},				   \
-  {"call_operand", {SYMBOL_REF, REG}},					   \
-  {"current_file_function_operand", {SYMBOL_REF}},			   \
-  {"input_operand", {SUBREG, MEM, REG, CONST_INT,			   \
-		     CONST_DOUBLE, SYMBOL_REF}},			   \
-  {"rs6000_nonimmediate_operand", {SUBREG, MEM, REG}},		   	   \
-  {"load_multiple_operation", {PARALLEL}},				   \
-  {"store_multiple_operation", {PARALLEL}},				   \
-  {"lmw_operation", {PARALLEL}},					   \
-  {"stmw_operation", {PARALLEL}},					   \
-  {"vrsave_operation", {PARALLEL}},					   \
-  {"save_world_operation", {PARALLEL}},                                    \
-  {"restore_world_operation", {PARALLEL}},                                 \
-  {"mfcr_operation", {PARALLEL}},					   \
-  {"mtcrf_operation", {PARALLEL}},					   \
-  {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \
-				  GT, LEU, LTU, GEU, GTU,		   \
-				  UNORDERED, ORDERED,			   \
-				  UNGE, UNLE }},			   \
-  {"branch_positive_comparison_operator", {EQ, LT, GT, LTU, GTU,	   \
-					   UNORDERED }},		   \
-  {"scc_comparison_operator", {EQ, NE, LE, LT, GE,			   \
-			       GT, LEU, LTU, GEU, GTU,			   \
-			       UNORDERED, ORDERED,			   \
-			       UNGE, UNLE }},				   \
-  {"trap_comparison_operator", {EQ, NE, LE, LT, GE,			   \
-				GT, LEU, LTU, GEU, GTU}},		   \
-  {"boolean_operator", {AND, IOR, XOR}},				   \
-  {"boolean_or_operator", {IOR, XOR}},					   \
-  {"altivec_register_operand", {REG}},	                                   \
-  {"min_max_operator", {SMIN, SMAX, UMIN, UMAX}},
 
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */

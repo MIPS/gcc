@@ -331,16 +331,6 @@ likely_value (tree stmt)
 }
 
 
-/* Function indicating whether we ought to include information for VAR
-   when calculating immediate uses.  */
-
-static bool
-need_imm_uses_for (tree var)
-{
-  return get_value (var)->lattice_val != VARYING;
-}
-
-
 /* Initialize local data structures for CCP.  */
 
 static void
@@ -430,9 +420,6 @@ ccp_initialize (void)
     }
 
   sbitmap_free (is_may_def);
-
-  /* Compute immediate uses for variables we care about.  */
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, need_imm_uses_for);
 }
 
 
@@ -591,7 +578,7 @@ substitute_and_fold (void)
 	      if (maybe_clean_eh_stmt (stmt))
 		tree_purge_dead_eh_edges (bb);
 
-	      modify_stmt (stmt);
+	      update_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -938,6 +925,7 @@ ccp_fold (tree stmt)
       if (NUM_USES (uses) != 0)
 	{
 	  tree *orig;
+	  tree fndecl, arglist;
 	  size_t i;
 
 	  /* Preserve the original values of every operand.  */
@@ -947,7 +935,9 @@ ccp_fold (tree stmt)
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL);
-	  retval = fold_builtin (rhs, false);
+	  fndecl = get_callee_fndecl (rhs);
+	  arglist = TREE_OPERAND (rhs, 1);
+	  retval = fold_builtin (fndecl, arglist, false);
 
 	  /* Restore operands to their original form.  */
 	  for (i = 0; i < NUM_USES (uses); i++)
@@ -1060,9 +1050,7 @@ visit_assignment (tree stmt, tree *output_p)
       val = evaluate_stmt (stmt);
 
   /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
-     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
-     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
-     aggregate type is valid.
+     value to be a VIEW_CONVERT_EXPR of the old constant value.
 
      ??? Also, if this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
@@ -1073,10 +1061,18 @@ visit_assignment (tree stmt, tree *output_p)
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
       {
-	val.const_val = build1 (VIEW_CONVERT_EXPR,
-				TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-				val.const_val);
+	tree w = fold (build1 (VIEW_CONVERT_EXPR,
+			       TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			       val.const_val));
+
 	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+	if (w && is_gimple_min_invariant (w))
+	  val.const_val = w;
+	else
+	  {
+	    val.lattice_val = VARYING;
+	    val.const_val = NULL;
+	  }
       }
 
     if (val.lattice_val == CONSTANT
@@ -1285,9 +1281,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < field_size; i++)
 	mask |= ((HOST_WIDE_INT) 1) << i;
 
-      wide_val = build (BIT_AND_EXPR, TREE_TYPE (var), val, 
-			fold_convert (TREE_TYPE (var),
-				      build_int_cst (NULL_TREE, mask)));
+      wide_val = build2 (BIT_AND_EXPR, TREE_TYPE (var), val, 
+			 build_int_cst (TREE_TYPE (var), mask));
     }
   else
     {
@@ -1297,9 +1292,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < (var_size - field_size); i++)
 	mask |= ((HOST_WIDE_INT) 1) << (var_size - i - 1);
 
-      wide_val = build (BIT_IOR_EXPR, TREE_TYPE (var), val,
-			fold_convert (TREE_TYPE (var),
-				      build_int_cst (NULL_TREE, mask)));
+      wide_val = build2 (BIT_IOR_EXPR, TREE_TYPE (var), val,
+			 build_int_cst (TREE_TYPE (var), mask));
     }
 
   return fold (wide_val);
@@ -1575,7 +1569,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       /* We can get here for out-of-range string constant accesses, 
 	 such as "_"[3].  Bail out of the entire substitution search
 	 and arrange for the entire statement to be replaced by a
-	 call to __builtin_trap.  In all likelyhood this will all be
+	 call to __builtin_trap.  In all likelihood this will all be
 	 constant-folded away, but in the meantime we can't leave with
 	 something that get_expr_operands can't understand.  */
 
@@ -1925,7 +1919,9 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  result = fold_builtin (fn, ignore);
+  callee = get_callee_fndecl (fn);
+  arglist = TREE_OPERAND (fn, 1);
+  result = fold_builtin (callee, arglist, ignore);
   if (result)
   {
     if (ignore)
@@ -1934,13 +1930,11 @@ ccp_fold_builtin (tree stmt, tree fn)
   }
 
   /* Ignore MD builtins.  */
-  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  arglist = TREE_OPERAND (fn, 1);
   if (!arglist)
     return NULL_TREE;
 
@@ -1961,7 +1955,7 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Try to use the dataflow information gathered by the CCP process.  */
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
 
   memset (strlen_val, 0, sizeof (strlen_val));
   for (i = 0, a = arglist;
@@ -1974,7 +1968,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 	  strlen_val[i] = NULL_TREE;
       }
 
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
 
   result = NULL_TREE;
   switch (DECL_FUNCTION_CODE (callee))
@@ -1995,12 +1989,20 @@ ccp_fold_builtin (tree stmt, tree fn)
 
     case BUILT_IN_STRCPY:
       if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-        result = fold_builtin_strcpy (fn, strlen_val[1]);
+	{
+	  tree fndecl = get_callee_fndecl (fn);
+	  tree arglist = TREE_OPERAND (fn, 1);
+	  result = fold_builtin_strcpy (fndecl, arglist, strlen_val[1]);
+	}
       break;
 
     case BUILT_IN_STRNCPY:
       if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-	result = fold_builtin_strncpy (fn, strlen_val[1]);
+	{
+	  tree fndecl = get_callee_fndecl (fn);
+	  tree arglist = TREE_OPERAND (fn, 1);
+	  result = fold_builtin_strncpy (fndecl, arglist, strlen_val[1]);
+	}
       break;
 
     case BUILT_IN_FPUTS:
@@ -2189,10 +2191,14 @@ execute_fold_all_builtins (void)
 	  if (!set_rhs (stmtp, result))
 	    {
 	      result = convert_to_gimple_builtin (&i, result);
-	      if (result && !set_rhs (stmtp, result))
-		abort ();
+	      if (result)
+		{
+		  bool ok = set_rhs (stmtp, result);
+		  
+		  gcc_assert (ok);
+		}
 	    }
-	  modify_stmt (*stmtp);
+	  update_stmt (*stmtp);
 	  if (maybe_clean_eh_stmt (*stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;

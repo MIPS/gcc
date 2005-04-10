@@ -1,5 +1,5 @@
 /*  Loop transformation code generation
-    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+    Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
     Contributed by Daniel Berlin <dberlin@dberlin.org>
 
     This file is part of GCC.
@@ -489,7 +489,7 @@ lcm (int a, int b)
 }
 
 /* Perform Fourier-Motzkin elimination to calculate the bounds of the
-   auxillary nest.
+   auxiliary nest.
    Fourier-Motzkin is a way of reducing systems of linear inequalities so that
    it is easy to calculate the answer and bounds.
    A sketch of how it works:
@@ -672,7 +672,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   lambda_matrix A, B, A1, B1;
   lambda_vector a, a1;
   lambda_matrix invertedtrans;
-  int determinant, depth, invariants, size;
+  int depth, invariants, size;
   int i, j;
   lambda_loop loop;
   lambda_linear_expression expression;
@@ -787,8 +787,8 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   invertedtrans = lambda_matrix_new (depth, depth);
 
   /* Compute the inverse of U.  */
-  determinant = lambda_matrix_inverse (LTM_MATRIX (trans),
-				       invertedtrans, depth);
+  lambda_matrix_inverse (LTM_MATRIX (trans),
+			 invertedtrans, depth);
 
   /* A = A1 inv(U).  */
   lambda_matrix_mult (A1, invertedtrans, A, size, depth, depth);
@@ -800,7 +800,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 /* Compute the loop bounds for the target space, using the bounds of
    the auxiliary nest AUXILLARY_NEST, and the triangular matrix H.  
    The target space loop bounds are computed by multiplying the triangular
-   matrix H by the auxillary nest, to get the new loop bounds.  The sign of
+   matrix H by the auxiliary nest, to get the new loop bounds.  The sign of
    the loop steps (positive or negative) is then used to swap the bounds if
    the loop counts downwards.
    Return the target loopnest.  */
@@ -1057,8 +1057,8 @@ lambda_compute_step_signs (lambda_trans_matrix trans, lambda_vector stepsigns)
    2. Composing the dense base with the specified transformation (TRANS)
    3. Decomposing the combined transformation into a lower triangular portion,
    and a unimodular portion. 
-   4. Computing the auxillary nest using the unimodular portion.
-   5. Computing the target nest using the auxillary nest and the lower
+   4. Computing the auxiliary nest using the unimodular portion.
+   5. Computing the target nest using the auxiliary nest and the lower
    triangular portion.  */ 
 
 lambda_loopnest
@@ -1873,6 +1873,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       tree newupperbound, newlowerbound;
       lambda_linear_expression offset;
       tree type;
+      bool insert_after;
 
       oldiv = VEC_index (tree, old_ivs, i);
       type = TREE_TYPE (oldiv);
@@ -1915,14 +1916,12 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       bsi = bsi_start (bb);
       bsi_insert_after (&bsi, stmts, BSI_NEW_STMT);
 
-      /* Create the new iv, and insert it's increment on the latch
-         block.  */
+      /* Create the new iv.  */
 
-      bb = EDGE_PRED (temp->latch, 0)->src;
-      bsi = bsi_last (bb);
+      standard_iv_increment_position (temp, &bsi, &insert_after);
       create_iv (newlowerbound,
 		 build_int_cst (type, LL_STEP (newloop)),
-		 ivvar, temp, &bsi, false, &ivvar,
+		 ivvar, temp, &bsi, insert_after, &ivvar,
 		 &ivvarinced);
 
       /* Replace the exit condition with the new upper bound
@@ -1940,7 +1939,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       COND_EXPR_COND (exitcond) = build (testtype,
 					 boolean_type_node,
 					 newupperbound, ivvarinced);
-      modify_stmt (exitcond);
+      update_stmt (exitcond);
       VEC_replace (tree, new_ivs, i, ivvar);
 
       i++;
@@ -1952,11 +1951,21 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 
   for (i = 0; VEC_iterate (tree, old_ivs, i, oldiv); i++)
     {
-      int j;
-      dataflow_t imm = get_immediate_uses (SSA_NAME_DEF_STMT (oldiv));
-      for (j = 0; j < num_immediate_uses (imm); j++)
+      imm_use_iterator imm_iter;
+      use_operand_p imm_use;
+      tree oldiv_def;
+      tree oldiv_stmt = SSA_NAME_DEF_STMT (oldiv);
+
+      gcc_assert (TREE_CODE (oldiv_stmt) == PHI_NODE
+		  || NUM_DEFS (STMT_DEF_OPS (oldiv_stmt)) == 1);
+      if (TREE_CODE (oldiv_stmt) == PHI_NODE)
+	oldiv_def = PHI_RESULT (oldiv_stmt);
+      else
+	oldiv_def = DEF_OP (STMT_DEF_OPS (oldiv_stmt), 0);
+
+      FOR_EACH_IMM_USE_SAFE (imm_use, imm_iter, oldiv_def)
 	{
-	  tree stmt = immediate_use (imm, j);
+	  tree stmt = USE_STMT (imm_use);
 	  use_operand_p use_p;
 	  ssa_op_iter iter;
 	  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
@@ -1981,7 +1990,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 		     expression.  */
 		  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 		  propagate_value (use_p, newiv);
-		  modify_stmt (stmt);
+		  update_stmt (stmt);
 		  
 		}
 	    }
@@ -2068,16 +2077,15 @@ stmt_is_bumper_for_loop (struct loop *loop, tree stmt)
   tree use;
   tree def;
   def_optype defs = STMT_DEF_OPS (stmt);
-  dataflow_t imm;
-  int i;
+  imm_use_iterator iter;
+  use_operand_p use_p;
   
   if (NUM_DEFS (defs) != 1)
     return false;
   def = DEF_OP (defs, 0);
-  imm = get_immediate_uses (stmt);
-  for (i = 0; i < num_immediate_uses (imm); i++)
+  FOR_EACH_IMM_USE_FAST (use_p, iter, def)
     {
-      use = immediate_use (imm, i);
+      use = USE_STMT (use_p);
       if (TREE_CODE (use) == PHI_NODE)
 	{
 	  if (phi_loop_edge_uses_def (loop, use, def))
@@ -2297,6 +2305,7 @@ perfect_nestify (struct loops *loops,
   basic_block preheaderbb, headerbb, bodybb, latchbb, olddest;
   size_t i;
   block_stmt_iterator bsi;
+  bool insert_after;
   edge e;
   struct loop *newloop;
   tree phi;
@@ -2314,23 +2323,23 @@ perfect_nestify (struct loops *loops,
   preheaderbb =  loop_split_edge_with (loop->single_exit, NULL);
   headerbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   
-  /* This is done because otherwise, it will release the ssa_name too early
-     when the edge gets redirected and it will get reused, causing the use of
-     the phi node to get rewritten.  */
-
+  /* Push the exit phi nodes that we are moving.  */
   for (phi = phi_nodes (olddest); phi; phi = PHI_CHAIN (phi))
     {
       VEC_safe_push (tree, phis, PHI_RESULT (phi));
       VEC_safe_push (tree, phis, PHI_ARG_DEF (phi, 0));
-      mark_for_rewrite (PHI_RESULT (phi));
     }
-  e = redirect_edge_and_branch (EDGE_SUCC (preheaderbb, 0), headerbb);
+  e = redirect_edge_and_branch (single_succ_edge (preheaderbb), headerbb);
 
-  /* Remove the exit phis from the old basic block.  */
+  /* Remove the exit phis from the old basic block.  Make sure to set
+     PHI_RESULT to null so it doesn't get released.  */
   while (phi_nodes (olddest) != NULL)
-    remove_phi_node (phi_nodes (olddest), NULL, olddest);
+    {
+      SET_PHI_RESULT (phi_nodes (olddest), NULL);
+      remove_phi_node (phi_nodes (olddest), NULL);
+    }      
 
-  /* and add them to the new basic block.  */
+  /* and add them back to the new basic block.  */
   while (VEC_length (tree, phis) != 0)
     {
       tree def;
@@ -2338,10 +2347,9 @@ perfect_nestify (struct loops *loops,
       def = VEC_pop (tree, phis);
       phiname = VEC_pop (tree, phis);      
       phi = create_phi_node (phiname, preheaderbb);
-      add_phi_arg (phi, def, EDGE_PRED (preheaderbb, 0));
+      add_phi_arg (phi, def, single_pred_edge (preheaderbb));
     }       
   flush_pending_stmts (e);
-  unmark_all_for_rewrite ();
 
   bodybb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   latchbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
@@ -2377,10 +2385,10 @@ perfect_nestify (struct loops *loops,
   /* Create the new iv.  */
   ivvar = create_tmp_var (integer_type_node, "perfectiv");
   add_referenced_tmp_var (ivvar);
-  bsi = bsi_last (EDGE_PRED (newloop->latch, 0)->src);
+  standard_iv_increment_position (newloop, &bsi, &insert_after);
   create_iv (VEC_index (tree, lbounds, 0),
 	     build_int_cst (integer_type_node, VEC_index (int, steps, 0)),
-	     ivvar, newloop, &bsi, false, &ivvar, &ivvarinced);	     
+	     ivvar, newloop, &bsi, insert_after, &ivvar, &ivvarinced);	     
 
   /* Create the new upper bound.  This may be not just a variable, so we copy
      it to one just in case.  */
@@ -2392,7 +2400,12 @@ perfect_nestify (struct loops *loops,
 		VEC_index (tree, ubounds, 0));
   uboundvar = make_ssa_name (uboundvar, stmt);
   TREE_OPERAND (stmt, 0) = uboundvar;
-  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+
+  if (insert_after)
+    bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
+  else
+    bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+
   COND_EXPR_COND (exit_condition) = build (GE_EXPR, 
 					   boolean_type_node,
 					   uboundvar,
@@ -2426,7 +2439,6 @@ perfect_nestify (struct loops *loops,
 	}
     }
   free (bbs);
-  flow_loops_find (loops, LOOP_ALL);
   return perfect_nest_p (loop);
 }
 

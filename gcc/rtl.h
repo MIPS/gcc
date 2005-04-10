@@ -1516,8 +1516,12 @@ extern int split_branch_probability;
 extern rtx split_insns (rtx, rtx);
 
 /* In simplify-rtx.c  */
+extern rtx simplify_const_unary_operation (enum rtx_code, enum machine_mode,
+					   rtx, enum machine_mode);
 extern rtx simplify_unary_operation (enum rtx_code, enum machine_mode, rtx,
 				     enum machine_mode);
+extern rtx simplify_const_binary_operation (enum rtx_code, enum machine_mode,
+					    rtx, rtx);
 extern rtx simplify_binary_operation (enum rtx_code, enum machine_mode, rtx,
 				      rtx);
 extern rtx simplify_ternary_operation (enum rtx_code, enum machine_mode,
@@ -1908,8 +1912,10 @@ extern int rtx_renumbered_equal_p (rtx, rtx);
 extern int true_regnum (rtx);
 extern unsigned int reg_or_subregno (rtx);
 extern int redirect_jump_1 (rtx, rtx);
+extern void redirect_jump_2 (rtx, rtx, rtx, int, int);
 extern int redirect_jump (rtx, rtx, int);
 extern void rebuild_jump_labels (rtx);
+extern rtx reversed_comparison (rtx, enum machine_mode);
 extern enum rtx_code reversed_comparison_code (rtx, rtx);
 extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 						     rtx, rtx, rtx);
@@ -1936,7 +1942,6 @@ extern void init_emit (void);
 extern void init_emit_once (int);
 extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
-extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
 extern void unshare_all_rtl (void);
 extern void unshare_all_rtl_again (rtx);
@@ -2019,7 +2024,7 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 
 /* In flow.c */
-extern void recompute_reg_usage (rtx, int);
+extern void recompute_reg_usage (void);
 extern int initialize_uninitialized_subregs (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
@@ -2095,8 +2100,7 @@ enum libcall_type
   LCT_PURE_MAKE_BLOCK = 4,
   LCT_NORETURN = 5,
   LCT_THROW = 6,
-  LCT_ALWAYS_RETURN = 7,
-  LCT_RETURNS_TWICE = 8
+  LCT_RETURNS_TWICE = 7
 };
 
 extern void emit_library_call (rtx, enum libcall_type, enum machine_mode, int,
@@ -2115,6 +2119,10 @@ struct md_constant { char *name, *value; };
 /* In read-rtl.c */
 extern int read_skip_spaces (FILE *);
 extern bool read_rtx (FILE *, rtx *, int *);
+extern void copy_rtx_ptr_loc (const void *, const void *);
+extern void print_rtx_ptr_loc (const void *);
+extern const char *join_c_conditions (const char *, const char *);
+extern void print_c_condition (const char *);
 extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
 
@@ -2182,6 +2190,7 @@ extern void sms_schedule (FILE *);
 struct rtl_hooks
 {
   rtx (*gen_lowpart) (enum machine_mode, rtx);
+  rtx (*gen_lowpart_no_emit) (enum machine_mode, rtx);
   rtx (*reg_nonzero_bits) (rtx, enum machine_mode, rtx, enum machine_mode,
 			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
   rtx (*reg_num_sign_bit_copies) (rtx, enum machine_mode, rtx, enum machine_mode,

@@ -1,6 +1,6 @@
 // natMethod.cc - Native code for Method class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003, 2004 Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003, 2004, 2005 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -13,6 +13,7 @@ details.  */
 #include <gcj/cni.h>
 #include <jvm.h>
 #include <jni.h>
+#include <java-stack.h>
 
 #include <java/lang/reflect/Method.h>
 #include <java/lang/reflect/Constructor.h>
@@ -37,6 +38,7 @@ details.  */
 #include <java/lang/Class.h>
 #include <gcj/method.h>
 #include <gnu/gcj/RawData.h>
+#include <java/lang/NoClassDefFoundError.h>
 
 #include <stdlib.h>
 
@@ -168,20 +170,7 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
   // Check accessibility, if required.
   if (! (Modifier::isPublic (meth->accflags) || this->isAccessible()))
     {
-      gnu::gcj::runtime::StackTrace *t 
-	= new gnu::gcj::runtime::StackTrace(4);
-      Class *caller = NULL;
-      try
-	{
-	  for (int i = 1; !caller; i++)
-	    {
-	      caller = t->classAt (i);
-	    }
-	}
-      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
-	{
-	}
-
+      Class *caller = _Jv_StackTrace::GetCallingClass (&Method::class$);
       if (! _Jv_CheckAccess(caller, declaringClass, meth->accflags))
 	throw new IllegalAccessException;
     }
@@ -247,6 +236,8 @@ _Jv_GetTypesFromSignature (jmethodID method,
   char *ptr = sig->chars();
   int numArgs = 0;
   /* First just count the number of parameters. */
+  // FIXME: should do some validation here, e.g., that there is only
+  // one return type.
   for (; ; ptr++)
     {
       switch (*ptr)
@@ -283,44 +274,26 @@ _Jv_GetTypesFromSignature (jmethodID method,
   jclass* argPtr = elements (args);
   for (ptr = sig->chars(); *ptr != '\0'; ptr++)
     {
-      int num_arrays = 0;
-      jclass type;
-      for (; *ptr == '[';  ptr++)
-	num_arrays++;
-      switch (*ptr)
+      if (*ptr == '(')
+	continue;
+      if (*ptr == ')')
 	{
-	default:
-	  return;
-	case ')':
 	  argPtr = return_type_out;
 	  continue;
-	case '(':
-	  continue;
-	case 'V':
-	case 'B':
-	case 'C':
-	case 'D':
-	case 'F':
-	case 'S':
-	case 'I':
-	case 'J':
-	case 'Z':
-	  type = _Jv_FindClassFromSignature(ptr, loader);
-	  break;
-	case 'L':
-	  type = _Jv_FindClassFromSignature(ptr, loader);
-	  do 
-	    ptr++;
-	  while (*ptr != ';' && ptr[1] != '\0');
-	  break;
 	}
 
-      while (--num_arrays >= 0)
-	type = _Jv_GetArrayClass (type, loader);
+      char *end_ptr;
+      jclass type = _Jv_FindClassFromSignature (ptr, loader, &end_ptr);
+      if (type == NULL)
+	// FIXME: This isn't ideal.
+	throw new java::lang::NoClassDefFoundError (sig->toString());
+
       // ARGPTR can be NULL if we are processing the return value of a
       // call from Constructor.
       if (argPtr)
 	*argPtr++ = type;
+
+      ptr = end_ptr;
     }
   *arg_types_out = args;
 }
@@ -496,7 +469,7 @@ _Jv_CallAnyMethodA (jobject obj,
 		  || concrete_meth->ncode == NULL
 		  || Modifier::isAbstract(concrete_meth->accflags))
 		throw new java::lang::IncompatibleClassChangeError
-		  (_Jv_GetMethodString (vtable->clas, meth->name));
+		  (_Jv_GetMethodString (vtable->clas, meth));
 	      ncode = concrete_meth->ncode;
 	    }
 	  else

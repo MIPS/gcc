@@ -1,5 +1,5 @@
 /* SecurityManager.java -- security checks for privileged actions
-   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -101,7 +101,7 @@ import java.util.PropertyPermission;
  * subclassing this class.
  *
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see ClassLoader
  * @see SecurityException
  * @see #checkTopLevelWindow(Object)
@@ -167,7 +167,7 @@ public class SecurityManager
    */
   protected Class[] getClassContext()
   {
-    return VMSecurityManager.getClassContext();
+    return VMSecurityManager.getClassContext(SecurityManager.class);
   }
 
   /**
@@ -189,7 +189,7 @@ public class SecurityManager
    */
   protected ClassLoader currentClassLoader()
   {
-    return VMSecurityManager.currentClassLoader();
+    return VMSecurityManager.currentClassLoader(SecurityManager.class);
   }
 
   /**

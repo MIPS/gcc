@@ -10,7 +10,7 @@
 @c the word ``Java'.
 
 @c When this manual is copyrighted.
-@set copyrights-gcj 2001, 2002
+@set copyrights-gcj 2001, 2002, 2003, 2004, 2005
 
 @c Versions
 @set which-gcj GCC-@value{version-GCC}
@@ -949,16 +949,26 @@ be retrieved at runtime using the @code{java.lang.System.getProperty}
 method.
 
 @item -ms=@var{number}
-This sets the initial heap size.
+Equivalent to @code{-Xms}.
 
 @item -mx=@var{number}
-This sets the maximum heap size.
+Equivalent to @code{-Xmx}.
 
 @item -X
 @itemx -X@var{argument}
 Supplying @code{-X} by itself will cause @code{gij} to list all the
-supported @code{-X} options.  Currently there are none.  Unrecognized
-@code{-X} options are ignored, for compatibility with other runtimes.
+supported @code{-X} options.  Currently these options are supported:
+
+@table @gcctabopt
+@item -Xms@var{size}
+Set the initial heap size.
+
+@item -Xmx@var{size}
+Set the maximum heap size.
+@end table
+
+Unrecognized @code{-X} options are ignored, for compatibility with
+other runtimes.
 
 @item -jar
 This indicates that the name passed to @code{gij} should be interpreted
@@ -971,6 +981,9 @@ Print help, then exit.
 @item --showversion
 Print version number and continue.
 
+@item --fullversion
+Print detailed version information, then exit.
+
 @item --version
 Print version number, then exit.
 
@@ -978,6 +991,12 @@ Print version number, then exit.
 @itemx -verbose:class
 Each time a class is initialized, print a short message on standard error.
 @end table
+
+@code{gij} also recognizes and ignores the following options, for
+compatibility with existing application launch scripts:
+@code{-client}, @code{-server}, @code{-hotspot}, @code{-jrockit},
+@code{-agentlib}, @code{-agentpath}, @code{-debug}, @code{-d32},
+@code{-d64}, @code{-javaagent} and @code{-noclassgc}.
 
 @c man end
 
@@ -990,7 +1009,8 @@ Each time a class is initialized, print a short message on standard error.
 @c man begin SYNOPSIS gcj-dbtool
 gcj-dbtool @option{OPTION} @var{DBFILE} [@option{MORE}] @dots{}
 
-gcj-dbtool [@option{-n}] [@option{-a}] [@option{-t}] [@option{-l}]
+gcj-dbtool [@option{-n}] [@option{-a}] [@option{-f}]
+  [@option{-t}] [@option{-l}] [@option{-p} [@var{LIBDIR}]]
   [@option{-v}] [@option{--version}] [@option{--help}]
 
 @c man end
@@ -1027,17 +1047,26 @@ you can choose a larger initial size if desired.  The default size is
 32,749.
 
 @item -a @var{DBFILE} @var{JARFILE} @var{LIB}
+@itemx -f @var{DBFILE} @var{JARFILE} @var{LIB}
 This adds a jar file to the database.  For each class file in the jar,
 a cryptographic signature of the bytecode representation of the class
 is recorded in the database.  At runtime, a class is looked up by its
 signature and the compiled form of the class is looked for in the
-corresponding shared library.
+corresponding shared library.  The @option{-a} option will verify
+that @var{LIB} exists before adding it to the database; @option{-f}
+skips this check.
 
 @item -t @var{DBFILE}
 Test a database.
 
 @item -l @var{DBFILE}
 List the contents of a database.
+
+@item -p
+Print the name of the default database.  If there is no default
+database, this prints a blank line.  If @var{LIBDIR} is specified, use
+it instead of the default library directory component of the database
+name.
 
 @item --help
 Print a help message, then exit.
@@ -1240,6 +1269,7 @@ alternative to the standard JNI (Java Native Interface).
 * Objects and Classes::         C++ and Java classes.
 * Class Initialization::        How objects are initialized.
 * Object allocation::           How to create Java objects in C++.
+* Memory allocation::           How to allocate and free memory.
 * Arrays::                      Dealing with Java arrays in C++.
 * Methods::                     Java methods in C++.
 * Strings::                     Information about Java Strings.
@@ -1619,6 +1649,27 @@ using standard C++ overload resolution rules.
 java::util::Hashtable *ht = new java::util::Hashtable(120);
 @end example
 
+
+@node Memory allocation
+@section Memory allocation
+
+When allocating memory in @acronym{CNI} methods it is best to handle
+out-of-memory conditions by throwing a Java exception.  These
+functions are provided for that purpose:
+
+@deftypefun void* JvMalloc (jsize @var{size})
+Calls malloc.  Throws @code{java.lang.OutOfMemoryError} if allocation
+fails.
+@end deftypefun
+
+@deftypefun void* JvRealloc (void* @var{ptr}, jsize @var{size})
+Calls realloc.  Throws @code{java.lang.OutOfMemoryError} if
+reallocation fails.
+@end deftypefun
+
+@deftypefun void JvFree (void* @var{ptr})
+Calls free.
+@end deftypefun
 
 @node Arrays
 @section Arrays
@@ -2110,7 +2161,8 @@ CNI permits C++ applications to make calls into Java classes, in addition to
 allowing Java code to call into C++. Several functions, known as the 
 @dfn{invocation API}, are provided to support this.
 
-@deftypefun jint JvCreateJavaVM (void* @var{vm_args})
+@deftypefun jint JvCreateJavaVM (JvVMInitArgs* @var{vm_args})
+
 Initializes the Java runtime. This function performs essential initialization
 of the threads interface, garbage collector, exception handling and other key
 aspects of the runtime. It must be called once by an application with
@@ -2119,11 +2171,40 @@ It is safe, but not recommended, to call @code{JvCreateJavaVM()} more than
 once provided it is only called from a single thread.
 The @var{vmargs} parameter can be used to specify initialization parameters 
 for the Java runtime. It may be @code{NULL}.
-This function returns @code{0} upon success, or @code{-1} if the runtime is
-already initialized.
 
-@emph{Note:} In GCJ 3.1, the @code{vm_args} parameter is ignored. It may be 
-used in a future release.
+JvVMInitArgs represents a list of virtual machine initialization
+arguments. @code{JvCreateJavaVM()} ignores the version field.
+
+@example
+typedef struct JvVMOption
+@{
+  // a VM initialization option
+  char* optionString;
+  // extra information associated with this option
+  void* extraInfo;
+@} JvVMOption;
+
+typedef struct JvVMInitArgs
+@{
+  // for compatibility with JavaVMInitArgs
+  jint version;
+
+  // number of VM initialization options
+  jint nOptions;
+
+  // an array of VM initialization options
+  JvVMOption* options;
+
+  // true if the option parser should ignore unrecognized options
+  jboolean ignoreUnrecognized;
+@} JvVMInitArgs;
+@end example
+
+@code{JvCreateJavaVM()} returns @code{0} upon success, or @code{-1} if
+the runtime is already initialized.
+
+@emph{Note:} In GCJ 3.1, the @code{vm_args} parameter is ignored. It
+is recognized and used as of release 4.0.
 @end deftypefun
 
 @deftypefun java::lang::Thread* JvAttachCurrentThread (jstring @var{name}, java::lang::ThreadGroup* @var{group})
@@ -2469,11 +2550,20 @@ the runtime is unable to do it through @code{dladdr}.
 
 @item gnu.gcj.runtime.VMClassLoader.library_control
 This controls how shared libraries are automatically loaded by the
-built-in class loader.  By default, or if this property is set to
-@samp{full}, a full search is done for each requested class.  If this
-property is set to @samp{cache}, then any failed lookups are cached
-and not tried again.  If this property is set to @samp{never}, then
-lookups are never done.  For more information, @xref{Extensions}.
+built-in class loader.  If this property is set to @samp{full}, a full
+search is done for each requested class.  If this property is set to
+@samp{cache} (the default), then any failed lookups are cached and not
+tried again.  If this property is set to @samp{never}, then lookups
+are never done.  For more information, @xref{Extensions}.
+
+@item gnu.gcj.runtime.endorsed.dirs
+This is like the standard @code{java.endorsed.dirs}, property, but
+specifies some extra directories which are searched after the standard
+endorsed directories.  This is primarily useful for telling
+@code{libgcj} about additional libraries which are ordinarily
+incorporated into the JDK, and which should be loaded by the bootstrap
+class loader, but which are not yet part of @code{libgcj} itself for
+some reason.
 
 @item gnu.gcj.jit.compiler
 @c FIXME we should probably have a whole node on this...
@@ -2497,7 +2587,8 @@ be set to a directory that is writable by any other user.
 This is a sequence of file names, each referring to a file created by
 @command{gcj-dbtool}.  These files will be used by @code{libgcj} to
 find shared libraries corresponding to classes that are loaded from
-bytecode.
+bytecode.  @code{libgcj} often has a built-in default database; it
+can be queried using @code{gcj-dbtool -p}.
 
 @end table
 

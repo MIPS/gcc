@@ -1,5 +1,5 @@
 /* Liveness for SSA trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -323,7 +323,6 @@ create_ssa_var_map (int flags)
   basic_block bb;
   tree dest, use;
   tree stmt;
-  stmt_ann_t ann;
   var_map map;
   ssa_op_iter iter;
 #ifdef ENABLE_CHECKING
@@ -369,7 +368,6 @@ create_ssa_var_map (int flags)
         {
 	  stmt = bsi_stmt (bsi);
 	  get_stmt_operands (stmt);
-	  ann = stmt_ann (stmt);
 
 	  /* Register USE and DEF operands in each statement.  */
 	  FOR_EACH_SSA_TREE_OPERAND (use , stmt, iter, SSA_OP_USE)
@@ -439,11 +437,11 @@ new_tree_live_info (var_map map)
   live->map = map;
   live->num_blocks = last_basic_block;
 
-  live->global = BITMAP_XMALLOC ();
+  live->global = BITMAP_ALLOC (NULL);
 
   live->livein = (bitmap *)xmalloc (num_var_partitions (map) * sizeof (bitmap));
   for (x = 0; x < num_var_partitions (map); x++)
-    live->livein[x] = BITMAP_XMALLOC ();
+    live->livein[x] = BITMAP_ALLOC (NULL);
 
   /* liveout is deferred until it is actually requested.  */
   live->liveout = NULL;
@@ -460,17 +458,17 @@ delete_tree_live_info (tree_live_info_p live)
   if (live->liveout)
     {
       for (x = live->num_blocks - 1; x >= 0; x--)
-        BITMAP_XFREE (live->liveout[x]);
+        BITMAP_FREE (live->liveout[x]);
       free (live->liveout);
     }
   if (live->livein)
     {
       for (x = num_var_partitions (live->map) - 1; x >= 0; x--)
-        BITMAP_XFREE (live->livein[x]);
+        BITMAP_FREE (live->livein[x]);
       free (live->livein);
     }
   if (live->global)
-    BITMAP_XFREE (live->global);
+    BITMAP_FREE (live->global);
   
   free (live);
 }
@@ -565,7 +563,6 @@ calculate_live_on_entry (var_map map)
   edge e;
   varray_type stack;
   block_stmt_iterator bsi;
-  stmt_ann_t ann;
   ssa_op_iter iter;
   bitmap_iterator bi;
 #ifdef ENABLE_CHECKING
@@ -573,7 +570,7 @@ calculate_live_on_entry (var_map map)
   edge_iterator ei;
 #endif
 
-  saw_def = BITMAP_XMALLOC ();
+  saw_def = BITMAP_ALLOC (NULL);
 
   live = new_tree_live_info (map);
 
@@ -616,7 +613,6 @@ calculate_live_on_entry (var_map map)
         {
 	  stmt = bsi_stmt (bsi);
 	  get_stmt_operands (stmt);
-	  ann = stmt_ann (stmt);
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
@@ -720,7 +716,7 @@ calculate_live_on_entry (var_map map)
   gcc_assert (num <= 0);
 #endif
 
-  BITMAP_XFREE (saw_def);
+  BITMAP_FREE (saw_def);
 
   return live;
 }
@@ -742,7 +738,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 
   on_exit = (bitmap *)xmalloc (last_basic_block * sizeof (bitmap));
   for (x = 0; x < (unsigned)last_basic_block; x++)
-    on_exit[x] = BITMAP_XMALLOC ();
+    on_exit[x] = BITMAP_ALLOC (NULL);
 
   /* Set all the live-on-exit bits for uses in PHIs.  */
   FOR_EACH_BB (bb)
@@ -1309,7 +1305,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   if (tpa_num_trees (tpa) == 0)
     return graph;
 
-  live = BITMAP_XMALLOC ();
+  live = BITMAP_ALLOC (NULL);
 
   VARRAY_INT_INIT (partition_link, num_var_partitions (map) + 1, "part_link");
   VARRAY_INT_INIT (tpa_nodes, tpa_num_trees (tpa), "tpa nodes");
@@ -1327,10 +1323,8 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
         {
 	  bool is_a_copy = false;
 	  tree stmt = bsi_stmt (bsi);
-	  stmt_ann_t ann;
 
 	  get_stmt_operands (stmt);
-	  ann = stmt_ann (stmt);
 
 	  /* A copy between 2 partitions does not introduce an interference 
 	     by itself.  If they did, you would never be able to coalesce 
@@ -1443,7 +1437,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	VARRAY_POP_ALL (tpa_to_clear);
     }
 
-  BITMAP_XFREE (live);
+  BITMAP_FREE (live);
   return graph;
 }
 

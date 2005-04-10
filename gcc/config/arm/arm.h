@@ -900,7 +900,7 @@ extern const char * structure_size_string;
          scratch registers.  */					\
       for (regno = FIRST_IWMMXT_GR_REGNUM;			\
 	   regno <= LAST_IWMMXT_GR_REGNUM; ++ regno)		\
-	fixed_regs[regno] = call_used_regs[regno] = 0;		\
+	fixed_regs[regno] = 0;					\
       /* The XScale ABI has wR0 - wR9 as scratch registers,     \
 	 the rest as call-preserved registers.  */		\
       for (regno = FIRST_IWMMXT_REGNUM;				\
@@ -1032,6 +1032,8 @@ extern const char * structure_size_string;
 /* ARM floating pointer registers.  */
 #define FIRST_FPA_REGNUM 	16
 #define LAST_FPA_REGNUM  	23
+#define IS_FPA_REGNUM(REGNUM) \
+  (((REGNUM) >= FIRST_FPA_REGNUM) && ((REGNUM) <= LAST_FPA_REGNUM))
 
 #define FIRST_IWMMXT_GR_REGNUM	43
 #define LAST_IWMMXT_GR_REGNUM	46
@@ -1063,6 +1065,8 @@ extern const char * structure_size_string;
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
 /* VFP adds 32 + 1 more.  */
 #define FIRST_PSEUDO_REGISTER   96
+
+#define DBX_REGISTER_NUMBER(REGNO) arm_dbx_register_number (REGNO)
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms may be accessed
@@ -1617,6 +1621,10 @@ enum reg_class
    || (TARGET_ARM && ((REGNO) == FIRST_FPA_REGNUM)			\
        && TARGET_HARD_FLOAT_ABI && TARGET_FPA))
 
+/* Amount of memory needed for an untyped call to save all possible return
+   registers.  */
+#define APPLY_RESULT_SIZE arm_apply_result_size()
+
 /* How large values are returned */
 /* A C expression which can inhibit the returning of certain function values
    in registers, based on the type of value.  */
@@ -1704,14 +1712,15 @@ typedef struct machine_function GTY(())
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
   /* Labels for per-function Thumb call-via stubs.  One per potential calling
-     register.  We can never call via SP, LR or PC.  */
-  rtx call_via[13];
+     register.  We can never call via LR or PC.  We can call via SP if a
+     trampoline happens to be on the top of the stack.  */
+  rtx call_via[14];
 }
 machine_function;
 
 /* As in the machine_function, a global set of call-via labels, for code 
    that is in text_section().  */
-extern GTY(()) rtx thumb_call_via_label[13];
+extern GTY(()) rtx thumb_call_via_label[14];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the

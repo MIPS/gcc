@@ -157,14 +157,14 @@ pop_gimplify_context (tree body)
   gimplify_ctxp = NULL;
 }
 
-void
+static void
 gimple_push_bind_expr (tree bind)
 {
   TREE_CHAIN (bind) = gimplify_ctxp->current_bind_expr;
   gimplify_ctxp->current_bind_expr = bind;
 }
 
-void
+static void
 gimple_pop_bind_expr (void)
 {
   gimplify_ctxp->current_bind_expr
@@ -706,7 +706,7 @@ unvisit_body (tree *body_p, tree fndecl)
 
 /* Unshare T and all the trees reached from T via TREE_CHAIN.  */
 
-void
+static void
 unshare_all_trees (tree t)
 {
   walk_tree (&t, copy_if_shared_r, NULL, NULL);
@@ -1433,8 +1433,15 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
   VARRAY_GENERIC_PTR_NOGC_INIT (stack, 10, "stack");
 
   /* We can handle anything that get_inner_reference can deal with.  */
-  for (p = expr_p; handled_component_p (*p); p = &TREE_OPERAND (*p, 0))
-    VARRAY_PUSH_GENERIC_PTR_NOGC (stack, *p);
+  for (p = expr_p; ; p = &TREE_OPERAND (*p, 0))
+    {
+      /* Fold INDIRECT_REFs now to turn them into ARRAY_REFs.  */
+      if (TREE_CODE (*p) == INDIRECT_REF)
+	*p = fold_indirect_ref (*p);
+      if (!handled_component_p (*p))
+	break;
+      VARRAY_PUSH_GENERIC_PTR_NOGC (stack, *p);
+    }
 
   gcc_assert (VARRAY_ACTIVE_SIZE (stack));
 
@@ -1737,7 +1744,9 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   decl = get_callee_fndecl (*expr_p);
   if (decl && DECL_BUILT_IN (decl))
     {
-      tree new = fold_builtin (*expr_p, !want_value);
+      tree fndecl = get_callee_fndecl (*expr_p);
+      tree arglist = TREE_OPERAND (*expr_p, 1);
+      tree new = fold_builtin (fndecl, arglist, !want_value);
 
       if (new && new != *expr_p)
 	{
@@ -1751,8 +1760,6 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
         {
-	  tree arglist = TREE_OPERAND (*expr_p, 1);
-	  
 	  if (!arglist || !TREE_CHAIN (arglist))
 	    {
 	      error ("too few arguments to function %<va_start%>");
@@ -1795,7 +1802,9 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   /* Try this again in case gimplification exposed something.  */
   if (ret != GS_ERROR && decl && DECL_BUILT_IN (decl))
     {
-      tree new = fold_builtin (*expr_p, !want_value);
+      tree fndecl = get_callee_fndecl (*expr_p);
+      tree arglist = TREE_OPERAND (*expr_p, 1);
+      tree new = fold_builtin (fndecl, arglist, !want_value);
 
       if (new && new != *expr_p)
 	{
@@ -1923,6 +1932,7 @@ shortcut_cond_expr (tree expr)
 	{
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  then_ = shortcut_cond_expr (expr);
+	  then_se = then_ && TREE_SIDE_EFFECTS (then_);
 	  pred = TREE_OPERAND (pred, 0);
 	  expr = build (COND_EXPR, void_type_node, pred, then_, NULL_TREE);
 	}
@@ -1937,6 +1947,7 @@ shortcut_cond_expr (tree expr)
 	{
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  else_ = shortcut_cond_expr (expr);
+	  else_se = else_ && TREE_SIDE_EFFECTS (else_);
 	  pred = TREE_OPERAND (pred, 0);
 	  expr = build (COND_EXPR, void_type_node, pred, NULL_TREE, else_);
 	}
@@ -2062,10 +2073,6 @@ gimple_boolify (tree expr)
   if (TREE_CODE (type) == BOOLEAN_TYPE)
     return expr;
 
-  /* If this is the predicate of a COND_EXPR, it might not even be a
-     truthvalue yet.  */
-  expr = lang_hooks.truthvalue_conversion (expr);
-
   switch (TREE_CODE (expr))
     {
     case TRUTH_AND_EXPR:
@@ -2114,7 +2121,8 @@ gimple_boolify (tree expr)
      *EXPR_P should be stored.  */
 
 static enum gimplify_status
-gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target)
+gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target,
+		    fallback_t fallback)
 {
   tree expr = *expr_p;
   tree tmp, tmp2, type;
@@ -2128,18 +2136,40 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target)
      the arms.  */
   else if (! VOID_TYPE_P (type))
     {
+      tree result;
+
       if (target)
 	{
 	  ret = gimplify_expr (&target, pre_p, post_p,
 			       is_gimple_min_lval, fb_lvalue);
 	  if (ret != GS_ERROR)
 	    ret = GS_OK;
-	  tmp = target;
+	  result = tmp = target;
 	  tmp2 = unshare_expr (target);
+	}
+      else if ((fallback & fb_lvalue) == 0)
+	{
+	  result = tmp2 = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	  ret = GS_ALL_DONE;
 	}
       else
 	{
-	  tmp2 = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	  tree type = build_pointer_type (TREE_TYPE (expr));
+
+	  if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
+	    TREE_OPERAND (expr, 1) =
+	      build_fold_addr_expr (TREE_OPERAND (expr, 1));
+
+	  if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
+	    TREE_OPERAND (expr, 2) =
+	      build_fold_addr_expr (TREE_OPERAND (expr, 2));
+	  
+	  tmp2 = tmp = create_tmp_var (type, "iftmp");
+
+	  expr = build (COND_EXPR, void_type_node, TREE_OPERAND (expr, 0),
+			TREE_OPERAND (expr, 1), TREE_OPERAND (expr, 2));
+
+	  result = build_fold_indirect_ref (tmp);
 	  ret = GS_ALL_DONE;
 	}
 
@@ -2160,7 +2190,7 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree *post_p, tree target)
       /* Move the COND_EXPR to the prequeue.  */
       gimplify_and_add (expr, pre_p);
 
-      *expr_p = tmp;
+      *expr_p = result;
       return ret;
     }
 
@@ -2599,11 +2629,12 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 	categorize_ctor_elements (ctor, &num_nonzero_elements,
 				  &num_nonconstant_elements,
-				  &num_ctor_elements);
+				  &num_ctor_elements, &cleared);
 
 	/* If a const aggregate variable is being initialized, then it
 	   should never be a lose to promote the variable to be static.  */
 	if (num_nonconstant_elements == 0
+	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
 	    && TREE_CODE (object) == VAR_DECL)
 	  {
@@ -2685,7 +2716,6 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	num_type_elements = count_type_elements (TREE_TYPE (ctor));
 
 	/* If there are "lots" of zeros, then block clear the object first.  */
-	cleared = false;
 	if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
 	    && num_nonzero_elements < num_type_elements/4)
 	  cleared = true;
@@ -2843,16 +2873,10 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	     This kind of code arises in C++ when an object is bound
 	     to a const reference, and if "x" is a TARGET_EXPR we want
 	     to take advantage of the optimization below.  */
-	  tree pointer;
-
-	  pointer = TREE_OPERAND (*from_p, 0);
-	  STRIP_NOPS (pointer);
-	  if (TREE_CODE (pointer) == ADDR_EXPR
-	      && (lang_hooks.types_compatible_p 
-		  (TREE_TYPE (TREE_OPERAND (pointer, 0)),
-		   TREE_TYPE (*from_p))))
+	  tree t = fold_indirect_ref (*from_p);
+	  if (t != *from_p)
 	    {
-	      *from_p = TREE_OPERAND (pointer, 0); 
+	      *from_p = t;
 	      ret = GS_OK;
 	    }
 	  else
@@ -2904,7 +2928,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	if (!is_gimple_reg_type (TREE_TYPE (*from_p)))
 	  {
 	    *expr_p = *from_p;
-	    return gimplify_cond_expr (expr_p, pre_p, post_p, *to_p);
+	    return gimplify_cond_expr (expr_p, pre_p, post_p, *to_p,
+				       fb_rvalue);
 	  }
 	else
 	  ret = GS_UNHANDLED;
@@ -3327,16 +3352,81 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  char *p = xstrdup (constraint);
 	  p[0] = '=';
 	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (constraint_len, p);
-	  free (p);
 
 	  /* And add a matching input constraint.  */
 	  if (allows_reg)
 	    {
 	      sprintf (buf, "%d", i);
-	      input = build_string (strlen (buf), buf);
+
+	      /* If there are multiple alternatives in the constraint,
+		 handle each of them individually.  Those that allow register
+		 will be replaced with operand number, the others will stay
+		 unchanged.  */
+	      if (strchr (p, ',') != NULL)
+		{
+		  size_t len = 0, buflen = strlen (buf);
+		  char *beg, *end, *str, *dst;
+
+		  for (beg = p + 1;;)
+		    {
+		      end = strchr (beg, ',');
+		      if (end == NULL)
+			end = strchr (beg, '\0');
+		      if ((size_t) (end - beg) < buflen)
+			len += buflen + 1;
+		      else
+			len += end - beg + 1;
+		      if (*end)
+			beg = end + 1;
+		      else
+			break;
+		    }
+
+		  str = alloca (len);
+		  for (beg = p + 1, dst = str;;)
+		    {
+		      const char *tem;
+		      bool mem_p, reg_p, inout_p;
+
+		      end = strchr (beg, ',');
+		      if (end)
+			*end = '\0';
+		      beg[-1] = '=';
+		      tem = beg - 1;
+		      parse_output_constraint (&tem, i, 0, 0,
+					       &mem_p, &reg_p, &inout_p);
+		      if (dst != str)
+			*dst++ = ',';
+		      if (reg_p)
+			{
+			  memcpy (dst, buf, buflen);
+			  dst += buflen;
+			}
+		      else
+			{
+			  if (end)
+			    len = end - beg;
+			  else
+			    len = strlen (beg);
+			  memcpy (dst, beg, len);
+			  dst += len;
+			}
+		      if (end)
+			beg = end + 1;
+		      else
+			break;
+		    }
+		  *dst = '\0';
+		  input = build_string (dst - str, str);
+		}
+	      else
+		input = build_string (strlen (buf), buf);
 	    }
 	  else
 	    input = build_string (constraint_len - 1, constraint + 1);
+
+	  free (p);
+
 	  input = build_tree_list (build_tree_list (NULL_TREE, input),
 				   unshare_expr (TREE_VALUE (link)));
 	  ASM_INPUTS (expr) = chainon (ASM_INPUTS (expr), input);
@@ -3542,7 +3632,7 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  ret = GS_OK;
           if (TREE_CODE (init) == BIND_EXPR)
 	    gimplify_bind_expr (&init, temp, pre_p);
-          if (init != temp)
+	  if (init != temp)
 	    {
 	      init = build (MODIFY_EXPR, void_type_node, temp, init);
 	      ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt,
@@ -3718,11 +3808,30 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case COND_EXPR:
-	  ret = gimplify_cond_expr (expr_p, pre_p, post_p, NULL_TREE);
+	  ret = gimplify_cond_expr (expr_p, pre_p, post_p, NULL_TREE,
+				    fallback);
+	  /* C99 code may assign to an array in a structure value of a
+	     conditional expression, and this has undefined behavior
+	     only on execution, so create a temporary if an lvalue is
+	     required.  */
+	  if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
 	  break;
 
 	case CALL_EXPR:
 	  ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
+	  /* C99 code may assign to an array in a structure returned
+	     from a function, and this has undefined behavior only on
+	     execution, so create a temporary if an lvalue is
+	     required.  */
+	  if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
 	  break;
 
 	case TREE_LIST:
@@ -3793,9 +3902,13 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  recalculate_side_effects (*expr_p);
 	  break;
 
+	case INDIRECT_REF:
+	  *expr_p = fold_indirect_ref (*expr_p);
+	  if (*expr_p != save_expr)
+	    break;
+	  /* else fall through.  */
 	case ALIGN_INDIRECT_REF:
 	case MISALIGNED_INDIRECT_REF:
-	case INDIRECT_REF:
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			       is_gimple_reg, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
@@ -3969,12 +4082,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case WITH_SIZE_EXPR:
 	  {
-	    enum gimplify_status r0, r1;
-	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
-				post_p == &internal_post ? NULL : post_p,
-				gimple_test_f, fallback);
-	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
+	    gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+			   post_p == &internal_post ? NULL : post_p,
+			   gimple_test_f, fallback);
+	    gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+			   is_gimple_val, fb_rvalue);
 	  }
 	  break;
 
@@ -4249,7 +4361,7 @@ gimplify_type_sizes (tree type, tree *list_p)
      can't easily test for.  We could pass TYPE down to gimplify_one_sizepos
      and test there, but it doesn't seem worth it.  */
 
-  /* We first do the main variant, then copy into any other variants. */
+  /* We first do the main variant, then copy into any other variants.  */
   type = TYPE_MAIN_VARIANT (type);
 
   switch (TREE_CODE (type))
@@ -4316,7 +4428,7 @@ gimplify_one_sizepos (tree *expr_p, tree *stmt_p)
 {
   /* We don't do anything if the value isn't there, is constant, or contains
      A PLACEHOLDER_EXPR.  We also don't want to do anything if it's already
-     a VAR_DECL.  If it's a VAR_DECL from another function, the gimplfier
+     a VAR_DECL.  If it's a VAR_DECL from another function, the gimplifier
      will want to replace it with a new variable, but that will cause problems
      if this type is from outside the function.  It's OK to have that here.  */
   if (*expr_p == NULL_TREE || TREE_CONSTANT (*expr_p)

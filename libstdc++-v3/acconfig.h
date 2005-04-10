@@ -1,39 +1,14 @@
-// acconfig.h symbols and macros for libstdc++ v3 -*- C++ -*-
+// Symbols and macros for libstdc++ -*- C++ -*-
 
 // Defines libstdc++ version.
 #undef PACKAGE
 #undef VERSION
 
-// Needed for gettext.
-#undef ENABLE_NLS
-#undef HAVE_CATGETS
-#undef HAVE_GETTEXT
-#undef HAVE_STPCPY
+// Define if <float.h> exists.
+#undef HAVE_FLOAT_H
 
-// Include I/O support for 'long long' and 'unsigned long long'.
-#undef _GLIBCXX_USE_LONG_LONG
-
-// Define if C99 features such as lldiv_t, llabs, lldiv should be exposed.
-#undef _GLIBCXX_USE_C99
-
-// Define if C99 math functions (like fpclassify) should be exposed.
-#undef _GLIBCXX_USE_C99_MATH
-
-// Define if C99 complex math functions should be used in std::complex.
-#undef _GLIBCXX_USE_C99_COMPLEX_MATH
-
-// Define if code specialized for wchar_t should be used.
-#undef _GLIBCXX_USE_WCHAR_T
-
-// Define if using setrlimit to set resource limits during 'make check'.
-#undef _GLIBCXX_RES_LIMITS
-
-// Define to use concept checking code from the boost libraries.
-#undef _GLIBCXX_CONCEPT_CHECKS
-
-// Define to use symbol versioning in the shared library.
-#undef _GLIBCXX_SYMVER
-
+// @BOTTOM@
+//
 // Define symbol versioning in assember directives. If symbol
 // versioning is beigng used, and the assembler supports this kind of
 // thing, then use it.
@@ -45,131 +20,6 @@
   #define _GLIBCXX_ASM_SYMVER(cur, old, version)
 #endif
 
-// Define if LFS support is available.
-#undef _GLIBCXX_USE_LFS
-
-// Define if a fully dynamic basic_string is wanted.
-#undef _GLIBCXX_FULLY_DYNAMIC_STRING
-
-// Define if NLS translations are to be used.
-#undef _GLIBCXX_USE_NLS
-
-// Define if gthr-default.h exists (meaning that threading support is enabled).
-#undef HAVE_GTHR_DEFAULT
-
-// Define if the atan2f function exists.
-#undef HAVE_ATAN2F 
-
-// Define if the atan2l function exists.
-#undef HAVE_ATAN2L
-
-// Define if the tanl function exists.
-#undef HAVE_TANL
-
-// Define if the copysignf function exists.
-#undef HAVE_COPYSIGNF
-
-// Define if getpagesize exists.
-#undef HAVE_GETPAGESIZE
-
-// Define if setenv exists.
-#undef HAVE_SETENV
-
-// Define if sigsetjmp exists.
-#undef HAVE_SIGSETJMP
-
-// Define if mbstate_t exists in wchar.h.
-#undef HAVE_MBSTATE_T
-
-// Define if you have the modff function.
-#undef HAVE_MODFF
-
-// Define if you have the modfl function.
-#undef HAVE_MODFL
-
-// Define if you have the expf function.
-#undef HAVE_EXPF
-
-// Define if you have the expl function.
-#undef HAVE_EXPL
-
-// Define if you have the hypot function.
-#undef HAVE_HYPOT
-
-// Define if you have the hypotf function.
-#undef HAVE_HYPOTF
-
-// Define if you have the hypotl function.
-#undef HAVE_HYPOTL
-
-// Define if the compiler/host combination has __builtin_abs
-#undef HAVE___BUILTIN_ABS
-
-// Define if the compiler/host combination has __builtin_labs
-#undef HAVE___BUILTIN_LABS
-
-// Define if the compiler/host combination has __builtin_cos
-#undef HAVE___BUILTIN_COS
-
-// Define if the compiler/host combination has __builtin_cosf
-#undef HAVE___BUILTIN_COSF
-
-// Define if the compiler/host combination has __builtin_cosl
-#undef HAVE___BUILTIN_COSL
-
-// Define if the compiler/host combination has __builtin_fabs
-#undef HAVE___BUILTIN_FABS
-
-// Define if the compiler/host combination has __builtin_fabsf
-#undef HAVE___BUILTIN_FABSF
-
-// Define if the compiler/host combination has __builtin_fabsl
-#undef HAVE___BUILTIN_FABSL
-
-// Define if the compiler/host combination has __builtin_sin
-#undef HAVE___BUILTIN_SIN
-
-// Define if the compiler/host combination has __builtin_sinf
-#undef HAVE___BUILTIN_SINF
-
-// Define if the compiler/host combination has __builtin_sinl
-#undef HAVE___BUILTIN_SINL
-
-// Define if the compiler/host combination has __builtin_sqrt
-#undef HAVE___BUILTIN_SQRT
-
-// Define if the compiler/host combination has __builtin_sqrtf
-#undef HAVE___BUILTIN_SQRTF
-
-// Define if the compiler/host combination has __builtin_sqrtl
-#undef HAVE___BUILTIN_SQRTL
-
-// Define if poll is available in <poll.h>.
-#undef HAVE_POLL
-
-// Define if S_ISREG (Posix) is available in <sys/stat.h>.
-#undef HAVE_S_ISREG
-
-// Define if S_IFREG is available in <sys/stat.h>.
-#undef HAVE_S_IFREG
-
-// Define if writev is available in <sys/uio.h>.
-#undef HAVE_WRITEV
-
-// Define if int64_t is available in <stdint.h>.
-#undef HAVE_INT64_T
-
-// Define if LC_MESSAGES is available in <locale.h>.
-#undef HAVE_LC_MESSAGES
-
-// Define if <float.h> exists.
-#undef HAVE_FLOAT_H
-
-// Define if modf is present in <math.h>
-#undef HAVE_MODF
-
-// @BOTTOM@
-//
 // Systems that have certain non-standard functions prefixed with an
 // underscore, we'll handle those here. Must come after config.h.in.
 //
@@ -414,8 +264,8 @@
 #endif
 
 #if defined (HAVE__TANL) && ! defined (HAVE_TANL)
-# define HAVE_TANF 1
-# define tanf _tanf
+# define HAVE_TANL 1
+# define tanl _tanl
 #endif
 
 #if defined (HAVE__STRTOF) && ! defined (HAVE_STRTOF)

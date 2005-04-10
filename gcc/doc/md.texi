@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -2067,6 +2067,102 @@ Constant zero
 12-bit signed integer constant that is greater than zero---i.e.@: in the
 range of 1 to 2047.
 
+@end table
+
+@item Blackfin family---@file{bfin.h}
+@table @code
+@item a
+P register
+
+@item d
+D register
+
+@item z
+A call clobbered P register.
+
+@item D
+Even-numbered D register
+
+@item W
+Odd-numbered D register
+
+@item e
+Accumulator register.
+
+@item A
+Even-numbered accumulator register.
+
+@item B
+Odd-numbered accumulator register.
+
+@item b
+I register
+
+@item B
+B register
+
+@item f
+M register
+
+@item c
+Registers used for circular buffering, i.e. I, B, or L registers.
+
+@item C
+The CC register.
+
+@item x
+Any D, P, B, M, I or L register.
+
+@item y
+Additional registers typically used only in prologues and epilogues: RETS,
+RETN, RETI, RETX, RETE, ASTAT, SEQSTAT and USP.
+
+@item w
+Any register except accumulators or CC.
+
+@item Ksh
+Signed 16 bit integer (in the range -32768 to 32767)
+
+@item Kuh
+Unsigned 16 bit integer (in the range 0 to 65535)
+
+@item Ks7
+Signed 7 bit integer (in the range -64 to 63)
+
+@item Ku7
+Unsigned 7 bit integer (in the range 0 to 127)
+
+@item Ku5
+Unsigned 5 bit integer (in the range 0 to 31)
+
+@item Ks4
+Signed 4 bit integer (in the range -8 to 7)
+
+@item Ks3
+Signed 3 bit integer (in the range -3 to 4)
+
+@item Ku3
+Unsigned 3 bit integer (in the range 0 to 7)
+
+@item P@var{n}
+Constant @var{n}, where @var{n} is a single-digit constant in the range 0 to 4.
+
+@item M1
+Constant 255.
+
+@item M2
+Constant 65535.
+
+@item J
+An integer constant with exactly a single bit set.
+
+@item L
+An integer constant with all bits set except exactly one.
+
+@item H
+
+@item Q
+Any SYMBOL_REF.
 @end table
 
 @item IP2K---@file{ip2k.h}
@@ -4678,9 +4774,9 @@ an equality comparison of a register and a large constant:
    (set (match_dup 0) (compare:CC (match_dup 3) (match_dup 5)))]
   "
 @{
-  /* Get the constant we are comparing against, C, and see what it
+  /* @r{Get the constant we are comparing against, C, and see what it
      looks like sign-extended to 16 bits.  Then see what constant
-     could be XOR'ed with C to get the sign-extended value.  */
+     could be XOR'ed with C to get the sign-extended value.}  */
 
   int c = INTVAL (operands[2]);
   int sextc = (c << 16) >> 16;
@@ -5629,11 +5725,11 @@ full-word result.
 For many machines, multiple types of branch instructions are provided, each
 for different length branch displacements.  In most cases, the assembler
 will choose the correct instruction to use.  However, when the assembler
-cannot do so, GCC can when a special attribute, the @samp{length}
+cannot do so, GCC can when a special attribute, the @code{length}
 attribute, is defined.  This attribute must be defined to have numeric
 values by specifying a null string in its @code{define_attr}.
 
-In the case of the @samp{length} attribute, two additional forms of
+In the case of the @code{length} attribute, two additional forms of
 arithmetic terms are allowed in test expressions:
 
 @table @code
@@ -5653,7 +5749,7 @@ current insn is to be computed.
 @cindex @code{addr_vec}, length of
 @cindex @code{addr_diff_vec}, length of
 For normal insns, the length will be determined by value of the
-@samp{length} attribute.  In the case of @code{addr_vec} and
+@code{length} attribute.  In the case of @code{addr_vec} and
 @code{addr_diff_vec} insn patterns, the length is computed as
 the number of vectors multiplied by the size of each vector.
 
@@ -6232,9 +6328,7 @@ the treatment of operator @samp{|} in the regular expressions.  The
 usual treatment of the operator is to try the first alternative and,
 if the reservation is not possible, the second alternative.  The
 nondeterministic treatment means trying all alternatives, some of them
-may be rejected by reservations in the subsequent insns.  You can not
-query functional unit reservations in nondeterministic automaton
-states.
+may be rejected by reservations in the subsequent insns.
 
 @item
 @dfn{progress} means output of a progress bar showing how many states

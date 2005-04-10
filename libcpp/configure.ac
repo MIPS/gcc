@@ -46,7 +46,7 @@ AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_FUNCS(putc_unlocked fputc_unlocked fputs_unlocked \
         fwrite_unlocked fprintf_unlocked)
-AC_CHECK_DECLS([abort, errno, putc_unlocked, fputc_unlocked,
+AC_CHECK_DECLS([abort, basename, errno, getopt, putc_unlocked, fputc_unlocked,
         fputs_unlocked, fwrite_unlocked, fprintf_unlocked])
 
 # Checks for library functions.
@@ -117,7 +117,7 @@ case $target in
 	s390*-*-* | \
 	sparc64*-*-* | ultrasparc-*-freebsd* | \
 	sparcv9-*-solaris2* | \
-	sparc-*-solaris2.[789] | sparc-*-solaris2.1[0-9] | \
+	sparc-*-solaris2.[789] | sparc-*-solaris2.1[0-9]* | \
 	sh[123456789l]*-*-*)
 		need_64bit_hwint=yes ;;
 	*)

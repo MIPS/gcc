@@ -148,9 +148,9 @@ gfc_add_decl_to_function (tree decl)
 }
 
 
-/* Build a  backend label declaration.
-   Set TREE_USED for named lables.  For artificial labels it's up to the
-   caller to mark the label as used.  */
+/* Build a  backend label declaration.  Set TREE_USED for named labels.
+   The context of the label is always the current_function_decl.  All
+   labels are marked artificial.  */
 
 tree
 gfc_build_label_decl (tree label_id)
@@ -174,19 +174,13 @@ gfc_build_label_decl (tree label_id)
   DECL_CONTEXT (label_decl) = current_function_decl;
   DECL_MODE (label_decl) = VOIDmode;
 
-  if (label_name)
-    {
-      DECL_ARTIFICIAL (label_decl) = 1;
-    }
-  else
-    {
-      /* We always define the label as used, even if the original source
-         file never references the label.  We don't want all kinds of
-         spurious warnings for old-style Fortran code with too many
-         labels.  */
-      TREE_USED (label_decl) = 1;
-    }
+  /* We always define the label as used, even if the original source
+     file never references the label.  We don't want all kinds of
+     spurious warnings for old-style Fortran code with too many
+     labels.  */
+  TREE_USED (label_decl) = 1;
 
+  DECL_ARTIFICIAL (label_decl) = 1;
   return label_decl;
 }
 
@@ -278,7 +272,7 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
 {
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  if (sym->module[0] == 0)
+  if (sym->module == NULL)
     return gfc_sym_identifier (sym);
   else
     {
@@ -296,8 +290,8 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
   int has_underscore;
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  if (sym->module[0] == 0 || sym->attr.proc == PROC_EXTERNAL
-      || (sym->module[0] != 0 && sym->attr.if_source == IFSRC_IFBODY))
+  if (sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
+      || (sym->module != NULL && sym->attr.if_source == IFSRC_IFBODY))
     {
       if (strcmp (sym->name, "MAIN__") == 0
 	  || sym->attr.proc == PROC_INTRINSIC)
@@ -320,6 +314,32 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
       snprintf (name, sizeof name, "__%s__%s", sym->module, sym->name);
       return get_identifier (name);
     }
+}
+
+
+/* Returns true if a variable of specified size should go on the stack.  */
+
+int
+gfc_can_put_var_on_stack (tree size)
+{
+  unsigned HOST_WIDE_INT low;
+
+  if (!INTEGER_CST_P (size))
+    return 0;
+
+  if (gfc_option.flag_max_stack_var_size < 0)
+    return 1;
+
+  if (TREE_INT_CST_HIGH (size) != 0)
+    return 0;
+
+  low = TREE_INT_CST_LOW (size);
+  if (low > (unsigned HOST_WIDE_INT) gfc_option.flag_max_stack_var_size)
+    return 0;
+
+/* TODO: Set a per-function stack size limit.  */
+
+  return 1;
 }
 
 
@@ -410,7 +430,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       DECL_EXTERNAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
     }
-  else if (sym->module[0] && !sym->attr.result && !sym->attr.dummy)
+  else if (sym->module && !sym->attr.result && !sym->attr.dummy)
     {
       /* TODO: Don't set sym->module for result or dummy variables.  */
       gcc_assert (current_function_decl == NULL_TREE);
@@ -539,7 +559,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 
 
 /* For some dummy arguments we don't use the actual argument directly.
-   Instead we create a local decl and use that.  This allows us to preform
+   Instead we create a local decl and use that.  This allows us to perform
    initialization, and construct full type information.  */
 
 static tree
@@ -772,7 +792,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   /* Symbols from modules should have their assembler names mangled.
      This is done here rather than in gfc_finish_var_decl because it
      is different for string length variables.  */
-  if (sym->module[0])
+  if (sym->module)
     SET_DECL_ASSEMBLER_NAME (decl, gfc_sym_mangled_identifier (sym));
 
   if (sym->attr.dimension)
@@ -814,7 +834,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	{
 	  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
 
-	  if (sym->module[0])
+	  if (sym->module)
 	    {
 	      /* Also prefix the mangled name for symbols from modules.  */
 	      strcpy (&name[1], sym->name);
@@ -2122,16 +2142,13 @@ gfc_trans_entry_master_switch (gfc_entry_list * el)
   for (; el; el = el->next)
     {
       /* Add the case label.  */
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (label) = current_function_decl;
+      label = gfc_build_label_decl (NULL_TREE);
       val = build_int_cst (gfc_array_index_type, el->id);
       tmp = build3_v (CASE_LABEL_EXPR, val, NULL_TREE, label);
       gfc_add_expr_to_block (&block, tmp);
       
       /* And jump to the actual entry point.  */
       label = gfc_build_label_decl (NULL_TREE);
-      TREE_USED (label) = 1;
-      DECL_CONTEXT (label) = current_function_decl;
       tmp = build1_v (GOTO_EXPR, label);
       gfc_add_expr_to_block (&block, tmp);
 

@@ -319,7 +319,7 @@ print_rtx (rtx in_rtx)
 		}
 		break;
 
-	      case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+	      case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 		{
 #ifndef GENERATOR_FILE
 		  basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
@@ -607,7 +607,7 @@ print_rtx (rtx in_rtx)
 	  case LABEL_STATIC_ENTRY: fputs (" [entry]", outfile); break;
 	  case LABEL_GLOBAL_ENTRY: fputs (" [global entry]", outfile); break;
 	  case LABEL_WEAK_ENTRY: fputs (" [weak entry]", outfile); break;
-	  default: abort();
+	  default: gcc_unreachable ();
 	}
       break;
 
