@@ -1,3 +1,15 @@
+2005-04-11  Ben Elliston  <bje@au.ibm.com>
+
+	* config/dfp-bit.h: Largely rewrite.
+	(DFP_TYPE, TO_INTERNAL, TO_ENCODED): New macros.
+	(DFP_MULTIPLY): Define and prototype for 32, 64 and 128 bit
+	variants.
+	* config/dfp-bit.c: Include "config/dfp-bit.h".
+	(dfp_func_ptr): New typedef.
+	(dfp_op): New function.
+	(dfp_multiply): Replace ..
+	(DFP_MULTIPLY): .. with this.
+
 2004-04-09  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-typeck.c (convert_arguments): More conservative check for

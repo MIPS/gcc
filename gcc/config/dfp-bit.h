@@ -18,8 +18,43 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-/* Prototypes */
-  
-#if defined(L_mul_sd) | defined(L_mul_dd) | defined(L_mul_td)
-extern FLO_type multiply (FLO_type, FLO_type);
+#ifndef _DFPBIT_H
+#define _DFPBIT_H
+
+#include "decNumber.h"
+
+#if WIDTH == 32
+#include "decimal32.h"
+#define DFP_TYPE	decimal32
+#define TO_INTERNAL	decimal32ToNumber
+#define TO_ENCODED	decimal32FromNumber
+#elif WIDTH == 64
+#include "decimal64.h"
+#define DFP_TYPE	decimal64
+#define TO_INTERNAL	decimal64ToNumber
+#define TO_ENCODED	decimal64FromNumber
+#elif WIDTH == 128
+#include "decimal128.h"
+#define DFP_TYPE	decimal128
+#define TO_INTERNAL	decimal128ToNumber
+#define TO_ENCODED	decimal128FromNumber
+#else
+#error invalid decimal float width
 #endif
+
+/* Multiplication.  */
+#if defined(L_mul_sd)
+#define DFP_MULTIPLY	dfp_multiply32
+#elif defined(L_mul_dd)
+#define DFP_MULTIPLY	dfp_multiply46
+#elif defined(L_mul_td)
+#define DFP_MULTIPLY	dfp_multiply128
+#endif
+
+/* Prototypes.  */
+
+#if defined(L_mul_sd) || defined(L_mul_dd) || defined(L_mul_td)
+extern DFP_TYPE DFP_MULTIPLY (DFP_TYPE, DFP_TYPE);
+#endif
+
+#endif /* DFPBIT_H */

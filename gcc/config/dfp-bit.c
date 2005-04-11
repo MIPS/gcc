@@ -43,17 +43,34 @@ Boston, MA 02111-1307, USA.  */
 #include "tconfig.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "config/dfp-bit.h"
 
-/* This is all gross, but just temporary scaffolding :-)  */
-/* Produce a unique function name.  */
+typedef decNumber* (*dfp_func_ptr)
+     (decNumber *, decNumber *, decNumber *, decContext *);
 
-#define __internal(W) multiply##W 
-#define dfp_multiply(W) __internal(W)
+static inline DFP_TYPE
+dfp_op (dfp_func_ptr op, DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  decContext context;
+  decNumber a, b, result;
+  DFP_TYPE encoded_result;
+
+  decContextDefault (&context, DEC_INIT_BASE);
+  context.digits = DECNUMDIGITS;
+  TO_INTERNAL (&arg_a, &a);
+  TO_INTERNAL (&arg_b, &b);
+
+  /* Perform the operation.  */
+  op (&result, &a, &b, &context);
+
+  TO_ENCODED (&encoded_result, &result, &context);
+  return encoded_result;
+}
 
 #if defined(L_mul_sd) | defined(L_mul_dd) | defined(L_mul_td)
-float
-dfp_multiply(WIDTH) (float arg_a, float arg_b)
+DFP_TYPE
+DFP_MULTIPLY (DFP_TYPE arg_a, DFP_TYPE arg_b)
 {
-  return 0;
+  return dfp_op (decNumberMultiply, arg_a, arg_b);
 }
-#endif
+#endif /* defined(L_mul_sd) | defined(L_mul_dd) | defined(L_mul_td) */
