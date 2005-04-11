@@ -19,16 +19,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-/* This header file is used when the vendor name is set to 'superh'.
-   It configures the compiler for SH4 only and switches the default
-   endianess to little (although big endian is still available).
-   It also configures the spec file to use the 7750 board configuration
-   but in such a way that it can be overriden by a boardspecs file
-   (using the -specs= option). This file is expected to disable the
-   defaults and provide options --defsym _start and --defsym _stack
-   which are required by the SuperH configuration of GNU ld.
-
-   This file sets a few spec strings when using newlib and libgloss */
+/* This header file is used when with_libgloss is enabled during gcc
+   configuration.  */
 
 #undef LIB_SPEC
 #define LIB_SPEC "-lc -lgloss"
