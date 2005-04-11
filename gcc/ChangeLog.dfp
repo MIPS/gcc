@@ -1,5 +1,21 @@
 2005-04-11  Ben Elliston  <bje@au.ibm.com>
 
+	* Makefile.in (D32PBIT_FUNCS): Add to the list of functions.
+	(D64PBIT_FUNCS): Likewise.
+	(D128PBIT_FUNCS): Likewise.
+	* config/dfp-bit.h: Document some macros.
+	(DFP_ADD, DFP_SUB, etc): Define and prototype.
+	* config/dfp-bit.c (dfp_func_ptr): Rename typedef from this ..
+	(dfp_binary_func): .. to this.
+	(dfp_unary_func): New typedef.
+	(dfp_op): Rename from this ..
+	(dfp_binary_op): .. to this. Update all callers.
+	(dfp_unary_op, dfp_compare_op): New functions.
+	(DFP_ADD, DFP_SUB, DFP_DIVIDE, DFP_PLUS, DFP_MINUS, DFP_EQ,
+	DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE): New function "templates".
+
+2005-04-11  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h: Largely rewrite.
 	(DFP_TYPE, TO_INTERNAL, TO_ENCODED): New macros.
 	(DFP_MULTIPLY): Define and prototype for 32, 64 and 128 bit

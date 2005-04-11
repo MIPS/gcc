@@ -45,11 +45,39 @@ Boston, MA 02111-1307, USA.  */
 #include "tm.h"
 #include "config/dfp-bit.h"
 
-typedef decNumber* (*dfp_func_ptr)
+/* A pointer to a unary decNumber operation.  */
+typedef decNumber* (*dfp_unary_func)
+     (decNumber *, decNumber *, decContext *);
+
+/* A pointer to a binary decNumber operation.  */
+typedef decNumber* (*dfp_binary_func)
      (decNumber *, decNumber *, decNumber *, decContext *);
 
+
+/* Unary operations.  */
+
 static inline DFP_TYPE
-dfp_op (dfp_func_ptr op, DFP_TYPE arg_a, DFP_TYPE arg_b)
+dfp_unary_op (dfp_unary_func op, DFP_TYPE arg)
+{
+  decContext context;
+  decNumber a, result;
+  DFP_TYPE encoded_result;
+
+  decContextDefault (&context, DEC_INIT_BASE);
+  context.digits = DECNUMDIGITS;
+  TO_INTERNAL (&arg, &a);
+
+  /* Perform the operation.  */
+  op (&result, &a, &context);
+
+  TO_ENCODED (&encoded_result, &result, &context);
+  return encoded_result;
+}
+
+/* Binary operations.  */
+
+static inline DFP_TYPE
+dfp_binary_op (dfp_binary_func op, DFP_TYPE arg_a, DFP_TYPE arg_b)
 {
   decContext context;
   decNumber a, b, result;
@@ -67,10 +95,123 @@ dfp_op (dfp_func_ptr op, DFP_TYPE arg_a, DFP_TYPE arg_b)
   return encoded_result;
 }
 
-#if defined(L_mul_sd) | defined(L_mul_dd) | defined(L_mul_td)
+/* Comparison operations.  */
+
+static inline int
+dfp_compare_op (dfp_binary_func op, DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  decContext context;
+  decNumber a, b, result;
+
+  decContextDefault (&context, DEC_INIT_BASE);
+  context.digits = DECNUMDIGITS;
+  TO_INTERNAL (&arg_a, &a);
+  TO_INTERNAL (&arg_b, &b);
+
+  /* Perform the comparison.  */
+  op (&result, &a, &b, &context);
+
+  if (decNumberIsNegative (&result))
+    return -1;
+  else if (decNumberIsZero (&result))
+    return 0;
+  else
+    return 1;
+}
+
+
+#if defined(L_addsub_sd) || defined(L_addsub_dd) || defined(L_addsub_td)
+DFP_TYPE
+DFP_ADD (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return dfp_binary_op (decNumberAdd, arg_a, arg_b);
+}
+
+DFP_TYPE
+DFP_SUB (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return dfp_binary_op (decNumberSubtract, arg_a, arg_b);
+}
+#endif /* L_addsub */
+
+#if defined(L_mul_sd) || defined(L_mul_dd) || defined(L_mul_td)
 DFP_TYPE
 DFP_MULTIPLY (DFP_TYPE arg_a, DFP_TYPE arg_b)
 {
-  return dfp_op (decNumberMultiply, arg_a, arg_b);
+  return dfp_binary_op (decNumberMultiply, arg_a, arg_b);
 }
-#endif /* defined(L_mul_sd) | defined(L_mul_dd) | defined(L_mul_td) */
+#endif /* L_mul */
+
+#if defined(L_div_sd) || defined(L_div_dd) || defined(L_div_td)
+DFP_TYPE
+DFP_DIVIDE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return dfp_binary_op (decNumberDivide, arg_a, arg_b);
+}
+#endif /* L_div */
+
+#if defined(L_plus_sd) || defined(L_plus_dd) || defined(L_plus_td)
+DFP_TYPE
+DFP_PLUS (DFP_TYPE arg)
+{
+  return dfp_unary_op (decNumberPlus, arg);
+}
+#endif /* L_plus */
+
+#if defined(L_minus_sd) || defined(L_minus_dd) || defined(L_minus_td)
+DFP_TYPE
+DFP_MINUS (DFP_TYPE arg)
+{
+  return dfp_unary_op (decNumberMinus, arg);
+}
+#endif /* L_minus */
+
+#if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
+int
+DFP_EQ (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0);
+}
+#endif /* L_eq */
+
+#if defined (L_ne_sd) || defined (L_ne_dd) || defined (L_ne_td)
+int
+DFP_NE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) != 0);
+}
+#endif /* L_ne */
+
+#if defined (L_lt_sd) || defined (L_lt_dd) || defined (L_lt_td)
+int
+DFP_LT (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1);
+}
+#endif /* L_lt */
+
+#if defined (L_gt_sd) || defined (L_gt_dd) || defined (L_gt_td)
+int
+DFP_GT (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1);
+}
+#endif
+
+#if defined (L_le_sd) || defined (L_le_dd) || defined (L_le_td)
+int
+DFP_LE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return ((dfp_compare_op (decNumberCompare, arg_a, arg_b) == -1)
+	  || (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0));
+}
+#endif /* L_le */
+
+#if defined (L_ge_sd) || defined (L_ge_dd) || defined (L_ge_td)
+int
+DFP_GE (DFP_TYPE arg_a, DFP_TYPE arg_b)
+{
+  return ((dfp_compare_op (decNumberCompare, arg_a, arg_b) == 1)
+	  || (dfp_compare_op (decNumberCompare, arg_a, arg_b) == 0));
+}
+#endif /* L_ge */
