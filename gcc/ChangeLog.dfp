@@ -1,5 +1,13 @@
 2005-04-11  Ben Elliston  <bje@au.ibm.com>
 
+	* dfp-bit.c (DFP_PLUS, DFP_MINUS): #if 0 out for now.
+	* dfp-bit.h (DFP_ADD, DFP_SUB, DFP_MULTIPLY, DFP_DIVIDE, DFP_EQ,
+	DFP_NE, DFP_LT, DFP_GT, DFP_LE, DFP_GE): Map to GCC-produced
+	subroutine names.
+	(DFP_PLUS, DFP_MINUS): #if 0 out for now.
+
+2005-04-11  Ben Elliston  <bje@au.ibm.com>
+
 	* Makefile.in (D32PBIT_FUNCS): Add to the list of functions.
 	(D64PBIT_FUNCS): Likewise.
 	(D128PBIT_FUNCS): Likewise.

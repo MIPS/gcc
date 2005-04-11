@@ -50,48 +50,44 @@
 #define TO_INTERNAL	decimal128ToNumber
 #define TO_ENCODED	decimal128FromNumber
 #else
-#error invalid decimal float width
+#error invalid decimal float word width
 #endif
 
+/* FIXME: how about unary + and - ? */
+
 #if WIDTH == 32
-#define DFP_ADD		dfp_add32
-#define DFP_SUB		dfp_sub32
-#define DFP_MULTIPLY	dfp_multiply32
-#define DFP_DIVIDE	dfp_divide32
-#define DFP_PLUS	dfp_plus32
-#define DFP_MINUS	dfp_minus32
-#define DFP_EQ		dfp_eq32
-#define DFP_NE		dfp_ne32
-#define DFP_LT		dfp_lt32
-#define DFP_GT		dfp_gt32
-#define DFP_LE		dfp_le32
-#define DFP_GE		dfp_ge32
+#define DFP_ADD		__addsd3
+#define DFP_SUB		__subsd3
+#define DFP_MULTIPLY	__mulsd3
+#define DFP_DIVIDE	__divsd3
+#define DFP_EQ		__eqsd2
+#define DFP_NE		__nesd2
+#define DFP_LT		__ltsd2
+#define DFP_GT		__gtsd2
+#define DFP_LE		__lesd2
+#define DFP_GE		__gesd2
 #elif WIDTH == 64
-#define DFP_ADD		dfp_add64
-#define DFP_SUB		dfp_sub64
-#define DFP_MULTIPLY	dfp_multiply64
-#define DFP_DIVIDE	dfp_divide64
-#define DFP_PLUS	dfp_plus64
-#define DFP_MINUS	dfp_minus64
-#define DFP_EQ		dfp_eq64
-#define DFP_NE		dfp_ne64
-#define DFP_LT		dfp_lt64
-#define DFP_GT		dfp_gt64
-#define DFP_LE		dfp_le64
-#define DFP_GE		dfp_ge64
+#define DFP_ADD		__adddd3
+#define DFP_SUB		__subdd3
+#define DFP_MULTIPLY	__muldd3
+#define DFP_DIVIDE	__divdd3
+#define DFP_EQ		__eqdd2
+#define DFP_NE		__nedd2
+#define DFP_LT		__ltdd2
+#define DFP_GT		__gtdd2
+#define DFP_LE		__ledd2
+#define DFP_GE		__gedd2
 #elif WIDTH == 128
-#define DFP_ADD		dfp_add128
-#define DFP_SUB		dfp_sub128
-#define DFP_MULTIPLY	dfp_multiply128
-#define DFP_DIVIDE	dfp_divide128
-#define DFP_PLUS	dfp_plus128
-#define DFP_MINUS	dfp_minus128
-#define DFP_EQ		dfp_eq128
-#define DFP_NE		dfp_ne128
-#define DFP_LT		dfp_lt128
-#define DFP_GT		dfp_gt128
-#define DFP_LE		dfp_le128
-#define DFP_GE		dfp_ge128
+#define DFP_ADD		__atdtd3
+#define DFP_SUB		__subtd3
+#define DFP_MULTIPLY	__multd3
+#define DFP_DIVIDE	__divtd3
+#define DFP_EQ		__eqtd2
+#define DFP_NE		__netd2
+#define DFP_LT		__lttd2
+#define DFP_GT		__gttd2
+#define DFP_LE		__letd2
+#define DFP_GE		__getd2
 #endif
 
 /* Prototypes.  */
@@ -105,6 +101,8 @@ extern DFP_TYPE DFP_ADD (DFP_TYPE, DFP_TYPE);
 extern DFP_TYPE DFP_SUB (DFP_TYPE, DFP_TYPE);
 #endif
 
+#if 0
+
 #if defined (L_plus_sd) || defined (L_plus_dd) || defined (L_plus_td)
 extern DFP_TYPE DFP_PLUS (DFP_TYPE);
 #endif
@@ -112,6 +110,8 @@ extern DFP_TYPE DFP_PLUS (DFP_TYPE);
 #if defined (L_minus_sd) || defined (L_minus_dd) || defined (L_minus_td)
 extern DFP_TYPE DFP_MINUS (DFP_TYPE);
 #endif
+
+#endif /* 0 */
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
 extern int DFP_EQ (DFP_TYPE, DFP_TYPE);

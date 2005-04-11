@@ -150,6 +150,8 @@ DFP_DIVIDE (DFP_TYPE arg_a, DFP_TYPE arg_b)
 }
 #endif /* L_div */
 
+#if 0
+
 #if defined(L_plus_sd) || defined(L_plus_dd) || defined(L_plus_td)
 DFP_TYPE
 DFP_PLUS (DFP_TYPE arg)
@@ -165,6 +167,8 @@ DFP_MINUS (DFP_TYPE arg)
   return dfp_unary_op (decNumberMinus, arg);
 }
 #endif /* L_minus */
+
+#endif /* 0 */
 
 #if defined (L_eq_sd) || defined (L_eq_dd) || defined (L_eq_td)
 int
