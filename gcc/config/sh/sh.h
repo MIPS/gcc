@@ -776,14 +776,21 @@ do {									\
       target_flags |= SPACE_BIT;					\
       sh_div_str = "call";						\
     }									\
-  if (TARGET_SHMEDIA && LEVEL > 1)					\
+  /* We can't meaningfully test TARGET_SHMEDIA here, because -m options	\
+     haven't been parsed yet, hence we';d read only the default.	\
+     sh_target_reg_class will return NO_REGS if this is not SHMEDIA, so	\
+     it's OK to always set flag_branch_target_load_optimize.  */	\
+  if (LEVEL > 1)							\
     {									\
       flag_branch_target_load_optimize = 1;				\
       if (! (SIZE))							\
 	target_flags |= SAVE_ALL_TR_BIT;				\
     }									\
-  if (TARGET_SH2E && ! TARGET_IEEE)					\
-    flag_finite_math_only = 1;						\
+  /* Likewise, we can't meaningfully test TARGET_SH2E / TARGET_IEEE	\
+     here, so leave it to OVERRIDE_OPTIONS to set			\
+    flag_finite_math_only.  We set it to 2 here so we know if the user	\
+    explicitly requested this to be on or off.  */			\
+  flag_finite_math_only = 2;						\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -809,6 +816,8 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 do {									\
   int regno;								\
 									\
+  if (flag_finite_math_only == 2)					\
+    flag_finite_math_only = TARGET_SH2E && ! TARGET_IEEE;		\
   sh_cpu = CPU_SH1;							\
   assembler_dialect = 0;						\
   if (TARGET_SH2)							\

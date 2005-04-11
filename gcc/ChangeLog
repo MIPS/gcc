@@ -1,3 +1,11 @@
+2005-04-11  J"orn Rennecke <joern.rennecke@st.com>
+
+	* sh.h (OPTIMIZATION_OPTIONS): Don't make setting of
+	flag_branch_target_load_optimize dependent on TARGET_SHMEDIA.
+	Set flag_finite_math_only to 2.
+	If flag_finite_math_only set set to 2, set it to 1 iff
+	we use SH2E..SH4 arithmetic without full IEEE support.
+
 2005-04-09  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/lib1funcs.asm (ic_invalidate): Fix typos.
