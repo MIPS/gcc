@@ -89,6 +89,8 @@ rm -rf $SRC_DIR || exit 1
 mkdir $SRC_DIR || exit 1
 ln -s $ORIG_SRC_DIR/* $SRC_DIR/ || exit 1
 rm -rf $SRC_DIR/tcl $SRC_DIR/expect $SRC_DIR/dejagnu || exit 1
+# Clean out old specs files
+rm -f /usr/lib/gcc/*/4.0.0/specs
 
 # These are the configure and build flags that are used.
 # MERGE FIXME: obj-c++ in languages
