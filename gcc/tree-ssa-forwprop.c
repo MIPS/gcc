@@ -563,12 +563,11 @@ all_uses_are_replacable (tree stmt, bool replace)
 
   def = DEF_OP (STMT_DEF_OPS (stmt), 0);
 
-  /* CHECKME */
   FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, def)
     {
       tree use = USE_STMT (use_p);
       if (!replacable)
-	break;
+	BREAK_FROM_SAFE_IMM_USE (imm_iter);
 
       if (replace && dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -702,8 +701,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
   basic_block bb;
   varray_type vars_worklist, cond_worklist;
 
-  if (0) /* FIXME */
-    eliminate_unnecessary_casts ();
+  eliminate_unnecessary_casts ();
 
   vars = BITMAP_ALLOC (NULL);
   VARRAY_TREE_INIT (vars_worklist, 10, "VARS worklist");

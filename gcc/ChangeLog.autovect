@@ -1,3 +1,8 @@
+2005-04-10  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-forwprop.c (all_uses_are_replacable): Use
+	BREAK_FROM_SAFE_IMM_USE instead of 'break'.
+
 2005-04-10  Dorit Naishlos  <dorit@il.ibm.com>
 
 	Merge from mainline (autovect-merge-20050406)
