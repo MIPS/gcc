@@ -50,6 +50,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "tm.h"
 #include "insn-modes.h"
 
+struct loop;
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -476,6 +478,8 @@ struct gcc_target
   */
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
+
+  int (* adjust_unroll_max) (struct loop *, int, int, int, int);
 
   /* True if the compiler should give an enum type only as many
      bytes as it takes to represent the range of possible values of

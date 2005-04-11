@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "recog.h"    
 #include "varray.h"                        
+#include "target.h"
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -547,6 +548,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, best_copies, best_unroll = 0, n_copies, i;
   struct niter_desc *desc;
+  int max_unrolled_insns;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -559,9 +561,15 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
 	     "\n;; Considering unrolling loop with constant "
 	     "number of iterations\n");
 
+  max_unrolled_insns = MAX_UNROLLED_INSNS;
+  if (targetm.adjust_unroll_max)
+    max_unrolled_insns
+      = (*targetm.adjust_unroll_max) (loop, loop->ninsns, max_unrolled_insns,
+				      flag_strength_reduce,
+				      LPT_UNROLL_CONSTANT);
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll = max_unrolled_insns / loop->ninsns;
   nunroll_by_av
     = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
@@ -816,6 +824,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, i;
   struct niter_desc *desc;
+  int max_unrolled_insns;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -828,9 +837,14 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     "\n;; Considering unrolling loop with runtime "
 	     "computable number of iterations\n");
 
+  max_unrolled_insns = MAX_UNROLLED_INSNS;
+  if (targetm.adjust_unroll_max)
+    max_unrolled_insns
+      = (*targetm.adjust_unroll_max) (loop, loop->ninsns, max_unrolled_insns,
+				      flag_strength_reduce, LPT_UNROLL_RUNTIME);
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll = max_unrolled_insns / loop->ninsns;
   nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
     nunroll = nunroll_by_av;
@@ -1291,6 +1305,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, i;
   struct niter_desc *desc;
+  int max_unrolled_insns;
 
   if (!(flags & UAP_UNROLL_ALL))
     {
@@ -1301,9 +1316,14 @@ decide_unroll_stupid (struct loop *loop, int flags)
   if (dump_file)
     fprintf (dump_file, "\n;; Considering unrolling loop stupidly\n");
 
+  max_unrolled_insns = MAX_UNROLLED_INSNS;
+  if (targetm.adjust_unroll_max)
+    max_unrolled_insns
+      = (*targetm.adjust_unroll_max) (loop, loop->ninsns, max_unrolled_insns,
+				      flag_strength_reduce, LPT_UNROLL_STUPID);
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll = max_unrolled_insns / loop->ninsns;
   nunroll_by_av
     = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
   if (nunroll > nunroll_by_av)

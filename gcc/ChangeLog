@@ -1,5 +1,24 @@
 2005-04-11  J"orn Rennecke <joern.rennecke@st.com>
 
+	* sh.c (print_operand): Remove sh_rep_vec extraction.
+	(sh_output_mi_thunk): Make i unsigned.
+
+
+	* target.h (struct gcc_target): New member adjust_unroll_max.
+	* target-def.h (TARGET_ADJUST_UNROLL_MAX): Define.
+	(TARGET_INITIALIZER): Include TARGET_ADJUST_UNROLL_MAX.
+	* loop-unroll.c (target.h): #include.
+	(decide_unroll_constant_iterations, decide_unroll_runtime_iterations):
+	Check / call targetm.adjust_unroll_max.
+	(decide_unroll_stupid): Likewise.
+
+	* sh.c (TARGET_ADJUST_UNROLL_MAX): Only redefine if already defined.
+	(sh_adjust_unroll_max): Only define if TARGET_ADJUST_UNROLL_MAX
+	is defined.  Update label detection code and iteration lookup,
+	enable basic functionality, but without IV analysis.
+
+2005-04-11  J"orn Rennecke <joern.rennecke@st.com>
+
 	* sh.h (OPTIMIZATION_OPTIONS): Don't make setting of
 	flag_branch_target_load_optimize dependent on TARGET_SHMEDIA.
 	Set flag_finite_math_only to 2.

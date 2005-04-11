@@ -482,8 +482,10 @@ static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 
 #endif /* SYMBIAN */
 
+#ifdef TARGET_ADJUST_UNROLL_MAX
 #undef TARGET_ADJUST_UNROLL_MAX
 #define TARGET_ADJUST_UNROLL_MAX sh_adjust_unroll_max
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -571,10 +573,6 @@ print_operand (FILE *stream, rtx x, int code)
   int regno;
   enum machine_mode mode;
 
-  if (x
-      && (GET_CODE (x) == PARALLEL || GET_CODE (x) == CONST_VECTOR)
-      && sh_rep_vec (x, GET_MODE (x)))
-    /* FIXME: What about a byte vector with two different bytes? */ abort (); // x = XVECEXP (x, 0, 0);
   switch (code)
     {
     case '.':
@@ -10128,7 +10126,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   int simple_add = CONST_OK_FOR_ADD (delta);
   int did_load = 0;
   rtx scratch0, scratch1, scratch2;
-  int i;
+  unsigned i;
 
   reload_completed = 1;
   epilogue_completed = 1;
@@ -10670,23 +10668,24 @@ lose:
   return 0;
 }
 
+#ifdef TARGET_ADJUST_UNROLL_MAX
 static int
 sh_adjust_unroll_max (struct loop * loop, int insn_count,
 		      int max_unrolled_insns, int strength_reduce_p,
 		      int unroll_type)
 {
 /* This doesn't work in 4.0 because the old unroller & loop.h  is gone.  */
-#if 0
   if (TARGET_ADJUST_UNROLL && TARGET_SHMEDIA)
     {
       /* Throttle back loop unrolling so that the costs of using more
 	 targets than the eight target register we have don't outweigh
 	 the benefits of unrolling.  */
-      rtx insn, end = loop->end;
+      rtx insn;
       int n_labels = 0, n_calls = 0, n_exit_dest = 0, n_inner_loops = -1;
       int n_barriers = 0;
-      int i, j;
-      basic_block exit_dest[8];
+      rtx dest;
+      int i;
+      rtx exit_dest[8];
       int threshold;
       int unroll_benefit = 0, mem_latency = 0;
       int base_cost, best_cost, cost;
@@ -10695,6 +10694,8 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
       unsigned max_iterations = 32767;
       int n_iterations;
       int need_precond = 0, precond = 0;
+      basic_block * bbs = get_loop_body (loop);
+      struct niter_desc *desc;
 
       /* Assume that all labels inside the loop are used from inside the
 	 loop.  If the loop has multiple entry points, it is unlikely to
@@ -10702,7 +10703,8 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 	 Also assume that all calls are to different functions.  That is
 	 somewhat pessimistic, but if you have lots of calls, unrolling the
 	 loop is not likely to gain you much in the first place.  */
-      for (insn = loop->start; insn != end; insn = NEXT_INSN (insn))
+      i = loop->num_nodes - 1;
+      for (insn = BB_HEAD (bbs[i]); ; )
 	{
 	  if (GET_CODE (insn) == CODE_LABEL)
 	    n_labels++;
@@ -10713,20 +10715,27 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 	    n_inner_loops++;
 	  else if (GET_CODE (insn) == BARRIER)
 	    n_barriers++;
+	  if (insn != BB_END (bbs[i]))
+	    insn = NEXT_INSN (insn);
+	  else if (--i >= 0)
+	    insn = BB_HEAD (bbs[i]);
+	   else
+	    break;
 	}
+      free (bbs);
       /* One label for the loop top is normal, and it won't be duplicated by
 	 unrolling.  */
       if (n_labels <= 1)
 	return max_unrolled_insns;
-      if (n_inner_loops)
+      if (n_inner_loops > 0)
 	return 0;
-      for (i = loop->num_exits - 1; i >= 0 && n_exit_dest < 8; i--)
+      for (dest = loop->exit_labels; dest && n_exit_dest < 8;
+	   dest = LABEL_NEXTREF (dest))
 	{
-	  basic_block dest = loop->exit_edges[i]->dest;
-
-	  for (j = n_exit_dest - 1; j >= 0 && dest != exit_dest[j]; j--);
-	  if (j >= 0)
-	    exit_dest[j++] = dest;
+	  for (i = n_exit_dest - 1;
+	       i >= 0 && XEXP (dest, 0) != XEXP (exit_dest[i], 0); i--);
+	  if (i < 0)
+	    exit_dest[n_exit_dest++] = dest;
 	}
       /* If the loop top and call and exit destinations are enough to fill up
 	 the target registers, we're unlikely to do any more damage by
@@ -10734,9 +10743,14 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
       if (n_calls + n_exit_dest >= 7)
 	return max_unrolled_insns;
 
+      /* ??? In the new loop unroller, there is no longer any strength
+         reduction information available.  Thus, when it comes to unrolling,
+         we know the cost of everything, but we know the value of nothing.  */
+#if 0
       if (strength_reduce_p
-	  && (unroll_type == UNROLL_MODULO
-	      || unroll_type == UNROLL_COMPLETELY))
+	  && (unroll_type == LPT_UNROLL_RUNTIME
+	      || unroll_type == LPT_UNROLL_CONSTANT
+	      || unroll_type == LPT_PEEL_COMPLETELY))
 	{
 	  struct loop_ivs *ivs = LOOP_IVS (loop);
 	  struct iv_class *bl;
@@ -10794,8 +10808,16 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 		}
 	    }
 	}
+#else /* 0 */
+      /* Assume there is at least some benefit.  */
+      unroll_benefit = 1;
+#endif /* 0 */
 
-      n_iterations = LOOP_INFO (loop)->n_iterations;
+      desc = get_simple_loop_desc (loop);
+      n_iterations = desc->const_iter ? desc->niter : 0;
+      max_iterations
+	= max_iterations < desc->niter_max ? max_iterations : desc->niter_max;
+
       if (! strength_reduce_p || ! n_iterations)
 	need_precond = 1;
       if (! n_iterations)
@@ -10805,6 +10827,7 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 	  if (! n_iterations)
 	    return 0;
 	}
+#if 0 /* ??? See above - missing induction variable information.  */
       while (unroll_benefit > 1) /* no loop */
 	{
 	  /* We include the benefit of biv/ giv updates.  Check if some or
@@ -10868,6 +10891,7 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 	    mem_latency = unroll_benefit - 1;
 	  break;
 	}
+#endif /* 0 */
       if (n_labels + (unroll_benefit + n_labels * 8) / n_iterations
 	  <= unroll_benefit)
 	return max_unrolled_insns;
@@ -10881,12 +10905,12 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
       for (factor = 2; factor <= 8; factor++)
 	{
 	  /* Bump up preconditioning cost for each power of two.  */
-	  if (! (factor & factor-1))
+	  if (! (factor & (factor-1)))
 	    precond += 4;
 	  /* When preconditioning, only powers of two will be considered.  */
 	  else if (need_precond)
 	    continue;
-	  n_dest = ((unroll_type != UNROLL_COMPLETELY)
+	  n_dest = ((unroll_type != LPT_PEEL_COMPLETELY)
 		    + (n_labels - 1) * factor + n_calls + n_exit_dest
 		    - (n_barriers * factor >> 1)
 		    + need_precond);
@@ -10894,7 +10918,7 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 	    = ((n_dest <= 8 ? 0 : n_dest - 7)
 	       - base_cost * factor
 	       - ((factor > 2 ? unroll_benefit - mem_latency : unroll_benefit)
-		  * (factor - (unroll_type != UNROLL_COMPLETELY)))
+		  * (factor - (unroll_type != LPT_PEEL_COMPLETELY)))
 	       + ((unroll_benefit + 1 + (n_labels - 1) * factor)
 		  / n_iterations));
 	  if (need_precond)
@@ -10909,9 +10933,9 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
       if (max_unrolled_insns > threshold)
 	max_unrolled_insns = threshold;
     }
-#endif
   return max_unrolled_insns;
 }
+#endif /* TARGET_ADJUST_UNROLL_MAX */
 
 /* Replace any occurrence of FROM(n) in X with TO(n).  The function does
    not enter into CONST_DOUBLE for the replace.
@@ -10994,7 +11018,8 @@ replace_n_hard_rtx (rtx x, rtx *replacements, int n_replacements, int modify)
 	      if (to_regno < FIRST_PSEUDO_REGISTER)
 		{
 		  new_regno = regno + to_regno - from_regno;
-		  if (HARD_REGNO_NREGS (new_regno, GET_MODE (x)) != nregs)
+		  if ((unsigned) HARD_REGNO_NREGS (new_regno, GET_MODE (x))
+		      != nregs)
 		    return NULL_RTX;
 		  result = gen_rtx_REG (GET_MODE (x), new_regno);
 		}
