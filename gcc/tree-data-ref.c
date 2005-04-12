@@ -3420,21 +3420,27 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 }
 
 /* Compute a subset of the data dependence relation graph.  Don't
-   compute read-read relations, and avoid the computation of the
-   opposite relation, i.e. when AB has been computed, don't compute BA.
+   compute read-read and self relations if 
+   COMPUTE_SELF_AND_READ_READ_DEPENDENCES is FALSE, and avoid the 
+   computation of the opposite relation, i.e. when AB has been computed, 
+   don't compute BA.
    DATAREFS contains a list of data references, and the result is set
    in DEPENDENCE_RELATIONS.  */
 
 static void 
 compute_all_dependences (varray_type datarefs, 
-			 varray_type *dependence_relations)
+			 varray_type *dependence_relations,
+                         bool compute_self_and_read_read_dependences)
 {
-  unsigned int i, j, N;
+  unsigned int i, j, N, offset = 1;
+
+  if (compute_self_and_read_read_dependences)
+    offset = 0;
 
   N = VARRAY_ACTIVE_SIZE (datarefs);
 
   for (i = 0; i < N; i++)
-    for (j = i+1; j < N; j++)
+    for (j = i+offset; j < N; j++)
       {
 	struct data_reference *a, *b;
 	struct data_dependence_relation *ddr;
@@ -3442,7 +3448,8 @@ compute_all_dependences (varray_type datarefs,
 	a = VARRAY_GENERIC_PTR (datarefs, i);
 	b = VARRAY_GENERIC_PTR (datarefs, j);
 
-	if (DR_IS_READ (a) && DR_IS_READ (b))
+	if (DR_IS_READ (a) && DR_IS_READ (b)
+            && !compute_self_and_read_read_dependences)
 	  continue;
 	ddr = initialize_data_dependence_relation (a, b);
 
@@ -3552,13 +3559,17 @@ find_data_references_in_loop (struct loop *loop, tree alignment,
    If DETAILED_ANALYSIS flag is true the detailed analysis of data-refs is 
    performed (fields DR_BASE_ADDRESS, DR_INIT_OFFSET, etc., are set) in
    find_data_references_in_loop, if it is false only data-ref structure is 
-   created. */
+   created. 
+
+   Compute read-read and self relations if 
+   COMPUTE_SELF_AND_READ_READ_DEPENDENCES is TRUE.  */
 
 void
 compute_data_dependences_for_loop (unsigned nb_loops, 
 				   struct loop *loop,
 				   tree alignment,
 				   bool detailed_analysis,
+				   bool compute_self_and_read_read_dependences,
 				   varray_type *datarefs,
 				   varray_type *dependence_relations)
 {
@@ -3585,7 +3596,8 @@ compute_data_dependences_for_loop (unsigned nb_loops,
     }
 
   VARRAY_GENERIC_PTR_INIT (allrelations, 1, "Data dependence relations");
-  compute_all_dependences (*datarefs, &allrelations);
+  compute_all_dependences (*datarefs, &allrelations,
+                           compute_self_and_read_read_dependences);
 
   while (loop_nest && loop_nest->outer && loop_nest->outer->outer)
     loop_nest = loop_nest->outer;
@@ -3686,7 +3698,8 @@ analyze_all_data_dependences (struct loops *loops)
 
   /* Compute DDs on the whole function.  */
   compute_data_dependences_for_loop (loops->num, loops->parray[0], NULL_TREE,
-				     false, &datarefs, &dependence_relations);
+				     false, false, &datarefs, 
+                                     &dependence_relations);
 
   if (dump_file)
     {

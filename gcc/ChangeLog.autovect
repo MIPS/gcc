@@ -1,3 +1,22 @@
+2005-04-12  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (compute_all_dependences): Add new 
+	parameter compute_self_and_read_read_dependences.
+	Compute self and read-read dependences if it is true.
+	(compute_data_dependences_for_loop): Add new parameter
+	compute_self_and_read_read_dependences. Call 
+	compute_all_dependences with the new parameter.
+	(analyze_all_data_dependences): Call 
+	compute_data_dependences_for_loop with additional
+	parameter.
+	* tree-data-ref.h (compute_all_dependences): Add new
+        parameter compute_self_and_read_read_dependences.
+	* tree-loop-linear (linear_transform_loops): Call 
+	compute_data_dependences_for_loop with new parameter
+	compute_self_and_read_read_dependences.
+	* tree-vect-analyze.c (vect_analyze_data_refs): 
+	Likewise.
+
 2005-04-10  Devang Patel  <dpatel@apple.com>
 
 	* tree-ssa-forwprop.c (all_uses_are_replacable): Use

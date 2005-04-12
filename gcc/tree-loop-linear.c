@@ -295,7 +295,7 @@ linear_transform_loops (struct loops *loops)
       
   
       compute_data_dependences_for_loop (depth, loop_nest, NULL_TREE, false, 
-					 &datarefs, &dependence_relations);
+					true, &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  unsigned int j;

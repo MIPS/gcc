@@ -1312,6 +1312,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
   compute_data_dependences_for_loop (loops_num, loop,
 				     ssize_int (UNITS_PER_SIMD_WORD), true,
+				     false,		
 				     &(LOOP_VINFO_DATAREFS (loop_vinfo)),
 				     &(LOOP_VINFO_DDRS (loop_vinfo)));
 
