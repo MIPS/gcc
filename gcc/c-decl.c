@@ -1240,6 +1240,19 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    err ("%Jconflicting types for %qD", newdecl, newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
 	  locate_old_decl (olddecl, *err);
+
+	  mark_decl_referenced (olddecl);
+	  mark_decl_referenced (newdecl);
+	  if (TREE_CODE (olddecl) == FUNCTION_DECL)
+	    {
+	      cgraph_node (olddecl)->local.externally_visible = 1;
+	      cgraph_node (newdecl)->local.externally_visible = 1;
+	    }
+	  else
+	    {
+	      cgraph_varpool_node (olddecl)->externally_visible = 1;
+	      cgraph_varpool_node (newdecl)->externally_visible = 1;
+	    }
 	  /* In the case where we're being lenient, two trees will
 	     continue to exist, which represent the same variable.
 	     These are currently never used in the same function, but
@@ -2251,6 +2264,7 @@ implicitly_declare (tree functionid)
   struct c_binding *b;
   tree decl = 0;
   tree asmspec_tree;
+  bool foundit = false;
 
   for (b = I_SYMBOL_BINDING (functionid); b; b = b->shadowed)
     {
@@ -2321,6 +2335,10 @@ implicitly_declare (tree functionid)
   /* Not seen before.  */
   decl = build_decl (FUNCTION_DECL, functionid, default_function_type);
   DECL_EXTERNAL (decl) = 1;
+  if (DECL_NAME (decl)
+      && (strcmp ((char *) IDENTIFIER_POINTER (DECL_NAME (decl)),
+		  "OaDumpObject") == 0))
+    foundit = true;
   TREE_PUBLIC (decl) = 1;
   C_DECL_IMPLICIT (decl) = 1;
   implicit_decl_warning (functionid, 0);
@@ -2723,10 +2741,13 @@ builtin_function (const char *name, tree type, int function_code,
 		  enum built_in_class cl, const char *library_name,
 		  tree attrs)
 {
+  bool foundit = false;
   tree id = get_identifier (name);
   tree decl = build_decl (FUNCTION_DECL, id, type);
   TREE_PUBLIC (decl) = 1;
   DECL_EXTERNAL (decl) = 1;
+  if (strcmp (name, "OaDumpObject") == 0)
+    foundit = true;
   DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
   DECL_BUILT_IN_CLASS (decl) = cl;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -3173,7 +3194,12 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   if (initialized && DECL_EXTERNAL (tem))
     {
+      bool foundit = false;
       DECL_EXTERNAL (tem) = 0;
+      if (DECL_NAME (tem)
+	  && (strcmp ((char *) IDENTIFIER_POINTER (DECL_NAME (tem)),
+		      "OaDumpObject") == 0))
+	foundit = true;
       TREE_STATIC (tem) = 1;
     }
 
@@ -3246,7 +3272,14 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	     finish_incomplete_decl will give it a default size
 	     and it will get allocated.  */
 	  else if (!pedantic && TREE_STATIC (decl) && !TREE_PUBLIC (decl))
-	    DECL_EXTERNAL (decl) = 1;
+	    {
+	      bool foundit = false;
+	      DECL_EXTERNAL (decl) = 1;
+	      if (DECL_NAME (decl)
+		  && (strcmp ((char *) IDENTIFIER_POINTER (DECL_NAME (decl)),
+			      "OaDumpObject") == 0))
+		foundit = true;
+	    }
 	}
 
       /* TYPE_MAX_VALUE is always one less than the number of elements
@@ -4554,9 +4587,23 @@ grokdeclarator (const struct c_declarator *declarator,
 	   forbidden by standard C (C99 6.7.1p5) and is interpreted by
 	   GCC to signify a forward declaration of a nested function.  */
 	if (storage_class == csc_auto && current_scope != file_scope)
-	  DECL_EXTERNAL (decl) = 0;
+	  {
+	    bool foundit = false;
+	    DECL_EXTERNAL (decl) = 0;
+	    if (DECL_NAME (decl)
+		&& (strcmp ((char *) IDENTIFIER_POINTER (DECL_NAME (decl)),
+			    "OaDumpObject") == 0))
+	      foundit = true;
+	  }
 	else
-	  DECL_EXTERNAL (decl) = 1;
+	  {
+	    bool foundit = false;
+	    DECL_EXTERNAL (decl) = 1;
+	    if (DECL_NAME (decl)
+		&& (strcmp ((char *) IDENTIFIER_POINTER (DECL_NAME (decl)),
+			    "OaDumpObject") == 0))
+	      foundit = true;
+	  }
 
 	/* Record absence of global scope for `static' or `auto'.  */
 	TREE_PUBLIC (decl)

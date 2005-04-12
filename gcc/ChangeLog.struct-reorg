@@ -1,3 +1,46 @@
+2005-04-12  Caroline Tice  <ctice@apple.com>
+
+        * c-decl.c (diagnose_mismatched_decls): Update cgraph information
+	appropriately.
+	* cgraph.c (cgraph_create_node): Initialize declared_static field.
+	(cgraph_varpool_node): Initialize assembled field.
+	* cgraph.h (struct cgraph_node): Add new field, declared_static.
+	(struct cgraph_varpool_node): Add new field, assembled.
+	* cgraphunit.c (cgraph_varpool_analyze_pending_decls_nondestructively):
+	New function.
+	(cgraph_finalize_compilation_unit): Add call to new function above;
+	add call to cgraph_mark_reachable_node.
+	(cgraph_function_and_variable_visibility): Assign value to
+	declared_static field.
+	* ipa-static-vars-anal.c (do_type_analysis): Fix bug to use
+	local bitmap rather than global one.
+	* ipa.c (cgraph_remove_unreachable_nodes): Mark nodes that
+	aren't declared static as needed, if we haven't done inlining
+	yet.
+	* struct-reorg.c (get_type_name): Return null if tree node doesn't
+	have a TYPE_NAME.
+	(make_new_vars_1): Build unique name by incrementing counter and
+	appending number once rather than iteratively appending numbers.
+	(build_new_type): New function.
+	(replace_var_types): New function.
+	(update_field_accesses): Fix a lot of bugs; make it more general.
+	(search_for_bit_field_ref): New function.
+	(contains_bit_field_accesses_p): New function.
+	(check_field_order): New function.
+	(reorder_fields): New function.
+	(struct_passed_to_external_function): New function.
+	(do_peel): Add code to decide whether to reorder or peel, and
+	to do the reordering.
+	(build_data_structure_list): Remove escaped_types parameter; move
+	check of escaped_types bitmap to different function.
+	(perform_escape_analysis):  Add passed_types bitmap; add code to
+	check the new bitmap.
+	(peel_structs): Update arguments to function calls to match
+	changed parameters.
+	* tree.h (struct tree_decl): Add two new bitmap fields (using
+	previously unused bits): debug_expr_is_from, and duplicate_decl.
+	
+
 2005-02-02  Kenneth Zadeck <zadeck@naturalbridge.com> with inclusions from 
 	Daniel Berlin  <dberlin@dberlin.org>
 

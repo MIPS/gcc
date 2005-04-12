@@ -165,6 +165,7 @@ cgraph_create_node (void)
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
   node->previous = NULL;
+  node->declared_static = false;
   node->static_vars_info = NULL;
   node->global.estimated_growth = INT_MIN;
   cgraph_nodes = node;
@@ -872,6 +873,7 @@ cgraph_varpool_node (tree decl)
   node = ggc_alloc_cleared (sizeof (*node));
   node->decl = decl;
   node->next = cgraph_varpool_nodes;
+  node->assembled = false;
   cgraph_varpool_n_nodes++;
   cgraph_varpool_nodes = node;
   *slot = node;

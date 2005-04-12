@@ -2377,13 +2377,13 @@ struct tree_decl GTY(())
   unsigned lang_flag_6 : 1;
   unsigned lang_flag_7 : 1;
 
-  /* APPLE LOCAL duplicate decls in multiple files. */
-  unsigned duplicate_decl : 1;
   unsigned possibly_inlined : 1;
   unsigned preserve_flag: 1;
   unsigned gimple_formal_temp : 1;
   unsigned pointer_no_escape_flag : 1;
-  /* 11 unused bits.  */
+  unsigned debug_expr_is_from: 1;
+  unsigned duplicate_decl: 1;
+  /* 10 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is

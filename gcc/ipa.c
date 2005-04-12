@@ -109,16 +109,21 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
     gcc_assert (!node->aux);
 #endif
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->needed && !node->global.inlined_to
-	&& ((!DECL_EXTERNAL (node->decl)) 
-            || !node->analyzed
-            || before_inlining_p))
-      {
-	node->aux = first;
-	first = node;
-      }
-    else
-      gcc_assert (!node->aux);
+    {
+      if (!node->declared_static && before_inlining_p)
+	node->needed = 1;
+
+      if (node->needed && !node->global.inlined_to
+	  && ((!DECL_EXTERNAL (node->decl)) 
+	      || !node->analyzed
+	      || before_inlining_p))
+	{
+	  node->aux = first;
+	  first = node;
+	}
+      else
+	gcc_assert (!node->aux);
+    }
 
   /* Perform reachability analysis.  As a special case do not consider
      extern inline functions not inlined as live because we won't output
@@ -164,7 +169,7 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
 	  if (dump_file)
 	    fprintf (dump_file, " %s", cgraph_node_name (node));
 	  if (!node->analyzed || !DECL_EXTERNAL (node->decl)
-              || before_inlining_p)
+	      || before_inlining_p)
 	    cgraph_remove_node (node);
 	  else
 	    {

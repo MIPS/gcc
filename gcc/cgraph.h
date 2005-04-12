@@ -160,6 +160,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
+  bool declared_static;
   /* FKZ HACK Used only while constructing the callgraph.  */
   basic_block current_basic_block;
 };
@@ -214,6 +215,7 @@ struct cgraph_varpool_node GTY(())
      late during the RTL compilation.  We need to make these invisible to
      IPA optimizers or we confuse them badly.  */
   bool non_ipa;
+  bool assembled;
 };
 
 #define INDIRECT_CALLS(node)   (node)->indirect_calls

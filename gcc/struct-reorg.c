@@ -294,7 +294,7 @@ static char *
 get_type_name (tree type_node)
 {
   if (! TYPE_NAME (type_node))
-    return (char *) tree_code_name[(int) TREE_CODE (type_node)];
+    return NULL;
 
   if (TREE_CODE (TYPE_NAME (type_node)) == IDENTIFIER_NODE)
     return (char *) IDENTIFIER_POINTER (TYPE_NAME (type_node));
@@ -1418,6 +1418,9 @@ make_new_vars_1 (tree orig_decl, struct data_structure *struct_data)
       if (DECL_NAME (orig_decl)
 	  && IDENTIFIER_POINTER (DECL_NAME (orig_decl)))
 	{
+	  int counter = 0;
+	  int new_len;
+	  char *tmp_name;
 	  old_name = (char *) IDENTIFIER_POINTER (DECL_NAME (orig_decl));
 	  len = strlen (old_name) + 6;
 	  new_name = (char *) xmalloc (len * sizeof (char));
@@ -1426,13 +1429,13 @@ make_new_vars_1 (tree orig_decl, struct data_structure *struct_data)
 	  /* Make sure there isn't anything else that already has that 
 	     name.  */
       
-	  while (maybe_get_identifier (new_name))
-	    {
-	      int len = strlen (new_name) + 3;
-	      char *tmp_name = (char *) xmalloc (len * sizeof (char));
-	      sprintf (tmp_name, "%s.0", new_name);
-	      new_name = tmp_name;
-	    }
+	  new_len = strlen (new_name + 5);
+	  tmp_name = (char *) xmalloc (new_len * sizeof (char));
+	  sprintf (tmp_name, "%s", new_name);
+
+	  while (maybe_get_identifier (tmp_name))
+	    sprintf (tmp_name, "%s.%d", new_name, counter++);
+	  new_name = tmp_name;
 
 	  id_node = get_identifier (new_name);
 	  DECL_NAME (new_decl) = id_node;
@@ -1488,6 +1491,180 @@ add_to_vars_list (struct new_var_data *new_node,
 	{
 	  current->next = *old_list;
 	  *old_list = new_node;
+	}
+    }
+}
+
+static tree
+build_new_type (struct struct_tree_list *type_nest, tree new_record)
+{
+  tree new_type;
+  tree tmp_type;
+  struct struct_tree_list *current;
+
+  new_type = new_record;
+  for (current = type_nest; current; current = current->next)
+    {
+      tmp_type = new_type;
+      if (TREE_CODE (current->data) == POINTER_TYPE)
+	new_type = build_pointer_type (tmp_type);
+      else if (TREE_CODE (current->data) == REFERENCE_TYPE)
+	new_type = build_reference_type (tmp_type);
+      else if (TREE_CODE (current->data) == ARRAY_TYPE)
+	{
+	  tree index_type = TYPE_DOMAIN (current->data);
+	  new_type = build_array_type (tmp_type, index_type);
+	}
+      else
+	abort ();
+    }
+  
+  return new_type;
+}
+
+static void
+replace_var_types (tree old_record, tree new_record)
+{
+  struct cgraph_varpool_node *current_varpool;
+  struct cgraph_varpool_node *first_new_var = NULL;
+  struct cgraph_node *c_node;
+  tree var_decl;
+  tree var_type;
+  tree var_list;
+  tree new_type;
+  struct struct_tree_list *type_nest;
+  struct struct_tree_list *tmp_node;
+  struct struct_tree_list *donelist = NULL;
+
+  /* Go through global variables... */
+
+  for (current_varpool = cgraph_varpool_nodes_queue;
+       current_varpool && (current_varpool != first_new_var);
+       current_varpool = current_varpool->next)
+    {
+      var_decl = current_varpool->decl;
+      if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
+	continue;
+
+      var_type = TREE_TYPE (var_decl);
+
+      type_nest = NULL;
+      while (POINTER_TYPE_P (var_type)
+	     || TREE_CODE (var_type) == ARRAY_TYPE)
+	{
+	  tmp_node = (struct struct_tree_list *) xmalloc 
+	                                          (sizeof 
+						   (struct struct_tree_list));
+	  tmp_node->data = var_type;
+	  tmp_node->next = type_nest;
+	  type_nest = tmp_node;
+	  var_type = TREE_TYPE (var_type);
+	}
+
+      if (similar_struct_decls_p (var_type, old_record))
+	{
+	  new_type = build_new_type (type_nest, new_record);
+	  TREE_TYPE (var_decl) = new_type;
+	}
+      else if (TREE_CODE (var_type) == RECORD_TYPE)
+	{
+	  
+	  tmp_node = (struct struct_tree_list *) xmalloc 
+	                                          (sizeof 
+						   (struct struct_tree_list));
+	  tmp_node->data = var_type;
+	  tmp_node->next = NULL;
+	  replace_old_field_types (tmp_node, new_record, old_record,
+				   &donelist);
+	}
+    }
+
+  /* For each function in the call graph... */
+
+  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+    {
+      struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
+
+      /* Go through the arguments for each function...  */
+
+      for (var_decl = DECL_ARGUMENTS (c_node->decl); var_decl;
+	   var_decl = TREE_CHAIN (var_decl))
+	{
+	  var_type = TREE_TYPE (var_decl);
+
+	  type_nest = NULL;
+	  while (POINTER_TYPE_P (var_type)
+		 || TREE_CODE (var_type) == ARRAY_TYPE)
+	    {
+	      tmp_node = (struct struct_tree_list *) xmalloc 
+	                                          (sizeof 
+						   (struct struct_tree_list));
+	      tmp_node->data = var_type;
+	      tmp_node->next = type_nest;
+	      type_nest = tmp_node;
+	      var_type = TREE_TYPE (var_type);
+	    }
+
+	  if (similar_struct_decls_p (var_type, old_record))
+	    {
+	      new_type = build_new_type (type_nest, new_record);
+	      TREE_TYPE (var_decl) = new_type;
+	    }
+	  else if (TREE_CODE (var_type) == RECORD_TYPE)
+	    {
+	      tmp_node = (struct struct_tree_list *) xmalloc 
+	                                          (sizeof 
+						   (struct struct_tree_list));
+	      tmp_node->data = var_type;
+	      tmp_node->next = NULL;
+	      replace_old_field_types (tmp_node, new_record, old_record,
+				       &donelist);
+	    }
+	}
+
+      if (! func)
+	continue;
+
+      /* If the function has a body, go through the local variables for
+	 the function...  */
+
+      for (var_list = func->unexpanded_var_list; var_list;
+	   var_list = TREE_CHAIN (var_list))
+	{
+	  var_decl = TREE_VALUE (var_list);
+	  if (TREE_CODE (var_decl) == VAR_DECL)
+	    {
+	      var_type = TREE_TYPE (var_decl);
+
+	      type_nest = NULL;
+	      while (POINTER_TYPE_P (var_type)
+		     || TREE_CODE (var_type) == ARRAY_TYPE)
+		{
+		  tmp_node = (struct struct_tree_list *) xmalloc 
+	                                          (sizeof 
+						   (struct struct_tree_list));
+		  tmp_node->data = var_type;
+		  tmp_node->next = type_nest;
+		  type_nest = tmp_node;
+		  var_type = TREE_TYPE (var_type);
+		}
+
+	      if (similar_struct_decls_p (var_type, old_record))
+		{
+		  new_type = build_new_type (type_nest, new_record);
+		  TREE_TYPE (var_decl) = new_type;
+		}
+	      else if (TREE_CODE (var_type) == RECORD_TYPE)
+		{
+		  tmp_node = (struct struct_tree_list *) xmalloc 
+	                                          (sizeof 
+						   (struct struct_tree_list));
+		  tmp_node->data = var_type;
+		  tmp_node->next = NULL;
+		  replace_old_field_types (tmp_node, new_record, old_record,
+					   &donelist);
+		}
+	    }
 	}
     }
 }
@@ -3082,197 +3259,240 @@ update_field_accesses (struct struct_list *data_struct_list,
 
   for (cur_struct = data_struct_list; cur_struct; 
        cur_struct = cur_struct->next)
-    for (i = 0; i < cur_struct->struct_data->num_fields; i++)
+    if (cur_struct->struct_data->new_types)
       {
-	struct access_site *cur_access;
-	struct field_map *new_mapping;
-	struct field_map *cur_map_pos;
-	
-	cur_field = cur_struct->struct_data->fields[i];
-	new_mapping = cur_field.new_mapping;
-
-	for (cur_access = cur_field.acc_sites; cur_access; 
-	     cur_access = cur_access->next)
+	for (i = 0; i < cur_struct->struct_data->num_fields; i++)
 	  {
-	    tree access = cur_access->field_access;
-	    tree arg0;
-	    tree arg1;
-	    tree old_var;
-	    tree new_access;
-	    tree field_identifier;
-	    bool found = false;
-	    tree_stmt_iterator *insertion_point = NULL;
-	    block_stmt_iterator bsi;
-	    bool is_indirect_ref = false;
-	    bool is_mem_ref = false;
-	    tree mem_ref_index = NULL_TREE;
-
-	    new_stmt_list = NULL_TREE;
-
-	    if (TREE_CODE (access) == VAR_DECL
-		|| TREE_CODE (access) == PARM_DECL
-		|| TREE_CODE (access) == INDIRECT_REF)
-	      continue;
-
-	    if (TREE_CODE (access) == ARRAY_REF)
-	      access = TREE_OPERAND (access, 0);
-
-	    arg0 = TREE_OPERAND (access, 0);
-	    arg1 = TREE_OPERAND (access, 1);
-
-
-	    /* Find the access stmt within the basic block.  */
-
-	    for (bsi = bsi_start (cur_access->bb); !bsi_end_p (bsi);
-		 bsi_next (&bsi))
-	      if (bsi_stmt (bsi) == cur_access->stmt)
-		{
-		  insertion_point = &(bsi.tsi);
-		  break;
-		}
-
-	    cfun = cur_access->context;
-	    current_function_decl = cfun->decl;
-
-	    /* find <indirect_ref> whose arg1 is field decl for cur_field */
+	    struct access_site *cur_access;
+	    struct field_map *new_mapping;
+	    struct field_map *cur_map_pos;
 	    
-	    if (TREE_CODE (arg0) == INDIRECT_REF)
-	      is_indirect_ref = true;
-	    else if (TREE_CODE (arg0) == MEM_REF)
+	    cur_field = cur_struct->struct_data->fields[i];
+	    new_mapping = cur_field.new_mapping;
+	    
+	    for (cur_access = cur_field.acc_sites; cur_access; 
+		 cur_access = cur_access->next)
 	      {
-		is_mem_ref = true;
-		mem_ref_index = TREE_OPERAND (arg0, 1);
-	      }
-
-	    if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (arg1)),
-			IDENTIFIER_POINTER (DECL_NAME (cur_field.decl))) != 0)
-		|| (TREE_CODE (TREE_TYPE (arg1)) != TREE_CODE (TREE_TYPE (cur_field.decl))))
-	      fatal_error ("Field decls should match but don't.");
-	    
-	    if (TREE_CODE (arg0) == VAR_DECL
-		|| TREE_CODE (arg0) == PARM_DECL)
-	      old_var = arg0;
-	    else
-	      old_var = TREE_OPERAND (arg0, 0);
-	    
-	    for (cur_var = new_vars; cur_var && !found; 
-		 cur_var = cur_var->next)
-	      {
-		if (old_var == cur_var->orig_var)
+		tree access = cur_access->field_access;
+		tree arg0;
+		tree arg1;
+		tree old_var;
+		tree new_access;
+		tree field_identifier;
+		tree outer_tree;
+		bool found = false;
+		tree_stmt_iterator *insertion_point = NULL;
+		block_stmt_iterator bsi;
+		bool is_indirect_ref = false;
+		bool is_mem_ref = false;
+		bool field_access_found = false;
+		tree mem_ref_index = NULL_TREE;
+		int arg_position;
+		
+		new_stmt_list = NULL_TREE;
+		
+		if (TREE_CODE (access) == VAR_DECL
+		    || TREE_CODE (access) == PARM_DECL
+		    || TREE_CODE (access) == INDIRECT_REF)
+		  continue;
+		
+		outer_tree = cur_access->stmt;
+		if (TREE_OPERAND (outer_tree, 0) == access)
+		  arg_position = 0;
+		else if (TREE_OPERAND (outer_tree, 1) == access)
+		  arg_position = 1;
+		else
+		  fatal_error ("Field access is not direct child of statement.");
+		
+		if (TREE_CODE (access) == ARRAY_REF)
 		  {
-		    struct struct_tree_list *current;
-		    found = true;
-		    for (current = cur_var->new_vars; current; 
-			 current = current->next)
+		    outer_tree = access;
+		    arg_position = 0;
+		    access = TREE_OPERAND (access, 0);
+		  }
+		
+		arg0 = TREE_OPERAND (access, 0);
+		arg1 = TREE_OPERAND (access, 1);
+		
+		while (! field_access_found)
+		  {
+		    if (DECL_P (arg1)
+			&& (strcmp (IDENTIFIER_POINTER (DECL_NAME (arg1)),
+				    IDENTIFIER_POINTER (DECL_NAME (cur_field.decl)))
+			    == 0))
+		      field_access_found = true;
+		    else
 		      {
-			tree var_type = TREE_TYPE (current->data);
-			
-			while (POINTER_TYPE_P (var_type))
-			  var_type = TREE_TYPE (var_type);
-			
-			if (similar_struct_decls_p (var_type, new_mapping->decl))
-			  /* if (var_type == new_mapping->decl) */
+			if (TREE_CODE (arg0) != COMPONENT_REF
+			    && TREE_CODE (arg0) != ARRAY_REF)
+			  fatal_error ("Cannot find field access within statement.");
+			else
 			  {
-			    tree tmp_field;
-			    tree tmp_type;
-			    tree save_type;
-			    tree old_var;
-			    tree new_var;
-			    tree new_stmt;
-			    new_access = NULL_TREE;
-			    old_var = current->data;
-			    for (cur_map_pos = new_mapping; cur_map_pos;
-				 cur_map_pos = cur_map_pos->contains)
+			    outer_tree = access;
+			    arg_position = 0;
+			    access = arg0;
+			    arg0 = TREE_OPERAND (access, 0);
+			    arg1 = TREE_OPERAND (access, 1);
+			  }
+		      }
+		  }
+		
+		/* Find the access stmt within the basic block.  */
+		
+		for (bsi = bsi_start (cur_access->bb); !bsi_end_p (bsi);
+		     bsi_next (&bsi))
+		  if (bsi_stmt (bsi) == cur_access->stmt)
+		    {
+		      insertion_point = &(bsi.tsi);
+		      break;
+		    }
+		
+		cfun = cur_access->context;
+		current_function_decl = cfun->decl;
+		
+		/* find <indirect_ref> whose arg1 is field decl for cur_field */
+		
+		if (TREE_CODE (arg0) == INDIRECT_REF)
+		  is_indirect_ref = true;
+		else if (TREE_CODE (arg0) == MEM_REF)
+		  {
+		    is_mem_ref = true;
+		    mem_ref_index = TREE_OPERAND (arg0, 1);
+		  }
+		
+		if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (arg1)),
+			     IDENTIFIER_POINTER (DECL_NAME (cur_field.decl))) != 0)
+		    || (TREE_CODE (TREE_TYPE (arg1)) != TREE_CODE (TREE_TYPE (cur_field.decl))))
+		  fatal_error ("Field decls should match but don't.");
+		
+		if (TREE_CODE (arg0) == VAR_DECL
+		    || TREE_CODE (arg0) == PARM_DECL)
+		  old_var = arg0;
+		else
+		  old_var = TREE_OPERAND (arg0, 0);
+		
+		for (cur_var = new_vars; cur_var && !found; 
+		     cur_var = cur_var->next)
+		  {
+		    if (old_var == cur_var->orig_var)
+		      {
+			struct struct_tree_list *current;
+			found = true;
+			for (current = cur_var->new_vars; current; 
+			     current = current->next)
+			  {
+			    tree var_type = TREE_TYPE (current->data);
+			    
+			    while (POINTER_TYPE_P (var_type))
+			      var_type = TREE_TYPE (var_type);
+			    
+			    if (similar_struct_decls_p (var_type, new_mapping->decl))
 			      {
-				if (cur_map_pos->contains)
+				tree tmp_field;
+				tree tmp_type;
+				tree save_type;
+				tree old_var;
+				tree new_var;
+				tree new_stmt;
+				new_access = NULL_TREE;
+				old_var = current->data;
+				for (cur_map_pos = new_mapping; cur_map_pos;
+				     cur_map_pos = cur_map_pos->contains)
 				  {
-				    field_identifier = NULL_TREE;
-				    for (tmp_field = TYPE_FIELDS (cur_map_pos->decl);
-					 tmp_field && !field_identifier;
-					 tmp_field = TREE_CHAIN (tmp_field))
+				    if (cur_map_pos->contains)
 				      {
-					tmp_type = TREE_TYPE (tmp_field);
-					save_type = tmp_type;
-					while (POINTER_TYPE_P (tmp_type))
-					  tmp_type = TREE_TYPE (tmp_type);
-					if (similar_struct_decls_p (tmp_type,
-								    cur_map_pos->contains->decl))
-					  field_identifier = DECL_NAME (tmp_field);
-				      }
-				    if (!field_identifier)
-				      fatal_error ("Could not find field for substruct in superstruct.");
-
-				    if (! new_stmt_list)
-				      new_stmt_list = alloc_stmt_list ();
-
-				    new_var = create_tmp_var_raw (save_type,
-								  NULL);
-				    gimple_add_tmp_var (new_var);
-
-				    if (is_indirect_ref)
-				      new_stmt = build (MODIFY_EXPR,
-							save_type,
-							new_var,
-							lang_hooks.optimize.build_field_reference 
-							(lang_hooks.optimize.build_pointer_ref 
-							 (old_var, ""),
-							 field_identifier));
-				    else if (is_mem_ref)
-				      new_stmt = build (MODIFY_EXPR,
-							save_type,
-							new_var,
-							lang_hooks.optimize.build_field_reference 
-							(lang_hooks.optimize.build_array_ref 
-							 (old_var, mem_ref_index),
-							 field_identifier));
-				    else
-				      new_stmt = build (MODIFY_EXPR,
-							save_type,
-							new_var,
-							lang_hooks.optimize.build_field_reference
+					field_identifier = NULL_TREE;
+					for (tmp_field = TYPE_FIELDS (cur_map_pos->decl);
+					     tmp_field && !field_identifier;
+					     tmp_field = TREE_CHAIN (tmp_field))
+					  {
+					    tmp_type = TREE_TYPE (tmp_field);
+					    save_type = tmp_type;
+					    while (POINTER_TYPE_P (tmp_type))
+					      tmp_type = TREE_TYPE (tmp_type);
+					    if (similar_struct_decls_p (tmp_type,
+									cur_map_pos->contains->decl))
+					      field_identifier = DECL_NAME (tmp_field);
+					  }
+					if (!field_identifier)
+					  fatal_error ("Could not find field for substruct in superstruct.");
+					
+					if (! new_stmt_list)
+					  new_stmt_list = alloc_stmt_list ();
+					
+					new_var = create_tmp_var_raw (save_type,
+								      NULL);
+					gimple_add_tmp_var (new_var);
+					
+					if (is_indirect_ref)
+					  new_stmt = build (MODIFY_EXPR,
+							    save_type,
+							    new_var,
+							    lang_hooks.optimize.build_field_reference 
+							    (lang_hooks.optimize.build_pointer_ref 
+							     (old_var, ""),
+							     field_identifier));
+					else if (is_mem_ref)
+					  new_stmt = build (MODIFY_EXPR,
+							    save_type,
+							    new_var,
+							    lang_hooks.optimize.build_field_reference 
+							    (lang_hooks.optimize.build_array_ref 
+							     (old_var, mem_ref_index),
+							     field_identifier));
+					else
+					  new_stmt = build (MODIFY_EXPR,
+							    save_type,
+							    new_var,
+							    lang_hooks.optimize.build_field_reference
 							    (old_var,
 							     field_identifier));
-
-				    append_to_statement_list (new_stmt, 
-							      &new_stmt_list);
-				    old_var = new_var;
-				  }
-				else
-				  {
-				    field_identifier = DECL_NAME (arg1);
-				    if (is_indirect_ref)
-				      new_access = lang_hooks.optimize.build_field_reference
-					(lang_hooks.optimize.build_pointer_ref (old_var, ""),
-					 field_identifier);
-				    else if (is_mem_ref)
-				      new_access = lang_hooks.optimize.build_field_reference
-					(lang_hooks.optimize.build_array_ref (old_var, mem_ref_index),
-					 field_identifier);
+					
+					append_to_statement_list (new_stmt, 
+								  &new_stmt_list);
+					old_var = new_var;
+				      }
 				    else
-				      new_access = lang_hooks.optimize.build_field_reference
-					(old_var, field_identifier);
+				      {
+					field_identifier = DECL_NAME (arg1);
+					if (is_indirect_ref)
+					  new_access = lang_hooks.optimize.build_field_reference
+					    (lang_hooks.optimize.build_pointer_ref (old_var, ""),
+					     field_identifier);
+					else if (is_mem_ref)
+					  new_access = lang_hooks.optimize.build_field_reference
+					    (lang_hooks.optimize.build_array_ref (old_var, mem_ref_index),
+					     field_identifier);
+					else
+					  new_access = lang_hooks.optimize.build_field_reference
+					    (old_var, field_identifier);
+				      }
 				  }
-			      }
-			    
-			    if (!new_access)
-			      fatal_error ("Couldn't find correct field access.");
-
-			    if (access == TREE_OPERAND (cur_access->stmt, 0))
-			      TREE_OPERAND (cur_access->stmt, 0) = new_access;
-			    else if (access == TREE_OPERAND (cur_access->stmt,
-							     1))
-			      TREE_OPERAND (cur_access->stmt, 1) = new_access;
-			    else
-			      fatal_error 
-			     ("Cannot locate field access within statement.");
-
-			    if (new_stmt_list)
-			      {
-				/* Insert new stmts before access stmt */
-				add_bb_info (cur_access->bb, new_stmt_list);
-				tsi_link_before (insertion_point,
-						 new_stmt_list,
-						 TSI_CONTINUE_LINKING);
+				
+				if (!new_access)
+				  fatal_error ("Couldn't find correct field access.");
+				
+				/*
+				  if (access == TREE_OPERAND (cur_access->stmt, 0))
+				  TREE_OPERAND (cur_access->stmt, 0) = new_access;
+				  else if (access == TREE_OPERAND (cur_access->stmt,
+				  1))
+				  TREE_OPERAND (cur_access->stmt, 1) = new_access;
+				  else
+				  fatal_error 
+				  ("Cannot locate field access within statement.");
+				*/
+				
+				TREE_OPERAND (outer_tree, arg_position) = new_access;
+				
+				if (new_stmt_list)
+				  {
+				    /* Insert new stmts before access stmt */
+				    add_bb_info (cur_access->bb, new_stmt_list);
+				    tsi_link_before (insertion_point,
+						     new_stmt_list,
+						     TSI_CONTINUE_LINKING);
+				  }
 			      }
 			  }
 		      }
@@ -3280,7 +3500,7 @@ update_field_accesses (struct struct_list *data_struct_list,
 	      }
 	  }
       }
-
+  
   cfun = save_cfun;
   current_function_decl = save_fn_decl;
 }
@@ -3765,12 +3985,199 @@ replace_old_field_types (struct struct_tree_list *new_type_list,
   return recursive;
 }
 
+static bool
+search_for_bit_field_ref (tree t)
+{
+  int i;
+  bool ret_val = false;
+  
+  if (TREE_CODE (t) == BIT_FIELD_REF)
+    ret_val = true;
+  else
+    {
+      for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
+	{
+	  tree operand = TREE_OPERAND (t, i);
+	  if (operand)
+	    {
+	      ret_val = ret_val || search_for_bit_field_ref (operand);
+	    }
+	}
+    }
+
+  return ret_val;
+}
+
+static bool
+contains_bit_field_accesses_p (struct data_structure *struct_data)
+{
+  bool ret_val = false;
+  struct access_site *cur_access;
+  struct data_field_entry cur_field;
+  int i;
+
+  for (i = 0; i < struct_data->num_fields; i++)
+    {
+      cur_field = struct_data->fields[i];
+      for (cur_access = cur_field.acc_sites; cur_access; 
+	   cur_access = cur_access->next)
+	{
+	  tree cur_stmt = cur_access->stmt;
+	  ret_val = search_for_bit_field_ref (cur_stmt);
+	  if (ret_val)
+	    return true;
+	}
+    }
+
+  return ret_val;
+}
+
+static bool
+check_field_order (struct data_structure *ds)
+{
+  bool different_order = false;
+  int i;
+  HOST_WIDE_INT prev_f_bit_pos;
+  tree f_bit_pos_t;
+
+  if (!ds->struct_clustering->fields_order)
+    return false;
+
+  f_bit_pos_t = bit_position (ds->fields[0].decl);
+  if (! host_integerp (f_bit_pos_t, 0))
+    abort ();
+
+  for (i = 1; i < ds->num_fields; i++)
+    {
+      HOST_WIDE_INT f_bit_pos;
+      int f;
+
+      f = ds->struct_clustering->fields_order[i];
+      f_bit_pos_t = bit_position (ds->fields[f].decl);
+      if (! host_integerp (f_bit_pos_t, 0))
+	abort ();
+      f_bit_pos = tree_low_cst (f_bit_pos_t, 0);
+      if (f_bit_pos < prev_f_bit_pos)
+	{
+	  different_order = true;
+	  break;
+	}
+      prev_f_bit_pos = f_bit_pos;
+    }
+  return different_order;
+}
+
+static struct struct_tree_list *
+reorder_fields (struct data_structure *ds)
+{
+  char *old_name;
+  char *new_name;
+  int i;
+  int idx;
+  int k = 0;
+  tree new_type;
+  tree new_decl;
+  tree last_field = NULL;
+  struct new_type_node *new_types = NULL;
+  struct struct_tree_list *tmp_node;
+
+  old_name = get_type_name (ds->decl);
+  new_name = (char *) xmalloc (strlen (old_name) + 7);
+  sprintf (new_name, "%s_%d", old_name, k++);
+  
+  while (maybe_get_identifier (new_name))
+    sprintf (new_name, "%s_%d", old_name, k++);
+  
+  new_types = (struct new_type_node *) xmalloc (sizeof (struct new_type_node));
+
+  new_types->sub_type = false;
+  new_types->num_fields = ds->num_fields;
+  new_types->field_list = NULL;
+  new_types->name = NULL;
+  new_types->next = NULL;
+
+
+  for (i = 0; i < ds->num_fields; i++)
+    {
+      idx = ds->struct_clustering->fields_order[i];
+      new_decl = copy_node (ds->fields[idx].decl);
+      new_decl->decl.rtl = NULL;
+      if (!new_types->field_list)
+	new_types->field_list = new_decl;
+      else
+	TREE_CHAIN (last_field) = new_decl;
+      last_field = new_decl;
+    }
+
+  TREE_CHAIN (last_field) = NULL;
+  new_types->next = NULL;
+
+  new_type = lang_hooks.optimize.build_data_struct ((void *) new_types,
+						    new_name,
+						    ds->decl);
+  tmp_node = (struct struct_tree_list *) xmalloc (sizeof 
+						  (struct struct_tree_list));
+  tmp_node->data = new_type;
+  tmp_node->next = NULL;
+
+  return tmp_node;
+}
+
+static bool
+struct_passed_to_external_function (tree decl)
+{
+  struct cgraph_node *c_node;
+
+  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+    {
+      /* Check for structs being passed as argument to builtin functions */
+
+      if (DECL_BUILT_IN (c_node->decl)
+	  && (! DECL_ARGUMENTS (c_node->decl))
+	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (c_node->decl)),
+		      "malloc") != 0)
+	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (c_node->decl)),
+		      "xmalloc") != 0)
+	  && (strcmp (IDENTIFIER_POINTER (DECL_NAME (c_node->decl)),
+		      "calloc") != 0))
+	{
+	  tree call_site;
+	  tree arg_list;
+	  tree arg;
+	  struct cgraph_edge *caller;
+
+	  for (caller = c_node->callers; caller; caller = caller->next_caller)
+	    {
+	      call_site = caller->call_expr;
+	      for (arg_list = TREE_OPERAND (call_site, 1); arg_list;
+		   arg_list = TREE_CHAIN (arg_list))
+		{
+		  tree arg_type;
+		  arg = TREE_VALUE (arg_list);
+
+		  arg_type = TREE_TYPE (arg);
+		  while (POINTER_TYPE_P (arg_type)
+			 || TREE_CODE (arg_type) == ARRAY_TYPE)
+		    arg_type = TREE_TYPE (arg_type);
+		  
+		  if (similar_struct_decls_p (arg_type, decl))
+		      return true;
+		}
+	    }
+	}
+    }
+
+  return false;
+}
+
 static void
-do_peel (struct struct_list *data_struct_list)
+do_peel (struct struct_list *data_struct_list, bitmap passed_types,
+	 bitmap escaped_types)
 {
   int sub_type_count = 0;
   struct struct_list *cur_struct;
   struct new_var_data *total_new_vars = NULL;
+  bool reorder_only = false;
 
   /* 
      1).  Create a new struct/record type (or hierarchy of types)
@@ -3808,46 +4215,91 @@ do_peel (struct struct_list *data_struct_list)
        cur_struct = cur_struct->next)
     {
       struct data_structure *struct_data = cur_struct->struct_data;
-  
+
       if (struct_data->count > 0
-	  && struct_data->struct_clustering
-	  && struct_data->struct_clustering->sibling
-	  && ! struct_data->struct_clustering->children)
+	  && (TYPE_NAME (struct_data->decl))
+	  && struct_data->struct_clustering)
 	{
-	  struct struct_tree_list *donelist = NULL;
-	  struct new_var_data *new_vars;
-	  bool recursive_struct = false;
+	  if (bitmap_bit_p (escaped_types, (struct_data->decl)->type.uid)
+	      || struct_data->struct_clustering->children
+	      || bitmap_bit_p (passed_types, (struct_data->decl)->type.uid)
+	      || contains_bit_field_accesses_p (struct_data))
+	    reorder_only = true;
 
-	  struct_data->struct_clustering->direct_access = true;
-	  sub_type_count = 0;
-	  struct_data->new_types = create_and_assemble_new_types (struct_data,
-					       struct_data->struct_clustering,
-					       &sub_type_count, 1);
-	  recursive_struct = replace_old_field_types (struct_data->new_types,
-						     struct_data->new_types->data,
-						     struct_data->decl,
-						     &donelist);
-	  if (recursive_struct && struct_data->struct_clustering->direct_access)
-	    fatal_error ("Attempt to peel structs that are recursive.");
+	  if (!reorder_only
+	      && struct_passed_to_external_function (struct_data->decl))
+	    reorder_only = true;
 
-	  new_vars = create_new_var_decls (struct_data);
-	  append_to_var_list (new_vars, &total_new_vars);
-	}
-      else
-	struct_data->new_types = NULL; 
-
-      if (struct_data->new_types)
-	{
-	  fprintf (stdout, 
-		   "\nThe following are the new types generated by this optimization.\n");
-	  print_new_types (struct_data->new_types);
+	  if (reorder_only)
+	    {
+	      bool different_order;
+	      bool recursive_struct = false;
+	      struct struct_tree_list *donelist = NULL;
+	      
+	      different_order = check_field_order (struct_data);
+	      if (different_order)
+		{
+		  struct_data->new_types = reorder_fields (struct_data);
+		  recursive_struct = replace_old_field_types 
+		    (struct_data->new_types,
+		     struct_data->new_types->data,
+		     struct_data->decl,
+		     &donelist);
+		  replace_var_types (struct_data->decl,
+				     struct_data->new_types->data);
+		}
+	    }
+	  else if (struct_data->struct_clustering->sibling
+		   && ! struct_data->struct_clustering->children
+		   /* For the moment disallow full peeling of structs that 
+		      are passed around as parameters to functions, as that 
+		      would require updating all the function call sites, the 
+		      function definition, and the cgrpah nodes.  We can add 
+		      this capability in later, if we wish.  */
+		   && ! bitmap_bit_p (passed_types, 
+				      (struct_data->decl)->type.uid))
+	    {
+	      struct struct_tree_list *donelist = NULL;
+	      struct new_var_data *new_vars;
+	      bool recursive_struct = false;
+	      
+	      struct_data->struct_clustering->direct_access = true;
+	      sub_type_count = 0;
+	      
+	      struct_data->new_types =  create_and_assemble_new_types 
+		(struct_data,
+		 struct_data->struct_clustering,
+		 &sub_type_count,
+		 1);
+	      recursive_struct = 
+		replace_old_field_types (struct_data->new_types,
+					 struct_data->new_types->data,
+					 struct_data->decl,
+					 &donelist);
+	      if (recursive_struct 
+		  && struct_data->struct_clustering->direct_access)
+		fatal_error ("Attempt to peel structs that are recursive.");
+	      
+	      new_vars = create_new_var_decls (struct_data);
+	      append_to_var_list (new_vars, &total_new_vars);
+	    }
+	  else
+	    struct_data->new_types = NULL; 
+	  
+	  if (struct_data->new_types)
+	    {
+	      fprintf (stdout, 
+		       "\nThe following are the new types generated by"
+		       " this optimization.\n");
+	      print_new_types (struct_data->new_types);
+	    }
 	}
     }
 
   if (total_new_vars)
     {
       struct use_struct *uses_list = NULL;
-
+      
       collect_struct_use_data (data_struct_list, total_new_vars, &uses_list);
       create_new_mallocs (data_struct_list, total_new_vars);
       update_struct_use_stmts (data_struct_list, total_new_vars,
@@ -3966,7 +4418,7 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
    to decide if transformations are safe/legal.  */
 
 static struct struct_list *
-build_data_structure_list (bitmap escaped_types)
+build_data_structure_list (void)
 {
   tree var_decl;
   tree var_list;
@@ -3986,9 +4438,6 @@ build_data_structure_list (bitmap escaped_types)
 
       var_decl = current_varpool->decl;
       if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
-	continue;
-      
-      if (bitmap_bit_p (escaped_types, (TREE_TYPE (var_decl))->type.uid))
 	continue;
       
       if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
@@ -4020,14 +4469,8 @@ build_data_structure_list (bitmap escaped_types)
 	{
 	  var_decl = TREE_VALUE (var_list);
 	  if (TREE_CODE (var_decl) == VAR_DECL)
-	    {
-	      if (bitmap_bit_p (escaped_types, 
-				(TREE_TYPE (var_decl))->type.uid))
-		continue;
-	      
-	      if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
-		data_struct_list = tmp;
-	    }
+	    if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
+	      data_struct_list = tmp;
 	}
     }
   return data_struct_list;
@@ -4049,10 +4492,12 @@ build_data_structure_list (bitmap escaped_types)
 
 static void
 perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
-			 bool type_check_p)
+			  bitmap passed_types, bool type_check_p)
 {
   struct cgraph_node *c_node;
   struct cgraph_edge *caller;
+  tree var_decl;
+  tree var_type;
 
   for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
     {
@@ -4092,6 +4537,20 @@ perform_escape_analysis (bitmap escaped_vars, bitmap escaped_types,
 	}
       else 
 	{
+
+	  for (var_decl = DECL_ARGUMENTS (c_node->decl); var_decl;
+	       var_decl = TREE_CHAIN (var_decl))
+	    {
+	      var_type = TREE_TYPE (var_decl);
+	      bitmap_set_bit (passed_types, var_type->type.uid);
+
+	      while (POINTER_TYPE_P (var_type))
+		{
+		  var_type = TREE_TYPE (var_type);
+		  bitmap_set_bit (passed_types, var_type->type.uid);
+		}
+	    }
+
 	  /* For functions that are local to the current compilation, 
 	     check arguments passed to any indirect function call.  */
 	  for (caller = INDIRECT_CALLS (c_node);  caller;
@@ -4277,6 +4736,7 @@ peel_structs (void)
   bool type_check_p;
   bitmap escaped_vars;
   bitmap escaped_types;
+  bitmap passed_types;
   gcov_type hotest_struct_count = 0;
   FILE *vcg_dump = NULL;
    
@@ -4284,22 +4744,24 @@ peel_structs (void)
 
   /* Verify that this compiler invocation was passed *all* the user-written
      code for this program.  */
-  
+
   if (! flag_whole_program)
     {
       inform 
-      ("Whole program not passed to compiler: Can't perform struct peeling.");
+	("Whole program not passed to compiler: Can't perform struct peeling.");
       return;
     }
 
   type_check_p = true;
   escaped_vars = BITMAP_GGC_ALLOC ();
   escaped_types = BITMAP_GGC_ALLOC ();
-  perform_escape_analysis (escaped_vars, escaped_types, type_check_p);
+  passed_types = BITMAP_GGC_ALLOC ();
+  perform_escape_analysis (escaped_vars, escaped_types, passed_types, 
+			   type_check_p);
 
   /* Stage 1: Build DATA_STRUCTURE list of the data structures that are valid
      for the transformation.  */
-  data_struct_list = build_data_structure_list (escaped_types);
+  data_struct_list = build_data_structure_list ();
 
   /* Walk through entire program tree looking for:
        - Any declaration that uses struct type; record variable
@@ -4358,7 +4820,7 @@ peel_structs (void)
   
   collect_malloc_data ();
 
-  do_peel (data_struct_list);
+  do_peel (data_struct_list, passed_types, escaped_types);
 
   /* Free up the memory allocated for the CRR_DS.  */
 

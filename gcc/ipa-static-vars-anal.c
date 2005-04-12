@@ -2598,7 +2598,8 @@ do_type_analysis (void)
   
   /* If a type is set in global_types_full_escape, make sure that the
      unique type is also set in that map.  */
-  EXECUTE_IF_SET_IN_BITMAP (global_types_full_escape, 0, i, bi)
+  bitmap_copy (been_there_done_that, global_types_full_escape);
+  EXECUTE_IF_SET_IN_BITMAP (been_there_done_that, 0, i, bi)
     {
       unsigned int j = unique_type_id_for (i, false);
       if (i != j)
@@ -2607,6 +2608,7 @@ do_type_analysis (void)
 	  bitmap_clear_bit(global_types_full_escape, i);
 	}
     }
+  bitmap_clear (been_there_done_that);
 
   if (dump_file)
     { 

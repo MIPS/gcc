@@ -378,6 +378,7 @@ cgraph_finalize_function (tree decl, bool nested)
   /* Since we reclaim unrechable nodes at the end of every language
      level unit, we need to be conservative about possible entry points
      there.  */
+
   if (flag_whole_program
       && (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl)))
     cgraph_mark_reachable_node (node);
@@ -791,6 +792,27 @@ cgraph_varpool_analyze_pending_decls (void)
   return changed;
 }
 
+static void
+cgraph_varpool_assemble_pending_decls_nondestructively (void)
+{
+  struct cgraph_varpool_node *current_varpool;
+
+  for (current_varpool = cgraph_varpool_nodes_queue;
+       current_varpool;
+       current_varpool = current_varpool->next_needed)
+    {
+      if (!current_varpool->assembled)
+	{
+	  tree decl = current_varpool->decl;
+	  if (!TREE_ASM_WRITTEN (decl) && !DECL_EXTERNAL(decl))
+	    {
+	      assemble_variable (decl, 0, 1, 0);
+	      current_varpool->assembled = true;
+	    }
+	}
+    }
+}
+
 /* Output all variables enqueued to be assembled.  */
 bool
 cgraph_varpool_assemble_pending_decls (void)
@@ -878,10 +900,8 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  /*
-    if (!flag_whole_program)
-    cgraph_varpool_assemble_pending_decls ();
-  */
+  if (flag_whole_program)
+    cgraph_varpool_assemble_pending_decls_nondestructively ();
 
   if (!quiet_flag)
     {
@@ -931,7 +951,10 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
-      if (!flag_whole_program)
+      if (!node->declared_static)
+	cgraph_mark_reachable_node (node);
+
+      if (!flag_whole_program) 
 	cgraph_varpool_assemble_pending_decls ();
     }
 
@@ -1131,6 +1154,8 @@ cgraph_function_and_variable_visibility (void)
 	  && !DECL_EXTERNAL (node->decl))
 	{
 	  gcc_assert (flag_whole_program || !TREE_PUBLIC (node->decl));
+	  if (!TREE_PUBLIC (node->decl))
+	    node->declared_static = true;
 	  TREE_PUBLIC (node->decl) = 0;
 	}
       node->local.local = (!node->needed
