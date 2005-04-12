@@ -101,6 +101,11 @@ libgcov_c_dep='stmp-dirs $(srcdir)/libgcov.c $(srcdir)/gcov-io.h $(srcdir)/gcov-
 # Dependencies for fp-bit.c
 fpbit_c_dep='stmp-dirs config.status tsystem.h'
 
+# Dependencies for decnumber and friends.  This is an overzealous set,
+# but at least we can be sure to recompile if anything gets modified.
+decnumber_dep='stmp-dirs $(srcdir)/decContext.h $(srcdir)/decNumber.h $(srcdir)/decNumberLocal.h
+	$(srcdir)/decimal32.h $(srcdir)/decimal64.h $(srcdir)/decimal128.h $(srcdir)/decDPD.h'
+
 # Flag whether we need eh_dummy.c
 need_eh_dummy=
 
@@ -354,6 +359,34 @@ for ml in $MULTILIBS; do
       done
     fi
   done
+
+  # Bring in the DFP support code if D32PBIT, D64PBIT or D128PBIT are set.
+
+  if [ -n "$D32PBIT" -o -n "$D64PBIT" -o -n "$D128PBIT" ] ; then
+    for name in decContext decNumber decimal32 decimal64 decimal128 ; do
+      if [ "$libgcc_s_so" ]; then
+        out="libgcc/${dir}/${name}${objext}"
+        outS="libgcc/${dir}/${name}_s${objext}"
+
+        echo $outS: "\$(srcdir)/${name}.c" $decnumber_dep
+        echo "	$gcc_s_compile" $flags -c "\$(srcdir)/${name}.c" -o $outS
+
+        echo $out: "\$(srcdir)/${name}.c" $decnumber_dep
+        echo "	$gcc_compile" $flags '$(vis_hide)' -c "\$(srcdir)/${name}.c" -o $out
+
+        echo $libgcc_a: $out
+        echo $libgcc_s_so: $outS
+        if [ "$SHLIB_MKMAP" ]; then
+          echo libgcc/${dir}/libgcc.map: $outS
+        fi
+      else
+        out="libgcc/${dir}/${name}${objext}"
+        echo $out: "\$(srcdir)/${name}.c" $decnumber_dep
+        echo "	$gcc_compile" $flags -c "\$(srcdir)/${name}.c" -o $out
+        echo $libgcc_a: $out
+      fi
+    done
+  fi
 
   for file in $LIB2ADD; do
     name=`echo $file | sed -e 's/[.][cS]$//' -e 's/[.]asm$//'`

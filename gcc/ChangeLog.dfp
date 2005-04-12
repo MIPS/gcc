@@ -1,5 +1,12 @@
 2005-04-12  Ben Elliston  <bje@au.ibm.com>
 
+	* mklibgcc.in: Output make(1) targets for the decNumber support
+	library files if $D32PBIT, $D64PBIT or $D128PBIT are defined in
+	the environment.
+	(decnumber_dep): Define.
+
+2005-04-12  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h (DFP_ADD): Correct typo for 128-bit case.
 
 2005-04-12  Ben Elliston  <bje@au.ibm.com>
