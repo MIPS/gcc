@@ -1,3 +1,9 @@
+2005-04-12  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* reload.c (find_reloads): Only set INC field if we know we have an
+	autoinc reload.
+	* reload.h (struct reload): Update comment to match.
+
 2005-04-08  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* reload1.c (find_optional_reg, inherit_one_chain): Always use

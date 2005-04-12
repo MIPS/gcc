@@ -3203,14 +3203,19 @@ find_reloads (struct insn_chain *chain, rtx insn, int ind_levels,
 		 && goal_alternative_offmemok[i]
 		 && MEM_P (recog_data.operand[i]))
 	  {
+	    struct reload *rl;
 	    operand_reloadnum[i]
 	      = push_reload (XEXP (recog_data.operand[i], 0), NULL_RTX,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
 			     MODE_BASE_REG_CLASS (VOIDmode),
 			     GET_MODE (XEXP (recog_data.operand[i], 0)),
 			     VOIDmode, 0, 0, i, RELOAD_FOR_NONE);
-	    rld[operand_reloadnum[i]].inc
-	      = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
+	    rl = rld + operand_reloadnum[i];
+	    if (GET_CODE (rl->in_reg) == PRE_INC
+		|| GET_CODE (rl->in_reg) == PRE_DEC
+		|| GET_CODE (rl->in_reg) == POST_INC
+		|| GET_CODE (rl->in_reg) == POST_DEC)
+	      rl->inc = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
 	  }
 	else if (goal_alternative_matched[i] == -1)
 	  {
