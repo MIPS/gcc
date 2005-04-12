@@ -355,7 +355,6 @@ get_tinfo_decl (tree type)
       TREE_STATIC (d) = 1;
       DECL_EXTERNAL (d) = 1;
       DECL_TINFO_P (d) = 1;
-      DECL_COMDAT (d) = 1;
       TREE_PUBLIC (d) = 1;
       SET_DECL_ASSEMBLER_NAME (d, name);
       /* Remember the type it is for.  */

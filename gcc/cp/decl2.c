@@ -1435,6 +1435,20 @@ maybe_make_one_only (tree decl)
     }
 }
 
+/* DECL is a class data object that will be emitted in this
+   translation unit.  Set DECL_VISIBILITY, if appropriate.  */
+ 
+static void
+determine_class_data_visibility (tree decl)
+{
+  if (!TREE_PUBLIC (decl)
+      || DECL_REALLY_EXTERN (decl)
+      || DECL_VISIBILITY_SPECIFIED (decl))
+    return;
+
+  targetm.cxx.determine_class_data_visibility (decl);
+}
+
 /* Set TREE_PUBLIC and/or DECL_EXTERN on the vtable DECL,
    based on TYPE and other static flags.
 
@@ -1458,6 +1472,20 @@ import_export_vtable (tree decl, tree type, int final)
       TREE_PUBLIC (decl) = 1;
       DECL_EXTERNAL (decl) = CLASSTYPE_INTERFACE_ONLY (type);
       DECL_INTERFACE_KNOWN (decl) = 1;
+      /* The generic C++ ABI says that class data is always COMDAT,
+	 even if there is a key function.  Some variants (e.g., the
+	 ARM EABI) says that class data only has COMDAT linkage if the
+	 the class data might be emitted in more than one translation
+	 unit.  */
+      if (!DECL_EXTERNAL (decl)
+	  && (!CLASSTYPE_KEY_METHOD (type)
+	      || targetm.cxx.class_data_always_comdat ()))
+	{
+	  comdat_linkage (decl);
+	  /* Mark the DECL as used, so that it will be emitted, even
+	     if there are no references to it.  */
+	  TREE_USED (decl) = 1;
+	}
     }
   else
     {
@@ -1483,6 +1511,12 @@ import_export_vtable (tree decl, tree type, int final)
 	  DECL_EXTERNAL (decl) = 1;
 	}
     }
+
+  /* Construction virtual tables are not exported because they cannot
+     be referred to from other object files; their name is not
+     standardized by the ABI.  */
+  if (!DECL_CONSTRUCTION_VTABLE_P (decl))
+    determine_class_data_visibility (decl);
 }
 
 /* Determine whether or not we want to specifically import or export CTYPE,
@@ -1565,7 +1599,6 @@ maybe_emit_vtables (tree ctype)
 {
   tree vtbl;
   tree primary_vtbl;
-  bool needed = false;
 
   /* If the vtables for this class have already been emitted there is
      nothing more to do.  */
@@ -1601,9 +1634,6 @@ maybe_emit_vtables (tree ctype)
 	note_debug_info_needed (ctype);
       return false;
     }
-  else if (TREE_PUBLIC (vtbl) && !DECL_COMDAT (vtbl))
-    needed = true;
-  
 
   /* The ABI requires that we emit all of the vtables if we emit any
      of them.  */
@@ -1613,9 +1643,8 @@ maybe_emit_vtables (tree ctype)
       import_export_vtable (vtbl, ctype, 1);
       mark_vtable_entries (vtbl);
 
-      /* If we know that DECL is needed, mark it as such for the varpool.  */
-      if (needed)
-	cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
+      /* We know that DECL is needed; mark it as such for the varpool.  */
+      cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
 
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
 	{
@@ -1649,10 +1678,6 @@ maybe_emit_vtables (tree ctype)
 
 	  DECL_IGNORED_P (vtbl) = 1;
 	}
-
-      /* Always make vtables weak.  */
-      if (flag_weak)
-	comdat_linkage (vtbl);
 
       rest_of_decl_compilation (vtbl, NULL, 1, 1);
 
@@ -1727,20 +1752,7 @@ determine_visibility (tree decl)
 	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
 	}
-      /* If no explicit visibility information has been provided for
-	 this class, some targets require that class data be
-	 exported.  */
-      else if (TREE_CODE (decl) == VAR_DECL
-	       && targetm.cxx.export_class_data ()
-	       && (DECL_TINFO_P (decl)
-		   || (DECL_VTABLE_OR_VTT_P (decl)
-		       /* Construction virtual tables are not emitted
-			  because they cannot be referred to from other
-			  object files; their name is not standardized by
-			  the ABI.  */
-		       && !DECL_CONSTRUCTION_VTABLE_P (decl))))
-	DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
-      else
+      else if (!DECL_VISIBILITY_SPECIFIED (decl))
 	{
 	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
 	  DECL_VISIBILITY_SPECIFIED (decl) = 0;
@@ -1826,29 +1838,27 @@ import_export_tinfo (tree decl, tree type, bool is_in_library)
   
   if (IS_AGGR_TYPE (type))
     import_export_class (type);
-      
-  if (IS_AGGR_TYPE (type) && CLASSTYPE_INTERFACE_KNOWN (type)
+ 
+  if (CLASS_TYPE_P (type)
+      && CLASSTYPE_INTERFACE_KNOWN (type)
       && TYPE_POLYMORPHIC_P (type)
       /* If -fno-rtti, we're not necessarily emitting this stuff with
-	 the class, so go ahead and emit it now.  This can happen when
-	 a class is used in exception handling.  */
+	 the class.  This can happen when a class is used in exception
+	 handling.  */ 
       && flag_rtti)
-    {
-      DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
-      DECL_COMDAT (decl) = 0;
-    }
+    DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
   else
-    {
-      DECL_NOT_REALLY_EXTERN (decl) = 1;
-      DECL_COMDAT (decl) = 1;
-    }
+    DECL_NOT_REALLY_EXTERN (decl) = 1;
 
-  /* Now override some cases.  */
-  if (flag_weak)
-    DECL_COMDAT (decl) = 1;
+  if (DECL_NOT_REALLY_EXTERN (decl) 
+      && (!(CLASS_TYPE_P (type) && CLASSTYPE_KEY_METHOD (type))
+	  || targetm.cxx.class_data_always_comdat ()))
+    comdat_linkage (decl);
   else if (is_in_library)
     DECL_COMDAT (decl) = 0;
-  
+
+  determine_class_data_visibility (decl);
+
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
 

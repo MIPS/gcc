@@ -1,3 +1,36 @@
+2005-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_VISIBILITY): New macro.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	(TARGET_CXX): Adjust accordingly.
+	* target.h (struct gcc_target): Remove epxort_class_data.  Add
+	determine_class_data_visibility and class_data_always_comdat.
+	* cp/decl2.c (determine_class_data_visibility): New function
+	(import_export_vtable): Honor
+	TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT.  Use
+	determine_class_data_visibility.
+	(maybe_emit_vtables): Play fewer odd games with cgraph.
+	(determine_visibility): Remove use of export_class_data.
+	(import_export_tinfo): Honor TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT.  Use
+	determine_class_data_visibility.
+	* cp/rtti.c (get_tinfo_decl): Do not set DECL_COMDAT.
+	* config/arm/arm.c (arm_cxx_export_class_data): Remove.
+	(arm_cxx_determine_class_data_visibility): New.
+	(arm_cxx_class_data_always_comdat): Likewise.
+	(TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Define.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* config/arm/arm.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P): Define.
+	* config/arm/symbian.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P):
+	Define.
+	* doc/tm.texi (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Document.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* testsuite/g++.dg/ext/visibility/arm2.C: New test.
+	* testsuite/g++.dg/ext/visibility/arm3.C: Likewise.
+	* testsuite/g++.dg/ext/visibility/symbian2.C: Likewise.
+	
 2005-04-01  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (thumb_call_via_label): Include space for SP.

@@ -2219,6 +2219,12 @@ typedef struct
 # endif /* !defined (__ARM_EABI__) */
 #endif /* !defined (IN_LIBCC2) */
 
+/* True if the operating system can merge entities with vague linkage
+   (e.g., symbols in COMDAT group) during dynamic linking.  */
+#ifndef TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P
+#define TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P true
+#endif
+
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
 
