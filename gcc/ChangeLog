@@ -1,3 +1,11 @@
+2004-12-03  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/20371:
+	* stor-layout.c (place_field): Don't adjust rli->bitpos at the end
+	of an MS bitfield run if we already adjusted bitpos/offset for an
+	alignment as large or larger than the bitfield type size.
+	Also set rli->remaining_in_alignment when we reset rli->prev_field.
+
 2005-04-11  J"orn Rennecke <joern.rennecke@st.com>
 
 	* sh.c (print_operand): Remove sh_rep_vec extraction.

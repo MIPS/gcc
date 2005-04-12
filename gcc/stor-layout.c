@@ -1028,9 +1028,12 @@ place_field (record_layout_info rli, tree field)
 		{
 		  tree type_size = TYPE_SIZE (TREE_TYPE (rli->prev_field));
 
-		  rli->bitpos
-		    = size_binop (PLUS_EXPR, type_size,
-				  DECL_FIELD_BIT_OFFSET (rli->prev_field));
+		  /* If the desired alignment greater or equal to TYPE_SIZE, we
+		     have already adjusted rli->bitpos / rli->offset above.  */
+		  if (tree_low_cst (type_size, 0) > desired_align)
+		    rli->bitpos
+		      = size_binop (PLUS_EXPR, type_size,
+				    DECL_FIELD_BIT_OFFSET (rli->prev_field));
 		}
 	      else
 		/* We "use up" size zero fields; the code below should behave
@@ -1127,9 +1130,15 @@ place_field (record_layout_info rli, tree field)
   if (known_align != actual_align)
     layout_decl (field, actual_align);
 
-  /* Only the MS bitfields use this.  */
-  if (rli->prev_field == NULL && DECL_BIT_FIELD_TYPE(field))
+  /* Only the MS bitfields use this.  In particular, this is needed when
+     FIELD is a packed bitfield which is followed by a non-packed field.  */
+  if (rli->prev_field == NULL && DECL_BIT_FIELD_TYPE (field))
+    {
       rli->prev_field = field;
+      rli->remaining_in_alignment
+	= tree_low_cst (TYPE_SIZE (TREE_TYPE (field)), 0)
+			- tree_low_cst (DECL_SIZE (field), 0);
+    }
 
   /* Now add size of this field to the size of the record.  If the size is
      not constant, treat the field as being a multiple of bytes and just
