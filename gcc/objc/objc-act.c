@@ -6224,18 +6224,15 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
   /* If receiver is of type `id' or `Class' (or if the @interface for a
      class is not visible), we shall be satisfied with the existence of
      any instance or class method. */
-  if (!rtype || objc_is_id (rtype))
+  /* APPLE LOCAL begin Objective-C */
+  if (objc_is_id (rtype))
     {
-      if (!rtype)
-	rtype = xref_tag (RECORD_TYPE, class_tree);
-      else
-	{
-	  class_tree = (IS_CLASS (rtype) ? objc_class_name : NULL_TREE);
-	  rprotos = (TYPE_HAS_OBJC_INFO (TREE_TYPE (rtype))
-		     ? TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rtype))
-		     : NULL_TREE);
-	  rtype = NULL_TREE;
-	}
+      class_tree = (IS_CLASS (rtype) ? objc_class_name : NULL_TREE);
+      rprotos = (TYPE_HAS_OBJC_INFO (TREE_TYPE (rtype))
+		 ? TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rtype))
+		 : NULL_TREE);
+      rtype = NULL_TREE;
+      /* APPLE LOCAL end Objective-C */
 
       if (rprotos)
 	{
@@ -6260,7 +6257,8 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	    }
 	}
     }
-  else
+  /* APPLE LOCAL Objective-C */
+  else if (rtype)
     {
       tree orig_rtype = rtype, saved_rtype;
 
@@ -6282,7 +6280,8 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	 more intelligent about which methods the receiver will
 	 understand. */
       if (!rtype || TREE_CODE (rtype) == IDENTIFIER_NODE)
-	rtype = saved_rtype;
+	/* APPLE LOCAL Objective-C */
+	rtype = NULL_TREE;
       else if (TREE_CODE (rtype) == CLASS_INTERFACE_TYPE
 	  || TREE_CODE (rtype) == CLASS_IMPLEMENTATION_TYPE)
 	{
