@@ -27,7 +27,7 @@
 
    DFP_TYPE: name of the arguments to the libgcc functions;
    
-   TO_INTEGRAL: the name of the decNumber function to convert an
+   TO_INTERNAL: the name of the decNumber function to convert an
    encoded value into the decNumber internal representation;
 
    TO_ENCODED: the name of the decNumber function to convert an
