@@ -8,6 +8,6 @@ A = LOG(X); B = LOG(Y); C = A + B
 PRINT*, C(500000)
 END
 
-! { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } }
-! { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 3 "vect" } }
-! { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" } }
+! { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail vect_no_align } } }
+! { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 3 "vect" { xfail vect_no_align } } }
+! { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail vect_no_align } } }

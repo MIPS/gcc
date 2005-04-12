@@ -1,3 +1,10 @@
+2005-04-12  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect/vect-2.c: xfail for vect_no_align.
+	* gfortran.dg/vect/vect-4.c: xfail for vect_no_align.
+	* gfortran.dg/vect/vect-5.c: New.
+	* gfortran.dg/vect/vect.exp: Add -fno-tree-vect-loop-version.
+	
 2005-04-05  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/no_version: New directory. Move all the tests 
