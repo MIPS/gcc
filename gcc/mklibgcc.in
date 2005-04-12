@@ -361,32 +361,44 @@ for ml in $MULTILIBS; do
   done
 
   # Bring in the DFP support code if D32PBIT, D64PBIT or D128PBIT are set.
-
   if [ -n "$D32PBIT" -o -n "$D64PBIT" -o -n "$D128PBIT" ] ; then
-    for name in decContext decNumber decimal32 decimal64 decimal128 ; do
-      if [ "$libgcc_s_so" ]; then
-        out="libgcc/${dir}/${name}${objext}"
-        outS="libgcc/${dir}/${name}_s${objext}"
-
-        echo $outS: "\$(srcdir)/${name}.c" $decnumber_dep
-        echo "	$gcc_s_compile" $flags -c "\$(srcdir)/${name}.c" -o $outS
-
-        echo $out: "\$(srcdir)/${name}.c" $decnumber_dep
-        echo "	$gcc_compile" $flags '$(vis_hide)' -c "\$(srcdir)/${name}.c" -o $out
-
-        echo $libgcc_a: $out
-        echo $libgcc_s_so: $outS
-        if [ "$SHLIB_MKMAP" ]; then
-          echo libgcc/${dir}/libgcc.map: $outS
-        fi
-      else
-        out="libgcc/${dir}/${name}${objext}"
-        echo $out: "\$(srcdir)/${name}.c" $decnumber_dep
-        echo "	$gcc_compile" $flags -c "\$(srcdir)/${name}.c" -o $out
-        echo $libgcc_a: $out
-      fi
-    done
+    dec_filenames="decContext decNumber"
   fi
+
+  # Only bring in decimal*.c files for types we support.
+  if [ -n "$D32PBIT" ] ; then
+    dec_filenames="$dec_filenames decimal32"
+  fi
+  if [ -n "$D64PBIT" ] ; then
+    dec_filenames="$dec_filenames decimal64"
+  fi
+  if [ -n "$D128PBIT" ] ; then
+    dec_filenames="$dec_filenames decimal128"
+  fi
+
+  for name in $dec_filenames ; do
+    if [ "$libgcc_s_so" ]; then
+      out="libgcc/${dir}/${name}${objext}"
+      outS="libgcc/${dir}/${name}_s${objext}"
+
+      echo $outS: "\$(srcdir)/${name}.c" $decnumber_dep
+      echo "	$gcc_s_compile" $flags -c "\$(srcdir)/${name}.c" -o $outS
+
+      echo $out: "\$(srcdir)/${name}.c" $decnumber_dep
+      echo "	$gcc_compile" $flags '$(vis_hide)' -c "\$(srcdir)/${name}.c" -o $out
+
+      echo $libgcc_a: $out
+      echo $libgcc_s_so: $outS
+      if [ "$SHLIB_MKMAP" ]; then
+        echo libgcc/${dir}/libgcc.map: $outS
+      fi
+    else
+      out="libgcc/${dir}/${name}${objext}"
+      echo $out: "\$(srcdir)/${name}.c" $decnumber_dep
+      echo "	$gcc_compile" $flags -c "\$(srcdir)/${name}.c" -o $out
+      echo $libgcc_a: $out
+    fi
+  done
 
   for file in $LIB2ADD; do
     name=`echo $file | sed -e 's/[.][cS]$//' -e 's/[.]asm$//'`

@@ -1,3 +1,9 @@
+2005-04-12  Ben Elliston  <bje@dingo>
+
+	* mklibgcc.in: Only build decimal32.c, decimal64.c or decimal128.c
+	if $D32PBIT, $D64PBIT or $D128PBIT are defined, to limit libgcc
+	size.
+
 2005-04-12  Ben Elliston  <bje@au.ibm.com>
 
 	* mklibgcc.in: Output make(1) targets for the decNumber support
