@@ -9637,3 +9637,15 @@ This macro determines whether to use the JCR section to register Java
 classes. By default, TARGET_USE_JCR_SECTION is defined to 1 if both
 SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
 @end defmac
+
+@deftypefn {Target Hook} int TARGET_ADJUST_UNROLL_MAX (struct loop *@var{loop}, int @var{insn_count}, int @var{max_unrolled_insns}, int @var{strength_reduce_p}, int @var{unroll_type})
+If non-zero, this hook is called before deciding if and how much to unroll the
+loop @var{loop}, which has @var{insn_count} instructions.
+@var{max_unrolled_insns} is the maximum number of insns in an unrolled loop
+as derived from the parameter setting.  This hook is supposed to return a new
+maximum number of instructions in the unrolled loop, taking target-specific
+costs of unrolling into account.  @var{strength_reduce_p} is supposed to
+indicate if strength reduction information is available, however this
+facility doesn't work in gcc 4.1 .  @var{unroll_type} indicates the unroll
+type under consideration, as defined in enum lpt_dec in cfgloop.h .
+@end deftypefn

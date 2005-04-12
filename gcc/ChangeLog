@@ -1,4 +1,9 @@
-2004-12-03  J"orn Rennecke <joern.rennecke@st.com>
+2005-04-12  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR rtl-optimization/20969:
+	* doc/tm.texi: TARGET_ADJUST_UNROLL_MAX: Document.
+
+2005-04-12  J"orn Rennecke <joern.rennecke@st.com>
 
 	PR middle-end/20371:
 	* stor-layout.c (place_field): Don't adjust rli->bitpos at the end
@@ -12,6 +17,7 @@
 	(sh_output_mi_thunk): Make i unsigned.
 
 
+	PR rtl-optimization/20969:
 	* target.h (struct gcc_target): New member adjust_unroll_max.
 	* target-def.h (TARGET_ADJUST_UNROLL_MAX): Define.
 	(TARGET_INITIALIZER): Include TARGET_ADJUST_UNROLL_MAX.
