@@ -1,4 +1,4 @@
-# APPLE LOCAL file libgcc binary compatibility
+# APPLE LOCAL file mainline 2005-04-11
 # Build a shared libgcc library with the darwin linker.
 SHLIB_MINOR = 1
 SHLIB_REVISION = 0
@@ -9,6 +9,7 @@ SHLIB_SOLINK = @shlib_base_name@$(SHLIB_SUFFIX)$(SHLIB_EXT)
 SHLIB_SONAME = @shlib_base_name@$(SHLIB_SUFFIX).$(SHLIB_MINOR).$(SHLIB_REVISION)$(SHLIB_EXT)
 SHLIB_MAP = @shlib_map_file@
 SHLIB_OBJS = @shlib_objs@
+SHLIB_DIR = @multilib_dir@
 
 # Darwin only searches in /usr/lib for shared libraries, not in subdirectories,
 # so the libgcc variants have different names not different locations.
@@ -19,12 +20,15 @@ SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -dynamiclib -nodefaultlibs \
 	-Wl,-exported_symbols_list,$(SHLIB_MAP) \
 	$(SHLIB_VERSTRING) \
 	@multilib_flags@ $(SHLIB_OBJS) -lc && \
-	rm -f $(SHLIB_SOLINK) && \
+	rm -f $(SHLIB_SOLINK) $(SHLIB_DIR)/$(SHLIB_SOLINK) && \
 	if [ -f $(SHLIB_SONAME) ]; then \
 	  mv -f $(SHLIB_SONAME) $(SHLIB_SONAME).backup; \
 	else true; fi && \
 	mv $(SHLIB_SONAME).tmp $(SHLIB_SONAME) && \
-	$(LN_S) $(SHLIB_SONAME) $(SHLIB_SOLINK)
+	$(LN_S) $(SHLIB_SONAME) $(SHLIB_SOLINK) && \
+	if [ $(SHLIB_DIR) != . ] ; then \
+	  $(LN_S) `pwd`/$(SHLIB_SONAME) $(SHLIB_DIR)/$(SHLIB_SOLINK) ; \
+	else true; fi
 # $(slibdir) double quoted to protect it from expansion while building
 # libgcc.mk.  We want this delayed until actual install time.
 SHLIB_INSTALL = \
