@@ -1,3 +1,7 @@
+2005-04-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/i386-darwin-fpmath.c: New.
+
 2005-03-12  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/vmx/darwin-abi-3.c: Delete.

@@ -70,6 +70,9 @@ VERS=`sed -n -e '/version_string/s/.*\"\([^ \"]*\)[ \"].*/\1/p' \
 # to be built.  It's VERS but only up to the second '.' (if there is one).
 MAJ_VERS=`echo $VERS | sed 's/\([0-9]*\.[0-9]*\)[.-].*/\1/'`
 
+# This is the default architecture for i386 configurations.
+I386_CPU="--with-arch=pentium-m --with-tune=prescott"
+
 # Sniff to see if we can do ppc64 building.
 DARWIN_VERS=8
 if [ x"`file /usr/lib/crt1.o | grep 'architecture ppc64'`" == x ]; then
@@ -93,7 +96,6 @@ rm -rf $SRC_DIR/tcl $SRC_DIR/expect $SRC_DIR/dejagnu || exit 1
 rm -f /usr/lib/gcc/*/4.0.0/specs
 
 # These are the configure and build flags that are used.
-# MERGE FIXME: obj-c++ in languages
 CONFIGFLAGS="--disable-checking \
   --prefix=$DEST_ROOT \
   --mandir=\${prefix}/share/man \
@@ -131,6 +133,7 @@ mkdir -p $DIR/obj-$BUILD-$BUILD $DIR/dst-$BUILD-$BUILD || exit 1
 cd $DIR/obj-$BUILD-$BUILD || exit 1
 if [ \! -f $DIR/$BUILD-configured ] ; then
  $SRC_DIR/configure $CONFIGFLAGS \
+   `if [ $BUILD = i686 ] ; then echo $I386_CPU ; fi` \
    --host=$BUILD-apple-darwin$DARWIN_VERS --target=$BUILD-apple-darwin$DARWIN_VERS || exit 1
  touch $DIR/$BUILD-configured || exit 1
 fi
@@ -174,6 +177,7 @@ for t in $TARGETS ; do
   mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
    cd $DIR/obj-$BUILD-$t || exit 1
    $SRC_DIR/configure $CONFIGFLAGS  \
+    `if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
      --program-prefix=$t-apple-darwin$DARWIN_VERS- \
      --host=$BUILD-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
    make $MAKEFLAGS all CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -239,6 +243,7 @@ for h in $HOSTS ; do
       fi
 
       $SRC_DIR/configure $CONFIGFLAGS \
+	`if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
         --program-prefix=$pp \
         --host=$h-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
       make $MAKEFLAGS all-gcc CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1

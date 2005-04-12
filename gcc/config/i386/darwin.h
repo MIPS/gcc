@@ -1,5 +1,5 @@
 /* Target definitions for x86 running Darwin.
-   APPLE LOCAL copyright
+   APPLE LOCAL mainline 2005-04-11
    Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -24,13 +24,12 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_MACHO
 #define TARGET_MACHO 1
 
-/* APPLE LOCAL begin default to ppro */
-/* Default to -mcpu=pentiumpro instead of i386 (radar 2730299)  ilr */
-#undef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT 4
-/* APPLE LOCAL end default to ppro */
-
 #define TARGET_VERSION fprintf (stderr, " (i686 Darwin)");
+
+/* APPLE LOCAL begin mainline 2005-04-11 4010614 */
+#undef TARGET_FPMATH_DEFAULT
+#define TARGET_FPMATH_DEFAULT (TARGET_SSE ? FPMATH_SSE : FPMATH_387)
+/* APPLE LOCAL end mainline 2005-04-11 4010614 */
 
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
@@ -58,15 +57,15 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
 
 #undef ASM_SPEC
-/* APPLE LOCAL Mach-O wants only i386 here */
+/* APPLE LOCAL mainline 2005-04-11 */
 #define ASM_SPEC "-arch i386 -force_cpusubtype_ALL"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\
-  /* APPLE LOCAL begin Mach-O wants only i386 here */		\
+  /* APPLE LOCAL begin mainline 2005-04-11 */			\
   { "darwin_arch", "i386" },					\
   { "darwin_subarch", "i386" },
-  /* APPLE LOCAL end Mach-O wants only i386 here */
+  /* APPLE LOCAL end mainline 2005-04-11 */
    
 
 /* Use the following macro for any Darwin/x86-specific command-line option
@@ -202,32 +201,22 @@ extern void darwin_x86_file_end (void);
 #define BASIC_STACK_BOUNDARY (128)
 /* APPLE LOCAL end SSE stack alignment */
 
-/* APPLE LOCAL begin default to pentium-m */
-#undef SUBTARGET_OVERRIDE_OPTIONS
-/* Force Darwin/x86 to default as "-march=pentium-m -mtune=pentium-m -mfpmath=sse".  */
-#define SUBTARGET_OVERRIDE_OPTIONS \
-  do { \
-    if (!ix86_arch_string && !ix86_tune_string && !ix86_fpmath_string && TARGET_80387) \
-      { target_flags |= MASK_SSE2; ix86_fpmath_string = "sse"; } \
-    if (!ix86_arch_string) ix86_arch_string = "pentium-m"; \
-    if (!ix86_tune_string) ix86_tune_string = "pentium-m"; \
-									\
-    /* APPLE LOCAL begin fix-and-continue x86 */			\
-    /* Handle -mfix-and-continue.  */					\
-    if (darwin_fix_and_continue_switch)					\
-      {									\
-	const char *base = darwin_fix_and_continue_switch;		\
-	while (base[-1] != 'm') base--;					\
-									\
-	if (*darwin_fix_and_continue_switch != '\0')			\
-	  error ("invalid option %qs", base);				\
-	darwin_fix_and_continue = (base[0] != 'n');			\
-      }									\
-    /* APPLE LOCAL end fix-and-continue x86 */				\
-  } while (0)
-/* APPLE LOCAL end default to pentium-m */
-
 /* APPLE LOCAL begin fix-and-continue x86 */
+#undef SUBTARGET_OVERRIDE_OPTIONS				\
+#define SUBTARGET_OVERRIDE_OPTIONS				\
+  do {								\
+    /* Handle -mfix-and-continue.  */				\
+    if (darwin_fix_and_continue_switch)				\
+      {								\
+	const char *base = darwin_fix_and_continue_switch;	\
+	while (base[-1] != 'm') base--;				\
+								\
+	if (*darwin_fix_and_continue_switch != '\0')		\
+	  error ("invalid option %qs", base);			\
+	darwin_fix_and_continue = (base[0] != 'n');		\
+      }								\
+  } while (0)
+
 /* True, iff we're generating fast turn around debugging code.  When
    true, we arrange for function prologues to start with 6 nops so
    that gdb may insert code to redirect them, and for data to be
