@@ -1,5 +1,9 @@
 2005-04-12  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.h (DFP_ADD): Correct typo for 128-bit case.
+
+2005-04-12  Ben Elliston  <bje@au.ibm.com>
+
 	* mklibgcc.in: Fix #! sequence on line 1.
 
 2005-04-11  Ben Elliston  <bje@au.ibm.com>

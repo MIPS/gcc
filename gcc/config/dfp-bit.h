@@ -78,7 +78,7 @@
 #define DFP_LE		__ledd2
 #define DFP_GE		__gedd2
 #elif WIDTH == 128
-#define DFP_ADD		__atdtd3
+#define DFP_ADD		__addtd3
 #define DFP_SUB		__subtd3
 #define DFP_MULTIPLY	__multd3
 #define DFP_DIVIDE	__divtd3
