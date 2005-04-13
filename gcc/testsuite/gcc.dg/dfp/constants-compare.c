@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
 /* Compare floating point constants against each other. */

@@ -562,6 +562,25 @@ c_common_type (tree t1, tree t2)
   if (code2 == REAL_TYPE && code1 != REAL_TYPE)
     return t2;
 
+  /* If both are real and either are decimal floating piont types, use
+     the decimal floating point type with the greater precision. */
+
+  if (code1 == REAL_TYPE && code2 == REAL_TYPE)
+    {
+      if (t1 == dfloat128_type_node)
+	return t1;
+      else if (t2 == dfloat128_type_node)
+	return t2;
+      else if (t1 == dfloat64_type_node)
+	return t1;
+      else if (t2 == dfloat64_type_node)
+	return t2;
+      else if (t1 == dfloat32_type_node)
+	return t1;
+      else if (t2 == dfloat32_type_node)
+	return t2;
+    }
+
   /* Both real or both integers; use the one with greater precision.  */
 
   if (TYPE_PRECISION (t1) > TYPE_PRECISION (t2))

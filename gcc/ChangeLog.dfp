@@ -1,4 +1,19 @@
-2005-04-12  Ben Elliston  <bje@dingo>
+2005-04-13  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-typeck.c (c_common_type): Usual arithmetic conversions.
+	* convert.c (convert_to_real): Add consideration for decimal float
+	types to a fold optimization here.
+	* dfp.c (decimal_from_string): Fix memset. Formatting.
+	(decimal_to_binary, decimal_round_for_format,
+	decimal_real_convert): New functions.
+	* dfp.h (decimal_round_for_format, decimal_real_convert): Prototype.
+	* real.c (normalize): Short circuit for dfp types.
+	(round_for_format): Call dfp type support functions.
+	(real_convert): Call dfp type support functions.
+	* config/predicates.md (easy_fp_constant): Decimal float types are
+	easy (for now).
+
+2005-04-12  Ben Elliston  <bje@au.ibm.com>
 
 	* mklibgcc.in: Only build decimal32.c, decimal64.c or decimal128.c
 	if $D32PBIT, $D64PBIT or $D128PBIT are defined, to limit libgcc

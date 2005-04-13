@@ -45,7 +45,7 @@ static decContext set;
 static void
 decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
 {
-  memset (r, 0, sizeof(r));
+  memset (r, 0, sizeof(REAL_VALUE_TYPE));
 
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
@@ -193,11 +193,29 @@ decode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Helper function to convert from a binary real internal representation. */
 static void
+decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
+		   enum machine_mode mode)
+{
+  decimal128 *d128;
+  d128 = (decimal128 *)from->sig;
+
+  if (from->sign != decimal128Sign(d128))
+    d128->bytes[0] ^= 1 << 7;  /* Flip high bit */
+
+  decimal128ToString(d128, string);
+  /* We convert to string then convert to decNumber then to decimal128. */
+  real_from_string3 (to, string, mode);
+}
+
+
+/* Helper function to convert from a binary real internal representation. */
+static void
 decimal_from_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from)
 {
   decimal128 *d128;
   d128 = (decimal128 *)to->sig;
 
+  memset (to, 0, sizeof(REAL_VALUE_TYPE));
   /* We convert to string then convert to decNumber then to decimal128. */
   real_to_decimal (string, from, sizeof(string), 0, 1);
 
@@ -223,12 +241,12 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
   REAL_VALUE_TYPE b1;
 
   /* If either op is not a decimal, create a temporary decimal versions. */
-  if (!a->decimal) 
-    {      
+  if (!a->decimal)
+    {
       decimal_from_binary (&a1, a);
       a = &a1;
     }
-  if (!b->decimal) 
+  if (!b->decimal)
     {
       decimal_from_binary (&b1, b);
       b = &b1;
@@ -259,4 +277,49 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
     return -1;
   else 
     return 1;
+}
+
+void
+decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
+{
+  decimal128ToNumber((decimal128 *)r->sig, &dn);
+
+  if (fmt == &decimal_quad_format)
+    {
+      /* The internal format is already in this format. */
+      return;
+    }
+  else if (fmt == &decimal_single_format)
+    {
+      decimal32 d32;
+      decimal32FromNumber (&d32, &dn, &set);
+      decimal32ToNumber (&d32, &dn);
+    }
+  else if (fmt == &decimal_double_format)
+    {
+      decimal64 d64;
+      decimal64FromNumber (&d64, &dn, &set);
+      decimal64ToNumber (&d64, &dn);
+    }
+  else
+    gcc_unreachable();
+
+  decimal128FromNumber((decimal128 *)r->sig, &dn, &set);
+  return;
+}
+
+
+void
+decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode, 
+		      const REAL_VALUE_TYPE *a)
+{
+  const struct real_format *fmt = REAL_MODE_FORMAT (mode);
+
+  if (a->decimal && fmt->b == 10)
+    return;
+  if (a->decimal)
+      decimal_to_binary (r, a, mode);
+  else
+      decimal_from_binary (r, a);
+  
 }

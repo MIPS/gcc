@@ -481,6 +481,9 @@ normalize (REAL_VALUE_TYPE *r)
   int shift = 0, exp;
   int i, j;
 
+  if (r->decimal)
+    return;
+
   /* Find the first word that is nonzero.  */
   for (i = SIGSZ - 1; i >= 0; i--)
     if (r->sig[i] == 0)
@@ -644,6 +647,7 @@ do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   /* Zero out the remaining fields.  */
   r->signalling = 0;
   r->canonical = 0;
+  r->decimal = 0;
 
   /* Re-normalize the result.  */
   normalize (r);
@@ -2250,12 +2254,20 @@ round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
   bool guard, lsb;
   int emin2m1, emax2;
 
-  if (fmt->b == 10) 
+  if (r->decimal)
     {
-    /* FIXME. decimal_round_for_format()  */
-      return;
+      if (fmt->b == 10)
+	{
+	  decimal_round_for_format (fmt, r);
+	  return;
+	}
+      /* FIXME. We can come here via fp_easy_constant
+	 (e.g. -O0 on '_Decimal32 x = 1.0 + 2.0dd'), but have not
+	 investigated whether this convert needs to be here, or
+	 something else is missing. */
+      decimal_real_convert(r, DFmode, r);
     }
-  
+
   p2 = fmt->p * fmt->log2_b;
   emin2m1 = (fmt->emin - 1) * fmt->log2_b;
   emax2 = fmt->emax * fmt->log2_b;
@@ -2389,11 +2401,11 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
   fmt = REAL_MODE_FORMAT (mode);
   gcc_assert (fmt);
 
-  /* FIXME: Short-circuit for now, but need to do something real here. */
-  if (a->decimal || fmt->b == 10)
-    return;
-
   *r = *a;
+
+  if (a->decimal || fmt->b == 10)
+    decimal_real_convert (r, mode, a);
+
   round_for_format (fmt, r);
 
   /* round_for_format de-normalizes denormals.  Undo just that part.  */

@@ -36,7 +36,10 @@ void decode_decimal128 (const struct real_format *,
 void decimal_real_from_string (REAL_VALUE_TYPE *, const char *,
 			       enum machine_mode );
 int decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
- 
+void decimal_round_for_format (const struct real_format *, REAL_VALUE_TYPE *);
+void decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode, 
+			   const REAL_VALUE_TYPE *a);
+
 #define ENCODE_DECIMAL_SINGLE encode_decimal32
 #define DECODE_DECIMAL_SINGLE decode_decimal32
 #define ENCODE_DECIMAL_DOUBLE encode_decimal64

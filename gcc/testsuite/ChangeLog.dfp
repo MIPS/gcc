@@ -1,3 +1,8 @@
+2005-04-13  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/conversions-1.c: New test.
+	* gcc.dg/dfp/constants-compare.c: Make dg-do run.
+
 2005-04-09  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/wtr-conversion-1 (testfunc1): Change tests which
