@@ -1,3 +1,9 @@
+2005-04-13  Sebastian Pop  <pop@cri.ensmp.fr>
+	    Daniel Berlin  <dberlin@dberlin.org>
+
+	* omega.c, omega.h: New files.
+	* Makefile.in (omega.o): New rule.
+
 2005-04-12  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (compute_all_dependences): Add new 
