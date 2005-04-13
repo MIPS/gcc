@@ -1951,7 +1951,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (trueop0 == trueop1
 	      && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
-	    return const0_rtx;
+	     /* APPLE LOCAL mainline 2005-04-13 */
+	    return CONST0_RTX (mode);
 
 	  /* Canonicalize XOR of the most significant bit to PLUS.  */
 	  if ((GET_CODE (op1) == CONST_INT

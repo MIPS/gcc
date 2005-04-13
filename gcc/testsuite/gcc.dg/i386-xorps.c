@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline 2005-04-13 */
 /* { dg-do compile { target i?86-*-* } } */
 /* { dg-options "-Os -msse2" } */
 
@@ -29,3 +30,4 @@ __m128 POW_FUNC (__m128 x, __m128 y)
 
     return xmm0;
 }
+/* APPLE LOCAL end mainline 2005-04-13 */
