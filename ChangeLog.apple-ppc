@@ -1,3 +1,8 @@
+2005-04-13  Geoff Keating  <dalej@apple.com>
+
+	Radar 4071716
+	* build_gcc (I386_CPU):  Make prescott the default.
+
 2005-04-11  Geoffrey Keating  <geoffk@apple.com>
 
 	* build_gcc: Use I386_CPU each time something is configured 
