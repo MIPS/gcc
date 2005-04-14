@@ -1,3 +1,8 @@
+2005-04-14  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/noversion/vect-95.c: Move to gcc.dg/vect/.
+	* gcc.dg/vect/noversion/vect-92.c: Pass N-1 rather than N to main3.
+
 2005-04-12  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* gfortran.dg/vect/vect-2.c: xfail for vect_no_align.
