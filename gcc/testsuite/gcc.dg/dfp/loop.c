@@ -9,7 +9,7 @@ int main()
   int i;
   _Decimal32 d;
 
-  for (d = 1.1, i=0; d <= 1.5; d+= 0.1, i++)
+  for (d = 1.1df, i=0; d <= 1.5df; d+= 0.1df, i++)
     ;
 
   if (i != 5)

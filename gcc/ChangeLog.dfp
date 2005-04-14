@@ -1,3 +1,13 @@
+2005-04-14  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* dfp.c (decimal_real_convert, decimal_round_for_format): Add
+	comments. 
+	(decimal_real_to_decimal): New function.
+	* dfp.h (decimal_real_to_decimal): Prototype.
+	* real.c (real_to_decimal): Handle dfp types by calling helper.
+	(real_to_hexadecimal): Handle dfp types by not printing in this
+	format.
+
 2005-04-13  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-typeck.c (c_common_type): Usual arithmetic conversions.

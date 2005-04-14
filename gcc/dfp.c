@@ -279,6 +279,7 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
     return 1;
 }
 
+/* Helper to round_for_format, handling decimal float types. */
 void
 decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
 {
@@ -308,7 +309,8 @@ decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
   return;
 }
 
-
+/* Helper to real_convert, handling conversions between binary and decimal
+   types. */
 void
 decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode, 
 		      const REAL_VALUE_TYPE *a)
@@ -322,4 +324,22 @@ decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
   else
       decimal_from_binary (r, a);
   
+}
+
+/* Helper to print out internal representation of decimal floating types. */
+/* Render R as a decimal floating point constant.  Emit DIGITS significant
+   digits in the result, bounded by BUF_SIZE.  If DIGITS is 0, choose the
+   maximum for the representation.  If CROP_TRAILING_ZEROS, strip trailing
+   zeros.  Currently, not honoring DIGITS or CROP_TRAILING_ZEROS. */
+void decimal_real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig,
+			      size_t buf_size,
+			      size_t digits ATTRIBUTE_UNUSED,
+			      int crop_trailing_zeros ATTRIBUTE_UNUSED)
+{
+  decimal128 *d128 = (decimal128*)r_orig->sig;
+
+  /* decimal128ToString requires space for at least 24 characters; Require 
+     two more for suffix. */
+  gcc_assert(buf_size >= 24);
+  decimal128ToString (d128, str);
 }

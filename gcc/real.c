@@ -1456,6 +1456,12 @@ real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig, size_t buf_size,
       gcc_unreachable ();
     }
 
+  if (r.decimal)
+    {
+      decimal_real_to_decimal (str, &r, buf_size, digits, crop_trailing_zeros);
+      return;
+    }
+
   /* Bound the number of digits printed by the size of the representation.  */
   max_digits = SIGNIFICAND_BITS * M_LOG10_2;
   if (digits == 0 || digits > max_digits)
@@ -1720,6 +1726,13 @@ real_to_hexadecimal (char *str, const REAL_VALUE_TYPE *r, size_t buf_size,
       return;
     default:
       gcc_unreachable ();
+    }
+
+  if (r->decimal)
+    {
+      /* Hexadecimal format for decimal floats is not interesting. */
+      strcpy (str, "N/A");
+      return;
     }
 
   if (digits == 0)

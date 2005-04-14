@@ -1,3 +1,7 @@
+2005-04-14  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/loop.c: Use decimal float suffixes.
+
 2005-04-13  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/conversions-1.c: New test.
