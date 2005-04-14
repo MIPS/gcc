@@ -2655,16 +2655,26 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, struct loops *loops)
    all of data references (array element references) whose alignment must be
    checked at runtime.
 
+   Input:
+   LOOP_VINFO - two fields of the loop information are used.
+                LOOP_VINFO_PTR_MASK is the mask used to check the alignment.
+                LOOP_VINFO_MAY_MISALIGN_STMTS contains the refs to be checked.
+
+   Output:
+   COND_EXPR_STMT_LIST - statements needed to construct the conditional
+                         expression.
+   The returned value is the conditional expression to be used in the if
+   statement that controls which version of the loop gets executed at runtime.
+
    The algorithm makes two assumptions:
      1) The number of bytes "n" in a vector is a power of 2.
      2) An address "a" is aligned if a%n is zero and that this
         test can be done as a&(n-1) == 0.  For example, for 16
         byte vectors the test is a&0xf == 0.  */
 
-static void
+static tree
 vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
-                                   tree cond_expr,
-                                   basic_block condition_bb)
+                                   tree *cond_expr_stmt_list)
 {
   varray_type loop_may_misalign_stmts = 
 			LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo);
@@ -2674,7 +2684,6 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   tree psize;
   tree int_ptrsize_type;
   char tmp_name[20];
-  block_stmt_iterator cond_exp_bsi = bsi_last (condition_bb);
   tree or_tmp_name = NULL_TREE;
   tree and_tmp, and_tmp_name, and_stmt;
 
@@ -2709,7 +2718,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 							NULL_TREE);
 
       if (new_stmt_list != NULL_TREE)
-        bsi_insert_before (&cond_exp_bsi, new_stmt_list, BSI_SAME_STMT);
+        append_to_statement_list_force (new_stmt_list, cond_expr_stmt_list);
 
       sprintf (tmp_name, "%s%d", "addr2int", i);
       addr_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
@@ -2719,7 +2728,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       addr_stmt = build2 (MODIFY_EXPR, void_type_node,
                           addr_tmp_name, addr_stmt);
       SSA_NAME_DEF_STMT (addr_tmp_name) = addr_stmt;
-      bsi_insert_before (&cond_exp_bsi, addr_stmt, BSI_SAME_STMT);
+      append_to_statement_list_force (addr_stmt, cond_expr_stmt_list);
 
       /* The addresses are OR together.  */
 
@@ -2735,7 +2744,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 	                            or_tmp_name,
                                     addr_tmp_name));
           SSA_NAME_DEF_STMT (new_or_tmp_name) = or_stmt;
-          bsi_insert_before (&cond_exp_bsi, or_stmt, BSI_SAME_STMT);
+          append_to_statement_list_force (or_stmt, cond_expr_stmt_list);
           or_tmp_name = new_or_tmp_name;
         }
       else
@@ -2755,11 +2764,12 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
                      build2 (BIT_AND_EXPR, int_ptrsize_type,
                              or_tmp_name, mask_cst));
   SSA_NAME_DEF_STMT (and_tmp_name) = and_stmt;
-  bsi_insert_before (&cond_exp_bsi, and_stmt, BSI_SAME_STMT);
+  append_to_statement_list_force (and_stmt, cond_expr_stmt_list);
 
   /* Make and_tmp the left operand of the conditional test against zero.
      if and_tmp has a non-zero bit then some address is unaligned.  */
-  TREE_OPERAND (cond_expr, 0) = and_tmp_name;
+  return build2 (EQ_EXPR, boolean_type_node,
+                 and_tmp_name, integer_zero_node);
 }
 
 
@@ -2794,14 +2804,16 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   if (VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)))
     {
       struct loop *nloop;
-      basic_block condition_bb;
       tree cond_expr;
+      tree cond_expr_stmt_list = NULL_TREE;
+      basic_block condition_bb;
+      block_stmt_iterator cond_exp_bsi;
 
-      /* vect_create_cond_for_align_checks will fill in the left opnd later. */
-      cond_expr = build2 (EQ_EXPR, boolean_type_node,
-                          NULL_TREE, integer_zero_node);
+      cond_expr = vect_create_cond_for_align_checks (loop_vinfo,
+                                                     &cond_expr_stmt_list);
       nloop = loop_version (loops, loop, cond_expr, &condition_bb);
-      vect_create_cond_for_align_checks (loop_vinfo, cond_expr, condition_bb);
+      cond_exp_bsi = bsi_last (condition_bb);
+      bsi_insert_before (&cond_exp_bsi, cond_expr_stmt_list, BSI_SAME_STMT);
     }
 
   
