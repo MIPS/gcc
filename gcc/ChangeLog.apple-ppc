@@ -1,3 +1,12 @@
+2005-04-15  Caroline Tice  <ctice@apple.com>
+
+	Radar 4078608
+	* config/darwin.c (machopic_select_section): Change name for function 
+	to switch to cold text section to unlikely_text_section 
+	(the correct function name, in varasm.c).
+        * config/darwin.h (SECTION_FUNCTION): Remove code that created a second
+        (incorrect) function for switching to cold text section.
+
 2005-04-14  Devang Patel  <dpatel@apple.com>
 
 	Radar 4080840
