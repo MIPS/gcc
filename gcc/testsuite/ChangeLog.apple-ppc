@@ -1,5 +1,9 @@
 2005-04-12  Devang Patel  <dpatel@apple.com>
 
+	* gcc.dg/vect/vect-98.c: Fix xfail typo.
+
+2005-04-12  Devang Patel  <dpatel@apple.com>
+
 	Radar 4084941
 	* gcc.dg/vect/vect-98.c: xfail.
 
