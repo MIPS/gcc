@@ -131,10 +131,6 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
 ])
 
 
-m4_include([linkage.m4])
-m4_include([../config/no-executables.m4])
-
-
 dnl
 dnl Tests for newer compiler features, or features that are present in newer
 dnl compiler versions but not older compiler versions still in use, should
@@ -379,7 +375,9 @@ AC_DEFUN([GLIBCXX_CHECK_SETRLIMIT], [
   AC_MSG_CHECKING([for testsuite resource limits support])
   if test $setrlimit_have_headers = yes && test $ac_setrlimit = yes; then
     ac_res_limits=yes
-    AC_DEFINE(_GLIBCXX_RES_LIMITS)
+    AC_DEFINE(_GLIBCXX_RES_LIMITS, 1,
+              [Define if using setrlimit to set resource limits during
+              "make check"])
   else
     ac_res_limits=no
   fi
@@ -411,9 +409,11 @@ AC_DEFUN([GLIBCXX_CHECK_S_ISREG_OR_S_IFREG], [
       [glibcxx_cv_S_IFREG=no])
   ])
   if test $glibcxx_cv_S_ISREG = yes; then
-    AC_DEFINE(HAVE_S_ISREG)
+    AC_DEFINE(HAVE_S_ISREG, 1, 
+              [Define if S_IFREG is available in <sys/stat.h>.])
   elif test $glibcxx_cv_S_IFREG = yes; then
-    AC_DEFINE(HAVE_S_IFREG)
+    AC_DEFINE(HAVE_S_IFREG, 1,
+              [Define if S_IFREG is available in <sys/stat.h>.])
   fi
 ])
 
@@ -432,7 +432,7 @@ AC_DEFUN([GLIBCXX_CHECK_POLL], [
       [glibcxx_cv_POLL=no])
   ])
   if test $glibcxx_cv_POLL = yes; then
-    AC_DEFINE(HAVE_POLL)
+    AC_DEFINE(HAVE_POLL, 1, [Define if poll is available in <poll.h>.])
   fi
 ])
 
@@ -450,7 +450,7 @@ AC_DEFUN([GLIBCXX_CHECK_WRITEV], [
       [glibcxx_cv_WRITEV=no])
   ])
   if test $glibcxx_cv_WRITEV = yes; then
-    AC_DEFINE(HAVE_WRITEV)
+    AC_DEFINE(HAVE_WRITEV, 1, [Define if writev is available in <sys/uio.h>.])
   fi
 ])
 
@@ -467,7 +467,7 @@ AC_DEFUN([GLIBCXX_CHECK_INT64_T], [
       [glibcxx_cv_INT64_T=no])
   ])
   if test $glibcxx_cv_INT64_T = yes; then
-    AC_DEFINE(HAVE_INT64_T)
+    AC_DEFINE(HAVE_INT64_T, 1, [Define if int64_t is available in <stdint.h>.])
   fi
 ])
 
@@ -497,7 +497,7 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
       [glibcxx_cv_LFS=no])
   ])
   if test $glibcxx_cv_LFS = yes; then
-    AC_DEFINE(_GLIBCXX_USE_LFS)
+    AC_DEFINE(_GLIBCXX_USE_LFS, 1, [Define if LFS support is available.])
   fi
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
@@ -518,7 +518,8 @@ dnl
 AC_DEFUN([GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING], [
   GLIBCXX_ENABLE(fully-dynamic-string,$1,,[do not put empty strings in per-process static memory])
   if test $enable_fully_dynamic_string = yes; then
-    AC_DEFINE(_GLIBCXX_FULLY_DYNAMIC_STRING)
+    AC_DEFINE(_GLIBCXX_FULLY_DYNAMIC_STRING, 1,
+              [Define if a fully dynamic basic_string is wanted.])
   fi
 ])
 
@@ -764,7 +765,7 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   have_mbstate_t=yes, have_mbstate_t=no)
   AC_MSG_RESULT($have_mbstate_t)
   if test x"$have_mbstate_t" = xyes; then
-    AC_DEFINE(HAVE_MBSTATE_T)
+    AC_DEFINE(HAVE_MBSTATE_T,1,[Define if mbstate_t exists in wchar.h.])
   fi
 
   if test x"$enable_c99" = x"yes"; then
@@ -793,7 +794,9 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   ])
   AC_MSG_RESULT($ac_c99_math)
   if test x"$ac_c99_math" = x"yes"; then
-    AC_DEFINE(_GLIBCXX_USE_C99_MATH)
+    AC_DEFINE(_GLIBCXX_USE_C99_MATH, 1,
+              [Define if C99 functions or macros in <math.h> should be imported
+              in <cmath> in namespace std.])
   fi
 
   # Check for the existence of <complex.h> complex functions.
@@ -850,7 +853,10 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   CXXFLAGS="$save_CXXFLAGS"
   AC_MSG_RESULT($ac_c99_complex)
   if test x"$ac_c99_complex" = x"yes"; then
-    AC_DEFINE(_GLIBCXX_USE_C99_COMPLEX)
+    AC_DEFINE(_GLIBCXX_USE_C99_COMPLEX, 1,
+              [Define if C99 functions in <complex.h> should be used in
+              <complex>. Using compiler builtins for these functions requires
+              corresponding C99 library functions to be present.])
   fi
 
   # Check for the existence in <stdio.h> of vscanf, et. al.
@@ -996,7 +1002,9 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
      test x"$ac_c99_wchar" = x"no"; then
     enable_c99=no;
   else
-    AC_DEFINE(_GLIBCXX_USE_C99)
+    AC_DEFINE(_GLIBCXX_USE_C99, 1,
+    [Define if C99 functions or macros from <wchar.h>, <math.h>,
+    <complex.h>, <stdio.h>, and <stdlib.h> can be used or exposed.])
   fi
 
   AC_LANG_RESTORE
@@ -1211,7 +1219,8 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
     AC_SEARCH_LIBS(gettext, intl, [], USE_NLS=no)
   fi
   if test $USE_NLS = yes; then
-    AC_DEFINE(_GLIBCXX_USE_NLS)
+    AC_DEFINE(_GLIBCXX_USE_NLS, 1, 
+              [Define if NLS translations are to be used.])
   fi
 
   AC_SUBST(USE_NLS)
@@ -1310,7 +1319,8 @@ dnl
 AC_DEFUN([GLIBCXX_ENABLE_CONCEPT_CHECKS], [
   GLIBCXX_ENABLE(concept-checks,$1,,[use Boost-derived template checks])
   if test $enable_concept_checks = yes; then
-    AC_DEFINE(_GLIBCXX_CONCEPT_CHECKS)
+    AC_DEFINE(_GLIBCXX_CONCEPT_CHECKS, 1,
+              [Define to use concept checking code from the boost libraries.])
   fi
 ])
 
@@ -1493,7 +1503,8 @@ dnl
 AC_DEFUN([GLIBCXX_ENABLE_LONG_LONG], [
   GLIBCXX_ENABLE(long-long,$1,,[enable template specializations for 'long long'])
   if test $enable_long_long = yes; then
-    AC_DEFINE(_GLIBCXX_USE_LONG_LONG)
+    AC_DEFINE(_GLIBCXX_USE_LONG_LONG, 1, 
+              [Define if code specialized for long long should be used.])
   fi
   AC_MSG_CHECKING([for enabled long long specializations])
   AC_MSG_RESULT([$enable_long_long])
@@ -1513,7 +1524,8 @@ dnl
 AC_DEFUN([GLIBCXX_ENABLE_WCHAR_T], [
   GLIBCXX_ENABLE(wchar_t,$1,,[enable template specializations for 'wchar_t'])
   if test x"$ac_c99_wchar" = x"yes" && test x"$enable_wchar_t" = x"yes"; then
-    AC_DEFINE(_GLIBCXX_USE_WCHAR_T)
+    AC_DEFINE(_GLIBCXX_USE_WCHAR_T, 1,
+              [Define if code specialized for wchar_t should be used.])
   fi
   AC_MSG_CHECKING([for enabled wchar_t specializations])
   AC_MSG_RESULT([$enable_wchar_t])
@@ -1747,9 +1759,24 @@ case $enable_symvers in
     ;;
   gnu)
     SYMVER_MAP=config/linker-map.gnu
-    AC_DEFINE(_GLIBCXX_SYMVER)
+    AC_DEFINE(_GLIBCXX_SYMVER, 1, 
+              [Define to use symbol versioning in the shared library.])
     ;;
 esac
+
+AH_VERBATIM([_GLIBCXX_SYMVERextra],
+[/* Define symbol versioning in assember directives. If symbol
+   versioning is being used, and the assembler supports this kind of
+   thing, then use it.
+   
+   NB: _GLIBCXX_AT_AT is a hack to work around quoting issues in m4. */
+
+#if _GLIBCXX_SYMVER
+  #define _GLIBCXX_ASM_SYMVER(cur, old, version) \
+   asm (".symver " #cur "," #old _GLIBCXX_AT_AT #version);
+#else
+  #define _GLIBCXX_ASM_SYMVER(cur, old, version)
+#endif])
 
 AC_SUBST(SYMVER_MAP)
 AC_SUBST(port_specific_symbol_files)
@@ -1782,7 +1809,9 @@ AC_DEFUN([GLIBCXX_ENABLE_THREADS], [
   AC_MSG_RESULT([$target_thread_file])
 
   if test $target_thread_file != single; then
-    AC_DEFINE(HAVE_GTHR_DEFAULT)
+    AC_DEFINE(HAVE_GTHR_DEFAULT, 1,
+              [Define if gthr-default.h exists 
+              (meaning that threading support is enabled).])
   fi
 
   glibcxx_thread_h=gthr-$target_thread_file.h
@@ -1814,20 +1843,11 @@ AC_DEFUN([AC_LC_MESSAGES], [
       [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],
        ac_cv_val_LC_MESSAGES=yes, ac_cv_val_LC_MESSAGES=no)])
     if test $ac_cv_val_LC_MESSAGES = yes; then
-      AC_DEFINE(HAVE_LC_MESSAGES)
+      AC_DEFINE(HAVE_LC_MESSAGES, 1, 
+                [Define if LC_MESSAGES is available in <locale.h>.])
     fi
   ])
 ])
 
-
-sinclude([../libtool.m4])
-dnl The lines below arrange for aclocal not to bring an installed
-dnl libtool.m4 into aclocal.m4, while still arranging for automake to
-dnl add a definition of LIBTOOL to Makefile.in.
-ifelse(,,,[AC_SUBST(LIBTOOL)
-AC_DEFUN([AM_PROG_LIBTOOL])
-AC_DEFUN([AC_LIBTOOL_DLOPEN])
-AC_DEFUN([AC_PROG_LD])
-])
 
 dnl vim:et:ts=2:sw=2

@@ -1,3 +1,107 @@
+2005-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (determine_visibility): Don't use export_class_data.
+	(import_export_decl): Honor TARGET_CXX_CLASS_DATA_ALWAYS_WEAK and
+	TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY. 
+
+2005-04-09  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h (cxx_alignof): Remove.
+
+	* cp-tree.h (DECL_ARRAY_DELETE_OPERATOR_P): Remove.
+
+	* cp-tree.h (EXCEPTION_CLEANUP_NAME, B_SET, B_CLR, B_TST,
+	CONV_STATIC_CAST): Remove.
+
+	* pt.c (UNIFY_ALLOW_MAX_CORRECTION): Remove.
+
+	* cp-tree.h (VF_BINFO_VALUE, VF_BASETYPE_VALUE): Remove.
+
+	* cp-tree.h (cp_deprecated): Remove.
+
+2005-04-08  Ian Lance Taylor  <ian@airs.com>
+
+	* cp-tree.def: Define FOR_STMT, WHILE_STMT, DO_STMT, BREAK_STMT,
+	CONTINUE_STMT, SWITCH_STMT.
+	* cp-tree.h (cp_stmt_codes): Add FOR_STMT, WHILE_STMT, DO_STMT,
+	BREAK_STMT, CONTINUE_STMT, SWITCH_STMT.
+	(WHILE_COND, WHILE_BODY): Define.
+	(DO_COND, DO_BODY): Define.
+	(FOR_INIT_STMT, FOR_COND, FOR_EXPR, FOR_BODY): Define.
+	(SWITCH_STMT_COND, SWITCH_STMT_BODY, SWITCH_STMT_TYPE): Define.
+	* cp-gimplify.c (enum bc_t): Define.
+	(struct cp_gimplify_ctx, ctxp): Define.
+	(push_context, pop_context): New static functions.
+	(begin_bc_block, finish_bc_block): New static functions.
+	(build_bc_goto): New static function.
+	(gimplify_cp_loop, gimplify_for_stmt): New static functions.
+	(gimplify_while_stmt, gimplify_do_stmt): Likewise.
+	(gimplify_switch_stmt): Likewise.
+	(cp_gimplify_expr): Handle FOR_STMT, WHILE_STMT, DO_STMT,
+	SWITCH_STMT, CONTINUE_STMT, BREAK_STMT.
+	(cp_genericize): Call push_context and pop_context.
+	* semantics.c (finish_break_stmt): Just call build_stmt
+	(BREAK_STMT) rather than build_break_stmt.
+	(finish_continue_stmt): Corresponding change.
+	* decl.c (pop_switch): Update call to c_do_switch_warnings for new
+	parameters.
+	* cxx-pretty-print.c (pp_cxx_statement): Handle SWITCH_STMT,
+	WHILE_STMT, DO_STMT, FOR_STMT, BREAK_STMT, CONTINUE_STMT.
+	* dump.c (cp_dump_tree): Likewise.
+
+2005-04-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20905
+	* parser.c (cp_parser_type_specifier_seq): Add is_condition
+	parameter.
+	(cp_parser_new_type_id): Pass it.
+	(cp_parser_condition): Likewise.
+	(cp_parser_conversion_type_id): Likewise.
+	(cp_parser_type_id): Likewise.
+	(cp_parser_type_specifier_seq): In a condition, do not allow
+	invalid type-specifier combinations.
+	(cp_parser_exception_declaration): Adjust call to
+	cp_parser_type_specifier_seq. 
+
+	* cp-tree.def (TINST_LEVEL): Document TINST_IN_SYSTEM_HEADER_P.
+	* cp-tree.h (struct tinst_level): Add in_system_header_p.
+	(TINST_IN_SYSTEM_HEADER_P): New macro.
+	(make_tinst_level): Remove.
+	* pt.c (lookup_template_class): Preserve DECL_IN_SYSTEM_HEADER on
+	the instantiated class.
+	(push_tinst_level): Do not use make_tinst_level.  Set
+	TINST_IN_SYSTEM_HEADER_P.
+	(pop_tinst_level): Likewise.
+	(instantiate_class_template): Set in_system_header.
+	(instantiate_pending_templates): Likewise.
+	* tree.c (make_tinst_level): Remove.
+
+2005-04-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* decl.c (start_decl): Apply pending #pragma weak regardless of
+	scope.
+
+2005-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20212
+	* pt.c (regenerate_decl_from_template): Copy attributes for
+	parameters from the pattern to the instantiation.
+
+2005-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20734
+	* cp-tree.def (OFFSET_REF): Correct comments.
+	* init.c (build_offset_ref): Remove misleading comment.
+	* typeck.c (build_unary_op): Handle pointer-to-member creation
+	here, rather than ...
+	(unary_complex_lvalue): ... here.
+
+2005-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/19312
+	* tree.c (stabilize_init): Don't bother trying to stabilize
+	something with no side-effects.
+
 2005-04-05  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/20763

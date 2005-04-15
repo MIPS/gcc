@@ -7734,6 +7734,7 @@ output_line_info (void)
      a series of state machine operations.  */
   current_file = 1;
   current_line = 1;
+  
   if (last_text_section == in_unlikely_executed_text
       || (last_text_section == in_named
 	  && last_text_section_name == unlikely_text_section_name))

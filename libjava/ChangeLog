@@ -1,3 +1,84 @@
+2005-04-12  Aaron Luchko  <aluchko@redhat.com>
+
+	PR libgcj/20975
+	* scripts/TexinfoDoclet.java: Removed.
+	* Makefile.am (texinfo): Removed.
+	* Makefile.in: Regenerated.
+
+2005-04-11  Michael Koch  <konqueror@gmx.de>
+
+	* javax/imageio/ImageIO.java (ReaderFormatFilter.filter):
+	Fixed wrong casting.
+
+2005-04-06  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/bytearray.java: New file.
+	* testsuite/libjava.lang/bytearray.out: New file.
+	* java/lang/ClassLoader.java (loadClassFromSig): Declare
+	(loadClass): Use it.
+	* java/lang/natClassLoader.cc (loadClassFromSig): New method.
+
+2005-04-06  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* Makefile.am ($(db_name)): Add $(EXEEXT) suffix to
+	gcj-dbtool dependency
+	* Makefile.in: Regenerated
+
+2005-04-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/util/logging/natLogger.cc (getCallerStackFrame): Don't crash on
+	NULL klass and meth values from _Jv_StackTrace::GetCallerInfo().
+
+2005-04-05  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java (Fileset): New class.
+	(Tokenizer): New class.
+	(getFiles): New method.
+	(main): Add "-" argument.
+	Add "-0" argument.
+	Read list of files from stdin when merging map databases.
+	(usage):  Add "-" argument.
+	Add "-0" argument.
+	Minor corrections.
+
+2005-04-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/20750
+	* Makefile.am (AM_CXXFLAGS): Define JAVA_HOME.
+	* Makefile.in: Regenerate.
+	* configure.ac: Add --with-java-home option.
+	* configure: Regenerate.
+	* external/Makefile.in: Regenerate.
+	* external/sax/Makefile.in: Regenerate.
+	* external/w3c_dom/Makefile.in: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* java/lang/natRuntime.cc (insertSystemProperties): Set java.home
+	to JAVA_HOME macro.
+
+2005-04-05  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_GetAnyFieldID): Throw ClassNotFoundException.
+	* java/lang/reflect/natMethod.cc (_Jv_GetTypesFromSignature):
+	Rewrote to use _Jv_FindClassFromSignature.
+	* verify.cc (resolve): throw NoClassDefFoundError.
+	* link.cc (resolve_field): Throw NoClassDefFoundError.
+	(find_field): Likewise.
+	* prims.cc (_Jv_FindClassFromSignature): Removed recursion.
+	Handle error cases.  Added 'endp' argument.
+	* include/jvm.h (_Jv_FindClassFromSignature): Updated prototype.
+
+2005-04-05  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (lib_gnu_java_awt_peer_gtk_la_SOURCES): Removed
+	gtk_awt_peer_sources.
+	(lib_gnu_java_awt_peer_gtk_la_LIBADD): Added gtk-awt-peer.lo.
+	(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES): Likewise.
+	($(gtk_awt_peer_sources:.java=.lo)): Removed.
+	(gtk-awt-peer.lo): New target.
+
 2005-04-04  Steve Pribyl <steve@netfuel.com>
 
 	PR libgcj/20761

@@ -221,6 +221,7 @@ struct tinst_level_s GTY(())
   struct tree_common common;
   tree decl;
   location_t locus;
+  int in_system_header_p;
 };
 typedef struct tinst_level_s * tinst_level_t;
 
@@ -844,8 +845,9 @@ enum cplus_tree_code {
 #define cp_stmt_codes					\
    CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,	\
    EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,	\
-   IF_STMT,		CLEANUP_STMT
-
+   IF_STMT,		CLEANUP_STMT,	FOR_STMT,	\
+   WHILE_STMT,		DO_STMT,	BREAK_STMT,	\
+   CONTINUE_STMT,	SWITCH_STMT
 enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Macros to make error reporting functions' lives easier.  */
@@ -1453,17 +1455,6 @@ struct lang_type GTY(())
 #define CLASSTYPE_TYPEINFO_VAR(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->typeinfo_var)
 
-/* Accessor macros for the vfield slots in structures.  */
-
-/* Get the BINFO that introduced this vtable into the hierarchy (will
-   be NULL for those created at this level, or from a primary
-   hierarchy).  */
-#define VF_BINFO_VALUE(NODE) TREE_PURPOSE (NODE)
-
-/* Get the TYPE that introduced this vtable into the hierarchy (always
-   non-NULL).  */
-#define VF_BASETYPE_VALUE(NODE) TREE_VALUE (NODE)
-
 /* Accessor macros for the BINFO_VIRTUALS list.  */
 
 /* The number of bytes by which to adjust the `this' pointer when
@@ -1792,10 +1783,6 @@ struct lang_decl GTY(())
    control whether or not virtual bases are constructed.  */
 #define DECL_HAS_IN_CHARGE_PARM_P(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.has_in_charge_parm_p)
-
-/* Nonzero if NODE is an overloaded `operator delete[]' function.  */
-#define DECL_ARRAY_DELETE_OPERATOR_P(NODE) \
-  (DECL_OVERLOADED_OPERATOR_P (NODE) == VEC_DELETE_EXPR)
 
 /* Nonzero for _DECL means that this decl appears in (or will appear
    in) as a member in a RECORD_TYPE or UNION_TYPE node.  It is also for
@@ -2947,6 +2934,28 @@ struct lang_decl GTY(())
 #define THEN_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 1)
 #define ELSE_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 2)
 
+/* WHILE_STMT accessors. These give access to the condition of the
+   while statement and the body of the while statement, respectively.  */
+#define WHILE_COND(NODE)        TREE_OPERAND (WHILE_STMT_CHECK (NODE), 0)
+#define WHILE_BODY(NODE)        TREE_OPERAND (WHILE_STMT_CHECK (NODE), 1)
+
+/* DO_STMT accessors. These give access to the condition of the do
+   statement and the body of the do statement, respectively.  */
+#define DO_COND(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 0)
+#define DO_BODY(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 1)
+
+/* FOR_STMT accessors. These give access to the init statement,
+   condition, update expression, and body of the for statement,
+   respectively.  */
+#define FOR_INIT_STMT(NODE)     TREE_OPERAND (FOR_STMT_CHECK (NODE), 0)
+#define FOR_COND(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 1)
+#define FOR_EXPR(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 2)
+#define FOR_BODY(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 3)
+
+#define SWITCH_STMT_COND(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 0)
+#define SWITCH_STMT_BODY(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 1)
+#define SWITCH_STMT_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
+
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
   none_type = 0, /* Not a tag type.  */
@@ -3121,6 +3130,8 @@ typedef enum unification_kind_t {
   (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->decl)
 #define TINST_LOCATION(NODE) \
   (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->locus)
+#define TINST_IN_SYSTEM_HEADER_P(NODE) \
+  (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->in_system_header_p)
 
 /* in class.c */
 
@@ -3223,8 +3234,6 @@ extern GTY(()) varray_type local_classes;
 #define VTABLE_DELTA_NAME	"__delta"
 #define VTABLE_PFN_NAME		"__pfn"
 
-#define EXCEPTION_CLEANUP_NAME	"exception cleanup"
-
 #if !defined(NO_DOLLAR_IN_LABEL) || !defined(NO_DOT_IN_LABEL)
 
 #define VPTR_NAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == JOINER \
@@ -3270,11 +3279,6 @@ extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
 
 enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
-
-/* Some macros for char-based bitfields.  */
-#define B_SET(A,X) ((A)[(X)>>3] |=  (1 << ((X)&7)))
-#define B_CLR(A,X) ((A)[(X)>>3] &= ~(1 << ((X)&7)))
-#define B_TST(A,X) ((A)[(X)>>3] &   (1 << ((X)&7)))
 
 /* These are uses as bits in flags passed to build_new_method_call
    to control its error reporting behavior.
@@ -3343,7 +3347,6 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define CONV_PRIVATE	 16
 /* #define CONV_NONCONVERTING 32 */
 #define CONV_FORCE_TEMP  64
-#define CONV_STATIC_CAST (CONV_IMPLICIT | CONV_STATIC | CONV_FORCE_TEMP)
 #define CONV_OLD_CONVERT (CONV_IMPLICIT | CONV_STATIC | CONV_CONST \
 			  | CONV_REINTERPRET)
 #define CONV_C_CAST      (CONV_IMPLICIT | CONV_STATIC | CONV_CONST \
@@ -3878,14 +3881,6 @@ extern void mark_needed (tree);
 extern bool decl_needed_p (tree);
 extern void note_vague_linkage_fn (tree);
 
-/* XXX Not i18n clean.  */
-#define cp_deprecated(STR)						\
-  do {									\
-    if (warn_deprecated)						\
-      warning ("%s is deprecated, please see the documentation for details", \
-	       (STR));							\
-  } while (0)
-
 /* in error.c */
 extern void init_error				(void);
 extern const char *type_as_string		(tree, int);
@@ -4244,7 +4239,6 @@ extern tree build_dummy_object			(tree);
 extern tree maybe_dummy_object			(tree, tree *);
 extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
-extern tree make_tinst_level                    (tree, location_t);
 extern tree make_ptrmem_cst                     (tree, tree);
 extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);
@@ -4323,7 +4317,6 @@ extern tree check_return_expr                   (tree);
 #define cp_build_binary_op(code, arg1, arg2) \
   build_binary_op(code, arg1, arg2, 1)
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
-#define cxx_alignof(T) cxx_sizeof_or_alignof_type (T, ALIGNOF_EXPR, true)
 extern tree build_ptrmemfunc_access_expr       (tree, tree);
 extern tree build_address                       (tree);
 extern tree build_nop                           (tree, tree);

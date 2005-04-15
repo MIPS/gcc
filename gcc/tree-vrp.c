@@ -287,13 +287,7 @@ compare_values (tree val1, tree val2)
     return 0;
 
   /* Do some limited symbolic comparisons.  */
-  /* FIXME: The second check of POINTER_TYPE_P should not be necessary
-     because we should be comparing values of the same type here, but
-     for whatever reason, the front end throws us a type mismatched
-     comparison.  For now, work around the problem by checking both
-     types.  See PR 21021 and PR 21024.  */
-  if (!POINTER_TYPE_P (TREE_TYPE (val1))
-      && !POINTER_TYPE_P (TREE_TYPE (val2)))
+  if (!POINTER_TYPE_P (TREE_TYPE (val1)))
     {
       /* We can determine some comparisons against +INF and -INF even
 	 if the other value is an expression.  */
@@ -406,13 +400,7 @@ compare_values (tree val1, tree val2)
   if (!is_gimple_min_invariant (val1) || !is_gimple_min_invariant (val2))
     return -2;
 
-  /* FIXME: The second check of POINTER_TYPE_P should not be necessary
-     because we should be comparing values of the same type here, but
-     for whatever reason, the front end throws us a type mismatched
-     comparison.  For now, work around the problem by checking both
-     types.  See PR 21021 and PR 21024.  */
-  if (!POINTER_TYPE_P (TREE_TYPE (val1))
-      && !POINTER_TYPE_P (TREE_TYPE (val2)))
+  if (!POINTER_TYPE_P (TREE_TYPE (val1)))
     return tree_int_cst_compare (val1, val2);
   else
     {
@@ -842,8 +830,6 @@ extract_range_from_expr (value_range *vr, tree expr)
     extract_range_from_unary_expr (vr, expr);
   else if (expr_computes_nonzero (expr))
     set_value_range_to_nonnull (vr, TREE_TYPE (expr));
-  else if (TREE_CODE (expr) == INTEGER_CST)
-    set_value_range (vr, VR_RANGE, expr, expr);
   else
     set_value_range (vr, VR_VARYING, NULL_TREE, NULL_TREE);
 }
@@ -1514,7 +1500,6 @@ maybe_add_assert_expr (basic_block bb)
       edge e;
       edge_iterator ei;
       tree op, cond;
-      basic_block son;
       
       cond = COND_EXPR_COND (last);
 
@@ -1569,17 +1554,6 @@ maybe_add_assert_expr (basic_block bb)
 
       /* Finally, mark all the COND_EXPR operands as found.  */
       SET_BIT (found, SSA_NAME_VERSION (op));
-
-      /* Recurse into the dominator children of BB that are not BB's
-	 immediate successors.  Note that we have already visited BB's
-	 other dominator children above.  */
-      for (son = first_dom_son (CDI_DOMINATORS, bb);
-	   son;
-	   son = next_dom_son (CDI_DOMINATORS, son))
-	{
-	  if (find_edge (bb, son) == NULL)
-	    added |= maybe_add_assert_expr (son);
-	}
     }
   else
     {
@@ -2284,7 +2258,9 @@ struct tree_opt_pass pass_vrp =
 {
   "vrp",				/* name */
   gate_vrp,				/* gate */
+  NULL, NULL,				/* IPA */
   execute_vrp,				/* execute */
+  NULL, NULL,				/* IPA */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

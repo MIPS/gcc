@@ -182,7 +182,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
   get_stmt_operands (stmt);
   v_may_defs = V_MAY_DEF_OPS (ann);
 
-  /* If this statement has no virtual uses, then there is nothing
+  /* If this statement has no virtual defs, then there is nothing
      to do.  */
   if (NUM_V_MAY_DEFS (v_may_defs) == 0)
     return;
@@ -252,6 +252,9 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  && operand_equal_p (TREE_OPERAND (stmt, 0),
 			      TREE_OPERAND (use_stmt, 0), 0))
 	{
+	  tree def;
+	  ssa_op_iter iter;
+
 	  /* Make sure we propagate the ABNORMAL bit setting.  */
 	  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (USE_FROM_PTR (first_use_p)))
 	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (usevar) = 1;
@@ -267,6 +270,12 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
 	  /* Remove the dead store.  */
 	  bsi_remove (&bsi);
+
+	  /* The virtual defs for the dead statement will need to be
+	     updated.  Since these names are going to disappear,
+	     FUD chains for uses downstream need to be updated.  */
+	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+	    mark_sym_for_renaming (SSA_NAME_VAR (def));
 
 	  /* And release any SSA_NAMEs set in this statement back to the
 	     SSA_NAME manager.  */
@@ -348,6 +357,7 @@ tree_ssa_dse (void)
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts = NULL;
   walk_data.after_dom_children_after_stmts = dse_finalize_block;
+  walk_data.interesting_blocks = NULL;
 
   walk_data.block_local_data_size = sizeof (struct dse_block_local_data);
 
@@ -387,12 +397,15 @@ struct tree_opt_pass pass_dse = {
   NULL,				/* next */
   0,				/* static_pass_number */
   TV_TREE_DSE,			/* tv_id */
-  PROP_cfg | PROP_ssa
+  PROP_cfg
+    | PROP_ssa
     | PROP_alias,		/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
-  | TODO_verify_ssa,
-  0					/* letter */
+  TODO_dump_func
+    | TODO_ggc_collect
+    | TODO_update_ssa
+    | TODO_verify_ssa,		/* todo_flags_finish */
+  0				/* letter */
 };

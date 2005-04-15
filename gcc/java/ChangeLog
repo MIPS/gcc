@@ -1,3 +1,20 @@
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
+2005-04-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* java-tree.h: Don't use PARAMS().
+
+2005-04-07  Per Bothner  <per@bothner.com>
+
+	* class.c (push_class): By default, suppress debug output.
+	(finish_class): Enable debug output for classes we're emitting.
+
+2005-04-07  Andrew Haley  <aph@redhat.com>
+
+	* gcj.texi: Correct gcj-dbtool instructions.
+
 2005-04-04  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* gcj.texi: Fix a typo.

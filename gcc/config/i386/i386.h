@@ -104,6 +104,11 @@ extern int target_flags;
 #endif
 #endif
 
+#ifndef TARGET_FPMATH_DEFAULT
+#define TARGET_FPMATH_DEFAULT \
+  (TARGET_64BIT && TARGET_SSE ? FPMATH_SSE : FPMATH_387)
+#endif
+
 /* Masks for the -m switches */
 #define MASK_80387		0x00000001	/* Hardware floating point */
 #define MASK_RTD		0x00000002	/* Use ret that pops args */
@@ -1109,11 +1114,6 @@ do {									\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
-/* Return true for modes passed in MMX registers.  */
-#define MMX_REG_MODE_P(MODE) \
- ((MODE) == V8QImode || (MODE) == V4HImode || (MODE) == V2SImode	\
-   || (MODE) == V2SFmode)
-
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)	\
@@ -1698,7 +1698,7 @@ enum reg_class
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-   ix86_function_value (VALTYPE)
+   ix86_function_value (VALTYPE, FUNC)
 
 #define FUNCTION_VALUE_REGNO_P(N) \
   ix86_function_value_regno_p (N)
@@ -1738,6 +1738,8 @@ typedef struct ix86_args {
   int mmx_nregs;		/* # mmx registers available for passing */
   int mmx_regno;		/* next available mmx register number */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
+  int float_in_sse;		/* true if in 32-bit mode SFmode/DFmode should
+				   be passed in SSE registers.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS

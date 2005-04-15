@@ -172,7 +172,8 @@ static tree arm_get_cookie_size (tree);
 static bool arm_cookie_has_size (void);
 static bool arm_cxx_cdtor_returns_this (void);
 static bool arm_cxx_key_method_may_be_inline (void);
-static bool arm_cxx_export_class_data (void);
+static void arm_cxx_determine_class_data_visibility (tree);
+static bool arm_cxx_class_data_always_comdat (void);
 static void arm_init_libfuncs (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 
@@ -307,8 +308,12 @@ static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 #undef TARGET_CXX_KEY_METHOD_MAY_BE_INLINE
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE arm_cxx_key_method_may_be_inline
 
-#undef TARGET_CXX_EXPORT_CLASS_DATA
-#define TARGET_CXX_EXPORT_CLASS_DATA arm_cxx_export_class_data
+#undef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+#define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY \
+  arm_cxx_determine_class_data_visibility
+
+#undef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT arm_cxx_class_data_always_comdat
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -386,6 +391,8 @@ static int thumb_call_reg_needed;
 #define FL_ARCH6      (1 << 12)       /* Architecture rel 6.  Adds
 					 media instructions.  */
 #define FL_VFPV2      (1 << 13)       /* Vector Floating Point V2.  */
+#define FL_WBUF	      (1 << 14)	      /* Schedule for write buffer ops.
+					 Note: ARM6 & 7 derivatives only.  */
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 
@@ -438,7 +445,7 @@ int arm_arch6 = 0;
 int arm_ld_sched = 0;
 
 /* Nonzero if this chip is a StrongARM.  */
-int arm_is_strong = 0;
+int arm_tune_strongarm = 0;
 
 /* Nonzero if this chip is a Cirrus variant.  */
 int arm_arch_cirrus = 0;
@@ -452,8 +459,9 @@ int arm_arch_xscale = 0;
 /* Nonzero if tuning for XScale  */
 int arm_tune_xscale = 0;
 
-/* Nonzero if this chip is an ARM6 or an ARM7.  */
-int arm_is_6_or_7 = 0;
+/* Nonzero if we want to tune for stores that access the write-buffer. 
+   This typically means an ARM6 or ARM7 with MMU or MPU.  */
+int arm_tune_wbuf = 0;
 
 /* Nonzero if generating Thumb instructions.  */
 int thumb_code = 0;
@@ -980,10 +988,9 @@ arm_override_options (void)
   arm_arch_cirrus = (insn_flags & FL_CIRRUS) != 0;
 
   arm_ld_sched = (tune_flags & FL_LDSCHED) != 0;
-  arm_is_strong = (tune_flags & FL_STRONG) != 0;
+  arm_tune_strongarm = (tune_flags & FL_STRONG) != 0;
   thumb_code = (TARGET_ARM == 0);
-  arm_is_6_or_7 = (((tune_flags & (FL_MODE26 | FL_MODE32))
-		    && !(tune_flags & FL_ARCH4))) != 0;
+  arm_tune_wbuf = (tune_flags & FL_WBUF) != 0;
   arm_tune_xscale = (tune_flags & FL_XSCALE) != 0;
   arm_arch_iwmmxt = (insn_flags & FL_IWMMXT) != 0;
 
@@ -1182,7 +1189,7 @@ arm_override_options (void)
 
       /* StrongARM has early execution of branches, so a sequence
          that is worth skipping is shorter.  */
-      if (arm_is_strong)
+      if (arm_tune_strongarm)
         max_insns_skipped = 3;
     }
 
@@ -1396,7 +1403,7 @@ use_return_insn (int iscond, rtx sibling)
 
   /* On StrongARM, conditional returns are expensive if they aren't
      taken and multiple registers have been stacked.  */
-  if (iscond && arm_is_strong)
+  if (iscond && arm_tune_strongarm)
     {
       /* Conditional return when just the LR is stored is a simple
 	 conditional-load instruction, that's not expensive.  */
@@ -7390,57 +7397,72 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
   minipool_fix_tail = fix;
 }
 
-/* Return the cost of synthesizing the const_double VAL inline.
+/* Return the cost of synthesizing a 64-bit constant VAL inline.
    Returns the number of insns needed, or 99 if we don't know how to
    do it.  */
 int
 arm_const_double_inline_cost (rtx val)
 {
-  long parts[2];
+  rtx lowpart, highpart;
+  enum machine_mode mode;
   
-  if (GET_MODE (val) == DFmode)
-    {
-      REAL_VALUE_TYPE r;
-      if (!TARGET_SOFT_FLOAT)
-	return 99;
-      REAL_VALUE_FROM_CONST_DOUBLE (r, val);
-      REAL_VALUE_TO_TARGET_DOUBLE (r, parts);
-    }
-  else if (GET_MODE (val) != VOIDmode)
-    return 99;
-  else
-    {
-      parts[0] = CONST_DOUBLE_LOW (val);
-      parts[1] = CONST_DOUBLE_HIGH (val);
-    }
+  mode = GET_MODE (val);
 
-  return (arm_gen_constant (SET, SImode, NULL_RTX, parts[0],
+  if (mode == VOIDmode)
+    mode = DImode;
+
+  gcc_assert (GET_MODE_SIZE (mode) == 8);
+  
+  lowpart = gen_lowpart (SImode, val);
+  highpart = gen_highpart_mode (SImode, mode, val);
+  
+  gcc_assert (GET_CODE (lowpart) == CONST_INT);
+  gcc_assert (GET_CODE (highpart) == CONST_INT);
+
+  return (arm_gen_constant (SET, SImode, NULL_RTX, INTVAL (lowpart),
 			    NULL_RTX, NULL_RTX, 0, 0)
-	  + arm_gen_constant (SET, SImode, NULL_RTX, parts[1],
+	  + arm_gen_constant (SET, SImode, NULL_RTX, INTVAL (highpart),
 			      NULL_RTX, NULL_RTX, 0, 0));
 }
 
-/* Determine if a CONST_DOUBLE should be pushed to the minipool */
-static bool
-const_double_needs_minipool (rtx val)
+/* Return true if it is worthwhile to split a 64-bit constant into two
+   32-bit operations.  This is the case if optimizing for size, or
+   if we have load delay slots, or if one 32-bit part can be done with
+   a single data operation.  */
+bool
+arm_const_double_by_parts (rtx val)
 {
-  /* thumb only knows to load a CONST_DOUBLE from memory at the moment */
-  if (TARGET_THUMB)
+  enum machine_mode mode = GET_MODE (val);
+  rtx part;
+
+  if (optimize_size || arm_ld_sched)
     return true;
 
-  /* Don't push anything to the minipool if a CONST_DOUBLE can be built with
-     a few ALU insns directly. On balance, the optimum is likely to be around
-     3 insns, except when there are no load delay slots where it should be 4.
-     When optimizing for size, a limit of 3 allows saving at least one word
-     except for cases where a single minipool entry could be shared more than
-     2 times which is rather unlikely to outweight the overall savings. */
-  return (arm_const_double_inline_cost (val)
-	  > ((optimize_size || arm_ld_sched) ? 3 : 4));
+  if (mode == VOIDmode)
+    mode = DImode;
+  
+  part = gen_highpart_mode (SImode, mode, val);
+  
+  gcc_assert (GET_CODE (part) == CONST_INT);
+  
+  if (const_ok_for_arm (INTVAL (part))
+      || const_ok_for_arm (~INTVAL (part)))
+    return true;
+  
+  part = gen_lowpart (SImode, val);
+  
+  gcc_assert (GET_CODE (part) == CONST_INT);
+  
+  if (const_ok_for_arm (INTVAL (part))
+      || const_ok_for_arm (~INTVAL (part)))
+    return true;
+  
+  return false;
 }
 
 /* Scan INSN and note any of its operands that need fixing.
    If DO_PUSHES is false we do not actually push any of the fixups
-   needed.  The function returns TRUE is any fixups were needed/pushed.
+   needed.  The function returns TRUE if any fixups were needed/pushed.
    This is used by arm_memory_load_p() which needs to know about loads
    of constants that will be converted into minipool loads.  */
 static bool
@@ -7457,7 +7479,8 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
   if (recog_data.n_alternatives == 0)
     return false;
 
-  /* Fill in recog_op_alt with information about the constraints of this insn.  */
+  /* Fill in recog_op_alt with information about the constraints of
+     this insn.  */
   preprocess_constraints ();
 
   for (opno = 0; opno < recog_data.n_operands; opno++)
@@ -7474,9 +7497,7 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
 	{
 	  rtx op = recog_data.operand[opno];
 
-	  if (CONSTANT_P (op)
-	      && (GET_CODE (op) != CONST_DOUBLE
-		  || const_double_needs_minipool (op)))
+	  if (CONSTANT_P (op))
 	    {
 	      if (do_pushes)
 		push_minipool_fix (insn, address, recog_data.operand_loc[opno],
@@ -8072,175 +8093,7 @@ output_move_double (rtx *operands)
 
       otherops[0] = gen_rtx_REG (SImode, 1 + reg0);
 
-      if (code1 == REG)
-	{
-	  int reg1 = REGNO (operands[1]);
-	  if (reg1 == IP_REGNUM)
-	    abort ();
-
-	  /* Ensure the second source is not overwritten.  */
-	  if (reg1 == reg0 + (WORDS_BIG_ENDIAN ? -1 : 1))
-	    output_asm_insn ("mov%?\t%Q0, %Q1\n\tmov%?\t%R0, %R1", operands);
-	  else
-	    output_asm_insn ("mov%?\t%R0, %R1\n\tmov%?\t%Q0, %Q1", operands);
-	}
-      else if (code1 == CONST_VECTOR)
-	{
-	  HOST_WIDE_INT hint = 0;
-
-	  switch (GET_MODE (operands[1]))
-	    {
-	    case V2SImode:
-	      otherops[1] = GEN_INT (INTVAL (CONST_VECTOR_ELT (operands[1], 1)));
-	      operands[1] = GEN_INT (INTVAL (CONST_VECTOR_ELT (operands[1], 0)));
-	      break;
-
-	    case V4HImode:
-	      if (BYTES_BIG_ENDIAN)
-		{
-		  hint = INTVAL (CONST_VECTOR_ELT (operands[1], 2));
-		  hint <<= 16;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 3));
-		}
-	      else
-		{
-		  hint = INTVAL (CONST_VECTOR_ELT (operands[1], 3));
-		  hint <<= 16;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 2));
-		}
-
-	      otherops[1] = GEN_INT (hint);
-	      hint = 0;
-
-	      if (BYTES_BIG_ENDIAN)
-		{
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 0));
-		  hint <<= 16;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 1));
-		}
-	      else
-		{
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 1));
-		  hint <<= 16;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 0));
-		}
-
-	      operands[1] = GEN_INT (hint);
-	      break;
-
-	    case V8QImode:
-	      if (BYTES_BIG_ENDIAN)
-		{
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 4));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 5));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 6));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 7));
-		}
-	      else
-		{
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 7));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 6));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 5));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 4));
-		}
-
-	      otherops[1] = GEN_INT (hint);
-	      hint = 0;
-
-	      if (BYTES_BIG_ENDIAN)
-		{
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 0));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 1));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 2));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 3));
-		}
-	      else
-		{
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 3));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 2));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 1));
-		  hint <<= 8;
-		  hint |= INTVAL (CONST_VECTOR_ELT (operands[1], 0));
-		}
-
-	      operands[1] = GEN_INT (hint);
-	      break;
-
-	    default:
-	      abort ();
-	    }
-	  output_mov_immediate (operands);
-	  output_mov_immediate (otherops);
-	}
-      else if (code1 == CONST_DOUBLE)
-	{
-	  if (GET_MODE (operands[1]) == DFmode)
-	    {
-	      REAL_VALUE_TYPE r;
-	      long l[2];
-
-	      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
-	      REAL_VALUE_TO_TARGET_DOUBLE (r, l);
-	      otherops[1] = GEN_INT (l[1]);
-	      operands[1] = GEN_INT (l[0]);
-	    }
-	  else if (GET_MODE (operands[1]) != VOIDmode)
-	    abort ();
-	  else if (WORDS_BIG_ENDIAN)
-	    {
-	      otherops[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]));
-	      operands[1] = GEN_INT (CONST_DOUBLE_HIGH (operands[1]));
-	    }
-	  else
-	    {
-	      otherops[1] = GEN_INT (CONST_DOUBLE_HIGH (operands[1]));
-	      operands[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]));
-	    }
-
-	  output_mov_immediate (operands);
-	  output_mov_immediate (otherops);
-	}
-      else if (code1 == CONST_INT)
-	{
-#if HOST_BITS_PER_WIDE_INT > 32
-	  /* If HOST_WIDE_INT is more than 32 bits, the intval tells us
-	     what the upper word is.  */
-	  if (WORDS_BIG_ENDIAN)
-	    {
-	      otherops[1] = GEN_INT (ARM_SIGN_EXTEND (INTVAL (operands[1])));
-	      operands[1] = GEN_INT (INTVAL (operands[1]) >> 32);
-	    }
-	  else
-	    {
-	      otherops[1] = GEN_INT (INTVAL (operands[1]) >> 32);
-	      operands[1] = GEN_INT (ARM_SIGN_EXTEND (INTVAL (operands[1])));
-	    }
-#else
-	  /* Sign extend the intval into the high-order word.  */
-	  if (WORDS_BIG_ENDIAN)
-	    {
-	      otherops[1] = operands[1];
-	      operands[1] = (INTVAL (operands[1]) < 0
-			     ? constm1_rtx : const0_rtx);
-	    }
-	  else
-	    otherops[1] = INTVAL (operands[1]) < 0 ? constm1_rtx : const0_rtx;
-#endif
-	  output_mov_immediate (otherops);
-	  output_mov_immediate (operands);
-	}
-      else if (code1 == MEM)
+      if (code1 == MEM)
 	{
 	  switch (GET_CODE (XEXP (operands[1], 0)))
 	    {
@@ -8475,43 +8328,6 @@ output_move_double (rtx *operands)
   else
     /* Constraints should prevent this.  */
     abort ();
-
-  return "";
-}
-
-
-/* Output an arbitrary MOV reg, #n.
-   OPERANDS[0] is a register.  OPERANDS[1] is a const_int.  */
-const char *
-output_mov_immediate (rtx *operands)
-{
-  HOST_WIDE_INT n = INTVAL (operands[1]);
-
-  /* Try to use one MOV.  */
-  if (const_ok_for_arm (n))
-    output_asm_insn ("mov%?\t%0, %1", operands);
-
-  /* Try to use one MVN.  */
-  else if (const_ok_for_arm (~n))
-    {
-      operands[1] = GEN_INT (~n);
-      output_asm_insn ("mvn%?\t%0, %1", operands);
-    }
-  else
-    {
-      int n_ones = 0;
-      int i;
-
-      /* If all else fails, make it out of ORRs or BICs as appropriate.  */
-      for (i = 0; i < 32; i++)
-	if (n & 1 << i)
-	  n_ones++;
-
-      if (n_ones > 16)  /* Shorter to use MVN with BIC in this case.  */
-	output_multi_immediate (operands, "mvn%?\t%0, %1", "bic%?\t%0, %0, %1", 1, ~ n);
-      else
-	output_multi_immediate (operands, "mov%?\t%0, %1", "orr%?\t%0, %0, %1", 1, n);
-    }
 
   return "";
 }
@@ -14507,15 +14323,28 @@ arm_cxx_key_method_may_be_inline (void)
   return !TARGET_AAPCS_BASED;
 }
 
-/* The EABI says that the virtual table, etc., for a class must be
-   exported if it has a key method.  The EABI does not specific the
-   behavior if there is no key method, but there is no harm in
-   exporting the class data in that case too.  */
-
-static bool
-arm_cxx_export_class_data (void)
+static void
+arm_cxx_determine_class_data_visibility (tree decl)
 {
-  return TARGET_AAPCS_BASED;
+  if (!TARGET_AAPCS_BASED)
+    return;
+
+  /* In general, \S 3.2.5.5 of the ARM EABI requires that class data
+     is exported.  However, on systems without dynamic vague linkage,
+     \S 3.2.5.6 says that COMDAT class data has hidden linkage.  */
+  if (!TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P && DECL_COMDAT (decl))
+    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+  else
+    DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+}
+  
+static bool
+arm_cxx_class_data_always_comdat (void)
+{
+  /* \S 3.2.5.4 of the ARM C++ ABI says that class data only have
+     vague linkage if the class has no key function.  */
+  return !TARGET_AAPCS_BASED;
 }
 
 void

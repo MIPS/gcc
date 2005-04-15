@@ -1,3 +1,287 @@
+2005-04-12  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/20917
+	* gcc.dg/20050409-1.c: New test.
+
+2005-04-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/alias-1.c: Fix spelling of optimized.
+
+2005-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_VISIBILITY): New macro.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	(TARGET_CXX): Adjust accordingly.
+	* target.h (struct gcc_target): Remove epxort_class_data.  Add
+	determine_class_data_visibility and class_data_always_comdat.
+	* doc/tm.texi (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Document.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* config/arm/arm.c (arm_cxx_export_class_data): Remove.
+	(arm_cxx_determine_class_data_visibility): New.
+	(arm_cxx_class_data_always_comdat): Likewise.
+	(TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Define.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* config/arm/arm.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P): Define.
+	* config/arm/symbian.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P):
+	Define.
+
+2005-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/wrapper.exp (${tool}_maybe_build_wrapper): Don't unset gluefile.
+
+2005-04-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/i386-darwin-fpmath.c: New.
+
+2004-04-11  Devang Patel  <dpatel@apple.com>
+
+        * lib/target-supports.exp (check_effective_target_vect_condition): New.
+        * gcc.dg/vect/vect-ifcvt-1.c: New test.
+        * gcc.dg/vect/vect-ifcvt-2.c: New test.
+        * gcc.dg/vect/vect-ifcvt-3.c: New test.
+        * gcc.dg/vect/vect-ifcvt-4.c: New test.
+        * gcc.dg/vect/vect-ifcvt-5.c: New test.
+        * gcc.dg/vect/vect-ifcvt-6.c: New test.
+        * gcc.dg/vect/vect-ifcvt-7.c: New test.
+        * gcc.dg/vect/vect-none.c: Now one loop is vectorized.
+	
+2004-04-11  Devang Patel  <dpatel@apple.com>
+
+        * gcc.dg/vect/vect-dv-1.c: New test.
+        * gcc.dg/vect/vect-dv-2.c: New test.
+	
+2005-04-11  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/20933
+	* gcc.dg/tree-ssa/pr20933.c: New test.
+
+2005-04-11  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/fold_nearest.f90: New test.
+
+2005-04-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/alias-1.c: New test.
+
+2005-04-11  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/20920
+	* g++.dg/tree-ssa/pr20920.C: New test.
+
+2005-04-11  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-53.c: Also check (int)ceil* and
+	(long long int)ceil*.
+	
+2005-04-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/warn/Wdtor1.C: Declare template in system header with
+	explicit C++ linkage.
+
+2005-04-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/pr17229.f: Take care of the new obsolescence
+	warning for arithmetic IF statements.
+
+2005-04-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* eor_handling_1.f90: New test case.
+	* eor_handling_2.f90: New test case.
+	* eor_handling_3.f90: New test case.
+	* eor_handling_4.f90: New test case.
+	* eor_handling_5.f90: New test case.
+	* noadv_size.f90: New test case.
+	* pad_no.f90: New test case.
+
+2005-04-10  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20050410-1.c: New test.
+
+2005-04-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/pr20126.c: New.
+
+2005-04-09  Bud Davis  <bdavis@gfortran.org>
+            Steven G. Kargl <kargls@comcast.net>
+
+	* gfortran.dg/PR19872.f: New test.
+
+2005-04-09  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/nint_1.f90:  Fix dg-do directive
+
+2005-04-09  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/nint_1.f90: New test.
+
+2005-04-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.fortran-torture/execute/intrinsic_anyall.f90:
+	Added test for callee-allocated arrays with write statements.
+	* gfortran.fortran-torture/execute/intrinsic_count.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_mmloc.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_mmval.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_product.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_sum.f90: Likewise.
+
+2005-04-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/20163
+	* gfortran.dg/open-options-blanks.f:  New test.
+
+2005-04-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/13257
+	* gfortran.dg/comma_format_extension_[1234].f: New tests.
+
+2005-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/stdarg-1.c: New test.
+	* gcc.dg/tree-ssa/stdarg-2.c: New test.
+	* gcc.dg/tree-ssa/stdarg-3.c: New test.
+	* gcc.dg/tree-ssa/stdarg-4.c: New test.
+	* gcc.dg/tree-ssa/stdarg-5.c: New test.
+	* gcc.c-torture/execute/stdarg-4.c: New test.
+
+	* gcc.dg/vmx/varargs-1.c (f1, f2, f3): Add missing va_end.
+
+	PR target/20795
+	* g++.dg/abi/param2.C: New test.
+
+2005-04-09  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-53.c: Also check lceil* and llceil*.
+
+2005-04-09  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-53.c: New test.
+
+2005-04-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/tree-ssa/pr18178.C: New test.
+	* gcc.c-torture/execute/20030216-1.x: Ignore at -O1.
+	* gcc.c-torture/execute/20041019-1.c: New test.
+	* gcc.dg/tree-ssa/20041008-1.c: New test.
+	* gcc.dg/tree-ssa/ssa-ccp-12.c: New test.
+	* gcc.dg/tree-ssa/20030731-2.c: Update to use -fdump-tree-store_ccp.
+	* gcc.dg/tree-ssa/20030917-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030917-3.c: Likewise.
+	* gcc.dg/tree-ssa/20040721-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-2.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-7.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-ccp-9.c: Likewise.
+
+2005-04-09  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/20466
+	* gcc.c-torture/execute/pr20466-1.c: New test.
+
+2005-04-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20905
+	* g++.dg/parse/cond2.C: New test.
+
+	PR c++/20145
+	* g++.dg/warn/Wdtor1.C: New test.
+
+2005-04-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/17229
+	* gfortran.dg/pr17229.f: New test.
+
+2005-04-07  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/tiny_1.f90: New test.
+	* gfortran.dg/tiny_2.f90: ditto.
+
+2005-04-07  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.dg/eor_1.f90:  Fix dg-do run line
+	* gfortran.dg/open_new.f90:  Fix dg-do run line
+
+2005-04-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	* lib/target-supports.exp (get_compiler_messages): Support
+	optional arguments, the fourth being compiler options.
+	(check_effective_target_fpic): New proc.
+	* gcc.dg/20050321-2.c: Restrict to target fpic.
+
+2005-04-06  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/15443-1.c: New test.
+	* gcc.dg/15443-2.c: Likewise.
+
+2005-04-06  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/pr15754.f90: Change annotations to dg-error.
+
+2005-04-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/weak/weak-12.c, g++.dg/ext/weak2.C: New tests.
+
+2005-04-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/i386-387-7.c, gcc.dg/i386-3dnowA-1.c,
+	gcc.dg/i386-3dnowA-2.c, gcc.dg/pr12092-1.c: Skip x86 tests for
+	-m64.
+	* gcc.dg/loop-3.c, gcc.dg/short-compare-1.c,
+	gcc.dg/short-compare-2.c, gcc.dg/smod-1.c,
+	gcc.dg/torture/badshift.c: Don't give 32-bit options for x86 -m64.
+
+2005-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20212
+	* g++.dg/warn/Wunused-11.C: New test.
+
+2005-04-06  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Disable on bfin*-*.
+
+2005-04-06  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect/vect-5.f90: xfail for lp64. 
+
+2005-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20734
+	* g++.dg/template/ptrmem13.C: New test.
+
+2005-04-05  Per Bothner  <per@bothner.com>
+
+	* lib/gcc.exp: Always add -fno-show-column, for now.
+
+2005-04-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR testsuite/20767
+	* gcc.dg/tree-ssa/ssa-pre-8.c (foo): Use __SIZE_TYPE__ instead
+	of plain old "unsigned int" for the type of "i".  Makes this test
+	64bit clean.
+
+2005-04-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/i386-ssefn-1.c: New test.
+	* gcc.dg/i386-ssefn-2.c: New test.
+	* gcc.dg/i386-ssefn-3.c: New test.
+	* gcc.dg/i386-ssefn-4.c: New test.
+
+2005-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/20076
+	* gcc.dg/builtin-apply4.c: New test.
+
+	PR preprocessor/19475
+	* gcc.dg/cpp/macspace1.c: New test.
+	* gcc.dg/cpp/macspace2.c: New test.
+
+2005-04-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/pr20755.f: Fixed bad format.
+
 2005-04-05  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/20763

@@ -79,7 +79,7 @@ static struct
 } sink_stats;
 
 
-/* Given a PHI, and one of it's arguments (DEF), find the edge for
+/* Given a PHI, and one of its arguments (DEF), find the edge for
    that argument and return it.  If the argument occurs twice in the PHI node,
    we return NULL.  */
 
@@ -240,18 +240,16 @@ nearest_common_dominator_of_uses (tree stmt)
 	  basic_block useblock;
 	  if (TREE_CODE (usestmt) == PHI_NODE)
 	    {
-	      int j;
-	      for (j = 0; j < PHI_NUM_ARGS (usestmt); j++)
+	      int idx = PHI_ARG_INDEX_FROM_USE (use_p);
+
+	      useblock = PHI_ARG_EDGE (usestmt, idx)->src;
+	      /* Short circuit. Nothing dominates the entry block.  */
+	      if (useblock == ENTRY_BLOCK_PTR)
 		{
-		  useblock = PHI_ARG_EDGE (usestmt, j)->src;
-		  /* Short circuit. Nothing dominates the entry block.  */
-		  if (useblock == ENTRY_BLOCK_PTR)
-		    {
-		      BITMAP_FREE (blocks);
-		      return NULL;
-		    }
-		  bitmap_set_bit (blocks, useblock->index);
+		  BITMAP_FREE (blocks);
+		  return NULL;
 		}
+	      bitmap_set_bit (blocks, useblock->index);
 	    }
 	  else
 	    {
@@ -588,6 +586,9 @@ struct tree_opt_pass pass_sink_code =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_rename_vars | TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  TODO_update_ssa 
+    | TODO_dump_func
+    | TODO_ggc_collect
+    | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };

@@ -68,7 +68,7 @@ Boston, MA 02111-1307, USA.  */
    on each of the 5 operand vectors which have been built up.
 
    If the stmt had a previous operand cache, the finalization routines 
-   attempt to match up the new operands with the old ones.  If its a perfect 
+   attempt to match up the new operands with the old ones.  If it's a perfect 
    match, the old vector is simply reused.  If it isn't a perfect match, then 
    a new vector is created and the new operands are placed there.  For 
    virtual operands, if the previous cache had SSA_NAME version of a 
@@ -458,7 +458,8 @@ finalize_ssa_defs (def_optype *old_ops_p, tree stmt)
    changed what this pointer points to via TREE_OPERANDS (exp, 0) = <...>.
    THe contents are different, but the the pointer is still the same.  This
    routine will check to make sure PTR is in the correct list, and if it isn't
-   put it in the correct list.  */
+   put it in the correct list.  We cannot simply check the previous node 
+   because all nodes in the same stmt might have be changed.  */
 
 static inline void
 correct_use_link (ssa_imm_use_t *ptr, tree stmt)
@@ -473,10 +474,28 @@ correct_use_link (ssa_imm_use_t *ptr, tree stmt)
   prev = ptr->prev;
   if (prev)
     {
-      /* find the root, which has a non-NULL stmt, and a NULL use.  */
-      while (prev->stmt == NULL || prev->use != NULL)
-        prev = prev->prev;
-      root = prev->stmt;
+      bool stmt_mod = true;
+      /* Find the first element which isn't a SAFE iterator, is in a different
+	 stmt, and is not a a modified stmt,  That node is in the correct list,
+	 see if we are too.  */
+
+      while (stmt_mod)
+	{
+	  while (prev->stmt == stmt || prev->stmt == NULL)
+	    prev = prev->prev;
+	  if (prev->use == NULL)
+	    stmt_mod = false;
+	  else
+	    if ((stmt_mod = stmt_modified_p (prev->stmt)))
+	      prev = prev->prev;
+	}
+
+      /* Get the ssa_name of the list the node is in.  */
+      if (prev->use == NULL)
+	root = prev->stmt;
+      else
+	root = *(prev->use);
+      /* If it's the right list, simply return.  */
       if (root == *(ptr->use))
 	return;
     }
@@ -995,7 +1014,7 @@ append_v_must_def (tree var)
 
 
 /* Parse STMT looking for operands.  OLD_OPS is the original stmt operand
-   cache for STMT, if it exested before.  When fniished, the various build_*
+   cache for STMT, if it existed before.  When finished, the various build_*
    operand vectors will have potential operands. in them.  */
                                                                                 
 static void
@@ -1440,6 +1459,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case TRUTH_XOR_EXPR:
     case COMPOUND_EXPR:
     case OBJ_TYPE_REF:
+    case ASSERT_EXPR:
     do_binary:
       {
 	tree op0 = TREE_OPERAND (expr, 0);
@@ -1782,7 +1802,7 @@ get_call_expr_operands (tree stmt, tree expr)
       && !bitmap_empty_p (call_clobbered_vars)
       && !(call_flags & ECF_NOVOPS))
     {
-      /* A 'pure' or a 'const' functions never call clobber anything. 
+      /* A 'pure' or a 'const' function never call-clobbers anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
@@ -1845,6 +1865,24 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
   if (TREE_THIS_VOLATILE (sym) && s_ann)
     s_ann->has_volatile_ops = true;
 
+  /* If the variable cannot be modified and this is a V_MAY_DEF change
+     it into a VUSE.  This happens when read-only variables are marked
+     call-clobbered and/or aliased to writeable variables.  So we only
+     check that this only happens on stores, and not writes to GIMPLE
+     registers.
+     
+     FIXME: The C++ FE is emitting assignments in the IL stream for
+     read-only globals.  This is wrong, but for the time being disable
+     this transformation on V_MUST_DEF operands (otherwise, we
+     mis-optimize SPEC2000's eon).  */
+  if ((flags & opf_is_def)
+      && !(flags & opf_kill_def)
+      && unmodifiable_var_p (var))
+    {
+      gcc_assert (!is_real_op);
+      flags &= ~opf_is_def;
+    }
+
   if (is_real_op)
     {
       /* The variable is a GIMPLE register.  Add it to real operands.  */
@@ -1905,17 +1943,35 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
 	  if (flags & opf_is_def)
 	    {
+	      bool added_may_defs_p = false;
+
 	      /* If the variable is also an alias tag, add a virtual
 		 operand for it, otherwise we will miss representing
 		 references to the members of the variable's alias set.
 		 This fixes the bug in gcc.c-torture/execute/20020503-1.c.  */
 	      if (v_ann->is_alias_tag)
-		append_v_may_def (var);
+		{
+		  added_may_defs_p = true;
+		  append_v_may_def (var);
+		}
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_v_may_def (VARRAY_TREE (aliases, i));
+		{
+		  /* While VAR may be modifiable, some of its aliases
+		     may not be.  If that's the case, we don't really
+		     need to add them a V_MAY_DEF for them.  */
+		  tree alias = VARRAY_TREE (aliases, i);
 
-	      if (s_ann)
+		  if (unmodifiable_var_p (alias))
+		    append_vuse (alias);
+		  else
+		    {
+		      append_v_may_def (alias);
+		      added_may_defs_p = true;
+		    }
+		}
+
+	      if (s_ann && added_may_defs_p)
 		s_ann->makes_aliased_stores = 1;
 	    }
 	  else
@@ -2062,21 +2118,25 @@ add_call_clobber_ops (tree stmt, tree callee)
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
     {
       tree var = referenced_var (i);
-
-      bool not_read
-	= not_read_b ? bitmap_bit_p (not_read_b, i) : false;
-      bool not_written
-	= not_written_b ? bitmap_bit_p (not_written_b, i) : false;
-
-      if ((TREE_READONLY (var)
-	   && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
-	  || not_written)
-	{
-          if (!not_read)
-	    add_stmt_operand (&var, &empty_ann, opf_none);
-	}
+      if (unmodifiable_var_p (var))
+	add_stmt_operand (&var, &empty_ann, opf_none);
       else
-	add_stmt_operand (&var, &empty_ann, opf_is_def);
+	{
+	  bool not_read
+	    = not_read_b ? bitmap_bit_p (not_read_b, i) : false;
+	  bool not_written
+	    = not_written_b ? bitmap_bit_p (not_written_b, i) : false;
+
+	  if ((TREE_READONLY (var)
+	       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+	      || not_written)
+	    {
+	      if (!not_read)
+		add_stmt_operand (&var, &empty_ann, opf_none);
+	    }
+	  else
+	    add_stmt_operand (&var, &empty_ann, opf_is_def);
+	}
     }
 
   if ((!not_read_b || bitmap_empty_p (not_read_b))
@@ -2281,12 +2341,12 @@ verify_abort (FILE *f, ssa_imm_use_t *var)
     {
       if (stmt_modified_p(stmt))
 	{
-	  fprintf (f, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
+	  fprintf (f, " STMT MODIFIED. - <%p> ", (void *)stmt);
 	  print_generic_stmt (f, stmt, TDF_SLIM);
 	}
     }
-  fprintf (f, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, 
-	   (unsigned int)var->use);
+  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)var, 
+	   (void *)var->use);
   print_generic_expr (f, USE_FROM_PTR (var), TDF_SLIM);
   fprintf(f, "\n");
 }

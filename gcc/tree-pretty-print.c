@@ -271,7 +271,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     dump_vops (buffer, node, spc, flags);
 
   if (is_stmt && (flags & TDF_STMTADDR))
-    pp_printf (buffer, "<&0x%x> ", (unsigned int)node);
+    pp_printf (buffer, "<&%p> ", (void *)node);
 
   if (dumping_stmts
       && (flags & TDF_LINENO)
@@ -1424,6 +1424,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, SSA_NAME_VAR (node), spc, flags, false);
       pp_string (buffer, "_");
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
+      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (node))
+	pp_string (buffer, "(ab)");
       break;
 
     case WITH_SIZE_EXPR:
@@ -1436,6 +1438,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case VALUE_HANDLE:
       pp_printf (buffer, "VH.%d", VALUE_HANDLE_ID (node));
+      break;
+
+    case ASSERT_EXPR:
+      pp_string (buffer, "ASSERT_EXPR <");
+      dump_generic_node (buffer, ASSERT_EXPR_VAR (node), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, ASSERT_EXPR_COND (node), spc, flags, false);
+      pp_string (buffer, ">");
       break;
 
     case SCEV_KNOWN:

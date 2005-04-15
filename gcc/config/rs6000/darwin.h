@@ -397,6 +397,14 @@ extern const char *darwin_one_byte_bool;
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
 
+/* Just like config/darwin.h's REAL_LIBGCC_SPEC, but use -lgcc_s_ppc64 for
+   -m64.  */
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						\
+   "%{static|static-libgcc:-lgcc -lgcc_eh;				\
+      :%{shared-libgcc|Zdynamiclib:%{m64:-lgcc_s_ppc64;:-lgcc_s} -lgcc;	\
+         :-lgcc -lgcc_eh}}"
+
 #ifdef IN_LIBGCC2
 #include <stdbool.h>
 #endif
@@ -406,9 +414,9 @@ extern const char *darwin_one_byte_bool;
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
 
 /* True, iff we're generating fast turn around debugging code.  When
-   true, we arrange for function prologues to start with 4 nops so
-   that gdb may insert code to redirect them, and for data to accessed
-   indirectly.  The runtime uses this indirection to forward
+   true, we arrange for function prologues to start with 5 nops so
+   that gdb may insert code to redirect them, and for data to be
+   accessed indirectly.  The runtime uses this indirection to forward
    references for data to the original instance of that data.  */
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)

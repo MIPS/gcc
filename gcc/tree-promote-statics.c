@@ -604,7 +604,7 @@ execute_promote_statics (void)
 static bool
 gate_promote_statics (void)
 {
-  return flag_unit_at_a_time != 0;
+  return flag_unit_at_a_time != 0 && 0;
 }
 
 struct tree_opt_pass pass_promote_statics = 
@@ -622,7 +622,7 @@ struct tree_opt_pass pass_promote_statics =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars,	/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
   0                                     /* letter */
 };
 

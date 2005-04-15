@@ -849,7 +849,9 @@ struct tree_opt_pass pass_stdarg =
 {
   "stdarg",				/* name */
   gate_optimize_stdarg,			/* gate */
+  NULL, NULL,				/* IPA */
   execute_optimize_stdarg,		/* execute */
+  NULL, NULL,				/* IPA */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

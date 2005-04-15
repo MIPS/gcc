@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "vec.h"
 #include "errors.h"
+#include "function.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -940,6 +941,8 @@ extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
+extern basic_block nearest_common_dominator_for_set (enum cdi_direction, 
+						     bitmap);
 extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);

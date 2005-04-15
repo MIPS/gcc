@@ -242,20 +242,9 @@ find_function_data (tree decl)
    variables.  */
 
 void
-push_function_context_to (tree context)
+push_function_context_to (tree context ATTRIBUTE_UNUSED)
 {
   struct function *p;
-
-  if (context)
-    {
-      if (context == current_function_decl)
-	cfun->contains_functions = 1;
-      else
-	{
-	  struct function *containing = find_function_data (context);
-	  containing->contains_functions = 1;
-	}
-    }
 
   if (cfun == 0)
     init_dummy_function_start ();
@@ -3959,6 +3948,10 @@ allocate_struct_function (tree fndecl)
        && TYPE_ARG_TYPES (fntype) != 0
        && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	   != void_type_node));
+
+  /* Assume all registers in stdarg functions need to be saved.  */
+  cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
+  cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as

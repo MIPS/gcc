@@ -129,7 +129,7 @@ char *hot_section_end_label;
 
 char *cold_section_end_label;
  
-/* The following global variable indicates the section name to be used
+/* The following global variable indicates the seciton name to be used
    for the current cold section, when partitiong hot and cold basic 
    blocks into separate sections.  */
 
@@ -210,7 +210,7 @@ EXTRA_SECTION_FUNCTIONS
 static void
 initialize_cold_section_name (void)
 {
-  const char* name;
+  const char *name;
   int len;
 
   if (! unlikely_text_section_name)
@@ -5402,7 +5402,7 @@ default_valid_pointer_mode (enum machine_mode mode)
 }
 
 /* Default function to output code that will globalize a label.  A
-   target must define GLOBAL_ASM_OP or provide it's own function to
+   target must define GLOBAL_ASM_OP or provide its own function to
    globalize a label.  */
 #ifdef GLOBAL_ASM_OP
 void

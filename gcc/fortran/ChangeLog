@@ -1,3 +1,80 @@
+2005-04-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* simplify.c: Fix a comment typo.
+
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
+2005-04-11  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* simplify.c (gfc_simplify_nearest): Overhaul.
+
+2005-04-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* interface.c: Fix a comment typo.
+
+2005-04-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* match.c (match_arithmetic_if): Arithmetic IF is obsolete in
+	Fortran 95.
+
+2005-04-09  Steven G. Kargl  <kargls@comcast.net>
+
+	* simplify.c (gfc_simplify_anint): Use mpfr_round()
+	(gfc_simplify_dnint): ditto.
+	(gfc_simplify_nint): ditto.
+
+2005-04-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/13257
+	* io.c (check_format): Allow an optional comma
+	between descriptors.
+
+2005-04-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* match.c (match_arithmetic_if): Remove gfc_ prefix and correct
+	comment according to GNU coding style.
+
+2005-04-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* match.c (gfc_match_arithmetic_if): Declare static.
+
+2005-04-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/17229
+	* match.c (gfc_match_arithmetic_if): New function to match an
+	arithmetic IF statement.
+	(gfc_match_if): Use gfc_match_arithmetic_if to match an
+	arithmetic IF statement embedded in a simple IF statement.
+
+2005-04-07  Steven G. Kargl  <kargls@comcast.net>
+
+	* simplify.c (gfc_simplify_exponent): Fix exponent(tiny(x))
+
+2005-04-06  Steven G. Kargl  <kargls@comcast.net>
+
+	* invoke.texi: Remove documentation of -std=f90 
+
+2005-04-06  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* expr.c (gfc_check_assign): Don't allow NULL as rhs in a
+	non-pointer assignment.
+
+2005-04-05  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/15959
+	PR fortran/20713
+
+	* array.c (resolve_character_array_constructor): New function. Set
+	constant character array's character length.
+	(gfc_resolve_array_constructor): Use it.
+	* decl.c (add_init_expr_to_sym): Set symbol and initializer character
+	length.
+	(gfc_set_constant_character_len): New function. Set constant character
+	expression according the given length.
+	* match.h (gfc_set_constant_character_len): Add prototype.
+
 2005-04-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	* intrinsic.texi: BES?? functions are not in the f95 standard.

@@ -146,10 +146,6 @@ build_tree_cfg (tree *tp)
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
 
-  /* If CFG already built, do nothing.  */
-  if (basic_block_info)
-    return;
-
   /* Initialize the basic block array.  */
   init_flow ();
   profile_status = PROFILE_ABSENT;
@@ -1294,8 +1290,7 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
       && DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
     return false;
 
-  /* There may be no phi nodes at the start of b.  Most of these degenerate
-     phi nodes should be cleaned up by kill_redundant_phi_nodes.  */
+  /* There may be no PHI nodes at the start of B.  */
   if (phi_nodes (b))
     return false;
 
@@ -3442,6 +3437,15 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       break;
 
+    case ASSERT_EXPR:
+      x = fold (ASSERT_EXPR_COND (t));
+      if (x == boolean_false_node)
+	{
+	  error ("ASSERT_EXPR with an always-false condition");
+	  return *tp;
+	}
+      break;
+
     case MODIFY_EXPR:
       x = TREE_OPERAND (t, 0);
       if (TREE_CODE (x) == BIT_FIELD_REF
@@ -3886,7 +3890,7 @@ tree_verify_flow_info (void)
 	  if (TREE_CODE (stmt) == LABEL_EXPR)
 	    {
 	      error ("Label %s in the middle of basic block %d\n",
-		     IDENTIFIER_POINTER (DECL_NAME (stmt)),
+		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
 	    }

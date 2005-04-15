@@ -2511,8 +2511,8 @@ do_eustores (void)
 		  fprintf (dump_file, "Eliminating useless store ");
 		  print_generic_stmt (dump_file, stmt, 0);
 		}
-	      bitmap_set_bit (vars_to_rename, 
-	      var_ann (TREE_OPERAND (stmt, 0))->uid);
+	      /* MARK TO RENAME 
+	         var_ann (TREE_OPERAND (stmt, 0))->uid);  */
 	      
 	      bsi_remove (&bsi);
 	    }
@@ -2529,7 +2529,7 @@ do_eustores (void)
 static bool
 gate_eustores(void)
 {
-  return flag_unit_at_a_time != 0; 
+  return flag_unit_at_a_time != 0 && 0; 
 }
 
 struct tree_opt_pass pass_eliminate_useless_stores =
@@ -2547,7 +2547,7 @@ struct tree_opt_pass pass_eliminate_useless_stores =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_rename_vars | TODO_dump_func 
+  TODO_dump_func 
   | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
 };

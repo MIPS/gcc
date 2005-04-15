@@ -1,3 +1,19 @@
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
+2005-04-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* adaint.c, init.c, tracebak.c: Fix comment typos.
+	* gnat-style.texi, gnat_rm.texi, gnat_ugn.texi: Fix typos.
+
+2005-04-07  Laurent GUERBY  <laurent@guerby.net>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* Makefile.in: Add make ifeq define for hppa linux tasking support.
+	* system-hpux.ads: Define Signed_Zeros to be True.
+	* system-linux-hppa.ads, s-osinte-linux-hppa.ads: New files.
+
 2005-04-01  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* adaint.c, cal.c, decl.c, gigi.h, gmem.c, init.c, link.c,

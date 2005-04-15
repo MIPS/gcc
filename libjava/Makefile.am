@@ -121,6 +121,14 @@ pkgconfig_DATA = libgcj.pc
 jardir = $(datadir)/java
 jar_DATA = libgcj-$(gcc_version).jar
 
+if JAVA_HOME_SET
+JAVA_HOME_DIR = $(JAVA_HOME)
+BOOT_CLASS_PATH_DIR = $(JAVA_HOME)/lib/rt.jar
+else
+JAVA_HOME_DIR = $(prefix)
+BOOT_CLASS_PATH_DIR = $(jardir)/$(jar_DATA)
+endif
+
 ## FIXME: Using libdir violates GNU coding standards.
 secdir = $(libdir)/security
 ## Where to install default logging property file.
@@ -184,7 +192,8 @@ AM_CXXFLAGS = \
 	-D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\"" \
 	-DLIBDIR="\"$(libdir)\"" \
-	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
+        -DJAVA_HOME="\"$(JAVA_HOME_DIR)\"" \
+        -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
@@ -275,7 +284,7 @@ libgcj_la_LINK = $(LIBLINK)
 
 ## The .db file.  This rule is only used for native builds, so it is
 ## safe to invoke gcj-dbtool.
-$(db_name): gcj-dbtool
+$(db_name): gcj-dbtool$(EXEEXT)
 ## In case it exists already.
 	@rm -f $(db_name)
 ## We don't actually care if it fails -- if it does, just make an
@@ -474,7 +483,6 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo: $(top_builddir)/jniinclude/
 $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 
 lib_gnu_java_awt_peer_gtk_la_SOURCES = \
-$(gtk_awt_peer_sources) \
 $(gtk_c_source_files) \
 jni/gtk-peer/gthread-jni.h \
 jni/gtk-peer/gtkpeer.h \
@@ -485,8 +493,8 @@ lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-I$(srcdir)/jni/gtk-peer $(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
 	$(X_CFLAGS) $(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
 lib_gnu_java_awt_peer_gtk_la_GCJFLAGS = $(AM_GCJFLAGS) -fjni
-lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
-lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-$(gcc_version).jar libgcj.la libgcj.spec
+lib_gnu_java_awt_peer_gtk_la_LIBADD = gtk-awt-peer.lo $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = gtk-awt-peer.lo $(gtk_jni_headers) libgcj-$(gcc_version).jar libgcj.la libgcj.spec
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
@@ -622,9 +630,6 @@ SUFFIXES = .class .java .h .properties
 $(javao_files) $(xlib_javao_files): %.lo: %.java
 	$(LTGCJCOMPILE) -o $@ -c $<
 
-$(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
-	$(LTGCJCOMPILE) -fjni -o $@ -c $<
-
 ## Pass the list of object files to libtool in a temporary file to
 ## avoid tripping platform command line length limits.
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
@@ -691,6 +696,17 @@ gnu-java-beans.lo: $(gnu_java_beans_source_files)
 	$(MAKE) classes.stamp
 	$(LTGCJCOMPILE) -findirect-dispatch -c -o gnu-java-beans.lo \
 		`find gnu/java/beans -name '*.class' -print`
+
+## Depend on the sources, even though we are going to compile the
+## classes.
+gtk-awt-peer.lo: $(gtk_awt_peer_sources)
+## FIXME: this is ugly.  We want to make sure the .class files have
+## been built, but we don't want a real dependency on them as this
+## would cause our target to be rebuilt whenever any .java file is
+## touched.
+	$(MAKE) classes.stamp
+	$(LTGCJCOMPILE) -findirect-dispatch -fjni -c -o gtk-awt-peer.lo \
+		`find gnu/java/awt/peer/gtk -name '*.class' -print`
 
 ## ################################################################
 
@@ -3862,44 +3878,6 @@ gnu/gcj/xlib/natXException.cc \
 gnu/gcj/xlib/natXExposeEvent.cc \
 gnu/gcj/xlib/natXImage.cc \
 gnu/gcj/xlib/natXUnmapEvent.cc
-
-## ################################################################
-
-##
-## javadoc to texinfo conversion
-##
-
-TexinfoDoclet.class: $(srcdir)/scripts/TexinfoDoclet.java
-	javac -d . $(srcdir)/scripts/TexinfoDoclet.java
-
-texinfo: TexinfoDoclet.class
-	langsource=`ls $(srcdir)/java/lang/*.java`; \
-	lang=`echo $$langsource | sed -e 's/[^ ].*EcosProcess.java//g' | sed -e 's/[^ ].*PosixProcess.java//g'`; \
-	javadoc -outfile $(srcdir)/doc/java-lang.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $$lang
-	javadoc -outfile $(srcdir)/doc/java-lang-ref.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/ref/*.java
-	javadoc -outfile $(srcdir)/doc/java-lang-reflect.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/reflect/*.java
-	javadoc -outfile $(srcdir)/doc/java-applet.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/applet/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-color.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/color/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-datatransfer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/datatransfer/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-event.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/event/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-geom.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/geom/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-image.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/image/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-peer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/peer/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans-beancontext.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/beancontext/*.java
-	javadoc -outfile $(srcdir)/doc/java-io.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/io/*.java
-	javadoc -outfile $(srcdir)/doc/java-math.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/math/*.java
-	javadoc -outfile $(srcdir)/doc/java-net.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/net/*.java
-	javadoc -outfile $(srcdir)/doc/java-security.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-cert.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security-cert/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-spec.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-interfaces.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/interfaces/*.java
-	javadoc -outfile $(srcdir)/doc/java-sql.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/sql/*.java
-	javadoc -outfile $(srcdir)/doc/java-text.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/text/*.java
-	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/jar/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/zip/*.java
 
 ## ################################################################
 

@@ -30,7 +30,7 @@
 
    The algorithm computes this dominator tree implicitly by computing for
    each block its immediate dominator.  We use tree balancing and path
-   compression, so its the O(e*a(e,v)) variant, where a(e,v) is the very
+   compression, so it's the O(e*a(e,v)) variant, where a(e,v) is the very
    slowly growing functional inverse of the Ackerman function.  */
 
 #include "config.h"
@@ -797,6 +797,27 @@ nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block b
 
   return et_nca (bb1->dom[dir], bb2->dom[dir])->data;
 }
+
+
+/* Find the nearest common dominator for the basic blocks in BLOCKS,
+   using dominance direction DIR.  */
+
+basic_block
+nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
+{
+  unsigned i, first;
+  bitmap_iterator bi;
+  basic_block dom;
+  
+  first = bitmap_first_set_bit (blocks);
+  dom = BASIC_BLOCK (first);
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
+    if (dom != BASIC_BLOCK (i))
+      dom = nearest_common_dominator (dir, dom, BASIC_BLOCK (i));
+
+  return dom;
+}
+
 
 /* Return TRUE in case BB1 is dominated by BB2.  */
 bool

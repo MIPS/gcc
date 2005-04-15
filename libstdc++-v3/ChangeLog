@@ -1,3 +1,156 @@
+2005-04-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/Makefile.am: Remove libv3test.a.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/lib/libstdc++.exp (v3_target_compile): Fix comments.
+	
+2005-04-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20909
+	* include/bits/locale_facets.tcc (num_put<>::_M_insert_float):
+	Don't even try to group numbers like 2e20, i.e., no decimal
+	point, scientific notation.
+	* testsuite/22_locale/num_put/put/char/20909.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/20909.cc: Likewise.
+
+2005-04-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Define _GLIBCXX_ASM_SYMVER.
+	* acconfig.h: Delete file.
+	* Makefile.in, acinclude.m4, configure: Regenerate.
+
+2005-04-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* linkage.m4 (GLIBCXX_MAYBE_UNDERSCORED_FUNCS): New macro.
+	(GLIBCXX_CHECK_MATH_DECL_AND_LINKAGE_1,
+	GLIBCXX_CHECK_MATH_DECL_AND_LINKAGE_2,
+	GLIBCXX_CHECK_MATH_DECL_AND_LINKAGE_3,
+	GLIBCXX_CHECK_MATH_DECLS_AND_LINKAGES_1,
+	GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_2): Use it.
+	(GLIBCXX_CHECK_MATH_SUPPORT): Delete obsolete comment.
+	* acconfig.h: Delete redundant macros.
+	* config.h.in, configure: Regenerate.
+
+2005-04-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* linkage.m4 (GLIBCXX_CHECK_MATH_DECLS_AND_LINKAGES_1): Eliminate
+	a subshell and if test fails, test for same functions with 
+	leading underscore.
+	(GLIBCXX_CHECK_MATH_SUPPORT): Eliminate seperate checks for _funcs.
+	* configure: Regenerate.
+
+2005-04-08  Danny Smith  <dannysmith@users.sourceforge.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+	    		
+	PR libstdc++/20806
+	* config/os/mingw32/os_defines.h: Define
+	_GLIBCXX_HAVE_DOS_BASED_FILESYSTEM.
+	* config/os/newlib/os_defines.h: Likewise, for __CYGWIN__.
+	* include/bits/fstream.tcc (basic_filebuf<>::showmanyc()):
+	Use it.
+	(basic_filebuf<>::xsgetn(_CharT*, streamsize)): Likewise.
+
+2005-04-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acconfig.h: Sort the bottom section.
+	* config.h.in: Regenerate.
+
+2005-04-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acconfig.h: Remove redundant HAVE_FLOAT_H.
+	* config.h.in: Regenerate.
+
+2005-04-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Create template for PACKAGE and VERSION.
+	Update comment on how to regenerate file.  Update minimum
+	automake version to 1.9.3.
+	* acconfig.h: Remove PACKAGE and VERSION.
+	* aclocal.m4, configure, Makefile.in, po/Makefile.in, 
+	src/Makefile.in, include/Makefile.in, libmath/Makefile.in, 
+	testsuite/Makefile.in, config.h.in: Regenerate.
+
+2005-04-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/test.html: Update.
+	* testsuite/printnow.c: Remove.
+	* scripts/check_survey.in: Remove.
+
+	* testsuite/abi_check.cc: To...
+	* testuite/testsuite_abi_check.cc: ...here.
+	* testsuite/libstdc++-abi/abi.exp: Change abi_check.cc to
+	testsuite_abi_check.cc.
+
+	* testsuite/testsuite_hooks.h: Move character related bits to...
+	* testsuite/testsuite_character.h: ...here.
+	* testsuite/testsuite_character.cc: ... and here.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-in.cc: Use testsuite_character.h.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-out.cc: Same.
+	* testsuite/22_locale/numpunct/members/pod/1.cc: Same.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: Same.
+	* testsuite/27_io/basic_filebuf/2.cc: Same.
+	* testsuite/27_io/basic_fstream/2.cc: Same.
+	* testsuite/27_io/basic_istream/2.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/pod/
+	3983-1.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_character/char/
+	9826.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_character/pod/
+	3983-2.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_other/pod/3983-3.cc: Same.
+	* testsuite/27_io/basic_istream/sentry/pod/1.cc: Same.
+	* testsuite/27_io/basic_ostream/2.cc: Same.
+	* testsuite/27_io/basic_ostream/sentry/pod/1.cc: Same.
+	* testsuite/27_io/basic_streambuf/2.cc: Same.
+	* testsuite/27_io/basic_stringbuf/2.cc: Same.
+	* testsuite/27_io/basic_stringbuf/4.cc: Same.
+	* testsuite/27_io/basic_stringstream/2.cc: Same.
+	* testsuite/27_io/fpos/1.cc: Same.
+	* testsuite/ext/mt_allocator/tune-1.cc: Same.
+	* testsuite/ext/mt_allocator/tune-2.cc: Same.
+	* testsuite/ext/stdio_filebuf/char/1.cc: Same.	
+	* testsuite/lib/libstdc++.exp (v3-build_support): Add
+	testsuite_character.cc.
+	* testsuite/Makefile.am (libv3test_a_SOURCES): Add
+	testsuite_character.cc.
+	* testsuite/Makefile.in: Regenerate.
+		
+	* configure.ac: Remove use of check_survey.
+	* configure: Regenerate.
+	* testsuite/Makefile.am: Remove check-script and
+	check-script-install rules.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-04-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/cpu/s390/atomicity.h (__exchange_and_add): Add "memory"
+	clobber to inline assembly statement.
+
+2005-04-06  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acinclude.m4 (_GLIBCXX_USE_LONG_LONG,
+	_GLIBCXX_USE_WCHAR_T, _GLIBCXX_USE_C99, _GLIBCXX_USE_C99_MATH,
+	_GLIBCXX_USE_C99_COMPLEX, _GLIBCXX_RES_LIMITS, _GLIBCXX_CONCEPT_CHECKS,
+	_GLIBCXX_SYMVER, _GLIBCXX_USE_LFS, _GLIBCXX_FULLY_DYNAMIC_STRING,
+	_GLIBCXX_USE_NLS, HAVE_GTHR_DEFAULT, HAVE_MBSTATE_T, HAVE_POLL,
+	HAVE_S_ISREG, HAVE_S_IFREG, HAVE_WRITEV, HAVE_INT64_T,
+	HAVE_LC_MESSAGES): Use long form of AC_DEFINE ...
+	* acconfig.h: ... to eliminate them from here.
+	(_GLIBCXX_ASM_SYMVER): Move definition below @BOTTOM@.
+	* config.h.in, configure: Regenerate.
+	
+2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): Define.
+	* crossconfig.m4: Wrap file into new GLIBCXX_CROSSCONFIG macro.
+	* configure.ac: Use it.
+	* acinclude.m4: Delete explicit m4_includes and sincludes.
+	* aclocal.m4, configure, Makefile.in, po/Makefile.in, 
+	src/Makefile.in, include/Makefile.in, libmath/Makefile.in, 
+	testsuite/Makefile.in: Regenerate.
+
 2005-04-05  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/tr1/memory, include/tr1/boost_shared_ptr.h: Use mutex
@@ -23,7 +176,7 @@
 
 2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>
 
-	* acconfig.h: Delete macros already ACDEFINED.
+	* acconfig.h: Delete macros already AC_DEFINED.
 	* config.h.in: Regenerate.
 
 2005-04-05  Kelley Cook  <kcook@gcc.gnu.org>

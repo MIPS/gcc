@@ -65,6 +65,17 @@ static int bootstrap_index;
 
 
 
+jclass
+java::lang::ClassLoader::loadClassFromSig(jstring name)
+{
+  int len = _Jv_GetStringUTFLength (name);
+  char sig[len + 1];
+  _Jv_GetStringUTFRegion (name, 0, name->length(), sig);
+  return _Jv_FindClassFromSignature(sig, this);
+}
+
+
+
 // This tries to find a class in our built-in cache.  This cache is
 // used only for classes which are linked in to the executable or
 // loaded via dlopen().
@@ -252,27 +263,30 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	  // Not even a bootstrap loader, try the built-in cache.
 	  klass = _Jv_FindClassInCache (name);
 
-	  bool found = false;
-	  for (int i = 0; i < bootstrap_index; ++i)
+	  if (klass)
 	    {
-	      if (bootstrap_class_list[i] == klass)
+	      bool found = false;
+	      for (int i = 0; i < bootstrap_index; ++i)
 		{
-		  found = true;
-		  break;
+		  if (bootstrap_class_list[i] == klass)
+		    {
+		      found = true;
+		      break;
+		    }
 		}
-	    }
-	  if (! found)
-	    {
-	      if (bootstrap_index == BOOTSTRAP_CLASS_LIST_SIZE)
-		abort ();
-	      bootstrap_class_list[bootstrap_index++] = klass;
+	      if (! found)
+		{
+		  if (bootstrap_index == BOOTSTRAP_CLASS_LIST_SIZE)
+		    abort ();
+		  bootstrap_class_list[bootstrap_index++] = klass;
+		}
 	    }
 	}
     }
   else
     {
-      // we need classes to be in the hash while
-      // we're loading, so that they can refer to themselves. 
+      // We need classes to be in the hash while we're loading, so
+      // that they can refer to themselves.
       _Jv_Linker::wait_for_state (klass, JV_STATE_LOADED);
     }
 

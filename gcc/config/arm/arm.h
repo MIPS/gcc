@@ -525,7 +525,7 @@ extern int arm_ld_sched;
 extern int thumb_code;
 
 /* Nonzero if this chip is a StrongARM.  */
-extern int arm_is_strong;
+extern int arm_tune_strongarm;
 
 /* Nonzero if this chip is a Cirrus variant.  */
 extern int arm_arch_cirrus;
@@ -536,11 +536,11 @@ extern int arm_arch_iwmmxt;
 /* Nonzero if this chip is an XScale.  */
 extern int arm_arch_xscale;
 
-/* Nonzero if tuning for XScale  */
+/* Nonzero if tuning for XScale.  */
 extern int arm_tune_xscale;
 
-/* Nonzero if this chip is an ARM6 or an ARM7.  */
-extern int arm_is_6_or_7;
+/* Nonzero if tuning for stores via the write buffer.  */
+extern int arm_tune_wbuf;
 
 /* Nonzero if we should define __THUMB_INTERWORK__ in the
    preprocessor.
@@ -1323,7 +1323,9 @@ enum reg_class
    'Uq' is an address valid for ldrsb.  */
 
 #define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)				\
-  (((C) == 'D') ? (GET_CODE (OP) == CONST_DOUBLE			\
+  (((C) == 'D') ? ((GET_CODE (OP) == CONST_DOUBLE			\
+		    || GET_CODE (OP) == CONST_INT			\
+		    || GET_CODE (OP) == CONST_VECTOR)			\
 		   && (((STR)[1] == 'a'					\
 			&& arm_const_double_inline_cost (OP) == 2)	\
 		       || ((STR)[1] == 'b'				\
@@ -2105,6 +2107,12 @@ typedef struct
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
    arm_asm_output_labelref (FILE, NAME)
+
+/* True if the operating system can merge entities with vague linkage
+   (e.g., symbols in COMDAT group) during dynamic linking.  */
+#ifndef TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P
+#define TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P true
+#endif
 
 /* Set the short-call flag for any function compiled in the current
    compilation unit.  We skip this for functions with the section

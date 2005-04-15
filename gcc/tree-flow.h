@@ -81,6 +81,34 @@ struct ptr_info_def GTY(())
 };
 
 
+/* Types of value ranges.  */
+enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
+
+
+/* Ranges of values that can be associated with an SSA_NAME after VRP
+   has executed.  */
+struct value_range_def GTY(())
+{
+  /* Lattice value represented by this range.  */
+  enum value_range_type type;
+
+  /* Minimum and maximum values represented by this range.  These
+     values are _CST nodes that should be interpreted as follows:
+
+     	- If TYPE == VR_UNDEFINED then MIN and MAX must be NULL.
+
+	- If TYPE == VR_RANGE then MIN holds the minimum value and
+	  MAX holds the maximum value of the range [MIN, MAX].
+
+	- If TYPE == ANTI_RANGE the variable is known to NOT
+	  take any values in the range [MIN, MAX].  */
+  tree min;
+  tree max;
+};
+
+typedef struct value_range_def value_range;
+
+
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
@@ -249,7 +277,7 @@ typedef struct immediate_use_iterator_d
 } imm_use_iterator;
 
 
-/* Use this iterator when simply looking at stmts. Adding, deleteing or
+/* Use this iterator when simply looking at stmts.  Adding, deleting or
    modifying stmts will cause this iterator to malfunction.  */
 
 #define FOR_EACH_IMM_USE_FAST(DEST, ITER, SSAVAR)			\
@@ -549,7 +577,7 @@ extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree);
-extern void remove_all_phi_nodes_for (bitmap);
+extern tree find_phi_node_for (basic_block, tree, tree *);
 extern tree phi_reverse (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
@@ -559,16 +587,10 @@ extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
-extern void mark_new_vars_to_rename (tree, bitmap);
+extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
-void mark_call_clobbered_vars_to_rename (void);
 
-extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
-
-/* Flags used when computing reaching definitions and reached uses.  */
-#define TDFA_USE_OPS		(1 << 0)
-#define TDFA_USE_VOPS		(1 << 1)
 
 /* In gimple-low.c  */
 extern void record_vars (tree);
@@ -588,6 +610,8 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
+extern void add_type_alias (tree, tree);
+extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline bool ref_contains_array_ref (tree);
 extern tree okay_component_ref_for_subvars (tree, HOST_WIDE_INT *,
@@ -616,25 +640,44 @@ extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, VEC (tree_on_heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
-extern void kill_redundant_phi_nodes (void);
 extern bool stmt_references_memory_p (tree);
 
 /* In tree-into-ssa.c  */
-extern void rewrite_into_ssa (bool);
 extern void rewrite_ssa_into_ssa (void);
-extern void rewrite_def_def_chains (void);
 
+void update_ssa (unsigned);
+void register_new_name_mapping (tree, tree);
+tree create_new_def_for (tree, tree, def_operand_p);
+bool need_ssa_update_p (void);
+bool name_registered_for_update_p (tree);
+bitmap ssa_names_to_replace (void);
+void release_ssa_name_after_update_ssa (tree name);
+void dump_repl_tbl (FILE *);
+void debug_repl_tbl (void);
+void dump_names_replaced_by (FILE *, tree);
+void debug_names_replaced_by (tree);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
+void mark_sym_for_renaming (tree);
+void mark_set_for_renaming (bitmap);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
 tree maybe_fold_stmt_indirect (tree, tree, tree);
 tree widen_bitfield (tree, tree, tree);
 
+/* In tree-vrp.c  */
+value_range *get_value_range (tree);
+void dump_value_range (FILE *, value_range *);
+void debug_value_range (value_range *);
+void dump_all_value_ranges (FILE *);
+void debug_all_value_ranges (void);
+bool expr_computes_nonzero (tree);
+
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
+int loop_depth_of_name (tree);
 
 /* In tree-ssa-copy.c  */
 extern void propagate_value (use_operand_p, tree);
@@ -689,8 +732,6 @@ void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
-void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
-				struct tree_niter_desc *);
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter);
 tree find_loop_niter (struct loop *, edge *);
@@ -735,6 +776,7 @@ extern enum move_pos movement_possibility (tree);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 static inline void set_is_used (tree);
+static inline bool unmodifiable_var_p (tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (tree);
