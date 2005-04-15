@@ -377,9 +377,11 @@ bool user_defined_section_attribute = false;
    of two not less than the variable, for .align output.  */
 
 int align_loops_log;
-int align_loops_max_skip;
+/* APPLE LOCAL -falign-loops-max-skip */
+/* Delete int align_loops_max_skip; */
 int align_jumps_log;
-int align_jumps_max_skip;
+/* APPLE LOCAL -falign-jumps-max-skip */
+/* Delete int align_jumps_max_skip; */
 int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;

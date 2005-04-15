@@ -215,6 +215,16 @@ Align labels which are only reached by jumping
 falign-jumps=
 Common RejectNegative Joined UInteger
 
+; APPLE LOCAL begin falign-jumps-max-skip
+
+falign-jumps-max-skip
+Common Report Var(align_jumps_max_skip,0)
+
+falign-jumps-max-skip=
+Common RejectNegative Joined UInteger
+
+; APPLE LOCAL end falign-jumps-max-skip
+
 falign-labels
 Common Report Var(align_labels,0)
 Align all labels
@@ -228,6 +238,16 @@ Align the start of loops
 
 falign-loops=
 Common RejectNegative Joined UInteger
+
+; APPLE LOCAL begin falign-loops-max-skip
+
+falign-loops-max-skip
+Common Report Var(align_loops_max_skip,0)
+
+falign-loops-max-skip=
+Common RejectNegative Joined UInteger
+
+; APPLE LOCAL end falign-loops-max-skip
 
 ; APPLE LOCAL begin predictive compilation
 fpredictive-compilation

@@ -1,5 +1,16 @@
 2005-04-14  Devang Patel  <dpatel@apple.com>
 
+	Radar 4080840
+        * common.opt (falign-jumps-max-skip, falign-jumps-max-skip=,
+        falign-loops-max-skip, falign-loops-max-skip=): New.
+        * opts.c (common_handle_option): Handle new falign-loops-max-skip
+        and falign-jumps-max-skip options.
+        * doc/invoke.texi: Document -falign-jumps-max-skip and
+        -falign-loops-max-skip.
+	* toplev.c (align_jumps_max_skip, align_loops_max_skip): Remove.
+
+2005-04-14  Devang Patel  <dpatel@apple.com>
+
 	Radar 3972515
         * config/rs600/altivec.md (altivec_vsr<VI_char>): Rename to ..
         (lhsr<mode>3): ... new name.

@@ -805,6 +805,16 @@ common_handle_option (size_t scode, const char *arg, int value)
       align_jumps = value;
       break;
 
+    /* APPLE LOCAL begin falign-jumps-max-skip */
+    case OPT_falign_jumps_max_skip_:
+      align_jumps_max_skip = value;
+      break;
+
+    case OPT_falign_loops_max_skip_:
+      align_loops_max_skip = value;
+      break;
+    /* APPLE LOCAL end falign-jumps-max-skip */
+
     case OPT_falign_labels_:
       align_labels = value;
       break;

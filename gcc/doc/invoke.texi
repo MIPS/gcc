@@ -343,6 +343,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Optimize Options,,Options that Control Optimization}.
 @gccoptlist{-falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
+@c APPLE LOCAL -falign-loops-max-skip
+-falign-loops-max-skip=@var{n} -falign-jumps-max-skip=@var{n} @gol
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
@@ -5393,6 +5395,14 @@ which is very likely to be @samp{1}, meaning no alignment.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
+@c APPLE LOCAL begin -falign-loops-max-skip
+@item -falign-loops-max-skip
+@item -falign-loops-max-skip=@var{n}
+@opindex falign-loops-max-skip
+Align loops to a power-of-two boundary, but do not skip more than
+@var{n} bytes to do so.
+@c APPLE LOCAL end -falign-loops-max-skip
+
 @item -falign-loops
 @itemx -falign-loops=@var{n}
 @opindex falign-loops
@@ -5415,6 +5425,14 @@ Align branch targets to a power-of-two boundary, for branch targets
 where the targets can only be reached by jumping, skipping up to @var{n}
 bytes like @option{-falign-functions}.  In this case, no dummy operations
 need be executed.
+
+@c APPLE LOCAL begin -falign-jumps-max-skip
+@item -falign-jumps-max-skip
+@itemx -falign-jumps-max-skip=@var{n}
+@opindex falign-jump-max-skips
+Align branch targets to a power-of-two boundary, but do not skip more than
+@var{n} bytes to do so.
+@c APPLE LOCAL begin -falign-jumps-max-skip
 
 @option{-fno-align-jumps} and @option{-falign-jumps=1} are
 equivalent and mean that loops will not be aligned.
