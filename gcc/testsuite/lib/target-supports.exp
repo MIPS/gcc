@@ -630,6 +630,22 @@ proc check_effective_target_vect_int { } {
     return $et_vect_int_saved
 }
 
+# APPLE LOCAL begin mainline 2005-04-05 3972515 
+# Return 1 if the target supports hardware vector shift operation.
+
+proc check_effective_target_vect_shift { } {
+    if { [istarget powerpc*-*-*] } {
+	set answer 1
+    } else {
+	set answer 0
+    }
+
+    verbose "check_effective_target_vect_shift: returning $answer" 2
+    return $answer
+}
+
+# APPLE LOCAL end mainline 2005-04-05 3972515 
+
 # Return 1 if the target supports hardware vectors of long, 0 otherwise.
 #
 # This can change for different subtargets so do not cache the result.

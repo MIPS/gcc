@@ -1,3 +1,13 @@
+2005-04-14  Devang Patel  <dpatel@apple.com>
+
+	Radar 3972515
+        * config/rs600/altivec.md (altivec_vsr<VI_char>): Rename to ..
+        (lhsr<mode>3): ... new name.
+        (altivec_vsra<VI_char>): Rename to ..
+        (ashr<mode>3): ... new name.
+        * config/rs6000/rs6000.c (builtin_description): Rename shift
+        operations.
+
 2005-04-12  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4087079

@@ -968,21 +968,23 @@
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vsr<VI_char>"
+; APPLE LOCAL begin mainline 2005-04-05 3972515 
+(define_insn "lshr<mode>3"
   [(set (match_operand:VI 0 "register_operand" "=v")
-        (unspec:VI [(match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v")] 112))]
+        (lshiftrt:VI (match_operand:VI 1 "register_operand" "v")
+                    (match_operand:VI 2 "register_operand" "v") ))]
   "TARGET_ALTIVEC"
   "vsr<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "altivec_vsra<VI_char>"
+(define_insn "ashr<mode>3"
   [(set (match_operand:VI 0 "register_operand" "=v")
-        (unspec:VI [(match_operand:VI 1 "register_operand" "v")
-                    (match_operand:VI 2 "register_operand" "v")] 115))]
+        (ashiftrt:VI (match_operand:VI 1 "register_operand" "v")
+                    (match_operand:VI 2 "register_operand" "v") ))]
   "TARGET_ALTIVEC"
   "vsra<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
+; APPLE LOCAL end mainline 2005-04-05 3972515 
 
 (define_insn "altivec_vsr"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
