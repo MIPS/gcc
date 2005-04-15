@@ -1,4 +1,4 @@
-2005-04-15  Ben Elliston  <bje@dingo>
+2005-04-15  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Add -msoft-float.
 	(make-c-test): Use c-operand to ensure that operands are ISO/IEC
