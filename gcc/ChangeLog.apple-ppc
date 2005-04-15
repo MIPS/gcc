@@ -1,3 +1,10 @@
+2005-04-15  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4087864
+	* config/darwin-protos.h: Extern for machopic_symbol_stub2_section.
+	* config/i386/i386.c (machopic_output_stub): Fix stubs targeted for
+	deeply-pipelined CPUs.
+
 2005-04-15  Caroline Tice  <ctice@apple.com>
 
 	Radar 4078608

@@ -31,6 +31,8 @@ extern void machopic_picsymbol_stub_section (void);
 extern void machopic_picsymbol_stub1_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_symbol_stub1_section (void);
+/* APPLE LOCAL deep branch prediction */
+extern void machopic_symbol_stub2_section (void);
 extern void machopic_lazy_symbol_ptr_section (void);
 /* APPLE LOCAL begin -mdynamic-no-pic */
 extern void machopic_lazy_symbol_ptr2_section (void);
