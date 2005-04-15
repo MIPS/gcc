@@ -1,3 +1,10 @@
+2005-04-15  Ben Elliston  <bje@dingo>
+
+	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Add -msoft-float.
+	(make-c-test): Use c-operand to ensure that operands are ISO/IEC
+	N1107 compliant.  Don't call fsetround for now.
+	(c-operand): New proc.
+
 2005-04-14  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/loop.c: Use decimal float suffixes.

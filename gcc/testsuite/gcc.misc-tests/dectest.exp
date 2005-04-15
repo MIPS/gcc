@@ -21,7 +21,7 @@
 # Contributed by Ben Elliston <bje@au.ibm.com>.
 
 # Override torture options for now (-O0 will do just fine).
-set TORTURE_OPTIONS [list {-O0}]
+set TORTURE_OPTIONS [list {-O0 -msoft-float}]
 
 # Load support procs (borrow these from c-torture).
 load_lib c-torture.exp
@@ -171,17 +171,17 @@ proc make-c-test {testcase id operation result conditions op1 {op2 "NONE"}} {
     set outfd [open $filename w]
 
     puts $outfd [c-test-preamble $id]
-    puts $outfd "  [c-decimal-type];"
+    puts $outfd "  [c-decimal-type] d;"
     puts $outfd ""
     puts $outfd "  /* Set the rounding mode.  */"
-    puts $outfd "  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);"
+    # puts $outfd "  assert (fsetround ([c-rounding-mode $directives(rounding)]) == 0);"
     puts $outfd ""
     if {[string compare $op2 NONE] == 0} {
-	puts $outfd "  d = [c-unary-expression $operation $op1];"
+	puts $outfd "  d = [c-unary-expression $operation [c-operand $op1]];"
     } else {
-	puts $outfd "  d = [c-binary-expression $operation $op1 $op2];"
+	puts $outfd "  d = [c-binary-expression $operation [c-operand $op1] [c-operand $op2]];"
     }
-    puts $outfd "  return (d == $result);"
+    puts $outfd "  return (d == [c-operand $result]);"
     puts $outfd [c-test-postamble $id]
     close $outfd
     return $filename
@@ -252,6 +252,15 @@ proc process-directive { line } {
     set keyword [string tolower [string trim [lindex [split $line :] 0]]]
     set value [string tolower [string trim [lindex [split $line :] 1]]]
     set directives($keyword) $value
+}
+
+# Produce a C99-valid floating point literal.
+
+proc c-operand {operand} {
+    if {[string first . $operand] < 0} {
+	append operand .
+    }
+    return [append operand DF]
 }
 
 # Process an arithmetic test in LINE from TESTCASE.
