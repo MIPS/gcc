@@ -367,6 +367,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
+/* APPLE LOCAL begin mainline 2005-04-14 */
+#ifndef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
+#define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN hook_invalid_arg_for_unprototyped_fn
+#endif
+/* APPLE LOCAL end mainline 2005-04-14 */
 
 /* APPLE LOCAL begin AltiVec */
 #define TARGET_CAST_EXPR_AS_VECTOR_INIT false
@@ -421,6 +426,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
+/* APPLE LOCAL begin mainline 2005-04-14 */
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
    TARGET_PROMOTE_FUNCTION_RETURN,				\
@@ -439,8 +445,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    /* APPLE LOCAL end Altivec */				\
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
-   TARGET_ARG_PARTIAL_BYTES					\
+   TARGET_ARG_PARTIAL_BYTES,					\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN                     \
    }
+/* APPLE LOCAL end mainline 2005-04-14 */
 
 
 #ifndef TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME

@@ -564,6 +564,12 @@ struct gcc_target
        in registers; the balance is therefore passed on the stack.  */
     int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			       tree type, bool named);
+    /* APPLE LOCAL begin mainline 2005-04-14 */
+    /* Return the diagnostic message string if function without a prototype
+       is not allowed for this 'val' argument; NULL otherwise. */
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist,
+                                                    tree funcdecl, tree val);
+    /* APPLE LOCAL end mainline 2005-04-14 */
   } calls;
 
   /* Functions specific to the C++ frontend.  */

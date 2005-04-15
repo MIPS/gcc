@@ -2204,6 +2204,8 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
   tree result = NULL;
   int parmnum;
   tree selector;
+  /* APPLE LOCAL mainline 2005-04-14 */
+  const char *invalid_func_diag;
 
   /* Change pointer to function to the function itself for
      diagnostics.  */
@@ -2376,6 +2378,14 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 	           < TYPE_PRECISION (double_type_node)))
 	/* Convert `float' to `double'.  */
 	result = tree_cons (NULL_TREE, convert (double_type_node, val), result);
+      /* APPLE LOCAL begin mainline 2005-04-14 */ 
+      else if ((invalid_func_diag =
+	     targetm.calls.invalid_arg_for_unprototyped_fn (typelist, fundecl, val)))
+	{
+	  error (invalid_func_diag);
+	  return error_mark_node;
+	}
+      /* APPLE LOCAL end mainline 2005-04-14 */ 
       else
 	/* Convert `short' and `char' to full-size `int'.  */
 	result = tree_cons (NULL_TREE, default_conversion (val), result);

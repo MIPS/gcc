@@ -1,3 +1,4 @@
+/* APPLE LOCAL mainline 2005-04-14 */
 /* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-maltivec" } */
 
@@ -14,4 +15,4 @@ void foo(pvecfunc pvf) {
    (*pvf)  (4, 4.0, v); /* { dg-error "AltiVec argument passed to unprototyped function" } */
 #endif /* __LP64__ */
 }
-
+/* APPLE LOCAL mainline 2005-04-14 */
