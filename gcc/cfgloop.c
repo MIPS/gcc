@@ -27,7 +27,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "function.h"
 #include "basic-block.h"
-#include "function.h"
 #include "toplev.h"
 #include "cfgloop.h"
 #include "flags.h"

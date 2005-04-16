@@ -3812,9 +3812,6 @@ extern const char *get_name (tree);
 extern tree unshare_expr (tree);
 extern void sort_case_labels (tree);
 
-/* In gimple-low.c  */
-void lower_function_body (void);
-
 /* In tree-eh.c */
 void duplicate_stmt_eh_region_mapping (struct function *, 
 			    struct function *, tree, tree, bool);

@@ -1,3 +1,48 @@
+2005-04-16  Jan Hubicka  <jh@suse.cz>
+
+	* bitmap.h: Synchronize with mainline
+	* cfganal.c: Synchronize with mainline.
+	* cfgcleanup.c: Synchronize with mainline.
+	* cfgexpand.c: Synchronize with mainline.
+	* cfghooks.c: Synchronize with mainline.
+	* cfgloop.c: Synchronize with mainline.
+	* cfgloopanal.c: Synchronize with mainline.
+	* cfgloopmanip.c: Synchronize with mainline.
+	* conflict.c: Synchronize with mainline.
+	* dominance.c: Synchronize with mainline.
+	* except.c: Synchronize with mainline.
+	* expr.c: Synchronize with mainline.
+	* final.c: Synchronize with mainline.
+	* gimple-low.c: Synchronize with mainline.
+	* gimplify.c: Synchronize with mainline.
+	* loop-doloop.c: Synchronize with mainline.
+	* loop-init.c: Synchronize with mainline.
+	* loop-iv.c: Synchronize with mainline.
+	* loop-unroll.c: Synchronize with mainline.
+	* loop-unswitch.c: Synchronize with mainline.
+	* parms.def: Synchronize with mainline.
+	* passes.c: Synchronize with mainline.
+	* predict.c: Synchronize with mainline.
+	* sched-rgn.c: Synchronize with mainline.
+	* tracer.c: Synchronize with mainline.
+	* tree-cfg.c: (build_tree_cfg): Make local again; do not re-allocate
+	entry/exit block.
+	(cleanup_control_flow): Make local again.
+	* tree-dfa.c: Synchronize with mainline.
+	* tree-flow-inline.h: Synchronize with mainline.
+	* tree-flow.h: (build_tree_cfg): Drop prototype.
+	* tree-phinodes.c: Synchronize with mainline.
+	* tree-sra.c: Synchronize with mainline.
+	* tree-ssa-ccp.c: Synchronize with mainline.
+	* tree-ssa-dce.c: Synchronize with mainline.
+	* tree-ssa-dse.c: Synchronize with mainline.
+	* tree-ssa-flowprop.c: Synchronize with mainline.
+	* tree-ssa-phiopt.c: Synchronize with mainline.
+	* tree-ssa-pre.c: Synchronize with mainline.
+	* tree.c: Synchronize with mainline.
+	* tree.h: (lower_function_body): Drop prototype.
+	* var-tracking.c: Synchronize with mainline.
+
 2005-04-14  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline tree-profiling-merge-20050412

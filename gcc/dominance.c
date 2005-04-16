@@ -41,7 +41,6 @@
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "function.h"
 #include "errors.h"
 #include "et-forest.h"
 

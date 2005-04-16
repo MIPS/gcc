@@ -878,7 +878,7 @@ estimate_probability (struct loops *loops_info)
     profile_status = PROFILE_GUESSED;
 }
 
-/* Set edge->probability for each succestor edge of BB.  */
+/* Set edge->probability for each successor edge of BB.  */
 void
 guess_outgoing_edge_probabilities (basic_block bb)
 {

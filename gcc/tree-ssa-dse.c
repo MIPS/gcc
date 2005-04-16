@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "function.h"
 #include "timevar.h"
 #include "diagnostic.h"
 #include "tree-flow.h"

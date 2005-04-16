@@ -140,7 +140,7 @@ static bool cleanup_forwarder_blocks (void);
 /* Entry point to the CFG builder for trees.  TP points to the list of
    statements to be added to the flowgraph.  */
 
-void
+static void
 build_tree_cfg (tree *tp)
 {
   /* Register specific tree functions.  */
@@ -158,10 +158,6 @@ build_tree_cfg (tree *tp)
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
 		  "label to block map");
 
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
-  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
-  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 
@@ -2158,7 +2154,7 @@ VEC(tree) *modified_noreturn_calls;
 
 /* Try to remove superfluous control structures.  */
 
-bool
+static bool
 cleanup_control_flow (void)
 {
   basic_block bb;

@@ -5447,6 +5447,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	    /* ??? Right now we don't do anything with DECL_OFFSET_ALIGN.  */
 	  }
 	  break;
+
 	case ARRAY_REF:
 	case ARRAY_RANGE_REF:
 	  {

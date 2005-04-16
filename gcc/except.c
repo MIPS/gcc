@@ -73,7 +73,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
@@ -83,6 +82,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef EH_RETURN_DATA_REGNO
 #define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
 #endif
+
 
 /* Protect cleanup actions with must-not-throw regions, with a call
    to the given failure handler.  */

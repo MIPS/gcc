@@ -80,7 +80,7 @@ extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
 /* Clear a bitmap by freeing up the linked list.  */
 extern void bitmap_clear (bitmap);
 
-/* Copy the second bitmap to the first bitmap.  */
+/* Copy a bitmap to another bitmap.  */
 extern void bitmap_copy (bitmap, bitmap);
 
 /* True if two bitmaps are identical.  */

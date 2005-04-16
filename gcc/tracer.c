@@ -41,7 +41,6 @@
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
-#include "function.h"
 #include "output.h"
 #include "cfglayout.h"
 #include "fibheap.h"

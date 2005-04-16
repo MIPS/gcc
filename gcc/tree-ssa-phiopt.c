@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "function.h"
 #include "timevar.h"
 #include "diagnostic.h"
 #include "tree-flow.h"

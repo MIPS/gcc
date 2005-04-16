@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-pass.h"
 #include "pointer-set.h"
+
 struct lower_data
 {
   /* Block the current statement belongs to.  */
@@ -60,7 +61,7 @@ static bool expand_var_p (tree);
 
 /* Lowers the body of current_function_decl.  */
 
-void
+static void
 lower_function_body (void)
 {
   struct lower_data data;
@@ -68,10 +69,6 @@ lower_function_body (void)
   tree bind = *body_p;
   tree_stmt_iterator i;
   tree t, x;
-
-  /* If already lowered, do nothing.  */
-  if (TREE_CODE (bind) == STATEMENT_LIST)
-    return;
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 

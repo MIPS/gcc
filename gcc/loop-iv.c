@@ -55,7 +55,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "function.h"
 #include "cfgloop.h"
 #include "expr.h"
 #include "output.h"

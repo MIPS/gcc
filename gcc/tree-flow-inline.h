@@ -66,6 +66,7 @@ get_stmt_ann (tree stmt)
   return (ann) ? ann : create_stmt_ann (stmt);
 }
 
+
 /* Return the annotation type for annotation ANN.  */
 static inline enum tree_ann_type
 ann_type (tree_ann_t ann)
@@ -921,10 +922,6 @@ static inline void
 mark_call_clobbered (tree var)
 {
   var_ann_t ann = var_ann (var);
-
-#ifdef ENABLE_CHECKING
-  gcc_assert (!is_gimple_reg (var));
-#endif
   /* If VAR is a memory tag, then we need to consider it a global
      variable.  This is because the pointer that VAR represents has
      been found to point to either an arbitrary location or to a known

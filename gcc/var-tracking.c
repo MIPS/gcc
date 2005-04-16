@@ -93,7 +93,6 @@
 #include "rtl.h"
 #include "tree.h"
 #include "hard-reg-set.h"
-#include "function.h"
 #include "basic-block.h"
 #include "flags.h"
 #include "output.h"

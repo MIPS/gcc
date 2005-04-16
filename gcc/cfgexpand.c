@@ -81,6 +81,7 @@ failed:
     fprintf (dump_file, "Failed to add probability note\n");
 }
 
+
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
 #endif

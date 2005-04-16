@@ -1962,11 +1962,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    else
 	      current_function_section (current_function_decl);
 
-	    if (! JUMP_TABLES_IN_TEXT_SECTION)
-	      targetm.asm_out.function_rodata_section (current_function_decl);
-	    else
-	      function_section (current_function_decl);
-
 	    if (app_on)
 	      {
 		fputs (ASM_APP_OFF, file);

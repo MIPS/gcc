@@ -509,7 +509,6 @@ bool sra_type_can_be_decomposed_p (tree);
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
 
-extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg_annotations (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
