@@ -277,12 +277,9 @@ remap_decl (tree decl, inline_data *id)
 	}
 #endif
 
-      /* If we're not saving and we're not cloning, we must be
-	 inlining; if this is a variable (not a label), declare the
+      /* If we are inlining and this is a variable (not a label), declare the
 	 remapped variable in the callers' body.  */
-      if (!id->saving_p
-	  && !id->cloning_p
-          && !id->versioning_p
+      if (inlining_p (id)
 	  && (TREE_CODE (t) == VAR_DECL
 	      || TREE_CODE (t) == PARM_DECL))
 	declare_inline_vars (id->bind_expr, t);
@@ -825,6 +822,45 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+static basic_block
+copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
+{
+  tree_stmt_iterator tsi;
+
+  /* create_basic_block() will append every new block to
+     basic_block_info automatically.  */
+  id->copy_basic_block = create_basic_block (bb->stmt_list,
+					     (void *) 0,
+					     id->copy_basic_block);
+  id->copy_basic_block->count = bb->count * count_scale / REG_BR_PROB_BASE;
+  id->copy_basic_block->frequency = (bb->frequency
+				     * frequency_scale / REG_BR_PROB_BASE);
+  /* We could invoke walk_tree() and have it copy everything below
+     here, but RETURN_EXPR processing often requires tsi_delink(),
+     requiring access to the associated active tree_stmt_iterator.
+     Since the generic tree walk cannot pass down its own
+     tree_stmt_iterator, we run iteration from here, and pass our
+     own tree_stmt_iterator down.  See copy_body_r():RETURN_EXPR
+     processing for the rest of the story.  */
+  copy_statement_list (&id->copy_basic_block->stmt_list);
+  for (id->copy_tsi = tsi_start (id->copy_basic_block->stmt_list);
+       !tsi_end_p (id->copy_tsi); tsi_next (&id->copy_tsi))
+    {
+      walk_tree (tsi_stmt_ptr (id->copy_tsi), copy_body_r, id, NULL);
+      /* A RETURN_EXPR that returns no value will be deleted;
+         detect this occurance and exit this loop early.  */
+      if (tsi_end_p (id->copy_tsi) && !id->versioning_p)
+	break;
+    }
+  tsi = tsi_start (id->copy_basic_block->stmt_list);
+  /* If non-empty block, fixup the statement->block uplinks.  */
+  if (!tsi_end_p (tsi))
+    set_bb_for_stmt (id->copy_basic_block->stmt_list, id->copy_basic_block);
+  /* Insure prompt crash if this is used out-of-context.  */
+  id->copy_tsi.container = NULL_TREE;
+  return id->copy_basic_block;
+}
+
 /* Make a copy of the body of FN so that it can be inserted inline in
    another function.  Walks FN via CFG, returns new fndecl.  */
 
@@ -855,8 +891,8 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
   tree copy_stmt;
   tree orig_stmt;
   tree_stmt_iterator tsi, tsi_copy, tsi_end;
-  int current_bb_index = 0;
   int count_scale, frequency_scale;
+  int current_bb_index = 0;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (callee_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * count
@@ -962,13 +998,8 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
      yet.  */
   FOR_EACH_BB_FN (bb, cfun_to_copy)
     {
-      /* create_basic_block() will append every new block to
-	 basic_block_info automatically.  */
-      id->copy_basic_block = create_basic_block (bb->stmt_list, 
-			    (void*)0, id->copy_basic_block);
-      id->copy_basic_block->count = bb->count * count_scale / REG_BR_PROB_BASE;
-      id->copy_basic_block->frequency = (bb->frequency
-		      			 * frequency_scale / REG_BR_PROB_BASE);
+      basic_block copy = copy_bb (id, bb, frequency_scale, count_scale);
+
       /* Number the blocks.  When we duplicate the edges of this
 	 funciton body, we need an easy way to map edges
 	 from the original body into our newly-copied body.  We could
@@ -978,36 +1009,13 @@ copy_cfg_body (inline_data *id, gcov_type count, int frequency)
       /* Note this is a counter-intuitive side effect: making a copy
 	 of a function body will alter the basic-block indices of the
 	 copied body.  */
-      id->copy_basic_block->index = bb->index = current_bb_index;
+      bb->index = copy->index = current_bb_index;
+      current_bb_index++;
       /* If we're saving or cloning, we'll use the basic_block_info
 	 varray.  Otherwise, create a parallel varray here for edge
 	 creation.  */
       if (!saving_or_cloning)
-	VARRAY_BB (new_bb_info, current_bb_index) = id->copy_basic_block;
-      current_bb_index++;
-      /* We could invoke walk_tree() and have it copy everything below
-	 here, but RETURN_EXPR processing often requires tsi_delink(),
-	 requiring access to the associated active tree_stmt_iterator.
-	 Since the generic tree walk cannot pass down its own
-	 tree_stmt_iterator, we run iteration from here, and pass our
-	 own tree_stmt_iterator down.  See copy_body_r():RETURN_EXPR
-	 processing for the rest of the story.  */
-      copy_statement_list (&id->copy_basic_block->stmt_list);
-      for (id->copy_tsi = tsi_start (id->copy_basic_block->stmt_list);
-	   !tsi_end_p (id->copy_tsi); tsi_next (&id->copy_tsi))
-	{
-	  walk_tree (tsi_stmt_ptr (id->copy_tsi), copy_body_r, id, NULL);
-	  /* A RETURN_EXPR that returns no value will be deleted;
-	     detect this occurance and exit this loop early.  */
-	  if (tsi_end_p (id->copy_tsi) && !id->versioning_p)
-	    break;
-	}
-      tsi = tsi_start (id->copy_basic_block->stmt_list);
-      /* If non-empty block, fixup the statement->block uplinks.  */
-      if (!tsi_end_p (tsi))
-	set_bb_for_stmt (id->copy_basic_block->stmt_list, id->copy_basic_block);
-      /* Insure prompt crash if this is used out-of-context.  */
-      id->copy_tsi.container = NULL_TREE;
+	VARRAY_BB (new_bb_info, copy->index) = copy;
     }
 
   /* Now that we've duplicated the blocks, duplicate their edges.  */

@@ -1,5 +1,9 @@
 2005-04-16  Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (remap_decl): Use inlining_p.
+	(copy_bb): Break out of ....
+	(copy_cfg_body): ... here.
+
 	* tree-inline.c (expand_call_inline): Remove if 0 block in
 	expand_call_inline.
 
