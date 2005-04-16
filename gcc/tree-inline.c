@@ -2293,26 +2293,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   arg_inits = initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2),
 					     fn, id->bind_expr);
-#if 0
-  if (arg_inits)
-    {
-      /* Expand any inlined calls in the initializers.  Do this before we
-	 push FN on the stack of functions we are inlining; we want to
-	 inline calls to FN that appear in the initializers for the
-	 parameters.
-
-	 Note we need to save and restore the saved tree statement iterator
-	 to avoid having it clobbered by expand_calls_inline.  */
-      tree_stmt_iterator save_tsi;
-
-      save_tsi = id->tsi;
-      expand_calls_inline (&arg_inits, id);
-      id->tsi = save_tsi;
-
-      /* And add them to the tree.  */
-      append_to_statement_list (arg_inits, &BIND_EXPR_BODY (expr));
-    }
-#endif
 
   /* Record the function we are about to inline.  */
   id->callee = fn;
@@ -2378,21 +2358,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      a self-referential call; if we're calling ourselves, we need to
      duplicate our body before altering anything.  */
   dup_fndecl = copy_body (id, id->oic_basic_block->count, id->oic_basic_block->frequency);
-#if 0
-  /* If the function uses a return slot, then it may legitimately
-     fall through while still returning a value, so we have to skip
-     the warning here.  */
-  if (warn_return_type
-      && !TREE_NO_WARNING (fn)
-      && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
-      && return_slot_addr == NULL_TREE
-      && block_may_fallthru (dup_fndecl))
-    {
-      warning ("control may reach end of non-void function %qD being inlined",
-      	 fn);
-      TREE_NO_WARNING (fn) = 1;
-    }
-#endif
   id->current_node = old_node;
   my_cfun = DECL_STRUCT_FUNCTION (dup_fndecl);
   /* Append copied EH information to that of current function.  */
