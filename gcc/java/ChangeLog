@@ -1,5 +1,9 @@
 2005-04-02  Tom Tromey  <tromey@redhat.com>
 
+	* builtins.cc (lay_out_vtable): Compute class reference.
+
+2005-04-02  Tom Tromey  <tromey@redhat.com>
+
 	* treegen.cc (generate): Don't let -1 line number slip through.
 	* tree.cc (annotate): Do nothing with negative line number.
 

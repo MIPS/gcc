@@ -667,7 +667,10 @@ tree_builtins::lay_out_vtable (model_class *mklass)
       ++index;
     }
 
-  TREE_VEC_ELT (vtable_tree, 0) = null_pointer_node; // FIXME: pointer to class
+  gcj_abi *abi = find_abi ();
+  TREE_VEC_ELT (vtable_tree, 0) = abi->build_direct_class_reference (this,
+								     klass,
+								     mklass);
   TREE_VEC_ELT (vtable_tree, 1) = null_pointer_node; // FIXME: GC descriptor
 
   tree klass_ptr_type = map_type (klass->get ());
