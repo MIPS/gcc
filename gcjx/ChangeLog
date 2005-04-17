@@ -1,5 +1,14 @@
 2005-04-02  Tom Tromey  <tromey@redhat.com>
 
+	* model/class.cc (get_output_name): New method.
+	* model/class.hh (model_class::get_output_name): Declare.
+	* aot/mangle.cc (update): Use get_output_name.  Mangle non-ascii
+	characters.
+	* header/cni.cc (write_namespaces): Use get_output_name.
+	(write_method): Likewise.
+
+2005-04-02  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/verify.cc (branch_prepass): Cast argument to sprintf.
 	(verify_instructions_0): Likewise.
 	(VFY_FAST_OPCODES): Changed sense of #ifdef.

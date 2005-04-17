@@ -368,6 +368,14 @@ model_class::get_assigned_name () const
 }
 
 std::string
+model_class::get_output_name () const
+{
+  if (declaring_class)
+    return declaring_class->get_name () + "$" + get_assigned_name ();
+  return name;
+}
+
+std::string
 model_class::get_signature_fragment ()
 {
   std::string result;

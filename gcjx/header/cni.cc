@@ -369,9 +369,7 @@ cni_code_generator::write_namespaces (std::ostream &out,
 	}
 
       indent (out, indentation);
-      out << "class "
-	  << get_simple_name (split (klass->get_fully_qualified_name (), '.'))
-	  << ";" << std::endl;
+      out << "class " << klass->get_output_name () << ";" << std::endl;
     }
 
   move_to_package (out, current_package, base, indentation);
@@ -464,11 +462,7 @@ cni_code_generator::write_method (std::ostream &out,
 #endif
 
   if (meth->constructor_p ())
-    {
-      std::string s
-	= meth->get_declaring_class ()->get_fully_qualified_name ();
-      out << get_simple_name (split (s, '.'));
-    }
+    out << meth->get_declaring_class ()->get_output_name ();
   else
     {
       if (meth->static_p ())

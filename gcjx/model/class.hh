@@ -304,6 +304,10 @@ public:
     return name;
   }
 
+  /// Like get_name() but returns a constructed name if the class is
+  /// inner or anonymous.
+  std::string get_output_name () const;
+
   /// Returns this class' name in the form "java.lang.Object".
   std::string get_fully_qualified_name ();
 

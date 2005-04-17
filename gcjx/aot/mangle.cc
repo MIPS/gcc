@@ -100,10 +100,110 @@ mangler::insert (model_element *elt, bool is_pointer)
 }
 
 void
-mangler::update (const std::string &s)
+mangler::update (const std::string &name)
 {
+  // If we see a substring that is a literal "__U", we have to
+  // remangle it as "__U_".  This keeps track of where we are in the
+  // substring.
+  int state = 0;
+  const char *search = "__U";
+
+  std::ostringstream output;
+  unsigned int i = 0;
+  while (i < name.length ())
+    {
+      jchar ch;
+      unsigned char c = name[i++];
+      unsigned char c1, c2;
+      if (c < 128)
+	ch = c;
+      else
+	{
+	  if ((c & 0xe0) == 0xc0)
+	    {
+	      assert (i < name.length ());  // FIXME
+	      c1 = name[i++];
+	      if ((c1 & 0xc0) == 0x80)
+		{
+		  jchar r = (jchar) (((c & 0x1f) << 6) + (c1 & 0x3f));
+		  /* Check for valid 2-byte characters.  We explicitly
+		     allow \0 because this encoding is common in the
+		     Java world.  */
+		  if (r == 0 || (r >= 0x80 && r <= 0x7ff))
+		    ch = r;
+		}
+	      else
+		abort ();	// FIXME
+	    }
+	  else if ((c & 0xf0) == 0xe0)
+	    {
+	      assert (i < name.length ());  // FIXME
+	      c1 = name[i++];
+	      if ((c1 & 0xc0) == 0x80)
+		{
+		  assert (i < name.length ());  // FIXME
+		  c2 = name[i++];
+		  if ((c2 & 0xc0) == 0x80)
+		    {
+		      jchar r =  (jchar) (((  c & 0xf) << 12) + 
+					  (( c1 & 0x3f) << 6)
+					  + (c2 & 0x3f));
+		      /* Check for valid 3-byte characters.
+			 Don't allow surrogate, \ufffe or \uffff.  */
+		      if (r >= 0x800
+			  && ! (r >= 0xd800 && r <= 0xdfff)
+			  && r != 0xfffe && r != 0xffff)
+			ch = r;
+		      else
+			abort (); // FIXME
+		    }
+		  else
+		    abort ();	// FIXME
+		}
+	      else
+		abort ();	// FIXME
+	    }
+	  else
+	    abort ();		// FIXME
+	}
+
+      if (ch == search[state])
+	{
+	  ++state;
+	  if (search[state] == '\0')
+	    {
+	      // Emit the mangled form.
+	      output << "__U_";
+	      state = 0;
+	    }
+	}
+      else
+	{
+	  // Emit any characters we recognized.
+	  for (int i = 0; i < state; ++i)
+	    output << search[i];
+	  state = 0;
+
+	  if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+	      || (ch >= '0' && ch <= '9') || ch == '_' || ch == '$')
+	    {
+	      // ASCII character, just emit.
+	      output << char (ch);
+	    }
+	  else
+	    {
+	      // "Unicode" character, must mangle.
+	      char buf[20];
+	      sprintf (buf, "__U%x_", int (ch));
+	      output << buf;
+	    }
+	}
+    }
+
+  std::string s = output.str ();
   char buf[20];
   sprintf (buf, "%d", s.length ());
+
   result += buf + s;
 }
 
@@ -185,7 +285,7 @@ mangler::update (model_type *t, bool is_pointer)
 	  model_class *k = assert_cast<model_class *> (t);
 	  if (k->get_package ())
 	    update (k->get_package ());
-	  update (k->get_name ());
+	  update (k->get_output_name ());
 	  enter = true;
 	  // This is a hack: we know only the outer-most class
 	  // reference will be called with is_pointer == false.
