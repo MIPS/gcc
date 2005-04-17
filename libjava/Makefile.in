@@ -24420,7 +24420,7 @@ $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDEN
 
 @ONESTEP_FALSE@.java.class:
 @ONESTEP_FALSE@	@echo "Compiling $< to .class"
-@ONESTEP_FALSE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) $<
+@ONESTEP_FALSE@	@$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) $<
 
 @ONESTEP_FALSE@libgcj-@gcc_version@.jar: $(all_java_class_files) $(all_property_files)
 @ONESTEP_FALSE@	-@rm -f libgcj-@gcc_version@.jar

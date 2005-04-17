@@ -676,7 +676,7 @@ else # !ONESTEP
 .java.class:
 ## Trust us, you don't want to see this command run.
 	@echo "Compiling $< to .class"
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) $<
+	@$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) $<
 
 libgcj-@gcc_version@.jar: $(all_java_class_files) $(all_property_files)
 	-@rm -f libgcj-@gcc_version@.jar

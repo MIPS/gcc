@@ -1,3 +1,8 @@
+2005-04-17  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am: Don't show command.
+
 2005-03-30  Tom Tromey  <tromey@redhat.com>
 
 	* gnu/gcj/io/shs.h (PROTO): Define.
