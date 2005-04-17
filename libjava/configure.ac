@@ -1376,6 +1376,8 @@ else
   multilib_arg=
 fi
 
+# Get the verifier source from gcjx.
+AC_CONFIG_LINKS(verify.cc:../gcjx/bytecode/verify.cc)
 
 
 here=`${PWDCMD-pwd}`

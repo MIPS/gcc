@@ -1510,7 +1510,7 @@ private:
         if (b != 0)
 	  {
 	    char buf[30];
-	    sprintf (buf, "found nonzero padding byte %d", b);
+	    sprintf (buf, "found nonzero padding byte %d", int (b));
 	    verify_fail (buf);
 	  }
       }
@@ -1831,7 +1831,7 @@ private:
 		{
 		  char buf[50];
 		  sprintf (buf, "invalid tableswitch: low=%d, high=%d",
-			   low, high);
+			   int (low), int (high));
 		  verify_fail (buf, start_PC);
 		}
 	      for (int i = low; i <= high; ++i)
@@ -1876,7 +1876,7 @@ private:
 
 	  // These are unused here, but we call them out explicitly
 	  // so that -Wswitch-enum doesn't complain.
-#ifndef VFY_FAST_OPCODES
+#ifdef VFY_FAST_OPCODES
 	  case op_putfield_1:
 	  case op_putfield_2:
 	  case op_putfield_4:
@@ -2882,7 +2882,7 @@ private:
 		    {
 		      char buf[50];
 		      sprintf (buf, "invokeinterface dummy byte is %d "
-			       "instead of 0", dummy_byte);
+			       "instead of 0", int (dummy_byte));
 		      verify_fail (buf);
 		    }
 		}
@@ -3083,7 +3083,7 @@ private:
 
 	  // These are unused here, but we call them out explicitly
 	  // so that -Wswitch-enum doesn't complain.
-#ifndef VFY_FAST_OPCODES
+#ifdef VFY_FAST_OPCODES
 	  case op_putfield_1:
 	  case op_putfield_2:
 	  case op_putfield_4:

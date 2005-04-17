@@ -1,3 +1,43 @@
+2005-04-02  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/16032:
+	* java/lang/Class.h (Class): Added friend class.
+	* include/verify.h (vfy_is_15): Implement.
+	(VFY_FAST_OPCODES): New define.
+	Updated #includes.
+	(vfy_is_static): Use Modifier, not ACC_*.
+	(vfy_is_abstract): Likewise.
+	(vfy_hand_off_flags): New function.
+	(vfy_fail): Cast argument to 'append'.
+	(vfy_get_exceptions): Rewrote.
+	(vfy_tag): Fixed typo.
+	(vfy_load_indexes): Use correct slot in constant pool.
+	(vfy_constants): Changed type.
+	(vfy_uint_16): Likewise.
+	(vfy_find_class): Removed argument name.
+	(vfy_get_pool_class): Likewise.
+	(vfy_iface_iterator_begin): Likewise.
+	(vfy_get_interface): Likewise.
+	(vfy_make_string): Added cast.
+	(vfy_object_type): Fixed typo.
+	(vfy_string_type): Likewise.
+	(vfy_throwable_type): Likewise.
+	(vfy_class_type): Likewise.
+	(vfy_fail): Added argument name.
+	* defineclass.cc (handleCodeAttribute): Set new field.
+	(MAJOR_1_1, MINOR_1_1, MAJOR_1_2, MINOR_1_2, MAJOR_1_3, MINOR_1_3,
+	MAJOR_1_4, MINOR_1_4, MAJOR_1_5, MINOR_1_5): New defines.
+	(parse): Check version numbers.
+	(_Jv_ClassReader::is_15): New field.
+	(_Jv_ClassReader): Initialize it.
+	* include/java-interp.h (_Jv_InterpMethod::is_15): New field.
+	(class _Jv_InterpException): Added friend class.
+	(class _Jv_MethodBase): Likewise.
+	(class _Jv_InterpMethod): Likewise.
+	* configure, Makefile.in: Rebuilt.
+	* configure.ac: Create verify.cc as a link.
+	* verify.cc: Removed.
+
 2005-04-17  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.

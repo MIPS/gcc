@@ -16312,6 +16312,9 @@ else
   multilib_arg=
 fi
 
+# Get the verifier source from gcjx.
+          ac_config_links="$ac_config_links verify.cc:../gcjx/bytecode/verify.cc"
+
 
 
 here=`${PWDCMD-pwd}`
@@ -17060,6 +17063,7 @@ do
   "sysdep/locks.h" ) CONFIG_LINKS="$CONFIG_LINKS sysdep/locks.h:sysdep/$sysdeps_dir/locks.h" ;;
   "include/java-signal.h" ) CONFIG_LINKS="$CONFIG_LINKS include/java-signal.h:$SIGNAL_HANDLER" ;;
   "include/java-signal-aux.h" ) CONFIG_LINKS="$CONFIG_LINKS include/java-signal-aux.h:$SIGNAL_HANDLER_AUX" ;;
+  "verify.cc" ) CONFIG_LINKS="$CONFIG_LINKS verify.cc:../gcjx/bytecode/verify.cc" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
   "default" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default" ;;
   "include/config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/config.h" ;;

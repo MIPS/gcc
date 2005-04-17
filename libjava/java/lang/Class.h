@@ -65,6 +65,7 @@ class _Jv_Linker;
 class _Jv_ExecutionEngine;
 class _Jv_CompiledEngine;
 class _Jv_InterpreterEngine;
+class _Jv_VerifyGlue;
 
 struct _Jv_Constants
 {
@@ -485,6 +486,7 @@ private:
   friend class ::_Jv_ExecutionEngine;
   friend class ::_Jv_CompiledEngine;
   friend class ::_Jv_InterpreterEngine;
+  friend class ::_Jv_VerifyGlue;
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);
 

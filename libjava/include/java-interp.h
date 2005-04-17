@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -70,6 +70,7 @@ class _Jv_InterpException
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
   friend class _Jv_BytecodeVerifier;
+  friend class _Jv_VerifyGlue;
 };
 
 // Base class for method representations.  Subclasses are interpreted
@@ -77,6 +78,7 @@ class _Jv_InterpException
 class _Jv_MethodBase
 {
 protected:
+
   // The class which defined this method.
   jclass defining_class;
 
@@ -87,6 +89,8 @@ protected:
   _Jv_ushort args_raw_size;
 
   friend class _Jv_InterpreterEngine;
+  friend class _Jv_VerifyGlue;
+  friend class _Jv_BytecodeVerifier;
 
 public:
   _Jv_Method *get_method ()
@@ -102,6 +106,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   int              code_length;
 
   _Jv_ushort       exc_count;
+  bool             is_15;
 
   void *prepared;
 
@@ -145,7 +150,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   friend class gnu::gcj::runtime::NameFinder;
   friend class gnu::gcj::runtime::StackTrace;
   friend class _Jv_InterpreterEngine;
-  
+  friend class _Jv_VerifyGlue;
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
@@ -174,7 +179,8 @@ _Jv_GetFirstMethod (_Jv_InterpClass *klass)
   return klass->interpreted_methods;
 }
 
-struct _Jv_ResolvedMethod {
+struct _Jv_ResolvedMethod
+{
   jint            stack_item_count;	
   jint            vtable_index;	
   jclass          klass;

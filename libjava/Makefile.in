@@ -54,6 +54,7 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../mkinstalldirs $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/libgcj-test.spec.in \
 	$(srcdir)/libgcj.pc.in $(srcdir)/libgcj.spec.in \
+	$(top_srcdir)/../gcjx/bytecode/verify.cc \
 	$(top_srcdir)/configure \
 	$(top_srcdir)/gnu/classpath/Configuration.java.in COPYING \
 	ChangeLog NEWS THANKS
@@ -84,7 +85,8 @@ CONFIG_CLEAN_FILES = libgcj.pc libgcj.spec libgcj-test.spec \
 	gnu/java/net/natPlainSocketImpl.cc \
 	gnu/java/net/natPlainDatagramSocketImpl.cc \
 	gnu/java/nio/natPipeImpl.cc gnu/java/nio/natSelectorImpl.cc \
-	gnu/java/nio/channels/natFileChannelImpl.cc sysdep/locks.h
+	gnu/java/nio/channels/natFileChannelImpl.cc sysdep/locks.h \
+	verify.cc
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -23738,7 +23740,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/. $(distdir)/.. $(distdir)/../config $(distdir)/gnu/classpath
+	$(mkdir_p) $(distdir)/. $(distdir)/.. $(distdir)/../config $(distdir)/../gcjx/bytecode $(distdir)/gnu/classpath
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
